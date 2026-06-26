@@ -43,9 +43,31 @@ Google Apps Script 後端。第一塊：**自動建表 + 種子資料**。
 
 `setupDatabase()` 可重複執行：靜態分頁會重新種子，**動態分頁不會被清空**。
 
-## 下一步（尚未做）
+## 檔案總覽（全線打通）
 
-- `Api.gs`：`doGet`(載入 Web App) / `doPost`(動作路由)
-- `Engine.gs`：戰鬥/經濟/移動/補魔/令咒 數值引擎（移植原型算式）
-- `LLM.gs`：`callLLM()` 包 OpenRouter（UrlFetchApp + JSON 結構化輸出）
-- `WebApp.html`：把 `prototype/index.html` 的 `SERVER` 換成 `google.script.run`
+| 檔 | 作用 |
+|----|------|
+| `Config.gs` | 分頁/欄位/平衡常數/階級換算/OpenRouter |
+| `SeedData.gs` | 英靈殿/地圖/戰爭/規則/道具 種子 |
+| `Setup.gs` | `setupDatabase()` 建表+種子 |
+| `Sheets.gs` | 試算表讀寫工具層 |
+| `Engine.gs` | 純數值引擎（推導/經濟/D20 戰鬥） |
+| `LLM.gs` | OpenRouter 呼叫 + 敘事 |
+| `Game.gs` | 登入/開局/狀態/動作（server 權威寫回） |
+| `Api.gs` | `doGet` + 編輯器測試 |
+| `index.html` | 前端（`google.script.run` 接後端） |
+
+## 部署為網頁應用程式
+
+1. 確認已執行 **`setupDatabase()`**（戰場分頁新增 circuits/master_mp_max，**需重跑一次**）。
+2. 把 `index.html` 內容換成本資料夾的版本（前端已接後端）。
+3. 設定 `OPENROUTER_API_KEY`（指令碼屬性）。
+4. 右上「部署」→「新增部署作業」→ 類型「網頁應用程式」→ 存取權限自選 → 部署。
+5. 開網址即可遊玩：登入 → 模式 → 召喚/扮演 → 進場，所有數值由 GAS 判定、AI 敘述。
+
+## 編輯器快速驗證（不必部署）
+
+- `testCombatEngine()`：看 D20 戰報
+- `testEconomy()`：看「伊莉雅養狂化叔」
+- `testFullFlow()`：登入→開局→移動→戰鬥（設 key 則含 AI 敘述）
+- `clearGames()`：清空動態存檔重來
