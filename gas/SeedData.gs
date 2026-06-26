@@ -209,6 +209,19 @@ const SEED_SERVANTS = [
     skills:[{n:'啟示',r:'A',fx:'first_strike'},{n:'守護的旗幟',r:'B',fx:'survive'},{n:'領袖魅力',r:'B',fx:'morale'}],
     traits:[{n:'人類'}], np:'吾主在此 Luminosité Eternelle（對人・守護結界）／紅蓮聖女 La Pucelle',
     align:'秩序・善', persona:{firstP:'我',words:'聖女・堅毅・溫柔的信念',toMaster:'溫柔守護，循循善誘'} },
+  // ===== 魔法少女☆伊莉雅 客串（破格・以 Class Card「英靈 install」之姿登場） =====
+  { id:'美遊-Saber', cls:'Saber', realName:'美遊·埃德費爾特（Saber install）', wars:['客串'], gender:'女',
+    six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'C',幸運:'C',寶具:'A'},
+    classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
+    skills:[{n:'直感',r:'B',fx:'first_strike'},{n:'魔力放出',r:'B',fx:'burst'},{n:'沉著冷靜',r:'B',fx:'clear_mind'}],
+    traits:[{n:'人類'},{n:'騎士'}], np:'約定勝利之劍 Excalibur（對城 A+）',
+    align:'秩序・善', persona:{firstP:'我',words:'寡言・認真・溫柔內斂・背負宿命的少女',toMaster:'認真盡責，沉默守護'} },
+  { id:'小黑-Archer', cls:'Archer', realName:'克洛伊·馮·愛因茲貝倫（黑伊莉雅・Archer install）', wars:['客串'], gender:'女',
+    six:{筋力:'C',耐久:'C',敏捷:'A',魔力:'B',幸運:'C',寶具:'B'},
+    classSkills:[{n:'對魔力',r:'D',fx:'nullify_magic'},{n:'單獨行動',r:'B',fx:'solo'}],
+    skills:[{n:'投影魔術',r:'B',fx:'projection'},{n:'千里眼',r:'C',fx:'aim'},{n:'無限劍製',r:'C',fx:'ubw'}],
+    traits:[{n:'人類'}], np:'無限劍製 Unlimited Blade Works（固有結界）／干將・莫邪（雙劍亂舞）',
+    align:'混沌・中庸', persona:{firstP:'本小姐',words:'腹黑・愛捉弄・直率好戰・撒嬌',toMaster:'又黏又愛逗弄，戰意旺盛'} },
 ];
 
 // ===== 御主殿：第四次/第五次正典御主（master_id = name-war）=====
