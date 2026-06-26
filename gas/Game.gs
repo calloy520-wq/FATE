@@ -345,7 +345,7 @@ function doAction(a){
     // 回 awaitSeal 讓玩家抉擇（燃令咒・靈基修復 或 接受命運）。
     var awaitSeal = null, over = null;
     if(endR==='death' && (pf.sv_hp<=0 || pf.master_hp<=0) && (pf.seals||0)>0 && a.type!=='accept_death'){
-      var dyingWho = pf.sv_hp<=0 ? '你的從者靈基崩解在即' : '你身受重創、命懸一線';
+      var dyingWho = pf.sv_hp<=0 ? '我的從者靈基崩解在即' : '我身受重創、命懸一線';
       awaitSeal = { msg:'⚠ '+dyingWho+'！是否燃燒令咒・靈基修復（回血回魔）挽救？（尚餘 '+pf.seals+' 道令咒）' };
     } else if(endR){
       over = endGame_(gameId, pf, endR);   // endGame_ 回傳 dreamPrompt，假夢敘述留到鎖外生成
@@ -403,11 +403,11 @@ function endGame_(gameId, p, result){
   var svcls = heroCls_(p.servant_id);
   var dreamPrompt, summary;
   if(result === 'death'){
-    dreamPrompt = '【死亡的假夢】御主 '+name+' 在意識消逝的瞬間，墜入聖杯展示的幻夢——願望「'+wish
+    dreamPrompt = '【死亡的假夢】我（'+name+'）在意識消逝的瞬間，墜入聖杯展示的幻夢——願望「'+wish
       +'」彷彿已然實現。請寫一段淒美而虛幻、令人不忍的「願望成真假夢」，最後夢境崩解、回歸虛無。4~6 句。';
     summary = '第'+clock.day+'天　'+svcls+'之御主「'+name+'」殞落於聖杯戰爭。';
   } else {
-    dreamPrompt = '【奪得聖杯】御主 '+name+' 成為最後勝者，聖杯於眼前顯現，願望「'+wish
+    dreamPrompt = '【奪得聖杯】我（'+name+'）成為最後勝者，聖杯於眼前顯現，願望「'+wish
       +'」。請寫一段莊嚴而意味深長的奪杯敘述（聖杯或許並不單純）。4~6 句。';
     summary = '第'+clock.day+'天　'+svcls+'之御主「'+name+'」奪取聖杯，贏得戰爭。';
   }
@@ -516,9 +516,9 @@ function npcTick_(gameId, rows, clock){
     if(!svAtMaster && !struck){
       struck = true;
       masterPeril_(gameId, player, n, clock);
-      events.push({ text:'⚠ 你的從者不在身邊，'+heroCls_(n.servant_id)+'（'+n.master_name+'）直撲而來——御主遭襲！（HP '+player.master_hp+'/'+player.master_hp_max+'）速召回從者或撤退！', atPlayer:true });
+      events.push({ text:'⚠ 我的從者不在身邊，'+heroCls_(n.servant_id)+'（'+n.master_name+'）直撲而來——御主遭襲！（HP '+player.master_hp+'/'+player.master_hp_max+'）速召回從者或撤退！', atPlayer:true });
     } else {
-      events.push({ text:'⚠ '+heroCls_(n.servant_id)+'（'+n.master_name+'）出現在你的所在地！可選擇攻擊或迴避。', atPlayer:true });
+      events.push({ text:'⚠ '+heroCls_(n.servant_id)+'（'+n.master_name+'）出現在我的所在地！可選擇攻擊或迴避。', atPlayer:true });
     }
   });
   return events;
@@ -608,7 +608,7 @@ function act_scout_(p, clock, hero){
     ? found.map(function(r){ return '・'+heroCls_(r.servant_id)+'（'+r.master_name+'）位於 '+locName_(r.servant_loc); }).join('\n')
     : '・周遭一帶暫無從者氣息。';
   return { kind:'scene',
-    prompt:'你（'+p.master_name+'）凝神探查周遭一帶的魔力波動與氣息。請寫一段簡短的偵查敘述（不要列數字）。',
+    prompt:'我（'+p.master_name+'）凝神探查周遭一帶的魔力波動與氣息。請寫一段簡短的偵查敘述（不要列數字）。',
     suffix:'\n\n【偵查結果】\n' + lines };
 }
 
@@ -627,7 +627,7 @@ function act_move_(p, clock, hero, locId){
   var dest = findOne_(SHEETS.MAP, { id: locId }) || { name: locId, desc: '' };
   var enc = hereNpcs.length ? ('\n此處有：'+hereNpcs.map(function(r){ return heroCls_(r.servant_id)+'（'+r.master_name+'）'; }).join('、')) : '';
   return { kind:'scene',
-    prompt:'你（'+p.master_name+'）移動到了「'+dest.name+'」。'+dest.desc+enc+' 請寫一段抵達敘述。',
+    prompt:'我（'+p.master_name+'）移動到了「'+dest.name+'」。'+dest.desc+enc+' 請寫一段抵達敘述。',
     suffix: enc ? ('\n\n【遭遇】'+enc.replace('\n此處有：','')) : '' };
 }
 
@@ -672,7 +672,7 @@ function act_combat_(rows, p, clock, hero, mode, costAP){
   var enemyRow = rows.filter(function(r){ return r.is_player!==true && r.alive===true && r.servant_loc===here; })[0];
   if(!enemyRow){
     var anyAlive = rows.some(function(r){ return r.is_player!==true && r.alive===true; });
-    return anyAlive ? '（你的所在地沒有敵蹤——先用「🔍 偵查」找出附近從者，或移動到敵人所在地再交戰。）'
+    return anyAlive ? '（我的所在地沒有敵蹤——先用「🔍 偵查」找出附近從者，或移動到敵人所在地再交戰。）'
                     : '（場上已無可交戰的對手。）';
   }
   markDiscovered_(p, [enemyRow.slot]);
@@ -682,7 +682,7 @@ function act_combat_(rows, p, clock, hero, mode, costAP){
   if(costAP && clock.ap<1) return '（行動點不足，請睡覺恢復。）';
 
   // 從者資料缺失（例如重建資料庫後 AI 生成英靈被清掉）→ 不要崩潰，給明確提示
-  if(!hero) return '（找不到你的從者資料，存檔可能已損毀，建議開新局。）';
+  if(!hero) return '（找不到我的從者資料，存檔可能已損毀，建議開新局。）';
   var eHero = findOne_(SHEETS.HEROES, { servant_id: enemyRow.servant_id });
   if(!eHero) return '（找不到敵方從者資料，無法交戰。）';
   var A = Object.assign(heroFromRow_(hero), { hp:p.sv_hp, hpMax:p.sv_hp_max, mp:p.sv_mp, mpMax:p.sv_mp_max });
@@ -698,7 +698,7 @@ function act_combat_(rows, p, clock, hero, mode, costAP){
     enemyRow.alive = false; p.bond = Math.min(100, p.bond+5); outcome = 'enemy_dead';
     var surge = Math.round(p.sv_mp_max * TUNING.KILL_MP);   // 擊殺回魔：敵靈核潰散的魔力湧入
     p.sv_mp = Math.min(p.sv_mp_max, p.sv_mp + surge);
-    sealNote = '擊破'+B.cls+'，潰散的靈核魔力湧入你的從者（魔力 +'+surge+'）。';
+    sealNote = '擊破'+B.cls+'，潰散的靈核魔力湧入我的從者（魔力 +'+surge+'）。';
   } else if(res.winner === 'B'){
     outcome = 'player_dead';
   } else if(res.bFlee){                        // 敵從者重傷 → 對面御主的撤退/令咒判定
@@ -721,12 +721,12 @@ function act_combat_(rows, p, clock, hero, mode, costAP){
     if(rx2.type === 'press'){
       var burst = Math.round(rankVal(B.six.寶具)*1.4) + 15;
       p.sv_hp = Math.max(0, p.sv_hp - burst); enemyRow.seals = Math.max(0, enemyRow.seals-1);
-      sealNote = '對面御主「'+enemyRow.master_name+'」見你從者重傷，竟燃燒令咒下令追擊——'+B.cls+'全力一擊造成 '+burst+' 傷害！';
+      sealNote = '對面御主「'+enemyRow.master_name+'」見我從者重傷，竟燃燒令咒下令追擊——'+B.cls+'全力一擊造成 '+burst+' 傷害！';
       if(p.sv_hp <= 0){ outcome = 'player_dead'; res.winner = 'B'; }
       else { retreatRow_(p, !p.separated); outcome = 'player_flee_pressed'; }
     } else {
       retreatRow_(p, !p.separated);
-      sealNote = '你的從者重傷，'+enemyRow.master_name+' 未予追擊——你帶傷退往'+locName_(p.separated?p.servant_loc:p.location)+'。';
+      sealNote = '我的從者重傷，'+enemyRow.master_name+' 未予追擊——我帶傷退往'+locName_(p.separated?p.servant_loc:p.location)+'。';
       outcome = 'player_flee';
     }
   } else {
@@ -754,7 +754,7 @@ function act_mana_(p, clock){
   if(clock.mana_locked) return '（補魔已在進行中——繼續對話即可推進。）';
   updateRow_(SHEETS.CLOCK, clock._row, { mana_countdown:TUNING.MANA_TURNS, mana_locked:true });
   return { kind:'scene',
-    prompt:'你與從者開始補魔。依從者個性與好感度決定其態度（好感低則勉強/公事公辦、抗拒過度親密；好感高則有溫度），fade-to-black、點到為止。請寫一段含蓄起始敘述。',
+    prompt:'我與從者開始補魔。依從者個性與好感度決定其態度（好感低則勉強/公事公辦、抗拒過度親密；好感高則有溫度），fade-to-black、點到為止。請寫一段含蓄起始敘述。',
     suffix:'\n（補魔開始：接下來 '+TUNING.MANA_TURNS+' 次對話用於補魔，期間時間與 NPC 凍結）' };
 }
 function servantCtx_(p, hero){
@@ -766,12 +766,12 @@ function servantCtx_(p, hero){
 }
 function act_claim_(p, clock, hero){
   if(clock.ap<1) return '（行動點不足，請睡覺恢復。）';
-  if(p.base_loc===p.location) return '（此處已是你的據點。）';
+  if(p.base_loc===p.location) return '（此處已是我的據點。）';
   var isC = hero && hero.cls==='Caster';
   p.base_loc=p.location; p.barrier=30; p.barrier_max=isC?100:60; p.base_tier=isC?'魔術工房':'簡易結界';
   updateRow_(SHEETS.BATTLE, p._row, { base_loc:p.base_loc, barrier:p.barrier, barrier_max:p.barrier_max, base_tier:p.base_tier });
   advanceTime_(p, clock, hero, 1);
-  return { kind:'scene', prompt:'你在「'+locName_(p.location)+'」佈置新的據點與結界，放棄舊據點。請寫一段建立據點/工房的敘述。' };
+  return { kind:'scene', prompt:'我在「'+locName_(p.location)+'」佈置新的據點與結界，放棄舊據點。請寫一段建立據點/工房的敘述。' };
 }
 
 function act_feed_(p){
@@ -780,7 +780,7 @@ function act_feed_(p){
   var amt = Math.min(p.master_mp, Math.round(p.sv_mp_max*0.25));
   p.master_mp -= amt; p.sv_mp = Math.min(p.sv_mp_max, p.sv_mp+amt);
   updateRow_(SHEETS.BATTLE, p._row, { master_mp:p.master_mp, sv_mp:p.sv_mp });
-  return '你透過魔術迴路將魔力導入從者——從者魔力 +'+amt+'。';
+  return '我透過魔術迴路將魔力導入從者——從者魔力 +'+amt+'。';
 }
 
 function act_reinforce_(p, hero){
@@ -790,13 +790,13 @@ function act_reinforce_(p, hero){
   if(p.barrier>=p.barrier_max) return '（結界已達上限。）';
   p.master_mp -= cost; p.barrier = Math.min(p.barrier_max, p.barrier+gain);
   updateRow_(SHEETS.BATTLE, p._row, { master_mp:p.master_mp, barrier:p.barrier });
-  return '你'+(isC?'以工房之力':'')+'強化了據點結界（魔力 −'+cost+'）。結界 '+p.barrier+'/'+p.barrier_max+'。';
+  return '我'+(isC?'以工房之力':'')+'強化了據點結界（魔力 −'+cost+'）。結界 '+p.barrier+'/'+p.barrier_max+'。';
 }
 
 function act_separate_(p){
   p.separated = !p.separated; if(!p.separated) p.servant_loc = p.location;
   updateRow_(SHEETS.BATTLE, p._row, { separated:p.separated, servant_loc:p.servant_loc });
-  return p.separated ? '從者鎮守 '+p.servant_loc+'，你退往後方（失去護衛，務必小心）。' : '從者回到你身邊，恢復合體行動。';
+  return p.separated ? '從者鎮守 '+p.servant_loc+'，我退往後方（失去護衛，務必小心）。' : '從者回到我身邊，恢復合體行動。';
 }
 
 // 主動撤退：帶從者退往相鄰地脫離交鋒（耗 1 AP，不耗令咒；撤退即與從者合流）
@@ -808,7 +808,7 @@ function act_retreat_(p, clock, hero){
   p.location = dest; p.servant_loc = dest; p.separated = false;
   updateRow_(SHEETS.BATTLE, p._row, { location:p.location, servant_loc:p.servant_loc, separated:p.separated });
   advanceTime_(p, clock, hero, 1);
-  return { kind:'scene', prompt:'你（'+p.master_name+'）當機立斷，帶著從者迅速撤離當前戰場，退往「'+locName_(dest)+'」。請寫一段緊張的脫離敘述。' };
+  return { kind:'scene', prompt:'我（'+p.master_name+'）當機立斷，帶著從者迅速撤離當前戰場，退往「'+locName_(dest)+'」。請寫一段緊張的脫離敘述。' };
 }
 
 // 獵魔：令從者獵食冬木的無辜者/亡者以大幅補魔。依陣營分流（善向拒絕、中立不情願扣好感、惡/狂化樂意）。
@@ -820,7 +820,7 @@ function act_hunt_(p, clock, hero){
     p.bond = Math.max(0, p.bond + TUNING.HUNT_BOND_REFUSE);
     updateRow_(SHEETS.BATTLE, p._row, { bond:p.bond });
     return { kind:'scene',
-      prompt:'你示意從者獵食冬木的無辜者來補充魔力，但'+(hero?hero.cls:'從者')+'（'+(hero?hero.align:'')+'）斷然拒絕——殘害無辜違背其信念。請寫一段從者凜然回絕、甚至斥責御主的敘述。',
+      prompt:'我示意從者獵食冬木的無辜者來補充魔力，但'+(hero?hero.cls:'從者')+'（'+(hero?hero.align:'')+'）斷然拒絕——殘害無辜違背其信念。請寫一段從者凜然回絕、甚至斥責我的敘述。',
       suffix:'\n（從者拒絕了獵食　好感 '+TUNING.HUNT_BOND_REFUSE+'）' };
   }
   if(clock.ap<1) return '（行動點不足，請睡覺恢復。）';
@@ -844,7 +844,7 @@ function act_sleep_(p, clock){
   p.sv_hp=p.sv_hp_max; p.sv_mp=p.sv_mp_max; p.master_mp=p.master_mp_max;
   updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap });
   updateRow_(SHEETS.BATTLE, p._row, { sv_hp:p.sv_hp, sv_mp:p.sv_mp, master_mp:p.master_mp });
-  return { kind:'scene', prompt:'你睡了一覺，HP/魔力/行動點恢復，新的一天開始。冬木市昨夜想必又有從者交鋒。請寫一段晨醒敘述。' };
+  return { kind:'scene', prompt:'我睡了一覺，HP/魔力/行動點恢復，新的一天開始。冬木市昨夜想必又有從者交鋒。請寫一段晨醒敘述。' };
 }
 
 function act_seal_(rows, p, clock, hero, cmd){
@@ -853,7 +853,7 @@ function act_seal_(rows, p, clock, hero, cmd){
   if(cmd==='order' || cmd==='np'){
     var here = p.separated ? p.servant_loc : p.location;
     var hasEnemy = rows.some(function(r){ return r.is_player!==true && r.alive===true && r.servant_loc===here; });
-    if(!hasEnemy) return '（你的所在地沒有敵蹤——令咒未動用。先偵查或移動到敵人所在地再使用。）';
+    if(!hasEnemy) return '（我的所在地沒有敵蹤——令咒未動用。先偵查或移動到敵人所在地再使用。）';
   }
   p.seals--;
   var msg='';   // string 或 combat spec（order/np）
@@ -863,7 +863,7 @@ function act_seal_(rows, p, clock, hero, cmd){
     case 'np':   if(p.bond<60){ p.bond=Math.max(0,p.bond-5); } msg=act_combat_(rows,p,clock,hero,'sealnp',false); break;
     case 'recall': p.separated=false; p.servant_loc=p.location;
       if(clock.mana_locked) updateRow_(SHEETS.CLOCK, clock._row, { mana_countdown:0, mana_locked:false });
-      msg='令咒干涉空間，你與從者瞬間脫離當前戰局/險境。'; break;
+      msg='令咒干涉空間，我與從者瞬間脫離當前戰局/險境。'; break;
     case 'mana': p.sv_mp=p.sv_mp_max; p.bond=Math.min(100,p.bond+12);
       if(clock.mana_locked) updateRow_(SHEETS.CLOCK, clock._row, { mana_countdown:0, mana_locked:false });
       msg='以令咒強制補魔——魔力灌滿、靈基穩固（跳過倒數）。'; break;

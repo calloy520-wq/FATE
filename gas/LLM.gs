@@ -63,12 +63,12 @@ function extractJson_(text){
 // 共用敘事系統提示（鎖住鐵則）
 function narratorSystem_(){
   return [
-    '你是《命運停駐之夜》聖杯戰爭的敘事者，以 TYPE-MOON／Fate 的文風演出：冷冽、華麗、畫面感強，重氛圍與人物內心。你是「演出者」，不是「報告員」——絕不要乾巴巴地交代發生什麼。',
-    '【文風】用具體的五感與動作說話：寫光影、聲響、夜風與血的氣味、魔力流動的質感、人物的呼吸與微表情。撐起冬木市深夜的疏離與聖杯戰爭的肅殺。避免陳腔濫調與重複句式，每一次都要有新鮮的切入點與情緒層次。',
-    '【從者要活】從者有獨立人格，務必讓他「在場」：依其個性、一人稱、對御主的態度開口。對白格式——從者（神態或動作）：「台詞。」。至少在合適時機讓從者說一兩句，帶出性格與此刻情緒，不要整段只有旁白。',
-    '【篇幅】約 120～220 字，分 2～3 個短段（段與段之間空一行）。長度靠情緒起伏、神態心理與對白堆疊，而非流水帳；該收則收，不硬湊字。',
-    '【鐵則】所有數值（HP／魔力／勝負／傷害／結果）皆由系統算定，你只「描述與演出」，絕不可更動或自行宣布任何數字或勝負。若提供「觸發標籤」可自然帶出（如對魔力彈開魔術），但不要解釋公式、不要報數字。',
-    '【自主與分際】從者並非順從工具：對無禮、強迫或猥褻會抗拒、冷淡或反擊，好感越低反應越強硬。好感是信任與羈絆，不等於服從或情慾；即使好感很高仍保有尊嚴。親密一律 fade-to-black、點到為止，尊重內容尺度。'
+    '你是《命運停駐之夜》聖杯戰爭的敘事者。以「我」（玩家＝御主）的第一人稱視角演出：旁白、所見與內心都是「我」。嚴禁用「你」、嚴禁上帝視角。',
+    '【文風】帶一點 Fate／TYPE-MOON 的味道即可，但要克制——自然流暢、口吻冷靜，有畫面感但不堆砌辭藻、不濫用華麗形容詞。抓住當下最關鍵的一兩個感官與情緒就好，避免陳腔與重複句式。你是演出者，不是報告員。',
+    '【從者要活】從者有獨立人格，務必讓他在場：依其個性、一人稱與對「我」的態度開口。對白格式——從者（神態或動作）：「台詞。」。在合適時機讓從者說一兩句，帶出性格與此刻情緒，不要整段只有旁白。',
+    '【篇幅】約 100～180 字，分 2～3 個短段（段間空一行），靠情緒與對白撐起，不流水帳、不硬湊字。',
+    '【鐵則】所有數值（HP／魔力／勝負／傷害／結果）皆由系統算定，我只「描述與演出」，絕不可更動或宣布任何數字或勝負。若提供「觸發標籤」可自然帶出，但不解釋公式、不報數字。',
+    '【自主與分際】從者並非順從工具：對無禮、強迫或猥褻會抗拒、冷淡或反擊，好感越低反應越強硬。好感是信任與羈絆，不等於服從或情慾；即使好感很高仍保有尊嚴。親密一律 fade-to-black、點到為止。'
   ].join('\n');
 }
 
@@ -114,12 +114,12 @@ function narrateCombat(ctx, memory){
 
 // 共用：體況輸出格式（我方從者此刻的外觀/姿勢動作/神情，純外顯、第三人稱）
 var CONDITION_SCHEMA_ =
-  '\n請輸出 JSON：{"narration":"敘述(2~4句)","condition":"我方從者此刻的『外觀＋姿勢動作＋神情』，純外顯、第三人稱、≤24字，'
+  '\n請輸出 JSON：{"narration":"敘述（依系統指示的篇幅與第一人稱）","condition":"我方從者此刻的『外觀＋姿勢動作＋神情』，純外顯、第三人稱、≤24字，'
   + '例：白裙染塵、單膝半跪、按劍喘息、眉宇凜然。隨劇情變化（受傷則狼狽、得勝則昂揚、補魔後則紅暈未褪）"}';
 
 /** 呼叫 LLM（JSON）→ {text, condition}；失敗則回退純文字、condition 留空 */
 function narrateJSON_(sys, user){
-  var r = callLLM(sys, user, { json:true, temperature:0.95, maxTokens:900 });
+  var r = callLLM(sys, user, { json:true, temperature:0.9, maxTokens:900 });
   if(r.json) return { text: String(r.json.narration||''), condition: String(r.json.condition||'').slice(0,40) };
   return { text: r.text || ('（敘述生成失敗：'+(r.error||'')+'）'), condition: '' };
 }
@@ -127,11 +127,11 @@ function narrateJSON_(sys, user){
 /** 敘述並抽取應長期記住的事實（用於玩家自由對話，單次呼叫同時產出敘述＋記憶） */
 function narrateAndExtract_(prompt, memory){
   var sys = narratorSystem_()
-    + '\n輸出 JSON：{"narration":"敘述(2~4句)","condition":"我方從者此刻的外觀/姿勢動作/神情，純外顯、第三人稱、≤24字",'
+    + '\n輸出 JSON：{"narration":"敘述（依系統指示的篇幅與第一人稱）","condition":"我方從者此刻的外觀/姿勢動作/神情，純外顯、第三人稱、≤24字",'
     + '"facts":[{"entity":"對象","content":"玩家新建立、值得長期記住的事實","importance":0}]}。'
     + 'facts 只收「玩家這次新確立、之後需保持一致」的設定（地點狀態/約定/自訂設定等）；沒有則空陣列。importance 0~2。';
   var user = (memory ? ('【已知世界線/記憶】\n'+memory+'\n\n') : '') + prompt;
-  var r = callLLM(sys, user, { json:true, temperature:0.95, maxTokens:900 });
+  var r = callLLM(sys, user, { json:true, temperature:0.9, maxTokens:900 });
   if(r.json) return { narration: r.json.narration || '', condition: String(r.json.condition||'').slice(0,40), facts: r.json.facts || [] };
   return { narration: r.text || ('（敘述失敗：'+(r.error||'')+'）'), condition: '', facts: [] };
 }
