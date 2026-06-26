@@ -612,7 +612,9 @@ var App = {
     var b=function(type,label){ return '<button class="btn sm" onclick="App.act(\''+type+'\')">'+label+'</button>'; };
     var h=b('scout','🔍 偵查')+'<button class="btn sm" onclick="App.act(\'separate\')">'+(sep?'🔗 召回從者（會合）':'🔀 分離（從者留守）')+'</button>';
     if(sep) h+='<button class="btn sm'+(dz?' primary':'')+'" onclick="App.toggleDispatch()">'+(dz?'✖ 取消派駐':'➡ 派駐從者')+'</button>';
-    h+=b('rest','😴 休息')+b('sleep','🌙 睡覺');
+    h+='<button class="btn sm" onclick="App.act(\'rest\',{hours:1})">😴 休息1h</button>'
+      +'<button class="btn sm" onclick="App.act(\'rest\',{hours:3})">😴 休息3h</button>'
+      +'<button class="btn sm" onclick="App.act(\'rest\',{hours:6})">🌙 休息至滿</button>';
     if(sep) h+='<span style="width:100%;font-size:11px;color:'+(dz?'var(--gold2)':'var(--dim)')+'">從者所在：'+App.locName(App.S.player.servant.loc)+(dz?'　↳ 點地圖上相鄰地，派從者前往':'')+'</span>';
     return h; },
   // 點分類 → 在 #action-sub 展開該類動作；再點同類收起

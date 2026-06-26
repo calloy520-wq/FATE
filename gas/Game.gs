@@ -326,7 +326,7 @@ function doAction(a){
     BLEED_TURN_ = 0;   // 本回合被靈基反噬汲取的御主生命（破格召喚透支）
 
     // 補魔密封時段：封鎖耗時/戰鬥動作（免 LLM，直接回最終回應）
-    if(clock.mana_locked && ['move','scout','attack','np','sleep','separate','claim','retreat','hunt','skill'].indexOf(a.type)>=0)
+    if(clock.mana_locked && ['move','scout','attack','np','rest','separate','claim','retreat','hunt','skill'].indexOf(a.type)>=0)
       return { final:{ state:getState(gameId), narration:'（補魔進行中，無法進行該動作；請繼續對話，或用令咒「強制補魔」結束。）', events:[] } };
 
     // 御主人設 + 從者人格+好感 + 歷史事件/記憶 → 完整 context，讓 AI 不出戲、知道過去
@@ -352,8 +352,7 @@ function doAction(a){
       case 'assassinate':spec = act_assassinate_(rows, p, clock, hero); break;
       case 'accept_death': spec = ''; break;   // 瀕死抉擇：放棄令咒救援、接受死亡（結局在下方結算）
       case 'claim':      spec = act_claim_(p, clock, hero); break;
-      case 'sleep':      spec = act_sleep_(p, clock, hero); break;
-      case 'rest':       spec = act_rest_(p, clock, hero); break;
+      case 'rest':       spec = act_rest_(p, clock, hero, a.hours); break;
       case 'seal':       spec = act_seal_(rows, p, clock, hero, a.cmd); break;
       case 'chat':
         var chatText = sanitizeText_(a.text, 500);
@@ -368,10 +367,8 @@ function doAction(a){
     var events = [];
     var fresh = findOne_(SHEETS.CLOCK, { game_id: gameId });
     if(!fresh.mana_locked){
-      if(['move','scout','attack','np','claim','retreat','hunt','skill','rest'].indexOf(a.type) >= 0){
+      if(['move','scout','attack','np','claim','retreat','hunt','skill'].indexOf(a.type) >= 0){
         events = npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh);
-      } else if(a.type === 'sleep'){
-        for(var k=0;k<3;k++) events = events.concat(npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh));
       }
     }
     // 破格召喚反噬警告：魔力透支、從者汲取了御主生命
@@ -385,7 +382,8 @@ function doAction(a){
     if(pf){
       if(pf.sv_hp<=0 || pf.master_hp<=0) endR = 'death';
       else { var en = fresh2.filter(function(r){ return r.is_player!==true; });
-             if(en.length && en.every(function(r){ return !r.alive; })) endR = 'win'; }
+             if(en.length && en.every(function(r){ return !r.alive; })) endR = 'win';
+             else if((clock.day||1) > (TUNING.WAR_DAYS||14)) endR = 'timeout'; }   // 聖杯戰爭時限：14 天未奪杯 → 時限結束
     }
     // 瀕死令咒救援：從者靈基崩解在即、仍有令咒、且玩家尚未明確「接受命運」→ 先不結算死亡，
     // 回 awaitSeal 讓玩家抉擇（燃令咒・靈基修復 或 接受命運）。
@@ -458,6 +456,10 @@ function endGame_(gameId, p, result){
     dreamPrompt = '【死亡的假夢】我（'+name+'）在意識消逝的瞬間，墜入聖杯展示的幻夢——願望「'+wish
       +'」彷彿已然實現。請寫一段淒美而虛幻、令人不忍的「願望成真假夢」，最後夢境崩解、回歸虛無。4~6 句。';
     summary = '第'+clock.day+'天　'+svcls+'之御主「'+name+'」殞落於聖杯戰爭。';
+  } else if(result === 'timeout'){
+    dreamPrompt = '【時限將盡】聖杯戰爭的期限已盡，我（'+name+'）終究未能在時限內奪得聖杯。'
+      +'願望「'+wish+'」化為泡影，聖杯的光輝悄然黯去、退回幽暗。請寫一段悵然、餘韻深長的落幕敘述。4~6 句。';
+    summary = '第'+clock.day+'天　'+svcls+'之御主「'+name+'」未能在時限內奪杯，聖杯戰爭落幕。';
   } else {
     dreamPrompt = '【奪得聖杯】我（'+name+'）成為最後勝者，聖杯於眼前顯現，願望「'+wish
       +'」。請寫一段莊嚴而意味深長的奪杯敘述（聖杯或許並不單純）。4~6 句。';
@@ -510,10 +512,12 @@ function npcTick_(gameId, rows, clock){
   var player = rows.filter(function(r){ return r.is_player===true; })[0];
   var npcs = rows.filter(function(r){ return r.is_player!==true && r.alive===true; });
   var events = [];
+  // 戰局後期越來越兇：移動/開戰機率隨天數攀升（第1天≈0.33 → 第14天≈0.72）
+  var aggro = Math.min(0.72, 0.30 + 0.03*((clock.day||1)-1));
 
-  // 移動（30%）+ 依靈脈回血回魔
+  // 移動 + 依靈脈回血回魔
   npcs.forEach(function(n){
-    if(Math.random() < 0.3){
+    if(Math.random() < aggro){
       var a = adjOf[n.location] || [];
       if(a.length){ n.location = a[Math.floor(Math.random()*a.length)]; n.servant_loc = n.location; }
     }
@@ -533,7 +537,7 @@ function npcTick_(gameId, rows, clock){
     var a = grp[0], b = grp[1], roll = Math.random();
     if(a._row === b._row) return;          // 安全：同一參戰者不可自打
     if(npcAllied_(a, b)) return;           // 同陣營（同御主／正典同盟，如美狄亞與其召喚的佐佐木）不互相攻擊
-    if(roll < 0.3 && !battled){            // 開戰
+    if(roll < aggro && !battled){          // 開戰（機率隨戰局後期攀升）
       battled = true;
       npcSkirmish_(a, b);
       updateRow_(SHEETS.BATTLE, a._row, { sv_hp:a.sv_hp });
@@ -695,42 +699,38 @@ function manaChat_(p, clock, text){
 // 魔力供給鏈（每小時）：環境(靈脈/工房) → 御主迴路 → 從者靈基 → 御主生命（破格召喚反噬）。
 // 餘裕時御主迴路會把從者靈基回充到「自然上限 80%」，最後 20% 需供給/補魔/獵魔。
 var BLEED_TURN_ = 0;   // 累計本回合靈基反噬汲取的御主生命，供 doAction 提示
+// 單一小時的經濟結算（推進 1 小時 + 供需鏈 + 從者靈基緩回）。advanceTime_ 與 act_rest_ 共用。
+function tickHour_(p, clock, con){
+  clock.hour++; if(clock.hour>=24){ clock.hour=0; clock.day++; }
+  var e = playerEconomy_(p);
+  if(Number(clock.mana_countdown) > 0){                  // 補魔加持：回魔提升、逐時遞減
+    e.ms = Math.round(e.ms * (TUNING.MANA_REGEN_MULT || 1.5));
+    clock.mana_countdown = Number(clock.mana_countdown) - 1;
+  }
+  p.master_mp = Math.min(p.master_mp_max, p.master_mp + e.ms);   // 1) 迴路回復
+  var free = e.ley + e.ws + (e.craft||0), need = e.upkeep;        // 2) 付維持費
+  var fromFree = Math.min(free, need); need -= fromFree; var freeLeft = free - fromFree;
+  if(need>0){ var fromM = Math.min(p.master_mp, need); p.master_mp -= fromM; need -= fromM; }
+  var starving = false;
+  if(need>0){ var fromS = Math.min(p.sv_mp, need); p.sv_mp -= fromS; need -= fromS; }
+  if(need>0){ p.master_hp = Math.max(0, p.master_hp - need); BLEED_TURN_ += need; starving = true; }
+  var cap = Math.round(p.sv_mp_max * TUNING.SV_NATURAL_CAP);      // 3) 餘裕回充靈基（自然只到 80%）
+  if(!starving && p.sv_mp < cap){
+    var room = cap - p.sv_mp;
+    var addFree = Math.min(freeLeft, room); p.sv_mp += addFree; room -= addFree;
+    var addM = Math.min(p.master_mp, TUNING.SV_TOPUP, room); p.sv_mp += addM; p.master_mp -= addM;
+  }
+  if(!starving && p.sv_hp < p.sv_hp_max) p.sv_hp = Math.min(p.sv_hp_max, p.sv_hp + Math.round(con*TUNING.HP_REGEN_K));  // 4) HP 緩回
+}
+
 function advanceTime_(p, clock, hero, apCost){
   var con = rankVal(hero ? heroFromRow_(hero).six.耐久 : 'C');
   for(var i=0;i<apCost;i++){
     if(clock.ap<=0) break;
     clock.ap--;
-    for(var h=0;h<TUNING.HOURS_PER_AP;h++){
-      clock.hour++; if(clock.hour>=24){ clock.hour=0; clock.day++; }
-      var e = playerEconomy_(p);
-      // 補魔加持：期間迴路回魔提升、靈基維持高出力；逐時遞減
-      if(Number(clock.mana_countdown) > 0){
-        e.ms = Math.round(e.ms * (TUNING.MANA_REGEN_MULT || 1.5));
-        clock.mana_countdown = Number(clock.mana_countdown) - 1;
-      }
-      // 1) 御主迴路回復
-      p.master_mp = Math.min(p.master_mp_max, p.master_mp + e.ms);
-      // 2) 付維持費：環境免費 → 御主迴路 → 從者靈基 → 扣血（飢餓）
-      var free = e.ley + e.ws + (e.craft||0), need = e.upkeep;
-      var fromFree = Math.min(free, need); need -= fromFree; var freeLeft = free - fromFree;
-      if(need>0){ var fromM = Math.min(p.master_mp, need); p.master_mp -= fromM; need -= fromM; }
-      var starving = false;
-      if(need>0){ var fromS = Math.min(p.sv_mp, need); p.sv_mp -= fromS; need -= fromS; }
-      // 御主迴路與從者靈基都見底 → 從者反噬御主生命（破格召喚硬撐強力從者的代價）
-      if(need>0){ p.master_hp = Math.max(0, p.master_hp - need); BLEED_TURN_ += need; starving = true; }
-      // 3) 餘裕回充從者靈基，但自然只到 80%
-      var cap = Math.round(p.sv_mp_max * TUNING.SV_NATURAL_CAP);
-      if(!starving && p.sv_mp < cap){
-        var room = cap - p.sv_mp;
-        var addFree = Math.min(freeLeft, room); p.sv_mp += addFree; room -= addFree;
-        var addM = Math.min(p.master_mp, TUNING.SV_TOPUP, room); p.sv_mp += addM; p.master_mp -= addM;
-      }
-      // 4) HP 緩回（非飢餓）
-      if(!starving && p.sv_hp < p.sv_hp_max) p.sv_hp = Math.min(p.sv_hp_max, p.sv_hp + Math.round(con*TUNING.HP_REGEN_K));
-    }
+    for(var h=0;h<TUNING.HOURS_PER_AP;h++) tickHour_(p, clock, con);
   }
-  // 注意：用具名欄位 updateRow_（非整列 writeRow_）——manaChat_ 等路徑會先以 updateRow_ 改 clock 的 mana 欄
-  // 但不動記憶體物件，整列覆寫會把那些欄回寫成舊值。具名更新只碰 day/hour/ap，安全。
+  // 具名更新（非整列）：manaChat_ 等會以 updateRow_ 改 clock mana 欄而不動記憶體物件，整列覆寫會回寫舊值。
   updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap, mana_countdown:Math.max(0, Number(clock.mana_countdown)||0) });
   updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, sv_hp:p.sv_hp, master_mp:p.master_mp, master_hp:p.master_hp });
 }
@@ -1261,38 +1261,49 @@ function act_hunt_(p, clock, hero){
     suffix:'\n（獵食補魔：魔力 +'+gain+(bd?('　好感 '+(bd>0?'+':'')+bd):'')+'）' };
 }
 
-// 休息（短憩）：推進 1 小時、回復 2 行動點 + 少量 HP／魔力；不像睡覺跳到隔天。讓你在睡死前再撐幾手。
-function act_rest_(p, clock, hero){
-  if(clock.ap >= clock.ap_max) return '（精神飽滿，毋需小憩。）';
-  clock.hour++; if(clock.hour>=24){ clock.hour=0; clock.day++; }
-  clock.ap = Math.min(clock.ap_max, clock.ap + 2);
-  if(Number(clock.mana_countdown)>0) clock.mana_countdown = Number(clock.mana_countdown)-1;
-  p.sv_hp = Math.min(p.sv_hp_max, p.sv_hp + Math.round(p.sv_hp_max*0.08));
-  p.master_mp = Math.min(p.master_mp_max, p.master_mp + Math.round(p.master_mp_max*0.12));
+// 休息：由玩家自由分配時數（1~6 小時），每小時回 2 AP（6 小時＝回滿 12）。時間照常前進、經濟照跑。
+// 取代「睡覺」——何時休息、休息多久全由玩家決定。長休（≥4h）有機率夢見從者過往；越久／越後期越可能被突襲。
+function act_rest_(p, clock, hero, hours){
+  if(clock.ap >= clock.ap_max) return '（行動點已滿，毋需休息。）';
+  hours = Math.max(1, Math.min(6, parseInt(hours, 10) || 6));   // 單次最多 6 小時
+  var con = rankVal(hero ? heroFromRow_(hero).six.耐久 : 'C');
+  for(var i=0;i<hours;i++) tickHour_(p, clock, con);            // 每小時跑經濟（HP/魔力自然恢復、補魔加持遞減）
+  clock.ap = Math.min(clock.ap_max, clock.ap + hours*2);
+  var ambush = ambushDuringRest_(p, clock, hours);             // 休息中可能遭突襲（回事件字串或 ''）
   updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap, mana_countdown:Math.max(0,Number(clock.mana_countdown)||0) });
-  updateRow_(SHEETS.BATTLE, p._row, { sv_hp:p.sv_hp, master_mp:p.master_mp });
-  return { kind:'scene',
-    prompt:'我尋一處稍作歇息、養精蓄銳，恢復了一些行動的氣力。請寫一段簡短的小憩敘述。',
-    suffix:'\n（休息 1 小時：行動點 +2（'+clock.ap+'/'+clock.ap_max+'）　HP／魔力小幅恢復）' };
-}
-
-function act_sleep_(p, clock, hero){
-  clock.day++; clock.hour=6; clock.ap=clock.ap_max;
-  p.sv_hp=p.sv_hp_max; p.sv_mp=p.sv_mp_max; p.master_mp=p.master_mp_max;
-  updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap });
-  updateRow_(SHEETS.BATTLE, p._row, { sv_hp:p.sv_hp, sv_mp:p.sv_mp, master_mp:p.master_mp });
-  // 機率夢見從者的過往片段（含英靈自白）
-  if(hero && Math.random() < (TUNING.DREAM_CHANCE || 0.3)){
+  updateRow_(SHEETS.BATTLE, p._row, { sv_hp:p.sv_hp, sv_mp:p.sv_mp, master_mp:p.master_mp, master_hp:p.master_hp });
+  // 長休（≥4h）且未遭襲 → 機率夢見從者過往（含英靈自白）
+  if(!ambush && hero && hours>=4 && Math.random() < (TUNING.DREAM_CHANCE || 0.12)){
     var h = heroFromRow_(hero), ps = h.persona || {};
-    var prompt = '我睡去後，夢見了從者的一段過往——一段傳說的殘片。'
+    var dp = '我沉沉睡去，夢見了從者的一段過往——一段傳說的殘片。'
       + '\n從者線索：'+h.cls+(p.true_name_known?('・真名「'+h.realName+'」'):'（真名未公開，夢中可朦朧不點破）')
       + '；傳說／寶具「'+(h.np||'')+'」；個性「'+(ps.words||'')+'」；陣營'+(h.align||'')+'。'
-      + '請寫一段約 220~360 字的夢境：呈現其生前的某一幕（戰場、故土、所愛、悔恨或榮光，貼合其傳說與個性），'
-      + '其間讓「從者的自白」以其一人稱「'+(ps.firstP||'我')+'」浮現一兩句（如夢囈、如獨白），道出心結或執念；'
-      + '最後「我」自夢中轉醒、若有所感。朦朧、克制、有餘韻。';
-    return { kind:'dream', prompt:prompt, suffix:'\n（晨醒：HP／魔力／行動點已恢復）' };
+      + '請寫一段約 220~360 字的夢境：呈現其生前的某一幕，其間讓「從者的自白」以其一人稱「'+(ps.firstP||'我')+'」浮現一兩句（如夢囈、獨白），道出心結或執念；最後我自夢中轉醒。朦朧、克制、有餘韻。';
+    return { kind:'dream', prompt:dp, suffix:'\n（休息 '+hours+' 小時：行動點 +'+(hours*2)+'（'+clock.ap+'/'+clock.ap_max+'）　HP／魔力恢復）' };
   }
-  return { kind:'scene', prompt:'我睡了一覺，HP/魔力/行動點恢復，新的一天開始。冬木市昨夜想必又有從者交鋒。請寫一段晨醒敘述。' };
+  return { kind:'scene',
+    prompt:'我休息了 '+hours+' 小時，養精蓄銳'+(ambush?'，卻在歇息中被打斷！':'，恢復了氣力')+'。請寫一段簡短敘述。',
+    suffix:'\n（休息 '+hours+' 小時：行動點 +'+(hours*2)+'（'+clock.ap+'/'+clock.ap_max+'）　HP／魔力恢復）'+(ambush?('\n'+ambush):'') };
+}
+
+// 休息中的敵襲：機率隨「休息時數×戰局後期」升高；從者不在身邊則御主直接受創（masterPeril）。
+function ambushDuringRest_(p, clock, hours){
+  var foes = findRows_(SHEETS.BATTLE, { game_id:p.game_id }).filter(function(r){ return r.is_player!==true && r.alive===true; });
+  if(!foes.length) return '';
+  var chance = Math.min(0.7, 0.07*hours + 0.035*(clock.day||1));   // 越久、越後期越危險
+  if(Math.random() >= chance) return '';
+  var foe = foes[Math.floor(Math.random()*foes.length)];
+  foe.location = p.location; foe.servant_loc = p.location;
+  updateRow_(SHEETS.BATTLE, foe._row, { location:foe.location, servant_loc:foe.servant_loc });
+  markDiscovered_(p, [foe.slot]);
+  var svHere = p.sv_hp>0 && ((p.separated ? p.servant_loc : p.location) === p.location);
+  if(!svHere && p.master_hp>0){
+    var nf = masterPeril_(p.game_id, p, foe, clock);
+    return '☠ 休息時遭 '+heroCls_(foe.servant_id)+'（'+foe.master_name+'）突襲！'
+      + (nf ? '我被打到命懸一線（HP 1）！' : '御主受創（HP '+p.master_hp+'/'+p.master_hp_max+'）')
+      + ' 從者不在身邊——立刻召回或撤退！';
+  }
+  return '⚠ 休息時 '+heroCls_(foe.servant_id)+'（'+foe.master_name+'）摸到我的所在地！幸而從者在側——可迎戰或撤退。';
 }
 
 function act_seal_(rows, p, clock, hero, cmd){
