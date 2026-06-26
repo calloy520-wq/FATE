@@ -245,14 +245,19 @@
 const SERVER = {
   // 冬木市定點（之後存 Locations 試算表）
   locations: [
-    {id:'church',  name:'冬木教會', x:420,y:170, danger:'safe', adj:['shinto','park'], desc:'監督者所在的中立地帶，禁止戰鬥。'},
-    {id:'ryuudou', name:'柳洞寺',   x:600,y:80,  danger:'high', adj:['shinto'],         desc:'山上靈地，魔力濃厚，常有從者據守。'},
-    {id:'tohsaka', name:'遠坂宅邸', x:300,y:300, danger:'mid',  adj:['miyama','shinto'],desc:'名門魔術師的據點，結界森嚴。'},
-    {id:'emiya',   name:'衛宮宅邸', x:240,y:380, danger:'safe', adj:['miyama'],         desc:'郊外的日式宅院，相對安全。'},
-    {id:'shinto',  name:'新都',     x:450,y:240, danger:'mid',  adj:['church','bridge','tohsaka','park'],desc:'繁華商業區，夜間人煙稀少。'},
-    {id:'miyama',  name:'深山町',   x:280,y:350, danger:'safe', adj:['emiya','tohsaka'],desc:'舊市區住宅地。'},
-    {id:'bridge',  name:'冬木大橋', x:460,y:320, danger:'mid',  adj:['shinto','miyama'],desc:'連接新舊市區的長橋，視野開闊。'},
-    {id:'park',    name:'冬木公園', x:520,y:190, danger:'mid',  adj:['church','shinto'],desc:'開闊綠地，適合正面交鋒。'},
+    {id:'church',   name:'冬木教會',     x:420,y:150, danger:'safe', leyline:'中', adj:['shinto','park'],                          desc:'監督者所在的中立地帶，禁止戰鬥。受傷的御主可在此尋求庇護。'},
+    {id:'ryuudou',  name:'柳洞寺',       x:605,y:70,  danger:'high', leyline:'高', adj:['park'],                                   desc:'山上靈地，魔力濃厚，常有從者據守為據點。'},
+    {id:'tohsaka',  name:'遠坂宅邸',     x:300,y:290, danger:'mid',  leyline:'高', adj:['miyama','shinto','school'],               desc:'名門魔術師的據點，結界森嚴，地脈匯聚。'},
+    {id:'emiya',    name:'衛宮宅邸',     x:230,y:390, danger:'safe', leyline:'低', adj:['miyama','school'],                        desc:'郊外的日式宅院，設有工房，相對安全。'},
+    {id:'shinto',   name:'新都',         x:450,y:240, danger:'mid',  leyline:'中', adj:['church','bridge','tohsaka','park','hospital'], desc:'繁華商業區，夜間人煙稀少，適合潛行與情報收集。'},
+    {id:'miyama',   name:'深山町',       x:290,y:350, danger:'safe', leyline:'中', adj:['emiya','tohsaka','matou'],                desc:'舊市區住宅地，巷弄錯綜。'},
+    {id:'bridge',   name:'冬木大橋',     x:460,y:320, danger:'mid',  leyline:'低', adj:['shinto','matou','riverside'],             desc:'橫跨未遠川、連接新舊市區的長橋，視野開闊。'},
+    {id:'park',     name:'冬木公園',     x:525,y:180, danger:'mid',  leyline:'中', adj:['church','shinto','ryuudou','hospital'],   desc:'開闊綠地，適合正面交鋒，也易被埋伏。'},
+    {id:'matou',    name:'間桐宅邸',     x:360,y:370, danger:'high', leyline:'高', adj:['miyama','bridge','riverside','harbor'],   desc:'古老魔術名門宅邸，地下藏有不祥的蟲庫。'},
+    {id:'school',   name:'穗群原學園',   x:165,y:300, danger:'safe', leyline:'中', adj:['emiya','tohsaka'],                        desc:'本地高中，白日人多，夜間空曠可作戰場。'},
+    {id:'hospital', name:'冬木中央醫院', x:600,y:250, danger:'safe', leyline:'低', adj:['park','shinto'],                          desc:'新都的綜合醫院，可治療御主傷勢。'},
+    {id:'riverside',name:'未遠川河岸',   x:420,y:410, danger:'mid',  leyline:'中', adj:['bridge','matou','harbor'],                desc:'河堤步道，水源充沛，靈脈隨水流動。'},
+    {id:'harbor',   name:'港區倉庫街',   x:320,y:430, danger:'high', leyline:'低', adj:['riverside','matou'],                      desc:'廢棄倉庫林立，視線死角多，是埋伏與決戰的舞台。'},
   ],
   // 從者模板（之後存 ServantTemplates 試算表）—示意 2 隻
   servantPool: {
