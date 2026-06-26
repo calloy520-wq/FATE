@@ -248,7 +248,7 @@ function godHandRevive_(row){
 /** 英靈殿原始列 → 引擎可用的從者物件 */
 function heroFromRow_(row){
   return {
-    id: row.servant_id, cls: row.cls, realName: row.realName,
+    id: row.servant_id, cls: row.cls, realName: row.realName, gender: row.gender||'',
     six: { 筋力:row.筋力, 耐久:row.耐久, 敏捷:row.敏捷, 魔力:row.魔力, 幸運:row.幸運, 寶具:row.寶具 },
     classSkills: row.classSkills || [], skills: row.skills || [], traits: row.traits || [],
     np: row.np, persona: row.persona, wars: row.wars, source: row.source, align: row.align

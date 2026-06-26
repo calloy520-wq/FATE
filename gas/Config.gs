@@ -26,7 +26,7 @@ const SHEETS = {
 
 // 各分頁標題列
 const HEADERS = {
-  [SHEETS.HEROES]: ['servant_id','cls','realName','wars','筋力','耐久','敏捷','魔力','幸運','寶具',
+  [SHEETS.HEROES]: ['servant_id','cls','realName','wars','gender','筋力','耐久','敏捷','魔力','幸運','寶具',
                     'classSkills','skills','traits','np','persona','source','align'],
   [SHEETS.MASTERS]:['master_id','name','war','magic','circuits','melee','magic_rank','home','wish','persona','source'],
   [SHEETS.MAP]:    ['id','name','x','y','danger','leyline','adj','desc'],
@@ -44,7 +44,7 @@ const HEADERS = {
                       'actor_id','target_id','log_text','is_global','importance'],
   [SHEETS.CLOCK]:    ['game_id','day','hour','ap','ap_max','mana_countdown','mana_locked'],
   [SHEETS.HISTORY]:  ['ts','ms_id','name','result','war','servant_cls','day','summary'],
-  [SHEETS.GALLERY]:  ['ms_id','entry_id','servant_id','cls','realName','six','skills','classSkills',
+  [SHEETS.GALLERY]:  ['ms_id','entry_id','servant_id','cls','realName','gender','six','skills','classSkills',
                       'traits','np','persona','align','bond','condition','active','source','log','created',
                       'won_count','won_day','won_note'],
 };

@@ -13,6 +13,7 @@ function galleryEntry_(msId, hero, opts){
     servant_id: hero.id || hero.servant_id || '',
     cls: hero.cls || '',
     realName: hero.realName || '',
+    gender: hero.gender || '',
     six: hero.six || {},
     skills: hero.skills || [],
     classSkills: hero.classSkills || [],
@@ -66,7 +67,7 @@ function galleryList(msId){
   if(!msId) return { entries: [] };
   var rows = findRows_(SHEETS.GALLERY, { ms_id: msId });
   return { entries: rows.map(function(g){
-    return { entryId:g.entry_id, servantId:g.servant_id, cls:g.cls, realName:g.realName,
+    return { entryId:g.entry_id, servantId:g.servant_id, cls:g.cls, realName:g.realName, gender:g.gender||'',
              six:g.six||{}, skills:g.skills||[], classSkills:g.classSkills||[], traits:g.traits||[],
              np:g.np, persona:g.persona||{}, align:g.align, bond:Number(g.bond)||0,
              condition:g.condition||'', active:g.active===true, source:g.source,
@@ -117,6 +118,8 @@ function galleryCreate(msId, opts){
   if(opts.desc)    descParts.push(opts.desc);
   var gen = generateServant_(name, cls, descParts.join('、'));
   if(gen.error) return { error: gen.error };
+  if(opts.gender) gen.gender = opts.gender;     // 玩家指定性別 → 覆蓋 AI 推定
+  gen.realName = name;
   gen.id = gen.id || (name + '-' + cls + '-' + Utilities.getUuid().slice(0,6));
   var e = galleryAdd_(msId, gen, { bond: 50, source: 'custom' });
   return galleryList(msId);
@@ -129,7 +132,7 @@ function galleryPresent_(msId, exceptId){
     .map(function(g){ return g.cls + (g.realName?('・'+g.realName):''); });
 }
 function galleryHero_(row){
-  return { cls:row.cls, realName:row.realName, six:row.six||{}, skills:row.skills||[],
+  return { cls:row.cls, realName:row.realName, gender:row.gender||'', six:row.six||{}, skills:row.skills||[],
            classSkills:row.classSkills||[], traits:row.traits||[], np:row.np,
            persona:row.persona||{}, align:row.align };
 }

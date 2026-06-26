@@ -91,7 +91,7 @@ function narrateAfterStory_(hero, bond, history, userText, condition, ctx){
   var p = (hero && hero.persona) || {};
   var who = (hero?hero.cls:'從者') + (hero&&hero.realName?('・'+hero.realName):'');
   var user = [
-    '【焦點從者】'+who+'（一人稱「'+(p.firstP||'我')+'」，個性「'+(p.words||'')+'」，陣營'+(hero&&hero.align||'未知')+'，對我態度「'+(p.toMaster||'')+'」）',
+    '【焦點從者】'+who+'（'+(hero&&hero.gender?('性別'+hero.gender+'，'):'')+'一人稱「'+(p.firstP||'我')+'」，個性「'+(p.words||'')+'」，陣營'+(hero&&hero.align||'未知')+'，對我態度「'+(p.toMaster||'')+'」）',
     (ctx.present && ctx.present.length) ? ('【同時在場】'+ctx.present.join('、')+'（可自然帶到，但以焦點從者為主）') : '',
     ctx.locName ? ('【地點】冬木・'+ctx.locName) : '',
     '【羈絆】'+bond+'/100（越高越親近、自然；偏低則仍保有距離與防備）',
@@ -116,7 +116,7 @@ function summonOpening_(hero, master, wish){
     + (master.persona?('，個性「'+master.persona+'」'):'')
     + (wish?('，願望「'+wish+'」'):'');
   var user = '【召喚開場】\n'+mdesc
-    + '\n從者：'+hero.cls+'（真名暫不對外公開；陣營'+(hero.align||'未知')+'，個性「'+(p.words||'')+'」，一人稱「'+(p.firstP||'我')+'」，對御主態度「'+(p.toMaster||'')+'」）'
+    + '\n從者：'+hero.cls+'（真名暫不對外公開；'+(hero.gender?('性別'+hero.gender+'，'):'')+'陣營'+(hero.align||'未知')+'，個性「'+(p.words||'')+'」，一人稱「'+(p.firstP||'我')+'」，對御主態度「'+(p.toMaster||'')+'」）'
     + '\n請以第一人稱「我」描寫召喚開場：靈光與魔力的震顫、從者立於我面前的姿態。'
     + '接著從者打量「我」這名御主與我的願望，依其自身個性、陣營與尊嚴做出真實反應——審視、戒備、揶揄、不屑或淡然皆可；'
     + '若我的願望對其唐突、不敬或冒犯（例如把高傲的英靈當成戀愛或佔有的對象），她／他會明顯冷淡、反感甚至嗤之以鼻，絕不會初次見面就順從或傾心。'
@@ -191,7 +191,8 @@ function narrateScene(prompt, memory){
 /** AI 生成英靈資料（真名召喚／自訂），回傳已夾值的從者物件 */
 function generateServant_(name, cls, desc){
   var sys = '你是 Fate 系列的英靈資料產生器。只輸出 JSON，給出平衡合理的數值，不要多餘文字。';
-  var schema = '{"six":{"筋力":"E~A","耐久":"E~A","敏捷":"E~A","魔力":"E~A","幸運":"E~A","寶具":"E~A+"},'
+  var schema = '{"gender":"男/女/無(中性，如神造兵器)",'
+    + '"six":{"筋力":"E~A","耐久":"E~A","敏捷":"E~A","魔力":"E~A","幸運":"E~A","寶具":"E~A+"},'
     + '"classSkills":[{"n":"技能名","r":"階級","fx":"效果碼"}],"skills":[{"n":"","r":"","fx":""}],'
     + '"traits":[{"n":"特性"}],"np":"寶具名（簡述）","align":"陣營，格式「秩序/中立/混沌・善/中立/惡」，狂戰士可填「混沌・狂」",'
     + '"persona":{"firstP":"一人稱","words":"性格關鍵詞","toMaster":"對御主態度"}}';
@@ -221,6 +222,14 @@ function cleanAlign_(a){
   var mor = (a.indexOf('狂')>=0)?'狂':(a.indexOf('善')>=0)?'善':(a.indexOf('惡')>=0)?'惡':'中庸';
   return ord+'・'+mor;
 }
+/** 夾值性別：男/女/無(中性，如恩奇都)；無法判定回 '' */
+function cleanGender_(v){
+  v = String(v||'');
+  if(/女|♀|female|girl|woman/i.test(v)) return '女';
+  if(/男|♂|male|boy|man/i.test(v)) return '男';
+  if(/無|中性|無性|none|agender|genderless/i.test(v)) return '無';
+  return '';
+}
 function cleanSkill_(s){
   s = s || {};
   return { n: String(s.n||'技能').slice(0,8),
@@ -235,6 +244,7 @@ function sanitizeHero_(g, name, cls){
                    return b + ((v.match(/\+/g)||[]).length>0 ? '+' : ''); }
   var s = g.six || {};
   return {
+    gender: cleanGender_(g.gender),
     six: { 筋力:six6(s.筋力), 耐久:six6(s.耐久), 敏捷:six6(s.敏捷), 魔力:six6(s.魔力), 幸運:six6(s.幸運), 寶具:np6(s.寶具) },
     classSkills: (g.classSkills||[]).slice(0,3).map(cleanSkill_),
     skills: (g.skills||[]).slice(0,4).map(cleanSkill_),

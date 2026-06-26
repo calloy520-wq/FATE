@@ -70,7 +70,7 @@ function seedSheet_(ss, name, rows){
 
 // ===== 物件 → 列（依 HEADERS 順序，複雜欄位存 JSON）=====
 function servantRow_(s){
-  return [ s.id, s.cls, s.realName, s.wars.join('/'),
+  return [ s.id, s.cls, s.realName, s.wars.join('/'), s.gender||'',
     s.six.筋力, s.six.耐久, s.six.敏捷, s.six.魔力, s.six.幸運, s.six.寶具,
     JSON.stringify(s.classSkills), JSON.stringify(s.skills), JSON.stringify(s.traits),
     s.np, JSON.stringify(s.persona), 'official', s.align||'中立・中庸' ];

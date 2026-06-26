@@ -255,7 +255,7 @@ function playerView_(p){
     master:{ name:p.master_name, magic:p.magic, hp:p.master_hp, hpMax:p.master_hp_max,
              mp:p.master_mp, mpMax:p.master_mp_max, seals:p.seals, melee:p.melee, magicRank:p.magic_rank,
              circuits:p.circuits, location:p.location },
-    servant:{ cls:hero ? hero.cls : '？', servantId:p.servant_id, realName:hero?hero.realName:'',
+    servant:{ cls:hero ? hero.cls : '？', servantId:p.servant_id, realName:hero?hero.realName:'', gender:hero?(hero.gender||''):'',
               trueNameKnown:p.true_name_known, hp:p.sv_hp, hpMax:p.sv_hp_max, mp:p.sv_mp, mpMax:p.sv_mp_max,
               upkeep:p.upkeep, bond:p.bond, six: hero?heroFromRow_(hero).six:{}, np:hero?hero.np:'',
               skills: hero?heroFromRow_(hero).skills:[], classSkills: hero?heroFromRow_(hero).classSkills:[],
