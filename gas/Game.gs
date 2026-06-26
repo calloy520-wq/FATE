@@ -880,6 +880,7 @@ function act_skill_(rows, p, clock, hero, fx){
   } else { // zabaniya：心臟一擊，無視對魔力與部分防禦
     dmg = Math.round(rankVal(A.six.筋力)*1.2) + rankVal(A.six.敏捷); note = '（心臟一擊・無視防禦）';
   }
+  dmg = Math.min(dmg, Math.round(enemyRow.sv_hp_max * 0.7));   // 保險：單一主動技不得一發秒殺滿血（封頂 70% 上限）
   enemyRow.sv_hp = Math.max(0, enemyRow.sv_hp - dmg);
   var killed = false, reviveNote = '';
   if(enemyRow.sv_hp <= 0){
