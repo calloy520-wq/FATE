@@ -451,7 +451,7 @@ function endGame_(gameId, p, result){
   appendObj_(SHEETS.HISTORY, { ts:Date.now(), ms_id:acc.ms_id||'', name:name, result:result,
     war:'', servant_cls:svcls, day:clock.day, summary:summary });
   // 奪杯 → 在該帳號解鎖此英靈，存進鑑賞室（可前往「鑑賞召喚」於後日談重逢）
-  if(result==='win' && acc.ms_id) galleryAddFromGame_(acc.ms_id, p);
+  if(result==='win' && acc.ms_id) galleryAddFromGame_(acc.ms_id, p, clock.day, summary);
   clearGame_(gameId);
   if(acc.ms_id) updateWhere_(SHEETS.ACCOUNTS, { ms_id:acc.ms_id }, { current_game:'' });
   return { result:result, dreamPrompt:dreamPrompt, dojo:tigerDojo_(result), summary:summary };

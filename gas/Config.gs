@@ -45,7 +45,8 @@ const HEADERS = {
   [SHEETS.CLOCK]:    ['game_id','day','hour','ap','ap_max','mana_countdown','mana_locked'],
   [SHEETS.HISTORY]:  ['ts','ms_id','name','result','war','servant_cls','day','summary'],
   [SHEETS.GALLERY]:  ['ms_id','entry_id','servant_id','cls','realName','six','skills','classSkills',
-                      'traits','np','persona','align','bond','condition','active','source','log','created'],
+                      'traits','np','persona','align','bond','condition','active','source','log','created',
+                      'won_count','won_day','won_note'],
 };
 
 // 靜態分頁（重建 setup 時會重新種子）；動態分頁只建表不動資料

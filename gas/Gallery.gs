@@ -25,7 +25,10 @@ function galleryEntry_(msId, hero, opts){
     active: false,
     source: opts.source || 'custom',
     log: [],
-    created: new Date().toISOString()
+    created: new Date().toISOString(),
+    won_count: opts.won ? 1 : 0,           // 奪杯次數（重複奪杯疊加）
+    won_day: opts.wonDay || '',            // 最近一次奪杯的天數
+    won_note: opts.wonNote || ''           // 最近一次奪杯紀念（戰績摘要）
   };
 }
 
@@ -37,19 +40,23 @@ function galleryAdd_(msId, hero, opts){
   return e;
 }
 
-// 通關留存：把玩家當前從者（battle 列 p）存進鑑賞室；避免同一英靈重複留存
-function galleryAddFromGame_(msId, p){
+// 通關留存：把玩家當前從者（battle 列 p）存進鑑賞室。重複奪杯 → 疊加次數、更新最近紀念與羈絆。
+function galleryAddFromGame_(msId, p, day, note){
   if(!msId || !p || !p.servant_id) return;
   var existing = findRows_(SHEETS.GALLERY, function(g){ return g.ms_id===msId && g.servant_id===p.servant_id; });
   var hero = findOne_(SHEETS.HEROES, { servant_id: p.servant_id });
   if(!hero) return;
   var h = heroFromRow_(hero);
-  if(existing.length){   // 已收藏 → 只更新羈絆（取較高者）與體況
+  if(existing.length){   // 已收藏 → 奪杯次數 +1、更新羈絆(取較高)、體況與最近紀念
     var top = existing[0];
-    updateRow_(SHEETS.GALLERY, top._row, { bond: Math.max(Number(top.bond)||0, Number(p.bond)||0), condition: p.sv_condition||top.condition });
+    updateRow_(SHEETS.GALLERY, top._row, {
+      won_count: (Number(top.won_count)||0) + 1,
+      won_day: day || top.won_day, won_note: note || top.won_note,
+      bond: Math.max(Number(top.bond)||0, Number(p.bond)||0),
+      condition: p.sv_condition || top.condition });
     return;
   }
-  galleryAdd_(msId, h, { bond: p.bond, condition: p.sv_condition, source: 'won' });
+  galleryAdd_(msId, h, { bond: p.bond, condition: p.sv_condition, source: 'won', won: true, wonDay: day, wonNote: note });
 }
 
 // ── 對外 API（google.script.run 直呼） ──
@@ -63,6 +70,7 @@ function galleryList(msId){
              six:g.six||{}, skills:g.skills||[], classSkills:g.classSkills||[], traits:g.traits||[],
              np:g.np, persona:g.persona||{}, align:g.align, bond:Number(g.bond)||0,
              condition:g.condition||'', active:g.active===true, source:g.source,
+             wonCount:Number(g.won_count)||0, wonDay:g.won_day||'', wonNote:g.won_note||'',
              log:(g.log||[]).slice(-12) };
   }) };
 }
