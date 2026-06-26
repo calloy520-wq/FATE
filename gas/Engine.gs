@@ -14,6 +14,18 @@ function hasSkillName_(sv, n){
 function hasTrait_(sv, t){
   return (sv.traits||[]).some(function(x){ return (x.n||'').indexOf(t) >= 0; });
 }
+// 單獨行動：取其階級（無則回 ''）
+function soloRank_(sv){
+  var s = [].concat(sv.classSkills||[], sv.skills||[]).filter(function(x){ return x.fx==='solo' || (x.n||'').indexOf('單獨行動')>=0; })[0];
+  return s ? (s.r||'') : '';
+}
+// 御主消亡後，憑單獨行動可維持現界的時數（依階級；每 '+' ×1.25）。無此技→0（即時消滅）。
+function soloHours_(rank){
+  if(!rank) return 0;
+  var base = String(rank).replace(/\+/g,''), plus = (String(rank).match(/\+/g)||[]).length;
+  var h = (TUNING.SOLO_HOURS||{})[base] || 0;
+  return Math.round(h * (1 + 0.25*plus));
+}
 // 魔術攻擊者：只有 Caster 的「普通攻擊」算魔術（用魔力、可被對魔力擋）。
 // 魔眼/高速神言等是個別主動技，魔術判定在那邊各自處理，不該讓持有者的每一拳都變魔術。
 function magicAtk_(sv){

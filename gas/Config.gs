@@ -37,7 +37,7 @@ const HEADERS = {
   [SHEETS.BATTLE]:   ['game_id','slot','is_player','master_name','magic','circuits','master_hp','master_hp_max',
                       'master_mp','master_mp_max','seals','melee','magic_rank','location','servant_id',
                       'sv_hp','sv_hp_max','sv_mp','sv_mp_max','upkeep','bond','true_name_known','status',
-                      'alive','base_loc','barrier','barrier_max','base_tier','servant_loc','separated','discovered','sv_condition','buff'],
+                      'alive','base_loc','barrier','barrier_max','base_tier','servant_loc','separated','discovered','sv_condition','buff','solo_hours'],
   [SHEETS.MEMORY]:   ['event_id','game_id','turn','entity','fact_type','content','importance','write_ts'],
   [SHEETS.EVENTS]:   ['event_id','write_ts','game_id','day_count','time_hour','location_id','event_type',
                       'actor_id','target_id','log_text','is_global','importance'],
@@ -71,6 +71,8 @@ const TUNING = {
   FLEE_HP: 0.5,                  // 降到此 HP 比例即觸發撤退（一般交戰不纏鬥至死；令咒決死除外）
   // 時間
   AP_PER_DAY: 12, HOURS_PER_AP: 2,
+  // 單獨行動：御主消亡後，從者僅憑此技維持現界的「現界時數」（依階級，每 '+' ×1.25）。無此技→御主一死即消滅。
+  SOLO_HOURS: { E:6, D:12, C:24, B:48, A:96, EX:168 },
   // 補魔
   MANA_TURNS: 10, MANA_AP_COST: 2, MANA_BOND: 8,
   // 獵魔（吸食補魔）／擊殺回魔／情境好感

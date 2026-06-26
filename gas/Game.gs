@@ -254,7 +254,10 @@ function playerView_(p){
   return {
     master:{ name:p.master_name, magic:p.magic, hp:p.master_hp, hpMax:p.master_hp_max,
              mp:p.master_mp, mpMax:p.master_mp_max, seals:p.seals, melee:p.melee, magicRank:p.magic_rank,
-             circuits:p.circuits, location:p.location },
+             circuits:p.circuits, location:p.location,
+             // 無御主狀態：御主已逝、從者憑單獨行動倒數中（solo_hours 為剩餘現界時數）
+             masterless: (p.master_hp<=0 && p.solo_hours!=='' && p.solo_hours!=null && Number(p.solo_hours)>0)
+                         ? { hours: Number(p.solo_hours), days: +(Number(p.solo_hours)/24).toFixed(1) } : null },
     servant:{ cls:hero ? hero.cls : '？', servantId:p.servant_id, realName:hero?hero.realName:'',
               trueNameKnown:p.true_name_known, hp:p.sv_hp, hpMax:p.sv_hp_max, mp:p.sv_mp, mpMax:p.sv_mp_max,
               upkeep:p.upkeep, bond:p.bond, six: hero?heroFromRow_(hero).six:{}, np:hero?hero.np:'',
@@ -362,7 +365,25 @@ function doAction(a){
     if(endR==='death' && (pf.sv_hp<=0 || pf.master_hp<=0) && (pf.seals||0)>0 && a.type!=='accept_death'){
       var dyingWho = pf.sv_hp<=0 ? '我的從者靈基崩解在即' : '我身受重創、命懸一線';
       awaitSeal = { msg:'⚠ '+dyingWho+'！是否燃燒令咒・靈基修復（回血回魔）挽救？（尚餘 '+pf.seals+' 道令咒）' };
-    } else if(endR){
+    }
+    // 令咒用盡・御主已逝，但從者尚存 → 單獨行動者進入「無御主」現界倒數；無此技則就此消滅
+    else if(endR==='death' && pf.master_hp<=0 && pf.sv_hp>0){
+      var notStarted = (pf.solo_hours==='' || pf.solo_hours==null);
+      var sh = Number(pf.solo_hours)||0;
+      var pfHero = findOne_(SHEETS.HEROES, { servant_id: pf.servant_id });
+      var sRank = pfHero ? soloRank_(heroFromRow_(pfHero)) : '';
+      if(sRank && notStarted){                               // 御主剛逝 → 啟動倒數
+        pf.solo_hours = soloHours_(sRank);
+        updateRow_(SHEETS.BATTLE, pf._row, { solo_hours: pf.solo_hours });
+        events.push({ atPlayer:true, text:'☠ 御主已逝、令咒用盡！但憑「單獨行動 '+sRank+'」，我尚能獨自維持現界約 '
+          +pf.solo_hours+' 小時（'+(pf.solo_hours/24).toFixed(1)+' 天）。須在靈基溶解前奪得聖杯、或尋得新的魔力來源！' });
+        endR = null;
+      } else if(sRank && sh>0){ endR = null; }               // 仍在倒數中 → 存活
+      else if(sRank && !notStarted){                         // 倒數已盡 → 真正消滅
+        events.push({ atPlayer:true, text:'☠ 單獨行動的極限已至——失去魔力供給，靈基終於溶解於風中…' });
+      }                                                       // 無單獨行動 → 維持 endR='death'（御主一死即消滅）
+    }
+    if(endR){
       over = endGame_(gameId, pf, endR);   // endGame_ 回傳 dreamPrompt，假夢敘述留到鎖外生成
     }
 
@@ -602,14 +623,22 @@ function manaChat_(p, clock, text){
 var BLEED_TURN_ = 0;   // 累計本回合靈基反噬汲取的御主生命，供 doAction 提示
 function advanceTime_(p, clock, hero, apCost){
   var con = rankVal(hero ? heroFromRow_(hero).six.耐久 : 'C');
+  var soloR = hero ? soloRank_(heroFromRow_(hero)) : '';
   for(var i=0;i<apCost;i++){
     if(clock.ap<=0) break;
     clock.ap--;
     for(var h=0;h<TUNING.HOURS_PER_AP;h++){
       clock.hour++; if(clock.hour>=24){ clock.hour=0; clock.day++; }
       var e = playerEconomy_(p);
-      // 1) 御主迴路回復
-      p.master_mp = Math.min(p.master_mp_max, p.master_mp + e.ms);
+      // 御主已逝（無御主狀態）：迴路不再回復魔力；單獨行動者逐時倒數，倒數歸 0 → 由 doAction 結算消滅
+      if(p.master_hp <= 0){
+        if(soloR){ var cur = (p.solo_hours==='' || p.solo_hours==null) ? null : Number(p.solo_hours);
+                   if(cur!==null && cur>0) p.solo_hours = cur - 1; }
+      } else {
+        if(p.solo_hours!=='' && p.solo_hours!=null) p.solo_hours = '';   // 御主存活（如令咒救回）→ 清除倒數
+        // 1) 御主迴路回復
+        p.master_mp = Math.min(p.master_mp_max, p.master_mp + e.ms);
+      }
       // 2) 付維持費：環境免費 → 御主迴路 → 從者靈基 → 扣血（飢餓）
       var free = e.ley + e.ws + (e.craft||0), need = e.upkeep;
       var fromFree = Math.min(free, need); need -= fromFree; var freeLeft = free - fromFree;
@@ -630,7 +659,7 @@ function advanceTime_(p, clock, hero, apCost){
     }
   }
   updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap });
-  updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, sv_hp:p.sv_hp, master_mp:p.master_mp, master_hp:p.master_hp });
+  updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, sv_hp:p.sv_hp, master_mp:p.master_mp, master_hp:p.master_hp, solo_hours:p.solo_hours });
 }
 
 // 偵查：揭露當前地與相鄰地的從者蹤跡（戰爭迷霧用），耗 1 AP
