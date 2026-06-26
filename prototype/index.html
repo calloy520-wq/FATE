@@ -285,6 +285,7 @@
     <div id="log"></div>
     <div id="mana-box"></div>
     <div class="quick" id="quick-actions"></div>
+    <div class="quick hidden" id="seal-menu"></div>
     <div class="inrow">
       <textarea id="in-msg" placeholder="輸入行動或對話…（AI 判意圖 → GAS 判定）"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();App.send()}"></textarea>
@@ -738,7 +739,7 @@ const App = {
     document.getElementById('loc-info').innerHTML=`<b style="color:var(--gold2)">${l.name}</b>（危險度：${dmap[l.danger]}・靈脈：${l.leyline}）<br>${l.desc}`;
   },
   renderQuick(){
-    document.getElementById('quick-actions').innerHTML=['⚔ 攻擊敵人','使用寶具','🛡 加固結界','搜索周圍','偵查氣息','補魔']
+    document.getElementById('quick-actions').innerHTML=['⚔ 攻擊敵人','使用寶具','❖ 令咒','🛡 加固結界','搜索周圍','偵查氣息','補魔']
       .map(a=>`<button class="btn sm ghost" onclick="App.quick('${a}')">${a}</button>`).join('');
   },
   renderBase(){
@@ -762,7 +763,41 @@ const App = {
     if(a.includes('攻擊')){ this.me(a); this.attackNearest(false); return; }
     if(a==='使用寶具'){ this.me('解放寶具'); this.attackNearest(true); return; }
     if(a.includes('加固')){ this.me('加固結界'); this.reinforce(); return; }
+    if(a.includes('令咒')){ this.toggleSeals(); return; }
     this.me(a); this.ai('（GAS 判定中…示意）你進行了「'+a+'」，系統擲骰後將結果交給 AI 敘述。'); },
+
+  /* ====== 令咒：固定選單，各耗 1 令咒，GAS 直接執行 ====== */
+  toggleSeals(){
+    const e=document.getElementById('seal-menu');
+    if(e.classList.contains('hidden')){ this.renderSealMenu(); e.classList.remove('hidden'); }
+    else e.classList.add('hidden');
+  },
+  renderSealMenu(){
+    const m=this.state.master;
+    const cmds=[['heal','靈基修復(回血回魔)'],['order','絕對命令(必中全力)'],
+                ['np','寶具強制解放'],['recall','瞬間召還'],['mana','強制補魔(緊急)']];
+    document.getElementById('seal-menu').innerHTML=
+      `<div style="width:100%;font-size:11px;color:var(--dim)">令咒剩餘 ${'❖'.repeat(m.seals)||'（無）'}・各耗 1 道</div>`+
+      cmds.map(c=>`<button class="btn sm" ${m.seals<=0?'disabled':''} onclick="App.sealCmd('${c[0]}')">${c[1]}</button>`).join('');
+  },
+  sealCmd(type){
+    const m=this.state.master,s=this.state.servant;
+    if(m.seals<=0){ this.sys('令咒已用盡。'); return; }
+    m.seals--;
+    const names={heal:'靈基修復',order:'絕對命令',np:'寶具強制解放',recall:'瞬間召還',mana:'強制補魔'};
+    this.me('【令咒】'+names[type]+'（剩 '+m.seals+'）');
+    switch(type){
+      case 'heal': s.hp=s.hpMax; s.mp=s.mpMax; this.ai('令咒燃燒，膨大的魔力重塑靈基——從者 HP／魔力完全回復。'); break;
+      case 'order': this.ai('「以令咒命令你——必中此擊！」'); this.attackNearest('seal'); break;
+      case 'np': this.ai('「以令咒強制——解放寶具！」無視魔力與意願，寶具轟然發動。'); this.attackNearest(true); break;
+      case 'recall': if(this.state.mana){ this.state.mana=null; this.renderMana(); }
+        this.ai('令咒之光閃過，從者瞬間回到你身邊，脫離了當前戰局。'); break;
+      case 'mana': if(this.state.mana){ this.state.mana=null; this.renderMana(); }
+        s.mp=s.mpMax; s.bond=Math.min(s.bondMax,s.bond+12);
+        this.ai('以令咒強制補魔——大量魔力灌入，靈基穩固。（成人向 fade／好感度 +12，跳過倒數）'); break;
+    }
+    this.renderStatus(); this.renderSealMenu();
+  },
 
   // 加固結界（Caster 更強更省）
   reinforce(){
@@ -847,8 +882,10 @@ const App = {
     const B={cls:tpl.cls,six:tpl.six,classSkills:tpl.classSkills,skills:tpl.skills,traits:tpl.traits,hp:120,np:tpl.np};
     this.sys(`— 交戰：${A.cls} vs ${entry.cls}（${entry.realName||'？？？'}）・D20 對抗判定 —`);
     const beats=[];
-    if(np){ const d=Math.round(this.rv(A.six.寶具)*1.6)+18; B.hp=Math.max(0,B.hp-d);
-      beats.push(`〔寶具解放〕${A.cls} 發動「${A.np}」造成 ${d} 傷害！　${entry.cls} HP ${B.hp}`); }
+    if(np){ const isSeal=np==='seal';
+      const d=isSeal? Math.round(this.rv(A.six.筋力)*1.8)+25 : Math.round(this.rv(A.six.寶具)*1.6)+18;
+      B.hp=Math.max(0,B.hp-d);
+      beats.push(`〔${isSeal?'令咒・必中全力':'寶具解放'}〕${A.cls}${isSeal?'':'發動「'+A.np+'」'}造成 ${d} 傷害！　${entry.cls} HP ${B.hp}`); }
     let round=0;
     while(A.hp>0&&B.hp>0&&round<14){ round++;
       const aFast=this.rv(A.six.敏捷)>=this.rv(B.six.敏捷);
