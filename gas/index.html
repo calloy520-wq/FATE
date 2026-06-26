@@ -653,17 +653,20 @@ var App = {
     App.renderRoster(); App.renderMap(); App.renderQuick(); App.renderLoc(); App.renderInv(); },
   renderInv:function(){ var bar=document.getElementById('inv-bar'); if(!bar)return;
     var inv=(App.S.player.master.inventory)||[];
-    if(!inv.length){ bar.innerHTML='<span style="font-size:12px;color:var(--dim)">空（到市區「🛒 購物備糧」補給食物，點物品即食用）</span>'; return; }
+    if(!inv.length){ bar.innerHTML='<span style="font-size:12px;color:var(--dim)">空（到市區「🛒 購物備糧」補給食物／醫療品，點物品即用。醫院、車站有繃帶急救包）</span>'; return; }
     bar.innerHTML=inv.map(function(it){
-      var t=it.tier?('〔'+it.tier+'〕'):'';
-      return '<button class="btn sm" title="食用 '+it.name+t+'（飽足：每小時迴路回魔 +，品級越高效果越強越持久）" onclick="App.act(\'use\',{item:\''+it.key+'\'})">'+it.emoji+' '+it.name+'</button>';
-    }).join('')+'<span style="width:100%;font-size:11px;color:var(--dim)">物品欄 '+inv.length+'/5・點擊即食用（平價＜中等＜高級）</span>'; },
+      var isMed=it.kind==='med';
+      var tip=isMed?(it.name+'（醫療：'+(it.desc||'止血／回血')+'）'):(it.name+(it.tier?('〔'+it.tier+'〕'):'')+'（飽足：每小時迴路回魔 +，品級越高越強越持久）');
+      var act=isMed?'療傷':'食用';
+      return '<button class="btn sm" title="'+act+' '+tip+'" onclick="App.act(\'use\',{item:\''+it.key+'\'})">'+it.emoji+' '+it.name+'</button>';
+    }).join('')+'<span style="width:100%;font-size:11px;color:var(--dim)">物品欄 '+inv.length+'/5・點擊使用（🍙食物＝飽足回魔；🩹醫療＝止血回血）</span>'; },
   renderMana:function(){ var c=App.S.clock,b=document.getElementById('mana-box');
     b.innerHTML = c.mana_locked ? '<div style="background:#1c1320;border:1px solid var(--red);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--red2);margin-bottom:8px;text-align:center">♥ 補魔進行中・剩 '+c.mana_countdown+' 次對話（送出對話以推進）</div>' : ''; },
   renderClock:function(){ var c=App.S.clock,ph=(c.hour>=6&&c.hour<18)?'☀晝':'🌙夜';
     var buff=(Number(c.mana_countdown)>0)?(' 　<span style="color:#e58aa8" title="補魔加持：迴路回魔提升、靈基維持高出力">✨補魔加持 '+Number(c.mana_countdown)+'h</span>'):'';
-    var sat=(Number(c.satiety)>0)?(' 　<span style="color:#d6b86a" title="飽足：每小時迴路回魔額外 +（再吃可重置 8h）">🍙飽足 '+Number(c.satiety)+'h</span>'):'';
-    document.getElementById('clock-hud').innerHTML='<span>第 '+c.day+' 日　'+('0'+c.hour).slice(-2)+':00　'+ph+buff+sat+
+    var sat=(Number(c.satiety)>0)?(' 　<span style="color:#d6b86a" title="飽足：每小時迴路回魔額外 +（再吃可重置）">🍙飽足 '+Number(c.satiety)+'h</span>'):'';
+    var bld=(Number(c.bleed)>0)?(' 　<span style="color:#e06666" title="失血：每小時持續掉血（不致死，會自然止血）。用繃帶／急救包可立即止血">🩸失血 '+Number(c.bleed)+'h</span>'):'';
+    document.getElementById('clock-hud').innerHTML='<span>第 '+c.day+' 日　'+('0'+c.hour).slice(-2)+':00　'+ph+buff+sat+bld+
       '</span><span title="行動點：移動/偵查/戰鬥等耗時動作各 1 點，睡覺恢復" style="cursor:help">AP '+'●'.repeat(c.ap)+'○'.repeat(c.ap_max-c.ap)+'</span>'; },
   renderMaster:function(){ var m=App.S.player.master,e=App.S.economy;
     document.getElementById('master-box').innerHTML=

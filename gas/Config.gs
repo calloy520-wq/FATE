@@ -42,7 +42,7 @@ const HEADERS = {
   [SHEETS.MEMORY]:   ['event_id','game_id','turn','entity','fact_type','content','importance','write_ts'],
   [SHEETS.EVENTS]:   ['event_id','write_ts','game_id','day_count','time_hour','location_id','event_type',
                       'actor_id','target_id','log_text','is_global','importance'],
-  [SHEETS.CLOCK]:    ['game_id','day','hour','ap','ap_max','mana_countdown','mana_locked','satiety','satiety_lvl'],
+  [SHEETS.CLOCK]:    ['game_id','day','hour','ap','ap_max','mana_countdown','mana_locked','satiety','satiety_lvl','bleed'],
   [SHEETS.HISTORY]:  ['ts','ms_id','name','result','war','servant_cls','day','summary'],
   [SHEETS.GALLERY]:  ['ms_id','entry_id','servant_id','cls','realName','gender','six','skills','classSkills',
                       'traits','np','persona','align','bond','condition','active','source','log','created',
@@ -69,7 +69,16 @@ const TUNING = {
   SEP_PENALTY: 0.5,              // 分離供給衰減
   SEP_SOLO: 0.85,               // 單獨行動減免後
   // 戰鬥
-  HP_REGEN_K: 0.1,               // 每小時HP緩回 = 耐久*HP_REGEN_K
+  HP_REGEN_K: 0.1,               // 從者每小時HP緩回 = 耐久*HP_REGEN_K（修復耗自身靈基魔力）
+  SV_HEAL_MP: 0.5,               // 從者自癒：每回 1 HP 消耗自身靈基魔力（靈基→肉體修復）
+  SV_REST_HEAL: 1.8,             // 休息時從者自癒速率倍率
+  // 御主受傷／失血／療養
+  MASTER_HP_REGEN: 1,            // 御主每小時自然回血（凡人癒合慢；未失血時）
+  MASTER_REST_HP: 4,             // 休息時御主每小時額外回血
+  MASTER_REST_MANA: 1.5,         // 休息時御主迴路回魔倍率
+  BLEED_TRIGGER: 14,             // 御主單擊受創 ≥ 此值 → 進入「失血」狀態
+  BLEED_HOURS: 5,                // 失血持續時數（不處理會自然止血，但這期間持續掉血）
+  BLEED_DMG: 3,                  // 失血期間每小時掉血（不會掉到 0；繃帶可立即止血）
   COMBAT_MP: 0.12,               // 普通交戰耗魔比例
   NP_MP: 0.35,                   // 寶具解放額外耗魔比例
   NP_CHARGE: 0.9,                // 寶具解放門檻：靈基須先充能至此比例（出力全開）；令咒強制可繞過

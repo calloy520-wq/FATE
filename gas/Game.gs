@@ -204,7 +204,7 @@ function newGame(opts){
                                .map(function(r){ return r.slot; });
   appendObjs_(SHEETS.BATTLE, rows);
   appendObj_(SHEETS.CLOCK, { game_id:gameId, day:1, hour:20, ap:TUNING.AP_PER_DAY,
-                             ap_max:TUNING.AP_PER_DAY, mana_countdown:0, mana_locked:false, satiety:0, satiety_lvl:0 });
+                             ap_max:TUNING.AP_PER_DAY, mana_countdown:0, mana_locked:false, satiety:0, satiety_lvl:0, bleed:0 });
   var pp = parts.filter(function(x){ return x.isPlayer; })[0];
   var wish = (pp && pp.wish) || (opts.profile && opts.profile.wish) || '';   // 正史扮演用正典願望
   // 御主人設（餵 AI 用）：自創帶性別/個性/出身；正史扮演則用御主殿的 persona
@@ -282,7 +282,7 @@ function playerView_(p){
     master:{ name:p.master_name, magic:p.magic, hp:p.master_hp, hpMax:p.master_hp_max,
              mp:p.master_mp, mpMax:p.master_mp_max, seals:p.seals, melee:p.melee, magicRank:p.magic_rank,
              circuits:p.circuits, location:p.location,
-             inventory: invOf_(p).map(function(k){ var f=FOOD_[k]; return { key:k, emoji:f?f.emoji:'❓', name:f?f.name:k, tier:f?foodTier_(k).label:'' }; }) },
+             inventory: invOf_(p).map(function(k){ var d=itemDef_(k); return { key:k, emoji:d?d.emoji:'❓', name:d?d.name:k, kind:d?d.kind:'', tier:(d&&d.kind==='food')?foodTier_(k).label:'', desc:(d&&d.desc)?d.desc:'' }; }) },
     servant:{ cls:hero ? hero.cls : '？', servantId:p.servant_id, realName:hero?hero.realName:'', gender:hero?(hero.gender||''):'',
               trueNameKnown:p.true_name_known, hp:p.sv_hp, hpMax:p.sv_hp_max, mp:p.sv_mp, mpMax:p.sv_mp_max,
               upkeep:p.upkeep, bond:p.bond, six: hero?heroFromRow_(hero).six:{}, np:hero?hero.np:'',
@@ -658,10 +658,18 @@ function masterPeril_(gameId, player, enemy, clock){
     player.master_hp = Math.max(0, player.master_hp - dmg);
   }
   updateRow_(SHEETS.BATTLE, player._row, { master_hp:player.master_hp });
+  bleedFromHit_(clock, dmg);   // 重創 → 失血狀態（每小時掉血，繃帶可止血）
   logEvent_(gameId, clock.day, pad2_(clock.hour)+':00', player.location, 'MASTER_HIT',
     'slot_'+(enemy.slot-1), 'slot_0',
     (eHero?eHero.cls:'敵從者')+' 襲擊御主 '+player.master_name+(nearFatal?'，將其重創至命懸一線':'，造成 '+dmg+' 傷害'), false, 1);
   return nearFatal;
+}
+
+// 受創達門檻 → 進入／延長「失血」狀態，並即時寫回時鐘（clock 可能來自 npcTick 的 fresh 物件）
+function bleedFromHit_(clock, dmg){
+  if(!clock || dmg < (TUNING.BLEED_TRIGGER || 14)) return;
+  clock.bleed = Math.max(Number(clock.bleed)||0, TUNING.BLEED_HOURS || 5);
+  if(clock._row) updateRow_(SHEETS.CLOCK, clock._row, { bleed: clock.bleed });
 }
 
 // NPC 間短兵交手（3 回合互毆、低致命，HP 歸 0 才死）
@@ -704,13 +712,14 @@ function manaChat_(p, clock, text){
 // 餘裕時御主迴路會把從者靈基回充到「自然上限 80%」，最後 20% 需供給/補魔/獵魔。
 var BLEED_TURN_ = 0;   // 累計本回合靈基反噬汲取的御主生命，供 doAction 提示
 // 單一小時的經濟結算（推進 1 小時 + 供需鏈 + 從者靈基緩回）。advanceTime_ 與 act_rest_ 共用。
-function tickHour_(p, clock, con){
+function tickHour_(p, clock, con, resting){
   clock.hour++; if(clock.hour>=24){ clock.hour=0; clock.day++; }
   var e = playerEconomy_(p);
   if(Number(clock.mana_countdown) > 0){                  // 補魔加持：回魔提升、逐時遞減
     e.ms = Math.round(e.ms * (TUNING.MANA_REGEN_MULT || 1.5));
     clock.mana_countdown = Number(clock.mana_countdown) - 1;
   }
+  if(resting) e.ms = Math.round(e.ms * (TUNING.MASTER_REST_MANA || 1.5));  // 休息：御主回魔提升
   if(Number(clock.satiety) > 0){                          // 飽足：迴路回魔額外 +（依食物品級）；逐時遞減（不疊加）
     e.ms += (Number(clock.satiety_lvl) || TUNING.SATIETY_REGEN || 2);
     clock.satiety = Number(clock.satiety) - 1;
@@ -729,7 +738,24 @@ function tickHour_(p, clock, con){
     var addFree = Math.min(freeLeft, room); p.sv_mp += addFree; room -= addFree;
     var addM = Math.min(p.master_mp, TUNING.SV_TOPUP, room); p.sv_mp += addM; p.master_mp -= addM;
   }
-  if(!starving && p.sv_hp < p.sv_hp_max) p.sv_hp = Math.min(p.sv_hp_max, p.sv_hp + Math.round(con*TUNING.HP_REGEN_K));  // 4) HP 緩回
+  // 4) 從者 HP 緩回 —— 動用自身靈基魔力修復肉體（沒魔力就癒得慢）；休息時修復更快
+  if(!starving && p.sv_hp < p.sv_hp_max){
+    var heal = Math.round(con * TUNING.HP_REGEN_K);
+    if(resting) heal = Math.round(heal * (TUNING.SV_REST_HEAL || 1.8));
+    var cost = Math.ceil(heal * (TUNING.SV_HEAL_MP || 0.5));      // 靈基→肉體修復的魔力代價
+    var pay = Math.min(p.sv_mp, cost);
+    var realHeal = (cost > 0) ? Math.round(heal * (pay / cost)) : heal;
+    p.sv_hp = Math.min(p.sv_hp_max, p.sv_hp + realHeal);
+    p.sv_mp = Math.max(0, p.sv_mp - pay);
+  }
+  // 5) 御主：失血狀態持續掉血（不致死、底限 1）；未失血時自然癒合，休息時更快
+  if(Number(clock.bleed) > 0){
+    p.master_hp = Math.max(1, p.master_hp - (TUNING.BLEED_DMG || 3));
+    clock.bleed = Number(clock.bleed) - 1;
+  } else if(p.master_hp < p.master_hp_max){
+    var mhp = (TUNING.MASTER_HP_REGEN || 1) + (resting ? (TUNING.MASTER_REST_HP || 4) : 0);
+    p.master_hp = Math.min(p.master_hp_max, p.master_hp + mhp);
+  }
 }
 
 function advanceTime_(p, clock, hero, apCost){
@@ -737,10 +763,10 @@ function advanceTime_(p, clock, hero, apCost){
   for(var i=0;i<apCost;i++){
     if(clock.ap<=0) break;
     clock.ap--;
-    for(var h=0;h<TUNING.HOURS_PER_AP;h++) tickHour_(p, clock, con);
+    for(var h=0;h<TUNING.HOURS_PER_AP;h++) tickHour_(p, clock, con, false);
   }
   // 具名更新（非整列）：manaChat_ 等會以 updateRow_ 改 clock mana 欄而不動記憶體物件，整列覆寫會回寫舊值。
-  updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap, mana_countdown:Math.max(0,Number(clock.mana_countdown)||0), satiety:Math.max(0,Number(clock.satiety)||0), satiety_lvl:Math.max(0,Number(clock.satiety_lvl)||0) });
+  updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap, mana_countdown:Math.max(0,Number(clock.mana_countdown)||0), satiety:Math.max(0,Number(clock.satiety)||0), satiety_lvl:Math.max(0,Number(clock.satiety_lvl)||0), bleed:Math.max(0,Number(clock.bleed)||0) });
   updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, sv_hp:p.sv_hp, master_mp:p.master_mp, master_hp:p.master_hp });
 }
 
@@ -1043,7 +1069,7 @@ function act_snipe_(rows, p, clock, hero){
   p.sv_mp = Math.max(0, p.sv_mp-cost);
   // 御主暴露：直面敵從者、身邊無護衛 → 若敵未死，敵從者反手揮向御主（這就是遠程支援的代價）
   var counter=0;
-  if(!killed){ counter = Math.round(rankVal(B.six.筋力)*0.4)+5; p.master_hp = Math.max(0, p.master_hp-counter); }
+  if(!killed){ counter = Math.round(rankVal(B.six.筋力)*0.4)+5; p.master_hp = Math.max(0, p.master_hp-counter); bleedFromHit_(clock, counter); }
   updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, bond:p.bond, master_hp:p.master_hp });
   updateRow_(SHEETS.BATTLE, target._row, { sv_hp:target.sv_hp, alive:target.alive, status:target.status });
   advanceTime_(p, clock, hero, 1);
@@ -1157,43 +1183,64 @@ var FOOD_ = {                                   // key → {emoji, name, tier}
   steak:   { emoji:'🥩', name:'牛排',   tier:'high'  },
   cake:    { emoji:'🍰', name:'蛋糕',   tier:'high'  }
 };
-// 各地區販售的品項（決定能買到的品級）：車站便利商店最便宜、新都百貨／餐廳最高級。
+// 醫療道具（御主用）：止血／回血。kind:'med'。
+var MED_ = {
+  bandage:  { emoji:'🩹', name:'繃帶',   kind:'med', heal:5,  stopBleed:true,  desc:'立即止血、小幅回血' },
+  firstaid: { emoji:'🧰', name:'急救包', kind:'med', heal:25, stopBleed:true,  desc:'止血並回復較多 HP' }
+};
+// 各地區販售的品項（決定能買到的品級）：車站便利商店最便宜、新都百貨／餐廳最高級；醫院／車站有醫療品。
 var SHOP_STOCK_ = {
-  station:   ['riceball','bread','energy'],            // 車站・便利商店：平價
+  station:   ['riceball','bread','energy','bandage'],  // 車站・便利商店：平價食物＋繃帶
   apartment: ['riceball','bento','ramen'],             // 公寓・超市自炊：平價～中等
   arcade:    ['bento','ramen','taiyaki'],              // 商店街：中等小吃
-  hospital:  ['bento','energy','ramen'],               // 醫院・院內餐廳：中等
+  hospital:  ['firstaid','bandage','bento'],           // 醫院：醫療品為主＋餐廳餐點
   shinto:    ['sushi','steak','cake']                  // 新都・百貨餐廳：高級
 };
+var SHOP_BATCH_ = 3;   // 一趟購物備糧最多進貨數（1 AP）
 function invOf_(p){ return Array.isArray(p.inventory) ? p.inventory : []; }
 function foodTier_(item){ var f=FOOD_[item]; var t=f&&f.tier; return (TUNING.SATIETY_TIERS&&TUNING.SATIETY_TIERS[t]) || { regen:TUNING.SATIETY_REGEN||2, hours:TUNING.SATIETY_HOURS||8, label:'' }; }
+function itemDef_(key){ if(FOOD_[key]) return Object.assign({ kind:'food' }, FOOD_[key]); if(MED_[key]) return MED_[key]; return null; }
 
-// 購物：在市區補給食物進物品欄（5 格上限）。不用錢，用「5 格＋1AP＋地區品級」節制。
+// 購物：在市區補給進物品欄（5 格上限）。一趟最多進 SHOP_BATCH_ 件（不再一次只買一個），1 AP。不用錢。
 function act_shop_(p, clock, hero){
   var stock = SHOP_STOCK_[p.location];
   if(!stock || !stock.length)
-    return '（這附近沒有商店——到新都／商店街／公寓／車站／醫院一帶才買得到吃的。）';
+    return '（這附近沒有商店——到新都／商店街／公寓／車站／醫院一帶才買得到補給。）';
   if(clock.ap < 1) return '（行動點不足，請休息恢復。）';
   var inv = invOf_(p).slice();
-  if(inv.length >= 5) return '（物品欄已滿（5 格）——先吃掉一些再補貨。）';
-  var got = stock[Math.floor(Math.random()*stock.length)];
-  inv.push(got); p.inventory = inv;
-  var f = FOOD_[got], tier = foodTier_(got);
+  if(inv.length >= 5) return '（物品欄已滿（5 格）——先用掉一些再補貨。）';
+  var room = 5 - inv.length, n = Math.min(SHOP_BATCH_, room), got = [];
+  for(var i=0;i<n;i++){ var k = stock[Math.floor(Math.random()*stock.length)]; inv.push(k); got.push(k); }
+  p.inventory = inv;
   updateRow_(SHEETS.BATTLE, p._row, { inventory: inv });
   advanceTime_(p, clock, hero, 1);
+  var label = got.map(function(k){ var d=itemDef_(k); return d ? (d.emoji+d.name) : k; }).join('、');
   return { kind:'scene',
-    prompt:'我（'+p.master_name+'）在'+locName_(p.location)+'的店家補給了些吃食（'+tier.label+'的'+f.name+'）。請寫一段簡短、有生活感的採買小敘述，可帶出我的家世財力氣場。',
-    suffix:'\n（購入 '+f.emoji+f.name+'〔'+tier.label+'〕　物品欄 '+inv.length+'/5）' };
+    prompt:'我（'+p.master_name+'）在'+locName_(p.location)+'的店家採買補給（'+label+'）。請寫一段簡短、有生活感的採買小敘述，可帶出我的家世財力氣場。',
+    suffix:'\n（採購 '+label+'　物品欄 '+inv.length+'/5）' };
 }
 
-// 使用物品（目前皆為食物 → 飽足 buff，效果依品級）。點物品欄即呼叫。
+// 使用物品（食物→飽足 buff；醫療→止血／回血）。點物品欄即呼叫。
 function act_use_(p, clock, item){
   var inv = invOf_(p).slice();
   var idx = inv.indexOf(item);
   if(idx < 0) return '（物品欄沒有這個東西。）';
-  var f = FOOD_[item];
-  if(!f) return '（這個物品現在還無法使用。）';
-  var tier = foodTier_(item);
+  var d = itemDef_(item);
+  if(!d) return '（這個物品現在還無法使用。）';
+  if(d.kind === 'med'){            // 醫療：止血＋回血
+    if(p.master_hp >= p.master_hp_max && !(Number(clock.bleed)>0))
+      return '（我目前並無傷勢，毋需' + d.name + '。）';
+    var before = p.master_hp, wasBleeding = Number(clock.bleed)>0;
+    if(d.stopBleed && wasBleeding){ clock.bleed = 0; updateRow_(SHEETS.CLOCK, clock._row, { bleed: 0 }); }
+    if(d.heal){ p.master_hp = Math.min(p.master_hp_max, p.master_hp + d.heal); }
+    inv.splice(idx, 1); p.inventory = inv;
+    updateRow_(SHEETS.BATTLE, p._row, { inventory: inv, master_hp: p.master_hp });
+    var gained = p.master_hp - before;
+    return { kind:'scene',
+      prompt:'我（'+p.master_name+'）用'+d.name+'處理傷口'+(wasBleeding?'、止住了不斷滲血的傷勢':'')+'。請寫一段簡短、有臨場感的療傷小敘述（可帶出我的個性與當下心境）。',
+      suffix:'\n（'+d.emoji+d.name+'：'+(wasBleeding?'已止血　':'')+(gained>0?('御主 HP +'+gained+'（'+p.master_hp+'/'+p.master_hp_max+'）　'):'')+'物品欄 '+inv.length+'/5）' };
+  }
+  var tier = foodTier_(item), f = d;       // 食物
   inv.splice(idx, 1); p.inventory = inv;
   clock.satiety = tier.hours; clock.satiety_lvl = tier.regen;
   updateRow_(SHEETS.BATTLE, p._row, { inventory: inv });
@@ -1338,10 +1385,10 @@ function act_rest_(p, clock, hero, hours){
   if(clock.ap >= clock.ap_max) return '（行動點已滿，毋需休息。）';
   hours = Math.max(1, Math.min(6, parseInt(hours, 10) || 6));   // 單次最多 6 小時
   var con = rankVal(hero ? heroFromRow_(hero).six.耐久 : 'C');
-  for(var i=0;i<hours;i++) tickHour_(p, clock, con);            // 每小時跑經濟（HP/魔力自然恢復、補魔加持遞減）
+  for(var i=0;i<hours;i++) tickHour_(p, clock, con, true);      // 每小時跑經濟（休息：御主回血回魔提升、從者修復加速）
   clock.ap = Math.min(clock.ap_max, clock.ap + hours*2);
   var ambush = ambushDuringRest_(p, clock, hours);             // 休息中可能遭突襲（回事件字串或 ''）
-  updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap, mana_countdown:Math.max(0,Number(clock.mana_countdown)||0), satiety:Math.max(0,Number(clock.satiety)||0), satiety_lvl:Math.max(0,Number(clock.satiety_lvl)||0) });
+  updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap, mana_countdown:Math.max(0,Number(clock.mana_countdown)||0), satiety:Math.max(0,Number(clock.satiety)||0), satiety_lvl:Math.max(0,Number(clock.satiety_lvl)||0), bleed:Math.max(0,Number(clock.bleed)||0) });
   updateRow_(SHEETS.BATTLE, p._row, { sv_hp:p.sv_hp, sv_mp:p.sv_mp, master_mp:p.master_mp, master_hp:p.master_hp });
   // 長休（≥4h）且未遭襲 → 機率夢見從者過往（含英靈自白）
   if(!ambush && hero && hours>=4 && Math.random() < (TUNING.DREAM_CHANCE || 0.12)){
