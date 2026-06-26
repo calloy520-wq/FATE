@@ -104,6 +104,25 @@
   .soon{font-size:11px;color:var(--dim);border:1px dashed var(--line);border-radius:6px;padding:2px 8px}
   .summon-fx{font-size:60px;text-align:center;animation:pulse 1.2s infinite}
   @keyframes pulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
+
+  /* zone labels on map */
+  .zone-lbl{font-size:12px;fill:#5b5470;letter-spacing:.2em;pointer-events:none}
+
+  /* ===== 手機 RWD：三欄 → 分頁切換 ===== */
+  .mobile-tabs{display:none}
+  @media(max-width:760px){
+    .title-main{font-size:30px}
+    .card{width:92vw!important;max-width:430px}
+    #scr-game{grid-template-columns:1fr}
+    .col{display:none;width:100%;height:calc(100vh - 54px);border:none!important}
+    .col.active{display:block}
+    #log{height:calc(100vh - 250px)}
+    .mobile-tabs{display:flex;position:fixed;bottom:0;left:0;right:0;height:54px;z-index:60;
+      background:var(--panel);border-top:1px solid var(--line)}
+    .mobile-tabs button{flex:1;background:none;border:none;color:var(--dim);
+      font-size:13px;padding-top:6px}
+    .mobile-tabs button.active{color:var(--gold2);box-shadow:inset 0 2px 0 var(--gold)}
+  }
 </style>
 </head>
 <body>
@@ -197,7 +216,7 @@
   </div>
 
   <!-- 右：敘述/聊天 -->
-  <div class="col" id="col-chat">
+  <div class="col active" id="col-chat">
     <div class="sec-h">聖杯戰爭・第五次</div>
     <div id="log"></div>
     <div id="mana-box"></div>
@@ -208,6 +227,13 @@
       <button class="btn primary" onclick="App.send()">送出</button>
     </div>
   </div>
+
+  <!-- 手機分頁列（桌面隱藏） -->
+  <nav class="mobile-tabs">
+    <button data-t="status" onclick="App.tab('status')">狀態</button>
+    <button data-t="map" onclick="App.tab('map')">地圖</button>
+    <button data-t="chat" class="active" onclick="App.tab('chat')">對話</button>
+  </nav>
 </section>
 
 <script>
@@ -254,6 +280,14 @@ const App = {
 
   go(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.add('hidden'));
           document.getElementById(id).classList.remove('hidden'); },
+
+  // 手機分頁切換（桌面三欄一律顯示，不受影響）
+  tab(name){
+    document.querySelectorAll('#scr-game .col').forEach(c=>c.classList.remove('active'));
+    document.getElementById('col-'+name).classList.add('active');
+    document.querySelectorAll('.mobile-tabs button').forEach(b=>
+      b.classList.toggle('active', b.dataset.t===name));
+  },
 
   login(){
     const a=document.getElementById('in-account').value.trim();
@@ -347,6 +381,19 @@ const App = {
 
   renderMap(){
     const L=SERVER.locations, here=this.state.here;
+    const backdrop=`
+      <rect x="0" y="0" width="700" height="440" fill="#0a0810"/>
+      <ellipse cx="520" cy="210" rx="170" ry="135" fill="#13243f" opacity=".4"/>
+      <ellipse cx="270" cy="360" rx="150" ry="115" fill="#10261a" opacity=".4"/>
+      <ellipse cx="600" cy="95"  rx="95"  ry="80"  fill="#2a1414" opacity=".45"/>
+      <path d="M360,-10 C420,110 340,190 395,290 C430,360 375,420 415,450"
+            fill="none" stroke="#1b3a55" stroke-width="16" opacity=".55"/>
+      <path d="M360,-10 C420,110 340,190 395,290 C430,360 375,420 415,450"
+            fill="none" stroke="#2a5478" stroke-width="3" opacity=".5"/>
+      <text class="zone-lbl" x="470" y="120">新 都</text>
+      <text class="zone-lbl" x="200" y="300">舊 市 區</text>
+      <text class="zone-lbl" x="560" y="50">靈 地</text>
+      <text class="zone-lbl" x="300" y="200" transform="rotate(78 300 200)">未 遠 川</text>`;
     const lines=L.flatMap(l=>l.adj.map(a=>{
       const t=L.find(x=>x.id===a); if(!t||a<l.id) return '';
       return `<line x1="${l.x}" y1="${l.y}" x2="${t.x}" y2="${t.y}" stroke="#2a2440" stroke-width="2"/>`;
@@ -359,7 +406,7 @@ const App = {
         <text x="${l.x+12}" y="${l.y+4}">${l.name}</text></g>`;
     }).join('');
     document.getElementById('map-wrap').innerHTML=
-      `<svg viewBox="0 0 700 440">${lines}${dots}</svg>`;
+      `<svg viewBox="0 0 700 440">${backdrop}${lines}${dots}</svg>`;
     this.renderLocInfo();
   },
   renderLocInfo(){
