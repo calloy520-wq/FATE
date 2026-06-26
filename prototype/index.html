@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>命運停駐之夜 — 聖杯戰爭（介面原型）</title>
+<style>
+  :root{
+    --bg:#0d0b14; --panel:#16131f; --panel2:#1f1a2b; --line:#2e2740;
+    --gold:#c8a24a; --gold2:#e7c873; --red:#a33b3b; --red2:#d65c5c;
+    --txt:#e8e4f0; --dim:#9b93ad; --blue:#5c84d6; --good:#5fae6e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
+       background:radial-gradient(1200px 800px at 70% -10%,#1a1326,#0d0b14 60%);
+       color:var(--txt);height:100vh;overflow:hidden}
+  h1,h2,h3{font-weight:700;letter-spacing:.04em}
+  button{font-family:inherit;cursor:pointer}
+  .hidden{display:none!important}
+
+  /* screen system */
+  .screen{position:absolute;inset:0;display:flex;flex-direction:column;
+          align-items:center;justify-content:center;padding:24px;animation:fade .4s}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  .card{background:linear-gradient(180deg,var(--panel2),var(--panel));
+        border:1px solid var(--line);border-radius:14px;padding:28px;
+        box-shadow:0 18px 60px rgba(0,0,0,.5)}
+  .title-main{font-size:40px;color:var(--gold2);text-shadow:0 0 24px rgba(200,162,74,.35);margin:0}
+  .title-sub{color:var(--dim);letter-spacing:.5em;margin:6px 0 0;font-size:13px}
+
+  label{display:block;font-size:13px;color:var(--dim);margin:14px 0 6px}
+  input,select,textarea{width:100%;background:#0f0d17;border:1px solid var(--line);
+        color:var(--txt);border-radius:8px;padding:10px 12px;font-size:14px;outline:none}
+  input:focus,select:focus,textarea:focus{border-color:var(--gold)}
+
+  .btn{background:linear-gradient(180deg,#2b2338,#201a2c);border:1px solid var(--gold);
+       color:var(--gold2);border-radius:9px;padding:11px 18px;font-size:15px;
+       transition:.15s;font-weight:600}
+  .btn:hover{background:linear-gradient(180deg,#3a2f4d,#2a2238);box-shadow:0 0 18px rgba(200,162,74,.25)}
+  .btn.primary{background:linear-gradient(180deg,#9a3a3a,#7d2c2c);border-color:var(--red2);color:#ffe}
+  .btn.primary:hover{box-shadow:0 0 20px rgba(214,92,92,.4)}
+  .btn.ghost{border-color:var(--line);color:var(--dim)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn.sm{padding:7px 12px;font-size:13px}
+
+  /* ===== Game layout ===== */
+  #scr-game{padding:0;display:grid;grid-template-columns:300px 1fr 380px;gap:0;
+            align-items:stretch;justify-content:stretch}
+  .col{height:100vh;overflow-y:auto;border-right:1px solid var(--line);padding:14px}
+  .col:last-child{border-right:none;border-left:1px solid var(--line)}
+  .col::-webkit-scrollbar{width:8px}.col::-webkit-scrollbar-thumb{background:#2c2640;border-radius:8px}
+
+  .sec-h{font-size:12px;color:var(--gold);letter-spacing:.2em;border-bottom:1px solid var(--line);
+         padding-bottom:6px;margin:18px 0 10px;text-transform:uppercase}
+  .sec-h:first-child{margin-top:4px}
+
+  .stat-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px dotted #251f33}
+  .bar{height:7px;border-radius:6px;background:#221c30;overflow:hidden;margin-top:4px}
+  .bar > i{display:block;height:100%;border-radius:6px}
+  .hp > i{background:linear-gradient(90deg,#8a2b2b,#d65c5c)}
+  .mp > i{background:linear-gradient(90deg,#2c4f8a,#5c84d6)}
+
+  .six{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}
+  .six .g{background:#100e18;border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center}
+  .six .g b{display:block;font-size:18px;color:var(--gold2)}
+  .six .g span{font-size:11px;color:var(--dim)}
+
+  .tag{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:20px;
+       padding:3px 9px;margin:3px 3px 0 0;color:#cdbbe6;background:#160f22}
+  .tag.cls{border-color:#3a5a8a;color:#9fc0ef}
+  .tag.skl{border-color:#6a4f2a;color:var(--gold2)}
+  .tag.trait{border-color:#6a2a2a;color:var(--red2)}
+  .tag .r{opacity:.7;margin-left:3px;font-weight:700}
+
+  /* map */
+  #map-wrap{position:relative}
+  svg{width:100%;height:auto;display:block;background:#0a0810;border-radius:10px;border:1px solid var(--line)}
+  .loc{cursor:pointer}
+  .loc circle{transition:.15s}
+  .loc:hover circle{r:11;filter:drop-shadow(0 0 8px var(--gold))}
+  .loc text{font-size:11px;fill:#cdc4dd;pointer-events:none}
+  .loc.here circle{stroke:var(--gold2);stroke-width:3}
+  .danger-safe{fill:#3f6f47}.danger-mid{fill:#9a7b32}.danger-high{fill:#9a3a3a}
+
+  /* chat / narration */
+  #log{height:calc(100vh - 200px);overflow-y:auto;padding-right:6px}
+  .msg{margin:10px 0;line-height:1.6;font-size:14px}
+  .msg.sys{color:var(--dim);font-size:12px;text-align:center;border-top:1px dotted #2a2438;padding-top:8px}
+  .msg.ai{background:#140f1f;border-left:3px solid var(--gold);border-radius:8px;padding:10px 12px}
+  .msg.me{background:#161a26;border-left:3px solid var(--blue);border-radius:8px;padding:10px 12px}
+  .msg.event{background:#1c1320;border:1px solid var(--red);border-radius:8px;padding:10px 12px;color:#f0d6d6}
+  .msg .who{font-size:11px;color:var(--dim);margin-bottom:3px}
+
+  .inrow{display:flex;gap:8px;margin-top:10px}
+  .inrow textarea{resize:none;height:54px}
+  .quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+
+  .topbar{position:absolute;top:0;left:0;right:0;height:0}
+  .badge{position:fixed;top:10px;right:14px;font-size:11px;color:var(--dim);z-index:50}
+  .mana-timer{background:#1c1320;border:1px solid var(--red);border-radius:8px;padding:8px 10px;
+              font-size:12px;color:var(--red2);margin-top:8px;text-align:center}
+  .menu-list{display:flex;flex-direction:column;gap:12px;width:280px;margin-top:24px}
+  .soon{font-size:11px;color:var(--dim);border:1px dashed var(--line);border-radius:6px;padding:2px 8px}
+  .summon-fx{font-size:60px;text-align:center;animation:pulse 1.2s infinite}
+  @keyframes pulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
+</style>
+</head>
+<body>
+<div class="badge" id="badge">原型模式（mock 資料）</div>
+
+<!-- ===================== 登入 ===================== -->
+<section class="screen" id="scr-login">
+  <div style="text-align:center;margin-bottom:10px">
+    <h1 class="title-main">命運停駐之夜</h1>
+    <p class="title-sub">F A T E &nbsp;/&nbsp; S T A Y &nbsp; N I G H T</p>
+  </div>
+  <div class="card" style="width:340px">
+    <label>帳號名稱（無密碼，輸入即登入）</label>
+    <input id="in-account" placeholder="例如：遠坂玩家01" autocomplete="off">
+    <button class="btn primary" style="width:100%;margin-top:18px" onclick="App.login()">進　入</button>
+  </div>
+</section>
+
+<!-- ===================== 主選單 ===================== -->
+<section class="screen hidden" id="scr-menu">
+  <h1 class="title-main">聖杯戰爭</h1>
+  <p class="title-sub" id="menu-greet"></p>
+  <div class="menu-list">
+    <button class="btn primary" onclick="App.startSingle()">單人遊玩</button>
+    <button class="btn" disabled>多人連線 &nbsp;<span class="soon">入口・敬請期待</span></button>
+    <button class="btn ghost" onclick="App.go('scr-login')">登出</button>
+  </div>
+</section>
+
+<!-- ===================== 建立御主 ===================== -->
+<section class="screen hidden" id="scr-create">
+  <div class="card" style="width:420px;max-height:92vh;overflow:auto">
+    <h2 style="margin:0 0 4px;color:var(--gold2)">建立御主</h2>
+    <p style="color:var(--dim);font-size:12px;margin:0">數值由 GAS 依你的設定換算（此處為示意）</p>
+    <label>姓名</label><input id="m-name" placeholder="衛宮 切嗣">
+    <div style="display:flex;gap:10px">
+      <div style="flex:1"><label>性別</label>
+        <select id="m-sex"><option>男</option><option>女</option><option>其他</option></select></div>
+      <div style="flex:1"><label>年齡</label><input id="m-age" type="number" value="17"></div>
+    </div>
+    <label>出身／背景</label>
+    <input id="m-origin" placeholder="例：沒落魔術名門的繼承人">
+    <label>魔術系統</label>
+    <select id="m-magic">
+      <option>強化（身體強化）</option><option>投影／固有結界</option>
+      <option>寶石魔術</option><option>使魔／召喚</option><option>咒術</option><option>時間操作（自訂）</option>
+    </select>
+    <label>魔術迴路數（影響起始魔力）</label>
+    <input id="m-circuits" type="range" min="10" max="60" value="30" oninput="document.getElementById('cv').textContent=this.value">
+    <div style="text-align:right;color:var(--gold2)" id="cv">30</div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn ghost" style="flex:1" onclick="App.go('scr-menu')">返回</button>
+      <button class="btn primary" style="flex:2" onclick="App.createMaster()">確認，進行召喚</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 召喚從者 ===================== -->
+<section class="screen hidden" id="scr-summon">
+  <div class="card" style="width:460px;text-align:center">
+    <h2 style="color:var(--gold2);margin-top:0">召喚儀式</h2>
+    <p style="color:var(--dim);font-size:13px">選擇聖遺物（催媒）——它會影響召喚出的職階傾向。<br>實際抽選由 GAS 決定，AI 只負責演出。</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0">
+      <button class="btn sm" onclick="App.pickCatalyst('劍鞘碎片','Saber',this)">劍鞘碎片</button>
+      <button class="btn sm" onclick="App.pickCatalyst('古老的弓弦','Archer',this)">古老的弓弦</button>
+      <button class="btn sm" onclick="App.pickCatalyst('染血的長槍','Lancer',this)">染血的長槍</button>
+      <button class="btn sm" onclick="App.pickCatalyst('無（隨機）','random',this)">不使用催媒</button>
+    </div>
+    <div id="summon-stage" style="min-height:90px"></div>
+    <button class="btn primary" id="summon-go" style="width:100%;margin-top:8px" disabled onclick="App.summon()">詠唱召喚咒文</button>
+  </div>
+</section>
+
+<!-- ===================== 主遊戲 ===================== -->
+<section class="screen hidden" id="scr-game">
+  <!-- 左：狀態 -->
+  <div class="col" id="col-status">
+    <div class="sec-h">御主</div>
+    <div id="master-box"></div>
+    <div class="sec-h">從者</div>
+    <div id="servant-box"></div>
+  </div>
+
+  <!-- 中：地圖 -->
+  <div class="col" id="col-map">
+    <div class="sec-h">冬木市地圖</div>
+    <div id="map-wrap"></div>
+    <p style="color:var(--dim);font-size:12px;margin-top:10px">點擊相鄰地點移動（消耗回合）。當前位置以金框標示。</p>
+    <div class="sec-h">所在地資訊</div>
+    <div id="loc-info" style="font-size:13px;color:var(--dim)"></div>
+  </div>
+
+  <!-- 右：敘述/聊天 -->
+  <div class="col" id="col-chat">
+    <div class="sec-h">聖杯戰爭・第五次</div>
+    <div id="log"></div>
+    <div id="mana-box"></div>
+    <div class="quick" id="quick-actions"></div>
+    <div class="inrow">
+      <textarea id="in-msg" placeholder="輸入行動或對話…（自由文字，由 AI 判斷意圖 → GAS 判定）"
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();App.send()}"></textarea>
+      <button class="btn primary" onclick="App.send()">送出</button>
+    </div>
+  </div>
+</section>
+
+<script>
+/* =========================================================================
+   SERVER：模擬 GAS 後端。實際接 GAS 時，把這個物件換成
+   google.script.run.xxx 的封裝即可（介面層完全不用改）。
+   ========================================================================= */
+const SERVER = {
+  // 冬木市定點（之後存 Locations 試算表）
+  locations: [
+    {id:'church',  name:'冬木教會', x:420,y:170, danger:'safe', adj:['shinto','park'], desc:'監督者所在的中立地帶，禁止戰鬥。'},
+    {id:'ryuudou', name:'柳洞寺',   x:600,y:80,  danger:'high', adj:['shinto'],         desc:'山上靈地，魔力濃厚，常有從者據守。'},
+    {id:'tohsaka', name:'遠坂宅邸', x:300,y:300, danger:'mid',  adj:['miyama','shinto'],desc:'名門魔術師的據點，結界森嚴。'},
+    {id:'emiya',   name:'衛宮宅邸', x:240,y:380, danger:'safe', adj:['miyama'],         desc:'郊外的日式宅院，相對安全。'},
+    {id:'shinto',  name:'新都',     x:450,y:240, danger:'mid',  adj:['church','bridge','tohsaka','park'],desc:'繁華商業區，夜間人煙稀少。'},
+    {id:'miyama',  name:'深山町',   x:280,y:350, danger:'safe', adj:['emiya','tohsaka'],desc:'舊市區住宅地。'},
+    {id:'bridge',  name:'冬木大橋', x:460,y:320, danger:'mid',  adj:['shinto','miyama'],desc:'連接新舊市區的長橋，視野開闊。'},
+    {id:'park',    name:'冬木公園', x:520,y:190, danger:'mid',  adj:['church','shinto'],desc:'開闊綠地，適合正面交鋒。'},
+  ],
+  // 從者模板（之後存 ServantTemplates 試算表）—示意 2 隻
+  servantPool: {
+    Saber:{cls:'Saber',name:'???（劍之從者）',realName:'阿爾托莉雅',
+      six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'A',幸運:'A',寶具:'A+'},
+      classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
+      skills:[{n:'直感',r:'A',fx:'first_strike'},{n:'魔力放出',r:'A',fx:'burst_dmg'},{n:'卡里斯瑪',r:'B',fx:'morale'}],
+      traits:[{n:'王'},{n:'人類'}],
+      np:'誓約勝利之劍（對城寶具 A++）'},
+    Lancer:{cls:'Lancer',name:'???（槍之從者）',realName:'庫·丘林',
+      six:{筋力:'B',耐久:'C',敏捷:'A',魔力:'C',幸運:'E',寶具:'B'},
+      classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'}],
+      skills:[{n:'避矢加護',r:'B',fx:'evade_ranged'},{n:'符文',r:'B',fx:'rune'},{n:'戰鬥續行',r:'A',fx:'survive'}],
+      traits:[{n:'神性',r:'低'}],
+      np:'刺穿死棘之槍（對人寶具 B）'},
+  },
+  // 階級→基準值（戰鬥浮動用）
+  rankBase:{E:10,D:20,C:30,B:40,A:50,EX:60},
+};
+
+/* =========================================================================
+   App：介面控制（純前端，可直接瀏覽器預覽）
+   ========================================================================= */
+const App = {
+  state:{ account:null, master:null, servant:null, here:'emiya', catalyst:null, mana:null },
+
+  go(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.add('hidden'));
+          document.getElementById(id).classList.remove('hidden'); },
+
+  login(){
+    const a=document.getElementById('in-account').value.trim();
+    if(!a){ alert('請輸入帳號名稱'); return; }
+    this.state.account=a;
+    document.getElementById('menu-greet').textContent='歡迎，'+a;
+    // 之後：GAS 查 Masters 表，有存檔→直接進遊戲，無→建角
+    this.go('scr-menu');
+  },
+
+  startSingle(){
+    if(this.state.servant) this.enterGame();   // 已有存檔
+    else this.go('scr-create');
+  },
+
+  createMaster(){
+    const name=document.getElementById('m-name').value.trim()||'無名御主';
+    const circuits=+document.getElementById('m-circuits').value;
+    // 示意：GAS 用迴路數換算起始魔力（有理有據）
+    this.state.master={
+      name, sex:document.getElementById('m-sex').value,
+      age:document.getElementById('m-age').value,
+      origin:document.getElementById('m-origin').value||'來歷不明',
+      magic:document.getElementById('m-magic').value,
+      circuits, hp:100, hpMax:100, mp:circuits*4, mpMax:circuits*4, seals:3
+    };
+    this.go('scr-summon');
+  },
+
+  pickCatalyst(label,cls,btn){
+    this.state.catalyst={label,cls};
+    document.querySelectorAll('#scr-summon .btn.sm').forEach(b=>b.style.borderColor='');
+    btn.style.borderColor='var(--red2)';
+    document.getElementById('summon-stage').innerHTML=
+      '<p style="color:var(--dim)">已選擇催媒：<b style="color:var(--gold2)">'+label+'</b></p>';
+    document.getElementById('summon-go').disabled=false;
+  },
+
+  summon(){
+    const stage=document.getElementById('summon-stage');
+    stage.innerHTML='<div class="summon-fx">🜂</div><p style="color:var(--gold2)">魔法陣展開…</p>';
+    // 之後：GAS 依催媒抽選 ServantTemplates。此處示意：劍鞘→Saber，否則→Lancer
+    const cls=(this.state.catalyst.cls==='Saber')?'Saber':'Lancer';
+    setTimeout(()=>{
+      const t=SERVER.servantPool[cls];
+      this.state.servant=JSON.parse(JSON.stringify(t));
+      this.state.servant.hp=120; this.state.servant.hpMax=120;
+      this.state.servant.mp=80;  this.state.servant.mpMax=80;
+      stage.innerHTML='<div style="font-size:40px">⚔️</div><p style="color:var(--gold2)">「問——你是否為我之御主？」</p>';
+      setTimeout(()=>this.enterGame(),900);
+    },1100);
+  },
+
+  enterGame(){
+    this.go('scr-game');
+    this.renderStatus(); this.renderMap(); this.renderQuick();
+    document.getElementById('log').innerHTML='';
+    this.ai('冬木市的夜風帶著魔力的氣息。你（'+this.state.master.name+'）與從者「'
+        +this.state.servant.cls+'」立於'+this.locName(this.state.here)
+        +'。第五次聖杯戰爭，已經開始了。');
+    this.sys('提示：輸入「搜索周圍」「前往新都」「攻擊敵方從者」等，AI 會判斷意圖交給 GAS 判定。');
+  },
+
+  /* ---------- 渲染 ---------- */
+  renderStatus(){
+    const m=this.state.master, s=this.state.servant;
+    document.getElementById('master-box').innerHTML=`
+      <div style="font-size:16px;color:var(--gold2)">${m.name}</div>
+      <div style="font-size:12px;color:var(--dim)">${m.origin}・${m.magic}</div>
+      <div class="stat-row"><span>HP</span><span>${m.hp}/${m.hpMax}</span></div>
+      <div class="bar hp"><i style="width:${m.hp/m.hpMax*100}%"></i></div>
+      <div class="stat-row"><span>魔力</span><span>${m.mp}/${m.mpMax}</span></div>
+      <div class="bar mp"><i style="width:${m.mp/m.mpMax*100}%"></i></div>
+      <div class="stat-row"><span>令咒</span><span style="color:var(--red2)">${'❖'.repeat(m.seals)}</span></div>`;
+    const six=Object.entries(s.six).map(([k,v])=>`<div class="g"><b>${v}</b><span>${k}</span></div>`).join('');
+    const tags=[
+      ...s.classSkills.map(x=>`<span class="tag cls">${x.n}<i class="r">${x.r}</i></span>`),
+      ...s.skills.map(x=>`<span class="tag skl">${x.n}<i class="r">${x.r||''}</i></span>`),
+      ...s.traits.map(x=>`<span class="tag trait">${x.n}${x.r?'<i class="r">'+x.r+'</i>':''}</span>`),
+    ].join('');
+    document.getElementById('servant-box').innerHTML=`
+      <div style="font-size:16px;color:var(--gold2)">${s.cls} <span style="font-size:12px;color:var(--dim)">${s.name}</span></div>
+      <div class="stat-row"><span>HP</span><span>${s.hp}/${s.hpMax}</span></div>
+      <div class="bar hp"><i style="width:${s.hp/s.hpMax*100}%"></i></div>
+      <div class="stat-row"><span>魔力</span><span>${s.mp}/${s.mpMax}</span></div>
+      <div class="bar mp"><i style="width:${s.mp/s.mpMax*100}%"></i></div>
+      <div class="six">${six}</div>
+      <div style="margin-top:8px">${tags}</div>
+      <div style="font-size:12px;color:var(--dim);margin-top:8px">寶具：${s.np}</div>`;
+  },
+
+  renderMap(){
+    const L=SERVER.locations, here=this.state.here;
+    const lines=L.flatMap(l=>l.adj.map(a=>{
+      const t=L.find(x=>x.id===a); if(!t||a<l.id) return '';
+      return `<line x1="${l.x}" y1="${l.y}" x2="${t.x}" y2="${t.y}" stroke="#2a2440" stroke-width="2"/>`;
+    })).join('');
+    const dots=L.map(l=>{
+      const cur=l.id===here;
+      const reachable=L.find(x=>x.id===here).adj.includes(l.id);
+      return `<g class="loc ${cur?'here':''}" onclick="App.move('${l.id}')" opacity="${cur||reachable?1:.55}">
+        <circle cx="${l.x}" cy="${l.y}" r="8" class="danger-${l.danger}"/>
+        <text x="${l.x+12}" y="${l.y+4}">${l.name}</text></g>`;
+    }).join('');
+    document.getElementById('map-wrap').innerHTML=
+      `<svg viewBox="0 0 700 440">${lines}${dots}</svg>`;
+    this.renderLocInfo();
+  },
+  renderLocInfo(){
+    const l=SERVER.locations.find(x=>x.id===this.state.here);
+    const dmap={safe:'安全',mid:'中等',high:'危險'};
+    document.getElementById('loc-info').innerHTML=
+      `<b style="color:var(--gold2)">${l.name}</b>（危險度：${dmap[l.danger]}）<br>${l.desc}`;
+  },
+
+  renderQuick(){
+    const acts=['搜索周圍','偵查氣息','補魔','使用寶具'];
+    document.getElementById('quick-actions').innerHTML=
+      acts.map(a=>`<button class="btn sm ghost" onclick="App.quick('${a}')">${a}</button>`).join('');
+  },
+
+  /* ---------- 行動（示意：實際由 GAS 判定數值） ---------- */
+  move(id){
+    if(id===this.state.here) return;
+    const cur=SERVER.locations.find(x=>x.id===this.state.here);
+    if(!cur.adj.includes(id)){ this.sys('該地點不相鄰，無法直接前往。'); return; }
+    this.state.here=id; this.renderMap();
+    this.me('前往'+this.locName(id));
+    this.ai('你移動到了'+this.locName(id)+'。'+SERVER.locations.find(x=>x.id===id).desc);
+  },
+
+  quick(a){
+    if(a==='補魔'){ this.startMana(); return; }
+    this.me(a);
+    // 示意：GAS 會在這裡做骰子/判定，再交給 AI 敘述結果
+    this.ai('（GAS 判定中…示意結果）你進行了「'+a+'」，系統擲骰後將結果交給 AI 敘述。');
+  },
+
+  send(){
+    const box=document.getElementById('in-msg'); const t=box.value.trim();
+    if(!t) return; box.value=''; this.me(t);
+    // 示意：混合判定。關鍵字快篩 → 否則丟 LLM 判意圖
+    if(/補魔|魔力供給/.test(t)){ this.startMana(); return; }
+    if(/攻擊|戰鬥|打/.test(t)){
+      this.ai('（意圖：attack｜信心高 → GAS 直接判定）雙方數值浮動擲骰後，AI 敘述交鋒過程……'); return; }
+    if(/搜索|偵查|調查/.test(t)){
+      this.ai('（意圖：search/investigate → GAS 判定）你仔細探查四周……'); return; }
+    if(/前往|移動|去/.test(t)){
+      this.ai('（意圖：move｜目標不明確 → 需要 UI 確認）你想前往哪裡？請點地圖上的地點。'); return; }
+    // 純閒聊
+    this.ai('（意圖：talk → 純敘述，不動數值）'+this.flavor(t));
+  },
+
+  /* ---------- 補魔倒數（10 次對話） ---------- */
+  startMana(){
+    if(this.state.mana){ this.sys('已在補魔狀態。'); return; }
+    this.state.mana={left:10};
+    this.sys('— 補魔開始：接下來的對話將用於魔力供給，10 次後自動結束 —');
+    this.renderMana();
+    this.ai('魔力的流動需要橋樑……（補魔模式：剩餘 10 次對話）');
+  },
+  renderMana(){
+    const box=document.getElementById('mana-box');
+    if(!this.state.mana){ box.innerHTML=''; return; }
+    box.innerHTML=`<div class="mana-timer">♥ 補魔進行中・剩餘 ${this.state.mana.left} 次對話</div>`;
+  },
+
+  /* ---------- log helpers ---------- */
+  ai(t){ this._push('ai','從者／旁白',t); this._tickMana(); },
+  me(t){ this._push('me',this.state.account||'你',t); this._tickMana(); },
+  sys(t){ this._push('sys','',t); },
+  event(t){ this._push('event','⚑ 重大事件',t); },
+  _tickMana(){
+    if(!this.state.mana) return;
+    this.state.mana.left--;
+    if(this.state.mana.left<=0){
+      this.state.mana=null; this.renderMana();
+      const m=this.state.master, s=this.state.servant;
+      s.mp=s.mpMax; this.renderStatus();
+      this.sys('— 補魔結束：GAS 結算，從者魔力已回復至上限 —');
+    } else this.renderMana();
+  },
+  _push(cls,who,t){
+    const log=document.getElementById('log');
+    const d=document.createElement('div'); d.className='msg '+cls;
+    d.innerHTML=(who?`<div class="who">${who}</div>`:'')+t;
+    log.appendChild(d); log.scrollTop=log.scrollHeight;
+  },
+  locName(id){ return SERVER.locations.find(x=>x.id===id).name; },
+  flavor(t){ return '「'+t+'」——你的話語消散在冬木的夜色中。（此為示意敘述，正式版由 LLM 生成並參考記憶表保持一致）'; },
+};
+
+// 啟動
+App.go('scr-login');
+</script>
+</body>
+</html>
