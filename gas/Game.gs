@@ -29,6 +29,27 @@ function getStatic(){
   };
 }
 
+// ---------- 真名召喚（AI 生成寫回英靈殿）----------
+function summonByName(opts){
+  var name = (opts.name||'').trim(), cls = opts.cls;
+  if(!name) return { error:'請輸入真名' };
+  if(!cls)  return { error:'請先選擇職階' };
+  // 已有 → 直接用
+  var exist = findRows_(SHEETS.HEROES, function(h){ return h.cls===cls && String(h.realName).indexOf(name)>=0; })[0];
+  if(exist) return { servant_id: exist.servant_id, generated:false };
+  // 生成
+  var g = generateServant_(name, cls, opts.desc);
+  if(g.error) return { error:'AI 生成失敗：'+g.error };
+  var sid = name+'-'+cls;
+  if(findOne_(SHEETS.HEROES, { servant_id: sid })) sid = sid+'-'+Date.now();
+  appendObj_(SHEETS.HEROES, {
+    servant_id:sid, cls:cls, realName:name, wars:['自訂'],
+    筋力:g.six.筋力, 耐久:g.six.耐久, 敏捷:g.six.敏捷, 魔力:g.six.魔力, 幸運:g.six.幸運, 寶具:g.six.寶具,
+    classSkills:g.classSkills, skills:g.skills, traits:g.traits, np:g.np, persona:g.persona, source:'ai_gen'
+  });
+  return { servant_id: sid, generated:true };
+}
+
 // ---------- 開局 ----------
 /**
  * @param opts {ms_id, mode:'canon'|'chaos', war, role:'canon'|'original',
@@ -157,6 +178,10 @@ function doAction(a){
   var hero = findOne_(SHEETS.HEROES, { servant_id: p.servant_id });
   var narration = '';
 
+  // 補魔密封時段：封鎖耗時/戰鬥動作
+  if(clock.mana_locked && ['move','attack','np','sleep','separate'].indexOf(a.type)>=0)
+    return { state:getState(gameId), narration:'（補魔進行中，無法進行該動作；請繼續對話，或用令咒「強制補魔」結束。）', events:[] };
+
   switch(a.type){
     case 'move':       narration = act_move_(p, clock, hero, a.locId); break;
     case 'attack':     narration = act_combat_(rows, p, clock, hero, false, true); break;
@@ -167,10 +192,95 @@ function doAction(a){
     case 'separate':   narration = act_separate_(p); break;
     case 'sleep':      narration = act_sleep_(p, clock); break;
     case 'seal':       narration = act_seal_(rows, p, clock, hero, a.cmd); break;
-    case 'chat':       narration = narrateScene(a.text + '\n（玩家自由發言，純敘述不動數值）'); break;
+    case 'chat':       narration = clock.mana_locked ? manaChat_(p, clock, a.text)
+                                  : narrateScene(a.text + '\n（玩家自由發言，純敘述不動數值）'); break;
     default: return { error:'未知動作：'+a.type };
   }
-  return { state: getState(gameId), narration: narration };
+
+  // NPC 自律（耗時動作後推進世界；補魔鎖定中不跑）
+  var events = [];
+  var fresh = findOne_(SHEETS.CLOCK, { game_id: gameId });
+  if(!fresh.mana_locked){
+    if(['move','attack','np'].indexOf(a.type) >= 0){
+      events = npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh);
+    } else if(a.type === 'sleep'){
+      for(var k=0;k<3;k++) events = events.concat(npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh));
+    }
+  }
+  return {
+    state: getState(gameId), narration: narration,
+    events: events.filter(function(e){ return e.global || e.atPlayer; }).map(function(e){ return e.text; })
+  };
+}
+
+// ---------- NPC 自律：移動 + 碰撞解析 ----------
+function npcTick_(gameId, rows, clock){
+  var locs = readAll_(SHEETS.MAP);
+  var adjOf = {}; locs.forEach(function(l){ adjOf[l.id] = l.adj || []; });
+  var player = rows.filter(function(r){ return r.is_player===true; })[0];
+  var npcs = rows.filter(function(r){ return r.is_player!==true && r.alive===true; });
+  var events = [];
+
+  // 移動（領地化：40% 機率往相鄰隨機走）
+  npcs.forEach(function(n){
+    if(Math.random() < 0.4){
+      var a = adjOf[n.location] || [];
+      if(a.length){ n.location = a[Math.floor(Math.random()*a.length)]; n.servant_loc = n.location;
+        updateRow_(SHEETS.BATTLE, n._row, { location:n.location, servant_loc:n.servant_loc }); }
+    }
+  });
+
+  // NPC×NPC 碰撞
+  var byLoc = {};
+  npcs.filter(function(r){ return r.alive; }).forEach(function(n){ (byLoc[n.location]=byLoc[n.location]||[]).push(n); });
+  Object.keys(byLoc).forEach(function(loc){
+    var grp = byLoc[loc].filter(function(n){ return n.alive; });
+    if(grp.length < 2) return;
+    var a = grp[0], b = grp[1], roll = Math.random();
+    if(roll < 0.55){ // 戰鬥
+      var wa = npcPower_(a) + Math.floor(Math.random()*20);
+      var wb = npcPower_(b) + Math.floor(Math.random()*20);
+      var win = (wa>=wb)?a:b, lose = (win===a)?b:a;
+      lose.alive = false; updateRow_(SHEETS.BATTLE, lose._row, { alive:false });
+      var t = heroCls_(win.servant_id)+' 於'+locName_(loc)+'擊破了 '+heroCls_(lose.servant_id);
+      logEvent_(gameId, clock.day, pad2_(clock.hour)+':00', loc, 'BATTLE',
+        'slot_'+(win.slot-1), 'slot_'+(lose.slot-1), t, true, 1);
+      events.push({ text:'⚑ 傳聞：'+t+'。', global:true });
+    } else if(roll < 0.7){ // 結盟
+      var t2 = heroCls_(a.servant_id)+' 與 '+heroCls_(b.servant_id)+' 在'+locName_(loc)+'達成暫時同盟';
+      logEvent_(gameId, clock.day, pad2_(clock.hour)+':00', loc, 'ALLIANCE',
+        'slot_'+(a.slot-1), 'slot_'+(b.slot-1), t2, true, 0);
+      events.push({ text:'⚑ 傳聞：'+t2+'。', global:true });
+    } // else 對峙/迴避：無事
+  });
+
+  // NPC 抵達玩家所在地
+  npcs.filter(function(r){ return r.alive && r.location===player.location; }).forEach(function(n){
+    events.push({ text:'⚠ '+heroCls_(n.servant_id)+'（'+n.master_name+'）出現在你的所在地！可選擇攻擊或迴避。', atPlayer:true });
+  });
+  return events;
+}
+function npcPower_(row){
+  var h = findOne_(SHEETS.HEROES, { servant_id: row.servant_id });
+  if(!h) return 100;
+  return rankVal(h.筋力)+rankVal(h.耐久)+rankVal(h.敏捷)+rankVal(h.魔力)+rankVal(h.寶具);
+}
+function locName_(id){ var l = findOne_(SHEETS.MAP, { id:id }); return l ? l.name : id; }
+
+// ---------- 補魔倒數對話 ----------
+function manaChat_(p, clock, text){
+  var left = (clock.mana_countdown||0) - 1;
+  if(left <= 0){
+    p.sv_mp = p.sv_mp_max; p.bond = Math.min(100, p.bond + TUNING.MANA_BOND);
+    updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, bond:p.bond });
+    updateRow_(SHEETS.CLOCK, clock._row, { mana_countdown:0, mana_locked:false });
+    advanceTime_(p, clock, null, TUNING.MANA_AP_COST);
+    return narrateScene((text?('「'+text+'」\n'):'')+'補魔完成，魔力填滿靈基，兩人羈絆更深。請寫一段含蓄的結束敘述。')
+           + '\n（補魔結束：魔力回滿・好感 +'+TUNING.MANA_BOND+'）';
+  }
+  updateRow_(SHEETS.CLOCK, clock._row, { mana_countdown:left });
+  return narrateScene((text?('「'+text+'」\n'):'')+'補魔持續，魔力緩緩流動（fade，點到為止）。請寫一段含蓄敘述。')
+         + '\n（補魔進行中，剩 '+left+' 次對話）';
 }
 
 // 推進時間 + 每小時經濟 tick（mutate p / clock 並寫回）
@@ -228,10 +338,10 @@ function act_combat_(rows, p, clock, hero, mode, costAP){
 }
 
 function act_mana_(p, clock){
-  p.sv_mp = p.sv_mp_max; p.bond = Math.min(100, p.bond + TUNING.MANA_BOND);
-  updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, bond:p.bond });
-  advanceTime_(p, clock, null, TUNING.MANA_AP_COST);
-  return narrateScene('你與從者進行補魔，魔力流動填滿其靈基（成人向 fade，點到為止）。請寫一段含蓄而有氛圍的敘述。');
+  if(clock.mana_locked) return '（補魔已在進行中——繼續對話即可推進。）';
+  updateRow_(SHEETS.CLOCK, clock._row, { mana_countdown:TUNING.MANA_TURNS, mana_locked:true });
+  return narrateScene('你與從者開始補魔，魔力透過親密的連結緩緩流動（成人向 fade，點到為止）。請寫一段含蓄的起始敘述。')
+         + '\n（補魔開始：接下來 '+TUNING.MANA_TURNS+' 次對話用於補魔，期間時間與 NPC 凍結）';
 }
 
 function act_feed_(p){
@@ -275,8 +385,12 @@ function act_seal_(rows, p, clock, hero, cmd){
     case 'heal': p.sv_hp=p.sv_hp_max; p.sv_mp=p.sv_mp_max; msg='令咒燃燒，魔力重塑靈基——HP/魔力完全回復。'; break;
     case 'order': if(p.bond<60){ p.bond=Math.max(0,p.bond-5); } msg=act_combat_(rows,p,clock,hero,'seal',false); break;
     case 'np':   if(p.bond<60){ p.bond=Math.max(0,p.bond-5); } msg=act_combat_(rows,p,clock,hero,'sealnp',false); break;
-    case 'recall': p.separated=false; p.servant_loc=p.location; msg='令咒干涉空間，你與從者瞬間脫離當前戰局/險境。'; break;
-    case 'mana': p.sv_mp=p.sv_mp_max; p.bond=Math.min(100,p.bond+12); msg='以令咒強制補魔——魔力灌滿、靈基穩固（跳過倒數）。'; break;
+    case 'recall': p.separated=false; p.servant_loc=p.location;
+      if(clock.mana_locked) updateRow_(SHEETS.CLOCK, clock._row, { mana_countdown:0, mana_locked:false });
+      msg='令咒干涉空間，你與從者瞬間脫離當前戰局/險境。'; break;
+    case 'mana': p.sv_mp=p.sv_mp_max; p.bond=Math.min(100,p.bond+12);
+      if(clock.mana_locked) updateRow_(SHEETS.CLOCK, clock._row, { mana_countdown:0, mana_locked:false });
+      msg='以令咒強制補魔——魔力灌滿、靈基穩固（跳過倒數）。'; break;
     default: msg='（未知令咒指令）';
   }
   updateRow_(SHEETS.BATTLE, p._row, { seals:p.seals, sv_hp:p.sv_hp, sv_mp:p.sv_mp, bond:p.bond, separated:p.separated, servant_loc:p.servant_loc });

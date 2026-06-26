@@ -147,6 +147,17 @@
     <label>篩選職階</label>
     <select id="sum-class" onchange="App.renderHall()"><option value="">全部</option></select>
     <div id="hall"></div>
+    <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
+      <div style="display:flex;gap:8px">
+        <input id="tn-name" placeholder="真名召喚（如 斯卡哈）" style="flex:1">
+        <button class="btn sm" onclick="App.trueName()">真名召喚</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input id="tn-desc" placeholder="自訂從者描述（選填）" style="flex:1">
+        <button class="btn sm" onclick="App.custom()">自訂生成</button>
+      </div>
+      <div style="font-size:11px;color:var(--dim);margin-top:6px">先選上方職階。資料庫沒有 → AI 依格式生成並寫入英靈殿，之後可直接召喚。</div>
+    </div>
     <button class="btn ghost" style="width:100%;margin-top:12px" onclick="App.go('scr-create')">返回</button>
   </div>
 </section>
@@ -166,6 +177,7 @@
   <div class="col" id="col-chat">
     <div class="sec-h" id="chat-h">聖杯戰爭</div>
     <div id="clock-hud"></div>
+    <div id="mana-box"></div>
     <div id="log"></div>
     <div class="quick" id="quick-actions"></div>
     <div class="quick hidden" id="seal-menu"></div>
@@ -251,6 +263,18 @@ var App = {
     var opts={ms_id:App.acc.ms_id,mode:App.flow.mode,servantId:sid,profile:App.flow.profile};
     if(App.flow.mode==='canon'){ opts.war=App.flow.war; opts.role='original'; }
     gs('newGame',opts).then(App.enter).catch(App.err); },
+  trueName:function(){
+    var name=document.getElementById('tn-name').value.trim(), cls=document.getElementById('sum-class').value;
+    if(!cls){ alert('請先在上方選擇職階'); return; } if(!name){ alert('請輸入真名'); return; }
+    busy(true);
+    gs('summonByName',{ms_id:App.acc.ms_id,name:name,cls:cls}).then(function(r){ busy(false);
+      if(r.error){ alert(r.error); return; } App.startSummon(r.servant_id); }).catch(App.err); },
+  custom:function(){
+    var desc=document.getElementById('tn-desc').value.trim(), cls=document.getElementById('sum-class').value;
+    if(!cls){ alert('請先在上方選擇職階'); return; } if(!desc){ alert('請輸入描述'); return; }
+    busy(true);
+    gs('summonByName',{ms_id:App.acc.ms_id,name:'自訂英靈',cls:cls,desc:desc}).then(function(r){ busy(false);
+      if(r.error){ alert(r.error); return; } App.startSummon(r.servant_id); }).catch(App.err); },
 
   enter:function(state){ busy(false);
     if(state.error){ alert(state.error); return; }
@@ -265,6 +289,7 @@ var App = {
       if(r.error){ App.sys(r.error); return; }
       App.S=r.state; App.renderAll();
       if(r.narration) App.ai(r.narration);
+      if(r.events&&r.events.length) r.events.forEach(function(t){ App._push('event','⚑ 情報',t); });
     }).catch(App.err); },
   move:function(id){ App.act('move',{locId:id}); },
   quick:function(a){
@@ -288,8 +313,10 @@ var App = {
     App.act('chat',{text:t}); },
 
   // ---------- 渲染 ----------
-  renderAll:function(){ App.renderClock(); App.renderMaster(); App.renderServant(); App.renderBase();
+  renderAll:function(){ App.renderClock(); App.renderMana(); App.renderMaster(); App.renderServant(); App.renderBase();
     App.renderRoster(); App.renderMap(); App.renderQuick(); App.renderLoc(); },
+  renderMana:function(){ var c=App.S.clock,b=document.getElementById('mana-box');
+    b.innerHTML = c.mana_locked ? '<div style="background:#1c1320;border:1px solid var(--red);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--red2);margin-bottom:8px;text-align:center">♥ 補魔進行中・剩 '+c.mana_countdown+' 次對話（送出對話以推進）</div>' : ''; },
   renderClock:function(){ var c=App.S.clock,ph=(c.hour>=6&&c.hour<18)?'☀晝':'🌙夜';
     document.getElementById('clock-hud').innerHTML='<span>第 '+c.day+' 日　'+('0'+c.hour).slice(-2)+':00　'+ph+
       '</span><span>AP '+'●'.repeat(c.ap)+'○'.repeat(c.ap_max-c.ap)+'</span>'; },

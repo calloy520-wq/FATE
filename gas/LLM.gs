@@ -80,6 +80,47 @@ function narrateScene(prompt, memory){
   return r.text || ('（敘述生成失敗：'+(r.error||'')+'）');
 }
 
+/** AI 生成英靈資料（真名召喚／自訂），回傳已夾值的從者物件 */
+function generateServant_(name, cls, desc){
+  var sys = '你是 Fate 系列的英靈資料產生器。只輸出 JSON，給出平衡合理的數值，不要多餘文字。';
+  var schema = '{"six":{"筋力":"E~A","耐久":"E~A","敏捷":"E~A","魔力":"E~A","幸運":"E~A","寶具":"E~A+"},'
+    + '"classSkills":[{"n":"技能名","r":"階級","fx":"效果碼"}],"skills":[{"n":"","r":"","fx":""}],'
+    + '"traits":[{"n":"特性"}],"np":"寶具名（簡述）","persona":{"firstP":"一人稱","words":"性格關鍵詞","toMaster":"對御主態度"}}';
+  var user = '為英靈產生資料。真名：'+name+'　職階：'+cls + (desc?('　額外描述：'+desc):'')
+    + '\n可用效果碼：nullify_magic,evade_ranged,stealth,ride,territory,crafting,mad,first_strike,analyze,burst,divine,morale,survive，或空字串。'
+    + '\n平衡限制：六維上限 A、寶具上限 A+。嚴格只輸出此 JSON schema：\n' + schema;
+  var r = callLLM(sys, user, { json:true, temperature:0.7 });
+  if(r.error) return { error: r.error };
+  return sanitizeHero_(r.json, name, cls);
+}
+
+var FX_OK_ = ['nullify_magic','evade_ranged','stealth','ride','territory','crafting','mad',
+              'first_strike','analyze','burst','divine','morale','survive'];
+function cleanSkill_(s){
+  s = s || {};
+  return { n: String(s.n||'技能').slice(0,8),
+           r: String(s.r||'').replace(/[^EDCBAX+]/g,'').slice(0,3),
+           fx: FX_OK_.indexOf(s.fx)>=0 ? s.fx : '' };
+}
+/** 夾值防止破壞平衡：六維上限 A、寶具上限 A+、技能數量上限 */
+function sanitizeHero_(g, name, cls){
+  var R = ['E','D','C','B','A'];
+  function six6(v){ v = String(v||'C').replace(/\+/g,'').replace('EX','A'); return R.indexOf(v)>=0 ? v : 'C'; }
+  function np6(v){ v = String(v||'C').replace('EX','A+'); var b=v.replace(/\+/g,''); if(R.indexOf(b)<0) b='C';
+                   return b + ((v.match(/\+/g)||[]).length>0 ? '+' : ''); }
+  var s = g.six || {};
+  return {
+    six: { 筋力:six6(s.筋力), 耐久:six6(s.耐久), 敏捷:six6(s.敏捷), 魔力:six6(s.魔力), 幸運:six6(s.幸運), 寶具:np6(s.寶具) },
+    classSkills: (g.classSkills||[]).slice(0,3).map(cleanSkill_),
+    skills: (g.skills||[]).slice(0,4).map(cleanSkill_),
+    traits: (g.traits||[]).slice(0,3).map(function(t){ return { n: String((t&&t.n)||t||'人類').slice(0,6) }; }),
+    np: String(g.np||'（生成寶具）').slice(0,40),
+    persona: { firstP: String((g.persona&&g.persona.firstP)||'我').slice(0,4),
+               words: String((g.persona&&g.persona.words)||'AI 生成').slice(0,20),
+               toMaster: String((g.persona&&g.persona.toMaster)||'待相處後確立').slice(0,20) }
+  };
+}
+
 // 編輯器測試：確認 API key 與連線
 function testLLM(){
   var r = callLLM(narratorSystem_(), '玩家抵達了冬木大橋的夜色中，請寫一段抵達敘述。', {});
