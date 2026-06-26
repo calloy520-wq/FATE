@@ -183,10 +183,13 @@
     <label>魔術系統</label>
     <select id="m-magic"><option>強化（近戰加成）</option><option>投影／固有結界</option>
       <option>寶石魔術（魔力儲備）</option><option>使魔／召喚</option><option>咒術</option></select>
-    <label>魔術迴路數（影響迴路魔力與供給）</label>
-    <input id="m-circuits" type="range" min="10" max="50" value="25" oninput="document.getElementById('cv').textContent=this.value">
-    <div style="text-align:right;color:var(--gold2)" id="cv">25</div>
-    <div style="font-size:11px;color:var(--dim);margin-top:2px">參考：一般魔術師 20～30、名門菁英 40～50（凜 45、時臣 50）。伊莉雅那種 70 是愛因茲貝倫專造的容器，非常人可及。</div>
+    <label>天賦魔術迴路（命運測定，非自選）</label>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
+      <span id="cv" style="font-size:24px;color:var(--gold2);font-weight:700">25</span>
+      <span id="cv-tier" style="font-size:12px;color:var(--dim)"></span>
+      <button class="btn sm ghost" style="margin-left:auto" onclick="App.rollCircuits()">🎲 重新測定</button>
+    </div>
+    <div style="font-size:11px;color:var(--dim);margin-top:4px">血脈天賦由命運決定。參考：一般 20～30、名門菁英 40～50（凜 45、時臣 50）；高迴路稀有。</div>
     <label>願望（你為何而戰？影響開場與劇情）</label>
     <textarea id="m-wish" rows="2" placeholder="例如：復活逝去的摯友／證明自身魔術／純粹想贏"></textarea>
     <div style="display:flex;gap:10px;margin-top:16px">
@@ -291,7 +294,14 @@ var App = {
 
   chooseMode:function(m){ App.flow={mode:m};
     if(m==='canon'){ App.renderWars(); App.go('scr-war'); }
-    else App.go('scr-create'); },
+    else { App.rollCircuits(); App.go('scr-create'); } },
+  // 天賦迴路：命運測定（三角分布，偏向中間、高迴路稀有），上限 50
+  rollCircuits:function(){
+    var r=(Math.random()+Math.random())/2;              // 三角分布，集中 ~0.5
+    App.circuits=Math.max(12,Math.min(50,Math.round(15+r*35)));
+    var c=App.circuits, tier=c>=48?'天才（百年一遇）':c>=40?'名門菁英':c>=30?'良好':c>=20?'一般':'微弱';
+    var el=document.getElementById('cv'); if(el) el.textContent=c;
+    var t=document.getElementById('cv-tier'); if(t) t.textContent='・'+tier; },
 
   renderWars:function(){
     document.getElementById('war-list').innerHTML=App.STATIC.wars.map(function(w){
@@ -300,7 +310,7 @@ var App = {
     }).join(''); },
   chooseWar:function(id){ App.flow.war=id; App.go('scr-role'); },
   chooseRole:function(role){ App.flow.role=role;
-    if(role==='canon'){ App.renderCanon(); App.go('scr-canon'); } else App.go('scr-create'); },
+    if(role==='canon'){ App.renderCanon(); App.go('scr-canon'); } else { App.rollCircuits(); App.go('scr-create'); } },
   renderCanon:function(){
     var war=App.STATIC.wars.filter(function(w){return w.war_id===App.flow.war;})[0];
     document.getElementById('canon-list').innerHTML=war.roster.map(function(r,i){
@@ -321,7 +331,7 @@ var App = {
     if(!App.STATIC.heroes.length){
       alert('英靈殿是空的——請先在 GAS 編輯器執行 setupDatabase() 建立資料庫。'); return; }
     App.flow.profile={ name:document.getElementById('m-name').value.trim()||'無名御主',
-      circuits:+document.getElementById('m-circuits').value,
+      circuits:App.circuits||25,
       magic:document.getElementById('m-magic').value,
       wish:document.getElementById('m-wish').value.trim() };
     var sel=document.getElementById('sum-class');
