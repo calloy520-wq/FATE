@@ -181,7 +181,7 @@ function newGame(opts){
   var pp = parts.filter(function(x){ return x.isPlayer; })[0];
   var wish = (pp && pp.wish) || (opts.profile && opts.profile.wish) || '';   // 正史扮演用正典願望
   // 御主人設（餵 AI 用）：自創帶性別/個性/出身；正史扮演則用御主殿的 persona
-  var master = pp ? { name:pp.master, gender:pp.gender||'', persona:pp.persona||'', origin:pp.origin||'',
+  var master = pp ? { name:pp.master, gender:pp.gender||'', appearance:pp.appearance||'', persona:pp.persona||'', origin:pp.origin||'',
                       magic:pp.magic||'', melee:pp.melee||'', magic_rank:pp.magic_rank||'', circuits:pp.circuits||30 } : {};
   updateWhere_(SHEETS.ACCOUNTS, { ms_id:opts.ms_id }, { current_game:gameId, settings:{ wish:wish, manaRating:'adult-fade', master:master } });
 

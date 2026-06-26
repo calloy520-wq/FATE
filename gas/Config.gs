@@ -28,7 +28,7 @@ const SHEETS = {
 const HEADERS = {
   [SHEETS.HEROES]: ['servant_id','cls','realName','wars','gender','筋力','耐久','敏捷','魔力','幸運','寶具',
                     'classSkills','skills','traits','np','persona','source','align'],
-  [SHEETS.MASTERS]:['master_id','name','war','magic','circuits','melee','magic_rank','home','wish','persona','source'],
+  [SHEETS.MASTERS]:['master_id','name','gender','appearance','war','magic','circuits','melee','magic_rank','home','wish','persona','source'],
   [SHEETS.MAP]:    ['id','name','x','y','danger','leyline','adj','desc'],
   [SHEETS.ITEMS]:  ['item_id','name','type','fx','value','desc'],
   [SHEETS.RULES]:  ['key','text'],

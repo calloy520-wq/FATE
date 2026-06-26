@@ -111,6 +111,7 @@ function summonOpening_(hero, master, wish){
   master = master || {};
   var mdesc = '御主＝「我」：'+(master.name||'無名御主')
     + (master.gender?('，性別'+master.gender):'')
+    + (master.appearance?('，外觀「'+master.appearance+'」'):'')
     + (master.origin?('，出身「'+master.origin+'」'):'')
     + (master.magic?('，魔術「'+master.magic+'」'):'')
     + (master.persona?('，個性「'+master.persona+'」'):'')

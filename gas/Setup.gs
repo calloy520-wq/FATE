@@ -76,7 +76,7 @@ function servantRow_(s){
     s.np, JSON.stringify(s.persona), 'official', s.align||'中立・中庸' ];
 }
 function masterRow_(m){
-  return [ m.id, m.name, m.war, m.magic, m.circuits, m.melee, m.magic_rank, m.home, m.wish, m.persona, 'official' ];
+  return [ m.id, m.name, m.gender||'', m.appearance||'', m.war, m.magic, m.circuits, m.melee, m.magic_rank, m.home, m.wish, m.persona, 'official' ];
 }
 function locationRow_(l){
   return [ l.id, l.name, l.x, l.y, l.danger, l.leyline, JSON.stringify(l.adj), l.desc ];
