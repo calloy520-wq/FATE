@@ -133,7 +133,7 @@ function newGame(opts){
              melee:p.melee||'E', magic_rank:p.magic_rank||(circuits>=45?'A':circuits>=30?'B':'C'),
              home:'', wish:sanitizeText_(p.wish, 60), gender:gender,
              appearance:sanitizeText_(p.appearance, 40), persona:sanitizeText_(p.persona, 40),
-             origin:sanitizeText_(p.origin, 30) };
+             origin:sanitizeText_(p.origin, 30), standing:sanitizeText_(p.standing, 40) };
   }
 
   if(opts.mode === 'canon'){
@@ -204,12 +204,12 @@ function newGame(opts){
                                .map(function(r){ return r.slot; });
   appendObjs_(SHEETS.BATTLE, rows);
   appendObj_(SHEETS.CLOCK, { game_id:gameId, day:1, hour:20, ap:TUNING.AP_PER_DAY,
-                             ap_max:TUNING.AP_PER_DAY, mana_countdown:0, mana_locked:false, satiety:0 });
+                             ap_max:TUNING.AP_PER_DAY, mana_countdown:0, mana_locked:false, satiety:0, satiety_lvl:0 });
   var pp = parts.filter(function(x){ return x.isPlayer; })[0];
   var wish = (pp && pp.wish) || (opts.profile && opts.profile.wish) || '';   // 正史扮演用正典願望
   // 御主人設（餵 AI 用）：自創帶性別/個性/出身；正史扮演則用御主殿的 persona
   var master = pp ? { name:pp.master, gender:pp.gender||'', appearance:pp.appearance||'', persona:pp.persona||'', origin:pp.origin||'',
-                      magic:pp.magic||'', melee:pp.melee||'', magic_rank:pp.magic_rank||'', circuits:pp.circuits||30 } : {};
+                      standing:pp.standing||'', magic:pp.magic||'', melee:pp.melee||'', magic_rank:pp.magic_rank||'', circuits:pp.circuits||30 } : {};
   updateWhere_(SHEETS.ACCOUNTS, { ms_id:opts.ms_id }, { current_game:gameId, settings:{ wish:wish, manaRating:'adult-fade', master:master } });
 
   logEvent_(gameId, 1, '20:00', 'start', 'START', 'slot_0', '', '聖杯戰爭開始。', true, 2);
@@ -282,7 +282,7 @@ function playerView_(p){
     master:{ name:p.master_name, magic:p.magic, hp:p.master_hp, hpMax:p.master_hp_max,
              mp:p.master_mp, mpMax:p.master_mp_max, seals:p.seals, melee:p.melee, magicRank:p.magic_rank,
              circuits:p.circuits, location:p.location,
-             inventory: invOf_(p).map(function(k){ var f=FOOD_[k]; return { key:k, emoji:f?f.emoji:'❓', name:f?f.name:k }; }) },
+             inventory: invOf_(p).map(function(k){ var f=FOOD_[k]; return { key:k, emoji:f?f.emoji:'❓', name:f?f.name:k, tier:f?foodTier_(k).label:'' }; }) },
     servant:{ cls:hero ? hero.cls : '？', servantId:p.servant_id, realName:hero?hero.realName:'', gender:hero?(hero.gender||''):'',
               trueNameKnown:p.true_name_known, hp:p.sv_hp, hpMax:p.sv_hp_max, mp:p.sv_mp, mpMax:p.sv_mp_max,
               upkeep:p.upkeep, bond:p.bond, six: hero?heroFromRow_(hero).six:{}, np:hero?hero.np:'',
@@ -711,9 +711,10 @@ function tickHour_(p, clock, con){
     e.ms = Math.round(e.ms * (TUNING.MANA_REGEN_MULT || 1.5));
     clock.mana_countdown = Number(clock.mana_countdown) - 1;
   }
-  if(Number(clock.satiety) > 0){                          // 飽足：迴路回魔額外 +；逐時遞減（不疊加）
-    e.ms += (TUNING.SATIETY_REGEN || 2);
+  if(Number(clock.satiety) > 0){                          // 飽足：迴路回魔額外 +（依食物品級）；逐時遞減（不疊加）
+    e.ms += (Number(clock.satiety_lvl) || TUNING.SATIETY_REGEN || 2);
     clock.satiety = Number(clock.satiety) - 1;
+    if(Number(clock.satiety) <= 0) clock.satiety_lvl = 0;
   }
   p.master_mp = Math.min(p.master_mp_max, p.master_mp + e.ms);   // 1) 迴路回復
   var free = e.ley + e.ws + (e.craft||0), need = e.upkeep;        // 2) 付維持費
@@ -739,7 +740,7 @@ function advanceTime_(p, clock, hero, apCost){
     for(var h=0;h<TUNING.HOURS_PER_AP;h++) tickHour_(p, clock, con);
   }
   // 具名更新（非整列）：manaChat_ 等會以 updateRow_ 改 clock mana 欄而不動記憶體物件，整列覆寫會回寫舊值。
-  updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap, mana_countdown:Math.max(0,Number(clock.mana_countdown)||0), satiety:Math.max(0,Number(clock.satiety)||0) });
+  updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap, mana_countdown:Math.max(0,Number(clock.mana_countdown)||0), satiety:Math.max(0,Number(clock.satiety)||0), satiety_lvl:Math.max(0,Number(clock.satiety_lvl)||0) });
   updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, sv_hp:p.sv_hp, master_mp:p.master_mp, master_hp:p.master_hp });
 }
 
@@ -1143,43 +1144,63 @@ function act_mana_(p, clock, hero){
 }
 
 // ===== 物品 / 購物（v1：先只放食物；之後可擴充各地特殊道具）=====
-var FOOD_ = {                                   // key → 顯示用
-  riceball:{ emoji:'🍙', name:'飯糰' }, bento:{ emoji:'🍱', name:'便當' },
-  energy:{ emoji:'🥤', name:'能量飲' }, ramen:{ emoji:'🍜', name:'拉麵' }, taiyaki:{ emoji:'🐟', name:'鯛魚燒' }
+// 不用錢（符合原作——魔術師家底厚，缺錢的是士郎那種異類）。節制靠「5 格物品欄＋1AP＋地區」。
+// 食物分級：平價 cheap／中等 mid／高級 high → 飽足回魔與持續時數不同。逛得遠＝吃得好。
+var FOOD_ = {                                   // key → {emoji, name, tier}
+  riceball:{ emoji:'🍙', name:'飯糰',   tier:'cheap' },
+  bread:   { emoji:'🍞', name:'麵包',   tier:'cheap' },
+  energy:  { emoji:'🥤', name:'能量飲', tier:'cheap' },
+  bento:   { emoji:'🍱', name:'便當',   tier:'mid'   },
+  ramen:   { emoji:'🍜', name:'拉麵',   tier:'mid'   },
+  taiyaki: { emoji:'🐟', name:'鯛魚燒', tier:'mid'   },
+  sushi:   { emoji:'🍣', name:'壽司',   tier:'high'  },
+  steak:   { emoji:'🥩', name:'牛排',   tier:'high'  },
+  cake:    { emoji:'🍰', name:'蛋糕',   tier:'high'  }
 };
-var SHOP_LOCS_ = ['shinto','arcade','apartment','station','hospital'];   // 市區一帶才買得到吃的
+// 各地區販售的品項（決定能買到的品級）：車站便利商店最便宜、新都百貨／餐廳最高級。
+var SHOP_STOCK_ = {
+  station:   ['riceball','bread','energy'],            // 車站・便利商店：平價
+  apartment: ['riceball','bento','ramen'],             // 公寓・超市自炊：平價～中等
+  arcade:    ['bento','ramen','taiyaki'],              // 商店街：中等小吃
+  hospital:  ['bento','energy','ramen'],               // 醫院・院內餐廳：中等
+  shinto:    ['sushi','steak','cake']                  // 新都・百貨餐廳：高級
+};
 function invOf_(p){ return Array.isArray(p.inventory) ? p.inventory : []; }
+function foodTier_(item){ var f=FOOD_[item]; var t=f&&f.tier; return (TUNING.SATIETY_TIERS&&TUNING.SATIETY_TIERS[t]) || { regen:TUNING.SATIETY_REGEN||2, hours:TUNING.SATIETY_HOURS||8, label:'' }; }
 
-// 購物：在市區補給食物進物品欄（5 格上限）。不用錢，用「5 格＋1AP」節制。
+// 購物：在市區補給食物進物品欄（5 格上限）。不用錢，用「5 格＋1AP＋地區品級」節制。
 function act_shop_(p, clock, hero){
-  if(SHOP_LOCS_.indexOf(p.location) < 0)
+  var stock = SHOP_STOCK_[p.location];
+  if(!stock || !stock.length)
     return '（這附近沒有商店——到新都／商店街／公寓／車站／醫院一帶才買得到吃的。）';
   if(clock.ap < 1) return '（行動點不足，請休息恢復。）';
   var inv = invOf_(p).slice();
   if(inv.length >= 5) return '（物品欄已滿（5 格）——先吃掉一些再補貨。）';
-  var keys = Object.keys(FOOD_), got = keys[Math.floor(Math.random()*keys.length)];
+  var got = stock[Math.floor(Math.random()*stock.length)];
   inv.push(got); p.inventory = inv;
+  var f = FOOD_[got], tier = foodTier_(got);
   updateRow_(SHEETS.BATTLE, p._row, { inventory: inv });
   advanceTime_(p, clock, hero, 1);
   return { kind:'scene',
-    prompt:'我（'+p.master_name+'）在'+locName_(p.location)+'的店家補給了些吃食（'+FOOD_[got].name+'）。請寫一段簡短、有生活感的採買小敘述。',
-    suffix:'\n（購入 '+FOOD_[got].emoji+FOOD_[got].name+'　物品欄 '+inv.length+'/5）' };
+    prompt:'我（'+p.master_name+'）在'+locName_(p.location)+'的店家補給了些吃食（'+tier.label+'的'+f.name+'）。請寫一段簡短、有生活感的採買小敘述，可帶出我的家世財力氣場。',
+    suffix:'\n（購入 '+f.emoji+f.name+'〔'+tier.label+'〕　物品欄 '+inv.length+'/5）' };
 }
 
-// 使用物品（目前皆為食物 → 飽足 buff）。點物品欄即呼叫。
+// 使用物品（目前皆為食物 → 飽足 buff，效果依品級）。點物品欄即呼叫。
 function act_use_(p, clock, item){
   var inv = invOf_(p).slice();
   var idx = inv.indexOf(item);
   if(idx < 0) return '（物品欄沒有這個東西。）';
   var f = FOOD_[item];
   if(!f) return '（這個物品現在還無法使用。）';
+  var tier = foodTier_(item);
   inv.splice(idx, 1); p.inventory = inv;
-  clock.satiety = TUNING.SATIETY_HOURS;
+  clock.satiety = tier.hours; clock.satiety_lvl = tier.regen;
   updateRow_(SHEETS.BATTLE, p._row, { inventory: inv });
-  updateRow_(SHEETS.CLOCK, clock._row, { satiety: clock.satiety });
+  updateRow_(SHEETS.CLOCK, clock._row, { satiety: clock.satiety, satiety_lvl: clock.satiety_lvl });
   return { kind:'scene',
-    prompt:'我（'+p.master_name+'）吃了'+f.name+'，飽餐一頓，魔力代謝為之活絡。請寫一段簡短、有生活感的進食小敘述。',
-    suffix:'\n（吃下 '+f.emoji+f.name+'　🍙飽足 '+TUNING.SATIETY_HOURS+'h：每小時迴路回魔 +'+TUNING.SATIETY_REGEN+'（不疊加，再吃重置）　物品欄 '+inv.length+'/5）' };
+    prompt:'我（'+p.master_name+'）吃了'+tier.label+'的'+f.name+'，飽餐一頓，魔力代謝為之活絡。請寫一段簡短、有生活感的進食小敘述。',
+    suffix:'\n（吃下 '+f.emoji+f.name+'〔'+tier.label+'〕　🍙飽足 '+tier.hours+'h：每小時迴路回魔 +'+tier.regen+'（不疊加，再吃重置）　物品欄 '+inv.length+'/5）' };
 }
 // 御主人設 context（餵 AI；第一人稱「我」的口吻依此演繹）
 function masterCtx_(acc){
@@ -1193,8 +1214,10 @@ function masterCtx_(acc){
   if(m.magic)  s += '，魔術「'+m.magic+'」';
   if(m.melee)  s += '，體術'+m.melee+'級';
   if(m.persona) s += '，個性「'+m.persona+'」';
+  // 身世／財力：玩家可指定；未指定則默認「魔術師家系、生活無虞」（符合原作——錢非魔術師所慮）
+  s += '，身世財力「' + (m.standing ? m.standing : '魔術師家系，家底殷實，金錢非其所慮') + '」';
   if(wish)     s += '，願望「'+wish+'」';
-  return s + '。第一人稱敘述與內心戲須貼合此人設，語氣口吻依其個性演繹。）';
+  return s + '。第一人稱敘述與內心戲須貼合此人設（含其家世財力氣場），語氣口吻依其個性演繹。）';
 }
 function servantCtx_(p, hero){
   if(!hero) return '';
@@ -1318,7 +1341,7 @@ function act_rest_(p, clock, hero, hours){
   for(var i=0;i<hours;i++) tickHour_(p, clock, con);            // 每小時跑經濟（HP/魔力自然恢復、補魔加持遞減）
   clock.ap = Math.min(clock.ap_max, clock.ap + hours*2);
   var ambush = ambushDuringRest_(p, clock, hours);             // 休息中可能遭突襲（回事件字串或 ''）
-  updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap, mana_countdown:Math.max(0,Number(clock.mana_countdown)||0), satiety:Math.max(0,Number(clock.satiety)||0) });
+  updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap, mana_countdown:Math.max(0,Number(clock.mana_countdown)||0), satiety:Math.max(0,Number(clock.satiety)||0), satiety_lvl:Math.max(0,Number(clock.satiety_lvl)||0) });
   updateRow_(SHEETS.BATTLE, p._row, { sv_hp:p.sv_hp, sv_mp:p.sv_mp, master_mp:p.master_mp, master_hp:p.master_hp });
   // 長休（≥4h）且未遭襲 → 機率夢見從者過往（含英靈自白）
   if(!ambush && hero && hours>=4 && Math.random() < (TUNING.DREAM_CHANCE || 0.12)){

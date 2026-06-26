@@ -42,7 +42,7 @@ const HEADERS = {
   [SHEETS.MEMORY]:   ['event_id','game_id','turn','entity','fact_type','content','importance','write_ts'],
   [SHEETS.EVENTS]:   ['event_id','write_ts','game_id','day_count','time_hour','location_id','event_type',
                       'actor_id','target_id','log_text','is_global','importance'],
-  [SHEETS.CLOCK]:    ['game_id','day','hour','ap','ap_max','mana_countdown','mana_locked','satiety'],
+  [SHEETS.CLOCK]:    ['game_id','day','hour','ap','ap_max','mana_countdown','mana_locked','satiety','satiety_lvl'],
   [SHEETS.HISTORY]:  ['ts','ms_id','name','result','war','servant_cls','day','summary'],
   [SHEETS.GALLERY]:  ['ms_id','entry_id','servant_id','cls','realName','gender','six','skills','classSkills',
                       'traits','np','persona','align','bond','condition','active','source','log','created',
@@ -84,8 +84,10 @@ const TUNING = {
   MANA_BUFF_HOURS: 12,           // 補魔加持持續時數（期間迴路回魔提升、靈基維持高出力）
   MANA_REGEN_MULT: 1.6,          // 補魔加持期間：迴路回魔倍率
   DREAM_CHANCE: 0.12,            // 睡覺時夢見從者過往片段的機率（稀有、避免重複）
-  SATIETY_HOURS: 8,              // 進食「飽足」buff 持續時數（不疊加，再吃重置）
-  SATIETY_REGEN: 2,             // 飽足期間：每小時迴路回魔額外 +
+  SATIETY_HOURS: 8,              // 進食「飽足」buff 預設持續時數（無分級時的回退值）
+  SATIETY_REGEN: 2,             // 飽足期間每小時迴路回魔額外 +（無分級時的回退值）
+  // 食物分級（不用錢；靠「逛得遠＝吃得好」＝地區決定品級）。regen＝飽足期間每小時迴路回魔額外 +；hours＝持續時數
+  SATIETY_TIERS: { cheap:{ regen:1, hours:6, label:'平價' }, mid:{ regen:2, hours:8, label:'中等' }, high:{ regen:3, hours:10, label:'高級' } },
   // 獵魔（吸食補魔）／擊殺回魔／情境好感
   HUNT_MP_WILLING: 0.5,   // 樂意(惡/狂化)獵食回魔比例
   HUNT_MP_RELUCT:  0.35,  // 不情願(中立)獵食回魔比例

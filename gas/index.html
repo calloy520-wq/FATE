@@ -193,6 +193,8 @@
     <input id="m-appear" maxlength="40" placeholder="例如：黑髮疲憊的青年、風衣／紅髮少女、制服">
     <label>個性（影響第一人稱敘述的口吻與內心）</label>
     <input id="m-persona" maxlength="40" placeholder="例如：冷靜理性／衝動熱血／腹黑算計／溫柔堅定">
+    <label>身世／財力（敘事用，可留空＝魔術師家底殷實）</label>
+    <input id="m-standing" maxlength="40" placeholder="例如：名門魔術師世家、揮金如土／窮學生、節儉自炊／教會供養">
     <label>願望（你為何而戰？影響開場與劇情）</label>
     <textarea id="m-wish" rows="2" maxlength="60" placeholder="例如：復活逝去的摯友／證明自身魔術／純粹想贏"></textarea>
 
@@ -440,6 +442,7 @@ var App = {
       gender:document.getElementById('m-gender').value,
       appearance:(document.getElementById('m-appear')||{}).value? document.getElementById('m-appear').value.trim():'',
       persona:document.getElementById('m-persona').value.trim(),
+      standing:(document.getElementById('m-standing')||{}).value? document.getElementById('m-standing').value.trim():'',
       wish:document.getElementById('m-wish').value.trim(),
       circuits:App.circuits||25, magic:App.magic||'強化', melee:App.melee||'E', origin:App.origin||'' };
     App.hallCls=''; App.renderHallClasses(); App.renderHall();
@@ -652,8 +655,9 @@ var App = {
     var inv=(App.S.player.master.inventory)||[];
     if(!inv.length){ bar.innerHTML='<span style="font-size:12px;color:var(--dim)">空（到市區「🛒 購物備糧」補給食物，點物品即食用）</span>'; return; }
     bar.innerHTML=inv.map(function(it){
-      return '<button class="btn sm" title="食用 '+it.name+'（飽足 8h：每小時迴路回魔 +）" onclick="App.act(\'use\',{item:\''+it.key+'\'})">'+it.emoji+' '+it.name+'</button>';
-    }).join('')+'<span style="width:100%;font-size:11px;color:var(--dim)">物品欄 '+inv.length+'/5・點擊即食用</span>'; },
+      var t=it.tier?('〔'+it.tier+'〕'):'';
+      return '<button class="btn sm" title="食用 '+it.name+t+'（飽足：每小時迴路回魔 +，品級越高效果越強越持久）" onclick="App.act(\'use\',{item:\''+it.key+'\'})">'+it.emoji+' '+it.name+'</button>';
+    }).join('')+'<span style="width:100%;font-size:11px;color:var(--dim)">物品欄 '+inv.length+'/5・點擊即食用（平價＜中等＜高級）</span>'; },
   renderMana:function(){ var c=App.S.clock,b=document.getElementById('mana-box');
     b.innerHTML = c.mana_locked ? '<div style="background:#1c1320;border:1px solid var(--red);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--red2);margin-bottom:8px;text-align:center">♥ 補魔進行中・剩 '+c.mana_countdown+' 次對話（送出對話以推進）</div>' : ''; },
   renderClock:function(){ var c=App.S.clock,ph=(c.hour>=6&&c.hour<18)?'☀晝':'🌙夜';
