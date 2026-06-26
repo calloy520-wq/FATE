@@ -150,7 +150,8 @@ function generateServant_(name, cls, desc){
   var sys = '你是 Fate 系列的英靈資料產生器。只輸出 JSON，給出平衡合理的數值，不要多餘文字。';
   var schema = '{"six":{"筋力":"E~A","耐久":"E~A","敏捷":"E~A","魔力":"E~A","幸運":"E~A","寶具":"E~A+"},'
     + '"classSkills":[{"n":"技能名","r":"階級","fx":"效果碼"}],"skills":[{"n":"","r":"","fx":""}],'
-    + '"traits":[{"n":"特性"}],"np":"寶具名（簡述）","persona":{"firstP":"一人稱","words":"性格關鍵詞","toMaster":"對御主態度"}}';
+    + '"traits":[{"n":"特性"}],"np":"寶具名（簡述）","align":"陣營，格式「秩序/中立/混沌・善/中立/惡」，狂戰士可填「混沌・狂」",'
+    + '"persona":{"firstP":"一人稱","words":"性格關鍵詞","toMaster":"對御主態度"}}';
   var user = '為英靈產生資料。真名：'+name+'　職階：'+cls + (desc?('　額外描述：'+desc):'')
     + '\n可用效果碼：nullify_magic,evade_ranged,stealth,ride,territory,crafting,mad,first_strike,analyze,burst,divine,morale,survive，或空字串。'
     + '\n平衡限制：六維上限 A、寶具上限 A+。嚴格只輸出此 JSON schema：\n' + schema;
@@ -161,6 +162,13 @@ function generateServant_(name, cls, desc){
 
 var FX_OK_ = ['nullify_magic','evade_ranged','stealth','ride','territory','crafting','mad',
               'first_strike','analyze','burst','divine','morale','survive'];
+/** 夾值陣營：取「秩序/中立/混沌・善/中立/惡(或狂)」，不合法則回中立・中庸 */
+function cleanAlign_(a){
+  a = String(a||'');
+  var ord = (a.indexOf('秩序')>=0)?'秩序':(a.indexOf('混沌')>=0)?'混沌':'中立';
+  var mor = (a.indexOf('狂')>=0)?'狂':(a.indexOf('善')>=0)?'善':(a.indexOf('惡')>=0)?'惡':'中庸';
+  return ord+'・'+mor;
+}
 function cleanSkill_(s){
   s = s || {};
   return { n: String(s.n||'技能').slice(0,8),
@@ -180,6 +188,7 @@ function sanitizeHero_(g, name, cls){
     skills: (g.skills||[]).slice(0,4).map(cleanSkill_),
     traits: (g.traits||[]).slice(0,3).map(function(t){ return { n: String((t&&t.n)||t||'人類').slice(0,6) }; }),
     np: String(g.np||'（生成寶具）').slice(0,40),
+    align: cleanAlign_(g.align),
     persona: { firstP: String((g.persona&&g.persona.firstP)||'我').slice(0,4),
                words: String((g.persona&&g.persona.words)||'AI 生成').slice(0,20),
                toMaster: String((g.persona&&g.persona.toMaster)||'待相處後確立').slice(0,20) }

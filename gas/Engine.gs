@@ -109,6 +109,22 @@ function heroFromRow_(row){
     id: row.servant_id, cls: row.cls, realName: row.realName,
     six: { 筋力:row.筋力, 耐久:row.耐久, 敏捷:row.敏捷, 魔力:row.魔力, 幸運:row.幸運, 寶具:row.寶具 },
     classSkills: row.classSkills || [], skills: row.skills || [], traits: row.traits || [],
-    np: row.np, persona: row.persona, wars: row.wars, source: row.source
+    np: row.np, persona: row.persona, wars: row.wars, source: row.source, align: row.align
   };
+}
+
+// ===== 陣營（雙軸字串如「混沌・善」）：邏輯只取善惡軸＋狂化，秩序/混沌軸保留供未來使用 =====
+function alignGood_(hero){ var a=String((hero&&hero.align)||''); return a.indexOf('善')>=0?'good':a.indexOf('惡')>=0?'evil':'neutral'; }
+function alignMad_(hero){
+  if(!hero) return false;
+  if(String(hero.align||'').indexOf('狂')>=0) return true;
+  var sv = hero.six ? hero : heroFromRow_(hero);
+  return hasFx_(sv,'mad') || hasSkillName_(sv,'狂化');
+}
+/** 對「獵食無辜者補魔」的態度：willing(惡/狂化) / reluctant(中立) / refuse(善) */
+function feedDisposition_(hero){
+  if(!hero) return 'reluctant';
+  if(alignMad_(hero)) return 'willing';
+  var g = alignGood_(hero);
+  return g==='good' ? 'refuse' : g==='evil' ? 'willing' : 'reluctant';
 }

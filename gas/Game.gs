@@ -71,7 +71,7 @@ function summonByName(opts){
   appendObj_(SHEETS.HEROES, {
     servant_id:sid, cls:cls, realName:name, wars:['自訂'],
     筋力:g.six.筋力, 耐久:g.six.耐久, 敏捷:g.six.敏捷, 魔力:g.six.魔力, 幸運:g.six.幸運, 寶具:g.six.寶具,
-    classSkills:g.classSkills, skills:g.skills, traits:g.traits, np:g.np, persona:g.persona, source:'ai_gen'
+    classSkills:g.classSkills, skills:g.skills, traits:g.traits, np:g.np, persona:g.persona, source:'ai_gen', align:g.align
   });
   return { servant_id: sid, generated:true };
   });
@@ -256,7 +256,7 @@ function playerView_(p){
               upkeep:p.upkeep, bond:p.bond, six: hero?heroFromRow_(hero).six:{}, np:hero?hero.np:'',
               skills: hero?heroFromRow_(hero).skills:[], classSkills: hero?heroFromRow_(hero).classSkills:[],
               traits: hero?heroFromRow_(hero).traits:[], persona: hero?hero.persona:null,
-              loc:p.servant_loc, separated:p.separated, condition:p.sv_condition||'' },
+              loc:p.servant_loc, separated:p.separated, condition:p.sv_condition||'', align: hero?hero.align:'' },
     base:{ loc:p.base_loc, barrier:p.barrier, barrierMax:p.barrier_max, tier:p.base_tier }
   };
 }
@@ -291,7 +291,7 @@ function doAction(a){
     var hero = findOne_(SHEETS.HEROES, { servant_id: p.servant_id });
 
     // 補魔密封時段：封鎖耗時/戰鬥動作（免 LLM，直接回最終回應）
-    if(clock.mana_locked && ['move','scout','attack','np','sleep','separate','claim','retreat'].indexOf(a.type)>=0)
+    if(clock.mana_locked && ['move','scout','attack','np','sleep','separate','claim','retreat','hunt'].indexOf(a.type)>=0)
       return { final:{ state:getState(gameId), narration:'（補魔進行中，無法進行該動作；請繼續對話，或用令咒「強制補魔」結束。）', events:[] } };
 
     // 個性+好感 + 歷史事件/記憶 → 完整 context，讓 AI 不出戲、知道過去
@@ -309,6 +309,7 @@ function doAction(a){
       case 'reinforce':  spec = act_reinforce_(p, hero); break;
       case 'separate':   spec = act_separate_(p); break;
       case 'retreat':    spec = act_retreat_(p, clock, hero); break;
+      case 'hunt':       spec = act_hunt_(p, clock, hero); break;
       case 'accept_death': spec = ''; break;   // 瀕死抉擇：放棄令咒救援、接受死亡（結局在下方結算）
       case 'claim':      spec = act_claim_(p, clock, hero); break;
       case 'sleep':      spec = act_sleep_(p, clock); break;
@@ -325,7 +326,7 @@ function doAction(a){
     var events = [];
     var fresh = findOne_(SHEETS.CLOCK, { game_id: gameId });
     if(!fresh.mana_locked){
-      if(['move','scout','attack','np','claim','retreat'].indexOf(a.type) >= 0){
+      if(['move','scout','attack','np','claim','retreat','hunt'].indexOf(a.type) >= 0){
         events = npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh);
       } else if(a.type === 'sleep'){
         for(var k=0;k<3;k++) events = events.concat(npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh));
@@ -695,6 +696,9 @@ function act_combat_(rows, p, clock, hero, mode, costAP){
   var outcome, sealNote = '';
   if(res.winner === 'A'){                     // 敵從者當場被擊破（多半來自寶具/令咒的決死一擊）
     enemyRow.alive = false; p.bond = Math.min(100, p.bond+5); outcome = 'enemy_dead';
+    var surge = Math.round(p.sv_mp_max * TUNING.KILL_MP);   // 擊殺回魔：敵靈核潰散的魔力湧入
+    p.sv_mp = Math.min(p.sv_mp_max, p.sv_mp + surge);
+    sealNote = '擊破'+B.cls+'，潰散的靈核魔力湧入你的從者（魔力 +'+surge+'）。';
   } else if(res.winner === 'B'){
     outcome = 'player_dead';
   } else if(res.bFlee){                        // 敵從者重傷 → 對面御主的撤退/令咒判定
@@ -756,9 +760,9 @@ function act_mana_(p, clock){
 function servantCtx_(p, hero){
   if(!hero) return '';
   var ps = hero.persona || {};
-  return '（從者：'+hero.cls+'，真名'+(p.true_name_known?hero.realName:'未公開')+'，個性「'+(ps.words||'')+'」，'
-    + '一人稱「'+(ps.firstP||'我')+'」，對御主態度「'+(ps.toMaster||'')+'」，目前好感度 '+p.bond+'/100。'
-    + '請嚴格依此人格與好感回應，保有自主與尊嚴。）';
+  return '（從者：'+hero.cls+'，真名'+(p.true_name_known?hero.realName:'未公開')+'，陣營「'+(hero.align||'未知')+'」，'
+    + '個性「'+(ps.words||'')+'」，一人稱「'+(ps.firstP||'我')+'」，對御主態度「'+(ps.toMaster||'')+'」，目前好感度 '+p.bond+'/100。'
+    + '請嚴格依此人格、陣營與好感回應，保有自主與尊嚴。）';
 }
 function act_claim_(p, clock, hero){
   if(clock.ap<1) return '（行動點不足，請睡覺恢復。）';
@@ -805,6 +809,34 @@ function act_retreat_(p, clock, hero){
   updateRow_(SHEETS.BATTLE, p._row, { location:p.location, servant_loc:p.servant_loc, separated:p.separated });
   advanceTime_(p, clock, hero, 1);
   return { kind:'scene', prompt:'你（'+p.master_name+'）當機立斷，帶著從者迅速撤離當前戰場，退往「'+locName_(dest)+'」。請寫一段緊張的脫離敘述。' };
+}
+
+// 獵魔：令從者獵食冬木的無辜者/亡者以大幅補魔。依陣營分流（善向拒絕、中立不情願扣好感、惡/狂化樂意）。
+function act_hunt_(p, clock, hero){
+  if(p.sv_mp>=p.sv_mp_max) return '（從者魔力已滿，無需獵食。）';
+  var disp = feedDisposition_(hero);
+  if(disp==='refuse'){
+    // 善向從者連被提議都反感：不耗 AP、不回魔，好感小扣
+    p.bond = Math.max(0, p.bond + TUNING.HUNT_BOND_REFUSE);
+    updateRow_(SHEETS.BATTLE, p._row, { bond:p.bond });
+    return { kind:'scene',
+      prompt:'你示意從者獵食冬木的無辜者來補充魔力，但'+(hero?hero.cls:'從者')+'（'+(hero?hero.align:'')+'）斷然拒絕——殘害無辜違背其信念。請寫一段從者凜然回絕、甚至斥責御主的敘述。',
+      suffix:'\n（從者拒絕了獵食　好感 '+TUNING.HUNT_BOND_REFUSE+'）' };
+  }
+  if(clock.ap<1) return '（行動點不足，請睡覺恢復。）';
+  var ratio = (disp==='willing') ? TUNING.HUNT_MP_WILLING : TUNING.HUNT_MP_RELUCT;
+  var gain = Math.round(p.sv_mp_max * ratio);
+  p.sv_mp = Math.min(p.sv_mp_max, p.sv_mp + gain);
+  var bd = (disp==='willing') ? (alignGood_(hero)==='evil' ? TUNING.HUNT_BOND_EVIL : 0) : TUNING.HUNT_BOND_RELUCT;
+  p.bond = Math.max(0, Math.min(100, p.bond + bd));
+  updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, bond:p.bond });
+  advanceTime_(p, clock, hero, 1);
+  var tone = (disp==='willing')
+    ? '從者毫不猶豫地獵食、汲取生命魔力，神情或冷酷或愉悅（依其個性）'
+    : '從者壓抑著厭惡，為了維持靈基不得不獵食無辜，事後神色沉重';
+  return { kind:'scene',
+    prompt:'為了補充枯竭的魔力，'+tone+'。請寫一段帶有道德重量的獵食敘述（不要列數字）。',
+    suffix:'\n（獵食補魔：魔力 +'+gain+(bd?('　好感 '+(bd>0?'+':'')+bd):'')+'）' };
 }
 
 function act_sleep_(p, clock){

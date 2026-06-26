@@ -73,7 +73,7 @@ function servantRow_(s){
   return [ s.id, s.cls, s.realName, s.wars.join('/'),
     s.six.筋力, s.six.耐久, s.six.敏捷, s.six.魔力, s.six.幸運, s.six.寶具,
     JSON.stringify(s.classSkills), JSON.stringify(s.skills), JSON.stringify(s.traits),
-    s.np, JSON.stringify(s.persona), 'official' ];
+    s.np, JSON.stringify(s.persona), 'official', s.align||'中立・中庸' ];
 }
 function masterRow_(m){
   return [ m.id, m.name, m.war, m.magic, m.circuits, m.melee, m.magic_rank, m.home, m.wish, m.persona, 'official' ];
