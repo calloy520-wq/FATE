@@ -56,7 +56,9 @@ const TUNING = {
   MASTER_MP_K: 2,                // 御主迴路魔力上限 = 迴路*MASTER_MP_K（供給/加固用，別灌太大才有資源管理）
   UPKEEP_DIV: 10,                // 維持費 = (筋耐敏魔)/UPKEEP_DIV + 寶具/UPKEEP_DIV
   MAD_MULT: 1.5,                 // 狂化維持費倍率
-  SUPPLY_FACTOR: 0.5,            // 御主供給 = 迴路 * SUPPLY_FACTOR
+  MASTER_REGEN_K: 0.6,           // 御主迴路魔力每小時回復 = 迴路 * MASTER_REGEN_K
+  SV_NATURAL_CAP: 0.8,           // 從者靈基自然回復上限（80%）；更高需主動供給/補魔/獵魔
+  SV_TOPUP: 6,                   // 御主迴路每小時回充從者靈基的速率（餘裕時）
   LEYLINE: { '高':10, '中':5, '低':2 },
   WORKSHOP: 8,                   // Caster 主場工房加成
   SEP_PENALTY: 0.5,              // 分離供給衰減

@@ -578,20 +578,38 @@ function manaChat_(p, clock, text){
 }
 
 // 推進時間 + 每小時經濟 tick（mutate p / clock 並寫回）
+// 魔力供給鏈（每小時）：環境(靈脈/工房) → 御主迴路 → 從者靈基 → HP（飢餓）。
+// 餘裕時御主迴路會把從者靈基回充到「自然上限 80%」，最後 20% 需供給/補魔/獵魔。
 function advanceTime_(p, clock, hero, apCost){
+  var con = rankVal(hero ? heroFromRow_(hero).six.耐久 : 'C');
   for(var i=0;i<apCost;i++){
     if(clock.ap<=0) break;
     clock.ap--;
     for(var h=0;h<TUNING.HOURS_PER_AP;h++){
       clock.hour++; if(clock.hour>=24){ clock.hour=0; clock.day++; }
-      var net = playerEconomy_(p).net;
-      p.sv_mp = Math.max(0, Math.min(p.sv_mp_max, p.sv_mp + net));
-      if(p.sv_mp<=0) p.sv_hp = Math.max(0, p.sv_hp - 3);
-      else if(p.sv_hp<p.sv_hp_max) p.sv_hp = Math.min(p.sv_hp_max, p.sv_hp + Math.round(rankVal(hero?heroFromRow_(hero).six.耐久:'C')*TUNING.HP_REGEN_K));
+      var e = playerEconomy_(p);
+      // 1) 御主迴路回復
+      p.master_mp = Math.min(p.master_mp_max, p.master_mp + e.ms);
+      // 2) 付維持費：環境免費 → 御主迴路 → 從者靈基 → 扣血（飢餓）
+      var free = e.ley + e.ws, need = e.upkeep;
+      var fromFree = Math.min(free, need); need -= fromFree; var freeLeft = free - fromFree;
+      if(need>0){ var fromM = Math.min(p.master_mp, need); p.master_mp -= fromM; need -= fromM; }
+      var starving = false;
+      if(need>0){ var fromS = Math.min(p.sv_mp, need); p.sv_mp -= fromS; need -= fromS; }
+      if(need>0){ p.sv_hp = Math.max(0, p.sv_hp - need); starving = true; }
+      // 3) 餘裕回充從者靈基，但自然只到 80%
+      var cap = Math.round(p.sv_mp_max * TUNING.SV_NATURAL_CAP);
+      if(!starving && p.sv_mp < cap){
+        var room = cap - p.sv_mp;
+        var addFree = Math.min(freeLeft, room); p.sv_mp += addFree; room -= addFree;
+        var addM = Math.min(p.master_mp, TUNING.SV_TOPUP, room); p.sv_mp += addM; p.master_mp -= addM;
+      }
+      // 4) HP 緩回（非飢餓）
+      if(!starving && p.sv_hp < p.sv_hp_max) p.sv_hp = Math.min(p.sv_hp_max, p.sv_hp + Math.round(con*TUNING.HP_REGEN_K));
     }
   }
   updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap });
-  updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, sv_hp:p.sv_hp });
+  updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, sv_hp:p.sv_hp, master_mp:p.master_mp });
 }
 
 // 偵查：揭露當前地與相鄰地的從者蹤跡（戰爭迷霧用），耗 1 AP

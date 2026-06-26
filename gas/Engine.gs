@@ -31,11 +31,12 @@ function deriveServant_(sv){
  * @param p {circuits, upkeep, leyline, isCasterHome, separated, hasSolo}
  */
 function economyNet_(p){
-  var ms = Math.round((p.circuits||30) * TUNING.SUPPLY_FACTOR);
+  var ms = Math.round((p.circuits||30) * TUNING.MASTER_REGEN_K);   // 御主迴路每小時回復
   if(p.separated) ms = Math.round(ms * (p.hasSolo ? TUNING.SEP_SOLO : TUNING.SEP_PENALTY));
   var ley = TUNING.LEYLINE[p.leyline] || 0;
   var ws = p.isCasterHome ? TUNING.WORKSHOP : 0;
-  return { ms: ms, ley: ley, ws: ws, net: ms + ley + ws - (p.upkeep||0) };
+  // net＝（迴路回復＋環境免費供能）−維持費：>0 御主魔力庫長期穩定甚至能補滿靈基；<0 則庫存會被慢慢抽乾
+  return { ms: ms, ley: ley, ws: ws, upkeep: (p.upkeep||0), net: ms + ley + ws - (p.upkeep||0) };
 }
 
 /**
