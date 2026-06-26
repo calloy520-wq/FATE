@@ -323,6 +323,7 @@ function doAction(a){
       case 'hunt':       spec = act_hunt_(p, clock, hero); break;
       case 'skill':      spec = act_skill_(rows, p, clock, hero, a.fx); break;
       case 'snipe':      spec = act_snipe_(rows, p, clock, hero); break;
+      case 'assassinate':spec = act_assassinate_(rows, p, clock, hero); break;
       case 'accept_death': spec = ''; break;   // 瀕死抉擇：放棄令咒救援、接受死亡（結局在下方結算）
       case 'claim':      spec = act_claim_(p, clock, hero); break;
       case 'sleep':      spec = act_sleep_(p, clock); break;
@@ -1005,6 +1006,64 @@ function act_snipe_(rows, p, clock, hero){
           winner: killed?'A':'draw', outcome: killed?'enemy_dead':'skill_hit',
           firedTags:['遠距離支援'], beats:[beat], sealNote:'' },
     suffix:'\n\n（遠距離支援：'+dmg+' 傷害'+reviveNote+'　魔力 −'+cost+(counter?('　御主直面反擊 HP −'+counter):'')+'）' };
+}
+
+// 潛殺敵御主（Assassin 限定）：嘗試繞過守護從者、直取敵御主。氣息遮斷 vs 敵預判 → 偵測判定。
+// 成功＝重創/取首敵御主（取首則其從者失主：有單獨行動→無主從者候補再契約、否則消散）；敗露＝守護從者反擊我從者。
+function act_assassinate_(rows, p, clock, hero){
+  if(!hero || hero.cls!=='Assassin') return '（只有 Assassin 能潛行刺殺敵御主——這是暗殺者的職分。）';
+  if(clock.ap<1) return '（行動點不足，請睡覺恢復。）';
+  var here = p.separated ? p.servant_loc : p.location;
+  var target = pickFoe_(rows, here);
+  if(!target) return '（這裡沒有可下手的對象——需讓我的從者與敵同地（建議分離・派駐潛入，御主留在安全處）。）';
+  var cost = Math.round(p.sv_mp_max*0.12);
+  if(p.sv_mp < cost) return '（魔力不足，無法支撐潛行突襲。）';
+  var eHero = findOne_(SHEETS.HEROES, { servant_id: target.servant_id });
+  var A = heroFromRow_(hero), B = eHero ? heroFromRow_(eHero) : null;
+  // 偵測判定：氣息遮斷階級 vs 敵預判（直感/心眼）＋敏捷
+  var stealth = 0; [].concat(A.classSkills||[], A.skills||[]).forEach(function(s){ if(s.fx==='stealth') stealth = Math.max(stealth, rankVal(s.r)); });
+  var wary = (B && (hasFx_(B,'first_strike')||hasFx_(B,'analyze')||hasFx_(B,'unreadable'))) ? 18 : 0;
+  var chance = Math.max(0.1, Math.min(0.85, 0.5 + (stealth-30)/100 - wary/100 - Math.round(rankVal((B&&B.six.敏捷)||'C')/3)/100));
+  p.sv_mp = Math.max(0, p.sv_mp - cost);
+  advanceTime_(p, clock, hero, 1);
+  if(Math.random() < chance){
+    var mdef = Math.round((rankVal(target.melee||'E') + rankVal(target.magic_rank||'C')) / 3.5);
+    var dmg = Math.max(10, Math.round(40 + rankVal(A.six.敏捷)*0.3) - mdef);
+    var mhp = (Number(target.master_hp)||100) - dmg, note, killed=false;
+    if(mhp <= 0){
+      var tSolo = B ? soloRank_(B) : '';
+      if(tSolo){                                   // 敵御主殞落、敵從者有單獨行動 → 淪無主從者（候補再契約）
+        target.master_hp=0; target.solo_hours='masterless'; target.seals=0;
+        updateRow_(SHEETS.BATTLE, target._row, { master_hp:0, solo_hours:'masterless', seals:0 });
+        note = '我的 Assassin 一擊取下敵御主「'+target.master_name+'」首級！'+(B?B.cls:'敵從者')+' 失去主人，淪為無主從者';
+      } else {                                     // 否則敵從者失去供給、隨之消散
+        target.master_hp=0; target.alive=false; p.bond=Math.min(100, p.bond+5); killed=true;
+        updateRow_(SHEETS.BATTLE, target._row, { master_hp:0, alive:false });
+        note = '我的 Assassin 一擊取下敵御主「'+target.master_name+'」首級！失去魔力供給，'+(B?B.cls:'敵從者')+' 隨之消散';
+      }
+    } else {
+      target.master_hp = mhp; updateRow_(SHEETS.BATTLE, target._row, { master_hp:mhp });
+      note = '我的 Assassin 潛行突入、重創敵御主「'+target.master_name+'」（御主 HP −'+dmg+'），但未竟全功，敵從者已然警覺';
+    }
+    updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, bond:p.bond });
+    logEvent_(p.game_id, clock.day, pad2_(clock.hour)+':00', here, 'ASSASSINATE', 'slot_0', 'slot_'+(target.slot-1), note, true, 1);
+    return { kind:'combat',
+      ctx:{ playerCls:A.cls, enemyCls:B?B.cls:'敵從者', enemyMaster:target.master_name,
+            winner: killed?'A':'draw', outcome: killed?'enemy_dead':'skill_hit',
+            firedTags:['氣息遮斷','潛殺'], beats:['〔潛殺〕'+note], sealNote:'' },
+      suffix:'\n\n（潛殺成功・命中率 '+Math.round(chance*100)+'%　魔力 −'+cost+'）' };
+  }
+  // 敗露：守護從者識破、護主反擊
+  var cdmg = B ? Math.round(rankVal(B.six.筋力)*0.5)+8 : 12;
+  p.sv_hp = Math.max(0, p.sv_hp - cdmg);
+  updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, sv_hp:p.sv_hp });
+  logEvent_(p.game_id, clock.day, pad2_(clock.hour)+':00', here, 'ASSASSINATE_FAIL', 'slot_0', 'slot_'+(target.slot-1),
+    'Assassin 潛殺'+target.master_name+'敗露，遭守護從者反擊', true, 1);
+  return { kind:'combat',
+    ctx:{ playerCls:A.cls, enemyCls:B?B.cls:'敵從者', enemyMaster:target.master_name,
+          winner:'draw', outcome:'skill_hit', firedTags:['潛殺敗露'],
+          beats:['〔潛殺敗露〕氣息被 '+(B?B.cls:'敵從者')+' 識破，護主一擊反手襲來——我的從者吃了一記（HP −'+cdmg+'）'], sealNote:'' },
+    suffix:'\n\n（潛殺敗露・命中率僅 '+Math.round(chance*100)+'%　從者 HP −'+cdmg+'　魔力 −'+cost+'）' };
 }
 
 function act_mana_(p, clock){
