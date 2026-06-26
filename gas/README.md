@@ -1,73 +1,125 @@
 # 命運停駐之夜 — GAS 後端
 
-Google Apps Script 後端。第一塊：**自動建表 + 種子資料**。
+Google Apps Script 後端：自動建表 + 種子資料 + 遊戲流程（伺服器權威，所有數值由 GAS 算，AI 只敘述）。
 
-## 安裝步驟
+> 本檔同時是「給 AI / 開發者的修改指南」。要新增從者、戰爭、調平衡、改技能效果，先讀這裡。
 
-1. 開一個新的 **Google 試算表** → 上方選單「擴充功能」→「Apps Script」。
-2. 把本資料夾的 `.gs` 檔全部貼進專案（檔名隨意，內容對應即可）：
-   - `Config.gs`：分頁名稱、欄位、平衡常數、OpenRouter 設定
-   - `SeedData.gs`：英靈殿/地圖/戰爭/規則/道具 種子資料
-   - `Setup.gs`：建表與種子主程式
-3. 左側「專案設定」→「指令碼屬性」→ 新增：
-   - `OPENROUTER_API_KEY` = 你的 OpenRouter API key
-4. 回編輯器，選函式 `setupDatabase` → 執行（第一次會要求授權）。
-5. 回試算表，會看到 10 張分頁建好、英靈殿與地圖已填入樣本。
-   （試算表選單也會多一個「聖杯戰爭 → 建立／重建資料庫」。）
+## 安裝 / 更新
 
-## 建出來的分頁
+1. Google 試算表 →「擴充功能」→「Apps Script」。
+2. 把 `gas/` 內各 `.gs` 貼成指令碼檔；`index.html` 必須用「檔案 ➕ → HTML」新增成 HTML 檔（命名 `index`），不可貼進 `.gs`。
+3. 專案設定 → 指令碼屬性 → `OPENROUTER_API_KEY` = 你的 key。
+4. 執行 `setupDatabase()`（第一次要授權）。
+5. **改了 `Config.gs` 的欄位或 `SeedData.gs` 的種子，要再跑一次 `setupDatabase()`**。
+   - 重跑只重種「靜態分頁」並補標題列；**動態存檔（戰場/時鐘/記憶/事件/帳號）資料不清**。
+   - 英靈殿重種時**會保留**玩家 AI 生成的英靈（`source='ai_gen'`）。
 
-**靜態定檔（會種子）**
-| 分頁 | 內容 |
-|------|------|
-| 英靈殿 | 第四次/第五次七騎 + FAKE 樣本（15 筆） |
-| 地圖 | 冬木市 13 定點 |
-| 戰爭範本 | 4th / 5th / FAKE |
-| 世界規則 | 餵 AI 的底線規則 |
-| 道具圖鑑 | 輕量消耗品/催媒 |
+## 檔案地圖
 
-**動態存檔（只建表，不動資料）**
-| 分頁 | 內容 |
-|------|------|
-| 帳號 | ms_id 主鍵 / 玩家名 / current_game / 道具 / 設定 |
-| 戰場 | 每列一位參戰者（御主+從者合併），8 列/場 |
-| 記憶 | EAV 事實表（捕捉玩家自由發揮） |
-| 事件 | EventLog（多人相容，actor/target 多型） |
-| 時鐘 | 日/時/AP/補魔倒數 |
+| 檔 | 負責 |
+|---|---|
+| `Config.gs` | 分頁名、欄位 `HEADERS`、平衡常數 `TUNING`、`rankVal()`、OpenRouter 設定 |
+| `SeedData.gs` | 英靈殿/御主殿/地圖/戰爭/規則/道具 種子資料 |
+| `Setup.gs` | 建表＋種子（`setupDatabase`）；重種保留 ai_gen |
+| `Sheets.gs` | 試算表讀寫層：`readAll_`(整表快取)、`readTail_`(窗口)、`withLock_`(寫入序列化)、`invalidate_` |
+| `Engine.gs` | 純數值引擎：`resolveCombat_`、`economyNet_`、技能/標籤效果、`deriveServant_` |
+| `Game.gs` | 流程：登入/開局/讀狀態/`doAction`（兩階段：鎖內結算→鎖外 LLM）、各動作 `act_*` |
+| `LLM.gs` | OpenRouter 呼叫（重試＋退避＋JSON 容錯）、敘事提示詞、敘述函式 |
+| `Api.gs` | Web App 進入點 `doGet`、編輯器測試函式 |
+| `index.html` | 前端（單頁，三欄/手機單欄；敘述、地圖、狀態、技能/令咒選單） |
 
-## 平衡控制
+## 資料模型（靜態分頁）
 
-所有平衡集中在 `Config.gs` 的 `TUNING`：HP/MP 係數、維持費除數、狂化倍率、供給係數、靈脈表、戰鬥耗魔、AP/補魔。改這裡＝整個經濟平移。
+**英靈殿（HEROES）** — 一列一名英靈：
+`servant_id, cls, realName, wars(陣列或 "a/b"), 筋力,耐久,敏捷,魔力,幸運,寶具(階級字串),
+classSkills, skills, traits(JSON 陣列), np(寶具字串), persona(JSON), source, align`
+- 技能格式：`{n:"技能名", r:"階級", fx:"效果碼"}`；特性：`{n:"特性"}`
+- `persona`：`{firstP:"一人稱", words:"性格關鍵詞", toMaster:"對御主態度"}`
+- `align`：雙軸「秩序/中立/混沌・善/中立/惡」，Berserker 可「混沌・狂」。邏輯只取善惡軸＋狂化（`alignGood_`/`feedDisposition_`），秩序/混沌軸保留未用。
 
-## 重跑安全
+**御主殿（MASTERS）**：`master_id, name, war, magic, circuits, melee, magic_rank, home, wish, persona`
+**地圖（MAP）**：`id, name, x, y, danger, leyline(高/中/低), adj(JSON 鄰接), desc`（冬木 21 點）
+**戰爭範本（WARS）**：`war_id, name, participants, partial, roster([{master, sid}])`
 
-`setupDatabase()` 可重複執行：靜態分頁會重新種子，**動態分頁不會被清空**。
+## fx 效果碼對照表（★ 新增從者請用這些碼，技能才會真的生效）
 
-## 檔案總覽（全線打通）
+**被動（戰鬥自動觸發，`resolveCombat_`）**
+| fx | 名稱 | 效果（數值） |
+|---|---|---|
+| `nullify_magic` | 對魔力 | 魔術傷害 ×(1−min(.9, 階級/55))；A≈−90% E≈−18%。不擋肉體 |
+| `evade_ranged` | 避矢加護 | 閃避 +6 |
+| `burst` | 魔力放出 | 普攻傷害 ×1.2 |
+| `survive` | 戰鬥續行 | 每場可在致命一擊下撐住一次（HP=1） |
+| `morale` | 勇猛/卡里斯瑪 | 傷害 +3 |
+| `first_strike` | 直感 | 命中 +3 |
+| `analyze` | 心眼 | 閃避 +3 |
+| `ride` | 騎乘 | 閃避 +3 |
+| `divine_core` | 神核 | 受到傷害 ×0.82 |
+| `stealth` | 氣息遮斷 | 開場首擊奇襲：命中 +6、傷害 ×1.5（一次性） |
+| `divine` | 神性 | 寶具開場威力 ×1.1 |
+| `tactics` | 軍略 | 寶具開場威力 ×1.15 |
+| （特性`神性` + 技能名含`神殺`） | 神殺 | 傷害 ×2 |
 
-| 檔 | 作用 |
-|----|------|
-| `Config.gs` | 分頁/欄位/平衡常數/階級換算/OpenRouter |
-| `SeedData.gs` | 英靈殿/地圖/戰爭/規則/道具 種子 |
-| `Setup.gs` | `setupDatabase()` 建表+種子 |
-| `Sheets.gs` | 試算表讀寫工具層 |
-| `Engine.gs` | 純數值引擎（推導/經濟/D20 戰鬥） |
-| `LLM.gs` | OpenRouter 呼叫 + 敘事 |
-| `Game.gs` | 登入/開局/狀態/動作（server 權威寫回） |
-| `Api.gs` | `doGet` + 編輯器測試 |
-| `index.html` | 前端（`google.script.run` 接後端） |
+**主動（玩家「✨ 技能」鈕發動，耗靈基魔力＋1AP，`act_skill_`）**
+| fx | 名稱 | 類型 / 效果 |
+|---|---|---|
+| `fast_cast` | 高速神言 | 即時魔術彈：魔力×1.0+10，受對魔力減免 |
+| `petrify` | 魔眼 | 即時魔術傷害＋使敵下場戰鬥 dodge −8（石化遲滯） |
+| `zabaniya` | 妄想心音 | 即時心臟一擊：筋力×1.2+敏捷，無視防禦與對魔力 |
+| `rune` / `shapeshift` | 符文 / 變生 | 即時回復 HP（耐久×2+10±） |
+| `str_up` / `projection` / `weapon_steal` | 怪力 / 投影 / 武裝掠奪 | 下一場戰鬥傷害 +（筋力×0.4+5） |
+| `aim` | 千里眼 | 下一場戰鬥命中 +8 |
 
-## 部署為網頁應用程式
+**經濟 / 其他**
+| fx | 效果 |
+|---|---|
+| `mad` 狂化 | 維持費 ×1.5（`deriveServant_`） |
+| `solo` 單獨行動 | 分離時供給衰減減免（`SEP_SOLO`） |
+| `territory` 陣地作成 | Caster 在主場工房 +`WORKSHOP` 供能 |
+| `crafting` / `wealth` / `rule_breaker` 等 | 敘述向，無額外戰鬥數值（前端說明會標示） |
+| 寶具 np 含「十二試煉 / God Hand」 | 賦予 `GOD_HAND_LIVES` 條命，被擊倒會復活，須擊倒這麼多次才真死 |
 
-1. 確認已執行 **`setupDatabase()`**（戰場分頁新增 circuits/master_mp_max，**需重跑一次**）。
-2. 把 `index.html` 內容換成本資料夾的版本（前端已接後端）。
-3. 設定 `OPENROUTER_API_KEY`（指令碼屬性）。
-4. 右上「部署」→「新增部署作業」→ 類型「網頁應用程式」→ 存取權限自選 → 部署。
-5. 開網址即可遊玩：登入 → 模式 → 召喚/扮演 → 進場，所有數值由 GAS 判定、AI 敘述。
+> 前端 `index.html` 的 `App.FX_DESC` 是這張表的玩家版說明，**改機制時記得同步**。
 
-## 編輯器快速驗證（不必部署）
+## 平衡常數（`Config.gs` 的 `TUNING`）
 
-- `testCombatEngine()`：看 D20 戰報
-- `testEconomy()`：看「伊莉雅養狂化叔」
-- `testFullFlow()`：登入→開局→移動→戰鬥（設 key 則含 AI 敘述）
-- `clearGames()`：清空動態存檔重來
+- 數值：`HP_K/HP_BASE`(從者HP)、`MP_K/MP_BASE`(從者靈基魔力)、`MASTER_MP_K`(御主迴路魔力上限)、`UPKEEP_DIV`、`MAD_MULT`
+- 經濟：`MASTER_REGEN_K`(迴路每小時回復)、`SV_NATURAL_CAP`(靈基自然上限 0.8)、`SV_TOPUP`、`LEYLINE`、`WORKSHOP`、`SEP_PENALTY/SEP_SOLO`
+- 戰鬥：`FLEE_HP`(撤退門檻 0.5)、`COMBAT_MP/NP_MP`、`KILL_MP`(擊殺回魔)、`GOD_HAND_LIVES`
+- 獵魔/好感：`HUNT_MP_*`、`HUNT_BOND_*`
+- 時間/補魔：`AP_PER_DAY/HOURS_PER_AP`、`MANA_TURNS/MANA_AP_COST/MANA_BOND`
+
+## 核心機制摘要
+
+- **魔力供給鏈（每小時）**：環境(靈脈/工房)免費 → 御主迴路 → 從者靈基 → **御主生命（破格召喚反噬）**。從者靈基自然只回 80%，更高需 供給/補魔/獵魔。
+- **戰鬥**：屬性+D20 對抗；任一方降到 50% HP 即撤退（不纏鬥至死）；令咒（seal/sealnp）為決死全力、可分生死。
+- **撤退/令咒 AI**：敵從者重傷→敵御主可能燃令咒瞬移脫離/治療；玩家重傷→敵御主可能燃令咒追擊。
+- **瀕死令咒救援**：從者或御主將死且有令咒→彈窗抉擇（靈基修復 / 接受命運）。
+- **獵魔/好感**：依 `align` 善惡分流（善拒絕、中立不情願扣好感、惡/狂化樂意）。
+- **御主遇襲**：從者分離/倒下、不在身邊時，敵從者(尤其 Assassin)會襲擊御主；武鬥/魔術階級減傷。
+
+## 如何新增
+
+**新增一名從者**（在 `SeedData.gs` 的 `SEED_SERVANTS` 加物件，跑 `setupDatabase`）：
+```js
+{ id:'真名-職階', cls:'Lancer', realName:'真名', wars:['客串'],
+  six:{筋力:'B',耐久:'A',敏捷:'A',魔力:'B',幸運:'E',寶具:'B'},
+  classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'}],
+  skills:[{n:'神速',r:'A',fx:'first_strike'},{n:'符文',r:'A',fx:'rune'}],
+  traits:[{n:'人類'}], np:'寶具名（簡述）',
+  align:'中立・中庸', persona:{firstP:'我',words:'性格關鍵詞',toMaster:'對御主態度'} }
+```
+※ 想讓技能「有效果」，`fx` 一定要用上表中的碼；沒有對應碼就只是敘述向。
+
+**新增一場戰爭**（`SEED_WARS`）：
+```js
+{ war_id:'唯一代號', name:'顯示名', participants:7, partial:true, roster:[
+  {master:'御主名', sid:'對應的 servant_id'}, ... ] }
+```
+※ roster 的 `sid` 必須是英靈殿存在的 `servant_id`；`master` 不在御主殿時，用預設值（迴路 25、夾值上限 50）。
+
+**改某標籤的效果**：改 `Engine.gs`（戰鬥）或 `Game.gs`（動作/經濟），並同步 `index.html` 的 `App.FX_DESC` 玩家說明。
+
+## 內建戰爭
+
+`4th`(第四次)、`5th`(第五次)、`fake`(Fate/strange Fake 樣本)、`dream`(夢幻演武・客串亂入，含斯卡哈三職階)。

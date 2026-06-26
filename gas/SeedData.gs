@@ -179,6 +179,12 @@ const SEED_WARS = [
   { war_id:'fake', name:'Fate/strange Fake（偽聖杯戰爭）', participants:13, partial:true, roster:[
     {master:'提奈·切爾克',sid:'吉爾伽美什-Archer'},{master:'（無御主）',sid:'恩奇都-Lancer'},
     {master:'觀測者',sid:'漢斯-Watcher'} ] },
+  // 客串／夢幻演武：跨作亂入，含斯卡哈三職階登場（御主非正典→用預設值）
+  { war_id:'dream', name:'夢幻演武（客串亂入）', participants:7, partial:true, roster:[
+    {master:'影之國弟子',sid:'斯卡哈-Lancer'},{master:'北歐的旅人',sid:'斯卡哈-Caster'},
+    {master:'潛行者',sid:'斯卡哈-Assassin'},{master:'黃金的暴君',sid:'吉爾伽美什-Archer'},
+    {master:'魔術的背叛者',sid:'美狄亞-Caster'},{master:'狂戰的契約者',sid:'赫拉克勒斯-Berserker'},
+    {master:'劍之追尋者',sid:'阿爾托莉雅-Saber'} ] },
 ];
 
 // ===== 世界規則（餵 AI 當底線）=====
