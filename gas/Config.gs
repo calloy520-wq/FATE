@@ -80,6 +80,9 @@ const TUNING = {
   SOLO_HOURS: { E:6, D:12, C:24, B:48, A:96, EX:168 },
   // 補魔
   MANA_TURNS: 10, MANA_AP_COST: 2, MANA_BOND: 8,
+  MANA_BUFF_HOURS: 12,           // 補魔加持持續時數（期間迴路回魔提升、靈基維持高出力）
+  MANA_REGEN_MULT: 1.6,          // 補魔加持期間：迴路回魔倍率
+  DREAM_CHANCE: 0.33,            // 睡覺時夢見從者過往片段的機率
   // 獵魔（吸食補魔）／擊殺回魔／情境好感
   HUNT_MP_WILLING: 0.5,   // 樂意(惡/狂化)獵食回魔比例
   HUNT_MP_RELUCT:  0.35,  // 不情願(中立)獵食回魔比例

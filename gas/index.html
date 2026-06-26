@@ -647,7 +647,8 @@ var App = {
   renderMana:function(){ var c=App.S.clock,b=document.getElementById('mana-box');
     b.innerHTML = c.mana_locked ? '<div style="background:#1c1320;border:1px solid var(--red);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--red2);margin-bottom:8px;text-align:center">♥ 補魔進行中・剩 '+c.mana_countdown+' 次對話（送出對話以推進）</div>' : ''; },
   renderClock:function(){ var c=App.S.clock,ph=(c.hour>=6&&c.hour<18)?'☀晝':'🌙夜';
-    document.getElementById('clock-hud').innerHTML='<span>第 '+c.day+' 日　'+('0'+c.hour).slice(-2)+':00　'+ph+
+    var buff=(Number(c.mana_countdown)>0)?(' 　<span style="color:#e58aa8" title="補魔加持：迴路回魔提升、靈基維持高出力">✨補魔加持 '+Number(c.mana_countdown)+'h</span>'):'';
+    document.getElementById('clock-hud').innerHTML='<span>第 '+c.day+' 日　'+('0'+c.hour).slice(-2)+':00　'+ph+buff+
       '</span><span title="行動點：移動/偵查/戰鬥等耗時動作各 1 點，睡覺恢復" style="cursor:help">AP '+'●'.repeat(c.ap)+'○'.repeat(c.ap_max-c.ap)+'</span>'; },
   renderMaster:function(){ var m=App.S.player.master,e=App.S.economy;
     document.getElementById('master-box').innerHTML=

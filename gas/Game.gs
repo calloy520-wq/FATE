@@ -340,7 +340,7 @@ function doAction(a){
       case 'scout':      spec = act_scout_(p, clock, hero); break;
       case 'attack':     spec = act_combat_(rows, p, clock, hero, false, true); break;
       case 'np':         spec = act_combat_(rows, p, clock, hero, 'np', true); break;
-      case 'mana':       spec = act_mana_(p, clock); break;
+      case 'mana':       spec = act_mana_(p, clock, hero); break;
       case 'feed':       spec = act_feed_(p); break;
       case 'reinforce':  spec = act_reinforce_(p, hero); break;
       case 'separate':   spec = act_separate_(p); break;
@@ -352,7 +352,7 @@ function doAction(a){
       case 'assassinate':spec = act_assassinate_(rows, p, clock, hero); break;
       case 'accept_death': spec = ''; break;   // 瀕死抉擇：放棄令咒救援、接受死亡（結局在下方結算）
       case 'claim':      spec = act_claim_(p, clock, hero); break;
-      case 'sleep':      spec = act_sleep_(p, clock); break;
+      case 'sleep':      spec = act_sleep_(p, clock, hero); break;
       case 'seal':       spec = act_seal_(rows, p, clock, hero, a.cmd); break;
       case 'chat':
         var chatText = sanitizeText_(a.text, 500);
@@ -417,6 +417,10 @@ function doAction(a){
     o = narrateCombat(spec.ctx, plan.mem); narration = (spec.prefix||'') + o.text + (spec.suffix||''); cond = o.condition;
   } else if(spec && spec.kind==='chat'){
     o = narrateAndExtract_(spec.prompt, plan.mem); narration = o.narration; facts = o.facts||[]; cond = o.condition;
+  } else if(spec && spec.kind==='intimate'){
+    o = narrateIntimate_(spec.prompt, plan.mem); narration = (spec.prefix||'') + o.text + (spec.suffix||''); cond = o.condition;
+  } else if(spec && spec.kind==='dream'){
+    o = narrateDream_(spec.prompt, plan.mem); narration = (spec.prefix||'') + o.text + (spec.suffix||''); cond = o.condition;
   }
 
   // 結局假夢（鎖外生成）
@@ -698,6 +702,11 @@ function advanceTime_(p, clock, hero, apCost){
     for(var h=0;h<TUNING.HOURS_PER_AP;h++){
       clock.hour++; if(clock.hour>=24){ clock.hour=0; clock.day++; }
       var e = playerEconomy_(p);
+      // 補魔加持：期間迴路回魔提升、靈基維持高出力；逐時遞減
+      if(Number(clock.mana_countdown) > 0){
+        e.ms = Math.round(e.ms * (TUNING.MANA_REGEN_MULT || 1.5));
+        clock.mana_countdown = Number(clock.mana_countdown) - 1;
+      }
       // 1) 御主迴路回復
       p.master_mp = Math.min(p.master_mp_max, p.master_mp + e.ms);
       // 2) 付維持費：環境免費 → 御主迴路 → 從者靈基 → 扣血（飢餓）
@@ -721,7 +730,7 @@ function advanceTime_(p, clock, hero, apCost){
   }
   // 注意：用具名欄位 updateRow_（非整列 writeRow_）——manaChat_ 等路徑會先以 updateRow_ 改 clock 的 mana 欄
   // 但不動記憶體物件，整列覆寫會把那些欄回寫成舊值。具名更新只碰 day/hour/ap，安全。
-  updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap });
+  updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap, mana_countdown:Math.max(0, Number(clock.mana_countdown)||0) });
   updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, sv_hp:p.sv_hp, master_mp:p.master_mp, master_hp:p.master_hp });
 }
 
@@ -1096,12 +1105,31 @@ function act_assassinate_(rows, p, clock, hero){
     suffix:'\n\n（潛殺敗露・命中率僅 '+Math.round(chance*100)+'%　從者 HP −'+cdmg+'　魔力 −'+cost+'）' };
 }
 
-function act_mana_(p, clock){
-  if(clock.mana_locked) return '（補魔已在進行中——繼續對話即可推進。）';
-  updateRow_(SHEETS.CLOCK, clock._row, { mana_countdown:TUNING.MANA_TURNS, mana_locked:true });
-  return { kind:'scene',
-    prompt:'我與從者開始補魔。依從者個性與好感度決定其態度（好感低則勉強/公事公辦、抗拒過度親密；好感高則有溫度），fade-to-black、點到為止。請寫一段含蓄起始敘述。',
-    suffix:'\n（補魔開始：接下來 '+TUNING.MANA_TURNS+' 次對話用於補魔，期間時間與 NPC 凍結）' };
+// 補魔：單次動作。補滿靈基（出力全開）＋一段含蓄親密的劇情，並賦予「補魔加持」buff
+// （接下來數小時迴路回魔提升、靈基維持高出力）。好感越高態度越親密、增益越多。
+function act_mana_(p, clock, hero){
+  if(clock.ap < 1) return '（行動點不足，請睡覺恢復。）';
+  var demandPct = Math.round((1 - p.sv_mp/Math.max(1, p.sv_mp_max)) * 100);   // 補魔前的魔力缺口
+  var bond = p.bond || 0;
+  var attitude = bond>=70 ? '好感很高（信任流露、有溫度、願意親近）'
+               : bond>=40 ? '好感普通（配合但仍有分寸與羞赧）'
+               : '好感偏低（公事公辦、防備、抗拒過度親密）';
+  var bondGain = bond>=70 ? 4 : bond>=40 ? 2 : 1;
+  p.sv_mp = p.sv_mp_max;                       // 補滿靈基＝出力全開
+  p.bond = Math.min(100, bond + bondGain);
+  var hours = TUNING.MANA_BUFF_HOURS;
+  clock.mana_countdown = hours; clock.mana_locked = false;
+  updateRow_(SHEETS.CLOCK, clock._row, { mana_countdown:hours, mana_locked:false });
+  updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, bond:p.bond });
+  advanceTime_(p, clock, hero, 1);
+  var who = hero ? heroFromRow_(hero) : null;
+  var prompt = '我與從者進行「補魔」——透過肌膚之親將我的魔力渡入她／他的靈基，穩固其現界。'
+    + '從者態度依好感：'+attitude+'，並貼合其個性。請寫一段約 400~520 字、綿長而含蓄的親密敘述：'
+    + '著重氣氛、彼此的靠近與呼吸、神情、魔力在交融間流轉的感受與低語；'
+    + '可曖昧擦邊、point 到情動，但露骨與性的部分一律 fade-to-black、以夜色含蓄收束，不寫露骨情節。';
+  return { kind:'intimate', prompt:prompt,
+    suffix:'\n（💧補魔：靈基補滿至 100%（出力全開）　好感 +'+bondGain+'（'+p.bond+'/100）　補魔前魔力缺口 '+demandPct+'%'
+         + '　✨補魔加持 '+hours+' 小時：迴路回魔 ×'+TUNING.MANA_REGEN_MULT+'、靈基維持高出力）' };
 }
 // 御主人設 context（餵 AI；第一人稱「我」的口吻依此演繹）
 function masterCtx_(acc){
@@ -1231,11 +1259,22 @@ function act_hunt_(p, clock, hero){
     suffix:'\n（獵食補魔：魔力 +'+gain+(bd?('　好感 '+(bd>0?'+':'')+bd):'')+'）' };
 }
 
-function act_sleep_(p, clock){
+function act_sleep_(p, clock, hero){
   clock.day++; clock.hour=6; clock.ap=clock.ap_max;
   p.sv_hp=p.sv_hp_max; p.sv_mp=p.sv_mp_max; p.master_mp=p.master_mp_max;
   updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap });
   updateRow_(SHEETS.BATTLE, p._row, { sv_hp:p.sv_hp, sv_mp:p.sv_mp, master_mp:p.master_mp });
+  // 機率夢見從者的過往片段（含英靈自白）
+  if(hero && Math.random() < (TUNING.DREAM_CHANCE || 0.3)){
+    var h = heroFromRow_(hero), ps = h.persona || {};
+    var prompt = '我睡去後，夢見了從者的一段過往——一段傳說的殘片。'
+      + '\n從者線索：'+h.cls+(p.true_name_known?('・真名「'+h.realName+'」'):'（真名未公開，夢中可朦朧不點破）')
+      + '；傳說／寶具「'+(h.np||'')+'」；個性「'+(ps.words||'')+'」；陣營'+(h.align||'')+'。'
+      + '請寫一段約 220~360 字的夢境：呈現其生前的某一幕（戰場、故土、所愛、悔恨或榮光，貼合其傳說與個性），'
+      + '其間讓「從者的自白」以其一人稱「'+(ps.firstP||'我')+'」浮現一兩句（如夢囈、如獨白），道出心結或執念；'
+      + '最後「我」自夢中轉醒、若有所感。朦朧、克制、有餘韻。';
+    return { kind:'dream', prompt:prompt, suffix:'\n（晨醒：HP／魔力／行動點已恢復）' };
+  }
   return { kind:'scene', prompt:'我睡了一覺，HP/魔力/行動點恢復，新的一天開始。冬木市昨夜想必又有從者交鋒。請寫一段晨醒敘述。' };
 }
 

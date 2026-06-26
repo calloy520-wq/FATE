@@ -187,6 +187,33 @@ function narrateAndExtract_(prompt, memory){
   return { narration: r.text || ('（敘述失敗：'+(r.error||'')+'）'), condition: '', facts: [] };
 }
 
+/** JSON 敘述（可指定較長 maxTokens）→ {text, condition} */
+function narrateJSONlong_(sys, user, maxTokens){
+  var r = callLLM(sys, user, { json:true, temperature:0.92, maxTokens:maxTokens||1400 });
+  if(r.json) return { text: String(r.json.narration||''), condition: String(r.json.condition||'').slice(0,40) };
+  return { text: r.text || ('（敘述生成失敗：'+(r.error||'')+'）'), condition: '' };
+}
+
+/** 補魔・親密場景（綿長含蓄、fade-to-black）→ {text, condition} */
+function narrateIntimate_(prompt, memory){
+  var sys = narratorSystem_()
+    + '\n【補魔・親密場景】這是御主與從者「補魔」的私密時刻，氣氛親密、有溫度，依好感與個性而異。'
+    + '請寫綿長（約 400~520 字）、分 4~6 段的敘述，著重氣氛、肢體的靠近、呼吸與神情、魔力交融的感受與低語。'
+    + '【分際】露骨與性的描寫一律 fade-to-black、以夜色含蓄收束；曖昧擦邊可以，但不寫露骨情節。從者保有人格與尊嚴，好感低則防備、抗拒過度親密。';
+  var user = (memory ? ('【已知世界線/記憶】\n'+memory+'\n\n') : '') + prompt + CONDITION_SCHEMA_;
+  return narrateJSONlong_(sys, user, 1500);
+}
+
+/** 夢・從者過往片段（含英靈一人稱自白）→ {text, condition} */
+function narrateDream_(prompt, memory){
+  var sys = narratorSystem_()
+    + '\n【夢・從者的過往】這是「我」歇息時夢見的、從者生前的一幕往事——一段傳說的殘片。'
+    + '以夢境的朦朧感呈現其過去，其間讓「從者的自白」以其一人稱浮現一兩句（如夢囈、如獨白），道出心結或執念；最後「我」自夢中轉醒。'
+    + '須與從者的傳說、個性、陣營一致；真名未公開時不點破。克制、有餘韻，勿說教。';
+  var user = (memory ? ('【已知世界線/記憶】\n'+memory+'\n\n') : '') + prompt + CONDITION_SCHEMA_;
+  return narrateJSONlong_(sys, user, 1100);
+}
+
 /** 一般場景敘述（移動/搜索/閒聊等）→ {text, condition} */
 function narrateScene(prompt, memory){
   var sys = narratorSystem_();
