@@ -153,6 +153,28 @@
   </div>
 </section>
 
+<!-- ===================== 模式選擇 ===================== -->
+<section class="screen hidden" id="scr-mode">
+  <h2 style="color:var(--gold2)">選擇模式</h2>
+  <div class="menu-list">
+    <button class="btn primary" onclick="App.chooseMode('canon')">正史模式<br>
+      <span style="font-size:11px;color:#ffd;font-weight:400">扮演既有御主，七組依正典</span></button>
+    <button class="btn" onclick="App.chooseMode('chaos')">混亂模式<br>
+      <span style="font-size:11px;color:var(--dim);font-weight:400">御主×從者隨機配對，自訂御主</span></button>
+    <button class="btn ghost" onclick="App.go('scr-menu')">返回</button>
+  </div>
+</section>
+
+<!-- ===================== 正史：選御主 ===================== -->
+<section class="screen hidden" id="scr-canon">
+  <div class="card" style="width:440px;max-height:92vh;overflow:auto">
+    <h2 style="margin:0 0 4px;color:var(--gold2)">選擇你要扮演的御主</h2>
+    <p style="color:var(--dim);font-size:12px;margin:0">其餘六組將作為正典敵人登場</p>
+    <div id="canon-list" style="margin-top:14px"></div>
+    <button class="btn ghost" style="width:100%;margin-top:12px" onclick="App.go('scr-mode')">返回</button>
+  </div>
+</section>
+
 <!-- ===================== 建立御主 ===================== -->
 <section class="screen hidden" id="scr-create">
   <div class="card" style="width:420px;max-height:92vh;overflow:auto">
@@ -205,6 +227,8 @@
     <div id="master-box"></div>
     <div class="sec-h">從者</div>
     <div id="servant-box"></div>
+    <div class="sec-h">戰局・七組</div>
+    <div id="roster-box" style="font-size:12px"></div>
   </div>
 
   <!-- 中：地圖 -->
@@ -259,22 +283,72 @@ const SERVER = {
     {id:'riverside',name:'未遠川河岸',   x:420,y:410, danger:'mid',  leyline:'中', adj:['bridge','matou','harbor'],                desc:'河堤步道，水源充沛，靈脈隨水流動。'},
     {id:'harbor',   name:'港區倉庫街',   x:320,y:430, danger:'high', leyline:'低', adj:['riverside','matou'],                      desc:'廢棄倉庫林立，視線死角多，是埋伏與決戰的舞台。'},
   ],
-  // 從者模板（之後存 ServantTemplates 試算表）—示意 2 隻
+  // 從者模板（第五次聖杯戰爭七騎・黃金樣本，之後存 ServantTemplates）
+  // persona = 極簡個性錨點：一人稱/語氣/性格詞/對御主態度
   servantPool: {
-    Saber:{cls:'Saber',name:'???（劍之從者）',realName:'阿爾托莉雅',
+    Saber:{cls:'Saber',name:'???（劍之從者）',realName:'阿爾托莉雅·潘德拉貢',
       six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'A',幸運:'A',寶具:'A+'},
       classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
       skills:[{n:'直感',r:'A',fx:'first_strike'},{n:'魔力放出',r:'A',fx:'burst_dmg'},{n:'卡里斯瑪',r:'B',fx:'morale'}],
       traits:[{n:'王'},{n:'人類'}],
-      np:'誓約勝利之劍（對城寶具 A++）'},
+      np:'誓約勝利之劍（對城寶具 A++）',
+      persona:{firstP:'我',tone:'嚴謹剛直',words:'騎士道・榮譽・責任',toMaster:'盡忠職守，初期略有距離'}},
+    Archer:{cls:'Archer',name:'???（弓之從者）',realName:'無名（EMIYA）',
+      six:{筋力:'D',耐久:'C',敏捷:'C',魔力:'B',幸運:'E',寶具:'-'},
+      classSkills:[{n:'對魔力',r:'D',fx:'nullify_magic'},{n:'單獨行動',r:'B',fx:'solo'}],
+      skills:[{n:'心眼(真)',r:'A',fx:'analyze'},{n:'千里眼',r:'C',fx:'aim'},{n:'投影魔術',r:'',fx:'projection'}],
+      traits:[{n:'人類'}],
+      np:'無限劍製（固有結界）',
+      persona:{firstP:'我',tone:'冷嘲玩世',words:'現實・諷刺・隱藏的理想',toMaster:'嘴上不饒人，暗中守護'}},
     Lancer:{cls:'Lancer',name:'???（槍之從者）',realName:'庫·丘林',
       six:{筋力:'B',耐久:'C',敏捷:'A',魔力:'C',幸運:'E',寶具:'B'},
       classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'}],
       skills:[{n:'避矢加護',r:'B',fx:'evade_ranged'},{n:'符文',r:'B',fx:'rune'},{n:'戰鬥續行',r:'A',fx:'survive'}],
       traits:[{n:'神性',r:'低'}],
-      np:'刺穿死棘之槍（對人寶具 B）'},
+      np:'刺穿死棘之槍（對人寶具 B）',
+      persona:{firstP:'俺',tone:'豪爽好戰',words:'戰士・痛快・重義',toMaster:'爽快直率，討厭被當棋子'}},
+    Rider:{cls:'Rider',name:'???（騎之從者）',realName:'美杜莎',
+      six:{筋力:'C',耐久:'C',敏捷:'A',魔力:'B',幸運:'D',寶具:'A+'},
+      classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'A+',fx:'ride'}],
+      skills:[{n:'怪力',r:'B',fx:'str_up'},{n:'女神的神核',r:'',fx:'divine_core'},{n:'魔眼',r:'A',fx:'petrify'}],
+      traits:[{n:'神性'},{n:'女神'}],
+      np:'他人的神殿／駿馬天翔（A+）',
+      persona:{firstP:'我',tone:'沉靜內斂',words:'忠誠・守護・自卑',toMaster:'寡言而深情，極度護主'}},
+    Caster:{cls:'Caster',name:'???（術之從者）',realName:'美狄亞',
+      six:{筋力:'E',耐久:'D',敏捷:'C',魔力:'A',幸運:'B',寶具:'C'},
+      classSkills:[{n:'陣地作成',r:'A',fx:'territory'},{n:'道具作成',r:'A',fx:'crafting'}],
+      skills:[{n:'高速神言',r:'A',fx:'fast_cast'},{n:'寶具',r:'',fx:''}],
+      traits:[{n:'人類'}],
+      np:'破戒全咒（規則破壞者 C）',
+      persona:{firstP:'我',tone:'謹慎多疑',words:'背叛的傷痕・渴望被信任',toMaster:'防備但渴望真心相待'}},
+    Assassin:{cls:'Assassin',name:'???（殺之從者）',realName:'佐佐木小次郎',
+      six:{筋力:'C',耐久:'D',敏捷:'A',魔力:'E',幸運:'E',寶具:'E'},
+      classSkills:[{n:'氣息遮斷',r:'D',fx:'stealth'}],
+      skills:[{n:'心眼(真)',r:'B',fx:'analyze'},{n:'無',r:'',fx:''}],
+      traits:[{n:'人類'}],
+      np:'燕返（對人寶具）',
+      persona:{firstP:'拙者',tone:'淡泊灑脫',words:'劍士・閒適・宿命',toMaster:'隨遇而安，只求一戰'}},
+    Berserker:{cls:'Berserker',name:'???（狂之從者）',realName:'赫拉克勒斯',
+      six:{筋力:'A',耐久:'A',敏捷:'A',魔力:'B',幸運:'C',寶具:'B'},
+      classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'對魔力',r:'?',fx:'nullify_magic'}],
+      skills:[{n:'勇猛',r:'A',fx:'morale'},{n:'戰鬥續行',r:'A',fx:'survive'}],
+      traits:[{n:'神性',r:'A'},{n:'王'}],
+      np:'十二試煉（God Hand A）',
+      persona:{firstP:'（狂化・無語）',tone:'咆哮',words:'戰神・守護的殘響',toMaster:'理智被狂化吞沒，僅存護主本能'}},
   },
-  // 階級→基準值（戰鬥浮動用）
+  // 第五次聖杯戰爭・正典御主對應（戰局七組）
+  canonMasters:[
+    {master:'衛宮士郎',       cls:'Saber'},
+    {master:'遠坂凜',         cls:'Archer'},
+    {master:'間桐慎二',       cls:'Rider'},
+    {master:'葛木宗一郎',     cls:'Caster'},
+    {master:'言峰綺禮',       cls:'Lancer'},
+    {master:'伊莉雅絲菲爾',   cls:'Berserker'},
+    {master:'（Caster 召喚）',cls:'Assassin'},
+  ],
+  // 混亂模式隨機御主名池
+  chaosMasterNames:['遠坂','間桐','言峰','蒼崎','兩儀','衛宮','美遊','英靈候補','無名魔術師','異端審問官'],
+  // 階級→基準值（戰鬥浮動用，B 方案 base-10~+5）
   rankBase:{E:10,D:20,C:30,B:40,A:50,EX:60},
 };
 
@@ -306,7 +380,31 @@ const App = {
 
   startSingle(){
     if(this.state.servant) this.enterGame();   // 已有存檔
-    else this.go('scr-create');
+    else this.go('scr-mode');
+  },
+
+  chooseMode(mode){
+    this.state.mode=mode;
+    if(mode==='canon'){ this.renderCanonList(); this.go('scr-canon'); }
+    else this.go('scr-create');               // 混亂模式 → 自訂御主
+  },
+
+  renderCanonList(){
+    document.getElementById('canon-list').innerHTML=SERVER.canonMasters.map((c,i)=>{
+      const sv=SERVER.servantPool[c.cls];
+      return `<button class="btn sm" style="width:100%;text-align:left;margin-bottom:8px"
+        onclick="App.pickCanonMaster(${i})">${c.master}
+        <span style="color:var(--dim);font-size:12px">／${c.cls}・${sv.realName}</span></button>`;
+    }).join('');
+  },
+
+  pickCanonMaster(i){
+    const c=SERVER.canonMasters[i];
+    this.state.master={name:c.master,sex:'—',age:'—',origin:'正典御主',
+      magic:'依正典設定',circuits:30,hp:100,hpMax:100,mp:120,mpMax:120,seals:3};
+    this.equipServant(c.cls);
+    this.buildRoster(i);
+    this.enterGame();
   },
 
   createMaster(){
@@ -335,23 +433,46 @@ const App = {
   summon(){
     const stage=document.getElementById('summon-stage');
     stage.innerHTML='<div class="summon-fx">🜂</div><p style="color:var(--gold2)">魔法陣展開…</p>';
-    // 之後：GAS 依催媒抽選 ServantTemplates。此處示意：劍鞘→Saber，否則→Lancer
-    const cls=(this.state.catalyst.cls==='Saber')?'Saber':'Lancer';
+    // 催媒決定職階傾向；無催媒則隨機。實際抽選由 GAS 負責。
+    const all=Object.keys(SERVER.servantPool);
+    let cls=this.state.catalyst.cls;
+    if(cls==='random'||!SERVER.servantPool[cls]) cls=all[Math.floor(Math.random()*all.length)];
     setTimeout(()=>{
-      const t=SERVER.servantPool[cls];
-      this.state.servant=JSON.parse(JSON.stringify(t));
-      this.state.servant.hp=120; this.state.servant.hpMax=120;
-      this.state.servant.mp=80;  this.state.servant.mpMax=80;
-      this.state.servant.bond=30; this.state.servant.bondMax=100;
-      this.state.servant.trueNameKnown=false;
+      this.equipServant(cls);
+      this.buildRoster(-1);   // 混亂模式：隨機七組（玩家不在正典名單）
       stage.innerHTML='<div style="font-size:40px">⚔️</div><p style="color:var(--gold2)">「問——你是否為我之御主？」</p>';
       setTimeout(()=>this.enterGame(),900);
     },1100);
   },
 
+  // 由模板裝備從者實例
+  equipServant(cls){
+    const t=JSON.parse(JSON.stringify(SERVER.servantPool[cls]));
+    t.hp=120; t.hpMax=120; t.mp=80; t.mpMax=80;
+    t.bond=30; t.bondMax=100; t.trueNameKnown=false;
+    this.state.servant=t;
+  },
+
+  // 建立戰局七組（playerIdx=正典名單中玩家的索引；-1 表混亂模式）
+  buildRoster(playerIdx){
+    if(this.state.mode==='canon'){
+      this.state.roster=SERVER.canonMasters.map((c,i)=>({
+        master:c.master, cls:c.cls, realName:SERVER.servantPool[c.cls].realName,
+        isPlayer:i===playerIdx, alive:true }));
+    }else{
+      const classes=Object.keys(SERVER.servantPool).sort(()=>Math.random()-0.5);
+      const pc=this.state.servant.cls, pi=classes.indexOf(pc);   // 玩家職階換到第一位
+      if(pi>0){ classes[pi]=classes[0]; classes[0]=pc; }
+      const names=[...SERVER.chaosMasterNames].sort(()=>Math.random()-0.5);
+      this.state.roster=classes.map((cls,i)=>({
+        master:i===0?this.state.master.name:names[i]+'？', cls,
+        realName:i===0?this.state.servant.realName:'？？？', isPlayer:i===0, alive:true }));
+    }
+  },
+
   enterGame(){
     this.go('scr-game');
-    this.renderStatus(); this.renderMap(); this.renderQuick();
+    this.renderStatus(); this.renderMap(); this.renderQuick(); this.renderRoster();
     document.getElementById('log').innerHTML='';
     this.ai('冬木市的夜風帶著魔力的氣息。你（'+this.state.master.name+'）與從者「'
         +this.state.servant.cls+'」立於'+this.locName(this.state.here)
@@ -389,7 +510,19 @@ const App = {
       <div class="bar bond"><i style="width:${s.bond/s.bondMax*100}%"></i></div>
       <div class="six">${six}</div>
       <div style="margin-top:8px">${tags}</div>
-      <div style="font-size:12px;color:var(--dim);margin-top:8px">寶具：${s.np}</div>`;
+      <div style="font-size:12px;color:var(--dim);margin-top:8px">寶具：${s.np}</div>
+      ${s.persona?`<div style="font-size:11px;color:#9b93ad;margin-top:6px;line-height:1.5">
+        個性：${s.persona.words}｜一人稱「${s.persona.firstP}」<br>對御主：${s.persona.toMaster}</div>`:''}`;
+  },
+
+  renderRoster(){
+    const r=this.state.roster||[];
+    document.getElementById('roster-box').innerHTML=r.map(e=>{
+      const me=e.isPlayer?' style="color:var(--gold2)"':'';
+      const dead=e.alive?'':'opacity:.4;text-decoration:line-through';
+      return `<div class="stat-row" style="${dead}"><span${me}>${e.cls}</span>
+        <span style="color:var(--dim)">${e.isPlayer?'（你）':''}${e.master}</span></div>`;
+    }).join('');
   },
 
   renderMap(){

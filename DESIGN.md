@@ -20,6 +20,10 @@ GAS Web App (HTML Service, 聊天/地圖介面)
 | 項目 | 決定 |
 |------|------|
 | LLM 閘道 | OpenRouter（`Authorization: Bearer`） |
+| API key | 存 GAS **Script Properties**（不進程式碼），由使用者自行填入 |
+| 補魔尺度預設 | 成人向 fade（仍 fade-to-black；可在設定切換，上限受模型政策限制） |
+| 單人模式 | **正史**（扮演既有御主，七組依正典）／**混亂**（御主×從者隨機配對，自訂御主） |
+| 個性 | 極簡**個性錨點**（一人稱/語氣/性格詞/對御主態度）；官方角色短填、AI 生成必填 |
 | 意圖判定 | 混合：GAS 關鍵字快篩，篩不出才呼叫 LLM |
 | 多人連線 | v1 **只留入口（敬請期待）**，不實作共享世界 |
 | 召喚 | 聖遺物（催媒）決定職階傾向，GAS 抽選，AI 演出 |
@@ -92,6 +96,16 @@ GAS Web App (HTML Service, 聊天/地圖介面)
 - `source` 欄位：`official` / `ai_gen`，便於日後校稿。
 - 預載策略：手工精修第四次/第五次當黃金樣本，其餘 on-demand 生成+快取（FAKE/FGO/Apoc 可日後批次匯入）。
 
+## 戰局七組（單人也需對手陣營）
+- 每場戰爭有七組「御主＋從者」（七職階）。
+- **正史模式**：七組照正典，玩家選一位扮演，其餘六組為敵。
+- **混亂模式**：御主×從者隨機配對洗牌，玩家自訂御主＋隨機從者。
+- 存於 `WarRoster`（per 存檔）：master/servant_id/is_player/alive。
+
+## 個性錨點
+- 欄位：`一人稱 / 語氣 / 性格關鍵詞 / 對御主態度`（極簡）。
+- 知名官方角色短填即可（LLM 已有強錨點）；AI 生成角色**必填並鎖定**以保重用一致性。
+
 ## 試算表（資料庫）規劃
 ### 靜態正典（預先填）
 - `ServantTemplates`：servant_id(真名+職階)/職階/真名/六維/技能(JSON)/特性標籤/寶具/性格/source(official|ai_gen)
@@ -106,6 +120,8 @@ GAS Web App (HTML Service, 聊天/地圖介面)
 - `Memory`：★EAV 事實表（捕捉玩家自由發揮）— 帳號/回合/對象/事實類型/內容/重要度
 - `EventLog`：重大事件摘要
 - `ManaSession`：補魔剩餘次數/開始時間
+- `WarRoster`：本場戰爭七組 master/servant_id/is_player/alive
+- `GameClock`：第幾日/時段(晝夜)/剩餘行動點
 
 ### 共享世界（v1 不做）
 - `WarState`：存活從者數/陣營動向/全域事件
