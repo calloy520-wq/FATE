@@ -207,11 +207,17 @@ function getState(gameId){
     roster: rows.map(function(r){
       // 戰爭迷霧：只揭露玩家、已偵查到的、或此刻同地的從者
       var known = (r.is_player===true) || disc.indexOf(r.slot)>=0 || (r.servant_loc===pLoc);
+      // 敵方粗略狀態（偵查情報，血量衍生）：無傷/負傷/重傷
+      var cond = '';
+      if(known && r.is_player!==true && r.alive){
+        var hr = r.sv_hp_max ? r.sv_hp / r.sv_hp_max : 1;
+        cond = hr<=0.5 ? '重傷' : hr<0.95 ? '負傷' : '無傷';
+      }
       return {
         slot:r.slot, isPlayer:r.is_player, alive:r.alive, known:known,
         cls: known ? heroCls_(r.servant_id) : '？',
         master: known ? r.master_name : '？？？',
-        location: known ? r.location : '' }; }),
+        location: known ? r.location : '', cond:cond }; }),
     player: player ? playerView_(player) : null,
     economy: player ? playerEconomy_(player) : null
   };

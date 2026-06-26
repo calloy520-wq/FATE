@@ -438,7 +438,8 @@ var App = {
     var rows=known.map(function(e){
       var st=e.alive?'':'opacity:.4;text-decoration:line-through';
       var where=e.location?('<span style="font-size:10px;color:#6f6885">@'+App.locName(e.location)+'</span>'):'';
-      return '<div class="stat-row" style="'+st+'"><span'+(e.isPlayer?' style="color:var(--gold2)"':'')+'>'+e.cls+' '+where+'</span><span style="color:var(--dim)">'+(e.isPlayer?'（你）':'')+e.master+'</span></div>'; }).join('');
+      var cd=e.cond?('<span style="font-size:10px;color:'+(e.cond==='重傷'?'#d65c5c':e.cond==='負傷'?'#e7c873':'#5fae6e')+'">・'+e.cond+'</span>'):'';
+      return '<div class="stat-row" style="'+st+'"><span'+(e.isPlayer?' style="color:var(--gold2)"':'')+'>'+e.cls+' '+where+cd+'</span><span style="color:var(--dim)">'+(e.isPlayer?'（你）':'')+e.master+'</span></div>'; }).join('');
     if(unknown>0) rows+='<div class="stat-row" style="color:#5b5470;font-size:12px"><span>？ 未現蹤</span><span>尚有 '+unknown+' 騎從者潛伏（偵查以揭露）</span></div>';
     document.getElementById('roster-box').innerHTML=rows; },
   renderMap:function(){ var L=App.STATIC.locations,here=App.S.player.master.location;
