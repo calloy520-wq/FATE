@@ -66,6 +66,9 @@ classSkills, skills, traits(JSON 陣列), np(寶具字串), persona(JSON), sourc
 | `fast_cast` | 高速神言 | 即時魔術彈：魔力×1.0+10，受對魔力減免 |
 | `petrify` | 魔眼 | 即時魔術傷害＋使敵下場戰鬥 dodge −8（石化遲滯） |
 | `zabaniya` | 妄想心音 | 即時心臟一擊：筋力×1.2+敏捷，無視防禦與對魔力 |
+| `gob` | 王之財寶 | 即時寶具洪流：寶具×1.0+筋力×0.3，物理、不受對魔力 |
+| `chain` | 天之鎖 | 即時拘束：寶具×0.4＋使敵下場 dodge −10；對「神性」傷害 ×2 |
+| `wind_strike` | 風王鐵鎚 | 即時斬風：筋力×0.8+寶具×0.4＋使敵下場 dodge −5 |
 | `rune` / `shapeshift` | 符文 / 變生 | 即時回復 HP（耐久×2+10±） |
 | `str_up` / `projection` / `weapon_steal` | 怪力 / 投影 / 武裝掠奪 | 下一場戰鬥傷害 +（筋力×0.4+5） |
 | `aim` | 千里眼 | 下一場戰鬥命中 +8 |

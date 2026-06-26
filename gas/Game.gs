@@ -843,6 +843,16 @@ function act_skill_(rows, p, clock, hero, fx){
     dmg = Math.round(rankVal(A.six.魔力)*0.8) + 6;
     var cut2 = antiMagicCut_(B); if(cut2>0) dmg = Math.max(1, Math.round(dmg*(1-cut2)));
     enemyRow.buff = { dodge:-8, label:'石化遲滯' }; note = '（魔眼石化：敵下次戰鬥更易被命中）';
+  } else if(sk.kind==='gob'){           // 王之財寶：寶具洪流（物理，不受對魔力）
+    dmg = Math.round(rankVal(A.six.寶具)*1.0) + Math.round(rankVal(A.six.筋力)*0.3) + Math.floor(Math.random()*10);
+    note = '（王之財寶・寶具洪流）';
+  } else if(sk.kind==='chain'){         // 天之鎖：拘束，對神性者傷害倍增
+    dmg = Math.round(rankVal(A.six.寶具)*0.4) + Math.floor(Math.random()*6);
+    if(hasTrait_(B,'神性')){ dmg *= 2; note = '（天之鎖・縛束神靈 ×2）'; } else note = '（天之鎖・縛束）';
+    enemyRow.buff = { dodge:-10, label:'天之鎖縛束' };
+  } else if(sk.kind==='wind_strike'){   // 風王鐵鎚：不可視之風的一擊
+    dmg = Math.round(rankVal(A.six.筋力)*0.8) + Math.round(rankVal(A.six.寶具)*0.4) + Math.floor(Math.random()*8);
+    enemyRow.buff = { dodge:-5, label:'風壓' }; note = '（風王鐵鎚・斬風）';
   } else { // zabaniya：心臟一擊，無視對魔力與部分防禦
     dmg = Math.round(rankVal(A.six.筋力)*1.2) + rankVal(A.six.敏捷); note = '（心臟一擊・無視防禦）';
   }
