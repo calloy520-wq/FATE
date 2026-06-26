@@ -6,7 +6,7 @@ var NPC_SPAWN_ = ['tohsaka','ryuudou','matou','cemetery','school','harbor','park
 // 正典御主的據點（4th/5th）；不在表中者（自創/混亂）預設新都公寓
 var CANON_HOME_ = {
   '衛宮士郎':'emiya','遠坂凜':'tohsaka','間桐慎二':'matou','葛木宗一郎':'ryuudou',
-  '言峰綺禮':'church','伊莉雅絲菲爾':'woods',
+  '言峰綺禮':'church','伊莉雅絲菲爾':'einzbern',
   '衛宮切嗣':'emiya','遠坂時臣':'tohsaka','肯尼斯':'apartment','韋伯·維爾維特':'apartment',
   '雨生龍之介':'harbor','間桐雁夜':'matou'
 };
