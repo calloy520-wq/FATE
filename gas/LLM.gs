@@ -106,6 +106,7 @@ function narrateCombat(ctx, memory){
     enemy_heal_seal:'敵御主燃燒令咒治癒從者、繼續對峙',
     player_flee:'我方從者重傷撤退、脫離交鋒',
     player_flee_pressed:'我方從者重傷撤退，敵御主燃咒追擊',
+    skill_hit:'我方以術式擊中敵從者',
     standoff:'雙方僵持、各自退開'
   };
   var resultText = resultMap[ctx.outcome] || (ctx.winner==='A'?'我方擊破敵從者':ctx.winner==='B'?'我方從者被擊破':'雙方膠著');

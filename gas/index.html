@@ -240,6 +240,7 @@
     <div id="mana-box"></div>
     <div id="log"></div>
     <div class="quick" id="quick-actions"></div>
+    <div class="quick hidden" id="skill-menu"></div>
     <div class="quick hidden" id="seal-menu"></div>
     <div class="inrow">
       <textarea id="in-msg" placeholder="輸入行動或對話…（送到後端）"
@@ -435,10 +436,21 @@ var App = {
     if(a.indexOf('據點')>=0) return App.act('claim');
     if(a.indexOf('分離')>=0||a.indexOf('合體')>=0) return App.act('separate');
     if(a.indexOf('睡覺')>=0) return App.act('sleep');
+    if(a.indexOf('技能')>=0) return App.toggleSkills();
     if(a.indexOf('令咒')>=0) return App.toggleSeals();
   },
   toggleSeals:function(){ var e=document.getElementById('seal-menu');
-    if(e.classList.contains('hidden')){ App.renderSeals(); e.classList.remove('hidden'); } else e.classList.add('hidden'); },
+    if(e.classList.contains('hidden')){ App.renderSeals(); e.classList.remove('hidden'); document.getElementById('skill-menu').classList.add('hidden'); } else e.classList.add('hidden'); },
+  toggleSkills:function(){ var e=document.getElementById('skill-menu');
+    if(e.classList.contains('hidden')){ App.renderSkills(); e.classList.remove('hidden'); document.getElementById('seal-menu').classList.add('hidden'); } else e.classList.add('hidden'); },
+  renderSkills:function(){
+    var acts=(App.S.player.servant.actives)||[], kind={bolt:'魔術彈',petrify:'石化',zabaniya:'必殺',heal:'回復',buffdmg:'強化',buffhit:'強化'};
+    var html='<div style="width:100%;font-size:11px;color:var(--dim)">主動技能（耗靈基魔力）</div>';
+    html+= acts.length ? acts.map(function(a){
+      return '<button class="btn sm" onclick="App.useSkill(\''+a.fx+'\')">'+a.name+' <span style="opacity:.65;font-size:11px">('+(kind[a.kind]||'')+'・魔'+a.cost+')</span></button>'; }).join('')
+      : '<div style="font-size:12px;color:var(--dim)">此從者沒有主動技能。</div>';
+    document.getElementById('skill-menu').innerHTML=html; },
+  useSkill:function(fx){ document.getElementById('skill-menu').classList.add('hidden'); App.act('skill',{fx:fx}); },
   renderSeals:function(){
     var cmds=[['heal','靈基修復'],['order','絕對命令'],['np','寶具強制解放'],['recall','緊急脫離'],['mana','強制補魔']];
     document.getElementById('seal-menu').innerHTML='<div style="width:100%;font-size:11px;color:var(--dim)">令咒 '+
@@ -541,7 +553,7 @@ var App = {
     var d={safe:'安全',mid:'中等',high:'危險'};
     document.getElementById('loc-info').innerHTML=l?('<b style="color:var(--gold2)">'+l.name+'</b>（危險度：'+d[l.danger]+'・靈脈：'+l.leyline+'）<br>'+l.desc):''; },
   renderQuick:function(){ document.getElementById('quick-actions').innerHTML=
-    ['🔍 偵查','⚔ 攻擊敵人','使用寶具','🏃 撤退','💧 供給魔力','🩸 獵魔','🔀 分離/合體','❖ 令咒','🛡 加固結界','🏠 設為據點','補魔','🌙 睡覺'].map(function(a){
+    ['🔍 偵查','⚔ 攻擊敵人','使用寶具','✨ 技能','🏃 撤退','💧 供給魔力','🩸 獵魔','🔀 分離/合體','❖ 令咒','🛡 加固結界','🏠 設為據點','補魔','🌙 睡覺'].map(function(a){
       return '<button class="btn sm ghost" onclick="App.quick(\''+a+'\')">'+a+'</button>'; }).join(''); },
 
   // ---------- log ----------

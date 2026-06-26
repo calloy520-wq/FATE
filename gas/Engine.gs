@@ -25,6 +25,32 @@ function antiMagicCut_(def){
   return r ? Math.min(0.9, r/55) : 0;
 }
 
+// ===== 主動技能（玩家發動・耗魔力）：fx → 種類與耗魔比例 =====
+// bolt/petrify/zabaniya＝即時攻擊；heal＝回復；buffdmg/buffhit＝下一場戰鬥強化
+var ACTIVE_FX_ = {
+  fast_cast:    { label:'高速神言', kind:'bolt',     mp:0.16 },
+  petrify:      { label:'魔眼',     kind:'petrify',  mp:0.20 },
+  zabaniya:     { label:'妄想心音', kind:'zabaniya', mp:0.30 },
+  rune:         { label:'符文',     kind:'heal',     mp:0.14 },
+  shapeshift:   { label:'變生',     kind:'heal',     mp:0.16 },
+  str_up:       { label:'怪力',     kind:'buffdmg',  mp:0.14 },
+  projection:   { label:'投影強化', kind:'buffdmg',  mp:0.14 },
+  weapon_steal: { label:'武裝掠奪', kind:'buffdmg',  mp:0.20 },
+  aim:          { label:'千里眼',   kind:'buffhit',  mp:0.12 }
+};
+// 列出某從者的主動技能（依其技能 fx）
+function activeSkills_(hero){
+  if(!hero) return [];
+  var out = [], seen = {};
+  [].concat(hero.classSkills||[], hero.skills||[]).forEach(function(s){
+    var m = ACTIVE_FX_[s.fx];
+    if(m && !seen[s.fx]){ seen[s.fx] = 1; out.push({ fx:s.fx, name:s.n||m.label, rank:s.r||'', kind:m.kind, mpK:m.mp }); }
+  });
+  return out;
+}
+// 取戰鬥用 buff 物件（強化/減益），無則 null
+function buffOf_(v){ return (v && typeof v === 'object') ? v : null; }
+
 /** 由六維推導 HP/MP 上限與每小時維持費 */
 function deriveServant_(sv){
   var six = sv.six;
@@ -61,15 +87,17 @@ function resolveCombat_(A, B, mode){
   function tag(name){ fired[name] = true; }
 
   function strike(att, def, an, dn){
-    var hit = rankVal(att.six.敏捷) + d20_();
-    var dodge = rankVal(def.six.敏捷) + d20_();
+    var ab = buffOf_(att.buff), db = buffOf_(def.buff);                // 主動技強化／減益
+    var hit = rankVal(att.six.敏捷) + d20_() + ((ab&&ab.hit)||0);
+    var dodge = rankVal(def.six.敏捷) + d20_() + ((db&&db.dodge)||0);  // dodge 為負＝石化遲滯更易被命中
     if(hasFx_(att,'first_strike')){ hit += 3; tag('直感'); }          // 直感：更易連得上
     if(hasFx_(def,'analyze')){ dodge += 3; tag('心眼'); }             // 心眼：看破來招、更易閃避
     if(hasFx_(def,'evade_ranged')){ dodge += 6; tag('避矢加護'); }
     if(hit <= dodge){ beats.push('〔閃避〕'+dn+' 避開了 '+an+' 的攻擊 ('+hit+'≤'+dodge+')'); return; }
     var magic = magicAtk_(att);   // 魔術攻擊用魔力、可被對魔力擋；肉體攻擊用筋力、不受對魔力影響
-    var dmg = Math.max(3, rankVal(magic?att.six.魔力:att.six.筋力) + Math.floor(Math.random()*9) - Math.floor(rankVal(def.six.耐久)/2));
+    var dmg = Math.max(3, rankVal(magic?att.six.魔力:att.six.筋力) + Math.floor(Math.random()*9) - Math.floor(rankVal(def.six.耐久)/2) + ((ab&&ab.dmg)||0));
     var note = [];
+    if(ab && ab.label){ note.push(ab.label); tag(ab.label); }                  // 主動強化生效
     if(hasFx_(att,'morale')){ dmg += 3; note.push('勇猛'); tag('勇猛'); }      // 勇猛/卡里斯瑪：攻勢更猛
     if(hasFx_(att,'burst')){ dmg = Math.round(dmg*1.2); note.push('魔力放出'); tag('魔力放出'); }
     if(magic){ var cut = antiMagicCut_(def);                                   // 對魔力硬扣魔術傷害

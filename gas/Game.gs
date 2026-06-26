@@ -168,7 +168,7 @@ function newGame(opts){
       bond:30, true_name_known:false, status: hasGodHand_(hero) ? String(TUNING.GOD_HAND_LIVES) : 'normal', alive:true,
       base_loc:p.isPlayer?loc:'', barrier:p.isPlayer?30:'', barrier_max:p.isPlayer?(isCaster?100:60):'',
       base_tier:p.isPlayer?(isCaster?'魔術工房':'簡易結界'):'', servant_loc:loc, separated:false,
-      discovered:p.isPlayer?[]:'', sv_condition:p.isPlayer?'靈基初凝，神色沉靜':''
+      discovered:p.isPlayer?[]:'', sv_condition:p.isPlayer?'靈基初凝，神色沉靜':'', buff:''
     });
   });
   // 玩家開局只「認得」與自己同地的從者（戰爭迷霧：其餘需偵查/相遇才現蹤）
@@ -260,7 +260,9 @@ function playerView_(p){
               upkeep:p.upkeep, bond:p.bond, six: hero?heroFromRow_(hero).six:{}, np:hero?hero.np:'',
               skills: hero?heroFromRow_(hero).skills:[], classSkills: hero?heroFromRow_(hero).classSkills:[],
               traits: hero?heroFromRow_(hero).traits:[], persona: hero?hero.persona:null,
-              loc:p.servant_loc, separated:p.separated, condition:p.sv_condition||'', align: hero?hero.align:'' },
+              loc:p.servant_loc, separated:p.separated, condition:p.sv_condition||'', align: hero?hero.align:'',
+              actives: hero ? activeSkills_(hero).map(function(a){ return { fx:a.fx, name:a.name, rank:a.rank, kind:a.kind, cost:Math.round(p.sv_mp_max*a.mpK) }; }) : [],
+              buff: (p.buff && typeof p.buff==='object') ? p.buff : null },
     base:{ loc:p.base_loc, barrier:p.barrier, barrierMax:p.barrier_max, tier:p.base_tier }
   };
 }
@@ -296,7 +298,7 @@ function doAction(a){
     BLEED_TURN_ = 0;   // 本回合被靈基反噬汲取的御主生命（破格召喚透支）
 
     // 補魔密封時段：封鎖耗時/戰鬥動作（免 LLM，直接回最終回應）
-    if(clock.mana_locked && ['move','scout','attack','np','sleep','separate','claim','retreat','hunt'].indexOf(a.type)>=0)
+    if(clock.mana_locked && ['move','scout','attack','np','sleep','separate','claim','retreat','hunt','skill'].indexOf(a.type)>=0)
       return { final:{ state:getState(gameId), narration:'（補魔進行中，無法進行該動作；請繼續對話，或用令咒「強制補魔」結束。）', events:[] } };
 
     // 御主人設 + 從者人格+好感 + 歷史事件/記憶 → 完整 context，讓 AI 不出戲、知道過去
@@ -316,6 +318,7 @@ function doAction(a){
       case 'separate':   spec = act_separate_(p); break;
       case 'retreat':    spec = act_retreat_(p, clock, hero); break;
       case 'hunt':       spec = act_hunt_(p, clock, hero); break;
+      case 'skill':      spec = act_skill_(rows, p, clock, hero, a.fx); break;
       case 'accept_death': spec = ''; break;   // 瀕死抉擇：放棄令咒救援、接受死亡（結局在下方結算）
       case 'claim':      spec = act_claim_(p, clock, hero); break;
       case 'sleep':      spec = act_sleep_(p, clock); break;
@@ -332,7 +335,7 @@ function doAction(a){
     var events = [];
     var fresh = findOne_(SHEETS.CLOCK, { game_id: gameId });
     if(!fresh.mana_locked){
-      if(['move','scout','attack','np','claim','retreat','hunt'].indexOf(a.type) >= 0){
+      if(['move','scout','attack','np','claim','retreat','hunt','skill'].indexOf(a.type) >= 0){
         events = npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh);
       } else if(a.type === 'sleep'){
         for(var k=0;k<3;k++) events = events.concat(npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh));
@@ -719,8 +722,9 @@ function act_combat_(rows, p, clock, hero, mode, costAP){
   if(!hero) return '（找不到我的從者資料，存檔可能已損毀，建議開新局。）';
   var eHero = findOne_(SHEETS.HEROES, { servant_id: enemyRow.servant_id });
   if(!eHero) return '（找不到敵方從者資料，無法交戰。）';
-  var A = Object.assign(heroFromRow_(hero), { hp:p.sv_hp, hpMax:p.sv_hp_max, mp:p.sv_mp, mpMax:p.sv_mp_max });
-  var B = Object.assign(heroFromRow_(eHero), { hp:enemyRow.sv_hp, hpMax:enemyRow.sv_hp_max });
+  var A = Object.assign(heroFromRow_(hero), { hp:p.sv_hp, hpMax:p.sv_hp_max, mp:p.sv_mp, mpMax:p.sv_mp_max, buff:buffOf_(p.buff) });
+  var B = Object.assign(heroFromRow_(eHero), { hp:enemyRow.sv_hp, hpMax:enemyRow.sv_hp_max, buff:buffOf_(enemyRow.buff) });
+  p.buff = ''; enemyRow.buff = '';   // buff/減益為一次性，本場消耗
 
   var res = resolveCombat_(A, B, mode);
   p.sv_hp = res.aHp;                          // 敗北則從者靈基崩解（HP 歸 0 → 觸發死亡結局）
@@ -777,8 +781,8 @@ function act_combat_(rows, p, clock, hero, mode, costAP){
     outcome = 'standoff';
   }
 
-  updateRow_(SHEETS.BATTLE, p._row, { sv_hp:p.sv_hp, sv_mp:p.sv_mp, bond:p.bond, status:p.status, location:p.location, servant_loc:p.servant_loc, separated:p.separated });
-  updateRow_(SHEETS.BATTLE, enemyRow._row, { sv_hp:enemyRow.sv_hp, alive:enemyRow.alive, seals:enemyRow.seals, status:enemyRow.status, location:enemyRow.location, servant_loc:enemyRow.servant_loc });
+  updateRow_(SHEETS.BATTLE, p._row, { sv_hp:p.sv_hp, sv_mp:p.sv_mp, bond:p.bond, status:p.status, buff:p.buff, location:p.location, servant_loc:p.servant_loc, separated:p.separated });
+  updateRow_(SHEETS.BATTLE, enemyRow._row, { sv_hp:enemyRow.sv_hp, alive:enemyRow.alive, seals:enemyRow.seals, status:enemyRow.status, buff:enemyRow.buff, location:enemyRow.location, servant_loc:enemyRow.servant_loc });
   if(costAP) advanceTime_(p, clock, hero, 1);
 
   logEvent_(p.game_id, clock.day, pad2_(clock.hour)+':00', p.location, 'BATTLE',
@@ -791,6 +795,75 @@ function act_combat_(rows, p, clock, hero, mode, costAP){
     ctx:{ playerCls:A.cls, enemyCls:B.cls, enemyMaster:enemyRow.master_name,
           winner:res.winner, outcome:outcome, firedTags:res.firedTags, beats:res.beats, sealNote:sealNote },
     suffix: sealNote ? ('\n\n（'+sealNote+'）') : '' };
+}
+
+// 主動技能：耗魔力＋1AP。即時攻擊(bolt/petrify/zabaniya)打同地敵人；heal 回血；buff* 強化下一場戰鬥。
+function act_skill_(rows, p, clock, hero, fx){
+  if(!hero) return '（找不到從者資料。）';
+  var sk = activeSkills_(hero).filter(function(a){ return a.fx===fx; })[0];
+  if(!sk) return '（從者沒有這個主動技能。）';
+  var cost = Math.round(p.sv_mp_max * sk.mpK);
+  if(p.sv_mp < cost) return '（魔力不足，無法施展「'+sk.name+'」。）';
+  if(clock.ap < 1) return '（行動點不足，請睡覺恢復。）';
+  var A = heroFromRow_(hero);
+
+  // 回復類
+  if(sk.kind==='heal'){
+    var heal = rankVal(A.six.耐久)*2 + 10 + Math.floor(Math.random()*10);
+    p.sv_hp = Math.min(p.sv_hp_max, p.sv_hp + heal); p.sv_mp = Math.max(0, p.sv_mp - cost);
+    updateRow_(SHEETS.BATTLE, p._row, { sv_hp:p.sv_hp, sv_mp:p.sv_mp });
+    advanceTime_(p, clock, hero, 1);
+    return { kind:'scene', prompt:'我的從者施展「'+sk.name+'」，靈基的創傷迅速彌合。請寫一段回復敘述。',
+             suffix:'\n（'+sk.name+'：HP +'+heal+'　魔力 −'+cost+'）' };
+  }
+  // 強化類（下一場戰鬥）
+  if(sk.kind==='buffdmg' || sk.kind==='buffhit'){
+    p.buff = (sk.kind==='buffdmg')
+      ? { dmg: Math.round(rankVal(A.six.筋力)*0.4) + 5, label:sk.name }
+      : { hit: 8, label:sk.name };
+    p.sv_mp = Math.max(0, p.sv_mp - cost);
+    updateRow_(SHEETS.BATTLE, p._row, { buff:p.buff, sv_mp:p.sv_mp });
+    advanceTime_(p, clock, hero, 1);
+    var eff = (sk.kind==='buffdmg') ? ('下一場戰鬥傷害 +'+p.buff.dmg) : '下一場戰鬥命中 +8';
+    return { kind:'scene', prompt:'我的從者施展「'+sk.name+'」，氣勢攀升、蓄勢待發。請寫一段強化/蓄力敘述。',
+             suffix:'\n（'+sk.name+'：'+eff+'　魔力 −'+cost+'）' };
+  }
+
+  // 即時攻擊類：需同地敵人
+  var here = p.separated ? p.servant_loc : p.location;
+  var enemyRow = rows.filter(function(r){ return r.is_player!==true && r.alive===true && r.servant_loc===here; })[0];
+  if(!enemyRow) return '（附近沒有可施術的對象——先靠近敵人。）';
+  var eHero = findOne_(SHEETS.HEROES, { servant_id: enemyRow.servant_id });
+  if(!eHero) return '（找不到敵方從者資料。）';
+  var B = heroFromRow_(eHero), dmg = 0, note = '';
+  if(sk.kind==='bolt'){
+    dmg = Math.round(rankVal(A.six.魔力)*1.0) + 10 + Math.floor(Math.random()*8);
+    var cut = antiMagicCut_(B); if(cut>0){ dmg = Math.max(1, Math.round(dmg*(1-cut))); note = '（對魔力 −'+Math.round(cut*100)+'%）'; }
+  } else if(sk.kind==='petrify'){
+    dmg = Math.round(rankVal(A.six.魔力)*0.8) + 6;
+    var cut2 = antiMagicCut_(B); if(cut2>0) dmg = Math.max(1, Math.round(dmg*(1-cut2)));
+    enemyRow.buff = { dodge:-8, label:'石化遲滯' }; note = '（魔眼石化：敵下次戰鬥更易被命中）';
+  } else { // zabaniya：心臟一擊，無視對魔力與部分防禦
+    dmg = Math.round(rankVal(A.six.筋力)*1.2) + rankVal(A.six.敏捷); note = '（心臟一擊・無視防禦）';
+  }
+  enemyRow.sv_hp = Math.max(0, enemyRow.sv_hp - dmg);
+  var killed = false, reviveNote = '';
+  if(enemyRow.sv_hp <= 0){
+    var rem = godHandRevive_(enemyRow);
+    if(rem>0) reviveNote = '　'+B.cls+'憑十二試煉再起（尚餘 '+rem+' 命）';
+    else { enemyRow.alive = false; p.bond = Math.min(100, p.bond+5); killed = true; }
+  }
+  p.sv_mp = Math.max(0, p.sv_mp - cost);
+  updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, bond:p.bond });
+  updateRow_(SHEETS.BATTLE, enemyRow._row, { sv_hp:enemyRow.sv_hp, alive:enemyRow.alive, status:enemyRow.status, buff:enemyRow.buff||'' });
+  advanceTime_(p, clock, hero, 1);
+  logEvent_(p.game_id, clock.day, pad2_(clock.hour)+':00', p.location, 'SKILL',
+            'slot_0', 'slot_'+(enemyRow.slot-1), A.cls+' 施展「'+sk.name+'」對 '+B.cls, true, 1);
+  return { kind:'combat',
+    ctx:{ playerCls:A.cls, enemyCls:B.cls, enemyMaster:enemyRow.master_name,
+          winner: killed?'A':'draw', outcome: killed?'enemy_dead':'skill_hit', firedTags:[sk.name],
+          beats:['〔'+sk.name+'〕對 '+B.cls+' 造成 '+dmg+' 傷害'+note], sealNote:'' },
+    suffix:'\n\n（'+sk.name+'：'+dmg+' 傷害 '+note+reviveNote+'　魔力 −'+cost+'）' };
 }
 
 function act_mana_(p, clock){
