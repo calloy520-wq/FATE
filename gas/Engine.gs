@@ -53,6 +53,8 @@ function activeSkills_(hero){
 }
 // 取戰鬥用 buff 物件（強化/減益），無則 null
 function buffOf_(v){ return (v && typeof v === 'object') ? v : null; }
+// 幸運的「運氣修正」：以 C(30) 為基準，亂局中運氣站誰那邊（EX+3 / A+2 / B+1 / C0 / D−1 / E−2）
+function luckEdge_(sv){ return Math.round((rankVal(sv.six.幸運) - 30) / 10); }
 
 /** 由六維推導 HP/MP 上限與每小時維持費 */
 function deriveServant_(sv){
@@ -93,8 +95,8 @@ function resolveCombat_(A, B, mode){
   function strike(att, def, an, dn){
     var ab = buffOf_(att.buff), db = buffOf_(def.buff);                // 主動技強化／減益
     var ambush = att._ambush; if(ambush){ att._ambush = false; tag('氣息遮斷'); }  // 氣息遮斷：首擊奇襲
-    var hit = rankVal(att.six.敏捷) + d20_() + ((ab&&ab.hit)||0) + (ambush?6:0);
-    var dodge = rankVal(def.six.敏捷) + d20_() + ((db&&db.dodge)||0);  // dodge 為負＝石化遲滯更易被命中
+    var hit = rankVal(att.six.敏捷) + d20_() + ((ab&&ab.hit)||0) + (ambush?6:0) + luckEdge_(att);    // 幸運：運氣站攻方
+    var dodge = rankVal(def.six.敏捷) + d20_() + ((db&&db.dodge)||0) + luckEdge_(def);  // 幸運站守方；dodge 負＝石化遲滯更易被命中
     if(hasFx_(att,'first_strike')){ hit += 3; tag('直感'); }          // 直感：更易連得上
     if(hasFx_(def,'analyze')){ dodge += 3; tag('心眼'); }             // 心眼：看破來招、更易閃避
     if(hasFx_(def,'ride')){ dodge += 3; tag('騎乘'); }                // 騎乘：機動提升、更易閃避

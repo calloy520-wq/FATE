@@ -277,6 +277,8 @@ var App = {
   // 名詞說明（滑過顯示）
   LABEL_DESC:{
     'HP':'生命值；從者歸零＝靈基崩解，御主歸零＝死亡。',
+    '筋力':'近戰攻擊力（肉體傷害）','耐久':'HP 上限與減傷','敏捷':'命中／閃避、先後手',
+    '魔力':'靈基魔力上限、魔術攻擊力','幸運':'運氣修正：影響命中與閃避（A≈+2、E≈−2）','寶具':'寶具威力',
     '迴路魔力':'御主魔術迴路的儲備；用於「供給」從者與「加固結界」，每小時依迴路回復。',
     '靈基魔力':'從者維持／戰鬥／寶具的魔力；自然只回到 80%，更高需 供給／補魔／獵魔。'
   },
@@ -515,7 +517,7 @@ var App = {
       bar('HP',m.hp,m.hpMax,'hp')+bar('迴路魔力',m.mp,m.mpMax,'mp')+
       '<div class="stat-row"><span>令咒</span><span style="color:var(--red2)">'+'❖'.repeat(m.seals)+'</span></div>'; },
   renderServant:function(){ var s=App.S.player.servant,e=App.S.economy;
-    var six=Object.keys(s.six).map(function(k){return '<div class="g"><b>'+s.six[k]+'</b><span>'+k+'</span></div>';}).join('');
+    var six=Object.keys(s.six).map(function(k){return '<div class="g" title="'+(App.LABEL_DESC[k]||'')+'" style="cursor:help"><b>'+s.six[k]+'</b><span>'+k+'</span></div>';}).join('');
     var tag=function(x,cls){ var f=x.fx||''; var d=App.fxDesc(f,x.n);
       return '<span class="tag '+cls+'" style="cursor:pointer" title="'+App.esc(d)+'" onclick="App.skillInfo(\''+f+'\',\''+App.esc(x.n).replace(/\x27/g,'')+'\')">'+x.n+(x.r?'<i class="r">'+x.r+'</i>':'')+'</span>'; };
     var tags=(s.classSkills||[]).map(function(x){return tag(x,'cls');}).join('')+

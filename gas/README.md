@@ -77,7 +77,8 @@ classSkills, skills, traits(JSON 陣列), np(寶具字串), persona(JSON), sourc
 **經濟 / 其他**
 | fx | 效果 |
 |---|---|
-| `mad` 狂化 | 維持費 ×1.5（`deriveServant_`）。※ 模擬顯示「攻+守-」型戰鬥代價會反而強化高血量狂戰，故不採用 |
+| `mad` 狂化 | 維持費 ×2（`deriveServant_`）。力量已烤進數值，成本即平衡點。※ 模擬顯示「攻+守-」型戰鬥代價反而強化高血量狂戰，故不採用 |
+| （六維）`幸運` | 命中與閃避的運氣修正：以 C 為基準（EX+3 / A+2 / B+1 / C0 / D−1 / E−2），`luckEdge_` |
 | `solo` 單獨行動 | 分離時供給衰減減免（`SEP_SOLO`） |
 | `territory` 陣地作成 | Caster 在主場工房 +`WORKSHOP` 供能 |
 | `crafting` / `wealth` / `rule_breaker` 等 | 敘述向，無額外戰鬥數值（前端說明會標示） |
