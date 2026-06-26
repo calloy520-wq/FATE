@@ -103,7 +103,8 @@ function newGame(opts){
                home:codex.home||'', wish:codex.wish||'', persona:codex.persona||'' };
     }
     var p = profile || {};
-    var circuits = p.circuits || 30;
+    // 自創御主迴路夾值 10~50（頂尖人類魔術師上限；70 那種容器級保留給正典伊莉雅）
+    var circuits = Math.max(10, Math.min(50, p.circuits || 25));
     return { master:name, circuits:circuits, magic:p.magic||'依正典設定',
              melee:p.melee||'E', magic_rank:p.magic_rank||(circuits>=45?'A':circuits>=30?'B':'C'),
              home:'', wish:p.wish||'' };

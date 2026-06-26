@@ -183,9 +183,10 @@
     <label>魔術系統</label>
     <select id="m-magic"><option>強化（近戰加成）</option><option>投影／固有結界</option>
       <option>寶石魔術（魔力儲備）</option><option>使魔／召喚</option><option>咒術</option></select>
-    <label>魔術迴路數（影響魔力供給）</label>
-    <input id="m-circuits" type="range" min="10" max="70" value="30" oninput="document.getElementById('cv').textContent=this.value">
-    <div style="text-align:right;color:var(--gold2)" id="cv">30</div>
+    <label>魔術迴路數（影響迴路魔力與供給）</label>
+    <input id="m-circuits" type="range" min="10" max="50" value="25" oninput="document.getElementById('cv').textContent=this.value">
+    <div style="text-align:right;color:var(--gold2)" id="cv">25</div>
+    <div style="font-size:11px;color:var(--dim);margin-top:2px">參考：一般魔術師 20～30、名門菁英 40～50（凜 45、時臣 50）。伊莉雅那種 70 是愛因茲貝倫專造的容器，非常人可及。</div>
     <label>願望（你為何而戰？影響開場與劇情）</label>
     <textarea id="m-wish" rows="2" placeholder="例如：復活逝去的摯友／證明自身魔術／純粹想贏"></textarea>
     <div style="display:flex;gap:10px;margin-top:16px">
