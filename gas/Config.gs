@@ -38,7 +38,7 @@ const HEADERS = {
   [SHEETS.BATTLE]:   ['game_id','slot','is_player','master_name','magic','circuits','master_hp','master_hp_max',
                       'master_mp','master_mp_max','seals','melee','magic_rank','location','servant_id',
                       'sv_hp','sv_hp_max','sv_mp','sv_mp_max','upkeep','bond','true_name_known','status',
-                      'alive','base_loc','barrier','barrier_max','base_tier','servant_loc','separated','discovered','sv_condition','buff','solo_hours'],
+                      'alive','base_loc','barrier','barrier_max','base_tier','servant_loc','separated','discovered','sv_condition','buff','solo_hours','inventory'],
   [SHEETS.MEMORY]:   ['event_id','game_id','turn','entity','fact_type','content','importance','write_ts'],
   [SHEETS.EVENTS]:   ['event_id','write_ts','game_id','day_count','time_hour','location_id','event_type',
                       'actor_id','target_id','log_text','is_global','importance'],

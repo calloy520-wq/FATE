@@ -194,7 +194,8 @@ function newGame(opts){
       bond:30, true_name_known:p.isPlayer, status: hasGodHand_(hero) ? String(TUNING.GOD_HAND_LIVES) : 'normal', alive:true,
       base_loc:p.isPlayer?loc:'', barrier:p.isPlayer?30:'', barrier_max:p.isPlayer?(isCaster?100:60):'',
       base_tier:p.isPlayer?(isCaster?'魔術工房':'簡易結界'):'', servant_loc:loc, separated:false,
-      discovered:p.isPlayer?[]:'', sv_condition:p.isPlayer?'靈基初凝，神色沉靜':'', buff:''
+      discovered:p.isPlayer?[]:'', sv_condition:p.isPlayer?'靈基初凝，神色沉靜':'', buff:'',
+      inventory:p.isPlayer?[]:''
     });
   });
   // 玩家開局只「認得」與自己同地的從者（戰爭迷霧：其餘需偵查/相遇才現蹤）
@@ -280,7 +281,8 @@ function playerView_(p){
   return {
     master:{ name:p.master_name, magic:p.magic, hp:p.master_hp, hpMax:p.master_hp_max,
              mp:p.master_mp, mpMax:p.master_mp_max, seals:p.seals, melee:p.melee, magicRank:p.magic_rank,
-             circuits:p.circuits, location:p.location },
+             circuits:p.circuits, location:p.location,
+             inventory: invOf_(p).map(function(k){ var f=FOOD_[k]; return { key:k, emoji:f?f.emoji:'❓', name:f?f.name:k }; }) },
     servant:{ cls:hero ? hero.cls : '？', servantId:p.servant_id, realName:hero?hero.realName:'', gender:hero?(hero.gender||''):'',
               trueNameKnown:p.true_name_known, hp:p.sv_hp, hpMax:p.sv_hp_max, mp:p.sv_mp, mpMax:p.sv_mp_max,
               upkeep:p.upkeep, bond:p.bond, six: hero?heroFromRow_(hero).six:{}, np:hero?hero.np:'',
@@ -353,7 +355,8 @@ function doAction(a){
       case 'accept_death': spec = ''; break;   // 瀕死抉擇：放棄令咒救援、接受死亡（結局在下方結算）
       case 'claim':      spec = act_claim_(p, clock, hero); break;
       case 'rest':       spec = act_rest_(p, clock, hero, a.hours); break;
-      case 'eat':        spec = act_eat_(p, clock); break;
+      case 'shop':       spec = act_shop_(p, clock, hero); break;
+      case 'use':        spec = act_use_(p, clock, a.item); break;
       case 'seal':       spec = act_seal_(rows, p, clock, hero, a.cmd); break;
       case 'chat':
         var chatText = sanitizeText_(a.text, 500);
@@ -1139,13 +1142,44 @@ function act_mana_(p, clock, hero){
          + '　✨補魔加持 '+hours+' 小時：迴路回魔 ×'+TUNING.MANA_REGEN_MULT+'、靈基維持高出力）' };
 }
 
-// 進食：賦予「飽足」buff（SATIETY_HOURS 小時，每小時迴路回魔 +SATIETY_REGEN）。不疊加、再吃重置；即時、不耗 AP。
-function act_eat_(p, clock){
+// ===== 物品 / 購物（v1：先只放食物；之後可擴充各地特殊道具）=====
+var FOOD_ = {                                   // key → 顯示用
+  riceball:{ emoji:'🍙', name:'飯糰' }, bento:{ emoji:'🍱', name:'便當' },
+  energy:{ emoji:'🥤', name:'能量飲' }, ramen:{ emoji:'🍜', name:'拉麵' }, taiyaki:{ emoji:'🐟', name:'鯛魚燒' }
+};
+var SHOP_LOCS_ = ['shinto','arcade','apartment','station','hospital'];   // 市區一帶才買得到吃的
+function invOf_(p){ return Array.isArray(p.inventory) ? p.inventory : []; }
+
+// 購物：在市區補給食物進物品欄（5 格上限）。不用錢，用「5 格＋1AP」節制。
+function act_shop_(p, clock, hero){
+  if(SHOP_LOCS_.indexOf(p.location) < 0)
+    return '（這附近沒有商店——到新都／商店街／公寓／車站／醫院一帶才買得到吃的。）';
+  if(clock.ap < 1) return '（行動點不足，請休息恢復。）';
+  var inv = invOf_(p).slice();
+  if(inv.length >= 5) return '（物品欄已滿（5 格）——先吃掉一些再補貨。）';
+  var keys = Object.keys(FOOD_), got = keys[Math.floor(Math.random()*keys.length)];
+  inv.push(got); p.inventory = inv;
+  updateRow_(SHEETS.BATTLE, p._row, { inventory: inv });
+  advanceTime_(p, clock, hero, 1);
+  return { kind:'scene',
+    prompt:'我（'+p.master_name+'）在'+locName_(p.location)+'的店家補給了些吃食（'+FOOD_[got].name+'）。請寫一段簡短、有生活感的採買小敘述。',
+    suffix:'\n（購入 '+FOOD_[got].emoji+FOOD_[got].name+'　物品欄 '+inv.length+'/5）' };
+}
+
+// 使用物品（目前皆為食物 → 飽足 buff）。點物品欄即呼叫。
+function act_use_(p, clock, item){
+  var inv = invOf_(p).slice();
+  var idx = inv.indexOf(item);
+  if(idx < 0) return '（物品欄沒有這個東西。）';
+  var f = FOOD_[item];
+  if(!f) return '（這個物品現在還無法使用。）';
+  inv.splice(idx, 1); p.inventory = inv;
   clock.satiety = TUNING.SATIETY_HOURS;
+  updateRow_(SHEETS.BATTLE, p._row, { inventory: inv });
   updateRow_(SHEETS.CLOCK, clock._row, { satiety: clock.satiety });
   return { kind:'scene',
-    prompt:'我（'+p.master_name+'）在冬木尋了些吃食、飽餐一頓，補充體力，魔力代謝為之活絡。請寫一段簡短、有生活感的進食小敘述。',
-    suffix:'\n（🍙飽足：接下來 '+TUNING.SATIETY_HOURS+' 小時，每小時迴路回魔 +'+TUNING.SATIETY_REGEN+'（不疊加，再吃則重置時間））' };
+    prompt:'我（'+p.master_name+'）吃了'+f.name+'，飽餐一頓，魔力代謝為之活絡。請寫一段簡短、有生活感的進食小敘述。',
+    suffix:'\n（吃下 '+f.emoji+f.name+'　🍙飽足 '+TUNING.SATIETY_HOURS+'h：每小時迴路回魔 +'+TUNING.SATIETY_REGEN+'（不疊加，再吃重置）　物品欄 '+inv.length+'/5）' };
 }
 // 御主人設 context（餵 AI；第一人稱「我」的口吻依此演繹）
 function masterCtx_(acc){
