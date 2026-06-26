@@ -122,22 +122,28 @@ GAS Web App (HTML Service, 聊天/地圖介面)
 - 欄位：`一人稱 / 語氣 / 性格關鍵詞 / 對御主態度`（極簡）。
 - 知名官方角色短填即可（LLM 已有強錨點）；AI 生成角色**必填並鎖定**以保重用一致性。
 
-## 試算表（資料庫）規劃
-### 靜態正典（預先填）
-- `ServantTemplates`：servant_id(真名+職階)/職階/真名/六維/技能(JSON)/特性標籤/寶具/性格/source(official|ai_gen)
-- `Locations`：id/名稱/x/y/類型/相鄰/危險度/靈脈
-- `ItemTemplates`：類型/效果碼/數值
-- `WorldRules`：世界觀與規則（餵 AI 當底線）
+## 試算表（資料庫）規劃 — 靜態 vs 動態
+**核心觀念**：英靈殿＝唯讀定檔；開局時「抓基本資料 → 生成實例 → 寫入戰場」。
+實例不複製整份能力，只存變動值 + `servant_id` 指回英靈殿，要用六維/技能時即時查。
 
-### 玩家存檔（每帳號）
-- `Masters`：帳號/御主資料/HP/魔力/令咒/所在地/進度
-- `PlayerServants`：從者實例/HP/魔力/狀態/真名是否暴露
-- `Inventory`：帳號/道具id/數量
-- `Memory`：★EAV 事實表（捕捉玩家自由發揮）— 帳號/回合/對象/事實類型/內容/重要度
-- `EventLog`：重大事件摘要
-- `ManaSession`：補魔剩餘次數/開始時間
-- `WarRoster`：本場戰爭七組 master/servant_id/is_player/alive
-- `GameClock`：第幾日/時段(晝夜)/剩餘行動點
+### 靜態分頁（定檔・全玩家共用・只在 AI 生成新英靈時新增）
+- `英靈殿`(ServantTemplates)：servant_id(真名+職階)/職階/真名/wars/六維/技能(JSON)/特性標籤/寶具/個性錨點/source(official|ai_gen)
+- `地圖`(Locations)：id/名稱/x/y/類型/相鄰/危險度/靈脈
+- `道具圖鑑`(ItemTemplates)：類型/效果碼/數值
+- `世界規則`(WorldRules)：世界觀與規則（餵 AI 當底線）
+- `戰爭範本`(Wars)：戰爭id/名稱/participants/正典roster(master+servant_id)
+
+### 動態分頁（存檔・依帳號變動）— 最精簡＝帳號 + 戰場
+- `帳號`(Accounts)：**ms_id(毫秒ID,主鍵)** / 玩家名稱 / 建立時間 / 目前game_id / 道具(JSON) / 設定(尺度等)
+- `戰場`(Battlefield)：**御主與從者合併，一列＝一位參戰者**（1:1 綁定）
+  `game_id | slot(1~8) | is_player | 御主名/魔術系統/御主HP/MP/令咒/所在地 | servant_id(→英靈殿) | 從者HP/MP/好感度/真名揭露?/狀態 | alive`
+  - 開局依玩家 ms_id 一次寫入 8 列（玩家1 + 對手7）。
+  - **不另設御主分頁**（御主欄併入戰場列）。
+
+### 選配分頁（要更乾淨可再拆）
+- `記憶`(Memory)：EAV 事實表（捕捉玩家自由發揮）game_id/回合/對象/事實類型/內容/重要度
+- `事件`(EventLog)：重大事件摘要
+- `時鐘`(GameClock)：game_id/第幾日/時段(晝夜)/剩餘行動點/補魔倒數
 
 ### 共享世界（v1 不做）
 - `WarState`：存活從者數/陣營動向/全域事件
