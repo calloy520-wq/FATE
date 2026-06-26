@@ -59,6 +59,7 @@
   .hp > i{background:linear-gradient(90deg,#8a2b2b,#d65c5c)}
   .mp > i{background:linear-gradient(90deg,#2c4f8a,#5c84d6)}
   .bond > i{background:linear-gradient(90deg,#8a2c5a,#e58aa8)}
+  .barrier > i{background:linear-gradient(90deg,#2c6f4f,#5fae8a)}
 
   .six{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}
   .six .g{background:#100e18;border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center}
@@ -270,6 +271,7 @@
   <div class="col" id="col-status">
     <div class="sec-h">御主</div><div id="master-box"></div>
     <div class="sec-h">從者</div><div id="servant-box"></div>
+    <div class="sec-h">據點・結界</div><div id="base-box"></div>
     <div class="sec-h" id="roster-h">戰局</div><div id="roster-box" style="font-size:12px"></div>
   </div>
   <div class="col" id="col-map">
@@ -668,7 +670,11 @@ const App = {
     const wn=this.state.war?SERVER.wars[this.state.war].name:'混亂模式';
     document.getElementById('chat-h').textContent=wn;
     document.getElementById('roster-h').textContent='戰局・'+(this.state.roster.length)+'組';
-    this.renderStatus(); this.renderMap(); this.renderQuick(); this.renderRoster();
+    const isC=this.state.servant.cls==='Caster';
+    this.state.base={locId:this.state.here, barrier:30, barrierMax:isC?100:60,
+      tier:isC?'魔術工房':'簡易結界',
+      effects:isC?'工房：魔力回復↑・道具作成・來犯偵測・主場加成':'基礎結界：阻擋隨機移動的 NPC'};
+    this.renderStatus(); this.renderMap(); this.renderQuick(); this.renderRoster(); this.renderBase();
     document.getElementById('log').innerHTML='';
     this.ai('冬木市的夜風帶著魔力氣息。你（'+this.state.master.name+'）與從者「'+this.state.servant.cls
         +'」立於'+this.locName(this.state.here)+'。'+wn+'，已經開始了。');
@@ -732,8 +738,16 @@ const App = {
     document.getElementById('loc-info').innerHTML=`<b style="color:var(--gold2)">${l.name}</b>（危險度：${dmap[l.danger]}・靈脈：${l.leyline}）<br>${l.desc}`;
   },
   renderQuick(){
-    document.getElementById('quick-actions').innerHTML=['⚔ 攻擊敵人','使用寶具','搜索周圍','偵查氣息','補魔']
+    document.getElementById('quick-actions').innerHTML=['⚔ 攻擊敵人','使用寶具','🛡 加固結界','搜索周圍','偵查氣息','補魔']
       .map(a=>`<button class="btn sm ghost" onclick="App.quick('${a}')">${a}</button>`).join('');
+  },
+  renderBase(){
+    const b=this.state.base; if(!b){ document.getElementById('base-box').innerHTML=''; return; }
+    document.getElementById('base-box').innerHTML=`
+      <div style="font-size:13px;color:var(--gold2)">${this.locName(b.locId)}・${b.tier}</div>
+      <div class="stat-row"><span>結界值</span><span>${b.barrier}/${b.barrierMax}</span></div>
+      <div class="bar barrier"><i style="width:${b.barrier/b.barrierMax*100}%"></i></div>
+      <div style="font-size:11px;color:var(--dim);margin-top:4px">${b.effects}</div>`;
   },
 
   /* ---- 行動 ---- */
@@ -747,10 +761,32 @@ const App = {
     if(a==='補魔'){ this.startMana(); return; }
     if(a.includes('攻擊')){ this.me(a); this.attackNearest(false); return; }
     if(a==='使用寶具'){ this.me('解放寶具'); this.attackNearest(true); return; }
+    if(a.includes('加固')){ this.me('加固結界'); this.reinforce(); return; }
     this.me(a); this.ai('（GAS 判定中…示意）你進行了「'+a+'」，系統擲骰後將結果交給 AI 敘述。'); },
+
+  // 加固結界（Caster 更強更省）
+  reinforce(){
+    const m=this.state.master,b=this.state.base,isC=this.state.servant.cls==='Caster';
+    const cost=isC?10:18, gain=isC?28:16;
+    if(m.mp<cost){ this.sys('魔力不足，無法加固結界。'); return; }
+    if(b.barrier>=b.barrierMax){ this.sys('結界已達上限。'); return; }
+    m.mp-=cost; b.barrier=Math.min(b.barrierMax,b.barrier+gain);
+    this.renderStatus(); this.renderBase();
+    this.ai(`你${isC?'以工房之力':''}強化了據點結界（魔力 −${cost}）。結界值 ${b.barrier}/${b.barrierMax}。`);
+  },
+  // 敵從者攻打據點：侵蝕結界，歸 0 才闖入觸發防衛戰
+  siege(){
+    const b=this.state.base, dmg=12+Math.floor(Math.random()*12);
+    b.barrier=Math.max(0,b.barrier-dmg); this.renderBase();
+    this._push('event','⚑ 據點告警',`敵從者試圖突破 ${this.locName(b.locId)} 的結界！結界 −${dmg} → ${b.barrier}/${b.barrierMax}`);
+    if(b.barrier<=0){ this.ai('結界崩潰——敵從者闖入據點！防衛戰開始。'); this.attackNearest(false); }
+    else this.ai('結界暫時擋住了來犯者。建議盡快返回據點加固或迎敵。');
+  },
   send(){
     const box=document.getElementById('in-msg'),t=box.value.trim(); if(!t) return; box.value=''; this.me(t);
     if(/補魔|魔力供給/.test(t)){ this.startMana(); return; }
+    if(/加固|結界/.test(t)){ this.reinforce(); return; }
+    if(/敵襲|來犯|攻打據點/.test(t)){ this.siege(); return; }
     if(/寶具|真名解放/.test(t)){ this.attackNearest(true); return; }
     if(/攻擊|戰鬥|打/.test(t)){ this.attackNearest(false); return; }
     if(/搜索|偵查|調查/.test(t)){ this.ai('（意圖：search → GAS 判定）你仔細探查四周……'); return; }
