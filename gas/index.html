@@ -87,7 +87,25 @@
   <div class="menu-list">
     <button class="btn primary" onclick="App.go('scr-mode')">單人遊玩</button>
     <button class="btn" disabled>多人連線 <span class="soon">敬請期待</span></button>
+    <button class="btn" onclick="App.history()">歷史紀錄</button>
     <button class="btn ghost" onclick="App.go('scr-login')">登出</button>
+  </div>
+</section>
+
+<section class="screen hidden" id="scr-history">
+  <div class="card" style="width:470px;max-height:88vh;overflow:auto">
+    <h2 style="margin:0;color:var(--gold2)">歷史紀錄</h2>
+    <div id="history-list" style="margin-top:14px"></div>
+    <button class="btn ghost" style="width:100%;margin-top:12px" onclick="App.go('scr-menu')">返回</button>
+  </div>
+</section>
+
+<section class="screen hidden" id="scr-gameover">
+  <div class="card" style="width:540px;max-height:92vh;overflow:auto;text-align:center">
+    <h2 id="go-title" style="margin:0"></h2>
+    <p id="go-dream" style="color:#d8c8ef;line-height:1.9;white-space:pre-line;margin:16px 0"></p>
+    <div id="go-dojo" style="background:#1a1410;border:1px solid #6a4f2a;border-radius:10px;padding:12px;color:#e7c873;font-size:13px;line-height:1.7"></div>
+    <button class="btn primary" style="width:100%;margin-top:18px" onclick="App.toMenu()">返回主畫面</button>
   </div>
 </section>
 
@@ -291,10 +309,26 @@ var App = {
     var a=Object.assign({game_id:App.S.game_id,type:type},extra||{}); busy(true);
     gs('doAction',a).then(function(r){ busy(false);
       if(r.error){ App.sys(r.error); return; }
+      if(r.gameOver){ App.gameOver(r); return; }
       App.S=r.state; App.renderAll();
       if(r.narration) App.ai(r.narration);
       if(r.events&&r.events.length) r.events.forEach(function(t){ App._push('event','⚑ 情報',t); });
     }).catch(App.err); },
+  history:function(){ busy(true);
+    gs('getHistory',App.acc.ms_id).then(function(list){ busy(false);
+      document.getElementById('history-list').innerHTML = (list&&list.length) ? list.map(function(h){
+        var c=h.result==='win'?'#e7c873':'#d65c5c', tag=h.result==='win'?'🏆 奪杯':'☠ 殞落';
+        return '<div style="border-bottom:1px dotted #2a2438;padding:8px 0"><span style="color:'+c+'">'+tag+'</span>　<span style="font-size:13px">'+h.summary+'</span><div style="font-size:11px;color:var(--dim)">'+new Date(h.ts).toLocaleString()+'</div></div>';
+      }).join('') : '<div style="color:var(--dim)">尚無紀錄。去打一場聖杯戰爭吧。</div>';
+      App.go('scr-history');
+    }).catch(App.err); },
+  gameOver:function(r){ var go=r.gameOver;
+    document.getElementById('go-title').innerHTML = go.result==='win'
+      ? '<span style="color:var(--gold2)">🏆 奪取聖杯</span>' : '<span style="color:var(--red2)">☠ 御主殞落</span>';
+    document.getElementById('go-dream').textContent = go.dream||'';
+    document.getElementById('go-dojo').textContent = go.dojo||'';
+    App.S=null; App.go('scr-gameover'); },
+  toMenu:function(){ App.S=null; App.go('scr-menu'); },
   move:function(id){ App.act('move',{locId:id}); },
   quick:function(a){
     if(a.indexOf('攻擊')>=0) return App.act('attack');

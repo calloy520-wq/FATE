@@ -20,6 +20,7 @@ const SHEETS = {
   MEMORY:   '記憶',     // Memory (EAV)
   EVENTS:   '事件',     // EventLog (多人相容)
   CLOCK:    '時鐘',     // GameClock
+  HISTORY:  '歷史',     // 戰績紀錄（跨場保留）
 };
 
 // 各分頁標題列
@@ -41,6 +42,7 @@ const HEADERS = {
   [SHEETS.EVENTS]:   ['event_id','write_ts','game_id','day_count','time_hour','location_id','event_type',
                       'actor_id','target_id','log_text','is_global','importance'],
   [SHEETS.CLOCK]:    ['game_id','day','hour','ap','ap_max','mana_countdown','mana_locked'],
+  [SHEETS.HISTORY]:  ['ts','ms_id','name','result','war','servant_cls','day','summary'],
 };
 
 // 靜態分頁（重建 setup 時會重新種子）；動態分頁只建表不動資料

@@ -244,10 +244,75 @@ function doAction(a){
       for(var k=0;k<3;k++) events = events.concat(npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh));
     }
   }
+  // 結局判定：玩家從者/御主死亡 → 死亡；敵方全滅 → 奪杯
+  var fresh2 = findRows_(SHEETS.BATTLE, { game_id: gameId });
+  var pf = fresh2.filter(function(r){ return r.is_player===true; })[0];
+  var endR = null;
+  if(pf){
+    if(pf.sv_hp<=0 || pf.master_hp<=0) endR = 'death';
+    else { var en = fresh2.filter(function(r){ return r.is_player!==true; });
+           if(en.length && en.every(function(r){ return !r.alive; })) endR = 'win'; }
+  }
+  var over = endR ? endGame_(gameId, pf, endR, mem) : null;
+
   return {
-    state: getState(gameId), narration: narration,
-    events: events.filter(function(e){ return e.global || e.atPlayer; }).map(function(e){ return e.text; })
+    state: over ? null : getState(gameId), narration: narration,
+    events: events.filter(function(e){ return e.global || e.atPlayer; }).map(function(e){ return e.text; }),
+    gameOver: over
   };
+}
+
+// ---------- 結局：願望假夢 / 奪杯 → 老虎道場 → 寫歷史 → 清空該場 ----------
+function endGame_(gameId, p, result, mem){
+  var acc = findOne_(SHEETS.ACCOUNTS, { current_game: gameId }) || {};
+  var wish = (acc.settings && acc.settings.wish) || '未明';
+  var name = acc.name || p.master_name;
+  var clock = findOne_(SHEETS.CLOCK, { game_id: gameId }) || { day:1 };
+  var svcls = heroCls_(p.servant_id);
+  var dream, summary;
+  if(result === 'death'){
+    dream = narrateScene('【死亡的假夢】御主 '+name+' 在意識消逝的瞬間，墜入聖杯展示的幻夢——願望「'+wish
+      +'」彷彿已然實現。請寫一段淒美而虛幻、令人不忍的「願望成真假夢」，最後夢境崩解、回歸虛無。4~6 句。', mem);
+    summary = '第'+clock.day+'天　'+svcls+'之御主「'+name+'」殞落於聖杯戰爭。';
+  } else {
+    dream = narrateScene('【奪得聖杯】御主 '+name+' 成為最後勝者，聖杯於眼前顯現，願望「'+wish
+      +'」。請寫一段莊嚴而意味深長的奪杯敘述（聖杯或許並不單純）。4~6 句。', mem);
+    summary = '第'+clock.day+'天　'+svcls+'之御主「'+name+'」奪取聖杯，贏得戰爭。';
+  }
+  appendObj_(SHEETS.HISTORY, { ts:Date.now(), ms_id:acc.ms_id||'', name:name, result:result,
+    war:'', servant_cls:svcls, day:clock.day, summary:summary });
+  clearGame_(gameId);
+  if(acc.ms_id) updateWhere_(SHEETS.ACCOUNTS, { ms_id:acc.ms_id }, { current_game:'' });
+  return { result:result, dream:dream, dojo:tigerDojo_(result), summary:summary };
+}
+
+function tigerDojo_(result){
+  if(result === 'win')
+    return '🐯【老虎道場】藤村大河：「哼哼，居然真讓你贏了！可惡，午餐錢拿來！」　伊莉雅：「恭喜～不過聖杯可不是那麼單純的東西喔？」';
+  return '🐯【老虎道場】藤村大河：「嗚哇——你死掉了啦！別擔心，老師我會好好教你的！」　伊莉雅：「下次記住：危急時用令咒『緊急脫離』逃跑，別硬撐到從者被打爆喔。」';
+}
+
+// 清空某場的動態資料（保留其他玩家的場次與歷史，多人安全）
+function clearGame_(gameId){
+  [SHEETS.BATTLE, SHEETS.CLOCK, SHEETS.MEMORY, SHEETS.EVENTS].forEach(function(name){
+    var keep = readAll_(name).filter(function(r){ return r.game_id !== gameId; });
+    rewriteSheet_(name, keep);
+  });
+}
+function rewriteSheet_(name, objs){
+  var s = sheet_(name), last = s.getLastRow();
+  if(last > 1) s.getRange(2,1,last-1,s.getLastColumn()).clearContent();
+  if(objs.length){
+    var rows = objs.map(function(o){ return toRow_(name, o); });
+    s.getRange(2,1,rows.length,HEADERS[name].length).setValues(rows);
+  }
+}
+
+// 歷史紀錄（登入後選單用）
+function getHistory(msId){
+  return findRows_(SHEETS.HISTORY, { ms_id: msId })
+    .sort(function(a,b){ return (b.ts||0)-(a.ts||0); })
+    .map(function(h){ return { result:h.result, summary:h.summary, day:h.day, ts:h.ts }; });
 }
 
 // ---------- NPC 自律：移動 + 回復 + 碰撞解析（每 tick 最多 1 場戰鬥）----------
@@ -382,7 +447,7 @@ function act_combat_(rows, p, clock, hero, mode, costAP, mem){
   var B = Object.assign(heroFromRow_(eHero), { hp:enemyRow.sv_hp });
 
   var res = resolveCombat_(A, B, mode);
-  p.sv_hp = (res.winner==='B') ? Math.max(1, res.aHp) : res.aHp;   // 瀕死保留 1（示意，之後接令咒續戰）
+  p.sv_hp = res.aHp;                          // 敗北則從者靈基崩解（HP 歸 0 → 觸發死亡結局）
   p.sv_mp = Math.max(0, p.sv_mp - res.mpCost);
   if(res.winner==='A'){ enemyRow.alive=false; p.bond = Math.min(100, p.bond+5); }
   updateRow_(SHEETS.BATTLE, p._row, { sv_hp:p.sv_hp, sv_mp:p.sv_mp, bond:p.bond });
