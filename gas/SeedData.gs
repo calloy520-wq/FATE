@@ -98,6 +98,25 @@ const SEED_SERVANTS = [
     skills:[{n:'觀察',r:'',fx:'observe'},{n:'故事創作',r:'',fx:'narrative'}],
     traits:[{n:'人類'}], np:'人魚靈藥／童話故事（輔助）',
     align:'中立・善', persona:{firstP:'我',words:'毒舌・觀察者・童話',toMaster:'冷眼旁觀卻心軟'} },
+  // 斯卡哈 三職階（影之國女王・最強之槍的師匠）
+  { id:'斯卡哈-Lancer', cls:'Lancer', realName:'斯卡哈', wars:['客串'],
+    six:{筋力:'B',耐久:'A',敏捷:'A',魔力:'B',幸運:'E',寶具:'B'},
+    classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'}],
+    skills:[{n:'神速',r:'A',fx:'first_strike'},{n:'原初符文',r:'A',fx:'rune'},{n:'戰鬥續行',r:'A',fx:'survive'}],
+    traits:[{n:'神性'},{n:'人類'}], np:'刺穿死亡之棘 Gáe Bolg Alternative（必滅之棘 A）',
+    align:'中立・中庸', persona:{firstP:'我',words:'影之國女王・冷峻嚴師・武人',toMaster:'嚴厲考校，唯認可強者'} },
+  { id:'斯卡哈-Assassin', cls:'Assassin', realName:'斯卡哈', wars:['客串'],
+    six:{筋力:'C',耐久:'C',敏捷:'A+',魔力:'B',幸運:'D',寶具:'B'},
+    classSkills:[{n:'氣息遮斷',r:'B',fx:'stealth'}],
+    skills:[{n:'心眼(真)',r:'B',fx:'analyze'},{n:'戰鬥續行',r:'A',fx:'survive'},{n:'原初符文',r:'B',fx:'rune'}],
+    traits:[{n:'神性'},{n:'人類'}], np:'豺狼的胃袋（影縫穿刺 B）',
+    align:'中立・中庸', persona:{firstP:'我',words:'潛行的女王・冷冽・致命',toMaster:'冷眼試探、出手無情'} },
+  { id:'斯卡哈-Caster', cls:'Caster', realName:'斯卡哈·斯卡薩哈（Skadi）', wars:['客串'],
+    six:{筋力:'E',耐久:'D',敏捷:'C',魔力:'A',幸運:'B',寶具:'A'},
+    classSkills:[{n:'陣地作成',r:'A',fx:'territory'},{n:'高速神言',r:'A',fx:'fast_cast'}],
+    skills:[{n:'原初符文',r:'EX',fx:'rune'},{n:'女神的神核',r:'',fx:'divine_core'},{n:'神性',r:'B',fx:'divine'}],
+    traits:[{n:'神性'},{n:'女神'}], np:'彼岸薔薇之園・原初的符紋（對界 A）',
+    align:'中立・善', persona:{firstP:'吾',words:'北歐女神・溫柔而威嚴・守護者',toMaster:'溫柔包容、暗藏神威'} },
 ];
 
 // ===== 御主殿：第四次/第五次正典御主（master_id = name-war）=====
