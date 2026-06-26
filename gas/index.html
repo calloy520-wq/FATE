@@ -619,7 +619,8 @@ var App = {
     h+='<button class="btn sm" onclick="App.act(\'rest\',{hours:1})">😴 休息1h</button>'
       +'<button class="btn sm" onclick="App.act(\'rest\',{hours:3})">😴 休息3h</button>'
       +'<button class="btn sm" onclick="App.act(\'rest\',{hours:6})">🌙 休息至滿</button>'
-      +'<button class="btn sm" onclick="App.act(\'shop\')">🛒 購物備糧</button>';
+      +'<button class="btn sm" onclick="App.act(\'shop\')">🛒 購物備糧</button>'
+      +'<button class="btn sm" onclick="App.act(\'kit\')">📦 標準補給包</button>';
     if(sep) h+='<span style="width:100%;font-size:11px;color:'+(dz?'var(--gold2)':'var(--dim)')+'">從者所在：'+App.locName(App.S.player.servant.loc)+(dz?'　↳ 點地圖上相鄰地，派從者前往':'')+'</span>';
     return h; },
   // 點分類 → 在 #action-sub 展開該類動作；再點同類收起
@@ -655,11 +656,12 @@ var App = {
     var inv=(App.S.player.master.inventory)||[];
     if(!inv.length){ bar.innerHTML='<span style="font-size:12px;color:var(--dim)">空（到市區「🛒 購物備糧」補給食物／醫療品，點物品即用。醫院、車站有繃帶急救包）</span>'; return; }
     bar.innerHTML=inv.map(function(it){
-      var isMed=it.kind==='med';
-      var tip=isMed?(it.name+'（醫療：'+(it.desc||'止血／回血')+'）'):(it.name+(it.tier?('〔'+it.tier+'〕'):'')+'（飽足：每小時迴路回魔 +，品級越高越強越持久）');
-      var act=isMed?'療傷':'食用';
+      var tip, act;
+      if(it.kind==='med'){ tip=it.name+'（醫療：'+(it.desc||'止血／回血')+'）'; act='療傷'; }
+      else if(it.kind==='gem'){ tip=it.name+'（魔力寶石：'+(it.desc||'回魔＋下次戰鬥判定加持')+'）'; act='施用'; }
+      else { tip=it.name+(it.tier?('〔'+it.tier+'〕'):'')+'（飽足：每小時迴路回魔 +，品級越高越強越持久）'; act='食用'; }
       return '<button class="btn sm" title="'+act+' '+tip+'" onclick="App.act(\'use\',{item:\''+it.key+'\'})">'+it.emoji+' '+it.name+'</button>';
-    }).join('')+'<span style="width:100%;font-size:11px;color:var(--dim)">物品欄 '+inv.length+'/5・點擊使用（🍙食物＝飽足回魔；🩹醫療＝止血回血）</span>'; },
+    }).join('')+'<span style="width:100%;font-size:11px;color:var(--dim)">物品欄 '+inv.length+'/5・點擊使用（🍙食物＝飽足回魔；🩹醫療＝止血回血；💎寶石＝回魔＋判定）</span>'; },
   renderMana:function(){ var c=App.S.clock,b=document.getElementById('mana-box');
     b.innerHTML = c.mana_locked ? '<div style="background:#1c1320;border:1px solid var(--red);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--red2);margin-bottom:8px;text-align:center">♥ 補魔進行中・剩 '+c.mana_countdown+' 次對話（送出對話以推進）</div>' : ''; },
   renderClock:function(){ var c=App.S.clock,ph=(c.hour>=6&&c.hour<18)?'☀晝':'🌙夜';

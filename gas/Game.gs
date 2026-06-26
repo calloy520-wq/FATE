@@ -356,6 +356,7 @@ function doAction(a){
       case 'claim':      spec = act_claim_(p, clock, hero); break;
       case 'rest':       spec = act_rest_(p, clock, hero, a.hours); break;
       case 'shop':       spec = act_shop_(p, clock, hero); break;
+      case 'kit':        spec = act_kit_(p, clock, hero); break;
       case 'use':        spec = act_use_(p, clock, a.item); break;
       case 'seal':       spec = act_seal_(rows, p, clock, hero, a.cmd); break;
       case 'chat':
@@ -749,14 +750,18 @@ function tickHour_(p, clock, con, resting){
     p.sv_mp = Math.max(0, p.sv_mp - pay);
   }
   // 5) 御主：失血狀態持續掉血（不致死、底限 1）；未失血時自然癒合，休息時更快
+  var fast = masterFastHeal_(p);   // 衛宮士郎：Avalon 殘響的異常治癒
   if(Number(clock.bleed) > 0){
-    p.master_hp = Math.max(1, p.master_hp - (TUNING.BLEED_DMG || 3));
+    p.master_hp = Math.max(1, p.master_hp - Math.max(0, (TUNING.BLEED_DMG || 3) - fast));   // 異常治癒抵銷掉血
     clock.bleed = Number(clock.bleed) - 1;
+    if(fast) clock.bleed = Math.max(0, Number(clock.bleed) - 1);                            // 並加倍止血
   } else if(p.master_hp < p.master_hp_max){
-    var mhp = (TUNING.MASTER_HP_REGEN || 1) + (resting ? (TUNING.MASTER_REST_HP || 4) : 0);
+    var mhp = (TUNING.MASTER_HP_REGEN || 1) + (resting ? (TUNING.MASTER_REST_HP || 4) : 0) + fast;
     p.master_hp = Math.min(p.master_hp_max, p.master_hp + mhp);
   }
 }
+// 衛宮士郎：常時的異常治癒（Avalon 殘響）。名字含衛宮／士郎／emiya／shirou 即生效。
+function masterFastHeal_(p){ return /衛宮|士郎|emiya|shirou/i.test(p && p.master_name || '') ? (TUNING.SHIROU_REGEN || 4) : 0; }
 
 function advanceTime_(p, clock, hero, apCost){
   var con = rankVal(hero ? heroFromRow_(hero).six.耐久 : 'C');
@@ -1188,6 +1193,10 @@ var MED_ = {
   bandage:  { emoji:'🩹', name:'繃帶',   kind:'med', heal:5,  stopBleed:true,  desc:'立即止血、小幅回血' },
   firstaid: { emoji:'🧰', name:'急救包', kind:'med', heal:25, stopBleed:true,  desc:'止血並回復較多 HP' }
 };
+// 魔力寶石（遠坂式・封存魔力的觸媒）：回復大量迴路魔力＋下一場戰鬥判定加持。kind:'gem'。
+var GEM_ = {
+  gem: { emoji:'💎', name:'魔力寶石', kind:'gem', mana:0.45, buffHit:6, desc:'回復大量迴路魔力＋下次戰鬥命中 +6' }
+};
 // 各地區販售的品項（決定能買到的品級）：車站便利商店最便宜、新都百貨／餐廳最高級；醫院／車站有醫療品。
 var SHOP_STOCK_ = {
   station:   ['riceball','bread','energy','bandage'],  // 車站・便利商店：平價食物＋繃帶
@@ -1199,7 +1208,7 @@ var SHOP_STOCK_ = {
 var SHOP_BATCH_ = 3;   // 一趟購物備糧最多進貨數（1 AP）
 function invOf_(p){ return Array.isArray(p.inventory) ? p.inventory : []; }
 function foodTier_(item){ var f=FOOD_[item]; var t=f&&f.tier; return (TUNING.SATIETY_TIERS&&TUNING.SATIETY_TIERS[t]) || { regen:TUNING.SATIETY_REGEN||2, hours:TUNING.SATIETY_HOURS||8, label:'' }; }
-function itemDef_(key){ if(FOOD_[key]) return Object.assign({ kind:'food' }, FOOD_[key]); if(MED_[key]) return MED_[key]; return null; }
+function itemDef_(key){ if(FOOD_[key]) return Object.assign({ kind:'food' }, FOOD_[key]); if(MED_[key]) return MED_[key]; if(GEM_[key]) return GEM_[key]; return null; }
 
 // 購物：在市區補給進物品欄（5 格上限）。一趟最多進 SHOP_BATCH_ 件（不再一次只買一個），1 AP。不用錢。
 function act_shop_(p, clock, hero){
@@ -1220,7 +1229,25 @@ function act_shop_(p, clock, hero){
     suffix:'\n（採購 '+label+'　物品欄 '+inv.length+'/5）' };
 }
 
-// 使用物品（食物→飽足 buff；醫療→止血／回血）。點物品欄即呼叫。
+// 標準補給包（魔術師的常備配置）：1 繃帶＋2 寶石＋2 中等食物，一次補齊（1 AP）。市區任一商店可購。
+var SUPPLY_KIT_ = ['bandage','gem','gem','bento','bento'];
+function act_kit_(p, clock, hero){
+  if(!SHOP_STOCK_[p.location]) return '（這附近沒有商店——到新都／商店街／公寓／車站／醫院一帶才能補給。）';
+  if(clock.ap < 1) return '（行動點不足，請休息恢復。）';
+  var inv = invOf_(p).slice();
+  if(inv.length >= 5) return '（物品欄已滿（5 格）——先用掉一些再補貨。）';
+  var room = 5 - inv.length, got = [];
+  for(var i=0;i<SUPPLY_KIT_.length && got.length<room;i++){ inv.push(SUPPLY_KIT_[i]); got.push(SUPPLY_KIT_[i]); }
+  p.inventory = inv;
+  updateRow_(SHEETS.BATTLE, p._row, { inventory: inv });
+  advanceTime_(p, clock, hero, 1);
+  var label = got.map(function(k){ var d=itemDef_(k); return d ? (d.emoji+d.name) : k; }).join('、');
+  return { kind:'scene',
+    prompt:'我（'+p.master_name+'）依魔術師的慣例採買了一套標準補給（'+label+'）。請寫一段簡短、有生活感的整備小敘述，可帶出我的家世財力氣場。',
+    suffix:'\n（標準補給包：'+label+'　物品欄 '+inv.length+'/5）' };
+}
+
+// 使用物品（食物→飽足 buff；醫療→止血／回血；寶石→回魔＋判定加持）。點物品欄即呼叫。
 function act_use_(p, clock, item){
   var inv = invOf_(p).slice();
   var idx = inv.indexOf(item);
@@ -1239,6 +1266,16 @@ function act_use_(p, clock, item){
     return { kind:'scene',
       prompt:'我（'+p.master_name+'）用'+d.name+'處理傷口'+(wasBleeding?'、止住了不斷滲血的傷勢':'')+'。請寫一段簡短、有臨場感的療傷小敘述（可帶出我的個性與當下心境）。',
       suffix:'\n（'+d.emoji+d.name+'：'+(wasBleeding?'已止血　':'')+(gained>0?('御主 HP +'+gained+'（'+p.master_hp+'/'+p.master_hp_max+'）　'):'')+'物品欄 '+inv.length+'/5）' };
+  }
+  if(d.kind === 'gem'){            // 魔力寶石：回復迴路魔力＋下一場戰鬥判定加持（一次性）
+    var add = Math.round(p.master_mp_max * (d.mana || 0.45)), before = p.master_mp;
+    p.master_mp = Math.min(p.master_mp_max, p.master_mp + add);
+    p.buff = { hit: d.buffHit || 6, label:'寶石加持' };   // 與主動強化共用 buff 槽：本場一次性
+    inv.splice(idx, 1); p.inventory = inv;
+    updateRow_(SHEETS.BATTLE, p._row, { inventory: inv, master_mp: p.master_mp, buff: p.buff });
+    return { kind:'scene',
+      prompt:'我（'+p.master_name+'）捏碎一枚封存魔力的寶石，魔力如暖流灌入迴路，指尖凝起戰意。請寫一段簡短、有魔術質感的敘述（可帶出我的個性）。',
+      suffix:'\n（'+d.emoji+d.name+'：迴路魔力 +'+(p.master_mp-before)+'（'+p.master_mp+'/'+p.master_mp_max+'）　下次戰鬥命中 +'+(d.buffHit||6)+'　物品欄 '+inv.length+'/5）' };
   }
   var tier = foodTier_(item), f = d;       // 食物
   inv.splice(idx, 1); p.inventory = inv;

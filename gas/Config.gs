@@ -75,6 +75,7 @@ const TUNING = {
   // 御主受傷／失血／療養
   MASTER_HP_REGEN: 1,            // 御主每小時自然回血（凡人癒合慢；未失血時）
   MASTER_REST_HP: 4,             // 休息時御主每小時額外回血
+  SHIROU_REGEN: 4,               // 衛宮士郎：常時固有的異常治癒（Avalon 殘響）＝每小時額外回血、且失血癒合加倍
   MASTER_REST_MANA: 1.5,         // 休息時御主迴路回魔倍率
   BLEED_TRIGGER: 14,             // 御主單擊受創 ≥ 此值 → 進入「失血」狀態
   BLEED_HOURS: 5,                // 失血持續時數（不處理會自然止血，但這期間持續掉血）
