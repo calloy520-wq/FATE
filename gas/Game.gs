@@ -1081,6 +1081,7 @@ function masterCtx_(acc){
   if(!m || !m.name) return '';
   var s = '（御主＝「我」：'+m.name;
   if(m.gender) s += '，性別'+m.gender;
+  if(m.appearance) s += '，外觀「'+m.appearance+'」';
   if(m.origin) s += '，出身「'+m.origin+'」';
   if(m.magic)  s += '，魔術「'+m.magic+'」';
   if(m.melee)  s += '，體術'+m.melee+'級';
@@ -1091,8 +1092,9 @@ function masterCtx_(acc){
 function servantCtx_(p, hero){
   if(!hero) return '';
   var ps = hero.persona || {};
-  return '（從者：'+hero.cls+'，真名'+(p.true_name_known?hero.realName:'未公開')+'，陣營「'+(hero.align||'未知')+'」，'
-    + '個性「'+(ps.words||'')+'」，一人稱「'+(ps.firstP||'我')+'」，對御主態度「'+(ps.toMaster||'')+'」，目前好感度 '+p.bond+'/100。'
+  return '（從者：'+hero.cls+'，真名'+(p.true_name_known?hero.realName:'未公開')+(hero.gender?('，性別'+hero.gender):'')+'，陣營「'+(hero.align||'未知')+'」，'
+    + '個性「'+(ps.words||'')+'」，一人稱「'+(ps.firstP||'我')+'」，對御主態度「'+(ps.toMaster||'')+'」，目前好感度 '+p.bond+'/100'
+    + (p.sv_condition?('，此刻體況「'+p.sv_condition+'」'):'')+'。'
     + '請嚴格依此人格、陣營與好感回應，保有自主與尊嚴。）';
 }
 function act_claim_(p, clock, hero){
