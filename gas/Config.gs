@@ -9,6 +9,7 @@
 const SHEETS = {
   // 靜態定檔
   HEROES: '英靈殿',     // ServantTemplates
+  MASTERS:'御主殿',     // MasterTemplates
   MAP:    '地圖',       // Locations
   ITEMS:  '道具圖鑑',   // ItemTemplates
   RULES:  '世界規則',   // WorldRules
@@ -25,6 +26,7 @@ const SHEETS = {
 const HEADERS = {
   [SHEETS.HEROES]: ['servant_id','cls','realName','wars','筋力','耐久','敏捷','魔力','幸運','寶具',
                     'classSkills','skills','traits','np','persona','source'],
+  [SHEETS.MASTERS]:['master_id','name','war','magic','circuits','melee','magic_rank','home','wish','persona','source'],
   [SHEETS.MAP]:    ['id','name','x','y','danger','leyline','adj','desc'],
   [SHEETS.ITEMS]:  ['item_id','name','type','fx','value','desc'],
   [SHEETS.RULES]:  ['key','text'],
@@ -42,7 +44,7 @@ const HEADERS = {
 };
 
 // 靜態分頁（重建 setup 時會重新種子）；動態分頁只建表不動資料
-const STATIC_SHEETS = [SHEETS.HEROES, SHEETS.MAP, SHEETS.ITEMS, SHEETS.RULES, SHEETS.WARS];
+const STATIC_SHEETS = [SHEETS.HEROES, SHEETS.MASTERS, SHEETS.MAP, SHEETS.ITEMS, SHEETS.RULES, SHEETS.WARS];
 
 // ===== 平衡常數（調這裡＝整個經濟/戰鬥平移）=====
 const TUNING = {

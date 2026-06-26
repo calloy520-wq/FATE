@@ -293,6 +293,7 @@ GAS 算完數值後寫入「純事實」（不花 token）；AI 說書時只撈�
 
 ### 靜態分頁（定檔・全玩家共用・只在 AI 生成新英靈時新增）
 - `英靈殿`(ServantTemplates)：servant_id(真名+職階)/職階/真名/wars/六維/技能(JSON)/特性標籤/寶具/個性錨點/source(official|ai_gen)
+- `御主殿`(MasterTemplates)：master_id(名+戰爭)/name/war/魔術系統/迴路/體術/魔術階級/據點/願望/性格/source；正史扮演與 NPC 御主皆讀此
 - `地圖`(Locations)：id/名稱/x/y/類型/相鄰/危險度/靈脈
 - `道具圖鑑`(ItemTemplates)：類型/效果碼/數值
 - `世界規則`(WorldRules)：世界觀與規則（餵 AI 當底線）

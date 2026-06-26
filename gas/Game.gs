@@ -36,7 +36,8 @@ function getStatic(){
   return {
     locations: readAll_(SHEETS.MAP),
     wars: readAll_(SHEETS.WARS),
-    heroes: heroes
+    heroes: heroes,
+    masters: readAll_(SHEETS.MASTERS)
   };
 }
 
@@ -69,15 +70,23 @@ function summonByName(opts){
 function newGame(opts){
   var heroesById = {};
   readAll_(SHEETS.HEROES).forEach(function(h){ heroesById[h.servant_id] = h; });
+  var mastersByKey = {};   // 御主殿（正典御主資料）
+  readAll_(SHEETS.MASTERS).forEach(function(m){ mastersByKey[m.name+'|'+m.war] = m; });
   var gameId = 'g_'+Date.now();
   var parts = [];   // 參戰者描述
 
   function profileMaster(name, isPlayer, profile){
+    var codex = (opts.mode==='canon') ? mastersByKey[name+'|'+opts.war] : null;
+    if(codex){   // 正典御主：用御主殿資料
+      return { master:name, circuits:codex.circuits||30, magic:codex.magic||'依正典設定',
+               melee:codex.melee||'E', magic_rank:codex.magic_rank||'C',
+               home:codex.home||'', wish:codex.wish||'', persona:codex.persona||'' };
+    }
     var p = profile || {};
-    var circuits = p.circuits || (/伊莉雅/.test(name) ? 70 : 30);
+    var circuits = p.circuits || 30;
     return { master:name, circuits:circuits, magic:p.magic||'依正典設定',
-             melee:p.melee || (/言峰|葛木/.test(name)?'A':'E'),
-             magic_rank:p.magic_rank || (circuits>=45?'A':circuits>=30?'B':'C') };
+             melee:p.melee||'E', magic_rank:p.magic_rank||(circuits>=45?'A':circuits>=30?'B':'C'),
+             home:'', wish:p.wish||'' };
   }
 
   if(opts.mode === 'canon'){
@@ -113,7 +122,7 @@ function newGame(opts){
     if(!hero) return;
     var d = deriveServant_(heroFromRow_(hero));
     var isCaster = (hero.cls === 'Caster');
-    var loc = homeOf_(p.master, p.isPlayer, spawnPool, spawnIdx++);   // 正典→正典據點；自創玩家→公寓；混亂NPC→隨機
+    var loc = p.home || homeOf_(p.master, p.isPlayer, spawnPool, spawnIdx++);   // 御主殿據點優先；自創→公寓；混亂NPC→隨機
     rows.push({
       game_id:gameId, slot:slot+1, is_player:p.isPlayer, master_name:p.master, magic:p.magic,
       circuits:p.circuits, master_hp:100, master_hp_max:100, master_mp:p.circuits*4, master_mp_max:p.circuits*4,
@@ -127,13 +136,13 @@ function newGame(opts){
   appendObjs_(SHEETS.BATTLE, rows);
   appendObj_(SHEETS.CLOCK, { game_id:gameId, day:1, hour:20, ap:TUNING.AP_PER_DAY,
                              ap_max:TUNING.AP_PER_DAY, mana_countdown:0, mana_locked:false });
-  var wish = (opts.profile && opts.profile.wish) || '';
+  var pp = parts.filter(function(x){ return x.isPlayer; })[0];
+  var wish = (pp && pp.wish) || (opts.profile && opts.profile.wish) || '';   // 正史扮演用正典願望
   updateWhere_(SHEETS.ACCOUNTS, { ms_id:opts.ms_id }, { current_game:gameId, settings:{ wish:wish, manaRating:'adult-fade' } });
 
   logEvent_(gameId, 1, '20:00', 'start', 'START', 'slot_0', '', '聖杯戰爭開始。', true, 2);
   var st = getState(gameId);
   // 召喚開場（依從者個性 + 御主 + 願望）
-  var pp = parts.filter(function(x){ return x.isPlayer; })[0];
   if(pp) st.opening = summonOpening_(heroesById[pp.servantId], pp.master, wish);
   return st;
 }

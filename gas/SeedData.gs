@@ -100,6 +100,25 @@ const SEED_SERVANTS = [
     persona:{firstP:'我',words:'毒舌・觀察者・童話',toMaster:'冷眼旁觀卻心軟'} },
 ];
 
+// ===== 御主殿：第四次/第五次正典御主（master_id = name-war）=====
+const SEED_MASTERS = [
+  // 第五次
+  {id:'衛宮士郎-5th',  name:'衛宮士郎',   war:'5th', magic:'投影／強化',          circuits:30, melee:'D', magic_rank:'D', home:'emiya',    wish:'成為正義的伙伴',          persona:'理想主義・自我犧牲'},
+  {id:'遠坂凜-5th',    name:'遠坂凜',     war:'5th', magic:'寶石魔術',            circuits:45, melee:'C', magic_rank:'A', home:'tohsaka',  wish:'見證聖杯・不負遠坂之名',  persona:'高傲堅強・刀子嘴豆腐心'},
+  {id:'間桐慎二-5th',  name:'間桐慎二',   war:'5th', magic:'魔術迴路微弱・依賴從者', circuits:15, melee:'E', magic_rank:'E', home:'matou',    wish:'被認可・奪取勝利',        persona:'自卑虛榮・色厲內荏'},
+  {id:'葛木宗一郎-5th',name:'葛木宗一郎', war:'5th', magic:'體術（蛇之拳）・無魔術', circuits:10, melee:'A', magic_rank:'E', home:'ryuudou',  wish:'無所求・守護 Caster',     persona:'冷靜寡言・絕對忠誠'},
+  {id:'言峰綺禮-5th',  name:'言峰綺禮',   war:'5th', magic:'代行者・黑鍵',        circuits:25, melee:'A', magic_rank:'C', home:'church',   wish:'尋得能讓自己喜悅之物',    persona:'壓抑・扭曲的虔誠'},
+  {id:'伊莉雅絲菲爾-5th',name:'伊莉雅絲菲爾',war:'5th',magic:'愛因茲貝倫煉金術',    circuits:70, melee:'D', magic_rank:'A', home:'einzbern', wish:'完成聖杯的使命',          persona:'天真與哀傷並存'},
+  // 第四次
+  {id:'衛宮切嗣-4th',  name:'衛宮切嗣',   war:'4th', magic:'起源彈・固有時制御',    circuits:35, melee:'A', magic_rank:'B', home:'emiya',    wish:'以聖杯拯救世界、終結戰爭',persona:'冷酷務實・為大義不擇手段'},
+  {id:'遠坂時臣-4th',  name:'遠坂時臣',   war:'4th', magic:'寶石魔術',            circuits:50, melee:'D', magic_rank:'A', home:'tohsaka',  wish:'抵達「根源之渦」',        persona:'優雅傲慢・名門做派'},
+  {id:'肯尼斯-4th',    name:'肯尼斯',     war:'4th', magic:'礦石科・流體操作',      circuits:50, melee:'C', magic_rank:'A', home:'apartment',wish:'榮譽與學術成就',          persona:'自尊極高・學究'},
+  {id:'韋伯·維爾維特-4th',name:'韋伯·維爾維特',war:'4th',magic:'自我暗示・基礎魔術', circuits:25, melee:'E', magic_rank:'C', home:'apartment',wish:'證明自己的價值',          persona:'自卑好強・成長中'},
+  {id:'雨生龍之介-4th',name:'雨生龍之介', war:'4th', magic:'無魔術・召喚術（外行）', circuits:10, melee:'C', magic_rank:'E', home:'harbor',   wish:'見識更有趣的事物・召喚惡魔',persona:'開朗的瘋狂'},
+  {id:'言峰綺禮-4th',  name:'言峰綺禮',   war:'4th', magic:'代行者・黑鍵',        circuits:25, melee:'A', magic_rank:'C', home:'church',   wish:'探求自身空虛的答案',      persona:'壓抑・尚未墮落'},
+  {id:'間桐雁夜-4th',  name:'間桐雁夜',   war:'4th', magic:'間桐之蟲術',          circuits:15, melee:'D', magic_rank:'C', home:'matou',    wish:'從間桐手中救出櫻',        persona:'悲憤・自我犧牲'},
+];
+
 // ===== 地圖：冬木市 21 定點 =====
 const SEED_LOCATIONS = [
   {id:'church',   name:'冬木教會',     x:420,y:150, danger:'safe', leyline:'中', adj:['shinto','park'],                                  desc:'監督者所在的中立地帶，禁止戰鬥。受傷御主可尋求庇護。'},

@@ -25,8 +25,9 @@ function setupDatabase(){
   });
 
   // 種子靜態分頁
-  seedSheet_(ss, SHEETS.HEROES, SEED_SERVANTS.map(servantRow_));
-  seedSheet_(ss, SHEETS.MAP,    SEED_LOCATIONS.map(locationRow_));
+  seedSheet_(ss, SHEETS.HEROES,  SEED_SERVANTS.map(servantRow_));
+  seedSheet_(ss, SHEETS.MASTERS, SEED_MASTERS.map(masterRow_));
+  seedSheet_(ss, SHEETS.MAP,     SEED_LOCATIONS.map(locationRow_));
   seedSheet_(ss, SHEETS.WARS,   SEED_WARS.map(warRow_));
   seedSheet_(ss, SHEETS.RULES,  SEED_RULES);
   seedSheet_(ss, SHEETS.ITEMS,  SEED_ITEMS);
@@ -58,6 +59,9 @@ function servantRow_(s){
     s.six.筋力, s.six.耐久, s.six.敏捷, s.six.魔力, s.six.幸運, s.six.寶具,
     JSON.stringify(s.classSkills), JSON.stringify(s.skills), JSON.stringify(s.traits),
     s.np, JSON.stringify(s.persona), 'official' ];
+}
+function masterRow_(m){
+  return [ m.id, m.name, m.war, m.magic, m.circuits, m.melee, m.magic_rank, m.home, m.wish, m.persona, 'official' ];
 }
 function locationRow_(l){
   return [ l.id, l.name, l.x, l.y, l.danger, l.leyline, JSON.stringify(l.adj), l.desc ];
