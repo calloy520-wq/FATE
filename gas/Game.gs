@@ -10,8 +10,9 @@ var CANON_HOME_ = {
   '衛宮切嗣':'emiya','遠坂時臣':'tohsaka','肯尼斯':'apartment','韋伯·維爾維特':'apartment',
   '雨生龍之介':'harbor','間桐雁夜':'matou'
 };
-function homeOf_(name, isPlayer, idx){
-  return CANON_HOME_[name] || (isPlayer ? 'apartment' : NPC_SPAWN_[idx % NPC_SPAWN_.length]);
+// 正典御主→正典據點；自創玩家→新都公寓；其餘(混亂NPC)→隨機分散
+function homeOf_(name, isPlayer, pool, idx){
+  return CANON_HOME_[name] || (isPlayer ? 'apartment' : pool[idx % pool.length]);
 }
 
 // ---------- 帳號 ----------
@@ -106,12 +107,13 @@ function newGame(opts){
 
   // 組裝戰場列
   var rows = [], spawnIdx = 0;
+  var spawnPool = NPC_SPAWN_.slice().sort(function(){ return Math.random()-0.5; });  // 混亂NPC隨機分散
   parts.forEach(function(p, slot){
     var hero = heroesById[p.servantId];
     if(!hero) return;
     var d = deriveServant_(heroFromRow_(hero));
     var isCaster = (hero.cls === 'Caster');
-    var loc = homeOf_(p.master, p.isPlayer, spawnIdx++);   // 各自正典據點；自創/混亂→公寓
+    var loc = homeOf_(p.master, p.isPlayer, spawnPool, spawnIdx++);   // 正典→正典據點；自創玩家→公寓；混亂NPC→隨機
     rows.push({
       game_id:gameId, slot:slot+1, is_player:p.isPlayer, master_name:p.master, magic:p.magic,
       circuits:p.circuits, master_hp:100, master_hp_max:100, master_mp:p.circuits*4, master_mp_max:p.circuits*4,
