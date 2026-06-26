@@ -164,6 +164,7 @@ function generateServant_(name, cls, desc){
     + '"traits":[{"n":"特性"}],"np":"寶具名（簡述）","align":"陣營，格式「秩序/中立/混沌・善/中立/惡」，狂戰士可填「混沌・狂」",'
     + '"persona":{"firstP":"一人稱","words":"性格關鍵詞","toMaster":"對御主態度"}}';
   var user = '為英靈產生資料。真名：'+name+'　職階：'+cls + (desc?('　額外描述：'+desc):'')
+    + '\n若為其他作品角色或原創角色，將其特徵與能力對應成最貼切的 Fate 風格六維、技能與寶具。'
     + '\n依角色挑選貼切的效果碼填入技能 fx（沒對應就留空字串），可用碼：'
     + '\n[被動] nullify_magic對魔力 evade_ranged避矢 burst魔力放出 survive戰鬥續行 morale勇猛 first_strike直感 analyze心眼 ride騎乘 divine_core神核 stealth氣息遮斷 divine神性 tactics軍略 divine_age神代魔術'
     + '\n[經濟] mad狂化 solo單獨行動 territory陣地作成 crafting道具作成 wealth黃金律'
