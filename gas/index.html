@@ -625,7 +625,7 @@ var App = {
     var b=function(type,label,extra){ return '<button class="btn sm" onclick="App.act(\''+type+'\''+(extra||'')+')">'+label+'</button>'; };
     var html='';
     if(k==='fight')      html=b('attack','⚔ 攻擊')+b('np','💥 寶具')+(App.S.player.servant.cls==='Archer'?b('snipe','🎯 遠距離支援'):'')+(App.S.player.servant.cls==='Assassin'?b('assassinate','🗡 潛殺御主'):'')+b('retreat','🏃 撤退');
-    else if(k==='mana')  html=b('feed','💧 供給')+b('mana','❤ 補魔')+b('hunt','🩸 獵魔');
+    else if(k==='mana')  html=b('feed','💧 供給')+b('mana','❤ 補魔')+b('hunt','🩸 獵魔')+b('eat','🍙 進食');
     else if(k==='base')  html=b('claim','🏠 設為據點')+b('reinforce','🛡 加固結界');
     else if(k==='act')   html=App.actGroupHtml();
     else if(k==='skill') html=App.skillButtons();
@@ -650,7 +650,8 @@ var App = {
     b.innerHTML = c.mana_locked ? '<div style="background:#1c1320;border:1px solid var(--red);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--red2);margin-bottom:8px;text-align:center">♥ 補魔進行中・剩 '+c.mana_countdown+' 次對話（送出對話以推進）</div>' : ''; },
   renderClock:function(){ var c=App.S.clock,ph=(c.hour>=6&&c.hour<18)?'☀晝':'🌙夜';
     var buff=(Number(c.mana_countdown)>0)?(' 　<span style="color:#e58aa8" title="補魔加持：迴路回魔提升、靈基維持高出力">✨補魔加持 '+Number(c.mana_countdown)+'h</span>'):'';
-    document.getElementById('clock-hud').innerHTML='<span>第 '+c.day+' 日　'+('0'+c.hour).slice(-2)+':00　'+ph+buff+
+    var sat=(Number(c.satiety)>0)?(' 　<span style="color:#d6b86a" title="飽足：每小時迴路回魔額外 +（再吃可重置 8h）">🍙飽足 '+Number(c.satiety)+'h</span>'):'';
+    document.getElementById('clock-hud').innerHTML='<span>第 '+c.day+' 日　'+('0'+c.hour).slice(-2)+':00　'+ph+buff+sat+
       '</span><span title="行動點：移動/偵查/戰鬥等耗時動作各 1 點，睡覺恢復" style="cursor:help">AP '+'●'.repeat(c.ap)+'○'.repeat(c.ap_max-c.ap)+'</span>'; },
   renderMaster:function(){ var m=App.S.player.master,e=App.S.economy;
     document.getElementById('master-box').innerHTML=

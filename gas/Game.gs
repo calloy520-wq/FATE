@@ -203,7 +203,7 @@ function newGame(opts){
                                .map(function(r){ return r.slot; });
   appendObjs_(SHEETS.BATTLE, rows);
   appendObj_(SHEETS.CLOCK, { game_id:gameId, day:1, hour:20, ap:TUNING.AP_PER_DAY,
-                             ap_max:TUNING.AP_PER_DAY, mana_countdown:0, mana_locked:false });
+                             ap_max:TUNING.AP_PER_DAY, mana_countdown:0, mana_locked:false, satiety:0 });
   var pp = parts.filter(function(x){ return x.isPlayer; })[0];
   var wish = (pp && pp.wish) || (opts.profile && opts.profile.wish) || '';   // 正史扮演用正典願望
   // 御主人設（餵 AI 用）：自創帶性別/個性/出身；正史扮演則用御主殿的 persona
@@ -353,6 +353,7 @@ function doAction(a){
       case 'accept_death': spec = ''; break;   // 瀕死抉擇：放棄令咒救援、接受死亡（結局在下方結算）
       case 'claim':      spec = act_claim_(p, clock, hero); break;
       case 'rest':       spec = act_rest_(p, clock, hero, a.hours); break;
+      case 'eat':        spec = act_eat_(p, clock); break;
       case 'seal':       spec = act_seal_(rows, p, clock, hero, a.cmd); break;
       case 'chat':
         var chatText = sanitizeText_(a.text, 500);
@@ -707,6 +708,10 @@ function tickHour_(p, clock, con){
     e.ms = Math.round(e.ms * (TUNING.MANA_REGEN_MULT || 1.5));
     clock.mana_countdown = Number(clock.mana_countdown) - 1;
   }
+  if(Number(clock.satiety) > 0){                          // 飽足：迴路回魔額外 +；逐時遞減（不疊加）
+    e.ms += (TUNING.SATIETY_REGEN || 2);
+    clock.satiety = Number(clock.satiety) - 1;
+  }
   p.master_mp = Math.min(p.master_mp_max, p.master_mp + e.ms);   // 1) 迴路回復
   var free = e.ley + e.ws + (e.craft||0), need = e.upkeep;        // 2) 付維持費
   var fromFree = Math.min(free, need); need -= fromFree; var freeLeft = free - fromFree;
@@ -731,7 +736,7 @@ function advanceTime_(p, clock, hero, apCost){
     for(var h=0;h<TUNING.HOURS_PER_AP;h++) tickHour_(p, clock, con);
   }
   // 具名更新（非整列）：manaChat_ 等會以 updateRow_ 改 clock mana 欄而不動記憶體物件，整列覆寫會回寫舊值。
-  updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap, mana_countdown:Math.max(0, Number(clock.mana_countdown)||0) });
+  updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap, mana_countdown:Math.max(0,Number(clock.mana_countdown)||0), satiety:Math.max(0,Number(clock.satiety)||0) });
   updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, sv_hp:p.sv_hp, master_mp:p.master_mp, master_hp:p.master_hp });
 }
 
@@ -1133,6 +1138,15 @@ function act_mana_(p, clock, hero){
     suffix:'\n（💧補魔：靈基補滿至 100%（出力全開）　好感 +'+bondGain+'（'+p.bond+'/100）　補魔前魔力缺口 '+demandPct+'%'
          + '　✨補魔加持 '+hours+' 小時：迴路回魔 ×'+TUNING.MANA_REGEN_MULT+'、靈基維持高出力）' };
 }
+
+// 進食：賦予「飽足」buff（SATIETY_HOURS 小時，每小時迴路回魔 +SATIETY_REGEN）。不疊加、再吃重置；即時、不耗 AP。
+function act_eat_(p, clock){
+  clock.satiety = TUNING.SATIETY_HOURS;
+  updateRow_(SHEETS.CLOCK, clock._row, { satiety: clock.satiety });
+  return { kind:'scene',
+    prompt:'我（'+p.master_name+'）在冬木尋了些吃食、飽餐一頓，補充體力，魔力代謝為之活絡。請寫一段簡短、有生活感的進食小敘述。',
+    suffix:'\n（🍙飽足：接下來 '+TUNING.SATIETY_HOURS+' 小時，每小時迴路回魔 +'+TUNING.SATIETY_REGEN+'（不疊加，再吃則重置時間））' };
+}
 // 御主人設 context（餵 AI；第一人稱「我」的口吻依此演繹）
 function masterCtx_(acc){
   var m = (acc && acc.settings && acc.settings.master) || null;
@@ -1270,7 +1284,7 @@ function act_rest_(p, clock, hero, hours){
   for(var i=0;i<hours;i++) tickHour_(p, clock, con);            // 每小時跑經濟（HP/魔力自然恢復、補魔加持遞減）
   clock.ap = Math.min(clock.ap_max, clock.ap + hours*2);
   var ambush = ambushDuringRest_(p, clock, hours);             // 休息中可能遭突襲（回事件字串或 ''）
-  updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap, mana_countdown:Math.max(0,Number(clock.mana_countdown)||0) });
+  updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap, mana_countdown:Math.max(0,Number(clock.mana_countdown)||0), satiety:Math.max(0,Number(clock.satiety)||0) });
   updateRow_(SHEETS.BATTLE, p._row, { sv_hp:p.sv_hp, sv_mp:p.sv_mp, master_mp:p.master_mp, master_hp:p.master_hp });
   // 長休（≥4h）且未遭襲 → 機率夢見從者過往（含英靈自白）
   if(!ambush && hero && hours>=4 && Math.random() < (TUNING.DREAM_CHANCE || 0.12)){
