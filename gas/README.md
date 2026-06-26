@@ -58,6 +58,8 @@ classSkills, skills, traits(JSON 陣列), np(寶具字串), persona(JSON), sourc
 | `divine_core` | 神核 | 受到傷害 ×0.82 |
 | `stealth` | 氣息遮斷 | 開場首擊奇襲：命中 +6、傷害 ×1.5（一次性） |
 | `tsubame` | 秘劍・燕返 | 三方位同時斬：敵閃避 −8（極難迴避）、命中則三段連斬傷害 ×2.3。無真寶具者（如佐佐木）的主力 |
+| `unreadable` | 宗和的心得 | 持有者攻擊時，敵方的看破/預判閃避（`analyze`心眼・`first_strike`直感）失效 |
+| `clear_mind` | 透化 | 防守時免疫攻方的精神威壓加成（`morale`勇猛/卡里斯瑪 +3 對其無效） |
 | `divine` | 神性 | 寶具開場威力 ×1.1 |
 | `tactics` | 軍略 | 寶具開場威力 ×1.15 |
 | （特性`神性` + 技能名含`神殺`） | 神殺 | 傷害 ×2 |

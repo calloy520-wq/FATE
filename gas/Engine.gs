@@ -104,8 +104,13 @@ function resolveCombat_(A, B, mode){
     var ambush = att._ambush; if(ambush){ att._ambush = false; tag('氣息遮斷'); }  // 氣息遮斷：首擊奇襲
     var hit = rankVal(att.six.敏捷) + d20_() + ((ab&&ab.hit)||0) + (ambush?6:0) + luckEdge_(att);    // 幸運：運氣站攻方
     var dodge = rankVal(def.six.敏捷) + d20_() + ((db&&db.dodge)||0) + luckEdge_(def);  // 幸運站守方；dodge 負＝石化遲滯更易被命中
-    if(hasFx_(def,'first_strike')){ dodge += 3; tag('直感'); }        // 直感・危機察知：預判來襲、更易閃避（先機在回合排序處理）
-    if(hasFx_(def,'analyze')){ dodge += 3; tag('心眼'); }             // 心眼：看破來招、更易閃避
+    // 宗和的心得：對方永遠看不穿小次郎的攻擊，看破/預判類閃避（心眼・直感）對他無效
+    if(hasFx_(att,'unreadable')){
+      if(hasFx_(def,'first_strike') || hasFx_(def,'analyze')) tag('宗和的心得');
+    } else {
+      if(hasFx_(def,'first_strike')){ dodge += 3; tag('直感'); }      // 直感・危機察知：預判來襲、更易閃避（先機在回合排序處理）
+      if(hasFx_(def,'analyze')){ dodge += 3; tag('心眼'); }           // 心眼：看破來招、更易閃避
+    }
     if(hasFx_(def,'ride')){ dodge += 3; tag('騎乘'); }                // 騎乘：機動提升、更易閃避
     if(hasFx_(def,'evade_ranged')){ dodge += 6; tag('避矢加護'); }
     var tsubame = hasFx_(att,'tsubame');                              // 秘劍・燕返：三方位同時斬，封死退路、極難迴避
@@ -115,7 +120,10 @@ function resolveCombat_(A, B, mode){
     var dmg = Math.max(3, rankVal(magic?att.six.魔力:att.six.筋力) + Math.floor(Math.random()*9) - Math.floor(rankVal(def.six.耐久)/2) + ((ab&&ab.dmg)||0));
     var note = [];
     if(ab && ab.label){ note.push(ab.label); tag(ab.label); }                  // 主動強化生效
-    if(hasFx_(att,'morale')){ dmg += 3; note.push('勇猛'); tag('勇猛'); }      // 勇猛/卡里斯瑪：攻勢更猛
+    if(hasFx_(att,'morale')){                                                  // 勇猛/卡里斯瑪：攻勢更猛
+      if(hasFx_(def,'clear_mind')){ tag('透化'); }                            // 透化：清澈靜穆之心，不受勇猛/精神威壓干涉
+      else { dmg += 3; note.push('勇猛'); tag('勇猛'); }
+    }
     if(hasFx_(att,'burst')){ dmg = Math.round(dmg*1.2); note.push('魔力放出'); tag('魔力放出'); }
     if(magic){ var cut = antiMagicCut_(def);                                   // 對魔力硬扣魔術傷害
       if(cut>0 && divineAge_(att)){ cut *= 0.5; tag('神代魔術'); }              // 神代魔術：對魔力半效

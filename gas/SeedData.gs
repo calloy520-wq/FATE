@@ -40,8 +40,9 @@ const SEED_SERVANTS = [
   { id:'佐佐木小次郎-Assassin', cls:'Assassin', realName:'佐佐木小次郎', wars:['5th'],
     six:{筋力:'C',耐久:'D',敏捷:'A',魔力:'E',幸運:'E',寶具:'E'},
     classSkills:[{n:'氣息遮斷',r:'D',fx:'stealth'}],
-    skills:[{n:'心眼(真)',r:'B',fx:'analyze'},{n:'秘劍・燕返',r:'A',fx:'tsubame'}],
-    traits:[{n:'人類'}], np:'燕返（秘劍・三段同時斬）',
+    skills:[{n:'心眼（偽）',r:'A',fx:'analyze'},{n:'透化',r:'B+',fx:'clear_mind'},
+            {n:'宗和的心得',r:'B',fx:'unreadable'},{n:'秘劍・燕返',r:'-',fx:'tsubame'}],
+    traits:[{n:'人類'}], np:'燕返（對人魔劍・次元摺疊・三段同時斬）',
     align:'中立・中庸', persona:{firstP:'拙者',words:'劍士・閒適・宿命',toMaster:'隨遇而安，只求一戰'} },
   // ※ Berserker 六維為「已狂化」的成品值（對齊原作顯示，故多為全 A）。引擎 mad fx 只收維持費成本、不再加成，勿重複升階。
   { id:'赫拉克勒斯-Berserker', cls:'Berserker', realName:'赫拉克勒斯', wars:['5th'],
