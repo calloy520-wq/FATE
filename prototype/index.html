@@ -775,7 +775,7 @@ const App = {
   renderSealMenu(){
     const m=this.state.master;
     const cmds=[['heal','靈基修復(回血回魔)'],['order','絕對命令(必中全力)'],
-                ['np','寶具強制解放'],['recall','瞬間召還'],['mana','強制補魔(緊急)']];
+                ['np','寶具強制解放'],['recall','緊急脫離(撤退)'],['mana','強制補魔(緊急)']];
     document.getElementById('seal-menu').innerHTML=
       `<div style="width:100%;font-size:11px;color:var(--dim)">令咒剩餘 ${'❖'.repeat(m.seals)||'（無）'}・各耗 1 道</div>`+
       cmds.map(c=>`<button class="btn sm" ${m.seals<=0?'disabled':''} onclick="App.sealCmd('${c[0]}')">${c[1]}</button>`).join('');
@@ -784,20 +784,24 @@ const App = {
     const m=this.state.master,s=this.state.servant;
     if(m.seals<=0){ this.sys('令咒已用盡。'); return; }
     m.seals--;
-    const names={heal:'靈基修復',order:'絕對命令',np:'寶具強制解放',recall:'瞬間召還',mana:'強制補魔'};
+    const names={heal:'靈基修復',order:'絕對命令',np:'寶具強制解放',recall:'緊急脫離',mana:'強制補魔'};
     this.me('【令咒】'+names[type]+'（剩 '+m.seals+'）');
     switch(type){
       case 'heal': s.hp=s.hpMax; s.mp=s.mpMax; this.ai('令咒燃燒，膨大的魔力重塑靈基——從者 HP／魔力完全回復。'); break;
-      case 'order': this.ai('「以令咒命令你——必中此擊！」'); this.attackNearest('seal'); break;
-      case 'np': this.ai('「以令咒強制——解放寶具！」無視魔力與意願，寶具轟然發動。'); this.attackNearest(true); break;
+      case 'order': this.ai('「以令咒命令你——必中此擊！」'+this.forceBond()); this.attackNearest('seal'); break;
+      case 'np': this.ai('「以令咒強制——解放寶具！」無視魔力與意願，寶具轟然發動。'+this.forceBond()); this.attackNearest(true); break;
       case 'recall': if(this.state.mana){ this.state.mana=null; this.renderMana(); }
-        this.ai('令咒之光閃過，從者瞬間回到你身邊，脫離了當前戰局。'); break;
+        this.ai('令咒干涉空間，光芒一閃——你與從者瞬間脫離了當前戰局/險境（空間特權）。'); break;
       case 'mana': if(this.state.mana){ this.state.mana=null; this.renderMana(); }
         s.mp=s.mpMax; s.bond=Math.min(s.bondMax,s.bond+12);
         this.ai('以令咒強制補魔——大量魔力灌入，靈基穩固。（成人向 fade／好感度 +12，跳過倒數）'); break;
     }
     this.renderStatus(); this.renderSealMenu();
   },
+  // 強迫違背意志：好感低→扣好感（時臣/Gil 破裂）；好感高→欣然從命
+  forceBond(){ const s=this.state.servant;
+    if(s.bond<60){ s.bond=Math.max(0,s.bond-5); return '（強迫違背意志・好感 −5）'; }
+    return '（從者信賴你，欣然從命）'; },
 
   // 加固結界（Caster 更強更省）
   reinforce(){
