@@ -19,6 +19,8 @@ function hasTrait_(sv, t){
 function magicAtk_(sv){
   return sv.cls==='Caster';
 }
+// 神代魔術（Age of Gods）：現代的對魔力對其只有半效（穿透現代抗性）
+function divineAge_(sv){ return hasFx_(sv,'divine_age'); }
 // 對魔力減傷比例（0~0.9）：取對魔力技能的最高階級換算（A≈.9 / B≈.73 / C≈.55 / D≈.36 / E≈.18）
 function antiMagicCut_(def){
   var r = 0;
@@ -35,6 +37,8 @@ var ACTIVE_FX_ = {
   gob:          { label:'王之財寶', kind:'gob',         mp:0.22 },
   chain:        { label:'天之鎖',   kind:'chain',       mp:0.18 },
   wind_strike:  { label:'風王鐵鎚', kind:'wind_strike', mp:0.16 },
+  rule_breaker: { label:'破戒全咒', kind:'sever',       mp:0.25 },
+  summon_horror:{ label:'螺湮城教本', kind:'summon',    mp:0.30 },
   rune:         { label:'符文',     kind:'heal',     mp:0.14 },
   shapeshift:   { label:'變生',     kind:'heal',     mp:0.16 },
   str_up:       { label:'怪力',     kind:'buffdmg',  mp:0.14 },
@@ -110,6 +114,7 @@ function resolveCombat_(A, B, mode){
     if(hasFx_(att,'morale')){ dmg += 3; note.push('勇猛'); tag('勇猛'); }      // 勇猛/卡里斯瑪：攻勢更猛
     if(hasFx_(att,'burst')){ dmg = Math.round(dmg*1.2); note.push('魔力放出'); tag('魔力放出'); }
     if(magic){ var cut = antiMagicCut_(def);                                   // 對魔力硬扣魔術傷害
+      if(cut>0 && divineAge_(att)){ cut *= 0.5; tag('神代魔術'); }              // 神代魔術：對魔力半效
       if(cut>0){ dmg = Math.max(1, Math.round(dmg*(1-cut))); note.push('對魔力 −'+Math.round(cut*100)+'%'); tag('對魔力'); } }
     if(ambush){ dmg = Math.round(dmg*1.5); note.push('奇襲'); }                 // 氣息遮斷首擊：傷害×1.5
     if(hasTrait_(def,'神性') && hasSkillName_(att,'神殺')){ dmg *= 2; note.push('神殺×2'); tag('神殺'); }
@@ -135,6 +140,7 @@ function resolveCombat_(A, B, mode){
     var npNote = '';
     if(isNP && magicAtk_(A)){                       // 魔術系寶具（如 Caster）→ 吃對魔力減免
       var cutN = antiMagicCut_(B);
+      if(cutN>0 && divineAge_(A)){ cutN *= 0.5; tag('神代魔術'); }   // 神代魔術：對魔力半效
       if(cutN>0){ d = Math.max(1, Math.round(d*(1-cutN))); npNote = '（對魔力 −'+Math.round(cutN*100)+'%）'; tag('對魔力'); }
     }
     B.hp = Math.max(0, B.hp - d);

@@ -845,11 +845,21 @@ function act_skill_(rows, p, clock, hero, fx){
   var B = heroFromRow_(eHero), dmg = 0, note = '';
   if(sk.kind==='bolt'){
     dmg = Math.round(rankVal(A.six.魔力)*1.0) + 10 + Math.floor(Math.random()*8);
-    var cut = antiMagicCut_(B); if(cut>0){ dmg = Math.max(1, Math.round(dmg*(1-cut))); note = '（對魔力 −'+Math.round(cut*100)+'%）'; }
+    var cut = antiMagicCut_(B); if(divineAge_(A)) cut *= 0.5;     // 神代魔術：對魔力半效
+    if(cut>0){ dmg = Math.max(1, Math.round(dmg*(1-cut))); note = '（對魔力 −'+Math.round(cut*100)+'%）'; }
   } else if(sk.kind==='petrify'){
     dmg = Math.round(rankVal(A.six.魔力)*0.8) + 6;
-    var cut2 = antiMagicCut_(B); if(cut2>0) dmg = Math.max(1, Math.round(dmg*(1-cut2)));
+    var cut2 = antiMagicCut_(B); if(divineAge_(A)) cut2 *= 0.5;
+    if(cut2>0) dmg = Math.max(1, Math.round(dmg*(1-cut2)));
     enemyRow.buff = { dodge:-8, label:'石化遲滯' }; note = '（魔眼石化：敵下次戰鬥更易被命中）';
+  } else if(sk.kind==='sever'){          // 破戒全咒：斬斷主從契約——敵令咒歸0、強化盡除
+    dmg = Math.round(rankVal(A.six.魔力)*0.3);
+    enemyRow.seals = 0; enemyRow.buff = '';
+    note = '（破戒全咒・斬斷契約：敵令咒歸 0、強化盡除）';
+  } else if(sk.kind==='summon'){         // 螺湮城教本：召喚深海妖物（神代魔術）
+    dmg = Math.round(rankVal(A.six.魔力)*1.2) + Math.round(rankVal(A.six.寶具)*0.4) + Math.floor(Math.random()*10);
+    var cutS = antiMagicCut_(B); if(divineAge_(A)) cutS *= 0.5; if(cutS>0) dmg = Math.max(1, Math.round(dmg*(1-cutS)));
+    enemyRow.buff = { dodge:-8, label:'深海恐懼' }; note = '（螺湮城教本・深海妖物撕咬）';
   } else if(sk.kind==='gob'){           // 王之財寶：寶具洪流（物理，不受對魔力）
     dmg = Math.round(rankVal(A.six.寶具)*1.0) + Math.round(rankVal(A.six.筋力)*0.3) + Math.floor(Math.random()*10);
     note = '（王之財寶・寶具洪流）';
@@ -872,7 +882,7 @@ function act_skill_(rows, p, clock, hero, fx){
   }
   p.sv_mp = Math.max(0, p.sv_mp - cost);
   updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, bond:p.bond });
-  updateRow_(SHEETS.BATTLE, enemyRow._row, { sv_hp:enemyRow.sv_hp, alive:enemyRow.alive, status:enemyRow.status, buff:enemyRow.buff||'' });
+  updateRow_(SHEETS.BATTLE, enemyRow._row, { sv_hp:enemyRow.sv_hp, alive:enemyRow.alive, status:enemyRow.status, seals:enemyRow.seals, buff:enemyRow.buff||'' });
   advanceTime_(p, clock, hero, 1);
   logEvent_(p.game_id, clock.day, pad2_(clock.hour)+':00', p.location, 'SKILL',
             'slot_0', 'slot_'+(enemyRow.slot-1), A.cls+' 施展「'+sk.name+'」對 '+B.cls, true, 1);

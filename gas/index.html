@@ -300,6 +300,9 @@ var App = {
     fast_cast:'高速神言【主動】：對同地敵人發動魔術一擊（受對魔力減免）。',
     petrify:'魔眼【主動】：魔術傷害，並使敵下場戰鬥更易被命中（石化遲滯）。',
     zabaniya:'妄想心音【主動】：心臟一擊，無視防禦與對魔力。',
+    divine_age:'神代魔術：Age of Gods 的法術，現代「對魔力」對其只有半效（穿透抗性）。',
+    rule_breaker:'破戒全咒【主動】：斬斷敵的主從契約——敵令咒歸 0、強化盡除，令咒再也救不了他。',
+    summon_horror:'螺湮城教本【主動】：召喚深海妖物（神代魔術），重創敵人並使其陷入恐懼（更易被命中）。',
     gob:'王之財寶【主動】：投射寶具洪流，即時重創同地敵人（物理，不受對魔力）。',
     chain:'天之鎖【主動】：拘束敵人（下場戰鬥大幅易被命中）；對「神性」者傷害 ×2。',
     wind_strike:'風王鐵鎚【主動】：不可視之風的一擊，即時遠程斬擊並削其閃避。',
@@ -491,7 +494,7 @@ var App = {
     else if(k==='seal')  html=App.sealButtons();
     sub.innerHTML=html; sub.classList.remove('hidden'); },
   skillButtons:function(){
-    var acts=(App.S.player.servant.actives)||[], kind={bolt:'魔術彈',petrify:'石化',zabaniya:'必殺',heal:'回復',buffdmg:'強化',buffhit:'強化',gob:'寶具洪流',chain:'拘束',wind_strike:'斬風'};
+    var acts=(App.S.player.servant.actives)||[], kind={bolt:'魔術彈',petrify:'石化',zabaniya:'必殺',heal:'回復',buffdmg:'強化',buffhit:'強化',gob:'寶具洪流',chain:'拘束',wind_strike:'斬風',sever:'破契',summon:'召喚'};
     if(!acts.length) return '<span style="font-size:12px;color:var(--dim)">此從者沒有主動技能。</span>';
     return '<span style="width:100%;font-size:11px;color:var(--dim)">主動技能（耗靈基魔力）</span>'+acts.map(function(a){
       return '<button class="btn sm" onclick="App.act(\'skill\',{fx:\''+a.fx+'\'})">'+a.name+' <span style="opacity:.65;font-size:11px">('+(kind[a.kind]||'')+'・魔'+a.cost+')</span></button>'; }).join(''); },

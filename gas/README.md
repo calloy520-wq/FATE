@@ -70,6 +70,9 @@ classSkills, skills, traits(JSON 陣列), np(寶具字串), persona(JSON), sourc
 | `gob` | 王之財寶 | 即時寶具洪流：寶具×1.0+筋力×0.3，物理、不受對魔力 |
 | `chain` | 天之鎖 | 即時拘束：寶具×0.4＋使敵下場 dodge −10；對「神性」傷害 ×2 |
 | `wind_strike` | 風王鐵鎚 | 即時斬風：筋力×0.8+寶具×0.4＋使敵下場 dodge −5 |
+| `rule_breaker` | 破戒全咒 | 即時斬斷契約：敵 seals 歸 0、清除其 buff＋魔力×0.3 小傷（令咒救不了他） |
+| `summon_horror` | 螺湮城教本 | 即時召喚（神代）：魔力×1.2+寶具×0.4，半穿對魔力＋使敵下場 dodge −8 |
+| `divine_age` | 神代魔術 | 被動修正：自身魔術攻擊所受的「對魔力」減免只有半效（穿透現代抗性） |
 | `rune` / `shapeshift` | 符文 / 變生 | 即時回復 HP（耐久×2+10±） |
 | `str_up` / `projection` / `weapon_steal` | 怪力 / 投影 / 武裝掠奪 | 下一場戰鬥傷害 +（筋力×0.4+5） |
 | `aim` | 千里眼 | 下一場戰鬥命中 +8 |
