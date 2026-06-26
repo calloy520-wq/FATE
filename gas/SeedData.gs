@@ -222,6 +222,12 @@ const SEED_SERVANTS = [
     skills:[{n:'投影魔術',r:'B',fx:'projection'},{n:'千里眼',r:'C',fx:'aim'},{n:'無限劍製',r:'C',fx:'ubw'}],
     traits:[{n:'人類'}], np:'無限劍製 Unlimited Blade Works（固有結界）／干將・莫邪（雙劍亂舞）',
     align:'混沌・中庸', persona:{firstP:'本小姐',words:'腹黑・愛捉弄・直率好戰・撒嬌',toMaster:'又黏又愛逗弄，戰意旺盛'} },
+  { id:'伊莉雅-Caster', cls:'Caster', realName:'伊莉雅絲菲爾·馮·愛因茲貝倫（魔法少女・Caster install）', wars:['客串'], gender:'女',
+    six:{筋力:'D',耐久:'C',敏捷:'C',魔力:'A',幸運:'B',寶具:'B'},
+    classSkills:[{n:'陣地作成',r:'B',fx:'territory'},{n:'道具作成（魔杖・露比）',r:'C',fx:'crafting'}],
+    skills:[{n:'高速神言',r:'A',fx:'fast_cast'},{n:'魔力放出',r:'B',fx:'burst'},{n:'純真無垢',r:'A',fx:'clear_mind'}],
+    traits:[{n:'人類'}], np:'全彈發射・魔力炮 Quintett Feuer（露比換裝・多重魔力炮擊）',
+    align:'中立・善', persona:{firstP:'我',words:'天真活潑・善良・愛哭卻勇敢的魔法少女',toMaster:'純真信賴，朝氣蓬勃'} },
 ];
 
 // ===== 御主殿：第四次/第五次正典御主（master_id = name-war）=====
