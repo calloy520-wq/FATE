@@ -84,9 +84,11 @@ function economyNet_(p){
   if(p.hasWealth) ms = Math.round(ms * 1.4);                       // 黃金律：財寶/資源充裕，魔力回復 ×1.4
   if(p.separated) ms = Math.round(ms * (p.hasSolo ? TUNING.SEP_SOLO : TUNING.SEP_PENALTY));
   var ley = TUNING.LEYLINE[p.leyline] || 0;
-  var ws = p.isCasterHome ? TUNING.WORKSHOP : 0;
+  // 陣地作成：主場工房全額供能；無此技的 Caster（如 AI 生成）只有半額簡易結界
+  var ws = p.isCasterHome ? (p.hasTerritory ? TUNING.WORKSHOP : Math.round(TUNING.WORKSHOP/2)) : 0;
+  var craft = p.hasCrafting ? TUNING.CRAFT_SUPPLY : 0;   // 道具作成：自製魔力道具的免費供給
   // net＝（迴路回復＋環境免費供能）−維持費：>0 御主魔力庫長期穩定甚至能補滿靈基；<0 則庫存會被慢慢抽乾
-  return { ms: ms, ley: ley, ws: ws, upkeep: (p.upkeep||0), net: ms + ley + ws - (p.upkeep||0) };
+  return { ms: ms, ley: ley, ws: ws, craft: craft, upkeep: (p.upkeep||0), net: ms + ley + ws + craft - (p.upkeep||0) };
 }
 
 /**

@@ -92,9 +92,10 @@ classSkills, skills, traits(JSON 陣列), np(寶具字串), persona(JSON), sourc
 | `mad` 狂化 | 維持費 ×2（`deriveServant_`）。力量已烤進數值，成本即平衡點。※ 模擬顯示「攻+守-」型戰鬥代價反而強化高血量狂戰，故不採用 |
 | （六維）`幸運` | 命中與閃避的運氣修正：以 C 為基準（EX+3 / A+2 / B+1 / C0 / D−1 / E−2），`luckEdge_` |
 | `solo` 單獨行動 | 分離時供給衰減減免（`SEP_SOLO`） |
-| `territory` 陣地作成 | Caster 在主場工房 +`WORKSHOP` 供能 |
+| `territory` 陣地作成 | Caster 在主場工房 +`WORKSHOP` 全額供能；無此技的 Caster 只有半額 |
+| `crafting` 道具作成 | 每小時 +`CRAFT_SUPPLY` 免費供給（自製魔力道具）|
 | `wealth` 黃金律 | 御主魔力回復 ×1.4（`economyNet_`） |
-| `crafting` / `rule_breaker` 等 | 敘述向，無額外戰鬥數值（前端說明會標示） |
+| `rule_breaker` 等 | 其餘為敘述向／主動技，無被動數值（前端說明會標示） |
 | 寶具 np 含「十二試煉 / God Hand」 | 賦予 `GOD_HAND_LIVES` 條命，被擊倒會復活，須擊倒這麼多次才真死 |
 
 > 前端 `index.html` 的 `App.FX_DESC` 是這張表的玩家版說明，**改機制時記得同步**。

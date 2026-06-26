@@ -60,7 +60,8 @@ const TUNING = {
   SV_NATURAL_CAP: 0.8,           // 從者靈基自然回復上限（80%）；更高需主動供給/補魔/獵魔
   SV_TOPUP: 6,                   // 御主迴路每小時回充從者靈基的速率（餘裕時）
   LEYLINE: { '高':10, '中':5, '低':2 },
-  WORKSHOP: 8,                   // Caster 主場工房加成
+  WORKSHOP: 8,                   // Caster 主場工房加成（有「陣地作成」全額，否則半額）
+  CRAFT_SUPPLY: 4,               // 道具作成：自製魔力道具的每小時免費供給
   SEP_PENALTY: 0.5,              // 分離供給衰減
   SEP_SOLO: 0.85,               // 單獨行動減免後
   // 戰鬥

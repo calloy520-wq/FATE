@@ -276,7 +276,8 @@ function playerEconomy_(p){
     circuits:p.circuits, upkeep:p.upkeep, leyline: loc?loc.leyline:'低',
     isCasterHome: (hero && hero.cls==='Caster' && p.base_loc===sl),
     separated: p.separated, hasSolo: hasFx_(hsv,'solo') || hasSkillName_(hsv,'單獨行動'),
-    hasWealth: hasFx_(hsv,'wealth')
+    hasWealth: hasFx_(hsv,'wealth'),
+    hasTerritory: hasFx_(hsv,'territory'), hasCrafting: hasFx_(hsv,'crafting')
   });
 }
 
@@ -610,7 +611,7 @@ function advanceTime_(p, clock, hero, apCost){
       // 1) 御主迴路回復
       p.master_mp = Math.min(p.master_mp_max, p.master_mp + e.ms);
       // 2) 付維持費：環境免費 → 御主迴路 → 從者靈基 → 扣血（飢餓）
-      var free = e.ley + e.ws, need = e.upkeep;
+      var free = e.ley + e.ws + (e.craft||0), need = e.upkeep;
       var fromFree = Math.min(free, need); need -= fromFree; var freeLeft = free - fromFree;
       if(need>0){ var fromM = Math.min(p.master_mp, need); p.master_mp -= fromM; need -= fromM; }
       var starving = false;
