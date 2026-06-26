@@ -45,6 +45,9 @@
   .stat-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px dotted #251f33}
   .bar{height:7px;border-radius:6px;background:#221c30;overflow:hidden;margin-top:4px}
   .bar>i{display:block;height:100%;border-radius:6px}
+  .bar.low{box-shadow:0 0 7px rgba(214,92,92,.7)}
+  .bar.low>i{animation:lowpulse 1s ease-in-out infinite}
+  @keyframes lowpulse{50%{filter:brightness(1.6)}}
   .hp>i{background:linear-gradient(90deg,#8a2b2b,#d65c5c)}
   .mp>i{background:linear-gradient(90deg,#2c4f8a,#5c84d6)}
   .bond>i{background:linear-gradient(90deg,#8a2c5a,#e58aa8)}
@@ -271,6 +274,12 @@ var App = {
   // 收合/展開段落（標題列點擊）；狀態存在 sec-h 上，renderAll 只改內容框不會重設
   fold:function(el){ el.classList.toggle('collapsed'); },
   esc:function(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); },
+  // 名詞說明（滑過顯示）
+  LABEL_DESC:{
+    'HP':'生命值；從者歸零＝靈基崩解，御主歸零＝死亡。',
+    '迴路魔力':'御主魔術迴路的儲備；用於「供給」從者與「加固結界」，每小時依迴路回復。',
+    '靈基魔力':'從者維持／戰鬥／寶具的魔力；自然只回到 80%，更高需 供給／補魔／獵魔。'
+  },
   // 技能/標籤效果說明（對應後端實際機制）
   FX_DESC:{
     nullify_magic:'對魔力：依階級大幅減免「魔術」傷害（A≈−90%…E≈−18%）；擋術不擋肉體攻擊。',
@@ -498,7 +507,7 @@ var App = {
     b.innerHTML = c.mana_locked ? '<div style="background:#1c1320;border:1px solid var(--red);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--red2);margin-bottom:8px;text-align:center">♥ 補魔進行中・剩 '+c.mana_countdown+' 次對話（送出對話以推進）</div>' : ''; },
   renderClock:function(){ var c=App.S.clock,ph=(c.hour>=6&&c.hour<18)?'☀晝':'🌙夜';
     document.getElementById('clock-hud').innerHTML='<span>第 '+c.day+' 日　'+('0'+c.hour).slice(-2)+':00　'+ph+
-      '</span><span>AP '+'●'.repeat(c.ap)+'○'.repeat(c.ap_max-c.ap)+'</span>'; },
+      '</span><span title="行動點：移動/偵查/戰鬥等耗時動作各 1 點，睡覺恢復" style="cursor:help">AP '+'●'.repeat(c.ap)+'○'.repeat(c.ap_max-c.ap)+'</span>'; },
   renderMaster:function(){ var m=App.S.player.master,e=App.S.economy;
     document.getElementById('master-box').innerHTML=
       '<div style="font-size:16px;color:var(--gold2)">'+m.name+'</div>'+
@@ -518,11 +527,11 @@ var App = {
         (s.condition?('〔'+App.esc(s.condition)+'〕'):'<span style="color:var(--dim);font-style:normal">（靜候）</span>')+'</div>'+
       '<div style="font-size:12px;color:var(--dim)">真名：'+(s.trueNameKnown?s.realName:'？？？')+(s.align?('　・　'+App.esc(s.align)):'')+'</div>'+
       bar('HP',s.hp,s.hpMax,'hp')+bar('靈基魔力',s.mp,s.mpMax,'mp')+
-      '<div class="stat-row"><span>好感度</span><span style="color:#e58aa8">'+s.bond+'/100</span></div><div class="bar bond"><i style="width:'+s.bond+'%"></i></div>'+
+      '<div class="stat-row"><span title="從者對你的信任與羈絆；影響回應態度，過低時令咒強迫/獵食會更反感" style="cursor:help;border-bottom:1px dotted #4a4360">好感度</span><span style="color:#e58aa8">'+s.bond+'/100</span></div><div class="bar bond"><i style="width:'+s.bond+'%"></i></div>'+
       '<div class="six">'+six+'</div><div style="margin-top:8px">'+tags+'</div>'+
       '<div id="skill-desc" style="display:none;margin-top:8px;font-size:12px;line-height:1.5;color:#d8cdee;background:#140f1f;border-left:3px solid var(--gold);border-radius:6px;padding:8px 10px"></div>'+
       '<div style="font-size:12px;color:var(--dim);margin-top:8px">寶具：'+s.np+'</div>'+
-      '<div style="font-size:11px;color:var(--dim);margin-top:6px">維持 '+s.upkeep+'/h｜淨 <b style="color:'+(e.net>=0?'#5fae6e':'#d65c5c')+'">'+(e.net>=0?'+':'')+e.net+'/h</b>'+(s.separated?' <span style="color:#d65c5c">分離</span>':'')+'</div>'; },
+      '<div style="font-size:11px;color:var(--dim);margin-top:6px;cursor:help" title="維持＝從者每小時消耗的魔力；淨＝迴路回復＋環境供能−維持。淨為負時御主魔力庫會被慢慢抽乾，需休息/補魔/獵魔">維持 '+s.upkeep+'/h｜淨 <b style="color:'+(e.net>=0?'#5fae6e':'#d65c5c')+'">'+(e.net>=0?'+':'')+e.net+'/h</b>'+(s.separated?' <span style="color:#d65c5c">分離</span>':'')+'</div>'; },
   renderBase:function(){ var b=App.S.player.base;
     document.getElementById('base-box').innerHTML=b.loc?('<div style="font-size:13px;color:var(--gold2)">'+App.locName(b.loc)+'・'+b.tier+'</div>'+
       '<div class="stat-row"><span>結界值</span><span>'+b.barrier+'/'+b.barrierMax+'</span></div><div class="bar barrier"><i style="width:'+(b.barrier/b.barrierMax*100)+'%"></i></div>'):''; },
@@ -611,8 +620,10 @@ var App = {
     if(inGame) App.sys('（後端錯誤：'+msg+'）');
     else alert('後端錯誤：'+msg); }
 };
-function bar(label,v,mx,cls){ return '<div class="stat-row"><span>'+label+'</span><span>'+v+'/'+mx+'</span></div>'+
-  '<div class="bar '+cls+'"><i style="width:'+(mx?v/mx*100:0)+'%"></i></div>'; }
+function bar(label,v,mx,cls){ var r=mx?v/mx:0, low=r<0.25, t=App.LABEL_DESC[label]||'';
+  return '<div class="stat-row"><span'+(t?' title="'+t+'" style="cursor:help;border-bottom:1px dotted #4a4360"':'')+'>'+label+'</span>'+
+    '<span'+(low?' style="color:#ff7a7a;font-weight:700"':'')+'>'+v+'/'+mx+'</span></div>'+
+  '<div class="bar '+cls+(low?' low':'')+'"><i style="width:'+(r*100)+'%"></i></div>'; }
 
 App.go('scr-login');
 </script>
