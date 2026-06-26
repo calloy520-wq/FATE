@@ -94,6 +94,7 @@ function resolveCombat_(A, B, mode){
     var dodge = rankVal(def.six.敏捷) + d20_() + ((db&&db.dodge)||0);  // dodge 為負＝石化遲滯更易被命中
     if(hasFx_(att,'first_strike')){ hit += 3; tag('直感'); }          // 直感：更易連得上
     if(hasFx_(def,'analyze')){ dodge += 3; tag('心眼'); }             // 心眼：看破來招、更易閃避
+    if(hasFx_(def,'ride')){ dodge += 3; tag('騎乘'); }                // 騎乘：機動提升、更易閃避
     if(hasFx_(def,'evade_ranged')){ dodge += 6; tag('避矢加護'); }
     if(hit <= dodge){ beats.push('〔閃避〕'+dn+' 避開了 '+an+' 的攻擊 ('+hit+'≤'+dodge+')'); return; }
     var magic = magicAtk_(att);   // 魔術攻擊用魔力、可被對魔力擋；肉體攻擊用筋力、不受對魔力影響
@@ -106,6 +107,7 @@ function resolveCombat_(A, B, mode){
       if(cut>0){ dmg = Math.max(1, Math.round(dmg*(1-cut))); note.push('對魔力 −'+Math.round(cut*100)+'%'); tag('對魔力'); } }
     if(ambush){ dmg = Math.round(dmg*1.5); note.push('奇襲'); }                 // 氣息遮斷首擊：傷害×1.5
     if(hasTrait_(def,'神性') && hasSkillName_(att,'神殺')){ dmg *= 2; note.push('神殺×2'); tag('神殺'); }
+    if(hasFx_(def,'divine_core')){ dmg = Math.max(1, Math.round(dmg*0.82)); note.push('神核'); tag('神核'); }  // 女神之軀：受傷 −18%
     var newHp = def.hp - dmg;
     // 戰鬥續行：致命一擊下仍能撐住一次（每場一次），HP 留 1
     if(newHp <= 0 && hasFx_(def,'survive') && !def._survived){
@@ -122,6 +124,8 @@ function resolveCombat_(A, B, mode){
   if(mode){
     var isNP = (mode==='np' || mode==='sealnp');
     var d = isNP ? Math.round(rankVal(A.six.寶具)*1.6)+18 : Math.round(rankVal(A.six.筋力)*1.8)+25;
+    if(isNP && hasFx_(A,'tactics')){ d = Math.round(d*1.15); tag('軍略'); }   // 軍略：寶具/全軍威力 +15%
+    if(isNP && hasFx_(A,'divine')){ d = Math.round(d*1.10); tag('神性'); }    // 神性：神之權能 +10%
     var npNote = '';
     if(isNP && magicAtk_(A)){                       // 魔術系寶具（如 Caster）→ 吃對魔力減免
       var cutN = antiMagicCut_(B);
