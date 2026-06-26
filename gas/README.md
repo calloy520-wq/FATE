@@ -52,7 +52,7 @@ classSkills, skills, traits(JSON 陣列), np(寶具字串), persona(JSON), sourc
 | `burst` | 魔力放出 | 普攻傷害 ×1.2 |
 | `survive` | 戰鬥續行 | 每場可在致命一擊下撐住一次（HP=1） |
 | `morale` | 勇猛/卡里斯瑪 | 傷害 +3 |
-| `first_strike` | 直感 | 命中 +3 |
+| `first_strike` | 直感 | 第六感：先機（單方持有時無視敏捷差、搶先出手）＋危機察知（防守時閃避 +3） |
 | `analyze` | 心眼 | 閃避 +3 |
 | `ride` | 騎乘 | 閃避 +3 |
 | `divine_core` | 神核 | 受到傷害 ×0.82 |

@@ -104,7 +104,7 @@ function resolveCombat_(A, B, mode){
     var ambush = att._ambush; if(ambush){ att._ambush = false; tag('氣息遮斷'); }  // 氣息遮斷：首擊奇襲
     var hit = rankVal(att.six.敏捷) + d20_() + ((ab&&ab.hit)||0) + (ambush?6:0) + luckEdge_(att);    // 幸運：運氣站攻方
     var dodge = rankVal(def.six.敏捷) + d20_() + ((db&&db.dodge)||0) + luckEdge_(def);  // 幸運站守方；dodge 負＝石化遲滯更易被命中
-    if(hasFx_(att,'first_strike')){ hit += 3; tag('直感'); }          // 直感：更易連得上
+    if(hasFx_(def,'first_strike')){ dodge += 3; tag('直感'); }        // 直感・危機察知：預判來襲、更易閃避（先機在回合排序處理）
     if(hasFx_(def,'analyze')){ dodge += 3; tag('心眼'); }             // 心眼：看破來招、更易閃避
     if(hasFx_(def,'ride')){ dodge += 3; tag('騎乘'); }                // 騎乘：機動提升、更易閃避
     if(hasFx_(def,'evade_ranged')){ dodge += 6; tag('避矢加護'); }
@@ -155,12 +155,15 @@ function resolveCombat_(A, B, mode){
   // 令咒（seal/sealnp）是「決死全力」，不受門檻限制、可分出生死。
   var aMax = A.hpMax || A.hp, bMax = B.hpMax || B.hp, fleeT = TUNING.FLEE_HP || 0.5;
   var forced = (mode==='seal' || mode==='sealnp');
+  // 先機：直感者（單方持有時）搶先出手，無視敏捷差；否則比敏捷
+  var aInst = hasFx_(A,'first_strike'), bInst = hasFx_(B,'first_strike');
+  var aFirst = (aInst && !bInst) ? true : (bInst && !aInst) ? false : (rankVal(A.six.敏捷) >= rankVal(B.six.敏捷));
+  if(aInst !== bInst) tag('直感');   // 先機成立
   var round = 0;
   while(A.hp>0 && B.hp>0 && round<14){
     round++;
-    var aFast = rankVal(A.six.敏捷) >= rankVal(B.six.敏捷);
-    if(aFast){ strike(A,B,A.cls,B.cls); if(B.hp<=0) break; strike(B,A,B.cls,A.cls); }
-    else     { strike(B,A,B.cls,A.cls); if(A.hp<=0) break; strike(A,B,A.cls,B.cls); }
+    if(aFirst){ strike(A,B,A.cls,B.cls); if(B.hp<=0) break; strike(B,A,B.cls,A.cls); }
+    else      { strike(B,A,B.cls,A.cls); if(A.hp<=0) break; strike(A,B,A.cls,B.cls); }
     if(!forced && (A.hp <= aMax*fleeT || B.hp <= bMax*fleeT)) break;   // 重傷 → 停手，撤退判定交給上層
   }
 
