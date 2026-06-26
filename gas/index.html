@@ -607,7 +607,7 @@ var App = {
     App._group=k;
     var b=function(type,label,extra){ return '<button class="btn sm" onclick="App.act(\''+type+'\''+(extra||'')+')">'+label+'</button>'; };
     var html='';
-    if(k==='fight')      html=b('attack','⚔ 攻擊')+b('np','💥 寶具')+b('retreat','🏃 撤退');
+    if(k==='fight')      html=b('attack','⚔ 攻擊')+b('np','💥 寶具')+(App.S.player.servant.cls==='Archer'?b('snipe','🎯 遠距離支援'):'')+b('retreat','🏃 撤退');
     else if(k==='mana')  html=b('feed','💧 供給')+b('mana','❤ 補魔')+b('hunt','🩸 獵魔');
     else if(k==='base')  html=b('claim','🏠 設為據點')+b('reinforce','🛡 加固結界');
     else if(k==='act')   html=App.actGroupHtml();

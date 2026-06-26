@@ -325,6 +325,7 @@ function doAction(a){
       case 'retreat':    spec = act_retreat_(p, clock, hero); break;
       case 'hunt':       spec = act_hunt_(p, clock, hero); break;
       case 'skill':      spec = act_skill_(rows, p, clock, hero, a.fx); break;
+      case 'snipe':      spec = act_snipe_(rows, p, clock, hero); break;
       case 'accept_death': spec = ''; break;   // 瀕死抉擇：放棄令咒救援、接受死亡（結局在下方結算）
       case 'claim':      spec = act_claim_(p, clock, hero); break;
       case 'sleep':      spec = act_sleep_(p, clock); break;
@@ -933,6 +934,48 @@ function act_skill_(rows, p, clock, hero, fx){
           winner: killed?'A':'draw', outcome: killed?'enemy_dead':'skill_hit', firedTags:[sk.name],
           beats:['〔'+sk.name+'〕對 '+B.cls+' 造成 '+dmg+' 傷害'+note], sealNote:'' },
     suffix:'\n\n（'+sk.name+'：'+dmg+' 傷害 '+note+reviveNote+'　魔力 −'+cost+'）' };
+}
+
+// 遠距離火力支援（狙擊）：Archer 限定。御主親自上前、與敵從者同地（直面、暴露無護衛），
+// Archer 從相鄰地（射程 1）遠程開火——火力可觀且不挨近戰反擊；代價＝御主直面敵人、遭其反手一擊。
+function act_snipe_(rows, p, clock, hero){
+  if(!hero || hero.cls!=='Archer') return '（只有 Archer 能提供遠距離火力支援。）';
+  if(!p.separated) return '（需先「分離」並把 Archer 派駐到敵人附近，自己再上前指示目標。）';
+  if(clock.ap<1) return '（行動點不足，請睡覺恢復。）';
+  var target = pickFoe_(rows, p.location);                 // 我（御主）親自直面、同地的敵從者
+  if(!target) return '（我所在地沒有敵從者——須親自上前、與敵從者同地，才能為 Archer 指示目標（這也意味著我將暴露）。）';
+  var enemyLoc = target.servant_loc;
+  if(p.servant_loc===enemyLoc) return '（Archer 與敵同地＝近身戰，請改用「攻擊」；狙擊需從相鄰地遠程開火。）';
+  var adj = (findOne_(SHEETS.MAP, { id: enemyLoc }) || {}).adj || [];
+  if(adj.indexOf(p.servant_loc)<0) return '（Archer 不在射程內——須位於目標的相鄰地（1 距離），先「派駐從者」靠近。）';
+  var cost = Math.round(p.sv_mp_max*0.15);
+  if(p.sv_mp<cost) return '（魔力不足，無法支援射擊。）';
+  var eHero = findOne_(SHEETS.HEROES, { servant_id: target.servant_id });
+  if(!eHero) return '（找不到敵方從者資料。）';
+  var A = heroFromRow_(hero), B = heroFromRow_(eHero);
+  var dmg = Math.round(rankVal(A.six.寶具)*0.7) + Math.round(rankVal(A.six.敏捷)*0.5) + Math.floor(Math.random()*10);
+  dmg = Math.min(dmg, Math.round(target.sv_hp_max*0.7));
+  target.sv_hp = Math.max(0, target.sv_hp - dmg);
+  var killed=false, reviveNote='';
+  if(target.sv_hp<=0){ var rem=godHandRevive_(target);
+    if(rem>0) reviveNote='　'+B.cls+'憑十二試煉再起（尚餘 '+rem+' 命）';
+    else { target.alive=false; p.bond=Math.min(100,p.bond+5); killed=true; } }
+  p.sv_mp = Math.max(0, p.sv_mp-cost);
+  // 御主暴露：直面敵從者、身邊無護衛 → 若敵未死，敵從者反手揮向御主（這就是遠程支援的代價）
+  var counter=0;
+  if(!killed){ counter = Math.round(rankVal(B.six.筋力)*0.4)+5; p.master_hp = Math.max(0, p.master_hp-counter); }
+  updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, bond:p.bond, master_hp:p.master_hp });
+  updateRow_(SHEETS.BATTLE, target._row, { sv_hp:target.sv_hp, alive:target.alive, status:target.status });
+  advanceTime_(p, clock, hero, 1);
+  logEvent_(p.game_id, clock.day, pad2_(clock.hour)+':00', p.location, 'SNIPE',
+            'slot_0', 'slot_'+(target.slot-1), A.cls+' 遠距離支援射擊 '+B.cls, true, 1);
+  var beat = '〔遠距離支援〕Archer 自「'+locName_(p.servant_loc)+'」遠程狙擊 '+B.cls+'，造成 '+dmg+' 傷害（不挨近戰反擊）'
+           + (counter?('；但我直面敵從者、身邊無護衛，'+B.cls+'反手揮來一擊（御主 HP −'+counter+'）'):(killed?'；一擊洞穿，敵從者灰飛煙滅':''));
+  return { kind:'combat',
+    ctx:{ playerCls:A.cls, enemyCls:B.cls, enemyMaster:target.master_name,
+          winner: killed?'A':'draw', outcome: killed?'enemy_dead':'skill_hit',
+          firedTags:['遠距離支援'], beats:[beat], sealNote:'' },
+    suffix:'\n\n（遠距離支援：'+dmg+' 傷害'+reviveNote+'　魔力 −'+cost+(counter?('　御主直面反擊 HP −'+counter):'')+'）' };
 }
 
 function act_mana_(p, clock){
