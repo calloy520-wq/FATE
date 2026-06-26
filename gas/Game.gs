@@ -557,7 +557,7 @@ function npcTick_(gameId, rows, clock){
   var svAtMaster = player.sv_hp>0 && ((player.separated ? player.servant_loc : player.location) === player.location);
   var struck = false;   // 每 tick 至多一名敵人襲擊御主
   arrived.forEach(function(n){
-    if(!svAtMaster && !struck){
+    if(!svAtMaster && !struck && player.master_hp>0){   // 御主已逝（無御主・單獨行動續戰）→ 不再有「御主遇襲」
       struck = true;
       masterPeril_(gameId, player, n, clock);
       events.push({ text:'⚠ 我的從者不在身邊，'+heroCls_(n.servant_id)+'（'+n.master_name+'）直撲而來——御主遭襲！（HP '+player.master_hp+'/'+player.master_hp_max+'）速召回從者或撤退！', atPlayer:true });
