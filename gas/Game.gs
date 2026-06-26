@@ -353,6 +353,7 @@ function doAction(a){
       case 'accept_death': spec = ''; break;   // 瀕死抉擇：放棄令咒救援、接受死亡（結局在下方結算）
       case 'claim':      spec = act_claim_(p, clock, hero); break;
       case 'sleep':      spec = act_sleep_(p, clock, hero); break;
+      case 'rest':       spec = act_rest_(p, clock, hero); break;
       case 'seal':       spec = act_seal_(rows, p, clock, hero, a.cmd); break;
       case 'chat':
         var chatText = sanitizeText_(a.text, 500);
@@ -367,7 +368,7 @@ function doAction(a){
     var events = [];
     var fresh = findOne_(SHEETS.CLOCK, { game_id: gameId });
     if(!fresh.mana_locked){
-      if(['move','scout','attack','np','claim','retreat','hunt','skill'].indexOf(a.type) >= 0){
+      if(['move','scout','attack','np','claim','retreat','hunt','skill','rest'].indexOf(a.type) >= 0){
         events = npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh);
       } else if(a.type === 'sleep'){
         for(var k=0;k<3;k++) events = events.concat(npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh));
@@ -1258,6 +1259,21 @@ function act_hunt_(p, clock, hero){
   return { kind:'scene',
     prompt:'為了補充枯竭的魔力，'+tone+'。請寫一段帶有道德重量的獵食敘述（不要列數字）。',
     suffix:'\n（獵食補魔：魔力 +'+gain+(bd?('　好感 '+(bd>0?'+':'')+bd):'')+'）' };
+}
+
+// 休息（短憩）：推進 1 小時、回復 2 行動點 + 少量 HP／魔力；不像睡覺跳到隔天。讓你在睡死前再撐幾手。
+function act_rest_(p, clock, hero){
+  if(clock.ap >= clock.ap_max) return '（精神飽滿，毋需小憩。）';
+  clock.hour++; if(clock.hour>=24){ clock.hour=0; clock.day++; }
+  clock.ap = Math.min(clock.ap_max, clock.ap + 2);
+  if(Number(clock.mana_countdown)>0) clock.mana_countdown = Number(clock.mana_countdown)-1;
+  p.sv_hp = Math.min(p.sv_hp_max, p.sv_hp + Math.round(p.sv_hp_max*0.08));
+  p.master_mp = Math.min(p.master_mp_max, p.master_mp + Math.round(p.master_mp_max*0.12));
+  updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap, mana_countdown:Math.max(0,Number(clock.mana_countdown)||0) });
+  updateRow_(SHEETS.BATTLE, p._row, { sv_hp:p.sv_hp, master_mp:p.master_mp });
+  return { kind:'scene',
+    prompt:'我尋一處稍作歇息、養精蓄銳，恢復了一些行動的氣力。請寫一段簡短的小憩敘述。',
+    suffix:'\n（休息 1 小時：行動點 +2（'+clock.ap+'/'+clock.ap_max+'）　HP／魔力小幅恢復）' };
 }
 
 function act_sleep_(p, clock, hero){
