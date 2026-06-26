@@ -1,0 +1,5 @@
+# 只推送 gas/ 內的原始碼到 Apps Script，其餘一律不上傳
+**/**
+!appsscript.json
+!*.gs
+!*.html
