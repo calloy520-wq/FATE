@@ -14,9 +14,10 @@ function hasSkillName_(sv, n){
 function hasTrait_(sv, t){
   return (sv.traits||[]).some(function(x){ return (x.n||'').indexOf(t) >= 0; });
 }
-// 魔術攻擊者：Caster，或具魔眼/高速神言/破戒全咒等術式 → 攻擊屬「魔術」、用魔力為攻擊力
+// 魔術攻擊者：只有 Caster 的「普通攻擊」算魔術（用魔力、可被對魔力擋）。
+// 魔眼/高速神言等是個別主動技，魔術判定在那邊各自處理，不該讓持有者的每一拳都變魔術。
 function magicAtk_(sv){
-  return sv.cls==='Caster' || hasFx_(sv,'petrify') || hasFx_(sv,'fast_cast') || hasFx_(sv,'rule_breaker');
+  return sv.cls==='Caster';
 }
 // 對魔力減傷比例（0~0.9）：取對魔力技能的最高階級換算（A≈.9 / B≈.73 / C≈.55 / D≈.36 / E≈.18）
 function antiMagicCut_(def){
