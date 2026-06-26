@@ -703,10 +703,17 @@ function enemyMasterReact_(enemyRow, situation){
   return {type:'escape'};
 }
 
+// 從同地敵人中挑目標：自動鎖定「血量比例最低（最重傷）」者，方便補刀收尾
+function pickFoe_(rows, here){
+  var foes = rows.filter(function(r){ return r.is_player!==true && r.alive===true && r.servant_loc===here; });
+  foes.sort(function(a,b){ return (a.sv_hp/(a.sv_hp_max||1)) - (b.sv_hp/(b.sv_hp_max||1)); });
+  return foes[0];
+}
+
 function act_combat_(rows, p, clock, hero, mode, costAP){
-  // 只能攻擊「此刻與你的從者同地」的敵人（看不到的人砍不到）
+  // 只能攻擊「此刻與你的從者同地」的敵人（看不到的人砍不到）；多個敵人時自動打最重傷者
   var here = p.separated ? p.servant_loc : p.location;
-  var enemyRow = rows.filter(function(r){ return r.is_player!==true && r.alive===true && r.servant_loc===here; })[0];
+  var enemyRow = pickFoe_(rows, here);
   if(!enemyRow){
     var anyAlive = rows.some(function(r){ return r.is_player!==true && r.alive===true; });
     return anyAlive ? '（我的所在地沒有敵蹤——先用「🔍 偵查」找出附近從者，或移動到敵人所在地再交戰。）'
@@ -829,9 +836,9 @@ function act_skill_(rows, p, clock, hero, fx){
              suffix:'\n（'+sk.name+'：'+eff+'　魔力 −'+cost+'）' };
   }
 
-  // 即時攻擊類：需同地敵人
+  // 即時攻擊類：需同地敵人（多個時自動鎖定最重傷者）
   var here = p.separated ? p.servant_loc : p.location;
-  var enemyRow = rows.filter(function(r){ return r.is_player!==true && r.alive===true && r.servant_loc===here; })[0];
+  var enemyRow = pickFoe_(rows, here);
   if(!enemyRow) return '（附近沒有可施術的對象——先靠近敵人。）';
   var eHero = findOne_(SHEETS.HEROES, { servant_id: enemyRow.servant_id });
   if(!eHero) return '（找不到敵方從者資料。）';
