@@ -285,7 +285,7 @@ function doAction(a){
     var hero = findOne_(SHEETS.HEROES, { servant_id: p.servant_id });
 
     // 補魔密封時段：封鎖耗時/戰鬥動作（免 LLM，直接回最終回應）
-    if(clock.mana_locked && ['move','scout','attack','np','sleep','separate','claim'].indexOf(a.type)>=0)
+    if(clock.mana_locked && ['move','scout','attack','np','sleep','separate','claim','retreat'].indexOf(a.type)>=0)
       return { final:{ state:getState(gameId), narration:'（補魔進行中，無法進行該動作；請繼續對話，或用令咒「強制補魔」結束。）', events:[] } };
 
     // 個性+好感 + 歷史事件/記憶 → 完整 context，讓 AI 不出戲、知道過去
@@ -302,6 +302,7 @@ function doAction(a){
       case 'feed':       spec = act_feed_(p); break;
       case 'reinforce':  spec = act_reinforce_(p, hero); break;
       case 'separate':   spec = act_separate_(p); break;
+      case 'retreat':    spec = act_retreat_(p, clock, hero); break;
       case 'claim':      spec = act_claim_(p, clock, hero); break;
       case 'sleep':      spec = act_sleep_(p, clock); break;
       case 'seal':       spec = act_seal_(rows, p, clock, hero, a.cmd); break;
@@ -317,7 +318,7 @@ function doAction(a){
     var events = [];
     var fresh = findOne_(SHEETS.CLOCK, { game_id: gameId });
     if(!fresh.mana_locked){
-      if(['move','scout','attack','np','claim'].indexOf(a.type) >= 0){
+      if(['move','scout','attack','np','claim','retreat'].indexOf(a.type) >= 0){
         events = npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh);
       } else if(a.type === 'sleep'){
         for(var k=0;k<3;k++) events = events.concat(npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh));
@@ -498,9 +499,12 @@ function npcSkirmish_(a, b){
   var hb = findOne_(SHEETS.HEROES, { servant_id:b.servant_id });
   function hit(att, def){ return Math.max(2, Math.round((rankVal(att.筋力)+Math.floor(Math.random()*9)-Math.floor(rankVal(def.耐久)/2))*0.7)); }
   var fast = rankVal(ha.敏捷) >= rankVal(hb.敏捷);
+  var fleeT = TUNING.FLEE_HP || 0.5;
   for(var i=0;i<3 && a.sv_hp>0 && b.sv_hp>0;i++){
     if(fast){ b.sv_hp -= hit(ha,hb); if(b.sv_hp<=0) break; a.sv_hp -= hit(hb,ha); }
     else    { a.sv_hp -= hit(hb,ha); if(a.sv_hp<=0) break; b.sv_hp -= hit(ha,hb); }
+    // NPC 間同樣不纏鬥至死：任一方重傷即脫離（保留戰力、讓戰局更持久）
+    if(a.sv_hp <= a.sv_hp_max*fleeT || b.sv_hp <= b.sv_hp_max*fleeT) break;
   }
   a.sv_hp = Math.max(0, a.sv_hp); b.sv_hp = Math.max(0, b.sv_hp);
 }
@@ -578,6 +582,45 @@ function act_move_(p, clock, hero, locId){
     suffix: enc ? ('\n\n【遭遇】'+enc.replace('\n此處有：','')) : '' };
 }
 
+// 好戰御主：重傷時傾向以令咒續戰/追擊；其餘御主傾向保命脫離
+var AGGRESSIVE_MASTERS_ = ['言峰綺禮','吉爾伽美什','遠坂時臣','肯尼斯','間桐慎二','衛宮切嗣','雨生龍之介'];
+
+/** 取某地隨機相鄰地（撤退落點），無則回 null */
+function randAdj_(locId){
+  var l = findOne_(SHEETS.MAP, { id: locId });
+  var adj = (l && l.adj) ? l.adj : [];
+  return adj.length ? adj[Math.floor(Math.random()*adj.length)] : null;
+}
+/** 把參戰列撤往相鄰地（alsoMaster：御主是否隨從者一起退） */
+function retreatRow_(row, alsoMaster){
+  var dest = randAdj_(row.servant_loc);
+  if(dest){ row.servant_loc = dest; if(alsoMaster) row.location = dest; }
+  return dest;
+}
+
+/**
+ * 對面（敵方）御主的令咒反應 AI
+ * @param situation 'defend'（敵從者重傷，要不要逃/治療/硬撐）｜'press'（玩家從者重傷，要不要燃咒追擊）
+ * @return {type:'escape'|'heal'|'flee'|'press'|'none'}
+ */
+function enemyMasterReact_(enemyRow, situation){
+  var aggressive = AGGRESSIVE_MASTERS_.indexOf(enemyRow.master_name) >= 0;
+  var hasSeal = (enemyRow.seals||0) > 0;
+  var roll = Math.random();
+  if(situation === 'press'){                       // 玩家重傷 → 敵御主是否燃咒追擊
+    return (hasSeal && roll < (aggressive?0.6:0.3)) ? {type:'press'} : {type:'none'};
+  }
+  if(!hasSeal) return {type:'flee'};               // 無令咒 → 徒步撤退
+  if(aggressive){                                   // 好戰 → 傾向治療續戰
+    if(roll < 0.45) return {type:'heal'};
+    if(roll < 0.60) return {type:'escape'};
+    return {type:'flee'};
+  }
+  if(roll < 0.50) return {type:'escape'};           // 一般 → 傾向令咒脫離保命
+  if(roll < 0.70) return {type:'heal'};
+  return {type:'flee'};
+}
+
 function act_combat_(rows, p, clock, hero, mode, costAP){
   // 只能攻擊「此刻與你的從者同地」的敵人（看不到的人砍不到）
   var here = p.separated ? p.servant_loc : p.location;
@@ -597,24 +640,66 @@ function act_combat_(rows, p, clock, hero, mode, costAP){
   if(!hero) return '（找不到你的從者資料，存檔可能已損毀，建議開新局。）';
   var eHero = findOne_(SHEETS.HEROES, { servant_id: enemyRow.servant_id });
   if(!eHero) return '（找不到敵方從者資料，無法交戰。）';
-  var A = Object.assign(heroFromRow_(hero), { hp:p.sv_hp, mp:p.sv_mp, mpMax:p.sv_mp_max });
-  var B = Object.assign(heroFromRow_(eHero), { hp:enemyRow.sv_hp });
+  var A = Object.assign(heroFromRow_(hero), { hp:p.sv_hp, hpMax:p.sv_hp_max, mp:p.sv_mp, mpMax:p.sv_mp_max });
+  var B = Object.assign(heroFromRow_(eHero), { hp:enemyRow.sv_hp, hpMax:enemyRow.sv_hp_max });
 
   var res = resolveCombat_(A, B, mode);
   p.sv_hp = res.aHp;                          // 敗北則從者靈基崩解（HP 歸 0 → 觸發死亡結局）
   p.sv_mp = Math.max(0, p.sv_mp - res.mpCost);
-  if(res.winner==='A'){ enemyRow.alive=false; p.bond = Math.min(100, p.bond+5); }
-  updateRow_(SHEETS.BATTLE, p._row, { sv_hp:p.sv_hp, sv_mp:p.sv_mp, bond:p.bond });
-  updateRow_(SHEETS.BATTLE, enemyRow._row, { sv_hp:res.bHp, alive:enemyRow.alive });
+  enemyRow.sv_hp = res.bHp;
+
+  var outcome, sealNote = '';
+  if(res.winner === 'A'){                     // 敵從者當場被擊破（多半來自寶具/令咒的決死一擊）
+    enemyRow.alive = false; p.bond = Math.min(100, p.bond+5); outcome = 'enemy_dead';
+  } else if(res.winner === 'B'){
+    outcome = 'player_dead';
+  } else if(res.bFlee){                        // 敵從者重傷 → 對面御主的撤退/令咒判定
+    var rx = enemyMasterReact_(enemyRow, 'defend');
+    if(rx.type === 'escape'){
+      retreatRow_(enemyRow, true); enemyRow.seals = Math.max(0, enemyRow.seals-1);
+      sealNote = '對面御主「'+enemyRow.master_name+'」燃燒令咒，'+B.cls+'瞬間脫離戰場，遁向'+locName_(enemyRow.servant_loc)+'！';
+      outcome = 'enemy_escape_seal';
+    } else if(rx.type === 'heal'){
+      enemyRow.sv_hp = enemyRow.sv_hp_max; enemyRow.seals = Math.max(0, enemyRow.seals-1);
+      sealNote = '對面御主「'+enemyRow.master_name+'」燃燒令咒重塑'+B.cls+'的靈基，傷勢盡復、繼續對峙！';
+      outcome = 'enemy_heal_seal';
+    } else {
+      retreatRow_(enemyRow, true);
+      sealNote = B.cls+'重傷不支，向'+locName_(enemyRow.servant_loc)+'方向且戰且退。';
+      outcome = 'enemy_flee';
+    }
+  } else if(res.aFlee){                        // 玩家從者重傷 → 對面御主是否燃咒追擊
+    var rx2 = enemyMasterReact_(enemyRow, 'press');
+    if(rx2.type === 'press'){
+      var burst = Math.round(rankVal(B.six.寶具)*1.4) + 15;
+      p.sv_hp = Math.max(0, p.sv_hp - burst); enemyRow.seals = Math.max(0, enemyRow.seals-1);
+      sealNote = '對面御主「'+enemyRow.master_name+'」見你從者重傷，竟燃燒令咒下令追擊——'+B.cls+'全力一擊造成 '+burst+' 傷害！';
+      if(p.sv_hp <= 0){ outcome = 'player_dead'; res.winner = 'B'; }
+      else { retreatRow_(p, !p.separated); outcome = 'player_flee_pressed'; }
+    } else {
+      retreatRow_(p, !p.separated);
+      sealNote = '你的從者重傷，'+enemyRow.master_name+' 未予追擊——你帶傷退往'+locName_(p.separated?p.servant_loc:p.location)+'。';
+      outcome = 'player_flee';
+    }
+  } else {
+    outcome = 'standoff';
+  }
+
+  updateRow_(SHEETS.BATTLE, p._row, { sv_hp:p.sv_hp, sv_mp:p.sv_mp, bond:p.bond, location:p.location, servant_loc:p.servant_loc, separated:p.separated });
+  updateRow_(SHEETS.BATTLE, enemyRow._row, { sv_hp:enemyRow.sv_hp, alive:enemyRow.alive, seals:enemyRow.seals, location:enemyRow.location, servant_loc:enemyRow.servant_loc });
   if(costAP) advanceTime_(p, clock, hero, 1);
 
   logEvent_(p.game_id, clock.day, pad2_(clock.hour)+':00', p.location, 'BATTLE',
             'slot_0', 'slot_'+(enemyRow.slot-1),
-            A.cls+' 對 '+B.cls+' 交戰，結果：'+res.winner, true, 1);
+            A.cls+' 對 '+B.cls+'（'+enemyRow.master_name+'）交戰：'+outcome, true, 1);
 
+  var tail = [];
+  if(sealNote) tail.push(sealNote);
+  tail.push('戰報：' + res.beats.join('｜'));
   return { kind:'combat',
-    ctx:{ playerCls:A.cls, enemyCls:B.cls, winner:res.winner, firedTags:res.firedTags, beats:res.beats },
-    suffix:'\n\n戰報：' + res.beats.join('｜') };
+    ctx:{ playerCls:A.cls, enemyCls:B.cls, enemyMaster:enemyRow.master_name,
+          winner:res.winner, outcome:outcome, firedTags:res.firedTags, beats:res.beats, sealNote:sealNote },
+    suffix:'\n\n' + tail.join('\n') };
 }
 
 function act_mana_(p, clock){
@@ -664,6 +749,18 @@ function act_separate_(p){
   p.separated = !p.separated; if(!p.separated) p.servant_loc = p.location;
   updateRow_(SHEETS.BATTLE, p._row, { separated:p.separated, servant_loc:p.servant_loc });
   return p.separated ? '從者鎮守 '+p.servant_loc+'，你退往後方（失去護衛，務必小心）。' : '從者回到你身邊，恢復合體行動。';
+}
+
+// 主動撤退：帶從者退往相鄰地脫離交鋒（耗 1 AP，不耗令咒；撤退即與從者合流）
+function act_retreat_(p, clock, hero){
+  if(clock.ap<1) return '（行動點不足，請睡覺恢復。）';
+  var here = p.separated ? p.servant_loc : p.location;
+  var dest = randAdj_(here);
+  if(!dest) return '（此處無路可退。）';
+  p.location = dest; p.servant_loc = dest; p.separated = false;
+  updateRow_(SHEETS.BATTLE, p._row, { location:p.location, servant_loc:p.servant_loc, separated:p.separated });
+  advanceTime_(p, clock, hero, 1);
+  return { kind:'scene', prompt:'你（'+p.master_name+'）當機立斷，帶著從者迅速撤離當前戰場，退往「'+locName_(dest)+'」。請寫一段緊張的脫離敘述。' };
 }
 
 function act_sleep_(p, clock){

@@ -73,12 +73,17 @@ function resolveCombat_(A, B, mode){
     if(isNP) tag('寶具解放');
   }
 
+  // 撤退門檻：一般交戰中任一方降到 50% HP 即停手（不纏鬥到死）。
+  // 令咒（seal/sealnp）是「決死全力」，不受門檻限制、可分出生死。
+  var aMax = A.hpMax || A.hp, bMax = B.hpMax || B.hp, fleeT = TUNING.FLEE_HP || 0.5;
+  var forced = (mode==='seal' || mode==='sealnp');
   var round = 0;
   while(A.hp>0 && B.hp>0 && round<14){
     round++;
     var aFast = rankVal(A.six.敏捷) >= rankVal(B.six.敏捷);
     if(aFast){ strike(A,B,A.cls,B.cls); if(B.hp<=0) break; strike(B,A,B.cls,A.cls); }
     else     { strike(B,A,B.cls,A.cls); if(A.hp<=0) break; strike(A,B,A.cls,B.cls); }
+    if(!forced && (A.hp <= aMax*fleeT || B.hp <= bMax*fleeT)) break;   // 重傷 → 停手，撤退判定交給上層
   }
 
   // 耗魔（令咒供能則免）
@@ -91,7 +96,10 @@ function resolveCombat_(A, B, mode){
     beats: beats,
     firedTags: Object.keys(fired),
     winner: winner,
-    aHp: A.hp, bHp: B.hp, mpCost: mpCost
+    aHp: A.hp, bHp: B.hp, mpCost: mpCost,
+    // 重傷（≤門檻）但未死 → 該方意圖撤退；上層據此處理逃跑/敵御主令咒反應
+    aFlee: (A.hp>0 && A.hp <= aMax*fleeT),
+    bFlee: (B.hp>0 && B.hp <= bMax*fleeT)
   };
 }
 

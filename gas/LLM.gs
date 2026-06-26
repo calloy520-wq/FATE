@@ -88,15 +88,27 @@ function summonOpening_(hero, masterName, wish){
 /** 把 GAS 戰報事實交給 AI 潤飾成戰鬥敘述（memory＝已知世界線/記憶） */
 function narrateCombat(ctx, memory){
   var sys = narratorSystem_();
+  var resultMap = {
+    enemy_dead:'我方擊破敵從者',
+    player_dead:'我方從者被擊破',
+    enemy_flee:'敵從者重傷、且戰且退',
+    enemy_escape_seal:'敵御主燃燒令咒，讓重傷的從者緊急脫離',
+    enemy_heal_seal:'敵御主燃燒令咒治癒從者、繼續對峙',
+    player_flee:'我方從者重傷撤退、脫離交鋒',
+    player_flee_pressed:'我方從者重傷撤退，敵御主燃咒追擊',
+    standoff:'雙方僵持、各自退開'
+  };
+  var resultText = resultMap[ctx.outcome] || (ctx.winner==='A'?'我方擊破敵從者':ctx.winner==='B'?'我方從者被擊破':'雙方膠著');
   var user = [
     memory ? ('【已知世界線/記憶】\n'+memory+'\n') : '',
     '【戰鬥事實（系統已算定，請勿更動）】',
-    '我方從者：'+ctx.playerCls+'　敵方從者：'+ctx.enemyCls,
-    '結果：'+(ctx.winner==='A'?'我方擊破敵從者':ctx.winner==='B'?'我方從者被擊破':'雙方膠著'),
+    '我方從者：'+ctx.playerCls+'　敵方從者：'+ctx.enemyCls+(ctx.enemyMaster?('（敵御主：'+ctx.enemyMaster+'）'):''),
+    '結果：'+resultText,
+    ctx.sealNote ? ('關鍵轉折：'+ctx.sealNote) : '',
     '觸發標籤：'+((ctx.firedTags&&ctx.firedTags.length)?ctx.firedTags.join('、'):'無'),
     '關鍵過程：',
   ].concat((ctx.beats||[]).slice(0,8)).concat([
-    '請依以上事實寫一段戰鬥敘述（2~4 句），與已知世界線保持一致，不要列出數字。'
+    '請依以上事實寫一段戰鬥敘述（2~4 句）：若有撤退或令咒介入，務必帶出敵御主身份與那一瞬的張力；與已知世界線一致，不要列出數字。'
   ]).join('\n');
   var r = callLLM(sys, user, { temperature:0.9 });
   return r.text || ('（敘述生成失敗：'+(r.error||'')+'）');

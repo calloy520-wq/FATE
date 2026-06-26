@@ -364,6 +364,7 @@ var App = {
     if(a.indexOf('偵查')>=0) return App.act('scout');
     if(a.indexOf('攻擊')>=0) return App.act('attack');
     if(a==='使用寶具') return App.act('np');
+    if(a.indexOf('撤退')>=0) return App.act('retreat');
     if(a==='補魔') return App.act('mana');
     if(a.indexOf('供給')>=0) return App.act('feed');
     if(a.indexOf('加固')>=0) return App.act('reinforce');
@@ -440,7 +441,7 @@ var App = {
     var d={safe:'安全',mid:'中等',high:'危險'};
     document.getElementById('loc-info').innerHTML=l?('<b style="color:var(--gold2)">'+l.name+'</b>（危險度：'+d[l.danger]+'・靈脈：'+l.leyline+'）<br>'+l.desc):''; },
   renderQuick:function(){ document.getElementById('quick-actions').innerHTML=
-    ['🔍 偵查','⚔ 攻擊敵人','使用寶具','💧 供給魔力','🔀 分離/合體','❖ 令咒','🛡 加固結界','🏠 設為據點','補魔','🌙 睡覺'].map(function(a){
+    ['🔍 偵查','⚔ 攻擊敵人','使用寶具','🏃 撤退','💧 供給魔力','🔀 分離/合體','❖ 令咒','🛡 加固結界','🏠 設為據點','補魔','🌙 睡覺'].map(function(a){
       return '<button class="btn sm ghost" onclick="App.quick(\''+a+'\')">'+a+'</button>'; }).join(''); },
 
   // ---------- log ----------
