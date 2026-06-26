@@ -46,7 +46,8 @@ var ACTIVE_FX_ = {
   str_up:       { label:'怪力',     kind:'buffdmg',  mp:0.14 },
   projection:   { label:'投影強化', kind:'buffdmg',  mp:0.14 },
   weapon_steal: { label:'武裝掠奪', kind:'buffdmg',  mp:0.20 },
-  aim:          { label:'千里眼',   kind:'buffhit',  mp:0.12 }
+  aim:          { label:'千里眼',   kind:'buffhit',  mp:0.12 },
+  narrative:    { label:'故事創作', kind:'buffhit',  mp:0.14 }   // 漢斯：以故事看破弱點，提升下場命中
 };
 // 列出某從者的主動技能（依其技能 fx）
 function activeSkills_(hero){
@@ -80,6 +81,7 @@ function deriveServant_(sv){
  */
 function economyNet_(p){
   var ms = Math.round((p.circuits||30) * TUNING.MASTER_REGEN_K);   // 御主迴路每小時回復
+  if(p.hasWealth) ms = Math.round(ms * 1.4);                       // 黃金律：財寶/資源充裕，魔力回復 ×1.4
   if(p.separated) ms = Math.round(ms * (p.hasSolo ? TUNING.SEP_SOLO : TUNING.SEP_PENALTY));
   var ley = TUNING.LEYLINE[p.leyline] || 0;
   var ws = p.isCasterHome ? TUNING.WORKSHOP : 0;
@@ -101,8 +103,11 @@ function resolveCombat_(A, B, mode){
 
   function strike(att, def, an, dn){
     var ab = buffOf_(att.buff), db = buffOf_(def.buff);                // 主動技強化／減益
+    var amlance = hasFx_(att,'anti_magic_lance');                      // 破魔紅薔薇：消去敵方魔術強化、無效化魔力護甲
+    if(amlance){ db = null; }                                          // 紅薔薇・破魔：敵的魔術強化（buff）盡數消去
+    var selfmod = hasFx_(att,'self_mod');                              // 自我改造：強化過的軀體，攻勢更準更狠
     var ambush = att._ambush; if(ambush){ att._ambush = false; tag('氣息遮斷'); }  // 氣息遮斷：首擊奇襲
-    var hit = rankVal(att.six.敏捷) + d20_() + ((ab&&ab.hit)||0) + (ambush?6:0) + luckEdge_(att);    // 幸運：運氣站攻方
+    var hit = rankVal(att.six.敏捷) + d20_() + ((ab&&ab.hit)||0) + (ambush?6:0) + (selfmod?2:0) + luckEdge_(att);    // 幸運：運氣站攻方
     var dodge = rankVal(def.six.敏捷) + d20_() + ((db&&db.dodge)||0) + luckEdge_(def);  // 幸運站守方；dodge 負＝石化遲滯更易被命中
     // 宗和的心得：對方永遠看不穿小次郎的攻擊，看破/預判類閃避（心眼・直感）對他無效
     if(hasFx_(att,'unreadable')){
@@ -124,6 +129,7 @@ function resolveCombat_(A, B, mode){
       if(hasFx_(def,'clear_mind')){ tag('透化'); }                            // 透化：清澈靜穆之心，不受勇猛/精神威壓干涉
       else { dmg += 3; note.push('勇猛'); tag('勇猛'); }
     }
+    if(selfmod){ dmg += 3; note.push('自我改造'); tag('自我改造'); }            // 自我改造：改造之軀的殺傷力
     if(hasFx_(att,'burst')){ dmg = Math.round(dmg*1.2); note.push('魔力放出'); tag('魔力放出'); }
     if(magic){ var cut = antiMagicCut_(def);                                   // 對魔力硬扣魔術傷害
       if(cut>0 && divineAge_(att)){ cut *= 0.5; tag('神代魔術'); }              // 神代魔術：對魔力半效
@@ -131,10 +137,11 @@ function resolveCombat_(A, B, mode){
     if(tsubame){ dmg = Math.round(dmg*2.3); note.push('燕返・三段'); tag('燕返'); }  // 三段同時斬：一招三斬、難防難擋
     if(ambush){ dmg = Math.round(dmg*1.5); note.push('奇襲'); }                 // 氣息遮斷首擊：傷害×1.5
     if(hasTrait_(def,'神性') && hasSkillName_(att,'神殺')){ dmg *= 2; note.push('神殺×2'); tag('神殺'); }
-    if(hasFx_(def,'divine_core')){ dmg = Math.max(1, Math.round(dmg*0.82)); note.push('神核'); tag('神核'); }  // 女神之軀：受傷 −18%
+    if(hasFx_(def,'divine_core') && !amlance){ dmg = Math.max(1, Math.round(dmg*0.82)); note.push('神核'); tag('神核'); }  // 女神之軀：受傷 −18%（紅薔薇可破）
+    if(amlance){ note.push('破魔紅薔薇'); tag('破魔紅薔薇'); }                    // 破魔之槍：穿透魔力護甲/神核
     var newHp = def.hp - dmg;
-    // 戰鬥續行：致命一擊下仍能撐住一次（每場一次），HP 留 1
-    if(newHp <= 0 && hasFx_(def,'survive') && !def._survived){
+    // 戰鬥續行：致命一擊下仍能撐住一次（每場一次），HP 留 1。黃薔薇（必滅）使傷口不癒，續戰無效。
+    if(newHp <= 0 && hasFx_(def,'survive') && !def._survived && !amlance){
       def.hp = 1; def._survived = true; tag('戰鬥續行');
       beats.push('〔戰鬥續行〕'+an+'本應擊倒 '+dn+'，'+dn+' 卻憑驚人韌性撐住、僅餘一絲氣息');
       return;

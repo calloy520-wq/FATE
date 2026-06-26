@@ -60,6 +60,8 @@ classSkills, skills, traits(JSON 陣列), np(寶具字串), persona(JSON), sourc
 | `tsubame` | 秘劍・燕返 | 三方位同時斬：敵閃避 −8（極難迴避）、命中則三段連斬傷害 ×2.3。無真寶具者（如佐佐木）的主力 |
 | `unreadable` | 宗和的心得 | 持有者攻擊時，敵方的看破/預判閃避（`analyze`心眼・`first_strike`直感）失效 |
 | `clear_mind` | 透化 | 防守時免疫攻方的精神威壓加成（`morale`勇猛/卡里斯瑪 +3 對其無效） |
+| `self_mod` | 自我改造 | 命中 +2、傷害 +3（改造強化過的軀體） |
+| `anti_magic_lance` | 破魔紅薔薇／必滅黃薔薇 | 攻擊時消去敵 buff、無視 `divine_core` 神核護甲；造成的傷使敵 `survive` 戰鬥續行失效（傷口不癒） |
 | `divine` | 神性 | 寶具開場威力 ×1.1 |
 | `tactics` | 軍略 | 寶具開場威力 ×1.15 |
 | （特性`神性` + 技能名含`神殺`） | 神殺 | 傷害 ×2 |
@@ -82,7 +84,7 @@ classSkills, skills, traits(JSON 陣列), np(寶具字串), persona(JSON), sourc
 > ★ **AI 生成英靈**：`generateServant_` 透過 `FX_OK_` 白名單管控可用 fx。**新增引擎 fx 時，務必同步把碼加進 `FX_OK_` 並更新生成器提示**，否則 AI 做的角色會被 `cleanSkill_` 清掉該技能。
 | `rune` / `shapeshift` | 符文 / 變生 | 即時回復 HP（耐久×2+10±） |
 | `str_up` / `projection` / `weapon_steal` | 怪力 / 投影 / 武裝掠奪 | 下一場戰鬥傷害 +（筋力×0.4+5） |
-| `aim` | 千里眼 | 下一場戰鬥命中 +8 |
+| `aim` / `narrative` | 千里眼 / 故事創作 | 下一場戰鬥命中 +8 |
 
 **經濟 / 其他**
 | fx | 效果 |
@@ -91,7 +93,8 @@ classSkills, skills, traits(JSON 陣列), np(寶具字串), persona(JSON), sourc
 | （六維）`幸運` | 命中與閃避的運氣修正：以 C 為基準（EX+3 / A+2 / B+1 / C0 / D−1 / E−2），`luckEdge_` |
 | `solo` 單獨行動 | 分離時供給衰減減免（`SEP_SOLO`） |
 | `territory` 陣地作成 | Caster 在主場工房 +`WORKSHOP` 供能 |
-| `crafting` / `wealth` / `rule_breaker` 等 | 敘述向，無額外戰鬥數值（前端說明會標示） |
+| `wealth` 黃金律 | 御主魔力回復 ×1.4（`economyNet_`） |
+| `crafting` / `rule_breaker` 等 | 敘述向，無額外戰鬥數值（前端說明會標示） |
 | 寶具 np 含「十二試煉 / God Hand」 | 賦予 `GOD_HAND_LIVES` 條命，被擊倒會復活，須擊倒這麼多次才真死 |
 
 > 前端 `index.html` 的 `App.FX_DESC` 是這張表的玩家版說明，**改機制時記得同步**。

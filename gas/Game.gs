@@ -275,7 +275,8 @@ function playerEconomy_(p){
   return economyNet_({
     circuits:p.circuits, upkeep:p.upkeep, leyline: loc?loc.leyline:'低',
     isCasterHome: (hero && hero.cls==='Caster' && p.base_loc===sl),
-    separated: p.separated, hasSolo: hasFx_(hsv,'solo') || hasSkillName_(hsv,'單獨行動')
+    separated: p.separated, hasSolo: hasFx_(hsv,'solo') || hasSkillName_(hsv,'單獨行動'),
+    hasWealth: hasFx_(hsv,'wealth')
   });
 }
 
