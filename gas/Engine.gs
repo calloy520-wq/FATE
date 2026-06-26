@@ -14,6 +14,16 @@ function hasSkillName_(sv, n){
 function hasTrait_(sv, t){
   return (sv.traits||[]).some(function(x){ return (x.n||'').indexOf(t) >= 0; });
 }
+// 魔術攻擊者：Caster，或具魔眼/高速神言/破戒全咒等術式 → 攻擊屬「魔術」、用魔力為攻擊力
+function magicAtk_(sv){
+  return sv.cls==='Caster' || hasFx_(sv,'petrify') || hasFx_(sv,'fast_cast') || hasFx_(sv,'rule_breaker');
+}
+// 對魔力減傷比例（0~0.9）：取對魔力技能的最高階級換算（A≈.9 / B≈.73 / C≈.55 / D≈.36 / E≈.18）
+function antiMagicCut_(def){
+  var r = 0;
+  [].concat(def.classSkills||[], def.skills||[]).forEach(function(s){ if(s.fx==='nullify_magic') r = Math.max(r, rankVal(s.r)); });
+  return r ? Math.min(0.9, r/55) : 0;
+}
 
 /** 由六維推導 HP/MP 上限與每小時維持費 */
 function deriveServant_(sv){
@@ -57,10 +67,13 @@ function resolveCombat_(A, B, mode){
     if(hasFx_(def,'analyze')){ dodge += 3; tag('心眼'); }             // 心眼：看破來招、更易閃避
     if(hasFx_(def,'evade_ranged')){ dodge += 6; tag('避矢加護'); }
     if(hit <= dodge){ beats.push('〔閃避〕'+dn+' 避開了 '+an+' 的攻擊 ('+hit+'≤'+dodge+')'); return; }
-    var dmg = Math.max(3, rankVal(att.six.筋力) + Math.floor(Math.random()*9) - Math.floor(rankVal(def.six.耐久)/2));
+    var magic = magicAtk_(att);   // 魔術攻擊用魔力、可被對魔力擋；肉體攻擊用筋力、不受對魔力影響
+    var dmg = Math.max(3, rankVal(magic?att.six.魔力:att.six.筋力) + Math.floor(Math.random()*9) - Math.floor(rankVal(def.six.耐久)/2));
     var note = [];
     if(hasFx_(att,'morale')){ dmg += 3; note.push('勇猛'); tag('勇猛'); }      // 勇猛/卡里斯瑪：攻勢更猛
     if(hasFx_(att,'burst')){ dmg = Math.round(dmg*1.2); note.push('魔力放出'); tag('魔力放出'); }
+    if(magic){ var cut = antiMagicCut_(def);                                   // 對魔力硬扣魔術傷害
+      if(cut>0){ dmg = Math.max(1, Math.round(dmg*(1-cut))); note.push('對魔力 −'+Math.round(cut*100)+'%'); tag('對魔力'); } }
     if(hasTrait_(def,'神性') && hasSkillName_(att,'神殺')){ dmg *= 2; note.push('神殺×2'); tag('神殺'); }
     var newHp = def.hp - dmg;
     // 戰鬥續行：致命一擊下仍能撐住一次（每場一次），HP 留 1
@@ -78,9 +91,14 @@ function resolveCombat_(A, B, mode){
   if(mode){
     var isNP = (mode==='np' || mode==='sealnp');
     var d = isNP ? Math.round(rankVal(A.six.寶具)*1.6)+18 : Math.round(rankVal(A.six.筋力)*1.8)+25;
+    var npNote = '';
+    if(isNP && magicAtk_(A)){                       // 魔術系寶具（如 Caster）→ 吃對魔力減免
+      var cutN = antiMagicCut_(B);
+      if(cutN>0){ d = Math.max(1, Math.round(d*(1-cutN))); npNote = '（對魔力 −'+Math.round(cutN*100)+'%）'; tag('對魔力'); }
+    }
     B.hp = Math.max(0, B.hp - d);
     beats.push('〔'+(isNP?'寶具解放':'令咒・必中全力')+'〕'+A.cls+(isNP?'發動「'+(A.np||'寶具')+'」':'')+
-               '造成 '+d+' 傷害！ '+B.cls+' HP '+B.hp);
+               '造成 '+d+' 傷害'+npNote+'！ '+B.cls+' HP '+B.hp);
     if(isNP) tag('寶具解放');
   }
 
