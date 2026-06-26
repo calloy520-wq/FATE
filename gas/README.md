@@ -36,6 +36,7 @@ classSkills, skills, traits(JSON 陣列), np(寶具字串), persona(JSON), sourc
 - 技能格式：`{n:"技能名", r:"階級", fx:"效果碼"}`；特性：`{n:"特性"}`
 - `persona`：`{firstP:"一人稱", words:"性格關鍵詞", toMaster:"對御主態度"}`
 - `align`：雙軸「秩序/中立/混沌・善/中立/惡」，Berserker 可「混沌・狂」。邏輯只取善惡軸＋狂化（`alignGood_`/`feedDisposition_`），秩序/混沌軸保留未用。
+- ★ **資料慣例：Berserker 的六維是「已狂化」的成品值**（對齊原作狀態畫面，所以多為全 A）。引擎的 `mad` fx **只收維持費成本（×1.5）、不再對六維加成**——加成已烤進種子，再加會雙重計算。新增狂戰士請直接填「已狂化後」的數值，別期待引擎幫你升階。
 
 **御主殿（MASTERS）**：`master_id, name, war, magic, circuits, melee, magic_rank, home, wish, persona`
 **地圖（MAP）**：`id, name, x, y, danger, leyline(高/中/低), adj(JSON 鄰接), desc`（冬木 21 點）

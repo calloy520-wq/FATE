@@ -43,6 +43,7 @@ const SEED_SERVANTS = [
     skills:[{n:'心眼(真)',r:'B',fx:'analyze'}],
     traits:[{n:'人類'}], np:'燕返（對人）',
     align:'中立・中庸', persona:{firstP:'拙者',words:'劍士・閒適・宿命',toMaster:'隨遇而安，只求一戰'} },
+  // ※ Berserker 六維為「已狂化」的成品值（對齊原作顯示，故多為全 A）。引擎 mad fx 只收維持費成本、不再加成，勿重複升階。
   { id:'赫拉克勒斯-Berserker', cls:'Berserker', realName:'赫拉克勒斯', wars:['5th'],
     six:{筋力:'A',耐久:'A',敏捷:'A',魔力:'B',幸運:'C',寶具:'B'},
     classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'對魔力',r:'?',fx:'nullify_magic'}],
