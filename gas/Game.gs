@@ -321,6 +321,7 @@ function doAction(a){
       case 'feed':       spec = act_feed_(p); break;
       case 'reinforce':  spec = act_reinforce_(p, hero); break;
       case 'separate':   spec = act_separate_(p); break;
+      case 'dispatch':   spec = act_dispatch_(p, clock, hero, a.locId); break;
       case 'retreat':    spec = act_retreat_(p, clock, hero); break;
       case 'hunt':       spec = act_hunt_(p, clock, hero); break;
       case 'skill':      spec = act_skill_(rows, p, clock, hero, a.fx); break;
@@ -993,8 +994,27 @@ function act_separate_(p){
   p.separated = !p.separated; if(!p.separated) p.servant_loc = p.location;
   updateRow_(SHEETS.BATTLE, p._row, { separated:p.separated, servant_loc:p.servant_loc });
   return p.separated
-    ? '我命從者鎮守「'+locName_(p.servant_loc)+'」——此後我移動時，從者將留守此地、不再隨行（我將失去護衛，務必小心）。'
-    : '從者回到我身邊，恢復同行。';
+    ? '我與從者分離行動——從者暫留「'+locName_(p.servant_loc)+'」。此後我移動時從者不再隨行（我將失去護衛）；可用「派駐從者」單獨指揮其前往他處，或「召回」會合。'
+    : '從者回到我身邊，恢復同行與護衛。';
+}
+
+// 派駐從者：分離狀態下，單獨指揮從者移動到（從者所在的）相鄰地——遠程作戰/站崗/攔截，御主可留在安全處
+function act_dispatch_(p, clock, hero, locId){
+  if(!p.separated) return '（從者就在身邊；需先「分離」才能單獨派駐。）';
+  if(clock.ap<1) return '（行動點不足，請睡覺恢復。）';
+  var cur = findOne_(SHEETS.MAP, { id: p.servant_loc });
+  if(!cur || (cur.adj||[]).indexOf(locId)<0) return '（該地與從者目前所在不相鄰，無法直接前往。）';
+  p.servant_loc = locId;
+  updateRow_(SHEETS.BATTLE, p._row, { servant_loc:p.servant_loc });
+  var hereNpcs = findRows_(SHEETS.BATTLE, { game_id:p.game_id })
+    .filter(function(r){ return r.is_player!==true && r.alive && r.servant_loc===locId; });
+  markDiscovered_(p, hereNpcs.map(function(r){ return r.slot; }));
+  advanceTime_(p, clock, hero, 1);
+  var dest = findOne_(SHEETS.MAP, { id: locId }) || { name: locId, desc:'' };
+  var enc = hereNpcs.length ? ('\n該地有：'+hereNpcs.map(function(r){ return heroCls_(r.servant_id)+'（'+r.master_name+'）'; }).join('、')) : '';
+  return { kind:'scene',
+    prompt:'我（'+p.master_name+'）透過心靈感應，命從者單獨潛行/挺進至「'+dest.name+'」。'+dest.desc+enc+' 我自己仍留在「'+locName_(p.location)+'」。請寫一段從者單獨行動、與主人遙相呼應的敘述。',
+    suffix: enc ? ('\n\n【從者遭遇】'+enc.replace('\n該地有：','')) : '' };
 }
 
 // 主動撤退：帶從者退往相鄰地脫離交鋒（耗 1 AP，不耗令咒；撤退即與從者合流）

@@ -457,6 +457,7 @@ var App = {
 
   // ---------- 動作 ----------
   act:function(type,extra){
+    if(type!=='dispatch') App._dispatch=false;   // 非派駐動作 → 退出派駐模式
     var sub=document.getElementById('action-sub'); if(sub){ sub.classList.add('hidden'); } App._group=null;  // 動作後收起展開的分類
     var a=Object.assign({game_id:App.S.game_id,type:type},extra||{}); busy(true);
     gs('doAction',a).then(function(r){ busy(false);
@@ -488,7 +489,20 @@ var App = {
     App.S=null; if(App.acc) App.acc.current_game='';   // 結局後存檔已清空
     App.go('scr-gameover'); },
   toMenu:function(){ App.S=null; App.refreshMenu(); App.go('scr-menu'); },
-  move:function(id){ if(App._panMoved){ App._panMoved=false; return; } App.act('move',{locId:id}); },
+  move:function(id){ if(App._panMoved){ App._panMoved=false; return; }
+    if(App._dispatch){ App._dispatch=false; App.act('dispatch',{locId:id}); return; }   // 派駐模式：點地圖把從者派過去
+    App.act('move',{locId:id}); },
+  // 分離後可用：把從者單獨派駐到相鄰地（再點地圖選目的地），或再按取消
+  toggleDispatch:function(){ App._dispatch=!App._dispatch;
+    var sub=document.getElementById('action-sub'); if(sub) sub.innerHTML=App.actGroupHtml();
+    App.renderMap(); },
+  actGroupHtml:function(){ var sep=App.S.player.servant.separated, dz=App._dispatch;
+    var b=function(type,label){ return '<button class="btn sm" onclick="App.act(\''+type+'\')">'+label+'</button>'; };
+    var h=b('scout','🔍 偵查')+'<button class="btn sm" onclick="App.act(\'separate\')">'+(sep?'🔗 召回從者（會合）':'🔀 分離（從者留守）')+'</button>';
+    if(sep) h+='<button class="btn sm'+(dz?' primary':'')+'" onclick="App.toggleDispatch()">'+(dz?'✖ 取消派駐':'➡ 派駐從者')+'</button>';
+    h+=b('sleep','🌙 睡覺');
+    if(sep) h+='<span style="width:100%;font-size:11px;color:'+(dz?'var(--gold2)':'var(--dim)')+'">從者所在：'+App.locName(App.S.player.servant.loc)+(dz?'　↳ 點地圖上相鄰地，派從者前往':'')+'</span>';
+    return h; },
   // 點分類 → 在 #action-sub 展開該類動作；再點同類收起
   openGroup:function(k){
     var sub=document.getElementById('action-sub');
@@ -499,7 +513,7 @@ var App = {
     if(k==='fight')      html=b('attack','⚔ 攻擊')+b('np','💥 寶具')+b('retreat','🏃 撤退');
     else if(k==='mana')  html=b('feed','💧 供給')+b('mana','❤ 補魔')+b('hunt','🩸 獵魔');
     else if(k==='base')  html=b('claim','🏠 設為據點')+b('reinforce','🛡 加固結界');
-    else if(k==='act')   html=b('scout','🔍 偵查')+b('separate','🔀 分離/合體')+b('sleep','🌙 睡覺');
+    else if(k==='act')   html=App.actGroupHtml();
     else if(k==='skill') html=App.skillButtons();
     else if(k==='seal')  html=App.sealButtons();
     sub.innerHTML=html; sub.classList.remove('hidden'); },
@@ -561,20 +575,21 @@ var App = {
       return '<div class="stat-row" style="'+st+'"><span'+(e.isPlayer?' style="color:var(--gold2)"':'')+'>'+e.cls+' '+where+cd+'</span><span style="color:var(--dim)">'+(e.isPlayer?'（你）':'')+e.master+'</span></div>'; }).join('');
     if(unknown>0) rows+='<div class="stat-row" style="color:#5b5470;font-size:12px"><span>？ 未現蹤</span><span>尚有 '+unknown+' 騎從者潛伏（偵查以揭露）</span></div>';
     document.getElementById('roster-box').innerHTML=rows; },
-  renderMap:function(){ var L=App.STATIC.locations,here=App.S.player.master.location;
-    var hereLoc=L.filter(function(x){return x.id===here;})[0]||{adj:[]};
+  renderMap:function(){ var L=App.STATIC.locations,here=App.S.player.master.location,sv=App.S.player.servant;
+    var dispatch=App._dispatch && sv.separated;                          // 派駐模式：以從者所在為移動原點
+    var originId=dispatch?sv.loc:here;
+    var hereLoc=L.filter(function(x){return x.id===originId;})[0]||{adj:[]};
     var bg='<rect width="700" height="440" fill="#0a0810"/>'+
       '<ellipse cx="520" cy="210" rx="170" ry="135" fill="#13243f" opacity=".4"/>'+
       '<ellipse cx="270" cy="360" rx="150" ry="115" fill="#10261a" opacity=".4"/>'+
       '<path d="M360,-10 C420,110 340,190 395,290 C430,360 375,420 415,450" fill="none" stroke="#1b3a55" stroke-width="16" opacity=".5"/>';
     var lines=L.map(function(l){ return (l.adj||[]).map(function(a){ var t=L.filter(function(x){return x.id===a;})[0];
       if(!t||a<l.id)return ''; return '<line x1="'+l.x+'" y1="'+l.y+'" x2="'+t.x+'" y2="'+t.y+'" stroke="#2a2440" stroke-width="2"/>'; }).join(''); }).join('');
-    var dots=L.map(function(l){ var cur=l.id===here,re=(hereLoc.adj||[]).indexOf(l.id)>=0;
+    var dots=L.map(function(l){ var cur=l.id===originId,re=(hereLoc.adj||[]).indexOf(l.id)>=0;
       var right=l.x>515, tx=right?(l.x-14):(l.x+14), anc=right?'end':'start';   // 右側地點標籤靠左放，避免超出邊界
       return '<g class="loc '+(cur?'here':'')+'" onclick="App.move(\''+l.id+'\')" opacity="'+(cur||re?1:.55)+'">'+
         '<circle cx="'+l.x+'" cy="'+l.y+'" r="10" class="danger-'+l.danger+'"/>'+
         '<text x="'+tx+'" y="'+(l.y+5)+'" text-anchor="'+anc+'">'+l.name+'</text></g>'; }).join('');
-    var sv=App.S.player.servant;
     var sm=''; if(sv.separated){ var sl=L.filter(function(x){return x.id===sv.loc;})[0];
       if(sl) sm='<g><circle cx="'+sl.x+'" cy="'+sl.y+'" r="14" fill="none" stroke="#d65c5c" stroke-width="2" stroke-dasharray="4 3"/><text x="'+(sl.x-30)+'" y="'+(sl.y-16)+'" style="fill:#d65c5c;font-size:13px">⚔從者</text></g>'; }
     if(!App.mapVB) App.mapVB={x:0,y:0,w:700,h:440};
