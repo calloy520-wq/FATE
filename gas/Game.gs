@@ -361,9 +361,9 @@ function doAction(a){
     // 瀕死令咒救援：從者靈基崩解在即、仍有令咒、且玩家尚未明確「接受命運」→ 先不結算死亡，
     // 回 awaitSeal 讓玩家抉擇（燃令咒・靈基修復 或 接受命運）。
     var awaitSeal = null, over = null;
-    if(endR==='death' && (pf.sv_hp<=0 || pf.master_hp<=0) && (pf.seals||0)>0 && a.type!=='accept_death'){
-      var dyingWho = pf.sv_hp<=0 ? '我的從者靈基崩解在即' : '我身受重創、命懸一線';
-      awaitSeal = { msg:'⚠ '+dyingWho+'！是否燃燒令咒・靈基修復（回血回魔）挽救？（尚餘 '+pf.seals+' 道令咒）' };
+    // 令咒命令的是「從者」：只能在從者靈基崩解時燃咒修復；御主自身肉身受死，令咒救不了（直接結算）。
+    if(endR==='death' && pf.sv_hp<=0 && pf.master_hp>0 && (pf.seals||0)>0 && a.type!=='accept_death'){
+      awaitSeal = { msg:'⚠ 我的從者靈基崩解在即！是否燃燒令咒・重塑從者靈基（回血回魔）挽救？（尚餘 '+pf.seals+' 道令咒）' };
     }
     // 玩家側不做「無御主續戰」：御主或從者殞落 → 直接結算（老虎道場）。
     if(endR){
@@ -1140,7 +1140,7 @@ function act_seal_(rows, p, clock, hero, cmd){
   p.seals--;
   var msg='';   // string 或 combat spec（order/np）
   switch(cmd){
-    case 'heal': p.sv_hp=p.sv_hp_max; p.sv_mp=p.sv_mp_max; p.master_hp=p.master_hp_max; msg='令咒燃燒，魔力重塑靈基——從者 HP/魔力完全回復，御主傷勢亦癒。'; break;
+    case 'heal': p.sv_hp=p.sv_hp_max; p.sv_mp=p.sv_mp_max; msg='令咒燃燒，魔力重塑「從者」靈基——從者 HP／魔力完全回復。（令咒命令的是從者，無法治癒御主肉身。）'; break;
     case 'order': if(p.bond<60){ p.bond=Math.max(0,p.bond-5); } msg=act_combat_(rows,p,clock,hero,'seal',false); break;
     case 'np':   if(p.bond<60){ p.bond=Math.max(0,p.bond-5); } msg=act_combat_(rows,p,clock,hero,'sealnp',false); break;
     case 'recall': p.separated=false; p.servant_loc=p.location;
