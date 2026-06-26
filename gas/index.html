@@ -6,7 +6,11 @@
 <style>
   :root{--bg:#0d0b14;--panel:#16131f;--panel2:#1f1a2b;--line:#2e2740;--gold:#c8a24a;--gold2:#e7c873;
     --red:#a33b3b;--red2:#d65c5c;--txt:#e8e4f0;--dim:#9b93ad;--blue:#5c84d6;--good:#5fae6e;}
-  *{box-sizing:border-box}
+  *{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:#2a2440 transparent}
+  ::-webkit-scrollbar{width:7px;height:7px}
+  ::-webkit-scrollbar-thumb{background:#2a2440;border-radius:6px}
+  ::-webkit-scrollbar-thumb:hover{background:#3a3450}
+  ::-webkit-scrollbar-track{background:transparent}
   body{margin:0;font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
     background:radial-gradient(1200px 800px at 70% -10%,#1a1326,#0d0b14 60%);color:var(--txt);height:100vh;overflow:hidden}
   h1,h2{font-weight:700;letter-spacing:.04em}
@@ -28,7 +32,7 @@
   .btn:disabled{opacity:.4;cursor:not-allowed}
   .menu-list{display:flex;flex-direction:column;gap:12px;width:300px;margin-top:24px}
   .soon{font-size:11px;color:var(--dim);border:1px dashed var(--line);border-radius:6px;padding:2px 8px}
-  #scr-game{padding:0;display:grid;grid-template-columns:280px 1fr 440px}
+  #scr-game{padding:0;display:grid;grid-template-columns:280px 1fr 480px}
   .col{height:100vh;overflow-y:auto;border-right:1px solid var(--line);padding:14px}
   .col:last-child{border-right:none;border-left:1px solid var(--line)}
   .sec-h{font-size:12px;color:var(--gold);letter-spacing:.2em;border-bottom:1px solid var(--line);padding-bottom:6px;margin:18px 0 10px}
@@ -390,7 +394,7 @@ var App = {
     App.S=null; if(App.acc) App.acc.current_game='';   // 結局後存檔已清空
     App.go('scr-gameover'); },
   toMenu:function(){ App.S=null; App.refreshMenu(); App.go('scr-menu'); },
-  move:function(id){ App.act('move',{locId:id}); },
+  move:function(id){ if(App._panMoved){ App._panMoved=false; return; } App.act('move',{locId:id}); },
   quick:function(a){
     if(a.indexOf('偵查')>=0) return App.act('scout');
     if(a.indexOf('攻擊')>=0) return App.act('attack');
@@ -472,8 +476,39 @@ var App = {
         '<text x="'+tx+'" y="'+(l.y+5)+'" text-anchor="'+anc+'">'+l.name+'</text></g>'; }).join('');
     var sv=App.S.player.servant;
     var sm=''; if(sv.separated){ var sl=L.filter(function(x){return x.id===sv.loc;})[0];
-      if(sl) sm='<g><circle cx="'+sl.x+'" cy="'+sl.y+'" r="14" fill="none" stroke="#d65c5c" stroke-width="2" stroke-dasharray="4 3"/><text x="'+(sl.x-30)+'" y="'+(sl.y-16)+'" style="fill:#d65c5c;font-size:11px">⚔從者</text></g>'; }
-    document.getElementById('map-wrap').innerHTML='<svg viewBox="0 0 700 440">'+bg+lines+dots+sm+'</svg>'; },
+      if(sl) sm='<g><circle cx="'+sl.x+'" cy="'+sl.y+'" r="14" fill="none" stroke="#d65c5c" stroke-width="2" stroke-dasharray="4 3"/><text x="'+(sl.x-30)+'" y="'+(sl.y-16)+'" style="fill:#d65c5c;font-size:13px">⚔從者</text></g>'; }
+    if(!App.mapVB) App.mapVB={x:0,y:0,w:700,h:440};
+    var v=App.mapVB;
+    document.getElementById('map-wrap').innerHTML=
+      '<div style="position:relative">'+
+        '<svg id="map-svg" style="cursor:grab" viewBox="'+v.x+' '+v.y+' '+v.w+' '+v.h+'">'+bg+lines+dots+sm+'</svg>'+
+        '<div style="position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:5px">'+
+          '<button class="btn sm ghost" style="padding:3px 9px;font-size:16px;line-height:1" onclick="App.mapZoom(1.3)">＋</button>'+
+          '<button class="btn sm ghost" style="padding:3px 9px;font-size:16px;line-height:1" onclick="App.mapZoom(0.77)">－</button>'+
+          '<button class="btn sm ghost" style="padding:3px 7px;font-size:12px;line-height:1" onclick="App.mapReset()">⟲</button>'+
+        '</div>'+
+      '</div>';
+    App._initMapControls(); },
+  // 地圖縮放（以中心為基準）／重設／拖曳平移；viewBox 狀態存在 App.mapVB，跨重繪保留
+  mapZoom:function(f){ var v=App.mapVB||(App.mapVB={x:0,y:0,w:700,h:440});
+    var cx=v.x+v.w/2, cy=v.y+v.h/2, nw=Math.max(200,Math.min(900,v.w/f)), nh=nw*(440/700);
+    v.w=nw; v.h=nh; v.x=cx-nw/2; v.y=cy-nh/2;
+    var s=document.getElementById('map-svg'); if(s) s.setAttribute('viewBox',v.x+' '+v.y+' '+v.w+' '+v.h); },
+  mapReset:function(){ App.mapVB={x:0,y:0,w:700,h:440}; var s=document.getElementById('map-svg'); if(s) s.setAttribute('viewBox','0 0 700 440'); },
+  _initMapControls:function(){
+    if(App._mapBound) return; App._mapBound=true;
+    var drag=null;
+    function pt(e){ return e.touches&&e.touches[0]?e.touches[0]:e; }
+    function start(e){ var svg=document.getElementById('map-svg'); if(!svg||!svg.contains(e.target))return; var p=pt(e); drag={x:p.clientX,y:p.clientY}; App._panMoved=false; }
+    function move(e){ if(!drag)return; var svg=document.getElementById('map-svg'); if(!svg)return; var p=pt(e),r=svg.getBoundingClientRect(),v=App.mapVB;
+      if(Math.abs(p.clientX-drag.x)+Math.abs(p.clientY-drag.y)>3) App._panMoved=true;
+      v.x-=(p.clientX-drag.x)*(v.w/r.width); v.y-=(p.clientY-drag.y)*(v.h/r.height);
+      drag.x=p.clientX; drag.y=p.clientY; svg.setAttribute('viewBox',v.x+' '+v.y+' '+v.w+' '+v.h);
+      if(e.touches) e.preventDefault(); }
+    function end(){ drag=null; }
+    document.addEventListener('mousedown',start); document.addEventListener('mousemove',move); document.addEventListener('mouseup',end);
+    document.addEventListener('touchstart',start,{passive:true}); document.addEventListener('touchmove',move,{passive:false}); document.addEventListener('touchend',end);
+    var mw=document.getElementById('map-wrap'); if(mw) mw.addEventListener('wheel',function(e){ if(!document.getElementById('map-svg'))return; e.preventDefault(); App.mapZoom(e.deltaY<0?1.15:0.87); },{passive:false}); },
   renderLoc:function(){ var l=App.STATIC.locations.filter(function(x){return x.id===App.S.player.master.location;})[0];
     var d={safe:'安全',mid:'中等',high:'危險'};
     document.getElementById('loc-info').innerHTML=l?('<b style="color:var(--gold2)">'+l.name+'</b>（危險度：'+d[l.danger]+'・靈脈：'+l.leyline+'）<br>'+l.desc):''; },

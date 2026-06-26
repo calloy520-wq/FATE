@@ -796,7 +796,9 @@ function act_reinforce_(p, hero){
 function act_separate_(p){
   p.separated = !p.separated; if(!p.separated) p.servant_loc = p.location;
   updateRow_(SHEETS.BATTLE, p._row, { separated:p.separated, servant_loc:p.servant_loc });
-  return p.separated ? '從者鎮守 '+p.servant_loc+'，我退往後方（失去護衛，務必小心）。' : '從者回到我身邊，恢復合體行動。';
+  return p.separated
+    ? '我命從者鎮守「'+locName_(p.servant_loc)+'」——此後我移動時，從者將留守此地、不再隨行（我將失去護衛，務必小心）。'
+    : '從者回到我身邊，恢復同行。';
 }
 
 // 主動撤退：帶從者退往相鄰地脫離交鋒（耗 1 AP，不耗令咒；撤退即與從者合流）
