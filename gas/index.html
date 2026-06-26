@@ -441,7 +441,10 @@ var App = {
   me:function(t){ App._push('me',App.acc?App.acc.name:'你',t); },
   sys:function(t){ App._push('sys','',t); },
   _push:function(cls,who,t){ var log=document.getElementById('log'),d=document.createElement('div');
-    d.className='msg '+cls; d.innerHTML=(who?'<div class="who">'+who+'</div>':'')+t;
+    d.className='msg '+cls;
+    // 用 textContent 避免 AI 敘述或玩家暱稱含 < > 等字元時破版／注入
+    if(who){ var w=document.createElement('div'); w.className='who'; w.textContent=who; d.appendChild(w); }
+    var body=document.createElement('div'); body.textContent=t; d.appendChild(body);
     log.appendChild(d); log.scrollTop=log.scrollHeight; },
   heroById:function(id){ return App.STATIC.heroes.filter(function(h){return h.id===id;})[0]; },
   locName:function(id){ var l=App.STATIC.locations.filter(function(x){return x.id===id;})[0]; return l?l.name:id; },

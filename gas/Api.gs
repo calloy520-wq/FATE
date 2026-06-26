@@ -58,6 +58,7 @@ function clearGames(){
   [SHEETS.BATTLE, SHEETS.CLOCK, SHEETS.EVENTS, SHEETS.MEMORY, SHEETS.ACCOUNTS].forEach(function(name){
     var s = sheet_(name); var last = s.getLastRow();
     if(last>1) s.getRange(2,1,last-1,s.getLastColumn()).clearContent();
+    invalidate_(name);
   });
   Logger.log('已清空動態存檔。');
 }

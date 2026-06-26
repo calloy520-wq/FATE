@@ -28,13 +28,15 @@ function npcAllied_(a, b){
 function login(name){
   name = (name||'').trim();
   if(!name) return { error:'請輸入帳號名稱' };
-  var acc = findOne_(SHEETS.ACCOUNTS, { name: name });
-  if(!acc){
-    acc = { ms_id:'ms_'+Date.now(), name:name, created:new Date().toISOString(),
-            current_game:'', inventory:[], settings:{ manaRating:'adult-fade' } };
-    appendObj_(SHEETS.ACCOUNTS, acc);
-  }
-  return { ms_id: acc.ms_id, name: acc.name, current_game: acc.current_game };
+  return withLock_(function(){
+    var acc = findOne_(SHEETS.ACCOUNTS, { name: name });
+    if(!acc){
+      acc = { ms_id:'ms_'+Utilities.getUuid(), name:name, created:new Date().toISOString(),
+              current_game:'', inventory:[], settings:{ manaRating:'adult-fade' } };
+      appendObj_(SHEETS.ACCOUNTS, acc);
+    }
+    return { ms_id: acc.ms_id, name: acc.name, current_game: acc.current_game };
+  });
 }
 
 // ---------- 靜態資料給前端 ----------
@@ -60,17 +62,19 @@ function summonByName(opts){
   // 已有 → 直接用
   var exist = findRows_(SHEETS.HEROES, function(h){ return h.cls===cls && String(h.realName).indexOf(name)>=0; })[0];
   if(exist) return { servant_id: exist.servant_id, generated:false };
-  // 生成
+  // 生成（AI 呼叫較慢，放在鎖外；只有「寫入英靈殿」需要鎖）
   var g = generateServant_(name, cls, opts.desc);
   if(g.error) return { error:'AI 生成失敗：'+g.error };
+  return withLock_(function(){
   var sid = name+'-'+cls;
-  if(findOne_(SHEETS.HEROES, { servant_id: sid })) sid = sid+'-'+Date.now();
+  if(findOne_(SHEETS.HEROES, { servant_id: sid })) sid = sid+'-'+Utilities.getUuid().slice(0,8);
   appendObj_(SHEETS.HEROES, {
     servant_id:sid, cls:cls, realName:name, wars:['自訂'],
     筋力:g.six.筋力, 耐久:g.six.耐久, 敏捷:g.six.敏捷, 魔力:g.six.魔力, 幸運:g.six.幸運, 寶具:g.six.寶具,
     classSkills:g.classSkills, skills:g.skills, traits:g.traits, np:g.np, persona:g.persona, source:'ai_gen'
   });
   return { servant_id: sid, generated:true };
+  });
 }
 
 // ---------- 開局 ----------
@@ -79,6 +83,7 @@ function summonByName(opts){
  *              masterIndex, servantId, profile:{name,circuits,magic,melee,magic_rank}}
  */
 function newGame(opts){
+  var st = withLock_(function(){
   // 開新局前，先清掉該帳號未完成的舊存檔（避免重複開局堆出多個戰場）
   var acc0 = findOne_(SHEETS.ACCOUNTS, { ms_id: opts.ms_id });
   if(acc0 && acc0.current_game) clearGame_(acc0.current_game);
@@ -87,7 +92,7 @@ function newGame(opts){
   readAll_(SHEETS.HEROES).forEach(function(h){ heroesById[h.servant_id] = h; });
   var mastersByKey = {};   // 御主殿（正典御主資料）
   readAll_(SHEETS.MASTERS).forEach(function(m){ mastersByKey[m.name+'|'+m.war] = m; });
-  var gameId = 'g_'+Date.now();
+  var gameId = 'g_'+Utilities.getUuid();   // 每場唯一，避免多人同毫秒開局撞號共用戰場
   var parts = [];   // 參戰者描述
 
   function profileMaster(name, isPlayer, profile){
@@ -177,9 +182,16 @@ function newGame(opts){
   updateWhere_(SHEETS.ACCOUNTS, { ms_id:opts.ms_id }, { current_game:gameId, settings:{ wish:wish, manaRating:'adult-fade' } });
 
   logEvent_(gameId, 1, '20:00', 'start', 'START', 'slot_0', '', '聖杯戰爭開始。', true, 2);
-  var st = getState(gameId);
-  // 召喚開場（依從者個性 + 御主 + 願望）
-  if(pp) st.opening = summonOpening_(heroesById[pp.servantId], pp.master, wish);
+  var s = getState(gameId);
+  // 開場敘述的素材先帶出來，等釋放寫入鎖後再呼叫 LLM（避免 LLM 期間卡住其他玩家）
+  if(pp){ s._openHero = heroesById[pp.servantId]; s._openMaster = pp.master; s._openWish = wish; }
+  return s;
+  });  // ← 釋放寫入鎖
+
+  if(st && !st.error && st._openHero){
+    st.opening = summonOpening_(st._openHero, st._openMaster, st._openWish);
+  }
+  if(st){ delete st._openHero; delete st._openMaster; delete st._openWish; }
   return st;
 }
 
@@ -208,11 +220,13 @@ function getState(gameId){
 
 // 進行中存檔讀取（登入後「繼續遊戲」用）
 function resumeGame(msId){
-  var acc = findOne_(SHEETS.ACCOUNTS, { ms_id: msId });
-  if(!acc || !acc.current_game) return { error:'沒有進行中的存檔。' };
-  var rows = findRows_(SHEETS.BATTLE, { game_id: acc.current_game });
-  if(!rows.length){ updateWhere_(SHEETS.ACCOUNTS, { ms_id:msId }, { current_game:'' }); return { error:'存檔已失效，請開新局。' }; }
-  return getState(acc.current_game);
+  return withLock_(function(){
+    var acc = findOne_(SHEETS.ACCOUNTS, { ms_id: msId });
+    if(!acc || !acc.current_game) return { error:'沒有進行中的存檔。' };
+    var rows = findRows_(SHEETS.BATTLE, { game_id: acc.current_game });
+    if(!rows.length){ updateWhere_(SHEETS.ACCOUNTS, { ms_id:msId }, { current_game:'' }); return { error:'存檔已失效，請開新局。' }; }
+    return getState(acc.current_game);
+  });
 }
 
 // 戰爭迷霧：發現紀錄（存玩家列 discovered，JSON 陣列 round-trip）
@@ -231,7 +245,7 @@ function playerView_(p){
     master:{ name:p.master_name, magic:p.magic, hp:p.master_hp, hpMax:p.master_hp_max,
              mp:p.master_mp, mpMax:p.master_mp_max, seals:p.seals, melee:p.melee, magicRank:p.magic_rank,
              circuits:p.circuits, location:p.location },
-    servant:{ cls:p.servant_id ? hero.cls : '?', servantId:p.servant_id, realName:hero?hero.realName:'',
+    servant:{ cls:hero ? hero.cls : '？', servantId:p.servant_id, realName:hero?hero.realName:'',
               trueNameKnown:p.true_name_known, hp:p.sv_hp, hpMax:p.sv_hp_max, mp:p.sv_mp, mpMax:p.sv_mp_max,
               upkeep:p.upkeep, bond:p.bond, six: hero?heroFromRow_(hero).six:{}, np:hero?hero.np:'',
               skills: hero?heroFromRow_(hero).skills:[], classSkills: hero?heroFromRow_(hero).classSkills:[],
@@ -255,7 +269,7 @@ function playerEconomy_(p){
 
 // ---------- 動作 ----------
 /** @param a {game_id, type, ...payload} */
-function doAction(a){
+function doAction(a){ return withLock_(function(){
   var gameId = a.game_id;
   var rows = findRows_(SHEETS.BATTLE, { game_id: gameId });
   var clock = findOne_(SHEETS.CLOCK, { game_id: gameId });
@@ -321,6 +335,7 @@ function doAction(a){
     events: events.filter(function(e){ return e.global || e.atPlayer; }).map(function(e){ return e.text; }),
     gameOver: over
   };
+  });
 }
 
 // ---------- 結局：願望假夢 / 奪杯 → 老虎道場 → 寫歷史 → 清空該場 ----------
@@ -367,6 +382,7 @@ function rewriteSheet_(name, objs){
     var rows = objs.map(function(o){ return toRow_(name, o); });
     s.getRange(2,1,rows.length,HEADERS[name].length).setValues(rows);
   }
+  invalidate_(name);
 }
 
 // 歷史紀錄（登入後選單用）
@@ -519,7 +535,7 @@ function act_move_(p, clock, hero, locId, mem){
     .filter(function(r){ return r.is_player!==true && r.alive && r.servant_loc===hloc; });
   markDiscovered_(p, hereNpcs.map(function(r){ return r.slot; }));
   advanceTime_(p, clock, hero, 1);
-  var dest = findOne_(SHEETS.MAP, { id: locId });
+  var dest = findOne_(SHEETS.MAP, { id: locId }) || { name: locId, desc: '' };
   var enc = hereNpcs.length ? ('\n此處有：'+hereNpcs.map(function(r){ return heroCls_(r.servant_id)+'（'+r.master_name+'）'; }).join('、')) : '';
   return narrateScene('你（'+p.master_name+'）移動到了「'+dest.name+'」。'+dest.desc+enc+' 請寫一段抵達敘述。', mem)
          + (enc ? ('\n\n【遭遇】'+enc.replace('\n此處有：','')) : '');
@@ -535,11 +551,16 @@ function act_combat_(rows, p, clock, hero, mode, costAP, mem){
                     : '（場上已無可交戰的對手。）';
   }
   markDiscovered_(p, [enemyRow.slot]);
-  if(mode==='np' && p.sv_mp < Math.round(p.sv_mp_max*TUNING.NP_MP)) return '（魔力不足，無法解放寶具——可用令咒強制或先補魔。）';
+  // 寶具的魔力門檻要對齊「實際耗魔」＝普通交戰 + 寶具額外（否則剛好過門檻卻扣到歸零）
+  if(mode==='np' && p.sv_mp < Math.round(p.sv_mp_max*(TUNING.COMBAT_MP+TUNING.NP_MP)))
+    return '（魔力不足，無法解放寶具——可用令咒強制或先補魔。）';
   if(costAP && clock.ap<1) return '（行動點不足，請睡覺恢復。）';
 
-  var A = Object.assign(heroFromRow_(hero), { hp:p.sv_hp, mp:p.sv_mp, mpMax:p.sv_mp_max });
+  // 從者資料缺失（例如重建資料庫後 AI 生成英靈被清掉）→ 不要崩潰，給明確提示
+  if(!hero) return '（找不到你的從者資料，存檔可能已損毀，建議開新局。）';
   var eHero = findOne_(SHEETS.HEROES, { servant_id: enemyRow.servant_id });
+  if(!eHero) return '（找不到敵方從者資料，無法交戰。）';
+  var A = Object.assign(heroFromRow_(hero), { hp:p.sv_hp, mp:p.sv_mp, mpMax:p.sv_mp_max });
   var B = Object.assign(heroFromRow_(eHero), { hp:enemyRow.sv_hp });
 
   var res = resolveCombat_(A, B, mode);
@@ -616,6 +637,12 @@ function act_sleep_(p, clock, mem){
 
 function act_seal_(rows, p, clock, hero, cmd){
   if(p.seals<=0) return '（令咒已用盡。）';
+  // 戰鬥類令咒：先確認當地有敵人，否則不浪費這道珍貴的令咒（也不扣好感）
+  if(cmd==='order' || cmd==='np'){
+    var here = p.separated ? p.servant_loc : p.location;
+    var hasEnemy = rows.some(function(r){ return r.is_player!==true && r.alive===true && r.servant_loc===here; });
+    if(!hasEnemy) return '（你的所在地沒有敵蹤——令咒未動用。先偵查或移動到敵人所在地再使用。）';
+  }
   p.seals--;
   var msg='';
   switch(cmd){
@@ -637,12 +664,14 @@ function act_seal_(rows, p, clock, hero, cmd){
 // ---------- 記憶/上下文（讓 AI 知道過去發生什麼）----------
 // 撈最近「玩家可見事件 + 已建立事實」組成 context，注入每次敘述
 function gameContext_(gameId){
-  var evs = findRows_(SHEETS.EVENTS, { game_id: gameId }).filter(function(e){
-    return e.is_global===true || String(e.actor_id).indexOf('slot_0')>=0 || String(e.target_id).indexOf('slot_0')>=0;
-  }).sort(function(a,b){ return (a.write_ts||0)-(b.write_ts||0); });
-  evs = evs.slice(-6);
-  var facts = findRows_(SHEETS.MEMORY, { game_id: gameId })
-    .sort(function(a,b){ return (a.write_ts||0)-(b.write_ts||0); }).slice(-6);
+  // 窗口讀取最後一段事件/記憶（消除每回合整表掃描的成長隱憂）；務必用 game_id 過濾，
+  // 多人共用同一張表時，過濾才是「不讀到別人資料」的保證，窗口只是限制讀取量。
+  // 窗口取得比 6 大很多（120/80），即使多位玩家事件交錯，本場最近 6 筆通常仍落在窗口內。
+  var evs = readTail_(SHEETS.EVENTS, 120).filter(function(e){
+    return e.game_id===gameId &&
+      (e.is_global===true || String(e.actor_id).indexOf('slot_0')>=0 || String(e.target_id).indexOf('slot_0')>=0);
+  }).slice(-6);
+  var facts = readTail_(SHEETS.MEMORY, 80).filter(function(f){ return f.game_id===gameId; }).slice(-6);
   var lines = [];
   if(evs.length){ lines.push('近期事件：');
     evs.forEach(function(e){ lines.push('・第'+e.day_count+'天 '+e.time_hour+' '+e.log_text); }); }
@@ -652,7 +681,7 @@ function gameContext_(gameId){
 }
 function recordFact_(gameId, turn, entity, content, importance){
   if(!content) return;
-  appendObj_(SHEETS.MEMORY, { event_id:'m_'+Date.now()+'_'+Math.floor(Math.random()*1000),
+  appendObj_(SHEETS.MEMORY, { event_id:'m_'+Utilities.getUuid(),
     game_id:gameId, turn:turn, entity:String(entity||'').slice(0,20), fact_type:'note',
     content:String(content).slice(0,120), importance:(importance||0), write_ts:Date.now() });
 }
@@ -660,7 +689,7 @@ function recordFact_(gameId, turn, entity, content, importance){
 // ---------- 事件日誌 ----------
 function logEvent_(gameId, day, hour, locId, type, actor, target, text, isGlobal, importance){
   appendObj_(SHEETS.EVENTS, {
-    event_id:'e_'+Date.now()+'_'+Math.floor(Math.random()*1000), write_ts:Date.now(),
+    event_id:'e_'+Utilities.getUuid(), write_ts:Date.now(),
     game_id:gameId, day_count:day, time_hour:hour, location_id:locId, event_type:type,
     actor_id:actor, target_id:target, log_text:text, is_global:isGlobal, importance:importance
   });
