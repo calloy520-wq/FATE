@@ -431,7 +431,7 @@ var App = {
     document.getElementById('master-box').innerHTML=
       '<div style="font-size:16px;color:var(--gold2)">'+m.name+'</div>'+
       '<div style="font-size:11px;color:var(--dim)">'+m.magic+'｜體術 '+m.melee+'｜魔術 '+m.magicRank+'</div>'+
-      bar('HP',m.hp,m.hpMax,'hp')+bar('魔力',m.mp,m.mpMax,'mp')+
+      bar('HP',m.hp,m.hpMax,'hp')+bar('迴路魔力',m.mp,m.mpMax,'mp')+
       '<div class="stat-row"><span>令咒</span><span style="color:var(--red2)">'+'❖'.repeat(m.seals)+'</span></div>'; },
   renderServant:function(){ var s=App.S.player.servant,e=App.S.economy;
     var six=Object.keys(s.six).map(function(k){return '<div class="g"><b>'+s.six[k]+'</b><span>'+k+'</span></div>';}).join('');
@@ -443,7 +443,7 @@ var App = {
       '<div style="margin:3px 0 5px;font-size:12px;line-height:1.5;color:#c4b1e6;font-style:italic">'+
         (s.condition?('〔'+App.esc(s.condition)+'〕'):'<span style="color:var(--dim);font-style:normal">（靜候）</span>')+'</div>'+
       '<div style="font-size:12px;color:var(--dim)">真名：'+(s.trueNameKnown?s.realName:'？？？')+(s.align?('　・　'+App.esc(s.align)):'')+'</div>'+
-      bar('HP',s.hp,s.hpMax,'hp')+bar('魔力',s.mp,s.mpMax,'mp')+
+      bar('HP',s.hp,s.hpMax,'hp')+bar('靈基魔力',s.mp,s.mpMax,'mp')+
       '<div class="stat-row"><span>好感度</span><span style="color:#e58aa8">'+s.bond+'/100</span></div><div class="bar bond"><i style="width:'+s.bond+'%"></i></div>'+
       '<div class="six">'+six+'</div><div style="margin-top:8px">'+tags+'</div>'+
       '<div style="font-size:12px;color:var(--dim);margin-top:8px">寶具：'+s.np+'</div>'+

@@ -52,7 +52,8 @@ const STATIC_SHEETS = [SHEETS.HEROES, SHEETS.MASTERS, SHEETS.MAP, SHEETS.ITEMS, 
 const TUNING = {
   // 數值推導
   HP_K: 4, HP_BASE: 90,          // HP上限 = 耐久*HP_K + HP_BASE（A耐久≈290、C≈210，戰鬥更耐打）
-  MP_K: 2, MP_BASE: 40,          // MP上限 = 魔力*MP_K + MP_BASE
+  MP_K: 2, MP_BASE: 40,          // 從者靈基魔力上限 = 魔力*MP_K + MP_BASE
+  MASTER_MP_K: 2,                // 御主迴路魔力上限 = 迴路*MASTER_MP_K（供給/加固用，別灌太大才有資源管理）
   UPKEEP_DIV: 10,                // 維持費 = (筋耐敏魔)/UPKEEP_DIV + 寶具/UPKEEP_DIV
   MAD_MULT: 1.5,                 // 狂化維持費倍率
   SUPPLY_FACTOR: 0.5,            // 御主供給 = 迴路 * SUPPLY_FACTOR

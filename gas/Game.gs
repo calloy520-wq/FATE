@@ -161,7 +161,7 @@ function newGame(opts){
     var loc = p.home || homeOf_(p.master, p.isPlayer, spawnPool, spawnIdx++);   // 御主殿據點優先；自創→公寓；混亂NPC→隨機
     rows.push({
       game_id:gameId, slot:slot+1, is_player:p.isPlayer, master_name:p.master, magic:p.magic,
-      circuits:p.circuits, master_hp:100, master_hp_max:100, master_mp:p.circuits*4, master_mp_max:p.circuits*4,
+      circuits:p.circuits, master_hp:100, master_hp_max:100, master_mp:p.circuits*TUNING.MASTER_MP_K, master_mp_max:p.circuits*TUNING.MASTER_MP_K,
       seals:3, melee:p.melee, magic_rank:p.magic_rank, location:loc, servant_id:p.servantId,
       sv_hp:d.hpMax, sv_hp_max:d.hpMax, sv_mp:d.mpMax, sv_mp_max:d.mpMax, upkeep:d.upkeep,
       bond:30, true_name_known:false, status:'normal', alive:true,
