@@ -817,8 +817,8 @@ const App = {
   },
   quick(a){
     if(a==='補魔'){ this.startMana(); return; }
-    if(a.includes('攻擊')){ this.me(a); this.attackNearest(false); return; }
-    if(a==='使用寶具'){ this.me('解放寶具'); this.attackNearest(true); return; }
+    if(a.includes('攻擊')){ this.me(a); this.attackNearest(false,true); return; }
+    if(a==='使用寶具'){ this.me('解放寶具'); this.attackNearest('np',true); return; }
     if(a.includes('加固')){ this.me('加固結界'); this.reinforce(); return; }
     if(a.includes('令咒')){ this.toggleSeals(); return; }
     if(a.includes('睡覺')){ this.me('睡覺'); this.sleep(); return; }
@@ -848,8 +848,8 @@ const App = {
     this.me('【令咒】'+names[type]+'（剩 '+m.seals+'）');
     switch(type){
       case 'heal': s.hp=s.hpMax; s.mp=s.mpMax; this.ai('令咒燃燒，膨大的魔力重塑靈基——從者 HP／魔力完全回復。'); break;
-      case 'order': this.ai('「以令咒命令你——必中此擊！」'+this.forceBond()); this.attackNearest('seal'); break;
-      case 'np': this.ai('「以令咒強制——解放寶具！」無視魔力與意願，寶具轟然發動。'+this.forceBond()); this.attackNearest(true); break;
+      case 'order': this.ai('「以令咒命令你——必中此擊！」'+this.forceBond()); this.attackNearest('seal',false); break;
+      case 'np': this.ai('「以令咒強制——解放寶具！」無視魔力與意願，寶具轟然發動。'+this.forceBond()); this.attackNearest('sealnp',false); break;
       case 'recall': if(this.state.mana){ this.state.mana=null; this.renderMana(); }
         this.ai('令咒干涉空間，光芒一閃——你與從者瞬間脫離了當前戰局/險境（空間特權）。'); break;
       case 'mana': if(this.state.mana){ this.state.mana=null; this.renderMana(); }
@@ -878,7 +878,7 @@ const App = {
     const b=this.state.base, dmg=12+Math.floor(Math.random()*12);
     b.barrier=Math.max(0,b.barrier-dmg); this.renderBase();
     this._push('event','⚑ 據點告警',`敵從者試圖突破 ${this.locName(b.locId)} 的結界！結界 −${dmg} → ${b.barrier}/${b.barrierMax}`);
-    if(b.barrier<=0){ this.ai('結界崩潰——敵從者闖入據點！防衛戰開始。'); this.attackNearest(false); }
+    if(b.barrier<=0){ this.ai('結界崩潰——敵從者闖入據點！防衛戰開始。'); this.attackNearest(false,false); }
     else this.ai('結界暫時擋住了來犯者。建議盡快返回據點加固或迎敵。');
   },
   send(){
@@ -886,8 +886,8 @@ const App = {
     if(/補魔|魔力供給/.test(t)){ this.startMana(); return; }
     if(/加固|結界/.test(t)){ this.reinforce(); return; }
     if(/敵襲|來犯|攻打據點/.test(t)){ this.siege(); return; }
-    if(/寶具|真名解放/.test(t)){ this.attackNearest(true); return; }
-    if(/攻擊|戰鬥|打/.test(t)){ this.attackNearest(false); return; }
+    if(/寶具|真名解放/.test(t)){ this.attackNearest('np',true); return; }
+    if(/攻擊|戰鬥|打/.test(t)){ this.attackNearest(false,true); return; }
     if(/搜索|偵查|調查/.test(t)){ this.ai('（意圖：search → GAS 判定）你仔細探查四周……'); return; }
     if(/前往|移動|去/.test(t)){ this.ai('（意圖：move｜目標不明 → 需 UI 確認）你想前往哪裡？請點地圖。'); return; }
     this.ai('（意圖：talk → 純敘述，不動數值）「'+t+'」——你的話消散在冬木夜色中。（正式版由 LLM 參考記憶表生成）');
@@ -921,10 +921,10 @@ const App = {
   hasTrait(sv,t){ return (sv.traits||[]).some(x=>x.n.includes(t)); },
   enemyServant(entry){ return (entry.sid&&SERVER.byId(entry.sid))||SERVER.byClass(entry.cls)[0]||null; },
 
-  attackNearest(np){
+  attackNearest(np,costAP){
     const e=(this.state.roster||[]).find(x=>!x.isPlayer&&x.alive);
     if(!e){ this.sys('場上已無可交戰的對手。'); return; }
-    this.resolveCombat(e,np);
+    this.resolveCombat(e,np,costAP);
   },
 
   // 單次出手：命中(敏捷對抗) → 傷害(筋力−耐久/2) → 標籤修正
@@ -939,18 +939,22 @@ const App = {
     beats.push(`〔命中〕${an} → ${dn} 造成 ${dmg} 傷害${note.length?'（'+note.join('・')+'）':''}　(命中${hit} > 迴避${dodge})　${dn} HP ${def.hp}`);
   },
 
-  resolveCombat(entry,np){
+  resolveCombat(entry,np,costAP){
     const A=this.state.servant;                       // 玩家從者（實例，hp 會持久）
     const tpl=this.enemyServant(entry);
     if(!tpl){ this.sys('找不到對手資料。'); return; }
+    // 寶具魔力門檻（令咒強制不受限）
+    if(np==='np' && A.mp < Math.round(A.mpMax*0.35)){
+      this.sys('魔力不足，無法解放寶具——可用令咒強制解放，或先補魔。'); return; }
+    if(costAP && !this.spendAP(1)) return;            // 每場戰鬥 1 AP（令咒/防衛戰免）
     const eHp=this.rv(tpl.six.耐久)*3+50;
     const B={cls:tpl.cls,six:tpl.six,classSkills:tpl.classSkills,skills:tpl.skills,traits:tpl.traits,hp:eHp,np:tpl.np};
     this.sys(`— 交戰：${A.cls} vs ${entry.cls}（${entry.realName||'？？？'}）・D20 對抗判定 —`);
     const beats=[];
-    if(np){ const isSeal=np==='seal';
-      const d=isSeal? Math.round(this.rv(A.six.筋力)*1.8)+25 : Math.round(this.rv(A.six.寶具)*1.6)+18;
+    if(np){ const isNP=(np==='np'||np==='sealnp');
+      const d=isNP? Math.round(this.rv(A.six.寶具)*1.6)+18 : Math.round(this.rv(A.six.筋力)*1.8)+25;
       B.hp=Math.max(0,B.hp-d);
-      beats.push(`〔${isSeal?'令咒・必中全力':'寶具解放'}〕${A.cls}${isSeal?'':'發動「'+A.np+'」'}造成 ${d} 傷害！　${entry.cls} HP ${B.hp}`); }
+      beats.push(`〔${isNP?'寶具解放':'令咒・必中全力'}〕${A.cls}${isNP?'發動「'+A.np+'」':''}造成 ${d} 傷害！　${entry.cls} HP ${B.hp}`); }
     let round=0;
     while(A.hp>0&&B.hp>0&&round<14){ round++;
       const aFast=this.rv(A.six.敏捷)>=this.rv(B.six.敏捷);
@@ -958,6 +962,12 @@ const App = {
       this.strike(o[0],o[1],o[2],o[3],beats); if(o[1].hp<=0) break;
       this.strike(o[1],o[0],o[3],o[2],beats);
     }
+    // 戰鬥耗魔（維持費之外的爆發消耗；令咒供能則免）
+    let mpCost=Math.round(A.mpMax*0.12);
+    if(np==='np') mpCost+=Math.round(A.mpMax*0.35);
+    if(np==='seal'||np==='sealnp') mpCost=0;
+    A.mp=Math.max(0,A.mp-mpCost);
+    beats.push(`〔魔力消耗〕本場戰鬥耗魔 ${mpCost}（剩 ${A.mp}/${A.mpMax}）${mpCost===0?'・令咒供能':''}`);
     // 戰報（GAS 寫事實 → AI 潤飾；這裡先把判定攤開給你看）
     this._push('event','⚔ 戰報（GAS 判定）', beats.join('<br>'));
     const playerWin=B.hp<=0&&A.hp>0;
