@@ -69,22 +69,32 @@ function summonOpening_(hero, masterName, wish){
   return r.text || '';
 }
 
-/** 把 GAS 戰報事實交給 AI 潤飾成戰鬥敘述 */
-function narrateCombat(ctx){
-  // ctx: {playerCls, enemyCls, winner, firedTags[], beats[]}
+/** 把 GAS 戰報事實交給 AI 潤飾成戰鬥敘述（memory＝已知世界線/記憶） */
+function narrateCombat(ctx, memory){
   var sys = narratorSystem_();
   var user = [
+    memory ? ('【已知世界線/記憶】\n'+memory+'\n') : '',
     '【戰鬥事實（系統已算定，請勿更動）】',
     '我方從者：'+ctx.playerCls+'　敵方從者：'+ctx.enemyCls,
     '結果：'+(ctx.winner==='A'?'我方擊破敵從者':ctx.winner==='B'?'我方從者被擊破':'雙方膠著'),
     '觸發標籤：'+((ctx.firedTags&&ctx.firedTags.length)?ctx.firedTags.join('、'):'無'),
     '關鍵過程：',
   ].concat((ctx.beats||[]).slice(0,8)).concat([
-    '請依以上事實寫一段戰鬥敘述（2~4 句），不要列出數字。'
+    '請依以上事實寫一段戰鬥敘述（2~4 句），與已知世界線保持一致，不要列出數字。'
   ]).join('\n');
-
   var r = callLLM(sys, user, { temperature:0.9 });
   return r.text || ('（敘述生成失敗：'+(r.error||'')+'）');
+}
+
+/** 敘述並抽取應長期記住的事實（用於玩家自由對話，單次呼叫同時產出敘述＋記憶） */
+function narrateAndExtract_(prompt, memory){
+  var sys = narratorSystem_()
+    + '\n輸出 JSON：{"narration":"敘述(2~4句)","facts":[{"entity":"對象","content":"玩家新建立、值得長期記住的事實","importance":0}]}。'
+    + 'facts 只收「玩家這次新確立、之後需保持一致」的設定（地點狀態/約定/自訂設定等）；沒有則空陣列。importance 0~2。';
+  var user = (memory ? ('【已知世界線/記憶】\n'+memory+'\n\n') : '') + prompt;
+  var r = callLLM(sys, user, { json:true, temperature:0.85 });
+  if(r.json) return { narration: r.json.narration || '', facts: r.json.facts || [] };
+  return { narration: r.text || ('（敘述失敗：'+(r.error||'')+'）'), facts: [] };
 }
 
 /** 一般場景敘述（移動/搜索/閒聊等） */
