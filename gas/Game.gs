@@ -293,6 +293,7 @@ function doAction(a){
     var p = rows.filter(function(r){ return r.is_player===true; })[0];
     if(!p) return { error:'找不到玩家存檔' };
     var hero = findOne_(SHEETS.HEROES, { servant_id: p.servant_id });
+    BLEED_TURN_ = 0;   // 本回合被靈基反噬汲取的御主生命（破格召喚透支）
 
     // 補魔密封時段：封鎖耗時/戰鬥動作（免 LLM，直接回最終回應）
     if(clock.mana_locked && ['move','scout','attack','np','sleep','separate','claim','retreat','hunt'].indexOf(a.type)>=0)
@@ -337,6 +338,10 @@ function doAction(a){
         for(var k=0;k<3;k++) events = events.concat(npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh));
       }
     }
+    // 破格召喚反噬警告：魔力透支、從者汲取了御主生命
+    if(BLEED_TURN_ > 0)
+      events.push({ text:'⚠ 魔力嚴重透支！從者靈基反噬、汲取你的生命（御主 HP −'+BLEED_TURN_+'）。盡快補魔／獵魔／休養止血，否則將被吸乾。', atPlayer:true });
+
     // 結局判定：玩家從者/御主死亡 → 死亡；敵方全滅 → 奪杯
     var fresh2 = findRows_(SHEETS.BATTLE, { game_id: gameId });
     var pf = fresh2.filter(function(r){ return r.is_player===true; })[0];
@@ -583,8 +588,9 @@ function manaChat_(p, clock, text){
 }
 
 // 推進時間 + 每小時經濟 tick（mutate p / clock 並寫回）
-// 魔力供給鏈（每小時）：環境(靈脈/工房) → 御主迴路 → 從者靈基 → HP（飢餓）。
+// 魔力供給鏈（每小時）：環境(靈脈/工房) → 御主迴路 → 從者靈基 → 御主生命（破格召喚反噬）。
 // 餘裕時御主迴路會把從者靈基回充到「自然上限 80%」，最後 20% 需供給/補魔/獵魔。
+var BLEED_TURN_ = 0;   // 累計本回合靈基反噬汲取的御主生命，供 doAction 提示
 function advanceTime_(p, clock, hero, apCost){
   var con = rankVal(hero ? heroFromRow_(hero).six.耐久 : 'C');
   for(var i=0;i<apCost;i++){
@@ -601,7 +607,8 @@ function advanceTime_(p, clock, hero, apCost){
       if(need>0){ var fromM = Math.min(p.master_mp, need); p.master_mp -= fromM; need -= fromM; }
       var starving = false;
       if(need>0){ var fromS = Math.min(p.sv_mp, need); p.sv_mp -= fromS; need -= fromS; }
-      if(need>0){ p.sv_hp = Math.max(0, p.sv_hp - need); starving = true; }
+      // 御主迴路與從者靈基都見底 → 從者反噬御主生命（破格召喚硬撐強力從者的代價）
+      if(need>0){ p.master_hp = Math.max(0, p.master_hp - need); BLEED_TURN_ += need; starving = true; }
       // 3) 餘裕回充從者靈基，但自然只到 80%
       var cap = Math.round(p.sv_mp_max * TUNING.SV_NATURAL_CAP);
       if(!starving && p.sv_mp < cap){
@@ -614,7 +621,7 @@ function advanceTime_(p, clock, hero, apCost){
     }
   }
   updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap });
-  updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, sv_hp:p.sv_hp, master_mp:p.master_mp });
+  updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, sv_hp:p.sv_hp, master_mp:p.master_mp, master_hp:p.master_hp });
 }
 
 // 偵查：揭露當前地與相鄰地的從者蹤跡（戰爭迷霧用），耗 1 AP
