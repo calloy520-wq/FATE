@@ -39,6 +39,8 @@ var ACTIVE_FX_ = {
   wind_strike:  { label:'風王鐵鎚', kind:'wind_strike', mp:0.16 },
   rule_breaker: { label:'破戒全咒', kind:'sever',       mp:0.25 },
   summon_horror:{ label:'螺湮城教本', kind:'summon',    mp:0.30 },
+  gae_bolg:     { label:'刺穿死亡之棘', kind:'gaebolg', mp:0.24 },
+  ubw:          { label:'無限劍製', kind:'ubw',         mp:0.24 },
   rune:         { label:'符文',     kind:'heal',     mp:0.14 },
   shapeshift:   { label:'變生',     kind:'heal',     mp:0.16 },
   str_up:       { label:'怪力',     kind:'buffdmg',  mp:0.14 },

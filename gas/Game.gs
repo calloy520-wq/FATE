@@ -860,6 +860,13 @@ function act_skill_(rows, p, clock, hero, fx){
     dmg = Math.round(rankVal(A.six.魔力)*1.2) + Math.round(rankVal(A.six.寶具)*0.4) + Math.floor(Math.random()*10);
     var cutS = antiMagicCut_(B); if(divineAge_(A)) cutS *= 0.5; if(cutS>0) dmg = Math.max(1, Math.round(dmg*(1-cutS)));
     enemyRow.buff = { dodge:-8, label:'深海恐懼' }; note = '（螺湮城教本・深海妖物撕咬）';
+  } else if(sk.kind==='gaebolg'){        // 刺穿死亡之棘：因果逆轉必中；高幸運可擾動
+    dmg = Math.round(rankVal(A.six.寶具)*1.4) + Math.round(rankVal(A.six.筋力)*0.5) + Math.floor(Math.random()*9);
+    var lr = Math.max(0, luckEdge_(B)) * 0.08; if(lr>0) dmg = Math.max(1, Math.round(dmg*(1-lr)));
+    note = '（刺穿死亡之棘・因果逆轉必中'+(lr>0?('，高幸運擾動 −'+Math.round(lr*100)+'%'):'')+'）';
+  } else if(sk.kind==='ubw'){            // 無限劍製：固有結界劍雨（物理連射）
+    dmg = Math.round(rankVal(A.six.寶具)*0.7) + Math.round(rankVal(A.six.敏捷)*0.6) + Math.floor(Math.random()*11);
+    note = '（無限劍製・劍雨連射）';
   } else if(sk.kind==='gob'){           // 王之財寶：寶具洪流（物理，不受對魔力）
     dmg = Math.round(rankVal(A.six.寶具)*1.0) + Math.round(rankVal(A.six.筋力)*0.3) + Math.floor(Math.random()*10);
     note = '（王之財寶・寶具洪流）';

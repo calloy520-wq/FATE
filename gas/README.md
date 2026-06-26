@@ -73,6 +73,10 @@ classSkills, skills, traits(JSON 陣列), np(寶具字串), persona(JSON), sourc
 | `rule_breaker` | 破戒全咒 | 即時斬斷契約：敵 seals 歸 0、清除其 buff＋魔力×0.3 小傷（令咒救不了他） |
 | `summon_horror` | 螺湮城教本 | 即時召喚（神代）：魔力×1.2+寶具×0.4，半穿對魔力＋使敵下場 dodge −8 |
 | `divine_age` | 神代魔術 | 被動修正：自身魔術攻擊所受的「對魔力」減免只有半效（穿透現代抗性） |
+| `gae_bolg` | 刺穿死亡之棘 | 即時因果必中：寶具×1.4+筋力×0.5；高幸運目標可擾動減傷（luckEdge×8%） |
+| `ubw` | 無限劍製 | 即時劍雨：寶具×0.7+敏捷×0.6，物理、不受對魔力 |
+
+> ★ **AI 生成英靈**：`generateServant_` 透過 `FX_OK_` 白名單管控可用 fx。**新增引擎 fx 時，務必同步把碼加進 `FX_OK_` 並更新生成器提示**，否則 AI 做的角色會被 `cleanSkill_` 清掉該技能。
 | `rune` / `shapeshift` | 符文 / 變生 | 即時回復 HP（耐久×2+10±） |
 | `str_up` / `projection` / `weapon_steal` | 怪力 / 投影 / 武裝掠奪 | 下一場戰鬥傷害 +（筋力×0.4+5） |
 | `aim` | 千里眼 | 下一場戰鬥命中 +8 |
