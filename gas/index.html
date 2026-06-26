@@ -48,6 +48,7 @@
   .tag.cls{border-color:#3a5a8a;color:#9fc0ef}.tag.skl{border-color:#6a4f2a;color:var(--gold2)}.tag.trait{border-color:#6a2a2a;color:var(--red2)}
   .tag .r{opacity:.7;margin-left:3px;font-weight:700}
   svg{width:100%;height:auto;display:block;background:#0a0810;border-radius:10px;border:1px solid var(--line)}
+  #map-wrap{max-width:400px;margin:0 auto}
   .loc{cursor:pointer}.loc:hover circle{r:11}.loc text{font-size:11px;fill:#cdc4dd;pointer-events:none}
   .loc.here circle{stroke:var(--gold2);stroke-width:3}
   .danger-safe{fill:#3f6f47}.danger-mid{fill:#9a7b32}.danger-high{fill:#9a3a3a}
@@ -85,7 +86,8 @@
 <section class="screen hidden" id="scr-menu">
   <h1 class="title-main">聖杯戰爭</h1><p class="title-sub" id="menu-greet"></p>
   <div class="menu-list">
-    <button class="btn primary" onclick="App.go('scr-mode')">單人遊玩</button>
+    <button class="btn primary hidden" id="btn-resume" onclick="App.resume()">▶ 繼續遊戲</button>
+    <button class="btn" id="btn-newgame" onclick="App.newGameMenu()">新的一局</button>
     <button class="btn" disabled>多人連線 <span class="soon">敬請期待</span></button>
     <button class="btn" onclick="App.history()">歷史紀錄</button>
     <button class="btn ghost" onclick="App.go('scr-login')">登出</button>
@@ -231,9 +233,24 @@ var App = {
     Promise.all([gs('login',name), gs('getStatic')]).then(function(r){
       busy(false); App.acc=r[0]; App.STATIC=r[1];
       document.getElementById('menu-greet').textContent='歡迎，'+App.acc.name;
+      App.refreshMenu();
       App.go('scr-menu');
     }).catch(App.err);
   },
+  // 依是否有進行中存檔切換「繼續遊戲」按鈕
+  refreshMenu:function(){
+    var has = !!(App.acc && App.acc.current_game);
+    document.getElementById('btn-resume').classList.toggle('hidden', !has);
+    document.getElementById('btn-newgame').textContent = has ? '開新的一局（覆蓋存檔）' : '新的一局';
+  },
+  resume:function(){ busy(true);
+    gs('resumeGame', App.acc.ms_id).then(function(st){ busy(false);
+      if(st.error){ alert(st.error); App.acc.current_game=''; App.refreshMenu(); return; }
+      App.enter(st);
+    }).catch(App.err); },
+  newGameMenu:function(){
+    if(App.acc && App.acc.current_game && !confirm('你有一場進行中的聖杯戰爭。開新局會「覆蓋」舊存檔，確定嗎？')) return;
+    App.go('scr-mode'); },
 
   chooseMode:function(m){ App.flow={mode:m};
     if(m==='canon'){ App.renderWars(); App.go('scr-war'); }
@@ -303,6 +320,7 @@ var App = {
 
   enter:function(state){ busy(false);
     if(state.error){ alert(state.error); return; }
+    if(App.acc) App.acc.current_game = state.game_id;   // 記住進行中存檔
     App.S=state; App.go('scr-game'); document.getElementById('log').innerHTML='';
     App.renderAll();
     if(state.opening) App.ai(state.opening);
@@ -331,10 +349,12 @@ var App = {
       ? '<span style="color:var(--gold2)">🏆 奪取聖杯</span>' : '<span style="color:var(--red2)">☠ 御主殞落</span>';
     document.getElementById('go-dream').textContent = go.dream||'';
     document.getElementById('go-dojo').textContent = go.dojo||'';
-    App.S=null; App.go('scr-gameover'); },
-  toMenu:function(){ App.S=null; App.go('scr-menu'); },
+    App.S=null; if(App.acc) App.acc.current_game='';   // 結局後存檔已清空
+    App.go('scr-gameover'); },
+  toMenu:function(){ App.S=null; App.refreshMenu(); App.go('scr-menu'); },
   move:function(id){ App.act('move',{locId:id}); },
   quick:function(a){
+    if(a.indexOf('偵查')>=0) return App.act('scout');
     if(a.indexOf('攻擊')>=0) return App.act('attack');
     if(a==='使用寶具') return App.act('np');
     if(a==='補魔') return App.act('mana');
@@ -385,10 +405,15 @@ var App = {
   renderBase:function(){ var b=App.S.player.base;
     document.getElementById('base-box').innerHTML=b.loc?('<div style="font-size:13px;color:var(--gold2)">'+App.locName(b.loc)+'・'+b.tier+'</div>'+
       '<div class="stat-row"><span>結界值</span><span>'+b.barrier+'/'+b.barrierMax+'</span></div><div class="bar barrier"><i style="width:'+(b.barrier/b.barrierMax*100)+'%"></i></div>'):''; },
-  renderRoster:function(){ document.getElementById('roster-h').textContent='戰局・'+App.S.roster.length+'組';
-    document.getElementById('roster-box').innerHTML=App.S.roster.map(function(e){
+  renderRoster:function(){
+    var r=App.S.roster, known=r.filter(function(e){return e.known;}), unknown=r.length-known.length;
+    document.getElementById('roster-h').textContent='戰局・已知 '+known.length+'/'+r.length;
+    var rows=known.map(function(e){
       var st=e.alive?'':'opacity:.4;text-decoration:line-through';
-      return '<div class="stat-row" style="'+st+'"><span'+(e.isPlayer?' style="color:var(--gold2)"':'')+'>'+e.cls+'</span><span style="color:var(--dim)">'+(e.isPlayer?'（你）':'')+e.master+'</span></div>'; }).join(''); },
+      var where=e.location?('<span style="font-size:10px;color:#6f6885">@'+App.locName(e.location)+'</span>'):'';
+      return '<div class="stat-row" style="'+st+'"><span'+(e.isPlayer?' style="color:var(--gold2)"':'')+'>'+e.cls+' '+where+'</span><span style="color:var(--dim)">'+(e.isPlayer?'（你）':'')+e.master+'</span></div>'; }).join('');
+    if(unknown>0) rows+='<div class="stat-row" style="color:#5b5470;font-size:12px"><span>？ 未現蹤</span><span>尚有 '+unknown+' 騎從者潛伏（偵查以揭露）</span></div>';
+    document.getElementById('roster-box').innerHTML=rows; },
   renderMap:function(){ var L=App.STATIC.locations,here=App.S.player.master.location;
     var hereLoc=L.filter(function(x){return x.id===here;})[0]||{adj:[]};
     var bg='<rect width="700" height="440" fill="#0a0810"/>'+
@@ -408,7 +433,7 @@ var App = {
     var d={safe:'安全',mid:'中等',high:'危險'};
     document.getElementById('loc-info').innerHTML=l?('<b style="color:var(--gold2)">'+l.name+'</b>（危險度：'+d[l.danger]+'・靈脈：'+l.leyline+'）<br>'+l.desc):''; },
   renderQuick:function(){ document.getElementById('quick-actions').innerHTML=
-    ['⚔ 攻擊敵人','使用寶具','💧 供給魔力','🔀 分離/合體','❖ 令咒','🛡 加固結界','🏠 設為據點','補魔','🌙 睡覺'].map(function(a){
+    ['🔍 偵查','⚔ 攻擊敵人','使用寶具','💧 供給魔力','🔀 分離/合體','❖ 令咒','🛡 加固結界','🏠 設為據點','補魔','🌙 睡覺'].map(function(a){
       return '<button class="btn sm ghost" onclick="App.quick(\''+a+'\')">'+a+'</button>'; }).join(''); },
 
   // ---------- log ----------

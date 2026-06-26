@@ -79,6 +79,10 @@ function summonByName(opts){
  *              masterIndex, servantId, profile:{name,circuits,magic,melee,magic_rank}}
  */
 function newGame(opts){
+  // 開新局前，先清掉該帳號未完成的舊存檔（避免重複開局堆出多個戰場）
+  var acc0 = findOne_(SHEETS.ACCOUNTS, { ms_id: opts.ms_id });
+  if(acc0 && acc0.current_game) clearGame_(acc0.current_game);
+
   var heroesById = {};
   readAll_(SHEETS.HEROES).forEach(function(h){ heroesById[h.servant_id] = h; });
   var mastersByKey = {};   // 御主殿（正典御主資料）
@@ -157,9 +161,14 @@ function newGame(opts){
       sv_hp:d.hpMax, sv_hp_max:d.hpMax, sv_mp:d.mpMax, sv_mp_max:d.mpMax, upkeep:d.upkeep,
       bond:30, true_name_known:false, status:'normal', alive:true,
       base_loc:p.isPlayer?loc:'', barrier:p.isPlayer?30:'', barrier_max:p.isPlayer?(isCaster?100:60):'',
-      base_tier:p.isPlayer?(isCaster?'魔術工房':'簡易結界'):'', servant_loc:loc, separated:false
+      base_tier:p.isPlayer?(isCaster?'魔術工房':'簡易結界'):'', servant_loc:loc, separated:false,
+      discovered:p.isPlayer?[]:''
     });
   });
+  // 玩家開局只「認得」與自己同地的從者（戰爭迷霧：其餘需偵查/相遇才現蹤）
+  var pr0 = rows.filter(function(r){ return r.is_player; })[0];
+  if(pr0) pr0.discovered = rows.filter(function(r){ return !r.is_player && r.location===pr0.location; })
+                               .map(function(r){ return r.slot; });
   appendObjs_(SHEETS.BATTLE, rows);
   appendObj_(SHEETS.CLOCK, { game_id:gameId, day:1, hour:20, ap:TUNING.AP_PER_DAY,
                              ap_max:TUNING.AP_PER_DAY, mana_countdown:0, mana_locked:false });
@@ -179,15 +188,39 @@ function getState(gameId){
   var rows = findRows_(SHEETS.BATTLE, { game_id: gameId });
   var clock = findOne_(SHEETS.CLOCK, { game_id: gameId });
   var player = rows.filter(function(r){ return r.is_player===true; })[0];
+  var disc = player ? parseDiscovered_(player.discovered) : [];
+  var pLoc = player ? (player.separated ? player.servant_loc : player.location) : '';
   var st = {
     game_id: gameId, clock: clock,
-    roster: rows.map(function(r){ return {
-      slot:r.slot, cls: heroCls_(r.servant_id), master:r.master_name, isPlayer:r.is_player,
-      alive:r.alive, location:r.location }; }),
+    roster: rows.map(function(r){
+      // 戰爭迷霧：只揭露玩家、已偵查到的、或此刻同地的從者
+      var known = (r.is_player===true) || disc.indexOf(r.slot)>=0 || (r.servant_loc===pLoc);
+      return {
+        slot:r.slot, isPlayer:r.is_player, alive:r.alive, known:known,
+        cls: known ? heroCls_(r.servant_id) : '？',
+        master: known ? r.master_name : '？？？',
+        location: known ? r.location : '' }; }),
     player: player ? playerView_(player) : null,
     economy: player ? playerEconomy_(player) : null
   };
   return st;
+}
+
+// 進行中存檔讀取（登入後「繼續遊戲」用）
+function resumeGame(msId){
+  var acc = findOne_(SHEETS.ACCOUNTS, { ms_id: msId });
+  if(!acc || !acc.current_game) return { error:'沒有進行中的存檔。' };
+  var rows = findRows_(SHEETS.BATTLE, { game_id: acc.current_game });
+  if(!rows.length){ updateWhere_(SHEETS.ACCOUNTS, { ms_id:msId }, { current_game:'' }); return { error:'存檔已失效，請開新局。' }; }
+  return getState(acc.current_game);
+}
+
+// 戰爭迷霧：發現紀錄（存玩家列 discovered，JSON 陣列 round-trip）
+function parseDiscovered_(v){ return Array.isArray(v) ? v : []; }
+function markDiscovered_(p, slots){
+  var d = parseDiscovered_(p.discovered), changed = false;
+  slots.forEach(function(s){ if(d.indexOf(s)<0){ d.push(s); changed = true; } });
+  if(changed){ p.discovered = d; updateRow_(SHEETS.BATTLE, p._row, { discovered:d }); }
 }
 
 function heroCls_(sid){ var h = findOne_(SHEETS.HEROES, { servant_id: sid }); return h ? h.cls : '?'; }
@@ -232,7 +265,7 @@ function doAction(a){
   var narration = '';
 
   // 補魔密封時段：封鎖耗時/戰鬥動作
-  if(clock.mana_locked && ['move','attack','np','sleep','separate','claim'].indexOf(a.type)>=0)
+  if(clock.mana_locked && ['move','scout','attack','np','sleep','separate','claim'].indexOf(a.type)>=0)
     return { state:getState(gameId), narration:'（補魔進行中，無法進行該動作；請繼續對話，或用令咒「強制補魔」結束。）', events:[] };
 
   // 個性+好感 + 歷史事件/記憶 → 完整 context，讓 AI 不出戲、知道過去
@@ -241,6 +274,7 @@ function doAction(a){
 
   switch(a.type){
     case 'move':       narration = act_move_(p, clock, hero, a.locId, mem); break;
+    case 'scout':      narration = act_scout_(p, clock, hero, mem); break;
     case 'attack':     narration = act_combat_(rows, p, clock, hero, false, true, mem); break;
     case 'np':         narration = act_combat_(rows, p, clock, hero, 'np', true, mem); break;
     case 'mana':       narration = act_mana_(p, clock, mem); break;
@@ -265,7 +299,7 @@ function doAction(a){
   var events = [];
   var fresh = findOne_(SHEETS.CLOCK, { game_id: gameId });
   if(!fresh.mana_locked){
-    if(['move','attack','np','claim'].indexOf(a.type) >= 0){
+    if(['move','scout','attack','np','claim'].indexOf(a.type) >= 0){
       events = npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh);
     } else if(a.type === 'sleep'){
       for(var k=0;k<3;k++) events = events.concat(npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh));
@@ -400,8 +434,10 @@ function npcTick_(gameId, rows, clock){
     } // else 對峙/迴避：無事
   });
 
-  // NPC 抵達玩家所在地
-  npcs.filter(function(r){ return r.alive && r.location===player.location; }).forEach(function(n){
+  // NPC 抵達玩家所在地 → 自動現蹤（記入發現）並提示
+  var arrived = npcs.filter(function(r){ return r.alive && r.location===player.location; });
+  if(arrived.length) markDiscovered_(player, arrived.map(function(r){ return r.slot; }));
+  arrived.forEach(function(n){
     events.push({ text:'⚠ '+heroCls_(n.servant_id)+'（'+n.master_name+'）出現在你的所在地！可選擇攻擊或迴避。', atPlayer:true });
   });
   return events;
@@ -454,20 +490,51 @@ function advanceTime_(p, clock, hero, apCost){
   updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, sv_hp:p.sv_hp });
 }
 
+// 偵查：揭露當前地與相鄰地的從者蹤跡（戰爭迷霧用），耗 1 AP
+function act_scout_(p, clock, hero, mem){
+  if(clock.ap<1) return '（行動點不足，請睡覺恢復。）';
+  var here = p.separated ? p.servant_loc : p.location;
+  var cur = findOne_(SHEETS.MAP, { id: here });
+  var scan = [here].concat(cur ? (cur.adj||[]) : []);
+  var found = findRows_(SHEETS.BATTLE, { game_id:p.game_id })
+    .filter(function(r){ return r.is_player!==true && r.alive && scan.indexOf(r.servant_loc)>=0; });
+  markDiscovered_(p, found.map(function(r){ return r.slot; }));
+  advanceTime_(p, clock, hero, 1);
+  var lines = found.length
+    ? found.map(function(r){ return '・'+heroCls_(r.servant_id)+'（'+r.master_name+'）位於 '+locName_(r.servant_loc); }).join('\n')
+    : '・周遭一帶暫無從者氣息。';
+  return narrateScene('你（'+p.master_name+'）凝神探查周遭一帶的魔力波動與氣息。請寫一段簡短的偵查敘述（不要列數字）。', mem)
+         + '\n\n【偵查結果】\n' + lines;
+}
+
 function act_move_(p, clock, hero, locId, mem){
   var cur = findOne_(SHEETS.MAP, { id: p.location });
   if(!cur || (cur.adj||[]).indexOf(locId)<0) return '（該地點不相鄰，無法直接前往。）';
   if(clock.ap<1) return '（行動點不足，請睡覺恢復。）';
   p.location = locId; if(!p.separated) p.servant_loc = locId;
   updateRow_(SHEETS.BATTLE, p._row, { location:p.location, servant_loc:p.servant_loc });
+  // 抵達後自動發現該地的從者
+  var hloc = p.separated ? p.servant_loc : p.location;
+  var hereNpcs = findRows_(SHEETS.BATTLE, { game_id:p.game_id })
+    .filter(function(r){ return r.is_player!==true && r.alive && r.servant_loc===hloc; });
+  markDiscovered_(p, hereNpcs.map(function(r){ return r.slot; }));
   advanceTime_(p, clock, hero, 1);
   var dest = findOne_(SHEETS.MAP, { id: locId });
-  return narrateScene('你（'+p.master_name+'）移動到了「'+dest.name+'」。'+dest.desc+' 請寫一段抵達敘述。', mem);
+  var enc = hereNpcs.length ? ('\n此處有：'+hereNpcs.map(function(r){ return heroCls_(r.servant_id)+'（'+r.master_name+'）'; }).join('、')) : '';
+  return narrateScene('你（'+p.master_name+'）移動到了「'+dest.name+'」。'+dest.desc+enc+' 請寫一段抵達敘述。', mem)
+         + (enc ? ('\n\n【遭遇】'+enc.replace('\n此處有：','')) : '');
 }
 
 function act_combat_(rows, p, clock, hero, mode, costAP, mem){
-  var enemyRow = rows.filter(function(r){ return r.is_player!==true && r.alive===true; })[0];
-  if(!enemyRow) return '（場上已無可交戰的對手。）';
+  // 只能攻擊「此刻與你的從者同地」的敵人（看不到的人砍不到）
+  var here = p.separated ? p.servant_loc : p.location;
+  var enemyRow = rows.filter(function(r){ return r.is_player!==true && r.alive===true && r.servant_loc===here; })[0];
+  if(!enemyRow){
+    var anyAlive = rows.some(function(r){ return r.is_player!==true && r.alive===true; });
+    return anyAlive ? '（你的所在地沒有敵蹤——先用「🔍 偵查」找出附近從者，或移動到敵人所在地再交戰。）'
+                    : '（場上已無可交戰的對手。）';
+  }
+  markDiscovered_(p, [enemyRow.slot]);
   if(mode==='np' && p.sv_mp < Math.round(p.sv_mp_max*TUNING.NP_MP)) return '（魔力不足，無法解放寶具——可用令咒強制或先補魔。）';
   if(costAP && clock.ap<1) return '（行動點不足，請睡覺恢復。）';
 
