@@ -1,0 +1,85 @@
+/**
+ * Config.gs — 全域設定、分頁名稱、欄位、平衡常數
+ * 命運停駐之夜 GAS 後端
+ *
+ * 控制整個遊戲平衡只需調 TUNING 這一塊。
+ */
+
+// 分頁名稱（靜態定檔 + 動態存檔）
+const SHEETS = {
+  // 靜態定檔
+  HEROES: '英靈殿',     // ServantTemplates
+  MAP:    '地圖',       // Locations
+  ITEMS:  '道具圖鑑',   // ItemTemplates
+  RULES:  '世界規則',   // WorldRules
+  WARS:   '戰爭範本',   // Wars
+  // 動態存檔
+  ACCOUNTS: '帳號',     // Accounts (ms_id)
+  BATTLE:   '戰場',     // Battlefield (御主+從者合併，一列一參戰者)
+  MEMORY:   '記憶',     // Memory (EAV)
+  EVENTS:   '事件',     // EventLog (多人相容)
+  CLOCK:    '時鐘',     // GameClock
+};
+
+// 各分頁標題列
+const HEADERS = {
+  [SHEETS.HEROES]: ['servant_id','cls','realName','wars','筋力','耐久','敏捷','魔力','幸運','寶具',
+                    'classSkills','skills','traits','np','persona','source'],
+  [SHEETS.MAP]:    ['id','name','x','y','danger','leyline','adj','desc'],
+  [SHEETS.ITEMS]:  ['item_id','name','type','fx','value','desc'],
+  [SHEETS.RULES]:  ['key','text'],
+  [SHEETS.WARS]:   ['war_id','name','participants','partial','roster'],
+
+  [SHEETS.ACCOUNTS]: ['ms_id','name','created','current_game','inventory','settings'],
+  [SHEETS.BATTLE]:   ['game_id','slot','is_player','master_name','magic','master_hp','master_mp','seals',
+                      'melee','magic_rank','location','servant_id','sv_hp','sv_hp_max','sv_mp','sv_mp_max',
+                      'upkeep','bond','true_name_known','status','alive','base_loc','barrier','barrier_max',
+                      'base_tier','servant_loc','separated'],
+  [SHEETS.MEMORY]:   ['event_id','game_id','turn','entity','fact_type','content','importance','write_ts'],
+  [SHEETS.EVENTS]:   ['event_id','write_ts','game_id','day_count','time_hour','location_id','event_type',
+                      'actor_id','target_id','log_text','is_global','importance'],
+  [SHEETS.CLOCK]:    ['game_id','day','hour','ap','ap_max','mana_countdown','mana_locked'],
+};
+
+// 靜態分頁（重建 setup 時會重新種子）；動態分頁只建表不動資料
+const STATIC_SHEETS = [SHEETS.HEROES, SHEETS.MAP, SHEETS.ITEMS, SHEETS.RULES, SHEETS.WARS];
+
+// ===== 平衡常數（調這裡＝整個經濟/戰鬥平移）=====
+const TUNING = {
+  // 數值推導
+  HP_K: 3, HP_BASE: 50,          // HP上限 = 耐久*HP_K + HP_BASE
+  MP_K: 2, MP_BASE: 40,          // MP上限 = 魔力*MP_K + MP_BASE
+  UPKEEP_DIV: 10,                // 維持費 = (筋耐敏魔)/UPKEEP_DIV + 寶具/UPKEEP_DIV
+  MAD_MULT: 1.5,                 // 狂化維持費倍率
+  SUPPLY_FACTOR: 0.5,            // 御主供給 = 迴路 * SUPPLY_FACTOR
+  LEYLINE: { '高':10, '中':5, '低':2 },
+  WORKSHOP: 8,                   // Caster 主場工房加成
+  SEP_PENALTY: 0.5,              // 分離供給衰減
+  SEP_SOLO: 0.85,               // 單獨行動減免後
+  // 戰鬥
+  HP_REGEN_K: 0.1,               // 每小時HP緩回 = 耐久*HP_REGEN_K
+  COMBAT_MP: 0.12,               // 普通交戰耗魔比例
+  NP_MP: 0.35,                   // 寶具解放額外耗魔比例
+  // 時間
+  AP_PER_DAY: 12, HOURS_PER_AP: 2,
+  // 補魔
+  MANA_TURNS: 10, MANA_AP_COST: 2, MANA_BOND: 8,
+};
+
+const RANK_BASE = { 'E':10,'D':20,'C':30,'B':40,'A':50,'EX':60 };
+
+// 階級字串 → 數值（含 + 與 EX）
+function rankVal(rank){
+  if(!rank || rank==='-' || rank==='?') return 15;
+  var plus = (String(rank).match(/\+/g)||[]).length * 5;
+  return (RANK_BASE[String(rank).replace(/\+/g,'')] || 15) + plus;
+}
+
+// OpenRouter（API key 存 Script Properties，不進程式碼）
+const OPENROUTER = {
+  url: 'https://openrouter.ai/api/v1/chat/completions',
+  model: 'google/gemini-3.1-flash-lite',
+};
+function getApiKey(){
+  return PropertiesService.getScriptProperties().getProperty('OPENROUTER_API_KEY') || '';
+}

@@ -1,0 +1,153 @@
+/**
+ * SeedData.gs — 靜態定檔種子資料（英靈殿 / 地圖 / 戰爭 / 規則 / 道具）
+ * 第四次、第五次聖杯戰爭七騎 + FAKE 部分樣本（黃金樣本）。
+ */
+
+// ===== 英靈殿：第五次 + 第四次 + FAKE 樣本 =====
+const SEED_SERVANTS = [
+  // 第五次
+  { id:'阿爾托莉雅-Saber', cls:'Saber', realName:'阿爾托莉雅·潘德拉貢', wars:['4th','5th'],
+    six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'A',幸運:'A',寶具:'A+'},
+    classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
+    skills:[{n:'直感',r:'A',fx:'first_strike'},{n:'魔力放出',r:'A',fx:'burst'},{n:'卡里斯瑪',r:'B',fx:'morale'}],
+    traits:[{n:'王'},{n:'人類'}], np:'誓約勝利之劍（對城 A++）',
+    persona:{firstP:'我',words:'騎士道・榮譽・責任',toMaster:'盡忠職守，初期略有距離'} },
+  { id:'EMIYA-Archer', cls:'Archer', realName:'無名（EMIYA）', wars:['5th'],
+    six:{筋力:'D',耐久:'C',敏捷:'C',魔力:'B',幸運:'E',寶具:'-'},
+    classSkills:[{n:'對魔力',r:'D',fx:'nullify_magic'},{n:'單獨行動',r:'B',fx:'solo'}],
+    skills:[{n:'心眼(真)',r:'A',fx:'analyze'},{n:'千里眼',r:'C',fx:'aim'},{n:'投影魔術',r:'',fx:'projection'}],
+    traits:[{n:'人類'}], np:'無限劍製（固有結界）',
+    persona:{firstP:'我',words:'現實・諷刺・隱藏的理想',toMaster:'嘴上不饒人，暗中守護'} },
+  { id:'庫丘林-Lancer', cls:'Lancer', realName:'庫·丘林', wars:['5th'],
+    six:{筋力:'B',耐久:'C',敏捷:'A',魔力:'C',幸運:'E',寶具:'B'},
+    classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'}],
+    skills:[{n:'避矢加護',r:'B',fx:'evade_ranged'},{n:'符文',r:'B',fx:'rune'},{n:'戰鬥續行',r:'A',fx:'survive'}],
+    traits:[{n:'神性',r:'低'}], np:'刺穿死棘之槍（對人 B）',
+    persona:{firstP:'俺',words:'戰士・痛快・重義',toMaster:'爽快直率，討厭被當棋子'} },
+  { id:'美杜莎-Rider', cls:'Rider', realName:'美杜莎', wars:['5th'],
+    six:{筋力:'C',耐久:'C',敏捷:'A',魔力:'B',幸運:'D',寶具:'A+'},
+    classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'A+',fx:'ride'}],
+    skills:[{n:'怪力',r:'B',fx:'str_up'},{n:'女神的神核',r:'',fx:'divine_core'},{n:'魔眼',r:'A',fx:'petrify'}],
+    traits:[{n:'神性'},{n:'女神'}], np:'他人的神殿／駿馬天翔（A+）',
+    persona:{firstP:'我',words:'忠誠・守護・自卑',toMaster:'寡言而深情，極度護主'} },
+  { id:'美狄亞-Caster', cls:'Caster', realName:'美狄亞', wars:['5th'],
+    six:{筋力:'E',耐久:'D',敏捷:'C',魔力:'A',幸運:'B',寶具:'C'},
+    classSkills:[{n:'陣地作成',r:'A',fx:'territory'},{n:'道具作成',r:'A',fx:'crafting'}],
+    skills:[{n:'高速神言',r:'A',fx:'fast_cast'}],
+    traits:[{n:'人類'}], np:'破戒全咒（規則破壞者 C）',
+    persona:{firstP:'我',words:'背叛的傷痕・渴望被信任',toMaster:'防備但渴望真心相待'} },
+  { id:'佐佐木小次郎-Assassin', cls:'Assassin', realName:'佐佐木小次郎', wars:['5th'],
+    six:{筋力:'C',耐久:'D',敏捷:'A',魔力:'E',幸運:'E',寶具:'E'},
+    classSkills:[{n:'氣息遮斷',r:'D',fx:'stealth'}],
+    skills:[{n:'心眼(真)',r:'B',fx:'analyze'}],
+    traits:[{n:'人類'}], np:'燕返（對人）',
+    persona:{firstP:'拙者',words:'劍士・閒適・宿命',toMaster:'隨遇而安，只求一戰'} },
+  { id:'赫拉克勒斯-Berserker', cls:'Berserker', realName:'赫拉克勒斯', wars:['5th'],
+    six:{筋力:'A',耐久:'A',敏捷:'A',魔力:'B',幸運:'C',寶具:'B'},
+    classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'對魔力',r:'?',fx:'nullify_magic'}],
+    skills:[{n:'勇猛',r:'A',fx:'morale'},{n:'戰鬥續行',r:'A',fx:'survive'}],
+    traits:[{n:'神性',r:'A'},{n:'王'}], np:'十二試煉（God Hand A）',
+    persona:{firstP:'（狂化）',words:'戰神・守護的殘響',toMaster:'理智被吞沒，僅存護主本能'} },
+  // 第四次
+  { id:'吉爾伽美什-Archer', cls:'Archer', realName:'吉爾伽美什', wars:['4th','fake'],
+    six:{筋力:'B',耐久:'C',敏捷:'C',魔力:'B',幸運:'A',寶具:'EX'},
+    classSkills:[{n:'對魔力',r:'E',fx:'nullify_magic'},{n:'單獨行動',r:'A+',fx:'solo'}],
+    skills:[{n:'黃金律',r:'A',fx:'wealth'},{n:'卡里斯瑪',r:'A',fx:'morale'},{n:'神性',r:'B',fx:'divine'}],
+    traits:[{n:'神性'},{n:'王'}], np:'王之財寶 Gate of Babylon（對人 E~A++）',
+    persona:{firstP:'吾',words:'傲慢・王・俯視眾生',toMaster:'視為雜種，幾乎不從令'} },
+  { id:'迪盧木多-Lancer', cls:'Lancer', realName:'迪盧木多·奧迪那', wars:['4th'],
+    six:{筋力:'B',耐久:'C',敏捷:'A',魔力:'C',幸運:'E',寶具:'C'},
+    classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'}],
+    skills:[{n:'戰鬥續行',r:'A',fx:'survive'},{n:'破魔紅薔薇',r:'',fx:'anti_magic_lance'}],
+    traits:[{n:'人類'}], np:'破魔紅薔薇／必滅黃薔薇',
+    persona:{firstP:'我',words:'忠義・騎士・哀愁',toMaster:'絕對忠誠'} },
+  { id:'伊斯坎達爾-Rider', cls:'Rider', realName:'伊斯坎達爾（征服王）', wars:['4th'],
+    six:{筋力:'A+',耐久:'A',敏捷:'B',魔力:'C',幸運:'A+',寶具:'A++'},
+    classSkills:[{n:'對魔力',r:'D',fx:'nullify_magic'},{n:'騎乘',r:'A+',fx:'ride'}],
+    skills:[{n:'卡里斯瑪',r:'B',fx:'morale'},{n:'軍略',r:'B',fx:'tactics'}],
+    traits:[{n:'王'}], np:'王之軍勢 Ionioi Hetairoi（對軍 EX）',
+    persona:{firstP:'余',words:'豪邁・征服・雅量',toMaster:'視為臣下亦為摯友'} },
+  { id:'吉爾德萊-Caster', cls:'Caster', realName:'吉爾·德·萊斯（青鬍子）', wars:['4th'],
+    six:{筋力:'E',耐久:'E',敏捷:'D',魔力:'C',幸運:'E',寶具:'C'},
+    classSkills:[{n:'陣地作成',r:'C',fx:'territory'},{n:'道具作成',r:'C',fx:'crafting'}],
+    skills:[{n:'精神汙染',r:'A',fx:'mad'}],
+    traits:[{n:'人類'}], np:'螺湮城教本（深淵召喚）',
+    persona:{firstP:'我',words:'瘋狂・虔誠扭曲',toMaster:'視龍之介為摯友'} },
+  { id:'百貌哈桑-Assassin', cls:'Assassin', realName:'哈桑·薩巴赫（百貌）', wars:['4th'],
+    six:{筋力:'C',耐久:'D',敏捷:'B',魔力:'D',幸運:'E',寶具:'D'},
+    classSkills:[{n:'氣息遮斷',r:'A+',fx:'stealth'}],
+    skills:[{n:'自我改造',r:'',fx:''},{n:'妄想心音',r:'',fx:'zabaniya'}],
+    traits:[{n:'人類'}], np:'妄想心音 Zabaniya',
+    persona:{firstP:'我們',words:'群體・狂信・無數人格',toMaster:'服從'} },
+  { id:'蘭斯洛特-Berserker', cls:'Berserker', realName:'蘭斯洛特（湖之騎士）', wars:['4th'],
+    six:{筋力:'A',耐久:'A',敏捷:'A+',魔力:'B',幸運:'C',寶具:'A'},
+    classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'騎乘',r:'A',fx:'ride'},{n:'對魔力',r:'E',fx:'nullify_magic'}],
+    skills:[{n:'無此花的湖光',r:'A',fx:'weapon_steal'}],
+    traits:[{n:'騎士'}], np:'騎士不為孤軍 Knight of Owner',
+    persona:{firstP:'（狂化）',words:'悔恨・無言的瘋狂',toMaster:'不語'} },
+  // FAKE 樣本（可擴充）
+  { id:'恩奇都-Lancer', cls:'Lancer', realName:'恩奇都', wars:['fake'],
+    six:{筋力:'B',耐久:'A',敏捷:'A',魔力:'A',幸運:'-',寶具:'A+'},
+    classSkills:[{n:'對魔力',r:'?',fx:'nullify_magic'}],
+    skills:[{n:'變生',r:'',fx:'shapeshift'},{n:'神性',r:'?',fx:'divine'}],
+    traits:[{n:'神性'},{n:'神造兵器'}], np:'天地乖離開闢之星（變化）',
+    persona:{firstP:'我',words:'純真・神造・追尋摯友',toMaster:'溫和而疏離'} },
+  { id:'漢斯-Watcher', cls:'Watcher', realName:'漢斯·克里斯汀·安徒生', wars:['fake'],
+    six:{筋力:'E',耐久:'E',敏捷:'D',魔力:'C',幸運:'B',寶具:'C'},
+    classSkills:[{n:'單獨行動',r:'',fx:'solo'}],
+    skills:[{n:'觀察',r:'',fx:'observe'},{n:'故事創作',r:'',fx:'narrative'}],
+    traits:[{n:'人類'}], np:'人魚靈藥／童話故事（輔助）',
+    persona:{firstP:'我',words:'毒舌・觀察者・童話',toMaster:'冷眼旁觀卻心軟'} },
+];
+
+// ===== 地圖：冬木市 13 定點 =====
+const SEED_LOCATIONS = [
+  {id:'church',   name:'冬木教會',     x:420,y:150, danger:'safe', leyline:'中', adj:['shinto','park'],                          desc:'監督者所在的中立地帶，禁止戰鬥。受傷御主可尋求庇護。'},
+  {id:'ryuudou',  name:'柳洞寺',       x:605,y:70,  danger:'high', leyline:'高', adj:['park'],                                   desc:'山上靈地，魔力濃厚，常有從者據守為據點。'},
+  {id:'tohsaka',  name:'遠坂宅邸',     x:300,y:290, danger:'mid',  leyline:'高', adj:['miyama','shinto','school'],               desc:'名門魔術師的據點，結界森嚴，地脈匯聚。'},
+  {id:'emiya',    name:'衛宮宅邸',     x:230,y:390, danger:'safe', leyline:'低', adj:['miyama','school'],                        desc:'郊外的日式宅院，設有工房，相對安全。'},
+  {id:'shinto',   name:'新都',         x:450,y:240, danger:'mid',  leyline:'中', adj:['church','bridge','tohsaka','park','hospital'], desc:'繁華商業區，夜間人煙稀少，適合潛行與情報收集。'},
+  {id:'miyama',   name:'深山町',       x:290,y:350, danger:'safe', leyline:'中', adj:['emiya','tohsaka','matou'],                desc:'舊市區住宅地，巷弄錯綜。'},
+  {id:'bridge',   name:'冬木大橋',     x:460,y:320, danger:'mid',  leyline:'低', adj:['shinto','matou','riverside'],             desc:'橫跨未遠川、連接新舊市區的長橋，視野開闊。'},
+  {id:'park',     name:'冬木公園',     x:525,y:180, danger:'mid',  leyline:'中', adj:['church','shinto','ryuudou','hospital'],   desc:'開闊綠地，適合正面交鋒，也易被埋伏。'},
+  {id:'matou',    name:'間桐宅邸',     x:360,y:370, danger:'high', leyline:'高', adj:['miyama','bridge','riverside','harbor'],   desc:'古老魔術名門宅邸，地下藏有不祥的蟲庫。'},
+  {id:'school',   name:'穗群原學園',   x:165,y:300, danger:'safe', leyline:'中', adj:['emiya','tohsaka'],                        desc:'本地高中，白日人多，夜間空曠可作戰場。'},
+  {id:'hospital', name:'冬木中央醫院', x:600,y:250, danger:'safe', leyline:'低', adj:['park','shinto'],                          desc:'新都的綜合醫院，可治療御主傷勢。'},
+  {id:'riverside',name:'未遠川河岸',   x:420,y:410, danger:'mid',  leyline:'中', adj:['bridge','matou','harbor'],                desc:'河堤步道，水源充沛，靈脈隨水流動。'},
+  {id:'harbor',   name:'港區倉庫街',   x:320,y:430, danger:'high', leyline:'低', adj:['riverside','matou'],                      desc:'廢棄倉庫林立，視線死角多，是埋伏與決戰的舞台。'},
+];
+
+// ===== 戰爭範本 =====
+const SEED_WARS = [
+  { war_id:'4th', name:'第四次聖杯戰爭', participants:7, partial:false, roster:[
+    {master:'衛宮切嗣',sid:'阿爾托莉雅-Saber'},{master:'遠坂時臣',sid:'吉爾伽美什-Archer'},
+    {master:'肯尼斯',sid:'迪盧木多-Lancer'},{master:'韋伯·維爾維特',sid:'伊斯坎達爾-Rider'},
+    {master:'雨生龍之介',sid:'吉爾德萊-Caster'},{master:'言峰綺禮',sid:'百貌哈桑-Assassin'},
+    {master:'間桐雁夜',sid:'蘭斯洛特-Berserker'} ] },
+  { war_id:'5th', name:'第五次聖杯戰爭', participants:7, partial:false, roster:[
+    {master:'衛宮士郎',sid:'阿爾托莉雅-Saber'},{master:'遠坂凜',sid:'EMIYA-Archer'},
+    {master:'間桐慎二',sid:'美杜莎-Rider'},{master:'葛木宗一郎',sid:'美狄亞-Caster'},
+    {master:'言峰綺禮',sid:'庫丘林-Lancer'},{master:'伊莉雅絲菲爾',sid:'赫拉克勒斯-Berserker'},
+    {master:'（Caster 召喚）',sid:'佐佐木小次郎-Assassin'} ] },
+  { war_id:'fake', name:'Fate/strange Fake（偽聖杯戰爭）', participants:13, partial:true, roster:[
+    {master:'提奈·切爾克',sid:'吉爾伽美什-Archer'},{master:'（無御主）',sid:'恩奇都-Lancer'},
+    {master:'觀測者',sid:'漢斯-Watcher'} ] },
+];
+
+// ===== 世界規則（餵 AI 當底線）=====
+const SEED_RULES = [
+  ['鐵則_數值','所有數值由 GAS 計算，AI 只負責敘述與記錄，不得自行更動 HP/魔力/勝負。'],
+  ['鐵則_對魔力','現代魔術無法傷害具對魔力的從者；對魔力擋魔術，不擋被強化的肉體攻擊。'],
+  ['補魔','從者由魔力組成，御主供給維持靈基；補魔為密封時段，10 回合對話後結算。'],
+  ['令咒','令咒為絕對命令權，效果固定；強迫違背意志會降低好感。'],
+  ['據點','已佔領據點 NPC 不會隨機闖入，需刻意攻打侵蝕結界，歸 0 才闖入。'],
+  ['戰鬥','D20 對抗：屬性基準+D20；階級重疊使弱者偶能勝強者。'],
+];
+
+// ===== 道具圖鑑（輕量，不做數值膨脹）=====
+const SEED_ITEMS = [
+  ['food_riceball','飯糰','consumable','heal_master','15','恢復御主少量體力，+飽食度。'],
+  ['food_energy','能量補給','consumable','restore_mp','20','恢復御主少量魔力。'],
+  ['gem_small','小魔力寶石','catalyst','reinforce','25','可用於加固結界或補充魔力。'],
+  ['relic_sheath','劍鞘碎片','catalyst','summon_saber','0','召喚催媒：劍之從者傾向。'],
+];
