@@ -191,7 +191,7 @@ function newGame(opts){
       circuits:p.circuits, master_hp:100, master_hp_max:100, master_mp:p.circuits*TUNING.MASTER_MP_K, master_mp_max:p.circuits*TUNING.MASTER_MP_K,
       seals:3, melee:p.melee, magic_rank:p.magic_rank, location:loc, servant_id:p.servantId,
       sv_hp:d.hpMax, sv_hp_max:d.hpMax, sv_mp:d.mpMax, sv_mp_max:d.mpMax, upkeep:d.upkeep,
-      bond:30, true_name_known:false, status: hasGodHand_(hero) ? String(TUNING.GOD_HAND_LIVES) : 'normal', alive:true,
+      bond:30, true_name_known:p.isPlayer, status: hasGodHand_(hero) ? String(TUNING.GOD_HAND_LIVES) : 'normal', alive:true,
       base_loc:p.isPlayer?loc:'', barrier:p.isPlayer?30:'', barrier_max:p.isPlayer?(isCaster?100:60):'',
       base_tier:p.isPlayer?(isCaster?'魔術工房':'簡易結界'):'', servant_loc:loc, separated:false,
       discovered:p.isPlayer?[]:'', sv_condition:p.isPlayer?'靈基初凝，神色沉靜':'', buff:''
@@ -745,7 +745,8 @@ function act_scout_(p, clock, hero){
   markDiscovered_(p, found.map(function(r){ return r.slot; }));
   advanceTime_(p, clock, hero, 1);
   var lines = found.length
-    ? found.map(function(r){ return '・'+heroCls_(r.servant_id)+'（'+r.master_name+'）位於 '+locName_(r.servant_loc); }).join('\n')
+    ? found.map(function(r){ var rt=r.sv_hp/(r.sv_hp_max||1), cond=rt>=0.85?'無傷':rt>=0.5?'負傷':'重傷';
+        return '・'+heroCls_(r.servant_id)+'（'+r.master_name+'）位於 '+locName_(r.servant_loc)+'　〔'+cond+'〕'; }).join('\n')
     : '・周遭一帶暫無從者氣息。';
   return { kind:'scene',
     prompt:'我（'+p.master_name+'）凝神探查周遭一帶的魔力波動與氣息。請寫一段簡短的偵查敘述（不要列數字）。',
