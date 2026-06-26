@@ -262,6 +262,10 @@ var App = {
 
   backFromCreate:function(){ App.flow.mode==='canon'?App.go('scr-role'):App.go('scr-mode'); },
   toSummon:function(){
+    if(!App.STATIC || !App.STATIC.heroes){
+      alert('英靈資料未載入，請重新登入。'); return; }
+    if(!App.STATIC.heroes.length){
+      alert('英靈殿是空的——請先在 GAS 編輯器執行 setupDatabase() 建立資料庫。'); return; }
     App.flow.profile={ name:document.getElementById('m-name').value.trim()||'無名御主',
       circuits:+document.getElementById('m-circuits').value,
       magic:document.getElementById('m-magic').value,
@@ -416,7 +420,12 @@ var App = {
     log.appendChild(d); log.scrollTop=log.scrollHeight; },
   heroById:function(id){ return App.STATIC.heroes.filter(function(h){return h.id===id;})[0]; },
   locName:function(id){ var l=App.STATIC.locations.filter(function(x){return x.id===id;})[0]; return l?l.name:id; },
-  err:function(e){ busy(false); App.sys('（後端錯誤：'+(e&&e.message?e.message:e)+'）'); }
+  err:function(e){ busy(false);
+    var msg = (e&&e.message)?e.message:(e||'未知錯誤');
+    // 遊戲畫面內 → 寫進對話框；遊戲畫面外（登入/選單/召喚）→ 用 alert 才看得到
+    var inGame = !document.getElementById('scr-game').classList.contains('hidden');
+    if(inGame) App.sys('（後端錯誤：'+msg+'）');
+    else alert('後端錯誤：'+msg); }
 };
 function bar(label,v,mx,cls){ return '<div class="stat-row"><span>'+label+'</span><span>'+v+'/'+mx+'</span></div>'+
   '<div class="bar '+cls+'"><i style="width:'+(mx?v/mx*100:0)+'%"></i></div>'; }
