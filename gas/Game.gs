@@ -2,7 +2,7 @@
  * Game.gs — 遊戲流程：登入 / 開局 / 讀狀態 / 動作（全部 server 權威、寫回試算表）
  */
 
-var NPC_SPAWN_ = ['tohsaka','ryuudou','matou','shinto','church','school','harbor','park','hospital'];
+var NPC_SPAWN_ = ['tohsaka','ryuudou','matou','cemetery','school','harbor','park','hospital','shrine','arcade','factory','station','woods'];
 
 // ---------- 帳號 ----------
 function login(name){
