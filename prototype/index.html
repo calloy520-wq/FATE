@@ -520,8 +520,9 @@ const App = {
   },
   pickCanonMaster(i){
     const w=SERVER.wars[this.state.war], r=w.roster[i], sv=SERVER.byId(r.sid);
+    const circuits=r.master.includes('伊莉雅')?70:30;   // 伊莉雅＝魔力大戶(人造人)
     this.state.master={name:r.master,sex:'—',age:'—',origin:'正典御主',magic:'依正典設定',
-      circuits:30,hp:100,hpMax:100,mp:120,mpMax:120,seals:3};
+      circuits,hp:100,hpMax:100,mp:circuits*4,mpMax:circuits*4,seals:3};
     this.equipServant(sv);
     this.buildCanonRoster(i,null);
     this.enterGame();
@@ -638,8 +639,24 @@ const App = {
   /* ---- 裝備從者實例 ---- */
   equipServant(sv){
     const t=JSON.parse(JSON.stringify(sv));
-    t.hp=120;t.hpMax=120;t.mp=80;t.mpMax=80;t.bond=30;t.bondMax=100;t.trueNameKnown=false;
+    // 數值全由能力推導（控制平衡只需調下列係數）
+    t.hpMax=this.rv(t.six.耐久)*3+50; t.hp=t.hpMax;
+    t.mpMax=this.rv(t.six.魔力)*2+40; t.mp=t.mpMax;
+    const isMad=this.hasFx(t,'mad')||this.hasSkillName(t,'狂化');
+    let up=Math.round((this.rv(t.six.筋力)+this.rv(t.six.耐久)+this.rv(t.six.敏捷)+this.rv(t.six.魔力))/10 + this.rv(t.six.寶具)/10);
+    if(isMad) up=Math.round(up*1.5);           // 狂化＝魔力大戶
+    t.upkeep=up;
+    t.bond=30;t.bondMax=100;t.trueNameKnown=false;
     this.state.servant=t;
+  },
+  // 每小時供需（淨值<0＝靈基餓損）
+  economy(){
+    const s=this.state.servant,m=this.state.master;
+    const ms=Math.round((m.circuits||30)*0.5);
+    const loc=SERVER.locations.find(x=>x.id===this.state.here);
+    const ley={高:10,中:5,低:2}[loc?loc.leyline:'低']||0;
+    const ws=(this.state.base&&this.state.base.locId===this.state.here&&s.cls==='Caster')?8:0;
+    return {up:s.upkeep||0,ms,ley,ws,net:ms+ley+ws-(s.upkeep||0)};
   },
 
   /* ---- 戰局七組 ---- */
@@ -684,7 +701,7 @@ const App = {
 
   /* ---- 渲染 ---- */
   renderStatus(){
-    const m=this.state.master,s=this.state.servant;
+    const m=this.state.master,s=this.state.servant,e=this.economy();
     document.getElementById('master-box').innerHTML=`
       <div style="font-size:16px;color:var(--gold2)">${m.name}</div>
       <div style="font-size:12px;color:var(--dim)">${m.origin}・${m.magic}</div>
@@ -704,7 +721,8 @@ const App = {
       <div class="stat-row"><span>好感度</span><span style="color:#e58aa8">${s.bond}/${s.bondMax}・${stage}</span></div><div class="bar bond"><i style="width:${s.bond/s.bondMax*100}%"></i></div>
       <div class="six">${six}</div><div style="margin-top:8px">${tags}</div>
       <div style="font-size:12px;color:var(--dim);margin-top:8px">寶具：${s.np}</div>
-      ${s.persona?`<div style="font-size:11px;color:#9b93ad;margin-top:6px;line-height:1.5">個性：${s.persona.words}｜一人稱「${s.persona.firstP}」<br>對御主：${s.persona.toMaster}</div>`:''}`;
+      ${s.persona?`<div style="font-size:11px;color:#9b93ad;margin-top:6px;line-height:1.5">個性：${s.persona.words}｜一人稱「${s.persona.firstP}」<br>對御主：${s.persona.toMaster}</div>`:''}
+      <div style="font-size:11px;margin-top:6px;color:var(--dim)">維持 ${e.up}/h｜供給 ${e.ms+e.ley+e.ws}/h（御主${e.ms}+靈脈${e.ley}${e.ws?'+工房'+e.ws:''}）｜淨 <b style="color:${e.net>=0?'#5fae6e':'#d65c5c'}">${e.net>=0?'+':''}${e.net}/h</b></div>`;
   },
   renderRoster(){
     document.getElementById('roster-box').innerHTML=(this.state.roster||[]).map(e=>{
@@ -755,7 +773,7 @@ const App = {
   move(id){
     if(id===this.state.here) return;
     if(!SERVER.locations.find(x=>x.id===this.state.here).adj.includes(id)){ this.sys('該地點不相鄰，無法直接前往。'); return; }
-    this.state.here=id; this.renderMap(); this.me('前往'+this.locName(id));
+    this.state.here=id; this.renderMap(); this.renderStatus(); this.me('前往'+this.locName(id));
     this.ai('你移動到了'+this.locName(id)+'。'+SERVER.locations.find(x=>x.id===id).desc);
   },
   quick(a){
@@ -883,7 +901,8 @@ const App = {
     const A=this.state.servant;                       // 玩家從者（實例，hp 會持久）
     const tpl=this.enemyServant(entry);
     if(!tpl){ this.sys('找不到對手資料。'); return; }
-    const B={cls:tpl.cls,six:tpl.six,classSkills:tpl.classSkills,skills:tpl.skills,traits:tpl.traits,hp:120,np:tpl.np};
+    const eHp=this.rv(tpl.six.耐久)*3+50;
+    const B={cls:tpl.cls,six:tpl.six,classSkills:tpl.classSkills,skills:tpl.skills,traits:tpl.traits,hp:eHp,np:tpl.np};
     this.sys(`— 交戰：${A.cls} vs ${entry.cls}（${entry.realName||'？？？'}）・D20 對抗判定 —`);
     const beats=[];
     if(np){ const isSeal=np==='seal';
