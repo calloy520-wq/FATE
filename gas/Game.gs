@@ -31,7 +31,9 @@ function login(name){
 // ---------- 靜態資料給前端 ----------
 function getStatic(){
   var heroes = readAll_(SHEETS.HEROES).map(function(h){
-    return { id:h.servant_id, cls:h.cls, realName:h.realName, np:h.np, wars:h.wars, source:h.source };
+    // wars：種子存成 "5th/fake" 字串、AI 生成存成陣列 → 一律正規化為陣列
+    var wars = Array.isArray(h.wars) ? h.wars : String(h.wars||'').split('/').filter(function(x){ return x; });
+    return { id:h.servant_id, cls:h.cls, realName:h.realName, np:h.np, wars:wars, source:h.source };
   });
   return {
     locations: readAll_(SHEETS.MAP),

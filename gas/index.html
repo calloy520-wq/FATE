@@ -281,7 +281,7 @@ var App = {
     var list=App.STATIC.heroes.filter(function(h){ return !c||h.cls===c; });
     document.getElementById('hall').innerHTML='<div style="font-size:12px;color:var(--gold);margin-top:8px">英靈殿 '+list.length+' 位</div>'+
       list.map(function(h){ return '<div class="hall-item"><div><div class="nm">'+h.cls+'・'+h.realName+'</div>'+
-        '<div class="meta">'+h.np+'｜'+(h.wars||[]).join('/')+'</div></div>'+
+        '<div class="meta">'+h.np+'｜'+(Array.isArray(h.wars)?h.wars.join('/'):(h.wars||''))+'</div></div>'+
         '<button class="btn sm primary" onclick="App.startSummon(\''+h.id+'\')">締約</button></div>'; }).join(''); },
   startSummon:function(sid){
     busy(true);
