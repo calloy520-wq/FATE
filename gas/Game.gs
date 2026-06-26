@@ -337,8 +337,9 @@ function doAction(a){
     // 瀕死令咒救援：從者靈基崩解在即、仍有令咒、且玩家尚未明確「接受命運」→ 先不結算死亡，
     // 回 awaitSeal 讓玩家抉擇（燃令咒・靈基修復 或 接受命運）。
     var awaitSeal = null, over = null;
-    if(endR==='death' && pf.sv_hp<=0 && (pf.seals||0)>0 && a.type!=='accept_death'){
-      awaitSeal = { msg:'你的從者靈基崩解在即！是否燃燒令咒・靈基修復（回血回魔）挽救？（尚餘 '+pf.seals+' 道令咒）' };
+    if(endR==='death' && (pf.sv_hp<=0 || pf.master_hp<=0) && (pf.seals||0)>0 && a.type!=='accept_death'){
+      var dyingWho = pf.sv_hp<=0 ? '你的從者靈基崩解在即' : '你身受重創、命懸一線';
+      awaitSeal = { msg:'⚠ '+dyingWho+'！是否燃燒令咒・靈基修復（回血回魔）挽救？（尚餘 '+pf.seals+' 道令咒）' };
     } else if(endR){
       over = endGame_(gameId, pf, endR);   // endGame_ 回傳 dreamPrompt，假夢敘述留到鎖外生成
     }
@@ -495,10 +496,37 @@ function npcTick_(gameId, rows, clock){
   // NPC 抵達玩家所在地 → 自動現蹤（記入發現）並提示
   var arrived = npcs.filter(function(r){ return r.alive && r.location===player.location; });
   if(arrived.length) markDiscovered_(player, arrived.map(function(r){ return r.slot; }));
+  // 護衛判定：玩家從者是否就在御主身邊（分離外派或從者已倒下 → 御主失去護衛、暴露於危險）
+  var svAtMaster = player.sv_hp>0 && ((player.separated ? player.servant_loc : player.location) === player.location);
+  var struck = false;   // 每 tick 至多一名敵人襲擊御主
   arrived.forEach(function(n){
-    events.push({ text:'⚠ '+heroCls_(n.servant_id)+'（'+n.master_name+'）出現在你的所在地！可選擇攻擊或迴避。', atPlayer:true });
+    if(!svAtMaster && !struck){
+      struck = true;
+      masterPeril_(gameId, player, n, clock);
+      events.push({ text:'⚠ 你的從者不在身邊，'+heroCls_(n.servant_id)+'（'+n.master_name+'）直撲而來——御主遭襲！（HP '+player.master_hp+'/'+player.master_hp_max+'）速召回從者或撤退！', atPlayer:true });
+    } else {
+      events.push({ text:'⚠ '+heroCls_(n.servant_id)+'（'+n.master_name+'）出現在你的所在地！可選擇攻擊或迴避。', atPlayer:true });
+    }
   });
   return events;
+}
+
+// 御主遇襲：從者不在身邊時，敵從者攻擊御主本人。武鬥/魔術階級決定減傷與反抗；
+// Assassin 是獵殺御主的職階，傷害更高。血歸零 → 死亡結局（由 doAction 結算）。
+function masterPeril_(gameId, player, enemy, clock){
+  var eHero = findOne_(SHEETS.HEROES, { servant_id: enemy.servant_id });
+  var isAssassin = eHero && eHero.cls === 'Assassin';
+  var base = 28 + (isAssassin ? 18 : 0) + Math.floor(Math.random()*10);
+  // 御主以體術＋魔術抵禦：階級越高減傷越多（武鬥A≈50 → 減 ~17；E≈10 → 減 ~5）
+  var defend = Math.round((rankVal(player.melee) + rankVal(player.magic_rank)) / 3.5);
+  // 武鬥高手有機會直接化解（葛木/言峰那類近戰御主），但非絕對無敵
+  if(rankVal(player.melee) >= 50 && Math.random() < 0.4) defend += 18;
+  var dmg = Math.max(3, base - defend);
+  player.master_hp = Math.max(0, player.master_hp - dmg);
+  updateRow_(SHEETS.BATTLE, player._row, { master_hp:player.master_hp });
+  logEvent_(gameId, clock.day, pad2_(clock.hour)+':00', player.location, 'MASTER_HIT',
+    'slot_'+(enemy.slot-1), 'slot_0',
+    (eHero?eHero.cls:'敵從者')+' 襲擊御主 '+player.master_name+'，造成 '+dmg+' 傷害', false, 1);
 }
 
 // NPC 間短兵交手（3 回合互毆、低致命，HP 歸 0 才死）
@@ -786,7 +814,7 @@ function act_seal_(rows, p, clock, hero, cmd){
   p.seals--;
   var msg='';   // string 或 combat spec（order/np）
   switch(cmd){
-    case 'heal': p.sv_hp=p.sv_hp_max; p.sv_mp=p.sv_mp_max; msg='令咒燃燒，魔力重塑靈基——HP/魔力完全回復。'; break;
+    case 'heal': p.sv_hp=p.sv_hp_max; p.sv_mp=p.sv_mp_max; p.master_hp=p.master_hp_max; msg='令咒燃燒，魔力重塑靈基——從者 HP/魔力完全回復，御主傷勢亦癒。'; break;
     case 'order': if(p.bond<60){ p.bond=Math.max(0,p.bond-5); } msg=act_combat_(rows,p,clock,hero,'seal',false); break;
     case 'np':   if(p.bond<60){ p.bond=Math.max(0,p.bond-5); } msg=act_combat_(rows,p,clock,hero,'sealnp',false); break;
     case 'recall': p.separated=false; p.servant_loc=p.location;
@@ -797,7 +825,7 @@ function act_seal_(rows, p, clock, hero, cmd){
       msg='以令咒強制補魔——魔力灌滿、靈基穩固（跳過倒數）。'; break;
     default: msg='（未知令咒指令）';
   }
-  updateRow_(SHEETS.BATTLE, p._row, { seals:p.seals, sv_hp:p.sv_hp, sv_mp:p.sv_mp, bond:p.bond, separated:p.separated, servant_loc:p.servant_loc });
+  updateRow_(SHEETS.BATTLE, p._row, { seals:p.seals, sv_hp:p.sv_hp, sv_mp:p.sv_mp, master_hp:p.master_hp, bond:p.bond, separated:p.separated, servant_loc:p.servant_loc });
   var tag = '【令咒・剩'+p.seals+'】';
   // order/np 回傳的是戰鬥 spec（敘述待鎖外生成）→ 把令咒前綴掛上去；其餘為即時文字
   if(msg && msg.kind){ msg.prefix = tag + (msg.prefix||''); return msg; }

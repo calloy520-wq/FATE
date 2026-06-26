@@ -51,7 +51,7 @@ const STATIC_SHEETS = [SHEETS.HEROES, SHEETS.MASTERS, SHEETS.MAP, SHEETS.ITEMS, 
 // ===== 平衡常數（調這裡＝整個經濟/戰鬥平移）=====
 const TUNING = {
   // 數值推導
-  HP_K: 3, HP_BASE: 50,          // HP上限 = 耐久*HP_K + HP_BASE
+  HP_K: 4, HP_BASE: 90,          // HP上限 = 耐久*HP_K + HP_BASE（A耐久≈290、C≈210，戰鬥更耐打）
   MP_K: 2, MP_BASE: 40,          // MP上限 = 魔力*MP_K + MP_BASE
   UPKEEP_DIV: 10,                // 維持費 = (筋耐敏魔)/UPKEEP_DIV + 寶具/UPKEEP_DIV
   MAD_MULT: 1.5,                 // 狂化維持費倍率

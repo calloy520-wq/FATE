@@ -242,6 +242,15 @@ var App = {
     document.getElementById(id).classList.remove('hidden'); },
   // 收合/展開段落（標題列點擊）；狀態存在 sec-h 上，renderAll 只改內容框不會重設
   fold:function(el){ el.classList.toggle('collapsed'); },
+  // 從者靈基狀態（數值衍生）：顯示在職階下方，一眼看出體況
+  condTags:function(s){
+    var t=[]; if(s.separated) t.push('分離鎮守');
+    var hr=s.hpMax?s.hp/s.hpMax:1, mr=s.mpMax?s.mp/s.mpMax:1;
+    if(s.hp<=0) t.push('靈基崩解'); else if(hr<=0.5) t.push('重傷'); else if(hr<=0.8) t.push('負傷'); else t.push('靈基穩定');
+    if(s.mp<=0) t.push('魔力枯竭'); else if(mr<=0.25) t.push('魔力低落');
+    if([].concat(s.classSkills||[],s.skills||[]).some(function(x){return (x.n||'').indexOf('狂化')>=0||x.fx==='mad';})) t.push('狂化');
+    return t.map(function(c){ var col=/崩解|重傷|枯竭|狂化/.test(c)?'#d65c5c':/負傷|低落|分離/.test(c)?'#e7c873':'#5fae6e';
+      return '<span style="font-size:11px;color:'+col+'">'+c+'</span>'; }).join('<span style="color:#3a3450"> ・ </span>'); },
 
   login:function(){
     var name=document.getElementById('in-account').value.trim();
@@ -420,6 +429,7 @@ var App = {
       (s.traits||[]).map(function(x){return '<span class="tag trait">'+x.n+'</span>';}).join('');
     document.getElementById('servant-box').innerHTML=
       '<div style="font-size:16px;color:var(--gold2)">'+s.cls+'</div>'+
+      '<div style="margin:3px 0 4px;line-height:1.4">'+App.condTags(s)+'</div>'+
       '<div style="font-size:12px;color:var(--dim)">真名：'+(s.trueNameKnown?s.realName:'？？？')+'</div>'+
       bar('HP',s.hp,s.hpMax,'hp')+bar('魔力',s.mp,s.mpMax,'mp')+
       '<div class="stat-row"><span>好感度</span><span style="color:#e58aa8">'+s.bond+'/100</span></div><div class="bar bond"><i style="width:'+s.bond+'%"></i></div>'+
