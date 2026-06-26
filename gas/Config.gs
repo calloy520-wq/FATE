@@ -38,11 +38,11 @@ const HEADERS = {
   [SHEETS.BATTLE]:   ['game_id','slot','is_player','master_name','magic','circuits','master_hp','master_hp_max',
                       'master_mp','master_mp_max','seals','melee','magic_rank','location','servant_id',
                       'sv_hp','sv_hp_max','sv_mp','sv_mp_max','upkeep','bond','true_name_known','status',
-                      'alive','base_loc','barrier','barrier_max','base_tier','servant_loc','separated','discovered','sv_condition','buff','solo_hours'],
+                      'alive','base_loc','barrier','barrier_max','base_tier','servant_loc','separated','discovered','sv_condition','buff','solo_hours','inventory'],
   [SHEETS.MEMORY]:   ['event_id','game_id','turn','entity','fact_type','content','importance','write_ts'],
   [SHEETS.EVENTS]:   ['event_id','write_ts','game_id','day_count','time_hour','location_id','event_type',
                       'actor_id','target_id','log_text','is_global','importance'],
-  [SHEETS.CLOCK]:    ['game_id','day','hour','ap','ap_max','mana_countdown','mana_locked','satiety'],
+  [SHEETS.CLOCK]:    ['game_id','day','hour','ap','ap_max','mana_countdown','mana_locked','satiety','satiety_lvl','bleed'],
   [SHEETS.HISTORY]:  ['ts','ms_id','name','result','war','servant_cls','day','summary'],
   [SHEETS.GALLERY]:  ['ms_id','entry_id','servant_id','cls','realName','gender','six','skills','classSkills',
                       'traits','np','persona','align','bond','condition','active','source','log','created',
@@ -69,7 +69,17 @@ const TUNING = {
   SEP_PENALTY: 0.5,              // 分離供給衰減
   SEP_SOLO: 0.85,               // 單獨行動減免後
   // 戰鬥
-  HP_REGEN_K: 0.1,               // 每小時HP緩回 = 耐久*HP_REGEN_K
+  HP_REGEN_K: 0.1,               // 從者每小時HP緩回 = 耐久*HP_REGEN_K（修復耗自身靈基魔力）
+  SV_HEAL_MP: 0.5,               // 從者自癒：每回 1 HP 消耗自身靈基魔力（靈基→肉體修復）
+  SV_REST_HEAL: 1.8,             // 休息時從者自癒速率倍率
+  // 御主受傷／失血／療養
+  MASTER_HP_REGEN: 1,            // 御主每小時自然回血（凡人癒合慢；未失血時）
+  MASTER_REST_HP: 4,             // 休息時御主每小時額外回血
+  SHIROU_REGEN: 4,               // 衛宮士郎：常時固有的異常治癒（Avalon 殘響）＝每小時額外回血、且失血癒合加倍
+  MASTER_REST_MANA: 1.5,         // 休息時御主迴路回魔倍率
+  BLEED_TRIGGER: 14,             // 御主單擊受創 ≥ 此值 → 進入「失血」狀態
+  BLEED_HOURS: 5,                // 失血持續時數（不處理會自然止血，但這期間持續掉血）
+  BLEED_DMG: 3,                  // 失血期間每小時掉血（不會掉到 0；繃帶可立即止血）
   COMBAT_MP: 0.12,               // 普通交戰耗魔比例
   NP_MP: 0.35,                   // 寶具解放額外耗魔比例
   NP_CHARGE: 0.9,                // 寶具解放門檻：靈基須先充能至此比例（出力全開）；令咒強制可繞過
@@ -84,8 +94,10 @@ const TUNING = {
   MANA_BUFF_HOURS: 12,           // 補魔加持持續時數（期間迴路回魔提升、靈基維持高出力）
   MANA_REGEN_MULT: 1.6,          // 補魔加持期間：迴路回魔倍率
   DREAM_CHANCE: 0.12,            // 睡覺時夢見從者過往片段的機率（稀有、避免重複）
-  SATIETY_HOURS: 8,              // 進食「飽足」buff 持續時數（不疊加，再吃重置）
-  SATIETY_REGEN: 2,             // 飽足期間：每小時迴路回魔額外 +
+  SATIETY_HOURS: 8,              // 進食「飽足」buff 預設持續時數（無分級時的回退值）
+  SATIETY_REGEN: 2,             // 飽足期間每小時迴路回魔額外 +（無分級時的回退值）
+  // 食物分級（不用錢；靠「逛得遠＝吃得好」＝地區決定品級）。regen＝飽足期間每小時迴路回魔額外 +；hours＝持續時數
+  SATIETY_TIERS: { cheap:{ regen:1, hours:6, label:'平價' }, mid:{ regen:2, hours:8, label:'中等' }, high:{ regen:3, hours:10, label:'高級' } },
   // 獵魔（吸食補魔）／擊殺回魔／情境好感
   HUNT_MP_WILLING: 0.5,   // 樂意(惡/狂化)獵食回魔比例
   HUNT_MP_RELUCT:  0.35,  // 不情願(中立)獵食回魔比例

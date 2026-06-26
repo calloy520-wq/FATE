@@ -193,6 +193,8 @@
     <input id="m-appear" maxlength="40" placeholder="例如：黑髮疲憊的青年、風衣／紅髮少女、制服">
     <label>個性（影響第一人稱敘述的口吻與內心）</label>
     <input id="m-persona" maxlength="40" placeholder="例如：冷靜理性／衝動熱血／腹黑算計／溫柔堅定">
+    <label>身世／財力（敘事用，可留空＝魔術師家底殷實）</label>
+    <input id="m-standing" maxlength="40" placeholder="例如：名門魔術師世家、揮金如土／窮學生、節儉自炊／教會供養">
     <label>願望（你為何而戰？影響開場與劇情）</label>
     <textarea id="m-wish" rows="2" maxlength="60" placeholder="例如：復活逝去的摯友／證明自身魔術／純粹想贏"></textarea>
 
@@ -279,6 +281,7 @@
     <div class="sec-h">冬木市地圖</div><div id="map-wrap"></div>
     <p style="color:var(--dim);font-size:12px;margin-top:10px">點擊相鄰地點移動（消耗 AP，由後端判定）。</p>
     <div class="sec-h toggler" onclick="App.fold(this)">所在地</div><div id="loc-info" style="font-size:13px;color:var(--dim)"></div>
+    <div class="sec-h">物品欄</div><div id="inv-bar" style="display:flex;gap:6px;flex-wrap:wrap"></div>
   </div>
 </section>
 
@@ -439,6 +442,7 @@ var App = {
       gender:document.getElementById('m-gender').value,
       appearance:(document.getElementById('m-appear')||{}).value? document.getElementById('m-appear').value.trim():'',
       persona:document.getElementById('m-persona').value.trim(),
+      standing:(document.getElementById('m-standing')||{}).value? document.getElementById('m-standing').value.trim():'',
       wish:document.getElementById('m-wish').value.trim(),
       circuits:App.circuits||25, magic:App.magic||'強化', melee:App.melee||'E', origin:App.origin||'' };
     App.hallCls=''; App.renderHallClasses(); App.renderHall();
@@ -614,7 +618,9 @@ var App = {
     if(sep) h+='<button class="btn sm'+(dz?' primary':'')+'" onclick="App.toggleDispatch()">'+(dz?'✖ 取消派駐':'➡ 派駐從者')+'</button>';
     h+='<button class="btn sm" onclick="App.act(\'rest\',{hours:1})">😴 休息1h</button>'
       +'<button class="btn sm" onclick="App.act(\'rest\',{hours:3})">😴 休息3h</button>'
-      +'<button class="btn sm" onclick="App.act(\'rest\',{hours:6})">🌙 休息至滿</button>';
+      +'<button class="btn sm" onclick="App.act(\'rest\',{hours:6})">🌙 休息至滿</button>'
+      +'<button class="btn sm" onclick="App.act(\'shop\')">🛒 購物備糧</button>'
+      +'<button class="btn sm" onclick="App.act(\'kit\')">📦 標準補給包</button>';
     if(sep) h+='<span style="width:100%;font-size:11px;color:'+(dz?'var(--gold2)':'var(--dim)')+'">從者所在：'+App.locName(App.S.player.servant.loc)+(dz?'　↳ 點地圖上相鄰地，派從者前往':'')+'</span>';
     return h; },
   // 點分類 → 在 #action-sub 展開該類動作；再點同類收起
@@ -625,7 +631,7 @@ var App = {
     var b=function(type,label,extra){ return '<button class="btn sm" onclick="App.act(\''+type+'\''+(extra||'')+')">'+label+'</button>'; };
     var html='';
     if(k==='fight')      html=b('attack','⚔ 攻擊')+b('np','💥 寶具')+(App.S.player.servant.cls==='Archer'?b('snipe','🎯 遠距離支援'):'')+(App.S.player.servant.cls==='Assassin'?b('assassinate','🗡 潛殺御主'):'')+b('retreat','🏃 撤退');
-    else if(k==='mana')  html=b('feed','💧 供給')+b('mana','❤ 補魔')+b('hunt','🩸 獵魔')+b('eat','🍙 進食');
+    else if(k==='mana')  html=b('feed','💧 供給')+b('mana','❤ 補魔')+b('hunt','🩸 獵魔');
     else if(k==='base')  html=b('claim','🏠 設為據點')+b('reinforce','🛡 加固結界');
     else if(k==='act')   html=App.actGroupHtml();
     else if(k==='skill') html=App.skillButtons();
@@ -645,13 +651,24 @@ var App = {
 
   // ---------- 渲染 ----------
   renderAll:function(){ App.renderClock(); App.renderMana(); App.renderMaster(); App.renderServant(); App.renderBase();
-    App.renderRoster(); App.renderMap(); App.renderQuick(); App.renderLoc(); },
+    App.renderRoster(); App.renderMap(); App.renderQuick(); App.renderLoc(); App.renderInv(); },
+  renderInv:function(){ var bar=document.getElementById('inv-bar'); if(!bar)return;
+    var inv=(App.S.player.master.inventory)||[];
+    if(!inv.length){ bar.innerHTML='<span style="font-size:12px;color:var(--dim)">空（到市區「🛒 購物備糧」補給食物／醫療品，點物品即用。醫院、車站有繃帶急救包）</span>'; return; }
+    bar.innerHTML=inv.map(function(it){
+      var tip, act;
+      if(it.kind==='med'){ tip=it.name+'（醫療：'+(it.desc||'止血／回血')+'）'; act='療傷'; }
+      else if(it.kind==='gem'){ tip=it.name+'（魔力寶石：'+(it.desc||'回魔＋下次戰鬥判定加持')+'）'; act='施用'; }
+      else { tip=it.name+(it.tier?('〔'+it.tier+'〕'):'')+'（飽足：每小時迴路回魔 +，品級越高越強越持久）'; act='食用'; }
+      return '<button class="btn sm" title="'+act+' '+tip+'" onclick="App.act(\'use\',{item:\''+it.key+'\'})">'+it.emoji+' '+it.name+'</button>';
+    }).join('')+'<span style="width:100%;font-size:11px;color:var(--dim)">物品欄 '+inv.length+'/5・點擊使用（🍙食物＝飽足回魔；🩹醫療＝止血回血；💎寶石＝回魔＋判定）</span>'; },
   renderMana:function(){ var c=App.S.clock,b=document.getElementById('mana-box');
     b.innerHTML = c.mana_locked ? '<div style="background:#1c1320;border:1px solid var(--red);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--red2);margin-bottom:8px;text-align:center">♥ 補魔進行中・剩 '+c.mana_countdown+' 次對話（送出對話以推進）</div>' : ''; },
   renderClock:function(){ var c=App.S.clock,ph=(c.hour>=6&&c.hour<18)?'☀晝':'🌙夜';
     var buff=(Number(c.mana_countdown)>0)?(' 　<span style="color:#e58aa8" title="補魔加持：迴路回魔提升、靈基維持高出力">✨補魔加持 '+Number(c.mana_countdown)+'h</span>'):'';
-    var sat=(Number(c.satiety)>0)?(' 　<span style="color:#d6b86a" title="飽足：每小時迴路回魔額外 +（再吃可重置 8h）">🍙飽足 '+Number(c.satiety)+'h</span>'):'';
-    document.getElementById('clock-hud').innerHTML='<span>第 '+c.day+' 日　'+('0'+c.hour).slice(-2)+':00　'+ph+buff+sat+
+    var sat=(Number(c.satiety)>0)?(' 　<span style="color:#d6b86a" title="飽足：每小時迴路回魔額外 +（再吃可重置）">🍙飽足 '+Number(c.satiety)+'h</span>'):'';
+    var bld=(Number(c.bleed)>0)?(' 　<span style="color:#e06666" title="失血：每小時持續掉血（不致死，會自然止血）。用繃帶／急救包可立即止血">🩸失血 '+Number(c.bleed)+'h</span>'):'';
+    document.getElementById('clock-hud').innerHTML='<span>第 '+c.day+' 日　'+('0'+c.hour).slice(-2)+':00　'+ph+buff+sat+bld+
       '</span><span title="行動點：移動/偵查/戰鬥等耗時動作各 1 點，睡覺恢復" style="cursor:help">AP '+'●'.repeat(c.ap)+'○'.repeat(c.ap_max-c.ap)+'</span>'; },
   renderMaster:function(){ var m=App.S.player.master,e=App.S.economy;
     document.getElementById('master-box').innerHTML=
