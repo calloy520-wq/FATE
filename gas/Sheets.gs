@@ -112,16 +112,18 @@ function appendObjs_(name, objs){
   invalidate_(name);
 }
 
-/** 更新指定 _row 的某些欄位 */
+/** 更新指定 _row 的某些欄位。
+ * 效能：整列「讀一次＋寫一次」（2 次試算表往返），取代過去「每欄一次 setValue」（N 次往返）——
+ * 戰鬥/NPC tick 一動作動輒更新數十欄，這是把每回合 I/O 從數秒降到 sub-秒的關鍵。 */
 function updateRow_(name, rowIndex, updates){
-  var s = sheet_(name);
   var head = HEADERS[name];
-  Object.keys(updates).forEach(function(k){
-    var col = head.indexOf(k);
-    if(col < 0) return;
-    var v = updates[k];
-    s.getRange(rowIndex, col+1).setValue((typeof v === 'object') ? JSON.stringify(v) : v);
-  });
+  var keys = Object.keys(updates).filter(function(k){ return head.indexOf(k) >= 0; });
+  if(!keys.length) return;
+  var range = sheet_(name).getRange(rowIndex, 1, 1, head.length);
+  var row = range.getValues()[0];                 // 1 次讀
+  keys.forEach(function(k){ var c = head.indexOf(k), v = updates[k];
+    row[c] = (v !== null && typeof v === 'object') ? JSON.stringify(v) : v; });
+  range.setValues([row]);                          // 1 次寫
   invalidate_(name);
 }
 
