@@ -167,7 +167,7 @@ function newGame(opts){
       bond:30, true_name_known:false, status:'normal', alive:true,
       base_loc:p.isPlayer?loc:'', barrier:p.isPlayer?30:'', barrier_max:p.isPlayer?(isCaster?100:60):'',
       base_tier:p.isPlayer?(isCaster?'魔術工房':'簡易結界'):'', servant_loc:loc, separated:false,
-      discovered:p.isPlayer?[]:''
+      discovered:p.isPlayer?[]:'', sv_condition:p.isPlayer?'靈基初凝，神色沉靜':''
     });
   });
   // 玩家開局只「認得」與自己同地的從者（戰爭迷霧：其餘需偵查/相遇才現蹤）
@@ -250,7 +250,7 @@ function playerView_(p){
               upkeep:p.upkeep, bond:p.bond, six: hero?heroFromRow_(hero).six:{}, np:hero?hero.np:'',
               skills: hero?heroFromRow_(hero).skills:[], classSkills: hero?heroFromRow_(hero).classSkills:[],
               traits: hero?heroFromRow_(hero).traits:[], persona: hero?hero.persona:null,
-              loc:p.servant_loc, separated:p.separated },
+              loc:p.servant_loc, separated:p.separated, condition:p.sv_condition||'' },
     base:{ loc:p.base_loc, barrier:p.barrier, barrierMax:p.barrier_max, tier:p.base_tier }
   };
 }
@@ -354,28 +354,34 @@ function doAction(a){
   if(plan.error) return { error: plan.error };
   if(plan.final) return plan.final;
 
-  // ===== Phase 2（鎖外）：生成敘述，多人並行不互相卡 =====
-  var narration = '', facts = [], spec = plan.spec;
+  // ===== Phase 2（鎖外）：生成敘述＋從者體況，多人並行不互相卡 =====
+  var narration = '', facts = [], cond = '', spec = plan.spec, o;
   if(typeof spec === 'string'){ narration = spec; }
   else if(spec && spec.kind==='scene'){
-    narration = (spec.prefix||'') + narrateScene(spec.prompt, plan.mem) + (spec.suffix||'');
+    o = narrateScene(spec.prompt, plan.mem); narration = (spec.prefix||'') + o.text + (spec.suffix||''); cond = o.condition;
   } else if(spec && spec.kind==='combat'){
-    narration = (spec.prefix||'') + narrateCombat(spec.ctx, plan.mem) + (spec.suffix||'');
+    o = narrateCombat(spec.ctx, plan.mem); narration = (spec.prefix||'') + o.text + (spec.suffix||''); cond = o.condition;
   } else if(spec && spec.kind==='chat'){
-    var ext = narrateAndExtract_(spec.prompt, plan.mem); narration = ext.narration; facts = ext.facts||[];
+    o = narrateAndExtract_(spec.prompt, plan.mem); narration = o.narration; facts = o.facts||[]; cond = o.condition;
   }
 
   // 結局假夢（鎖外生成）
   if(plan.over && plan.over.dreamPrompt){
-    plan.over.dream = narrateScene(plan.over.dreamPrompt, plan.mem);
+    plan.over.dream = narrateScene(plan.over.dreamPrompt, plan.mem).text;
     delete plan.over.dreamPrompt;
   }
 
-  // Phase 3（短鎖）：自由對話新建立的事實寫回記憶
-  if(facts.length) withLock_(function(){
+  // Phase 3（短鎖）：自由對話事實 + 從者體況寫回存檔
+  if((facts.length || cond) && !plan.over) withLock_(function(){
     facts.forEach(function(f){ recordFact_(plan.gameId, plan.day, f.entity, f.content, f.importance); });
+    if(cond){
+      var pr = findRows_(SHEETS.BATTLE, { game_id: plan.gameId }).filter(function(r){ return r.is_player===true; })[0];
+      if(pr) updateRow_(SHEETS.BATTLE, pr._row, { sv_condition: cond });
+    }
     return true;
   });
+  // 把最新體況補進回傳 state，讓前端立刻顯示（不必等下一次 getState）
+  if(cond && plan.state && plan.state.player && plan.state.player.servant) plan.state.player.servant.condition = cond;
 
   return { state: plan.state, narration: narration, events: plan.events, gameOver: plan.over, awaitSeal: plan.awaitSeal };
 }

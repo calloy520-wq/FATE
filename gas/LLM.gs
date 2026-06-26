@@ -108,29 +108,41 @@ function narrateCombat(ctx, memory){
     '觸發標籤：'+((ctx.firedTags&&ctx.firedTags.length)?ctx.firedTags.join('、'):'無'),
     '關鍵過程：',
   ].concat((ctx.beats||[]).slice(0,8)).concat([
-    '請依以上事實寫一段戰鬥敘述（2~4 句）：若有撤退或令咒介入，務必帶出敵御主身份與那一瞬的張力；與已知世界線一致，不要列出數字。'
+    '請依以上事實寫一段戰鬥敘述：若有撤退或令咒介入，務必帶出敵御主身份與那一瞬的張力；與已知世界線一致，不要列出數字。',
+    CONDITION_SCHEMA_
   ]).join('\n');
-  var r = callLLM(sys, user, { temperature:0.9 });
-  return r.text || ('（敘述生成失敗：'+(r.error||'')+'）');
+  return narrateJSON_(sys, user);
+}
+
+// 共用：體況輸出格式（我方從者此刻的外觀/姿勢動作/神情，純外顯、第三人稱）
+var CONDITION_SCHEMA_ =
+  '\n請輸出 JSON：{"narration":"敘述(2~4句)","condition":"我方從者此刻的『外觀＋姿勢動作＋神情』，純外顯、第三人稱、≤24字，'
+  + '例：白裙染塵、單膝半跪、按劍喘息、眉宇凜然。隨劇情變化（受傷則狼狽、得勝則昂揚、補魔後則紅暈未褪）"}';
+
+/** 呼叫 LLM（JSON）→ {text, condition}；失敗則回退純文字、condition 留空 */
+function narrateJSON_(sys, user){
+  var r = callLLM(sys, user, { json:true, temperature:0.9 });
+  if(r.json) return { text: String(r.json.narration||''), condition: String(r.json.condition||'').slice(0,40) };
+  return { text: r.text || ('（敘述生成失敗：'+(r.error||'')+'）'), condition: '' };
 }
 
 /** 敘述並抽取應長期記住的事實（用於玩家自由對話，單次呼叫同時產出敘述＋記憶） */
 function narrateAndExtract_(prompt, memory){
   var sys = narratorSystem_()
-    + '\n輸出 JSON：{"narration":"敘述(2~4句)","facts":[{"entity":"對象","content":"玩家新建立、值得長期記住的事實","importance":0}]}。'
+    + '\n輸出 JSON：{"narration":"敘述(2~4句)","condition":"我方從者此刻的外觀/姿勢動作/神情，純外顯、第三人稱、≤24字",'
+    + '"facts":[{"entity":"對象","content":"玩家新建立、值得長期記住的事實","importance":0}]}。'
     + 'facts 只收「玩家這次新確立、之後需保持一致」的設定（地點狀態/約定/自訂設定等）；沒有則空陣列。importance 0~2。';
   var user = (memory ? ('【已知世界線/記憶】\n'+memory+'\n\n') : '') + prompt;
   var r = callLLM(sys, user, { json:true, temperature:0.85 });
-  if(r.json) return { narration: r.json.narration || '', facts: r.json.facts || [] };
-  return { narration: r.text || ('（敘述失敗：'+(r.error||'')+'）'), facts: [] };
+  if(r.json) return { narration: r.json.narration || '', condition: String(r.json.condition||'').slice(0,40), facts: r.json.facts || [] };
+  return { narration: r.text || ('（敘述失敗：'+(r.error||'')+'）'), condition: '', facts: [] };
 }
 
-/** 一般場景敘述（移動/搜索/閒聊等） */
+/** 一般場景敘述（移動/搜索/閒聊等）→ {text, condition} */
 function narrateScene(prompt, memory){
   var sys = narratorSystem_();
-  var user = (memory ? ('【已知世界線/記憶】\n'+memory+'\n\n') : '') + prompt;
-  var r = callLLM(sys, user, {});
-  return r.text || ('（敘述生成失敗：'+(r.error||'')+'）');
+  var user = (memory ? ('【已知世界線/記憶】\n'+memory+'\n\n') : '') + prompt + CONDITION_SCHEMA_;
+  return narrateJSON_(sys, user);
 }
 
 /** AI 生成英靈資料（真名召喚／自訂），回傳已夾值的從者物件 */
