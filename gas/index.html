@@ -77,6 +77,16 @@
 <body>
 <div class="badge">GAS 後端・即時存檔</div>
 <div id="busy">⏳ 處理中…</div>
+<div id="death-modal" style="position:fixed;inset:0;background:rgba(8,6,14,.82);display:none;align-items:center;justify-content:center;z-index:100">
+  <div class="card" style="width:430px;text-align:center">
+    <h2 style="color:var(--red2);margin:0">⚠ 靈基崩解在即</h2>
+    <p id="death-msg" style="color:#d8c8ef;line-height:1.8;margin:14px 0"></p>
+    <div style="display:flex;gap:10px">
+      <button class="btn primary" style="flex:1" onclick="App.deathChoose('heal')">❖ 燃燒令咒・靈基修復</button>
+      <button class="btn ghost" style="flex:1" onclick="App.deathChoose('accept')">接受命運</button>
+    </div>
+  </div>
+</div>
 
 <section class="screen" id="scr-login">
   <div style="text-align:center;margin-bottom:10px">
@@ -342,7 +352,13 @@ var App = {
       App.S=r.state; App.renderAll();
       if(r.narration) App.ai(r.narration);
       if(r.events&&r.events.length) r.events.forEach(function(t){ App._push('event','⚑ 情報',t); });
+      if(r.awaitSeal) App.deathPrompt(r.awaitSeal);
     }).catch(App.err); },
+  // 瀕死令咒救援：強制抉擇（燃令咒回血回魔 / 接受死亡）
+  deathPrompt:function(info){ document.getElementById('death-msg').textContent=(info&&info.msg)||'是否燃燒令咒挽救從者？';
+    document.getElementById('death-modal').style.display='flex'; },
+  deathChoose:function(c){ document.getElementById('death-modal').style.display='none';
+    if(c==='heal') App.act('seal',{cmd:'heal'}); else App.act('accept_death'); },
   history:function(){ busy(true);
     gs('getHistory',App.acc.ms_id).then(function(list){ busy(false);
       document.getElementById('history-list').innerHTML = (list&&list.length) ? list.map(function(h){

@@ -303,6 +303,7 @@ function doAction(a){
       case 'reinforce':  spec = act_reinforce_(p, hero); break;
       case 'separate':   spec = act_separate_(p); break;
       case 'retreat':    spec = act_retreat_(p, clock, hero); break;
+      case 'accept_death': spec = ''; break;   // 瀕死抉擇：放棄令咒救援、接受死亡（結局在下方結算）
       case 'claim':      spec = act_claim_(p, clock, hero); break;
       case 'sleep':      spec = act_sleep_(p, clock); break;
       case 'seal':       spec = act_seal_(rows, p, clock, hero, a.cmd); break;
@@ -333,10 +334,17 @@ function doAction(a){
       else { var en = fresh2.filter(function(r){ return r.is_player!==true; });
              if(en.length && en.every(function(r){ return !r.alive; })) endR = 'win'; }
     }
-    var over = endR ? endGame_(gameId, pf, endR) : null;   // endGame_ 回傳 dreamPrompt，假夢敘述留到鎖外生成
+    // 瀕死令咒救援：從者靈基崩解在即、仍有令咒、且玩家尚未明確「接受命運」→ 先不結算死亡，
+    // 回 awaitSeal 讓玩家抉擇（燃令咒・靈基修復 或 接受命運）。
+    var awaitSeal = null, over = null;
+    if(endR==='death' && pf.sv_hp<=0 && (pf.seals||0)>0 && a.type!=='accept_death'){
+      awaitSeal = { msg:'你的從者靈基崩解在即！是否燃燒令咒・靈基修復（回血回魔）挽救？（尚餘 '+pf.seals+' 道令咒）' };
+    } else if(endR){
+      over = endGame_(gameId, pf, endR);   // endGame_ 回傳 dreamPrompt，假夢敘述留到鎖外生成
+    }
 
     return {
-      spec: spec, mem: mem, over: over, gameId: gameId, day: clock.day,
+      spec: spec, mem: mem, over: over, awaitSeal: awaitSeal, gameId: gameId, day: clock.day,
       events: events.filter(function(e){ return e.global || e.atPlayer; }).map(function(e){ return e.text; }),
       state: over ? null : getState(gameId)
     };
@@ -368,7 +376,7 @@ function doAction(a){
     return true;
   });
 
-  return { state: plan.state, narration: narration, events: plan.events, gameOver: plan.over };
+  return { state: plan.state, narration: narration, events: plan.events, gameOver: plan.over, awaitSeal: plan.awaitSeal };
 }
 
 // ---------- 結局：願望假夢 / 奪杯 → 老虎道場 → 寫歷史 → 清空該場 ----------
@@ -610,15 +618,11 @@ function enemyMasterReact_(enemyRow, situation){
   if(situation === 'press'){                       // 玩家重傷 → 敵御主是否燃咒追擊
     return (hasSeal && roll < (aggressive?0.6:0.3)) ? {type:'press'} : {type:'none'};
   }
-  if(!hasSeal) return {type:'flee'};               // 無令咒 → 徒步撤退
-  if(aggressive){                                   // 好戰 → 傾向治療續戰
-    if(roll < 0.45) return {type:'heal'};
-    if(roll < 0.60) return {type:'escape'};
-    return {type:'flee'};
-  }
-  if(roll < 0.50) return {type:'escape'};           // 一般 → 傾向令咒脫離保命
-  if(roll < 0.70) return {type:'heal'};
-  return {type:'flee'};
+  // 'defend'：敵從者重傷。有令咒 → 優先瞬間移動脫離（強制 -1 令咒）以保命，
+  // 好戰御主偶爾改為令咒治療續戰；令咒用盡才徒步且戰且退。死亡因此罕見，戰局更持久。
+  if(!hasSeal) return {type:'flee'};
+  if(aggressive && roll < 0.35) return {type:'heal'};
+  return {type:'escape'};
 }
 
 function act_combat_(rows, p, clock, hero, mode, costAP){
