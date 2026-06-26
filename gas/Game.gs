@@ -107,7 +107,7 @@ function newGame(opts){
     var circuits = Math.max(10, Math.min(50, p.circuits || 25));
     return { master:name, circuits:circuits, magic:p.magic||'依正典設定',
              melee:p.melee||'E', magic_rank:p.magic_rank||(circuits>=45?'A':circuits>=30?'B':'C'),
-             home:'', wish:p.wish||'' };
+             home:'', wish:p.wish||'', gender:p.gender||'', persona:p.persona||'', origin:p.origin||'' };
   }
 
   if(opts.mode === 'canon'){
@@ -180,7 +180,10 @@ function newGame(opts){
                              ap_max:TUNING.AP_PER_DAY, mana_countdown:0, mana_locked:false });
   var pp = parts.filter(function(x){ return x.isPlayer; })[0];
   var wish = (pp && pp.wish) || (opts.profile && opts.profile.wish) || '';   // 正史扮演用正典願望
-  updateWhere_(SHEETS.ACCOUNTS, { ms_id:opts.ms_id }, { current_game:gameId, settings:{ wish:wish, manaRating:'adult-fade' } });
+  // 御主人設（餵 AI 用）：自創帶性別/個性/出身；正史扮演則用御主殿的 persona
+  var master = pp ? { name:pp.master, gender:pp.gender||'', persona:pp.persona||'', origin:pp.origin||'',
+                      magic:pp.magic||'', melee:pp.melee||'', magic_rank:pp.magic_rank||'', circuits:pp.circuits||30 } : {};
+  updateWhere_(SHEETS.ACCOUNTS, { ms_id:opts.ms_id }, { current_game:gameId, settings:{ wish:wish, manaRating:'adult-fade', master:master } });
 
   logEvent_(gameId, 1, '20:00', 'start', 'START', 'slot_0', '', '聖杯戰爭開始。', true, 2);
   var s = getState(gameId);
@@ -295,9 +298,10 @@ function doAction(a){
     if(clock.mana_locked && ['move','scout','attack','np','sleep','separate','claim','retreat','hunt'].indexOf(a.type)>=0)
       return { final:{ state:getState(gameId), narration:'（補魔進行中，無法進行該動作；請繼續對話，或用令咒「強制補魔」結束。）', events:[] } };
 
-    // 個性+好感 + 歷史事件/記憶 → 完整 context，讓 AI 不出戲、知道過去
+    // 御主人設 + 從者人格+好感 + 歷史事件/記憶 → 完整 context，讓 AI 不出戲、知道過去
+    var acc = findOne_(SHEETS.ACCOUNTS, { current_game: gameId });
     var gc = gameContext_(gameId);
-    var mem = servantCtx_(p, hero) + (gc ? ('\n'+gc) : '');
+    var mem = [masterCtx_(acc), servantCtx_(p, hero), gc].filter(function(x){ return x; }).join('\n');
 
     var spec;   // string（免 LLM 的最終文字）或 {kind:'scene'|'combat'|'chat', ...}
     switch(a.type){
@@ -775,6 +779,20 @@ function act_mana_(p, clock){
   return { kind:'scene',
     prompt:'我與從者開始補魔。依從者個性與好感度決定其態度（好感低則勉強/公事公辦、抗拒過度親密；好感高則有溫度），fade-to-black、點到為止。請寫一段含蓄起始敘述。',
     suffix:'\n（補魔開始：接下來 '+TUNING.MANA_TURNS+' 次對話用於補魔，期間時間與 NPC 凍結）' };
+}
+// 御主人設 context（餵 AI；第一人稱「我」的口吻依此演繹）
+function masterCtx_(acc){
+  var m = (acc && acc.settings && acc.settings.master) || null;
+  var wish = (acc && acc.settings && acc.settings.wish) || '';
+  if(!m || !m.name) return '';
+  var s = '（御主＝「我」：'+m.name;
+  if(m.gender) s += '，性別'+m.gender;
+  if(m.origin) s += '，出身「'+m.origin+'」';
+  if(m.magic)  s += '，魔術「'+m.magic+'」';
+  if(m.melee)  s += '，體術'+m.melee+'級';
+  if(m.persona) s += '，個性「'+m.persona+'」';
+  if(wish)     s += '，願望「'+wish+'」';
+  return s + '。第一人稱敘述與內心戲須貼合此人設，語氣口吻依其個性演繹。）';
 }
 function servantCtx_(p, hero){
   if(!hero) return '';
