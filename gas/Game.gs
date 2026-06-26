@@ -562,10 +562,12 @@ function npcTick_(gameId, rows, clock){
   var svAtMaster = player.sv_hp>0 && ((player.separated ? player.servant_loc : player.location) === player.location);
   var struck = false;   // 每 tick 至多一名敵人襲擊御主
   arrived.forEach(function(n){
-    if(!svAtMaster && !struck && player.master_hp>0){   // 御主已逝（無御主・單獨行動續戰）→ 不再有「御主遇襲」
+    if(!svAtMaster && !struck && player.master_hp>0){   // 御主已逝 → 不再有「御主遇襲」
       struck = true;
-      masterPeril_(gameId, player, n, clock);
-      events.push({ text:'⚠ 我的從者不在身邊，'+heroCls_(n.servant_id)+'（'+n.master_name+'）直撲而來——御主遭襲！（HP '+player.master_hp+'/'+player.master_hp_max+'）速召回從者或撤退！', atPlayer:true });
+      var nf = masterPeril_(gameId, player, n, clock);
+      events.push({ text: nf
+        ? ('☠ '+heroCls_(n.servant_id)+'（'+n.master_name+'）將我重創至命懸一線（HP 1）！再挨一擊便會喪命——立刻召回從者、撤退，或燃令咒「緊急脫離」！')
+        : ('⚠ 我的從者不在身邊，'+heroCls_(n.servant_id)+'（'+n.master_name+'）直撲而來——御主遭襲！（HP '+player.master_hp+'/'+player.master_hp_max+'）速召回從者或撤退！'), atPlayer:true });
     } else {
       events.push({ text:'⚠ '+heroCls_(n.servant_id)+'（'+n.master_name+'）出現在我的所在地！可選擇攻擊或迴避。', atPlayer:true });
     }
@@ -606,11 +608,19 @@ function masterPeril_(gameId, player, enemy, clock){
   // 武鬥高手有機會直接化解（葛木/言峰那類近戰御主），但非絕對無敵
   if(rankVal(player.melee) >= 50 && Math.random() < 0.4) defend += 18;
   var dmg = Math.max(3, base - defend);
-  player.master_hp = Math.max(0, player.master_hp - dmg);
+  dmg = Math.min(dmg, Math.round((player.master_hp_max||100)*0.3));   // 單擊封頂 30%：不被一發打爆
+  // 不暴斃鐵則：健康（>25%）時的致命一擊 → 只留 1 血、強警告，保證玩家有一回合反應；唯有已重傷才可能真死
+  var nearFatal = false;
+  if(player.master_hp - dmg <= 0 && player.master_hp > Math.round((player.master_hp_max||100)*0.25)){
+    player.master_hp = 1; nearFatal = true;
+  } else {
+    player.master_hp = Math.max(0, player.master_hp - dmg);
+  }
   updateRow_(SHEETS.BATTLE, player._row, { master_hp:player.master_hp });
   logEvent_(gameId, clock.day, pad2_(clock.hour)+':00', player.location, 'MASTER_HIT',
     'slot_'+(enemy.slot-1), 'slot_0',
-    (eHero?eHero.cls:'敵從者')+' 襲擊御主 '+player.master_name+'，造成 '+dmg+' 傷害', false, 1);
+    (eHero?eHero.cls:'敵從者')+' 襲擊御主 '+player.master_name+(nearFatal?'，將其重創至命懸一線':'，造成 '+dmg+' 傷害'), false, 1);
+  return nearFatal;
 }
 
 // NPC 間短兵交手（3 回合互毆、低致命，HP 歸 0 才死）
