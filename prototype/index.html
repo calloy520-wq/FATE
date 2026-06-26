@@ -527,7 +527,8 @@ const App = {
     const w=SERVER.wars[this.state.war], r=w.roster[i], sv=SERVER.byId(r.sid);
     const circuits=r.master.includes('伊莉雅')?70:30;   // 伊莉雅＝魔力大戶(人造人)
     this.state.master={name:r.master,sex:'—',age:'—',origin:'正典御主',magic:'依正典設定',
-      circuits,hp:100,hpMax:100,mp:circuits*4,mpMax:circuits*4,seals:3};
+      circuits,hp:100,hpMax:100,mp:circuits*4,mpMax:circuits*4,seals:3,
+      melee:/言峰|葛木/.test(r.master)?'A':'E', magicRank:'B'};   // 言峰/葛木＝邊際效應戰鬥型
     this.equipServant(sv);
     this.buildCanonRoster(i,null);
     this.enterGame();
@@ -547,7 +548,8 @@ const App = {
     const circuits=+document.getElementById('m-circuits').value;
     this.state.master={name,sex:document.getElementById('m-sex').value,age:document.getElementById('m-age').value,
       origin:document.getElementById('m-origin').value||'來歷不明',magic:document.getElementById('m-magic').value,
-      circuits,hp:100,hpMax:100,mp:circuits*4,mpMax:circuits*4,seals:3};
+      circuits,hp:100,hpMax:100,mp:circuits*4,mpMax:circuits*4,seals:3,
+      melee:'E', magicRank:circuits>=45?'A':circuits>=30?'B':'C'};   // 御主專屬輕量能力
     if(this.state.mode==='canon'){ this.renderSummon2(); this.go('scr-summon2'); }  // 自創 → 詳細召喚
     else { this.resetCatalyst(); this.go('scr-summon'); }                           // 混亂 → 催媒召喚
   },
@@ -711,6 +713,7 @@ const App = {
     document.getElementById('master-box').innerHTML=`
       <div style="font-size:16px;color:var(--gold2)">${m.name}</div>
       <div style="font-size:12px;color:var(--dim)">${m.origin}・${m.magic}</div>
+      <div style="font-size:11px;color:var(--dim)">體術 ${m.melee||'E'}｜魔術 ${m.magicRank||'C'}　<span style="color:#8a7">對魔力使現代魔術難傷從者</span></div>
       <div class="stat-row"><span>HP</span><span>${m.hp}/${m.hpMax}</span></div><div class="bar hp"><i style="width:${m.hp/m.hpMax*100}%"></i></div>
       <div class="stat-row"><span>魔力</span><span>${m.mp}/${m.mpMax}</span></div><div class="bar mp"><i style="width:${m.mp/m.mpMax*100}%"></i></div>
       <div class="stat-row"><span>令咒</span><span style="color:var(--red2)">${'❖'.repeat(m.seals)}</span></div>`;
@@ -763,8 +766,18 @@ const App = {
     document.getElementById('loc-info').innerHTML=`<b style="color:var(--gold2)">${l.name}</b>（危險度：${dmap[l.danger]}・靈脈：${l.leyline}）<br>${l.desc}`;
   },
   renderQuick(){
-    document.getElementById('quick-actions').innerHTML=['⚔ 攻擊敵人','使用寶具','❖ 令咒','🛡 加固結界','搜索周圍','偵查氣息','補魔','🌙 睡覺']
+    document.getElementById('quick-actions').innerHTML=['⚔ 攻擊敵人','使用寶具','💧 供給魔力','❖ 令咒','🛡 加固結界','搜索周圍','偵查氣息','補魔','🌙 睡覺']
       .map(a=>`<button class="btn sm ghost" onclick="App.quick('${a}')">${a}</button>`).join('');
+  },
+  // 御主後方參戰：把自身魔力導入從者（不耗 AP，是維持手段）
+  masterFeed(){
+    const m=this.state.master,s=this.state.servant;
+    if(m.mp<20){ this.sys('御主魔力不足，無法供給。'); return; }
+    if(s.mp>=s.mpMax){ this.sys('從者魔力已滿。'); return; }
+    const amt=Math.min(m.mp, Math.round(s.mpMax*0.25));
+    m.mp-=amt; s.mp=Math.min(s.mpMax,s.mp+amt);
+    this.renderStatus();
+    this.ai(`你透過魔術迴路將魔力導入從者——從者魔力 +${amt}（御主供給 ${m.mp} 剩）。這是御主最基本的參戰方式。`);
   },
   /* ====== 時間 / AP / 每小時經濟 tick ====== */
   renderClock(){
@@ -821,6 +834,7 @@ const App = {
     if(a==='使用寶具'){ this.me('解放寶具'); this.attackNearest('np',true); return; }
     if(a.includes('加固')){ this.me('加固結界'); this.reinforce(); return; }
     if(a.includes('令咒')){ this.toggleSeals(); return; }
+    if(a.includes('供給')){ this.me('供給魔力'); this.masterFeed(); return; }
     if(a.includes('睡覺')){ this.me('睡覺'); this.sleep(); return; }
     if(a==='搜索周圍'||a==='偵查氣息'){ this.me(a);
       if(this.spendAP(1)) this.ai('（GAS 判定）你'+(a==='搜索周圍'?'仔細探查四周……':'偵測周遭的從者氣息……')); return; }
