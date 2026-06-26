@@ -146,6 +146,27 @@ GAS Web App (HTML Service, 聊天/地圖介面)
 - 結束時一次扣 **2 AP** 並讓 NPC 行動一次（世界仍合理前進）。
 - 結算：魔力回滿 + 好感度上升（見好感度系統）。
 
+## 事件日誌（EventLog）Schema — 單人/多人相容版
+GAS 算完數值後寫入「純事實」（不花 token）；AI 說書時只撈相關最近 N 條餵 prompt。
+
+| 欄位 | 型態 | 說明 |
+|------|------|------|
+| `event_id` | String | 唯一列 id（流水號/UUID） |
+| `write_ts` | Number | **毫秒寫入時戳**（排序/去重/取最近 N，遊戲內時間會撞） |
+| `game_id` | String | 區分戰局（單人各開各的 / 多人全服同一個） |
+| `day_count` | Integer | 聖杯戰爭天數 |
+| `time_hour` | String | 遊戲內時間（24h 制，如 `22:00`） |
+| `location_id` | String | 發生地點（**對齊 Locations 表 id**，如 `emiya`/`shinto`） |
+| `event_type` | String | 分類 enum：REST/MOVE/SEARCH/SCOUT/ENCOUNTER/AMBUSH/BATTLE/STANDOFF/ALLIANCE/MANA/NP_RELEASE/DEATH |
+| `actor_id` | String | 發起者：**`slot_N`（NPC組）或 `ms_id`（人類玩家）**，前綴區分 |
+| `target_id` | String | 目標：同上多型，無則留空 |
+| `log_text` | String | GAS 寫入的結構化事實（如「slot_0 熟睡時遭 slot_3 突襲」） |
+| `is_global` | Boolean | 是否公開情報（寶具解放=全城感知 / 暗處偷襲=FALSE） |
+| `importance` | Integer | 0~2，narration 撈取時裁剪用（避免被 REST/MOVE 洗版） |
+
+- **多人相容**：欄位不變；人類玩家用 `ms_id`、NPC 從者組仍用 `slot_N`，**兩者並存**於同一世界。
+- **撈取規則**：`game_id 相符 且 (actor/target 含自己 OR is_global=TRUE OR (同 location 且 對方未氣息遮斷))`，依 `write_ts` 取最近 N 條 → 打包餵 OpenRouter。
+
 ## 試算表（資料庫）規劃 — 靜態 vs 動態
 **核心觀念**：英靈殿＝唯讀定檔；開局時「抓基本資料 → 生成實例 → 寫入戰場」。
 實例不複製整份能力，只存變動值 + `servant_id` 指回英靈殿，要用六維/技能時即時查。
@@ -163,7 +184,7 @@ GAS Web App (HTML Service, 聊天/地圖介面)
   `game_id | slot(1~8) | is_player | 御主名/魔術系統/御主HP/MP/令咒/所在地 | servant_id(→英靈殿) | 從者HP/MP/好感度/真名揭露?/狀態 | alive | 據點(NPC巡邏中心)`
   - 開局依玩家 ms_id 一次寫入 8 列（玩家1 + 對手7）。**不另設御主分頁**。
 - `記憶`(Memory)：EAV 事實表（捕捉玩家自由發揮）game_id/回合/對象/事實類型/內容/重要度
-- `事件`(EventLog)：事件記錄 game_id/時間/地點/類型(NPC衝突/結盟/玩家遭遇/重大)/摘要/玩家是否知情
+- `事件`(EventLog)：事件記錄，詳見下方「事件日誌 Schema」（多人相容版）
 - `時鐘`(GameClock)：game_id/第幾日/時段(晝夜)/剩餘AP/補魔倒數/補魔鎖定中?
 
 ### 共享世界（v1 不做）
