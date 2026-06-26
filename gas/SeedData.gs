@@ -123,6 +123,43 @@ const SEED_SERVANTS = [
     skills:[{n:'原初符文',r:'EX',fx:'rune'},{n:'女神的神核',r:'',fx:'divine_core'},{n:'神代魔術',r:'A',fx:'divine_age'}],
     traits:[{n:'神性'},{n:'女神'}], np:'彼岸薔薇之園・原初的符紋（對界 A）',
     align:'中立・善', persona:{firstP:'吾',words:'北歐女神・溫柔而威嚴・守護者',toMaster:'溫柔包容、暗藏神威'} },
+  // ===== Fate/strange Fake 偽聖杯戰爭 =====
+  { id:'理查一世-Saber', cls:'Saber', realName:'獅心王・理查一世', wars:['fake'], gender:'男',
+    six:{筋力:'B',耐久:'B',敏捷:'C',魔力:'C',幸運:'A',寶具:'B'},
+    classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'A',fx:'ride'}],
+    skills:[{n:'卡里斯瑪',r:'B',fx:'morale'},{n:'軍略',r:'B',fx:'tactics'},{n:'戰鬥續行',r:'A',fx:'survive'}],
+    traits:[{n:'王'},{n:'人類'}], np:'無數騎士之證・呼喚英雄之劍（對軍 B）',
+    align:'中立・善', persona:{firstP:'余',words:'浪漫・崇拜英雄・天真豪邁',toMaster:'坦率信賴，視為冒險夥伴'} },
+  { id:'阿基里斯-Rider', cls:'Rider', realName:'阿基里斯', wars:['fake'], gender:'男',
+    six:{筋力:'A',耐久:'B',敏捷:'A+',魔力:'C',幸運:'B',寶具:'A'},
+    classSkills:[{n:'騎乘',r:'A+',fx:'ride'},{n:'對魔力',r:'C',fx:'nullify_magic'}],
+    skills:[{n:'神性',r:'C',fx:'divine'},{n:'勇猛',r:'A+',fx:'morale'},{n:'神威的車輪',r:'A',fx:'survive'}],
+    traits:[{n:'神性'},{n:'英雄'}], np:'貫穿戰場的流星 Diatrekhon Astēr Lonkhē（對人 A）／守護領域的車輪（對己界・除踵無敵）',
+    align:'混沌・中庸', persona:{firstP:'我',words:'戰士・自由奔放・驕傲重情',toMaster:'豪爽不羈，認可便傾力'} },
+  { id:'大仲馬-Caster', cls:'Caster', realName:'亞歷山大·仲馬', wars:['fake'], gender:'男',
+    six:{筋力:'E',耐久:'E',敏捷:'D',魔力:'D',幸運:'C',寶具:'C'},
+    classSkills:[{n:'道具作成',r:'EX',fx:'crafting'},{n:'陣地作成',r:'C',fx:'territory'}],
+    skills:[{n:'故事創作',r:'A',fx:'narrative'},{n:'心眼(真)',r:'B',fx:'analyze'},{n:'怪力（妙筆生兵）',r:'C',fx:'str_up'}],
+    traits:[{n:'人類'}], np:'文豪的妙筆・鍛造英靈的兵裝（輔助・道具作成 EX）',
+    align:'混沌・善', persona:{firstP:'我',words:'文豪・健談・市儈卻浪漫',toMaster:'毒舌愛吐槽，實則照拂'} },
+  { id:'開膛手傑克-Berserker', cls:'Berserker', realName:'開膛手傑克', wars:['fake'], gender:'女',
+    six:{筋力:'C',耐久:'C',敏捷:'A',魔力:'B',幸運:'D',寶具:'B'},
+    classSkills:[{n:'狂化',r:'C',fx:'mad'},{n:'氣息遮斷',r:'B',fx:'stealth'}],
+    skills:[{n:'霧夜的殺戮',r:'B',fx:'zabaniya'},{n:'變化（散為霧）',r:'C',fx:'shapeshift'},{n:'情報抹消',r:'A',fx:'unreadable'}],
+    traits:[{n:'人類'}], np:'霧夜的殺戮 The Mist（對人・心臟摘除）',
+    align:'混沌・惡', persona:{firstP:'我們',words:'孩童・空虛・渴求母愛・殘忍',toMaster:'試探地索求溫柔'} },
+  { id:'靜謐的哈桑-Assassin', cls:'Assassin', realName:'靜謐的哈桑', wars:['fake'], gender:'女',
+    six:{筋力:'D',耐久:'D',敏捷:'A',魔力:'C',幸運:'C',寶具:'C'},
+    classSkills:[{n:'氣息遮斷',r:'A+',fx:'stealth'}],
+    skills:[{n:'自我改造（毒身）',r:'B',fx:'self_mod'},{n:'妄想心音',r:'B',fx:'zabaniya'},{n:'透化',r:'C',fx:'clear_mind'}],
+    traits:[{n:'人類'}], np:'妄想心音・幻影瞬心 Zabaniya（心臟一擊）',
+    align:'秩序・惡', persona:{firstP:'我',words:'孤獨・自我毒身・溫柔的殺意',toMaster:'寡言順從，珍視被需要'} },
+  { id:'伊絲塔-Archer', cls:'Archer', realName:'伊絲塔', wars:['fake'], gender:'女',
+    six:{筋力:'B',耐久:'C',敏捷:'B',魔力:'A',幸運:'B',寶具:'A+'},
+    classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'},{n:'單獨行動',r:'A',fx:'solo'}],
+    skills:[{n:'神性',r:'A',fx:'divine'},{n:'女神的神核',r:'A',fx:'divine_core'},{n:'魔力放出',r:'A',fx:'burst'}],
+    traits:[{n:'神性'},{n:'女神'}], np:'天之公牛・山海熔毀的天牛 An Gal Tā Kigal Shē（對界 A+）',
+    align:'混沌・善', persona:{firstP:'本小姐',words:'女神・任性・傲嬌・愛美',toMaster:'頤指氣使，意外講義氣'} },
 ];
 
 // ===== 御主殿：第四次/第五次正典御主（master_id = name-war）=====
@@ -142,6 +179,15 @@ const SEED_MASTERS = [
   {id:'雨生龍之介-4th',name:'雨生龍之介', war:'4th', magic:'無魔術・召喚術（外行）', circuits:10, melee:'C', magic_rank:'E', home:'harbor',   wish:'見識更有趣的事物・召喚惡魔',persona:'開朗的瘋狂'},
   {id:'言峰綺禮-4th',  name:'言峰綺禮',   war:'4th', magic:'代行者・黑鍵',        circuits:25, melee:'A', magic_rank:'C', home:'church',   wish:'探求自身空虛的答案',      persona:'壓抑・尚未墮落'},
   {id:'間桐雁夜-4th',  name:'間桐雁夜',   war:'4th', magic:'間桐之蟲術',          circuits:15, melee:'D', magic_rank:'C', home:'matou',    wish:'從間桐手中救出櫻',        persona:'悲憤・自我犧牲'},
+  // Fate/strange Fake（御主・對應 fake 戰爭；home 借用冬木定點以相容地圖）
+  {id:'提奈·切爾克-fake',name:'提奈·切爾克',war:'fake',magic:'氏族秘術・地脈操作',   circuits:50, melee:'E', magic_rank:'A', home:'einzbern', wish:'完成氏族夙願',            persona:'少女族長・背負重擔・倔強'},
+  {id:'西格瑪-fake',    name:'西格瑪',     war:'fake', magic:'無魔術・傭兵戰技',      circuits:15, melee:'B', magic_rank:'E', home:'apartment',wish:'活下去・尋得「家人」的意義',persona:'冷靜傭兵・情感生疏'},
+  {id:'沙條綾香-fake',  name:'沙條綾香',   war:'fake', magic:'微弱魔術・捲入者',      circuits:18, melee:'E', magic_rank:'D', home:'church',   wish:'從這場戰爭全身而退',      persona:'不情願・善良・想逃避'},
+  {id:'弗拉特·艾斯卡德斯-fake',name:'弗拉特·艾斯卡德斯',war:'fake',magic:'時鐘塔天才・發想跳躍',circuits:55,melee:'D',magic_rank:'A',home:'apartment',wish:'純粹的好奇與好玩',        persona:'天真爛漫的天才・脫線'},
+  {id:'奧蘭多·里夫-fake',name:'奧蘭多·里夫',war:'fake',magic:'警長・市政結界',       circuits:40, melee:'C', magic_rank:'B', home:'shinto',   wish:'掌控這座城市的聖杯',      persona:'城府深・官僚野心'},
+  {id:'巴茲狄洛特·科德利昂-fake',name:'巴茲狄洛特·科德利昂',war:'fake',magic:'黑幫魔術師・血之契約',circuits:35,melee:'C',magic_rank:'C',home:'harbor',wish:'為主人奪取聖杯',          persona:'忠誠殺手・冷酷'},
+  {id:'繰丘椿-fake',    name:'繰丘椿',     war:'fake', magic:'被植入的觸媒・昏睡',    circuits:20, melee:'E', magic_rank:'C', home:'hospital', wish:'（昏睡・在夢中）想要朋友', persona:'純真孩童・夢中之主'},
+  {id:'菲莉亞-fake',    name:'菲莉亞',     war:'fake', magic:'人造人・女神依代',      circuits:60, melee:'D', magic_rank:'A', home:'einzbern', wish:'承載女神的意志',          persona:'端莊・暗藏神性'},
 ];
 
 // ===== 地圖：冬木市 21 定點 =====
@@ -177,14 +223,16 @@ const SEED_WARS = [
     {master:'肯尼斯',sid:'迪盧木多-Lancer'},{master:'韋伯·維爾維特',sid:'伊斯坎達爾-Rider'},
     {master:'雨生龍之介',sid:'吉爾德萊-Caster'},{master:'言峰綺禮',sid:'百貌哈桑-Assassin'},
     {master:'間桐雁夜',sid:'蘭斯洛特-Berserker'} ] },
-  { war_id:'5th', name:'第五次聖杯戰爭', participants:7, partial:false, roster:[
+  { war_id:'5th', name:'第五次聖杯戰爭', participants:6, partial:true, roster:[
     {master:'衛宮士郎',sid:'阿爾托莉雅-Saber'},{master:'遠坂凜',sid:'EMIYA-Archer'},
     {master:'間桐慎二',sid:'美杜莎-Rider'},{master:'葛木宗一郎',sid:'美狄亞-Caster'},
-    {master:'言峰綺禮',sid:'庫丘林-Lancer'},{master:'伊莉雅絲菲爾',sid:'赫拉克勒斯-Berserker'},
-    {master:'（Caster 召喚）',sid:'佐佐木小次郎-Assassin'} ] },
-  { war_id:'fake', name:'Fate/strange Fake（偽聖杯戰爭）', participants:13, partial:true, roster:[
+    {master:'言峰綺禮',sid:'庫丘林-Lancer'},{master:'伊莉雅絲菲爾',sid:'赫拉克勒斯-Berserker'} ] },
+  { war_id:'fake', name:'Fate/strange Fake（偽聖杯戰爭）', participants:9, partial:true, roster:[
     {master:'提奈·切爾克',sid:'吉爾伽美什-Archer'},{master:'（無御主）',sid:'恩奇都-Lancer'},
-    {master:'觀測者',sid:'漢斯-Watcher'} ] },
+    {master:'西格瑪',sid:'漢斯-Watcher'},{master:'沙條綾香',sid:'理查一世-Saber'},
+    {master:'弗拉特·艾斯卡德斯',sid:'開膛手傑克-Berserker'},{master:'奧蘭多·里夫',sid:'大仲馬-Caster'},
+    {master:'巴茲狄洛特·科德利昂',sid:'阿基里斯-Rider'},{master:'繰丘椿',sid:'靜謐的哈桑-Assassin'},
+    {master:'菲莉亞',sid:'伊絲塔-Archer'} ] },
   // 客串／夢幻演武：跨作亂入，含斯卡哈三職階登場（御主非正典→用預設值）
   { war_id:'dream', name:'夢幻演武（客串亂入）', participants:7, partial:true, roster:[
     {master:'影之國弟子',sid:'斯卡哈-Lancer'},{master:'北歐的旅人',sid:'斯卡哈-Caster'},
