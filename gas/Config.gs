@@ -21,6 +21,7 @@ const SHEETS = {
   EVENTS:   '事件',     // EventLog (多人相容)
   CLOCK:    '時鐘',     // GameClock
   HISTORY:  '歷史',     // 戰績紀錄（跨場保留）
+  GALLERY:  '鑑賞',     // 鑑賞室：玩家收藏/獲勝留存的英靈（ms_id 隔離，跨場保留）
 };
 
 // 各分頁標題列
@@ -43,6 +44,8 @@ const HEADERS = {
                       'actor_id','target_id','log_text','is_global','importance'],
   [SHEETS.CLOCK]:    ['game_id','day','hour','ap','ap_max','mana_countdown','mana_locked'],
   [SHEETS.HISTORY]:  ['ts','ms_id','name','result','war','servant_cls','day','summary'],
+  [SHEETS.GALLERY]:  ['ms_id','entry_id','servant_id','cls','realName','six','skills','classSkills',
+                      'traits','np','persona','align','bond','condition','active','source','log','created'],
 };
 
 // 靜態分頁（重建 setup 時會重新種子）；動態分頁只建表不動資料

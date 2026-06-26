@@ -72,6 +72,38 @@ function narratorSystem_(){
   ].join('\n');
 }
 
+// 鑑賞室・後日談：獨立敘述路徑（與主遊戲分流）。聖杯戰爭已落幕、羈絆已深，氣氛是相處、日常、溫情。
+function afterStorySystem_(){
+  return [
+    '你是《命運停駐之夜》通關後「鑑賞室・後日談」的敘事者。聖杯戰爭已結束，從者留在我身邊，這是戰後的安寧時光。',
+    '以「我」（玩家＝御主）的第一人稱演出：旁白、所見、內心都是「我」。嚴禁用「你」、嚴禁上帝視角。',
+    '【氣氛】日常、相處、溫情與淡淡的曖昧。不再有戰鬥與數字，純粹是兩人（或數人）的後日談。',
+    '【要有血有肉】務必把場景與肢體寫得具體可感：手的動作、足的姿態、身體的朝向與距離、靠近、依偎、牽手、指尖的觸碰、神情與呼吸——這些都要寫清楚，讓畫面立體，不要空泛模糊或只剩抽象情緒。',
+    '【分際】涉及露骨或性的描寫一律 fade-to-black、含蓄收束（如「之後的事，便交給夜色」），點到即止，不寫露骨情節。羈絆與親暱可以濃，但身體描寫止於含蓄。',
+    '【從者要活】從者保有獨立人格與尊嚴，依其個性、一人稱、對我的態度開口。對白格式——從者（神態或動作）：「台詞。」。',
+    '【篇幅】約 100～170 字，分 2～3 短段（段間空一行），靠畫面與對白撐起，不流水帳。'
+  ].join('\n');
+}
+
+/** 後日談一回合：依從者人設、羈絆與往來脈絡，產生含蓄但有畫面的演出 → {text, condition} */
+function narrateAfterStory_(hero, bond, history, userText, condition, ctx){
+  ctx = ctx || {};
+  var p = (hero && hero.persona) || {};
+  var who = (hero?hero.cls:'從者') + (hero&&hero.realName?('・'+hero.realName):'');
+  var user = [
+    '【焦點從者】'+who+'（一人稱「'+(p.firstP||'我')+'」，個性「'+(p.words||'')+'」，陣營'+(hero&&hero.align||'未知')+'，對我態度「'+(p.toMaster||'')+'」）',
+    (ctx.present && ctx.present.length) ? ('【同時在場】'+ctx.present.join('、')+'（可自然帶到，但以焦點從者為主）') : '',
+    ctx.locName ? ('【地點】冬木・'+ctx.locName) : '',
+    '【羈絆】'+bond+'/100（越高越親近、自然；偏低則仍保有距離與防備）',
+    condition ? ('【此刻體況】'+condition) : '',
+    history ? ('【先前往來】\n'+history) : '',
+    '【我此刻的言行】'+userText,
+    '請依以上，寫一段後日談演出：把場景與肢體寫得具體（手、足、姿態、距離、觸碰、神情），讓從者依個性回應並說一兩句台詞。記住分際——露骨處 fade-to-black、含蓄帶過。',
+    CONDITION_SCHEMA_
+  ].join('\n');
+  return narrateJSON_(afterStorySystem_(), user);
+}
+
 /** 召喚開場：御主人設＋願望 × 從者個性／陣營 → 從者依尊嚴真實反應（不照抄他人） */
 function summonOpening_(hero, master, wish){
   if(!hero) return '';

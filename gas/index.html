@@ -125,6 +125,7 @@
     <button class="btn primary hidden" id="btn-resume" onclick="App.resume()">▶ 繼續遊戲</button>
     <button class="btn" id="btn-newgame" onclick="App.newGameMenu()">新的一局</button>
     <button class="btn" disabled>多人連線 <span class="soon">敬請期待</span></button>
+    <button class="btn" onclick="App.gallery()">🏆 鑑賞模式</button>
     <button class="btn" onclick="App.history()">歷史紀錄</button>
     <button class="btn ghost" onclick="App.go('scr-login')">登出</button>
   </div>
@@ -227,6 +228,28 @@
       <div style="font-size:11px;color:var(--dim);margin-top:6px">先選上方職階。資料庫沒有 → AI 依格式生成並寫入英靈殿，之後可直接召喚。</div>
     </div>
     <button class="btn ghost" style="width:100%;margin-top:12px" onclick="App.go('scr-create')">返回</button>
+  </div>
+</section>
+
+<section class="screen hidden" id="scr-gallery">
+  <div class="col" id="g-col-status">
+    <div class="sec-h">鑑賞室　<span style="float:right;cursor:pointer;color:var(--dim)" onclick="App.go('scr-menu')">✕ 離開</span></div>
+    <div id="g-active"></div>
+    <div class="sec-h toggler" onclick="App.fold(this)">解鎖收藏</div>
+    <div id="g-collection" style="font-size:12px"></div>
+  </div>
+  <div class="col" id="g-col-chat">
+    <div class="sec-h">後日談</div>
+    <div id="g-log"></div>
+    <div class="inrow">
+      <textarea id="g-in" placeholder="與在場的英靈說話、互動…（焦點英靈回應）"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();App.gallerySay()}"></textarea>
+      <button class="btn primary" onclick="App.gallerySay()">送出</button>
+    </div>
+  </div>
+  <div class="col" id="g-col-map">
+    <div class="sec-h">冬木市・約會地圖</div><div id="g-map-wrap"></div>
+    <p style="color:var(--dim);font-size:12px;margin-top:10px">點任一地點 → 帶焦點英靈前往約會散心。</p>
   </div>
 </section>
 
@@ -489,6 +512,78 @@ var App = {
     App.S=null; if(App.acc) App.acc.current_game='';   // 結局後存檔已清空
     App.go('scr-gameover'); },
   toMenu:function(){ App.S=null; App.refreshMenu(); App.go('scr-menu'); },
+
+  // ===== 鑑賞模式（後日談）：獨立資料(GALLERY 分頁) + 獨立 AI 路徑 =====
+  gallery:function(){ busy(true);
+    gs('galleryList',App.acc.ms_id).then(function(r){ busy(false);
+      if(r.error){ alert(r.error); return; }
+      App.G=r.entries||[]; App.gLoc=App.gLoc||'park';
+      var act=App.G.filter(function(e){return e.active;});
+      App.gFocus=(App.gFocus&&act.some(function(e){return e.entryId===App.gFocus;}))?App.gFocus:(act[0]?act[0].entryId:null);
+      App.renderGallery(); App.go('scr-gallery');
+    }).catch(App.err); },
+  renderGallery:function(){ App.renderGActive(); App.renderGCollection(); App.gMap(); },
+  renderGActive:function(){
+    var act=App.G.filter(function(e){return e.active;});
+    var html=act.length?act.map(function(e){ var foc=e.entryId===App.gFocus;
+      return '<div class="hall-item" style="cursor:pointer;'+(foc?'border-color:var(--gold2)':'')+'" onclick="App.gFocusSet(\''+e.entryId+'\')">'+
+        '<div><div class="nm">'+(foc?'◆ ':'')+e.cls+'・'+App.esc(e.realName||'？')+'</div>'+
+        '<div class="meta">'+App.esc(e.condition||'神情自若、靜立一旁')+'</div></div>'+
+        '<button class="btn sm ghost" onclick="event.stopPropagation();App.gActive(\''+e.entryId+'\',false)">下場</button></div>';
+    }).join(''):'<div style="font-size:12px;color:var(--dim)">尚無在場英靈——從下方「解鎖收藏」召喚（最多 3 名）。</div>';
+    document.getElementById('g-active').innerHTML='<div style="font-size:11px;color:var(--dim);margin:2px 0 4px">在場英靈（點選＝對話焦點）</div>'+html; },
+  renderGCollection:function(){
+    var html=App.G.length?App.G.map(function(e){
+      return '<div class="hall-item"><div><div class="nm">'+e.cls+'・'+App.esc(e.realName||'？')+
+        '<span style="color:var(--dim);font-size:11px"> '+(e.source==='won'?'⚔奪杯':'✨自訂')+'</span></div>'+
+        '<div class="meta">羈絆 '+e.bond+'｜'+App.esc(e.np||'')+'</div></div>'+
+        '<div style="display:flex;gap:4px">'+(e.active?'':'<button class="btn sm primary" onclick="App.gActive(\''+e.entryId+'\',true)">召喚</button>')+
+        '<button class="btn sm ghost" onclick="App.gRemove(\''+e.entryId+'\')">✕</button></div></div>';
+    }).join(''):'<div style="font-size:12px;color:var(--dim)">還沒有解鎖的英靈。奪取聖杯即可解鎖，或在此自由新增。</div>';
+    document.getElementById('g-collection').innerHTML=html+'<button class="btn sm" style="width:100%;margin-top:8px" onclick="App.gCreate()">＋ 新增角色</button>'; },
+  gFocusSet:function(id){ App.gFocus=id; App.renderGActive(); },
+  gActive:function(id,on){ busy(true);
+    gs('gallerySetActive',App.acc.ms_id,id,on).then(function(r){ busy(false);
+      if(r.error){ alert(r.error); return; } App.G=r.entries||[]; if(on)App.gFocus=id; App.renderGallery();
+    }).catch(App.err); },
+  gRemove:function(id){ if(!confirm('移除這名英靈的收藏？')) return; busy(true);
+    gs('galleryRemove',App.acc.ms_id,id).then(function(r){ busy(false);
+      if(r.error){ alert(r.error); return; } App.G=r.entries||[]; if(App.gFocus===id)App.gFocus=null; App.renderGallery();
+    }).catch(App.err); },
+  gCreate:function(){
+    var name=prompt('英靈真名？'); if(!name)return;
+    var cls=prompt('職階？（Saber／Archer／Lancer／Rider／Caster／Assassin／Berserker…）','Saber'); if(!cls)return;
+    var wish=prompt('願望／心願？（可留空）','')||'';
+    var persona=prompt('個性？（可留空，影響敘事語氣）','')||'';
+    busy(true);
+    gs('galleryCreate',App.acc.ms_id,{name:name,cls:cls,wish:wish,persona:persona}).then(function(r){ busy(false);
+      if(r.error){ alert(r.error); return; } App.G=r.entries||[]; App.renderGallery();
+    }).catch(App.err); },
+  gPush:function(role,text){ var l=document.getElementById('g-log');
+    l.innerHTML+='<div class="msg '+(role==='me'?'me':'ai')+'">'+App.esc(text)+'</div>'; l.scrollTop=l.scrollHeight; },
+  _gCond:function(id,cond){ if(!cond)return; var e=App.G.filter(function(x){return x.entryId===id;})[0]; if(e){ e.condition=cond; App.renderGActive(); } },
+  gallerySay:function(){
+    if(!App.gFocus){ alert('先從「解鎖收藏」召喚一名英靈在場，並點選為焦點。'); return; }
+    var ta=document.getElementById('g-in'),t=ta.value.trim(); if(!t)return; ta.value='';
+    App.gPush('me',t); busy(true);
+    gs('gallerySay',App.acc.ms_id,App.gFocus,t,App.locName(App.gLoc)).then(function(r){ busy(false);
+      if(r.error){ App.gPush('ai','（'+r.error+'）'); return; } App.gPush('ai',r.narration); App._gCond(App.gFocus,r.condition);
+    }).catch(function(){ busy(false); App.gPush('ai','（連線失敗）'); }); },
+  galleryDate:function(loc){ if(!App.gFocus){ alert('先召喚並點選一名焦點英靈。'); return; }
+    App.gLoc=loc; App.gMap(); busy(true);
+    gs('galleryScene',App.acc.ms_id,App.gFocus,App.locName(loc)).then(function(r){ busy(false);
+      if(r.error){ alert(r.error); return; } App.gPush('ai','【'+App.locName(loc)+'】'+r.narration); App._gCond(App.gFocus,r.condition);
+    }).catch(App.err); },
+  gMap:function(){ var L=App.STATIC.locations,here=App.gLoc;
+    if(!App.gMapVB) App.gMapVB={x:0,y:0,w:700,h:440}; var v=App.gMapVB;
+    var bg='<rect width="700" height="440" fill="#0a0810"/>';
+    var lines=L.map(function(l){ return (l.adj||[]).map(function(a){ var t=L.filter(function(x){return x.id===a;})[0];
+      if(!t||a<l.id)return ''; return '<line x1="'+l.x+'" y1="'+l.y+'" x2="'+t.x+'" y2="'+t.y+'" stroke="#2a2440" stroke-width="2"/>'; }).join(''); }).join('');
+    var dots=L.map(function(l){ var cur=l.id===here, right=l.x>515, tx=right?(l.x-14):(l.x+14), anc=right?'end':'start';
+      return '<g class="loc '+(cur?'here':'')+'" onclick="App.galleryDate(\''+l.id+'\')">'+
+        '<circle cx="'+l.x+'" cy="'+l.y+'" r="10" class="danger-'+l.danger+'"/>'+
+        '<text x="'+tx+'" y="'+(l.y+5)+'" text-anchor="'+anc+'">'+l.name+'</text></g>'; }).join('');
+    document.getElementById('g-map-wrap').innerHTML='<svg id="g-map-svg" style="cursor:pointer" viewBox="'+v.x+' '+v.y+' '+v.w+' '+v.h+'">'+bg+lines+dots+'</svg>'; },
   move:function(id){ if(App._panMoved){ App._panMoved=false; return; }
     if(App._dispatch){ App._dispatch=false; App.act('dispatch',{locId:id}); return; }   // 派駐模式：點地圖把從者派過去
     App.act('move',{locId:id}); },
