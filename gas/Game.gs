@@ -28,13 +28,15 @@ function npcAllied_(a, b){
 function login(name){
   name = (name||'').trim();
   if(!name) return { error:'請輸入帳號名稱' };
-  var acc = findOne_(SHEETS.ACCOUNTS, { name: name });
-  if(!acc){
-    acc = { ms_id:'ms_'+Date.now(), name:name, created:new Date().toISOString(),
-            current_game:'', inventory:[], settings:{ manaRating:'adult-fade' } };
-    appendObj_(SHEETS.ACCOUNTS, acc);
-  }
-  return { ms_id: acc.ms_id, name: acc.name, current_game: acc.current_game };
+  return withLock_(function(){
+    var acc = findOne_(SHEETS.ACCOUNTS, { name: name });
+    if(!acc){
+      acc = { ms_id:'ms_'+Utilities.getUuid(), name:name, created:new Date().toISOString(),
+              current_game:'', inventory:[], settings:{ manaRating:'adult-fade' } };
+      appendObj_(SHEETS.ACCOUNTS, acc);
+    }
+    return { ms_id: acc.ms_id, name: acc.name, current_game: acc.current_game };
+  });
 }
 
 // ---------- 靜態資料給前端 ----------
@@ -60,17 +62,19 @@ function summonByName(opts){
   // 已有 → 直接用
   var exist = findRows_(SHEETS.HEROES, function(h){ return h.cls===cls && String(h.realName).indexOf(name)>=0; })[0];
   if(exist) return { servant_id: exist.servant_id, generated:false };
-  // 生成
+  // 生成（AI 呼叫較慢，放在鎖外；只有「寫入英靈殿」需要鎖）
   var g = generateServant_(name, cls, opts.desc);
   if(g.error) return { error:'AI 生成失敗：'+g.error };
+  return withLock_(function(){
   var sid = name+'-'+cls;
-  if(findOne_(SHEETS.HEROES, { servant_id: sid })) sid = sid+'-'+Date.now();
+  if(findOne_(SHEETS.HEROES, { servant_id: sid })) sid = sid+'-'+Utilities.getUuid().slice(0,8);
   appendObj_(SHEETS.HEROES, {
     servant_id:sid, cls:cls, realName:name, wars:['自訂'],
     筋力:g.six.筋力, 耐久:g.six.耐久, 敏捷:g.six.敏捷, 魔力:g.six.魔力, 幸運:g.six.幸運, 寶具:g.six.寶具,
     classSkills:g.classSkills, skills:g.skills, traits:g.traits, np:g.np, persona:g.persona, source:'ai_gen'
   });
   return { servant_id: sid, generated:true };
+  });
 }
 
 // ---------- 開局 ----------
@@ -79,6 +83,7 @@ function summonByName(opts){
  *              masterIndex, servantId, profile:{name,circuits,magic,melee,magic_rank}}
  */
 function newGame(opts){
+  var st = withLock_(function(){
   // 開新局前，先清掉該帳號未完成的舊存檔（避免重複開局堆出多個戰場）
   var acc0 = findOne_(SHEETS.ACCOUNTS, { ms_id: opts.ms_id });
   if(acc0 && acc0.current_game) clearGame_(acc0.current_game);
@@ -87,7 +92,7 @@ function newGame(opts){
   readAll_(SHEETS.HEROES).forEach(function(h){ heroesById[h.servant_id] = h; });
   var mastersByKey = {};   // 御主殿（正典御主資料）
   readAll_(SHEETS.MASTERS).forEach(function(m){ mastersByKey[m.name+'|'+m.war] = m; });
-  var gameId = 'g_'+Date.now();
+  var gameId = 'g_'+Utilities.getUuid();   // 每場唯一，避免多人同毫秒開局撞號共用戰場
   var parts = [];   // 參戰者描述
 
   function profileMaster(name, isPlayer, profile){
@@ -177,9 +182,16 @@ function newGame(opts){
   updateWhere_(SHEETS.ACCOUNTS, { ms_id:opts.ms_id }, { current_game:gameId, settings:{ wish:wish, manaRating:'adult-fade' } });
 
   logEvent_(gameId, 1, '20:00', 'start', 'START', 'slot_0', '', '聖杯戰爭開始。', true, 2);
-  var st = getState(gameId);
-  // 召喚開場（依從者個性 + 御主 + 願望）
-  if(pp) st.opening = summonOpening_(heroesById[pp.servantId], pp.master, wish);
+  var s = getState(gameId);
+  // 開場敘述的素材先帶出來，等釋放寫入鎖後再呼叫 LLM（避免 LLM 期間卡住其他玩家）
+  if(pp){ s._openHero = heroesById[pp.servantId]; s._openMaster = pp.master; s._openWish = wish; }
+  return s;
+  });  // ← 釋放寫入鎖
+
+  if(st && !st.error && st._openHero){
+    st.opening = summonOpening_(st._openHero, st._openMaster, st._openWish);
+  }
+  if(st){ delete st._openHero; delete st._openMaster; delete st._openWish; }
   return st;
 }
 
@@ -208,11 +220,13 @@ function getState(gameId){
 
 // 進行中存檔讀取（登入後「繼續遊戲」用）
 function resumeGame(msId){
-  var acc = findOne_(SHEETS.ACCOUNTS, { ms_id: msId });
-  if(!acc || !acc.current_game) return { error:'沒有進行中的存檔。' };
-  var rows = findRows_(SHEETS.BATTLE, { game_id: acc.current_game });
-  if(!rows.length){ updateWhere_(SHEETS.ACCOUNTS, { ms_id:msId }, { current_game:'' }); return { error:'存檔已失效，請開新局。' }; }
-  return getState(acc.current_game);
+  return withLock_(function(){
+    var acc = findOne_(SHEETS.ACCOUNTS, { ms_id: msId });
+    if(!acc || !acc.current_game) return { error:'沒有進行中的存檔。' };
+    var rows = findRows_(SHEETS.BATTLE, { game_id: acc.current_game });
+    if(!rows.length){ updateWhere_(SHEETS.ACCOUNTS, { ms_id:msId }, { current_game:'' }); return { error:'存檔已失效，請開新局。' }; }
+    return getState(acc.current_game);
+  });
 }
 
 // 戰爭迷霧：發現紀錄（存玩家列 discovered，JSON 陣列 round-trip）
@@ -231,7 +245,7 @@ function playerView_(p){
     master:{ name:p.master_name, magic:p.magic, hp:p.master_hp, hpMax:p.master_hp_max,
              mp:p.master_mp, mpMax:p.master_mp_max, seals:p.seals, melee:p.melee, magicRank:p.magic_rank,
              circuits:p.circuits, location:p.location },
-    servant:{ cls:p.servant_id ? hero.cls : '?', servantId:p.servant_id, realName:hero?hero.realName:'',
+    servant:{ cls:hero ? hero.cls : '？', servantId:p.servant_id, realName:hero?hero.realName:'',
               trueNameKnown:p.true_name_known, hp:p.sv_hp, hpMax:p.sv_hp_max, mp:p.sv_mp, mpMax:p.sv_mp_max,
               upkeep:p.upkeep, bond:p.bond, six: hero?heroFromRow_(hero).six:{}, np:hero?hero.np:'',
               skills: hero?heroFromRow_(hero).skills:[], classSkills: hero?heroFromRow_(hero).classSkills:[],
@@ -254,97 +268,131 @@ function playerEconomy_(p){
 }
 
 // ---------- 動作 ----------
-/** @param a {game_id, type, ...payload} */
+/**
+ * 兩階段：
+ *   Phase 1（鎖內）：驗證 + 數值結算 + 寫回試算表 + NPC 自律 + 結局寫檔，產出「敘述指令(spec)」。
+ *   Phase 2（鎖外）：用 spec 呼叫 LLM 生成敘述；自由對話再用短鎖把抽取的事實寫回。
+ * 把較慢的 LLM 移出鎖外，多人單機時各玩家的回合不會卡在別人的 LLM 等待上。
+ * @param a {game_id, type, ...payload}
+ */
 function doAction(a){
-  var gameId = a.game_id;
-  var rows = findRows_(SHEETS.BATTLE, { game_id: gameId });
-  var clock = findOne_(SHEETS.CLOCK, { game_id: gameId });
-  var p = rows.filter(function(r){ return r.is_player===true; })[0];
-  if(!p) return { error:'找不到玩家存檔' };
-  var hero = findOne_(SHEETS.HEROES, { servant_id: p.servant_id });
-  var narration = '';
+  var plan = withLock_(function(){
+    var gameId = a.game_id;
+    var rows = findRows_(SHEETS.BATTLE, { game_id: gameId });
+    var clock = findOne_(SHEETS.CLOCK, { game_id: gameId });
+    var p = rows.filter(function(r){ return r.is_player===true; })[0];
+    if(!p) return { error:'找不到玩家存檔' };
+    var hero = findOne_(SHEETS.HEROES, { servant_id: p.servant_id });
 
-  // 補魔密封時段：封鎖耗時/戰鬥動作
-  if(clock.mana_locked && ['move','scout','attack','np','sleep','separate','claim'].indexOf(a.type)>=0)
-    return { state:getState(gameId), narration:'（補魔進行中，無法進行該動作；請繼續對話，或用令咒「強制補魔」結束。）', events:[] };
+    // 補魔密封時段：封鎖耗時/戰鬥動作（免 LLM，直接回最終回應）
+    if(clock.mana_locked && ['move','scout','attack','np','sleep','separate','claim'].indexOf(a.type)>=0)
+      return { final:{ state:getState(gameId), narration:'（補魔進行中，無法進行該動作；請繼續對話，或用令咒「強制補魔」結束。）', events:[] } };
 
-  // 個性+好感 + 歷史事件/記憶 → 完整 context，讓 AI 不出戲、知道過去
-  var gc = gameContext_(gameId);
-  var mem = servantCtx_(p, hero) + (gc ? ('\n'+gc) : '');
+    // 個性+好感 + 歷史事件/記憶 → 完整 context，讓 AI 不出戲、知道過去
+    var gc = gameContext_(gameId);
+    var mem = servantCtx_(p, hero) + (gc ? ('\n'+gc) : '');
 
-  switch(a.type){
-    case 'move':       narration = act_move_(p, clock, hero, a.locId, mem); break;
-    case 'scout':      narration = act_scout_(p, clock, hero, mem); break;
-    case 'attack':     narration = act_combat_(rows, p, clock, hero, false, true, mem); break;
-    case 'np':         narration = act_combat_(rows, p, clock, hero, 'np', true, mem); break;
-    case 'mana':       narration = act_mana_(p, clock, mem); break;
-    case 'feed':       narration = act_feed_(p); break;
-    case 'reinforce':  narration = act_reinforce_(p, hero); break;
-    case 'separate':   narration = act_separate_(p); break;
-    case 'claim':      narration = act_claim_(p, clock, hero, mem); break;
-    case 'sleep':      narration = act_sleep_(p, clock, mem); break;
-    case 'seal':       narration = act_seal_(rows, p, clock, hero, a.cmd); break;
-    case 'chat':
-      if(clock.mana_locked){ narration = manaChat_(p, clock, a.text, mem); }
-      else {
-        var ext = narrateAndExtract_(a.text + '\n（玩家自由發言。依從者個性與好感度回應，無禮/猥褻則抗拒；與已知世界線一致。）', mem);
-        narration = ext.narration;
-        (ext.facts||[]).forEach(function(f){ recordFact_(gameId, clock.day, f.entity, f.content, f.importance); });
-      }
-      break;
-    default: return { error:'未知動作：'+a.type };
-  }
-
-  // NPC 自律（耗時動作後推進世界；補魔鎖定中不跑）
-  var events = [];
-  var fresh = findOne_(SHEETS.CLOCK, { game_id: gameId });
-  if(!fresh.mana_locked){
-    if(['move','scout','attack','np','claim'].indexOf(a.type) >= 0){
-      events = npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh);
-    } else if(a.type === 'sleep'){
-      for(var k=0;k<3;k++) events = events.concat(npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh));
+    var spec;   // string（免 LLM 的最終文字）或 {kind:'scene'|'combat'|'chat', ...}
+    switch(a.type){
+      case 'move':       spec = act_move_(p, clock, hero, a.locId); break;
+      case 'scout':      spec = act_scout_(p, clock, hero); break;
+      case 'attack':     spec = act_combat_(rows, p, clock, hero, false, true); break;
+      case 'np':         spec = act_combat_(rows, p, clock, hero, 'np', true); break;
+      case 'mana':       spec = act_mana_(p, clock); break;
+      case 'feed':       spec = act_feed_(p); break;
+      case 'reinforce':  spec = act_reinforce_(p, hero); break;
+      case 'separate':   spec = act_separate_(p); break;
+      case 'claim':      spec = act_claim_(p, clock, hero); break;
+      case 'sleep':      spec = act_sleep_(p, clock); break;
+      case 'seal':       spec = act_seal_(rows, p, clock, hero, a.cmd); break;
+      case 'chat':
+        spec = clock.mana_locked
+          ? manaChat_(p, clock, a.text)
+          : { kind:'chat', prompt: a.text + '\n（玩家自由發言。依從者個性與好感度回應，無禮/猥褻則抗拒；與已知世界線一致。）' };
+        break;
+      default: return { error:'未知動作：'+a.type };
     }
-  }
-  // 結局判定：玩家從者/御主死亡 → 死亡；敵方全滅 → 奪杯
-  var fresh2 = findRows_(SHEETS.BATTLE, { game_id: gameId });
-  var pf = fresh2.filter(function(r){ return r.is_player===true; })[0];
-  var endR = null;
-  if(pf){
-    if(pf.sv_hp<=0 || pf.master_hp<=0) endR = 'death';
-    else { var en = fresh2.filter(function(r){ return r.is_player!==true; });
-           if(en.length && en.every(function(r){ return !r.alive; })) endR = 'win'; }
-  }
-  var over = endR ? endGame_(gameId, pf, endR, mem) : null;
 
-  return {
-    state: over ? null : getState(gameId), narration: narration,
-    events: events.filter(function(e){ return e.global || e.atPlayer; }).map(function(e){ return e.text; }),
-    gameOver: over
-  };
+    // NPC 自律（耗時動作後推進世界；補魔鎖定中不跑）
+    var events = [];
+    var fresh = findOne_(SHEETS.CLOCK, { game_id: gameId });
+    if(!fresh.mana_locked){
+      if(['move','scout','attack','np','claim'].indexOf(a.type) >= 0){
+        events = npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh);
+      } else if(a.type === 'sleep'){
+        for(var k=0;k<3;k++) events = events.concat(npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh));
+      }
+    }
+    // 結局判定：玩家從者/御主死亡 → 死亡；敵方全滅 → 奪杯
+    var fresh2 = findRows_(SHEETS.BATTLE, { game_id: gameId });
+    var pf = fresh2.filter(function(r){ return r.is_player===true; })[0];
+    var endR = null;
+    if(pf){
+      if(pf.sv_hp<=0 || pf.master_hp<=0) endR = 'death';
+      else { var en = fresh2.filter(function(r){ return r.is_player!==true; });
+             if(en.length && en.every(function(r){ return !r.alive; })) endR = 'win'; }
+    }
+    var over = endR ? endGame_(gameId, pf, endR) : null;   // endGame_ 回傳 dreamPrompt，假夢敘述留到鎖外生成
+
+    return {
+      spec: spec, mem: mem, over: over, gameId: gameId, day: clock.day,
+      events: events.filter(function(e){ return e.global || e.atPlayer; }).map(function(e){ return e.text; }),
+      state: over ? null : getState(gameId)
+    };
+  });
+
+  if(plan.error) return { error: plan.error };
+  if(plan.final) return plan.final;
+
+  // ===== Phase 2（鎖外）：生成敘述，多人並行不互相卡 =====
+  var narration = '', facts = [], spec = plan.spec;
+  if(typeof spec === 'string'){ narration = spec; }
+  else if(spec && spec.kind==='scene'){
+    narration = (spec.prefix||'') + narrateScene(spec.prompt, plan.mem) + (spec.suffix||'');
+  } else if(spec && spec.kind==='combat'){
+    narration = (spec.prefix||'') + narrateCombat(spec.ctx, plan.mem) + (spec.suffix||'');
+  } else if(spec && spec.kind==='chat'){
+    var ext = narrateAndExtract_(spec.prompt, plan.mem); narration = ext.narration; facts = ext.facts||[];
+  }
+
+  // 結局假夢（鎖外生成）
+  if(plan.over && plan.over.dreamPrompt){
+    plan.over.dream = narrateScene(plan.over.dreamPrompt, plan.mem);
+    delete plan.over.dreamPrompt;
+  }
+
+  // Phase 3（短鎖）：自由對話新建立的事實寫回記憶
+  if(facts.length) withLock_(function(){
+    facts.forEach(function(f){ recordFact_(plan.gameId, plan.day, f.entity, f.content, f.importance); });
+    return true;
+  });
+
+  return { state: plan.state, narration: narration, events: plan.events, gameOver: plan.over };
 }
 
 // ---------- 結局：願望假夢 / 奪杯 → 老虎道場 → 寫歷史 → 清空該場 ----------
-function endGame_(gameId, p, result, mem){
+// 寫檔在鎖內完成；假夢敘述只回傳 dreamPrompt，留給 doAction 在鎖外用 LLM 生成。
+function endGame_(gameId, p, result){
   var acc = findOne_(SHEETS.ACCOUNTS, { current_game: gameId }) || {};
   var wish = (acc.settings && acc.settings.wish) || '未明';
   var name = acc.name || p.master_name;
   var clock = findOne_(SHEETS.CLOCK, { game_id: gameId }) || { day:1 };
   var svcls = heroCls_(p.servant_id);
-  var dream, summary;
+  var dreamPrompt, summary;
   if(result === 'death'){
-    dream = narrateScene('【死亡的假夢】御主 '+name+' 在意識消逝的瞬間，墜入聖杯展示的幻夢——願望「'+wish
-      +'」彷彿已然實現。請寫一段淒美而虛幻、令人不忍的「願望成真假夢」，最後夢境崩解、回歸虛無。4~6 句。', mem);
+    dreamPrompt = '【死亡的假夢】御主 '+name+' 在意識消逝的瞬間，墜入聖杯展示的幻夢——願望「'+wish
+      +'」彷彿已然實現。請寫一段淒美而虛幻、令人不忍的「願望成真假夢」，最後夢境崩解、回歸虛無。4~6 句。';
     summary = '第'+clock.day+'天　'+svcls+'之御主「'+name+'」殞落於聖杯戰爭。';
   } else {
-    dream = narrateScene('【奪得聖杯】御主 '+name+' 成為最後勝者，聖杯於眼前顯現，願望「'+wish
-      +'」。請寫一段莊嚴而意味深長的奪杯敘述（聖杯或許並不單純）。4~6 句。', mem);
+    dreamPrompt = '【奪得聖杯】御主 '+name+' 成為最後勝者，聖杯於眼前顯現，願望「'+wish
+      +'」。請寫一段莊嚴而意味深長的奪杯敘述（聖杯或許並不單純）。4~6 句。';
     summary = '第'+clock.day+'天　'+svcls+'之御主「'+name+'」奪取聖杯，贏得戰爭。';
   }
   appendObj_(SHEETS.HISTORY, { ts:Date.now(), ms_id:acc.ms_id||'', name:name, result:result,
     war:'', servant_cls:svcls, day:clock.day, summary:summary });
   clearGame_(gameId);
   if(acc.ms_id) updateWhere_(SHEETS.ACCOUNTS, { ms_id:acc.ms_id }, { current_game:'' });
-  return { result:result, dream:dream, dojo:tigerDojo_(result), summary:summary };
+  return { result:result, dreamPrompt:dreamPrompt, dojo:tigerDojo_(result), summary:summary };
 }
 
 function tigerDojo_(result){
@@ -367,6 +415,7 @@ function rewriteSheet_(name, objs){
     var rows = objs.map(function(o){ return toRow_(name, o); });
     s.getRange(2,1,rows.length,HEADERS[name].length).setValues(rows);
   }
+  invalidate_(name);
 }
 
 // 歷史紀錄（登入後選單用）
@@ -458,19 +507,21 @@ function npcSkirmish_(a, b){
 function locName_(id){ var l = findOne_(SHEETS.MAP, { id:id }); return l ? l.name : id; }
 
 // ---------- 補魔倒數對話 ----------
-function manaChat_(p, clock, text, ctx){
+function manaChat_(p, clock, text){
   var left = (clock.mana_countdown||0) - 1;
   if(left <= 0){
     p.sv_mp = p.sv_mp_max; p.bond = Math.min(100, p.bond + TUNING.MANA_BOND);
     updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, bond:p.bond });
     updateRow_(SHEETS.CLOCK, clock._row, { mana_countdown:0, mana_locked:false });
     advanceTime_(p, clock, null, TUNING.MANA_AP_COST);
-    return narrateScene((text?('御主：「'+text+'」\n'):'')+'補魔完成，魔力填滿靈基。依從者個性與好感收尾（fade）。請寫含蓄的結束敘述。', ctx)
-           + '\n（補魔結束：魔力回滿・好感 +'+TUNING.MANA_BOND+'）';
+    return { kind:'scene',
+      prompt:(text?('御主：「'+text+'」\n'):'')+'補魔完成，魔力填滿靈基。依從者個性與好感收尾（fade）。請寫含蓄的結束敘述。',
+      suffix:'\n（補魔結束：魔力回滿・好感 +'+TUNING.MANA_BOND+'）' };
   }
   updateRow_(SHEETS.CLOCK, clock._row, { mana_countdown:left });
-  return narrateScene((text?('御主：「'+text+'」\n'):'')+'補魔持續中。依從者個性與好感回應（無禮/猥褻則抗拒、冷淡；fade、點到為止）。請寫一段含蓄敘述。', ctx)
-         + '\n（補魔進行中，剩 '+left+' 次對話）';
+  return { kind:'scene',
+    prompt:(text?('御主：「'+text+'」\n'):'')+'補魔持續中。依從者個性與好感回應（無禮/猥褻則抗拒、冷淡；fade、點到為止）。請寫一段含蓄敘述。',
+    suffix:'\n（補魔進行中，剩 '+left+' 次對話）' };
 }
 
 // 推進時間 + 每小時經濟 tick（mutate p / clock 並寫回）
@@ -491,7 +542,7 @@ function advanceTime_(p, clock, hero, apCost){
 }
 
 // 偵查：揭露當前地與相鄰地的從者蹤跡（戰爭迷霧用），耗 1 AP
-function act_scout_(p, clock, hero, mem){
+function act_scout_(p, clock, hero){
   if(clock.ap<1) return '（行動點不足，請睡覺恢復。）';
   var here = p.separated ? p.servant_loc : p.location;
   var cur = findOne_(SHEETS.MAP, { id: here });
@@ -503,11 +554,12 @@ function act_scout_(p, clock, hero, mem){
   var lines = found.length
     ? found.map(function(r){ return '・'+heroCls_(r.servant_id)+'（'+r.master_name+'）位於 '+locName_(r.servant_loc); }).join('\n')
     : '・周遭一帶暫無從者氣息。';
-  return narrateScene('你（'+p.master_name+'）凝神探查周遭一帶的魔力波動與氣息。請寫一段簡短的偵查敘述（不要列數字）。', mem)
-         + '\n\n【偵查結果】\n' + lines;
+  return { kind:'scene',
+    prompt:'你（'+p.master_name+'）凝神探查周遭一帶的魔力波動與氣息。請寫一段簡短的偵查敘述（不要列數字）。',
+    suffix:'\n\n【偵查結果】\n' + lines };
 }
 
-function act_move_(p, clock, hero, locId, mem){
+function act_move_(p, clock, hero, locId){
   var cur = findOne_(SHEETS.MAP, { id: p.location });
   if(!cur || (cur.adj||[]).indexOf(locId)<0) return '（該地點不相鄰，無法直接前往。）';
   if(clock.ap<1) return '（行動點不足，請睡覺恢復。）';
@@ -519,13 +571,14 @@ function act_move_(p, clock, hero, locId, mem){
     .filter(function(r){ return r.is_player!==true && r.alive && r.servant_loc===hloc; });
   markDiscovered_(p, hereNpcs.map(function(r){ return r.slot; }));
   advanceTime_(p, clock, hero, 1);
-  var dest = findOne_(SHEETS.MAP, { id: locId });
+  var dest = findOne_(SHEETS.MAP, { id: locId }) || { name: locId, desc: '' };
   var enc = hereNpcs.length ? ('\n此處有：'+hereNpcs.map(function(r){ return heroCls_(r.servant_id)+'（'+r.master_name+'）'; }).join('、')) : '';
-  return narrateScene('你（'+p.master_name+'）移動到了「'+dest.name+'」。'+dest.desc+enc+' 請寫一段抵達敘述。', mem)
-         + (enc ? ('\n\n【遭遇】'+enc.replace('\n此處有：','')) : '');
+  return { kind:'scene',
+    prompt:'你（'+p.master_name+'）移動到了「'+dest.name+'」。'+dest.desc+enc+' 請寫一段抵達敘述。',
+    suffix: enc ? ('\n\n【遭遇】'+enc.replace('\n此處有：','')) : '' };
 }
 
-function act_combat_(rows, p, clock, hero, mode, costAP, mem){
+function act_combat_(rows, p, clock, hero, mode, costAP){
   // 只能攻擊「此刻與你的從者同地」的敵人（看不到的人砍不到）
   var here = p.separated ? p.servant_loc : p.location;
   var enemyRow = rows.filter(function(r){ return r.is_player!==true && r.alive===true && r.servant_loc===here; })[0];
@@ -535,11 +588,16 @@ function act_combat_(rows, p, clock, hero, mode, costAP, mem){
                     : '（場上已無可交戰的對手。）';
   }
   markDiscovered_(p, [enemyRow.slot]);
-  if(mode==='np' && p.sv_mp < Math.round(p.sv_mp_max*TUNING.NP_MP)) return '（魔力不足，無法解放寶具——可用令咒強制或先補魔。）';
+  // 寶具的魔力門檻要對齊「實際耗魔」＝普通交戰 + 寶具額外（否則剛好過門檻卻扣到歸零）
+  if(mode==='np' && p.sv_mp < Math.round(p.sv_mp_max*(TUNING.COMBAT_MP+TUNING.NP_MP)))
+    return '（魔力不足，無法解放寶具——可用令咒強制或先補魔。）';
   if(costAP && clock.ap<1) return '（行動點不足，請睡覺恢復。）';
 
-  var A = Object.assign(heroFromRow_(hero), { hp:p.sv_hp, mp:p.sv_mp, mpMax:p.sv_mp_max });
+  // 從者資料缺失（例如重建資料庫後 AI 生成英靈被清掉）→ 不要崩潰，給明確提示
+  if(!hero) return '（找不到你的從者資料，存檔可能已損毀，建議開新局。）';
   var eHero = findOne_(SHEETS.HEROES, { servant_id: enemyRow.servant_id });
+  if(!eHero) return '（找不到敵方從者資料，無法交戰。）';
+  var A = Object.assign(heroFromRow_(hero), { hp:p.sv_hp, mp:p.sv_mp, mpMax:p.sv_mp_max });
   var B = Object.assign(heroFromRow_(eHero), { hp:enemyRow.sv_hp });
 
   var res = resolveCombat_(A, B, mode);
@@ -554,15 +612,17 @@ function act_combat_(rows, p, clock, hero, mode, costAP, mem){
             'slot_0', 'slot_'+(enemyRow.slot-1),
             A.cls+' 對 '+B.cls+' 交戰，結果：'+res.winner, true, 1);
 
-  return narrateCombat({ playerCls:A.cls, enemyCls:B.cls, winner:res.winner, firedTags:res.firedTags, beats:res.beats }, mem)
-         + '\n\n戰報：' + res.beats.join('｜');
+  return { kind:'combat',
+    ctx:{ playerCls:A.cls, enemyCls:B.cls, winner:res.winner, firedTags:res.firedTags, beats:res.beats },
+    suffix:'\n\n戰報：' + res.beats.join('｜') };
 }
 
-function act_mana_(p, clock, ctx){
+function act_mana_(p, clock){
   if(clock.mana_locked) return '（補魔已在進行中——繼續對話即可推進。）';
   updateRow_(SHEETS.CLOCK, clock._row, { mana_countdown:TUNING.MANA_TURNS, mana_locked:true });
-  return narrateScene('你與從者開始補魔。依從者個性與好感度決定其態度（好感低則勉強/公事公辦、抗拒過度親密；好感高則有溫度），fade-to-black、點到為止。請寫一段含蓄起始敘述。', ctx)
-         + '\n（補魔開始：接下來 '+TUNING.MANA_TURNS+' 次對話用於補魔，期間時間與 NPC 凍結）';
+  return { kind:'scene',
+    prompt:'你與從者開始補魔。依從者個性與好感度決定其態度（好感低則勉強/公事公辦、抗拒過度親密；好感高則有溫度），fade-to-black、點到為止。請寫一段含蓄起始敘述。',
+    suffix:'\n（補魔開始：接下來 '+TUNING.MANA_TURNS+' 次對話用於補魔，期間時間與 NPC 凍結）' };
 }
 function servantCtx_(p, hero){
   if(!hero) return '';
@@ -571,14 +631,14 @@ function servantCtx_(p, hero){
     + '一人稱「'+(ps.firstP||'我')+'」，對御主態度「'+(ps.toMaster||'')+'」，目前好感度 '+p.bond+'/100。'
     + '請嚴格依此人格與好感回應，保有自主與尊嚴。）';
 }
-function act_claim_(p, clock, hero, mem){
+function act_claim_(p, clock, hero){
   if(clock.ap<1) return '（行動點不足，請睡覺恢復。）';
   if(p.base_loc===p.location) return '（此處已是你的據點。）';
   var isC = hero && hero.cls==='Caster';
   p.base_loc=p.location; p.barrier=30; p.barrier_max=isC?100:60; p.base_tier=isC?'魔術工房':'簡易結界';
   updateRow_(SHEETS.BATTLE, p._row, { base_loc:p.base_loc, barrier:p.barrier, barrier_max:p.barrier_max, base_tier:p.base_tier });
   advanceTime_(p, clock, hero, 1);
-  return narrateScene('你在「'+locName_(p.location)+'」佈置新的據點與結界，放棄舊據點。請寫一段建立據點/工房的敘述。', mem);
+  return { kind:'scene', prompt:'你在「'+locName_(p.location)+'」佈置新的據點與結界，放棄舊據點。請寫一段建立據點/工房的敘述。' };
 }
 
 function act_feed_(p){
@@ -606,18 +666,24 @@ function act_separate_(p){
   return p.separated ? '從者鎮守 '+p.servant_loc+'，你退往後方（失去護衛，務必小心）。' : '從者回到你身邊，恢復合體行動。';
 }
 
-function act_sleep_(p, clock, mem){
+function act_sleep_(p, clock){
   clock.day++; clock.hour=6; clock.ap=clock.ap_max;
   p.sv_hp=p.sv_hp_max; p.sv_mp=p.sv_mp_max; p.master_mp=p.master_mp_max;
   updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap });
   updateRow_(SHEETS.BATTLE, p._row, { sv_hp:p.sv_hp, sv_mp:p.sv_mp, master_mp:p.master_mp });
-  return narrateScene('你睡了一覺，HP/魔力/行動點恢復，新的一天開始。冬木市昨夜想必又有從者交鋒。請寫一段晨醒敘述。', mem);
+  return { kind:'scene', prompt:'你睡了一覺，HP/魔力/行動點恢復，新的一天開始。冬木市昨夜想必又有從者交鋒。請寫一段晨醒敘述。' };
 }
 
 function act_seal_(rows, p, clock, hero, cmd){
   if(p.seals<=0) return '（令咒已用盡。）';
+  // 戰鬥類令咒：先確認當地有敵人，否則不浪費這道珍貴的令咒（也不扣好感）
+  if(cmd==='order' || cmd==='np'){
+    var here = p.separated ? p.servant_loc : p.location;
+    var hasEnemy = rows.some(function(r){ return r.is_player!==true && r.alive===true && r.servant_loc===here; });
+    if(!hasEnemy) return '（你的所在地沒有敵蹤——令咒未動用。先偵查或移動到敵人所在地再使用。）';
+  }
   p.seals--;
-  var msg='';
+  var msg='';   // string 或 combat spec（order/np）
   switch(cmd){
     case 'heal': p.sv_hp=p.sv_hp_max; p.sv_mp=p.sv_mp_max; msg='令咒燃燒，魔力重塑靈基——HP/魔力完全回復。'; break;
     case 'order': if(p.bond<60){ p.bond=Math.max(0,p.bond-5); } msg=act_combat_(rows,p,clock,hero,'seal',false); break;
@@ -631,18 +697,23 @@ function act_seal_(rows, p, clock, hero, cmd){
     default: msg='（未知令咒指令）';
   }
   updateRow_(SHEETS.BATTLE, p._row, { seals:p.seals, sv_hp:p.sv_hp, sv_mp:p.sv_mp, bond:p.bond, separated:p.separated, servant_loc:p.servant_loc });
-  return '【令咒・剩'+p.seals+'】'+msg;
+  var tag = '【令咒・剩'+p.seals+'】';
+  // order/np 回傳的是戰鬥 spec（敘述待鎖外生成）→ 把令咒前綴掛上去；其餘為即時文字
+  if(msg && msg.kind){ msg.prefix = tag + (msg.prefix||''); return msg; }
+  return tag + msg;
 }
 
 // ---------- 記憶/上下文（讓 AI 知道過去發生什麼）----------
 // 撈最近「玩家可見事件 + 已建立事實」組成 context，注入每次敘述
 function gameContext_(gameId){
-  var evs = findRows_(SHEETS.EVENTS, { game_id: gameId }).filter(function(e){
-    return e.is_global===true || String(e.actor_id).indexOf('slot_0')>=0 || String(e.target_id).indexOf('slot_0')>=0;
-  }).sort(function(a,b){ return (a.write_ts||0)-(b.write_ts||0); });
-  evs = evs.slice(-6);
-  var facts = findRows_(SHEETS.MEMORY, { game_id: gameId })
-    .sort(function(a,b){ return (a.write_ts||0)-(b.write_ts||0); }).slice(-6);
+  // 窗口讀取最後一段事件/記憶（消除每回合整表掃描的成長隱憂）；務必用 game_id 過濾，
+  // 多人共用同一張表時，過濾才是「不讀到別人資料」的保證，窗口只是限制讀取量。
+  // 窗口取得比 6 大很多（120/80），即使多位玩家事件交錯，本場最近 6 筆通常仍落在窗口內。
+  var evs = readTail_(SHEETS.EVENTS, 120).filter(function(e){
+    return e.game_id===gameId &&
+      (e.is_global===true || String(e.actor_id).indexOf('slot_0')>=0 || String(e.target_id).indexOf('slot_0')>=0);
+  }).slice(-6);
+  var facts = readTail_(SHEETS.MEMORY, 80).filter(function(f){ return f.game_id===gameId; }).slice(-6);
   var lines = [];
   if(evs.length){ lines.push('近期事件：');
     evs.forEach(function(e){ lines.push('・第'+e.day_count+'天 '+e.time_hour+' '+e.log_text); }); }
@@ -652,7 +723,7 @@ function gameContext_(gameId){
 }
 function recordFact_(gameId, turn, entity, content, importance){
   if(!content) return;
-  appendObj_(SHEETS.MEMORY, { event_id:'m_'+Date.now()+'_'+Math.floor(Math.random()*1000),
+  appendObj_(SHEETS.MEMORY, { event_id:'m_'+Utilities.getUuid(),
     game_id:gameId, turn:turn, entity:String(entity||'').slice(0,20), fact_type:'note',
     content:String(content).slice(0,120), importance:(importance||0), write_ts:Date.now() });
 }
@@ -660,7 +731,7 @@ function recordFact_(gameId, turn, entity, content, importance){
 // ---------- 事件日誌 ----------
 function logEvent_(gameId, day, hour, locId, type, actor, target, text, isGlobal, importance){
   appendObj_(SHEETS.EVENTS, {
-    event_id:'e_'+Date.now()+'_'+Math.floor(Math.random()*1000), write_ts:Date.now(),
+    event_id:'e_'+Utilities.getUuid(), write_ts:Date.now(),
     game_id:gameId, day_count:day, time_hour:hour, location_id:locId, event_type:type,
     actor_id:actor, target_id:target, log_text:text, is_global:isGlobal, importance:importance
   });

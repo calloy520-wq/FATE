@@ -28,7 +28,18 @@ function setupDatabase(){
   });
 
   // 種子靜態分頁
+  // 英靈殿特別處理：重種官方英靈時，保留玩家用「真名召喚／自訂生成」寫入的 AI 英靈（source==='ai_gen'）。
+  // 否則重跑建表會清掉它們，導致既有存檔指向不存在的從者而在讀檔/戰鬥時崩潰。
+  var aiHeroes = [];
+  var hs = ss.getSheetByName(SHEETS.HEROES);
+  if(hs && hs.getLastRow() > 1) aiHeroes = readAll_(SHEETS.HEROES).filter(function(h){ return h.source==='ai_gen'; });
   seedSheet_(ss, SHEETS.HEROES,  SEED_SERVANTS.map(servantRow_));
+  if(aiHeroes.length){
+    var aiRows = aiHeroes.map(function(h){ return toRow_(SHEETS.HEROES, h); });
+    hs.getRange(hs.getLastRow()+1, 1, aiRows.length, HEADERS[SHEETS.HEROES].length).setValues(aiRows);
+    invalidate_(SHEETS.HEROES);
+    Logger.log('保留 %s 筆 AI 生成英靈', aiHeroes.length);
+  }
   seedSheet_(ss, SHEETS.MASTERS, SEED_MASTERS.map(masterRow_));
   seedSheet_(ss, SHEETS.MAP,     SEED_LOCATIONS.map(locationRow_));
   seedSheet_(ss, SHEETS.WARS,   SEED_WARS.map(warRow_));
@@ -54,6 +65,7 @@ function seedSheet_(ss, name, rows){
   if(rows.length){
     sheet.getRange(2,1,rows.length,rows[0].length).setValues(rows);
   }
+  invalidate_(name);
 }
 
 // ===== 物件 → 列（依 HEADERS 順序，複雜欄位存 JSON）=====

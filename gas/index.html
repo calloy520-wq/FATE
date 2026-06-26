@@ -33,6 +33,11 @@
   .col:last-child{border-right:none;border-left:1px solid var(--line)}
   .sec-h{font-size:12px;color:var(--gold);letter-spacing:.2em;border-bottom:1px solid var(--line);padding-bottom:6px;margin:18px 0 10px}
   .sec-h:first-child{margin-top:4px}
+  /* 可摺疊段落（點標題收合，減少捲動）；外觀沿用 .sec-h，只多一個小箭頭 */
+  .sec-h.toggler{cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center}
+  .sec-h.toggler::after{content:'▾';font-size:10px;color:var(--dim);letter-spacing:0;transition:transform .15s}
+  .sec-h.toggler.collapsed::after{content:'▸'}
+  .sec-h.toggler.collapsed + div{display:none!important}
   .stat-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px dotted #251f33}
   .bar{height:7px;border-radius:6px;background:#221c30;overflow:hidden;margin-top:4px}
   .bar>i{display:block;height:100%;border-radius:6px}
@@ -186,15 +191,15 @@
 
 <section class="screen hidden" id="scr-game">
   <div class="col" id="col-status">
-    <div class="sec-h">御主</div><div id="master-box"></div>
-    <div class="sec-h">從者</div><div id="servant-box"></div>
-    <div class="sec-h">據點・結界</div><div id="base-box"></div>
-    <div class="sec-h" id="roster-h">戰局</div><div id="roster-box" style="font-size:12px"></div>
+    <div class="sec-h toggler" onclick="App.fold(this)">御主</div><div id="master-box"></div>
+    <div class="sec-h toggler" onclick="App.fold(this)">從者</div><div id="servant-box"></div>
+    <div class="sec-h toggler collapsed" onclick="App.fold(this)">據點・結界</div><div id="base-box"></div>
+    <div class="sec-h toggler" id="roster-h" onclick="App.fold(this)">戰局</div><div id="roster-box" style="font-size:12px"></div>
   </div>
   <div class="col" id="col-map">
     <div class="sec-h">冬木市地圖</div><div id="map-wrap"></div>
     <p style="color:var(--dim);font-size:12px;margin-top:10px">點擊相鄰地點移動（消耗 AP，由後端判定）。</p>
-    <div class="sec-h">所在地</div><div id="loc-info" style="font-size:13px;color:var(--dim)"></div>
+    <div class="sec-h toggler" onclick="App.fold(this)">所在地</div><div id="loc-info" style="font-size:13px;color:var(--dim)"></div>
   </div>
   <div class="col" id="col-chat">
     <div class="sec-h" id="chat-h">聖杯戰爭</div>
@@ -225,6 +230,8 @@ var App = {
 
   go:function(id){ document.querySelectorAll('.screen').forEach(function(s){s.classList.add('hidden');});
     document.getElementById(id).classList.remove('hidden'); },
+  // 收合/展開段落（標題列點擊）；狀態存在 sec-h 上，renderAll 只改內容框不會重設
+  fold:function(el){ el.classList.toggle('collapsed'); },
 
   login:function(){
     var name=document.getElementById('in-account').value.trim();
@@ -441,7 +448,10 @@ var App = {
   me:function(t){ App._push('me',App.acc?App.acc.name:'你',t); },
   sys:function(t){ App._push('sys','',t); },
   _push:function(cls,who,t){ var log=document.getElementById('log'),d=document.createElement('div');
-    d.className='msg '+cls; d.innerHTML=(who?'<div class="who">'+who+'</div>':'')+t;
+    d.className='msg '+cls;
+    // 用 textContent 避免 AI 敘述或玩家暱稱含 < > 等字元時破版／注入
+    if(who){ var w=document.createElement('div'); w.className='who'; w.textContent=who; d.appendChild(w); }
+    var body=document.createElement('div'); body.textContent=t; d.appendChild(body);
     log.appendChild(d); log.scrollTop=log.scrollHeight; },
   heroById:function(id){ return App.STATIC.heroes.filter(function(h){return h.id===id;})[0]; },
   locName:function(id){ var l=App.STATIC.locations.filter(function(x){return x.id===id;})[0]; return l?l.name:id; },

@@ -25,26 +25,39 @@ function callLLM(system, user, opts){
     max_tokens: opts.maxTokens || 600
   };
   if(opts.json) payload.response_format = { type:'json_object' };
+  var options = {
+    method:'post', contentType:'application/json',
+    headers:{ 'Authorization':'Bearer '+key, 'X-Title':'FateStayNight-GAS' },
+    payload: JSON.stringify(payload), muteHttpExceptions:true
+  };
 
-  var res;
-  try {
-    res = UrlFetchApp.fetch(OPENROUTER.url, {
-      method:'post', contentType:'application/json',
-      headers:{ 'Authorization':'Bearer '+key, 'X-Title':'FateStayNight-GAS' },
-      payload: JSON.stringify(payload), muteHttpExceptions:true
-    });
-  } catch(e){ return { error:'fetch 失敗：'+e }; }
+  // 重試＋退避：暫時性錯誤（網路/429/5xx/解析失敗）自動再試。
+  // ⚠ 本函式一律在「寫入鎖之外」呼叫（見 doAction 的 Phase 2），所以 sleep 不會卡住其他玩家。
+  var retries = opts.retries || 3, lastErr = '';
+  for(var i=0;i<retries;i++){
+    try {
+      var res = UrlFetchApp.fetch(OPENROUTER.url, options);
+      var code = res.getResponseCode();
+      var body = res.getContentText();
+      if(code===429 || code>=500){ lastErr = 'HTTP '+code; }      // 暫時性 → 退避重試
+      else if(code >= 300) return { error:'HTTP '+code, body: body.slice(0,500) };  // 永久性 → 直接回報
+      else {
+        var j = JSON.parse(body);
+        var content = j.choices[0].message.content;
+        if(opts.json) return { json: extractJson_(content) };     // 容錯：抓出被前後文包住的 JSON
+        return { text: content };
+      }
+    } catch(e){ lastErr = String(e); }                            // 網路/解析例外 → 退避重試
+    if(i < retries-1) Utilities.sleep(1500*(i+1));
+  }
+  return { error:'呼叫失敗（已重試）：'+lastErr };
+}
 
-  var code = res.getResponseCode();
-  var body = res.getContentText();
-  if(code >= 300) return { error:'HTTP '+code, body: body.slice(0,500) };
-
-  try {
-    var j = JSON.parse(body);
-    var content = j.choices[0].message.content;
-    if(opts.json) return { json: JSON.parse(content) };
-    return { text: content };
-  } catch(e){ return { error:'解析回應失敗：'+e, body: body.slice(0,500) }; }
+/** 從模型輸出抓出 JSON：模型偶爾會用 ```json 或前後文把 JSON 包住，截出第一個 { 到最後一個 } 再解析 */
+function extractJson_(text){
+  if(typeof text !== 'string') return text;
+  var s = text.indexOf('{'), e = text.lastIndexOf('}');
+  return JSON.parse((s>=0 && e>s) ? text.substring(s, e+1) : text);
 }
 
 // 共用敘事系統提示（鎖住鐵則）
