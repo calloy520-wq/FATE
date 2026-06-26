@@ -3,6 +3,16 @@
  */
 
 var NPC_SPAWN_ = ['tohsaka','ryuudou','matou','cemetery','school','harbor','park','hospital','shrine','arcade','factory','station','woods'];
+// 正典御主的據點（4th/5th）；不在表中者（自創/混亂）預設新都公寓
+var CANON_HOME_ = {
+  '衛宮士郎':'emiya','遠坂凜':'tohsaka','間桐慎二':'matou','葛木宗一郎':'ryuudou',
+  '言峰綺禮':'church','伊莉雅絲菲爾':'woods',
+  '衛宮切嗣':'emiya','遠坂時臣':'tohsaka','肯尼斯':'apartment','韋伯·維爾維特':'apartment',
+  '雨生龍之介':'harbor','間桐雁夜':'matou'
+};
+function homeOf_(name, isPlayer, idx){
+  return CANON_HOME_[name] || (isPlayer ? 'apartment' : NPC_SPAWN_[idx % NPC_SPAWN_.length]);
+}
 
 // ---------- 帳號 ----------
 function login(name){
@@ -101,7 +111,7 @@ function newGame(opts){
     if(!hero) return;
     var d = deriveServant_(heroFromRow_(hero));
     var isCaster = (hero.cls === 'Caster');
-    var loc = p.isPlayer ? 'emiya' : NPC_SPAWN_[(spawnIdx++) % NPC_SPAWN_.length];
+    var loc = homeOf_(p.master, p.isPlayer, spawnIdx++);   // 各自正典據點；自創/混亂→公寓
     rows.push({
       game_id:gameId, slot:slot+1, is_player:p.isPlayer, master_name:p.master, magic:p.magic,
       circuits:p.circuits, master_hp:100, master_hp_max:100, master_mp:p.circuits*4, master_mp_max:p.circuits*4,
@@ -115,10 +125,15 @@ function newGame(opts){
   appendObjs_(SHEETS.BATTLE, rows);
   appendObj_(SHEETS.CLOCK, { game_id:gameId, day:1, hour:20, ap:TUNING.AP_PER_DAY,
                              ap_max:TUNING.AP_PER_DAY, mana_countdown:0, mana_locked:false });
-  updateWhere_(SHEETS.ACCOUNTS, { ms_id:opts.ms_id }, { current_game:gameId });
+  var wish = (opts.profile && opts.profile.wish) || '';
+  updateWhere_(SHEETS.ACCOUNTS, { ms_id:opts.ms_id }, { current_game:gameId, settings:{ wish:wish, manaRating:'adult-fade' } });
 
-  logEvent_(gameId, 1, '20:00', 'emiya', 'START', 'slot_'+0, '', '聖杯戰爭開始。', true, 2);
-  return getState(gameId);
+  logEvent_(gameId, 1, '20:00', 'start', 'START', 'slot_0', '', '聖杯戰爭開始。', true, 2);
+  var st = getState(gameId);
+  // 召喚開場（依從者個性 + 御主 + 願望）
+  var pp = parts.filter(function(x){ return x.isPlayer; })[0];
+  if(pp) st.opening = summonOpening_(heroesById[pp.servantId], pp.master, wish);
+  return st;
 }
 
 // ---------- 讀狀態 ----------
@@ -179,21 +194,24 @@ function doAction(a){
   var narration = '';
 
   // 補魔密封時段：封鎖耗時/戰鬥動作
-  if(clock.mana_locked && ['move','attack','np','sleep','separate'].indexOf(a.type)>=0)
+  if(clock.mana_locked && ['move','attack','np','sleep','separate','claim'].indexOf(a.type)>=0)
     return { state:getState(gameId), narration:'（補魔進行中，無法進行該動作；請繼續對話，或用令咒「強制補魔」結束。）', events:[] };
+
+  var sctx = servantCtx_(p, hero);   // 個性 + 好感度 context（讓 AI 保持人格與分寸）
 
   switch(a.type){
     case 'move':       narration = act_move_(p, clock, hero, a.locId); break;
     case 'attack':     narration = act_combat_(rows, p, clock, hero, false, true); break;
     case 'np':         narration = act_combat_(rows, p, clock, hero, 'np', true); break;
-    case 'mana':       narration = act_mana_(p, clock); break;
+    case 'mana':       narration = act_mana_(p, clock, sctx); break;
     case 'feed':       narration = act_feed_(p); break;
     case 'reinforce':  narration = act_reinforce_(p, hero); break;
     case 'separate':   narration = act_separate_(p); break;
+    case 'claim':      narration = act_claim_(p, clock, hero); break;
     case 'sleep':      narration = act_sleep_(p, clock); break;
     case 'seal':       narration = act_seal_(rows, p, clock, hero, a.cmd); break;
-    case 'chat':       narration = clock.mana_locked ? manaChat_(p, clock, a.text)
-                                  : narrateScene(a.text + '\n（玩家自由發言，純敘述不動數值）'); break;
+    case 'chat':       narration = clock.mana_locked ? manaChat_(p, clock, a.text, sctx)
+                                  : narrateScene(a.text + '\n（玩家自由發言。依從者個性與好感度回應，無禮/猥褻則抗拒。）', sctx); break;
     default: return { error:'未知動作：'+a.type };
   }
 
@@ -201,7 +219,7 @@ function doAction(a){
   var events = [];
   var fresh = findOne_(SHEETS.CLOCK, { game_id: gameId });
   if(!fresh.mana_locked){
-    if(['move','attack','np'].indexOf(a.type) >= 0){
+    if(['move','attack','np','claim'].indexOf(a.type) >= 0){
       events = npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh);
     } else if(a.type === 'sleep'){
       for(var k=0;k<3;k++) events = events.concat(npcTick_(gameId, findRows_(SHEETS.BATTLE,{game_id:gameId}), fresh));
@@ -291,18 +309,18 @@ function npcSkirmish_(a, b){
 function locName_(id){ var l = findOne_(SHEETS.MAP, { id:id }); return l ? l.name : id; }
 
 // ---------- 補魔倒數對話 ----------
-function manaChat_(p, clock, text){
+function manaChat_(p, clock, text, ctx){
   var left = (clock.mana_countdown||0) - 1;
   if(left <= 0){
     p.sv_mp = p.sv_mp_max; p.bond = Math.min(100, p.bond + TUNING.MANA_BOND);
     updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, bond:p.bond });
     updateRow_(SHEETS.CLOCK, clock._row, { mana_countdown:0, mana_locked:false });
     advanceTime_(p, clock, null, TUNING.MANA_AP_COST);
-    return narrateScene((text?('「'+text+'」\n'):'')+'補魔完成，魔力填滿靈基，兩人羈絆更深。請寫一段含蓄的結束敘述。')
+    return narrateScene((text?('御主：「'+text+'」\n'):'')+'補魔完成，魔力填滿靈基。依從者個性與好感收尾（fade）。請寫含蓄的結束敘述。', ctx)
            + '\n（補魔結束：魔力回滿・好感 +'+TUNING.MANA_BOND+'）';
   }
   updateRow_(SHEETS.CLOCK, clock._row, { mana_countdown:left });
-  return narrateScene((text?('「'+text+'」\n'):'')+'補魔持續，魔力緩緩流動（fade，點到為止）。請寫一段含蓄敘述。')
+  return narrateScene((text?('御主：「'+text+'」\n'):'')+'補魔持續中。依從者個性與好感回應（無禮/猥褻則抗拒、冷淡；fade、點到為止）。請寫一段含蓄敘述。', ctx)
          + '\n（補魔進行中，剩 '+left+' 次對話）';
 }
 
@@ -360,11 +378,27 @@ function act_combat_(rows, p, clock, hero, mode, costAP){
          + '\n\n戰報：' + res.beats.join('｜');
 }
 
-function act_mana_(p, clock){
+function act_mana_(p, clock, ctx){
   if(clock.mana_locked) return '（補魔已在進行中——繼續對話即可推進。）';
   updateRow_(SHEETS.CLOCK, clock._row, { mana_countdown:TUNING.MANA_TURNS, mana_locked:true });
-  return narrateScene('你與從者開始補魔，魔力透過親密的連結緩緩流動（成人向 fade，點到為止）。請寫一段含蓄的起始敘述。')
+  return narrateScene('你與從者開始補魔。依從者個性與好感度決定其態度（好感低則勉強/公事公辦、抗拒過度親密；好感高則有溫度），fade-to-black、點到為止。請寫一段含蓄起始敘述。', ctx)
          + '\n（補魔開始：接下來 '+TUNING.MANA_TURNS+' 次對話用於補魔，期間時間與 NPC 凍結）';
+}
+function servantCtx_(p, hero){
+  if(!hero) return '';
+  var ps = hero.persona || {};
+  return '（從者：'+hero.cls+'，真名'+(p.true_name_known?hero.realName:'未公開')+'，個性「'+(ps.words||'')+'」，'
+    + '一人稱「'+(ps.firstP||'我')+'」，對御主態度「'+(ps.toMaster||'')+'」，目前好感度 '+p.bond+'/100。'
+    + '請嚴格依此人格與好感回應，保有自主與尊嚴。）';
+}
+function act_claim_(p, clock, hero){
+  if(clock.ap<1) return '（行動點不足，請睡覺恢復。）';
+  if(p.base_loc===p.location) return '（此處已是你的據點。）';
+  var isC = hero && hero.cls==='Caster';
+  p.base_loc=p.location; p.barrier=30; p.barrier_max=isC?100:60; p.base_tier=isC?'魔術工房':'簡易結界';
+  updateRow_(SHEETS.BATTLE, p._row, { base_loc:p.base_loc, barrier:p.barrier, barrier_max:p.barrier_max, base_tier:p.base_tier });
+  advanceTime_(p, clock, hero, 1);
+  return narrateScene('你在「'+locName_(p.location)+'」佈置新的據點與結界，放棄舊據點。請寫一段建立據點/工房的敘述。');
 }
 
 function act_feed_(p){
