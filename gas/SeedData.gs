@@ -219,7 +219,7 @@ const SEED_MASTERS = [
   {id:'間桐慎二-5th',  name:'間桐慎二', gender:'男', appearance:'藍髮神經質青年，刻薄表情',   war:'5th', magic:'魔術迴路微弱・依賴從者', circuits:15, melee:'E', magic_rank:'E', home:'matou',    wish:'被認可・奪取勝利',        persona:'自卑虛榮・色厲內荏'},
   {id:'葛木宗一郎-5th',name:'葛木宗一郎', gender:'男', appearance:'戴眼鏡的沉默教師，黑西裝', war:'5th', magic:'體術（蛇之拳）・無魔術', circuits:10, melee:'A', magic_rank:'E', home:'ryuudou',  wish:'無所求・守護 Caster',     persona:'冷靜寡言・絕對忠誠'},
   {id:'言峰綺禮-5th',  name:'言峰綺禮', gender:'男', appearance:'高大神父、黑色法衣，陰沉',   war:'5th', magic:'代行者・黑鍵',        circuits:25, melee:'A', magic_rank:'C', home:'church',   wish:'尋得能讓自己喜悅之物',    persona:'壓抑・扭曲的虔誠'},
-  {id:'伊莉雅絲菲爾-5th',name:'伊莉雅絲菲爾', gender:'女', appearance:'紅眼白髮的幼小少女，毛領大衣',war:'5th',magic:'愛因茲貝倫煉金術',    circuits:70, melee:'D', magic_rank:'A', home:'einzbern', wish:'完成聖杯的使命',          persona:'天真與哀傷並存'},
+  {id:'伊莉雅絲菲爾-5th',name:'伊莉雅絲菲爾', gender:'女', appearance:'紅眼白髮的幼小少女，毛領大衣',war:'5th',magic:'愛因茲貝倫煉金術・聖杯依代',    circuits:80, melee:'D', magic_rank:'A', home:'einzbern', wish:'完成聖杯的使命',          persona:'天真與哀傷並存'},
   // 破格御主：聖杯依代，魔力近乎無限——足以硬撐任何破格召喚而不反噬（代價是被黑泥侵蝕的人格）
   {id:'間桐櫻(黑化)-5th',name:'間桐櫻（黑化）', gender:'女', appearance:'黑長髮、黑紅禮服，妖異而空洞的笑',war:'5th',magic:'聖杯之泥・無限魔力・蟲爪', circuits:90, melee:'E', magic_rank:'A', home:'matou', wish:'獨佔所愛、將傷害自己的世界一同拖入黑暗', persona:'純愛扭曲為佔有・被黑泥吞噬'},
   // 第四次

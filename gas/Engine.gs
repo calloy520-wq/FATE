@@ -75,6 +75,15 @@ function activeSkills_(hero){
 function buffOf_(v){ return (v && typeof v === 'object') ? v : null; }
 // 幸運的「運氣修正」：以 C(30) 為基準，亂局中運氣站誰那邊（EX+3 / A+2 / B+1 / C0 / D−1 / E−2）
 function luckEdge_(sv){ return Math.round((rankVal(sv.six.幸運) - 30) / 10); }
+// 靈基出力：當前靈基魔力%影響發揮——以 80%（自然維持線）為基準，越滿越亢奮、越枯竭越衰弱。
+// 貼近原作「供魔充足則生龍活虎、被慎二那種餓著則發揮不出來」。回傳 hit/dmg/dodge 的修正點數。
+// 100%:+5　80%:0　60%:−5　40%:−10　20%:−15　0%:−20（枯竭懲罰重、過充加成溫和）
+function outputMod_(sv){
+  var max = sv.mpMax || 0;
+  if(max <= 0) return 0;
+  var r = (sv.mp != null ? sv.mp : max) / max;
+  return Math.max(-20, Math.min(5, Math.round((r - 0.8) * 25)));
+}
 
 /** 由六維推導 HP/MP 上限與每小時維持費 */
 function deriveServant_(sv){
@@ -121,8 +130,10 @@ function resolveCombat_(A, B, mode){
     if(amlance){ db = null; }                                          // 紅薔薇・破魔：敵的魔術強化（buff）盡數消去
     var selfmod = hasFx_(att,'self_mod');                              // 自我改造：強化過的軀體，攻勢更準更狠
     var ambush = att._ambush; if(ambush){ att._ambush = false; tag('氣息遮斷'); }  // 氣息遮斷：首擊奇襲
-    var hit = rankVal(att.six.敏捷) + d20_() + ((ab&&ab.hit)||0) + (ambush?6:0) + (selfmod?2:0) + luckEdge_(att);    // 幸運：運氣站攻方
-    var dodge = rankVal(def.six.敏捷) + d20_() + ((db&&db.dodge)||0) + luckEdge_(def);  // 幸運站守方；dodge 負＝石化遲滯更易被命中
+    var outA = outputMod_(att), outD = outputMod_(def);                // 靈基出力：魔力充足則亢奮、枯竭則衰弱
+    if(outA<0) tag('魔力枯竭'); else if(outA>0) tag('靈基亢奮');
+    var hit = rankVal(att.six.敏捷) + d20_() + ((ab&&ab.hit)||0) + (ambush?6:0) + (selfmod?2:0) + outA + luckEdge_(att);    // 幸運：運氣站攻方
+    var dodge = rankVal(def.six.敏捷) + d20_() + ((db&&db.dodge)||0) + outD + luckEdge_(def);  // 幸運站守方；dodge 負＝石化遲滯更易被命中
     // 宗和的心得：對方永遠看不穿小次郎的攻擊，看破/預判類閃避（心眼・直感）對他無效
     if(hasFx_(att,'unreadable')){
       if(hasFx_(def,'first_strike') || hasFx_(def,'analyze')) tag('宗和的心得');
@@ -153,6 +164,7 @@ function resolveCombat_(A, B, mode){
     if(hasTrait_(def,'神性') && hasSkillName_(att,'神殺')){ dmg *= 2; note.push('神殺×2'); tag('神殺'); }
     if(hasFx_(def,'divine_core') && !amlance){ dmg = Math.max(1, Math.round(dmg*0.82)); note.push('神核'); tag('神核'); }  // 女神之軀：受傷 −18%（紅薔薇可破）
     if(amlance){ note.push('破魔紅薔薇'); tag('破魔紅薔薇'); }                    // 破魔之槍：穿透魔力護甲/神核
+    if(outA){ dmg = Math.max(1, Math.round(dmg*(1+outA/100))); note.push('出力'+(outA>0?'+':'')+outA); }  // 靈基出力對傷害的整體加成/衰減
     var newHp = def.hp - dmg;
     // 戰鬥續行：致命一擊下仍能撐住一次（每場一次），HP 留 1。黃薔薇（必滅）使傷口不癒，續戰無效。
     if(newHp <= 0 && hasFx_(def,'survive') && !def._survived && !amlance){
@@ -177,6 +189,7 @@ function resolveCombat_(A, B, mode){
       if(cutN>0 && divineAge_(A)){ cutN *= 0.5; tag('神代魔術'); }   // 神代魔術：對魔力半效
       if(cutN>0){ d = Math.max(1, Math.round(d*(1-cutN))); npNote = '（對魔力 −'+Math.round(cutN*100)+'%）'; tag('對魔力'); }
     }
+    var outN = outputMod_(A); if(outN){ d = Math.max(1, Math.round(d*(1+outN/100))); }   // 靈基出力影響寶具威力
     B.hp = Math.max(0, B.hp - d);
     beats.push('〔'+(isNP?'寶具解放':'令咒・必中全力')+'〕'+A.cls+(isNP?'發動「'+(A.np||'寶具')+'」':'')+
                '造成 '+d+' 傷害'+npNote+'！ '+B.cls+' HP '+B.hp);

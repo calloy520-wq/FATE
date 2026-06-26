@@ -668,6 +668,10 @@ var App = {
         (s.condition?('〔'+App.esc(s.condition)+'〕'):'<span style="color:var(--dim);font-style:normal">（靜候）</span>')+'</div>'+
       '<div style="font-size:12px;color:var(--dim)">真名：'+(s.trueNameKnown?s.realName:'？？？')+(s.align?('　・　'+App.esc(s.align)):'')+'</div>'+
       bar('HP',s.hp,s.hpMax,'hp')+bar('靈基魔力',s.mp,s.mpMax,'mp')+
+      (function(){ var r=s.mpMax>0?s.mp/s.mpMax:0.8, om=Math.max(-20,Math.min(5,Math.round((r-0.8)*25)));
+        var lbl=om>0?'靈基亢奮 +'+om:om<0?'魔力枯竭 '+om:'出力正常';
+        var col=om>0?'#7ad08a':om<=-10?'var(--red2)':om<0?'#d6a85c':'var(--dim)';
+        return '<div style="font-size:11px;color:'+col+';margin:-2px 0 4px" title="靈基出力：以 80% 為基準，越滿命中/傷害越強、越枯竭越弱（供魔充足的御主＝更強的從者）。拉到 100% 需主動供給/補魔。">⚡ '+lbl+'（出力基準 80%）</div>'; })()+
       '<div class="stat-row"><span title="從者對你的信任與羈絆；影響回應態度，過低時令咒強迫/獵食會更反感" style="cursor:help;border-bottom:1px dotted #4a4360">好感度</span><span style="color:#e58aa8">'+s.bond+'/100</span></div><div class="bar bond"><i style="width:'+s.bond+'%"></i></div>'+
       '<div class="six">'+six+'</div><div style="margin-top:8px">'+tags+'</div>'+
       '<div id="skill-desc" style="display:none;margin-top:8px;font-size:12px;line-height:1.5;color:#d8cdee;background:#140f1f;border-left:3px solid var(--gold);border-radius:6px;padding:8px 10px"></div>'+
