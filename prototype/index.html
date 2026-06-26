@@ -60,6 +60,7 @@
   .bar > i{display:block;height:100%;border-radius:6px}
   .hp > i{background:linear-gradient(90deg,#8a2b2b,#d65c5c)}
   .mp > i{background:linear-gradient(90deg,#2c4f8a,#5c84d6)}
+  .bond > i{background:linear-gradient(90deg,#8a2c5a,#e58aa8)}
 
   .six{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}
   .six .g{background:#100e18;border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center}
@@ -336,6 +337,8 @@ const App = {
       this.state.servant=JSON.parse(JSON.stringify(t));
       this.state.servant.hp=120; this.state.servant.hpMax=120;
       this.state.servant.mp=80;  this.state.servant.mpMax=80;
+      this.state.servant.bond=30; this.state.servant.bondMax=100;
+      this.state.servant.trueNameKnown=false;
       stage.innerHTML='<div style="font-size:40px">⚔️</div><p style="color:var(--gold2)">「問——你是否為我之御主？」</p>';
       setTimeout(()=>this.enterGame(),900);
     },1100);
@@ -368,12 +371,17 @@ const App = {
       ...s.skills.map(x=>`<span class="tag skl">${x.n}<i class="r">${x.r||''}</i></span>`),
       ...s.traits.map(x=>`<span class="tag trait">${x.n}${x.r?'<i class="r">'+x.r+'</i>':''}</span>`),
     ].join('');
+    const stage=this.bondStage(s.bond);
+    const trueName=s.trueNameKnown?s.realName:'？？？（劇情揭曉）';
     document.getElementById('servant-box').innerHTML=`
       <div style="font-size:16px;color:var(--gold2)">${s.cls} <span style="font-size:12px;color:var(--dim)">${s.name}</span></div>
+      <div style="font-size:12px;color:var(--dim)">真名：${trueName}</div>
       <div class="stat-row"><span>HP</span><span>${s.hp}/${s.hpMax}</span></div>
       <div class="bar hp"><i style="width:${s.hp/s.hpMax*100}%"></i></div>
       <div class="stat-row"><span>魔力</span><span>${s.mp}/${s.mpMax}</span></div>
       <div class="bar mp"><i style="width:${s.mp/s.mpMax*100}%"></i></div>
+      <div class="stat-row"><span>好感度</span><span style="color:#e58aa8">${s.bond}/${s.bondMax}・${stage}</span></div>
+      <div class="bar bond"><i style="width:${s.bond/s.bondMax*100}%"></i></div>
       <div class="six">${six}</div>
       <div style="margin-top:8px">${tags}</div>
       <div style="font-size:12px;color:var(--dim);margin-top:8px">寶具：${s.np}</div>`;
@@ -479,8 +487,10 @@ const App = {
     if(this.state.mana.left<=0){
       this.state.mana=null; this.renderMana();
       const m=this.state.master, s=this.state.servant;
-      s.mp=s.mpMax; this.renderStatus();
-      this.sys('— 補魔結束：GAS 結算，從者魔力已回復至上限 —');
+      s.mp=s.mpMax;
+      s.bond=Math.min(s.bondMax, s.bond+8);   // 補魔提升好感度（示意）
+      this.renderStatus();
+      this.sys('— 補魔結束：GAS 結算，從者魔力回復至上限，好感度 +8 —');
     } else this.renderMana();
   },
   _push(cls,who,t){
@@ -489,6 +499,7 @@ const App = {
     d.innerHTML=(who?`<div class="who">${who}</div>`:'')+t;
     log.appendChild(d); log.scrollTop=log.scrollHeight;
   },
+  bondStage(b){ return b<=20?'戒備':b<=40?'容許':b<=60?'信賴':b<=80?'羈絆':'唯一'; },
   locName(id){ return SERVER.locations.find(x=>x.id===id).name; },
   flavor(t){ return '「'+t+'」——你的話語消散在冬木的夜色中。（此為示意敘述，正式版由 LLM 生成並參考記憶表保持一致）'; },
 };
