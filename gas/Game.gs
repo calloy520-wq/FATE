@@ -165,7 +165,7 @@ function newGame(opts){
       circuits:p.circuits, master_hp:100, master_hp_max:100, master_mp:p.circuits*TUNING.MASTER_MP_K, master_mp_max:p.circuits*TUNING.MASTER_MP_K,
       seals:3, melee:p.melee, magic_rank:p.magic_rank, location:loc, servant_id:p.servantId,
       sv_hp:d.hpMax, sv_hp_max:d.hpMax, sv_mp:d.mpMax, sv_mp_max:d.mpMax, upkeep:d.upkeep,
-      bond:30, true_name_known:false, status:'normal', alive:true,
+      bond:30, true_name_known:false, status: hasGodHand_(hero) ? String(TUNING.GOD_HAND_LIVES) : 'normal', alive:true,
       base_loc:p.isPlayer?loc:'', barrier:p.isPlayer?30:'', barrier_max:p.isPlayer?(isCaster?100:60):'',
       base_tier:p.isPlayer?(isCaster?'魔術工房':'簡易結界'):'', servant_loc:loc, separated:false,
       discovered:p.isPlayer?[]:'', sv_condition:p.isPlayer?'靈基初凝，神色沉靜':''
@@ -495,6 +495,10 @@ function npcTick_(gameId, rows, clock){
       updateRow_(SHEETS.BATTLE, a._row, { sv_hp:a.sv_hp });
       updateRow_(SHEETS.BATTLE, b._row, { sv_hp:b.sv_hp });
       var dead = (a.sv_hp<=0) ? a : (b.sv_hp<=0) ? b : null;
+      if(dead && godHandRevive_(dead)){       // 十二試煉：NPC 倒下也會復活，不真死
+        updateRow_(SHEETS.BATTLE, dead._row, { sv_hp:dead.sv_hp, status:dead.status, alive:true });
+        dead = null;
+      }
       if(dead){
         dead.alive = false; updateRow_(SHEETS.BATTLE, dead._row, { alive:false });
         var win = (dead===a) ? b : a;
@@ -724,13 +728,21 @@ function act_combat_(rows, p, clock, hero, mode, costAP){
   enemyRow.sv_hp = res.bHp;
 
   var outcome, sealNote = '';
-  if(res.winner === 'A'){                     // 敵從者當場被擊破（多半來自寶具/令咒的決死一擊）
-    enemyRow.alive = false; p.bond = Math.min(100, p.bond+5); outcome = 'enemy_dead';
-    var surge = Math.round(p.sv_mp_max * TUNING.KILL_MP);   // 擊殺回魔：敵靈核潰散的魔力湧入
-    p.sv_mp = Math.min(p.sv_mp_max, p.sv_mp + surge);
-    sealNote = '擊破'+B.cls+'，潰散的靈核魔力湧入我的從者（魔力 +'+surge+'）。';
-  } else if(res.winner === 'B'){
-    outcome = 'player_dead';
+  if(res.bHp <= 0){                           // 敵從者倒下（多半來自寶具/令咒決死一擊）
+    var remE = godHandRevive_(enemyRow);       // 十二試煉：仍有命數則復活
+    if(remE > 0){
+      outcome = 'enemy_revive';
+      sealNote = B.cls+'倒下了——卻又緩緩站起。十二試煉的詛咒讓他一次次自死亡歸來（尚餘 '+remE+' 條命）。';
+    } else {
+      enemyRow.alive = false; p.bond = Math.min(100, p.bond+5); outcome = 'enemy_dead';
+      var surge = Math.round(p.sv_mp_max * TUNING.KILL_MP);   // 擊殺回魔：敵靈核潰散的魔力湧入
+      p.sv_mp = Math.min(p.sv_mp_max, p.sv_mp + surge);
+      sealNote = '擊破'+B.cls+'，潰散的靈核魔力湧入我的從者（魔力 +'+surge+'）。';
+    }
+  } else if(res.aHp <= 0){                    // 我方從者倒下
+    var remP = godHandRevive_(p);
+    if(remP > 0){ outcome = 'player_revive'; sealNote = '我的從者一度倒下，卻憑十二試煉之力自死亡再起（尚餘 '+remP+' 條命）。'; }
+    else outcome = 'player_dead';
   } else if(res.bFlee){                        // 敵從者重傷 → 對面御主的撤退/令咒判定
     var rx = enemyMasterReact_(enemyRow, 'defend');
     if(rx.type === 'escape'){
@@ -752,8 +764,10 @@ function act_combat_(rows, p, clock, hero, mode, costAP){
       var burst = Math.round(rankVal(B.six.寶具)*1.4) + 15;
       p.sv_hp = Math.max(0, p.sv_hp - burst); enemyRow.seals = Math.max(0, enemyRow.seals-1);
       sealNote = '對面御主「'+enemyRow.master_name+'」見我從者重傷，竟燃燒令咒下令追擊——'+B.cls+'全力一擊造成 '+burst+' 傷害！';
-      if(p.sv_hp <= 0){ outcome = 'player_dead'; res.winner = 'B'; }
-      else { retreatRow_(p, !p.separated); outcome = 'player_flee_pressed'; }
+      if(p.sv_hp <= 0){
+        if(godHandRevive_(p) > 0){ outcome = 'player_revive'; sealNote += ' 但我的從者憑十二試煉再起！'; }
+        else { outcome = 'player_dead'; res.winner = 'B'; }
+      } else { retreatRow_(p, !p.separated); outcome = 'player_flee_pressed'; }
     } else {
       retreatRow_(p, !p.separated);
       sealNote = '我的從者重傷，'+enemyRow.master_name+' 未予追擊——我帶傷退往'+locName_(p.separated?p.servant_loc:p.location)+'。';
@@ -763,21 +777,20 @@ function act_combat_(rows, p, clock, hero, mode, costAP){
     outcome = 'standoff';
   }
 
-  updateRow_(SHEETS.BATTLE, p._row, { sv_hp:p.sv_hp, sv_mp:p.sv_mp, bond:p.bond, location:p.location, servant_loc:p.servant_loc, separated:p.separated });
-  updateRow_(SHEETS.BATTLE, enemyRow._row, { sv_hp:enemyRow.sv_hp, alive:enemyRow.alive, seals:enemyRow.seals, location:enemyRow.location, servant_loc:enemyRow.servant_loc });
+  updateRow_(SHEETS.BATTLE, p._row, { sv_hp:p.sv_hp, sv_mp:p.sv_mp, bond:p.bond, status:p.status, location:p.location, servant_loc:p.servant_loc, separated:p.separated });
+  updateRow_(SHEETS.BATTLE, enemyRow._row, { sv_hp:enemyRow.sv_hp, alive:enemyRow.alive, seals:enemyRow.seals, status:enemyRow.status, location:enemyRow.location, servant_loc:enemyRow.servant_loc });
   if(costAP) advanceTime_(p, clock, hero, 1);
 
   logEvent_(p.game_id, clock.day, pad2_(clock.hour)+':00', p.location, 'BATTLE',
             'slot_0', 'slot_'+(enemyRow.slot-1),
             A.cls+' 對 '+B.cls+'（'+enemyRow.master_name+'）交戰：'+outcome, true, 1);
 
-  var tail = [];
-  if(sealNote) tail.push(sealNote);
-  tail.push('戰報：' + res.beats.join('｜'));
+  // 純 AI 敘述：戰況關鍵過程(beats)只餵給 LLM，不再把冷冰冰的數字戰報塞給玩家；
+  // 唯一保留的尾註是「撤退/令咒/復活」這類玩家需要知道的轉折。
   return { kind:'combat',
     ctx:{ playerCls:A.cls, enemyCls:B.cls, enemyMaster:enemyRow.master_name,
           winner:res.winner, outcome:outcome, firedTags:res.firedTags, beats:res.beats, sealNote:sealNote },
-    suffix:'\n\n' + tail.join('\n') };
+    suffix: sealNote ? ('\n\n（'+sealNote+'）') : '' };
 }
 
 function act_mana_(p, clock){

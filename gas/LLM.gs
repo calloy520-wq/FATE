@@ -98,7 +98,9 @@ function narrateCombat(ctx, memory){
   var sys = narratorSystem_();
   var resultMap = {
     enemy_dead:'我方擊破敵從者',
+    enemy_revive:'敵從者被擊倒卻憑十二試煉自死亡復生',
     player_dead:'我方從者被擊破',
+    player_revive:'我方從者被擊倒卻憑十二試煉再起',
     enemy_flee:'敵從者重傷、且戰且退',
     enemy_escape_seal:'敵御主燃燒令咒，讓重傷的從者緊急脫離',
     enemy_heal_seal:'敵御主燃燒令咒治癒從者、繼續對峙',

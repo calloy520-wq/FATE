@@ -53,13 +53,23 @@ function resolveCombat_(A, B, mode){
   function strike(att, def, an, dn){
     var hit = rankVal(att.six.敏捷) + d20_();
     var dodge = rankVal(def.six.敏捷) + d20_();
+    if(hasFx_(att,'first_strike')){ hit += 3; tag('直感'); }          // 直感：更易連得上
+    if(hasFx_(def,'analyze')){ dodge += 3; tag('心眼'); }             // 心眼：看破來招、更易閃避
     if(hasFx_(def,'evade_ranged')){ dodge += 6; tag('避矢加護'); }
     if(hit <= dodge){ beats.push('〔閃避〕'+dn+' 避開了 '+an+' 的攻擊 ('+hit+'≤'+dodge+')'); return; }
     var dmg = Math.max(3, rankVal(att.six.筋力) + Math.floor(Math.random()*9) - Math.floor(rankVal(def.six.耐久)/2));
     var note = [];
+    if(hasFx_(att,'morale')){ dmg += 3; note.push('勇猛'); tag('勇猛'); }      // 勇猛/卡里斯瑪：攻勢更猛
     if(hasFx_(att,'burst')){ dmg = Math.round(dmg*1.2); note.push('魔力放出'); tag('魔力放出'); }
     if(hasTrait_(def,'神性') && hasSkillName_(att,'神殺')){ dmg *= 2; note.push('神殺×2'); tag('神殺'); }
-    def.hp = Math.max(0, def.hp - dmg);
+    var newHp = def.hp - dmg;
+    // 戰鬥續行：致命一擊下仍能撐住一次（每場一次），HP 留 1
+    if(newHp <= 0 && hasFx_(def,'survive') && !def._survived){
+      def.hp = 1; def._survived = true; tag('戰鬥續行');
+      beats.push('〔戰鬥續行〕'+an+'本應擊倒 '+dn+'，'+dn+' 卻憑驚人韌性撐住、僅餘一絲氣息');
+      return;
+    }
+    def.hp = Math.max(0, newHp);
     beats.push('〔命中〕'+an+' → '+dn+' 造成 '+dmg+' 傷害'+(note.length?'（'+note.join('・')+'）':'')+
                ' ('+hit+'>'+dodge+') '+dn+' HP '+def.hp);
   }
@@ -102,6 +112,25 @@ function resolveCombat_(A, B, mode){
     aFlee: (A.hp>0 && A.hp <= aMax*fleeT),
     bFlee: (B.hp>0 && B.hp <= bMax*fleeT)
   };
+}
+
+// 十二試煉 / God Hand：偵測與復活
+function hasGodHand_(hero){
+  if(!hero) return false;
+  var np = String(hero.np||'');
+  if(np.indexOf('十二試煉')>=0 || /god\s*hand/i.test(np)) return true;
+  return hasFx_(hero,'god_hand') || hasSkillName_(hero,'十二試煉');
+}
+/** 從者列倒下時呼叫：仍有命數 → 復活(留部分HP)並回傳剩餘命數；否則回 0(真死) */
+function godHandRevive_(row){
+  var lives = Number(row.status);
+  if(isFinite(lives) && lives > 1){
+    row.status = String(lives - 1);
+    row.sv_hp = Math.max(1, Math.round((row.sv_hp_max||100) * 0.4));
+    row.alive = true;
+    return lives - 1;
+  }
+  return 0;
 }
 
 /** 英靈殿原始列 → 引擎可用的從者物件 */

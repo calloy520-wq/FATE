@@ -79,6 +79,7 @@ const TUNING = {
   HUNT_BOND_REFUSE: -3,   // 善向從者連被提議獵食都反感
   HUNT_BOND_EVIL:   2,    // 惡向從者獵食反而愉悅
   KILL_MP: 0.25,          // 擊破敵從者的魔力湧入比例
+  GOD_HAND_LIVES: 12,     // 十二試煉（God Hand）：總命數，須擊倒這麼多次才真正死亡（可調低）
 };
 
 const RANK_BASE = { 'E':10,'D':20,'C':30,'B':40,'A':50,'EX':60 };
