@@ -105,7 +105,7 @@ const SEED_SERVANTS = [
     align:'中立・善', persona:{firstP:'我',words:'毒舌・觀察者・童話',toMaster:'冷眼旁觀卻心軟'} },
   // 斯卡哈 三職階（影之國女王・最強之槍的師匠）
   { id:'斯卡哈-Lancer', cls:'Lancer', realName:'斯卡哈', wars:['客串'],
-    six:{筋力:'B',耐久:'A',敏捷:'A',魔力:'B',幸運:'E',寶具:'B'},
+    six:{筋力:'B',耐久:'A',敏捷:'A',魔力:'B',幸運:'E',寶具:'A'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'}],
     skills:[{n:'神速',r:'A',fx:'first_strike'},{n:'戰鬥續行',r:'A',fx:'survive'},
             {n:'原初符文',r:'A',fx:'rune'},{n:'刺穿死亡之棘',r:'A',fx:'gae_bolg'}],
