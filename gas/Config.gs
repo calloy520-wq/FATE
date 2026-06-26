@@ -72,6 +72,7 @@ const TUNING = {
   HP_REGEN_K: 0.1,               // 每小時HP緩回 = 耐久*HP_REGEN_K
   COMBAT_MP: 0.12,               // 普通交戰耗魔比例
   NP_MP: 0.35,                   // 寶具解放額外耗魔比例
+  NP_CHARGE: 0.9,                // 寶具解放門檻：靈基須先充能至此比例（出力全開）；令咒強制可繞過
   FLEE_HP: 0.5,                  // 降到此 HP 比例即觸發撤退（一般交戰不纏鬥至死；令咒決死除外）
   // 時間
   AP_PER_DAY: 12, HOURS_PER_AP: 2,

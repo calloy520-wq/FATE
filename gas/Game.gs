@@ -786,8 +786,9 @@ function act_combat_(rows, p, clock, hero, mode, costAP){
   }
   markDiscovered_(p, [enemyRow.slot]);
   // 寶具的魔力門檻要對齊「實際耗魔」＝普通交戰 + 寶具額外（否則剛好過門檻卻扣到歸零）
-  if(mode==='np' && p.sv_mp < Math.round(p.sv_mp_max*(TUNING.COMBAT_MP+TUNING.NP_MP)))
-    return '（魔力不足，無法解放寶具——可用令咒強制或先補魔。）';
+  // 寶具解放需「出力全開」：靈基先充能到 NP_CHARGE（用💧供給/補魔拉高），象徵大魔力消耗；令咒強制可繞過
+  if(mode==='np' && p.sv_mp < Math.round(p.sv_mp_max*TUNING.NP_CHARGE))
+    return '（靈基出力不足，無法解放寶具——需先用「💧供給／補魔」將靈基充能至 '+Math.round(TUNING.NP_CHARGE*100)+'%（出力全開），或燃令咒「寶具強制解放」。）';
   if(costAP && clock.ap<1) return '（行動點不足，請睡覺恢復。）';
 
   // 從者資料缺失（例如重建資料庫後 AI 生成英靈被清掉）→ 不要崩潰，給明確提示
@@ -1104,13 +1105,22 @@ function act_claim_(p, clock, hero){
   return { kind:'scene', prompt:'我在「'+locName_(p.location)+'」佈置新的據點與結界，放棄舊據點。請寫一段建立據點/工房的敘述。' };
 }
 
+// 供給（充能）：把御主魔力閥門開大、灌注從者拉高出力（即時、不耗 AP）。
+// 迴路魔力不足時 → 燃燒生命強行供給（破格/窮御主之痛，如雁夜）；保底留 1 HP，不會當場燒死。
 function act_feed_(p){
-  if(p.master_mp<20) return '（御主魔力不足，無法供給。）';
-  if(p.sv_mp>=p.sv_mp_max) return '（從者魔力已滿。）';
-  var amt = Math.min(p.master_mp, Math.round(p.sv_mp_max*0.25));
-  p.master_mp -= amt; p.sv_mp = Math.min(p.sv_mp_max, p.sv_mp+amt);
-  updateRow_(SHEETS.BATTLE, p._row, { master_mp:p.master_mp, sv_mp:p.sv_mp });
-  return '我透過魔術迴路將魔力導入從者——從者魔力 +'+amt+'。';
+  if(p.sv_mp>=p.sv_mp_max) return '（從者靈基已滿（出力全開）。）';
+  var want = Math.round(p.sv_mp_max*0.25);
+  var fromMp = Math.min(p.master_mp, want);
+  var need = want - fromMp;
+  var fromHp = 0;
+  if(need>0) fromHp = Math.min(Math.max(0, p.master_hp-1), need);   // 迴路見底→燒命；留 1 HP
+  var total = fromMp + fromHp;
+  if(total<=0) return '（迴路魔力與生命都見底，再榨不出一滴魔力了。）';
+  p.master_mp -= fromMp; p.master_hp -= fromHp;
+  p.sv_mp = Math.min(p.sv_mp_max, p.sv_mp + total);
+  updateRow_(SHEETS.BATTLE, p._row, { master_mp:p.master_mp, sv_mp:p.sv_mp, master_hp:p.master_hp });
+  return '我開大魔術迴路、將魔力灌注從者——靈基 +'+total+'（出力拉高）。'
+    + (fromHp ? ('　但迴路遠遠不足，我只能燃燒生命強行供魔（御主 HP −'+fromHp+'）——這就是破格的代價。') : '');
 }
 
 function act_reinforce_(p, hero){
