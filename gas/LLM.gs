@@ -72,13 +72,23 @@ function narratorSystem_(){
   ].join('\n');
 }
 
-/** 召喚開場：依從者個性 + 御主資料 + 願望生成現身台詞（不照抄他人） */
-function summonOpening_(hero, masterName, wish){
+/** 召喚開場：御主人設＋願望 × 從者個性／陣營 → 從者依尊嚴真實反應（不照抄他人） */
+function summonOpening_(hero, master, wish){
   if(!hero) return '';
   var p = hero.persona || {};
-  var user = '【召喚開場】\n御主：'+masterName + (wish ? ('　願望：'+wish) : '')
-    + '\n從者：'+hero.cls+'（個性：'+(p.words||'')+'，一人稱「'+(p.firstP||'我')+'」，對御主態度：'+(p.toMaster||'')+'）'
-    + '\n請描寫從者被召喚現身的開場：靈光、魔力、空氣的震顫，與從者立於御主面前的姿態；最後讓從者依其個性說出第一句台詞（不要照抄原作他人台詞）。約 120～180 字，分 2 段。';
+  master = master || {};
+  var mdesc = '御主＝「我」：'+(master.name||'無名御主')
+    + (master.gender?('，性別'+master.gender):'')
+    + (master.origin?('，出身「'+master.origin+'」'):'')
+    + (master.magic?('，魔術「'+master.magic+'」'):'')
+    + (master.persona?('，個性「'+master.persona+'」'):'')
+    + (wish?('，願望「'+wish+'」'):'');
+  var user = '【召喚開場】\n'+mdesc
+    + '\n從者：'+hero.cls+'（真名暫不對外公開；陣營'+(hero.align||'未知')+'，個性「'+(p.words||'')+'」，一人稱「'+(p.firstP||'我')+'」，對御主態度「'+(p.toMaster||'')+'」）'
+    + '\n請以第一人稱「我」描寫召喚開場：靈光與魔力的震顫、從者立於我面前的姿態。'
+    + '接著從者打量「我」這名御主與我的願望，依其自身個性、陣營與尊嚴做出真實反應——審視、戒備、揶揄、不屑或淡然皆可；'
+    + '若我的願望對其唐突、不敬或冒犯（例如把高傲的英靈當成戀愛或佔有的對象），她／他會明顯冷淡、反感甚至嗤之以鼻，絕不會初次見面就順從或傾心。'
+    + '最後讓從者依其性格說出第一句台詞（不要照抄原作他人台詞）。約 140～200 字，分 2 段。';
   var r = callLLM(narratorSystem_(), user, { temperature:0.95, maxTokens:900 });
   return r.text || '';
 }

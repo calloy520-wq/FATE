@@ -188,7 +188,7 @@ function newGame(opts){
   logEvent_(gameId, 1, '20:00', 'start', 'START', 'slot_0', '', '聖杯戰爭開始。', true, 2);
   var s = getState(gameId);
   // 開場敘述的素材先帶出來，等釋放寫入鎖後再呼叫 LLM（避免 LLM 期間卡住其他玩家）
-  if(pp){ s._openHero = heroesById[pp.servantId]; s._openMaster = pp.master; s._openWish = wish; }
+  if(pp){ s._openHero = heroesById[pp.servantId]; s._openMaster = master; s._openWish = wish; }
   return s;
   });  // ← 釋放寫入鎖
 
