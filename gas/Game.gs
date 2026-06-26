@@ -213,44 +213,59 @@ function doAction(a){
   };
 }
 
-// ---------- NPC 自律：移動 + 碰撞解析 ----------
+// ---------- NPC 自律：移動 + 回復 + 碰撞解析（每 tick 最多 1 場戰鬥）----------
 function npcTick_(gameId, rows, clock){
   var locs = readAll_(SHEETS.MAP);
-  var adjOf = {}; locs.forEach(function(l){ adjOf[l.id] = l.adj || []; });
+  var adjOf = {}, leyOf = {};
+  locs.forEach(function(l){ adjOf[l.id] = l.adj || []; leyOf[l.id] = l.leyline; });
   var player = rows.filter(function(r){ return r.is_player===true; })[0];
   var npcs = rows.filter(function(r){ return r.is_player!==true && r.alive===true; });
   var events = [];
 
-  // 移動（領地化：40% 機率往相鄰隨機走）
+  // 移動（30%）+ 依靈脈回血回魔
   npcs.forEach(function(n){
-    if(Math.random() < 0.4){
+    if(Math.random() < 0.3){
       var a = adjOf[n.location] || [];
-      if(a.length){ n.location = a[Math.floor(Math.random()*a.length)]; n.servant_loc = n.location;
-        updateRow_(SHEETS.BATTLE, n._row, { location:n.location, servant_loc:n.servant_loc }); }
+      if(a.length){ n.location = a[Math.floor(Math.random()*a.length)]; n.servant_loc = n.location; }
     }
+    var ley = TUNING.LEYLINE[leyOf[n.location]] || 2;            // 靈脈越高恢復越快
+    n.sv_hp = Math.min(n.sv_hp_max, (n.sv_hp||0) + ley);
+    n.sv_mp = Math.min(n.sv_mp_max, (n.sv_mp||0) + Math.round(ley/2));
+    updateRow_(SHEETS.BATTLE, n._row, { location:n.location, servant_loc:n.servant_loc, sv_hp:n.sv_hp, sv_mp:n.sv_mp });
   });
 
-  // NPC×NPC 碰撞
+  // NPC×NPC 碰撞（30% 開戰、每 tick 限一場、非秒殺）
   var byLoc = {};
   npcs.filter(function(r){ return r.alive; }).forEach(function(n){ (byLoc[n.location]=byLoc[n.location]||[]).push(n); });
+  var battled = false;
   Object.keys(byLoc).forEach(function(loc){
     var grp = byLoc[loc].filter(function(n){ return n.alive; });
     if(grp.length < 2) return;
     var a = grp[0], b = grp[1], roll = Math.random();
-    if(roll < 0.55){ // 戰鬥
-      var wa = npcPower_(a) + Math.floor(Math.random()*20);
-      var wb = npcPower_(b) + Math.floor(Math.random()*20);
-      var win = (wa>=wb)?a:b, lose = (win===a)?b:a;
-      lose.alive = false; updateRow_(SHEETS.BATTLE, lose._row, { alive:false });
-      var t = heroCls_(win.servant_id)+' 於'+locName_(loc)+'擊破了 '+heroCls_(lose.servant_id);
-      logEvent_(gameId, clock.day, pad2_(clock.hour)+':00', loc, 'BATTLE',
-        'slot_'+(win.slot-1), 'slot_'+(lose.slot-1), t, true, 1);
-      events.push({ text:'⚑ 傳聞：'+t+'。', global:true });
-    } else if(roll < 0.7){ // 結盟
-      var t2 = heroCls_(a.servant_id)+' 與 '+heroCls_(b.servant_id)+' 在'+locName_(loc)+'達成暫時同盟';
+    if(roll < 0.3 && !battled){            // 開戰
+      battled = true;
+      npcSkirmish_(a, b);
+      updateRow_(SHEETS.BATTLE, a._row, { sv_hp:a.sv_hp });
+      updateRow_(SHEETS.BATTLE, b._row, { sv_hp:b.sv_hp });
+      var dead = (a.sv_hp<=0) ? a : (b.sv_hp<=0) ? b : null;
+      if(dead){
+        dead.alive = false; updateRow_(SHEETS.BATTLE, dead._row, { alive:false });
+        var win = (dead===a) ? b : a;
+        var t = heroCls_(win.servant_id)+' 於'+locName_(loc)+'擊破了 '+heroCls_(dead.servant_id);
+        logEvent_(gameId, clock.day, pad2_(clock.hour)+':00', loc, 'DEATH',
+          'slot_'+(win.slot-1), 'slot_'+(dead.slot-1), t, true, 1);
+        events.push({ text:'⚑ 傳聞：'+t+'。', global:true });
+      } else {
+        var t2 = heroCls_(a.servant_id)+' 與 '+heroCls_(b.servant_id)+' 在'+locName_(loc)+'激戰後各自退去';
+        logEvent_(gameId, clock.day, pad2_(clock.hour)+':00', loc, 'STANDOFF',
+          'slot_'+(a.slot-1), 'slot_'+(b.slot-1), t2, true, 0);
+        events.push({ text:'⚑ 傳聞：'+t2+'。', global:true });
+      }
+    } else if(roll < 0.45){                // 結盟
+      var t3 = heroCls_(a.servant_id)+' 與 '+heroCls_(b.servant_id)+' 在'+locName_(loc)+'達成暫時同盟';
       logEvent_(gameId, clock.day, pad2_(clock.hour)+':00', loc, 'ALLIANCE',
-        'slot_'+(a.slot-1), 'slot_'+(b.slot-1), t2, true, 0);
-      events.push({ text:'⚑ 傳聞：'+t2+'。', global:true });
+        'slot_'+(a.slot-1), 'slot_'+(b.slot-1), t3, true, 0);
+      events.push({ text:'⚑ 傳聞：'+t3+'。', global:true });
     } // else 對峙/迴避：無事
   });
 
@@ -260,10 +275,18 @@ function npcTick_(gameId, rows, clock){
   });
   return events;
 }
-function npcPower_(row){
-  var h = findOne_(SHEETS.HEROES, { servant_id: row.servant_id });
-  if(!h) return 100;
-  return rankVal(h.筋力)+rankVal(h.耐久)+rankVal(h.敏捷)+rankVal(h.魔力)+rankVal(h.寶具);
+
+// NPC 間短兵交手（3 回合互毆、低致命，HP 歸 0 才死）
+function npcSkirmish_(a, b){
+  var ha = findOne_(SHEETS.HEROES, { servant_id:a.servant_id });
+  var hb = findOne_(SHEETS.HEROES, { servant_id:b.servant_id });
+  function hit(att, def){ return Math.max(2, Math.round((rankVal(att.筋力)+Math.floor(Math.random()*9)-Math.floor(rankVal(def.耐久)/2))*0.7)); }
+  var fast = rankVal(ha.敏捷) >= rankVal(hb.敏捷);
+  for(var i=0;i<3 && a.sv_hp>0 && b.sv_hp>0;i++){
+    if(fast){ b.sv_hp -= hit(ha,hb); if(b.sv_hp<=0) break; a.sv_hp -= hit(hb,ha); }
+    else    { a.sv_hp -= hit(hb,ha); if(a.sv_hp<=0) break; b.sv_hp -= hit(ha,hb); }
+  }
+  a.sv_hp = Math.max(0, a.sv_hp); b.sv_hp = Math.max(0, b.sv_hp);
 }
 function locName_(id){ var l = findOne_(SHEETS.MAP, { id:id }); return l ? l.name : id; }
 
