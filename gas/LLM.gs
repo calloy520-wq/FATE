@@ -9,6 +9,9 @@
  */
 function callLLM(system, user, opts){
   opts = opts || {};
+  // 防呆：本函式需由遊戲流程帶參數呼叫，請勿在編輯器直接執行（改跑 testLLM）
+  if(system == null || user == null)
+    return { error: 'callLLM 需要 system/user 參數，請勿直接執行——請改在編輯器執行 testLLM()。' };
   var key = getApiKey();
   if(!key) return { error: '未設定 OPENROUTER_API_KEY（專案設定 → 指令碼屬性）' };
 
