@@ -25,9 +25,30 @@ function npcAllied_(a, b){
 }
 
 // ---------- 帳號 ----------
+// ===== 使用者輸入清洗（多人安全 + 防注入；前後端都驗，後端永不信任前端） =====
+// 一般文字：移除控制字元與 < >（前端有 innerHTML）、收斂空白、限長。
+function sanitizeText_(s, maxLen){
+  s = String(s == null ? '' : s)
+        .replace(/[\u0000-\u001f\u007f]/g, '')          // 控制字元
+        .replace(/[<>]/g, '')                        // 防 HTML 注入
+        .replace(/[ \t\u3000]+/g, ' ')                 // 收斂空白（含全形）
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+  return s.slice(0, maxLen || 40);
+}
+// 名字／真名：更嚴格，只留中日韓文・英數・少數連接符，擋掉表情符號與雜亂符號。
+function sanitizeName_(s, maxLen){
+  return sanitizeText_(s, maxLen || 24)
+        .replace(/[^\u4e00-\u9fff\u3040-\u30ff\u3400-\u4dbf\uac00-\ud7a3\u30fb\u00b7.\-_ a-zA-Z0-9]/g, '')
+        .trim();
+}
+// 職階白名單：擋掉亂填的職階字串
+var CLS_OK_ = ['Saber','Archer','Lancer','Rider','Caster','Assassin','Berserker','Watcher','Ruler'];
+function cleanCls_(c){ c = String(c||'').trim(); return CLS_OK_.indexOf(c) >= 0 ? c : ''; }
+
 function login(name){
-  name = (name||'').trim();
-  if(!name) return { error:'請輸入帳號名稱' };
+  name = sanitizeName_(name, 20);
+  if(!name) return { error:'請輸入有效的帳號名稱（中英數，不含特殊符號）' };
   return withLock_(function(){
     var acc = findOne_(SHEETS.ACCOUNTS, { name: name });
     if(!acc){
@@ -56,20 +77,21 @@ function getStatic(){
 
 // ---------- 真名召喚（AI 生成寫回英靈殿）----------
 function summonByName(opts){
-  var name = (opts.name||'').trim(), cls = opts.cls;
-  if(!name) return { error:'請輸入真名' };
-  if(!cls)  return { error:'請先選擇職階' };
+  var name = sanitizeName_(opts.name, 24), cls = cleanCls_(opts.cls);
+  var desc = sanitizeText_(opts.desc, 200);
+  if(!name) return { error:'請輸入有效真名（中英數，不含特殊符號／表情）' };
+  if(!cls)  return { error:'請先選擇有效職階' };
   // 已有 → 直接用
   var exist = findRows_(SHEETS.HEROES, function(h){ return h.cls===cls && String(h.realName).indexOf(name)>=0; })[0];
   if(exist) return { servant_id: exist.servant_id, generated:false };
   // 生成（AI 呼叫較慢，放在鎖外；只有「寫入英靈殿」需要鎖）
-  var g = generateServant_(name, cls, opts.desc);
+  var g = generateServant_(name, cls, desc);
   if(g.error) return { error:'AI 生成失敗：'+g.error };
   return withLock_(function(){
   var sid = name+'-'+cls;
   if(findOne_(SHEETS.HEROES, { servant_id: sid })) sid = sid+'-'+Utilities.getUuid().slice(0,8);
   appendObj_(SHEETS.HEROES, {
-    servant_id:sid, cls:cls, realName:name, wars:['自訂'],
+    servant_id:sid, cls:cls, realName:name, wars:['自訂'], gender:g.gender||'',
     筋力:g.six.筋力, 耐久:g.six.耐久, 敏捷:g.six.敏捷, 魔力:g.six.魔力, 幸運:g.six.幸運, 寶具:g.six.寶具,
     classSkills:g.classSkills, skills:g.skills, traits:g.traits, np:g.np, persona:g.persona, source:'ai_gen', align:g.align
   });
@@ -104,10 +126,14 @@ function newGame(opts){
     }
     var p = profile || {};
     // 自創御主迴路夾值 10~50（頂尖人類魔術師上限；70 那種容器級保留給正典伊莉雅）
-    var circuits = Math.max(10, Math.min(50, p.circuits || 25));
-    return { master:name, circuits:circuits, magic:p.magic||'依正典設定',
+    var circuits = Math.max(10, Math.min(50, parseInt(p.circuits, 10) || 25));
+    var gender = ['男','女','不明','無'].indexOf(p.gender) >= 0 ? p.gender : '不明';
+    return { master:sanitizeName_(name, 24)||'無名御主', circuits:circuits,
+             magic:sanitizeText_(p.magic, 24)||'依正典設定',
              melee:p.melee||'E', magic_rank:p.magic_rank||(circuits>=45?'A':circuits>=30?'B':'C'),
-             home:'', wish:p.wish||'', gender:p.gender||'', persona:p.persona||'', origin:p.origin||'' };
+             home:'', wish:sanitizeText_(p.wish, 60), gender:gender,
+             appearance:sanitizeText_(p.appearance, 40), persona:sanitizeText_(p.persona, 40),
+             origin:sanitizeText_(p.origin, 30) };
   }
 
   if(opts.mode === 'canon'){
@@ -329,9 +355,10 @@ function doAction(a){
       case 'sleep':      spec = act_sleep_(p, clock); break;
       case 'seal':       spec = act_seal_(rows, p, clock, hero, a.cmd); break;
       case 'chat':
+        var chatText = sanitizeText_(a.text, 500);
         spec = clock.mana_locked
-          ? manaChat_(p, clock, a.text)
-          : { kind:'chat', prompt: a.text + '\n（玩家自由發言。依從者個性與好感度回應，無禮/猥褻則抗拒；與已知世界線一致。）' };
+          ? manaChat_(p, clock, chatText)
+          : { kind:'chat', prompt: chatText + '\n（玩家自由發言。依從者個性與好感度回應，無禮/猥褻則抗拒；與已知世界線一致。）' };
         break;
       default: return { error:'未知動作：'+a.type };
     }

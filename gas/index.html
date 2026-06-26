@@ -114,7 +114,7 @@
     <h1 class="title-main">命運停駐之夜</h1><p class="title-sub">F A T E / S T A Y　N I G H T</p></div>
   <div class="card" style="width:340px">
     <label>帳號名稱（無密碼，輸入即登入）</label>
-    <input id="in-account" placeholder="例如：遠坂玩家01">
+    <input id="in-account" maxlength="20" placeholder="例如：遠坂玩家01">
     <button class="btn primary" style="width:100%;margin-top:18px" onclick="App.login()">進　入</button>
   </div>
 </section>
@@ -185,16 +185,16 @@
     <h2 style="margin:0;color:var(--gold2)">建立御主</h2>
     <p style="color:var(--dim);font-size:12px;margin:0 0 4px">姓名、性別、願望、個性由你決定；天賦（迴路／魔術／體術／出身）由命運測定。</p>
     <div style="display:flex;gap:10px">
-      <div style="flex:2"><label>姓名</label><input id="m-name" placeholder="衛宮 切嗣"></div>
+      <div style="flex:2"><label>姓名</label><input id="m-name" maxlength="24" placeholder="衛宮 切嗣"></div>
       <div style="flex:1"><label>性別</label>
         <select id="m-gender"><option>男</option><option>女</option><option>不明</option></select></div>
     </div>
     <label>外觀（影響敘述中對「我」的描寫，可留空）</label>
-    <input id="m-appear" placeholder="例如：黑髮疲憊的青年、風衣／紅髮少女、制服">
+    <input id="m-appear" maxlength="40" placeholder="例如：黑髮疲憊的青年、風衣／紅髮少女、制服">
     <label>個性（影響第一人稱敘述的口吻與內心）</label>
-    <input id="m-persona" placeholder="例如：冷靜理性／衝動熱血／腹黑算計／溫柔堅定">
+    <input id="m-persona" maxlength="40" placeholder="例如：冷靜理性／衝動熱血／腹黑算計／溫柔堅定">
     <label>願望（你為何而戰？影響開場與劇情）</label>
-    <textarea id="m-wish" rows="2" placeholder="例如：復活逝去的摯友／證明自身魔術／純粹想贏"></textarea>
+    <textarea id="m-wish" rows="2" maxlength="60" placeholder="例如：復活逝去的摯友／證明自身魔術／純粹想贏"></textarea>
 
     <label>天賦測定（命運所定）</label>
     <div style="background:#100e18;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:4px">
@@ -220,11 +220,11 @@
     <div id="hall"></div>
     <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
       <div style="display:flex;gap:8px">
-        <input id="tn-name" placeholder="真名召喚（如 斯卡哈、悟空、炭治郎）" style="flex:1">
+        <input id="tn-name" maxlength="24" placeholder="真名召喚（如 斯卡哈、悟空、炭治郎）" style="flex:1">
         <button class="btn sm" onclick="App.trueName()">真名召喚</button>
       </div>
       <div style="display:flex;gap:8px;margin-top:8px">
-        <input id="tn-desc" placeholder="補充設定／原創描述（真名召喚也吃此欄）" style="flex:1">
+        <input id="tn-desc" maxlength="200" placeholder="補充設定／原創描述（真名召喚也吃此欄）" style="flex:1">
         <button class="btn sm" onclick="App.custom()">自訂生成</button>
       </div>
       <div style="font-size:11px;color:var(--dim);margin-top:6px">先選上方職階。資料庫沒有 → AI 依格式生成並寫入英靈殿，之後可直接召喚。</div>
@@ -244,7 +244,7 @@
     <div class="sec-h">後日談</div>
     <div id="g-log"></div>
     <div class="inrow">
-      <textarea id="g-in" placeholder="與在場的英靈說話、互動…（焦點英靈回應）"
+      <textarea id="g-in" maxlength="500" placeholder="與在場的英靈說話、互動…（焦點英靈回應）"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();App.gallerySay()}"></textarea>
       <button class="btn primary" onclick="App.gallerySay()">送出</button>
     </div>
@@ -270,7 +270,7 @@
     <div class="quick" id="quick-actions"></div>
     <div class="quick hidden" id="action-sub"></div>
     <div class="inrow">
-      <textarea id="in-msg" placeholder="輸入行動或對話…（送到後端）"
+      <textarea id="in-msg" maxlength="500" placeholder="輸入行動或對話…（送到後端）"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();App.send()}"></textarea>
       <button class="btn primary" onclick="App.send()">送出</button>
     </div>

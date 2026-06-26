@@ -108,17 +108,19 @@ function gallerySetActive(msId, entryId, makeActive){
 function galleryCreate(msId, opts){
   if(!msId) return { error:'未登入。' };
   opts = opts || {};
-  var name = (opts.name||'').trim(), cls = (opts.cls||'').trim();
-  if(!name) return { error:'請輸入真名。' };
-  if(!cls)  return { error:'請選擇職階。' };
+  var name = sanitizeName_(opts.name, 24), cls = cleanCls_(opts.cls);
+  var gender = ['男','女','無'].indexOf(opts.gender) >= 0 ? opts.gender : '';
+  var wish = sanitizeText_(opts.wish, 60), persona = sanitizeText_(opts.persona, 40), desc = sanitizeText_(opts.desc, 200);
+  if(!name) return { error:'請輸入有效真名（中英數，不含特殊符號／表情）。' };
+  if(!cls)  return { error:'請選擇有效職階。' };
   var descParts = [];
-  if(opts.gender)  descParts.push('性別'+opts.gender);
-  if(opts.wish)    descParts.push('願望「'+opts.wish+'」');
-  if(opts.persona) descParts.push('個性「'+opts.persona+'」');
-  if(opts.desc)    descParts.push(opts.desc);
+  if(gender)  descParts.push('性別'+gender);
+  if(wish)    descParts.push('願望「'+wish+'」');
+  if(persona) descParts.push('個性「'+persona+'」');
+  if(desc)    descParts.push(desc);
   var gen = generateServant_(name, cls, descParts.join('、'));
   if(gen.error) return { error: gen.error };
-  if(opts.gender) gen.gender = opts.gender;     // 玩家指定性別 → 覆蓋 AI 推定
+  if(gender) gen.gender = gender;     // 玩家指定性別 → 覆蓋 AI 推定
   gen.realName = name;
   gen.id = gen.id || (name + '-' + cls + '-' + Utilities.getUuid().slice(0,6));
   var e = galleryAdd_(msId, gen, { bond: 50, source: 'custom' });
@@ -147,7 +149,7 @@ function galleryAppendLog_(row, meText, svText){
 // 後日談・對話：與焦點英靈互動 → 獨立敘述路徑（含蓄尺度）
 function gallerySay(msId, entryId, text, locName){
   if(!msId || !entryId) return { error:'參數不足。' };
-  text = String(text||'').trim();
+  text = sanitizeText_(text, 500); locName = sanitizeText_(locName, 20);
   if(!text) return { error:'請說點什麼。' };
   var row = findOne_(SHEETS.GALLERY, function(g){ return g.ms_id===msId && g.entry_id===entryId; });
   if(!row) return { error:'找不到該收藏。' };
@@ -161,6 +163,7 @@ function gallerySay(msId, entryId, text, locName){
 // 後日談・約會：邀焦點英靈一同前往地圖某地散心 → 場景演出
 function galleryScene(msId, entryId, locName){
   if(!msId || !entryId) return { error:'參數不足。' };
+  locName = sanitizeText_(locName, 20);
   var row = findOne_(SHEETS.GALLERY, function(g){ return g.ms_id===msId && g.entry_id===entryId; });
   if(!row) return { error:'找不到該收藏。' };
   var who = row.cls + (row.realName?('・'+row.realName):'');
