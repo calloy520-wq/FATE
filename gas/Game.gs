@@ -6,13 +6,22 @@ var NPC_SPAWN_ = ['tohsaka','ryuudou','matou','cemetery','school','harbor','park
 // 正典御主的據點（4th/5th）；不在表中者（自創/混亂）預設新都公寓
 var CANON_HOME_ = {
   '衛宮士郎':'emiya','遠坂凜':'tohsaka','間桐慎二':'matou','葛木宗一郎':'ryuudou',
-  '言峰綺禮':'church','伊莉雅絲菲爾':'einzbern',
+  '言峰綺禮':'church','伊莉雅絲菲爾':'einzbern','（Caster 召喚）':'ryuudou',
   '衛宮切嗣':'emiya','遠坂時臣':'tohsaka','肯尼斯':'apartment','韋伯·維爾維特':'apartment',
   '雨生龍之介':'harbor','間桐雁夜':'matou'
 };
 // 正典御主→正典據點；自創玩家→新都公寓；其餘(混亂NPC)→隨機分散
 function homeOf_(name, isPlayer, pool, idx){
   return CANON_HOME_[name] || (isPlayer ? 'apartment' : pool[idx % pool.length]);
+}
+
+// 正典同盟：同陣營的從者不互相攻擊（如美狄亞召喚的佐佐木守龍洞寺）
+var NPC_ALLY_GROUPS_ = [ ['美狄亞-Caster','佐佐木小次郎-Assassin'] ];
+function npcAllied_(a, b){
+  if(a.master_name && a.master_name === b.master_name) return true;   // 同御主
+  return NPC_ALLY_GROUPS_.some(function(g){
+    return g.indexOf(a.servant_id) >= 0 && g.indexOf(b.servant_id) >= 0;
+  });
 }
 
 // ---------- 帳號 ----------
@@ -362,6 +371,8 @@ function npcTick_(gameId, rows, clock){
     var grp = byLoc[loc].filter(function(n){ return n.alive; });
     if(grp.length < 2) return;
     var a = grp[0], b = grp[1], roll = Math.random();
+    if(a._row === b._row) return;          // 安全：同一參戰者不可自打
+    if(npcAllied_(a, b)) return;           // 同陣營（同御主／正典同盟，如美狄亞與其召喚的佐佐木）不互相攻擊
     if(roll < 0.3 && !battled){            // 開戰
       battled = true;
       npcSkirmish_(a, b);
