@@ -97,6 +97,10 @@
   .badge{position:fixed;top:10px;right:14px;font-size:11px;color:var(--dim);z-index:50}
   .mana-timer{background:#1c1320;border:1px solid var(--red);border-radius:8px;padding:8px 10px;
               font-size:12px;color:var(--red2);margin-top:8px;text-align:center}
+  #clock-hud{display:flex;justify-content:space-between;align-items:center;gap:8px;
+    background:#140f1f;border:1px solid var(--line);border-radius:8px;padding:7px 11px;
+    font-size:12px;color:var(--gold2);margin-bottom:8px}
+  #clock-hud .ap{letter-spacing:2px}
   .menu-list{display:flex;flex-direction:column;gap:12px;width:300px;margin-top:24px}
   .soon{font-size:11px;color:var(--dim);border:1px dashed var(--line);border-radius:6px;padding:2px 8px}
   .summon-fx{font-size:60px;text-align:center;animation:pulse 1.2s infinite}
@@ -282,6 +286,7 @@
   </div>
   <div class="col active" id="col-chat">
     <div class="sec-h" id="chat-h">聖杯戰爭</div>
+    <div id="clock-hud"></div>
     <div id="log"></div>
     <div id="mana-box"></div>
     <div class="quick" id="quick-actions"></div>
@@ -692,7 +697,8 @@ const App = {
     this.state.base={locId:this.state.here, barrier:30, barrierMax:isC?100:60,
       tier:isC?'魔術工房':'簡易結界',
       effects:isC?'工房：魔力回復↑・道具作成・來犯偵測・主場加成':'基礎結界：阻擋隨機移動的 NPC'};
-    this.renderStatus(); this.renderMap(); this.renderQuick(); this.renderRoster(); this.renderBase();
+    this.state.clock={day:1,hour:20,ap:12,apMax:12};
+    this.renderStatus(); this.renderMap(); this.renderQuick(); this.renderRoster(); this.renderBase(); this.renderClock();
     document.getElementById('log').innerHTML='';
     this.ai('冬木市的夜風帶著魔力氣息。你（'+this.state.master.name+'）與從者「'+this.state.servant.cls
         +'」立於'+this.locName(this.state.here)+'。'+wn+'，已經開始了。');
@@ -757,8 +763,40 @@ const App = {
     document.getElementById('loc-info').innerHTML=`<b style="color:var(--gold2)">${l.name}</b>（危險度：${dmap[l.danger]}・靈脈：${l.leyline}）<br>${l.desc}`;
   },
   renderQuick(){
-    document.getElementById('quick-actions').innerHTML=['⚔ 攻擊敵人','使用寶具','❖ 令咒','🛡 加固結界','搜索周圍','偵查氣息','補魔']
+    document.getElementById('quick-actions').innerHTML=['⚔ 攻擊敵人','使用寶具','❖ 令咒','🛡 加固結界','搜索周圍','偵查氣息','補魔','🌙 睡覺']
       .map(a=>`<button class="btn sm ghost" onclick="App.quick('${a}')">${a}</button>`).join('');
+  },
+  /* ====== 時間 / AP / 每小時經濟 tick ====== */
+  renderClock(){
+    const c=this.state.clock; if(!c){ document.getElementById('clock-hud').innerHTML=''; return; }
+    const phase=(c.hour>=6&&c.hour<18)?'☀ 晝':'🌙 夜';
+    const ap='●'.repeat(c.ap)+'○'.repeat(c.apMax-c.ap);
+    document.getElementById('clock-hud').innerHTML=
+      `<span>第 ${c.day} 日　${String(c.hour).padStart(2,'0')}:00　${phase}</span><span class="ap">AP ${ap}</span>`;
+  },
+  spendAP(cost){
+    const c=this.state.clock;
+    if(c.ap<cost){ this.sys('行動點不足，需要「睡覺」恢復。'); return false; }
+    for(let i=0;i<cost;i++){ c.ap--; this.advanceHours(2); }   // 1 AP ≈ 2 小時
+    this.renderClock(); this.renderStatus(); this.renderBase(); return true;
+  },
+  advanceHours(h){
+    const c=this.state.clock;
+    for(let k=0;k<h;k++){ c.hour++; if(c.hour>=24){ c.hour=0; c.day++; } this.economyTick(); }
+  },
+  economyTick(){   // 每小時：MP += 淨值；MP=0 靈基餓損扣HP；否則緩回HP
+    const s=this.state.servant, net=this.economy().net;
+    s.mp=Math.max(0,Math.min(s.mpMax,s.mp+net));
+    if(s.mp<=0) s.hp=Math.max(0,s.hp-3);
+    else if(s.hp<s.hpMax) s.hp=Math.min(s.hpMax,s.hp+Math.round(this.rv(s.six.耐久)*0.1));
+  },
+  sleep(){
+    const c=this.state.clock,s=this.state.servant,m=this.state.master;
+    c.day++; c.hour=6; c.ap=c.apMax;
+    s.hp=s.hpMax; s.mp=s.mpMax; m.mp=m.mpMax;
+    this.renderClock(); this.renderStatus();
+    this.sys('— 你睡了一覺：HP／魔力／行動點全部恢復。（睡眠中世界仍在運轉，NPC 已行動）—');
+    this.ai('晨光照入，新的一天開始了。冬木市昨夜想必又有從者交鋒……');
   },
   renderBase(){
     const b=this.state.base; if(!b){ document.getElementById('base-box').innerHTML=''; return; }
@@ -773,7 +811,8 @@ const App = {
   move(id){
     if(id===this.state.here) return;
     if(!SERVER.locations.find(x=>x.id===this.state.here).adj.includes(id)){ this.sys('該地點不相鄰，無法直接前往。'); return; }
-    this.state.here=id; this.renderMap(); this.renderStatus(); this.me('前往'+this.locName(id));
+    if(this.state.clock.ap<1){ this.sys('行動點不足，需要「睡覺」恢復。'); return; }
+    this.state.here=id; this.renderMap(); this.me('前往'+this.locName(id)); this.spendAP(1);
     this.ai('你移動到了'+this.locName(id)+'。'+SERVER.locations.find(x=>x.id===id).desc);
   },
   quick(a){
@@ -782,6 +821,9 @@ const App = {
     if(a==='使用寶具'){ this.me('解放寶具'); this.attackNearest(true); return; }
     if(a.includes('加固')){ this.me('加固結界'); this.reinforce(); return; }
     if(a.includes('令咒')){ this.toggleSeals(); return; }
+    if(a.includes('睡覺')){ this.me('睡覺'); this.sleep(); return; }
+    if(a==='搜索周圍'||a==='偵查氣息'){ this.me(a);
+      if(this.spendAP(1)) this.ai('（GAS 判定）你'+(a==='搜索周圍'?'仔細探查四周……':'偵測周遭的從者氣息……')); return; }
     this.me(a); this.ai('（GAS 判定中…示意）你進行了「'+a+'」，系統擲骰後將結果交給 AI 敘述。'); },
 
   /* ====== 令咒：固定選單，各耗 1 令咒，GAS 直接執行 ====== */
