@@ -85,10 +85,12 @@ function economyNet_(p){
 function resolveCombat_(A, B, mode){
   var beats = [], fired = {};
   function tag(name){ fired[name] = true; }
+  A._ambush = hasFx_(A,'stealth'); B._ambush = hasFx_(B,'stealth');   // 氣息遮斷者首擊奇襲（一次性）
 
   function strike(att, def, an, dn){
     var ab = buffOf_(att.buff), db = buffOf_(def.buff);                // 主動技強化／減益
-    var hit = rankVal(att.six.敏捷) + d20_() + ((ab&&ab.hit)||0);
+    var ambush = att._ambush; if(ambush){ att._ambush = false; tag('氣息遮斷'); }  // 氣息遮斷：首擊奇襲
+    var hit = rankVal(att.six.敏捷) + d20_() + ((ab&&ab.hit)||0) + (ambush?6:0);
     var dodge = rankVal(def.six.敏捷) + d20_() + ((db&&db.dodge)||0);  // dodge 為負＝石化遲滯更易被命中
     if(hasFx_(att,'first_strike')){ hit += 3; tag('直感'); }          // 直感：更易連得上
     if(hasFx_(def,'analyze')){ dodge += 3; tag('心眼'); }             // 心眼：看破來招、更易閃避
@@ -102,6 +104,7 @@ function resolveCombat_(A, B, mode){
     if(hasFx_(att,'burst')){ dmg = Math.round(dmg*1.2); note.push('魔力放出'); tag('魔力放出'); }
     if(magic){ var cut = antiMagicCut_(def);                                   // 對魔力硬扣魔術傷害
       if(cut>0){ dmg = Math.max(1, Math.round(dmg*(1-cut))); note.push('對魔力 −'+Math.round(cut*100)+'%'); tag('對魔力'); } }
+    if(ambush){ dmg = Math.round(dmg*1.5); note.push('奇襲'); }                 // 氣息遮斷首擊：傷害×1.5
     if(hasTrait_(def,'神性') && hasSkillName_(att,'神殺')){ dmg *= 2; note.push('神殺×2'); tag('神殺'); }
     var newHp = def.hp - dmg;
     // 戰鬥續行：致命一擊下仍能撐住一次（每場一次），HP 留 1
