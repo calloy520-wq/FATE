@@ -166,7 +166,7 @@ function generateServant_(name, cls, desc){
   var user = '為英靈產生資料。真名：'+name+'　職階：'+cls + (desc?('　額外描述：'+desc):'')
     + '\n若為其他作品角色或原創角色，將其特徵與能力對應成最貼切的 Fate 風格六維、技能與寶具。'
     + '\n依角色挑選貼切的效果碼填入技能 fx（沒對應就留空字串），可用碼：'
-    + '\n[被動] nullify_magic對魔力 evade_ranged避矢 burst魔力放出 survive戰鬥續行 morale勇猛 first_strike直感 analyze心眼 ride騎乘 divine_core神核 stealth氣息遮斷 divine神性 tactics軍略 divine_age神代魔術'
+    + '\n[被動] nullify_magic對魔力 evade_ranged避矢 burst魔力放出 survive戰鬥續行 morale勇猛 first_strike直感 analyze心眼 ride騎乘 divine_core神核 stealth氣息遮斷 divine神性 tactics軍略 divine_age神代魔術 tsubame秘劍燕返(難閃多段斬)'
     + '\n[經濟] mad狂化 solo單獨行動 territory陣地作成 crafting道具作成 wealth黃金律'
     + '\n[主動] fast_cast高速神言 petrify魔眼 zabaniya妄想心音 rune符文 shapeshift變生 str_up怪力 projection投影 weapon_steal武裝掠奪 aim千里眼 gob王之財寶 chain天之鎖 wind_strike風王鐵鎚 rule_breaker破戒全咒 summon_horror召喚妖物 gae_bolg刺穿死亡之棘(必中) ubw無限劍製'
     + '\n平衡限制：六維上限 A、寶具上限 A+。嚴格只輸出此 JSON schema：\n' + schema;
@@ -178,7 +178,7 @@ function generateServant_(name, cls, desc){
 // AI 生成可用的效果碼白名單（須與引擎實作的 fx 一致，否則 cleanSkill_ 會清掉）
 var FX_OK_ = ['nullify_magic','evade_ranged','stealth','ride','territory','crafting','mad',
               'first_strike','analyze','burst','divine','morale','survive','solo','divine_core',
-              'tactics','wealth','divine_age',
+              'tactics','wealth','divine_age','tsubame',
               // 主動技
               'fast_cast','petrify','zabaniya','rune','shapeshift','str_up','projection','aim',
               'weapon_steal','gob','chain','wind_strike','rule_breaker','summon_horror','gae_bolg','ubw'];

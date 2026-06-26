@@ -108,6 +108,8 @@ function resolveCombat_(A, B, mode){
     if(hasFx_(def,'analyze')){ dodge += 3; tag('心眼'); }             // 心眼：看破來招、更易閃避
     if(hasFx_(def,'ride')){ dodge += 3; tag('騎乘'); }                // 騎乘：機動提升、更易閃避
     if(hasFx_(def,'evade_ranged')){ dodge += 6; tag('避矢加護'); }
+    var tsubame = hasFx_(att,'tsubame');                              // 秘劍・燕返：三方位同時斬，封死退路、極難迴避
+    if(tsubame){ dodge -= 8; }
     if(hit <= dodge){ beats.push('〔閃避〕'+dn+' 避開了 '+an+' 的攻擊 ('+hit+'≤'+dodge+')'); return; }
     var magic = magicAtk_(att);   // 魔術攻擊用魔力、可被對魔力擋；肉體攻擊用筋力、不受對魔力影響
     var dmg = Math.max(3, rankVal(magic?att.six.魔力:att.six.筋力) + Math.floor(Math.random()*9) - Math.floor(rankVal(def.six.耐久)/2) + ((ab&&ab.dmg)||0));
@@ -118,6 +120,7 @@ function resolveCombat_(A, B, mode){
     if(magic){ var cut = antiMagicCut_(def);                                   // 對魔力硬扣魔術傷害
       if(cut>0 && divineAge_(att)){ cut *= 0.5; tag('神代魔術'); }              // 神代魔術：對魔力半效
       if(cut>0){ dmg = Math.max(1, Math.round(dmg*(1-cut))); note.push('對魔力 −'+Math.round(cut*100)+'%'); tag('對魔力'); } }
+    if(tsubame){ dmg = Math.round(dmg*2.3); note.push('燕返・三段'); tag('燕返'); }  // 三段同時斬：一招三斬、難防難擋
     if(ambush){ dmg = Math.round(dmg*1.5); note.push('奇襲'); }                 // 氣息遮斷首擊：傷害×1.5
     if(hasTrait_(def,'神性') && hasSkillName_(att,'神殺')){ dmg *= 2; note.push('神殺×2'); tag('神殺'); }
     if(hasFx_(def,'divine_core')){ dmg = Math.max(1, Math.round(dmg*0.82)); note.push('神核'); tag('神核'); }  // 女神之軀：受傷 −18%
