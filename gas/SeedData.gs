@@ -109,7 +109,7 @@ const SEED_SERVANTS = [
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'}],
     skills:[{n:'神速',r:'A',fx:'first_strike'},{n:'戰鬥續行',r:'A',fx:'survive'},
             {n:'原初符文',r:'A',fx:'rune'},{n:'刺穿死亡之棘',r:'A',fx:'gae_bolg'}],
-    traits:[{n:'神性'},{n:'人類'}], np:'刺穿死亡之棘 Gáe Bolg Alternative（必滅之棘 A）',
+    traits:[{n:'神性'},{n:'人類'}], np:'刺穿死亡之棘景 Gáe Bolg Alternative（對界 A・撕裂空間、洞開影之國之門，將敵拖向死亡之國）',
     align:'中立・中庸', persona:{firstP:'我',words:'影之國女王・冷峻嚴師・武人',toMaster:'嚴厲考校，唯認可強者'} },
   { id:'斯卡哈-Assassin', cls:'Assassin', realName:'斯卡哈', wars:['客串'],
     six:{筋力:'C',耐久:'C',敏捷:'A+',魔力:'B',幸運:'D',寶具:'B'},
