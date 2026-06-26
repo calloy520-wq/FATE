@@ -127,6 +127,15 @@ function updateRow_(name, rowIndex, updates){
   invalidate_(name);
 }
 
+/** 整列覆寫（從「完整列物件」o，含 _row）：一次 setValues、免先讀，比 updateRow_ 再省一趟往返。
+ * 只寫 o._row 這一列 → 多人隔離安全（不碰別場）。
+ * ⚠ o 必須是來自 readAll_/findRows_ 的「完整列物件」（含所有欄位）；傳半套會把缺欄寫成空。 */
+function writeRow_(name, o){
+  if(!o || !o._row) return;
+  sheet_(name).getRange(o._row, 1, 1, HEADERS[name].length).setValues([toRow_(name, o)]);
+  invalidate_(name);
+}
+
 /** 依條件更新（第一筆符合者） */
 function updateWhere_(name, pred, updates){
   var row = findOne_(name, pred);

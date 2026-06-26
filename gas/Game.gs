@@ -488,7 +488,7 @@ function npcTick_(gameId, rows, clock){
     var ley = TUNING.LEYLINE[leyOf[n.location]] || 2;            // 靈脈越高恢復越快
     n.sv_hp = Math.min(n.sv_hp_max, (n.sv_hp||0) + ley);
     n.sv_mp = Math.min(n.sv_mp_max, (n.sv_mp||0) + Math.round(ley/2));
-    updateRow_(SHEETS.BATTLE, n._row, { location:n.location, servant_loc:n.servant_loc, sv_hp:n.sv_hp, sv_mp:n.sv_mp });
+    writeRow_(SHEETS.BATTLE, n);   // n 為完整列物件 → 整列一次寫（免讀），多人隔離安全
   });
 
   // NPC×NPC 碰撞（30% 開戰、每 tick 限一場、非秒殺）
@@ -692,6 +692,8 @@ function advanceTime_(p, clock, hero, apCost){
       if(!starving && p.sv_hp < p.sv_hp_max) p.sv_hp = Math.min(p.sv_hp_max, p.sv_hp + Math.round(con*TUNING.HP_REGEN_K));
     }
   }
+  // 注意：用具名欄位 updateRow_（非整列 writeRow_）——manaChat_ 等路徑會先以 updateRow_ 改 clock 的 mana 欄
+  // 但不動記憶體物件，整列覆寫會把那些欄回寫成舊值。具名更新只碰 day/hour/ap，安全。
   updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap });
   updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, sv_hp:p.sv_hp, master_mp:p.master_mp, master_hp:p.master_hp });
 }
