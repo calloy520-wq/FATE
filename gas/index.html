@@ -272,6 +272,43 @@ var App = {
   // 收合/展開段落（標題列點擊）；狀態存在 sec-h 上，renderAll 只改內容框不會重設
   fold:function(el){ el.classList.toggle('collapsed'); },
   esc:function(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); },
+  // 技能/標籤效果說明（對應後端實際機制）
+  FX_DESC:{
+    nullify_magic:'對魔力：依階級大幅減免「魔術」傷害（A≈−90%…E≈−18%）；擋術不擋肉體攻擊。',
+    evade_ranged:'避矢加護：閃避大幅提升，極難被命中。',
+    burst:'魔力放出：普通攻擊傷害 ×1.2。',
+    survive:'戰鬥續行：每場戰鬥可在致命一擊下硬撐一次（HP 留 1）。',
+    morale:'勇猛／卡里斯瑪：攻擊傷害提升。',
+    first_strike:'直感：命中率提升，更易連得上攻擊。',
+    analyze:'心眼：看破來招，閃避提升。',
+    stealth:'氣息遮斷：開場首擊為奇襲（命中 + ，傷害 ×1.5）。',
+    mad:'狂化：維持費上升、理智被吞沒（僅存聽令與護主本能）。',
+    solo:'單獨行動：與御主分離時，魔力供給衰減大幅減免。',
+    territory:'陣地作成：於據點布陣強化（工房／結界加成）。',
+    crafting:'道具作成：可製作魔術道具（劇情向）。',
+    divine:'神性：神之血脈——會被「神殺」類加成剋制。',
+    fast_cast:'高速神言【主動】：對同地敵人發動魔術一擊（受對魔力減免）。',
+    petrify:'魔眼【主動】：魔術傷害，並使敵下場戰鬥更易被命中（石化遲滯）。',
+    zabaniya:'妄想心音【主動】：心臟一擊，無視防禦與對魔力。',
+    rune:'符文【主動】：即時回復 HP。',
+    shapeshift:'變生【主動】：即時回復 HP。',
+    str_up:'怪力【主動】：下一場戰鬥傷害提升。',
+    projection:'投影【主動】：下一場戰鬥傷害提升。',
+    aim:'千里眼【主動】：下一場戰鬥命中提升。',
+    weapon_steal:'武裝掠奪【主動】：下一場戰鬥傷害提升。',
+    rule_breaker:'破戒全咒：解除契約與術式（劇情向）。',
+    ride:'騎乘：駕馭座騎／載具（劇情向）。',
+    wealth:'黃金律：財富與資源（劇情向）。',
+    tactics:'軍略：對軍團戰術（劇情向）。',
+    divine_core:'神核：女神之核，靈基穩固（劇情向）。'
+  },
+  fxDesc:function(fx,name){
+    if(fx && App.FX_DESC[fx]) return App.FX_DESC[fx];
+    if(/神性/.test(name)) return '神性：神之血脈——會被「神殺」類加成剋制。';
+    return '此技能主要為敘述／劇情效果，無直接戰鬥數值。';
+  },
+  skillInfo:function(fx,name){ var b=document.getElementById('skill-desc'); if(!b) return;
+    b.style.display='block'; b.innerHTML='<b style="color:var(--gold2)">'+App.esc(name)+'</b>　'+App.esc(App.fxDesc(fx,name)); },
 
   login:function(){
     var name=document.getElementById('in-account').value.trim();
@@ -475,9 +512,11 @@ var App = {
       '<div class="stat-row"><span>令咒</span><span style="color:var(--red2)">'+'❖'.repeat(m.seals)+'</span></div>'; },
   renderServant:function(){ var s=App.S.player.servant,e=App.S.economy;
     var six=Object.keys(s.six).map(function(k){return '<div class="g"><b>'+s.six[k]+'</b><span>'+k+'</span></div>';}).join('');
-    var tags=(s.classSkills||[]).map(function(x){return '<span class="tag cls">'+x.n+'<i class="r">'+(x.r||'')+'</i></span>';}).join('')+
-      (s.skills||[]).map(function(x){return '<span class="tag skl">'+x.n+'<i class="r">'+(x.r||'')+'</i></span>';}).join('')+
-      (s.traits||[]).map(function(x){return '<span class="tag trait">'+x.n+'</span>';}).join('');
+    var tag=function(x,cls){ var f=x.fx||''; var d=App.fxDesc(f,x.n);
+      return '<span class="tag '+cls+'" style="cursor:pointer" title="'+App.esc(d)+'" onclick="App.skillInfo(\''+f+'\',\''+App.esc(x.n).replace(/\x27/g,'')+'\')">'+x.n+(x.r?'<i class="r">'+x.r+'</i>':'')+'</span>'; };
+    var tags=(s.classSkills||[]).map(function(x){return tag(x,'cls');}).join('')+
+      (s.skills||[]).map(function(x){return tag(x,'skl');}).join('')+
+      (s.traits||[]).map(function(x){return tag(x,'trait');}).join('');
     document.getElementById('servant-box').innerHTML=
       '<div style="font-size:16px;color:var(--gold2)">'+s.cls+'</div>'+
       '<div style="margin:3px 0 5px;font-size:12px;line-height:1.5;color:#c4b1e6;font-style:italic">'+
@@ -486,6 +525,7 @@ var App = {
       bar('HP',s.hp,s.hpMax,'hp')+bar('靈基魔力',s.mp,s.mpMax,'mp')+
       '<div class="stat-row"><span>好感度</span><span style="color:#e58aa8">'+s.bond+'/100</span></div><div class="bar bond"><i style="width:'+s.bond+'%"></i></div>'+
       '<div class="six">'+six+'</div><div style="margin-top:8px">'+tags+'</div>'+
+      '<div id="skill-desc" style="display:none;margin-top:8px;font-size:12px;line-height:1.5;color:#d8cdee;background:#140f1f;border-left:3px solid var(--gold);border-radius:6px;padding:8px 10px"></div>'+
       '<div style="font-size:12px;color:var(--dim);margin-top:8px">寶具：'+s.np+'</div>'+
       '<div style="font-size:11px;color:var(--dim);margin-top:6px">維持 '+s.upkeep+'/h｜淨 <b style="color:'+(e.net>=0?'#5fae6e':'#d65c5c')+'">'+(e.net>=0?'+':'')+e.net+'/h</b>'+(s.separated?' <span style="color:#d65c5c">分離</span>':'')+'</div>'; },
   renderBase:function(){ var b=App.S.player.base;
