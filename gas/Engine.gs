@@ -191,6 +191,16 @@ function resolveCombat_(A, B, mode){
   var aInst = hasFx_(A,'first_strike'), bInst = hasFx_(B,'first_strike');
   var aFirst = (aInst && !bInst) ? true : (bInst && !aInst) ? false : (rankVal(A.six.敏捷) >= rankVal(B.six.敏捷));
   if(aInst !== bInst) tag('直感');   // 先機成立
+  // Archer 遠程開幕：交戰前先射一輪（敵接近中、難迴避）。以敏捷(射術)計，不吃寶具以免與寶具開幕雙重加成。
+  function archerVolley_(att, def){
+    if(att.cls!=='Archer') return;
+    var dmg = Math.max(2, Math.round(rankVal(att.six.敏捷)*0.4) + Math.floor(Math.random()*5) - Math.floor(rankVal(def.six.耐久)/4));
+    def.hp = Math.max(0, def.hp - dmg);
+    beats.push('〔遠程開幕〕'+att.cls+' 趁 '+def.cls+' 接近前射出一擊，造成 '+dmg+' 傷害');
+    tag('遠程射擊');
+  }
+  if(aFirst){ archerVolley_(A,B); if(B.hp>0) archerVolley_(B,A); }
+  else      { archerVolley_(B,A); if(A.hp>0) archerVolley_(A,B); }
   var round = 0;
   while(A.hp>0 && B.hp>0 && round<14){
     round++;
