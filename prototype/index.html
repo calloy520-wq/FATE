@@ -659,11 +659,14 @@ const App = {
   // 每小時供需（淨值<0＝靈基餓損）
   economy(){
     const s=this.state.servant,m=this.state.master;
-    const ms=Math.round((m.circuits||30)*0.5);
-    const loc=SERVER.locations.find(x=>x.id===this.state.here);
+    let ms=Math.round((m.circuits||30)*0.5);
+    const solo=this.hasFx(s,'solo')||this.hasSkillName(s,'單獨行動');
+    if(this.state.separated) ms=Math.round(ms*(solo?0.85:0.5));      // 分離→供給衰減，單獨行動減免
+    const sl=this.state.separated?this.state.servantLoc:this.state.here;  // 經濟以「從者所在」算靈脈/工房
+    const loc=SERVER.locations.find(x=>x.id===sl);
     const ley={高:10,中:5,低:2}[loc?loc.leyline:'低']||0;
-    const ws=(this.state.base&&this.state.base.locId===this.state.here&&s.cls==='Caster')?8:0;
-    return {up:s.upkeep||0,ms,ley,ws,net:ms+ley+ws-(s.upkeep||0)};
+    const ws=(this.state.base&&this.state.base.locId===sl&&s.cls==='Caster')?8:0;
+    return {up:s.upkeep||0,ms,ley,ws,net:ms+ley+ws-(s.upkeep||0),sep:this.state.separated,solo};
   },
 
   /* ---- 戰局七組 ---- */
@@ -700,6 +703,7 @@ const App = {
       tier:isC?'魔術工房':'簡易結界',
       effects:isC?'工房：魔力回復↑・道具作成・來犯偵測・主場加成':'基礎結界：阻擋隨機移動的 NPC'};
     this.state.clock={day:1,hour:20,ap:12,apMax:12};
+    this.state.servantLoc=this.state.here; this.state.separated=false;
     this.renderStatus(); this.renderMap(); this.renderQuick(); this.renderRoster(); this.renderBase(); this.renderClock();
     document.getElementById('log').innerHTML='';
     this.ai('冬木市的夜風帶著魔力氣息。你（'+this.state.master.name+'）與從者「'+this.state.servant.cls
@@ -731,7 +735,7 @@ const App = {
       <div class="six">${six}</div><div style="margin-top:8px">${tags}</div>
       <div style="font-size:12px;color:var(--dim);margin-top:8px">寶具：${s.np}</div>
       ${s.persona?`<div style="font-size:11px;color:#9b93ad;margin-top:6px;line-height:1.5">個性：${s.persona.words}｜一人稱「${s.persona.firstP}」<br>對御主：${s.persona.toMaster}</div>`:''}
-      <div style="font-size:11px;margin-top:6px;color:var(--dim)">維持 ${e.up}/h｜供給 ${e.ms+e.ley+e.ws}/h（御主${e.ms}+靈脈${e.ley}${e.ws?'+工房'+e.ws:''}）｜淨 <b style="color:${e.net>=0?'#5fae6e':'#d65c5c'}">${e.net>=0?'+':''}${e.net}/h</b></div>`;
+      <div style="font-size:11px;margin-top:6px;color:var(--dim)">維持 ${e.up}/h｜供給 ${e.ms+e.ley+e.ws}/h（御主${e.ms}+靈脈${e.ley}${e.ws?'+工房'+e.ws:''}）｜淨 <b style="color:${e.net>=0?'#5fae6e':'#d65c5c'}">${e.net>=0?'+':''}${e.net}/h</b>${e.sep?'　<span style="color:#d65c5c">分離'+(e.solo?'・單獨行動減免':'・供給衰減')+'</span>':''}</div>`;
   },
   renderRoster(){
     document.getElementById('roster-box').innerHTML=(this.state.roster||[]).map(e=>{
@@ -758,7 +762,11 @@ const App = {
     const dots=L.map(l=>{const cur=l.id===here,reachable=L.find(x=>x.id===here).adj.includes(l.id);
       return `<g class="loc ${cur?'here':''}" onclick="App.move('${l.id}')" opacity="${cur||reachable?1:.55}">
         <circle cx="${l.x}" cy="${l.y}" r="8" class="danger-${l.danger}"/><text x="${l.x+12}" y="${l.y+4}">${l.name}</text></g>`;}).join('');
-    document.getElementById('map-wrap').innerHTML=`<svg viewBox="0 0 700 440">${backdrop}${lines}${dots}</svg>`;
+    let sm='';
+    if(this.state.separated){ const sv=L.find(x=>x.id===this.state.servantLoc);
+      if(sv) sm=`<g><circle cx="${sv.x}" cy="${sv.y}" r="14" fill="none" stroke="#d65c5c" stroke-width="2" stroke-dasharray="4 3"/>
+        <text x="${sv.x-30}" y="${sv.y-16}" style="fill:#d65c5c;font-size:11px">⚔ 從者</text></g>`; }
+    document.getElementById('map-wrap').innerHTML=`<svg viewBox="0 0 700 440">${backdrop}${lines}${dots}${sm}</svg>`;
     this.renderLocInfo();
   },
   renderLocInfo(){
@@ -766,8 +774,28 @@ const App = {
     document.getElementById('loc-info').innerHTML=`<b style="color:var(--gold2)">${l.name}</b>（危險度：${dmap[l.danger]}・靈脈：${l.leyline}）<br>${l.desc}`;
   },
   renderQuick(){
-    document.getElementById('quick-actions').innerHTML=['⚔ 攻擊敵人','使用寶具','💧 供給魔力','❖ 令咒','🛡 加固結界','搜索周圍','偵查氣息','補魔','🌙 睡覺']
+    document.getElementById('quick-actions').innerHTML=['⚔ 攻擊敵人','使用寶具','💧 供給魔力','🔀 分離/合體','❖ 令咒','🛡 加固結界','搜索周圍','偵查氣息','補魔','🌙 睡覺']
       .map(a=>`<button class="btn sm ghost" onclick="App.quick('${a}')">${a}</button>`).join('');
+  },
+  // 御主×從者 分離/合體
+  toggleSep(){
+    if(!this.state.separated){
+      this.state.separated=true; this.state.servantLoc=this.state.here;
+      this.renderMap(); this.renderStatus(); this.me('分離行動');
+      this.ai('你命從者鎮守 '+this.locName(this.state.servantLoc)+'，自身退往後方。可輸入「派從者去○○」指揮其移動。'
+        +'但你失去護衛——若敵從者尋至你的所在，將極度危險。');
+    } else {
+      this.state.separated=false; this.state.servantLoc=this.state.here;
+      this.renderMap(); this.renderStatus(); this.me('與從者會合');
+      this.ai('從者回到你身邊，恢復合體行動。');
+    }
+  },
+  orderServantMove(t){
+    if(!this.state.separated){ this.sys('從者與你同行中，請先「分離」。'); return; }
+    const loc=SERVER.locations.find(l=>t.includes(l.name));
+    if(!loc){ this.sys('指定的地點不明確（請含地名，如「派從者去新都」）。'); return; }
+    this.state.servantLoc=loc.id; this.renderMap(); this.renderStatus();
+    this.me(t); this.ai('從者前往 '+loc.name+' 待命。'+(loc.danger==='high'?'（該地危險度高，慎防遭遇）':''));
   },
   // 御主後方參戰：把自身魔力導入從者（不耗 AP，是維持手段）
   masterFeed(){
@@ -835,6 +863,7 @@ const App = {
     if(a.includes('加固')){ this.me('加固結界'); this.reinforce(); return; }
     if(a.includes('令咒')){ this.toggleSeals(); return; }
     if(a.includes('供給')){ this.me('供給魔力'); this.masterFeed(); return; }
+    if(a.includes('分離')||a.includes('合體')){ this.toggleSep(); return; }
     if(a.includes('睡覺')){ this.me('睡覺'); this.sleep(); return; }
     if(a==='搜索周圍'||a==='偵查氣息'){ this.me(a);
       if(this.spendAP(1)) this.ai('（GAS 判定）你'+(a==='搜索周圍'?'仔細探查四周……':'偵測周遭的從者氣息……')); return; }
@@ -898,6 +927,8 @@ const App = {
   send(){
     const box=document.getElementById('in-msg'),t=box.value.trim(); if(!t) return; box.value=''; this.me(t);
     if(/補魔|魔力供給/.test(t)){ this.startMana(); return; }
+    if(/派從者|從者前往|從者去/.test(t)){ this.orderServantMove(t); return; }
+    if(/分離|合體|會合/.test(t)){ this.toggleSep(); return; }
     if(/加固|結界/.test(t)){ this.reinforce(); return; }
     if(/敵襲|來犯|攻打據點/.test(t)){ this.siege(); return; }
     if(/寶具|真名解放/.test(t)){ this.attackNearest('np',true); return; }
