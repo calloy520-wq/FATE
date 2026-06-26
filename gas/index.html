@@ -639,8 +639,7 @@ var App = {
       '<div style="font-size:16px;color:var(--gold2)">'+m.name+'</div>'+
       '<div style="font-size:11px;color:var(--dim)">'+m.magic+'｜體術 '+m.melee+'｜魔術 '+m.magicRank+'</div>'+
       bar('HP',m.hp,m.hpMax,'hp')+bar('迴路魔力',m.mp,m.mpMax,'mp')+
-      '<div class="stat-row"><span>令咒</span><span style="color:var(--red2)">'+'❖'.repeat(m.seals)+'</span></div>'+
-      (m.masterless ? '<div style="margin-top:6px;padding:5px 7px;border:1px solid var(--red2);border-radius:5px;background:rgba(180,40,40,.12);font-size:11px;color:var(--red2)" title="御主已逝，從者憑單獨行動獨自維持現界；歸零即消滅。須在此前奪杯或尋得新魔力源。">☠ 無御主・單獨行動殘存 '+m.masterless.hours+'h（約 '+m.masterless.days+' 天）</div>' : ''); },
+      '<div class="stat-row"><span>令咒</span><span style="color:var(--red2)">'+'❖'.repeat(m.seals)+'</span></div>'; },
   renderServant:function(){ var s=App.S.player.servant,e=App.S.economy;
     var six=Object.keys(s.six).map(function(k){return '<div class="g" title="'+(App.LABEL_DESC[k]||'')+'" style="cursor:help"><b>'+s.six[k]+'</b><span>'+k+'</span></div>';}).join('');
     var tag=function(x,cls){ var f=x.fx||''; var d=App.fxDesc(f,x.n);

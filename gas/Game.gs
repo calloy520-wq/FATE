@@ -254,10 +254,7 @@ function playerView_(p){
   return {
     master:{ name:p.master_name, magic:p.magic, hp:p.master_hp, hpMax:p.master_hp_max,
              mp:p.master_mp, mpMax:p.master_mp_max, seals:p.seals, melee:p.melee, magicRank:p.magic_rank,
-             circuits:p.circuits, location:p.location,
-             // 無御主狀態：御主已逝、從者憑單獨行動倒數中（solo_hours 為剩餘現界時數）
-             masterless: (p.master_hp<=0 && p.solo_hours!=='' && p.solo_hours!=null && Number(p.solo_hours)>0)
-                         ? { hours: Number(p.solo_hours), days: +(Number(p.solo_hours)/24).toFixed(1) } : null },
+             circuits:p.circuits, location:p.location },
     servant:{ cls:hero ? hero.cls : '？', servantId:p.servant_id, realName:hero?hero.realName:'',
               trueNameKnown:p.true_name_known, hp:p.sv_hp, hpMax:p.sv_hp_max, mp:p.sv_mp, mpMax:p.sv_mp_max,
               upkeep:p.upkeep, bond:p.bond, six: hero?heroFromRow_(hero).six:{}, np:hero?hero.np:'',
@@ -368,23 +365,7 @@ function doAction(a){
       var dyingWho = pf.sv_hp<=0 ? '我的從者靈基崩解在即' : '我身受重創、命懸一線';
       awaitSeal = { msg:'⚠ '+dyingWho+'！是否燃燒令咒・靈基修復（回血回魔）挽救？（尚餘 '+pf.seals+' 道令咒）' };
     }
-    // 令咒用盡・御主已逝，但從者尚存 → 單獨行動者進入「無御主」現界倒數；無此技則就此消滅
-    else if(endR==='death' && pf.master_hp<=0 && pf.sv_hp>0){
-      var notStarted = (pf.solo_hours==='' || pf.solo_hours==null);
-      var sh = Number(pf.solo_hours)||0;
-      var pfHero = findOne_(SHEETS.HEROES, { servant_id: pf.servant_id });
-      var sRank = pfHero ? soloRank_(heroFromRow_(pfHero)) : '';
-      if(sRank && notStarted){                               // 御主剛逝 → 啟動倒數
-        pf.solo_hours = soloHours_(sRank);
-        updateRow_(SHEETS.BATTLE, pf._row, { solo_hours: pf.solo_hours });
-        events.push({ atPlayer:true, text:'☠ 御主已逝、令咒用盡！但憑「單獨行動 '+sRank+'」，我尚能獨自維持現界約 '
-          +pf.solo_hours+' 小時（'+(pf.solo_hours/24).toFixed(1)+' 天）。須在靈基溶解前奪得聖杯、或尋得新的魔力來源！' });
-        endR = null;
-      } else if(sRank && sh>0){ endR = null; }               // 仍在倒數中 → 存活
-      else if(sRank && !notStarted){                         // 倒數已盡 → 真正消滅
-        events.push({ atPlayer:true, text:'☠ 單獨行動的極限已至——失去魔力供給，靈基終於溶解於風中…' });
-      }                                                       // 無單獨行動 → 維持 endR='death'（御主一死即消滅）
-    }
+    // 玩家側不做「無御主續戰」：御主或從者殞落 → 直接結算（老虎道場）。
     if(endR){
       over = endGame_(gameId, pf, endR);   // endGame_ 回傳 dreamPrompt，假夢敘述留到鎖外生成
     }
@@ -530,7 +511,9 @@ function npcTick_(gameId, rows, clock){
         dead = null;
       }
       if(dead){
-        dead.alive = false; updateRow_(SHEETS.BATTLE, dead._row, { alive:false });
+        // 從者被斬 → 該列消滅；但御主若尚有令咒，淪為「失從者御主」候補再契約（solo_hours='seeking'）
+        var seek = (dead.seals||0)>0 ? 'seeking' : '';
+        dead.alive = false; updateRow_(SHEETS.BATTLE, dead._row, { alive:false, solo_hours:seek });
         var win = (dead===a) ? b : a;
         var t = heroCls_(win.servant_id)+' 於'+locName_(loc)+'擊破了 '+heroCls_(dead.servant_id);
         logEvent_(gameId, clock.day, pad2_(clock.hour)+':00', loc, 'DEATH',
@@ -550,8 +533,30 @@ function npcTick_(gameId, rows, clock){
     } // else 對峙/迴避：無事
   });
 
+  // 偶發：某 NPC 御主殞落（暗殺／魔力枯竭）。其從者若有單獨行動則淪為無主從者、伺機另尋新主；否則一同消散。
+  var pool = npcs.filter(function(r){ return r.alive===true && r.solo_hours!=='masterless'; });
+  if(pool.length>=3 && Math.random()<0.04){
+    var victim = pool[Math.floor(Math.random()*pool.length)];
+    var vHero = findOne_(SHEETS.HEROES, { servant_id: victim.servant_id });
+    var vSolo = vHero ? soloRank_(heroFromRow_(vHero)) : '';
+    if(vSolo){
+      victim.solo_hours='masterless'; victim.seals=0;
+      updateRow_(SHEETS.BATTLE, victim._row, { solo_hours:'masterless', seals:0 });
+      var tm = heroCls_(victim.servant_id)+' 的御主殞落，但它憑單獨行動（'+vSolo+'）苟存，淪為無主從者';
+      logEvent_(gameId, clock.day, pad2_(clock.hour)+':00', victim.location, 'MASTER_LOST', 'slot_'+(victim.slot-1), '', tm, true, 1);
+      events.push({ text:'⚑ 傳聞：'+tm+'。', global:true });
+    } else {
+      victim.alive=false; updateRow_(SHEETS.BATTLE, victim._row, { alive:false, solo_hours:'' });
+      var tm2 = heroCls_(victim.servant_id)+' 的御主殞落，失去魔力供給、靈基消散';
+      logEvent_(gameId, clock.day, pad2_(clock.hour)+':00', victim.location, 'DEATH', 'slot_'+(victim.slot-1), '', tm2, true, 1);
+      events.push({ text:'⚑ 傳聞：'+tm2+'。', global:true });
+    }
+  }
+  // 再契約：無主從者（有單獨行動）＋ 失從者御主（仍有令咒）→ 締結新契約、組成新隊伍
+  npcRecontract_(gameId, rows, clock, events);
+
   // NPC 抵達玩家所在地 → 自動現蹤（記入發現）並提示
-  var arrived = npcs.filter(function(r){ return r.alive && r.location===player.location; });
+  var arrived = rows.filter(function(r){ return r.is_player!==true && r.alive && r.location===player.location; });
   if(arrived.length) markDiscovered_(player, arrived.map(function(r){ return r.slot; }));
   // 護衛判定：玩家從者是否就在御主身邊（分離外派或從者已倒下 → 御主失去護衛、暴露於危險）
   var svAtMaster = player.sv_hp>0 && ((player.separated ? player.servant_loc : player.location) === player.location);
@@ -566,6 +571,28 @@ function npcTick_(gameId, rows, clock){
     }
   });
   return events;
+}
+
+// NPC 再契約：無主從者（單獨行動者・solo_hours='masterless'）＋ 失從者御主（solo_hours='seeking'、仍有令咒）
+// → 締結新契約、組成新隊伍（由失從者御主收編無主從者，化為一支新威脅）。每 tick 至多一對。
+function npcRecontract_(gameId, rows, clock, events){
+  var masterless = rows.filter(function(r){ return r.is_player!==true && r.alive===true && r.solo_hours==='masterless'; });
+  var seeking    = rows.filter(function(r){ return r.is_player!==true && r.alive!==true && r.solo_hours==='seeking' && (r.seals||0)>0; });
+  if(!masterless.length || !seeking.length) return;
+  var sv = masterless[0], ms = seeking[0];
+  var svName = heroCls_(sv.servant_id);
+  // 失從者御主（ms）收編無主從者（sv）：沿用 ms 的御主框架與令咒，從者換成 sv
+  ms.servant_id = sv.servant_id; ms.sv_hp = sv.sv_hp; ms.sv_hp_max = sv.sv_hp_max;
+  ms.sv_mp = sv.sv_mp; ms.sv_mp_max = sv.sv_mp_max; ms.upkeep = sv.upkeep;
+  ms.alive = true; ms.solo_hours = ''; ms.location = sv.location; ms.servant_loc = sv.location;
+  updateRow_(SHEETS.BATTLE, ms._row, { servant_id:ms.servant_id, sv_hp:ms.sv_hp, sv_hp_max:ms.sv_hp_max,
+    sv_mp:ms.sv_mp, sv_mp_max:ms.sv_mp_max, upkeep:ms.upkeep, alive:true, solo_hours:'', location:ms.location, servant_loc:ms.servant_loc });
+  sv.alive = false; sv.solo_hours = '';            // 原無主從者列併入 ms，列本身退場
+  updateRow_(SHEETS.BATTLE, sv._row, { alive:false, solo_hours:'' });
+  var t = '失去御主的 '+svName+' 與 失去從者的御主「'+ms.master_name+'」締結新契約，組成新的隊伍';
+  logEvent_(gameId, clock.day, pad2_(clock.hour)+':00', ms.location, 'RECONTRACT',
+    'slot_'+(ms.slot-1), 'slot_'+(sv.slot-1), t, true, 1);
+  events.push({ text:'⚑ 傳聞：'+t+'！一支新的隊伍出現在戰場。', global:true });
 }
 
 // 御主遇襲：從者不在身邊時，敵從者攻擊御主本人。武鬥/魔術階級決定減傷與反抗；
@@ -627,22 +654,14 @@ function manaChat_(p, clock, text){
 var BLEED_TURN_ = 0;   // 累計本回合靈基反噬汲取的御主生命，供 doAction 提示
 function advanceTime_(p, clock, hero, apCost){
   var con = rankVal(hero ? heroFromRow_(hero).six.耐久 : 'C');
-  var soloR = hero ? soloRank_(heroFromRow_(hero)) : '';
   for(var i=0;i<apCost;i++){
     if(clock.ap<=0) break;
     clock.ap--;
     for(var h=0;h<TUNING.HOURS_PER_AP;h++){
       clock.hour++; if(clock.hour>=24){ clock.hour=0; clock.day++; }
       var e = playerEconomy_(p);
-      // 御主已逝（無御主狀態）：迴路不再回復魔力；單獨行動者逐時倒數，倒數歸 0 → 由 doAction 結算消滅
-      if(p.master_hp <= 0){
-        if(soloR){ var cur = (p.solo_hours==='' || p.solo_hours==null) ? null : Number(p.solo_hours);
-                   if(cur!==null && cur>0) p.solo_hours = cur - 1; }
-      } else {
-        if(p.solo_hours!=='' && p.solo_hours!=null) p.solo_hours = '';   // 御主存活（如令咒救回）→ 清除倒數
-        // 1) 御主迴路回復
-        p.master_mp = Math.min(p.master_mp_max, p.master_mp + e.ms);
-      }
+      // 1) 御主迴路回復
+      p.master_mp = Math.min(p.master_mp_max, p.master_mp + e.ms);
       // 2) 付維持費：環境免費 → 御主迴路 → 從者靈基 → 扣血（飢餓）
       var free = e.ley + e.ws + (e.craft||0), need = e.upkeep;
       var fromFree = Math.min(free, need); need -= fromFree; var freeLeft = free - fromFree;
@@ -663,7 +682,7 @@ function advanceTime_(p, clock, hero, apCost){
     }
   }
   updateRow_(SHEETS.CLOCK, clock._row, { day:clock.day, hour:clock.hour, ap:clock.ap });
-  updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, sv_hp:p.sv_hp, master_mp:p.master_mp, master_hp:p.master_hp, solo_hours:p.solo_hours });
+  updateRow_(SHEETS.BATTLE, p._row, { sv_mp:p.sv_mp, sv_hp:p.sv_hp, master_mp:p.master_mp, master_hp:p.master_hp });
 }
 
 // 偵查：揭露當前地與相鄰地的從者蹤跡（戰爭迷霧用），耗 1 AP
