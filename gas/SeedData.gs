@@ -14,7 +14,7 @@ const SEED_SERVANTS = [
     traits:[{n:'王'},{n:'人類'}], np:'誓約勝利之劍（對城 A++）',
     align:'秩序・善', persona:{firstP:'我',words:'騎士道・榮譽・責任',toMaster:'盡忠職守，初期略有距離'} },
   { id:'EMIYA-Archer', cls:'Archer', realName:'無名（EMIYA）', wars:['5th'],
-    six:{筋力:'D',耐久:'C',敏捷:'C',魔力:'B',幸運:'E',寶具:'-'},
+    six:{筋力:'D',耐久:'C',敏捷:'C',魔力:'B',幸運:'E',寶具:'B'},
     classSkills:[{n:'對魔力',r:'D',fx:'nullify_magic'},{n:'單獨行動',r:'B',fx:'solo'}],
     skills:[{n:'心眼(真)',r:'A',fx:'analyze'},{n:'千里眼',r:'C',fx:'aim'},{n:'投影魔術',r:'',fx:'projection'}],
     traits:[{n:'人類'}], np:'無限劍製（固有結界）',
