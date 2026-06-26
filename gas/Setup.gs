@@ -3,7 +3,10 @@
  *
  * 使用方式：
  *   1. 開一個 Google 試算表 → 擴充功能 → Apps Script
- *   2. 把 gas/ 內所有 .gs 貼進專案
+ *   2. 把 gas/ 內 8 個 .gs 檔分別貼成「指令碼檔」：
+ *        Api / Config / Engine / Game / LLM / SeedData / Setup / Sheets
+ *      ⚠ index.html 必須用「檔案➕ → HTML」新增成 HTML 檔（命名 index），
+ *        絕對不可貼進 .gs，否則會報 SyntaxError: Unexpected token '<'（行1）
  *   3. 專案設定 → 指令碼屬性 → 新增 OPENROUTER_API_KEY = 你的 key
  *   4. 執行 setupDatabase()（第一次會要求授權）
  *
