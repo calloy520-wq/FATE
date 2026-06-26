@@ -106,11 +106,27 @@ function newGame(opts){
     var byClass = {};
     readAll_(SHEETS.HEROES).forEach(function(h){ (byClass[h.cls]=byClass[h.cls]||[]).push(h.servant_id); });
     var names = ['遠坂','間桐','言峰','蒼崎','兩儀','衛宮','美遊'];
-    classes.forEach(function(cls, i){
-      var isPlayer = (i===0);
-      var sid = isPlayer ? opts.servantId : (byClass[cls] ? byClass[cls][0] : opts.servantId);
-      var nm = isPlayer ? (opts.profile.name||'無名御主') : (names[i]+'？');
-      parts.push(Object.assign(profileMaster(nm, isPlayer, isPlayer?opts.profile:null), { isPlayer:isPlayer, servantId:sid }));
+    var prof = opts.profile || {};
+
+    // 找玩家從者職階，把玩家職階排第一，NPC 不重複使用同職階/同 servant_id
+    var playerHero = heroesById[opts.servantId];
+    if(!playerHero) return { error: '找不到英靈：'+opts.servantId+'，請重新選擇。' };
+    var playerCls = playerHero.cls;
+    var orderedClasses = [playerCls].concat(classes.filter(function(c){ return c !== playerCls; }));
+
+    orderedClasses.forEach(function(cls, i){
+      var isPlayer = (i === 0);
+      var sid;
+      if(isPlayer){
+        sid = opts.servantId;
+      } else {
+        // NPC：同職階中排除玩家已用的 servant_id
+        var pool = (byClass[cls] || []).filter(function(id){ return id !== opts.servantId; });
+        if(!pool.length) return;   // 無可用英靈 → 跳過此職階
+        sid = pool[0];
+      }
+      var nm = isPlayer ? (prof.name||'無名御主') : (names[i]+'？');
+      parts.push(Object.assign(profileMaster(nm, isPlayer, isPlayer?prof:null), { isPlayer:isPlayer, servantId:sid }));
     });
   }
 
