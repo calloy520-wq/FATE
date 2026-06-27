@@ -3521,16 +3521,22 @@ function actionAttackNpc(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
   const itemData = sheets.item ? sheets.item.getDataRange().getValues() : []; // 讀一次共用，避免下面算戰力時各自重讀
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-  if (pIdx === -1 || nIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  // 🔵 攻擊者＝御主的從者（凡人御主不肉身上陣）；若無從者則御主親自(弱)
+  let atkIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  if (atkIdx === -1) atkIdx = pIdx;
+  // 🔵 目標限本實例(game_id)，杜絕跨世界同名誤傷
+  const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
+  if (nIdx === -1) return JSON.stringify({ success: false, message: "此世界查無此人" });
 
-  // 同地點才能打
+  // 同地點才能打（以御主所在判定，從者隨行）
   if (String(pcData[pIdx][COL.PC.LOC]).trim() !== String(pcData[nIdx][COL.PC.LOC]).trim()) {
     return JSON.stringify({ success: false, message: "對方不在你身邊，鞭長莫及。" });
   }
 
-  const pName = pcData[pIdx][COL.PC.NAME];
-  const pTotal = getCharacterTotalStats(pcId, sheets, pcData, itemData);
+  const pName = pcData[atkIdx][COL.PC.NAME];
+  const pTotal = getCharacterTotalStats(pcData[atkIdx][COL.PC.ID], sheets, pcData, itemData);
   const nTotal = getCharacterTotalStats(pcData[nIdx][COL.PC.ID], sheets, pcData, itemData);
 
   // d20
@@ -3584,32 +3590,27 @@ function actionAttackNpc(userData, pcId, sheets) {
     sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
     resultMsg = `你擊中了「${npcName}」，造成 ${damage} 點傷害！`;
   } else {
-    // 反擊玩家：歸0送藥鋪
-    let pHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
-    let pHpAfter = pHp - damage;
-    if (pHpAfter <= 0) {
-      const healLoc = "小醫仙藥鋪";
-      pcData[pIdx][COL.PC.HP] = 50;
-      pcData[pIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "換上乾淨素衣", "姿勢": "平躺靜養", "負面": "重傷初癒", "顏面": "蒼白" });
-      pcData[pIdx][COL.PC.LOC] = healLoc;
-      pcData[pIdx][COL.PC.MONEY] = Math.max(0, (parseInt(pcData[pIdx][COL.PC.MONEY]) || 0) - 20);
-      justRevived = true;
-      if (sheets.epic) sheets.epic.appendRow([pcId, `【奇蹟救治】${pName} 於生死邊緣被救回。`, new Date()]);
+    // 反擊：傷的是從者(靈基)，不是御主肉身
+    let aHp = parseInt(pcData[atkIdx][COL.PC.HP]) || 0;
+    let aHpAfter = aHp - damage;
+    if (aHpAfter <= 5) {
+      pcData[atkIdx][COL.PC.HP] = 1;
+      pcData[atkIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基受創", "姿勢": "單膝跪地", "負面": "靈基重創", "顏面": "咬牙強撐" });
     } else {
-      pcData[pIdx][COL.PC.HP] = pHpAfter;
+      pcData[atkIdx][COL.PC.HP] = aHpAfter;
     }
-    sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-    resultMsg = `「${npcName}」反擊得手，你受了 ${damage} 點傷！`;
+    sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
+    resultMsg = `「${npcName}」反擊得手，${pName} 受了 ${damage} 點傷！`;
   }
 
   // 給 AI 的指令：結果已定，只能照演
   let critText = "";
-  if (critFlavor === "player_crit") critText = "玩家骰出【大成功】，這一擊精妙絕倫、無視防禦命中要害！";
-  else if (critFlavor === "npc_crit") critText = `「${npcName}」骰出【大成功】，玩家的進攻被完美化解並遭凌厲反擊！`;
-  else if (critFlavor === "player_fumble") critText = "玩家骰出【大失敗】，招式露出致命破綻，被對方狠狠教訓！";
-  else if (critFlavor === "npc_fumble") critText = `「${npcName}」骰出【大失敗】，露出天大破綻，被玩家打得毫無還手之力！`;
+  if (critFlavor === "player_crit") critText = `${pName} 骰出【大成功】，這一擊精妙絕倫、無視防禦命中要害！`;
+  else if (critFlavor === "npc_crit") critText = `「${npcName}」骰出【大成功】，${pName} 的進攻被完美化解並遭凌厲反擊！`;
+  else if (critFlavor === "player_fumble") critText = `${pName} 骰出【大失敗】，招式露出致命破綻，被對方狠狠教訓！`;
+  else if (critFlavor === "npc_fumble") critText = `「${npcName}」骰出【大失敗】，露出天大破綻，被 ${pName} 打得毫無還手之力！`;
 
-  const aiPrompt = `【系統戰報·已裁定，嚴禁更改勝負】玩家『${pName}』向「${npcName}」發動攻擊${skillName ? `（招式：${skillName}）` : ""}。\n` +
+  const aiPrompt = `【系統戰報·已裁定，嚴禁更改勝負】御主令從者『${pName}』向「${npcName}」發動攻擊${skillName ? `（寶具／技：${skillName}）` : ""}。\n` +
     `擲骰結果：玩家 ${pRoll}+${pMod}=${pScore}，${npcName} ${nRoll}+${nMod}=${nScore}。\n` +
     `${critText}\n最終結果：${resultMsg}\n` +
     `★請依此結果生動描寫這場交手，勝負與傷害已由系統結算完畢。\n` +
@@ -3643,6 +3644,11 @@ function actionMultiAttack(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
   const pName = pcData[pIdx][COL.PC.NAME];
   const pLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  // 🔵 從者代御主出戰（凡人御主不肉身上陣）
+  let atkIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  if (atkIdx === -1) atkIdx = pIdx;
+  const svName = pcData[atkIdx][COL.PC.NAME];
 
   const tagRegex = /\[(攻擊|下毒|媚藥)(.+?)\]([^\[]*)/g;
   let segments = [];
@@ -3663,7 +3669,7 @@ function actionMultiAttack(userData, pcId, sheets) {
     segments = segments.slice(0, MAX_COMBO);
   }
 
-  const pTotal = getCharacterTotalStats(pcId, sheets, pcData, itemData);
+  const pTotal = getCharacterTotalStats(pcData[atkIdx][COL.PC.ID], sheets, pcData, itemData);
   let results = [];
   let knockedOutAll = [];
   let justRevived = false;
@@ -3673,7 +3679,8 @@ function actionMultiAttack(userData, pcId, sheets) {
   for (const seg of segments) {
     if (playerDead) break;
 
-    const nIdx = pcData.findIndex(r => r[COL.PC.ID] != pcId && !String(r[COL.PC.ID]).startsWith("DEAD_") &&
+    const nIdx = pcData.findIndex(r => r[COL.PC.ID] != pcId && r[COL.PC.ID] != pcData[atkIdx][COL.PC.ID] && !String(r[COL.PC.ID]).startsWith("DEAD_") &&
+      (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId) &&
       String(r[COL.PC.LOC]).trim() === pLoc && String(r[COL.PC.NAME]).includes(seg.targetName));
     if (nIdx === -1) {
       results.push({ actionType: seg.actionType, targetName: seg.targetName, skipped: true });
@@ -3822,28 +3829,25 @@ function actionMultiAttack(userData, pcId, sheets) {
       }
       resultMsg = `你擊中了「${npcName}」，造成 ${damage} 點傷害！`;
     } else {
-      let pHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
-      let pHpAfter = pHp - damage;
-      if (pHpAfter <= 0) {
-        const healLoc = "小醫仙藥鋪";
-        pcData[pIdx][COL.PC.HP] = 50;
-        pcData[pIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "換上乾淨素衣", "姿勢": "平躺靜養", "負面": "重傷初癒", "顏面": "蒼白" });
-        pcData[pIdx][COL.PC.LOC] = healLoc;
-        pcData[pIdx][COL.PC.MONEY] = Math.max(0, (parseInt(pcData[pIdx][COL.PC.MONEY]) || 0) - 20);
-        justRevived = true;
-        playerDead = true;
-        if (sheets.epic) sheets.epic.appendRow([pcId, `【奇蹟救治】${pName} 於生死邊緣被救回。`, new Date()]);
+      // 反擊：傷的是從者(靈基)，不是御主肉身
+      let aHp = parseInt(pcData[atkIdx][COL.PC.HP]) || 0;
+      let aHpAfter = aHp - damage;
+      if (aHpAfter <= 5) {
+        pcData[atkIdx][COL.PC.HP] = 1;
+        pcData[atkIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基受創", "姿勢": "單膝跪地", "負面": "靈基重創", "顏面": "咬牙強撐" });
+        justRevived = false;
+        playerDead = true; // 從者倒下，停止後續連擊
       } else {
-        pcData[pIdx][COL.PC.HP] = pHpAfter;
+        pcData[atkIdx][COL.PC.HP] = aHpAfter;
       }
-      resultMsg = `「${npcName}」反擊得手，你受了 ${damage} 點傷！`;
+      resultMsg = `「${npcName}」反擊得手，${svName} 受了 ${damage} 點傷！`;
     }
 
     let critText = "";
-    if (critFlavor === "player_crit") critText = "玩家骰出【大成功】，這一擊精妙絕倫、無視防禦命中要害！";
-    else if (critFlavor === "npc_crit") critText = `「${npcName}」骰出【大成功】，玩家的進攻被完美化解並遭凌厲反擊！`;
-    else if (critFlavor === "player_fumble") critText = "玩家骰出【大失敗】，招式露出致命破綻，被對方狠狠教訓！";
-    else if (critFlavor === "npc_fumble") critText = `「${npcName}」骰出【大失敗】，露出天大破綻，被玩家打得毫無還手之力！`;
+    if (critFlavor === "player_crit") critText = `${svName} 骰出【大成功】，這一擊精妙絕倫、無視防禦命中要害！`;
+    else if (critFlavor === "npc_crit") critText = `「${npcName}」骰出【大成功】，${svName} 的進攻被完美化解並遭凌厲反擊！`;
+    else if (critFlavor === "player_fumble") critText = `${svName} 骰出【大失敗】，招式露出致命破綻，被對方狠狠教訓！`;
+    else if (critFlavor === "npc_fumble") critText = `「${npcName}」骰出【大失敗】，露出天大破綻，被 ${svName} 打得毫無還手之力！`;
 
     let debuffHint = "";
     if (nHasPoison && nHasCharm) debuffHint = `（「${npcName}」身上中毒與媚惑雙重纏身，反應遲滯，可在敘述中帶到這點）\n`;
@@ -3862,9 +3866,9 @@ function actionMultiAttack(userData, pcId, sheets) {
     }
 
     aiPromptParts.push(
-      `【對戰：玩家 vs 「${npcName}」】玩家原話：「${seg.flavor || "（未多說，直接出手）"}」\n` +
+      `【對戰：御主之從者 ${svName} vs 「${npcName}」】御主原話：「${seg.flavor || "（未多說，直接令從者出手）"}」\n` +
       debuffHint + gearHint +
-      `擲骰：玩家 ${pRoll}+${pMod}=${pScore}，「${npcName}」 ${nRoll}+${nMod}=${nScore}。${critText}\n` +
+      `擲骰：${svName} ${pRoll}+${pMod}=${pScore}，「${npcName}」 ${nRoll}+${nMod}=${nScore}。${critText}\n` +
       `結果：${resultMsg}`
     );
 
@@ -3890,6 +3894,7 @@ function actionMultiAttack(userData, pcId, sheets) {
   }
 
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+  if (atkIdx !== pIdx) sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
   // 🔴 連擊結束：未在本次被重新下藥的中毒/媚惑對象，效力直接清除(無分層，靠資源消耗維持壓制)
   const redosedPoison = new Set(), redosedCharm = new Set();
   results.forEach(r => {
@@ -3947,7 +3952,7 @@ function actionMultiAttack(userData, pcId, sheets) {
     : `玩家與【參戰者資料】列出之人`;
 
   const aiPrompt = `【場景】玩家『${pName}』目前位於『${pLoc}』。\n【近期因果】(僅供背景參考，純屬回憶，並非當下在場！)\n${recentLogStr}${npcCardsStr}\n\n` +
-    `【系統戰報·已裁定，嚴禁更改任何勝負、傷害或藥效判定】玩家『${pName}』展開連續動作：\n\n` +
+    `【系統戰報·已裁定，嚴禁更改任何勝負、傷害或藥效判定】御主『${pName}』號令從者『${svName}』展開連續攻勢：\n\n` +
     aiPromptParts.join("\n\n") + `\n\n` +
     (comboTrimmed > 0 ? `★【系統】玩家本想一氣呵成更多招，但連續出手 3 次後招式已用老、氣力難繼，餘下 ${comboTrimmed} 次動作未能施展，請在敘述收尾帶到玩家後繼乏力、不得不暫歇的窘態，且這些未施展的動作完全不結算任何數值。\n\n` : "") +
     `★請依此結果，並參照上方地點、近期因果與參戰者性格資料，將以上每一段交手依序串接成一段流暢生動的描寫，可參考玩家自己描述的招式、語氣與下藥手法。\n` +

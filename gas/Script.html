@@ -2367,23 +2367,21 @@ let plainTextContext = cleanText;
       }
       
       html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); interactNpc('贈禮', '${npcName}', '${currentLoc}', true)">🎁 贈禮</button>`;
-      html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); openGiveMoneyPrompt('${npcName}')">💰 給銀兩</button>`;
+      if (pc && pc.mode === 'full') html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); openGiveMoneyPrompt('${npcName}')">💰 給銀兩</button>`;
       html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3; grid-column: span 2;" onclick="closeInteractMenu(); openUseItemOnNpcModal('${npcName}')">💊 使用道具 (補血/解狀態)</button>`;
 
       if (!isPC) {
-          // 命格 (深邃碧玉色 #2ca68c)
-          html += `<button class="btn" style="border-color:#2ca68c; color:#2ca68c;" onclick="closeInteractMenu(); openStatus('${npcData.id}', '${npcName}')">📜 窺探命格</button>`;
-
-          // 傳功雙修 (極致翡翠綠 #1c9478)
-          html += `<button class="btn" style="border-color:#1c9478; color:#1c9478; font-weight:bold; grid-column: span 2;" onclick="closeInteractMenu(); lockBtn(event, () => empowerNpc('${npcName}'))">🧘‍♂️ 傳功雙修 (耗造化綠液)</button>`;
+          if (pc && pc.mode === 'full') {
+            html += `<button class="btn" style="border-color:#2ca68c; color:#2ca68c;" onclick="closeInteractMenu(); openStatus('${npcData.id}', '${npcName}')">📜 窺探命格</button>`;
+            html += `<button class="btn" style="border-color:#1c9478; color:#1c9478; font-weight:bold; grid-column: span 2;" onclick="closeInteractMenu(); lockBtn(event, () => empowerNpc('${npcName}'))">🧘‍♂️ 傳功雙修 (耗造化綠液)</button>`;
+          }
       } else {
           html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); interactNpc('留言', '${npcName}', '${currentLoc}', true)">✉️ 留言</button>`;
       }
 
       // ⚠️ 【危險動作區】
-      html += `<div style="grid-column: span 2; border-top: 1px dashed rgba(77,184,163,0.3); margin-top: 5px; padding-top: 10px; color:#7b9991; font-size:12px; text-align:center; font-weight:bold;">—— 危險舉動 ——</div>`;
-      
       if (!isPC) {
+          html += `<div style="grid-column: span 2; border-top: 1px dashed rgba(77,184,163,0.3); margin-top: 5px; padding-top: 10px; color:#7b9991; font-size:12px; text-align:center; font-weight:bold;">—— 危險舉動 ——</div>`;
           html += `<div style="grid-column: span 2; display:flex; align-items:center; justify-content:center; gap:6px; margin-bottom:2px; font-size:12px; color:#7b9991;">
             連續次數：<select id="combo-count-select" style="padding:2px 6px; border-radius:4px; border:1px solid #8fa39b; background:#fff; color:#553311;">
               <option value="1">x1</option>
@@ -2392,9 +2390,11 @@ let plainTextContext = cleanText;
             </select>
             <span style="font-size:11px; color:#9a7;">(每回合上限 3)</span>
           </div>`;
-          html += `<button class="btn" style="border-color:#a52a2a; color:#a52a2a; font-weight:bold;" onclick="closeInteractMenu(); insertActionTag('攻擊', '${npcName}')">⚔️ 動手</button>`;
-          html += `<button class="btn" style="border-color:#8fa39b; color:#8fa39b;" onclick="closeInteractMenu(); insertActionTag('下毒', '${npcName}')">🧪 下毒</button>`;
-          html += `<button class="btn" style="border-color:#8fa39b; color:#8fa39b;" onclick="closeInteractMenu(); insertActionTag('媚藥', '${npcName}')">🌸 媚藥</button>`;
+          html += `<button class="btn" style="border-color:#a52a2a; color:#a52a2a; font-weight:bold; grid-column: span 2;" onclick="closeInteractMenu(); insertActionTag('攻擊', '${npcName}')">⚔️ 令從者出擊</button>`;
+          if (pc && pc.mode === 'full') {
+            html += `<button class="btn" style="border-color:#8fa39b; color:#8fa39b;" onclick="closeInteractMenu(); insertActionTag('下毒', '${npcName}')">🧪 下毒</button>`;
+            html += `<button class="btn" style="border-color:#8fa39b; color:#8fa39b;" onclick="closeInteractMenu(); insertActionTag('媚藥', '${npcName}')">🌸 媚藥</button>`;
+          }
       }
 
       document.getElementById('interact-dynamic-buttons').innerHTML = html;
