@@ -1839,11 +1839,15 @@ function actionGetTags(userData, pcId, sheets) {
       const rel = sheets.rel.getDataRange().getValues().find(r => r[COL.REL.PC] === m[COL.PC.NAME] && r[COL.REL.NPC] === s[COL.PC.NAME]);
       if (rel) bond = parseInt(rel[COL.REL.FAV]) || 0;
     }
+    let six = {}, skills = [], traits = [];
+    try { six = JSON.parse(s[COL.PC.SIX] || "{}"); } catch (e) { }
+    try { const tg = JSON.parse(s[COL.PC.TAGS] || "{}"); skills = tg.skills || []; traits = tg.traits || []; } catch (e) { }
     servant = {
       name: s[COL.PC.NAME], cls: s[COL.PC.RANK] || "從者", sex: s[COL.PC.SEX],
       condition: buildVisibleStatusString(s[COL.PC.STATUS]),
       hp: hpWord(s[COL.PC.HP], s[COL.PC.MAX_HP]),
-      np: s[COL.PC.MARTIAL] || "寶具未顯現", bond: bond
+      np: s[COL.PC.MARTIAL] || "寶具未顯現", bond: bond,
+      six: six, skills: skills, traits: traits
     };
   }
   return JSON.stringify({ success: true, master: master, servant: servant });

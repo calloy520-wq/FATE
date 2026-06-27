@@ -1626,11 +1626,29 @@ function renderRecentLocs(recents = null) {
         `</div>`;
       const m = t.master, s = t.servant;
       let mh = card('#d4af37', '⚜️ 御主', m.name, [`${m.condition}`, `氣力 ${m.hp}　令咒 ${'❖'.repeat(m.seals || 3)}`]);
-      let sh = s
-        ? card('#c0392b', `📿 從者・${s.cls}`, s.name, [`${s.condition}`, `氣力 ${s.hp}　羈絆 ${bondWord(s.bond)}`, `寶具 ${s.np}`])
-        : card('#555', '📿 從者', '（尚未召喚）', ['以令咒召喚你的英靈']);
+      let sh;
+      if (s) {
+        var six = s.six || {};
+        var sixLine = ['筋' + (six.筋力 || '?'), '耐' + (six.耐久 || '?'), '敏' + (six.敏捷 || '?'), '魔' + (six.魔力 || '?'), '運' + (six.幸運 || '?'), '寶' + (six.寶具 || '?')].join('　');
+        var pill = function (txt, col) { return '<span style="display:inline-block; font-size:10px; border:1px solid ' + col + '; color:' + col + '; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;">' + txt + '</span>'; };
+        var skillPills = (s.skills || []).map(function (sk) { return pill(sk.n + (sk.r ? (' ' + sk.r) : ''), '#d9a93a'); }).join('');
+        var traitPills = (s.traits || []).map(function (tr) { return pill(tr.n + (tr.r ? (' ' + tr.r) : ''), '#c0392b'); }).join('');
+        sh = '<div style="background:rgba(20,14,28,0.55); border:1px solid #c0392b; border-radius:8px; padding:6px 8px;">'
+          + '<div style="color:#c0392b; font-weight:bold; font-size:12px;">📿 從者・' + s.cls + '</div>'
+          + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
+          + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">' + s.condition + '</div>'
+          + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">氣力 ' + s.hp + '　羈絆 ' + bondWord(s.bond) + '</div>'
+          + '<div style="color:#cdbbe6; font-size:11px; margin-top:3px; letter-spacing:.5px;">六圍　' + sixLine + '</div>'
+          + (skillPills ? ('<div style="margin-top:3px;">' + skillPills + '</div>') : '')
+          + (traitPills ? ('<div style="margin-top:1px;">' + traitPills + '</div>') : '')
+          + '<div style="color:#9a8bb0; font-size:11px; margin-top:5px;">寶具　' + s.np + '</div>'
+          + '</div>';
+      } else {
+        sh = card('#555', '📿 從者', '（尚未召喚）', ['以令咒召喚你的英靈']);
+      }
       box.innerHTML = mh + sh;
       box.style.display = 'flex';
+      box.style.flexDirection = 'column';
     } catch (e) { }
   }
 
