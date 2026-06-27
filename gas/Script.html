@@ -1642,6 +1642,11 @@ function renderRecentLocs(recents = null) {
           + (skillPills ? ('<div style="margin-top:3px;">' + skillPills + '</div>') : '')
           + (traitPills ? ('<div style="margin-top:1px;">' + traitPills + '</div>') : '')
           + '<div style="color:#9a8bb0; font-size:11px; margin-top:5px;">寶具　' + s.np + '</div>'
+          + ((pc && pc.mode === 'kanshou') ? '' :
+              '<div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">'
+              + '<button onclick="manaSupply()" style="flex:1; min-width:64px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
+              + '<button onclick="openSealMenu()" style="flex:1; min-width:64px; font-size:11px; padding:5px 4px; background:rgba(176,108,208,0.16); color:#c79be8; border:1px solid #8a5fb0; border-radius:6px; cursor:pointer;">❖ 令咒 ' + '❖'.repeat(Math.max(0, m.seals || 0)) + '</button>'
+              + '</div>')
           + '</div>';
       } else {
         sh = card('#555', '📿 從者', '（尚未召喚）', ['以令咒召喚你的英靈']);
@@ -1726,12 +1731,13 @@ function renderRecentLocs(recents = null) {
   function useBagItem(id, name, type) { handleItemAction('consume', id, name, type); }
 
   // ⚔️ 令從者出擊／寶具解放（Fate 戰鬥：六圍＋fx＋寶具）
-  async function servantStrike(npcName, useNp) {
+  async function servantStrike(npcName, useNp, useSeal) {
     const story = document.getElementById('story');
-    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主令從者${useNp ? '解放寶具' : '出擊'}，目標「${npcName}」！</div>`);
+    const verb = useSeal ? '燃令咒・絕對命令，必中斬向' : (useNp ? '解放寶具，目標' : '出擊，目標');
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主令從者${verb}「${npcName}」！</div>`);
     story.scrollTop = story.scrollHeight;
     try {
-      const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, np: !!useNp, acctName: (pc && pc.account) || currentAccount });
+      const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, np: !!useNp, seal: !!useSeal, acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) {
         narrate(res.aiPrompt);
         syncData(true);
@@ -1740,6 +1746,48 @@ function renderRecentLocs(recents = null) {
       }
       else { alert((res && res.message) || '出擊失敗。'); }
     } catch (e) { alert('連線失敗，出擊未果。'); }
+  }
+
+  // 💧 補魔：御主供魔給從者（回魔＋羈絆＋fade 演出）
+  async function manaSupply() {
+    const story = document.getElementById('story');
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主將魔力導入從者，行補魔之儀……</div>`);
+    story.scrollTop = story.scrollHeight;
+    try {
+      const isNsfw = document.getElementById('nsfw-mode-toggle')?.checked || false;
+      const res = await gasRun({ action: 'mana_supply', pcId: pc.id, isNsfw: isNsfw });
+      if (res && res.success) { narrate(res.aiPrompt); syncData(true); }
+      else { alert((res && res.message) || '補魔失敗。'); }
+    } catch (e) { alert('連線失敗，補魔未果。'); }
+  }
+
+  // ❖ 令咒選單（絕對命令需在戰鬥中對目標施放，這裡放自身向三招）
+  function openSealMenu() {
+    const opts = [
+      ['repair', '🩹 靈基修復', '從者氣血與魔力盡數回滿'],
+      ['mana', '⚡ 強制補魔', '魔力瞬間充盈到極限＋羈絆上升'],
+      ['escape', '🌀 緊急脫離', '與從者一同強行撤離險境'],
+    ];
+    let html = '<h3 style="margin:0 0 6px;color:#c79be8;">❖ 令咒・絕對命令</h3>'
+      + '<p style="color:#9a8bb0;font-size:12px;margin:0 0 10px;">每道令咒皆為一次性絕對命令權。<br>（「絕對命令・必中」請於戰鬥互動視窗對敵施放）</p>';
+    html += opts.map(function (o) {
+      return '<button onclick="useSeal(\'' + o[0] + '\')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px;background:rgba(176,108,208,0.12);color:#e8dcc0;border:1px solid #8a5fb0;border-radius:8px;cursor:pointer;">'
+        + '<b style="color:#c79be8;">' + o[1] + '</b><br><span style="font-size:12px;color:#9a8bb0;">' + o[2] + '</span></button>';
+    }).join('');
+    showHistoryOverlay(html);
+  }
+
+  async function useSeal(type) {
+    var ov = document.getElementById('history-overlay');
+    if (ov) ov.style.display = 'none';
+    const story = document.getElementById('story');
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主手背的令咒灼然亮起……</div>`);
+    story.scrollTop = story.scrollHeight;
+    try {
+      const res = await gasRun({ action: 'use_seal', pcId: pc.id, sealType: type });
+      if (res && res.success) { narrate(res.aiPrompt); syncData(true); }
+      else { alert((res && res.message) || '令咒未能發動。'); }
+    } catch (e) { alert('連線失敗，令咒未發動。'); }
   }
 
   // 敗北：先播「願望實現的虛假之夢」，再進老虎道場
@@ -2655,6 +2703,7 @@ let plainTextContext = cleanText;
           </div>`;
           html += `<button class="btn" style="border-color:#a52a2a; color:#a52a2a; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false)">⚔️ 令從者出擊</button>`;
           html += `<button class="btn" style="border-color:#d4af37; color:#d4af37; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', true)">💥 寶具解放</button>`;
+          html += `<button class="btn" style="border-color:#b06cd0; color:#b06cd0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, true)">❖ 令咒・絕對命令（必中）</button>`;
           if (pc && pc.mode === 'full') {
             html += `<button class="btn" style="border-color:#8fa39b; color:#8fa39b;" onclick="closeInteractMenu(); insertActionTag('下毒', '${npcName}')">🧪 下毒</button>`;
             html += `<button class="btn" style="border-color:#8fa39b; color:#8fa39b;" onclick="closeInteractMenu(); insertActionTag('媚藥', '${npcName}')">🌸 媚藥</button>`;

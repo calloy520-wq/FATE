@@ -49,6 +49,8 @@ const ActionRouter = {
   "get_heroes": actionGetHeroes,
   "get_tags": actionGetTags,
   "fate_battle": actionFateBattle,
+  "use_seal": actionUseSeal,
+  "mana_supply": actionManaSupply,
   "clear_npc_major_event": actionClearNpcMajorEvent,
   "get_all_categorized_maps": actionGetAllCategorizedMaps,
   "get_map_nodes": actionGetMapNodes,
@@ -1597,7 +1599,8 @@ function actionManualNpc(userData, pcId, sheets) {
         magic ? `【魔術】${magic}` : "",
         circuits ? `【迴路】${circuits}` : "",
         origin ? `【出身】${origin}` : "",
-        melee ? `【體術】${melee}` : ""
+        melee ? `【體術】${melee}` : "",
+        "【令咒】3"
       ].filter(Boolean).join("｜");
     }
     // 🔴 NPC 初始銀兩依境界給(玩家創角固定 50)，錢有變化、高人更富
@@ -1838,7 +1841,7 @@ function actionGetTags(userData, pcId, sheets) {
     name: m[COL.PC.NAME], sex: m[COL.PC.SEX],
     condition: buildVisibleStatusString(m[COL.PC.STATUS]),
     hp: hpWord(m[COL.PC.HP], m[COL.PC.MAX_HP]),
-    seals: 3, wish: wish
+    seals: getPlayerSeals_(m[COL.PC.MEMORY]), wish: wish
   };
 
   let servant = null;
@@ -3612,7 +3615,20 @@ function actionFateBattle(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: `${atkC.name} 魔力不足以解放寶具，需先補魔。` });
   }
 
-  const fb = resolveFateBattle_(atkC, defC, { np: useNp });
+  // ❖ 令咒·絕對命令（必中＋威力倍增）：消耗一道玩家令咒
+  const useSeal = !!userData.seal;
+  if (useSeal && getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]) <= 0) {
+    return JSON.stringify({ success: false, message: "你的令咒已用盡，無法施加絕對命令。" });
+  }
+
+  const fb = resolveFateBattle_(atkC, defC, { np: useNp, seal: useSeal });
+  if (useSeal) {
+    fb.atkWins = true; // 絕對命令＝必中，強制由玩家從者命中
+    const left = getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]) - 1;
+    pcData[pIdx][COL.PC.MEMORY] = setPlayerSeals_(pcData[pIdx][COL.PC.MEMORY], left);
+    sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+    if (!fb.fired.includes('令咒·絕對命令')) fb.fired.push('令咒·絕對命令');
+  }
 
   // 寶具耗魔
   if (useNp) {
@@ -3726,6 +3742,107 @@ function actionFateBattle(userData, pcId, sheets) {
     sealEscaped: sealEscaped,
     statusString: getFreshStatusString(pcId, pIdx, sheets), combatResult: fb
   });
+}
+
+// 玩家令咒餘量（存於御主 MEMORY 的【令咒】N 標記；舊角色無標記則視為 3）
+function getPlayerSeals_(memory) {
+  var m = String(memory || "").match(/【令咒】(\d+)/);
+  return m ? parseInt(m[1]) : 3;
+}
+// 寫回令咒餘量（回傳更新後的 MEMORY 字串）
+function setPlayerSeals_(memory, n) {
+  var s = String(memory || "");
+  if (/【令咒】\d+/.test(s)) return s.replace(/【令咒】\d+/, "【令咒】" + n);
+  return (s ? s + "｜" : "") + "【令咒】" + n;
+}
+
+// ❖ 玩家令咒（固定選單·絕對命令權）：修復／補魔／脫離（命中走 fate_battle 的 seal 旗標）
+function actionUseSeal(userData, pcId, sheets) {
+  const type = String(userData.sealType || "").trim(); // 'repair' | 'mana' | 'escape'
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  let seals = getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]);
+  if (seals <= 0) return JSON.stringify({ success: false, message: "你的令咒已經用盡，無法再施加絕對命令。" });
+
+  const svIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者，令咒無從施加。" });
+  const svName = pcData[svIdx][COL.PC.NAME];
+
+  let effectMsg = "";
+  if (type === "repair") {
+    pcData[svIdx][COL.PC.HP] = parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 480;
+    pcData[svIdx][COL.PC.MP] = parseInt(pcData[svIdx][COL.PC.MAX_MP]) || 200;
+    pcData[svIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基重塑", "姿勢": "昂然而立", "負面": "無", "顏面": "神采奕奕" });
+    sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+    effectMsg = `令咒迸發，重塑「${svName}」的靈基——氣血與魔力盡數回滿，傷勢一掃而空。`;
+  } else if (type === "mana") {
+    pcData[svIdx][COL.PC.MP] = parseInt(pcData[svIdx][COL.PC.MAX_MP]) || 200;
+    sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+    raiseBond_(sheets, pcData[pIdx][COL.PC.NAME], svName, 8);
+    effectMsg = `令咒化作一道灌頂的魔力洪流，「${svName}」的魔力瞬間充盈到極限，羈絆也更深了一分。`;
+  } else if (type === "escape") {
+    const oldLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
+    const newLoc = enemyRetreatLoc_(oldLoc);
+    pcData[pIdx][COL.PC.LOC] = newLoc;
+    pcData[svIdx][COL.PC.LOC] = newLoc;
+    sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+    sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+    effectMsg = `令咒干涉空間，將你與「${svName}」一同從險境中強行抽離，遁往「${newLoc}」。`;
+  } else {
+    return JSON.stringify({ success: false, message: "未知的令咒指令。" });
+  }
+
+  // 扣令咒（寫回御主 MEMORY），脫離情況御主 LOC 已改、需用最新 row 再寫一次
+  seals -= 1;
+  pcData[pIdx][COL.PC.MEMORY] = setPlayerSeals_(pcData[pIdx][COL.PC.MEMORY], seals);
+  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+
+  const aiPrompt = `【系統·令咒已發動，已裁定】御主燃燒一道令咒。${effectMsg}（餘 ${seals} 道令咒）\n` +
+    `★以 Fate／TYPE-MOON 筆觸描寫令咒在手背灼亮、絕對命令權貫徹的瞬間（一段即可）。效果已由系統結算。\n` +
+    `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+  return JSON.stringify({ success: true, aiPrompt: aiPrompt, seals: seals, statusString: getFreshStatusString(pcId, pIdx, sheets) });
+}
+
+// 🔵 補魔（魔力供給）：把御主魔力導入從者，回魔＋羈絆＋fade 演出（無令咒消耗）
+function actionManaSupply(userData, pcId, sheets) {
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const svIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可供魔。" });
+  const svName = pcData[svIdx][COL.PC.NAME];
+  const mpMax = parseInt(pcData[svIdx][COL.PC.MAX_MP]) || 200;
+  const cur = parseInt(pcData[svIdx][COL.PC.MP]) || 0;
+  if (cur >= mpMax) return JSON.stringify({ success: false, message: `「${svName}」的魔力已然充盈，毋須補魔。` });
+
+  const restored = Math.min(mpMax, cur + Math.round(mpMax * 0.5));
+  pcData[svIdx][COL.PC.MP] = restored;
+  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+  raiseBond_(sheets, pcData[pIdx][COL.PC.NAME], svName, 3);
+
+  const isNsfw = !!userData.isNsfw;
+  const aiPrompt = `【系統·補魔已結算】御主以魔力供給「${svName}」，其魔力回復至 ${restored}/${mpMax}，羈絆微升。\n` +
+    `★以 Fate／TYPE-MOON 筆觸描寫這場魔力供給：御主將自身魔力導入從者的儀式${isNsfw ? "（可成人向，但須兩情相願、合乎從者性格，fade 收束）" : "（含蓄唯美，點到為止、fade-to-black）"}。\n` +
+    `★【鐵律】演出而非複述設定；嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
+  return JSON.stringify({ success: true, aiPrompt: aiPrompt, statusString: getFreshStatusString(pcId, pIdx, sheets) });
+}
+
+// 提升御主×從者羈絆（關係表好感）
+function raiseBond_(sheets, pcName, svName, delta) {
+  if (!sheets.rel) return;
+  try {
+    const rd = sheets.rel.getDataRange().getValues();
+    for (let i = 1; i < rd.length; i++) {
+      if (String(rd[i][COL.REL.PC]) === pcName && String(rd[i][COL.REL.NPC]) === svName) {
+        const v = Math.min(100, (parseInt(rd[i][COL.REL.FAV]) || 0) + delta);
+        sheets.rel.getRange(i + 1, COL.REL.FAV + 1).setValue(v);
+        return;
+      }
+    }
+  } catch (e) { }
 }
 
 // 從御主 MEMORY 取出【願望】內容（show-don't-tell：僅供生成虛假之夢，不直述）
