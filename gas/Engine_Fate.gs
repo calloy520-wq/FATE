@@ -6,6 +6,25 @@
 // 階級倍率：以 C(30) 為 1.0 基準。E=0.33 D=0.67 C=1.0 B=1.33 A=1.67 EX=2.0；+ 各 +0.17
 function rankMul_(r) { return rankVal(r) / 30; }
 
+// 令咒緊急脫離的落點：隨機挑一個非約會型的冬木地點（≠ 當前地）
+function enemyRetreatLoc_(currentLoc) {
+  try {
+    var km = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("坤圖");
+    if (!km || km.getLastRow() <= 1) return currentLoc;
+    var d = km.getDataRange().getValues();
+    var pool = [];
+    for (var i = 1; i < d.length; i++) {
+      var nm = String(d[i][COL.MAP.NAME]).trim();
+      var ty = String(d[i][COL.MAP.TYPE]).trim();
+      if (!nm || ty === "約會") continue;          // 約會景點不作為撤退落點
+      if (nm === String(currentLoc).trim()) continue;
+      pool.push(nm);
+    }
+    if (!pool.length) return currentLoc;
+    return pool[Math.floor(Math.random() * pool.length)];
+  } catch (e) { return currentLoc; }
+}
+
 // 某 game_id 世界中仍存活的「敵從者」數（DEAD_ 開頭視為已消滅）
 function aliveEnemyServants_(sheets, gameId) {
   var data = sheets.pc.getDataRange().getValues();

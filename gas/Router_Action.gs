@@ -3622,14 +3622,42 @@ function actionFateBattle(userData, pcId, sheets) {
 
   // 套用傷害：勝→守方受傷；負→從者受傷
   let knockedOut = [];
-  let victory = false, defeat = false, dreamPrompt = "", destroyedName = "";
+  let victory = false, defeat = false, dreamPrompt = "", destroyedName = "", sealEscaped = false, sealNote = "";
   const dmgIdx = fb.atkWins ? nIdx : atkIdx;
   const dmgC = fb.atkWins ? defC : atkC;
   const dmgFaction = String(pcData[dmgIdx][COL.PC.FACTION] || "");
   let hp = parseInt(pcData[dmgIdx][COL.PC.HP]) || 0;
   let after = hp - fb.damage;
   if (after <= 5 && hasFx_(dmgC, 'survive') && hp > 1) { after = 1; fb.fired.push(dmgC.name + '·戰鬥續行'); }
-  if (after <= 0) {
+
+  // 🔵 敵御主令咒反應：敵從者瀕死時，有令咒餘量則 30% 隨機燃令咒「緊急脫離」，靈基受創退場保命
+  if (after <= 0 && dmgFaction === "敵從者") {
+    let eSeals = parseInt(pcData[dmgIdx][COL.PC.CONTRIB]) || 0;
+    if (eSeals > 0 && Math.random() < 0.30) {
+      sealEscaped = true;
+      pcData[dmgIdx][COL.PC.HP] = 1;
+      pcData[dmgIdx][COL.PC.CONTRIB] = eSeals - 1;
+      pcData[dmgIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基受創", "姿勢": "踉蹌", "負面": "令咒緊急脫離", "顏面": "咬牙退避" });
+      const oldLoc = String(pcData[dmgIdx][COL.PC.LOC]).trim();
+      const newLoc = enemyRetreatLoc_(oldLoc);
+      pcData[dmgIdx][COL.PC.LOC] = newLoc;
+      sheets.pc.getRange(dmgIdx + 1, 1, 1, pcData[dmgIdx].length).setValues([pcData[dmgIdx]]);
+      // 同地敵御主隨從者一起脫離
+      for (let mi = 1; mi < pcData.length; mi++) {
+        if (String(pcData[mi][COL.PC.FACTION]) === "敵御主" &&
+            String(pcData[mi][COL.PC.GAME_ID] || "") === myGameId &&
+            String(pcData[mi][COL.PC.LOC]).trim() === oldLoc &&
+            !String(pcData[mi][COL.PC.ID]).startsWith("DEAD_")) {
+          pcData[mi][COL.PC.LOC] = newLoc;
+          sheets.pc.getRange(mi + 1, 1, 1, pcData[mi].length).setValues([pcData[mi]]);
+          break;
+        }
+      }
+      sealNote = `對面御主一道令咒迸發，強令「${defC.name}」於靈基崩解前一瞬撤離戰場，遁向「${newLoc}」（敵餘令咒 ${eSeals - 1}）。`;
+    }
+  }
+
+  if (after <= 0 && !sealEscaped) {
     // 靈基崩潰＝徹底消滅（不可復原）
     destroyedName = String(pcData[dmgIdx][COL.PC.NAME]);
     pcData[dmgIdx][COL.PC.ID] = "DEAD_" + String(pcData[dmgIdx][COL.PC.ID]);
@@ -3662,13 +3690,13 @@ function actionFateBattle(userData, pcId, sheets) {
         knockedOut.push(destroyedName);
       }
     }
-  } else {
+  } else if (!sealEscaped) {
     pcData[dmgIdx][COL.PC.HP] = after;
     sheets.pc.getRange(dmgIdx + 1, 1, 1, pcData[dmgIdx].length).setValues([pcData[dmgIdx]]);
   }
 
   const resultMsg = fb.atkWins
-    ? `${atkC.name} 命中「${defC.name}」，造成 ${fb.damage} 點傷害！${destroyedName && dmgFaction !== "從者" ? `「${defC.name}」靈基崩潰，徹底消滅！` : ""}`
+    ? `${atkC.name} 命中「${defC.name}」，造成 ${fb.damage} 點傷害！${sealEscaped ? sealNote : (destroyedName && dmgFaction !== "從者" ? `「${defC.name}」靈基崩潰，徹底消滅！` : "")}`
     : `「${defC.name}」化解並反擊，${atkC.name} 受創 ${fb.damage}！${destroyedName && dmgFaction === "從者" ? `${atkC.name} 靈基崩潰，化作光點消散……` : ""}`;
   const firedStr = fb.fired.length ? `\n〔技能／寶具發動〕${fb.fired.join('、')}` : "";
   const critMap = { atk_crit: `${fb.winner} 擲出大成功，一擊洞穿！`, def_crit: `${fb.winner} 擲出大成功，完美反制！`, atk_fumble: `${atkC.name} 擲出大失敗，露出破綻！`, def_fumble: `「${defC.name}」擲出大失敗！` };
@@ -3684,15 +3712,18 @@ function actionFateBattle(userData, pcId, sheets) {
       `擲骰：${atkC.name} 命中 ${fb.aHit}（d20=${fb.aRoll}） vs 「${defC.name}」迴避 ${fb.dEva}（d20=${fb.dRoll}）。${fb.crit ? (critMap[fb.crit] || '') : ''}${firedStr}\n` +
       `最終結果：${resultMsg}\n` +
       `★請以 Fate／TYPE-MOON 筆觸生動描寫這場聖杯戰爭的廝殺，凸顯上面發動的技能／寶具威能與靈基壓迫感（演出而非複述標籤名）。勝負與傷害已由系統結算。\n` +
-      (destroyedName && dmgFaction !== "從者"
-        ? `★「${defC.name}」已靈基崩潰、徹底消滅，可描寫其消散；${victory ? '此乃最後一名敵對從者，聖杯已近。' : ''}\n`
-        : `★【鐵律】敗方最多重傷跪地，【絕對禁止】描寫死亡、消滅或屍體，生死由御主後續定奪。\n`) +
+      (sealEscaped
+        ? `★【令咒介入】${sealNote}請演出對面御主令咒光芒爆閃、強行將重傷從者扯離戰場的瞬間，本回合【無人死亡】，敵已遁走、不在場。\n`
+        : (destroyedName && dmgFaction !== "從者"
+          ? `★「${defC.name}」已靈基崩潰、徹底消滅，可描寫其消散；${victory ? '此乃最後一名敵對從者，聖杯已近。' : ''}\n`
+          : `★【鐵律】敗方最多重傷跪地，【絕對禁止】描寫死亡、消滅或屍體，生死由御主後續定奪。\n`)) +
       `★【鐵律】嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
   }
 
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, knockedOut: knockedOut,
     victory: victory, defeat: defeat, dreamPrompt: dreamPrompt,
+    sealEscaped: sealEscaped,
     statusString: getFreshStatusString(pcId, pIdx, sheets), combatResult: fb
   });
 }

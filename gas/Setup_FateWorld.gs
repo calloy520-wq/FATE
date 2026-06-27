@@ -43,7 +43,10 @@ var FATE_MAP_SEED = [
   ["冬木", "柳洞寺",       "靈地", "5,6",   "未遠川源頭山上的古剎，靈脈匯聚，是絕佳據點，亦是兵家必爭之地。", ""],
   ["冬木", "言峰教會",     "祭壇", "1,5",   "山丘上的天主教堂，聖杯戰爭的監督者於此坐鎮，提供中立庇護。", ""],
   ["冬木", "遠坂宅",       "據點", "3,1",   "新都一隅的西式洋館，遠坂家宅邸，結界森嚴。", ""],
-  ["冬木", "間桐宅",       "據點", "-2,-1", "深山町外緣的陰森洋宅，地底蟲窟蔓延，令人作嘔。", ""]
+  ["冬木", "間桐宅",       "據點", "-2,-1", "深山町外緣的陰森洋宅，地底蟲窟蔓延，令人作嘔。", ""],
+  ["冬木", "冬木·中央公園", "約會", "2,-1",  "新都中心的大型公園，巨大噴泉在陽光下灑落水霧，情侶與孩童在草坪上嬉鬧。", ""],
+  ["冬木", "冬木·海濱大道", "約會", "4,-2",  "面海的濱海步道，夕陽把海面染成金紅，海風帶著鹹味與冰淇淋的甜。", ""],
+  ["冬木", "冬木·遊樂園",   "約會", "-1,-3", "燈火璀璨的遊樂園，摩天輪緩緩轉動，旋轉木馬與攤販笑語不絕。", ""]
 ];
 
 // 規矩種子：開局時局
@@ -139,6 +142,14 @@ function reseedIfEmpty_(ss) {
       if (String(data[i][COL.MAP.PARENT]).trim() === "冬木") { data[i][COL.MAP.PARENT] = ""; changed = true; }
     }
     if (changed) km.getRange(1, 1, data.length, data[0].length).setValues(data);
+    // 補上新增的約會地點（既有地圖不會被整批覆蓋，逐一檢查補入）
+    var existNames = {};
+    var d2 = km.getDataRange().getValues();
+    for (var j = 1; j < d2.length; j++) existNames[String(d2[j][COL.MAP.NAME]).trim()] = true;
+    var dateNodes = FATE_MAP_SEED.filter(function (row) { return String(row[2]) === "約會" && !existNames[String(row[1]).trim()]; });
+    if (dateNodes.length) {
+      km.getRange(km.getLastRow() + 1, 1, dateNodes.length, dateNodes[0].length).setValues(dateNodes);
+    }
   }
   try { CacheService.getScriptCache().remove("KYUSHU_MAP_DATA"); } catch (e) { }
 }

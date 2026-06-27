@@ -66,6 +66,7 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
   row[COL.PC.MEMORY] = `第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || ""}`;
   row[COL.PC.SIX] = JSON.stringify(six);
   row[COL.PC.TAGS] = JSON.stringify({ skills: classSkills.concat(skills), traits: traits });
+  row[COL.PC.CONTRIB] = (faction === "敵從者") ? 3 : 0; // 敵方令咒餘量(對面御主的 3 道令咒，可緊急脫離)
   row[COL.PC.GAME_ID] = gameId;
   return row;
 }
