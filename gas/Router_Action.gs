@@ -3910,10 +3910,10 @@ function actionManaSupply(userData, pcId, sheets) {
   let manaAp = AP_PER_DAY, manaClock = "";
   if (isFateMana) { try { manaAp = spendAp_(myGameId, 1).ap; manaClock = clockLabel_(myGameId); } catch (e) { } }
 
-  // 戰場補魔一律純淨儀式（不吃慾海開關）——甜頭是奪杯後鑑賞模式的特權
+  // 戰場補魔：甜而克制的曖昧 fade（給點甜頭、不開慾海引擎）——真・慾海留給鑑賞
   const aiPrompt = `【系統·補魔已結算】御主以魔力供給「${svName}」，其魔力回復至 ${restored}/${mpMax}，羈絆微升。\n` +
-    `★以 Fate／TYPE-MOON 筆觸描寫這場魔力供給：御主將自身魔力導入從者的儀式（含蓄莊重、點到為止，聚焦魔力流轉與信賴，絕不逾越）。\n` +
-    `★【鐵律】演出而非複述設定；嚴禁任何露骨情慾描寫；嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
+    `★以 Fate／TYPE-MOON 筆觸，溫柔且帶一絲曖昧張力地描寫這場魔力供給——御主與從者肌膚相觸、魔力交融的私密一刻：可有體溫、心跳、靠近、屏息、半句未盡的情話與心動，氛圍甜美而克制，最後 fade-to-black 留白。聚焦兩人之間悄然升溫的羈絆。\n` +
+    `★【鐵律】止於唯美曖昧、點到為止；【不可】出現性器官、性交或露骨情慾描寫（那是奪杯後鑑賞的事）。演出而非複述設定；嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
