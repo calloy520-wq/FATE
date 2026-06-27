@@ -3,7 +3,15 @@
 // 🔴【第一部分：基礎設定、ORM 映射與數值統計核心】Core_Settings.gs
 // ==========================================
 
-const API_KEY = PropertiesService.getScriptProperties().getProperty('API_KEY');
+// 🔵 金鑰相容：九州原本叫 API_KEY，FATE Script 存的是 OPENROUTER_API_KEY；兩個名字都吃，免改 Script 屬性
+const API_KEY = (function () {
+  var p = PropertiesService.getScriptProperties();
+  return p.getProperty('API_KEY')
+      || p.getProperty('OPENROUTER_API_KEY')
+      || p.getProperty('OPENROUTER_KEY')
+      || p.getProperty('OPENROUTER')
+      || '';
+})();
 const MODEL_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 // ==========================================
