@@ -6,6 +6,11 @@
 // 階級倍率：以 C(30) 為 1.0 基準。E=0.33 D=0.67 C=1.0 B=1.33 A=1.67 EX=2.0；+ 各 +0.17
 function rankMul_(r) { return rankVal(r) / 30; }
 
+// 🎲 階級隨機區間（命中用）：每階級不取固定值，而是在 base-10 ~ base+5 之間隨機。
+//   E:0~15 D:10~25 C:20~35 B:30~45 A:40~55 EX:50~65——相鄰階級區間重疊，
+//   故低階偶能擲贏高階（爆冷），骰運重新有戲，不再「差一階就鎖死」。
+function rankBand_(r) { return rankVal(r) + (Math.floor(Math.random() * 16) - 10); }
+
 // 令咒緊急脫離的落點：隨機挑一個非約會型的冬木地點（≠ 當前地）
 function enemyRetreatLoc_(currentLoc) {
   try {
@@ -82,8 +87,9 @@ function resolveFateBattle_(atk, def, opts) {
   var outMod = mpPct >= 1 ? 2 : mpPct >= 0.7 ? 0 : mpPct >= 0.4 ? -2 : mpPct >= 0.15 ? -5 : -8;
 
   var aRoll = d20(), dRoll = d20();
-  var aHit = aRoll + rankVal(atk.six["敏捷"]) + outMod;
-  var dEva = dRoll + rankVal(def.six["敏捷"]);
+  // 命中／迴避的敏捷改用「階級隨機區間」(base-10~base+5)，讓低階偶能爆冷、骰運重新有戲
+  var aHit = aRoll + rankBand_(atk.six["敏捷"]) + outMod;
+  var dEva = dRoll + rankBand_(def.six["敏捷"]);
 
   // 直感/心眼(first_strike/analyze)：攻守先機 +3×階級
   var fsA = hasFx_(atk, 'first_strike') || hasFx_(atk, 'analyze'); if (fsA) { aHit += Math.round(3 * rankMul_(fsA)); fired.push(atk.name + (hasFx_(atk, 'analyze') ? '·心眼' : '·直感')); }
