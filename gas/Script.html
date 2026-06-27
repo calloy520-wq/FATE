@@ -1815,7 +1815,6 @@ function renderRecentLocs(recents = null) {
               '<div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">'
               + '<button onclick="manaSupply()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
               + '<button onclick="openSealMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(176,108,208,0.16); color:#c79be8; border:1px solid #8a5fb0; border-radius:6px; cursor:pointer;">❖ 令咒 ' + '❖'.repeat(Math.max(0, m.seals || 0)) + '</button>'
-              + '<button onclick="scout()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(90,150,150,0.16); color:#7fc7c7; border:1px solid #4a8a8a; border-radius:6px; cursor:pointer;">🔍 偵查</button>'
               + '<button onclick="openRestMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(120,120,160,0.16); color:#a9a9d8; border:1px solid #5a5a8a; border-radius:6px; cursor:pointer;">🛏️ 休息</button>'
               + '</div>')
           + '</div>';
@@ -1843,10 +1842,32 @@ function renderRecentLocs(recents = null) {
     try { var r = await gasRun({ action: 'get_map_nodes', pcId: pc.id }); if (r && r.success) { nodes = r.nodes || []; here = r.here || ''; } } catch (e) { }
     var html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">'
       + '<div style="color:#d4af37; font-weight:bold; font-size:14px;">🗺️ 冬木 · 戰場</div>'
-      + '<button class="btn" style="padding:3px 10px; font-size:12px; border-color:#4682b4; color:#9fc0ef;" onclick="refreshMapPane()">🔄 重整</button>'
-      + '</div>';
+      + '<div style="display:flex; gap:5px;">'
+      + ((pc && pc.mode === 'kanshou') ? '' : '<button class="btn" style="padding:3px 9px; font-size:12px; border-color:#4a8a8a; color:#7fc7c7;" onclick="scout()">🔍 偵查</button>')
+      + '<button class="btn" style="padding:3px 9px; font-size:12px; border-color:#4682b4; color:#9fc0ef;" onclick="refreshMapPane()">🔄 重整</button>'
+      + '</div></div>';
     html += '<div style="color:#9a8bb0; font-size:11px; margin-bottom:6px;">📍 目前所在：' + (here || '未知') + '　<span style="color:#d65c5c;">⚔ = 已偵查到敵人</span></div>';
     html += buildMapSvg_(nodes);
+
+    // ⚔️ 此地敵人 → 直接出戰（不必再翻互動視窗）
+    if (!(pc && pc.mode === 'kanshou')) {
+      var foes = (localNPCs || []).filter(function (n) { return n.isExact && (n.faction === '敵御主' || n.faction === '敵從者'); });
+      if (foes.length) {
+        html += '<div style="color:#d65c5c; font-size:12px; font-weight:bold; margin:12px 0 6px;">⚔️ 此地敵蹤（可出戰）：</div>';
+        foes.forEach(function (f) {
+          var safe = String(f.name).replace(/'/g, '');
+          var tag = f.faction === '敵從者' ? '從者' : '御主';
+          html += '<div style="border:1px solid rgba(214,92,92,0.4); border-radius:7px; padding:6px 8px; margin-bottom:7px; background:rgba(60,20,20,0.25);">'
+            + '<div style="color:#e8b0b0; font-size:12.5px; font-weight:bold; margin-bottom:4px;">' + f.name + ' <small style="color:#a77;">敵' + tag + '</small></div>'
+            + '<div style="display:flex; gap:4px; flex-wrap:wrap;">'
+            + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#a52a2a; color:#e07a7a;" onclick="servantStrike(\'' + safe + '\', false)">⚔️ 出戰</button>'
+            + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#d4af37; color:#e7c873;" onclick="servantStrike(\'' + safe + '\', true)">💥 寶具</button>'
+            + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#b06cd0; color:#c79be8;" onclick="servantStrike(\'' + safe + '\', false, true)">❖ 令咒</button>'
+            + '</div></div>';
+        });
+      }
+    }
+
     html += '<div style="color:#9a8bb0; font-size:12px; margin:12px 0 6px;">可前往：</div>';
     if (nearbyLocations && nearbyLocations.length) {
       nearbyLocations.forEach(function (l) {
