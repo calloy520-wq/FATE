@@ -1926,6 +1926,7 @@ async function checkName(event) {
       // 御主締結完成 → 進入召喚從者步驟
       document.getElementById('step-detail').style.display = 'none';
       document.getElementById('step-summon').style.display = 'block';
+      loadHeroes();
     } else {
       alert(data.message || "創角失敗，請重試。");
     }
@@ -1934,31 +1935,57 @@ async function checkName(event) {
   }
 }
 
-let selectedSummonClass = 'Saber';
-function selectSummonClass(btn) {
-  selectedSummonClass = btn.dataset.cls;
-  document.querySelectorAll('.summon-cls').forEach(b => { b.style.background = ''; b.style.boxShadow = ''; });
-  btn.style.background = 'rgba(212,175,55,0.25)';
-  btn.style.boxShadow = '0 0 8px rgba(212,175,55,0.6)';
-}
-
-async function summonServant(event) {
-  const cls = selectedSummonClass;
-  const trueName = document.getElementById('s-truename')?.value.trim() || "";
+let heroesData = [];
+let selectedSummonClass = '';
+async function loadHeroes() {
   try {
-    const data = await gasRun({ action: "summon_servant", pcId: pc.id, cls, trueName });
+    const r = await gasRun({ action: 'get_heroes', pcId: pc.id });
+    heroesData = (r && r.heroes) || [];
+  } catch (e) { heroesData = []; }
+}
+function selectSummonClass(cls) {
+  selectedSummonClass = cls;
+  document.querySelectorAll('.summon-cls').forEach(function (b) {
+    var on = b.dataset.cls === cls;
+    b.style.background = on ? 'rgba(212,175,55,0.25)' : '';
+    b.style.boxShadow = on ? '0 0 8px rgba(212,175,55,0.6)' : '';
+  });
+  renderHeroList();
+}
+function renderHeroList() {
+  var box = document.getElementById('hero-list'); if (!box) return;
+  var list = heroesData.filter(function (h) { return h.cls === selectedSummonClass; });
+  if (!list.length) {
+    box.innerHTML = '<p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">此職階英靈殿暫無資料，可用下方真名召喚。</p>';
+    return;
+  }
+  box.innerHTML = list.map(function (h) {
+    var id = String(h.id).replace(/'/g, '');
+    return '<button class="btn" style="width:100%; text-align:left; margin-bottom:5px; border-color:#d4af37; color:#e8dcc0; padding:8px 10px;" onclick="lockBtn(event, function(){return summonByHero(\'' + id + '\');})"><b>' + h.name + '</b>' + (h.np ? '<br><small style="color:#9a8bb0;">' + h.np + '</small>' : '') + '</button>';
+  }).join('');
+}
+async function doSummon(payload) {
+  try {
+    const data = await gasRun(Object.assign({ action: 'summon_servant', pcId: pc.id }, payload));
     if (data && data.success) {
-      pc.servant = data.servantName || "";
+      pc.servant = data.servantName || '';
       localStorage.setItem('kyushu_v27', JSON.stringify(pc));
       document.getElementById('step-summon').style.display = 'none';
       startGame(false);
     } else {
-      alert((data && data.message) || "召喚失敗，請重試。");
+      alert((data && data.message) || '召喚失敗，請重試。');
     }
   } catch (e) {
-    alert("召喚失敗，天道連線受阻。");
+    alert('召喚失敗，天道連線受阻。');
   }
 }
+function summonByHero(id) { return doSummon({ heroId: id }); }
+function summonByName() {
+  var tn = (document.getElementById('s-truename') && document.getElementById('s-truename').value.trim()) || '';
+  if (!tn) { alert('請輸入真名，或從上方挑選英靈。'); return; }
+  return doSummon({ trueName: tn });
+}
+function summonRandom() { return doSummon({ cls: selectedSummonClass || '' }); }
 
   function startGame(isRet) {
     document.getElementById('setup').style.display='none';

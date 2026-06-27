@@ -39,20 +39,28 @@
       <input type="text" id="s-wish" class="std-in" placeholder="你對聖杯的願望（如：拯救某個人／證明自己的價值）" maxlength="40" style="width:100%; box-sizing:border-box;">
       <button id="create-btn" class="btn" style="width:100%; margin-top:20px;" onclick="lockBtn(event, () => createPC(event))">⚜️ 締結令咒</button>
     </div>
-    <div id="step-summon" style="display:none; width:300px;">
-      <p style="text-align:center; color:var(--gold-accent); font-size:15px; font-weight:bold; margin-bottom:4px;">📿 召喚從者</p>
-      <p style="text-align:center; color:#816e54; font-size:12px; margin:0 0 14px;">以令咒為觸媒，選擇職階召喚屬於你的英靈：</p>
-      <div id="summon-class-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
-        <button type="button" class="btn summon-cls" data-cls="Saber" onclick="selectSummonClass(this)">⚔️ Saber 劍</button>
-        <button type="button" class="btn summon-cls" data-cls="Archer" onclick="selectSummonClass(this)">🏹 Archer 弓</button>
-        <button type="button" class="btn summon-cls" data-cls="Lancer" onclick="selectSummonClass(this)">🔱 Lancer 槍</button>
-        <button type="button" class="btn summon-cls" data-cls="Rider" onclick="selectSummonClass(this)">🐎 Rider 騎</button>
-        <button type="button" class="btn summon-cls" data-cls="Caster" onclick="selectSummonClass(this)">📖 Caster 術</button>
-        <button type="button" class="btn summon-cls" data-cls="Assassin" onclick="selectSummonClass(this)">🗡️ Assassin 殺</button>
-        <button type="button" class="btn summon-cls" data-cls="Berserker" onclick="selectSummonClass(this)" style="grid-column:1 / span 2;">💢 Berserker 狂</button>
+    <div id="step-summon" style="display:none; width:320px;">
+      <p style="text-align:center; color:var(--gold-accent); font-size:16px; font-weight:bold; margin-bottom:4px;">📿 召喚從者</p>
+      <p style="text-align:center; color:#816e54; font-size:12px; margin:0 0 10px;">選擇職階，從英靈殿挑選與你締約的英靈：</p>
+      <div id="summon-class-grid" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-bottom:8px;">
+        <button type="button" class="btn summon-cls" data-cls="Saber" onclick="selectSummonClass('Saber')">⚔️ Saber</button>
+        <button type="button" class="btn summon-cls" data-cls="Archer" onclick="selectSummonClass('Archer')">🏹 Archer</button>
+        <button type="button" class="btn summon-cls" data-cls="Lancer" onclick="selectSummonClass('Lancer')">🔱 Lancer</button>
+        <button type="button" class="btn summon-cls" data-cls="Rider" onclick="selectSummonClass('Rider')">🐎 Rider</button>
+        <button type="button" class="btn summon-cls" data-cls="Caster" onclick="selectSummonClass('Caster')">📖 Caster</button>
+        <button type="button" class="btn summon-cls" data-cls="Assassin" onclick="selectSummonClass('Assassin')">🗡️ Assassin</button>
+        <button type="button" class="btn summon-cls" data-cls="Berserker" onclick="selectSummonClass('Berserker')" style="grid-column:1 / span 3;">💢 Berserker</button>
       </div>
-      <input type="text" id="s-truename" class="std-in" placeholder="指定真名（留空＝隨機英靈，如：阿爾托莉雅）" maxlength="20" style="width:100%; box-sizing:border-box;">
-      <button id="summon-btn" class="btn" style="width:100%; margin-top:16px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="lockBtn(event, () => summonServant(event))">✨ 召喚從者</button>
+      <div id="hero-list" style="max-height:210px; overflow-y:auto; margin:6px 0; padding:4px; background:rgba(0,0,0,0.18); border:1px solid rgba(212,175,55,0.25); border-radius:6px;">
+        <p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">↑ 先選擇一個職階</p>
+      </div>
+      <div style="border-top:1px dashed rgba(212,175,55,0.3); margin-top:6px; padding-top:8px;">
+        <input type="text" id="s-truename" class="std-in" placeholder="或直接指定真名（如：吉爾伽美什）" maxlength="20" style="width:100%; box-sizing:border-box;">
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button class="btn" style="flex:1; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="lockBtn(event, summonByName)">✨ 真名召喚</button>
+          <button class="btn" style="flex:1; border-color:#9a7b4f; color:#9a7b4f;" onclick="lockBtn(event, summonRandom)">🎲 隨機</button>
+        </div>
+      </div>
     </div>
   </div>
 
