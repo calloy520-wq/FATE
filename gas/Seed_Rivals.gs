@@ -6,6 +6,26 @@
 
 function safeJson_(s, dflt) { try { return JSON.parse(s || ""); } catch (e) { return dflt; } }
 
+// 🔵 戰爭迷霧：玩家當前所在若有未偵查的敵御主/敵從者，標記為「已偵查」(地圖才會點亮)
+function markRivalsSeen_(sheets, pcId) {
+  try {
+    const data = sheets.pc.getDataRange().getValues();
+    const me = data.find(r => r[COL.PC.ID] == pcId);
+    if (!me) return;
+    const myGameId = String(me[COL.PC.GAME_ID] || "");
+    const myLoc = String(me[COL.PC.LOC] || "").trim();
+    if (!myLoc) return;
+    for (var i = 1; i < data.length; i++) {
+      var r = data[i], fac = String(r[COL.PC.FACTION]);
+      if (fac !== "敵御主" && fac !== "敵從者") continue;
+      if (String(r[COL.PC.GAME_ID] || "") !== myGameId) continue;
+      if (String(r[COL.PC.LOC] || "").trim() !== myLoc) continue;
+      if (r[COL.PC.SEEN]) continue;
+      sheets.pc.getRange(i + 1, COL.PC.SEEN + 1).setValue(1);
+    }
+  } catch (e) { }
+}
+
 // 第五次聖杯戰爭正典陣容（master_id, hero_id, 冬木落點）
 var FATE_5TH_ROSTER = [
   { master: '衛宮士郎-5th', hero: '阿爾托莉雅-Saber', loc: '冬木·深山町' },

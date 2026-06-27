@@ -1899,6 +1899,8 @@ function actionGetAllCategorizedMaps(userData, pcId, sheets) {
     const id = String(r[COL.PC.ID]);
     if (id.startsWith("DEAD_")) return;
     if (myGameIdMap && String(r[COL.PC.GAME_ID] || "") !== myGameIdMap) return;
+    const facM = String(r[COL.PC.FACTION]);
+    if ((facM === "敵御主" || facM === "敵從者") && !r[COL.PC.SEEN]) return; // 🔵 戰爭迷霧：未偵查到的敵人不在地圖顯示
     const fullLoc = String(r[COL.PC.LOC] || "").trim();
     const rootLoc = fullLoc.split('-')[0].trim();
 
@@ -1960,6 +1962,7 @@ function actionMove(userData, pcId, sheets) {
 
   sheets.pc.getRange(1, 1, allPcData.length, pcColCount).setValues(allPcData);
   SpreadsheetApp.flush();
+  try { markRivalsSeen_(sheets, pcId); } catch (e) { } // 🔵 抵達即偵查到此地敵人
 
   const freshMapData = sheets.map.getDataRange().getValues();
   const rootTarget = target ? String(target).split('-')[0].trim() : "";
@@ -1979,6 +1982,7 @@ function actionMove(userData, pcId, sheets) {
 }
 
 function actionSync(userData, pcId, sheets) {
+  try { markRivalsSeen_(sheets, pcId); } catch (e) { } // 🔵 戰爭迷霧：到場即偵查到此地敵人
   const allPcData = sheets.pc.getDataRange().getValues();
   const pcIndex = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pcIndex === -1) return JSON.stringify({ success: false, message: "查無此人" });
