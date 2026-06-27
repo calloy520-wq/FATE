@@ -81,9 +81,17 @@ function ensureFateSheets_(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
   var created = [];
   Object.keys(FATE_SHEET_DEFS).forEach(function (name) {
-    if (ss.getSheetByName(name)) return; // 已存在，半個字都不動
-    var sheet = ss.insertSheet(name);
     var headers = FATE_SHEET_DEFS[name];
+    var existing = ss.getSheetByName(name);
+    if (existing) {
+      // 已存在：只補「尾端缺少的表頭欄位標籤」(例如新加的 職階/六圍/標籤)，絕不覆蓋既有欄位或資料
+      var lastCol = existing.getLastColumn();
+      if (lastCol > 0 && lastCol < headers.length) {
+        existing.getRange(1, lastCol + 1, 1, headers.length - lastCol).setValues([headers.slice(lastCol)]);
+      }
+      return;
+    }
+    var sheet = ss.insertSheet(name);
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     sheet.setFrozenRows(1);
 
