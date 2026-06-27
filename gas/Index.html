@@ -16,21 +16,28 @@
     <h1
       style="color:var(--gold-accent); letter-spacing:10px; text-shadow: 0 0 10px var(--gold-accent); font-size: 32px; margin-bottom: 30px;">
       命運停駐之夜</h1>
-    <div id="step-name" style="width:280px;">
-      <input id="s-name" class="std-in" style="width:100%; box-sizing:border-box;" placeholder="輸入名號（限中文）..." maxlength="10">
-      <p style="text-align:center; color:#9a7b4f; font-size:12px; margin:8px 0 0;">※ 名號僅限中文字，不可使用英文、數字或符號。</p>
+    <div id="step-mode" style="width:280px;">
+      <p style="text-align:center; color:#816e54; font-size:14px; margin-bottom: 20px;">選擇你的聖杯戰爭：</p>
+      <button class="btn" style="width:100%; margin-bottom:12px; padding:14px 10px; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="chooseMode('solo')">⚔️ 單人模式<br><span style="font-size:11px; opacity:.7;">獨自降臨冬木，召喚屬於你的從者</span></button>
+      <button class="btn" style="width:100%; margin-bottom:12px; padding:14px 10px; opacity:.4; cursor:not-allowed;" disabled>🌐 多人模式　<span style="font-size:11px;">敬請期待</span></button>
+      <button class="btn" style="width:100%; padding:14px 10px; border-color:#9a7b4f; color:#9a7b4f;" onclick="chooseMode('gallery')">🏆 鑑賞模式<br><span style="font-size:11px; opacity:.7;">回顧締結過的從者</span></button>
+    </div>
+    <div id="step-name" style="display:none; width:280px;">
+      <input id="s-name" class="std-in" style="width:100%; box-sizing:border-box;" placeholder="輸入御主之名（限中文）..." maxlength="10">
+      <p style="text-align:center; color:#9a7b4f; font-size:12px; margin:8px 0 0;">※ 御主之名僅限中文字，不可使用英文、數字或符號。</p>
       <button id="start-btn" class="btn" style="width:100%; margin-top:16px;" onclick="lockBtn(event, () => checkName(event))">啟程</button>
+      <button class="btn" style="width:100%; margin-top:8px; border-color:#777; color:#999; font-size:12px; padding:6px;" onclick="document.getElementById('step-name').style.display='none';document.getElementById('step-mode').style.display='block';">← 返回</button>
     </div>
     <div id="step-detail" style="display:none; width:280px;">
-      <p style="text-align:center; color:#816e54; font-size:14px; margin-bottom: 20px;">此地無此名號，請定命格：</p>
+      <p style="text-align:center; color:#816e54; font-size:14px; margin-bottom: 16px;">締結令咒，成為御主：</p>
       <select id="s-sex" class="std-select" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
         <option value="男">男</option>
         <option value="女">女</option>
         <option value="異">異</option>
-        <option value="獸">獸</option>
       </select>
-      <input type="text" id="s-identity" class="std-in" placeholder="你的角色設定 (30字內)" maxlength="30" style="width:100%; box-sizing:border-box;">
-      <button id="create-btn" class="btn" style="width:100%; margin-top:20px;" onclick="lockBtn(event, () => createPC(event))">踏入輪迴</button>
+      <input type="text" id="s-standing" class="std-in" placeholder="身世／財力（如：沒落魔術名門末裔／揮金如土的醫科生）" maxlength="40" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
+      <input type="text" id="s-wish" class="std-in" placeholder="你對聖杯的願望（如：拯救某個人／證明自己的價值）" maxlength="40" style="width:100%; box-sizing:border-box;">
+      <button id="create-btn" class="btn" style="width:100%; margin-top:20px;" onclick="lockBtn(event, () => createPC(event))">⚜️ 締結令咒</button>
     </div>
   </div>
 

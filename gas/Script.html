@@ -1785,11 +1785,20 @@ async function handleItemAction(action, itemId, itemName, itemType) {
   // ==========================================
 // 🔴 補回遺失的「啟程 / 驗證名號」中樞
 // ==========================================
+function chooseMode(mode) {
+  if (mode === 'solo') {
+    document.getElementById('step-mode').style.display = 'none';
+    document.getElementById('step-name').style.display = 'block';
+  } else if (mode === 'gallery') {
+    alert('🏆 鑑賞模式建置中，敬請期待。');
+  }
+}
+
 async function checkName(event) {
   const name = document.getElementById('s-name').value.trim();
 
   if (!name) {
-    alert("請輸入大俠名號！");
+    alert("請輸入御主之名！");
     return;
   }
 
@@ -1834,10 +1843,11 @@ async function checkName(event) {
   async function createPC(event) {
   const name = document.getElementById('s-name').value.trim();
   const sex = document.getElementById('s-sex').value;
-  const identity = document.getElementById('s-identity')?.value.trim() || "";
+  const standing = document.getElementById('s-standing')?.value.trim() || "";
+  const wish = document.getElementById('s-wish')?.value.trim() || "";
 
   try {
-    const data = await gasRun({ action: "create", name, sex, identity });
+    const data = await gasRun({ action: "create", name, sex, standing, wish });
     if (data.success) {
       // 🔴 新角色一律清空所有舊暫存
       localStorage.removeItem('kyushu_recent_locs');
@@ -1878,7 +1888,7 @@ async function checkName(event) {
         if(htmlContent && htmlContent.trim() !== "") {
             story.innerHTML = htmlContent;
         } else {
-            story.innerHTML = `<div class="msg-ai"><b>【天道】</b>九州因果重啟，天命之人【${pc.name}】重返此界。</div>`;
+            story.innerHTML = `<div class="msg-ai"><b>【聖杯】</b>聖杯因果重啟，御主【${pc.name}】重返冬木。</div>`;
         }
         story.scrollTop = story.scrollHeight;
         
@@ -1887,7 +1897,7 @@ async function checkName(event) {
       }).getGameHistory(pc.id, pc.name);
         
     } else { 
-  send(`【天道】新命降生。場景就在『${pc.name}』出生地的大街上，描寫街道氛圍與來往行人，其中有一名有真實江湖名字的女性與玩家產生自然的邂逅或眼神交會。禁止用外貌描述代替名字。場景有趣有張力，讓玩家想主動開口。★禁止問玩家想做什麼。★禁止介紹玩家自己的身份。★禁止新增任何地圖或NPC進眾生冊。`, true);
+  send(`【聖杯戰爭】御主『${pc.name}』踏入冬木的夜。描寫所在街道的燈火、氛圍與往來行人，營造聖杯戰爭前夕的暗潮湧動；其中安排一名有真實名字的角色與『${pc.name}』自然地擦身或眼神交會，留下懸念。禁止用外貌描述代替名字。場景有張力，讓玩家想主動開口。★禁止問玩家想做什麼。★禁止介紹玩家自己的身份。★禁止新增任何地圖或NPC進眾生冊。`, true);
 }
   }
 

@@ -1440,7 +1440,7 @@ function actionUpdateFate(userData, pcId, sheets) {
 function actionManualNpc(userData, pcId, sheets) {
   const isCreate = userData.action === "create";
   const newId = isCreate ? "PC_" + Date.now() : "NPC_" + Date.now();
-  const { name, sex, identity, currentLoc, npcRel, npcName, npcSex } = userData;
+  const { name, sex, identity, standing, wish, currentLoc, npcRel, npcName, npcSex } = userData;
   const finalName = isCreate ? name : npcName;
   const finalSex = isCreate ? sex : (npcSex || "異");
 
@@ -1493,11 +1493,26 @@ function actionManualNpc(userData, pcId, sheets) {
 
   const npcContext = userData.npcContext ? `\n【登場脈絡】：${userData.npcContext.slice(0, 300)}` : "";
   const promptStr = isCreate
-    ? `【對象】：名號『${finalName}』，性別『${finalSex}』\n【執念】：${identity ? `【${identity}】` : "隨機"}\n【可選地區】：${validMapNames.join('、')}`
+    ? `【御主】：名號『${finalName}』，性別『${finalSex}』\n【身世／財力】：${standing || identity || "隨機"}\n【願望】：${wish || "隨機"}\n【可選地點(冬木)】：${validMapNames.join('、')}`
     : `【名號】：『${finalName}』\n【性別】：『${finalSex}』\n【地點】：『${currentLoc}』\n【與玩家『${pcNameStr}』初始關係】：『${npcRel || "萍水相逢"}』${npcContext}`;
 
+  // 🔵 御主創角專用 Fate 框架生成提示（NPC 仍走上面的 sysOverride）
+  const MASTER_GEN_SYS = `你是《命運停駐之夜》聖杯戰爭的角色生成核心，為玩家建立一位「御主（Master）」——參與第五次聖杯戰爭的現代魔術師，舞台是冬木市。請依玩家提供的姓名、性別、身世／財力、願望，生成合理且具戲劇張力的設定。
+
+★【演出而非說明】願望與身世只作為設定底層，不要在 background 裡直接複述願望字面。
+★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
+- traits：外貌、氣質舉止、魔術或戰鬥傾向、私下不為人知的一面
+- personality：日常表象、真實內裡、喜歡的事、討厭的事
+★npc_intent：一句話「可愛反差萌（萌點）」，結合此御主身分性格量身打造，要反差、可愛、獨特。
+★background：限20字，呼應其身世／財力，禁出現具體物品名。
+★start_loc：從冬木地點中選一個合理的居所或起點：${validMapNames.join('、')}
+★realm 一律填「凡人」（御主靈基由系統裁定）。faction 填御主所屬（魔術協會／教會／無所屬等，無則「無」），rank 填「御主」。
+
+★【輸出】合法 JSON、禁 Markdown：
+{"start_loc":"冬木地點","background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","realm":"凡人","str":12,"con":12,"agi":12,"int":12,"luk":12,"faction":"無","rank":"御主","align":"中立","npc_intent":"結合御主身分的獨特可愛反差萌，一句話","start_item":{"name":"與御主相關的隨身之物","desc":"限15字描述"}}`;
+
   // 🔴 新版：加上 ignoreLaw: true，把節慶跟天氣隔絕在創建室外
-  const aiBriefStr = callGeminiAPI(promptStr, sysOverride, { temperature: isCreate ? 0.5 : 0.5, ignoreLaw: true });
+  const aiBriefStr = callGeminiAPI(promptStr, isCreate ? MASTER_GEN_SYS : sysOverride, { temperature: 0.6, ignoreLaw: true });
   try {
     const aiBrief = JSON.parse(aiBriefStr);
 
@@ -1561,7 +1576,8 @@ function actionManualNpc(userData, pcId, sheets) {
     const pcColCount = Object.keys(COL.PC).length;
     const newRow = Array(pcColCount).fill("");
     newRow[COL.PC.ID] = newId; newRow[COL.PC.NAME] = finalName; newRow[COL.PC.SEX] = finalSex;
-    newRow[COL.PC.BACK] = aiBrief.background || "江湖散人"; newRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
+    newRow[COL.PC.BACK] = isCreate ? (standing || aiBrief.background || "來歷不明的魔術師") : (aiBrief.background || "江湖散人"); newRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
+    if (isCreate && wish) newRow[COL.PC.MEMORY] = `【願望】${wish}`;
     // 🔴 NPC 初始銀兩依境界給(玩家創角固定 50)，錢有變化、高人更富
     if (isCreate) {
       newRow[COL.PC.MONEY] = 150;
@@ -1612,7 +1628,7 @@ function actionManualNpc(userData, pcId, sheets) {
 
     registerFactionHelper(aiBrief.faction, aiBrief.rank, aiBrief.align, spawnName, finalName, sheets, isCreate ? newId : pcId, finalName, sheets.faction ? sheets.faction.getDataRange().getValues() : []);
 
-    return JSON.stringify({ success: true, pcId: isCreate ? newId : undefined, message: `【天道】因果已定，『${finalName}』${isCreate ? `於「${spawnName}」醒來` : `已收錄`}。` });
+    return JSON.stringify({ success: true, pcId: isCreate ? newId : undefined, message: `【聖杯】因果已定，『${finalName}』${isCreate ? `於「${spawnName}」締結令咒，成為御主` : `已收錄`}。` });
   } catch (e) { return JSON.stringify({ success: false, message: "建立失敗:" + e.message }); }
 }
 
