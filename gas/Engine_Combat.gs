@@ -289,6 +289,7 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
 }
 
 function doGet() {
+  try { ensureFateSheets_(); } catch (e) { Logger.log("ensureFateSheets_ 於 doGet 失敗(略過): " + e.message); }
   return HtmlService.createTemplateFromFile('Index').evaluate()
     .setTitle('命運停駐之夜')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
