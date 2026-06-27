@@ -107,15 +107,13 @@
   <div id="game">
     <div class="top-navbar">
       <div class="top-navbar-content" style="display: flex; gap: 10px; align-items: center; width:100%;">
-        <button id="notice-btn" class="btn" onclick="lockBtn(event, openNoticePanel)" style="padding: 4px 8px; font-size: 12px; border-color: #b8860b; color: #b8860b; background: rgba(184,134,11,0.1); position: relative;">📜信件 <span id="notice-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:#ff4d4d; color:#fff; border-radius:50%; width:14px; height:14px; font-size:10px; line-height:14px; text-align:center;"></span></button>
-        <button id="rest-btn" class="btn" style="padding: 4px 8px; font-size: 12px; border-color: #2e8b57; color: #2e8b57; background: rgba(46,139,87,0.1);" onclick="lockBtn(event, restAndHeal)">🌿 休養</button>
+        <button id="rest-btn" class="btn" style="padding: 4px 8px; font-size: 12px; border-color: #2e8b57; color: #2e8b57; background: rgba(46,139,87,0.1);" onclick="openRestMenu()">🛏️ 休息</button>
         <button id="lifeskill-btn" data-mode="full" class="btn" style="padding: 4px 8px; font-size: 12px; border-color: #8b5a2b; color: #8b5a2b; background: rgba(139,90,43,0.1);" onclick="openLifeskillMenu()">🌾 生活</button>
         <div class="player-badge">
           <span id="header-loc">感應中...</span>
         </div>
       </div>
     </div>
-    <div id="recent-loc-bar" style="display:none; overflow-x:auto; padding: 6px 10px; background:rgba(0,0,0,0.15); gap:8px; align-items:center; border-bottom:1px solid rgba(46,139,87,0.2); scrollbar-width: none; white-space: nowrap;"></div>
     <div id="pane-wrap">
       <div id="pane-status" class="game-pane">
         <div id="fate-tags" style="display:none; gap:6px; padding:6px 8px 2px;"></div>
@@ -125,7 +123,6 @@
       </div>
       <div id="pane-chat" class="game-pane active">
         <div id="clock-hud" style="display:none; text-align:center; font-size:12px; color:#c9b885; letter-spacing:1px; padding:5px 8px; border-bottom:1px solid rgba(212,175,55,0.18); background:rgba(20,14,28,0.4);">🌙 ─</div>
-        <div id="economy-hud" style="display:none; text-align:center; font-size:11.5px; padding:4px 8px; border-bottom:1px solid rgba(120,120,160,0.18); background:rgba(20,14,28,0.3);"></div>
         <div id="story"></div>
         <div id="options-container" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px; padding: 0 8px 8px;"></div>
       </div>

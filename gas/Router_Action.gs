@@ -1978,7 +1978,9 @@ function actionGetTags(userData, pcId, sheets) {
       six: six, skills: skills, traits: traits
     };
   }
-  return JSON.stringify({ success: true, master: master, servant: servant });
+  // 💠 供魔收支（左側狀態卡顯示用）：僅正式聖杯戰爭世界算
+  var economy = (gameId && gameId.indexOf("g_") === 0) ? playerServantEconomy_(sheets, pcId) : null;
+  return JSON.stringify({ success: true, master: master, servant: servant, economy: economy });
 }
 
 // 🔴 修正：原本所有缺座標的地點都會被塞進 (0,0)，導致俯瞰圖上大量節點重疊堆疊。

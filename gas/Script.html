@@ -1828,6 +1828,7 @@ function renderRecentLocs(recents = null) {
         + '<div style="color:#e8dcc0; font-size:13px; font-weight:bold; margin:1px 0 3px;">' + m.name + '</div>'
         + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">' + m.condition + '</div>'
         + bar('體', m.hpNum, m.hpMax, 'hp')
+        + bar('魔', m.mpNum, m.mpMax, 'mp')
         + '<div style="color:#9a8bb0; font-size:11px; margin-top:3px;">令咒 <span style="color:#c79be8;">' + '❖'.repeat(Math.max(0, m.seals || 0)) + '</span></div>'
         + '</div>';
       let sh;
@@ -1863,7 +1864,20 @@ function renderRecentLocs(recents = null) {
       } else {
         sh = card('#555', '📿 從者', '（尚未召喚）', ['以令咒召喚你的英靈']);
       }
-      box.innerHTML = mh + sh;
+      // 💠 供魔收支（放在左側狀態面板，一眼看光）
+      var eco = t.economy, ecoStrip = '';
+      if (eco && !(pc && pc.mode === 'kanshou')) {
+        var leyIcon = eco.ley >= 12 ? '🔵' : eco.ley >= 6 ? '🟢' : '⚪';
+        var net = eco.net, netCol = net > 0 ? '#7ec87e' : net < 0 ? '#e06a6a' : '#c9b885';
+        var wsStr = eco.workshop ? ((eco.atHome ? '🏠工房' : '🔯陣地') + ' +' + eco.workshop + '　') : '';
+        ecoStrip = '<div style="background:rgba(20,14,28,0.55); border:1px solid rgba(120,120,160,0.3); border-radius:8px; padding:6px 9px; font-size:11px; color:#bcd; margin-top:6px;">'
+          + '<div style="color:#9aa6c8; font-weight:bold; margin-bottom:3px;">💠 供魔收支（每小時）</div>'
+          + '迴路 +' + eco.supply + '　' + leyIcon + '靈脈 +' + eco.ley + '　' + wsStr + '<span style="color:#9a8;">維持 −' + eco.drain + '</span>'
+          + '　＝ <b style="color:' + netCol + ';">淨 ' + (net > 0 ? '+' : '') + net + '/時</b>'
+          + (net < 0 ? '<div style="color:#e06a6a; margin-top:2px;">⚠ 入不敷出——宜搶靈脈／回據點／補魔</div>' : '')
+          + '</div>';
+      }
+      box.innerHTML = mh + sh + ecoStrip;
       box.style.display = 'flex';
       box.style.flexDirection = 'column';
     } catch (e) { }
@@ -3060,13 +3074,15 @@ let plainTextContext = cleanText;
 }
 
       // 🕊️ 【和平互動區】
-      html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); interactNpc('交談', '${npcName}', '${currentLoc}', true)">🗣️ 交談</button>`;
-      
+      //   單人聖杯戰爭(solo)＝純按鈕，移除「交談／贈禮」這類需 AI 猜意圖的動作；保留窺探(看數值)/使用道具(補血)。
+      var _aiTalk = !(pc && pc.mode === 'solo');
+      if (_aiTalk) html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); interactNpc('交談', '${npcName}', '${currentLoc}', true)">🗣️ 交談</button>`;
+
       if (!isPC) {
           html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); openNpcInventoryModal('${npcName}')">👁️ 窺探</button>`;
       }
-      
-      html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); interactNpc('贈禮', '${npcName}', '${currentLoc}', true)">🎁 贈禮</button>`;
+
+      if (_aiTalk) html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); interactNpc('贈禮', '${npcName}', '${currentLoc}', true)">🎁 贈禮</button>`;
       if (pc && pc.mode === 'full') html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); openGiveMoneyPrompt('${npcName}')">💰 給銀兩</button>`;
       html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3; grid-column: span 2;" onclick="closeInteractMenu(); openUseItemOnNpcModal('${npcName}')">💊 使用道具 (補血/解狀態)</button>`;
 
