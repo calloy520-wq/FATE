@@ -41,7 +41,9 @@ const COL = {
   // 帳號（存檔身分）：帳號名 → 目前御主角色ID、勝場
   ACC: { NAME: 0, PC: 1, WON: 2, CREATED: 3 },
   // 戰史：每局結果紀錄
-  HIST: { ACC: 0, RESULT: 1, SERVANT: 2, SUMMARY: 3, TIME: 4 }
+  HIST: { ACC: 0, RESULT: 1, SERVANT: 2, SUMMARY: 3, TIME: 4 },
+  // 鑑賞：奪杯後封存的從者（可於鑑賞模式呼出）
+  GAL: { ACC: 0, NAME: 1, CLS: 2, SEX: 3, SIX: 4, TAGS: 5, NP: 6, BACK: 7, PREF: 8, MOE: 9, MEMOIR: 10, WISH: 11, TIME: 12 }
 };
 
 // 🔵 Fate 六圍階級：E~EX 轉數值（戰鬥系統換 D20 後會用到；+ 視為 +5）
