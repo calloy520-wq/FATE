@@ -279,7 +279,9 @@
   </div>
   <div class="col" id="col-map">
     <div class="sec-h">冬木市地圖</div><div id="map-wrap"></div>
-    <p style="color:var(--dim);font-size:12px;margin-top:10px">點擊相鄰地點移動（消耗 AP，由後端判定）。</p>
+    <div class="sec-h">可前往</div>
+    <div id="go-buttons" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px"></div>
+    <p style="color:var(--dim);font-size:12px;margin-top:6px">點下方按鈕或地圖上的相鄰地點移動（消耗 AP）。</p>
     <div class="sec-h toggler" onclick="App.fold(this)">所在地</div><div id="loc-info" style="font-size:13px;color:var(--dim)"></div>
     <div class="sec-h">物品欄</div><div id="inv-bar" style="display:flex;gap:6px;flex-wrap:wrap"></div>
   </div>
@@ -612,16 +614,14 @@ var App = {
   toggleDispatch:function(){ App._dispatch=!App._dispatch;
     var sub=document.getElementById('action-sub'); if(sub) sub.innerHTML=App.actGroupHtml();
     App.renderMap(); },
-  actGroupHtml:function(){ var sep=App.S.player.servant.separated, dz=App._dispatch;
+  actGroupHtml:function(){
     var b=function(type,label){ return '<button class="btn sm" onclick="App.act(\''+type+'\')">'+label+'</button>'; };
-    var h=b('scout','🔍 偵查')+'<button class="btn sm" onclick="App.act(\'separate\')">'+(sep?'🔗 召回從者（會合）':'🔀 分離（從者留守）')+'</button>';
-    if(sep) h+='<button class="btn sm'+(dz?' primary':'')+'" onclick="App.toggleDispatch()">'+(dz?'✖ 取消派駐':'➡ 派駐從者')+'</button>';
+    var h=b('scout','🔍 偵查');   // 分離/派駐/合流已移除（難用、意義不明）：御主與從者一律同行
     h+='<button class="btn sm" onclick="App.act(\'rest\',{hours:1})">😴 休息1h</button>'
       +'<button class="btn sm" onclick="App.act(\'rest\',{hours:3})">😴 休息3h</button>'
       +'<button class="btn sm" onclick="App.act(\'rest\',{hours:6})">🌙 休息至滿</button>'
       +'<button class="btn sm" onclick="App.act(\'shop\')">🛒 購物備糧</button>'
       +'<button class="btn sm" onclick="App.act(\'kit\')">📦 標準補給包</button>';
-    if(sep) h+='<span style="width:100%;font-size:11px;color:'+(dz?'var(--gold2)':'var(--dim)')+'">從者所在：'+App.locName(App.S.player.servant.loc)+(dz?'　↳ 點地圖上相鄰地，派從者前往':'')+'</span>';
     return h; },
   // 點分類 → 在 #action-sub 展開該類動作；再點同類收起
   openGroup:function(k){
@@ -694,7 +694,7 @@ var App = {
         var col=om>0?'#7ad08a':om<=-10?'var(--red2)':om<0?'#d6a85c':'var(--dim)';
         return '<div style="font-size:11px;color:'+col+';margin:-2px 0 4px" title="靈基出力：以 80% 為基準，越滿命中/傷害越強、越枯竭越弱（供魔充足的御主＝更強的從者）。拉到 100% 需主動供給/補魔。">⚡ '+lbl+'（出力基準 80%）</div>'; })()+
       '<div class="stat-row"><span title="從者對你的信任與羈絆；影響回應態度，過低時令咒強迫/獵食會更反感" style="cursor:help;border-bottom:1px dotted #4a4360">好感度</span><span style="color:#e58aa8">'+s.bond+'/100</span></div><div class="bar bond"><i style="width:'+s.bond+'%"></i></div>'+
-      '<div class="six">'+six+'</div><div style="margin-top:8px">'+tags+'</div>'+
+      '<div style="margin-top:8px">'+tags+'</div>'+   /* 六維數值不顯示給玩家（後台權威）；保留體況/出力/技能 */
       '<div id="skill-desc" style="display:none;margin-top:8px;font-size:12px;line-height:1.5;color:#d8cdee;background:#140f1f;border-left:3px solid var(--gold);border-radius:6px;padding:8px 10px"></div>'+
       '<div style="font-size:12px;color:var(--dim);margin-top:8px">寶具：'+s.np+'</div>'+
       '<div style="font-size:11px;color:var(--dim);margin-top:6px;cursor:help" title="維持＝從者每小時消耗的魔力；淨＝迴路回復＋環境供能−維持。淨為負時御主魔力庫會被慢慢抽乾，需休息/補魔/獵魔">維持 '+s.upkeep+'/h｜淨 <b style="color:'+(e.net>=0?'#5fae6e':'#d65c5c')+'">'+(e.net>=0?'+':'')+e.net+'/h</b>'+(s.separated?' <span style="color:#d65c5c">分離</span>':'')+'</div>'; },
@@ -739,7 +739,14 @@ var App = {
           '<button class="btn sm ghost" style="padding:3px 7px;font-size:12px;line-height:1" onclick="App.mapReset()">⟲</button>'+
         '</div>'+
       '</div>';
-    App._initMapControls(); },
+    App._initMapControls();
+    // 「可前往」按鈕：相鄰地點，點即移動（手機友善，免在小地圖點按）
+    var gb=document.getElementById('go-buttons');
+    if(gb){ var dcol={safe:'#3f6f47',mid:'#9a7b32',high:'#9a3a3a'},dtxt={safe:'安全',mid:'中等',high:'危險'};
+      var adj=(hereLoc.adj||[]).map(function(id){ return L.filter(function(x){return x.id===id;})[0]; }).filter(Boolean);
+      gb.innerHTML = adj.length ? adj.map(function(t){
+        return '<button class="btn sm" style="border-color:'+dcol[t.danger]+'" onclick="App.move(\''+t.id+'\')">'+t.name+'<span style="opacity:.6;font-size:11px"> '+dtxt[t.danger]+'</span></button>';
+      }).join('') : '<span style="font-size:12px;color:var(--dim)">此處無相鄰可往之地。</span>'; } },
   // 地圖縮放（以中心為基準）／重設／拖曳平移；viewBox 狀態存在 App.mapVB，跨重繪保留
   mapZoom:function(f){ var v=App.mapVB||(App.mapVB={x:0,y:0,w:700,h:440});
     var cx=v.x+v.w/2, cy=v.y+v.h/2, nw=Math.max(200,Math.min(900,v.w/f)), nh=nw*(440/700);
