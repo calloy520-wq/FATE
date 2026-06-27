@@ -1850,13 +1850,23 @@ async function handleItemAction(action, itemId, itemName, itemType) {
   // ==========================================
 // 🔴 補回遺失的「啟程 / 驗證名號」中樞
 // ==========================================
+var selectedMode = 'solo';
 function chooseMode(mode) {
   if (mode === 'solo') {
+    selectedMode = 'solo';
     document.getElementById('step-mode').style.display = 'none';
     document.getElementById('step-name').style.display = 'block';
   } else if (mode === 'gallery') {
     alert('🏆 鑑賞模式建置中，敬請期待。');
   }
+}
+
+// 🔵 依模式開關功能：單人(solo)隱藏武俠日常系統；多人(full)全開
+function applyModeUI() {
+  var isFull = (pc && pc.mode === 'full');
+  document.querySelectorAll('[data-mode="full"]').forEach(function (el) {
+    el.style.display = isFull ? '' : 'none';
+  });
 }
 
 // 🔵 御主命運測定（魔術天賦），最多 3 次
@@ -1910,7 +1920,7 @@ async function checkName(event) {
         localStorage.removeItem('kyushu_back_locked');
       }
       // 老玩家回歸，寫入前端記憶體並載入前塵記憶
-      pc = { id: res.pcId, name: name, sex: res.sex };
+      pc = { id: res.pcId, name: name, sex: res.sex, mode: (oldPc && oldPc.mode) || selectedMode };
       localStorage.setItem('kyushu_v27', JSON.stringify(pc));
       startGame(true);
     } else {
@@ -1943,7 +1953,7 @@ async function checkName(event) {
       localStorage.removeItem('kyushu_cult_count');
       localStorage.removeItem('kyushu_cult_date');
       localStorage.removeItem('kyushu_back_locked');
-      pc = { id: data.pcId, name, sex, gameId: data.gameId || "" };
+      pc = { id: data.pcId, name, sex, gameId: data.gameId || "", mode: selectedMode };
       localStorage.setItem('kyushu_v27', JSON.stringify(pc));
       // 御主締結完成 → 進入召喚從者步驟
       document.getElementById('step-detail').style.display = 'none';
@@ -2012,6 +2022,7 @@ function summonRandom() { return doSummon({ cls: selectedSummonClass || '' }); }
   function startGame(isRet) {
     document.getElementById('setup').style.display='none';
     document.getElementById('game').style.display='flex';
+    applyModeUI();
     refreshFateTags();
     document.getElementById('ui-name').innerText = pc.name;
     document.getElementById('ui-sex').innerText = pc.sex;
