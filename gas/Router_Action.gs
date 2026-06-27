@@ -1890,12 +1890,15 @@ function actionGetAllCategorizedMaps(userData, pcId, sheets) {
     return c;
   };
 
-  // 🔴 新增：統計每個地點的人數
+  // 🔴 統計每個地點的人數（🔵 只算自己 game_id 世界的人，杜絕跨世界人數外洩）
   const allPcData = sheets.pc.getDataRange().getValues();
+  const meRowMap = allPcData.find(r => r[COL.PC.ID] == pcId);
+  const myGameIdMap = meRowMap ? String(meRowMap[COL.PC.GAME_ID] || "") : "";
   const locCount = {};
   allPcData.slice(1).forEach(r => {
     const id = String(r[COL.PC.ID]);
     if (id.startsWith("DEAD_")) return;
+    if (myGameIdMap && String(r[COL.PC.GAME_ID] || "") !== myGameIdMap) return;
     const fullLoc = String(r[COL.PC.LOC] || "").trim();
     const rootLoc = fullLoc.split('-')[0].trim();
 
