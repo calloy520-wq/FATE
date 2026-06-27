@@ -39,6 +39,7 @@ const ActionRouter = {
   "manual_npc": actionManualNpc,
   "create": actionManualNpc, // create 與 manual_npc 共用同一個邏輯
   "summon_servant": actionSummonServant,
+  "get_tags": actionGetTags,
   "clear_npc_major_event": actionClearNpcMajorEvent,
   "get_all_categorized_maps": actionGetAllCategorizedMaps,
   "move": actionMove,
@@ -1716,6 +1717,52 @@ function actionSummonServant(userData, pcId, sheets) {
   } catch (e) {
     return JSON.stringify({ success: false, message: "召喚失敗：" + e.message });
   }
+}
+
+// ==========================================
+// 🔵 御主／從者 標籤資料（左側狀態卡用）：只給動作姿勢/令咒/羈絆/寶具，不給六維
+// ==========================================
+function actionGetTags(userData, pcId, sheets) {
+  const pcData = sheets.pc.getDataRange().getValues();
+  const m = pcData.find(r => r[COL.PC.ID] == pcId);
+  if (!m) return JSON.stringify({ success: false });
+  const gameId = String(m[COL.PC.GAME_ID] || "");
+
+  const hpWord = (hp, mx) => {
+    hp = parseInt(hp) || 0; mx = parseInt(mx) || 1; const p = hp / mx;
+    return p >= 0.99 ? "無傷" : p >= 0.7 ? "輕傷" : p >= 0.4 ? "負傷" : p > 0.15 ? "重傷" : p > 0 ? "瀕死" : "力竭";
+  };
+
+  let wish = "";
+  const wm = String(m[COL.PC.MEMORY] || "").match(/【願望】([^|【]*)/);
+  if (wm) wish = wm[1].trim();
+
+  const master = {
+    name: m[COL.PC.NAME], sex: m[COL.PC.SEX],
+    condition: buildVisibleStatusString(m[COL.PC.STATUS]),
+    hp: hpWord(m[COL.PC.HP], m[COL.PC.MAX_HP]),
+    seals: 3, wish: wish
+  };
+
+  let servant = null;
+  const s = pcData.find(r =>
+    String(r[COL.PC.FACTION]) === "從者" &&
+    String(r[COL.PC.GAME_ID] || "") === gameId &&
+    !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  if (s) {
+    let bond = 0;
+    if (sheets.rel) {
+      const rel = sheets.rel.getDataRange().getValues().find(r => r[COL.REL.PC] === m[COL.PC.NAME] && r[COL.REL.NPC] === s[COL.PC.NAME]);
+      if (rel) bond = parseInt(rel[COL.REL.FAV]) || 0;
+    }
+    servant = {
+      name: s[COL.PC.NAME], cls: s[COL.PC.RANK] || "從者", sex: s[COL.PC.SEX],
+      condition: buildVisibleStatusString(s[COL.PC.STATUS]),
+      hp: hpWord(s[COL.PC.HP], s[COL.PC.MAX_HP]),
+      np: s[COL.PC.MARTIAL] || "寶具未顯現", bond: bond
+    };
+  }
+  return JSON.stringify({ success: true, master: master, servant: servant });
 }
 
 // 🔴 修正：原本所有缺座標的地點都會被塞進 (0,0)，導致俯瞰圖上大量節點重疊堆疊。
