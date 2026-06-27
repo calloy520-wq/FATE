@@ -2568,6 +2568,14 @@ function applyModeUI() {
   document.querySelectorAll('[data-mode="full"]').forEach(function (el) {
     el.style.display = isFull ? '' : 'none';
   });
+  // 🔵 對話輸入窗只在「鑑賞」(後日談約會)模式出現。
+  //   單人聖杯戰爭＝純按鈕：GAS 算數值、AI 只說書，不再猜玩家想幹嘛(actionPlay 天道演化)。
+  //   保留「＋」工具抽屜(狀態/史紀/設定)，只收掉文字輸入框、傳送鈕與慾海開關。
+  var isKanshou = (pc && pc.mode === 'kanshou');
+  var uin = document.getElementById('u-in'); if (uin) uin.style.display = isKanshou ? '' : 'none';
+  var sbtn = document.getElementById('send-btn'); if (sbtn) sbtn.style.display = isKanshou ? '' : 'none';
+  var nsfw = document.getElementById('nsfw-mode-toggle');
+  if (nsfw) { var lab = nsfw.closest('label'); if (lab) lab.style.display = isKanshou ? '' : 'none'; }
 }
 
 // 🔵 御主命運測定（魔術天賦），最多 3 次
