@@ -2127,7 +2127,8 @@ function actionMove(userData, pcId, sheets) {
   let regenNote = "";
   if (isFateMove) {
     const partyNames = relData.filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]);
-    const did = applyRegen_(allPcData, moveGameId, pcName, partyNames, masterCircuits_(allPcData[pIdx]), 2, 1);
+    const homeLoc = playerHomeLoc_(sheets, pcId);
+    const did = applyRegen_(allPcData, moveGameId, pcName, partyNames, masterCircuits_(allPcData[pIdx]), 2, 1, sheets, target, homeLoc);
     if (did) regenNote = "〔時回〕數小時的奔波之間，靈基與魔力隨時間悄然回流了一些。";
   }
 
@@ -2168,7 +2169,8 @@ function actionMove(userData, pcId, sheets) {
     clock: clockLabel,
     ap: apLeft,
     apMax: AP_PER_DAY,
-    rumors: worldRumors
+    rumors: worldRumors,
+    economy: isFateMove ? playerServantEconomy_(sheets, pcId) : null
   });
 }
 
@@ -2192,7 +2194,8 @@ function actionSync(userData, pcId, sheets) {
     mapDesc: currentMapInfo ? currentMapInfo[COL.MAP.DESC] : "四下靜謐。",
     clock: syncClock,
     ap: syncAp,
-    apMax: AP_PER_DAY
+    apMax: AP_PER_DAY,
+    economy: (syncGameId && syncGameId.indexOf("g_") === 0) ? playerServantEconomy_(sheets, pcId) : null
   });
 }
 
@@ -2221,8 +2224,8 @@ function actionRest(userData, pcId, sheets) {
         if (nIdx !== -1 && parseInt(pcData[nIdx][COL.PC.HP]) > 0) { partyNames.push(npcName); healedNames.push(npcName); }
       });
     }
-    // 時回 ×2：休息 restHours 小時的雙倍回復（HP 固定、MP 看御主魔術迴路）
-    applyRegen_(pcData, restGameId, pcName, partyNames, masterCircuits_(pcData[pIdx]), restHours, 2);
+    // 時回 ×2：休息 restHours 小時的回復（HP 自我修復；MP 走魔力收支經濟，休息把收入加倍）
+    applyRegen_(pcData, restGameId, pcName, partyNames, masterCircuits_(pcData[pIdx]), restHours, 2, sheets, pcLoc, playerHomeLoc_(sheets, pcId));
     // 休滿（HP 回到上限）者重置體態為平穩
     [pIdx].concat(partyNames.map(n => pcData.findIndex(r => r[COL.PC.NAME] === n && String(r[COL.PC.GAME_ID] || "") === restGameId && !String(r[COL.PC.ID]).startsWith("DEAD_")))).forEach(idx => {
       if (idx >= 0 && (parseInt(pcData[idx][COL.PC.HP]) || 0) >= (parseInt(pcData[idx][COL.PC.MAX_HP]) || 0)) pcData[idx][COL.PC.STATUS] = normalStatus;
@@ -2240,7 +2243,8 @@ function actionRest(userData, pcId, sheets) {
     try { sheets.log.appendRow([new Date(), pcId, `【系統】御主一行休息了 ${restHours} 小時，恢復行動力。`, pcLoc]); } catch (e) { }
     return JSON.stringify({
       success: true, statusString: getFreshStatusString(pcId, pIdx, sheets), healedNames: healedNames,
-      loc: pcLoc, wasInjured: wasInjured, restHours: restHours, clock: restClock, ap: apAfter, apMax: AP_PER_DAY, rumors: restRumors
+      loc: pcLoc, wasInjured: wasInjured, restHours: restHours, clock: restClock, ap: apAfter, apMax: AP_PER_DAY, rumors: restRumors,
+      economy: playerServantEconomy_(sheets, pcId)
     });
   }
 

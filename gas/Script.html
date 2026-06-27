@@ -968,6 +968,25 @@ function renderRecentLocs(recents = null) {
       hud.style.display = 'none';
     }
   }
+  // 💠 從者魔力收支 HUD：供給(迴路)＋靈脈＋工房 − 維持＝淨值。赤字標紅警告，提醒搶靈脈/回家/補魔。
+  function updateEconomy(eco) {
+    const hud = document.getElementById('economy-hud');
+    if (!hud) return;
+    if (eco === undefined) return;                                  // 此動作未計算經濟→保留現狀，不閃動
+    if (!eco || (pc && pc.mode === 'kanshou')) { hud.style.display = 'none'; return; }
+    const leyIcon = eco.ley >= 12 ? '🔵' : eco.ley >= 6 ? '🟢' : '⚪';
+    const parts = [`迴路 +${eco.supply}`, `${leyIcon}靈脈 +${eco.ley}`];
+    if (eco.workshop) parts.push((eco.atHome ? '🏠工房' : '🔯陣地') + ' +' + eco.workshop);
+    const net = eco.net;
+    const netColor = net > 0 ? '#7ec87e' : net < 0 ? '#e06a6a' : '#c9b885';
+    const netStr = (net > 0 ? '+' : '') + net;
+    let html = `<span style="color:#9aa6c8;">💠 供魔</span> <span style="color:#bcd;">${parts.join('　')}</span>`
+      + ` <span style="color:#9a8;">－維持 ${eco.drain}</span>`
+      + ` ＝ <b style="color:${netColor};">淨 ${netStr}/時</b>`;
+    if (net < 0) html += ` <span style="color:#e06a6a;">⚠ 入不敷出，宜搶靈脈/回據點/補魔</span>`;
+    hud.innerHTML = html;
+    hud.style.display = 'block';
+  }
   // 把世界自走的風聞推進故事流
   function showRumors(rumors) {
     if (!rumors || !rumors.length) return;
@@ -986,7 +1005,7 @@ function renderRecentLocs(recents = null) {
       [6, '🛌 安睡 6 小時', '+12 行動力補滿・大幅回血回魔'],
     ];
     let html = '<h3 style="margin:0 0 6px;color:#a9a9d8;">🛏️ 休息多久？</h3>'
-      + '<p style="color:#9a8bb0;font-size:12px;margin:0 0 10px;">每休息 1 小時恢復 2 點行動力；休越久回血回魔越多，但世界也會推進更多。<br><span style="color:#8a9ac0;">〔時回〕HP 隨時間自然回復，MP 回復快慢看御主的魔術迴路；移動時也會小幅回流，休息則是雙倍。</span></p>';
+      + '<p style="color:#9a8bb0;font-size:12px;margin:0 0 10px;">每休息 1 小時恢復 2 點行動力；休越久回血回魔越多，但世界也會推進更多。<br><span style="color:#8a9ac0;">〔時回〕HP 隨時間自我修復；MP 看上方供魔收支（迴路＋靈脈＋工房 － 維持），休息時「收入」加倍。赤字時休息也補不滿，宜搬去靈脈匯聚處或回據點。</span></p>';
     html += opts.map(function (o) {
       return '<button onclick="rest(' + o[0] + ')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px;background:rgba(120,120,160,0.14);color:#e8dcc0;border:1px solid #5a5a8a;border-radius:8px;cursor:pointer;">'
         + '<b style="color:#bcbce0;">' + o[1] + '</b>　<span style="font-size:12px;color:#9a8bb0;">' + o[2] + '</span></button>';
@@ -1007,6 +1026,7 @@ function renderRecentLocs(recents = null) {
       if (data && data.success) {
         if (data.statusString) { localStorage.setItem('kyushu_last_status', data.statusString); updateUI(data.statusString.split('§')); }
         updateClock(data.clock, data.ap, data.apMax);
+        updateEconomy(data.economy);
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【休息 ${hours} 小時】</b>${(data.healedNames||['你']).join('與')}恢復了氣力，行動力 ${data.ap}/${data.apMax}。${data.clock ? '（' + data.clock + '）' : ''}</div>`);
         showRumors(data.rumors);
         syncData(true);
@@ -1061,6 +1081,7 @@ function renderRecentLocs(recents = null) {
         // 3. 顯示結果
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【抵達 ${targetName}】：</b><br><span>${locDesc}</span></div>`);
         updateClock(data.clock, data.ap, data.apMax);
+        updateEconomy(data.economy);
         showRumors(data.rumors);
 
         // 4. 清理 loading 提示
@@ -2163,6 +2184,7 @@ function renderRecentLocs(recents = null) {
       localNPCs = data.people || [];
       nearbyLocations = data.locations || [];
       updateClock(data.clock, data.ap, data.apMax);
+      updateEconomy(data.economy);
       refreshFateTags();
       renderMapPane();
 

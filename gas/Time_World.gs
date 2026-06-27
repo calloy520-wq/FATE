@@ -82,22 +82,87 @@ function clockLabel_(gameId) {
 }
 
 
-// ⏳ 時回：每小時自然回復率。從者 HP 固定（靈基自我修復）；MP 隨「御主魔術迴路」浮動
-//   ——迴路越多，能源源導給從者的魔力越穩（呼應舊 Fate 的迴路設定）。circuits 約 10–90。
-function regenRatePerHour_(circuits) {
-  var c = parseInt(circuits) || 30;
+// 🔮 靈脈：依坤圖地點「類型」給每小時回魔基值。靈地(柳洞寺/河畔)匯聚最高、據點/祭壇(宅邸/教會)中等、城區野外最低。
+//   沿用既有 TYPE 欄，不動 schema。
+function leylineAt_(sheets, loc) {
+  if (!sheets || !sheets.map || !loc) return 2;
+  var root = String(loc).split('-')[0].trim();
+  try {
+    var data = sheets.map.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][COL.MAP.NAME]).trim() !== root) continue;
+      var t = String(data[i][COL.MAP.TYPE]).trim();
+      if (t === "靈地") return 12;                 // 靈脈匯聚（柳洞寺、未遠川河畔）
+      if (t === "祭壇" || t === "據點") return 6;   // 結界森嚴的宅邸／教會
+      return 2;                                    // 城區、街道、約會景點
+    }
+  } catch (e) { }
+  return 2;
+}
+var LEYLINE_LABEL_ = { 12: "靈脈匯聚", 6: "靈氣尚可", 2: "靈氣稀薄" };
+
+// 💠 從者每小時魔力收支（時回與前端顯示共用）。有理有據的供養經濟：
+//   收入 = 御主供給(迴路×0.5) + 靈脈(地點) + 工房(在自己居所／Caster 陣地 +8)
+//   支出 = 維持費(六圍總和/8；狂化×1.5)——越貴的英靈越難養
+//   回傳每小時魔力點數 { supply, ley, workshop, income, drain, net }
+function servantEconomy_(circuits, six, isMad, leyline, hasWorkshop) {
+  var supply = Math.round((parseInt(circuits) || 30) * 0.5);
+  var ws = hasWorkshop ? 8 : 0;
+  var income = supply + (leyline || 0) + ws;
+  var sum = 0; ["筋力", "耐久", "敏捷", "魔力", "幸運", "寶具"].forEach(function (k) { sum += rankVal(six[k] || "C"); });
+  var drain = Math.round(sum / 8 * (isMad ? 1.5 : 1));
+  return { supply: supply, ley: leyline || 0, workshop: ws, income: income, drain: drain, net: income - drain };
+}
+
+// 取玩家家園(居所 COL.AUTH.HOME_LOC)所在地；無則 ""。
+function playerHomeLoc_(sheets, pcId) {
+  if (!sheets || !sheets.auth) return "";
+  try {
+    var d = sheets.auth.getDataRange().getValues();
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][COL.AUTH.ID]).trim() === String(pcId).trim()) return String(d[i][COL.AUTH.HOME_LOC] || "").trim();
+    }
+  } catch (e) { }
+  return "";
+}
+
+// 供前端顯示：玩家從者當前魔力收支與所在靈脈（null＝無存活從者）
+function playerServantEconomy_(sheets, pcId) {
+  var data = sheets.pc.getDataRange().getValues();
+  var pIdx = -1; for (var i = 1; i < data.length; i++) { if (String(data[i][COL.PC.ID]) === String(pcId)) { pIdx = i; break; } }
+  if (pIdx < 0) return null;
+  var gid = String(data[pIdx][COL.PC.GAME_ID] || "");
+  var circuits = masterCircuits_(data[pIdx]);
+  var homeLoc = playerHomeLoc_(sheets, pcId);
+  var sv = null;
+  for (var j = 1; j < data.length; j++) {
+    if (String(data[j][COL.PC.FACTION]) === "從者" && String(data[j][COL.PC.GAME_ID] || "") === gid && !String(data[j][COL.PC.ID]).startsWith("DEAD_")) { sv = data[j]; break; }
+  }
+  if (!sv) return null;
+  var loc = String(sv[COL.PC.LOC] || "");
+  var ley = leylineAt_(sheets, loc);
+  var rootLoc = loc.split('-')[0].trim();
+  var atHome = !!(homeLoc && rootLoc && String(homeLoc).split('-')[0].trim() === rootLoc);
+  var c = rowToCombatant_(sv);
+  var hasTerritory = !!hasFx_(c, 'territory');
+  var eco = servantEconomy_(circuits, c.six, !!hasFx_(c, 'mad'), ley, atHome || hasTerritory);
   return {
-    hp: 0.05,                               // 靈基自我修復：每小時 +5% 最大 HP
-    mp: 0.04 + Math.min(0.05, c / 2000)     // 補魔回流：每小時 +4% MP，再依魔術迴路最多 +5%
+    income: eco.income, drain: eco.drain, net: eco.net,
+    supply: eco.supply, ley: eco.ley, workshop: eco.workshop,
+    leyLabel: LEYLINE_LABEL_[ley] || "靈氣稀薄", loc: rootLoc,
+    atHome: atHome, hasTerritory: hasTerritory, sustainable: eco.net >= 0, circuits: circuits
   };
 }
 
 // 對「御主＋同行從者」施加 hours 小時的時回；mult＝倍率（移動 1、休息 2）。
-//   只改記憶體 data（由呼叫端負責寫回）；回傳實際是否有人回復。
-function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult) {
+//   HP：靈基自我修復(每小時 5%×倍率)；MP(從者)：走魔力收支經濟(供給+靈脈+工房-維持)，
+//   休息把「收入」加倍、維持不變；魔力觸底會反傷靈基。只改記憶體 data；回傳是否有變動。
+function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult, sheets, loc, homeLoc) {
   if (!gameId || !hours) return false;
-  var rate = regenRatePerHour_(circuits);
-  var hpF = rate.hp * hours * (mult || 1), mpF = rate.mp * hours * (mult || 1);
+  mult = mult || 1;
+  var ley = leylineAt_(sheets, loc);
+  var rootLoc = String(loc || "").split('-')[0].trim();
+  var atHome = !!(homeLoc && rootLoc && String(homeLoc).split('-')[0].trim() === rootLoc);
   var party = {}; party[String(playerName)] = true;
   (partyNames || []).forEach(function (n) { party[String(n)] = true; });
   var did = false;
@@ -105,10 +170,21 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
     if (String(data[i][COL.PC.GAME_ID] || "") !== gameId) continue;
     if (String(data[i][COL.PC.ID]).startsWith("DEAD_")) continue;
     if (!party[String(data[i][COL.PC.NAME])]) continue;
+    var fac = String(data[i][COL.PC.FACTION]);
     var hpMax = parseInt(data[i][COL.PC.MAX_HP]) || 0, mpMax = parseInt(data[i][COL.PC.MAX_MP]) || 0;
     var hp = parseInt(data[i][COL.PC.HP]) || 0, mp = parseInt(data[i][COL.PC.MP]) || 0;
-    var nhp = hpMax ? Math.min(hpMax, hp + Math.round(hpMax * hpF)) : hp;
-    var nmp = mpMax ? Math.min(mpMax, mp + Math.round(mpMax * mpF)) : mp;
+    var nhp = hpMax ? Math.min(hpMax, hp + Math.round(hpMax * 0.05 * hours * mult)) : hp;
+    var nmp = mp;
+    if (fac === "從者" && mpMax) {
+      var c = rowToCombatant_(data[i]);
+      var hasWs = atHome || !!hasFx_(c, 'territory'); // 在自己居所 或 自帶陣地作成(Caster)
+      var eco = servantEconomy_(circuits, c.six, !!hasFx_(c, 'mad'), ley, hasWs);
+      var perHour = (eco.income * mult) - eco.drain;  // 休息把收入加倍、維持不變
+      nmp = Math.max(0, Math.min(mpMax, mp + perHour * hours));
+      if (nmp <= 0) nhp = Math.max(1, nhp - Math.round((hpMax || 100) * 0.02 * hours)); // 魔力枯竭反傷靈基
+    } else if (mpMax) {
+      nmp = Math.min(mpMax, mp + Math.round(mpMax * 0.05 * hours * mult)); // 御主等：簡單回魔
+    }
     if (nhp !== hp || nmp !== mp) { data[i][COL.PC.HP] = nhp; data[i][COL.PC.MP] = nmp; did = true; }
   }
   return did;
