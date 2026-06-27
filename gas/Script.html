@@ -1925,21 +1925,44 @@ function renderRecentLocs(recents = null) {
   function refreshMapPane() { syncData(true); }
   function buildMapSvg_(nodes) {
     if (!nodes || !nodes.length) return '<p style="color:#816e54; text-align:center; padding:20px;">冬木地圖載入中或尚無資料。</p>';
-    var S = 34, pad = 46;
-    var xs = nodes.map(function (n) { return n.x * S; }), ys = nodes.map(function (n) { return -n.y * S; });
-    var minX = Math.min.apply(null, xs) - pad, maxX = Math.max.apply(null, xs) + pad;
-    var minY = Math.min.apply(null, ys) - pad, maxY = Math.max.apply(null, ys) + pad;
-    var typeColor = { '城區': '#4682b4', '靈地': '#2e8b57', '祭壇': '#d4af37', '據點': '#a0522d' };
-    var s = '';
+    // 🗺️ 固定冬木佈局（0..100 格）：未遠川為中軸，深山町在東、新都在西，柳洞寺/教會在北側山丘，
+    //    約會景點在南。不再用試算表座標，保證乾淨、節點不擠角落。以「短名」對應(去掉「冬木·」前綴)。
+    var short = function (nm) { return String(nm).replace('冬木', '').replace(/^[·・‧\-\s]+/, '').trim() || String(nm); };
+    var LAYOUT = {
+      '柳洞寺': [76, 12], '言峰教會': [50, 17], '穗群原學園': [17, 29],
+      '深山町': [28, 44], '間桐宅': [14, 60], '未遠川河畔': [50, 47],
+      '大橋': [50, 64], '新都': [73, 44], '商店街': [88, 32],
+      '遠坂宅': [83, 58], '中央公園': [66, 77], '海濱大道': [89, 80], '遊樂園': [41, 83]
+    };
+    var CONN = [['柳洞寺', '言峰教會'], ['言峰教會', '未遠川河畔'], ['未遠川河畔', '大橋'],
+    ['大橋', '新都'], ['大橋', '深山町'], ['深山町', '穗群原學園'], ['深山町', '間桐宅'],
+    ['新都', '商店街'], ['新都', '遠坂宅'], ['新都', '中央公園'], ['中央公園', '海濱大道'], ['大橋', '遊樂園']];
+    var typeColor = { '城區': '#5a93c9', '靈地': '#3fae6b', '祭壇': '#e0bb44', '據點': '#c07a45', '約會': '#cd82c0', '居所': '#cd9b5a' };
+    // 定位：未列於佈局者(如玩家自建居所)沿底部排開
+    var pos = {}, extra = 0;
     nodes.forEach(function (n) {
-      var cx = n.x * S, cy = -n.y * S, col = typeColor[n.type] || '#888';
-      var nm = String(n.name).replace(/'/g, '');
-      if (n.here) s += '<circle cx="' + cx + '" cy="' + cy + '" r="16" fill="none" stroke="#e7c873" stroke-width="3"/>';
-      if (n.enemy) s += '<circle cx="' + cx + '" cy="' + cy + '" r="21" fill="none" stroke="#d65c5c" stroke-width="2" stroke-dasharray="3,3"/>';
-      s += '<circle cx="' + cx + '" cy="' + cy + '" r="9" fill="' + col + '" stroke="#0a0810" stroke-width="2" style="cursor:pointer" onclick="travelFromPane(\'' + nm + '\')"/>';
-      s += '<text x="' + cx + '" y="' + (cy + 25) + '" font-size="13" fill="#e8e0f5" text-anchor="middle" paint-order="stroke" stroke="#0a0810" stroke-width="3" style="cursor:pointer" onclick="travelFromPane(\'' + nm + '\')">' + n.name + (n.enemy ? ' ⚔' : '') + '</text>';
+      var k = short(n.name);
+      if (LAYOUT[k]) pos[n.name] = LAYOUT[k];
+      else { pos[n.name] = [10 + extra * 20, 96]; extra++; }
     });
-    return '<div style="background:rgba(10,8,16,0.6); border:1px solid rgba(212,175,55,0.25); border-radius:8px; overflow:hidden;"><svg viewBox="' + minX + ' ' + minY + ' ' + (maxX - minX) + ' ' + (maxY - minY) + '" style="width:100%; height:auto; max-height:330px; display:block;">' + s + '</svg></div>';
+    var s = '';
+    // 連線（未遠川河道／街道）
+    var byShort = {}; nodes.forEach(function (n) { byShort[short(n.name)] = n.name; });
+    CONN.forEach(function (c) {
+      var a = pos[byShort[c[0]]], b = pos[byShort[c[1]]];
+      if (a && b) s += '<line x1="' + a[0] + '" y1="' + a[1] + '" x2="' + b[0] + '" y2="' + b[1] + '" stroke="rgba(120,150,200,0.22)" stroke-width="0.7"/>';
+    });
+    // 節點
+    nodes.forEach(function (n) {
+      var p = pos[n.name]; if (!p) return;
+      var cx = p[0], cy = p[1], col = typeColor[n.type] || '#888';
+      var nm = String(n.name).replace(/'/g, '');
+      if (n.here) s += '<circle cx="' + cx + '" cy="' + cy + '" r="3.8" fill="none" stroke="#e7c873" stroke-width="0.8"/>';
+      if (n.enemy) s += '<circle cx="' + cx + '" cy="' + cy + '" r="5" fill="none" stroke="#d65c5c" stroke-width="0.6" stroke-dasharray="1.6,1.3"/>';
+      s += '<circle cx="' + cx + '" cy="' + cy + '" r="2.2" fill="' + col + '" stroke="#0a0810" stroke-width="0.5" style="cursor:pointer" onclick="travelFromPane(\'' + nm + '\')"/>';
+      s += '<text x="' + cx + '" y="' + (cy + 5.2) + '" font-size="3.2" fill="#e8e0f5" text-anchor="middle" paint-order="stroke" stroke="#0a0810" stroke-width="0.9" style="cursor:pointer" onclick="travelFromPane(\'' + nm + '\')">' + short(n.name) + (n.enemy ? ' ⚔' : '') + '</text>';
+    });
+    return '<div style="background:linear-gradient(160deg,rgba(16,20,34,0.9),rgba(10,8,16,0.75)); border:1px solid rgba(212,175,55,0.28); border-radius:8px; overflow:hidden;"><svg viewBox="0 0 100 96" preserveAspectRatio="xMidYMid meet" style="width:100%; height:auto; display:block;">' + s + '</svg></div>';
   }
   // 🔵 隨身物品 5 格（地圖下方），點擊即使用
   async function renderBag5() {
