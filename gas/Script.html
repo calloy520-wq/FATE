@@ -1838,8 +1838,7 @@ function renderRecentLocs(recents = null) {
     story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主將魔力導入從者，行補魔之儀……</div>`);
     story.scrollTop = story.scrollHeight;
     try {
-      const isNsfw = document.getElementById('nsfw-mode-toggle')?.checked || false;
-      const res = await gasRun({ action: 'mana_supply', pcId: pc.id, isNsfw: isNsfw });
+      const res = await gasRun({ action: 'mana_supply', pcId: pc.id });
       if (res && res.success) { updateClock(res.clock, res.ap, res.apMax); narrate(res.aiPrompt); syncData(true); }
       else { alert((res && res.message) || '補魔失敗。'); }
     } catch (e) { alert('連線失敗，補魔未果。'); }

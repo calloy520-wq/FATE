@@ -3910,10 +3910,10 @@ function actionManaSupply(userData, pcId, sheets) {
   let manaAp = AP_PER_DAY, manaClock = "";
   if (isFateMana) { try { manaAp = spendAp_(myGameId, 1).ap; manaClock = clockLabel_(myGameId); } catch (e) { } }
 
-  const isNsfw = !!userData.isNsfw;
+  // 戰場補魔一律純淨儀式（不吃慾海開關）——甜頭是奪杯後鑑賞模式的特權
   const aiPrompt = `【系統·補魔已結算】御主以魔力供給「${svName}」，其魔力回復至 ${restored}/${mpMax}，羈絆微升。\n` +
-    `★以 Fate／TYPE-MOON 筆觸描寫這場魔力供給：御主將自身魔力導入從者的儀式${isNsfw ? "（可成人向，但須兩情相願、合乎從者性格，fade 收束）" : "（含蓄唯美，點到為止、fade-to-black）"}。\n` +
-    `★【鐵律】演出而非複述設定；嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
+    `★以 Fate／TYPE-MOON 筆觸描寫這場魔力供給：御主將自身魔力導入從者的儀式（含蓄莊重、點到為止，聚焦魔力流轉與信賴，絕不逾越）。\n` +
+    `★【鐵律】演出而非複述設定；嚴禁任何露骨情慾描寫；嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
