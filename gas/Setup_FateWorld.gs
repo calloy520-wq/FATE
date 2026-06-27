@@ -111,6 +111,8 @@ function ensureFateSheets_(ss) {
     // 新建地圖後清掉舊地圖快取，讓前端讀到新冬木地圖
     try { CacheService.getScriptCache().remove("KYUSHU_MAP_DATA"); } catch (e) {}
   }
+  // 英靈殿/御主殿 若為空，自動灌入名冊（Seed_Codex.gs）
+  try { if (typeof seedFateCodex_ === "function") seedFateCodex_(ss); } catch (e) { Logger.log("seedFateCodex_ 失敗(略過): " + e.message); }
   return created;
 }
 
