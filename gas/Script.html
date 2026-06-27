@@ -1709,6 +1709,52 @@ function renderRecentLocs(recents = null) {
     b = parseInt(b) || 0;
     return b < 20 ? '戒備' : b < 40 ? '疏離' : b < 60 ? '漸信' : b < 80 ? '信賴' : '羈絆深厚';
   }
+
+  // 🏷️ 標籤白話字典（對應引擎實際機制）——點技能 pill 時顯示
+  const FX_DESC = {
+    nullify_magic: '對魔力：依階級減免「魔術」傷害（敵為 Caster／魔力放出／神代時生效）；擋術不擋肉體。',
+    ride: '騎乘：駕馭一切坐騎，機動提升，命中 +2×階級。',
+    first_strike: '直感：戰鬥第六感，先機——命中與迴避 +3×階級。',
+    analyze: '心眼：洞察破綻，等同先機 +3×階級。',
+    unreadable: '宗和的心得：無欲無求，使敵方直感／心眼失效（敵無法靠預判加閃避）。',
+    str_up: '怪力：膂力暴增，傷害 +8×階級。',
+    burst: '魔力放出：魔力爆發強化，傷害 ×(1＋0.2×階級)。',
+    morale: '勇猛／卡里斯瑪：鼓舞威壓，傷害 +3×階級（敵「透化」可免疫）。',
+    stealth: '氣息遮斷：抹消氣息，開場奇襲命中 +3。',
+    evade_ranged: '避矢加護：看穿遠程，對 Archer 的迴避 +6×階級。',
+    tsubame: '秘劍・燕返：三方位同斬，敵迴避 −8，命中則傷害 ×2.3。',
+    gae_bolg: '刺穿死棘之槍：逆因果的必中刺擊——寶具解放時直接命中。',
+    divine_core: '神核：女神之軀，受傷 −18%×階級（破魔可無視）。',
+    survive: '戰鬥續行：受致命傷仍能硬撐一次（HP 留 1）；遭「破戒／破魔」則失效。',
+    mad: '狂化：理智換力量——命中／迴避 −3×階級，但傷害 +14×階級。',
+    divine_age: '神代魔術：神代體系凌駕現代，魔力傷 +12×階級，且使敵「對魔力」半效。',
+    wind_strike: '風王鐵鎚：不可視之風的斬擊，傷害 +6×階級。',
+    clear_mind: '透化：清澈靜穆之心，免疫敵方勇猛／卡里斯瑪的精神威壓。',
+    self_mod: '自我改造：強化過的軀體，命中 +2、傷害 +3。',
+    tactics: '軍略：用兵之才，寶具威力 +15%。',
+    anti_magic_lance: '破魔紅薔薇：雙槍破魔，無視神核護甲；致命時敵無法續行／復活／令咒脫離。',
+    rule_breaker: '破戒全咒：斬斷契約與救贖——致命一擊下，敵無法戰鬥續行／十二試煉復活／令咒脫離。',
+    god_hand: '十二試煉：不死之軀，靈基崩解前自死亡歸來（約 11 次）。'
+  };
+  const TRAIT_DESC = {
+    '神性': '神之血脈／權能——寶具威力 +10%，但會被「神殺」類加成剋制（受傷 ×1.5）。',
+    '神格': '神之血脈——被「神殺」剋制。', '神靈': '神之存在——被「神殺」剋制。',
+    '王': '君臨者的氣度，多享卡里斯瑪／軍略類加成。',
+    '龍': '龍之血脈或屬性，常為剋制與被剋的關鍵。',
+    '人類': '凡人之軀，不受神殺等對種族特攻影響。',
+    '巨人': '龐然之軀，力大但易成目標。', '猛獸': '野性與本能，攻擊兇猛。'
+  };
+  function showSkillDesc(name, fx, rank) {
+    var desc = (fx === 'trait')
+      ? (TRAIT_DESC[name] || '特性標記：影響剋制關係（如被神殺剋、享軍略加成等），多為戰鬥修正用。')
+      : (FX_DESC[fx] || '此技能主要為演出／劇情效果，目前無直接戰鬥數值。');
+    var rk = (rank && rank !== '-' && rank !== 'trait') ? ('　<span style="color:#e7c873;">階級 ' + rank + '</span>') : '';
+    var html = '<h3 style="margin:0 0 8px; color:' + (fx === 'trait' ? '#e08a8a' : '#e7c873') + ';">'
+      + (fx === 'trait' ? '🏷️ 特性' : '✨ 技能') + '：' + name + rk + '</h3>'
+      + '<div style="color:#cfc3d8; font-size:14px; line-height:1.9;">' + desc + '</div>';
+    showHistoryOverlay(html);
+  }
+
   async function refreshFateTags() {
     if (!pc || !pc.id) return;
     try {
@@ -1728,9 +1774,13 @@ function renderRecentLocs(recents = null) {
       if (s) {
         var six = s.six || {};
         var sixLine = ['筋' + (six.筋力 || '?'), '耐' + (six.耐久 || '?'), '敏' + (six.敏捷 || '?'), '魔' + (six.魔力 || '?'), '運' + (six.幸運 || '?'), '寶' + (six.寶具 || '?')].join('　');
-        var pill = function (txt, col) { return '<span style="display:inline-block; font-size:10px; border:1px solid ' + col + '; color:' + col + '; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;">' + txt + '</span>'; };
-        var skillPills = (s.skills || []).map(function (sk) { return pill(sk.n + (sk.r ? (' ' + sk.r) : ''), '#d9a93a'); }).join('');
-        var traitPills = (s.traits || []).map(function (tr) { return pill(tr.n + (tr.r ? (' ' + tr.r) : ''), '#c0392b'); }).join('');
+        var pill = function (n, r, fx, col) {
+          var label = n + (r && r !== '-' ? (' ' + r) : '');
+          var arg = "'" + String(n).replace(/'/g, '') + "','" + String(fx || '').replace(/'/g, '') + "','" + String(r || '').replace(/'/g, '') + "'";
+          return '<span onclick="showSkillDesc(' + arg + ')" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid ' + col + '; color:' + col + '; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;">' + label + '</span>';
+        };
+        var skillPills = (s.skills || []).map(function (sk) { return pill(sk.n, sk.r, sk.fx, '#d9a93a'); }).join('');
+        var traitPills = (s.traits || []).map(function (tr) { return pill(tr.n, tr.r, 'trait', '#c0392b'); }).join('');
         sh = '<div style="background:rgba(20,14,28,0.55); border:1px solid #c0392b; border-radius:8px; padding:6px 8px;">'
           + '<div style="color:#c0392b; font-weight:bold; font-size:12px;">📿 從者・' + s.cls + '</div>'
           + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
@@ -1739,6 +1789,7 @@ function renderRecentLocs(recents = null) {
           + '<div style="color:#cdbbe6; font-size:11px; margin-top:3px; letter-spacing:.5px;">六圍　' + sixLine + '</div>'
           + (skillPills ? ('<div style="margin-top:3px;">' + skillPills + '</div>') : '')
           + (traitPills ? ('<div style="margin-top:1px;">' + traitPills + '</div>') : '')
+          + ((skillPills || traitPills) ? '<div style="color:#6a5f80; font-size:9.5px; margin-top:2px;">👆 點標籤看效果</div>' : '')
           + '<div style="color:#9a8bb0; font-size:11px; margin-top:5px;">寶具　' + s.np + '</div>'
           + ((pc && pc.mode === 'kanshou') ? '' :
               '<div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">'
