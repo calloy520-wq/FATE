@@ -27,17 +27,38 @@ function actionAccountLogin(userData, pcId, sheets) {
   }
   var charId = String(found.row[COL.ACC.PC] || "");
   var won = parseInt(found.row[COL.ACC.WON]) || 0;
+  var pcData = charId ? sheets.pc.getDataRange().getValues() : [];
   var pcRow = null;
   if (charId) {
-    var pcData = sheets.pc.getDataRange().getValues();
     pcRow = pcData.find(function (r) { return String(r[COL.PC.ID]) === charId && !String(r[COL.PC.ID]).startsWith("DEAD_"); });
   }
   if (pcRow) {
+    // 🔵 敗北殘局防呆：御主血歸 0、或該局已無存活從者＝這一局已經結束。
+    //   即使玩家上次沒按「返回主畫面」就關掉網頁，下次登入也不會卡在死局——直接清理、解除連結、當作沒有存檔。
+    var gid = String(pcRow[COL.PC.GAME_ID] || "");
+    var masterAlive = (parseInt(pcRow[COL.PC.HP]) || 0) > 0;
+    var servantAlive = false, servantName = "";
+    if (gid && gid.indexOf("g_") === 0) {
+      for (var j = 1; j < pcData.length; j++) {
+        if (String(pcData[j][COL.PC.GAME_ID] || "") !== gid) continue;
+        if (String(pcData[j][COL.PC.FACTION]) !== "從者") continue;
+        if (!servantName) servantName = String(pcData[j][COL.PC.NAME] || "").replace(/^DEAD_/, "");
+        if (String(pcData[j][COL.PC.ID]).startsWith("DEAD_")) continue;
+        if ((parseInt(pcData[j][COL.PC.HP]) || 0) > 0) { servantAlive = true; break; }
+      }
+      if (!masterAlive || !servantAlive) {
+        // 戰史已在死亡當下（戰鬥敗北／御主殞命）寫入，這裡只負責清理殘局，避免重複記錄。
+        try { purgeGameData_(sheets, gid, pcRow[COL.PC.NAME], name); } catch (e) { }
+        return JSON.stringify({ success: true, name: name, hasGame: false, won: won, ended: true });
+      }
+    }
     return JSON.stringify({
       success: true, name: name, hasGame: true, won: won,
       pcId: charId, pcName: pcRow[COL.PC.NAME], pcSex: pcRow[COL.PC.SEX]
     });
   }
+  // charId 指向的御主已被標記 DEAD_（或不存在）→ 殘局，解除連結當作沒有存檔
+  if (charId) { try { acc.getRange(found.idx + 1, COL.ACC.PC + 1).setValue(""); } catch (e) { } }
   return JSON.stringify({ success: true, name: name, hasGame: false, won: won });
 }
 
@@ -86,6 +107,19 @@ function linkAccountToPc_(accountName, pcCharId) {
   } else {
     acc.appendRow([name, pcCharId, 0, new Date()]);
   }
+}
+
+// 由御主 charId 反查所屬帳號名（供 actionPlay 等沒帶 acctName 的路徑記錄戰史）
+function findAccountByPc_(charId) {
+  if (!charId) return "";
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var acc = ss.getSheetByName("帳號");
+  if (!acc) return "";
+  var data = acc.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.ACC.PC]) === String(charId)) return String(data[i][COL.ACC.NAME] || "");
+  }
+  return "";
 }
 
 // 帳號勝場 +1

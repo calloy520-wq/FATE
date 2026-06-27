@@ -44,7 +44,7 @@ const COL = {
   HIST: { ACC: 0, RESULT: 1, SERVANT: 2, SUMMARY: 3, TIME: 4 },
   // 鑑賞：奪杯後封存的從者（可於鑑賞模式呼出）
   GAL: { ACC: 0, NAME: 1, CLS: 2, SEX: 3, SIX: 4, TAGS: 5, NP: 6, BACK: 7, PREF: 8, MOE: 9, MEMOIR: 10, WISH: 11, TIME: 12, MASTER: 13, MSEX: 14 },
-  // 時鐘：每個 game_id 一筆（第幾日／幾點／行動點）。1 AP = 2 小時，每日 12 AP。
+  // 時鐘：每個 game_id 一筆（第幾日／幾點／行動點）。1 AP = 1 小時，每日 12 AP（休息每小時補 2 AP）。
   CLK: { GAME_ID: 0, DAY: 1, HOUR: 2, AP: 3 }
 };
 
@@ -416,6 +416,7 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, relData, taskData, allPc
         id: r[COL.PC.ID], isPC: String(r[COL.PC.ID]).startsWith("PC_"), name: tName, status: finalDisplayStatus,
         pref: r[COL.PC.PREF] || "神祕莫測", relTag: relRecord ? relRecord[COL.REL.TAG] : "萍水相逢", relVal: rVal,
         loc: tLoc, isExact: (tLoc === safeCurL), isHighRel: (rVal >= 60), isParty: rIsParty,
+        faction: String(r[COL.PC.FACTION] || ""),
         busyWith: otherParty ? otherParty[COL.REL.PC] : null, hp: r[COL.PC.HP], mp: r[COL.PC.MP]
       });
     }

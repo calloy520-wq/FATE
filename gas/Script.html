@@ -981,12 +981,12 @@ function renderRecentLocs(recents = null) {
   // 🛏️ 休息選單：玩家自選時數（每小時補 2 AP）
   function openRestMenu() {
     const opts = [
-      [1, '☕ 小憩 1 小時', '+2 行動力'],
-      [3, '🌙 歇息 3 小時', '+6 行動力・部分回血回魔'],
-      [6, '🛌 安睡 6 小時', '+12 行動力（補滿）・血魔近全滿'],
+      [1, '☕ 小憩 1 小時', '+2 行動力・少量回血回魔'],
+      [3, '🌙 歇息 3 小時', '+6 行動力・回血回魔（時回雙倍）'],
+      [6, '🛌 安睡 6 小時', '+12 行動力補滿・大幅回血回魔'],
     ];
     let html = '<h3 style="margin:0 0 6px;color:#a9a9d8;">🛏️ 休息多久？</h3>'
-      + '<p style="color:#9a8bb0;font-size:12px;margin:0 0 10px;">每休息 1 小時恢復 2 點行動力；休越久回血回魔越多，但世界也會推進更多。</p>';
+      + '<p style="color:#9a8bb0;font-size:12px;margin:0 0 10px;">每休息 1 小時恢復 2 點行動力；休越久回血回魔越多，但世界也會推進更多。<br><span style="color:#8a9ac0;">〔時回〕HP 隨時間自然回復，MP 回復快慢看御主的魔術迴路；移動時也會小幅回流，休息則是雙倍。</span></p>';
     html += opts.map(function (o) {
       return '<button onclick="rest(' + o[0] + ')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px;background:rgba(120,120,160,0.14);color:#e8dcc0;border:1px solid #5a5a8a;border-radius:8px;cursor:pointer;">'
         + '<b style="color:#bcbce0;">' + o[1] + '</b>　<span style="font-size:12px;color:#9a8bb0;">' + o[2] + '</span></button>';
@@ -1119,13 +1119,15 @@ function renderRecentLocs(recents = null) {
             if (!n.isPC) {
                 actionButtonsHtml += `<button class="btn-act" style="border-color:#8b008b; color:#8b008b; padding: 6px 12px;" onclick="closeNpcList(); openStatus('${n.id}', '${n.name}')">📜 命格</button>`;
 
-                // 🔴 新增：快速組隊/離隊按鈕 (點擊後不關閉選單，方便連續組隊)
-                if (busyWith && !isInParty) {
-                    actionButtonsHtml += `<button class="btn-act" style="border-color:#6e948a; color:#6e948a; padding: 6px 12px; opacity: 0.5;" onclick="alert('「${n.name}」正與『${busyWith}』同行中，無法分身！')">🔒 已跟隨他人</button>`;
-                } else {
-                    let partyText = isInParty ? "👋 離隊" : "🤝 組隊";
-                    let partyColor = isInParty ? "#ff6b6b" : "#2e8b57"; // 離隊顯示紅色，組隊顯示綠色
-                    actionButtonsHtml += `<button class="btn-act" style="border-color:${partyColor}; color:${partyColor}; padding: 6px 12px;" onclick="interactNpc('組隊', '${n.name}', '${n.loc}', true)">${partyText}</button>`;
+                // 🔴 組隊/離隊按鈕：僅多人(full)模式；FATE 單人/鑑賞只有一個從者，不招路人入隊
+                if (pc && pc.mode === 'full') {
+                    if (busyWith && !isInParty) {
+                        actionButtonsHtml += `<button class="btn-act" style="border-color:#6e948a; color:#6e948a; padding: 6px 12px; opacity: 0.5;" onclick="alert('「${n.name}」正與『${busyWith}』同行中，無法分身！')">🔒 已跟隨他人</button>`;
+                    } else {
+                        let partyText = isInParty ? "👋 離隊" : "🤝 組隊";
+                        let partyColor = isInParty ? "#ff6b6b" : "#2e8b57";
+                        actionButtonsHtml += `<button class="btn-act" style="border-color:${partyColor}; color:${partyColor}; padding: 6px 12px;" onclick="interactNpc('組隊', '${n.name}', '${n.loc}', true)">${partyText}</button>`;
+                    }
                 }
             }
         }
@@ -1815,7 +1817,6 @@ function renderRecentLocs(recents = null) {
               '<div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">'
               + '<button onclick="manaSupply()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
               + '<button onclick="openSealMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(176,108,208,0.16); color:#c79be8; border:1px solid #8a5fb0; border-radius:6px; cursor:pointer;">❖ 令咒 ' + '❖'.repeat(Math.max(0, m.seals || 0)) + '</button>'
-              + '<button onclick="scout()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(90,150,150,0.16); color:#7fc7c7; border:1px solid #4a8a8a; border-radius:6px; cursor:pointer;">🔍 偵查</button>'
               + '<button onclick="openRestMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(120,120,160,0.16); color:#a9a9d8; border:1px solid #5a5a8a; border-radius:6px; cursor:pointer;">🛏️ 休息</button>'
               + '</div>')
           + '</div>';
@@ -1843,10 +1844,32 @@ function renderRecentLocs(recents = null) {
     try { var r = await gasRun({ action: 'get_map_nodes', pcId: pc.id }); if (r && r.success) { nodes = r.nodes || []; here = r.here || ''; } } catch (e) { }
     var html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">'
       + '<div style="color:#d4af37; font-weight:bold; font-size:14px;">🗺️ 冬木 · 戰場</div>'
-      + '<button class="btn" style="padding:3px 10px; font-size:12px; border-color:#4682b4; color:#9fc0ef;" onclick="refreshMapPane()">🔄 重整</button>'
-      + '</div>';
+      + '<div style="display:flex; gap:5px;">'
+      + ((pc && pc.mode === 'kanshou') ? '' : '<button class="btn" style="padding:3px 9px; font-size:12px; border-color:#4a8a8a; color:#7fc7c7;" onclick="scout()">🔍 偵查</button>')
+      + '<button class="btn" style="padding:3px 9px; font-size:12px; border-color:#4682b4; color:#9fc0ef;" onclick="refreshMapPane()">🔄 重整</button>'
+      + '</div></div>';
     html += '<div style="color:#9a8bb0; font-size:11px; margin-bottom:6px;">📍 目前所在：' + (here || '未知') + '　<span style="color:#d65c5c;">⚔ = 已偵查到敵人</span></div>';
     html += buildMapSvg_(nodes);
+
+    // ⚔️ 此地敵人 → 直接出戰（不必再翻互動視窗）
+    if (!(pc && pc.mode === 'kanshou')) {
+      var foes = (localNPCs || []).filter(function (n) { return n.isExact && (n.faction === '敵御主' || n.faction === '敵從者'); });
+      if (foes.length) {
+        html += '<div style="color:#d65c5c; font-size:12px; font-weight:bold; margin:12px 0 6px;">⚔️ 此地敵蹤（可出戰）：</div>';
+        foes.forEach(function (f) {
+          var safe = String(f.name).replace(/'/g, '');
+          var tag = f.faction === '敵從者' ? '從者' : '御主';
+          html += '<div style="border:1px solid rgba(214,92,92,0.4); border-radius:7px; padding:6px 8px; margin-bottom:7px; background:rgba(60,20,20,0.25);">'
+            + '<div style="color:#e8b0b0; font-size:12.5px; font-weight:bold; margin-bottom:4px;">' + f.name + ' <small style="color:#a77;">敵' + tag + '</small></div>'
+            + '<div style="display:flex; gap:4px; flex-wrap:wrap;">'
+            + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#a52a2a; color:#e07a7a;" onclick="servantStrike(\'' + safe + '\', false)">⚔️ 出戰</button>'
+            + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#d4af37; color:#e7c873;" onclick="servantStrike(\'' + safe + '\', true)">💥 寶具</button>'
+            + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#b06cd0; color:#c79be8;" onclick="servantStrike(\'' + safe + '\', false, true)">❖ 令咒</button>'
+            + '</div></div>';
+        });
+      }
+    }
+
     html += '<div style="color:#9a8bb0; font-size:12px; margin:12px 0 6px;">可前往：</div>';
     if (nearbyLocations && nearbyLocations.length) {
       nearbyLocations.forEach(function (l) {
@@ -1975,6 +1998,8 @@ function renderRecentLocs(recents = null) {
         await new Promise(r => setTimeout(r, 2600));
       }
     } catch (e) {}
+    // 🔵 防呆：敗北即清掉本機續玩快取——就算玩家直接關網頁不按返回，下次也不會被丟回死局
+    try { localStorage.removeItem('kyushu_v27'); localStorage.removeItem('kyushu_story'); localStorage.removeItem('kyushu_last_status'); } catch (e) {}
     openTigerDojo();
   }
 
@@ -2006,6 +2031,8 @@ function renderRecentLocs(recents = null) {
         if (cbtn) cbtn.style.display = 'none';
         var mbtn = document.getElementById('victory-menu-btn');
         if (mbtn) mbtn.style.display = 'block';
+        // 🔵 防呆：奪杯後本局已封存清理，清掉本機續玩快取，避免下次殘留死局
+        try { localStorage.removeItem('kyushu_v27'); localStorage.removeItem('kyushu_story'); localStorage.removeItem('kyushu_last_status'); } catch (e) {}
       } else {
         if (cbtn) { cbtn.disabled = false; cbtn.innerText = '⚜️ 奪得聖杯 · 封存此役羈絆'; }
         alert((res && res.message) || '封存失敗，請再試一次。');
@@ -2883,8 +2910,11 @@ let plainTextContext = cleanText;
       story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【天道演化】</b>${displayText.trim().replace(/\n{2,}/g, "<br><br>").replace(/\n/g, "<br><br>")}</div>`);
       localStorage.setItem('kyushu_story', story.innerHTML);
       setTimeout(() => { story.scrollTop = story.scrollHeight; }, 50);
-      
-    } catch(e) { 
+
+      // 🔵 FATE 敗北：御主殞命→播「願望實現的虛假之夢」→老虎道場（與戰鬥敗北同一套收場）
+      if (data.defeat) { await handleDefeat(data); }
+
+    } catch(e) {
       document.getElementById(loadId)?.remove(); alert("連結斷絕，天道無應。");
     } finally { 
       input.disabled = false; btn.disabled = false; story.scrollTop = story.scrollHeight;
@@ -2942,8 +2972,9 @@ let plainTextContext = cleanText;
           html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); interactNpc('留言', '${npcName}', '${currentLoc}', true)">✉️ 留言</button>`;
       }
 
-      // ⚠️ 【危險動作區】
-      if (!isPC) {
+      // ⚠️ 【危險動作區】只對敵人顯示（自己的從者／友方不顯示出戰）
+      var _isFoe = npcData && (npcData.faction === '敵御主' || npcData.faction === '敵從者');
+      if (!isPC && _isFoe && !(pc && pc.mode === 'kanshou')) {
           html += `<div style="grid-column: span 2; border-top: 1px dashed rgba(77,184,163,0.3); margin-top: 5px; padding-top: 10px; color:#7b9991; font-size:12px; text-align:center; font-weight:bold;">—— 危險舉動 ——</div>`;
           html += `<div style="grid-column: span 2; display:flex; align-items:center; justify-content:center; gap:6px; margin-bottom:2px; font-size:12px; color:#7b9991;">
             連續次數：<select id="combo-count-select" style="padding:2px 6px; border-radius:4px; border:1px solid #8fa39b; background:#fff; color:#553311;">

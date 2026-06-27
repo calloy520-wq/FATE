@@ -2118,9 +2118,18 @@ function actionMove(userData, pcId, sheets) {
   const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
 
   relData.filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]).forEach(npcName => {
-    const nIdx = allPcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+    const nIdx = allPcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!moveGameId || String(r[COL.PC.GAME_ID] || "") === moveGameId));
     if (nIdx !== -1) allPcData[nIdx][COL.PC.LOC] = target;
   });
+
+  // ⏳ 時回：移動的 2 小時間，御主與同行從者隨時間自然回復（HP 固定、MP 看魔術迴路）。
+  //   大幅恢復靠「休息」（同一套規則 ×2）。便宜：只改記憶體那幾格，隨移動一起寫回，零額外讀寫，不會變慢。
+  let regenNote = "";
+  if (isFateMove) {
+    const partyNames = relData.filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]);
+    const did = applyRegen_(allPcData, moveGameId, pcName, partyNames, masterCircuits_(allPcData[pIdx]), 2, 1);
+    if (did) regenNote = "〔時回〕數小時的奔波之間，靈基與魔力隨時間悄然回流了一些。";
+  }
 
   const pcColCount = Object.keys(COL.PC).length;
   allPcData.forEach(row => { while (row.length < pcColCount) { row.push(""); } });
@@ -2128,7 +2137,7 @@ function actionMove(userData, pcId, sheets) {
   sheets.pc.getRange(1, 1, allPcData.length, pcColCount).setValues(allPcData);
   SpreadsheetApp.flush();
 
-  // ⏳ 移動耗 1 AP（＝推進 2 小時）＋ 世界自走一輪；聊天不會走到這裡
+  // ⏳ 移動耗 2 AP（＝推進 2 小時，1 AP＝1 小時）＋ 世界自走一輪；聊天不會走到這裡
   let clockLabel = "", worldRumors = [], apLeft = AP_PER_DAY;
   if (isFateMove) {
     try {
@@ -2136,6 +2145,7 @@ function actionMove(userData, pcId, sheets) {
       apLeft = sp.ap;
       const tick = worldTick_(sheets, moveGameId, target, 1, false); // 移動只讓敵換位，不死人
       worldRumors = tick.rumors || [];
+      if (regenNote) worldRumors.unshift(regenNote);
       clockLabel = clockLabel_(moveGameId);
     } catch (e) { }
   }
@@ -2197,27 +2207,26 @@ function actionRest(userData, pcId, sheets) {
   const pcName = pcData[pIdx][COL.PC.NAME];
   const pcLoc = String(pcData[pIdx][COL.PC.LOC] || "").trim();
 
-  // 🛏️ FATE 休息：玩家自選時數（1/3/6…），每小時補 2 AP；回血回魔按時數比例（6 小時≈全滿）
+  // 🛏️ FATE 休息：玩家自選時數（1/3/6…），每小時補 2 AP；回血回魔＝時回同一套規則 ×2（休息＝雙倍恢復）。
   if (isFateRest) {
     const restHours = Math.max(1, Math.min(12, parseInt(userData.restHours) || 6));
-    const frac = Math.min(1, restHours / 6);
-    let healedNames = [pcName];
-    const healRow = (idx) => {
-      const hpMax = parseInt(pcData[idx][COL.PC.MAX_HP]) || 100;
-      const mpMax = parseInt(pcData[idx][COL.PC.MAX_MP]) || 100;
-      pcData[idx][COL.PC.HP] = Math.min(hpMax, Math.round((parseInt(pcData[idx][COL.PC.HP]) || 0) + hpMax * frac));
-      pcData[idx][COL.PC.MP] = Math.min(mpMax, Math.round((parseInt(pcData[idx][COL.PC.MP]) || 0) + mpMax * frac));
-      if (frac >= 1) pcData[idx][COL.PC.STATUS] = normalStatus;
-    };
     const prevHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
-    const wasInjured = prevHp < (parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 0);
-    healRow(pIdx);
+    const hpMaxP = parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 0;
+    const wasInjured = prevHp < hpMaxP;
+    let healedNames = [pcName];
+    const partyNames = [];
     if (sheets.rel) {
       sheets.rel.getDataRange().getValues().filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]).forEach(npcName => {
-        const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-        if (nIdx !== -1 && parseInt(pcData[nIdx][COL.PC.HP]) > 0) { healRow(nIdx); healedNames.push(npcName); }
+        const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!restGameId || String(r[COL.PC.GAME_ID] || "") === restGameId));
+        if (nIdx !== -1 && parseInt(pcData[nIdx][COL.PC.HP]) > 0) { partyNames.push(npcName); healedNames.push(npcName); }
       });
     }
+    // 時回 ×2：休息 restHours 小時的雙倍回復（HP 固定、MP 看御主魔術迴路）
+    applyRegen_(pcData, restGameId, pcName, partyNames, masterCircuits_(pcData[pIdx]), restHours, 2);
+    // 休滿（HP 回到上限）者重置體態為平穩
+    [pIdx].concat(partyNames.map(n => pcData.findIndex(r => r[COL.PC.NAME] === n && String(r[COL.PC.GAME_ID] || "") === restGameId && !String(r[COL.PC.ID]).startsWith("DEAD_")))).forEach(idx => {
+      if (idx >= 0 && (parseInt(pcData[idx][COL.PC.HP]) || 0) >= (parseInt(pcData[idx][COL.PC.MAX_HP]) || 0)) pcData[idx][COL.PC.STATUS] = normalStatus;
+    });
     sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
 
     let restClock = "", restRumors = [], apAfter = AP_PER_DAY;
@@ -2397,6 +2406,7 @@ function actionPlay(userData, pcId, sheets) {
   let isQuestChanged = false;
   let knockedOutList = [];
   let justRevived = false;
+  let fatePlayerDefeat = false, fateDreamPrompt = ""; // 🔵 FATE：御主血歸 0＝聖杯戰爭敗北（虛假之夢→老虎道場）
   let soulBoundEventMsg = "";
   let freshlyBoundNpcName = "";
   const newNpcMap = {};
@@ -2787,7 +2797,7 @@ ${isKanshou ? `
 
       aiData.stat_changes.forEach(sc => {
         const tName = String(sc.target).trim(); const attrKey = String(sc.attr).trim(); const valStr = String(sc.value).trim();
-        let targetIdx = (tName === "自己" || tName === String(pcName).trim()) ? pcIndex : pcData.findIndex(r => String(r[COL.PC.NAME]).trim() === tName || String(r[COL.PC.ID]).trim() === tName);
+        let targetIdx = (tName === "自己" || tName === String(pcName).trim()) ? pcIndex : pcData.findIndex(r => (String(r[COL.PC.NAME]).trim() === tName || String(r[COL.PC.ID]).trim() === tName) && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
 
         if (targetIdx !== -1) {
           dirtyPcRows.add(targetIdx);
@@ -2822,9 +2832,19 @@ ${isKanshou ? `
                 pcData[targetIdx][COL.PC.LOC] = oldRootLoc; if (targetIdx === pcIndex) curL = oldRootLoc;
                 return;
               }
-              pcData[targetIdx][COL.PC.LOC] = newLoc; if (targetIdx === pcIndex) curL = newLoc;
               let rootLoc = newLoc.split('-')[0].trim();
-              if (sheets.map && rootLoc && typeof memoryMapData !== 'undefined' && !memoryMapData.some(r => String(r[COL.MAP.NAME] || "").trim() === rootLoc)) {
+              const rootKnown = !sheets.map || (typeof memoryMapData !== 'undefined' && memoryMapData.some(r => String(r[COL.MAP.NAME] || "").trim() === rootLoc));
+              const isFateWorld = myGameId && (myGameId.indexOf('g_') === 0 || myGameId.indexOf('k_') === 0);
+              if (!rootKnown && isFateWorld) {
+                // 🔵 FATE：地圖固定在冬木，【絕不】自動長新地點——AI 亂報的新母地圖一律退回原地
+                const oldRoot = String(pcData[targetIdx][COL.PC.LOC] || "").split('-')[0].trim() || rootLoc;
+                Logger.log(`【FATE 地圖鎖定】AI 想把「${tName}」移到未知母地圖「${rootLoc}」，已退回「${oldRoot}」`);
+                pcData[targetIdx][COL.PC.LOC] = oldRoot; if (targetIdx === pcIndex) curL = oldRoot;
+                return;
+              }
+              pcData[targetIdx][COL.PC.LOC] = newLoc; if (targetIdx === pcIndex) curL = newLoc;
+              if (!rootKnown && sheets.map && rootLoc) {
+                // 九州舊行為：未知母地圖自動建檔（FATE 不會走到這）
                 const fallbackMapRow = ["九州", rootLoc, "荒野", `${Math.floor(Math.random() * 120) - 60},${Math.floor(Math.random() * 120) - 60}`, "未探明區域。"];
                 sheets.map.appendRow(fallbackMapRow); memoryMapData.push(fallbackMapRow);
               }
@@ -2841,23 +2861,41 @@ ${isKanshou ? `
 
                 const isPlayer = String(pcData[targetIdx][COL.PC.ID]).startsWith("PC_");
 
-                // 玩家：血歸 0 才送藥鋪
+                // 玩家：血歸 0
                 if (colIdx === COL.PC.HP && hpVal <= 0 && isPlayer) {
-                  const healLoc = "小醫仙藥鋪"; pcData[targetIdx][COL.PC.HP] = 50; pcData[targetIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "換上乾淨素衣", "姿勢": "平躺靜養", "負面": "重傷初癒", "顏面": "蒼白" }); pcData[targetIdx][COL.PC.LOC] = healLoc; pcData[targetIdx][COL.PC.MONEY] = Math.max(0, (parseInt(pcData[targetIdx][COL.PC.MONEY]) || 0) - 20);
-                  if (targetIdx === pcIndex) curL = healLoc;
-                  relData.forEach(row => {
-                    if (row[COL.REL.PC] === pcData[targetIdx][COL.PC.NAME] && row[COL.REL.IS_PARTY] === "同行") {
-                      const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === row[COL.REL.NPC] && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-                      if (nIdx !== -1) {
-                        pcData[nIdx][COL.PC.LOC] = healLoc;
-                        pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "平穩" });
-                        pcData[nIdx][COL.PC.HP] = calculateMaxStats(pcData[nIdx][COL.PC.REALM], pcData[nIdx][COL.PC.CON], pcData[nIdx][COL.PC.INT]).hp;
-                        dirtyPcRows.add(nIdx);
+                  const isFateG = myGameId && myGameId.indexOf('g_') === 0; // 正式聖杯戰爭世界（k_ 鑑賞約會不會走戰鬥/死亡）
+                  if (isFateG && targetIdx === pcIndex) {
+                    // 🔵 FATE 敗北：御主殞命＝聖杯戰爭落敗。不復活、不送藥鋪——墜入「願望實現的虛假之夢」→ 老虎道場。
+                    pcData[targetIdx][COL.PC.HP] = 0;
+                    pcData[targetIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "浴血", "姿勢": "頹然倒臥", "負面": "靈魂將熄", "顏面": "意識朦朧" });
+                    fatePlayerDefeat = true;
+                    const wishM = String(pcData[pcIndex][COL.PC.MEMORY] || "").match(/【願望】([^|【\n]*)/);
+                    const wishTxt = wishM ? wishM[1].trim() : "";
+                    let svName = "從者";
+                    const svRow = pcData.find(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+                    if (svRow) svName = String(svRow[COL.PC.NAME] || "從者");
+                    fateDreamPrompt = buildDreamPrompt_(pcName, wishTxt, svName);
+                    // 戰史：御主殞命＝敗北（在死亡當下記錄一次；殘局清理由下次登入處理）
+                    try { var acctDp = String(userData.acctName || "") || findAccountByPc_(pcId); if (acctDp) recordHistory_(acctDp, "敗", svName, "御主殞命，聖杯戰爭落敗。"); } catch (e) {}
+                  } else {
+                    // 九州舊版：血歸 0 送「小醫仙藥鋪」救回（FATE 不走此路）
+                    const healLoc = "小醫仙藥鋪";
+                    pcData[targetIdx][COL.PC.HP] = 50; pcData[targetIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "換上乾淨素衣", "姿勢": "平躺靜養", "負面": "重傷初癒", "顏面": "蒼白" }); pcData[targetIdx][COL.PC.LOC] = healLoc; pcData[targetIdx][COL.PC.MONEY] = Math.max(0, (parseInt(pcData[targetIdx][COL.PC.MONEY]) || 0) - 20);
+                    if (targetIdx === pcIndex) curL = healLoc;
+                    relData.forEach(row => {
+                      if (row[COL.REL.PC] === pcData[targetIdx][COL.PC.NAME] && row[COL.REL.IS_PARTY] === "同行") {
+                        const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === row[COL.REL.NPC] && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
+                        if (nIdx !== -1) {
+                          pcData[nIdx][COL.PC.LOC] = healLoc;
+                          pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "平穩" });
+                          pcData[nIdx][COL.PC.HP] = calculateMaxStats(pcData[nIdx][COL.PC.REALM], pcData[nIdx][COL.PC.CON], pcData[nIdx][COL.PC.INT]).hp;
+                          dirtyPcRows.add(nIdx);
+                        }
                       }
-                    }
-                  });
-                  if (sheets.epic) sheets.epic.appendRow([pcId, `【奇蹟救治】${pcData[targetIdx][COL.PC.NAME]} 於生死邊緣被救回。`, new Date()]);
-                  if (targetIdx === pcIndex) justRevived = true;
+                    });
+                    if (sheets.epic) sheets.epic.appendRow([pcId, `【奇蹟救治】${pcData[targetIdx][COL.PC.NAME]} 於生死邊緣被救回。`, new Date()]);
+                    if (targetIdx === pcIndex) justRevived = true;
+                  }
                 }
                 // NPC：血掉到 5 以下→鎖 1 血昏迷待處置，生死由玩家定奪
                 else if (colIdx === COL.PC.HP && hpVal <= 5 && !isPlayer) {
@@ -3443,6 +3481,7 @@ ${isKanshou ? `
         .map(r => ({ id: String(r[COL.ITEM.ID] || r[COL.ITEM.NAME]).trim(), name: String(r[COL.ITEM.NAME]).trim(), type: String(r[COL.ITEM.TYPE] || "雜物"), desc: String(r[COL.ITEM.DESC] || "") }))
         .filter(it => it.name.length >= 2),
       justRevived: justRevived,
+      defeat: fatePlayerDefeat, dreamPrompt: fateDreamPrompt, // 🔵 FATE：御主殞命→前端播虛假之夢→老虎道場
       allMapNames: memoryMapData.slice(1).map(m => String(m[COL.MAP.NAME]).trim()).filter(n => n.length >= 2),
       // 🔴 新增：將全九州活著的眾生名單傳給前端，用於三段式判定
       allKnownNames: pcData.filter((r, i) => i !== 0 && !String(r[COL.PC.ID]).startsWith("DEAD_")).map(r => String(r[COL.PC.NAME]).trim())
@@ -3783,7 +3822,7 @@ function actionFateBattle(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: "對方不在你身邊，鞭長莫及。" });
   }
 
-  // ⏳ 戰鬥耗 1 AP（＝推進 2 小時）；行動點不足則無法出戰
+  // ⏳ 戰鬥耗 1 AP（＝推進 1 小時，1 AP＝1 小時）；行動點不足則無法出戰
   const isFateBattle = myGameId.indexOf("g_") === 0;
   if (isFateBattle && getAp_(myGameId) < 1) {
     return JSON.stringify({ success: false, message: "行動點已耗盡，從者也需喘息——請『歇息』恢復後再戰。" });
