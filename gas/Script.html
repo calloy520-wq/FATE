@@ -968,6 +968,25 @@ function renderRecentLocs(recents = null) {
       hud.style.display = 'none';
     }
   }
+  // 💠 從者魔力收支 HUD：供給(迴路)＋靈脈＋工房 − 維持＝淨值。赤字標紅警告，提醒搶靈脈/回家/補魔。
+  function updateEconomy(eco) {
+    const hud = document.getElementById('economy-hud');
+    if (!hud) return;
+    if (eco === undefined) return;                                  // 此動作未計算經濟→保留現狀，不閃動
+    if (!eco || (pc && pc.mode === 'kanshou')) { hud.style.display = 'none'; return; }
+    const leyIcon = eco.ley >= 12 ? '🔵' : eco.ley >= 6 ? '🟢' : '⚪';
+    const parts = [`迴路 +${eco.supply}`, `${leyIcon}靈脈 +${eco.ley}`];
+    if (eco.workshop) parts.push((eco.atHome ? '🏠工房' : '🔯陣地') + ' +' + eco.workshop);
+    const net = eco.net;
+    const netColor = net > 0 ? '#7ec87e' : net < 0 ? '#e06a6a' : '#c9b885';
+    const netStr = (net > 0 ? '+' : '') + net;
+    let html = `<span style="color:#9aa6c8;">💠 供魔</span> <span style="color:#bcd;">${parts.join('　')}</span>`
+      + ` <span style="color:#9a8;">－維持 ${eco.drain}</span>`
+      + ` ＝ <b style="color:${netColor};">淨 ${netStr}/時</b>`;
+    if (net < 0) html += ` <span style="color:#e06a6a;">⚠ 入不敷出，宜搶靈脈/回據點/補魔</span>`;
+    hud.innerHTML = html;
+    hud.style.display = 'block';
+  }
   // 把世界自走的風聞推進故事流
   function showRumors(rumors) {
     if (!rumors || !rumors.length) return;
@@ -986,7 +1005,7 @@ function renderRecentLocs(recents = null) {
       [6, '🛌 安睡 6 小時', '+12 行動力補滿・大幅回血回魔'],
     ];
     let html = '<h3 style="margin:0 0 6px;color:#a9a9d8;">🛏️ 休息多久？</h3>'
-      + '<p style="color:#9a8bb0;font-size:12px;margin:0 0 10px;">每休息 1 小時恢復 2 點行動力；休越久回血回魔越多，但世界也會推進更多。<br><span style="color:#8a9ac0;">〔時回〕HP 隨時間自然回復，MP 回復快慢看御主的魔術迴路；移動時也會小幅回流，休息則是雙倍。</span></p>';
+      + '<p style="color:#9a8bb0;font-size:12px;margin:0 0 10px;">每休息 1 小時恢復 2 點行動力；休越久回血回魔越多，但世界也會推進更多。<br><span style="color:#8a9ac0;">〔時回〕HP 隨時間自我修復；MP 看上方供魔收支（迴路＋靈脈＋工房 － 維持），休息時「收入」加倍。赤字時休息也補不滿，宜搬去靈脈匯聚處或回據點。</span></p>';
     html += opts.map(function (o) {
       return '<button onclick="rest(' + o[0] + ')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px;background:rgba(120,120,160,0.14);color:#e8dcc0;border:1px solid #5a5a8a;border-radius:8px;cursor:pointer;">'
         + '<b style="color:#bcbce0;">' + o[1] + '</b>　<span style="font-size:12px;color:#9a8bb0;">' + o[2] + '</span></button>';
@@ -1007,6 +1026,7 @@ function renderRecentLocs(recents = null) {
       if (data && data.success) {
         if (data.statusString) { localStorage.setItem('kyushu_last_status', data.statusString); updateUI(data.statusString.split('§')); }
         updateClock(data.clock, data.ap, data.apMax);
+        updateEconomy(data.economy);
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【休息 ${hours} 小時】</b>${(data.healedNames||['你']).join('與')}恢復了氣力，行動力 ${data.ap}/${data.apMax}。${data.clock ? '（' + data.clock + '）' : ''}</div>`);
         showRumors(data.rumors);
         syncData(true);
@@ -1061,6 +1081,7 @@ function renderRecentLocs(recents = null) {
         // 3. 顯示結果
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【抵達 ${targetName}】：</b><br><span>${locDesc}</span></div>`);
         updateClock(data.clock, data.ap, data.apMax);
+        updateEconomy(data.economy);
         showRumors(data.rumors);
 
         // 4. 清理 loading 提示
@@ -1790,8 +1811,26 @@ function renderRecentLocs(recents = null) {
         (name ? `<div style="color:#e8dcc0; font-size:13px; font-weight:bold; margin:1px 0 3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${name}</div>` : '') +
         lines.map(l => `<div style="color:#9a8bb0; font-size:11px; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${l}</div>`).join('') +
         `</div>`;
+      // 🟥🟦 血條／魔力條：直覺顯示當前 HP/MP
+      const bar = (label, cur, max, kind) => {
+        if (!max) return '';
+        const pct = Math.max(0, Math.min(100, Math.round(cur / max * 100)));
+        const col = kind === 'mp' ? '#4a90d9' : (pct > 50 ? '#5cb85c' : pct > 20 ? '#e0a020' : '#d0473f');
+        return '<div style="display:flex; align-items:center; gap:5px; margin:3px 0;">'
+          + '<span style="font-size:10px; color:#9a8bb0; width:24px; flex:none;">' + label + '</span>'
+          + '<div style="flex:1; min-width:0; height:9px; background:#2a2330; border-radius:5px; overflow:hidden; border:1px solid rgba(0,0,0,0.3);">'
+          + '<div style="width:' + pct + '%; height:100%; background:' + col + ';"></div></div>'
+          + '<span style="font-size:9.5px; color:#8a7f9a; width:58px; flex:none; text-align:right;">' + cur + '/' + max + '</span></div>';
+      };
       const m = t.master, s = t.servant;
-      let mh = card('#d4af37', '⚜️ 御主', m.name, [`${m.condition}`, `氣力 ${m.hp}　令咒 ${'❖'.repeat(m.seals || 3)}`]);
+      let mh = '<div style="background:rgba(20,14,28,0.55); border:1px solid #d4af37; border-radius:8px; padding:6px 8px;">'
+        + '<div style="color:#d4af37; font-weight:bold; font-size:12px;">⚜️ 御主</div>'
+        + '<div style="color:#e8dcc0; font-size:13px; font-weight:bold; margin:1px 0 3px;">' + m.name + '</div>'
+        + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">' + m.condition + '</div>'
+        + bar('體', m.hpNum, m.hpMax, 'hp')
+        + bar('魔', m.mpNum, m.mpMax, 'mp')
+        + '<div style="color:#9a8bb0; font-size:11px; margin-top:3px;">令咒 <span style="color:#c79be8;">' + '❖'.repeat(Math.max(0, m.seals || 0)) + '</span></div>'
+        + '</div>';
       let sh;
       if (s) {
         var six = s.six || {};
@@ -1807,7 +1846,9 @@ function renderRecentLocs(recents = null) {
           + '<div style="color:#c0392b; font-weight:bold; font-size:12px;">📿 從者・' + s.cls + '</div>'
           + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
           + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">' + s.condition + '</div>'
-          + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">氣力 ' + s.hp + '　羈絆 ' + bondWord(s.bond) + '</div>'
+          + bar('體', s.hpNum, s.hpMax, 'hp')
+          + bar('魔', s.mpNum, s.mpMax, 'mp')
+          + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">羈絆 ' + bondWord(s.bond) + '</div>'
           + '<div style="color:#cdbbe6; font-size:11px; margin-top:3px; letter-spacing:.5px;">六圍　' + sixLine + '</div>'
           + (skillPills ? ('<div style="margin-top:3px;">' + skillPills + '</div>') : '')
           + (traitPills ? ('<div style="margin-top:1px;">' + traitPills + '</div>') : '')
@@ -1823,7 +1864,20 @@ function renderRecentLocs(recents = null) {
       } else {
         sh = card('#555', '📿 從者', '（尚未召喚）', ['以令咒召喚你的英靈']);
       }
-      box.innerHTML = mh + sh;
+      // 💠 供魔收支（放在左側狀態面板，一眼看光）
+      var eco = t.economy, ecoStrip = '';
+      if (eco && !(pc && pc.mode === 'kanshou')) {
+        var leyIcon = eco.ley >= 12 ? '🔵' : eco.ley >= 6 ? '🟢' : '⚪';
+        var net = eco.net, netCol = net > 0 ? '#7ec87e' : net < 0 ? '#e06a6a' : '#c9b885';
+        var wsStr = eco.workshop ? ((eco.atHome ? '🏠工房' : '🔯陣地') + ' +' + eco.workshop + '　') : '';
+        ecoStrip = '<div style="background:rgba(20,14,28,0.55); border:1px solid rgba(120,120,160,0.3); border-radius:8px; padding:6px 9px; font-size:11px; color:#bcd; margin-top:6px;">'
+          + '<div style="color:#9aa6c8; font-weight:bold; margin-bottom:3px;">💠 供魔收支（每小時）</div>'
+          + '迴路 +' + eco.supply + '　' + leyIcon + '靈脈 +' + eco.ley + '　' + wsStr + '<span style="color:#9a8;">維持 −' + eco.drain + '</span>'
+          + '　＝ <b style="color:' + netCol + ';">淨 ' + (net > 0 ? '+' : '') + net + '/時</b>'
+          + (net < 0 ? '<div style="color:#e06a6a; margin-top:2px;">⚠ 入不敷出——宜搶靈脈／回據點／補魔</div>' : '')
+          + '</div>';
+      }
+      box.innerHTML = mh + sh + ecoStrip;
       box.style.display = 'flex';
       box.style.flexDirection = 'column';
     } catch (e) { }
@@ -1870,36 +1924,52 @@ function renderRecentLocs(recents = null) {
       }
     }
 
-    html += '<div style="color:#9a8bb0; font-size:12px; margin:12px 0 6px;">可前往：</div>';
-    if (nearbyLocations && nearbyLocations.length) {
-      nearbyLocations.forEach(function (l) {
-        var nm = (l && l.name) ? l.name : l; var safe = String(nm).replace(/'/g, '');
-        html += '<button class="btn" style="width:100%; text-align:left; margin-bottom:6px; border-color:#4682b4; color:#cde3f5; padding:8px 10px;" onclick="travelFromPane(\'' + safe + '\')">🚶 ' + nm + (l && l.type ? ' <small style="color:#888;">' + l.type + '</small>' : '') + '</button>';
-      });
-    } else {
-      html += '<p style="color:#816e54; font-size:12px;">附近暫無已知地點。</p>';
-    }
+    // 地圖節點本身即可點擊移動，文字「可前往」清單已多餘，移除。
+    html += '<div style="color:#6a5f80; font-size:11px; margin:10px 0 6px; text-align:center;">👆 點地圖上的地點即可前往</div>';
     c.innerHTML = html;
     renderBag5();
   }
   function refreshMapPane() { syncData(true); }
   function buildMapSvg_(nodes) {
     if (!nodes || !nodes.length) return '<p style="color:#816e54; text-align:center; padding:20px;">冬木地圖載入中或尚無資料。</p>';
-    var S = 34, pad = 46;
-    var xs = nodes.map(function (n) { return n.x * S; }), ys = nodes.map(function (n) { return -n.y * S; });
-    var minX = Math.min.apply(null, xs) - pad, maxX = Math.max.apply(null, xs) + pad;
-    var minY = Math.min.apply(null, ys) - pad, maxY = Math.max.apply(null, ys) + pad;
-    var typeColor = { '城區': '#4682b4', '靈地': '#2e8b57', '祭壇': '#d4af37', '據點': '#a0522d' };
-    var s = '';
+    // 🗺️ 固定冬木佈局（0..100 格）：未遠川為中軸，深山町在東、新都在西，柳洞寺/教會在北側山丘，
+    //    約會景點在南。不再用試算表座標，保證乾淨、節點不擠角落。以「短名」對應(去掉「冬木·」前綴)。
+    var short = function (nm) { return String(nm).replace('冬木', '').replace(/^[·・‧\-\s]+/, '').trim() || String(nm); };
+    var LAYOUT = {
+      '柳洞寺': [76, 12], '言峰教會': [50, 17], '穗群原學園': [17, 29],
+      '深山町': [28, 44], '間桐宅': [14, 60], '未遠川河畔': [50, 47],
+      '大橋': [50, 64], '新都': [73, 44], '商店街': [88, 32],
+      '遠坂宅': [83, 58], '中央公園': [66, 77], '海濱大道': [89, 80], '遊樂園': [41, 83]
+    };
+    var CONN = [['柳洞寺', '言峰教會'], ['言峰教會', '未遠川河畔'], ['未遠川河畔', '大橋'],
+    ['大橋', '新都'], ['大橋', '深山町'], ['深山町', '穗群原學園'], ['深山町', '間桐宅'],
+    ['新都', '商店街'], ['新都', '遠坂宅'], ['新都', '中央公園'], ['中央公園', '海濱大道'], ['大橋', '遊樂園']];
+    var typeColor = { '城區': '#5a93c9', '靈地': '#3fae6b', '祭壇': '#e0bb44', '據點': '#c07a45', '約會': '#cd82c0', '居所': '#cd9b5a' };
+    // 定位：未列於佈局者(如玩家自建居所)沿底部排開
+    var pos = {}, extra = 0;
     nodes.forEach(function (n) {
-      var cx = n.x * S, cy = -n.y * S, col = typeColor[n.type] || '#888';
-      var nm = String(n.name).replace(/'/g, '');
-      if (n.here) s += '<circle cx="' + cx + '" cy="' + cy + '" r="16" fill="none" stroke="#e7c873" stroke-width="3"/>';
-      if (n.enemy) s += '<circle cx="' + cx + '" cy="' + cy + '" r="21" fill="none" stroke="#d65c5c" stroke-width="2" stroke-dasharray="3,3"/>';
-      s += '<circle cx="' + cx + '" cy="' + cy + '" r="9" fill="' + col + '" stroke="#0a0810" stroke-width="2" style="cursor:pointer" onclick="travelFromPane(\'' + nm + '\')"/>';
-      s += '<text x="' + cx + '" y="' + (cy + 25) + '" font-size="13" fill="#e8e0f5" text-anchor="middle" paint-order="stroke" stroke="#0a0810" stroke-width="3" style="cursor:pointer" onclick="travelFromPane(\'' + nm + '\')">' + n.name + (n.enemy ? ' ⚔' : '') + '</text>';
+      var k = short(n.name);
+      if (LAYOUT[k]) pos[n.name] = LAYOUT[k];
+      else { pos[n.name] = [10 + extra * 20, 96]; extra++; }
     });
-    return '<div style="background:rgba(10,8,16,0.6); border:1px solid rgba(212,175,55,0.25); border-radius:8px; overflow:hidden;"><svg viewBox="' + minX + ' ' + minY + ' ' + (maxX - minX) + ' ' + (maxY - minY) + '" style="width:100%; height:auto; max-height:330px; display:block;">' + s + '</svg></div>';
+    var s = '';
+    // 連線（未遠川河道／街道）
+    var byShort = {}; nodes.forEach(function (n) { byShort[short(n.name)] = n.name; });
+    CONN.forEach(function (c) {
+      var a = pos[byShort[c[0]]], b = pos[byShort[c[1]]];
+      if (a && b) s += '<line x1="' + a[0] + '" y1="' + a[1] + '" x2="' + b[0] + '" y2="' + b[1] + '" stroke="rgba(120,150,200,0.22)" stroke-width="0.7"/>';
+    });
+    // 節點
+    nodes.forEach(function (n) {
+      var p = pos[n.name]; if (!p) return;
+      var cx = p[0], cy = p[1], col = typeColor[n.type] || '#888';
+      var nm = String(n.name).replace(/'/g, '');
+      if (n.here) s += '<circle cx="' + cx + '" cy="' + cy + '" r="3.8" fill="none" stroke="#e7c873" stroke-width="0.8"/>';
+      if (n.enemy) s += '<circle cx="' + cx + '" cy="' + cy + '" r="5" fill="none" stroke="#d65c5c" stroke-width="0.6" stroke-dasharray="1.6,1.3"/>';
+      s += '<circle cx="' + cx + '" cy="' + cy + '" r="2.2" fill="' + col + '" stroke="#0a0810" stroke-width="0.5" style="cursor:pointer" onclick="travelFromPane(\'' + nm + '\')"/>';
+      s += '<text x="' + cx + '" y="' + (cy + 5.2) + '" font-size="3.2" fill="#e8e0f5" text-anchor="middle" paint-order="stroke" stroke="#0a0810" stroke-width="0.9" style="cursor:pointer" onclick="travelFromPane(\'' + nm + '\')">' + short(n.name) + (n.enemy ? ' ⚔' : '') + '</text>';
+    });
+    return '<div style="background:linear-gradient(160deg,rgba(16,20,34,0.9),rgba(10,8,16,0.75)); border:1px solid rgba(212,175,55,0.28); border-radius:8px; overflow:hidden;"><svg viewBox="0 0 100 96" preserveAspectRatio="xMidYMid meet" style="width:100%; height:auto; display:block;">' + s + '</svg></div>';
   }
   // 🔵 隨身物品 5 格（地圖下方），點擊即使用
   async function renderBag5() {
@@ -1925,6 +1995,47 @@ function renderRecentLocs(recents = null) {
   function useBagItem(id, name, type) { handleItemAction('consume', id, name, type); }
 
   // ⚔️ 令從者出擊／寶具解放（Fate 戰鬥：六圍＋fx＋寶具）
+  // 📊 視覺戰報：把 D20 擲骰、命中/迴避、傷害、發動標籤、反擊攤給玩家看（不再只有 AI 散文）
+  function renderFateBattleReport(r) {
+    if (!r) return;
+    const story = document.getElementById('story');
+    const hpbar = (cur, max, col) => {
+      if (!max) return '';
+      const p = Math.max(0, Math.min(100, Math.round(cur / max * 100)));
+      return '<div style="height:7px;background:#2a2330;border-radius:4px;overflow:hidden;margin-top:2px;"><div style="width:' + p + '%;height:100%;background:' + col + ';"></div></div>'
+        + '<div style="font-size:9.5px;color:#8a7f9a;text-align:right;">' + cur + '/' + max + '</div>';
+    };
+    const critTxt = { atk_crit: '🎯 大成功！', def_crit: '🛡️ 完美反制！', atk_fumble: '💢 大失敗', def_fumble: '😵 敵失手' }[r.crit] || '';
+    let h = '<div style="border:1px solid rgba(212,175,55,0.35);border-radius:9px;padding:9px 11px;margin:6px 0;background:rgba(28,20,14,0.5);font-size:12px;">';
+    h += '<div style="color:#e7c873;font-weight:bold;margin-bottom:5px;">⚔️ ' + r.atk + (r.useSeal ? ' ❖令咒' : r.useNp ? ' 💥寶具' : '') + ' → ' + r.def + (critTxt ? '　<span style="color:#e0a86a;">' + critTxt + '</span>' : '') + '</div>';
+    if (r.intercept) h += '<div style="color:#c79be8;font-size:11px;margin-bottom:4px;">🛡️ 敵從者攔截護主——此擊改打從者</div>';
+    // 擲骰對拼
+    h += '<div style="display:flex;gap:8px;color:#bcd;font-size:11px;">'
+      + '<span>命中 <b style="color:#fff;">' + r.aHit + '</b> <span style="color:#888;">🎲' + r.aRoll + '</span></span>'
+      + '<span style="color:#888;">vs</span>'
+      + '<span>迴避 <b style="color:#fff;">' + r.dEva + '</b> <span style="color:#888;">🎲' + r.dRoll + '</span></span>'
+      + '<span style="margin-left:auto;color:' + (r.atkWins ? '#7ec87e' : '#e06a6a') + ';font-weight:bold;">' + (r.atkWins ? '命中！' : '被閃避，反遭打擊') + '</span></div>';
+    // 玩家這一擊
+    if (r.atkWins) {
+      h += '<div style="color:#e8c0a0;margin-top:5px;">💥 造成 <b style="color:#ffae6a;">' + r.damage + '</b> 傷害'
+        + (r.destroyed ? '　<span style="color:#d65c5c;font-weight:bold;">靈基崩潰·消滅！</span>' : (r.godRevived ? '　<span style="color:#d4af37;">十二試煉·自死亡歸來</span>' : (r.sealEscaped ? '　<span style="color:#c79be8;">敵令咒緊急脫離</span>' : '')))
+        + '</div>';
+      if (!r.destroyed && !r.sealEscaped) h += hpbar(r.defHp, r.defHpMax, '#d0473f');
+    } else {
+      h += '<div style="color:#e06a6a;margin-top:5px;">🩸 ' + r.atk + ' 受創 <b>' + r.selfDamage + '</b></div>';
+    }
+    // 發動標籤
+    if (r.fired && r.fired.length) h += '<div style="color:#9a8;font-size:10.5px;margin-top:4px;">〔發動〕' + r.fired.join('・') + '</div>';
+    // 對面反擊
+    if (r.counterHit) {
+      h += '<div style="color:#e06a6a;margin-top:5px;border-top:1px dashed rgba(214,92,92,0.3);padding-top:4px;">↩️ 「' + r.def + '」回擊，' + r.atk + ' 受創 <b>' + r.counterDmg + '</b></div>';
+      h += hpbar(r.atkHp, r.atkHpMax, '#d0473f');
+    }
+    h += '</div>';
+    story.insertAdjacentHTML('beforeend', h);
+    story.scrollTop = story.scrollHeight;
+  }
+
   async function servantStrike(npcName, useNp, useSeal) {
     if (!beginAction()) return;
     const story = document.getElementById('story');
@@ -1934,6 +2045,7 @@ function renderRecentLocs(recents = null) {
     try {
       const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, np: !!useNp, seal: !!useSeal, acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) {
+        if (res.report) renderFateBattleReport(res.report); // 📊 先攤開骰子/數字戰報
         narrate(res.aiPrompt);
         syncData(true);
         if (res.defeat) { await handleDefeat(res); }
@@ -2163,6 +2275,7 @@ function renderRecentLocs(recents = null) {
       localNPCs = data.people || [];
       nearbyLocations = data.locations || [];
       updateClock(data.clock, data.ap, data.apMax);
+      updateEconomy(data.economy);
       refreshFateTags();
       renderMapPane();
 
@@ -2469,6 +2582,14 @@ function applyModeUI() {
   document.querySelectorAll('[data-mode="full"]').forEach(function (el) {
     el.style.display = isFull ? '' : 'none';
   });
+  // 🔵 對話輸入窗只在「鑑賞」(後日談約會)模式出現。
+  //   單人聖杯戰爭＝純按鈕：GAS 算數值、AI 只說書，不再猜玩家想幹嘛(actionPlay 天道演化)。
+  //   保留「＋」工具抽屜(狀態/史紀/設定)，只收掉文字輸入框、傳送鈕與慾海開關。
+  var isKanshou = (pc && pc.mode === 'kanshou');
+  var uin = document.getElementById('u-in'); if (uin) uin.style.display = isKanshou ? '' : 'none';
+  var sbtn = document.getElementById('send-btn'); if (sbtn) sbtn.style.display = isKanshou ? '' : 'none';
+  var nsfw = document.getElementById('nsfw-mode-toggle');
+  if (nsfw) { var lab = nsfw.closest('label'); if (lab) lab.style.display = isKanshou ? '' : 'none'; }
 }
 
 // 🔵 御主命運測定（魔術天賦），最多 3 次
@@ -2953,13 +3074,15 @@ let plainTextContext = cleanText;
 }
 
       // 🕊️ 【和平互動區】
-      html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); interactNpc('交談', '${npcName}', '${currentLoc}', true)">🗣️ 交談</button>`;
-      
+      //   單人聖杯戰爭(solo)＝純按鈕，移除「交談／贈禮」這類需 AI 猜意圖的動作；保留窺探(看數值)/使用道具(補血)。
+      var _aiTalk = !(pc && pc.mode === 'solo');
+      if (_aiTalk) html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); interactNpc('交談', '${npcName}', '${currentLoc}', true)">🗣️ 交談</button>`;
+
       if (!isPC) {
           html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); openNpcInventoryModal('${npcName}')">👁️ 窺探</button>`;
       }
-      
-      html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); interactNpc('贈禮', '${npcName}', '${currentLoc}', true)">🎁 贈禮</button>`;
+
+      if (_aiTalk) html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); interactNpc('贈禮', '${npcName}', '${currentLoc}', true)">🎁 贈禮</button>`;
       if (pc && pc.mode === 'full') html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); openGiveMoneyPrompt('${npcName}')">💰 給銀兩</button>`;
       html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3; grid-column: span 2;" onclick="closeInteractMenu(); openUseItemOnNpcModal('${npcName}')">💊 使用道具 (補血/解狀態)</button>`;
 
