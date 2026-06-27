@@ -2822,9 +2822,19 @@ ${isKanshou ? `
                 pcData[targetIdx][COL.PC.LOC] = oldRootLoc; if (targetIdx === pcIndex) curL = oldRootLoc;
                 return;
               }
-              pcData[targetIdx][COL.PC.LOC] = newLoc; if (targetIdx === pcIndex) curL = newLoc;
               let rootLoc = newLoc.split('-')[0].trim();
-              if (sheets.map && rootLoc && typeof memoryMapData !== 'undefined' && !memoryMapData.some(r => String(r[COL.MAP.NAME] || "").trim() === rootLoc)) {
+              const rootKnown = !sheets.map || (typeof memoryMapData !== 'undefined' && memoryMapData.some(r => String(r[COL.MAP.NAME] || "").trim() === rootLoc));
+              const isFateWorld = myGameId && (myGameId.indexOf('g_') === 0 || myGameId.indexOf('k_') === 0);
+              if (!rootKnown && isFateWorld) {
+                // 🔵 FATE：地圖固定在冬木，【絕不】自動長新地點——AI 亂報的新母地圖一律退回原地
+                const oldRoot = String(pcData[targetIdx][COL.PC.LOC] || "").split('-')[0].trim() || rootLoc;
+                Logger.log(`【FATE 地圖鎖定】AI 想把「${tName}」移到未知母地圖「${rootLoc}」，已退回「${oldRoot}」`);
+                pcData[targetIdx][COL.PC.LOC] = oldRoot; if (targetIdx === pcIndex) curL = oldRoot;
+                return;
+              }
+              pcData[targetIdx][COL.PC.LOC] = newLoc; if (targetIdx === pcIndex) curL = newLoc;
+              if (!rootKnown && sheets.map && rootLoc) {
+                // 九州舊行為：未知母地圖自動建檔（FATE 不會走到這）
                 const fallbackMapRow = ["九州", rootLoc, "荒野", `${Math.floor(Math.random() * 120) - 60},${Math.floor(Math.random() * 120) - 60}`, "未探明區域。"];
                 sheets.map.appendRow(fallbackMapRow); memoryMapData.push(fallbackMapRow);
               }
