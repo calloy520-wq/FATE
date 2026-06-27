@@ -23,7 +23,7 @@ const COL = {
     HP: 9, MP: 10, STR: 11, CON: 12, AGI: 13, INT: 14, LUK: 15, MAX_HP: 16, MAX_MP: 17,
     WEP: 18, ARM: 19, ACC1: 20, ACC2: 21, REALM: 22, MEMORY: 23, INTENT: 24,
     FACTION: 25, RANK: 26, CONTRIB: 27, ALIGN: 28, PHYSICAL: 29, MARTIAL: 30,
-    LIFESKILL: 31
+    LIFESKILL: 31, GAME_ID: 32
   },
   ITEM: { NAME: 0, TYPE: 1, DESC: 2, PRICE: 3, OWNER: 4, STR: 5, CON: 6, AGI: 7, INT: 8, LUK: 9, ID: 10, LOC2: 11 },
   REL: { PC: 0, NPC: 1, FAV: 2, TAG: 3, IS_PARTY: 4, MEMORY: 5, MAJOR_EVENT: 6 },
@@ -373,9 +373,14 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, relData, taskData, allPc
   const localPeopleList = [];
   const safeCurL = String(curL || "");
 
+  // 🔵 實例化：只看自己 game_id 世界內的人（御主沒有 game_id 時不過濾，相容舊角色）
+  const meRow = allPcData.find(r => r[COL.PC.ID] == pcId);
+  const myGameId = meRow ? String(meRow[COL.PC.GAME_ID] || "") : "";
+
   for (let i = 1; i < allPcData.length; i++) {
     const r = allPcData[i];
     if (r[COL.PC.ID] == pcId || String(r[COL.PC.ID]).startsWith("DEAD_")) continue;
+    if (myGameId && String(r[COL.PC.GAME_ID] || "") !== myGameId) continue;
 
     const tLoc = String(r[COL.PC.LOC] || ""); const tName = r[COL.PC.NAME];
     const relRecord = relData.find(row => row[COL.REL.PC] === pcName && row[COL.REL.NPC] === tName);

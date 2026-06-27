@@ -38,6 +38,7 @@ const ActionRouter = {
   "update_rel_tag": actionUpdateRelTag,
   "manual_npc": actionManualNpc,
   "create": actionManualNpc, // create 與 manual_npc 共用同一個邏輯
+  "summon_servant": actionSummonServant,
   "clear_npc_major_event": actionClearNpcMajorEvent,
   "get_all_categorized_maps": actionGetAllCategorizedMaps,
   "move": actionMove,
@@ -1462,6 +1463,8 @@ function actionManualNpc(userData, pcId, sheets) {
 
   const pcRow = sheets.pc.getDataRange().getValues().find(r => r[COL.PC.ID] == pcId);
   const pcNameStr = pcRow ? pcRow[COL.PC.NAME] : "神祕人";
+  // 🔵 實例化：御主創角 → 開新 game_id 世界；其餘(NPC)沿用操作者所屬 game_id
+  const gameId = isCreate ? ("g_" + Date.now()) : (pcRow ? String(pcRow[COL.PC.GAME_ID] || "") : "");
 
   let validMapNames = ["落雁峰", "桃花塢", "崑崙秘境", "萬毒沼澤"];
   if (sheets.map) {
@@ -1600,6 +1603,7 @@ function actionManualNpc(userData, pcId, sheets) {
     newRow[COL.PC.FACTION] = aiBrief.faction || "無"; newRow[COL.PC.RANK] = aiBrief.rank || "散人";
     newRow[COL.PC.CONTRIB] = 0; newRow[COL.PC.ALIGN] = aiBrief.align || "絕對中立";
     newRow[COL.PC.INTENT] = aiBrief.npc_intent || "無特殊執念";
+    newRow[COL.PC.GAME_ID] = gameId;
     sheets.pc.appendRow(newRow);
 
     if (aiBrief.start_item && aiBrief.start_item.name) {
@@ -1628,8 +1632,90 @@ function actionManualNpc(userData, pcId, sheets) {
 
     registerFactionHelper(aiBrief.faction, aiBrief.rank, aiBrief.align, spawnName, finalName, sheets, isCreate ? newId : pcId, finalName, sheets.faction ? sheets.faction.getDataRange().getValues() : []);
 
-    return JSON.stringify({ success: true, pcId: isCreate ? newId : undefined, message: `【聖杯】因果已定，『${finalName}』${isCreate ? `於「${spawnName}」締結令咒，成為御主` : `已收錄`}。` });
+    return JSON.stringify({ success: true, pcId: isCreate ? newId : undefined, gameId: isCreate ? gameId : undefined, message: `【聖杯】因果已定，『${finalName}』${isCreate ? `於「${spawnName}」締結令咒，成為御主` : `已收錄`}。` });
   } catch (e) { return JSON.stringify({ success: false, message: "建立失敗:" + e.message }); }
+}
+
+// ==========================================
+// 🔵 召喚從者（Servant）— 寫進御主自己的 game_id 實例，並設為同行夥伴
+// ==========================================
+function actionSummonServant(userData, pcId, sheets) {
+  const VALID_CLS = ["Saber", "Archer", "Lancer", "Rider", "Caster", "Assassin", "Berserker"];
+  const cls = VALID_CLS.includes(userData.cls) ? userData.cls : "Saber";
+  const trueName = String(userData.trueName || "").trim().slice(0, 20);
+
+  const pcData = sheets.pc.getDataRange().getValues();
+  const masterRow = pcData.find(r => r[COL.PC.ID] == pcId);
+  if (!masterRow) return JSON.stringify({ success: false, message: "找不到御主，請重新登入。" });
+  const pcName = masterRow[COL.PC.NAME];
+  const pcLoc = masterRow[COL.PC.LOC] || "冬木·新都";
+  const gameId = String(masterRow[COL.PC.GAME_ID] || "");
+
+  // 同實例內若已有從者，擋重複召喚
+  const already = pcData.find(r =>
+    String(r[COL.PC.FACTION]) === "從者" &&
+    String(r[COL.PC.GAME_ID] || "") === gameId &&
+    !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  if (already) return JSON.stringify({ success: false, message: `你已締約從者「${already[COL.PC.NAME]}」，無法再召喚。` });
+
+  const sysOverride = `你是《命運停駐之夜》的英靈召喚核心。玩家御主召喚出一名「從者（Servant）」，職階為「${cls}」。${trueName ? `指定真名為「${trueName}」，請忠於該英靈的傳說與性格。` : "請挑選一位契合此職階、知名的歷史或傳說英靈。"}
+
+★【演出而非說明】個性與寶具只作設定底層，traits／personality 不要直接複述字面設定。
+★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
+- traits：外貌、氣質舉止、戰鬥／寶具傾向、私下不為人知的一面
+- personality：日常表象、真實內裡、喜歡的事、討厭的事
+★np：寶具名＋一句威能簡述。
+★npc_intent：一句話「可愛反差萌（萌點）」。
+★sex 從 男／女／異 擇一。
+
+★【輸出】合法 JSON、禁 Markdown：
+{"realName":"英靈真名","sex":"女","np":"寶具名（簡述）","background":"限20字傳說梗概","traits":"四格頓號字串","personality":"四格頓號字串","npc_intent":"反差萌一句話","align":"中立・善"}`;
+
+  const promptStr = `【職階】：${cls}\n【御主】：${pcName}${trueName ? `\n【指定真名】：${trueName}` : ""}`;
+
+  try {
+    const aiBrief = JSON.parse(callGeminiAPI(promptStr, sysOverride, { temperature: 0.6, ignoreLaw: true }));
+    const realName = String(aiBrief.realName || trueName || (cls + "從者")).trim() || (cls + "從者");
+
+    // 從者強度：給高境界，確切平衡待戰鬥系統換成 FATE 後再調
+    const svRealm = "意動";
+    const cap = REALM_LIMITS[svRealm] || 65;
+    const sStat = () => Math.floor(cap * 0.85) + Math.floor(Math.random() * Math.floor(cap * 0.15));
+    const nStr = sStat(), nCon = sStat(), nAgi = sStat(), nInt = sStat(), nLuk = Math.floor(cap * 0.7);
+    const maxStats = calculateMaxStats(svRealm, nCon, nInt);
+
+    const newId = "NPC_" + Date.now();
+    const pcColCount = Object.keys(COL.PC).length;
+    const row = Array(pcColCount).fill("");
+    row[COL.PC.ID] = newId;
+    row[COL.PC.NAME] = realName;
+    row[COL.PC.SEX] = aiBrief.sex || "異";
+    row[COL.PC.BACK] = aiBrief.background || `${cls} 職階的英靈`;
+    row[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
+    row[COL.PC.MONEY] = 0;
+    row[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.traits, "氣場凜然、舉止從容、精擅戰技、不為人知的一面");
+    row[COL.PC.LOC] = pcLoc;
+    row[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "沉著表象、堅定內裡、珍視之物、厭惡之事");
+    row[COL.PC.HP] = maxStats.hp; row[COL.PC.MP] = maxStats.mp;
+    row[COL.PC.STR] = nStr; row[COL.PC.CON] = nCon; row[COL.PC.AGI] = nAgi; row[COL.PC.INT] = nInt; row[COL.PC.LUK] = nLuk;
+    row[COL.PC.MAX_HP] = maxStats.hp; row[COL.PC.MAX_MP] = maxStats.mp;
+    row[COL.PC.REALM] = svRealm;
+    row[COL.PC.INTENT] = aiBrief.npc_intent || "無";
+    row[COL.PC.FACTION] = "從者"; row[COL.PC.RANK] = cls;
+    row[COL.PC.CONTRIB] = 0; row[COL.PC.ALIGN] = aiBrief.align || "中立";
+    row[COL.PC.MARTIAL] = aiBrief.np || "寶具（未顯現）";
+    row[COL.PC.GAME_ID] = gameId;
+    sheets.pc.appendRow(row);
+
+    // 與御主結為同行夥伴（初始羈絆 35）
+    if (sheets.rel) {
+      try { sheets.rel.appendRow([pcName, realName, 35, "從者", "同行", "", ""]); } catch (e) { }
+    }
+
+    return JSON.stringify({ success: true, servantName: realName, cls: cls, message: `【聖杯】令咒迸發，${cls} 職階的從者「${realName}」應召而現，與『${pcName}』締結契約。` });
+  } catch (e) {
+    return JSON.stringify({ success: false, message: "召喚失敗：" + e.message });
+  }
 }
 
 // 🔴 修正：原本所有缺座標的地點都會被塞進 (0,0)，導致俯瞰圖上大量節點重疊堆疊。
@@ -1968,7 +2054,10 @@ function actionPlay(userData, pcId, sheets) {
   });
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【目前同行隊伍成員命格詳情】:\n${partyDetailsArr.join("\n")}` : "目前沒有同行夥伴，玩家是獨自行動的。";
 
-  const allLocals = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && (r[COL.PC.LOC] === curL) && !partyMembers.includes(r[COL.PC.NAME]));
+  // 🔵 實例化：只取自己 game_id 世界內、同地點的人（御主無 game_id 時不過濾，相容舊角色）
+  const myGameId = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
+  const sameGame = (r) => !myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId;
+  const allLocals = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && (r[COL.PC.LOC] === curL) && sameGame(r) && !partyMembers.includes(r[COL.PC.NAME]));
   let displayPeople = allLocals.length > 6 ? allLocals.sort((a, b) => (b[COL.PC.PREF].includes(pcName) ? 1 : 0) - (a[COL.PC.PREF].includes(pcName) ? 1 : 0)).slice(0, 6) : allLocals;
 
 
@@ -2038,7 +2127,7 @@ function actionPlay(userData, pcId, sheets) {
 
     // 🟢 新增：性別配對提示，直接算好給 AI，不需要它自己推理
     let genderHintStr = "";
-    const presentRowsForGender = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && r[COL.PC.LOC] === curL && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+    const presentRowsForGender = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && r[COL.PC.LOC] === curL && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_"));
     if (presentRowsForGender.length > 0) {
       const playerSex = pc[COL.PC.SEX] || "未知";
       const pairHints = presentRowsForGender.map(r => {
@@ -2059,7 +2148,7 @@ function actionPlay(userData, pcId, sheets) {
     let pSkills = (pcData[pcIndex][COL.PC.MEMORY] || "無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/, (m, p1) => `[雙修技巧]${p1.trim().split('、').slice(0, 5).join('、')}`);
     let nsfwMemories = `\n[玩家『${pcName}』狀態]：${pcData[pcIndex][COL.PC.STATUS]}\n[玩家『${pcName}』肉體]：${JSON.stringify(pPhysicalObj)}\n[身體記憶]：${pSkills}`;
 
-    let allPresentRows = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && r[COL.PC.LOC] === curL && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+    let allPresentRows = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && r[COL.PC.LOC] === curL && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_"));
     allPresentRows.forEach(r => {
       let npcPhysicalObj = JSON.parse(r[COL.PC.PHYSICAL] || "{}");
       if (Object.keys(npcPhysicalObj).length === 0) npcPhysicalObj = { "蜜穴": "未開" };

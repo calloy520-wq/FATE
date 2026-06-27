@@ -1856,14 +1856,42 @@ async function checkName(event) {
       localStorage.removeItem('kyushu_cult_count');
       localStorage.removeItem('kyushu_cult_date');
       localStorage.removeItem('kyushu_back_locked');
-      pc = { id: data.pcId, name, sex };
+      pc = { id: data.pcId, name, sex, gameId: data.gameId || "" };
       localStorage.setItem('kyushu_v27', JSON.stringify(pc));
-      startGame(false);
+      // 御主締結完成 → 進入召喚從者步驟
+      document.getElementById('step-detail').style.display = 'none';
+      document.getElementById('step-summon').style.display = 'block';
     } else {
       alert(data.message || "創角失敗，請重試。");
     }
   } catch(e) {
     alert("投胎失敗");
+  }
+}
+
+let selectedSummonClass = 'Saber';
+function selectSummonClass(btn) {
+  selectedSummonClass = btn.dataset.cls;
+  document.querySelectorAll('.summon-cls').forEach(b => { b.style.background = ''; b.style.boxShadow = ''; });
+  btn.style.background = 'rgba(212,175,55,0.25)';
+  btn.style.boxShadow = '0 0 8px rgba(212,175,55,0.6)';
+}
+
+async function summonServant(event) {
+  const cls = selectedSummonClass;
+  const trueName = document.getElementById('s-truename')?.value.trim() || "";
+  try {
+    const data = await gasRun({ action: "summon_servant", pcId: pc.id, cls, trueName });
+    if (data && data.success) {
+      pc.servant = data.servantName || "";
+      localStorage.setItem('kyushu_v27', JSON.stringify(pc));
+      document.getElementById('step-summon').style.display = 'none';
+      startGame(false);
+    } else {
+      alert((data && data.message) || "召喚失敗，請重試。");
+    }
+  } catch (e) {
+    alert("召喚失敗，天道連線受阻。");
   }
 }
 
@@ -1897,7 +1925,7 @@ async function checkName(event) {
       }).getGameHistory(pc.id, pc.name);
         
     } else { 
-  send(`【聖杯戰爭】御主『${pc.name}』踏入冬木的夜。描寫所在街道的燈火、氛圍與往來行人，營造聖杯戰爭前夕的暗潮湧動；其中安排一名有真實名字的角色與『${pc.name}』自然地擦身或眼神交會，留下懸念。禁止用外貌描述代替名字。場景有張力，讓玩家想主動開口。★禁止問玩家想做什麼。★禁止介紹玩家自己的身份。★禁止新增任何地圖或NPC進眾生冊。`, true);
+  send(`【聖杯戰爭】御主『${pc.name}』剛以令咒召喚出自己的從者${pc.servant ? `「${pc.servant}」` : ""}，兩人初次同處於冬木的夜。描寫所在地點的燈火與氛圍，並聚焦御主與從者之間最初的試探、對話或張力（從者依其真名性格演出，禁止複述設定字面），留下懸念。禁止用外貌描述代替名字。場景有張力，讓玩家想主動開口。★禁止問玩家想做什麼。★禁止介紹玩家自己的身份。★禁止新增任何地圖或NPC進眾生冊。`, true);
 }
   }
 
