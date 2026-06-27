@@ -36,6 +36,24 @@
       <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left;" onclick="chooseWarMode('chaos')">🎲 <b>混亂模式</b><br><small style="color:#9a7b4f; font-weight:normal;">御主×從者隨機洗牌配對，每局敵方陣容都不同</small></button>
       <button class="btn" style="width:100%; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="document.getElementById('scr-warmode').style.display='none';document.getElementById('scr-menu').style.display='block';">← 返回</button>
     </div>
+    <div id="scr-war" style="display:none; width:300px;">
+      <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:12px;">參戰哪一場聖杯戰爭？</p>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="chooseWar('4th')">⚔️ <b>第四次聖杯戰爭</b><br><small style="color:#9a7b4f; font-weight:normal;">Fate/Zero・正典七組（切嗣+Saber、時臣+吉爾伽美什…）</small></button>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="chooseWar('5th')">🏆 <b>第五次聖杯戰爭</b><br><small style="color:#9a7b4f; font-weight:normal;">stay night・正典六組（士郎+Saber、凜+EMIYA…）</small></button>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left;" onclick="chooseWar('fake')">🃏 <b>偽聖杯戰爭 Fake</b><br><small style="color:#9a7b4f; font-weight:normal;">strange Fake・雪原偽戰（御主由 AI 生成，僅能自創參戰）</small></button>
+      <button class="btn" style="width:100%; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="document.getElementById('scr-war').style.display='none';document.getElementById('scr-warmode').style.display='block';">← 返回</button>
+    </div>
+    <div id="scr-role" style="display:none; width:300px;">
+      <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:12px;">你要怎麼參戰？</p>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="chooseRole('canon')">🎭 <b>扮演正典御主</b><br><small style="color:#9a7b4f; font-weight:normal;">成為其中一位正典御主（設定可改），但從者你自己召喚</small></button>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left;" onclick="chooseRole('original')">✍️ <b>自創角色</b><br><small style="color:#9a7b4f; font-weight:normal;">打造原創御主，作為追加的參戰者闖入正典戰局</small></button>
+      <button class="btn" style="width:100%; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="document.getElementById('scr-role').style.display='none';document.getElementById('scr-war').style.display='block';">← 返回</button>
+    </div>
+    <div id="scr-master" style="display:none; width:300px;">
+      <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:8px;">選擇要扮演的正典御主</p>
+      <div id="master-pick-list" style="max-height:300px; overflow-y:auto;"></div>
+      <button class="btn" style="width:100%; margin-top:8px; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="document.getElementById('scr-master').style.display='none';document.getElementById('scr-role').style.display='block';">← 返回</button>
+    </div>
     <div id="step-name" style="display:none; width:280px;">
       <input id="s-name" class="std-in" style="width:100%; box-sizing:border-box;" placeholder="輸入御主之名（限中文）..." maxlength="10">
       <p style="text-align:center; color:#9a7b4f; font-size:12px; margin:8px 0 0;">※ 御主之名僅限中文字，不可使用英文、數字或符號。</p>

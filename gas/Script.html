@@ -2267,12 +2267,60 @@ async function newGameFlow() {
   document.getElementById('scr-warmode').style.display = 'block';
 }
 
-// 📜正史 / 🎲混亂 選擇 → 進創角
+// 📜正史 / 🎲混亂 → 戰爭 → 扮演方式 → 創角
 var warMode = 'canon';
+var currentWar = '5th';
+var playedMaster = '';
+function showOnly_(id) {
+  ['scr-warmode', 'scr-war', 'scr-role', 'scr-master', 'step-name', 'step-detail'].forEach(function (s) {
+    var el = document.getElementById(s); if (el) el.style.display = (s === id) ? 'block' : 'none';
+  });
+}
 function chooseWarMode(m) {
   warMode = (m === 'chaos') ? 'chaos' : 'canon';
-  document.getElementById('scr-warmode').style.display = 'none';
-  document.getElementById('step-name').style.display = 'block';
+  playedMaster = '';
+  if (warMode === 'chaos') { currentWar = 'chaos'; showOnly_('step-name'); }
+  else { showOnly_('scr-war'); }
+}
+function chooseWar(w) {
+  currentWar = w;
+  playedMaster = '';
+  if (w === 'fake') { showOnly_('step-name'); }   // 偽聖杯無正典御主 → 只能自創
+  else { showOnly_('scr-role'); }
+}
+function chooseRole(r) {
+  if (r === 'original') { playedMaster = ''; showOnly_('step-name'); return; }
+  loadCanonMasters();
+}
+async function loadCanonMasters() {
+  try {
+    var res = await gasRun({ action: 'get_masters', war: currentWar });
+    var list = (res && res.masters) || [];
+    window._canonMasters = list;
+    var box = document.getElementById('master-pick-list');
+    box.innerHTML = list.map(function (m, i) {
+      return '<button class="btn" style="width:100%; text-align:left; margin-bottom:6px; border-color:#d4af37; color:#e8dcc0; padding:9px 10px;" onclick="pickCanonMaster(' + i + ')">'
+        + '<b>' + m.name + '</b> <small style="color:#9a7b4f;">（正典從者：' + (m.servant || '').replace(/-.*$/, '') + '）</small>'
+        + (m.wish ? '<br><small style="color:#9a8bb0;">願望：' + m.wish + '</small>' : '') + '</button>';
+    }).join('') || '<p style="color:#816e54; text-align:center; padding:14px 0;">查無正典御主資料。</p>';
+    showOnly_('scr-master');
+  } catch (e) { alert('讀取正典御主失敗。'); }
+}
+function pickCanonMaster(i) {
+  var m = (window._canonMasters || [])[i];
+  if (!m) return;
+  playedMaster = m.id;
+  // 帶入正典預設（皆可改）
+  var nm = document.getElementById('s-name'); if (nm) nm.value = m.name;
+  var sx = document.getElementById('s-sex'); if (sx && ['男', '女', '異'].indexOf(m.sex) >= 0) sx.value = m.sex;
+  var ap = document.getElementById('s-appear'); if (ap) ap.value = m.appear || '';
+  var wi = document.getElementById('s-wish'); if (wi) wi.value = m.wish || '';
+  // 正典魔術帶進命運（circuits/melee 給合理預設，仍可重新測定覆蓋）
+  masterRolls = [{ circuits: 40, magic: m.magic || '魔術', origin: '正典魔術師', melee: 'D' }];
+  masterRoll = masterRolls[0];
+  if (typeof renderFateRolls === 'function') renderFateRolls();
+  // 扮演者名字可能含「·」等符號，跳過 checkName，直接進細節步驟
+  showOnly_('step-detail');
 }
 
 function logoutAccount() { localStorage.clear(); location.reload(); }
@@ -2402,7 +2450,8 @@ async function checkName(event) {
   const roll = masterRoll || {};
 
   try {
-    const data = await gasRun({ action: "create", name, sex, appearance, standing, wish, account: currentAccount, warMode: warMode,
+    const data = await gasRun({ action: "create", name, sex, appearance, standing, wish, account: currentAccount,
+      warMode: warMode, war: currentWar, playedMaster: playedMaster,
       magic: roll.magic || "", circuits: roll.circuits || "", origin: roll.origin || "", melee: roll.melee || "" });
     if (data.success) {
       // 🔴 新角色一律清空所有舊暫存

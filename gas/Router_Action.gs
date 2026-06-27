@@ -47,6 +47,7 @@ const ActionRouter = {
   "create": actionManualNpc, // create 與 manual_npc 共用同一個邏輯
   "summon_servant": actionSummonServant,
   "get_heroes": actionGetHeroes,
+  "get_masters": actionGetMasters,
   "get_tags": actionGetTags,
   "fate_battle": actionFateBattle,
   "use_seal": actionUseSeal,
@@ -1602,7 +1603,9 @@ function actionManualNpc(userData, pcId, sheets) {
         origin ? `【出身】${origin}` : "",
         melee ? `【體術】${melee}` : "",
         "【令咒】3",
-        `【模式】${userData.warMode === 'chaos' ? 'chaos' : 'canon'}`
+        `【模式】${userData.warMode === 'chaos' ? 'chaos' : 'canon'}`,
+        userData.warMode === 'chaos' ? "" : `【戰爭】${['4th', '5th', 'fake'].indexOf(String(userData.war)) >= 0 ? userData.war : '5th'}`,
+        (userData.warMode !== 'chaos' && userData.playedMaster) ? `【扮演】${String(userData.playedMaster).trim()}` : ""
       ].filter(Boolean).join("｜");
     }
     // 🔴 NPC 初始銀兩依境界給(玩家創角固定 50)，錢有變化、高人更富
@@ -1673,19 +1676,24 @@ function getWarMode_(memory) {
   var m = String(memory || "").match(/【模式】(canon|chaos)/);
   return m ? m[1] : "canon";
 }
+// 鋪敵用的「戰爭」字串：混亂→chaos；正史→【戰爭】(4th/5th/fake，預設 5th)
+function getWarName_(memory) {
+  if (getWarMode_(memory) === "chaos") return "chaos";
+  var m = String(memory || "").match(/【戰爭】(4th|5th|fake)/);
+  return m ? m[1] : "5th";
+}
+// 玩家扮演的正典御主 id（自創則空）
+function getPlayedMaster_(memory) {
+  var m = String(memory || "").match(/【扮演】([^|【]+)/);
+  return m ? m[1].trim() : "";
+}
 
 function actionGetHeroes(userData, pcId, sheets) {
   try {
     const hs = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("英靈殿");
     if (!hs || hs.getLastRow() <= 1) return JSON.stringify({ success: true, heroes: [] });
-    // 正史模式：濾掉六名正典英靈（禁止玩家搶角色）
-    let banned = [];
-    try {
-      const m = sheets.pc.getDataRange().getValues().find(r => r[COL.PC.ID] == pcId);
-      if (m && getWarMode_(m[COL.PC.MEMORY]) === "canon") banned = canonHeroNames_();
-    } catch (e) { }
     const rows = hs.getDataRange().getValues().slice(1);
-    const heroes = rows.filter(r => r[COL.HERO.ID] && banned.indexOf(String(r[COL.HERO.NAME])) === -1).map(r => ({
+    const heroes = rows.filter(r => r[COL.HERO.ID]).map(r => ({
       id: r[COL.HERO.ID], cls: r[COL.HERO.CLS], name: r[COL.HERO.NAME],
       gender: r[COL.HERO.SEX], np: r[COL.HERO.NP]
     }));
@@ -1693,6 +1701,27 @@ function actionGetHeroes(userData, pcId, sheets) {
   } catch (e) {
     return JSON.stringify({ success: false, heroes: [], message: e.message });
   }
+}
+
+// 取某場戰爭的正典御主清單（供「扮演正典御主」帶入預設）
+function actionGetMasters(userData, pcId, sheets) {
+  const war = String(userData.war || "5th");
+  const roster = (war === '4th') ? FATE_4TH_ROSTER : FATE_5TH_ROSTER;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const msh = ss.getSheetByName("御主殿");
+  if (!msh) return JSON.stringify({ success: true, masters: [] });
+  const mrows = msh.getDataRange().getValues();
+  const out = roster.map(function (r) {
+    const m = mrows.find(function (x) { return String(x[COL.MASTER.ID]) === r.master; });
+    if (!m) return null;
+    return {
+      id: String(m[COL.MASTER.ID]), name: String(m[COL.MASTER.NAME] || ""),
+      sex: String(m[COL.MASTER.SEX] || "異"), appear: String(m[COL.MASTER.APPEAR] || ""),
+      magic: String(m[COL.MASTER.MAGIC] || ""), wish: String(m[COL.MASTER.WISH] || ""),
+      servant: r.hero
+    };
+  }).filter(Boolean);
+  return JSON.stringify({ success: true, masters: out });
 }
 
 function actionSummonServant(userData, pcId, sheets) {
@@ -1715,9 +1744,9 @@ function actionSummonServant(userData, pcId, sheets) {
     !String(r[COL.PC.ID]).startsWith("DEAD_"));
   if (already) return JSON.stringify({ success: false, message: `你已締約從者「${already[COL.PC.NAME]}」，無法再召喚。` });
 
-  // 戰役模式（正史禁止玩家搶正典英靈）
-  const warMode = getWarMode_(masterRow[COL.PC.MEMORY]);
-  const bannedNames = warMode === "canon" ? canonHeroNames_() : [];
+  // 戰役資訊（正史可自由奪取正典從者，被奪的那組會從對手名單移除）
+  const warName = getWarName_(masterRow[COL.PC.MEMORY]);
+  const playedMaster = getPlayedMaster_(masterRow[COL.PC.MEMORY]);
 
   // ── 從英靈殿尋找對應英靈（heroId 指定 / 真名比對 / 隨機）──
   let hero = null;
@@ -1731,23 +1760,11 @@ function actionSummonServant(userData, pcId, sheets) {
         hero = hrows.find(r => String(r[COL.HERO.NAME]).includes(trueName) || trueName.includes(String(r[COL.HERO.NAME])));
       } else {
         let pool = reqCls ? hrows.filter(r => r[COL.HERO.CLS] === reqCls) : hrows;
-        if (bannedNames.length) pool = pool.filter(r => bannedNames.indexOf(String(r[COL.HERO.NAME])) === -1);
         if (pool.length) hero = pool[Math.floor(Math.random() * pool.length)];
       }
     }
   } catch (e) { hero = null; }
   if (custDesc) hero = null; // 自訂描述 → 強制走 AI 生成原創，不抓名冊
-
-  // 📜 正史：禁止奪取正典英靈
-  if (bannedNames.length) {
-    const tnHit = bannedNames.find(n => trueName && (n.includes(trueName) || trueName.includes(n)));
-    if (hero && bannedNames.indexOf(String(hero[COL.HERO.NAME])) !== -1) {
-      return JSON.stringify({ success: false, message: `正史模式下，「${hero[COL.HERO.NAME]}」已屬於正典御主，不可奪取。請改召其他英靈或自訂真名。` });
-    }
-    if (tnHit) {
-      return JSON.stringify({ success: false, message: `正史模式下，「${tnHit}」是正典參戰英靈，不可由你召喚。請改用其他真名。` });
-    }
-  }
 
   const newId = "NPC_" + Date.now();
   const pcColCount = Object.keys(COL.PC).length;
@@ -1843,7 +1860,7 @@ function actionSummonServant(userData, pcId, sheets) {
     }
 
     // 🔵 召喚完成 → 鋪敵方御主×從者進這個 game_id 世界（一次性）
-    try { seedRivalsForGame_(gameId, realName, warMode); } catch (e) { }
+    try { seedRivalsForGame_(gameId, realName, warName, playedMaster); } catch (e) { }
 
     return JSON.stringify({ success: true, servantName: realName, cls: cls, fromCodex: !!hero, message: `【聖杯】令咒迸發，${cls} 職階的從者「${realName}」應召而現，與『${pcName}』締結契約。其餘御主已在冬木各處備戰。` });
   } catch (e) {

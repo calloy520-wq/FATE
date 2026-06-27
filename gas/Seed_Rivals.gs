@@ -36,6 +36,49 @@ var FATE_5TH_ROSTER = [
   { master: '伊莉雅絲菲爾-5th', hero: '赫拉克勒斯-Berserker', loc: '冬木·新都' }
 ];
 
+// 第四次聖杯戰爭正典陣容（Fate/Zero）
+var FATE_4TH_ROSTER = [
+  { master: '衛宮切嗣-4th', hero: '阿爾托莉雅-Saber', loc: '冬木·深山町' },
+  { master: '遠坂時臣-4th', hero: '吉爾伽美什-Archer', loc: '遠坂宅' },
+  { master: '肯尼斯-4th', hero: '迪盧木多-Lancer', loc: '冬木·新都' },
+  { master: '韋伯·維爾維特-4th', hero: '伊斯坎達爾-Rider', loc: '冬木·商店街' },
+  { master: '雨生龍之介-4th', hero: '吉爾德萊-Caster', loc: '未遠川河畔' },
+  { master: '言峰綺禮-4th', hero: '百貌哈桑-Assassin', loc: '言峰教會' },
+  { master: '間桐雁夜-4th', hero: '蘭斯洛特-Berserker', loc: '間桐宅' }
+];
+
+// 偽聖杯戰爭（Fate/strange Fake）：正典從者 ＋ 雪原匿名御主（御主殿無資料，直接合成）
+var FATE_FAKE_ROSTER = [
+  { master: '提奈·切爾克', hero: '吉爾伽美什-Archer', loc: '冬木·新都' },
+  { master: '巴茲狄洛特', hero: '恩奇都-Lancer', loc: '未遠川河畔' },
+  { master: '歐蘭多·里夫', hero: '理查一世-Saber', loc: '冬木·深山町' },
+  { master: '約翰·溫加德', hero: '阿基里斯-Rider', loc: '冬木·商店街' },
+  { master: '哈魯利', hero: '大仲馬-Caster', loc: '遠坂宅' },
+  { master: '繰丘椿', hero: '開膛手傑克-Berserker', loc: '間桐宅' },
+  { master: '漢薩·塞爾旺帝斯', hero: '靜謐的哈桑-Assassin', loc: '言峰教會' }
+];
+
+// 合成一名匿名御主列（偽聖杯／無正典御主資料時用）
+function fakeMasterRow_(name, gameId, loc) {
+  var row = Array(Object.keys(COL.PC).length).fill("");
+  row[COL.PC.ID] = "NPC_" + Date.now() + "_f" + Math.floor(Math.random() * 100000);
+  row[COL.PC.NAME] = name;
+  row[COL.PC.SEX] = "異";
+  row[COL.PC.BACK] = "捲入偽聖杯戰爭的魔術師";
+  row[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "平靜" });
+  row[COL.PC.MONEY] = 200;
+  row[COL.PC.TRAIT] = parseTraitsHelper("", "外貌平凡、舉止從容、通曉魔術、深藏心事");
+  row[COL.PC.LOC] = loc;
+  row[COL.PC.PREF] = parseTraitsHelper("", "沉著表象、堅定內裡、珍視之物、厭惡之事");
+  row[COL.PC.HP] = 120; row[COL.PC.MP] = 80;
+  row[COL.PC.STR] = 12; row[COL.PC.CON] = 12; row[COL.PC.AGI] = 12; row[COL.PC.INT] = 18; row[COL.PC.LUK] = 12;
+  row[COL.PC.MAX_HP] = 120; row[COL.PC.MAX_MP] = 80; row[COL.PC.REALM] = "凡人";
+  row[COL.PC.FACTION] = "敵御主"; row[COL.PC.RANK] = "御主";
+  row[COL.PC.MEMORY] = "【偽聖杯】雪原的參戰魔術師。";
+  row[COL.PC.GAME_ID] = gameId;
+  return row;
+}
+
 // 英靈殿列 → 眾生(NPC)列
 function heroToNpcRow_(hero, gameId, loc, faction) {
   var six = safeJson_(hero[COL.HERO.SIX], {});
@@ -114,9 +157,12 @@ function canonHeroNames_() {
   return names;
 }
 
-// 🔵 開局鋪敵：mode='canon' 正典六組；mode='chaos' 御主×英靈隨機配對。皆跳過玩家從者真名。
-function seedRivalsForGame_(gameId, playerServantName, mode) {
+// 🔵 開局鋪敵：war ∈ '4th'|'5th'|'fake'|'chaos'；playedMaster=玩家扮演的正典御主id(那組移除)。
+//   被玩家奪取的從者真名(playerServantName)那一組也一律從對手移除——「別人正史，你不太正」。
+function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
   if (!gameId) return;
+  war = war || '5th';
+  playedMaster = playedMaster || '';
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var pc = ss.getSheetByName('眾生'), hs = ss.getSheetByName('英靈殿'), msh = ss.getSheetByName('御主殿');
   if (!pc || !hs || !msh) return;
@@ -129,9 +175,11 @@ function seedRivalsForGame_(gameId, playerServantName, mode) {
 
   var heroes = hs.getDataRange().getValues();
   var masters = msh.getDataRange().getValues();
+  var findHero = function (id) { return heroes.find(function (r) { return String(r[COL.HERO.ID]) === id; }); };
+  var findMaster = function (id) { return masters.find(function (r) { return String(r[COL.MASTER.ID]) === id; }); };
   var rows = [];
 
-  if (mode === 'chaos') {
+  if (war === 'chaos') {
     // 🎲 混亂：洗牌湊六組隨機配對；跳過與玩家相同真名的英靈
     var mPool = masters.slice(1).filter(function (r) { return r[COL.MASTER.ID]; });
     var hPool = heroes.slice(1).filter(function (r) { return r[COL.HERO.ID] && String(r[COL.HERO.NAME]) !== playerServantName; });
@@ -143,14 +191,23 @@ function seedRivalsForGame_(gameId, playerServantName, mode) {
       rows.push(masterToNpcRow_(mPool[k], gameId, loc, '敵御主'));
       rows.push(heroToNpcRow_(hPool[k], gameId, loc, '敵從者'));
     }
+  } else if (war === 'fake') {
+    // 🃏 偽聖杯：正典從者 ＋ 合成匿名御主
+    FATE_FAKE_ROSTER.forEach(function (r) {
+      var hero = findHero(r.hero);
+      if (!hero) return;
+      if (playerServantName && String(hero[COL.HERO.NAME]) === playerServantName) return; // 玩家奪取那組移除
+      rows.push(fakeMasterRow_(r.master, gameId, r.loc));
+      rows.push(heroToNpcRow_(hero, gameId, r.loc, '敵從者'));
+    });
   } else {
-    // 📜 正史：第五次正典六組（玩家為追加的第七／八位參戰者）
-    var findHero = function (id) { return heroes.find(function (r) { return String(r[COL.HERO.ID]) === id; }); };
-    var findMaster = function (id) { return masters.find(function (r) { return String(r[COL.MASTER.ID]) === id; }); };
-    FATE_5TH_ROSTER.forEach(function (r) {
+    // 📜 正史 4th / 5th：正典組為敵；玩家扮演者那組、玩家奪取從者那組，皆移除
+    var roster = (war === '4th') ? FATE_4TH_ROSTER : FATE_5TH_ROSTER;
+    roster.forEach(function (r) {
+      if (playedMaster && String(r.master) === playedMaster) return;        // 你扮演的那組
       var hero = findHero(r.hero), master = findMaster(r.master);
       if (!hero || !master) return;
-      if (playerServantName && String(hero[COL.HERO.NAME]) === playerServantName) return; // 保險：跳過撞名
+      if (playerServantName && String(hero[COL.HERO.NAME]) === playerServantName) return; // 你奪取的那組
       rows.push(masterToNpcRow_(master, gameId, r.loc, '敵御主'));
       rows.push(heroToNpcRow_(hero, gameId, r.loc, '敵從者'));
     });
