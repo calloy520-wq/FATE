@@ -165,6 +165,7 @@ function handleGameAction(userData) {
   const pcId = userData.pcId;
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  try { ensureFateSheets_(ss); } catch (e) { Logger.log("ensureFateSheets_ 於 handleGameAction 失敗(略過): " + e.message); }
   const sheets = {
     law: ss.getSheetByName("規矩"), map: ss.getSheetByName("坤圖"),
     pc: ss.getSheetByName("眾生"), log: ss.getSheetByName("因果"),
