@@ -1728,12 +1728,15 @@ function actionGetMasters(userData, pcId, sheets) {
 var ALLOWED_FX_ = {
   nullify_magic: 1, first_strike: 1, analyze: 1, str_up: 1, burst: 1, ride: 1, stealth: 1,
   evade_ranged: 1, survive: 1, divine_core: 1, mad: 1, morale: 1, divine_age: 1,
-  unreadable: 1, wind_strike: 1, tsubame: 1, gae_bolg: 1, god_hand: 1
+  unreadable: 1, wind_strike: 1, tsubame: 1, gae_bolg: 1, god_hand: 1,
+  clear_mind: 1, self_mod: 1, tactics: 1, anti_magic_lance: 1, rule_breaker: 1
 };
 var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應就填空字串\"\"：" +
   "對魔力=nullify_magic、直感=first_strike、心眼=analyze、怪力=str_up、魔力放出=burst、騎乘=ride、" +
-  "氣息遮斷=stealth、避矢=evade_ranged、戰鬥續行=survive、神性/神核=divine_core、狂化=mad、" +
-  "勇猛/卡里斯瑪=morale、神代魔術=divine_age、無欲(封先機)=unreadable、必中槍=gae_bolg、不死復活=god_hand";
+  "氣息遮斷=stealth、避矢=evade_ranged、戰鬥續行=survive、神核=divine_core、狂化=mad、" +
+  "勇猛/卡里斯瑪=morale、神代魔術=divine_age、無欲(封先機)=unreadable、透化(免威壓)=clear_mind、" +
+  "自我改造(命中傷害+)=self_mod、軍略(寶具+)=tactics、必中槍=gae_bolg、不死復活=god_hand、" +
+  "破魔(無視神核/續行)=anti_magic_lance、破戒(斬契約救贖)=rule_breaker";
 
 // 清洗 AI 給的技能陣列為 [{n,r,fx}]（fx 不在字典就清空，仍保留為演出用標籤）
 function sanitizeSkills_(arr) {
@@ -3826,10 +3829,14 @@ function actionFateBattle(userData, pcId, sheets) {
   const dmgFaction = String(pcData[dmgIdx][COL.PC.FACTION] || "");
   let hp = parseInt(pcData[dmgIdx][COL.PC.HP]) || 0;
   let after = hp - fb.damage;
-  if (after <= 5 && hasFx_(dmgC, 'survive') && hp > 1) { after = 1; fb.fired.push(dmgC.name + '·戰鬥續行'); }
+  // 🗡️ 破戒全咒/破魔薔薇(rule_breaker/anti_magic_lance)：勝方斬斷敵之契約與救贖——
+  //    此擊之下，敗方無法令咒脫離、戰鬥續行、十二試煉復活，一旦致命即為終結。
+  const severed = fb.atkWins && (hasFx_(atkC, 'rule_breaker') || hasFx_(atkC, 'anti_magic_lance'));
+  if (severed && after <= 0) fb.fired.push(atkC.name + '·斬斷救贖(契約已破)');
+  if (after <= 5 && hasFx_(dmgC, 'survive') && hp > 1 && !severed) { after = 1; fb.fired.push(dmgC.name + '·戰鬥續行'); }
 
   // 🔵 敵御主令咒反應：敵從者瀕死時，有令咒餘量則 30% 隨機燃令咒「緊急脫離」，靈基受創退場保命
-  if (after <= 0 && dmgFaction === "敵從者") {
+  if (after <= 0 && dmgFaction === "敵從者" && !severed) {
     let eSeals = parseInt(pcData[dmgIdx][COL.PC.CONTRIB]) || 0;
     if (eSeals > 0 && Math.random() < 0.30) {
       sealEscaped = true;
@@ -3857,7 +3864,7 @@ function actionFateBattle(userData, pcId, sheets) {
 
   // ⚡ 十二試煉(god_hand)：擁此寶具者(赫拉克勒斯)靈基崩解前自死亡歸來，耗一條命
   let godRevived = false, godNote = "";
-  if (after <= 0 && !sealEscaped && hasFx_(dmgC, 'god_hand')) {
+  if (after <= 0 && !sealEscaped && !severed && hasFx_(dmgC, 'god_hand')) {
     let lives = getGodHandLives_(pcData[dmgIdx][COL.PC.MEMORY]);
     if (lives > 0) {
       godRevived = true;

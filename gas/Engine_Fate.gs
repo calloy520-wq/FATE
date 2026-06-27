@@ -94,6 +94,8 @@ function resolveFateBattle_(atk, def, opts) {
   // 狂化(mad)：六圍暴漲但理智低 → 命中／迴避 -3×階級（傷害加成在下方）
   var madA = hasFx_(atk, 'mad'); if (madA) aHit -= Math.round(3 * rankMul_(madA));
   var madD = hasFx_(def, 'mad'); if (madD) dEva -= Math.round(3 * rankMul_(madD));
+  // 自我改造(self_mod)：命中 +2
+  if (hasFx_(atk, 'self_mod')) { aHit += 2; fired.push(atk.name + '·自我改造'); }
 
   // 騎乘(ride) 機動 +2×階級
   var rideA = hasFx_(atk, 'ride'); if (rideA) aHit += Math.round(2 * rankMul_(rideA));
@@ -114,7 +116,11 @@ function resolveFateBattle_(atk, def, opts) {
   var base = rankVal(winner.six["筋力"]) + Math.round(Math.abs(aHit - dEva) * 1.2);
   var su = hasFx_(winner, 'str_up'); if (su) { base += Math.round(8 * rankMul_(su)); fired.push(winner.name + '·怪力'); }
   var burst = hasFx_(winner, 'burst'); if (burst) { base = Math.round(base * (1 + 0.2 * rankMul_(burst))); fired.push(winner.name + '·魔力放出'); }
-  var mor = hasFx_(winner, 'morale'); if (mor) base += Math.round(3 * rankMul_(mor));
+  // 勇猛/卡里斯瑪(morale)：傷害+；但對方「透化(clear_mind)」免疫此精神威壓
+  var mor = hasFx_(winner, 'morale'); if (mor && !hasFx_(loser, 'clear_mind')) { base += Math.round(3 * rankMul_(mor)); }
+  else if (mor && hasFx_(loser, 'clear_mind')) { fired.push(loser.name + '·透化(免威壓)'); }
+  // 自我改造(self_mod)：傷害 +3
+  if (hasFx_(winner, 'self_mod')) base += 3;
   // 狂化(mad)：傷害暴漲
   var madW = hasFx_(winner, 'mad'); if (madW) { base += Math.round(14 * rankMul_(madW)); fired.push(winner.name + '·狂化'); }
   // 神代魔術(divine_age)：魔力傷害大增（下方對魔力減免也減半）
@@ -126,15 +132,22 @@ function resolveFateBattle_(atk, def, opts) {
   var loserDivine = (loser.traits || []).concat(loser.skills || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
   if (godSlay && loserDivine) { base = Math.round(base * 1.5); fired.push(winner.name + '·神殺(剋神性)'); }
   if (atkWins && tsubame) base = Math.round(base * 2.3);
-  // 寶具解放：加寶具階級威能
-  if (opts.np) { base += Math.round(rankVal(winner.six["寶具"]) * 1.6) + 18; fired.push(winner.name + '·寶具解放'); }
+  // 寶具解放：加寶具階級威能（軍略 +15%、神性 +10%）
+  if (opts.np) {
+    base += Math.round(rankVal(winner.six["寶具"]) * 1.6) + 18; fired.push(winner.name + '·寶具解放');
+    if (hasFx_(winner, 'tactics')) { base = Math.round(base * 1.15); fired.push(winner.name + '·軍略'); }
+    var wDivine = (winner.traits || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
+    if (wDivine) base = Math.round(base * 1.1);
+  }
   // 令咒·絕對命令：全力一擊
   if (opts.seal) { base = Math.round(base * 1.5); fired.push('令咒·絕對命令'); }
 
   // 守方減傷：耐久（階級）
   base -= Math.round(rankVal(loser.six["耐久"]) / 2);
-  // 神核(divine_core)：減傷 18%×階級
-  var dc = hasFx_(loser, 'divine_core'); if (dc) { base = Math.round(base * (1 - 0.18 * rankMul_(dc))); fired.push(loser.name + '·神核'); }
+  // 神核(divine_core)：減傷 18%×階級；但破魔薔薇(anti_magic_lance)無視神核護甲
+  var dc = hasFx_(loser, 'divine_core');
+  if (dc && hasFx_(winner, 'anti_magic_lance')) { fired.push(winner.name + '·破魔(無視神核)'); }
+  else if (dc) { base = Math.round(base * (1 - 0.18 * rankMul_(dc))); fired.push(loser.name + '·神核'); }
   // 對魔力(nullify_magic)：攻方為魔術系(Caster/魔力放出/神代)時，減魔術傷 25%×階級；神代魔術使其減免折半
   var atkMagic = (winner.cls === 'Caster') || !!hasFx_(winner, 'burst') || !!hasFx_(winner, 'divine_age');
   var nm = hasFx_(loser, 'nullify_magic');

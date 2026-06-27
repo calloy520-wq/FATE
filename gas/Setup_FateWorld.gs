@@ -74,9 +74,12 @@ var FATE_CTAG_SEED = [
   ["divine_age", "神代魔術", "固有技能", "神代體系，凌駕現代對魔力。", "使敵方對魔力半效"],
   ["wind_strike", "風王結界", "寶具", "不可視之風，隱藏真名與斬擊軌跡。", "隱真名、風斬一擊"],
   ["tsubame", "燕返", "寶具", "三連同時斬，幾乎無從迴避。", "敵迴避 -8、傷害 ×2.3"],
-  ["anti_magic_lance", "破魔紅薔薇", "寶具", "斬斷魔力與連結。", "消敵增益、破神核"],
-  ["god_hand", "十二試煉", "寶具", "不死之軀，多次復活。", "12 條命、復活留 40% HP"],
-  ["rule_breaker", "破戒全咒", "寶具", "斬斷一切契約。", "敵令咒歸 0、增益盡除"],
+  ["anti_magic_lance", "破魔紅薔薇", "寶具", "雙槍破魔，斬斷魔力與連結。", "無視神核護甲；致命時敵無法續行/復活/令咒脫離"],
+  ["god_hand", "十二試煉", "寶具", "不死之軀，多次自死亡歸來。", "復活約 11 次"],
+  ["rule_breaker", "破戒全咒", "寶具", "斬斷一切契約與救贖。", "致命一擊下，敵無法戰鬥續行/十二試煉復活/令咒脫離"],
+  ["clear_mind", "透化", "固有技能", "清澈靜穆之心，不受精神威壓。", "免疫敵方勇猛／卡里斯瑪加成"],
+  ["self_mod", "自我改造", "固有技能", "改造強化過的軀體。", "命中 +2、傷害 +3"],
+  ["tactics", "軍略", "固有技能", "用兵之才，臨陣指揮。", "寶具威力 +15%"],
   ["gae_bolg", "刺穿死棘之槍", "寶具", "逆轉因果的必中刺擊。", "必中"],
   ["excalibur", "誓約勝利之劍", "寶具", "對城寶具，光之斬擊。", "大範圍高傷"],
   ["ubw", "無限劍製", "寶具", "固有結界，劍之地平線。", "領域內全面壓制"],
@@ -153,6 +156,24 @@ function reseedIfEmpty_(ss) {
     }
   }
   try { CacheService.getScriptCache().remove("KYUSHU_MAP_DATA"); } catch (e) { }
+
+  // 🔧 既有英靈殿補丁：赫拉克勒斯的「十二試煉」過去只在 np 文字、缺 fx:god_hand → 補上技能
+  try {
+    var hs = ss.getSheetByName("英靈殿");
+    if (hs && hs.getLastRow() > 1) {
+      var hd = hs.getDataRange().getValues();
+      for (var h = 1; h < hd.length; h++) {
+        if (String(hd[h][COL.HERO.NAME]).indexOf("赫拉克勒斯") < 0) continue;
+        var sk = []; try { sk = JSON.parse(hd[h][COL.HERO.SKILLS] || "[]"); } catch (e) { sk = []; }
+        var has = sk.some(function (x) { return x && x.fx === "god_hand"; });
+        if (!has) {
+          sk.push({ n: "十二試煉", r: "A", fx: "god_hand" });
+          hs.getRange(h + 1, COL.HERO.SKILLS + 1).setValue(JSON.stringify(sk));
+        }
+        break;
+      }
+    }
+  } catch (e) { }
 }
 
 // 🔵 可從編輯器手動執行：回報建了哪些分頁

@@ -46,7 +46,7 @@ var SEED_SERVANTS = [
   { id:'赫拉克勒斯-Berserker', cls:'Berserker', realName:'赫拉克勒斯', wars:['5th'], gender:'男',
     six:{筋力:'A',耐久:'A',敏捷:'A',魔力:'B',幸運:'C',寶具:'B'},
     classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'對魔力',r:'?',fx:'nullify_magic'}],
-    skills:[{n:'勇猛',r:'A',fx:'morale'},{n:'戰鬥續行',r:'A',fx:'survive'}],
+    skills:[{n:'勇猛',r:'A',fx:'morale'},{n:'戰鬥續行',r:'A',fx:'survive'},{n:'十二試煉',r:'A',fx:'god_hand'}],
     traits:[{n:'神性',r:'A'},{n:'王'}], np:'十二試煉（God Hand A）',
     align:'混沌・狂', persona:{firstP:'（狂化）',words:'戰神・守護的殘響',toMaster:'理智被吞沒，僅存護主本能'} },
   // 第四次
