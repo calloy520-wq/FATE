@@ -983,7 +983,7 @@ function renderRecentLocs(recents = null) {
       container.innerHTML = `
         <p style='text-align:center; color:#816e54;'>四下無人，亦無牽掛。</p>
         <div style="border-top:1px dashed rgba(51,34,17,0.2); margin-top:15px; padding-top:15px; text-align:center;">
-          <button class="btn" style="border-color:#a0826d; color:#a0826d; padding:8px 20px;" onclick="closeNpcList(); toggleBondModal()">🤝 結識新人</button>
+          ${(pc && pc.mode === 'full') ? '<button class="btn" style="border-color:#a0826d; color:#a0826d; padding:8px 20px;" onclick="closeNpcList(); toggleBondModal()">🤝 結識新人</button>' : ''}
         </div>`;
       return;
   }
@@ -1047,7 +1047,7 @@ function renderRecentLocs(recents = null) {
     }).join("");
      container.innerHTML += `
       <div style="border-top:1px dashed rgba(51,34,17,0.2); margin-top:15px; padding-top:15px; text-align:center;">
-        <button class="btn" style="border-color:#a0826d; color:#a0826d; padding:8px 20px;" onclick="closeNpcList(); toggleBondModal()">🤝 結識新人</button>
+        ${(pc && pc.mode === 'full') ? '<button class="btn" style="border-color:#a0826d; color:#a0826d; padding:8px 20px;" onclick="closeNpcList(); toggleBondModal()">🤝 結識新人</button>' : ''}
       </div>`;
   }
   
