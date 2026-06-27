@@ -30,6 +30,12 @@
       <button class="btn" style="width:100%; margin-bottom:10px; padding:13px; border-color:#9a7b4f; color:#9a7b4f;" onclick="showVictoryHistory()">📜 勝利歷史</button>
       <button class="btn" style="width:100%; padding:11px; border-color:#777; color:#999; font-size:13px;" onclick="logoutAccount()">🚪 登出</button>
     </div>
+    <div id="scr-warmode" style="display:none; width:300px;">
+      <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:12px;">選擇聖杯戰爭型態</p>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; border-color:var(--gold-accent); color:var(--gold-accent); text-align:left;" onclick="chooseWarMode('canon')">📜 <b>正史模式</b><br><small style="color:#9a7b4f; font-weight:normal;">第五次聖杯戰爭正典六組為敵，你是追加參戰者（不可奪取正典英靈）</small></button>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left;" onclick="chooseWarMode('chaos')">🎲 <b>混亂模式</b><br><small style="color:#9a7b4f; font-weight:normal;">御主×從者隨機洗牌配對，每局敵方陣容都不同</small></button>
+      <button class="btn" style="width:100%; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="document.getElementById('scr-warmode').style.display='none';document.getElementById('scr-menu').style.display='block';">← 返回</button>
+    </div>
     <div id="step-name" style="display:none; width:280px;">
       <input id="s-name" class="std-in" style="width:100%; box-sizing:border-box;" placeholder="輸入御主之名（限中文）..." maxlength="10">
       <p style="text-align:center; color:#9a7b4f; font-size:12px; margin:8px 0 0;">※ 御主之名僅限中文字，不可使用英文、數字或符號。</p>
@@ -62,17 +68,20 @@
         <button type="button" class="btn summon-cls" data-cls="Rider" onclick="selectSummonClass('Rider')">🐎 Rider</button>
         <button type="button" class="btn summon-cls" data-cls="Caster" onclick="selectSummonClass('Caster')">📖 Caster</button>
         <button type="button" class="btn summon-cls" data-cls="Assassin" onclick="selectSummonClass('Assassin')">🗡️ Assassin</button>
-        <button type="button" class="btn summon-cls" data-cls="Berserker" onclick="selectSummonClass('Berserker')" style="grid-column:1 / span 3;">💢 Berserker</button>
+        <button type="button" class="btn summon-cls" data-cls="Berserker" onclick="selectSummonClass('Berserker')" style="grid-column:1 / span 2;">💢 Berserker</button>
+        <button type="button" class="btn summon-cls" data-cls="__all__" onclick="selectSummonClass('__all__')">📜 全部</button>
       </div>
-      <div id="hero-list" style="max-height:210px; overflow-y:auto; margin:6px 0; padding:4px; background:rgba(0,0,0,0.18); border:1px solid rgba(212,175,55,0.25); border-radius:6px;">
-        <p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">↑ 先選擇一個職階</p>
+      <div id="hero-list" style="max-height:190px; overflow-y:auto; margin:6px 0; padding:4px; background:rgba(0,0,0,0.18); border:1px solid rgba(212,175,55,0.25); border-radius:6px;">
+        <p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">↑ 選一個職階，或按「全部」瀏覽整個英靈殿</p>
       </div>
       <div style="border-top:1px dashed rgba(212,175,55,0.3); margin-top:6px; padding-top:8px;">
-        <input type="text" id="s-truename" class="std-in" placeholder="或直接指定真名（如：吉爾伽美什）" maxlength="20" style="width:100%; box-sizing:border-box;">
+        <input type="text" id="s-truename" class="std-in" placeholder="指定真名召喚（含他作：悟空、炭治郎…）" maxlength="20" style="width:100%; box-sizing:border-box;">
         <div style="display:flex; gap:8px; margin-top:8px;">
           <button class="btn" style="flex:1; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="lockBtn(event, summonByName)">✨ 真名召喚</button>
           <button class="btn" style="flex:1; border-color:#9a7b4f; color:#9a7b4f;" onclick="lockBtn(event, summonRandom)">🎲 隨機</button>
         </div>
+        <textarea id="s-desc" class="std-in" maxlength="120" placeholder="或自訂描述生成原創從者（如：手持巨鎌、沉默寡言的死神少女）" style="width:100%; box-sizing:border-box; height:48px; resize:none; margin-top:8px; font-family:inherit;"></textarea>
+        <button class="btn" style="width:100%; margin-top:6px; border-color:#a06cd0; color:#c79be8;" onclick="lockBtn(event, summonByDesc)">🖋️ 自訂生成原創從者</button>
       </div>
     </div>
   </div>

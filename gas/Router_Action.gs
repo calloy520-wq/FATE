@@ -1601,7 +1601,8 @@ function actionManualNpc(userData, pcId, sheets) {
         circuits ? `【迴路】${circuits}` : "",
         origin ? `【出身】${origin}` : "",
         melee ? `【體術】${melee}` : "",
-        "【令咒】3"
+        "【令咒】3",
+        `【模式】${userData.warMode === 'chaos' ? 'chaos' : 'canon'}`
       ].filter(Boolean).join("｜");
     }
     // 🔴 NPC 初始銀兩依境界給(玩家創角固定 50)，錢有變化、高人更富
@@ -1667,12 +1668,24 @@ function actionManualNpc(userData, pcId, sheets) {
 function svNum_(rank) { return Math.max(8, rankVal(rank)); }
 
 // 🔵 提供前端瀏覽英靈殿：回傳 [{id,cls,name,gender,np}]
+// 從御主 MEMORY 讀戰役模式（canon=正史 / chaos=混亂；舊角色預設 canon）
+function getWarMode_(memory) {
+  var m = String(memory || "").match(/【模式】(canon|chaos)/);
+  return m ? m[1] : "canon";
+}
+
 function actionGetHeroes(userData, pcId, sheets) {
   try {
     const hs = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("英靈殿");
     if (!hs || hs.getLastRow() <= 1) return JSON.stringify({ success: true, heroes: [] });
+    // 正史模式：濾掉六名正典英靈（禁止玩家搶角色）
+    let banned = [];
+    try {
+      const m = sheets.pc.getDataRange().getValues().find(r => r[COL.PC.ID] == pcId);
+      if (m && getWarMode_(m[COL.PC.MEMORY]) === "canon") banned = canonHeroNames_();
+    } catch (e) { }
     const rows = hs.getDataRange().getValues().slice(1);
-    const heroes = rows.filter(r => r[COL.HERO.ID]).map(r => ({
+    const heroes = rows.filter(r => r[COL.HERO.ID] && banned.indexOf(String(r[COL.HERO.NAME])) === -1).map(r => ({
       id: r[COL.HERO.ID], cls: r[COL.HERO.CLS], name: r[COL.HERO.NAME],
       gender: r[COL.HERO.SEX], np: r[COL.HERO.NP]
     }));
@@ -1687,6 +1700,7 @@ function actionSummonServant(userData, pcId, sheets) {
   const reqCls = VALID_CLS.includes(userData.cls) ? userData.cls : "";
   const heroId = String(userData.heroId || "").trim();
   const trueName = String(userData.trueName || "").trim().slice(0, 20);
+  const custDesc = String(userData.desc || "").trim().slice(0, 120); // 自訂描述生成原創從者
 
   const pcData = sheets.pc.getDataRange().getValues();
   const masterRow = pcData.find(r => r[COL.PC.ID] == pcId);
@@ -1701,6 +1715,10 @@ function actionSummonServant(userData, pcId, sheets) {
     !String(r[COL.PC.ID]).startsWith("DEAD_"));
   if (already) return JSON.stringify({ success: false, message: `你已締約從者「${already[COL.PC.NAME]}」，無法再召喚。` });
 
+  // 戰役模式（正史禁止玩家搶正典英靈）
+  const warMode = getWarMode_(masterRow[COL.PC.MEMORY]);
+  const bannedNames = warMode === "canon" ? canonHeroNames_() : [];
+
   // ── 從英靈殿尋找對應英靈（heroId 指定 / 真名比對 / 隨機）──
   let hero = null;
   try {
@@ -1712,11 +1730,24 @@ function actionSummonServant(userData, pcId, sheets) {
       } else if (trueName) {
         hero = hrows.find(r => String(r[COL.HERO.NAME]).includes(trueName) || trueName.includes(String(r[COL.HERO.NAME])));
       } else {
-        const pool = reqCls ? hrows.filter(r => r[COL.HERO.CLS] === reqCls) : hrows;
+        let pool = reqCls ? hrows.filter(r => r[COL.HERO.CLS] === reqCls) : hrows;
+        if (bannedNames.length) pool = pool.filter(r => bannedNames.indexOf(String(r[COL.HERO.NAME])) === -1);
         if (pool.length) hero = pool[Math.floor(Math.random() * pool.length)];
       }
     }
   } catch (e) { hero = null; }
+  if (custDesc) hero = null; // 自訂描述 → 強制走 AI 生成原創，不抓名冊
+
+  // 📜 正史：禁止奪取正典英靈
+  if (bannedNames.length) {
+    const tnHit = bannedNames.find(n => trueName && (n.includes(trueName) || trueName.includes(n)));
+    if (hero && bannedNames.indexOf(String(hero[COL.HERO.NAME])) !== -1) {
+      return JSON.stringify({ success: false, message: `正史模式下，「${hero[COL.HERO.NAME]}」已屬於正典御主，不可奪取。請改召其他英靈或自訂真名。` });
+    }
+    if (tnHit) {
+      return JSON.stringify({ success: false, message: `正史模式下，「${tnHit}」是正典參戰英靈，不可由你召喚。請改用其他真名。` });
+    }
+  }
 
   const newId = "NPC_" + Date.now();
   const pcColCount = Object.keys(COL.PC).length;
@@ -1769,7 +1800,7 @@ function actionSummonServant(userData, pcId, sheets) {
     } else {
       // 🌀 名冊查無 → AI 即時生成（保留原行為）
       cls = reqCls || "Saber";
-      const sysOverride = `你是《命運停駐之夜》的英靈召喚核心。玩家御主召喚出一名「從者（Servant）」，職階為「${cls}」。${trueName ? `指定真名為「${trueName}」，請忠於該英靈的傳說與性格。` : "請挑選一位契合此職階、知名的歷史或傳說英靈。"}
+      const sysOverride = `你是《命運停駐之夜》的英靈召喚核心。玩家御主召喚出一名「從者（Servant）」，職階為「${cls}」。${custDesc ? `這是玩家【自訂描述的原創英靈】，請依描述創作一位全新原創從者（可自取貼切真名），忠於描述的形象與氣質。` : (trueName ? `指定真名為「${trueName}」，請忠於該英靈的傳說與性格（可跨作品：動漫／遊戲／神話／歷史皆可）。` : "請挑選一位契合此職階、知名的歷史或傳說英靈。")}
 
 ★【演出而非說明】個性與寶具只作設定底層，traits／personality 不要直接複述字面設定。
 ★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
@@ -1779,7 +1810,7 @@ function actionSummonServant(userData, pcId, sheets) {
 
 ★【輸出】合法 JSON、禁 Markdown：
 {"realName":"英靈真名","sex":"女","np":"寶具名（簡述）","background":"限20字","traits":"四格頓號","personality":"四格頓號","npc_intent":"反差萌一句","align":"中立・善"}`;
-      const aiBrief = JSON.parse(callGeminiAPI(`【職階】：${cls}\n【御主】：${pcName}${trueName ? `\n【指定真名】：${trueName}` : ""}`, sysOverride, { temperature: 0.6, ignoreLaw: true }));
+      const aiBrief = JSON.parse(callGeminiAPI(`【職階】：${cls}\n【御主】：${pcName}${trueName ? `\n【指定真名】：${trueName}` : ""}${custDesc ? `\n【玩家自訂描述】：${custDesc}` : ""}`, sysOverride, { temperature: custDesc ? 0.85 : 0.6, ignoreLaw: true }));
       realName = String(aiBrief.realName || trueName || (cls + "從者")).trim() || (cls + "從者");
       sex = aiBrief.sex || "異"; align = aiBrief.align || "中立"; np = aiBrief.np || "寶具（未顯現）";
       const nStr = 45, nCon = 45, nAgi = 45, nInt = 40, nLuk = 35;
@@ -1812,7 +1843,7 @@ function actionSummonServant(userData, pcId, sheets) {
     }
 
     // 🔵 召喚完成 → 鋪敵方御主×從者進這個 game_id 世界（一次性）
-    try { seedRivalsForGame_(gameId, realName); } catch (e) { }
+    try { seedRivalsForGame_(gameId, realName, warMode); } catch (e) { }
 
     return JSON.stringify({ success: true, servantName: realName, cls: cls, fromCodex: !!hero, message: `【聖杯】令咒迸發，${cls} 職階的從者「${realName}」應召而現，與『${pcName}』締結契約。其餘御主已在冬木各處備戰。` });
   } catch (e) {

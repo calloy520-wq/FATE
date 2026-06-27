@@ -94,8 +94,28 @@ function masterToNpcRow_(mr, gameId, loc, faction) {
   return row;
 }
 
-// 🔵 開局鋪敵：六組敵御主×從者，跳過與玩家相同真名的英靈
-function seedRivalsForGame_(gameId, playerServantName) {
+// 洗牌（GAS 端 Math.random 可用）
+function shuffle_(a) {
+  for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+  return a;
+}
+
+// 正史第五次的六名正典英靈真名（供「禁止玩家搶角色」與 get_heroes 過濾）
+function canonHeroNames_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var hs = ss.getSheetByName('英靈殿');
+  if (!hs || hs.getLastRow() <= 1) return [];
+  var heroes = hs.getDataRange().getValues();
+  var names = [];
+  FATE_5TH_ROSTER.forEach(function (r) {
+    var h = heroes.find(function (x) { return String(x[COL.HERO.ID]) === r.hero; });
+    if (h) names.push(String(h[COL.HERO.NAME]));
+  });
+  return names;
+}
+
+// 🔵 開局鋪敵：mode='canon' 正典六組；mode='chaos' 御主×英靈隨機配對。皆跳過玩家從者真名。
+function seedRivalsForGame_(gameId, playerServantName, mode) {
   if (!gameId) return;
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var pc = ss.getSheetByName('眾生'), hs = ss.getSheetByName('英靈殿'), msh = ss.getSheetByName('御主殿');
@@ -109,17 +129,32 @@ function seedRivalsForGame_(gameId, playerServantName) {
 
   var heroes = hs.getDataRange().getValues();
   var masters = msh.getDataRange().getValues();
-  var findHero = function (id) { return heroes.find(function (r) { return String(r[COL.HERO.ID]) === id; }); };
-  var findMaster = function (id) { return masters.find(function (r) { return String(r[COL.MASTER.ID]) === id; }); };
-
   var rows = [];
-  FATE_5TH_ROSTER.forEach(function (r) {
-    var hero = findHero(r.hero), master = findMaster(r.master);
-    if (!hero || !master) return;
-    if (playerServantName && String(hero[COL.HERO.NAME]) === playerServantName) return; // 跳過撞名英靈
-    rows.push(masterToNpcRow_(master, gameId, r.loc, '敵御主'));
-    rows.push(heroToNpcRow_(hero, gameId, r.loc, '敵從者'));
-  });
+
+  if (mode === 'chaos') {
+    // 🎲 混亂：洗牌湊六組隨機配對；跳過與玩家相同真名的英靈
+    var mPool = masters.slice(1).filter(function (r) { return r[COL.MASTER.ID]; });
+    var hPool = heroes.slice(1).filter(function (r) { return r[COL.HERO.ID] && String(r[COL.HERO.NAME]) !== playerServantName; });
+    shuffle_(mPool); shuffle_(hPool);
+    var locPool = shuffle_(['冬木·深山町', '遠坂宅', '間桐宅', '言峰教會', '柳洞寺', '冬木·新都', '穗群原學園', '冬木·商店街']);
+    var n = Math.min(6, mPool.length, hPool.length);
+    for (var k = 0; k < n; k++) {
+      var loc = locPool[k % locPool.length];
+      rows.push(masterToNpcRow_(mPool[k], gameId, loc, '敵御主'));
+      rows.push(heroToNpcRow_(hPool[k], gameId, loc, '敵從者'));
+    }
+  } else {
+    // 📜 正史：第五次正典六組（玩家為追加的第七／八位參戰者）
+    var findHero = function (id) { return heroes.find(function (r) { return String(r[COL.HERO.ID]) === id; }); };
+    var findMaster = function (id) { return masters.find(function (r) { return String(r[COL.MASTER.ID]) === id; }); };
+    FATE_5TH_ROSTER.forEach(function (r) {
+      var hero = findHero(r.hero), master = findMaster(r.master);
+      if (!hero || !master) return;
+      if (playerServantName && String(hero[COL.HERO.NAME]) === playerServantName) return; // 保險：跳過撞名
+      rows.push(masterToNpcRow_(master, gameId, r.loc, '敵御主'));
+      rows.push(heroToNpcRow_(hero, gameId, r.loc, '敵從者'));
+    });
+  }
   if (rows.length) {
     pc.getRange(pc.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
   }
