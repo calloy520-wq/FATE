@@ -1925,14 +1925,55 @@ async function handleItemAction(action, itemId, itemName, itemType) {
 // 🔴 補回遺失的「啟程 / 驗證名號」中樞
 // ==========================================
 var selectedMode = 'solo';
-function chooseMode(mode) {
-  if (mode === 'solo') {
-    selectedMode = 'solo';
-    document.getElementById('step-mode').style.display = 'none';
-    document.getElementById('step-name').style.display = 'block';
-  } else if (mode === 'gallery') {
-    alert('🏆 鑑賞模式建置中，敬請期待。');
+var currentAccount = '';
+var accountLoginRes = null;
+
+// 🔵 帳號登入 → 選單
+async function accountLogin() {
+  var name = (document.getElementById('in-account').value || '').trim();
+  if (!name) { alert('請輸入帳號名稱！'); return; }
+  try {
+    var res = await gasRun({ action: 'account_login', acctName: name });
+    if (!res || !res.success) { alert((res && res.message) || '登入失敗。'); return; }
+    currentAccount = res.name;
+    accountLoginRes = res;
+    localStorage.setItem('fate_account', currentAccount);
+    document.getElementById('step-account').style.display = 'none';
+    document.getElementById('scr-menu').style.display = 'block';
+    document.getElementById('menu-greet').innerText = '御主「' + currentAccount + '」，歡迎來到冬木。' + (res.won ? '（奪杯 ' + res.won + ' 次）' : '');
+    document.getElementById('btn-resume').style.display = res.hasGame ? 'block' : 'none';
+  } catch (e) { alert('天道連線受阻，請稍後再試。'); }
+}
+
+function continueGame() {
+  if (!accountLoginRes || !accountLoginRes.hasGame) { alert('目前沒有可繼續的存檔。'); return; }
+  pc = { id: accountLoginRes.pcId, name: accountLoginRes.pcName, sex: accountLoginRes.pcSex, mode: 'solo', account: currentAccount };
+  localStorage.setItem('kyushu_v27', JSON.stringify(pc));
+  startGame(true);
+}
+
+async function newGameFlow() {
+  if (accountLoginRes && accountLoginRes.hasGame) {
+    if (!confirm('⚠️ 開啟新的聖杯戰爭會【清除】你目前的存檔（御主、從者、戰況全部消失）。\n確定要重新開始嗎？')) return;
+    try {
+      var res = await gasRun({ action: 'account_new_game', acctName: currentAccount });
+      if (!res || !res.success) { alert((res && res.message) || '清檔失敗。'); return; }
+      accountLoginRes.hasGame = false;
+      document.getElementById('btn-resume').style.display = 'none';
+    } catch (e) { alert('清檔失敗，連線受阻。'); return; }
   }
+  document.getElementById('scr-menu').style.display = 'none';
+  document.getElementById('step-name').style.display = 'block';
+}
+
+function logoutAccount() { localStorage.clear(); location.reload(); }
+
+async function showVictoryHistory() {
+  try {
+    var res = await gasRun({ action: 'get_victory_history', acctName: currentAccount });
+    var won = (res && res.won) || 0;
+    alert('📜 勝利歷史\n\n奪取聖杯：' + won + ' 次\n（詳細戰記建置中）');
+  } catch (e) { alert('讀取失敗。'); }
 }
 
 // 🔵 依模式開關功能：單人(solo)隱藏武俠日常系統；多人(full)全開
@@ -1984,21 +2025,10 @@ async function checkName(event) {
 
 
     if (res.exists) {
-       const oldPc = JSON.parse(localStorage.getItem('kyushu_v27') || "null");
-      if (!oldPc || oldPc.id !== res.pcId) {
-        localStorage.removeItem('kyushu_recent_locs');
-        localStorage.removeItem('kyushu_last_status');
-        localStorage.removeItem('kyushu_story');
-        localStorage.removeItem('kyushu_cult_count');
-        localStorage.removeItem('kyushu_cult_date');
-        localStorage.removeItem('kyushu_back_locked');
-      }
-      // 老玩家回歸，寫入前端記憶體並載入前塵記憶
-      pc = { id: res.pcId, name: name, sex: res.sex, mode: (oldPc && oldPc.mode) || selectedMode };
-      localStorage.setItem('kyushu_v27', JSON.stringify(pc));
-      startGame(true);
+      alert('此御主之名已有人使用，請換一個名字。');
+      return;
     } else {
-      // 查無此人，隱藏輸入框，顯示創角面板 (step-detail)
+      // 名字可用，進入創角細節 (step-detail)
       document.getElementById('step-name').style.display = 'none';
       document.getElementById('step-detail').style.display = 'block';
     }
@@ -2017,7 +2047,7 @@ async function checkName(event) {
   const roll = masterRoll || {};
 
   try {
-    const data = await gasRun({ action: "create", name, sex, appearance, standing, wish,
+    const data = await gasRun({ action: "create", name, sex, appearance, standing, wish, account: currentAccount,
       magic: roll.magic || "", circuits: roll.circuits || "", origin: roll.origin || "", melee: roll.melee || "" });
     if (data.success) {
       // 🔴 新角色一律清空所有舊暫存
@@ -2027,7 +2057,7 @@ async function checkName(event) {
       localStorage.removeItem('kyushu_cult_count');
       localStorage.removeItem('kyushu_cult_date');
       localStorage.removeItem('kyushu_back_locked');
-      pc = { id: data.pcId, name, sex, gameId: data.gameId || "", mode: selectedMode };
+      pc = { id: data.pcId, name, sex, gameId: data.gameId || "", mode: selectedMode, account: currentAccount };
       localStorage.setItem('kyushu_v27', JSON.stringify(pc));
       // 御主締結完成 → 進入召喚從者步驟
       document.getElementById('step-detail').style.display = 'none';

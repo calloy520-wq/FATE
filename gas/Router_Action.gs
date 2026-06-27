@@ -7,6 +7,9 @@
 // ------------------------------------------
 const ActionRouter = {
   "check_name": actionCheckName,
+  "account_login": actionAccountLogin,
+  "account_new_game": actionAccountNewGame,
+  "get_victory_history": actionGetVictoryHistory,
   "send_mail": actionSendMail,
   "cultivate": actionCultivate,
   "consume_item": actionConsumeItem,
@@ -1644,7 +1647,8 @@ function actionManualNpc(userData, pcId, sheets) {
 
     registerFactionHelper(aiBrief.faction, aiBrief.rank, aiBrief.align, spawnName, finalName, sheets, isCreate ? newId : pcId, finalName, sheets.faction ? sheets.faction.getDataRange().getValues() : []);
 
-    return JSON.stringify({ success: true, pcId: isCreate ? newId : undefined, gameId: isCreate ? gameId : undefined, message: `【聖杯】因果已定，『${finalName}』${isCreate ? `於「${spawnName}」締結令咒，成為御主` : `已收錄`}。` });
+      if (isCreate && userData.account) { try { linkAccountToPc_(userData.account, newId); } catch (e) { } }
+  return JSON.stringify({ success: true, pcId: isCreate ? newId : undefined, gameId: isCreate ? gameId : undefined, message: `【聖杯】因果已定，『${finalName}』${isCreate ? `於「${spawnName}」締結令咒，成為御主` : `已收錄`}。` });
   } catch (e) { return JSON.stringify({ success: false, message: "建立失敗:" + e.message }); }
 }
 
