@@ -12,6 +12,7 @@ const ActionRouter = {
   "get_victory_history": actionGetVictoryHistory,
   "claim_grail": actionClaimGrail,
   "list_gallery": actionListGallery,
+  "enter_gallery": actionEnterGallery,
   "gallery_talk": actionGalleryTalk,
   "send_mail": actionSendMail,
   "cultivate": actionCultivate,
@@ -2248,6 +2249,7 @@ function actionPlay(userData, pcId, sheets) {
 
   // 🔵 實例化：只取自己 game_id 世界內、同地點的人（御主無 game_id 時不過濾，相容舊角色）
   const myGameId = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
+  const isKanshou = myGameId.indexOf("k_") === 0; // 鑑賞（後日談·約會）世界
   const sameGame = (r) => !myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId;
   const allLocals = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && (r[COL.PC.LOC] === curL) && sameGame(r) && !partyMembers.includes(r[COL.PC.NAME]));
   let displayPeople = allLocals.length > 6 ? allLocals.sort((a, b) => (b[COL.PC.PREF].includes(pcName) ? 1 : 0) - (a[COL.PC.PREF].includes(pcName) ? 1 : 0)).slice(0, 6) : allLocals;
@@ -2470,7 +2472,13 @@ ${locOwnershipNote}
    - 境界高者佔優但非無敵；玩家落敗時保留掙扎、逃跑與後續報復空間，禁止無條件抹殺。
    - 僅當玩家明顯不敵、傷重且無路可退時，生命才可能歸零並由系統送藥鋪救治。NPC的下手輕重須符合其性格與陣營。
 
-現在演化玩家動作：『${finalUserMsg}』${npcDialoguePrompt}
+${isKanshou ? `
+💕【鑑賞·後日談模式·最高優先級覆寫】：聖杯戰爭【早已落幕】，這是奪得聖杯後與從者『${displayPeople.length ? displayPeople.map(r => r[COL.PC.NAME]).join("、") : "你的從者"}』共度的【和平日常／約會時光】。
+★【絕對禁止】任何戰鬥、廝殺、敵人、敵御主、敵從者、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅。世界是安全的。
+★氛圍＝溫柔、悠閒、戀愛向的日常：散步、閒聊、吃東西、看風景、逛冬木街景。讓從者貼近其官方性格自然地與御主相處互動。
+★【演出而非說明】不得直述其願望／萌點／個性字面。嚴禁輸出任何 stat_changes 生命變化、items_lost、戰鬥裁決。可有 rel_changes(好感)。
+★敘事結束停在溫柔的留白，把下一步交還御主。
+` : ""}現在演化玩家動作：『${finalUserMsg}』${npcDialoguePrompt}
 
 🚨【天道終極警告】：
 1. 敘事必須在給出結果後，停在「我」的心境，將下一步交還玩家選擇！

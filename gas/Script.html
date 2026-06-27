@@ -1813,8 +1813,7 @@ function renderRecentLocs(recents = null) {
             + (sixStr ? '<div style="color:#8fa;font-size:11.5px;margin-top:4px;">' + sixStr + '</div>' : '')
             + (s.np ? '<div style="color:#c9a0ff;font-size:12px;margin-top:4px;">寶具：' + s.np + '</div>' : '')
             + (s.memoir ? '<div style="color:#cfc3aa;font-size:12.5px;line-height:1.8;margin-top:8px;border-top:1px solid rgba(255,255,255,0.06);padding-top:8px;">' + s.memoir.replace(/\n/g, '<br>') + '</div>' : '')
-            + '<button onclick="galleryTalk(' + i + ')" style="margin-top:10px;width:100%;padding:9px;background:#4a3a6a;color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:13px;">💬 呼出 ' + s.name + ' · 後日談</button>'
-            + '<div id="gal-talk-' + i + '" style="display:none;margin-top:8px;background:rgba(74,58,106,0.18);border-radius:7px;padding:10px;color:#e8e0f0;font-size:13px;line-height:1.85;"></div>'
+            + '<button onclick="enterGallery(' + i + ')" style="margin-top:10px;width:100%;padding:11px;background:linear-gradient(90deg,#7a4a6a,#4a3a6a);color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:14px;font-weight:bold;">💕 與 ' + s.name + ' 約會（後日談）</button>'
             + '</div>';
         }).join('');
       }
@@ -1825,16 +1824,34 @@ function renderRecentLocs(recents = null) {
     } catch (e) { alert('讀取鑑賞名冊失敗。'); }
   }
 
-  async function galleryTalk(i) {
+  // 進入鑑賞·後日談：在和平的 k_ 世界自由移動、約會閒聊（無戰鬥/敵人）
+  async function enterGallery(i) {
     const list = window._galleryList || [];
     const s = list[i];
     if (!s) return;
-    const box = document.getElementById('gal-talk-' + i);
-    if (box) { box.style.display = 'block'; box.innerHTML = '<span style="color:#9a8fb0;">……' + s.name + ' 的身影正在凝實……</span>'; }
     try {
-      const res = await gasRun({ action: 'gallery_talk', acctName: currentAccount, servantName: s.name, message: '' });
-      if (box) box.innerHTML = (res && res.success) ? (res.reply || '').replace(/\n/g, '<br>') : '（她暫時沒有回應。）';
-    } catch (e) { if (box) box.innerHTML = '（連線受阻，無法呼出。）'; }
+      const res = await gasRun({ action: 'enter_gallery', acctName: currentAccount, servantName: s.name });
+      if (!res || !res.success) { alert((res && res.message) || '無法進入後日談。'); return; }
+      // 關閉名冊
+      var ov = document.getElementById('history-overlay');
+      if (ov) ov.style.display = 'none';
+      // 建立鑑賞視角的 pc（mode=kanshou：隱藏戰鬥相關 UI）
+      pc = { id: res.pcId, name: res.pcName, sex: res.pcSex, mode: 'kanshou', account: currentAccount, servant: s.name };
+      localStorage.setItem('kyushu_v27', JSON.stringify(pc));
+      // 進入遊戲畫面，送出和平開場
+      document.getElementById('setup').style.display = 'none';
+      document.getElementById('game').style.display = 'flex';
+      applyModeUI();
+      document.getElementById('ui-name').innerText = pc.name;
+      document.getElementById('ui-sex').innerText = pc.sex;
+      setupHistoryPrevention();
+      const story = document.getElementById('story');
+      story.innerHTML = '<div class="msg-ai"><b>【後日談】</b>' + (res.message || '聖杯戰爭已落幕，這是屬於你們兩人的和平時光。') + '</div>';
+      refreshFateTags();
+      renderMapPane();
+      syncData(true);
+      send('（這是聖杯戰爭結束後的和平後日談，沒有敵人也沒有戰鬥。）御主想與身邊的從者「' + s.name + '」一起，在冬木悠閒地展開這個午後。請描寫此刻深山町坡道的陽光與氛圍，聚焦兩人之間鬆弛而溫柔的相處，留下讓御主想開口的契機。★禁止任何戰鬥／敵人／血量變化。★禁止複述設定字面。', true);
+    } catch (e) { alert('連線失敗，無法進入後日談。'); }
   }
 
   function openTigerDojo() {

@@ -95,7 +95,8 @@ function actionClaimGrail(userData, pcId, sheets) {
     var row = [
       acctName, realName, cls, String(s[COL.PC.SEX] || ""),
       String(s[COL.PC.SIX] || "{}"), String(s[COL.PC.TAGS] || "{}"),
-      String(s[COL.PC.MARTIAL] || ""), back, pref, moe, memoir, wishEnd, new Date()
+      String(s[COL.PC.MARTIAL] || ""), back, pref, moe, memoir, wishEnd, new Date(),
+      masterName, String(pcData[pIdx][COL.PC.SEX] || "")
     ];
     var gd = gal.getDataRange().getValues();
     var existingIdx = -1;
@@ -139,6 +140,92 @@ function actionListGallery(userData, pcId, sheets) {
     list.reverse();
   }
   return JSON.stringify({ success: true, servants: list });
+}
+
+// 🏆 進入鑑賞（後日談·約會）：在 k_ 世界重建御主＋從者，無敵人、無戰鬥，可自由移動閒聊
+function actionEnterGallery(userData, pcId, sheets) {
+  var acctName = String(userData.acctName || "").trim();
+  var name = String(userData.servantName || "").trim();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var gal = ss.getSheetByName("鑑賞");
+  if (!gal) return JSON.stringify({ success: false, message: "鑑賞表不存在。" });
+  var gd = gal.getDataRange().getValues();
+  var rec = null;
+  for (var i = 1; i < gd.length; i++) {
+    if (String(gd[i][COL.GAL.ACC]).trim() === acctName && String(gd[i][COL.GAL.NAME]).trim() === name) { rec = gd[i]; break; }
+  }
+  if (!rec) return JSON.stringify({ success: false, message: "鑑賞名冊查無此從者。" });
+
+  // 清掉此帳號殘留的舊鑑賞世界（k_ 開頭且關聯本帳號御主）
+  var pcData = sheets.pc.getDataRange().getValues();
+  var masterName = String(rec[COL.GAL.MASTER] || "御主") || "御主";
+  for (var r = pcData.length - 1; r >= 1; r--) {
+    var gidOld = String(pcData[r][COL.PC.GAME_ID] || "");
+    if (gidOld.indexOf("k_") === 0 && String(pcData[r][COL.PC.NAME]) === masterName) {
+      // 同名御主的舊鑑賞世界，整個 game_id 清除
+      var gidClear = gidOld;
+      for (var d = pcData.length - 1; d >= 1; d--) {
+        if (String(pcData[d][COL.PC.GAME_ID] || "") === gidClear) sheets.pc.deleteRow(d + 1);
+      }
+      pcData = sheets.pc.getDataRange().getValues();
+    }
+  }
+
+  var gameId = "k_" + Date.now();
+  var loc = "冬木·深山町";
+  var pcColCount = Object.keys(COL.PC).length;
+
+  // 御主 avatar（凡人，僅供視角／移動，無戰鬥意義）
+  var mId = "KPC_" + Date.now();
+  var mRow = Array(pcColCount).fill("");
+  mRow[COL.PC.ID] = mId;
+  mRow[COL.PC.NAME] = masterName;
+  mRow[COL.PC.SEX] = String(rec[COL.GAL.MSEX] || "異") || "異";
+  mRow[COL.PC.REALM] = "凡人";
+  mRow[COL.PC.HP] = 100; mRow[COL.PC.MAX_HP] = 100; mRow[COL.PC.MP] = 100; mRow[COL.PC.MAX_MP] = 100;
+  mRow[COL.PC.STR] = 10; mRow[COL.PC.CON] = 10; mRow[COL.PC.AGI] = 10; mRow[COL.PC.INT] = 10; mRow[COL.PC.LUK] = 10;
+  mRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情輕鬆" });
+  mRow[COL.PC.LOC] = loc;
+  mRow[COL.PC.MONEY] = 5000;
+  mRow[COL.PC.FACTION] = "御主";
+  mRow[COL.PC.MEMORY] = "【鑑賞後日談】聖杯戰爭已結束，與從者的和平約會時光。";
+  mRow[COL.PC.GAME_ID] = gameId;
+  sheets.pc.appendRow(mRow);
+
+  // 從者：由鑑賞紀錄還原
+  var sId = "KSV_" + Date.now();
+  var sRow = Array(pcColCount).fill("");
+  sRow[COL.PC.ID] = sId;
+  sRow[COL.PC.NAME] = name;
+  sRow[COL.PC.SEX] = String(rec[COL.GAL.SEX] || "異") || "異";
+  sRow[COL.PC.REALM] = "凡人";
+  sRow[COL.PC.HP] = 480; sRow[COL.PC.MAX_HP] = 480; sRow[COL.PC.MP] = 200; sRow[COL.PC.MAX_MP] = 200;
+  sRow[COL.PC.STR] = 45; sRow[COL.PC.CON] = 45; sRow[COL.PC.AGI] = 45; sRow[COL.PC.INT] = 40; sRow[COL.PC.LUK] = 35;
+  sRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情柔和" });
+  sRow[COL.PC.LOC] = loc;
+  sRow[COL.PC.FACTION] = "從者";
+  sRow[COL.PC.RANK] = String(rec[COL.GAL.CLS] || "從者");
+  sRow[COL.PC.CLS] = String(rec[COL.GAL.CLS] || "從者");
+  sRow[COL.PC.MARTIAL] = String(rec[COL.GAL.NP] || "");
+  sRow[COL.PC.BACK] = String(rec[COL.GAL.BACK] || "");
+  sRow[COL.PC.PREF] = String(rec[COL.GAL.PREF] || "");
+  sRow[COL.PC.INTENT] = String(rec[COL.GAL.MOE] || "");
+  sRow[COL.PC.SIX] = String(rec[COL.GAL.SIX] || "{}");
+  sRow[COL.PC.TAGS] = String(rec[COL.GAL.TAGS] || "{}");
+  sRow[COL.PC.MEMORY] = "【鑑賞後日談】聖杯戰爭已結束，安然陪伴在御主身邊。";
+  sRow[COL.PC.GAME_ID] = gameId;
+  sheets.pc.appendRow(sRow);
+
+  // 羈絆（高好感起步，畢竟是並肩奪杯的搭檔）
+  if (sheets.rel) {
+    try { sheets.rel.appendRow([masterName, name, 90, "從者", "同行", "聖杯戰爭並肩奪杯的羈絆", ""]); } catch (e) { }
+  }
+
+  return JSON.stringify({
+    success: true, pcId: mId, pcName: masterName, pcSex: mRow[COL.PC.SEX],
+    servantName: name, loc: loc,
+    message: `聖杯戰爭的硝煙早已散去。冬木的午後，你與「${name}」並肩站在深山町的坡道上——這一次，沒有敵人，只有兩個人的時光。`
+  });
 }
 
 // 鑑賞模式：呼出某從者「閒話後日談」（純對話，無戰鬥/血量），回傳 AI 旁白
