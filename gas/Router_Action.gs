@@ -1508,7 +1508,7 @@ function actionManualNpc(userData, pcId, sheets) {
 ★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
 - traits：外貌、氣質舉止、魔術或戰鬥傾向、私下不為人知的一面
 - personality：日常表象、真實內裡、喜歡的事、討厭的事
-★npc_intent：一句話「可愛反差萌（萌點）」，結合此御主身分性格量身打造，要反差、可愛、獨特。
+★npc_intent：一句【簡短】萌點（可愛反差，≤15字），結合此御主身分性格，要反差、可愛、獨特。
 ★background：限20字，呼應其身世／財力，禁出現具體物品名。
 ★start_loc：從冬木地點中選一個合理的居所或起點：${validMapNames.join('、')}
 ★realm 一律填「凡人」（御主靈基由系統裁定）。faction 填御主所屬（魔術協會／教會／無所屬等，無則「無」），rank 填「御主」。
@@ -1612,7 +1612,7 @@ function actionManualNpc(userData, pcId, sheets) {
     newRow[COL.PC.REALM] = isCreate ? "凡人" : targetRealm;
     newRow[COL.PC.FACTION] = aiBrief.faction || "無"; newRow[COL.PC.RANK] = aiBrief.rank || "散人";
     newRow[COL.PC.CONTRIB] = 0; newRow[COL.PC.ALIGN] = aiBrief.align || "絕對中立";
-    newRow[COL.PC.INTENT] = aiBrief.npc_intent || "無特殊執念";
+    newRow[COL.PC.INTENT] = String(aiBrief.npc_intent || "").slice(0, 18) || "（待揭曉）";
     newRow[COL.PC.GAME_ID] = gameId;
     sheets.pc.appendRow(newRow);
 
@@ -1733,11 +1733,22 @@ function actionSummonServant(userData, pcId, sheets) {
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       row[COL.PC.REALM] = "凡人";
       row[COL.PC.TRAIT] = parseTraitsHelper(traits.map(t => t.n).join("、"), "氣場凜然、舉止從容、精擅戰技、深藏之面");
-      row[COL.PC.PREF] = parseTraitsHelper(String(persona.words || "").replace(/・/g, "、"), "沉著表象、堅定內裡、珍視之物、厭惡之事");
+      // 依人格補完 4 格個性（含喜歡/討厭）＋ 短萌點
+      let svPref = String(persona.words || "").replace(/・/g, "、");
+      let svMoe = "";
+      try {
+        const en = JSON.parse(callGeminiAPI(
+          `從者真名：${realName}（${cls}）\n性格關鍵：${persona.words || ""}\n對御主：${persona.toMaster || ""}`,
+          `為《命運停駐之夜》的從者補完人格設定（只給設定、勿演出複述）。\n★personality：剛好 4 短句、頓號分隔，依序為「日常表象、真實內裡、喜歡的事、討厭的事」。\n★萌點：一句【簡短】可愛反差，≤15 字。\n輸出合法 JSON、禁 Markdown：{"personality":"四格頓號字串","萌點":"≤15字"}`,
+          { temperature: 0.7, ignoreLaw: true }));
+        if (en && en.personality) svPref = en.personality;
+        svMoe = String((en && en.萌點) || "").slice(0, 18);
+      } catch (e) { }
+      row[COL.PC.PREF] = parseTraitsHelper(svPref, "沉著表象、堅定內裡、珍視之物、厭惡之事");
       row[COL.PC.MEMORY] = `第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || "保持距離"}`;
       row[COL.PC.SIX] = JSON.stringify(six);
       row[COL.PC.TAGS] = JSON.stringify({ skills: classSkills.concat(skills), traits: traits });
-      row[COL.PC.INTENT] = "";
+      row[COL.PC.INTENT] = svMoe;
       row[COL.PC.BACK] = `${cls} 職階英靈`;
     } else {
       // 🌀 名冊查無 → AI 即時生成（保留原行為）
@@ -1748,7 +1759,7 @@ function actionSummonServant(userData, pcId, sheets) {
 ★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
 - traits：外貌、氣質舉止、戰鬥／寶具傾向、私下不為人知的一面
 - personality：日常表象、真實內裡、喜歡的事、討厭的事
-★np：寶具名＋一句威能簡述。★npc_intent：一句話可愛反差萌。★sex 從 男／女／異 擇一。
+★np：寶具名＋一句威能簡述。★npc_intent：一句【簡短】可愛反差萌點（≤15字）。★sex 從 男／女／異 擇一。
 
 ★【輸出】合法 JSON、禁 Markdown：
 {"realName":"英靈真名","sex":"女","np":"寶具名（簡述）","background":"限20字","traits":"四格頓號","personality":"四格頓號","npc_intent":"反差萌一句","align":"中立・善"}`;
@@ -1762,7 +1773,7 @@ function actionSummonServant(userData, pcId, sheets) {
       row[COL.PC.REALM] = "凡人";
       row[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.traits, "氣場凜然、舉止從容、精擅戰技、不為人知的一面");
       row[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "沉著表象、堅定內裡、珍視之物、厭惡之事");
-      row[COL.PC.INTENT] = aiBrief.npc_intent || "";
+      row[COL.PC.INTENT] = String(aiBrief.npc_intent || "").slice(0, 18);
       row[COL.PC.SIX] = JSON.stringify({ 筋力: "C", 耐久: "C", 敏捷: "C", 魔力: "C", 幸運: "C", 寶具: "C" });
       row[COL.PC.TAGS] = JSON.stringify({ skills: [], traits: [] });
       row[COL.PC.BACK] = aiBrief.background || `${cls} 職階的英靈`;
