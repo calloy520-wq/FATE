@@ -965,37 +965,56 @@ function renderRecentLocs(recents = null) {
     story.scrollTop = story.scrollHeight;
   }
 
-  // ☕ 小憩：推進 1 小時、補 2 AP（休息1小補2），不回血、世界不廝殺
-  async function napRest() {
-    const story = document.getElementById('story');
-    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主稍作小憩，調勻氣息……</div>`);
-    story.scrollTop = story.scrollHeight;
-    try {
-      const data = await gasRun({ action: 'rest', pcId: pc.id, restType: 'nap' });
-      if (data && data.success) {
-        if (data.statusString) { localStorage.setItem('kyushu_last_status', data.statusString); updateUI(data.statusString.split('§')); }
-        updateClock(data.clock, data.ap, data.apMax);
-        story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#aaa;font-size:12px;">（小憩片刻，恢復了些許行動力。${data.clock || ''}）</div>`);
-        syncData(true);
-      } else { alert((data && data.message) || '小憩失敗。'); }
-    } catch (e) { alert('連線失敗。'); }
+  // 🛏️ 休息選單：玩家自選時數（每小時補 2 AP）
+  function openRestMenu() {
+    const opts = [
+      [1, '☕ 小憩 1 小時', '+2 行動力'],
+      [3, '🌙 歇息 3 小時', '+6 行動力・部分回血回魔'],
+      [6, '🛌 安睡 6 小時', '+12 行動力（補滿）・血魔近全滿'],
+    ];
+    let html = '<h3 style="margin:0 0 6px;color:#a9a9d8;">🛏️ 休息多久？</h3>'
+      + '<p style="color:#9a8bb0;font-size:12px;margin:0 0 10px;">每休息 1 小時恢復 2 點行動力；休越久回血回魔越多，但世界也會推進更多。</p>';
+    html += opts.map(function (o) {
+      return '<button onclick="rest(' + o[0] + ')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px;background:rgba(120,120,160,0.14);color:#e8dcc0;border:1px solid #5a5a8a;border-radius:8px;cursor:pointer;">'
+        + '<b style="color:#bcbce0;">' + o[1] + '</b>　<span style="font-size:12px;color:#9a8bb0;">' + o[2] + '</span></button>';
+    }).join('');
+    showHistoryOverlay(html);
   }
 
-  // 🛏️ 過夜：推進到隔日清晨、回血回魔、AP 補滿、世界自走
-  async function restOvernight() {
+  // 🛏️ 休息 N 小時：補 2×N AP、回血回魔（按時數比例）、世界自走
+  async function rest(hours) {
+    var ov = document.getElementById('history-overlay');
+    if (ov) ov.style.display = 'none';
     const story = document.getElementById('story');
-    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主與從者就地歇息，靜待天明……</div>`);
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主一行就地休息 ${hours} 小時……</div>`);
     story.scrollTop = story.scrollHeight;
     try {
-      const data = await gasRun({ action: 'rest', pcId: pc.id, restType: 'night' });
+      const data = await gasRun({ action: 'rest', pcId: pc.id, restHours: hours });
       if (data && data.success) {
         if (data.statusString) { localStorage.setItem('kyushu_last_status', data.statusString); updateUI(data.statusString.split('§')); }
         updateClock(data.clock, data.ap, data.apMax);
-        story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【天明】</b>一夜過去，${(data.healedNames||['你']).join('與')}的傷勢與魔力都已恢復，行動力滿盈。${data.clock ? '（' + data.clock + '）' : ''}</div>`);
+        story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【休息 ${hours} 小時】</b>${(data.healedNames||['你']).join('與')}恢復了氣力，行動力 ${data.ap}/${data.apMax}。${data.clock ? '（' + data.clock + '）' : ''}</div>`);
         showRumors(data.rumors);
         syncData(true);
-      } else { alert((data && data.message) || '歇息失敗。'); }
-    } catch (e) { alert('連線失敗，歇息未果。'); }
+      } else { alert((data && data.message) || '休息失敗。'); }
+    } catch (e) { alert('連線失敗，休息未果。'); }
+  }
+
+  // 🔍 偵查：耗 1 AP，揭露附近藏匿的敵人到地圖
+  async function scout() {
+    const story = document.getElementById('story');
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主凝神探查四周氣息……</div>`);
+    story.scrollTop = story.scrollHeight;
+    try {
+      const data = await gasRun({ action: 'scout', pcId: pc.id });
+      if (data && data.success) {
+        if (data.statusString) { localStorage.setItem('kyushu_last_status', data.statusString); updateUI(data.statusString.split('§')); }
+        updateClock(data.clock, data.ap, data.apMax);
+        story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#7fc7c7;font-size:12.5px;text-align:center;border:1px solid rgba(90,150,150,0.3);border-radius:8px;padding:6px 10px;">🔍 ${data.message || '偵查完成。'}</div>`);
+        renderMapPane();
+        syncData(true);
+      } else { alert((data && data.message) || '偵查失敗。'); }
+    } catch (e) { alert('連線失敗，偵查未果。'); }
   }
 
   async function travelTo(targetName, distance) {
@@ -1709,8 +1728,8 @@ function renderRecentLocs(recents = null) {
               '<div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">'
               + '<button onclick="manaSupply()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
               + '<button onclick="openSealMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(176,108,208,0.16); color:#c79be8; border:1px solid #8a5fb0; border-radius:6px; cursor:pointer;">❖ 令咒 ' + '❖'.repeat(Math.max(0, m.seals || 0)) + '</button>'
-              + '<button onclick="napRest()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(120,140,120,0.16); color:#9ac79a; border:1px solid #5a7a5a; border-radius:6px; cursor:pointer;">☕ 小憩</button>'
-              + '<button onclick="restOvernight()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(120,120,160,0.16); color:#a9a9d8; border:1px solid #5a5a8a; border-radius:6px; cursor:pointer;">🛏️ 過夜</button>'
+              + '<button onclick="scout()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(90,150,150,0.16); color:#7fc7c7; border:1px solid #4a8a8a; border-radius:6px; cursor:pointer;">🔍 偵查</button>'
+              + '<button onclick="openRestMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(120,120,160,0.16); color:#a9a9d8; border:1px solid #5a5a8a; border-radius:6px; cursor:pointer;">🛏️ 休息</button>'
               + '</div>')
           + '</div>';
       } else {
@@ -1821,7 +1840,7 @@ function renderRecentLocs(recents = null) {
     try {
       const isNsfw = document.getElementById('nsfw-mode-toggle')?.checked || false;
       const res = await gasRun({ action: 'mana_supply', pcId: pc.id, isNsfw: isNsfw });
-      if (res && res.success) { narrate(res.aiPrompt); syncData(true); }
+      if (res && res.success) { updateClock(res.clock, res.ap, res.apMax); narrate(res.aiPrompt); syncData(true); }
       else { alert((res && res.message) || '補魔失敗。'); }
     } catch (e) { alert('連線失敗，補魔未果。'); }
   }

@@ -1,10 +1,11 @@
 // ==========================================
-// ⏳ Time_World.gs — 輕量時間流動 ＋ 世界自走（忠於舊版精神，砍掉 AP/維持費）
-//   聊天/補魔/令咒/互動 ＝ 免費凍結；移動／歇息 ＝ 推進時間＋世界 tick。
-//   世界 tick：敵移位(偵查失效) ＋ 暗處從者陣亡(戰爭自走) ＋ 深夜野外夜襲機率。
+// ⏳ Time_World.gs — 輕量時間流動 ＋ 世界自走（找回 AP 爽感，砍掉維持費經濟）
+//   1 AP = 1 小時。移動 2／戰鬥 1／補魔 1／偵查 1 耗 AP；聊天/令咒自身向 ＝ 0（凍結）。
+//   休息：玩家自選時數，每小時補 2 AP（6h 補滿）。何時休由玩家決定。
+//   世界 tick（移動/休息時）：敵移位(偵查失效) ＋ 暗處從者陣亡(戰爭自走)。
 // ==========================================
 
-var AP_PER_DAY = 12; // 每日行動點（1 AP = 2 小時 → 12 AP = 24h）
+var AP_PER_DAY = 12; // 體力池上限（1 AP = 1 小時的行動）
 
 // 取得（或初始化）某 game_id 的時鐘
 function getClock_(gameId) {
@@ -42,23 +43,24 @@ function getAp_(gameId) {
   return clk ? clk.ap : AP_PER_DAY;
 }
 
-// 消耗 AP：足夠則扣 cost、推進 cost×2 小時、回 {ok,ap,day,hour}；不足回 {ok:false,ap}
+// 消耗 AP：1 AP = 1 小時。足夠則扣 cost、推進 cost 小時、回 {ok,ap}；不足回 {ok:false,ap}
 function spendAp_(gameId, cost) {
   var clk = getClock_(gameId);
   if (!clk) return { ok: true, ap: AP_PER_DAY }; // 無時鐘(相容)→不擋
   if (clk.ap < cost) return { ok: false, ap: clk.ap };
   clk.ap -= cost;
-  rollHours_(clk, cost * 2);
+  rollHours_(clk, cost);
   writeClock_(clk);
   return { ok: true, ap: clk.ap, day: clk.day, hour: clk.hour };
 }
 
-// ☕ 小憩：推進 1 小時、補 2 AP（上限 12）
-function napRest_(gameId) {
+// 🛏️ 休息 N 小時：推進 N 小時、補 2×N AP（上限 12）。何時休、休多久由玩家決定。
+function restHours_(gameId, hours) {
   var clk = getClock_(gameId);
   if (!clk) return null;
-  rollHours_(clk, 1);
-  clk.ap = Math.min(AP_PER_DAY, clk.ap + 2);
+  hours = Math.max(1, Math.min(12, parseInt(hours) || 1));
+  rollHours_(clk, hours);
+  clk.ap = Math.min(AP_PER_DAY, clk.ap + hours * 2);
   writeClock_(clk);
   return clk;
 }
@@ -79,14 +81,6 @@ function clockLabel_(gameId) {
   return "第 " + clk.day + " 日・" + ("0" + clk.hour).slice(-2) + ":00・" + timeBand_(clk.hour);
 }
 
-// 🛏️ 過夜：跳到隔日清晨 06:00、AP 補滿
-function restToMorning_(gameId) {
-  var clk = getClock_(gameId);
-  if (!clk) return null;
-  clk.day += 1; clk.hour = 6; clk.ap = AP_PER_DAY;
-  writeClock_(clk);
-  return clk;
-}
 
 // 🌐 世界自走一輪：敵移位（偵查失效）＋ 暗處從者陣亡（戰爭自走）
 //   rounds：跑幾輪（移動 1 輪、歇息 2 輪）；playerLoc：玩家所在（暗處＝非此地）

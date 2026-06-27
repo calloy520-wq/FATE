@@ -51,6 +51,7 @@ const ActionRouter = {
   "fate_battle": actionFateBattle,
   "use_seal": actionUseSeal,
   "mana_supply": actionManaSupply,
+  "scout": actionScout,
   "clear_npc_major_event": actionClearNpcMajorEvent,
   "get_all_categorized_maps": actionGetAllCategorizedMaps,
   "get_map_nodes": actionGetMapNodes,
@@ -1998,11 +1999,11 @@ function actionMove(userData, pcId, sheets) {
   const pIdx = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
 
-  // ⏳ 行動點檢查（FATE 單人世界；鑑賞 k_ 不耗 AP）
+  // ⏳ 行動點檢查（移動耗 2 AP＝2 小時；鑑賞 k_ 不耗 AP）
   const moveGameId = String(allPcData[pIdx][COL.PC.GAME_ID] || "");
   const isFateMove = moveGameId.indexOf("g_") === 0;
-  if (isFateMove && getAp_(moveGameId) < 1) {
-    return JSON.stringify({ success: false, message: "行動點已耗盡，無力遠行——請『歇息』恢復精神後再出發。", clock: clockLabel_(moveGameId), ap: 0, apMax: AP_PER_DAY });
+  if (isFateMove && getAp_(moveGameId) < 2) {
+    return JSON.stringify({ success: false, message: "行動力不足以遠行（需 2 點）——請『休息』恢復後再出發。", clock: clockLabel_(moveGameId), ap: getAp_(moveGameId), apMax: AP_PER_DAY });
   }
 
   allPcData[pIdx][COL.PC.LOC] = target;
@@ -2024,7 +2025,7 @@ function actionMove(userData, pcId, sheets) {
   let clockLabel = "", worldRumors = [], apLeft = AP_PER_DAY;
   if (isFateMove) {
     try {
-      const sp = spendAp_(moveGameId, 1);
+      const sp = spendAp_(moveGameId, 2);
       apLeft = sp.ap;
       const tick = worldTick_(sheets, moveGameId, target, 1);
       worldRumors = tick.rumors || [];
@@ -2084,85 +2085,82 @@ function actionRest(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
 
   const restGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  const isFateRest = restGameId.indexOf("g_") === 0; // FATE 單人聖杯戰爭：歇息免費、推進時間
-  const restType = String(userData.restType || "night");
-
-  // ☕ 小憩（FATE）：推進 1 小時、補 2 AP，不回血、世界不廝殺（避免小憩 farming）
-  if (isFateRest && restType === "nap") {
-    let napClk = null;
-    try { napClk = napRest_(restGameId); } catch (e) { }
-    return JSON.stringify({
-      success: true, nap: true, statusString: getFreshStatusString(pcId, pIdx, sheets),
-      clock: clockLabel_(restGameId), ap: napClk ? napClk.ap : AP_PER_DAY, apMax: AP_PER_DAY, rumors: []
-    });
-  }
-
-  if (!isFateRest) {
-    let currentMoney = parseInt(pcData[pIdx][COL.PC.MONEY]) || 0;
-    if (currentMoney < 100) return JSON.stringify({ success: false, message: "盤纏不足 100 銀兩，無法休養！" });
-    pcData[pIdx][COL.PC.MONEY] = currentMoney - 100;
-  }
+  const isFateRest = restGameId.indexOf("g_") === 0; // FATE 單人聖杯戰爭：自由休息、推進時間
   const normalStatus = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "平躺歇息", "負面": "無", "顏面": "氣息平穩" });
   const pcName = pcData[pIdx][COL.PC.NAME];
   const pcLoc = String(pcData[pIdx][COL.PC.LOC] || "").trim();
-  let healedNames = [pcName];
 
-  // FATE：沿用既有 MAX（從者血量是召喚時鎖定的，勿用凡人公式重算把它砍低）
-  const prevHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
-  let pHpMax, pMpMax;
+  // 🛏️ FATE 休息：玩家自選時數（1/3/6…），每小時補 2 AP；回血回魔按時數比例（6 小時≈全滿）
   if (isFateRest) {
-    pHpMax = parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 100;
-    pMpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || 100;
-  } else {
-    const pMax = calculateMaxStats(pcData[pIdx][COL.PC.REALM], pcData[pIdx][COL.PC.CON], pcData[pIdx][COL.PC.INT]);
-    pHpMax = pMax.hp; pMpMax = pMax.mp;
-    pcData[pIdx][COL.PC.MAX_HP] = pMax.hp; pcData[pIdx][COL.PC.MAX_MP] = pMax.mp;
+    const restHours = Math.max(1, Math.min(12, parseInt(userData.restHours) || 6));
+    const frac = Math.min(1, restHours / 6);
+    let healedNames = [pcName];
+    const healRow = (idx) => {
+      const hpMax = parseInt(pcData[idx][COL.PC.MAX_HP]) || 100;
+      const mpMax = parseInt(pcData[idx][COL.PC.MAX_MP]) || 100;
+      pcData[idx][COL.PC.HP] = Math.min(hpMax, Math.round((parseInt(pcData[idx][COL.PC.HP]) || 0) + hpMax * frac));
+      pcData[idx][COL.PC.MP] = Math.min(mpMax, Math.round((parseInt(pcData[idx][COL.PC.MP]) || 0) + mpMax * frac));
+      if (frac >= 1) pcData[idx][COL.PC.STATUS] = normalStatus;
+    };
+    const prevHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
+    const wasInjured = prevHp < (parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 0);
+    healRow(pIdx);
+    if (sheets.rel) {
+      sheets.rel.getDataRange().getValues().filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]).forEach(npcName => {
+        const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+        if (nIdx !== -1 && parseInt(pcData[nIdx][COL.PC.HP]) > 0) { healRow(nIdx); healedNames.push(npcName); }
+      });
+    }
+    sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
+
+    let restClock = "", restRumors = [], apAfter = AP_PER_DAY;
+    try {
+      const clk = restHours_(restGameId, restHours);
+      apAfter = clk ? clk.ap : AP_PER_DAY;
+      const rounds = Math.floor(restHours / 3); // 1h:0、3h:1、6h:2 輪世界自走
+      if (rounds > 0) { const tick = worldTick_(sheets, restGameId, pcLoc, rounds); restRumors = tick.rumors || []; }
+      restClock = clockLabel_(restGameId);
+    } catch (e) { }
+    try { sheets.log.appendRow([new Date(), pcId, `【系統】御主一行休息了 ${restHours} 小時，恢復行動力。`, pcLoc]); } catch (e) { }
+    return JSON.stringify({
+      success: true, statusString: getFreshStatusString(pcId, pIdx, sheets), healedNames: healedNames,
+      loc: pcLoc, wasInjured: wasInjured, restHours: restHours, clock: restClock, ap: apAfter, apMax: AP_PER_DAY, rumors: restRumors
+    });
   }
-  const wasInjured = prevHp < pHpMax; // 🔴 記錄修練前是否真有掛彩，避免AI硬掰「傷勢痊癒」
-  pcData[pIdx][COL.PC.HP] = pHpMax; pcData[pIdx][COL.PC.MP] = pMpMax;
+
+  // ── 以下為非 FATE（九州）舊版休養：花 100 銀兩、全回滿 ──
+  let currentMoney = parseInt(pcData[pIdx][COL.PC.MONEY]) || 0;
+  if (currentMoney < 100) return JSON.stringify({ success: false, message: "盤纏不足 100 銀兩，無法休養！" });
+  pcData[pIdx][COL.PC.MONEY] = currentMoney - 100;
+  let healedNames = [pcName];
+  const pMax = calculateMaxStats(pcData[pIdx][COL.PC.REALM], pcData[pIdx][COL.PC.CON], pcData[pIdx][COL.PC.INT]);
+  const prevHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
+  const wasInjured = prevHp < pMax.hp;
+  pcData[pIdx][COL.PC.MAX_HP] = pMax.hp; pcData[pIdx][COL.PC.MAX_MP] = pMax.mp;
+  pcData[pIdx][COL.PC.HP] = pMax.hp; pcData[pIdx][COL.PC.MP] = pMax.mp;
   pcData[pIdx][COL.PC.STATUS] = normalStatus;
 
   if (sheets.rel) {
     sheets.rel.getDataRange().getValues().filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]).forEach(npcName => {
       const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
       if (nIdx !== -1 && pcData[nIdx][COL.PC.STATUS] !== "屍體" && parseInt(pcData[nIdx][COL.PC.HP]) > 0) {
-        if (isFateRest) {
-          pcData[nIdx][COL.PC.HP] = parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 480;
-          pcData[nIdx][COL.PC.MP] = parseInt(pcData[nIdx][COL.PC.MAX_MP]) || 200;
-        } else {
-          const nMax = calculateMaxStats(pcData[nIdx][COL.PC.REALM], pcData[nIdx][COL.PC.CON], pcData[nIdx][COL.PC.INT]);
-          pcData[nIdx][COL.PC.MAX_HP] = nMax.hp; pcData[nIdx][COL.PC.MAX_MP] = nMax.mp;
-          pcData[nIdx][COL.PC.HP] = nMax.hp; pcData[nIdx][COL.PC.MP] = nMax.mp;
-        }
+        const nMax = calculateMaxStats(pcData[nIdx][COL.PC.REALM], pcData[nIdx][COL.PC.CON], pcData[nIdx][COL.PC.INT]);
+        pcData[nIdx][COL.PC.MAX_HP] = nMax.hp; pcData[nIdx][COL.PC.MAX_MP] = nMax.mp;
+        pcData[nIdx][COL.PC.HP] = nMax.hp; pcData[nIdx][COL.PC.MP] = nMax.mp;
         pcData[nIdx][COL.PC.STATUS] = normalStatus;
         healedNames.push(npcName);
       }
     });
   }
-
-  // 🔴 同地但非同行的「圍觀者」也要告知AI，避免敘事憑空冒人或無視現場真實人物
   const bystanderNames = pcData
     .filter(r => r[COL.PC.ID] != pcId && !String(r[COL.PC.ID]).startsWith("DEAD_") &&
       String(r[COL.PC.LOC]).trim() === pcLoc && !healedNames.includes(r[COL.PC.NAME]))
     .map(r => r[COL.PC.NAME]);
-
   sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
-  sheets.log.appendRow([new Date(), pcId, `【系統】${isFateRest ? "御主與從者就地歇息過夜" : "花費了 100 銀兩，" + healedNames.join("與") + " 就地休養"}，狀態回歸平穩。`, pcData[pIdx][COL.PC.LOC]]);
-
-  // ⏳ FATE 歇息：推進到隔日清晨 ＋ 世界自走兩輪
-  let restClock = "", restRumors = [];
-  if (isFateRest) {
-    try {
-      restToMorning_(restGameId);
-      const tick = worldTick_(sheets, restGameId, pcLoc, 2);
-      restRumors = tick.rumors || [];
-      restClock = clockLabel_(restGameId);
-    } catch (e) { }
-  }
+  sheets.log.appendRow([new Date(), pcId, `【系統】花費了 100 銀兩，${healedNames.join("與")} 就地休養，狀態回歸平穩。`, pcData[pIdx][COL.PC.LOC]]);
   return JSON.stringify({
     success: true, statusString: getFreshStatusString(pcId, pIdx, sheets), healedNames: healedNames,
-    loc: pcLoc, wasInjured: wasInjured, bystanderNames: bystanderNames,
-    clock: restClock, ap: isFateRest ? AP_PER_DAY : undefined, apMax: AP_PER_DAY, rumors: restRumors, overnight: isFateRest
+    loc: pcLoc, wasInjured: wasInjured, bystanderNames: bystanderNames
   });
 }
 
@@ -3886,7 +3884,7 @@ function actionUseSeal(userData, pcId, sheets) {
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, seals: seals, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
-// 🔵 補魔（魔力供給）：把御主魔力導入從者，回魔＋羈絆＋fade 演出（無令咒消耗）
+// 🔵 補魔（魔力供給）：把御主魔力導入從者，回魔＋羈絆＋fade 演出。耗 1 AP（導入魔力需時）
 function actionManaSupply(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
@@ -3899,16 +3897,64 @@ function actionManaSupply(userData, pcId, sheets) {
   const cur = parseInt(pcData[svIdx][COL.PC.MP]) || 0;
   if (cur >= mpMax) return JSON.stringify({ success: false, message: `「${svName}」的魔力已然充盈，毋須補魔。` });
 
+  const isFateMana = myGameId.indexOf("g_") === 0;
+  if (isFateMana && getAp_(myGameId) < 1) {
+    return JSON.stringify({ success: false, message: "行動力不足以行補魔之儀——請『休息』恢復後再來。" });
+  }
+
   const restored = Math.min(mpMax, cur + Math.round(mpMax * 0.5));
   pcData[svIdx][COL.PC.MP] = restored;
   sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
   raiseBond_(sheets, pcData[pIdx][COL.PC.NAME], svName, 3);
 
+  let manaAp = AP_PER_DAY, manaClock = "";
+  if (isFateMana) { try { manaAp = spendAp_(myGameId, 1).ap; manaClock = clockLabel_(myGameId); } catch (e) { } }
+
   const isNsfw = !!userData.isNsfw;
   const aiPrompt = `【系統·補魔已結算】御主以魔力供給「${svName}」，其魔力回復至 ${restored}/${mpMax}，羈絆微升。\n` +
     `★以 Fate／TYPE-MOON 筆觸描寫這場魔力供給：御主將自身魔力導入從者的儀式${isNsfw ? "（可成人向，但須兩情相願、合乎從者性格，fade 收束）" : "（含蓄唯美，點到為止、fade-to-black）"}。\n` +
     `★【鐵律】演出而非複述設定；嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
-  return JSON.stringify({ success: true, aiPrompt: aiPrompt, statusString: getFreshStatusString(pcId, pIdx, sheets) });
+  return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
+}
+
+// 🔍 偵查：耗 1 AP，揭露「附近地點」藏匿的敵御主／敵從者（戰爭迷霧；marks SEEN）
+function actionScout(userData, pcId, sheets) {
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const isFateScout = myGameId.indexOf("g_") === 0;
+  if (isFateScout && getAp_(myGameId) < 1) {
+    return JSON.stringify({ success: false, message: "行動力不足以偵查——請『休息』恢復後再探。" });
+  }
+  const curLoc = String(pcData[pIdx][COL.PC.LOC] || "").trim();
+  // 附近地點（含當前）作為偵查範圍
+  const mapData = sheets.map ? sheets.map.getDataRange().getValues() : [];
+  let scope = [curLoc];
+  try { getNearbyLocations(curLoc, mapData).forEach(l => { const nm = (l && l.name) ? l.name : l; if (nm) scope.push(String(nm).trim()); }); } catch (e) { }
+
+  let revealed = [];
+  for (let i = 1; i < pcData.length; i++) {
+    const fac = String(pcData[i][COL.PC.FACTION]);
+    if (fac !== "敵御主" && fac !== "敵從者") continue;
+    if (String(pcData[i][COL.PC.GAME_ID] || "") !== myGameId) continue;
+    if (String(pcData[i][COL.PC.ID]).startsWith("DEAD_")) continue;
+    const loc = String(pcData[i][COL.PC.LOC]).trim();
+    if (scope.indexOf(loc) === -1) continue;
+    if (!String(pcData[i][COL.PC.SEEN] || "")) {
+      pcData[i][COL.PC.SEEN] = "1";
+      sheets.pc.getRange(i + 1, COL.PC.SEEN + 1).setValue("1");
+    }
+    revealed.push(pcData[i][COL.PC.NAME] + "（" + loc + "）");
+  }
+
+  let scoutAp = AP_PER_DAY, scoutClock = "";
+  if (isFateScout) { try { scoutAp = spendAp_(myGameId, 1).ap; scoutClock = clockLabel_(myGameId); } catch (e) { } }
+
+  const msg = revealed.length
+    ? `偵查四方，捕捉到氣息：${revealed.join("、")}。`
+    : `偵查四方，附近暫無敵蹤現形。`;
+  return JSON.stringify({ success: true, message: msg, revealed: revealed, clock: scoutClock, ap: scoutAp, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
 // 提升御主×從者羈絆（關係表好感）
