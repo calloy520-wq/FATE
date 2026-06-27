@@ -54,12 +54,12 @@
       <button class="drawer-item" onclick="openCraftMenu()"><i>🔥</i><span>造物煉成</span></button>
       <button class="drawer-item" onclick="openHomeMenu()"><i>🏡</i><span>我的家</span></button>
       <button class="drawer-item" onclick="openShopMenu()"><i>🏪</i><span>我的店</span></button>
-      <button class="drawer-item" onclick="openJianghuHubMenu()"><i>🍶</i><span>江湖百味</span></button>
+      <button class="drawer-item" onclick="openJianghuHubMenu()"><i>🍶</i><span>冬木夜話</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('quest')"><i>📜</i><span>檢視天命</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('explore')"><i>🧭</i><span>探索疆域</span></button>
       <button class="drawer-item" onclick="refreshAndOpenNpcList()"><i>👥</i><span>身邊眾生</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('status')"><i>👤</i><span>查看命格</span></button>
-      <button class="drawer-item" onclick="openFactionPanel()"><i>⛩️</i><span>宗門勢力</span></button>
+      <button class="drawer-item" onclick="openFactionPanel()"><i>⛩️</i><span>陣營勢力</span></button>
       <button class="drawer-item" onclick="openEpicPanel()"><i>📖</i><span>個人史紀</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('settings')"><i>⚙️</i><span>系統設定</span></button>
     </div>
@@ -101,14 +101,14 @@
           </div>
         </div>
         <button class="btn" onclick="toggleFullScreen()">🖥️ 切換全螢幕模式</button>
-        <button class="btn" style="border-color:#800; color:#800;" onclick="if(confirm('確定退隱江湖？一切因果將煙消雲散。')){localStorage.clear();location.reload();}">🚪 退隱江湖 (登出)</button>
+        <button class="btn" style="border-color:#800; color:#800;" onclick="if(confirm('確定離開冬木？一切羈絆暫且封存。')){localStorage.clear();location.reload();}">🚪 離開冬木 (登出)</button>
       </div>
     </div>
   </div>
 
   <div id="exit-confirm-overlay" class="modal-overlay">
     <div class="modal-scroll" style="text-align:center; padding-bottom:30px;">
-      <h2 style="color:#800; margin-top:0;">⚠️ 離開江湖</h2>
+      <h2 style="color:#800; margin-top:0;">⚠️ 離開冬木</h2>
       <p style="color:#332211; font-size:16px;">確定要中斷連線、離開命運停駐之夜嗎？</p>
       <div style="display:flex; gap:15px; justify-content:center; margin-top:25px;">
         <button class="btn" style="flex:1; border-color:#2e8b57; color:#2e8b57; padding:12px;" onclick="cancelExit()">留下來</button>
@@ -165,9 +165,9 @@
           當前項目：<span id="lifeskill-selected-name"></span>（Lv<span id="lifeskill-selected-level">0</span>）
         </div>
         <div style="display:flex; gap: 8px; justify-content: center; margin-bottom: 12px;">
-          <button class="btn" style="border-color:#8b5a2b; color:#8b5a2b; padding: 10px 14px;" onclick="executeLifeskillGather(1)">骰1次<br><span style="font-size:11px;">(10真氣)</span></button>
-          <button class="btn" style="border-color:#8b5a2b; color:#8b5a2b; padding: 10px 14px;" onclick="executeLifeskillGather(3)">骰3次<br><span style="font-size:11px;">(30真氣)</span></button>
-          <button class="btn" style="border-color:#8b5a2b; color:#8b5a2b; padding: 10px 14px;" onclick="executeLifeskillGather(5)">骰5次<br><span style="font-size:11px;">(50真氣)</span></button>
+          <button class="btn" style="border-color:#8b5a2b; color:#8b5a2b; padding: 10px 14px;" onclick="executeLifeskillGather(1)">骰1次<br><span style="font-size:11px;">(10魔力)</span></button>
+          <button class="btn" style="border-color:#8b5a2b; color:#8b5a2b; padding: 10px 14px;" onclick="executeLifeskillGather(3)">骰3次<br><span style="font-size:11px;">(30魔力)</span></button>
+          <button class="btn" style="border-color:#8b5a2b; color:#8b5a2b; padding: 10px 14px;" onclick="executeLifeskillGather(5)">骰5次<br><span style="font-size:11px;">(50魔力)</span></button>
         </div>
         <div id="lifeskill-result-msg" style="font-size: 14px; line-height: 1.6; color: #5a3d22; min-height: 30px; text-align:center;"></div>
       </div>
@@ -181,7 +181,7 @@
       <span class="modal-close-btn" onclick="closeSystemModal('casino-hub-overlay')">&times;</span>
       <h2 style="text-align:center; color:#b8860b; border-bottom:2px solid #b8860b; padding-bottom:10px; margin-top:0;">
         🏮 長樂坊</h2>
-      <p style="text-align:center; color:#816e54; font-size:13px; margin-bottom: 20px;">紙醉金迷，銷金之窟。<br>大俠，今日想玩點什麼？</p>
+      <p style="text-align:center; color:#816e54; font-size:13px; margin-bottom: 20px;">紙醉金迷，銷金之窟。<br>御主，今日想玩點什麼？</p>
 
       <div style="display: flex; flex-direction: column; gap: 12px;">
         <button class="btn" style="border-color:#ffd700; color:#ffd700; font-size:16px; padding: 12px;" onclick="closeSystemModal('casino-hub-overlay'); openCasinoMenu();">🎲 靈紋骰局</button>
@@ -293,12 +293,12 @@
       <span class="modal-close-btn" onclick="closeSystemModal('pavilion-overlay')">&times;</span>
       <h2 style="text-align:center; color:#1e90ff; border-bottom:2px solid #1e90ff; padding-bottom:10px; margin-top:0;">
         🏮 聽風閣</h2>
-      <p style="text-align:center; color:#816e54; font-size:13px; margin-bottom: 20px;">江湖包打聽，各路委託集散地。<br>大俠，今日想尋求何種機緣？</p>
+      <p style="text-align:center; color:#816e54; font-size:13px; margin-bottom: 20px;">情報明碼暗碼皆可交易。<br>御主，今日想尋求什麼？</p>
 
       <div style="margin-bottom: 12px;">
         <label style="color:#1e90ff; font-weight:bold; font-size:14px; display:block; margin-bottom:4px;">渴求的報酬類型：</label>
         <select id="pavilion-reward-type" class="std-select" style="width: 100%; box-sizing:border-box; padding:8px;">
-          <option value="賺取銀兩">💰 懸賞委託 (替閣中辦事賺取銀兩)</option>
+          <option value="賺取銀兩">💰 懸賞委託 (替情報所辦事賺取資金)</option>
           <option value="神兵武器">⚔️ 買情報：神兵利器 (手續費 50 兩)</option>
           <option value="堅固防具">🛡️ 買情報：堅固防具 (手續費 50 兩)</option>
           <option value="神祕法寶">📿 買情報：神祕法寶 (手續費 50 兩)</option>
@@ -421,7 +421,7 @@
   <div id="explore-overlay" class="modal-overlay" onclick="toggleExplore()">
     <div class="modal-scroll" onclick="event.stopPropagation()">
       <span class="modal-close-btn" onclick="toggleExplore()">&times;</span>
-      <h2 style="text-align:center; border-bottom:2px solid #332211; padding-bottom:10px; margin-top:0;">—— 九州輿圖 ——</h2>
+      <h2 style="text-align:center; border-bottom:2px solid #332211; padding-bottom:10px; margin-top:0;">—— 冬木地圖 ——</h2>
       <p style="text-align:center; font-size:12px; color:#800;">點擊類別，閱覽天下地界</p>
       <div id="explore-content"></div>
     </div>
@@ -430,7 +430,7 @@
   <div id="npc-overlay" class="modal-overlay" onclick="closeNpcList()">
     <div class="modal-scroll" onclick="event.stopPropagation()">
       <span class="modal-close-btn" onclick="closeNpcList()">&times;</span>
-      <h2 style="text-align:center; border-bottom:2px solid #332211; padding-bottom:10px; margin-top:0;">—— 江湖眾生 ——</h2>
+      <h2 style="text-align:center; border-bottom:2px solid #332211; padding-bottom:10px; margin-top:0;">—— 在場眾生 ——</h2>
       <div id="npc-content"></div>
     </div>
   </div>
@@ -457,14 +457,14 @@
               <span>❤️ 生命</span><b id="ui-hp" style="color:#b22222; font-size:12px;">--</b>
             </div>
             <div class="stat-box" style="padding:3px 2px;">
-              <span>🌀 真氣</span><b id="ui-mp" style="color:#4169e1; font-size:12px;">--</b>
+              <span>🌀 魔力</span><b id="ui-mp" style="color:#4169e1; font-size:12px;">--</b>
             </div>
             <div class="stat-box" style="display:none;">
               <span>📍 位置</span>
               <b id="ui-loc" style="color:#2e8b57; font-size:11px; display:block; max-width:55px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="位置">--</b>
             </div>
             <div class="stat-box" style="padding:3px 2px;">
-              <span>💰 銀兩</span><b id="ui-money" style="color:#b8860b; font-size:12px;">--</b>
+              <span>💰 資金</span><b id="ui-money" style="color:#b8860b; font-size:12px;">--</b>
             </div>
           </div>
 
@@ -546,15 +546,15 @@
 
       <div class="trait-box"
         style="margin-top: 8px; background: rgba(128, 0, 128, 0.05); border: 1px solid #800080; position: relative;">
-        <span style="color: #800080;">—— 隱秘軟肋 ——</span>
+        <span style="color: #800080;">—— 隱藏萌點 ——</span>
         <b id="ui-intent">--</b>
         <button id="fate-btn-intent" class="btn" style="position: absolute; right: 8px; top: 8px; padding: 2px 8px; font-size: 11px; border-color: #d4af37; color: #d4af37;" onclick="openFateEdit('intent')">改命</button>
       </div>
 
       <div class="trait-box" style="margin-top:8px; background: rgba(212,175,55,0.05); border: 1px solid #d4af37;">
-        <span style="color: #d4af37;">—— 門派勢力 ——</span>
+        <span style="color: #d4af37;">—— 所屬陣營 ——</span>
         <div style="display: flex; gap: 5px; font-size: 13px; justify-content: center; color:#332211;">
-          <b id="ui-faction">無門派</b> / <b id="ui-rank">散人</b> (<b id="ui-align">絕對中立</b>)
+          <b id="ui-faction">無所屬</b> / <b id="ui-rank">自由人</b> (<b id="ui-align">絕對中立</b>)
         </div>
       </div>
 
@@ -674,7 +674,7 @@
     <div class="modal-scroll" onclick="event.stopPropagation()"
       style="max-width: 300px; padding: 20px; text-align:center;">
       <span class="modal-close-btn" onclick="closeCultivateMenu()">&times;</span>
-      <h2 style="color:#2e8b57; border-bottom:2px solid #2e8b57; padding-bottom:10px; margin-top:0;">🧘‍♂️ 閉關修練</h2>
+      <h2 style="color:#2e8b57; border-bottom:2px solid #2e8b57; padding-bottom:10px; margin-top:0;">🧘‍♂️ 靈基修行</h2>
 
       <p id="cultivate-count-text" style="font-size:14px; color:#816e54; font-weight:bold; margin-top: 15px;"></p>
       <p style="font-size:12px; color:#a52a2a; margin-bottom: 10px;">(能力越高，突破機率越低，凡人極限為 25)</p>
@@ -684,12 +684,12 @@
         <button class="btn" style="border-color:#2e8b57; color:#2e8b57; padding: 15px; font-size: 16px; font-weight: bold; background: rgba(46,139,87,0.05);" onclick="lockBtn(event, executeCultivate)">🌌 運轉大周天 (全屬性提升)</button>
 
         <div style="border-top: 1px dashed rgba(212,175,55,0.5); padding-top: 15px; margin-top: 5px;">
-          <label style="color:#d4af37; font-size:13px; font-weight:bold; display:block; margin-bottom:6px;">⚔️ 我的武學（50字內，禁止數字）</label>
-          <textarea id="martial-input" class="std-in" maxlength="50" placeholder="描述你的武學風格，如：以冰寒之意御劍，出手無聲無息..." style="width:100%; box-sizing:border-box; height:60px; resize:none; font-family:inherit;"></textarea>
-          <button class="btn" style="width:100%; margin-top:8px; border-color:#d4af37; color:#d4af37;" onclick="lockBtn(event, saveMartial)">儲存武學</button>
+          <label style="color:#d4af37; font-size:13px; font-weight:bold; display:block; margin-bottom:6px;">⚔️ 我的魔術／寶具（50字內，禁止數字）</label>
+          <textarea id="martial-input" class="std-in" maxlength="50" placeholder="描述你的魔術或寶具，如：以冰寒魔力凝成劍刃，無聲無息斬出..." style="width:100%; box-sizing:border-box; height:60px; resize:none; font-family:inherit;"></textarea>
+          <button class="btn" style="width:100%; margin-top:8px; border-color:#d4af37; color:#d4af37;" onclick="lockBtn(event, saveMartial)">儲存設定</button>
         </div>
         <div style="border-top: 1px dashed rgba(212,175,55,0.5); padding-top: 15px; margin-top: 5px;">
-          <button class="btn" style="width:100%; border-color:#d4af37; color:#d4af37; font-weight: bold;" onclick="lockBtn(event, attemptBreakthrough)">🚀 嘗試突破瓶頸</button>
+          <button class="btn" style="width:100%; border-color:#d4af37; color:#d4af37; font-weight: bold;" onclick="lockBtn(event, attemptBreakthrough)">🚀 嘗試突破靈基位階</button>
         </div>
       </div>
     </div>
@@ -700,7 +700,7 @@
 
       <div style="display:flex; border-bottom: 2px solid rgba(184,134,11,0.3); margin-bottom: 15px;">
         <button id="tab-rumor" onclick="switchNoticeTab('rumor')" style="flex:1; padding:10px; background:none; border:none; border-bottom: 2px solid #b8860b; color:#b8860b; font-weight:bold; font-size:14px; cursor:pointer; margin-bottom:-2px;">
-        🗞️ 江湖傳聞
+        🗞️ 戰況情報
       </button>
         <button id="tab-mail" onclick="switchNoticeTab('mail')" style="flex:1; padding:10px; background:none; border:none; border-bottom: 2px solid transparent; color:#816e54; font-size:14px; cursor:pointer; margin-bottom:-2px;">
         ✉️ 傳音信箱
@@ -709,7 +709,7 @@
 
       <div id="panel-rumor">
         <div id="rumor-list" style="display:flex; flex-direction:column; gap:10px;">
-          <p style="text-align:center; color:#816e54;">感應江湖氣息中...</p>
+          <p style="text-align:center; color:#816e54;">蒐集冬木情報中...</p>
         </div>
       </div>
 
@@ -736,8 +736,8 @@
     <div class="modal-scroll" onclick="event.stopPropagation()" style="max-width: 320px;">
       <span class="modal-close-btn" onclick="closeSystemModal('jianghu-hub-overlay')">&times;</span>
       <h2 style="text-align:center; color:#b8860b; border-bottom:2px solid #b8860b; padding-bottom:10px; margin-top:0;">
-        🍶 江湖百味</h2>
-      <p style="text-align:center; color:#816e54; font-size:13px; margin-bottom: 20px;">情報、賭局、委託，江湖滋味盡在此處。</p>
+        🍶 冬木夜話</h2>
+      <p style="text-align:center; color:#816e54; font-size:13px; margin-bottom: 20px;">情報、賭局、委託，冬木的暗面盡在此處。</p>
       <div style="display: flex; flex-direction: column; gap: 12px;">
         <button class="btn" style="border-color:#1e90ff; color:#1e90ff; font-size:16px; padding: 12px;"
         onclick="closeSystemModal('jianghu-hub-overlay'); openPavilionMenu();">🏮 聽風閣 (情報委託)</button>
@@ -754,7 +754,7 @@
       <div style="display:flex; border-bottom: 2px solid rgba(212,175,55,0.3); margin-bottom: 15px;">
         <button id="tab-my-faction" onclick="switchFactionTab('mine')"
   style="flex:1; padding:10px; background:none; border:none; border-bottom: 2px solid #d4af37; color:#d4af37; font-weight:bold; font-size:14px; cursor:pointer; margin-bottom:-2px;">
-  ⛩️ 我的宗門
+  ⛩️ 我的陣營
 </button>
         <button id="tab-all-faction" onclick="switchFactionTab('all')"
   style="flex:1; padding:10px; background:none; border:none; border-bottom: 2px solid transparent; color:#816e54; font-size:14px; cursor:pointer; margin-bottom:-2px;">
@@ -768,7 +768,7 @@
 
       <div id="panel-my-faction">
         <div id="my-faction-content">
-          <p style="text-align:center; color:#816e54;">感應門派氣息中...</p>
+          <p style="text-align:center; color:#816e54;">確認陣營歸屬中...</p>
         </div>
       </div>
 
@@ -795,7 +795,7 @@
       </p>
 
       <div style="margin-bottom: 10px;">
-        <label style="color:#d4af37; font-weight:bold; font-size:13px; display:block; margin-bottom:4px;">宗門名號 (5字內)：</label>
+        <label style="color:#d4af37; font-weight:bold; font-size:13px; display:block; margin-bottom:4px;">陣營名號 (5字內)：</label>
         <input type="text" id="new-faction-name" class="std-in" maxlength="5" placeholder="例如：青雲宗、天魔教" style="width: 100%; box-sizing:border-box; padding:8px;">
       </div>
 
@@ -805,7 +805,7 @@
           <option value="名門正派">🛡️ 名門正派</option>
           <option value="邪魔外道">🩸 邪魔外道</option>
           <option value="絕對中立" selected>⚖️ 絕對中立</option>
-          <option value="隱世宗門">🌫️ 隱世宗門</option>
+          <option value="隱世宗門">🌫️ 隱秘陣營</option>
         </select>
       </div>
 
@@ -828,7 +828,7 @@
       </button>
         <button id="tab-epic-stats" onclick="switchEpicTab('stats')"
         style="flex:1; padding:10px; background:none; border:none; border-bottom: 2px solid transparent; color:#816e54; font-size:14px; cursor:pointer; margin-bottom:-2px;">
-        🗺️ 江湖足跡
+        🗺️ 冬木足跡
       </button>
       </div>
 
@@ -840,7 +840,7 @@
 
       <div id="panel-epic-stats" style="display:none;">
         <div id="epic-stats-content">
-          <p style="text-align:center; color:#816e54;">統計江湖足跡中...</p>
+          <p style="text-align:center; color:#816e54;">統計冬木足跡中...</p>
         </div>
       </div>
     </div>
