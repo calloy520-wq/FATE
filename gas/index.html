@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<base target="_top">
+<style>
+  :root{--bg:#0d0b14;--panel:#16131f;--panel2:#1f1a2b;--line:#2e2740;--gold:#c8a24a;--gold2:#e7c873;
+    --red:#a33b3b;--red2:#d65c5c;--txt:#e8e4f0;--dim:#9b93ad;--blue:#5c84d6;--good:#5fae6e;}
+  *{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:#2a2440 transparent}
+  ::-webkit-scrollbar{width:7px;height:7px}
+  ::-webkit-scrollbar-thumb{background:#2a2440;border-radius:6px}
+  ::-webkit-scrollbar-thumb:hover{background:#3a3450}
+  ::-webkit-scrollbar-track{background:transparent}
+  body{margin:0;font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
+    background:radial-gradient(1200px 800px at 70% -10%,#1a1326,#0d0b14 60%);color:var(--txt);height:100vh;overflow:hidden}
+  h1,h2{font-weight:700;letter-spacing:.04em}
+  button{font-family:inherit;cursor:pointer}
+  .hidden{display:none!important}
+  .screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;animation:fade .4s}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:14px;padding:28px;box-shadow:0 18px 60px rgba(0,0,0,.5)}
+  .title-main{font-size:40px;color:var(--gold2);text-shadow:0 0 24px rgba(200,162,74,.35);margin:0}
+  .title-sub{color:var(--dim);letter-spacing:.5em;margin:6px 0 0;font-size:13px}
+  label{display:block;font-size:13px;color:var(--dim);margin:14px 0 6px}
+  input,select,textarea{width:100%;background:#0f0d17;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:10px 12px;font-size:14px;outline:none}
+  input:focus,select:focus,textarea:focus{border-color:var(--gold)}
+  .btn{background:linear-gradient(180deg,#2b2338,#201a2c);border:1px solid var(--gold);color:var(--gold2);border-radius:9px;padding:11px 18px;font-size:15px;transition:.15s;font-weight:600}
+  .btn:hover{background:linear-gradient(180deg,#3a2f4d,#2a2238)}
+  .btn.primary{background:linear-gradient(180deg,#9a3a3a,#7d2c2c);border-color:var(--red2);color:#ffe}
+  .btn.ghost{border-color:var(--line);color:var(--dim)}
+  .btn.sm{padding:7px 12px;font-size:13px}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .menu-list{display:flex;flex-direction:column;gap:12px;width:300px;margin-top:24px}
+  .soon{font-size:11px;color:var(--dim);border:1px dashed var(--line);border-radius:6px;padding:2px 8px}
+  #scr-game{padding:0;display:grid;grid-template-columns:280px 1fr 480px}
+  .col{height:100vh;overflow-y:auto;border-right:1px solid var(--line);padding:14px}
+  .col:last-child{border-right:none;border-left:1px solid var(--line)}
+  .sec-h{font-size:12px;color:var(--gold);letter-spacing:.2em;border-bottom:1px solid var(--line);padding-bottom:6px;margin:18px 0 10px}
+  .sec-h:first-child{margin-top:4px}
+  /* 可摺疊段落（點標題收合，減少捲動）；外觀沿用 .sec-h，只多一個小箭頭 */
+  .sec-h.toggler{cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center}
+  .sec-h.toggler::after{content:'▾';font-size:10px;color:var(--dim);letter-spacing:0;transition:transform .15s}
+  .sec-h.toggler.collapsed::after{content:'▸'}
+  .sec-h.toggler.collapsed + div{display:none!important}
+  .stat-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px dotted #251f33}
+  .bar{height:7px;border-radius:6px;background:#221c30;overflow:hidden;margin-top:4px}
+  .bar>i{display:block;height:100%;border-radius:6px}
+  .bar.low{box-shadow:0 0 7px rgba(214,92,92,.7)}
+  .bar.low>i{animation:lowpulse 1s ease-in-out infinite}
+  @keyframes lowpulse{50%{filter:brightness(1.6)}}
+  .hp>i{background:linear-gradient(90deg,#8a2b2b,#d65c5c)}
+  .mp>i{background:linear-gradient(90deg,#2c4f8a,#5c84d6)}
+  .bond>i{background:linear-gradient(90deg,#8a2c5a,#e58aa8)}
+  .barrier>i{background:linear-gradient(90deg,#2c6f4f,#5fae8a)}
+  .six{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}
+  .six .g{background:#100e18;border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center}
+  .six .g b{display:block;font-size:18px;color:var(--gold2)}
+  .six .g span{font-size:11px;color:var(--dim)}
+  .tag{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:20px;padding:3px 9px;margin:3px 3px 0 0;color:#cdbbe6;background:#160f22}
+  .tag.cls{border-color:#3a5a8a;color:#9fc0ef}.tag.skl{border-color:#6a4f2a;color:var(--gold2)}.tag.trait{border-color:#6a2a2a;color:var(--red2)}
+  .tag .r{opacity:.7;margin-left:3px;font-weight:700}
+  svg{width:100%;height:auto;display:block;background:#0a0810;border-radius:10px;border:1px solid var(--line)}
+  #map-wrap{max-width:none;margin:0}
+  .loc{cursor:pointer}.loc:hover circle{r:13}
+  /* 字級放大＋深色描邊，即使壓在連線上也看得清楚 */
+  .loc text{font-size:17px;font-weight:600;fill:#e8e0f5;pointer-events:none;paint-order:stroke;stroke:#0a0810;stroke-width:3px;stroke-linejoin:round}
+  .loc.here circle{stroke:var(--gold2);stroke-width:3}
+  .loc.here text{fill:var(--gold2)}
+  .danger-safe{fill:#3f6f47}.danger-mid{fill:#9a7b32}.danger-high{fill:#9a3a3a}
+  .zone-lbl{font-size:12px;fill:#5b5470;letter-spacing:.2em;pointer-events:none}
+  #log{height:calc(100vh - 250px);overflow-y:auto;padding-right:6px}
+  .msg{margin:10px 0;line-height:1.6;font-size:14px}
+  .msg.sys{color:var(--dim);font-size:12px;text-align:center;border-top:1px dotted #2a2438;padding-top:8px}
+  .msg.ai{background:#140f1f;border-left:3px solid var(--gold);border-radius:8px;padding:10px 12px;white-space:pre-line}
+  .msg.me{background:#161a26;border-left:3px solid var(--blue);border-radius:8px;padding:10px 12px}
+  .msg.event{background:#1c1320;border:1px solid var(--red);border-radius:8px;padding:10px 12px;color:#f0d6d6;white-space:pre-line}
+  .msg .who{font-size:11px;color:var(--dim);margin-bottom:3px}
+  .inrow{display:flex;gap:8px;margin-top:10px}.inrow textarea{resize:none;height:54px}
+  .quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  #clock-hud{display:flex;justify-content:space-between;background:#140f1f;border:1px solid var(--line);border-radius:8px;padding:7px 11px;font-size:12px;color:var(--gold2);margin-bottom:8px}
+  .hall-item{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#100e18;border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin-top:8px}
+  .hall-item .nm{font-size:14px;color:var(--gold2)}.hall-item .meta{font-size:11px;color:var(--dim)}
+  #busy{position:fixed;inset:0;background:rgba(8,6,14,.55);display:none;align-items:center;justify-content:center;z-index:99;color:var(--gold2)}
+  .badge{position:fixed;top:10px;right:14px;font-size:11px;color:var(--dim);z-index:50}
+  /* ===== 手機：三欄改單欄堆疊，順序＝故事/對話 → 地圖 → 狀態；地圖佔滿、字更大 ===== */
+  @media(max-width:900px){
+    #scr-game{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .col{height:auto;width:100%;overflow:visible;border:none!important;border-bottom:1px solid var(--line)!important}
+    #col-chat{order:0}#col-map{order:1}#col-status{order:2}
+    #log{height:48vh}
+    #map-wrap{max-width:620px;margin:0 auto}
+    .loc text{font-size:21px}
+    .loc circle{r:11}
+    .badge{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="badge">GAS 後端・即時存檔</div>
+<div id="busy">⏳ 處理中…</div>
+<div id="death-modal" style="position:fixed;inset:0;background:rgba(8,6,14,.82);display:none;align-items:center;justify-content:center;z-index:100">
+  <div class="card" style="width:430px;text-align:center">
+    <h2 style="color:var(--red2);margin:0">⚠ 靈基崩解在即</h2>
+    <p id="death-msg" style="color:#d8c8ef;line-height:1.8;margin:14px 0"></p>
+    <div style="display:flex;gap:10px">
+      <button class="btn primary" style="flex:1" onclick="App.deathChoose('heal')">❖ 燃燒令咒・靈基修復</button>
+      <button class="btn ghost" style="flex:1" onclick="App.deathChoose('accept')">接受命運</button>
+    </div>
+  </div>
+</div>
+
+<section class="screen" id="scr-login">
+  <div style="text-align:center;margin-bottom:10px">
+    <h1 class="title-main">命運停駐之夜</h1><p class="title-sub">F A T E / S T A Y　N I G H T</p></div>
+  <div class="card" style="width:340px">
+    <label>帳號名稱（無密碼，輸入即登入）</label>
+    <input id="in-account" maxlength="20" placeholder="例如：遠坂玩家01">
+    <button class="btn primary" style="width:100%;margin-top:18px" onclick="App.login()">進　入</button>
+  </div>
+</section>
+
+<section class="screen hidden" id="scr-menu">
+  <h1 class="title-main">聖杯戰爭</h1><p class="title-sub" id="menu-greet"></p>
+  <div class="menu-list">
+    <button class="btn primary hidden" id="btn-resume" onclick="App.resume()">▶ 繼續遊戲</button>
+    <button class="btn" id="btn-newgame" onclick="App.newGameMenu()">新的一局</button>
+    <button class="btn" disabled>多人連線 <span class="soon">敬請期待</span></button>
+    <button class="btn" onclick="App.gallery()">🏆 鑑賞模式</button>
+    <button class="btn" onclick="App.history()">歷史紀錄</button>
+    <button class="btn ghost" onclick="App.go('scr-login')">登出</button>
+  </div>
+</section>
+
+<section class="screen hidden" id="scr-history">
+  <div class="card" style="width:470px;max-height:88vh;overflow:auto">
+    <h2 style="margin:0;color:var(--gold2)">歷史紀錄</h2>
+    <div id="history-list" style="margin-top:14px"></div>
+    <button class="btn ghost" style="width:100%;margin-top:12px" onclick="App.go('scr-menu')">返回</button>
+  </div>
+</section>
+
+<section class="screen hidden" id="scr-gameover">
+  <div class="card" style="width:540px;max-height:92vh;overflow:auto;text-align:center">
+    <h2 id="go-title" style="margin:0"></h2>
+    <p id="go-dream" style="color:#d8c8ef;line-height:1.9;white-space:pre-line;margin:16px 0"></p>
+    <div id="go-dojo" style="background:#1a1410;border:1px solid #6a4f2a;border-radius:10px;padding:12px;color:#e7c873;font-size:13px;line-height:1.7"></div>
+    <button class="btn primary" style="width:100%;margin-top:18px" onclick="App.toMenu()">返回主畫面</button>
+  </div>
+</section>
+
+<section class="screen hidden" id="scr-mode">
+  <h2 style="color:var(--gold2)">選擇模式</h2>
+  <div class="menu-list">
+    <button class="btn primary" onclick="App.chooseMode('canon')">正史模式</button>
+    <button class="btn" onclick="App.chooseMode('chaos')">混亂模式</button>
+    <button class="btn ghost" onclick="App.go('scr-menu')">返回</button>
+  </div>
+</section>
+
+<section class="screen hidden" id="scr-war">
+  <h2 style="color:var(--gold2)">選擇聖杯戰爭</h2>
+  <div class="menu-list" id="war-list"></div>
+  <button class="btn ghost" style="width:300px;margin-top:12px" onclick="App.go('scr-mode')">返回</button>
+</section>
+
+<section class="screen hidden" id="scr-role">
+  <h2 style="color:var(--gold2)" id="role-title">你想如何參戰？</h2>
+  <div class="menu-list">
+    <button class="btn primary" onclick="App.chooseRole('canon')">扮演正史角色</button>
+    <button class="btn" onclick="App.chooseRole('original')" id="role-orig">自創角色（額外參戰者）</button>
+    <button class="btn ghost" onclick="App.go('scr-war')">返回</button>
+  </div>
+</section>
+
+<section class="screen hidden" id="scr-canon">
+  <div class="card" style="width:460px;max-height:92vh;overflow:auto">
+    <h2 style="margin:0;color:var(--gold2)">選擇你要扮演的御主</h2>
+    <div id="canon-list" style="margin-top:14px"></div>
+    <button class="btn ghost" style="width:100%;margin-top:12px" onclick="App.go('scr-role')">返回</button>
+  </div>
+</section>
+
+<section class="screen hidden" id="scr-create">
+  <div class="card" style="width:420px;max-height:92vh;overflow:auto">
+    <h2 style="margin:0;color:var(--gold2)">建立御主</h2>
+    <p style="color:var(--dim);font-size:12px;margin:0 0 4px">姓名、性別、願望、個性由你決定；天賦（迴路／魔術／體術／出身）由命運測定。</p>
+    <div style="display:flex;gap:10px">
+      <div style="flex:2"><label>姓名</label><input id="m-name" maxlength="24" placeholder="衛宮 切嗣"></div>
+      <div style="flex:1"><label>性別</label>
+        <select id="m-gender"><option>男</option><option>女</option><option>不明</option></select></div>
+    </div>
+    <label>外觀（影響敘述中對「我」的描寫，可留空）</label>
+    <input id="m-appear" maxlength="40" placeholder="例如：黑髮疲憊的青年、風衣／紅髮少女、制服">
+    <label>個性（影響第一人稱敘述的口吻與內心）</label>
+    <input id="m-persona" maxlength="40" placeholder="例如：冷靜理性／衝動熱血／腹黑算計／溫柔堅定">
+    <label>身世／財力（敘事用，可留空＝魔術師家底殷實）</label>
+    <input id="m-standing" maxlength="40" placeholder="例如：名門魔術師世家、揮金如土／窮學生、節儉自炊／教會供養">
+    <label>願望（你為何而戰？影響開場與劇情）</label>
+    <textarea id="m-wish" rows="2" maxlength="60" placeholder="例如：復活逝去的摯友／證明自身魔術／純粹想贏"></textarea>
+
+    <label>天賦測定（命運所定）</label>
+    <div style="background:#100e18;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:4px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span style="color:var(--dim)">魔術迴路</span><span><b id="cv" style="color:var(--gold2);font-size:18px">25</b> <span id="cv-tier" style="font-size:11px;color:var(--dim)"></span></span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span style="color:var(--dim)">魔術系統</span><span id="cv-magic" style="color:var(--txt)"></span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span style="color:var(--dim)">體術</span><span id="cv-melee" style="color:var(--txt)"></span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span style="color:var(--dim)">出身</span><span id="cv-origin" style="color:var(--txt)"></span></div>
+      <button class="btn sm ghost" style="width:100%;margin-top:8px" id="reroll-btn" onclick="App.rollAll()">🎲 重新測定（剩 3 次）</button>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn ghost" style="flex:1" onclick="App.backFromCreate()">返回</button>
+      <button class="btn primary" style="flex:2" onclick="App.toSummon()">確認，召喚</button>
+    </div>
+  </div>
+</section>
+
+<section class="screen hidden" id="scr-summon">
+  <div class="card" style="width:520px;max-height:92vh;overflow:auto">
+    <h2 style="margin:0;color:var(--gold2)">召喚從者</h2>
+    <p style="color:var(--dim);font-size:12px">從英靈殿選擇，或用下方真名召喚（任何已知角色，含他作動漫）／自訂描述生成原創英靈。</p>
+    <label>先選職階</label>
+    <div id="hall-classes" style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px"></div>
+    <div id="hall"></div>
+    <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
+      <div style="display:flex;gap:8px">
+        <input id="tn-name" maxlength="24" placeholder="真名召喚（如 斯卡哈、悟空、炭治郎）" style="flex:1">
+        <button class="btn sm" onclick="App.trueName()">真名召喚</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input id="tn-desc" maxlength="200" placeholder="補充設定／原創描述（真名召喚也吃此欄）" style="flex:1">
+        <button class="btn sm" onclick="App.custom()">自訂生成</button>
+      </div>
+      <div style="font-size:11px;color:var(--dim);margin-top:6px">先選上方職階。資料庫沒有 → AI 依格式生成並寫入英靈殿，之後可直接召喚。</div>
+    </div>
+    <button class="btn ghost" style="width:100%;margin-top:12px" onclick="App.go('scr-create')">返回</button>
+  </div>
+</section>
+
+<section class="screen hidden" id="scr-gallery">
+  <div class="col" id="g-col-status">
+    <div class="sec-h">鑑賞室　<span style="float:right;cursor:pointer;color:var(--dim)" onclick="App.go('scr-menu')">✕ 離開</span></div>
+    <div id="g-active"></div>
+    <div class="sec-h toggler" onclick="App.fold(this)">解鎖收藏</div>
+    <div id="g-collection" style="font-size:12px"></div>
+  </div>
+  <div class="col" id="g-col-chat">
+    <div class="sec-h">後日談</div>
+    <div id="g-log"></div>
+    <div class="inrow">
+      <textarea id="g-in" maxlength="500" placeholder="與在場的英靈說話、互動…（焦點英靈回應）"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();App.gallerySay()}"></textarea>
+      <button class="btn primary" onclick="App.gallerySay()">送出</button>
+    </div>
+  </div>
+  <div class="col" id="g-col-map">
+    <div class="sec-h">冬木市・約會地圖</div><div id="g-map-wrap"></div>
+    <p style="color:var(--dim);font-size:12px;margin-top:10px">點任一地點 → 帶焦點英靈前往約會散心。</p>
+  </div>
+</section>
+
+<section class="screen hidden" id="scr-game">
+  <div class="col" id="col-status">
+    <div class="sec-h toggler" onclick="App.fold(this)">御主</div><div id="master-box"></div>
+    <div class="sec-h toggler" onclick="App.fold(this)">從者</div><div id="servant-box"></div>
+    <div class="sec-h toggler collapsed" onclick="App.fold(this)">據點・結界</div><div id="base-box"></div>
+    <div class="sec-h toggler" id="roster-h" onclick="App.fold(this)">戰局</div><div id="roster-box" style="font-size:12px"></div>
+  </div>
+  <div class="col" id="col-chat">
+    <div class="sec-h" id="chat-h">聖杯戰爭</div>
+    <div id="clock-hud"></div>
+    <div id="mana-box"></div>
+    <div id="log"></div>
+    <div class="quick" id="quick-actions"></div>
+    <div class="quick hidden" id="action-sub"></div>
+    <div class="inrow">
+      <textarea id="in-msg" maxlength="500" placeholder="輸入行動或對話…（送到後端）"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();App.send()}"></textarea>
+      <button class="btn primary" onclick="App.send()">送出</button>
+    </div>
+  </div>
+  <div class="col" id="col-map">
+    <div class="sec-h">冬木市地圖</div><div id="map-wrap"></div>
+    <p style="color:var(--dim);font-size:12px;margin-top:10px">點擊相鄰地點移動（消耗 AP，由後端判定）。</p>
+    <div class="sec-h toggler" onclick="App.fold(this)">所在地</div><div id="loc-info" style="font-size:13px;color:var(--dim)"></div>
+    <div class="sec-h">物品欄</div><div id="inv-bar" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+  </div>
+</section>
+
+<script>
+// ===== google.script.run → Promise =====
+function gs(fn){ var args=[].slice.call(arguments,1);
+  return new Promise(function(res,rej){
+    google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn].apply(google.script.run,args);
+  });
+}
+function busy(on){ document.getElementById('busy').style.display = on?'flex':'none'; }
+
+var App = {
+  acc:null, STATIC:null, S:null, flow:{},
+
+  go:function(id){ document.querySelectorAll('.screen').forEach(function(s){s.classList.add('hidden');});
+    document.getElementById(id).classList.remove('hidden'); },
+  // 收合/展開段落（標題列點擊）；狀態存在 sec-h 上，renderAll 只改內容框不會重設
+  fold:function(el){ el.classList.toggle('collapsed'); },
+  esc:function(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); },
+  // 名詞說明（滑過顯示）
+  LABEL_DESC:{
+    'HP':'生命值；從者歸零＝靈基崩解，御主歸零＝死亡。',
+    '筋力':'近戰攻擊力（肉體傷害）','耐久':'HP 上限與減傷','敏捷':'命中／閃避、先後手',
+    '魔力':'靈基魔力上限、魔術攻擊力','幸運':'運氣修正：影響命中與閃避（A≈+2、E≈−2）','寶具':'寶具威力',
+    '迴路魔力':'御主魔術迴路的儲備；用於「供給」從者與「加固結界」，每小時依迴路回復。',
+    '靈基魔力':'從者維持／戰鬥／寶具的魔力；自然只回到 80%，更高需 供給／補魔／獵魔。'
+  },
+  // 技能/標籤效果說明（對應後端實際機制）
+  FX_DESC:{
+    nullify_magic:'對魔力：依階級大幅減免「魔術」傷害（A≈−90%…E≈−18%）；擋術不擋肉體攻擊。',
+    evade_ranged:'避矢加護：閃避大幅提升，極難被命中。',
+    burst:'魔力放出：普通攻擊傷害 ×1.2。',
+    survive:'戰鬥續行：每場戰鬥可在致命一擊下硬撐一次（HP 留 1）。',
+    morale:'勇猛／卡里斯瑪：攻擊傷害提升。',
+    first_strike:'直感（第六感）：先機——該回合搶先出手（無視敏捷差）；危機察知——防守時閃避 +3。',
+    analyze:'心眼：看破來招，閃避提升。',
+    unreadable:'宗和的心得：對方永遠看不穿我的攻擊——敵的「心眼／直感」看破預判對我無效（我攻擊時敵不得加閃避）。',
+    clear_mind:'透化：清澈靜穆之心——不受「勇猛／卡里斯瑪」等精神威壓干涉（免疫對方士氣加成）。',
+    self_mod:'自我改造：改造強化過的軀體——攻擊命中 +2、傷害 +3。',
+    anti_magic_lance:'破魔紅薔薇／必滅黃薔薇：雙槍破魔——消去敵方魔術強化、無視神核護甲；造成的傷口不癒（敵「戰鬥續行」失效）。',
+    narrative:'故事創作【主動】：以故事看破敵之弱點，提升下一場戰鬥命中。',
+    wealth:'黃金律：財寶與資源充裕——御主魔力回復 ×1.4。',
+    stealth:'氣息遮斷：開場首擊為奇襲（命中 + ，傷害 ×1.5）。',
+    tsubame:'秘劍・燕返：三方位同時斬，封死退路、敵極難迴避（閃避 −8），命中則三段連斬（傷害 ×2.3）。',
+    mad:'狂化：維持費上升、理智被吞沒（僅存聽令與護主本能）。',
+    solo:'單獨行動：與御主分離時，魔力供給衰減大幅減免。',
+    territory:'陣地作成：在主場工房布陣，魔力供給全額加成（無此技的 Caster 僅半額）。',
+    crafting:'道具作成：自製魔力道具，每小時提供額外免費魔力供給。',
+    divine:'神性：神之血脈——會被「神殺」類加成剋制。',
+    fast_cast:'高速神言【主動】：對同地敵人發動魔術一擊（受對魔力減免）。',
+    petrify:'魔眼【主動】：魔術傷害，並使敵下場戰鬥更易被命中（石化遲滯）。',
+    zabaniya:'妄想心音【主動】：心臟一擊，無視防禦與對魔力。',
+    divine_age:'神代魔術：Age of Gods 的法術，現代「對魔力」對其只有半效（穿透抗性）。',
+    rule_breaker:'破戒全咒【主動】：斬斷敵的主從契約——敵令咒歸 0、強化盡除，令咒再也救不了他。',
+    summon_horror:'螺湮城教本【主動】：召喚深海妖物（神代魔術），重創敵人並使其陷入恐懼（更易被命中）。',
+    gae_bolg:'刺穿死亡之棘【主動】：因果逆轉的必中一擊，重創敵人；高幸運者能擾動因果、減傷。',
+    ubw:'無限劍製【主動】：固有結界的劍雨連射，即時物理重創（不受對魔力）。',
+    gob:'王之財寶【主動】：投射寶具洪流，即時重創同地敵人（物理，不受對魔力）。',
+    chain:'天之鎖【主動】：拘束敵人（下場戰鬥大幅易被命中）；對「神性」者傷害 ×2。',
+    wind_strike:'風王鐵鎚【主動】：不可視之風的一擊，即時遠程斬擊並削其閃避。',
+    rune:'符文【主動】：即時回復 HP。',
+    shapeshift:'變生【主動】：即時回復 HP。',
+    str_up:'怪力【主動】：下一場戰鬥傷害提升。',
+    projection:'投影【主動】：下一場戰鬥傷害提升。',
+    aim:'千里眼【主動】：下一場戰鬥命中提升。',
+    weapon_steal:'武裝掠奪【主動】：下一場戰鬥傷害提升。',
+    rule_breaker:'破戒全咒：解除契約與術式（劇情向）。',
+    ride:'騎乘：機動提升，閃避 +。',
+    wealth:'黃金律：財富與資源（劇情向）。',
+    tactics:'軍略：寶具／全軍攻勢威力 +15%。',
+    divine:'神性：神之權能，寶具威力 +10%（亦為神性特性，被神殺剋）。',
+    divine_core:'神核：女神之軀堅韌，受到的傷害 −18%。'
+  },
+  fxDesc:function(fx,name){
+    if(fx && App.FX_DESC[fx]) return App.FX_DESC[fx];
+    if(/神性/.test(name)) return '神性：神之血脈——會被「神殺」類加成剋制。';
+    return '此技能主要為敘述／劇情效果，無直接戰鬥數值。';
+  },
+  skillInfo:function(fx,name){ var b=document.getElementById('skill-desc'); if(!b) return;
+    b.style.display='block'; b.innerHTML='<b style="color:var(--gold2)">'+App.esc(name)+'</b>　'+App.esc(App.fxDesc(fx,name)); },
+
+  login:function(){
+    var name=document.getElementById('in-account').value.trim();
+    if(!name){ alert('請輸入帳號名稱'); return; }
+    busy(true);
+    Promise.all([gs('login',name), gs('getStatic')]).then(function(r){
+      busy(false); App.acc=r[0]; App.STATIC=r[1];
+      document.getElementById('menu-greet').textContent='歡迎，'+App.acc.name;
+      App.refreshMenu();
+      App.go('scr-menu');
+    }).catch(App.err);
+  },
+  // 依是否有進行中存檔切換「繼續遊戲」按鈕
+  refreshMenu:function(){
+    var has = !!(App.acc && App.acc.current_game);
+    document.getElementById('btn-resume').classList.toggle('hidden', !has);
+    document.getElementById('btn-newgame').textContent = has ? '開新的一局（覆蓋存檔）' : '新的一局';
+  },
+  resume:function(){ busy(true);
+    gs('resumeGame', App.acc.ms_id).then(function(st){ busy(false);
+      if(st.error){ alert(st.error); App.acc.current_game=''; App.refreshMenu(); return; }
+      App.enter(st);
+    }).catch(App.err); },
+  newGameMenu:function(){
+    if(App.acc && App.acc.current_game && !confirm('你有一場進行中的聖杯戰爭。開新局會「覆蓋」舊存檔，確定嗎？')) return;
+    App.go('scr-mode'); },
+
+  chooseMode:function(m){ App.flow={mode:m};
+    if(m==='canon'){ App.renderWars(); App.go('scr-war'); }
+    else { App.startCreate(); } },
+  // 進入創角：重置擲骰次數並擲一次
+  startCreate:function(){ App.rollsLeft=3; App.rollAll(true); App.go('scr-create'); },
+  MAGICS_:['強化（近戰加成）','投影／固有結界','寶石魔術（魔力儲備）','使魔／召喚術','咒術／詛咒','鍊金術','北歐符文','陣地創造','起源彈','風水・結界術'],
+  ORIGINS_:['自學成才的新興魔術師','沒落名門的末裔','流浪各地的咒術師','為復仇而來的異鄉人','魔術協會派來的精英','隱世家系的繼承者','誤入聖杯戰爭的素人','背負家族悲願者','以人造之軀參戰者','旁門左道的邪術師'],
+  // 全屬性命運測定（迴路三角分布、魔術/出身隨機、體術偏弱）；可重擲 3 次
+  rollAll:function(first){
+    if(!first){ if(App.rollsLeft<=0) return; App.rollsLeft--; }
+    var r=(Math.random()+Math.random())/2;                       // 迴路：三角分布、集中中間
+    App.circuits=Math.max(12,Math.min(50,Math.round(15+r*35)));
+    App.magic=App.MAGICS_[Math.floor(Math.random()*App.MAGICS_.length)];
+    App.origin=App.ORIGINS_[Math.floor(Math.random()*App.ORIGINS_.length)];
+    var mr=Math.random(); App.melee= mr<0.5?'E':mr<0.8?'D':mr<0.94?'C':mr<0.99?'B':'A';  // 體術多半弱
+    var c=App.circuits, tier=c>=48?'天才（百年一遇）':c>=40?'名門菁英':c>=30?'良好':c>=20?'一般':'微弱';
+    var set=function(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; };
+    set('cv',c); set('cv-tier','・'+tier); set('cv-magic',App.magic); set('cv-melee',App.melee+' 級'); set('cv-origin',App.origin);
+    var b=document.getElementById('reroll-btn');
+    if(b){ b.textContent='🎲 重新測定（剩 '+App.rollsLeft+' 次）'; if(App.rollsLeft<=0){ b.disabled=true; b.textContent='🎲 命運已定'; } } },
+
+  renderWars:function(){
+    document.getElementById('war-list').innerHTML=App.STATIC.wars.map(function(w){
+      return '<button class="btn" onclick="App.chooseWar(\''+w.war_id+'\')">'+w.name+
+        '<span style="display:block;font-size:11px;color:var(--dim)">參戰 '+w.participants+' 組</span></button>';
+    }).join(''); },
+  chooseWar:function(id){ App.flow.war=id; App.go('scr-role'); },
+  chooseRole:function(role){ App.flow.role=role;
+    if(role==='canon'){ App.renderCanon(); App.go('scr-canon'); } else { App.startCreate(); } },
+  renderCanon:function(){
+    var war=App.STATIC.wars.filter(function(w){return w.war_id===App.flow.war;})[0];
+    document.getElementById('canon-list').innerHTML=war.roster.map(function(r,i){
+      var h=App.heroById(r.sid);
+      return '<button class="btn sm" style="width:100%;text-align:left;margin-bottom:8px" onclick="App.startCanon('+i+')">'+
+        r.master+'<span style="color:var(--dim);font-size:12px"> ／'+(h?h.cls:'')+'・'+(h?h.realName:'')+'</span></button>';
+    }).join(''); },
+
+  startCanon:function(i){
+    busy(true);
+    gs('newGame',{ms_id:App.acc.ms_id,mode:'canon',war:App.flow.war,role:'canon',masterIndex:i})
+      .then(App.enter).catch(App.err); },
+
+  backFromCreate:function(){ App.flow.mode==='canon'?App.go('scr-role'):App.go('scr-mode'); },
+  toSummon:function(){
+    if(!App.STATIC || !App.STATIC.heroes){
+      alert('英靈資料未載入，請重新登入。'); return; }
+    if(!App.STATIC.heroes.length){
+      alert('英靈殿是空的——請先在 GAS 編輯器執行 setupDatabase() 建立資料庫。'); return; }
+    App.flow.profile={ name:document.getElementById('m-name').value.trim()||'無名御主',
+      gender:document.getElementById('m-gender').value,
+      appearance:(document.getElementById('m-appear')||{}).value? document.getElementById('m-appear').value.trim():'',
+      persona:document.getElementById('m-persona').value.trim(),
+      standing:(document.getElementById('m-standing')||{}).value? document.getElementById('m-standing').value.trim():'',
+      wish:document.getElementById('m-wish').value.trim(),
+      circuits:App.circuits||25, magic:App.magic||'強化', melee:App.melee||'E', origin:App.origin||'' };
+    App.hallCls=''; App.renderHallClasses(); App.renderHall();
+    App.go('scr-summon'); },
+  CLS_ICON_:{Saber:'⚔',Archer:'🏹',Lancer:'🔱',Rider:'🐎',Caster:'📖',Assassin:'🗡',Berserker:'💢',Watcher:'👁',Ruler:'⚖'},
+  // 職階圖示 chips：點一下才顯示該職階英靈（比下拉直覺）
+  renderHallClasses:function(){
+    var order=['Saber','Archer','Lancer','Rider','Caster','Assassin','Berserker','Watcher','Ruler'];
+    var cnt={}; App.STATIC.heroes.forEach(function(h){ cnt[h.cls]=(cnt[h.cls]||0)+1; });
+    var cls=order.filter(function(c){return cnt[c];});
+    Object.keys(cnt).forEach(function(c){ if(cls.indexOf(c)<0) cls.push(c); });
+    document.getElementById('hall-classes').innerHTML=cls.map(function(c){
+      var on=App.hallCls===c;
+      return '<button class="btn sm'+(on?' primary':'')+'" style="padding:6px 10px" onclick="App.pickHallClass(\''+c+'\')">'+
+        (App.CLS_ICON_[c]||'◆')+' '+c+'<span style="opacity:.6;font-size:10px"> '+cnt[c]+'</span></button>'; }).join(''); },
+  pickHallClass:function(c){ App.hallCls=(App.hallCls===c?'':c); App.renderHallClasses(); App.renderHall(); },
+  renderHall:function(){
+    var c=App.hallCls;
+    if(!c){ document.getElementById('hall').innerHTML='<div style="font-size:12px;color:var(--dim);padding:14px 4px;text-align:center">↑ 點上方職階圖示，查看該職階的英靈<br>（或直接用下方「真名召喚」呼叫任何角色）</div>'; return; }
+    var list=App.STATIC.heroes.filter(function(h){ return h.cls===c; });
+    document.getElementById('hall').innerHTML='<div style="font-size:12px;color:var(--gold);margin:8px 0 4px">'+(App.CLS_ICON_[c]||'◆')+' '+c+'　'+list.length+' 位</div>'+
+      list.map(function(h){ return '<div class="hall-item"><div><div class="nm">'+h.realName+(h.gender==='女'?' ♀':h.gender==='男'?' ♂':h.gender==='無'?' ⊘':'')+'</div>'+
+        '<div class="meta">'+h.np+'｜'+(Array.isArray(h.wars)?h.wars.join('/'):(h.wars||''))+'</div></div>'+
+        '<button class="btn sm primary" onclick="App.startSummon(\''+h.id+'\')">締約</button></div>'; }).join(''); },
+  startSummon:function(sid){
+    busy(true);
+    var opts={ms_id:App.acc.ms_id,mode:App.flow.mode,servantId:sid,profile:App.flow.profile};
+    if(App.flow.mode==='canon'){ opts.war=App.flow.war; opts.role='original'; }
+    gs('newGame',opts).then(App.enter).catch(App.err); },
+  trueName:function(){
+    var name=document.getElementById('tn-name').value.trim(), cls=App.hallCls,
+        desc=document.getElementById('tn-desc').value.trim();
+    if(!cls){ alert('請先在上方點選一個職階圖示'); return; } if(!name){ alert('請輸入真名'); return; }
+    busy(true);
+    gs('summonByName',{ms_id:App.acc.ms_id,name:name,cls:cls,desc:desc}).then(function(r){ busy(false);
+      if(r.error){ alert(r.error); return; } App.startSummon(r.servant_id); }).catch(App.err); },
+  custom:function(){
+    var desc=document.getElementById('tn-desc').value.trim(), cls=App.hallCls;
+    if(!cls){ alert('請先在上方點選一個職階圖示'); return; } if(!desc){ alert('請輸入描述'); return; }
+    busy(true);
+    gs('summonByName',{ms_id:App.acc.ms_id,name:'自訂英靈',cls:cls,desc:desc}).then(function(r){ busy(false);
+      if(r.error){ alert(r.error); return; } App.startSummon(r.servant_id); }).catch(App.err); },
+
+  enter:function(state){ busy(false);
+    if(state.error){ alert(state.error); return; }
+    if(App.acc) App.acc.current_game = state.game_id;   // 記住進行中存檔
+    App.S=state; App.go('scr-game'); document.getElementById('log').innerHTML='';
+    App.renderAll();
+    if(state.opening) App.ai(state.opening);
+    App.sys('聖杯戰爭開始。輸入行動或用下方按鈕，所有判定由後端 GAS 處理。'); },
+
+  // ---------- 動作 ----------
+  act:function(type,extra){
+    if(type!=='dispatch') App._dispatch=false;   // 非派駐動作 → 退出派駐模式
+    var sub=document.getElementById('action-sub'); if(sub){ sub.classList.add('hidden'); } App._group=null;  // 動作後收起展開的分類
+    var a=Object.assign({game_id:App.S.game_id,type:type},extra||{}); busy(true);
+    gs('doAction',a).then(function(r){ busy(false);
+      if(r.error){ App.sys(r.error); return; }
+      if(r.gameOver){ App.gameOver(r); return; }
+      App.S=r.state; App.renderAll();
+      if(r.narration) App.ai(r.narration);
+      if(r.events&&r.events.length) r.events.forEach(function(t){ App._push('event','⚑ 情報',t); });
+      if(r.awaitSeal) App.deathPrompt(r.awaitSeal);
+    }).catch(App.err); },
+  // 瀕死令咒救援：強制抉擇（燃令咒回血回魔 / 接受死亡）
+  deathPrompt:function(info){ document.getElementById('death-msg').textContent=(info&&info.msg)||'是否燃燒令咒挽救從者？';
+    document.getElementById('death-modal').style.display='flex'; },
+  deathChoose:function(c){ document.getElementById('death-modal').style.display='none';
+    if(c==='heal') App.act('seal',{cmd:'heal'}); else App.act('accept_death'); },
+  history:function(){ busy(true);
+    gs('getHistory',App.acc.ms_id).then(function(list){ busy(false);
+      document.getElementById('history-list').innerHTML = (list&&list.length) ? list.map(function(h){
+        var c=h.result==='win'?'#e7c873':'#d65c5c', tag=h.result==='win'?'🏆 奪杯':'☠ 殞落';
+        return '<div style="border-bottom:1px dotted #2a2438;padding:8px 0"><span style="color:'+c+'">'+tag+'</span>　<span style="font-size:13px">'+h.summary+'</span><div style="font-size:11px;color:var(--dim)">'+new Date(h.ts).toLocaleString()+'</div></div>';
+      }).join('') : '<div style="color:var(--dim)">尚無紀錄。去打一場聖杯戰爭吧。</div>';
+      App.go('scr-history');
+    }).catch(App.err); },
+  gameOver:function(r){ var go=r.gameOver;
+    document.getElementById('go-title').innerHTML = go.result==='win'
+      ? '<span style="color:var(--gold2)">🏆 奪取聖杯</span>' : '<span style="color:var(--red2)">☠ 御主殞落</span>';
+    document.getElementById('go-dream').textContent = go.dream||'';
+    document.getElementById('go-dojo').textContent = go.dojo||'';
+    App.S=null; if(App.acc) App.acc.current_game='';   // 結局後存檔已清空
+    App.go('scr-gameover'); },
+  toMenu:function(){ App.S=null; App.refreshMenu(); App.go('scr-menu'); },
+
+  // ===== 鑑賞模式（後日談）：獨立資料(GALLERY 分頁) + 獨立 AI 路徑 =====
+  gallery:function(){ busy(true);
+    gs('galleryList',App.acc.ms_id).then(function(r){ busy(false);
+      if(r.error){ alert(r.error); return; }
+      App.G=r.entries||[]; App.gLoc=App.gLoc||'park';
+      var act=App.G.filter(function(e){return e.active;});
+      App.gFocus=(App.gFocus&&act.some(function(e){return e.entryId===App.gFocus;}))?App.gFocus:(act[0]?act[0].entryId:null);
+      App.renderGallery(); App.go('scr-gallery');
+    }).catch(App.err); },
+  renderGallery:function(){ App.renderGActive(); App.renderGCollection(); App.gMap(); },
+  renderGActive:function(){
+    var act=App.G.filter(function(e){return e.active;});
+    var gsym=function(g){ return g==='女'?' ♀':g==='男'?' ♂':g==='無'?' ⊘':''; };
+    var html=act.length?act.map(function(e){ var foc=e.entryId===App.gFocus;
+      return '<div class="hall-item" style="cursor:pointer;'+(foc?'border-color:var(--gold2)':'')+'" onclick="App.gFocusSet(\''+e.entryId+'\')">'+
+        '<div><div class="nm">'+(foc?'◆ ':'')+e.cls+'・'+App.esc(e.realName||'？')+gsym(e.gender)+'</div>'+
+        '<div class="meta">'+App.esc(e.condition||'神情自若、靜立一旁')+'</div></div>'+
+        '<button class="btn sm ghost" onclick="event.stopPropagation();App.gActive(\''+e.entryId+'\',false)">下場</button></div>';
+    }).join(''):'<div style="font-size:12px;color:var(--dim)">尚無在場英靈——從下方「解鎖收藏」召喚（最多 3 名）。</div>';
+    document.getElementById('g-active').innerHTML='<div style="font-size:11px;color:var(--dim);margin:2px 0 4px">在場英靈（點選＝對話焦點）</div>'+html; },
+  renderGCollection:function(){
+    var gsym=function(g){ return g==='女'?' ♀':g==='男'?' ♂':g==='無'?' ⊘':''; };
+    var html=App.G.length?App.G.map(function(e){
+      var badge = e.source==='won' ? ('⚔奪杯'+(e.wonCount>1?(' ×'+e.wonCount):'')) : '✨自訂';
+      var note = (e.source==='won'&&e.wonDay) ? ('　🏆第'+e.wonDay+'天解鎖') : '';
+      return '<div class="hall-item"><div><div class="nm">'+e.cls+'・'+App.esc(e.realName||'？')+gsym(e.gender)+
+        '<span style="color:var(--dim);font-size:11px"> '+badge+'</span></div>'+
+        '<div class="meta">羈絆 '+e.bond+note+'｜'+App.esc(e.np||'')+'</div></div>'+
+        '<div style="display:flex;gap:4px">'+(e.active?'':'<button class="btn sm primary" onclick="App.gActive(\''+e.entryId+'\',true)">召喚</button>')+
+        '<button class="btn sm ghost" onclick="App.gRemove(\''+e.entryId+'\')">✕</button></div></div>';
+    }).join(''):'<div style="font-size:12px;color:var(--dim)">還沒有解鎖的英靈。奪取聖杯即可解鎖，或在此自由新增。</div>';
+    document.getElementById('g-collection').innerHTML=html+'<button class="btn sm" style="width:100%;margin-top:8px" onclick="App.gCreate()">＋ 新增角色</button>'; },
+  gFocusSet:function(id){ App.gFocus=id; App.renderGActive(); },
+  gActive:function(id,on){ busy(true);
+    gs('gallerySetActive',App.acc.ms_id,id,on).then(function(r){ busy(false);
+      if(r.error){ alert(r.error); return; } App.G=r.entries||[]; if(on)App.gFocus=id; App.renderGallery();
+    }).catch(App.err); },
+  gRemove:function(id){ if(!confirm('移除這名英靈的收藏？')) return; busy(true);
+    gs('galleryRemove',App.acc.ms_id,id).then(function(r){ busy(false);
+      if(r.error){ alert(r.error); return; } App.G=r.entries||[]; if(App.gFocus===id)App.gFocus=null; App.renderGallery();
+    }).catch(App.err); },
+  gCreate:function(){
+    var name=prompt('英靈真名？'); if(!name)return;
+    var cls=prompt('職階？（Saber／Archer／Lancer／Rider／Caster／Assassin／Berserker…）','Saber'); if(!cls)return;
+    var gender=prompt('性別？（男／女／無，可留空讓 AI 推定）','')||'';
+    var wish=prompt('願望／心願？（可留空）','')||'';
+    var persona=prompt('個性？（可留空，影響敘事語氣）','')||'';
+    busy(true);
+    gs('galleryCreate',App.acc.ms_id,{name:name,cls:cls,gender:gender,wish:wish,persona:persona}).then(function(r){ busy(false);
+      if(r.error){ alert(r.error); return; } App.G=r.entries||[]; App.renderGallery();
+    }).catch(App.err); },
+  gPush:function(role,text){ var l=document.getElementById('g-log');
+    l.innerHTML+='<div class="msg '+(role==='me'?'me':'ai')+'">'+App.esc(text)+'</div>'; l.scrollTop=l.scrollHeight; },
+  _gCond:function(id,cond){ if(!cond)return; var e=App.G.filter(function(x){return x.entryId===id;})[0]; if(e){ e.condition=cond; App.renderGActive(); } },
+  gallerySay:function(){
+    if(!App.gFocus){ alert('先從「解鎖收藏」召喚一名英靈在場，並點選為焦點。'); return; }
+    var ta=document.getElementById('g-in'),t=ta.value.trim(); if(!t)return; ta.value='';
+    App.gPush('me',t); busy(true);
+    gs('gallerySay',App.acc.ms_id,App.gFocus,t,App.locName(App.gLoc)).then(function(r){ busy(false);
+      if(r.error){ App.gPush('ai','（'+r.error+'）'); return; } App.gPush('ai',r.narration); App._gCond(App.gFocus,r.condition);
+    }).catch(function(){ busy(false); App.gPush('ai','（連線失敗）'); }); },
+  galleryDate:function(loc){ if(!App.gFocus){ alert('先召喚並點選一名焦點英靈。'); return; }
+    App.gLoc=loc; App.gMap(); busy(true);
+    gs('galleryScene',App.acc.ms_id,App.gFocus,App.locName(loc)).then(function(r){ busy(false);
+      if(r.error){ alert(r.error); return; } App.gPush('ai','【'+App.locName(loc)+'】'+r.narration); App._gCond(App.gFocus,r.condition);
+    }).catch(App.err); },
+  gMap:function(){ var L=App.STATIC.locations,here=App.gLoc;
+    if(!App.gMapVB) App.gMapVB={x:0,y:0,w:700,h:440}; var v=App.gMapVB;
+    var bg='<rect width="700" height="440" fill="#0a0810"/>';
+    var lines=L.map(function(l){ return (l.adj||[]).map(function(a){ var t=L.filter(function(x){return x.id===a;})[0];
+      if(!t||a<l.id)return ''; return '<line x1="'+l.x+'" y1="'+l.y+'" x2="'+t.x+'" y2="'+t.y+'" stroke="#2a2440" stroke-width="2"/>'; }).join(''); }).join('');
+    var dots=L.map(function(l){ var cur=l.id===here, right=l.x>515, tx=right?(l.x-14):(l.x+14), anc=right?'end':'start';
+      return '<g class="loc '+(cur?'here':'')+'" onclick="App.galleryDate(\''+l.id+'\')">'+
+        '<circle cx="'+l.x+'" cy="'+l.y+'" r="10" class="danger-'+l.danger+'"/>'+
+        '<text x="'+tx+'" y="'+(l.y+5)+'" text-anchor="'+anc+'">'+l.name+'</text></g>'; }).join('');
+    document.getElementById('g-map-wrap').innerHTML='<svg id="g-map-svg" style="cursor:pointer" viewBox="'+v.x+' '+v.y+' '+v.w+' '+v.h+'">'+bg+lines+dots+'</svg>'; },
+  move:function(id){ if(App._panMoved){ App._panMoved=false; return; }
+    if(App._dispatch){ App._dispatch=false; App.act('dispatch',{locId:id}); return; }   // 派駐模式：點地圖把從者派過去
+    App.act('move',{locId:id}); },
+  // 分離後可用：把從者單獨派駐到相鄰地（再點地圖選目的地），或再按取消
+  toggleDispatch:function(){ App._dispatch=!App._dispatch;
+    var sub=document.getElementById('action-sub'); if(sub) sub.innerHTML=App.actGroupHtml();
+    App.renderMap(); },
+  actGroupHtml:function(){ var sep=App.S.player.servant.separated, dz=App._dispatch;
+    var b=function(type,label){ return '<button class="btn sm" onclick="App.act(\''+type+'\')">'+label+'</button>'; };
+    var h=b('scout','🔍 偵查')+'<button class="btn sm" onclick="App.act(\'separate\')">'+(sep?'🔗 召回從者（會合）':'🔀 分離（從者留守）')+'</button>';
+    if(sep) h+='<button class="btn sm'+(dz?' primary':'')+'" onclick="App.toggleDispatch()">'+(dz?'✖ 取消派駐':'➡ 派駐從者')+'</button>';
+    h+='<button class="btn sm" onclick="App.act(\'rest\',{hours:1})">😴 休息1h</button>'
+      +'<button class="btn sm" onclick="App.act(\'rest\',{hours:3})">😴 休息3h</button>'
+      +'<button class="btn sm" onclick="App.act(\'rest\',{hours:6})">🌙 休息至滿</button>'
+      +'<button class="btn sm" onclick="App.act(\'shop\')">🛒 購物備糧</button>'
+      +'<button class="btn sm" onclick="App.act(\'kit\')">📦 標準補給包</button>';
+    if(sep) h+='<span style="width:100%;font-size:11px;color:'+(dz?'var(--gold2)':'var(--dim)')+'">從者所在：'+App.locName(App.S.player.servant.loc)+(dz?'　↳ 點地圖上相鄰地，派從者前往':'')+'</span>';
+    return h; },
+  // 點分類 → 在 #action-sub 展開該類動作；再點同類收起
+  openGroup:function(k){
+    var sub=document.getElementById('action-sub');
+    if(App._group===k){ sub.classList.add('hidden'); App._group=null; return; }
+    App._group=k;
+    var b=function(type,label,extra){ return '<button class="btn sm" onclick="App.act(\''+type+'\''+(extra||'')+')">'+label+'</button>'; };
+    var html='';
+    if(k==='fight')      html=b('attack','⚔ 攻擊')+b('np','💥 寶具')+(App.S.player.servant.cls==='Archer'?b('snipe','🎯 遠距離支援'):'')+(App.S.player.servant.cls==='Assassin'?b('assassinate','🗡 潛殺御主'):'')+b('retreat','🏃 撤退');
+    else if(k==='mana')  html=b('feed','💧 供給')+b('mana','❤ 補魔')+b('hunt','🩸 獵魔');
+    else if(k==='base')  html=b('claim','🏠 設為據點')+b('reinforce','🛡 加固結界');
+    else if(k==='act')   html=App.actGroupHtml();
+    else if(k==='skill') html=App.skillButtons();
+    else if(k==='seal')  html=App.sealButtons();
+    sub.innerHTML=html; sub.classList.remove('hidden'); },
+  skillButtons:function(){
+    var acts=(App.S.player.servant.actives)||[], kind={bolt:'魔術彈',petrify:'石化',zabaniya:'必殺',heal:'回復',buffdmg:'強化',buffhit:'強化',gob:'寶具洪流',chain:'拘束',wind_strike:'斬風',sever:'破契',summon:'召喚',gaebolg:'必中',ubw:'劍雨'};
+    if(!acts.length) return '<span style="font-size:12px;color:var(--dim)">此從者沒有主動技能。</span>';
+    return '<span style="width:100%;font-size:11px;color:var(--dim)">主動技能（耗靈基魔力）</span>'+acts.map(function(a){
+      return '<button class="btn sm" onclick="App.act(\'skill\',{fx:\''+a.fx+'\'})">'+a.name+' <span style="opacity:.65;font-size:11px">('+(kind[a.kind]||'')+'・魔'+a.cost+')</span></button>'; }).join(''); },
+  sealButtons:function(){
+    var cmds=[['heal','靈基修復'],['order','絕對命令'],['np','寶具強制解放'],['recall','緊急脫離'],['mana','強制補魔']], n=App.S.player.master.seals;
+    return '<span style="width:100%;font-size:11px;color:var(--dim)">令咒 '+'❖'.repeat(n)+'</span>'+cmds.map(function(c){
+      return '<button class="btn sm" '+(n<=0?'disabled':'')+' onclick="App.act(\'seal\',{cmd:\''+c[0]+'\'})">'+c[1]+'</button>'; }).join(''); },
+  send:function(){ var box=document.getElementById('in-msg'),t=box.value.trim(); if(!t)return; box.value=''; App.me(t);
+    App.act('chat',{text:t}); },
+
+  // ---------- 渲染 ----------
+  renderAll:function(){ App.renderClock(); App.renderMana(); App.renderMaster(); App.renderServant(); App.renderBase();
+    App.renderRoster(); App.renderMap(); App.renderQuick(); App.renderLoc(); App.renderInv(); },
+  renderInv:function(){ var bar=document.getElementById('inv-bar'); if(!bar)return;
+    var inv=(App.S.player.master.inventory)||[];
+    if(!inv.length){ bar.innerHTML='<span style="font-size:12px;color:var(--dim)">空（到市區「🛒 購物備糧」補給食物／醫療品，點物品即用。醫院、車站有繃帶急救包）</span>'; return; }
+    bar.innerHTML=inv.map(function(it){
+      var tip, act;
+      if(it.kind==='med'){ tip=it.name+'（醫療：'+(it.desc||'止血／回血')+'）'; act='療傷'; }
+      else if(it.kind==='gem'){ tip=it.name+'（魔力寶石：'+(it.desc||'回魔＋下次戰鬥判定加持')+'）'; act='施用'; }
+      else { tip=it.name+(it.tier?('〔'+it.tier+'〕'):'')+'（飽足：每小時迴路回魔 +，品級越高越強越持久）'; act='食用'; }
+      return '<button class="btn sm" title="'+act+' '+tip+'" onclick="App.act(\'use\',{item:\''+it.key+'\'})">'+it.emoji+' '+it.name+'</button>';
+    }).join('')+'<span style="width:100%;font-size:11px;color:var(--dim)">物品欄 '+inv.length+'/5・點擊使用（🍙食物＝飽足回魔；🩹醫療＝止血回血；💎寶石＝回魔＋判定）</span>'; },
+  renderMana:function(){ var c=App.S.clock,b=document.getElementById('mana-box');
+    b.innerHTML = c.mana_locked ? '<div style="background:#1c1320;border:1px solid var(--red);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--red2);margin-bottom:8px;text-align:center">♥ 補魔進行中・剩 '+c.mana_countdown+' 次對話（送出對話以推進）</div>' : ''; },
+  renderClock:function(){ var c=App.S.clock,ph=(c.hour>=6&&c.hour<18)?'☀晝':'🌙夜';
+    var buff=(Number(c.mana_countdown)>0)?(' 　<span style="color:#e58aa8" title="補魔加持：迴路回魔提升、靈基維持高出力">✨補魔加持 '+Number(c.mana_countdown)+'h</span>'):'';
+    var sat=(Number(c.satiety)>0)?(' 　<span style="color:#d6b86a" title="飽足：每小時迴路回魔額外 +（再吃可重置）">🍙飽足 '+Number(c.satiety)+'h</span>'):'';
+    var bld=(Number(c.bleed)>0)?(' 　<span style="color:#e06666" title="失血：每小時持續掉血（不致死，會自然止血）。用繃帶／急救包可立即止血">🩸失血 '+Number(c.bleed)+'h</span>'):'';
+    document.getElementById('clock-hud').innerHTML='<span>第 '+c.day+' 日　'+('0'+c.hour).slice(-2)+':00　'+ph+buff+sat+bld+
+      '</span><span title="行動點：移動/偵查/戰鬥等耗時動作各 1 點，睡覺恢復" style="cursor:help">AP '+'●'.repeat(c.ap)+'○'.repeat(c.ap_max-c.ap)+'</span>'; },
+  renderMaster:function(){ var m=App.S.player.master,e=App.S.economy;
+    document.getElementById('master-box').innerHTML=
+      '<div style="font-size:16px;color:var(--gold2)">'+m.name+'</div>'+
+      '<div style="font-size:11px;color:var(--dim)">'+m.magic+'｜體術 '+m.melee+'｜魔術 '+m.magicRank+'</div>'+
+      bar('HP',m.hp,m.hpMax,'hp')+bar('迴路魔力',m.mp,m.mpMax,'mp')+
+      '<div class="stat-row"><span>令咒</span><span style="color:var(--red2)">'+'❖'.repeat(m.seals)+'</span></div>'; },
+  renderServant:function(){ var s=App.S.player.servant,e=App.S.economy;
+    var six=Object.keys(s.six).map(function(k){return '<div class="g" title="'+(App.LABEL_DESC[k]||'')+'" style="cursor:help"><b>'+s.six[k]+'</b><span>'+k+'</span></div>';}).join('');
+    var tag=function(x,cls){ var f=x.fx||''; var d=App.fxDesc(f,x.n);
+      return '<span class="tag '+cls+'" style="cursor:pointer" title="'+App.esc(d)+'" onclick="App.skillInfo(\''+f+'\',\''+App.esc(x.n).replace(/\x27/g,'')+'\')">'+x.n+(x.r?'<i class="r">'+x.r+'</i>':'')+'</span>'; };
+    var tags=(s.classSkills||[]).map(function(x){return tag(x,'cls');}).join('')+
+      (s.skills||[]).map(function(x){return tag(x,'skl');}).join('')+
+      (s.traits||[]).map(function(x){return tag(x,'trait');}).join('');
+    document.getElementById('servant-box').innerHTML=
+      '<div style="font-size:16px;color:var(--gold2)">'+s.cls+'</div>'+
+      '<div style="margin:3px 0 5px;font-size:12px;line-height:1.5;color:#c4b1e6;font-style:italic">'+
+        (s.condition?('〔'+App.esc(s.condition)+'〕'):'<span style="color:var(--dim);font-style:normal">（靜候）</span>')+'</div>'+
+      '<div style="font-size:12px;color:var(--dim)">真名：'+(s.trueNameKnown?s.realName:'？？？')+(s.align?('　・　'+App.esc(s.align)):'')+'</div>'+
+      bar('HP',s.hp,s.hpMax,'hp')+bar('靈基魔力',s.mp,s.mpMax,'mp')+
+      (function(){ var r=s.mpMax>0?s.mp/s.mpMax:0.8, om=Math.max(-20,Math.min(5,Math.round((r-0.8)*25)));
+        var lbl=om>0?'靈基亢奮 +'+om:om<0?'魔力枯竭 '+om:'出力正常';
+        var col=om>0?'#7ad08a':om<=-10?'var(--red2)':om<0?'#d6a85c':'var(--dim)';
+        return '<div style="font-size:11px;color:'+col+';margin:-2px 0 4px" title="靈基出力：以 80% 為基準，越滿命中/傷害越強、越枯竭越弱（供魔充足的御主＝更強的從者）。拉到 100% 需主動供給/補魔。">⚡ '+lbl+'（出力基準 80%）</div>'; })()+
+      '<div class="stat-row"><span title="從者對你的信任與羈絆；影響回應態度，過低時令咒強迫/獵食會更反感" style="cursor:help;border-bottom:1px dotted #4a4360">好感度</span><span style="color:#e58aa8">'+s.bond+'/100</span></div><div class="bar bond"><i style="width:'+s.bond+'%"></i></div>'+
+      '<div class="six">'+six+'</div><div style="margin-top:8px">'+tags+'</div>'+
+      '<div id="skill-desc" style="display:none;margin-top:8px;font-size:12px;line-height:1.5;color:#d8cdee;background:#140f1f;border-left:3px solid var(--gold);border-radius:6px;padding:8px 10px"></div>'+
+      '<div style="font-size:12px;color:var(--dim);margin-top:8px">寶具：'+s.np+'</div>'+
+      '<div style="font-size:11px;color:var(--dim);margin-top:6px;cursor:help" title="維持＝從者每小時消耗的魔力；淨＝迴路回復＋環境供能−維持。淨為負時御主魔力庫會被慢慢抽乾，需休息/補魔/獵魔">維持 '+s.upkeep+'/h｜淨 <b style="color:'+(e.net>=0?'#5fae6e':'#d65c5c')+'">'+(e.net>=0?'+':'')+e.net+'/h</b>'+(s.separated?' <span style="color:#d65c5c">分離</span>':'')+'</div>'; },
+  renderBase:function(){ var b=App.S.player.base;
+    document.getElementById('base-box').innerHTML=b.loc?('<div style="font-size:13px;color:var(--gold2)">'+App.locName(b.loc)+'・'+b.tier+'</div>'+
+      '<div class="stat-row"><span>結界值</span><span>'+b.barrier+'/'+b.barrierMax+'</span></div><div class="bar barrier"><i style="width:'+(b.barrier/b.barrierMax*100)+'%"></i></div>'):''; },
+  renderRoster:function(){
+    var r=App.S.roster, known=r.filter(function(e){return e.known;}), unknown=r.length-known.length;
+    document.getElementById('roster-h').textContent='戰局・已知 '+known.length+'/'+r.length;
+    var rows=known.map(function(e){
+      var st=e.alive?'':'opacity:.4;text-decoration:line-through';
+      var where=e.location?('<span style="font-size:10px;color:#6f6885">@'+App.locName(e.location)+'</span>'):'';
+      var cd=e.cond?('<span style="font-size:10px;color:'+(e.cond==='重傷'?'#d65c5c':e.cond==='負傷'?'#e7c873':'#5fae6e')+'">・'+e.cond+'</span>'):'';
+      return '<div class="stat-row" style="'+st+'"><span'+(e.isPlayer?' style="color:var(--gold2)"':'')+'>'+e.cls+' '+where+cd+'</span><span style="color:var(--dim)">'+(e.isPlayer?'（你）':'')+e.master+'</span></div>'; }).join('');
+    if(unknown>0) rows+='<div class="stat-row" style="color:#5b5470;font-size:12px"><span>？ 未現蹤</span><span>尚有 '+unknown+' 騎從者潛伏（偵查以揭露）</span></div>';
+    document.getElementById('roster-box').innerHTML=rows; },
+  renderMap:function(){ var L=App.STATIC.locations,here=App.S.player.master.location,sv=App.S.player.servant;
+    var dispatch=App._dispatch && sv.separated;                          // 派駐模式：以從者所在為移動原點
+    var originId=dispatch?sv.loc:here;
+    var hereLoc=L.filter(function(x){return x.id===originId;})[0]||{adj:[]};
+    var bg='<rect width="700" height="440" fill="#0a0810"/>'+
+      '<ellipse cx="520" cy="210" rx="170" ry="135" fill="#13243f" opacity=".4"/>'+
+      '<ellipse cx="270" cy="360" rx="150" ry="115" fill="#10261a" opacity=".4"/>'+
+      '<path d="M360,-10 C420,110 340,190 395,290 C430,360 375,420 415,450" fill="none" stroke="#1b3a55" stroke-width="16" opacity=".5"/>';
+    var lines=L.map(function(l){ return (l.adj||[]).map(function(a){ var t=L.filter(function(x){return x.id===a;})[0];
+      if(!t||a<l.id)return ''; return '<line x1="'+l.x+'" y1="'+l.y+'" x2="'+t.x+'" y2="'+t.y+'" stroke="#2a2440" stroke-width="2"/>'; }).join(''); }).join('');
+    var dots=L.map(function(l){ var cur=l.id===originId,re=(hereLoc.adj||[]).indexOf(l.id)>=0;
+      var right=l.x>515, tx=right?(l.x-14):(l.x+14), anc=right?'end':'start';   // 右側地點標籤靠左放，避免超出邊界
+      return '<g class="loc '+(cur?'here':'')+'" onclick="App.move(\''+l.id+'\')" opacity="'+(cur||re?1:.55)+'">'+
+        '<circle cx="'+l.x+'" cy="'+l.y+'" r="10" class="danger-'+l.danger+'"/>'+
+        '<text x="'+tx+'" y="'+(l.y+5)+'" text-anchor="'+anc+'">'+l.name+'</text></g>'; }).join('');
+    var sm=''; if(sv.separated){ var sl=L.filter(function(x){return x.id===sv.loc;})[0];
+      if(sl) sm='<g><circle cx="'+sl.x+'" cy="'+sl.y+'" r="14" fill="none" stroke="#d65c5c" stroke-width="2" stroke-dasharray="4 3"/><text x="'+(sl.x-30)+'" y="'+(sl.y-16)+'" style="fill:#d65c5c;font-size:13px">⚔從者</text></g>'; }
+    if(!App.mapVB) App.mapVB={x:0,y:0,w:700,h:440};
+    var v=App.mapVB;
+    document.getElementById('map-wrap').innerHTML=
+      '<div style="position:relative">'+
+        '<svg id="map-svg" style="cursor:grab" viewBox="'+v.x+' '+v.y+' '+v.w+' '+v.h+'">'+bg+lines+dots+sm+'</svg>'+
+        '<div style="position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:5px">'+
+          '<button class="btn sm ghost" style="padding:3px 9px;font-size:16px;line-height:1" onclick="App.mapZoom(1.3)">＋</button>'+
+          '<button class="btn sm ghost" style="padding:3px 9px;font-size:16px;line-height:1" onclick="App.mapZoom(0.77)">－</button>'+
+          '<button class="btn sm ghost" style="padding:3px 7px;font-size:12px;line-height:1" onclick="App.mapReset()">⟲</button>'+
+        '</div>'+
+      '</div>';
+    App._initMapControls(); },
+  // 地圖縮放（以中心為基準）／重設／拖曳平移；viewBox 狀態存在 App.mapVB，跨重繪保留
+  mapZoom:function(f){ var v=App.mapVB||(App.mapVB={x:0,y:0,w:700,h:440});
+    var cx=v.x+v.w/2, cy=v.y+v.h/2, nw=Math.max(200,Math.min(900,v.w/f)), nh=nw*(440/700);
+    v.w=nw; v.h=nh; v.x=cx-nw/2; v.y=cy-nh/2;
+    var s=document.getElementById('map-svg'); if(s) s.setAttribute('viewBox',v.x+' '+v.y+' '+v.w+' '+v.h); },
+  mapReset:function(){ App.mapVB={x:0,y:0,w:700,h:440}; var s=document.getElementById('map-svg'); if(s) s.setAttribute('viewBox','0 0 700 440'); },
+  _initMapControls:function(){
+    if(App._mapBound) return; App._mapBound=true;
+    var drag=null;
+    function pt(e){ return e.touches&&e.touches[0]?e.touches[0]:e; }
+    function start(e){ var svg=document.getElementById('map-svg'); if(!svg||!svg.contains(e.target))return; var p=pt(e); drag={x:p.clientX,y:p.clientY}; App._panMoved=false; }
+    function move(e){ if(!drag)return; var svg=document.getElementById('map-svg'); if(!svg)return; var p=pt(e),r=svg.getBoundingClientRect(),v=App.mapVB;
+      if(Math.abs(p.clientX-drag.x)+Math.abs(p.clientY-drag.y)>3) App._panMoved=true;
+      v.x-=(p.clientX-drag.x)*(v.w/r.width); v.y-=(p.clientY-drag.y)*(v.h/r.height);
+      drag.x=p.clientX; drag.y=p.clientY; svg.setAttribute('viewBox',v.x+' '+v.y+' '+v.w+' '+v.h);
+      if(e.touches) e.preventDefault(); }
+    function end(){ drag=null; }
+    document.addEventListener('mousedown',start); document.addEventListener('mousemove',move); document.addEventListener('mouseup',end);
+    document.addEventListener('touchstart',start,{passive:true}); document.addEventListener('touchmove',move,{passive:false}); document.addEventListener('touchend',end);
+    var mw=document.getElementById('map-wrap'); if(mw) mw.addEventListener('wheel',function(e){ if(!document.getElementById('map-svg'))return; e.preventDefault(); App.mapZoom(e.deltaY<0?1.15:0.87); },{passive:false}); },
+  renderLoc:function(){ var l=App.STATIC.locations.filter(function(x){return x.id===App.S.player.master.location;})[0];
+    var d={safe:'安全',mid:'中等',high:'危險'};
+    document.getElementById('loc-info').innerHTML=l?('<b style="color:var(--gold2)">'+l.name+'</b>（危險度：'+d[l.danger]+'・靈脈：'+l.leyline+'）<br>'+l.desc):''; },
+  renderQuick:function(){
+    var g=[['fight','⚔ 戰鬥'],['skill','✨ 技能'],['mana','💧 魔力'],['base','🏠 據點'],['seal','❖ 令咒'],['act','🔍 行動']];
+    document.getElementById('quick-actions').innerHTML=g.map(function(c){
+      return '<button class="btn sm ghost" onclick="App.openGroup(\''+c[0]+'\')">'+c[1]+'</button>'; }).join(''); },
+
+  // ---------- log ----------
+  ai:function(t){ App._push('ai','從者／旁白',t); },
+  me:function(t){ App._push('me',App.acc?App.acc.name:'你',t); },
+  sys:function(t){ App._push('sys','',t); },
+  _push:function(cls,who,t){ var log=document.getElementById('log'),d=document.createElement('div');
+    d.className='msg '+cls;
+    // 用 textContent 避免 AI 敘述或玩家暱稱含 < > 等字元時破版／注入
+    if(who){ var w=document.createElement('div'); w.className='who'; w.textContent=who; d.appendChild(w); }
+    var body=document.createElement('div'); body.textContent=t; d.appendChild(body);
+    log.appendChild(d); log.scrollTop=log.scrollHeight; },
+  heroById:function(id){ return App.STATIC.heroes.filter(function(h){return h.id===id;})[0]; },
+  locName:function(id){ var l=App.STATIC.locations.filter(function(x){return x.id===id;})[0]; return l?l.name:id; },
+  err:function(e){ busy(false);
+    var msg = (e&&e.message)?e.message:(e||'未知錯誤');
+    // 遊戲畫面內 → 寫進對話框；遊戲畫面外（登入/選單/召喚）→ 用 alert 才看得到
+    var inGame = !document.getElementById('scr-game').classList.contains('hidden');
+    if(inGame) App.sys('（後端錯誤：'+msg+'）');
+    else alert('後端錯誤：'+msg); }
+};
+function bar(label,v,mx,cls){ var r=mx?v/mx:0, low=r<0.25, t=App.LABEL_DESC[label]||'';
+  return '<div class="stat-row"><span'+(t?' title="'+t+'" style="cursor:help;border-bottom:1px dotted #4a4360"':'')+'>'+label+'</span>'+
+    '<span'+(low?' style="color:#ff7a7a;font-weight:700"':'')+'>'+v+'/'+mx+'</span></div>'+
+  '<div class="bar '+cls+(low?' low':'')+'"><i style="width:'+(r*100)+'%"></i></div>'; }
+
+App.go('scr-login');
+</script>
+</body>
+</html>
