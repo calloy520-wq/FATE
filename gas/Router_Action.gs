@@ -1724,8 +1724,39 @@ function actionGetMasters(userData, pcId, sheets) {
   return JSON.stringify({ success: true, masters: out });
 }
 
+// 引擎實際吃得到的 fx 字典（AI 生成新從者時從中挑選，確保新角色也能「吃到標籤」）
+var ALLOWED_FX_ = {
+  nullify_magic: 1, first_strike: 1, analyze: 1, str_up: 1, burst: 1, ride: 1, stealth: 1,
+  evade_ranged: 1, survive: 1, divine_core: 1, mad: 1, morale: 1, divine_age: 1,
+  unreadable: 1, wind_strike: 1, tsubame: 1, gae_bolg: 1, god_hand: 1
+};
+var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應就填空字串\"\"：" +
+  "對魔力=nullify_magic、直感=first_strike、心眼=analyze、怪力=str_up、魔力放出=burst、騎乘=ride、" +
+  "氣息遮斷=stealth、避矢=evade_ranged、戰鬥續行=survive、神性/神核=divine_core、狂化=mad、" +
+  "勇猛/卡里斯瑪=morale、神代魔術=divine_age、無欲(封先機)=unreadable、必中槍=gae_bolg、不死復活=god_hand";
+
+// 清洗 AI 給的技能陣列為 [{n,r,fx}]（fx 不在字典就清空，仍保留為演出用標籤）
+function sanitizeSkills_(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.filter(Boolean).slice(0, 5).map(function (s) {
+    var fx = String((s && (s.fx || s.效果碼)) || "").trim();
+    return {
+      n: String((s && (s.n || s.名稱 || s.name)) || "技能").slice(0, 10),
+      r: String((s && (s.r || s.階級 || s.rank)) || "C").slice(0, 2).toUpperCase(),
+      fx: ALLOWED_FX_[fx] ? fx : ""
+    };
+  });
+}
+// 清洗六圍：6 鍵齊全、階級合法（E~EX、可帶+）；缺則補 C
+function sanitizeSix_(o) {
+  var keys = ["筋力", "耐久", "敏捷", "魔力", "幸運", "寶具"], out = {};
+  var ok = function (v) { return /^(E|D|C|B|A|EX)\+?$/.test(String(v || "").toUpperCase()); };
+  keys.forEach(function (k) { var v = o && o[k] ? String(o[k]).toUpperCase() : "C"; out[k] = ok(v) ? v : "C"; });
+  return out;
+}
+
 // 🆕 把 AI 生成的原創從者寫回英靈殿（重名則不收；御主不適用此機制）
-function recordOriginalHero_(name, cls, sex, sixJson, np, personaWords, align) {
+function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, traits, np, personaWords, align) {
   name = String(name || "").trim();
   if (!name) return;
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1736,7 +1767,9 @@ function recordOriginalHero_(name, cls, sex, sixJson, np, personaWords, align) {
     if (String(data[i][COL.HERO.NAME]).trim() === name) return; // 已有同名 → 不重複收錄
   }
   var persona = JSON.stringify({ words: String(personaWords || ""), firstP: "我", toMaster: "" });
-  hs.appendRow([name + "-" + cls, cls, name, sex || "異", sixJson || "{}", "[]", "[]", "[]", np || "", persona, align || "中立", "[]", "ai_gen"]);
+  hs.appendRow([name + "-" + cls, cls, name, sex || "異", sixJson || "{}",
+    JSON.stringify(classSkills || []), JSON.stringify(skills || []), JSON.stringify(traits || []),
+    np || "", persona, align || "中立", "[]", "ai_gen"]);
 }
 
 function actionSummonServant(userData, pcId, sheets) {
@@ -1830,34 +1863,40 @@ function actionSummonServant(userData, pcId, sheets) {
       row[COL.PC.INTENT] = svMoe;
       row[COL.PC.BACK] = svBack;
     } else {
-      // 🌀 名冊查無 → AI 即時生成（保留原行為）
+      // 🌀 名冊查無 → AI 即時生成「第一級從者」：含真實六圍階級＋帶 fx 的技能（吃得到標籤）
       cls = reqCls || "Saber";
       const sysOverride = `你是《命運停駐之夜》的英靈召喚核心。玩家御主召喚出一名「從者（Servant）」，職階為「${cls}」。${custDesc ? `這是玩家【自訂描述的原創英靈】，請依描述創作一位全新原創從者（可自取貼切真名），忠於描述的形象與氣質。` : (trueName ? `指定真名為「${trueName}」，請忠於該英靈的傳說與性格（可跨作品：動漫／遊戲／神話／歷史皆可）。` : "請挑選一位契合此職階、知名的歷史或傳說英靈。")}
 
-★【演出而非說明】個性與寶具只作設定底層，traits／personality 不要直接複述字面設定。
-★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
-- traits：外貌、氣質舉止、戰鬥／寶具傾向、私下不為人知的一面
-- personality：日常表象、真實內裡、喜歡的事、討厭的事
-★np：寶具名＋一句威能簡述。★npc_intent：一句【簡短】可愛反差萌點（≤15字）。★sex 從 男／女／異 擇一。
+★【六圍 six】依該英靈強弱給「筋力/耐久/敏捷/魔力/幸運/寶具」各一個階級，階級用 E,D,C,B,A,EX（強處可加 + 如 A+）；務必有強有弱、貼合傳說。
+★【技能帶 fx】classSkills(職階技能 1~2 個)＋skills(固有技能 2~3 個)，每個含 {"n":"技能名","r":"階級","fx":"效果碼"}。
+${FX_MENU_}
+★【特性 traits】1~3 個，{"n":"特性名"}（如 王/龍/人類/神性/巨人/猛獸；有神性者會被神殺剋）。
+★【演出而非說明】personality 與寶具只作底層，勿直接複述字面。personality 剛好 4 短句頓號分隔：日常表象、真實內裡、喜歡的事、討厭的事。
+★np：寶具名＋一句威能簡述。★npc_intent：一句【簡短】反差萌（≤15字）。★sex 從 男／女／異 擇一。
 
 ★【輸出】合法 JSON、禁 Markdown：
-{"realName":"英靈真名","sex":"女","np":"寶具名（簡述）","background":"限20字","traits":"四格頓號","personality":"四格頓號","npc_intent":"反差萌一句","align":"中立・善"}`;
+{"realName":"英靈真名","sex":"女","align":"中立・善","background":"限20字","npc_intent":"反差萌一句","personality":"四格頓號","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"classSkills":[{"n":"對魔力","r":"B","fx":"nullify_magic"}],"skills":[{"n":"直感","r":"A","fx":"first_strike"},{"n":"怪力","r":"B","fx":"str_up"}],"traits":[{"n":"人類"}]}`;
       const aiBrief = JSON.parse(callGeminiAPI(`【職階】：${cls}\n【御主】：${pcName}${trueName ? `\n【指定真名】：${trueName}` : ""}${custDesc ? `\n【玩家自訂描述】：${custDesc}` : ""}`, sysOverride, { temperature: custDesc ? 0.85 : 0.6, ignoreLaw: true }));
       realName = String(aiBrief.realName || trueName || (cls + "從者")).trim() || (cls + "從者");
       sex = aiBrief.sex || "異"; align = aiBrief.align || "中立"; np = aiBrief.np || "寶具（未顯現）";
-      const nStr = 45, nCon = 45, nAgi = 45, nInt = 40, nLuk = 35;
-      const maxStats = calculateMaxStats("凡人", nCon, nInt);
+      const aiSix = sanitizeSix_(aiBrief.six);
+      const aiCSkills = sanitizeSkills_(aiBrief.classSkills);
+      const aiSkills = sanitizeSkills_(aiBrief.skills);
+      const aiTraits = Array.isArray(aiBrief.traits) ? aiBrief.traits.filter(Boolean).slice(0, 4).map(t => ({ n: String((t && (t.n || t.名稱 || t.name)) || t).slice(0, 8) })) : [];
+      // 六圍 → 數值（與名冊路徑一致，svNum_ 橋接）
+      const nStr = svNum_(aiSix.筋力), nCon = svNum_(aiSix.耐久), nAgi = svNum_(aiSix.敏捷), nInt = svNum_(aiSix.魔力), nLuk = svNum_(aiSix.幸運);
+      const svHp = 300 + svNum_(aiSix.耐久) * 12, svMp = 120 + svNum_(aiSix.魔力) * 6;
       row[COL.PC.STR] = nStr; row[COL.PC.CON] = nCon; row[COL.PC.AGI] = nAgi; row[COL.PC.INT] = nInt; row[COL.PC.LUK] = nLuk;
-      row[COL.PC.HP] = 480; row[COL.PC.MP] = 200; row[COL.PC.MAX_HP] = 480; row[COL.PC.MAX_MP] = 200;
+      row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       row[COL.PC.REALM] = "凡人";
-      row[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.traits, "氣場凜然、舉止從容、精擅戰技、不為人知的一面");
+      row[COL.PC.TRAIT] = parseTraitsHelper(aiTraits.map(t => t.n).join("、"), "氣場凜然、舉止從容、精擅戰技、不為人知的一面");
       row[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "沉著表象、堅定內裡、珍視之物、厭惡之事");
       row[COL.PC.INTENT] = String(aiBrief.npc_intent || "").slice(0, 18);
-      row[COL.PC.SIX] = JSON.stringify({ 筋力: "C", 耐久: "C", 敏捷: "C", 魔力: "C", 幸運: "C", 寶具: "C" });
-      row[COL.PC.TAGS] = JSON.stringify({ skills: [], traits: [] });
+      row[COL.PC.SIX] = JSON.stringify(aiSix);
+      row[COL.PC.TAGS] = JSON.stringify({ skills: aiCSkills.concat(aiSkills), traits: aiTraits });
       row[COL.PC.BACK] = aiBrief.background || `${cls} 職階的英靈`;
-      // 🆕 不重名的原創從者 → 寫回英靈殿，日後可重用（御主不收）
-      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], np, aiBrief.personality, align); } catch (e) { }
+      // 🆕 不重名的原創從者 → 寫回英靈殿（含六圍/技能fx/特性），日後可重用（御主不收）
+      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], aiCSkills, aiSkills, aiTraits, np, aiBrief.personality, align); } catch (e) { }
     }
 
     row[COL.PC.ID] = newId;
