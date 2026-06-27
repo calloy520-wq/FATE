@@ -1995,9 +1995,9 @@ function renderRecentLocs(recents = null) {
   function useBagItem(id, name, type) { handleItemAction('consume', id, name, type); }
 
   // ⚔️ 令從者出擊／寶具解放（Fate 戰鬥：六圍＋fx＋寶具）
-  // 📊 視覺戰報：把 D20 擲骰、命中/迴避、傷害、發動標籤、反擊攤給玩家看（不再只有 AI 散文）
+  // 📊 多回合視覺戰報：一次出戰最多 3 回合「我攻→敵反擊」，逐回合攤開骰子/命中/傷害給玩家看。
   function renderFateBattleReport(r) {
-    if (!r) return;
+    if (!r || !r.rounds) return;
     const story = document.getElementById('story');
     const hpbar = (cur, max, col) => {
       if (!max) return '';
@@ -2005,33 +2005,36 @@ function renderRecentLocs(recents = null) {
       return '<div style="height:7px;background:#2a2330;border-radius:4px;overflow:hidden;margin-top:2px;"><div style="width:' + p + '%;height:100%;background:' + col + ';"></div></div>'
         + '<div style="font-size:9.5px;color:#8a7f9a;text-align:right;">' + cur + '/' + max + '</div>';
     };
-    const critTxt = { atk_crit: '🎯 大成功！', def_crit: '🛡️ 完美反制！', atk_fumble: '💢 大失敗', def_fumble: '😵 敵失手' }[r.crit] || '';
+    const critTxt = (c) => ({ atk_crit: '🎯', def_crit: '🛡️', atk_fumble: '💢', def_fumble: '😵' }[c] || '');
     let h = '<div style="border:1px solid rgba(212,175,55,0.35);border-radius:9px;padding:9px 11px;margin:6px 0;background:rgba(28,20,14,0.5);font-size:12px;">';
-    h += '<div style="color:#e7c873;font-weight:bold;margin-bottom:5px;">⚔️ ' + r.atk + (r.useSeal ? ' ❖令咒' : r.useNp ? ' 💥寶具' : '') + ' → ' + r.def + (critTxt ? '　<span style="color:#e0a86a;">' + critTxt + '</span>' : '') + '</div>';
-    if (r.intercept) h += '<div style="color:#c79be8;font-size:11px;margin-bottom:4px;">🛡️ 敵從者攔截護主——此擊改打從者</div>';
-    // 擲骰對拼
-    h += '<div style="display:flex;gap:8px;color:#bcd;font-size:11px;">'
-      + '<span>命中 <b style="color:#fff;">' + r.aHit + '</b> <span style="color:#888;">🎲' + r.aRoll + '</span></span>'
-      + '<span style="color:#888;">vs</span>'
-      + '<span>迴避 <b style="color:#fff;">' + r.dEva + '</b> <span style="color:#888;">🎲' + r.dRoll + '</span></span>'
-      + '<span style="margin-left:auto;color:' + (r.atkWins ? '#7ec87e' : '#e06a6a') + ';font-weight:bold;">' + (r.atkWins ? '命中！' : '被閃避，反遭打擊') + '</span></div>';
-    // 玩家這一擊
-    if (r.atkWins) {
-      h += '<div style="color:#e8c0a0;margin-top:5px;">💥 造成 <b style="color:#ffae6a;">' + r.damage + '</b> 傷害'
-        + (r.destroyed ? '　<span style="color:#d65c5c;font-weight:bold;">靈基崩潰·消滅！</span>' : (r.godRevived ? '　<span style="color:#d4af37;">十二試煉·自死亡歸來</span>' : (r.sealEscaped ? '　<span style="color:#c79be8;">敵令咒緊急脫離</span>' : '')))
-        + '</div>';
-      if (!r.destroyed && !r.sealEscaped) h += hpbar(r.defHp, r.defHpMax, '#d0473f');
-    } else {
-      h += '<div style="color:#e06a6a;margin-top:5px;">🩸 ' + r.atk + ' 受創 <b>' + r.selfDamage + '</b></div>';
-    }
-    // 發動標籤
-    if (r.fired && r.fired.length) h += '<div style="color:#9a8;font-size:10.5px;margin-top:4px;">〔發動〕' + r.fired.join('・') + '</div>';
-    // 對面反擊
-    if (r.counterHit) {
-      h += '<div style="color:#e06a6a;margin-top:5px;border-top:1px dashed rgba(214,92,92,0.3);padding-top:4px;">↩️ 「' + r.def + '」回擊，' + r.atk + ' 受創 <b>' + r.counterDmg + '</b></div>';
-      h += hpbar(r.atkHp, r.atkHpMax, '#d0473f');
-    }
-    h += '</div>';
+    h += '<div style="color:#e7c873;font-weight:bold;margin-bottom:5px;">⚔️ ' + r.atk + (r.useSeal ? ' ❖令咒' : r.useNp ? ' 💥寶具' : '') + ' ⚔ ' + r.def + '　<span style="color:#9a8;font-size:11px;font-weight:normal;">' + r.rounds.length + ' 回合交鋒</span></div>';
+    if (r.intercept) h += '<div style="color:#c79be8;font-size:11px;margin-bottom:4px;">🛡️ 敵從者攔截護主——攻擊改打從者</div>';
+    r.rounds.forEach(rd => {
+      h += '<div style="border-top:1px dashed rgba(212,175,55,0.18);margin-top:5px;padding-top:4px;">';
+      h += '<div style="color:#caa44a;font-size:10.5px;margin-bottom:2px;">第 ' + rd.n + ' 回合</div>';
+      // 我方一擊
+      h += '<div style="color:#bcd;font-size:11px;">▸ ' + r.atk + '：命中 <b style="color:#fff;">' + rd.pHitVal + '</b> 🎲' + rd.pRoll + ' vs 迴避 <b style="color:#fff;">' + rd.dEvaVal + '</b> 🎲' + rd.dRoll + ' ' + critTxt(rd.pCrit)
+        + '<span style="margin-left:6px;color:' + (rd.pHit ? '#7ec87e' : '#888') + ';font-weight:bold;">' + (rd.pHit ? '命中 −' + rd.pDmg : '揮空') + '</span></div>';
+      if (rd.pFired && rd.pFired.length) h += '<div style="color:#9a8;font-size:10px;">　〔發動〕' + rd.pFired.join('・') + '</div>';
+      if (rd.note) h += '<div style="color:#d4af37;font-size:10px;">　' + String(rd.note).replace(/\n/g, ' ') + '</div>';
+      // 敵方反擊
+      if (rd.eDmg || rd.eHit === true) {
+        h += '<div style="color:#e0a0a0;font-size:11px;">◂ ' + r.def + ' 回擊：' + (rd.eHit ? '命中 <b style="color:#e06a6a;">−' + rd.eDmg + '</b>' : '被擋') + '</div>';
+        if (rd.eFired && rd.eFired.length) h += '<div style="color:#9a8;font-size:10px;">　〔發動〕' + rd.eFired.join('・') + '</div>';
+      } else if (rd.eHit === false && rd.eRoll) {
+        h += '<div style="color:#7b9991;font-size:11px;">◂ ' + r.def + ' 反擊被擋下</div>';
+      }
+      h += '</div>';
+    });
+    // 結算：雙方血條 + 總傷
+    h += '<div style="border-top:1px solid rgba(212,175,55,0.25);margin-top:6px;padding-top:5px;">';
+    h += '<div style="color:#9aa6c8;font-size:10.5px;">本戰：我方造成 <b style="color:#ffae6a;">' + (r.totalDealt || 0) + '</b>　受創 <b style="color:#e06a6a;">' + (r.totalTaken || 0) + '</b></div>';
+    if (r.destroyed) h += '<div style="color:#d65c5c;font-weight:bold;margin-top:2px;">💀 「' + r.def + '」靈基崩潰·消滅！' + (r.victory ? '　🏆 聖杯已近！' : '') + '</div>';
+    else if (r.sealEscaped) h += '<div style="color:#c79be8;margin-top:2px;">❖ 敵令咒緊急脫離、遁走</div>';
+    else if (r.godRevived) h += '<div style="color:#d4af37;margin-top:2px;">✨ 十二試煉·自死亡歸來</div>';
+    if (!r.destroyed && !r.sealEscaped) { h += '<div style="color:#9a8bb0;font-size:10px;margin-top:3px;">敵 ' + r.def + '</div>'; h += hpbar(r.defHp, r.defHpMax, '#d0473f'); }
+    h += '<div style="color:#9a8bb0;font-size:10px;margin-top:2px;">我 ' + r.atk + '</div>' + hpbar(r.atkHp, r.atkHpMax, '#5cb85c');
+    h += '</div></div>';
     story.insertAdjacentHTML('beforeend', h);
     story.scrollTop = story.scrollHeight;
   }
