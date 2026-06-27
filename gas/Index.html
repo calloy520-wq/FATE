@@ -918,6 +918,34 @@
     </div>
   </div>
 
+  <!-- 🐯 老虎道場（敗北後）-->
+  <div id="tiger-dojo-overlay" style="display:none; position:fixed; inset:0; z-index:10001; background:rgba(10,6,16,0.94); align-items:center; justify-content:center; padding:20px;">
+    <div style="background:linear-gradient(160deg,#241a2e,#1a1420); border:1px solid #c66; border-radius:14px; max-width:460px; width:100%; padding:22px; text-align:center; box-shadow:0 10px 50px rgba(0,0,0,0.7);">
+      <div style="font-size:46px; line-height:1;">🐯</div>
+      <h2 style="color:#ff8a8a; margin:8px 0 4px;">老虎道場</h2>
+      <p style="color:#e7c873; font-size:14px; margin:4px 0 10px;">「哎呀呀～你的從者被打倒了呢！」</p>
+      <p style="color:#cfc3d8; font-size:13px; line-height:1.7; margin:0 0 16px;">
+        聖杯戰爭已然落幕，你的靈基化作了星塵。<br>
+        但別氣餒——藤村大河老師的特訓，能讓下一場聖杯戰爭走得更遠！<br>
+        <span style="color:#9a8fb0; font-size:12px;">（敗北的存檔已封存於戰史，可重啟新的一局。）</span>
+      </p>
+      <button onclick="dojoBackToMenu()" style="width:100%; padding:12px; background:#4a3a6a; color:#fff; border:none; border-radius:8px; font-size:15px; cursor:pointer; margin-bottom:8px;">返回選單 ／ 開新的一局</button>
+    </div>
+  </div>
+
+  <!-- 🏆 勝利（奪杯）-->
+  <div id="victory-overlay" style="display:none; position:fixed; inset:0; z-index:10001; background:rgba(8,6,2,0.92); align-items:center; justify-content:center; padding:20px;">
+    <div style="background:linear-gradient(160deg,#2a2410,#1d1808); border:1px solid #e7c873; border-radius:14px; max-width:460px; width:100%; padding:24px; text-align:center; box-shadow:0 10px 50px rgba(0,0,0,0.7);">
+      <div style="font-size:50px; line-height:1;">🏆</div>
+      <h2 style="color:#e7c873; margin:8px 0 6px;">聖杯，已是你的囊中之物</h2>
+      <p style="color:#cfc3d8; font-size:14px; line-height:1.7; margin:0 0 18px;">
+        所有敵對從者皆已殞落，冬木的夜不再有廝殺。<br>
+        願望之器，正靜靜等待你的祈願。
+      </p>
+      <button onclick="closeVictory(); dojoBackToMenu()" style="width:100%; padding:12px; background:#7a5a1a; color:#fff; border:none; border-radius:8px; font-size:15px; cursor:pointer;">銘記此役 ／ 返回選單</button>
+    </div>
+  </div>
+
   <?!= HtmlService.createHtmlOutputFromFile('Script').getContent(); ?>
 </body>
 

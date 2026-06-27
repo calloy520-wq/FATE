@@ -39,7 +39,9 @@ const COL = {
   MASTER: { ID: 0, NAME: 1, SEX: 2, APPEAR: 3, MAGIC: 4, CIRCUITS: 5, MELEE: 6, MAGIC_RANK: 7, HOME: 8, WISH: 9, PERSONA: 10, WAR: 11, SOURCE: 12 },
   CTAG: { FX: 0, NAME: 1, TYPE: 2, DESC: 3, MECH: 4 },
   // 帳號（存檔身分）：帳號名 → 目前御主角色ID、勝場
-  ACC: { NAME: 0, PC: 1, WON: 2, CREATED: 3 }
+  ACC: { NAME: 0, PC: 1, WON: 2, CREATED: 3 },
+  // 戰史：每局結果紀錄
+  HIST: { ACC: 0, RESULT: 1, SERVANT: 2, SUMMARY: 3, TIME: 4 }
 };
 
 // 🔵 Fate 六圍階級：E~EX 轉數值（戰鬥系統換 D20 後會用到；+ 視為 +5）

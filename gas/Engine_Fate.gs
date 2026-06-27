@@ -6,6 +6,19 @@
 // 階級倍率：以 C(30) 為 1.0 基準。E=0.33 D=0.67 C=1.0 B=1.33 A=1.67 EX=2.0；+ 各 +0.17
 function rankMul_(r) { return rankVal(r) / 30; }
 
+// 某 game_id 世界中仍存活的「敵從者」數（DEAD_ 開頭視為已消滅）
+function aliveEnemyServants_(sheets, gameId) {
+  var data = sheets.pc.getDataRange().getValues();
+  var n = 0;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.FACTION]) !== "敵從者") continue;
+    if (gameId && String(data[i][COL.PC.GAME_ID] || "") !== gameId) continue;
+    if (String(data[i][COL.PC.ID]).startsWith("DEAD_")) continue;
+    n++;
+  }
+  return n;
+}
+
 // 找某 fx，回傳其階級字串(或 'C')；查無回 null。技能與特性都找。
 function hasFx_(c, fx) {
   var all = (c.skills || []).concat(c.traits || []);

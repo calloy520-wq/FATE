@@ -3611,37 +3611,94 @@ function actionFateBattle(userData, pcId, sheets) {
 
   // 套用傷害：勝→守方受傷；負→從者受傷
   let knockedOut = [];
+  let victory = false, defeat = false, dreamPrompt = "", destroyedName = "";
   const dmgIdx = fb.atkWins ? nIdx : atkIdx;
   const dmgC = fb.atkWins ? defC : atkC;
+  const dmgFaction = String(pcData[dmgIdx][COL.PC.FACTION] || "");
   let hp = parseInt(pcData[dmgIdx][COL.PC.HP]) || 0;
   let after = hp - fb.damage;
   if (after <= 5 && hasFx_(dmgC, 'survive') && hp > 1) { after = 1; fb.fired.push(dmgC.name + '·戰鬥續行'); }
-  if (after <= 5) {
-    pcData[dmgIdx][COL.PC.HP] = 1;
-    pcData[dmgIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基受創", "姿勢": "單膝跪地", "負面": "靈基重創", "顏面": "咬牙強撐" });
-    if (fb.atkWins) knockedOut.push(pcData[nIdx][COL.PC.NAME]);
+  if (after <= 0) {
+    // 靈基崩潰＝徹底消滅（不可復原）
+    destroyedName = String(pcData[dmgIdx][COL.PC.NAME]);
+    pcData[dmgIdx][COL.PC.ID] = "DEAD_" + String(pcData[dmgIdx][COL.PC.ID]);
+    pcData[dmgIdx][COL.PC.HP] = 0;
+    pcData[dmgIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "靈基崩潰·消滅", "顏面": "已無生息" });
+    sheets.pc.getRange(dmgIdx + 1, 1, 1, pcData[dmgIdx].length).setValues([pcData[dmgIdx]]);
+
+    if (dmgFaction === "從者") {
+      // 玩家從者被消滅 → 敗北
+      defeat = true;
+      var wish = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
+      dreamPrompt = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wish, atkC.name);
+      var acctD = String(userData.acctName || "");
+      if (acctD) recordHistory_(acctD, "敗", atkC.name, `「${atkC.name}」靈基崩潰於「${defC.name}」之手，聖杯戰爭落敗。`);
+    } else {
+      // 敵對陣營被消滅
+      if (dmgFaction === "敵從者") {
+        knockedOut.push(destroyedName);
+        var remain = aliveEnemyServants_(sheets, myGameId);
+        if (remain <= 0) {
+          // 所有敵從者皆已消滅 → 勝利（其他御主存活無妨）
+          victory = true;
+          var acctW = String(userData.acctName || "");
+          if (acctW) {
+            incrementWin_(acctW);
+            recordHistory_(acctW, "勝", atkC.name, `「${atkC.name}」斬盡所有敵對從者，奪得聖杯。`);
+          }
+        }
+      } else {
+        knockedOut.push(destroyedName);
+      }
+    }
   } else {
     pcData[dmgIdx][COL.PC.HP] = after;
+    sheets.pc.getRange(dmgIdx + 1, 1, 1, pcData[dmgIdx].length).setValues([pcData[dmgIdx]]);
   }
-  sheets.pc.getRange(dmgIdx + 1, 1, 1, pcData[dmgIdx].length).setValues([pcData[dmgIdx]]);
 
   const resultMsg = fb.atkWins
-    ? `${atkC.name} 命中「${defC.name}」，造成 ${fb.damage} 點傷害！`
-    : `「${defC.name}」化解並反擊，${atkC.name} 受創 ${fb.damage}！`;
+    ? `${atkC.name} 命中「${defC.name}」，造成 ${fb.damage} 點傷害！${destroyedName && dmgFaction !== "從者" ? `「${defC.name}」靈基崩潰，徹底消滅！` : ""}`
+    : `「${defC.name}」化解並反擊，${atkC.name} 受創 ${fb.damage}！${destroyedName && dmgFaction === "從者" ? `${atkC.name} 靈基崩潰，化作光點消散……` : ""}`;
   const firedStr = fb.fired.length ? `\n〔技能／寶具發動〕${fb.fired.join('、')}` : "";
   const critMap = { atk_crit: `${fb.winner} 擲出大成功，一擊洞穿！`, def_crit: `${fb.winner} 擲出大成功，完美反制！`, atk_fumble: `${atkC.name} 擲出大失敗，露出破綻！`, def_fumble: `「${defC.name}」擲出大失敗！` };
 
-  const aiPrompt = `【系統戰報·已裁定，嚴禁更改勝負】御主號令從者『${atkC.name}』${useNp ? '解放寶具' : '出擊'}，迎戰「${defC.name}」。\n` +
-    `擲骰：${atkC.name} 命中 ${fb.aHit}（d20=${fb.aRoll}） vs 「${defC.name}」迴避 ${fb.dEva}（d20=${fb.dRoll}）。${fb.crit ? (critMap[fb.crit] || '') : ''}${firedStr}\n` +
-    `最終結果：${resultMsg}\n` +
-    `★請以 Fate／TYPE-MOON 筆觸生動描寫這場聖杯戰爭的廝殺，凸顯上面發動的技能／寶具威能與靈基壓迫感（演出而非複述標籤名）。勝負與傷害已由系統結算。\n` +
-    `★【鐵律】敗方最多重傷跪地，【絕對禁止】描寫死亡、消滅或屍體，生死由御主後續定奪。\n` +
-    `★【鐵律】嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
+  let aiPrompt;
+  if (defeat) {
+    // 敗北：不在此處演出（前端會先播虛假之夢→老虎道場），戰報僅作收場
+    aiPrompt = `【系統戰報·已裁定】御主號令從者『${atkC.name}』迎戰「${defC.name}」，然『${atkC.name}』靈基崩潰、化作光點消散。御主於聖杯戰爭中敗北。\n` +
+      `★以 Fate／TYPE-MOON 筆觸沉痛描寫從者消滅的瞬間（一段即可），語氣留白。勝負已由系統結算。\n` +
+      `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+  } else {
+    aiPrompt = `【系統戰報·已裁定，嚴禁更改勝負】御主號令從者『${atkC.name}』${useNp ? '解放寶具' : '出擊'}，迎戰「${defC.name}」。\n` +
+      `擲骰：${atkC.name} 命中 ${fb.aHit}（d20=${fb.aRoll}） vs 「${defC.name}」迴避 ${fb.dEva}（d20=${fb.dRoll}）。${fb.crit ? (critMap[fb.crit] || '') : ''}${firedStr}\n` +
+      `最終結果：${resultMsg}\n` +
+      `★請以 Fate／TYPE-MOON 筆觸生動描寫這場聖杯戰爭的廝殺，凸顯上面發動的技能／寶具威能與靈基壓迫感（演出而非複述標籤名）。勝負與傷害已由系統結算。\n` +
+      (destroyedName && dmgFaction !== "從者"
+        ? `★「${defC.name}」已靈基崩潰、徹底消滅，可描寫其消散；${victory ? '此乃最後一名敵對從者，聖杯已近。' : ''}\n`
+        : `★【鐵律】敗方最多重傷跪地，【絕對禁止】描寫死亡、消滅或屍體，生死由御主後續定奪。\n`) +
+      `★【鐵律】嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
+  }
 
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, knockedOut: knockedOut,
+    victory: victory, defeat: defeat, dreamPrompt: dreamPrompt,
     statusString: getFreshStatusString(pcId, pIdx, sheets), combatResult: fb
   });
+}
+
+// 從御主 MEMORY 取出【願望】內容（show-don't-tell：僅供生成虛假之夢，不直述）
+function extractWish_(memory) {
+  var m = String(memory || "").match(/【願望】([^【\n]+)/);
+  return m ? m[1].trim() : "";
+}
+
+// 建立「願望實現的虛假之夢」prompt（敗北安慰幻象，之後接老虎道場）
+function buildDreamPrompt_(pcName, wish, servantName) {
+  return `【虛假之夢·已裁定】御主『${pcName}』在聖杯戰爭中敗北，意識墜入聖杯泥所編織的甜美幻象。\n` +
+    `在這場夢裡，御主的最深願望彷彿已然實現——一切圓滿、溫柔而虛假。從者『${servantName}』也仿佛仍在身旁。\n` +
+    (wish ? `（願望核心參考，僅供你構築夢境氛圍，嚴禁逐字複述或直接點明）：${wish}\n` : "") +
+    `★以 Fate／TYPE-MOON 筆觸，第二人稱，寫一段唯美而令人心碎的虛假美夢：讓「演出」暗示願望成真的幸福感，絕不可直接說出願望內容或「這是假的」。結尾要微微露出破綻（過於完美的失真感）。\n` +
+    `★【鐵律】只輸出夢境敘事，嚴禁任何 stat_changes、items_gained、money_transferred、選項或系統字樣。`;
 }
 
 function actionAttackNpc(userData, pcId, sheets) {
