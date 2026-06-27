@@ -94,6 +94,7 @@
       </div>
       <div id="pane-map" class="game-pane">
         <div id="map-pane-content" style="padding:10px;"></div>
+        <div id="bag-5" style="padding:0 10px 12px;"></div>
       </div>
     </div>
     <div id="game-tabs">
@@ -103,14 +104,14 @@
     </div>
     <div id="action-drawer">
       <button class="drawer-item" data-mode="full" onclick="openCultivateMenu()"><i>🧘‍♂️</i><span>打坐修練</span></button>
-      <button class="drawer-item" onclick="triggerDrawerAction('inventory')"><i>🎒</i><span>翻找物品</span></button>
+      <button class="drawer-item" data-mode="full" onclick="triggerDrawerAction('inventory')"><i>🎒</i><span>翻找物品</span></button>
       <button class="drawer-item" data-mode="full" onclick="openCraftMenu()"><i>🔥</i><span>造物煉成</span></button>
       <button class="drawer-item" data-mode="full" onclick="openHomeMenu()"><i>🏡</i><span>我的據點</span></button>
       <button class="drawer-item" data-mode="full" onclick="openShopMenu()"><i>🏪</i><span>我的店</span></button>
       <button class="drawer-item" data-mode="full" onclick="openJianghuHubMenu()"><i>🍶</i><span>冬木夜話</span></button>
       <button class="drawer-item" data-mode="full" onclick="triggerDrawerAction('quest')"><i>📜</i><span>檢視天命</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('explore')"><i>🧭</i><span>探索冬木</span></button>
-      <button class="drawer-item" onclick="refreshAndOpenNpcList()"><i>👥</i><span>在場之人</span></button>
+      <button class="drawer-item" data-mode="full" onclick="refreshAndOpenNpcList()"><i>👥</i><span>在場之人</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('status')"><i>👤</i><span>查看狀態</span></button>
       <button class="drawer-item" data-mode="full" onclick="openFactionPanel()"><i>⛩️</i><span>陣營勢力</span></button>
       <button class="drawer-item" onclick="openEpicPanel()"><i>📖</i><span>個人史紀</span></button>
@@ -611,7 +612,7 @@
         </div>
       </div>
 
-      <div class="trait-box" style="margin-top:8px; background: rgba(139,90,43,0.05); border: 1px solid #8b5a2b;">
+      <div class="trait-box" data-mode="full" style="margin-top:8px; background: rgba(139,90,43,0.05); border: 1px solid #8b5a2b;">
         <span style="color: #8b5a2b;">—— 生活本事 ——</span>
         <div id="ui-lifeskill" style="font-size: 12px; line-height: 1.8; text-align:center; color:#332211; margin-top:4px;">--</div>
       </div>
