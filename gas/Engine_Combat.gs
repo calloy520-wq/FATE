@@ -289,6 +289,6 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
 
 function doGet() {
   return HtmlService.createTemplateFromFile('Index').evaluate()
-    .setTitle('九州江湖')
+    .setTitle('命運停駐之夜')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
 }
