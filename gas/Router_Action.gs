@@ -2122,26 +2122,13 @@ function actionMove(userData, pcId, sheets) {
     if (nIdx !== -1) allPcData[nIdx][COL.PC.LOC] = target;
   });
 
-  // ⏳ 時回：移動的 2 小時間，御主與同行從者隨時間自然小幅回復 HP/MP（有理有據——靈基與魔力會隨時間回流；
-  //   大幅恢復仍靠「休息」。便宜：只改記憶體裡那幾格，隨後與移動一起寫回，零額外讀寫，不會變慢。）
+  // ⏳ 時回：移動的 2 小時間，御主與同行從者隨時間自然回復（HP 固定、MP 看魔術迴路）。
+  //   大幅恢復靠「休息」（同一套規則 ×2）。便宜：只改記憶體那幾格，隨移動一起寫回，零額外讀寫，不會變慢。
   let regenNote = "";
   if (isFateMove) {
-    const partySet = {}; partySet[String(pcName)] = true;
-    relData.filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").forEach(r => { partySet[String(r[COL.REL.NPC])] = true; });
-    const hpF = 0.04 * 2, mpF = 0.05 * 2; // 每小時 +4% HP／+5% MP，移動推進 2 小時
-    let did = false;
-    allPcData.forEach((row, idx) => {
-      if (idx === 0) return;
-      if (String(row[COL.PC.GAME_ID] || "") !== moveGameId) return;
-      if (String(row[COL.PC.ID]).startsWith("DEAD_")) return;
-      if (!partySet[String(row[COL.PC.NAME])]) return;
-      const hpMax = parseInt(row[COL.PC.MAX_HP]) || 0, mpMax = parseInt(row[COL.PC.MAX_MP]) || 0;
-      const hp = parseInt(row[COL.PC.HP]) || 0, mp = parseInt(row[COL.PC.MP]) || 0;
-      const nhp = hpMax ? Math.min(hpMax, hp + Math.round(hpMax * hpF)) : hp;
-      const nmp = mpMax ? Math.min(mpMax, mp + Math.round(mpMax * mpF)) : mp;
-      if (nhp !== hp || nmp !== mp) { row[COL.PC.HP] = nhp; row[COL.PC.MP] = nmp; did = true; }
-    });
-    if (did) regenNote = "〔時回〕數小時的奔波之間，靈基與魔力悄然回流了一些。";
+    const partyNames = relData.filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]);
+    const did = applyRegen_(allPcData, moveGameId, pcName, partyNames, masterCircuits_(allPcData[pIdx]), 2, 1);
+    if (did) regenNote = "〔時回〕數小時的奔波之間，靈基與魔力隨時間悄然回流了一些。";
   }
 
   const pcColCount = Object.keys(COL.PC).length;
@@ -2220,27 +2207,26 @@ function actionRest(userData, pcId, sheets) {
   const pcName = pcData[pIdx][COL.PC.NAME];
   const pcLoc = String(pcData[pIdx][COL.PC.LOC] || "").trim();
 
-  // 🛏️ FATE 休息：玩家自選時數（1/3/6…），每小時補 2 AP；回血回魔按時數比例（6 小時≈全滿）
+  // 🛏️ FATE 休息：玩家自選時數（1/3/6…），每小時補 2 AP；回血回魔＝時回同一套規則 ×2（休息＝雙倍恢復）。
   if (isFateRest) {
     const restHours = Math.max(1, Math.min(12, parseInt(userData.restHours) || 6));
-    const frac = Math.min(1, restHours / 6);
-    let healedNames = [pcName];
-    const healRow = (idx) => {
-      const hpMax = parseInt(pcData[idx][COL.PC.MAX_HP]) || 100;
-      const mpMax = parseInt(pcData[idx][COL.PC.MAX_MP]) || 100;
-      pcData[idx][COL.PC.HP] = Math.min(hpMax, Math.round((parseInt(pcData[idx][COL.PC.HP]) || 0) + hpMax * frac));
-      pcData[idx][COL.PC.MP] = Math.min(mpMax, Math.round((parseInt(pcData[idx][COL.PC.MP]) || 0) + mpMax * frac));
-      if (frac >= 1) pcData[idx][COL.PC.STATUS] = normalStatus;
-    };
     const prevHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
-    const wasInjured = prevHp < (parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 0);
-    healRow(pIdx);
+    const hpMaxP = parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 0;
+    const wasInjured = prevHp < hpMaxP;
+    let healedNames = [pcName];
+    const partyNames = [];
     if (sheets.rel) {
       sheets.rel.getDataRange().getValues().filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]).forEach(npcName => {
         const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!restGameId || String(r[COL.PC.GAME_ID] || "") === restGameId));
-        if (nIdx !== -1 && parseInt(pcData[nIdx][COL.PC.HP]) > 0) { healRow(nIdx); healedNames.push(npcName); }
+        if (nIdx !== -1 && parseInt(pcData[nIdx][COL.PC.HP]) > 0) { partyNames.push(npcName); healedNames.push(npcName); }
       });
     }
+    // 時回 ×2：休息 restHours 小時的雙倍回復（HP 固定、MP 看御主魔術迴路）
+    applyRegen_(pcData, restGameId, pcName, partyNames, masterCircuits_(pcData[pIdx]), restHours, 2);
+    // 休滿（HP 回到上限）者重置體態為平穩
+    [pIdx].concat(partyNames.map(n => pcData.findIndex(r => r[COL.PC.NAME] === n && String(r[COL.PC.GAME_ID] || "") === restGameId && !String(r[COL.PC.ID]).startsWith("DEAD_")))).forEach(idx => {
+      if (idx >= 0 && (parseInt(pcData[idx][COL.PC.HP]) || 0) >= (parseInt(pcData[idx][COL.PC.MAX_HP]) || 0)) pcData[idx][COL.PC.STATUS] = normalStatus;
+    });
     sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
 
     let restClock = "", restRumors = [], apAfter = AP_PER_DAY;
@@ -2889,6 +2875,8 @@ ${isKanshou ? `
                     const svRow = pcData.find(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
                     if (svRow) svName = String(svRow[COL.PC.NAME] || "從者");
                     fateDreamPrompt = buildDreamPrompt_(pcName, wishTxt, svName);
+                    // 戰史：御主殞命＝敗北（在死亡當下記錄一次；殘局清理由下次登入處理）
+                    try { var acctDp = String(userData.acctName || "") || findAccountByPc_(pcId); if (acctDp) recordHistory_(acctDp, "敗", svName, "御主殞命，聖杯戰爭落敗。"); } catch (e) {}
                   } else {
                     // 九州舊版：血歸 0 送「小醫仙藥鋪」救回（FATE 不走此路）
                     const healLoc = "小醫仙藥鋪";

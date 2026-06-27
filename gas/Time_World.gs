@@ -82,6 +82,44 @@ function clockLabel_(gameId) {
 }
 
 
+// ⏳ 時回：每小時自然回復率。從者 HP 固定（靈基自我修復）；MP 隨「御主魔術迴路」浮動
+//   ——迴路越多，能源源導給從者的魔力越穩（呼應舊 Fate 的迴路設定）。circuits 約 10–90。
+function regenRatePerHour_(circuits) {
+  var c = parseInt(circuits) || 30;
+  return {
+    hp: 0.05,                               // 靈基自我修復：每小時 +5% 最大 HP
+    mp: 0.04 + Math.min(0.05, c / 2000)     // 補魔回流：每小時 +4% MP，再依魔術迴路最多 +5%
+  };
+}
+
+// 對「御主＋同行從者」施加 hours 小時的時回；mult＝倍率（移動 1、休息 2）。
+//   只改記憶體 data（由呼叫端負責寫回）；回傳實際是否有人回復。
+function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult) {
+  if (!gameId || !hours) return false;
+  var rate = regenRatePerHour_(circuits);
+  var hpF = rate.hp * hours * (mult || 1), mpF = rate.mp * hours * (mult || 1);
+  var party = {}; party[String(playerName)] = true;
+  (partyNames || []).forEach(function (n) { party[String(n)] = true; });
+  var did = false;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.GAME_ID] || "") !== gameId) continue;
+    if (String(data[i][COL.PC.ID]).startsWith("DEAD_")) continue;
+    if (!party[String(data[i][COL.PC.NAME])]) continue;
+    var hpMax = parseInt(data[i][COL.PC.MAX_HP]) || 0, mpMax = parseInt(data[i][COL.PC.MAX_MP]) || 0;
+    var hp = parseInt(data[i][COL.PC.HP]) || 0, mp = parseInt(data[i][COL.PC.MP]) || 0;
+    var nhp = hpMax ? Math.min(hpMax, hp + Math.round(hpMax * hpF)) : hp;
+    var nmp = mpMax ? Math.min(mpMax, mp + Math.round(mpMax * mpF)) : mp;
+    if (nhp !== hp || nmp !== mp) { data[i][COL.PC.HP] = nhp; data[i][COL.PC.MP] = nmp; did = true; }
+  }
+  return did;
+}
+
+// 從御主列的 MEMORY 取魔術迴路數（【迴路】N），無則預設 30。
+function masterCircuits_(masterRow) {
+  var m = String(masterRow && masterRow[COL.PC.MEMORY] || "").match(/【迴路】(\d+)/);
+  return m ? parseInt(m[1]) : 30;
+}
+
 // 🌐 世界自走一輪：敵移位（偵查失效）＋ 暗處從者陣亡（戰爭自走）
 //   rounds：跑幾輪；allowAttrition：是否允許「暗處廝殺/養不起爆炸」（僅休息時 true，移動只換位）
 //   回傳 { rumors:[..文字..], moved:n }

@@ -981,12 +981,12 @@ function renderRecentLocs(recents = null) {
   // 🛏️ 休息選單：玩家自選時數（每小時補 2 AP）
   function openRestMenu() {
     const opts = [
-      [1, '☕ 小憩 1 小時', '+2 行動力'],
-      [3, '🌙 歇息 3 小時', '+6 行動力・部分回血回魔'],
-      [6, '🛌 安睡 6 小時', '+12 行動力（補滿）・血魔近全滿'],
+      [1, '☕ 小憩 1 小時', '+2 行動力・少量回血回魔'],
+      [3, '🌙 歇息 3 小時', '+6 行動力・回血回魔（時回雙倍）'],
+      [6, '🛌 安睡 6 小時', '+12 行動力補滿・大幅回血回魔'],
     ];
     let html = '<h3 style="margin:0 0 6px;color:#a9a9d8;">🛏️ 休息多久？</h3>'
-      + '<p style="color:#9a8bb0;font-size:12px;margin:0 0 10px;">每休息 1 小時恢復 2 點行動力；休越久回血回魔越多，但世界也會推進更多。<br><span style="color:#8a9ac0;">〔時回〕移動的時間裡，靈基與魔力也會隨時間自然小幅回流——大幅恢復仍靠休息。</span></p>';
+      + '<p style="color:#9a8bb0;font-size:12px;margin:0 0 10px;">每休息 1 小時恢復 2 點行動力；休越久回血回魔越多，但世界也會推進更多。<br><span style="color:#8a9ac0;">〔時回〕HP 隨時間自然回復，MP 回復快慢看御主的魔術迴路；移動時也會小幅回流，休息則是雙倍。</span></p>';
     html += opts.map(function (o) {
       return '<button onclick="rest(' + o[0] + ')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px;background:rgba(120,120,160,0.14);color:#e8dcc0;border:1px solid #5a5a8a;border-radius:8px;cursor:pointer;">'
         + '<b style="color:#bcbce0;">' + o[1] + '</b>　<span style="font-size:12px;color:#9a8bb0;">' + o[2] + '</span></button>';
@@ -1998,6 +1998,8 @@ function renderRecentLocs(recents = null) {
         await new Promise(r => setTimeout(r, 2600));
       }
     } catch (e) {}
+    // 🔵 防呆：敗北即清掉本機續玩快取——就算玩家直接關網頁不按返回，下次也不會被丟回死局
+    try { localStorage.removeItem('kyushu_v27'); localStorage.removeItem('kyushu_story'); localStorage.removeItem('kyushu_last_status'); } catch (e) {}
     openTigerDojo();
   }
 
@@ -2029,6 +2031,8 @@ function renderRecentLocs(recents = null) {
         if (cbtn) cbtn.style.display = 'none';
         var mbtn = document.getElementById('victory-menu-btn');
         if (mbtn) mbtn.style.display = 'block';
+        // 🔵 防呆：奪杯後本局已封存清理，清掉本機續玩快取，避免下次殘留死局
+        try { localStorage.removeItem('kyushu_v27'); localStorage.removeItem('kyushu_story'); localStorage.removeItem('kyushu_last_status'); } catch (e) {}
       } else {
         if (cbtn) { cbtn.disabled = false; cbtn.innerText = '⚜️ 奪得聖杯 · 封存此役羈絆'; }
         alert((res && res.message) || '封存失敗，請再試一次。');
