@@ -185,7 +185,7 @@ function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
     var hPool = heroes.slice(1).filter(function (r) { return r[COL.HERO.ID] && String(r[COL.HERO.NAME]) !== playerServantName; });
     shuffle_(mPool); shuffle_(hPool);
     var locPool = shuffle_(['冬木·深山町', '遠坂宅', '間桐宅', '言峰教會', '柳洞寺', '冬木·新都', '穗群原學園', '冬木·商店街']);
-    var n = Math.min(6, mPool.length, hPool.length);
+    var n = Math.min(7, mPool.length, hPool.length);
     for (var k = 0; k < n; k++) {
       var loc = locPool[k % locPool.length];
       rows.push(masterToNpcRow_(mPool[k], gameId, loc, '敵御主'));

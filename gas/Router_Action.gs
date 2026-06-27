@@ -1724,6 +1724,21 @@ function actionGetMasters(userData, pcId, sheets) {
   return JSON.stringify({ success: true, masters: out });
 }
 
+// 🆕 把 AI 生成的原創從者寫回英靈殿（重名則不收；御主不適用此機制）
+function recordOriginalHero_(name, cls, sex, sixJson, np, personaWords, align) {
+  name = String(name || "").trim();
+  if (!name) return;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var hs = ss.getSheetByName("英靈殿");
+  if (!hs) return;
+  var data = hs.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.HERO.NAME]).trim() === name) return; // 已有同名 → 不重複收錄
+  }
+  var persona = JSON.stringify({ words: String(personaWords || ""), firstP: "我", toMaster: "" });
+  hs.appendRow([name + "-" + cls, cls, name, sex || "異", sixJson || "{}", "[]", "[]", "[]", np || "", persona, align || "中立", "[]", "ai_gen"]);
+}
+
 function actionSummonServant(userData, pcId, sheets) {
   const VALID_CLS = ["Saber", "Archer", "Lancer", "Rider", "Caster", "Assassin", "Berserker"];
   const reqCls = VALID_CLS.includes(userData.cls) ? userData.cls : "";
@@ -1841,6 +1856,8 @@ function actionSummonServant(userData, pcId, sheets) {
       row[COL.PC.SIX] = JSON.stringify({ 筋力: "C", 耐久: "C", 敏捷: "C", 魔力: "C", 幸運: "C", 寶具: "C" });
       row[COL.PC.TAGS] = JSON.stringify({ skills: [], traits: [] });
       row[COL.PC.BACK] = aiBrief.background || `${cls} 職階的英靈`;
+      // 🆕 不重名的原創從者 → 寫回英靈殿，日後可重用（御主不收）
+      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], np, aiBrief.personality, align); } catch (e) { }
     }
 
     row[COL.PC.ID] = newId;

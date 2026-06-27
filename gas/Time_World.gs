@@ -131,13 +131,33 @@ function worldTick_(sheets, gameId, playerLoc, rounds) {
     }
     var aliveTotal = offstage.length;
     var faraway = offstage.filter(function (o) { return o.loc !== String(playerLoc).trim(); });
-    if (aliveTotal >= 2 && faraway.length && Math.random() < 0.18) {
-      var victim = faraway[Math.floor(Math.random() * faraway.length)];
-      fresh[victim.idx][COL.PC.ID] = "DEAD_" + String(fresh[victim.idx][COL.PC.ID]);
-      fresh[victim.idx][COL.PC.HP] = 0;
-      fresh[victim.idx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "暗處殞落", "顏面": "已無生息" });
-      sheets.pc.getRange(victim.idx + 1, 1, 1, fresh[victim.idx].length).setValues([fresh[victim.idx]]);
-      rumors.push("〔風聞〕昨夜冬木某處傳出靈基崩潰的餘波——「" + victim.name + "」似乎已在他人手中殞落。");
+    // 計算各從者「維持費」(六圍 rank 總和)：越貴的英靈，弱御主越養不起、越容易供魔不繼而崩潰
+    faraway.forEach(function (o) {
+      var six = {}; try { six = JSON.parse(fresh[o.idx][COL.PC.SIX] || "{}"); } catch (e) { }
+      var sum = 0; ["筋力", "耐久", "敏捷", "魔力", "幸運", "寶具"].forEach(function (k) { sum += rankVal(six[k] || "C"); });
+      o.upkeep = sum; // 約 60(全E)~360(全EX)
+    });
+    if (aliveTotal >= 2 && faraway.length) {
+      // 養不起爆炸：挑「最貴」的那隻當高風險者；維持費越高、爆炸機率越高（最低 12%、最高 ~45%）
+      faraway.sort(function (a, b) { return b.upkeep - a.upkeep; });
+      var top = faraway[0];
+      var boom = Math.max(0.12, Math.min(0.45, (top.upkeep - 150) / 400)); // 150↓幾乎不爆，300+很容易爆
+      // 一般暗處廝殺（依維持費加權挑victim）＋ 養不起特判
+      var starve = (top.upkeep >= 200 && Math.random() < boom);
+      if (starve) {
+        fresh[top.idx][COL.PC.ID] = "DEAD_" + String(fresh[top.idx][COL.PC.ID]);
+        fresh[top.idx][COL.PC.HP] = 0;
+        fresh[top.idx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "供魔不繼·靈基崩潰", "顏面": "已無生息" });
+        sheets.pc.getRange(top.idx + 1, 1, 1, fresh[top.idx].length).setValues([fresh[top.idx]]);
+        rumors.push("〔風聞〕「" + top.name + "」的御主供魔不繼——龐大的靈基終究餵不飽，化作光點崩潰消散了。");
+      } else if (Math.random() < 0.15) {
+        var victim = faraway[Math.floor(Math.random() * faraway.length)];
+        fresh[victim.idx][COL.PC.ID] = "DEAD_" + String(fresh[victim.idx][COL.PC.ID]);
+        fresh[victim.idx][COL.PC.HP] = 0;
+        fresh[victim.idx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "暗處殞落", "顏面": "已無生息" });
+        sheets.pc.getRange(victim.idx + 1, 1, 1, fresh[victim.idx].length).setValues([fresh[victim.idx]]);
+        rumors.push("〔風聞〕昨夜冬木某處傳出靈基崩潰的餘波——「" + victim.name + "」似乎已在他人手中殞落。");
+      }
     }
   }
   return { rumors: rumors, moved: moved };
