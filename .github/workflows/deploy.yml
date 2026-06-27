@@ -14,10 +14,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'        # 與 clasp 相容的 Node 版本（雲端乾淨環境，不會有本機的連線問題）
+          node-version: '22'        # clasp 3.x 需要較新的 Node
 
       - name: Install clasp
-        run: npm install -g @google/clasp@2.4.2
+        run: npm install -g @google/clasp@3.3.0   # 與 Cloud Shell 同版 → 憑證格式相容
 
       - name: Write clasp credentials
         run: echo "$CLASPRC" > "$HOME/.clasprc.json"
