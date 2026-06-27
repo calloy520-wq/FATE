@@ -3816,7 +3816,22 @@ function actionFateBattle(userData, pcId, sheets) {
     }
   }
 
-  if (after <= 0 && !sealEscaped) {
+  // ⚡ 十二試煉(god_hand)：擁此寶具者(赫拉克勒斯)靈基崩解前自死亡歸來，耗一條命
+  let godRevived = false, godNote = "";
+  if (after <= 0 && !sealEscaped && hasFx_(dmgC, 'god_hand')) {
+    let lives = getGodHandLives_(pcData[dmgIdx][COL.PC.MEMORY]);
+    if (lives > 0) {
+      godRevived = true;
+      pcData[dmgIdx][COL.PC.HP] = parseInt(pcData[dmgIdx][COL.PC.MAX_HP]) || 480;
+      pcData[dmgIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[dmgIdx][COL.PC.MEMORY], lives - 1);
+      pcData[dmgIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "神性光輝纏身", "姿勢": "緩緩起身", "負面": `十二試煉·餘${lives - 1}命`, "顏面": "不滅的戰意" });
+      sheets.pc.getRange(dmgIdx + 1, 1, 1, pcData[dmgIdx].length).setValues([pcData[dmgIdx]]);
+      godNote = `「${pcData[dmgIdx][COL.PC.NAME]}」倒下了——卻又緩緩站起。十二試煉的詛咒讓他一次次自死亡歸來（尚餘 ${lives - 1} 條命）。`;
+      fb.fired.push(pcData[dmgIdx][COL.PC.NAME] + '·十二試煉(God Hand)');
+    }
+  }
+
+  if (after <= 0 && !sealEscaped && !godRevived) {
     // 靈基崩潰＝徹底消滅（不可復原）
     destroyedName = String(pcData[dmgIdx][COL.PC.NAME]);
     pcData[dmgIdx][COL.PC.ID] = "DEAD_" + String(pcData[dmgIdx][COL.PC.ID]);
@@ -3854,9 +3869,10 @@ function actionFateBattle(userData, pcId, sheets) {
     sheets.pc.getRange(dmgIdx + 1, 1, 1, pcData[dmgIdx].length).setValues([pcData[dmgIdx]]);
   }
 
-  const resultMsg = fb.atkWins
+  const resultMsg = (fb.atkWins
     ? `${atkC.name} 命中「${defC.name}」，造成 ${fb.damage} 點傷害！${sealEscaped ? sealNote : (destroyedName && dmgFaction !== "從者" ? `「${defC.name}」靈基崩潰，徹底消滅！` : "")}`
-    : `「${defC.name}」化解並反擊，${atkC.name} 受創 ${fb.damage}！${destroyedName && dmgFaction === "從者" ? `${atkC.name} 靈基崩潰，化作光點消散……` : ""}`;
+    : `「${defC.name}」化解並反擊，${atkC.name} 受創 ${fb.damage}！${destroyedName && dmgFaction === "從者" ? `${atkC.name} 靈基崩潰，化作光點消散……` : ""}`)
+    + (godRevived ? `　${godNote}` : "");
   const firedStr = fb.fired.length ? `\n〔技能／寶具發動〕${fb.fired.join('、')}` : "";
   const critMap = { atk_crit: `${fb.winner} 擲出大成功，一擊洞穿！`, def_crit: `${fb.winner} 擲出大成功，完美反制！`, atk_fumble: `${atkC.name} 擲出大失敗，露出破綻！`, def_fumble: `「${defC.name}」擲出大失敗！` };
 
@@ -3871,11 +3887,13 @@ function actionFateBattle(userData, pcId, sheets) {
       `擲骰：${atkC.name} 命中 ${fb.aHit}（d20=${fb.aRoll}） vs 「${defC.name}」迴避 ${fb.dEva}（d20=${fb.dRoll}）。${fb.crit ? (critMap[fb.crit] || '') : ''}${firedStr}\n` +
       `最終結果：${resultMsg}\n` +
       `★請以 Fate／TYPE-MOON 筆觸生動描寫這場聖杯戰爭的廝殺，凸顯上面發動的技能／寶具威能與靈基壓迫感（演出而非複述標籤名）。勝負與傷害已由系統結算。\n` +
-      (sealEscaped
-        ? `★【令咒介入】${sealNote}請演出對面御主令咒光芒爆閃、強行將重傷從者扯離戰場的瞬間，本回合【無人死亡】，敵已遁走、不在場。\n`
-        : (destroyedName && dmgFaction !== "從者"
-          ? `★「${defC.name}」已靈基崩潰、徹底消滅，可描寫其消散；${victory ? '此乃最後一名敵對從者，聖杯已近。' : ''}\n`
-          : `★【鐵律】敗方最多重傷跪地，【絕對禁止】描寫死亡、消滅或屍體，生死由御主後續定奪。\n`)) +
+      (godRevived
+        ? `★【十二試煉】${godNote}請演出他靈基崩解後又自死亡歸來、神性光輝重燃的不滅之姿，本回合【未死亡】。\n`
+        : (sealEscaped
+          ? `★【令咒介入】${sealNote}請演出對面御主令咒光芒爆閃、強行將重傷從者扯離戰場的瞬間，本回合【無人死亡】，敵已遁走、不在場。\n`
+          : (destroyedName && dmgFaction !== "從者"
+            ? `★「${defC.name}」已靈基崩潰、徹底消滅，可描寫其消散；${victory ? '此乃最後一名敵對從者，聖杯已近。' : ''}\n`
+            : `★【鐵律】敗方最多重傷跪地，【絕對禁止】描寫死亡、消滅或屍體，生死由御主後續定奪。\n`))) +
       `★【鐵律】嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
   }
 
@@ -3886,6 +3904,17 @@ function actionFateBattle(userData, pcId, sheets) {
     clock: isFateBattle ? clockLabel_(myGameId) : "", ap: battleAp, apMax: AP_PER_DAY,
     statusString: getFreshStatusString(pcId, pIdx, sheets), combatResult: fb
   });
+}
+
+// 十二試煉(God Hand) 剩餘命數（從者 MEMORY【試煉】N；無標記預設 11）
+function getGodHandLives_(memory) {
+  var m = String(memory || "").match(/【試煉】(\d+)/);
+  return m ? parseInt(m[1]) : 11;
+}
+function setGodHandLives_(memory, n) {
+  var s = String(memory || "");
+  if (/【試煉】\d+/.test(s)) return s.replace(/【試煉】\d+/, "【試煉】" + n);
+  return (s ? s + "｜" : "") + "【試煉】" + n;
 }
 
 // 玩家令咒餘量（存於御主 MEMORY 的【令咒】N 標記；舊角色無標記則視為 3）
