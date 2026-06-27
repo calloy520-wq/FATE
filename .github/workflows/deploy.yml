@@ -1,9 +1,10 @@
-name: Deploy to Google Apps Script
+name: Deploy FATE v2 to Apps Script
 
-# 每次 main 更新（或手動點 Run）就自動把 gas/ 推到 Apps Script
+# ⚠️ v2 分支專屬：部署到 v2 副本 Script（九州引擎×Fate）。
+# 與 main(現有 FATE 遊戲) 完全分離。絕對不要把 v2 合併進 main。
 on:
   push:
-    branches: [ main ]
+    branches: [ v2 ]
   workflow_dispatch:
 
 jobs:
@@ -11,31 +12,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'        # clasp 3.x 相容；Node 20 對 googleapis 連線較穩
-
-      - name: Install clasp
-        run: npm install -g @google/clasp@3.3.0   # 與 Cloud Shell 同版 → 憑證格式相容
-
+          node-version: '20'
+      - run: npm install -g @google/clasp@3.3.0
       - name: Write clasp credentials
-        run: echo "$CLASPRC" | base64 -d > "$HOME/.clasprc.json"   # secret 存的是 base64，解碼還原成原始 JSON（避免多行/特殊字元在複製貼上時損壞）
+        run: echo "$CLASPRC" | base64 -d > "$HOME/.clasprc.json"
         env:
-          CLASPRC: ${{ secrets.CLASPRC_JSON }}   # 一次性登入後 base64 編碼存進來的憑證
-
-      - name: Push & deploy
+          CLASPRC: ${{ secrets.CLASPRC_JSON }}
+      - name: Push to v2 Apps Script
         env:
-          NODE_OPTIONS: --dns-result-order=ipv4first   # 避免 IPv6 路徑造成的 Premature close
-          DEPLOY_ID: AKfycbx89Fw8ExSI7AIdhSd20DM37imEwpWMYRhDE_8-cGgN2vzcURTRqmLlVmk-BQLk0978Rw   # 既有網頁部署（/exec 網址不變，僅更新版本）
+          NODE_OPTIONS: --dns-result-order=ipv4first
         run: |
-          # clasp 連 googleapis 偶發 Premature close → 重試數次（多為首次連線即斷，重連即成）
-          retry() {
-            for i in 1 2 3 4 5; do
-              "$@" && return 0
-              echo "  ↳ attempt $i failed; retry in 5s..."; sleep 5
-            done
-            return 1
-          }
-          echo "── clasp push ──";   retry clasp push -f
-          echo "── clasp deploy ──"; retry clasp deploy --deploymentId "$DEPLOY_ID" --description "auto-deploy"
+          for i in 1 2 3 4 5; do
+            echo "── push attempt $i ──"
+            clasp push -f && exit 0
+            echo "attempt $i failed; retry in 5s..."; sleep 5
+          done
+          echo "all attempts failed"; exit 1
