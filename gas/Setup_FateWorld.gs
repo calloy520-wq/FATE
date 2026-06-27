@@ -14,6 +14,9 @@ var FATE_SHEET_DEFS = {
   "御主殿": ["御主ID","姓名","性別","外貌","魔術系統","魔術迴路","體術","魔術階位","居所","願望","人格","戰爭","來源"],
   "戰鬥標籤": ["fx碼","標籤名","類型","效果說明","機制數值"],
   "帳號": ["帳號名","角色ID","勝場","建立時間"],
+  "戰史": ["帳號名","結果","從者","摘要","時間"],
+  "鑑賞": ["帳號名","真名","職階","性別","六圍","標籤","寶具","生平","個性","萌點","羈絆回憶","願望結局","解鎖時間","御主名","御主性別"],
+  "時鐘": ["局號","日","時","行動點"],
   "因果":   ["時間", "對象", "內容", "地點", "標籤"],
   "琳琅":   ["名稱","類型","描述","價格","持有者","力","體","敏","慧","運","物品ID","所在"],
   "權柄":   ["名稱", "ID", "稱號", "居所", "裝飾"],
@@ -41,7 +44,10 @@ var FATE_MAP_SEED = [
   ["冬木", "柳洞寺",       "靈地", "5,6",   "未遠川源頭山上的古剎，靈脈匯聚，是絕佳據點，亦是兵家必爭之地。", ""],
   ["冬木", "言峰教會",     "祭壇", "1,5",   "山丘上的天主教堂，聖杯戰爭的監督者於此坐鎮，提供中立庇護。", ""],
   ["冬木", "遠坂宅",       "據點", "3,1",   "新都一隅的西式洋館，遠坂家宅邸，結界森嚴。", ""],
-  ["冬木", "間桐宅",       "據點", "-2,-1", "深山町外緣的陰森洋宅，地底蟲窟蔓延，令人作嘔。", ""]
+  ["冬木", "間桐宅",       "據點", "-2,-1", "深山町外緣的陰森洋宅，地底蟲窟蔓延，令人作嘔。", ""],
+  ["冬木", "冬木·中央公園", "約會", "2,-1",  "新都中心的大型公園，巨大噴泉在陽光下灑落水霧，情侶與孩童在草坪上嬉鬧。", ""],
+  ["冬木", "冬木·海濱大道", "約會", "4,-2",  "面海的濱海步道，夕陽把海面染成金紅，海風帶著鹹味與冰淇淋的甜。", ""],
+  ["冬木", "冬木·遊樂園",   "約會", "-1,-3", "燈火璀璨的遊樂園，摩天輪緩緩轉動，旋轉木馬與攤販笑語不絕。", ""]
 ];
 
 // 規矩種子：開局時局
@@ -68,9 +74,12 @@ var FATE_CTAG_SEED = [
   ["divine_age", "神代魔術", "固有技能", "神代體系，凌駕現代對魔力。", "使敵方對魔力半效"],
   ["wind_strike", "風王結界", "寶具", "不可視之風，隱藏真名與斬擊軌跡。", "隱真名、風斬一擊"],
   ["tsubame", "燕返", "寶具", "三連同時斬，幾乎無從迴避。", "敵迴避 -8、傷害 ×2.3"],
-  ["anti_magic_lance", "破魔紅薔薇", "寶具", "斬斷魔力與連結。", "消敵增益、破神核"],
-  ["god_hand", "十二試煉", "寶具", "不死之軀，多次復活。", "12 條命、復活留 40% HP"],
-  ["rule_breaker", "破戒全咒", "寶具", "斬斷一切契約。", "敵令咒歸 0、增益盡除"],
+  ["anti_magic_lance", "破魔紅薔薇", "寶具", "雙槍破魔，斬斷魔力與連結。", "無視神核護甲；致命時敵無法續行/復活/令咒脫離"],
+  ["god_hand", "十二試煉", "寶具", "不死之軀，多次自死亡歸來。", "復活約 11 次"],
+  ["rule_breaker", "破戒全咒", "寶具", "斬斷一切契約與救贖。", "致命一擊下，敵無法戰鬥續行/十二試煉復活/令咒脫離"],
+  ["clear_mind", "透化", "固有技能", "清澈靜穆之心，不受精神威壓。", "免疫敵方勇猛／卡里斯瑪加成"],
+  ["self_mod", "自我改造", "固有技能", "改造強化過的軀體。", "命中 +2、傷害 +3"],
+  ["tactics", "軍略", "固有技能", "用兵之才，臨陣指揮。", "寶具威力 +15%"],
   ["gae_bolg", "刺穿死棘之槍", "寶具", "逆轉因果的必中刺擊。", "必中"],
   ["excalibur", "誓約勝利之劍", "寶具", "對城寶具，光之斬擊。", "大範圍高傷"],
   ["ubw", "無限劍製", "寶具", "固有結界，劍之地平線。", "領域內全面壓制"],
@@ -137,8 +146,34 @@ function reseedIfEmpty_(ss) {
       if (String(data[i][COL.MAP.PARENT]).trim() === "冬木") { data[i][COL.MAP.PARENT] = ""; changed = true; }
     }
     if (changed) km.getRange(1, 1, data.length, data[0].length).setValues(data);
+    // 補上新增的約會地點（既有地圖不會被整批覆蓋，逐一檢查補入）
+    var existNames = {};
+    var d2 = km.getDataRange().getValues();
+    for (var j = 1; j < d2.length; j++) existNames[String(d2[j][COL.MAP.NAME]).trim()] = true;
+    var dateNodes = FATE_MAP_SEED.filter(function (row) { return String(row[2]) === "約會" && !existNames[String(row[1]).trim()]; });
+    if (dateNodes.length) {
+      km.getRange(km.getLastRow() + 1, 1, dateNodes.length, dateNodes[0].length).setValues(dateNodes);
+    }
   }
   try { CacheService.getScriptCache().remove("KYUSHU_MAP_DATA"); } catch (e) { }
+
+  // 🔧 既有英靈殿補丁：赫拉克勒斯的「十二試煉」過去只在 np 文字、缺 fx:god_hand → 補上技能
+  try {
+    var hs = ss.getSheetByName("英靈殿");
+    if (hs && hs.getLastRow() > 1) {
+      var hd = hs.getDataRange().getValues();
+      for (var h = 1; h < hd.length; h++) {
+        if (String(hd[h][COL.HERO.NAME]).indexOf("赫拉克勒斯") < 0) continue;
+        var sk = []; try { sk = JSON.parse(hd[h][COL.HERO.SKILLS] || "[]"); } catch (e) { sk = []; }
+        var has = sk.some(function (x) { return x && x.fx === "god_hand"; });
+        if (!has) {
+          sk.push({ n: "十二試煉", r: "A", fx: "god_hand" });
+          hs.getRange(h + 1, COL.HERO.SKILLS + 1).setValue(JSON.stringify(sk));
+        }
+        break;
+      }
+    }
+  } catch (e) { }
 }
 
 // 🔵 可從編輯器手動執行：回報建了哪些分頁

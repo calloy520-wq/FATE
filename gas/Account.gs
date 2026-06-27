@@ -88,12 +88,55 @@ function linkAccountToPc_(accountName, pcCharId) {
   }
 }
 
-// 勝利歷史（目前以帳號勝場 + 史紀摘要呈現）
+// 帳號勝場 +1
+function incrementWin_(accountName) {
+  var name = String(accountName || "").trim();
+  if (!name) return;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var acc = ss.getSheetByName("帳號");
+  if (!acc) return;
+  var found = findAccountRow_(acc, name);
+  if (found) {
+    var w = parseInt(found.row[COL.ACC.WON]) || 0;
+    acc.getRange(found.idx + 1, COL.ACC.WON + 1).setValue(w + 1);
+  }
+}
+
+// 寫入一筆戰史（勝/敗）
+function recordHistory_(accountName, result, servant, summary) {
+  var name = String(accountName || "").trim();
+  if (!name) return;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var his = ss.getSheetByName("戰史");
+  if (!his) return;
+  his.appendRow([name, String(result || ""), String(servant || ""), String(summary || ""), new Date()]);
+}
+
+// 勝利歷史（帳號勝場 + 戰史明細，新到舊）
 function actionGetVictoryHistory(userData, pcId, sheets) {
   var name = String(userData.acctName || "").trim();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var acc = ss.getSheetByName("帳號");
   var won = 0;
   if (acc) { var f = findAccountRow_(acc, name); if (f) won = parseInt(f.row[COL.ACC.WON]) || 0; }
-  return JSON.stringify({ success: true, won: won, records: [] });
+
+  var records = [];
+  var his = ss.getSheetByName("戰史");
+  if (his) {
+    var data = his.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][COL.HIST.ACC]).trim() !== name) continue;
+      var t = data[i][COL.HIST.TIME];
+      var ts = "";
+      try { ts = (t instanceof Date) ? Utilities.formatDate(t, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm") : String(t || ""); } catch (e) { ts = String(t || ""); }
+      records.push({
+        result: String(data[i][COL.HIST.RESULT] || ""),
+        servant: String(data[i][COL.HIST.SERVANT] || ""),
+        summary: String(data[i][COL.HIST.SUMMARY] || ""),
+        time: ts
+      });
+    }
+    records.reverse(); // 新到舊
+  }
+  return JSON.stringify({ success: true, won: won, records: records });
 }

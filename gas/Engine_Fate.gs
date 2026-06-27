@@ -6,6 +6,38 @@
 // 階級倍率：以 C(30) 為 1.0 基準。E=0.33 D=0.67 C=1.0 B=1.33 A=1.67 EX=2.0；+ 各 +0.17
 function rankMul_(r) { return rankVal(r) / 30; }
 
+// 令咒緊急脫離的落點：隨機挑一個非約會型的冬木地點（≠ 當前地）
+function enemyRetreatLoc_(currentLoc) {
+  try {
+    var km = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("坤圖");
+    if (!km || km.getLastRow() <= 1) return currentLoc;
+    var d = km.getDataRange().getValues();
+    var pool = [];
+    for (var i = 1; i < d.length; i++) {
+      var nm = String(d[i][COL.MAP.NAME]).trim();
+      var ty = String(d[i][COL.MAP.TYPE]).trim();
+      if (!nm || ty === "約會") continue;          // 約會景點不作為撤退落點
+      if (nm === String(currentLoc).trim()) continue;
+      pool.push(nm);
+    }
+    if (!pool.length) return currentLoc;
+    return pool[Math.floor(Math.random() * pool.length)];
+  } catch (e) { return currentLoc; }
+}
+
+// 某 game_id 世界中仍存活的「敵從者」數（DEAD_ 開頭視為已消滅）
+function aliveEnemyServants_(sheets, gameId) {
+  var data = sheets.pc.getDataRange().getValues();
+  var n = 0;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.FACTION]) !== "敵從者") continue;
+    if (gameId && String(data[i][COL.PC.GAME_ID] || "") !== gameId) continue;
+    if (String(data[i][COL.PC.ID]).startsWith("DEAD_")) continue;
+    n++;
+  }
+  return n;
+}
+
 // 找某 fx，回傳其階級字串(或 'C')；查無回 null。技能與特性都找。
 function hasFx_(c, fx) {
   var all = (c.skills || []).concat(c.traits || []);
@@ -53,11 +85,17 @@ function resolveFateBattle_(atk, def, opts) {
   var aHit = aRoll + rankVal(atk.six["敏捷"]) + outMod;
   var dEva = dRoll + rankVal(def.six["敏捷"]);
 
-  // 直感(first_strike)：攻守先機 +3×階級
-  var fsA = hasFx_(atk, 'first_strike'); if (fsA) { aHit += Math.round(3 * rankMul_(fsA)); fired.push(atk.name + '·直感'); }
-  var fsD = hasFx_(def, 'first_strike');
+  // 直感/心眼(first_strike/analyze)：攻守先機 +3×階級
+  var fsA = hasFx_(atk, 'first_strike') || hasFx_(atk, 'analyze'); if (fsA) { aHit += Math.round(3 * rankMul_(fsA)); fired.push(atk.name + (hasFx_(atk, 'analyze') ? '·心眼' : '·直感')); }
+  var fsD = hasFx_(def, 'first_strike') || hasFx_(def, 'analyze');
   if (hasFx_(atk, 'unreadable')) { fsD = null; fired.push(atk.name + '·宗和的心得(封先機)'); } // 使對方直感/心眼失效
-  if (fsD) { dEva += Math.round(3 * rankMul_(fsD)); fired.push(def.name + '·直感'); }
+  if (fsD) { dEva += Math.round(3 * rankMul_(fsD)); fired.push(def.name + (hasFx_(def, 'analyze') ? '·心眼' : '·直感')); }
+
+  // 狂化(mad)：六圍暴漲但理智低 → 命中／迴避 -3×階級（傷害加成在下方）
+  var madA = hasFx_(atk, 'mad'); if (madA) aHit -= Math.round(3 * rankMul_(madA));
+  var madD = hasFx_(def, 'mad'); if (madD) dEva -= Math.round(3 * rankMul_(madD));
+  // 自我改造(self_mod)：命中 +2
+  if (hasFx_(atk, 'self_mod')) { aHit += 2; fired.push(atk.name + '·自我改造'); }
 
   // 騎乘(ride) 機動 +2×階級
   var rideA = hasFx_(atk, 'ride'); if (rideA) aHit += Math.round(2 * rankMul_(rideA));
@@ -78,20 +116,46 @@ function resolveFateBattle_(atk, def, opts) {
   var base = rankVal(winner.six["筋力"]) + Math.round(Math.abs(aHit - dEva) * 1.2);
   var su = hasFx_(winner, 'str_up'); if (su) { base += Math.round(8 * rankMul_(su)); fired.push(winner.name + '·怪力'); }
   var burst = hasFx_(winner, 'burst'); if (burst) { base = Math.round(base * (1 + 0.2 * rankMul_(burst))); fired.push(winner.name + '·魔力放出'); }
-  var mor = hasFx_(winner, 'morale'); if (mor) base += Math.round(3 * rankMul_(mor));
+  // 勇猛/卡里斯瑪(morale)：傷害+；但對方「透化(clear_mind)」免疫此精神威壓
+  var mor = hasFx_(winner, 'morale'); if (mor && !hasFx_(loser, 'clear_mind')) { base += Math.round(3 * rankMul_(mor)); }
+  else if (mor && hasFx_(loser, 'clear_mind')) { fired.push(loser.name + '·透化(免威壓)'); }
+  // 自我改造(self_mod)：傷害 +3
+  if (hasFx_(winner, 'self_mod')) base += 3;
+  // 狂化(mad)：傷害暴漲
+  var madW = hasFx_(winner, 'mad'); if (madW) { base += Math.round(14 * rankMul_(madW)); fired.push(winner.name + '·狂化'); }
+  // 神代魔術(divine_age)：魔力傷害大增（下方對魔力減免也減半）
+  var da = hasFx_(winner, 'divine_age'); if (da) { base += Math.round(12 * rankMul_(da)); fired.push(winner.name + '·神代魔術'); }
+  // 風王鐵鎚(wind_strike)：不可視之劍追加
+  var ws = hasFx_(winner, 'wind_strike'); if (ws) { base += Math.round(6 * rankMul_(ws)); fired.push(winner.name + '·風王鐵鎚'); }
+  // 神殺：對「神性」特性追加 ×1.5
+  var godSlay = (winner.skills || []).concat(winner.traits || []).some(function (t) { return t && String(t.n).indexOf('神殺') >= 0; });
+  var loserDivine = (loser.traits || []).concat(loser.skills || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
+  if (godSlay && loserDivine) { base = Math.round(base * 1.5); fired.push(winner.name + '·神殺(剋神性)'); }
   if (atkWins && tsubame) base = Math.round(base * 2.3);
-  // 寶具解放：加寶具階級威能
-  if (opts.np) { base += Math.round(rankVal(winner.six["寶具"]) * 1.6) + 18; fired.push(winner.name + '·寶具解放'); }
+  // 寶具解放：加寶具階級威能（軍略 +15%、神性 +10%）
+  if (opts.np) {
+    base += Math.round(rankVal(winner.six["寶具"]) * 1.6) + 18; fired.push(winner.name + '·寶具解放');
+    if (hasFx_(winner, 'tactics')) { base = Math.round(base * 1.15); fired.push(winner.name + '·軍略'); }
+    var wDivine = (winner.traits || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
+    if (wDivine) base = Math.round(base * 1.1);
+  }
   // 令咒·絕對命令：全力一擊
   if (opts.seal) { base = Math.round(base * 1.5); fired.push('令咒·絕對命令'); }
 
   // 守方減傷：耐久（階級）
   base -= Math.round(rankVal(loser.six["耐久"]) / 2);
-  // 神核(divine_core)：減傷 18%×階級
-  var dc = hasFx_(loser, 'divine_core'); if (dc) { base = Math.round(base * (1 - 0.18 * rankMul_(dc))); fired.push(loser.name + '·神核'); }
-  // 對魔力(nullify_magic)：攻方為魔術系(Caster/魔力放出)時，減魔術傷 25%×階級
-  var atkMagic = (winner.cls === 'Caster') || !!hasFx_(winner, 'burst');
-  var nm = hasFx_(loser, 'nullify_magic'); if (atkMagic && nm) { base = Math.round(base * (1 - 0.25 * rankMul_(nm))); fired.push(loser.name + '·對魔力'); }
+  // 神核(divine_core)：減傷 18%×階級；但破魔薔薇(anti_magic_lance)無視神核護甲
+  var dc = hasFx_(loser, 'divine_core');
+  if (dc && hasFx_(winner, 'anti_magic_lance')) { fired.push(winner.name + '·破魔(無視神核)'); }
+  else if (dc) { base = Math.round(base * (1 - 0.18 * rankMul_(dc))); fired.push(loser.name + '·神核'); }
+  // 對魔力(nullify_magic)：攻方為魔術系(Caster/魔力放出/神代)時，減魔術傷 25%×階級；神代魔術使其減免折半
+  var atkMagic = (winner.cls === 'Caster') || !!hasFx_(winner, 'burst') || !!hasFx_(winner, 'divine_age');
+  var nm = hasFx_(loser, 'nullify_magic');
+  if (atkMagic && nm) {
+    var red = 0.25 * rankMul_(nm);
+    if (hasFx_(winner, 'divine_age')) red *= 0.5; // 神代魔術凌駕一般對魔力
+    base = Math.round(base * (1 - red)); fired.push(loser.name + '·對魔力');
+  }
 
   var damage = Math.max(1, base);
 

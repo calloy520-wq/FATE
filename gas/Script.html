@@ -35,6 +35,19 @@
     });
   }
 
+  // 🔒 全域動作鎖：任一動作進行中就擋掉連點與其他動作，等系統回應再放行
+  let __actionBusy = false;
+  function beginAction() {
+    if (__actionBusy) return false;
+    __actionBusy = true;
+    try { document.body.style.cursor = 'progress'; } catch (e) {}
+    return true;
+  }
+  function endAction() {
+    __actionBusy = false;
+    try { document.body.style.cursor = ''; } catch (e) {}
+  }
+
   // ==========================================
   // 全域變數狀態 (新增目標綁定器)
   // ==========================================
@@ -937,7 +950,90 @@ function renderRecentLocs(recents = null) {
     container.innerHTML = html;
   }
 
+  // ⏳ 時鐘 HUD（鑑賞模式不顯示戰爭時鐘）：第N日·時刻·時段 ⚡AP/12
+  function updateClock(label, ap, apMax) {
+    const hud = document.getElementById('clock-hud');
+    if (!hud) return;
+    if (label && !(pc && pc.mode === 'kanshou')) {
+      const icon = /深夜/.test(label) ? '🌌' : /夜/.test(label) ? '🌙' : /清晨/.test(label) ? '🌅' : /黃昏/.test(label) ? '🌆' : '☀️';
+      let apStr = '';
+      if (typeof ap === 'number' && apMax) {
+        const lit = '⚡'.repeat(Math.max(0, Math.min(apMax, ap)));
+        const dim = '·'.repeat(Math.max(0, apMax - ap));
+        apStr = `　行動 ${ap}/${apMax} <span style="letter-spacing:-1px;color:#caa44a;">${lit}</span><span style="letter-spacing:-1px;color:#5a4a2a;">${dim}</span>`;
+      }
+      hud.innerHTML = icon + ' ' + label + apStr;
+      hud.style.display = 'block';
+    } else {
+      hud.style.display = 'none';
+    }
+  }
+  // 把世界自走的風聞推進故事流
+  function showRumors(rumors) {
+    if (!rumors || !rumors.length) return;
+    const story = document.getElementById('story');
+    rumors.forEach(function (r) {
+      story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center; background:rgba(80,40,90,0.18); border:1px solid rgba(160,110,200,0.3); border-radius:8px; color:#c9a0d8; font-size:12.5px; text-align:center; padding:6px 10px;">${r}</div>`);
+    });
+    story.scrollTop = story.scrollHeight;
+  }
+
+  // 🛏️ 休息選單：玩家自選時數（每小時補 2 AP）
+  function openRestMenu() {
+    const opts = [
+      [1, '☕ 小憩 1 小時', '+2 行動力'],
+      [3, '🌙 歇息 3 小時', '+6 行動力・部分回血回魔'],
+      [6, '🛌 安睡 6 小時', '+12 行動力（補滿）・血魔近全滿'],
+    ];
+    let html = '<h3 style="margin:0 0 6px;color:#a9a9d8;">🛏️ 休息多久？</h3>'
+      + '<p style="color:#9a8bb0;font-size:12px;margin:0 0 10px;">每休息 1 小時恢復 2 點行動力；休越久回血回魔越多，但世界也會推進更多。</p>';
+    html += opts.map(function (o) {
+      return '<button onclick="rest(' + o[0] + ')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px;background:rgba(120,120,160,0.14);color:#e8dcc0;border:1px solid #5a5a8a;border-radius:8px;cursor:pointer;">'
+        + '<b style="color:#bcbce0;">' + o[1] + '</b>　<span style="font-size:12px;color:#9a8bb0;">' + o[2] + '</span></button>';
+    }).join('');
+    showHistoryOverlay(html);
+  }
+
+  // 🛏️ 休息 N 小時：補 2×N AP、回血回魔（按時數比例）、世界自走
+  async function rest(hours) {
+    if (!beginAction()) return;
+    var ov = document.getElementById('history-overlay');
+    if (ov) ov.style.display = 'none';
+    const story = document.getElementById('story');
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主一行就地休息 ${hours} 小時……</div>`);
+    story.scrollTop = story.scrollHeight;
+    try {
+      const data = await gasRun({ action: 'rest', pcId: pc.id, restHours: hours });
+      if (data && data.success) {
+        if (data.statusString) { localStorage.setItem('kyushu_last_status', data.statusString); updateUI(data.statusString.split('§')); }
+        updateClock(data.clock, data.ap, data.apMax);
+        story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【休息 ${hours} 小時】</b>${(data.healedNames||['你']).join('與')}恢復了氣力，行動力 ${data.ap}/${data.apMax}。${data.clock ? '（' + data.clock + '）' : ''}</div>`);
+        showRumors(data.rumors);
+        syncData(true);
+      } else { alert((data && data.message) || '休息失敗。'); }
+    } catch (e) { alert('連線失敗，休息未果。'); } finally { endAction(); }
+  }
+
+  // 🔍 偵查：耗 1 AP，揭露附近藏匿的敵人到地圖
+  async function scout() {
+    if (!beginAction()) return;
+    const story = document.getElementById('story');
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主凝神探查四周氣息……</div>`);
+    story.scrollTop = story.scrollHeight;
+    try {
+      const data = await gasRun({ action: 'scout', pcId: pc.id });
+      if (data && data.success) {
+        if (data.statusString) { localStorage.setItem('kyushu_last_status', data.statusString); updateUI(data.statusString.split('§')); }
+        updateClock(data.clock, data.ap, data.apMax);
+        story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#7fc7c7;font-size:12.5px;text-align:center;border:1px solid rgba(90,150,150,0.3);border-radius:8px;padding:6px 10px;">🔍 ${data.message || '偵查完成。'}</div>`);
+        renderMapPane();
+        syncData(true);
+      } else { alert((data && data.message) || '偵查失敗。'); }
+    } catch (e) { alert('連線失敗，偵查未果。'); } finally { endAction(); }
+  }
+
   async function travelTo(targetName, distance) {
+    if (!beginAction()) return;
     // 👇 把原本的 toggleExplore(); 刪掉，改成這行強制隱藏！
     document.getElementById('explore-overlay').style.display = 'none';
 
@@ -964,17 +1060,19 @@ function renderRecentLocs(recents = null) {
 
         // 3. 顯示結果
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【抵達 ${targetName}】：</b><br><span>${locDesc}</span></div>`);
-        
+        updateClock(data.clock, data.ap, data.apMax);
+        showRumors(data.rumors);
+
         // 4. 清理 loading 提示
         if (optContainer) optContainer.innerHTML = '';
         story.scrollTop = story.scrollHeight;
       } else {
         alert("天道阻礙：" + data.message);
       }
-    } catch(e) { 
-        console.error("移動時發生錯誤:", e); 
+    } catch(e) {
+        console.error("移動時發生錯誤:", e);
         if (optContainer) optContainer.innerHTML = '';
-    }
+    } finally { endAction(); }
   }
 
   function renderNpcList() {
@@ -1611,6 +1709,72 @@ function renderRecentLocs(recents = null) {
     b = parseInt(b) || 0;
     return b < 20 ? '戒備' : b < 40 ? '疏離' : b < 60 ? '漸信' : b < 80 ? '信賴' : '羈絆深厚';
   }
+
+  // 階級→數值（對齊後端 rankVal / rankMul：以 C=1.0 為基準）
+  function rankVal_(r) {
+    var base = { E: 10, D: 20, C: 30, B: 40, A: 50, EX: 60 };
+    r = String(r || 'C').toUpperCase();
+    var v = base[r.replace('+', '')] || 30;
+    if (r.indexOf('+') >= 0) v += 5;
+    return v;
+  }
+  // 🏷️ 標籤白話字典（依該技能「實際階級」算出具體數值，看得出分級差別）——點 pill 時顯示
+  const FX_DESC = {
+    nullify_magic: m => `對魔力：減免「魔術」傷害約 −${Math.round(25 * m)}%（敵為 Caster／魔力放出／神代時生效）；擋術不擋肉體。`,
+    ride: m => `騎乘：駕馭一切坐騎，命中 +${Math.round(2 * m)}。`,
+    first_strike: m => `直感：戰鬥第六感，先機——命中與迴避 +${Math.round(3 * m)}。`,
+    analyze: m => `心眼：洞察破綻，命中與迴避 +${Math.round(3 * m)}。`,
+    str_up: m => `怪力：膂力暴增，傷害 +${Math.round(8 * m)}。`,
+    burst: m => `魔力放出：魔力爆發，傷害 ×${(1 + 0.2 * m).toFixed(2)}。`,
+    morale: m => `勇猛／卡里斯瑪：傷害 +${Math.round(3 * m)}（敵「透化」可免疫）。`,
+    evade_ranged: m => `避矢加護：對 Archer 遠程的迴避 +${Math.round(6 * m)}。`,
+    divine_core: m => `神核：女神之軀，受傷 −${Math.round(18 * m)}%（破魔可無視）。`,
+    mad: m => `狂化：理智換力量——命中／迴避 −${Math.round(3 * m)}，但傷害 +${Math.round(14 * m)}。`,
+    divine_age: m => `神代魔術：魔力傷 +${Math.round(12 * m)}，且使敵「對魔力」半效。`,
+    wind_strike: m => `風王鐵鎚：不可視之風的斬擊，傷害 +${Math.round(6 * m)}。`,
+    unreadable: () => '宗和的心得：無欲無求，使敵方直感／心眼失效（敵無法靠預判加閃避）。',
+    stealth: () => '氣息遮斷：抹消氣息，開場奇襲命中 +3。',
+    tsubame: () => '秘劍・燕返：三方位同斬，敵迴避 −8，命中則傷害 ×2.3。',
+    gae_bolg: () => '刺穿死棘之槍：逆因果的必中刺擊——寶具解放時直接命中。',
+    survive: () => '戰鬥續行：受致命傷仍能硬撐一次（HP 留 1）；遭「破戒／破魔」則失效。',
+    clear_mind: () => '透化：清澈靜穆之心，免疫敵方勇猛／卡里斯瑪的精神威壓。',
+    self_mod: () => '自我改造：強化過的軀體，命中 +2、傷害 +3。',
+    tactics: () => '軍略：用兵之才，寶具威力 +15%。',
+    anti_magic_lance: () => '破魔紅薔薇：雙槍破魔，無視神核護甲；致命時敵無法續行／復活／令咒脫離。',
+    rule_breaker: () => '破戒全咒：斬斷契約與救贖——致命一擊下，敵無法戰鬥續行／十二試煉復活／令咒脫離。',
+    god_hand: () => '十二試煉：不死之軀，靈基崩解前自死亡歸來（約 11 次）。',
+    // 寶具名類：實際威力由「寶具解放」統一結算（依寶具階級＋軍略／神性加成）
+    excalibur: () => '誓約勝利之劍：對城寶具，光之斬擊——解放寶具時的最高物理傷。',
+    ubw: () => '無限劍製：固有結界，劍之地平線——解放寶具時的劍雨壓制（不受對魔力）。',
+    ea: () => '乖離劍・天地乖離開闢之星：對界寶具，斬裂世界的真理之劍——解放寶具時最高傷。',
+    gob: () => '王之財寶：投射寶具洪流——解放寶具時即時重創（物理，不受對魔力）。'
+  };
+  const TRAIT_DESC = {
+    '神性': '神之血脈／權能——寶具威力 +10%，但會被「神殺」類加成剋制（受傷 ×1.5）。',
+    '神格': '神之血脈——被「神殺」剋制。', '神靈': '神之存在——被「神殺」剋制。',
+    '王': '君臨者的氣度，多享卡里斯瑪／軍略類加成。',
+    '龍': '龍之血脈或屬性，常為剋制與被剋的關鍵。',
+    '人類': '凡人之軀，不受神殺等對種族特攻影響。',
+    '巨人': '龐然之軀，力大但易成目標。', '猛獸': '野性與本能，攻擊兇猛。'
+  };
+  function showSkillDesc(name, fx, rank) {
+    var desc;
+    if (fx === 'trait') {
+      desc = TRAIT_DESC[name] || '特性標記：影響剋制關係（如被神殺剋、享軍略加成等），多為戰鬥修正用。';
+    } else if (FX_DESC[fx]) {
+      var mul = rankVal_(rank) / 30; // 對齊後端 rankMul_
+      desc = FX_DESC[fx](mul, rank);
+    } else {
+      desc = '此技能主要為演出／劇情效果，戰鬥威力由「寶具解放」與基礎六圍涵蓋，目前無獨立數值。';
+    }
+    var rk = (rank && rank !== '-' && rank !== 'trait') ? ('　<span style="color:#e7c873;">階級 ' + rank + '</span>') : '';
+    var html = '<h3 style="margin:0 0 8px; color:' + (fx === 'trait' ? '#e08a8a' : '#e7c873') + ';">'
+      + (fx === 'trait' ? '🏷️ 特性' : '✨ 技能') + '：' + name + rk + '</h3>'
+      + '<div style="color:#cfc3d8; font-size:14px; line-height:1.9;">' + desc + '</div>'
+      + (fx !== 'trait' && FX_DESC[fx] && rank && rank !== '-' ? '<div style="color:#8a7fa0; font-size:11.5px; margin-top:8px;">※ 數值已依此技能的「階級 ' + rank + '」算出；階級越高效果越強。</div>' : '');
+    showHistoryOverlay(html);
+  }
+
   async function refreshFateTags() {
     if (!pc || !pc.id) return;
     try {
@@ -1630,9 +1794,13 @@ function renderRecentLocs(recents = null) {
       if (s) {
         var six = s.six || {};
         var sixLine = ['筋' + (six.筋力 || '?'), '耐' + (six.耐久 || '?'), '敏' + (six.敏捷 || '?'), '魔' + (six.魔力 || '?'), '運' + (six.幸運 || '?'), '寶' + (six.寶具 || '?')].join('　');
-        var pill = function (txt, col) { return '<span style="display:inline-block; font-size:10px; border:1px solid ' + col + '; color:' + col + '; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;">' + txt + '</span>'; };
-        var skillPills = (s.skills || []).map(function (sk) { return pill(sk.n + (sk.r ? (' ' + sk.r) : ''), '#d9a93a'); }).join('');
-        var traitPills = (s.traits || []).map(function (tr) { return pill(tr.n + (tr.r ? (' ' + tr.r) : ''), '#c0392b'); }).join('');
+        var pill = function (n, r, fx, col) {
+          var label = n + (r && r !== '-' ? (' ' + r) : '');
+          var arg = "'" + String(n).replace(/'/g, '') + "','" + String(fx || '').replace(/'/g, '') + "','" + String(r || '').replace(/'/g, '') + "'";
+          return '<span onclick="showSkillDesc(' + arg + ')" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid ' + col + '; color:' + col + '; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;">' + label + '</span>';
+        };
+        var skillPills = (s.skills || []).map(function (sk) { return pill(sk.n, sk.r, sk.fx, '#d9a93a'); }).join('');
+        var traitPills = (s.traits || []).map(function (tr) { return pill(tr.n, tr.r, 'trait', '#c0392b'); }).join('');
         sh = '<div style="background:rgba(20,14,28,0.55); border:1px solid #c0392b; border-radius:8px; padding:6px 8px;">'
           + '<div style="color:#c0392b; font-weight:bold; font-size:12px;">📿 從者・' + s.cls + '</div>'
           + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
@@ -1641,7 +1809,15 @@ function renderRecentLocs(recents = null) {
           + '<div style="color:#cdbbe6; font-size:11px; margin-top:3px; letter-spacing:.5px;">六圍　' + sixLine + '</div>'
           + (skillPills ? ('<div style="margin-top:3px;">' + skillPills + '</div>') : '')
           + (traitPills ? ('<div style="margin-top:1px;">' + traitPills + '</div>') : '')
+          + ((skillPills || traitPills) ? '<div style="color:#6a5f80; font-size:9.5px; margin-top:2px;">👆 點標籤看效果</div>' : '')
           + '<div style="color:#9a8bb0; font-size:11px; margin-top:5px;">寶具　' + s.np + '</div>'
+          + ((pc && pc.mode === 'kanshou') ? '' :
+              '<div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">'
+              + '<button onclick="manaSupply()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
+              + '<button onclick="openSealMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(176,108,208,0.16); color:#c79be8; border:1px solid #8a5fb0; border-radius:6px; cursor:pointer;">❖ 令咒 ' + '❖'.repeat(Math.max(0, m.seals || 0)) + '</button>'
+              + '<button onclick="scout()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(90,150,150,0.16); color:#7fc7c7; border:1px solid #4a8a8a; border-radius:6px; cursor:pointer;">🔍 偵查</button>'
+              + '<button onclick="openRestMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(120,120,160,0.16); color:#a9a9d8; border:1px solid #5a5a8a; border-radius:6px; cursor:pointer;">🛏️ 休息</button>'
+              + '</div>')
           + '</div>';
       } else {
         sh = card('#555', '📿 從者', '（尚未召喚）', ['以令咒召喚你的英靈']);
@@ -1726,15 +1902,210 @@ function renderRecentLocs(recents = null) {
   function useBagItem(id, name, type) { handleItemAction('consume', id, name, type); }
 
   // ⚔️ 令從者出擊／寶具解放（Fate 戰鬥：六圍＋fx＋寶具）
-  async function servantStrike(npcName, useNp) {
+  async function servantStrike(npcName, useNp, useSeal) {
+    if (!beginAction()) return;
     const story = document.getElementById('story');
-    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主令從者${useNp ? '解放寶具' : '出擊'}，目標「${npcName}」！</div>`);
+    const verb = useSeal ? '燃令咒・絕對命令，必中斬向' : (useNp ? '解放寶具，目標' : '出擊，目標');
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主令從者${verb}「${npcName}」！</div>`);
     story.scrollTop = story.scrollHeight;
     try {
-      const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, np: !!useNp });
-      if (res && res.success) { narrate(res.aiPrompt); syncData(true); }
+      const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, np: !!useNp, seal: !!useSeal, acctName: (pc && pc.account) || currentAccount });
+      if (res && res.success) {
+        narrate(res.aiPrompt);
+        syncData(true);
+        if (res.defeat) { await handleDefeat(res); }
+        else if (res.victory) { await handleVictory(res); }
+      }
       else { alert((res && res.message) || '出擊失敗。'); }
-    } catch (e) { alert('連線失敗，出擊未果。'); }
+    } catch (e) { alert('連線失敗，出擊未果。'); } finally { endAction(); }
+  }
+
+  // 💧 補魔：御主供魔給從者（回魔＋羈絆＋fade 演出）
+  async function manaSupply() {
+    if (!beginAction()) return;
+    const story = document.getElementById('story');
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主將魔力導入從者，行補魔之儀……</div>`);
+    story.scrollTop = story.scrollHeight;
+    try {
+      const res = await gasRun({ action: 'mana_supply', pcId: pc.id });
+      if (res && res.success) { updateClock(res.clock, res.ap, res.apMax); narrate(res.aiPrompt); syncData(true); }
+      else { alert((res && res.message) || '補魔失敗。'); }
+    } catch (e) { alert('連線失敗，補魔未果。'); } finally { endAction(); }
+  }
+
+  // ❖ 令咒選單（絕對命令需在戰鬥中對目標施放，這裡放自身向三招）
+  function openSealMenu() {
+    const opts = [
+      ['repair', '🩹 靈基修復', '從者氣血與魔力盡數回滿'],
+      ['mana', '⚡ 強制補魔', '魔力瞬間充盈到極限＋羈絆上升'],
+      ['escape', '🌀 緊急脫離', '與從者一同強行撤離險境'],
+    ];
+    let html = '<h3 style="margin:0 0 6px;color:#c79be8;">❖ 令咒・絕對命令</h3>'
+      + '<p style="color:#9a8bb0;font-size:12px;margin:0 0 10px;">每道令咒皆為一次性絕對命令權。<br>（「絕對命令・必中」請於戰鬥互動視窗對敵施放）</p>';
+    html += opts.map(function (o) {
+      return '<button onclick="useSeal(\'' + o[0] + '\')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px;background:rgba(176,108,208,0.12);color:#e8dcc0;border:1px solid #8a5fb0;border-radius:8px;cursor:pointer;">'
+        + '<b style="color:#c79be8;">' + o[1] + '</b><br><span style="font-size:12px;color:#9a8bb0;">' + o[2] + '</span></button>';
+    }).join('');
+    showHistoryOverlay(html);
+  }
+
+  async function useSeal(type) {
+    if (!beginAction()) return;
+    var ov = document.getElementById('history-overlay');
+    if (ov) ov.style.display = 'none';
+    const story = document.getElementById('story');
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主手背的令咒灼然亮起……</div>`);
+    story.scrollTop = story.scrollHeight;
+    try {
+      const res = await gasRun({ action: 'use_seal', pcId: pc.id, sealType: type });
+      if (res && res.success) { narrate(res.aiPrompt); syncData(true); }
+      else { alert((res && res.message) || '令咒未能發動。'); }
+    } catch (e) { alert('連線失敗，令咒未發動。'); } finally { endAction(); }
+  }
+
+  // 敗北：先播「願望實現的虛假之夢」，再進老虎道場
+  async function handleDefeat(res) {
+    try {
+      if (res.dreamPrompt) {
+        const story = document.getElementById('story');
+        story.insertAdjacentHTML('beforeend', `<div class="msg-player" style="align-self:center;color:#c9a0ff;font-size:13px;">（意識墜入聖杯泥編織的夢……）</div>`);
+        story.scrollTop = story.scrollHeight;
+        await new Promise(r => setTimeout(r, 600));
+        narrate(res.dreamPrompt);
+        await new Promise(r => setTimeout(r, 2600));
+      }
+    } catch (e) {}
+    openTigerDojo();
+  }
+
+  async function handleVictory(res) {
+    // 重置畫面：顯示奪杯按鈕、隱藏回憶與返回鈕
+    var memo = document.getElementById('victory-memoir');
+    if (memo) { memo.style.display = 'none'; memo.innerHTML = ''; }
+    var cbtn = document.getElementById('victory-claim-btn');
+    if (cbtn) { cbtn.style.display = 'block'; cbtn.disabled = false; cbtn.innerText = '⚜️ 奪得聖杯 · 封存此役羈絆'; }
+    var mbtn = document.getElementById('victory-menu-btn');
+    if (mbtn) mbtn.style.display = 'none';
+    const ov = document.getElementById('victory-overlay');
+    if (ov) ov.style.display = 'flex';
+  }
+
+  // 點「奪得聖杯」：後端 AI 總結這幾日羈絆 → 封存到鑑賞 → 清理本局
+  async function claimGrail() {
+    var cbtn = document.getElementById('victory-claim-btn');
+    if (cbtn) { cbtn.disabled = true; cbtn.innerText = '⏳ 正在將這段羈絆封入聖杯回憶……'; }
+    try {
+      const res = await gasRun({ action: 'claim_grail', pcId: pc.id, acctName: (pc && pc.account) || currentAccount });
+      var memo = document.getElementById('victory-memoir');
+      if (res && res.success) {
+        if (memo) {
+          memo.innerHTML = '<div style="color:#e7c873;font-weight:bold;margin-bottom:6px;">「' + (res.servantName || '從者') + '」· 後日談已封存</div>'
+            + (res.memoir || '').replace(/\n/g, '<br>');
+          memo.style.display = 'block';
+        }
+        if (cbtn) cbtn.style.display = 'none';
+        var mbtn = document.getElementById('victory-menu-btn');
+        if (mbtn) mbtn.style.display = 'block';
+      } else {
+        if (cbtn) { cbtn.disabled = false; cbtn.innerText = '⚜️ 奪得聖杯 · 封存此役羈絆'; }
+        alert((res && res.message) || '封存失敗，請再試一次。');
+      }
+    } catch (e) {
+      if (cbtn) { cbtn.disabled = false; cbtn.innerText = '⚜️ 奪得聖杯 · 封存此役羈絆'; }
+      alert('連線失敗，封存未果。');
+    }
+  }
+
+  // 🏆 鑑賞模式：列出已封存的從者，可呼出後日談對話
+  async function openGallery() {
+    try {
+      const res = await gasRun({ action: 'list_gallery', acctName: currentAccount });
+      const list = (res && res.servants) || [];
+      let body;
+      if (!list.length) {
+        body = '<div style="color:#888;padding:18px;text-align:center;line-height:1.8;">尚無封存的英靈。<br>於聖杯戰爭中奪得聖杯，與你並肩的從者便會留駐於此。</div>';
+      } else {
+        body = list.map(function (s, i) {
+          var sixStr = '';
+          if (s.six) { try { sixStr = Object.keys(s.six).map(function (k) { return k + s.six[k]; }).join(' '); } catch (e) {} }
+          return '<div style="border:1px solid rgba(231,200,115,0.25);border-radius:10px;padding:12px;margin-bottom:12px;background:rgba(255,255,255,0.02);">'
+            + '<div style="color:#e7c873;font-weight:bold;font-size:15px;">' + s.name + ' <span style="color:#9a7b4f;font-size:12px;">' + (s.cls || '') + '</span></div>'
+            + (s.back ? '<div style="color:#bbb;font-size:12px;margin-top:3px;">' + s.back + '</div>' : '')
+            + (sixStr ? '<div style="color:#8fa;font-size:11.5px;margin-top:4px;">' + sixStr + '</div>' : '')
+            + (s.np ? '<div style="color:#c9a0ff;font-size:12px;margin-top:4px;">寶具：' + s.np + '</div>' : '')
+            + (s.memoir ? '<div style="color:#cfc3aa;font-size:12.5px;line-height:1.8;margin-top:8px;border-top:1px solid rgba(255,255,255,0.06);padding-top:8px;">' + s.memoir.replace(/\n/g, '<br>') + '</div>' : '')
+            + '<button onclick="enterGallery(' + i + ')" style="margin-top:10px;width:100%;padding:11px;background:linear-gradient(90deg,#7a4a6a,#4a3a6a);color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:14px;font-weight:bold;">💕 與 ' + s.name + ' 約會（後日談）</button>'
+            + '</div>';
+        }).join('');
+      }
+      window._galleryList = list;
+      var html = '<h3 style="margin:0 0 10px;color:#e7c873;">🏆 英靈鑑賞</h3>'
+        + '<div style="max-height:58vh;overflow-y:auto;">' + body + '</div>';
+      showHistoryOverlay(html);
+    } catch (e) { alert('讀取鑑賞名冊失敗。'); }
+  }
+
+  // 進入鑑賞·後日談：在和平的 k_ 世界自由移動、約會閒聊（無戰鬥/敵人）
+  async function enterGallery(i) {
+    const list = window._galleryList || [];
+    const s = list[i];
+    if (!s) return;
+    if (!beginAction()) return;
+    try {
+      const res = await gasRun({ action: 'enter_gallery', acctName: currentAccount, servantName: s.name });
+      if (!res || !res.success) { alert((res && res.message) || '無法進入後日談。'); return; }
+      // 關閉名冊
+      var ov = document.getElementById('history-overlay');
+      if (ov) ov.style.display = 'none';
+      // 建立鑑賞視角的 pc（mode=kanshou：隱藏戰鬥相關 UI）
+      pc = { id: res.pcId, name: res.pcName, sex: res.pcSex, mode: 'kanshou', account: currentAccount, servant: s.name };
+      localStorage.setItem('kyushu_v27', JSON.stringify(pc));
+      // 進入遊戲畫面，送出和平開場
+      document.getElementById('setup').style.display = 'none';
+      document.getElementById('game').style.display = 'flex';
+      applyModeUI();
+      document.getElementById('ui-name').innerText = pc.name;
+      document.getElementById('ui-sex').innerText = pc.sex;
+      setupHistoryPrevention();
+      const story = document.getElementById('story');
+      story.innerHTML = '<div class="msg-ai"><b>【後日談】</b>' + (res.message || '聖杯戰爭已落幕，這是屬於你們兩人的和平時光。') + '</div>';
+      refreshFateTags();
+      renderMapPane();
+      syncData(true);
+      send('（這是聖杯戰爭結束後的和平後日談，沒有敵人也沒有戰鬥。）御主想與身邊的從者「' + s.name + '」一起，在冬木悠閒地展開這個午後。請描寫此刻深山町坡道的陽光與氛圍，聚焦兩人之間鬆弛而溫柔的相處，留下讓御主想開口的契機。★禁止任何戰鬥／敵人／血量變化。★禁止複述設定字面。', true);
+    } catch (e) { alert('連線失敗，無法進入後日談。'); } finally { endAction(); }
+  }
+
+  function openTigerDojo() {
+    const ov = document.getElementById('tiger-dojo-overlay');
+    if (ov) ov.style.display = 'flex';
+  }
+  function closeTigerDojo() {
+    const ov = document.getElementById('tiger-dojo-overlay');
+    if (ov) ov.style.display = 'none';
+  }
+  function closeVictory() {
+    const ov = document.getElementById('victory-overlay');
+    if (ov) ov.style.display = 'none';
+  }
+  // 老虎道場後：返回帳號選單（保留帳號，回到選單可開新局）
+  async function dojoBackToMenu() {
+    closeTigerDojo(); closeVictory();
+    try { document.getElementById('game').style.display = 'none'; } catch (e) {}
+    try { document.getElementById('setup').style.display = 'block'; } catch (e) {}
+    // 以現有帳號重新整理選單狀態（敗北後從者已消滅，hasGame 會反映）
+    try {
+      var nm = currentAccount || (localStorage.getItem('fate_account') || '');
+      if (nm) {
+        var inp = document.getElementById('in-account');
+        if (inp) inp.value = nm;
+        await accountLogin();
+      } else {
+        document.getElementById('step-account').style.display = 'block';
+      }
+    } catch (e) {
+      location.reload();
+    }
   }
   function travelFromPane(name) {
     try { travelTo(name, 0); } catch (e) { }
@@ -1764,6 +2135,7 @@ function renderRecentLocs(recents = null) {
       
       localNPCs = data.people || [];
       nearbyLocations = data.locations || [];
+      updateClock(data.clock, data.ap, data.apMax);
       refreshFateTags();
       renderMapPane();
 
@@ -1963,7 +2335,63 @@ async function newGameFlow() {
     } catch (e) { alert('清檔失敗，連線受阻。'); return; }
   }
   document.getElementById('scr-menu').style.display = 'none';
-  document.getElementById('step-name').style.display = 'block';
+  document.getElementById('scr-warmode').style.display = 'block';
+}
+
+// 📜正史 / 🎲混亂 → 戰爭 → 扮演方式 → 創角
+var warMode = 'canon';
+var currentWar = '5th';
+var playedMaster = '';
+function showOnly_(id) {
+  ['scr-warmode', 'scr-war', 'scr-role', 'scr-master', 'step-name', 'step-detail'].forEach(function (s) {
+    var el = document.getElementById(s); if (el) el.style.display = (s === id) ? 'block' : 'none';
+  });
+}
+function chooseWarMode(m) {
+  warMode = (m === 'chaos') ? 'chaos' : 'canon';
+  playedMaster = '';
+  if (warMode === 'chaos') { currentWar = 'chaos'; showOnly_('step-name'); }
+  else { showOnly_('scr-war'); }
+}
+function chooseWar(w) {
+  currentWar = w;
+  playedMaster = '';
+  if (w === 'fake') { showOnly_('step-name'); }   // 偽聖杯無正典御主 → 只能自創
+  else { showOnly_('scr-role'); }
+}
+function chooseRole(r) {
+  if (r === 'original') { playedMaster = ''; showOnly_('step-name'); return; }
+  loadCanonMasters();
+}
+async function loadCanonMasters() {
+  try {
+    var res = await gasRun({ action: 'get_masters', war: currentWar });
+    var list = (res && res.masters) || [];
+    window._canonMasters = list;
+    var box = document.getElementById('master-pick-list');
+    box.innerHTML = list.map(function (m, i) {
+      return '<button class="btn" style="width:100%; text-align:left; margin-bottom:6px; border-color:#d4af37; color:#e8dcc0; padding:9px 10px;" onclick="pickCanonMaster(' + i + ')">'
+        + '<b>' + m.name + '</b> <small style="color:#9a7b4f;">（正典從者：' + (m.servant || '').replace(/-.*$/, '') + '）</small>'
+        + (m.wish ? '<br><small style="color:#9a8bb0;">願望：' + m.wish + '</small>' : '') + '</button>';
+    }).join('') || '<p style="color:#816e54; text-align:center; padding:14px 0;">查無正典御主資料。</p>';
+    showOnly_('scr-master');
+  } catch (e) { alert('讀取正典御主失敗。'); }
+}
+function pickCanonMaster(i) {
+  var m = (window._canonMasters || [])[i];
+  if (!m) return;
+  playedMaster = m.id;
+  // 帶入正典預設（皆可改）
+  var nm = document.getElementById('s-name'); if (nm) nm.value = m.name;
+  var sx = document.getElementById('s-sex'); if (sx && ['男', '女', '異'].indexOf(m.sex) >= 0) sx.value = m.sex;
+  var ap = document.getElementById('s-appear'); if (ap) ap.value = m.appear || '';
+  var wi = document.getElementById('s-wish'); if (wi) wi.value = m.wish || '';
+  // 正典魔術帶進命運（circuits/melee 給合理預設，仍可重新測定覆蓋）
+  masterRolls = [{ circuits: 40, magic: m.magic || '魔術', origin: '正典魔術師', melee: 'D' }];
+  masterRoll = masterRolls[0];
+  if (typeof renderFateRolls === 'function') renderFateRolls();
+  // 扮演者名字可能含「·」等符號，跳過 checkName，直接進細節步驟
+  showOnly_('step-detail');
 }
 
 function logoutAccount() { localStorage.clear(); location.reload(); }
@@ -1972,8 +2400,40 @@ async function showVictoryHistory() {
   try {
     var res = await gasRun({ action: 'get_victory_history', acctName: currentAccount });
     var won = (res && res.won) || 0;
-    alert('📜 勝利歷史\n\n奪取聖杯：' + won + ' 次\n（詳細戰記建置中）');
+    var recs = (res && res.records) || [];
+    var body = recs.length
+      ? recs.map(function (r) {
+          var icon = r.result === '勝' ? '🏆' : '💀';
+          var color = r.result === '勝' ? '#e7c873' : '#b97;';
+          return '<div style="padding:8px 4px;border-bottom:1px solid rgba(255,255,255,0.08);">'
+            + '<span style="font-size:16px;">' + icon + '</span> '
+            + '<b style="color:' + color + '">' + (r.result || '') + '</b>'
+            + ' · 從者「' + (r.servant || '？') + '」'
+            + '<br><span style="color:#bbb;font-size:13px;">' + (r.summary || '') + '</span>'
+            + '<br><span style="color:#777;font-size:11px;">' + (r.time || '') + '</span></div>';
+        }).join('')
+      : '<div style="color:#888;padding:12px;text-align:center;">尚無戰史，征戰冬木以留名。</div>';
+    var html = '<h3 style="margin:0 0 8px;color:#e7c873;">📜 聖杯戰記</h3>'
+      + '<div style="margin-bottom:8px;color:#ccc;">奪取聖杯：<b style="color:#e7c873;">' + won + '</b> 次</div>'
+      + '<div style="max-height:50vh;overflow-y:auto;">' + body + '</div>';
+    showHistoryOverlay(html);
   } catch (e) { alert('讀取失敗。'); }
+}
+
+function showHistoryOverlay(html) {
+  var ov = document.getElementById('history-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'history-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;padding:18px;';
+    ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:480px;width:100%;padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);">'
+      + '<div id="history-body"></div>'
+      + '<button onclick="document.getElementById(\'history-overlay\').style.display=\'none\'" style="margin-top:12px;width:100%;padding:10px;background:#4a3a6a;color:#fff;border:none;border-radius:8px;cursor:pointer;">關閉</button>'
+      + '</div>';
+    document.body.appendChild(ov);
+  }
+  document.getElementById('history-body').innerHTML = html;
+  ov.style.display = 'flex';
 }
 
 // 🔵 依模式開關功能：單人(solo)隱藏武俠日常系統；多人(full)全開
@@ -1987,20 +2447,34 @@ function applyModeUI() {
 // 🔵 御主命運測定（魔術天賦），最多 3 次
 const FATE_MAGICS_ = ['強化（近戰加成）', '投影／固有結界', '寶石魔術', '符文魔術', '鍊金術', '起源彈', '風魔術', '使魔操縱', '咒術／降靈', '禮裝製作'];
 const FATE_ORIGINS_ = ['自學成才的新興魔術師', '沒落名門的末裔', '名門魔術師世家', '異鄉來的旅人', '教會代行者出身', '被捲入的普通人', '魔術協會的研究者', '繼承詛咒血脈', '時鐘塔的留學生', '隱世魔術師的弟子'];
-let masterRoll = null;
-let masterRollCount = 0;
+let masterRolls = [];   // 最多 3 次測定結果，供玩家挑選
+let masterRoll = null;  // 玩家選中接受的那一個
 function rollFate() {
-  if (masterRollCount >= 3) { alert('命運最多測定 3 次，請從中選擇接受。'); return; }
-  masterRollCount++;
+  if (masterRolls.length >= 3) { alert('命運最多測定 3 次了，請從下方點選一個結果接受。'); return; }
   const r = (Math.random() + Math.random()) / 2;
   const circuits = Math.max(12, Math.min(50, Math.round(15 + r * 35)));
   const magic = FATE_MAGICS_[Math.floor(Math.random() * FATE_MAGICS_.length)];
   const origin = FATE_ORIGINS_[Math.floor(Math.random() * FATE_ORIGINS_.length)];
   const mr = Math.random();
   const melee = mr < 0.5 ? 'E' : mr < 0.8 ? 'D' : mr < 0.95 ? 'C' : 'B';
-  masterRoll = { circuits: circuits, magic: magic, origin: origin, melee: melee };
+  masterRolls.push({ circuits: circuits, magic: magic, origin: origin, melee: melee });
+  masterRoll = masterRolls[masterRolls.length - 1]; // 預設選最新一筆
+  renderFateRolls();
+}
+function selectFateRoll(i) {
+  if (masterRolls[i]) { masterRoll = masterRolls[i]; renderFateRolls(); }
+}
+function renderFateRolls() {
   var box = document.getElementById('fate-roll-box');
-  if (box) box.innerHTML = '魔術迴路 <b style="color:#e7c873;">' + circuits + '</b>　體術 <b style="color:#e7c873;">' + melee + '</b><br>魔術系統：<b>' + magic + '</b><br>出身：<b>' + origin + '</b><br><small style="color:#888;">已測定 ' + masterRollCount + '/3 次</small>';
+  if (!box) return;
+  if (!masterRolls.length) { box.innerHTML = '尚未測定 —— 可測定 3 次，從中選一個接受'; return; }
+  var cards = masterRolls.map(function (roll, i) {
+    var sel = (roll === masterRoll);
+    return '<div onclick="selectFateRoll(' + i + ')" style="cursor:pointer; border:1px solid ' + (sel ? '#e7c873' : '#5a4a2a') + '; background:' + (sel ? 'rgba(231,200,115,0.12)' : 'transparent') + '; border-radius:6px; padding:6px 8px; margin-bottom:6px; text-align:left;">'
+      + (sel ? '✅ ' : '⚪ ') + '<b style="color:' + (sel ? '#e7c873' : '#bbb') + ';">測定 ' + (i + 1) + '</b>　迴路 <b style="color:#e7c873;">' + roll.circuits + '</b>　體術 <b style="color:#e7c873;">' + roll.melee + '</b>'
+      + '<br><span style="font-size:11px; color:#bbb;">' + roll.magic + '｜' + roll.origin + '</span></div>';
+  }).join('');
+  box.innerHTML = cards + '<div style="font-size:11px; color:#888; text-align:center;">點選一個結果接受（已測 ' + masterRolls.length + '/3）</div>';
 }
 
 async function checkName(event) {
@@ -2048,6 +2522,7 @@ async function checkName(event) {
 
   try {
     const data = await gasRun({ action: "create", name, sex, appearance, standing, wish, account: currentAccount,
+      warMode: warMode, war: currentWar, playedMaster: playedMaster,
       magic: roll.magic || "", circuits: roll.circuits || "", origin: roll.origin || "", melee: roll.melee || "" });
     if (data.success) {
       // 🔴 新角色一律清空所有舊暫存
@@ -2090,14 +2565,15 @@ function selectSummonClass(cls) {
 }
 function renderHeroList() {
   var box = document.getElementById('hero-list'); if (!box) return;
-  var list = heroesData.filter(function (h) { return h.cls === selectedSummonClass; });
+  var all = (selectedSummonClass === '__all__');
+  var list = all ? heroesData.slice() : heroesData.filter(function (h) { return h.cls === selectedSummonClass; });
   if (!list.length) {
     box.innerHTML = '<p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">此職階英靈殿暫無資料，可用下方真名召喚。</p>';
     return;
   }
   box.innerHTML = list.map(function (h) {
     var id = String(h.id).replace(/'/g, '');
-    return '<button class="btn" style="width:100%; text-align:left; margin-bottom:5px; border-color:#d4af37; color:#e8dcc0; padding:8px 10px;" onclick="lockBtn(event, function(){return summonByHero(\'' + id + '\');})"><b>' + h.name + '</b>' + (h.np ? '<br><small style="color:#9a8bb0;">' + h.np + '</small>' : '') + '</button>';
+    return '<button class="btn" style="width:100%; text-align:left; margin-bottom:5px; border-color:#d4af37; color:#e8dcc0; padding:8px 10px;" onclick="lockBtn(event, function(){return summonByHero(\'' + id + '\');})"><b>' + h.name + '</b>' + (all && h.cls ? ' <small style="color:#9a7b4f;">' + h.cls + '</small>' : '') + (h.np ? '<br><small style="color:#9a8bb0;">' + h.np + '</small>' : '') + '</button>';
   }).join('');
 }
 async function doSummon(payload) {
@@ -2121,7 +2597,12 @@ function summonByName() {
   if (!tn) { alert('請輸入真名，或從上方挑選英靈。'); return; }
   return doSummon({ trueName: tn });
 }
-function summonRandom() { return doSummon({ cls: selectedSummonClass || '' }); }
+function summonRandom() { return doSummon({ cls: (selectedSummonClass && selectedSummonClass !== '__all__') ? selectedSummonClass : '' }); }
+function summonByDesc() {
+  var d = (document.getElementById('s-desc') && document.getElementById('s-desc').value.trim()) || '';
+  if (!d) { alert('請先描述你想要的原創從者。'); return; }
+  return doSummon({ desc: d, cls: (selectedSummonClass && selectedSummonClass !== '__all__') ? selectedSummonClass : '' });
+}
 
   function startGame(isRet) {
     document.getElementById('setup').style.display='none';
@@ -2474,6 +2955,7 @@ let plainTextContext = cleanText;
           </div>`;
           html += `<button class="btn" style="border-color:#a52a2a; color:#a52a2a; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false)">⚔️ 令從者出擊</button>`;
           html += `<button class="btn" style="border-color:#d4af37; color:#d4af37; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', true)">💥 寶具解放</button>`;
+          html += `<button class="btn" style="border-color:#b06cd0; color:#b06cd0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, true)">❖ 令咒・絕對命令（必中）</button>`;
           if (pc && pc.mode === 'full') {
             html += `<button class="btn" style="border-color:#8fa39b; color:#8fa39b;" onclick="closeInteractMenu(); insertActionTag('下毒', '${npcName}')">🧪 下毒</button>`;
             html += `<button class="btn" style="border-color:#8fa39b; color:#8fa39b;" onclick="closeInteractMenu(); insertActionTag('媚藥', '${npcName}')">🌸 媚藥</button>`;
