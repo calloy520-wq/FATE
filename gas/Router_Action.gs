@@ -44,6 +44,7 @@ const ActionRouter = {
   "fate_battle": actionFateBattle,
   "clear_npc_major_event": actionClearNpcMajorEvent,
   "get_all_categorized_maps": actionGetAllCategorizedMaps,
+  "get_map_nodes": actionGetMapNodes,
   "move": actionMove,
   "sync": actionSync,
   "rest": actionRest,
@@ -1868,6 +1869,42 @@ function _spiralCoordForIndex(n) {
     x += dx; y += dy;
   }
   return [x, y];
+}
+
+// 🔵 視覺地圖節點：冬木頂層地點 + 座標 + 我是否在此 + 已偵查敵人數(吃迷霧/game_id)
+function actionGetMapNodes(userData, pcId, sheets) {
+  try {
+    if (!sheets.map) return JSON.stringify({ success: false, nodes: [] });
+    const pcData = sheets.pc.getDataRange().getValues();
+    const me = pcData.find(r => r[COL.PC.ID] == pcId);
+    const myGameId = me ? String(me[COL.PC.GAME_ID] || "") : "";
+    const myLoc = me ? String(me[COL.PC.LOC] || "").trim() : "";
+    const enemyAt = {};
+    pcData.slice(1).forEach(r => {
+      const fac = String(r[COL.PC.FACTION]);
+      if (fac !== "敵御主" && fac !== "敵從者") return;
+      if (myGameId && String(r[COL.PC.GAME_ID] || "") !== myGameId) return;
+      if (!r[COL.PC.SEEN]) return;
+      const loc = String(r[COL.PC.LOC] || "").trim();
+      enemyAt[loc] = (enemyAt[loc] || 0) + 1;
+    });
+    const md = sheets.map.getDataRange().getValues();
+    const nodes = [];
+    for (let i = 1; i < md.length; i++) {
+      const name = String(md[i][COL.MAP.NAME] || "").trim();
+      if (!name) continue;
+      if (String(md[i][COL.MAP.PARENT] || "").trim() !== "") continue; // 只取頂層冬木地點
+      const co = String(md[i][COL.MAP.COORD] || "0,0").split(',');
+      nodes.push({
+        name: name, type: String(md[i][COL.MAP.TYPE] || ""),
+        x: parseFloat(co[0]) || 0, y: parseFloat(co[1]) || 0,
+        here: name === myLoc, enemy: enemyAt[name] || 0
+      });
+    }
+    return JSON.stringify({ success: true, nodes: nodes, here: myLoc });
+  } catch (e) {
+    return JSON.stringify({ success: false, nodes: [], message: e.message });
+  }
 }
 
 function actionGetAllCategorizedMaps(userData, pcId, sheets) {
