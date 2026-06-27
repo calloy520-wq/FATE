@@ -68,9 +68,26 @@
       </div>
     </div>
     <div id="recent-loc-bar" style="display:none; overflow-x:auto; padding: 6px 10px; background:rgba(0,0,0,0.15); gap:8px; align-items:center; border-bottom:1px solid rgba(46,139,87,0.2); scrollbar-width: none; white-space: nowrap;"></div>
-    <div id="fate-tags" style="display:none; gap:6px; padding:6px 8px 2px;"></div>
-    <div id="story"></div>
-    <div id="options-container" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;"></div>
+    <div id="pane-wrap">
+      <div id="pane-status" class="game-pane">
+        <div id="fate-tags" style="display:none; gap:6px; padding:6px 8px 2px;"></div>
+        <div style="text-align:center; padding:6px;">
+          <button class="btn" style="font-size:12px; padding:5px 12px; border-color:#9a7b4f; color:#9a7b4f;" onclick="triggerDrawerAction('status')">📋 詳細狀態</button>
+        </div>
+      </div>
+      <div id="pane-chat" class="game-pane active">
+        <div id="story"></div>
+        <div id="options-container" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px; padding: 0 8px 8px;"></div>
+      </div>
+      <div id="pane-map" class="game-pane">
+        <div id="map-pane-content" style="padding:10px;"></div>
+      </div>
+    </div>
+    <div id="game-tabs">
+      <button id="tab-status" class="game-tab" onclick="showGamePane('status')">👤 標籤</button>
+      <button id="tab-chat" class="game-tab tab-active" onclick="showGamePane('chat')">📖 故事</button>
+      <button id="tab-map" class="game-tab" onclick="showGamePane('map')">🗺️ 地圖</button>
+    </div>
     <div id="action-drawer">
       <button class="drawer-item" onclick="openCultivateMenu()"><i>🧘‍♂️</i><span>打坐修練</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('inventory')"><i>🎒</i><span>翻找行囊</span></button>

@@ -1634,6 +1634,38 @@ function renderRecentLocs(recents = null) {
     } catch (e) { }
   }
 
+  // 🔵 三分頁切換（手機）：標籤 / 故事 / 地圖
+  function showGamePane(name) {
+    ['status', 'chat', 'map'].forEach(function (n) {
+      var p = document.getElementById('pane-' + n); if (p) p.classList.toggle('active', n === name);
+      var t = document.getElementById('tab-' + n); if (t) t.classList.toggle('tab-active', n === name);
+    });
+    if (name === 'map') renderMapPane();
+    if (name === 'status') refreshFateTags();
+  }
+  function renderMapPane() {
+    var c = document.getElementById('map-pane-content'); if (!c) return;
+    var locEl = document.getElementById('header-loc');
+    var loc = locEl ? locEl.innerText : '';
+    var html = '<div style="color:#d4af37; font-weight:bold; font-size:14px; margin-bottom:10px;">📍 目前所在：' + (loc || '未知') + '</div>';
+    if (nearbyLocations && nearbyLocations.length) {
+      html += '<div style="color:#9a8bb0; font-size:12px; margin-bottom:6px;">可前往的地點：</div>';
+      nearbyLocations.forEach(function (l) {
+        var nm = (l && l.name) ? l.name : l;
+        var safe = String(nm).replace(/'/g, '');
+        html += '<button class="btn" style="width:100%; text-align:left; margin-bottom:6px; border-color:#4682b4; color:#cde3f5; padding:9px 10px;" onclick="travelFromPane(\'' + safe + '\')">🚶 ' + nm + (l && l.type ? ' <small style="color:#888;">' + l.type + '</small>' : '') + '</button>';
+      });
+    } else {
+      html += '<p style="color:#816e54; font-size:12px;">附近暫無已知地點，展開完整地圖探索。</p>';
+    }
+    html += '<button class="btn" style="width:100%; margin-top:12px; border-color:#d4af37; color:#d4af37; padding:10px;" onclick="triggerDrawerAction(\'explore\')">🗺️ 展開完整冬木地圖</button>';
+    c.innerHTML = html;
+  }
+  function travelFromPane(name) {
+    try { travelTo(name, 0); } catch (e) { }
+    showGamePane('chat');
+  }
+
   async function syncData(isSilent = false) {
     try {
       const data = await gasRun({ action: "sync", pcId: pc ? pc.id : "" });
@@ -1658,6 +1690,8 @@ function renderRecentLocs(recents = null) {
       localNPCs = data.people || [];
       nearbyLocations = data.locations || [];
       refreshFateTags();
+      var mapPane = document.getElementById('pane-map');
+      if (mapPane && mapPane.classList.contains('active')) renderMapPane();
 
       if (!isSilent) {
         const story = document.getElementById('story');

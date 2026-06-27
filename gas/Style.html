@@ -65,6 +65,56 @@
     -webkit-overflow-scrolling: touch;
   }
 
+  /* 🔵 三欄／三分頁版型：御主從者標籤 | 故事對話 | 地圖 */
+  #pane-wrap {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+  .game-pane {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  #pane-status, #pane-map {
+    overflow-y: auto;
+  }
+  #game-tabs {
+    display: none;
+  }
+  .game-tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-sub);
+    padding: 11px 4px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .game-tab.tab-active {
+    color: var(--gold-accent);
+    box-shadow: inset 0 -3px 0 var(--gold-accent);
+  }
+  /* 寬螢幕：三欄並排 */
+  @media (min-width: 601px) {
+    #pane-status { flex: 0 0 240px; border-right: 1px solid var(--border-color); }
+    #pane-chat { flex: 1; }
+    #pane-map { flex: 0 0 360px; border-left: 1px solid var(--border-color); }
+  }
+  /* 手機(≤600)：三分頁，按鈕切換 */
+  @media (max-width: 600px) {
+    #pane-wrap { flex-direction: column; }
+    .game-pane { display: none; }
+    .game-pane.active { display: flex; }
+    #game-tabs {
+      display: flex;
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-color);
+    }
+  }
+
   .msg-player {
     align-self: flex-end;
     max-width: 80%;
