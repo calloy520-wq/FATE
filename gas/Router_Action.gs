@@ -3907,7 +3907,8 @@ function actionFateBattle(userData, pcId, sheets) {
     let lives = getGodHandLives_(pcData[dmgIdx][COL.PC.MEMORY]);
     if (lives > 0) {
       godRevived = true;
-      pcData[dmgIdx][COL.PC.HP] = parseInt(pcData[dmgIdx][COL.PC.MAX_HP]) || 480;
+      // 復活只回 40% 靈基（非滿血）——仍是硬牆但磨得死，不會 softlock 勝利
+      pcData[dmgIdx][COL.PC.HP] = Math.max(1, Math.round((parseInt(pcData[dmgIdx][COL.PC.MAX_HP]) || 480) * 0.40));
       pcData[dmgIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[dmgIdx][COL.PC.MEMORY], lives - 1);
       pcData[dmgIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "神性光輝纏身", "姿勢": "緩緩起身", "負面": `十二試煉·餘${lives - 1}命`, "顏面": "不滅的戰意" });
       sheets.pc.getRange(dmgIdx + 1, 1, 1, pcData[dmgIdx].length).setValues([pcData[dmgIdx]]);
@@ -3991,10 +3992,10 @@ function actionFateBattle(userData, pcId, sheets) {
   });
 }
 
-// 十二試煉(God Hand) 剩餘命數（從者 MEMORY【試煉】N；無標記預設 11）
+// 十二試煉(God Hand) 剩餘命數（從者 MEMORY【試煉】N；無標記預設 7，呼應 FSN 殘存命數）
 function getGodHandLives_(memory) {
   var m = String(memory || "").match(/【試煉】(\d+)/);
-  return m ? parseInt(m[1]) : 11;
+  return m ? parseInt(m[1]) : 7;
 }
 function setGodHandLives_(memory, n) {
   var s = String(memory || "");
