@@ -35,9 +35,14 @@
         <option value="女">女</option>
         <option value="異">異</option>
       </select>
+      <input type="text" id="s-appear" class="std-in" placeholder="外貌（如：紅褐短髮的高中生／黑長雙馬尾）" maxlength="30" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
       <input type="text" id="s-standing" class="std-in" placeholder="身世／財力（如：沒落魔術名門末裔／揮金如土的醫科生）" maxlength="40" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
-      <input type="text" id="s-wish" class="std-in" placeholder="你對聖杯的願望（如：拯救某個人／證明自己的價值）" maxlength="40" style="width:100%; box-sizing:border-box;">
-      <button id="create-btn" class="btn" style="width:100%; margin-top:20px;" onclick="lockBtn(event, () => createPC(event))">⚜️ 締結令咒</button>
+      <input type="text" id="s-wish" class="std-in" placeholder="你對聖杯的願望（如：拯救某個人／證明自己的價值）" maxlength="40" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
+      <div style="background:rgba(212,175,55,0.06); border:1px solid rgba(212,175,55,0.3); border-radius:6px; padding:8px; margin-bottom:8px;">
+        <button class="btn" type="button" style="width:100%; border-color:var(--gold-accent); color:var(--gold-accent); font-size:13px; padding:8px;" onclick="rollFate()">🎲 命運測定（魔術天賦）</button>
+        <div id="fate-roll-box" style="color:#cdbbe6; font-size:12px; line-height:1.6; margin-top:8px; text-align:center;">尚未測定 —— 可測定 3 次取最滿意的</div>
+      </div>
+      <button id="create-btn" class="btn" style="width:100%; margin-top:6px;" onclick="lockBtn(event, () => createPC(event))">⚜️ 締結令咒</button>
     </div>
     <div id="step-summon" style="display:none; width:320px;">
       <p style="text-align:center; color:var(--gold-accent); font-size:16px; font-weight:bold; margin-bottom:4px;">📿 召喚從者</p>

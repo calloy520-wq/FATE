@@ -1443,7 +1443,7 @@ function actionUpdateFate(userData, pcId, sheets) {
 function actionManualNpc(userData, pcId, sheets) {
   const isCreate = userData.action === "create";
   const newId = isCreate ? "PC_" + Date.now() : "NPC_" + Date.now();
-  const { name, sex, identity, standing, wish, currentLoc, npcRel, npcName, npcSex } = userData;
+  const { name, sex, identity, standing, wish, appearance, magic, circuits, origin, melee, currentLoc, npcRel, npcName, npcSex } = userData;
   const finalName = isCreate ? name : npcName;
   const finalSex = isCreate ? sex : (npcSex || "異");
 
@@ -1498,7 +1498,7 @@ function actionManualNpc(userData, pcId, sheets) {
 
   const npcContext = userData.npcContext ? `\n【登場脈絡】：${userData.npcContext.slice(0, 300)}` : "";
   const promptStr = isCreate
-    ? `【御主】：名號『${finalName}』，性別『${finalSex}』\n【身世／財力】：${standing || identity || "隨機"}\n【願望】：${wish || "隨機"}\n【可選地點(冬木)】：${validMapNames.join('、')}`
+    ? `【御主】：名號『${finalName}』，性別『${finalSex}』\n【外貌】：${appearance || "隨機"}\n【身世／財力】：${standing || identity || "隨機"}\n【願望】：${wish || "隨機"}\n【魔術系統】：${magic || "隨機"}\n【出身】：${origin || "隨機"}\n【可選地點(冬木)】：${validMapNames.join('、')}`
     : `【名號】：『${finalName}』\n【性別】：『${finalSex}』\n【地點】：『${currentLoc}』\n【與玩家『${pcNameStr}』初始關係】：『${npcRel || "萍水相逢"}』${npcContext}`;
 
   // 🔵 御主創角專用 Fate 框架生成提示（NPC 仍走上面的 sysOverride）
@@ -1582,7 +1582,15 @@ function actionManualNpc(userData, pcId, sheets) {
     const newRow = Array(pcColCount).fill("");
     newRow[COL.PC.ID] = newId; newRow[COL.PC.NAME] = finalName; newRow[COL.PC.SEX] = finalSex;
     newRow[COL.PC.BACK] = isCreate ? (standing || aiBrief.background || "來歷不明的魔術師") : (aiBrief.background || "江湖散人"); newRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
-    if (isCreate && wish) newRow[COL.PC.MEMORY] = `【願望】${wish}`;
+    if (isCreate) {
+      newRow[COL.PC.MEMORY] = [
+        wish ? `【願望】${wish}` : "",
+        magic ? `【魔術】${magic}` : "",
+        circuits ? `【迴路】${circuits}` : "",
+        origin ? `【出身】${origin}` : "",
+        melee ? `【體術】${melee}` : ""
+      ].filter(Boolean).join("｜");
+    }
     // 🔴 NPC 初始銀兩依境界給(玩家創角固定 50)，錢有變化、高人更富
     if (isCreate) {
       newRow[COL.PC.MONEY] = 150;

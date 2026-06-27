@@ -1859,6 +1859,25 @@ function chooseMode(mode) {
   }
 }
 
+// 🔵 御主命運測定（魔術天賦），最多 3 次
+const FATE_MAGICS_ = ['強化（近戰加成）', '投影／固有結界', '寶石魔術', '符文魔術', '鍊金術', '起源彈', '風魔術', '使魔操縱', '咒術／降靈', '禮裝製作'];
+const FATE_ORIGINS_ = ['自學成才的新興魔術師', '沒落名門的末裔', '名門魔術師世家', '異鄉來的旅人', '教會代行者出身', '被捲入的普通人', '魔術協會的研究者', '繼承詛咒血脈', '時鐘塔的留學生', '隱世魔術師的弟子'];
+let masterRoll = null;
+let masterRollCount = 0;
+function rollFate() {
+  if (masterRollCount >= 3) { alert('命運最多測定 3 次，請從中選擇接受。'); return; }
+  masterRollCount++;
+  const r = (Math.random() + Math.random()) / 2;
+  const circuits = Math.max(12, Math.min(50, Math.round(15 + r * 35)));
+  const magic = FATE_MAGICS_[Math.floor(Math.random() * FATE_MAGICS_.length)];
+  const origin = FATE_ORIGINS_[Math.floor(Math.random() * FATE_ORIGINS_.length)];
+  const mr = Math.random();
+  const melee = mr < 0.5 ? 'E' : mr < 0.8 ? 'D' : mr < 0.95 ? 'C' : 'B';
+  masterRoll = { circuits: circuits, magic: magic, origin: origin, melee: melee };
+  var box = document.getElementById('fate-roll-box');
+  if (box) box.innerHTML = '魔術迴路 <b style="color:#e7c873;">' + circuits + '</b>　體術 <b style="color:#e7c873;">' + melee + '</b><br>魔術系統：<b>' + magic + '</b><br>出身：<b>' + origin + '</b><br><small style="color:#888;">已測定 ' + masterRollCount + '/3 次</small>';
+}
+
 async function checkName(event) {
   const name = document.getElementById('s-name').value.trim();
 
@@ -1908,11 +1927,14 @@ async function checkName(event) {
   async function createPC(event) {
   const name = document.getElementById('s-name').value.trim();
   const sex = document.getElementById('s-sex').value;
+  const appearance = document.getElementById('s-appear')?.value.trim() || "";
   const standing = document.getElementById('s-standing')?.value.trim() || "";
   const wish = document.getElementById('s-wish')?.value.trim() || "";
+  const roll = masterRoll || {};
 
   try {
-    const data = await gasRun({ action: "create", name, sex, standing, wish });
+    const data = await gasRun({ action: "create", name, sex, appearance, standing, wish,
+      magic: roll.magic || "", circuits: roll.circuits || "", origin: roll.origin || "", melee: roll.melee || "" });
     if (data.success) {
       // 🔴 新角色一律清空所有舊暫存
       localStorage.removeItem('kyushu_recent_locs');
