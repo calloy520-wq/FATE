@@ -2134,7 +2134,7 @@ function actionMove(userData, pcId, sheets) {
     try {
       const sp = spendAp_(moveGameId, 2);
       apLeft = sp.ap;
-      const tick = worldTick_(sheets, moveGameId, target, 1);
+      const tick = worldTick_(sheets, moveGameId, target, 1, false); // 移動只讓敵換位，不死人
       worldRumors = tick.rumors || [];
       clockLabel = clockLabel_(moveGameId);
     } catch (e) { }
@@ -2225,7 +2225,7 @@ function actionRest(userData, pcId, sheets) {
       const clk = restHours_(restGameId, restHours);
       apAfter = clk ? clk.ap : AP_PER_DAY;
       const rounds = Math.floor(restHours / 3); // 1h:0、3h:1、6h:2 輪世界自走
-      if (rounds > 0) { const tick = worldTick_(sheets, restGameId, pcLoc, rounds); restRumors = tick.rumors || []; }
+      if (rounds > 0) { const tick = worldTick_(sheets, restGameId, pcLoc, rounds, true); restRumors = tick.rumors || []; }
       restClock = clockLabel_(restGameId);
     } catch (e) { }
     try { sheets.log.appendRow([new Date(), pcId, `【系統】御主一行休息了 ${restHours} 小時，恢復行動力。`, pcLoc]); } catch (e) { }
