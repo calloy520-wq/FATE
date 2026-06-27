@@ -334,7 +334,7 @@ function doAction(a){
     // 御主人設 + 從者人格+好感 + 歷史事件/記憶 → 完整 context，讓 AI 不出戲、知道過去
     var acc = findOne_(SHEETS.ACCOUNTS, { current_game: gameId });
     var gc = gameContext_(gameId);
-    var mem = [masterCtx_(acc), servantCtx_(p, hero), gc].filter(function(x){ return x; }).join('\n');
+    var mem = [situationCtx_(p, clock, gameId), masterCtx_(acc), servantCtx_(p, hero), gc].filter(function(x){ return x; }).join('\n');
 
     var spec;   // string（免 LLM 的最終文字）或 {kind:'scene'|'combat'|'chat', ...}
     switch(a.type){
@@ -1320,6 +1320,29 @@ function servantCtx_(p, hero){
     + '。此好感的行為準則：'+bondTier_(p.bond)
     + (p.sv_condition?('　此刻體況「'+p.sv_condition+'」'):'')+'。'
     + '請嚴格依此人格、陣營與「好感行為準則」回應，保有自主與尊嚴；嚴禁與好感不符的倒貼或順從。）';
+}
+// 現況快照：讓 AI 確實知道「此刻發生什麼」——時間/地點/在場者/雙方狀態，敘述不得與此矛盾（治不出戲的核心）
+function hpWord_(hp, max){ var r = (max>0? hp/max : 0); return r<=0?'已倒下':r<0.35?'重傷':r<0.7?'負傷':'大致無傷'; }
+function situationCtx_(p, clock, gameId){
+  if(!p || !clock) return '';
+  var L = findOne_(SHEETS.MAP, { id: p.location }) || { name:p.location, desc:'' };
+  var phase = (clock.hour>=6 && clock.hour<18) ? '白晝' : '夜晚';
+  // 在場：與我同地、已被我發現、存活的敵方
+  var rows = findRows_(SHEETS.BATTLE, { game_id: gameId });
+  var disc = Array.isArray(p.discovered) ? p.discovered : [];
+  var here = rows.filter(function(r){ return r.is_player!==true && r.alive && r.servant_loc===p.location && disc.indexOf(r.slot)>=0; });
+  var present = here.length ? here.map(function(r){ return heroCls_(r.servant_id)+'（御主'+r.master_name+'）'; }).join('、') : '無已知敵蹤';
+  var max = p.sv_mp_max||1, ratio = p.sv_mp/max;
+  var out = ratio>=0.8?'靈基亢奮（戰意高漲、出力充沛）': ratio<0.5?'魔力枯竭（虛弱、勉力支撐）':'狀態平穩';
+  var svWhere = p.separated ? ('與我分開、獨自在「'+locName_(p.servant_loc)+'」') : '就在我身邊';
+  var bleed = (Number(clock.bleed)>0) ? '、正在失血' : '';
+  return '（現況快照〔最重要・敘述務必與此一致，嚴禁虛構地點/在場者/狀態〕：'
+    + '第'+clock.day+'日 '+pad2_(clock.hour)+':00・'+phase+'。'
+    + '我（御主）身處「'+L.name+'」'+(L.desc?('（'+L.desc+'）'):'')+'，此刻'+hpWord_(p.master_hp,p.master_hp_max)+bleed+'。'
+    + '此地在場：'+present+'。'
+    + '我的從者'+svWhere+'，目前'+hpWord_(p.sv_hp,p.sv_hp_max)+'、'+out
+    + (p.sv_condition?('，體況「'+p.sv_condition+'」'):'')+'。'
+    + '請依「此刻真正發生的事」敘述，不要無中生有，也不要重複先前已演過的橋段。）';
 }
 function act_claim_(p, clock, hero){
   if(clock.ap<1) return '（行動點不足，請睡覺恢復。）';
