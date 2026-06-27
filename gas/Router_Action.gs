@@ -1798,7 +1798,10 @@ function actionSummonServant(userData, pcId, sheets) {
       try { sheets.rel.appendRow([pcName, realName, 35, "從者", "同行", "", ""]); } catch (e) { }
     }
 
-    return JSON.stringify({ success: true, servantName: realName, cls: cls, fromCodex: !!hero, message: `【聖杯】令咒迸發，${cls} 職階的從者「${realName}」應召而現，與『${pcName}』締結契約。` });
+    // 🔵 召喚完成 → 鋪敵方御主×從者進這個 game_id 世界（一次性）
+    try { seedRivalsForGame_(gameId, realName); } catch (e) { }
+
+    return JSON.stringify({ success: true, servantName: realName, cls: cls, fromCodex: !!hero, message: `【聖杯】令咒迸發，${cls} 職階的從者「${realName}」應召而現，與『${pcName}』締結契約。其餘御主已在冬木各處備戰。` });
   } catch (e) {
     return JSON.stringify({ success: false, message: "召喚失敗：" + e.message });
   }
