@@ -2420,6 +2420,7 @@ function actionPlay(userData, pcId, sheets) {
   let isQuestChanged = false;
   let knockedOutList = [];
   let justRevived = false;
+  let fatePlayerDefeat = false, fateDreamPrompt = ""; // 🔵 FATE：御主血歸 0＝聖杯戰爭敗北（虛假之夢→老虎道場）
   let soulBoundEventMsg = "";
   let freshlyBoundNpcName = "";
   const newNpcMap = {};
@@ -2874,26 +2875,39 @@ ${isKanshou ? `
 
                 const isPlayer = String(pcData[targetIdx][COL.PC.ID]).startsWith("PC_");
 
-                // 玩家：血歸 0 才送藥鋪
+                // 玩家：血歸 0
                 if (colIdx === COL.PC.HP && hpVal <= 0 && isPlayer) {
-                  // FATE 世界沒有「小醫仙藥鋪」這種九州地名——就地重傷靜養，留在當前母地圖；九州才送藥鋪。
-                  const isFateW = myGameId && (myGameId.indexOf('g_') === 0 || myGameId.indexOf('k_') === 0);
-                  const healLoc = isFateW ? (String(pcData[targetIdx][COL.PC.LOC] || "").split('-')[0].trim() || "冬木·深山町") : "小醫仙藥鋪";
-                  pcData[targetIdx][COL.PC.HP] = 50; pcData[targetIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "換上乾淨素衣", "姿勢": "平躺靜養", "負面": "重傷初癒", "顏面": "蒼白" }); pcData[targetIdx][COL.PC.LOC] = healLoc; pcData[targetIdx][COL.PC.MONEY] = Math.max(0, (parseInt(pcData[targetIdx][COL.PC.MONEY]) || 0) - 20);
-                  if (targetIdx === pcIndex) curL = healLoc;
-                  relData.forEach(row => {
-                    if (row[COL.REL.PC] === pcData[targetIdx][COL.PC.NAME] && row[COL.REL.IS_PARTY] === "同行") {
-                      const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === row[COL.REL.NPC] && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
-                      if (nIdx !== -1) {
-                        pcData[nIdx][COL.PC.LOC] = healLoc;
-                        pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "平穩" });
-                        pcData[nIdx][COL.PC.HP] = calculateMaxStats(pcData[nIdx][COL.PC.REALM], pcData[nIdx][COL.PC.CON], pcData[nIdx][COL.PC.INT]).hp;
-                        dirtyPcRows.add(nIdx);
+                  const isFateG = myGameId && myGameId.indexOf('g_') === 0; // 正式聖杯戰爭世界（k_ 鑑賞約會不會走戰鬥/死亡）
+                  if (isFateG && targetIdx === pcIndex) {
+                    // 🔵 FATE 敗北：御主殞命＝聖杯戰爭落敗。不復活、不送藥鋪——墜入「願望實現的虛假之夢」→ 老虎道場。
+                    pcData[targetIdx][COL.PC.HP] = 0;
+                    pcData[targetIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "浴血", "姿勢": "頹然倒臥", "負面": "靈魂將熄", "顏面": "意識朦朧" });
+                    fatePlayerDefeat = true;
+                    const wishM = String(pcData[pcIndex][COL.PC.MEMORY] || "").match(/【願望】([^|【\n]*)/);
+                    const wishTxt = wishM ? wishM[1].trim() : "";
+                    let svName = "從者";
+                    const svRow = pcData.find(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+                    if (svRow) svName = String(svRow[COL.PC.NAME] || "從者");
+                    fateDreamPrompt = buildDreamPrompt_(pcName, wishTxt, svName);
+                  } else {
+                    // 九州舊版：血歸 0 送「小醫仙藥鋪」救回（FATE 不走此路）
+                    const healLoc = "小醫仙藥鋪";
+                    pcData[targetIdx][COL.PC.HP] = 50; pcData[targetIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "換上乾淨素衣", "姿勢": "平躺靜養", "負面": "重傷初癒", "顏面": "蒼白" }); pcData[targetIdx][COL.PC.LOC] = healLoc; pcData[targetIdx][COL.PC.MONEY] = Math.max(0, (parseInt(pcData[targetIdx][COL.PC.MONEY]) || 0) - 20);
+                    if (targetIdx === pcIndex) curL = healLoc;
+                    relData.forEach(row => {
+                      if (row[COL.REL.PC] === pcData[targetIdx][COL.PC.NAME] && row[COL.REL.IS_PARTY] === "同行") {
+                        const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === row[COL.REL.NPC] && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
+                        if (nIdx !== -1) {
+                          pcData[nIdx][COL.PC.LOC] = healLoc;
+                          pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "平穩" });
+                          pcData[nIdx][COL.PC.HP] = calculateMaxStats(pcData[nIdx][COL.PC.REALM], pcData[nIdx][COL.PC.CON], pcData[nIdx][COL.PC.INT]).hp;
+                          dirtyPcRows.add(nIdx);
+                        }
                       }
-                    }
-                  });
-                  if (sheets.epic) sheets.epic.appendRow([pcId, `【奇蹟救治】${pcData[targetIdx][COL.PC.NAME]} 於生死邊緣被救回。`, new Date()]);
-                  if (targetIdx === pcIndex) justRevived = true;
+                    });
+                    if (sheets.epic) sheets.epic.appendRow([pcId, `【奇蹟救治】${pcData[targetIdx][COL.PC.NAME]} 於生死邊緣被救回。`, new Date()]);
+                    if (targetIdx === pcIndex) justRevived = true;
+                  }
                 }
                 // NPC：血掉到 5 以下→鎖 1 血昏迷待處置，生死由玩家定奪
                 else if (colIdx === COL.PC.HP && hpVal <= 5 && !isPlayer) {
@@ -3479,6 +3493,7 @@ ${isKanshou ? `
         .map(r => ({ id: String(r[COL.ITEM.ID] || r[COL.ITEM.NAME]).trim(), name: String(r[COL.ITEM.NAME]).trim(), type: String(r[COL.ITEM.TYPE] || "雜物"), desc: String(r[COL.ITEM.DESC] || "") }))
         .filter(it => it.name.length >= 2),
       justRevived: justRevived,
+      defeat: fatePlayerDefeat, dreamPrompt: fateDreamPrompt, // 🔵 FATE：御主殞命→前端播虛假之夢→老虎道場
       allMapNames: memoryMapData.slice(1).map(m => String(m[COL.MAP.NAME]).trim()).filter(n => n.length >= 2),
       // 🔴 新增：將全九州活著的眾生名單傳給前端，用於三段式判定
       allKnownNames: pcData.filter((r, i) => i !== 0 && !String(r[COL.PC.ID]).startsWith("DEAD_")).map(r => String(r[COL.PC.NAME]).trim())
