@@ -1604,6 +1604,36 @@ function renderRecentLocs(recents = null) {
     }
   }
 
+  // ==========================================
+  // 🔵 御主／從者 標籤卡（左/上方常駐狀態，只顯示動作姿勢・令咒・羈絆・寶具，不露六維）
+  // ==========================================
+  function bondWord(b) {
+    b = parseInt(b) || 0;
+    return b < 20 ? '戒備' : b < 40 ? '疏離' : b < 60 ? '漸信' : b < 80 ? '信賴' : '羈絆深厚';
+  }
+  async function refreshFateTags() {
+    if (!pc || !pc.id) return;
+    try {
+      const t = await gasRun({ action: 'get_tags', pcId: pc.id });
+      if (!t || !t.success) return;
+      const box = document.getElementById('fate-tags');
+      if (!box) return;
+      const card = (accent, head, name, lines) =>
+        `<div style="flex:1; min-width:0; background:rgba(20,14,28,0.55); border:1px solid ${accent}; border-radius:8px; padding:6px 8px;">` +
+        `<div style="color:${accent}; font-weight:bold; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${head}</div>` +
+        (name ? `<div style="color:#e8dcc0; font-size:13px; font-weight:bold; margin:1px 0 3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${name}</div>` : '') +
+        lines.map(l => `<div style="color:#9a8bb0; font-size:11px; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${l}</div>`).join('') +
+        `</div>`;
+      const m = t.master, s = t.servant;
+      let mh = card('#d4af37', '⚜️ 御主', m.name, [`${m.condition}`, `氣力 ${m.hp}　令咒 ${'❖'.repeat(m.seals || 3)}`]);
+      let sh = s
+        ? card('#c0392b', `📿 從者・${s.cls}`, s.name, [`${s.condition}`, `氣力 ${s.hp}　羈絆 ${bondWord(s.bond)}`, `寶具 ${s.np}`])
+        : card('#555', '📿 從者', '（尚未召喚）', ['以令咒召喚你的英靈']);
+      box.innerHTML = mh + sh;
+      box.style.display = 'flex';
+    } catch (e) { }
+  }
+
   async function syncData(isSilent = false) {
     try {
       const data = await gasRun({ action: "sync", pcId: pc ? pc.id : "" });
@@ -1627,7 +1657,8 @@ function renderRecentLocs(recents = null) {
       
       localNPCs = data.people || [];
       nearbyLocations = data.locations || [];
-      
+      refreshFateTags();
+
       if (!isSilent) {
         const story = document.getElementById('story');
         story.innerHTML += `<div class="msg-player" style="align-self:center; border-radius:8px; background:rgba(255,255,255,0.05); color:#aaa; font-size:13px; text-align:center;">（感應天地，已同步氣息）</div>`;
@@ -1898,6 +1929,7 @@ async function summonServant(event) {
   function startGame(isRet) {
     document.getElementById('setup').style.display='none';
     document.getElementById('game').style.display='flex';
+    refreshFateTags();
     document.getElementById('ui-name').innerText = pc.name;
     document.getElementById('ui-sex').innerText = pc.sex;
     
