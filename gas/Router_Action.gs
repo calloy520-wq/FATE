@@ -1872,6 +1872,7 @@ function _spiralCoordForIndex(n) {
 
 function actionGetAllCategorizedMaps(userData, pcId, sheets) {
   if (!sheets.map) return JSON.stringify({ success: false, message: "坤圖表不存在" });
+  try {
   const mapData = sheets.map.getDataRange().getValues();
   let missingCoordIndex = 0;
   const SPIRAL_SPACING = 4; // 網格間距，避免自動分配的節點互相重疊
@@ -1940,6 +1941,7 @@ function actionGetAllCategorizedMaps(userData, pcId, sheets) {
     }
   }
   return JSON.stringify({ success: true, data: mapTree });
+  } catch (e) { return JSON.stringify({ success: false, message: "地圖讀取異常：" + e.message }); }
 }
 
 function actionMove(userData, pcId, sheets) {
