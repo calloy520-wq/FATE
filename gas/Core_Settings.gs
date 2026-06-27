@@ -44,7 +44,7 @@ const COL = {
   HIST: { ACC: 0, RESULT: 1, SERVANT: 2, SUMMARY: 3, TIME: 4 },
   // 鑑賞：奪杯後封存的從者（可於鑑賞模式呼出）
   GAL: { ACC: 0, NAME: 1, CLS: 2, SEX: 3, SIX: 4, TAGS: 5, NP: 6, BACK: 7, PREF: 8, MOE: 9, MEMOIR: 10, WISH: 11, TIME: 12, MASTER: 13, MSEX: 14 },
-  // 時鐘：每個 game_id 一筆（第幾日／幾點／行動點）。1 AP = 2 小時，每日 12 AP。
+  // 時鐘：每個 game_id 一筆（第幾日／幾點／行動點）。1 AP = 1 小時，每日 12 AP（休息每小時補 2 AP）。
   CLK: { GAME_ID: 0, DAY: 1, HOUR: 2, AP: 3 }
 };
 

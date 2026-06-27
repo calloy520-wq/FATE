@@ -157,17 +157,17 @@ function actionEnterGallery(userData, pcId, sheets) {
   if (!rec) return JSON.stringify({ success: false, message: "鑑賞名冊查無此從者。" });
 
   // 清掉此帳號殘留的舊鑑賞世界（k_ 開頭且關聯本帳號御主）
+  //   ⚠ 兩段式：先掃出所有要清的 k_ game_id，再一次刪除——避免「邊讀邊刪縮短陣列」造成 pcData[r] undefined 崩潰。
   var pcData = sheets.pc.getDataRange().getValues();
   var masterName = String(rec[COL.GAL.MASTER] || "御主") || "御主";
-  for (var r = pcData.length - 1; r >= 1; r--) {
+  var killGids = {};
+  for (var r = 1; r < pcData.length; r++) {
     var gidOld = String(pcData[r][COL.PC.GAME_ID] || "");
-    if (gidOld.indexOf("k_") === 0 && String(pcData[r][COL.PC.NAME]) === masterName) {
-      // 同名御主的舊鑑賞世界，整個 game_id 清除
-      var gidClear = gidOld;
-      for (var d = pcData.length - 1; d >= 1; d--) {
-        if (String(pcData[d][COL.PC.GAME_ID] || "") === gidClear) sheets.pc.deleteRow(d + 1);
-      }
-      pcData = sheets.pc.getDataRange().getValues();
+    if (gidOld.indexOf("k_") === 0 && String(pcData[r][COL.PC.NAME]) === masterName) killGids[gidOld] = true;
+  }
+  if (Object.keys(killGids).length) {
+    for (var d = pcData.length - 1; d >= 1; d--) {
+      if (killGids[String(pcData[d][COL.PC.GAME_ID] || "")]) sheets.pc.deleteRow(d + 1);
     }
   }
 

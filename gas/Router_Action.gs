@@ -2118,9 +2118,31 @@ function actionMove(userData, pcId, sheets) {
   const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
 
   relData.filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]).forEach(npcName => {
-    const nIdx = allPcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+    const nIdx = allPcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!moveGameId || String(r[COL.PC.GAME_ID] || "") === moveGameId));
     if (nIdx !== -1) allPcData[nIdx][COL.PC.LOC] = target;
   });
+
+  // ⏳ 時回：移動的 2 小時間，御主與同行從者隨時間自然小幅回復 HP/MP（有理有據——靈基與魔力會隨時間回流；
+  //   大幅恢復仍靠「休息」。便宜：只改記憶體裡那幾格，隨後與移動一起寫回，零額外讀寫，不會變慢。）
+  let regenNote = "";
+  if (isFateMove) {
+    const partySet = {}; partySet[String(pcName)] = true;
+    relData.filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").forEach(r => { partySet[String(r[COL.REL.NPC])] = true; });
+    const hpF = 0.04 * 2, mpF = 0.05 * 2; // 每小時 +4% HP／+5% MP，移動推進 2 小時
+    let did = false;
+    allPcData.forEach((row, idx) => {
+      if (idx === 0) return;
+      if (String(row[COL.PC.GAME_ID] || "") !== moveGameId) return;
+      if (String(row[COL.PC.ID]).startsWith("DEAD_")) return;
+      if (!partySet[String(row[COL.PC.NAME])]) return;
+      const hpMax = parseInt(row[COL.PC.MAX_HP]) || 0, mpMax = parseInt(row[COL.PC.MAX_MP]) || 0;
+      const hp = parseInt(row[COL.PC.HP]) || 0, mp = parseInt(row[COL.PC.MP]) || 0;
+      const nhp = hpMax ? Math.min(hpMax, hp + Math.round(hpMax * hpF)) : hp;
+      const nmp = mpMax ? Math.min(mpMax, mp + Math.round(mpMax * mpF)) : mp;
+      if (nhp !== hp || nmp !== mp) { row[COL.PC.HP] = nhp; row[COL.PC.MP] = nmp; did = true; }
+    });
+    if (did) regenNote = "〔時回〕數小時的奔波之間，靈基與魔力悄然回流了一些。";
+  }
 
   const pcColCount = Object.keys(COL.PC).length;
   allPcData.forEach(row => { while (row.length < pcColCount) { row.push(""); } });
@@ -2128,7 +2150,7 @@ function actionMove(userData, pcId, sheets) {
   sheets.pc.getRange(1, 1, allPcData.length, pcColCount).setValues(allPcData);
   SpreadsheetApp.flush();
 
-  // ⏳ 移動耗 1 AP（＝推進 2 小時）＋ 世界自走一輪；聊天不會走到這裡
+  // ⏳ 移動耗 2 AP（＝推進 2 小時，1 AP＝1 小時）＋ 世界自走一輪；聊天不會走到這裡
   let clockLabel = "", worldRumors = [], apLeft = AP_PER_DAY;
   if (isFateMove) {
     try {
@@ -2136,6 +2158,7 @@ function actionMove(userData, pcId, sheets) {
       apLeft = sp.ap;
       const tick = worldTick_(sheets, moveGameId, target, 1, false); // 移動只讓敵換位，不死人
       worldRumors = tick.rumors || [];
+      if (regenNote) worldRumors.unshift(regenNote);
       clockLabel = clockLabel_(moveGameId);
     } catch (e) { }
   }
@@ -2214,7 +2237,7 @@ function actionRest(userData, pcId, sheets) {
     healRow(pIdx);
     if (sheets.rel) {
       sheets.rel.getDataRange().getValues().filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]).forEach(npcName => {
-        const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+        const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!restGameId || String(r[COL.PC.GAME_ID] || "") === restGameId));
         if (nIdx !== -1 && parseInt(pcData[nIdx][COL.PC.HP]) > 0) { healRow(nIdx); healedNames.push(npcName); }
       });
     }
@@ -2787,7 +2810,7 @@ ${isKanshou ? `
 
       aiData.stat_changes.forEach(sc => {
         const tName = String(sc.target).trim(); const attrKey = String(sc.attr).trim(); const valStr = String(sc.value).trim();
-        let targetIdx = (tName === "自己" || tName === String(pcName).trim()) ? pcIndex : pcData.findIndex(r => String(r[COL.PC.NAME]).trim() === tName || String(r[COL.PC.ID]).trim() === tName);
+        let targetIdx = (tName === "自己" || tName === String(pcName).trim()) ? pcIndex : pcData.findIndex(r => (String(r[COL.PC.NAME]).trim() === tName || String(r[COL.PC.ID]).trim() === tName) && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
 
         if (targetIdx !== -1) {
           dirtyPcRows.add(targetIdx);
@@ -2853,11 +2876,14 @@ ${isKanshou ? `
 
                 // 玩家：血歸 0 才送藥鋪
                 if (colIdx === COL.PC.HP && hpVal <= 0 && isPlayer) {
-                  const healLoc = "小醫仙藥鋪"; pcData[targetIdx][COL.PC.HP] = 50; pcData[targetIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "換上乾淨素衣", "姿勢": "平躺靜養", "負面": "重傷初癒", "顏面": "蒼白" }); pcData[targetIdx][COL.PC.LOC] = healLoc; pcData[targetIdx][COL.PC.MONEY] = Math.max(0, (parseInt(pcData[targetIdx][COL.PC.MONEY]) || 0) - 20);
+                  // FATE 世界沒有「小醫仙藥鋪」這種九州地名——就地重傷靜養，留在當前母地圖；九州才送藥鋪。
+                  const isFateW = myGameId && (myGameId.indexOf('g_') === 0 || myGameId.indexOf('k_') === 0);
+                  const healLoc = isFateW ? (String(pcData[targetIdx][COL.PC.LOC] || "").split('-')[0].trim() || "冬木·深山町") : "小醫仙藥鋪";
+                  pcData[targetIdx][COL.PC.HP] = 50; pcData[targetIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "換上乾淨素衣", "姿勢": "平躺靜養", "負面": "重傷初癒", "顏面": "蒼白" }); pcData[targetIdx][COL.PC.LOC] = healLoc; pcData[targetIdx][COL.PC.MONEY] = Math.max(0, (parseInt(pcData[targetIdx][COL.PC.MONEY]) || 0) - 20);
                   if (targetIdx === pcIndex) curL = healLoc;
                   relData.forEach(row => {
                     if (row[COL.REL.PC] === pcData[targetIdx][COL.PC.NAME] && row[COL.REL.IS_PARTY] === "同行") {
-                      const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === row[COL.REL.NPC] && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+                      const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === row[COL.REL.NPC] && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
                       if (nIdx !== -1) {
                         pcData[nIdx][COL.PC.LOC] = healLoc;
                         pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "平穩" });
@@ -3793,7 +3819,7 @@ function actionFateBattle(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: "對方不在你身邊，鞭長莫及。" });
   }
 
-  // ⏳ 戰鬥耗 1 AP（＝推進 2 小時）；行動點不足則無法出戰
+  // ⏳ 戰鬥耗 1 AP（＝推進 1 小時，1 AP＝1 小時）；行動點不足則無法出戰
   const isFateBattle = myGameId.indexOf("g_") === 0;
   if (isFateBattle && getAp_(myGameId) < 1) {
     return JSON.stringify({ success: false, message: "行動點已耗盡，從者也需喘息——請『歇息』恢復後再戰。" });
