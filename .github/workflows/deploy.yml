@@ -1,10 +1,11 @@
-name: Deploy FATE v2 to Apps Script
+name: Deploy 命運停駐之夜 to Apps Script
 
-# ⚠️ v2 分支專屬：部署到 v2 副本 Script（九州引擎×Fate）。
-# 與 main(現有 FATE 遊戲) 完全分離。絕對不要把 v2 合併進 main。
+# 推送 + 發布到 FATE Script（命運停駐之夜＝九州引擎×Fate）。
+# 目標 Script：1QveLhz...（FATE 自有，已有對外 /exec 網頁部署）。
+# 不會動到原始九州 Script。
 on:
   push:
-    branches: [ v2 ]
+    branches: [ v2, main, claude/fate-error-review-w8q42w ]
   workflow_dispatch:
 
 jobs:
@@ -20,13 +21,23 @@ jobs:
         run: echo "$CLASPRC" | base64 -d > "$HOME/.clasprc.json"
         env:
           CLASPRC: ${{ secrets.CLASPRC_JSON }}
-      - name: Push to v2 Apps Script
+      - name: Push to Apps Script
         env:
           NODE_OPTIONS: --dns-result-order=ipv4first
         run: |
           for i in 1 2 3 4 5; do
             echo "── push attempt $i ──"
-            clasp push -f && exit 0
-            echo "attempt $i failed; retry in 5s..."; sleep 5
+            clasp push -f && break
+            echo "push attempt $i failed; retry in 5s..."; sleep 5
+            if [ "$i" = "5" ]; then echo "all push attempts failed"; exit 1; fi
           done
-          echo "all attempts failed"; exit 1
+      - name: Deploy to existing web deployment (/exec 不變、版本更新)
+        env:
+          NODE_OPTIONS: --dns-result-order=ipv4first
+        run: |
+          for i in 1 2 3 4 5; do
+            echo "── deploy attempt $i ──"
+            clasp deploy -i AKfycbx89Fw8ExSI7AIdhSd20DM37imEwpWMYRhDE_8-cGgN2vzcURTRqmLlVmk-BQLk0978Rw -d "auto $GITHUB_SHA" && exit 0
+            echo "deploy attempt $i failed; retry in 5s..."; sleep 5
+          done
+          echo "all deploy attempts failed"; exit 1
