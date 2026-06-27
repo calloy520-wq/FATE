@@ -108,7 +108,6 @@
     <div class="top-navbar">
       <div class="top-navbar-content" style="display: flex; gap: 10px; align-items: center; width:100%;">
         <button id="rest-btn" class="btn" style="padding: 4px 8px; font-size: 12px; border-color: #2e8b57; color: #2e8b57; background: rgba(46,139,87,0.1);" onclick="openRestMenu()">🛏️ 休息</button>
-        <button id="lifeskill-btn" data-mode="full" class="btn" style="padding: 4px 8px; font-size: 12px; border-color: #8b5a2b; color: #8b5a2b; background: rgba(139,90,43,0.1);" onclick="openLifeskillMenu()">🌾 生活</button>
         <div class="player-badge">
           <span id="header-loc">感應中...</span>
         </div>
@@ -137,17 +136,9 @@
       <button id="tab-map" class="game-tab" onclick="showGamePane('map')">🗺️ 地圖</button>
     </div>
     <div id="action-drawer">
-      <button class="drawer-item" data-mode="full" onclick="openCultivateMenu()"><i>🧘‍♂️</i><span>打坐修練</span></button>
-      <button class="drawer-item" data-mode="full" onclick="triggerDrawerAction('inventory')"><i>🎒</i><span>翻找物品</span></button>
-      <button class="drawer-item" data-mode="full" onclick="openCraftMenu()"><i>🔥</i><span>造物煉成</span></button>
-      <button class="drawer-item" data-mode="full" onclick="openHomeMenu()"><i>🏡</i><span>我的據點</span></button>
-      <button class="drawer-item" data-mode="full" onclick="openShopMenu()"><i>🏪</i><span>我的店</span></button>
-      <button class="drawer-item" data-mode="full" onclick="openJianghuHubMenu()"><i>🍶</i><span>冬木夜話</span></button>
-      <button class="drawer-item" data-mode="full" onclick="triggerDrawerAction('quest')"><i>📜</i><span>檢視天命</span></button>
+      <button class="drawer-item" onclick="openHomeMenu()"><i>🏡</i><span>我的據點</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('explore')"><i>🧭</i><span>探索冬木</span></button>
-      <button class="drawer-item" data-mode="full" onclick="refreshAndOpenNpcList()"><i>👥</i><span>在場之人</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('status')"><i>👤</i><span>查看狀態</span></button>
-      <button class="drawer-item" data-mode="full" onclick="openFactionPanel()"><i>⛩️</i><span>陣營勢力</span></button>
       <button class="drawer-item" onclick="openEpicPanel()"><i>📖</i><span>個人史紀</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('settings')"><i>⚙️</i><span>系統設定</span></button>
     </div>

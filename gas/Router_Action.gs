@@ -3815,6 +3815,97 @@ function actionSpareNpc(userData, pcId, sheets) {
 // ==========================================
 // ⚔️ Fate 戰鬥：御主號令從者出擊（D20＋六圍＋fx＋寶具），game_id 隔離
 // ==========================================
+// ⚔️ 單次出擊裁決：atkC 攻擊 pcData[tgtIdx]。命中才扣血（未中＝撲空、不自傷）。
+//   處理破戒/戰鬥續行/令咒緊急脫離/十二試煉復活/死亡(敵→勝利判定；我→敗北)。
+//   opts:{np,seal,counterMul}　ctx:{myGameId,pIdx,userData}
+function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
+  opts = opts || {};
+  var defC = rowToCombatant_(pcData[tgtIdx]);
+  var r = resolveFateBattle_(atkC, defC, { np: !!opts.np, seal: !!opts.seal });
+  if (opts.seal) r.atkWins = true; // 絕對命令必中
+  var out = {
+    hit: r.atkWins, damage: 0, fired: (r.fired || []).slice(),
+    aRoll: r.aRoll, aHit: r.aHit, dRoll: r.dRoll, dEva: r.dEva, crit: r.crit || "",
+    destroyed: "", sealEscaped: false, sealNote: "", godRevived: false, godNote: "",
+    victory: false, defeat: false, dreamPrompt: "", knocked: ""
+  };
+  if (opts.seal && !out.fired.includes('令咒·絕對命令')) out.fired.push('令咒·絕對命令');
+  if (!r.atkWins) return out;
+
+  var dmg = r.damage;
+  if (opts.counterMul) dmg = Math.max(1, Math.round(dmg * opts.counterMul));
+  out.damage = dmg;
+
+  var tgtFaction = String(pcData[tgtIdx][COL.PC.FACTION] || "");
+  var isPlayerSv = (tgtFaction === "從者");
+  var isFoeSv = (tgtFaction === "敵從者");
+  var severed = hasFx_(atkC, 'rule_breaker') || hasFx_(atkC, 'anti_magic_lance');
+  var hp = parseInt(pcData[tgtIdx][COL.PC.HP]) || 0;
+  var after = hp - dmg;
+  if (severed && after <= 0) out.fired.push(atkC.name + '·斬斷救贖(契約已破)');
+  if (after <= 5 && hasFx_(defC, 'survive') && hp > 1 && !severed) { after = 1; out.fired.push(defC.name + '·戰鬥續行'); }
+
+  // 令咒緊急脫離（僅敵從者）
+  if (after <= 0 && isFoeSv && !severed) {
+    var eSeals = parseInt(pcData[tgtIdx][COL.PC.CONTRIB]) || 0;
+    if (eSeals > 0 && Math.random() < 0.30) {
+      out.sealEscaped = true;
+      pcData[tgtIdx][COL.PC.HP] = 1; pcData[tgtIdx][COL.PC.CONTRIB] = eSeals - 1;
+      pcData[tgtIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基受創", "姿勢": "踉蹌", "負面": "令咒緊急脫離", "顏面": "咬牙退避" });
+      var oldLoc = String(pcData[tgtIdx][COL.PC.LOC]).trim(), newLoc = enemyRetreatLoc_(oldLoc);
+      pcData[tgtIdx][COL.PC.LOC] = newLoc;
+      sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
+      for (var mi = 1; mi < pcData.length; mi++) {
+        if (String(pcData[mi][COL.PC.FACTION]) === "敵御主" && String(pcData[mi][COL.PC.GAME_ID] || "") === ctx.myGameId && String(pcData[mi][COL.PC.LOC]).trim() === oldLoc && !String(pcData[mi][COL.PC.ID]).startsWith("DEAD_")) {
+          pcData[mi][COL.PC.LOC] = newLoc; sheets.pc.getRange(mi + 1, 1, 1, pcData[mi].length).setValues([pcData[mi]]); break;
+        }
+      }
+      out.sealNote = `對面御主一道令咒迸發，強令「${defC.name}」於靈基崩解前一瞬撤離戰場，遁向「${newLoc}」（敵餘令咒 ${eSeals - 1}）。`;
+      return out;
+    }
+  }
+  // 十二試煉
+  if (after <= 0 && !severed && hasFx_(defC, 'god_hand')) {
+    var lives = getGodHandLives_(pcData[tgtIdx][COL.PC.MEMORY]);
+    if (lives > 0) {
+      out.godRevived = true;
+      pcData[tgtIdx][COL.PC.HP] = Math.max(1, Math.round((parseInt(pcData[tgtIdx][COL.PC.MAX_HP]) || 480) * 0.40));
+      pcData[tgtIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[tgtIdx][COL.PC.MEMORY], lives - 1);
+      pcData[tgtIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "神性光輝纏身", "姿勢": "緩緩起身", "負面": `十二試煉·餘${lives - 1}命`, "顏面": "不滅的戰意" });
+      sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
+      out.godNote = `「${pcData[tgtIdx][COL.PC.NAME]}」倒下了——卻又緩緩站起。十二試煉的詛咒讓他一次次自死亡歸來（尚餘 ${lives - 1} 條命）。`;
+      out.fired.push(pcData[tgtIdx][COL.PC.NAME] + '·十二試煉(God Hand)');
+      return out;
+    }
+  }
+  if (after <= 0) {
+    out.destroyed = String(pcData[tgtIdx][COL.PC.NAME]);
+    pcData[tgtIdx][COL.PC.ID] = "DEAD_" + String(pcData[tgtIdx][COL.PC.ID]);
+    pcData[tgtIdx][COL.PC.HP] = 0;
+    pcData[tgtIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "靈基崩潰·消滅", "顏面": "已無生息" });
+    sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
+    if (isPlayerSv) {
+      out.defeat = true;
+      var svName = String(pcData[tgtIdx][COL.PC.NAME]);
+      var wish = extractWish_(pcData[ctx.pIdx][COL.PC.MEMORY]);
+      out.dreamPrompt = buildDreamPrompt_(pcData[ctx.pIdx][COL.PC.NAME], wish, svName);
+      var acctD = String(ctx.userData.acctName || "");
+      if (acctD) recordHistory_(acctD, "敗", svName, `「${svName}」於「${atkC.name}」之手靈基崩潰，聖杯戰爭落敗。`);
+    } else {
+      out.knocked = out.destroyed;
+      if (isFoeSv && aliveEnemyServants_(sheets, ctx.myGameId) <= 0) {
+        out.victory = true;
+        var acctW = String(ctx.userData.acctName || "");
+        if (acctW) { incrementWin_(acctW); recordHistory_(acctW, "勝", atkC.name, `「${atkC.name}」斬盡所有敵對從者，奪得聖杯。`); }
+      }
+    }
+  } else {
+    pcData[tgtIdx][COL.PC.HP] = after;
+    sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
+  }
+  return out;
+}
+
 function actionFateBattle(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
   const useNp = !!userData.np;
@@ -3871,195 +3962,93 @@ function actionFateBattle(userData, pcId, sheets) {
   let battleAp = AP_PER_DAY;
   if (isFateBattle) { try { battleAp = spendAp_(myGameId, 1).ap; } catch (e) { } }
 
-  const fb = resolveFateBattle_(atkC, defC, { np: useNp, seal: useSeal });
+  // ⚔️ 一次出戰＝最多 ROUNDS 個來回（我攻→敵反擊），命中才扣血、未中＝撲空；任一方倒下即止。
+  //   寶具/令咒只在開場第一擊生效；其後為普通互砍。敵御主空手不反擊。
+  const ROUNDS = 3;
   if (useSeal) {
-    fb.atkWins = true; // 絕對命令＝必中，強制由玩家從者命中
     const left = getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]) - 1;
     pcData[pIdx][COL.PC.MEMORY] = setPlayerSeals_(pcData[pIdx][COL.PC.MEMORY], left);
     sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-    if (!fb.fired.includes('令咒·絕對命令')) fb.fired.push('令咒·絕對命令');
   }
-
-  // 寶具耗魔
   if (useNp) {
     pcData[atkIdx][COL.PC.MP] = Math.max(0, (parseInt(pcData[atkIdx][COL.PC.MP]) || 0) - Math.round((parseInt(pcData[atkIdx][COL.PC.MAX_MP]) || 100) * 0.35));
     sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
+    atkC.mp = parseInt(pcData[atkIdx][COL.PC.MP]) || 0; // 反映耗魔後的出力
   }
 
-  // 套用傷害：勝→守方受傷；負→從者受傷
-  let knockedOut = [];
-  let victory = false, defeat = false, dreamPrompt = "", destroyedName = "", sealEscaped = false, sealNote = "";
-  const dmgIdx = fb.atkWins ? nIdx : atkIdx;
-  const dmgC = fb.atkWins ? defC : atkC;
-  const dmgFaction = String(pcData[dmgIdx][COL.PC.FACTION] || "");
-  let hp = parseInt(pcData[dmgIdx][COL.PC.HP]) || 0;
-  let after = hp - fb.damage;
-  // 🗡️ 破戒全咒/破魔薔薇(rule_breaker/anti_magic_lance)：勝方斬斷敵之契約與救贖——
-  //    此擊之下，敗方無法令咒脫離、戰鬥續行、十二試煉復活，一旦致命即為終結。
-  const severed = fb.atkWins && (hasFx_(atkC, 'rule_breaker') || hasFx_(atkC, 'anti_magic_lance'));
-  if (severed && after <= 0) fb.fired.push(atkC.name + '·斬斷救贖(契約已破)');
-  if (after <= 5 && hasFx_(dmgC, 'survive') && hp > 1 && !severed) { after = 1; fb.fired.push(dmgC.name + '·戰鬥續行'); }
+  let knockedOut = [], victory = false, defeat = false, dreamPrompt = "", destroyedName = "", sealEscaped = false, sealNote = "", godRevived = false, godNote = "";
+  const rounds = [];
+  const ctx = { myGameId: myGameId, pIdx: pIdx, userData: userData };
+  const targetIsFoeServant = String(pcData[nIdx][COL.PC.FACTION]) === "敵從者";
 
-  // 🔵 敵御主令咒反應：敵從者瀕死時，有令咒餘量則 30% 隨機燃令咒「緊急脫離」，靈基受創退場保命
-  if (after <= 0 && dmgFaction === "敵從者" && !severed) {
-    let eSeals = parseInt(pcData[dmgIdx][COL.PC.CONTRIB]) || 0;
-    if (eSeals > 0 && Math.random() < 0.30) {
-      sealEscaped = true;
-      pcData[dmgIdx][COL.PC.HP] = 1;
-      pcData[dmgIdx][COL.PC.CONTRIB] = eSeals - 1;
-      pcData[dmgIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基受創", "姿勢": "踉蹌", "負面": "令咒緊急脫離", "顏面": "咬牙退避" });
-      const oldLoc = String(pcData[dmgIdx][COL.PC.LOC]).trim();
-      const newLoc = enemyRetreatLoc_(oldLoc);
-      pcData[dmgIdx][COL.PC.LOC] = newLoc;
-      sheets.pc.getRange(dmgIdx + 1, 1, 1, pcData[dmgIdx].length).setValues([pcData[dmgIdx]]);
-      // 同地敵御主隨從者一起脫離
-      for (let mi = 1; mi < pcData.length; mi++) {
-        if (String(pcData[mi][COL.PC.FACTION]) === "敵御主" &&
-            String(pcData[mi][COL.PC.GAME_ID] || "") === myGameId &&
-            String(pcData[mi][COL.PC.LOC]).trim() === oldLoc &&
-            !String(pcData[mi][COL.PC.ID]).startsWith("DEAD_")) {
-          pcData[mi][COL.PC.LOC] = newLoc;
-          sheets.pc.getRange(mi + 1, 1, 1, pcData[mi].length).setValues([pcData[mi]]);
-          break;
-        }
-      }
-      sealNote = `對面御主一道令咒迸發，強令「${defC.name}」於靈基崩解前一瞬撤離戰場，遁向「${newLoc}」（敵餘令咒 ${eSeals - 1}）。`;
+  for (let rd = 0; rd < ROUNDS; rd++) {
+    if (sealEscaped || destroyedName || defeat || victory) break;
+    if (String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_") || String(pcData[atkIdx][COL.PC.ID]).startsWith("DEAD_")) break;
+    const opening = (rd === 0);
+
+    // ── 我方出擊 ──
+    const ps = fateStrike_(sheets, pcData, atkC, nIdx, { np: opening && useNp, seal: opening && useSeal }, ctx);
+    const rl = {
+      n: rd + 1, pRoll: ps.aRoll, pHitVal: ps.aHit, dRoll: ps.dRoll, dEvaVal: ps.dEva,
+      pHit: ps.hit, pDmg: ps.hit ? ps.damage : 0, pCrit: ps.crit, pFired: ps.fired,
+      note: ps.sealNote || ps.godNote || "", eHit: false, eDmg: 0, eRoll: 0, eHitVal: 0, eFired: []
+    };
+    if (ps.destroyed) destroyedName = ps.destroyed;
+    if (ps.knocked) knockedOut.push(ps.knocked);
+    if (ps.sealEscaped) { sealEscaped = true; sealNote = ps.sealNote; }
+    if (ps.godRevived) { godRevived = true; godNote = ps.godNote; }
+    if (ps.victory) victory = true;
+
+    if (sealEscaped || destroyedName) { rounds.push(rl); break; }
+
+    // ── 敵反擊 ──（敵從者尚存活才回擊；空手敵御主不反擊）
+    if (targetIsFoeServant && !String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) {
+      const enemyNow = rowToCombatant_(pcData[nIdx]);
+      const es = fateStrike_(sheets, pcData, enemyNow, atkIdx, { counterMul: 0.85 }, ctx);
+      rl.eHit = es.hit; rl.eRoll = es.aRoll; rl.eHitVal = es.aHit; rl.eDmg = es.hit ? es.damage : 0; rl.eFired = es.fired;
+      if (es.defeat) { defeat = true; victory = false; dreamPrompt = es.dreamPrompt; }
     }
+    rounds.push(rl);
+    if (defeat) break;
   }
 
-  // ⚡ 十二試煉(god_hand)：擁此寶具者(赫拉克勒斯)靈基崩解前自死亡歸來，耗一條命
-  let godRevived = false, godNote = "";
-  if (after <= 0 && !sealEscaped && !severed && hasFx_(dmgC, 'god_hand')) {
-    let lives = getGodHandLives_(pcData[dmgIdx][COL.PC.MEMORY]);
-    if (lives > 0) {
-      godRevived = true;
-      // 復活只回 40% 靈基（非滿血）——仍是硬牆但磨得死，不會 softlock 勝利
-      pcData[dmgIdx][COL.PC.HP] = Math.max(1, Math.round((parseInt(pcData[dmgIdx][COL.PC.MAX_HP]) || 480) * 0.40));
-      pcData[dmgIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[dmgIdx][COL.PC.MEMORY], lives - 1);
-      pcData[dmgIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "神性光輝纏身", "姿勢": "緩緩起身", "負面": `十二試煉·餘${lives - 1}命`, "顏面": "不滅的戰意" });
-      sheets.pc.getRange(dmgIdx + 1, 1, 1, pcData[dmgIdx].length).setValues([pcData[dmgIdx]]);
-      godNote = `「${pcData[dmgIdx][COL.PC.NAME]}」倒下了——卻又緩緩站起。十二試煉的詛咒讓他一次次自死亡歸來（尚餘 ${lives - 1} 條命）。`;
-      fb.fired.push(pcData[dmgIdx][COL.PC.NAME] + '·十二試煉(God Hand)');
-    }
-  }
-
-  if (after <= 0 && !sealEscaped && !godRevived) {
-    // 靈基崩潰＝徹底消滅（不可復原）
-    destroyedName = String(pcData[dmgIdx][COL.PC.NAME]);
-    pcData[dmgIdx][COL.PC.ID] = "DEAD_" + String(pcData[dmgIdx][COL.PC.ID]);
-    pcData[dmgIdx][COL.PC.HP] = 0;
-    pcData[dmgIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "靈基崩潰·消滅", "顏面": "已無生息" });
-    sheets.pc.getRange(dmgIdx + 1, 1, 1, pcData[dmgIdx].length).setValues([pcData[dmgIdx]]);
-
-    if (dmgFaction === "從者") {
-      // 玩家從者被消滅 → 敗北
-      defeat = true;
-      var wish = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
-      dreamPrompt = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wish, atkC.name);
-      var acctD = String(userData.acctName || "");
-      if (acctD) recordHistory_(acctD, "敗", atkC.name, `「${atkC.name}」靈基崩潰於「${defC.name}」之手，聖杯戰爭落敗。`);
-    } else {
-      // 敵對陣營被消滅
-      if (dmgFaction === "敵從者") {
-        knockedOut.push(destroyedName);
-        var remain = aliveEnemyServants_(sheets, myGameId);
-        if (remain <= 0) {
-          // 所有敵從者皆已消滅 → 勝利（其他御主存活無妨）
-          victory = true;
-          var acctW = String(userData.acctName || "");
-          if (acctW) {
-            incrementWin_(acctW);
-            recordHistory_(acctW, "勝", atkC.name, `「${atkC.name}」斬盡所有敵對從者，奪得聖杯。`);
-          }
-        }
-      } else {
-        knockedOut.push(destroyedName);
-      }
-    }
-  } else if (!sealEscaped) {
-    pcData[dmgIdx][COL.PC.HP] = after;
-    sheets.pc.getRange(dmgIdx + 1, 1, 1, pcData[dmgIdx].length).setValues([pcData[dmgIdx]]);
-  }
-
-  // ⚔️ 對面反擊：玩家命中後，只要敵從者仍存活，便回擊一拍（雙向廝殺，不再單方面挨打）。
-  //    反擊以 0.7 計（敵方是被動回應、非主動出招），保留玩家「先手」優勢。
-  let counterNote = "", counterDmg = 0, counterHit = false;
-  const enemyAlive = fb.atkWins && !destroyedName && !sealEscaped
-    && String(pcData[nIdx][COL.PC.FACTION]) === "敵從者"
-    && (parseInt(pcData[nIdx][COL.PC.HP]) || 0) > 0;
-  if (enemyAlive && !defeat && !victory) {
-    const defNow = rowToCombatant_(pcData[nIdx]);
-    const cb = resolveFateBattle_(defNow, atkC, {}); // 敵從者反擊玩家從者
-    if (cb.atkWins) {
-      counterHit = true;
-      counterDmg = Math.max(1, Math.round(cb.damage * 0.7));
-      let pAfter = (parseInt(pcData[atkIdx][COL.PC.HP]) || 0) - counterDmg;
-      if (pAfter <= 5 && hasFx_(atkC, 'survive') && (parseInt(pcData[atkIdx][COL.PC.HP]) || 0) > 1) {
-        pAfter = 1; fb.fired.push(atkC.name + '·戰鬥續行');
-      }
-      if (pAfter <= 0) {
-        // 玩家從者被反擊打死 → 敗北
-        pcData[atkIdx][COL.PC.ID] = "DEAD_" + String(pcData[atkIdx][COL.PC.ID]);
-        pcData[atkIdx][COL.PC.HP] = 0;
-        pcData[atkIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "靈基崩潰·消滅", "顏面": "已無生息" });
-        sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
-        defeat = true; victory = false;
-        var wishC = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
-        dreamPrompt = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wishC, atkC.name);
-        var acctC = String(userData.acctName || "");
-        if (acctC) recordHistory_(acctC, "敗", atkC.name, `「${atkC.name}」於「${defC.name}」的回擊中靈基崩潰，聖杯戰爭落敗。`);
-        counterNote = `「${defC.name}」拚死回擊——${atkC.name} 靈基崩潰、化作光點消散……`;
-      } else {
-        pcData[atkIdx][COL.PC.HP] = pAfter;
-        sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
-        counterNote = `「${defC.name}」隨即回擊，${atkC.name} 受創 ${counterDmg}（餘 ${pAfter}）！`;
-      }
-    } else {
-      counterNote = `「${defC.name}」想趁勢反撲，卻被 ${atkC.name} 穩穩擋下。`;
-    }
-  }
-
-  const resultMsg = (fb.atkWins
-    ? `${atkC.name} 命中「${defC.name}」，造成 ${fb.damage} 點傷害！${sealEscaped ? sealNote : (destroyedName && dmgFaction !== "從者" ? `「${defC.name}」靈基崩潰，徹底消滅！` : "")}`
-    : `「${defC.name}」化解並反擊，${atkC.name} 受創 ${fb.damage}！${destroyedName && dmgFaction === "從者" ? `${atkC.name} 靈基崩潰，化作光點消散……` : ""}`)
-    + (godRevived ? `　${godNote}` : "")
-    + (counterNote ? `\n${counterNote}` : "");
-  const firedStr = fb.fired.length ? `\n〔技能／寶具發動〕${fb.fired.join('、')}` : "";
-  const critMap = { atk_crit: `${fb.winner} 擲出大成功，一擊洞穿！`, def_crit: `${fb.winner} 擲出大成功，完美反制！`, atk_fumble: `${atkC.name} 擲出大失敗，露出破綻！`, def_fumble: `「${defC.name}」擲出大失敗！` };
+  // 戰報摘要
+  const totalDealt = rounds.reduce((s, r) => s + (r.pDmg || 0), 0);
+  const totalTaken = rounds.reduce((s, r) => s + (r.eDmg || 0), 0);
+  const nRounds = rounds.length;
+  const roundsBrief = rounds.map(r =>
+    `第${r.n}回合：${atkC.name}${r.pHit ? `命中(−${r.pDmg})` : '揮空'}${r.note ? `【${String(r.note).replace(/\n/g, ' ')}】` : ''}` +
+    (targetIsFoeServant ? (r.eDmg ? `，「${defC.name}」回擊(−${r.eDmg})` : (r.eHit === false ? `，「${defC.name}」反擊被擋` : '')) : '')
+  ).join('\n');
+  const finalLine = destroyedName
+    ? `「${defC.name}」靈基崩潰、徹底消滅${victory ? '——此乃最後一名敵對從者，聖杯已近！' : '。'}`
+    : sealEscaped ? `「${defC.name}」被對面御主令咒緊急扯離戰場、遁走不在場。`
+      : godRevived ? `「${defC.name}」屢屢自死亡歸來、仍未倒下。`
+        : defeat ? `『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。`
+          : `「${defC.name}」重傷未死，戰局未決——可再出擊打磨。`;
 
   let aiPrompt;
   if (defeat) {
-    // 敗北：不在此處演出（前端會先播虛假之夢→老虎道場），戰報僅作收場
-    aiPrompt = `【系統戰報·已裁定】御主號令從者『${atkC.name}』迎戰「${defC.name}」，然『${atkC.name}』靈基崩潰、化作光點消散。御主於聖杯戰爭中敗北。\n` +
-      `★以 Fate／TYPE-MOON 筆觸沉痛描寫從者消滅的瞬間（一段即可），語氣留白。勝負已由系統結算。\n` +
+    aiPrompt = `【系統戰報·已裁定】御主號令從者『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合，終致『${atkC.name}』靈基崩潰、化作光點消散，御主於聖杯戰爭中敗北。\n` +
+      `★以 Fate／TYPE-MOON 筆觸沉痛描寫這數回合廝殺後從者消滅的瞬間（一段即可），語氣留白。勝負已由系統結算。\n` +
       `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
   } else {
-    aiPrompt = `【系統戰報·已裁定，嚴禁更改勝負】御主號令從者『${atkC.name}』${useNp ? '解放寶具' : '出擊'}，迎戰「${defC.name}」。\n` +
+    aiPrompt = `【系統戰報·已裁定，嚴禁更改勝負】御主號令從者『${atkC.name}』${useNp ? '解放寶具' : ''}${useSeal ? '·燃令咒絕對命令' : ''}出擊，與「${defC.name}」短兵相接，共 ${nRounds} 個回合的你來我往。\n` +
       (interceptNote ? `〔護主攔截〕${interceptNote}\n` : "") +
-      `擲骰：${atkC.name} 命中 ${fb.aHit}（d20=${fb.aRoll}） vs 「${defC.name}」迴避 ${fb.dEva}（d20=${fb.dRoll}）。${fb.crit ? (critMap[fb.crit] || '') : ''}${firedStr}\n` +
-      `最終結果：${resultMsg}\n` +
-      (counterNote ? `★務必演出「${defC.name}」的回擊一拍（依上面結果命中或被擋），雙方有來有往、互有攻防，絕非單方面挨打。\n` : "") +
-      `★請以 Fate／TYPE-MOON 筆觸生動描寫這場聖杯戰爭的廝殺，凸顯上面發動的技能／寶具威能與靈基壓迫感（演出而非複述標籤名）。勝負與傷害已由系統結算。\n` +
-      (godRevived
-        ? `★【十二試煉】${godNote}請演出他靈基崩解後又自死亡歸來、神性光輝重燃的不滅之姿，本回合【未死亡】。\n`
-        : (sealEscaped
-          ? `★【令咒介入】${sealNote}請演出對面御主令咒光芒爆閃、強行將重傷從者扯離戰場的瞬間，本回合【無人死亡】，敵已遁走、不在場。\n`
-          : (destroyedName && dmgFaction !== "從者"
-            ? `★「${defC.name}」已靈基崩潰、徹底消滅，可描寫其消散；${victory ? '此乃最後一名敵對從者，聖杯已近。' : ''}\n`
-            : `★【鐵律】敗方最多重傷跪地，【絕對禁止】描寫死亡、消滅或屍體，生死由御主後續定奪。\n`))) +
+      `${roundsBrief}\n` +
+      `我方共造成 ${totalDealt} 傷害、受創 ${totalTaken}。最終：${finalLine}\n` +
+      `★請以 Fate／TYPE-MOON 筆觸生動描寫這 ${nRounds} 回合互有攻防、你來我往的廝殺（不是單方面挨打），凸顯雙方發動的技能／寶具威能與靈基壓迫感（演出而非複述標籤名）。勝負與傷害已由系統結算。\n` +
+      (godRevived ? `★【十二試煉】${godNote}請演出他靈基崩解又自死亡歸來、神性光輝重燃的不滅之姿。\n` : "") +
+      (sealEscaped ? `★【令咒介入】${sealNote}請演出對面御主令咒爆閃、強行扯離重傷從者的瞬間，敵已遁走、不在場。\n` : "") +
+      ((!destroyedName && !sealEscaped && !godRevived) ? `★敗方最多重傷，【絕對禁止】描寫死亡／消滅／屍體，生死由御主後續定奪。\n` : "") +
       `★【鐵律】嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
   }
 
-  // 📊 給前端的視覺戰報（讓玩家看見骰子與數字，而非只有 AI 散文）
+  // 📊 給前端的多回合視覺戰報
   const report = {
-    atk: atkC.name, def: defC.name,
-    aRoll: fb.aRoll, aHit: fb.aHit, dRoll: fb.dRoll, dEva: fb.dEva,
-    atkWins: fb.atkWins, useNp: useNp, useSeal: useSeal,
-    damage: fb.atkWins ? fb.damage : 0,         // 玩家命中造成的傷害
-    selfDamage: fb.atkWins ? 0 : fb.damage,     // 玩家骰輸時自家從者受創
-    crit: fb.crit || "", fired: fb.fired || [],
-    destroyed: destroyedName || "", godRevived: godRevived, sealEscaped: sealEscaped,
-    counterDmg: counterDmg, counterHit: counterHit, intercept: !!interceptNote,
+    atk: atkC.name, def: defC.name, rounds: rounds, intercept: !!interceptNote,
+    useNp: useNp, useSeal: useSeal, totalDealt: totalDealt, totalTaken: totalTaken,
+    destroyed: destroyedName || "", godRevived: godRevived, sealEscaped: sealEscaped, victory: victory, defeat: defeat,
     defHp: parseInt(pcData[nIdx][COL.PC.HP]) || 0, defHpMax: parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0,
     atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0
   };
@@ -4069,7 +4058,7 @@ function actionFateBattle(userData, pcId, sheets) {
     victory: victory, defeat: defeat, dreamPrompt: dreamPrompt,
     sealEscaped: sealEscaped, report: report,
     clock: isFateBattle ? clockLabel_(myGameId) : "", ap: battleAp, apMax: AP_PER_DAY,
-    statusString: getFreshStatusString(pcId, pIdx, sheets), combatResult: fb
+    statusString: getFreshStatusString(pcId, pIdx, sheets)
   });
 }
 
