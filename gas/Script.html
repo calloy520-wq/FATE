@@ -35,6 +35,19 @@
     });
   }
 
+  // 🔒 全域動作鎖：任一動作進行中就擋掉連點與其他動作，等系統回應再放行
+  let __actionBusy = false;
+  function beginAction() {
+    if (__actionBusy) return false;
+    __actionBusy = true;
+    try { document.body.style.cursor = 'progress'; } catch (e) {}
+    return true;
+  }
+  function endAction() {
+    __actionBusy = false;
+    try { document.body.style.cursor = ''; } catch (e) {}
+  }
+
   // ==========================================
   // 全域變數狀態 (新增目標綁定器)
   // ==========================================
@@ -983,6 +996,7 @@ function renderRecentLocs(recents = null) {
 
   // 🛏️ 休息 N 小時：補 2×N AP、回血回魔（按時數比例）、世界自走
   async function rest(hours) {
+    if (!beginAction()) return;
     var ov = document.getElementById('history-overlay');
     if (ov) ov.style.display = 'none';
     const story = document.getElementById('story');
@@ -997,11 +1011,12 @@ function renderRecentLocs(recents = null) {
         showRumors(data.rumors);
         syncData(true);
       } else { alert((data && data.message) || '休息失敗。'); }
-    } catch (e) { alert('連線失敗，休息未果。'); }
+    } catch (e) { alert('連線失敗，休息未果。'); } finally { endAction(); }
   }
 
   // 🔍 偵查：耗 1 AP，揭露附近藏匿的敵人到地圖
   async function scout() {
+    if (!beginAction()) return;
     const story = document.getElementById('story');
     story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主凝神探查四周氣息……</div>`);
     story.scrollTop = story.scrollHeight;
@@ -1014,10 +1029,11 @@ function renderRecentLocs(recents = null) {
         renderMapPane();
         syncData(true);
       } else { alert((data && data.message) || '偵查失敗。'); }
-    } catch (e) { alert('連線失敗，偵查未果。'); }
+    } catch (e) { alert('連線失敗，偵查未果。'); } finally { endAction(); }
   }
 
   async function travelTo(targetName, distance) {
+    if (!beginAction()) return;
     // 👇 把原本的 toggleExplore(); 刪掉，改成這行強制隱藏！
     document.getElementById('explore-overlay').style.display = 'none';
 
@@ -1053,10 +1069,10 @@ function renderRecentLocs(recents = null) {
       } else {
         alert("天道阻礙：" + data.message);
       }
-    } catch(e) { 
-        console.error("移動時發生錯誤:", e); 
+    } catch(e) {
+        console.error("移動時發生錯誤:", e);
         if (optContainer) optContainer.innerHTML = '';
-    }
+    } finally { endAction(); }
   }
 
   function renderNpcList() {
@@ -1816,6 +1832,7 @@ function renderRecentLocs(recents = null) {
 
   // ⚔️ 令從者出擊／寶具解放（Fate 戰鬥：六圍＋fx＋寶具）
   async function servantStrike(npcName, useNp, useSeal) {
+    if (!beginAction()) return;
     const story = document.getElementById('story');
     const verb = useSeal ? '燃令咒・絕對命令，必中斬向' : (useNp ? '解放寶具，目標' : '出擊，目標');
     story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主令從者${verb}「${npcName}」！</div>`);
@@ -1829,11 +1846,12 @@ function renderRecentLocs(recents = null) {
         else if (res.victory) { await handleVictory(res); }
       }
       else { alert((res && res.message) || '出擊失敗。'); }
-    } catch (e) { alert('連線失敗，出擊未果。'); }
+    } catch (e) { alert('連線失敗，出擊未果。'); } finally { endAction(); }
   }
 
   // 💧 補魔：御主供魔給從者（回魔＋羈絆＋fade 演出）
   async function manaSupply() {
+    if (!beginAction()) return;
     const story = document.getElementById('story');
     story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主將魔力導入從者，行補魔之儀……</div>`);
     story.scrollTop = story.scrollHeight;
@@ -1841,7 +1859,7 @@ function renderRecentLocs(recents = null) {
       const res = await gasRun({ action: 'mana_supply', pcId: pc.id });
       if (res && res.success) { updateClock(res.clock, res.ap, res.apMax); narrate(res.aiPrompt); syncData(true); }
       else { alert((res && res.message) || '補魔失敗。'); }
-    } catch (e) { alert('連線失敗，補魔未果。'); }
+    } catch (e) { alert('連線失敗，補魔未果。'); } finally { endAction(); }
   }
 
   // ❖ 令咒選單（絕對命令需在戰鬥中對目標施放，這裡放自身向三招）
@@ -1861,6 +1879,7 @@ function renderRecentLocs(recents = null) {
   }
 
   async function useSeal(type) {
+    if (!beginAction()) return;
     var ov = document.getElementById('history-overlay');
     if (ov) ov.style.display = 'none';
     const story = document.getElementById('story');
@@ -1870,7 +1889,7 @@ function renderRecentLocs(recents = null) {
       const res = await gasRun({ action: 'use_seal', pcId: pc.id, sealType: type });
       if (res && res.success) { narrate(res.aiPrompt); syncData(true); }
       else { alert((res && res.message) || '令咒未能發動。'); }
-    } catch (e) { alert('連線失敗，令咒未發動。'); }
+    } catch (e) { alert('連線失敗，令咒未發動。'); } finally { endAction(); }
   }
 
   // 敗北：先播「願望實現的虛假之夢」，再進老虎道場
@@ -1960,6 +1979,7 @@ function renderRecentLocs(recents = null) {
     const list = window._galleryList || [];
     const s = list[i];
     if (!s) return;
+    if (!beginAction()) return;
     try {
       const res = await gasRun({ action: 'enter_gallery', acctName: currentAccount, servantName: s.name });
       if (!res || !res.success) { alert((res && res.message) || '無法進入後日談。'); return; }
@@ -1982,7 +2002,7 @@ function renderRecentLocs(recents = null) {
       renderMapPane();
       syncData(true);
       send('（這是聖杯戰爭結束後的和平後日談，沒有敵人也沒有戰鬥。）御主想與身邊的從者「' + s.name + '」一起，在冬木悠閒地展開這個午後。請描寫此刻深山町坡道的陽光與氛圍，聚焦兩人之間鬆弛而溫柔的相處，留下讓御主想開口的契機。★禁止任何戰鬥／敵人／血量變化。★禁止複述設定字面。', true);
-    } catch (e) { alert('連線失敗，無法進入後日談。'); }
+    } catch (e) { alert('連線失敗，無法進入後日談。'); } finally { endAction(); }
   }
 
   function openTigerDojo() {
@@ -2300,20 +2320,34 @@ function applyModeUI() {
 // 🔵 御主命運測定（魔術天賦），最多 3 次
 const FATE_MAGICS_ = ['強化（近戰加成）', '投影／固有結界', '寶石魔術', '符文魔術', '鍊金術', '起源彈', '風魔術', '使魔操縱', '咒術／降靈', '禮裝製作'];
 const FATE_ORIGINS_ = ['自學成才的新興魔術師', '沒落名門的末裔', '名門魔術師世家', '異鄉來的旅人', '教會代行者出身', '被捲入的普通人', '魔術協會的研究者', '繼承詛咒血脈', '時鐘塔的留學生', '隱世魔術師的弟子'];
-let masterRoll = null;
-let masterRollCount = 0;
+let masterRolls = [];   // 最多 3 次測定結果，供玩家挑選
+let masterRoll = null;  // 玩家選中接受的那一個
 function rollFate() {
-  if (masterRollCount >= 3) { alert('命運最多測定 3 次，請從中選擇接受。'); return; }
-  masterRollCount++;
+  if (masterRolls.length >= 3) { alert('命運最多測定 3 次了，請從下方點選一個結果接受。'); return; }
   const r = (Math.random() + Math.random()) / 2;
   const circuits = Math.max(12, Math.min(50, Math.round(15 + r * 35)));
   const magic = FATE_MAGICS_[Math.floor(Math.random() * FATE_MAGICS_.length)];
   const origin = FATE_ORIGINS_[Math.floor(Math.random() * FATE_ORIGINS_.length)];
   const mr = Math.random();
   const melee = mr < 0.5 ? 'E' : mr < 0.8 ? 'D' : mr < 0.95 ? 'C' : 'B';
-  masterRoll = { circuits: circuits, magic: magic, origin: origin, melee: melee };
+  masterRolls.push({ circuits: circuits, magic: magic, origin: origin, melee: melee });
+  masterRoll = masterRolls[masterRolls.length - 1]; // 預設選最新一筆
+  renderFateRolls();
+}
+function selectFateRoll(i) {
+  if (masterRolls[i]) { masterRoll = masterRolls[i]; renderFateRolls(); }
+}
+function renderFateRolls() {
   var box = document.getElementById('fate-roll-box');
-  if (box) box.innerHTML = '魔術迴路 <b style="color:#e7c873;">' + circuits + '</b>　體術 <b style="color:#e7c873;">' + melee + '</b><br>魔術系統：<b>' + magic + '</b><br>出身：<b>' + origin + '</b><br><small style="color:#888;">已測定 ' + masterRollCount + '/3 次</small>';
+  if (!box) return;
+  if (!masterRolls.length) { box.innerHTML = '尚未測定 —— 可測定 3 次，從中選一個接受'; return; }
+  var cards = masterRolls.map(function (roll, i) {
+    var sel = (roll === masterRoll);
+    return '<div onclick="selectFateRoll(' + i + ')" style="cursor:pointer; border:1px solid ' + (sel ? '#e7c873' : '#5a4a2a') + '; background:' + (sel ? 'rgba(231,200,115,0.12)' : 'transparent') + '; border-radius:6px; padding:6px 8px; margin-bottom:6px; text-align:left;">'
+      + (sel ? '✅ ' : '⚪ ') + '<b style="color:' + (sel ? '#e7c873' : '#bbb') + ';">測定 ' + (i + 1) + '</b>　迴路 <b style="color:#e7c873;">' + roll.circuits + '</b>　體術 <b style="color:#e7c873;">' + roll.melee + '</b>'
+      + '<br><span style="font-size:11px; color:#bbb;">' + roll.magic + '｜' + roll.origin + '</span></div>';
+  }).join('');
+  box.innerHTML = cards + '<div style="font-size:11px; color:#888; text-align:center;">點選一個結果接受（已測 ' + masterRolls.length + '/3）</div>';
 }
 
 async function checkName(event) {
