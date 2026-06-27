@@ -1998,6 +1998,13 @@ function actionMove(userData, pcId, sheets) {
   const pIdx = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
 
+  // ⏳ 行動點檢查（FATE 單人世界；鑑賞 k_ 不耗 AP）
+  const moveGameId = String(allPcData[pIdx][COL.PC.GAME_ID] || "");
+  const isFateMove = moveGameId.indexOf("g_") === 0;
+  if (isFateMove && getAp_(moveGameId) < 1) {
+    return JSON.stringify({ success: false, message: "行動點已耗盡，無力遠行——請『歇息』恢復精神後再出發。", clock: clockLabel_(moveGameId), ap: 0, apMax: AP_PER_DAY });
+  }
+
   allPcData[pIdx][COL.PC.LOC] = target;
   const pcName = allPcData[pIdx][COL.PC.NAME];
   const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
@@ -2013,15 +2020,15 @@ function actionMove(userData, pcId, sheets) {
   sheets.pc.getRange(1, 1, allPcData.length, pcColCount).setValues(allPcData);
   SpreadsheetApp.flush();
 
-  // ⏳ 移動推進時間（路上約 3 小時）＋ 世界自走一輪；聊天不會走到這裡
-  const myGameId = String(allPcData[pIdx][COL.PC.GAME_ID] || "");
-  let clockLabel = "", worldRumors = [];
-  if (myGameId && myGameId.indexOf("k_") !== 0) { // 鑑賞約會世界不推進戰況
+  // ⏳ 移動耗 1 AP（＝推進 2 小時）＋ 世界自走一輪；聊天不會走到這裡
+  let clockLabel = "", worldRumors = [], apLeft = AP_PER_DAY;
+  if (isFateMove) {
     try {
-      advanceHours_(myGameId, 3);
-      const tick = worldTick_(sheets, myGameId, target, 1);
+      const sp = spendAp_(moveGameId, 1);
+      apLeft = sp.ap;
+      const tick = worldTick_(sheets, moveGameId, target, 1);
       worldRumors = tick.rumors || [];
-      clockLabel = clockLabel_(myGameId);
+      clockLabel = clockLabel_(moveGameId);
     } catch (e) { }
   }
   try { markRivalsSeen_(sheets, pcId); } catch (e) { } // 🔵 抵達即偵查到此地敵人（世界 tick 後再揭一次）
@@ -2041,6 +2048,8 @@ function actionMove(userData, pcId, sheets) {
     mapDesc: mapDesc,
     parentRegion: rootTarget,
     clock: clockLabel,
+    ap: apLeft,
+    apMax: AP_PER_DAY,
     rumors: worldRumors
   });
 }
@@ -2054,8 +2063,8 @@ function actionSync(userData, pcId, sheets) {
   const freshMapData = sheets.map.getDataRange().getValues();
   const currentMapInfo = freshMapData.find(m => m[COL.MAP.NAME] === (curL ? String(curL).split('-')[0] : ""));
   const syncGameId = String(allPcData[pcIndex][COL.PC.GAME_ID] || "");
-  let syncClock = "";
-  if (syncGameId && syncGameId.indexOf("k_") !== 0) { try { syncClock = clockLabel_(syncGameId); } catch (e) { } }
+  let syncClock = "", syncAp = AP_PER_DAY;
+  if (syncGameId && syncGameId.indexOf("g_") === 0) { try { syncClock = clockLabel_(syncGameId); syncAp = getAp_(syncGameId); } catch (e) { } }
 
   return JSON.stringify({
     success: true,
@@ -2063,7 +2072,9 @@ function actionSync(userData, pcId, sheets) {
     people: getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, sheets.rel ? sheets.rel.getDataRange().getValues() : [], sheets.task ? sheets.task.getDataRange().getValues() : []),
     locations: getNearbyLocations(curL, freshMapData),
     mapDesc: currentMapInfo ? currentMapInfo[COL.MAP.DESC] : "四下靜謐。",
-    clock: syncClock
+    clock: syncClock,
+    ap: syncAp,
+    apMax: AP_PER_DAY
   });
 }
 
@@ -2074,6 +2085,18 @@ function actionRest(userData, pcId, sheets) {
 
   const restGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const isFateRest = restGameId.indexOf("g_") === 0; // FATE 單人聖杯戰爭：歇息免費、推進時間
+  const restType = String(userData.restType || "night");
+
+  // ☕ 小憩（FATE）：推進 1 小時、補 2 AP，不回血、世界不廝殺（避免小憩 farming）
+  if (isFateRest && restType === "nap") {
+    let napClk = null;
+    try { napClk = napRest_(restGameId); } catch (e) { }
+    return JSON.stringify({
+      success: true, nap: true, statusString: getFreshStatusString(pcId, pIdx, sheets),
+      clock: clockLabel_(restGameId), ap: napClk ? napClk.ap : AP_PER_DAY, apMax: AP_PER_DAY, rumors: []
+    });
+  }
+
   if (!isFateRest) {
     let currentMoney = parseInt(pcData[pIdx][COL.PC.MONEY]) || 0;
     if (currentMoney < 100) return JSON.stringify({ success: false, message: "盤纏不足 100 銀兩，無法休養！" });
@@ -2139,7 +2162,7 @@ function actionRest(userData, pcId, sheets) {
   return JSON.stringify({
     success: true, statusString: getFreshStatusString(pcId, pIdx, sheets), healedNames: healedNames,
     loc: pcLoc, wasInjured: wasInjured, bystanderNames: bystanderNames,
-    clock: restClock, rumors: restRumors, overnight: isFateRest
+    clock: restClock, ap: isFateRest ? AP_PER_DAY : undefined, apMax: AP_PER_DAY, rumors: restRumors, overnight: isFateRest
   });
 }
 
@@ -3655,6 +3678,12 @@ function actionFateBattle(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: "對方不在你身邊，鞭長莫及。" });
   }
 
+  // ⏳ 戰鬥耗 1 AP（＝推進 2 小時）；行動點不足則無法出戰
+  const isFateBattle = myGameId.indexOf("g_") === 0;
+  if (isFateBattle && getAp_(myGameId) < 1) {
+    return JSON.stringify({ success: false, message: "行動點已耗盡，從者也需喘息——請『歇息』恢復後再戰。" });
+  }
+
   const atkC = rowToCombatant_(pcData[atkIdx]);
   const defC = rowToCombatant_(pcData[nIdx]);
 
@@ -3667,6 +3696,10 @@ function actionFateBattle(userData, pcId, sheets) {
   if (useSeal && getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]) <= 0) {
     return JSON.stringify({ success: false, message: "你的令咒已用盡，無法施加絕對命令。" });
   }
+
+  // 戰鬥確定開打 → 耗 1 AP（推進 2 小時）
+  let battleAp = AP_PER_DAY;
+  if (isFateBattle) { try { battleAp = spendAp_(myGameId, 1).ap; } catch (e) { } }
 
   const fb = resolveFateBattle_(atkC, defC, { np: useNp, seal: useSeal });
   if (useSeal) {
@@ -3787,6 +3820,7 @@ function actionFateBattle(userData, pcId, sheets) {
     success: true, aiPrompt: aiPrompt, knockedOut: knockedOut,
     victory: victory, defeat: defeat, dreamPrompt: dreamPrompt,
     sealEscaped: sealEscaped,
+    clock: isFateBattle ? clockLabel_(myGameId) : "", ap: battleAp, apMax: AP_PER_DAY,
     statusString: getFreshStatusString(pcId, pIdx, sheets), combatResult: fb
   });
 }

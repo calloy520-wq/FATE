@@ -937,13 +937,19 @@ function renderRecentLocs(recents = null) {
     container.innerHTML = html;
   }
 
-  // ⏳ 時鐘 HUD（鑑賞模式不顯示戰爭時鐘）
-  function updateClock(label) {
+  // ⏳ 時鐘 HUD（鑑賞模式不顯示戰爭時鐘）：第N日·時刻·時段 ⚡AP/12
+  function updateClock(label, ap, apMax) {
     const hud = document.getElementById('clock-hud');
     if (!hud) return;
     if (label && !(pc && pc.mode === 'kanshou')) {
-      const icon = /深夜|夜/.test(label) ? '🌙' : /清晨/.test(label) ? '🌅' : /黃昏/.test(label) ? '🌆' : '☀️';
-      hud.innerText = icon + ' ' + label;
+      const icon = /深夜/.test(label) ? '🌌' : /夜/.test(label) ? '🌙' : /清晨/.test(label) ? '🌅' : /黃昏/.test(label) ? '🌆' : '☀️';
+      let apStr = '';
+      if (typeof ap === 'number' && apMax) {
+        const lit = '⚡'.repeat(Math.max(0, Math.min(apMax, ap)));
+        const dim = '·'.repeat(Math.max(0, apMax - ap));
+        apStr = `　行動 ${ap}/${apMax} <span style="letter-spacing:-1px;color:#caa44a;">${lit}</span><span style="letter-spacing:-1px;color:#5a4a2a;">${dim}</span>`;
+      }
+      hud.innerHTML = icon + ' ' + label + apStr;
       hud.style.display = 'block';
     } else {
       hud.style.display = 'none';
@@ -959,17 +965,33 @@ function renderRecentLocs(recents = null) {
     story.scrollTop = story.scrollHeight;
   }
 
-  // 🛏️ 歇息／過夜：推進到隔日清晨、回血回魔、世界自走
+  // ☕ 小憩：推進 1 小時、補 2 AP（休息1小補2），不回血、世界不廝殺
+  async function napRest() {
+    const story = document.getElementById('story');
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主稍作小憩，調勻氣息……</div>`);
+    story.scrollTop = story.scrollHeight;
+    try {
+      const data = await gasRun({ action: 'rest', pcId: pc.id, restType: 'nap' });
+      if (data && data.success) {
+        if (data.statusString) { localStorage.setItem('kyushu_last_status', data.statusString); updateUI(data.statusString.split('§')); }
+        updateClock(data.clock, data.ap, data.apMax);
+        story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#aaa;font-size:12px;">（小憩片刻，恢復了些許行動力。${data.clock || ''}）</div>`);
+        syncData(true);
+      } else { alert((data && data.message) || '小憩失敗。'); }
+    } catch (e) { alert('連線失敗。'); }
+  }
+
+  // 🛏️ 過夜：推進到隔日清晨、回血回魔、AP 補滿、世界自走
   async function restOvernight() {
     const story = document.getElementById('story');
     story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主與從者就地歇息，靜待天明……</div>`);
     story.scrollTop = story.scrollHeight;
     try {
-      const data = await gasRun({ action: 'rest', pcId: pc.id });
+      const data = await gasRun({ action: 'rest', pcId: pc.id, restType: 'night' });
       if (data && data.success) {
         if (data.statusString) { localStorage.setItem('kyushu_last_status', data.statusString); updateUI(data.statusString.split('§')); }
-        updateClock(data.clock);
-        story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【天明】</b>一夜過去，${(data.healedNames||['你']).join('與')}的傷勢與魔力都已恢復。${data.clock ? '（' + data.clock + '）' : ''}</div>`);
+        updateClock(data.clock, data.ap, data.apMax);
+        story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【天明】</b>一夜過去，${(data.healedNames||['你']).join('與')}的傷勢與魔力都已恢復，行動力滿盈。${data.clock ? '（' + data.clock + '）' : ''}</div>`);
         showRumors(data.rumors);
         syncData(true);
       } else { alert((data && data.message) || '歇息失敗。'); }
@@ -1003,7 +1025,7 @@ function renderRecentLocs(recents = null) {
 
         // 3. 顯示結果
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【抵達 ${targetName}】：</b><br><span>${locDesc}</span></div>`);
-        updateClock(data.clock);
+        updateClock(data.clock, data.ap, data.apMax);
         showRumors(data.rumors);
 
         // 4. 清理 loading 提示
@@ -1687,7 +1709,8 @@ function renderRecentLocs(recents = null) {
               '<div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">'
               + '<button onclick="manaSupply()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
               + '<button onclick="openSealMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(176,108,208,0.16); color:#c79be8; border:1px solid #8a5fb0; border-radius:6px; cursor:pointer;">❖ 令咒 ' + '❖'.repeat(Math.max(0, m.seals || 0)) + '</button>'
-              + '<button onclick="restOvernight()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(120,120,160,0.16); color:#a9a9d8; border:1px solid #5a5a8a; border-radius:6px; cursor:pointer;">🛏️ 歇息</button>'
+              + '<button onclick="napRest()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(120,140,120,0.16); color:#9ac79a; border:1px solid #5a7a5a; border-radius:6px; cursor:pointer;">☕ 小憩</button>'
+              + '<button onclick="restOvernight()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(120,120,160,0.16); color:#a9a9d8; border:1px solid #5a5a8a; border-radius:6px; cursor:pointer;">🛏️ 過夜</button>'
               + '</div>')
           + '</div>';
       } else {
@@ -2003,7 +2026,7 @@ function renderRecentLocs(recents = null) {
       
       localNPCs = data.people || [];
       nearbyLocations = data.locations || [];
-      updateClock(data.clock);
+      updateClock(data.clock, data.ap, data.apMax);
       refreshFateTags();
       renderMapPane();
 
