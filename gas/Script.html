@@ -1119,13 +1119,15 @@ function renderRecentLocs(recents = null) {
             if (!n.isPC) {
                 actionButtonsHtml += `<button class="btn-act" style="border-color:#8b008b; color:#8b008b; padding: 6px 12px;" onclick="closeNpcList(); openStatus('${n.id}', '${n.name}')">📜 命格</button>`;
 
-                // 🔴 新增：快速組隊/離隊按鈕 (點擊後不關閉選單，方便連續組隊)
-                if (busyWith && !isInParty) {
-                    actionButtonsHtml += `<button class="btn-act" style="border-color:#6e948a; color:#6e948a; padding: 6px 12px; opacity: 0.5;" onclick="alert('「${n.name}」正與『${busyWith}』同行中，無法分身！')">🔒 已跟隨他人</button>`;
-                } else {
-                    let partyText = isInParty ? "👋 離隊" : "🤝 組隊";
-                    let partyColor = isInParty ? "#ff6b6b" : "#2e8b57"; // 離隊顯示紅色，組隊顯示綠色
-                    actionButtonsHtml += `<button class="btn-act" style="border-color:${partyColor}; color:${partyColor}; padding: 6px 12px;" onclick="interactNpc('組隊', '${n.name}', '${n.loc}', true)">${partyText}</button>`;
+                // 🔴 組隊/離隊按鈕：僅多人(full)模式；FATE 單人/鑑賞只有一個從者，不招路人入隊
+                if (pc && pc.mode === 'full') {
+                    if (busyWith && !isInParty) {
+                        actionButtonsHtml += `<button class="btn-act" style="border-color:#6e948a; color:#6e948a; padding: 6px 12px; opacity: 0.5;" onclick="alert('「${n.name}」正與『${busyWith}』同行中，無法分身！')">🔒 已跟隨他人</button>`;
+                    } else {
+                        let partyText = isInParty ? "👋 離隊" : "🤝 組隊";
+                        let partyColor = isInParty ? "#ff6b6b" : "#2e8b57";
+                        actionButtonsHtml += `<button class="btn-act" style="border-color:${partyColor}; color:${partyColor}; padding: 6px 12px;" onclick="interactNpc('組隊', '${n.name}', '${n.loc}', true)">${partyText}</button>`;
+                    }
                 }
             }
         }
@@ -2963,8 +2965,9 @@ let plainTextContext = cleanText;
           html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); interactNpc('留言', '${npcName}', '${currentLoc}', true)">✉️ 留言</button>`;
       }
 
-      // ⚠️ 【危險動作區】
-      if (!isPC) {
+      // ⚠️ 【危險動作區】只對敵人顯示（自己的從者／友方不顯示出戰）
+      var _isFoe = npcData && (npcData.faction === '敵御主' || npcData.faction === '敵從者');
+      if (!isPC && _isFoe && !(pc && pc.mode === 'kanshou')) {
           html += `<div style="grid-column: span 2; border-top: 1px dashed rgba(77,184,163,0.3); margin-top: 5px; padding-top: 10px; color:#7b9991; font-size:12px; text-align:center; font-weight:bold;">—— 危險舉動 ——</div>`;
           html += `<div style="grid-column: span 2; display:flex; align-items:center; justify-content:center; gap:6px; margin-bottom:2px; font-size:12px; color:#7b9991;">
             連續次數：<select id="combo-count-select" style="padding:2px 6px; border-radius:4px; border:1px solid #8fa39b; background:#fff; color:#553311;">
