@@ -22,6 +22,7 @@ const SHEETS = {
   CLOCK:    '時鐘',     // GameClock
   HISTORY:  '歷史',     // 戰績紀錄（跨場保留）
   GALLERY:  '鑑賞',     // 鑑賞室：玩家收藏/獲勝留存的英靈（ms_id 隔離，跨場保留）
+  RUMORS:   '傳聞',     // 傳聞：戰場上流傳的耳語/情報（對標九州；game_id 隔離）
 };
 
 // 各分頁標題列
@@ -38,7 +39,7 @@ const HEADERS = {
   [SHEETS.BATTLE]:   ['game_id','slot','is_player','master_name','magic','circuits','master_hp','master_hp_max',
                       'master_mp','master_mp_max','seals','melee','magic_rank','location','servant_id',
                       'sv_hp','sv_hp_max','sv_mp','sv_mp_max','upkeep','bond','true_name_known','status',
-                      'alive','base_loc','barrier','barrier_max','base_tier','servant_loc','separated','discovered','sv_condition','buff','solo_hours','inventory'],
+                      'alive','base_loc','barrier','barrier_max','base_tier','servant_loc','separated','discovered','sv_condition','buff','solo_hours','inventory','rel_memory'],
   [SHEETS.MEMORY]:   ['event_id','game_id','turn','entity','fact_type','content','importance','write_ts'],
   [SHEETS.EVENTS]:   ['event_id','write_ts','game_id','day_count','time_hour','location_id','event_type',
                       'actor_id','target_id','log_text','is_global','importance'],
@@ -46,7 +47,8 @@ const HEADERS = {
   [SHEETS.HISTORY]:  ['ts','ms_id','name','result','war','servant_cls','day','summary'],
   [SHEETS.GALLERY]:  ['ms_id','entry_id','servant_id','cls','realName','gender','six','skills','classSkills',
                       'traits','np','persona','align','bond','condition','active','source','log','created',
-                      'won_count','won_day','won_note'],
+                      'won_count','won_day','won_note','rel_memory'],
+  [SHEETS.RUMORS]:   ['rumor_id','game_id','about','content','heat','source','created'],
 };
 
 // 靜態分頁（重建 setup 時會重新種子）；動態分頁只建表不動資料
