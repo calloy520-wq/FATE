@@ -39,6 +39,7 @@ const ActionRouter = {
   "manual_npc": actionManualNpc,
   "create": actionManualNpc, // create 與 manual_npc 共用同一個邏輯
   "summon_servant": actionSummonServant,
+  "get_heroes": actionGetHeroes,
   "get_tags": actionGetTags,
   "clear_npc_major_event": actionClearNpcMajorEvent,
   "get_all_categorized_maps": actionGetAllCategorizedMaps,
@@ -1442,7 +1443,7 @@ function actionUpdateFate(userData, pcId, sheets) {
 function actionManualNpc(userData, pcId, sheets) {
   const isCreate = userData.action === "create";
   const newId = isCreate ? "PC_" + Date.now() : "NPC_" + Date.now();
-  const { name, sex, identity, standing, wish, currentLoc, npcRel, npcName, npcSex } = userData;
+  const { name, sex, identity, standing, wish, appearance, magic, circuits, origin, melee, currentLoc, npcRel, npcName, npcSex } = userData;
   const finalName = isCreate ? name : npcName;
   const finalSex = isCreate ? sex : (npcSex || "異");
 
@@ -1497,7 +1498,7 @@ function actionManualNpc(userData, pcId, sheets) {
 
   const npcContext = userData.npcContext ? `\n【登場脈絡】：${userData.npcContext.slice(0, 300)}` : "";
   const promptStr = isCreate
-    ? `【御主】：名號『${finalName}』，性別『${finalSex}』\n【身世／財力】：${standing || identity || "隨機"}\n【願望】：${wish || "隨機"}\n【可選地點(冬木)】：${validMapNames.join('、')}`
+    ? `【御主】：名號『${finalName}』，性別『${finalSex}』\n【外貌】：${appearance || "隨機"}\n【身世／財力】：${standing || identity || "隨機"}\n【願望】：${wish || "隨機"}\n【魔術系統】：${magic || "隨機"}\n【出身】：${origin || "隨機"}\n【可選地點(冬木)】：${validMapNames.join('、')}`
     : `【名號】：『${finalName}』\n【性別】：『${finalSex}』\n【地點】：『${currentLoc}』\n【與玩家『${pcNameStr}』初始關係】：『${npcRel || "萍水相逢"}』${npcContext}`;
 
   // 🔵 御主創角專用 Fate 框架生成提示（NPC 仍走上面的 sysOverride）
@@ -1581,7 +1582,15 @@ function actionManualNpc(userData, pcId, sheets) {
     const newRow = Array(pcColCount).fill("");
     newRow[COL.PC.ID] = newId; newRow[COL.PC.NAME] = finalName; newRow[COL.PC.SEX] = finalSex;
     newRow[COL.PC.BACK] = isCreate ? (standing || aiBrief.background || "來歷不明的魔術師") : (aiBrief.background || "江湖散人"); newRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
-    if (isCreate && wish) newRow[COL.PC.MEMORY] = `【願望】${wish}`;
+    if (isCreate) {
+      newRow[COL.PC.MEMORY] = [
+        wish ? `【願望】${wish}` : "",
+        magic ? `【魔術】${magic}` : "",
+        circuits ? `【迴路】${circuits}` : "",
+        origin ? `【出身】${origin}` : "",
+        melee ? `【體術】${melee}` : ""
+      ].filter(Boolean).join("｜");
+    }
     // 🔴 NPC 初始銀兩依境界給(玩家創角固定 50)，錢有變化、高人更富
     if (isCreate) {
       newRow[COL.PC.MONEY] = 150;
@@ -1640,9 +1649,29 @@ function actionManualNpc(userData, pcId, sheets) {
 // ==========================================
 // 🔵 召喚從者（Servant）— 寫進御主自己的 game_id 實例，並設為同行夥伴
 // ==========================================
+// 🔵 六圍階級 → 九州數值（橋接）：rankVal 轉，最低 8
+function svNum_(rank) { return Math.max(8, rankVal(rank)); }
+
+// 🔵 提供前端瀏覽英靈殿：回傳 [{id,cls,name,gender,np}]
+function actionGetHeroes(userData, pcId, sheets) {
+  try {
+    const hs = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("英靈殿");
+    if (!hs || hs.getLastRow() <= 1) return JSON.stringify({ success: true, heroes: [] });
+    const rows = hs.getDataRange().getValues().slice(1);
+    const heroes = rows.filter(r => r[COL.HERO.ID]).map(r => ({
+      id: r[COL.HERO.ID], cls: r[COL.HERO.CLS], name: r[COL.HERO.NAME],
+      gender: r[COL.HERO.SEX], np: r[COL.HERO.NP]
+    }));
+    return JSON.stringify({ success: true, heroes: heroes });
+  } catch (e) {
+    return JSON.stringify({ success: false, heroes: [], message: e.message });
+  }
+}
+
 function actionSummonServant(userData, pcId, sheets) {
   const VALID_CLS = ["Saber", "Archer", "Lancer", "Rider", "Caster", "Assassin", "Berserker"];
-  const cls = VALID_CLS.includes(userData.cls) ? userData.cls : "Saber";
+  const reqCls = VALID_CLS.includes(userData.cls) ? userData.cls : "";
+  const heroId = String(userData.heroId || "").trim();
   const trueName = String(userData.trueName || "").trim().slice(0, 20);
 
   const pcData = sheets.pc.getDataRange().getValues();
@@ -1652,70 +1681,110 @@ function actionSummonServant(userData, pcId, sheets) {
   const pcLoc = masterRow[COL.PC.LOC] || "冬木·新都";
   const gameId = String(masterRow[COL.PC.GAME_ID] || "");
 
-  // 同實例內若已有從者，擋重複召喚
   const already = pcData.find(r =>
     String(r[COL.PC.FACTION]) === "從者" &&
     String(r[COL.PC.GAME_ID] || "") === gameId &&
     !String(r[COL.PC.ID]).startsWith("DEAD_"));
   if (already) return JSON.stringify({ success: false, message: `你已締約從者「${already[COL.PC.NAME]}」，無法再召喚。` });
 
-  const sysOverride = `你是《命運停駐之夜》的英靈召喚核心。玩家御主召喚出一名「從者（Servant）」，職階為「${cls}」。${trueName ? `指定真名為「${trueName}」，請忠於該英靈的傳說與性格。` : "請挑選一位契合此職階、知名的歷史或傳說英靈。"}
+  // ── 從英靈殿尋找對應英靈（heroId 指定 / 真名比對 / 隨機）──
+  let hero = null;
+  try {
+    const hs = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("英靈殿");
+    if (hs && hs.getLastRow() > 1) {
+      const hrows = hs.getDataRange().getValues().slice(1).filter(r => r[COL.HERO.ID]);
+      if (heroId) {
+        hero = hrows.find(r => String(r[COL.HERO.ID]) === heroId);
+      } else if (trueName) {
+        hero = hrows.find(r => String(r[COL.HERO.NAME]).includes(trueName) || trueName.includes(String(r[COL.HERO.NAME])));
+      } else {
+        const pool = reqCls ? hrows.filter(r => r[COL.HERO.CLS] === reqCls) : hrows;
+        if (pool.length) hero = pool[Math.floor(Math.random() * pool.length)];
+      }
+    }
+  } catch (e) { hero = null; }
+
+  const newId = "NPC_" + Date.now();
+  const pcColCount = Object.keys(COL.PC).length;
+  const row = Array(pcColCount).fill("");
+  let realName, cls, align, np, sex;
+
+  try {
+    if (hero) {
+      // ✅ 從英靈殿實體化：用真實六圍/技能/寶具/人格
+      cls = hero[COL.HERO.CLS];
+      realName = hero[COL.HERO.NAME];
+      sex = (hero[COL.HERO.SEX] === "無" ? "異" : (hero[COL.HERO.SEX] || "異"));
+      align = hero[COL.HERO.ALIGN] || "中立";
+      np = hero[COL.HERO.NP] || "寶具（未顯現）";
+      const six = JSON.parse(hero[COL.HERO.SIX] || "{}");
+      const classSkills = JSON.parse(hero[COL.HERO.CLASS_SKILLS] || "[]");
+      const skills = JSON.parse(hero[COL.HERO.SKILLS] || "[]");
+      const traits = JSON.parse(hero[COL.HERO.TRAITS] || "[]");
+      const persona = JSON.parse(hero[COL.HERO.PERSONA] || "{}");
+
+      // 六圍 → 九州數值（REALM 凡人，倍率 1.0，數值即 rankVal）
+      const nStr = svNum_(six.筋力), nCon = svNum_(six.耐久), nAgi = svNum_(six.敏捷), nInt = svNum_(six.魔力), nLuk = svNum_(six.幸運);
+      const maxStats = calculateMaxStats("凡人", nCon, nInt);
+      // 從者血厚：耐久越高越肉
+      const svHp = 300 + svNum_(six.耐久) * 12, svMp = 120 + svNum_(six.魔力) * 6;
+
+      row[COL.PC.STR] = nStr; row[COL.PC.CON] = nCon; row[COL.PC.AGI] = nAgi; row[COL.PC.INT] = nInt; row[COL.PC.LUK] = nLuk;
+      row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
+      row[COL.PC.REALM] = "凡人";
+      row[COL.PC.TRAIT] = parseTraitsHelper(traits.map(t => t.n).join("、"), "氣場凜然、舉止從容、精擅戰技、深藏之面");
+      row[COL.PC.PREF] = parseTraitsHelper(String(persona.words || "").replace(/・/g, "、"), "沉著表象、堅定內裡、珍視之物、厭惡之事");
+      row[COL.PC.MEMORY] = `第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || "保持距離"}`;
+      row[COL.PC.SIX] = JSON.stringify(six);
+      row[COL.PC.TAGS] = JSON.stringify({ skills: classSkills.concat(skills), traits: traits });
+      row[COL.PC.INTENT] = "";
+      row[COL.PC.BACK] = `${cls} 職階英靈`;
+    } else {
+      // 🌀 名冊查無 → AI 即時生成（保留原行為）
+      cls = reqCls || "Saber";
+      const sysOverride = `你是《命運停駐之夜》的英靈召喚核心。玩家御主召喚出一名「從者（Servant）」，職階為「${cls}」。${trueName ? `指定真名為「${trueName}」，請忠於該英靈的傳說與性格。` : "請挑選一位契合此職階、知名的歷史或傳說英靈。"}
 
 ★【演出而非說明】個性與寶具只作設定底層，traits／personality 不要直接複述字面設定。
 ★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
 - traits：外貌、氣質舉止、戰鬥／寶具傾向、私下不為人知的一面
 - personality：日常表象、真實內裡、喜歡的事、討厭的事
-★np：寶具名＋一句威能簡述。
-★npc_intent：一句話「可愛反差萌（萌點）」。
-★sex 從 男／女／異 擇一。
+★np：寶具名＋一句威能簡述。★npc_intent：一句話可愛反差萌。★sex 從 男／女／異 擇一。
 
 ★【輸出】合法 JSON、禁 Markdown：
-{"realName":"英靈真名","sex":"女","np":"寶具名（簡述）","background":"限20字傳說梗概","traits":"四格頓號字串","personality":"四格頓號字串","npc_intent":"反差萌一句話","align":"中立・善"}`;
+{"realName":"英靈真名","sex":"女","np":"寶具名（簡述）","background":"限20字","traits":"四格頓號","personality":"四格頓號","npc_intent":"反差萌一句","align":"中立・善"}`;
+      const aiBrief = JSON.parse(callGeminiAPI(`【職階】：${cls}\n【御主】：${pcName}${trueName ? `\n【指定真名】：${trueName}` : ""}`, sysOverride, { temperature: 0.6, ignoreLaw: true }));
+      realName = String(aiBrief.realName || trueName || (cls + "從者")).trim() || (cls + "從者");
+      sex = aiBrief.sex || "異"; align = aiBrief.align || "中立"; np = aiBrief.np || "寶具（未顯現）";
+      const nStr = 45, nCon = 45, nAgi = 45, nInt = 40, nLuk = 35;
+      const maxStats = calculateMaxStats("凡人", nCon, nInt);
+      row[COL.PC.STR] = nStr; row[COL.PC.CON] = nCon; row[COL.PC.AGI] = nAgi; row[COL.PC.INT] = nInt; row[COL.PC.LUK] = nLuk;
+      row[COL.PC.HP] = 480; row[COL.PC.MP] = 200; row[COL.PC.MAX_HP] = 480; row[COL.PC.MAX_MP] = 200;
+      row[COL.PC.REALM] = "凡人";
+      row[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.traits, "氣場凜然、舉止從容、精擅戰技、不為人知的一面");
+      row[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "沉著表象、堅定內裡、珍視之物、厭惡之事");
+      row[COL.PC.INTENT] = aiBrief.npc_intent || "";
+      row[COL.PC.SIX] = JSON.stringify({ 筋力: "C", 耐久: "C", 敏捷: "C", 魔力: "C", 幸運: "C", 寶具: "C" });
+      row[COL.PC.TAGS] = JSON.stringify({ skills: [], traits: [] });
+      row[COL.PC.BACK] = aiBrief.background || `${cls} 職階的英靈`;
+    }
 
-  const promptStr = `【職階】：${cls}\n【御主】：${pcName}${trueName ? `\n【指定真名】：${trueName}` : ""}`;
-
-  try {
-    const aiBrief = JSON.parse(callGeminiAPI(promptStr, sysOverride, { temperature: 0.6, ignoreLaw: true }));
-    const realName = String(aiBrief.realName || trueName || (cls + "從者")).trim() || (cls + "從者");
-
-    // 從者強度：給高境界，確切平衡待戰鬥系統換成 FATE 後再調
-    const svRealm = "意動";
-    const cap = REALM_LIMITS[svRealm] || 65;
-    const sStat = () => Math.floor(cap * 0.85) + Math.floor(Math.random() * Math.floor(cap * 0.15));
-    const nStr = sStat(), nCon = sStat(), nAgi = sStat(), nInt = sStat(), nLuk = Math.floor(cap * 0.7);
-    const maxStats = calculateMaxStats(svRealm, nCon, nInt);
-
-    const newId = "NPC_" + Date.now();
-    const pcColCount = Object.keys(COL.PC).length;
-    const row = Array(pcColCount).fill("");
     row[COL.PC.ID] = newId;
     row[COL.PC.NAME] = realName;
-    row[COL.PC.SEX] = aiBrief.sex || "異";
-    row[COL.PC.BACK] = aiBrief.background || `${cls} 職階的英靈`;
+    row[COL.PC.SEX] = sex;
     row[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
     row[COL.PC.MONEY] = 0;
-    row[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.traits, "氣場凜然、舉止從容、精擅戰技、不為人知的一面");
     row[COL.PC.LOC] = pcLoc;
-    row[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "沉著表象、堅定內裡、珍視之物、厭惡之事");
-    row[COL.PC.HP] = maxStats.hp; row[COL.PC.MP] = maxStats.mp;
-    row[COL.PC.STR] = nStr; row[COL.PC.CON] = nCon; row[COL.PC.AGI] = nAgi; row[COL.PC.INT] = nInt; row[COL.PC.LUK] = nLuk;
-    row[COL.PC.MAX_HP] = maxStats.hp; row[COL.PC.MAX_MP] = maxStats.mp;
-    row[COL.PC.REALM] = svRealm;
-    row[COL.PC.INTENT] = aiBrief.npc_intent || "無";
-    row[COL.PC.FACTION] = "從者"; row[COL.PC.RANK] = cls;
-    row[COL.PC.CONTRIB] = 0; row[COL.PC.ALIGN] = aiBrief.align || "中立";
-    row[COL.PC.MARTIAL] = aiBrief.np || "寶具（未顯現）";
+    row[COL.PC.FACTION] = "從者"; row[COL.PC.RANK] = cls; row[COL.PC.CLS] = cls;
+    row[COL.PC.CONTRIB] = 0; row[COL.PC.ALIGN] = align;
+    row[COL.PC.MARTIAL] = np;
     row[COL.PC.GAME_ID] = gameId;
-    row[COL.PC.CLS] = cls;
-    row[COL.PC.TAGS] = JSON.stringify({ skills: [], traits: [] });
     sheets.pc.appendRow(row);
 
-    // 與御主結為同行夥伴（初始羈絆 35）
     if (sheets.rel) {
       try { sheets.rel.appendRow([pcName, realName, 35, "從者", "同行", "", ""]); } catch (e) { }
     }
 
-    return JSON.stringify({ success: true, servantName: realName, cls: cls, message: `【聖杯】令咒迸發，${cls} 職階的從者「${realName}」應召而現，與『${pcName}』締結契約。` });
+    return JSON.stringify({ success: true, servantName: realName, cls: cls, fromCodex: !!hero, message: `【聖杯】令咒迸發，${cls} 職階的從者「${realName}」應召而現，與『${pcName}』締結契約。` });
   } catch (e) {
     return JSON.stringify({ success: false, message: "召喚失敗：" + e.message });
   }

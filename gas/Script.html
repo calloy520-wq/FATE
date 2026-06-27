@@ -1859,6 +1859,25 @@ function chooseMode(mode) {
   }
 }
 
+// 🔵 御主命運測定（魔術天賦），最多 3 次
+const FATE_MAGICS_ = ['強化（近戰加成）', '投影／固有結界', '寶石魔術', '符文魔術', '鍊金術', '起源彈', '風魔術', '使魔操縱', '咒術／降靈', '禮裝製作'];
+const FATE_ORIGINS_ = ['自學成才的新興魔術師', '沒落名門的末裔', '名門魔術師世家', '異鄉來的旅人', '教會代行者出身', '被捲入的普通人', '魔術協會的研究者', '繼承詛咒血脈', '時鐘塔的留學生', '隱世魔術師的弟子'];
+let masterRoll = null;
+let masterRollCount = 0;
+function rollFate() {
+  if (masterRollCount >= 3) { alert('命運最多測定 3 次，請從中選擇接受。'); return; }
+  masterRollCount++;
+  const r = (Math.random() + Math.random()) / 2;
+  const circuits = Math.max(12, Math.min(50, Math.round(15 + r * 35)));
+  const magic = FATE_MAGICS_[Math.floor(Math.random() * FATE_MAGICS_.length)];
+  const origin = FATE_ORIGINS_[Math.floor(Math.random() * FATE_ORIGINS_.length)];
+  const mr = Math.random();
+  const melee = mr < 0.5 ? 'E' : mr < 0.8 ? 'D' : mr < 0.95 ? 'C' : 'B';
+  masterRoll = { circuits: circuits, magic: magic, origin: origin, melee: melee };
+  var box = document.getElementById('fate-roll-box');
+  if (box) box.innerHTML = '魔術迴路 <b style="color:#e7c873;">' + circuits + '</b>　體術 <b style="color:#e7c873;">' + melee + '</b><br>魔術系統：<b>' + magic + '</b><br>出身：<b>' + origin + '</b><br><small style="color:#888;">已測定 ' + masterRollCount + '/3 次</small>';
+}
+
 async function checkName(event) {
   const name = document.getElementById('s-name').value.trim();
 
@@ -1908,11 +1927,14 @@ async function checkName(event) {
   async function createPC(event) {
   const name = document.getElementById('s-name').value.trim();
   const sex = document.getElementById('s-sex').value;
+  const appearance = document.getElementById('s-appear')?.value.trim() || "";
   const standing = document.getElementById('s-standing')?.value.trim() || "";
   const wish = document.getElementById('s-wish')?.value.trim() || "";
+  const roll = masterRoll || {};
 
   try {
-    const data = await gasRun({ action: "create", name, sex, standing, wish });
+    const data = await gasRun({ action: "create", name, sex, appearance, standing, wish,
+      magic: roll.magic || "", circuits: roll.circuits || "", origin: roll.origin || "", melee: roll.melee || "" });
     if (data.success) {
       // 🔴 新角色一律清空所有舊暫存
       localStorage.removeItem('kyushu_recent_locs');
@@ -1926,6 +1948,7 @@ async function checkName(event) {
       // 御主締結完成 → 進入召喚從者步驟
       document.getElementById('step-detail').style.display = 'none';
       document.getElementById('step-summon').style.display = 'block';
+      loadHeroes();
     } else {
       alert(data.message || "創角失敗，請重試。");
     }
@@ -1934,31 +1957,57 @@ async function checkName(event) {
   }
 }
 
-let selectedSummonClass = 'Saber';
-function selectSummonClass(btn) {
-  selectedSummonClass = btn.dataset.cls;
-  document.querySelectorAll('.summon-cls').forEach(b => { b.style.background = ''; b.style.boxShadow = ''; });
-  btn.style.background = 'rgba(212,175,55,0.25)';
-  btn.style.boxShadow = '0 0 8px rgba(212,175,55,0.6)';
-}
-
-async function summonServant(event) {
-  const cls = selectedSummonClass;
-  const trueName = document.getElementById('s-truename')?.value.trim() || "";
+let heroesData = [];
+let selectedSummonClass = '';
+async function loadHeroes() {
   try {
-    const data = await gasRun({ action: "summon_servant", pcId: pc.id, cls, trueName });
+    const r = await gasRun({ action: 'get_heroes', pcId: pc.id });
+    heroesData = (r && r.heroes) || [];
+  } catch (e) { heroesData = []; }
+}
+function selectSummonClass(cls) {
+  selectedSummonClass = cls;
+  document.querySelectorAll('.summon-cls').forEach(function (b) {
+    var on = b.dataset.cls === cls;
+    b.style.background = on ? 'rgba(212,175,55,0.25)' : '';
+    b.style.boxShadow = on ? '0 0 8px rgba(212,175,55,0.6)' : '';
+  });
+  renderHeroList();
+}
+function renderHeroList() {
+  var box = document.getElementById('hero-list'); if (!box) return;
+  var list = heroesData.filter(function (h) { return h.cls === selectedSummonClass; });
+  if (!list.length) {
+    box.innerHTML = '<p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">此職階英靈殿暫無資料，可用下方真名召喚。</p>';
+    return;
+  }
+  box.innerHTML = list.map(function (h) {
+    var id = String(h.id).replace(/'/g, '');
+    return '<button class="btn" style="width:100%; text-align:left; margin-bottom:5px; border-color:#d4af37; color:#e8dcc0; padding:8px 10px;" onclick="lockBtn(event, function(){return summonByHero(\'' + id + '\');})"><b>' + h.name + '</b>' + (h.np ? '<br><small style="color:#9a8bb0;">' + h.np + '</small>' : '') + '</button>';
+  }).join('');
+}
+async function doSummon(payload) {
+  try {
+    const data = await gasRun(Object.assign({ action: 'summon_servant', pcId: pc.id }, payload));
     if (data && data.success) {
-      pc.servant = data.servantName || "";
+      pc.servant = data.servantName || '';
       localStorage.setItem('kyushu_v27', JSON.stringify(pc));
       document.getElementById('step-summon').style.display = 'none';
       startGame(false);
     } else {
-      alert((data && data.message) || "召喚失敗，請重試。");
+      alert((data && data.message) || '召喚失敗，請重試。');
     }
   } catch (e) {
-    alert("召喚失敗，天道連線受阻。");
+    alert('召喚失敗，天道連線受阻。');
   }
 }
+function summonByHero(id) { return doSummon({ heroId: id }); }
+function summonByName() {
+  var tn = (document.getElementById('s-truename') && document.getElementById('s-truename').value.trim()) || '';
+  if (!tn) { alert('請輸入真名，或從上方挑選英靈。'); return; }
+  return doSummon({ trueName: tn });
+}
+function summonRandom() { return doSummon({ cls: selectedSummonClass || '' }); }
 
   function startGame(isRet) {
     document.getElementById('setup').style.display='none';
