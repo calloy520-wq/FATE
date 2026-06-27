@@ -1303,13 +1303,23 @@ function masterCtx_(acc){
   if(wish)     s += '，願望「'+wish+'」';
   return s + '。第一人稱敘述與內心戲須貼合此人設（含其家世財力氣場），語氣口吻依其個性演繹。）';
 }
+// 好感分檔 → 明確行為準則（借鑑九州：把「這個好感該怎麼演」寫死進提示詞，防角色僵化/OOC/亂倒貼）
+function bondTier_(b){
+  b = Number(b) || 0;
+  if(b < 20) return '〔戒備〕對我仍有戒心與距離：冷淡、質疑、對命令挑剔甚至抗拒；被無禮或冒犯會明顯反彈、嘲諷或當場拒絕，絕不順從討好。';
+  if(b < 40) return '〔疏離〕公事公辦、禮貌但有所保留，信任未深，不主動親近，玩笑或越界會被淡淡擋回。';
+  if(b < 60) return '〔漸信〕開始認可我，願意配合、偶有閒話，逐漸顯露真性情，但個性底線仍在。';
+  if(b < 80) return '〔信賴〕並肩作戰的夥伴：主動關心、默契漸生，仍保有自身意志與尊嚴，不會盲從。';
+  return '〔羈絆深厚〕全心信任、心意相通：親近但不失尊嚴，依其個性表達情感（傲嬌者口是心非、溫柔者直率、高傲者仍矜持）。即便如此仍保有人格，不淪為順從工具。';
+}
 function servantCtx_(p, hero){
   if(!hero) return '';
   var ps = hero.persona || {};
   return '（從者：'+hero.cls+'，真名'+(p.true_name_known?hero.realName:'未公開')+(hero.gender?('，性別'+hero.gender):'')+'，陣營「'+(hero.align||'未知')+'」，'
     + '個性「'+(ps.words||'')+'」，一人稱「'+(ps.firstP||'我')+'」，對御主態度「'+(ps.toMaster||'')+'」，目前好感度 '+p.bond+'/100'
-    + (p.sv_condition?('，此刻體況「'+p.sv_condition+'」'):'')+'。'
-    + '請嚴格依此人格、陣營與好感回應，保有自主與尊嚴。）';
+    + '。此好感的行為準則：'+bondTier_(p.bond)
+    + (p.sv_condition?('　此刻體況「'+p.sv_condition+'」'):'')+'。'
+    + '請嚴格依此人格、陣營與「好感行為準則」回應，保有自主與尊嚴；嚴禁與好感不符的倒貼或順從。）';
 }
 function act_claim_(p, clock, hero){
   if(clock.ap<1) return '（行動點不足，請睡覺恢復。）';
