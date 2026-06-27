@@ -1661,24 +1661,46 @@ function renderRecentLocs(recents = null) {
     if (name === 'map') renderMapPane();
     if (name === 'status') refreshFateTags();
   }
-  function renderMapPane() {
+  async function renderMapPane() {
     var c = document.getElementById('map-pane-content'); if (!c) return;
-    var locEl = document.getElementById('header-loc');
-    var loc = locEl ? locEl.innerText : '';
-    var html = '<div style="color:#d4af37; font-weight:bold; font-size:14px; margin-bottom:10px;">📍 目前所在：' + (loc || '未知') + '</div>';
+    var nodes = [], here = '';
+    try { var r = await gasRun({ action: 'get_map_nodes', pcId: pc.id }); if (r && r.success) { nodes = r.nodes || []; here = r.here || ''; } } catch (e) { }
+    var html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">'
+      + '<div style="color:#d4af37; font-weight:bold; font-size:14px;">🗺️ 冬木 · 戰場</div>'
+      + '<button class="btn" style="padding:3px 10px; font-size:12px; border-color:#4682b4; color:#9fc0ef;" onclick="refreshMapPane()">🔄 重整</button>'
+      + '</div>';
+    html += '<div style="color:#9a8bb0; font-size:11px; margin-bottom:6px;">📍 目前所在：' + (here || '未知') + '　<span style="color:#d65c5c;">⚔ = 已偵查到敵人</span></div>';
+    html += buildMapSvg_(nodes);
+    html += '<div style="color:#9a8bb0; font-size:12px; margin:12px 0 6px;">可前往：</div>';
     if (nearbyLocations && nearbyLocations.length) {
-      html += '<div style="color:#9a8bb0; font-size:12px; margin-bottom:6px;">可前往的地點：</div>';
       nearbyLocations.forEach(function (l) {
-        var nm = (l && l.name) ? l.name : l;
-        var safe = String(nm).replace(/'/g, '');
-        html += '<button class="btn" style="width:100%; text-align:left; margin-bottom:6px; border-color:#4682b4; color:#cde3f5; padding:9px 10px;" onclick="travelFromPane(\'' + safe + '\')">🚶 ' + nm + (l && l.type ? ' <small style="color:#888;">' + l.type + '</small>' : '') + '</button>';
+        var nm = (l && l.name) ? l.name : l; var safe = String(nm).replace(/'/g, '');
+        html += '<button class="btn" style="width:100%; text-align:left; margin-bottom:6px; border-color:#4682b4; color:#cde3f5; padding:8px 10px;" onclick="travelFromPane(\'' + safe + '\')">🚶 ' + nm + (l && l.type ? ' <small style="color:#888;">' + l.type + '</small>' : '') + '</button>';
       });
     } else {
-      html += '<p style="color:#816e54; font-size:12px;">附近暫無已知地點，展開完整地圖探索。</p>';
+      html += '<p style="color:#816e54; font-size:12px;">附近暫無已知地點。</p>';
     }
-    html += '<button class="btn" style="width:100%; margin-top:12px; border-color:#d4af37; color:#d4af37; padding:10px;" onclick="triggerDrawerAction(\'explore\')">🗺️ 展開完整冬木地圖</button>';
     c.innerHTML = html;
     renderBag5();
+  }
+  function refreshMapPane() { syncData(true); }
+  function buildMapSvg_(nodes) {
+    if (!nodes || !nodes.length) return '<p style="color:#816e54; text-align:center; padding:20px;">冬木地圖載入中或尚無資料。</p>';
+    var S = 34, pad = 46;
+    var xs = nodes.map(function (n) { return n.x * S; }), ys = nodes.map(function (n) { return -n.y * S; });
+    var minX = Math.min.apply(null, xs) - pad, maxX = Math.max.apply(null, xs) + pad;
+    var minY = Math.min.apply(null, ys) - pad, maxY = Math.max.apply(null, ys) + pad;
+    var typeColor = { '城區': '#4682b4', '靈地': '#2e8b57', '祭壇': '#d4af37', '據點': '#a0522d' };
+    var s = '';
+    nodes.forEach(function (n) {
+      var cx = n.x * S, cy = -n.y * S, col = typeColor[n.type] || '#888';
+      var nm = String(n.name).replace(/'/g, '');
+      if (n.here) s += '<circle cx="' + cx + '" cy="' + cy + '" r="16" fill="none" stroke="#e7c873" stroke-width="3"/>';
+      if (n.enemy) s += '<circle cx="' + cx + '" cy="' + cy + '" r="21" fill="none" stroke="#d65c5c" stroke-width="2" stroke-dasharray="3,3"/>';
+      s += '<circle cx="' + cx + '" cy="' + cy + '" r="9" fill="' + col + '" stroke="#0a0810" stroke-width="2" style="cursor:pointer" onclick="travelFromPane(\'' + nm + '\')"/>';
+      s += '<text x="' + cx + '" y="' + (cy + 25) + '" font-size="13" fill="#e8e0f5" text-anchor="middle" paint-order="stroke" stroke="#0a0810" stroke-width="3" style="cursor:pointer" onclick="travelFromPane(\'' + nm + '\')">' + n.name + (n.enemy ? ' ⚔' : '') + '</text>';
+    });
+    return '<div style="background:rgba(10,8,16,0.6); border:1px solid rgba(212,175,55,0.25); border-radius:8px; overflow:hidden;"><svg viewBox="' + minX + ' ' + minY + ' ' + (maxX - minX) + ' ' + (maxY - minY) + '" style="width:100%; height:auto; max-height:330px; display:block;">' + s + '</svg></div>';
   }
   // 🔵 隨身物品 5 格（地圖下方），點擊即使用
   async function renderBag5() {
