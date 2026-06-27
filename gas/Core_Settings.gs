@@ -37,7 +37,9 @@ const COL = {
   // 🔵 英靈殿(從者範本)、御主殿、戰鬥標籤
   HERO: { ID: 0, CLS: 1, NAME: 2, SEX: 3, SIX: 4, CLASS_SKILLS: 5, SKILLS: 6, TRAITS: 7, NP: 8, PERSONA: 9, ALIGN: 10, WARS: 11, SOURCE: 12 },
   MASTER: { ID: 0, NAME: 1, SEX: 2, APPEAR: 3, MAGIC: 4, CIRCUITS: 5, MELEE: 6, MAGIC_RANK: 7, HOME: 8, WISH: 9, PERSONA: 10, WAR: 11, SOURCE: 12 },
-  CTAG: { FX: 0, NAME: 1, TYPE: 2, DESC: 3, MECH: 4 }
+  CTAG: { FX: 0, NAME: 1, TYPE: 2, DESC: 3, MECH: 4 },
+  // 帳號（存檔身分）：帳號名 → 目前御主角色ID、勝場
+  ACC: { NAME: 0, PC: 1, WON: 2, CREATED: 3 }
 };
 
 // 🔵 Fate 六圍階級：E~EX 轉數值（戰鬥系統換 D20 後會用到；+ 視為 +5）

@@ -16,17 +16,25 @@
     <h1
       style="color:var(--gold-accent); letter-spacing:10px; text-shadow: 0 0 10px var(--gold-accent); font-size: 32px; margin-bottom: 30px;">
       命運停駐之夜</h1>
-    <div id="step-mode" style="width:280px;">
-      <p style="text-align:center; color:#816e54; font-size:14px; margin-bottom: 20px;">選擇你的聖杯戰爭：</p>
-      <button class="btn" style="width:100%; margin-bottom:12px; padding:14px 10px; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="chooseMode('solo')">⚔️ 單人模式<br><span style="font-size:11px; opacity:.7;">獨自降臨冬木，召喚屬於你的從者</span></button>
-      <button class="btn" style="width:100%; margin-bottom:12px; padding:14px 10px; opacity:.4; cursor:not-allowed;" disabled>🌐 多人模式　<span style="font-size:11px;">敬請期待</span></button>
-      <button class="btn" style="width:100%; padding:14px 10px; border-color:#9a7b4f; color:#9a7b4f;" onclick="chooseMode('gallery')">🏆 鑑賞模式<br><span style="font-size:11px; opacity:.7;">回顧締結過的從者</span></button>
+    <div id="step-account" style="width:300px;">
+      <p style="text-align:center; color:#816e54; font-size:13px; margin-bottom: 10px;">帳號名稱（無密碼，輸入即登入）</p>
+      <input id="in-account" class="std-in" style="width:100%; box-sizing:border-box;" maxlength="20" placeholder="例如：遠坂玩家01">
+      <button class="btn" style="width:100%; margin-top:14px; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="lockBtn(event, accountLogin)">進　入</button>
+    </div>
+    <div id="scr-menu" style="display:none; width:300px;">
+      <p id="menu-greet" style="text-align:center; color:var(--gold-accent); font-size:14px; margin-bottom:16px;"></p>
+      <button id="btn-resume" class="btn" style="display:none; width:100%; margin-bottom:10px; padding:13px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="continueGame()">▶ 繼續聖杯戰爭</button>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:13px;" onclick="newGameFlow()">🔥 開啟新的聖杯戰爭</button>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:13px; opacity:.4; cursor:not-allowed;" disabled>🌐 多人連線　敬請期待</button>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:13px; border-color:#9a7b4f; color:#9a7b4f;" onclick="alert('🏆 鑑賞模式建置中，敬請期待。')">🏆 鑑賞模式</button>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:13px; border-color:#9a7b4f; color:#9a7b4f;" onclick="showVictoryHistory()">📜 勝利歷史</button>
+      <button class="btn" style="width:100%; padding:11px; border-color:#777; color:#999; font-size:13px;" onclick="logoutAccount()">🚪 登出</button>
     </div>
     <div id="step-name" style="display:none; width:280px;">
       <input id="s-name" class="std-in" style="width:100%; box-sizing:border-box;" placeholder="輸入御主之名（限中文）..." maxlength="10">
       <p style="text-align:center; color:#9a7b4f; font-size:12px; margin:8px 0 0;">※ 御主之名僅限中文字，不可使用英文、數字或符號。</p>
       <button id="start-btn" class="btn" style="width:100%; margin-top:16px;" onclick="lockBtn(event, () => checkName(event))">啟程</button>
-      <button class="btn" style="width:100%; margin-top:8px; border-color:#777; color:#999; font-size:12px; padding:6px;" onclick="document.getElementById('step-name').style.display='none';document.getElementById('step-mode').style.display='block';">← 返回</button>
+      <button class="btn" style="width:100%; margin-top:8px; border-color:#777; color:#999; font-size:12px; padding:6px;" onclick="document.getElementById('step-name').style.display='none';document.getElementById('scr-menu').style.display='block';">← 返回</button>
     </div>
     <div id="step-detail" style="display:none; width:280px;">
       <p style="text-align:center; color:#816e54; font-size:14px; margin-bottom: 16px;">締結令咒，成為御主：</p>
