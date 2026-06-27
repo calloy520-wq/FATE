@@ -3981,7 +3981,7 @@ function actionFateBattle(userData, pcId, sheets) {
 
   // ⚔️ 對面反擊：玩家命中後，只要敵從者仍存活，便回擊一拍（雙向廝殺，不再單方面挨打）。
   //    反擊以 0.7 計（敵方是被動回應、非主動出招），保留玩家「先手」優勢。
-  let counterNote = "";
+  let counterNote = "", counterDmg = 0, counterHit = false;
   const enemyAlive = fb.atkWins && !destroyedName && !sealEscaped
     && String(pcData[nIdx][COL.PC.FACTION]) === "敵從者"
     && (parseInt(pcData[nIdx][COL.PC.HP]) || 0) > 0;
@@ -3989,7 +3989,8 @@ function actionFateBattle(userData, pcId, sheets) {
     const defNow = rowToCombatant_(pcData[nIdx]);
     const cb = resolveFateBattle_(defNow, atkC, {}); // 敵從者反擊玩家從者
     if (cb.atkWins) {
-      const counterDmg = Math.max(1, Math.round(cb.damage * 0.7));
+      counterHit = true;
+      counterDmg = Math.max(1, Math.round(cb.damage * 0.7));
       let pAfter = (parseInt(pcData[atkIdx][COL.PC.HP]) || 0) - counterDmg;
       if (pAfter <= 5 && hasFx_(atkC, 'survive') && (parseInt(pcData[atkIdx][COL.PC.HP]) || 0) > 1) {
         pAfter = 1; fb.fired.push(atkC.name + '·戰鬥續行');
@@ -4047,10 +4048,24 @@ function actionFateBattle(userData, pcId, sheets) {
       `★【鐵律】嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
   }
 
+  // 📊 給前端的視覺戰報（讓玩家看見骰子與數字，而非只有 AI 散文）
+  const report = {
+    atk: atkC.name, def: defC.name,
+    aRoll: fb.aRoll, aHit: fb.aHit, dRoll: fb.dRoll, dEva: fb.dEva,
+    atkWins: fb.atkWins, useNp: useNp, useSeal: useSeal,
+    damage: fb.atkWins ? fb.damage : 0,         // 玩家命中造成的傷害
+    selfDamage: fb.atkWins ? 0 : fb.damage,     // 玩家骰輸時自家從者受創
+    crit: fb.crit || "", fired: fb.fired || [],
+    destroyed: destroyedName || "", godRevived: godRevived, sealEscaped: sealEscaped,
+    counterDmg: counterDmg, counterHit: counterHit, intercept: !!interceptNote,
+    defHp: parseInt(pcData[nIdx][COL.PC.HP]) || 0, defHpMax: parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0,
+    atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0
+  };
+
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, knockedOut: knockedOut,
     victory: victory, defeat: defeat, dreamPrompt: dreamPrompt,
-    sealEscaped: sealEscaped,
+    sealEscaped: sealEscaped, report: report,
     clock: isFateBattle ? clockLabel_(myGameId) : "", ap: battleAp, apMax: AP_PER_DAY,
     statusString: getFreshStatusString(pcId, pIdx, sheets), combatResult: fb
   });

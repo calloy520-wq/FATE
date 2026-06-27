@@ -1910,15 +1910,8 @@ function renderRecentLocs(recents = null) {
       }
     }
 
-    html += '<div style="color:#9a8bb0; font-size:12px; margin:12px 0 6px;">可前往：</div>';
-    if (nearbyLocations && nearbyLocations.length) {
-      nearbyLocations.forEach(function (l) {
-        var nm = (l && l.name) ? l.name : l; var safe = String(nm).replace(/'/g, '');
-        html += '<button class="btn" style="width:100%; text-align:left; margin-bottom:6px; border-color:#4682b4; color:#cde3f5; padding:8px 10px;" onclick="travelFromPane(\'' + safe + '\')">🚶 ' + nm + (l && l.type ? ' <small style="color:#888;">' + l.type + '</small>' : '') + '</button>';
-      });
-    } else {
-      html += '<p style="color:#816e54; font-size:12px;">附近暫無已知地點。</p>';
-    }
+    // 地圖節點本身即可點擊移動，文字「可前往」清單已多餘，移除。
+    html += '<div style="color:#6a5f80; font-size:11px; margin:10px 0 6px; text-align:center;">👆 點地圖上的地點即可前往</div>';
     c.innerHTML = html;
     renderBag5();
   }
@@ -1988,6 +1981,47 @@ function renderRecentLocs(recents = null) {
   function useBagItem(id, name, type) { handleItemAction('consume', id, name, type); }
 
   // ⚔️ 令從者出擊／寶具解放（Fate 戰鬥：六圍＋fx＋寶具）
+  // 📊 視覺戰報：把 D20 擲骰、命中/迴避、傷害、發動標籤、反擊攤給玩家看（不再只有 AI 散文）
+  function renderFateBattleReport(r) {
+    if (!r) return;
+    const story = document.getElementById('story');
+    const hpbar = (cur, max, col) => {
+      if (!max) return '';
+      const p = Math.max(0, Math.min(100, Math.round(cur / max * 100)));
+      return '<div style="height:7px;background:#2a2330;border-radius:4px;overflow:hidden;margin-top:2px;"><div style="width:' + p + '%;height:100%;background:' + col + ';"></div></div>'
+        + '<div style="font-size:9.5px;color:#8a7f9a;text-align:right;">' + cur + '/' + max + '</div>';
+    };
+    const critTxt = { atk_crit: '🎯 大成功！', def_crit: '🛡️ 完美反制！', atk_fumble: '💢 大失敗', def_fumble: '😵 敵失手' }[r.crit] || '';
+    let h = '<div style="border:1px solid rgba(212,175,55,0.35);border-radius:9px;padding:9px 11px;margin:6px 0;background:rgba(28,20,14,0.5);font-size:12px;">';
+    h += '<div style="color:#e7c873;font-weight:bold;margin-bottom:5px;">⚔️ ' + r.atk + (r.useSeal ? ' ❖令咒' : r.useNp ? ' 💥寶具' : '') + ' → ' + r.def + (critTxt ? '　<span style="color:#e0a86a;">' + critTxt + '</span>' : '') + '</div>';
+    if (r.intercept) h += '<div style="color:#c79be8;font-size:11px;margin-bottom:4px;">🛡️ 敵從者攔截護主——此擊改打從者</div>';
+    // 擲骰對拼
+    h += '<div style="display:flex;gap:8px;color:#bcd;font-size:11px;">'
+      + '<span>命中 <b style="color:#fff;">' + r.aHit + '</b> <span style="color:#888;">🎲' + r.aRoll + '</span></span>'
+      + '<span style="color:#888;">vs</span>'
+      + '<span>迴避 <b style="color:#fff;">' + r.dEva + '</b> <span style="color:#888;">🎲' + r.dRoll + '</span></span>'
+      + '<span style="margin-left:auto;color:' + (r.atkWins ? '#7ec87e' : '#e06a6a') + ';font-weight:bold;">' + (r.atkWins ? '命中！' : '被閃避，反遭打擊') + '</span></div>';
+    // 玩家這一擊
+    if (r.atkWins) {
+      h += '<div style="color:#e8c0a0;margin-top:5px;">💥 造成 <b style="color:#ffae6a;">' + r.damage + '</b> 傷害'
+        + (r.destroyed ? '　<span style="color:#d65c5c;font-weight:bold;">靈基崩潰·消滅！</span>' : (r.godRevived ? '　<span style="color:#d4af37;">十二試煉·自死亡歸來</span>' : (r.sealEscaped ? '　<span style="color:#c79be8;">敵令咒緊急脫離</span>' : '')))
+        + '</div>';
+      if (!r.destroyed && !r.sealEscaped) h += hpbar(r.defHp, r.defHpMax, '#d0473f');
+    } else {
+      h += '<div style="color:#e06a6a;margin-top:5px;">🩸 ' + r.atk + ' 受創 <b>' + r.selfDamage + '</b></div>';
+    }
+    // 發動標籤
+    if (r.fired && r.fired.length) h += '<div style="color:#9a8;font-size:10.5px;margin-top:4px;">〔發動〕' + r.fired.join('・') + '</div>';
+    // 對面反擊
+    if (r.counterHit) {
+      h += '<div style="color:#e06a6a;margin-top:5px;border-top:1px dashed rgba(214,92,92,0.3);padding-top:4px;">↩️ 「' + r.def + '」回擊，' + r.atk + ' 受創 <b>' + r.counterDmg + '</b></div>';
+      h += hpbar(r.atkHp, r.atkHpMax, '#d0473f');
+    }
+    h += '</div>';
+    story.insertAdjacentHTML('beforeend', h);
+    story.scrollTop = story.scrollHeight;
+  }
+
   async function servantStrike(npcName, useNp, useSeal) {
     if (!beginAction()) return;
     const story = document.getElementById('story');
@@ -1997,6 +2031,7 @@ function renderRecentLocs(recents = null) {
     try {
       const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, np: !!useNp, seal: !!useSeal, acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) {
+        if (res.report) renderFateBattleReport(res.report); // 📊 先攤開骰子/數字戰報
         narrate(res.aiPrompt);
         syncData(true);
         if (res.defeat) { await handleDefeat(res); }
