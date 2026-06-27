@@ -1,0 +1,107 @@
+// ==========================================
+// ⚔️ Engine_Fate.gs — Fate 戰鬥核心：D20 ＋ 六圍(階級) ＋ fx 標籤 ＋ 寶具
+//   每個 fx 效果都隨「技能階級」縮放（rankMul_），所以 對魔力B ≠ 對魔力A。
+// ==========================================
+
+// 階級倍率：以 C(30) 為 1.0 基準。E=0.33 D=0.67 C=1.0 B=1.33 A=1.67 EX=2.0；+ 各 +0.17
+function rankMul_(r) { return rankVal(r) / 30; }
+
+// 找某 fx，回傳其階級字串(或 'C')；查無回 null。技能與特性都找。
+function hasFx_(c, fx) {
+  var all = (c.skills || []).concat(c.traits || []);
+  for (var i = 0; i < all.length; i++) {
+    if (all[i] && all[i].fx === fx) return (all[i].r || 'C');
+  }
+  return null;
+}
+function hasTrait_(c, name) {
+  var t = (c.traits || []);
+  for (var i = 0; i < t.length; i++) { if (t[i] && String(t[i].n).indexOf(name) >= 0) return true; }
+  return false;
+}
+
+// 眾生列 → 戰鬥單位（六圍從六圍欄、技能/特性從標籤欄；無六圍者合成）
+function rowToCombatant_(row) {
+  var six = {}, skills = [], traits = [];
+  try { six = JSON.parse(row[COL.PC.SIX] || "{}"); } catch (e) { }
+  try { var tg = JSON.parse(row[COL.PC.TAGS] || "{}"); skills = tg.skills || []; traits = tg.traits || []; } catch (e) { }
+  if (!six["筋力"]) {
+    var isServant = String(row[COL.PC.FACTION]) === "從者";
+    six = isServant
+      ? { 筋力: 'C', 耐久: 'C', 敏捷: 'C', 魔力: 'C', 幸運: 'C', 寶具: 'C' }
+      : { 筋力: 'E', 耐久: 'E', 敏捷: 'E', 魔力: 'E', 幸運: 'E', 寶具: '-' }; // 御主/凡人
+  }
+  return {
+    name: row[COL.PC.NAME], cls: row[COL.PC.RANK] || row[COL.PC.CLS] || '',
+    six: six, skills: skills, traits: traits,
+    hp: parseInt(row[COL.PC.HP]) || 100, hpMax: parseInt(row[COL.PC.MAX_HP]) || 100,
+    mp: parseInt(row[COL.PC.MP]) || 50, mpMax: parseInt(row[COL.PC.MAX_MP]) || 50
+  };
+}
+
+// 主裁決：一次交手。回傳 {atkWins, winner, loser, damage, aRoll,dRoll,aHit,dEva, fired[], crit, np, seal}
+function resolveFateBattle_(atk, def, opts) {
+  opts = opts || {};
+  var fired = [];
+  var d20 = function () { return Math.floor(Math.random() * 20) + 1; };
+
+  // 出力：攻方當前魔力% 影響表現（補魔充足生龍活虎／餓著發揮不出）
+  var mpPct = atk.mpMax > 0 ? atk.mp / atk.mpMax : 1;
+  var outMod = mpPct >= 1 ? 2 : mpPct >= 0.7 ? 0 : mpPct >= 0.4 ? -2 : mpPct >= 0.15 ? -5 : -8;
+
+  var aRoll = d20(), dRoll = d20();
+  var aHit = aRoll + rankVal(atk.six["敏捷"]) + outMod;
+  var dEva = dRoll + rankVal(def.six["敏捷"]);
+
+  // 直感(first_strike)：攻守先機 +3×階級
+  var fsA = hasFx_(atk, 'first_strike'); if (fsA) { aHit += Math.round(3 * rankMul_(fsA)); fired.push(atk.name + '·直感'); }
+  var fsD = hasFx_(def, 'first_strike');
+  if (hasFx_(atk, 'unreadable')) { fsD = null; fired.push(atk.name + '·宗和的心得(封先機)'); } // 使對方直感/心眼失效
+  if (fsD) { dEva += Math.round(3 * rankMul_(fsD)); fired.push(def.name + '·直感'); }
+
+  // 騎乘(ride) 機動 +2×階級
+  var rideA = hasFx_(atk, 'ride'); if (rideA) aHit += Math.round(2 * rankMul_(rideA));
+  // 避矢(evade_ranged)：守方對遠程(Archer)迴避 +6×階級
+  if (atk.cls === 'Archer') { var er = hasFx_(def, 'evade_ranged'); if (er) { dEva += Math.round(6 * rankMul_(er)); fired.push(def.name + '·避矢'); } }
+  // 氣息遮斷(stealth)：攻方奇襲 +3
+  if (hasFx_(atk, 'stealth')) { aHit += 3; fired.push(atk.name + '·氣息遮斷·奇襲'); }
+  // 燕返(tsubame)：攻方令守方迴避 -8
+  var tsubame = hasFx_(atk, 'tsubame'); if (tsubame) { dEva -= 8; fired.push(atk.name + '·秘劍燕返'); }
+  // 必中(gae_bolg)：寶具解放時逆因果直接命中
+  var gaebolg = opts.np && hasFx_(atk, 'gae_bolg'); if (gaebolg) fired.push(atk.name + '·刺穿死棘之槍(必中)');
+
+  var atkWins = gaebolg ? true : (aHit >= dEva);
+  var winner = atkWins ? atk : def;
+  var loser = atkWins ? def : atk;
+
+  // 傷害：勝方筋力為底 + 分差
+  var base = rankVal(winner.six["筋力"]) + Math.round(Math.abs(aHit - dEva) * 1.2);
+  var su = hasFx_(winner, 'str_up'); if (su) { base += Math.round(8 * rankMul_(su)); fired.push(winner.name + '·怪力'); }
+  var burst = hasFx_(winner, 'burst'); if (burst) { base = Math.round(base * (1 + 0.2 * rankMul_(burst))); fired.push(winner.name + '·魔力放出'); }
+  var mor = hasFx_(winner, 'morale'); if (mor) base += Math.round(3 * rankMul_(mor));
+  if (atkWins && tsubame) base = Math.round(base * 2.3);
+  // 寶具解放：加寶具階級威能
+  if (opts.np) { base += Math.round(rankVal(winner.six["寶具"]) * 1.6) + 18; fired.push(winner.name + '·寶具解放'); }
+  // 令咒·絕對命令：全力一擊
+  if (opts.seal) { base = Math.round(base * 1.5); fired.push('令咒·絕對命令'); }
+
+  // 守方減傷：耐久（階級）
+  base -= Math.round(rankVal(loser.six["耐久"]) / 2);
+  // 神核(divine_core)：減傷 18%×階級
+  var dc = hasFx_(loser, 'divine_core'); if (dc) { base = Math.round(base * (1 - 0.18 * rankMul_(dc))); fired.push(loser.name + '·神核'); }
+  // 對魔力(nullify_magic)：攻方為魔術系(Caster/魔力放出)時，減魔術傷 25%×階級
+  var atkMagic = (winner.cls === 'Caster') || !!hasFx_(winner, 'burst');
+  var nm = hasFx_(loser, 'nullify_magic'); if (atkMagic && nm) { base = Math.round(base * (1 - 0.25 * rankMul_(nm))); fired.push(loser.name + '·對魔力'); }
+
+  var damage = Math.max(1, base);
+
+  var crit = (atkWins && aRoll === 20) ? 'atk_crit' : (!atkWins && dRoll === 20) ? 'def_crit'
+    : (aRoll === 1 && !atkWins) ? 'atk_fumble' : (dRoll === 1 && atkWins) ? 'def_fumble' : '';
+  if (crit === 'atk_crit' || crit === 'def_crit') damage += 30;
+
+  return {
+    atkWins: atkWins, winner: winner.name, loser: loser.name, damage: damage,
+    aRoll: aRoll, dRoll: dRoll, aHit: aHit, dEva: dEva, fired: fired, crit: crit,
+    np: !!opts.np, seal: !!opts.seal
+  };
+}

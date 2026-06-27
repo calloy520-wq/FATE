@@ -1702,6 +1702,18 @@ function renderRecentLocs(recents = null) {
     box.innerHTML = html;
   }
   function useBagItem(id, name, type) { handleItemAction('consume', id, name, type); }
+
+  // ⚔️ 令從者出擊／寶具解放（Fate 戰鬥：六圍＋fx＋寶具）
+  async function servantStrike(npcName, useNp) {
+    const story = document.getElementById('story');
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主令從者${useNp ? '解放寶具' : '出擊'}，目標「${npcName}」！</div>`);
+    story.scrollTop = story.scrollHeight;
+    try {
+      const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, np: !!useNp });
+      if (res && res.success) { narrate(res.aiPrompt); syncData(true); }
+      else { alert((res && res.message) || '出擊失敗。'); }
+    } catch (e) { alert('連線失敗，出擊未果。'); }
+  }
   function travelFromPane(name) {
     try { travelTo(name, 0); } catch (e) { }
     showGamePane('chat');
@@ -2408,7 +2420,8 @@ let plainTextContext = cleanText;
             </select>
             <span style="font-size:11px; color:#9a7;">(每回合上限 3)</span>
           </div>`;
-          html += `<button class="btn" style="border-color:#a52a2a; color:#a52a2a; font-weight:bold; grid-column: span 2;" onclick="closeInteractMenu(); insertActionTag('攻擊', '${npcName}')">⚔️ 令從者出擊</button>`;
+          html += `<button class="btn" style="border-color:#a52a2a; color:#a52a2a; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false)">⚔️ 令從者出擊</button>`;
+          html += `<button class="btn" style="border-color:#d4af37; color:#d4af37; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', true)">💥 寶具解放</button>`;
           if (pc && pc.mode === 'full') {
             html += `<button class="btn" style="border-color:#8fa39b; color:#8fa39b;" onclick="closeInteractMenu(); insertActionTag('下毒', '${npcName}')">🧪 下毒</button>`;
             html += `<button class="btn" style="border-color:#8fa39b; color:#8fa39b;" onclick="closeInteractMenu(); insertActionTag('媚藥', '${npcName}')">🌸 媚藥</button>`;
