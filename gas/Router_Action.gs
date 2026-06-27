@@ -2012,7 +2012,19 @@ function actionMove(userData, pcId, sheets) {
 
   sheets.pc.getRange(1, 1, allPcData.length, pcColCount).setValues(allPcData);
   SpreadsheetApp.flush();
-  try { markRivalsSeen_(sheets, pcId); } catch (e) { } // 🔵 抵達即偵查到此地敵人
+
+  // ⏳ 移動推進時間（路上約 3 小時）＋ 世界自走一輪；聊天不會走到這裡
+  const myGameId = String(allPcData[pIdx][COL.PC.GAME_ID] || "");
+  let clockLabel = "", worldRumors = [];
+  if (myGameId && myGameId.indexOf("k_") !== 0) { // 鑑賞約會世界不推進戰況
+    try {
+      advanceHours_(myGameId, 3);
+      const tick = worldTick_(sheets, myGameId, target, 1);
+      worldRumors = tick.rumors || [];
+      clockLabel = clockLabel_(myGameId);
+    } catch (e) { }
+  }
+  try { markRivalsSeen_(sheets, pcId); } catch (e) { } // 🔵 抵達即偵查到此地敵人（世界 tick 後再揭一次）
 
   const freshMapData = sheets.map.getDataRange().getValues();
   const rootTarget = target ? String(target).split('-')[0].trim() : "";
@@ -2027,7 +2039,9 @@ function actionMove(userData, pcId, sheets) {
     people: getLocalPeopleList(sheets, pcName, pcId, target, relData, sheets.task ? sheets.task.getDataRange().getValues() : []),
     locations: getNearbyLocations(target, freshMapData).slice(0, 5),
     mapDesc: mapDesc,
-    parentRegion: rootTarget
+    parentRegion: rootTarget,
+    clock: clockLabel,
+    rumors: worldRumors
   });
 }
 
@@ -2039,13 +2053,17 @@ function actionSync(userData, pcId, sheets) {
   const curL = allPcData[pcIndex][COL.PC.LOC];
   const freshMapData = sheets.map.getDataRange().getValues();
   const currentMapInfo = freshMapData.find(m => m[COL.MAP.NAME] === (curL ? String(curL).split('-')[0] : ""));
+  const syncGameId = String(allPcData[pcIndex][COL.PC.GAME_ID] || "");
+  let syncClock = "";
+  if (syncGameId && syncGameId.indexOf("k_") !== 0) { try { syncClock = clockLabel_(syncGameId); } catch (e) { } }
 
   return JSON.stringify({
     success: true,
     statusString: buildPlayerStatusString(allPcData[pcIndex], getCharacterTotalStats(pcId, sheets, allPcData), sheets.item ? sheets.item.getDataRange().getValues() : []),
     people: getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, sheets.rel ? sheets.rel.getDataRange().getValues() : [], sheets.task ? sheets.task.getDataRange().getValues() : []),
     locations: getNearbyLocations(curL, freshMapData),
-    mapDesc: currentMapInfo ? currentMapInfo[COL.MAP.DESC] : "四下靜謐。"
+    mapDesc: currentMapInfo ? currentMapInfo[COL.MAP.DESC] : "四下靜謐。",
+    clock: syncClock
   });
 }
 
@@ -2054,29 +2072,45 @@ function actionRest(userData, pcId, sheets) {
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
 
-  let currentMoney = parseInt(pcData[pIdx][COL.PC.MONEY]) || 0;
-  if (currentMoney < 100) return JSON.stringify({ success: false, message: "盤纏不足 100 銀兩，無法休養！" });
-
-  pcData[pIdx][COL.PC.MONEY] = currentMoney - 100;
+  const restGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const isFateRest = restGameId.indexOf("g_") === 0; // FATE 單人聖杯戰爭：歇息免費、推進時間
+  if (!isFateRest) {
+    let currentMoney = parseInt(pcData[pIdx][COL.PC.MONEY]) || 0;
+    if (currentMoney < 100) return JSON.stringify({ success: false, message: "盤纏不足 100 銀兩，無法休養！" });
+    pcData[pIdx][COL.PC.MONEY] = currentMoney - 100;
+  }
   const normalStatus = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "平躺歇息", "負面": "無", "顏面": "氣息平穩" });
   const pcName = pcData[pIdx][COL.PC.NAME];
   const pcLoc = String(pcData[pIdx][COL.PC.LOC] || "").trim();
   let healedNames = [pcName];
 
-  const pMax = calculateMaxStats(pcData[pIdx][COL.PC.REALM], pcData[pIdx][COL.PC.CON], pcData[pIdx][COL.PC.INT]);
+  // FATE：沿用既有 MAX（從者血量是召喚時鎖定的，勿用凡人公式重算把它砍低）
   const prevHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
-  const wasInjured = prevHp < pMax.hp; // 🔴 記錄修練前是否真有掛彩，避免AI硬掰「傷勢痊癒」
-  pcData[pIdx][COL.PC.MAX_HP] = pMax.hp; pcData[pIdx][COL.PC.MAX_MP] = pMax.mp;
-  pcData[pIdx][COL.PC.HP] = pMax.hp; pcData[pIdx][COL.PC.MP] = pMax.mp;
+  let pHpMax, pMpMax;
+  if (isFateRest) {
+    pHpMax = parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 100;
+    pMpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || 100;
+  } else {
+    const pMax = calculateMaxStats(pcData[pIdx][COL.PC.REALM], pcData[pIdx][COL.PC.CON], pcData[pIdx][COL.PC.INT]);
+    pHpMax = pMax.hp; pMpMax = pMax.mp;
+    pcData[pIdx][COL.PC.MAX_HP] = pMax.hp; pcData[pIdx][COL.PC.MAX_MP] = pMax.mp;
+  }
+  const wasInjured = prevHp < pHpMax; // 🔴 記錄修練前是否真有掛彩，避免AI硬掰「傷勢痊癒」
+  pcData[pIdx][COL.PC.HP] = pHpMax; pcData[pIdx][COL.PC.MP] = pMpMax;
   pcData[pIdx][COL.PC.STATUS] = normalStatus;
 
   if (sheets.rel) {
     sheets.rel.getDataRange().getValues().filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]).forEach(npcName => {
       const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
       if (nIdx !== -1 && pcData[nIdx][COL.PC.STATUS] !== "屍體" && parseInt(pcData[nIdx][COL.PC.HP]) > 0) {
-        const nMax = calculateMaxStats(pcData[nIdx][COL.PC.REALM], pcData[nIdx][COL.PC.CON], pcData[nIdx][COL.PC.INT]);
-        pcData[nIdx][COL.PC.MAX_HP] = nMax.hp; pcData[nIdx][COL.PC.MAX_MP] = nMax.mp;
-        pcData[nIdx][COL.PC.HP] = nMax.hp; pcData[nIdx][COL.PC.MP] = nMax.mp;
+        if (isFateRest) {
+          pcData[nIdx][COL.PC.HP] = parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 480;
+          pcData[nIdx][COL.PC.MP] = parseInt(pcData[nIdx][COL.PC.MAX_MP]) || 200;
+        } else {
+          const nMax = calculateMaxStats(pcData[nIdx][COL.PC.REALM], pcData[nIdx][COL.PC.CON], pcData[nIdx][COL.PC.INT]);
+          pcData[nIdx][COL.PC.MAX_HP] = nMax.hp; pcData[nIdx][COL.PC.MAX_MP] = nMax.mp;
+          pcData[nIdx][COL.PC.HP] = nMax.hp; pcData[nIdx][COL.PC.MP] = nMax.mp;
+        }
         pcData[nIdx][COL.PC.STATUS] = normalStatus;
         healedNames.push(npcName);
       }
@@ -2090,12 +2124,25 @@ function actionRest(userData, pcId, sheets) {
     .map(r => r[COL.PC.NAME]);
 
   sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
-  sheets.log.appendRow([new Date(), pcId, `【系統】花費了 100 銀兩，${healedNames.join("與")} 就地休養，狀態回歸平穩。`, pcData[pIdx][COL.PC.LOC]]);
+  sheets.log.appendRow([new Date(), pcId, `【系統】${isFateRest ? "御主與從者就地歇息過夜" : "花費了 100 銀兩，" + healedNames.join("與") + " 就地休養"}，狀態回歸平穩。`, pcData[pIdx][COL.PC.LOC]]);
+
+  // ⏳ FATE 歇息：推進到隔日清晨 ＋ 世界自走兩輪
+  let restClock = "", restRumors = [];
+  if (isFateRest) {
+    try {
+      restToMorning_(restGameId);
+      const tick = worldTick_(sheets, restGameId, pcLoc, 2);
+      restRumors = tick.rumors || [];
+      restClock = clockLabel_(restGameId);
+    } catch (e) { }
+  }
   return JSON.stringify({
     success: true, statusString: getFreshStatusString(pcId, pIdx, sheets), healedNames: healedNames,
-    loc: pcLoc, wasInjured: wasInjured, bystanderNames: bystanderNames
+    loc: pcLoc, wasInjured: wasInjured, bystanderNames: bystanderNames,
+    clock: restClock, rumors: restRumors, overnight: isFateRest
   });
 }
+
 
 function actionGetRumors(userData, pcId, sheets) {
   const rumors = getRumors(sheets, 15);
