@@ -1706,6 +1706,8 @@ function actionSummonServant(userData, pcId, sheets) {
     row[COL.PC.CONTRIB] = 0; row[COL.PC.ALIGN] = aiBrief.align || "中立";
     row[COL.PC.MARTIAL] = aiBrief.np || "寶具（未顯現）";
     row[COL.PC.GAME_ID] = gameId;
+    row[COL.PC.CLS] = cls;
+    row[COL.PC.TAGS] = JSON.stringify({ skills: [], traits: [] });
     sheets.pc.appendRow(row);
 
     // 與御主結為同行夥伴（初始羈絆 35）

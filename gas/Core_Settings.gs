@@ -23,7 +23,7 @@ const COL = {
     HP: 9, MP: 10, STR: 11, CON: 12, AGI: 13, INT: 14, LUK: 15, MAX_HP: 16, MAX_MP: 17,
     WEP: 18, ARM: 19, ACC1: 20, ACC2: 21, REALM: 22, MEMORY: 23, INTENT: 24,
     FACTION: 25, RANK: 26, CONTRIB: 27, ALIGN: 28, PHYSICAL: 29, MARTIAL: 30,
-    LIFESKILL: 31, GAME_ID: 32
+    LIFESKILL: 31, GAME_ID: 32, CLS: 33, SIX: 34, TAGS: 35
   },
   ITEM: { NAME: 0, TYPE: 1, DESC: 2, PRICE: 3, OWNER: 4, STR: 5, CON: 6, AGI: 7, INT: 8, LUK: 9, ID: 10, LOC2: 11 },
   REL: { PC: 0, NPC: 1, FAV: 2, TAG: 3, IS_PARTY: 4, MEMORY: 5, MAJOR_EVENT: 6 },
@@ -33,8 +33,22 @@ const COL = {
   FACTION: { ID: 0, NAME: 1, ALIGN: 2, BASE: 3, LEADER: 4, MOTTO: 5 },
   MAIL: { ID: 0, SENDER: 1, RECEIVER: 2, CONTENT: 3, ITEM_ID: 4, ITEM_NAME: 5, STATUS: 6, TIME: 7 },
   AUTH: { NAME: 0, ID: 1, TITLE: 2, HOME_LOC: 3, DECOR: 4 },
-  SHOP: { OWNER: 0, NAME: 1, CATEGORY: 2, DESC: 3, LOC: 4, VAULT: 5, LAST_SETTLE: 6 }
+  SHOP: { OWNER: 0, NAME: 1, CATEGORY: 2, DESC: 3, LOC: 4, VAULT: 5, LAST_SETTLE: 6 },
+  // 🔵 英靈殿(從者範本)、御主殿、戰鬥標籤
+  HERO: { ID: 0, CLS: 1, NAME: 2, SEX: 3, SIX: 4, CLASS_SKILLS: 5, SKILLS: 6, TRAITS: 7, NP: 8, PERSONA: 9, ALIGN: 10, WARS: 11, SOURCE: 12 },
+  MASTER: { ID: 0, NAME: 1, SEX: 2, APPEAR: 3, MAGIC: 4, CIRCUITS: 5, MELEE: 6, MAGIC_RANK: 7, HOME: 8, WISH: 9, PERSONA: 10, WAR: 11, SOURCE: 12 },
+  CTAG: { FX: 0, NAME: 1, TYPE: 2, DESC: 3, MECH: 4 }
 };
+
+// 🔵 Fate 六圍階級：E~EX 轉數值（戰鬥系統換 D20 後會用到；+ 視為 +5）
+const RANK_VALUE = { "E": 10, "D": 20, "C": 30, "B": 40, "A": 50, "EX": 60 };
+function rankVal(r) {
+  r = String(r || "E").trim();
+  let base = RANK_VALUE[r.replace(/[+\-]/g, "").toUpperCase()] || 10;
+  const plus = (r.match(/\+/g) || []).length;
+  const minus = (r.match(/\-/g) || []).length;
+  return base + plus * 5 - minus * 3;
+}
 
 const REALMS = ["凡人", "引氣", "凝罡", "通玄", "罡氣", "意動", "心象", "登峰", "返璞", "天人"];
 const REALM_MODIFIERS = {
