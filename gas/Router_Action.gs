@@ -1949,6 +1949,8 @@ function actionGetTags(userData, pcId, sheets) {
     name: m[COL.PC.NAME], sex: m[COL.PC.SEX],
     condition: buildVisibleStatusString(m[COL.PC.STATUS]),
     hp: hpWord(m[COL.PC.HP], m[COL.PC.MAX_HP]),
+    hpNum: parseInt(m[COL.PC.HP]) || 0, hpMax: parseInt(m[COL.PC.MAX_HP]) || 0,
+    mpNum: parseInt(m[COL.PC.MP]) || 0, mpMax: parseInt(m[COL.PC.MAX_MP]) || 0,
     seals: getPlayerSeals_(m[COL.PC.MEMORY]), wish: wish
   };
 
@@ -1970,6 +1972,8 @@ function actionGetTags(userData, pcId, sheets) {
       name: s[COL.PC.NAME], cls: s[COL.PC.RANK] || "從者", sex: s[COL.PC.SEX],
       condition: buildVisibleStatusString(s[COL.PC.STATUS]),
       hp: hpWord(s[COL.PC.HP], s[COL.PC.MAX_HP]),
+      hpNum: parseInt(s[COL.PC.HP]) || 0, hpMax: parseInt(s[COL.PC.MAX_HP]) || 0,
+      mpNum: parseInt(s[COL.PC.MP]) || 0, mpMax: parseInt(s[COL.PC.MAX_MP]) || 0,
       np: s[COL.PC.MARTIAL] || "寶具未顯現", bond: bond,
       six: six, skills: skills, traits: traits
     };
@@ -3820,10 +3824,26 @@ function actionFateBattle(userData, pcId, sheets) {
   let atkIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
   if (atkIdx === -1) return JSON.stringify({ success: false, message: "你尚未召喚從者，無從者可出戰。" });
 
-  const nIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).includes(npcName) && r[COL.PC.ID] != pcData[atkIdx][COL.PC.ID] && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
+  let nIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).includes(npcName) && r[COL.PC.ID] != pcData[atkIdx][COL.PC.ID] && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
   if (nIdx === -1) return JSON.stringify({ success: false, message: "此世界查無此目標。" });
   if (String(pcData[pIdx][COL.PC.LOC]).trim() !== String(pcData[nIdx][COL.PC.LOC]).trim()) {
     return JSON.stringify({ success: false, message: "對方不在你身邊，鞭長莫及。" });
+  }
+
+  // 🛡️ 從者護主：若目標是敵御主、其從者尚在同地存活，從者捨身攔截——攻擊改打向那名從者。
+  //    唯有敵從者已亡，才能直取手無寸鐵的敵御主（斬首戰術）。
+  let interceptNote = "";
+  if (String(pcData[nIdx][COL.PC.FACTION]) === "敵御主") {
+    const guardLoc = String(pcData[nIdx][COL.PC.LOC]).trim();
+    const masterName = String(pcData[nIdx][COL.PC.NAME]);
+    const guardIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者"
+      && String(r[COL.PC.GAME_ID] || "") === myGameId
+      && !String(r[COL.PC.ID]).startsWith("DEAD_")
+      && String(r[COL.PC.LOC]).trim() === guardLoc);
+    if (guardIdx !== -1) {
+      interceptNote = `你的從者直取御主「${masterName}」，「${pcData[guardIdx][COL.PC.NAME]}」卻瞬間擋在主君之前——從者尚在，便休想取其御主性命。此擊只能先與「${pcData[guardIdx][COL.PC.NAME]}」交鋒。`;
+      nIdx = guardIdx; // 改打從者
+    }
   }
 
   // ⏳ 戰鬥耗 1 AP（＝推進 1 小時，1 AP＝1 小時）；行動點不足則無法出戰
@@ -3959,10 +3979,48 @@ function actionFateBattle(userData, pcId, sheets) {
     sheets.pc.getRange(dmgIdx + 1, 1, 1, pcData[dmgIdx].length).setValues([pcData[dmgIdx]]);
   }
 
+  // ⚔️ 對面反擊：玩家命中後，只要敵從者仍存活，便回擊一拍（雙向廝殺，不再單方面挨打）。
+  //    反擊以 0.7 計（敵方是被動回應、非主動出招），保留玩家「先手」優勢。
+  let counterNote = "";
+  const enemyAlive = fb.atkWins && !destroyedName && !sealEscaped
+    && String(pcData[nIdx][COL.PC.FACTION]) === "敵從者"
+    && (parseInt(pcData[nIdx][COL.PC.HP]) || 0) > 0;
+  if (enemyAlive && !defeat && !victory) {
+    const defNow = rowToCombatant_(pcData[nIdx]);
+    const cb = resolveFateBattle_(defNow, atkC, {}); // 敵從者反擊玩家從者
+    if (cb.atkWins) {
+      const counterDmg = Math.max(1, Math.round(cb.damage * 0.7));
+      let pAfter = (parseInt(pcData[atkIdx][COL.PC.HP]) || 0) - counterDmg;
+      if (pAfter <= 5 && hasFx_(atkC, 'survive') && (parseInt(pcData[atkIdx][COL.PC.HP]) || 0) > 1) {
+        pAfter = 1; fb.fired.push(atkC.name + '·戰鬥續行');
+      }
+      if (pAfter <= 0) {
+        // 玩家從者被反擊打死 → 敗北
+        pcData[atkIdx][COL.PC.ID] = "DEAD_" + String(pcData[atkIdx][COL.PC.ID]);
+        pcData[atkIdx][COL.PC.HP] = 0;
+        pcData[atkIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "靈基崩潰·消滅", "顏面": "已無生息" });
+        sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
+        defeat = true; victory = false;
+        var wishC = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
+        dreamPrompt = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wishC, atkC.name);
+        var acctC = String(userData.acctName || "");
+        if (acctC) recordHistory_(acctC, "敗", atkC.name, `「${atkC.name}」於「${defC.name}」的回擊中靈基崩潰，聖杯戰爭落敗。`);
+        counterNote = `「${defC.name}」拚死回擊——${atkC.name} 靈基崩潰、化作光點消散……`;
+      } else {
+        pcData[atkIdx][COL.PC.HP] = pAfter;
+        sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
+        counterNote = `「${defC.name}」隨即回擊，${atkC.name} 受創 ${counterDmg}（餘 ${pAfter}）！`;
+      }
+    } else {
+      counterNote = `「${defC.name}」想趁勢反撲，卻被 ${atkC.name} 穩穩擋下。`;
+    }
+  }
+
   const resultMsg = (fb.atkWins
     ? `${atkC.name} 命中「${defC.name}」，造成 ${fb.damage} 點傷害！${sealEscaped ? sealNote : (destroyedName && dmgFaction !== "從者" ? `「${defC.name}」靈基崩潰，徹底消滅！` : "")}`
     : `「${defC.name}」化解並反擊，${atkC.name} 受創 ${fb.damage}！${destroyedName && dmgFaction === "從者" ? `${atkC.name} 靈基崩潰，化作光點消散……` : ""}`)
-    + (godRevived ? `　${godNote}` : "");
+    + (godRevived ? `　${godNote}` : "")
+    + (counterNote ? `\n${counterNote}` : "");
   const firedStr = fb.fired.length ? `\n〔技能／寶具發動〕${fb.fired.join('、')}` : "";
   const critMap = { atk_crit: `${fb.winner} 擲出大成功，一擊洞穿！`, def_crit: `${fb.winner} 擲出大成功，完美反制！`, atk_fumble: `${atkC.name} 擲出大失敗，露出破綻！`, def_fumble: `「${defC.name}」擲出大失敗！` };
 
@@ -3974,8 +4032,10 @@ function actionFateBattle(userData, pcId, sheets) {
       `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
   } else {
     aiPrompt = `【系統戰報·已裁定，嚴禁更改勝負】御主號令從者『${atkC.name}』${useNp ? '解放寶具' : '出擊'}，迎戰「${defC.name}」。\n` +
+      (interceptNote ? `〔護主攔截〕${interceptNote}\n` : "") +
       `擲骰：${atkC.name} 命中 ${fb.aHit}（d20=${fb.aRoll}） vs 「${defC.name}」迴避 ${fb.dEva}（d20=${fb.dRoll}）。${fb.crit ? (critMap[fb.crit] || '') : ''}${firedStr}\n` +
       `最終結果：${resultMsg}\n` +
+      (counterNote ? `★務必演出「${defC.name}」的回擊一拍（依上面結果命中或被擋），雙方有來有往、互有攻防，絕非單方面挨打。\n` : "") +
       `★請以 Fate／TYPE-MOON 筆觸生動描寫這場聖杯戰爭的廝殺，凸顯上面發動的技能／寶具威能與靈基壓迫感（演出而非複述標籤名）。勝負與傷害已由系統結算。\n` +
       (godRevived
         ? `★【十二試煉】${godNote}請演出他靈基崩解後又自死亡歸來、神性光輝重燃的不滅之姿，本回合【未死亡】。\n`

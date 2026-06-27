@@ -1811,8 +1811,25 @@ function renderRecentLocs(recents = null) {
         (name ? `<div style="color:#e8dcc0; font-size:13px; font-weight:bold; margin:1px 0 3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${name}</div>` : '') +
         lines.map(l => `<div style="color:#9a8bb0; font-size:11px; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${l}</div>`).join('') +
         `</div>`;
+      // 🟥🟦 血條／魔力條：直覺顯示當前 HP/MP
+      const bar = (label, cur, max, kind) => {
+        if (!max) return '';
+        const pct = Math.max(0, Math.min(100, Math.round(cur / max * 100)));
+        const col = kind === 'mp' ? '#4a90d9' : (pct > 50 ? '#5cb85c' : pct > 20 ? '#e0a020' : '#d0473f');
+        return '<div style="display:flex; align-items:center; gap:5px; margin:3px 0;">'
+          + '<span style="font-size:10px; color:#9a8bb0; width:24px; flex:none;">' + label + '</span>'
+          + '<div style="flex:1; min-width:0; height:9px; background:#2a2330; border-radius:5px; overflow:hidden; border:1px solid rgba(0,0,0,0.3);">'
+          + '<div style="width:' + pct + '%; height:100%; background:' + col + ';"></div></div>'
+          + '<span style="font-size:9.5px; color:#8a7f9a; width:58px; flex:none; text-align:right;">' + cur + '/' + max + '</span></div>';
+      };
       const m = t.master, s = t.servant;
-      let mh = card('#d4af37', '⚜️ 御主', m.name, [`${m.condition}`, `氣力 ${m.hp}　令咒 ${'❖'.repeat(m.seals || 3)}`]);
+      let mh = '<div style="background:rgba(20,14,28,0.55); border:1px solid #d4af37; border-radius:8px; padding:6px 8px;">'
+        + '<div style="color:#d4af37; font-weight:bold; font-size:12px;">⚜️ 御主</div>'
+        + '<div style="color:#e8dcc0; font-size:13px; font-weight:bold; margin:1px 0 3px;">' + m.name + '</div>'
+        + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">' + m.condition + '</div>'
+        + bar('體', m.hpNum, m.hpMax, 'hp')
+        + '<div style="color:#9a8bb0; font-size:11px; margin-top:3px;">令咒 <span style="color:#c79be8;">' + '❖'.repeat(Math.max(0, m.seals || 0)) + '</span></div>'
+        + '</div>';
       let sh;
       if (s) {
         var six = s.six || {};
@@ -1828,7 +1845,9 @@ function renderRecentLocs(recents = null) {
           + '<div style="color:#c0392b; font-weight:bold; font-size:12px;">📿 從者・' + s.cls + '</div>'
           + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
           + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">' + s.condition + '</div>'
-          + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">氣力 ' + s.hp + '　羈絆 ' + bondWord(s.bond) + '</div>'
+          + bar('體', s.hpNum, s.hpMax, 'hp')
+          + bar('魔', s.mpNum, s.mpMax, 'mp')
+          + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">羈絆 ' + bondWord(s.bond) + '</div>'
           + '<div style="color:#cdbbe6; font-size:11px; margin-top:3px; letter-spacing:.5px;">六圍　' + sixLine + '</div>'
           + (skillPills ? ('<div style="margin-top:3px;">' + skillPills + '</div>') : '')
           + (traitPills ? ('<div style="margin-top:1px;">' + traitPills + '</div>') : '')
