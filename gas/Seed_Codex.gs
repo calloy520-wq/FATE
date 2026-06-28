@@ -95,9 +95,9 @@ var SEED_SERVANTS = [
     skills:[{n:'變生',r:'',fx:'shapeshift'},{n:'神性',r:'?',fx:'divine'}],
     traits:[{n:'神性'},{n:'神造兵器'}], np:'天地乖離開闢之星（變化）',
     align:'中立・中庸', persona:{firstP:'我',words:'純真・神造・追尋摯友・無垢',toMaster:'溫和而疏離，心繫吉爾伽美什',speech:'平和中性、純真直接、無機質卻溫柔、談起摯友便柔軟',moe:'神造兵器卻最有人性、對吉爾伽美什的純粹羈絆、不解人類卻嚮往、變幻自如的天真',tic:'化身千刃、歪頭觀察、望向遠方'} },
-  { id:'漢斯-Watcher', cls:'Watcher', realName:'漢斯·克里斯汀·安徒生', wars:['fake'], gender:'男',
+  { id:'漢斯-Watcher', cls:'Caster', realName:'漢斯·克里斯汀·安徒生', wars:['fake'], gender:'男',
     six:{筋力:'E',耐久:'E',敏捷:'D',魔力:'C',幸運:'B',寶具:'C'},
-    classSkills:[{n:'單獨行動',r:'B',fx:'solo'}],
+    classSkills:[{n:'陣地作成',r:'C',fx:'territory'},{n:'道具作成',r:'C',fx:'crafting'}],
     skills:[{n:'心眼（真）',r:'B',fx:'analyze'},{n:'故事創作',r:'A',fx:'narrative'},{n:'透化',r:'C',fx:'clear_mind'}],
     traits:[{n:'人類'}], np:'無謬之書／人魚靈藥（輔助）',
     align:'中立・善', persona:{firstP:'我',words:'毒舌・觀察者・童話・早慧',toMaster:'冷眼旁觀卻心軟，毒舌鞭策',speech:'尖酸刻薄、文人吐槽、嘴上嫌棄、童話般的洞察',moe:'童顏毒舌的反差、看透人心卻偷偷溫柔、用故事治癒他人自己卻孤獨、嫌麻煩還是會幫忙',tic:'振筆疾書、翻白眼吐槽、扶額嘆氣'} },
@@ -261,7 +261,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v5';
+var CODEX_PERSONA_VER = 'v6';
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
