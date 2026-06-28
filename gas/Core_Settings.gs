@@ -412,11 +412,15 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, relData, taskData, allPc
 
     if (tLoc === safeCurL || rVal >= 60 || rIsParty) {
       let finalDisplayStatus = buildVisibleStatusString(r[COL.PC.STATUS]);
+      // 🤝 結盟中的敵御主/敵從者 → 對前端顯示為「盟友*」，即不再列為可攻擊敵蹤
+      let fac = String(r[COL.PC.FACTION] || "");
+      const allied = (fac === "敵御主" || fac === "敵從者") && /【盟約至】\d+/.test(String(r[COL.PC.MEMORY] || ""));
+      if (allied) fac = (fac === "敵御主") ? "盟友御主" : "盟友從者";
       localPeopleList.push({
         id: r[COL.PC.ID], isPC: String(r[COL.PC.ID]).startsWith("PC_"), name: tName, status: finalDisplayStatus,
         pref: r[COL.PC.PREF] || "神祕莫測", relTag: relRecord ? relRecord[COL.REL.TAG] : "萍水相逢", relVal: rVal,
         loc: tLoc, isExact: (tLoc === safeCurL), isHighRel: (rVal >= 60), isParty: rIsParty,
-        faction: String(r[COL.PC.FACTION] || ""),
+        faction: fac, allied: allied,
         busyWith: otherParty ? otherParty[COL.REL.PC] : null, hp: r[COL.PC.HP], mp: r[COL.PC.MP]
       });
     }

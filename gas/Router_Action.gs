@@ -52,6 +52,8 @@ const ActionRouter = {
   "bond": actionBond,
   "use_mystic": actionUseMystic,
   "rule_break_steal": actionRuleBreakSteal,
+  "propose_alliance": actionProposeAlliance,
+  "break_alliance": actionBreakAlliance,
   "set_workshop": actionSetWorkshop,
   "scavenge": actionScavenge,
   "second_wind": actionSecondWind,
@@ -2155,6 +2157,7 @@ function actionMove(userData, pcId, sheets) {
       apLeft = sp.ap;
       const tick = worldTick_(sheets, moveGameId, target, 1, false); // 移動只讓敵換位，不死人
       worldRumors = tick.rumors || [];
+      try { const ab = breakStaleAlliances_(sheets, moveGameId); if (ab.broken.length) worldRumors.push(`〔盟約${ab.forced ? '瓦解' : '到期'}〕你與「${ab.broken.join('、')}」的同盟已${ab.forced ? '因戰局逼近終局而破裂——最後只能剩一個' : '到期失效'}，重回敵對。`); } catch (e) { }
       if (regenNote) worldRumors.unshift(regenNote);
       clockLabel = clockLabel_(moveGameId);
     } catch (e) { }
@@ -3984,6 +3987,11 @@ function actionFateBattle(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: "行動點已耗盡，從者也需喘息——請『歇息』恢復後再戰。" });
   }
 
+  // 🤝 盟友不可攻擊：須先撕毀盟約
+  if (isAllied_(pcData[nIdx])) {
+    return JSON.stringify({ success: false, message: `「${pcData[nIdx][COL.PC.NAME]}」是你的盟友——若要動手，須先『撕毀盟約』。` });
+  }
+
   const atkC = rowToCombatant_(pcData[atkIdx]);
   const defC = rowToCombatant_(pcData[nIdx]);
 
@@ -4590,6 +4598,119 @@ function actionUseMystic(userData, pcId, sheets) {
   });
 }
 
+// ── 🤝 結盟（暫時非敵對）：盟約標記存於敵御主/敵從者列 MEMORY 的【盟約至】<day> ──
+function isAllied_(row) { return /【盟約至】\d+/.test(String(row && row[COL.PC.MEMORY] || "")); }
+function allyUntil_(row) { var m = String(row && row[COL.PC.MEMORY] || "").match(/【盟約至】(\d+)/); return m ? parseInt(m[1]) : 0; }
+function setAllyMem_(memory, untilDay) {
+  var s = String(memory || "");
+  if (/【盟約至】\d+/.test(s)) return s.replace(/【盟約至】\d+/, "【盟約至】" + untilDay);
+  return (s ? s + "｜" : "") + "【盟約至】" + untilDay;
+}
+function clearAllyMem_(memory) { return String(memory || "").replace(/｜?【盟約至】\d+/, ""); }
+
+// 結盟意願（GAS 判定，不靠 AI）：依對方御主性格/陣營 ＋ 戰局階段 ＋ 共同強敵
+function allianceWillingness_(masterRow, aliveFoes) {
+  var p = String(masterRow[COL.PC.PREF] || "") + "｜" + String(masterRow[COL.PC.MEMORY] || "") + "｜" + String(masterRow[COL.PC.BACK] || "");
+  var w = 0.42;
+  if (/務實|冷靜|算計|理性|成長|自卑|好強|悲憤|拯救|守護|溫柔|不擇手段|名門/.test(p)) w += 0.25; // 肯談的務實/有目的者
+  if (/孤高|傲慢|瘋狂|狂|虔誠|扭曲|壓抑|暴君|惡意|看好戲|喜悅|空虛|純粹/.test(p)) w -= 0.32;     // 孤狼/瘋狂/看戲者難說動
+  if (aliveFoes <= 3) w -= 0.45; else if (aliveFoes >= 6) w += 0.15; // 「最後只能剩一個」——剩越少越不肯
+  return Math.max(0.05, Math.min(0.9, w));
+}
+
+// 🤝 交涉結盟：對同地敵御主提議；GAS 判定成敗，AI 只演出談判場景。成盟＝該御主＋其從者暫時非敵對。
+function actionProposeAlliance(userData, pcId, sheets) {
+  const npcName = String(userData.npcName || "").trim();
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
+  const mIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).includes(npcName) && String(r[COL.PC.FACTION]) === "敵御主" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc);
+  if (mIdx === -1) return JSON.stringify({ success: false, message: "此地沒有可交涉的敵御主。" });
+  if (isAllied_(pcData[mIdx])) return JSON.stringify({ success: false, message: `你已與「${pcData[mIdx][COL.PC.NAME]}」結盟。` });
+
+  const isFate = myGameId.indexOf("g_") === 0;
+  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以交涉——請休息恢復。" });
+
+  const aliveFoes = aliveEnemyServants_(sheets, myGameId);
+  const w = allianceWillingness_(pcData[mIdx], aliveFoes);
+  const ok = Math.random() < w;
+  const masterName = String(pcData[mIdx][COL.PC.NAME]);
+
+  let ap = AP_PER_DAY, clock = "";
+  if (isFate) { try { ap = spendAp_(myGameId, 1).ap; clock = clockLabel_(myGameId); } catch (e) { } }
+  const clk = getClock_(myGameId); const day = clk ? clk.day : 1;
+
+  let aiPrompt;
+  if (ok) {
+    const until = day + 3; // 盟約效期約 3 日
+    // 盟主＋其同地從者一併標記盟約
+    pcData[mIdx][COL.PC.MEMORY] = setAllyMem_(pcData[mIdx][COL.PC.MEMORY], until);
+    sheets.pc.getRange(mIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[mIdx][COL.PC.MEMORY]);
+    const gIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc);
+    let allyServant = "";
+    if (gIdx >= 0) { allyServant = String(pcData[gIdx][COL.PC.NAME]); pcData[gIdx][COL.PC.MEMORY] = setAllyMem_(pcData[gIdx][COL.PC.MEMORY], until); sheets.pc.getRange(gIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[gIdx][COL.PC.MEMORY]); }
+    aiPrompt = servantCard_(gIdx >= 0 ? pcData[gIdx] : null) +
+      `【系統·結盟已達成·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』向敵御主「${masterName}」${allyServant ? `（從者「${allyServant}」）` : ""}提議結盟，對方權衡利害後接受了——雙方暫時休兵、互不侵犯（至第 ${until} 日前後）。\n` +
+      `★以 Fate／TYPE-MOON 筆觸【約 120~180 字】演出這場談判：「${masterName}」依其性格回應（務實的權衡、開出條件或冷淡的「暫時」），最後達成不穩固的同盟。對方的算計與保留要演出來，留一絲不信任的伏筆。\n` +
+      `★【鐵律】結果已由系統裁定，嚴禁輸出 stat_changes、items_gained、money_transferred。`;
+    return JSON.stringify({ success: true, allied: true, aiPrompt: aiPrompt, master: masterName, until: until, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
+  } else {
+    aiPrompt = `【系統·結盟破局·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』向敵御主「${masterName}」提議結盟，對方拒絕了。\n` +
+      `★以 Fate／TYPE-MOON 筆觸【約 100~150 字】演出「${masterName}」依其性格回絕的瞬間（嘲諷、警戒、或「聖杯只能有一個」的冷冽）。氣氛轉為一觸即發，但本回合不開打。\n` +
+      `★【鐵律】結果已由系統裁定，嚴禁輸出 stat_changes、items_gained、money_transferred。`;
+    return JSON.stringify({ success: true, allied: false, aiPrompt: aiPrompt, master: masterName, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
+  }
+}
+
+// 💔 撕毀盟約：解除與某敵御主(及其從者)的同盟，恢復敵對
+function actionBreakAlliance(userData, pcId, sheets) {
+  const npcName = String(userData.npcName || "").trim();
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  let broke = 0, who = "";
+  for (let i = 1; i < pcData.length; i++) {
+    if (String(pcData[i][COL.PC.GAME_ID] || "") !== myGameId) continue;
+    const fac = String(pcData[i][COL.PC.FACTION]);
+    if ((fac === "敵御主" || fac === "敵從者") && isAllied_(pcData[i]) && (!npcName || String(pcData[i][COL.PC.NAME]).includes(npcName))) {
+      pcData[i][COL.PC.MEMORY] = clearAllyMem_(pcData[i][COL.PC.MEMORY]);
+      sheets.pc.getRange(i + 1, COL.PC.MEMORY + 1).setValue(pcData[i][COL.PC.MEMORY]);
+      if (fac === "敵御主") who = String(pcData[i][COL.PC.NAME]);
+      broke++;
+    }
+  }
+  if (!broke) return JSON.stringify({ success: false, message: "你目前沒有與此人結盟。" });
+  const aiPrompt = `【系統·盟約撕毀·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』單方面撕毀與「${who || npcName}」的盟約，雙方重回敵對。\n` +
+    `★以 Fate／TYPE-MOON 筆觸【約 80~130 字】演出背叛/決裂的一瞬間張力。\n★【鐵律】嚴禁輸出 stat_changes、items_gained、money_transferred。`;
+  return JSON.stringify({ success: true, aiPrompt: aiPrompt, statusString: getFreshStatusString(pcId, pIdx, sheets) });
+}
+
+// ⏳ 盟約自然瓦解：效期到 或 存活敵從者 ≤3（最後只能剩一個→強制翻臉）。回傳破裂的御主名單。
+function breakStaleAlliances_(sheets, gameId) {
+  try {
+    var clk = getClock_(gameId); var day = clk ? clk.day : 1;
+    var data = sheets.pc.getDataRange().getValues();
+    var aliveFoes = 0;
+    for (var i = 1; i < data.length; i++) { if (String(data[i][COL.PC.FACTION]) === "敵從者" && String(data[i][COL.PC.GAME_ID] || "") === gameId && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) aliveFoes++; }
+    var forceAll = aliveFoes <= 3;
+    var broken = [];
+    for (var j = 1; j < data.length; j++) {
+      var fac = String(data[j][COL.PC.FACTION]);
+      if ((fac === "敵御主" || fac === "敵從者") && String(data[j][COL.PC.GAME_ID] || "") === gameId && isAllied_(data[j])) {
+        if (forceAll || day > allyUntil_(data[j])) {
+          data[j][COL.PC.MEMORY] = clearAllyMem_(data[j][COL.PC.MEMORY]);
+          sheets.pc.getRange(j + 1, COL.PC.MEMORY + 1).setValue(data[j][COL.PC.MEMORY]);
+          if (fac === "敵御主") broken.push(String(data[j][COL.PC.NAME]));
+        }
+      }
+    }
+    return { broken: broken, forced: forceAll && broken.length > 0 };
+  } catch (e) { return { broken: [], forced: false }; }
+}
+
 // 🗝️ 破戒奪僕：對「打殘(HP<35%)的敵從者」斬契奪為第二從者（需破戒之力＋燃一道令咒；上限 2 名從者）
 function actionRuleBreakSteal(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
@@ -4630,7 +4751,7 @@ function actionRuleBreakSteal(userData, pcId, sheets) {
 //   （氣息遮斷／暗殺職階更致命）。回 null＝無敵不觸發；否則 {enemyName,dmg,defeat,dreamPrompt,after,stealthy}。
 function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, userData, baseMul) {
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
-  const eIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc);
+  const eIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc && !isAllied_(r));
   if (eIdx === -1) return null;
   const svIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
   if (svIdx === -1) return null;

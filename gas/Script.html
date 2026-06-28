@@ -1014,14 +1014,24 @@ function renderRecentLocs(recents = null) {
     if (!bar) return;
     if (!pc || pc.mode === 'kanshou') { bar.style.display = 'none'; return; }
     const foes = (localNPCs || []).filter(n => n && n.isExact && (n.faction === '敵御主' || n.faction === '敵從者'));
+    const allies = (localNPCs || []).filter(n => n && n.isExact && (n.faction === '盟友御主' || n.faction === '盟友從者'));
     const chip = (label, onclick, rgb) => '<button onclick="' + onclick + '" style="flex:1; min-width:78px; font-size:12px; padding:8px 5px; background:rgba(' + rgb + ',0.15); color:rgb(' + rgb + '); border:1px solid rgba(' + rgb + ',0.55); border-radius:8px; cursor:pointer; font-weight:bold;">' + label + '</button>';
     let h = '';
     const st = attackStyle_();
+    // 🤝 此地盟友：顯示為盟友、不可攻擊，可撕毀盟約
+    allies.forEach(a => {
+      const sa = String(a.name).replace(/'/g, '');
+      h += '<div style="flex:1 0 100%; border:1px solid rgba(90,170,120,.5); border-radius:9px; padding:6px 9px; margin-bottom:2px; background:rgba(20,45,28,.25); display:flex; align-items:center; gap:8px;">'
+        + '<span style="color:#8fd0a0; font-size:12.5px; font-weight:bold; flex:1;">🤝 盟友 ' + a.name + ' <small style="opacity:.6;">' + (a.faction === '盟友御主' ? '御主' : '從者') + '·暫時休兵</small></span>'
+        + '<button onclick="breakAlliance(\'' + sa + '\')" style="font-size:11.5px; padding:5px 9px; background:rgba(165,42,42,.18); color:#e08a8a; border:1px solid #a05050; border-radius:7px; cursor:pointer;">💔 撕毀盟約</button>'
+        + '</div>';
+    });
     foes.forEach(f => {
       const safe = String(f.name).replace(/'/g, '');
       const canMystic = myMystic && myMystic.type === 'active' && myMystic.charges > 0;
       if (f.faction === '敵御主') {
         h += '<button onclick="servantStrike(\'' + safe + '\', false, false, true)" style="flex:1 0 100%; font-size:13px; padding:9px; background:linear-gradient(90deg,rgba(120,30,90,.32),rgba(80,20,60,.18)); color:#e8b0d8; border:1px solid #a0307a; border-radius:8px; cursor:pointer; font-weight:bold;">🗡️ 刺殺御主 ' + f.name + ' <small style="opacity:.65;">敵御主·須擲20</small></button>';
+        h += '<button onclick="proposeAlliance(\'' + safe + '\')" title="交涉結盟：暫時休兵互不侵犯（成敗由對方性格與戰局而定）" style="flex:1 0 100%; font-size:12.5px; padding:8px; background:rgba(90,170,120,.14); color:#8fd0a0; border:1px solid #4ea56a; border-radius:8px; cursor:pointer; font-weight:bold;">🤝 交涉結盟 ' + f.name + '</button>';
         if (canMystic && myMystic.target === 'master') {
           h += '<button onclick="mysticStrike(\'' + safe + '\')" title="' + (myMystic.desc || '').replace(/"/g, '') + '" style="flex:1 0 100%; font-size:12.5px; padding:8px; background:rgba(127,208,192,.16); color:#7fd0c0; border:1px solid #4ea596; border-radius:8px; cursor:pointer; font-weight:bold;">✨ 禮裝·' + myMystic.name + ' <small style="opacity:.7;">狙御主·充能' + myMystic.charges + '</small></button>';
         }
@@ -2344,6 +2354,30 @@ function renderRecentLocs(recents = null) {
       const res = await gasRun({ action: 'rule_break_steal', pcId: pc.id, npcName: npcName, acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) { narrate(res.aiPrompt); syncData(true); }
       else { alert((res && res.message) || '破戒奪僕失敗。'); }
+    } catch (e) { alert('連線失敗。'); } finally { endAction(); }
+  }
+
+  // 🤝 交涉結盟（系統判定成敗，AI 演出）
+  async function proposeAlliance(npcName) {
+    if (!confirm('🤝 向敵御主「' + npcName + '」交涉結盟？\n\n成敗取決於對方的性格／陣營、是否有共同強敵、以及戰局階段（剩越少騎越難結盟）。\n成盟後暫時休兵、互不侵犯（約 3 日，或存活 ≤3 騎時強制翻臉）。\n\n提議結盟？')) return;
+    if (!beginAction()) return;
+    const story = document.getElementById('story');
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主向「${npcName}」遞出結盟的橄欖枝……</div>`);
+    story.scrollTop = story.scrollHeight;
+    try {
+      const res = await gasRun({ action: 'propose_alliance', pcId: pc.id, npcName: npcName });
+      if (res && res.success) { updateClock(res.clock, res.ap, res.apMax); narrate(res.aiPrompt); syncData(true); }
+      else { alert((res && res.message) || '交涉失敗。'); }
+    } catch (e) { alert('連線失敗。'); } finally { endAction(); }
+  }
+  // 💔 撕毀盟約
+  async function breakAlliance(npcName) {
+    if (!confirm('💔 撕毀與「' + npcName + '」的盟約、重回敵對？')) return;
+    if (!beginAction()) return;
+    try {
+      const res = await gasRun({ action: 'break_alliance', pcId: pc.id, npcName: npcName });
+      if (res && res.success) { narrate(res.aiPrompt); syncData(true); }
+      else { alert((res && res.message) || '操作失敗。'); }
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
   }
 
