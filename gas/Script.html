@@ -623,7 +623,7 @@ function renderRecentLocs(recents = null) {
     story.innerHTML += `<div class="msg-player" style="border-color:#1e90ff; color:#1e90ff;"><b>【聽風閣】：</b>花費 50 兩銀子，向閣主打聽【${typeValue}】的下落...</div>`;
     story.scrollTop = story.scrollHeight;
     const loadId = "L" + Date.now();
-    story.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="loading-text">天道演化中...</div>`);
+    story.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="loading-text">聖杯演算中…</div>`);
     story.scrollTop = story.scrollHeight;
 
     try {
@@ -733,7 +733,7 @@ function renderRecentLocs(recents = null) {
       story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>啟動了「${method}」陣法，將行囊中的「${matNames}」投入爐火之中。心中的意圖：「${intent}」。</div>`);
       story.scrollTop = story.scrollHeight;
       const loadId = "L" + Date.now();
-      story.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="loading-text">天道演化中...</div>`);
+      story.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="loading-text">聖杯演算中…</div>`);
       story.scrollTop = story.scrollHeight;
 
       try {
@@ -3004,7 +3004,7 @@ async function checkName(event) {
       el = document.createElement('div');
       el.id = 'proc-overlay';
       el.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(8,6,12,0.82);';
-      el.innerHTML = '<div style="text-align:center;color:#e8dcc0;padding:24px;"><div style="width:48px;height:48px;margin:0 auto 16px;border:3px solid rgba(212,175,55,0.22);border-top-color:#d4af37;border-radius:50%;animation:procspin 0.9s linear infinite;"></div><div id="proc-msg" style="font-size:15px;letter-spacing:1px;color:#e7c873;font-weight:bold;"></div><div style="font-size:11.5px;color:#9a8bb0;margin-top:8px;">天道演化中，請稍候約 10～30 秒……</div></div>';
+      el.innerHTML = '<div style="text-align:center;color:#e8dcc0;padding:24px;"><div style="width:48px;height:48px;margin:0 auto 16px;border:3px solid rgba(212,175,55,0.22);border-top-color:#d4af37;border-radius:50%;animation:procspin 0.9s linear infinite;"></div><div id="proc-msg" style="font-size:15px;letter-spacing:1px;color:#e7c873;font-weight:bold;"></div><div style="font-size:11.5px;color:#9a8bb0;margin-top:8px;">聖杯演算中，請稍候約 10～30 秒……</div></div>';
       document.body.appendChild(el);
       const st = document.createElement('style'); st.textContent = '@keyframes procspin{to{transform:rotate(360deg)}}'; document.head.appendChild(st);
     }
@@ -3086,6 +3086,7 @@ async function doSummon(payload) {
     const data = await gasRun(Object.assign({ action: 'summon_servant', pcId: pc.id }, payload));
     if (data && data.success) {
       pc.servant = data.servantName || '';
+      window._summonScene = data.summonPrompt || '';
       localStorage.setItem('kyushu_v27', JSON.stringify(pc));
       document.getElementById('step-summon').style.display = 'none';
       startGame(false);
@@ -3129,7 +3130,7 @@ function summonByDesc() {
       
       // 2. ⛩️ 核心修正：向天道同步「歷史暫存」表中的前塵對話紀錄！
       const story = document.getElementById('story');
-      story.innerHTML = `<div class="loading-text">天道雲端同步中，正在喚醒前塵記憶...</div>`;
+      story.innerHTML = `<div class="loading-text">聖杯因果重啟，喚醒前塵記憶…</div>`;
       
       google.script.run.withSuccessHandler((htmlContent) => {
         if(htmlContent && htmlContent.trim() !== "") {
@@ -3143,9 +3144,12 @@ function summonByDesc() {
         syncData(true);
       }).getGameHistory(pc.id, pc.name);
         
-    } else { 
-  send(`【聖杯戰爭】御主『${pc.name}』剛以令咒召喚出自己的從者${pc.servant ? `「${pc.servant}」` : ""}，兩人初次同處於冬木的夜。描寫所在地點的燈火與氛圍，並聚焦御主與從者之間最初的試探、對話或張力（從者依其真名性格演出，禁止複述設定字面），留下懸念。禁止用外貌描述代替名字。場景有張力，讓玩家想主動開口。★禁止問玩家想做什麼。★禁止介紹玩家自己的身份。★禁止新增任何地圖或NPC進眾生冊。`, true);
-}
+    } else {
+      // 🎬 召喚登場：純按鈕模式走精簡 narrate（含角色卡、無 options/位置/武俠那套）；無則退回基本敘事
+      const summonScene = window._summonScene || `【召喚登場】御主『${pc.name}』剛以令咒召喚出從者${pc.servant ? `「${pc.servant}」` : ""}，兩人初次同處於冬木的夜。\n★以 Fate／TYPE-MOON 筆觸描寫此地燈火氛圍與兩人最初的試探張力（從者依真名性格演出，禁複述設定、禁以外貌代替名字），留下懸念。★禁止替御主做決定、禁問玩家想做什麼、禁介紹玩家身份、禁新增地圖或NPC。`;
+      window._summonScene = '';
+      narrate(summonScene);
+    }
   }
 
   let currentOptions = [];
@@ -3157,7 +3161,7 @@ function summonByDesc() {
   async function narrate(promptText) {
     const story = document.getElementById('story');
     const loadId = "L" + Date.now();
-    story.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="loading-text">天道演化中...</div>`);
+    story.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="loading-text">聖杯演算中…</div>`);
     story.scrollTop = story.scrollHeight;
 
     try {
@@ -3168,7 +3172,7 @@ function summonByDesc() {
       if (res.success && res.text) {
         let t = res.text.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
         t = t.replace(/\n{2,}/g, "<br><br>").replace(/\n/g, "<br><br>");
-        story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【天道演化】</b>${t}</div>`);
+        story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【說書人】</b>${t}</div>`);
         localStorage.setItem('kyushu_story', story.innerHTML);
         story.scrollTop = story.scrollHeight;
       }
@@ -3187,7 +3191,7 @@ function summonByDesc() {
     const optContainer = document.getElementById('options-container');
     if (optContainer) optContainer.innerHTML = '';
     const loadId = "L" + Date.now();
-    story.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="loading-text">天道演化中...</div>`);
+    story.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="loading-text">聖杯演算中…</div>`);
     story.scrollTop = story.scrollHeight;
 
     try {
@@ -3210,7 +3214,7 @@ function summonByDesc() {
           }
         }
 
-        story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【天道演化】</b>${displayText}</div>`);
+        story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【說書人】</b>${displayText}</div>`);
         lastAiContext = cleanText;
 
         localStorage.setItem('kyushu_story', story.innerHTML);
@@ -3256,7 +3260,7 @@ function summonByDesc() {
     }
     
     const loadId = "L" + Date.now();
-    story.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="loading-text">天道演化中...</div>`);
+    story.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="loading-text">聖杯演算中…</div>`);
     story.scrollTop = story.scrollHeight;
     
     try {
@@ -3387,7 +3391,7 @@ let plainTextContext = cleanText;
       
       lastAiContext = plainTextContext;
       // 🔴 效能優化：改用 insertAdjacentHTML
-      story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【天道演化】</b>${displayText.trim().replace(/\n{2,}/g, "<br><br>").replace(/\n/g, "<br><br>")}</div>`);
+      story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【說書人】</b>${displayText.trim().replace(/\n{2,}/g, "<br><br>").replace(/\n/g, "<br><br>")}</div>`);
       localStorage.setItem('kyushu_story', story.innerHTML);
       setTimeout(() => { story.scrollTop = story.scrollHeight; }, 50);
 
@@ -3582,7 +3586,7 @@ async function handleMultiAttack(rawMsg) {
   story.scrollTop = story.scrollHeight;
 
   const loadId = "L" + Date.now();
-  story.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="loading-text">天道演化中...</div>`);
+  story.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="loading-text">聖杯演算中…</div>`);
   story.scrollTop = story.scrollHeight;
 
   try {
@@ -4780,7 +4784,7 @@ document.getElementById('cultivate-count-text').innerHTML =
       if (!lifeskillSelected) return;
       const btns = document.querySelectorAll('#lifeskill-roll-panel .btn');
       btns.forEach(b => b.disabled = true);
-      document.getElementById('lifeskill-result-msg').innerHTML = `<span style="color:#816e54;">天道演化中...</span>`;
+      document.getElementById('lifeskill-result-msg').innerHTML = `<span style="color:#816e54;">聖杯演算中…</span>`;
 
       try {
           const res = await gasRun({ action: "lifeskill_gather", pcId: pc.id, skill: lifeskillSelected, rollCount: rollCount });
