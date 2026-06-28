@@ -232,18 +232,28 @@ function actionEnterGallery(userData, pcId, sheets) {
   }
   if (!rec) return JSON.stringify({ success: false, message: "鑑賞名冊查無此從者。" });
 
-  // 清掉此帳號殘留的舊鑑賞世界（k_ 開頭且關聯本帳號御主）
-  //   ⚠ 兩段式：先掃出所有要清的 k_ game_id，再一次刪除——避免「邊讀邊刪縮短陣列」造成 pcData[r] undefined 崩潰。
   var pcData = sheets.pc.getDataRange().getValues();
   var masterName = String(rec[COL.GAL.MASTER] || "御主") || "御主";
-  var killGids = {};
+
+  // 🔁 持久化·不重製：若「本帳號御主 × 這名從者」已有 k_ 後日談世界 → 直接接續(不刪、不重建)，
+  //   讓肉體/親密/羈絆狀態延續累積，不再每次歸零。第一次與此從者後日談時才往下新建。
+  var hasM = {}, hasS = {}, mIdOf = {}, mLocOf = {}, mSexOf = {};
   for (var r = 1; r < pcData.length; r++) {
-    var gidOld = String(pcData[r][COL.PC.GAME_ID] || "");
-    if (gidOld.indexOf("k_") === 0 && String(pcData[r][COL.PC.NAME]) === masterName) killGids[gidOld] = true;
+    var g = String(pcData[r][COL.PC.GAME_ID] || "");
+    if (g.indexOf("k_") !== 0) continue;
+    if (String(pcData[r][COL.PC.ID]).startsWith("DEAD_")) continue;
+    var nm = String(pcData[r][COL.PC.NAME]); var fac = String(pcData[r][COL.PC.FACTION]);
+    if (nm === masterName && fac === "御主") { hasM[g] = true; mIdOf[g] = String(pcData[r][COL.PC.ID]); mLocOf[g] = String(pcData[r][COL.PC.LOC] || "冬木·深山町"); mSexOf[g] = String(pcData[r][COL.PC.SEX] || "異"); }
+    if (nm === name && fac === "從者") hasS[g] = true;
   }
-  if (Object.keys(killGids).length) {
-    for (var d = pcData.length - 1; d >= 1; d--) {
-      if (killGids[String(pcData[d][COL.PC.GAME_ID] || "")]) sheets.pc.deleteRow(d + 1);
+  for (var gg in hasM) {
+    if (hasS[gg]) {
+      var rloc = mLocOf[gg] || "冬木·深山町";
+      return JSON.stringify({
+        success: true, pcId: mIdOf[gg], pcName: masterName, pcSex: mSexOf[gg],
+        servantName: name, loc: rloc, resumed: true,
+        message: `又回到「${name}」身邊了——${String(rloc).replace(/^冬木[·・]?/, "")}的空氣一如既往。你們之間的時光，在上次的餘溫裡靜靜延續。`
+      });
     }
   }
 
