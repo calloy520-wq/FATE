@@ -22,13 +22,30 @@
       <button class="btn" style="width:100%; margin-top:14px; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="lockBtn(event, accountLogin)">進　入</button>
     </div>
     <div id="scr-menu" style="display:none; width:300px;">
-      <p id="menu-greet" style="text-align:center; color:var(--gold-accent); font-size:14px; margin-bottom:16px;"></p>
-      <button id="btn-resume" class="btn" style="display:none; width:100%; margin-bottom:10px; padding:13px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="continueGame()">▶ 繼續聖杯戰爭</button>
-      <button class="btn" style="width:100%; margin-bottom:10px; padding:13px;" onclick="newGameFlow()">🔥 開啟新的聖杯戰爭</button>
-      <button class="btn" style="width:100%; margin-bottom:10px; padding:13px; opacity:.4; cursor:not-allowed;" disabled>🌐 多人連線　敬請期待</button>
-      <button class="btn" style="width:100%; margin-bottom:10px; padding:13px; border-color:#9a7b4f; color:#9a7b4f;" onclick="openGallery()">🏆 鑑賞模式</button>
-      <button class="btn" style="width:100%; margin-bottom:10px; padding:13px; border-color:#9a7b4f; color:#9a7b4f;" onclick="showVictoryHistory()">📜 勝利歷史</button>
-      <button class="btn" style="width:100%; padding:11px; border-color:#777; color:#999; font-size:13px;" onclick="logoutAccount()">🚪 登出</button>
+      <p id="menu-greet" style="text-align:center; color:var(--gold-accent); font-size:14px; margin-bottom:14px;"></p>
+
+      <!-- 🎴 第一道門：純淨（單人聖杯戰爭，SFW） -->
+      <div style="border:1px solid rgba(159,192,239,.45); border-radius:11px; padding:11px 11px 6px; margin-bottom:13px; background:rgba(30,40,60,.25);">
+        <div style="color:#9fc0ef; font-size:13px; font-weight:bold; letter-spacing:1px; margin-bottom:9px; text-align:center;">🎴 純淨 · 單人聖杯戰爭</div>
+        <button id="btn-resume" class="btn" style="display:none; width:100%; margin-bottom:9px; padding:12px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="continueGame()">▶ 繼續戰爭</button>
+        <button class="btn" style="width:100%; margin-bottom:7px; padding:12px; border-color:#9fc0ef; color:#cfe0ff;" onclick="newGameFlow()">🔥 開啟新的聖杯戰爭</button>
+      </div>
+
+      <!-- 🌹 第二道門：慾海（鑑賞後日談，名單來自贏過的戰爭） -->
+      <div style="border:1px solid rgba(200,120,150,.45); border-radius:11px; padding:11px 11px 6px; margin-bottom:13px; background:rgba(55,28,40,.25);">
+        <div style="color:#e0a0bc; font-size:13px; font-weight:bold; letter-spacing:1px; margin-bottom:3px; text-align:center;">🌹 慾海 · 鑑賞後日談</div>
+        <p style="color:#9a7f8c; font-size:10.5px; text-align:center; margin:0 0 9px;">與你曾並肩奪杯的她重逢相伴（贏過才有人可約）</p>
+        <button class="btn" style="width:100%; margin-bottom:7px; padding:12px; border-color:#c87896; color:#e8b8cc;" onclick="openGallery()">🌹 進入鑑賞</button>
+        <button class="btn" style="width:100%; padding:7px; border-color:#5a6a8a; color:#8a9ac0; font-size:11px;" onclick="devSeedGallery()">🧪 DEV：產生測試從者（還沒奪杯也能測）</button>
+      </div>
+
+      <!-- 多人：以排行榜形式呈現（帳號為單位、撈持久層） -->
+      <button class="btn" style="width:100%; margin-bottom:9px; padding:11px; border-color:#c9a84a; color:#e0c66a; font-weight:bold;" onclick="openLeaderboard()">🏆 排行榜</button>
+      <div style="display:flex; gap:8px; margin-bottom:9px;">
+        <button class="btn" style="flex:1; padding:10px; border-color:#9a7b4f; color:#9a7b4f; font-size:12px;" onclick="showVictoryHistory()">📜 勝利歷史</button>
+        <button class="btn" style="flex:1; padding:10px; border-color:#7f6fa0; color:#a99cc6; font-size:12px;" onclick="openWarHistory()">📜 戰役回顧</button>
+      </div>
+      <button class="btn" style="width:100%; padding:9px; border-color:#777; color:#999; font-size:12px;" onclick="logoutAccount()">🚪 登出</button>
     </div>
     <div id="scr-warmode" style="display:none; width:300px;">
       <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:12px;">選擇聖杯戰爭型態</p>
@@ -128,7 +145,6 @@
       </div>
       <div id="pane-map" class="game-pane">
         <div id="map-pane-content" style="padding:10px;"></div>
-        <div id="bag-5" style="padding:0 10px 12px;"></div>
       </div>
     </div>
     <div id="game-tabs">
@@ -137,10 +153,11 @@
       <button id="tab-map" class="game-tab" onclick="showGamePane('map')">🗺️ 地圖</button>
     </div>
     <div id="action-drawer">
-      <button class="drawer-item" onclick="openHomeMenu()"><i>🏡</i><span>我的據點</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('explore')"><i>🧭</i><span>探索冬木</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('status')"><i>👤</i><span>查看狀態</span></button>
       <button class="drawer-item" onclick="openEpicPanel()"><i>📖</i><span>個人史紀</span></button>
+      <button class="drawer-item" onclick="openWarChronicle()"><i>📜</i><span>本場戰記</span></button>
+      <button class="drawer-item" id="drawer-companions" onclick="openCompanions()" style="display:none;"><i>👥</i><span>後日談同伴</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('settings')"><i>⚙️</i><span>系統設定</span></button>
     </div>
 
@@ -197,307 +214,7 @@
     </div>
   </div>
 
-  <div id="craft-overlay" class="modal-overlay" onclick="closeSystemModal('craft-overlay')">
-    <div class="modal-scroll" onclick="event.stopPropagation()" style="max-width: 350px;">
-      <span class="modal-close-btn" onclick="closeSystemModal('craft-overlay')">&times;</span>
-      <h2 style="text-align:center; color:#e91e63; border-bottom:2px solid #e91e63; padding-bottom:10px; margin-top:0;">
-        🔥 造物煉成</h2>
-
-      <div style="margin-bottom: 10px; font-size: 13px; color:#816e54;">請勾選要投入爐中的素材 (極限 5 樣)：</div>
-
-      <div id="craft-materials-list"
-        style="max-height: 200px; overflow-y: auto; background: rgba(0,0,0,0.2); border: 1px inset #444; padding: 10px; border-radius: 4px; margin-bottom: 15px;">
-        <div style="color: #816e54; text-align: center;">正在翻找行囊...</div>
-      </div>
-
-      <div style="margin-bottom: 12px;">
-        <label style="color:#d4af37; font-weight:bold; font-size:14px; display:block; margin-bottom:4px;">煉製技法：</label>
-        <select id="craft-method" class="std-select" style="width: 100%; box-sizing:border-box; padding:8px;">
-          <option value="鍛造">⚒️ 鍛造 (打造武器/防具)</option>
-          <option value="煉丹">💊 煉丹 (提煉靈藥/毒藥)</option>
-          <option value="製作">🧵 製作 (巧手製作法寶/雜物)</option>
-          <option value="融合">🌀 融合 (精煉/修復/強化)</option>
-          <option value="雕琢信物">💍 雕琢 (精心製作定情信物)</option>
-        </select>
-      </div>
-
-      <div style="margin-bottom: 15px;">
-        <label style="color:#d4af37; font-weight:bold; font-size:14px; display:block; margin-bottom:4px;">心中意圖 (你想做什麼？)：</label>
-        <input type="text" id="craft-intent" maxlength="100" class="std-in" placeholder="例如：我想把這兩把劍融合成帶毒的暗器..." style="width: 100%; box-sizing:border-box; padding:10px;">
-      </div>
-
-      <button class="btn" style="width:100%; background:#e91e63; color:#fff; font-size:16px; border:none; padding:12px; border-radius:4px; font-weight:bold;" onclick="lockBtn(event, executeCraft)">開爐煉製</button>
-    </div>
-  </div>
-
-  <div id="lifeskill-overlay" class="modal-overlay" onclick="closeSystemModal('lifeskill-overlay')">
-    <div class="modal-scroll" onclick="event.stopPropagation()" style="max-width: 360px;">
-      <span class="modal-close-btn" onclick="closeSystemModal('lifeskill-overlay')">&times;</span>
-      <h2 style="text-align:center; color:#8b5a2b; border-bottom:2px solid #8b5a2b; padding-bottom:10px; margin-top:0;">
-        🌾 生活營生</h2>
-
-      <div style="margin-bottom: 10px; font-size: 13px; color:#816e54;">選擇要進行的生活技能：</div>
-
-      <div id="lifeskill-list" style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px;"></div>
-
-      <div id="lifeskill-roll-panel" style="display:none; margin-top: 10px; border-top: 1px dashed rgba(139,90,43,0.4); padding-top: 12px;">
-        <div style="text-align:center; font-size:14px; color:#8b5a2b; font-weight:bold; margin-bottom: 8px;">
-          當前項目：<span id="lifeskill-selected-name"></span>（Lv<span id="lifeskill-selected-level">0</span>）
-        </div>
-        <div style="display:flex; gap: 8px; justify-content: center; margin-bottom: 12px;">
-          <button class="btn" style="border-color:#8b5a2b; color:#8b5a2b; padding: 10px 14px;" onclick="executeLifeskillGather(1)">骰1次<br><span style="font-size:11px;">(10魔力)</span></button>
-          <button class="btn" style="border-color:#8b5a2b; color:#8b5a2b; padding: 10px 14px;" onclick="executeLifeskillGather(3)">骰3次<br><span style="font-size:11px;">(30魔力)</span></button>
-          <button class="btn" style="border-color:#8b5a2b; color:#8b5a2b; padding: 10px 14px;" onclick="executeLifeskillGather(5)">骰5次<br><span style="font-size:11px;">(50魔力)</span></button>
-        </div>
-        <div id="lifeskill-result-msg" style="font-size: 14px; line-height: 1.6; color: #5a3d22; min-height: 30px; text-align:center;"></div>
-      </div>
-    </div>
-  </div>
-
-
-
-  <div id="casino-hub-overlay" class="modal-overlay" onclick="closeSystemModal('casino-hub-overlay')">
-    <div class="modal-scroll" onclick="event.stopPropagation()" style="max-width: 320px;">
-      <span class="modal-close-btn" onclick="closeSystemModal('casino-hub-overlay')">&times;</span>
-      <h2 style="text-align:center; color:#b8860b; border-bottom:2px solid #b8860b; padding-bottom:10px; margin-top:0;">
-        🏮 長樂坊</h2>
-      <p style="text-align:center; color:#816e54; font-size:13px; margin-bottom: 20px;">紙醉金迷，銷金之窟。<br>御主，今日想玩點什麼？</p>
-
-      <div style="display: flex; flex-direction: column; gap: 12px;">
-        <button class="btn" style="border-color:#ffd700; color:#ffd700; font-size:16px; padding: 12px;" onclick="closeSystemModal('casino-hub-overlay'); openCasinoMenu();">🎲 靈紋骰局</button>
-
-        <button class="btn" style="border-color:#32cd32; color:#32cd32; font-size:16px; padding: 12px;" onclick="closeSystemModal('casino-hub-overlay'); openRaceModal();">🐎 天馬競速</button>
-      </div>
-    </div>
-  </div>
-
-
-
-
-
-  <div id="casino-overlay" class="modal-overlay" onclick="closeSystemModal('casino-overlay')">
-    <div class="modal-scroll" onclick="event.stopPropagation()" style="max-width: 380px;">
-      <span class="modal-close-btn" onclick="closeSystemModal('casino-overlay')">&times;</span>
-      <h2 style="text-align:center; color:#b8860b; border-bottom:2px solid #b8860b; padding-bottom:10px; margin-top:0;">
-        🎲 長樂坊</h2>
-
-      <div class="dice-board">
-        <div style="color:#b8860b; margin-bottom: 5px; font-weight: bold; font-size:18px;">靈紋骰局</div>
-
-        <div style="margin-bottom: 15px; font-size:14px; color:#aaa;">
-          當前盤纏：<span id="casino-current-money" style="font-weight:bold; font-size:18px; color:#ffd700;">0</span> 兩
-        </div>
-
-        <div id="dice-container">
-          <div class="scene">
-            <div class="cube" id="dice-1">
-              <div class="face f1">壹</div>
-              <div class="face f2">貳</div>
-              <div class="face f3">參</div>
-              <div class="face f4">肆</div>
-              <div class="face f5">伍</div>
-              <div class="face f6">陸</div>
-            </div>
-          </div>
-          <div class="scene">
-            <div class="cube" id="dice-2">
-              <div class="face f1">壹</div>
-              <div class="face f2">貳</div>
-              <div class="face f3">參</div>
-              <div class="face f4">肆</div>
-              <div class="face f5">伍</div>
-              <div class="face f6">陸</div>
-            </div>
-          </div>
-          <div class="scene">
-            <div class="cube" id="dice-3">
-              <div class="face f1">壹</div>
-              <div class="face f2">貳</div>
-              <div class="face f3">參</div>
-              <div class="face f4">肆</div>
-              <div class="face f5">伍</div>
-              <div class="face f6">陸</div>
-            </div>
-          </div>
-        </div>
-
-        <div style="margin-top: 20px;">
-          <input type="number" id="bet-amount" value="1000" min="100" max="10000" class="std-in" style="width: 100px; text-align: center; padding: 8px;"> 兩
-          <br><br>
-          <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
-            <button class="btn" onclick="lockBtn(event, () => placeBet('大'))" style="border-color:#ff4500; color:#ff4500; flex: 1;">押大 (1賠1)</button>
-            <button class="btn" onclick="lockBtn(event, () => placeBet('小'))" style="border-color:#1e90ff; color:#1e90ff; flex: 1;">押小 (1賠1)</button>
-            <button class="btn" onclick="lockBtn(event, () => placeBet('任意豹子'))" style="border-color:#ffd700; color:#ffd700; width: 100%; margin-top: 5px;">任意豹子 (1賠24)</button>
-          </div>
-        </div>
-
-        <div id="dice-result-msg" style="margin-top: 15px; color: #ffd700; min-height: 40px; font-size: 14px;">請下注，買定離手！
-        </div>
-      </div>
-    </div>
-  </div>
-
-
-
-
-  <div id="horse-race-overlay" class="modal-overlay" onclick="closeSystemModal('horse-race-overlay')">
-    <div class="modal-scroll" onclick="event.stopPropagation()" style="max-width: 460px;">
-      <span class="modal-close-btn" onclick="closeSystemModal('horse-race-overlay')">&times;</span>
-      <h2 style="text-align:center; color:#2e8b57; border-bottom:2px solid #2e8b57; padding-bottom:10px; margin-top:0;">
-        🐎 天馬競速</h2>
-
-      <div class="dice-board">
-        <div style="margin-bottom: 10px; font-size:14px; color:#aaa; text-align:center;">
-          當前盤纏：<span id="race-current-money" style="font-weight:bold; font-size:18px; color:#ffd700;">0</span> 兩
-        </div>
-
-        <div id="race-track" style="display:flex; flex-direction:column; gap:6px; margin:15px 0;"></div>
-
-        <div style="text-align:center; margin-top: 10px;">
-          <input type="number" id="race-bet-amount" value="1000" min="100" max="10000" class="std-in" style="width: 100px; text-align: center; padding: 8px;"> 兩
-          <br><br>
-          <div id="race-horse-buttons" style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;"></div>
-        </div>
-
-        <div id="race-result-msg" style="margin-top: 15px; color: #e3e3e3; min-height: 40px; font-size: 16px;">請選定戰馬下注，賽事即將開始！
-        </div>
-      </div>
-    </div>
-  </div>
-
-
-
-
-  <div id="pavilion-overlay" class="modal-overlay" onclick="closeSystemModal('pavilion-overlay')">
-    <div class="modal-scroll" onclick="event.stopPropagation()" style="max-width: 350px;">
-      <span class="modal-close-btn" onclick="closeSystemModal('pavilion-overlay')">&times;</span>
-      <h2 style="text-align:center; color:#1e90ff; border-bottom:2px solid #1e90ff; padding-bottom:10px; margin-top:0;">
-        🏮 聽風閣</h2>
-      <p style="text-align:center; color:#816e54; font-size:13px; margin-bottom: 20px;">情報明碼暗碼皆可交易。<br>御主，今日想尋求什麼？</p>
-
-      <div style="margin-bottom: 12px;">
-        <label style="color:#1e90ff; font-weight:bold; font-size:14px; display:block; margin-bottom:4px;">渴求的報酬類型：</label>
-        <select id="pavilion-reward-type" class="std-select" style="width: 100%; box-sizing:border-box; padding:8px;">
-          <option value="賺取銀兩">💰 懸賞委託 (替情報所辦事賺取資金)</option>
-          <option value="神兵武器">⚔️ 買情報：神兵利器 (手續費 50 兩)</option>
-          <option value="堅固防具">🛡️ 買情報：堅固防具 (手續費 50 兩)</option>
-          <option value="神祕法寶">📿 買情報：神祕法寶 (手續費 50 兩)</option>
-          <option value="珍貴丹藥">💊 買情報：珍貴丹藥 (手續費 50 兩)</option>
-          <option value="定情信物">💍 買情報：稀世定情信物 (手續費 50 兩)</option>
-        </select>
-      </div>
-
-      <div style="margin-bottom: 15px;">
-        <label style="color:#1e90ff; font-weight:bold; font-size:14px; display:block; margin-bottom:4px;">附加要求 (選填)：</label>
-        <input type="text" id="pavilion-intent" maxlength="100" class="std-in" placeholder="例如：我想接暗殺、想偷某人的東西..." style="width: 100%; box-sizing:border-box; padding:10px;">
-      </div>
-
-      <button class="btn" style="width:100%; background:#1e90ff; color:#fff; font-size:16px; border:none; padding:12px; border-radius:4px; font-weight:bold;" onclick="lockBtn(event, requestPavilionQuest)">打聽委託</button>
-
-      <div style="border-top:1px dashed rgba(30,144,255,0.3); margin:15px 0 12px;"></div>
-      <button class="btn" style="width:100%; border-color:#daa520; color:#daa520; font-size:15px; padding:10px; font-weight:bold; background:rgba(218,165,32,0.05);" onclick="openSellPanel()">💰 變賣行囊 (聽風閣收購)</button>
-    </div>
-  </div>
-
-  <div id="estate-overlay" class="modal-overlay" style="background: var(--bg-color); z-index: 2000;"
-    onclick="/* 移除點擊背景關閉，改用專屬返回鍵 */">
-    <div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
-
-      <div
-        style="padding: 15px 20px; background: rgba(46, 139, 87, 0.1); border-bottom: 2px solid #2e8b57; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
-        <div style="display: flex; align-items: center; gap: 15px;">
-          <h1 id="estate-title-name" style="margin: 0; color: #2e8b57; font-size: 22px; letter-spacing: 2px;">🌌 隨身仙府
-          </h1>
-          <span style="color: #888; font-size: 12px; display: none;" id="estate-loc-hint">📍 本體已進入仙府</span>
-        </div>
-        <button class="btn" style="border-color: #888; color: #888; padding: 6px 15px;" onclick="closeEstateMenu()">🚪 離開神識空間</button>
-      </div>
-
-      <div id="estate-facilities"
-        style="flex: 1; overflow-y: auto; padding: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
-      </div>
-
-    </div>
-  </div>
   
-  <div id="home-overlay" class="modal-overlay" onclick="closeSystemModal('home-overlay')">
-    <div class="modal-scroll" onclick="event.stopPropagation()" style="max-width: 420px;">
-      <span class="modal-close-btn" onclick="closeSystemModal('home-overlay')">&times;</span>
-
-      <div style="display:flex; border-bottom: 2px solid rgba(200,132,60,0.3); margin-bottom: 15px;">
-        <button id="tab-home-resource" onclick="switchHomeTab('resource')"
-          style="flex:1; padding:10px; background:none; border:none; border-bottom: 2px solid #c8843c; color:#c8843c; font-weight:bold; font-size:14px; cursor:pointer; margin-bottom:-2px;">🌌 資源</button>
-        <button id="tab-home-dwelling" onclick="switchHomeTab('dwelling')"
-          style="flex:1; padding:10px; background:none; border:none; border-bottom: 2px solid transparent; color:#816e54; font-size:14px; cursor:pointer; margin-bottom:-2px;">🏠 居所</button>
-        <button id="tab-home-decor" onclick="switchHomeTab('decor')"
-          style="flex:1; padding:10px; background:none; border:none; border-bottom: 2px solid transparent; color:#816e54; font-size:14px; cursor:pointer; margin-bottom:-2px;">🎨 裝潢</button>
-        <button id="tab-home-warehouse" onclick="switchHomeTab('warehouse')"
-          style="flex:1; padding:10px; background:none; border:none; border-bottom: 2px solid transparent; color:#816e54; font-size:14px; cursor:pointer; margin-bottom:-2px;">🏺 倉庫</button>
-      </div>
-
-      <div id="panel-home-resource">
-        <div id="home-resource-content" style="display:flex; flex-direction:column; gap:15px;">
-          <div style="color:#d4af37; text-align:center; padding:30px 0;">神識延伸，正在感應仙府靈氣...</div>
-        </div>
-      </div>
-
-      <div id="panel-home-dwelling" style="display:none;">
-        <div id="home-dwelling-content"><p style="text-align:center; color:#816e54;">正在感應歸處...</p></div>
-      </div>
-
-      <div id="panel-home-decor" style="display:none;">
-        <div id="home-decor-content"><p style="text-align:center; color:#816e54;">正在感應歸處...</p></div>
-      </div>
-
-      <div id="panel-home-warehouse" style="display:none;">
-        <div id="home-warehouse-content"><p style="text-align:center; color:#816e54;">正在感應倉庫氣息...</p></div>
-      </div>
-    </div>
-  </div>
-
-  <div id="shop-overlay" class="modal-overlay" onclick="closeSystemModal('shop-overlay')">
-    <div class="modal-scroll" onclick="event.stopPropagation()" style="max-width: 440px;">
-      <span class="modal-close-btn" onclick="closeSystemModal('shop-overlay')">&times;</span>
-      <h2 style="text-align:center; color:#c8843c; border-bottom:2px solid #c8843c; padding-bottom:10px; margin-top:0;">🏪 我的店</h2>
-      <div id="shop-content" style="margin-top:15px;">
-        <p style="text-align:center; color:#816e54;">正在感應鋪面氣息...</p>
-      </div>
-    </div>
-  </div>
-
-  <div id="inventory-overlay" class="modal-overlay" onclick="closeSystemModal('inventory-overlay')">
-    <div class="modal-scroll" onclick="event.stopPropagation()">
-      <span class="modal-close-btn" onclick="closeSystemModal('inventory-overlay')">&times;</span>
-      <h2 style="text-align:center; color:#2e8b57; border-bottom:2px solid #2e8b57; padding-bottom:10px; margin-top:0;">
-        🎒 我的行囊</h2>
-      <div id="inventory-content" style="padding: 10px 0;">
-        <p style="text-align:center; color:#816e54;">正在翻找行囊...</p>
-      </div>
-    </div>
-  </div>
-
-  <div id="quest-overlay" class="modal-overlay" onclick="closeSystemModal('quest-overlay')">
-    <div class="modal-scroll" onclick="event.stopPropagation()">
-      <span class="modal-close-btn" onclick="closeSystemModal('quest-overlay')">&times;</span>
-      <h2 style="text-align:center; color:#9C27B0; border-bottom:2px solid #9C27B0; padding-bottom:10px; margin-top:0;">
-        📜 身負天命</h2>
-      <div id="quest-content" style="padding: 10px 0;">
-        <p style="text-align:center; color:#816e54;">正在回想天命...</p>
-      </div>
-    </div>
-  </div>
-
-  <div id="npc-inventory-overlay" class="modal-overlay" onclick="closeSystemModal('npc-inventory-overlay')">
-    <div class="modal-scroll" onclick="event.stopPropagation()">
-      <span class="modal-close-btn" onclick="closeSystemModal('npc-inventory-overlay')">&times;</span>
-      <h2 style="text-align:center; color:#4682b4; border-bottom:2px solid #4682b4; padding-bottom:10px; margin-top:0;">
-        👁️ 窺探行囊</h2>
-      <div id="npc-inventory-content" style="padding: 10px 0;">
-        <p style="text-align:center; color:#816e54;">正在暗中打量...</p>
-      </div>
-    </div>
-  </div>
-
   <div id="explore-overlay" class="modal-overlay" onclick="toggleExplore()">
     <div class="modal-scroll" onclick="event.stopPropagation()">
       <span class="modal-close-btn" onclick="toggleExplore()">&times;</span>
@@ -522,7 +239,7 @@
       <h2 class="sheet-title">
         <span id="ui-name" style="font-size: 24px;">--</span>
         <span id="ui-sex" style="font-size: 14px; color: #555; border: 1px solid #555; padding: 0 4px; border-radius: 3px; margin-left: 5px;">--</span>
-        <span id="ui-realm" style="font-size: 14px; color: var(--gold-accent); border: 1px solid var(--gold-accent); padding: 0 6px; border-radius: 4px; margin-left: 8px;">凡人</span>
+        <span id="ui-realm" data-mode="full" style="font-size: 14px; color: var(--gold-accent); border: 1px solid var(--gold-accent); padding: 0 6px; border-radius: 4px; margin-left: 8px;">凡人</span>
       </h2>
 
       <div class="status-flex-container" style="display: flex; gap: 8px; margin-bottom: 12px; align-items: stretch;">
@@ -548,48 +265,13 @@
             </div>
           </div>
 
-          <div
+          <div data-mode="full"
             style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.04); border-radius: 4px; padding: 4px 6px; margin-top: 6px; font-size: 11px;">
             <div title="臂力">💪<b id="ui-str" style="color:#b22222; margin-left:2px;">--</b></div>
             <div title="根骨">🦴<b id="ui-con" style="color:#8b4513; margin-left:2px;">--</b></div>
             <div title="身法">🍃<b id="ui-agi" style="color:#2e8b57; margin-left:2px;">--</b></div>
             <div title="神識">👁️<b id="ui-int" style="color:#4169e1; margin-left:2px;">--</b></div>
             <div title="福緣">🍀<b id="ui-luk" style="color:#d4af37; margin-left:2px;">--</b></div>
-          </div>
-        </div>
-
-        <div
-          style="flex: 1; display: flex; flex-direction: column; background: rgba(178, 34, 34, 0.03); border: 1px solid rgba(178, 34, 34, 0.15); border-radius: 6px; padding: 6px;">
-          <div
-            style="color: #b22222; font-size: 13px; font-weight: bold; text-align: center; border-bottom: 1px dashed rgba(178, 34, 34, 0.2); padding-bottom: 4px; margin-bottom: 4px;">
-            【 行囊裝備 】</div>
-          <div
-            style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; justify-content: center; flex: 1;">
-
-            <div class="equip-slot" onclick="openBag('武器')"
-              style="padding:4px 6px; display:flex; justify-content:space-between; align-items:center; background: rgba(0,0,0,0.02); border-radius:4px; gap:6px;">
-              <span style="color:#666; font-size:11px; white-space:nowrap; flex-shrink:0;">⚔️ 武器</span>
-              <span id="eq-weapon" class="eq-empty" style="color:#332211; font-weight:bold; font-size:11px; text-align:right; word-break:break-word;">[ (空) ]</span>
-            </div>
-
-            <div class="equip-slot" onclick="openBag('防具')"
-              style="padding:4px 6px; display:flex; justify-content:space-between; align-items:center; background: rgba(0,0,0,0.02); border-radius:4px; gap:6px;">
-              <span style="color:#666; font-size:11px; white-space:nowrap; flex-shrink:0;">🛡️ 防具</span>
-              <span id="eq-armor" class="eq-empty" style="color:#332211; font-weight:bold; font-size:11px; text-align:right; word-break:break-word;">[ (空) ]</span>
-            </div>
-
-            <div class="equip-slot" onclick="openBag('法寶1')"
-              style="padding:4px 6px; display:flex; justify-content:space-between; align-items:center; background: rgba(0,0,0,0.02); border-radius:4px; gap:6px;">
-              <span style="color:#666; font-size:11px; white-space:nowrap; flex-shrink:0;">📿 法一</span>
-              <span id="eq-acc1" class="eq-empty" style="color:#332211; font-weight:bold; font-size:11px; text-align:right; word-break:break-word;">[ (空) ]</span>
-            </div>
-
-            <div class="equip-slot" onclick="openBag('法寶2')"
-              style="padding:4px 6px; display:flex; justify-content:space-between; align-items:center; background: rgba(0,0,0,0.02); border-radius:4px; gap:6px;">
-              <span style="color:#666; font-size:11px; white-space:nowrap; flex-shrink:0;">📿 法二</span>
-              <span id="eq-acc2" class="eq-empty" style="color:#332211; font-weight:bold; font-size:11px; text-align:right; word-break:break-word;">[ (空) ]</span>
-            </div>
-
           </div>
         </div>
 
@@ -719,22 +401,6 @@
     </div>
   </div>
 
-  <div id="gear-modal"
-    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); z-index: 9999; justify-content: center; align-items: center; padding: 15px; box-sizing: border-box;">
-    <div
-      style="background: #1e1e1e; border: 1px solid rgba(178, 34, 34, 0.5); width: 100%; max-width: 400px; border-radius: 8px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.8); display: flex; flex-direction: column; max-height: 80vh;">
-      <div
-        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(178, 34, 34, 0.2); padding-bottom: 6px;">
-        <span id="modal-gear-title" style="color: #b22222; font-weight: bold; font-size: 16px;">選擇裝備</span>
-        <span onclick="closeGearModal()" style="cursor: pointer; color: #c4c7c5; font-size: 20px; padding: 0 5px;">&times;</span>
-      </div>
-      <div id="modal-gear-list"
-        style="overflow-y: auto; flex: 1; padding-right: 4px; display: flex; flex-direction: column; gap: 8px;">
-        <div style="color: #888; text-align: center; padding: 20px;">天道感應中...</div>
-      </div>
-    </div>
-  </div>
-
   <div id="interact-modal" class="modal-overlay" onclick="closeInteractMenu()">
     <div class="modal-scroll" onclick="event.stopPropagation()" style="max-width: 320px; padding: 20px;">
       <span class="modal-close-btn" onclick="closeInteractMenu()">&times;</span>
@@ -750,30 +416,6 @@
     </div>
   </div>
 
-  <div id="cultivate-modal" class="modal-overlay" onclick="closeCultivateMenu()">
-    <div class="modal-scroll" onclick="event.stopPropagation()"
-      style="max-width: 300px; padding: 20px; text-align:center;">
-      <span class="modal-close-btn" onclick="closeCultivateMenu()">&times;</span>
-      <h2 style="color:#2e8b57; border-bottom:2px solid #2e8b57; padding-bottom:10px; margin-top:0;">🧘‍♂️ 靈基修行</h2>
-
-      <p id="cultivate-count-text" style="font-size:14px; color:#816e54; font-weight:bold; margin-top: 15px;"></p>
-      <p style="font-size:12px; color:#a52a2a; margin-bottom: 10px;">(能力越高，突破機率越低，凡人極限為 25)</p>
-      <p style="font-size:12px; color:#d4af37; margin-bottom: 20px;">(溫馨提示：閉關修練時，穿戴裝備會干擾靈氣運行，建議脫下裝備以獲得最佳突破機率。)</p>
-
-      <div style="display:flex; flex-direction:column; gap:15px;">
-        <button class="btn" style="border-color:#2e8b57; color:#2e8b57; padding: 15px; font-size: 16px; font-weight: bold; background: rgba(46,139,87,0.05);" onclick="lockBtn(event, executeCultivate)">🌌 運轉大周天 (全屬性提升)</button>
-
-        <div style="border-top: 1px dashed rgba(212,175,55,0.5); padding-top: 15px; margin-top: 5px;">
-          <label style="color:#d4af37; font-size:13px; font-weight:bold; display:block; margin-bottom:6px;">⚔️ 我的魔術／寶具（50字內，禁止數字）</label>
-          <textarea id="martial-input" class="std-in" maxlength="50" placeholder="描述你的魔術或寶具，如：以冰寒魔力凝成劍刃，無聲無息斬出..." style="width:100%; box-sizing:border-box; height:60px; resize:none; font-family:inherit;"></textarea>
-          <button class="btn" style="width:100%; margin-top:8px; border-color:#d4af37; color:#d4af37;" onclick="lockBtn(event, saveMartial)">儲存設定</button>
-        </div>
-        <div style="border-top: 1px dashed rgba(212,175,55,0.5); padding-top: 15px; margin-top: 5px;">
-          <button class="btn" style="width:100%; border-color:#d4af37; color:#d4af37; font-weight: bold;" onclick="lockBtn(event, attemptBreakthrough)">🚀 嘗試突破靈基位階</button>
-        </div>
-      </div>
-    </div>
-  </div>
   <div id="notice-overlay" class="modal-overlay" onclick="closeNoticePanel()">
     <div class="modal-scroll" onclick="event.stopPropagation()" style="max-width: 400px;">
       <span class="modal-close-btn" onclick="closeNoticePanel()">&times;</span>
@@ -810,91 +452,6 @@
         </div>
       </div>
 
-    </div>
-  </div>
-  <div id="jianghu-hub-overlay" class="modal-overlay" onclick="closeSystemModal('jianghu-hub-overlay')">
-    <div class="modal-scroll" onclick="event.stopPropagation()" style="max-width: 320px;">
-      <span class="modal-close-btn" onclick="closeSystemModal('jianghu-hub-overlay')">&times;</span>
-      <h2 style="text-align:center; color:#b8860b; border-bottom:2px solid #b8860b; padding-bottom:10px; margin-top:0;">
-        🍶 冬木夜話</h2>
-      <p style="text-align:center; color:#816e54; font-size:13px; margin-bottom: 20px;">情報、賭局、委託，冬木的暗面盡在此處。</p>
-      <div style="display: flex; flex-direction: column; gap: 12px;">
-        <button class="btn" style="border-color:#1e90ff; color:#1e90ff; font-size:16px; padding: 12px;"
-        onclick="closeSystemModal('jianghu-hub-overlay'); openPavilionMenu();">🏮 聽風閣 (情報委託)</button>
-        <button class="btn" style="border-color:#ffd700; color:#ffd700; font-size:16px; padding: 12px;"
-        onclick="closeSystemModal('jianghu-hub-overlay'); document.getElementById('casino-hub-overlay').style.display='flex'">🎲 長樂坊 (賭局)</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="faction-overlay" class="modal-overlay" onclick="closeSystemModal('faction-overlay')">
-    <div class="modal-scroll" onclick="event.stopPropagation()" style="max-width: 420px;">
-      <span class="modal-close-btn" onclick="closeSystemModal('faction-overlay')">&times;</span>
-
-      <div style="display:flex; border-bottom: 2px solid rgba(212,175,55,0.3); margin-bottom: 15px;">
-        <button id="tab-my-faction" onclick="switchFactionTab('mine')"
-  style="flex:1; padding:10px; background:none; border:none; border-bottom: 2px solid #d4af37; color:#d4af37; font-weight:bold; font-size:14px; cursor:pointer; margin-bottom:-2px;">
-  ⛩️ 我的陣營
-</button>
-        <button id="tab-all-faction" onclick="switchFactionTab('all')"
-  style="flex:1; padding:10px; background:none; border:none; border-bottom: 2px solid transparent; color:#816e54; font-size:14px; cursor:pointer; margin-bottom:-2px;">
-  🌍 天下格局
-</button>
-        <button id="tab-ranking" onclick="switchFactionTab('ranking')"
-  style="flex:1; padding:10px; background:none; border:none; border-bottom: 2px solid transparent; color:#816e54; font-size:14px; cursor:pointer; margin-bottom:-2px;">
-  🏆 天下英豪
-</button>
-      </div>
-
-      <div id="panel-my-faction">
-        <div id="my-faction-content">
-          <p style="text-align:center; color:#816e54;">確認陣營歸屬中...</p>
-        </div>
-      </div>
-
-      <div id="panel-all-faction" style="display:none;">
-        <div id="all-faction-content">
-          <p style="text-align:center; color:#816e54;">感應天下大勢中...</p>
-        </div>
-      </div>
-      <div id="panel-ranking" style="display:none;">
-        <div id="ranking-content">
-          <p style="text-align:center; color:#816e54;">感應天下英豪中...</p>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div id="create-faction-overlay" class="modal-overlay" onclick="closeSystemModal('create-faction-overlay')">
-    <div class="modal-scroll" onclick="event.stopPropagation()" style="max-width: 320px;">
-      <span class="modal-close-btn" onclick="closeSystemModal('create-faction-overlay')">&times;</span>
-      <h2 style="text-align:center; color:#d4af37; border-bottom:2px solid #d4af37; padding-bottom:10px; margin-top:0;">
-        🏰 開宗立派
-      </h2>
-      <p style="text-align:center; color:#816e54; font-size:12px; margin-bottom: 15px;">
-        建宗立派需具備通天修為(<b>通玄以上</b>)與 <b>50,000 兩白銀</b> 以開闢護山大陣。
-      </p>
-
-      <div style="margin-bottom: 10px;">
-        <label style="color:#d4af37; font-weight:bold; font-size:13px; display:block; margin-bottom:4px;">陣營名號 (5字內)：</label>
-        <input type="text" id="new-faction-name" class="std-in" maxlength="5" placeholder="例如：青雲宗、天魔教" style="width: 100%; box-sizing:border-box; padding:8px;">
-      </div>
-
-      <div style="margin-bottom: 10px;">
-        <label style="color:#d4af37; font-weight:bold; font-size:13px; display:block; margin-bottom:4px;">行事陣營：</label>
-        <select id="new-faction-align" class="std-select" style="width: 100%; box-sizing:border-box; padding:8px;">
-          <option value="名門正派">🛡️ 名門正派</option>
-          <option value="邪魔外道">🩸 邪魔外道</option>
-          <option value="絕對中立" selected>⚖️ 絕對中立</option>
-          <option value="隱世宗門">🌫️ 隱秘陣營</option>
-        </select>
-      </div>
-
-      <div style="margin-bottom: 15px;">
-        <label style="color:#8b5a2b; font-weight:bold; font-size:13px; display:block; margin-bottom:4px;">立宗宗旨 (15字內)：</label>
-        <input type="text" id="new-faction-motto" class="std-in" maxlength="15" placeholder="例如：除魔衛道，守護蒼生" style="width: 100%; box-sizing:border-box; padding:8px;">
-      </div>
-
-      <button class="btn" style="width:100%; background:linear-gradient(135deg, #d4af37 0%, #8b6508 100%); color:#fff; font-size:16px; border:none; padding:12px; border-radius:4px; font-weight:bold; text-shadow: 0 1px 2px rgba(0,0,0,0.5);" onclick="lockBtn(event, submitCreateFaction)">昭告天下，立派！</button>
     </div>
   </div>
   <div id="epic-overlay" class="modal-overlay" onclick="closeSystemModal('epic-overlay')">

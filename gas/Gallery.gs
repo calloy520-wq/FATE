@@ -151,6 +151,44 @@ function actionClaimGrail(userData, pcId, sheets) {
   return JSON.stringify({ success: true, servantName: realName, cls: cls, memoir: memoir });
 }
 
+// 🧪【DEV·測試用·待移除】一鍵替目前登入帳號塞 2 名測試從者進鑑賞，方便還沒奪杯時測慾海。
+//   已有任何鑑賞資料(含真實奪杯)就不重塞。確認慾海正常後，連同 ActionRouter "dev_seed_gallery" 與前端按鈕一起刪掉。
+function actionDevSeedGallery(userData, pcId, sheets) {
+  var acctName = String(userData.acctName || "").trim();
+  if (!acctName) return JSON.stringify({ success: false, message: "未登入帳號。" });
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var gal = ss.getSheetByName("鑑賞"), hero = ss.getSheetByName("英靈殿");
+  if (!gal || !hero) return JSON.stringify({ success: false, message: "缺鑑賞/英靈殿表。" });
+  var gd = gal.getDataRange().getValues();
+  for (var i = 1; i < gd.length; i++) {
+    if (String(gd[i][COL.GAL.ACC]).trim() === acctName) return JSON.stringify({ success: false, message: "此帳號已有鑑賞資料，毋需測試塞入。" });
+  }
+  var heroes = hero.getDataRange().getValues();
+  var samples = [];
+  for (var h = 1; h < heroes.length && samples.length < 2; h++) {
+    if (String(heroes[h][COL.HERO.NAME] || "").trim()) samples.push(heroes[h]);
+  }
+  if (!samples.length) return JSON.stringify({ success: false, message: "英靈殿無種子資料。" });
+  var added = 0;
+  samples.forEach(function (hr) {
+    var cls = String(hr[COL.HERO.CLS] || "從者"), nm = String(hr[COL.HERO.NAME] || "從者");
+    var persona = {}; try { persona = JSON.parse(hr[COL.HERO.PERSONA] || "{}"); } catch (e) { }
+    var tags = JSON.stringify({ skills: safeJson_(hr[COL.HERO.CLASS_SKILLS], []).concat(safeJson_(hr[COL.HERO.SKILLS], [])), traits: safeJson_(hr[COL.HERO.TRAITS], []) });
+    var pref = String(persona.words || "沉著表象、堅定內裡、溫柔、孤高").replace(/・/g, "、");
+    gal.appendRow([
+      acctName, nm, cls, String(hr[COL.HERO.SEX] || "女"),
+      String(hr[COL.HERO.SIX] || "{}"), tags,
+      String(hr[COL.HERO.NP] || "寶具"), cls + " 職階英靈",
+      pref, "（測試·萌點留白）",
+      "【測試資料】冬木的夜終於安靜下來。你與「" + nm + "」並肩走過那幾日的腥風血雨，這段並肩的記憶被封存於此，供你回味。",
+      "（測試·願望深藏於心）", new Date(),
+      "測試御主", "男"
+    ]);
+    added++;
+  });
+  return JSON.stringify({ success: true, added: added, message: "已塞入 " + added + " 名測試從者，進入鑑賞即可測試。" });
+}
+
 // 鑑賞模式：列出帳號已封存的從者
 function actionListGallery(userData, pcId, sheets) {
   var acctName = String(userData.acctName || "").trim();
@@ -180,61 +218,32 @@ function actionListGallery(userData, pcId, sheets) {
   return JSON.stringify({ success: true, servants: list });
 }
 
-// 🏆 進入鑑賞（後日談·約會）：在 k_ 世界重建御主＋從者，無敵人、無戰鬥，可自由移動閒聊
-function actionEnterGallery(userData, pcId, sheets) {
-  var acctName = String(userData.acctName || "").trim();
-  var name = String(userData.servantName || "").trim();
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var gal = ss.getSheetByName("鑑賞");
-  if (!gal) return JSON.stringify({ success: false, message: "鑑賞表不存在。" });
-  var gd = gal.getDataRange().getValues();
-  var rec = null;
-  for (var i = 1; i < gd.length; i++) {
-    if (String(gd[i][COL.GAL.ACC]).trim() === acctName && String(gd[i][COL.GAL.NAME]).trim() === name) { rec = gd[i]; break; }
-  }
-  if (!rec) return JSON.stringify({ success: false, message: "鑑賞名冊查無此從者。" });
-
-  // 清掉此帳號殘留的舊鑑賞世界（k_ 開頭且關聯本帳號御主）
-  //   ⚠ 兩段式：先掃出所有要清的 k_ game_id，再一次刪除——避免「邊讀邊刪縮短陣列」造成 pcData[r] undefined 崩潰。
-  var pcData = sheets.pc.getDataRange().getValues();
-  var masterName = String(rec[COL.GAL.MASTER] || "御主") || "御主";
-  var killGids = {};
-  for (var r = 1; r < pcData.length; r++) {
-    var gidOld = String(pcData[r][COL.PC.GAME_ID] || "");
-    if (gidOld.indexOf("k_") === 0 && String(pcData[r][COL.PC.NAME]) === masterName) killGids[gidOld] = true;
-  }
-  if (Object.keys(killGids).length) {
-    for (var d = pcData.length - 1; d >= 1; d--) {
-      if (killGids[String(pcData[d][COL.PC.GAME_ID] || "")]) sheets.pc.deleteRow(d + 1);
+// 🌹 鑑賞專屬眾生分頁：慾海角色(御主 avatar＋同伴從者)全部住這、與主「眾生」隔離，
+//   後日談頻繁新增/移除角色不污染戰爭主表。schema 與「眾生」同(COL.PC 位置索引一致)。
+//   ⚠ dispatcher 會在 pcId 以 "KPC_" 開頭時自動把 sheets.pc 指到這張表。
+function getKanshouPcSheet_(ss) {
+  ss = ss || SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName("鑑賞眾生");
+  if (!sh) {
+    sh = ss.insertSheet("鑑賞眾生");
+    var main = ss.getSheetByName("眾生");
+    if (main && main.getLastColumn() > 0) {
+      sh.getRange(1, 1, 1, main.getLastColumn()).setValues(main.getRange(1, 1, 1, main.getLastColumn()).getValues());
+    } else {
+      var hdr = Array(Object.keys(COL.PC).length).fill(""); hdr[0] = "ID";
+      sh.appendRow(hdr);
     }
   }
+  return sh;
+}
 
-  var gameId = "k_" + Date.now();
-  var loc = "冬木·深山町";
+// 由鑑賞紀錄組一筆後日談從者列(enter / 邀請同伴 共用)
+function kanshouServantRow_(rec, gameId, loc) {
   var pcColCount = Object.keys(COL.PC).length;
-
-  // 御主 avatar（凡人，僅供視角／移動，無戰鬥意義）
-  var mId = "KPC_" + Date.now();
-  var mRow = Array(pcColCount).fill("");
-  mRow[COL.PC.ID] = mId;
-  mRow[COL.PC.NAME] = masterName;
-  mRow[COL.PC.SEX] = String(rec[COL.GAL.MSEX] || "異") || "異";
-  mRow[COL.PC.REALM] = "凡人";
-  mRow[COL.PC.HP] = 100; mRow[COL.PC.MAX_HP] = 100; mRow[COL.PC.MP] = 100; mRow[COL.PC.MAX_MP] = 100;
-  mRow[COL.PC.STR] = 10; mRow[COL.PC.CON] = 10; mRow[COL.PC.AGI] = 10; mRow[COL.PC.INT] = 10; mRow[COL.PC.LUK] = 10;
-  mRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情輕鬆" });
-  mRow[COL.PC.LOC] = loc;
-  mRow[COL.PC.MONEY] = 5000;
-  mRow[COL.PC.FACTION] = "御主";
-  mRow[COL.PC.MEMORY] = "【鑑賞後日談】聖杯戰爭已結束，與從者的和平約會時光。";
-  mRow[COL.PC.GAME_ID] = gameId;
-  sheets.pc.appendRow(mRow);
-
-  // 從者／盟友御主：由鑑賞紀錄還原（CLS="御主" ＝ 戰時結下深羈絆的盟友御主搭檔，凡人之軀）
+  var name = String(rec[COL.GAL.NAME] || "從者");
   var partnerIsMaster = (String(rec[COL.GAL.CLS] || "") === "御主");
-  var sId = "KSV_" + Date.now();
   var sRow = Array(pcColCount).fill("");
-  sRow[COL.PC.ID] = sId;
+  sRow[COL.PC.ID] = "KSV_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
   sRow[COL.PC.NAME] = name;
   sRow[COL.PC.SEX] = String(rec[COL.GAL.SEX] || "異") || "異";
   sRow[COL.PC.REALM] = "凡人";
@@ -258,7 +267,76 @@ function actionEnterGallery(userData, pcId, sheets) {
   sRow[COL.PC.TAGS] = String(rec[COL.GAL.TAGS] || "{}");
   sRow[COL.PC.MEMORY] = "【鑑賞後日談】聖杯戰爭已結束，安然陪伴在御主身邊。";
   sRow[COL.PC.GAME_ID] = gameId;
-  sheets.pc.appendRow(sRow);
+  return sRow;
+}
+
+// 鑑賞名冊查某帳號某真名的紀錄列
+function galleryRec_(ss, acctName, name) {
+  var gal = ss.getSheetByName("鑑賞"); if (!gal) return null;
+  var gd = gal.getDataRange().getValues();
+  for (var i = 1; i < gd.length; i++) {
+    if (String(gd[i][COL.GAL.ACC]).trim() === acctName && String(gd[i][COL.GAL.NAME]).trim() === name) return gd[i];
+  }
+  return null;
+}
+
+// 🏆 進入鑑賞（後日談·約會）：在「鑑賞眾生」分頁重建御主＋從者，無敵人、無戰鬥，可自由移動閒聊
+function actionEnterGallery(userData, pcId, sheets) {
+  var acctName = String(userData.acctName || "").trim();
+  var name = String(userData.servantName || "").trim();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var rec = galleryRec_(ss, acctName, name);
+  if (!rec) return JSON.stringify({ success: false, message: "鑑賞名冊查無此從者。" });
+
+  var kpc = getKanshouPcSheet_(ss);           // 🌹 慾海專屬分頁
+  var pcData = kpc.getDataRange().getValues();
+  var masterName = String(rec[COL.GAL.MASTER] || "御主") || "御主";
+
+  // 🔁 持久化·不重製：若「本帳號御主 × 這名從者」已有 k_ 後日談世界 → 直接接續(不刪、不重建)，
+  //   讓肉體/親密/羈絆狀態延續累積，不再每次歸零。第一次與此從者後日談時才往下新建。
+  var hasM = {}, hasS = {}, mIdOf = {}, mLocOf = {}, mSexOf = {};
+  for (var r = 1; r < pcData.length; r++) {
+    var g = String(pcData[r][COL.PC.GAME_ID] || "");
+    if (g.indexOf("k_") !== 0) continue;
+    if (String(pcData[r][COL.PC.ID]).startsWith("DEAD_")) continue;
+    var nm = String(pcData[r][COL.PC.NAME]); var fac = String(pcData[r][COL.PC.FACTION]);
+    if (nm === masterName && fac === "御主") { hasM[g] = true; mIdOf[g] = String(pcData[r][COL.PC.ID]); mLocOf[g] = String(pcData[r][COL.PC.LOC] || "冬木·深山町"); mSexOf[g] = String(pcData[r][COL.PC.SEX] || "異"); }
+    if (nm === name && fac === "從者") hasS[g] = true;
+  }
+  for (var gg in hasM) {
+    if (hasS[gg]) {
+      var rloc = mLocOf[gg] || "冬木·深山町";
+      return JSON.stringify({
+        success: true, pcId: mIdOf[gg], pcName: masterName, pcSex: mSexOf[gg],
+        servantName: name, loc: rloc, resumed: true,
+        message: `又回到「${name}」身邊了——${String(rloc).replace(/^冬木[·・]?/, "")}的空氣一如既往。你們之間的時光，在上次的餘溫裡靜靜延續。`
+      });
+    }
+  }
+
+  var gameId = "k_" + Date.now();
+  var loc = "冬木·深山町";
+  var pcColCount = Object.keys(COL.PC).length;
+
+  // 御主 avatar（凡人，僅供視角／移動，無戰鬥意義）
+  var mId = "KPC_" + Date.now();
+  var mRow = Array(pcColCount).fill("");
+  mRow[COL.PC.ID] = mId;
+  mRow[COL.PC.NAME] = masterName;
+  mRow[COL.PC.SEX] = String(rec[COL.GAL.MSEX] || "異") || "異";
+  mRow[COL.PC.REALM] = "凡人";
+  mRow[COL.PC.HP] = 100; mRow[COL.PC.MAX_HP] = 100; mRow[COL.PC.MP] = 100; mRow[COL.PC.MAX_MP] = 100;
+  mRow[COL.PC.STR] = 10; mRow[COL.PC.CON] = 10; mRow[COL.PC.AGI] = 10; mRow[COL.PC.INT] = 10; mRow[COL.PC.LUK] = 10;
+  mRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情輕鬆" });
+  mRow[COL.PC.LOC] = loc;
+  mRow[COL.PC.MONEY] = 5000;
+  mRow[COL.PC.FACTION] = "御主";
+  mRow[COL.PC.MEMORY] = "【鑑賞後日談】聖杯戰爭已結束，與從者的和平約會時光。";
+  mRow[COL.PC.GAME_ID] = gameId;
+  kpc.appendRow(mRow);
+
+  // 首位同伴從者
+  kpc.appendRow(kanshouServantRow_(rec, gameId, loc));
 
   // 羈絆（高好感起步，畢竟是並肩奪杯的搭檔）
   if (sheets.rel) {
@@ -270,6 +348,79 @@ function actionEnterGallery(userData, pcId, sheets) {
     servantName: name, loc: loc,
     message: `聖杯戰爭的硝煙早已散去。冬木的午後，你與「${name}」並肩站在深山町的坡道上——這一次，沒有敵人，只有兩個人的時光。`
   });
+}
+
+// 👥 列出後日談現有同伴 ＋ 可邀請名單（上限 3 人）。pcId＝慾海御主 avatar(KPC_)。
+function actionKanshouCompanions(userData, pcId, sheets) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var kpc = getKanshouPcSheet_(ss);
+  var acctName = String(userData.acctName || "").trim();
+  var data = kpc.getDataRange().getValues();
+  var me = null;
+  for (var m = 1; m < data.length; m++) { if (String(data[m][COL.PC.ID]) === String(pcId)) { me = data[m]; break; } }
+  if (!me) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  var gid = String(me[COL.PC.GAME_ID] || "");
+  var current = [];
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) current.push(String(data[i][COL.PC.NAME]));
+  }
+  var gal = ss.getSheetByName("鑑賞"); var gd = gal ? gal.getDataRange().getValues() : [];
+  var avail = [];
+  for (var j = 1; j < gd.length; j++) {
+    if (String(gd[j][COL.GAL.ACC]).trim() !== acctName) continue;
+    var n = String(gd[j][COL.GAL.NAME]).trim();
+    if (current.indexOf(n) === -1 && avail.indexOf(n) === -1) avail.push(n);
+  }
+  return JSON.stringify({ success: true, current: current, available: avail, max: 3 });
+}
+
+// 👥➕ 邀請一名封存從者進入當前後日談（上限 3）
+function actionKanshouAdd(userData, pcId, sheets) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var kpc = getKanshouPcSheet_(ss);
+  var acctName = String(userData.acctName || "").trim();
+  var addName = String(userData.servantName || "").trim();
+  var data = kpc.getDataRange().getValues();
+  var me = null;
+  for (var m = 1; m < data.length; m++) { if (String(data[m][COL.PC.ID]) === String(pcId)) { me = data[m]; break; } }
+  if (!me) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  var gid = String(me[COL.PC.GAME_ID] || ""); var loc = String(me[COL.PC.LOC] || "冬木·深山町"); var masterName = String(me[COL.PC.NAME] || "御主");
+  var cnt = 0;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) {
+      cnt++;
+      if (String(data[i][COL.PC.NAME]) === addName) return JSON.stringify({ success: false, message: "「" + addName + "」已在場。" });
+    }
+  }
+  if (cnt >= 3) return JSON.stringify({ success: false, message: "後日談最多 3 名同伴，請先請走一位再邀。" });
+  var rec = galleryRec_(ss, acctName, addName);
+  if (!rec) return JSON.stringify({ success: false, message: "鑑賞名冊查無「" + addName + "」。" });
+  kpc.appendRow(kanshouServantRow_(rec, gid, loc));
+  if (sheets.rel) {
+    try {
+      var rd = sheets.rel.getDataRange().getValues();
+      var ex = false;
+      for (var k = 1; k < rd.length; k++) { if (String(rd[k][COL.REL.PC]) === masterName && String(rd[k][COL.REL.NPC]) === addName) { ex = true; break; } }
+      if (!ex) sheets.rel.appendRow([masterName, addName, 90, "從者", "同行", "聖杯戰爭並肩奪杯的羈絆", ""]);
+    } catch (e) { }
+  }
+  return JSON.stringify({ success: true, added: addName, message: "「" + addName + "」來到了你們身邊。" });
+}
+
+// 👥➖ 請走一名同伴（從當前後日談移除；資料仍封存在鑑賞名冊，隨時可再邀）
+function actionKanshouRemove(userData, pcId, sheets) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var kpc = getKanshouPcSheet_(ss);
+  var rmName = String(userData.servantName || "").trim();
+  var data = kpc.getDataRange().getValues();
+  var me = null;
+  for (var m = 1; m < data.length; m++) { if (String(data[m][COL.PC.ID]) === String(pcId)) { me = data[m]; break; } }
+  if (!me) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  var gid = String(me[COL.PC.GAME_ID] || "");
+  for (var d = data.length - 1; d >= 1; d--) {
+    if (String(data[d][COL.PC.GAME_ID] || "") === gid && String(data[d][COL.PC.FACTION]) === "從者" && String(data[d][COL.PC.NAME]) === rmName) kpc.deleteRow(d + 1);
+  }
+  return JSON.stringify({ success: true, removed: rmName, message: "「" + rmName + "」暫別了，隨時可再邀回。" });
 }
 
 // 鑑賞模式：呼出某從者「閒話後日談」（純對話，無戰鬥/血量），回傳 AI 旁白

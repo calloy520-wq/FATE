@@ -14,29 +14,11 @@ const ActionRouter = {
   "list_gallery": actionListGallery,
   "enter_gallery": actionEnterGallery,
   "gallery_talk": actionGalleryTalk,
-  "cultivate": actionCultivate,
-  "consume_item": actionConsumeItem,
-  "use_item_on_npc": actionUseItemOnNpc,
-  "breakthrough": actionBreakthrough,
-  "empower_npc": actionEmpowerNpc,
-  "claim_quest_reward": actionClaimQuestReward,
-  "quests": actionQuests,
-  "abandon_quest": actionAbandonQuest,
-  "inventory": actionInventory,
-  "discard_item": actionDiscardItem,
-  "sell_item": actionSellItem,
-  "warehouse_get": actionWarehouseGet,
-  "warehouse_store": actionWarehouseStore,
-  "warehouse_retrieve": actionWarehouseRetrieve,
-  "estate_get": actionEstateGet,
-  "estate_harvest_all": actionEstateHarvestAll,
-  "dismiss_party": actionDismissParty,
-  "join_party": actionJoinParty,
+  "dev_seed_gallery": actionDevSeedGallery,
+  "kanshou_companions": actionKanshouCompanions,
+  "kanshou_add": actionKanshouAdd,
+  "kanshou_remove": actionKanshouRemove,
   "inspect_npc": actionInspectNpc,
-  "request_item_from_npc": actionRequestItemFromNpc,
-  "request_discard_npc_item": actionRequestDiscardNpcItem,
-  "get_available_gear": actionGetAvailableGear,
-  "equip_gear": actionEquipGear,
   "get_full_status": actionGetFullStatus,
   "update_fate": actionUpdateFate,
   "update_rel_tag": actionUpdateRelTag,
@@ -49,6 +31,7 @@ const ActionRouter = {
   "fate_battle": actionFateBattle,
   "use_seal": actionUseSeal,
   "mana_supply": actionManaSupply,
+  "blood_supply": actionBloodSupply,
   "bond": actionBond,
   "use_mystic": actionUseMystic,
   "rule_break_steal": actionRuleBreakSteal,
@@ -67,28 +50,13 @@ const ActionRouter = {
   "rest": actionRest,
   "get_rumors": actionGetRumors,
   "play": actionPlay,
-  "get_faction_info": actionGetFactionInfo,
   "get_epic_history": actionGetEpicHistory,
-  "get_ranking": actionGetRanking,
-  "promote_rank": actionPromoteRank,
-  "create_faction": actionCreateFaction,
-  "home_get": actionHomeGet,
-  "home_create": actionHomeCreate,
-  "home_move": actionHomeMove,
-  "home_decorate": actionHomeDecorate,
+  "leaderboard": actionLeaderboard,
+  "war_chronicle": actionWarChronicle,
+  "war_history_list": actionWarHistoryList,
   "spare_npc": actionSpareNpc,
-  "give_money": actionGiveMoney,
-  "attack_npc": actionAttackNpc,
-  "multi_attack": actionMultiAttack,
   "narrate_only": actionNarrateOnly,
-  "multi_attack_narrate": actionMultiAttackNarrate,
-  "gift_item": actionGiftItem,
-  "execute_npc": actionExecuteNpc,
-  "use_item_self": actionUseItemSelf,
-  "craft_item": actionCraftItem,
-  "steal_npc_item": actionStealNpcItem,
-  "buy_intel": actionBuyIntel,
-  "home_invite_guest": actionHomeInviteGuest
+  "multi_attack_narrate": actionMultiAttackNarrate
 
 };
 
@@ -175,9 +143,12 @@ function handleGameAction(userData) {
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   try { ensureFateSheets_(ss); } catch (e) { Logger.log("ensureFateSheets_ 於 handleGameAction 失敗(略過): " + e.message); }
+  // 🌹 慾海路由：御主 avatar 以 "KPC_" 開頭 → 整條後日談路徑(actionPlay/sync/move…)改讀「鑑賞眾生」分頁，
+  //   與戰爭主表「眾生」完全隔離。solo 御主是 "PC_" 不受影響。
+  const isKanshouCtx = String(pcId || "").indexOf("KPC_") === 0;
   const sheets = {
     law: ss.getSheetByName("規矩"), map: ss.getSheetByName("坤圖"),
-    pc: ss.getSheetByName("眾生"), log: ss.getSheetByName("因果"),
+    pc: (isKanshouCtx ? getKanshouPcSheet_(ss) : ss.getSheetByName("眾生")), log: ss.getSheetByName("因果"),
     item: ss.getSheetByName("琳琅"), auth: ss.getSheetByName("權柄"),
     rel: ss.getSheetByName("關係"), epic: ss.getSheetByName("史紀"),
     quest: ss.getSheetByName("天命"), task: ss.getSheetByName("TASK"),
@@ -205,314 +176,20 @@ function actionCheckName(userData, pcId, sheets) {
     return JSON.stringify({ invalidName: true, message: "名號僅限中文字，不可使用英文、數字或符號。" });
   }
   const pcRows = sheets.pc.getDataRange().getValues();
-  const found = pcRows.find(r => r[COL.PC.NAME] === userData.name && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  // 🔵 只有「進行中世界(game_id 非空)」的角色才保留名字；DEAD_ 與 game_id 空的孤兒(舊資料/已清局殘留)不佔名。
+  //   這同時維持多帳號間「同名活躍御主」的隔離，又讓重開遊戲後自己的舊名可重用。
+  const found = pcRows.find(r => r[COL.PC.NAME] === userData.name
+    && !String(r[COL.PC.ID]).startsWith("DEAD_")
+    && String(r[COL.PC.GAME_ID] || "") !== "");
   return JSON.stringify({ exists: !!found, pcId: found ? found[COL.PC.ID] : null, sex: found ? found[COL.PC.SEX] : "未知" });
 }
 
 
-function actionCultivate(userData, pcId, sheets) {
-  let pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
 
-  const currentRealm = pcData[pIdx][COL.PC.REALM] || "凡人";
-  const rMod = REALM_MODIFIERS[currentRealm] || 1.0;
-  const trueLimit = REALM_LIMITS[currentRealm] || 25;
-
-  const statsToUpgrade = [COL.PC.STR, COL.PC.CON, COL.PC.AGI, COL.PC.INT, COL.PC.LUK];
-  let isAnyUpgraded = false;
-
-  statsToUpgrade.forEach(col => {
-    let currentStat = parseInt(pcData[pIdx][col]) || 10;
-    if (currentStat < trueLimit) {
-      pcData[pIdx][col] = Math.min(trueLimit, currentStat + 1);
-      isAnyUpgraded = true;
-    }
-  });
-
-  if (!isAnyUpgraded) return JSON.stringify({ success: false, message: `你的所有屬性皆已達「${currentRealm}」面板極限 (${trueLimit})，需先突破境界才能繼續修練！` });
-
-  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-  const statusString = getFreshStatusString(pcId, pIdx, sheets);
-  return JSON.stringify({ success: true, isSuccess: true, message: `你就地盤膝而坐，引導天地靈氣貫通四肢百骸。【全屬性】皆大幅提升了 1 點！`, statusString: statusString });
-}
-
-function actionConsumeItem(userData, pcId, sheets) {
-  const { itemId } = userData;
-  let pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人命格。" });
-
-  let itemData = sheets.item.getDataRange().getValues();
-  const iIdx = itemData.findIndex(r => r[COL.ITEM.OWNER] == pcId && r[COL.ITEM.ID] === itemId);
-  if (iIdx === -1) return JSON.stringify({ success: false, message: "行囊中找不到此丹藥的氣息！" });
-
-  const itemRow = itemData[iIdx];
-  const consumableTypes = ["丹藥", "恢復道具"];
-  if (!consumableTypes.includes(String(itemRow[COL.ITEM.TYPE]))) {
-    return JSON.stringify({ success: false, message: `天道阻擋：「${itemRow[COL.ITEM.NAME]}」並非可服用的丹藥或恢復道具！` });
-  }
-
-  // 🔴 獲取當前境界的肉體極限
-  const currentRealm = pcData[pIdx][COL.PC.REALM] || "凡人";
-  const trueLimit = REALM_LIMITS[currentRealm] || 25;
-
-  let addStr = parseInt(itemRow[COL.ITEM.STR]) || 0; let addCon = parseInt(itemRow[COL.ITEM.CON]) || 0;
-  let addAgi = parseInt(itemRow[COL.ITEM.AGI]) || 0; let addInt = parseInt(itemRow[COL.ITEM.INT]) || 0; let addLuk = parseInt(itemRow[COL.ITEM.LUK]) || 0;
-  let effectStr = "";
-
-  // 🔴 帶入境界上限檢查，並計算實際增加的數值
-  if (addStr > 0) {
-    let cur = parseInt(pcData[pIdx][COL.PC.STR]) || 10;
-    if (cur < trueLimit) { let actualAdd = Math.min(trueLimit, cur + addStr) - cur; pcData[pIdx][COL.PC.STR] = cur + actualAdd; effectStr += `臂力 +${actualAdd} `; }
-  }
-  if (addCon > 0) {
-    let cur = parseInt(pcData[pIdx][COL.PC.CON]) || 10;
-    if (cur < trueLimit) { let actualAdd = Math.min(trueLimit, cur + addCon) - cur; pcData[pIdx][COL.PC.CON] = cur + actualAdd; effectStr += `根骨 +${actualAdd} `; }
-  }
-  if (addAgi > 0) {
-    let cur = parseInt(pcData[pIdx][COL.PC.AGI]) || 10;
-    if (cur < trueLimit) { let actualAdd = Math.min(trueLimit, cur + addAgi) - cur; pcData[pIdx][COL.PC.AGI] = cur + actualAdd; effectStr += `身法 +${actualAdd} `; }
-  }
-  if (addInt > 0) {
-    let cur = parseInt(pcData[pIdx][COL.PC.INT]) || 10;
-    if (cur < trueLimit) { let actualAdd = Math.min(trueLimit, cur + addInt) - cur; pcData[pIdx][COL.PC.INT] = cur + actualAdd; effectStr += `神識 +${actualAdd} `; }
-  }
-  if (addLuk > 0) {
-    let cur = parseInt(pcData[pIdx][COL.PC.LUK]) || 10;
-    if (cur < trueLimit) { let actualAdd = Math.min(trueLimit, cur + addLuk) - cur; pcData[pIdx][COL.PC.LUK] = cur + actualAdd; effectStr += `福緣 +${actualAdd} `; }
-  }
-
-  // 🔴 防呆機制：如果是加屬性的丹藥，但所有屬性都沒增加（代表已達極限），拒絕吞服！
-  const hasStatBonus = addStr > 0 || addCon > 0 || addAgi > 0 || addInt > 0 || addLuk > 0;
-  if (hasStatBonus && effectStr === "") {
-    return JSON.stringify({ success: false, message: `你的肉體已達「${currentRealm}」的極限，無法再吸收「${itemRow[COL.ITEM.NAME]}」的藥力，需先突破境界！` });
-  }
-  const newMaxStats = calculateMaxStats(pcData[pIdx][COL.PC.REALM], pcData[pIdx][COL.PC.CON], pcData[pIdx][COL.PC.INT]);
-  pcData[pIdx][COL.PC.MAX_HP] = newMaxStats.hp;
-  pcData[pIdx][COL.PC.MAX_MP] = newMaxStats.mp;
-
-
-  // 🔴 判斷丹藥子類型
-  const itemName = itemRow[COL.ITEM.NAME];
-  const isHealItem =
-    itemRow[COL.ITEM.TYPE] === "恢復道具" ||
-    itemName.includes("回血") || itemName.includes("補血") ||
-    itemName.includes("回氣") || itemName.includes("補氣") ||
-    itemName.includes("回復") || itemName.includes("恢復") ||
-    itemName.includes("靈泉") || itemName.includes("傷藥") ||
-    itemName.includes("療傷") || (
-      // 所有屬性加成都是 0，判定為純回血回氣型
-      addStr === 0 && addCon === 0 && addAgi === 0 &&
-      addInt === 0 && addLuk === 0
-    );
-
-  if (isHealItem) {
-    // 恢復型：補血補氣回滿，同時清除負面狀態
-    const maxStats = calculateMaxStats(
-      pcData[pIdx][COL.PC.REALM],
-      pcData[pIdx][COL.PC.CON],
-      pcData[pIdx][COL.PC.INT]
-    );
-    pcData[pIdx][COL.PC.HP] = maxStats.hp;
-    pcData[pIdx][COL.PC.MP] = maxStats.mp;
-    pcData[pIdx][COL.PC.STATUS] = JSON.stringify({
-      "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩"
-    });
-    effectStr = "氣血與真氣全面回滿，負面狀態一掃而空！";
-  } else if (effectStr === "") {
-    // 屬性全為 0 但也不是恢復型（保底：回滿）
-    const maxStats = calculateMaxStats(
-      pcData[pIdx][COL.PC.REALM],
-      pcData[pIdx][COL.PC.CON],
-      pcData[pIdx][COL.PC.INT]
-    );
-    pcData[pIdx][COL.PC.HP] = maxStats.hp;
-    pcData[pIdx][COL.PC.MP] = maxStats.mp;
-    effectStr = "狀態回歸巔峰！";
-  }
-
-  sheets.item.deleteRow(iIdx + 1);
-  const pcColCount = Object.keys(COL.PC).length;
-  while (pcData[pIdx].length < pcColCount) { pcData[pIdx].push(""); }
-  sheets.pc.getRange(pIdx + 1, 1, 1, pcColCount).setValues([pcData[pIdx]]);
-
-  // 🔴 補上場景意識：服藥不再是固定罐頭文字，改與 use_item_self 同套手法，
-  // 帶入地點、同行夥伴、在場路人與玩家性格卡，交由 AI 寫出貼合當下情境的敘事，效果已鎖死禁止更改。
-  const pName = pcData[pIdx][COL.PC.NAME];
-  const pLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
-  const pPrefArr = String(pcData[pIdx][COL.PC.PREF] || "").split('、');
-  const pTraitArr = String(pcData[pIdx][COL.PC.TRAIT] || "").split('、');
-  const playerCardStr = `【玩家『${pName}』】性格:[表象]${pPrefArr[0] || "無"} [內裡]${pPrefArr[1] || "無"} | 特徵:${pTraitArr[1] || "無"}\n`;
-
-  const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
-  const partyNames = relData.filter(r => r[COL.REL.PC] === pName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]);
-  const bystanderNames = pcData
-    .filter(r => r[COL.PC.ID] != pcId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === pLoc)
-    .map(r => r[COL.PC.NAME]);
-  const partyHere = bystanderNames.filter(n => partyNames.includes(n));
-  const othersHere = bystanderNames.filter(n => !partyNames.includes(n));
-  let placeStr = "";
-  if (partyHere.length > 0) placeStr += `同行夥伴${partyHere.join("、")}也在場，請合理帶到其反應。`;
-  if (othersHere.length > 0) placeStr += `在場還有：${othersHere.join("、")}，請合理帶到他們的存在或反應，不要視而不見。`;
-  if (!placeStr) placeStr = "現場再無旁人，請勿憑空捏造路人或對話對象。";
-  const sceneStr = pLoc ? `${playerCardStr}【場景】玩家目前位於『${pLoc}』。${placeStr}\n` : playerCardStr;
-
-  const recentLogStr = getRecentCausalityStr(sheets, pName, null, 5);
-
-  const aiPrompt = `${sceneStr}【近期因果】(僅供背景參考，純屬回憶，並非當下在場！)\n${recentLogStr}\n【系統事件·已裁定，嚴禁更改任何結果】玩家服下了「${itemRow[COL.ITEM.NAME]}」，藥效已底層結算完畢：${effectStr}。請生動描寫藥力於經脈間化開的過程、玩家當下的生理反應，以及周圍人物見狀的態度。\n★【鐵律】嚴禁輸出任何 items_used、items_lost、items_gained 或 stat_changes，已結算完畢，重複輸出會導致天道崩塌！`;
-
-  return JSON.stringify({ success: true, itemName: itemRow[COL.ITEM.NAME], effectStr: effectStr, aiPrompt: aiPrompt, statusString: getFreshStatusString(pcId, pIdx, sheets) });
-}
 
 // 🟢 對同地 NPC 使用丹藥/恢復道具：補血回滿、或單純解去中毒/媚惑等負面狀態
-function actionUseItemOnNpc(userData, pcId, sheets) {
-  const { itemId, targetName } = userData;
-  let pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人命格。" });
-  const pName = pcData[pIdx][COL.PC.NAME];
-  const pLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
 
-  const nIdx = pcData.findIndex(r => r[COL.PC.ID] != pcId && !String(r[COL.PC.ID]).startsWith("DEAD_") &&
-    String(r[COL.PC.LOC]).trim() === pLoc && String(r[COL.PC.NAME]).includes(targetName));
-  if (nIdx === -1) return JSON.stringify({ success: false, message: "對方已不在場，無法施藥。" });
-  const npcRow = pcData[nIdx];
-  const npcName = npcRow[COL.PC.NAME];
 
-  let itemData = sheets.item.getDataRange().getValues();
-  const iIdx = itemData.findIndex(r => r[COL.ITEM.OWNER] == pcId && r[COL.ITEM.ID] === itemId);
-  if (iIdx === -1) return JSON.stringify({ success: false, message: "行囊中找不到此丹藥的氣息！" });
-
-  const itemRow = itemData[iIdx];
-  const consumableTypes = ["丹藥", "恢復道具"];
-  if (!consumableTypes.includes(String(itemRow[COL.ITEM.TYPE]))) {
-    return JSON.stringify({ success: false, message: `天道阻擋：「${itemRow[COL.ITEM.NAME]}」並非可施用於他人的丹藥或恢復道具！` });
-  }
-
-  const itemName = itemRow[COL.ITEM.NAME];
-  const isHealItem =
-    itemRow[COL.ITEM.TYPE] === "恢復道具" ||
-    itemName.includes("回血") || itemName.includes("補血") ||
-    itemName.includes("回氣") || itemName.includes("補氣") ||
-    itemName.includes("回復") || itemName.includes("恢復") ||
-    itemName.includes("靈泉") || itemName.includes("傷藥") ||
-    itemName.includes("療傷");
-  const isCureItem = itemName.includes("解");
-
-  let effectStr = "";
-  let instructionStr = "";
-  if (isHealItem) {
-    const maxStats = calculateMaxStats(pcData[nIdx][COL.PC.REALM], pcData[nIdx][COL.PC.CON], pcData[nIdx][COL.PC.INT]);
-    pcData[nIdx][COL.PC.HP] = maxStats.hp;
-    pcData[nIdx][COL.PC.MP] = maxStats.mp;
-    pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
-    effectStr = `「${npcName}」氣血與真氣全面回滿，所有負面狀態一掃而空！`;
-    instructionStr = `玩家將「${itemName}」施用於「${npcName}」身上，對方氣血與真氣已全面回滿、所有負面狀態一掃而空（結果已定，禁止改變）。請生動描寫施藥的過程與「${npcName}」的反應，語氣務必貼合對方性格。`;
-  } else if (isCureItem) {
-    let vs = parseVisibleStatus(pcData[nIdx][COL.PC.STATUS]);
-    vs["負面"] = "無";
-    pcData[nIdx][COL.PC.STATUS] = JSON.stringify(vs);
-    effectStr = `「${npcName}」體內的異樣藥力被解去，神色恢復如常。`;
-    instructionStr = `玩家將「${itemName}」施用於「${npcName}」身上，對方體內異樣藥力已被解去、神色恢復如常（結果已定，禁止改變）。請生動描寫施藥的過程與「${npcName}」的反應，語氣務必貼合對方性格。`;
-  } else {
-    return JSON.stringify({ success: false, message: `「${itemName}」不是能施用於他人身上的丹藥。` });
-  }
-
-  sheets.item.deleteRow(iIdx + 1);
-  sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
-
-  const aiPrompt = buildNpcRequestPrompt(sheets, pName, pLoc, npcRow, instructionStr, pcData[pIdx]);
-  return JSON.stringify({ success: true, itemName: itemName, targetName: npcName, effectStr: effectStr, aiPrompt: aiPrompt });
-}
-
-function actionBreakthrough(userData, pcId, sheets) {
-  const pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false });
-
-  const currentRealm = pcData[pIdx][COL.PC.REALM] || "凡人";
-  const curIdx = REALMS.indexOf(currentRealm);
-  if (curIdx >= REALMS.length - 1) return JSON.stringify({ success: false, message: `已達巔峰境界「${currentRealm}」，天地間無可突破之法。` });
-
-  const trueLimit = REALM_LIMITS[currentRealm] * (REALM_MODIFIERS[currentRealm] || 1.0);
-  const totals = getCharacterTotalStats(pcId, sheets, pcData);
-  const stats = [totals.STR, totals.CON, totals.AGI, totals.INT, totals.LUK];
-  const countPassed = stats.filter(s => s >= (trueLimit * 0.8)).length;
-
-  if (countPassed < 3) return JSON.stringify({ success: false, message: `需至少 3 項屬性達 ${Math.floor(trueLimit * 0.8)} 以上，方可嘗試衝擊境界。` });
-
-  const baseRates = { "凡人": 90, "引氣": 80, "凝罡": 70, "通玄": 55, "罡氣": 45, "意動": 35, "心象": 25, "登峰": 10, "返璞": 5, "天人": 1 };
-  let successRate = (baseRates[currentRealm] || 50) + ((countPassed - 3) * 10);
-  let equipPenalty = (String(pcData[pIdx][COL.PC.WEP]).trim() ? 5 : 0) +
-    (String(pcData[pIdx][COL.PC.ARM]).trim() ? 5 : 0) +
-    (String(pcData[pIdx][COL.PC.ACC1]).trim() ? 5 : 0) +
-    (String(pcData[pIdx][COL.PC.ACC2]).trim() ? 5 : 0);
-  successRate = Math.max(1, Math.min(100, successRate - equipPenalty));
-
-  if ((Math.floor(Math.random() * 100) + 1) > successRate) {
-    pcData[pIdx][COL.PC.HP] = Math.max(1, Math.floor((parseInt(pcData[pIdx][COL.PC.HP]) || 10) / 2));
-    pcData[pIdx][COL.PC.MP] = Math.max(0, Math.floor((parseInt(pcData[pIdx][COL.PC.MP]) || 10) / 2));
-    pcData[pIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "衣衫被汗水浸濕", "姿勢": "痛苦捂胸", "負面": "真氣逆流", "顏面": "面色慘白" });
-    sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-    return JSON.stringify({ success: false, statusString: getFreshStatusString(pcId, pIdx, sheets), message: `突破失敗！(成功率 ${successRate}%)<br>體內真氣失控逆流，氣血大損！` });
-  }
-
-  const nextRealm = REALMS[curIdx + 1];
-  const maxVals = calculateMaxStats(nextRealm, pcData[pIdx][COL.PC.CON], pcData[pIdx][COL.PC.INT]);
-
-  pcData[pIdx][COL.PC.REALM] = nextRealm;
-  pcData[pIdx][COL.PC.MAX_HP] = maxVals.hp; pcData[pIdx][COL.PC.MAX_MP] = maxVals.mp;
-  pcData[pIdx][COL.PC.HP] = maxVals.hp; pcData[pIdx][COL.PC.MP] = maxVals.mp;
-  pcData[pIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "神采奕奕" });
-
-  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-  sheets.log.appendRow([new Date(), pcId, `【境界突破】${pcData[pIdx][COL.PC.NAME]} 突破至 ${nextRealm}`, pcData[pIdx][COL.PC.LOC], "變故"]);
-  addRumor(sheets, "BREAKTHROUGH", pcData[pIdx][COL.PC.LOC], pcData[pIdx][COL.PC.NAME], { realm: nextRealm });
-  return JSON.stringify({ success: true, message: `金光籠罩，你成功突破至「${nextRealm}」！`, statusString: getFreshStatusString(pcId, pIdx, sheets) });
-}
-
-function actionEmpowerNpc(userData, pcId, sheets) {
-  const { npcName } = userData;
-  let pcData = sheets.pc.getDataRange().getValues();
-  let relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
-  let itemData = sheets.item ? sheets.item.getDataRange().getValues() : [];
-
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-  if (pIdx === -1 || nIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
-
-  const rIdx = relData.findIndex(r => r[COL.REL.PC] === pcData[pIdx][COL.PC.NAME] && r[COL.REL.NPC] === npcName);
-  if ((rIdx !== -1 ? parseInt(relData[rIdx][COL.REL.FAV]) || 0 : 0) < 100) return JSON.stringify({ success: false, message: "好感度未達100！" });
-
-  const pRIdx = REALMS.indexOf(pcData[pIdx][COL.PC.REALM] || "凡人");
-  const nRIdx = REALMS.indexOf(pcData[nIdx][COL.PC.REALM] || "凡人");
-  if (nRIdx >= pRIdx || nRIdx >= REALMS.length - 1) return JSON.stringify({ success: false, message: `境界未高於對方或對方已達巔峰。` });
-
-  const pillIdx = itemData.findIndex(r => r[COL.ITEM.OWNER] == pcId && r[COL.ITEM.NAME] === "造化綠液");
-  if (pillIdx === -1) return JSON.stringify({ success: false, message: "缺乏無上至寶【造化綠液】！" });
-
-  sheets.item.deleteRow(pillIdx + 1);
-  const nextRealm = REALMS[nRIdx + 1];
-  pcData[nIdx][COL.PC.REALM] = nextRealm;
-
-  const baseFloor = Math.floor(REALM_LIMITS[REALMS[nRIdx]] * 0.8);
-  const statCap = REALM_LIMITS[nextRealm];
-  [COL.PC.STR, COL.PC.CON, COL.PC.AGI, COL.PC.INT, COL.PC.LUK].forEach(statCol => {
-    pcData[nIdx][statCol] = Math.min(statCap, Math.max(baseFloor, parseInt(pcData[nIdx][statCol]) || 10) + Math.floor(Math.random() * 6) + 3);
-  });
-
-  const nMax = calculateMaxStats(nextRealm, pcData[nIdx][COL.PC.CON], pcData[nIdx][COL.PC.INT]);
-  pcData[nIdx][COL.PC.MAX_HP] = nMax.hp; pcData[nIdx][COL.PC.MAX_MP] = nMax.mp;
-  pcData[nIdx][COL.PC.HP] = nMax.hp; pcData[nIdx][COL.PC.MP] = nMax.mp;
-  pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "神采奕奕" });
-
-  sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
-  SpreadsheetApp.flush();
-  addRumor(sheets, "EMPOWER", pcData[nIdx][COL.PC.LOC], npcName);
-
-  return JSON.stringify({ success: true, promptText: `【天道動作：玩家消耗了一滴蘊含無上生命法則的「造化綠液」護住對方心脈，並與好感度達到 100 的『${npcName}』進行傳功雙修！\n在造化之力的修補下，對方五圍洗髓重塑，境界拔升至「${nextRealm}」！\n請極盡生動地描寫這場靈肉交融與造化法則灌體的情境！(★天道鐵律：底層已結算，嚴禁輸出 items_lost 或 stat_changes 避免重複扣除！)】` });
-}
 
 // 🟢 惰性逾期檢查：只改記憶體陣列，由呼叫端決定何時 safeWriteSheet 回寫
 function checkAndExpireQuests(sheets, pcId, questData) {
@@ -528,319 +205,20 @@ function checkAndExpireQuests(sheets, pcId, questData) {
   return changed;
 }
 
-function actionClaimQuestReward(userData, pcId, sheets) {
-  let pcData = sheets.pc.getDataRange().getValues();
-  const pcIndex = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pcIndex === -1) return JSON.stringify({ success: false, message: "天道崩潰：查無大俠之名命格。" });
-
-  const qData = sheets.quest.getDataRange().getValues();
-  let questRowIdx = -1;
-  for (let i = qData.length - 1; i >= 1; i--) {
-    if (qData[i][COL.QUEST.PC] == pcId && qData[i][COL.QUEST.NAME] === userData.questName && qData[i][COL.QUEST.STATUS] === "已結案") {
-      questRowIdx = i; break;
-    }
-  }
-  if (questRowIdx === -1) return JSON.stringify({ success: false, message: "找不到已結案的天命任務。" });
-
-  const questRow = qData[questRowIdx];
-  const rewardMoney = parseInt(questRow[COL.QUEST.MONEY]) || 0;
-  const rewardItemName = String(questRow[COL.QUEST.ITEM] || "").trim();
-
-  if (rewardMoney > 0) pcData[pcIndex][COL.PC.MONEY] = (parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0) + rewardMoney;
-
-  let itemMsg = "無";
-  if (rewardItemName && rewardItemName !== "無" && rewardItemName !== "undefined") {
-    const newItemId = "ITM_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
-
-    // 🔴 與 items_gained 對齊的強制類別判斷
-    let itemType = detectItemType(rewardItemName, "消耗品", null);
-
-    let sSTR = 0, sCON = 0, sAGI = 0, sINT = 0, sLUK = 0;
-    if (itemType === "武器") sSTR = 2;
-    else if (itemType === "防具") sCON = 2;
-    else if (itemType === "法寶") sLUK = 2;
-    else if (itemType === "丹藥") { sSTR = 1; sCON = 1; sAGI = 1; sINT = 1; sLUK = 1; }
-
-    itemMsg = rewardItemName;
-
-    if (sheets.item) {
-      sheets.item.appendRow([
-        rewardItemName, itemType, "天命懸賞賜予的奇珍。",
-        100, pcId, sSTR, sCON, sAGI, sINT, sLUK, newItemId
-      ]);
-    }
-  }
-
-  // 🔴 宗門氣運提升核心邏輯！
-  const isFactionQuest = userData.questName.startsWith("【宗門】");
-  let factionPowerMsg = "";
-  if (isFactionQuest) {
-    const myFaction = pcData[pcIndex][COL.PC.FACTION];
-    if (myFaction && myFaction !== "無") {
-
-      // 取得目前境界在 REALMS 陣列中的索引 (0~9)
-      const currentRealm = pcData[pcIndex][COL.PC.REALM] || "凡人";
-      const realmIndex = REALMS.indexOf(currentRealm);
 
 
-      const MAX_FACTION_CONTRIB_GAIN = 3200; // 封頂在「意動」境量級，避免天人境(原51200)指數爆炸
-      const gain = Math.min(MAX_FACTION_CONTRIB_GAIN, 100 * Math.pow(2, realmIndex));
 
-      updateFactionPower(sheets, myFaction, 5, `門人圓滿完成了「${userData.questName}」，宗門威望大增！`);
-      pcData[pcIndex][COL.PC.CONTRIB] = (parseInt(pcData[pcIndex][COL.PC.CONTRIB]) || 0) + gain;
-
-      factionPowerMsg = `<br>✨ <b>宗門氣運提升了！</b> 獲得 ${gain} 點宗門貢獻。`;
-    }
-  }
-
-  if (sheets.epic) sheets.epic.appendRow([pcId, `【天命圓滿】完成了任務「${userData.questName}」，領取賞銀 ${rewardMoney} 兩與珍品「${itemMsg}」`, new Date()]);
-  sheets.quest.deleteRow(questRowIdx + 1);
-  addRumor(sheets, "QUEST_DONE", pcData[pcIndex][COL.PC.LOC], userData.questName);
-  sheets.pc.getRange(pcIndex + 1, 1, 1, pcData[pcIndex].length).setValues([pcData[pcIndex]]);
-
-  return JSON.stringify({ success: true, statusString: getFreshStatusString(pcId, pcIndex, sheets), message: `🎉 天命大圓滿！你成功領取了賞銀 ${rewardMoney} 兩 ${rewardItemName !== "無" ? `與奇珍「${rewardItemName}」` : ""}${factionPowerMsg}` });
-}
-
-function actionQuests(userData, pcId, sheets) {
-  if (!sheets.quest) return JSON.stringify({ success: false, message: "天命表不存在" });
-  const data = sheets.quest.getDataRange().getValues();
-  if (checkAndExpireQuests(sheets, pcId, data) && data.length > 0) {
-    const questColCount = Object.keys(COL.QUEST).length;
-    data.forEach(row => { while (row.length < questColCount) row.push(""); });
-    safeWriteSheet(sheets.quest, data);
-  }
-  return JSON.stringify({ success: true, data: data.slice(1).filter(r => r[COL.QUEST.PC] == pcId).map(r => ({ name: r[COL.QUEST.NAME], target: r[COL.QUEST.TARGET] || "調查中", status: r[COL.QUEST.STATUS], money: r.length > 4 ? (parseInt(r[COL.QUEST.MONEY]) || 0) : 0, item: r.length > 5 ? (String(r[COL.QUEST.ITEM] || "").trim() || "無") : "無" })) });
-}
-
-function actionAbandonQuest(userData, pcId, sheets) {
-  const qData = sheets.quest.getDataRange().getValues();
-  for (let i = qData.length - 1; i >= 1; i--) {
-    if (qData[i][COL.QUEST.PC] == pcId && qData[i][COL.QUEST.NAME] === userData.questName) {
-      if (qData[i][COL.QUEST.STATUS] === "已結案" && sheets.epic) sheets.epic.appendRow([pcId, `【天命結算】達成了因果：「${userData.questName}」`, new Date()]);
-      sheets.quest.deleteRow(i + 1); break;
-    }
-  }
-  return JSON.stringify({ success: true });
-}
-
-function actionInventory(userData, pcId, sheets) {
-  if (!sheets.item) return JSON.stringify({ success: false, message: "琳琅表不存在" });
-  const data = sheets.item.getDataRange().getValues();
-  return JSON.stringify({
-    success: true, data: data.slice(1).filter(r => r[COL.ITEM.OWNER] == pcId && String(r[COL.ITEM.LOC2]).trim() !== "倉庫").map(r => {
-      let attrArr = [];
-      if (parseInt(r[COL.ITEM.STR])) attrArr.push(`臂力+${r[COL.ITEM.STR]}`);
-      if (parseInt(r[COL.ITEM.CON])) attrArr.push(`根骨+${r[COL.ITEM.CON]}`);
-      if (parseInt(r[COL.ITEM.AGI])) attrArr.push(`身法+${r[COL.ITEM.AGI]}`);
-      if (parseInt(r[COL.ITEM.INT])) attrArr.push(`神識+${r[COL.ITEM.INT]}`);
-      if (parseInt(r[COL.ITEM.LUK])) attrArr.push(`福緣+${r[COL.ITEM.LUK]}`);
-      return { id: r[COL.ITEM.ID] || r[COL.ITEM.NAME], name: r[COL.ITEM.NAME], type: r[COL.ITEM.TYPE], desc: r[COL.ITEM.DESC], stats: attrArr.join("、") };
-    }), max: MAX_BAG_SIZE
-  });
-}
 
 // 🟢 仙府倉庫：取出倉庫清單(只在開啟時讀取，不影響背包格數)
-function actionWarehouseGet(userData, pcId, sheets) {
-  if (!sheets.item) return JSON.stringify({ success: false, message: "琳琅表不存在" });
-  const data = sheets.item.getDataRange().getValues();
-  return JSON.stringify({
-    success: true, data: data.slice(1).filter(r => r[COL.ITEM.OWNER] == pcId && String(r[COL.ITEM.LOC2]).trim() === "倉庫").map(r => {
-      let attrArr = [];
-      if (parseInt(r[COL.ITEM.STR])) attrArr.push(`臂力+${r[COL.ITEM.STR]}`);
-      if (parseInt(r[COL.ITEM.CON])) attrArr.push(`根骨+${r[COL.ITEM.CON]}`);
-      if (parseInt(r[COL.ITEM.AGI])) attrArr.push(`身法+${r[COL.ITEM.AGI]}`);
-      if (parseInt(r[COL.ITEM.INT])) attrArr.push(`神識+${r[COL.ITEM.INT]}`);
-      if (parseInt(r[COL.ITEM.LUK])) attrArr.push(`福緣+${r[COL.ITEM.LUK]}`);
-      return { id: r[COL.ITEM.ID] || r[COL.ITEM.NAME], name: r[COL.ITEM.NAME], type: r[COL.ITEM.TYPE], desc: r[COL.ITEM.DESC], stats: attrArr.join("、") };
-    }), max: MAX_WAREHOUSE_SIZE
-  });
-}
 
 // 🟢 仙府倉庫：把背包道具存入倉庫(裝備中的道具禁止存入)
-function actionWarehouseStore(userData, pcId, sheets) {
-  const { itemId } = userData;
-  if (!sheets.item) return JSON.stringify({ success: false, message: "琳琅表不存在" });
-
-  let pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人命格。" });
-
-  const pcRow = pcData[pIdx];
-  const equipped = [pcRow[COL.PC.WEP], pcRow[COL.PC.ARM], pcRow[COL.PC.ACC1], pcRow[COL.PC.ACC2]]
-    .map(x => String(x || "").trim());
-
-  let itemData = sheets.item.getDataRange().getValues();
-  const iIdx = itemData.findIndex(r => r[COL.ITEM.ID] === itemId && String(r[COL.ITEM.OWNER]) === String(pcId));
-  if (iIdx === -1) return JSON.stringify({ success: false, message: "行囊中找不到此物。" });
-
-  const itemName = String(itemData[iIdx][COL.ITEM.NAME]).trim();
-  if (equipped.includes(String(itemId).trim())) return JSON.stringify({ success: false, message: "裝備中的道具無法存入倉庫，請先卸下！" });
-
-  const warehouseCount = itemData.filter(r => String(r[COL.ITEM.OWNER]) === String(pcId) && String(r[COL.ITEM.LOC2]).trim() === "倉庫").length;
-  if (warehouseCount >= MAX_WAREHOUSE_SIZE) return JSON.stringify({ success: false, message: "倉庫已滿，無法再存入！" });
-
-  sheets.item.getRange(iIdx + 1, COL.ITEM.LOC2 + 1).setValue("倉庫");
-  return JSON.stringify({ success: true, message: `已將「${itemName}」存入仙府倉庫。` });
-}
 
 // 🟢 仙府倉庫：取出道具回背包(受背包格數上限限制)
-function actionWarehouseRetrieve(userData, pcId, sheets) {
-  const { itemId } = userData;
-  if (!sheets.item) return JSON.stringify({ success: false, message: "琳琅表不存在" });
 
-  let itemData = sheets.item.getDataRange().getValues();
-  const iIdx = itemData.findIndex(r => r[COL.ITEM.ID] === itemId && String(r[COL.ITEM.OWNER]) === String(pcId) && String(r[COL.ITEM.LOC2]).trim() === "倉庫");
-  if (iIdx === -1) return JSON.stringify({ success: false, message: "倉庫中找不到此物。" });
-
-  const bagCount = itemData.filter(r => String(r[COL.ITEM.OWNER]) === String(pcId) && String(r[COL.ITEM.LOC2]).trim() !== "倉庫").length;
-  if (bagCount >= MAX_BAG_SIZE) return JSON.stringify({ success: false, message: `行囊已滿（${MAX_BAG_SIZE}/${MAX_BAG_SIZE}），請先清理包包！` });
-
-  const itemName = itemData[iIdx][COL.ITEM.NAME];
-  sheets.item.getRange(iIdx + 1, COL.ITEM.LOC2 + 1).setValue("");
-  return JSON.stringify({ success: true, message: `已將「${itemName}」取出至行囊。` });
-}
-
-function actionDiscardItem(userData, pcId, sheets) {
-  const itemData = sheets.item.getDataRange().getValues();
-  for (let i = itemData.length - 1; i >= 1; i--) {
-    if ((itemData[i][COL.ITEM.ID] === userData.itemName || itemData[i][COL.ITEM.NAME] === userData.itemName) && itemData[i][COL.ITEM.OWNER] == pcId) {
-      sheets.item.deleteRow(i + 1); break;
-    }
-  }
-  return JSON.stringify({ success: true });
-}
 // 💰 變賣物品給聽風閣（賣價 = price × 0.4，裝備中與定情信物禁止賣）
-function actionSellItem(userData, pcId, sheets) {
-  const { itemId } = userData;
-  if (!sheets.item) return JSON.stringify({ success: false, message: "琳琅表不存在" });
 
-  let pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人命格。" });
 
-  let itemData = sheets.item.getDataRange().getValues();
-  const iIdx = itemData.findIndex(r => r[COL.ITEM.ID] === itemId && String(r[COL.ITEM.OWNER]) === String(pcId));
-  if (iIdx === -1) return JSON.stringify({ success: false, message: "行囊中找不到此物。" });
 
-  const itemRow = itemData[iIdx];
-  const itemName = itemRow[COL.ITEM.NAME];
-
-  // 🔴 防呆 1：定情信物禁止變賣
-  if (String(itemRow[COL.ITEM.TYPE]) === "定情信物") {
-    return JSON.stringify({ success: false, message: `「${itemName}」承載著難以割捨的情意，無法變賣。` });
-  }
-
-  // 🔴 防呆 2：裝備中的物品禁止變賣
-  const pcRow = pcData[pIdx];
-  const equipped = [pcRow[COL.PC.WEP], pcRow[COL.PC.ARM], pcRow[COL.PC.ACC1], pcRow[COL.PC.ACC2]]
-    .map(x => String(x || "").trim());
-  if (equipped.includes(String(itemId).trim())) {
-    return JSON.stringify({ success: false, message: `「${itemName}」正裝備在身，請先卸下再變賣。` });
-  }
-
-  // 計算賣價（4 折，最低保底 1 兩）
-  // 計算賣價：貨幣物品 1:1 兌換，其餘物品 4 折(最低保底 1 兩)
-  const price = parseInt(itemRow[COL.ITEM.PRICE]) || 0;
-  const isCurrency = String(itemRow[COL.ITEM.TYPE]) === "貨幣";
-  const sellPrice = isCurrency ? price : Math.max(1, Math.floor(price * 0.4));
-
-  // 扣物品、加銀兩
-  sheets.item.deleteRow(iIdx + 1);
-  pcData[pIdx][COL.PC.MONEY] = (parseInt(pcData[pIdx][COL.PC.MONEY]) || 0) + sellPrice;
-  sheets.pc.getRange(pIdx + 1, COL.PC.MONEY + 1).setValue(pcData[pIdx][COL.PC.MONEY]);
-
-  return JSON.stringify({
-    success: true,
-    message: `將「${itemName}」賣給了聽風閣，得銀 ${sellPrice} 兩。`,
-    statusString: getFreshStatusString(pcId, pIdx, sheets)
-  });
-}
-function actionEstateGet(userData, pcId, sheets) {
-  if (!sheets.task) return JSON.stringify({ success: false, message: "TASK表不存在" });
-  const taskData = sheets.task.getDataRange().getValues();
-  return JSON.stringify({ success: true, tasks: taskData.filter((r, i) => i > 0 && r[0] == pcId).map(r => ({ facility: r[1], lastHarvest: r[4] })) });
-}
-
-function actionEstateHarvestAll(userData, pcId, sheets) {
-  let pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
-
-  const taskData = sheets.task.getDataRange().getValues();
-  const now = Date.now();
-  let resultMsgs = [], newItemsToAppend = [], totalGainedMoney = 0, hasHarvested = false;
-
-  const facilities = [
-    { name: "聚寶金蟾", reqTime: 60 * 60 * 1000, maxAccumulate: 24 * 60 * 60 * 1000 },
-    { name: "掌天小瓶", reqTime: 12 * 60 * 60 * 1000, maxAccumulate: 24 * 60 * 60 * 1000 },
-    { name: "天地丹爐", reqTime: 12 * 60 * 60 * 1000, maxAccumulate: 24 * 60 * 60 * 1000 }
-  ];
-
-  facilities.forEach(fac => {
-    let taskRowIndex = -1, lastHarvest = 0;
-    for (let i = 1; i < taskData.length; i++) {
-      if (taskData[i][0] == pcId && taskData[i][1] === fac.name) { taskRowIndex = i; lastHarvest = parseInt(taskData[i][4]) || 0; break; }
-    }
-
-    let timePassed = taskRowIndex === -1 ? fac.reqTime : now - lastHarvest;
-    if (timePassed >= fac.reqTime) {
-      hasHarvested = true;
-      const cappedTimePassed = Math.min(timePassed, fac.maxAccumulate);
-      const yieldCount = Math.floor(cappedTimePassed / fac.reqTime);
-      const newLastHarvest = now - (cappedTimePassed - yieldCount * fac.reqTime);
-
-      if (taskRowIndex === -1) sheets.task.appendRow([pcId, fac.name, "無", "無", newLastHarvest]);
-      else sheets.task.getRange(taskRowIndex + 1, 5).setValue(newLastHarvest);
-
-      if (fac.name === "聚寶金蟾") {
-        totalGainedMoney += yieldCount; resultMsgs.push(`【聚寶金蟾】吐出了 ${yieldCount} 兩白銀`);
-      } else if (fac.name === "掌天小瓶") {
-        for (let i = 0; i < yieldCount; i++) newItemsToAppend.push(["造化綠液", "消耗品", "一滴散發著恐怖生命法則的靈液。", 999, pcId, 0, 0, 0, 0, 0, "ITM_" + Date.now() + "_bottle_" + i]);
-        resultMsgs.push(`【掌天小瓶】收集了 ${yieldCount} 滴 造化綠液`);
-      } else if (fac.name === "天地丹爐") {
-        for (let i = 0; i < yieldCount; i++) newItemsToAppend.push(["【造化】九轉金丹", "丹藥", "服下可使所有五圍屬性全面 +1！", 50, pcId, 1, 1, 1, 1, 1, "ITM_" + Date.now() + "_furnace_" + i]);
-        resultMsgs.push(`【天地丹爐】煉製了 ${yieldCount} 顆 九轉金丹`);
-      }
-    }
-  });
-
-  if (!hasHarvested) return JSON.stringify({ success: false, message: "靈氣尚未匯聚完成，無物可收。" });
-  if (totalGainedMoney > 0) sheets.pc.getRange(pIdx + 1, COL.PC.MONEY + 1).setValue((parseInt(pcData[pIdx][COL.PC.MONEY]) || 0) + totalGainedMoney);
-  if (newItemsToAppend.length > 0) sheets.item.getRange(sheets.item.getLastRow() + 1, 1, newItemsToAppend.length, newItemsToAppend[0].length).setValues(newItemsToAppend);
-
-  return JSON.stringify({ success: true, message: resultMsgs.join("<br>"), statusString: getFreshStatusString(pcId, pIdx, sheets) });
-}
-
-function actionDismissParty(userData, pcId, sheets) {
-  const npcName = userData.npcName;
-  const myName = sheets.pc.getDataRange().getValues().find(r => r[COL.PC.ID] == pcId)[COL.PC.NAME];
-  if (sheets.rel) {
-    const relData = sheets.rel.getDataRange().getValues();
-    const rIdx = relData.findIndex(r => r[COL.REL.PC] === myName && r[COL.REL.NPC] === npcName);
-    if (rIdx !== -1) sheets.rel.getRange(rIdx + 1, COL.REL.IS_PARTY + 1).setValue("");
-  }
-  return JSON.stringify({ success: true });
-}
-
-function actionJoinParty(userData, pcId, sheets) {
-  const npcName = userData.npcName;
-  const myName = sheets.pc.getDataRange().getValues().find(r => r[COL.PC.ID] == pcId)[COL.PC.NAME];
-
-  if (sheets.rel) {
-    const relData = sheets.rel.getDataRange().getValues();
-    const isBusy = relData.find(r => r[COL.REL.NPC] === npcName && r[COL.REL.IS_PARTY] === "同行" && r[COL.REL.PC] !== myName);
-    if (isBusy) return JSON.stringify({ success: false, message: `天道阻礙：「${npcName}」已與『${isBusy[COL.REL.PC]}』結伴！` });
-
-    const rIdx = relData.findIndex(r => r[COL.REL.PC] === myName && r[COL.REL.NPC] === npcName);
-    const currentFav = (rIdx !== -1) ? parseInt(relData[rIdx][COL.REL.FAV]) || 0 : 0;
-    if (currentFav < 30) return JSON.stringify({ success: false, message: `與「${npcName}」羈絆尚淺(目前好感${currentFav})，對方拒絕同行！(需30以上)` });
-
-    if (rIdx !== -1) sheets.rel.getRange(rIdx + 1, COL.REL.IS_PARTY + 1).setValue("同行");
-    else sheets.rel.appendRow([myName, npcName, currentFav, "萍水相逢", "同行"]);
-    return JSON.stringify({ success: true, message: `你與「${npcName}」結伴同行！` });
-  }
-  return JSON.stringify({ success: false, message: "天道異常：REL關係表不存在。" });
-}
 
 function actionInspectNpc(userData, pcId, sheets) {
   const targetName = userData.targetName;
@@ -854,83 +232,8 @@ function actionInspectNpc(userData, pcId, sheets) {
 }
 
 // 🟢 索要：需與該 NPC 好感100且已傾心，方可開口要求一件物品，成功直接轉入玩家行囊(受背包上限限制)
-function actionRequestItemFromNpc(userData, pcId, sheets) {
-  const { targetName, itemId } = userData;
-  let pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人命格。" });
-  const pName = pcData[pIdx][COL.PC.NAME];
-  const pLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
-
-  const nIdx = pcData.findIndex(r => r[COL.PC.ID] != pcId && !String(r[COL.PC.ID]).startsWith("DEAD_") &&
-    String(r[COL.PC.LOC]).trim() === pLoc && String(r[COL.PC.NAME]).includes(targetName));
-  if (nIdx === -1) return JSON.stringify({ success: false, message: "對方已不在場。" });
-  const npcRow = pcData[nIdx];
-  const npcName = npcRow[COL.PC.NAME];
-
-  const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
-  const rIdx = relData.findIndex(r => r[COL.REL.PC] === pName && r[COL.REL.NPC] === npcName);
-  const relRow = rIdx !== -1 ? relData[rIdx] : null;
-  if ((relRow ? parseInt(relRow[COL.REL.FAV]) || 0 : 0) < 100 || !(relRow ? String(relRow[COL.REL.TAG]) : "").includes("(已傾心)")) {
-    return JSON.stringify({ success: false, message: `「${npcName}」對妳尚未全心託付（需好感 100 且已傾心），不肯把東西交給妳。` });
-  }
-
-  let itemData = sheets.item.getDataRange().getValues();
-  const iIdx = itemData.findIndex(r => r[COL.ITEM.ID] === itemId && String(r[COL.ITEM.OWNER]) === String(npcRow[COL.PC.ID]));
-  if (iIdx === -1) return JSON.stringify({ success: false, message: "對方身上找不到此物。" });
-  const itemName = itemData[iIdx][COL.ITEM.NAME];
-
-  const equipped = [npcRow[COL.PC.WEP], npcRow[COL.PC.ARM], npcRow[COL.PC.ACC1], npcRow[COL.PC.ACC2]].map(x => String(x || "").trim());
-  if (equipped.includes(String(itemId).trim())) {
-    return JSON.stringify({ success: false, message: `「${itemName}」正裝備在「${npcName}」身上，無法索要。` });
-  }
-
-  const bagCount = itemData.filter(r => String(r[COL.ITEM.OWNER]) === String(pcId) && String(r[COL.ITEM.LOC2]).trim() !== "倉庫").length;
-  if (bagCount >= MAX_BAG_SIZE) return JSON.stringify({ success: false, message: `行囊已滿（${MAX_BAG_SIZE}/${MAX_BAG_SIZE}），請先清理包包！` });
-
-  sheets.item.getRange(iIdx + 1, COL.ITEM.OWNER + 1).setValue(pcId);
-
-  const aiPrompt = buildNpcRequestPrompt(sheets, pName, pLoc, npcRow, `玩家開口向「${npcName}」索要「${itemName}」，對方已答應交出此物（結果已定，禁止改變）。請描寫玩家開口的話術與「${npcName}」交出物品時的反應，語氣務必貼合對方性格與雙方關係。`, pcData[pIdx]);
-  return JSON.stringify({ success: true, aiPrompt: aiPrompt, itemName: itemName, npcName: npcName });
-}
 
 // 🟢 要求丟棄：需與該 NPC 好感100且已傾心，方可要求對方丟棄一件物品(物品直接消失，不轉入玩家)
-function actionRequestDiscardNpcItem(userData, pcId, sheets) {
-  const { targetName, itemId } = userData;
-  let pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人命格。" });
-  const pName = pcData[pIdx][COL.PC.NAME];
-  const pLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
-
-  const nIdx = pcData.findIndex(r => r[COL.PC.ID] != pcId && !String(r[COL.PC.ID]).startsWith("DEAD_") &&
-    String(r[COL.PC.LOC]).trim() === pLoc && String(r[COL.PC.NAME]).includes(targetName));
-  if (nIdx === -1) return JSON.stringify({ success: false, message: "對方已不在場。" });
-  const npcRow = pcData[nIdx];
-  const npcName = npcRow[COL.PC.NAME];
-
-  const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
-  const rIdx = relData.findIndex(r => r[COL.REL.PC] === pName && r[COL.REL.NPC] === npcName);
-  const relRow = rIdx !== -1 ? relData[rIdx] : null;
-  if ((relRow ? parseInt(relRow[COL.REL.FAV]) || 0 : 0) < 100 || !(relRow ? String(relRow[COL.REL.TAG]) : "").includes("(已傾心)")) {
-    return JSON.stringify({ success: false, message: `「${npcName}」對妳尚未全心託付（需好感 100 且已傾心），不肯讓妳做主丟棄她的東西。` });
-  }
-
-  let itemData = sheets.item.getDataRange().getValues();
-  const iIdx = itemData.findIndex(r => r[COL.ITEM.ID] === itemId && String(r[COL.ITEM.OWNER]) === String(npcRow[COL.PC.ID]));
-  if (iIdx === -1) return JSON.stringify({ success: false, message: "對方身上找不到此物。" });
-  const itemName = itemData[iIdx][COL.ITEM.NAME];
-
-  const equipped = [npcRow[COL.PC.WEP], npcRow[COL.PC.ARM], npcRow[COL.PC.ACC1], npcRow[COL.PC.ACC2]].map(x => String(x || "").trim());
-  if (equipped.includes(String(itemId).trim())) {
-    return JSON.stringify({ success: false, message: `「${itemName}」正裝備在「${npcName}」身上，無法丟棄。` });
-  }
-
-  sheets.item.deleteRow(iIdx + 1);
-
-  const aiPrompt = buildNpcRequestPrompt(sheets, pName, pLoc, npcRow, `玩家要求「${npcName}」丟棄「${itemName}」，對方因對玩家已是全心傾心，依言照辦、親手丟棄了此物（結果已定，禁止改變）。請描寫玩家開口的話術與「${npcName}」依言丟棄物品時的反應，語氣務必貼合對方性格與雙方深厚關係。`, pcData[pIdx]);
-  return JSON.stringify({ success: true, aiPrompt: aiPrompt, itemName: itemName, npcName: npcName });
-}
 
 // 🔹 共用：組裝含地點/性格/關係/近期因果的提示詞，避免索要/丟棄敘事出戲
 function buildNpcRequestPrompt(sheets, pName, pLoc, npcRow, instructionStr, pRow) {
@@ -975,412 +278,20 @@ function buildNpcRequestPrompt(sheets, pName, pLoc, npcRow, instructionStr, pRow
 // ==========================================
 
 // 🟢 贈禮：好感門檻與物品轉移全由 GAS 裁定，AI 只負責寫對方的反應
-function actionGiftItem(userData, pcId, sheets) {
-  const { targetName, giftItemId, newRelName } = userData;
-  let pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人命格。" });
-  const pName = pcData[pIdx][COL.PC.NAME];
-  const pLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
-
-  const nIdx = pcData.findIndex(r => r[COL.PC.ID] != pcId && !String(r[COL.PC.ID]).startsWith("DEAD_") &&
-    String(r[COL.PC.LOC]).trim() === pLoc && String(r[COL.PC.NAME]).includes(targetName));
-  if (nIdx === -1) return JSON.stringify({ success: false, message: "對方已不在場。" });
-  const npcRow = pcData[nIdx];
-  const npcName = npcRow[COL.PC.NAME];
-
-  let itemData = sheets.item.getDataRange().getValues();
-  const iIdx = itemData.findIndex(r => r[COL.ITEM.ID] === giftItemId && String(r[COL.ITEM.OWNER]) === String(pcId));
-  if (iIdx === -1) return JSON.stringify({ success: false, message: "行囊中查無此物。" });
-  const giftItem = itemData[iIdx];
-  const itemName = giftItem[COL.ITEM.NAME];
-
-  const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
-  const rIdx = relData.findIndex(r => r[COL.REL.PC] === pName && r[COL.REL.NPC] === npcName);
-  const currentFav = rIdx !== -1 ? parseInt(relData[rIdx][COL.REL.FAV]) || 0 : 0;
-
-  if (giftItem[COL.ITEM.TYPE] === "定情信物" && currentFav >= 80) {
-    const finalTag = (newRelName || "生死相許").replace(/\(已傾心\)/g, "") + "(已傾心)";
-    sheets.item.getRange(iIdx + 1, COL.ITEM.OWNER + 1).setValue(npcRow[COL.PC.ID]);
-    if (rIdx !== -1) {
-      sheets.rel.getRange(rIdx + 1, COL.REL.TAG + 1).setValue(finalTag);
-      sheets.rel.getRange(rIdx + 1, COL.REL.FAV + 1).setValue(100);
-      sheets.rel.getRange(rIdx + 1, COL.REL.MAJOR_EVENT + 1).setValue(`收下信物「${itemName}」，徹底傾心。`);
-    } else if (sheets.rel) {
-      sheets.rel.appendRow([pName, npcName, 100, finalTag, "同行", "", `收下信物「${itemName}」，徹底傾心。`]);
-    }
-    addRumor(sheets, "GIFT_BOND", pLoc, npcName);
-    const aiPrompt = buildNpcRequestPrompt(sheets, pName, pLoc, npcRow, `玩家將定情信物「${itemName}」贈予「${npcName}」，對方好感度滿溢，已滿心歡喜收下並徹底傾心於玩家（結果已定，禁止改變）！請細膩描寫符合對方個性、掩飾不住的喜悅與締結羈絆的對話。`, pcData[pIdx]);
-    return JSON.stringify({
-      success: true, aiPrompt, itemName, npcName, soulBound: true,
-      soulBoundEventMsg: `💞 「${npcName}」收下了「${itemName}」，徹底傾心於你！<br><span style="font-size:13px; color:#ffb6c1;">✨ 羈絆已至深處，「逆天改命」功能已解鎖，可重新賦予對方命格與裝備之權。</span>`,
-      freshlyBoundNpcName: npcName
-    });
-  } else if (currentFav < 30) {
-    const aiPrompt = buildNpcRequestPrompt(sheets, pName, pLoc, npcRow, `玩家想將「${itemName}」送給「${npcName}」，但兩人交情尚淺（好感${currentFav}），對方並未收下，物品仍在玩家身上（結果已定，禁止改變）。請依「${npcName}」的個性，描寫她疏離婉拒、不收禮物的反應。`, pcData[pIdx]);
-    return JSON.stringify({ success: true, aiPrompt, itemName, npcName, rejected: true });
-  } else {
-    sheets.item.getRange(iIdx + 1, COL.ITEM.OWNER + 1).setValue(npcRow[COL.PC.ID]);
-    const aiPrompt = buildNpcRequestPrompt(sheets, pName, pLoc, npcRow, `玩家已將「${itemName}」交給「${npcName}」，系統底層已完成物品轉移（結果已定，禁止改變）。請依「${npcName}」的個性與好感，純描寫她收下禮物的反應與神情。`, pcData[pIdx]);
-    return JSON.stringify({ success: true, aiPrompt, itemName, npcName });
-  }
-}
 
 // 🟢 補刀處決：HP<=5 才能裁定，戰利品/門派氣運結算全由 GAS 完成，AI 只負責寫終結場面
-function actionExecuteNpc(userData, pcId, sheets) {
-  const { targetName } = userData;
-  let pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人命格。" });
-  const pName = pcData[pIdx][COL.PC.NAME];
-  const pLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
-
-  const execIdx = pcData.findIndex(r => r[COL.PC.NAME] === targetName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-  if (execIdx === -1) return JSON.stringify({ success: false, message: "對方已不在場。" });
-  const execTarget = pcData[execIdx];
-  if ((parseInt(execTarget[COL.PC.HP]) || 0) > 5) {
-    return JSON.stringify({ success: false, message: `「${targetName}」根本未昏迷倒地，談何補刀處決！` });
-  }
-
-  if (sheets.epic) sheets.epic.appendRow([pcId, `【因果終結】${execTarget[COL.PC.NAME]} 被玩家補刀隕落。`, new Date()]);
-
-  let itemData = sheets.item.getDataRange().getValues();
-  const dropMoney = parseInt(execTarget[COL.PC.MONEY]) || 0;
-  if (dropMoney > 0) {
-    sheets.item.appendRow([`${execTarget[COL.PC.NAME]}的遺產`, "消耗品", "殺人越貨得來的碎銀。", dropMoney, pcId, 0, 0, 0, 0, 0, "ITM_" + Date.now() + "_" + Math.floor(Math.random() * 1000)]);
-  }
-  for (let i = 1; i < itemData.length; i++) {
-    if (itemData[i][COL.ITEM.OWNER] == execTarget[COL.PC.ID]) {
-      sheets.item.getRange(i + 1, COL.ITEM.OWNER + 1).setValue(pcId);
-    }
-  }
-
-  sheets.pc.getRange(execIdx + 1, COL.PC.STATUS + 1).setValue(JSON.stringify({ "衣服": "殘破染血", "姿勢": "倒地不起", "負面": "死亡", "顏面": "一具死屍" }));
-  addRumor(sheets, "KILL_NPC", pLoc, execTarget[COL.PC.NAME]);
-  const deadFaction = execTarget[COL.PC.FACTION];
-  const deadRank = String(execTarget[COL.PC.RANK] || "門人").trim();
-
-  if (deadFaction && deadFaction !== "無") {
-    let powerLoss = -2, eventMsg = `基層${deadRank}在${pLoc}被殺`;
-    if (deadRank.match(/掌門|宗主|教主|門主|谷主|閣主|魁首/)) { powerLoss = -40; eventMsg = `【震驚天下】${deadRank}在${pLoc}隕落！`; }
-    else if (deadRank.match(/長老|護法|副|太上/)) { powerLoss = -15; eventMsg = `高層${deadRank}在${pLoc}遭人擊殺`; }
-    else if (deadRank.match(/堂主|真傳|執事|首席|香主/)) { powerLoss = -8; eventMsg = `核心${deadRank}在${pLoc}遇害`; }
-    updateFactionPower(sheets, deadFaction, powerLoss, eventMsg);
-  }
-
-  const aiPrompt = buildNpcRequestPrompt(sheets, pName, pLoc, execTarget, `玩家對昏迷倒地的「${targetName}」補刀處決，對方已徹底隕落，財物與裝備已盡數歸入玩家行囊（結果已定，禁止改變）。請生動描寫補刀終結的場面。`, pcData[pIdx]);
-  sheets.pc.getRange(execIdx + 1, COL.PC.ID + 1).setValue("DEAD_" + execTarget[COL.PC.ID]);
-  return JSON.stringify({ success: true, aiPrompt, npcName: targetName });
-}
 
 // 🟢 道具自用(非藥水類)：扣除全由 GAS 完成，AI 只負責寫使用特效
-function actionUseItemSelf(userData, pcId, sheets) {
-  const { itemId, itemName } = userData;
-  let itemData = sheets.item.getDataRange().getValues();
-  const iIdx = itemData.findIndex(r => r[COL.ITEM.ID] === itemId && String(r[COL.ITEM.OWNER]) === String(pcId));
-  if (iIdx === -1) return JSON.stringify({ success: false, message: "行囊中查無此物。" });
-  const actualName = itemData[iIdx][COL.ITEM.NAME] || itemName;
-  sheets.item.deleteRow(iIdx + 1);
-
-  // 🔴 補上地點 + 在場旁人(分清同行夥伴與路人) + 玩家自身性格，避免AI寫出與當前場景/人物不符或憑空捏造的反應
-  const pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  const pName = pIdx !== -1 ? pcData[pIdx][COL.PC.NAME] : "";
-  const pLoc = pIdx !== -1 ? String(pcData[pIdx][COL.PC.LOC]).trim() : "";
-  const pPrefArr = String((pIdx !== -1 && pcData[pIdx][COL.PC.PREF]) || "").split('、');
-  const pTraitArr = String((pIdx !== -1 && pcData[pIdx][COL.PC.TRAIT]) || "").split('、');
-  const playerCardStr = pIdx !== -1 ? `【玩家『${pName}』】性格:[表象]${pPrefArr[0] || "無"} [內裡]${pPrefArr[1] || "無"} | 特徵:${pTraitArr[1] || "無"}\n` : "";
-
-  const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
-  const partyNames = relData.filter(r => r[COL.REL.PC] === pName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]);
-  const bystanderNames = pcData
-    .filter(r => r[COL.PC.ID] != pcId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === pLoc)
-    .map(r => r[COL.PC.NAME]);
-  const partyHere = bystanderNames.filter(n => partyNames.includes(n));
-  const othersHere = bystanderNames.filter(n => !partyNames.includes(n));
-  let placeStr = "";
-  if (partyHere.length > 0) placeStr += `同行夥伴${partyHere.join("、")}也在場，請合理帶到其反應。`;
-  if (othersHere.length > 0) placeStr += `在場還有：${othersHere.join("、")}，請合理帶到他們的存在或反應，不要視而不見。`;
-  if (!placeStr) placeStr = "現場再無旁人，請勿憑空捏造路人或對話對象。";
-  const sceneStr = pLoc ? `${playerCardStr}【場景】玩家目前位於『${pLoc}』。${placeStr}\n` : playerCardStr;
-
-  const recentLogStr = getRecentCausalityStr(sheets, pName, null, 5);
-
-  const aiPrompt = `${sceneStr}【近期因果】(僅供背景參考，純屬回憶，並非當下在場！)\n${recentLogStr}\n【系統事件·已裁定，嚴禁更改任何結果】玩家將「${actualName}」消耗/施放了，系統底層已將物品扣除完畢。請生動描寫使用的效果與周圍的反應；若是強行食用不可食之物，請描寫滑稽場面。\n★【鐵律】嚴禁輸出任何 items_used、items_lost、items_gained 或 stat_changes，已結算完畢，重複輸出會導致天道崩塌！`;
-  return JSON.stringify({ success: true, aiPrompt, itemName: actualName });
-}
 
 // 🟢 妙手空空(指定物品偷竊)：D20 對抗裁定成敗，成功轉移物品，失敗扣好感+扣血當教訓
-function actionStealNpcItem(userData, pcId, sheets) {
-  const { targetName, stealItemId, stealItemName } = userData;
-  let pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人命格。" });
-  const pName = pcData[pIdx][COL.PC.NAME];
-  const pLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
-
-  const nIdx = pcData.findIndex(r => r[COL.PC.ID] != pcId && !String(r[COL.PC.ID]).startsWith("DEAD_") &&
-    String(r[COL.PC.LOC]).trim() === pLoc && String(r[COL.PC.NAME]).includes(targetName));
-  if (nIdx === -1) return JSON.stringify({ success: false, message: "對方已不在場。" });
-  const npcRow = pcData[nIdx];
-  const npcName = npcRow[COL.PC.NAME];
-
-  let itemData = sheets.item.getDataRange().getValues();
-  const iIdx = itemData.findIndex(r => r[COL.ITEM.ID] === stealItemId && String(r[COL.ITEM.OWNER]) === String(npcRow[COL.PC.ID]));
-  if (iIdx === -1) return JSON.stringify({ success: false, message: "對方身上已無此物。" });
-  const itemName = itemData[iIdx][COL.ITEM.NAME] || stealItemName;
-
-  const equipped = [npcRow[COL.PC.WEP], npcRow[COL.PC.ARM], npcRow[COL.PC.ACC1], npcRow[COL.PC.ACC2]].map(x => String(x || "").trim());
-  if (equipped.includes(String(stealItemId).trim())) {
-    return JSON.stringify({ success: false, message: `「${itemName}」正裝備在「${npcName}」身上，無法下手。` });
-  }
-
-  const pTotal = getCharacterTotalStats(pcId, sheets, pcData, itemData);
-  const nTotal = getCharacterTotalStats(npcRow[COL.PC.ID], sheets, pcData, itemData);
-  const pRoll = rollD20(), nRoll = rollD20();
-  const pMod = Math.round(((pTotal.AGI || 0) + (pTotal.LUK || 0)) / 6);
-  const nMod = Math.round(((nTotal.AGI || 0) + (nTotal.INT || 0)) / 6);
-  const pScore = pRoll + pMod, nScore = nRoll + nMod;
-  const pCrit = pRoll === 20, pFumble = pRoll === 1;
-  const nCrit = nRoll === 20, nFumble = nRoll === 1;
-
-  let success;
-  if (pFumble && !nFumble) success = false;
-  else if (nFumble && !pFumble) success = true;
-  else if (pCrit && !nCrit) success = true;
-  else if (nCrit && !pCrit) success = false;
-  else success = pScore >= nScore;
-
-  let aiPrompt;
-  if (success) {
-    const bagCount = itemData.filter(r => String(r[COL.ITEM.OWNER]) === String(pcId) && String(r[COL.ITEM.LOC2]).trim() !== "倉庫").length;
-    if (bagCount >= MAX_BAG_SIZE) {
-      return JSON.stringify({ success: false, message: `行囊已滿（${MAX_BAG_SIZE}/${MAX_BAG_SIZE}），下手得手也無處安放，請先清理包包再來！` });
-    }
-    sheets.item.getRange(iIdx + 1, COL.ITEM.OWNER + 1).setValue(pcId);
-    aiPrompt = buildNpcRequestPrompt(sheets, pName, pLoc, npcRow, `玩家妙手空空，暗中將「${npcName}」身上的「${itemName}」偷天換日轉移到自己行囊，對方渾然未覺（結果已定，禁止改變）！請生動描寫玩家不著痕跡的偷竊手法，以及對方毫無所覺的反應。`, pcData[pIdx]);
-  } else {
-    const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
-    const rIdx = relData.findIndex(r => r[COL.REL.PC] === pName && r[COL.REL.NPC] === npcName);
-    if (rIdx !== -1) {
-      const newFav = Math.max(-100, Math.min(100, (parseInt(relData[rIdx][COL.REL.FAV]) || 0) - 5));
-      sheets.rel.getRange(rIdx + 1, COL.REL.FAV + 1).setValue(newFav);
-    } else if (sheets.rel) {
-      sheets.rel.appendRow([pName, npcName, -5, "萍水相逢", "", "", `偷竊「${itemName}」被識破`]);
-    }
-    const newHp = Math.max(1, (parseInt(pcData[pIdx][COL.PC.HP]) || 0) - 10);
-    sheets.pc.getRange(pIdx + 1, COL.PC.HP + 1).setValue(newHp);
-    aiPrompt = buildNpcRequestPrompt(sheets, pName, pLoc, npcRow, `玩家妙手空空企圖偷取「${npcName}」身上的「${itemName}」，卻被當場識破！對方震怒反擊，玩家因而損失了好感並受了些皮肉傷（結果已定，禁止改變）。請生動描寫玩家偷竊失手、被識破當場的尷尬與對方的怒意反擊。`, pcData[pIdx]);
-  }
-
-  return JSON.stringify({ success: true, aiPrompt, itemName, npcName, stealSuccess: success });
-}
 
 // 🟢 煉丹/煉器/煉成：必定成功，品級由 D20 查 RARITY_TABLE 裁定(造化綠液入素材=強制20)，AI 只負責想名字/描述與敘事
 const CRAFT_QUALITY_BY_ROLL = ["凡品", "凡品", "粗劣", "粗劣", "普通", "普通", "良品", "良品", "精品", "精品", "珍品", "珍品", "稀世", "稀世", "絕世", "絕世", "神器", "神器", "神器", "傳說"];
 
-function actionCraftItem(userData, pcId, sheets) {
-  const { method, intent, materials } = userData;
-  if (!materials || !Array.isArray(materials) || materials.length === 0) {
-    return JSON.stringify({ success: false, message: "未投入任何素材，無法開爐。" });
-  }
-  let pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人命格。" });
-
-  let itemData = sheets.item.getDataRange().getValues();
-  const matIds = materials.map(m => m.id);
-  let consumedNames = [];
-  let hasCatalyst = false;
-  for (let i = itemData.length - 1; i >= 1; i--) {
-    if (itemData[i][COL.ITEM.OWNER] == pcId && matIds.includes(itemData[i][COL.ITEM.ID])) {
-      if (String(itemData[i][COL.ITEM.NAME]).trim() === "造化綠液") hasCatalyst = true;
-      consumedNames.push(itemData[i][COL.ITEM.NAME]);
-      sheets.item.deleteRow(i + 1);
-      itemData.splice(i, 1);
-    }
-  }
-  if (consumedNames.length === 0) return JSON.stringify({ success: false, message: "行囊中查無投入的素材。" });
-
-  const bagCount = itemData.filter(r => String(r[COL.ITEM.OWNER]) === String(pcId) && String(r[COL.ITEM.LOC2]).trim() !== "倉庫").length;
-  if (bagCount >= MAX_BAG_SIZE) {
-    return JSON.stringify({ success: false, message: `行囊已滿（${MAX_BAG_SIZE}/${MAX_BAG_SIZE}），煉成的成品已無處安放，請先清理包包！` });
-  }
-
-  const roll = hasCatalyst ? 20 : rollD20();
-  const quality = CRAFT_QUALITY_BY_ROLL[roll - 1];
-
-  const craftSystem = `你是九州煉器/煉丹宗師。玩家正在使用「${method}」陣法煉製物品，意圖為「${intent}」，投入素材：${consumedNames.join("、")}。
-系統已裁定此次煉製【必定成功】，品級固定為【${quality}】（不可更改）。你只需要：
-1. 構思一個符合意圖、素材與品級氣質的物品名稱(name)與簡短描述(desc，30字內)。
-2. 判定其類別 type，只能是以下其中之一：武器、防具、法寶、丹藥、恢復道具、消耗品。
-3. 若 type 為武器/防具/法寶，須額外給出 stat_type，只能是：臂力、根骨、身法、神識、福緣 之一(依物品意境挑選最貼切的一項)；若 type 為丹藥/恢復道具/消耗品則 stat_type 填無。
-4. 用 100~180 字生動描寫開爐煉成、爆發異象、成品出爐的過程(narration)。
-只輸出 JSON：{"narration":"...","name":"...","desc":"...","type":"...","stat_type":"..."}，禁止其他欄位、禁止 Markdown。`;
-
-  const raw = callGeminiAPI(`開爐煉成，意圖：${intent}`, craftSystem, {
-    temperature: 0.9, ignoreLaw: true, max_tokens: 600, model: "google/gemini-3.1-flash-lite"
-  });
-
-  let data;
-  try {
-    const start = raw.indexOf('{');
-    const end = raw.lastIndexOf('}');
-    data = JSON.parse(raw.substring(start, end + 1));
-  } catch (e) { data = {}; }
-
-  const itemName = (data.name && String(data.name).trim()) || `${method}・${quality}成品`;
-  const itemDesc = (data.desc && String(data.desc).trim()) || `由「${consumedNames.join("、")}」煉製而成的${quality}之物。`;
-  const narrationText = (data.narration && String(data.narration).trim()) || `爐火熊熊，異象乍現，一件${quality}成品自爐中誕生！`;
-  const itemType = data.type || "消耗品";
-
-  const p = getRarityPoints(quality, itemType === "丹藥");
-  let sSTR = 0, sCON = 0, sAGI = 0, sINT = 0, sLUK = 0;
-  if (["武器", "防具", "法寶", "丹藥"].includes(itemType)) {
-    if (itemType === "武器") sSTR = p;
-    else if (itemType === "防具") sCON = p;
-    else {
-      if (data.stat_type === "臂力") sSTR = p;
-      else if (data.stat_type === "根骨") sCON = p;
-      else if (data.stat_type === "身法") sAGI = p;
-      else if (data.stat_type === "神識") sINT = p;
-      else sLUK = p;
-    }
-  }
-  const hasBonus = (sSTR > 0 || sCON > 0 || sAGI > 0 || sINT > 0 || sLUK > 0);
-  const correctedType = detectItemType(itemName, itemType, hasBonus);
-  const newItemId = "ITM_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
-  sheets.item.appendRow([itemName, correctedType, itemDesc, 10, pcId, sSTR, sCON, sAGI, sINT, sLUK, newItemId]);
-
-  saveGameHistoryBatch(pcId, [
-    { speaker: "player", content: `【系統動作】玩家啟動「${method}」陣法，投入「${consumedNames.join("、")}」，意圖：「${intent}」。` },
-    { speaker: "ai", content: narrationText }
-  ]);
-
-  return JSON.stringify({ success: true, text: narrationText, itemName, rarity: quality });
-}
 
 // 🟢 聽風閣買情報：扣款由 GAS 結構化裁定，AI 只負責想線索內容與敘事
-function actionBuyIntel(userData, pcId, sheets) {
-  const { intelType, intent } = userData;
-  let pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人命格。" });
-  const money = parseInt(pcData[pIdx][COL.PC.MONEY]) || 0;
-  if (money < 50) {
-    return JSON.stringify({ success: false, message: "你摸了摸乾癟的錢袋，連 50 兩的情報費都湊不出來，訕訕地退出了聽風閣。" });
-  }
-  sheets.pc.getRange(pIdx + 1, COL.PC.MONEY + 1).setValue(money - 50);
 
-  const intelSystem = `你是九州情報販子「聽風閣」閣主。玩家花費 50 兩銀子(已由系統扣除完畢)，指名打聽關於「${intelType}」的精確情報${intent ? `(玩家個人傾向：${intent})` : ''}。
-請構思一則明確線索（東西在哪、在誰手上、或下一步該去哪），並用 100~180 字以情報販子的口吻生動描寫告知過程(narration)。
-只輸出 JSON：{"narration":"...","quest_name":"...","quest_target":"..."}，quest_target 為線索指向的明確地點或目標(20字內)，禁止其他欄位、禁止 Markdown。`;
 
-  const raw = callGeminiAPI(`打探情報：${intelType}`, intelSystem, {
-    temperature: 0.85, ignoreLaw: true, max_tokens: 500, model: "google/gemini-3.1-flash-lite"
-  });
-
-  let data;
-  try {
-    const start = raw.indexOf('{');
-    const end = raw.lastIndexOf('}');
-    data = JSON.parse(raw.substring(start, end + 1));
-  } catch (e) { data = {}; }
-
-  const narrationText = (data.narration && String(data.narration).trim()) || `閣主壓低了聲音，將關於「${intelType}」的線索告知了你。`;
-  const questName = (data.quest_name && String(data.quest_name).trim()) || `打聽：${intelType}`;
-  const questTarget = (data.quest_target && String(data.quest_target).trim()) || "調查中";
-
-  if (sheets.quest) {
-    let questData = sheets.quest.getDataRange().getValues();
-    const qIdx = questData.findIndex(r => r[COL.QUEST.PC] == pcId && r[COL.QUEST.NAME] === questName && r[COL.QUEST.STATUS] === "進行中");
-    if (qIdx !== -1) {
-      sheets.quest.getRange(qIdx + 1, COL.QUEST.TARGET + 1).setValue(questTarget);
-    } else {
-      sheets.quest.appendRow([pcId, questName, questTarget, "進行中", 0, "無"]);
-    }
-  }
-
-  saveGameHistoryBatch(pcId, [
-    { speaker: "player", content: `【系統動作】玩家在『聽風閣』花費 50 兩，指名打聽關於「${intelType}」的情報。` },
-    { speaker: "ai", content: narrationText }
-  ]);
-
-  return JSON.stringify({ success: true, text: narrationText, questName, questTarget });
-}
-
-function actionGetAvailableGear(userData, pcId, sheets) {
-  const { slotType, targetId } = userData;
-  const actualTarget = targetId || pcId;
-  if (!sheets.item) return JSON.stringify({ success: false, message: "琳琅表不存在" });
-  const pcRow = sheets.pc.getDataRange().getValues().find(r => r[COL.PC.ID] == actualTarget);
-  if (!pcRow) return JSON.stringify({ success: false, message: "查無此人" });
-
-  const eqWeapon = pcRow[COL.PC.WEP] ? String(pcRow[COL.PC.WEP]).trim() : "";
-  const eqArmor = pcRow[COL.PC.ARM] ? String(pcRow[COL.PC.ARM]).trim() : "";
-  const eqAcc1 = pcRow[COL.PC.ACC1] ? String(pcRow[COL.PC.ACC1]).trim() : "";
-  const eqAcc2 = pcRow[COL.PC.ACC2] ? String(pcRow[COL.PC.ACC2]).trim() : "";
-  const allEquipped = [eqWeapon, eqArmor, eqAcc1, eqAcc2].filter(x => x !== "");
-
-  let targetType = slotType.startsWith("法寶") ? "法寶" : slotType;
-  const availableGears = [];
-  sheets.item.getDataRange().getValues().slice(1).filter(r => (r[COL.ITEM.OWNER] == pcId || r[COL.ITEM.OWNER] == actualTarget) && r[COL.ITEM.TYPE] === targetType).forEach(r => {
-    const id = String(r[COL.ITEM.ID] || r[COL.ITEM.NAME]).trim();
-    let isEq = (slotType === "武器" && eqWeapon === id) || (slotType === "防具" && eqArmor === id) || (slotType === "法寶1" && eqAcc1 === id) || (slotType === "法寶2" && eqAcc2 === id);
-
-    if (!allEquipped.includes(id) || isEq) {
-      let attrDesc = [];
-      if (parseInt(r[COL.ITEM.STR])) attrDesc.push(`臂力+${r[COL.ITEM.STR]}`); if (parseInt(r[COL.ITEM.CON])) attrDesc.push(`根骨+${r[COL.ITEM.CON]}`);
-      if (parseInt(r[COL.ITEM.AGI])) attrDesc.push(`身法+${r[COL.ITEM.AGI]}`); if (parseInt(r[COL.ITEM.INT])) attrDesc.push(`神識+${r[COL.ITEM.INT]}`);
-      if (parseInt(r[COL.ITEM.LUK])) attrDesc.push(`福緣+${r[COL.ITEM.LUK]}`);
-      availableGears.push({ id: id, name: r[COL.ITEM.NAME], type: r[COL.ITEM.TYPE], desc: r[COL.ITEM.DESC] || "無描述", stats: attrDesc.join(", ") || "無附加屬性", isEquipped: isEq });
-    }
-  });
-  return JSON.stringify({ success: true, data: availableGears });
-}
-
-function actionEquipGear(userData, pcId, sheets) {
-  const { slotType, itemId, targetId } = userData;
-  const actualTarget = targetId || pcId;
-  const pcRows = sheets.pc.getDataRange().getValues();
-  const pIdx = pcRows.findIndex(r => r[COL.PC.ID] == actualTarget);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
-
-  if (actualTarget !== pcId) {
-    const myName = pcRows.find(r => r[COL.PC.ID] == pcId)[COL.PC.NAME];
-    const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
-    const rIdx = relData.findIndex(r => r[COL.REL.PC] === myName && r[COL.REL.NPC] === pcRows[pIdx][COL.PC.NAME]);
-    if ((rIdx !== -1 ? parseInt(relData[rIdx][COL.REL.FAV]) || 0 : 0) < 100 || !(rIdx !== -1 ? String(relData[rIdx][COL.REL.TAG]) : "").includes("(已傾心)")) {
-      return JSON.stringify({ success: false, message: "對方對妳尚未全心託付（需好感 100 且已傾心），拒絕更換裝備。" });
-    }
-  }
-
-  let targetCol = slotType === "武器" ? COL.PC.WEP + 1 : slotType === "防具" ? COL.PC.ARM + 1 : slotType === "法寶1" ? COL.PC.ACC1 + 1 : slotType === "法寶2" ? COL.PC.ACC2 + 1 : -1;
-  if (targetCol === -1) return JSON.stringify({ success: false, message: "無效的裝備部位！" });
-
-  if (itemId) {
-    const itemDataForCheck = sheets.item ? sheets.item.getDataRange().getValues() : [];
-    const strItemId = String(itemId).trim();
-    const iIdx = itemDataForCheck.findIndex(r => String(r[COL.ITEM.ID]).trim() === strItemId && (r[COL.ITEM.OWNER] == pcId || r[COL.ITEM.OWNER] == actualTarget));
-    if (iIdx === -1) return JSON.stringify({ success: false, message: "行囊中無此氣息，無法裝備！" });
-
-    if (itemDataForCheck[iIdx][COL.ITEM.OWNER] != actualTarget) {
-      const oldOwner = itemDataForCheck[iIdx][COL.ITEM.OWNER];
-      sheets.item.getRange(iIdx + 1, COL.ITEM.OWNER + 1).setValue(actualTarget);
-      const oldOwnerIdx = pcRows.findIndex(r => r[COL.PC.ID] == oldOwner);
-      if (oldOwnerIdx !== -1) {
-        const oldRow = pcRows[oldOwnerIdx];
-        if (String(oldRow[COL.PC.WEP]).trim() === strItemId) sheets.pc.getRange(oldOwnerIdx + 1, COL.PC.WEP + 1).setValue("");
-        if (String(oldRow[COL.PC.ARM]).trim() === strItemId) sheets.pc.getRange(oldOwnerIdx + 1, COL.PC.ARM + 1).setValue("");
-        if (String(oldRow[COL.PC.ACC1]).trim() === strItemId) sheets.pc.getRange(oldOwnerIdx + 1, COL.PC.ACC1 + 1).setValue("");
-        if (String(oldRow[COL.PC.ACC2]).trim() === strItemId) sheets.pc.getRange(oldOwnerIdx + 1, COL.PC.ACC2 + 1).setValue("");
-      }
-    }
-  }
-
-  sheets.pc.getRange(pIdx + 1, targetCol).setValue(itemId || "");
-  return JSON.stringify({ success: true, statusString: getFreshStatusString(actualTarget, pIdx, sheets) });
-}
 
 function actionGetFullStatus(userData, pcId, sheets) {
   const targetName = userData.targetName;
@@ -1418,10 +329,12 @@ function actionUpdateFate(userData, pcId, sheets) {
     }
   }
 
-  let targetCol = fateType === 'trait' ? COL.PC.TRAIT : fateType === 'pref' ? COL.PC.PREF : fateType === 'back' ? COL.PC.BACK : fateType === 'intent' ? COL.PC.INTENT : fateType === 'martial' ? COL.PC.MARTIAL : -1;
-  if (targetCol === -1) return JSON.stringify({ success: false, message: "未知的命格類型" });
-  // 🔴 命格欄位直寫入表格，需自行把關長度（全域 sanitizer 只做通用上限）
-  pcData[pIdx][targetCol] = String(fateValue || "").slice(0, 120);
+  // 🔵 只准改 4 種敘事欄（個性/特徵/身世/萌點）；數值(六圍/迴路/禮裝)與寶具(martial)一律不可改——GAS 掌數值鐵則。
+  let targetCol = fateType === 'trait' ? COL.PC.TRAIT : fateType === 'pref' ? COL.PC.PREF : fateType === 'back' ? COL.PC.BACK : fateType === 'intent' ? COL.PC.INTENT : -1;
+  if (targetCol === -1) return JSON.stringify({ success: false, message: "此欄位不可修改（只能改個性／特徵／身世／萌點，數值與寶具一律鎖死）。" });
+  // 🔴 命格欄位直寫入表格，需自行把關長度：身世/萌點 單格 30；個性/特徵 為 4 格頓號拼接、給較寬上限
+  var cap = (fateType === 'back' || fateType === 'intent') ? 30 : 130;
+  pcData[pIdx][targetCol] = String(fateValue || "").slice(0, cap);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
 
   let relMem = "";
@@ -1498,15 +411,16 @@ function actionManualNpc(userData, pcId, sheets) {
 
 ★【演出而非說明】願望與身世只作為設定底層，不要在 background 裡直接複述願望字面。
 ★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
-- traits：外貌、氣質舉止、魔術或戰鬥傾向、私下不為人知的一面
+- traits：外貌、氣質舉止、魔術師的癖性、卸下心防的私密一面
 - personality：日常表象、真實內裡、喜歡的事、討厭的事
 ★npc_intent：一句【簡短】萌點（可愛反差，≤15字），結合此御主身分性格，要反差、可愛、獨特。
 ★background：限20字，呼應其身世／財力，禁出現具體物品名。
 ★start_loc：從冬木地點中選一個合理的居所或起點：${validMapNames.join('、')}
-★realm 一律填「凡人」（御主靈基由系統裁定）。faction 填御主所屬（魔術協會／教會／無所屬等，無則「無」），rank 填「御主」。
+★faction 填御主所屬（魔術協會／教會／無所屬等，無則「無」），rank 填「御主」。
+★【勿輸出數值】境界(凡人)、五圍、HP/MP 一律由系統裁定，prompt【不要】輸出 realm/str/con/agi/int/luk 等任何數值欄位。
 
 ★【輸出】合法 JSON、禁 Markdown：
-{"start_loc":"冬木地點","background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","realm":"凡人","str":12,"con":12,"agi":12,"int":12,"luk":12,"faction":"無","rank":"御主","align":"中立","npc_intent":"結合御主身分的獨特可愛反差萌，一句話","start_item":{"name":"與御主相關的隨身之物","desc":"限15字描述"}}`;
+{"start_loc":"冬木地點","background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","faction":"無","rank":"御主","align":"中立","npc_intent":"結合御主身分的獨特可愛反差萌，一句話","start_item":{"name":"與御主相關的隨身之物","desc":"限15字描述"}}`;
 
   // 🔴 新版：加上 ignoreLaw: true，把節慶跟天氣隔絕在創建室外
   const aiBriefStr = callGeminiAPI(promptStr, isCreate ? MASTER_GEN_SYS : sysOverride, { temperature: 0.6, ignoreLaw: true });
@@ -1604,7 +518,7 @@ function actionManualNpc(userData, pcId, sheets) {
       else { lo = 500; hi = 1000; }  // 罡氣以上：一方大能
       newRow[COL.PC.MONEY] = lo + Math.floor(Math.random() * (hi - lo + 1));
     }
-    newRow[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.traits, "深藏不露、武功平平、雜學精通、床笫之間的反應");
+    newRow[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.traits, "外貌平凡、舉止從容、魔術師的癖性、深藏的私密一面");
     newRow[COL.PC.LOC] = spawnName;
     newRow[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "溫婉謙和、內斂堅韌、明哲保身、隨波逐流");
     newRow[COL.PC.HP] = maxStats.hp; newRow[COL.PC.MP] = maxStats.mp;
@@ -1830,19 +744,11 @@ function actionSummonServant(userData, pcId, sheets) {
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       row[COL.PC.REALM] = "凡人";
       row[COL.PC.TRAIT] = parseTraitsHelper(traits.map(t => t.n).join("、"), "氣場凜然、舉止從容、精擅戰技、深藏之面");
-      // 依人格補完 4 格個性（含喜歡/討厭）＋ 短萌點
+      // 🚀 種子英靈：直接用寫死的種子 persona（萌點/口吻 v3 已補齊），不再叫 AI 重生一次——省一次 API、加速召喚。
+      //    個性取 persona.words(四關鍵)、萌點取 persona.moe、生平用種子既有 back 或職階真名模板。細緻演出靠 servantCard_(codexPersona_) 注入。
       let svPref = String(persona.words || "").replace(/・/g, "、");
-      let svMoe = "";
-      let svBack = `${cls}・${realName}`;
-      try {
-        const en = JSON.parse(callGeminiAPI(
-          `從者真名：${realName}（${cls}職階）\n性格關鍵：${persona.words || ""}\n對御主：${persona.toMaster || ""}\n寶具：${np}`,
-          `為《命運停駐之夜》的從者補完設定（依該英靈真實傳說，只給設定、勿演出複述）。\n★生平：一句【貼近官方傳說】的生平梗概，≤24 字。\n★personality：剛好 4 短句、頓號分隔，依序為「日常表象、真實內裡、喜歡的事、討厭的事」。\n★萌點：一句【簡短】可愛反差，≤15 字。\n輸出合法 JSON、禁 Markdown：{"生平":"≤24字","personality":"四格頓號字串","萌點":"≤15字"}`,
-          { temperature: 0.7, ignoreLaw: true }));
-        if (en && en.personality) svPref = en.personality;
-        svMoe = String((en && en.萌點) || "").slice(0, 18);
-        if (en && en.生平) svBack = String(en.生平).slice(0, 28);
-      } catch (e) { }
+      let svMoe = String(persona.moe || "").slice(0, 18);
+      let svBack = persona.back ? String(persona.back).slice(0, 28) : `${cls}・${realName}`;
       row[COL.PC.PREF] = parseTraitsHelper(svPref, "沉著表象、堅定內裡、珍視之物、厭惡之事");
       row[COL.PC.MEMORY] = `第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || "保持距離"}`;
       row[COL.PC.SIX] = JSON.stringify(six);
@@ -1904,6 +810,8 @@ ${FX_MENU_}
 
     // 🔵 召喚完成 → 鋪敵方御主×從者進這個 game_id 世界（一次性）
     try { seedRivalsForGame_(gameId, realName, warName, playedMaster); } catch (e) { }
+    // 📖 戰記開卷：開戰＋召喚
+    try { logWarEvent_(gameId, `⚔️ 冬木的聖杯戰爭開幕——御主『${pcName}』以令咒召喚出 ${cls} 職階的從者「${realName}」，締結契約。`, userData.acctName); } catch (e) { }
 
     // 🎬 召喚登場場景（精簡敘事用，含角色卡；前端純按鈕模式直接 narrate，不走 options 那套）
     const summonPrompt = servantCard_(row) +
@@ -2119,8 +1027,8 @@ function actionGetAllCategorizedMaps(userData, pcId, sheets) {
 
 function actionMove(userData, pcId, sheets) {
   const { target } = userData;
-  const allPcData = sheets.pc.getDataRange().getValues();
-  const pIdx = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
+  let allPcData = sheets.pc.getDataRange().getValues();
+  let pIdx = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
 
   // ⏳ 行動點檢查（移動耗 2 AP＝2 小時；鑑賞 k_ 不耗 AP）
@@ -2130,6 +1038,35 @@ function actionMove(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: "行動力不足以遠行（需 2 點）——請『休息』恢復後再出發。", clock: clockLabel_(moveGameId), ap: getAp_(moveGameId), apMax: AP_PER_DAY });
   }
 
+  // 🎭 抵達態度判定（趁世界尚未 tick，看 target 此刻是否「已有先客」）：
+  //   先客在＝玩家主動找上門(對方在自己地盤、會警惕戒備)；無＝偶遇(雙方恰巧撞上、都帶幾分意外)。
+  const tgtTrim = String(target || "").trim();
+  const preFoesAtTarget = allPcData.filter(r =>
+    (String(r[COL.PC.FACTION]) === "敵御主" || String(r[COL.PC.FACTION]) === "敵從者")
+    && (!moveGameId || String(r[COL.PC.GAME_ID] || "") === moveGameId)
+    && !String(r[COL.PC.ID]).startsWith("DEAD_")
+    && String(r[COL.PC.LOC] || "").trim() === tgtTrim
+  ).map(r => String(r[COL.PC.NAME]));
+
+  // 🌍 世界先動，玩家後到：先讓敵御主／敵從者 tick 到各自的新位置，再把玩家落到 target——
+  //   這樣「追到敵人所在地」時，敵人不會在你踏進來的同一瞬間又被傳走（修：撞在一起卻沒對話）。
+  //   敵人就位後才讀同地資料給 AI，這一輪它們鎖在原地，遭遇敘事才跑得起來。
+  let clockLabel = "", worldRumors = [], apLeft = AP_PER_DAY, moveVictory = false;
+  if (isFateMove) {
+    try {
+      const sp = spendAp_(moveGameId, 2);
+      apLeft = sp.ap;
+      const tick = worldTick_(sheets, moveGameId, target, 1, false); // 移動只讓敵換位，不死人；但令咒透支倒數可能到期收尾
+      worldRumors = tick.rumors || [];
+      moveVictory = !!tick.victory;
+      try { const ab = breakStaleAlliances_(sheets, moveGameId); if (ab.broken.length) worldRumors.push(`〔盟約${ab.forced ? '瓦解' : '到期'}〕你與「${ab.broken.join('、')}」的同盟已${ab.forced ? '因戰局逼近終局而破裂——最後只能剩一個' : '到期失效'}，重回敵對。`); } catch (e) { }
+      clockLabel = clockLabel_(moveGameId);
+    } catch (e) { }
+  }
+
+  // 🔁 敵人已 tick 就位 → 重讀眾生，再把玩家(與同行從者)落到 target，避免用舊資料覆蓋掉剛剛的敵方移動
+  allPcData = sheets.pc.getDataRange().getValues();
+  pIdx = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
   allPcData[pIdx][COL.PC.LOC] = target;
   const pcName = allPcData[pIdx][COL.PC.NAME];
   const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
@@ -2148,6 +1085,7 @@ function actionMove(userData, pcId, sheets) {
     const did = applyRegen_(allPcData, moveGameId, pcName, partyNames, masterCircuits_(allPcData[pIdx]), 2, 1, sheets, target, homeLoc);
     if (did) regenNote = "〔時回〕數小時的奔波之間，靈基與魔力隨時間悄然回流了一些。";
   }
+  if (regenNote) worldRumors.unshift(regenNote);
 
   const pcColCount = Object.keys(COL.PC).length;
   allPcData.forEach(row => { while (row.length < pcColCount) { row.push(""); } });
@@ -2155,19 +1093,6 @@ function actionMove(userData, pcId, sheets) {
   sheets.pc.getRange(1, 1, allPcData.length, pcColCount).setValues(allPcData);
   SpreadsheetApp.flush();
 
-  // ⏳ 移動耗 2 AP（＝推進 2 小時，1 AP＝1 小時）＋ 世界自走一輪；聊天不會走到這裡
-  let clockLabel = "", worldRumors = [], apLeft = AP_PER_DAY;
-  if (isFateMove) {
-    try {
-      const sp = spendAp_(moveGameId, 2);
-      apLeft = sp.ap;
-      const tick = worldTick_(sheets, moveGameId, target, 1, false); // 移動只讓敵換位，不死人
-      worldRumors = tick.rumors || [];
-      try { const ab = breakStaleAlliances_(sheets, moveGameId); if (ab.broken.length) worldRumors.push(`〔盟約${ab.forced ? '瓦解' : '到期'}〕你與「${ab.broken.join('、')}」的同盟已${ab.forced ? '因戰局逼近終局而破裂——最後只能剩一個' : '到期失效'}，重回敵對。`); } catch (e) { }
-      if (regenNote) worldRumors.unshift(regenNote);
-      clockLabel = clockLabel_(moveGameId);
-    } catch (e) { }
-  }
   try { markRivalsSeen_(sheets, pcId); } catch (e) { } // 🔵 抵達即偵查到此地敵人（世界 tick 後再揭一次）
 
   // 📜 正典插針：抵達後依【戰爭】×路線×日×時段×地點檢查正史橋段（自然浮現路線、世界事件、引導）
@@ -2181,8 +1106,15 @@ function actionMove(userData, pcId, sheets) {
   let mapDesc = parentMapInfo ? `【母區域：${rootTarget}】${parentMapInfo[COL.MAP.DESC]}` : "此處荒煙蔓草，並未記載於輿圖之中。";
   if (subMapInfo) mapDesc += `\n【當前分支：${target}】${subMapInfo[COL.MAP.DESC]}`;
 
+  // 🎭 隨行從者的「演出依據」卡（含狂化禁言/口吻），供前端抵達敘事讓從者真的在場、有反應，不是御主獨白
+  var svIdxMove = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
+  var svCardMove = svIdxMove !== -1 ? servantCard_(allPcData[svIdxMove]) : "";
+
   return JSON.stringify({
     success: true,
+    servantCard: svCardMove,
+    preFoes: preFoesAtTarget,
+    victory: moveVictory,
     statusString: buildPlayerStatusString(allPcData[pIdx], getCharacterTotalStats(pcId, sheets, allPcData), sheets.item ? sheets.item.getDataRange().getValues() : []),
     people: getLocalPeopleList(sheets, pcName, pcId, target, relData, sheets.task ? sheets.task.getDataRange().getValues() : []),
     locations: getNearbyLocations(target, freshMapData).slice(0, 5),
@@ -2256,12 +1188,12 @@ function actionRest(userData, pcId, sheets) {
     });
     sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
 
-    let restClock = "", restRumors = [], apAfter = AP_PER_DAY;
+    let restClock = "", restRumors = [], apAfter = AP_PER_DAY, restVictory = false;
     try {
       const clk = restHours_(restGameId, restHours);
       apAfter = clk ? clk.ap : AP_PER_DAY;
       const rounds = Math.floor(restHours / 3); // 1h:0、3h:1、6h:2 輪世界自走
-      if (rounds > 0) { const tick = worldTick_(sheets, restGameId, pcLoc, rounds, true); restRumors = tick.rumors || []; }
+      if (rounds > 0) { const tick = worldTick_(sheets, restGameId, pcLoc, rounds, true); restRumors = tick.rumors || []; restVictory = !!tick.victory; }
       restClock = clockLabel_(restGameId);
     } catch (e) { }
     try { sheets.log.appendRow([new Date(), pcId, `【系統】御主一行休息了 ${restHours} 小時，恢復行動力。`, pcLoc]); } catch (e) { }
@@ -2278,7 +1210,7 @@ function actionRest(userData, pcId, sheets) {
           `【系統·從者之夢·回想】御主沉沉睡去，意識卻順著與從者的靈魂聯繫，墜入「${dSvName}」成為英靈之前的記憶長河——夢見其傳說中的一個片段。\n` +
           `★以 Fate／TYPE-MOON 筆觸，用夢境／回想的朦朧史詩質感，演出「${dSvName}」這名英靈生前傳說裡的某一幕（取材自其真實的神話／史實／傳說：其榮光、抉擇、孤獨或傷痕）。讓御主（與玩家）窺見這名英靈所背負的過往與信念。\n` +
           `★【show, don't tell】以畫面與情境流露，不直接點破其願望或心結，停在夢醒前的餘韻與一絲說不清的悸動。\n` +
-          `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+          ``;
       }
     }
     // 📜 正典插針：休息推進時間（可能跨日）後檢查正史橋段
@@ -2294,6 +1226,7 @@ function actionRest(userData, pcId, sheets) {
       canonBeats: restBeats, canonLeads: restLeads,
       ambush: !!restAmbush, defeat: restAmbush ? restAmbush.defeat : false, dreamPrompt: restAmbush ? restAmbush.dreamPrompt : "", ambushPrompt: restAmbushPrompt,
       servantDream: restDreamPrompt,
+      victory: restVictory && !(restAmbush && restAmbush.defeat),
       economy: playerServantEconomy_(sheets, pcId)
     });
   }
@@ -2345,35 +1278,6 @@ function actionGetRumors(userData, pcId, sheets) {
 }
 
 
-function actionGiveMoney(userData, pcId, sheets) {
-  const { targetName, amount } = userData;
-
-  const lock = LockService.getScriptLock();
-  try {
-    lock.waitLock(10000); // 最多等 10 秒，拿不到鎖就丟例外
-  } catch (e) {
-    return JSON.stringify({ success: false, message: "天道擁擠，請稍候再試一次。" });
-  }
-
-  try {
-    const pcData = sheets.pc.getDataRange().getValues();
-    const meIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-    if (meIdx === -1) return JSON.stringify({ success: false, message: "查無此人命格。" });
-    const myName = pcData[meIdx][COL.PC.NAME];
-
-    // 🔴 安全鎖：付款方一定是「呼叫者本人」，玩家只能給出自己的錢
-    const result = transferMoney(myName, targetName, amount, sheets, pcData);
-    if (!result.success) return JSON.stringify(result);
-
-    return JSON.stringify({
-      success: true,
-      message: result.message,
-      statusString: getFreshStatusString(pcId, meIdx, sheets)
-    });
-  } finally {
-    lock.releaseLock();
-  }
-}
 // ==========================================
 // 📜 全新 MMO 級飛書系統 (支援夾帶物品與刪除，完美兼容 NPC)
 // ==========================================
@@ -3542,71 +2446,6 @@ ${isKanshou ? `
 
 
 
-function actionGetFactionInfo(userData, pcId, sheets) {
-  const pcData = sheets.pc.getDataRange().getValues();
-  const pcRow = pcData.find(r => r[COL.PC.ID] == pcId);
-  if (!pcRow) return JSON.stringify({ success: false });
-
-  const myFaction = pcRow[COL.PC.FACTION] || "無";
-  const myRank = pcRow[COL.PC.RANK] || "散人";
-  const myContrib = pcRow[COL.PC.CONTRIB] || 0;
-
-  // 取得我的門派詳情
-  let myFactionData = null;
-  if (myFaction !== "無" && sheets.faction) {
-    const fData = sheets.faction.getDataRange().getValues();
-    const fRow = fData.find(r => r[COL.FACTION.NAME] === myFaction);
-    if (fRow) {
-      // 從大勢表取氣運
-      let power = 50, status = "中立";
-      const trendSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("大勢");
-      if (trendSheet) {
-        const tData = trendSheet.getDataRange().getValues();
-        const tRow = tData.find(r => r[0] === myFaction);
-        if (tRow) { power = tRow[2]; status = tRow[1]; }
-      }
-      myFactionData = {
-        name: fRow[COL.FACTION.NAME],
-        align: fRow[COL.FACTION.ALIGN],
-        base: fRow[COL.FACTION.BASE],
-        leader: fRow[COL.FACTION.LEADER],
-        motto: fRow[COL.FACTION.MOTTO],
-        power: power,
-        status: status
-      };
-    }
-  }
-
-  // 取得天下所有勢力排行
-  let allFactions = [];
-  if (sheets.faction) {
-    const fData = sheets.faction.getDataRange().getValues();
-    const trendSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("大勢");
-    let trendData = [];
-    if (trendSheet) trendData = trendSheet.getDataRange().getValues();
-
-    allFactions = fData.slice(1).map(r => {
-      const tRow = trendData.find(t => t[0] === r[COL.FACTION.NAME]);
-      return {
-        name: r[COL.FACTION.NAME],
-        align: r[COL.FACTION.ALIGN],
-        base: r[COL.FACTION.BASE],
-        leader: r[COL.FACTION.LEADER] || "神祕人",
-        power: tRow ? tRow[2] : 50,
-        status: tRow ? tRow[1] : "中立"
-      };
-    }).sort((a, b) => b.power - a.power);
-  }
-
-  return JSON.stringify({
-    success: true,
-    myFaction: myFaction,
-    myRank: myRank,
-    myContrib: myContrib,
-    myFactionData: myFactionData,
-    allFactions: allFactions
-  });
-}
 
 function actionGetEpicHistory(userData, pcId, sheets) {
   const pcData = sheets.pc.getDataRange().getValues();
@@ -3697,39 +2536,6 @@ function actionGetEpicHistory(userData, pcId, sheets) {
     }
   });
 }
-function actionGetRanking(userData, pcId, sheets) {
-  const pcData = sheets.pc.getDataRange().getValues();
-
-  const ranking = [];
-
-  pcData.slice(1).forEach(row => {
-    const id = String(row[COL.PC.ID]);
-    if (id.startsWith("DEAD_")) return;
-
-    const realm = row[COL.PC.REALM] || "凡人";
-    const realmMod = REALM_MODIFIERS[realm] || 1.0;
-
-    const str = Math.floor((parseInt(row[COL.PC.STR]) || 0) * realmMod);
-    const con = Math.floor((parseInt(row[COL.PC.CON]) || 0) * realmMod);
-    const agi = Math.floor((parseInt(row[COL.PC.AGI]) || 0) * realmMod);
-    const int = Math.floor((parseInt(row[COL.PC.INT]) || 0) * realmMod);
-    const luk = Math.floor((parseInt(row[COL.PC.LUK]) || 0) * realmMod);
-    const power = str + con + agi + int + luk;
-
-    ranking.push({
-      name: row[COL.PC.NAME],
-      realm: realm,
-      power: power,
-      faction: row[COL.PC.FACTION] || "無",
-      rank: row[COL.PC.RANK] || "散人",
-      isPlayer: id.startsWith("PC_")
-    });
-  });
-
-  ranking.sort((a, b) => b.power - a.power);
-
-  return JSON.stringify({ success: true, data: ranking.slice(0, 50) });
-}
 
 // 🟢 新增：天道強行抹除/斬斷 NPC 的重大事件約定
 function actionClearNpcMajorEvent(userData, pcId, sheets) {
@@ -3761,76 +2567,6 @@ function actionClearNpcMajorEvent(userData, pcId, sheets) {
 // ==========================================
 // 🎖️ 宗門晉升邏輯
 // ==========================================
-function actionPromoteRank(userData, pcId, sheets) {
-  const pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
-
-  const faction = pcData[pIdx][COL.PC.FACTION] || "無";
-  let rank = String(pcData[pIdx][COL.PC.RANK] || "散人").trim();
-  const contrib = parseInt(pcData[pIdx][COL.PC.CONTRIB]) || 0;
-
-  if (faction === "無" || faction === "無門派") {
-    return JSON.stringify({ success: false, message: "你尚無宗門，何來晉升？" });
-  }
-
-  // 1. 最高統治者防呆
-  if (rank.match(/宗主|掌門|教主|門主|谷主|閣主|魁首|老祖/)) {
-    return JSON.stringify({ success: false, message: `大能說笑了，你已是【${faction}】的${rank}，萬人之上，無可晉升！若要更高，除非飛升仙界。` });
-  }
-
-  // 2. 定義宗門階級與對應的「累計貢獻度」門檻
-  const rankPath = [
-    { name: "記名弟子", req: 0 },
-    { name: "外門弟子", req: 300 },
-    { name: "內門弟子", req: 1000 },
-    { name: "真傳弟子", req: 3000 },
-    { name: "執事", req: 6000 },
-    { name: "堂主", req: 12000 },
-    { name: "護法", req: 25000 },
-    { name: "長老", req: 50000 },
-    { name: "副宗主", req: 100000 }
-  ];
-
-  // 尋找目前階級在哪裡
-  let currentRankIdx = rankPath.findIndex(r => r.name === rank);
-
-  // 如果玩家現在的階級是被 AI 亂編的 (不在表內)，預設把他當作外門弟子來升級
-  if (currentRankIdx === -1) {
-    currentRankIdx = 0;
-  }
-
-  // 檢查是否已經封頂
-  if (currentRankIdx >= rankPath.length - 1) {
-    return JSON.stringify({ success: false, message: "你已達到副手之極，再往上就只能篡位當宗主了！" });
-  }
-
-  const nextRank = rankPath[currentRankIdx + 1];
-
-  // 3. 貢獻度門檻審查
-  if (contrib < nextRank.req) {
-    return JSON.stringify({
-      success: false,
-      message: `晉升【${nextRank.name}】需要累積達 ${nextRank.req} 點貢獻，你目前只有 ${contrib} 點。請多為宗門效力！`
-    });
-  }
-
-  // 4. 晉升成功！(我們設計為看「累計貢獻」，所以不扣貢獻度，這樣地位才不會掉)
-  pcData[pIdx][COL.PC.RANK] = nextRank.name;
-
-  // 寫入資料庫
-  sheets.pc.getRange(pIdx + 1, COL.PC.RANK + 1).setValue(nextRank.name);
-
-  if (sheets.epic) {
-    sheets.epic.appendRow([pcId, `【宗門晉升】在「${faction}」中屢建奇功，憑藉 ${contrib} 點貢獻晉升為【${nextRank.name}】。`, new Date()]);
-  }
-
-  return JSON.stringify({
-    success: true,
-    message: `鐘聲作響，天地昭告！憑藉著累積達 ${contrib} 點的卓著貢獻，你成功晉升為【${faction}】的【${nextRank.name}】！`,
-    statusString: getFreshStatusString(pcId, pIdx, sheets)
-  });
-}
 
 
 
@@ -3890,8 +2626,20 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
     var eSeals = parseInt(pcData[tgtIdx][COL.PC.CONTRIB]) || 0;
     if (eSeals > 0 && Math.random() < 0.30) {
       out.sealEscaped = true;
-      pcData[tgtIdx][COL.PC.HP] = 1; pcData[tgtIdx][COL.PC.CONTRIB] = eSeals - 1;
-      pcData[tgtIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基受創", "姿勢": "踉蹌", "負面": "令咒緊急脫離", "顏面": "咬牙退避" });
+      var leftSeals = eSeals - 1;
+      pcData[tgtIdx][COL.PC.HP] = 1; pcData[tgtIdx][COL.PC.CONTRIB] = leftSeals;
+      // 🕯️ 令咒燒到 0 × 無「單獨行動」→ 靈基失穩，掛上 SEAL_DOOM_HOURS 小時消滅倒數
+      var doomNote = "";
+      if (leftSeals <= 0 && !rowHasSolo_(pcData[tgtIdx])) {
+        var dClk = getClock_(ctx.myGameId);
+        if (dClk) {
+          var deadAbs = dClk.day * 24 + dClk.hour + SEAL_DOOM_HOURS;
+          pcData[tgtIdx][COL.PC.MEMORY] = stampDoom_(pcData[tgtIdx][COL.PC.MEMORY], deadAbs);
+          pcData[tgtIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰蝕", "姿勢": "踉蹌", "負面": `令咒耗盡·靈基透支(約 ${SEAL_DOOM_HOURS} 時消滅)`, "顏面": "強撐將潰" });
+          doomNote = `——三道令咒至此燃盡，失去令咒穩固的靈基開始崩解；它既無『單獨行動』自持，至多再撐約 ${SEAL_DOOM_HOURS} 小時。`;
+        }
+      }
+      if (!doomNote) pcData[tgtIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基受創", "姿勢": "踉蹌", "負面": "令咒緊急脫離", "顏面": "咬牙退避" });
       var oldLoc = String(pcData[tgtIdx][COL.PC.LOC]).trim(), newLoc = enemyRetreatLoc_(oldLoc);
       pcData[tgtIdx][COL.PC.LOC] = newLoc;
       sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
@@ -3900,7 +2648,8 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
           pcData[mi][COL.PC.LOC] = newLoc; sheets.pc.getRange(mi + 1, 1, 1, pcData[mi].length).setValues([pcData[mi]]); break;
         }
       }
-      out.sealNote = `對面御主一道令咒迸發，強令「${defC.name}」於靈基崩解前一瞬撤離戰場，遁向「${newLoc}」（敵餘令咒 ${eSeals - 1}）。`;
+      out.sealNote = `對面御主一道令咒迸發，強令「${defC.name}」於靈基崩解前一瞬撤離戰場，遁向「${newLoc}」（敵餘令咒 ${leftSeals}）。${doomNote}`;
+      logWarEvent_(ctx.myGameId, `敵御主燃一道令咒，令重傷的「${defC.name}」緊急脫離戰場（敵餘令咒 ${leftSeals}）${doomNote ? '；其令咒已盡、靈基進入透支倒數' : ''}。`, String(ctx.userData.acctName || ""));
       return out;
     }
   }
@@ -3938,13 +2687,19 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
         out.dreamPrompt = buildDreamPrompt_(pcData[ctx.pIdx][COL.PC.NAME], wish, svName);
         var acctD = String(ctx.userData.acctName || "");
         if (acctD) recordHistory_(acctD, "敗", svName, `「${svName}」於「${atkC.name}」之手靈基崩潰，聖杯戰爭落敗。`);
+        logWarEvent_(ctx.myGameId, `我方從者「${svName}」於「${atkC.name}」之手靈基崩潰消滅——聖杯戰爭落敗。`, String(ctx.userData.acctName || ""));
+      } else {
+        logWarEvent_(ctx.myGameId, `我方從者「${svName}」被「${atkC.name}」擊破消滅（尚有從者續戰）。`, String(ctx.userData.acctName || ""));
       }
     } else {
       out.knocked = out.destroyed;
+      // 🕯️ 敵從者被擊破 → 在其御主身上記下「如何痛失從者」，供日後遭遇時 AI 演出無牙御主
+      if (isFoeSv) { markMasterLostServant_(sheets.pc, pcData, tgtIdx, `被『${atkC.name}』當場擊破、靈基崩潰消滅`); logWarEvent_(ctx.myGameId, `敵從者「${out.destroyed}」被我方『${atkC.name}』擊破、靈基崩潰消滅。`, String(ctx.userData.acctName || "")); }
       if (isFoeSv && aliveEnemyServants_(sheets, ctx.myGameId) <= 0) {
         out.victory = true;
         var acctW = String(ctx.userData.acctName || "");
-        if (acctW) { incrementWin_(acctW); recordHistory_(acctW, "勝", atkC.name, `「${atkC.name}」斬盡所有敵對從者，奪得聖杯。`); }
+        if (acctW) { incrementWin_(acctW); recordHistory_(acctW, "勝", atkC.name, `「${atkC.name}」斬盡所有敵對從者，奪得聖杯。`); recordWinSpeed_(acctW, ctx.myGameId); }
+        logWarEvent_(ctx.myGameId, `🏆『${atkC.name}』斬盡所有敵對從者，奪得聖杯——聖杯戰爭勝利！`, String(ctx.userData.acctName || ""));
       }
     }
   } else {
@@ -4043,10 +2798,12 @@ function actionFateBattle(userData, pcId, sheets) {
       pcData[assassinGuardIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "化作光點", "負面": "御主既亡·魔力斷絕消滅", "顏面": "黯然消散" });
       sheets.pc.getRange(assassinGuardIdx + 1, 1, 1, pcData[assassinGuardIdx].length).setValues([pcData[assassinGuardIdx]]);
       asnKnocked = [masterName, guardName];
+      logWarEvent_(myGameId, `我方『${crit.name}』奇襲斬首敵御主「${masterName}」，御主既亡、護衛從者「${guardName}」失去魔力供給隨之消散。`, String(userData.acctName || ""));
       if (aliveEnemyServants_(sheets, myGameId) <= 0) {
         asnVictory = true;
         const acctW = String(userData.acctName || "");
-        if (acctW) { incrementWin_(acctW); recordHistory_(acctW, "勝", crit.name, `「${crit.name}」奇襲斬首敵御主「${masterName}」，奪得聖杯。`); }
+        if (acctW) { incrementWin_(acctW); recordHistory_(acctW, "勝", crit.name, `「${crit.name}」奇襲斬首敵御主「${masterName}」，奪得聖杯。`); recordWinSpeed_(acctW, myGameId); }
+        logWarEvent_(myGameId, `🏆 已無敵對從者存世——聖杯到手，聖杯戰爭勝利！`, String(userData.acctName || ""));
       }
       asnReport = {
         assassination: true, success: true, aRoll: 20, rolls: rolls.map(r => ({ name: r.name, roll: r.roll })), dual: dualAsn,
@@ -4057,7 +2814,7 @@ function actionFateBattle(userData, pcId, sheets) {
       };
       asnPrompt = `【系統·斬首戰報·已裁定】御主號令${dualAsn ? '兩名從者齊撲' : `從者『${crit.name}』`}奇襲敵御主「${masterName}」。命運的骰子由『${crit.name}』擲出 20 — 大成功！撕開護衛從者「${guardName}」的防線，一擊斬斷御主咽喉。御主既亡、魔力供給斷絕，「${guardName}」當場化作光點消散。${asnVictory ? '此為最後的敵對陣營——聖杯已然在握！' : ''}\n` +
         `★以 Fate／TYPE-MOON 筆觸描寫這萬中選一、石破天驚的斬首瞬間（一段即可）${dualAsn ? '：兩名從者夾擊、其中一人覷得破綻一劍封喉' : ''}。勝負已由系統結算。\n` +
-        `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+        ``;
     } else {
       // 全部失手：護衛捨身格擋，反手 1.5 倍痛擊「每一名」參與斬首的從者
       const guardC = rowToCombatant_(pcData[assassinGuardIdx]);
@@ -4103,12 +2860,12 @@ function actionFateBattle(userData, pcId, sheets) {
       if (asnDefeat) {
         asnPrompt = `【系統·斬首戰報·已裁定】御主號令${whoTxt}奇襲敵御主「${masterName}」，無人擲出 20。護衛從者「${guardName}」捨身擋下、反手以 1.5 倍之力逐一痛擊（${rollsTxt}），我方從者悉數靈基崩潰、化作光點消散，御主敗北。\n` +
           `★以 Fate／TYPE-MOON 筆觸沉痛描寫斬首落空、護衛反殺、從者消滅的瞬間（一段即可），語氣留白。勝負已由系統結算。\n` +
-          `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+          ``;
       } else {
         asnPrompt = `【系統·斬首戰報·已裁定】御主號令${whoTxt}欲奇襲敵御主「${masterName}」，無人擲出 20（大成功）。護衛從者「${guardName}」如影攔在御主身前、硬生生擋下，並反手以 1.5 倍之力逐一痛擊（${rollsTxt}）。御主未能得手。\n` +
           `★以 Fate／TYPE-MOON 筆觸描寫護衛捨身格擋、反噬重擊${dualAsn ? '、兩名從者同遭反震' : ''}的險惡瞬間（一段即可）。傷害已由系統結算。\n` +
           `★未崩潰之從者最多重傷，【絕對禁止】描寫其死亡。\n` +
-          `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+          ``;
       }
     }
 
@@ -4128,6 +2885,7 @@ function actionFateBattle(userData, pcId, sheets) {
     const left = getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]) - 1;
     pcData[pIdx][COL.PC.MEMORY] = setPlayerSeals_(pcData[pIdx][COL.PC.MEMORY], left);
     sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+    logWarEvent_(String(pcData[pIdx][COL.PC.GAME_ID] || ""), `御主燃一道令咒·絕對命令，強令『${atkC.name}』對「${defC.name}」發動必中的全力一擊（我餘令咒 ${left}）。`, String(userData.acctName || ""));
   }
   if (useNp) {
     pcData[atkIdx][COL.PC.MP] = Math.max(0, (parseInt(pcData[atkIdx][COL.PC.MP]) || 0) - Math.round((parseInt(pcData[atkIdx][COL.PC.MAX_MP]) || 100) * 0.35));
@@ -4240,7 +2998,7 @@ function actionFateBattle(userData, pcId, sheets) {
   if (defeat) {
     aiPrompt = `【系統戰報·已裁定】御主號令從者『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合，終致『${atkC.name}』靈基崩潰、化作光點消散，御主於聖杯戰爭中敗北。\n` +
       `★以 Fate／TYPE-MOON 筆觸沉痛描寫這數回合廝殺後從者消滅的瞬間（一段即可），語氣留白。勝負已由系統結算。\n` +
-      `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+      ``;
   } else {
     aiPrompt = servantCard_(pcData[atkIdx]) +
       `【系統戰報·已裁定，嚴禁更改勝負】御主號令${atkLabel}${useNp ? '解放寶具' : ''}${useSeal ? '·燃令咒絕對命令' : ''}出擊，與「${defC.name}」短兵相接，共 ${nRounds} 個回合的你來我往。\n` +
@@ -4255,7 +3013,7 @@ function actionFateBattle(userData, pcId, sheets) {
       (godRevived ? `★【十二試煉】${godNote}請演出他靈基崩解又自死亡歸來、神性光輝重燃的不滅之姿。\n` : "") +
       (sealEscaped ? `★【令咒介入】${sealNote}請演出對面御主令咒爆閃、強行扯離重傷從者的瞬間，敵已遁走、不在場。\n` : "") +
       ((!destroyedName && !sealEscaped && !godRevived) ? `★敗方最多重傷，【絕對禁止】描寫死亡／消滅／屍體，生死由御主後續定奪。\n` : "") +
-      `★【鐵律】嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
+      ``;
   }
 
   // 📊 給前端的多回合視覺戰報
@@ -4300,6 +3058,137 @@ function setPlayerSeals_(memory, n) {
   return (s ? s + "｜" : "") + "【令咒】" + n;
 }
 
+// 🕯️ 令咒耗盡·靈基透支倒數：令咒燒到 0 又無「單獨行動」的敵從者，只能再撐 SEAL_DOOM_HOURS 小時。
+var SEAL_DOOM_HOURS = 3; // 失去令咒穩固、無單獨行動自持的靈基存續上限（遊戲內小時）
+// 該從者列(TAGS JSON 的 skills/traits)是否帶「單獨行動」(fx:'solo')
+function rowHasSolo_(row) {
+  try { var tg = JSON.parse(row[COL.PC.TAGS] || "{}"); return (tg.skills || []).concat(tg.traits || []).some(function (s) { return s && s.fx === 'solo'; }); }
+  catch (e) { return false; }
+}
+// 在 MEMORY 標記/讀取靈基透支的「絕對死線」(遊戲內總時數 = day*24+hour)
+function stampDoom_(memory, deadAbsHour) {
+  var s = String(memory || "").replace(/【靈基透支】\d+/, "");
+  s = s.replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
+  return (s ? s + "｜" : "") + "【靈基透支】" + deadAbsHour;
+}
+function getDoom_(memory) {
+  var m = String(memory || "").match(/【靈基透支】(\d+)/);
+  return m ? parseInt(m[1]) : 0;
+}
+
+// 🕯️ 喪失從者紀錄：敵從者死亡時，在「同地同 game_id 的敵御主」MEMORY 標記如何失去從者，
+//   供 AI 演出形單影隻、再無從者可驅使的無牙御主。配對採同落點(一master一servant結伴移動)。
+function stampLostServant_(memory, svName, cause) {
+  var s = String(memory || "");
+  if (/【喪失從者】/.test(s)) return s; // 已記過就保留第一次，不覆蓋
+  return (s ? s + "｜" : "") + "【喪失從者】" + svName + "·" + cause;
+}
+function getLostServant_(memory) {
+  var m = String(memory || "").match(/【喪失從者】([^｜]+)/);
+  return m ? m[1] : "";
+}
+// 🔗 敵御主↔敵從者硬連結（種子時互寫於 MEMORY，解決多組同場時「誰是誰」）
+function getServantMaster_(memory) { var m = String(memory || "").match(/【御主】([^｜]+)/); return m ? m[1] : ""; }
+function getMasterServant_(memory) { var m = String(memory || "").match(/【從者】([^｜]+)/); return m ? m[1] : ""; }
+
+// 📖 本場戰記（里程碑）：用 GAS 寫進獨立「戰記」表，附遊戲內日期時段，供玩家回顧。
+//   只記 solo 戰爭局(g_)；schema = [game_id, 帳號, 日, 時, 內容]。表不存在則自動建立。
+//   帳號用於回顧過去戰役(帳號表只記當前局)；每場召喚必帶帳號→靠那筆把整場 game_id 歸戶。
+//   上限：超過 2000 列就砍最舊 500（≈ 數十場戰役），避免無限成長。
+function logWarEvent_(gameId, text, acctName) {
+  try {
+    var gid = String(gameId || "");
+    if (gid.indexOf("g_") !== 0 || !text) return; // 只記單人聖杯戰爭局
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sh = ss.getSheetByName("戰記");
+    if (!sh) { sh = ss.insertSheet("戰記"); sh.appendRow(["game_id", "帳號", "日", "時", "內容"]); }
+    var clk = getClock_(gid);
+    var day = clk ? clk.day : 0, hour = clk ? clk.hour : 0;
+    sh.appendRow([gid, String(acctName || ""), day, hour, String(text)]);
+    var last = sh.getLastRow();
+    if (last > 2000) { try { sh.deleteRows(2, last - 1500); } catch (e) { } }
+  } catch (e) { }
+}
+
+// 📖 取戰記：預設玩家當前 game_id；若帶 userData.gameId(回顧過去)則驗證屬於該帳號才給。
+function actionWarChronicle(userData, pcId, sheets) {
+  var wantGid = String((userData && userData.gameId) || "").trim();
+  var acct = String((userData && userData.acctName) || "").trim();
+  var gid = wantGid;
+  if (!gid) {
+    var allPc = sheets.pc.getDataRange().getValues();
+    var me = allPc.find(function (r) { return r[COL.PC.ID] == pcId; });
+    gid = me ? String(me[COL.PC.GAME_ID] || "") : "";
+  }
+  var events = [];
+  if (gid) {
+    try {
+      var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("戰記");
+      if (sh) {
+        var data = sh.getDataRange().getValues();
+        // 回顧過去局：必須該 game_id 有任一列帳號 === 登入帳號，才放行(防越權看別人戰役)
+        var owned = !wantGid;
+        if (wantGid && acct) { for (var k = 1; k < data.length; k++) { if (String(data[k][0]) === gid && String(data[k][1]) === acct) { owned = true; break; } } }
+        if (owned) {
+          for (var i = 1; i < data.length; i++) {
+            if (String(data[i][0]) === gid) events.push({ day: data[i][2], hour: data[i][3], text: String(data[i][4] || "") });
+          }
+        }
+      }
+    } catch (e) { }
+  }
+  return JSON.stringify({ success: true, events: events });
+}
+
+// 📖 戰役回顧清單：列出某帳號歷來的戰役(依戰記表帳號欄)，每場給標題/結果/最後日。
+function actionWarHistoryList(userData, pcId, sheets) {
+  var acct = String((userData && userData.acctName) || "").trim();
+  var wars = [];
+  if (acct) {
+    try {
+      var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("戰記");
+      if (sh) {
+        var data = sh.getDataRange().getValues();
+        var order = [], map = {};
+        for (var i = 1; i < data.length; i++) {
+          if (String(data[i][1]) !== acct) continue;
+          var g = String(data[i][0]); var txt = String(data[i][4] || "");
+          if (!map[g]) { map[g] = { gameId: g, title: txt, result: "進行中", lastDay: data[i][2] || 0 }; order.push(g); }
+          map[g].lastDay = data[i][2] || map[g].lastDay;
+          if (/奪得聖杯|聖杯戰爭勝利|聖杯到手/.test(txt)) map[g].result = "奪杯";
+          else if (/落敗|敗北/.test(txt)) map[g].result = "敗北";
+        }
+        // 當前局排最前；其餘依出現序倒過來(新到舊)
+        order.reverse();
+        wars = order.map(function (g) { return map[g]; });
+      }
+    } catch (e) { }
+  }
+  return JSON.stringify({ success: true, wars: wars });
+}
+// data：眾生二維陣列；svIdx：剛死亡的敵從者列索引；sheet：sheets.pc。就地改 data 並寫回該御主列。
+//   配對優先用硬連結【御主】名(精準，不怕多組同地)，舊角色無連結則退回同落點比對。
+function markMasterLostServant_(sheet, data, svIdx, cause) {
+  try {
+    var svName = String(data[svIdx][COL.PC.NAME] || "從者");
+    var gid = String(data[svIdx][COL.PC.GAME_ID] || "");
+    var linkedMaster = getServantMaster_(data[svIdx][COL.PC.MEMORY]);
+    var loc = String(data[svIdx][COL.PC.LOC] || "").trim();
+    for (var m = 1; m < data.length; m++) {
+      if (String(data[m][COL.PC.FACTION]) !== "敵御主") continue;
+      if (String(data[m][COL.PC.GAME_ID] || "") !== gid) continue;
+      if (String(data[m][COL.PC.ID]).startsWith("DEAD_")) continue;
+      var isMatch = linkedMaster ? (String(data[m][COL.PC.NAME]) === linkedMaster)
+                                 : (String(data[m][COL.PC.LOC] || "").trim() === loc);
+      if (!isMatch) continue;
+      var before = String(data[m][COL.PC.MEMORY] || "");
+      var after = stampLostServant_(before, svName, cause);
+      if (after !== before) { data[m][COL.PC.MEMORY] = after; sheet.getRange(m + 1, 1, 1, data[m].length).setValues([data[m]]); }
+      return;
+    }
+  } catch (e) { }
+}
+
 // ❖ 玩家令咒（固定選單·絕對命令權）：修復／補魔／脫離（命中走 fate_battle 的 seal 旗標）
 function actionUseSeal(userData, pcId, sheets) {
   const type = String(userData.sealType || "").trim(); // 'repair' | 'mana' | 'escape'
@@ -4342,10 +3231,11 @@ function actionUseSeal(userData, pcId, sheets) {
   seals -= 1;
   pcData[pIdx][COL.PC.MEMORY] = setPlayerSeals_(pcData[pIdx][COL.PC.MEMORY], seals);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+  logWarEvent_(myGameId, `御主燃一道令咒（${type === 'repair' ? '靈基重塑·回滿' : type === 'mana' ? '灌頂補魔' : '緊急脫離'}）施於「${svName}」（我餘令咒 ${seals}）。`, String(userData.acctName || ""));
 
   const aiPrompt = `【系統·令咒已發動，已裁定】御主燃燒一道令咒。${effectMsg}（餘 ${seals} 道令咒）\n` +
     `★以 Fate／TYPE-MOON 筆觸描寫令咒在手背灼亮、絕對命令權貫徹的瞬間（一段即可）。效果已由系統結算。\n` +
-    `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+    ``;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, seals: seals, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
@@ -4379,22 +3269,36 @@ function servantCard_(row) {
     var fp = p.firstP || (mem.match(/第一人稱「([^」]*)」/) || [])[1] || "我";
     var toM = p.toMaster || (mem.match(/對御主：([^|【]*)/) || [])[1] || "";
     var prefArr = String(row[COL.PC.PREF] || "").split('、').filter(Boolean);
-    var persona = p.words || (prefArr.length ? `表象「${prefArr[0] || ''}」、內裡「${prefArr[1] || ''}」、所重「${prefArr[2] || ''}」、所厭「${prefArr[3] || ''}」` : "");
-    var align = String(row[COL.PC.ALIGN] || "");
+    var persona = p.words || prefArr.slice(0, 4).join('、');
     var np = String(row[COL.PC.MARTIAL] || "");
-    var skills = [];
-    try { var tg = JSON.parse(row[COL.PC.TAGS] || "{}"); skills = (tg.skills || []).map(function (s) { return s.n; }); } catch (e) { }
-    var six = {};
-    try { six = JSON.parse(row[COL.PC.SIX] || "{}"); } catch (e) { }
-    var sixLine = ['筋' + (six.筋力 || '?'), '耐' + (six.耐久 || '?'), '敏' + (six.敏捷 || '?'), '魔' + (six.魔力 || '?'), '運' + (six.幸運 || '?'), '寶' + (six.寶具 || '?')].join('/');
-    return `〈角色背景·僅供你內化揣摩，嚴禁在敘事中複述或借角色之口說出〉從者「${name}」（職階 ${cls}・陣營 ${align}）：自稱「${fp}」；對御主——${toM || '依其真名'}；性格——${persona || '依其真名'}；` +
-      (p.speech ? `說話口吻——${p.speech}；` : "") +
-      (p.moe ? `萌點/反差——${p.moe}；` : "") +
-      (p.tic ? `招牌神態/小動作——${p.tic}；` : "") +
-      `六圍 ${sixLine}；寶具「${np}」；技能 ${skills.slice(0, 5).join('、') || '依其真名'}。\n` +
-      `★【鐵則一】把上述當作你揣摩此角色的「背景資料」：只用來決定他『怎麼說話、怎麼反應、在意什麼、會有什麼小動作』，嚴格依「${name}」這名英靈的真名身世演出口吻與價值觀，杜絕通用空泛、不合人設的台詞。\n` +
-      `★【鐵則二·絕對】上述設定字眼（性格詞、口吻、萌點、態度、六圍、技能/寶具名等）一律【不可】直接寫進故事、不可由旁白點明、不可借角色之口說出來「說嘴」；只能透過行動、語氣、神態、選擇自然流露（show, don't tell）。違者即為出戲。\n` +
-      `★【鐵則三·依羈絆調親疏】請依當前對御主的羈絆／好感高低，自然調整口吻的親疏冷暖：初識或低好感時保留該角色固有的戒備、矜持或距離感；隨羈絆加深，漸趨自然親近、信任與柔軟（仍守住其性格內核，傲嬌不會突然黏人、寡言不會突然多話）；未達深厚羈絆前，不可越界倒貼或過度親暱。\n`;
+    // 狂化偵測：喪失言語、只咆哮（如赫拉克勒斯、蘭斯洛特）。開膛手傑克等會說話的狂戰士不命中。
+    var mad = /狂化|無法言語|僅?咆哮|不語/.test(String(p.speech || "") + String(fp));
+    var card = `〈${name}·${cls}·演出依據(僅供內化，禁複述設定字面)〉自稱「${fp}」｜對御主：${toM || '依真名'}｜性格：${persona || '依真名'}` +
+      (p.speech ? `｜口吻：${p.speech}` : "") +
+      (p.moe ? `｜萌點：${p.moe}` : "") +
+      (p.tic ? `｜小動作：${p.tic}` : "") +
+      (np ? `｜寶具「${np}」` : "") + `。\n`;
+    if (mad) card += `★【狂化·絕對】此從者已狂化、喪失言語：【嚴禁】說出任何完整句子或台詞，只能以低吼、咆哮、肢體與本能反應表達（旁白可寫其情緒，但他不開口）。\n`;
+    card += `★依「${name}」真名與上述性格/口吻演出（show, don't tell）：用言行神態自然流露，【禁】把性格詞/萌點/六圍/技能/寶具名當台詞或由旁白點破。依羈絆高低調親疏：低→保留戒備矜持、高→漸親近，守住性格內核、未深不越界倒貼。\n`;
+    return card;
+  } catch (e) { return ""; }
+}
+
+// 🎭 御主「演出依據」卡（精簡）：讓 AI 知道玩家御主是誰(性別/性格/特徵/願望)，以便 portray 互動。
+//   ★只供內化、禁複述；願望僅供氛圍不直述；仍【禁止替御主做決定或代御主說話】。
+function masterCard_(row) {
+  if (!row) return "";
+  try {
+    var name = String(row[COL.PC.NAME] || "御主");
+    var sex = String(row[COL.PC.SEX] || "");
+    var prefArr = String(row[COL.PC.PREF] || "").split('、').filter(function (x) { return x && x !== "無"; });
+    var traitArr = String(row[COL.PC.TRAIT] || "").split('、').filter(function (x) { return x && x !== "無"; });
+    var wish = (String(row[COL.PC.MEMORY] || "").match(/【願望】([^|【\n]*)/) || [])[1] || "";
+    return `〈御主「${name}」·演出依據(僅內化、禁複述)〉` + (sex ? `性別${sex}` : "") +
+      (prefArr.length ? `｜性格：${prefArr.slice(0, 4).join('、')}` : "") +
+      (traitArr.length ? `｜特徵：${traitArr.slice(0, 4).join('、')}` : "") +
+      (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
+      `。御主是玩家本人，禁止替御主做決定或代御主說出台詞，只描寫其神態/反應供玩家接續。\n`;
   } catch (e) { return ""; }
 }
 
@@ -4442,14 +3346,65 @@ function actionManaSupply(userData, pcId, sheets) {
   if (ambush) {
     aiPrompt = `【系統·補魔遭突襲·已裁定】御主正以魔力供給「${svName}」、彼此門戶大開之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠貫入「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
       `★以 Fate／TYPE-MOON 筆觸描寫補魔的私密一刻被突襲打斷的驚變：魔力交融的脆弱、敵襲的兇險、${ambush.destroyed ? '從者消滅的痛楚（語氣留白）' : '從者強忍重傷護住御主的瞬間'}。傷害與勝負已由系統結算。\n` +
-      `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+      ``;
   } else {
-    aiPrompt = servantCard_(pcData[svIdx]) +
+    aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【系統·補魔已結算】御主以魔力供給「${svName}」，其魔力回復至 ${restored}/${mpMax}，羈絆微升。\n` +
       `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】，溫柔且帶一絲曖昧張力地描寫這場魔力供給——肌膚相觸、魔力交融的私密一刻（體溫、心跳、屏息、半句未盡的情話），甜美而克制，最後 fade-to-black 留白。\n` +
-      `★【鐵律】止於唯美曖昧、點到為止；【不可】出現性器官、性交或露骨情慾描寫（那是奪杯後鑑賞的事）。演出而非複述設定；嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
+      `★【鐵律】止於唯美曖昧、點到為止；【不可】出現性器官、性交或露骨情慾描寫（那是奪杯後鑑賞的事）。演出而非複述設定。`;
   }
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", statusString: getFreshStatusString(pcId, pIdx, sheets) });
+}
+
+// 🩸 燃血補魔（血→魔）：御主燃燒自身生命力轉化為魔力、大量灌注從者。代價＝御主 HP，回報＝從者大量回魔。
+//   原作依據：魔術師以己身為媒、燃燒生命供給從者 prana（代價型補魔）。御主 HP 可休息回復，故可持續但有代價。
+function actionBloodSupply(userData, pcId, sheets) {
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可供魔。" });
+  const svName = pcData[svIdx][COL.PC.NAME];
+  const svMpMax = parseInt(pcData[svIdx][COL.PC.MAX_MP]) || 200;
+  const svMp = parseInt(pcData[svIdx][COL.PC.MP]) || 0;
+  if (svMp >= svMpMax) return JSON.stringify({ success: false, message: `「${svName}」的魔力已充盈，毋須燃血。` });
+
+  const mHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
+  const mMaxHp = parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 100;
+  const cost = Math.max(8, Math.round(mMaxHp * 0.18));
+  const floor = Math.round(mMaxHp * 0.15);
+  if (mHp - cost < floor) return JSON.stringify({ success: false, message: `你的血量太低（${mHp}/${mMaxHp}），再燃血恐危及性命——請先『休息』回血。` });
+
+  const isFate = myGameId.indexOf("g_") === 0;
+  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以行燃血之儀——請『休息』恢復後再來。" });
+
+  // 結算：御主扣血、從者大量回魔（約 70% 上限）
+  const restored = Math.min(svMpMax, svMp + Math.round(svMpMax * 0.7));
+  pcData[pIdx][COL.PC.HP] = mHp - cost;
+  pcData[svIdx][COL.PC.MP] = restored;
+  sheets.pc.getRange(pIdx + 1, COL.PC.HP + 1).setValue(mHp - cost);
+  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+  raiseBond_(sheets, pcData[pIdx][COL.PC.NAME], svName, 5);
+
+  let bap = AP_PER_DAY, bclock = "";
+  if (isFate) { try { bap = spendAp_(myGameId, 1).ap; bclock = clockLabel_(myGameId); } catch (e) { } }
+
+  // ⚔️ 卸防突襲：燃血時門戶大開，同地未結盟敵從者可能趁隙重擊
+  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, userData, 1.4);
+
+  let aiPrompt;
+  if (ambush) {
+    aiPrompt = `【系統·燃血補魔遭突襲·已裁定】御主割破掌心、燃燒血肉化為魔力灌入「${svName}」、門戶大開之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠貫入「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
+      `★以 Fate／TYPE-MOON 筆觸描寫燃血供魔的私密一刻被突襲撕裂的驚變${ambush.destroyed ? '、從者消滅的痛楚（語氣留白）' : '、從者強忍重傷護住臉色慘白的御主'}。傷害與勝負已由系統結算。\n` +
+      ``;
+  } else {
+    aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
+      `【系統·燃血補魔已結算】御主以自身血肉為媒，燃燒生命力轉化為魔力（耗血 ${cost}，餘 ${mHp - cost}/${mMaxHp}），大量灌注「${svName}」，其魔力回復至 ${restored}/${svMpMax}，羈絆加深。\n` +
+      `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】描寫這場「以血為魔」的補魔之儀——御主咬牙逼出赤紅的血色魔力、順著相握的手流入從者體內；強調這是燃燒自身生命的沉重代價、從者察覺御主臉色發白時的不忍與心疼，兩人間一絲悲壯而緊密的羈絆。\n` +
+      `★【防護】這是魔術師嚴肅悲壯的燃血供魔，血只是魔力媒介——【不可】血腥獵奇、【不可】情慾露骨，點到即止。演出而非複述設定。`;
+  }
+  return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: bclock, ap: bap, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
 // ── 💕 羈絆日限：記於御主 MEMORY 的【羈絆日】D:type1,type2（跨日自動重置）──
@@ -4517,13 +3472,13 @@ function actionBond(userData, pcId, sheets) {
   if (ambush) {
     aiPrompt = `【系統·相伴遭突襲·已裁定】御主『${masterName}』與「${svName}」正${act.label}、卸下心防之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自暗處無聲突襲' : '抓準這破綻殺出'}，一擊重創「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n` +
       `★以 Fate／TYPE-MOON 筆觸描寫溫存被突襲撕裂的驚變與兇險，${ambush.destroyed ? '及從者消滅的痛楚（語氣留白）' : '及從者強撐重傷護主的瞬間'}。傷害與勝負已由系統結算。\n` +
-      `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+      ``;
   } else {
-    aiPrompt = servantCard_(pcData[svIdx]) +
+    aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【系統·羈絆已結算】御主『${masterName}』與從者「${svName}」${act.label}，兩人的羈絆又深了一分（時值${band}）。\n` +
       `★以 Fate／TYPE-MOON 筆觸寫一段【精煉 90~150 字、輕快不冗長】${svName} 與御主${act.frame}的小品。務必貼合上方「演出依據」中的性格、自稱與口吻，演出其獨有神態，點到為止留餘味。\n` +
       `★【show, don't tell】用言行、神態、停頓去流露情感與性格，絕不可直白說出其「願望／個性／萌點」等設定詞；停在含蓄的留白。\n` +
-      `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩；嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+      `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。`;
   }
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, bond: bondNow, bondUsed: usedToday,
@@ -4602,7 +3557,7 @@ function actionUseMystic(userData, pcId, sheets) {
           sheets.pc.getRange(gIdx + 1, 1, 1, pcData[gIdx].length).setValues([pcData[gIdx]]);
         }
         report.masterKilled = true;
-        if (aliveEnemyServants_(sheets, myGameId) <= 0) { report.victory = true; if (ctx.acctName) { incrementWin_(ctx.acctName); recordHistory_(ctx.acctName, "勝", ctx.masterName, "以起源彈狙殺敵御主，奪得聖杯。"); } }
+        if (aliveEnemyServants_(sheets, myGameId) <= 0) { report.victory = true; if (ctx.acctName) { incrementWin_(ctx.acctName); recordHistory_(ctx.acctName, "勝", ctx.masterName, "以起源彈狙殺敵御主，奪得聖杯。"); recordWinSpeed_(ctx.acctName, myGameId); } }
         aiCore = `${code.flavor}子彈貫入敵御主「${tgtName}」，魔術迴路碎裂、當場斃命${report.fade ? `，其從者「${report.fade}」失去魔力供給、隨之消散` : ""}。`;
       } else {
         pcData[nIdx][COL.PC.HP] = mafter; sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
@@ -4619,7 +3574,7 @@ function actionUseMystic(userData, pcId, sheets) {
   const aiPrompt = `【系統·禮裝已裁定】御主『${ctx.masterName}』發動禮裝「${code.name}」` +
     `（迴路 ${circuits}／需求 ${code.req}${backfire ? "，迴路不足·走火反噬" : ""}）。${aiCore}（餘充能 ${charges}）\n` +
     `★以 Fate／TYPE-MOON 筆觸描寫這次禮裝發動的奇景與威能（一段即可）${backfire ? "，並演出迴路駕馭不全、魔力反噬御主自身的險象" : ""}。效果與勝負已由系統結算。\n` +
-    `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+    ``;
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, report: report,
     victory: report.victory, charges: charges,
@@ -4689,15 +3644,16 @@ function actionProposeAlliance(userData, pcId, sheets) {
     const gIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc);
     let allyServant = "";
     if (gIdx >= 0) { allyServant = String(pcData[gIdx][COL.PC.NAME]); pcData[gIdx][COL.PC.MEMORY] = setAllyMem_(pcData[gIdx][COL.PC.MEMORY], until); sheets.pc.getRange(gIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[gIdx][COL.PC.MEMORY]); }
+    logWarEvent_(myGameId, `與敵御主「${masterName}」${allyServant ? `（從者「${allyServant}」）` : ""}締結同盟、暫時休兵（至第 ${until} 日）。`, String(userData.acctName || ""));
     aiPrompt = servantCard_(gIdx >= 0 ? pcData[gIdx] : null) +
       `【系統·結盟已達成·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』向敵御主「${masterName}」${allyServant ? `（從者「${allyServant}」）` : ""}提議結盟，對方權衡利害後接受了——雙方暫時休兵、互不侵犯（至第 ${until} 日前後）。\n` +
       `★以 Fate／TYPE-MOON 筆觸【約 120~180 字】演出這場談判：「${masterName}」依其性格回應（務實的權衡、開出條件或冷淡的「暫時」），最後達成不穩固的同盟。對方的算計與保留要演出來，留一絲不信任的伏筆。\n` +
-      `★【鐵律】結果已由系統裁定，嚴禁輸出 stat_changes、items_gained、money_transferred。`;
+      ``;
     return JSON.stringify({ success: true, allied: true, aiPrompt: aiPrompt, master: masterName, until: until, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
   } else {
     aiPrompt = `【系統·結盟破局·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』向敵御主「${masterName}」提議結盟，對方拒絕了。\n` +
       `★以 Fate／TYPE-MOON 筆觸【約 100~150 字】演出「${masterName}」依其性格回絕的瞬間（嘲諷、警戒、或「聖杯只能有一個」的冷冽）。氣氛轉為一觸即發，但本回合不開打。\n` +
-      `★【鐵律】結果已由系統裁定，嚴禁輸出 stat_changes、items_gained、money_transferred。`;
+      ``;
     return JSON.stringify({ success: true, allied: false, aiPrompt: aiPrompt, master: masterName, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
   }
 }
@@ -4721,8 +3677,9 @@ function actionBreakAlliance(userData, pcId, sheets) {
     }
   }
   if (!broke) return JSON.stringify({ success: false, message: "你目前沒有與此人結盟。" });
+  logWarEvent_(myGameId, `單方面撕毀與「${who || npcName}」的盟約，雙方重回敵對。`, String(userData.acctName || ""));
   const aiPrompt = `【系統·盟約撕毀·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』單方面撕毀與「${who || npcName}」的盟約，雙方重回敵對。\n` +
-    `★以 Fate／TYPE-MOON 筆觸【約 80~130 字】演出背叛/決裂的一瞬間張力。\n★【鐵律】嚴禁輸出 stat_changes、items_gained、money_transferred。`;
+    `★以 Fate／TYPE-MOON 筆觸【約 80~130 字】演出背叛/決裂的一瞬間張力。`;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
@@ -4741,7 +3698,7 @@ function breakStaleAlliances_(sheets, gameId) {
         if (forceAll || day > allyUntil_(data[j])) {
           data[j][COL.PC.MEMORY] = clearAllyMem_(data[j][COL.PC.MEMORY]);
           sheets.pc.getRange(j + 1, COL.PC.MEMORY + 1).setValue(data[j][COL.PC.MEMORY]);
-          if (fac === "敵御主") broken.push(String(data[j][COL.PC.NAME]));
+          if (fac === "敵御主") { broken.push(String(data[j][COL.PC.NAME])); logWarEvent_(gameId, `與「${String(data[j][COL.PC.NAME])}」的同盟${forceAll ? '因戰局逼近終局而瓦解' : '到期失效'}，重回敵對。`); }
         }
       }
     }
@@ -4810,7 +3767,7 @@ function actionAllyBond(userData, pcId, sheets) {
   if (ambush) {
     const aiPromptA = `【系統·盟誼遭突襲·已裁定】御主『${masterName}』正與盟友「${allyName}」交心共處、卸下戒備之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠貫入我方從者（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
       `★以 Fate／TYPE-MOON 筆觸描寫盟誼的私密一刻被突襲撕裂的驚變${ambush.destroyed ? '、從者消滅的痛楚（語氣留白）' : '、從者強撐重傷護主的瞬間'}。傷害與勝負已由系統結算。\n` +
-      `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+      ``;
     return JSON.stringify({ success: true, aiPrompt: aiPromptA, clock: clock, ap: ap, apMax: AP_PER_DAY, ambush: true, defeat: ambush.defeat, dreamPrompt: ambush.dreamPrompt || "", statusString: getFreshStatusString(pcId, pIdx, sheets) });
   }
 
@@ -4823,16 +3780,17 @@ function actionAllyBond(userData, pcId, sheets) {
     unlocked = true;
   }
 
-  const roleWord = allyIsMaster ? "盟友御主" : "盟友從者";
-  const sceneFrame = allyIsMaster
-    ? "在共同陣線的間隙裡並肩共處——交換情報、互通魔力後勤、半是試探半是真心的對談，戒備的縫隙裡悄然透出一絲信賴與暖意"
-    : "在暫時休兵的空檔與盟友從者交流——切磋見識、互補魔力消長、卸下一分敵我之防後流露的惺惺相惜";
-  const aiPrompt = `【系統·盟誼已結算】御主『${masterName}』與${roleWord}「${allyName}」${allyIsMaster ? '共處' : '交流'}，兩人之間的羈絆又深了一分（現約 ${after}／100）。\n` +
-    `〈對方性格參考·僅供你內化揣摩，嚴禁在敘事中複述或借其口直接說出〉：${allyPref}\n` +
-    `★以 Fate／TYPE-MOON 筆觸寫一段【精煉 90~140 字、含蓄克制】「${allyName}」與御主${sceneFrame}的小品。對方仍是「暫時」的盟友，請在暖意中留一絲算計與保留的伏筆。\n` +
-    `★【show, don't tell】用言行、神態、停頓流露情感與性格，絕不可直白說出其願望／個性／萌點等設定詞。\n` +
-    (unlocked ? `★【羈絆已臻深處】此刻兩人之間已生出超越同盟的牽絆——請在結尾以一個眼神或半句未盡之言，含蓄點出這份情誼已悄然越過了「暫時」的界線（仍止於曖昧留白，不踰矩）。\n` : "") +
-    `★【鐵律】止於唯美含蓄、點到為止（真・親密是奪杯後鑑賞的事）；嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+  // 羈絆分級·嚴格控制親疏（盟友＝暫時利益結合，低羈絆務必冷淡，唯 90+ 才解鎖親近）
+  const tier = after >= 90 ? "【羈絆深厚】可流露真切的信任與溫柔（守住性格內核、不踰矩，真親密留待奪杯後鑑賞）"
+    : after >= 70 ? "【羈絆漸增】有限度的信任、偶爾流露一絲真心，但仍保留戒備與分寸，不主動親暱"
+    : after >= 45 ? "【羈絆尚淺】純屬利益結盟：維持戒備、客套與算計，【絕不可】親近或交心，至多一閃而過的微妙交集"
+    : "【幾無私交】冷淡、警惕、公事公辦，話語間滿是試探與保留";
+  // 盟友從者→servantCard_(含狂化禁言等口吻)；盟友御主→簡短性格
+  const allyCard = allyIsMaster ? `〈盟友御主「${allyName}」·演出依據(僅內化、禁複述)〉性格：${allyPref}。\n` : servantCard_(pcData[aIdx]);
+  const aiPrompt = masterCard_(pcData[pIdx]) + allyCard +
+    `【系統·盟誼】御主『${masterName}』與盟友「${allyName}」${allyIsMaster ? '共處' : '交流'}，當前羈絆 ${after}/100。\n` +
+    `★Fate 筆觸【90~140字】寫一段此次共處的小品，自由發揮、勿每次都同一套說辭。語氣親疏【務必嚴格】貼合當前羈絆：${tier}。對方仍是「暫時」盟友，留一絲各自的算計與保留。show, don't tell。` +
+    (unlocked ? `（此次羈絆首度臻至深處，結尾可用一個眼神或半句未盡之言，含蓄點出情誼悄然越過了「暫時」的界線。）` : "");
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, bond: after, unlocked: unlocked, ally: allyName, clock: clock, ap: ap, apMax: AP_PER_DAY, ambush: false, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
@@ -4868,7 +3826,7 @@ function actionRuleBreakSteal(userData, pcId, sheets) {
 
   const aiPrompt = `【系統·破戒奪僕·已裁定】御主以破戒全咒（緣紅短劍）斬斷「${stolenName}」與原御主的契約、強行重締為己用——「${stolenName}」自此成為你的第二從者（燃一道令咒，餘 ${seals} 道）。\n` +
     `★以 Fate／TYPE-MOON 筆觸描寫緣紅短劍刺入、舊契約如琉璃寸寸碎裂、新締約的魔力烙印纏上手背的瞬間，與這名從者被迫易主的複雜神情（一段即可）。已結算。\n` +
-    `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+    ``;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, stolen: stolenName, seals: seals, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
@@ -4942,7 +3900,7 @@ function actionSecondWind(userData, pcId, sheets) {
   const ap = grantAp_(myGameId, 4);
   const aiPrompt = `【系統·強撐已結算】御主透支魔術迴路與體力、燃燒生命力強行擠出最後的行動之力（HP −${cost}，行動力 +4＝${ap}/${AP_PER_DAY}）。\n` +
     `★以 Fate／TYPE-MOON 筆觸描寫御主咬牙硬撐、迴路過載灼痛、以意志逼出餘力的一幕（一段即可）。已結算。\n` +
-    `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+    ``;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, ap: ap, apMax: AP_PER_DAY, clock: clockLabel_(myGameId), statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
@@ -5071,465 +4029,14 @@ function buildDreamPrompt_(pcName, wish, servantName) {
     `在這場夢裡，御主的最深願望彷彿已然實現——一切圓滿、溫柔而虛假。從者『${servantName}』也仿佛仍在身旁。\n` +
     (wish ? `（願望核心參考，僅供你構築夢境氛圍，嚴禁逐字複述或直接點明）：${wish}\n` : "") +
     `★以 Fate／TYPE-MOON 筆觸，第二人稱，寫一段唯美而令人心碎的虛假美夢：讓「演出」暗示願望成真的幸福感，絕不可直接說出願望內容或「這是假的」。結尾要微微露出破綻（過於完美的失真感）。\n` +
-    `★【鐵律】只輸出夢境敘事，嚴禁任何 stat_changes、items_gained、money_transferred、選項或系統字樣。`;
+    `★【鐵律】只輸出夢境敘事，禁選項或系統字樣。`;
 }
 
-function actionAttackNpc(userData, pcId, sheets) {
-  const { npcName, skillName } = userData;
-  let pcData = sheets.pc.getDataRange().getValues();
-  const itemData = sheets.item ? sheets.item.getDataRange().getValues() : []; // 讀一次共用，避免下面算戰力時各自重讀
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
-  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  // 🔵 攻擊者＝御主的從者（凡人御主不肉身上陣）；若無從者則御主親自(弱)
-  let atkIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-  if (atkIdx === -1) atkIdx = pIdx;
-  // 🔵 目標限本實例(game_id)，杜絕跨世界同名誤傷
-  const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
-  if (nIdx === -1) return JSON.stringify({ success: false, message: "此世界查無此人" });
-
-  // 同地點才能打（以御主所在判定，從者隨行）
-  if (String(pcData[pIdx][COL.PC.LOC]).trim() !== String(pcData[nIdx][COL.PC.LOC]).trim()) {
-    return JSON.stringify({ success: false, message: "對方不在你身邊，鞭長莫及。" });
-  }
-
-  const pName = pcData[atkIdx][COL.PC.NAME];
-  const pTotal = getCharacterTotalStats(pcData[atkIdx][COL.PC.ID], sheets, pcData, itemData);
-  const nTotal = getCharacterTotalStats(pcData[nIdx][COL.PC.ID], sheets, pcData, itemData);
-
-  // d20
-  const pRoll = Math.floor(Math.random() * 20) + 1;
-  const nRoll = Math.floor(Math.random() * 20) + 1;
-
-  // 加成：攻方看臂力+身法，守方看根骨+身法（皆為境界放大後的值）
-  const skillBonus = (skillName && String(skillName).trim()) ? 1 : 0;
-  const pMod = Math.round(((pTotal.STR || 0) + (pTotal.AGI || 0)) / 6) + skillBonus;
-  const nMod = Math.round(((nTotal.CON || 0) + (nTotal.AGI || 0)) / 6);
-
-  let pScore = pRoll + pMod;
-  let nScore = nRoll + nMod;
-
-  // 特殊值處理
-  const pCrit = pRoll === 20, pFumble = pRoll === 1;
-  const nCrit = nRoll === 20, nFumble = nRoll === 1;
-
-  // 判定勝負方向：true=玩家贏(打NPC)，false=NPC贏(反擊玩家)
-  let playerWins;
-  let critFlavor = ""; // 給前端與AI的特殊演出標記
-  let dmgMultiplier = 1;
-
-  if (pFumble && !nFumble) { playerWins = false; dmgMultiplier = 1.5; critFlavor = "player_fumble"; }
-  else if (nFumble && !pFumble) { playerWins = true; dmgMultiplier = 1.5; critFlavor = "npc_fumble"; }
-  else if (pCrit && !nCrit) { playerWins = true; critFlavor = "player_crit"; }
-  else if (nCrit && !pCrit) { playerWins = false; critFlavor = "npc_crit"; }
-  else { playerWins = pScore >= nScore; } // 含「雙方都特殊值」→回歸比總分
-
-  // 傷害 = 差距 ×7；大成功保底破防 +30；大失敗 ×1.5
-  let diff = Math.abs(pScore - nScore);
-  let damage = Math.max(1, diff * 7);
-  if ((playerWins && pCrit && !nCrit) || (!playerWins && nCrit && !pCrit)) damage += 30; // 大成功保底（雙方同時大成功時不疊加，回歸純分差判定）
-  damage = Math.round(damage * dmgMultiplier);
-
-  let resultMsg = "";
-  let knockedOut = [];
-  let justRevived = false;
-
-  if (playerWins) {
-    // 打 NPC：鎖血，最低到1昏迷，絕不致死
-    let nHp = parseInt(pcData[nIdx][COL.PC.HP]) || 0;
-    let nHpAfter = nHp - damage;
-    if (nHpAfter <= 5) {
-      pcData[nIdx][COL.PC.HP] = 1;
-      pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "衣衫破爛", "姿勢": "倒地不起", "負面": "重傷昏迷", "顏面": "面色慘白" });
-      knockedOut.push(npcName);
-    } else {
-      pcData[nIdx][COL.PC.HP] = nHpAfter;
-    }
-    sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
-    resultMsg = `你擊中了「${npcName}」，造成 ${damage} 點傷害！`;
-  } else {
-    // 反擊：傷的是從者(靈基)，不是御主肉身
-    let aHp = parseInt(pcData[atkIdx][COL.PC.HP]) || 0;
-    let aHpAfter = aHp - damage;
-    if (aHpAfter <= 5) {
-      pcData[atkIdx][COL.PC.HP] = 1;
-      pcData[atkIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基受創", "姿勢": "單膝跪地", "負面": "靈基重創", "顏面": "咬牙強撐" });
-    } else {
-      pcData[atkIdx][COL.PC.HP] = aHpAfter;
-    }
-    sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
-    resultMsg = `「${npcName}」反擊得手，${pName} 受了 ${damage} 點傷！`;
-  }
-
-  // 給 AI 的指令：結果已定，只能照演
-  let critText = "";
-  if (critFlavor === "player_crit") critText = `${pName} 骰出【大成功】，這一擊精妙絕倫、無視防禦命中要害！`;
-  else if (critFlavor === "npc_crit") critText = `「${npcName}」骰出【大成功】，${pName} 的進攻被完美化解並遭凌厲反擊！`;
-  else if (critFlavor === "player_fumble") critText = `${pName} 骰出【大失敗】，招式露出致命破綻，被對方狠狠教訓！`;
-  else if (critFlavor === "npc_fumble") critText = `「${npcName}」骰出【大失敗】，露出天大破綻，被 ${pName} 打得毫無還手之力！`;
-
-  const aiPrompt = `【系統戰報·已裁定，嚴禁更改勝負】御主令從者『${pName}』向「${npcName}」發動攻擊${skillName ? `（寶具／技：${skillName}）` : ""}。\n` +
-    `擲骰結果：玩家 ${pRoll}+${pMod}=${pScore}，${npcName} ${nRoll}+${nMod}=${nScore}。\n` +
-    `${critText}\n最終結果：${resultMsg}\n` +
-    `★請依此結果生動描寫這場交手，勝負與傷害已由系統結算完畢。\n` +
-    `★【鐵律】「${npcName}」最多只是重傷昏迷倒地，【絕對禁止】描寫其死亡、斷氣、隕落或屍體！生死由玩家後續定奪。\n` +
-    `★【鐵律】嚴禁輸出任何 stat_changes 的生命變化，傷害已結算完畢，重複輸出會導致天道崩塌！\n` +
-    `★【鐵律】此為單純切磋交手，嚴禁輸出 items_gained、items_transferred 或 money_transferred，戰利品掠奪需待對方昏迷後另行處決才可結算！`;
-  return JSON.stringify({
-    success: true,
-    combatResult: {
-      playerName: pName, npcName: npcName,
-      pRoll: pRoll, pMod: pMod, pScore: pScore,
-      nRoll: nRoll, nMod: nMod, nScore: nScore,
-      playerWins: playerWins, damage: damage, critFlavor: critFlavor
-    },
-    aiPrompt: aiPrompt,
-    knockedOut: knockedOut,
-    justRevived: justRevived,
-    statusString: getFreshStatusString(pcId, pIdx, sheets)
-  });
-}
 
 // ==========================================
 // ⚔️ 多目標群戰裁決：解析玩家輸入中的 [攻擊XXX]敘述 標籤，依序逐一裁定
 // 中途玩家陣亡則立即停止後續目標，並自動放過本次連擊中已被打昏者（不可能補刀）
 // ==========================================
-function actionMultiAttack(userData, pcId, sheets) {
-  const { rawInput } = userData;
-  let pcData = sheets.pc.getDataRange().getValues();
-  let itemData = sheets.item ? sheets.item.getDataRange().getValues() : [];
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
-  const pName = pcData[pIdx][COL.PC.NAME];
-  const pLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
-  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  // 🔵 從者代御主出戰（凡人御主不肉身上陣）
-  let atkIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-  if (atkIdx === -1) atkIdx = pIdx;
-  const svName = pcData[atkIdx][COL.PC.NAME];
-
-  const tagRegex = /\[(攻擊|下毒|媚藥)(.+?)\]([^\[]*)/g;
-  let segments = [];
-  let m;
-  while ((m = tagRegex.exec(String(rawInput || ""))) !== null) {
-    segments.push({ actionType: m[1], targetName: m[2].trim(), flavor: m[3].trim() });
-  }
-  if (segments.length === 0) {
-    return JSON.stringify({ success: false, message: "未偵測到攻擊指令" });
-  }
-
-  // 🔴 戰鬥硬上限：每次對話最多結算 3 個動作（攻擊/下毒/媚藥合計）。
-  //   後端強制截斷，不信任前端，玩家手打塞再多標籤也只前 3 個生效。
-  const MAX_COMBO = 3;
-  let comboTrimmed = 0;
-  if (segments.length > MAX_COMBO) {
-    comboTrimmed = segments.length - MAX_COMBO;
-    segments = segments.slice(0, MAX_COMBO);
-  }
-
-  const pTotal = getCharacterTotalStats(pcData[atkIdx][COL.PC.ID], sheets, pcData, itemData);
-  let results = [];
-  let knockedOutAll = [];
-  let justRevived = false;
-  let aiPromptParts = [];
-  let playerDead = false;
-
-  for (const seg of segments) {
-    if (playerDead) break;
-
-    const nIdx = pcData.findIndex(r => r[COL.PC.ID] != pcId && r[COL.PC.ID] != pcData[atkIdx][COL.PC.ID] && !String(r[COL.PC.ID]).startsWith("DEAD_") &&
-      (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId) &&
-      String(r[COL.PC.LOC]).trim() === pLoc && String(r[COL.PC.NAME]).includes(seg.targetName));
-    if (nIdx === -1) {
-      results.push({ actionType: seg.actionType, targetName: seg.targetName, skipped: true });
-      aiPromptParts.push(`【系統】玩家欲對「${seg.targetName}」動作，但對方查無此人或不在場，此招落空未能命中任何人。玩家原話：「${seg.flavor || "（未多說）"}」`);
-      continue;
-    }
-    const npcName = pcData[nIdx][COL.PC.NAME];
-    if (seg.actionType === "攻擊" && (parseInt(pcData[nIdx][COL.PC.HP]) || 0) <= 1 && knockedOutAll.includes(npcName)) {
-      results.push({ actionType: seg.actionType, targetName: npcName, skipped: true, reason: "already_down" });
-      aiPromptParts.push(`【系統】「${npcName}」已昏迷倒地，玩家未再追擊。`);
-      continue;
-    }
-
-    if (seg.actionType === "下毒" || seg.actionType === "媚藥") {
-      const isPoison = seg.actionType === "下毒";
-      const itIdx = itemData.findIndex(r => r[COL.ITEM.OWNER] == pcId &&
-        (String(r[COL.ITEM.TYPE]) === (isPoison ? "毒藥" : "媚藥") || (String(r[COL.ITEM.NAME]).includes(isPoison ? "毒" : "春") && !String(r[COL.ITEM.NAME]).includes("解"))));
-      if (itIdx === -1) {
-        results.push({ actionType: seg.actionType, targetName: npcName, skipped: true, reason: "no_item" });
-        aiPromptParts.push(`【系統】玩家想對「${npcName}」${seg.actionType}，但翻遍行囊找不到合適的藥材，此招落空，未能對其下藥。玩家原話：「${seg.flavor || "（未多說）"}」`);
-        continue;
-      }
-      const usedItemName = itemData[itIdx][COL.ITEM.NAME];
-      sheets.item.deleteRow(itIdx + 1);
-      itemData.splice(itIdx, 1);
-
-      const nTotal = getCharacterTotalStats(pcData[nIdx][COL.PC.ID], sheets, pcData, itemData);
-      const pRoll = Math.floor(Math.random() * 20) + 1;
-      const nRoll = Math.floor(Math.random() * 20) + 1;
-      const pMod = Math.round(((pTotal.INT || 0) + (pTotal.LUK || 0)) / 6);
-      const nMod = Math.round(((nTotal.CON || 0) + (nTotal.INT || 0)) / 6);
-      let pScore = pRoll + pMod;
-      let nScore = nRoll + nMod;
-      const pCrit = pRoll === 20, pFumble = pRoll === 1;
-      const nCrit = nRoll === 20, nFumble = nRoll === 1;
-
-      let success, critFlavor = "";
-      if (pFumble && !nFumble) { success = false; critFlavor = "player_fumble"; }
-      else if (nFumble && !pFumble) { success = true; critFlavor = "npc_fumble"; }
-      else if (pCrit && !nCrit) { success = true; critFlavor = "player_crit"; }
-      else if (nCrit && !pCrit) { success = false; critFlavor = "npc_crit"; }
-      else { success = pScore >= nScore; }
-
-      let resultMsg = "";
-      if (success) {
-        let vs = parseVisibleStatus(pcData[nIdx][COL.PC.STATUS]);
-        const debuffName = isPoison ? "中毒" : "媚惑";
-        // 🔴 中毒/媚惑各自獨立、不分層，命中即生效(重複下藥不加成，純粹維持/覆蓋)
-        const curRaw = String(vs["負面"] || "");
-        const alreadyHas = curRaw.includes(debuffName);
-        const otherHas = curRaw.includes(isPoison ? "媚惑" : "中毒");
-        const hasPoisonNow = isPoison ? true : otherHas;
-        const hasCharmNow = isPoison ? otherHas : true;
-        vs["負面"] = (hasPoisonNow ? "中毒" : "") + (hasCharmNow ? "媚惑" : "");
-        pcData[nIdx][COL.PC.STATUS] = JSON.stringify(vs);
-        if (alreadyHas) resultMsg = `「${usedItemName}」再次奏效，「${npcName}」的「${debuffName}」效力持續壓制！`;
-        else if (otherHas) resultMsg = `「${usedItemName}」奏效，「${npcName}」如今「中毒」與「媚惑」雙重纏身！`;
-        else resultMsg = `「${usedItemName}」奏效，「${npcName}」中了「${debuffName}」！`;
-      } else {
-        resultMsg = `「${npcName}」識破了這一手，「${usedItemName}」未能奏效！`;
-
-        // 🔴 失敗教訓：被識破當場，扣好感+扣血，不然太爽了
-        const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
-        const rIdx = relData.findIndex(r => r[COL.REL.PC] === pName && r[COL.REL.NPC] === npcName);
-        if (rIdx !== -1) {
-          const newFav = Math.max(-100, Math.min(100, (parseInt(relData[rIdx][COL.REL.FAV]) || 0) - 5));
-          sheets.rel.getRange(rIdx + 1, COL.REL.FAV + 1).setValue(newFav);
-        } else if (sheets.rel) {
-          sheets.rel.appendRow([pName, npcName, -5, "萍水相逢", "", "", `${seg.actionType}「${npcName}」被識破`]);
-        }
-        pcData[pIdx][COL.PC.HP] = Math.max(1, (parseInt(pcData[pIdx][COL.PC.HP]) || 0) - 10);
-      }
-
-      let critText = "";
-      if (critFlavor === "player_crit") critText = "玩家骰出【大成功】，下藥手法不著痕跡，對方毫無察覺！";
-      else if (critFlavor === "npc_crit") critText = `「${npcName}」骰出【大成功】，神識敏銳，當場識破並躲開了藥效！`;
-      else if (critFlavor === "player_fumble") critText = "玩家骰出【大失敗】，手法生硬，動作被對方瞧個正著！";
-      else if (critFlavor === "npc_fumble") critText = `「${npcName}」骰出【大失敗】，毫無防備，正中下懷！`;
-
-      aiPromptParts.push(
-        `【${seg.actionType}：玩家 vs 「${npcName}」】玩家原話：「${seg.flavor || "（未多說，直接動手）"}」\n` +
-        `擲骰：玩家 ${pRoll}+${pMod}=${pScore}，「${npcName}」 ${nRoll}+${nMod}=${nScore}。${critText}\n` +
-        `結果：${resultMsg}`
-      );
-
-      results.push({
-        actionType: seg.actionType, targetName: npcName, pRoll: pRoll, pMod: pMod, pScore: pScore,
-        nRoll: nRoll, nMod: nMod, nScore: nScore,
-        playerWins: success, critFlavor: critFlavor, flavor: seg.flavor
-      });
-      continue;
-    }
-
-    const nTotal = getCharacterTotalStats(pcData[nIdx][COL.PC.ID], sheets, pcData, itemData);
-    const pRoll = Math.floor(Math.random() * 20) + 1;
-    const nRoll = Math.floor(Math.random() * 20) + 1;
-    const pMod = Math.round(((pTotal.STR || 0) + (pTotal.AGI || 0)) / 6);
-
-    // 🔴 中毒/媚惑狀態懲罰：各自獨立、各 -3，兩者皆中則 -6
-    const nDebuffRaw = String(parseVisibleStatus(pcData[nIdx][COL.PC.STATUS])["負面"] || "");
-    const nHasPoison = nDebuffRaw.includes("中毒");
-    const nHasCharm = nDebuffRaw.includes("媚惑");
-    const nDebuffPenalty = (nHasPoison ? 3 : 0) + (nHasCharm ? 3 : 0);
-    const nMod = Math.round(((nTotal.CON || 0) + (nTotal.AGI || 0)) / 6) - nDebuffPenalty;
-
-    let pScore = pRoll + pMod;
-    let nScore = nRoll + nMod;
-    const pCrit = pRoll === 20, pFumble = pRoll === 1;
-    const nCrit = nRoll === 20, nFumble = nRoll === 1;
-
-    let diff = Math.abs(pScore - nScore);
-    let playerWins, critFlavor = "", dmgMultiplier = 1, isStalemate = false;
-    if (pFumble && !nFumble) { playerWins = false; dmgMultiplier = 1.5; critFlavor = "player_fumble"; }
-    else if (nFumble && !pFumble) { playerWins = true; dmgMultiplier = 1.5; critFlavor = "npc_fumble"; }
-    else if (pCrit && !nCrit) { playerWins = true; critFlavor = "player_crit"; }
-    else if (nCrit && !pCrit) { playerWins = false; critFlavor = "npc_crit"; }
-    // 🔴 棋逢對手：分數差距在2以內，視為僵持(擊中卸力或被堂堂正正閃避)，不掉血，江湖氣味的「沒打到/打到沒傷」
-    else if (diff <= 2) { isStalemate = true; playerWins = pScore >= nScore; }
-    else { playerWins = pScore >= nScore; }
-
-    let damage = isStalemate ? 0 : Math.max(1, diff * 7);
-    if (!isStalemate && ((playerWins && pCrit && !nCrit) || (!playerWins && nCrit && !pCrit))) damage += 30;
-    damage = Math.round(damage * dmgMultiplier);
-
-    // 🔴 武器/防具的「痛感」加成：跟骰子命中脫鉤，神兵打中就是比較痛、防具擋下就是比較不痛，不然空手跟拿神兵傷害感覺一樣很怪
-    const atkWepBonus = isStalemate ? 0 : (playerWins ? (pTotal.wepSTR || 0) : (nTotal.wepSTR || 0));
-    const defArmBonus = isStalemate ? 0 : (playerWins ? (nTotal.armCON || 0) : (pTotal.armCON || 0));
-    if (!isStalemate) damage = Math.max(1, damage + atkWepBonus * 3 - defArmBonus * 2);
-
-    let resultMsg = "";
-    let isDodge = false;
-    if (isStalemate) {
-      isDodge = Math.random() < 0.5;
-      resultMsg = isDodge
-        ? `你與「${npcName}」棋逢對手，這一招被對方堂堂正正地避開了，未能命中！`
-        : `你與「${npcName}」棋逢對手，這一擊確實碰上了，但對方及時卸力化開，未能造成實質傷害！`;
-    } else if (playerWins) {
-      let nHp = parseInt(pcData[nIdx][COL.PC.HP]) || 0;
-      let nHpAfter = nHp - damage;
-      if (nHpAfter <= 5) {
-        pcData[nIdx][COL.PC.HP] = 1;
-        pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "衣衫破爛", "姿勢": "倒地不起", "負面": "重傷昏迷", "顏面": "面色慘白" });
-        knockedOutAll.push(npcName);
-      } else {
-        pcData[nIdx][COL.PC.HP] = nHpAfter;
-      }
-      resultMsg = `你擊中了「${npcName}」，造成 ${damage} 點傷害！`;
-    } else {
-      // 反擊：傷的是從者(靈基)，不是御主肉身
-      let aHp = parseInt(pcData[atkIdx][COL.PC.HP]) || 0;
-      let aHpAfter = aHp - damage;
-      if (aHpAfter <= 5) {
-        pcData[atkIdx][COL.PC.HP] = 1;
-        pcData[atkIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基受創", "姿勢": "單膝跪地", "負面": "靈基重創", "顏面": "咬牙強撐" });
-        justRevived = false;
-        playerDead = true; // 從者倒下，停止後續連擊
-      } else {
-        pcData[atkIdx][COL.PC.HP] = aHpAfter;
-      }
-      resultMsg = `「${npcName}」反擊得手，${svName} 受了 ${damage} 點傷！`;
-    }
-
-    let critText = "";
-    if (critFlavor === "player_crit") critText = `${svName} 骰出【大成功】，這一擊精妙絕倫、無視防禦命中要害！`;
-    else if (critFlavor === "npc_crit") critText = `「${npcName}」骰出【大成功】，${svName} 的進攻被完美化解並遭凌厲反擊！`;
-    else if (critFlavor === "player_fumble") critText = `${svName} 骰出【大失敗】，招式露出致命破綻，被對方狠狠教訓！`;
-    else if (critFlavor === "npc_fumble") critText = `「${npcName}」骰出【大失敗】，露出天大破綻，被 ${svName} 打得毫無還手之力！`;
-
-    let debuffHint = "";
-    if (nHasPoison && nHasCharm) debuffHint = `（「${npcName}」身上中毒與媚惑雙重纏身，反應遲滯，可在敘述中帶到這點）\n`;
-    else if (nHasPoison) debuffHint = `（「${npcName}」身上中毒尚未消退，反應遲滯，可在敘述中帶到這點）\n`;
-    else if (nHasCharm) debuffHint = `（「${npcName}」身上媚惑尚未消退，意亂神迷，可在敘述中帶到這點）\n`;
-
-    // 🔴 武器/防具達一定品階才提示AI帶到，並把實際物品名稱餵給AI，避免凡品雜物也硬寫一句神兵防身
-    let gearHint = "";
-    if (atkWepBonus >= 4) {
-      const wepName = (playerWins ? pTotal.wepName : nTotal.wepName) || "兵刃";
-      gearHint += `（${playerWins ? "玩家" : `「${npcName}」`}手中「${wepName}」材質不凡，這一擊格外沉重）\n`;
-    }
-    if (defArmBonus >= 4) {
-      const armName = (playerWins ? nTotal.armName : pTotal.armName) || "防具";
-      gearHint += `（${playerWins ? `「${npcName}」` : "玩家"}身披「${armName}」，硬生生卸去不少力道）\n`;
-    }
-
-    aiPromptParts.push(
-      `【對戰：御主之從者 ${svName} vs 「${npcName}」】御主原話：「${seg.flavor || "（未多說，直接令從者出手）"}」\n` +
-      debuffHint + gearHint +
-      `擲骰：${svName} ${pRoll}+${pMod}=${pScore}，「${npcName}」 ${nRoll}+${nMod}=${nScore}。${critText}\n` +
-      `結果：${resultMsg}`
-    );
-
-    results.push({
-      actionType: "攻擊", targetName: npcName, pRoll: pRoll, pMod: pMod, pScore: pScore,
-      nRoll: nRoll, nMod: nMod, nScore: nScore,
-      playerWins: playerWins, damage: damage, critFlavor: critFlavor, flavor: seg.flavor,
-      isStalemate: isStalemate, isDodge: isDodge
-    });
-  }
-
-  // 玩家中途陣亡：不可能補刀，自動放過本次連擊中所有被打昏者
-  if (playerDead && knockedOutAll.length > 0) {
-    knockedOutAll.forEach(name => {
-      const idx = pcData.findIndex(r => r[COL.PC.NAME] === name && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-      if (idx !== -1) {
-        const maxHp = parseInt(pcData[idx][COL.PC.MAX_HP]) || 100;
-        pcData[idx][COL.PC.HP] = Math.max(1, Math.floor(maxHp * 0.2));
-        pcData[idx][COL.PC.STATUS] = JSON.stringify({ "衣服": "衣衫破損", "姿勢": "勉強起身", "負面": "傷勢未癒", "顏面": "虛弱" });
-      }
-    });
-    knockedOutAll = [];
-  }
-
-  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-  if (atkIdx !== pIdx) sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
-  // 🔴 連擊結束：未在本次被重新下藥的中毒/媚惑對象，效力直接清除(無分層，靠資源消耗維持壓制)
-  const redosedPoison = new Set(), redosedCharm = new Set();
-  results.forEach(r => {
-    if (!r.playerWins) return;
-    if (r.actionType === "下毒") redosedPoison.add(r.targetName);
-    if (r.actionType === "媚藥") redosedCharm.add(r.targetName);
-  });
-  const decayedNames = new Set();
-  pcData.forEach((row, idx) => {
-    if (idx === pIdx) return;
-    if (String(row[COL.PC.LOC]).trim() !== pLoc) return;
-    const vs = parseVisibleStatus(row[COL.PC.STATUS]);
-    const raw = String(vs["負面"] || "");
-    let hasPoison = raw.includes("中毒");
-    let hasCharm = raw.includes("媚惑");
-    if (!hasPoison && !hasCharm) return;
-    let changed = false;
-    if (hasPoison && !redosedPoison.has(row[COL.PC.NAME])) { hasPoison = false; changed = true; }
-    if (hasCharm && !redosedCharm.has(row[COL.PC.NAME])) { hasCharm = false; changed = true; }
-    if (!changed) return;
-    vs["負面"] = (hasPoison ? "中毒" : "") + (hasCharm ? "媚惑" : "") || "無";
-    row[COL.PC.STATUS] = JSON.stringify(vs);
-    decayedNames.add(row[COL.PC.NAME]);
-  });
-
-  const touchedNames = new Set([...results.map(r => r.targetName).filter(Boolean), ...decayedNames]);
-  pcData.forEach((row, idx) => {
-    if (idx !== pIdx && touchedNames.has(row[COL.PC.NAME])) {
-      sheets.pc.getRange(idx + 1, 1, 1, row.length).setValues([row]);
-    }
-  });
-
-  // 🔴 補充前因後果：地點 + 參戰者性格卡 + 近期因果，避免敘事出戲(無視同地人物/角色性格跑掉)
-  let npcCardsArr = [];
-  const relDataForCards = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
-  touchedNames.forEach(name => {
-    const r = pcData.find(row => String(row[COL.PC.NAME]).trim() === name);
-    if (!r) return;
-    const relRow = relDataForCards.find(rr => rr[COL.REL.PC] === pName && rr[COL.REL.NPC] === name);
-    const prefArr = String(r[COL.PC.PREF] || "").split('、');
-    const traitArr = String(r[COL.PC.TRAIT] || "").split('、');
-    npcCardsArr.push(`【${name}】境界:${r[COL.PC.REALM] || "凡人"} | 性格:[表象]${prefArr[0] || "無"} [內裡]${prefArr[1] || "無"} | 特徵:${traitArr[1] || "無"} | 與玩家關係:${relRow ? relRow[COL.REL.TAG] : "萍水相逢"}(好感:${relRow ? relRow[COL.REL.FAV] : 0})`);
-  });
-  const npcCardsStr = npcCardsArr.length > 0 ? `\n【參戰者資料】\n${npcCardsArr.join("\n")}` : "";
-
-  const recentLogStr = getRecentCausalityStr(sheets, pName, null, 5);
-
-  // 🔴 同地點但沒被攻擊波及的人(例如同行夥伴單純在場圍觀)，也算真的在場，不可被「在場驗證」誤鎖
-  const untouchedBystanders = pcData
-    .filter(r => r[COL.PC.ID] != pcId && !String(r[COL.PC.ID]).startsWith("DEAD_") &&
-      String(r[COL.PC.LOC]).trim() === pLoc && !touchedNames.has(r[COL.PC.NAME]))
-    .map(r => r[COL.PC.NAME]);
-  const presentStr = untouchedBystanders.length > 0
-    ? `玩家、【參戰者資料】列出之人，以及在場的${untouchedBystanders.join('、')}`
-    : `玩家與【參戰者資料】列出之人`;
-
-  const aiPrompt = `【場景】玩家『${pName}』目前位於『${pLoc}』。\n【近期因果】(僅供背景參考，純屬回憶，並非當下在場！)\n${recentLogStr}${npcCardsStr}\n\n` +
-    `【系統戰報·已裁定，嚴禁更改任何勝負、傷害或藥效判定】御主『${pName}』號令從者『${svName}』展開連續攻勢：\n\n` +
-    aiPromptParts.join("\n\n") + `\n\n` +
-    (comboTrimmed > 0 ? `★【系統】玩家本想一氣呵成更多招，但連續出手 3 次後招式已用老、氣力難繼，餘下 ${comboTrimmed} 次動作未能施展，請在敘述收尾帶到玩家後繼乏力、不得不暫歇的窘態，且這些未施展的動作完全不結算任何數值。\n\n` : "") +
-    `★請依此結果，並參照上方地點、近期因果與參戰者性格資料，將以上每一段交手依序串接成一段流暢生動的描寫，可參考玩家自己描述的招式、語氣與下藥手法。\n` +
-    `★【在場驗證】本回合在場者僅有${presentStr}，可合理帶到其存在或反應；近期因果中提到的其他姓名均不在場，嚴禁讓其登場、插話或互動！\n` +
-    `★【鐵律】任何被擊倒者最多只是重傷昏迷倒地，【絕對禁止】描寫死亡、斷氣、隕落或屍體！生死由玩家後續定奪。\n` +
-    `★【鐵律】嚴禁輸出任何 stat_changes 的生命變化或負面狀態變化，已結算完畢，重複輸出會導致天道崩塌！\n` +
-    `★【鐵律】此為單純切磋／下藥交鋒，嚴禁輸出 items_gained、items_transferred 或 money_transferred！` +
-    (playerDead ? `\n★【鐵律】玩家中途力竭被擊倒，已自動送醫並放過先前打昏的對象，請描寫玩家狼狽敗退、被送醫的過程，絕對禁止描寫對方追殺或補刀！` : "");
-
-  return JSON.stringify({
-    success: true,
-    results: results,
-    aiPrompt: aiPrompt,
-    knockedOut: knockedOutAll,
-    justRevived: justRevived,
-    touchedNames: Array.from(touchedNames),
-    statusString: getFreshStatusString(pcId, pIdx, sheets)
-  });
-}
 
 // ==========================================
 // 🟢 輕量敘事專用路由：結算已由 GAS 完成，這裡只請 AI 補一段純文字描寫
@@ -5688,73 +4195,3 @@ function actionUpdateRelTag(userData, pcId, sheets) {
 // ==========================================
 // 🏰 開宗立派邏輯 (高門檻 + 獨立領地版)
 // ==========================================
-function actionCreateFaction(userData, pcId, sheets) {
-  const { factionName, align, motto, baseLoc } = userData;
-  if (!sheets.faction) return JSON.stringify({ success: false, message: "勢力表不存在" });
-
-  const pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
-
-  // 1. 後端雙重防呆：驗證銀兩與境界
-  const currentMoney = parseInt(pcData[pIdx][COL.PC.MONEY]) || 0;
-  if (currentMoney < 50000) return JSON.stringify({ success: false, message: "銀兩不足 50000 兩" });
-
-  const currentRealm = pcData[pIdx][COL.PC.REALM] || "凡人";
-  if (REALMS.indexOf(currentRealm) < REALMS.indexOf("通玄")) {
-    return JSON.stringify({ success: false, message: "境界未達通玄，無法鎮壓宗門氣運！" });
-  }
-
-  // 2. 檢查是否撞名
-  const currentFactions = sheets.faction.getDataRange().getValues();
-  if (currentFactions.some(r => String(r[COL.FACTION.NAME]).trim() === factionName.trim())) {
-    return JSON.stringify({ success: false, message: "江湖中已有同名宗門，請另尋霸氣名號！" });
-  }
-
-  // 3. 領地邏輯：在當前母區域下，開闢「專屬子地圖」 (例如: 青丘城-天魔教)
-  const sectMapName = `${baseLoc}-${factionName}`;
-
-  if (sheets.map) {
-    const mapData = sheets.map.getDataRange().getValues();
-    if (!mapData.some(m => String(m[COL.MAP.NAME]).trim() === sectMapName)) {
-      // 抓取母區域座標，做微微偏移
-      let pCoord = "0,0";
-      const parentMap = mapData.find(m => String(m[COL.MAP.NAME]).trim() === baseLoc);
-      if (parentMap && parentMap[COL.MAP.COORD]) {
-        let parts = String(parentMap[COL.MAP.COORD]).split(',');
-        let bx = parseInt(parts[0]) || 0; let by = parseInt(parts[1]) || 0;
-        pCoord = `${bx + Math.floor(Math.random() * 5) - 2},${by + Math.floor(Math.random() * 5) - 2}`;
-      }
-      // 寫入《坤圖》：REGION, NAME, TYPE, COORD, DESC, PARENT
-      sheets.map.appendRow(["九州", sectMapName, "宗門", pCoord, `『${factionName}』的宗門重地，外設強大護山大陣。宗旨：${motto}`, baseLoc]);
-      // 清除地圖快取，讓前端能馬上讀到新宗門
-      CacheService.getScriptCache().remove("KYUSHU_MAP_DATA");
-    }
-  }
-
-  // 4. 扣錢、升官、將玩家傳送到自己的宗門領地
-  pcData[pIdx][COL.PC.MONEY] = currentMoney - 50000;
-  pcData[pIdx][COL.PC.FACTION] = factionName;
-  pcData[pIdx][COL.PC.RANK] = "宗主";
-  pcData[pIdx][COL.PC.CONTRIB] = 9999;
-  pcData[pIdx][COL.PC.ALIGN] = align;
-  pcData[pIdx][COL.PC.LOC] = sectMapName; // 📍 搬家到專屬領地！
-
-  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-
-  // 5. 寫入勢力表 (基地位置設為新開闢的地圖)
-  const fId = "FAC_" + Date.now();
-  const pcName = pcData[pIdx][COL.PC.NAME];
-  sheets.faction.appendRow([fId, factionName, align, sectMapName, pcName, motto]);
-
-  // 6. 寫入大勢表 (新勢力給予初始氣運 50)
-  updateFactionPower(sheets, factionName, 50, `由通玄境大能『${pcName}』橫空出世創立`);
-
-  // 7. 廣播傳聞與個人史紀
-  addRumor(sheets, "FACTION_NEW", sectMapName, factionName);
-  if (sheets.epic) {
-    sheets.epic.appendRow([pcId, `【開宗立派】修為達「${currentRealm}」，豪擲五萬兩於 ${baseLoc} 開闢福地，創立了「${factionName}」。`, new Date()]);
-  }
-
-  return JSON.stringify({ success: true, statusString: getFreshStatusString(pcId, pIdx, sheets) });
-}

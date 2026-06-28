@@ -6,7 +6,7 @@
 var SEED_SERVANTS = [
   // 第五次
   { id:'阿爾托莉雅-Saber', cls:'Saber', realName:'阿爾托莉雅·潘德拉貢', wars:['4th','5th'], gender:'女',
-    six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'A',幸運:'A',寶具:'A+'},
+    six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'A',幸運:'A+',寶具:'A++'},
     classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
     skills:[{n:'直感',r:'A',fx:'first_strike'},{n:'魔力放出',r:'A',fx:'burst'},{n:'卡里斯瑪',r:'B',fx:'morale'},
             {n:'風王鐵鎚',r:'A',fx:'wind_strike'}],
@@ -15,7 +15,7 @@ var SEED_SERVANTS = [
   { id:'EMIYA-Archer', cls:'Archer', realName:'無名（EMIYA）', wars:['5th'], gender:'男',
     six:{筋力:'D',耐久:'C',敏捷:'C',魔力:'B',幸運:'E',寶具:'B'},
     classSkills:[{n:'對魔力',r:'D',fx:'nullify_magic'},{n:'單獨行動',r:'B',fx:'solo'}],
-    skills:[{n:'心眼(真)',r:'A',fx:'analyze'},{n:'千里眼',r:'C',fx:'aim'},{n:'投影魔術',r:'',fx:'projection'},{n:'無限劍製',r:'',fx:'ubw'}],
+    skills:[{n:'心眼(真)',r:'B',fx:'analyze'},{n:'千里眼',r:'C',fx:'aim'},{n:'投影魔術',r:'',fx:'projection'},{n:'無限劍製',r:'',fx:'ubw'}],
     traits:[{n:'人類'}], np:'無限劍製（固有結界）',
     align:'中立・中庸', persona:{firstP:'我',words:'現實・諷刺・自我厭惡・藏起來的理想',toMaster:'嘴上不饒人、暗中守護',speech:'老氣橫秋的比喻、毒舌吐槽、看似冷淡的關心、偶爾說教',moe:'毒舌卻替人下廚、家事異常熟練、對年輕時理想的糾結、嘴硬心軟',tic:'做菜時格外認真、雙劍交叉的架式、無奈嘆氣'} },
   { id:'庫丘林-Lancer', cls:'Lancer', realName:'庫·丘林', wars:['5th'], gender:'男',
@@ -25,7 +25,7 @@ var SEED_SERVANTS = [
     traits:[{n:'神性',r:'低'}], np:'刺穿死棘之槍（對人 B・因果逆轉必中）',
     align:'秩序・中庸', persona:{firstP:'俺',words:'戰士・痛快・重義・運氣爛到極點',toMaster:'爽快直率、討厭被當棋子',speech:'豪爽粗獷、戰鬥狂熱、抱怨自己倒楣、義氣掛嘴邊',moe:'A級幸運卻衰事連連的反差、遇強敵純粹興奮、意外會照顧後輩、被迫做討厭任務時的牢騷',tic:'扛槍咧嘴笑、戰前舔嘴唇、抓頭抱怨'} },
   { id:'美杜莎-Rider', cls:'Rider', realName:'美杜莎', wars:['5th'], gender:'女',
-    six:{筋力:'C',耐久:'C',敏捷:'A',魔力:'B',幸運:'D',寶具:'A+'},
+    six:{筋力:'C',耐久:'C',敏捷:'A+',魔力:'B',幸運:'E',寶具:'A+'},
     classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'A+',fx:'ride'}],
     skills:[{n:'怪力',r:'B',fx:'str_up'},{n:'女神的神核',r:'',fx:'divine_core'},{n:'魔眼',r:'A',fx:'petrify'}],
     traits:[{n:'神性'},{n:'女神'}], np:'他人的神殿／駿馬天翔（A+）',
@@ -33,18 +33,18 @@ var SEED_SERVANTS = [
   { id:'美狄亞-Caster', cls:'Caster', realName:'美狄亞', wars:['5th'], gender:'女',
     six:{筋力:'E',耐久:'D',敏捷:'C',魔力:'A',幸運:'B',寶具:'C'},
     classSkills:[{n:'陣地作成',r:'A',fx:'territory'},{n:'道具作成',r:'A',fx:'crafting'}],
-    skills:[{n:'高速神言',r:'A',fx:'fast_cast'},{n:'神代魔術',r:'A',fx:'divine_age'},{n:'破戒全咒',r:'C',fx:'rule_breaker'}],
+    skills:[{n:'高速詠唱',r:'A',fx:'fast_cast'},{n:'神代魔術',r:'A',fx:'divine_age'},{n:'破戒全咒',r:'C',fx:'rule_breaker'}],
     traits:[{n:'人類'}], np:'破戒全咒（規則破壞者 C）',
     align:'中立・惡', persona:{firstP:'我',words:'背叛的傷痕・渴望被信任・腹黑・少女心',toMaster:'防備卻渴望真心相待',speech:'溫婉中帶試探、用敬語、自嘲被背叛的過往、偶爾流露脆弱',moe:'魔女外表下渴望被愛、被真心對待會慌、為所愛之人不擇手段、反差的純情',tic:'抱著緣紅短劍、垂眸輕笑、欲言又止'} },
   { id:'佐佐木小次郎-Assassin', cls:'Assassin', realName:'佐佐木小次郎', wars:['5th'], gender:'男',
-    six:{筋力:'C',耐久:'D',敏捷:'A',魔力:'E',幸運:'E',寶具:'E'},
+    six:{筋力:'C',耐久:'D',敏捷:'A+',魔力:'E',幸運:'E',寶具:'E'},
     classSkills:[{n:'氣息遮斷',r:'D',fx:'stealth'}],
     skills:[{n:'心眼（偽）',r:'A',fx:'analyze'},{n:'透化',r:'B+',fx:'clear_mind'},
             {n:'宗和的心得',r:'B',fx:'unreadable'},{n:'秘劍・燕返',r:'-',fx:'tsubame'}],
     traits:[{n:'人類'}], np:'燕返（對人魔劍・次元摺疊・三段同時斬）',
     align:'中立・中庸', persona:{firstP:'拙者',words:'劍士・閒適・無欲・宿命',toMaster:'隨遇而安、只求一戰',speech:'古風文雅、淡泊洒脫、帶禪意、慢條斯理',moe:'無欲無求的洒脫、只為一場好決鬥而活、看守山門的隨遇而安、非英雄卻有英雄氣的平凡',tic:'凝望飛燕、按刀靜立、微微一笑'} },
   { id:'赫拉克勒斯-Berserker', cls:'Berserker', realName:'赫拉克勒斯', wars:['5th'], gender:'男',
-    six:{筋力:'A',耐久:'A',敏捷:'A',魔力:'B',幸運:'C',寶具:'B'},
+    six:{筋力:'A',耐久:'A',敏捷:'A',魔力:'B',幸運:'A',寶具:'B'},
     classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'對魔力',r:'?',fx:'nullify_magic'}],
     skills:[{n:'勇猛',r:'A',fx:'morale'},{n:'戰鬥續行',r:'A',fx:'survive'},{n:'十二試煉',r:'A',fx:'god_hand'}],
     traits:[{n:'神性',r:'A'},{n:'王'}], np:'十二試煉（God Hand A）',
@@ -67,7 +67,7 @@ var SEED_SERVANTS = [
   { id:'伊斯坎達爾-Rider', cls:'Rider', realName:'伊斯坎達爾（征服王）', wars:['4th'], gender:'男',
     six:{筋力:'A+',耐久:'A',敏捷:'B',魔力:'C',幸運:'A+',寶具:'A++'},
     classSkills:[{n:'對魔力',r:'D',fx:'nullify_magic'},{n:'騎乘',r:'A+',fx:'ride'}],
-    skills:[{n:'卡里斯瑪',r:'B',fx:'morale'},{n:'軍略',r:'B',fx:'tactics'}],
+    skills:[{n:'卡里斯瑪',r:'A',fx:'morale'},{n:'軍略',r:'B',fx:'tactics'}],
     traits:[{n:'王'}], np:'王之軍勢 Ionioi Hetairoi（對軍 EX）',
     align:'中立・善', persona:{firstP:'余',words:'豪邁・征服・雅量・王道',toMaster:'視為臣下亦為摯友，要對方先成為夠格的王',speech:'豪爽大笑、稱「小子」、王者氣度、好酒好戰、講大道理',moe:'征服世界的野心與孩子氣並存、愛酒愛地圖、收伏人心的雅量、把御主當兒子般栽培',tic:'仰天大笑、攤開世界地圖、灌下整桶酒'} },
   { id:'吉爾德萊-Caster', cls:'Caster', realName:'吉爾·德·萊斯（青鬍子）', wars:['4th'], gender:'男',
@@ -95,9 +95,9 @@ var SEED_SERVANTS = [
     skills:[{n:'變生',r:'',fx:'shapeshift'},{n:'神性',r:'?',fx:'divine'}],
     traits:[{n:'神性'},{n:'神造兵器'}], np:'天地乖離開闢之星（變化）',
     align:'中立・中庸', persona:{firstP:'我',words:'純真・神造・追尋摯友・無垢',toMaster:'溫和而疏離，心繫吉爾伽美什',speech:'平和中性、純真直接、無機質卻溫柔、談起摯友便柔軟',moe:'神造兵器卻最有人性、對吉爾伽美什的純粹羈絆、不解人類卻嚮往、變幻自如的天真',tic:'化身千刃、歪頭觀察、望向遠方'} },
-  { id:'漢斯-Watcher', cls:'Watcher', realName:'漢斯·克里斯汀·安徒生', wars:['fake'], gender:'男',
+  { id:'漢斯-Watcher', cls:'Caster', realName:'漢斯·克里斯汀·安徒生', wars:['fake'], gender:'男',
     six:{筋力:'E',耐久:'E',敏捷:'D',魔力:'C',幸運:'B',寶具:'C'},
-    classSkills:[{n:'單獨行動',r:'B',fx:'solo'}],
+    classSkills:[{n:'陣地作成',r:'C',fx:'territory'},{n:'道具作成',r:'C',fx:'crafting'}],
     skills:[{n:'心眼（真）',r:'B',fx:'analyze'},{n:'故事創作',r:'A',fx:'narrative'},{n:'透化',r:'C',fx:'clear_mind'}],
     traits:[{n:'人類'}], np:'無謬之書／人魚靈藥（輔助）',
     align:'中立・善', persona:{firstP:'我',words:'毒舌・觀察者・童話・早慧',toMaster:'冷眼旁觀卻心軟，毒舌鞭策',speech:'尖酸刻薄、文人吐槽、嘴上嫌棄、童話般的洞察',moe:'童顏毒舌的反差、看透人心卻偷偷溫柔、用故事治癒他人自己卻孤獨、嫌麻煩還是會幫忙',tic:'振筆疾書、翻白眼吐槽、扶額嘆氣'} },
@@ -166,7 +166,7 @@ var SEED_SERVANTS = [
     traits:[{n:'龍'},{n:'騎士'}], np:'我的憤怒不會退去 Clarent Blood Arthur（對軍 A）',
     align:'混沌・中庸', persona:{firstP:'我',words:'叛逆・倔強・渴求認同・反逆之騎',toMaster:'桀驁不馴，認可便死忠',speech:'粗豪叛逆、不服輸、稱亞瑟王「父親」、爭強好勝',moe:'外表狂傲內心渴求父親認同、不肯承認的少女心、死要面子、對「弒父叛逆」的執念與悔',tic:'掀面甲咆哮、紅雷纏劍、別過頭'} },
   { id:'卡爾納-Lancer', cls:'Lancer', realName:'卡爾納', wars:['客串'], gender:'男',
-    six:{筋力:'A',耐久:'B',敏捷:'A',魔力:'B',幸運:'C',寶具:'A+'},
+    six:{筋力:'A',耐久:'B',敏捷:'A',魔力:'B',幸運:'C',寶具:'EX'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'},{n:'騎乘',r:'A',fx:'ride'}],
     skills:[{n:'神性',r:'B',fx:'divine'},{n:'魔力放出（炎）',r:'A',fx:'burst'},{n:'太陽之鎧',r:'A',fx:'divine_core'}],
     traits:[{n:'神性'},{n:'英雄'}], np:'日輪啊化作鎧甲吧／梵天慈悲之槍（對神 EX）',
@@ -261,7 +261,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v3';
+var CODEX_PERSONA_VER = 'v6';
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
@@ -273,7 +273,8 @@ function upgradeCodexPersonas_(ss) {
   var n = 0;
   for (var i = 1; i < d.length; i++) {
     var s = byId[String(d[i][COL.HERO.ID])];
-    if (s) { hero.getRange(i + 1, COL.HERO.PERSONA + 1).setValue(JSON.stringify(s.persona)); n++; }
+    // 整列依種子重寫(六圍/職階技能/固有技能/特性/寶具/人設/陣營)，只刷種子英靈(ID 對應)、不動客製英靈
+    if (s) { var row = servantToHeroRow_(s); hero.getRange(i + 1, 1, 1, row.length).setValues([row]); n++; }
   }
   return n;
 }
