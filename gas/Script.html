@@ -1155,6 +1155,7 @@ function renderRecentLocs(recents = null) {
         else if (data.servantDream) narrate(data.servantDream); // 🌙 從者之夢·回想
         syncData(true);
         if (data.defeat) { await handleDefeat(data); }
+        else if (data.victory) { await handleVictory(data); } // 🕯️ 休息推進時間→令咒透支倒數到期、清掉最後敵人→奪杯
       } else { alert((data && data.message) || '休息失敗。'); }
     } catch (e) { alert('連線失敗，休息未果。'); } finally { endAction(); }
   }
@@ -1262,6 +1263,8 @@ function renderRecentLocs(recents = null) {
           + (pc.servant ? `★從者「${pc.servant}」隨行在側，依其個性開口、有反應（至少一句台詞），別寫成御主獨自一人的自言自語。\n` : '')
           + `★禁止替御主做決定、禁止詢問玩家想做什麼，停在留白，讓御主以行動（偵查／出戰／補魔／移動）回應。`;
         narrate(arrivePrompt);
+        // 🕯️ 移動推進時間時，敵從者令咒透支倒數到期、消滅了最後一名敵人 → 聖杯到手
+        if (data.victory) { try { await handleVictory(data); } catch (e) {} }
       } else {
         alert("天道阻礙：" + data.message);
       }

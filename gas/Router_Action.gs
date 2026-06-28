@@ -2144,13 +2144,14 @@ function actionMove(userData, pcId, sheets) {
   // 🌍 世界先動，玩家後到：先讓敵御主／敵從者 tick 到各自的新位置，再把玩家落到 target——
   //   這樣「追到敵人所在地」時，敵人不會在你踏進來的同一瞬間又被傳走（修：撞在一起卻沒對話）。
   //   敵人就位後才讀同地資料給 AI，這一輪它們鎖在原地，遭遇敘事才跑得起來。
-  let clockLabel = "", worldRumors = [], apLeft = AP_PER_DAY;
+  let clockLabel = "", worldRumors = [], apLeft = AP_PER_DAY, moveVictory = false;
   if (isFateMove) {
     try {
       const sp = spendAp_(moveGameId, 2);
       apLeft = sp.ap;
-      const tick = worldTick_(sheets, moveGameId, target, 1, false); // 移動只讓敵換位，不死人
+      const tick = worldTick_(sheets, moveGameId, target, 1, false); // 移動只讓敵換位，不死人；但令咒透支倒數可能到期收尾
       worldRumors = tick.rumors || [];
+      moveVictory = !!tick.victory;
       try { const ab = breakStaleAlliances_(sheets, moveGameId); if (ab.broken.length) worldRumors.push(`〔盟約${ab.forced ? '瓦解' : '到期'}〕你與「${ab.broken.join('、')}」的同盟已${ab.forced ? '因戰局逼近終局而破裂——最後只能剩一個' : '到期失效'}，重回敵對。`); } catch (e) { }
       clockLabel = clockLabel_(moveGameId);
     } catch (e) { }
@@ -2206,6 +2207,7 @@ function actionMove(userData, pcId, sheets) {
     success: true,
     servantCard: svCardMove,
     preFoes: preFoesAtTarget,
+    victory: moveVictory,
     statusString: buildPlayerStatusString(allPcData[pIdx], getCharacterTotalStats(pcId, sheets, allPcData), sheets.item ? sheets.item.getDataRange().getValues() : []),
     people: getLocalPeopleList(sheets, pcName, pcId, target, relData, sheets.task ? sheets.task.getDataRange().getValues() : []),
     locations: getNearbyLocations(target, freshMapData).slice(0, 5),
@@ -2279,12 +2281,12 @@ function actionRest(userData, pcId, sheets) {
     });
     sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
 
-    let restClock = "", restRumors = [], apAfter = AP_PER_DAY;
+    let restClock = "", restRumors = [], apAfter = AP_PER_DAY, restVictory = false;
     try {
       const clk = restHours_(restGameId, restHours);
       apAfter = clk ? clk.ap : AP_PER_DAY;
       const rounds = Math.floor(restHours / 3); // 1h:0、3h:1、6h:2 輪世界自走
-      if (rounds > 0) { const tick = worldTick_(sheets, restGameId, pcLoc, rounds, true); restRumors = tick.rumors || []; }
+      if (rounds > 0) { const tick = worldTick_(sheets, restGameId, pcLoc, rounds, true); restRumors = tick.rumors || []; restVictory = !!tick.victory; }
       restClock = clockLabel_(restGameId);
     } catch (e) { }
     try { sheets.log.appendRow([new Date(), pcId, `【系統】御主一行休息了 ${restHours} 小時，恢復行動力。`, pcLoc]); } catch (e) { }
@@ -2317,6 +2319,7 @@ function actionRest(userData, pcId, sheets) {
       canonBeats: restBeats, canonLeads: restLeads,
       ambush: !!restAmbush, defeat: restAmbush ? restAmbush.defeat : false, dreamPrompt: restAmbush ? restAmbush.dreamPrompt : "", ambushPrompt: restAmbushPrompt,
       servantDream: restDreamPrompt,
+      victory: restVictory && !(restAmbush && restAmbush.defeat),
       economy: playerServantEconomy_(sheets, pcId)
     });
   }
@@ -3913,8 +3916,20 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
     var eSeals = parseInt(pcData[tgtIdx][COL.PC.CONTRIB]) || 0;
     if (eSeals > 0 && Math.random() < 0.30) {
       out.sealEscaped = true;
-      pcData[tgtIdx][COL.PC.HP] = 1; pcData[tgtIdx][COL.PC.CONTRIB] = eSeals - 1;
-      pcData[tgtIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基受創", "姿勢": "踉蹌", "負面": "令咒緊急脫離", "顏面": "咬牙退避" });
+      var leftSeals = eSeals - 1;
+      pcData[tgtIdx][COL.PC.HP] = 1; pcData[tgtIdx][COL.PC.CONTRIB] = leftSeals;
+      // 🕯️ 令咒燒到 0 × 無「單獨行動」→ 靈基失穩，掛上 SEAL_DOOM_HOURS 小時消滅倒數
+      var doomNote = "";
+      if (leftSeals <= 0 && !rowHasSolo_(pcData[tgtIdx])) {
+        var dClk = getClock_(ctx.myGameId);
+        if (dClk) {
+          var deadAbs = dClk.day * 24 + dClk.hour + SEAL_DOOM_HOURS;
+          pcData[tgtIdx][COL.PC.MEMORY] = stampDoom_(pcData[tgtIdx][COL.PC.MEMORY], deadAbs);
+          pcData[tgtIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰蝕", "姿勢": "踉蹌", "負面": `令咒耗盡·靈基透支(約 ${SEAL_DOOM_HOURS} 時消滅)`, "顏面": "強撐將潰" });
+          doomNote = `——三道令咒至此燃盡，失去令咒穩固的靈基開始崩解；它既無『單獨行動』自持，至多再撐約 ${SEAL_DOOM_HOURS} 小時。`;
+        }
+      }
+      if (!doomNote) pcData[tgtIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基受創", "姿勢": "踉蹌", "負面": "令咒緊急脫離", "顏面": "咬牙退避" });
       var oldLoc = String(pcData[tgtIdx][COL.PC.LOC]).trim(), newLoc = enemyRetreatLoc_(oldLoc);
       pcData[tgtIdx][COL.PC.LOC] = newLoc;
       sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
@@ -3923,7 +3938,7 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
           pcData[mi][COL.PC.LOC] = newLoc; sheets.pc.getRange(mi + 1, 1, 1, pcData[mi].length).setValues([pcData[mi]]); break;
         }
       }
-      out.sealNote = `對面御主一道令咒迸發，強令「${defC.name}」於靈基崩解前一瞬撤離戰場，遁向「${newLoc}」（敵餘令咒 ${eSeals - 1}）。`;
+      out.sealNote = `對面御主一道令咒迸發，強令「${defC.name}」於靈基崩解前一瞬撤離戰場，遁向「${newLoc}」（敵餘令咒 ${leftSeals}）。${doomNote}`;
       return out;
     }
   }
@@ -4321,6 +4336,24 @@ function setPlayerSeals_(memory, n) {
   var s = String(memory || "");
   if (/【令咒】\d+/.test(s)) return s.replace(/【令咒】\d+/, "【令咒】" + n);
   return (s ? s + "｜" : "") + "【令咒】" + n;
+}
+
+// 🕯️ 令咒耗盡·靈基透支倒數：令咒燒到 0 又無「單獨行動」的敵從者，只能再撐 SEAL_DOOM_HOURS 小時。
+var SEAL_DOOM_HOURS = 3; // 失去令咒穩固、無單獨行動自持的靈基存續上限（遊戲內小時）
+// 該從者列(TAGS JSON 的 skills/traits)是否帶「單獨行動」(fx:'solo')
+function rowHasSolo_(row) {
+  try { var tg = JSON.parse(row[COL.PC.TAGS] || "{}"); return (tg.skills || []).concat(tg.traits || []).some(function (s) { return s && s.fx === 'solo'; }); }
+  catch (e) { return false; }
+}
+// 在 MEMORY 標記/讀取靈基透支的「絕對死線」(遊戲內總時數 = day*24+hour)
+function stampDoom_(memory, deadAbsHour) {
+  var s = String(memory || "").replace(/【靈基透支】\d+/, "");
+  s = s.replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
+  return (s ? s + "｜" : "") + "【靈基透支】" + deadAbsHour;
+}
+function getDoom_(memory) {
+  var m = String(memory || "").match(/【靈基透支】(\d+)/);
+  return m ? parseInt(m[1]) : 0;
 }
 
 // ❖ 玩家令咒（固定選單·絕對命令權）：修復／補魔／脫離（命中走 fate_battle 的 seal 旗標）

@@ -298,5 +298,32 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
       rumors.push("〔風聞〕昨夜冬木某處傳出靈基崩潰的餘波——「" + victim.name + "」似乎已在他人手中殞落。");
     }
   }
-  return { rumors: rumors, moved: moved };
+  // 🕯️ 令咒耗盡·靈基透支：時間到 → 無「單獨行動」自持的脫逃敵從者，靈基崩解消滅。
+  //   這不是世界隨機清人(那有 WORLD_FLOOR_ 保底)，而是玩家親手把對方打到燃盡令咒後的「延遲結算」，故允許收尾、可觸發勝利。
+  var victory = false;
+  try {
+    var ck = getClock_(gameId);
+    if (ck) {
+      var nowAbs = ck.day * 24 + ck.hour;
+      var dd = sheets.pc.getDataRange().getValues();
+      var faded = false;
+      for (var di = 1; di < dd.length; di++) {
+        if (String(dd[di][COL.PC.FACTION]) !== "敵從者") continue;
+        if (String(dd[di][COL.PC.GAME_ID] || "") !== gameId) continue;
+        if (String(dd[di][COL.PC.ID]).startsWith("DEAD_")) continue;
+        var dl = getDoom_(dd[di][COL.PC.MEMORY]);
+        if (dl > 0 && nowAbs >= dl) {
+          dd[di][COL.PC.ID] = "DEAD_" + String(dd[di][COL.PC.ID]);
+          dd[di][COL.PC.HP] = 0;
+          dd[di][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "令咒耗盡·靈基透支消滅", "顏面": "已無生息" });
+          sheets.pc.getRange(di + 1, 1, 1, dd[di].length).setValues([dd[di]]);
+          rumors.push("〔風聞〕「" + String(dd[di][COL.PC.NAME]) + "」三道令咒已燃盡、又無『單獨行動』自持，失穩的靈基終究撐不過——崩解消散於冬木的夜色中。");
+          faded = true;
+        }
+      }
+      if (faded && aliveEnemyServants_(sheets, gameId) <= 0) victory = true;
+    }
+  } catch (e) { }
+
+  return { rumors: rumors, moved: moved, victory: victory };
 }
