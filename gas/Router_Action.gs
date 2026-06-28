@@ -4122,6 +4122,7 @@ function actionFateBattle(userData, pcId, sheets) {
   }
 
   let knockedOut = [], victory = false, defeat = false, dreamPrompt = "", destroyedName = "", sealEscaped = false, sealNote = "", godRevived = false, godNote = "";
+  let enemyNpSpent = false; // 敵寶具一場限一次
   const rounds = [];
   const ctx = { myGameId: myGameId, pIdx: pIdx, userData: userData };
   const targetIsFoeServant = String(pcData[nIdx][COL.PC.FACTION]) === "敵從者";
@@ -4170,8 +4171,13 @@ function actionFateBattle(userData, pcId, sheets) {
       }
       if (!String(pcData[ctgt][COL.PC.ID]).startsWith("DEAD_")) {
         const enemyNow = rowToCombatant_(pcData[nIdx]);
-        const es = fateStrike_(sheets, pcData, enemyNow, ctgt, { counterMul: 0.85 }, ctx);
-        rl.eHit = es.hit; rl.eRoll = es.aRoll; rl.eHitVal = es.aHit; rl.eDmg = es.hit ? es.damage : 0; rl.eFired = es.fired; rl.eTarget = String(pcData[ctgt][COL.PC.NAME]);
+        // 🔥 敵人也會解放寶具！殘血越急越想拼、暗殺/狂戰系更愛搏命；開寶具則全力(不打折)
+        const eHpRatio = (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[nIdx][COL.PC.HP]) || 0) / (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) : 1;
+        const eNpUrge = (hasFx_(enemyNow, 'zabaniya') || hasFx_(enemyNow, 'mad')) ? 0.22 : 0.10;
+        const enemyFireNp = !enemyNpSpent && (Math.random() < (eNpUrge + (1 - eHpRatio) * 0.45));
+        if (enemyFireNp) enemyNpSpent = true;
+        const es = fateStrike_(sheets, pcData, enemyNow, ctgt, { counterMul: enemyFireNp ? 1.0 : 0.85, np: enemyFireNp }, ctx);
+        rl.eHit = es.hit; rl.eRoll = es.aRoll; rl.eHitVal = es.aHit; rl.eDmg = es.hit ? es.damage : 0; rl.eFired = es.fired; rl.eTarget = String(pcData[ctgt][COL.PC.NAME]); rl.eNp = enemyFireNp;
         if (es.defeat) { defeat = true; victory = false; dreamPrompt = es.dreamPrompt; }
       }
     }
@@ -5286,7 +5292,7 @@ function actionMultiAttack(userData, pcId, sheets) {
 function actionNarrateOnly(userData, pcId, sheets) {
   const { promptText, isNsfw } = userData;
 
-  const miniSystem = `你是《命運停駐之夜》的說書人。用 Fate／TYPE-MOON 筆觸、第一人稱「我」（玩家＝御主）、強制台灣繁體中文，依指令生動描寫一段劇情（200~350字；若為從者廝殺，需把回合來回的攻防、技能與寶具威能、靈基壓迫感寫得有張力）。
+  const miniSystem = `你是《命運停駐之夜》的說書人。用 Fate／TYPE-MOON 筆觸、第一人稱「我」（玩家＝御主）、強制台灣繁體中文，依指令生動描寫一段劇情（精煉 130~220 字、節奏明快不灌水；若為從者廝殺，把關鍵攻防、技能與寶具威能、靈基壓迫感寫得有張力即可，不必逐回合流水帳）。
 【鐵律】
 1. 旁白第一人稱「我」，禁用「你」與上帝視角。
 2. 對話格式：角色名：「（動作/神態/眼神/微表情）台詞……（動作/神態/眼神/微表情）台詞（動作/神態/眼神/微表情）」。動作神態【絕對禁止】獨立成段或寫在引號外，一律用全形括號「（）」嵌入台詞開頭/中間/結尾，至少穿插2次以上。
@@ -5298,7 +5304,7 @@ function actionNarrateOnly(userData, pcId, sheets) {
   let aiConfig = {
     temperature: 0.85,
     ignoreLaw: true,            // 不疊規矩表(節慶/天時)
-    max_tokens: 900,            // 200~350字敘事 + JSON 包裝
+    max_tokens: 650,            // 130~220字精煉敘事 + JSON 包裝
     model: "google/gemini-3.1-flash-lite",
     isNsfwMode: !!isNsfw        // NSFW 時讓 fallback 文案合理，但不啟用完整慾海規則
   };

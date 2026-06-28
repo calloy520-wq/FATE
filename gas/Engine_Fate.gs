@@ -161,6 +161,8 @@ function resolveFateBattle_(atk, def, opts) {
   else if (mor && hasFx_(loser, 'clear_mind')) { fired.push(loser.name + '·透化(免威壓)'); }
   // 自我改造(self_mod)：傷害 +3
   if (hasFx_(winner, 'self_mod')) base += 3;
+  // 🗡️ 投影魔術(projection)：每擊都連續投影複製名劍齊射，給持續傷害底火（救低筋力的 EMIYA）
+  if (hasFx_(winner, 'projection')) { base += 24 + Math.round(rankVal(winner.six["寶具"]) * 0.6); fired.push(winner.name + '·投影連射'); }
   // 狂化(mad)：傷害暴漲
   var madW = hasFx_(winner, 'mad'); if (madW) { base += Math.round(14 * rankMul_(madW)); fired.push(winner.name + '·' + fxName_(winner, 'mad', '狂化')); }
   // 神代魔術(divine_age)：魔力傷害大增（下方對魔力減免也減半）
@@ -188,12 +190,18 @@ function resolveFateBattle_(atk, def, opts) {
     if (/對城|對界|對軍/.test(String(winner.np || '')) && (winner.traits || []).some(function (t) { return t && /王/.test(String(t.n)); })) {
       base = Math.round(base * 1.15); fired.push(winner.name + '·對城寶具·一閃');
     }
+    // 🗡️ 妄想心音／霧夜殺戮(zabaniya)：暗殺系寶具＝奪心一擊，命中即致命級重創（救低六圍刺客/狂戰的本命）
+    if (hasFx_(winner, 'zabaniya')) { base = Math.round(base * 1.9) + 70; fired.push(winner.name + '·' + fxName_(winner, 'zabaniya', '妄想心音') + '(奪心致命)'); }
+    // 🌑 規則破壞(rule_breaker)寶具化／魔眼石化(petrify)等控場寶具的小加成已於上方命中處理；此處給魔眼一發致殘
+    if (hasFx_(winner, 'petrify')) { base = Math.round(base * 1.3); fired.push(winner.name + '·魔眼·石化貫穿'); }
   }
   // 令咒·絕對命令：全力一擊
   if (opts.seal) { base = Math.round(base * 1.5); fired.push('令咒·絕對命令'); }
 
   // 守方減傷：耐久（階級）
   base -= Math.round(rankVal(loser.six["耐久"]) / 2);
+  // 🛡️ 陣地作成(territory)：法師以魔術防壁／結界減傷，補償其低耐久（救玻璃大砲美狄亞的存活）
+  if (hasFx_(loser, 'territory')) { base = Math.round(base * 0.74); fired.push(loser.name + '·' + fxName_(loser, 'territory', '陣地') + '·魔術防壁'); }
   // 神核(divine_core)：減傷 18%×階級；但破魔薔薇(anti_magic_lance)無視神核護甲
   var dc = hasFx_(loser, 'divine_core');
   if (dc && hasFx_(winner, 'anti_magic_lance')) { fired.push(winner.name + '·破魔(無視神核)'); }
@@ -208,7 +216,7 @@ function resolveFateBattle_(atk, def, opts) {
     var red = 0.30 * rankMul_(nm);                 // 基礎：階級越高擋越多
     if (nmV >= 50) red = Math.max(red, 0.80);      // A 階以上：現代魔術近乎無效
     else if (nmV >= 40) red = Math.max(red, 0.55); // B 階：大幅削弱
-    if (hasFx_(winner, 'divine_age')) red *= 0.5;  // 神代魔術凌駕一般對魔力
+    if (hasFx_(winner, 'divine_age')) red *= 0.3;  // 神代魔術凌駕一般對魔力（神祖之術，現代對魔力難擋）
     red = Math.min(0.92, red);
     base = Math.round(base * (1 - red)); fired.push(loser.name + '·' + fxName_(loser, 'nullify_magic', '對魔力') + (nmV >= 50 ? '(無視魔術)' : ''));
   }
