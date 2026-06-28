@@ -15,6 +15,9 @@ const ActionRouter = {
   "enter_gallery": actionEnterGallery,
   "gallery_talk": actionGalleryTalk,
   "dev_seed_gallery": actionDevSeedGallery,
+  "kanshou_companions": actionKanshouCompanions,
+  "kanshou_add": actionKanshouAdd,
+  "kanshou_remove": actionKanshouRemove,
   "inspect_npc": actionInspectNpc,
   "get_full_status": actionGetFullStatus,
   "update_fate": actionUpdateFate,
@@ -140,9 +143,12 @@ function handleGameAction(userData) {
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   try { ensureFateSheets_(ss); } catch (e) { Logger.log("ensureFateSheets_ 於 handleGameAction 失敗(略過): " + e.message); }
+  // 🌹 慾海路由：御主 avatar 以 "KPC_" 開頭 → 整條後日談路徑(actionPlay/sync/move…)改讀「鑑賞眾生」分頁，
+  //   與戰爭主表「眾生」完全隔離。solo 御主是 "PC_" 不受影響。
+  const isKanshouCtx = String(pcId || "").indexOf("KPC_") === 0;
   const sheets = {
     law: ss.getSheetByName("規矩"), map: ss.getSheetByName("坤圖"),
-    pc: ss.getSheetByName("眾生"), log: ss.getSheetByName("因果"),
+    pc: (isKanshouCtx ? getKanshouPcSheet_(ss) : ss.getSheetByName("眾生")), log: ss.getSheetByName("因果"),
     item: ss.getSheetByName("琳琅"), auth: ss.getSheetByName("權柄"),
     rel: ss.getSheetByName("關係"), epic: ss.getSheetByName("史紀"),
     quest: ss.getSheetByName("天命"), task: ss.getSheetByName("TASK"),
