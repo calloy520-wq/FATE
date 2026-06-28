@@ -2207,10 +2207,12 @@ ${isKanshou ? `
       }
 
       if (aiData.intimacy_feedback.npcs) {
+        var _dbgNpc = [];
         aiData.intimacy_feedback.npcs.forEach(nfb => {
           const tName = String(nfb.name).trim();
           const targetIdx = pcData.findIndex(r => r[COL.PC.NAME] === tName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
           const rIdx = relData.findIndex(r => r[COL.REL.PC] === pcName && r[COL.REL.NPC] === tName);
+          try { _dbgNpc.push(tName + (targetIdx !== -1 ? "✓" : "✗無此列") + (nfb.visible_state ? ("衣[" + String(nfb.visible_state["衣服"] || nfb.visible_state.衣服 || "?") + "]") : "")); } catch (e) { }
 
           if (targetIdx !== -1 && isNsfwMode) {
             dirtyPcRows.add(targetIdx); // 🔴 新增
@@ -2427,7 +2429,8 @@ ${isKanshou ? `
       text: finalResponseText,
       _dbg: "nsfw=" + isNsfwMode + " ｜表=" + (sheets.pc.getName ? sheets.pc.getName() : "?")
         + " ｜intimacy=" + (aiData.intimacy_feedback ? "Y" : "N")
-        + " ｜npcs=" + (aiData.intimacy_feedback && aiData.intimacy_feedback.npcs ? aiData.intimacy_feedback.npcs.map(function (n) { return String(n.name) + (n.visible_state ? "(vs)" : "") + (n.physical_state ? "(ps)" : ""); }).join(",") : "-"),
+        + " ｜match=" + (typeof _dbgNpc !== "undefined" ? _dbgNpc.join(";") : "-")
+        + " ｜表內從者=" + pcData.filter(function (r) { return String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_"); }).map(function (r) { return String(r[COL.PC.NAME]); }).join("/"),
       statusString: buildPlayerStatusString(pcData[pcIndex], getCharacterTotalStats(pcId, sheets, pcData, itemData), itemData),
       people: localPeopleList,
       locations: getNearbyLocations(curL, memoryMapData),
