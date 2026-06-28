@@ -1296,7 +1296,9 @@ function actionGetRumors(userData, pcId, sheets) {
 // ==========================================
 function actionPlay(userData, pcId, sheets) {
   const userMsg = userData.message;
-  const isNsfwMode = userData.isNsfw || false;
+  // 🌹 慾海(KPC_ 御主)＝NSFW 後日談軌，一律當 NSFW：否則 intimacy/肉體/衣服狀態整段不回填。
+  //   不再依賴前端開關(會被快取/忘了開)。solo 仍純看 userData.isNsfw(預設 SFW)。
+  const isNsfwMode = userData.isNsfw || String(pcId || "").indexOf("KPC_") === 0;
   const finalUserMsg = `【玩家意圖】：${userMsg}`;
 
   const formatPref = (str) => {
