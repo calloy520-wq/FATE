@@ -72,6 +72,7 @@ const ActionRouter = {
   "get_epic_history": actionGetEpicHistory,
   "get_ranking": actionGetRanking,
   "leaderboard": actionLeaderboard,
+  "war_chronicle": actionWarChronicle,
   "promote_rank": actionPromoteRank,
   "create_faction": actionCreateFaction,
   "home_get": actionHomeGet,
@@ -1905,6 +1906,8 @@ ${FX_MENU_}
 
     // 🔵 召喚完成 → 鋪敵方御主×從者進這個 game_id 世界（一次性）
     try { seedRivalsForGame_(gameId, realName, warName, playedMaster); } catch (e) { }
+    // 📖 戰記開卷：開戰＋召喚
+    try { logWarEvent_(gameId, `⚔️ 冬木的聖杯戰爭開幕——御主『${pcName}』以令咒召喚出 ${cls} 職階的從者「${realName}」，締結契約。`); } catch (e) { }
 
     // 🎬 召喚登場場景（精簡敘事用，含角色卡；前端純按鈕模式直接 narrate，不走 options 那套）
     const summonPrompt = servantCard_(row) +
@@ -3939,6 +3942,7 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
         }
       }
       out.sealNote = `對面御主一道令咒迸發，強令「${defC.name}」於靈基崩解前一瞬撤離戰場，遁向「${newLoc}」（敵餘令咒 ${leftSeals}）。${doomNote}`;
+      logWarEvent_(ctx.myGameId, `敵御主燃一道令咒，令重傷的「${defC.name}」緊急脫離戰場（敵餘令咒 ${leftSeals}）${doomNote ? '；其令咒已盡、靈基進入透支倒數' : ''}。`);
       return out;
     }
   }
@@ -3976,15 +3980,19 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
         out.dreamPrompt = buildDreamPrompt_(pcData[ctx.pIdx][COL.PC.NAME], wish, svName);
         var acctD = String(ctx.userData.acctName || "");
         if (acctD) recordHistory_(acctD, "敗", svName, `「${svName}」於「${atkC.name}」之手靈基崩潰，聖杯戰爭落敗。`);
+        logWarEvent_(ctx.myGameId, `我方從者「${svName}」於「${atkC.name}」之手靈基崩潰消滅——聖杯戰爭落敗。`);
+      } else {
+        logWarEvent_(ctx.myGameId, `我方從者「${svName}」被「${atkC.name}」擊破消滅（尚有從者續戰）。`);
       }
     } else {
       out.knocked = out.destroyed;
       // 🕯️ 敵從者被擊破 → 在其御主身上記下「如何痛失從者」，供日後遭遇時 AI 演出無牙御主
-      if (isFoeSv) markMasterLostServant_(sheets.pc, pcData, tgtIdx, `被『${atkC.name}』當場擊破、靈基崩潰消滅`);
+      if (isFoeSv) { markMasterLostServant_(sheets.pc, pcData, tgtIdx, `被『${atkC.name}』當場擊破、靈基崩潰消滅`); logWarEvent_(ctx.myGameId, `敵從者「${out.destroyed}」被我方『${atkC.name}』擊破、靈基崩潰消滅。`); }
       if (isFoeSv && aliveEnemyServants_(sheets, ctx.myGameId) <= 0) {
         out.victory = true;
         var acctW = String(ctx.userData.acctName || "");
         if (acctW) { incrementWin_(acctW); recordHistory_(acctW, "勝", atkC.name, `「${atkC.name}」斬盡所有敵對從者，奪得聖杯。`); recordWinSpeed_(acctW, ctx.myGameId); }
+        logWarEvent_(ctx.myGameId, `🏆『${atkC.name}』斬盡所有敵對從者，奪得聖杯——聖杯戰爭勝利！`);
       }
     }
   } else {
@@ -4083,10 +4091,12 @@ function actionFateBattle(userData, pcId, sheets) {
       pcData[assassinGuardIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "化作光點", "負面": "御主既亡·魔力斷絕消滅", "顏面": "黯然消散" });
       sheets.pc.getRange(assassinGuardIdx + 1, 1, 1, pcData[assassinGuardIdx].length).setValues([pcData[assassinGuardIdx]]);
       asnKnocked = [masterName, guardName];
+      logWarEvent_(myGameId, `我方『${crit.name}』奇襲斬首敵御主「${masterName}」，御主既亡、護衛從者「${guardName}」失去魔力供給隨之消散。`);
       if (aliveEnemyServants_(sheets, myGameId) <= 0) {
         asnVictory = true;
         const acctW = String(userData.acctName || "");
         if (acctW) { incrementWin_(acctW); recordHistory_(acctW, "勝", crit.name, `「${crit.name}」奇襲斬首敵御主「${masterName}」，奪得聖杯。`); recordWinSpeed_(acctW, myGameId); }
+        logWarEvent_(myGameId, `🏆 已無敵對從者存世——聖杯到手，聖杯戰爭勝利！`);
       }
       asnReport = {
         assassination: true, success: true, aRoll: 20, rolls: rolls.map(r => ({ name: r.name, roll: r.roll })), dual: dualAsn,
@@ -4168,6 +4178,7 @@ function actionFateBattle(userData, pcId, sheets) {
     const left = getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]) - 1;
     pcData[pIdx][COL.PC.MEMORY] = setPlayerSeals_(pcData[pIdx][COL.PC.MEMORY], left);
     sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+    logWarEvent_(String(pcData[pIdx][COL.PC.GAME_ID] || ""), `御主燃一道令咒·絕對命令，強令『${atkC.name}』對「${defC.name}」發動必中的全力一擊（我餘令咒 ${left}）。`);
   }
   if (useNp) {
     pcData[atkIdx][COL.PC.MP] = Math.max(0, (parseInt(pcData[atkIdx][COL.PC.MP]) || 0) - Math.round((parseInt(pcData[atkIdx][COL.PC.MAX_MP]) || 100) * 0.35));
@@ -4372,6 +4383,41 @@ function getLostServant_(memory) {
 // 🔗 敵御主↔敵從者硬連結（種子時互寫於 MEMORY，解決多組同場時「誰是誰」）
 function getServantMaster_(memory) { var m = String(memory || "").match(/【御主】([^｜]+)/); return m ? m[1] : ""; }
 function getMasterServant_(memory) { var m = String(memory || "").match(/【從者】([^｜]+)/); return m ? m[1] : ""; }
+
+// 📖 本場戰記（里程碑）：用 GAS 寫進獨立「戰記」表，附遊戲內日期時段，供玩家回顧本局。
+//   只記 solo 戰爭局(g_)；表 schema = [game_id, 日, 時, 內容]。表不存在則自動建立。
+function logWarEvent_(gameId, text) {
+  try {
+    var gid = String(gameId || "");
+    if (gid.indexOf("g_") !== 0 || !text) return; // 只記單人聖杯戰爭局
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sh = ss.getSheetByName("戰記");
+    if (!sh) { sh = ss.insertSheet("戰記"); sh.appendRow(["game_id", "日", "時", "內容"]); }
+    var clk = getClock_(gid);
+    var day = clk ? clk.day : 0, hour = clk ? clk.hour : 0;
+    sh.appendRow([gid, day, hour, String(text)]);
+  } catch (e) { }
+}
+
+// 📖 取本場戰記：依玩家當前 game_id 撈「戰記」表（保持寫入時序）
+function actionWarChronicle(userData, pcId, sheets) {
+  var allPc = sheets.pc.getDataRange().getValues();
+  var me = allPc.find(function (r) { return r[COL.PC.ID] == pcId; });
+  var gid = me ? String(me[COL.PC.GAME_ID] || "") : "";
+  var events = [];
+  if (gid) {
+    try {
+      var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("戰記");
+      if (sh) {
+        var data = sh.getDataRange().getValues();
+        for (var i = 1; i < data.length; i++) {
+          if (String(data[i][0]) === gid) events.push({ day: data[i][1], hour: data[i][2], text: String(data[i][3] || "") });
+        }
+      }
+    } catch (e) { }
+  }
+  return JSON.stringify({ success: true, events: events });
+}
 // data：眾生二維陣列；svIdx：剛死亡的敵從者列索引；sheet：sheets.pc。就地改 data 並寫回該御主列。
 //   配對優先用硬連結【御主】名(精準，不怕多組同地)，舊角色無連結則退回同落點比對。
 function markMasterLostServant_(sheet, data, svIdx, cause) {
@@ -4437,6 +4483,7 @@ function actionUseSeal(userData, pcId, sheets) {
   seals -= 1;
   pcData[pIdx][COL.PC.MEMORY] = setPlayerSeals_(pcData[pIdx][COL.PC.MEMORY], seals);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+  logWarEvent_(myGameId, `御主燃一道令咒（${type === 'repair' ? '靈基重塑·回滿' : type === 'mana' ? '灌頂補魔' : '緊急脫離'}）施於「${svName}」（我餘令咒 ${seals}）。`);
 
   const aiPrompt = `【系統·令咒已發動，已裁定】御主燃燒一道令咒。${effectMsg}（餘 ${seals} 道令咒）\n` +
     `★以 Fate／TYPE-MOON 筆觸描寫令咒在手背灼亮、絕對命令權貫徹的瞬間（一段即可）。效果已由系統結算。\n` +
@@ -4849,6 +4896,7 @@ function actionProposeAlliance(userData, pcId, sheets) {
     const gIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc);
     let allyServant = "";
     if (gIdx >= 0) { allyServant = String(pcData[gIdx][COL.PC.NAME]); pcData[gIdx][COL.PC.MEMORY] = setAllyMem_(pcData[gIdx][COL.PC.MEMORY], until); sheets.pc.getRange(gIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[gIdx][COL.PC.MEMORY]); }
+    logWarEvent_(myGameId, `與敵御主「${masterName}」${allyServant ? `（從者「${allyServant}」）` : ""}締結同盟、暫時休兵（至第 ${until} 日）。`);
     aiPrompt = servantCard_(gIdx >= 0 ? pcData[gIdx] : null) +
       `【系統·結盟已達成·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』向敵御主「${masterName}」${allyServant ? `（從者「${allyServant}」）` : ""}提議結盟，對方權衡利害後接受了——雙方暫時休兵、互不侵犯（至第 ${until} 日前後）。\n` +
       `★以 Fate／TYPE-MOON 筆觸【約 120~180 字】演出這場談判：「${masterName}」依其性格回應（務實的權衡、開出條件或冷淡的「暫時」），最後達成不穩固的同盟。對方的算計與保留要演出來，留一絲不信任的伏筆。\n` +
@@ -4881,6 +4929,7 @@ function actionBreakAlliance(userData, pcId, sheets) {
     }
   }
   if (!broke) return JSON.stringify({ success: false, message: "你目前沒有與此人結盟。" });
+  logWarEvent_(myGameId, `單方面撕毀與「${who || npcName}」的盟約，雙方重回敵對。`);
   const aiPrompt = `【系統·盟約撕毀·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』單方面撕毀與「${who || npcName}」的盟約，雙方重回敵對。\n` +
     `★以 Fate／TYPE-MOON 筆觸【約 80~130 字】演出背叛/決裂的一瞬間張力。`;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, statusString: getFreshStatusString(pcId, pIdx, sheets) });
@@ -4901,7 +4950,7 @@ function breakStaleAlliances_(sheets, gameId) {
         if (forceAll || day > allyUntil_(data[j])) {
           data[j][COL.PC.MEMORY] = clearAllyMem_(data[j][COL.PC.MEMORY]);
           sheets.pc.getRange(j + 1, COL.PC.MEMORY + 1).setValue(data[j][COL.PC.MEMORY]);
-          if (fac === "敵御主") broken.push(String(data[j][COL.PC.NAME]));
+          if (fac === "敵御主") { broken.push(String(data[j][COL.PC.NAME])); logWarEvent_(gameId, `與「${String(data[j][COL.PC.NAME])}」的同盟${forceAll ? '因戰局逼近終局而瓦解' : '到期失效'}，重回敵對。`); }
         }
       }
     }
