@@ -1510,10 +1510,11 @@ function actionManualNpc(userData, pcId, sheets) {
 ★npc_intent：一句【簡短】萌點（可愛反差，≤15字），結合此御主身分性格，要反差、可愛、獨特。
 ★background：限20字，呼應其身世／財力，禁出現具體物品名。
 ★start_loc：從冬木地點中選一個合理的居所或起點：${validMapNames.join('、')}
-★realm 一律填「凡人」（御主靈基由系統裁定）。faction 填御主所屬（魔術協會／教會／無所屬等，無則「無」），rank 填「御主」。
+★faction 填御主所屬（魔術協會／教會／無所屬等，無則「無」），rank 填「御主」。
+★【勿輸出數值】境界(凡人)、五圍、HP/MP 一律由系統裁定，prompt【不要】輸出 realm/str/con/agi/int/luk 等任何數值欄位。
 
 ★【輸出】合法 JSON、禁 Markdown：
-{"start_loc":"冬木地點","background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","realm":"凡人","str":12,"con":12,"agi":12,"int":12,"luk":12,"faction":"無","rank":"御主","align":"中立","npc_intent":"結合御主身分的獨特可愛反差萌，一句話","start_item":{"name":"與御主相關的隨身之物","desc":"限15字描述"}}`;
+{"start_loc":"冬木地點","background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","faction":"無","rank":"御主","align":"中立","npc_intent":"結合御主身分的獨特可愛反差萌，一句話","start_item":{"name":"與御主相關的隨身之物","desc":"限15字描述"}}`;
 
   // 🔴 新版：加上 ignoreLaw: true，把節慶跟天氣隔絕在創建室外
   const aiBriefStr = callGeminiAPI(promptStr, isCreate ? MASTER_GEN_SYS : sysOverride, { temperature: 0.6, ignoreLaw: true });
