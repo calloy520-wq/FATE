@@ -242,7 +242,8 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
       var newLoc = enemyRetreatLoc_(oldLoc);
       if (newLoc === oldLoc) continue;
       data[i][COL.PC.LOC] = newLoc;
-      if (COL.PC.SEEN != null) data[i][COL.PC.SEEN] = "";
+      // 🔭 已偵查到的敵人移位後【保持可見】(不再清 SEEN)：一旦感應到對手氣息就持續追蹤其當前位置，
+      //   否則敵人每動一次就重新隱形、玩家永遠追不到人(「又找不到人」的根因)。未偵查者 SEEN 仍為空、維持迷霧。
       sheets.pc.getRange(i + 1, 1, 1, data[i].length).setValues([data[i]]);
       // 同地敵從者隨行
       for (var j = 1; j < data.length; j++) {
@@ -251,7 +252,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
         if (String(data[j][COL.PC.ID]).startsWith("DEAD_")) continue;
         if (String(data[j][COL.PC.LOC]).trim() !== oldLoc) continue;
         data[j][COL.PC.LOC] = newLoc;
-        if (COL.PC.SEEN != null) data[j][COL.PC.SEEN] = "";
+        // (同上)隨行從者移位後也保持原本的偵查狀態，不重置隱形
         sheets.pc.getRange(j + 1, 1, 1, data[j].length).setValues([data[j]]);
         break;
       }
