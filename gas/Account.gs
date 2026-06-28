@@ -77,16 +77,17 @@ function actionAccountNewGame(userData, pcId, sheets) {
     var prow = pcData.find(function (r) { return String(r[COL.PC.ID]) === charId; });
     var gid = prow ? String(prow[COL.PC.GAME_ID] || "") : "";
     var pcNm = prow ? prow[COL.PC.NAME] : "";
-    if (gid) {
-      var fresh = sheets.pc.getDataRange().getValues();
-      for (var r = fresh.length - 1; r >= 1; r--) {
-        if (String(fresh[r][COL.PC.GAME_ID] || "") === gid) sheets.pc.deleteRow(r + 1);
-      }
-      if (sheets.rel && pcNm) {
-        var rd = sheets.rel.getDataRange().getValues();
-        for (var k = rd.length - 1; k >= 1; k--) {
-          if (String(rd[k][COL.REL.PC]) === pcNm) sheets.rel.deleteRow(k + 1);
-        }
+    // 刪舊單人戰場：同 game_id 的整個世界 ＋ 御主本人(按 charId，防 game_id 為空的孤兒殘留佔名)
+    var fresh = sheets.pc.getDataRange().getValues();
+    for (var r = fresh.length - 1; r >= 1; r--) {
+      var rgid = String(fresh[r][COL.PC.GAME_ID] || "");
+      var rid = String(fresh[r][COL.PC.ID]);
+      if ((gid && rgid === gid) || rid === charId) sheets.pc.deleteRow(r + 1);
+    }
+    if (sheets.rel && pcNm) {
+      var rd = sheets.rel.getDataRange().getValues();
+      for (var k = rd.length - 1; k >= 1; k--) {
+        if (String(rd[k][COL.REL.PC]) === pcNm) sheets.rel.deleteRow(k + 1);
       }
     }
   }

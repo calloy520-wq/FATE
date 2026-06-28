@@ -205,7 +205,11 @@ function actionCheckName(userData, pcId, sheets) {
     return JSON.stringify({ invalidName: true, message: "名號僅限中文字，不可使用英文、數字或符號。" });
   }
   const pcRows = sheets.pc.getDataRange().getValues();
-  const found = pcRows.find(r => r[COL.PC.NAME] === userData.name && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  // 🔵 只有「進行中世界(game_id 非空)」的角色才保留名字；DEAD_ 與 game_id 空的孤兒(舊資料/已清局殘留)不佔名。
+  //   這同時維持多帳號間「同名活躍御主」的隔離，又讓重開遊戲後自己的舊名可重用。
+  const found = pcRows.find(r => r[COL.PC.NAME] === userData.name
+    && !String(r[COL.PC.ID]).startsWith("DEAD_")
+    && String(r[COL.PC.GAME_ID] || "") !== "");
   return JSON.stringify({ exists: !!found, pcId: found ? found[COL.PC.ID] : null, sex: found ? found[COL.PC.SEX] : "未知" });
 }
 
@@ -4446,8 +4450,8 @@ function actionManaSupply(userData, pcId, sheets) {
   } else {
     aiPrompt = servantCard_(pcData[svIdx]) +
       `【系統·補魔已結算】御主以魔力供給「${svName}」，其魔力回復至 ${restored}/${mpMax}，羈絆微升。\n` +
-      `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】描寫這場補魔（魔力供給之儀）——以「魔力自御主流向從者的傳導」為主軸，輔以兩人之間一絲含蓄的信賴與曖昧（指尖相觸、目光交會、半句未盡的關切），溫柔而克制、點到即止。\n` +
-      `★【單人模式·防護鐵律】這是 SFW 的補魔之儀：止於唯美含蓄的氛圍，【絕對禁止】寬衣解帶、肌膚相纏、喘息、體液、性器官、性交或任何露骨情慾描寫——真正的親密一律留到奪杯後的「鑑賞」。演出而非複述設定；嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
+      `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】，溫柔且帶一絲曖昧張力地描寫這場魔力供給——肌膚相觸、魔力交融的私密一刻（體溫、心跳、屏息、半句未盡的情話），甜美而克制，最後 fade-to-black 留白。\n` +
+      `★【鐵律】止於唯美曖昧、點到為止；【不可】出現性器官、性交或露骨情慾描寫（那是奪杯後鑑賞的事）。演出而非複述設定；嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
   }
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }

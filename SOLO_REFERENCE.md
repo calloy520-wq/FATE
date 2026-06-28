@@ -32,7 +32,9 @@
 
 **入口兩道門**（Index.html `scr-menu`）：🎴 純淨(單人聖杯戰爭, newGameFlow/continueGame) ／ 🌹 慾海(鑑賞後日談, openGallery)。多人收成 disabled 小註腳(未來可能排行榜)。共用一張試算表＋核心資料(管線 奪杯→鑑賞 需要)，靠 帳號＋game_id 分流，不拆表。
 
-**補魔防護(solo)**：`actionManaSupply` 非突襲版 prompt 已加【單人模式·防護鐵律】——以魔力傳導為主、含蓄曖昧為輔，禁寬衣解帶/肌膚相纏/露骨情慾；真親密留給鑑賞(慾海)。solo 補魔走 narrate_only(SFW)，不開慾海引擎。
+**補魔(solo)**：`actionManaSupply` 走 narrate_only(SFW)、不開慾海引擎，prompt 維持「曖昧 fade、點到為止」（玩家認可現狀，勿再收緊）。
+
+**重開/姓名查重**：`actionAccountNewGame`(Account.gs) 清舊單人戰場＝刪同 game_id 整個世界 ＋ 御主本人(按 charId，防 game_id 空的孤兒佔名)。`actionCheckName` 只擋「game_id 非空(進行中世界)」的同名活躍御主；DEAD_ 與 game_id 空的孤兒不佔名→重開後自己舊名可重用，多帳號間活躍同名仍隔離。
 
 **重點：solo 全程無花錢入口**——聽風閣/商城/給銀兩/休養都是 full 專屬。錢在 solo 是死的，身世的財力差異改由「起始禮裝機率」(`rollMysticForMaster_`)體現。
 > ⚠ **但九州經濟系統別砍**：錢/聽風閣/商城/給銀兩在 **kanshou(鑑賞約會)／full** 是活的——玩家規劃鑑賞未來可能「打工賺錢→買禮物」。solo 用不到 ≠ 可刪除；保留給其他兩模式。
