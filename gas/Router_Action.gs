@@ -2649,13 +2649,26 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
       var oldLoc = String(pcData[tgtIdx][COL.PC.LOC]).trim(), newLoc = enemyRetreatLoc_(oldLoc);
       pcData[tgtIdx][COL.PC.LOC] = newLoc;
       sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
+      // 🔗 用硬連結【御主】找「這名從者真正的御主」，避免同地多組時抓錯人
+      //   （曾出現 A 御主一道令咒帶走 B 御主的從者的離譜 bug）。舊角色無連結→退回同地比對。
+      var escMaster = getServantMaster_(pcData[tgtIdx][COL.PC.MEMORY]);
+      var escMasterName = escMaster || "";
       for (var mi = 1; mi < pcData.length; mi++) {
-        if (String(pcData[mi][COL.PC.FACTION]) === "敵御主" && String(pcData[mi][COL.PC.GAME_ID] || "") === ctx.myGameId && String(pcData[mi][COL.PC.LOC]).trim() === oldLoc && !String(pcData[mi][COL.PC.ID]).startsWith("DEAD_")) {
-          pcData[mi][COL.PC.LOC] = newLoc; sheets.pc.getRange(mi + 1, 1, 1, pcData[mi].length).setValues([pcData[mi]]); break;
+        if (String(pcData[mi][COL.PC.FACTION]) !== "敵御主") continue;
+        if (String(pcData[mi][COL.PC.GAME_ID] || "") !== ctx.myGameId) continue;
+        if (String(pcData[mi][COL.PC.ID]).startsWith("DEAD_")) continue;
+        var isOwnMaster = escMaster ? (String(pcData[mi][COL.PC.NAME]) === escMaster)
+                                    : (String(pcData[mi][COL.PC.LOC]).trim() === oldLoc);
+        if (!isOwnMaster) continue;
+        if (!escMasterName) escMasterName = String(pcData[mi][COL.PC.NAME]);
+        // 只有「本主與從者同地」才一起撤離；遠端御主只是隔空燃令咒下令，本人不跟著瞬移
+        if (String(pcData[mi][COL.PC.LOC]).trim() === oldLoc) {
+          pcData[mi][COL.PC.LOC] = newLoc; sheets.pc.getRange(mi + 1, 1, 1, pcData[mi].length).setValues([pcData[mi]]);
         }
+        break;
       }
-      out.sealNote = `對面御主一道令咒迸發，強令「${defC.name}」於靈基崩解前一瞬撤離戰場，遁向「${newLoc}」（敵餘令咒 ${leftSeals}）。${doomNote}`;
-      logWarEvent_(ctx.myGameId, `敵御主燃一道令咒，令重傷的「${defC.name}」緊急脫離戰場（敵餘令咒 ${leftSeals}）${doomNote ? '；其令咒已盡、靈基進入透支倒數' : ''}。`, String(ctx.userData.acctName || ""));
+      out.sealNote = `${escMasterName ? '敵御主「' + escMasterName + '」' : '對面御主'}一道令咒迸發，強令其從者「${defC.name}」於靈基崩解前一瞬撤離戰場，遁向「${newLoc}」（敵餘令咒 ${leftSeals}）。★此撤離僅止於「${defC.name}」及其本主，與在場其他御主／從者無關。${doomNote}`;
+      logWarEvent_(ctx.myGameId, `${escMasterName ? '敵御主「' + escMasterName + '」' : '敵御主'}燃一道令咒，令重傷的從者「${defC.name}」緊急脫離戰場（敵餘令咒 ${leftSeals}）${doomNote ? '；其令咒已盡、靈基進入透支倒數' : ''}。`, String(ctx.userData.acctName || ""));
       return out;
     }
   }
@@ -2715,8 +2728,14 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   return out;
 }
 
+// 名字比對容錯：忽略各種「間隔點」(·・•‧⋅・全形等)與空白，避免種子名點號不一致(英靈殿混用 U+00B7／U+30FB)
+//   導致明明同地有敵卻「此世界查無此目標」。傳入空字串時回空(呼叫端須自行擋空名)。
+function nameLoose_(s) { return String(s == null ? "" : s).replace(/[·・•‧∙⋅･·\s]/g, ""); }
+
 function actionFateBattle(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
+  if (!npcName) return JSON.stringify({ success: false, message: "未指定攻擊目標。" });
+  const npcKey = nameLoose_(npcName);
   const useNp = !!userData.np;
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
@@ -2729,7 +2748,7 @@ function actionFateBattle(userData, pcId, sheets) {
   if (atkIdx === -1) atkIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
   if (atkIdx === -1) return JSON.stringify({ success: false, message: "你尚未召喚從者，無從者可出戰。" });
 
-  let nIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).includes(npcName) && r[COL.PC.ID] != pcData[atkIdx][COL.PC.ID] && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
+  let nIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1 && r[COL.PC.ID] != pcData[atkIdx][COL.PC.ID] && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
   if (nIdx === -1) return JSON.stringify({ success: false, message: "此世界查無此目標。" });
   if (String(pcData[pIdx][COL.PC.LOC]).trim() !== String(pcData[nIdx][COL.PC.LOC]).trim()) {
     return JSON.stringify({ success: false, message: "對方不在你身邊，鞭長莫及。" });

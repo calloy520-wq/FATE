@@ -1604,7 +1604,7 @@ function renderRecentLocs(recents = null) {
         if (res.defeat) { await handleDefeat(res); }
         else if (res.victory) { await handleVictory(res); }
       }
-      else { alert((res && res.message) || '出擊失敗。'); }
+      else { alert((res && res.message) || '出擊失敗。'); try { syncData(true); } catch (e) {} } // 失敗(常見：目標已不在/已亡的幽靈卡)→重新同步清掉殘留敵蹤卡
     } catch (e) { alert('連線失敗，出擊未果。'); } finally { endAction(); }
   }
 
