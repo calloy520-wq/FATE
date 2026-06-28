@@ -117,21 +117,6 @@ function sanitizeAiData_(aiData) {
       if (rc && rc.fav_change !== undefined) rc.fav_change = clampInt(rc.fav_change, -100, 100, 0);
     });
   }
-  // 銀兩轉移：金額限 0 ~ 1億(方向由 from/to 決定，amount 永遠為正)，非數字者剔除
-  if (Array.isArray(aiData.money_transferred)) {
-    aiData.money_transferred = aiData.money_transferred.filter(m => m && m.amount !== undefined && !isNaN(parseInt(m.amount)));
-    aiData.money_transferred.forEach(m => { m.amount = clampInt(m.amount, 0, 100000000, 0); });
-  }
-  // 天命賞金與時限：賞金 0 ~ 1億；deadline_days 為整數天數時限 0 ~ 365
-  if (Array.isArray(aiData.quests)) {
-    aiData.quests.forEach(q => {
-      if (!q) return;
-      if (q.reward_money !== undefined) q.reward_money = clampInt(q.reward_money, 0, 100000000, 0);
-      if (q.deadline_days !== undefined && q.deadline_days !== "" && !isNaN(parseInt(q.deadline_days))) {
-        q.deadline_days = clampInt(q.deadline_days, 0, 365, "");
-      }
-    });
-  }
   return aiData;
 }
 
@@ -195,19 +180,6 @@ function actionCheckName(userData, pcId, sheets) {
 
 
 
-// 🟢 惰性逾期檢查：只改記憶體陣列，由呼叫端決定何時 safeWriteSheet 回寫
-function checkAndExpireQuests(sheets, pcId, questData) {
-  const now = Date.now();
-  let changed = false;
-  questData.forEach(row => {
-    if (row[COL.QUEST.PC] != pcId || row[COL.QUEST.STATUS] !== "進行中") return;
-    const deadline = parseInt(row[COL.QUEST.DEADLINE]);
-    if (!deadline || isNaN(deadline) || now <= deadline) return;
-    row[COL.QUEST.STATUS] = "逾期失敗";
-    changed = true;
-  });
-  return changed;
-}
 
 
 
@@ -230,9 +202,8 @@ function actionInspectNpc(userData, pcId, sheets) {
   const npcRow = allPcData.find(r => r[COL.PC.NAME] === targetName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
   if (!npcRow) return JSON.stringify({ success: false, message: "查無此人。" });
 
-  // 🔴 窺探直接成功：偵查動作，風險留給真正動手偷
-  const itemData = sheets.item ? sheets.item.getDataRange().getValues() : [];
-  return JSON.stringify({ success: true, data: itemData.slice(1).filter(r => r[COL.ITEM.OWNER] === npcRow[COL.PC.ID]).map(r => ({ id: r[COL.ITEM.ID], name: r[COL.ITEM.NAME], type: r[COL.ITEM.TYPE], desc: r[COL.ITEM.DESC] })) });
+  // 🔴 窺探直接成功：偵查動作（物品系統已移除，回傳空清單）
+  return JSON.stringify({ success: true, data: [] });
 }
 
 // 🟢 索要：需與該 NPC 好感100且已傾心，方可開口要求一件物品，成功直接轉入玩家行囊(受背包上限限制)
@@ -315,7 +286,7 @@ function actionGetFullStatus(userData, pcId, sheets) {
       }
     }
   }
-  return JSON.stringify({ success: true, statusString: buildPlayerStatusString(row, getCharacterTotalStats(targetId, sheets, allPcData), sheets.item ? sheets.item.getDataRange().getValues() : [], relMem), targetId: targetId, targetSex: row[COL.PC.SEX], canEditFate: canEditFate });
+  return JSON.stringify({ success: true, statusString: buildPlayerStatusString(row, getCharacterTotalStats(targetId, sheets, allPcData), [], relMem), targetId: targetId, targetSex: row[COL.PC.SEX], canEditFate: canEditFate });
 }
 
 function actionUpdateFate(userData, pcId, sheets) {
@@ -346,7 +317,7 @@ function actionUpdateFate(userData, pcId, sheets) {
     const rRecord = sheets.rel.getDataRange().getValues().find(r => r[COL.REL.PC] === pcData.find(r => r[COL.PC.ID] == pcId)[COL.PC.NAME] && r[COL.REL.NPC] === pcData[pIdx][COL.PC.NAME]);
     if (rRecord) relMem = rRecord[COL.REL.MEMORY] || "";
   }
-  return JSON.stringify({ success: true, statusString: buildPlayerStatusString(pcData[pIdx], getCharacterTotalStats(targetId, sheets, pcData), sheets.item ? sheets.item.getDataRange().getValues() : [], relMem) });
+  return JSON.stringify({ success: true, statusString: buildPlayerStatusString(pcData[pIdx], getCharacterTotalStats(targetId, sheets, pcData), [], relMem) });
 }
 
 function actionManualNpc(userData, pcId, sheets) {
@@ -510,18 +481,7 @@ function actionManualNpc(userData, pcId, sheets) {
         if (mysticId) newRow[COL.PC.MEMORY] = equipMysticToMemory_(newRow[COL.PC.MEMORY], mysticId);
       } catch (e) { }
     }
-    // 🔴 NPC 初始銀兩依境界給(玩家創角固定 150；solo 模式錢無消耗用途，身世改由起始禮裝體現財力)
-    if (isCreate) {
-      newRow[COL.PC.MONEY] = 150;
-    } else {
-      const rk = REALMS.indexOf(targetRealm);
-      let lo, hi;
-      if (rk <= 0) { lo = 30; hi = 60; }   // 凡人：口袋零錢
-      else if (rk <= 2) { lo = 80; hi = 150; }   // 引氣、凝罡：江湖好手
-      else if (rk === 3) { lo = 200; hi = 400; }   // 通玄：門派中堅高層
-      else { lo = 500; hi = 1000; }  // 罡氣以上：一方大能
-      newRow[COL.PC.MONEY] = lo + Math.floor(Math.random() * (hi - lo + 1));
-    }
+    // 經濟層已移除：不再寫入初始銀兩（身世財力差異由起始禮裝體現）
     newRow[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.traits, "外貌平凡、舉止從容、魔術師的癖性、深藏的私密一面");
     newRow[COL.PC.LOC] = spawnName;
     newRow[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "溫婉謙和、內斂堅韌、明哲保身、隨波逐流");
@@ -534,18 +494,6 @@ function actionManualNpc(userData, pcId, sheets) {
     newRow[COL.PC.INTENT] = String(aiBrief.npc_intent || "").slice(0, 18) || "（待揭曉）";
     newRow[COL.PC.GAME_ID] = gameId;
     sheets.pc.appendRow(newRow);
-
-    if (!isCreate && aiBrief.start_item && aiBrief.start_item.name) {
-      sheets.item.appendRow([
-        aiBrief.start_item.name,
-        "隨身之物",
-        aiBrief.start_item.desc || "隨身攜帶的物品。",
-        0,
-        newId,
-        0, 0, 0, 0, 0,
-        "ITM_" + Date.now() + "_born"
-      ]);
-    }
 
     if (!isCreate && sheets.rel) {
       // 🔴 防呆：檢查關係表裡是不是已經有感情基礎了 (例如未收錄前就加了好感)
@@ -800,7 +748,6 @@ ${FX_MENU_}
     row[COL.PC.NAME] = realName;
     row[COL.PC.SEX] = sex;
     row[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
-    row[COL.PC.MONEY] = 0;
     row[COL.PC.LOC] = pcLoc;
     row[COL.PC.FACTION] = "從者"; row[COL.PC.RANK] = cls; row[COL.PC.CLS] = cls;
     row[COL.PC.CONTRIB] = 0; row[COL.PC.ALIGN] = align;
@@ -1119,7 +1066,7 @@ function actionMove(userData, pcId, sheets) {
     servantCard: svCardMove,
     preFoes: preFoesAtTarget,
     victory: moveVictory,
-    statusString: buildPlayerStatusString(allPcData[pIdx], getCharacterTotalStats(pcId, sheets, allPcData), sheets.item ? sheets.item.getDataRange().getValues() : []),
+    statusString: buildPlayerStatusString(allPcData[pIdx], getCharacterTotalStats(pcId, sheets, allPcData), []),
     people: getLocalPeopleList(sheets, pcName, pcId, target, relData, sheets.task ? sheets.task.getDataRange().getValues() : []),
     locations: getNearbyLocations(target, freshMapData).slice(0, 5),
     mapDesc: mapDesc,
@@ -1148,7 +1095,7 @@ function actionSync(userData, pcId, sheets) {
 
   return JSON.stringify({
     success: true,
-    statusString: buildPlayerStatusString(allPcData[pcIndex], getCharacterTotalStats(pcId, sheets, allPcData), sheets.item ? sheets.item.getDataRange().getValues() : []),
+    statusString: buildPlayerStatusString(allPcData[pcIndex], getCharacterTotalStats(pcId, sheets, allPcData), []),
     people: getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, sheets.rel ? sheets.rel.getDataRange().getValues() : [], sheets.task ? sheets.task.getDataRange().getValues() : []),
     locations: getNearbyLocations(curL, freshMapData),
     mapDesc: currentMapInfo ? currentMapInfo[COL.MAP.DESC] : "四下靜謐。",
@@ -1235,10 +1182,7 @@ function actionRest(userData, pcId, sheets) {
     });
   }
 
-  // ── 以下為非 FATE（九州）舊版休養：花 100 銀兩、全回滿 ──
-  let currentMoney = parseInt(pcData[pIdx][COL.PC.MONEY]) || 0;
-  if (currentMoney < 100) return JSON.stringify({ success: false, message: "盤纏不足 100 銀兩，無法休養！" });
-  pcData[pIdx][COL.PC.MONEY] = currentMoney - 100;
+  // ── 以下為非 FATE（九州）舊版休養：全回滿（經濟層已移除，不再收費）──
   let healedNames = [pcName];
   const pMax = calculateMaxStats(pcData[pIdx][COL.PC.REALM], pcData[pIdx][COL.PC.CON], pcData[pIdx][COL.PC.INT]);
   const prevHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
@@ -1264,7 +1208,7 @@ function actionRest(userData, pcId, sheets) {
       String(r[COL.PC.LOC]).trim() === pcLoc && !healedNames.includes(r[COL.PC.NAME]))
     .map(r => r[COL.PC.NAME]);
   sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
-  sheets.log.appendRow([new Date(), pcId, `【系統】花費了 100 銀兩，${healedNames.join("與")} 就地休養，狀態回歸平穩。`, pcData[pIdx][COL.PC.LOC]]);
+  sheets.log.appendRow([new Date(), pcId, `【系統】${healedNames.join("與")} 就地休養，狀態回歸平穩。`, pcData[pIdx][COL.PC.LOC]]);
   return JSON.stringify({
     success: true, statusString: getFreshStatusString(pcId, pIdx, sheets), healedNames: healedNames,
     loc: pcLoc, wasInjured: wasInjured, bystanderNames: bystanderNames
@@ -1319,10 +1263,7 @@ function actionPlay(userData, pcId, sheets) {
 
 
   let pcData = sheets.pc.getDataRange().getValues();
-  let itemData = sheets.item ? sheets.item.getDataRange().getValues() : [];
   let relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
-  let questData = sheets.quest ? sheets.quest.getDataRange().getValues() : [];
-  const questExpiredFlag = sheets.quest ? checkAndExpireQuests(sheets, pcId, questData) : false;
 
   let factionListDesc = "尚無勢力現世。";
   if (sheets.faction) {
@@ -1354,26 +1295,15 @@ function actionPlay(userData, pcId, sheets) {
   const curLRoot = String(curL).split('-')[0].trim();
   const locOwnershipNote = String(curL).includes('-') ? `\n★【地點歸屬鐵律】：玩家當前位置「${curL}」只是「${curLRoot}」境內由玩家自建的一處私人據點（店鋪/居所/領地等），玩家僅擁有這一處據點本身！「${curLRoot}」依然是廣闊的公共城鎮/地區，住滿其他百姓、商家與往來人物，絕非玩家的地盤或私產！嚴禁將整座「${curLRoot}」敘述成只屬於玩家、唯玩家獨尊，或讓無關路人因此對玩家卑躬屈膝、俯首稱臣！` : '';
 
-  let shopInfoStr = "";
-  if (sheets.shop && String(curL).includes('-')) {
-    const shopRow = sheets.shop.getDataRange().getValues().find(r => String(r[COL.SHOP.LOC] || "").trim() === String(curL).trim());
-    if (shopRow) {
-      const isOwnShop = String(shopRow[COL.SHOP.OWNER]) === String(pcId);
-      shopInfoStr = `\n★【在地店鋪資訊】：此處座標標籤為「${curL}」，但其世俗招牌（品牌名）為「${shopRow[COL.SHOP.NAME]}」。類型：${shopRow[COL.SHOP.CATEGORY]}，經營內容：${shopRow[COL.SHOP.DESC]}。${isOwnShop ? "（此店為玩家本人所有）" : "（此店並非玩家所有）"}`;
-    }
-  }
+  const shopInfoStr = "";
 
 
-  let isItemChanged = false;
-  let soulGiftProtectedIds = []; // 傾心信物已在記憶體轉移，須保護不被遺失過濾器誤刪
   let isRelChanged = false;
-  let isQuestChanged = false;
   let knockedOutList = [];
   let justRevived = false;
   let fatePlayerDefeat = false, fateDreamPrompt = ""; // 🔵 FATE：御主血歸 0＝聖杯戰爭敗北（虛假之夢→老虎道場）
   let soulBoundEventMsg = "";
   let freshlyBoundNpcName = "";
-  const newNpcMap = {};
   const dirtyPcRows = new Set();
   // 玩家本人一定會被處理到，先加進去
   dirtyPcRows.add(pcIndex);
@@ -1384,7 +1314,7 @@ function actionPlay(userData, pcId, sheets) {
   const allLogs = readRecentLogRows(sheets.log, 2000);
 
   const history = pickRelevantLogs(allLogs.filter(r => String(r[2]).includes(pcName)), 12).map(r => r[2]).join("\n");
-  const pTotal = getCharacterTotalStats(pcId, sheets, pcData, itemData);
+  const pTotal = getCharacterTotalStats(pcId, sheets, pcData, []);
   const currentAmbition = pc[COL.PC.INTENT] ? String(pc[COL.PC.INTENT]).trim() : "初入江湖，隨遇而安。";
 
   const partyMembers = relData.filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]);
@@ -1392,7 +1322,7 @@ function actionPlay(userData, pcId, sheets) {
   partyMembers.forEach(pName => {
     const r = pcData.find(row => String(row[COL.PC.NAME]).trim() === String(pName).trim() && !String(row[COL.PC.ID]).startsWith("DEAD_"));
     if (r) {
-      const nTotal = getCharacterTotalStats(r[COL.PC.ID], sheets, pcData, itemData);
+      const nTotal = getCharacterTotalStats(r[COL.PC.ID], sheets, pcData, []);
       const relRecord = relData.find(row => row[COL.REL.PC] === pcName && row[COL.REL.NPC] === pName);
       partyDetailsArr.push(`【同行夥伴】名號:${pName}(境界:${r[COL.PC.REALM] || "凡人"}) | 氣血:${r[COL.PC.HP]}/${nTotal.maxHp} | 身世:${r[COL.PC.BACK] || "無"} | 狀態:${r[COL.PC.STATUS]} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])} | 關係:${relRecord ? relRecord[COL.REL.TAG] : "結伴同行"}(好感:${relRecord ? relRecord[COL.REL.FAV] : 0})`);
     }
@@ -1597,7 +1527,7 @@ function actionPlay(userData, pcId, sheets) {
   // 🔴【替換開始】淨化後的 prompt 組裝
   const prompt = `【天道法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。
 ${PROMPT_PARTY_SYSTEM}
-【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 境界:${pc[COL.PC.REALM]} | 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "江湖散人"} | 位置:${curL} | 狀態:${pc[COL.PC.STATUS] || "氣息平穩"} | 生命:${pc[COL.PC.HP]}/${pc[COL.PC.MAX_HP]} | 真氣:${pc[COL.PC.MP]}/${pc[COL.PC.MAX_MP]} | 臂力:${pTotal.STR} | 根骨:${pTotal.CON} | 身法:${pTotal.AGI} | 神識:${pTotal.INT} | 福緣:${pTotal.LUK}| 銀兩:${pc[COL.PC.MONEY]}
+【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 境界:${pc[COL.PC.REALM]} | 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "江湖散人"} | 位置:${curL} | 狀態:${pc[COL.PC.STATUS] || "氣息平穩"} | 生命:${pc[COL.PC.HP]}/${pc[COL.PC.MAX_HP]} | 真氣:${pc[COL.PC.MP]}/${pc[COL.PC.MAX_MP]} | 臂力:${pTotal.STR} | 根骨:${pTotal.CON} | 身法:${pTotal.AGI} | 神識:${pTotal.INT} | 福緣:${pTotal.LUK}
 
 ${PROMPT_ENV}
 ${PROMPT_GEAR}
@@ -1700,7 +1630,6 @@ ${isKanshou ? `
       hpSnapshot[idx] = parseInt(row[COL.PC.HP]) || 0;
     });
     const mpBefore = parseInt(pcData[pcIndex][COL.PC.MP]) || 0;
-    const moneyBefore = parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0;
 
 
     if (aiData.stat_changes && Array.isArray(aiData.stat_changes)) {
@@ -1763,12 +1692,12 @@ ${isKanshou ? `
                 const fallbackMapRow = ["九州", rootLoc, "荒野", `${Math.floor(Math.random() * 120) - 60},${Math.floor(Math.random() * 120) - 60}`, "未探明區域。"];
                 sheets.map.appendRow(fallbackMapRow); memoryMapData.push(fallbackMapRow);
               }
-            } else if ([COL.PC.HP, COL.PC.MP, COL.PC.MONEY, COL.PC.STR, COL.PC.CON, COL.PC.AGI, COL.PC.INT, COL.PC.LUK, COL.PC.CONTRIB].includes(colIdx)) {
+            } else if ([COL.PC.HP, COL.PC.MP, COL.PC.STR, COL.PC.CON, COL.PC.AGI, COL.PC.INT, COL.PC.LUK, COL.PC.CONTRIB].includes(colIdx)) {
               let numCurrent = parseInt(pcData[targetIdx][colIdx]) || 0;
               let numNew = (valStr.startsWith("+") || valStr.startsWith("-")) ? numCurrent + parseInt(valStr) : parseInt(valStr);
               if (isNaN(numNew)) numNew = numCurrent; // 🔴 防呆：NaN就維持原值
 
-              if (colIdx === COL.PC.MONEY || colIdx === COL.PC.CONTRIB) pcData[targetIdx][colIdx] = Math.max(0, numNew);
+              if (colIdx === COL.PC.CONTRIB) pcData[targetIdx][colIdx] = Math.max(0, numNew);
               else if (colIdx === COL.PC.HP || colIdx === COL.PC.MP) {
                 let hpVal = Math.min(parseInt(pcData[targetIdx][colIdx === COL.PC.HP ? COL.PC.MAX_HP : COL.PC.MAX_MP]) || 100, numNew);
                 hpVal = Math.max(0, hpVal); // 🔴 防 AI 輸出負數導致顯示亂碼
@@ -1795,7 +1724,7 @@ ${isKanshou ? `
                   } else {
                     // 九州舊版：血歸 0 送「小醫仙藥鋪」救回（FATE 不走此路）
                     const healLoc = "小醫仙藥鋪";
-                    pcData[targetIdx][COL.PC.HP] = 50; pcData[targetIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "換上乾淨素衣", "姿勢": "平躺靜養", "負面": "重傷初癒", "顏面": "蒼白" }); pcData[targetIdx][COL.PC.LOC] = healLoc; pcData[targetIdx][COL.PC.MONEY] = Math.max(0, (parseInt(pcData[targetIdx][COL.PC.MONEY]) || 0) - 20);
+                    pcData[targetIdx][COL.PC.HP] = 50; pcData[targetIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "換上乾淨素衣", "姿勢": "平躺靜養", "負面": "重傷初癒", "顏面": "蒼白" }); pcData[targetIdx][COL.PC.LOC] = healLoc;
                     if (targetIdx === pcIndex) curL = healLoc;
                     relData.forEach(row => {
                       if (row[COL.REL.PC] === pcData[targetIdx][COL.PC.NAME] && row[COL.REL.IS_PARTY] === "同行") {
@@ -1843,190 +1772,7 @@ ${isKanshou ? `
 
 
 
-    let bagCounts = {}; itemData.forEach(it => { if (String(it[COL.ITEM.LOC2]).trim() === "倉庫") return; bagCounts[it[COL.ITEM.OWNER]] = (bagCounts[it[COL.ITEM.OWNER]] || 0) + 1; });
-    let overLimitWarnings = [];
-    let grantedNamesThisTurn = {}; // 🔴 同回合內也要防重複：key = ownerId|name
-    if (aiData.items_gained && Array.isArray(aiData.items_gained)) {
-      let allowedGains = [];
-      aiData.items_gained.forEach(it => {
-        // 🔴 最源頭防呆：無名物品直接跳過，不佔背包計數
-        if (!it.name || String(it.name).trim() === "") return;
-
-        let oName = String(it.owner || "自己").trim();
-        let targetPcMatch = pcData.find(r => String(r[COL.PC.NAME]).trim() === oName);
-        let finalId = (oName === "自己" || oName === String(pcName).trim()) ? pcId : (targetPcMatch ? targetPcMatch[COL.PC.ID] : (newNpcMap[oName] || oName));
-        const trimmedName = String(it.name).trim();
-
-        // 🔴 重複賜予硬鎖：非丹藥/貨幣類，若該角色已持有或本回合已給過同名物品，直接捨棄這筆，防止AI記憶錯亂重複塞道具
-        if (it.type !== "丹藥" && it.type !== "貨幣") {
-          const dedupeKey = finalId + "|" + trimmedName;
-          const alreadyOwned = itemData.some(row => row[COL.ITEM.OWNER] == finalId && String(row[COL.ITEM.NAME]).trim() === trimmedName);
-          if (alreadyOwned || grantedNamesThisTurn[dedupeKey]) return;
-          grantedNamesThisTurn[dedupeKey] = true;
-        }
-
-        if ((bagCounts[finalId] || 0) < MAX_BAG_SIZE) { allowedGains.push(it); bagCounts[finalId] = (bagCounts[finalId] || 0) + 1; }
-        else if (finalId === pcId) overLimitWarnings.push(`無法獲取「${it.name}」`);
-      });
-      aiData.items_gained = allowedGains;
-    }
-
-    if (overLimitWarnings.length > 0 && aiData.narration) aiData.narration += `\n\n<span style="color:#ff4d4d; font-weight:bold;">【系統警告】：行囊已滿（${MAX_BAG_SIZE}/${MAX_BAG_SIZE}），${overLimitWarnings.join("、")}，請先清理包包！</span>`;
-
-    if (aiData.items_gained && Array.isArray(aiData.items_gained) && sheets.item) {
-      let currencyCountThisTurn = 0; // 🟢 本回合貨幣物品計數器
-
-      aiData.items_gained.forEach((it) => {
-        // 🔴 最源頭防呆：無名物品直接跳過，避免白跑類別判定
-        if (!it.name || String(it.name).trim() === "") return;
-
-        // 1. 重新定義 targetPcMatch (修復原本會報錯的問題)
-        let oName = String(it.owner || "自己").trim();
-        let targetPcMatch = pcData.find(r => String(r[COL.PC.NAME]).trim() === oName);
-        let finalId = (oName === "自己" || oName === String(pcName).trim()) ? pcId : (targetPcMatch ? targetPcMatch[COL.PC.ID] : (newNpcMap[oName] || oName));
-
-        // 2. 🟢 修正：生成唯一的 ID (這裡保證每一個物品都有獨立的身分證)
-        const newItemId = "ITM_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
-
-        // 3. 屬性計算邏輯
-        let sSTR = 0, sCON = 0, sAGI = 0, sINT = 0, sLUK = 0;
-        let p = getRarityPoints(it.rarity, it.type === "丹藥");
-
-        if (["武器", "防具", "法寶", "丹藥"].includes(it.type)) {
-          if (it.type === "武器") sSTR = p; else if (it.type === "防具") sCON = p; else {
-            if (it.stat_type === "臂力") sSTR = p; else if (it.stat_type === "根骨") sCON = p; else if (it.stat_type === "身法") sAGI = p; else if (it.stat_type === "神識") sINT = p; else sLUK = p;
-          }
-        }
-
-
-        // 4. 強制修正 AI 亂給的物品類別（統一走 detectItemType）
-        const hasBonus = (sSTR > 0 || sCON > 0 || sAGI > 0 || sINT > 0 || sLUK > 0);
-        let correctedType = detectItemType(it.name, it.type, hasBonus);
-
-        // 🟢 5. 貨幣物品特殊處理：單回合上限 + 強制查表覆寫價格
-        let finalPrice = it.price || 10;
-        if (correctedType === "貨幣") {
-          currencyCountThisTurn++;
-          if (currencyCountThisTurn > 2) return; // 超過上限，直接捨棄不寫入
-          finalPrice = getCurrencyValue(it.name); // 完全不採信 AI 給的 price
-          if (finalPrice === 0) return; // 保險：萬一查不到表，視為無效物品捨棄
-        }
-
-        // 6. 🟢 推入陣列：使用正確的 newItemId
-        itemData.push([it.name, correctedType, it.desc, finalPrice, finalId, sSTR, sCON, sAGI, sINT, sLUK, newItemId]);
-      });
-    }
-
-    // 1. 處理「物品轉移」(贈禮 / 偷竊 / 裝備給NPC) —— 全面 ID 化，支援來源 owner
-    let protectedItemIds = soulGiftProtectedIds.slice(); // 併入傾心信物保護
-    if (aiData.items_transferred && Array.isArray(aiData.items_transferred) && sheets.item) {
-      aiData.items_transferred.forEach(transfer => {
-        // 解析新擁有者 ID
-        let newOwnerName = String(transfer.new_owner || "").trim();
-        let targetPcMatch = pcData.find(r => String(r[COL.PC.NAME]).trim() === newOwnerName);
-        let finalId = (newOwnerName === "自己" || newOwnerName === String(pcName).trim()) ? pcId : (targetPcMatch ? targetPcMatch[COL.PC.ID] : (newNpcMap[newOwnerName] || newOwnerName));
-
-        // 解析來源擁有者：偷竊時來源是 NPC；未指定則預設玩家自己（贈禮情境）
-        let fromName = String(transfer.old_owner || transfer.from || "").trim();
-        let fromMatch = fromName ? pcData.find(r => String(r[COL.PC.NAME]).trim() === fromName) : null;
-        let fromId = fromName ? (fromMatch ? fromMatch[COL.PC.ID] : (newNpcMap[fromName] || fromName)) : pcId;
-
-        // 🟢 優先用 ID 精準比對，找不到才退回 name；只在來源者身上找
-        const wantId = String(transfer.id || "").trim();
-        for (let i = 1; i < itemData.length; i++) {
-          const ownerOk = (itemData[i][COL.ITEM.OWNER] == fromId);
-          const idOk = wantId && String(itemData[i][COL.ITEM.ID]).trim() === wantId;
-          const nameOk = !wantId && itemData[i][COL.ITEM.NAME] === transfer.name;
-          if (ownerOk && (idOk || nameOk)) {
-            itemData[i][COL.ITEM.OWNER] = finalId;
-            protectedItemIds.push(itemData[i][COL.ITEM.ID]);
-            // 若該物正被來源者裝備中，順手清空其裝備欄
-            const fIdx = pcData.findIndex(r => r[COL.PC.ID] == fromId);
-            if (fIdx !== -1) {
-              [COL.PC.WEP, COL.PC.ARM, COL.PC.ACC1, COL.PC.ACC2].forEach(c => {
-                if (String(pcData[fIdx][c]).trim() === String(itemData[i][COL.ITEM.ID]).trim()) { pcData[fIdx][c] = ""; dirtyPcRows.add(fIdx); }
-              });
-            }
-            break;
-          }
-        }
-      });
-      if (aiData.items_transferred.length > 0) isItemChanged = true;
-    }
-    // 💰 銀兩轉移：NPC↔玩家、玩家↔NPC 都從「付款方自己身上」扣，錢守恆、不夠就給上限
-    let moneyTransferMsgs = [];
-    if (aiData.money_transferred && Array.isArray(aiData.money_transferred)) {
-      aiData.money_transferred.forEach(mt => {
-        let fromName = String(mt.from || "").trim();
-        let toName = String(mt.to || "").trim();
-        let amount = parseInt(mt.amount) || 0;
-        if (amount <= 0 || !fromName || !toName || fromName === toName) return;
-
-        // 把「自己」轉成玩家名
-        if (fromName === "自己") fromName = pcName;
-        if (toName === "自己") toName = pcName;
-
-        const fromIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).trim() === fromName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-        const toIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).trim() === toName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-        if (fromIdx === -1 || toIdx === -1) return; // 找不到人就作廢
-
-        // 🔴 核心：付款方有多少才給多少，給不出超過自己有的
-        const fromMoney = parseInt(pcData[fromIdx][COL.PC.MONEY]) || 0;
-        const realAmount = Math.min(amount, fromMoney);
-        if (realAmount <= 0) return; // 付款方沒錢，整筆作廢
-
-        pcData[fromIdx][COL.PC.MONEY] = fromMoney - realAmount;
-        pcData[toIdx][COL.PC.MONEY] = (parseInt(pcData[toIdx][COL.PC.MONEY]) || 0) + realAmount;
-        dirtyPcRows.add(fromIdx);
-        dirtyPcRows.add(toIdx);
-
-        // 只有跟玩家有關的轉移才提示玩家
-        if (fromIdx === pcIndex) moneyTransferMsgs.push(`給了「${toName}」${realAmount} 兩`);
-        else if (toIdx === pcIndex) moneyTransferMsgs.push(`「${fromName}」給了你 ${realAmount} 兩`);
-      });
-    }
-
-    // 2. 🔴 使用 filter 統一處理「使用」與「遺失」—— items_lost / items_used 皆支援 ID 或 name
-    let lostIds = (aiData.items_lost || []).map(x => String((x && x.id) || "").trim()).filter(Boolean);
-    let lostNames = (aiData.items_lost || []).map(x => String((x && x.name) || x || "").trim()).filter(Boolean);
-    // 🟢 新增：AI 判定「已使用而消耗」的物品（非丹藥類物品走 play 時用），同樣支援 ID 或 name
-    let usedIds = (aiData.items_used || []).map(x => String((x && x.id) || "").trim()).filter(Boolean);
-    let usedNames = (aiData.items_used || []).map(x => String((x && x.name) || x || "").trim()).filter(Boolean);
-    let actionItemId = (userData.combatData && userData.combatData.actionItemId) ? userData.combatData.actionItemId : null;
-    let protectedIdsSet = new Set(protectedItemIds);
-
-    // 🔴 實體阻擋：只有真的從行囊裡刪掉東西才算數，玩家畫面上的「失去/使用」提示只能來自這兩個陣列，
-    // 嚴禁直接信任 aiData.items_lost / items_used 的文字宣稱（AI可能憑空捏造玩家根本沒有的道具）。
-    const verifiedLostNames = [];
-    const verifiedUsedNames = [];
-
-    // 一次性過濾 itemData
-    itemData = itemData.filter(it => {
-      // 如果是剛才轉移過的物品，保留
-      if (protectedIdsSet.has(it[COL.ITEM.ID])) return true;
-
-      // 如果是本次行動主動使用的物品，過濾掉 (只過濾第一個符合的)
-      if (actionItemId && it[COL.ITEM.OWNER] == pcId && it[COL.ITEM.ID] === actionItemId) {
-        actionItemId = null; // 標記已處理，防止後續重複過濾
-        return false;
-      }
-
-      // 如果是 AI 判定的遺失物：優先用 ID，再退回 name（只刪玩家自己的）
-      const idHit = lostIds.indexOf(String(it[COL.ITEM.ID]).trim());
-      if (idHit !== -1 && it[COL.ITEM.OWNER] == pcId) { lostIds.splice(idHit, 1); verifiedLostNames.push(it[COL.ITEM.NAME]); return false; }
-
-      const nameHit = lostNames.indexOf(String(it[COL.ITEM.NAME]).trim());
-      if (nameHit !== -1 && it[COL.ITEM.OWNER] == pcId) { lostNames.splice(nameHit, 1); verifiedLostNames.push(it[COL.ITEM.NAME]); return false; }
-
-      // 🟢 如果是 AI 判定「已使用消耗」的物品：優先 ID，再退回 name（只刪玩家自己的）
-      const usedIdHit = usedIds.indexOf(String(it[COL.ITEM.ID]).trim());
-      if (usedIdHit !== -1 && it[COL.ITEM.OWNER] == pcId) { usedIds.splice(usedIdHit, 1); verifiedUsedNames.push(it[COL.ITEM.NAME]); return false; }
-
-      const usedNameHit = usedNames.indexOf(String(it[COL.ITEM.NAME]).trim());
-      if (usedNameHit !== -1 && it[COL.ITEM.OWNER] == pcId) { usedNames.splice(usedNameHit, 1); verifiedUsedNames.push(it[COL.ITEM.NAME]); return false; }
-
-      return true; // 其他物品全數保留
-    });
+    // 經濟層（物品/銀兩/天命）已全數移除：items_gained / items_transferred / money_transferred / items_lost / items_used 不再落地。
 
     let newlyRecruited = aiData.recruited && Array.isArray(aiData.recruited) ? aiData.recruited.map(n => String(n).trim()) : [];
     let dismissedNpc = userMsg.includes("解除了組隊同行關係") ? (userMsg.match(/與「(.*?)」解除/) || [])[1]?.trim() || "" : "";
@@ -2229,8 +1975,6 @@ ${isKanshou ? `
     });
 
     isRelChanged = isRelChanged || !!(aiData.rel_changes && aiData.rel_changes.length > 0) || !!(aiData.recruited && aiData.recruited.length > 0) || !!dismissedNpc;
-    isItemChanged = isItemChanged || !!(aiData.items_gained && aiData.items_gained.length > 0) || verifiedLostNames.length > 0 || verifiedUsedNames.length > 0 || !!(aiData.items_transferred && aiData.items_transferred.length > 0);
-    isQuestChanged = isQuestChanged || questExpiredFlag || !!(aiData.quests && aiData.quests.length > 0);
 
     const logSum = aiData.log_summary || {};
     // 相容新結構(subject/object/event)與舊結構(people/event)
@@ -2273,14 +2017,6 @@ ${isKanshou ? `
     if (isRelChanged && relData.length > 0) {
       safeWriteSheet(sheets.rel, relData);
     }
-    if (isItemChanged && itemData.length > 0) {
-      safeWriteSheet(sheets.item, itemData);
-    }
-    const questColCount = Object.keys(COL.QUEST).length;
-    questData.forEach(row => { while (row.length < questColCount) row.push(""); });
-    if (isQuestChanged && questData.length > 0) {
-      safeWriteSheet(sheets.quest, questData);
-    }
 
     curL = pcData[pcIndex][COL.PC.LOC];
     sheets.log.appendRow([new Date(), pcId, formatCausalityEntry(curL, logTag, logPeopleStr, logEvent), curL, logTag]);
@@ -2296,28 +2032,7 @@ ${isKanshou ? `
 
 
 
-    // 🟢 統一標籤工具：元素是物件取 .name，是字串就用自己（兩種格式通吃）
-    const _itemLabel = arr => (arr || [])
-      .map(i => (i && typeof i === 'object') ? i.name : i)
-      .filter(n => n && String(n).trim() !== "")
-      .map(n => `【${String(n).trim()}】`)
-      .join('、');
-
-    if (aiData.items_gained && aiData.items_gained.length > 0) {
-      const names = _itemLabel(aiData.items_gained);
-      if (names) finalResponseText += `<br><br><span style="color:#d4af37; font-size:13px;">✨ 獲得：${names}</span>`;
-    }
-    // 2. 遺失邏輯：只渲染上面過濾itemData時「真的有刪到」的物品，AI宣稱玩家沒有的東西絕不顯示
-    if (verifiedLostNames.length > 0) {
-      const names = _itemLabel(verifiedLostNames);
-      if (names) finalResponseText += `<br><br><span style="color:#d9534f; font-size:13px;">💔 失去：${names}</span>`;
-    }
-    // 3. 使用邏輯：同上，僅渲染真實從行囊扣除的物品
-    if (verifiedUsedNames.length > 0) {
-      const names = _itemLabel(verifiedUsedNames);
-      if (names) finalResponseText += `<br><br><span style="color:#5bc0de; font-size:13px;">🧪 使用：${names}</span>`;
-    }
-    // 🔴 在處理完 items_gained 之後，緊接著加上這段好感度渲染
+    // 🔴 好感度渲染（經濟層物品/銀兩渲染已移除）
     if (aiData.rel_changes && Array.isArray(aiData.rel_changes)) {
       aiData.rel_changes.forEach(rc => {
         const change = parseInt(rc.fav_change) || 0;
@@ -2356,14 +2071,11 @@ ${isKanshou ? `
       finalResponseText += `<br><br><span style="font-size:13px; line-height:1.8;">${hpChangeMsgs.join("<br>")}</span>`;
     }
 
-    // 🔴 玩家真氣與銀兩（生命已由上面清單統一顯示，這裡不重複）
+    // 🔴 玩家真氣變化（生命已由上面清單統一顯示，這裡不重複；銀兩經濟層已移除）
     const mpAfter = parseInt(pcData[pcIndex][COL.PC.MP]) || 0;
-    const moneyAfter = parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0;
     const extraMsgs = [];
     const mpDiff = mpAfter - mpBefore;
-    const moneyDiff = moneyAfter - moneyBefore;
     if (mpDiff !== 0) extraMsgs.push(`<span style="color:#4169e1;">${mpDiff < 0 ? "💨" : "🌀"} 真氣 ${mpDiff > 0 ? "+" : ""}${mpDiff}</span>`);
-    if (moneyDiff !== 0) extraMsgs.push(`<span style="color:#b8860b;">${moneyDiff < 0 ? "💸" : "💰"} 銀兩 ${moneyDiff > 0 ? "+" : ""}${moneyDiff}</span>`);
     if (extraMsgs.length > 0) {
       finalResponseText += `<br><span style="font-size:13px;">${extraMsgs.join('　')}</span>`;
     }
@@ -2385,17 +2097,15 @@ ${isKanshou ? `
 
     return JSON.stringify({
       text: finalResponseText,
-      statusString: buildPlayerStatusString(pcData[pcIndex], getCharacterTotalStats(pcId, sheets, pcData, itemData), itemData),
+      statusString: buildPlayerStatusString(pcData[pcIndex], getCharacterTotalStats(pcId, sheets, pcData, []), []),
       people: localPeopleList,
       locations: getNearbyLocations(curL, memoryMapData),
       recruited: newlyRecruited,
       options: aiData.options,
       knockedOut: knockedOutList,
       mentionedNames: aiData.mentioned_names || [],
-      // 🟢 物品連結(純前端)：回傳玩家隨身行囊清單，由前端掃描敘事文字、命中即做成綠色連結(不依賴AI標記)
-      myItemNames: itemData.filter(r => r[COL.ITEM.OWNER] == pcId && String(r[COL.ITEM.LOC2]).trim() !== "倉庫")
-        .map(r => ({ id: String(r[COL.ITEM.ID] || r[COL.ITEM.NAME]).trim(), name: String(r[COL.ITEM.NAME]).trim(), type: String(r[COL.ITEM.TYPE] || "雜物"), desc: String(r[COL.ITEM.DESC] || "") }))
-        .filter(it => it.name.length >= 2),
+      // 經濟層已移除：不再回傳隨身行囊清單
+      myItemNames: [],
       justRevived: justRevived,
       defeat: fatePlayerDefeat, dreamPrompt: fateDreamPrompt, // 🔵 FATE：御主殞命→前端播虛假之夢→老虎道場
       allMapNames: memoryMapData.slice(1).map(m => String(m[COL.MAP.NAME]).trim()).filter(n => n.length >= 2),
