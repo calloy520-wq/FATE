@@ -1,8 +1,10 @@
 name: Deploy 命運停駐之夜 to Apps Script
 
-# 推送 + 發布到 FATE Script（命運停駐之夜＝九州引擎×Fate）。
-# 目標 Script：1QveLhz...（FATE 自有，已有對外 /exec 網頁部署）。
-# 不會動到原始九州 Script。
+# 推送碼到 FATE Script（命運停駐之夜＝九州引擎×Fate）。不會動到原始九州 Script。
+# ⚠ GAS 有 200 版本上限。為避免每次 commit 都建一個新版本把額度燒光：
+#   - 一般 push：只 clasp push（更新專案碼，不建版本、不更新 /exec）。
+#   - 手動觸發(workflow_dispatch)：才 clasp deploy（建一版、更新 /exec 正式網址）。
+#   想讓玩家看到新版時，到 Actions 頁手動 Run workflow（或叫我幫你觸發）。
 on:
   push:
     branches: [ v2, main, claude/fate-error-review-w8q42w ]
@@ -32,6 +34,7 @@ jobs:
             if [ "$i" = "5" ]; then echo "all push attempts failed"; exit 1; fi
           done
       - name: Deploy to existing web deployment (/exec 不變、版本更新)
+        if: github.event_name == 'workflow_dispatch'
         env:
           NODE_OPTIONS: --dns-result-order=ipv4first
         run: |
