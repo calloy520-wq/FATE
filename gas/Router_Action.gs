@@ -4213,7 +4213,7 @@ function actionFateBattle(userData, pcId, sheets) {
       (interceptNote ? `〔護主攔截〕${interceptNote}\n` : "") +
       `${roundsBrief}\n` +
       `我方共造成 ${totalDealt} 傷害、受創 ${totalTaken}。最終：${finalLine}\n` +
-      `★請以 Fate／TYPE-MOON 筆觸生動描寫這 ${nRounds} 回合互有攻防、你來我往的廝殺（不是單方面挨打），凸顯雙方發動的技能／寶具威能與靈基壓迫感（演出而非複述標籤名）。勝負與傷害已由系統結算。\n` +
+      `★【篇幅約 220~280 字】以 Fate／TYPE-MOON 筆觸生動描寫這 ${nRounds} 回合互有攻防、你來我往的廝殺（不是單方面挨打），凸顯雙方發動的技能／寶具威能與靈基壓迫感（演出而非複述標籤名）。勝負與傷害已由系統結算。\n` +
       (useSeal ? `★【令咒·絕對命令·務必演出】御主高舉左手，手背上的紅色令咒咒印（聖痕）灼然迸亮、其中一道紋路在燃燒中消褪——請明確描寫「御主燃燒一道令咒、下達不可違逆的絕對命令」這一幕，以及那道命令如何貫徹從者全身、強行引爆超越極限的戰力（這一擊必中）。\n` : "") +
       (useNp ? `★【寶具解放·務必演出】請描寫從者高呼寶具真名、解放其象徵傳說之力的壯麗瞬間與毀滅性威能。\n` : "") +
       (godRevived ? `★【十二試煉】${godNote}請演出他靈基崩解又自死亡歸來、神性光輝重燃的不滅之姿。\n` : "") +
@@ -4409,7 +4409,7 @@ function actionManaSupply(userData, pcId, sheets) {
   } else {
     aiPrompt = servantCard_(pcData[svIdx]) +
       `【系統·補魔已結算】御主以魔力供給「${svName}」，其魔力回復至 ${restored}/${mpMax}，羈絆微升。\n` +
-      `★以 Fate／TYPE-MOON 筆觸，溫柔且帶一絲曖昧張力地描寫這場魔力供給——御主與從者肌膚相觸、魔力交融的私密一刻：可有體溫、心跳、靠近、屏息、半句未盡的情話與心動，氛圍甜美而克制，最後 fade-to-black 留白。聚焦兩人之間悄然升溫的羈絆。\n` +
+      `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】，溫柔且帶一絲曖昧張力地描寫這場魔力供給——肌膚相觸、魔力交融的私密一刻（體溫、心跳、屏息、半句未盡的情話），甜美而克制，最後 fade-to-black 留白。\n` +
       `★【鐵律】止於唯美曖昧、點到為止；【不可】出現性器官、性交或露骨情慾描寫（那是奪杯後鑑賞的事）。演出而非複述設定；嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
   }
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", statusString: getFreshStatusString(pcId, pIdx, sheets) });
@@ -4484,7 +4484,7 @@ function actionBond(userData, pcId, sheets) {
   } else {
     aiPrompt = servantCard_(pcData[svIdx]) +
       `【系統·羈絆已結算】御主『${masterName}』與從者「${svName}」${act.label}，兩人的羈絆又深了一分（時值${band}）。\n` +
-      `★以 Fate／TYPE-MOON 筆觸寫一段（約 150~260 字）${svName} 與御主${act.frame}的場景。務必貼合上方「演出依據」中的性格、自稱與口吻，演出其獨有的神態與心思。\n` +
+      `★以 Fate／TYPE-MOON 筆觸寫一段【精煉 90~150 字、輕快不冗長】${svName} 與御主${act.frame}的小品。務必貼合上方「演出依據」中的性格、自稱與口吻，演出其獨有神態，點到為止留餘味。\n` +
       `★【show, don't tell】用言行、神態、停頓去流露情感與性格，絕不可直白說出其「願望／個性／萌點」等設定詞；停在含蓄的留白。\n` +
       `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩；嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
   }
@@ -5292,7 +5292,7 @@ function actionMultiAttack(userData, pcId, sheets) {
 function actionNarrateOnly(userData, pcId, sheets) {
   const { promptText, isNsfw } = userData;
 
-  const miniSystem = `你是《命運停駐之夜》的說書人。用 Fate／TYPE-MOON 筆觸、第一人稱「我」（玩家＝御主）、強制台灣繁體中文，依指令生動描寫一段劇情（精煉 130~220 字、節奏明快不灌水；若為從者廝殺，把關鍵攻防、技能與寶具威能、靈基壓迫感寫得有張力即可，不必逐回合流水帳）。
+  const miniSystem = `你是《命運停駐之夜》的說書人。用 Fate／TYPE-MOON 筆觸、第一人稱「我」（玩家＝御主）、強制台灣繁體中文，依指令生動描寫一段劇情。【篇幅以下方指令指定的字數為準，務必節奏明快、不灌水、不堆砌華麗辭藻；無指定時預設精煉 100~160 字】。若為從者廝殺，把關鍵攻防、技能與寶具威能寫得有張力即可，不必逐回合流水帳。
 【鐵律】
 1. 旁白第一人稱「我」，禁用「你」與上帝視角。
 2. 對話格式：角色名：「（動作/神態/眼神/微表情）台詞……（動作/神態/眼神/微表情）台詞（動作/神態/眼神/微表情）」。動作神態【絕對禁止】獨立成段或寫在引號外，一律用全形括號「（）」嵌入台詞開頭/中間/結尾，至少穿插2次以上。
@@ -5304,7 +5304,7 @@ function actionNarrateOnly(userData, pcId, sheets) {
   let aiConfig = {
     temperature: 0.85,
     ignoreLaw: true,            // 不疊規矩表(節慶/天時)
-    max_tokens: 650,            // 130~220字精煉敘事 + JSON 包裝
+    max_tokens: 720,            // 戰鬥約250字、其餘閒聊更短；各情境自指定字數
     model: "google/gemini-3.1-flash-lite",
     isNsfwMode: !!isNsfw        // NSFW 時讓 fallback 文案合理，但不啟用完整慾海規則
   };
