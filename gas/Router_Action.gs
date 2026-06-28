@@ -3979,6 +3979,8 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
       }
     } else {
       out.knocked = out.destroyed;
+      // 🕯️ 敵從者被擊破 → 在其御主身上記下「如何痛失從者」，供日後遭遇時 AI 演出無牙御主
+      if (isFoeSv) markMasterLostServant_(sheets.pc, pcData, tgtIdx, `被『${atkC.name}』當場擊破、靈基崩潰消滅`);
       if (isFoeSv && aliveEnemyServants_(sheets, ctx.myGameId) <= 0) {
         out.victory = true;
         var acctW = String(ctx.userData.acctName || "");
@@ -4354,6 +4356,36 @@ function stampDoom_(memory, deadAbsHour) {
 function getDoom_(memory) {
   var m = String(memory || "").match(/【靈基透支】(\d+)/);
   return m ? parseInt(m[1]) : 0;
+}
+
+// 🕯️ 喪失從者紀錄：敵從者死亡時，在「同地同 game_id 的敵御主」MEMORY 標記如何失去從者，
+//   供 AI 演出形單影隻、再無從者可驅使的無牙御主。配對採同落點(一master一servant結伴移動)。
+function stampLostServant_(memory, svName, cause) {
+  var s = String(memory || "");
+  if (/【喪失從者】/.test(s)) return s; // 已記過就保留第一次，不覆蓋
+  return (s ? s + "｜" : "") + "【喪失從者】" + svName + "·" + cause;
+}
+function getLostServant_(memory) {
+  var m = String(memory || "").match(/【喪失從者】([^｜]+)/);
+  return m ? m[1] : "";
+}
+// data：眾生二維陣列；svIdx：剛死亡的敵從者列索引；sheet：sheets.pc。就地改 data 並寫回該御主列。
+function markMasterLostServant_(sheet, data, svIdx, cause) {
+  try {
+    var svName = String(data[svIdx][COL.PC.NAME] || "從者");
+    var gid = String(data[svIdx][COL.PC.GAME_ID] || "");
+    var loc = String(data[svIdx][COL.PC.LOC] || "").trim();
+    for (var m = 1; m < data.length; m++) {
+      if (String(data[m][COL.PC.FACTION]) !== "敵御主") continue;
+      if (String(data[m][COL.PC.GAME_ID] || "") !== gid) continue;
+      if (String(data[m][COL.PC.ID]).startsWith("DEAD_")) continue;
+      if (String(data[m][COL.PC.LOC] || "").trim() !== loc) continue;
+      var before = String(data[m][COL.PC.MEMORY] || "");
+      var after = stampLostServant_(before, svName, cause);
+      if (after !== before) { data[m][COL.PC.MEMORY] = after; sheet.getRange(m + 1, 1, 1, data[m].length).setValues([data[m]]); }
+      return;
+    }
+  } catch (e) { }
 }
 
 // ❖ 玩家令咒（固定選單·絕對命令權）：修復／補魔／脫離（命中走 fate_battle 的 seal 旗標）

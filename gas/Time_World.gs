@@ -288,6 +288,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
       fresh[top.idx][COL.PC.HP] = 0;
       fresh[top.idx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "供魔不繼·靈基崩潰", "顏面": "已無生息" });
       sheets.pc.getRange(top.idx + 1, 1, 1, fresh[top.idx].length).setValues([fresh[top.idx]]);
+      markMasterLostServant_(sheets.pc, fresh, top.idx, "供魔不繼、靈基終究餵不飽而崩潰消散");
       rumors.push("〔風聞〕「" + top.name + "」的御主供魔不繼——龐大的靈基終究餵不飽，崩潰消散了。");
     } else if (Math.random() < 0.07) { // 暗處廝殺：偶爾一名在他人手中殞落
       var victim = faraway[Math.floor(Math.random() * faraway.length)];
@@ -295,6 +296,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
       fresh[victim.idx][COL.PC.HP] = 0;
       fresh[victim.idx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "暗處殞落", "顏面": "已無生息" });
       sheets.pc.getRange(victim.idx + 1, 1, 1, fresh[victim.idx].length).setValues([fresh[victim.idx]]);
+      markMasterLostServant_(sheets.pc, fresh, victim.idx, "在冬木暗處的廝殺中、歿於他人之手");
       rumors.push("〔風聞〕昨夜冬木某處傳出靈基崩潰的餘波——「" + victim.name + "」似乎已在他人手中殞落。");
     }
   }
@@ -317,6 +319,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
           dd[di][COL.PC.HP] = 0;
           dd[di][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "令咒耗盡·靈基透支消滅", "顏面": "已無生息" });
           sheets.pc.getRange(di + 1, 1, 1, dd[di].length).setValues([dd[di]]);
+          markMasterLostServant_(sheets.pc, dd, di, "三道令咒燃盡、靈基透支崩解而消滅");
           rumors.push("〔風聞〕「" + String(dd[di][COL.PC.NAME]) + "」三道令咒已燃盡、又無『單獨行動』自持，失穩的靈基終究撐不過——崩解消散於冬木的夜色中。");
           faded = true;
         }

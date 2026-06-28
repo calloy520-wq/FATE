@@ -430,11 +430,13 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, relData, taskData, allPc
       // 🤝 情報共享：有盟友在世時，揭露敵從者／盟友從者的職階（盟友通報的敵情）
       const isServantKind = (rawFac === "敵從者" || rawFac === "從者");
       const revealCls = (hasAlly && isServantKind) ? String(r[COL.PC.RANK] || r[COL.PC.CLS] || "") : "";
+      // 🕯️ 喪失從者的敵御主：標記如何痛失從者，供 AI 演出形單影隻、無牙的御主
+      const lostSv = (rawFac === "敵御主") ? getLostServant_(r[COL.PC.MEMORY]) : "";
       localPeopleList.push({
         id: r[COL.PC.ID], isPC: String(r[COL.PC.ID]).startsWith("PC_"), name: tName, status: finalDisplayStatus,
         pref: r[COL.PC.PREF] || "神祕莫測", relTag: relRecord ? relRecord[COL.REL.TAG] : "萍水相逢", relVal: rVal,
         loc: tLoc, isExact: (tLoc === safeCurL), isHighRel: (rVal >= 60), isParty: rIsParty,
-        faction: fac, allied: allied, intelCls: revealCls,
+        faction: fac, allied: allied, intelCls: revealCls, lostServant: lostSv,
         busyWith: otherParty ? otherParty[COL.REL.PC] : null, hp: r[COL.PC.HP], mp: r[COL.PC.MP]
       });
     }
