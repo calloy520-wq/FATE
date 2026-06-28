@@ -2923,6 +2923,10 @@ let plainTextContext = cleanText;
       lastAiContext = plainTextContext;
       // 🔴 效能優化：改用 insertAdjacentHTML
       story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【說書人】</b>${displayText.trim().replace(/\n{2,}/g, "<br><br>").replace(/\n/g, "<br><br>")}</div>`);
+      // 🐞 慾海除錯（暫時）：顯示 NSFW/分頁/AI 是否回傳肉體資料，方便手機端排查；查完移除。
+      if (data._dbg && pc && pc.mode === 'kanshou') {
+        story.insertAdjacentHTML('beforeend', `<div style="font-size:10px;color:#6a7a8a;text-align:center;padding:2px 6px;font-family:monospace;">🐞 ${escapeHtml(String(data._dbg))}</div>`);
+      }
       localStorage.setItem('kyushu_story', story.innerHTML);
       setTimeout(() => { story.scrollTop = story.scrollHeight; }, 50);
 

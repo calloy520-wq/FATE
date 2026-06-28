@@ -2425,6 +2425,9 @@ ${isKanshou ? `
 
     return JSON.stringify({
       text: finalResponseText,
+      _dbg: "nsfw=" + isNsfwMode + " ｜表=" + (sheets.pc.getName ? sheets.pc.getName() : "?")
+        + " ｜intimacy=" + (aiData.intimacy_feedback ? "Y" : "N")
+        + " ｜npcs=" + (aiData.intimacy_feedback && aiData.intimacy_feedback.npcs ? aiData.intimacy_feedback.npcs.map(function (n) { return String(n.name) + (n.visible_state ? "(vs)" : "") + (n.physical_state ? "(ps)" : ""); }).join(",") : "-"),
       statusString: buildPlayerStatusString(pcData[pcIndex], getCharacterTotalStats(pcId, sheets, pcData, itemData), itemData),
       people: localPeopleList,
       locations: getNearbyLocations(curL, memoryMapData),
