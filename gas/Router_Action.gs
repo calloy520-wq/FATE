@@ -14,7 +14,6 @@ const ActionRouter = {
   "list_gallery": actionListGallery,
   "enter_gallery": actionEnterGallery,
   "gallery_talk": actionGalleryTalk,
-  "send_mail": actionSendMail,
   "cultivate": actionCultivate,
   "consume_item": actionConsumeItem,
   "use_item_on_npc": actionUseItemOnNpc,
@@ -31,8 +30,6 @@ const ActionRouter = {
   "warehouse_retrieve": actionWarehouseRetrieve,
   "estate_get": actionEstateGet,
   "estate_harvest_all": actionEstateHarvestAll,
-  "play_dice": actionPlayDice,
-  "play_horse_race": actionPlayHorseRace,
   "dismiss_party": actionDismissParty,
   "join_party": actionJoinParty,
   "inspect_npc": actionInspectNpc,
@@ -60,10 +57,7 @@ const ActionRouter = {
   "sync": actionSync,
   "rest": actionRest,
   "get_rumors": actionGetRumors,
-  "get_mails": actionGetMails,
   "play": actionPlay,
-  "delete_mail": actionDeleteMail,
-  "claim_mail_item": actionClaimMailItem,
   "get_faction_info": actionGetFactionInfo,
   "get_epic_history": actionGetEpicHistory,
   "get_ranking": actionGetRanking,
@@ -85,16 +79,6 @@ const ActionRouter = {
   "craft_item": actionCraftItem,
   "steal_npc_item": actionStealNpcItem,
   "buy_intel": actionBuyIntel,
-  "lifeskill_gather": actionLifeskillGather,
-  "shop_get": actionShopGet,
-  "shop_create": actionShopCreate,
-  "shop_invite_guest": actionShopInviteGuest,
-  "shop_dismiss_guest": actionShopDismissGuest,
-  "shop_business": actionShopBusiness,
-  "shop_settle": actionShopSettle,
-  "shop_vault_deposit": actionShopVaultDeposit,
-  "shop_vault_withdraw": actionShopVaultWithdraw,
-  "shop_close": actionShopClose,
   "home_invite_guest": actionHomeInviteGuest
 
 };
@@ -816,20 +800,6 @@ function actionEstateHarvestAll(userData, pcId, sheets) {
   if (newItemsToAppend.length > 0) sheets.item.getRange(sheets.item.getLastRow() + 1, 1, newItemsToAppend.length, newItemsToAppend[0].length).setValues(newItemsToAppend);
 
   return JSON.stringify({ success: true, message: resultMsgs.join("<br>"), statusString: getFreshStatusString(pcId, pIdx, sheets) });
-}
-
-function actionPlayDice(userData, pcId, sheets) {
-  // 假設 Casino.gs 中存在 playDiceGame 函數
-  return playDiceGame(pcId, userData.betType, userData.betAmount, sheets, COL);
-}
-
-function actionPlayHorseRace(userData, pcId, sheets) {
-  // 假設 Casino.gs 中存在 playHorseRaceGame 函數
-  return playHorseRaceGame(pcId, userData.horseId, userData.betAmount, sheets, COL);
-}
-
-function actionLifeskillGather(userData, pcId, sheets) {
-  return playLifeskillGather(pcId, userData.skill, userData.rollCount, sheets, COL);
 }
 
 function actionDismissParty(userData, pcId, sheets) {
@@ -2333,7 +2303,7 @@ function actionGiveMoney(userData, pcId, sheets) {
 // ==========================================
 // 📜 全新 MMO 級飛書系統 (支援夾帶物品與刪除，完美兼容 NPC)
 // ==========================================
-// 🔴 飛書(信件)系統已拆分至 Mail_Action.gs：actionSendMail / actionGetMails / actionClaimMailItem / actionDeleteMail
+// 🔵 信件/賭場/生活/店鋪等九州系統已於 FATE 移除（檔案與 router 註冊一併刪除）。
 
 
 
