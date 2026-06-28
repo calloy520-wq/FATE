@@ -2120,8 +2120,8 @@ function actionGetAllCategorizedMaps(userData, pcId, sheets) {
 
 function actionMove(userData, pcId, sheets) {
   const { target } = userData;
-  const allPcData = sheets.pc.getDataRange().getValues();
-  const pIdx = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
+  let allPcData = sheets.pc.getDataRange().getValues();
+  let pIdx = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
 
   // ⏳ 行動點檢查（移動耗 2 AP＝2 小時；鑑賞 k_ 不耗 AP）
@@ -2131,6 +2131,24 @@ function actionMove(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: "行動力不足以遠行（需 2 點）——請『休息』恢復後再出發。", clock: clockLabel_(moveGameId), ap: getAp_(moveGameId), apMax: AP_PER_DAY });
   }
 
+  // 🌍 世界先動，玩家後到：先讓敵御主／敵從者 tick 到各自的新位置，再把玩家落到 target——
+  //   這樣「追到敵人所在地」時，敵人不會在你踏進來的同一瞬間又被傳走（修：撞在一起卻沒對話）。
+  //   敵人就位後才讀同地資料給 AI，這一輪它們鎖在原地，遭遇敘事才跑得起來。
+  let clockLabel = "", worldRumors = [], apLeft = AP_PER_DAY;
+  if (isFateMove) {
+    try {
+      const sp = spendAp_(moveGameId, 2);
+      apLeft = sp.ap;
+      const tick = worldTick_(sheets, moveGameId, target, 1, false); // 移動只讓敵換位，不死人
+      worldRumors = tick.rumors || [];
+      try { const ab = breakStaleAlliances_(sheets, moveGameId); if (ab.broken.length) worldRumors.push(`〔盟約${ab.forced ? '瓦解' : '到期'}〕你與「${ab.broken.join('、')}」的同盟已${ab.forced ? '因戰局逼近終局而破裂——最後只能剩一個' : '到期失效'}，重回敵對。`); } catch (e) { }
+      clockLabel = clockLabel_(moveGameId);
+    } catch (e) { }
+  }
+
+  // 🔁 敵人已 tick 就位 → 重讀眾生，再把玩家(與同行從者)落到 target，避免用舊資料覆蓋掉剛剛的敵方移動
+  allPcData = sheets.pc.getDataRange().getValues();
+  pIdx = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
   allPcData[pIdx][COL.PC.LOC] = target;
   const pcName = allPcData[pIdx][COL.PC.NAME];
   const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
@@ -2149,6 +2167,7 @@ function actionMove(userData, pcId, sheets) {
     const did = applyRegen_(allPcData, moveGameId, pcName, partyNames, masterCircuits_(allPcData[pIdx]), 2, 1, sheets, target, homeLoc);
     if (did) regenNote = "〔時回〕數小時的奔波之間，靈基與魔力隨時間悄然回流了一些。";
   }
+  if (regenNote) worldRumors.unshift(regenNote);
 
   const pcColCount = Object.keys(COL.PC).length;
   allPcData.forEach(row => { while (row.length < pcColCount) { row.push(""); } });
@@ -2156,19 +2175,6 @@ function actionMove(userData, pcId, sheets) {
   sheets.pc.getRange(1, 1, allPcData.length, pcColCount).setValues(allPcData);
   SpreadsheetApp.flush();
 
-  // ⏳ 移動耗 2 AP（＝推進 2 小時，1 AP＝1 小時）＋ 世界自走一輪；聊天不會走到這裡
-  let clockLabel = "", worldRumors = [], apLeft = AP_PER_DAY;
-  if (isFateMove) {
-    try {
-      const sp = spendAp_(moveGameId, 2);
-      apLeft = sp.ap;
-      const tick = worldTick_(sheets, moveGameId, target, 1, false); // 移動只讓敵換位，不死人
-      worldRumors = tick.rumors || [];
-      try { const ab = breakStaleAlliances_(sheets, moveGameId); if (ab.broken.length) worldRumors.push(`〔盟約${ab.forced ? '瓦解' : '到期'}〕你與「${ab.broken.join('、')}」的同盟已${ab.forced ? '因戰局逼近終局而破裂——最後只能剩一個' : '到期失效'}，重回敵對。`); } catch (e) { }
-      if (regenNote) worldRumors.unshift(regenNote);
-      clockLabel = clockLabel_(moveGameId);
-    } catch (e) { }
-  }
   try { markRivalsSeen_(sheets, pcId); } catch (e) { } // 🔵 抵達即偵查到此地敵人（世界 tick 後再揭一次）
 
   // 📜 正典插針：抵達後依【戰爭】×路線×日×時段×地點檢查正史橋段（自然浮現路線、世界事件、引導）
