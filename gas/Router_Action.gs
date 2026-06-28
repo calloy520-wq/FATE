@@ -20,6 +20,7 @@ const ActionRouter = {
   "kanshou_add": actionKanshouAdd,
   "kanshou_remove": actionKanshouRemove,
   "kanshou_set_sex": actionKanshouSetSex,
+  "kanshou_set_name": actionKanshouSetName,
   "inspect_npc": actionInspectNpc,
   "get_full_status": actionGetFullStatus,
   "update_fate": actionUpdateFate,

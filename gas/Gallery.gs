@@ -375,12 +375,13 @@ function actionEnterKanshou(userData, pcId, sheets) {
     });
   }
 
-  // 2️⃣ 沒有常駐御主 → 要新建。御主性別由玩家「首次進場時自己選」(一帳號可能有男/女不同奪杯，
-  //   不該由系統亂猜)。前端沒帶 pcSex 進來 → 回 needSex 請前端先問一次，再回來建。
-  //   建好後性別持久存於這列，之後可用 kanshou_set_sex 隨時改。
+  // 2️⃣ 沒有常駐御主 → 要新建。御主名字＋性別由玩家「首次進場時自己定」(一帳號可能有不同
+  //   名字/性別的奪杯，不該由系統掛帳號或亂猜)。前端沒帶齊 → 回 needSetup 請前端先問一次。
+  //   建好後持久存於這列，之後可用 kanshou_set_name／kanshou_set_sex 隨時改。
   var mSex = String(userData.pcSex || "").trim();
-  if (mSex !== "男" && mSex !== "女") {
-    return JSON.stringify({ success: true, needSex: true });
+  var mName = String(userData.pcName || "").trim();
+  if ((mSex !== "男" && mSex !== "女") || !mName) {
+    return JSON.stringify({ success: true, needSetup: true, defaultName: acctName });
   }
   var gameId = "k_" + Date.now();
   var loc2 = "冬木·深山町";
@@ -388,7 +389,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
   var mId = "KPC_" + Date.now();
   var mRow = Array(pcColCount).fill("");
   mRow[COL.PC.ID] = mId;
-  mRow[COL.PC.NAME] = acctName;
+  mRow[COL.PC.NAME] = mName;
   mRow[COL.PC.SEX] = mSex;
   mRow[COL.PC.REALM] = "凡人";
   mRow[COL.PC.HP] = 100; mRow[COL.PC.MAX_HP] = 100; mRow[COL.PC.MP] = 100; mRow[COL.PC.MAX_MP] = 100;
@@ -403,7 +404,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
 
   return JSON.stringify({
     success: true, resumed: false,
-    pcId: mId, pcName: acctName, pcSex: mSex, loc: loc2
+    pcId: mId, pcName: mName, pcSex: mSex, loc: loc2
   });
 }
 
@@ -494,6 +495,38 @@ function actionKanshouSetSex(userData, pcId, sheets) {
     }
   }
   return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+}
+
+// ✏ 更改後日談御主 avatar 的名字（隨時可改）。pcId＝KPC_。
+//   一併把當前同伴的羈絆列(REL.PC=舊名)遷到新名，避免改名後 bond 斷掉。
+function actionKanshouSetName(userData, pcId, sheets) {
+  var newName = String(userData.pcName || "").trim();
+  if (!newName) return JSON.stringify({ success: false, message: "名字不能空白。" });
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var kpc = getKanshouPcSheet_(ss);
+  var data = kpc.getDataRange().getValues();
+  var meIdx = -1, oldName = "", gid = "";
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.ID]) === String(pcId)) { meIdx = i; oldName = String(data[i][COL.PC.NAME] || ""); gid = String(data[i][COL.PC.GAME_ID] || ""); break; }
+  }
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  // 當前同伴名單（只遷這些人的羈絆，避免誤動跨局/單機同名列）
+  var comps = [];
+  for (var c = 1; c < data.length; c++) {
+    if (String(data[c][COL.PC.GAME_ID] || "") === gid && String(data[c][COL.PC.FACTION]) === "從者" && !String(data[c][COL.PC.ID]).startsWith("DEAD_")) comps.push(String(data[c][COL.PC.NAME]));
+  }
+  kpc.getRange(meIdx + 1, COL.PC.NAME + 1).setValue(newName);
+  if (sheets.rel && oldName && oldName !== newName) {
+    try {
+      var rd = sheets.rel.getDataRange().getValues();
+      for (var k = 1; k < rd.length; k++) {
+        if (String(rd[k][COL.REL.PC]) === oldName && comps.indexOf(String(rd[k][COL.REL.NPC])) !== -1) {
+          sheets.rel.getRange(k + 1, COL.REL.PC + 1).setValue(newName);
+        }
+      }
+    } catch (e) { }
+  }
+  return JSON.stringify({ success: true, pcName: newName, message: "御主已改名為「" + newName + "」。" });
 }
 
 // 鑑賞模式：呼出某從者「閒話後日談」（純對話，無戰鬥/血量），回傳 AI 旁白
