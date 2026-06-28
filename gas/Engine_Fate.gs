@@ -87,7 +87,7 @@ function rowToCombatant_(row) {
   }
   return {
     name: row[COL.PC.NAME], cls: row[COL.PC.RANK] || row[COL.PC.CLS] || '',
-    six: six, skills: skills, traits: traits,
+    six: six, skills: skills, traits: traits, np: row[COL.PC.MARTIAL] || '',
     hp: parseInt(row[COL.PC.HP]) || 100, hpMax: parseInt(row[COL.PC.MAX_HP]) || 100,
     mp: parseInt(row[COL.PC.MP]) || 50, mpMax: parseInt(row[COL.PC.MAX_MP]) || 50
   };
@@ -125,12 +125,25 @@ function resolveFateBattle_(atk, def, opts) {
 
   // 騎乘(ride) 機動 +2×階級
   var rideA = hasFx_(atk, 'ride'); if (rideA) aHit += Math.round(2 * rankMul_(rideA));
+  // 🎯 千里眼(aim)／投影魔術(projection)：弓兵的命中靠眼力與劍雨飽和，不全看身法
+  var aimA = hasFx_(atk, 'aim'); if (aimA) { aHit += Math.round(4 * rankMul_(aimA)); fired.push(atk.name + '·' + fxName_(atk, 'aim', '千里眼')); }
+  var projA = hasFx_(atk, 'projection'); if (projA) aHit += 3;
   // 避矢(evade_ranged)：守方對遠程(Archer)迴避 +6×階級
   if (atk.cls === 'Archer') { var er = hasFx_(def, 'evade_ranged'); if (er) { dEva += Math.round(6 * rankMul_(er)); fired.push(def.name + '·' + fxName_(def, 'evade_ranged', '避矢')); } }
   // 氣息遮斷(stealth)：攻方奇襲 +3
   if (hasFx_(atk, 'stealth')) { aHit += 3; fired.push(atk.name + '·' + fxName_(atk, 'stealth', '氣息遮斷') + '·奇襲'); }
   // 燕返(tsubame)：攻方令守方迴避 -8
   var tsubame = hasFx_(atk, 'tsubame'); if (tsubame) { dEva -= 8; fired.push(atk.name + '·' + fxName_(atk, 'tsubame', '秘劍')); }
+  // 🔱 三騎士職階相剋（Saber→Lancer→Archer→Saber）：占上風者搶得先機，命中小幅領先（傷害加成在下方）
+  var KNIGHT_BEATS = { 'Saber': 'Lancer', 'Lancer': 'Archer', 'Archer': 'Saber' };
+  if (KNIGHT_BEATS[atk.cls] === def.cls) aHit += 3;
+  else if (KNIGHT_BEATS[def.cls] === atk.cls) dEva += 3;
+  // 👁️ 魔眼·石化(petrify／Rider 美杜莎)：以視線鎖死獵物，令對方迴避大減
+  var pet = hasFx_(atk, 'petrify'); if (pet) { dEva -= Math.round(3 * rankMul_(pet)); fired.push(atk.name + '·' + fxName_(atk, 'petrify', '魔眼') + '·石化壓制'); }
+  // ⛓️ 天之鎖(chain／Gilgamesh)：對「神性」之敵展開冥界鎖鏈，封住身法
+  var chn = hasFx_(atk, 'chain'); var defDivine0 = (def.traits || []).concat(def.skills || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
+  if (chn && defDivine0) { dEva -= Math.round(6 * rankMul_(chn)); fired.push(atk.name + '·' + fxName_(atk, 'chain', '天之鎖') + '(縛神性)'); }
+
   // 必中(gae_bolg)：寶具解放時逆因果直接命中
   var gaebolg = opts.np && hasFx_(atk, 'gae_bolg'); if (gaebolg) fired.push(atk.name + '·' + fxName_(atk, 'gae_bolg', '必中之槍') + '(必中)');
 
@@ -158,6 +171,8 @@ function resolveFateBattle_(atk, def, opts) {
   var godSlay = (winner.skills || []).concat(winner.traits || []).some(function (t) { return t && String(t.n).indexOf('神殺') >= 0; });
   var loserDivine = (loser.traits || []).concat(loser.skills || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
   if (godSlay && loserDivine) { base = Math.round(base * 1.5); fired.push(winner.name + '·神殺(剋神性)'); }
+  // 🔱 職階相性傷害加成：克制方下手更狠（與上方命中先機呼應）
+  if (KNIGHT_BEATS[winner.cls] === loser.cls) { base = Math.round(base * 1.12); fired.push(winner.name + '·職階相性·壓制' + loser.cls); }
   if (atkWins && tsubame) base = Math.round(base * 2.3);
   // 寶具解放：加寶具階級威能（軍略 +15%、神性 +10%）
   if (opts.np) {
@@ -165,6 +180,14 @@ function resolveFateBattle_(atk, def, opts) {
     if (hasFx_(winner, 'tactics')) { base = Math.round(base * 1.15); fired.push(winner.name + '·' + fxName_(winner, 'tactics', '軍略')); }
     var wDivine = (winner.traits || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
     if (wDivine) base = Math.round(base * 1.1);
+    // 🗡️ 無限劍製(ubw／固有結界)：劍之地平展開，攻方在領域內傷害大增
+    if (hasFx_(winner, 'ubw')) { base = Math.round(base * 1.25); fired.push(winner.name + '·' + fxName_(winner, 'ubw', '無限劍製') + '(固有結界)'); }
+    // 👑 王之財寶(gob／Gilgamesh)：無數寶具連射，追加寶具階級彈幕
+    if (hasFx_(winner, 'gob')) { base += Math.round(rankVal(winner.six["寶具"]) * 0.9) + 14; fired.push(winner.name + '·' + fxName_(winner, 'gob', '王之財寶') + '(連射)'); }
+    // ☀️ 對城／對界寶具（誓約勝利之劍 Excalibur 等）：王＋神性的大威力一閃
+    if (/對城|對界|對軍/.test(String(winner.np || '')) && (winner.traits || []).some(function (t) { return t && /王/.test(String(t.n)); })) {
+      base = Math.round(base * 1.15); fired.push(winner.name + '·對城寶具·一閃');
+    }
   }
   // 令咒·絕對命令：全力一擊
   if (opts.seal) { base = Math.round(base * 1.5); fired.push('令咒·絕對命令'); }
@@ -175,13 +198,19 @@ function resolveFateBattle_(atk, def, opts) {
   var dc = hasFx_(loser, 'divine_core');
   if (dc && hasFx_(winner, 'anti_magic_lance')) { fired.push(winner.name + '·破魔(無視神核)'); }
   else if (dc) { base = Math.round(base * (1 - 0.18 * rankMul_(dc))); fired.push(loser.name + '·' + fxName_(loser, 'divine_core', '神核')); }
-  // 對魔力(nullify_magic)：攻方為魔術系(法師魔砲/魔力放出/神代)時，減魔術傷 25%×階級；神代魔術使其減免折半
+  // 對魔力(nullify_magic)：攻方為魔術系(法師魔砲/魔力放出/神代)時大減魔術傷。
+  //   ★原作精髓：A 階對魔力幾乎無視現代魔術——Saber 對 Caster 的魔砲僅如清風拂面。
+  //   但神代魔術(Caster 美狄亞的本領)凌駕現代對魔力，減免折半。
   var atkMagic = (wProf.dmg === '魔力') || !!hasFx_(winner, 'burst') || !!hasFx_(winner, 'divine_age');
   var nm = hasFx_(loser, 'nullify_magic');
   if (atkMagic && nm) {
-    var red = 0.25 * rankMul_(nm);
-    if (hasFx_(winner, 'divine_age')) red *= 0.5; // 神代魔術凌駕一般對魔力
-    base = Math.round(base * (1 - red)); fired.push(loser.name + '·' + fxName_(loser, 'nullify_magic', '對魔力'));
+    var nmV = rankVal(nm);
+    var red = 0.30 * rankMul_(nm);                 // 基礎：階級越高擋越多
+    if (nmV >= 50) red = Math.max(red, 0.80);      // A 階以上：現代魔術近乎無效
+    else if (nmV >= 40) red = Math.max(red, 0.55); // B 階：大幅削弱
+    if (hasFx_(winner, 'divine_age')) red *= 0.5;  // 神代魔術凌駕一般對魔力
+    red = Math.min(0.92, red);
+    base = Math.round(base * (1 - red)); fired.push(loser.name + '·' + fxName_(loser, 'nullify_magic', '對魔力') + (nmV >= 50 ? '(無視魔術)' : ''));
   }
 
   var damage = Math.max(1, base);

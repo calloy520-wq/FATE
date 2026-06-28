@@ -56,6 +56,8 @@
   let currentStatusTargetName = pc ? pc.name : "";
   let localNPCs = [];
   let myServantCls = ''; // 🗡️ 我方從者職階（決定攻擊類別的按鈕顯示：近戰/魔砲/狙擊）
+  let myBondUsed = [];   // 💕 今日已用過的羈絆互動（灰掉按鈕）
+  let myMystic = null;   // ✨ 御主禮裝（{id,name,type,charges,req,target}）
   // 依職階回傳基礎攻擊的「類別樣式」（給按鈕用）。法師＝魔砲、弓兵＝狙擊、其餘＝近戰。
   function attackStyle_() {
     var c = String(myServantCls || '');
@@ -1006,8 +1008,12 @@ function renderRecentLocs(recents = null) {
     const st = attackStyle_();
     foes.forEach(f => {
       const safe = String(f.name).replace(/'/g, '');
+      const canMystic = myMystic && myMystic.type === 'active' && myMystic.charges > 0;
       if (f.faction === '敵御主') {
         h += '<button onclick="servantStrike(\'' + safe + '\', false, false, true)" style="flex:1 0 100%; font-size:13px; padding:9px; background:linear-gradient(90deg,rgba(120,30,90,.32),rgba(80,20,60,.18)); color:#e8b0d8; border:1px solid #a0307a; border-radius:8px; cursor:pointer; font-weight:bold;">🗡️ 刺殺御主 ' + f.name + ' <small style="opacity:.65;">敵御主·須擲20</small></button>';
+        if (canMystic && myMystic.target === 'master') {
+          h += '<button onclick="mysticStrike(\'' + safe + '\')" title="' + (myMystic.desc || '').replace(/"/g, '') + '" style="flex:1 0 100%; font-size:12.5px; padding:8px; background:rgba(127,208,192,.16); color:#7fd0c0; border:1px solid #4ea596; border-radius:8px; cursor:pointer; font-weight:bold;">✨ 禮裝·' + myMystic.name + ' <small style="opacity:.7;">狙御主·充能' + myMystic.charges + '</small></button>';
+        }
       } else {
         // 拆開顯示：基礎攻擊（依職階：近戰／魔砲／狙擊）＋ 寶具 ＋ 令咒，一目了然
         h += '<div style="flex:1 0 100%; border:1px solid rgba(165,42,42,.5); border-radius:9px; padding:6px; margin-bottom:2px; background:rgba(50,18,18,.22);">'
@@ -1016,12 +1022,14 @@ function renderRecentLocs(recents = null) {
           + '<button onclick="servantStrike(\'' + safe + '\', false)" title="' + st.hint + '" style="flex:2; font-size:12.5px; padding:8px 4px; background:linear-gradient(90deg,rgba(' + st.rgb + ',.34),rgba(' + st.rgb + ',.16)); color:' + st.col + '; border:1px solid rgb(' + st.rgb + '); border-radius:7px; cursor:pointer; font-weight:bold;">' + st.emo + ' ' + st.name + '</button>'
           + '<button onclick="servantStrike(\'' + safe + '\', true)" title="解放寶具" style="flex:1; font-size:12px; padding:8px 4px; background:rgba(212,175,55,.15); color:#e7c873; border:1px solid #d4af37; border-radius:7px; cursor:pointer; font-weight:bold;">💥 寶具</button>'
           + '<button onclick="servantStrike(\'' + safe + '\', false, true)" title="令咒・絕對命令（必中）" style="flex:1; font-size:12px; padding:8px 4px; background:rgba(176,108,208,.15); color:#c79be8; border:1px solid #b06cd0; border-radius:7px; cursor:pointer; font-weight:bold;">❖ 令咒</button>'
-          + '</div></div>';
+          + '</div>'
+          + ((canMystic && myMystic.target === 'servant') ? ('<button onclick="mysticStrike(\'' + safe + '\')" title="' + (myMystic.desc || '').replace(/"/g, '') + '" style="width:100%; margin-top:5px; font-size:12px; padding:7px; background:rgba(127,208,192,.16); color:#7fd0c0; border:1px solid #4ea596; border-radius:7px; cursor:pointer; font-weight:bold;">✨ 禮裝·' + myMystic.name + ' <small style="opacity:.7;">充能' + myMystic.charges + '·需迴路' + myMystic.req + '</small></button>') : '')
+          + '</div>';
       }
     });
     if (!foes.length) h += '<div style="flex:1 0 100%; text-align:center; color:#6a5f80; font-size:11.5px; padding:1px 0 3px;">此地暫無敵蹤——可偵查、補魔整備，或往地圖移動</div>';
+    // 💧補魔／💕羈絆 移到左側「標籤」狀態面板（與從者卡同處）；此列只留戰場即時行動
     h += chip('🔍 偵查', 'scout()', '127,199,199');
-    h += chip('💧 補魔', 'manaSupply()', '127,176,232');
     h += chip('🛏️ 休息', 'openRestMenu()', '169,169,216');
     h += chip('🗺️ 移動', "showGamePane('map')", '159,192,239');
     bar.innerHTML = h;
@@ -1055,6 +1063,8 @@ function renderRecentLocs(recents = null) {
 
   // 🛏️ 休息 N 小時：補 2×N AP、回血回魔（按時數比例）、世界自走
   async function rest(hours) {
+    const foe = localFoeServantName();
+    if (foe && !confirm('⚠ 此地有敵從者「' + foe + '」！\n\n就地休息＝酣睡防備全失，最易遭夜襲重擊（重則靈基崩潰、敗北）。\n強烈建議先擊退敵人或轉往安全處。\n\n仍要在此休息？')) return;
     if (!beginAction()) return;
     var ov = document.getElementById('history-overlay');
     if (ov) ov.style.display = 'none';
@@ -1062,14 +1072,22 @@ function renderRecentLocs(recents = null) {
     story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主一行就地休息 ${hours} 小時……</div>`);
     story.scrollTop = story.scrollHeight;
     try {
-      const data = await gasRun({ action: 'rest', pcId: pc.id, restHours: hours });
+      const data = await gasRun({ action: 'rest', pcId: pc.id, restHours: hours, acctName: (pc && pc.account) || currentAccount });
       if (data && data.success) {
         if (data.statusString) { localStorage.setItem('kyushu_last_status', data.statusString); updateUI(data.statusString.split('§')); }
         updateClock(data.clock, data.ap, data.apMax);
         updateEconomy(data.economy);
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【休息 ${hours} 小時】</b>${(data.healedNames||['你']).join('與')}恢復了氣力，行動力 ${data.ap}/${data.apMax}。${data.clock ? '（' + data.clock + '）' : ''}</div>`);
         showRumors(data.rumors);
+        showRumors(data.canonLeads); // ⚐ 正典引導
+        // 📜 休息跨日若觸發正典橋段 → 演出一段
+        if (data.canonBeats && data.canonBeats.length) {
+          narrate(`【正典事件】休息之間，冬木的聖杯戰爭並未停歇。以下原作橋段於此時推進，請以 Fate／TYPE-MOON 筆觸演出（演出而非複述指示），停在留白：\n${data.canonBeats.join('\n')}`);
+        }
+        if (data.ambushPrompt) narrate(data.ambushPrompt); // ⚔️ 夜襲演出
+        else if (data.servantDream) narrate(data.servantDream); // 🌙 從者之夢·回想
         syncData(true);
+        if (data.defeat) { await handleDefeat(data); }
       } else { alert((data && data.message) || '休息失敗。'); }
     } catch (e) { alert('連線失敗，休息未果。'); } finally { endAction(); }
   }
@@ -1090,6 +1108,33 @@ function renderRecentLocs(recents = null) {
         syncData(true);
       } else { alert((data && data.message) || '偵查失敗。'); }
     } catch (e) { alert('連線失敗，偵查未果。'); } finally { endAction(); }
+  }
+
+  // 🏕️ 設置陣地（工房）：提升駐留此地的供魔收入
+  async function setWorkshop() {
+    if (!beginAction()) return;
+    const story = document.getElementById('story');
+    try {
+      const res = await gasRun({ action: 'set_workshop', pcId: pc.id });
+      if (res && res.success) {
+        updateClock(res.clock, res.ap, res.apMax); updateEconomy(res.economy);
+        story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#8fd0a0;font-size:12.5px;text-align:center;border:1px solid rgba(90,150,110,0.3);border-radius:8px;padding:6px 10px;">🏕️ ${res.message}</div>`);
+        renderMapPane(); syncData(true);
+      } else { alert((res && res.message) || '設置陣地失敗。'); }
+    } catch (e) { alert('連線失敗。'); } finally { endAction(); }
+  }
+  // 🔍 搜索物資：回復御主魔力，偶有所獲或察覺敵蹤
+  async function scavenge() {
+    if (!beginAction()) return;
+    const story = document.getElementById('story');
+    try {
+      const res = await gasRun({ action: 'scavenge', pcId: pc.id });
+      if (res && res.success) {
+        updateClock(res.clock, res.ap, res.apMax);
+        story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#d0c080;font-size:12.5px;text-align:center;border:1px solid rgba(140,120,70,0.3);border-radius:8px;padding:6px 10px;">🔍 ${res.message}</div>`);
+        renderMapPane(); syncData(true);
+      } else { alert((res && res.message) || '搜索失敗。'); }
+    } catch (e) { alert('連線失敗。'); } finally { endAction(); }
   }
 
   async function travelTo(targetName, distance) {
@@ -1124,6 +1169,7 @@ function renderRecentLocs(recents = null) {
         updateClock(data.clock, data.ap, data.apMax);
         updateEconomy(data.economy);
         showRumors(data.rumors);
+        showRumors(data.canonLeads); // ⚐ 正典引導：把玩家勾向該去的地方
         if (optContainer) optContainer.innerHTML = '';
         try { renderMapPane(); refreshFateTags(); renderWarActions(); } catch (e) {}
         story.scrollTop = story.scrollHeight;
@@ -1134,8 +1180,10 @@ function renderRecentLocs(recents = null) {
           ? `此地有敵蹤：${foes.map(f => f.name + '（' + (f.faction === '敵從者' ? '敵從者' : '敵御主') + '）').join('、')}`
           : '此地暫無明顯敵蹤';
         const timeStr = (data.clock || '').split('・').slice(-1)[0] || '此刻';
+        const canon = (data.canonBeats && data.canonBeats.length) ? data.canonBeats.join('\n') : '';
         const arrivePrompt = `【抵達場景】御主『${pc.name}』${pc.servant ? `與從者「${pc.servant}」` : ''}剛抵達冬木的「${targetName}」，時值${timeStr}。\n`
           + `此地氛圍：${locDesc}\n敵情：${foeStr}。\n`
+          + (canon ? `\n【★正典事件·本次抵達的重頭戲】以下原作橋段正在此刻上演，請把它編織成這段抵達敘事的核心，自然演出（演出而非複述指示）：\n${canon}\n\n` : '')
           + `★以 Fate／TYPE-MOON 筆觸描寫兩人抵達此地的所見所感、環境細節與當下氛圍。若有敵蹤，營造一觸即發的對峙張力（但是否交戰、勝負留待御主下令，禁止自行開打或分勝負）；若無敵蹤，寫一段巡查、警戒或短暫喘息的氛圍，並自然暗示「可凝神偵查四周，或轉往他處」。\n`
           + `★禁止替御主做決定、禁止詢問玩家想做什麼，停在留白，讓御主以行動（偵查／出戰／補魔／移動）回應。`;
         narrate(arrivePrompt);
@@ -1885,6 +1933,8 @@ function renderRecentLocs(recents = null) {
       };
       const m = t.master, s = t.servant;
       myServantCls = (s && s.cls) || ''; // 快取職階，供攻擊按鈕分類顯示
+      myBondUsed = t.bondUsed || [];      // 快取今日已用羈絆互動
+      myMystic = t.mystic || null;        // 快取禮裝
       try { renderWarActions(); } catch (e) {}
       let mh = '<div style="background:rgba(20,14,28,0.55); border:1px solid #d4af37; border-radius:8px; padding:6px 8px;">'
         + '<div style="color:#d4af37; font-weight:bold; font-size:12px;">⚜️ 御主</div>'
@@ -1893,6 +1943,7 @@ function renderRecentLocs(recents = null) {
         + bar('體', m.hpNum, m.hpMax, 'hp')
         + bar('魔', m.mpNum, m.mpMax, 'mp')
         + '<div style="color:#9a8bb0; font-size:11px; margin-top:3px;">令咒 <span style="color:#c79be8;">' + '❖'.repeat(Math.max(0, m.seals || 0)) + '</span></div>'
+        + (myMystic ? ('<div style="color:#9a8bb0; font-size:11px; margin-top:3px;" title="' + (myMystic.desc || '').replace(/"/g, '') + '">禮裝 <span style="color:#7fd0c0;">✨ ' + myMystic.name + '</span>' + (myMystic.type === 'active' ? ' <span style="color:#caa44a;">(充能 ' + myMystic.charges + '・需迴路 ' + myMystic.req + ')</span>' : ' <span style="color:#8aa;">(被動)</span>') + '</div>') : '')
         + '</div>';
       let sh;
       if (s) {
@@ -1920,6 +1971,7 @@ function renderRecentLocs(recents = null) {
           + ((pc && pc.mode === 'kanshou') ? '' :
               '<div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">'
               + '<button onclick="manaSupply()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
+              + '<button onclick="openBondMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(224,138,170,0.16); color:#e08aaa; border:1px solid #b06c84; border-radius:6px; cursor:pointer;">💕 羈絆</button>'
               + '<button onclick="openSealMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(176,108,208,0.16); color:#c79be8; border:1px solid #8a5fb0; border-radius:6px; cursor:pointer;">❖ 令咒 ' + '❖'.repeat(Math.max(0, m.seals || 0)) + '</button>'
               + '<button onclick="openRestMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(120,120,160,0.16); color:#a9a9d8; border:1px solid #5a5a8a; border-radius:6px; cursor:pointer;">🛏️ 休息</button>'
               + '</div>')
@@ -1968,30 +2020,15 @@ function renderRecentLocs(recents = null) {
     html += '<div style="color:#9a8bb0; font-size:11px; margin-bottom:6px;">📍 目前所在：' + (here || '未知') + '　<span style="color:#d65c5c;">⚔ = 已偵查到敵人</span></div>';
     html += buildMapSvg_(nodes);
 
-    // ⚔️ 此地敵人 → 直接出戰（不必再翻互動視窗）
+    // 🏕️ 地圖頁＝戰場經營：設陣地（提升此地供魔）／搜索物資。交戰請在「故事」頁的戰爭行動列。
     if (!(pc && pc.mode === 'kanshou')) {
-      var foes = (localNPCs || []).filter(function (n) { return n.isExact && (n.faction === '敵御主' || n.faction === '敵從者'); });
-      if (foes.length) {
-        html += '<div style="color:#d65c5c; font-size:12px; font-weight:bold; margin:12px 0 6px;">⚔️ 此地敵蹤（可出戰）：</div>';
-        foes.forEach(function (f) {
-          var safe = String(f.name).replace(/'/g, '');
-          if (f.faction === '敵御主') {
-            html += '<div style="border:1px solid rgba(160,48,122,0.45); border-radius:7px; padding:6px 8px; margin-bottom:7px; background:rgba(50,15,45,0.28);">'
-              + '<div style="color:#e8b0d8; font-size:12.5px; font-weight:bold; margin-bottom:4px;">' + f.name + ' <small style="color:#b58aa8;">敵御主</small></div>'
-              + '<button class="btn" style="width:100%; font-size:11px; padding:5px 3px; border-color:#a0307a; color:#e0a0d0;" onclick="servantStrike(\'' + safe + '\', false, false, true)">🗡️ 刺殺御主（須擲 20 大成功）</button>'
-              + '</div>';
-          } else {
-            var st = attackStyle_();
-            html += '<div style="border:1px solid rgba(214,92,92,0.4); border-radius:7px; padding:6px 8px; margin-bottom:7px; background:rgba(60,20,20,0.25);">'
-              + '<div style="color:#e8b0b0; font-size:12.5px; font-weight:bold; margin-bottom:4px;">' + f.name + ' <small style="color:#a77;">敵從者</small></div>'
-              + '<div style="display:flex; gap:4px; flex-wrap:wrap;">'
-              + '<button class="btn" title="' + st.hint + '" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:rgb(' + st.rgb + '); color:' + st.col + ';" onclick="servantStrike(\'' + safe + '\', false)">' + st.emo + ' ' + st.name + '</button>'
-              + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#d4af37; color:#e7c873;" onclick="servantStrike(\'' + safe + '\', true)">💥 寶具</button>'
-              + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#b06cd0; color:#c79be8;" onclick="servantStrike(\'' + safe + '\', false, true)">❖ 令咒</button>'
-              + '</div></div>';
-          }
-        });
-      }
+      var foeHere = (localNPCs || []).some(function (n) { return n.isExact && (n.faction === '敵御主' || n.faction === '敵從者'); });
+      html += '<div style="color:#7fb88f; font-size:12px; font-weight:bold; margin:12px 0 6px;">🏕️ 此地經營</div>';
+      if (foeHere) html += '<div style="color:#d65c5c; font-size:11px; margin-bottom:6px;">⚔ 此地有敵蹤——交戰請至「故事」頁的戰爭行動列；卸防經營恐遭突襲。</div>';
+      html += '<div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">'
+        + '<button class="btn" style="flex:1; min-width:90px; font-size:11.5px; padding:7px 4px; border-color:#5a8a6a; color:#8fd0a0;" onclick="setWorkshop()" title="於此地佈設工房／陣地，提升駐留時的供魔收入">🏕️ 設置陣地</button>'
+        + '<button class="btn" style="flex:1; min-width:90px; font-size:11.5px; padding:7px 4px; border-color:#8a7a4a; color:#d0c080;" onclick="scavenge()" title="搜索此地補給：回復御主魔力，偶有所獲或察覺敵蹤">🔍 搜索物資</button>'
+        + '</div>';
     }
 
     // 地圖節點本身即可點擊移動，文字「可前往」清單已多餘，移除。
@@ -2163,6 +2200,12 @@ function renderRecentLocs(recents = null) {
     //    否則必被護衛擋下，並反噬 1.5 倍傷害給你的從者（可能直接靈基崩潰、敗北）。
     if (isMaster) {
       if (!confirm('🗡️ 刺殺敵御主「' + npcName + '」？\n\n唯有擲出 20（大成功，1/20）能突破護衛從者、斬殺御主奪勝；\n否則必被護衛捨身擋下，並反噬 1.5 倍傷害給你的從者——重則靈基崩潰、聖杯戰爭落敗。\n\n確定發動奇襲斬首？')) return;
+    } else if (useSeal) {
+      // ❖ 防誤按：令咒有限且一次性
+      if (!confirm('❖ 對「' + npcName + '」燃燒一道令咒‧絕對命令？\n\n效果：此擊必中＋威力倍增。\n令咒總共只有 3 道、用一道少一道，請謹慎。\n\n確定燃燒令咒？')) return;
+    } else if (useNp) {
+      // 💥 防誤按：寶具耗大量魔力
+      if (!confirm('💥 命「' + npcName + '」解放寶具？\n\n將消耗從者約 35% 魔力（魔力不足則無法發動），威力巨大。\n\n確定解放寶具？')) return;
     }
     if (!beginAction()) return;
     const story = document.getElementById('story');
@@ -2183,17 +2226,102 @@ function renderRecentLocs(recents = null) {
     } catch (e) { alert('連線失敗，出擊未果。'); } finally { endAction(); }
   }
 
+  // ✨ 發動禮裝（主動型）：吃迴路、耗魔力、扣充能
+  async function mysticStrike(npcName) {
+    if (!myMystic || myMystic.type !== 'active') return;
+    if (myMystic.charges <= 0) { alert('禮裝充能已耗盡。'); return; }
+    if (!confirm('✨ 發動禮裝「' + myMystic.name + '」轟向「' + npcName + '」？\n\n需魔術迴路 ' + myMystic.req + ' 方能全力；不足將走火（威力打折＋魔力反噬）。\n剩餘充能：' + myMystic.charges + '。確定？')) return;
+    if (!beginAction()) return;
+    const story = document.getElementById('story');
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主發動禮裝「${myMystic.name}」，直取「${npcName}」！</div>`);
+    story.scrollTop = story.scrollHeight;
+    try {
+      const res = await gasRun({ action: 'use_mystic', pcId: pc.id, npcName: npcName, acctName: (pc && pc.account) || currentAccount });
+      if (res && res.success) {
+        if (res.report) renderMysticReport(res.report);
+        narrate(res.aiPrompt);
+        syncData(true);
+        if (res.victory) { await handleVictory(res); }
+      } else { alert((res && res.message) || '禮裝發動失敗。'); }
+    } catch (e) { alert('連線失敗，禮裝未果。'); } finally { endAction(); }
+  }
+  // ✨ 禮裝戰報卡
+  function renderMysticReport(r) {
+    if (!r || !r.mystic) return;
+    const story = document.getElementById('story');
+    let h = '<div style="border:1px solid rgba(78,165,150,0.5);border-radius:9px;padding:10px 12px;margin:6px 0;background:rgba(14,30,28,0.55);font-size:12px;">';
+    h += '<div style="font-weight:bold;margin-bottom:5px;color:#7fd0c0;">✨ 禮裝·' + r.name + ' → ' + r.target + '</div>';
+    if (r.fizzle) h += '<div style="color:#c99;">⚠ 迴路不足，禮裝啞火、魔力潰散，未能成形。</div>';
+    else {
+      if (r.backfire) h += '<div style="color:#e0a06a;font-size:11px;">⚠ 迴路駕馭不全·走火反噬（威力減半、額外燒魔力）</div>';
+      h += '<div style="font-size:13px;">造成 <b style="color:#ffae6a;">' + (r.dmg || 0) + '</b> 點重創</div>';
+      if (r.masterKilled) h += '<div style="color:#e07a9a;font-weight:bold;margin-top:2px;">🩸 敵御主迴路碎裂、斃命' + (r.fade ? '，其從者「' + r.fade + '」隨之消散' : '') + '！' + (r.victory ? '　🏆 聖杯已近！' : '') + '</div>';
+      if (r.destroyed) h += '<div style="color:#d65c5c;font-weight:bold;margin-top:2px;">💀 「' + r.target + '」靈基崩潰·消滅！' + (r.victory ? '　🏆 聖杯已近！' : '') + '</div>';
+      if (r.godRevived) h += '<div style="color:#d4af37;margin-top:2px;">✨ 對方自死亡歸來（十二試煉）</div>';
+      if (!r.masterKilled && !r.destroyed && r.defHpMax) h += '<div style="color:#9a8bb0;font-size:10px;margin-top:3px;">敵 ' + r.target + ' ' + r.defHp + '/' + r.defHpMax + '</div>';
+    }
+    h += '<div style="color:#8a7f9a;font-size:10px;margin-top:4px;">餘充能 ' + r.charges + '</div></div>';
+    story.insertAdjacentHTML('beforeend', h);
+    story.scrollTop = story.scrollHeight;
+  }
+
+  // 同地是否有清醒敵從者（卸防行動會招致突襲的警示用）
+  function localFoeServantName() {
+    const f = (localNPCs || []).find(n => n && n.isExact && n.faction === '敵從者');
+    return f ? f.name : '';
+  }
   // 💧 補魔：御主供魔給從者（回魔＋羈絆＋fade 演出）
   async function manaSupply() {
+    const foe = localFoeServantName();
+    if (foe && !confirm('⚠ 此地有敵從者「' + foe + '」！\n\n補魔時門戶大開，極可能遭其趁隙突襲重擊你的從者（重則靈基崩潰、敗北）。\n建議先擊退敵人或轉往安全處。\n\n仍要在此補魔？')) return;
     if (!beginAction()) return;
     const story = document.getElementById('story');
     story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主將魔力導入從者，行補魔之儀……</div>`);
     story.scrollTop = story.scrollHeight;
     try {
-      const res = await gasRun({ action: 'mana_supply', pcId: pc.id });
-      if (res && res.success) { updateClock(res.clock, res.ap, res.apMax); narrate(res.aiPrompt); syncData(true); }
-      else { alert((res && res.message) || '補魔失敗。'); }
+      const res = await gasRun({ action: 'mana_supply', pcId: pc.id, acctName: (pc && pc.account) || currentAccount });
+      if (res && res.success) {
+        updateClock(res.clock, res.ap, res.apMax); narrate(res.aiPrompt); syncData(true);
+        if (res.defeat) { await handleDefeat(res); }
+      } else { alert((res && res.message) || '補魔失敗。'); }
     } catch (e) { alert('連線失敗，補魔未果。'); } finally { endAction(); }
+  }
+
+  // 💕 羈絆選單（純按鈕，無對話框）：每種每遊戲日限一次、跨日重置
+  const BOND_MENU = [
+    ['chat', '💬 閒聊', '巡查歇腳間的家常與拌嘴'],
+    ['meal', '🍙 共餐', '一同用餐、卸下戒備的尋常溫度'],
+    ['train', '⚔️ 並肩特訓', '切磋武藝、磨合默契'],
+    ['talk', '🌙 促膝夜談', '夜深交換心事、靠近彼此的內裡'],
+  ];
+  function openBondMenu() {
+    let html = '<h3 style="margin:0 0 6px;color:#e08aaa;">💕 與從者相伴</h3>'
+      + '<p style="color:#9a8bb0;font-size:12px;margin:0 0 10px;">並肩作戰之餘的點滴，悄悄加深彼此的羈絆。<br>（每種互動每日一次，隔日重置）</p>';
+    html += BOND_MENU.map(function (o) {
+      const used = myBondUsed.indexOf(o[0]) >= 0;
+      const dis = used ? 'opacity:.4;pointer-events:none;' : '';
+      return '<button ' + (used ? 'disabled' : '') + ' onclick="bond(\'' + o[0] + '\')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px;background:rgba(224,138,170,0.12);color:#e8dcc0;border:1px solid #b06c84;border-radius:8px;cursor:pointer;' + dis + '">'
+        + '<b style="color:#e8aac0;">' + o[1] + (used ? '　<small style="color:#888;">（今日已敘）</small>' : '') + '</b><br><span style="font-size:12px;color:#9a8bb0;">' + o[2] + '</span></button>';
+    }).join('');
+    showHistoryOverlay(html);
+  }
+  async function bond(type) {
+    var ov = document.getElementById('history-overlay');
+    const foe = localFoeServantName();
+    if (foe && !confirm('⚠ 此地有敵從者「' + foe + '」！\n\n卸下心防相伴恐遭其趁隙突襲（重則靈基崩潰、敗北）。\n仍要在此相伴？')) return;
+    if (!beginAction()) return;
+    if (ov) ov.style.display = 'none';
+    const story = document.getElementById('story');
+    const label = (BOND_MENU.find(function (o) { return o[0] === type; }) || ['', '相伴'])[1];
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主與從者${label}……</div>`);
+    story.scrollTop = story.scrollHeight;
+    try {
+      const res = await gasRun({ action: 'bond', bondType: type, pcId: pc.id, acctName: (pc && pc.account) || currentAccount });
+      if (res && res.success) {
+        myBondUsed = res.bondUsed || myBondUsed; narrate(res.aiPrompt); syncData(true);
+        if (res.defeat) { await handleDefeat(res); }
+      } else { alert((res && res.message) || '今日無法再敘。'); if (res && res.bondUsed) myBondUsed = res.bondUsed; }
+    } catch (e) { alert('連線失敗。'); } finally { endAction(); }
   }
 
   // ❖ 令咒選單（絕對命令需在戰鬥中對目標施放，這裡放自身向三招）
