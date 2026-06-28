@@ -3044,12 +3044,15 @@ async function openLeaderboard() {
   } catch (e) { alert('排行榜讀取失敗。'); }
 }
 
-// 📜 本場戰記（里程碑）：撈本局 game_id 的戰記表，依遊戲內日期分段呈現，戰中可隨時回顧
-async function openWarChronicle() {
+// 📜 戰記（里程碑）：撈某局 game_id 的戰記，依遊戲內日期分段呈現。
+//   無 gameId＝玩家當前戰局(抽屜「本場戰記」)；帶 gameId＝回顧過去某役(主選單「戰役回顧」)。
+async function openWarChronicle(gameId, titleLabel, backToHistory) {
   try { var dr = document.getElementById('action-drawer'); if (dr && dr.style.display !== 'none' && typeof toggleActionDrawer === 'function') toggleActionDrawer(); } catch (e) {}
-  if (!pc || !pc.id) { alert('尚未進入戰場。'); return; }
+  if (!gameId && (!pc || !pc.id)) { alert('尚未進入戰場。'); return; }
   try {
-    var res = await gasRun({ action: 'war_chronicle', pcId: pc.id });
+    var req = gameId ? { action: 'war_chronicle', gameId: gameId, acctName: currentAccount, pcId: (pc && pc.id) || '' }
+                     : { action: 'war_chronicle', pcId: pc.id };
+    var res = await gasRun(req);
     if (!res || !res.success) { alert((res && res.message) || '戰記讀取失敗。'); return; }
     var ev = res.events || [];
     var body;
@@ -3069,11 +3072,40 @@ async function openWarChronicle() {
       });
       body = parts.join('');
     }
-    var html = '<h3 style="margin:0 0 4px;color:#e0c66a;">📜 本場戰記</h3>'
-      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:6px;">本場聖杯戰爭的里程碑（召喚・令咒・生死・結盟・奪杯），依冬木時序記錄。</div>'
-      + '<div style="max-height:56vh;overflow-y:auto;">' + body + '</div>';
+    var html = '<h3 style="margin:0 0 4px;color:#e0c66a;">📜 ' + (titleLabel ? escapeHtml(titleLabel) : '本場戰記') + '</h3>'
+      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:6px;">聖杯戰爭的里程碑（召喚・令咒・生死・結盟・奪杯），依冬木時序記錄。</div>'
+      + (backToHistory ? '<button onclick="openWarHistory()" style="margin-bottom:6px;padding:5px 10px;background:#33304a;color:#cbd; border:none;border-radius:6px;cursor:pointer;font-size:12px;">← 戰役清單</button>' : '')
+      + '<div style="max-height:54vh;overflow-y:auto;">' + body + '</div>';
     showHistoryOverlay(html);
   } catch (e) { alert('戰記讀取失敗。'); }
+}
+
+// 📜 戰役回顧（主選單）：列出本帳號歷來的聖杯戰爭，點一場看其完整戰記
+async function openWarHistory() {
+  try {
+    var res = await gasRun({ action: 'war_history_list', acctName: currentAccount });
+    if (!res || !res.success) { alert((res && res.message) || '戰役清單讀取失敗。'); return; }
+    var wars = res.wars || [];
+    var body = wars.length
+      ? wars.map(function (w) {
+          var tag = w.result === '奪杯' ? '<span style="color:#e7c873;">🏆 奪杯</span>'
+                  : w.result === '敗北' ? '<span style="color:#d07a7a;">💀 敗北</span>'
+                  : '<span style="color:#8aa;">⚔ 進行中</span>';
+          var safeG = String(w.gameId).replace(/'/g, '');
+          var safeT = (w.title || '聖杯戰爭').replace(/"/g, '');
+          return '<div onclick="openWarChronicle(\'' + safeG + '\',\'' + safeT.replace(/'/g, '') + '\',true)" '
+            + 'style="padding:9px 8px;border-bottom:1px solid rgba(255,255,255,.07);cursor:pointer;">'
+            + '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">'
+            + '<span style="flex:1;min-width:0;color:#dfeaf2;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(w.title || '聖杯戰爭') + '</span>'
+            + '<span style="font-size:12px;white-space:nowrap;">' + tag + '</span></div>'
+            + '<div style="color:#7d8a9a;font-size:11px;margin-top:2px;">至第 ' + (w.lastDay || '?') + ' 日　·　點開看完整戰記</div></div>';
+        }).join('')
+      : '<div style="color:#888;padding:12px;text-align:center;">尚無戰役紀錄，去打一場聖杯戰爭吧。</div>';
+    var html = '<h3 style="margin:0 0 6px;color:#e0c66a;">📜 戰役回顧</h3>'
+      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">「' + escapeHtml(currentAccount || '') + '」帳號歷來的聖杯戰爭，點一場回顧其里程碑。</div>'
+      + '<div style="max-height:56vh;overflow-y:auto;">' + body + '</div>';
+    showHistoryOverlay(html);
+  } catch (e) { alert('戰役清單讀取失敗。'); }
 }
 
 function showHistoryOverlay(html) {
