@@ -1888,9 +1888,12 @@ function renderRecentLocs(recents = null) {
       const canAdd = cur.length < max;
       let html = '<h3 style="margin:0 0 4px;color:#e0a0bc;">👥 後日談同伴 (' + cur.length + '/' + max + ')</h3>'
         + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">最多 ' + max + ' 人同行。邀請已封存的從者，或請走同伴（資料仍封存，隨時再邀）。</div>'
-        + '<div style="display:flex;align-items:center;gap:8px;padding:7px 8px;margin-bottom:8px;background:rgba(200,120,150,.08);border-radius:8px;">'
-        + '<span style="flex:1;color:#cbb;font-size:12px;">你（御主）現身為 <b style="color:#e8b8cc;">' + escapeHtml(pc.sex || '—') + '</b></span>'
-        + '<button onclick="changeKanshouSex()" style="padding:4px 10px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">⚧ 切換性別</button></div>'
+        + '<div style="padding:7px 8px;margin-bottom:8px;background:rgba(200,120,150,.08);border-radius:8px;">'
+        + '<div style="color:#cbb;font-size:12px;margin-bottom:6px;">你（御主）：<b style="color:#e8b8cc;">' + escapeHtml(pc.name || '—') + '</b> · <b style="color:#e8b8cc;">' + escapeHtml(pc.sex || '—') + '</b></div>'
+        + '<div style="display:flex;gap:8px;">'
+        + '<button onclick="changeKanshouName()" style="flex:1;padding:5px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">✏ 改名</button>'
+        + '<button onclick="changeKanshouSex()" style="flex:1;padding:5px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">⚧ 切換性別</button>'
+        + '</div></div>'
         + '<div style="font-size:12px;color:#cbb;margin:6px 0 3px;">在場同伴</div>'
         + (cur.length ? cur.map(function (n) {
             return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
@@ -1918,6 +1921,23 @@ function renderRecentLocs(recents = null) {
       const res = await gasRun({ action: 'kanshou_remove', pcId: pc.id, acctName: currentAccount, servantName: name });
       if (res && res.success) { syncData(true); openCompanions(); } else { alert((res && res.message) || '請走失敗。'); }
     } catch (e) { alert('請走失敗。'); }
+  }
+  // ✏ 隨時更改後日談中「你（御主）」的名字
+  async function changeKanshouName() {
+    if (!pc || !pc.id) { alert('尚未進入後日談。'); return; }
+    var nm = prompt('御主新名字：', pc.name || '');
+    if (nm === null) return;
+    nm = String(nm).trim();
+    if (!nm) { alert('名字不能空白。'); return; }
+    try {
+      const res = await gasRun({ action: 'kanshou_set_name', pcId: pc.id, pcName: nm });
+      if (res && res.success) {
+        pc.name = res.pcName;
+        localStorage.setItem('kyushu_v27', JSON.stringify(pc));
+        var el = document.getElementById('ui-name'); if (el) el.innerText = pc.name;
+        openCompanions();
+      } else { alert((res && res.message) || '改名失敗。'); }
+    } catch (e) { alert('改名失敗。'); }
   }
   // ⚧ 隨時切換後日談中「你（御主）」的性別
   async function changeKanshouSex() {
@@ -1955,16 +1975,39 @@ function renderRecentLocs(recents = null) {
     });
   }
 
+  // 🌹 首次進場設定御主：取名 ＋ 選性別（之後 👥 面板可分別改）。回傳 {name, sex}。
+  function askKanshouSetup(defaultName) {
+    return new Promise(function (resolve) {
+      var ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.74);display:flex;align-items:center;justify-content:center;';
+      ov.innerHTML = '<div style="background:#20141b;border:1px solid rgba(200,120,150,.5);border-radius:14px;padding:22px;width:84%;max-width:320px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6);">'
+        + '<div style="color:#e0a0bc;font-weight:bold;font-size:15px;margin-bottom:6px;">🌹 後日談 · 設定你（御主）</div>'
+        + '<div style="color:#9a8f70;font-size:11px;line-height:1.7;margin-bottom:14px;">取個名字、選擇現身的性別。之後在 👥 同伴面板可隨時更改。</div>'
+        + '<input id="ksu-name" maxlength="16" value="' + escapeHtml(defaultName || '') + '" placeholder="御主名" style="width:100%;box-sizing:border-box;padding:11px;background:#16101a;border:1px solid rgba(200,120,150,.4);border-radius:8px;color:#f0e0e8;font-size:14px;text-align:center;">'
+        + '<div style="display:flex;gap:10px;margin-top:14px;">'
+        + '<button id="ksu-f" style="flex:1;padding:13px;background:linear-gradient(90deg,#7a4a6a,#5a3a6a);color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♀ 女</button>'
+        + '<button id="ksu-m" style="flex:1;padding:13px;background:linear-gradient(90deg,#3a4a6a,#3a5a6a);color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♂ 男</button>'
+        + '</div></div>';
+      document.body.appendChild(ov);
+      function done(sex) {
+        var nm = (ov.querySelector('#ksu-name').value || '').trim() || (defaultName || '御主');
+        document.body.removeChild(ov); resolve({ name: nm, sex: sex });
+      }
+      ov.querySelector('#ksu-f').onclick = function () { done('女'); };
+      ov.querySelector('#ksu-m').onclick = function () { done('男'); };
+    });
+  }
+
   async function enterKanshou() {
     if (!currentAccount) { alert('請先登入帳號。'); return; }
     if (!beginAction()) return;
     try {
       let res = await gasRun({ action: 'enter_kanshou', acctName: currentAccount });
       if (!res || !res.success) { alert((res && res.message) || '無法進入後日談。'); return; }
-      // 首次進場、尚未建過常駐御主 → 先問一次性別，帶 pcSex 再進一次正式建立
-      if (res.needSex) {
-        const sex = await askKanshouSex();
-        res = await gasRun({ action: 'enter_kanshou', acctName: currentAccount, pcSex: sex });
+      // 首次進場、尚未建過常駐御主 → 先問一次名字＋性別，帶進來正式建立
+      if (res.needSetup) {
+        const setup = await askKanshouSetup(res.defaultName || currentAccount);
+        res = await gasRun({ action: 'enter_kanshou', acctName: currentAccount, pcName: setup.name, pcSex: setup.sex });
         if (!res || !res.success) { alert((res && res.message) || '無法進入後日談。'); return; }
       }
       // 建立鑑賞視角的 pc（mode=kanshou：隱藏戰鬥相關 UI、顯示同伴面板）
