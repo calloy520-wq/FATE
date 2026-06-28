@@ -1423,10 +1423,12 @@ function actionUpdateFate(userData, pcId, sheets) {
     }
   }
 
-  let targetCol = fateType === 'trait' ? COL.PC.TRAIT : fateType === 'pref' ? COL.PC.PREF : fateType === 'back' ? COL.PC.BACK : fateType === 'intent' ? COL.PC.INTENT : fateType === 'martial' ? COL.PC.MARTIAL : -1;
-  if (targetCol === -1) return JSON.stringify({ success: false, message: "未知的命格類型" });
-  // 🔴 命格欄位直寫入表格，需自行把關長度（全域 sanitizer 只做通用上限）
-  pcData[pIdx][targetCol] = String(fateValue || "").slice(0, 120);
+  // 🔵 只准改 4 種敘事欄（個性/特徵/身世/萌點）；數值(六圍/迴路/禮裝)與寶具(martial)一律不可改——GAS 掌數值鐵則。
+  let targetCol = fateType === 'trait' ? COL.PC.TRAIT : fateType === 'pref' ? COL.PC.PREF : fateType === 'back' ? COL.PC.BACK : fateType === 'intent' ? COL.PC.INTENT : -1;
+  if (targetCol === -1) return JSON.stringify({ success: false, message: "此欄位不可修改（只能改個性／特徵／身世／萌點，數值與寶具一律鎖死）。" });
+  // 🔴 命格欄位直寫入表格，需自行把關長度：身世/萌點 單格 30；個性/特徵 為 4 格頓號拼接、給較寬上限
+  var cap = (fateType === 'back' || fateType === 'intent') ? 30 : 130;
+  pcData[pIdx][targetCol] = String(fateValue || "").slice(0, cap);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
 
   let relMem = "";
@@ -1503,7 +1505,7 @@ function actionManualNpc(userData, pcId, sheets) {
 
 ★【演出而非說明】願望與身世只作為設定底層，不要在 background 裡直接複述願望字面。
 ★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
-- traits：外貌、氣質舉止、魔術或戰鬥傾向、私下不為人知的一面
+- traits：外貌、氣質舉止、魔術師的癖性、卸下心防的私密一面
 - personality：日常表象、真實內裡、喜歡的事、討厭的事
 ★npc_intent：一句【簡短】萌點（可愛反差，≤15字），結合此御主身分性格，要反差、可愛、獨特。
 ★background：限20字，呼應其身世／財力，禁出現具體物品名。
@@ -1609,7 +1611,7 @@ function actionManualNpc(userData, pcId, sheets) {
       else { lo = 500; hi = 1000; }  // 罡氣以上：一方大能
       newRow[COL.PC.MONEY] = lo + Math.floor(Math.random() * (hi - lo + 1));
     }
-    newRow[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.traits, "深藏不露、武功平平、雜學精通、床笫之間的反應");
+    newRow[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.traits, "外貌平凡、舉止從容、魔術師的癖性、深藏的私密一面");
     newRow[COL.PC.LOC] = spawnName;
     newRow[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "溫婉謙和、內斂堅韌、明哲保身、隨波逐流");
     newRow[COL.PC.HP] = maxStats.hp; newRow[COL.PC.MP] = maxStats.mp;

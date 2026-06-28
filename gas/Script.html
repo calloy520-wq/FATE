@@ -1800,16 +1800,16 @@ function renderRecentLocs(recents = null) {
     if (type === 'back') {
         titleEl.innerText = "逆天改命 - 修改身世背景";
         fieldsEl.innerHTML = `
-            <label style="font-size:13px; color:#332211; font-weight:bold;">身世背景 (字數簡練)</label>
-            <input id="fate-f1" class="std-in" maxlength="100" value="${escapeHtml(currentVal)}">
+            <label style="font-size:13px; color:#332211; font-weight:bold;">身世背景 (限 30 字)</label>
+            <input id="fate-f1" class="std-in" maxlength="30" value="${escapeHtml(currentVal)}">
         `;
     }
-    // 🔴 補上這個紫色的隱秘軟肋分支
+    // 🔴 萌點（反差/可愛弱點）
     else if (type === 'intent') {
-        titleEl.innerText = "逆天改命 - 修改反差軟肋";
+        titleEl.innerText = "逆天改命 - 修改萌點";
         fieldsEl.innerHTML = `
-            <label style="font-size:13px; color:#800080; font-weight:bold;">反差軟肋 (可愛弱點/反差萌，如：怕鬼、傲嬌、路痴)</label>
-            <input id="fate-f1" class="std-in" maxlength="100" value="${escapeHtml(currentVal)}">
+            <label style="font-size:13px; color:#800080; font-weight:bold;">萌點 (反差/可愛弱點，如：傲嬌、路痴、怕鬼) 限 30 字</label>
+            <input id="fate-f1" class="std-in" maxlength="30" value="${escapeHtml(currentVal)}">
         `;
     }
     else if (type === 'trait') {
@@ -1821,9 +1821,9 @@ function renderRecentLocs(recents = null) {
             <input id="fate-f1" class="std-in" maxlength="20" value="${escapeHtml(parts[0])}">
             <label style="font-size:13px; color:#b8860b; font-weight:bold;">2. 氣質舉止</label>
             <input id="fate-f2" class="std-in" maxlength="20" value="${escapeHtml(parts[1])}">
-            <label style="font-size:13px; color:#b8860b; font-weight:bold;">3. 偏門技巧</label>
+            <label style="font-size:13px; color:#b8860b; font-weight:bold;">3. 魔術師的癖性</label>
             <input id="fate-f3" class="std-in" maxlength="20" value="${escapeHtml(parts[2])}">
-            <label style="font-size:13px; color:#b8860b; font-weight:bold;">4. 床笫之間的反應</label>
+            <label style="font-size:13px; color:#b8860b; font-weight:bold;">4. 卸下心防的私密一面</label>
             <input id="fate-f4" class="std-in" maxlength="20" value="${escapeHtml(parts[3])}">
         `;
     } else {
