@@ -2046,6 +2046,7 @@ function renderRecentLocs(recents = null) {
               '<div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">'
               + (dual ? '<div style="flex:1 0 100%; color:#9a8fae; font-size:10px;">下列動作對「' + s.name + '」生效：</div>' : '')
               + '<button onclick="event.stopPropagation();manaSupply()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
+              + '<button onclick="event.stopPropagation();bloodSupply()" title="燃血補魔：燃燒御主自身生命力(扣血)，大量灌注從者魔力。血量可休息回復。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(176,42,42,0.18); color:#e08080; border:1px solid #a04a4a; border-radius:6px; cursor:pointer;">🩸 燃血</button>'
               + '<button onclick="event.stopPropagation();openBondMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(224,138,170,0.16); color:#e08aaa; border:1px solid #b06c84; border-radius:6px; cursor:pointer;">💕 羈絆</button>'
               + '<button onclick="event.stopPropagation();openSealMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(176,108,208,0.16); color:#c79be8; border:1px solid #8a5fb0; border-radius:6px; cursor:pointer;">❖ 令咒 ' + '❖'.repeat(myMasterSeals) + '</button>'
               + '<button onclick="event.stopPropagation();openRestMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(120,120,160,0.16); color:#a9a9d8; border:1px solid #5a5a8a; border-radius:6px; cursor:pointer;">🛏️ 休息</button>'
@@ -2440,6 +2441,24 @@ function renderRecentLocs(recents = null) {
         if (res.defeat) { await handleDefeat(res); }
       } else { alert((res && res.message) || '補魔失敗。'); }
     } catch (e) { alert('連線失敗，補魔未果。'); } finally { endAction(); }
+  }
+
+  // 🩸 燃血補魔：御主燃燒自身生命力(扣血)，大量灌注從者魔力（血量可休息回復）
+  async function bloodSupply() {
+    if (!confirm('🩸 燃血補魔：燃燒御主自身生命力轉化為魔力，大量灌注從者（扣御主血量、回血需休息）。\n\n以血為魔、代價沉重——確定要燃血嗎？')) return;
+    const foe = localFoeServantName();
+    if (foe && !confirm('⚠ 此地有敵從者「' + foe + '」！\n\n燃血時門戶大開，極可能遭其趁隙突襲重擊你的從者。\n仍要在此燃血？')) return;
+    if (!beginAction()) return;
+    const story = document.getElementById('story');
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主咬牙逼出血色魔力，以自身生命為媒，行燃血補魔之儀……</div>`);
+    story.scrollTop = story.scrollHeight;
+    try {
+      const res = await gasRun({ action: 'blood_supply', pcId: pc.id, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount });
+      if (res && res.success) {
+        updateClock(res.clock, res.ap, res.apMax); narrate(res.aiPrompt); syncData(true);
+        if (res.defeat) { await handleDefeat(res); }
+      } else { alert((res && res.message) || '燃血失敗。'); }
+    } catch (e) { alert('連線失敗，燃血未果。'); } finally { endAction(); }
   }
 
   // 💕 羈絆選單（純按鈕，無對話框）：每種每遊戲日限一次、跨日重置

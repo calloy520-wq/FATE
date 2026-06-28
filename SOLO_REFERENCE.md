@@ -82,6 +82,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | fate_battle | actionFateBattle | **核心戰鬥**：D20＋寶具＋令咒＋斬首＋雙從者＋協同強襲（見 §4） |
 | use_seal | actionUseSeal | 令咒固定選單：修復/補魔/緊急脫離 |
 | mana_supply | actionManaSupply | 補魔：御主→從者回魔+羈絆+SFW fade（耗1AP，卸防可能被突襲） |
+| blood_supply | actionBloodSupply | 🩸燃血補魔(血→魔)：御主扣 HP(~18%maxHP，留 15% 安全線)→從者大量回魔(~70%maxMP)+羈絆+5。御主 HP 休息回復(applyRegen ~5%/hr)。耗1AP、卸防可能被突襲。SFW 悲壯非情慾。 |
 | bond | actionBond | 羈絆互動(閒聊/共餐/特訓/夜談)，每種每日一次升羈絆 |
 | use_mystic | actionUseMystic | 發動主動禮裝（吃迴路/耗魔/扣充能，對敵造魔力傷害） |
 | rule_break_steal | actionRuleBreakSteal | 破戒奪僕：打殘敵從者(HP<35%)+燃令咒→奪為第二從者(上限2) |
