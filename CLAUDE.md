@@ -20,7 +20,7 @@ GAS 在 `gas/`，clasp 推 branch 自動部署。**我每次開機失憶，這�
 ## 🚨 紅線（違反＝不可逆災難，動手前再確認一次）
 
 1. **慾海禁區**：`gas/Engine_Combat.gs` 的 `nsfwBaseRules`（演化核心）＋整套 NSFW 機制**一律不可改**。只能改 SFW 的 gating／名冊。改任何鄰近處，事後 `git diff | grep nsfwBaseRules` 必須 0 改動。
-2. **九州 GAS 不可動**：原始九州/GAS repo 只能複製過來，不可改。
+2. **`GAS` repo 不可動，但 FATE 內部可隨意改**：`calloy520-wq/GAS`（在 `/home/user/GAS`，原始九州專案）**一個字都不碰**——FATE 是從它複製出來改的。**但 FATE repo 內部的九州衍生碼【可以放手清理／改造，做成 FATE 專屬】**，別過度保守當神主牌。FATE 內改造的唯一兩條限制：① 別碰 `GAS` repo ② 別弄壞 kanshou/慾海（那軌建在 FATE 內的九州系統上，含紅線①的 `nsfwBaseRules`）。判斷某段 FATE 內九州碼能不能砍：kanshou/full 有用到→留；兩軌都用不到→可清（注意 COL 是位置索引，刪欄會位移全表，寧可棄用不刪欄）。
 3. **show-don't-tell**：敘事禁止直述角色 願望／個性／萌點 字面（`servantCard_` 鐵則一二三 已強制）。
 4. **branch**：只在 `claude/fate-error-review-w8q42w` 開發。commit→push→GitHub Action(clasp 3.3.0)自動部署。
 5. **model id**：`claude-opus-4-8` 不可出現在 commit／PR／程式碼／任何 push 進 repo 的東西。chat 回覆才可講。
