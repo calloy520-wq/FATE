@@ -1924,6 +1924,9 @@ function renderRecentLocs(recents = null) {
       document.getElementById('setup').style.display = 'none';
       document.getElementById('game').style.display = 'flex';
       applyModeUI();
+      // 🌹 慾海＝NSFW 後日談軌：自動打開 NSFW 開關，否則 isNsfwMode=false、後端整段親密/肉體狀態都不會回填試算表。
+      //   （玩家仍可手動關掉，改要純 SFW 約會。）
+      var _nt = document.getElementById('nsfw-mode-toggle'); if (_nt) _nt.checked = true;
       document.getElementById('ui-name').innerText = pc.name;
       document.getElementById('ui-sex').innerText = pc.sex;
       setupHistoryPrevention();
