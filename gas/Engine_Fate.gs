@@ -56,6 +56,23 @@ function hasTrait_(c, name) {
   for (var i = 0; i < t.length; i++) { if (t[i] && String(t[i].n).indexOf(name) >= 0) return true; }
   return false;
 }
+// 某 fx 在「這名」從者身上的『實際技能名』（不要硬寫某英靈的招式名，避免張冠李戴）。
+function fxName_(c, fx, fallback) {
+  var all = (c.skills || []).concat(c.traits || []);
+  for (var i = 0; i < all.length; i++) {
+    if (all[i] && all[i].fx === fx && all[i].n) return String(all[i].n);
+  }
+  return fallback || fx;
+}
+
+// ⚔️ 戰鬥屬性檔（依職階）：法師以「魔力」轟擊與築壁、弓兵遠程狙擊、其餘近戰靠筋力／敏捷。
+//   hit=命中所用六圍　dmg=傷害所用六圍　eva=迴避所用六圍　kind=演出用招式類別
+function combatProfile_(c) {
+  var cls = String(c.cls || '');
+  if (cls === 'Caster') return { hit: '魔力', dmg: '魔力', eva: '敏捷', kind: '魔砲' }; // 魔力轟擊的玻璃大砲：攻強、近身脆
+  if (cls === 'Archer') return { hit: '敏捷', dmg: '筋力', eva: '敏捷', kind: '狙擊' }; // 遠程精準
+  return { hit: '敏捷', dmg: '筋力', eva: '敏捷', kind: '近戰' };
+}
 
 // 眾生列 → 戰鬥單位（六圍從六圍欄、技能/特性從標籤欄；無六圍者合成）
 function rowToCombatant_(row) {
@@ -86,53 +103,57 @@ function resolveFateBattle_(atk, def, opts) {
   var mpPct = atk.mpMax > 0 ? atk.mp / atk.mpMax : 1;
   var outMod = mpPct >= 1 ? 2 : mpPct >= 0.7 ? 0 : mpPct >= 0.4 ? -2 : mpPct >= 0.15 ? -5 : -8;
 
+  // ⚔️ 依職階決定攻防屬性：法師用魔力轟擊＋魔術防壁、弓兵狙擊、近戰靠敏捷。讓「魔力型」也有舞台，不再只有敏／力吃香。
+  var aProf = combatProfile_(atk), dProf = combatProfile_(def);
   var aRoll = d20(), dRoll = d20();
-  // 命中／迴避的敏捷改用「階級隨機區間」(base-10~base+5)，讓低階偶能爆冷、骰運重新有戲
-  var aHit = aRoll + rankBand_(atk.six["敏捷"]) + outMod;
-  var dEva = dRoll + rankBand_(def.six["敏捷"]);
+  // 命中／迴避改用「階級隨機區間」(base-10~base+5)，讓低階偶能爆冷、骰運重新有戲
+  var aHit = aRoll + rankBand_(atk.six[aProf.hit]) + outMod;
+  var dEva = dRoll + rankBand_(def.six[dProf.eva]);
+  if (aProf.kind === '魔砲') fired.push(atk.name + '·' + (fxName_(atk, 'territory', '魔術詠唱')));
 
   // 直感/心眼(first_strike/analyze)：攻守先機 +3×階級
-  var fsA = hasFx_(atk, 'first_strike') || hasFx_(atk, 'analyze'); if (fsA) { aHit += Math.round(3 * rankMul_(fsA)); fired.push(atk.name + (hasFx_(atk, 'analyze') ? '·心眼' : '·直感')); }
+  var fsA = hasFx_(atk, 'first_strike') || hasFx_(atk, 'analyze'); if (fsA) { aHit += Math.round(3 * rankMul_(fsA)); fired.push(atk.name + '·' + fxName_(atk, hasFx_(atk, 'analyze') ? 'analyze' : 'first_strike', hasFx_(atk, 'analyze') ? '心眼' : '直感')); }
   var fsD = hasFx_(def, 'first_strike') || hasFx_(def, 'analyze');
-  if (hasFx_(atk, 'unreadable')) { fsD = null; fired.push(atk.name + '·宗和的心得(封先機)'); } // 使對方直感/心眼失效
-  if (fsD) { dEva += Math.round(3 * rankMul_(fsD)); fired.push(def.name + (hasFx_(def, 'analyze') ? '·心眼' : '·直感')); }
+  if (hasFx_(atk, 'unreadable')) { fsD = null; fired.push(atk.name + '·' + fxName_(atk, 'unreadable', '無貌') + '(封先機)'); } // 使對方直感/心眼失效
+  if (fsD) { dEva += Math.round(3 * rankMul_(fsD)); fired.push(def.name + '·' + fxName_(def, hasFx_(def, 'analyze') ? 'analyze' : 'first_strike', hasFx_(def, 'analyze') ? '心眼' : '直感')); }
 
   // 狂化(mad)：六圍暴漲但理智低 → 命中／迴避 -3×階級（傷害加成在下方）
   var madA = hasFx_(atk, 'mad'); if (madA) aHit -= Math.round(3 * rankMul_(madA));
   var madD = hasFx_(def, 'mad'); if (madD) dEva -= Math.round(3 * rankMul_(madD));
   // 自我改造(self_mod)：命中 +2
-  if (hasFx_(atk, 'self_mod')) { aHit += 2; fired.push(atk.name + '·自我改造'); }
+  if (hasFx_(atk, 'self_mod')) { aHit += 2; fired.push(atk.name + '·' + fxName_(atk, 'self_mod', '自我改造')); }
 
   // 騎乘(ride) 機動 +2×階級
   var rideA = hasFx_(atk, 'ride'); if (rideA) aHit += Math.round(2 * rankMul_(rideA));
   // 避矢(evade_ranged)：守方對遠程(Archer)迴避 +6×階級
-  if (atk.cls === 'Archer') { var er = hasFx_(def, 'evade_ranged'); if (er) { dEva += Math.round(6 * rankMul_(er)); fired.push(def.name + '·避矢'); } }
+  if (atk.cls === 'Archer') { var er = hasFx_(def, 'evade_ranged'); if (er) { dEva += Math.round(6 * rankMul_(er)); fired.push(def.name + '·' + fxName_(def, 'evade_ranged', '避矢')); } }
   // 氣息遮斷(stealth)：攻方奇襲 +3
-  if (hasFx_(atk, 'stealth')) { aHit += 3; fired.push(atk.name + '·氣息遮斷·奇襲'); }
+  if (hasFx_(atk, 'stealth')) { aHit += 3; fired.push(atk.name + '·' + fxName_(atk, 'stealth', '氣息遮斷') + '·奇襲'); }
   // 燕返(tsubame)：攻方令守方迴避 -8
-  var tsubame = hasFx_(atk, 'tsubame'); if (tsubame) { dEva -= 8; fired.push(atk.name + '·秘劍燕返'); }
+  var tsubame = hasFx_(atk, 'tsubame'); if (tsubame) { dEva -= 8; fired.push(atk.name + '·' + fxName_(atk, 'tsubame', '秘劍')); }
   // 必中(gae_bolg)：寶具解放時逆因果直接命中
-  var gaebolg = opts.np && hasFx_(atk, 'gae_bolg'); if (gaebolg) fired.push(atk.name + '·刺穿死棘之槍(必中)');
+  var gaebolg = opts.np && hasFx_(atk, 'gae_bolg'); if (gaebolg) fired.push(atk.name + '·' + fxName_(atk, 'gae_bolg', '必中之槍') + '(必中)');
 
   var atkWins = gaebolg ? true : (aHit >= dEva);
   var winner = atkWins ? atk : def;
   var loser = atkWins ? def : atk;
 
-  // 傷害：勝方筋力為底 + 分差
-  var base = rankVal(winner.six["筋力"]) + Math.round(Math.abs(aHit - dEva) * 1.2);
-  var su = hasFx_(winner, 'str_up'); if (su) { base += Math.round(8 * rankMul_(su)); fired.push(winner.name + '·怪力'); }
-  var burst = hasFx_(winner, 'burst'); if (burst) { base = Math.round(base * (1 + 0.2 * rankMul_(burst))); fired.push(winner.name + '·魔力放出'); }
+  // 傷害：勝方依職階主屬性為底（法師＝魔力轟擊／近戰＝筋力）+ 分差
+  var wProf = (winner === atk) ? aProf : dProf;
+  var base = rankVal(winner.six[wProf.dmg]) + Math.round(Math.abs(aHit - dEva) * 1.2);
+  var su = hasFx_(winner, 'str_up'); if (su) { base += Math.round(8 * rankMul_(su)); fired.push(winner.name + '·' + fxName_(winner, 'str_up', '怪力')); }
+  var burst = hasFx_(winner, 'burst'); if (burst) { base = Math.round(base * (1 + 0.2 * rankMul_(burst))); fired.push(winner.name + '·' + fxName_(winner, 'burst', '魔力放出')); }
   // 勇猛/卡里斯瑪(morale)：傷害+；但對方「透化(clear_mind)」免疫此精神威壓
   var mor = hasFx_(winner, 'morale'); if (mor && !hasFx_(loser, 'clear_mind')) { base += Math.round(3 * rankMul_(mor)); }
   else if (mor && hasFx_(loser, 'clear_mind')) { fired.push(loser.name + '·透化(免威壓)'); }
   // 自我改造(self_mod)：傷害 +3
   if (hasFx_(winner, 'self_mod')) base += 3;
   // 狂化(mad)：傷害暴漲
-  var madW = hasFx_(winner, 'mad'); if (madW) { base += Math.round(14 * rankMul_(madW)); fired.push(winner.name + '·狂化'); }
+  var madW = hasFx_(winner, 'mad'); if (madW) { base += Math.round(14 * rankMul_(madW)); fired.push(winner.name + '·' + fxName_(winner, 'mad', '狂化')); }
   // 神代魔術(divine_age)：魔力傷害大增（下方對魔力減免也減半）
-  var da = hasFx_(winner, 'divine_age'); if (da) { base += Math.round(12 * rankMul_(da)); fired.push(winner.name + '·神代魔術'); }
+  var da = hasFx_(winner, 'divine_age'); if (da) { base += Math.round(12 * rankMul_(da)); fired.push(winner.name + '·' + fxName_(winner, 'divine_age', '神代魔術')); }
   // 風王鐵鎚(wind_strike)：不可視之劍追加
-  var ws = hasFx_(winner, 'wind_strike'); if (ws) { base += Math.round(6 * rankMul_(ws)); fired.push(winner.name + '·風王鐵鎚'); }
+  var ws = hasFx_(winner, 'wind_strike'); if (ws) { base += Math.round(6 * rankMul_(ws)); fired.push(winner.name + '·' + fxName_(winner, 'wind_strike', '風王鐵鎚')); }
   // 神殺：對「神性」特性追加 ×1.5
   var godSlay = (winner.skills || []).concat(winner.traits || []).some(function (t) { return t && String(t.n).indexOf('神殺') >= 0; });
   var loserDivine = (loser.traits || []).concat(loser.skills || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
@@ -141,7 +162,7 @@ function resolveFateBattle_(atk, def, opts) {
   // 寶具解放：加寶具階級威能（軍略 +15%、神性 +10%）
   if (opts.np) {
     base += Math.round(rankVal(winner.six["寶具"]) * 1.6) + 18; fired.push(winner.name + '·寶具解放');
-    if (hasFx_(winner, 'tactics')) { base = Math.round(base * 1.15); fired.push(winner.name + '·軍略'); }
+    if (hasFx_(winner, 'tactics')) { base = Math.round(base * 1.15); fired.push(winner.name + '·' + fxName_(winner, 'tactics', '軍略')); }
     var wDivine = (winner.traits || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
     if (wDivine) base = Math.round(base * 1.1);
   }
@@ -153,14 +174,14 @@ function resolveFateBattle_(atk, def, opts) {
   // 神核(divine_core)：減傷 18%×階級；但破魔薔薇(anti_magic_lance)無視神核護甲
   var dc = hasFx_(loser, 'divine_core');
   if (dc && hasFx_(winner, 'anti_magic_lance')) { fired.push(winner.name + '·破魔(無視神核)'); }
-  else if (dc) { base = Math.round(base * (1 - 0.18 * rankMul_(dc))); fired.push(loser.name + '·神核'); }
-  // 對魔力(nullify_magic)：攻方為魔術系(Caster/魔力放出/神代)時，減魔術傷 25%×階級；神代魔術使其減免折半
-  var atkMagic = (winner.cls === 'Caster') || !!hasFx_(winner, 'burst') || !!hasFx_(winner, 'divine_age');
+  else if (dc) { base = Math.round(base * (1 - 0.18 * rankMul_(dc))); fired.push(loser.name + '·' + fxName_(loser, 'divine_core', '神核')); }
+  // 對魔力(nullify_magic)：攻方為魔術系(法師魔砲/魔力放出/神代)時，減魔術傷 25%×階級；神代魔術使其減免折半
+  var atkMagic = (wProf.dmg === '魔力') || !!hasFx_(winner, 'burst') || !!hasFx_(winner, 'divine_age');
   var nm = hasFx_(loser, 'nullify_magic');
   if (atkMagic && nm) {
     var red = 0.25 * rankMul_(nm);
     if (hasFx_(winner, 'divine_age')) red *= 0.5; // 神代魔術凌駕一般對魔力
-    base = Math.round(base * (1 - red)); fired.push(loser.name + '·對魔力');
+    base = Math.round(base * (1 - red)); fired.push(loser.name + '·' + fxName_(loser, 'nullify_magic', '對魔力'));
   }
 
   var damage = Math.max(1, base);
