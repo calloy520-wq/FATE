@@ -18,26 +18,21 @@ const MODEL_URL = "https://openrouter.ai/api/v1/chat/completions";
 // ★ 階段一：ORM 資料實體映射 (Data Mapping) 
 // ==========================================
 const COL = {
+  // 🎴 FATE 專屬眾生 schema（2026-06 砍九州經濟/生活層後重排，30 欄）。
+  //   已移除：財帛(MONEY)、裝備(WEP/ARM/ACC1/ACC2)、生活技能(LIFESKILL)、冗餘職階(CLS)。
   PC: {
-    ID: 0, NAME: 1, SEX: 2, BACK: 3, STATUS: 4, MONEY: 5, TRAIT: 6, LOC: 7, PREF: 8,
-    HP: 9, MP: 10, STR: 11, CON: 12, AGI: 13, INT: 14, LUK: 15, MAX_HP: 16, MAX_MP: 17,
-    WEP: 18, ARM: 19, ACC1: 20, ACC2: 21, REALM: 22, MEMORY: 23, INTENT: 24,
-    FACTION: 25, RANK: 26, CONTRIB: 27, ALIGN: 28, PHYSICAL: 29, MARTIAL: 30,
-    LIFESKILL: 31, GAME_ID: 32, CLS: 33, SIX: 34, TAGS: 35, SEEN: 36
+    ID: 0, NAME: 1, SEX: 2, BACK: 3, STATUS: 4, TRAIT: 5, LOC: 6, PREF: 7,
+    HP: 8, MP: 9, STR: 10, CON: 11, AGI: 12, INT: 13, LUK: 14, MAX_HP: 15, MAX_MP: 16,
+    REALM: 17, MEMORY: 18, INTENT: 19, FACTION: 20, RANK: 21, CONTRIB: 22, ALIGN: 23,
+    PHYSICAL: 24, MARTIAL: 25, GAME_ID: 26, SIX: 27, TAGS: 28, SEEN: 29
   },
-  ITEM: { NAME: 0, TYPE: 1, DESC: 2, PRICE: 3, OWNER: 4, STR: 5, CON: 6, AGI: 7, INT: 8, LUK: 9, ID: 10, LOC2: 11 },
   REL: { PC: 0, NPC: 1, FAV: 2, TAG: 3, IS_PARTY: 4, MEMORY: 5, MAJOR_EVENT: 6 },
-  QUEST: { PC: 0, NAME: 1, TARGET: 2, STATUS: 3, MONEY: 4, ITEM: 5, REWARD_LOCKED: 6, DEADLINE: 7 },
   MAP: { REGION: 0, NAME: 1, TYPE: 2, COORD: 3, DESC: 4, PARENT: 5 },
-  TASK: { OWNER: 0, FACILITY: 1, WORKER: 2, TARGET: 3, START_TIME: 4 },
   FACTION: { ID: 0, NAME: 1, ALIGN: 2, BASE: 3, LEADER: 4, MOTTO: 5 },
-  MAIL: { ID: 0, SENDER: 1, RECEIVER: 2, CONTENT: 3, ITEM_ID: 4, ITEM_NAME: 5, STATUS: 6, TIME: 7 },
   AUTH: { NAME: 0, ID: 1, TITLE: 2, HOME_LOC: 3, DECOR: 4 },
-  SHOP: { OWNER: 0, NAME: 1, CATEGORY: 2, DESC: 3, LOC: 4, VAULT: 5, LAST_SETTLE: 6 },
-  // 🔵 英靈殿(從者範本)、御主殿、戰鬥標籤
+  // 🔵 英靈殿(從者範本)、御主殿（戰鬥標籤分頁仍在、以 fx 碼查找，不需 COL 索引）
   HERO: { ID: 0, CLS: 1, NAME: 2, SEX: 3, SIX: 4, CLASS_SKILLS: 5, SKILLS: 6, TRAITS: 7, NP: 8, PERSONA: 9, ALIGN: 10, WARS: 11, SOURCE: 12 },
   MASTER: { ID: 0, NAME: 1, SEX: 2, APPEAR: 3, MAGIC: 4, CIRCUITS: 5, MELEE: 6, MAGIC_RANK: 7, HOME: 8, WISH: 9, PERSONA: 10, WAR: 11, SOURCE: 12, BACK: 13, MOE: 14 },
-  CTAG: { FX: 0, NAME: 1, TYPE: 2, DESC: 3, MECH: 4 },
   // 帳號（存檔身分）：帳號名 → 目前御主角色ID、勝場
   ACC: { NAME: 0, PC: 1, WON: 2, CREATED: 3, BEST_DAYS: 4 },
   // 戰史：每局結果紀錄
@@ -207,14 +202,7 @@ function registerFactionHelper(factionName, rankStr, align, baseLoc, leaderFallb
   return false;
 }
 
-function resolveItemName(idOrName, itemData) {
-  if (!idOrName) return "";
-  const strVal = String(idOrName).trim();
-  if (!itemData) return strVal.startsWith("ITM_") ? "" : strVal;
-  const found = itemData.find(i => i[COL.ITEM.ID] === strVal);
-  if (found) return found[COL.ITEM.NAME];
-  return strVal.startsWith("ITM_") ? "" : strVal;
-}
+// 🗑️ resolveItemName / transferMoney 已隨九州物品·銀兩經濟移除（無呼叫者）。
 
 // 🟢 安全寫入：先寫新資料，再刪多餘舊行，避免 clearContent 競態清空表
 function safeWriteSheet(sheet, data) {
@@ -310,7 +298,7 @@ function buildPlayerStatusString(selfRow, totals, itemData, relMem = "", isNsfwM
   const visibleStatusStr = buildVisibleStatusString(selfRow[COL.PC.STATUS]);
 
   return [
-    visibleStatusStr, selfRow[COL.PC.MONEY], selfRow[COL.PC.TRAIT], selfRow[COL.PC.LOC], selfRow[COL.PC.PREF],
+    visibleStatusStr, "", selfRow[COL.PC.TRAIT], selfRow[COL.PC.LOC], selfRow[COL.PC.PREF],
     selfRow[COL.PC.HP], selfRow[COL.PC.MP], totals ? totals.STR : selfRow[COL.PC.STR], totals ? totals.CON : selfRow[COL.PC.CON],
     totals ? totals.AGI : selfRow[COL.PC.AGI], totals ? totals.INT : selfRow[COL.PC.INT], totals ? totals.LUK : selfRow[COL.PC.LUK],
     "", "", "", "", selfRow[COL.PC.REALM], safeMemory, safeRelMem, selfRow[COL.PC.FACTION],
@@ -421,43 +409,6 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, relData, taskData, allPc
     }
   }
   return localPeopleList;
-}
-
-// 💰 通用銀兩轉移：fromName 給 toName 轉 amount 兩
-// 回傳 { success, message }；不夠錢、找不到人都會擋
-// pcDataRef 可選：若呼叫端已讀好 pcData 就傳進來共用(避免重讀)，並會就地改值
-function transferMoney(fromName, toName, amount, sheets, pcDataRef = null) {
-  amount = parseInt(amount) || 0;
-  if (amount <= 0) return { success: false, message: "轉移金額必須大於 0。" };
-  if (fromName === toName) return { success: false, message: "不能轉給自己。" };
-
-  const pcData = pcDataRef || sheets.pc.getDataRange().getValues();
-  const fromIdx = pcData.findIndex(r => r[COL.PC.NAME] === fromName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-  const toIdx   = pcData.findIndex(r => r[COL.PC.NAME] === toName   && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-
-  if (fromIdx === -1) return { success: false, message: `找不到「${fromName}」。` };
-  if (toIdx === -1)   return { success: false, message: `找不到「${toName}」。` };
-
-  const fromMoney = parseInt(pcData[fromIdx][COL.PC.MONEY]) || 0;
-  if (fromMoney < amount) {
-    return { success: false, message: `「${fromName}」身上只有 ${fromMoney} 兩，不足以給出 ${amount} 兩。` };
-  }
-
-  // 扣款方、收款方
-  const newFrom = fromMoney - amount;
-  const newTo   = (parseInt(pcData[toIdx][COL.PC.MONEY]) || 0) + amount;
-  pcData[fromIdx][COL.PC.MONEY] = newFrom;
-  pcData[toIdx][COL.PC.MONEY]   = newTo;
-
-  // 寫回試算表(只寫這兩格，精準不傷其他資料)
-  sheets.pc.getRange(fromIdx + 1, COL.PC.MONEY + 1).setValue(newFrom);
-  sheets.pc.getRange(toIdx + 1, COL.PC.MONEY + 1).setValue(newTo);
-
-  return {
-    success: true,
-    message: `「${fromName}」給了「${toName}」${amount} 兩白銀。`,
-    fromIdx, toIdx, newFrom, newTo
-  };
 }
 
 function getNearbyLocations(currentLoc, mapData) {
