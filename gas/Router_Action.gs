@@ -1464,7 +1464,7 @@ function actionPlay(userData, pcId, sheets) {
     const majorEventStr = (relRecord && relRecord[COL.REL.MAJOR_EVENT] && relRecord[COL.REL.MAJOR_EVENT] !== "無")
       ? ` [未完成約定:${relRecord[COL.REL.MAJOR_EVENT]}]` : "";
 
-    return `${identityTag}名號:${r[COL.PC.NAME]} 【性別:${r[COL.PC.SEX]}】 境界:${r[COL.PC.REALM] || "凡人"} | 門派:${r[COL.PC.FACTION] || "無"} | 銀兩:${r[COL.PC.MONEY] || 0} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])} | 關係:${relRecord ? relRecord[COL.REL.TAG] : "萍水相逢"}(好感:${currentFav}${majorEventStr} -> 行為準則:${resistPrompt})`;
+    return `${identityTag}名號:${r[COL.PC.NAME]} 【性別:${r[COL.PC.SEX]}】 境界:${r[COL.PC.REALM] || "凡人"} | 陣營:${r[COL.PC.FACTION] || "無"} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])} | 關係:${relRecord ? relRecord[COL.REL.TAG] : "萍水相逢"}(好感:${currentFav}${majorEventStr} -> 行為準則:${resistPrompt})`;
   }).join("\n") : "此地四下無人。";
 
   if (isNsfwMode) {
@@ -1508,19 +1508,14 @@ function actionPlay(userData, pcId, sheets) {
 若好感度未滿 80，或性格屬於冷酷/高傲/剛烈，【絕對禁止】主動迎合、發情或瞬間屈服！必須表現出強烈的抗拒、屈辱、咬牙切齒或冷嘲熱諷。即便肉體有生理反應，靈魂與對話也必須是硬氣且具攻擊性的！違者天道崩塌！`;
 
   } else {
-    const activeQuests = questData.filter(r => r[COL.QUEST.PC] == pcId && r[COL.QUEST.STATUS] === "進行中").map(r => `【${r[COL.QUEST.NAME]}】${r[COL.QUEST.TARGET]}`).join("\n") || "尚無天命。";
-
+    // 🗑️ 經濟/天命/背包已棄用：full 分支只留近聞＋勢力＋寶具(MARTIAL)，不再讀 QUEST/ITEM/WEP。
     let rumorDesc = "";
     const recentRumors = getRumors(sheets, 5);
     if (recentRumors.length > 0) {
       rumorDesc = `【江湖近聞】\n` + recentRumors.map(r => `• ${r.content}`).join("\n") + "\n\n";
     }
-
-    PROMPT_ENV = `【身負天命】\n${activeQuests}\n\n${rumorDesc}【天下勢力】\n${factionListDesc}`;
-    const inventoryDesc = itemData.filter(it => it[COL.ITEM.OWNER] == pcId).slice(-30).map(it => it[COL.ITEM.NAME]).join("、") || "空空如也";
-    PROMPT_GEAR = `【武裝】：${resolveItemName(pcData[pcIndex][COL.PC.WEP], itemData) || "赤手空拳"}\n【武學】：${pcData[pcIndex][COL.PC.MARTIAL]
-      ? `【玩家自創、已掌握】${pcData[pcIndex][COL.PC.MARTIAL]}（★絕對禁止讓NPC重複教授或聲稱是自己的武學！）`
-      : "尚無自創武學"}\n【行囊】：${inventoryDesc}`;
+    PROMPT_ENV = `${rumorDesc}【天下勢力】\n${factionListDesc}`;
+    PROMPT_GEAR = `【武學／寶具】：${pcData[pcIndex][COL.PC.MARTIAL] || "尚無"}`;
     PROMPT_REL = `【當前同地人物】\n${localSceneStr}${thirdPartyStr}`;
   }
 
