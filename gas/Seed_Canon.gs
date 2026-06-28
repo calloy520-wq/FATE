@@ -56,6 +56,26 @@ function shadowDevourFoe_(sheets, gameId) {
   return name;
 }
 
+// 👑 後期金閃閃：在棋盤上生成「吉爾伽美什」為 masterless 敵從者（已在場/已亡則不重生）
+function spawnGilgamesh_(sheets, gameId) {
+  try {
+    var data = sheets.pc.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][COL.PC.GAME_ID] || "") === gameId && String(data[i][COL.PC.NAME]).indexOf("吉爾伽美什") >= 0) return "";
+    }
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var hs = ss.getSheetByName('英靈殿');
+    if (!hs) return "";
+    var heroes = hs.getDataRange().getValues();
+    var g = heroes.find(function (r) { return String(r[COL.HERO.ID]) === '吉爾伽美什-Archer'; });
+    if (!g) return "";
+    var loc = '冬木·新都';
+    var row = heroToNpcRow_(g, gameId, loc, '敵從者');
+    sheets.pc.appendRow(row);
+    return '金色的英雄王·吉爾伽美什自上一場戰爭殘存至今，無需御主、隨心降臨於「' + loc + '」一帶——最古老的英雄已加入這場殺戮。';
+  } catch (e) { return ""; }
+}
+
 // 🖤 HF「黑化(Alter)」：把一名仍在世的敵從者拖入黑泥、強化為墮落之軀（六圍升＋狂化），改變棋盤難度
 function blackenFoe_(sheets, gameId) {
   var data = sheets.pc.getDataRange().getValues();
@@ -143,6 +163,8 @@ var CANON_PINS = [
   // ═══ 第五次・前期（三線共用）═══
   { id: '5_open', war: '5th', route: '', day: 1, band: null, loc: null,
     beat: '【正典·開戰】第五次聖杯戰爭的帷幕已然拉開。冬木的夜色裡，七組御主與從者各自潛伏。請以揭幕的筆觸點出戰爭已起、空氣中魔力的躁動，但不替御主決定行動。' },
+  { id: '5_bazett', war: '5th', route: '', day: 1, band: null, loc: null, grace: 1,
+    beat: '【正典·開幕的黑幕】本應是 Lancer 御主的魔術協會精英「巴潔特·弗拉卡·麥克雷米茲」，在戰爭揭幕之夜慘遭中立監督者言峰綺禮背叛奇襲——一臂與令咒俱失、瀕死被棄，從者契約遭神父奪走。這正是綺禮能驅使藍衣槍兵（Lancer）的真相。請以冷冽、暗場的筆觸點出這椿開幕的背叛黑幕（以風聞或夜色中的血腥餘韻帶出即可，玩家不必在場）。' },
   { id: '5_lancer_school', war: '5th', route: '', day: 1, band: '夜', loc: '穗群原學園', grace: 2,
     lure: '⚐ 入夜後，穗群原學園的方向隱隱傳來金鐵交擊的餘音——似乎有從者在校舍交手。',
     when: function (c) { return c.foeAlive('庫·丘林') || c.foeAlive('庫丘林'); },
@@ -172,7 +194,8 @@ var CANON_PINS = [
     beat: '【HF線·聖杯之闇】黑泥的源頭、那被聖杯選為容器之人的悲劇逐漸浮現。這條路沒有純粹的正義，只有「要守護的人」與要為此背負的罪。請以沉重而溫柔交織的筆觸鋪陳這份覺悟。' },
   // ═══ 第五次・終盤（三線共用收束）═══
   { id: '5_gilgamesh', war: '5th', route: '', day: 9, band: null, loc: null,
-    beat: '【正典·黃金之王】金色的英雄王（Archer・吉爾伽美什）自上一場戰爭殘存至今，傲慢地俯瞰這場戲的落幕，王之財寶的金光在他背後如星海展開。最古老的英雄，是橫亙在聖杯之前的最後巨壁之一。請演出那俯視眾生的壓迫感。' },
+    effect: function (c, sh) { return spawnGilgamesh_(sh, c.gameId); },
+    beat: '【正典·黃金之王降臨】金色的英雄王（Archer・吉爾伽美什）自上一場戰爭殘存至今、無需御主即可現界，如今傲慢地踏入這場戲的落幕，王之財寶的金光在他背後如星海展開。最古老的英雄已漫遊於戰場，成為橫亙在聖杯之前的最後巨壁之一。請演出那俯視眾生的壓迫感。' },
 
   // ═══ 第四次・固定線性悲劇（route 一律 ''）═══
   { id: '4_open', war: '4th', route: '', day: 1, band: null, loc: null,
