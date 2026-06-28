@@ -1835,19 +1835,11 @@ function actionSummonServant(userData, pcId, sheets) {
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       row[COL.PC.REALM] = "凡人";
       row[COL.PC.TRAIT] = parseTraitsHelper(traits.map(t => t.n).join("、"), "氣場凜然、舉止從容、精擅戰技、深藏之面");
-      // 依人格補完 4 格個性（含喜歡/討厭）＋ 短萌點
+      // 🚀 種子英靈：直接用寫死的種子 persona（萌點/口吻 v3 已補齊），不再叫 AI 重生一次——省一次 API、加速召喚。
+      //    個性取 persona.words(四關鍵)、萌點取 persona.moe、生平用種子既有 back 或職階真名模板。細緻演出靠 servantCard_(codexPersona_) 注入。
       let svPref = String(persona.words || "").replace(/・/g, "、");
-      let svMoe = "";
-      let svBack = `${cls}・${realName}`;
-      try {
-        const en = JSON.parse(callGeminiAPI(
-          `從者真名：${realName}（${cls}職階）\n性格關鍵：${persona.words || ""}\n對御主：${persona.toMaster || ""}\n寶具：${np}`,
-          `為《命運停駐之夜》的從者補完設定（依該英靈真實傳說，只給設定、勿演出複述）。\n★生平：一句【貼近官方傳說】的生平梗概，≤24 字。\n★personality：剛好 4 短句、頓號分隔，依序為「日常表象、真實內裡、喜歡的事、討厭的事」。\n★萌點：一句【簡短】可愛反差，≤15 字。\n輸出合法 JSON、禁 Markdown：{"生平":"≤24字","personality":"四格頓號字串","萌點":"≤15字"}`,
-          { temperature: 0.7, ignoreLaw: true }));
-        if (en && en.personality) svPref = en.personality;
-        svMoe = String((en && en.萌點) || "").slice(0, 18);
-        if (en && en.生平) svBack = String(en.生平).slice(0, 28);
-      } catch (e) { }
+      let svMoe = String(persona.moe || "").slice(0, 18);
+      let svBack = persona.back ? String(persona.back).slice(0, 28) : `${cls}・${realName}`;
       row[COL.PC.PREF] = parseTraitsHelper(svPref, "沉著表象、堅定內裡、珍視之物、厭惡之事");
       row[COL.PC.MEMORY] = `第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || "保持距離"}`;
       row[COL.PC.SIX] = JSON.stringify(six);

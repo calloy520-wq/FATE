@@ -75,7 +75,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 |---|---|---|
 | check_name / account_login / account_new_game | Account 系 | 登入／建帳號／開新局 |
 | update_fate | actionUpdateFate | 創角生成御主（身世/願望/魔術→屬性/禮裝/MEMORY） |
-| summon_servant | actionSummonServant | 召喚從者（從英靈殿抓真名/六圍/技能→眾生列） |
+| summon_servant | actionSummonServant | 召喚從者（從英靈殿抓真名/六圍/技能→眾生列）。**種子英靈直接用寫死 persona(萌點/口吻)、不叫 AI**(省一次 API、加速)；只有名冊查無的自訂/未知英靈才走 AI 即時生成(else 分支)。 |
 | get_heroes / get_masters | — | 創角選單列出可選英靈/正典御主 |
 | get_tags | actionGetTags | **左側狀態面板資料**：御主HP/MP/令咒/願望、從者陣列(六圍/技能/羈絆/寶具)、供魔收支、禮裝、破戒能力 |
 | fate_battle | actionFateBattle | **核心戰鬥**：D20＋寶具＋令咒＋斬首＋雙從者＋協同強襲（見 §4） |
