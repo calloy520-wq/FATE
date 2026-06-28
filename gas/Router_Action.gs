@@ -2279,7 +2279,7 @@ function actionRest(userData, pcId, sheets) {
           `【系統·從者之夢·回想】御主沉沉睡去，意識卻順著與從者的靈魂聯繫，墜入「${dSvName}」成為英靈之前的記憶長河——夢見其傳說中的一個片段。\n` +
           `★以 Fate／TYPE-MOON 筆觸，用夢境／回想的朦朧史詩質感，演出「${dSvName}」這名英靈生前傳說裡的某一幕（取材自其真實的神話／史實／傳說：其榮光、抉擇、孤獨或傷痕）。讓御主（與玩家）窺見這名英靈所背負的過往與信念。\n` +
           `★【show, don't tell】以畫面與情境流露，不直接點破其願望或心結，停在夢醒前的餘韻與一絲說不清的悸動。\n` +
-          `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+          ``;
       }
     }
     // 📜 正典插針：休息推進時間（可能跨日）後檢查正史橋段
@@ -4058,7 +4058,7 @@ function actionFateBattle(userData, pcId, sheets) {
       };
       asnPrompt = `【系統·斬首戰報·已裁定】御主號令${dualAsn ? '兩名從者齊撲' : `從者『${crit.name}』`}奇襲敵御主「${masterName}」。命運的骰子由『${crit.name}』擲出 20 — 大成功！撕開護衛從者「${guardName}」的防線，一擊斬斷御主咽喉。御主既亡、魔力供給斷絕，「${guardName}」當場化作光點消散。${asnVictory ? '此為最後的敵對陣營——聖杯已然在握！' : ''}\n` +
         `★以 Fate／TYPE-MOON 筆觸描寫這萬中選一、石破天驚的斬首瞬間（一段即可）${dualAsn ? '：兩名從者夾擊、其中一人覷得破綻一劍封喉' : ''}。勝負已由系統結算。\n` +
-        `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+        ``;
     } else {
       // 全部失手：護衛捨身格擋，反手 1.5 倍痛擊「每一名」參與斬首的從者
       const guardC = rowToCombatant_(pcData[assassinGuardIdx]);
@@ -4104,12 +4104,12 @@ function actionFateBattle(userData, pcId, sheets) {
       if (asnDefeat) {
         asnPrompt = `【系統·斬首戰報·已裁定】御主號令${whoTxt}奇襲敵御主「${masterName}」，無人擲出 20。護衛從者「${guardName}」捨身擋下、反手以 1.5 倍之力逐一痛擊（${rollsTxt}），我方從者悉數靈基崩潰、化作光點消散，御主敗北。\n` +
           `★以 Fate／TYPE-MOON 筆觸沉痛描寫斬首落空、護衛反殺、從者消滅的瞬間（一段即可），語氣留白。勝負已由系統結算。\n` +
-          `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+          ``;
       } else {
         asnPrompt = `【系統·斬首戰報·已裁定】御主號令${whoTxt}欲奇襲敵御主「${masterName}」，無人擲出 20（大成功）。護衛從者「${guardName}」如影攔在御主身前、硬生生擋下，並反手以 1.5 倍之力逐一痛擊（${rollsTxt}）。御主未能得手。\n` +
           `★以 Fate／TYPE-MOON 筆觸描寫護衛捨身格擋、反噬重擊${dualAsn ? '、兩名從者同遭反震' : ''}的險惡瞬間（一段即可）。傷害已由系統結算。\n` +
           `★未崩潰之從者最多重傷，【絕對禁止】描寫其死亡。\n` +
-          `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+          ``;
       }
     }
 
@@ -4241,7 +4241,7 @@ function actionFateBattle(userData, pcId, sheets) {
   if (defeat) {
     aiPrompt = `【系統戰報·已裁定】御主號令從者『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合，終致『${atkC.name}』靈基崩潰、化作光點消散，御主於聖杯戰爭中敗北。\n` +
       `★以 Fate／TYPE-MOON 筆觸沉痛描寫這數回合廝殺後從者消滅的瞬間（一段即可），語氣留白。勝負已由系統結算。\n` +
-      `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+      ``;
   } else {
     aiPrompt = servantCard_(pcData[atkIdx]) +
       `【系統戰報·已裁定，嚴禁更改勝負】御主號令${atkLabel}${useNp ? '解放寶具' : ''}${useSeal ? '·燃令咒絕對命令' : ''}出擊，與「${defC.name}」短兵相接，共 ${nRounds} 個回合的你來我往。\n` +
@@ -4256,7 +4256,7 @@ function actionFateBattle(userData, pcId, sheets) {
       (godRevived ? `★【十二試煉】${godNote}請演出他靈基崩解又自死亡歸來、神性光輝重燃的不滅之姿。\n` : "") +
       (sealEscaped ? `★【令咒介入】${sealNote}請演出對面御主令咒爆閃、強行扯離重傷從者的瞬間，敵已遁走、不在場。\n` : "") +
       ((!destroyedName && !sealEscaped && !godRevived) ? `★敗方最多重傷，【絕對禁止】描寫死亡／消滅／屍體，生死由御主後續定奪。\n` : "") +
-      `★【鐵律】嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
+      ``;
   }
 
   // 📊 給前端的多回合視覺戰報
@@ -4346,7 +4346,7 @@ function actionUseSeal(userData, pcId, sheets) {
 
   const aiPrompt = `【系統·令咒已發動，已裁定】御主燃燒一道令咒。${effectMsg}（餘 ${seals} 道令咒）\n` +
     `★以 Fate／TYPE-MOON 筆觸描寫令咒在手背灼亮、絕對命令權貫徹的瞬間（一段即可）。效果已由系統結算。\n` +
-    `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+    ``;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, seals: seals, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
@@ -4395,6 +4395,24 @@ function servantCard_(row) {
   } catch (e) { return ""; }
 }
 
+// 🎭 御主「演出依據」卡（精簡）：讓 AI 知道玩家御主是誰(性別/性格/特徵/願望)，以便 portray 互動。
+//   ★只供內化、禁複述；願望僅供氛圍不直述；仍【禁止替御主做決定或代御主說話】。
+function masterCard_(row) {
+  if (!row) return "";
+  try {
+    var name = String(row[COL.PC.NAME] || "御主");
+    var sex = String(row[COL.PC.SEX] || "");
+    var prefArr = String(row[COL.PC.PREF] || "").split('、').filter(function (x) { return x && x !== "無"; });
+    var traitArr = String(row[COL.PC.TRAIT] || "").split('、').filter(function (x) { return x && x !== "無"; });
+    var wish = (String(row[COL.PC.MEMORY] || "").match(/【願望】([^|【\n]*)/) || [])[1] || "";
+    return `〈御主「${name}」·演出依據(僅內化、禁複述)〉` + (sex ? `性別${sex}` : "") +
+      (prefArr.length ? `｜性格：${prefArr.slice(0, 4).join('、')}` : "") +
+      (traitArr.length ? `｜特徵：${traitArr.slice(0, 4).join('、')}` : "") +
+      (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
+      `。御主是玩家本人，禁止替御主做決定或代御主說出台詞，只描寫其神態/反應供玩家接續。\n`;
+  } catch (e) { return ""; }
+}
+
 // 🗝️ 取我方從者列索引：指定 wantName 則優先取該名，否則取第一個在世從者（雙從者用）
 function findPlayerServantIdx_(pcData, gameId, wantName) {
   var want = String(wantName || "").trim();
@@ -4439,12 +4457,12 @@ function actionManaSupply(userData, pcId, sheets) {
   if (ambush) {
     aiPrompt = `【系統·補魔遭突襲·已裁定】御主正以魔力供給「${svName}」、彼此門戶大開之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠貫入「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
       `★以 Fate／TYPE-MOON 筆觸描寫補魔的私密一刻被突襲打斷的驚變：魔力交融的脆弱、敵襲的兇險、${ambush.destroyed ? '從者消滅的痛楚（語氣留白）' : '從者強忍重傷護住御主的瞬間'}。傷害與勝負已由系統結算。\n` +
-      `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+      ``;
   } else {
-    aiPrompt = servantCard_(pcData[svIdx]) +
+    aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【系統·補魔已結算】御主以魔力供給「${svName}」，其魔力回復至 ${restored}/${mpMax}，羈絆微升。\n` +
       `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】，溫柔且帶一絲曖昧張力地描寫這場魔力供給——肌膚相觸、魔力交融的私密一刻（體溫、心跳、屏息、半句未盡的情話），甜美而克制，最後 fade-to-black 留白。\n` +
-      `★【鐵律】止於唯美曖昧、點到為止；【不可】出現性器官、性交或露骨情慾描寫（那是奪杯後鑑賞的事）。演出而非複述設定；嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
+      `★【鐵律】止於唯美曖昧、點到為止；【不可】出現性器官、性交或露骨情慾描寫（那是奪杯後鑑賞的事）。演出而非複述設定。`;
   }
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
@@ -4490,12 +4508,12 @@ function actionBloodSupply(userData, pcId, sheets) {
   if (ambush) {
     aiPrompt = `【系統·燃血補魔遭突襲·已裁定】御主割破掌心、燃燒血肉化為魔力灌入「${svName}」、門戶大開之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠貫入「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
       `★以 Fate／TYPE-MOON 筆觸描寫燃血供魔的私密一刻被突襲撕裂的驚變${ambush.destroyed ? '、從者消滅的痛楚（語氣留白）' : '、從者強忍重傷護住臉色慘白的御主'}。傷害與勝負已由系統結算。\n` +
-      `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+      ``;
   } else {
-    aiPrompt = servantCard_(pcData[svIdx]) +
+    aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【系統·燃血補魔已結算】御主以自身血肉為媒，燃燒生命力轉化為魔力（耗血 ${cost}，餘 ${mHp - cost}/${mMaxHp}），大量灌注「${svName}」，其魔力回復至 ${restored}/${svMpMax}，羈絆加深。\n` +
       `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】描寫這場「以血為魔」的補魔之儀——御主咬牙逼出赤紅的血色魔力、順著相握的手流入從者體內；強調這是燃燒自身生命的沉重代價、從者察覺御主臉色發白時的不忍與心疼，兩人間一絲悲壯而緊密的羈絆。\n` +
-      `★【防護】這是魔術師嚴肅悲壯的燃血供魔，血只是魔力媒介——【不可】血腥獵奇、【不可】情慾露骨，點到即止。演出而非複述設定；嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
+      `★【防護】這是魔術師嚴肅悲壯的燃血供魔，血只是魔力媒介——【不可】血腥獵奇、【不可】情慾露骨，點到即止。演出而非複述設定。`;
   }
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: bclock, ap: bap, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
@@ -4565,13 +4583,13 @@ function actionBond(userData, pcId, sheets) {
   if (ambush) {
     aiPrompt = `【系統·相伴遭突襲·已裁定】御主『${masterName}』與「${svName}」正${act.label}、卸下心防之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自暗處無聲突襲' : '抓準這破綻殺出'}，一擊重創「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n` +
       `★以 Fate／TYPE-MOON 筆觸描寫溫存被突襲撕裂的驚變與兇險，${ambush.destroyed ? '及從者消滅的痛楚（語氣留白）' : '及從者強撐重傷護主的瞬間'}。傷害與勝負已由系統結算。\n` +
-      `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+      ``;
   } else {
-    aiPrompt = servantCard_(pcData[svIdx]) +
+    aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【系統·羈絆已結算】御主『${masterName}』與從者「${svName}」${act.label}，兩人的羈絆又深了一分（時值${band}）。\n` +
       `★以 Fate／TYPE-MOON 筆觸寫一段【精煉 90~150 字、輕快不冗長】${svName} 與御主${act.frame}的小品。務必貼合上方「演出依據」中的性格、自稱與口吻，演出其獨有神態，點到為止留餘味。\n` +
       `★【show, don't tell】用言行、神態、停頓去流露情感與性格，絕不可直白說出其「願望／個性／萌點」等設定詞；停在含蓄的留白。\n` +
-      `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩；嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+      `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。`;
   }
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, bond: bondNow, bondUsed: usedToday,
@@ -4667,7 +4685,7 @@ function actionUseMystic(userData, pcId, sheets) {
   const aiPrompt = `【系統·禮裝已裁定】御主『${ctx.masterName}』發動禮裝「${code.name}」` +
     `（迴路 ${circuits}／需求 ${code.req}${backfire ? "，迴路不足·走火反噬" : ""}）。${aiCore}（餘充能 ${charges}）\n` +
     `★以 Fate／TYPE-MOON 筆觸描寫這次禮裝發動的奇景與威能（一段即可）${backfire ? "，並演出迴路駕馭不全、魔力反噬御主自身的險象" : ""}。效果與勝負已由系統結算。\n` +
-    `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+    ``;
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, report: report,
     victory: report.victory, charges: charges,
@@ -4740,12 +4758,12 @@ function actionProposeAlliance(userData, pcId, sheets) {
     aiPrompt = servantCard_(gIdx >= 0 ? pcData[gIdx] : null) +
       `【系統·結盟已達成·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』向敵御主「${masterName}」${allyServant ? `（從者「${allyServant}」）` : ""}提議結盟，對方權衡利害後接受了——雙方暫時休兵、互不侵犯（至第 ${until} 日前後）。\n` +
       `★以 Fate／TYPE-MOON 筆觸【約 120~180 字】演出這場談判：「${masterName}」依其性格回應（務實的權衡、開出條件或冷淡的「暫時」），最後達成不穩固的同盟。對方的算計與保留要演出來，留一絲不信任的伏筆。\n` +
-      `★【鐵律】結果已由系統裁定，嚴禁輸出 stat_changes、items_gained、money_transferred。`;
+      ``;
     return JSON.stringify({ success: true, allied: true, aiPrompt: aiPrompt, master: masterName, until: until, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
   } else {
     aiPrompt = `【系統·結盟破局·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』向敵御主「${masterName}」提議結盟，對方拒絕了。\n` +
       `★以 Fate／TYPE-MOON 筆觸【約 100~150 字】演出「${masterName}」依其性格回絕的瞬間（嘲諷、警戒、或「聖杯只能有一個」的冷冽）。氣氛轉為一觸即發，但本回合不開打。\n` +
-      `★【鐵律】結果已由系統裁定，嚴禁輸出 stat_changes、items_gained、money_transferred。`;
+      ``;
     return JSON.stringify({ success: true, allied: false, aiPrompt: aiPrompt, master: masterName, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
   }
 }
@@ -4770,7 +4788,7 @@ function actionBreakAlliance(userData, pcId, sheets) {
   }
   if (!broke) return JSON.stringify({ success: false, message: "你目前沒有與此人結盟。" });
   const aiPrompt = `【系統·盟約撕毀·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』單方面撕毀與「${who || npcName}」的盟約，雙方重回敵對。\n` +
-    `★以 Fate／TYPE-MOON 筆觸【約 80~130 字】演出背叛/決裂的一瞬間張力。\n★【鐵律】嚴禁輸出 stat_changes、items_gained、money_transferred。`;
+    `★以 Fate／TYPE-MOON 筆觸【約 80~130 字】演出背叛/決裂的一瞬間張力。`;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
@@ -4858,7 +4876,7 @@ function actionAllyBond(userData, pcId, sheets) {
   if (ambush) {
     const aiPromptA = `【系統·盟誼遭突襲·已裁定】御主『${masterName}』正與盟友「${allyName}」交心共處、卸下戒備之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠貫入我方從者（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
       `★以 Fate／TYPE-MOON 筆觸描寫盟誼的私密一刻被突襲撕裂的驚變${ambush.destroyed ? '、從者消滅的痛楚（語氣留白）' : '、從者強撐重傷護主的瞬間'}。傷害與勝負已由系統結算。\n` +
-      `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+      ``;
     return JSON.stringify({ success: true, aiPrompt: aiPromptA, clock: clock, ap: ap, apMax: AP_PER_DAY, ambush: true, defeat: ambush.defeat, dreamPrompt: ambush.dreamPrompt || "", statusString: getFreshStatusString(pcId, pIdx, sheets) });
   }
 
@@ -4874,11 +4892,10 @@ function actionAllyBond(userData, pcId, sheets) {
   const sceneFrame = allyIsMaster ? "並肩共處、互通情報魔力，半試探半真心的對談" : "暫休兵時切磋交流、互補魔力，卸一分敵我之防";
   // 盟友從者→用 servantCard_(含狂化禁言等口吻規則)；盟友御主→簡短性格提示
   const allyCard = allyIsMaster ? `〈盟友御主「${allyName}」·演出依據(僅內化、禁複述)〉性格：${allyPref}。\n` : servantCard_(pcData[aIdx]);
-  const aiPrompt = allyCard +
+  const aiPrompt = masterCard_(pcData[pIdx]) + allyCard +
     `【系統·盟誼已結算】御主『${masterName}』與盟友「${allyName}」${allyIsMaster ? '共處' : '交流'}，羈絆又深一分（約 ${after}/100）。\n` +
     `★Fate 筆觸【90~140字、含蓄】寫兩人${sceneFrame}的小品；對方仍是「暫時」盟友，暖意中留一絲算計與保留。show don't tell、止於含蓄。` +
-    (unlocked ? `結尾以一個眼神或半句未盡之言，含蓄點出情誼已越過「暫時」的界線（不踰矩）。` : "") +
-    `\n★嚴禁輸出 stat_changes／items_gained／money_transferred。`;
+    (unlocked ? `結尾以一個眼神或半句未盡之言，含蓄點出情誼已越過「暫時」的界線（不踰矩）。` : "");
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, bond: after, unlocked: unlocked, ally: allyName, clock: clock, ap: ap, apMax: AP_PER_DAY, ambush: false, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
@@ -4914,7 +4931,7 @@ function actionRuleBreakSteal(userData, pcId, sheets) {
 
   const aiPrompt = `【系統·破戒奪僕·已裁定】御主以破戒全咒（緣紅短劍）斬斷「${stolenName}」與原御主的契約、強行重締為己用——「${stolenName}」自此成為你的第二從者（燃一道令咒，餘 ${seals} 道）。\n` +
     `★以 Fate／TYPE-MOON 筆觸描寫緣紅短劍刺入、舊契約如琉璃寸寸碎裂、新締約的魔力烙印纏上手背的瞬間，與這名從者被迫易主的複雜神情（一段即可）。已結算。\n` +
-    `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+    ``;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, stolen: stolenName, seals: seals, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
@@ -4988,7 +5005,7 @@ function actionSecondWind(userData, pcId, sheets) {
   const ap = grantAp_(myGameId, 4);
   const aiPrompt = `【系統·強撐已結算】御主透支魔術迴路與體力、燃燒生命力強行擠出最後的行動之力（HP −${cost}，行動力 +4＝${ap}/${AP_PER_DAY}）。\n` +
     `★以 Fate／TYPE-MOON 筆觸描寫御主咬牙硬撐、迴路過載灼痛、以意志逼出餘力的一幕（一段即可）。已結算。\n` +
-    `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+    ``;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, ap: ap, apMax: AP_PER_DAY, clock: clockLabel_(myGameId), statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
@@ -5117,7 +5134,7 @@ function buildDreamPrompt_(pcName, wish, servantName) {
     `在這場夢裡，御主的最深願望彷彿已然實現——一切圓滿、溫柔而虛假。從者『${servantName}』也仿佛仍在身旁。\n` +
     (wish ? `（願望核心參考，僅供你構築夢境氛圍，嚴禁逐字複述或直接點明）：${wish}\n` : "") +
     `★以 Fate／TYPE-MOON 筆觸，第二人稱，寫一段唯美而令人心碎的虛假美夢：讓「演出」暗示願望成真的幸福感，絕不可直接說出願望內容或「這是假的」。結尾要微微露出破綻（過於完美的失真感）。\n` +
-    `★【鐵律】只輸出夢境敘事，嚴禁任何 stat_changes、items_gained、money_transferred、選項或系統字樣。`;
+    `★【鐵律】只輸出夢境敘事，禁選項或系統字樣。`;
 }
 
 function actionAttackNpc(userData, pcId, sheets) {
