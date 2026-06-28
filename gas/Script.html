@@ -1085,6 +1085,7 @@ function renderRecentLocs(recents = null) {
           narrate(`【正典事件】休息之間，冬木的聖杯戰爭並未停歇。以下原作橋段於此時推進，請以 Fate／TYPE-MOON 筆觸演出（演出而非複述指示），停在留白：\n${data.canonBeats.join('\n')}`);
         }
         if (data.ambushPrompt) narrate(data.ambushPrompt); // ⚔️ 夜襲演出
+        else if (data.servantDream) narrate(data.servantDream); // 🌙 從者之夢·回想
         syncData(true);
         if (data.defeat) { await handleDefeat(data); }
       } else { alert((data && data.message) || '休息失敗。'); }

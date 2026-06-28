@@ -2249,6 +2249,19 @@ function actionRest(userData, pcId, sheets) {
     try { sheets.log.appendRow([new Date(), pcId, `【系統】御主一行休息了 ${restHours} 小時，恢復行動力。`, pcLoc]); } catch (e) { }
     // ⚔️ 卸防突襲：當敵蹤同地時休息＝酣睡門戶大開，最為兇險（mul 1.5）
     const restAmbush = enemyAmbushOnServant_(sheets, pcData, pIdx, restGameId, userData, 1.5);
+    // 🌙 從者之夢（回想）：安睡(≥3h)且未遭突襲時，有機會順著聯繫夢見從者生前傳說的片段，加深羈絆
+    let restDreamPrompt = "";
+    if (!restAmbush && restHours >= 3) {
+      const svRow = pcData.find(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === restGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+      if (svRow && Math.random() < 0.55) {
+        const dSvName = String(svRow[COL.PC.NAME]);
+        try { raiseBond_(sheets, pcName, dSvName, 3); } catch (e) { }
+        restDreamPrompt = `【系統·從者之夢·回想】御主沉沉睡去，意識卻順著與從者的靈魂聯繫，墜入「${dSvName}」成為英靈之前的記憶長河——夢見其傳說中的一個片段。\n` +
+          `★以 Fate／TYPE-MOON 筆觸，用夢境／回想的朦朧史詩質感，演出「${dSvName}」這名英靈生前傳說裡的某一幕（取材自其真實的神話／史實／傳說：其榮光、抉擇、孤獨或傷痕）。讓御主（與玩家）窺見這名英靈所背負的過往與信念。\n` +
+          `★【show, don't tell】以畫面與情境流露，不直接點破其願望或心結，停在夢醒前的餘韻與一絲說不清的悸動。\n` +
+          `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+      }
+    }
     // 📜 正典插針：休息推進時間（可能跨日）後檢查正史橋段
     let restBeats = [], restLeads = [];
     try { const cp = checkCanonPins_(sheets, pcId); restBeats = cp.beats || []; restLeads = cp.leads || []; } catch (e) { }
@@ -2261,6 +2274,7 @@ function actionRest(userData, pcId, sheets) {
       loc: pcLoc, wasInjured: wasInjured, restHours: restHours, clock: restClock, ap: apAfter, apMax: AP_PER_DAY, rumors: restRumors,
       canonBeats: restBeats, canonLeads: restLeads,
       ambush: !!restAmbush, defeat: restAmbush ? restAmbush.defeat : false, dreamPrompt: restAmbush ? restAmbush.dreamPrompt : "", ambushPrompt: restAmbushPrompt,
+      servantDream: restDreamPrompt,
       economy: playerServantEconomy_(sheets, pcId)
     });
   }
