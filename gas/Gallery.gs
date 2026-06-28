@@ -375,15 +375,12 @@ function actionEnterKanshou(userData, pcId, sheets) {
     });
   }
 
-  // 2️⃣ 沒有 → 新建一個常駐御主 avatar（凡人，只供視角／移動，無戰鬥意義）。不預載任何從者。
-  //   性別沿用該帳號最近一次奪杯紀錄的御主性別，無則預設「異」。
-  var mSex = "異";
-  var gal = ss.getSheetByName("鑑賞");
-  if (gal) {
-    var gd = gal.getDataRange().getValues();
-    for (var i = gd.length - 1; i >= 1; i--) {
-      if (String(gd[i][COL.GAL.ACC]).trim() === acctName) { mSex = String(gd[i][COL.GAL.MSEX] || "異") || "異"; break; }
-    }
+  // 2️⃣ 沒有常駐御主 → 要新建。御主性別由玩家「首次進場時自己選」(一帳號可能有男/女不同奪杯，
+  //   不該由系統亂猜)。前端沒帶 pcSex 進來 → 回 needSex 請前端先問一次，再回來建。
+  //   建好後性別持久存於這列，之後可用 kanshou_set_sex 隨時改。
+  var mSex = String(userData.pcSex || "").trim();
+  if (mSex !== "男" && mSex !== "女") {
+    return JSON.stringify({ success: true, needSex: true });
   }
   var gameId = "k_" + Date.now();
   var loc2 = "冬木·深山町";
@@ -481,6 +478,22 @@ function actionKanshouRemove(userData, pcId, sheets) {
     if (String(data[d][COL.PC.GAME_ID] || "") === gid && String(data[d][COL.PC.FACTION]) === "從者" && String(data[d][COL.PC.NAME]) === rmName) kpc.deleteRow(d + 1);
   }
   return JSON.stringify({ success: true, removed: rmName, message: "「" + rmName + "」暫別了，隨時可再邀回。" });
+}
+
+// ⚧ 切換後日談御主 avatar 的性別（隨時可改；只動 SEX 欄，不影響從者/歷史）。pcId＝KPC_。
+function actionKanshouSetSex(userData, pcId, sheets) {
+  var newSex = String(userData.pcSex || "").trim();
+  if (newSex !== "男" && newSex !== "女") return JSON.stringify({ success: false, message: "性別僅限 男／女。" });
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var kpc = getKanshouPcSheet_(ss);
+  var data = kpc.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.ID]) === String(pcId)) {
+      kpc.getRange(i + 1, COL.PC.SEX + 1).setValue(newSex);
+      return JSON.stringify({ success: true, pcSex: newSex, message: "已切換為「" + newSex + "」之身。" });
+    }
+  }
+  return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
 }
 
 // 鑑賞模式：呼出某從者「閒話後日談」（純對話，無戰鬥/血量），回傳 AI 旁白
