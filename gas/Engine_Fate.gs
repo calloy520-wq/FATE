@@ -86,7 +86,7 @@ function rowToCombatant_(row) {
       : { 筋力: 'E', 耐久: 'E', 敏捷: 'E', 魔力: 'E', 幸運: 'E', 寶具: '-' }; // 御主/凡人
   }
   return {
-    name: row[COL.PC.NAME], cls: row[COL.PC.RANK] || row[COL.PC.CLS] || '',
+    name: row[COL.PC.NAME], cls: row[COL.PC.RANK] || '',
     six: six, skills: skills, traits: traits, np: row[COL.PC.MARTIAL] || '',
     hp: parseInt(row[COL.PC.HP]) || 100, hpMax: parseInt(row[COL.PC.MAX_HP]) || 100,
     mp: parseInt(row[COL.PC.MP]) || 50, mpMax: parseInt(row[COL.PC.MAX_MP]) || 50

@@ -404,7 +404,7 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, relData, taskData, allPc
       if (allied) fac = (fac === "敵御主") ? "盟友御主" : "盟友從者";
       // 🤝 情報共享：有盟友在世時，揭露敵從者／盟友從者的職階（盟友通報的敵情）
       const isServantKind = (rawFac === "敵從者" || rawFac === "從者");
-      const revealCls = (hasAlly && isServantKind) ? String(r[COL.PC.RANK] || r[COL.PC.CLS] || "") : "";
+      const revealCls = (hasAlly && isServantKind) ? String(r[COL.PC.RANK] || "") : "";
       // 🕯️ 喪失從者的敵御主：標記如何痛失從者，供 AI 演出形單影隻、無牙的御主
       const lostSv = (rawFac === "敵御主") ? getLostServant_(r[COL.PC.MEMORY]) : "";
       // 🔗 敵對歸屬硬連結：御主→其從者、從者→其御主，讓多組同場時 AI 不張冠李戴

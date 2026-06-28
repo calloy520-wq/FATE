@@ -749,7 +749,7 @@ ${FX_MENU_}
     row[COL.PC.SEX] = sex;
     row[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
     row[COL.PC.LOC] = pcLoc;
-    row[COL.PC.FACTION] = "從者"; row[COL.PC.RANK] = cls; row[COL.PC.CLS] = cls;
+    row[COL.PC.FACTION] = "從者"; row[COL.PC.RANK] = cls;
     row[COL.PC.CONTRIB] = 0; row[COL.PC.ALIGN] = align;
     row[COL.PC.MARTIAL] = np;
     row[COL.PC.GAME_ID] = gameId;
@@ -3000,7 +3000,7 @@ function servantCard_(row) {
   if (!row) return "";
   try {
     var name = String(row[COL.PC.NAME] || "");
-    var cls = String(row[COL.PC.RANK] || row[COL.PC.CLS] || "");
+    var cls = String(row[COL.PC.RANK] || "");
     var mem = String(row[COL.PC.MEMORY] || "");
     var p = codexPersona_(name); // 種子庫的細緻人設（萌點/口吻）
     var fp = p.firstP || (mem.match(/第一人稱「([^」]*)」/) || [])[1] || "我";

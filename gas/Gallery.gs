@@ -52,7 +52,7 @@ function actionClaimGrail(userData, pcId, sheets) {
   if (!sv) return JSON.stringify({ success: false, message: "查無存活從者，無從封存。" });
   var s = sv.row;
   var realName = String(s[COL.PC.NAME] || "從者");
-  var cls = String(s[COL.PC.RANK] || s[COL.PC.CLS] || "從者");
+  var cls = String(s[COL.PC.RANK] || "從者");
 
   // 羈絆值
   var bond = 0;
@@ -123,7 +123,7 @@ function actionClaimGrail(userData, pcId, sheets) {
         if (aRel) aBond = parseInt(aRel[COL.REL.FAV]) || 0;
         if (!/【鑑賞緣】/.test(aMem) && aBond < 90) continue; // 未達羈絆門檻、不入名冊
         var aIsMaster = (afac === "敵御主");
-        var aCls = aIsMaster ? "御主" : String(pcData[ai][COL.PC.RANK] || pcData[ai][COL.PC.CLS] || "從者");
+        var aCls = aIsMaster ? "御主" : String(pcData[ai][COL.PC.RANK] || "從者");
         var aMemoir = aIsMaster
           ? ("聖杯戰爭的腥風血雨裡，「" + aName + "」曾與你並肩立於同一陣線。猜忌與算計之外，你們之間悄然長出了某種無需言明的牽絆——硝煙散盡後，那個身影仍留在你身旁。")
           : ("「" + aName + "」本是敵對陣營的從者，卻在那段暫時休兵的日子裡與你結下了超越敵我的羈絆。戰爭落幕，這份惺惺相惜並未隨之消散。");
@@ -258,7 +258,6 @@ function kanshouServantRow_(rec, gameId, loc) {
   sRow[COL.PC.LOC] = loc;
   sRow[COL.PC.FACTION] = "從者";
   sRow[COL.PC.RANK] = String(rec[COL.GAL.CLS] || "從者");
-  sRow[COL.PC.CLS] = String(rec[COL.GAL.CLS] || "從者");
   sRow[COL.PC.MARTIAL] = String(rec[COL.GAL.NP] || "");
   sRow[COL.PC.BACK] = String(rec[COL.GAL.BACK] || "");
   sRow[COL.PC.PREF] = String(rec[COL.GAL.PREF] || "");
