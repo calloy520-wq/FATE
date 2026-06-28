@@ -1902,7 +1902,12 @@ ${FX_MENU_}
     // 🔵 召喚完成 → 鋪敵方御主×從者進這個 game_id 世界（一次性）
     try { seedRivalsForGame_(gameId, realName, warName, playedMaster); } catch (e) { }
 
-    return JSON.stringify({ success: true, servantName: realName, cls: cls, fromCodex: !!hero, message: `【聖杯】令咒迸發，${cls} 職階的從者「${realName}」應召而現，與『${pcName}』締結契約。其餘御主已在冬木各處備戰。` });
+    // 🎬 召喚登場場景（精簡敘事用，含角色卡；前端純按鈕模式直接 narrate，不走 options 那套）
+    const summonPrompt = servantCard_(row) +
+      `【召喚登場】御主『${pcName}』剛以令咒召喚出從者「${realName}」（${cls}），兩人初次同處於冬木的夜。\n` +
+      `★以 Fate／TYPE-MOON 筆觸描寫所在地的燈火與氛圍，聚焦御主與從者最初的試探、對話與張力（依上方角色背景內化演出，禁止複述設定字面、禁止用外貌代替名字）。場景留下懸念、讓玩家想以行動回應。\n` +
+      `★禁止替御主做決定、禁止詢問玩家想做什麼、禁止介紹玩家自身身份、禁止新增任何地圖或NPC。`;
+    return JSON.stringify({ success: true, servantName: realName, cls: cls, fromCodex: !!hero, summonPrompt: summonPrompt, message: `【聖杯】令咒迸發，${cls} 職階的從者「${realName}」應召而現，與『${pcName}』締結契約。其餘御主已在冬木各處備戰。` });
   } catch (e) {
     return JSON.stringify({ success: false, message: "召喚失敗：" + e.message });
   }
@@ -5333,7 +5338,7 @@ function actionNarrateOnly(userData, pcId, sheets) {
 function actionMultiAttackNarrate(userData, pcId, sheets) {
   const { promptText, isNsfw, touchedNames, knockedOut } = userData;
 
-  const miniSystem = `你是九州說書人。用日系武俠輕小說筆觸、第一人稱「我」、強制台灣繁體中文，依指令生動描寫一段交鋒過程（150~250字）。
+  const miniSystem = `你是《命運停駐之夜》的說書人。用 Fate／TYPE-MOON 筆觸、第一人稱「我」（玩家＝御主）、強制台灣繁體中文，依指令生動描寫一段交鋒過程（150~250字）。
 【鐵律】
 1. 旁白第一人稱「我」，禁用「你」與上帝視角。
 2. 對話格式：角色名：「（動作/神態/眼神/微表情）台詞……（動作/神態/眼神/微表情）台詞（動作/神態/眼神/微表情）」。動作神態【絕對禁止】獨立成段或寫在引號外，一律用全形括號「（）」嵌入台詞開頭/中間/結尾，至少穿插2次以上。
