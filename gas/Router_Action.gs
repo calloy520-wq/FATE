@@ -3998,12 +3998,21 @@ function actionFateBattle(userData, pcId, sheets) {
   // 🗡️ 斬首裁決：敵御主仍有從者在側護衛時，唯有「大成功（擲 20）」能突破護衛、一擊斬殺御主；
   //    否則護衛捨身格擋、並反手予我方從者 1.5 倍痛擊（可能致敗）。寶具／令咒對奇襲斬首不適用。
   if (isMasterTarget && assassinGuardIdx !== -1) {
-    const aRoll = Math.floor(Math.random() * 20) + 1;
     const masterName = String(pcData[nIdx][COL.PC.NAME]);
     const guardName = String(pcData[assassinGuardIdx][COL.PC.NAME]);
+    // 🗝️ 雙從者：每名在世從者各擲一次 D20（出戰中排第一）——更多嘗試＝更高斬首機率，但失手者各遭護衛反噬
+    const asnParty = [];
+    for (let pi = 1; pi < pcData.length; pi++) {
+      if (String(pcData[pi][COL.PC.FACTION]) === "從者" && String(pcData[pi][COL.PC.GAME_ID] || "") === myGameId && !String(pcData[pi][COL.PC.ID]).startsWith("DEAD_")) {
+        if (pi === atkIdx) asnParty.unshift(pi); else asnParty.push(pi);
+      }
+    }
+    const rolls = asnParty.map(idx => ({ idx: idx, name: String(pcData[idx][COL.PC.NAME]), roll: Math.floor(Math.random() * 20) + 1 }));
+    const crit = rolls.find(r => r.roll === 20) || null;
+    const dualAsn = asnParty.length > 1;
     let asnReport, asnPrompt, asnVictory = false, asnDefeat = false, asnDream = "", asnKnocked = [];
 
-    if (aRoll === 20) {
+    if (crit) {
       // 大成功：斬殺御主；御主既亡，護衛從者失去魔力供給隨之消滅
       pcData[nIdx][COL.PC.ID] = "DEAD_" + String(pcData[nIdx][COL.PC.ID]);
       pcData[nIdx][COL.PC.HP] = 0;
@@ -4017,53 +4026,68 @@ function actionFateBattle(userData, pcId, sheets) {
       if (aliveEnemyServants_(sheets, myGameId) <= 0) {
         asnVictory = true;
         const acctW = String(userData.acctName || "");
-        if (acctW) { incrementWin_(acctW); recordHistory_(acctW, "勝", atkC.name, `「${atkC.name}」奇襲斬首敵御主「${masterName}」，奪得聖杯。`); }
+        if (acctW) { incrementWin_(acctW); recordHistory_(acctW, "勝", crit.name, `「${crit.name}」奇襲斬首敵御主「${masterName}」，奪得聖杯。`); }
       }
       asnReport = {
-        assassination: true, success: true, aRoll: aRoll, atk: atkC.name, master: masterName, guard: guardName,
-        note: `擲出 20 — 大成功！${atkC.name} 撕開「${guardName}」的守備，一擊斬斷御主「${masterName}」咽喉。御主既亡，「${guardName}」失去魔力供給、化作光點消散。`,
+        assassination: true, success: true, aRoll: 20, rolls: rolls.map(r => ({ name: r.name, roll: r.roll })), dual: dualAsn,
+        atk: crit.name, master: masterName, guard: guardName,
+        note: `${crit.name} 擲出 20 — 大成功！撕開「${guardName}」的守備，一擊斬斷御主「${masterName}」咽喉。御主既亡，「${guardName}」隨之消散。`,
         selfDmg: 0, victory: asnVictory, defeat: false,
         atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0
       };
-      asnPrompt = `【系統·斬首戰報·已裁定】御主號令從者『${atkC.name}』奇襲敵御主「${masterName}」。命運的骰子擲出 20 — 大成功！『${atkC.name}』撕開護衛從者「${guardName}」的防線，一擊斬斷御主咽喉。御主既亡、魔力供給斷絕，「${guardName}」當場化作光點消散。${asnVictory ? '此為最後的敵對陣營——聖杯已然在握！' : ''}\n` +
-        `★以 Fate／TYPE-MOON 筆觸描寫這萬中選一、石破天驚的斬首瞬間（一段即可）：護衛被撕裂的錯愕、御主噴濺的鮮血、從者隨之消散的光點。勝負已由系統結算。\n` +
+      asnPrompt = `【系統·斬首戰報·已裁定】御主號令${dualAsn ? '兩名從者齊撲' : `從者『${crit.name}』`}奇襲敵御主「${masterName}」。命運的骰子由『${crit.name}』擲出 20 — 大成功！撕開護衛從者「${guardName}」的防線，一擊斬斷御主咽喉。御主既亡、魔力供給斷絕，「${guardName}」當場化作光點消散。${asnVictory ? '此為最後的敵對陣營——聖杯已然在握！' : ''}\n` +
+        `★以 Fate／TYPE-MOON 筆觸描寫這萬中選一、石破天驚的斬首瞬間（一段即可）${dualAsn ? '：兩名從者夾擊、其中一人覷得破綻一劍封喉' : ''}。勝負已由系統結算。\n` +
         `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
     } else {
-      // 失敗：護衛捨身格擋，反手 1.5 倍痛擊我方從者
+      // 全部失手：護衛捨身格擋，反手 1.5 倍痛擊「每一名」參與斬首的從者
       const guardC = rowToCombatant_(pcData[assassinGuardIdx]);
-      const probe = resolveFateBattle_(guardC, atkC, {});
-      const selfDmg = Math.max(1, Math.round((probe.damage || 1) * 1.5));
-      const ahp = parseInt(pcData[atkIdx][COL.PC.HP]) || 0;
-      let after = ahp - selfDmg;
-      if (after <= 5 && hasFx_(atkC, 'survive') && ahp > 1) after = 1; // 戰鬥續行
-      if (after <= 0) {
+      const hits = [];
+      rolls.forEach(r => {
+        const sC = rowToCombatant_(pcData[r.idx]);
+        const probe = resolveFateBattle_(guardC, sC, {});
+        const selfDmg = Math.max(1, Math.round((probe.damage || 1) * 1.5));
+        const ahp = parseInt(pcData[r.idx][COL.PC.HP]) || 0;
+        let after = ahp - selfDmg;
+        if (after <= 5 && hasFx_(sC, 'survive') && ahp > 1) after = 1; // 戰鬥續行
+        let knocked = false;
+        if (after <= 0) {
+          knocked = true;
+          pcData[r.idx][COL.PC.ID] = "DEAD_" + String(pcData[r.idx][COL.PC.ID]);
+          pcData[r.idx][COL.PC.HP] = 0;
+          pcData[r.idx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "斬首反噬·靈基崩潰", "顏面": "已無生息" });
+        } else {
+          pcData[r.idx][COL.PC.HP] = after;
+        }
+        sheets.pc.getRange(r.idx + 1, 1, 1, pcData[r.idx].length).setValues([pcData[r.idx]]);
+        hits.push({ name: r.name, roll: r.roll, dmg: selfDmg, knocked: knocked, hp: parseInt(pcData[r.idx][COL.PC.HP]) || 0, hpMax: parseInt(pcData[r.idx][COL.PC.MAX_HP]) || 0 });
+      });
+      // 敗北：所有我方從者皆亡
+      let aliveLeft = 0;
+      for (let pi = 1; pi < pcData.length; pi++) { if (String(pcData[pi][COL.PC.FACTION]) === "從者" && String(pcData[pi][COL.PC.GAME_ID] || "") === myGameId && !String(pcData[pi][COL.PC.ID]).startsWith("DEAD_")) aliveLeft++; }
+      if (aliveLeft <= 0) {
         asnDefeat = true;
-        pcData[atkIdx][COL.PC.ID] = "DEAD_" + String(pcData[atkIdx][COL.PC.ID]);
-        pcData[atkIdx][COL.PC.HP] = 0;
-        pcData[atkIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "斬首反噬·靈基崩潰", "顏面": "已無生息" });
-        sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
         const wish = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
-        asnDream = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wish, atkC.name);
+        asnDream = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wish, hits[0].name);
         const acctD = String(userData.acctName || "");
-        if (acctD) recordHistory_(acctD, "敗", atkC.name, `「${atkC.name}」斬首失手，遭護衛「${guardName}」反噬靈基崩潰。`);
-      } else {
-        pcData[atkIdx][COL.PC.HP] = after;
-        sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
+        if (acctD) recordHistory_(acctD, "敗", hits[0].name, `斬首失手，遭護衛「${guardName}」反噬全滅，聖杯戰爭落敗。`);
       }
+      const rollsTxt = hits.map(h => `${h.name}擲${h.roll}→受創 −${h.dmg}${h.knocked ? '·崩潰' : ''}`).join('；');
       asnReport = {
-        assassination: true, success: false, aRoll: aRoll, atk: atkC.name, master: masterName, guard: guardName,
-        note: `擲出 ${aRoll} — 唯 20 方能突破。「${guardName}」捨身擋在御主身前，反手予『${atkC.name}』1.5 倍痛擊（−${selfDmg}）。`,
-        selfDmg: selfDmg, victory: false, defeat: asnDefeat,
+        assassination: true, success: false, dual: dualAsn, rolls: rolls.map(r => r.roll), hits: hits,
+        aRoll: rolls[0].roll, atk: atkC.name, master: masterName, guard: guardName,
+        note: `唯擲 20 方能突破。${rollsTxt}。`,
+        selfDmg: hits.reduce((a, h) => a + h.dmg, 0), victory: false, defeat: asnDefeat,
         atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0
       };
+      const whoTxt = dualAsn ? '兩名從者' : `從者『${atkC.name}』`;
       if (asnDefeat) {
-        asnPrompt = `【系統·斬首戰報·已裁定】御主號令從者『${atkC.name}』奇襲敵御主「${masterName}」，命運骰出 ${aRoll}（唯 20 方成）。護衛從者「${guardName}」捨身擋下這一擊，反手以 1.5 倍之力痛擊『${atkC.name}』，靈基當場崩潰、化作光點消散，御主敗北。\n` +
+        asnPrompt = `【系統·斬首戰報·已裁定】御主號令${whoTxt}奇襲敵御主「${masterName}」，無人擲出 20。護衛從者「${guardName}」捨身擋下、反手以 1.5 倍之力逐一痛擊（${rollsTxt}），我方從者悉數靈基崩潰、化作光點消散，御主敗北。\n` +
           `★以 Fate／TYPE-MOON 筆觸沉痛描寫斬首落空、護衛反殺、從者消滅的瞬間（一段即可），語氣留白。勝負已由系統結算。\n` +
           `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
       } else {
-        asnPrompt = `【系統·斬首戰報·已裁定】御主號令從者『${atkC.name}』欲奇襲敵御主「${masterName}」，命運骰出 ${aRoll}（唯擲 20 大成功方能突破護衛）。護衛從者「${guardName}」如影攔在御主身前、硬生生擋下斬擊，反手以 1.5 倍之力痛擊『${atkC.name}』（受創 ${selfDmg}）。御主未能得手。\n` +
-          `★以 Fate／TYPE-MOON 筆觸描寫護衛捨身格擋、反噬重擊的險惡瞬間（一段即可）。傷害已由系統結算。\n` +
-          `★敗方（我方從者）最多重傷，【絕對禁止】描寫其死亡。\n` +
+        asnPrompt = `【系統·斬首戰報·已裁定】御主號令${whoTxt}欲奇襲敵御主「${masterName}」，無人擲出 20（大成功）。護衛從者「${guardName}」如影攔在御主身前、硬生生擋下，並反手以 1.5 倍之力逐一痛擊（${rollsTxt}）。御主未能得手。\n` +
+          `★以 Fate／TYPE-MOON 筆觸描寫護衛捨身格擋、反噬重擊${dualAsn ? '、兩名從者同遭反震' : ''}的險惡瞬間（一段即可）。傷害已由系統結算。\n` +
+          `★未崩潰之從者最多重傷，【絕對禁止】描寫其死亡。\n` +
           `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
       }
     }
