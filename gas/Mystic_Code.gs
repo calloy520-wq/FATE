@@ -39,8 +39,24 @@ var MYSTIC_CODES = {
     name: '黑鍵', type: 'active', fx: 'black_key', tier: 1, req: 5, mp: 15, charges: 6, power: 0.4, target: 'servant',
     desc: '聖堂教會代行者的擲擊聖鍵。輕巧廉價的牽制，魔力門檻極低、人人可使。',
     flavor: '數柄細長的黑色聖鍵自指縫激射而出，劃破空氣釘向目標。'
+  },
+  rule_breaker: {
+    name: '破戒全咒 Rule Breaker（緣紅短劍）', type: 'special', fx: 'rule_break', tier: 5, req: 0, mp: 0, charges: 0, power: 0, target: '',
+    desc: '美狄亞之寶具凝成的緣紅短劍。能斬斷一切締約——可對「打殘(HP<35%)的敵從者」斬契奪僕，化為你的第二從者（需燃一道令咒重締）。在地圖頁／敵卡操作。',
+    flavor: '緣紅的短劍劃過，舊有的契約如琉璃般寸寸碎裂。'
   }
 };
+
+// 🗝️ 是否具破戒全咒之力：我方從者帶 rule_breaker(Caster) 或 御主持破戒禮裝
+function canRuleBreak_(pcData, pIdx, gameId) {
+  if (masterMysticFx_(pcData[pIdx][COL.PC.MEMORY], 'rule_break')) return true;
+  for (var i = 1; i < pcData.length; i++) {
+    if (String(pcData[i][COL.PC.FACTION]) === "從者" && String(pcData[i][COL.PC.GAME_ID] || "") === gameId && !String(pcData[i][COL.PC.ID]).startsWith("DEAD_")) {
+      if (hasFx_(rowToCombatant_(pcData[i]), 'rule_breaker')) return true;
+    }
+  }
+  return false;
+}
 
 // ── 存取：【禮裝】id、【禮充】n ──
 function getMystic_(memory) { var m = String(memory || "").match(/【禮裝】([a-z_]+)/); return m ? m[1] : ""; }
