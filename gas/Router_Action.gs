@@ -14,6 +14,7 @@ const ActionRouter = {
   "list_gallery": actionListGallery,
   "enter_gallery": actionEnterGallery,
   "gallery_talk": actionGalleryTalk,
+  "dev_seed_gallery": actionDevSeedGallery,
   "inspect_npc": actionInspectNpc,
   "get_full_status": actionGetFullStatus,
   "update_fate": actionUpdateFate,

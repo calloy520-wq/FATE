@@ -151,6 +151,44 @@ function actionClaimGrail(userData, pcId, sheets) {
   return JSON.stringify({ success: true, servantName: realName, cls: cls, memoir: memoir });
 }
 
+// 🧪【DEV·測試用·待移除】一鍵替目前登入帳號塞 2 名測試從者進鑑賞，方便還沒奪杯時測慾海。
+//   已有任何鑑賞資料(含真實奪杯)就不重塞。確認慾海正常後，連同 ActionRouter "dev_seed_gallery" 與前端按鈕一起刪掉。
+function actionDevSeedGallery(userData, pcId, sheets) {
+  var acctName = String(userData.acctName || "").trim();
+  if (!acctName) return JSON.stringify({ success: false, message: "未登入帳號。" });
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var gal = ss.getSheetByName("鑑賞"), hero = ss.getSheetByName("英靈殿");
+  if (!gal || !hero) return JSON.stringify({ success: false, message: "缺鑑賞/英靈殿表。" });
+  var gd = gal.getDataRange().getValues();
+  for (var i = 1; i < gd.length; i++) {
+    if (String(gd[i][COL.GAL.ACC]).trim() === acctName) return JSON.stringify({ success: false, message: "此帳號已有鑑賞資料，毋需測試塞入。" });
+  }
+  var heroes = hero.getDataRange().getValues();
+  var samples = [];
+  for (var h = 1; h < heroes.length && samples.length < 2; h++) {
+    if (String(heroes[h][COL.HERO.NAME] || "").trim()) samples.push(heroes[h]);
+  }
+  if (!samples.length) return JSON.stringify({ success: false, message: "英靈殿無種子資料。" });
+  var added = 0;
+  samples.forEach(function (hr) {
+    var cls = String(hr[COL.HERO.CLS] || "從者"), nm = String(hr[COL.HERO.NAME] || "從者");
+    var persona = {}; try { persona = JSON.parse(hr[COL.HERO.PERSONA] || "{}"); } catch (e) { }
+    var tags = JSON.stringify({ skills: safeJson_(hr[COL.HERO.CLASS_SKILLS], []).concat(safeJson_(hr[COL.HERO.SKILLS], [])), traits: safeJson_(hr[COL.HERO.TRAITS], []) });
+    var pref = String(persona.words || "沉著表象、堅定內裡、溫柔、孤高").replace(/・/g, "、");
+    gal.appendRow([
+      acctName, nm, cls, String(hr[COL.HERO.SEX] || "女"),
+      String(hr[COL.HERO.SIX] || "{}"), tags,
+      String(hr[COL.HERO.NP] || "寶具"), cls + " 職階英靈",
+      pref, "（測試·萌點留白）",
+      "【測試資料】冬木的夜終於安靜下來。你與「" + nm + "」並肩走過那幾日的腥風血雨，這段並肩的記憶被封存於此，供你回味。",
+      "（測試·願望深藏於心）", new Date(),
+      "測試御主", "男"
+    ]);
+    added++;
+  });
+  return JSON.stringify({ success: true, added: added, message: "已塞入 " + added + " 名測試從者，進入鑑賞即可測試。" });
+}
+
 // 鑑賞模式：列出帳號已封存的從者
 function actionListGallery(userData, pcId, sheets) {
   var acctName = String(userData.acctName || "").trim();

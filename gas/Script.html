@@ -1867,6 +1867,16 @@ function renderRecentLocs(recents = null) {
   }
 
   // 🏆 鑑賞模式：列出已封存的從者，可呼出後日談對話
+  // 🧪【DEV·待移除】還沒奪杯時，一鍵塞測試從者進鑑賞，方便測慾海。確認正常後連同後端一起刪。
+  async function devSeedGallery() {
+    if (!currentAccount) { alert('請先登入帳號。'); return; }
+    try {
+      const res = await gasRun({ action: 'dev_seed_gallery', acctName: currentAccount });
+      alert((res && res.message) || '完成。');
+      if (res && res.success) openGallery();
+    } catch (e) { alert('測試塞入失敗。'); }
+  }
+
   async function openGallery() {
     try {
       const res = await gasRun({ action: 'list_gallery', acctName: currentAccount });
