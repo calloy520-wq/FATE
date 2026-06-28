@@ -542,7 +542,7 @@ function renderRecentLocs(recents = null) {
     let html = `<span style="color:#9aa6c8;">💠 供魔</span> <span style="color:#bcd;">${parts.join('　')}</span>`
       + ` <span style="color:#9a8;">－維持 ${eco.drain}</span>`
       + ` ＝ <b style="color:${netColor};">淨 ${netStr}/時</b>`;
-    if (net < 0) html += ` <span style="color:#e06a6a;">⚠ 入不敷出，宜搶靈脈/回據點/補魔</span>`;
+    if (net < 0) html += ` <span style="color:#e06a6a;">⚠ 入不敷出，宜搶靈脈/設陣地工房/補魔</span>`;
     hud.innerHTML = html;
     hud.style.display = 'block';
   }
@@ -640,7 +640,7 @@ function renderRecentLocs(recents = null) {
       [6, '🛌 安睡 6 小時', '+12 行動力補滿・大幅回血回魔'],
     ];
     let html = '<h3 style="margin:0 0 6px;color:#a9a9d8;">🛏️ 休息多久？</h3>'
-      + '<p style="color:#9a8bb0;font-size:12px;margin:0 0 10px;">每休息 1 小時恢復 2 點行動力；休越久回血回魔越多，但世界也會推進更多。<br><span style="color:#8a9ac0;">〔時回〕HP 隨時間自我修復；MP 看上方供魔收支（迴路＋靈脈＋工房 － 維持），休息時「收入」加倍。赤字時休息也補不滿，宜搬去靈脈匯聚處或回據點。</span></p>';
+      + '<p style="color:#9a8bb0;font-size:12px;margin:0 0 10px;">每休息 1 小時恢復 2 點行動力；休越久回血回魔越多，但世界也會推進更多。<br><span style="color:#8a9ac0;">〔時回〕HP 隨時間自我修復；MP 看上方供魔收支（迴路＋靈脈＋工房 － 維持），休息時「收入」加倍。赤字時休息也補不滿，宜搬去靈脈匯聚處或設立陣地工房。</span></p>';
     html += opts.map(function (o) {
       return '<button onclick="rest(' + o[0] + ')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px;background:rgba(120,120,160,0.14);color:#e8dcc0;border:1px solid #5a5a8a;border-radius:8px;cursor:pointer;">'
         + '<b style="color:#bcbce0;">' + o[1] + '</b>　<span style="font-size:12px;color:#9a8bb0;">' + o[2] + '</span></button>';
@@ -1365,7 +1365,7 @@ function renderRecentLocs(recents = null) {
           + '<div style="color:#9aa6c8; font-weight:bold; margin-bottom:3px;">💠 供魔收支（每小時）</div>'
           + '迴路 +' + eco.supply + '　' + leyIcon + '靈脈 +' + eco.ley + '　' + wsStr + '<span style="color:#9a8;">維持 −' + eco.drain + '</span>'
           + '　＝ <b style="color:' + netCol + ';">淨 ' + (net > 0 ? '+' : '') + net + '/時</b>'
-          + (net < 0 ? '<div style="color:#e06a6a; margin-top:2px;">⚠ 入不敷出——宜搶靈脈／回據點／補魔</div>' : '')
+          + (net < 0 ? '<div style="color:#e06a6a; margin-top:2px;">⚠ 入不敷出——宜搶靈脈／設陣地工房／補魔</div>' : '')
           + '</div>';
       }
       box.innerHTML = mh + sh + ecoStrip;
@@ -3213,220 +3213,6 @@ function renderBattlefieldCleanup(npcNames) {
   // ==========================================
   // 🏡 我的家(居所 + 裝潢)
   // ==========================================
-  let currentHomeData = null;
-
-  function openHomeMenu() {
-    toggleActionDrawer();
-    document.getElementById('home-overlay').style.display = 'flex';
-    switchHomeTab('dwelling'); // 預設開居所頁
-  }
-
-  function switchHomeTab(tab) {
-    const tabs = {
-      dwelling: ['tab-home-dwelling', 'panel-home-dwelling'],
-      decor: ['tab-home-decor', 'panel-home-decor']
-    };
-    // 重置所有
-    Object.values(tabs).forEach(([btnId, panelId]) => {
-      const btn = document.getElementById(btnId);
-      const panel = document.getElementById(panelId);
-      if (btn) { btn.style.borderBottomColor = 'transparent'; btn.style.color = '#816e54'; btn.style.fontWeight = 'normal'; }
-      if (panel) panel.style.display = 'none';
-    });
-    // 點亮當前
-    const [activeBtn, activePanel] = tabs[tab];
-    const btn = document.getElementById(activeBtn);
-    const panel = document.getElementById(activePanel);
-    if (btn) { btn.style.borderBottomColor = '#c8843c'; btn.style.color = '#c8843c'; btn.style.fontWeight = 'bold'; }
-    if (panel) panel.style.display = 'block';
-
-    loadHomeDwellingAndDecor(tab);
-  }
-
-  // ---------- 居所頁 + 裝潢頁(共用一次 home_get) ----------
-  async function loadHomeDwellingAndDecor(which) {
-    const dwellEl = document.getElementById('home-dwelling-content');
-    const decorEl = document.getElementById('home-decor-content');
-    const target = which === 'decor' ? decorEl : dwellEl;
-    target.innerHTML = '<p style="text-align:center; color:#816e54;">正在感應歸處...</p>';
-
-    try {
-      const [res] = await Promise.all([
-        gasRun({ action: "home_get", pcId: pc.id }),
-        syncData(true)
-      ]);
-      currentHomeData = res;
-      renderHomeDwelling(res);
-      renderHomeDecor(res);
-    } catch (e) {
-      target.innerHTML = '<p style="text-align:center; color:red;">天道感應失敗。</p>';
-    }
-  }
-
-  // 🟢 共用：找出對玩家已傾心、且目前不在 excludeLoc 的 NPC 候選清單(招待/邀請用)
-  function getSoulboundCandidates(excludeLoc) {
-    return (localNPCs || []).filter(n =>
-      !n.isPC &&
-      (n.relVal || 0) >= 100 &&
-      String(n.relTag || '').includes('(已傾心)') &&
-      String(n.loc || '').trim() !== String(excludeLoc || '').trim()
-    );
-  }
-
-  function renderHomeDwelling(res) {
-    const el = document.getElementById('home-dwelling-content');
-    if (!res.success) { el.innerHTML = `<p style="text-align:center; color:red;">${res.message||'感應失敗'}</p>`; return; }
-
-    if (!res.hasHome) {
-      const curLoc = (document.getElementById('ui-loc').innerText || "").split('-')[0];
-      el.innerHTML = `
-        <div style="text-align:center; padding:20px 0; color:#816e54;">
-          <div style="font-size:40px; margin-bottom:10px;">🍃</div>
-          <div style="font-size:15px; color:#666;">你尚無歸處，如浮萍漂泊江湖。</div>
-          <div style="font-size:12px; color:#555; margin-top:8px;">在當前所在地「${curLoc}」開闢一處家園吧。</div>
-        </div>
-        <div style="background:rgba(200,132,60,0.05); border:1px solid rgba(200,132,60,0.3); border-radius:8px; padding:15px; margin-top:10px;">
-          <label style="color:#c8843c; font-weight:bold; font-size:13px; display:block; margin-bottom:6px;">家的名號 (將建於：${curLoc})</label>
-          <input id="new-home-name" class="std-in" maxlength="8" placeholder="例如：淺淺小院、聽雨軒" style="width:100%; box-sizing:border-box; padding:8px;">
-          <button class="btn" style="width:100%; margin-top:12px; background:#c8843c; color:#fff; border:none; font-weight:bold; padding:10px;" onclick="lockBtn(event, submitCreateHome)">🏡 安身立命 (1000 兩)</button>
-        </div>`;
-      return;
-    }
-
-    const homeShort = res.homeLoc.split('-')[1] || res.homeLoc;
-    const parent = res.homeLoc.split('-')[0];
-    let residentsHtml = "";
-    if (res.residents && res.residents.length > 0) {
-      residentsHtml = res.residents.map(r => {
-        const tag = r.isParty
-          ? `<span style="font-size:11px; color:#8b5a2b; font-weight:bold;">[同行中]</span>`
-          : `<span style="font-size:11px; color:#816e54;">[暫居]</span>`;
-        return `<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:rgba(0,0,0,0.03); border-radius:4px; margin-bottom:6px;">
-          <span style="color:#800; font-weight:bold;">${r.name}</span>
-          <span>${tag} <span style="font-size:11px; color:#a52a2a;">${r.relTag||''}</span></span>
-        </div>`;
-      }).join("");
-    } else {
-      residentsHtml = `<p style="text-align:center; color:#816e54; font-size:13px; padding:10px 0;">空蕩蕩的，無人在家。<br><span style="font-size:11px; color:#816e54;">(帶同行夥伴回家，或取消同行讓她暫居此處)</span></p>`;
-    }
-
-    const candidates = getSoulboundCandidates(res.homeLoc);
-    let inviteHtml = "";
-    if (candidates.length > 0) {
-      inviteHtml = `
-        <div style="margin-top:10px;">
-          <select id="home-invite-select" class="std-select" style="width:100%; box-sizing:border-box;">
-            ${candidates.map(c => `<option value="${c.name}">${c.name}（目前：${c.loc || '行蹤不明'}）</option>`).join("")}
-          </select>
-          <button class="btn" style="width:100%; margin-top:8px; border-color:#e91e63; color:#e91e63; font-weight:bold; padding:8px 0;" onclick="lockBtn(event, submitHomeInviteGuest)">💌 邀來家裡坐</button>
-        </div>`;
-    } else {
-      inviteHtml = `<p style="text-align:center; color:#816e54; font-size:12px; margin-top:10px;">尚無已傾心之人可邀。</p>`;
-    }
-
-    el.innerHTML = `
-      <div style="text-align:center; background:rgba(200,132,60,0.05); border:1px solid rgba(200,132,60,0.3); border-radius:8px; padding:15px; margin-bottom:15px;">
-        <div style="font-size:22px; color:#c8843c; font-weight:bold; letter-spacing:2px;">「${homeShort}」</div>
-        <div style="font-size:12px; color:#816e54; margin-top:4px;">📍 ${parent}</div>
-        <div style="font-size:13px; color:#666; margin-top:8px; line-height:1.5;">${res.homeDesc}</div>
-        <div style="display:flex; gap:10px; margin-top:12px;">
-          <button class="btn" style="flex:1; border-color:#2e8b57; color:#2e8b57; font-weight:bold; padding:8px 0;" onclick="lockBtn(event, () => goHome('${res.homeLoc}'))">🚪 回家</button>
-          <button class="btn" style="flex:1; border-color:#b8860b; color:#b8860b; font-weight:bold; padding:8px 0;" onclick="lockBtn(event, submitMoveHome)">📦 搬家 (500 兩)</button>
-        </div>
-      </div>
-      <div>
-        <div style="color:#800; font-size:13px; font-weight:bold; margin-bottom:8px; border-bottom:1px dashed rgba(128,0,0,0.3); padding-bottom:4px;">🏠 家中之人</div>
-        ${residentsHtml}
-        ${inviteHtml}
-      </div>`;
-  }
-
-  function renderHomeDecor(res) {
-    const el = document.getElementById('home-decor-content');
-    if (!res.success) { el.innerHTML = `<p style="text-align:center; color:red;">${res.message||'感應失敗'}</p>`; return; }
-
-    if (!res.hasHome) {
-      el.innerHTML = `<div style="text-align:center; padding:30px 0; color:#816e54;">
-        <div style="font-size:40px; margin-bottom:10px;">🎨</div>
-        <div style="font-size:14px; color:#666;">尚無家園可佈置。</div>
-        <div style="font-size:12px; color:#555; margin-top:6px;">請先到「居所」頁建立你的家。</div>
-      </div>`;
-      return;
-    }
-
-    el.innerHTML = `
-      <div style="background:rgba(200,132,60,0.05); border:1px solid rgba(200,132,60,0.3); border-radius:8px; padding:15px;">
-        <div style="color:#c8843c; font-size:13px; font-weight:bold; margin-bottom:6px;">🎨 親手佈置你的家</div>
-        <div style="font-size:11px; color:#816e54; margin-bottom:10px; line-height:1.5;">寫下你家的模樣——擺設、氛圍、角落的細節。<br>回到家時，天道會根據這段描述把你的家寫進場景。</div>
-        <textarea id="home-decor-input" class="std-in" maxlength="200" placeholder="例如：推門便是滿室藥香，牆上掛著一柄缺口的舊劍，窗邊那盆蘭花開得正好，角落臥著隻打盹的橘貓..." style="width:100%; box-sizing:border-box; height:130px; resize:none; font-family:inherit; line-height:1.6;">${res.homeDesc === '一處屬於你的安身之所。' ? '' : (res.homeDesc||'')}</textarea>
-        <div style="text-align:right; font-size:11px; color:#816e54; margin-top:2px;">最多 200 字</div>
-        <button class="btn" style="width:100%; margin-top:10px; background:#c8843c; color:#fff; border:none; font-weight:bold; padding:10px;" onclick="lockBtn(event, saveHomeDecor)">✍️ 落筆佈置</button>
-      </div>`;
-  }
-
-  async function submitCreateHome() {
-    const name = document.getElementById('new-home-name').value.trim();
-    if (!name) { alert("家不可無名！"); return; }
-    const money = parseInt(document.getElementById('ui-money').innerText) || 0;
-    if (money < 1000) { alert("囊中羞澀！建造家園至少需要 1000 兩白銀。"); return; }
-    try {
-      const res = await gasRun({ action: "home_create", pcId: pc.id, homeName: name });
-      if (res.success) {
-        if (res.statusString) { localStorage.setItem('kyushu_last_status', res.statusString); updateUI(res.statusString.split('§')); }
-        const story = document.getElementById('story');
-        story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="border-left:4px solid #c8843c; background:rgba(200,132,60,0.05);"><b>【安身立命】</b><br>${res.message}</div>`);
-        story.scrollTop = story.scrollHeight;
-        loadHomeDwellingAndDecor('dwelling');
-      } else { alert(res.message); }
-    } catch (e) { alert("天道阻礙，建家失敗。"); }
-  }
-
-  async function submitMoveHome() {
-    const curParent = (document.getElementById('ui-loc').innerText || "").split('-')[0];
-    if (!confirm(`確定花費 500 兩，將家園遷至你目前所在的「${curParent}」嗎？\n(家中暫居與同行之人會一併隨遷)`)) return;
-    const money = parseInt(document.getElementById('ui-money').innerText) || 0;
-    if (money < 500) { alert("盤纏不足 500 兩，無法遷址。"); return; }
-    try {
-      const res = await gasRun({ action: "home_move", pcId: pc.id });
-      if (res.success) {
-        if (res.statusString) { localStorage.setItem('kyushu_last_status', res.statusString); updateUI(res.statusString.split('§')); }
-        const story = document.getElementById('story');
-        story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="border-left:4px solid #b8860b; background:rgba(184,134,11,0.05);"><b>【喬遷之喜】</b><br>${res.message}</div>`);
-        story.scrollTop = story.scrollHeight;
-        loadHomeDwellingAndDecor('dwelling');
-      } else { alert(res.message); }
-    } catch (e) { alert("天道阻礙，搬家失敗。"); }
-  }
-
-  async function submitHomeInviteGuest() {
-    const sel = document.getElementById('home-invite-select');
-    if (!sel || !sel.value) { alert("尚無可邀請的對象。"); return; }
-    const npcName = sel.value;
-    try {
-      const res = await gasRun({ action: "home_invite_guest", pcId: pc.id, npcName: npcName });
-      if (res.success) {
-        loadHomeDwellingAndDecor('dwelling');
-      } else { alert(res.message); }
-    } catch (e) { alert("天道阻礙，邀請失敗。"); }
-  }
-
-  async function saveHomeDecor() {
-    const desc = document.getElementById('home-decor-input').value.trim();
-    try {
-      const res = await gasRun({ action: "home_decorate", pcId: pc.id, desc: desc });
-      if (res.success) {
-        if (currentHomeData) currentHomeData.homeDesc = res.homeDesc;
-        alert("家園佈置已更新！回家時便能看見。");
-        renderHomeDwelling(currentHomeData);
-        renderHomeDecor(currentHomeData);
-      } else { alert(res.message); }
-    } catch (e) { alert("天道阻礙，佈置失敗。"); }
-  }
-
-  function goHome(homeLoc) {
-    closeSystemModal('home-overlay');
-    travelTo(homeLoc, 0);
-  }
 
  // ==========================================
 // 📜 傳聞 + 傳音信箱 整合系統

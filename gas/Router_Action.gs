@@ -50,14 +50,9 @@ const ActionRouter = {
   "leaderboard": actionLeaderboard,
   "war_chronicle": actionWarChronicle,
   "war_history_list": actionWarHistoryList,
-  "home_get": actionHomeGet,
-  "home_create": actionHomeCreate,
-  "home_move": actionHomeMove,
-  "home_decorate": actionHomeDecorate,
   "spare_npc": actionSpareNpc,
   "narrate_only": actionNarrateOnly,
-  "multi_attack_narrate": actionMultiAttackNarrate,
-  "home_invite_guest": actionHomeInviteGuest
+  "multi_attack_narrate": actionMultiAttackNarrate
 
 };
 

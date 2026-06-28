@@ -152,7 +152,6 @@
       <button id="tab-map" class="game-tab" onclick="showGamePane('map')">🗺️ 地圖</button>
     </div>
     <div id="action-drawer">
-      <button class="drawer-item" onclick="openHomeMenu()"><i>🏡</i><span>我的據點</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('explore')"><i>🧭</i><span>探索冬木</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('status')"><i>👤</i><span>查看狀態</span></button>
       <button class="drawer-item" onclick="openEpicPanel()"><i>📖</i><span>個人史紀</span></button>
@@ -214,27 +213,6 @@
   </div>
 
   
-  <div id="home-overlay" class="modal-overlay" onclick="closeSystemModal('home-overlay')">
-    <div class="modal-scroll" onclick="event.stopPropagation()" style="max-width: 420px;">
-      <span class="modal-close-btn" onclick="closeSystemModal('home-overlay')">&times;</span>
-
-      <div style="display:flex; border-bottom: 2px solid rgba(200,132,60,0.3); margin-bottom: 15px;">
-        <button id="tab-home-dwelling" onclick="switchHomeTab('dwelling')"
-          style="flex:1; padding:10px; background:none; border:none; border-bottom: 2px solid #c8843c; color:#c8843c; font-weight:bold; font-size:14px; cursor:pointer; margin-bottom:-2px;">🏠 居所</button>
-        <button id="tab-home-decor" onclick="switchHomeTab('decor')"
-          style="flex:1; padding:10px; background:none; border:none; border-bottom: 2px solid transparent; color:#816e54; font-size:14px; cursor:pointer; margin-bottom:-2px;">🎨 裝潢</button>
-      </div>
-
-      <div id="panel-home-dwelling" style="display:none;">
-        <div id="home-dwelling-content"><p style="text-align:center; color:#816e54;">正在感應歸處...</p></div>
-      </div>
-
-      <div id="panel-home-decor" style="display:none;">
-        <div id="home-decor-content"><p style="text-align:center; color:#816e54;">正在感應歸處...</p></div>
-      </div>
-    </div>
-  </div>
-
   <div id="explore-overlay" class="modal-overlay" onclick="toggleExplore()">
     <div class="modal-scroll" onclick="event.stopPropagation()">
       <span class="modal-close-btn" onclick="toggleExplore()">&times;</span>
