@@ -4302,18 +4302,37 @@ function actionUseSeal(userData, pcId, sheets) {
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, seals: seals, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
-// 🎭 從者「演出依據」卡：把該英靈的真名/職階/第一人稱/個性/對御主態度/陣營/六圍/技能/寶具
-//   壓成一段塞進 narration 提示詞，讓 AI 依『我們定義的角色』演出，而非通用印象（修出戲）。
+// 從英靈殿(種子庫)依真名撈完整 persona（含 speech/moe/tic 萌點細緻設定）
+function codexPersona_(name) {
+  try {
+    var hs = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('英靈殿');
+    if (!hs || hs.getLastRow() <= 1) return {};
+    var d = hs.getDataRange().getValues();
+    var nm = String(name || "").trim();
+    if (!nm) return {};
+    for (var i = 1; i < d.length; i++) {
+      var hn = String(d[i][COL.HERO.NAME]).trim();
+      if (hn === nm || hn.indexOf(nm) >= 0 || nm.indexOf(hn) >= 0) {
+        try { return JSON.parse(d[i][COL.HERO.PERSONA] || "{}"); } catch (e) { return {}; }
+      }
+    }
+  } catch (e) { }
+  return {};
+}
+
+// 🎭 從者「演出依據」卡：真名/職階/第一人稱/個性/對御主/口吻/萌點/招牌動作/六圍/技能/寶具
+//   壓成一段塞進 narration 提示詞，讓 AI 依『我們定義的角色』內化演出（只當背景、不准說嘴）。
 function servantCard_(row) {
   if (!row) return "";
   try {
     var name = String(row[COL.PC.NAME] || "");
     var cls = String(row[COL.PC.RANK] || row[COL.PC.CLS] || "");
     var mem = String(row[COL.PC.MEMORY] || "");
-    var fp = (mem.match(/第一人稱「([^」]*)」/) || [])[1] || "我";
-    var toM = (mem.match(/對御主：([^|【]*)/) || [])[1] || "";
+    var p = codexPersona_(name); // 種子庫的細緻人設（萌點/口吻）
+    var fp = p.firstP || (mem.match(/第一人稱「([^」]*)」/) || [])[1] || "我";
+    var toM = p.toMaster || (mem.match(/對御主：([^|【]*)/) || [])[1] || "";
     var prefArr = String(row[COL.PC.PREF] || "").split('、').filter(Boolean);
-    var persona = prefArr.length ? `表象「${prefArr[0] || ''}」、內裡「${prefArr[1] || ''}」、所重「${prefArr[2] || ''}」、所厭「${prefArr[3] || ''}」` : "";
+    var persona = p.words || (prefArr.length ? `表象「${prefArr[0] || ''}」、內裡「${prefArr[1] || ''}」、所重「${prefArr[2] || ''}」、所厭「${prefArr[3] || ''}」` : "");
     var align = String(row[COL.PC.ALIGN] || "");
     var np = String(row[COL.PC.MARTIAL] || "");
     var skills = [];
@@ -4321,9 +4340,13 @@ function servantCard_(row) {
     var six = {};
     try { six = JSON.parse(row[COL.PC.SIX] || "{}"); } catch (e) { }
     var sixLine = ['筋' + (six.筋力 || '?'), '耐' + (six.耐久 || '?'), '敏' + (six.敏捷 || '?'), '魔' + (six.魔力 || '?'), '運' + (six.幸運 || '?'), '寶' + (six.寶具 || '?')].join('/');
-    return `〈角色背景·僅供你內化揣摩，嚴禁在敘事中複述或借角色之口說出〉從者「${name}」（職階 ${cls}・陣營 ${align}）：自稱「${fp}」；對御主的態度——${toM || '依其真名'}；性格——${persona || '依其真名'}；六圍 ${sixLine}；寶具「${np}」；技能 ${skills.slice(0, 5).join('、') || '依其真名'}。\n` +
-      `★【鐵則一】把上述當作你揣摩此角色的「背景資料」：只用來決定他『怎麼說話、怎麼反應、在意什麼』，並嚴格依「${name}」這名英靈的真名身世演出口吻與價值觀，杜絕通用空泛、不合人設的台詞。\n` +
-      `★【鐵則二·絕對】上述設定字眼（性格詞、態度、六圍、技能/寶具名等）一律【不可】直接寫進故事、不可由旁白點明、不可借角色之口說出來「說嘴」；只能透過行動、語氣、神態、選擇自然流露（show, don't tell）。違者即為出戲。\n`;
+    return `〈角色背景·僅供你內化揣摩，嚴禁在敘事中複述或借角色之口說出〉從者「${name}」（職階 ${cls}・陣營 ${align}）：自稱「${fp}」；對御主——${toM || '依其真名'}；性格——${persona || '依其真名'}；` +
+      (p.speech ? `說話口吻——${p.speech}；` : "") +
+      (p.moe ? `萌點/反差——${p.moe}；` : "") +
+      (p.tic ? `招牌神態/小動作——${p.tic}；` : "") +
+      `六圍 ${sixLine}；寶具「${np}」；技能 ${skills.slice(0, 5).join('、') || '依其真名'}。\n` +
+      `★【鐵則一】把上述當作你揣摩此角色的「背景資料」：只用來決定他『怎麼說話、怎麼反應、在意什麼、會有什麼小動作』，嚴格依「${name}」這名英靈的真名身世演出口吻與價值觀，杜絕通用空泛、不合人設的台詞。\n` +
+      `★【鐵則二·絕對】上述設定字眼（性格詞、口吻、萌點、態度、六圍、技能/寶具名等）一律【不可】直接寫進故事、不可由旁白點明、不可借角色之口說出來「說嘴」；只能透過行動、語氣、神態、選擇自然流露（show, don't tell）。違者即為出戲。\n`;
   } catch (e) { return ""; }
 }
 
