@@ -94,7 +94,8 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | get_map_nodes / get_all_categorized_maps | 地圖 | 地圖節點＋敵蹤(吃 SEEN 迷霧；有盟友→`hasAllyInGame_`全揭露) |
 | move / rest / sync | — | 移動(2AP)／休息(補AP+夢境)／資料同步 |
 | narrate_only / multi_attack_narrate | actionNarrateOnly等 | **AI 純說書**(solo 不用 actionPlay；GAS 算數值、AI 只演出) |
-| claim_grail / list_gallery / enter_gallery / gallery_talk | Gallery.gs | 奪杯封存/鑑賞名冊/進鑑賞/後日談對話(見 §9) |
+| claim_grail / list_gallery / enter_gallery / gallery_talk | Gallery.gs | 奪杯封存/鑑賞名冊/(舊)挑從者進鑑賞/後日談對話(見 §9) |
+| enter_kanshou | actionEnterKanshou (Gallery.gs) | **🌹 進入鑑賞主入口(新版)**：每帳號【單一常駐】後日談世界。御主 avatar(KPC_)以 MEMORY `【帳號】<acct>` 綁定、id 持久→`getGameHistory(pcId)` 跟單機一樣接續歷史。無從者預載、不重講開場；從者由 `kanshou_companions/add/remove`(👥面板) 邀請(上限3)。前端 `enterKanshou()`(Index.html「進入鑑賞」鈕)→ mode=kanshou、自動開 NSFW、撈歷史 |
 | get_victory_history / get_ranking | — | 戰史/排行 |
 
 ### full-only 遺留（solo 不露出，勿在 solo 邏輯依賴）

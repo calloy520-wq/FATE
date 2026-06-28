@@ -350,6 +350,66 @@ function actionEnterGallery(userData, pcId, sheets) {
   });
 }
 
+// 🌹 進入慾海·後日談（新版單一持久主畫面）：每個帳號只有【一個】常駐後日談世界。
+//   點「進入鑑賞」→ 直接回到這個世界（御主 avatar），不再先挑從者、不再每次重講開場。
+//   從者由 👥 後日談同伴面板自行邀請。歷史紀錄跟單機一樣靠 pcId 從「歷史暫存」撈。
+//   ⚠ 御主 avatar 以 MEMORY 內【帳號】<acct> 標記綁定帳號，id 持久不變(KPC_)，故 getGameHistory 能接續。
+function actionEnterKanshou(userData, pcId, sheets) {
+  var acctName = String(userData.acctName || "").trim();
+  if (!acctName) return JSON.stringify({ success: false, message: "未登入帳號。" });
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var kpc = getKanshouPcSheet_(ss);            // 🌹 慾海專屬分頁
+  var data = kpc.getDataRange().getValues();
+  var acctTag = "【帳號】" + acctName;
+
+  // 1️⃣ 找這個帳號既有的常駐後日談御主 → 直接接續(不重製)
+  for (var r = 1; r < data.length; r++) {
+    if (String(data[r][COL.PC.FACTION]) !== "御主") continue;
+    if (String(data[r][COL.PC.ID]).startsWith("DEAD_")) continue;
+    if (String(data[r][COL.PC.MEMORY] || "").indexOf(acctTag) === -1) continue;
+    var loc = String(data[r][COL.PC.LOC] || "冬木·深山町");
+    return JSON.stringify({
+      success: true, resumed: true,
+      pcId: String(data[r][COL.PC.ID]), pcName: String(data[r][COL.PC.NAME] || acctName),
+      pcSex: String(data[r][COL.PC.SEX] || "異"), loc: loc
+    });
+  }
+
+  // 2️⃣ 沒有 → 新建一個常駐御主 avatar（凡人，只供視角／移動，無戰鬥意義）。不預載任何從者。
+  //   性別沿用該帳號最近一次奪杯紀錄的御主性別，無則預設「異」。
+  var mSex = "異";
+  var gal = ss.getSheetByName("鑑賞");
+  if (gal) {
+    var gd = gal.getDataRange().getValues();
+    for (var i = gd.length - 1; i >= 1; i--) {
+      if (String(gd[i][COL.GAL.ACC]).trim() === acctName) { mSex = String(gd[i][COL.GAL.MSEX] || "異") || "異"; break; }
+    }
+  }
+  var gameId = "k_" + Date.now();
+  var loc2 = "冬木·深山町";
+  var pcColCount = Object.keys(COL.PC).length;
+  var mId = "KPC_" + Date.now();
+  var mRow = Array(pcColCount).fill("");
+  mRow[COL.PC.ID] = mId;
+  mRow[COL.PC.NAME] = acctName;
+  mRow[COL.PC.SEX] = mSex;
+  mRow[COL.PC.REALM] = "凡人";
+  mRow[COL.PC.HP] = 100; mRow[COL.PC.MAX_HP] = 100; mRow[COL.PC.MP] = 100; mRow[COL.PC.MAX_MP] = 100;
+  mRow[COL.PC.STR] = 10; mRow[COL.PC.CON] = 10; mRow[COL.PC.AGI] = 10; mRow[COL.PC.INT] = 10; mRow[COL.PC.LUK] = 10;
+  mRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情輕鬆" });
+  mRow[COL.PC.LOC] = loc2;
+  mRow[COL.PC.MONEY] = 5000;
+  mRow[COL.PC.FACTION] = "御主";
+  mRow[COL.PC.MEMORY] = acctTag + "｜【鑑賞後日談】聖杯戰爭已結束，這是與封存從者的和平約會時光。";
+  mRow[COL.PC.GAME_ID] = gameId;
+  kpc.appendRow(mRow);
+
+  return JSON.stringify({
+    success: true, resumed: false,
+    pcId: mId, pcName: acctName, pcSex: mSex, loc: loc2
+  });
+}
+
 // 👥 列出後日談現有同伴 ＋ 可邀請名單（上限 3 人）。pcId＝慾海御主 avatar(KPC_)。
 function actionKanshouCompanions(userData, pcId, sheets) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
