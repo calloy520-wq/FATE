@@ -66,7 +66,6 @@ function fakeMasterRow_(name, gameId, loc) {
   row[COL.PC.SEX] = "異";
   row[COL.PC.BACK] = "捲入偽聖杯戰爭的魔術師";
   row[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "平靜" });
-  row[COL.PC.MONEY] = 200;
   row[COL.PC.TRAIT] = parseTraitsHelper("", "外貌平凡、舉止從容、通曉魔術、深藏心事");
   row[COL.PC.LOC] = loc;
   row[COL.PC.PREF] = parseTraitsHelper("", "沉著表象、堅定內裡、珍視之物、厭惡之事");
@@ -95,7 +94,6 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
   row[COL.PC.SEX] = (hero[COL.HERO.SEX] === "無" ? "異" : (hero[COL.HERO.SEX] || "異"));
   row[COL.PC.BACK] = cls + " 職階英靈";
   row[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "佇立", "負面": "無", "顏面": "氣息冷冽" });
-  row[COL.PC.MONEY] = 0;
   row[COL.PC.TRAIT] = parseTraitsHelper(traits.map(function (t) { return t.n; }).join("、"), "氣場凜然、舉止從容、精擅戰技、深藏之面");
   row[COL.PC.LOC] = loc;
   row[COL.PC.PREF] = parseTraitsHelper(String(persona.words || "").replace(/・/g, "、"), "沉著表象、堅定內裡、珍視之物、厭惡之事");
@@ -125,7 +123,6 @@ function masterToNpcRow_(mr, gameId, loc, faction) {
   var mAppear = String(mr[COL.MASTER.APPEAR] || "").trim();
   row[COL.PC.BACK] = (mBack ? mBack : "魔術師") + (mAppear ? "。外貌：" + mAppear : "");
   row[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "平靜" });
-  row[COL.PC.MONEY] = 200;
   row[COL.PC.TRAIT] = parseTraitsHelper(mr[COL.MASTER.PERSONA], "外貌平凡、舉止從容、通曉魔術、深藏心事");
   row[COL.PC.LOC] = loc;
   row[COL.PC.PREF] = parseTraitsHelper(mr[COL.MASTER.PERSONA], "沉著表象、堅定內裡、珍視之物、厭惡之事");

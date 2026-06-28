@@ -329,7 +329,6 @@ function actionEnterGallery(userData, pcId, sheets) {
   mRow[COL.PC.STR] = 10; mRow[COL.PC.CON] = 10; mRow[COL.PC.AGI] = 10; mRow[COL.PC.INT] = 10; mRow[COL.PC.LUK] = 10;
   mRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情輕鬆" });
   mRow[COL.PC.LOC] = loc;
-  mRow[COL.PC.MONEY] = 5000;
   mRow[COL.PC.FACTION] = "御主";
   mRow[COL.PC.MEMORY] = "【鑑賞後日談】聖杯戰爭已結束，與從者的和平約會時光。";
   mRow[COL.PC.GAME_ID] = gameId;
@@ -396,7 +395,6 @@ function actionEnterKanshou(userData, pcId, sheets) {
   mRow[COL.PC.STR] = 10; mRow[COL.PC.CON] = 10; mRow[COL.PC.AGI] = 10; mRow[COL.PC.INT] = 10; mRow[COL.PC.LUK] = 10;
   mRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情輕鬆" });
   mRow[COL.PC.LOC] = loc2;
-  mRow[COL.PC.MONEY] = 5000;
   mRow[COL.PC.FACTION] = "御主";
   mRow[COL.PC.MEMORY] = acctTag + "｜【鑑賞後日談】聖杯戰爭已結束，這是與封存從者的和平約會時光。";
   mRow[COL.PC.GAME_ID] = gameId;
