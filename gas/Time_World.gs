@@ -54,6 +54,15 @@ function spendAp_(gameId, cost) {
   return { ok: true, ap: clk.ap, day: clk.day, hour: clk.hour };
 }
 
+// 🩸 不推進時間、直接補 n 點 AP（second wind 燃燒生命強撐用）
+function grantAp_(gameId, n) {
+  var clk = getClock_(gameId);
+  if (!clk) return AP_PER_DAY;
+  clk.ap = Math.min(AP_PER_DAY, clk.ap + n);
+  writeClock_(clk);
+  return clk.ap;
+}
+
 // 🛏️ 休息 N 小時：推進 N 小時、補 2×N AP（上限 12）。何時休、休多久由玩家決定。
 function restHours_(gameId, hours) {
   var clk = getClock_(gameId);

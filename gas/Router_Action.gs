@@ -53,6 +53,7 @@ const ActionRouter = {
   "use_mystic": actionUseMystic,
   "set_workshop": actionSetWorkshop,
   "scavenge": actionScavenge,
+  "second_wind": actionSecondWind,
   "scout": actionScout,
   "clear_npc_major_event": actionClearNpcMajorEvent,
   "get_all_categorized_maps": actionGetAllCategorizedMaps,
@@ -4488,6 +4489,37 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, userData, baseMul) 
   out.after = parseInt(pcData[svIdx][COL.PC.HP]) || 0;
   sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
   return out;
+}
+
+// ── 🩸 燃燒生命強撐（second wind）：透支體力換 AP，每遊戲日一次（MEMORY【強撐】D）──
+function getSecondWindDay_(memory) { var m = String(memory || "").match(/【強撐】(\d+)/); return m ? parseInt(m[1]) : 0; }
+function setSecondWindDay_(memory, day) {
+  var s = String(memory || "");
+  if (/【強撐】\d+/.test(s)) return s.replace(/【強撐】\d+/, "【強撐】" + day);
+  return (s ? s + "｜" : "") + "【強撐】" + day;
+}
+// 🩸 強撐：沒 AP 又被困時的保命解——扣御主生命換 +4 AP，每日一次（不燒令咒）
+function actionSecondWind(userData, pcId, sheets) {
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  if (myGameId.indexOf("g_") !== 0) return JSON.stringify({ success: false, message: "此處無需強撐。" });
+  const clk = getClock_(myGameId); const day = clk ? clk.day : 1;
+  if (getSecondWindDay_(pcData[pIdx][COL.PC.MEMORY]) === day) return JSON.stringify({ success: false, message: "今日已透支過一次——再燃燒生命會有性命之危，先歇息恢復吧。" });
+  if (clk && clk.ap >= AP_PER_DAY - 1) return JSON.stringify({ success: false, message: "行動力尚足，毋須燃燒生命強撐。" });
+  const maxHp = parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 120;
+  const cur = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
+  const cost = Math.max(10, Math.round(maxHp * 0.20));
+  if (cur <= cost) return JSON.stringify({ success: false, message: "你的身體太過虛弱，再強撐恐危及性命——請務必先休息或脫離。" });
+  pcData[pIdx][COL.PC.HP] = cur - cost;
+  pcData[pIdx][COL.PC.MEMORY] = setSecondWindDay_(pcData[pIdx][COL.PC.MEMORY], day);
+  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+  const ap = grantAp_(myGameId, 4);
+  const aiPrompt = `【系統·強撐已結算】御主透支魔術迴路與體力、燃燒生命力強行擠出最後的行動之力（HP −${cost}，行動力 +4＝${ap}/${AP_PER_DAY}）。\n` +
+    `★以 Fate／TYPE-MOON 筆觸描寫御主咬牙硬撐、迴路過載灼痛、以意志逼出餘力的一幕（一段即可）。已結算。\n` +
+    `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+  return JSON.stringify({ success: true, aiPrompt: aiPrompt, ap: ap, apMax: AP_PER_DAY, clock: clockLabel_(myGameId), statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
 // ── 🏕️ 陣地（工房）：存於御主 MEMORY【陣地】loc，駐留該地時供魔得工房加成 ──
