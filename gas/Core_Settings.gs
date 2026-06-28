@@ -301,25 +301,21 @@ function maskPhysicalStatus(jsonStr, isNsfwMode) {
 }
 
 function buildPlayerStatusString(selfRow, totals, itemData, relMem = "", isNsfwMode = false) {
-  const wName = resolveItemName(selfRow[COL.PC.WEP], itemData);
-  const aName = resolveItemName(selfRow[COL.PC.ARM], itemData);
-  const ac1Name = resolveItemName(selfRow[COL.PC.ACC1], itemData);
-  const ac2Name = resolveItemName(selfRow[COL.PC.ACC2], itemData);
-
+  // 🗑️ FATE 已棄用 裝備(WEP/ARM/ACC1/ACC2) 與 生活技能(LIFESKILL)：§ 位置保留空字串、不再讀那些欄，
+  //   前端 s[N] 契約完全不動(零風險)，依賴解除後該些欄即可於 schema 重建時安全刪除。
   const safeMemory = String(selfRow[COL.PC.MEMORY] || "").replace(/\|/g, '@@@');
   const safeRelMem = String(relMem || "").replace(/\|/g, '@@@');
   const maskedPhysical = maskPhysicalStatus(selfRow[COL.PC.PHYSICAL] || "{}", isNsfwMode);
   const safePhysical = String(maskedPhysical).replace(/§/g, '###');
   const visibleStatusStr = buildVisibleStatusString(selfRow[COL.PC.STATUS]);
-  const safeLifeskill = String(selfRow[COL.PC.LIFESKILL] || "{}").replace(/§/g, '###');
 
   return [
     visibleStatusStr, selfRow[COL.PC.MONEY], selfRow[COL.PC.TRAIT], selfRow[COL.PC.LOC], selfRow[COL.PC.PREF],
     selfRow[COL.PC.HP], selfRow[COL.PC.MP], totals ? totals.STR : selfRow[COL.PC.STR], totals ? totals.CON : selfRow[COL.PC.CON],
     totals ? totals.AGI : selfRow[COL.PC.AGI], totals ? totals.INT : selfRow[COL.PC.INT], totals ? totals.LUK : selfRow[COL.PC.LUK],
-    wName, aName, ac1Name, ac2Name, selfRow[COL.PC.REALM], safeMemory, safeRelMem, selfRow[COL.PC.FACTION],
+    "", "", "", "", selfRow[COL.PC.REALM], safeMemory, safeRelMem, selfRow[COL.PC.FACTION],
     selfRow[COL.PC.RANK], selfRow[COL.PC.ALIGN], selfRow[COL.PC.CONTRIB], selfRow[COL.PC.BACK], safePhysical,
-    selfRow[COL.PC.INTENT], selfRow[COL.PC.MARTIAL], safeLifeskill
+    selfRow[COL.PC.INTENT], selfRow[COL.PC.MARTIAL], ""
   ].join('§');
 }
 
@@ -356,33 +352,12 @@ function getCharacterTotalStats(charId, sheets, cachedPcData = null, cachedItemD
   let baseINT = Math.floor((parseInt(row[COL.PC.INT]) || 10) * realmMod);
   let baseLUK = Math.floor((parseInt(row[COL.PC.LUK]) || 10) * realmMod);
 
-  let eqWeapon = row[COL.PC.WEP] ? String(row[COL.PC.WEP]).trim() : "";
-  let eqArmor = row[COL.PC.ARM] ? String(row[COL.PC.ARM]).trim() : "";
-  let eqAcc1 = row[COL.PC.ACC1] ? String(row[COL.PC.ACC1]).trim() : "";
-  let eqAcc2 = row[COL.PC.ACC2] ? String(row[COL.PC.ACC2]).trim() : "";
-
-  let addSTR = 0, addCON = 0, addAGI = 0, addINT = 0, addLUK = 0;
-  let wepSTR = 0, armCON = 0, wepName = "", armName = ""; // 🔴 武器/防具本體的原始加成與名稱(不灌realm倍率)，傷害公式跟AI敘述都拿來用，跟骰子命中率脫鉤
-  const equippedItems = [eqWeapon, eqArmor, eqAcc1, eqAcc2].filter(name => name !== "");
-
-  if (equippedItems.length > 0 && (cachedItemData || sheets.item)) {
-    const itemData = cachedItemData || sheets.item.getDataRange().getValues();
-    equippedItems.forEach(eqIdOrName => {
-      const itemRow = itemData.find(r => (r[COL.ITEM.ID] === eqIdOrName || r[COL.ITEM.NAME] === eqIdOrName) && r[COL.ITEM.OWNER] === charId);
-      if (itemRow) {
-        const iSTR = parseInt(itemRow[COL.ITEM.STR]) || 0, iCON = parseInt(itemRow[COL.ITEM.CON]) || 0;
-        addSTR += iSTR; addCON += iCON;
-        addAGI += parseInt(itemRow[COL.ITEM.AGI]) || 0; addINT += parseInt(itemRow[COL.ITEM.INT]) || 0; addLUK += parseInt(itemRow[COL.ITEM.LUK]) || 0;
-        if (eqIdOrName === eqWeapon) { wepSTR = iSTR; wepName = itemRow[COL.ITEM.NAME]; }
-        if (eqIdOrName === eqArmor) { armCON = iCON; armName = itemRow[COL.ITEM.NAME]; }
-      }
-    });
-  }
-
+  // 🗑️ FATE 已棄用裝備系統：六圍不再吃武器/防具/飾物加成（FATE 角色從不設裝備欄，原本恆為空 no-op）。
+  //   回傳維持原形狀(WEP/wepSTR/armCON/wepName/armName 供下游傷害公式與敘述沿用)，恆為空/0。
   return {
     id: charId, name: row[COL.PC.NAME], hp: parseInt(row[COL.PC.HP]) || 100, maxHp: parseInt(row[COL.PC.MAX_HP]) || 100,
-    STR: baseSTR + addSTR, CON: baseCON + addCON, AGI: baseAGI + addAGI, INT: baseINT + addINT, LUK: baseLUK + addLUK,
-    WEP: eqWeapon, ARM: eqArmor, wepSTR: wepSTR, armCON: armCON, wepName: wepName, armName: armName
+    STR: baseSTR, CON: baseCON, AGI: baseAGI, INT: baseINT, LUK: baseLUK,
+    WEP: "", ARM: "", wepSTR: 0, armCON: 0, wepName: "", armName: ""
   };
 }
 
