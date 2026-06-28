@@ -617,6 +617,7 @@ function renderRecentLocs(recents = null) {
     if (!foes.length && !allies.length) h += '<div style="flex:1 0 100%; text-align:center; color:#6a5f80; font-size:11.5px; padding:1px 0 5px;">此地暫無敵蹤——可偵查、補魔整備，或往地圖移動</div>';
     // 底部固定行動（永遠可見）：💧補魔／💕羈絆 在左側狀態面板，此列只留戰場即時行動
     h += chip('🔍 偵查', 'scout()', '127,199,199');
+    h += chip('🍱 整備', 'prepMeal()', '210,170,90');
     h += chip('🛏️ 休息', 'openRestMenu()', '169,169,216');
     h += chip('🗺️ 移動', "showGamePane('map')", '159,192,239');
     bar.innerHTML = h;
@@ -714,6 +715,23 @@ function renderRecentLocs(recents = null) {
         syncData(true);
       } else { alert((data && data.message) || '偵查失敗。'); }
     } catch (e) { alert('連線失敗，偵查未果。'); } finally { endAction(); }
+  }
+
+  // 🍱 整備·進食（戰前 buff）：耗 1 AP，接下來數小時內從者出擊命中 +2。solo 無道具欄，食物由整備抽象供給。
+  async function prepMeal() {
+    if (!beginAction()) return;
+    const story = document.getElementById('story');
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主與從者稍作整備、進食補給……</div>`);
+    story.scrollTop = story.scrollHeight;
+    try {
+      const data = await gasRun({ action: 'prep_meal', pcId: pc.id });
+      if (data && data.success) {
+        if (data.statusString) { localStorage.setItem('kyushu_last_status', data.statusString); updateUI(data.statusString.split('§')); }
+        updateClock(data.clock, data.ap, data.apMax);
+        story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#d2aa5a;font-size:12.5px;text-align:center;border:1px solid rgba(200,160,80,0.32);border-radius:8px;padding:6px 10px;">🍱 ${data.message || '整備完畢。'}</div>`);
+        syncData(true);
+      } else { alert((data && data.message) || '整備失敗。'); }
+    } catch (e) { alert('連線失敗，整備未果。'); } finally { endAction(); }
   }
 
   // 🏕️ 設置陣地（工房）：提升駐留此地的供魔收入

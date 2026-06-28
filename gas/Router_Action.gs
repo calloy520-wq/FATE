@@ -21,6 +21,7 @@ const ActionRouter = {
   "kanshou_remove": actionKanshouRemove,
   "kanshou_set_sex": actionKanshouSetSex,
   "kanshou_set_name": actionKanshouSetName,
+  "prep_meal": actionPrepMeal,
   "inspect_npc": actionInspectNpc,
   "get_full_status": actionGetFullStatus,
   "update_fate": actionUpdateFate,
@@ -2603,7 +2604,10 @@ function actionSpareNpc(userData, pcId, sheets) {
 function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   opts = opts || {};
   var defC = rowToCombatant_(pcData[tgtIdx]);
-  var r = resolveFateBattle_(atkC, defC, { np: !!opts.np, seal: !!opts.seal });
+  // 🍱 整備·進食加成：御主一行戰前整備過、且尚在效期內 → 從者出擊命中 +MEAL_BUFF_BONUS
+  var mealOn = false;
+  try { mealOn = mealBuffActive_(pcData[ctx.pIdx][COL.PC.MEMORY], ctx.myGameId); } catch (e) { }
+  var r = resolveFateBattle_(atkC, defC, { np: !!opts.np, seal: !!opts.seal, mealBuff: mealOn ? MEAL_BUFF_BONUS : 0 });
   if (opts.seal) r.atkWins = true; // 絕對命令必中
   var out = {
     hit: r.atkWins, damage: 0, fired: (r.fired || []).slice(),
@@ -3099,6 +3103,49 @@ function stampDoom_(memory, deadAbsHour) {
 function getDoom_(memory) {
   var m = String(memory || "").match(/【靈基透支】(\d+)/);
   return m ? parseInt(m[1]) : 0;
+}
+
+// 🍱 整備·進食（戰前 buff）：solo 無商城/道具欄，食物由「整備」抽象供給(AI 敘述來源)，
+//   不寫道具列、不花錢。MEMORY 記【整備至】<絕對小時>，過期自動失效。
+var MEAL_BUFF_HOURS = 8;   // 持續時數（遊戲內）
+var MEAL_BUFF_BONUS = 2;   // 從者出擊命中加值
+function stampMeal_(memory, expiryAbsHour) {
+  var s = String(memory || "").replace(/【整備至】\d+/, "");
+  s = s.replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
+  return (s ? s + "｜" : "") + "【整備至】" + expiryAbsHour;
+}
+function getMeal_(memory) {
+  var m = String(memory || "").match(/【整備至】(\d+)/);
+  return m ? parseInt(m[1]) : 0;
+}
+// 目前是否仍在整備加成效期內（吃 game clock 的絕對小時：day*24+hour）
+function mealBuffActive_(memory, gameId) {
+  var exp = getMeal_(memory); if (!exp) return false;
+  var clk = getClock_(gameId); if (!clk) return false;
+  return (clk.day * 24 + clk.hour) < exp;
+}
+// 🍱 整備·進食：耗 1 AP，給御主一行 MEAL_BUFF_HOURS 小時的戰鬥命中 +MEAL_BUFF_BONUS（戰前 buff）
+function actionPrepMeal(userData, pcId, sheets) {
+  var pcData = sheets.pc.getDataRange().getValues();
+  var pIdx = pcData.findIndex(function (r) { return r[COL.PC.ID] == pcId; });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  var myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  var isFate = myGameId.indexOf("g_") === 0;
+  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以好好整備——請休息恢復後再進食。" });
+  var clk = getClock_(myGameId);
+  if (!clk) return JSON.stringify({ success: false, message: "此刻無法整備。" });
+  var nowAbs = clk.day * 24 + clk.hour;
+  pcData[pIdx][COL.PC.MEMORY] = stampMeal_(pcData[pIdx][COL.PC.MEMORY], nowAbs + MEAL_BUFF_HOURS);
+  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+  var ap = AP_PER_DAY, clock = "";
+  if (isFate) { try { ap = spendAp_(myGameId, 1).ap; clock = clockLabel_(myGameId); } catch (e) { } }
+  try { sheets.log.appendRow([new Date(), pcId, `【系統】御主一行整備進食，戰意高昂（從者命中 +${MEAL_BUFF_BONUS}，約 ${MEAL_BUFF_HOURS} 小時）。`, pcData[pIdx][COL.PC.LOC]]); } catch (e) { }
+  return JSON.stringify({
+    success: true,
+    message: `整備完畢——你與從者飽餐一頓、稍事休整。接下來約 ${MEAL_BUFF_HOURS} 小時內，從者出擊命中 +${MEAL_BUFF_BONUS}。`,
+    clock: clock, ap: ap, apMax: AP_PER_DAY, mealBuff: true,
+    statusString: getFreshStatusString(pcId, pIdx, sheets)
+  });
 }
 
 // 🕯️ 喪失從者紀錄：敵從者死亡時，在「同地同 game_id 的敵御主」MEMORY 標記如何失去從者，
