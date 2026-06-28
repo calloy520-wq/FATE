@@ -165,6 +165,15 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
   var atHome = !!(homeLoc && rootLoc && String(homeLoc).split('-')[0].trim() === rootLoc);
   var party = {}; party[String(playerName)] = true;
   (partyNames || []).forEach(function (n) { party[String(n)] = true; });
+  // ✨ 禮裝·全世界之鞘(Avalon)：御主持有時，全隊氣血回復加快
+  var avalon = false;
+  for (var ai = 1; ai < data.length; ai++) {
+    if (String(data[ai][COL.PC.GAME_ID] || "") !== gameId) continue;
+    if (String(data[ai][COL.PC.NAME]) === String(playerName) && String(data[ai][COL.PC.FACTION]) !== "從者") {
+      avalon = !!masterMysticFx_(data[ai][COL.PC.MEMORY], 'avalon'); break;
+    }
+  }
+  var hpRate = 0.05 * (avalon ? 1.6 : 1);
   var did = false;
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][COL.PC.GAME_ID] || "") !== gameId) continue;
@@ -173,7 +182,7 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
     var fac = String(data[i][COL.PC.FACTION]);
     var hpMax = parseInt(data[i][COL.PC.MAX_HP]) || 0, mpMax = parseInt(data[i][COL.PC.MAX_MP]) || 0;
     var hp = parseInt(data[i][COL.PC.HP]) || 0, mp = parseInt(data[i][COL.PC.MP]) || 0;
-    var nhp = hpMax ? Math.min(hpMax, hp + Math.round(hpMax * 0.05 * hours * mult)) : hp;
+    var nhp = hpMax ? Math.min(hpMax, hp + Math.round(hpMax * hpRate * hours * mult)) : hp;
     var nmp = mp;
     if (fac === "從者" && mpMax) {
       var c = rowToCombatant_(data[i]);

@@ -50,6 +50,7 @@ const ActionRouter = {
   "use_seal": actionUseSeal,
   "mana_supply": actionManaSupply,
   "bond": actionBond,
+  "use_mystic": actionUseMystic,
   "scout": actionScout,
   "clear_npc_major_event": actionClearNpcMajorEvent,
   "get_all_categorized_maps": actionGetAllCategorizedMaps,
@@ -1578,6 +1579,11 @@ function actionManualNpc(userData, pcId, sheets) {
         userData.warMode === 'chaos' ? "" : `【戰爭】${['4th', '5th', 'fake'].indexOf(String(userData.war)) >= 0 ? userData.war : '5th'}`,
         (userData.warMode !== 'chaos' && userData.playedMaster) ? `【扮演】${String(userData.playedMaster).trim()}` : ""
       ].filter(Boolean).join("｜");
+      // ✨ 依財力/身世機率給一件招牌禮裝（非 100%；強禮裝吃迴路）
+      try {
+        const mysticId = rollMysticForMaster_(standing || identity, circuits);
+        if (mysticId) newRow[COL.PC.MEMORY] = equipMysticToMemory_(newRow[COL.PC.MEMORY], mysticId);
+      } catch (e) { }
     }
     // 🔴 NPC 初始銀兩依境界給(玩家創角固定 50)，錢有變化、高人更富
     if (isCreate) {
@@ -1956,7 +1962,17 @@ function actionGetTags(userData, pcId, sheets) {
   if (gameId && gameId.indexOf("g_") === 0) {
     try { var bclk = getClock_(gameId); bondUsed = getBondUsedToday_(m[COL.PC.MEMORY], bclk ? bclk.day : 1); } catch (e) { }
   }
-  return JSON.stringify({ success: true, master: master, servant: servant, economy: economy, bondUsed: bondUsed });
+  // ✨ 禮裝（御主裝備槽）
+  var mystic = null;
+  try {
+    var mid = getMystic_(m[COL.PC.MEMORY]);
+    if (mid && MYSTIC_CODES[mid]) {
+      var mc = MYSTIC_CODES[mid];
+      var ch = getMysticCharges_(m[COL.PC.MEMORY]); if (ch < 0) ch = mc.charges;
+      mystic = { id: mid, name: mc.name, type: mc.type, desc: mc.desc, req: mc.req, charges: ch, target: mc.target };
+    }
+  } catch (e) { }
+  return JSON.stringify({ success: true, master: master, servant: servant, economy: economy, bondUsed: bondUsed, mystic: mystic });
 }
 
 // 🔴 修正：原本所有缺座標的地點都會被塞進 (0,0)，導致俯瞰圖上大量節點重疊堆疊。
@@ -4293,6 +4309,101 @@ function actionBond(userData, pcId, sheets) {
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, bond: bondNow, bondUsed: usedToday,
     statusString: getFreshStatusString(pcId, pIdx, sheets)
+  });
+}
+
+// ✨ 發動禮裝（主動型）：吃迴路（不足走火）＋耗魔力＋扣充能，對同地敵從者/敵御主造成魔力傷害
+function actionUseMystic(userData, pcId, sheets) {
+  const npcName = String(userData.npcName || "").trim();
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const memory = String(pcData[pIdx][COL.PC.MEMORY] || "");
+  const id = getMystic_(memory);
+  const code = MYSTIC_CODES[id];
+  if (!code) return JSON.stringify({ success: false, message: "你並未持有禮裝。" });
+  if (code.type !== 'active') return JSON.stringify({ success: false, message: `「${code.name}」是被動禮裝，持有即生效。` });
+
+  let charges = getMysticCharges_(memory); if (charges < 0) charges = code.charges;
+  if (charges <= 0) return JSON.stringify({ success: false, message: `「${code.name}」的充能已耗盡。` });
+
+  const isFate = myGameId.indexOf("g_") === 0;
+  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以發動禮裝——請休息恢復。" });
+  const mpCur = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
+  if (mpCur < Math.round(code.mp * 0.5)) return JSON.stringify({ success: false, message: `御主魔力不足以驅動「${code.name}」。` });
+
+  const wantFaction = code.target === 'master' ? '敵御主' : '敵從者';
+  const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
+  const nIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).includes(npcName) && String(r[COL.PC.FACTION]) === wantFaction && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc);
+  if (nIdx === -1) return JSON.stringify({ success: false, message: code.target === 'master' ? "此地沒有可狙擊的敵御主。" : "此地沒有可轟擊的敵從者。" });
+
+  // 🔧 迴路門檻 → 走火（不足越多越易反噬/啞火）
+  const circuits = masterCircuits_(pcData[pIdx]);
+  let powerMul = Math.min(1, code.req > 0 ? circuits / code.req : 1);
+  let backfire = false, fizzle = false;
+  if (circuits < code.req) {
+    const gap = (code.req - circuits) / code.req;
+    if (Math.random() < gap * 0.80) backfire = true;
+    if (Math.random() < gap * 0.35) fizzle = true;
+  }
+
+  // 扣 AP / 魔力 / 充能
+  let ap = AP_PER_DAY, clock = "";
+  if (isFate) { try { ap = spendAp_(myGameId, 1).ap; clock = clockLabel_(myGameId); } catch (e) { } }
+  const mpCost = code.mp + (backfire ? Math.round(code.mp * 0.5) : 0);
+  pcData[pIdx][COL.PC.MP] = Math.max(0, mpCur - mpCost);
+  charges -= 1;
+  pcData[pIdx][COL.PC.MEMORY] = setMysticCharges_(memory, charges);
+  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+
+  const ctx = { myGameId: myGameId, acctName: String(userData.acctName || ""), masterName: pcData[pIdx][COL.PC.NAME] };
+  const tgtName = String(pcData[nIdx][COL.PC.NAME]);
+  let report = { mystic: true, name: code.name, target: tgtName, backfire: backfire, fizzle: fizzle, charges: charges, victory: false, dmg: 0, destroyed: "", godRevived: false, masterKilled: false, fade: "" };
+  let aiCore = "";
+
+  if (fizzle) {
+    aiCore = `禮裝「${code.name}」因御主魔術迴路不足（${circuits}／需求 ${code.req}），魔力潰散、當場啞火，未能成形。`;
+  } else {
+    let dmg = Math.round((30 + circuits * 2) * code.power * powerMul);
+    if (backfire) dmg = Math.round(dmg * 0.5);
+    report.dmg = dmg;
+    if (code.target === 'master') {
+      let mhp = parseInt(pcData[nIdx][COL.PC.HP]) || 0, mafter = mhp - dmg;
+      if (mafter <= 0) {
+        pcData[nIdx][COL.PC.ID] = "DEAD_" + String(pcData[nIdx][COL.PC.ID]); pcData[nIdx][COL.PC.HP] = 0;
+        pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "鮮血浸染", "姿勢": "倒地", "負面": "迴路碎裂·身亡", "顏面": "錯愕" });
+        sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
+        const gIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc);
+        if (gIdx >= 0) {
+          report.fade = String(pcData[gIdx][COL.PC.NAME]);
+          pcData[gIdx][COL.PC.ID] = "DEAD_" + String(pcData[gIdx][COL.PC.ID]); pcData[gIdx][COL.PC.HP] = 0;
+          pcData[gIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "化作光點", "負面": "御主既亡·消滅", "顏面": "消散" });
+          sheets.pc.getRange(gIdx + 1, 1, 1, pcData[gIdx].length).setValues([pcData[gIdx]]);
+        }
+        report.masterKilled = true;
+        if (aliveEnemyServants_(sheets, myGameId) <= 0) { report.victory = true; if (ctx.acctName) { incrementWin_(ctx.acctName); recordHistory_(ctx.acctName, "勝", ctx.masterName, "以起源彈狙殺敵御主，奪得聖杯。"); } }
+        aiCore = `${code.flavor}子彈貫入敵御主「${tgtName}」，魔術迴路碎裂、當場斃命${report.fade ? `，其從者「${report.fade}」失去魔力供給、隨之消散` : ""}。`;
+      } else {
+        pcData[nIdx][COL.PC.HP] = mafter; sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
+        aiCore = `${code.flavor}子彈擊中敵御主「${tgtName}」，重創其魔術迴路，但未致命。`;
+      }
+    } else {
+      const r = applyMysticDamageToServant_(sheets, pcData, nIdx, dmg, ctx);
+      report.destroyed = r.destroyed; report.godRevived = r.godRevived; report.victory = r.victory;
+      report.defHp = r.after; report.defHpMax = parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0;
+      aiCore = `${code.flavor}對「${tgtName}」造成 ${dmg} 點重創${r.destroyed ? "，其靈基崩潰、徹底消滅" : ""}${r.godRevived ? "，但對方竟自死亡歸來" : ""}。`;
+    }
+  }
+
+  const aiPrompt = `【系統·禮裝已裁定】御主『${ctx.masterName}』發動禮裝「${code.name}」` +
+    `（迴路 ${circuits}／需求 ${code.req}${backfire ? "，迴路不足·走火反噬" : ""}）。${aiCore}（餘充能 ${charges}）\n` +
+    `★以 Fate／TYPE-MOON 筆觸描寫這次禮裝發動的奇景與威能（一段即可）${backfire ? "，並演出迴路駕馭不全、魔力反噬御主自身的險象" : ""}。效果與勝負已由系統結算。\n` +
+    `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+  return JSON.stringify({
+    success: true, aiPrompt: aiPrompt, report: report,
+    victory: report.victory, charges: charges,
+    clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets)
   });
 }
 
