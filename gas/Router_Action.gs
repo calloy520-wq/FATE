@@ -49,6 +49,7 @@ const ActionRouter = {
   "fate_battle": actionFateBattle,
   "use_seal": actionUseSeal,
   "mana_supply": actionManaSupply,
+  "bond": actionBond,
   "scout": actionScout,
   "clear_npc_major_event": actionClearNpcMajorEvent,
   "get_all_categorized_maps": actionGetAllCategorizedMaps,
@@ -1950,7 +1951,12 @@ function actionGetTags(userData, pcId, sheets) {
   }
   // 💠 供魔收支（左側狀態卡顯示用）：僅正式聖杯戰爭世界算
   var economy = (gameId && gameId.indexOf("g_") === 0) ? playerServantEconomy_(sheets, pcId) : null;
-  return JSON.stringify({ success: true, master: master, servant: servant, economy: economy });
+  // 💕 今日已用過的羈絆互動（前端用來灰掉按鈕）
+  var bondUsed = [];
+  if (gameId && gameId.indexOf("g_") === 0) {
+    try { var bclk = getClock_(gameId); bondUsed = getBondUsedToday_(m[COL.PC.MEMORY], bclk ? bclk.day : 1); } catch (e) { }
+  }
+  return JSON.stringify({ success: true, master: master, servant: servant, economy: economy, bondUsed: bondUsed });
 }
 
 // 🔴 修正：原本所有缺座標的地點都會被塞進 (0,0)，導致俯瞰圖上大量節點重疊堆疊。
@@ -4219,6 +4225,74 @@ function actionManaSupply(userData, pcId, sheets) {
     `★以 Fate／TYPE-MOON 筆觸，溫柔且帶一絲曖昧張力地描寫這場魔力供給——御主與從者肌膚相觸、魔力交融的私密一刻：可有體溫、心跳、靠近、屏息、半句未盡的情話與心動，氛圍甜美而克制，最後 fade-to-black 留白。聚焦兩人之間悄然升溫的羈絆。\n` +
     `★【鐵律】止於唯美曖昧、點到為止；【不可】出現性器官、性交或露骨情慾描寫（那是奪杯後鑑賞的事）。演出而非複述設定；嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
+}
+
+// ── 💕 羈絆日限：記於御主 MEMORY 的【羈絆日】D:type1,type2（跨日自動重置）──
+function getBondUsedToday_(memory, day) {
+  var m = String(memory || "").match(/【羈絆日】(\d+):([^|【]*)/);
+  if (!m || parseInt(m[1]) !== day) return [];
+  return m[2] ? m[2].split(",").filter(Boolean) : [];
+}
+function setBondUsedToday_(memory, day, type) {
+  var used = getBondUsedToday_(memory, day);
+  if (used.indexOf(type) < 0) used.push(type);
+  var marker = "【羈絆日】" + day + ":" + used.join(",");
+  var s = String(memory || "");
+  if (/【羈絆日】\d+:[^|【]*/.test(s)) return s.replace(/【羈絆日】\d+:[^|【]*/, marker);
+  return (s ? s + "｜" : "") + marker;
+}
+
+// 💕 羈絆互動（純按鈕，無對話框）：閒聊／共餐／並肩特訓／促膝夜談。每種每遊戲日限一次、跨日重置。
+//   觸發角色語氣 AI 短劇＋升羈絆；羈絆會餵給路線自然浮現（深羈絆→偏 Fate 線）。
+var BOND_ACTS = {
+  chat: { label: '閒聊', bond: 4, frame: '在巡查或歇腳的空檔閒話家常——些瑣碎的日常、對這個時代的見聞、半開玩笑的拌嘴' },
+  meal: { label: '共餐', bond: 6, frame: '一同用一頓飯——食物的香氣、從者進食的神態、飯桌上難得卸下戒備的尋常溫度' },
+  train: { label: '並肩特訓', bond: 5, frame: '並肩切磋武藝、調整默契——汗水、喘息、招式間的信任，以及戰技之外悄然滋長的默契' },
+  talk: { label: '促膝夜談', bond: 8, frame: '夜深人靜時的促膝長談——交換各自背負的過往與此刻的心緒，一句句靠近彼此的內裡' }
+};
+function actionBond(userData, pcId, sheets) {
+  const type = String(userData.bondType || "").trim();
+  const act = BOND_ACTS[type];
+  if (!act) return JSON.stringify({ success: false, message: "未知的羈絆互動。" });
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const svIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可相伴。" });
+  const svName = pcData[svIdx][COL.PC.NAME];
+  const masterName = pcData[pIdx][COL.PC.NAME];
+
+  // 日限檢查
+  const clk = getClock_(myGameId);
+  const day = clk ? clk.day : 1;
+  const band = clk ? timeBand_(clk.hour) : "夜";
+  let usedToday = getBondUsedToday_(pcData[pIdx][COL.PC.MEMORY], day);
+  if (usedToday.indexOf(type) >= 0) {
+    return JSON.stringify({ success: false, message: `今日已與「${svName}」${act.label}過了，來日方長，明日再敘。`, bondUsed: usedToday });
+  }
+
+  // 升羈絆＋寫回日限標記
+  raiseBond_(sheets, masterName, svName, act.bond);
+  pcData[pIdx][COL.PC.MEMORY] = setBondUsedToday_(pcData[pIdx][COL.PC.MEMORY], day, type);
+  sheets.pc.getRange(pIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[pIdx][COL.PC.MEMORY]);
+  usedToday = getBondUsedToday_(pcData[pIdx][COL.PC.MEMORY], day);
+
+  // 取最新羈絆值供顯示
+  let bondNow = 0;
+  if (sheets.rel) {
+    const rel = sheets.rel.getDataRange().getValues().find(r => r[COL.REL.PC] === masterName && r[COL.REL.NPC] === svName);
+    if (rel) bondNow = parseInt(rel[COL.REL.FAV]) || 0;
+  }
+
+  const aiPrompt = `【系統·羈絆已結算】御主『${masterName}』與從者「${svName}」${act.label}，兩人的羈絆又深了一分（時值${band}）。\n` +
+    `★以 Fate／TYPE-MOON 筆觸寫一段（約 150~260 字）${svName} 與御主${act.frame}的場景。務必貼合「${svName}」這名英靈的性格、第一人稱與說話口吻，演出其獨有的神態與心思。\n` +
+    `★【show, don't tell】用言行、神態、停頓去流露情感與性格，絕不可直白說出其「願望／個性／萌點」等設定詞；停在含蓄的留白。\n` +
+    `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩；嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+  return JSON.stringify({
+    success: true, aiPrompt: aiPrompt, bond: bondNow, bondUsed: usedToday,
+    statusString: getFreshStatusString(pcId, pIdx, sheets)
+  });
 }
 
 // 🔍 偵查：耗 1 AP，揭露「附近地點」藏匿的敵御主／敵從者（戰爭迷霧；marks SEEN）

@@ -56,6 +56,7 @@
   let currentStatusTargetName = pc ? pc.name : "";
   let localNPCs = [];
   let myServantCls = ''; // 🗡️ 我方從者職階（決定攻擊類別的按鈕顯示：近戰/魔砲/狙擊）
+  let myBondUsed = [];   // 💕 今日已用過的羈絆互動（灰掉按鈕）
   // 依職階回傳基礎攻擊的「類別樣式」（給按鈕用）。法師＝魔砲、弓兵＝狙擊、其餘＝近戰。
   function attackStyle_() {
     var c = String(myServantCls || '');
@@ -1022,6 +1023,7 @@ function renderRecentLocs(recents = null) {
     if (!foes.length) h += '<div style="flex:1 0 100%; text-align:center; color:#6a5f80; font-size:11.5px; padding:1px 0 3px;">此地暫無敵蹤——可偵查、補魔整備，或往地圖移動</div>';
     h += chip('🔍 偵查', 'scout()', '127,199,199');
     h += chip('💧 補魔', 'manaSupply()', '127,176,232');
+    h += chip('💕 羈絆', 'openBondMenu()', '224,138,170');
     h += chip('🛏️ 休息', 'openRestMenu()', '169,169,216');
     h += chip('🗺️ 移動', "showGamePane('map')", '159,192,239');
     bar.innerHTML = h;
@@ -1891,6 +1893,7 @@ function renderRecentLocs(recents = null) {
       };
       const m = t.master, s = t.servant;
       myServantCls = (s && s.cls) || ''; // 快取職階，供攻擊按鈕分類顯示
+      myBondUsed = t.bondUsed || [];      // 快取今日已用羈絆互動
       try { renderWarActions(); } catch (e) {}
       let mh = '<div style="background:rgba(20,14,28,0.55); border:1px solid #d4af37; border-radius:8px; padding:6px 8px;">'
         + '<div style="color:#d4af37; font-weight:bold; font-size:12px;">⚜️ 御主</div>'
@@ -2200,6 +2203,39 @@ function renderRecentLocs(recents = null) {
       if (res && res.success) { updateClock(res.clock, res.ap, res.apMax); narrate(res.aiPrompt); syncData(true); }
       else { alert((res && res.message) || '補魔失敗。'); }
     } catch (e) { alert('連線失敗，補魔未果。'); } finally { endAction(); }
+  }
+
+  // 💕 羈絆選單（純按鈕，無對話框）：每種每遊戲日限一次、跨日重置
+  const BOND_MENU = [
+    ['chat', '💬 閒聊', '巡查歇腳間的家常與拌嘴'],
+    ['meal', '🍙 共餐', '一同用餐、卸下戒備的尋常溫度'],
+    ['train', '⚔️ 並肩特訓', '切磋武藝、磨合默契'],
+    ['talk', '🌙 促膝夜談', '夜深交換心事、靠近彼此的內裡'],
+  ];
+  function openBondMenu() {
+    let html = '<h3 style="margin:0 0 6px;color:#e08aaa;">💕 與從者相伴</h3>'
+      + '<p style="color:#9a8bb0;font-size:12px;margin:0 0 10px;">並肩作戰之餘的點滴，悄悄加深彼此的羈絆。<br>（每種互動每日一次，隔日重置）</p>';
+    html += BOND_MENU.map(function (o) {
+      const used = myBondUsed.indexOf(o[0]) >= 0;
+      const dis = used ? 'opacity:.4;pointer-events:none;' : '';
+      return '<button ' + (used ? 'disabled' : '') + ' onclick="bond(\'' + o[0] + '\')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px;background:rgba(224,138,170,0.12);color:#e8dcc0;border:1px solid #b06c84;border-radius:8px;cursor:pointer;' + dis + '">'
+        + '<b style="color:#e8aac0;">' + o[1] + (used ? '　<small style="color:#888;">（今日已敘）</small>' : '') + '</b><br><span style="font-size:12px;color:#9a8bb0;">' + o[2] + '</span></button>';
+    }).join('');
+    showHistoryOverlay(html);
+  }
+  async function bond(type) {
+    if (!beginAction()) return;
+    var ov = document.getElementById('history-overlay');
+    if (ov) ov.style.display = 'none';
+    const story = document.getElementById('story');
+    const label = (BOND_MENU.find(function (o) { return o[0] === type; }) || ['', '相伴'])[1];
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主與從者${label}……</div>`);
+    story.scrollTop = story.scrollHeight;
+    try {
+      const res = await gasRun({ action: 'bond', bondType: type, pcId: pc.id });
+      if (res && res.success) { myBondUsed = res.bondUsed || myBondUsed; narrate(res.aiPrompt); syncData(true); }
+      else { alert((res && res.message) || '今日無法再敘。'); if (res && res.bondUsed) myBondUsed = res.bondUsed; }
+    } catch (e) { alert('連線失敗。'); } finally { endAction(); }
   }
 
   // ❖ 令咒選單（絕對命令需在戰鬥中對目標施放，這裡放自身向三招）
