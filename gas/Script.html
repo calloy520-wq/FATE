@@ -987,6 +987,26 @@ function renderRecentLocs(recents = null) {
     hud.innerHTML = html;
     hud.style.display = 'block';
   }
+  // ⚔️ 戰爭行動列：取代輸入框，永遠告訴玩家此刻能做什麼（此地敵蹤→出戰，偵查/補魔/休息）。
+  function renderWarActions() {
+    const bar = document.getElementById('war-actions');
+    if (!bar) return;
+    if (!pc || pc.mode === 'kanshou') { bar.style.display = 'none'; return; }
+    const foes = (localNPCs || []).filter(n => n && n.isExact && (n.faction === '敵御主' || n.faction === '敵從者'));
+    const chip = (label, onclick, rgb) => '<button onclick="' + onclick + '" style="flex:1; min-width:78px; font-size:12px; padding:8px 5px; background:rgba(' + rgb + ',0.15); color:rgb(' + rgb + '); border:1px solid rgba(' + rgb + ',0.55); border-radius:8px; cursor:pointer; font-weight:bold;">' + label + '</button>';
+    let h = '';
+    foes.forEach(f => {
+      const safe = String(f.name).replace(/'/g, '');
+      h += '<button onclick="servantStrike(\'' + safe + '\', false)" style="flex:1 0 100%; font-size:13px; padding:9px; background:linear-gradient(90deg,rgba(165,42,42,.32),rgba(120,30,30,.18)); color:#f0b8b8; border:1px solid #a52a2a; border-radius:8px; cursor:pointer; font-weight:bold;">⚔️ 出戰 ' + f.name + ' <small style="opacity:.65;">' + (f.faction === '敵從者' ? '敵從者' : '敵御主') + '</small></button>';
+    });
+    if (!foes.length) h += '<div style="flex:1 0 100%; text-align:center; color:#6a5f80; font-size:11.5px; padding:1px 0 3px;">此地暫無敵蹤——可偵查、補魔整備，或往地圖移動</div>';
+    h += chip('🔍 偵查', 'scout()', '127,199,199');
+    h += chip('💧 補魔', 'manaSupply()', '127,176,232');
+    h += chip('🛏️ 休息', 'openRestMenu()', '169,169,216');
+    h += chip('🗺️ 移動', "showGamePane('map')", '159,192,239');
+    bar.innerHTML = h;
+    bar.style.display = 'flex';
+  }
   // 把世界自走的風聞推進故事流
   function showRumors(rumors) {
     if (!rumors || !rumors.length) return;
@@ -1075,18 +1095,30 @@ function renderRecentLocs(recents = null) {
             updateUI(data.statusString.split('§'));
         }
 
-        // 2. 🔴 關鍵優化：直接使用後端傳回的 mapDesc，這是最準確的景色描述
         const locDesc = data.mapDesc || "四下靜謐。";
-
-        // 3. 顯示結果
-        story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【抵達 ${targetName}】：</b><br><span>${locDesc}</span></div>`);
+        // 更新此地人物/地點，讓地圖與行動列即時反映新位置
+        localNPCs = data.people || [];
+        nearbyLocations = data.locations || [];
+        // 1. 地點小標
+        story.insertAdjacentHTML('beforeend', `<div class="msg-player" style="align-self:center;color:#9fc0ef;font-size:12.5px;">📍 抵達「${targetName}」</div>`);
         updateClock(data.clock, data.ap, data.apMax);
         updateEconomy(data.economy);
         showRumors(data.rumors);
-
-        // 4. 清理 loading 提示
         if (optContainer) optContainer.innerHTML = '';
+        try { renderMapPane(); refreshFateTags(); renderWarActions(); } catch (e) {}
         story.scrollTop = story.scrollHeight;
+
+        // 2. 🎬 抵達即觸發一段 AI 劇情——純按鈕模式靠它讓世界活起來
+        const foes = (data.people || []).filter(p => p.isExact && (p.faction === '敵御主' || p.faction === '敵從者'));
+        const foeStr = foes.length
+          ? `此地有敵蹤：${foes.map(f => f.name + '（' + (f.faction === '敵從者' ? '敵從者' : '敵御主') + '）').join('、')}`
+          : '此地暫無明顯敵蹤';
+        const timeStr = (data.clock || '').split('・').slice(-1)[0] || '此刻';
+        const arrivePrompt = `【抵達場景】御主『${pc.name}』${pc.servant ? `與從者「${pc.servant}」` : ''}剛抵達冬木的「${targetName}」，時值${timeStr}。\n`
+          + `此地氛圍：${locDesc}\n敵情：${foeStr}。\n`
+          + `★以 Fate／TYPE-MOON 筆觸描寫兩人抵達此地的所見所感、環境細節與當下氛圍。若有敵蹤，營造一觸即發的對峙張力（但是否交戰、勝負留待御主下令，禁止自行開打或分勝負）；若無敵蹤，寫一段巡查、警戒或短暫喘息的氛圍，並自然暗示「可凝神偵查四周，或轉往他處」。\n`
+          + `★禁止替御主做決定、禁止詢問玩家想做什麼，停在留白，讓御主以行動（偵查／出戰／補魔／移動）回應。`;
+        narrate(arrivePrompt);
       } else {
         alert("天道阻礙：" + data.message);
       }
@@ -2316,6 +2348,7 @@ function renderRecentLocs(recents = null) {
       updateEconomy(data.economy);
       refreshFateTags();
       renderMapPane();
+      renderWarActions();
 
       if (!isSilent) {
         const story = document.getElementById('story');
@@ -2628,6 +2661,9 @@ function applyModeUI() {
   var sbtn = document.getElementById('send-btn'); if (sbtn) sbtn.style.display = isKanshou ? '' : 'none';
   var nsfw = document.getElementById('nsfw-mode-toggle');
   if (nsfw) { var lab = nsfw.closest('label'); if (lab) lab.style.display = isKanshou ? '' : 'none'; }
+  // 戰爭行動列：取代輸入框，只在戰爭模式顯示
+  var wa = document.getElementById('war-actions'); if (wa) wa.style.display = isKanshou ? 'none' : 'flex';
+  try { if (!isKanshou) renderWarActions(); } catch (e) {}
 }
 
 // 🔵 御主命運測定（魔術天賦），最多 3 次
