@@ -2212,14 +2212,17 @@ function renderRecentLocs(recents = null) {
     r.rounds.forEach(rd => {
       h += '<div style="border-top:1px dashed rgba(212,175,55,0.18);margin-top:5px;padding-top:4px;">';
       h += '<div style="color:#caa44a;font-size:10.5px;margin-bottom:2px;">第 ' + rd.n + ' 回合</div>';
-      // 我方一擊
-      h += '<div style="color:#bcd;font-size:11px;">▸ ' + r.atk + '：命中 <b style="color:#fff;">' + rd.pHitVal + '</b> 🎲' + rd.pRoll + ' vs 迴避 <b style="color:#fff;">' + rd.dEvaVal + '</b> 🎲' + rd.dRoll + ' ' + critTxt(rd.pCrit)
-        + '<span style="margin-left:6px;color:' + (rd.pHit ? '#7ec87e' : '#888') + ';font-weight:bold;">' + (rd.pHit ? '命中 −' + rd.pDmg : '揮空') + '</span></div>';
-      if (rd.pFired && rd.pFired.length) h += '<div style="color:#9a8;font-size:10px;">　〔發動〕' + rd.pFired.join('・') + '</div>';
-      if (rd.note) h += '<div style="color:#d4af37;font-size:10px;">　' + String(rd.note).replace(/\n/g, ' ') + '</div>';
+      // 我方出擊（雙從者＝多筆 strikes）
+      const strikes = rd.strikes || [{ by: r.atk, pHitVal: rd.pHitVal, pRoll: rd.pRoll, dEvaVal: rd.dEvaVal, dRoll: rd.dRoll, pCrit: rd.pCrit, pHit: rd.pHit, pDmg: rd.pDmg, pFired: rd.pFired, note: rd.note }];
+      strikes.forEach(k => {
+        h += '<div style="color:#bcd;font-size:11px;">▸ ' + k.by + '：命中 <b style="color:#fff;">' + k.pHitVal + '</b> 🎲' + k.pRoll + ' vs 迴避 <b style="color:#fff;">' + k.dEvaVal + '</b> 🎲' + k.dRoll + ' ' + critTxt(k.pCrit)
+          + '<span style="margin-left:6px;color:' + (k.pHit ? '#7ec87e' : '#888') + ';font-weight:bold;">' + (k.pHit ? '命中 −' + k.pDmg : '揮空') + '</span></div>';
+        if (k.pFired && k.pFired.length) h += '<div style="color:#9a8;font-size:10px;">　〔發動〕' + k.pFired.join('・') + '</div>';
+        if (k.note) h += '<div style="color:#d4af37;font-size:10px;">　' + String(k.note).replace(/\n/g, ' ') + '</div>';
+      });
       // 敵方反擊
       if (rd.eDmg || rd.eHit === true) {
-        h += '<div style="color:#e0a0a0;font-size:11px;">◂ ' + r.def + ' 回擊：' + (rd.eHit ? '命中 <b style="color:#e06a6a;">−' + rd.eDmg + '</b>' : '被擋') + '</div>';
+        h += '<div style="color:#e0a0a0;font-size:11px;">◂ ' + r.def + ' 回擊' + (rd.eTarget ? '「' + rd.eTarget + '」' : '') + '：' + (rd.eHit ? '命中 <b style="color:#e06a6a;">−' + rd.eDmg + '</b>' : '被擋') + '</div>';
         if (rd.eFired && rd.eFired.length) h += '<div style="color:#9a8;font-size:10px;">　〔發動〕' + rd.eFired.join('・') + '</div>';
       } else if (rd.eHit === false && rd.eRoll) {
         h += '<div style="color:#7b9991;font-size:11px;">◂ ' + r.def + ' 反擊被擋下</div>';
@@ -2233,7 +2236,11 @@ function renderRecentLocs(recents = null) {
     else if (r.sealEscaped) h += '<div style="color:#c79be8;margin-top:2px;">❖ 敵令咒緊急脫離、遁走</div>';
     else if (r.godRevived) h += '<div style="color:#d4af37;margin-top:2px;">✨ 十二試煉·自死亡歸來</div>';
     if (!r.destroyed && !r.sealEscaped) { h += '<div style="color:#9a8bb0;font-size:10px;margin-top:3px;">敵 ' + r.def + '</div>'; h += hpbar(r.defHp, r.defHpMax, '#d0473f'); }
-    h += '<div style="color:#9a8bb0;font-size:10px;margin-top:2px;">我 ' + r.atk + '</div>' + hpbar(r.atkHp, r.atkHpMax, '#5cb85c');
+    if (r.party && r.party.length) {
+      r.party.forEach(p => { h += '<div style="color:#9a8bb0;font-size:10px;margin-top:2px;">我 ' + p.name + '</div>' + ''; h += hpbar(p.hp, p.hpMax, '#5cb85c'); });
+    } else {
+      h += '<div style="color:#9a8bb0;font-size:10px;margin-top:2px;">我 ' + r.atk + '</div>' + hpbar(r.atkHp, r.atkHpMax, '#5cb85c');
+    }
     h += '</div></div>';
     story.insertAdjacentHTML('beforeend', h);
     story.scrollTop = story.scrollHeight;
