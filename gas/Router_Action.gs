@@ -2260,7 +2260,8 @@ function actionRest(userData, pcId, sheets) {
       if (svRow && Math.random() < 0.55) {
         const dSvName = String(svRow[COL.PC.NAME]);
         try { raiseBond_(sheets, pcName, dSvName, 3); } catch (e) { }
-        restDreamPrompt = `【系統·從者之夢·回想】御主沉沉睡去，意識卻順著與從者的靈魂聯繫，墜入「${dSvName}」成為英靈之前的記憶長河——夢見其傳說中的一個片段。\n` +
+        restDreamPrompt = servantCard_(svRow) +
+          `【系統·從者之夢·回想】御主沉沉睡去，意識卻順著與從者的靈魂聯繫，墜入「${dSvName}」成為英靈之前的記憶長河——夢見其傳說中的一個片段。\n` +
           `★以 Fate／TYPE-MOON 筆觸，用夢境／回想的朦朧史詩質感，演出「${dSvName}」這名英靈生前傳說裡的某一幕（取材自其真實的神話／史實／傳說：其榮光、抉擇、孤獨或傷痕）。讓御主（與玩家）窺見這名英靈所背負的過往與信念。\n` +
           `★【show, don't tell】以畫面與情境流露，不直接點破其願望或心結，停在夢醒前的餘韻與一絲說不清的悸動。\n` +
           `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
@@ -4195,7 +4196,8 @@ function actionFateBattle(userData, pcId, sheets) {
       `★以 Fate／TYPE-MOON 筆觸沉痛描寫這數回合廝殺後從者消滅的瞬間（一段即可），語氣留白。勝負已由系統結算。\n` +
       `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
   } else {
-    aiPrompt = `【系統戰報·已裁定，嚴禁更改勝負】御主號令${atkLabel}${useNp ? '解放寶具' : ''}${useSeal ? '·燃令咒絕對命令' : ''}出擊，與「${defC.name}」短兵相接，共 ${nRounds} 個回合的你來我往。\n` +
+    aiPrompt = servantCard_(pcData[atkIdx]) +
+      `【系統戰報·已裁定，嚴禁更改勝負】御主號令${atkLabel}${useNp ? '解放寶具' : ''}${useSeal ? '·燃令咒絕對命令' : ''}出擊，與「${defC.name}」短兵相接，共 ${nRounds} 個回合的你來我往。\n` +
       (dualAttack ? `★【雙從者協同·務必演出】我方有兩名從者並肩齊攻——請描寫二人默契夾擊、攻防交織壓制單一敵手的場面（敵以一敵二、險象環生）。\n` : "") +
       (interceptNote ? `〔護主攔截〕${interceptNote}\n` : "") +
       `${roundsBrief}\n` +
@@ -4300,6 +4302,30 @@ function actionUseSeal(userData, pcId, sheets) {
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, seals: seals, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
+// 🎭 從者「演出依據」卡：把該英靈的真名/職階/第一人稱/個性/對御主態度/陣營/六圍/技能/寶具
+//   壓成一段塞進 narration 提示詞，讓 AI 依『我們定義的角色』演出，而非通用印象（修出戲）。
+function servantCard_(row) {
+  if (!row) return "";
+  try {
+    var name = String(row[COL.PC.NAME] || "");
+    var cls = String(row[COL.PC.RANK] || row[COL.PC.CLS] || "");
+    var mem = String(row[COL.PC.MEMORY] || "");
+    var fp = (mem.match(/第一人稱「([^」]*)」/) || [])[1] || "我";
+    var toM = (mem.match(/對御主：([^|【]*)/) || [])[1] || "";
+    var prefArr = String(row[COL.PC.PREF] || "").split('、').filter(Boolean);
+    var persona = prefArr.length ? `表象「${prefArr[0] || ''}」、內裡「${prefArr[1] || ''}」、所重「${prefArr[2] || ''}」、所厭「${prefArr[3] || ''}」` : "";
+    var align = String(row[COL.PC.ALIGN] || "");
+    var np = String(row[COL.PC.MARTIAL] || "");
+    var skills = [];
+    try { var tg = JSON.parse(row[COL.PC.TAGS] || "{}"); skills = (tg.skills || []).map(function (s) { return s.n; }); } catch (e) { }
+    var six = {};
+    try { six = JSON.parse(row[COL.PC.SIX] || "{}"); } catch (e) { }
+    var sixLine = ['筋' + (six.筋力 || '?'), '耐' + (six.耐久 || '?'), '敏' + (six.敏捷 || '?'), '魔' + (six.魔力 || '?'), '運' + (six.幸運 || '?'), '寶' + (six.寶具 || '?')].join('/');
+    return `【演出依據·必讀】從者「${name}」（職階 ${cls}・陣營 ${align}）：自稱「${fp}」；對御主的態度——${toM || '依其真名'}；性格——${persona || '依其真名'}；六圍 ${sixLine}；寶具「${np}」；技能 ${skills.slice(0, 5).join('、') || '依其真名'}。\n` +
+      `★【鐵則】務必嚴格依「${name}」這名英靈的『真名身世＋上述設定』演出其自稱、口吻、神態與價值觀；絕對禁止通用、空泛、不合人設的台詞。\n`;
+  } catch (e) { return ""; }
+}
+
 // 🗝️ 取我方從者列索引：指定 wantName 則優先取該名，否則取第一個在世從者（雙從者用）
 function findPlayerServantIdx_(pcData, gameId, wantName) {
   var want = String(wantName || "").trim();
@@ -4346,7 +4372,8 @@ function actionManaSupply(userData, pcId, sheets) {
       `★以 Fate／TYPE-MOON 筆觸描寫補魔的私密一刻被突襲打斷的驚變：魔力交融的脆弱、敵襲的兇險、${ambush.destroyed ? '從者消滅的痛楚（語氣留白）' : '從者強忍重傷護住御主的瞬間'}。傷害與勝負已由系統結算。\n` +
       `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
   } else {
-    aiPrompt = `【系統·補魔已結算】御主以魔力供給「${svName}」，其魔力回復至 ${restored}/${mpMax}，羈絆微升。\n` +
+    aiPrompt = servantCard_(pcData[svIdx]) +
+      `【系統·補魔已結算】御主以魔力供給「${svName}」，其魔力回復至 ${restored}/${mpMax}，羈絆微升。\n` +
       `★以 Fate／TYPE-MOON 筆觸，溫柔且帶一絲曖昧張力地描寫這場魔力供給——御主與從者肌膚相觸、魔力交融的私密一刻：可有體溫、心跳、靠近、屏息、半句未盡的情話與心動，氛圍甜美而克制，最後 fade-to-black 留白。聚焦兩人之間悄然升溫的羈絆。\n` +
       `★【鐵律】止於唯美曖昧、點到為止；【不可】出現性器官、性交或露骨情慾描寫（那是奪杯後鑑賞的事）。演出而非複述設定；嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
   }
@@ -4420,8 +4447,9 @@ function actionBond(userData, pcId, sheets) {
       `★以 Fate／TYPE-MOON 筆觸描寫溫存被突襲撕裂的驚變與兇險，${ambush.destroyed ? '及從者消滅的痛楚（語氣留白）' : '及從者強撐重傷護主的瞬間'}。傷害與勝負已由系統結算。\n` +
       `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
   } else {
-    aiPrompt = `【系統·羈絆已結算】御主『${masterName}』與從者「${svName}」${act.label}，兩人的羈絆又深了一分（時值${band}）。\n` +
-      `★以 Fate／TYPE-MOON 筆觸寫一段（約 150~260 字）${svName} 與御主${act.frame}的場景。務必貼合「${svName}」這名英靈的性格、第一人稱與說話口吻，演出其獨有的神態與心思。\n` +
+    aiPrompt = servantCard_(pcData[svIdx]) +
+      `【系統·羈絆已結算】御主『${masterName}』與從者「${svName}」${act.label}，兩人的羈絆又深了一分（時值${band}）。\n` +
+      `★以 Fate／TYPE-MOON 筆觸寫一段（約 150~260 字）${svName} 與御主${act.frame}的場景。務必貼合上方「演出依據」中的性格、自稱與口吻，演出其獨有的神態與心思。\n` +
       `★【show, don't tell】用言行、神態、停頓去流露情感與性格，絕不可直白說出其「願望／個性／萌點」等設定詞；停在含蓄的留白。\n` +
       `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩；嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
   }

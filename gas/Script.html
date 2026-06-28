@@ -2997,6 +2997,22 @@ async function checkName(event) {
   }
 }
 
+  // ⏳ 全螢幕「處理中」遮罩：AI 生成需數秒，避免玩家以為當機
+  function showProcessing(msg) {
+    let el = document.getElementById('proc-overlay');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'proc-overlay';
+      el.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(8,6,12,0.82);';
+      el.innerHTML = '<div style="text-align:center;color:#e8dcc0;padding:24px;"><div style="width:48px;height:48px;margin:0 auto 16px;border:3px solid rgba(212,175,55,0.22);border-top-color:#d4af37;border-radius:50%;animation:procspin 0.9s linear infinite;"></div><div id="proc-msg" style="font-size:15px;letter-spacing:1px;color:#e7c873;font-weight:bold;"></div><div style="font-size:11.5px;color:#9a8bb0;margin-top:8px;">天道演化中，請稍候約 10～30 秒……</div></div>';
+      document.body.appendChild(el);
+      const st = document.createElement('style'); st.textContent = '@keyframes procspin{to{transform:rotate(360deg)}}'; document.head.appendChild(st);
+    }
+    document.getElementById('proc-msg').textContent = msg || '處理中…';
+    el.style.display = 'flex';
+  }
+  function hideProcessing() { const el = document.getElementById('proc-overlay'); if (el) el.style.display = 'none'; }
+
   async function createPC(event) {
   const name = document.getElementById('s-name').value.trim();
   const sex = document.getElementById('s-sex').value;
@@ -3005,6 +3021,7 @@ async function checkName(event) {
   const wish = document.getElementById('s-wish')?.value.trim() || "";
   const roll = masterRoll || {};
 
+  showProcessing('正在締結御主契約…');
   try {
     const data = await gasRun({ action: "create", name, sex, appearance, standing, wish, account: currentAccount,
       warMode: warMode, war: currentWar, playedMaster: playedMaster,
@@ -3028,6 +3045,8 @@ async function checkName(event) {
     }
   } catch(e) {
     alert("投胎失敗");
+  } finally {
+    hideProcessing();
   }
 }
 
@@ -3062,6 +3081,7 @@ function renderHeroList() {
   }).join('');
 }
 async function doSummon(payload) {
+  showProcessing('正在以令咒召喚英靈…');
   try {
     const data = await gasRun(Object.assign({ action: 'summon_servant', pcId: pc.id }, payload));
     if (data && data.success) {
@@ -3074,6 +3094,8 @@ async function doSummon(payload) {
     }
   } catch (e) {
     alert('召喚失敗，天道連線受阻。');
+  } finally {
+    hideProcessing();
   }
 }
 function summonByHero(id) { return doSummon({ heroId: id }); }
