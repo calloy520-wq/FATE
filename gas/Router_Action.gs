@@ -54,6 +54,7 @@ const ActionRouter = {
   "rule_break_steal": actionRuleBreakSteal,
   "propose_alliance": actionProposeAlliance,
   "break_alliance": actionBreakAlliance,
+  "ally_bond": actionAllyBond,
   "set_workshop": actionSetWorkshop,
   "scavenge": actionScavenge,
   "second_wind": actionSecondWind,
@@ -2009,12 +2010,16 @@ function actionGetMapNodes(userData, pcId, sheets) {
     const me = pcData.find(r => r[COL.PC.ID] == pcId);
     const myGameId = me ? String(me[COL.PC.GAME_ID] || "") : "";
     const myLoc = me ? String(me[COL.PC.LOC] || "").trim() : "";
+    // 🤝 情報共享：有在世盟友時，盟友通報敵蹤——無視戰爭迷霧，全圖敵人位置揭露
+    const allyIntel = hasAllyInGame_(pcData, myGameId);
     const enemyAt = {};
     pcData.slice(1).forEach(r => {
       const fac = String(r[COL.PC.FACTION]);
       if (fac !== "敵御主" && fac !== "敵從者") return;
       if (myGameId && String(r[COL.PC.GAME_ID] || "") !== myGameId) return;
-      if (!r[COL.PC.SEEN]) return;
+      if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+      if (!r[COL.PC.SEEN] && !allyIntel) return;
+      if (isAllied_(r)) return; // 盟友自身不列為敵蹤
       const loc = String(r[COL.PC.LOC] || "").trim();
       enemyAt[loc] = (enemyAt[loc] || 0) + 1;
     });
@@ -2031,7 +2036,7 @@ function actionGetMapNodes(userData, pcId, sheets) {
         here: name === myLoc, enemy: enemyAt[name] || 0
       });
     }
-    return JSON.stringify({ success: true, nodes: nodes, here: myLoc });
+    return JSON.stringify({ success: true, nodes: nodes, here: myLoc, allyIntel: allyIntel });
   } catch (e) {
     return JSON.stringify({ success: false, nodes: [], message: e.message });
   }
@@ -2062,13 +2067,14 @@ function actionGetAllCategorizedMaps(userData, pcId, sheets) {
   const allPcData = sheets.pc.getDataRange().getValues();
   const meRowMap = allPcData.find(r => r[COL.PC.ID] == pcId);
   const myGameIdMap = meRowMap ? String(meRowMap[COL.PC.GAME_ID] || "") : "";
+  const allyIntelMap = hasAllyInGame_(allPcData, myGameIdMap); // 🤝 有盟友→敵蹤全揭露
   const locCount = {};
   allPcData.slice(1).forEach(r => {
     const id = String(r[COL.PC.ID]);
     if (id.startsWith("DEAD_")) return;
     if (myGameIdMap && String(r[COL.PC.GAME_ID] || "") !== myGameIdMap) return;
     const facM = String(r[COL.PC.FACTION]);
-    if ((facM === "敵御主" || facM === "敵從者") && !r[COL.PC.SEEN]) return; // 🔵 戰爭迷霧：未偵查到的敵人不在地圖顯示
+    if ((facM === "敵御主" || facM === "敵從者") && !r[COL.PC.SEEN] && !allyIntelMap) return; // 🔵 戰爭迷霧：未偵查到的敵人不在地圖顯示（🤝 有盟友通報則揭露）
     const fullLoc = String(r[COL.PC.LOC] || "").trim();
     const rootLoc = fullLoc.split('-')[0].trim();
 
@@ -4144,6 +4150,16 @@ function actionFateBattle(userData, pcId, sheets) {
   }
   const dualAttack = partyIdxs.length > 1;
 
+  // 🤝 協同強襲（同盟背景生效）：同地盟友從者（敵從者＋盟約在身）對「共同敵人」每回合助攻一擊。
+  //   原作依據：第五次冬木·遠坂凜＆Archer 為士郎掩護夾擊、聯手圍攻 Caster／Berserker。盟友提供掩護火力，
+  //   只助攻、不被本場反擊（風險已由盟友自身承擔），讓「養同盟」在戰場上真正有感。
+  let allyAtkIdx = -1, allyAssistName = "";
+  if (targetIsFoeServant) {
+    const allyLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
+    allyAtkIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && isAllied_(r) && String(r[COL.PC.LOC]).trim() === allyLoc && r[COL.PC.ID] != pcData[nIdx][COL.PC.ID]);
+    if (allyAtkIdx !== -1) allyAssistName = String(pcData[allyAtkIdx][COL.PC.NAME]);
+  }
+
   for (let rd = 0; rd < ROUNDS; rd++) {
     if (sealEscaped || destroyedName || defeat || victory) break;
     if (String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) break;
@@ -4166,6 +4182,17 @@ function actionFateBattle(userData, pcId, sheets) {
       if (ps.godRevived) { godRevived = true; godNote = ps.godNote; }
       if (ps.victory) victory = true;
       if (destroyedName || sealEscaped) break;
+    }
+
+    // 🤝 盟友協同助攻一擊（共同敵人尚存活、本回合未分勝負才出手）
+    if (allyAtkIdx !== -1 && !String(pcData[allyAtkIdx][COL.PC.ID]).startsWith("DEAD_")
+        && !String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_") && !destroyedName && !sealEscaped && !victory) {
+      const allyC = rowToCombatant_(pcData[allyAtkIdx]);
+      const aps = fateStrike_(sheets, pcData, allyC, nIdx, {}, ctx);
+      rl.strikes.push({ by: allyC.name, ally: true, pRoll: aps.aRoll, pHitVal: aps.aHit, dRoll: aps.dRoll, dEvaVal: aps.dEva, pHit: aps.hit, pDmg: aps.hit ? aps.damage : 0, pCrit: aps.crit, pFired: aps.fired, note: "盟友協同" });
+      if (aps.destroyed) destroyedName = aps.destroyed;
+      if (aps.knocked) knockedOut.push(aps.knocked);
+      if (aps.victory) victory = true;
     }
 
     if (sealEscaped || destroyedName || victory) { rounds.push(rl); break; }
@@ -4218,6 +4245,7 @@ function actionFateBattle(userData, pcId, sheets) {
     aiPrompt = servantCard_(pcData[atkIdx]) +
       `【系統戰報·已裁定，嚴禁更改勝負】御主號令${atkLabel}${useNp ? '解放寶具' : ''}${useSeal ? '·燃令咒絕對命令' : ''}出擊，與「${defC.name}」短兵相接，共 ${nRounds} 個回合的你來我往。\n` +
       (dualAttack ? `★【雙從者協同·務必演出】我方有兩名從者並肩齊攻——請描寫二人默契夾擊、攻防交織壓制單一敵手的場面（敵以一敵二、險象環生）。\n` : "") +
+      (allyAssistName ? `★【盟友協同·務必演出】盟友從者「${allyAssistName}」依約自側翼掩護助攻、與我方從者交叉夾擊「${defC.name}」——請演出同盟並肩作戰的默契與「暫時休兵」下的微妙信任。\n` : "") +
       (interceptNote ? `〔護主攔截〕${interceptNote}\n` : "") +
       `${roundsBrief}\n` +
       `我方共造成 ${totalDealt} 傷害、受創 ${totalTaken}。最終：${finalLine}\n` +
@@ -4232,7 +4260,7 @@ function actionFateBattle(userData, pcId, sheets) {
 
   // 📊 給前端的多回合視覺戰報
   const report = {
-    atk: atkLabel, def: defC.name, rounds: rounds, intercept: !!interceptNote, dual: dualAttack,
+    atk: atkLabel, def: defC.name, rounds: rounds, intercept: !!interceptNote, dual: dualAttack, allyAssist: allyAssistName,
     useNp: useNp, useSeal: useSeal, totalDealt: totalDealt, totalTaken: totalTaken,
     destroyed: destroyedName || "", godRevived: godRevived, sealEscaped: sealEscaped, victory: victory, defeat: defeat,
     defHp: parseInt(pcData[nIdx][COL.PC.HP]) || 0, defHpMax: parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0,
@@ -4600,6 +4628,15 @@ function actionUseMystic(userData, pcId, sheets) {
 
 // ── 🤝 結盟（暫時非敵對）：盟約標記存於敵御主/敵從者列 MEMORY 的【盟約至】<day> ──
 function isAllied_(row) { return /【盟約至】\d+/.test(String(row && row[COL.PC.MEMORY] || "")); }
+// 🤝 當前世界是否尚有在世盟友（敵御主／敵從者·結盟中）——用於情報共享（無視戰爭迷霧）
+function hasAllyInGame_(pcData, gameId) {
+  for (var i = 1; i < pcData.length; i++) {
+    if (gameId && String(pcData[i][COL.PC.GAME_ID] || "") !== gameId) continue;
+    var f = String(pcData[i][COL.PC.FACTION] || "");
+    if ((f === "敵御主" || f === "敵從者") && !String(pcData[i][COL.PC.ID]).startsWith("DEAD_") && isAllied_(pcData[i])) return true;
+  }
+  return false;
+}
 function allyUntil_(row) { var m = String(row && row[COL.PC.MEMORY] || "").match(/【盟約至】(\d+)/); return m ? parseInt(m[1]) : 0; }
 function setAllyMem_(memory, untilDay) {
   var s = String(memory || "");
@@ -4709,6 +4746,93 @@ function breakStaleAlliances_(sheets, gameId) {
     }
     return { broken: broken, forced: forceAll && broken.length > 0 };
   } catch (e) { return { broken: [], forced: false }; }
+}
+
+// 取得 PC↔對象 羈絆值（無紀錄＝0）
+function getBond_(sheets, pcName, npcName) {
+  if (!sheets.rel) return 0;
+  try {
+    var rd = sheets.rel.getDataRange().getValues();
+    for (var i = 1; i < rd.length; i++) {
+      if (String(rd[i][COL.REL.PC]) === pcName && String(rd[i][COL.REL.NPC]) === npcName) return parseInt(rd[i][COL.REL.FAV]) || 0;
+    }
+  } catch (e) { }
+  return 0;
+}
+// 羈絆 +delta（無此列則新建，盟友起步約 40），回傳新值
+function bumpBond_(sheets, pcName, npcName, delta, tag) {
+  if (!sheets.rel) return 0;
+  try {
+    var rd = sheets.rel.getDataRange().getValues();
+    for (var i = 1; i < rd.length; i++) {
+      if (String(rd[i][COL.REL.PC]) === pcName && String(rd[i][COL.REL.NPC]) === npcName) {
+        var v = Math.max(0, Math.min(100, (parseInt(rd[i][COL.REL.FAV]) || 0) + delta));
+        sheets.rel.getRange(i + 1, COL.REL.FAV + 1).setValue(v);
+        return v;
+      }
+    }
+    var nv = Math.max(0, Math.min(100, 40 + delta));
+    sheets.rel.appendRow([pcName, npcName, nv, tag || "盟友", "", "聖杯戰爭中暫時結盟、漸生交情", ""]);
+    return nv;
+  } catch (e) { return 0; }
+}
+
+// 🤝 與盟友共處／共濟魔力：對同地盟友（敵御主或敵從者·結盟中）交流增進羈絆——同盟的「交流」維度。
+//   原作依據：聖杯戰爭中的同盟羈絆（遠坂凜↔士郎並肩信賴、共通後勤）。羈絆養至 90↑ → 戰後可納入鑑賞名冊。
+//   ★此處僅止於 SFW 的信賴／曖昧鋪陳（fade）；真・親密一律留給戰後鑑賞世界，絕不在戰場開啟慾海引擎。
+function actionAllyBond(userData, pcId, sheets) {
+  const npcName = String(userData.npcName || "").trim();
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
+  const aIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).includes(npcName)
+    && (String(r[COL.PC.FACTION]) === "敵御主" || String(r[COL.PC.FACTION]) === "敵從者")
+    && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_")
+    && isAllied_(r) && String(r[COL.PC.LOC]).trim() === myLoc);
+  if (aIdx === -1) return JSON.stringify({ success: false, message: "此地沒有可交流的盟友——須與盟友同處一地。" });
+
+  const isFate = myGameId.indexOf("g_") === 0;
+  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以從容相處——請『休息』恢復後再來。" });
+
+  const masterName = String(pcData[pIdx][COL.PC.NAME]);
+  const allyName = String(pcData[aIdx][COL.PC.NAME]);
+  const allyIsMaster = String(pcData[aIdx][COL.PC.FACTION]) === "敵御主";
+  const allyPref = String(pcData[aIdx][COL.PC.PREF] || "神祕莫測");
+
+  let ap = AP_PER_DAY, clock = "";
+  if (isFate) { try { ap = spendAp_(myGameId, 1).ap; clock = clockLabel_(myGameId); } catch (e) { } }
+
+  // ⚔️ 卸防突襲：與盟友交流時門戶大開，同地若有「未結盟」敵從者→趁隙重擊我方從者
+  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, userData, 1.3);
+  if (ambush) {
+    const aiPromptA = `【系統·盟誼遭突襲·已裁定】御主『${masterName}』正與盟友「${allyName}」交心共處、卸下戒備之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠貫入我方從者（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
+      `★以 Fate／TYPE-MOON 筆觸描寫盟誼的私密一刻被突襲撕裂的驚變${ambush.destroyed ? '、從者消滅的痛楚（語氣留白）' : '、從者強撐重傷護主的瞬間'}。傷害與勝負已由系統結算。\n` +
+      `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+    return JSON.stringify({ success: true, aiPrompt: aiPromptA, clock: clock, ap: ap, apMax: AP_PER_DAY, ambush: true, defeat: ambush.defeat, dreamPrompt: ambush.dreamPrompt || "", statusString: getFreshStatusString(pcId, pIdx, sheets) });
+  }
+
+  const gain = 6 + Math.floor(Math.random() * 6); // +6~11
+  const after = bumpBond_(sheets, masterName, allyName, gain, allyIsMaster ? "盟友御主" : "盟友從者");
+  let unlocked = false;
+  if (after >= 90 && !/【鑑賞緣】/.test(String(pcData[aIdx][COL.PC.MEMORY] || ""))) {
+    pcData[aIdx][COL.PC.MEMORY] = String(pcData[aIdx][COL.PC.MEMORY] || "") + "｜【鑑賞緣】";
+    sheets.pc.getRange(aIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[aIdx][COL.PC.MEMORY]);
+    unlocked = true;
+  }
+
+  const roleWord = allyIsMaster ? "盟友御主" : "盟友從者";
+  const sceneFrame = allyIsMaster
+    ? "在共同陣線的間隙裡並肩共處——交換情報、互通魔力後勤、半是試探半是真心的對談，戒備的縫隙裡悄然透出一絲信賴與暖意"
+    : "在暫時休兵的空檔與盟友從者交流——切磋見識、互補魔力消長、卸下一分敵我之防後流露的惺惺相惜";
+  const aiPrompt = `【系統·盟誼已結算】御主『${masterName}』與${roleWord}「${allyName}」${allyIsMaster ? '共處' : '交流'}，兩人之間的羈絆又深了一分（現約 ${after}／100）。\n` +
+    `〈對方性格參考·僅供你內化揣摩，嚴禁在敘事中複述或借其口直接說出〉：${allyPref}\n` +
+    `★以 Fate／TYPE-MOON 筆觸寫一段【精煉 90~140 字、含蓄克制】「${allyName}」與御主${sceneFrame}的小品。對方仍是「暫時」的盟友，請在暖意中留一絲算計與保留的伏筆。\n` +
+    `★【show, don't tell】用言行、神態、停頓流露情感與性格，絕不可直白說出其願望／個性／萌點等設定詞。\n` +
+    (unlocked ? `★【羈絆已臻深處】此刻兩人之間已生出超越同盟的牽絆——請在結尾以一個眼神或半句未盡之言，含蓄點出這份情誼已悄然越過了「暫時」的界線（仍止於曖昧留白，不踰矩）。\n` : "") +
+    `★【鐵律】止於唯美含蓄、點到為止（真・親密是奪杯後鑑賞的事）；嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+  return JSON.stringify({ success: true, aiPrompt: aiPrompt, bond: after, unlocked: unlocked, ally: allyName, clock: clock, ap: ap, apMax: AP_PER_DAY, ambush: false, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
 // 🗝️ 破戒奪僕：對「打殘(HP<35%)的敵從者」斬契奪為第二從者（需破戒之力＋燃一道令咒；上限 2 名從者）
