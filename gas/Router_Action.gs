@@ -70,6 +70,7 @@ const ActionRouter = {
   "get_faction_info": actionGetFactionInfo,
   "get_epic_history": actionGetEpicHistory,
   "get_ranking": actionGetRanking,
+  "leaderboard": actionLeaderboard,
   "promote_rank": actionPromoteRank,
   "create_faction": actionCreateFaction,
   "home_get": actionHomeGet,
@@ -3948,7 +3949,7 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
       if (isFoeSv && aliveEnemyServants_(sheets, ctx.myGameId) <= 0) {
         out.victory = true;
         var acctW = String(ctx.userData.acctName || "");
-        if (acctW) { incrementWin_(acctW); recordHistory_(acctW, "勝", atkC.name, `「${atkC.name}」斬盡所有敵對從者，奪得聖杯。`); }
+        if (acctW) { incrementWin_(acctW); recordHistory_(acctW, "勝", atkC.name, `「${atkC.name}」斬盡所有敵對從者，奪得聖杯。`); recordWinSpeed_(acctW, ctx.myGameId); }
       }
     }
   } else {
@@ -4050,7 +4051,7 @@ function actionFateBattle(userData, pcId, sheets) {
       if (aliveEnemyServants_(sheets, myGameId) <= 0) {
         asnVictory = true;
         const acctW = String(userData.acctName || "");
-        if (acctW) { incrementWin_(acctW); recordHistory_(acctW, "勝", crit.name, `「${crit.name}」奇襲斬首敵御主「${masterName}」，奪得聖杯。`); }
+        if (acctW) { incrementWin_(acctW); recordHistory_(acctW, "勝", crit.name, `「${crit.name}」奇襲斬首敵御主「${masterName}」，奪得聖杯。`); recordWinSpeed_(acctW, myGameId); }
       }
       asnReport = {
         assassination: true, success: true, aRoll: 20, rolls: rolls.map(r => ({ name: r.name, roll: r.roll })), dual: dualAsn,
@@ -4606,7 +4607,7 @@ function actionUseMystic(userData, pcId, sheets) {
           sheets.pc.getRange(gIdx + 1, 1, 1, pcData[gIdx].length).setValues([pcData[gIdx]]);
         }
         report.masterKilled = true;
-        if (aliveEnemyServants_(sheets, myGameId) <= 0) { report.victory = true; if (ctx.acctName) { incrementWin_(ctx.acctName); recordHistory_(ctx.acctName, "勝", ctx.masterName, "以起源彈狙殺敵御主，奪得聖杯。"); } }
+        if (aliveEnemyServants_(sheets, myGameId) <= 0) { report.victory = true; if (ctx.acctName) { incrementWin_(ctx.acctName); recordHistory_(ctx.acctName, "勝", ctx.masterName, "以起源彈狙殺敵御主，奪得聖杯。"); recordWinSpeed_(ctx.acctName, myGameId); } }
         aiCore = `${code.flavor}子彈貫入敵御主「${tgtName}」，魔術迴路碎裂、當場斃命${report.fade ? `，其從者「${report.fade}」失去魔力供給、隨之消散` : ""}。`;
       } else {
         pcData[nIdx][COL.PC.HP] = mafter; sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);

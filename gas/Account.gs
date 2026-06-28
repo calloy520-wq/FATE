@@ -147,6 +147,67 @@ function recordHistory_(accountName, result, servant, summary) {
   his.appendRow([name, String(result || ""), String(servant || ""), String(summary || ""), new Date()]);
 }
 
+// 🏆 記錄「最快奪杯日數」（取 min 更新）：勝利時由 game_id 讀時鐘當前遊戲日。game_id 空/無時鐘則略過。
+function recordWinSpeed_(accountName, gameId) {
+  try {
+    var name = String(accountName || "").trim();
+    if (!name) return;
+    var clk = getClock_(gameId);
+    if (!clk) return;
+    var days = parseInt(clk.day) || 0;
+    if (days <= 0) return;
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var acc = ss.getSheetByName("帳號");
+    if (!acc) return;
+    // 補表頭（本版新增欄，冪等）
+    try { if (String(acc.getRange(1, COL.ACC.BEST_DAYS + 1).getValue() || "") === "") acc.getRange(1, COL.ACC.BEST_DAYS + 1).setValue("最快奪杯日"); } catch (e) { }
+    var found = findAccountRow_(acc, name);
+    if (!found) return;
+    var prev = parseInt(found.row[COL.ACC.BEST_DAYS]) || 0;
+    if (prev <= 0 || days < prev) acc.getRange(found.idx + 1, COL.ACC.BEST_DAYS + 1).setValue(days);
+  } catch (e) { }
+}
+
+// 🏆 排行榜（以帳號為單位，只撈持久層：帳號表勝場/最快奪杯/建立時間 ＋ 鑑賞圖鑑數）
+function actionLeaderboard(userData, pcId, sheets) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var acc = ss.getSheetByName("帳號");
+    if (!acc) return JSON.stringify({ success: true, rows: [] });
+    var accData = acc.getDataRange().getValues();
+    // 鑑賞圖鑑數（每帳號封存的從者數）
+    var galCount = {};
+    var gal = ss.getSheetByName("鑑賞");
+    if (gal) {
+      var gd = gal.getDataRange().getValues();
+      for (var i = 1; i < gd.length; i++) {
+        var ga = String(gd[i][COL.GAL.ACC] || "").trim();
+        if (ga) galCount[ga] = (galCount[ga] || 0) + 1;
+      }
+    }
+    var me = String(userData.acctName || "").trim();
+    var rows = [];
+    for (var r = 1; r < accData.length; r++) {
+      var nm = String(accData[r][COL.ACC.NAME] || "").trim();
+      if (!nm) continue;
+      var won = parseInt(accData[r][COL.ACC.WON]) || 0;
+      var best = parseInt(accData[r][COL.ACC.BEST_DAYS]) || 0;
+      var created = accData[r][COL.ACC.CREATED];
+      var createdStr = "";
+      try { createdStr = (created instanceof Date) ? Utilities.formatDate(created, Session.getScriptTimeZone(), "yyyy-MM-dd") : String(created || ""); } catch (e) { }
+      rows.push({ name: nm, wins: won, bestDays: best, gallery: galCount[nm] || 0, created: createdStr, isMe: (nm === me) });
+    }
+    // 排序：勝場↓ → 最快奪杯↑(0=未達標排後) → 圖鑑↓
+    rows.sort(function (a, b) {
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      var ab = a.bestDays || 99999, bb = b.bestDays || 99999;
+      if (ab !== bb) return ab - bb;
+      return b.gallery - a.gallery;
+    });
+    return JSON.stringify({ success: true, rows: rows.slice(0, 100), me: me });
+  } catch (e) { return JSON.stringify({ success: false, message: String(e) }); }
+}
+
 // 勝利歷史（帳號勝場 + 戰史明細，新到舊）
 function actionGetVictoryHistory(userData, pcId, sheets) {
   var name = String(userData.acctName || "").trim();
