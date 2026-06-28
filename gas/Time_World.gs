@@ -231,12 +231,14 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
     var data = sheets.pc.getDataRange().getValues();
 
     // 1) 敵御主帶著從者隨機移位（機率 35%），移走者重設偵查旗標→地圖再次隱形
+    var freezeLoc = String(playerLoc || "").trim(); // 🔒 玩家所在/將抵達的格子上的敵人禁止移動，否則玩家永遠追不到人
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][COL.PC.FACTION]) !== "敵御主") continue;
       if (String(data[i][COL.PC.GAME_ID] || "") !== gameId) continue;
       if (String(data[i][COL.PC.ID]).startsWith("DEAD_")) continue;
-      if (Math.random() >= 0.35) continue;
       var oldLoc = String(data[i][COL.PC.LOC]).trim();
+      if (freezeLoc && oldLoc === freezeLoc) continue; // 敵在玩家格上→鎖住，留給玩家正面遭遇
+      if (Math.random() >= 0.35) continue;
       var newLoc = enemyRetreatLoc_(oldLoc);
       if (newLoc === oldLoc) continue;
       data[i][COL.PC.LOC] = newLoc;
