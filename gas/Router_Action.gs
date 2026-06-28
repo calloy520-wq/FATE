@@ -1592,9 +1592,12 @@ function actionManualNpc(userData, pcId, sheets) {
         if (mysticId) newRow[COL.PC.MEMORY] = equipMysticToMemory_(newRow[COL.PC.MEMORY], mysticId);
       } catch (e) { }
     }
-    // 🔴 NPC 初始銀兩依境界給(玩家創角固定 50)，錢有變化、高人更富
+    // 🔴 NPC 初始銀兩依境界給；玩家創角依【身世／財力】裁定（名門富、平民窮、一般中庸）
     if (isCreate) {
-      newRow[COL.PC.MONEY] = 150;
+      var standStr = String(standing || identity || "");
+      if (/鐘塔|貴族|名門|富|世家|豪|大魔術師|君主|繼承|聖堂|教會|協會菁英|揮金/.test(standStr)) newRow[COL.PC.MONEY] = 300 + Math.floor(Math.random() * 200); // 名門富裕 300~500
+      else if (/平民|學徒|孤兒|貧|流浪|無名|散|庶民|養子|清寒|苦/.test(standStr)) newRow[COL.PC.MONEY] = 40 + Math.floor(Math.random() * 40); // 清貧 40~80
+      else newRow[COL.PC.MONEY] = 120 + Math.floor(Math.random() * 80); // 一般 120~200
     } else {
       const rk = REALMS.indexOf(targetRealm);
       let lo, hi;

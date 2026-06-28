@@ -1008,7 +1008,9 @@ function renderRecentLocs(recents = null) {
     hud.innerHTML = html;
     hud.style.display = 'block';
   }
-  // ⚔️ 戰爭行動列：取代輸入框，永遠告訴玩家此刻能做什麼（此地敵蹤→出戰，偵查/補魔/休息）。
+  // ⚔️ 戰爭行動列（手風琴收攏）：每個目標收成一張卡，點開才展開後續行動，避免按鈕爆量。
+  var warExpanded = null; // 目前展開的目標 key（name）
+  function toggleWarTarget(key) { warExpanded = (warExpanded === key) ? null : key; renderWarActions(); }
   function renderWarActions() {
     const bar = document.getElementById('war-actions');
     if (!bar) return;
@@ -1016,50 +1018,65 @@ function renderRecentLocs(recents = null) {
     const foes = (localNPCs || []).filter(n => n && n.isExact && (n.faction === '敵御主' || n.faction === '敵從者'));
     const allies = (localNPCs || []).filter(n => n && n.isExact && (n.faction === '盟友御主' || n.faction === '盟友從者'));
     const chip = (label, onclick, rgb) => '<button onclick="' + onclick + '" style="flex:1; min-width:78px; font-size:12px; padding:8px 5px; background:rgba(' + rgb + ',0.15); color:rgb(' + rgb + '); border:1px solid rgba(' + rgb + ',0.55); border-radius:8px; cursor:pointer; font-weight:bold;">' + label + '</button>';
-    let h = '';
     const st = attackStyle_();
-    // 🤝 此地盟友：顯示為盟友、不可攻擊，可撕毀盟約
+    const canMystic = myMystic && myMystic.type === 'active' && myMystic.charges > 0;
+    // 單一目標時自動展開，省一次點擊；多目標一律收攏
+    const total = foes.length + allies.length;
+    const autoKey = (total === 1) ? String((foes[0] || allies[0]).name) : null;
+    const isOpen = (key) => (warExpanded === key) || (warExpanded === null && key === autoKey);
+    // 一張可收合的目標卡：accent 邊框色、emo+標題、展開後的行動 html
+    const card = (key, accent, bg, titleHtml, actionsHtml) => {
+      const open = isOpen(key);
+      const sk = key.replace(/'/g, '');
+      return '<div style="flex:1 0 100%; border:1px solid ' + accent + '; border-radius:9px; margin-bottom:3px; overflow:hidden; background:' + bg + ';">'
+        + '<button onclick="toggleWarTarget(\'' + sk + '\')" style="width:100%; text-align:left; padding:9px 11px; background:transparent; border:none; cursor:pointer; display:flex; align-items:center; gap:8px; color:inherit; font-family:inherit;">'
+        +   titleHtml + '<span style="margin-left:auto; opacity:.55; font-size:13px;">' + (open ? '▴ 收合' : '▾ 展開') + '</span>'
+        + '</button>'
+        + (open ? '<div style="padding:0 7px 8px; display:flex; gap:5px; flex-wrap:wrap;">' + actionsHtml + '</div>' : '')
+        + '</div>';
+    };
+    let h = '';
+    // 🤝 盟友卡
     allies.forEach(a => {
       const sa = String(a.name).replace(/'/g, '');
       const bond = Math.max(0, Math.min(100, parseInt(a.relVal) || 0));
       const eligible = bond >= 90;
-      h += '<div style="flex:1 0 100%; border:1px solid rgba(90,170,120,.5); border-radius:9px; padding:6px 9px; margin-bottom:2px; background:rgba(20,45,28,.25);">'
-        + '<div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">'
-        +   '<span style="color:#8fd0a0; font-size:12.5px; font-weight:bold; flex:1;">🤝 盟友 ' + a.name + ' <small style="opacity:.6;">' + (a.faction === '盟友御主' ? '御主' : '從者') + '·暫時休兵</small></span>'
-        +   '<button onclick="breakAlliance(\'' + sa + '\')" style="font-size:11px; padding:4px 8px; background:rgba(165,42,42,.18); color:#e08a8a; border:1px solid #a05050; border-radius:7px; cursor:pointer;">💔 撕毀</button>'
-        + '</div>'
-        + '<div style="display:flex; align-items:center; gap:7px;">'
+      const title = '<span style="color:#8fd0a0; font-size:13px; font-weight:bold;">🤝 盟友 ' + a.name + '</span> <small style="color:#8fd0a0; opacity:.6;">' + (a.faction === '盟友御主' ? '御主' : '從者') + '·休兵 ·羈絆' + bond + (eligible ? '·鑑賞緣' : '/90') + '</small>';
+      const acts = '<div style="flex:1 0 100%; display:flex; align-items:center; gap:7px; margin-bottom:2px;">'
         +   '<div style="flex:1; height:7px; background:rgba(255,255,255,.08); border-radius:4px; overflow:hidden;"><div style="height:100%; width:' + bond + '%; background:linear-gradient(90deg,#5aaa78,#8fd0a0);"></div></div>'
         +   '<small style="color:' + (eligible ? '#e8c873' : '#8fa0b0') + '; font-size:10.5px; white-space:nowrap;">羈絆 ' + bond + (eligible ? ' ·鑑賞緣已結' : '/90') + '</small>'
         + '</div>'
-        + '<button onclick="allyBond(\'' + sa + '\')" title="與盟友共處／共濟魔力：增進羈絆，養至 90 戰後可納入鑑賞" style="width:100%; margin-top:6px; font-size:12px; padding:7px; background:rgba(90,170,120,.16); color:#8fd0a0; border:1px solid #4ea56a; border-radius:7px; cursor:pointer; font-weight:bold;">🤝 與盟友共處 <small style="opacity:.7;">耗1AP·增羈絆</small></button>'
-        + '</div>';
+        + '<button onclick="allyBond(\'' + sa + '\')" title="與盟友共處／共濟魔力：增進羈絆，養至 90 戰後可納入鑑賞" style="flex:2; min-width:120px; font-size:12px; padding:7px; background:rgba(90,170,120,.16); color:#8fd0a0; border:1px solid #4ea56a; border-radius:7px; cursor:pointer; font-weight:bold;">🤝 與盟友共處 <small style="opacity:.7;">耗1AP</small></button>'
+        + '<button onclick="breakAlliance(\'' + sa + '\')" style="flex:1; min-width:80px; font-size:11.5px; padding:7px; background:rgba(165,42,42,.18); color:#e08a8a; border:1px solid #a05050; border-radius:7px; cursor:pointer; font-weight:bold;">💔 撕毀盟約</button>';
+      h += card(String(a.name), 'rgba(90,170,120,.5)', 'rgba(20,45,28,.25)', title, acts);
     });
+    // ⚔️ 敵蹤卡
     foes.forEach(f => {
       const safe = String(f.name).replace(/'/g, '');
-      const canMystic = myMystic && myMystic.type === 'active' && myMystic.charges > 0;
       if (f.faction === '敵御主') {
-        h += '<button onclick="servantStrike(\'' + safe + '\', false, false, true)" style="flex:1 0 100%; font-size:13px; padding:9px; background:linear-gradient(90deg,rgba(120,30,90,.32),rgba(80,20,60,.18)); color:#e8b0d8; border:1px solid #a0307a; border-radius:8px; cursor:pointer; font-weight:bold;">🗡️ 刺殺御主 ' + f.name + ' <small style="opacity:.65;">敵御主·須擲20</small></button>';
-        h += '<button onclick="proposeAlliance(\'' + safe + '\')" title="交涉結盟：暫時休兵互不侵犯（成敗由對方性格與戰局而定）" style="flex:1 0 100%; font-size:12.5px; padding:8px; background:rgba(90,170,120,.14); color:#8fd0a0; border:1px solid #4ea56a; border-radius:8px; cursor:pointer; font-weight:bold;">🤝 交涉結盟 ' + f.name + '</button>';
+        const title = '<span style="color:#e8b0d8; font-size:13px; font-weight:bold;">🎭 敵御主 ' + f.name + '</span> <small style="color:#e8b0d8; opacity:.55;">刺殺須擲20</small>';
+        let acts = '<button onclick="servantStrike(\'' + safe + '\', false, false, true)" style="flex:1 0 100%; font-size:13px; padding:9px; background:linear-gradient(90deg,rgba(120,30,90,.32),rgba(80,20,60,.18)); color:#e8b0d8; border:1px solid #a0307a; border-radius:8px; cursor:pointer; font-weight:bold;">🗡️ 刺殺御主 <small style="opacity:.65;">須護衛盡除或擲20</small></button>'
+          + '<button onclick="proposeAlliance(\'' + safe + '\')" title="交涉結盟：暫時休兵互不侵犯（成敗由對方性格與戰局而定）" style="flex:1 0 100%; font-size:12.5px; padding:8px; background:rgba(90,170,120,.14); color:#8fd0a0; border:1px solid #4ea56a; border-radius:8px; cursor:pointer; font-weight:bold;">🤝 交涉結盟</button>';
         if (canMystic && myMystic.target === 'master') {
-          h += '<button onclick="mysticStrike(\'' + safe + '\')" title="' + (myMystic.desc || '').replace(/"/g, '') + '" style="flex:1 0 100%; font-size:12.5px; padding:8px; background:rgba(127,208,192,.16); color:#7fd0c0; border:1px solid #4ea596; border-radius:8px; cursor:pointer; font-weight:bold;">✨ 禮裝·' + myMystic.name + ' <small style="opacity:.7;">狙御主·充能' + myMystic.charges + '</small></button>';
+          acts += '<button onclick="mysticStrike(\'' + safe + '\')" title="' + (myMystic.desc || '').replace(/"/g, '') + '" style="flex:1 0 100%; font-size:12.5px; padding:8px; background:rgba(127,208,192,.16); color:#7fd0c0; border:1px solid #4ea596; border-radius:8px; cursor:pointer; font-weight:bold;">✨ 禮裝·' + myMystic.name + ' <small style="opacity:.7;">狙御主·充能' + myMystic.charges + '</small></button>';
         }
+        h += card(String(f.name), 'rgba(160,48,122,.5)', 'rgba(40,16,34,.25)', title, acts);
       } else {
-        // 拆開顯示：基礎攻擊（依職階：近戰／魔砲／狙擊）＋ 寶具 ＋ 令咒，一目了然
-        h += '<div style="flex:1 0 100%; border:1px solid rgba(165,42,42,.5); border-radius:9px; padding:6px; margin-bottom:2px; background:rgba(50,18,18,.22);">'
-          + '<div style="color:#e8b0b0; font-size:12px; font-weight:bold; margin-bottom:5px; text-align:center;">敵從者 ' + f.name + (f.intelCls ? ' <small style="color:#8fd0a0; opacity:.85;">〔' + f.intelCls + '·盟友通報〕</small>' : '') + '</div>'
-          + '<div style="display:flex; gap:5px;">'
-          + '<button onclick="servantStrike(\'' + safe + '\', false)" title="' + st.hint + '" style="flex:2; font-size:12.5px; padding:8px 4px; background:linear-gradient(90deg,rgba(' + st.rgb + ',.34),rgba(' + st.rgb + ',.16)); color:' + st.col + '; border:1px solid rgb(' + st.rgb + '); border-radius:7px; cursor:pointer; font-weight:bold;">' + st.emo + ' ' + st.name + '</button>'
-          + '<button onclick="servantStrike(\'' + safe + '\', true)" title="解放寶具" style="flex:1; font-size:12px; padding:8px 4px; background:rgba(212,175,55,.15); color:#e7c873; border:1px solid #d4af37; border-radius:7px; cursor:pointer; font-weight:bold;">💥 寶具</button>'
-          + '<button onclick="servantStrike(\'' + safe + '\', false, true)" title="令咒・絕對命令（必中）" style="flex:1; font-size:12px; padding:8px 4px; background:rgba(176,108,208,.15); color:#c79be8; border:1px solid #b06cd0; border-radius:7px; cursor:pointer; font-weight:bold;">❖ 令咒</button>'
-          + '</div>'
-          + ((canMystic && myMystic.target === 'servant') ? ('<button onclick="mysticStrike(\'' + safe + '\')" title="' + (myMystic.desc || '').replace(/"/g, '') + '" style="width:100%; margin-top:5px; font-size:12px; padding:7px; background:rgba(127,208,192,.16); color:#7fd0c0; border:1px solid #4ea596; border-radius:7px; cursor:pointer; font-weight:bold;">✨ 禮裝·' + myMystic.name + ' <small style="opacity:.7;">充能' + myMystic.charges + '·需迴路' + myMystic.req + '</small></button>') : '')
-          + ((myCanRB && myServants.length < 2 && myMasterSeals > 0) ? ('<button onclick="ruleBreakSteal(\'' + safe + '\')" title="破戒奪僕：對打殘(HP<35%)的敵從者斬契奪為第二從者，燃一道令咒" style="width:100%; margin-top:5px; font-size:12px; padding:7px; background:rgba(176,108,208,.16); color:#d0a0e8; border:1px solid #8a5fb0; border-radius:7px; cursor:pointer; font-weight:bold;">⛓ 破戒奪僕 <small style="opacity:.7;">須打殘至35%＋燃令咒</small></button>') : '')
-          + '</div>';
+        const title = '<span style="color:#e8b0b0; font-size:13px; font-weight:bold;">⚔️ 敵從者 ' + f.name + '</span>' + (f.intelCls ? ' <small style="color:#8fd0a0; opacity:.85;">〔' + f.intelCls + '·通報〕</small>' : '');
+        let acts = '<button onclick="servantStrike(\'' + safe + '\', false)" title="' + st.hint + '" style="flex:2; min-width:110px; font-size:12.5px; padding:8px 4px; background:linear-gradient(90deg,rgba(' + st.rgb + ',.34),rgba(' + st.rgb + ',.16)); color:' + st.col + '; border:1px solid rgb(' + st.rgb + '); border-radius:7px; cursor:pointer; font-weight:bold;">' + st.emo + ' ' + st.name + '</button>'
+          + '<button onclick="servantStrike(\'' + safe + '\', true)" title="解放寶具" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(212,175,55,.15); color:#e7c873; border:1px solid #d4af37; border-radius:7px; cursor:pointer; font-weight:bold;">💥 寶具</button>'
+          + '<button onclick="servantStrike(\'' + safe + '\', false, true)" title="令咒・絕對命令（必中）" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(176,108,208,.15); color:#c79be8; border:1px solid #b06cd0; border-radius:7px; cursor:pointer; font-weight:bold;">❖ 令咒</button>';
+        if (canMystic && myMystic.target === 'servant') {
+          acts += '<button onclick="mysticStrike(\'' + safe + '\')" title="' + (myMystic.desc || '').replace(/"/g, '') + '" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(127,208,192,.16); color:#7fd0c0; border:1px solid #4ea596; border-radius:7px; cursor:pointer; font-weight:bold;">✨ 禮裝·' + myMystic.name + ' <small style="opacity:.7;">充能' + myMystic.charges + '·需迴路' + myMystic.req + '</small></button>';
+        }
+        if (myCanRB && myServants.length < 2 && myMasterSeals > 0) {
+          acts += '<button onclick="ruleBreakSteal(\'' + safe + '\')" title="破戒奪僕：對打殘(HP<35%)的敵從者斬契奪為第二從者，燃一道令咒" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(176,108,208,.16); color:#d0a0e8; border:1px solid #8a5fb0; border-radius:7px; cursor:pointer; font-weight:bold;">⛓ 破戒奪僕 <small style="opacity:.7;">須打殘至35%＋燃令咒</small></button>';
+        }
+        h += card(String(f.name), 'rgba(165,42,42,.5)', 'rgba(50,18,18,.22)', title, acts);
       }
     });
-    if (!foes.length) h += '<div style="flex:1 0 100%; text-align:center; color:#6a5f80; font-size:11.5px; padding:1px 0 3px;">此地暫無敵蹤——可偵查、補魔整備，或往地圖移動</div>';
-    // 💧補魔／💕羈絆 移到左側「標籤」狀態面板（與從者卡同處）；此列只留戰場即時行動
+    if (!foes.length && !allies.length) h += '<div style="flex:1 0 100%; text-align:center; color:#6a5f80; font-size:11.5px; padding:1px 0 5px;">此地暫無敵蹤——可偵查、補魔整備，或往地圖移動</div>';
+    // 底部固定行動（永遠可見）：💧補魔／💕羈絆 在左側狀態面板，此列只留戰場即時行動
     h += chip('🔍 偵查', 'scout()', '127,199,199');
     h += chip('🛏️ 休息', 'openRestMenu()', '169,169,216');
     h += chip('🗺️ 移動', "showGamePane('map')", '159,192,239');
