@@ -4096,44 +4096,67 @@ function actionFateBattle(userData, pcId, sheets) {
   const ctx = { myGameId: myGameId, pIdx: pIdx, userData: userData };
   const targetIsFoeServant = String(pcData[nIdx][COL.PC.FACTION]) === "敵從者";
 
+  // 🗝️ 雙從者齊攻：收齊所有在世我方從者（出戰中 atkIdx 排第一；寶具/令咒只加在他身上）。每回合每名各出一擊。
+  const partyIdxs = [];
+  for (let pi = 1; pi < pcData.length; pi++) {
+    if (String(pcData[pi][COL.PC.FACTION]) === "從者" && String(pcData[pi][COL.PC.GAME_ID] || "") === myGameId && !String(pcData[pi][COL.PC.ID]).startsWith("DEAD_")) {
+      if (pi === atkIdx) partyIdxs.unshift(pi); else partyIdxs.push(pi);
+    }
+  }
+  const dualAttack = partyIdxs.length > 1;
+
   for (let rd = 0; rd < ROUNDS; rd++) {
     if (sealEscaped || destroyedName || defeat || victory) break;
-    if (String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_") || String(pcData[atkIdx][COL.PC.ID]).startsWith("DEAD_")) break;
+    if (String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) break;
+    const livingParty = partyIdxs.filter(i => !String(pcData[i][COL.PC.ID]).startsWith("DEAD_"));
+    if (!livingParty.length) break;
     const opening = (rd === 0);
+    const rl = { n: rd + 1, strikes: [], eHit: false, eDmg: 0, eRoll: 0, eHitVal: 0, eFired: [], eTarget: "" };
 
-    // ── 我方出擊 ──
-    const ps = fateStrike_(sheets, pcData, atkC, nIdx, { np: opening && useNp, seal: opening && useSeal }, ctx);
-    const rl = {
-      n: rd + 1, pRoll: ps.aRoll, pHitVal: ps.aHit, dRoll: ps.dRoll, dEvaVal: ps.dEva,
-      pHit: ps.hit, pDmg: ps.hit ? ps.damage : 0, pCrit: ps.crit, pFired: ps.fired,
-      note: ps.sealNote || ps.godNote || "", eHit: false, eDmg: 0, eRoll: 0, eHitVal: 0, eFired: []
-    };
-    if (ps.destroyed) destroyedName = ps.destroyed;
-    if (ps.knocked) knockedOut.push(ps.knocked);
-    if (ps.sealEscaped) { sealEscaped = true; sealNote = ps.sealNote; }
-    if (ps.godRevived) { godRevived = true; godNote = ps.godNote; }
-    if (ps.victory) victory = true;
+    // ── 我方出擊（每名在世從者各出一擊）──
+    for (let k = 0; k < livingParty.length; k++) {
+      const sidx = livingParty[k];
+      if (String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) break;
+      const sC = rowToCombatant_(pcData[sidx]);
+      const isActive = (sidx === atkIdx);
+      const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && useNp && isActive, seal: opening && useSeal && isActive }, ctx);
+      rl.strikes.push({ by: sC.name, pRoll: ps.aRoll, pHitVal: ps.aHit, dRoll: ps.dRoll, dEvaVal: ps.dEva, pHit: ps.hit, pDmg: ps.hit ? ps.damage : 0, pCrit: ps.crit, pFired: ps.fired, note: ps.sealNote || ps.godNote || "" });
+      if (ps.destroyed) destroyedName = ps.destroyed;
+      if (ps.knocked) knockedOut.push(ps.knocked);
+      if (ps.sealEscaped) { sealEscaped = true; sealNote = ps.sealNote; }
+      if (ps.godRevived) { godRevived = true; godNote = ps.godNote; }
+      if (ps.victory) victory = true;
+      if (destroyedName || sealEscaped) break;
+    }
 
-    if (sealEscaped || destroyedName) { rounds.push(rl); break; }
+    if (sealEscaped || destroyedName || victory) { rounds.push(rl); break; }
 
-    // ── 敵反擊 ──（敵從者尚存活才回擊；空手敵御主不反擊）
+    // ── 敵反擊 ──（敵從者尚存活才回擊；打出戰中從者，若已亡則改打另一在世從者；空手敵御主不反擊）
     if (targetIsFoeServant && !String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) {
-      const enemyNow = rowToCombatant_(pcData[nIdx]);
-      const es = fateStrike_(sheets, pcData, enemyNow, atkIdx, { counterMul: 0.85 }, ctx);
-      rl.eHit = es.hit; rl.eRoll = es.aRoll; rl.eHitVal = es.aHit; rl.eDmg = es.hit ? es.damage : 0; rl.eFired = es.fired;
-      if (es.defeat) { defeat = true; victory = false; dreamPrompt = es.dreamPrompt; }
+      let ctgt = atkIdx;
+      if (String(pcData[ctgt][COL.PC.ID]).startsWith("DEAD_")) {
+        const alt = partyIdxs.find(i => !String(pcData[i][COL.PC.ID]).startsWith("DEAD_"));
+        if (alt != null) ctgt = alt;
+      }
+      if (!String(pcData[ctgt][COL.PC.ID]).startsWith("DEAD_")) {
+        const enemyNow = rowToCombatant_(pcData[nIdx]);
+        const es = fateStrike_(sheets, pcData, enemyNow, ctgt, { counterMul: 0.85 }, ctx);
+        rl.eHit = es.hit; rl.eRoll = es.aRoll; rl.eHitVal = es.aHit; rl.eDmg = es.hit ? es.damage : 0; rl.eFired = es.fired; rl.eTarget = String(pcData[ctgt][COL.PC.NAME]);
+        if (es.defeat) { defeat = true; victory = false; dreamPrompt = es.dreamPrompt; }
+      }
     }
     rounds.push(rl);
     if (defeat) break;
   }
 
   // 戰報摘要
-  const totalDealt = rounds.reduce((s, r) => s + (r.pDmg || 0), 0);
+  const totalDealt = rounds.reduce((s, r) => s + (r.strikes || []).reduce((a, k) => a + (k.pDmg || 0), 0), 0);
   const totalTaken = rounds.reduce((s, r) => s + (r.eDmg || 0), 0);
   const nRounds = rounds.length;
+  const atkLabel = dualAttack ? `${atkC.name} 與另一名從者協同` : atkC.name;
   const roundsBrief = rounds.map(r =>
-    `第${r.n}回合：${atkC.name}${r.pHit ? `命中(−${r.pDmg})` : '揮空'}${r.note ? `【${String(r.note).replace(/\n/g, ' ')}】` : ''}` +
-    (targetIsFoeServant ? (r.eDmg ? `，「${defC.name}」回擊(−${r.eDmg})` : (r.eHit === false ? `，「${defC.name}」反擊被擋` : '')) : '')
+    `第${r.n}回合：` + (r.strikes || []).map(k => `${k.by}${k.pHit ? `命中(−${k.pDmg})` : '揮空'}${k.note ? `【${String(k.note).replace(/\n/g, ' ')}】` : ''}`).join('、') +
+    (targetIsFoeServant ? (r.eDmg ? `，「${defC.name}」回擊${r.eTarget ? `「${r.eTarget}」` : ''}(−${r.eDmg})` : (r.eHit === false ? `，「${defC.name}」反擊被擋` : '')) : '')
   ).join('\n');
   const finalLine = destroyedName
     ? `「${defC.name}」靈基崩潰、徹底消滅${victory ? '——此乃最後一名敵對從者，聖杯已近！' : '。'}`
@@ -4148,7 +4171,8 @@ function actionFateBattle(userData, pcId, sheets) {
       `★以 Fate／TYPE-MOON 筆觸沉痛描寫這數回合廝殺後從者消滅的瞬間（一段即可），語氣留白。勝負已由系統結算。\n` +
       `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
   } else {
-    aiPrompt = `【系統戰報·已裁定，嚴禁更改勝負】御主號令從者『${atkC.name}』${useNp ? '解放寶具' : ''}${useSeal ? '·燃令咒絕對命令' : ''}出擊，與「${defC.name}」短兵相接，共 ${nRounds} 個回合的你來我往。\n` +
+    aiPrompt = `【系統戰報·已裁定，嚴禁更改勝負】御主號令${atkLabel}${useNp ? '解放寶具' : ''}${useSeal ? '·燃令咒絕對命令' : ''}出擊，與「${defC.name}」短兵相接，共 ${nRounds} 個回合的你來我往。\n` +
+      (dualAttack ? `★【雙從者協同·務必演出】我方有兩名從者並肩齊攻——請描寫二人默契夾擊、攻防交織壓制單一敵手的場面（敵以一敵二、險象環生）。\n` : "") +
       (interceptNote ? `〔護主攔截〕${interceptNote}\n` : "") +
       `${roundsBrief}\n` +
       `我方共造成 ${totalDealt} 傷害、受創 ${totalTaken}。最終：${finalLine}\n` +
@@ -4163,11 +4187,12 @@ function actionFateBattle(userData, pcId, sheets) {
 
   // 📊 給前端的多回合視覺戰報
   const report = {
-    atk: atkC.name, def: defC.name, rounds: rounds, intercept: !!interceptNote,
+    atk: atkLabel, def: defC.name, rounds: rounds, intercept: !!interceptNote, dual: dualAttack,
     useNp: useNp, useSeal: useSeal, totalDealt: totalDealt, totalTaken: totalTaken,
     destroyed: destroyedName || "", godRevived: godRevived, sealEscaped: sealEscaped, victory: victory, defeat: defeat,
     defHp: parseInt(pcData[nIdx][COL.PC.HP]) || 0, defHpMax: parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0,
-    atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0
+    atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0,
+    party: partyIdxs.map(i => ({ name: String(pcData[i][COL.PC.NAME]), hp: parseInt(pcData[i][COL.PC.HP]) || 0, hpMax: parseInt(pcData[i][COL.PC.MAX_HP]) || 0 }))
   };
 
   return JSON.stringify({
