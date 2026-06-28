@@ -95,7 +95,8 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | move / rest / sync | — | 移動(2AP)／休息(補AP+夢境)／資料同步 |
 | narrate_only / multi_attack_narrate | actionNarrateOnly等 | **AI 純說書**(solo 不用 actionPlay；GAS 算數值、AI 只演出) |
 | claim_grail / list_gallery / enter_gallery / gallery_talk | Gallery.gs | 奪杯封存/鑑賞名冊/(舊)挑從者進鑑賞/後日談對話(見 §9) |
-| enter_kanshou | actionEnterKanshou (Gallery.gs) | **🌹 進入鑑賞主入口(新版)**：每帳號【單一常駐】後日談世界。御主 avatar(KPC_)以 MEMORY `【帳號】<acct>` 綁定、id 持久→`getGameHistory(pcId)` 跟單機一樣接續歷史。無從者預載、不重講開場；從者由 `kanshou_companions/add/remove`(👥面板) 邀請(上限3)。前端 `enterKanshou()`(Index.html「進入鑑賞」鈕)→ mode=kanshou、自動開 NSFW、撈歷史 |
+| enter_kanshou | actionEnterKanshou (Gallery.gs) | **🌹 進入鑑賞主入口(新版)**：每帳號【單一常駐】後日談世界。御主 avatar(KPC_)以 MEMORY `【帳號】<acct>` 綁定、id 持久→`getGameHistory(pcId)` 跟單機一樣接續歷史。無從者預載、不重講開場；從者由 `kanshou_companions/add/remove`(👥面板) 邀請(上限3)。**御主性別首次進場由玩家選**：沒帶 `pcSex`又還沒建過→回 `needSex:true`，前端 `askKanshouSex()` 問一次再帶 pcSex 進來建。前端 `enterKanshou()`(Index.html「進入鑑賞」鈕)→ mode=kanshou、自動開 NSFW、撈歷史 |
+| kanshou_set_sex | actionKanshouSetSex (Gallery.gs) | ⚧ 隨時切換後日談御主 avatar 性別(只動 SEX 欄，不影響從者/歷史)。👥面板「切換性別」鈕→`changeKanshouSex()` |
 | get_victory_history / get_ranking | — | 戰史/排行 |
 
 ### full-only 遺留（solo 不露出，勿在 solo 邏輯依賴）
