@@ -143,7 +143,6 @@ function handleGameAction(userData) {
     quest: ss.getSheetByName("天命"), task: ss.getSheetByName("TASK"),
     faction: ss.getSheetByName("勢力"),
     rumor: ss.getSheetByName("傳聞"),
-    mail: ss.getSheetByName("飛書"),
     shop: ss.getSheetByName("店鋪")
   };
 
