@@ -4380,22 +4380,18 @@ function servantCard_(row) {
     var fp = p.firstP || (mem.match(/第一人稱「([^」]*)」/) || [])[1] || "我";
     var toM = p.toMaster || (mem.match(/對御主：([^|【]*)/) || [])[1] || "";
     var prefArr = String(row[COL.PC.PREF] || "").split('、').filter(Boolean);
-    var persona = p.words || (prefArr.length ? `表象「${prefArr[0] || ''}」、內裡「${prefArr[1] || ''}」、所重「${prefArr[2] || ''}」、所厭「${prefArr[3] || ''}」` : "");
-    var align = String(row[COL.PC.ALIGN] || "");
+    var persona = p.words || prefArr.slice(0, 4).join('、');
     var np = String(row[COL.PC.MARTIAL] || "");
-    var skills = [];
-    try { var tg = JSON.parse(row[COL.PC.TAGS] || "{}"); skills = (tg.skills || []).map(function (s) { return s.n; }); } catch (e) { }
-    var six = {};
-    try { six = JSON.parse(row[COL.PC.SIX] || "{}"); } catch (e) { }
-    var sixLine = ['筋' + (six.筋力 || '?'), '耐' + (six.耐久 || '?'), '敏' + (six.敏捷 || '?'), '魔' + (six.魔力 || '?'), '運' + (six.幸運 || '?'), '寶' + (six.寶具 || '?')].join('/');
-    return `〈角色背景·僅供你內化揣摩，嚴禁在敘事中複述或借角色之口說出〉從者「${name}」（職階 ${cls}・陣營 ${align}）：自稱「${fp}」；對御主——${toM || '依其真名'}；性格——${persona || '依其真名'}；` +
-      (p.speech ? `說話口吻——${p.speech}；` : "") +
-      (p.moe ? `萌點/反差——${p.moe}；` : "") +
-      (p.tic ? `招牌神態/小動作——${p.tic}；` : "") +
-      `六圍 ${sixLine}；寶具「${np}」；技能 ${skills.slice(0, 5).join('、') || '依其真名'}。\n` +
-      `★【鐵則一】把上述當作你揣摩此角色的「背景資料」：只用來決定他『怎麼說話、怎麼反應、在意什麼、會有什麼小動作』，嚴格依「${name}」這名英靈的真名身世演出口吻與價值觀，杜絕通用空泛、不合人設的台詞。\n` +
-      `★【鐵則二·絕對】上述設定字眼（性格詞、口吻、萌點、態度、六圍、技能/寶具名等）一律【不可】直接寫進故事、不可由旁白點明、不可借角色之口說出來「說嘴」；只能透過行動、語氣、神態、選擇自然流露（show, don't tell）。違者即為出戲。\n` +
-      `★【鐵則三·依羈絆調親疏】請依當前對御主的羈絆／好感高低，自然調整口吻的親疏冷暖：初識或低好感時保留該角色固有的戒備、矜持或距離感；隨羈絆加深，漸趨自然親近、信任與柔軟（仍守住其性格內核，傲嬌不會突然黏人、寡言不會突然多話）；未達深厚羈絆前，不可越界倒貼或過度親暱。\n`;
+    // 狂化偵測：喪失言語、只咆哮（如赫拉克勒斯、蘭斯洛特）。開膛手傑克等會說話的狂戰士不命中。
+    var mad = /狂化|無法言語|僅?咆哮|不語/.test(String(p.speech || "") + String(fp));
+    var card = `〈${name}·${cls}·演出依據(僅供內化，禁複述設定字面)〉自稱「${fp}」｜對御主：${toM || '依真名'}｜性格：${persona || '依真名'}` +
+      (p.speech ? `｜口吻：${p.speech}` : "") +
+      (p.moe ? `｜萌點：${p.moe}` : "") +
+      (p.tic ? `｜小動作：${p.tic}` : "") +
+      (np ? `｜寶具「${np}」` : "") + `。\n`;
+    if (mad) card += `★【狂化·絕對】此從者已狂化、喪失言語：【嚴禁】說出任何完整句子或台詞，只能以低吼、咆哮、肢體與本能反應表達（旁白可寫其情緒，但他不開口）。\n`;
+    card += `★依「${name}」真名與上述性格/口吻演出（show, don't tell）：用言行神態自然流露，【禁】把性格詞/萌點/六圍/技能/寶具名當台詞或由旁白點破。依羈絆高低調親疏：低→保留戒備矜持、高→漸親近，守住性格內核、未深不越界倒貼。\n`;
+    return card;
   } catch (e) { return ""; }
 }
 
@@ -4875,16 +4871,14 @@ function actionAllyBond(userData, pcId, sheets) {
     unlocked = true;
   }
 
-  const roleWord = allyIsMaster ? "盟友御主" : "盟友從者";
-  const sceneFrame = allyIsMaster
-    ? "在共同陣線的間隙裡並肩共處——交換情報、互通魔力後勤、半是試探半是真心的對談，戒備的縫隙裡悄然透出一絲信賴與暖意"
-    : "在暫時休兵的空檔與盟友從者交流——切磋見識、互補魔力消長、卸下一分敵我之防後流露的惺惺相惜";
-  const aiPrompt = `【系統·盟誼已結算】御主『${masterName}』與${roleWord}「${allyName}」${allyIsMaster ? '共處' : '交流'}，兩人之間的羈絆又深了一分（現約 ${after}／100）。\n` +
-    `〈對方性格參考·僅供你內化揣摩，嚴禁在敘事中複述或借其口直接說出〉：${allyPref}\n` +
-    `★以 Fate／TYPE-MOON 筆觸寫一段【精煉 90~140 字、含蓄克制】「${allyName}」與御主${sceneFrame}的小品。對方仍是「暫時」的盟友，請在暖意中留一絲算計與保留的伏筆。\n` +
-    `★【show, don't tell】用言行、神態、停頓流露情感與性格，絕不可直白說出其願望／個性／萌點等設定詞。\n` +
-    (unlocked ? `★【羈絆已臻深處】此刻兩人之間已生出超越同盟的牽絆——請在結尾以一個眼神或半句未盡之言，含蓄點出這份情誼已悄然越過了「暫時」的界線（仍止於曖昧留白，不踰矩）。\n` : "") +
-    `★【鐵律】止於唯美含蓄、點到為止（真・親密是奪杯後鑑賞的事）；嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+  const sceneFrame = allyIsMaster ? "並肩共處、互通情報魔力，半試探半真心的對談" : "暫休兵時切磋交流、互補魔力，卸一分敵我之防";
+  // 盟友從者→用 servantCard_(含狂化禁言等口吻規則)；盟友御主→簡短性格提示
+  const allyCard = allyIsMaster ? `〈盟友御主「${allyName}」·演出依據(僅內化、禁複述)〉性格：${allyPref}。\n` : servantCard_(pcData[aIdx]);
+  const aiPrompt = allyCard +
+    `【系統·盟誼已結算】御主『${masterName}』與盟友「${allyName}」${allyIsMaster ? '共處' : '交流'}，羈絆又深一分（約 ${after}/100）。\n` +
+    `★Fate 筆觸【90~140字、含蓄】寫兩人${sceneFrame}的小品；對方仍是「暫時」盟友，暖意中留一絲算計與保留。show don't tell、止於含蓄。` +
+    (unlocked ? `結尾以一個眼神或半句未盡之言，含蓄點出情誼已越過「暫時」的界線（不踰矩）。` : "") +
+    `\n★嚴禁輸出 stat_changes／items_gained／money_transferred。`;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, bond: after, unlocked: unlocked, ally: allyName, clock: clock, ap: ap, apMax: AP_PER_DAY, ambush: false, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
