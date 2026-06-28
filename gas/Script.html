@@ -2177,17 +2177,29 @@ function renderRecentLocs(recents = null) {
       const ok = !!r.success;
       const hp = Math.max(0, Math.min(100, r.atkHpMax ? Math.round(r.atkHp / r.atkHpMax * 100) : 0));
       let a = '<div style="border:1px solid ' + (ok ? 'rgba(212,175,55,0.5)' : 'rgba(160,48,122,0.5)') + ';border-radius:9px;padding:10px 12px;margin:6px 0;background:' + (ok ? 'rgba(35,28,12,0.6)' : 'rgba(40,16,38,0.55)') + ';font-size:12px;">';
-      a += '<div style="font-weight:bold;margin-bottom:5px;color:' + (ok ? '#e7c873' : '#e0a0d0') + ';">🗡️ 斬首・直取御主「' + r.master + '」</div>';
-      a += '<div style="font-size:13px;margin-bottom:4px;">命運骰：<b style="color:' + (ok ? '#ffd76a' : '#e07a9a') + ';font-size:16px;">🎲 ' + r.aRoll + '</b> <span style="color:#9a8;font-size:10.5px;">（唯 20 為大成功）</span></div>';
+      a += '<div style="font-weight:bold;margin-bottom:5px;color:' + (ok ? '#e7c873' : '#e0a0d0') + ';">🗡️ 斬首・直取御主「' + r.master + '」' + (r.dual ? ' <small style="color:#d0a0e8;">雙從者齊撲·各擲一骰</small>' : '') + '</div>';
+      // 骰子列（雙從者＝多顆）
+      const rollList = r.dual && r.rolls ? r.rolls : [r.aRoll];
+      a += '<div style="font-size:13px;margin-bottom:4px;">命運骰：' + rollList.map(function (x) { var v = (typeof x === 'object') ? x.roll : x; return '<b style="color:' + (v === 20 ? '#ffd76a' : '#e07a9a') + ';font-size:16px;">🎲' + v + '</b>'; }).join(' ') + ' <span style="color:#9a8;font-size:10.5px;">（唯 20 為大成功）</span></div>';
       if (ok) {
-        a += '<div style="color:#e7c873;font-weight:bold;">⚡ 大成功！突破護衛「' + r.guard + '」，一擊斬殺御主！</div>';
+        a += '<div style="color:#e7c873;font-weight:bold;">⚡ 大成功！' + (r.atk ? '『' + r.atk + '』' : '') + '突破護衛「' + r.guard + '」，一擊斬殺御主！</div>';
         a += '<div style="color:#caa44a;font-size:10.5px;margin-top:2px;">御主既亡、魔力斷絕，「' + r.guard + '」隨之消散。' + (r.victory ? '　🏆 聖杯已然在握！' : '') + '</div>';
       } else {
-        a += '<div style="color:#e07a7a;font-weight:bold;">🛡️ 護衛「' + r.guard + '」捨身格擋，反噬 1.5 倍痛擊！</div>';
-        a += '<div style="color:#e06a6a;font-size:11px;margin-top:2px;">你的從者「' + r.atk + '」受創 <b>−' + r.selfDmg + '</b>' + (r.defeat ? '　💀 靈基崩潰、敗北！' : '') + '</div>';
-        a += '<div style="color:#9a8bb0;font-size:10px;margin-top:4px;">我 ' + r.atk + '</div>';
-        a += '<div style="position:relative;height:9px;background:linear-gradient(180deg,#16121c,#241d2c);border-radius:6px;overflow:hidden;margin-top:2px;border:1px solid rgba(0,0,0,.4);"><div style="width:' + hp + '%;height:100%;background:linear-gradient(180deg,#8ee08e,#4caa4c 55%,#2f8f3f);"></div></div>';
-        a += '<div style="font-size:9.5px;color:#8a7f9a;text-align:right;">' + r.atkHp + '/' + r.atkHpMax + '</div>';
+        a += '<div style="color:#e07a7a;font-weight:bold;">🛡️ 護衛「' + r.guard + '」捨身格擋，反噬 1.5 倍痛擊' + (r.dual ? '（逐一反震）' : '') + '！</div>';
+        if (r.hits && r.hits.length) {
+          r.hits.forEach(function (h) {
+            var hpct = Math.max(0, Math.min(100, h.hpMax ? Math.round(h.hp / h.hpMax * 100) : 0));
+            a += '<div style="color:#e06a6a;font-size:11px;margin-top:3px;">「' + h.name + '」受創 <b>−' + h.dmg + '</b>' + (h.knocked ? '　💀 靈基崩潰' : '') + '</div>';
+            a += '<div style="position:relative;height:8px;background:linear-gradient(180deg,#16121c,#241d2c);border-radius:6px;overflow:hidden;margin-top:1px;border:1px solid rgba(0,0,0,.4);"><div style="width:' + hpct + '%;height:100%;background:linear-gradient(180deg,#8ee08e,#4caa4c 55%,#2f8f3f);"></div></div>';
+            a += '<div style="font-size:9px;color:#8a7f9a;text-align:right;">' + h.hp + '/' + h.hpMax + '</div>';
+          });
+          if (r.defeat) a += '<div style="color:#d65c5c;font-weight:bold;margin-top:3px;">💀 我方從者全滅、敗北！</div>';
+        } else {
+          a += '<div style="color:#e06a6a;font-size:11px;margin-top:2px;">你的從者「' + r.atk + '」受創 <b>−' + r.selfDmg + '</b>' + (r.defeat ? '　💀 靈基崩潰、敗北！' : '') + '</div>';
+          a += '<div style="color:#9a8bb0;font-size:10px;margin-top:4px;">我 ' + r.atk + '</div>';
+          a += '<div style="position:relative;height:9px;background:linear-gradient(180deg,#16121c,#241d2c);border-radius:6px;overflow:hidden;margin-top:2px;border:1px solid rgba(0,0,0,.4);"><div style="width:' + hp + '%;height:100%;background:linear-gradient(180deg,#8ee08e,#4caa4c 55%,#2f8f3f);"></div></div>';
+          a += '<div style="font-size:9.5px;color:#8a7f9a;text-align:right;">' + r.atkHp + '/' + r.atkHpMax + '</div>';
+        }
       }
       a += '</div>';
       story.insertAdjacentHTML('beforeend', a);
