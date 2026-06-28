@@ -14,7 +14,6 @@ const ActionRouter = {
   "list_gallery": actionListGallery,
   "enter_gallery": actionEnterGallery,
   "gallery_talk": actionGalleryTalk,
-  "send_mail": actionSendMail,
   "cultivate": actionCultivate,
   "consume_item": actionConsumeItem,
   "use_item_on_npc": actionUseItemOnNpc,
@@ -31,8 +30,6 @@ const ActionRouter = {
   "warehouse_retrieve": actionWarehouseRetrieve,
   "estate_get": actionEstateGet,
   "estate_harvest_all": actionEstateHarvestAll,
-  "play_dice": actionPlayDice,
-  "play_horse_race": actionPlayHorseRace,
   "dismiss_party": actionDismissParty,
   "join_party": actionJoinParty,
   "inspect_npc": actionInspectNpc,
@@ -60,10 +57,7 @@ const ActionRouter = {
   "sync": actionSync,
   "rest": actionRest,
   "get_rumors": actionGetRumors,
-  "get_mails": actionGetMails,
   "play": actionPlay,
-  "delete_mail": actionDeleteMail,
-  "claim_mail_item": actionClaimMailItem,
   "get_faction_info": actionGetFactionInfo,
   "get_epic_history": actionGetEpicHistory,
   "get_ranking": actionGetRanking,
@@ -85,16 +79,6 @@ const ActionRouter = {
   "craft_item": actionCraftItem,
   "steal_npc_item": actionStealNpcItem,
   "buy_intel": actionBuyIntel,
-  "lifeskill_gather": actionLifeskillGather,
-  "shop_get": actionShopGet,
-  "shop_create": actionShopCreate,
-  "shop_invite_guest": actionShopInviteGuest,
-  "shop_dismiss_guest": actionShopDismissGuest,
-  "shop_business": actionShopBusiness,
-  "shop_settle": actionShopSettle,
-  "shop_vault_deposit": actionShopVaultDeposit,
-  "shop_vault_withdraw": actionShopVaultWithdraw,
-  "shop_close": actionShopClose,
   "home_invite_guest": actionHomeInviteGuest
 
 };
@@ -816,20 +800,6 @@ function actionEstateHarvestAll(userData, pcId, sheets) {
   if (newItemsToAppend.length > 0) sheets.item.getRange(sheets.item.getLastRow() + 1, 1, newItemsToAppend.length, newItemsToAppend[0].length).setValues(newItemsToAppend);
 
   return JSON.stringify({ success: true, message: resultMsgs.join("<br>"), statusString: getFreshStatusString(pcId, pIdx, sheets) });
-}
-
-function actionPlayDice(userData, pcId, sheets) {
-  // 假設 Casino.gs 中存在 playDiceGame 函數
-  return playDiceGame(pcId, userData.betType, userData.betAmount, sheets, COL);
-}
-
-function actionPlayHorseRace(userData, pcId, sheets) {
-  // 假設 Casino.gs 中存在 playHorseRaceGame 函數
-  return playHorseRaceGame(pcId, userData.horseId, userData.betAmount, sheets, COL);
-}
-
-function actionLifeskillGather(userData, pcId, sheets) {
-  return playLifeskillGather(pcId, userData.skill, userData.rollCount, sheets, COL);
 }
 
 function actionDismissParty(userData, pcId, sheets) {
@@ -2333,7 +2303,7 @@ function actionGiveMoney(userData, pcId, sheets) {
 // ==========================================
 // 📜 全新 MMO 級飛書系統 (支援夾帶物品與刪除，完美兼容 NPC)
 // ==========================================
-// 🔴 飛書(信件)系統已拆分至 Mail_Action.gs：actionSendMail / actionGetMails / actionClaimMailItem / actionDeleteMail
+// 🔵 信件/賭場/生活/店鋪等九州系統已於 FATE 移除（檔案與 router 註冊一併刪除）。
 
 
 
@@ -2663,13 +2633,9 @@ ${PROMPT_REL}
 ${remoteNpcStr}
 ★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可登場、說話、互動的角色，僅限【目前同行隊伍成員】、緊鄰上方【當前同地人物】清單列出之人，${isNsfwMode ? "本回合為慾海模式(私密場景已天道屏蔽)，【絕對禁止】由AI自行安排任何全新陌生人登場打斷或闖入；唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場，AI不得自作主張額外加碼安排其他陌生人" : "以及AI當下【全新初次原創】、從未出現於前塵因果/歷史紀錄/話題情報中的陌生角色(如路人、店家、新面孔，可正常開口說話、給予姓名)"}！前塵因果、歷史紀錄、話題情報中提到的「已知但不在此清單內」之姓名，才視為不在場的回憶，嚴禁無視「同地」設定憑空召喚、穿越或讓其開口說話、出手！若【當前同地人物】顯示「此地四下無人」，本回合除玩家、同行夥伴${isNsfwMode ? "、以及玩家本回合主動引入之人" : "、與全新原創的陌生人"}外，不可讓任何${isNsfwMode ? "" : "「歷史已知」"}具名角色登場！
 ${locOwnershipNote}
-
-★【系統底層防呆】：
-1. 【戰鬥雙向裁決】：發生衝突時，綜合比對【雙方境界、五圍、所在環境、戰術、當下狀態】公平裁決，禁止僅憑境界高低就單方面秒殺玩家：
-   - 傷害一律以【相對扣血】呈現（依雙方差距合理增減），允許玩家受傷、纏鬥、撤退、求饒，也允許玩家憑地形/奇謀/拼死反撲/道具/偷襲逆境反擊或全身而退。
-   - 境界高者佔優但非無敵；玩家落敗時保留掙扎、逃跑與後續報復空間，禁止無條件抹殺。
-   - 僅當玩家明顯不敵、傷重且無路可退時，生命才可能歸零並由系統送藥鋪救治。NPC的下手輕重須符合其性格與陣營。
-
+${isKanshou ? "" : `
+★【系統底層防呆·戰鬥雙向裁決】：發生衝突時綜合比對雙方靈基/實力/環境/戰術公平裁決，禁止單方面秒殺玩家；傷害以相對扣血呈現，允許玩家受傷/纏鬥/撤退/奇謀逆襲；惟聖杯戰爭的從者廝殺一律由系統按鈕裁決，敘述不得自行宣告死亡或輸出生命數值變化。
+`}
 ${isKanshou ? `
 💕【鑑賞·後日談模式·最高優先級覆寫】：聖杯戰爭【早已落幕】，這是奪得聖杯後與從者『${displayPeople.length ? displayPeople.map(r => r[COL.PC.NAME]).join("、") : "你的從者"}』共度的【和平日常／約會時光】。
 ★【絕對禁止】任何戰鬥、廝殺、敵人、敵御主、敵從者、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅。世界是安全的。
@@ -3923,20 +3889,17 @@ function actionFateBattle(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: "對方不在你身邊，鞭長莫及。" });
   }
 
-  // 🛡️ 從者護主：若目標是敵御主、其從者尚在同地存活，從者捨身攔截——攻擊改打向那名從者。
-  //    唯有敵從者已亡，才能直取手無寸鐵的敵御主（斬首戰術）。
+  // 🗡️ 斬首戰術：目標為敵御主時，若其從者尚在同地護衛 → 需「大成功(擲 20)」才能突破斬殺御主，
+  //    否則被從者捨命格擋、並反噬 1.5 倍傷害。從者已亡 → 御主手無寸鐵，直接擊殺（走一般流程）。
   let interceptNote = "";
-  if (String(pcData[nIdx][COL.PC.FACTION]) === "敵御主") {
+  let isMasterTarget = (String(pcData[nIdx][COL.PC.FACTION]) === "敵御主");
+  let assassinGuardIdx = -1;
+  if (isMasterTarget) {
     const guardLoc = String(pcData[nIdx][COL.PC.LOC]).trim();
-    const masterName = String(pcData[nIdx][COL.PC.NAME]);
-    const guardIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者"
+    assassinGuardIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者"
       && String(r[COL.PC.GAME_ID] || "") === myGameId
       && !String(r[COL.PC.ID]).startsWith("DEAD_")
       && String(r[COL.PC.LOC]).trim() === guardLoc);
-    if (guardIdx !== -1) {
-      interceptNote = `你的從者直取御主「${masterName}」，「${pcData[guardIdx][COL.PC.NAME]}」卻瞬間擋在主君之前——從者尚在，便休想取其御主性命。此擊只能先與「${pcData[guardIdx][COL.PC.NAME]}」交鋒。`;
-      nIdx = guardIdx; // 改打從者
-    }
   }
 
   // ⏳ 戰鬥耗 1 AP（＝推進 1 小時，1 AP＝1 小時）；行動點不足則無法出戰
@@ -3961,6 +3924,88 @@ function actionFateBattle(userData, pcId, sheets) {
   // 戰鬥確定開打 → 耗 1 AP（推進 2 小時）
   let battleAp = AP_PER_DAY;
   if (isFateBattle) { try { battleAp = spendAp_(myGameId, 1).ap; } catch (e) { } }
+
+  // 🗡️ 斬首裁決：敵御主仍有從者在側護衛時，唯有「大成功（擲 20）」能突破護衛、一擊斬殺御主；
+  //    否則護衛捨身格擋、並反手予我方從者 1.5 倍痛擊（可能致敗）。寶具／令咒對奇襲斬首不適用。
+  if (isMasterTarget && assassinGuardIdx !== -1) {
+    const aRoll = Math.floor(Math.random() * 20) + 1;
+    const masterName = String(pcData[nIdx][COL.PC.NAME]);
+    const guardName = String(pcData[assassinGuardIdx][COL.PC.NAME]);
+    let asnReport, asnPrompt, asnVictory = false, asnDefeat = false, asnDream = "", asnKnocked = [];
+
+    if (aRoll === 20) {
+      // 大成功：斬殺御主；御主既亡，護衛從者失去魔力供給隨之消滅
+      pcData[nIdx][COL.PC.ID] = "DEAD_" + String(pcData[nIdx][COL.PC.ID]);
+      pcData[nIdx][COL.PC.HP] = 0;
+      pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "鮮血浸染", "姿勢": "頹然倒地", "負面": "咽喉已斷·身亡", "顏面": "錯愕凝固" });
+      sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
+      pcData[assassinGuardIdx][COL.PC.ID] = "DEAD_" + String(pcData[assassinGuardIdx][COL.PC.ID]);
+      pcData[assassinGuardIdx][COL.PC.HP] = 0;
+      pcData[assassinGuardIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "化作光點", "負面": "御主既亡·魔力斷絕消滅", "顏面": "黯然消散" });
+      sheets.pc.getRange(assassinGuardIdx + 1, 1, 1, pcData[assassinGuardIdx].length).setValues([pcData[assassinGuardIdx]]);
+      asnKnocked = [masterName, guardName];
+      if (aliveEnemyServants_(sheets, myGameId) <= 0) {
+        asnVictory = true;
+        const acctW = String(userData.acctName || "");
+        if (acctW) { incrementWin_(acctW); recordHistory_(acctW, "勝", atkC.name, `「${atkC.name}」奇襲斬首敵御主「${masterName}」，奪得聖杯。`); }
+      }
+      asnReport = {
+        assassination: true, success: true, aRoll: aRoll, atk: atkC.name, master: masterName, guard: guardName,
+        note: `擲出 20 — 大成功！${atkC.name} 撕開「${guardName}」的守備，一擊斬斷御主「${masterName}」咽喉。御主既亡，「${guardName}」失去魔力供給、化作光點消散。`,
+        selfDmg: 0, victory: asnVictory, defeat: false,
+        atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0
+      };
+      asnPrompt = `【系統·斬首戰報·已裁定】御主號令從者『${atkC.name}』奇襲敵御主「${masterName}」。命運的骰子擲出 20 — 大成功！『${atkC.name}』撕開護衛從者「${guardName}」的防線，一擊斬斷御主咽喉。御主既亡、魔力供給斷絕，「${guardName}」當場化作光點消散。${asnVictory ? '此為最後的敵對陣營——聖杯已然在握！' : ''}\n` +
+        `★以 Fate／TYPE-MOON 筆觸描寫這萬中選一、石破天驚的斬首瞬間（一段即可）：護衛被撕裂的錯愕、御主噴濺的鮮血、從者隨之消散的光點。勝負已由系統結算。\n` +
+        `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+    } else {
+      // 失敗：護衛捨身格擋，反手 1.5 倍痛擊我方從者
+      const guardC = rowToCombatant_(pcData[assassinGuardIdx]);
+      const probe = resolveFateBattle_(guardC, atkC, {});
+      const selfDmg = Math.max(1, Math.round((probe.damage || 1) * 1.5));
+      const ahp = parseInt(pcData[atkIdx][COL.PC.HP]) || 0;
+      let after = ahp - selfDmg;
+      if (after <= 5 && hasFx_(atkC, 'survive') && ahp > 1) after = 1; // 戰鬥續行
+      if (after <= 0) {
+        asnDefeat = true;
+        pcData[atkIdx][COL.PC.ID] = "DEAD_" + String(pcData[atkIdx][COL.PC.ID]);
+        pcData[atkIdx][COL.PC.HP] = 0;
+        pcData[atkIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "斬首反噬·靈基崩潰", "顏面": "已無生息" });
+        sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
+        const wish = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
+        asnDream = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wish, atkC.name);
+        const acctD = String(userData.acctName || "");
+        if (acctD) recordHistory_(acctD, "敗", atkC.name, `「${atkC.name}」斬首失手，遭護衛「${guardName}」反噬靈基崩潰。`);
+      } else {
+        pcData[atkIdx][COL.PC.HP] = after;
+        sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
+      }
+      asnReport = {
+        assassination: true, success: false, aRoll: aRoll, atk: atkC.name, master: masterName, guard: guardName,
+        note: `擲出 ${aRoll} — 唯 20 方能突破。「${guardName}」捨身擋在御主身前，反手予『${atkC.name}』1.5 倍痛擊（−${selfDmg}）。`,
+        selfDmg: selfDmg, victory: false, defeat: asnDefeat,
+        atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0
+      };
+      if (asnDefeat) {
+        asnPrompt = `【系統·斬首戰報·已裁定】御主號令從者『${atkC.name}』奇襲敵御主「${masterName}」，命運骰出 ${aRoll}（唯 20 方成）。護衛從者「${guardName}」捨身擋下這一擊，反手以 1.5 倍之力痛擊『${atkC.name}』，靈基當場崩潰、化作光點消散，御主敗北。\n` +
+          `★以 Fate／TYPE-MOON 筆觸沉痛描寫斬首落空、護衛反殺、從者消滅的瞬間（一段即可），語氣留白。勝負已由系統結算。\n` +
+          `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+      } else {
+        asnPrompt = `【系統·斬首戰報·已裁定】御主號令從者『${atkC.name}』欲奇襲敵御主「${masterName}」，命運骰出 ${aRoll}（唯擲 20 大成功方能突破護衛）。護衛從者「${guardName}」如影攔在御主身前、硬生生擋下斬擊，反手以 1.5 倍之力痛擊『${atkC.name}』（受創 ${selfDmg}）。御主未能得手。\n` +
+          `★以 Fate／TYPE-MOON 筆觸描寫護衛捨身格擋、反噬重擊的險惡瞬間（一段即可）。傷害已由系統結算。\n` +
+          `★敗方（我方從者）最多重傷，【絕對禁止】描寫其死亡。\n` +
+          `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+      }
+    }
+
+    return JSON.stringify({
+      success: true, aiPrompt: asnPrompt, knockedOut: asnKnocked,
+      victory: asnVictory, defeat: asnDefeat, dreamPrompt: asnDream,
+      sealEscaped: false, report: asnReport,
+      clock: isFateBattle ? clockLabel_(myGameId) : "", ap: battleAp, apMax: AP_PER_DAY,
+      statusString: getFreshStatusString(pcId, pIdx, sheets)
+    });
+  }
 
   // ⚔️ 一次出戰＝最多 ROUNDS 個來回（我攻→敵反擊），命中才扣血、未中＝撲空；任一方倒下即止。
   //   寶具/令咒只在開場第一擊生效；其後為普通互砍。敵御主空手不反擊。
@@ -4701,7 +4746,7 @@ function actionMultiAttack(userData, pcId, sheets) {
 function actionNarrateOnly(userData, pcId, sheets) {
   const { promptText, isNsfw } = userData;
 
-  const miniSystem = `你是九州說書人。用日系武俠輕小說筆觸、第一人稱「我」、強制台灣繁體中文，依指令生動描寫一小段劇情（150~250字）。
+  const miniSystem = `你是《命運停駐之夜》的說書人。用 Fate／TYPE-MOON 筆觸、第一人稱「我」（玩家＝御主）、強制台灣繁體中文，依指令生動描寫一段劇情（200~350字；若為從者廝殺，需把回合來回的攻防、技能與寶具威能、靈基壓迫感寫得有張力）。
 【鐵律】
 1. 旁白第一人稱「我」，禁用「你」與上帝視角。
 2. 對話格式：角色名：「（動作/神態/眼神/微表情）台詞……（動作/神態/眼神/微表情）台詞（動作/神態/眼神/微表情）」。動作神態【絕對禁止】獨立成段或寫在引號外，一律用全形括號「（）」嵌入台詞開頭/中間/結尾，至少穿插2次以上。
@@ -4713,7 +4758,7 @@ function actionNarrateOnly(userData, pcId, sheets) {
   let aiConfig = {
     temperature: 0.85,
     ignoreLaw: true,            // 不疊規矩表(節慶/天時)
-    max_tokens: 700,            // 比 actionPlay 的 2000 砍掉一大半
+    max_tokens: 900,            // 200~350字敘事 + JSON 包裝
     model: "google/gemini-3.1-flash-lite",
     isNsfwMode: !!isNsfw        // NSFW 時讓 fallback 文案合理，但不啟用完整慾海規則
   };

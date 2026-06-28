@@ -55,6 +55,14 @@
   let currentStatusTargetId = pc ? pc.id : ""; 
   let currentStatusTargetName = pc ? pc.name : "";
   let localNPCs = [];
+  let myServantCls = ''; // 🗡️ 我方從者職階（決定攻擊類別的按鈕顯示：近戰/魔砲/狙擊）
+  // 依職階回傳基礎攻擊的「類別樣式」（給按鈕用）。法師＝魔砲、弓兵＝狙擊、其餘＝近戰。
+  function attackStyle_() {
+    var c = String(myServantCls || '');
+    if (c === 'Caster') return { emo: '🔮', name: '魔砲', hint: '以魔力轟擊', col: '#7e6cff', rgb: '126,108,255' };
+    if (c === 'Archer') return { emo: '🏹', name: '狙擊', hint: '遠程精準', col: '#5cb88f', rgb: '92,184,143' };
+    return { emo: '⚔️', name: '出戰', hint: '近身搏殺', col: '#e07a7a', rgb: '165,42,42' };
+  }
   let localItems = []; // 🟢 玩家當前隨身行囊(供敘事中物品連結點擊時查 desc/id/type)
   let nearbyLocations = []; 
   let giftTargetNPC = null;
@@ -987,6 +995,38 @@ function renderRecentLocs(recents = null) {
     hud.innerHTML = html;
     hud.style.display = 'block';
   }
+  // ⚔️ 戰爭行動列：取代輸入框，永遠告訴玩家此刻能做什麼（此地敵蹤→出戰，偵查/補魔/休息）。
+  function renderWarActions() {
+    const bar = document.getElementById('war-actions');
+    if (!bar) return;
+    if (!pc || pc.mode === 'kanshou') { bar.style.display = 'none'; return; }
+    const foes = (localNPCs || []).filter(n => n && n.isExact && (n.faction === '敵御主' || n.faction === '敵從者'));
+    const chip = (label, onclick, rgb) => '<button onclick="' + onclick + '" style="flex:1; min-width:78px; font-size:12px; padding:8px 5px; background:rgba(' + rgb + ',0.15); color:rgb(' + rgb + '); border:1px solid rgba(' + rgb + ',0.55); border-radius:8px; cursor:pointer; font-weight:bold;">' + label + '</button>';
+    let h = '';
+    const st = attackStyle_();
+    foes.forEach(f => {
+      const safe = String(f.name).replace(/'/g, '');
+      if (f.faction === '敵御主') {
+        h += '<button onclick="servantStrike(\'' + safe + '\', false, false, true)" style="flex:1 0 100%; font-size:13px; padding:9px; background:linear-gradient(90deg,rgba(120,30,90,.32),rgba(80,20,60,.18)); color:#e8b0d8; border:1px solid #a0307a; border-radius:8px; cursor:pointer; font-weight:bold;">🗡️ 刺殺御主 ' + f.name + ' <small style="opacity:.65;">敵御主·須擲20</small></button>';
+      } else {
+        // 拆開顯示：基礎攻擊（依職階：近戰／魔砲／狙擊）＋ 寶具 ＋ 令咒，一目了然
+        h += '<div style="flex:1 0 100%; border:1px solid rgba(165,42,42,.5); border-radius:9px; padding:6px; margin-bottom:2px; background:rgba(50,18,18,.22);">'
+          + '<div style="color:#e8b0b0; font-size:12px; font-weight:bold; margin-bottom:5px; text-align:center;">敵從者 ' + f.name + '</div>'
+          + '<div style="display:flex; gap:5px;">'
+          + '<button onclick="servantStrike(\'' + safe + '\', false)" title="' + st.hint + '" style="flex:2; font-size:12.5px; padding:8px 4px; background:linear-gradient(90deg,rgba(' + st.rgb + ',.34),rgba(' + st.rgb + ',.16)); color:' + st.col + '; border:1px solid rgb(' + st.rgb + '); border-radius:7px; cursor:pointer; font-weight:bold;">' + st.emo + ' ' + st.name + '</button>'
+          + '<button onclick="servantStrike(\'' + safe + '\', true)" title="解放寶具" style="flex:1; font-size:12px; padding:8px 4px; background:rgba(212,175,55,.15); color:#e7c873; border:1px solid #d4af37; border-radius:7px; cursor:pointer; font-weight:bold;">💥 寶具</button>'
+          + '<button onclick="servantStrike(\'' + safe + '\', false, true)" title="令咒・絕對命令（必中）" style="flex:1; font-size:12px; padding:8px 4px; background:rgba(176,108,208,.15); color:#c79be8; border:1px solid #b06cd0; border-radius:7px; cursor:pointer; font-weight:bold;">❖ 令咒</button>'
+          + '</div></div>';
+      }
+    });
+    if (!foes.length) h += '<div style="flex:1 0 100%; text-align:center; color:#6a5f80; font-size:11.5px; padding:1px 0 3px;">此地暫無敵蹤——可偵查、補魔整備，或往地圖移動</div>';
+    h += chip('🔍 偵查', 'scout()', '127,199,199');
+    h += chip('💧 補魔', 'manaSupply()', '127,176,232');
+    h += chip('🛏️ 休息', 'openRestMenu()', '169,169,216');
+    h += chip('🗺️ 移動', "showGamePane('map')", '159,192,239');
+    bar.innerHTML = h;
+    bar.style.display = 'flex';
+  }
   // 把世界自走的風聞推進故事流
   function showRumors(rumors) {
     if (!rumors || !rumors.length) return;
@@ -1075,18 +1115,30 @@ function renderRecentLocs(recents = null) {
             updateUI(data.statusString.split('§'));
         }
 
-        // 2. 🔴 關鍵優化：直接使用後端傳回的 mapDesc，這是最準確的景色描述
         const locDesc = data.mapDesc || "四下靜謐。";
-
-        // 3. 顯示結果
-        story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【抵達 ${targetName}】：</b><br><span>${locDesc}</span></div>`);
+        // 更新此地人物/地點，讓地圖與行動列即時反映新位置
+        localNPCs = data.people || [];
+        nearbyLocations = data.locations || [];
+        // 1. 地點小標
+        story.insertAdjacentHTML('beforeend', `<div class="msg-player" style="align-self:center;color:#9fc0ef;font-size:12.5px;">📍 抵達「${targetName}」</div>`);
         updateClock(data.clock, data.ap, data.apMax);
         updateEconomy(data.economy);
         showRumors(data.rumors);
-
-        // 4. 清理 loading 提示
         if (optContainer) optContainer.innerHTML = '';
+        try { renderMapPane(); refreshFateTags(); renderWarActions(); } catch (e) {}
         story.scrollTop = story.scrollHeight;
+
+        // 2. 🎬 抵達即觸發一段 AI 劇情——純按鈕模式靠它讓世界活起來
+        const foes = (data.people || []).filter(p => p.isExact && (p.faction === '敵御主' || p.faction === '敵從者'));
+        const foeStr = foes.length
+          ? `此地有敵蹤：${foes.map(f => f.name + '（' + (f.faction === '敵從者' ? '敵從者' : '敵御主') + '）').join('、')}`
+          : '此地暫無明顯敵蹤';
+        const timeStr = (data.clock || '').split('・').slice(-1)[0] || '此刻';
+        const arrivePrompt = `【抵達場景】御主『${pc.name}』${pc.servant ? `與從者「${pc.servant}」` : ''}剛抵達冬木的「${targetName}」，時值${timeStr}。\n`
+          + `此地氛圍：${locDesc}\n敵情：${foeStr}。\n`
+          + `★以 Fate／TYPE-MOON 筆觸描寫兩人抵達此地的所見所感、環境細節與當下氛圍。若有敵蹤，營造一觸即發的對峙張力（但是否交戰、勝負留待御主下令，禁止自行開打或分勝負）；若無敵蹤，寫一段巡查、警戒或短暫喘息的氛圍，並自然暗示「可凝神偵查四周，或轉往他處」。\n`
+          + `★禁止替御主做決定、禁止詢問玩家想做什麼，停在留白，讓御主以行動（偵查／出戰／補魔／移動）回應。`;
+        narrate(arrivePrompt);
       } else {
         alert("天道阻礙：" + data.message);
       }
@@ -1815,14 +1867,25 @@ function renderRecentLocs(recents = null) {
       const bar = (label, cur, max, kind) => {
         if (!max) return '';
         const pct = Math.max(0, Math.min(100, Math.round(cur / max * 100)));
-        const col = kind === 'mp' ? '#4a90d9' : (pct > 50 ? '#5cb85c' : pct > 20 ? '#e0a020' : '#d0473f');
-        return '<div style="display:flex; align-items:center; gap:5px; margin:3px 0;">'
-          + '<span style="font-size:10px; color:#9a8bb0; width:24px; flex:none;">' + label + '</span>'
-          + '<div style="flex:1; min-width:0; height:9px; background:#2a2330; border-radius:5px; overflow:hidden; border:1px solid rgba(0,0,0,0.3);">'
-          + '<div style="width:' + pct + '%; height:100%; background:' + col + ';"></div></div>'
-          + '<span style="font-size:9.5px; color:#8a7f9a; width:58px; flex:none; text-align:right;">' + cur + '/' + max + '</span></div>';
+        // 漸層＋玻璃高光＋leading-edge 微光，依血量變色
+        const grad = kind === 'mp'
+          ? 'linear-gradient(180deg,#7ec0ff,#4a90d9 55%,#2f6fb0)'
+          : (pct > 50 ? 'linear-gradient(180deg,#8ee08e,#4caa4c 55%,#2f8f3f)'
+            : pct > 20 ? 'linear-gradient(180deg,#f4cf6a,#dba022 55%,#b87f12)'
+              : 'linear-gradient(180deg,#ef8a82,#d0473f 55%,#a52f28)');
+        const glow = kind === 'mp' ? 'rgba(120,180,255,.55)' : (pct > 50 ? 'rgba(140,224,140,.5)' : pct > 20 ? 'rgba(224,176,64,.5)' : 'rgba(224,90,80,.55)');
+        const icon = kind === 'mp' ? '🔷' : '❤️';
+        return '<div style="display:flex; align-items:center; gap:6px; margin:4px 0;">'
+          + '<span style="font-size:11px; width:16px; flex:none; text-align:center;">' + icon + '</span>'
+          + '<div style="flex:1; min-width:0; position:relative; height:12px; background:linear-gradient(180deg,#16121c,#241d2c); border-radius:7px; overflow:hidden; border:1px solid rgba(0,0,0,0.45); box-shadow:inset 0 1px 2px rgba(0,0,0,.6);">'
+          + '<div style="width:' + pct + '%; height:100%; background:' + grad + '; border-radius:7px; box-shadow:0 0 6px ' + glow + '; transition:width .35s ease;"></div>'
+          + '<div style="position:absolute; top:1px; left:3px; right:3px; height:3px; border-radius:3px; background:linear-gradient(90deg,rgba(255,255,255,.35),rgba(255,255,255,0)); pointer-events:none;"></div>'
+          + '</div>'
+          + '<span style="font-size:9.5px; color:#9a8fae; width:56px; flex:none; text-align:right; font-variant-numeric:tabular-nums;">' + cur + '/' + max + '</span></div>';
       };
       const m = t.master, s = t.servant;
+      myServantCls = (s && s.cls) || ''; // 快取職階，供攻擊按鈕分類顯示
+      try { renderWarActions(); } catch (e) {}
       let mh = '<div style="background:rgba(20,14,28,0.55); border:1px solid #d4af37; border-radius:8px; padding:6px 8px;">'
         + '<div style="color:#d4af37; font-weight:bold; font-size:12px;">⚜️ 御主</div>'
         + '<div style="color:#e8dcc0; font-size:13px; font-weight:bold; margin:1px 0 3px;">' + m.name + '</div>'
@@ -1912,14 +1975,21 @@ function renderRecentLocs(recents = null) {
         html += '<div style="color:#d65c5c; font-size:12px; font-weight:bold; margin:12px 0 6px;">⚔️ 此地敵蹤（可出戰）：</div>';
         foes.forEach(function (f) {
           var safe = String(f.name).replace(/'/g, '');
-          var tag = f.faction === '敵從者' ? '從者' : '御主';
-          html += '<div style="border:1px solid rgba(214,92,92,0.4); border-radius:7px; padding:6px 8px; margin-bottom:7px; background:rgba(60,20,20,0.25);">'
-            + '<div style="color:#e8b0b0; font-size:12.5px; font-weight:bold; margin-bottom:4px;">' + f.name + ' <small style="color:#a77;">敵' + tag + '</small></div>'
-            + '<div style="display:flex; gap:4px; flex-wrap:wrap;">'
-            + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#a52a2a; color:#e07a7a;" onclick="servantStrike(\'' + safe + '\', false)">⚔️ 出戰</button>'
-            + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#d4af37; color:#e7c873;" onclick="servantStrike(\'' + safe + '\', true)">💥 寶具</button>'
-            + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#b06cd0; color:#c79be8;" onclick="servantStrike(\'' + safe + '\', false, true)">❖ 令咒</button>'
-            + '</div></div>';
+          if (f.faction === '敵御主') {
+            html += '<div style="border:1px solid rgba(160,48,122,0.45); border-radius:7px; padding:6px 8px; margin-bottom:7px; background:rgba(50,15,45,0.28);">'
+              + '<div style="color:#e8b0d8; font-size:12.5px; font-weight:bold; margin-bottom:4px;">' + f.name + ' <small style="color:#b58aa8;">敵御主</small></div>'
+              + '<button class="btn" style="width:100%; font-size:11px; padding:5px 3px; border-color:#a0307a; color:#e0a0d0;" onclick="servantStrike(\'' + safe + '\', false, false, true)">🗡️ 刺殺御主（須擲 20 大成功）</button>'
+              + '</div>';
+          } else {
+            var st = attackStyle_();
+            html += '<div style="border:1px solid rgba(214,92,92,0.4); border-radius:7px; padding:6px 8px; margin-bottom:7px; background:rgba(60,20,20,0.25);">'
+              + '<div style="color:#e8b0b0; font-size:12.5px; font-weight:bold; margin-bottom:4px;">' + f.name + ' <small style="color:#a77;">敵從者</small></div>'
+              + '<div style="display:flex; gap:4px; flex-wrap:wrap;">'
+              + '<button class="btn" title="' + st.hint + '" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:rgb(' + st.rgb + '); color:' + st.col + ';" onclick="servantStrike(\'' + safe + '\', false)">' + st.emo + ' ' + st.name + '</button>'
+              + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#d4af37; color:#e7c873;" onclick="servantStrike(\'' + safe + '\', true)">💥 寶具</button>'
+              + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#b06cd0; color:#c79be8;" onclick="servantStrike(\'' + safe + '\', false, true)">❖ 令咒</button>'
+              + '</div></div>';
+          }
         });
       }
     }
@@ -1952,24 +2022,46 @@ function renderRecentLocs(recents = null) {
       if (LAYOUT[k]) pos[n.name] = LAYOUT[k];
       else { pos[n.name] = [10 + extra * 20, 96]; extra++; }
     });
-    var s = '';
-    // 連線（未遠川河道／街道）
     var byShort = {}; nodes.forEach(function (n) { byShort[short(n.name)] = n.name; });
+    // defs：夜空漸層、河流漸層、光暈濾鏡
+    var defs = '<defs>'
+      + '<radialGradient id="mapsky" cx="50%" cy="34%" r="80%"><stop offset="0%" stop-color="#1c2647"/><stop offset="55%" stop-color="#111430"/><stop offset="100%" stop-color="#0a0713"/></radialGradient>'
+      + '<linearGradient id="riverg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#5a86d6"/><stop offset="100%" stop-color="#26406f"/></linearGradient>'
+      + '<filter id="nglow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="1.3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'
+      + '</defs>';
+    var s = defs;
+    s += '<rect x="0" y="0" width="100" height="100" fill="url(#mapsky)"/>';
+    // 點點星塵
+    s += '<g fill="#cdd6f5" opacity="0.22">';
+    [[12,9],[27,6],[63,8],[83,14],[91,40],[8,33],[20,75],[78,88],[36,28],[57,33]].forEach(function (q) { s += '<circle cx="' + q[0] + '" cy="' + q[1] + '" r="0.4"/>'; });
+    s += '</g>';
+    // 🌊 未遠川：自北側山丘蜿蜒南流，覆蓋河畔↔大橋一線
+    var riverPath = 'M50,1 C53,14 47,28 50,46 C52,55 48,60 49,66 C46,80 44,90 43,100';
+    s += '<path d="' + riverPath + '" fill="none" stroke="url(#riverg)" stroke-width="7" stroke-linecap="round" opacity="0.32"/>';
+    s += '<path d="' + riverPath + '" fill="none" stroke="#86b6ff" stroke-width="2" stroke-linecap="round" opacity="0.30"/>';
+    // 街道（細線，跳過落在河上的兩段，避免蓋掉河流）
+    var riverSeg = { '言峰教會|未遠川河畔': 1, '未遠川河畔|大橋': 1 };
     CONN.forEach(function (c) {
+      if (riverSeg[c[0] + '|' + c[1]] || riverSeg[c[1] + '|' + c[0]]) return;
       var a = pos[byShort[c[0]]], b = pos[byShort[c[1]]];
-      if (a && b) s += '<line x1="' + a[0] + '" y1="' + a[1] + '" x2="' + b[0] + '" y2="' + b[1] + '" stroke="rgba(120,150,200,0.22)" stroke-width="0.7"/>';
+      if (a && b) s += '<line x1="' + a[0] + '" y1="' + a[1] + '" x2="' + b[0] + '" y2="' + b[1] + '" stroke="rgba(150,170,210,0.18)" stroke-width="0.55" stroke-dasharray="1.4,1.2"/>';
     });
     // 節點
     nodes.forEach(function (n) {
       var p = pos[n.name]; if (!p) return;
       var cx = p[0], cy = p[1], col = typeColor[n.type] || '#888';
       var nm = String(n.name).replace(/'/g, '');
-      if (n.here) s += '<circle cx="' + cx + '" cy="' + cy + '" r="3.8" fill="none" stroke="#e7c873" stroke-width="0.8"/>';
-      if (n.enemy) s += '<circle cx="' + cx + '" cy="' + cy + '" r="5" fill="none" stroke="#d65c5c" stroke-width="0.6" stroke-dasharray="1.6,1.3"/>';
-      s += '<circle cx="' + cx + '" cy="' + cy + '" r="2.2" fill="' + col + '" stroke="#0a0810" stroke-width="0.5" style="cursor:pointer" onclick="travelFromPane(\'' + nm + '\')"/>';
-      s += '<text x="' + cx + '" y="' + (cy + 5.2) + '" font-size="3.2" fill="#e8e0f5" text-anchor="middle" paint-order="stroke" stroke="#0a0810" stroke-width="0.9" style="cursor:pointer" onclick="travelFromPane(\'' + nm + '\')">' + short(n.name) + (n.enemy ? ' ⚔' : '') + '</text>';
+      s += '<circle cx="' + cx + '" cy="' + cy + '" r="3" fill="' + col + '" opacity="0.28" filter="url(#nglow)"/>'; // 光暈
+      if (n.here) s += '<circle cx="' + cx + '" cy="' + cy + '" r="4.3" fill="none" stroke="#ffd86a" stroke-width="0.9" filter="url(#nglow)"/>';
+      if (n.enemy) s += '<circle cx="' + cx + '" cy="' + cy + '" r="5.2" fill="none" stroke="#ff6a6a" stroke-width="0.7" stroke-dasharray="1.6,1.3"/>';
+      s += '<circle cx="' + cx + '" cy="' + cy + '" r="2.1" fill="' + col + '" stroke="#0a0810" stroke-width="0.5" style="cursor:pointer" onclick="travelFromPane(\'' + nm + '\')"/>';
+      s += '<circle cx="' + (cx - 0.6) + '" cy="' + (cy - 0.6) + '" r="0.7" fill="rgba(255,255,255,0.6)"/>'; // 高光點
+      s += '<text x="' + cx + '" y="' + (cy + 5.3) + '" font-size="3.1" fill="#ede7fb" text-anchor="middle" paint-order="stroke" stroke="#0a0810" stroke-width="0.9" style="cursor:pointer; font-weight:bold;" onclick="travelFromPane(\'' + nm + '\')">' + short(n.name) + (n.enemy ? ' ⚔' : '') + (n.here ? ' ◈' : '') + '</text>';
     });
-    return '<div style="background:linear-gradient(160deg,rgba(16,20,34,0.9),rgba(10,8,16,0.75)); border:1px solid rgba(212,175,55,0.28); border-radius:8px; overflow:hidden;"><svg viewBox="0 0 100 96" preserveAspectRatio="xMidYMid meet" style="width:100%; height:auto; display:block;">' + s + '</svg></div>';
+    var legend = '<div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding:5px 6px 2px; font-size:10px; color:#9a8fae;">'
+      + ['🔵靈地', '🟡據點/祭壇', '🔷城區', '💗約會'].map(function (x) { return '<span>' + x + '</span>'; }).join('')
+      + '<span style="color:#ffd86a;">◈所在</span><span style="color:#ff6a6a;">⚔敵蹤</span></div>';
+    return '<div style="border:1px solid rgba(212,175,55,0.3); border-radius:10px; overflow:hidden; box-shadow:inset 0 0 24px rgba(0,0,0,.5);"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" style="width:100%; height:auto; display:block;">' + s + '</svg>' + legend + '</div>';
   }
   // 🔵 隨身物品 5 格（地圖下方），點擊即使用
   async function renderBag5() {
@@ -1999,11 +2091,38 @@ function renderRecentLocs(recents = null) {
   function renderFateBattleReport(r) {
     if (!r || !r.rounds) return;
     const story = document.getElementById('story');
+    // 🗡️ 斬首專用戰報卡（無回合制，純 D20 大成功判定）
+    if (r.assassination) {
+      const ok = !!r.success;
+      const hp = Math.max(0, Math.min(100, r.atkHpMax ? Math.round(r.atkHp / r.atkHpMax * 100) : 0));
+      let a = '<div style="border:1px solid ' + (ok ? 'rgba(212,175,55,0.5)' : 'rgba(160,48,122,0.5)') + ';border-radius:9px;padding:10px 12px;margin:6px 0;background:' + (ok ? 'rgba(35,28,12,0.6)' : 'rgba(40,16,38,0.55)') + ';font-size:12px;">';
+      a += '<div style="font-weight:bold;margin-bottom:5px;color:' + (ok ? '#e7c873' : '#e0a0d0') + ';">🗡️ 斬首・直取御主「' + r.master + '」</div>';
+      a += '<div style="font-size:13px;margin-bottom:4px;">命運骰：<b style="color:' + (ok ? '#ffd76a' : '#e07a9a') + ';font-size:16px;">🎲 ' + r.aRoll + '</b> <span style="color:#9a8;font-size:10.5px;">（唯 20 為大成功）</span></div>';
+      if (ok) {
+        a += '<div style="color:#e7c873;font-weight:bold;">⚡ 大成功！突破護衛「' + r.guard + '」，一擊斬殺御主！</div>';
+        a += '<div style="color:#caa44a;font-size:10.5px;margin-top:2px;">御主既亡、魔力斷絕，「' + r.guard + '」隨之消散。' + (r.victory ? '　🏆 聖杯已然在握！' : '') + '</div>';
+      } else {
+        a += '<div style="color:#e07a7a;font-weight:bold;">🛡️ 護衛「' + r.guard + '」捨身格擋，反噬 1.5 倍痛擊！</div>';
+        a += '<div style="color:#e06a6a;font-size:11px;margin-top:2px;">你的從者「' + r.atk + '」受創 <b>−' + r.selfDmg + '</b>' + (r.defeat ? '　💀 靈基崩潰、敗北！' : '') + '</div>';
+        a += '<div style="color:#9a8bb0;font-size:10px;margin-top:4px;">我 ' + r.atk + '</div>';
+        a += '<div style="position:relative;height:9px;background:linear-gradient(180deg,#16121c,#241d2c);border-radius:6px;overflow:hidden;margin-top:2px;border:1px solid rgba(0,0,0,.4);"><div style="width:' + hp + '%;height:100%;background:linear-gradient(180deg,#8ee08e,#4caa4c 55%,#2f8f3f);"></div></div>';
+        a += '<div style="font-size:9.5px;color:#8a7f9a;text-align:right;">' + r.atkHp + '/' + r.atkHpMax + '</div>';
+      }
+      a += '</div>';
+      story.insertAdjacentHTML('beforeend', a);
+      story.scrollTop = story.scrollHeight;
+      return;
+    }
+    if (!r.rounds) return;
     const hpbar = (cur, max, col) => {
       if (!max) return '';
       const p = Math.max(0, Math.min(100, Math.round(cur / max * 100)));
-      return '<div style="height:7px;background:#2a2330;border-radius:4px;overflow:hidden;margin-top:2px;"><div style="width:' + p + '%;height:100%;background:' + col + ';"></div></div>'
-        + '<div style="font-size:9.5px;color:#8a7f9a;text-align:right;">' + cur + '/' + max + '</div>';
+      const grad = col === '#5cb85c'
+        ? 'linear-gradient(180deg,#8ee08e,#4caa4c 55%,#2f8f3f)'
+        : 'linear-gradient(180deg,#ef8a82,#d0473f 55%,#a52f28)';
+      const glow = col === '#5cb85c' ? 'rgba(140,224,140,.45)' : 'rgba(224,90,80,.5)';
+      return '<div style="position:relative;height:9px;background:linear-gradient(180deg,#16121c,#241d2c);border-radius:6px;overflow:hidden;margin-top:2px;border:1px solid rgba(0,0,0,.4);box-shadow:inset 0 1px 2px rgba(0,0,0,.5);"><div style="width:' + p + '%;height:100%;background:' + grad + ';box-shadow:0 0 5px ' + glow + ';transition:width .35s ease;"></div><div style="position:absolute;top:1px;left:3px;right:3px;height:2px;border-radius:2px;background:linear-gradient(90deg,rgba(255,255,255,.3),rgba(255,255,255,0));"></div></div>'
+        + '<div style="font-size:9.5px;color:#8a7f9a;text-align:right;font-variant-numeric:tabular-nums;">' + cur + '/' + max + '</div>';
     };
     const critTxt = (c) => ({ atk_crit: '🎯', def_crit: '🛡️', atk_fumble: '💢', def_fumble: '😵' }[c] || '');
     let h = '<div style="border:1px solid rgba(212,175,55,0.35);border-radius:9px;padding:9px 11px;margin:6px 0;background:rgba(28,20,14,0.5);font-size:12px;">';
@@ -2039,10 +2158,16 @@ function renderRecentLocs(recents = null) {
     story.scrollTop = story.scrollHeight;
   }
 
-  async function servantStrike(npcName, useNp, useSeal) {
+  async function servantStrike(npcName, useNp, useSeal, isMaster) {
+    // 🗡️ 斬首敵御主極兇險：唯有「大成功（擲 20）」能突破護衛從者、一擊斬殺御主；
+    //    否則必被護衛擋下，並反噬 1.5 倍傷害給你的從者（可能直接靈基崩潰、敗北）。
+    if (isMaster) {
+      if (!confirm('🗡️ 刺殺敵御主「' + npcName + '」？\n\n唯有擲出 20（大成功，1/20）能突破護衛從者、斬殺御主奪勝；\n否則必被護衛捨身擋下，並反噬 1.5 倍傷害給你的從者——重則靈基崩潰、聖杯戰爭落敗。\n\n確定發動奇襲斬首？')) return;
+    }
     if (!beginAction()) return;
     const story = document.getElementById('story');
-    const verb = useSeal ? '燃令咒・絕對命令，必中斬向' : (useNp ? '解放寶具，目標' : '出擊，目標');
+    const _plain = myServantCls === 'Caster' ? '詠唱魔砲，轟向' : myServantCls === 'Archer' ? '張弓狙擊，鎖定' : '出擊，目標';
+    const verb = isMaster ? '奇襲斬首，直取敵御主' : (useSeal ? '燃令咒・絕對命令，必中斬向' : (useNp ? '解放寶具，目標' : _plain));
     story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主令從者${verb}「${npcName}」！</div>`);
     story.scrollTop = story.scrollHeight;
     try {
@@ -2281,6 +2406,7 @@ function renderRecentLocs(recents = null) {
       updateEconomy(data.economy);
       refreshFateTags();
       renderMapPane();
+      renderWarActions();
 
       if (!isSilent) {
         const story = document.getElementById('story');
@@ -2593,6 +2719,9 @@ function applyModeUI() {
   var sbtn = document.getElementById('send-btn'); if (sbtn) sbtn.style.display = isKanshou ? '' : 'none';
   var nsfw = document.getElementById('nsfw-mode-toggle');
   if (nsfw) { var lab = nsfw.closest('label'); if (lab) lab.style.display = isKanshou ? '' : 'none'; }
+  // 戰爭行動列：取代輸入框，只在戰爭模式顯示
+  var wa = document.getElementById('war-actions'); if (wa) wa.style.display = isKanshou ? 'none' : 'flex';
+  try { if (!isKanshou) renderWarActions(); } catch (e) {}
 }
 
 // 🔵 御主命運測定（魔術天賦），最多 3 次
@@ -3110,9 +3239,14 @@ let plainTextContext = cleanText;
             </select>
             <span style="font-size:11px; color:#9a7;">(每回合上限 3)</span>
           </div>`;
-          html += `<button class="btn" style="border-color:#a52a2a; color:#a52a2a; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false)">⚔️ 令從者出擊</button>`;
-          html += `<button class="btn" style="border-color:#d4af37; color:#d4af37; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', true)">💥 寶具解放</button>`;
-          html += `<button class="btn" style="border-color:#b06cd0; color:#b06cd0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, true)">❖ 令咒・絕對命令（必中）</button>`;
+          if (npcData.faction === '敵御主') {
+            html += `<button class="btn" style="grid-column: span 2; border-color:#a0307a; color:#e0a0d0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, false, true)">🗡️ 刺殺御主（須擲 20 大成功，否則遭護衛反噬 1.5 倍）</button>`;
+          } else {
+            var _st = attackStyle_();
+            html += `<button class="btn" title="${_st.hint}" style="border-color:rgb(${_st.rgb}); color:${_st.col}; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false)">${_st.emo} 令從者${_st.name}</button>`;
+            html += `<button class="btn" style="border-color:#d4af37; color:#d4af37; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', true)">💥 寶具解放</button>`;
+            html += `<button class="btn" style="border-color:#b06cd0; color:#b06cd0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, true)">❖ 令咒・絕對命令（必中）</button>`;
+          }
           if (pc && pc.mode === 'full') {
             html += `<button class="btn" style="border-color:#8fa39b; color:#8fa39b;" onclick="closeInteractMenu(); insertActionTag('下毒', '${npcName}')">🧪 下毒</button>`;
             html += `<button class="btn" style="border-color:#8fa39b; color:#8fa39b;" onclick="closeInteractMenu(); insertActionTag('媚藥', '${npcName}')">🌸 媚藥</button>`;
