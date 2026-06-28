@@ -120,7 +120,10 @@ function masterToNpcRow_(mr, gameId, loc, faction) {
   row[COL.PC.ID] = "NPC_" + Date.now() + "_m" + Math.floor(Math.random() * 100000);
   row[COL.PC.NAME] = mr[COL.MASTER.NAME];
   row[COL.PC.SEX] = mr[COL.MASTER.SEX] || "異";
-  row[COL.PC.BACK] = mr[COL.MASTER.APPEAR] || "魔術師";
+  // 身世（本版新增欄；舊資料退回外貌）＋外貌一併餵給敘事
+  var mBack = String(mr[COL.MASTER.BACK] || "").trim();
+  var mAppear = String(mr[COL.MASTER.APPEAR] || "").trim();
+  row[COL.PC.BACK] = (mBack ? mBack : "魔術師") + (mAppear ? "。外貌：" + mAppear : "");
   row[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "平靜" });
   row[COL.PC.MONEY] = 200;
   row[COL.PC.TRAIT] = parseTraitsHelper(mr[COL.MASTER.PERSONA], "外貌平凡、舉止從容、通曉魔術、深藏心事");
@@ -130,7 +133,7 @@ function masterToNpcRow_(mr, gameId, loc, faction) {
   row[COL.PC.HP] = hp; row[COL.PC.MP] = mp;
   row[COL.PC.STR] = 12; row[COL.PC.CON] = 12; row[COL.PC.AGI] = 12; row[COL.PC.INT] = 18; row[COL.PC.LUK] = 12;
   row[COL.PC.MAX_HP] = hp; row[COL.PC.MAX_MP] = mp; row[COL.PC.REALM] = "凡人";
-  row[COL.PC.INTENT] = "";
+  row[COL.PC.INTENT] = String(mr[COL.MASTER.MOE] || "");
   row[COL.PC.FACTION] = faction; row[COL.PC.RANK] = "御主"; row[COL.PC.CLS] = "";
   row[COL.PC.MEMORY] = `【願望】${mr[COL.MASTER.WISH] || ""}｜【魔術】${mr[COL.MASTER.MAGIC] || ""}`;
   row[COL.PC.GAME_ID] = gameId;
