@@ -55,6 +55,14 @@
   let currentStatusTargetId = pc ? pc.id : ""; 
   let currentStatusTargetName = pc ? pc.name : "";
   let localNPCs = [];
+  let myServantCls = ''; // 🗡️ 我方從者職階（決定攻擊類別的按鈕顯示：近戰/魔砲/狙擊）
+  // 依職階回傳基礎攻擊的「類別樣式」（給按鈕用）。法師＝魔砲、弓兵＝狙擊、其餘＝近戰。
+  function attackStyle_() {
+    var c = String(myServantCls || '');
+    if (c === 'Caster') return { emo: '🔮', name: '魔砲', hint: '以魔力轟擊', col: '#7e6cff', rgb: '126,108,255' };
+    if (c === 'Archer') return { emo: '🏹', name: '狙擊', hint: '遠程精準', col: '#5cb88f', rgb: '92,184,143' };
+    return { emo: '⚔️', name: '出戰', hint: '近身搏殺', col: '#e07a7a', rgb: '165,42,42' };
+  }
   let localItems = []; // 🟢 玩家當前隨身行囊(供敘事中物品連結點擊時查 desc/id/type)
   let nearbyLocations = []; 
   let giftTargetNPC = null;
@@ -995,12 +1003,20 @@ function renderRecentLocs(recents = null) {
     const foes = (localNPCs || []).filter(n => n && n.isExact && (n.faction === '敵御主' || n.faction === '敵從者'));
     const chip = (label, onclick, rgb) => '<button onclick="' + onclick + '" style="flex:1; min-width:78px; font-size:12px; padding:8px 5px; background:rgba(' + rgb + ',0.15); color:rgb(' + rgb + '); border:1px solid rgba(' + rgb + ',0.55); border-radius:8px; cursor:pointer; font-weight:bold;">' + label + '</button>';
     let h = '';
+    const st = attackStyle_();
     foes.forEach(f => {
       const safe = String(f.name).replace(/'/g, '');
       if (f.faction === '敵御主') {
         h += '<button onclick="servantStrike(\'' + safe + '\', false, false, true)" style="flex:1 0 100%; font-size:13px; padding:9px; background:linear-gradient(90deg,rgba(120,30,90,.32),rgba(80,20,60,.18)); color:#e8b0d8; border:1px solid #a0307a; border-radius:8px; cursor:pointer; font-weight:bold;">🗡️ 刺殺御主 ' + f.name + ' <small style="opacity:.65;">敵御主·須擲20</small></button>';
       } else {
-        h += '<button onclick="servantStrike(\'' + safe + '\', false)" style="flex:1 0 100%; font-size:13px; padding:9px; background:linear-gradient(90deg,rgba(165,42,42,.32),rgba(120,30,30,.18)); color:#f0b8b8; border:1px solid #a52a2a; border-radius:8px; cursor:pointer; font-weight:bold;">⚔️ 出戰 ' + f.name + ' <small style="opacity:.65;">敵從者</small></button>';
+        // 拆開顯示：基礎攻擊（依職階：近戰／魔砲／狙擊）＋ 寶具 ＋ 令咒，一目了然
+        h += '<div style="flex:1 0 100%; border:1px solid rgba(165,42,42,.5); border-radius:9px; padding:6px; margin-bottom:2px; background:rgba(50,18,18,.22);">'
+          + '<div style="color:#e8b0b0; font-size:12px; font-weight:bold; margin-bottom:5px; text-align:center;">敵從者 ' + f.name + '</div>'
+          + '<div style="display:flex; gap:5px;">'
+          + '<button onclick="servantStrike(\'' + safe + '\', false)" title="' + st.hint + '" style="flex:2; font-size:12.5px; padding:8px 4px; background:linear-gradient(90deg,rgba(' + st.rgb + ',.34),rgba(' + st.rgb + ',.16)); color:' + st.col + '; border:1px solid rgb(' + st.rgb + '); border-radius:7px; cursor:pointer; font-weight:bold;">' + st.emo + ' ' + st.name + '</button>'
+          + '<button onclick="servantStrike(\'' + safe + '\', true)" title="解放寶具" style="flex:1; font-size:12px; padding:8px 4px; background:rgba(212,175,55,.15); color:#e7c873; border:1px solid #d4af37; border-radius:7px; cursor:pointer; font-weight:bold;">💥 寶具</button>'
+          + '<button onclick="servantStrike(\'' + safe + '\', false, true)" title="令咒・絕對命令（必中）" style="flex:1; font-size:12px; padding:8px 4px; background:rgba(176,108,208,.15); color:#c79be8; border:1px solid #b06cd0; border-radius:7px; cursor:pointer; font-weight:bold;">❖ 令咒</button>'
+          + '</div></div>';
       }
     });
     if (!foes.length) h += '<div style="flex:1 0 100%; text-align:center; color:#6a5f80; font-size:11.5px; padding:1px 0 3px;">此地暫無敵蹤——可偵查、補魔整備，或往地圖移動</div>';
@@ -1868,6 +1884,8 @@ function renderRecentLocs(recents = null) {
           + '<span style="font-size:9.5px; color:#9a8fae; width:56px; flex:none; text-align:right; font-variant-numeric:tabular-nums;">' + cur + '/' + max + '</span></div>';
       };
       const m = t.master, s = t.servant;
+      myServantCls = (s && s.cls) || ''; // 快取職階，供攻擊按鈕分類顯示
+      try { renderWarActions(); } catch (e) {}
       let mh = '<div style="background:rgba(20,14,28,0.55); border:1px solid #d4af37; border-radius:8px; padding:6px 8px;">'
         + '<div style="color:#d4af37; font-weight:bold; font-size:12px;">⚜️ 御主</div>'
         + '<div style="color:#e8dcc0; font-size:13px; font-weight:bold; margin:1px 0 3px;">' + m.name + '</div>'
@@ -1963,10 +1981,11 @@ function renderRecentLocs(recents = null) {
               + '<button class="btn" style="width:100%; font-size:11px; padding:5px 3px; border-color:#a0307a; color:#e0a0d0;" onclick="servantStrike(\'' + safe + '\', false, false, true)">🗡️ 刺殺御主（須擲 20 大成功）</button>'
               + '</div>';
           } else {
+            var st = attackStyle_();
             html += '<div style="border:1px solid rgba(214,92,92,0.4); border-radius:7px; padding:6px 8px; margin-bottom:7px; background:rgba(60,20,20,0.25);">'
               + '<div style="color:#e8b0b0; font-size:12.5px; font-weight:bold; margin-bottom:4px;">' + f.name + ' <small style="color:#a77;">敵從者</small></div>'
               + '<div style="display:flex; gap:4px; flex-wrap:wrap;">'
-              + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#a52a2a; color:#e07a7a;" onclick="servantStrike(\'' + safe + '\', false)">⚔️ 出戰</button>'
+              + '<button class="btn" title="' + st.hint + '" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:rgb(' + st.rgb + '); color:' + st.col + ';" onclick="servantStrike(\'' + safe + '\', false)">' + st.emo + ' ' + st.name + '</button>'
               + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#d4af37; color:#e7c873;" onclick="servantStrike(\'' + safe + '\', true)">💥 寶具</button>'
               + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#b06cd0; color:#c79be8;" onclick="servantStrike(\'' + safe + '\', false, true)">❖ 令咒</button>'
               + '</div></div>';
@@ -2147,7 +2166,8 @@ function renderRecentLocs(recents = null) {
     }
     if (!beginAction()) return;
     const story = document.getElementById('story');
-    const verb = isMaster ? '奇襲斬首，直取敵御主' : (useSeal ? '燃令咒・絕對命令，必中斬向' : (useNp ? '解放寶具，目標' : '出擊，目標'));
+    const _plain = myServantCls === 'Caster' ? '詠唱魔砲，轟向' : myServantCls === 'Archer' ? '張弓狙擊，鎖定' : '出擊，目標';
+    const verb = isMaster ? '奇襲斬首，直取敵御主' : (useSeal ? '燃令咒・絕對命令，必中斬向' : (useNp ? '解放寶具，目標' : _plain));
     story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主令從者${verb}「${npcName}」！</div>`);
     story.scrollTop = story.scrollHeight;
     try {
@@ -3222,7 +3242,8 @@ let plainTextContext = cleanText;
           if (npcData.faction === '敵御主') {
             html += `<button class="btn" style="grid-column: span 2; border-color:#a0307a; color:#e0a0d0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, false, true)">🗡️ 刺殺御主（須擲 20 大成功，否則遭護衛反噬 1.5 倍）</button>`;
           } else {
-            html += `<button class="btn" style="border-color:#a52a2a; color:#a52a2a; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false)">⚔️ 令從者出擊</button>`;
+            var _st = attackStyle_();
+            html += `<button class="btn" title="${_st.hint}" style="border-color:rgb(${_st.rgb}); color:${_st.col}; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false)">${_st.emo} 令從者${_st.name}</button>`;
             html += `<button class="btn" style="border-color:#d4af37; color:#d4af37; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', true)">💥 寶具解放</button>`;
             html += `<button class="btn" style="border-color:#b06cd0; color:#b06cd0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, true)">❖ 令咒・絕對命令（必中）</button>`;
           }
