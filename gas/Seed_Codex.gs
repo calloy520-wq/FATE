@@ -7,7 +7,7 @@ var SEED_SERVANTS = [
   // 第五次
   { id:'阿爾托莉雅-Saber', cls:'Saber', realName:'阿爾托莉雅·潘德拉貢', wars:['4th','5th'], gender:'女',
     six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'A',幸運:'A',寶具:'A+'},
-    classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
+    classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
     skills:[{n:'直感',r:'A',fx:'first_strike'},{n:'魔力放出',r:'A',fx:'burst'},{n:'卡里斯瑪',r:'B',fx:'morale'},
             {n:'風王鐵鎚',r:'A',fx:'wind_strike'}],
     traits:[{n:'王'},{n:'人類'}], np:'誓約勝利之劍（對城 A++）',
