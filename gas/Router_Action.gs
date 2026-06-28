@@ -51,6 +51,8 @@ const ActionRouter = {
   "mana_supply": actionManaSupply,
   "bond": actionBond,
   "use_mystic": actionUseMystic,
+  "set_workshop": actionSetWorkshop,
+  "scavenge": actionScavenge,
   "scout": actionScout,
   "clear_npc_major_event": actionClearNpcMajorEvent,
   "get_all_categorized_maps": actionGetAllCategorizedMaps,
@@ -2245,13 +2247,20 @@ function actionRest(userData, pcId, sheets) {
       restClock = clockLabel_(restGameId);
     } catch (e) { }
     try { sheets.log.appendRow([new Date(), pcId, `【系統】御主一行休息了 ${restHours} 小時，恢復行動力。`, pcLoc]); } catch (e) { }
+    // ⚔️ 卸防突襲：當敵蹤同地時休息＝酣睡門戶大開，最為兇險（mul 1.5）
+    const restAmbush = enemyAmbushOnServant_(sheets, pcData, pIdx, restGameId, userData, 1.5);
     // 📜 正典插針：休息推進時間（可能跨日）後檢查正史橋段
     let restBeats = [], restLeads = [];
     try { const cp = checkCanonPins_(sheets, pcId); restBeats = cp.beats || []; restLeads = cp.leads || []; } catch (e) { }
+    let restAmbushPrompt = "";
+    if (restAmbush) {
+      restAmbushPrompt = `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${restAmbush.enemyName}」${restAmbush.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊重創「${(pcData.find(r=>String(r[COL.PC.FACTION])==='從者'&&String(r[COL.PC.GAME_ID]||'')===restGameId)||[])[COL.PC.NAME]||'從者'}」（−${restAmbush.dmg}）${restAmbush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。★【鐵律】嚴禁輸出 stat_changes、items_gained、money_transferred。`;
+    }
     return JSON.stringify({
       success: true, statusString: getFreshStatusString(pcId, pIdx, sheets), healedNames: healedNames,
       loc: pcLoc, wasInjured: wasInjured, restHours: restHours, clock: restClock, ap: apAfter, apMax: AP_PER_DAY, rumors: restRumors,
       canonBeats: restBeats, canonLeads: restLeads,
+      ambush: !!restAmbush, defeat: restAmbush ? restAmbush.defeat : false, dreamPrompt: restAmbush ? restAmbush.dreamPrompt : "", ambushPrompt: restAmbushPrompt,
       economy: playerServantEconomy_(sheets, pcId)
     });
   }
@@ -4115,6 +4124,8 @@ function actionFateBattle(userData, pcId, sheets) {
       `${roundsBrief}\n` +
       `我方共造成 ${totalDealt} 傷害、受創 ${totalTaken}。最終：${finalLine}\n` +
       `★請以 Fate／TYPE-MOON 筆觸生動描寫這 ${nRounds} 回合互有攻防、你來我往的廝殺（不是單方面挨打），凸顯雙方發動的技能／寶具威能與靈基壓迫感（演出而非複述標籤名）。勝負與傷害已由系統結算。\n` +
+      (useSeal ? `★【令咒·絕對命令·務必演出】御主高舉左手，手背上的紅色令咒咒印（聖痕）灼然迸亮、其中一道紋路在燃燒中消褪——請明確描寫「御主燃燒一道令咒、下達不可違逆的絕對命令」這一幕，以及那道命令如何貫徹從者全身、強行引爆超越極限的戰力（這一擊必中）。\n` : "") +
+      (useNp ? `★【寶具解放·務必演出】請描寫從者高呼寶具真名、解放其象徵傳說之力的壯麗瞬間與毀滅性威能。\n` : "") +
       (godRevived ? `★【十二試煉】${godNote}請演出他靈基崩解又自死亡歸來、神性光輝重燃的不滅之姿。\n` : "") +
       (sealEscaped ? `★【令咒介入】${sealNote}請演出對面御主令咒爆閃、強行扯離重傷從者的瞬間，敵已遁走、不在場。\n` : "") +
       ((!destroyedName && !sealEscaped && !godRevived) ? `★敗方最多重傷，【絕對禁止】描寫死亡／消滅／屍體，生死由御主後續定奪。\n` : "") +
@@ -4237,11 +4248,21 @@ function actionManaSupply(userData, pcId, sheets) {
   let manaAp = AP_PER_DAY, manaClock = "";
   if (isFateMana) { try { manaAp = spendAp_(myGameId, 1).ap; manaClock = clockLabel_(myGameId); } catch (e) { } }
 
+  // ⚔️ 卸防突襲：補魔時門戶大開，同地若有清醒敵從者→趁隙重擊我方從者（可能致敗）
+  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, userData, 1.4);
+
   // 戰場補魔：甜而克制的曖昧 fade（給點甜頭、不開慾海引擎）——真・慾海留給鑑賞
-  const aiPrompt = `【系統·補魔已結算】御主以魔力供給「${svName}」，其魔力回復至 ${restored}/${mpMax}，羈絆微升。\n` +
-    `★以 Fate／TYPE-MOON 筆觸，溫柔且帶一絲曖昧張力地描寫這場魔力供給——御主與從者肌膚相觸、魔力交融的私密一刻：可有體溫、心跳、靠近、屏息、半句未盡的情話與心動，氛圍甜美而克制，最後 fade-to-black 留白。聚焦兩人之間悄然升溫的羈絆。\n` +
-    `★【鐵律】止於唯美曖昧、點到為止；【不可】出現性器官、性交或露骨情慾描寫（那是奪杯後鑑賞的事）。演出而非複述設定；嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
-  return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
+  let aiPrompt;
+  if (ambush) {
+    aiPrompt = `【系統·補魔遭突襲·已裁定】御主正以魔力供給「${svName}」、彼此門戶大開之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠貫入「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
+      `★以 Fate／TYPE-MOON 筆觸描寫補魔的私密一刻被突襲打斷的驚變：魔力交融的脆弱、敵襲的兇險、${ambush.destroyed ? '從者消滅的痛楚（語氣留白）' : '從者強忍重傷護住御主的瞬間'}。傷害與勝負已由系統結算。\n` +
+      `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+  } else {
+    aiPrompt = `【系統·補魔已結算】御主以魔力供給「${svName}」，其魔力回復至 ${restored}/${mpMax}，羈絆微升。\n` +
+      `★以 Fate／TYPE-MOON 筆觸，溫柔且帶一絲曖昧張力地描寫這場魔力供給——御主與從者肌膚相觸、魔力交融的私密一刻：可有體溫、心跳、靠近、屏息、半句未盡的情話與心動，氛圍甜美而克制，最後 fade-to-black 留白。聚焦兩人之間悄然升溫的羈絆。\n` +
+      `★【鐵律】止於唯美曖昧、點到為止；【不可】出現性器官、性交或露骨情慾描寫（那是奪杯後鑑賞的事）。演出而非複述設定；嚴禁輸出任何 stat_changes 生命變化、items_gained、money_transferred。`;
+  }
+  return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
 // ── 💕 羈絆日限：記於御主 MEMORY 的【羈絆日】D:type1,type2（跨日自動重置）──
@@ -4302,12 +4323,23 @@ function actionBond(userData, pcId, sheets) {
     if (rel) bondNow = parseInt(rel[COL.REL.FAV]) || 0;
   }
 
-  const aiPrompt = `【系統·羈絆已結算】御主『${masterName}』與從者「${svName}」${act.label}，兩人的羈絆又深了一分（時值${band}）。\n` +
-    `★以 Fate／TYPE-MOON 筆觸寫一段（約 150~260 字）${svName} 與御主${act.frame}的場景。務必貼合「${svName}」這名英靈的性格、第一人稱與說話口吻，演出其獨有的神態與心思。\n` +
-    `★【show, don't tell】用言行、神態、停頓去流露情感與性格，絕不可直白說出其「願望／個性／萌點」等設定詞；停在含蓄的留白。\n` +
-    `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩；嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+  // ⚔️ 卸防突襲：相伴談心時門戶大開，同地若有清醒敵從者→趁隙重擊
+  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, userData, 1.2);
+
+  let aiPrompt;
+  if (ambush) {
+    aiPrompt = `【系統·相伴遭突襲·已裁定】御主『${masterName}』與「${svName}」正${act.label}、卸下心防之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自暗處無聲突襲' : '抓準這破綻殺出'}，一擊重創「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n` +
+      `★以 Fate／TYPE-MOON 筆觸描寫溫存被突襲撕裂的驚變與兇險，${ambush.destroyed ? '及從者消滅的痛楚（語氣留白）' : '及從者強撐重傷護主的瞬間'}。傷害與勝負已由系統結算。\n` +
+      `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+  } else {
+    aiPrompt = `【系統·羈絆已結算】御主『${masterName}』與從者「${svName}」${act.label}，兩人的羈絆又深了一分（時值${band}）。\n` +
+      `★以 Fate／TYPE-MOON 筆觸寫一段（約 150~260 字）${svName} 與御主${act.frame}的場景。務必貼合「${svName}」這名英靈的性格、第一人稱與說話口吻，演出其獨有的神態與心思。\n` +
+      `★【show, don't tell】用言行、神態、停頓去流露情感與性格，絕不可直白說出其「願望／個性／萌點」等設定詞；停在含蓄的留白。\n` +
+      `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩；嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+  }
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, bond: bondNow, bondUsed: usedToday,
+    ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "",
     statusString: getFreshStatusString(pcId, pIdx, sheets)
   });
 }
@@ -4405,6 +4437,101 @@ function actionUseMystic(userData, pcId, sheets) {
     victory: report.victory, charges: charges,
     clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets)
   });
+}
+
+// ⚔️ 卸防突襲：在同地有清醒敵從者時做「補魔／羈絆／休息」等卸下防備之舉，會招致敵從者趁隙重擊我方從者
+//   （氣息遮斷／暗殺職階更致命）。回 null＝無敵不觸發；否則 {enemyName,dmg,defeat,dreamPrompt,after,stealthy}。
+function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, userData, baseMul) {
+  const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
+  const eIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc);
+  if (eIdx === -1) return null;
+  const svIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  if (svIdx === -1) return null;
+  const enemyC = rowToCombatant_(pcData[eIdx]);
+  const svC = rowToCombatant_(pcData[svIdx]);
+  const probe = resolveFateBattle_(enemyC, svC, {});
+  let mul = baseMul || 1.4;
+  const stealthy = String(pcData[eIdx][COL.PC.RANK]) === 'Assassin' || !!hasFx_(enemyC, 'stealth');
+  if (stealthy) mul *= 1.4; // 氣息遮斷／暗殺趁虛而入更致命
+  const dmg = Math.max(1, Math.round((probe.damage || 1) * mul));
+  const out = { enemyName: String(pcData[eIdx][COL.PC.NAME]), dmg: dmg, destroyed: false, defeat: false, dreamPrompt: "", after: 0, stealthy: stealthy };
+  let hp = parseInt(pcData[svIdx][COL.PC.HP]) || 0, after = hp - dmg;
+  if (after <= 5 && hasFx_(svC, 'survive') && hp > 1) after = 1;
+  if (after <= 0 && hasFx_(svC, 'god_hand')) {
+    const lives = getGodHandLives_(pcData[svIdx][COL.PC.MEMORY]);
+    if (lives > 0) { after = Math.max(1, Math.round((parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 480) * 0.4)); pcData[svIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[svIdx][COL.PC.MEMORY], lives - 1); }
+  }
+  if (after <= 0) {
+    out.destroyed = true; out.defeat = true;
+    pcData[svIdx][COL.PC.ID] = "DEAD_" + String(pcData[svIdx][COL.PC.ID]); pcData[svIdx][COL.PC.HP] = 0;
+    pcData[svIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "卸防遭突襲·靈基崩潰", "顏面": "已無生息" });
+    const wish = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
+    out.dreamPrompt = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wish, String(pcData[svIdx][COL.PC.NAME]));
+    const acctD = String(userData.acctName || ""); if (acctD) recordHistory_(acctD, "敗", String(pcData[svIdx][COL.PC.NAME]), `「${pcData[svIdx][COL.PC.NAME]}」卸下防備時遭「${out.enemyName}」突襲斬殺。`);
+  } else {
+    pcData[svIdx][COL.PC.HP] = after;
+  }
+  out.after = parseInt(pcData[svIdx][COL.PC.HP]) || 0;
+  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+  return out;
+}
+
+// ── 🏕️ 陣地（工房）：存於御主 MEMORY【陣地】loc，駐留該地時供魔得工房加成 ──
+function getWorkshop_(memory) { var m = String(memory || "").match(/【陣地】([^|【]+)/); return m ? m[1].trim() : ""; }
+function setWorkshopMemory_(memory, loc) {
+  var s = String(memory || "");
+  if (/【陣地】[^|【]*/.test(s)) return s.replace(/【陣地】[^|【]*/, "【陣地】" + loc);
+  return (s ? s + "｜" : "") + "【陣地】" + loc;
+}
+
+// 🏕️ 設置陣地：把當前地設為工房（提升駐留供魔）。耗 1 AP。
+function actionSetWorkshop(userData, pcId, sheets) {
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const isFate = myGameId.indexOf("g_") === 0;
+  const loc = String(pcData[pIdx][COL.PC.LOC] || "").trim();
+  if (!loc) return JSON.stringify({ success: false, message: "無法在虛無之地佈設陣地。" });
+  if (getWorkshop_(pcData[pIdx][COL.PC.MEMORY]) === loc) return JSON.stringify({ success: false, message: `「${loc}」已是你的陣地。` });
+  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以佈設陣地——請休息恢復。" });
+  pcData[pIdx][COL.PC.MEMORY] = setWorkshopMemory_(pcData[pIdx][COL.PC.MEMORY], loc);
+  sheets.pc.getRange(pIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[pIdx][COL.PC.MEMORY]);
+  let ap = AP_PER_DAY, clock = "";
+  if (isFate) { try { ap = spendAp_(myGameId, 1).ap; clock = clockLabel_(myGameId); } catch (e) { } }
+  return JSON.stringify({ success: true, message: `已於「${loc}」佈設陣地（工房）——駐留此地時，從者供魔收入提升。`, clock: clock, ap: ap, apMax: AP_PER_DAY, economy: isFate ? playerServantEconomy_(sheets, pcId) : null });
+}
+
+// 🔍 搜索物資：回復御主魔力，偶察覺鄰近敵蹤（耗 1 AP）
+function actionScavenge(userData, pcId, sheets) {
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const isFate = myGameId.indexOf("g_") === 0;
+  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以細細搜索——請休息恢復。" });
+  // 回復御主魔力 ~30%
+  const mpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || 80;
+  const cur = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
+  const gain = Math.max(0, Math.min(mpMax, cur + Math.round(mpMax * 0.30)) - cur);
+  pcData[pIdx][COL.PC.MP] = cur + gain;
+  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+  let ap = AP_PER_DAY, clock = "";
+  if (isFate) { try { ap = spendAp_(myGameId, 1).ap; clock = clockLabel_(myGameId); } catch (e) { } }
+  // 30% 機率察覺鄰近敵蹤（揭露一名最近的未偵查敵）
+  let intel = "";
+  if (Math.random() < 0.35) {
+    for (var i = 1; i < pcData.length; i++) {
+      var fac = String(pcData[i][COL.PC.FACTION]);
+      if ((fac === "敵御主" || fac === "敵從者") && String(pcData[i][COL.PC.GAME_ID] || "") === myGameId && !String(pcData[i][COL.PC.ID]).startsWith("DEAD_") && !pcData[i][COL.PC.SEEN]) {
+        sheets.pc.getRange(i + 1, COL.PC.SEEN + 1).setValue(1);
+        intel = `搜索間隱約察覺「${pcData[i][COL.PC.LOC]}」一帶有「${pcData[i][COL.PC.NAME]}」的氣息。`;
+        break;
+      }
+    }
+  }
+  const msg = `搜索此地補給，導入零散魔力——御主魔力 +${gain}（${pcData[pIdx][COL.PC.MP]}/${mpMax}）。${intel || "此地別無所獲。"}`;
+  return JSON.stringify({ success: true, message: msg, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
 // 🔍 偵查：耗 1 AP，揭露「附近地點」藏匿的敵御主／敵從者（戰爭迷霧；marks SEEN）

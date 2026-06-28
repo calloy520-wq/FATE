@@ -165,14 +165,17 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
   var atHome = !!(homeLoc && rootLoc && String(homeLoc).split('-')[0].trim() === rootLoc);
   var party = {}; party[String(playerName)] = true;
   (partyNames || []).forEach(function (n) { party[String(n)] = true; });
-  // ✨ 禮裝·全世界之鞘(Avalon)：御主持有時，全隊氣血回復加快
-  var avalon = false;
+  // ✨ 禮裝·全世界之鞘(Avalon)：全隊回血加快；🏕️ 陣地(工房)：駐留該地→供魔工房加成
+  var avalon = false, workshopLoc = "";
   for (var ai = 1; ai < data.length; ai++) {
     if (String(data[ai][COL.PC.GAME_ID] || "") !== gameId) continue;
     if (String(data[ai][COL.PC.NAME]) === String(playerName) && String(data[ai][COL.PC.FACTION]) !== "從者") {
-      avalon = !!masterMysticFx_(data[ai][COL.PC.MEMORY], 'avalon'); break;
+      avalon = !!masterMysticFx_(data[ai][COL.PC.MEMORY], 'avalon');
+      try { workshopLoc = getWorkshop_(data[ai][COL.PC.MEMORY]); } catch (e) { }
+      break;
     }
   }
+  var atWorkshop = !!(workshopLoc && rootLoc && String(workshopLoc).split('-')[0].trim() === rootLoc);
   var hpRate = 0.05 * (avalon ? 1.6 : 1);
   var did = false;
   for (var i = 1; i < data.length; i++) {
@@ -186,7 +189,7 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
     var nmp = mp;
     if (fac === "從者" && mpMax) {
       var c = rowToCombatant_(data[i]);
-      var hasWs = atHome || !!hasFx_(c, 'territory'); // 在自己居所 或 自帶陣地作成(Caster)
+      var hasWs = atHome || atWorkshop || !!hasFx_(c, 'territory'); // 居所／已設陣地／自帶陣地作成(Caster)
       var eco = servantEconomy_(circuits, c.six, !!hasFx_(c, 'mad'), ley, hasWs);
       var perHour = (eco.income * mult) - eco.drain;  // 休息把收入加倍、維持不變
       nmp = Math.max(0, Math.min(mpMax, mp + perHour * hours));
