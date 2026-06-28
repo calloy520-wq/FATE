@@ -36,7 +36,7 @@ const COL = {
   SHOP: { OWNER: 0, NAME: 1, CATEGORY: 2, DESC: 3, LOC: 4, VAULT: 5, LAST_SETTLE: 6 },
   // 🔵 英靈殿(從者範本)、御主殿、戰鬥標籤
   HERO: { ID: 0, CLS: 1, NAME: 2, SEX: 3, SIX: 4, CLASS_SKILLS: 5, SKILLS: 6, TRAITS: 7, NP: 8, PERSONA: 9, ALIGN: 10, WARS: 11, SOURCE: 12 },
-  MASTER: { ID: 0, NAME: 1, SEX: 2, APPEAR: 3, MAGIC: 4, CIRCUITS: 5, MELEE: 6, MAGIC_RANK: 7, HOME: 8, WISH: 9, PERSONA: 10, WAR: 11, SOURCE: 12 },
+  MASTER: { ID: 0, NAME: 1, SEX: 2, APPEAR: 3, MAGIC: 4, CIRCUITS: 5, MELEE: 6, MAGIC_RANK: 7, HOME: 8, WISH: 9, PERSONA: 10, WAR: 11, SOURCE: 12, BACK: 13, MOE: 14 },
   CTAG: { FX: 0, NAME: 1, TYPE: 2, DESC: 3, MECH: 4 },
   // 帳號（存檔身分）：帳號名 → 目前御主角色ID、勝場
   ACC: { NAME: 0, PC: 1, WON: 2, CREATED: 3 },
@@ -399,6 +399,16 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, relData, taskData, allPc
   const meRow = allPcData.find(r => r[COL.PC.ID] == pcId);
   const myGameId = meRow ? String(meRow[COL.PC.GAME_ID] || "") : "";
 
+  // 🤝 情報共享（同盟背景生效）：只要當前世界尚有任一盟友（敵御主/敵從者結盟中），盟友便會通報敵情——
+  //   敵從者的「職階」對玩家揭露（原作依據：遠坂凜為士郎判明敵方職階／真名）。無盟友則維持迷霧。
+  let hasAlly = false;
+  for (let a = 1; a < allPcData.length; a++) {
+    const ar = allPcData[a];
+    if (myGameId && String(ar[COL.PC.GAME_ID] || "") !== myGameId) continue;
+    const af = String(ar[COL.PC.FACTION] || "");
+    if ((af === "敵御主" || af === "敵從者") && !String(ar[COL.PC.ID]).startsWith("DEAD_") && /【盟約至】\d+/.test(String(ar[COL.PC.MEMORY] || ""))) { hasAlly = true; break; }
+  }
+
   for (let i = 1; i < allPcData.length; i++) {
     const r = allPcData[i];
     if (r[COL.PC.ID] == pcId || String(r[COL.PC.ID]).startsWith("DEAD_")) continue;
@@ -414,13 +424,17 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, relData, taskData, allPc
       let finalDisplayStatus = buildVisibleStatusString(r[COL.PC.STATUS]);
       // 🤝 結盟中的敵御主/敵從者 → 對前端顯示為「盟友*」，即不再列為可攻擊敵蹤
       let fac = String(r[COL.PC.FACTION] || "");
+      const rawFac = fac;
       const allied = (fac === "敵御主" || fac === "敵從者") && /【盟約至】\d+/.test(String(r[COL.PC.MEMORY] || ""));
       if (allied) fac = (fac === "敵御主") ? "盟友御主" : "盟友從者";
+      // 🤝 情報共享：有盟友在世時，揭露敵從者／盟友從者的職階（盟友通報的敵情）
+      const isServantKind = (rawFac === "敵從者" || rawFac === "從者");
+      const revealCls = (hasAlly && isServantKind) ? String(r[COL.PC.RANK] || r[COL.PC.CLS] || "") : "";
       localPeopleList.push({
         id: r[COL.PC.ID], isPC: String(r[COL.PC.ID]).startsWith("PC_"), name: tName, status: finalDisplayStatus,
         pref: r[COL.PC.PREF] || "神祕莫測", relTag: relRecord ? relRecord[COL.REL.TAG] : "萍水相逢", relVal: rVal,
         loc: tLoc, isExact: (tLoc === safeCurL), isHighRel: (rVal >= 60), isParty: rIsParty,
-        faction: fac, allied: allied,
+        faction: fac, allied: allied, intelCls: revealCls,
         busyWith: otherParty ? otherParty[COL.REL.PC] : null, hp: r[COL.PC.HP], mp: r[COL.PC.MP]
       });
     }

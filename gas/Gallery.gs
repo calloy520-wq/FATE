@@ -105,6 +105,44 @@ function actionClaimGrail(userData, pcId, sheets) {
     }
     if (existingIdx >= 0) gal.getRange(existingIdx + 1, 1, 1, row.length).setValues([row]);
     else gal.appendRow(row);
+
+    // 🤝 同盟羈絆封存：羈絆養至 90↑（或已標【鑑賞緣】）的盟友（御主／從者）一併納入鑑賞名冊。
+    //   原作依據：聖杯戰爭中結下深刻羈絆的同伴（遠坂凜／間桐櫻 等）戰後相伴。御主搭檔以 CLS="御主" 為辨識。
+    try {
+      var relAll = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
+      var galNow = gal.getDataRange().getValues();
+      for (var ai = 1; ai < pcData.length; ai++) {
+        if (String(pcData[ai][COL.PC.GAME_ID] || "") !== gameId) continue;
+        var afac = String(pcData[ai][COL.PC.FACTION]);
+        if (afac !== "敵御主" && afac !== "敵從者") continue;
+        if (String(pcData[ai][COL.PC.ID]).startsWith("DEAD_")) continue;
+        var aMem = String(pcData[ai][COL.PC.MEMORY] || "");
+        var aName = String(pcData[ai][COL.PC.NAME] || "");
+        var aBond = 0;
+        var aRel = relAll.find(function (r) { return r[COL.REL.PC] === masterName && r[COL.REL.NPC] === aName; });
+        if (aRel) aBond = parseInt(aRel[COL.REL.FAV]) || 0;
+        if (!/【鑑賞緣】/.test(aMem) && aBond < 90) continue; // 未達羈絆門檻、不入名冊
+        var aIsMaster = (afac === "敵御主");
+        var aCls = aIsMaster ? "御主" : String(pcData[ai][COL.PC.RANK] || pcData[ai][COL.PC.CLS] || "從者");
+        var aMemoir = aIsMaster
+          ? ("聖杯戰爭的腥風血雨裡，「" + aName + "」曾與你並肩立於同一陣線。猜忌與算計之外，你們之間悄然長出了某種無需言明的牽絆——硝煙散盡後，那個身影仍留在你身旁。")
+          : ("「" + aName + "」本是敵對陣營的從者，卻在那段暫時休兵的日子裡與你結下了超越敵我的羈絆。戰爭落幕，這份惺惺相惜並未隨之消散。");
+        var aRow = [
+          acctName, aName, aCls, String(pcData[ai][COL.PC.SEX] || ""),
+          String(pcData[ai][COL.PC.SIX] || "{}"), String(pcData[ai][COL.PC.TAGS] || "{}"),
+          String(pcData[ai][COL.PC.MARTIAL] || ""), String(pcData[ai][COL.PC.BACK] || ""),
+          String(pcData[ai][COL.PC.PREF] || ""), String(pcData[ai][COL.PC.INTENT] || ""),
+          aMemoir, "（並肩走過聖杯戰爭的盟友）", new Date(),
+          masterName, String(pcData[pIdx][COL.PC.SEX] || "")
+        ];
+        var aExist = -1;
+        for (var gj = 1; gj < galNow.length; gj++) {
+          if (String(galNow[gj][COL.GAL.ACC]).trim() === acctName && String(galNow[gj][COL.GAL.NAME]).trim() === aName) { aExist = gj; break; }
+        }
+        if (aExist >= 0) gal.getRange(aExist + 1, 1, 1, aRow.length).setValues([aRow]);
+        else { gal.appendRow(aRow); galNow.push(aRow); }
+      }
+    } catch (eAlly) { }
   }
 
   // 清理該局資料（封存後一局結束）
@@ -192,15 +230,21 @@ function actionEnterGallery(userData, pcId, sheets) {
   mRow[COL.PC.GAME_ID] = gameId;
   sheets.pc.appendRow(mRow);
 
-  // 從者：由鑑賞紀錄還原
+  // 從者／盟友御主：由鑑賞紀錄還原（CLS="御主" ＝ 戰時結下深羈絆的盟友御主搭檔，凡人之軀）
+  var partnerIsMaster = (String(rec[COL.GAL.CLS] || "") === "御主");
   var sId = "KSV_" + Date.now();
   var sRow = Array(pcColCount).fill("");
   sRow[COL.PC.ID] = sId;
   sRow[COL.PC.NAME] = name;
   sRow[COL.PC.SEX] = String(rec[COL.GAL.SEX] || "異") || "異";
   sRow[COL.PC.REALM] = "凡人";
-  sRow[COL.PC.HP] = 480; sRow[COL.PC.MAX_HP] = 480; sRow[COL.PC.MP] = 200; sRow[COL.PC.MAX_MP] = 200;
-  sRow[COL.PC.STR] = 45; sRow[COL.PC.CON] = 45; sRow[COL.PC.AGI] = 45; sRow[COL.PC.INT] = 40; sRow[COL.PC.LUK] = 35;
+  if (partnerIsMaster) {
+    sRow[COL.PC.HP] = 100; sRow[COL.PC.MAX_HP] = 100; sRow[COL.PC.MP] = 120; sRow[COL.PC.MAX_MP] = 120;
+    sRow[COL.PC.STR] = 12; sRow[COL.PC.CON] = 12; sRow[COL.PC.AGI] = 12; sRow[COL.PC.INT] = 30; sRow[COL.PC.LUK] = 18;
+  } else {
+    sRow[COL.PC.HP] = 480; sRow[COL.PC.MAX_HP] = 480; sRow[COL.PC.MP] = 200; sRow[COL.PC.MAX_MP] = 200;
+    sRow[COL.PC.STR] = 45; sRow[COL.PC.CON] = 45; sRow[COL.PC.AGI] = 45; sRow[COL.PC.INT] = 40; sRow[COL.PC.LUK] = 35;
+  }
   sRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情柔和" });
   sRow[COL.PC.LOC] = loc;
   sRow[COL.PC.FACTION] = "從者";
@@ -243,7 +287,11 @@ function actionGalleryTalk(userData, pcId, sheets) {
   }
   if (!rec) return JSON.stringify({ success: false, message: "鑑賞名冊查無此從者。" });
 
-  var sys = "你扮演《命運停駐之夜》鑑賞模式中被御主再次呼出的從者「" + name + "」（" + String(rec[COL.GAL.CLS] || "") + "職階）。\n" +
+  var galCls = String(rec[COL.GAL.CLS] || "");
+  var roleDesc = (galCls === "御主")
+    ? "曾在聖杯戰爭中與御主並肩結盟、結下超越敵我之羈絆的盟友御主「" + name + "」（凡人之軀，非從者）"
+    : "被御主再次呼出的從者「" + name + "」（" + galCls + "職階）";
+  var sys = "你扮演《命運停駐之夜》鑑賞模式中" + roleDesc + "。\n" +
     "聖杯戰爭已結束、你已奪杯，此為和平的後日談時光，【沒有戰鬥、沒有血量、沒有敵人】。\n" +
     "個性參考：" + String(rec[COL.GAL.PREF] || "") + "\n萌點：" + String(rec[COL.GAL.MOE] || "") + "\n" +
     "★以第一人稱、貼近該英靈官方性格與這名從者的口吻，溫柔自然地與御主互動。演出而非複述設定。\n" +
