@@ -2089,7 +2089,7 @@ function renderRecentLocs(recents = null) {
   // ⚔️ 令從者出擊／寶具解放（Fate 戰鬥：六圍＋fx＋寶具）
   // 📊 多回合視覺戰報：一次出戰最多 3 回合「我攻→敵反擊」，逐回合攤開骰子/命中/傷害給玩家看。
   function renderFateBattleReport(r) {
-    if (!r) return;
+    if (!r || !r.rounds) return;
     const story = document.getElementById('story');
     // 🗡️ 斬首專用戰報卡（無回合制，純 D20 大成功判定）
     if (r.assassination) {
