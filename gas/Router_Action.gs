@@ -4369,17 +4369,24 @@ function getLostServant_(memory) {
   var m = String(memory || "").match(/【喪失從者】([^｜]+)/);
   return m ? m[1] : "";
 }
+// 🔗 敵御主↔敵從者硬連結（種子時互寫於 MEMORY，解決多組同場時「誰是誰」）
+function getServantMaster_(memory) { var m = String(memory || "").match(/【御主】([^｜]+)/); return m ? m[1] : ""; }
+function getMasterServant_(memory) { var m = String(memory || "").match(/【從者】([^｜]+)/); return m ? m[1] : ""; }
 // data：眾生二維陣列；svIdx：剛死亡的敵從者列索引；sheet：sheets.pc。就地改 data 並寫回該御主列。
+//   配對優先用硬連結【御主】名(精準，不怕多組同地)，舊角色無連結則退回同落點比對。
 function markMasterLostServant_(sheet, data, svIdx, cause) {
   try {
     var svName = String(data[svIdx][COL.PC.NAME] || "從者");
     var gid = String(data[svIdx][COL.PC.GAME_ID] || "");
+    var linkedMaster = getServantMaster_(data[svIdx][COL.PC.MEMORY]);
     var loc = String(data[svIdx][COL.PC.LOC] || "").trim();
     for (var m = 1; m < data.length; m++) {
       if (String(data[m][COL.PC.FACTION]) !== "敵御主") continue;
       if (String(data[m][COL.PC.GAME_ID] || "") !== gid) continue;
       if (String(data[m][COL.PC.ID]).startsWith("DEAD_")) continue;
-      if (String(data[m][COL.PC.LOC] || "").trim() !== loc) continue;
+      var isMatch = linkedMaster ? (String(data[m][COL.PC.NAME]) === linkedMaster)
+                                 : (String(data[m][COL.PC.LOC] || "").trim() === loc);
+      if (!isMatch) continue;
       var before = String(data[m][COL.PC.MEMORY] || "");
       var after = stampLostServant_(before, svName, cause);
       if (after !== before) { data[m][COL.PC.MEMORY] = after; sheet.getRange(m + 1, 1, 1, data[m].length).setValues([data[m]]); }

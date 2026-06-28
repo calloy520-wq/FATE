@@ -215,6 +215,13 @@ function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
       rows.push(heroToNpcRow_(hero, gameId, r.loc, '敵從者'));
     });
   }
+  // 🔗 硬連結每組敵御主↔敵從者（rows 嚴格交替：master, servant, master, servant…）
+  //   互寫【從者】名/【御主】名於 MEMORY，讓多組同場時也分得清誰是誰、誰的從者被誰打掉。
+  for (var pi = 0; pi + 1 < rows.length; pi += 2) {
+    var mName = String(rows[pi][COL.PC.NAME] || ""), sName = String(rows[pi + 1][COL.PC.NAME] || "");
+    if (sName) rows[pi][COL.PC.MEMORY] = String(rows[pi][COL.PC.MEMORY] || "") + "｜【從者】" + sName;
+    if (mName) rows[pi + 1][COL.PC.MEMORY] = String(rows[pi + 1][COL.PC.MEMORY] || "") + "｜【御主】" + mName;
+  }
   if (rows.length) {
     pc.getRange(pc.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
   }
