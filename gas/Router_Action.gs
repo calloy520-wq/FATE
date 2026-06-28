@@ -2207,12 +2207,10 @@ ${isKanshou ? `
       }
 
       if (aiData.intimacy_feedback.npcs) {
-        var _dbgNpc = [];
         aiData.intimacy_feedback.npcs.forEach(nfb => {
           const tName = String(nfb.name).trim();
           const targetIdx = pcData.findIndex(r => r[COL.PC.NAME] === tName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
           const rIdx = relData.findIndex(r => r[COL.REL.PC] === pcName && r[COL.REL.NPC] === tName);
-          try { _dbgNpc.push(tName + (targetIdx !== -1 ? "✓" : "✗無此列") + (nfb.visible_state ? ("衣[" + String(nfb.visible_state["衣服"] || nfb.visible_state.衣服 || "?") + "]") : "")); } catch (e) { }
 
           if (targetIdx !== -1 && isNsfwMode) {
             dirtyPcRows.add(targetIdx); // 🔴 新增
@@ -2256,7 +2254,8 @@ ${isKanshou ? `
       const row = pcData[idx];
       if (!row) return;
       const id = String(row[COL.PC.ID] || "");
-      if (!id.startsWith("PC_") && !id.startsWith("NPC_") && !id.startsWith("DEAD_")) return;
+      // 🌹 含慾海角色前綴 KPC_(御主 avatar)／KSV_(同伴從者)，否則後日談的肉體/衣服/親密狀態寫不回去
+      if (!id.startsWith("PC_") && !id.startsWith("NPC_") && !id.startsWith("DEAD_") && !id.startsWith("KPC_") && !id.startsWith("KSV_")) return;
 
       while (row.length < pcColCount) row.push("");
 
@@ -2427,10 +2426,6 @@ ${isKanshou ? `
 
     return JSON.stringify({
       text: finalResponseText,
-      _dbg: "nsfw=" + isNsfwMode + " ｜表=" + (sheets.pc.getName ? sheets.pc.getName() : "?")
-        + " ｜intimacy=" + (aiData.intimacy_feedback ? "Y" : "N")
-        + " ｜match=" + (typeof _dbgNpc !== "undefined" ? _dbgNpc.join(";") : "-")
-        + " ｜表內從者=" + pcData.filter(function (r) { return String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_"); }).map(function (r) { return String(r[COL.PC.NAME]); }).join("/"),
       statusString: buildPlayerStatusString(pcData[pcIndex], getCharacterTotalStats(pcId, sheets, pcData, itemData), itemData),
       people: localPeopleList,
       locations: getNearbyLocations(curL, memoryMapData),
