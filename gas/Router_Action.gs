@@ -2131,6 +2131,16 @@ function actionMove(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: "行動力不足以遠行（需 2 點）——請『休息』恢復後再出發。", clock: clockLabel_(moveGameId), ap: getAp_(moveGameId), apMax: AP_PER_DAY });
   }
 
+  // 🎭 抵達態度判定（趁世界尚未 tick，看 target 此刻是否「已有先客」）：
+  //   先客在＝玩家主動找上門(對方在自己地盤、會警惕戒備)；無＝偶遇(雙方恰巧撞上、都帶幾分意外)。
+  const tgtTrim = String(target || "").trim();
+  const preFoesAtTarget = allPcData.filter(r =>
+    (String(r[COL.PC.FACTION]) === "敵御主" || String(r[COL.PC.FACTION]) === "敵從者")
+    && (!moveGameId || String(r[COL.PC.GAME_ID] || "") === moveGameId)
+    && !String(r[COL.PC.ID]).startsWith("DEAD_")
+    && String(r[COL.PC.LOC] || "").trim() === tgtTrim
+  ).map(r => String(r[COL.PC.NAME]));
+
   // 🌍 世界先動，玩家後到：先讓敵御主／敵從者 tick 到各自的新位置，再把玩家落到 target——
   //   這樣「追到敵人所在地」時，敵人不會在你踏進來的同一瞬間又被傳走（修：撞在一起卻沒對話）。
   //   敵人就位後才讀同地資料給 AI，這一輪它們鎖在原地，遭遇敘事才跑得起來。
@@ -2195,6 +2205,7 @@ function actionMove(userData, pcId, sheets) {
   return JSON.stringify({
     success: true,
     servantCard: svCardMove,
+    preFoes: preFoesAtTarget,
     statusString: buildPlayerStatusString(allPcData[pIdx], getCharacterTotalStats(pcId, sheets, allPcData), sheets.item ? sheets.item.getDataRange().getValues() : []),
     people: getLocalPeopleList(sheets, pcName, pcId, target, relData, sheets.task ? sheets.task.getDataRange().getValues() : []),
     locations: getNearbyLocations(target, freshMapData).slice(0, 5),
