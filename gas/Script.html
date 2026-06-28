@@ -1917,6 +1917,43 @@ function renderRecentLocs(recents = null) {
     } catch (e) { alert('請走失敗。'); }
   }
 
+  // 🌹 進入慾海·後日談（新版）：點一下直接回到帳號專屬的【單一常駐】後日談主畫面。
+  //   不再先挑從者、不再每次重講開場；歷史紀錄跟單機一樣靠 pcId 從「歷史暫存」撈。
+  //   要找誰來陪 → 進場後用下方 👥 後日談同伴 面板邀請（最多 3 人）。
+  async function enterKanshou() {
+    if (!currentAccount) { alert('請先登入帳號。'); return; }
+    if (!beginAction()) return;
+    try {
+      const res = await gasRun({ action: 'enter_kanshou', acctName: currentAccount });
+      if (!res || !res.success) { alert((res && res.message) || '無法進入後日談。'); return; }
+      // 建立鑑賞視角的 pc（mode=kanshou：隱藏戰鬥相關 UI、顯示同伴面板）
+      pc = { id: res.pcId, name: res.pcName, sex: res.pcSex, mode: 'kanshou', account: currentAccount };
+      localStorage.setItem('kyushu_v27', JSON.stringify(pc));
+      document.getElementById('setup').style.display = 'none';
+      document.getElementById('game').style.display = 'flex';
+      applyModeUI();
+      // 🌹 慾海＝NSFW 後日談軌：自動打開 NSFW 開關，否則 isNsfwMode=false、親密/肉體狀態都不會回填。
+      var _nt = document.getElementById('nsfw-mode-toggle'); if (_nt) _nt.checked = true;
+      document.getElementById('ui-name').innerText = pc.name;
+      document.getElementById('ui-sex').innerText = pc.sex;
+      setupHistoryPrevention();
+      refreshFateTags();
+      renderMapPane();
+      // 🧵 跟單機一樣：靠 pcId 從「歷史暫存」撈前塵對話，承接上次的後日談，不重開場
+      const story = document.getElementById('story');
+      story.innerHTML = `<div class="loading-text">後日談因果重啟，喚醒前塵記憶…</div>`;
+      google.script.run.withSuccessHandler((htmlContent) => {
+        if (htmlContent && htmlContent.trim() !== "") {
+          story.innerHTML = htmlContent;
+        } else {
+          story.innerHTML = `<div class="msg-ai"><b>【後日談】</b>聖杯戰爭已落幕，這是屬於你的和平時光。點下方 👥 後日談同伴，邀請曾與你並肩的她入席吧。</div>`;
+        }
+        story.scrollTop = story.scrollHeight;
+        syncData(true);
+      }).getGameHistory(pc.id, pc.name);
+    } catch (e) { alert('連線失敗，無法進入後日談。'); } finally { endAction(); }
+  }
+
   async function openGallery() {
     try {
       const res = await gasRun({ action: 'list_gallery', acctName: currentAccount });
