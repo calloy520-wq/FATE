@@ -1815,12 +1815,21 @@ function renderRecentLocs(recents = null) {
       const bar = (label, cur, max, kind) => {
         if (!max) return '';
         const pct = Math.max(0, Math.min(100, Math.round(cur / max * 100)));
-        const col = kind === 'mp' ? '#4a90d9' : (pct > 50 ? '#5cb85c' : pct > 20 ? '#e0a020' : '#d0473f');
-        return '<div style="display:flex; align-items:center; gap:5px; margin:3px 0;">'
-          + '<span style="font-size:10px; color:#9a8bb0; width:24px; flex:none;">' + label + '</span>'
-          + '<div style="flex:1; min-width:0; height:9px; background:#2a2330; border-radius:5px; overflow:hidden; border:1px solid rgba(0,0,0,0.3);">'
-          + '<div style="width:' + pct + '%; height:100%; background:' + col + ';"></div></div>'
-          + '<span style="font-size:9.5px; color:#8a7f9a; width:58px; flex:none; text-align:right;">' + cur + '/' + max + '</span></div>';
+        // 漸層＋玻璃高光＋leading-edge 微光，依血量變色
+        const grad = kind === 'mp'
+          ? 'linear-gradient(180deg,#7ec0ff,#4a90d9 55%,#2f6fb0)'
+          : (pct > 50 ? 'linear-gradient(180deg,#8ee08e,#4caa4c 55%,#2f8f3f)'
+            : pct > 20 ? 'linear-gradient(180deg,#f4cf6a,#dba022 55%,#b87f12)'
+              : 'linear-gradient(180deg,#ef8a82,#d0473f 55%,#a52f28)');
+        const glow = kind === 'mp' ? 'rgba(120,180,255,.55)' : (pct > 50 ? 'rgba(140,224,140,.5)' : pct > 20 ? 'rgba(224,176,64,.5)' : 'rgba(224,90,80,.55)');
+        const icon = kind === 'mp' ? '🔷' : '❤️';
+        return '<div style="display:flex; align-items:center; gap:6px; margin:4px 0;">'
+          + '<span style="font-size:11px; width:16px; flex:none; text-align:center;">' + icon + '</span>'
+          + '<div style="flex:1; min-width:0; position:relative; height:12px; background:linear-gradient(180deg,#16121c,#241d2c); border-radius:7px; overflow:hidden; border:1px solid rgba(0,0,0,0.45); box-shadow:inset 0 1px 2px rgba(0,0,0,.6);">'
+          + '<div style="width:' + pct + '%; height:100%; background:' + grad + '; border-radius:7px; box-shadow:0 0 6px ' + glow + '; transition:width .35s ease;"></div>'
+          + '<div style="position:absolute; top:1px; left:3px; right:3px; height:3px; border-radius:3px; background:linear-gradient(90deg,rgba(255,255,255,.35),rgba(255,255,255,0)); pointer-events:none;"></div>'
+          + '</div>'
+          + '<span style="font-size:9.5px; color:#9a8fae; width:56px; flex:none; text-align:right; font-variant-numeric:tabular-nums;">' + cur + '/' + max + '</span></div>';
       };
       const m = t.master, s = t.servant;
       let mh = '<div style="background:rgba(20,14,28,0.55); border:1px solid #d4af37; border-radius:8px; padding:6px 8px;">'
@@ -1952,24 +1961,46 @@ function renderRecentLocs(recents = null) {
       if (LAYOUT[k]) pos[n.name] = LAYOUT[k];
       else { pos[n.name] = [10 + extra * 20, 96]; extra++; }
     });
-    var s = '';
-    // 連線（未遠川河道／街道）
     var byShort = {}; nodes.forEach(function (n) { byShort[short(n.name)] = n.name; });
+    // defs：夜空漸層、河流漸層、光暈濾鏡
+    var defs = '<defs>'
+      + '<radialGradient id="mapsky" cx="50%" cy="34%" r="80%"><stop offset="0%" stop-color="#1c2647"/><stop offset="55%" stop-color="#111430"/><stop offset="100%" stop-color="#0a0713"/></radialGradient>'
+      + '<linearGradient id="riverg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#5a86d6"/><stop offset="100%" stop-color="#26406f"/></linearGradient>'
+      + '<filter id="nglow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="1.3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'
+      + '</defs>';
+    var s = defs;
+    s += '<rect x="0" y="0" width="100" height="100" fill="url(#mapsky)"/>';
+    // 點點星塵
+    s += '<g fill="#cdd6f5" opacity="0.22">';
+    [[12,9],[27,6],[63,8],[83,14],[91,40],[8,33],[20,75],[78,88],[36,28],[57,33]].forEach(function (q) { s += '<circle cx="' + q[0] + '" cy="' + q[1] + '" r="0.4"/>'; });
+    s += '</g>';
+    // 🌊 未遠川：自北側山丘蜿蜒南流，覆蓋河畔↔大橋一線
+    var riverPath = 'M50,1 C53,14 47,28 50,46 C52,55 48,60 49,66 C46,80 44,90 43,100';
+    s += '<path d="' + riverPath + '" fill="none" stroke="url(#riverg)" stroke-width="7" stroke-linecap="round" opacity="0.32"/>';
+    s += '<path d="' + riverPath + '" fill="none" stroke="#86b6ff" stroke-width="2" stroke-linecap="round" opacity="0.30"/>';
+    // 街道（細線，跳過落在河上的兩段，避免蓋掉河流）
+    var riverSeg = { '言峰教會|未遠川河畔': 1, '未遠川河畔|大橋': 1 };
     CONN.forEach(function (c) {
+      if (riverSeg[c[0] + '|' + c[1]] || riverSeg[c[1] + '|' + c[0]]) return;
       var a = pos[byShort[c[0]]], b = pos[byShort[c[1]]];
-      if (a && b) s += '<line x1="' + a[0] + '" y1="' + a[1] + '" x2="' + b[0] + '" y2="' + b[1] + '" stroke="rgba(120,150,200,0.22)" stroke-width="0.7"/>';
+      if (a && b) s += '<line x1="' + a[0] + '" y1="' + a[1] + '" x2="' + b[0] + '" y2="' + b[1] + '" stroke="rgba(150,170,210,0.18)" stroke-width="0.55" stroke-dasharray="1.4,1.2"/>';
     });
     // 節點
     nodes.forEach(function (n) {
       var p = pos[n.name]; if (!p) return;
       var cx = p[0], cy = p[1], col = typeColor[n.type] || '#888';
       var nm = String(n.name).replace(/'/g, '');
-      if (n.here) s += '<circle cx="' + cx + '" cy="' + cy + '" r="3.8" fill="none" stroke="#e7c873" stroke-width="0.8"/>';
-      if (n.enemy) s += '<circle cx="' + cx + '" cy="' + cy + '" r="5" fill="none" stroke="#d65c5c" stroke-width="0.6" stroke-dasharray="1.6,1.3"/>';
-      s += '<circle cx="' + cx + '" cy="' + cy + '" r="2.2" fill="' + col + '" stroke="#0a0810" stroke-width="0.5" style="cursor:pointer" onclick="travelFromPane(\'' + nm + '\')"/>';
-      s += '<text x="' + cx + '" y="' + (cy + 5.2) + '" font-size="3.2" fill="#e8e0f5" text-anchor="middle" paint-order="stroke" stroke="#0a0810" stroke-width="0.9" style="cursor:pointer" onclick="travelFromPane(\'' + nm + '\')">' + short(n.name) + (n.enemy ? ' ⚔' : '') + '</text>';
+      s += '<circle cx="' + cx + '" cy="' + cy + '" r="3" fill="' + col + '" opacity="0.28" filter="url(#nglow)"/>'; // 光暈
+      if (n.here) s += '<circle cx="' + cx + '" cy="' + cy + '" r="4.3" fill="none" stroke="#ffd86a" stroke-width="0.9" filter="url(#nglow)"/>';
+      if (n.enemy) s += '<circle cx="' + cx + '" cy="' + cy + '" r="5.2" fill="none" stroke="#ff6a6a" stroke-width="0.7" stroke-dasharray="1.6,1.3"/>';
+      s += '<circle cx="' + cx + '" cy="' + cy + '" r="2.1" fill="' + col + '" stroke="#0a0810" stroke-width="0.5" style="cursor:pointer" onclick="travelFromPane(\'' + nm + '\')"/>';
+      s += '<circle cx="' + (cx - 0.6) + '" cy="' + (cy - 0.6) + '" r="0.7" fill="rgba(255,255,255,0.6)"/>'; // 高光點
+      s += '<text x="' + cx + '" y="' + (cy + 5.3) + '" font-size="3.1" fill="#ede7fb" text-anchor="middle" paint-order="stroke" stroke="#0a0810" stroke-width="0.9" style="cursor:pointer; font-weight:bold;" onclick="travelFromPane(\'' + nm + '\')">' + short(n.name) + (n.enemy ? ' ⚔' : '') + (n.here ? ' ◈' : '') + '</text>';
     });
-    return '<div style="background:linear-gradient(160deg,rgba(16,20,34,0.9),rgba(10,8,16,0.75)); border:1px solid rgba(212,175,55,0.28); border-radius:8px; overflow:hidden;"><svg viewBox="0 0 100 96" preserveAspectRatio="xMidYMid meet" style="width:100%; height:auto; display:block;">' + s + '</svg></div>';
+    var legend = '<div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding:5px 6px 2px; font-size:10px; color:#9a8fae;">'
+      + ['🔵靈地', '🟡據點/祭壇', '🔷城區', '💗約會'].map(function (x) { return '<span>' + x + '</span>'; }).join('')
+      + '<span style="color:#ffd86a;">◈所在</span><span style="color:#ff6a6a;">⚔敵蹤</span></div>';
+    return '<div style="border:1px solid rgba(212,175,55,0.3); border-radius:10px; overflow:hidden; box-shadow:inset 0 0 24px rgba(0,0,0,.5);"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" style="width:100%; height:auto; display:block;">' + s + '</svg>' + legend + '</div>';
   }
   // 🔵 隨身物品 5 格（地圖下方），點擊即使用
   async function renderBag5() {
@@ -2002,8 +2033,12 @@ function renderRecentLocs(recents = null) {
     const hpbar = (cur, max, col) => {
       if (!max) return '';
       const p = Math.max(0, Math.min(100, Math.round(cur / max * 100)));
-      return '<div style="height:7px;background:#2a2330;border-radius:4px;overflow:hidden;margin-top:2px;"><div style="width:' + p + '%;height:100%;background:' + col + ';"></div></div>'
-        + '<div style="font-size:9.5px;color:#8a7f9a;text-align:right;">' + cur + '/' + max + '</div>';
+      const grad = col === '#5cb85c'
+        ? 'linear-gradient(180deg,#8ee08e,#4caa4c 55%,#2f8f3f)'
+        : 'linear-gradient(180deg,#ef8a82,#d0473f 55%,#a52f28)';
+      const glow = col === '#5cb85c' ? 'rgba(140,224,140,.45)' : 'rgba(224,90,80,.5)';
+      return '<div style="position:relative;height:9px;background:linear-gradient(180deg,#16121c,#241d2c);border-radius:6px;overflow:hidden;margin-top:2px;border:1px solid rgba(0,0,0,.4);box-shadow:inset 0 1px 2px rgba(0,0,0,.5);"><div style="width:' + p + '%;height:100%;background:' + grad + ';box-shadow:0 0 5px ' + glow + ';transition:width .35s ease;"></div><div style="position:absolute;top:1px;left:3px;right:3px;height:2px;border-radius:2px;background:linear-gradient(90deg,rgba(255,255,255,.3),rgba(255,255,255,0));"></div></div>'
+        + '<div style="font-size:9.5px;color:#8a7f9a;text-align:right;font-variant-numeric:tabular-nums;">' + cur + '/' + max + '</div>';
     };
     const critTxt = (c) => ({ atk_crit: '🎯', def_crit: '🛡️', atk_fumble: '💢', def_fumble: '😵' }[c] || '');
     let h = '<div style="border:1px solid rgba(212,175,55,0.35);border-radius:9px;padding:9px 11px;margin:6px 0;background:rgba(28,20,14,0.5);font-size:12px;">';

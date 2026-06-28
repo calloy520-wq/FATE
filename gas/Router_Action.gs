@@ -4667,7 +4667,7 @@ function actionMultiAttack(userData, pcId, sheets) {
 function actionNarrateOnly(userData, pcId, sheets) {
   const { promptText, isNsfw } = userData;
 
-  const miniSystem = `你是《命運停駐之夜》的說書人。用 Fate／TYPE-MOON 筆觸、第一人稱「我」（玩家＝御主）、強制台灣繁體中文，依指令生動描寫一小段劇情（150~250字）。
+  const miniSystem = `你是《命運停駐之夜》的說書人。用 Fate／TYPE-MOON 筆觸、第一人稱「我」（玩家＝御主）、強制台灣繁體中文，依指令生動描寫一段劇情（200~350字；若為從者廝殺，需把回合來回的攻防、技能與寶具威能、靈基壓迫感寫得有張力）。
 【鐵律】
 1. 旁白第一人稱「我」，禁用「你」與上帝視角。
 2. 對話格式：角色名：「（動作/神態/眼神/微表情）台詞……（動作/神態/眼神/微表情）台詞（動作/神態/眼神/微表情）」。動作神態【絕對禁止】獨立成段或寫在引號外，一律用全形括號「（）」嵌入台詞開頭/中間/結尾，至少穿插2次以上。
@@ -4679,7 +4679,7 @@ function actionNarrateOnly(userData, pcId, sheets) {
   let aiConfig = {
     temperature: 0.85,
     ignoreLaw: true,            // 不疊規矩表(節慶/天時)
-    max_tokens: 700,            // 比 actionPlay 的 2000 砍掉一大半
+    max_tokens: 900,            // 200~350字敘事 + JSON 包裝
     model: "google/gemini-3.1-flash-lite",
     isNsfwMode: !!isNsfw        // NSFW 時讓 fallback 文案合理，但不啟用完整慾海規則
   };
