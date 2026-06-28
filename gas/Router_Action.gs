@@ -2182,8 +2182,13 @@ function actionMove(userData, pcId, sheets) {
   let mapDesc = parentMapInfo ? `【母區域：${rootTarget}】${parentMapInfo[COL.MAP.DESC]}` : "此處荒煙蔓草，並未記載於輿圖之中。";
   if (subMapInfo) mapDesc += `\n【當前分支：${target}】${subMapInfo[COL.MAP.DESC]}`;
 
+  // 🎭 隨行從者的「演出依據」卡（含狂化禁言/口吻），供前端抵達敘事讓從者真的在場、有反應，不是御主獨白
+  var svIdxMove = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
+  var svCardMove = svIdxMove !== -1 ? servantCard_(allPcData[svIdxMove]) : "";
+
   return JSON.stringify({
     success: true,
+    servantCard: svCardMove,
     statusString: buildPlayerStatusString(allPcData[pIdx], getCharacterTotalStats(pcId, sheets, allPcData), sheets.item ? sheets.item.getDataRange().getValues() : []),
     people: getLocalPeopleList(sheets, pcName, pcId, target, relData, sheets.task ? sheets.task.getDataRange().getValues() : []),
     locations: getNearbyLocations(target, freshMapData).slice(0, 5),
