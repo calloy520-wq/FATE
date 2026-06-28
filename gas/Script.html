@@ -1071,6 +1071,7 @@ function renderRecentLocs(recents = null) {
         updateEconomy(data.economy);
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【休息 ${hours} 小時】</b>${(data.healedNames||['你']).join('與')}恢復了氣力，行動力 ${data.ap}/${data.apMax}。${data.clock ? '（' + data.clock + '）' : ''}</div>`);
         showRumors(data.rumors);
+        showRumors(data.canonLeads); // ⚐ 正典引導
         // 📜 休息跨日若觸發正典橋段 → 演出一段
         if (data.canonBeats && data.canonBeats.length) {
           narrate(`【正典事件】休息之間，冬木的聖杯戰爭並未停歇。以下原作橋段於此時推進，請以 Fate／TYPE-MOON 筆觸演出（演出而非複述指示），停在留白：\n${data.canonBeats.join('\n')}`);
@@ -1130,6 +1131,7 @@ function renderRecentLocs(recents = null) {
         updateClock(data.clock, data.ap, data.apMax);
         updateEconomy(data.economy);
         showRumors(data.rumors);
+        showRumors(data.canonLeads); // ⚐ 正典引導：把玩家勾向該去的地方
         if (optContainer) optContainer.innerHTML = '';
         try { renderMapPane(); refreshFateTags(); renderWarActions(); } catch (e) {}
         story.scrollTop = story.scrollHeight;

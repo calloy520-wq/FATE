@@ -2134,9 +2134,9 @@ function actionMove(userData, pcId, sheets) {
   }
   try { markRivalsSeen_(sheets, pcId); } catch (e) { } // 🔵 抵達即偵查到此地敵人（世界 tick 後再揭一次）
 
-  // 📜 正典插針：抵達後依【戰爭】×路線×日×時段×地點檢查正史橋段（自然浮現路線、世界事件）
-  let canonBeats = [];
-  if (isFateMove) { try { canonBeats = checkCanonPins_(sheets, pcId); } catch (e) { } }
+  // 📜 正典插針：抵達後依【戰爭】×路線×日×時段×地點檢查正史橋段（自然浮現路線、世界事件、引導）
+  let canonBeats = [], canonLeads = [];
+  if (isFateMove) { try { const cp = checkCanonPins_(sheets, pcId); canonBeats = cp.beats || []; canonLeads = cp.leads || []; } catch (e) { } }
 
   const freshMapData = sheets.map.getDataRange().getValues();
   const rootTarget = target ? String(target).split('-')[0].trim() : "";
@@ -2157,6 +2157,7 @@ function actionMove(userData, pcId, sheets) {
     apMax: AP_PER_DAY,
     rumors: worldRumors,
     canonBeats: canonBeats,
+    canonLeads: canonLeads,
     economy: isFateMove ? playerServantEconomy_(sheets, pcId) : null
   });
 }
@@ -2229,12 +2230,12 @@ function actionRest(userData, pcId, sheets) {
     } catch (e) { }
     try { sheets.log.appendRow([new Date(), pcId, `【系統】御主一行休息了 ${restHours} 小時，恢復行動力。`, pcLoc]); } catch (e) { }
     // 📜 正典插針：休息推進時間（可能跨日）後檢查正史橋段
-    let restBeats = [];
-    try { restBeats = checkCanonPins_(sheets, pcId); } catch (e) { }
+    let restBeats = [], restLeads = [];
+    try { const cp = checkCanonPins_(sheets, pcId); restBeats = cp.beats || []; restLeads = cp.leads || []; } catch (e) { }
     return JSON.stringify({
       success: true, statusString: getFreshStatusString(pcId, pIdx, sheets), healedNames: healedNames,
       loc: pcLoc, wasInjured: wasInjured, restHours: restHours, clock: restClock, ap: apAfter, apMax: AP_PER_DAY, rumors: restRumors,
-      canonBeats: restBeats,
+      canonBeats: restBeats, canonLeads: restLeads,
       economy: playerServantEconomy_(sheets, pcId)
     });
   }

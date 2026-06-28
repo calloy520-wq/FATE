@@ -56,6 +56,42 @@ function shadowDevourFoe_(sheets, gameId) {
   return name;
 }
 
+// 🖤 HF「黑化(Alter)」：把一名仍在世的敵從者拖入黑泥、強化為墮落之軀（六圍升＋狂化），改變棋盤難度
+function blackenFoe_(sheets, gameId) {
+  var data = sheets.pc.getDataRange().getValues();
+  var cand = [];
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.FACTION]) !== "敵從者") continue;
+    if (String(data[i][COL.PC.GAME_ID] || "") !== gameId) continue;
+    if (String(data[i][COL.PC.ID]).startsWith("DEAD_")) continue;
+    if (/黑化|Alter/.test(String(data[i][COL.PC.MEMORY] || ""))) continue; // 已黑化過則跳過
+    cand.push(i);
+  }
+  if (!cand.length) return "";
+  var idx = cand[Math.floor(Math.random() * cand.length)];
+  var name = String(data[idx][COL.PC.NAME]);
+  // 六圍：筋力/敏捷/魔力各 +1 階（附 '+'）
+  try {
+    var six = JSON.parse(data[idx][COL.PC.SIX] || "{}");
+    ["筋力", "敏捷", "魔力"].forEach(function (k) { if (six[k]) six[k] = String(six[k]) + "+"; });
+    data[idx][COL.PC.SIX] = JSON.stringify(six);
+  } catch (e) { }
+  // 技能：補一道狂化(mad)
+  try {
+    var tg = JSON.parse(data[idx][COL.PC.TAGS] || "{}"); tg.skills = tg.skills || [];
+    if (!tg.skills.some(function (s) { return s && s.fx === "mad"; })) tg.skills.push({ n: "黑泥狂化", r: "B", fx: "mad" });
+    data[idx][COL.PC.TAGS] = JSON.stringify(tg);
+  } catch (e) { }
+  // HP 上調、狀態標記黑化
+  var hp = parseInt(data[idx][COL.PC.MAX_HP]) || 480;
+  data[idx][COL.PC.MAX_HP] = Math.round(hp * 1.15); data[idx][COL.PC.HP] = data[idx][COL.PC.MAX_HP];
+  data[idx][COL.PC.STATUS] = JSON.stringify({ "衣服": "黑泥纏覆", "姿勢": "妖異佇立", "負面": "黑化·Alter", "顏面": "理性盡褪的兇光" });
+  data[idx][COL.PC.NAME] = /黑化/.test(name) ? name : (name + "〔黑化〕");
+  data[idx][COL.PC.MEMORY] = String(data[idx][COL.PC.MEMORY] || "") + "｜【黑化Alter】為影所染、墮落兇暴。";
+  sheets.pc.getRange(idx + 1, 1, 1, data[idx].length).setValues([data[idx]]);
+  return name;
+}
+
 // ── 路線「自然浮現」評分：依願望性質 ＋ 與自身從者的羈絆 ＋ 殺/放傾向，選分最高者 ──
 function lockRoute_(sheets, masterRow, gameId) {
   var score = { fate: 1, ubw: 0, hf: 0 }; // fate 為預設基底
@@ -107,10 +143,12 @@ var CANON_PINS = [
   // ═══ 第五次・前期（三線共用）═══
   { id: '5_open', war: '5th', route: '', day: 1, band: null, loc: null,
     beat: '【正典·開戰】第五次聖杯戰爭的帷幕已然拉開。冬木的夜色裡，七組御主與從者各自潛伏。請以揭幕的筆觸點出戰爭已起、空氣中魔力的躁動，但不替御主決定行動。' },
-  { id: '5_lancer_school', war: '5th', route: '', day: 1, band: '夜', loc: '穗群原學園',
+  { id: '5_lancer_school', war: '5th', route: '', day: 1, band: '夜', loc: '穗群原學園', grace: 2,
+    lure: '⚐ 入夜後，穗群原學園的方向隱隱傳來金鐵交擊的餘音——似乎有從者在校舍交手。',
     when: function (c) { return c.foeAlive('庫·丘林') || c.foeAlive('庫丘林'); },
     beat: '【正典·目擊】夜半校舍，藍衣槍兵（Lancer・庫丘林）與紅衣弓兵的身影在屋頂交錯激戰，紅槍如赤光劃破黑暗。這是聖杯戰爭的第一場照面——目擊者依例該被滅口。請演出這驚鴻一瞥的危險與壓迫，留白於御主的抉擇。' },
-  { id: '5_church', war: '5th', route: '', day: 2, band: null, loc: '言峰教會',
+  { id: '5_church', war: '5th', route: '', day: 2, band: null, loc: '言峰教會', grace: 3,
+    lure: '⚐ 言峰教會的鐘聲在冬木夜空迴盪——傳聞那裡的神父是這場戰爭的「中立監督者」，會向參戰者說明規則。',
     beat: '【正典·教會】言峰綺禮神父於教會以「中立監督者」之姿說明聖杯戰爭規則：七騎從者、相互殘殺至最後一騎、敗者御主可至教會尋求庇護。請以神父陰沉莫測的語氣鋪陳規則與那份令人不安的「喜悅」，勿替御主表態。' },
   { id: '5_caster_temple', war: '5th', route: '', day: 3, band: null, loc: null,
     when: function (c) { return c.foeAlive('美狄亞'); },
@@ -126,7 +164,11 @@ var CANON_PINS = [
     when: function (c) { return c.anyFoeAlive(); },
     effect: function (c, sh) { var n = shadowDevourFoe_(sh, c.gameId); return n ? ('今夜，「' + n + '」被『影』吞噬、消滅於黑泥之中——這並非死於誰之手。') : ''; },
     beat: '【HF線·影】聖杯已然扭曲。一團蠕動的「影」在冬木的暗夜遊走，吞噬從者的靈基為食。它不屬於任何御主、無法以常理對抗。今夜，又一騎從者被黑泥拖入了無底的暗。請演出這股令戰爭規則崩壞的、令人毛骨悚然的恐怖。' },
-  { id: '5h_sakura', war: '5th', route: 'hf', day: 8, band: null, loc: null,
+  { id: '5h_alter', war: '5th', route: 'hf', day: 7, band: '深夜', loc: null,
+    when: function (c) { return c.anyFoeAlive(); },
+    effect: function (c, sh) { var n = blackenFoe_(sh, c.gameId); return n ? ('「' + n + '」被黑泥侵蝕、墮為黑化之軀（Alter），靈基扭曲而更為兇暴。') : ''; },
+    beat: '【HF線·黑化】『影』的污染不只是吞噬——它能將一騎從者拖入黑泥、扭曲成墮落的「Alter」：理性褪去、力量卻更為狂暴險惡（正如被影染黑的黑Saber）。今夜，又一道靈基墮入了黑暗。請以妖異而壓迫的筆觸演出這份墮落的恐怖。' },
+  { id: '5h_sakura', war: '5th', route: 'hf', day: 9, band: null, loc: null,
     beat: '【HF線·聖杯之闇】黑泥的源頭、那被聖杯選為容器之人的悲劇逐漸浮現。這條路沒有純粹的正義，只有「要守護的人」與要為此背負的罪。請以沉重而溫柔交織的筆觸鋪陳這份覺悟。' },
   // ═══ 第五次・終盤（三線共用收束）═══
   { id: '5_gilgamesh', war: '5th', route: '', day: 9, band: null, loc: null,
@@ -183,20 +225,35 @@ function checkCanonPins_(sheets, pcId) {
       anyFoeAlive: function () { return aliveEnemyServants_(sheets, gameId) > 0; }
     };
 
-    var beats = [], firedNew = [];
+    var beats = [], leads = [], firedNew = [];
     for (var i = 0; i < CANON_PINS.length; i++) {
       var p = CANON_PINS[i];
       if (p.war !== war) continue;
       if (fired.indexOf(p.id) >= 0) continue;
       if (p.route && p.route !== route) continue;        // 路線專屬且未走該線
       if (p.day && day < p.day) continue;                // 未到日
-      if (p.band && p.band !== band) continue;           // 時段不符
-      if (p.loc && p.loc !== loc) continue;              // 地點不符
       if (p.when && !p.when(ctx)) continue;              // 世界條件不符（如該敵已亡→跳過，正史被逆轉）
-      var extra = "";
-      if (p.effect) { try { extra = p.effect(ctx, sheets) || ""; } catch (e) { } }
-      beats.push(p.beat + (extra ? ("\n〔世界變動〕" + extra) : ""));
-      firedNew.push(p.id);
+
+      var bandOk = !p.band || p.band === band;
+      var locOk = !p.loc || p.loc === loc;
+      if (bandOk && locOk) {
+        // ✦ 條件齊備：正式觸發此幕
+        var extra = "";
+        if (p.effect) { try { extra = p.effect(ctx, sheets) || ""; } catch (e) { } }
+        beats.push(p.beat + (extra ? ("\n〔世界變動〕" + extra) : ""));
+        firedNew.push(p.id);
+      } else {
+        // ✦ 尚未到位（時段／地點不符）。非嚴格：寬限過後改以「事後風聞」補述，劇情不卡死。
+        var grace = (typeof p.grace === "number") ? p.grace : 2;
+        if (p.day && day >= p.day + grace) {
+          var late = p.late || ("〔遲來的風聞〕" + p.beat + "\n★改以『御主事後從風聞、痕跡或他人口中得知』的角度補述（玩家並未親臨現場），語氣較淡。");
+          beats.push(late);
+          firedNew.push(p.id);
+        } else if (p.lure) {
+          // 引導：把玩家勾過去（顯示為一條提示，不算觸發）
+          leads.push(p.lure);
+        }
+      }
     }
 
     // 寫回狀態（路線 + 已觸發）
@@ -207,6 +264,6 @@ function checkCanonPins_(sheets, pcId) {
       master[COL.PC.MEMORY] = mem2;
       sheets.pc.getRange(pIdx + 1, COL.PC.MEMORY + 1).setValue(mem2);
     }
-    return beats;
-  } catch (e) { return []; }
+    return { beats: beats, leads: leads, route: route };
+  } catch (e) { return { beats: [], leads: [], route: "" }; }
 }
