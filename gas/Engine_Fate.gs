@@ -110,6 +110,8 @@ function resolveFateBattle_(atk, def, opts) {
   var aHit = aRoll + rankBand_(atk.six[aProf.hit]) + outMod;
   var dEva = dRoll + rankBand_(def.six[dProf.eva]);
   if (aProf.kind === '魔砲') fired.push(atk.name + '·' + (fxName_(atk, 'territory', '魔術詠唱')));
+  // 🍱 整備·進食（戰前 buff）：攻方命中 +opts.mealBuff（由 fateStrike_ 依御主整備狀態傳入）
+  if (opts.mealBuff) { aHit += opts.mealBuff; fired.push(atk.name + '·整備進食(+' + opts.mealBuff + ')'); }
 
   // 直感/心眼(first_strike/analyze)：攻守先機 +3×階級
   var fsA = hasFx_(atk, 'first_strike') || hasFx_(atk, 'analyze'); if (fsA) { aHit += Math.round(3 * rankMul_(fsA)); fired.push(atk.name + '·' + fxName_(atk, hasFx_(atk, 'analyze') ? 'analyze' : 'first_strike', hasFx_(atk, 'analyze') ? '心眼' : '直感')); }
