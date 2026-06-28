@@ -4889,13 +4889,17 @@ function actionAllyBond(userData, pcId, sheets) {
     unlocked = true;
   }
 
-  const sceneFrame = allyIsMaster ? "並肩共處、互通情報魔力，半試探半真心的對談" : "暫休兵時切磋交流、互補魔力，卸一分敵我之防";
-  // 盟友從者→用 servantCard_(含狂化禁言等口吻規則)；盟友御主→簡短性格提示
+  // 羈絆分級·嚴格控制親疏（盟友＝暫時利益結合，低羈絆務必冷淡，唯 90+ 才解鎖親近）
+  const tier = after >= 90 ? "【羈絆深厚】可流露真切的信任與溫柔（守住性格內核、不踰矩，真親密留待奪杯後鑑賞）"
+    : after >= 70 ? "【羈絆漸增】有限度的信任、偶爾流露一絲真心，但仍保留戒備與分寸，不主動親暱"
+    : after >= 45 ? "【羈絆尚淺】純屬利益結盟：維持戒備、客套與算計，【絕不可】親近或交心，至多一閃而過的微妙交集"
+    : "【幾無私交】冷淡、警惕、公事公辦，話語間滿是試探與保留";
+  // 盟友從者→servantCard_(含狂化禁言等口吻)；盟友御主→簡短性格
   const allyCard = allyIsMaster ? `〈盟友御主「${allyName}」·演出依據(僅內化、禁複述)〉性格：${allyPref}。\n` : servantCard_(pcData[aIdx]);
   const aiPrompt = masterCard_(pcData[pIdx]) + allyCard +
-    `【系統·盟誼已結算】御主『${masterName}』與盟友「${allyName}」${allyIsMaster ? '共處' : '交流'}，羈絆又深一分（約 ${after}/100）。\n` +
-    `★Fate 筆觸【90~140字、含蓄】寫兩人${sceneFrame}的小品；對方仍是「暫時」盟友，暖意中留一絲算計與保留。show don't tell、止於含蓄。` +
-    (unlocked ? `結尾以一個眼神或半句未盡之言，含蓄點出情誼已越過「暫時」的界線（不踰矩）。` : "");
+    `【系統·盟誼】御主『${masterName}』與盟友「${allyName}」${allyIsMaster ? '共處' : '交流'}，當前羈絆 ${after}/100。\n` +
+    `★Fate 筆觸【90~140字】寫一段此次共處的小品，自由發揮、勿每次都同一套說辭。語氣親疏【務必嚴格】貼合當前羈絆：${tier}。對方仍是「暫時」盟友，留一絲各自的算計與保留。show, don't tell。` +
+    (unlocked ? `（此次羈絆首度臻至深處，結尾可用一個眼神或半句未盡之言，含蓄點出情誼悄然越過了「暫時」的界線。）` : "");
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, bond: after, unlocked: unlocked, ally: allyName, clock: clock, ap: ap, apMax: AP_PER_DAY, ambush: false, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
