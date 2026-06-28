@@ -997,7 +997,11 @@ function renderRecentLocs(recents = null) {
     let h = '';
     foes.forEach(f => {
       const safe = String(f.name).replace(/'/g, '');
-      h += '<button onclick="servantStrike(\'' + safe + '\', false)" style="flex:1 0 100%; font-size:13px; padding:9px; background:linear-gradient(90deg,rgba(165,42,42,.32),rgba(120,30,30,.18)); color:#f0b8b8; border:1px solid #a52a2a; border-radius:8px; cursor:pointer; font-weight:bold;">⚔️ 出戰 ' + f.name + ' <small style="opacity:.65;">' + (f.faction === '敵從者' ? '敵從者' : '敵御主') + '</small></button>';
+      if (f.faction === '敵御主') {
+        h += '<button onclick="servantStrike(\'' + safe + '\', false, false, true)" style="flex:1 0 100%; font-size:13px; padding:9px; background:linear-gradient(90deg,rgba(120,30,90,.32),rgba(80,20,60,.18)); color:#e8b0d8; border:1px solid #a0307a; border-radius:8px; cursor:pointer; font-weight:bold;">🗡️ 刺殺御主 ' + f.name + ' <small style="opacity:.65;">敵御主·須擲20</small></button>';
+      } else {
+        h += '<button onclick="servantStrike(\'' + safe + '\', false)" style="flex:1 0 100%; font-size:13px; padding:9px; background:linear-gradient(90deg,rgba(165,42,42,.32),rgba(120,30,30,.18)); color:#f0b8b8; border:1px solid #a52a2a; border-radius:8px; cursor:pointer; font-weight:bold;">⚔️ 出戰 ' + f.name + ' <small style="opacity:.65;">敵從者</small></button>';
+      }
     });
     if (!foes.length) h += '<div style="flex:1 0 100%; text-align:center; color:#6a5f80; font-size:11.5px; padding:1px 0 3px;">此地暫無敵蹤——可偵查、補魔整備，或往地圖移動</div>';
     h += chip('🔍 偵查', 'scout()', '127,199,199');
@@ -1953,14 +1957,20 @@ function renderRecentLocs(recents = null) {
         html += '<div style="color:#d65c5c; font-size:12px; font-weight:bold; margin:12px 0 6px;">⚔️ 此地敵蹤（可出戰）：</div>';
         foes.forEach(function (f) {
           var safe = String(f.name).replace(/'/g, '');
-          var tag = f.faction === '敵從者' ? '從者' : '御主';
-          html += '<div style="border:1px solid rgba(214,92,92,0.4); border-radius:7px; padding:6px 8px; margin-bottom:7px; background:rgba(60,20,20,0.25);">'
-            + '<div style="color:#e8b0b0; font-size:12.5px; font-weight:bold; margin-bottom:4px;">' + f.name + ' <small style="color:#a77;">敵' + tag + '</small></div>'
-            + '<div style="display:flex; gap:4px; flex-wrap:wrap;">'
-            + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#a52a2a; color:#e07a7a;" onclick="servantStrike(\'' + safe + '\', false)">⚔️ 出戰</button>'
-            + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#d4af37; color:#e7c873;" onclick="servantStrike(\'' + safe + '\', true)">💥 寶具</button>'
-            + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#b06cd0; color:#c79be8;" onclick="servantStrike(\'' + safe + '\', false, true)">❖ 令咒</button>'
-            + '</div></div>';
+          if (f.faction === '敵御主') {
+            html += '<div style="border:1px solid rgba(160,48,122,0.45); border-radius:7px; padding:6px 8px; margin-bottom:7px; background:rgba(50,15,45,0.28);">'
+              + '<div style="color:#e8b0d8; font-size:12.5px; font-weight:bold; margin-bottom:4px;">' + f.name + ' <small style="color:#b58aa8;">敵御主</small></div>'
+              + '<button class="btn" style="width:100%; font-size:11px; padding:5px 3px; border-color:#a0307a; color:#e0a0d0;" onclick="servantStrike(\'' + safe + '\', false, false, true)">🗡️ 刺殺御主（須擲 20 大成功）</button>'
+              + '</div>';
+          } else {
+            html += '<div style="border:1px solid rgba(214,92,92,0.4); border-radius:7px; padding:6px 8px; margin-bottom:7px; background:rgba(60,20,20,0.25);">'
+              + '<div style="color:#e8b0b0; font-size:12.5px; font-weight:bold; margin-bottom:4px;">' + f.name + ' <small style="color:#a77;">敵從者</small></div>'
+              + '<div style="display:flex; gap:4px; flex-wrap:wrap;">'
+              + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#a52a2a; color:#e07a7a;" onclick="servantStrike(\'' + safe + '\', false)">⚔️ 出戰</button>'
+              + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#d4af37; color:#e7c873;" onclick="servantStrike(\'' + safe + '\', true)">💥 寶具</button>'
+              + '<button class="btn" style="flex:1; min-width:54px; font-size:11px; padding:5px 3px; border-color:#b06cd0; color:#c79be8;" onclick="servantStrike(\'' + safe + '\', false, true)">❖ 令咒</button>'
+              + '</div></div>';
+          }
         });
       }
     }
@@ -2060,8 +2070,31 @@ function renderRecentLocs(recents = null) {
   // ⚔️ 令從者出擊／寶具解放（Fate 戰鬥：六圍＋fx＋寶具）
   // 📊 多回合視覺戰報：一次出戰最多 3 回合「我攻→敵反擊」，逐回合攤開骰子/命中/傷害給玩家看。
   function renderFateBattleReport(r) {
-    if (!r || !r.rounds) return;
+    if (!r) return;
     const story = document.getElementById('story');
+    // 🗡️ 斬首專用戰報卡（無回合制，純 D20 大成功判定）
+    if (r.assassination) {
+      const ok = !!r.success;
+      const hp = Math.max(0, Math.min(100, r.atkHpMax ? Math.round(r.atkHp / r.atkHpMax * 100) : 0));
+      let a = '<div style="border:1px solid ' + (ok ? 'rgba(212,175,55,0.5)' : 'rgba(160,48,122,0.5)') + ';border-radius:9px;padding:10px 12px;margin:6px 0;background:' + (ok ? 'rgba(35,28,12,0.6)' : 'rgba(40,16,38,0.55)') + ';font-size:12px;">';
+      a += '<div style="font-weight:bold;margin-bottom:5px;color:' + (ok ? '#e7c873' : '#e0a0d0') + ';">🗡️ 斬首・直取御主「' + r.master + '」</div>';
+      a += '<div style="font-size:13px;margin-bottom:4px;">命運骰：<b style="color:' + (ok ? '#ffd76a' : '#e07a9a') + ';font-size:16px;">🎲 ' + r.aRoll + '</b> <span style="color:#9a8;font-size:10.5px;">（唯 20 為大成功）</span></div>';
+      if (ok) {
+        a += '<div style="color:#e7c873;font-weight:bold;">⚡ 大成功！突破護衛「' + r.guard + '」，一擊斬殺御主！</div>';
+        a += '<div style="color:#caa44a;font-size:10.5px;margin-top:2px;">御主既亡、魔力斷絕，「' + r.guard + '」隨之消散。' + (r.victory ? '　🏆 聖杯已然在握！' : '') + '</div>';
+      } else {
+        a += '<div style="color:#e07a7a;font-weight:bold;">🛡️ 護衛「' + r.guard + '」捨身格擋，反噬 1.5 倍痛擊！</div>';
+        a += '<div style="color:#e06a6a;font-size:11px;margin-top:2px;">你的從者「' + r.atk + '」受創 <b>−' + r.selfDmg + '</b>' + (r.defeat ? '　💀 靈基崩潰、敗北！' : '') + '</div>';
+        a += '<div style="color:#9a8bb0;font-size:10px;margin-top:4px;">我 ' + r.atk + '</div>';
+        a += '<div style="position:relative;height:9px;background:linear-gradient(180deg,#16121c,#241d2c);border-radius:6px;overflow:hidden;margin-top:2px;border:1px solid rgba(0,0,0,.4);"><div style="width:' + hp + '%;height:100%;background:linear-gradient(180deg,#8ee08e,#4caa4c 55%,#2f8f3f);"></div></div>';
+        a += '<div style="font-size:9.5px;color:#8a7f9a;text-align:right;">' + r.atkHp + '/' + r.atkHpMax + '</div>';
+      }
+      a += '</div>';
+      story.insertAdjacentHTML('beforeend', a);
+      story.scrollTop = story.scrollHeight;
+      return;
+    }
+    if (!r.rounds) return;
     const hpbar = (cur, max, col) => {
       if (!max) return '';
       const p = Math.max(0, Math.min(100, Math.round(cur / max * 100)));
@@ -2106,10 +2139,15 @@ function renderRecentLocs(recents = null) {
     story.scrollTop = story.scrollHeight;
   }
 
-  async function servantStrike(npcName, useNp, useSeal) {
+  async function servantStrike(npcName, useNp, useSeal, isMaster) {
+    // 🗡️ 斬首敵御主極兇險：唯有「大成功（擲 20）」能突破護衛從者、一擊斬殺御主；
+    //    否則必被護衛擋下，並反噬 1.5 倍傷害給你的從者（可能直接靈基崩潰、敗北）。
+    if (isMaster) {
+      if (!confirm('🗡️ 刺殺敵御主「' + npcName + '」？\n\n唯有擲出 20（大成功，1/20）能突破護衛從者、斬殺御主奪勝；\n否則必被護衛捨身擋下，並反噬 1.5 倍傷害給你的從者——重則靈基崩潰、聖杯戰爭落敗。\n\n確定發動奇襲斬首？')) return;
+    }
     if (!beginAction()) return;
     const story = document.getElementById('story');
-    const verb = useSeal ? '燃令咒・絕對命令，必中斬向' : (useNp ? '解放寶具，目標' : '出擊，目標');
+    const verb = isMaster ? '奇襲斬首，直取敵御主' : (useSeal ? '燃令咒・絕對命令，必中斬向' : (useNp ? '解放寶具，目標' : '出擊，目標'));
     story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主令從者${verb}「${npcName}」！</div>`);
     story.scrollTop = story.scrollHeight;
     try {
@@ -3181,9 +3219,13 @@ let plainTextContext = cleanText;
             </select>
             <span style="font-size:11px; color:#9a7;">(每回合上限 3)</span>
           </div>`;
-          html += `<button class="btn" style="border-color:#a52a2a; color:#a52a2a; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false)">⚔️ 令從者出擊</button>`;
-          html += `<button class="btn" style="border-color:#d4af37; color:#d4af37; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', true)">💥 寶具解放</button>`;
-          html += `<button class="btn" style="border-color:#b06cd0; color:#b06cd0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, true)">❖ 令咒・絕對命令（必中）</button>`;
+          if (npcData.faction === '敵御主') {
+            html += `<button class="btn" style="grid-column: span 2; border-color:#a0307a; color:#e0a0d0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, false, true)">🗡️ 刺殺御主（須擲 20 大成功，否則遭護衛反噬 1.5 倍）</button>`;
+          } else {
+            html += `<button class="btn" style="border-color:#a52a2a; color:#a52a2a; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false)">⚔️ 令從者出擊</button>`;
+            html += `<button class="btn" style="border-color:#d4af37; color:#d4af37; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', true)">💥 寶具解放</button>`;
+            html += `<button class="btn" style="border-color:#b06cd0; color:#b06cd0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, true)">❖ 令咒・絕對命令（必中）</button>`;
+          }
           if (pc && pc.mode === 'full') {
             html += `<button class="btn" style="border-color:#8fa39b; color:#8fa39b;" onclick="closeInteractMenu(); insertActionTag('下毒', '${npcName}')">🧪 下毒</button>`;
             html += `<button class="btn" style="border-color:#8fa39b; color:#8fa39b;" onclick="closeInteractMenu(); insertActionTag('媚藥', '${npcName}')">🌸 媚藥</button>`;

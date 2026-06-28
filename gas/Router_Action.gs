@@ -3889,20 +3889,17 @@ function actionFateBattle(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: "對方不在你身邊，鞭長莫及。" });
   }
 
-  // 🛡️ 從者護主：若目標是敵御主、其從者尚在同地存活，從者捨身攔截——攻擊改打向那名從者。
-  //    唯有敵從者已亡，才能直取手無寸鐵的敵御主（斬首戰術）。
+  // 🗡️ 斬首戰術：目標為敵御主時，若其從者尚在同地護衛 → 需「大成功(擲 20)」才能突破斬殺御主，
+  //    否則被從者捨命格擋、並反噬 1.5 倍傷害。從者已亡 → 御主手無寸鐵，直接擊殺（走一般流程）。
   let interceptNote = "";
-  if (String(pcData[nIdx][COL.PC.FACTION]) === "敵御主") {
+  let isMasterTarget = (String(pcData[nIdx][COL.PC.FACTION]) === "敵御主");
+  let assassinGuardIdx = -1;
+  if (isMasterTarget) {
     const guardLoc = String(pcData[nIdx][COL.PC.LOC]).trim();
-    const masterName = String(pcData[nIdx][COL.PC.NAME]);
-    const guardIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者"
+    assassinGuardIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者"
       && String(r[COL.PC.GAME_ID] || "") === myGameId
       && !String(r[COL.PC.ID]).startsWith("DEAD_")
       && String(r[COL.PC.LOC]).trim() === guardLoc);
-    if (guardIdx !== -1) {
-      interceptNote = `你的從者直取御主「${masterName}」，「${pcData[guardIdx][COL.PC.NAME]}」卻瞬間擋在主君之前——從者尚在，便休想取其御主性命。此擊只能先與「${pcData[guardIdx][COL.PC.NAME]}」交鋒。`;
-      nIdx = guardIdx; // 改打從者
-    }
   }
 
   // ⏳ 戰鬥耗 1 AP（＝推進 1 小時，1 AP＝1 小時）；行動點不足則無法出戰
@@ -3927,6 +3924,88 @@ function actionFateBattle(userData, pcId, sheets) {
   // 戰鬥確定開打 → 耗 1 AP（推進 2 小時）
   let battleAp = AP_PER_DAY;
   if (isFateBattle) { try { battleAp = spendAp_(myGameId, 1).ap; } catch (e) { } }
+
+  // 🗡️ 斬首裁決：敵御主仍有從者在側護衛時，唯有「大成功（擲 20）」能突破護衛、一擊斬殺御主；
+  //    否則護衛捨身格擋、並反手予我方從者 1.5 倍痛擊（可能致敗）。寶具／令咒對奇襲斬首不適用。
+  if (isMasterTarget && assassinGuardIdx !== -1) {
+    const aRoll = Math.floor(Math.random() * 20) + 1;
+    const masterName = String(pcData[nIdx][COL.PC.NAME]);
+    const guardName = String(pcData[assassinGuardIdx][COL.PC.NAME]);
+    let asnReport, asnPrompt, asnVictory = false, asnDefeat = false, asnDream = "", asnKnocked = [];
+
+    if (aRoll === 20) {
+      // 大成功：斬殺御主；御主既亡，護衛從者失去魔力供給隨之消滅
+      pcData[nIdx][COL.PC.ID] = "DEAD_" + String(pcData[nIdx][COL.PC.ID]);
+      pcData[nIdx][COL.PC.HP] = 0;
+      pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "鮮血浸染", "姿勢": "頹然倒地", "負面": "咽喉已斷·身亡", "顏面": "錯愕凝固" });
+      sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
+      pcData[assassinGuardIdx][COL.PC.ID] = "DEAD_" + String(pcData[assassinGuardIdx][COL.PC.ID]);
+      pcData[assassinGuardIdx][COL.PC.HP] = 0;
+      pcData[assassinGuardIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "化作光點", "負面": "御主既亡·魔力斷絕消滅", "顏面": "黯然消散" });
+      sheets.pc.getRange(assassinGuardIdx + 1, 1, 1, pcData[assassinGuardIdx].length).setValues([pcData[assassinGuardIdx]]);
+      asnKnocked = [masterName, guardName];
+      if (aliveEnemyServants_(sheets, myGameId) <= 0) {
+        asnVictory = true;
+        const acctW = String(userData.acctName || "");
+        if (acctW) { incrementWin_(acctW); recordHistory_(acctW, "勝", atkC.name, `「${atkC.name}」奇襲斬首敵御主「${masterName}」，奪得聖杯。`); }
+      }
+      asnReport = {
+        assassination: true, success: true, aRoll: aRoll, atk: atkC.name, master: masterName, guard: guardName,
+        note: `擲出 20 — 大成功！${atkC.name} 撕開「${guardName}」的守備，一擊斬斷御主「${masterName}」咽喉。御主既亡，「${guardName}」失去魔力供給、化作光點消散。`,
+        selfDmg: 0, victory: asnVictory, defeat: false,
+        atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0
+      };
+      asnPrompt = `【系統·斬首戰報·已裁定】御主號令從者『${atkC.name}』奇襲敵御主「${masterName}」。命運的骰子擲出 20 — 大成功！『${atkC.name}』撕開護衛從者「${guardName}」的防線，一擊斬斷御主咽喉。御主既亡、魔力供給斷絕，「${guardName}」當場化作光點消散。${asnVictory ? '此為最後的敵對陣營——聖杯已然在握！' : ''}\n` +
+        `★以 Fate／TYPE-MOON 筆觸描寫這萬中選一、石破天驚的斬首瞬間（一段即可）：護衛被撕裂的錯愕、御主噴濺的鮮血、從者隨之消散的光點。勝負已由系統結算。\n` +
+        `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+    } else {
+      // 失敗：護衛捨身格擋，反手 1.5 倍痛擊我方從者
+      const guardC = rowToCombatant_(pcData[assassinGuardIdx]);
+      const probe = resolveFateBattle_(guardC, atkC, {});
+      const selfDmg = Math.max(1, Math.round((probe.damage || 1) * 1.5));
+      const ahp = parseInt(pcData[atkIdx][COL.PC.HP]) || 0;
+      let after = ahp - selfDmg;
+      if (after <= 5 && hasFx_(atkC, 'survive') && ahp > 1) after = 1; // 戰鬥續行
+      if (after <= 0) {
+        asnDefeat = true;
+        pcData[atkIdx][COL.PC.ID] = "DEAD_" + String(pcData[atkIdx][COL.PC.ID]);
+        pcData[atkIdx][COL.PC.HP] = 0;
+        pcData[atkIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "斬首反噬·靈基崩潰", "顏面": "已無生息" });
+        sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
+        const wish = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
+        asnDream = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wish, atkC.name);
+        const acctD = String(userData.acctName || "");
+        if (acctD) recordHistory_(acctD, "敗", atkC.name, `「${atkC.name}」斬首失手，遭護衛「${guardName}」反噬靈基崩潰。`);
+      } else {
+        pcData[atkIdx][COL.PC.HP] = after;
+        sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
+      }
+      asnReport = {
+        assassination: true, success: false, aRoll: aRoll, atk: atkC.name, master: masterName, guard: guardName,
+        note: `擲出 ${aRoll} — 唯 20 方能突破。「${guardName}」捨身擋在御主身前，反手予『${atkC.name}』1.5 倍痛擊（−${selfDmg}）。`,
+        selfDmg: selfDmg, victory: false, defeat: asnDefeat,
+        atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0
+      };
+      if (asnDefeat) {
+        asnPrompt = `【系統·斬首戰報·已裁定】御主號令從者『${atkC.name}』奇襲敵御主「${masterName}」，命運骰出 ${aRoll}（唯 20 方成）。護衛從者「${guardName}」捨身擋下這一擊，反手以 1.5 倍之力痛擊『${atkC.name}』，靈基當場崩潰、化作光點消散，御主敗北。\n` +
+          `★以 Fate／TYPE-MOON 筆觸沉痛描寫斬首落空、護衛反殺、從者消滅的瞬間（一段即可），語氣留白。勝負已由系統結算。\n` +
+          `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+      } else {
+        asnPrompt = `【系統·斬首戰報·已裁定】御主號令從者『${atkC.name}』欲奇襲敵御主「${masterName}」，命運骰出 ${aRoll}（唯擲 20 大成功方能突破護衛）。護衛從者「${guardName}」如影攔在御主身前、硬生生擋下斬擊，反手以 1.5 倍之力痛擊『${atkC.name}』（受創 ${selfDmg}）。御主未能得手。\n` +
+          `★以 Fate／TYPE-MOON 筆觸描寫護衛捨身格擋、反噬重擊的險惡瞬間（一段即可）。傷害已由系統結算。\n` +
+          `★敗方（我方從者）最多重傷，【絕對禁止】描寫其死亡。\n` +
+          `★【鐵律】嚴禁輸出任何 stat_changes、items_gained、money_transferred。`;
+      }
+    }
+
+    return JSON.stringify({
+      success: true, aiPrompt: asnPrompt, knockedOut: asnKnocked,
+      victory: asnVictory, defeat: asnDefeat, dreamPrompt: asnDream,
+      sealEscaped: false, report: asnReport,
+      clock: isFateBattle ? clockLabel_(myGameId) : "", ap: battleAp, apMax: AP_PER_DAY,
+      statusString: getFreshStatusString(pcId, pIdx, sheets)
+    });
+  }
 
   // ⚔️ 一次出戰＝最多 ROUNDS 個來回（我攻→敵反擊），命中才扣血、未中＝撲空；任一方倒下即止。
   //   寶具/令咒只在開場第一擊生效；其後為普通互砍。敵御主空手不反擊。
