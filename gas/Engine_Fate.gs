@@ -50,9 +50,9 @@ function offenseTier_(c, isNp) {
 // 🔋 寶具 Prana Cost（依寶具階級）：E50 D100 C200 B350 A500 EX800。
 //   故事感：低階寶具從者自付有餘；A/EX 級往往需御主以血魔供能（御主電池）。
 function npPranaCost_(npRank) {
+  if (/EX/i.test(String(npRank))) return 800;  // 僅「EX」階；A++(rankVal 亦=60)不算 EX
   var v = rankVal(npRank);
-  if (v >= 60) return 800;  // EX
-  if (v >= 50) return 500;  // A / A+
+  if (v >= 50) return 500;  // A / A+ / A++
   if (v >= 40) return 350;  // B
   if (v >= 30) return 200;  // C
   if (v >= 20) return 100;  // D
@@ -62,9 +62,9 @@ function npPranaCost_(npRank) {
 // 🎲 寶具基礎傷害骰（依寶具階級，d10 系）：E3d10 D5d10 C8d10 B12d10 A20d10 EX30d10。
 //   ★與原作「階級＝絕對威力」掛鉤——寶具解放這一發的主威力來源；其餘 buff 只是錦上添花。
 function npBaseDice_(npRank) {
+  if (/EX/i.test(String(npRank))) return rollDice_(30, 10); // EX（原案 50d10，下修避免必殺秒殺、仍輔以概念壓制）
   var v = rankVal(npRank);
-  if (v >= 60) return rollDice_(30, 10);  // EX（原案 50d10，下修避免必殺秒殺、仍輔以概念壓制）
-  if (v >= 55) return rollDice_(22, 10);  // A+
+  if (v >= 55) return rollDice_(22, 10);  // A+ / A++
   if (v >= 50) return rollDice_(20, 10);  // A
   if (v >= 40) return rollDice_(12, 10);  // B
   if (v >= 30) return rollDice_(8, 10);   // C
