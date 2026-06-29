@@ -1974,9 +1974,13 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   }
   if (after <= 0) {
     out.destroyed = String(pcData[tgtIdx][COL.PC.NAME]);
+    var killedIsMaster = String(pcData[tgtIdx][COL.PC.FACTION]) === "敵御主"; // 🩸 御主是凡人：斃命倒地、不是靈基化光點
+    out.killedMaster = killedIsMaster;
     pcData[tgtIdx][COL.PC.ID] = "DEAD_" + String(pcData[tgtIdx][COL.PC.ID]);
     pcData[tgtIdx][COL.PC.HP] = 0;
-    pcData[tgtIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "靈基崩潰·消滅", "顏面": "已無生息" });
+    pcData[tgtIdx][COL.PC.STATUS] = killedIsMaster
+      ? JSON.stringify({ "衣服": "鮮血浸染", "姿勢": "頹然倒地", "負面": "重傷不治·身亡", "顏面": "錯愕凝固" })
+      : JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "靈基崩潰·消滅", "顏面": "已無生息" });
     sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
     if (isPlayerSv) {
       var svName = String(pcData[tgtIdx][COL.PC.NAME]);
@@ -2087,6 +2091,11 @@ function actionFateBattle(userData, pcId, sheets) {
   let atkIdx = wantSv ? pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.NAME]).includes(wantSv)) : -1;
   if (atkIdx === -1) atkIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
   if (atkIdx === -1) return JSON.stringify({ success: false, message: "你尚未召喚從者，無從者可出戰。" });
+  // 🌟 多寶具：把此戰選定的寶具索引寫進出戰從者 MEMORY（隨 fate_battle 一起送來，省去單獨 set_np_choice 往返）
+  if (userData.npChoice !== undefined && userData.npChoice !== null) {
+    pcData[atkIdx][COL.PC.MEMORY] = setNpChoice_(pcData[atkIdx][COL.PC.MEMORY], userData.npChoice);
+    sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
+  }
 
   let nIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1 && r[COL.PC.ID] != pcData[atkIdx][COL.PC.ID] && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
   if (nIdx === -1) return JSON.stringify({ success: false, message: "此世界查無此目標。" });
@@ -2433,7 +2442,7 @@ function actionFateBattle(userData, pcId, sheets) {
       const rrn = hasFx_(rc, 'rune');
       if (rrn && rc.runeMode === 'regen') {
         const hpMaxR = parseInt(pcData[ridx][COL.PC.MAX_HP]) || 0;
-        const healR = Math.round(hpMaxR * 0.05 * rankMul_(rrn));
+        const healR = Math.min(Math.round(hpMaxR * 0.025 * rankMul_(rrn)), 30); // 🔧 涓流回血(約4%/回合·上限30)，不再無敵壁
         const curR = parseInt(pcData[ridx][COL.PC.HP]) || 0;
         if (healR > 0 && curR > 0 && curR < hpMaxR) {
           pcData[ridx][COL.PC.HP] = Math.min(hpMaxR, curR + healR);
@@ -2517,7 +2526,9 @@ function actionFateBattle(userData, pcId, sheets) {
     (targetIsFoeServant ? (r.eDmg ? `，「${defC.name}」回擊${r.eTarget ? `「${r.eTarget}」` : ''}(−${r.eDmg})` : (r.eHit === false ? `，「${defC.name}」反擊被擋` : '')) : '')
   ).join('\n');
   const finalLine = destroyedName
-    ? `「${defC.name}」靈基崩潰、徹底消滅${victory ? '——此乃最後一名敵對從者，聖杯已近！' : '。'}`
+    ? (!targetIsFoeServant
+        ? `敵御主「${defC.name}」咽喉中刃、頹然斃命（凡人之軀，非靈基消滅）${victory ? '——其從者失去供魔亦將隨之消散，聖杯已近！' : '。'}`
+        : `「${defC.name}」靈基崩潰、徹底消滅${victory ? '——此乃最後一名敵對從者，聖杯已近！' : '。'}`)
     : sealEscaped ? `「${defC.name}」被對面御主令咒緊急扯離戰場、遁走不在場。`
       : godRevived ? `「${defC.name}」屢屢自死亡歸來、仍未倒下。`
         : defeat ? `『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。`

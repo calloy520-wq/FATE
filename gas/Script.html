@@ -1612,14 +1612,13 @@ function renderRecentLocs(recents = null) {
       + btns;
     showHistoryOverlay(html);
   }
-  // 選定寶具 → 存選擇 → 關選單 → 進入正常解放流程(帶 npPicked 不再彈選單)
-  async function pickNpAndStrike(idx, npcName, svName, useSeal, useSkill) {
+  // 選定寶具 → 關選單 → 直接帶 idx 進解放流程（idx 隨 fate_battle 一起送，省一次往返）
+  function pickNpAndStrike(idx, npcName, svName, useSeal, useSkill) {
     try { var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none'; } catch (e) {}
-    try { await gasRun({ action: 'set_np_choice', pcId: pc.id, servant: svName, idx: idx, acctName: (pc && pc.account) || currentAccount }); } catch (e) {}
-    servantStrike(npcName, true, useSeal, false, useSkill, true);
+    servantStrike(npcName, true, useSeal, false, useSkill, true, idx);
   }
 
-  async function servantStrike(npcName, useNp, useSeal, isMaster, useSkill, npPicked) {
+  async function servantStrike(npcName, useNp, useSeal, isMaster, useSkill, npPicked, npChoiceArg) {
     // 🌟 多寶具英靈：解放寶具前先讓玩家挑要放哪個（單寶具直接放）。挑完帶 npPicked=true 回來，不再彈選單。
     if (useNp && !npPicked && !isMaster) {
       var asv = (myServants || []).find(function (x) { return x.name === myActiveServant; });
@@ -1648,7 +1647,7 @@ function renderRecentLocs(recents = null) {
     story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主令從者${useSkill ? '催動主動技、' : ''}${verb}「${npcName}」！</div>`);
     story.scrollTop = story.scrollHeight;
     try {
-      const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, np: !!useNp, seal: !!useSeal, skill: !!useSkill, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount });
+      const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, np: !!useNp, seal: !!useSeal, skill: !!useSkill, servant: myActiveServant, npChoice: (typeof npChoiceArg === 'number' ? npChoiceArg : undefined), acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) {
         if (res.report) renderFateBattleReport(res.report); // 📊 先攤開骰子/數字戰報
         narrate(res.aiPrompt);

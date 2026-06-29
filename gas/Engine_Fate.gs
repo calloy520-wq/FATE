@@ -68,16 +68,16 @@ function npPranaCost_(npRank) {
 // 🎲 寶具基礎傷害骰（依寶具階級，d10 系）：E3d10 D5d10 C8d10 B12d10 A20d10 EX30d10。
 //   ★與原作「階級＝絕對威力」掛鉤——寶具解放這一發的主威力來源；其餘 buff 只是錦上添花。
 function npBaseDice_(npRank) {
-  // 🎴 下修(2026-06平衡)：寶具骰過去近乎一發秒殺(A20d10≈110/EX30d10≈165 vs 血270~450)，極化寶具模式。
-  //   壓到「重擊但非必秒」，主威力仍在＋概念壓制/規模相剋輔助；讓寶具是決勝重拳而非一鍵抹除。
-  if (/EX/i.test(String(npRank))) return rollDice_(18, 10); // EX
+  // 🎴 寶具該是「決勝重拳·看得出差別」(2026-06 玩家定案·貼近原作：解放寶具就是要轟掉一大塊血)。
+  //   仍非必秒(留給概念壓制/規模相剋/連戰)，但明顯凌駕普攻數倍。
+  if (/EX/i.test(String(npRank))) return rollDice_(24, 10); // EX
   var v = rankVal(npRank);
-  if (v >= 55) return rollDice_(14, 10);  // A+ / A++
-  if (v >= 50) return rollDice_(13, 10);  // A
-  if (v >= 40) return rollDice_(9, 10);   // B
-  if (v >= 30) return rollDice_(6, 10);   // C
-  if (v >= 20) return rollDice_(4, 10);   // D
-  return rollDice_(3, 10);                // E
+  if (v >= 55) return rollDice_(20, 10);  // A+ / A++
+  if (v >= 50) return rollDice_(18, 10);  // A
+  if (v >= 40) return rollDice_(13, 10);  // B
+  if (v >= 30) return rollDice_(9, 10);   // C
+  if (v >= 20) return rollDice_(6, 10);   // D
+  return rollDice_(4, 10);                // E
 }
 
 // 🏰 寶具規模相剋矩陣（攻擊規模 × 防禦規模 → 傷害倍率）：
@@ -432,7 +432,7 @@ function resolveFateBattle_(atk, def, opts) {
     var wSig = function (fx) { return wRelease ? npIs(fx) : !!hasFx_(winner, fx); };
     var npRank = winner.six["寶具"];
     var npDice = npBaseDice_(npRank); base += npDice; fired.push(winner.name + '·寶具骰(' + (rankVal(npRank) >= 60 ? 'EX' : npRank) + ')=' + npDice);
-    base += Math.round(rankVal(npRank) * 0.6) + 10; fired.push(winner.name + '·寶具解放' + (wRelease && atkNp && atkNp.name ? ('·' + String(atkNp.name).split(' ')[0]) : ''));
+    base += Math.round(rankVal(npRank) * 1.2) + 35; fired.push(winner.name + '·寶具解放' + (wRelease && atkNp && atkNp.name ? ('·' + String(atkNp.name).split(' ')[0]) : '')); // 🎴 寶具威力大幅提升·看得出差別
     if (hasFx_(winner, 'tactics')) { base = Math.round(base * 1.15); fired.push(winner.name + '·' + fxName_(winner, 'tactics', '軍略')); }
     var wDivine = (winner.traits || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
     if (wDivine) base = Math.round(base * 1.1);
