@@ -23,9 +23,18 @@ var FATE_SHEET_DEFS = {
   "勢力":   ["勢力ID", "名稱", "陣營", "據點", "首領", "格言"],
   "傳聞":   ["時間", "類型", "內容", "地點", "對象", "權重", "到期", "狀態"],
   "大勢":   ["勢力", "態勢", "勢力值", "更新時間", "事件"],
-  "歷史暫存": ["時間", "角色ID", "發話者", "內容"],
-  "天道彙整": ["天道彙整"]
+  "歷史暫存": ["時間", "角色ID", "發話者", "內容"]
 };
+
+// 🧹 一鍵清除專案所有觸發器（舊九州「自動移動／自動發信／自動天道彙整」的殘留時間觸發器，
+//   函式本體早已隨經濟/飛書清理移除，但 Apps Script 專案裡可能還掛著指向它們的時間觸發器）。
+//   在 GAS 編輯器選此函式手動執行一次即可全清。FATE 世界推進靠玩家按鍵時的 worldTick_，不需任何觸發器。
+function removeAllTriggers() {
+  var ts = ScriptApp.getProjectTriggers();
+  ts.forEach(function (t) { ScriptApp.deleteTrigger(t); });
+  Logger.log("已清除 " + ts.length + " 個觸發器。");
+  return "已清除 " + ts.length + " 個觸發器。";
+}
 
 // 冬木地圖種子：地域,地名,類型,座標,描述,上級
 var FATE_MAP_SEED = [
