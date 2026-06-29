@@ -113,14 +113,6 @@
         return;
       }
       
-      const registerTarget = e.target.closest('[data-register]');
-      if (registerTarget) {
-        const npcName = registerTarget.getAttribute('data-register');
-        const npcContext = registerTarget.getAttribute('data-context') || '';
-        showRegisterNpcModal(npcName, npcContext);
-        return;
-      }
-
       const locTarget = e.target.closest('[data-loc]');
       if (locTarget) {
         const locName = locTarget.getAttribute('data-loc');
@@ -2814,20 +2806,11 @@ const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatDat
     });
   }
 
-      // 🔴 三段式判定：區分「虛無之人」與「遠方之人」
+      // 🔵 AI 提到但不在現場的角色 → 純色文字標示(不可點、不再自動登入眾生)
       if (data.mentionedNames && data.mentionedNames.length > 0) {
-        const allKnown = data.allKnownNames || []; // 從後端取得的全部名單
-        const contextSnap = lastAiContext.slice(0, 300).replace(/"/g, '&quot;');
-
         data.mentionedNames.forEach(name => {
           if (name && name.length >= 2 && !localNPCs.find(n => n.name === name)) {
-            if (allKnown.includes(name)) {
-              // 🌟 狀態 2：遠方之人 (資料庫有，但不在現場) -> 顯示為紫色
-              pushCandidate(name, `<span style="color:#9C27B0;">${name}</span>`);
-            } else {
-              // 🌟 狀態 3：虛無之人 (資料庫完全沒有) -> 顯示為藍色，觸發登入眾生
-              pushCandidate(name, `<span class="npc-link" style="color:#4682b4; border-bottom:1px dashed #4682b4; cursor:pointer;" data-register="${name}" data-context="${contextSnap}">${name}</span>`);
-            }
+            pushCandidate(name, `<span style="color:#9C27B0;">${name}</span>`);
           }
         });
       }
@@ -3336,91 +3319,6 @@ function renderEpicStats(stats) {
     </div>` : ''}`;
 }
 
-function showRegisterNpcModal(name, npcContext = '') {
-  const cardId = 'reg-' + Date.now();
-  const story = document.getElementById('story');
-  story.insertAdjacentHTML('beforeend', `
-    <div id="${cardId}" style="background:rgba(70,130,180,0.1); border:1px solid #4682b4; 
-      border-radius:8px; padding:15px; margin:5px 0; text-align:center;">
-      <div style="color:#4682b4; font-weight:bold; margin-bottom:10px;">
-        「${name}」尚未收錄於眾生冊
-      </div>
-      <select id="sex-${cardId}" class="std-select" 
-        style="width:120px; margin-bottom:12px; padding:6px;">
-        <option value="女">女</option>
-        <option value="男">男</option>
-        <option value="異">異</option>
-        <option value="獸">獸</option>
-      </select>
-      <div style="display:flex; gap:10px; justify-content:center;">
-        <button class="btn" style="border-color:#4682b4; color:#4682b4; padding:6px 16px;"
-          id="reg-btn-${cardId}">
-          📋 系統補全並登記
-        </button>
-        <button class="btn" style="border-color:#666; color:#666; padding:6px 16px;"
-          onclick="document.getElementById('${cardId}').remove()">
-          略過
-        </button>
-      </div>
-    </div>
-  `);
-  // 用 addEventListener 綁定，完全避開字串拼接問題
-  document.getElementById(`reg-btn-${cardId}`).addEventListener('click', function() {
-    const sex = document.getElementById(`sex-${cardId}`).value;
-    doRegisterNpc(name, sex, cardId, npcContext);
-  });
-  story.scrollTop = story.scrollHeight;
-}
-
-async function doRegisterNpc(name, sex, cardId, npcContext = '') {
-  document.getElementById(cardId)?.remove();
-
-  // 🔴 一進來就鎖住輸入，堵住「收錄空窗期」玩家搶先發話導致雙觸發
-  const input = document.getElementById('u-in');
-  const sendBtn = document.getElementById('send-btn');
-  if (input) input.disabled = true;
-  if (sendBtn) sendBtn.disabled = true;
-
-  const story = document.getElementById('story');
-  story.insertAdjacentHTML('beforeend', 
-    `<div class="msg-player" style="color:#4682b4; border-color:#4682b4;">
-      <b>【系統】：</b>正在補全「${name}」的命格資料...
-    </div>`
-  );
-  story.scrollTop = story.scrollHeight;
-
-  try {
-    const res = await gasRun({
-      action: "manual_npc",
-      pcId: pc.id,
-      npcName: name,
-      npcSex: sex,
-      npcRel: "萍水相逢",
-      currentLoc: document.getElementById('ui-loc').innerText,
-      npcContext: npcContext || lastAiContext.slice(0, 300)  // 🔴 優先用存好的，沒有才用當前
-    });
-
-    if (res.success) {
-      story.insertAdjacentHTML('beforeend',
-        `<div class="msg-player" style="color:#2e8b57; border-color:#2e8b57;">
-          <b>【登記完成】：</b>「${name}」已收錄入眾生冊，可從【身邊眾生】中找到她。
-        </div>`
-      );
-      await syncData(true);
-      // send() 內部開頭會再鎖一次、結束時在 finally 解鎖，銜接得上，全程不留空窗
-      send(`【系統動作：玩家與「${name}」正式結識，請描寫初次見面的場景。★絕對禁止輸出位置的stat_changes，玩家位置鎖定不可移動！】`, true);
-    } else {
-      alert(res.message || "登記失敗。");
-      // 🔴 失敗時要自己解鎖，否則輸入欄會永久卡死
-      if (input) input.disabled = false;
-      if (sendBtn) sendBtn.disabled = false;
-    }
-  } catch(e) {
-    alert("連線受阻，登記失敗。");
-    if (input) input.disabled = false;
-    if (sendBtn) sendBtn.disabled = false;
-  }
-}
 
 function switchEpicTab(tab) {
   currentEpicTab = tab;
