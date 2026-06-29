@@ -79,14 +79,46 @@ function fateMaxHpMp_(con, mag) {
 }
 
 // 🎴 御主(凡人魔術師)HP/MP：唯一核心數值＝魔術迴路(財力/身世決定)。
-//   血(肉身)與魔(體內 od 儲備＋御主電池)皆由迴路縮放——御主是凡人，兩者皆遠低於英靈從者(HP 270~450／MP 180~420)。
-//   預設 30 迴路→HP 160／MP 150；電池只夠約一發寶具的補魔，補魔仍有壓力。僅伊莉雅/黑化櫻等正典怪物迴路(80~90)才逼近從者級。
+//   🔋 出力電池制(2026-06)：從者【沒有自己的魔力池】，全靠御主供魔。御主MP＝唯一且持續的魔力資源，
+//   被從者「出力檔位」持續抽取(見 outputTier_)。預設 30 迴路→HP 160／MP 240(迴路×8)。
+//   血(肉身，焚血供魔備援)＋魔(od 儲備)皆由迴路縮放，仍遠低於從者血量；迴路高的名門/怪物御主池更深。
 function masterMaxHpMp_(circuits) {
   var c = parseInt(circuits) || 30;
   return {
     hp: 100 + c * 2,
-    mp: c * 5
+    mp: c * 8
   };
+}
+
+// 🔋 從者靈基出力檔位（玩家手動旋鈕，存從者 MEMORY【出力】）：從者無自有魔力，靠御主供魔的「出力」決定戰力與耗魔。
+//   檔位→{ hit 命中加減, dmgMul 傷害乘子, drainMul 御主每小時維持費乘子, np 是否可解放寶具, label }。
+//   100% 全開最強但燒御主最兇、且唯一能放寶具的檔；60% 基準無加成；20% 僅維持靈基、低出力有明顯懲罰。
+var OUTPUT_TIERS_ = {
+  100: { hit:  3, dmgMul: 1.30, drainMul: 2.0, np: true,  label: '全開' },
+  80:  { hit:  1, dmgMul: 1.10, drainMul: 1.5, np: false, label: '高壓' },
+  60:  { hit:  0, dmgMul: 1.00, drainMul: 1.0, np: false, label: '巡航' },
+  40:  { hit: -2, dmgMul: 0.85, drainMul: 0.6, np: false, label: '節流' },
+  20:  { hit: -5, dmgMul: 0.70, drainMul: 0.3, np: false, label: '維持' },
+};
+// 把任意百分比吸附到最近的合法檔位（20/40/60/80/100）。
+function snapOutput_(pct) {
+  var p = parseInt(pct); if (isNaN(p)) return 60;
+  var tiers = [20, 40, 60, 80, 100], best = 60, bd = 999;
+  for (var i = 0; i < tiers.length; i++) { var d = Math.abs(tiers[i] - p); if (d < bd) { bd = d; best = tiers[i]; } }
+  return best;
+}
+function outputTier_(pct) { return OUTPUT_TIERS_[snapOutput_(pct)] || OUTPUT_TIERS_[60]; }
+// 讀從者 MEMORY 的【出力】檔位（無則預設 60 巡航）。
+function servantOutput_(memory) {
+  var m = String(memory || "").match(/【出力】(\d+)/);
+  return m ? snapOutput_(m[1]) : 60;
+}
+// 寫/改 MEMORY 的【出力】檔位，回傳新 memory 字串。
+function setServantOutput_(memory, pct) {
+  var p = snapOutput_(pct);
+  var mem = String(memory || "");
+  if (/【出力】\d+/.test(mem)) return mem.replace(/【出力】\d+/, '【出力】' + p);
+  return mem ? (mem + '｜【出力】' + p) : ('【出力】' + p);
 }
 
 // 🎴 從一列的六圍 SIX 推 HP/MP（耐久→con、魔力→mag）。

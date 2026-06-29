@@ -487,7 +487,7 @@ function renderRecentLocs(recents = null) {
       hud.style.display = 'none';
     }
   }
-  // 💠 從者魔力收支 HUD：供給(迴路)＋靈脈＋工房 − 維持＝淨值。赤字標紅警告，提醒搶靈脈/回家/補魔。
+  // 💠 御主魔力收支 HUD：供給(迴路)＋靈脈＋工房 − 從者維持(依出力檔)＝淨值/時。赤字標紅，提醒搶靈脈/設陣地/降出力/補魔。
   function updateEconomy(eco) {
     const hud = document.getElementById('economy-hud');
     if (!hud) return;
@@ -499,10 +499,10 @@ function renderRecentLocs(recents = null) {
     const net = eco.net;
     const netColor = net > 0 ? '#7ec87e' : net < 0 ? '#e06a6a' : '#c9b885';
     const netStr = (net > 0 ? '+' : '') + net;
-    let html = `<span style="color:#9aa6c8;">💠 供魔</span> <span style="color:#bcd;">${parts.join('　')}</span>`
-      + ` <span style="color:#9a8;">－維持 ${eco.drain}</span>`
+    let html = `<span style="color:#9aa6c8;">💠 御主魔力</span> <span style="color:#bcd;">${parts.join('　')}</span>`
+      + ` <span style="color:#9a8;">－維持 ${eco.drain}${eco.output ? '(出力' + eco.output + '%' + (eco.outputLabel ? '·' + eco.outputLabel : '') + ')' : ''}</span>`
       + ` ＝ <b style="color:${netColor};">淨 ${netStr}/時</b>`;
-    if (net < 0) html += ` <span style="color:#e06a6a;">⚠ 入不敷出，宜搶靈脈/設陣地工房/補魔</span>`;
+    if (net < 0) html += ` <span style="color:#e06a6a;">⚠ 入不敷出，宜搶靈脈/設陣地/降出力/補魔</span>`;
     hud.innerHTML = html;
     hud.style.display = 'block';
   }
@@ -1249,6 +1249,7 @@ function renderRecentLocs(recents = null) {
         + ((pc && pc.mode === 'kanshou') ? '' :  // 🌹 慾海：御主只露名字＋外顯，不露血量/魔力/令咒/禮裝
             bar('體', m.hpNum, m.hpMax, 'hp')
             + bar('魔', m.mpNum, m.mpMax, 'mp')
+            + '<div style="color:#6e9fc0; font-size:9.5px; margin-top:1px; opacity:.85;">🔋 御主魔力＝供養從者的唯一電池：從者按出力檔持續抽取，補魔／燃血／休息回充</div>'
             + '<div style="color:#9a8bb0; font-size:11px; margin-top:3px;">令咒 <span style="color:#c79be8;">' + '❖'.repeat(myMasterSeals) + '</span></div>'
             + (myMystic ? ('<div style="color:#9a8bb0; font-size:11px; margin-top:3px;" title="' + (myMystic.desc || '').replace(/"/g, '') + '">禮裝 <span style="color:#7fd0c0;">✨ ' + myMystic.name + '</span>' + (myMystic.type === 'active' ? ' <span style="color:#caa44a;">(充能 ' + myMystic.charges + '・需迴路 ' + myMystic.req + ')</span>' : ' <span style="color:#8aa;">(被動)</span>') + '</div>') : ''))
         + '</div>';
@@ -1285,8 +1286,13 @@ function renderRecentLocs(recents = null) {
           + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
           + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">' + s.condition + '</div>'
           + bar('體', s.hpNum, s.hpMax, 'hp')
-          + bar('魔', s.mpNum, s.mpMax, 'mp')
-          + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">羈絆 ' + bondWord(s.bond) + '</div>'
+          + ((pc && pc.mode === 'kanshou') ? '' :  // 🔋 靈基出力轉盤（從者無自有魔力，靠御主供魔；出力決定戰力＋御主每小時維持費；100% 才能解放寶具）
+              '<div style="margin-top:4px;">'
+              + '<div style="color:#7ec8ff; font-size:11px;">🔋 靈基出力　<b>' + (s.output || 60) + '%</b>　<small style="opacity:.75;">' + (s.outputLabel || '') + '</small><small style="opacity:.55;"> · 御主供魔強度</small></div>'
+              + '<div style="display:flex; gap:3px; margin-top:3px;" onclick="event.stopPropagation();">'
+              + [20, 40, 60, 80, 100].map(function (o) { var on = (o === (s.output || 60)); return '<button onclick="setServantOutput(\'' + safeN + '\',' + o + ')" title="' + (o === 100 ? '全開：戰力最強、唯一可解放寶具，御主魔力消耗最劇' : o === 20 ? '維持：御主魔力最省，但戰力受限、無法放寶具' : '出力 ' + o + '%') + '" style="flex:1; font-size:10px; padding:3px 0; border-radius:5px; cursor:pointer; border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + '; background:' + (on ? 'rgba(110,180,220,.30)' : 'rgba(40,50,65,.4)') + '; color:' + (on ? '#bfe3ff' : '#7a8aa0') + '; font-weight:' + (on ? 'bold' : 'normal') + ';">' + o + (o === 100 ? '💥' : '') + '</button>'; }).join('')
+              + '</div></div>')
+          + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5; margin-top:4px;">羈絆 ' + bondWord(s.bond) + '</div>'
           + '<div style="color:#cdbbe6; font-size:11px; margin-top:3px; letter-spacing:.5px;">六圍　' + sixLine + '</div>'
           + (skillPills ? ('<div style="margin-top:3px;">' + skillPills + '</div>') : '')
           + (traitPills ? ('<div style="margin-top:1px;">' + traitPills + '</div>') : '')
@@ -1296,7 +1302,7 @@ function renderRecentLocs(recents = null) {
               '<div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">'
               + (dual ? '<div style="flex:1 0 100%; color:#9a8fae; font-size:10px;">下列動作對「' + s.name + '」生效：</div>' : '')
               + '<button onclick="event.stopPropagation();manaSupply()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
-              + '<button onclick="event.stopPropagation();bloodSupply()" title="燃血補魔：燃燒御主自身生命力(扣血)，大量灌注從者魔力。血量可休息回復。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(176,42,42,0.18); color:#e08080; border:1px solid #a04a4a; border-radius:6px; cursor:pointer;">🩸 燃血</button>'
+              + '<button onclick="event.stopPropagation();bloodSupply()" title="燃血補魔：燃燒御主自身生命力(扣血)，大量回充御主魔力儲備(供養從者的電池)。血量可休息回復。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(176,42,42,0.18); color:#e08080; border:1px solid #a04a4a; border-radius:6px; cursor:pointer;">🩸 燃血</button>'
               + '<button onclick="event.stopPropagation();openBondMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(224,138,170,0.16); color:#e08aaa; border:1px solid #b06c84; border-radius:6px; cursor:pointer;">💕 羈絆</button>'
               + '<button onclick="event.stopPropagation();openSealMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(176,108,208,0.16); color:#c79be8; border:1px solid #8a5fb0; border-radius:6px; cursor:pointer;">❖ 令咒 ' + '❖'.repeat(myMasterSeals) + '</button>'
               + '<button onclick="event.stopPropagation();openRestMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(120,120,160,0.16); color:#a9a9d8; border:1px solid #5a5a8a; border-radius:6px; cursor:pointer;">🛏️ 休息</button>'
@@ -1564,10 +1570,12 @@ function renderRecentLocs(recents = null) {
       // ❖ 防誤按：令咒有限且一次性
       if (!confirm('❖ 對「' + npcName + '」燃燒一道令咒‧絕對命令？\n\n效果：此擊必中＋威力倍增。\n令咒總共只有 3 道、用一道少一道，請謹慎。\n\n確定燃燒令咒？')) return;
     } else if (useNp) {
-      // 💥 防誤按：寶具耗大量魔力
-      if (!confirm('💥 命「' + npcName + '」解放寶具？\n\n將消耗從者約 35% 魔力（魔力不足則無法發動），威力巨大。\n\n確定解放寶具？')) return;
+      // 💥 防誤按：寶具＝靈基全力解放，自動推到出力 100%、御主灌注全部魔力
+      if (!confirm('💥 命「' + npcName + '」解放寶具？\n\n寶具乃靈基全力解放——將自動把出力推到 100%（全開），御主灌注全部魔力（御主魔力／血不足則無法發動）。威力巨大、御主消耗最劇。\n\n確定解放寶具？')) return;
     }
     if (!beginAction()) return;
+    // 🔋 解放寶具＝全開：先把出戰從者出力推到 100%（御主全力灌注），再發動
+    if (useNp) { try { await gasRun({ action: 'set_servant_output', pcId: pc.id, servant: myActiveServant, output: 100, acctName: (pc && pc.account) || currentAccount }); } catch (e) {} }
     const story = document.getElementById('story');
     const _plain = myServantCls === 'Caster' ? '詠唱魔砲，轟向' : myServantCls === 'Archer' ? '張弓狙擊，鎖定' : '出擊，目標';
     const verb = isMaster ? '奇襲斬首，直取敵御主' : (useSeal ? '燃令咒・絕對命令，必中斬向' : (useNp ? '解放寶具，目標' : _plain));
@@ -1584,6 +1592,16 @@ function renderRecentLocs(recents = null) {
       }
       else { alert((res && res.message) || '出擊失敗。'); try { syncData(true); } catch (e) {} } // 失敗(常見：目標已不在/已亡的幽靈卡)→重新同步清掉殘留敵蹤卡
     } catch (e) { alert('連線失敗，出擊未果。'); } finally { endAction(); }
+  }
+
+  // 🔋 設定從者靈基出力檔位（20/40/60/80/100）：玩家旋鈕，免費即時。高檔強但御主每小時維持費高；100% 才能解放寶具。
+  async function setServantOutput(npcName, output) {
+    if (!beginAction()) return;
+    try {
+      const res = await gasRun({ action: 'set_servant_output', pcId: pc.id, servant: npcName, output: output, acctName: (pc && pc.account) || currentAccount });
+      if (res && res.success) { syncData(true); }
+      else alert((res && res.message) || '調整出力失敗。');
+    } catch (e) { alert('連線失敗，出力未調整。'); } finally { endAction(); }
   }
 
   // ✨ 發動禮裝（主動型）：吃迴路、耗魔力、扣充能
@@ -1685,13 +1703,13 @@ function renderRecentLocs(recents = null) {
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
   }
 
-  // 💧 補魔：御主供魔給從者（回魔＋羈絆＋fade 演出）
+  // 💧 補魔：御主凝神、藉契約共鳴回充【自身】魔力儲備（供養從者的電池）＋羈絆＋fade 演出
   async function manaSupply() {
     const foe = localFoeServantName();
     if (foe && !confirm('⚠ 此地有敵從者「' + foe + '」！\n\n補魔時門戶大開，極可能遭其趁隙突襲重擊你的從者（重則靈基崩潰、敗北）。\n建議先擊退敵人或轉往安全處。\n\n仍要在此補魔？')) return;
     if (!beginAction()) return;
     const story = document.getElementById('story');
-    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主將魔力導入從者，行補魔之儀……</div>`);
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主凝神靜息，藉與從者的契約共鳴回充魔力儲備……</div>`);
     story.scrollTop = story.scrollHeight;
     try {
       const res = await gasRun({ action: 'mana_supply', pcId: pc.id, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount });
@@ -1702,9 +1720,9 @@ function renderRecentLocs(recents = null) {
     } catch (e) { alert('連線失敗，補魔未果。'); } finally { endAction(); }
   }
 
-  // 🩸 燃血補魔：御主燃燒自身生命力(扣血)，大量灌注從者魔力（血量可休息回復）
+  // 🩸 燃血補魔：御主燃燒自身生命力(扣血)，緊急回充【自身】魔力儲備（供養從者的電池；血量可休息回復）
   async function bloodSupply() {
-    if (!confirm('🩸 燃血補魔：燃燒御主自身生命力轉化為魔力，大量灌注從者（扣御主血量、回血需休息）。\n\n以血為魔、代價沉重——確定要燃血嗎？')) return;
+    if (!confirm('🩸 燃血補魔：燃燒御主自身生命力轉化為魔力，緊急回充自身魔力儲備（供養從者的電池；扣御主血量、回血需休息）。\n\n以血為魔、代價沉重——確定要燃血嗎？')) return;
     const foe = localFoeServantName();
     if (foe && !confirm('⚠ 此地有敵從者「' + foe + '」！\n\n燃血時門戶大開，極可能遭其趁隙突襲重擊你的從者。\n仍要在此燃血？')) return;
     if (!beginAction()) return;

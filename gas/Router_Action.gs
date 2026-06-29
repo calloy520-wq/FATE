@@ -32,6 +32,7 @@ const ActionRouter = {
   "use_seal": actionUseSeal,
   "mana_supply": actionManaSupply,
   "blood_supply": actionBloodSupply,
+  "set_servant_output": actionSetServantOutput,
   "bond": actionBond,
   "use_mystic": actionUseMystic,
   "rule_break_steal": actionRuleBreakSteal,
@@ -509,8 +510,8 @@ function actionSummonServant(userData, pcId, sheets) {
       // 六圍 → 顯示數值（數值即 rankVal，無階級倍率）
       const nStr = svNum_(six.筋力), nCon = svNum_(six.耐久), nAgi = svNum_(six.敏捷), nInt = svNum_(six.魔力), nLuk = svNum_(six.幸運);
       const maxStats = fateMaxHpMp_(nCon, nInt);
-      // 從者血厚：耐久越高越肉
-      const svHp = 150 + svNum_(six.耐久) * 6, svMp = 120 + svNum_(six.魔力) * 6;
+      // 從者血厚：耐久越高越肉。🔋 出力電池制：從者無自有魔力池(MP欄置0)，靠御主供魔；出力檔存 MEMORY、預設 60 巡航。
+      const svHp = 150 + svNum_(six.耐久) * 6, svMp = 0;
 
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
@@ -551,7 +552,7 @@ ${FX_MENU_}
       const aiTraits = Array.isArray(aiBrief.traits) ? aiBrief.traits.filter(Boolean).slice(0, 4).map(t => ({ n: String((t && (t.n || t.名稱 || t.name)) || t).slice(0, 8) })) : [];
       // 六圍 → 數值（與名冊路徑一致，svNum_ 橋接）
       const nStr = svNum_(aiSix.筋力), nCon = svNum_(aiSix.耐久), nAgi = svNum_(aiSix.敏捷), nInt = svNum_(aiSix.魔力), nLuk = svNum_(aiSix.幸運);
-      const svHp = 150 + svNum_(aiSix.耐久) * 6, svMp = 120 + svNum_(aiSix.魔力) * 6;
+      const svHp = 150 + svNum_(aiSix.耐久) * 6, svMp = 0; // 🔋 出力電池制：從者無自有魔力池，出力檔存 MEMORY、預設 60 巡航
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       row[COL.PC.REALM] = "";
@@ -641,6 +642,7 @@ function actionGetTags(userData, pcId, sheets) {
       hp: hpWord(s[COL.PC.HP], s[COL.PC.MAX_HP]),
       hpNum: parseInt(s[COL.PC.HP]) || 0, hpMax: parseInt(s[COL.PC.MAX_HP]) || 0,
       mpNum: parseInt(s[COL.PC.MP]) || 0, mpMax: parseInt(s[COL.PC.MAX_MP]) || 0,
+      output: servantOutput_(s[COL.PC.MEMORY]), outputLabel: outputTier_(servantOutput_(s[COL.PC.MEMORY])).label, // 🔋 靈基出力檔位
       np: s[COL.PC.MARTIAL] || "寶具未顯現", bond: bond,
       six: six, skills: skills, traits: traits,
       pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體
@@ -2000,15 +2002,13 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
 //   導致明明同地有敵卻「此世界查無此目標」。傳入空字串時回空(呼叫端須自行擋空名)。
 function nameLoose_(s) { return String(s == null ? "" : s).replace(/[·・•‧∙⋅･·\s]/g, ""); }
 
-// 🔋 御主電池：從者要付一筆魔力(放寶具)，自身魔力不夠時，自動抽御主——
-//   付款順序：①從者自身 MP → ②御主 MP(1 MP 換 1 MP，等價導流) → ③御主 HP(2 HP 換 1 MP，焚血供能、御主血量不可低於 1)。
-//   寫回試算表並回傳明細，供戰報／敘述演出「拿御主當電池」。
+// 🔋 御主電池（出力電池制 2026-06）：從者【沒有自有魔力池】，寶具/技能魔力全由御主供——
+//   付款順序：①御主 MP(主資源) → ②御主 HP(2 HP 換 1 MP，焚血供能、御主血量不可低於 1)。
+//   寫回試算表並回傳明細，供戰報／敘述演出「拿御主當電池」。fromSv 恆 0（保留欄位相容舊戰報）。
 var BATTERY_HP_PER_MP = 2; // 御主以血供魔的兌率：每 1 點魔力＝2 點生命
 function drainForNp_(sheets, pcData, svIdx, masterIdx, mpCost) {
   mpCost = Math.max(0, Math.round(mpCost));
-  var svMp = parseInt(pcData[svIdx][COL.PC.MP]) || 0;
-  var fromSv = Math.min(svMp, mpCost);
-  var need = mpCost - fromSv;
+  var need = mpCost;
   var mMp = masterIdx >= 0 ? (parseInt(pcData[masterIdx][COL.PC.MP]) || 0) : 0;
   var fromMMp = Math.min(mMp, need);
   need -= fromMMp;
@@ -2017,9 +2017,6 @@ function drainForNp_(sheets, pcData, svIdx, masterIdx, mpCost) {
   var hpForMp = Math.min(need, Math.floor(hpAvail / BATTERY_HP_PER_MP));
   var fromMHp = hpForMp * BATTERY_HP_PER_MP;
   need -= hpForMp;                                          // 仍未付清的缺口（油盡燈枯，寶具勉力強放）
-  // 寫回從者
-  pcData[svIdx][COL.PC.MP] = Math.max(0, svMp - fromSv);
-  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
   // 寫回御主（有動到才寫）
   if (masterIdx >= 0 && (fromMMp > 0 || fromMHp > 0)) {
     pcData[masterIdx][COL.PC.MP] = Math.max(0, mMp - fromMMp);
@@ -2027,12 +2024,12 @@ function drainForNp_(sheets, pcData, svIdx, masterIdx, mpCost) {
     sheets.pc.getRange(masterIdx + 1, 1, 1, pcData[masterIdx].length).setValues([pcData[masterIdx]]);
   }
   return {
-    cost: mpCost, fromSv: fromSv, fromMasterMp: fromMMp, fromMasterHp: fromMHp, shortfall: need,
+    cost: mpCost, fromSv: 0, fromMasterMp: fromMMp, fromMasterHp: fromMHp, shortfall: need,
     usedBattery: (fromMMp > 0 || fromMHp > 0), bledMaster: (fromMHp > 0),
     masterHp: masterIdx >= 0 ? (parseInt(pcData[masterIdx][COL.PC.HP]) || 0) : 0,
     masterHpMax: masterIdx >= 0 ? (parseInt(pcData[masterIdx][COL.PC.MAX_HP]) || 0) : 0,
     masterMp: masterIdx >= 0 ? (parseInt(pcData[masterIdx][COL.PC.MP]) || 0) : 0,
-    svMp: parseInt(pcData[svIdx][COL.PC.MP]) || 0
+    svMp: 0  // 出力電池制：從者無自有魔力池
   };
 }
 
@@ -2108,15 +2105,19 @@ function actionFateBattle(userData, pcId, sheets) {
   const atkC = rowToCombatant_(pcData[atkIdx]);
   const defC = rowToCombatant_(pcData[nIdx]);
 
-  // 🔋 寶具魔力：從者自身不足時改抽御主（御主電池）。唯有「從者沒魔力 ＋ 御主魔力枯竭 ＋ 御主血也見底」三者皆空才擋下。
+  // 🔋 寶具魔力（出力電池制）：寶具全由御主供魔。① 寶具僅能在「出力 100%（全開·認真）」解放——御主把魔力全灌進去才釋放得了真名。
+  //   ② 御主魔力(MP)＋焚血(HP)都湊不出 prana → 油盡燈枯，擋下。
   if (useNp) {
-    const npCostPre = Math.round((parseInt(pcData[atkIdx][COL.PC.MAX_MP]) || 100) * 0.35);
-    const svMpPre = parseInt(pcData[atkIdx][COL.PC.MP]) || 0;
+    const atkOutput = servantOutput_(pcData[atkIdx][COL.PC.MEMORY]);
+    if (atkOutput < 100) {
+      return JSON.stringify({ success: false, message: `寶具乃靈基全力之解放——須先將「${atkC.name}」的出力推到 100%（全開），御主灌注全部魔力，方能釋放真名。當前出力 ${atkOutput}%。` });
+    }
+    const npCostPre = npPranaCost_(atkC.six["寶具"]);
     const mMpPre = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
     const mHpPre = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
-    const maxPay = svMpPre + mMpPre + Math.floor(Math.max(0, mHpPre - 1) / BATTERY_HP_PER_MP);
-    if (maxPay <= 0) {
-      return JSON.stringify({ success: false, message: `${atkC.name} 魔力耗盡，而御主也已油盡燈枯、連一絲血魔都擠不出——無法解放寶具，需先休整補魔。` });
+    const maxPay = mMpPre + Math.floor(Math.max(0, mHpPre - 1) / BATTERY_HP_PER_MP);
+    if (maxPay < npCostPre) {
+      return JSON.stringify({ success: false, message: `御主魔力已油盡燈枯——以血魔竭力相湊仍不足以供「${atkC.name}」解放寶具(需 ${npCostPre})，須先休整／補魔。` });
     }
   }
 
@@ -2262,7 +2263,8 @@ function actionFateBattle(userData, pcId, sheets) {
   let skillBuff = null, skillBattery = null;
   if (userData.skill) {
     skillBuff = servantActiveSkill_(atkC);
-    const skCost = Math.round((parseInt(pcData[atkIdx][COL.PC.MAX_MP]) || 100) * skillBuff.mpPct);
+    // 🔋 出力電池制：技能魔力亦由御主供。改以固定基準(200)×mpPct 計，不再依已廢的從者魔力池。
+    const skCost = Math.round(200 * skillBuff.mpPct);
     skillBattery = drainForNp_(sheets, pcData, atkIdx, pIdx, skCost);
     atkC.mp = parseInt(pcData[atkIdx][COL.PC.MP]) || 0;
     if (skillBattery.usedBattery) {
@@ -2701,15 +2703,18 @@ function actionUseSeal(userData, pcId, sheets) {
   let effectMsg = "";
   if (type === "repair") {
     pcData[svIdx][COL.PC.HP] = parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 480;
-    pcData[svIdx][COL.PC.MP] = parseInt(pcData[svIdx][COL.PC.MAX_MP]) || 200;
     pcData[svIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基重塑", "姿勢": "昂然而立", "負面": "無", "顏面": "神采奕奕" });
     sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
-    effectMsg = `令咒迸發，重塑「${svName}」的靈基——氣血與魔力盡數回滿，傷勢一掃而空。`;
+    // 🔋 出力電池制：令咒重塑亦讓御主魔力儲備(唯一供魔源)回滿
+    pcData[pIdx][COL.PC.MP] = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || 240;
+    sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+    effectMsg = `令咒迸發，重塑「${svName}」的靈基——氣血回滿、傷勢一掃而空，御主魔力儲備亦充盈如初。`;
   } else if (type === "mana") {
-    pcData[svIdx][COL.PC.MP] = parseInt(pcData[svIdx][COL.PC.MAX_MP]) || 200;
-    sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+    // 🔋 出力電池制：令咒灌頂回充御主魔力儲備(供魔源)，而非從者(從者無池)
+    pcData[pIdx][COL.PC.MP] = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || 240;
+    sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
     raiseBond_(sheets, pcData[pIdx][COL.PC.NAME], svName, 8);
-    effectMsg = `令咒化作一道灌頂的魔力洪流，「${svName}」的魔力瞬間充盈到極限，羈絆也更深了一分。`;
+    effectMsg = `令咒化作一道灌頂的魔力洪流，御主魔力儲備瞬間充盈到極限，與「${svName}」的羈絆也更深了一分。`;
   } else if (type === "escape") {
     const oldLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
     const newLoc = enemyRetreatLoc_(oldLoc);
@@ -2807,6 +2812,27 @@ function findPlayerServantIdx_(pcData, gameId, wantName) {
   return pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
 }
 
+// 🔋 設定從者靈基出力檔位（20/40/60/80/100）：玩家旋鈕，存從者 MEMORY【出力】。免費、即時，不耗 AP。
+//   高檔＝戰力強但御主每小時維持費高；100%＝唯一能解放寶具的檔。決定戰鬥表現與御主魔力消耗速度。
+function actionSetServantOutput(userData, pcId, sheets) {
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可調整出力。" });
+  const want = snapOutput_(userData.output);
+  pcData[svIdx][COL.PC.MEMORY] = setServantOutput_(pcData[svIdx][COL.PC.MEMORY], want);
+  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+  const t = outputTier_(want);
+  const svName = pcData[svIdx][COL.PC.NAME];
+  return JSON.stringify({
+    success: true, output: want, label: t.label,
+    message: `已將「${svName}」的靈基出力調至 ${want}%（${t.label}）。${want >= 100 ? '全力解放——可釋放寶具，但御主魔力消耗最劇。' : (want <= 20 ? '僅維持靈基——御主魔力消耗最省，但戰力明顯受限、無法解放寶具。' : '')}`,
+    statusString: getFreshStatusString(pcId, pIdx, sheets), economy: playerServantEconomy_(sheets, pcId)
+  });
+}
+
 // 🔵 補魔（魔力供給）：把御主魔力導入從者，回魔＋羈絆＋fade 演出。耗 1 AP（導入魔力需時）
 function actionManaSupply(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
@@ -2816,9 +2842,10 @@ function actionManaSupply(userData, pcId, sheets) {
   const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可供魔。" });
   const svName = pcData[svIdx][COL.PC.NAME];
-  const mpMax = parseInt(pcData[svIdx][COL.PC.MAX_MP]) || 200;
-  const cur = parseInt(pcData[svIdx][COL.PC.MP]) || 0;
-  if (cur >= mpMax) return JSON.stringify({ success: false, message: `「${svName}」的魔力已然充盈，毋須補魔。` });
+  // 🔋 出力電池制：補魔＝御主凝神、藉與從者的契約共鳴回充【自身】魔力儲備(御主MP＝唯一供魔源)，非灌入從者(從者無池)。
+  const mpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || 240;
+  const cur = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
+  if (cur >= mpMax) return JSON.stringify({ success: false, message: `御主的魔力儲備已然充盈，毋須補魔。` });
 
   const isFateMana = myGameId.indexOf("g_") === 0;
   if (isFateMana && getAp_(myGameId) < 1) {
@@ -2826,8 +2853,8 @@ function actionManaSupply(userData, pcId, sheets) {
   }
 
   const restored = Math.min(mpMax, cur + Math.round(mpMax * 0.5));
-  pcData[svIdx][COL.PC.MP] = restored;
-  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+  pcData[pIdx][COL.PC.MP] = restored;
+  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   raiseBond_(sheets, pcData[pIdx][COL.PC.NAME], svName, 3);
 
   let manaAp = AP_PER_DAY, manaClock = "";
@@ -2844,8 +2871,8 @@ function actionManaSupply(userData, pcId, sheets) {
       ``;
   } else {
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
-      `【系統·補魔已結算】御主以魔力供給「${svName}」，其魔力回復至 ${restored}/${mpMax}，羈絆微升。\n` +
-      `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】，溫柔且帶一絲曖昧張力地描寫這場魔力供給——肌膚相觸、魔力交融的私密一刻（體溫、心跳、屏息、半句未盡的情話），甜美而克制，最後 fade-to-black 留白。\n` +
+      `【系統·補魔已結算】御主凝神靜息，藉與「${svName}」的靈魂契約共鳴，回充自身魔力儲備至 ${restored}/${mpMax}，羈絆微升。\n` +
+      `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】，溫柔且帶一絲曖昧張力地描寫這場以契約共鳴回魔的私密一刻——魔力沿著靈魂聯繫流轉、肌膚相觸、體溫與心跳、半句未盡的情話，甜美而克制，最後 fade-to-black 留白。\n` +
       `★【鐵律】止於唯美曖昧、點到為止；【不可】出現性器官、性交或露骨情慾描寫（那是奪杯後鑑賞的事）。演出而非複述設定。`;
   }
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", statusString: getFreshStatusString(pcId, pIdx, sheets) });
@@ -2861,9 +2888,10 @@ function actionBloodSupply(userData, pcId, sheets) {
   const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可供魔。" });
   const svName = pcData[svIdx][COL.PC.NAME];
-  const svMpMax = parseInt(pcData[svIdx][COL.PC.MAX_MP]) || 200;
-  const svMp = parseInt(pcData[svIdx][COL.PC.MP]) || 0;
-  if (svMp >= svMpMax) return JSON.stringify({ success: false, message: `「${svName}」的魔力已充盈，毋須燃血。` });
+  // 🔋 出力電池制：燃血＝御主焚燒自身生命力，緊急回充【自身】魔力儲備(御主MP＝唯一供魔源)。代價＝御主HP。
+  const svMpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || 240;
+  const svMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
+  if (svMp >= svMpMax) return JSON.stringify({ success: false, message: `御主的魔力儲備已充盈，毋須燃血。` });
 
   const mHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
   const mMaxHp = parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 100;
@@ -2874,12 +2902,11 @@ function actionBloodSupply(userData, pcId, sheets) {
   const isFate = myGameId.indexOf("g_") === 0;
   if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以行燃血之儀——請『休息』恢復後再來。" });
 
-  // 結算：御主扣血、從者大量回魔（約 70% 上限）
+  // 結算：御主扣血、御主魔力大量回充（約 70% 上限）
   const restored = Math.min(svMpMax, svMp + Math.round(svMpMax * 0.7));
   pcData[pIdx][COL.PC.HP] = mHp - cost;
-  pcData[svIdx][COL.PC.MP] = restored;
-  sheets.pc.getRange(pIdx + 1, COL.PC.HP + 1).setValue(mHp - cost);
-  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+  pcData[pIdx][COL.PC.MP] = restored;
+  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   raiseBond_(sheets, pcData[pIdx][COL.PC.NAME], svName, 5);
 
   let bap = AP_PER_DAY, bclock = "";
@@ -2895,8 +2922,8 @@ function actionBloodSupply(userData, pcId, sheets) {
       ``;
   } else {
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
-      `【系統·燃血補魔已結算】御主以自身血肉為媒，燃燒生命力轉化為魔力（耗血 ${cost}，餘 ${mHp - cost}/${mMaxHp}），大量灌注「${svName}」，其魔力回復至 ${restored}/${svMpMax}，羈絆加深。\n` +
-      `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】描寫這場「以血為魔」的補魔之儀——御主咬牙逼出赤紅的血色魔力、順著相握的手流入從者體內；強調這是燃燒自身生命的沉重代價、從者察覺御主臉色發白時的不忍與心疼，兩人間一絲悲壯而緊密的羈絆。\n` +
+      `【系統·燃血補魔已結算】御主以自身血肉為媒，燃燒生命力轉化為魔力（耗血 ${cost}，餘 ${mHp - cost}/${mMaxHp}），回充自身魔力儲備至 ${restored}/${svMpMax}，與「${svName}」的羈絆加深。\n` +
+      `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】描寫這場「以血為魔」的燃血之儀——御主咬牙逼出赤紅的血色魔力、注入體內循環的魔術迴路；強調這是燃燒自身生命的沉重代價、從者察覺御主臉色發白時的不忍與心疼，兩人間一絲悲壯而緊密的羈絆。\n` +
       `★【防護】這是魔術師嚴肅悲壯的燃血供魔，血只是魔力媒介——【不可】血腥獵奇、【不可】情慾露骨，點到即止。演出而非複述設定。`;
   }
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: bclock, ap: bap, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", statusString: getFreshStatusString(pcId, pIdx, sheets) });

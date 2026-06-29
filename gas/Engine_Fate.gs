@@ -47,16 +47,17 @@ function offenseTier_(c, isNp) {
   return t;
 }
 
-// 🔋 寶具 Prana Cost（依寶具階級）：E50 D100 C200 B350 A500 EX800。
-//   故事感：低階寶具從者自付有餘；A/EX 級往往需御主以血魔供能（御主電池）。
+// 🔋 寶具 Prana Cost（依寶具階級）：E40 D70 C110 B160 A220 EX300。
+//   🔋 出力電池制(2026-06)：寶具魔力全由御主供（從者無池）。已對齊御主池(迴路×8，預設240)——
+//   A 階≈耗盡滿池、EX 須再焚血墊；故 EX/EA 仍極罕見。寶具僅在出力 100% 才可解放(見 actionFateBattle 閘門)。
 function npPranaCost_(npRank) {
-  if (/EX/i.test(String(npRank))) return 800;  // 僅「EX」階；A++(rankVal 亦=60)不算 EX
+  if (/EX/i.test(String(npRank))) return 300;  // 僅「EX」階；A++(rankVal 亦=60)不算 EX
   var v = rankVal(npRank);
-  if (v >= 50) return 500;  // A / A+ / A++
-  if (v >= 40) return 350;  // B
-  if (v >= 30) return 200;  // C
-  if (v >= 20) return 100;  // D
-  return 50;                // E
+  if (v >= 50) return 220;  // A / A+ / A++
+  if (v >= 40) return 160;  // B
+  if (v >= 30) return 110;  // C
+  if (v >= 20) return 70;   // D
+  return 40;                // E
 }
 
 // 🎲 寶具基礎傷害骰（依寶具階級，d10 系）：E3d10 D5d10 C8d10 B12d10 A20d10 EX30d10。
@@ -196,7 +197,9 @@ function rowToCombatant_(row) {
     name: row[COL.PC.NAME], cls: row[COL.PC.RANK] || '',
     six: six, skills: skills, traits: traits, np: row[COL.PC.MARTIAL] || '',
     hp: parseInt(row[COL.PC.HP]) || 100, hpMax: parseInt(row[COL.PC.MAX_HP]) || 100,
-    mp: parseInt(row[COL.PC.MP]) || 50, mpMax: parseInt(row[COL.PC.MAX_MP]) || 50
+    mp: parseInt(row[COL.PC.MP]) || 50, mpMax: parseInt(row[COL.PC.MAX_MP]) || 50,
+    // 🔋 出力電池制：從者靈基出力檔位(20~100)，決定本戰命中/傷害＋御主每小時維持費；御主預設凡人巡航 60。
+    output: servantOutput_(row[COL.PC.MEMORY])
   };
 }
 
@@ -219,9 +222,10 @@ function resolveFateBattle_(atk, def, opts) {
     }
   }
 
-  // 出力：攻方當前魔力% 影響表現（補魔充足生龍活虎／餓著發揮不出）
-  var mpPct = atk.mpMax > 0 ? atk.mp / atk.mpMax : 1;
-  var outMod = mpPct >= 1 ? 2 : mpPct >= 0.7 ? 0 : mpPct >= 0.4 ? -2 : mpPct >= 0.15 ? -5 : -8;
+  // 🔋 出力：攻方靈基出力檔位決定表現（御主把魔力灌多少進來）。高檔強但燒御主、低檔有懲罰。
+  //   命中端 +outMod；傷害端 ×outTier.dmgMul（於下方主威力處套用）。御主供魔越足、從者越生龍活虎。
+  var outTier = outputTier_(atk.output);
+  var outMod = outTier.hit;
 
   // ⚔️ 依職階決定攻防屬性：法師用魔力轟擊＋魔術防壁、弓兵狙擊、近戰靠敏捷。讓「魔力型」也有舞台，不再只有敏／力吃香。
   var aProf = combatProfile_(atk), dProf = combatProfile_(def);
@@ -284,6 +288,9 @@ function resolveFateBattle_(atk, def, opts) {
   var weaponDice = rollDice_(wTier, 8);
   var base = Math.round(rankVal(wDmgRank) * 0.8) + weaponDice + Math.round(Math.abs(aHit - dEva) * 1.2);
   fired.push(winner.name + '·武器骰' + wTier + 'd8=' + weaponDice);
+  // 🔋 出力傷害乘子：依勝方(出擊方)靈基出力檔位放大/縮小本擊威力（御主供魔越足、傷害越高）。
+  var wOut = outputTier_(winner.output);
+  if (wOut.dmgMul !== 1.0) { base = Math.round(base * wOut.dmgMul); fired.push(winner.name + '·出力' + (winner.output || 60) + '%·' + wOut.label); }
   var su = hasFx_(winner, 'str_up'); if (su) { base += Math.round(8 * rankMul_(su)); fired.push(winner.name + '·' + fxName_(winner, 'str_up', '怪力')); }
   var burst = hasFx_(winner, 'burst'); if (burst) { base = Math.round(base * (1 + 0.2 * rankMul_(burst))); fired.push(winner.name + '·' + fxName_(winner, 'burst', '魔力放出')); }
   // 勇猛/卡里斯瑪(morale)：傷害+；但對方「透化(clear_mind)」免疫此精神威壓

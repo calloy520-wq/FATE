@@ -87,8 +87,9 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | get_tags | actionGetTags | **左側狀態面板資料**：御主HP/MP/令咒/願望、從者陣列(六圍/技能/羈絆/寶具)、供魔收支、禮裝、破戒能力 |
 | fate_battle | actionFateBattle | **核心戰鬥**：D20＋寶具＋令咒＋斬首＋雙從者＋協同強襲（見 §4） |
 | use_seal | actionUseSeal | 令咒固定選單：修復/補魔/緊急脫離 |
-| mana_supply | actionManaSupply | 補魔：御主→從者回魔+羈絆+SFW fade（耗1AP，卸防可能被突襲） |
-| blood_supply | actionBloodSupply | 🩸燃血補魔(血→魔)：御主扣 HP(~18%maxHP，留 15% 安全線)→從者大量回魔(~70%maxMP)+羈絆+5。御主 HP 休息回復(applyRegen ~5%/hr)。耗1AP、卸防可能被突襲。SFW 悲壯非情慾。 |
+| mana_supply | actionManaSupply | 補魔(出力電池制)：御主凝神回充【自身】MP +50%maxMP(＝供養從者的電池，非灌從者)+羈絆+SFW fade（耗1AP，卸防可能被突襲） |
+| blood_supply | actionBloodSupply | 🩸燃血補魔(血→魔)：御主扣 HP(~18%maxHP，留 15% 安全線)→回充【御主自身】MP(~70%maxMP)+羈絆+5。御主 HP 休息回復(applyRegen ~5%/hr)。耗1AP、卸防可能被突襲。SFW 悲壯非情慾。 |
+| set_servant_output | actionSetServantOutput | 🔋設從者靈基出力檔(20/40/60/80/100，存 MEMORY【出力】)。免費即時不耗AP。決定戰力＋御主每小時維持費；100% 才能放寶具。 |
 | bond | actionBond | 羈絆互動(閒聊/共餐/特訓/夜談)，每種每日一次升羈絆 |
 | use_mystic | actionUseMystic | 發動主動禮裝（吃迴路/耗魔/扣充能，對敵造魔力傷害） |
 | rule_break_steal | actionRuleBreakSteal | 破戒奪僕：打殘敵從者(HP<35%)+燃令咒→奪為第二從者(上限2) |
@@ -132,10 +133,15 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
   - ⚠ **EX 嚴格判定(2026-06 修)**：`rankVal('A++')=60` 與 EX 同值，故 `npBaseDice_/npPranaCost_` 改用字串 `/EX/` 認 EX；**A++ 算 A 階**(22d10/prana500)，否則 Saber 誓約勝利之劍(A++)會被收 EX prana800 而永遠放不出。
 - **🔱 概念優先權 Priority(2026-06)**：`CONCEPT_TIER{}`(ea6 / excalibur·divine_age·rule_breaker5 / ubw·anti_magic_lance·gae_bolg4 / god_hand·tsubame·zabaniya·petrify3 / nullify_magic·divine_core·territory2)。`offenseTier_(c,isNp)` 取攻方最高進攻概念階；`pierces(防禦fx)`＝攻方階≥防禦階+`PIERCE_GAP`(2)→該防禦(territory/神核/對魔力)被無視(概念壓制)。把舊「破魔無視神核」系統化＋ ea 凌駕一切。
 - **🏰 寶具規模相剋矩陣(2026-06)**：`npAtkScale_`(對人/對軍/對城/對界，由寶具名或 ea/excalibur 推)×`npDefScale_`(由 ubw/神核/god_hand/territory 推) → `NP_SCALE_MATRIX` 倍率(對城打對人×2.5、對界×3.0…0x 以 Math.max(1)保底)。`ea` 寶具：×1.7+4d12+80。
-- **⚡ 從者專屬主動技(2026-06)**：`servantActiveSkill_(c)` 依 fx 簽名給一個本戰增益(gob→命中+6傷+28 / burst→傷×1.3 / stealth→命中+6傷×1.15 / str_up→傷+14 / aim·projection→命中+6傷+10 / morale→命中+3傷+8 / self_mod→命中+4傷+6 / 預設→集中命中+5)。優先序 gob 最前(英雄王王之財寶)。`{id,name,icon,mpPct,hit,dmgMul,dmgAdd,desc}`。`resolveFateBattle_` 讀 `opts.skill`：命中端加 hit；傷害端(僅攻方勝)套 dmgMul/dmgAdd。`actionFateBattle` 讀 `userData.skill`→啟動耗魔 `mpPct*maxMP`(走 drainForNp_ 電池)→傳 `skill:isActive?skillBuff:null` 給我方每擊，並進 clash pPow。前端 `servantStrike(...,useSkill)`＋「⚡ 主動技」鈕＋戰報卡技能行。
-- **🌟 乖離劍·執行殺(ea／英雄王，2026-06平衡)**：`resolveFateBattle_` 開頭——**僅 `opts.np`(主動解放寶具)＋英雄王【自身】血量≤40% 才觸發**(傲慢→認真；非每擊免費、非看對面血量)。觸發＝越過一切防禦的概念分割，傷害 `寶具rankVal×4＋6d12＋200`、必中、early-return。血量充足時走常規寶具路徑(×1.7)。電池閘門已在 actionFateBattle 上游把關，故 ea 仍吃魔力。⚠ 舊版誤判「對面血≤30%免費觸發」已修正。
-- **🔋 御主電池(2026-06)**：`npPranaCost_(寶具階)`＝E50/D100/C200/B350/(A·A+·A++)500/EX800(僅字串 EX)。`drainForNp_(sheets,pcData,svIdx,masterIdx,mpCost)`：付款序 ①從者MP ②御主MP(1:1) ③御主HP(`BATTERY_HP_PER_MP`=2HP→1MP，御主血底線1)。回 `{fromSv,fromMasterMp,fromMasterHp,usedBattery,bledMaster,...}`。寫進 report.battery＋aiPrompt【御主電池】星標＋前端血條。三者皆空才擋寶具。
-- **⚖️ 御主血魔平衡(2026-06)**：`masterMaxHpMp_(circuits)`＝HP `100+迴路×2`／MP `迴路×5`(預設30迴路→HP160/MP150)。**取代舊「HP fateMaxHpMp_(200~250)／MP 迴路×20(600~1000)」**——舊御主MP遠高於從者(180~420)致電池近無限、補魔零壓力。新制御主(凡人)血魔皆低於從者，電池僅夠約一發寶具補魔；玩家御主(Router_Action 召喚)＋正典敵御主(`masterToNpcRow_`)同制，偽聖杯匿名御主維持固定 HP120/MP80。高迴路正典怪物(伊莉雅80/櫻90)才逼近從者級(MP400~450)，符合原作。
+- **🔋🔋 出力電池制(2026-06 大改·玩家定案)**：**從者【沒有自有魔力池】**(召喚時 MP/MAX_MP=0)，全靠御主供魔。**御主MP＝唯一且持續的魔力資源(電池)**。從者有「靈基出力檔位」(玩家旋鈕，20/40/60/80/100，存從者 MEMORY【出力】，預設60巡航)：
+  - `outputTier_(pct)`(Core_Settings)→`{hit,dmgMul,drainMul,np,label}`五檔：100%(+3/×1.3/×2.0/可放寶具/全開)、80%(+1/×1.1/×1.5/高壓)、60%(0/×1.0/×1.0/巡航)、40%(-2/×0.85/×0.6/節流)、20%(-5/×0.7/×0.3/維持)。`snapOutput_`吸附、`servantOutput_(memory)`讀、`setServantOutput_(memory,pct)`寫。
+  - `resolveFateBattle_`：`atk.output`(rowToCombatant_ 從 MEMORY 讀)→`outMod=outTier.hit`(命中)；勝方傷害 `base×outputTier_(winner.output).dmgMul`。
+  - **寶具僅出力 100% 可解放**(`actionFateBattle` 閘：`servantOutput_<100`→擋並提示)。前端 `servantStrike(useNp)` 自動先 `set_servant_output:100`(解放寶具＝全開)。
+  - **set_servant_output** action→`actionSetServantOutput`(免費即時，不耗AP)。前端從者卡「🔋靈基出力轉盤」5鈕；`get_tags` servant 物件帶 `output/outputLabel`。
+- **⚡ 從者專屬主動技(2026-06)**：`servantActiveSkill_(c)` 依 fx 給本戰增益(gob→命中+6傷+28 / burst→傷×1.3 / stealth→命中+6傷×1.15 / str_up→傷+14 / aim·projection→命中+6傷+10 / morale→命中+3傷+8 / self_mod→命中+4傷+6 / 預設→集中命中+5)，gob 優先。`actionFateBattle` 啟動耗魔 `200×mpPct`(出力電池制：固定基準，非已廢的從者池)→`drainForNp_` 抽御主。前端「⚡ 主動技」鈕。
+- **🌟 乖離劍·執行殺(ea／英雄王，2026-06)**：`resolveFateBattle_` 開頭——**僅 `opts.np`(解放寶具，即出力100%)＋英雄王【自身】血量≤40% 才觸發**(傲慢→認真)。傷害 `寶具rankVal×4＋6d12＋200`、必中越防、early-return。血量足走常規寶具(×1.7)。⚠ 舊「對面血≤30%免費每擊觸發」bug 已修正。
+- **🔋 御主電池付款(2026-06 出力制)**：`npPranaCost_(寶具階)`＝**E40/D70/C110/B160/(A·A+·A++)220/EX300**(對齊御主池迴路×8≈240：A階≈耗盡滿池、EX須再焚血；EX/EA 極罕見)。`drainForNp_(sheets,pcData,svIdx,masterIdx,mpCost)` 付款序 **①御主MP ②御主HP**(`BATTERY_HP_PER_MP`=2HP→1MP，血底線1；從者無池，fromSv 恆0)。寫進 report.battery＋前端血條。御主血魔皆空才擋寶具。
+- **⚖️ 御主血魔(2026-06)**：`masterMaxHpMp_(circuits)`＝HP `100+迴路×2`／**MP `迴路×8`**(預設30迴路→HP160/MP240)。御主(凡人)血魔皆低於從者(HP270~450)；池被從者出力持續抽(見出力電池制)。玩家御主(召喚)＋正典敵御主(`masterToNpcRow_`)同制；偽聖杯匿名御主固定 HP120/MP80。高迴路怪物(伊莉雅80/櫻90→MP640/720)池深，符合原作。
 - `aliveEnemyServants_(sheets,gameId)`：在世敵從者數（勝利判定用）。
 - `enemyRetreatLoc_`：令咒緊急脫離時敵退避地點。
 
@@ -190,7 +196,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `getClock_/writeClock_`：時鐘表(game_id→day/hour/ap)。
 - `getAp_/spendAp_(gid,n)/grantAp_(gid,n)`(不推時間)、`restHours_`(休息補AP)、`rollHours_`、`timeBand_`(晨/午/夜)、`clockLabel_`(顯示字串)。
 - AP：每日12，移動2AP、戰鬥/偵查/補魔/禮裝/結盟/共處=1AP、休息每hr補2。
-- `playerServantEconomy_`：供魔收支(左側 HUD)。`servantEconomy_`、`leylineAt_`(靈脈)、`applyRegen_`(avalon×1.6/陣地加成)、`masterCircuits_`(MEMORY【迴路】N 預設30)。
+- `playerServantEconomy_`：**御主魔力**收支(左側 HUD，含 output/outputLabel)。`servantEconomy_`(income=迴路供給+靈脈+工房；drain=六圍/8×狂化)。**🔋 出力電池制 `applyRegen_`(2026-06)**：御主MP 是唯一池——income×mult − Σ(從者 drain × `outputTier_(出力).drainMul`)；從者 MP(出力)不在時回變動、無自有池；御主乾涸(連維持都湊不出)→強制全從者降【出力】20% ＋從者 HP 流血(靈基崩解 4%/hr)。御主HP/從者HP 自我修復 5%/hr×(avalon1.6)。`leylineAt_`、`masterCircuits_`(MEMORY【迴路】N 預設30)。
 - `worldTick_`：跨時推進世界。
 
 ---
