@@ -1,5 +1,5 @@
 // ==========================================
-// 九州江湖 - 天道核心系統 (2026.05 雙軌防護 + JSON結構化批量I/O 極致優化版)
+// 命運停駐之夜 - 核心系統 (2026.05 雙軌防護 + JSON結構化批量I/O 極致優化版)
 // 🔴【第一部分：基礎設定、ORM 映射與數值統計核心】Core_Settings.gs
 // ==========================================
 
@@ -54,84 +54,13 @@ function rankVal(r) {
   return base + plus * 5 - minus * 3;
 }
 
-const REALMS = ["凡人", "引氣", "凝罡", "通玄", "罡氣", "意動", "心象", "登峰", "返璞", "天人"];
-const REALM_MODIFIERS = {
-  "凡人": 1.0, "引氣": 1.3, "凝罡": 1.6, "通玄": 2.0, "罡氣": 2.5,
-  "意動": 3.2, "心象": 4.0,
-  "登峰": 8.0, "返璞": 20.0, "天人": 50.0
-};
-const REALM_LIMITS = {
-  "凡人": 20, "引氣": 25, "凝罡": 30, "通玄": 40, "罡氣": 50,
-  "意動": 65, "心象": 80,
-  "登峰": 120, "返璞": 160, "天人": 200
-};
-const MAX_BAG_SIZE = 20;
-const MAX_WAREHOUSE_SIZE = 200;
-const MAX_QUEST_REWARD_MONEY = 2000; // 天命懸賞銀兩上限：系統隨機獎勵約100~500，給4倍彈性空間防AI暴增
+// 🗑️ 九州境界(REALMS/REALM_MODIFIERS/REALM_LIMITS)、背包/倉儲/懸賞上限、
+//   物品稀有度(RARITY_TABLE/getRarityPoints)、貨幣(CURRENCY_TABLE/getCurrencyValue)、
+//   物品類別判定(detectItemType) 全數移除——FATE 雙軌不含境界/物品/銀兩經濟。
 
 // 🟢 共用 D20 骰子：1=大失敗、20=大成功
 function rollD20() {
   return Math.floor(Math.random() * 20) + 1;
-}
-
-// 🟢 物品稀有度十階對照表（唯一真實來源：AI 輸出階名，GAS 查此表給屬性點）
-const RARITY_TABLE = {
-  "凡品": { gear: 1, pill: 1 },
-  "粗劣": { gear: 1, pill: 1 },
-  "普通": { gear: 2, pill: 1 },
-  "良品": { gear: 2, pill: 2 },
-  "精品": { gear: 3, pill: 2 },
-  "珍品": { gear: 4, pill: 2 },
-  "稀世": { gear: 5, pill: 3 },
-  "絕世": { gear: 6, pill: 3 },
-  "神器": { gear: 8, pill: 4 },
-  "傳說": { gear: 10, pill: 5 }
-};
-
-// 🟢 查表小工具：傳回該稀有度的屬性點，查不到一律 fallback 凡品最低階
-function getRarityPoints(rarity, isPill) {
-  const entry = RARITY_TABLE[String(rarity || "").trim()] || RARITY_TABLE["凡品"];
-  return isPill ? entry.pill : entry.gear;
-}
-
-
-// 🟢 貨幣物品對照表（NPC 打賞用，固定金額，AI 不可自訂價格）
-const CURRENCY_TABLE = {
-  "碎銀": 20,
-  "黃金": 100
-};
-
-// 🟢 查表小工具：傳回該貨幣物品的固定兌換價，查不到回傳 0（代表不是貨幣物）
-function getCurrencyValue(name) {
-  return CURRENCY_TABLE[String(name || "").trim()] || 0;
-}
-
-
-
-// 🟢 唯一真實來源：物品類別判定器
-// name: 物品名 / fallbackType: AI原本給的類型(查無關鍵字時用) / hasStatBonus: true有五圍加成 false無 null未知
-function detectItemType(name, fallbackType, hasStatBonus) {
-  const n = String(name || "");
-  const ft = fallbackType || "消耗品";
-
-  // 🟢 貨幣物品優先判定，蓋過所有其他規則
-  if (CURRENCY_TABLE.hasOwnProperty(n.trim())) return "貨幣";
-  if (n.match(/劍|刀|槍|棍|鞭|爪|斧|錘|弓|弩|暗器|匕|鉤|鐮|刃/)) return "武器";
-  if (n.match(/甲|袍|衣|靴|盔|盾|護|鎧/)) return "防具";
-  if (n.match(/符|印|鏡|鈴|珠|扇|旗|幡|令牌|玉佩|法器/)) return "法寶";
-  if (n.match(/簪|香囊|信物|戒指|玉環|手鐲|耳環|髮飾/)) return "定情信物";
-
-  // 恢復道具：靠名字，或「明確無屬性加成的丹藥型」
-  if (n.match(/回血|補血|回氣|補氣|靈泉|傷藥|療傷|回復|恢復|復元/)) return "恢復道具";
-  if (ft === "丹藥" && hasStatBonus === false) return "恢復道具";
-
-  // 丹藥：叫丹丸散液膏，且(未知加成 或 確定有加成)
-  if (n.match(/丹|丸|散|液|膏/) && hasStatBonus !== false) return "丹藥";
-
-  if (n.match(/毒|蠱/) && !n.match(/解毒|避毒/)) return "毒藥";
-  if (n.match(/媚|春藥|情花/)) return "媚藥";
-
-  return ft;
 }
 
 
@@ -145,19 +74,18 @@ function cleanChineseName(s) {
   return String(s == null ? "" : s).replace(/[^㐀-䶿一-鿿]/g, "").slice(0, 10);
 }
 
-// 🟢 屬性上限計算器
-function calculateMaxStats(realm, con, int) {
-  const rMod = REALM_MODIFIERS[realm || "凡人"] || 1.0;
+// 🎴 FATE HP/MP 推算（無境界倍率）：耐久→HP、魔力→MP。取代已移除的九州境界·屬性上限計算器。
+function fateMaxHpMp_(con, mag) {
   return {
-    hp: 100 + (Math.floor((parseInt(con) || 10) * rMod) * 10),
-    mp: 50 + (Math.floor((parseInt(int) || 10) * rMod) * 10)
+    hp: 100 + (parseInt(con) || 10) * 10,
+    mp: 50 + (parseInt(mag) || 10) * 10
   };
 }
 
-// 🎴 從一列的六圍 SIX 推 HP/MP（取代已棄的數值 CON/INT 欄：耐久→con、魔力→int）。
+// 🎴 從一列的六圍 SIX 推 HP/MP（耐久→con、魔力→mag）。
 function maxStatsForRow_(row) {
   var six = {}; try { six = JSON.parse(row[COL.PC.SIX] || "{}"); } catch (e) { }
-  return calculateMaxStats(row[COL.PC.REALM], svNum_(six["耐久"] || "E"), svNum_(six["魔力"] || "E"));
+  return fateMaxHpMp_(svNum_(six["耐久"] || "E"), svNum_(six["魔力"] || "E"));
 }
 
 // 🟢 亂碼特徵粉碎器
@@ -184,32 +112,8 @@ function parseTraitsHelper(data, defaultStr) {
   return parts.slice(0, 4).join("、");
 }
 
-// 🟢 自動註冊門派勢力中樞
-function registerFactionHelper(factionName, rankStr, align, baseLoc, leaderFallback, sheets, pcId, triggerName, currentFactions) {
-  const name = String(factionName || "無").trim();
-  const ignoreFactions = ["無", "無門派", "散修", "散人", "江湖散客", "未知", "未加入", "無所屬", "江湖散人"];
-  if (ignoreFactions.includes(name) || !sheets.faction) return false;
-
-  if (!currentFactions.some(r => String(r[COL.FACTION.NAME]).trim() === name)) {
-    const fId = "FAC_" + Date.now() + Math.floor(Math.random() * 100);
-    const leaderKeywords = ["掌門", "宗主", "教主", "門主", "谷主", "閣主", "殿主", "幫主", "老祖", "首領", "魁首", "尊者"];
-    let factionLeader = `神祕的${name}之主`;
-    if (leaderKeywords.some(keyword => String(rankStr).includes(keyword))) factionLeader = leaderFallback;
-
-    const newFacRow = [fId, name, align || "絕對中立", baseLoc, factionLeader, "暗中發展的未知勢力"];
-    sheets.faction.appendRow(newFacRow);
-    addRumor(sheets, "FACTION_NEW", baseLoc, name);
-    currentFactions.push(newFacRow); // 記憶體同步防重複
-
-    if (sheets.epic && pcId) {
-      sheets.epic.appendRow([pcId, `【勢力初現】『${triggerName}』的現身，揭露了隱藏門派「${name}」的存在。`, new Date()]);
-    }
-    return true;
-  }
-  return false;
-}
-
-// 🗑️ resolveItemName / transferMoney 已隨九州物品·銀兩經濟移除（無呼叫者）。
+// 🗑️ registerFactionHelper（自動註冊門派）、updateFactionPower（大勢氣運）、
+//   resolveItemName / transferMoney 已隨九州門派·物品·銀兩經濟移除（無呼叫者）。
 
 // 🟢 安全寫入：先寫新資料，再刪多餘舊行，避免 clearContent 競態清空表
 function safeWriteSheet(sheet, data) {
@@ -228,29 +132,6 @@ function safeWriteSheet(sheet, data) {
   }
 
   SpreadsheetApp.flush();
-}
-
-// 在 Core_Settings.gs 新增
-function updateFactionPower(sheets, factionName, delta, currentEvent = "") {
-  if (!factionName || factionName === "無") return;
-
-  // 找到大勢表中該勢力
-  const trendSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("大勢");
-  if (!trendSheet) return;
-
-  const data = trendSheet.getDataRange().getValues();
-  const rowIdx = data.findIndex(r => r[0] === factionName);
-
-  if (rowIdx !== -1) {
-    let newPower = Math.max(0, Math.min(100, (parseInt(data[rowIdx][2]) || 50) + delta));
-    let status = newPower >= 70 ? "崛起" : newPower >= 30 ? "中立" : "衰落";
-    trendSheet.getRange(rowIdx + 1, 3).setValue(newPower);
-    trendSheet.getRange(rowIdx + 1, 2).setValue(status);
-    trendSheet.getRange(rowIdx + 1, 4).setValue(new Date());
-    if (currentEvent) trendSheet.getRange(rowIdx + 1, 5).setValue(currentEvent);
-  } else {
-    trendSheet.appendRow([factionName, "中立", 50 + delta, new Date(), currentEvent || "初入江湖"]);
-  }
 }
 
 // ==========================================
@@ -325,11 +206,11 @@ function getFreshStatusString(targetId, pIdx, sheets) {
 function getMapDataCached(sheets) {
   if (!sheets.map) return [];
   const cache = CacheService.getScriptCache();
-  const cachedMap = cache.get("KYUSHU_MAP_DATA");
+  const cachedMap = cache.get("FATE_MAP_DATA");
   if (cachedMap) return JSON.parse(cachedMap);
 
   const freshData = sheets.map.getDataRange().getValues();
-  cache.put("KYUSHU_MAP_DATA", JSON.stringify(freshData), 3600);
+  cache.put("FATE_MAP_DATA", JSON.stringify(freshData), 3600);
   return freshData;
 }
 
@@ -338,12 +219,9 @@ function getCharacterTotalStats(charId, sheets, cachedPcData = null, cachedItemD
   const row = pcData.find(r => r[COL.PC.ID] === charId);
   if (!row) return null;
 
-  let realmName = row[COL.PC.REALM] || "凡人";
-  let realmMod = REALM_MODIFIERS[realmName] || 1.0;
-
-  // 🎴 FATE 六圍制：數值五圍(STR~LUK 欄)已棄用，顯示用值改由六圍 SIX 階級推導(svNum_)。
+  // 🎴 FATE 六圍制：數值五圍(STR~LUK 欄)已棄用，顯示用值改由六圍 SIX 階級直接推導(svNum_)，無境界倍率。
   let six = {}; try { six = JSON.parse(row[COL.PC.SIX] || "{}"); } catch (e) { }
-  const fromSix_ = (k) => Math.floor(svNum_(six[k] || "E") * realmMod);
+  const fromSix_ = (k) => svNum_(six[k] || "E");
   let baseSTR = fromSix_("筋力"), baseCON = fromSix_("耐久"), baseAGI = fromSix_("敏捷"), baseINT = fromSix_("魔力"), baseLUK = fromSix_("幸運");
 
   // 🗑️ 裝備系統亦已棄用：回傳維持原形狀(WEP/wepSTR/armCON/wepName/armName 供下游沿用)，恆為空/0。
@@ -432,9 +310,4 @@ function getNearbyLocations(currentLoc, mapData) {
     nearbyLocs.push({ name: mName, type: mapData[i][COL.MAP.TYPE] || "荒野", desc: mapData[i][COL.MAP.DESC] || "一處未知的地帶。", dist: Math.abs(coords[0] - pCoord[0]) + Math.abs(coords[1] - pCoord[1]) });
   }
   return nearbyLocs.sort((a, b) => a.dist - b.dist).slice(0, 5);
-}
-
-// 🟢 提供前端注入用：唯一真實來源
-function getRealmConstantsJson() {
-  return JSON.stringify({ REALMS, REALM_MODIFIERS, REALM_LIMITS });
 }
