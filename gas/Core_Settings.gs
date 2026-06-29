@@ -53,9 +53,6 @@ function rankVal(r) {
   return base + plus * 5 - minus * 3;
 }
 
-// 🗑️ 舊階級制(REALMS/REALM_MODIFIERS/REALM_LIMITS)、背包/倉儲/懸賞上限、
-//   物品稀有度(RARITY_TABLE/getRarityPoints)、貨幣(CURRENCY_TABLE/getCurrencyValue)、
-//   物品類別判定(detectItemType) 全數移除——FATE 雙軌不含階級/物品/金錢經濟。
 
 // 🟢 共用 D20 骰子：1=大失敗、20=大成功
 function rollD20() {
@@ -110,9 +107,6 @@ function parseTraitsHelper(data, defaultStr) {
   // 保證只回傳前 4 格
   return parts.slice(0, 4).join("、");
 }
-
-// 🗑️ registerFactionHelper（自動註冊勢力）、updateFactionPower（勢力氣運）、
-//   resolveItemName / transferMoney 已隨舊勢力·物品·金錢經濟移除（無呼叫者）。
 
 // 🟢 安全寫入：先寫新資料，再刪多餘舊行，避免 clearContent 競態清空表
 function safeWriteSheet(sheet, data) {
