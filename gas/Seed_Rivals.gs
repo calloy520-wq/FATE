@@ -70,7 +70,7 @@ function fakeMasterRow_(name, gameId, loc) {
   row[COL.PC.LOC] = loc;
   row[COL.PC.PREF] = parseTraitsHelper("", "沉著表象、堅定內裡、珍視之物、厭惡之事");
   row[COL.PC.HP] = 120; row[COL.PC.MP] = 80;
-  row[COL.PC.STR] = 12; row[COL.PC.CON] = 12; row[COL.PC.AGI] = 12; row[COL.PC.INT] = 18; row[COL.PC.LUK] = 12;
+  // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，HP/MP 由 calculateMaxStats(SIX) 算。
   row[COL.PC.MAX_HP] = 120; row[COL.PC.MAX_MP] = 80; row[COL.PC.REALM] = "凡人";
   row[COL.PC.FACTION] = "敵御主"; row[COL.PC.RANK] = "御主";
   row[COL.PC.MEMORY] = "【偽聖杯】雪原的參戰魔術師。";
@@ -98,7 +98,7 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
   row[COL.PC.LOC] = loc;
   row[COL.PC.PREF] = parseTraitsHelper(String(persona.words || "").replace(/・/g, "、"), "沉著表象、堅定內裡、珍視之物、厭惡之事");
   row[COL.PC.HP] = hp; row[COL.PC.MP] = mp;
-  row[COL.PC.STR] = nStr; row[COL.PC.CON] = nCon; row[COL.PC.AGI] = nAgi; row[COL.PC.INT] = nInt; row[COL.PC.LUK] = nLuk;
+  // 🎴 五圍已棄欄：戰鬥吃六圍 SIX。
   row[COL.PC.MAX_HP] = hp; row[COL.PC.MAX_MP] = mp; row[COL.PC.REALM] = "凡人";
   row[COL.PC.INTENT] = "";
   row[COL.PC.FACTION] = faction; row[COL.PC.RANK] = cls;
@@ -128,7 +128,7 @@ function masterToNpcRow_(mr, gameId, loc, faction) {
   row[COL.PC.PREF] = parseTraitsHelper(mr[COL.MASTER.PERSONA], "沉著表象、堅定內裡、珍視之物、厭惡之事");
   var hp = 120, mp = 80;
   row[COL.PC.HP] = hp; row[COL.PC.MP] = mp;
-  row[COL.PC.STR] = 12; row[COL.PC.CON] = 12; row[COL.PC.AGI] = 12; row[COL.PC.INT] = 18; row[COL.PC.LUK] = 12;
+  // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，HP/MP 由 calculateMaxStats(SIX) 算。
   row[COL.PC.MAX_HP] = hp; row[COL.PC.MAX_MP] = mp; row[COL.PC.REALM] = "凡人";
   row[COL.PC.INTENT] = String(mr[COL.MASTER.MOE] || "");
   row[COL.PC.FACTION] = faction; row[COL.PC.RANK] = "御主";
