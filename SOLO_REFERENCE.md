@@ -121,17 +121,28 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 ### 命中/技能
 - `hasFx_(c,'xxx')`：該角色技能是否帶此 fx。`fxName_(c,'xxx')`：回傳實際技能名(防張冠李戴)。`hasTrait_`：特性(神性/王…)。
 - `resolveFateBattle_(atk,def,opts)`：單次交手裁決。處理的 fx 標籤：
-  `aim analyze anti_magic_lance burst chain clear_mind divine_age divine_core evade_ranged first_strike gae_bolg gob mad morale nullify_magic petrify projection ride self_mod stealth str_up tactics territory tsubame ubw unreadable wind_strike zabaniya`
+  `aim analyze anti_magic_lance burst chain clear_mind divine_age divine_core ea evade_ranged excalibur first_strike gae_bolg gob mad morale nullify_magic petrify projection ride self_mod stealth str_up tactics territory tsubame ubw unreadable wind_strike zabaniya`
   含：職階相剋三角(KNIGHT_BEATS +命中+傷害)、對魔力減魔砲、territory 防壁、divine_age 繞 MR、zabaniya 致命(×1.9+70)、gae_bolg 因果必中、petrify 石化、projection 被動加成(EMIYA) 等。
+- **🎲 D&D 傷害骰(2026-06)**：`rollDice_(n,sides)`＋`rankTier_(r)`(E1→EX6)。
+  - 武器骰(每擊)：`base = round(rankVal(主屬性)*0.5) + rankTier d8 + 命中分差*1.2 − 耐久/2`。
+  - 暴擊(擲20)：多骰一輪 `rankTier d8 +12`(取代舊固定 +30)。
+  - 寶具骰：`npBaseDice_(寶具階)`＝E3d10/D5d10/C8d10/B12d10/A20d10/A+22d10/EX30d10；另加 `rankVal(寶具)*0.6+10`。
+- **🔱 概念優先權 Priority(2026-06)**：`CONCEPT_TIER{}`(ea6 / excalibur·divine_age·rule_breaker5 / ubw·anti_magic_lance·gae_bolg4 / god_hand·tsubame·zabaniya·petrify3 / nullify_magic·divine_core·territory2)。`offenseTier_(c,isNp)` 取攻方最高進攻概念階；`pierces(防禦fx)`＝攻方階≥防禦階+`PIERCE_GAP`(2)→該防禦(territory/神核/對魔力)被無視(概念壓制)。把舊「破魔無視神核」系統化＋ ea 凌駕一切。
+- **🏰 寶具規模相剋矩陣(2026-06)**：`npAtkScale_`(對人/對軍/對城/對界，由寶具名或 ea/excalibur 推)×`npDefScale_`(由 ubw/神核/god_hand/territory 推) → `NP_SCALE_MATRIX` 倍率(對城打對人×2.5、對界×3.0…0x 以 Math.max(1)保底)。`ea` 寶具：×1.7+4d12+80。
+- **⚡ 從者專屬主動技(2026-06)**：`servantActiveSkill_(c)` 依 fx 簽名給一個本戰增益(burst→傷×1.3 / stealth→命中+6傷×1.15 / str_up→傷+14 / aim·projection→命中+6傷+10 / morale→命中+3傷+8 / self_mod→命中+4傷+6 / 預設→集中命中+5)。`{id,name,icon,mpPct,hit,dmgMul,dmgAdd,desc}`。`resolveFateBattle_` 讀 `opts.skill`：命中端加 hit；傷害端(僅攻方勝)套 dmgMul/dmgAdd。`actionFateBattle` 讀 `userData.skill`→啟動耗魔 `mpPct*maxMP`(走 drainForNp_ 電池)→傳 `skill:isActive?skillBuff:null` 給我方每擊，並進 clash pPow。前端 `servantStrike(...,useSkill)`＋「⚡ 主動技」鈕＋戰報卡技能行。
+- **🔋 御主電池(2026-06)**：`npPranaCost_(寶具階)`＝E50/D100/C200/B350/A500/EX800。`drainForNp_(sheets,pcData,svIdx,masterIdx,mpCost)`：付款序 ①從者MP ②御主MP(1:1) ③御主HP(`BATTERY_HP_PER_MP`=2HP→1MP，御主血底線1)。回 `{fromSv,fromMasterMp,fromMasterHp,usedBattery,bledMaster,...}`。寫進 report.battery＋aiPrompt【御主電池】星標＋前端血條。三者皆空才擋寶具。
 - `aliveEnemyServants_(sheets,gameId)`：在世敵從者數（勝利判定用）。
 - `enemyRetreatLoc_`：令咒緊急脫離時敵退避地點。
 
 ### actionFateBattle 流程（Router_Action.gs）
 1. 找出戰從者 `atkIdx`(userData.servant 指定或第一個)、目標 `nIdx`。同地檢查、AP 檢查、盟友不可打(`isAllied_`)。
 2. **斬首**：目標=敵御主且有從者護衛→每名在世從者擲 D20，任一=20 斬殺御主(+護衛隨亡)→勝利判定；全失手→護衛反噬每人 1.5×。
-3. **一般戰**：ROUNDS=3 回合。`partyIdxs`=所有在世從者(雙從者齊攻)。寶具/令咒只加在 atkIdx 開場第一擊。
+3. **一般戰**：ROUNDS=3 回合。`partyIdxs`=所有在世從者(雙從者齊攻)。寶具/令咒只加在 atkIdx 開場第一擊。寶具魔力走 `drainForNp_`(御主電池)，前置 `maxPay` 檢查唯三者皆空才擋。
 4. **協同強襲**(§8)：`allyAtkIdx`=同地盟友從者，每回合對共同敵人助攻一擊(不被反擊)。
 5. 敵反擊：`enemyNpSpent` 一場限一次寶具，殘血越急越愛開。
+   - **🔋 敵寶具吃魔力(2026-06)**：敵開寶具(回合反擊＋對轟)前 `enemyCanAffordNp_`(自身MP＋`enemyMasterIdx_` 敵御主電池 ≥ prana)才放，並 `drainForNp_` 扣魔；付不起→改普攻/不對轟。EX/EA(prana800)幾乎沒人付得起→極罕見；masterless 敵(金閃)補不了魔→寶具自限。
+   - **🛡️ 十二試煉概念燒命(2026-06)**：god_hand 致命時，`lossN=1`＋寶具概念加成(取 `offenseTier_` fx階 與 `npAtkScale_` 規模階 較高者：≥6→+2、≥5→+1)＋overkill(傷/復活線 ≥3→+2、≥2→+1)。`lossN≥餘命`→餘命一擊燒盡、不復活落入 destroyed。解決「Saber 對城 Excalibur 連一命都燒不掉」。
+   - **🌟 寶具對轟(2026-06)**：玩家開場 useNp＋目標敵從者且敵有寶具(且付得起prana) → `clashUrge`(0.6＋狂/暗殺0.25−殘血) 機率敵以寶具相迎。雙方算 `pPow/ePow`(resolveFateBattle np 火力，不直接扣血)→ 高者壓過、差額貫穿敗方、勝方回震15%；±10% band 內＝僵持相抵雙方小損。傷害經 `fateStrike_({forceDamage})` 套用(沿用死亡/勝負/復活/脫離)。設 `openingNp/openingSeal=false` 防回合迴圈重放。寫進 report.clash＋aiPrompt【寶具對轟】＋前端對轟卡。`fateStrike_` 新增 `opts.forceDamage`(略過 resolve 傷害、只跑後續結算)。
 6. `fateStrike_`：包一次我方攻擊(回 aRoll/hit/damage/destroyed/knocked/victory/sealEscaped/godRevived)。
 7. 回傳 `report`(前端 renderFateBattleReport 畫)＋`aiPrompt`(servantCard_+戰報，篇幅220~280)＋victory/defeat/dreamPrompt。
 
