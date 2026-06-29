@@ -31,7 +31,6 @@ const ActionRouter = {
   "fate_battle": actionFateBattle,
   "use_seal": actionUseSeal,
   "mana_supply": actionManaSupply,
-  "blood_supply": actionBloodSupply,
   "set_servant_output": actionSetServantOutput,
   "bond": actionBond,
   "use_mystic": actionUseMystic,
@@ -2855,7 +2854,7 @@ function actionManaSupply(userData, pcId, sheets) {
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可供魔。" });
   const svName = pcData[svIdx][COL.PC.NAME];
   // 🔋 共用魔力池制：補魔＝御主硬擠魔術迴路、回滿共用池——但【永久】燒蝕：血量上限−5~10、迴路−1~2(有地板)。
-  //   過度補魔＝慢性自盡(迴路↓→池縮、回魔慢、禮裝弱)。與「燃血(扣【當前】HP、可休息回復)」分屬兩條供魔路。
+  //   過度補魔＝慢性自盡(迴路↓→池縮、回魔慢、禮裝弱)。另有「被動燃血」：池見底時 applyRegen_ 自動扣御主＋從者HP續契約。
   const CIRC_FLOOR = 8, HP_FLOOR = 40;
   const curMpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || masterPoolMax_(masterCircuits_(pcData[pIdx]), 0);
   const curMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
@@ -2913,56 +2912,9 @@ function actionManaSupply(userData, pcId, sheets) {
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
-// 🩸 燃血補魔（血→魔）：御主燃燒自身生命力轉化為魔力、大量灌注從者。代價＝御主 HP，回報＝從者大量回魔。
-//   原作依據：魔術師以己身為媒、燃燒生命供給從者 prana（代價型補魔）。御主 HP 可休息回復，故可持續但有代價。
-function actionBloodSupply(userData, pcId, sheets) {
-  let pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
-  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
-  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可供魔。" });
-  const svName = pcData[svIdx][COL.PC.NAME];
-  // 🔋 出力電池制：燃血＝御主焚燒自身生命力，緊急回充【自身】魔力儲備(御主MP＝唯一供魔源)。代價＝御主HP。
-  const svMpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || 240;
-  const svMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
-  if (svMp >= svMpMax) return JSON.stringify({ success: false, message: `御主的魔力儲備已充盈，毋須燃血。` });
-
-  const mHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
-  const mMaxHp = parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 100;
-  const cost = Math.max(8, Math.round(mMaxHp * 0.18));
-  const floor = Math.round(mMaxHp * 0.15);
-  if (mHp - cost < floor) return JSON.stringify({ success: false, message: `你的血量太低（${mHp}/${mMaxHp}），再燃血恐危及性命——請先『休息』回血。` });
-
-  const isFate = myGameId.indexOf("g_") === 0;
-  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以行燃血之儀——請『休息』恢復後再來。" });
-
-  // 結算：御主扣血、御主魔力大量回充（約 70% 上限）
-  const restored = Math.min(svMpMax, svMp + Math.round(svMpMax * 0.7));
-  pcData[pIdx][COL.PC.HP] = mHp - cost;
-  pcData[pIdx][COL.PC.MP] = restored;
-  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-  raiseBond_(sheets, pcData[pIdx][COL.PC.NAME], svName, 5);
-
-  let bap = AP_PER_DAY, bclock = "";
-  if (isFate) { try { bap = spendAp_(myGameId, 1).ap; bclock = clockLabel_(myGameId); } catch (e) { } }
-
-  // ⚔️ 卸防突襲：燃血時門戶大開，同地未結盟敵從者可能趁隙重擊
-  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, userData, 1.4);
-
-  let aiPrompt;
-  if (ambush) {
-    aiPrompt = `【系統·燃血補魔遭突襲·已裁定】御主割破掌心、燃燒血肉化為魔力灌入「${svName}」、門戶大開之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠貫入「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
-      `★以 Fate／TYPE-MOON 筆觸描寫燃血供魔的私密一刻被突襲撕裂的驚變${ambush.destroyed ? '、從者消滅的痛楚（語氣留白）' : '、從者強忍重傷護住臉色慘白的御主'}。傷害與勝負已由系統結算。\n` +
-      ``;
-  } else {
-    aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
-      `【系統·燃血補魔已結算】御主以自身血肉為媒，燃燒生命力轉化為魔力（耗血 ${cost}，餘 ${mHp - cost}/${mMaxHp}），回充自身魔力儲備至 ${restored}/${svMpMax}，與「${svName}」的羈絆加深。\n` +
-      `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】描寫這場「以血為魔」的燃血之儀——御主咬牙逼出赤紅的血色魔力、注入體內循環的魔術迴路；強調這是燃燒自身生命的沉重代價、從者察覺御主臉色發白時的不忍與心疼，兩人間一絲悲壯而緊密的羈絆。\n` +
-      `★【防護】這是魔術師嚴肅悲壯的燃血供魔，血只是魔力媒介——【不可】血腥獵奇、【不可】情慾露骨，點到即止。演出而非複述設定。`;
-  }
-  return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: bclock, ap: bap, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", statusString: getFreshStatusString(pcId, pIdx, sheets) });
-}
+// 🩸 燃血補魔已改為【被動機制】(2026-06)：不再是主動 action。
+//   共用魔力池見底、時消耗補不上時，於 applyRegen_(Time_World) 自動「燃命續契約」——
+//   缺口÷2，同時扣御主HP＋從者HP(各保底1)。詳見 applyRegen_。舊主動 actionBloodSupply 已移除。
 
 // ── 💕 羈絆日限：記於御主 MEMORY 的【羈絆日】D:type1,type2（跨日自動重置）──
 function getBondUsedToday_(memory, day) {

@@ -221,32 +221,33 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
     totalDrain += d * outputTier_(cs.output).drainMul;
   });
 
-  // 御主魔力淨收支（休息把收入加倍、維持不變）→ 寫回御主 MP；御主HP 走自我修復。
-  var masterDry = false;
+  // 御主魔力淨收支（休息把收入加倍、維持不變）→ 寫回御主 MP。
+  //   🩸 被動燃血(2026-06)：池見底、時消耗補不上的缺口 → 自動燃命續契約——缺口÷2，同時扣御主HP＋從者HP(平均)。
+  //   不再強制降出力(玩家想少流血就自己節流)；各保底 1 HP(被動 tick 不直接秒死，但會磨成殘血任人宰)。
+  var masterBurn = 0, svBurnEach = 0;
   if (masterI >= 0) {
     // 重算共用池上限(把同隊從者魔力併進來)；夾住當前 MP
     var mMpMax = masterPoolMax_(circuits, partyMagicVal);
     if (mMpMax !== (parseInt(data[masterI][COL.PC.MAX_MP]) || 0)) { data[masterI][COL.PC.MAX_MP] = mMpMax; did = true; }
     var mMp = Math.min(parseInt(data[masterI][COL.PC.MP]) || 0, mMpMax);
     var perHour = (income * mult) - totalDrain;
-    var nMMp = mMpMax ? Math.max(0, Math.min(mMpMax, Math.round(mMp + perHour * hours))) : mMp;
-    if (nMMp <= 0 && totalDrain > income * mult) masterDry = true;   // 連維持都湊不出→乾涸
+    var rawNew = mMp + perHour * hours;                                  // 可能為負＝池補不上的缺口
+    var nMMp = mMpMax ? Math.max(0, Math.min(mMpMax, Math.round(rawNew))) : mMp;
+    var unfunded = (mMpMax && rawNew < 0) ? Math.round(-rawNew) : 0;     // 缺口(mana)，改由血肉支付
+    masterBurn = Math.round(unfunded / 2);
+    svBurnEach = (unfunded - masterBurn) > 0 && svRows.length ? Math.round((unfunded - masterBurn) / svRows.length) : 0;
     var mHpMax = parseInt(data[masterI][COL.PC.MAX_HP]) || 0, mHp = parseInt(data[masterI][COL.PC.HP]) || 0;
-    var nMHp = mHpMax ? Math.min(mHpMax, mHp + Math.round(mHpMax * hpRate * hours * mult)) : mHp;
+    // 缺口時御主被動燃血扣血(保底1)；否則自我修復
+    var nMHp = unfunded > 0 ? Math.max(1, mHp - masterBurn)
+                            : (mHpMax ? Math.min(mHpMax, mHp + Math.round(mHpMax * hpRate * hours * mult)) : mHp);
     if (nMMp !== mMp || nMHp !== mHp) { data[masterI][COL.PC.MP] = nMMp; data[masterI][COL.PC.HP] = nMHp; did = true; }
   }
 
-  // 從者：HP 自我修復(御主供得起時)／靈基流血＋強制降至 20% 維持檔(御主乾涸時)。出力檔＝玩家旋鈕，不在時回變動；無魔力池。
+  // 從者：缺口時被動燃血扣 HP(平均分擔另一半缺口，保底1)；否則靈基自我修復。出力檔＝玩家旋鈕，不在時回變動；無自有魔力池。
   svRows.forEach(function (ri) {
     var shpMax = parseInt(data[ri][COL.PC.MAX_HP]) || 0, shp = parseInt(data[ri][COL.PC.HP]) || 0;
-    var snhp;
-    if (masterDry) {
-      snhp = Math.max(1, shp - Math.round((shpMax || 100) * 0.04 * hours)); // 御主乾涸→靈基崩解流血
-      var nm = setServantOutput_(data[ri][COL.PC.MEMORY], 20);
-      if (nm !== data[ri][COL.PC.MEMORY]) { data[ri][COL.PC.MEMORY] = nm; did = true; }
-    } else {
-      snhp = shpMax ? Math.min(shpMax, shp + Math.round(shpMax * hpRate * hours * mult)) : shp;
-    }
+    var snhp = svBurnEach > 0 ? Math.max(1, shp - svBurnEach)
+                              : (shpMax ? Math.min(shpMax, shp + Math.round(shpMax * hpRate * hours * mult)) : shp);
     if (snhp !== shp) { data[ri][COL.PC.HP] = snhp; did = true; }
   });
   return did;
