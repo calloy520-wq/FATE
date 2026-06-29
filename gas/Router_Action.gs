@@ -1372,7 +1372,8 @@ ${isKanshou ? `
       Logger.log("stat_changes: " + JSON.stringify(aiData.stat_changes));
 
 
-      const attrMap = { "生命": COL.PC.HP, "魔力": COL.PC.MP, "位置": COL.PC.LOC, "陣營": COL.PC.ALIGN, "立場": COL.PC.ALIGN, "貢獻度": COL.PC.CONTRIB, "貢獻": COL.PC.CONTRIB, "身世": COL.PC.BACK };
+      // 🎴 FATE：AI 的 stat_changes 只准更新「外顯狀態」(衣服/姿勢/負面/顏面)；
+      //   位置/生命/魔力/陣營/貢獻/身世 一律由 GAS(按鈕/戰鬥)裁定，AI 寫了也忽略。
       const visibleStateKeys = ["衣服", "姿勢", "負面", "顏面"];
 
       aiData.stat_changes.forEach(sc => {
@@ -1400,103 +1401,7 @@ ${isKanshou ? `
             currentVs[attrKey] = valStr; pcData[targetIdx][COL.PC.STATUS] = JSON.stringify(currentVs); return;
           }
 
-          const colIdx = attrMap[attrKey];
-          if (colIdx !== undefined) {
-            if (colIdx === COL.PC.PREF || colIdx === COL.PC.TRAIT) return;
-            if (colIdx === COL.PC.LOC) {
-              let newLoc = valStr.replace(/冬木-/g, "").replace(/\[|\]/g, "").trim();
-              // 🔴 防呆：「行蹤不明」只是AI在劇情沒交代去向時的占位語意，不是真地名，禁止落地存檔或被坤圖自動建檔成假地點，否則NPC會從此完全失聯
-              if (newLoc === "行蹤不明" || newLoc === "") {
-                const oldRootLoc = String(pcData[targetIdx][COL.PC.LOC] || "").split('-')[0].trim() || "青丘城";
-                Logger.log(`【位置防呆】AI 將「${tName}」位置設為「${valStr}」，已退回母地圖「${oldRootLoc}」`);
-                pcData[targetIdx][COL.PC.LOC] = oldRootLoc; if (targetIdx === pcIndex) curL = oldRootLoc;
-                return;
-              }
-              let rootLoc = newLoc.split('-')[0].trim();
-              const rootKnown = !sheets.map || (typeof memoryMapData !== 'undefined' && memoryMapData.some(r => String(r[COL.MAP.NAME] || "").trim() === rootLoc));
-              const isFateWorld = myGameId && (myGameId.indexOf('g_') === 0 || myGameId.indexOf('k_') === 0);
-              if (!rootKnown && isFateWorld) {
-                // 🔵 FATE：地圖固定在冬木，【絕不】自動長新地點——AI 亂報的新母地圖一律退回原地
-                const oldRoot = String(pcData[targetIdx][COL.PC.LOC] || "").split('-')[0].trim() || rootLoc;
-                Logger.log(`【FATE 地圖鎖定】AI 想把「${tName}」移到未知母地圖「${rootLoc}」，已退回「${oldRoot}」`);
-                pcData[targetIdx][COL.PC.LOC] = oldRoot; if (targetIdx === pcIndex) curL = oldRoot;
-                return;
-              }
-              pcData[targetIdx][COL.PC.LOC] = newLoc; if (targetIdx === pcIndex) curL = newLoc;
-              if (!rootKnown && sheets.map && rootLoc) {
-                // 舊版行為：未知母地圖自動建檔（FATE 不會走到這）
-                const fallbackMapRow = ["冬木", rootLoc, "荒野", `${Math.floor(Math.random() * 120) - 60},${Math.floor(Math.random() * 120) - 60}`, "未探明區域。"];
-                sheets.map.appendRow(fallbackMapRow); memoryMapData.push(fallbackMapRow);
-              }
-            } else if ([COL.PC.HP, COL.PC.MP, COL.PC.CONTRIB].includes(colIdx)) {
-              let numCurrent = parseInt(pcData[targetIdx][colIdx]) || 0;
-              let numNew = (valStr.startsWith("+") || valStr.startsWith("-")) ? numCurrent + parseInt(valStr) : parseInt(valStr);
-              if (isNaN(numNew)) numNew = numCurrent; // 🔴 防呆：NaN就維持原值
-
-              if (colIdx === COL.PC.CONTRIB) pcData[targetIdx][colIdx] = Math.max(0, numNew);
-              else if (colIdx === COL.PC.HP || colIdx === COL.PC.MP) {
-                let hpVal = Math.min(parseInt(pcData[targetIdx][colIdx === COL.PC.HP ? COL.PC.MAX_HP : COL.PC.MAX_MP]) || 100, numNew);
-                hpVal = Math.max(0, hpVal); // 🔴 防 AI 輸出負數導致顯示亂碼
-                pcData[targetIdx][colIdx] = hpVal;
-
-                const isPlayer = String(pcData[targetIdx][COL.PC.ID]).startsWith("PC_");
-
-                // 玩家：血歸 0
-                if (colIdx === COL.PC.HP && hpVal <= 0 && isPlayer) {
-                  const isFateG = myGameId && myGameId.indexOf('g_') === 0; // 正式聖杯戰爭世界（k_ 鑑賞約會不會走戰鬥/死亡）
-                  if (isFateG && targetIdx === pcIndex) {
-                    // 🔵 FATE 敗北：御主殞命＝聖杯戰爭落敗。不復活、不送藥鋪——墜入「願望實現的虛假之夢」→ 老虎道場。
-                    pcData[targetIdx][COL.PC.HP] = 0;
-                    pcData[targetIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "浴血", "姿勢": "頹然倒臥", "負面": "靈魂將熄", "顏面": "意識朦朧" });
-                    fatePlayerDefeat = true;
-                    const wishM = String(pcData[pcIndex][COL.PC.MEMORY] || "").match(/【願望】([^|【\n]*)/);
-                    const wishTxt = wishM ? wishM[1].trim() : "";
-                    let svName = "從者";
-                    const svRow = pcData.find(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-                    if (svRow) svName = String(svRow[COL.PC.NAME] || "從者");
-                    fateDreamPrompt = buildDreamPrompt_(pcName, wishTxt, svName);
-                    // 戰史：御主殞命＝敗北（在死亡當下記錄一次；殘局清理由下次登入處理）
-                    try { var acctDp = String(userData.acctName || "") || findAccountByPc_(pcId); if (acctDp) recordHistory_(acctDp, "敗", svName, "御主殞命，聖杯戰爭落敗。"); } catch (e) {}
-                  } else {
-                    // 舊版行為：血歸 0 送「小醫仙藥鋪」救回（FATE 不走此路）
-                    const healLoc = "小醫仙藥鋪";
-                    pcData[targetIdx][COL.PC.HP] = 50; pcData[targetIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "換上乾淨素衣", "姿勢": "平躺靜養", "負面": "重傷初癒", "顏面": "蒼白" }); pcData[targetIdx][COL.PC.LOC] = healLoc;
-                    if (targetIdx === pcIndex) curL = healLoc;
-                    relData.forEach(row => {
-                      if (row[COL.REL.PC] === pcData[targetIdx][COL.PC.NAME] && row[COL.REL.IS_PARTY] === "同行") {
-                        const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === row[COL.REL.NPC] && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
-                        if (nIdx !== -1) {
-                          pcData[nIdx][COL.PC.LOC] = healLoc;
-                          pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "平穩" });
-                          pcData[nIdx][COL.PC.HP] = maxStatsForRow_(pcData[nIdx]).hp;
-                          dirtyPcRows.add(nIdx);
-                        }
-                      }
-                    });
-                    if (sheets.epic) sheets.epic.appendRow([pcId, `【奇蹟救治】${pcData[targetIdx][COL.PC.NAME]} 於生死邊緣被救回。`, new Date()]);
-                    if (targetIdx === pcIndex) justRevived = true;
-                  }
-                }
-                // NPC：血掉到 5 以下→鎖 1 血昏迷待處置，生死由玩家定奪
-                else if (colIdx === COL.PC.HP && hpVal <= 5 && !isPlayer) {
-                  knockedOutList.push(pcData[targetIdx][COL.PC.NAME]);
-                  pcData[targetIdx][COL.PC.HP] = 1;
-                  pcData[targetIdx][COL.PC.STATUS] = JSON.stringify({
-                    "衣服": "衣衫破爛", "姿勢": "倒地不起",
-                    "負面": "重傷昏迷", "顏面": "面色慘白"
-                  });
-                }
-              } else pcData[targetIdx][colIdx] = Math.max(1, Math.min(999, numNew));
-            } else if (colIdx === COL.PC.BACK) {
-              // 🔴 身世為終身史記：禁止整段覆寫，新內容以「、」追加並只留最近6段；玩家鎖定時後端強制擋下，不依賴AI自律
-              if (!(targetIdx === pcIndex && userData.backLocked)) {
-                const oldBack = String(pcData[targetIdx][colIdx] || "").trim();
-                let backArr = (!oldBack || oldBack === "無") ? [] : oldBack.split('、').map(x => x.trim()).filter(x => x !== "");
-                if (valStr && valStr !== "無" && !backArr.includes(valStr)) backArr.push(valStr);
-                pcData[targetIdx][colIdx] = (backArr.length > 6 ? backArr.slice(-6) : backArr).join('、') || "無";
-              }
-            } else pcData[targetIdx][colIdx] = valStr;
-          }
+          // 其餘 attr(位置/生命/魔力/陣營/貢獻/身世)一律忽略——GAS 掌數值、戰鬥裁定生死，AI 不寫。
         }
       });
     }
