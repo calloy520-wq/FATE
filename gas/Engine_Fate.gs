@@ -21,6 +21,9 @@ function rollDice_(n, sides) {
 // 階級→骰數階(E=1 D=2 C=3 B=4 A=5 EX=6)：傷害骰顆數隨主屬性階級遞增。
 function rankTier_(r) { var v = rankVal(r); if (v >= 60) return 6; if (v >= 50) return 5; if (v >= 40) return 4; if (v >= 30) return 3; if (v >= 20) return 2; return 1; }
 
+// 👑 王之財寶(gob) 無盡兵裝彈幕：50 顆 d3、捨去「1」(沒打中的)，只計 2/3。EV≈83＝飽和重擊(吉爾伽美什常駐)。
+function gobVolley_() { var t = 0; for (var i = 0; i < 50; i++) { var r = Math.floor(Math.random() * 3) + 1; if (r >= 2) t += r; } return t; }
+
 // ⚔️🔱 概念優先權（Priority）：數字越高＝概念位階越高。Fate 世界觀的「真理＞固有結界＞傳說武技＞英靈技能」階梯。
 //   高位階「進攻概念」可碾壓低位階「防禦概念」——當 攻方進攻階 ≥ 守方防禦階 + PIERCE_GAP 時，該防禦被無視（概念壓制）。
 //   把原本散落各處的 if（破魔無視神核／神代凌駕對魔力…）系統化成一張可擴充的表。
@@ -176,8 +179,8 @@ function combatProfile_(c) {
 //   mpPct＝啟動耗魔(佔 maxMP 比例，付不起走御主電池)；hit＝本戰每擊命中+；dmgMul/dmgAdd＝本戰每擊傷害增益。
 //   ★只增益「我方出擊」，不碰防禦端，避免跨呼叫方向的複雜度。
 function servantActiveSkill_(c) {
-  // 👑 王之財寶(gob／吉爾伽美什)：從無盡寶藏中連射無數英靈兵裝，命中+6、傷害大增
-  if (hasFx_(c, 'gob')) return { id: 'gob', name: fxName_(c, 'gob', '王之財寶'), icon: '👑', mpPct: 0.20, hit: 6, dmgMul: 1.0, dmgAdd: 28, desc: '本戰命中+6、傷害+28(無數寶具連射)' };
+  // 👑 王之財寶(gob)已改為「常駐被動」(見 resolveFateBattle_：每擊命中+5 ＋ 50d3捨1 無盡兵裝彈幕)，
+  //   故不再佔主動技槽；吉爾伽美什的主動技自動落到下一個 fx(鼓舞)。
   if (hasFx_(c, 'burst')) return { id: 'burst', name: fxName_(c, 'burst', '魔力放出'), icon: '💥', mpPct: 0.15, hit: 0, dmgMul: 1.3, dmgAdd: 0, desc: '本戰傷害 ×1.3' };
   if (hasFx_(c, 'stealth')) return { id: 'stealth', name: fxName_(c, 'stealth', '氣息遮斷'), icon: '🌫️', mpPct: 0.12, hit: 6, dmgMul: 1.15, dmgAdd: 0, desc: '本戰命中+6、傷害×1.15(奇襲)' };
   if (hasFx_(c, 'str_up')) return { id: 'str_up', name: fxName_(c, 'str_up', '怪力'), icon: '💪', mpPct: 0.12, hit: 0, dmgMul: 1.0, dmgAdd: 14, desc: '本戰傷害+14' };
@@ -270,6 +273,8 @@ function resolveFateBattle_(atk, def, opts) {
   if (atk.cls === 'Archer') { var er = hasFx_(def, 'evade_ranged'); if (er) { dEva += Math.round(6 * rankMul_(er)); fired.push(def.name + '·' + fxName_(def, 'evade_ranged', '避矢')); } }
   // 氣息遮斷(stealth)：攻方奇襲 +3
   if (hasFx_(atk, 'stealth')) { aHit += 3; fired.push(atk.name + '·' + fxName_(atk, 'stealth', '氣息遮斷') + '·奇襲'); }
+  // 👑 王之財寶(gob)常駐：無盡兵裝鋪天蓋地，命中 +5（飽和彈幕難閃；傷害彈幕在下方）
+  if (hasFx_(atk, 'gob')) { aHit += 5; fired.push(atk.name + '·' + fxName_(atk, 'gob', '王之財寶') + '(無盡兵裝)'); }
   // 燕返(tsubame)：寶具解放時次元摺疊令守方迴避 -5＋×2.3 傷害；普通出擊不適用（需全力釋放方能發動）
   var tsubame = hasFx_(atk, 'tsubame'); if (tsubame && opts.np) { dEva -= 5; fired.push(atk.name + '·' + fxName_(atk, 'tsubame', '秘劍')); }
   // 🔱 三騎士職階相剋（Saber→Lancer→Archer→Saber）：占上風者搶得先機，命中小幅領先（傷害加成在下方）
@@ -322,6 +327,8 @@ function resolveFateBattle_(atk, def, opts) {
   if (hasFx_(winner, 'projection')) { base += 24 + Math.round(rankVal(winner.six["寶具"]) * 0.6); fired.push(winner.name + '·投影連射'); }
   // 🪄 高速詠唱(fast_cast／Caster)：一回合內連珠疊咒，魔砲彈幕加成（救低耐玻璃魔女的輸出）
   var fc = hasFx_(winner, 'fast_cast'); if (fc) { base += Math.round(12 * rankMul_(fc)); fired.push(winner.name + '·' + fxName_(winner, 'fast_cast', '高速詠唱') + '(連珠疊咒)'); }
+  // 👑 王之財寶(gob)常駐彈幕：50d3捨1 的無盡兵裝飽和傷害（吉爾伽美什不必開寶具就壓制全場）
+  if (hasFx_(winner, 'gob')) { var gv = gobVolley_(); base += gv; fired.push(winner.name + '·' + fxName_(winner, 'gob', '王之財寶') + '·無盡彈幕(' + gv + ')'); }
   // 狂化(mad)：傷害暴漲
   var madW = hasFx_(winner, 'mad'); if (madW) { base += Math.round(14 * rankMul_(madW)); fired.push(winner.name + '·' + fxName_(winner, 'mad', '狂化')); }
   // 神代魔術(divine_age)：魔力傷害大增（下方對魔力減免也減半）
