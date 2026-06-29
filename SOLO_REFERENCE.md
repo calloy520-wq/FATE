@@ -126,15 +126,20 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `resolveFateBattle_(atk,def,opts)`：單次交手裁決。處理的 fx 標籤：
   `aim analyze anti_magic_lance burst chain clear_mind divine_age divine_core ea evade_ranged excalibur first_strike gae_bolg gob mad morale nullify_magic petrify projection ride self_mod stealth str_up tactics territory tsubame ubw unreadable wind_strike zabaniya`
   含：職階相剋三角(KNIGHT_BEATS +命中+傷害)、對魔力減魔砲、territory 防壁、divine_age 繞 MR、zabaniya 致命(×1.9+70)、gae_bolg 因果必中、petrify 石化、projection 被動加成(EMIYA) 等。
-- **🛡️ 迴避拆敏捷雙吃(2026-06)**：`dEva = d20 + round(敏捷val×0.65 + 耐久val×0.35) + rand(-10~5)`。舊版迴避純吃敏捷→「命中又迴避」雙吃，高敏(Rider/Assassin 敏A+)無敵閃；改混耐久後玻璃快刀變得打得中、肉盾守得穩。命中端仍純敏/魔(進攻不變)。
-- **🔧 平衡補丁(2026-06)**：①`divine_age`(神代魔術)＝**完全無視**對魔力(原只半減)，救美狄亞魔砲；②`fast_cast`(高速詠唱)新增戰鬥傷害 +12×rankMul(連珠疊咒)；③`ubw`(無限劍製)`npAtkScale_` 標為**對界**級(固有結界飽和彈幕)→寶具規模矩陣加乘＋可一擊燒掉狂戰多條十二試煉命(救 EMIYA 對狂戰)。
+- **🎴🎯 六圍降權＝角色速寫(2026-06核心哲學)**：TYPE-MOON 官方：參數是「讓人理解這從者」的速寫，非戰力試算表(庫丘林六圍頂尖卻幸運E→運氣/故事才是裁判)。舊版命中/迴避用 `rankVal`(差距50)當主導項→差兩階就鎖死→必然極化(模擬 76% 越界)。修正：
+  - **命中** `= d20 + rankTier(hitStat)×K_STAT(2.5) + rand(-3~3) + outMod`（hitStat：Caster魔力/其餘敏捷）。階差壓到~12，d20(運氣)重新主導。
+  - **迴避** `= d20 + (rankTier(敏)×0.65+rankTier(耐)×0.35)×2.5 + rand(-3~3)`：拆「敏捷雙吃」＋降權。
+  - **傷害 flat** `rankVal×0.8→×0.6`：避免高階一發轟死。
+  - 模擬結果：普通/技能 **76%→29% 越界**(大多對局回 28~77% 健康區)；寶具 74%→52%(climactic NP 層較swingy屬正常)。
+- **🍀 幸運上演逆轉(2026-06)**：自指變異(非對拼)——低運(≤D)每擊 8% 失手(-10)、高運(≥A)8% 福星(+8)。製造爆冷與劇情感(庫丘林詛咒/Saber福星)，不讓高運方持續輾壓。
+- **🔧 平衡補丁(2026-06)**：①`divine_age`(神代魔術)＝**完全無視**對魔力(原只半減)，救美狄亞；②`fast_cast`(高速詠唱)+12×rankMul 傷害；③`ubw`(無限劍製)`npAtkScale_`＝**對城**級(規模階5→可多燒狂戰十二試煉命，救 EMIYA 對狂戰；非對界，避免對人一發秒)；④`npBaseDice_` 下修(A20→13d10/EX30→18d10…)；⑤`NP_SCALE_MATRIX` 壓縮(max ×3.0→1.7)避免大規模寶具秒小規模。
 - **🎲 D&D 傷害骰(2026-06)**：`rollDice_(n,sides)`＋`rankTier_(r)`(E1→EX6)。
   - 武器骰(每擊)：`base = round(rankVal(主屬性)*0.5) + rankTier d8 + 命中分差*1.2 − 耐久/2`。
   - 暴擊(擲20)：多骰一輪 `rankTier d8 +12`(取代舊固定 +30)。
   - 寶具骰：`npBaseDice_(寶具階)`＝E3d10/D5d10/C8d10/B12d10/A20d10/(A+·A++)22d10/EX30d10；另加 `rankVal(寶具)*0.6+10`。
   - ⚠ **EX 嚴格判定(2026-06 修)**：`rankVal('A++')=60` 與 EX 同值，故 `npBaseDice_/npPranaCost_` 改用字串 `/EX/` 認 EX；**A++ 算 A 階**(22d10/prana500)，否則 Saber 誓約勝利之劍(A++)會被收 EX prana800 而永遠放不出。
 - **🔱 概念優先權 Priority(2026-06)**：`CONCEPT_TIER{}`(ea6 / excalibur·divine_age·rule_breaker5 / ubw·anti_magic_lance·gae_bolg4 / god_hand·tsubame·zabaniya·petrify3 / nullify_magic·divine_core·territory2)。`offenseTier_(c,isNp)` 取攻方最高進攻概念階；`pierces(防禦fx)`＝攻方階≥防禦階+`PIERCE_GAP`(2)→該防禦(territory/神核/對魔力)被無視(概念壓制)。把舊「破魔無視神核」系統化＋ ea 凌駕一切。
-- **🏰 寶具規模相剋矩陣(2026-06)**：`npAtkScale_`(對人/對軍/對城/對界，由寶具名或 ea/excalibur 推)×`npDefScale_`(由 ubw/神核/god_hand/territory 推) → `NP_SCALE_MATRIX` 倍率(對城打對人×2.5、對界×3.0…0x 以 Math.max(1)保底)。`ea` 寶具：×1.7+4d12+80。
+- **🏰 寶具規模相剋矩陣(2026-06)**：`npAtkScale_`(對人/對軍/對城/對界，由寶具名或 ea→對界/excalibur·ubw→對城 推)×`npDefScale_`(由 ubw/神核/god_hand/territory 推) → `NP_SCALE_MATRIX` 倍率(**已壓縮：對城打對人×1.5、對界×1.7、min×0.4**；非舊×2.5/3.0)。`ea` 寶具：×1.7+4d12+80。
 - **🔋🔋 出力電池制(2026-06 大改·玩家定案)**：**從者【沒有自有魔力池】**(召喚時 MP/MAX_MP=0)，全靠御主供魔。**御主MP＝唯一且持續的魔力資源(電池)**。從者有「靈基出力檔位」(玩家旋鈕，20/40/60/80/100，存從者 MEMORY【出力】，預設60巡航)：
   - `outputTier_(pct)`(Core_Settings)→`{hit,dmgMul,drainMul,np,label}`五檔：100%(+3/×1.3/×2.0/可放寶具/全開)、80%(+1/×1.1/×1.5/高壓)、60%(0/×1.0/×1.0/巡航)、40%(-2/×0.85/×0.6/節流)、20%(-5/×0.7/×0.3/維持)。`snapOutput_`吸附、`servantOutput_(memory)`讀、`setServantOutput_(memory,pct)`寫。
   - `resolveFateBattle_`：`atk.output`(rowToCombatant_ 從 MEMORY 讀)→`outMod=outTier.hit`(命中)；勝方傷害 `base×outputTier_(winner.output).dmgMul`。

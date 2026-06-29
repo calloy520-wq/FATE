@@ -63,32 +63,36 @@ function npPranaCost_(npRank) {
 // 🎲 寶具基礎傷害骰（依寶具階級，d10 系）：E3d10 D5d10 C8d10 B12d10 A20d10 EX30d10。
 //   ★與原作「階級＝絕對威力」掛鉤——寶具解放這一發的主威力來源；其餘 buff 只是錦上添花。
 function npBaseDice_(npRank) {
-  if (/EX/i.test(String(npRank))) return rollDice_(30, 10); // EX（原案 50d10，下修避免必殺秒殺、仍輔以概念壓制）
+  // 🎴 下修(2026-06平衡)：寶具骰過去近乎一發秒殺(A20d10≈110/EX30d10≈165 vs 血270~450)，極化寶具模式。
+  //   壓到「重擊但非必秒」，主威力仍在＋概念壓制/規模相剋輔助；讓寶具是決勝重拳而非一鍵抹除。
+  if (/EX/i.test(String(npRank))) return rollDice_(18, 10); // EX
   var v = rankVal(npRank);
-  if (v >= 55) return rollDice_(22, 10);  // A+ / A++
-  if (v >= 50) return rollDice_(20, 10);  // A
-  if (v >= 40) return rollDice_(12, 10);  // B
-  if (v >= 30) return rollDice_(8, 10);   // C
-  if (v >= 20) return rollDice_(5, 10);   // D
+  if (v >= 55) return rollDice_(14, 10);  // A+ / A++
+  if (v >= 50) return rollDice_(13, 10);  // A
+  if (v >= 40) return rollDice_(9, 10);   // B
+  if (v >= 30) return rollDice_(6, 10);   // C
+  if (v >= 20) return rollDice_(4, 10);   // D
   return rollDice_(3, 10);                // E
 }
 
 // 🏰 寶具規模相剋矩陣（攻擊規模 × 防禦規模 → 傷害倍率）：
 //   對城打對人 ×2.5、對界無視防禦進行概念碾壓。0x（無效）以引擎 Math.max(1) 保底為一絲擦傷，不硬鎖。
 var NP_SCALE_IDX = { '對人': 0, '對軍': 1, '對城': 2, '對界': 3 };
+// 🎴 壓縮(2026-06平衡)：舊矩陣 ×2.5/×3 會讓「大規模寶具一發秒小規模」＝寶具模式淪為先手樂透。
+//   收斂到「規模優勢＝明顯傾向，非必殺」(max ×1.7、min ×0.4)，保留相剋骨架但不再一鍵抹除。
 var NP_SCALE_MATRIX = [
   //    對人防  對軍防  對城防  對界防
-  [1.00, 0.50, 0.10, 0.05],  // 對人攻
-  [1.50, 1.00, 0.50, 0.05],  // 對軍攻
-  [2.50, 2.00, 1.00, 0.10],  // 對城攻
-  [3.00, 2.50, 2.00, 1.00]   // 對界攻（無視一般防禦＝高倍＋概念壓制；不做 literal 即死，避免敵方一發秒殺玩家）
+  [1.00, 0.75, 0.50, 0.40],  // 對人攻
+  [1.25, 1.00, 0.75, 0.50],  // 對軍攻
+  [1.50, 1.30, 1.00, 0.60],  // 對城攻
+  [1.70, 1.50, 1.30, 1.00]   // 對界攻
 ];
 // 攻擊寶具規模：由寶具名(對人/對軍/對城/對界)或 ea/excalibur 標籤推定，預設對人。
 function npAtkScale_(c) {
   var np = String(c.np || '');
-  // 🗡️ 無限劍製(ubw)＝固有結界(Reality Marble)＝對界級：劍之地平的飽和彈幕，足以一發燒掉狂戰多條十二試煉命
-  if (hasFx_(c, 'ea') || hasFx_(c, 'ubw') || /對界/.test(np)) return '對界';
-  if (hasFx_(c, 'excalibur') || /對城/.test(np)) return '對城';
+  if (hasFx_(c, 'ea') || /對界/.test(np)) return '對界';
+  // 🗡️ 無限劍製(ubw)＝固有結界的飽和彈幕＝對城級：足以多燒狂戰十二試煉命(規模階5→lossN+1)，但不再對人一發秒
+  if (hasFx_(c, 'excalibur') || hasFx_(c, 'ubw') || /對城/.test(np)) return '對城';
   if (/對軍/.test(np)) return '對軍';
   return '對人';
 }
@@ -232,11 +236,13 @@ function resolveFateBattle_(atk, def, opts) {
   var aProf = combatProfile_(atk), dProf = combatProfile_(def);
   var aRoll = d20(), dRoll = d20();
   // 命中／迴避改用「階級隨機區間」(base-10~base+5)，讓低階偶能爆冷、骰運重新有戲
-  var aHit = aRoll + rankBand_(atk.six[aProf.hit]) + outMod;
-  // 🛡️ 迴避＝敏捷(身法)×0.65 ＋ 耐久(硬扛/底子)×0.35：拆掉「敏捷雙吃(命中又迴避)」，
-  //   讓玻璃快刀(高敏低耐：Rider/Assassin)不再無敵閃，肉盾(高耐：狂戰/劍)守得更穩；命中端仍純看敏/魔(進攻不變)。
-  var dEvaVal = Math.round(rankVal(def.six['敏捷']) * 0.65 + rankVal(def.six['耐久']) * 0.35);
-  var dEva = dRoll + dEvaVal + (Math.floor(Math.random() * 16) - 10);
+  // 🎴 六圍＝角色速寫，只給「微傾向」：命中/迴避吃 rankTier×K_STAT(階差壓到~12)，讓 D20(運氣)重新主導。
+  //   ★TYPE-MOON 官方：參數是「讓人快速理解這從者」的速寫，非戰力試算表。庫丘林六圍頂尖卻幸運E→
+  //   故事與運氣才是裁判。舊版用 rankVal(差距50)當主導項→差兩階就鎖死→必然極化，此為根因修正。
+  //   迴避＝敏捷(身法)×0.65＋耐久(底子)×0.35：拆掉「敏捷雙吃(命中又迴避)」。命中端純看敏/魔(進攻)。
+  var K_STAT = 2.5;
+  var aHit = aRoll + Math.round(rankTier_(atk.six[aProf.hit]) * K_STAT) + (Math.floor(Math.random() * 7) - 3) + outMod;
+  var dEva = dRoll + Math.round((rankTier_(def.six['敏捷']) * 0.65 + rankTier_(def.six['耐久']) * 0.35) * K_STAT) + (Math.floor(Math.random() * 7) - 3);
   if (aProf.kind === '魔砲') fired.push(atk.name + '·' + (fxName_(atk, 'territory', '魔術詠唱')));
   // 🍱 整備·進食（戰前 buff）：攻方命中 +opts.mealBuff（由 fateStrike_ 依御主整備狀態傳入）
   if (opts.mealBuff) { aHit += opts.mealBuff; fired.push(atk.name + '·整備進食(+' + opts.mealBuff + ')'); }
@@ -279,6 +285,15 @@ function resolveFateBattle_(atk, def, opts) {
   // 必中(gae_bolg)：寶具解放時逆因果直接命中
   var gaebolg = opts.np && hasFx_(atk, 'gae_bolg'); if (gaebolg) fired.push(atk.name + '·' + fxName_(atk, 'gae_bolg', '必中之槍') + '(必中)');
 
+  // 🍀 幸運＝上演劇情逆轉的旋鈕：幸運差≥2階 → 高者得福星骰(+0~6)、低者被命運捉弄。
+  //   Saber(幸A+)的福星、庫丘林(幸E)屢屢倒楣戰死的詛咒——「故事與運氣才是裁判」實裝。
+  //   做法＝自指變異(非對拼)：低運(≤D)每擊小機率失手、高運(≥A)小機率福星，製造爆冷與劇情感，而非讓高運方持續輾壓。
+  var lkA = rankVal(atk.six['幸運']), lkD = rankVal(def.six['幸運']);
+  if (lkA <= 20 && Math.random() < 0.08) { aHit -= 10; fired.push(atk.name + '·幸運' + (atk.six['幸運'] || 'E') + '·天不從人(失手)'); }
+  else if (lkA >= 50 && Math.random() < 0.08) { aHit += 8; fired.push(atk.name + '·幸運·福星眷顧'); }
+  if (lkD <= 20 && Math.random() < 0.08) { dEva -= 10; fired.push(def.name + '·幸運' + (def.six['幸運'] || 'E') + '·命運捉弄(露破綻)'); }
+  else if (lkD >= 50 && Math.random() < 0.08) { dEva += 8; fired.push(def.name + '·幸運·絕處逢生'); }
+
   var atkWins = gaebolg ? true : (aHit >= dEva);
   var winner = atkWins ? atk : def;
   var loser = atkWins ? def : atk;
@@ -290,7 +305,8 @@ function resolveFateBattle_(atk, def, opts) {
   var wDmgRank = winner.six[wProf.dmg];
   var wTier = rankTier_(wDmgRank);
   var weaponDice = rollDice_(wTier, 8);
-  var base = Math.round(rankVal(wDmgRank) * 0.8) + weaponDice + Math.round(Math.abs(aHit - dEva) * 1.2);
+  // 🎴 傷害同樣降六圍權重(flat 0.8→0.6)：避免高階一發轟死；主威力交給武器骰(帶骰運)＋命中分差＋fx/寶具。
+  var base = Math.round(rankVal(wDmgRank) * 0.6) + weaponDice + Math.round(Math.abs(aHit - dEva) * 1.2);
   fired.push(winner.name + '·武器骰' + wTier + 'd8=' + weaponDice);
   // 🔋 出力傷害乘子：依勝方(出擊方)靈基出力檔位放大/縮小本擊威力（御主供魔越足、傷害越高）。
   var wOut = outputTier_(winner.output);
