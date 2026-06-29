@@ -113,14 +113,6 @@
         return;
       }
       
-      // 🔴 插入這段：攔截「遠方之人」的點擊
-      const remoteTarget = e.target.closest('[data-remote]');
-      if (remoteTarget) {
-        const npcName = remoteTarget.getAttribute('data-remote');
-        openRemoteNpcAction(npcName); // 呼叫遠端互動選單
-        return;
-      }
-
       const registerTarget = e.target.closest('[data-register]');
       if (registerTarget) {
         const npcName = registerTarget.getAttribute('data-register');
@@ -2816,7 +2808,7 @@ const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatDat
           pushCandidate(npc.name, `<span class="npc-link" data-interact="${npc.name}">${npc.name}</span>`);
         } else {
           // 在名單但不在同地（高好感牽掛之人）→ 紫色遠方之人
-          pushCandidate(npc.name, `<span class="npc-link" style="color:#9C27B0; border-bottom:1px dashed #9C27B0; cursor:pointer;" data-remote="${npc.name}">${npc.name}</span>`);
+          pushCandidate(npc.name, `<span style="color:#9C27B0;">${npc.name}</span>`);
         }
       }
     });
@@ -2831,7 +2823,7 @@ const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatDat
           if (name && name.length >= 2 && !localNPCs.find(n => n.name === name)) {
             if (allKnown.includes(name)) {
               // 🌟 狀態 2：遠方之人 (資料庫有，但不在現場) -> 顯示為紫色
-              pushCandidate(name, `<span class="npc-link" style="color:#9C27B0; border-bottom:1px dashed #9C27B0; cursor:pointer;" data-remote="${name}">${name}</span>`);
+              pushCandidate(name, `<span style="color:#9C27B0;">${name}</span>`);
             } else {
               // 🌟 狀態 3：虛無之人 (資料庫完全沒有) -> 顯示為藍色，觸發登入眾生
               pushCandidate(name, `<span class="npc-link" style="color:#4682b4; border-bottom:1px dashed #4682b4; cursor:pointer;" data-register="${name}" data-context="${contextSnap}">${name}</span>`);
@@ -2965,26 +2957,6 @@ let plainTextContext = cleanText;
       document.getElementById('interact-modal').style.display = 'none';
   }
 
-// 🔮 遠端人物互動 (打聽 / 移動)
-
-function openRemoteNpcAction(npcName) {
-      interactTarget = npcName; // 綁定目標
-      document.getElementById('interact-title').innerText = `關於「${npcName}」...`;
-
-      let html = "";
-
-      // 🟢 選項 1：打聽情報 (旁敲側擊)
-      html += `<button class="btn" style="border-color:#b8860b; color:#b8860b; font-weight:bold; padding: 10px;"
-        onclick="closeInteractMenu(); send('【系統動作：玩家向周圍的人打聽關於「${npcName}」的情報與下落。請根據對方的閱歷與性格，給出真實的反應或八卦。】', true)">🗣️ 旁敲側擊 (打聽)</button>`;
-
-      // 🟢 選項 2：動身尋找 (移動)
-      html += `<button class="btn" style="border-color:#1e90ff; color:#1e90ff; font-weight:bold; padding: 10px;"
-        onclick="closeInteractMenu(); send('【系統動作：玩家決定啟程前往尋找「${npcName}」。請根據情報中該角色的「目前位置」，在 JSON 的 stat_changes 中精準修改玩家的「位置」為該地點，並生動描寫這趟跋涉的過程！】', true)">👣 動身尋找 (移動)</button>`;
-
-      // 複用現有的互動面板來顯示
-      document.getElementById('interact-dynamic-buttons').innerHTML = html;
-      document.getElementById('interact-modal').style.display = 'flex';
-  }
 
 
 
