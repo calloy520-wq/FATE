@@ -136,7 +136,7 @@ function handleGameAction(userData) {
   //   與戰爭主表「眾生」完全隔離。solo 御主是 "PC_" 不受影響。
   const isKanshouCtx = String(pcId || "").indexOf("KPC_") === 0;
   const sheets = {
-    law: ss.getSheetByName("規矩"), map: ss.getSheetByName("坤圖"),
+    map: ss.getSheetByName("坤圖"),
     pc: (isKanshouCtx ? getKanshouPcSheet_(ss) : ss.getSheetByName("眾生")), log: ss.getSheetByName("因果"),
     item: ss.getSheetByName("琳琅"), auth: ss.getSheetByName("權柄"),
     rel: ss.getSheetByName("關係"), epic: ss.getSheetByName("史紀"),

@@ -7,7 +7,6 @@
 
 // 17 張分頁的表頭定義（欄位順序＝COL 對照表，引擎以索引讀取，表頭僅供人看）
 var FATE_SHEET_DEFS = {
-  "規矩":   ["時局", "內容"],
   "坤圖":   ["地域", "地名", "類型", "座標", "描述", "上級"],
   "眾生":   ["角色ID","姓名","性別","身世","外顯狀態","特徵","所在","喜好","氣血","真元","力","體","敏","慧","運","氣血上限","真元上限","境界","記憶","意圖","勢力","位階","貢獻","陣營","體徵","武學","局號","六圍","標籤","已偵查"],
   "英靈殿": ["英靈ID","職階","真名","性別","六圍","職階技能","固有技能","特性","寶具","人格","陣營","出沒戰爭","來源"],
@@ -52,11 +51,6 @@ var FATE_MAP_SEED = [
   ["冬木", "冬木·中央公園", "約會", "22,76", "新都中心的大型公園，巨大噴泉灑落水霧，情侶與孩童在草坪上嬉鬧。", ""],
   ["冬木", "冬木·海濱大道", "約會", "4,-2",  "面海的濱海步道，夕陽把海面染成金紅，海風帶著鹹味與冰淇淋的甜。", ""],
   ["冬木", "冬木·遊樂園",   "約會", "-1,-3", "燈火璀璨的遊樂園，摩天輪緩緩轉動，旋轉木馬與攤販笑語不絕。", ""]
-];
-
-// 規矩種子：開局時局
-var FATE_LAW_SEED = [
-  ["第五次聖杯戰爭", "七位御主與七騎從者齊聚冬木，爭奪能實現任何願望的聖杯。教會為監督者，維持表面中立。白晝需隱藏身份於常人之中，夜晚才是廝殺與謀略的時刻。"]
 ];
 
 // 戰鬥標籤種子：fx 碼,標籤名,類型,效果說明,機制數值（戰鬥系統換 D20 後由此驅動）
@@ -113,9 +107,6 @@ function ensureFateSheets_(ss) {
     if (name === "坤圖" && FATE_MAP_SEED.length) {
       sheet.getRange(2, 1, FATE_MAP_SEED.length, FATE_MAP_SEED[0].length).setValues(FATE_MAP_SEED);
     }
-    if (name === "規矩" && FATE_LAW_SEED.length) {
-      sheet.getRange(2, 1, FATE_LAW_SEED.length, FATE_LAW_SEED[0].length).setValues(FATE_LAW_SEED);
-    }
     if (name === "戰鬥標籤" && FATE_CTAG_SEED.length) {
       sheet.getRange(2, 1, FATE_CTAG_SEED.length, FATE_CTAG_SEED[0].length).setValues(FATE_CTAG_SEED);
     }
@@ -127,14 +118,14 @@ function ensureFateSheets_(ss) {
   }
   // 英靈殿/御主殿 若為空，自動灌入名冊（Seed_Codex.gs）
   try { if (typeof seedFateCodex_ === "function") seedFateCodex_(ss); } catch (e) { Logger.log("seedFateCodex_ 失敗(略過): " + e.message); }
-  // 坤圖/規矩/戰鬥標籤 若為空(早期被空建未灌種子)→補；坤圖舊「冬木」母節點→改頂層
+  // 坤圖/戰鬥標籤 若為空(早期被空建未灌種子)→補；坤圖舊「冬木」母節點→改頂層
   try { reseedIfEmpty_(ss); } catch (e) { Logger.log("reseedIfEmpty_ 失敗(略過): " + e.message); }
   return created;
 }
 
 // 🔵 修復：種子表為空就補；坤圖舊資料的 PARENT「冬木」改成頂層("")，避免地圖渲染出錯
 function reseedIfEmpty_(ss) {
-  var seedMap = { "坤圖": FATE_MAP_SEED, "規矩": FATE_LAW_SEED, "戰鬥標籤": FATE_CTAG_SEED };
+  var seedMap = { "坤圖": FATE_MAP_SEED, "戰鬥標籤": FATE_CTAG_SEED };
   Object.keys(seedMap).forEach(function (name) {
     var sh = ss.getSheetByName(name); if (!sh) return;
     var seed = seedMap[name];
