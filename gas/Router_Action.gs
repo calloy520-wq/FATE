@@ -208,7 +208,7 @@ function actionGetFullStatus(userData, pcId, sheets) {
       }
     }
   }
-  return JSON.stringify({ success: true, statusString: buildPlayerStatusString(row, getCharacterTotalStats(targetId, sheets, allPcData), [], relMem), targetId: targetId, targetSex: row[COL.PC.SEX], canEditFate: canEditFate });
+  return JSON.stringify({ success: true, statusString: buildPlayerStatusString(row, relMem), targetId: targetId, targetSex: row[COL.PC.SEX], canEditFate: canEditFate });
 }
 
 function actionUpdateFate(userData, pcId, sheets) {
@@ -239,7 +239,7 @@ function actionUpdateFate(userData, pcId, sheets) {
     const rRecord = sheets.rel.getDataRange().getValues().find(r => r[COL.REL.PC] === pcData.find(r => r[COL.PC.ID] == pcId)[COL.PC.NAME] && r[COL.REL.NPC] === pcData[pIdx][COL.PC.NAME]);
     if (rRecord) relMem = rRecord[COL.REL.MEMORY] || "";
   }
-  return JSON.stringify({ success: true, statusString: buildPlayerStatusString(pcData[pIdx], getCharacterTotalStats(targetId, sheets, pcData), [], relMem) });
+  return JSON.stringify({ success: true, statusString: buildPlayerStatusString(pcData[pIdx], relMem) });
 }
 
 function actionManualNpc(userData, pcId, sheets) {
@@ -891,7 +891,7 @@ function actionMove(userData, pcId, sheets) {
     servantCard: svCardMove,
     preFoes: preFoesAtTarget,
     victory: moveVictory,
-    statusString: buildPlayerStatusString(allPcData[pIdx], getCharacterTotalStats(pcId, sheets, allPcData), []),
+    statusString: buildPlayerStatusString(allPcData[pIdx]),
     people: getLocalPeopleList(sheets, pcName, pcId, target, relData, sheets.task ? sheets.task.getDataRange().getValues() : []),
     locations: getNearbyLocations(target, freshMapData).slice(0, 5),
     mapDesc: mapDesc,
@@ -920,7 +920,7 @@ function actionSync(userData, pcId, sheets) {
 
   return JSON.stringify({
     success: true,
-    statusString: buildPlayerStatusString(allPcData[pcIndex], getCharacterTotalStats(pcId, sheets, allPcData), []),
+    statusString: buildPlayerStatusString(allPcData[pcIndex]),
     people: getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, sheets.rel ? sheets.rel.getDataRange().getValues() : [], sheets.task ? sheets.task.getDataRange().getValues() : []),
     locations: getNearbyLocations(curL, freshMapData),
     mapDesc: currentMapInfo ? currentMapInfo[COL.MAP.DESC] : "四下靜謐。",
@@ -1100,7 +1100,6 @@ function actionPlay(userData, pcId, sheets) {
   const allLogs = readRecentLogRows(sheets.log, 2000);
 
   const history = pickRelevantLogs(allLogs.filter(r => String(r[2]).includes(pcName)), 12).map(r => r[2]).join("\n");
-  const pTotal = getCharacterTotalStats(pcId, sheets, pcData, []);
   const currentAmbition = pc[COL.PC.INTENT] ? String(pc[COL.PC.INTENT]).trim() : "尚無明確目標，隨遇而安。";
 
   const partyMembers = relData.filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]);
@@ -1692,7 +1691,7 @@ ${isKanshou ? `
 
     return JSON.stringify({
       text: finalResponseText,
-      statusString: buildPlayerStatusString(pcData[pcIndex], getCharacterTotalStats(pcId, sheets, pcData, []), []),
+      statusString: buildPlayerStatusString(pcData[pcIndex]),
       people: localPeopleList,
       locations: getNearbyLocations(curL, memoryMapData),
       recruited: newlyRecruited,
@@ -1798,8 +1797,7 @@ function actionGetEpicHistory(userData, pcId, sheets) {
       locationsCount: stats.locationsVisited.size,
       intimacyTotal: stats.intimacyTotal,
       topIntimacy: stats.topIntimacy,
-      topIntimacyCount: stats.topIntimacyCount,
-      realm: pcRow[COL.PC.REALM] || ""
+      topIntimacyCount: stats.topIntimacyCount
     }
   });
 }

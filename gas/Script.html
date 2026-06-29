@@ -938,20 +938,13 @@ function renderRecentLocs(recents = null) {
 
     // 1. 基礎屬性更新
     setUI('ui-status', s[0]);
-    setUI('ui-money', s[1]);
+
     setUI('ui-trait', s[2]);
     setUI('ui-loc', s[3]);
     if (currentStatusTargetId === pc.id) updateRecentLocations(s[3]);
     setUI('ui-pref', s[4]);
     setUI('ui-hp', s[5]);
     setUI('ui-mp', s[6]);
-    setUI('ui-str', s[7]);
-    setUI('ui-con', s[8]);
-    setUI('ui-agi', s[9]);
-    setUI('ui-int', s[10]);
-    setUI('ui-luk', s[11]);
-    setUI('ui-realm', s[16], "凡人");
-    
     // 2. 陣營 (新增欄位，防呆檢查)
     if (s.length >= 24) {
         setUI('ui-faction', s[19], "無");
@@ -966,18 +959,7 @@ function renderRecentLocs(recents = null) {
     const headerEl = document.getElementById('header-loc');
     if (headerEl) headerEl.innerText = s[3] ? "📍 " + s[3] : "未知區域";
 
-    // 3. 裝備欄位
-    const eqMap = { "eq-weapon": s[12], "eq-armor": s[13], "eq-acc1": s[14], "eq-acc2": s[15] };
-    Object.keys(eqMap).forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            const val = eqMap[id] ? eqMap[id].trim() : "";
-            el.innerText = val ? `[ ${val} ]` : "[ (空) ]";
-            el.className = val ? "eq-filled" : "eq-empty";
-        }
-    });
-
-    // 4. 雙修解析邏輯
+    // 3. 雙修解析邏輯
     if (s.length >= 18) {
         const memoryStr = (s[17] || "").replace(/@@@/g, '|');
         

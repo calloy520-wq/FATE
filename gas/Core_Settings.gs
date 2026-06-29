@@ -169,20 +169,18 @@ function maskPhysicalStatus(jsonStr, isNsfwMode) {
   } catch (e) { return "{}"; }
 }
 
-function buildPlayerStatusString(selfRow, totals, itemData, relMem = "", isNsfwMode = false) {
-  // 🗑️ FATE 已棄用 裝備(WEP/ARM/ACC1/ACC2) 與 生活技能(LIFESKILL)：§ 位置保留空字串、不再讀那些欄，
-  //   前端 s[N] 契約完全不動(零風險)，依賴解除後該些欄即可於 schema 重建時安全刪除。
+function buildPlayerStatusString(selfRow, relMem = "", isNsfwMode = false) {
   const safeMemory = String(selfRow[COL.PC.MEMORY] || "").replace(/\|/g, '@@@');
   const safeRelMem = String(relMem || "").replace(/\|/g, '@@@');
   const maskedPhysical = maskPhysicalStatus(selfRow[COL.PC.PHYSICAL] || "{}", isNsfwMode);
   const safePhysical = String(maskedPhysical).replace(/§/g, '###');
   const visibleStatusStr = buildVisibleStatusString(selfRow[COL.PC.STATUS]);
 
+  // 位置索引固定（§ 協議），s[7-16] 為廢棄的九州五圍/裝備/境界欄，填空保持前端定位不位移。
   return [
     visibleStatusStr, "", selfRow[COL.PC.TRAIT], selfRow[COL.PC.LOC], selfRow[COL.PC.PREF],
-    selfRow[COL.PC.HP], selfRow[COL.PC.MP], totals ? totals.STR : "", totals ? totals.CON : "",
-    totals ? totals.AGI : "", totals ? totals.INT : "", totals ? totals.LUK : "",
-    "", "", "", "", selfRow[COL.PC.REALM], safeMemory, safeRelMem, selfRow[COL.PC.FACTION],
+    selfRow[COL.PC.HP], selfRow[COL.PC.MP], "", "", "", "", "",
+    "", "", "", "", "", safeMemory, safeRelMem, selfRow[COL.PC.FACTION],
     selfRow[COL.PC.RANK], selfRow[COL.PC.ALIGN], selfRow[COL.PC.CONTRIB], selfRow[COL.PC.BACK], safePhysical,
     selfRow[COL.PC.INTENT], selfRow[COL.PC.MARTIAL], ""
   ].join('§');
@@ -191,9 +189,7 @@ function buildPlayerStatusString(selfRow, totals, itemData, relMem = "", isNsfwM
 function getFreshStatusString(targetId, pIdx, sheets) {
   SpreadsheetApp.flush();
   const freshPcData = sheets.pc.getDataRange().getValues();
-  const totals = getCharacterTotalStats(targetId, sheets, freshPcData);
-  const freshItemData = sheets.item ? sheets.item.getDataRange().getValues() : [];
-  return buildPlayerStatusString(freshPcData[pIdx], totals, freshItemData);
+  return buildPlayerStatusString(freshPcData[pIdx]);
 }
 
 function getMapDataCached(sheets) {
@@ -217,11 +213,9 @@ function getCharacterTotalStats(charId, sheets, cachedPcData = null, cachedItemD
   const fromSix_ = (k) => svNum_(six[k] || "E");
   let baseSTR = fromSix_("筋力"), baseCON = fromSix_("耐久"), baseAGI = fromSix_("敏捷"), baseINT = fromSix_("魔力"), baseLUK = fromSix_("幸運");
 
-  // 🗑️ 裝備系統亦已棄用：回傳維持原形狀(WEP/wepSTR/armCON/wepName/armName 供下游沿用)，恆為空/0。
   return {
     id: charId, name: row[COL.PC.NAME], hp: parseInt(row[COL.PC.HP]) || 100, maxHp: parseInt(row[COL.PC.MAX_HP]) || 100,
-    STR: baseSTR, CON: baseCON, AGI: baseAGI, INT: baseINT, LUK: baseLUK,
-    WEP: "", ARM: "", wepSTR: 0, armCON: 0, wepName: "", armName: ""
+    STR: baseSTR, CON: baseCON, AGI: baseAGI, INT: baseINT, LUK: baseLUK
   };
 }
 
