@@ -249,10 +249,10 @@ function kanshouServantRow_(rec, gameId, loc) {
   sRow[COL.PC.REALM] = "凡人";
   if (partnerIsMaster) {
     sRow[COL.PC.HP] = 100; sRow[COL.PC.MAX_HP] = 100; sRow[COL.PC.MP] = 120; sRow[COL.PC.MAX_MP] = 120;
-    sRow[COL.PC.STR] = 12; sRow[COL.PC.CON] = 12; sRow[COL.PC.AGI] = 12; sRow[COL.PC.INT] = 30; sRow[COL.PC.LUK] = 18;
+    // 🎴 五圍已棄欄：戰鬥吃六圍 SIX。
   } else {
     sRow[COL.PC.HP] = 480; sRow[COL.PC.MAX_HP] = 480; sRow[COL.PC.MP] = 200; sRow[COL.PC.MAX_MP] = 200;
-    sRow[COL.PC.STR] = 45; sRow[COL.PC.CON] = 45; sRow[COL.PC.AGI] = 45; sRow[COL.PC.INT] = 40; sRow[COL.PC.LUK] = 35;
+    // 🎴 五圍已棄欄：戰鬥吃六圍 SIX。
   }
   sRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情柔和" });
   sRow[COL.PC.LOC] = loc;
@@ -325,7 +325,7 @@ function actionEnterGallery(userData, pcId, sheets) {
   mRow[COL.PC.SEX] = String(rec[COL.GAL.MSEX] || "異") || "異";
   mRow[COL.PC.REALM] = "凡人";
   mRow[COL.PC.HP] = 100; mRow[COL.PC.MAX_HP] = 100; mRow[COL.PC.MP] = 100; mRow[COL.PC.MAX_MP] = 100;
-  mRow[COL.PC.STR] = 10; mRow[COL.PC.CON] = 10; mRow[COL.PC.AGI] = 10; mRow[COL.PC.INT] = 10; mRow[COL.PC.LUK] = 10;
+  // 🎴 五圍已棄欄：戰鬥吃六圍 SIX。
   mRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情輕鬆" });
   mRow[COL.PC.LOC] = loc;
   mRow[COL.PC.FACTION] = "御主";
@@ -391,7 +391,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
   mRow[COL.PC.SEX] = mSex;
   mRow[COL.PC.REALM] = "凡人";
   mRow[COL.PC.HP] = 100; mRow[COL.PC.MAX_HP] = 100; mRow[COL.PC.MP] = 100; mRow[COL.PC.MAX_MP] = 100;
-  mRow[COL.PC.STR] = 10; mRow[COL.PC.CON] = 10; mRow[COL.PC.AGI] = 10; mRow[COL.PC.INT] = 10; mRow[COL.PC.LUK] = 10;
+  // 🎴 五圍已棄欄：戰鬥吃六圍 SIX。
   mRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情輕鬆" });
   mRow[COL.PC.LOC] = loc2;
   mRow[COL.PC.FACTION] = "御主";

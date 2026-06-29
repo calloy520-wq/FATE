@@ -153,31 +153,9 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   const retries = config.retries || 3;
   let lastErrorMessage = "";
 
-  let lawText = "";
-  try {
-    const cache = CacheService.getScriptCache();
-    const cachedLawText = cache.get("KYUSHU_LAW_TEXT");
-    if (cachedLawText !== null) {
-      lawText = cachedLawText;
-    } else {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const lawSheet = ss.getSheetByName("規矩");
-      if (lawSheet) {
-        const lawRange = lawSheet.getDataRange().getValues();
-        lawText = lawRange.map(row => row[0] ? `【當前主線時局/天道異象】${row[0]}: ${row[1] || ""}` : "").filter(x => x !== "").join("\n");
-        if (lawText !== "") cache.put("KYUSHU_LAW_TEXT", lawText, 600);
-      }
-    }
-  } catch (e) { Logger.log("讀取規矩表異常(略過): " + e.message); }
-
-  // 🔴 智能融合：套用大一統系統提示詞
+  // 🗑️ 規矩表(主線時局/天道異象)已移除：舊提示詞補丁，含「廝殺/謀略」等戰爭設定會漏進慾海。
+  //   雙軌分離後 solo/kanshou 不再共吃此文。(config.ignoreLaw 保留為相容無害鍵)
   let systemContent = systemOverride || buildDefaultSystemPrompt(config.isNsfwMode, config.backLocked);
-
-  // 🔴 規矩表(主線時局/天道異象)優先度降低：放在天道鐵律之後而非之前，
-  // 避免時局描述被AI誤判成比鐵律本身更高位階的指令
-  if (lawText !== "" && !config.ignoreLaw) {
-    systemContent = systemContent + "\n\n" + lawText;
-  }
 
   // 🔴【替換開始】組裝原生多輪 messages 陣列
   let apiMessages = [

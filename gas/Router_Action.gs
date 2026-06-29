@@ -136,7 +136,7 @@ function handleGameAction(userData) {
   //   與戰爭主表「眾生」完全隔離。solo 御主是 "PC_" 不受影響。
   const isKanshouCtx = String(pcId || "").indexOf("KPC_") === 0;
   const sheets = {
-    law: ss.getSheetByName("規矩"), map: ss.getSheetByName("坤圖"),
+    map: ss.getSheetByName("坤圖"),
     pc: (isKanshouCtx ? getKanshouPcSheet_(ss) : ss.getSheetByName("眾生")), log: ss.getSheetByName("因果"),
     item: ss.getSheetByName("琳琅"), auth: ss.getSheetByName("權柄"),
     rel: ss.getSheetByName("關係"), epic: ss.getSheetByName("史紀"),
@@ -485,7 +485,7 @@ function actionManualNpc(userData, pcId, sheets) {
     newRow[COL.PC.LOC] = spawnName;
     newRow[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "溫婉謙和、內斂堅韌、明哲保身、隨波逐流");
     newRow[COL.PC.HP] = maxStats.hp; newRow[COL.PC.MP] = maxStats.mp;
-    newRow[COL.PC.STR] = nStr; newRow[COL.PC.CON] = nCon; newRow[COL.PC.AGI] = nAgi; newRow[COL.PC.INT] = nInt; newRow[COL.PC.LUK] = nLuk;
+    // 🎴 五圍(STR~LUK)已棄欄：戰鬥吃六圍 SIX，HP/MP 由 calculateMaxStats(SIX) 算，不再寫數值。
     newRow[COL.PC.MAX_HP] = maxStats.hp; newRow[COL.PC.MAX_MP] = maxStats.mp;
     newRow[COL.PC.REALM] = isCreate ? "凡人" : targetRealm;
     newRow[COL.PC.FACTION] = aiBrief.faction || "無"; newRow[COL.PC.RANK] = aiBrief.rank || "散人";
@@ -691,7 +691,7 @@ function actionSummonServant(userData, pcId, sheets) {
       // 從者血厚：耐久越高越肉
       const svHp = 300 + svNum_(six.耐久) * 12, svMp = 120 + svNum_(six.魔力) * 6;
 
-      row[COL.PC.STR] = nStr; row[COL.PC.CON] = nCon; row[COL.PC.AGI] = nAgi; row[COL.PC.INT] = nInt; row[COL.PC.LUK] = nLuk;
+      // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       row[COL.PC.REALM] = "凡人";
       row[COL.PC.TRAIT] = parseTraitsHelper(traits.map(t => t.n).join("、"), "氣場凜然、舉止從容、精擅戰技、深藏之面");
@@ -730,7 +730,7 @@ ${FX_MENU_}
       // 六圍 → 數值（與名冊路徑一致，svNum_ 橋接）
       const nStr = svNum_(aiSix.筋力), nCon = svNum_(aiSix.耐久), nAgi = svNum_(aiSix.敏捷), nInt = svNum_(aiSix.魔力), nLuk = svNum_(aiSix.幸運);
       const svHp = 300 + svNum_(aiSix.耐久) * 12, svMp = 120 + svNum_(aiSix.魔力) * 6;
-      row[COL.PC.STR] = nStr; row[COL.PC.CON] = nCon; row[COL.PC.AGI] = nAgi; row[COL.PC.INT] = nInt; row[COL.PC.LUK] = nLuk;
+      // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       row[COL.PC.REALM] = "凡人";
       row[COL.PC.TRAIT] = parseTraitsHelper(aiTraits.map(t => t.n).join("、"), "氣場凜然、舉止從容、精擅戰技、不為人知的一面");
@@ -1183,7 +1183,7 @@ function actionRest(userData, pcId, sheets) {
 
   // ── 以下為非 FATE（九州）舊版休養：全回滿（經濟層已移除，不再收費）──
   let healedNames = [pcName];
-  const pMax = calculateMaxStats(pcData[pIdx][COL.PC.REALM], pcData[pIdx][COL.PC.CON], pcData[pIdx][COL.PC.INT]);
+  const pMax = maxStatsForRow_(pcData[pIdx]);
   const prevHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
   const wasInjured = prevHp < pMax.hp;
   pcData[pIdx][COL.PC.MAX_HP] = pMax.hp; pcData[pIdx][COL.PC.MAX_MP] = pMax.mp;
@@ -1194,7 +1194,7 @@ function actionRest(userData, pcId, sheets) {
     sheets.rel.getDataRange().getValues().filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]).forEach(npcName => {
       const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
       if (nIdx !== -1 && pcData[nIdx][COL.PC.STATUS] !== "屍體" && parseInt(pcData[nIdx][COL.PC.HP]) > 0) {
-        const nMax = calculateMaxStats(pcData[nIdx][COL.PC.REALM], pcData[nIdx][COL.PC.CON], pcData[nIdx][COL.PC.INT]);
+        const nMax = maxStatsForRow_(pcData[nIdx]);
         pcData[nIdx][COL.PC.MAX_HP] = nMax.hp; pcData[nIdx][COL.PC.MAX_MP] = nMax.mp;
         pcData[nIdx][COL.PC.HP] = nMax.hp; pcData[nIdx][COL.PC.MP] = nMax.mp;
         pcData[nIdx][COL.PC.STATUS] = normalStatus;
@@ -1635,7 +1635,7 @@ ${isKanshou ? `
       Logger.log("stat_changes: " + JSON.stringify(aiData.stat_changes));
 
 
-      const attrMap = { "生命": COL.PC.HP, "真氣": COL.PC.MP, "位置": COL.PC.LOC, "臂力": COL.PC.STR, "根骨": COL.PC.CON, "身法": COL.PC.AGI, "神識": COL.PC.INT, "福緣": COL.PC.LUK, "門派": COL.PC.FACTION, "幫派": COL.PC.FACTION, "宗門": COL.PC.FACTION, "階級": COL.PC.RANK, "職位": COL.PC.RANK, "稱號": COL.PC.RANK, "陣營": COL.PC.ALIGN, "立場": COL.PC.ALIGN, "貢獻度": COL.PC.CONTRIB, "貢獻": COL.PC.CONTRIB, "身世": COL.PC.BACK };
+      const attrMap = { "生命": COL.PC.HP, "真氣": COL.PC.MP, "位置": COL.PC.LOC, "門派": COL.PC.FACTION, "幫派": COL.PC.FACTION, "宗門": COL.PC.FACTION, "階級": COL.PC.RANK, "職位": COL.PC.RANK, "稱號": COL.PC.RANK, "陣營": COL.PC.ALIGN, "立場": COL.PC.ALIGN, "貢獻度": COL.PC.CONTRIB, "貢獻": COL.PC.CONTRIB, "身世": COL.PC.BACK };
       const visibleStateKeys = ["衣服", "姿勢", "負面", "顏面"];
 
       aiData.stat_changes.forEach(sc => {
@@ -1691,7 +1691,7 @@ ${isKanshou ? `
                 const fallbackMapRow = ["九州", rootLoc, "荒野", `${Math.floor(Math.random() * 120) - 60},${Math.floor(Math.random() * 120) - 60}`, "未探明區域。"];
                 sheets.map.appendRow(fallbackMapRow); memoryMapData.push(fallbackMapRow);
               }
-            } else if ([COL.PC.HP, COL.PC.MP, COL.PC.STR, COL.PC.CON, COL.PC.AGI, COL.PC.INT, COL.PC.LUK, COL.PC.CONTRIB].includes(colIdx)) {
+            } else if ([COL.PC.HP, COL.PC.MP, COL.PC.CONTRIB].includes(colIdx)) {
               let numCurrent = parseInt(pcData[targetIdx][colIdx]) || 0;
               let numNew = (valStr.startsWith("+") || valStr.startsWith("-")) ? numCurrent + parseInt(valStr) : parseInt(valStr);
               if (isNaN(numNew)) numNew = numCurrent; // 🔴 防呆：NaN就維持原值
@@ -1731,7 +1731,7 @@ ${isKanshou ? `
                         if (nIdx !== -1) {
                           pcData[nIdx][COL.PC.LOC] = healLoc;
                           pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "平穩" });
-                          pcData[nIdx][COL.PC.HP] = calculateMaxStats(pcData[nIdx][COL.PC.REALM], pcData[nIdx][COL.PC.CON], pcData[nIdx][COL.PC.INT]).hp;
+                          pcData[nIdx][COL.PC.HP] = maxStatsForRow_(pcData[nIdx]).hp;
                           dirtyPcRows.add(nIdx);
                         }
                       }
@@ -1963,7 +1963,7 @@ ${isKanshou ? `
 
       while (row.length < pcColCount) row.push("");
 
-      const maxVals = calculateMaxStats(row[COL.PC.REALM], row[COL.PC.CON], row[COL.PC.INT]);
+      const maxVals = maxStatsForRow_(row);
       row[COL.PC.MAX_HP] = maxVals.hp;
       row[COL.PC.MAX_MP] = maxVals.mp;
       row[COL.PC.HP] = Math.min(parseInt(row[COL.PC.HP]) || 0, maxVals.hp);

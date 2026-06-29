@@ -18,13 +18,14 @@ const MODEL_URL = "https://openrouter.ai/api/v1/chat/completions";
 // ★ 階段一：ORM 資料實體映射 (Data Mapping) 
 // ==========================================
 const COL = {
-  // 🎴 FATE 專屬眾生 schema（2026-06 砍九州經濟/生活層後重排，30 欄）。
-  //   已移除：財帛(MONEY)、裝備(WEP/ARM/ACC1/ACC2)、生活技能(LIFESKILL)、冗餘職階(CLS)。
+  // 🎴 FATE 專屬眾生 schema（2026-06 砍九州經濟/生活/五圍後，25 欄）。
+  //   已移除：財帛(MONEY)、裝備(WEP/ARM/ACC1/ACC2)、生活技能(LIFESKILL)、冗餘職階(CLS)、
+  //   九州數值五圍(STR/CON/AGI/INT/LUK)——FATE 戰鬥吃六圍 SIX 階級，HP/MP 由 SIX 推算。
   PC: {
     ID: 0, NAME: 1, SEX: 2, BACK: 3, STATUS: 4, TRAIT: 5, LOC: 6, PREF: 7,
-    HP: 8, MP: 9, STR: 10, CON: 11, AGI: 12, INT: 13, LUK: 14, MAX_HP: 15, MAX_MP: 16,
-    REALM: 17, MEMORY: 18, INTENT: 19, FACTION: 20, RANK: 21, CONTRIB: 22, ALIGN: 23,
-    PHYSICAL: 24, MARTIAL: 25, GAME_ID: 26, SIX: 27, TAGS: 28, SEEN: 29
+    HP: 8, MP: 9, MAX_HP: 10, MAX_MP: 11,
+    REALM: 12, MEMORY: 13, INTENT: 14, FACTION: 15, RANK: 16, CONTRIB: 17, ALIGN: 18,
+    PHYSICAL: 19, MARTIAL: 20, GAME_ID: 21, SIX: 22, TAGS: 23, SEEN: 24
   },
   REL: { PC: 0, NPC: 1, FAV: 2, TAG: 3, IS_PARTY: 4, MEMORY: 5, MAJOR_EVENT: 6 },
   MAP: { REGION: 0, NAME: 1, TYPE: 2, COORD: 3, DESC: 4, PARENT: 5 },
@@ -151,6 +152,12 @@ function calculateMaxStats(realm, con, int) {
     hp: 100 + (Math.floor((parseInt(con) || 10) * rMod) * 10),
     mp: 50 + (Math.floor((parseInt(int) || 10) * rMod) * 10)
   };
+}
+
+// 🎴 從一列的六圍 SIX 推 HP/MP（取代已棄的數值 CON/INT 欄：耐久→con、魔力→int）。
+function maxStatsForRow_(row) {
+  var six = {}; try { six = JSON.parse(row[COL.PC.SIX] || "{}"); } catch (e) { }
+  return calculateMaxStats(row[COL.PC.REALM], svNum_(six["耐久"] || "E"), svNum_(six["魔力"] || "E"));
 }
 
 // 🟢 亂碼特徵粉碎器
@@ -299,8 +306,8 @@ function buildPlayerStatusString(selfRow, totals, itemData, relMem = "", isNsfwM
 
   return [
     visibleStatusStr, "", selfRow[COL.PC.TRAIT], selfRow[COL.PC.LOC], selfRow[COL.PC.PREF],
-    selfRow[COL.PC.HP], selfRow[COL.PC.MP], totals ? totals.STR : selfRow[COL.PC.STR], totals ? totals.CON : selfRow[COL.PC.CON],
-    totals ? totals.AGI : selfRow[COL.PC.AGI], totals ? totals.INT : selfRow[COL.PC.INT], totals ? totals.LUK : selfRow[COL.PC.LUK],
+    selfRow[COL.PC.HP], selfRow[COL.PC.MP], totals ? totals.STR : "", totals ? totals.CON : "",
+    totals ? totals.AGI : "", totals ? totals.INT : "", totals ? totals.LUK : "",
     "", "", "", "", selfRow[COL.PC.REALM], safeMemory, safeRelMem, selfRow[COL.PC.FACTION],
     selfRow[COL.PC.RANK], selfRow[COL.PC.ALIGN], selfRow[COL.PC.CONTRIB], selfRow[COL.PC.BACK], safePhysical,
     selfRow[COL.PC.INTENT], selfRow[COL.PC.MARTIAL], ""
@@ -334,14 +341,12 @@ function getCharacterTotalStats(charId, sheets, cachedPcData = null, cachedItemD
   let realmName = row[COL.PC.REALM] || "凡人";
   let realmMod = REALM_MODIFIERS[realmName] || 1.0;
 
-  let baseSTR = Math.floor((parseInt(row[COL.PC.STR]) || 10) * realmMod);
-  let baseCON = Math.floor((parseInt(row[COL.PC.CON]) || 10) * realmMod);
-  let baseAGI = Math.floor((parseInt(row[COL.PC.AGI]) || 10) * realmMod);
-  let baseINT = Math.floor((parseInt(row[COL.PC.INT]) || 10) * realmMod);
-  let baseLUK = Math.floor((parseInt(row[COL.PC.LUK]) || 10) * realmMod);
+  // 🎴 FATE 六圍制：數值五圍(STR~LUK 欄)已棄用，顯示用值改由六圍 SIX 階級推導(svNum_)。
+  let six = {}; try { six = JSON.parse(row[COL.PC.SIX] || "{}"); } catch (e) { }
+  const fromSix_ = (k) => Math.floor(svNum_(six[k] || "E") * realmMod);
+  let baseSTR = fromSix_("筋力"), baseCON = fromSix_("耐久"), baseAGI = fromSix_("敏捷"), baseINT = fromSix_("魔力"), baseLUK = fromSix_("幸運");
 
-  // 🗑️ FATE 已棄用裝備系統：六圍不再吃武器/防具/飾物加成（FATE 角色從不設裝備欄，原本恆為空 no-op）。
-  //   回傳維持原形狀(WEP/wepSTR/armCON/wepName/armName 供下游傷害公式與敘述沿用)，恆為空/0。
+  // 🗑️ 裝備系統亦已棄用：回傳維持原形狀(WEP/wepSTR/armCON/wepName/armName 供下游沿用)，恆為空/0。
   return {
     id: charId, name: row[COL.PC.NAME], hp: parseInt(row[COL.PC.HP]) || 100, maxHp: parseInt(row[COL.PC.MAX_HP]) || 100,
     STR: baseSTR, CON: baseCON, AGI: baseAGI, INT: baseINT, LUK: baseLUK,
