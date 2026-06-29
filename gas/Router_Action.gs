@@ -890,9 +890,7 @@ function actionMove(userData, pcId, sheets) {
 
   try { markRivalsSeen_(sheets, pcId); } catch (e) { } // 🔵 抵達即偵查到此地敵人（世界 tick 後再揭一次）
 
-  // 📜 正典插針：抵達後依【戰爭】×路線×日×時段×地點檢查正史橋段（自然浮現路線、世界事件、引導）
-  let canonBeats = [], canonLeads = [];
-  if (isFateMove) { try { const cp = checkCanonPins_(sheets, pcId); canonBeats = cp.beats || []; canonLeads = cp.leads || []; } catch (e) { } }
+  // 📜 正典劇情插針已移除（2026-06 玩家定案·沒啥用處）——抵達不再自動塞 Fate 原作橋段／路線引導。
 
   const freshMapData = sheets.map.getDataRange().getValues();
   const rootTarget = target ? String(target).split('-')[0].trim() : "";
@@ -919,8 +917,6 @@ function actionMove(userData, pcId, sheets) {
     ap: apLeft,
     apMax: AP_PER_DAY,
     rumors: worldRumors,
-    canonBeats: canonBeats,
-    canonLeads: canonLeads,
     economy: isFateMove ? playerServantEconomy_(sheets, pcId) : null
   });
 }
@@ -1008,9 +1004,7 @@ function actionRest(userData, pcId, sheets) {
           ``;
       }
     }
-    // 📜 正典插針：休息推進時間（可能跨日）後檢查正史橋段
-    let restBeats = [], restLeads = [];
-    try { const cp = checkCanonPins_(sheets, pcId); restBeats = cp.beats || []; restLeads = cp.leads || []; } catch (e) { }
+    // 📜 正典劇情插針已移除（2026-06）——休息跨日不再自動塞 Fate 原作橋段。
     let restAmbushPrompt = "";
     if (restAmbush) {
       restAmbushPrompt = `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${restAmbush.enemyName}」${restAmbush.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊重創「${(pcData.find(r=>String(r[COL.PC.FACTION])==='從者'&&String(r[COL.PC.GAME_ID]||'')===restGameId)||[])[COL.PC.NAME]||'從者'}」（−${restAmbush.dmg}）${restAmbush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。★【鐵律】嚴禁輸出 stat_changes、items_gained、money_transferred。`;
@@ -1018,7 +1012,6 @@ function actionRest(userData, pcId, sheets) {
     return JSON.stringify({
       success: true, statusString: getFreshStatusString(pcId, pIdx, sheets), healedNames: healedNames,
       loc: pcLoc, wasInjured: wasInjured, restHours: restHours, clock: restClock, ap: apAfter, apMax: AP_PER_DAY, rumors: restRumors,
-      canonBeats: restBeats, canonLeads: restLeads,
       ambush: !!restAmbush, defeat: restAmbush ? restAmbush.defeat : false, dreamPrompt: restAmbush ? restAmbush.dreamPrompt : "", ambushPrompt: restAmbushPrompt, report: restAmbush ? restAmbush.report : null,
       servantDream: restDreamPrompt,
       victory: restVictory && !(restAmbush && restAmbush.defeat),

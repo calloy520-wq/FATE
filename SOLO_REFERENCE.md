@@ -195,10 +195,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
   - `masterToNpcRow_`：御主殿列→敵御主眾生列。BACK←身世(+外貌)、INTENT←萌點、TRAIT/PREF←persona 解析、凡人弱數值、MEMORY=【願望】|【魔術】。
   - `heroToNpcRow_`：英靈殿列→敵從者眾生列。
   - `canonHeroNames_`：正史6騎真名(禁玩家搶角)。
-- **Seed_Canon.gs**：正典劇情橋段。
-  - `checkCanonPins_`：回 {beats,leads,route}，劇情釘(開場/巴傑特/Lancer誘敵/教會/神殿/Excalibur/影/黑化/櫻/吉爾late…)。
-  - `lockRoute_`(ROUTE_PIVOT_DAY=4 依 wish/bond/kills 鎖路線)、`spawnGilgamesh_`(後期遊蕩金閃)、`blackenFoe_`(黑化)、`shadowDevourFoe_`(影吞)。
-  - `getRoute_/setRoute_/getFiredPins_/addFiredPin_`：MEMORY【路線】【史】讀寫。
+- **Seed_Canon.gs**：📜 正典劇情插針系統 **已退役(2026-06 玩家定案·沒啥用處)**。`checkCanonPins_` 留 no-op 空殼(永遠回 {beats:[],leads:[],route:""})；actionMove/actionRest 不再呼叫、前端不再顯示 canonBeats/canonLeads；CANON_PINS 資料＋lockRoute_/spawnGilgamesh_/blackenFoe_/shadowDevourFoe_/route 讀寫 一併移除。**未動**：正史/混亂【戰爭】模式＋扮演正典御主(敵方陣營生成，在 Router_Action)。MEMORY【路線】【史】成無用遺留。
 
 ---
 
@@ -264,7 +261,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 ```
 【願望】wish 【令咒】N 【迴路】N(預設30) 【魔術】 【出身】 【體術】
 【模式】canon/chaos 【戰爭】4th/5th/fake 【扮演】正典御主id
-【路線】route 【史】firedPins 【試煉】N(god_hand命數)
+【試煉】N(god_hand命數)　※【路線】route／【史】firedPins 已隨正典插針退役·無用遺留
 【羈絆日】D:type1,type2(跨日重置) 【強撐】D(second_wind 舊日限·已棄用·helper 留著無害)
 【陣地】loc 【禮裝】id 【禮充】n 【盟約至】day 【鑑賞緣】 【破戒奪取】 【黑化Alter】
 【魔境】fx(斯卡哈玩家選的通用A階被動，set_mage_realm 寫，rowToCombatant_ 注入) 【符文】def/dmg/regen(原初符文運用，set_rune_mode 寫)
@@ -300,7 +297,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 ## 13. 已完成的四大區塊（本專案進度）
 
-①戰鬥職階相剋＋寶具專屬(Engine_Fate) ②正典劇情橋段(Seed_Canon) ③戰爭規則含結盟(同盟系統) ④日常與羈絆(bond/補魔/夢境/禮裝/雙從者/破戒奪僕/同盟生命週期→鑑賞)。
+①戰鬥職階相剋＋寶具專屬(Engine_Fate) ②~~正典劇情橋段(Seed_Canon)~~已退役 ③戰爭規則含結盟(同盟系統) ④日常與羈絆(bond/補魔/夢境/禮裝/雙從者/破戒奪僕/同盟生命週期→鑑賞)。
 種子庫 36 從者＋13 御主 persona 全補完(v3)。
 
 ---
