@@ -23,8 +23,7 @@ const ActionRouter = {
   "get_full_status": actionGetFullStatus,
   "update_fate": actionUpdateFate,
   "update_rel_tag": actionUpdateRelTag,
-  "manual_npc": actionManualNpc,
-  "create": actionManualNpc, // create 與 manual_npc 共用同一個邏輯
+  "create": actionManualNpc, // 御主創角(isCreate 分支)。手動建 NPC(manual_npc) 已移除、其 !isCreate 分支成死碼。
   "summon_servant": actionSummonServant,
   "get_heroes": actionGetHeroes,
   "get_masters": actionGetMasters,

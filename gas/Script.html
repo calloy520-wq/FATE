@@ -215,7 +215,6 @@ function renderRecentLocs(recents = null) {
       case 'sync': syncData(); break;
       case 'explore': toggleExplore(); break;
       case 'npc': refreshAndOpenNpcList(); break;
-      case 'bond': toggleBondModal(); break;
       case 'status': openStatus(); break;
       
       // 🔴 修改這行！讓它去呼叫專屬的設定選單函數
@@ -800,8 +799,7 @@ function renderRecentLocs(recents = null) {
       container.innerHTML = `
         <p style='text-align:center; color:#816e54;'>四下無人，亦無牽掛。</p>
         <div style="border-top:1px dashed rgba(51,34,17,0.2); margin-top:15px; padding-top:15px; text-align:center;">
-          ${(pc && pc.mode === 'full') ? '<button class="btn" style="border-color:#a0826d; color:#a0826d; padding:8px 20px;" onclick="closeNpcList(); toggleBondModal()">🤝 結識新人</button>' : ''}
-        </div>`;
+          </div>`;
       return;
   }
     
@@ -866,7 +864,6 @@ function renderRecentLocs(recents = null) {
     }).join("");
      container.innerHTML += `
       <div style="border-top:1px dashed rgba(51,34,17,0.2); margin-top:15px; padding-top:15px; text-align:center;">
-        ${(pc && pc.mode === 'full') ? '<button class="btn" style="border-color:#a0826d; color:#a0826d; padding:8px 20px;" onclick="closeNpcList(); toggleBondModal()">🤝 結識新人</button>' : ''}
       </div>`;
   }
   
@@ -922,16 +919,6 @@ function renderRecentLocs(recents = null) {
       const actionGuidance = NPC_ACTIONS[actName] ? NPC_ACTIONS[actName].prompt : "";
       const finalMsg = `【系統動作：${moveContext} 請嚴格審視玩家當前處境是否能自由行動。若能，${actionGuidance}】`;
       send(finalMsg, true, combatData);
-  }
-
-  function toggleBondModal() {
-    const el = document.getElementById('bond-overlay');
-    const isOpening = el.style.display !== 'flex';
-    el.style.display = isOpening ? 'flex' : 'none';
-    if(isOpening) {
-      document.getElementById('bond-loc-display').innerText = document.getElementById('ui-loc').innerText;
-      document.getElementById('npc-name-in').value = "";
-    }
   }
 
   function updateUI(s) {
@@ -2128,28 +2115,6 @@ function renderRecentLocs(recents = null) {
       }
     })
     .catch(() => alert("連線受阻，重新定義羈絆失敗。"));
-}
-  async function submitBond() {
-  const name = document.getElementById('npc-name-in').value.trim();
-  const sex = document.getElementById('npc-sex-in').value;
-  const rel = document.getElementById('npc-rel-in').value;
-  const desc = document.getElementById('npc-desc-in').value.trim(); // 🔴 新增
-  if (!name) return;
-
-  try {
-    const data = await gasRun({
-      action: "manual_npc", pcId: pc.id, npcName: name, npcSex: sex,
-      npcRel: rel, currentLoc: document.getElementById('ui-loc').innerText,
-      npcContext: desc ? `玩家描述：${desc}` : ""  // 🔴 新增
-    });
-    alert(data.message);
-    if (data.success) {
-      send(`【系統】與「${name}」正式結識，其身份為玩家的【${rel}】。`);
-      toggleBondModal();
-    }
-  } catch(e) {
-    alert("感應失敗");
-  }
 }
   
 
