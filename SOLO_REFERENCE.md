@@ -48,15 +48,19 @@
 - **game_id**：每局一個世界。`g_`+ts = 聖杯戰爭；`k_`+ts = 鑑賞世界。所有眾生/時鐘/關係查詢都帶 game_id 過濾，杜絕跨世界外洩。
 - **🌹 慾海獨立分頁＋多人(最多3)**：慾海角色住獨立「**鑑賞眾生**」分頁(`getKanshouPcSheet_`，schema 同眾生)，與戰爭主表隔離、頻繁新增/移除不污染。**dispatcher 在 `pcId` 以 `KPC_` 開頭時把 `sheets.pc` 路由到此分頁**(solo 御主 `PC_` 不受影響；全 codebase 唯一硬寫死「眾生」處＝dispatcher line ~146)。`actionEnterGallery` 改寫此分頁＋**持久接續**(同御主×同從者已有 k_ 世界→接續不重建、肉體/親密/羈絆延續)。`kanshouServantRow_` 共用建列。同伴管理 action `kanshou_companions/add/remove`(上限3)；前端抽屜「👥 後日談同伴」(`drawer-companions`，`applyModeUI` 僅鑑賞顯示)→`openCompanions/kanshouAdd/kanshouRemove`。慾海聊天仍走 `actionPlay`(引擎未動)。**NSFW**：`enterGallery` 自動勾 `nsfw-mode-toggle`(否則 isNsfwMode=false→intimacy 回填全跳過、肉體狀態不寫)。**DEV**：`dev_seed_gallery`(待移除)塞測試從者。
 - **FACTION 區分**（COL.PC.FACTION 字串）：`御主`(玩家)、`從者`(玩家的)、`敵御主`、`敵從者`、`盟友御主`/`盟友從者`(前端 override，見 §8)。
-- ⚠ **五圍(STR/CON/AGI/INT/LUK)＋境界(REALM) 是承重牆，勿從根本移除**：`calculateMaxStats(REALM,CON,INT)` 算 HP/MP、從者六圍→svNum_→五圍→戰鬥傷害都靠它。FATE 全員 REALM="凡人"。只能「UI 隱藏＋不叫 AI 生成」，不能砍欄位。已做：UI 五圍排/境界 標 `data-mode="full"`(solo/鑑賞隱藏)；MASTER_GEN_SYS 不再輸出 realm/str/con/...(GAS 本就覆寫成 凡人+隨機 10-15)。
+- ⚠ **五圍(STR/CON/AGI/INT/LUK)＋境界(REALM) 仍是承重牆**：`calculateMaxStats(REALM,CON,INT)` 算 HP/MP、從者六圍→svNum_→五圍→戰鬥傷害都靠它。FATE 全員 REALM="凡人"。目前只「UI 隱藏＋不叫 AI 生成」(UI 五圍排/境界 標 `data-mode="full"`；MASTER_GEN_SYS 不輸出 realm/str/...)。
+  - 🔜 **待辦(玩家 2026-06 定，慢慢搞)**：FATE 是六圍(SIX 階級)制，要把九州數值五圍**徹底移除**——需先把戰鬥傷害/`calculateMaxStats`/`svNum_` 改成**直接吃 SIX**，再砍 STR~LUK 欄。動到創角＋戰鬥，獨立一場謹慎做、勿與其他清理混。
 - **分頁**（Setup_FateWorld.gs `FATE_SHEET_DEFS`，缺頁自動補、冪等）：眾生/英靈殿/御主殿/戰鬥標籤/帳號/戰史/鑑賞/時鐘/關係/坤圖(地圖)/因果(log)…
 
 ### COL schema（索引讀取，表頭僅供人看）
 ```
-PC(眾生): ID0 NAME1 SEX2 BACK3(身世) STATUS4 MONEY5 TRAIT6 LOC7 PREF8(喜好/個性)
-  HP9 MP10 STR11 CON12 AGI13 INT14 LUK15 MAX_HP16 MAX_MP17 WEP18 ARM19 ACC1_20 ACC2_21
-  REALM22 MEMORY23 INTENT24(萌點) FACTION25 RANK26(職階) CONTRIB27 ALIGN28 PHYSICAL29
-  MARTIAL30(寶具) LIFESKILL31 GAME_ID32 CLS33 SIX34(六圍JSON) TAGS35(技能JSON) SEEN36(戰爭迷霧)
+PC(眾生)【FATE 30欄·2026-06 砍九州經濟/生活層後重排】:
+  ID0 NAME1 SEX2 BACK3(身世) STATUS4(外顯) TRAIT5 LOC6 PREF7(個性)
+  HP8 MP9 STR10 CON11 AGI12 INT13 LUK14 MAX_HP15 MAX_MP16
+  REALM17 MEMORY18 INTENT19(萌點) FACTION20 RANK21(職階) CONTRIB22 ALIGN23
+  PHYSICAL24(肉體·NSFW) MARTIAL25(寶具) GAME_ID26 SIX27(六圍JSON) TAGS28(技能JSON) SEEN29(戰爭迷霧)
+  🗑️已刪:財帛MONEY/裝備WEP·ARM·ACC1·ACC2/生活技能LIFESKILL/冗餘職階CLS(併RANK)。
+  🗑️COL 已無 ITEM/QUEST/SHOP/MAIL/TASK/CTAG 子表(戰鬥標籤分頁仍在、以fx碼查找不需索引)。
 HERO(英靈殿): ID0 CLS1 NAME2(真名) SEX3 SIX4 CLASS_SKILLS5 SKILLS6 TRAITS7 NP8 PERSONA9(JSON) ALIGN10 WARS11 SOURCE12
 MASTER(御主殿): ID0 NAME1 SEX2 APPEAR3 MAGIC4 CIRCUITS5 MELEE6 MAGIC_RANK7 HOME8 WISH9 PERSONA10 WAR11 SOURCE12 BACK13(身世) MOE14(萌點)
 REL(關係): PC0 NPC1 FAV2(好感/羈絆) TAG3 IS_PARTY4 MEMORY5 MAJOR_EVENT6
@@ -100,8 +104,8 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | kanshou_set_sex / kanshou_set_name | actionKanshouSetSex／actionKanshouSetName (Gallery.gs) | ⚧/✏ 隨時改後日談御主 avatar 性別/名字(只動該欄，不影響歷史；改名一併遷當前同伴的 REL.PC 羈絆鍵)。👥面板「切換性別」「改名」鈕→`changeKanshouSex()`／`changeKanshouName()` |
 | get_victory_history / get_ranking | — | 戰史/排行 |
 
-### full-only 遺留（solo 不露出，勿在 solo 邏輯依賴）
-give_money, buy_intel, craft_item, gift_item, steal_npc_item, attack_npc, multi_attack, execute_npc, spare_npc, home_*, estate_*, warehouse_*, quests, claim_quest_reward, promote_rank, create_faction, breakthrough, empower_npc, cultivate, join/dismiss_party, get_faction_info, get_rumors, equip_gear, shop 系。`play`(actionPlay=天道自由演化) 用於 full/kanshou，**solo 戰爭不走 play**。
+### 🗑️ 九州經濟/生活層已全數移除（2026-06，code＋分頁＋COL 一併清）
+銀兩(MONEY)/商城·店鋪(SHOP)/物品·背包(ITEM)/天命·任務(QUEST)/工房(TASK)/賭場/飛書(MAIL)/生活技能(LIFESKILL)/裝備(WEP·ARM·ACC1·ACC2)——對應 action、helper(resolveItemName/transferMoney/checkAndExpireQuests…)、actionPlay 內 items_gained/transferred/lost/used·money_transferred·quest 解析、前端背包/物品連結/飛書 UI 全拆；COL 子表與分頁定義一併刪。**保留**：魔力收支(playerServantEconomy_/工房/`economy:`欄＝FATE 戰鬥機制非錢)、關係(REL)、肉體(PHYSICAL)/外顯(STATUS)。`play`(actionPlay) 仍用於 kanshou(NSFW)，**solo 戰爭走 narrate_only 不走 play**。
 
 ---
 
