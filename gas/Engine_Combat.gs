@@ -63,9 +63,6 @@ function buildDefaultSystemPrompt(isNsfwMode, backLocked) {
           "mutual_nicknames": "無"
         }]
       },
-      "stat_changes": [
-        { "target": "角色名號(玩家或NPC)", "attr": "位置", "value": "母區域-分支名稱（僅當劇情中實際移動到新地點才輸出此項，沒有移動就整個陣列留空[]）" }
-      ],
       "rel_changes": baseJson.rel_changes,
       "mentioned_names": baseJson.mentioned_names,
       // 🔴 慾海模式event欄位禁止描述肉體細節：實際因果文字改由GAS固定樣式生成(隱晦化)，AI只需給方向與標籤
@@ -118,7 +115,7 @@ function buildDefaultSystemPrompt(isNsfwMode, backLocked) {
 3. 萌點節制：快照中標註的「萌點」只是角色的反差背景彩蛋之一，【絕對禁止】每回合或連續多回合刻意安排情境去觸發它，【絕對禁止】反覆強調成該角色唯一性格。預設應完全略過此欄，只有場景本就自然涉及該萌點情境時才可順勢輕輕一筆帶過，且同一萌點至少間隔數回合不重複使用。
 
 【狀態與輸出】
-1. 本回合聚焦於當下的近身互動本身(情慾、調情、對話或鋪陳皆可，依劇情自然推進，不必每回合都導向情慾)：肢體/感官/姿勢等狀態一律填入 intimacy_feedback，嚴禁另以 stat_changes 輸出生命/魔力/負面等任何數值或狀態；戰鬥、物品、金錢、陣營、任務等雜務本回合不追蹤、不輸出。唯獨「位置」例外：若劇情中玩家或NPC明確移動到了新地點(如走進房間、轉移陣地)，仍須透過 stat_changes 輸出該角色的「位置」變更(格式同純淨模式：母區域-分支，限一個減號)，否則之後的場景與在場人物判定會錯亂；沒有移動就不輸出。
+1. 本回合聚焦於當下的近身互動本身(情慾、調情、對話或鋪陳皆可，依劇情自然推進，不必每回合都導向情慾)：肢體/感官/姿勢等狀態一律填入 intimacy_feedback，嚴禁另以 stat_changes 輸出生命/魔力/負面/位置等任何數值或狀態；戰鬥、物品、金錢、陣營、任務等雜務本回合不追蹤、不輸出。位置移動一律由系統地圖按鈕管理，AI 絕不輸出任何位置變更。
 2. 只輸出合法JSON，options固定4個且順序不可變：[主動]強勢掌握、[被動]委婉試探、[接續]延續互動、[反差]跳脫氛圍，每項20字。`;
 
   const baseRules = isNsfwMode ? nsfwBaseRules : sfwBaseRules;
