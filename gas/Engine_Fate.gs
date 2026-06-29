@@ -11,6 +11,98 @@ function rankMul_(r) { return rankVal(r) / 30; }
 //   故低階偶能擲贏高階（爆冷），骰運重新有戲，不再「差一階就鎖死」。
 function rankBand_(r) { return rankVal(r) + (Math.floor(Math.random() * 16) - 10); }
 
+// 🎲 擲骰：n 顆 d(sides)，回傳總和（D&D 風傷害骰的核心）。n<=0 回 0。
+function rollDice_(n, sides) {
+  n = Math.max(0, Math.round(n)); sides = Math.max(1, Math.round(sides));
+  var s = 0;
+  for (var i = 0; i < n; i++) s += Math.floor(Math.random() * sides) + 1;
+  return s;
+}
+// 階級→骰數階(E=1 D=2 C=3 B=4 A=5 EX=6)：傷害骰顆數隨主屬性階級遞增。
+function rankTier_(r) { var v = rankVal(r); if (v >= 60) return 6; if (v >= 50) return 5; if (v >= 40) return 4; if (v >= 30) return 3; if (v >= 20) return 2; return 1; }
+
+// ⚔️🔱 概念優先權（Priority）：數字越高＝概念位階越高。Fate 世界觀的「真理＞固有結界＞傳說武技＞英靈技能」階梯。
+//   高位階「進攻概念」可碾壓低位階「防禦概念」——當 攻方進攻階 ≥ 守方防禦階 + PIERCE_GAP 時，該防禦被無視（概念壓制）。
+//   把原本散落各處的 if（破魔無視神核／神代凌駕對魔力…）系統化成一張可擴充的表。
+var CONCEPT_TIER = {
+  // 6｜世界·真理級：斬裂世界，凌駕一切防禦與結界
+  ea: 6,
+  // 5｜神祖·王權·斬契約級
+  excalibur: 5, divine_age: 5, rule_breaker: 5,
+  // 4｜固有結界·破魔·必中級
+  ubw: 4, anti_magic_lance: 4, gae_bolg: 4,
+  // 3｜傳說武技·不死·暗殺級
+  god_hand: 3, tsubame: 3, zabaniya: 3, petrify: 3,
+  // 2｜英靈防禦技能級（會被高位階概念壓制的那一層）
+  nullify_magic: 2, divine_core: 2, territory: 2
+};
+var PIERCE_GAP = 2; // 攻方概念階高出守方此值以上 → 概念壓制（無視該防禦）
+function conceptTier_(fx) { return CONCEPT_TIER[fx] || 1; }
+// 取某戰鬥單位「進攻概念」的最高位階（只看寶具解放時真正打出的高位階攻擊概念）
+function offenseTier_(c, isNp) {
+  var pierceFx = isNp ? ['ea', 'excalibur', 'rule_breaker', 'ubw', 'anti_magic_lance', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify']
+                      : ['rule_breaker', 'anti_magic_lance']; // 非解放時，只有破戒/破魔這類「常駐穿透概念」生效
+  var t = 1;
+  for (var i = 0; i < pierceFx.length; i++) { if (hasFx_(c, pierceFx[i])) t = Math.max(t, conceptTier_(pierceFx[i])); }
+  return t;
+}
+
+// 🔋 寶具 Prana Cost（依寶具階級）：E50 D100 C200 B350 A500 EX800。
+//   故事感：低階寶具從者自付有餘；A/EX 級往往需御主以血魔供能（御主電池）。
+function npPranaCost_(npRank) {
+  var v = rankVal(npRank);
+  if (v >= 60) return 800;  // EX
+  if (v >= 50) return 500;  // A / A+
+  if (v >= 40) return 350;  // B
+  if (v >= 30) return 200;  // C
+  if (v >= 20) return 100;  // D
+  return 50;                // E
+}
+
+// 🎲 寶具基礎傷害骰（依寶具階級，d10 系）：E3d10 D5d10 C8d10 B12d10 A20d10 EX30d10。
+//   ★與原作「階級＝絕對威力」掛鉤——寶具解放這一發的主威力來源；其餘 buff 只是錦上添花。
+function npBaseDice_(npRank) {
+  var v = rankVal(npRank);
+  if (v >= 60) return rollDice_(30, 10);  // EX（原案 50d10，下修避免必殺秒殺、仍輔以概念壓制）
+  if (v >= 55) return rollDice_(22, 10);  // A+
+  if (v >= 50) return rollDice_(20, 10);  // A
+  if (v >= 40) return rollDice_(12, 10);  // B
+  if (v >= 30) return rollDice_(8, 10);   // C
+  if (v >= 20) return rollDice_(5, 10);   // D
+  return rollDice_(3, 10);                // E
+}
+
+// 🏰 寶具規模相剋矩陣（攻擊規模 × 防禦規模 → 傷害倍率）：
+//   對城打對人 ×2.5、對界無視防禦進行概念碾壓。0x（無效）以引擎 Math.max(1) 保底為一絲擦傷，不硬鎖。
+var NP_SCALE_IDX = { '對人': 0, '對軍': 1, '對城': 2, '對界': 3 };
+var NP_SCALE_MATRIX = [
+  //    對人防  對軍防  對城防  對界防
+  [1.00, 0.50, 0.10, 0.05],  // 對人攻
+  [1.50, 1.00, 0.50, 0.05],  // 對軍攻
+  [2.50, 2.00, 1.00, 0.10],  // 對城攻
+  [3.00, 2.50, 2.00, 1.00]   // 對界攻（無視一般防禦＝高倍＋概念壓制；不做 literal 即死，避免敵方一發秒殺玩家）
+];
+// 攻擊寶具規模：由寶具名(對人/對軍/對城/對界)或 ea/excalibur 標籤推定，預設對人。
+function npAtkScale_(c) {
+  var np = String(c.np || '');
+  if (hasFx_(c, 'ea') || /對界/.test(np)) return '對界';
+  if (hasFx_(c, 'excalibur') || /對城/.test(np)) return '對城';
+  if (/對軍/.test(np)) return '對軍';
+  return '對人';
+}
+// 防禦規模：固有結界/對界寶具持有者＝對界防；神核/十二試煉/對城寶具＝對城防；陣地/對軍寶具＝對軍防；其餘對人防。
+function npDefScale_(c) {
+  var np = String(c.np || '');
+  if (hasFx_(c, 'ubw') || /對界/.test(np)) return '對界';
+  if (hasFx_(c, 'divine_core') || hasFx_(c, 'god_hand') || /對城/.test(np)) return '對城';
+  if (hasFx_(c, 'territory') || /對軍/.test(np)) return '對軍';
+  return '對人';
+}
+function npScaleMult_(atkC, defC) {
+  var a = NP_SCALE_IDX[npAtkScale_(atkC)], d = NP_SCALE_IDX[npDefScale_(defC)];
+  return NP_SCALE_MATRIX[a][d];
+}
+
 // 令咒緊急脫離的落點：隨機挑一個非約會型的冬木地點（≠ 當前地）
 function enemyRetreatLoc_(currentLoc) {
   try {
@@ -154,8 +246,14 @@ function resolveFateBattle_(atk, def, opts) {
   var loser = atkWins ? def : atk;
 
   // 傷害：勝方依職階主屬性為底（法師＝魔力轟擊／近戰＝筋力）+ 分差
+  //   🎲 D&D 風武器骰：底傷 = 階級基底×0.5（穩定底）＋ rankTier 顆 d8（武器骰，帶骰運起伏）＋ 命中分差×1.2
+  //   中位數約等於舊「rankVal 平值」，但每一擊有 ±的浮動，低階偶爆高傷、高階偶失手，貼近擲骰桌遊手感。
   var wProf = (winner === atk) ? aProf : dProf;
-  var base = rankVal(winner.six[wProf.dmg]) + Math.round(Math.abs(aHit - dEva) * 1.2);
+  var wDmgRank = winner.six[wProf.dmg];
+  var wTier = rankTier_(wDmgRank);
+  var weaponDice = rollDice_(wTier, 8);
+  var base = Math.round(rankVal(wDmgRank) * 0.5) + weaponDice + Math.round(Math.abs(aHit - dEva) * 1.2);
+  fired.push(winner.name + '·武器骰' + wTier + 'd8=' + weaponDice);
   var su = hasFx_(winner, 'str_up'); if (su) { base += Math.round(8 * rankMul_(su)); fired.push(winner.name + '·' + fxName_(winner, 'str_up', '怪力')); }
   var burst = hasFx_(winner, 'burst'); if (burst) { base = Math.round(base * (1 + 0.2 * rankMul_(burst))); fired.push(winner.name + '·' + fxName_(winner, 'burst', '魔力放出')); }
   // 勇猛/卡里斯瑪(morale)：傷害+；但對方「透化(clear_mind)」免疫此精神威壓
@@ -178,9 +276,11 @@ function resolveFateBattle_(atk, def, opts) {
   // 🔱 職階相性傷害加成：克制方下手更狠（與上方命中先機呼應）
   if (KNIGHT_BEATS[winner.cls] === loser.cls) { base = Math.round(base * 1.12); fired.push(winner.name + '·職階相性·壓制' + loser.cls); }
   if (atkWins && tsubame) base = Math.round(base * 2.3);
-  // 寶具解放：加寶具階級威能（軍略 +15%、神性 +10%）
+  // 寶具解放：主威力＝依寶具階級的 d10 基礎骰（E3→EX30）；階級小補正錦上添花（軍略 +15%、神性 +10%）
   if (opts.np) {
-    base += Math.round(rankVal(winner.six["寶具"]) * 1.6) + 18; fired.push(winner.name + '·寶具解放');
+    var npRank = winner.six["寶具"];
+    var npDice = npBaseDice_(npRank); base += npDice; fired.push(winner.name + '·寶具骰(' + (rankVal(npRank) >= 60 ? 'EX' : npRank) + ')=' + npDice);
+    base += Math.round(rankVal(npRank) * 0.6) + 10; fired.push(winner.name + '·寶具解放');
     if (hasFx_(winner, 'tactics')) { base = Math.round(base * 1.15); fired.push(winner.name + '·' + fxName_(winner, 'tactics', '軍略')); }
     var wDivine = (winner.traits || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
     if (wDivine) base = Math.round(base * 1.1);
@@ -188,32 +288,39 @@ function resolveFateBattle_(atk, def, opts) {
     if (hasFx_(winner, 'ubw')) { base = Math.round(base * 1.25); fired.push(winner.name + '·' + fxName_(winner, 'ubw', '無限劍製') + '(固有結界)'); }
     // 👑 王之財寶(gob／Gilgamesh)：無數寶具連射，追加寶具階級彈幕
     if (hasFx_(winner, 'gob')) { base += Math.round(rankVal(winner.six["寶具"]) * 0.9) + 14; fired.push(winner.name + '·' + fxName_(winner, 'gob', '王之財寶') + '(連射)'); }
-    // ☀️ 對城／對界寶具（誓約勝利之劍 Excalibur 等）：王＋神性的大威力一閃
-    if (/對城|對界|對軍/.test(String(winner.np || '')) && (winner.traits || []).some(function (t) { return t && /王/.test(String(t.n)); })) {
-      base = Math.round(base * 1.15); fired.push(winner.name + '·對城寶具·一閃');
-    }
     // 🗡️ 妄想心音／霧夜殺戮(zabaniya)：暗殺系寶具＝奪心一擊，命中即致命級重創（救低六圍刺客/狂戰的本命）
     if (hasFx_(winner, 'zabaniya')) { base = Math.round(base * 1.9) + 70; fired.push(winner.name + '·' + fxName_(winner, 'zabaniya', '妄想心音') + '(奪心致命)'); }
     // 🌑 規則破壞(rule_breaker)寶具化／魔眼石化(petrify)等控場寶具的小加成已於上方命中處理；此處給魔眼一發致殘
     if (hasFx_(winner, 'petrify')) { base = Math.round(base * 1.3); fired.push(winner.name + '·魔眼·石化貫穿'); }
+    // 🌟 乖離劍·天地乖離開闢之星(ea)：概念位階 6，斬裂世界的真理之劍——最高威力，且無視一切防禦概念（下方概念壓制處理）
+    if (hasFx_(winner, 'ea')) { base = Math.round(base * 1.7) + rollDice_(4, 12) + 80; fired.push(winner.name + '·' + fxName_(winner, 'ea', '乖離劍') + '(天地乖離·真理之劍)'); }
+    // 🏰 寶具規模相剋矩陣：對城打對人 ×2.5、對界碾壓常規防禦…（攻擊規模 × 守方防禦規模）
+    var scaleMult = npScaleMult_(winner, loser);
+    if (scaleMult !== 1) { base = Math.round(base * scaleMult); fired.push(winner.name + '·' + npAtkScale_(winner) + '寶具 vs ' + npDefScale_(loser) + '防(×' + scaleMult + ')'); }
   }
   // 令咒·絕對命令：全力一擊
   if (opts.seal) { base = Math.round(base * 1.5); fired.push('令咒·絕對命令'); }
 
+  // 🔱 概念優先權壓制：勝方的最高「進攻概念」位階若高出某防禦概念 PIERCE_GAP 階以上 → 該防禦被無視。
+  //   把「破魔無視神核」「ea 凌駕一切結界」這類交互系統化：pierces(防禦fx) 為 true 即跳過該減傷。
+  var pierceT = offenseTier_(winner, !!opts.np);
+  var pierces = function (defFx) { return pierceT >= conceptTier_(defFx) + PIERCE_GAP; };
   // 守方減傷：耐久（階級）
   base -= Math.round(rankVal(loser.six["耐久"]) / 2);
   // 🛡️ 陣地作成(territory)：法師以魔術防壁／結界減傷，補償其低耐久（救玻璃大砲美狄亞的存活）
-  if (hasFx_(loser, 'territory')) { base = Math.round(base * 0.74); fired.push(loser.name + '·' + fxName_(loser, 'territory', '陣地') + '·魔術防壁'); }
-  // 神核(divine_core)：減傷 18%×階級；但破魔薔薇(anti_magic_lance)無視神核護甲
+  if (hasFx_(loser, 'territory') && !pierces('territory')) { base = Math.round(base * 0.74); fired.push(loser.name + '·' + fxName_(loser, 'territory', '陣地') + '·魔術防壁'); }
+  else if (hasFx_(loser, 'territory')) { fired.push(winner.name + '·概念壓制(碾穿結界)'); }
+  // 神核(divine_core)：減傷 18%×階級；但破魔薔薇(anti_magic_lance)等高位階概念無視神核護甲
   var dc = hasFx_(loser, 'divine_core');
-  if (dc && hasFx_(winner, 'anti_magic_lance')) { fired.push(winner.name + '·破魔(無視神核)'); }
+  if (dc && (hasFx_(winner, 'anti_magic_lance') || pierces('divine_core'))) { fired.push(winner.name + '·' + (hasFx_(winner, 'anti_magic_lance') ? '破魔(無視神核)' : '概念壓制(無視神核)')); }
   else if (dc) { base = Math.round(base * (1 - 0.18 * rankMul_(dc))); fired.push(loser.name + '·' + fxName_(loser, 'divine_core', '神核')); }
   // 對魔力(nullify_magic)：攻方為魔術系(法師魔砲/魔力放出/神代)時大減魔術傷。
   //   ★原作精髓：A 階對魔力幾乎無視現代魔術——Saber 對 Caster 的魔砲僅如清風拂面。
   //   但神代魔術(Caster 美狄亞的本領)凌駕現代對魔力，減免折半。
   var atkMagic = (wProf.dmg === '魔力') || !!hasFx_(winner, 'burst') || !!hasFx_(winner, 'divine_age');
   var nm = hasFx_(loser, 'nullify_magic');
-  if (atkMagic && nm) {
+  if (atkMagic && nm && pierces('nullify_magic')) { fired.push(winner.name + '·概念壓制(凌駕對魔力)'); }
+  else if (atkMagic && nm) {
     var nmV = rankVal(nm);
     var red = 0.30 * rankMul_(nm);                 // 基礎：階級越高擋越多
     if (nmV >= 50) red = Math.max(red, 0.80);      // A 階以上：現代魔術近乎無效
@@ -227,7 +334,8 @@ function resolveFateBattle_(atk, def, opts) {
 
   var crit = (atkWins && aRoll === 20) ? 'atk_crit' : (!atkWins && dRoll === 20) ? 'def_crit'
     : (aRoll === 1 && !atkWins) ? 'atk_fumble' : (dRoll === 1 && atkWins) ? 'def_fumble' : '';
-  if (crit === 'atk_crit' || crit === 'def_crit') damage += 30;
+  // 🎯 暴擊(擲 20)＝多骰一輪武器骰再 +12（D&D 風「爆擊多擲傷害骰」），比固定 +30 更有起伏
+  if (crit === 'atk_crit' || crit === 'def_crit') { var critDice = rollDice_(wTier, 8) + 12; damage += critDice; fired.push(winner.name + '·暴擊爆傷+' + critDice); }
 
   return {
     atkWins: atkWins, winner: winner.name, loser: loser.name, damage: damage,

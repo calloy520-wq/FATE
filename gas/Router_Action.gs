@@ -1994,6 +1994,42 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
 //   導致明明同地有敵卻「此世界查無此目標」。傳入空字串時回空(呼叫端須自行擋空名)。
 function nameLoose_(s) { return String(s == null ? "" : s).replace(/[·・•‧∙⋅･·\s]/g, ""); }
 
+// 🔋 御主電池：從者要付一筆魔力(放寶具)，自身魔力不夠時，自動抽御主——
+//   付款順序：①從者自身 MP → ②御主 MP(1 MP 換 1 MP，等價導流) → ③御主 HP(2 HP 換 1 MP，焚血供能、御主血量不可低於 1)。
+//   寫回試算表並回傳明細，供戰報／敘述演出「拿御主當電池」。
+var BATTERY_HP_PER_MP = 2; // 御主以血供魔的兌率：每 1 點魔力＝2 點生命
+function drainForNp_(sheets, pcData, svIdx, masterIdx, mpCost) {
+  mpCost = Math.max(0, Math.round(mpCost));
+  var svMp = parseInt(pcData[svIdx][COL.PC.MP]) || 0;
+  var fromSv = Math.min(svMp, mpCost);
+  var need = mpCost - fromSv;
+  var mMp = masterIdx >= 0 ? (parseInt(pcData[masterIdx][COL.PC.MP]) || 0) : 0;
+  var fromMMp = Math.min(mMp, need);
+  need -= fromMMp;
+  var mHp = masterIdx >= 0 ? (parseInt(pcData[masterIdx][COL.PC.HP]) || 0) : 0;
+  var hpAvail = Math.max(0, mHp - 1);                       // 御主血量底線 1，不可被供能榨死
+  var hpForMp = Math.min(need, Math.floor(hpAvail / BATTERY_HP_PER_MP));
+  var fromMHp = hpForMp * BATTERY_HP_PER_MP;
+  need -= hpForMp;                                          // 仍未付清的缺口（油盡燈枯，寶具勉力強放）
+  // 寫回從者
+  pcData[svIdx][COL.PC.MP] = Math.max(0, svMp - fromSv);
+  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+  // 寫回御主（有動到才寫）
+  if (masterIdx >= 0 && (fromMMp > 0 || fromMHp > 0)) {
+    pcData[masterIdx][COL.PC.MP] = Math.max(0, mMp - fromMMp);
+    pcData[masterIdx][COL.PC.HP] = Math.max(1, mHp - fromMHp);
+    sheets.pc.getRange(masterIdx + 1, 1, 1, pcData[masterIdx].length).setValues([pcData[masterIdx]]);
+  }
+  return {
+    cost: mpCost, fromSv: fromSv, fromMasterMp: fromMMp, fromMasterHp: fromMHp, shortfall: need,
+    usedBattery: (fromMMp > 0 || fromMHp > 0), bledMaster: (fromMHp > 0),
+    masterHp: masterIdx >= 0 ? (parseInt(pcData[masterIdx][COL.PC.HP]) || 0) : 0,
+    masterHpMax: masterIdx >= 0 ? (parseInt(pcData[masterIdx][COL.PC.MAX_HP]) || 0) : 0,
+    masterMp: masterIdx >= 0 ? (parseInt(pcData[masterIdx][COL.PC.MP]) || 0) : 0,
+    svMp: parseInt(pcData[svIdx][COL.PC.MP]) || 0
+  };
+}
+
 function actionFateBattle(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
   if (!npcName) return JSON.stringify({ success: false, message: "未指定攻擊目標。" });
@@ -2043,8 +2079,16 @@ function actionFateBattle(userData, pcId, sheets) {
   const atkC = rowToCombatant_(pcData[atkIdx]);
   const defC = rowToCombatant_(pcData[nIdx]);
 
-  if (useNp && atkC.mp < Math.round(atkC.mpMax * 0.3)) {
-    return JSON.stringify({ success: false, message: `${atkC.name} 魔力不足以解放寶具，需先補魔。` });
+  // 🔋 寶具魔力：從者自身不足時改抽御主（御主電池）。唯有「從者沒魔力 ＋ 御主魔力枯竭 ＋ 御主血也見底」三者皆空才擋下。
+  if (useNp) {
+    const npCostPre = Math.round((parseInt(pcData[atkIdx][COL.PC.MAX_MP]) || 100) * 0.35);
+    const svMpPre = parseInt(pcData[atkIdx][COL.PC.MP]) || 0;
+    const mMpPre = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
+    const mHpPre = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
+    const maxPay = svMpPre + mMpPre + Math.floor(Math.max(0, mHpPre - 1) / BATTERY_HP_PER_MP);
+    if (maxPay <= 0) {
+      return JSON.stringify({ success: false, message: `${atkC.name} 魔力耗盡，而御主也已油盡燈枯、連一絲血魔都擠不出——無法解放寶具，需先休整補魔。` });
+    }
   }
 
   // ❖ 令咒·絕對命令（必中＋威力倍增）：消耗一道玩家令咒
@@ -2174,10 +2218,15 @@ function actionFateBattle(userData, pcId, sheets) {
     sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
     logWarEvent_(String(pcData[pIdx][COL.PC.GAME_ID] || ""), `御主燃一道令咒·絕對命令，強令『${atkC.name}』對「${defC.name}」發動必中的全力一擊（我餘令咒 ${left}）。`, String(userData.acctName || ""));
   }
+  // 🔋 寶具魔力 = 依寶具階級的 Prana Cost（E50 D100 C200 B350 A500 EX800）。從者付不起 → 御主電池接力供能。
+  let battery = null;
   if (useNp) {
-    pcData[atkIdx][COL.PC.MP] = Math.max(0, (parseInt(pcData[atkIdx][COL.PC.MP]) || 0) - Math.round((parseInt(pcData[atkIdx][COL.PC.MAX_MP]) || 100) * 0.35));
-    sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
+    const prana = npPranaCost_(atkC.six["寶具"]);
+    battery = drainForNp_(sheets, pcData, atkIdx, pIdx, prana);
     atkC.mp = parseInt(pcData[atkIdx][COL.PC.MP]) || 0; // 反映耗魔後的出力
+    if (battery.usedBattery) {
+      logWarEvent_(myGameId, `『${atkC.name}』解放寶具魔力不足，御主以${battery.bledMaster ? '自身血肉與' : ''}魔力為電池供能（御主餘 ${battery.masterHp}/${battery.masterHpMax} HP）。`, String(userData.acctName || ""));
+    }
   }
 
   let knockedOut = [], victory = false, defeat = false, dreamPrompt = "", destroyedName = "", sealEscaped = false, sealNote = "", godRevived = false, godNote = "";
@@ -2297,6 +2346,7 @@ function actionFateBattle(userData, pcId, sheets) {
       `★【篇幅約 220~280 字】以 Fate／TYPE-MOON 筆觸生動描寫這 ${nRounds} 回合互有攻防、你來我往的廝殺（不是單方面挨打），凸顯雙方發動的技能／寶具威能與靈基壓迫感（演出而非複述標籤名）。勝負與傷害已由系統結算。\n` +
       (useSeal ? `★【令咒·絕對命令·務必演出】御主高舉左手，手背上的紅色令咒咒印（聖痕）灼然迸亮、其中一道紋路在燃燒中消褪——請明確描寫「御主燃燒一道令咒、下達不可違逆的絕對命令」這一幕，以及那道命令如何貫徹從者全身、強行引爆超越極限的戰力（這一擊必中）。\n` : "") +
       (useNp ? `★【寶具解放·務必演出】請描寫從者高呼寶具真名、解放其象徵傳說之力的壯麗瞬間與毀滅性威能。\n` : "") +
+      ((battery && battery.usedBattery) ? `★【御主電池·務必演出】${battery.bledMaster ? `為餵飽寶具的魔力缺口，御主焚燒自身血肉與生命（耗血約 ${battery.fromMasterHp}，僅餘 ${battery.masterHp}/${battery.masterHpMax} HP），` : `御主以自身魔力為從者頂上魔力缺口（導流 ${battery.fromMasterMp} 魔力），`}化作那一發寶具的活體電池——請演出御主臉色刷白、令咒灼痛、血魔被從者透支抽取的代價感，凸顯「以御主為池」的危險浪漫。\n` : "") +
       (godRevived ? `★【十二試煉】${godNote}請演出他靈基崩解又自死亡歸來、神性光輝重燃的不滅之姿。\n` : "") +
       (sealEscaped ? `★【令咒介入】${sealNote}請演出對面御主令咒爆閃、強行扯離重傷從者的瞬間，敵已遁走、不在場。\n` : "") +
       ((!destroyedName && !sealEscaped && !godRevived) ? `★敗方最多重傷，【絕對禁止】描寫死亡／消滅／屍體，生死由御主後續定奪。\n` : "") +
@@ -2310,6 +2360,8 @@ function actionFateBattle(userData, pcId, sheets) {
     destroyed: destroyedName || "", godRevived: godRevived, sealEscaped: sealEscaped, victory: victory, defeat: defeat,
     defHp: parseInt(pcData[nIdx][COL.PC.HP]) || 0, defHpMax: parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0,
     atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0,
+    battery: (battery && battery.usedBattery) ? { fromMasterMp: battery.fromMasterMp, fromMasterHp: battery.fromMasterHp, bledMaster: battery.bledMaster, masterHp: battery.masterHp, masterHpMax: battery.masterHpMax } : null,
+    masterHp: parseInt(pcData[pIdx][COL.PC.HP]) || 0, masterHpMax: parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 0,
     party: partyIdxs.map(i => ({ name: String(pcData[i][COL.PC.NAME]), hp: parseInt(pcData[i][COL.PC.HP]) || 0, hpMax: parseInt(pcData[i][COL.PC.MAX_HP]) || 0 }))
   };
 
