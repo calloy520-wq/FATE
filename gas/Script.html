@@ -37,14 +37,16 @@
 
   // 🔒 全域動作鎖：任一動作進行中就擋掉連點與其他動作，等系統回應再放行
   let __actionBusy = false;
-  function beginAction() {
+  function beginAction(msg) {
     if (__actionBusy) return false;
     __actionBusy = true;
     try { document.body.style.cursor = 'progress'; } catch (e) {}
+    try { showProcessing(msg || '聖杯演算中…', true); } catch (e) {}  // ⏳ 每個動作都給等待遮罩，玩家才知道按到了
     return true;
   }
   function endAction() {
     __actionBusy = false;
+    try { hideProcessing(); } catch (e) {}
     try { document.body.style.cursor = ''; } catch (e) {}
   }
 
@@ -1908,6 +1910,16 @@ function renderRecentLocs(recents = null) {
     } catch (e) { alert('測試塞入失敗。'); }
   }
 
+  // 🔄【DEV】強制把最新種子(寶具尺度/標籤fx/六圍/平衡)套到英靈殿＋現有在場從者，免等版本閘/部署時序。
+  async function devResyncCodex() {
+    showProcessing('套用最新平衡中…', true);
+    try {
+      const res = await gasRun({ action: 'dev_resync_codex' });
+      alert((res && res.message) || '完成。');
+      try { if (typeof syncData === 'function') syncData(true); } catch (e) {}
+    } catch (e) { alert('刷新失敗，請稍後再試。'); } finally { hideProcessing(); }
+  }
+
   // 👥 後日談同伴管理（鑑賞限定·最多3人）：邀請/請走已封存從者
   async function openCompanions() {
     try { var dr = document.getElementById('action-drawer'); if (dr && dr.style.display !== 'none' && typeof toggleActionDrawer === 'function') toggleActionDrawer(); } catch (e) {}
@@ -2489,17 +2501,19 @@ async function checkName(event) {
 }
 
   // ⏳ 全螢幕「處理中」遮罩：AI 生成需數秒，避免玩家以為當機
-  function showProcessing(msg) {
+  function showProcessing(msg, quick) {
     let el = document.getElementById('proc-overlay');
     if (!el) {
       el = document.createElement('div');
       el.id = 'proc-overlay';
       el.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(8,6,12,0.82);';
-      el.innerHTML = '<div style="text-align:center;color:#e8dcc0;padding:24px;"><div style="width:48px;height:48px;margin:0 auto 16px;border:3px solid rgba(212,175,55,0.22);border-top-color:#d4af37;border-radius:50%;animation:procspin 0.9s linear infinite;"></div><div id="proc-msg" style="font-size:15px;letter-spacing:1px;color:#e7c873;font-weight:bold;"></div><div style="font-size:11.5px;color:#9a8bb0;margin-top:8px;">聖杯演算中，請稍候約 10～30 秒……</div></div>';
+      el.innerHTML = '<div style="text-align:center;color:#e8dcc0;padding:24px;"><div style="width:48px;height:48px;margin:0 auto 16px;border:3px solid rgba(212,175,55,0.22);border-top-color:#d4af37;border-radius:50%;animation:procspin 0.9s linear infinite;"></div><div id="proc-msg" style="font-size:15px;letter-spacing:1px;color:#e7c873;font-weight:bold;"></div><div id="proc-hint" style="font-size:11.5px;color:#9a8bb0;margin-top:8px;">聖杯演算中，請稍候約 10～30 秒……</div></div>';
       document.body.appendChild(el);
       const st = document.createElement('style'); st.textContent = '@keyframes procspin{to{transform:rotate(360deg)}}'; document.head.appendChild(st);
     }
     document.getElementById('proc-msg').textContent = msg || '處理中…';
+    // quick＝快速動作(出力/補魔/強撐/魔境…)：只留轉圈＋訊息，不顯示「10～30 秒」那行(那是給 AI 生成用的)
+    var hint = document.getElementById('proc-hint'); if (hint) hint.style.display = quick ? 'none' : 'block';
     el.style.display = 'flex';
   }
   function hideProcessing() { const el = document.getElementById('proc-overlay'); if (el) el.style.display = 'none'; }

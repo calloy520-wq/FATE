@@ -250,7 +250,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v7';
+var CODEX_PERSONA_VER = 'v8';
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
@@ -306,7 +306,8 @@ function resyncSummonedServants_(ss) {
   SEED_SERVANTS.forEach(function (s) { byKey[key(s.realName, s.cls)] = s; });
   var n = 0;
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][COL.PC.FACTION]) !== '從者') continue;
+    var fac = String(data[i][COL.PC.FACTION]);
+    if (fac !== '從者' && fac !== '敵從者') continue;   // 玩家從者＋敵從者都刷(都讀種子戰鬥數據)
     if (String(data[i][COL.PC.ID]).indexOf('DEAD_') === 0) continue;
     var s = byKey[key(data[i][COL.PC.NAME], data[i][COL.PC.RANK])];
     if (!s) continue; // AI 原創從者無種子 → 不動
@@ -317,6 +318,21 @@ function resyncSummonedServants_(ss) {
   }
   if (n) pc.getRange(1, 1, data.length, data[0].length).setValues(data);
   return n;
+}
+
+// 🔄【手動·強制】無視版本旗標，立刻把英靈殿＋在場從者重刷成最新種子(套用最新寶具/六圍/標籤/平衡)。
+//   給前端 DEV 按鈕用——不靠自動版本閘(怕部署時序/旗標卡住)，按一下立即生效並回報筆數。
+function actionDevResyncCodex(userData, pcId, sheets) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var codexN = 0, svN = 0, errs = [];
+  try { codexN = upgradeCodexPersonas_(ss); } catch (e) { errs.push('英靈殿:' + e.message); }
+  try { svN = resyncSummonedServants_(ss); } catch (e) { errs.push('從者:' + e.message); }
+  try { PropertiesService.getScriptProperties().setProperty('codex_persona_ver', CODEX_PERSONA_VER); } catch (e) { }
+  return JSON.stringify({
+    success: true,
+    message: '🔄 已強制套用最新種子：英靈殿 ' + codexN + ' 筆、在場從者 ' + svN + ' 筆更新。'
+      + (errs.length ? '　⚠ ' + errs.join('；') : '　請重整頁面看最新寶具/標籤。')
+  });
 }
 
 // 🔵 英靈殿/御主殿 為空(只有表頭)時，自動灌入名冊。冪等：有資料就不動。

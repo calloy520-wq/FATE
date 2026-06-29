@@ -13,6 +13,7 @@ const ActionRouter = {
   "claim_grail": actionClaimGrail,
   "enter_kanshou": actionEnterKanshou,
   "dev_seed_gallery": actionDevSeedGallery,
+  "dev_resync_codex": actionDevResyncCodex,
   "kanshou_companions": actionKanshouCompanions,
   "kanshou_add": actionKanshouAdd,
   "kanshou_remove": actionKanshouRemove,
