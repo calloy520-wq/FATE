@@ -368,7 +368,7 @@ function actionManualNpc(userData, pcId, sheets) {
 ★【OOC】已知動漫/虛構角色保留原著個性語癖，武俠化即可。
 
 ★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
-- traits：外貌、氣質舉止、獨特癖性、卸下心防的私密一面
+- traits：外貌、氣質舉止、自稱(第一人稱·如 我/俺/吾)、卸下心防的私密一面
 - personality：日常表象、真實內裡、喜歡的事物、討厭的事物
 - npc_intent：令人會心一笑的「可愛弱點/反差萌」一句話，須結合此角色身分性格量身打造。如冷面殺手怕貓、高傲千金愛吃路邊攤、嚴肅宗主收藏兔子玩偶、毒舌大夫暈血。要反差、可愛、獨特。
 
@@ -385,7 +385,7 @@ function actionManualNpc(userData, pcId, sheets) {
 
 ★【演出而非說明】願望與身世只作為設定底層，不要在 background 裡直接複述願望字面。
 ★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
-- traits：外貌、氣質舉止、獨特癖性、卸下心防的私密一面
+- traits：外貌、氣質舉止、自稱(第一人稱·如 我/俺/吾)、卸下心防的私密一面
 - personality：日常表象、真實內裡、喜歡的事物、討厭的事物
 ★npc_intent：一句【簡短】萌點（可愛反差，≤15字），結合此御主身分性格，要反差、可愛、獨特。
 ★background：限20字，呼應其身世／財力，禁出現具體物品名。
@@ -481,7 +481,7 @@ function actionManualNpc(userData, pcId, sheets) {
       } catch (e) { }
     }
     // 經濟層已移除：不再寫入初始銀兩（身世財力差異由起始禮裝體現）
-    newRow[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.traits, "外貌平凡、舉止從容、獨特癖性、卸下心防的私密一面");
+    newRow[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.traits, "外貌平凡、舉止從容、自稱「我」、卸下心防的私密一面");
     newRow[COL.PC.LOC] = spawnName;
     newRow[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "溫婉謙和、內斂堅韌、明哲保身、隨波逐流");
     newRow[COL.PC.HP] = maxStats.hp; newRow[COL.PC.MP] = maxStats.mp;
@@ -1259,7 +1259,7 @@ function actionPlay(userData, pcId, sheets) {
 
   const formatTrait = (str) => {
     let arr = String(str || "").split('、');
-    let base = `[外貌]${arr[0] || "無"} [氣質舉止]${arr[1] || "無"} [獨特癖性]${arr[2] || "無"}`;
+    let base = `[外貌]${arr[0] || "無"} [氣質舉止]${arr[1] || "無"} [自稱]${arr[2] || "無"}`;
     return isNsfwMode ? `${base} [卸下心防的私密一面]${arr[3] || "無"}` : base;
   };
 
