@@ -45,7 +45,7 @@ var SEED_SERVANTS = [
     align:'中立・中庸', persona:{firstP:'拙者',look:'墨髮長刀・素樸和裝的清瘦劍客、淡泊洒脫的禪意閒適、自稱「拙者」・古風文雅、無欲之下難得流露的眷戀',words:'劍士・閒適・無欲・宿命',toMaster:'隨遇而安、只求一戰',speech:'古風文雅、淡泊洒脫、帶禪意、慢條斯理',moe:'無欲無求的洒脫、只為一場好決鬥而活、看守山門的隨遇而安、非英雄卻有英雄氣的平凡',tic:'凝望飛燕、按刀靜立、微微一笑'} },
   { id:'赫拉克勒斯-Berserker', cls:'Berserker', realName:'赫拉克勒斯', wars:['5th'], gender:'男',
     six:{筋力:'A',耐久:'A',敏捷:'A',魔力:'B',幸運:'A',寶具:'B'},
-    classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'對魔力',r:'?',fx:'nullify_magic'}],
+    classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'對魔力',r:'D',fx:'nullify_magic'}],
     skills:[{n:'勇猛',r:'A',fx:'morale'},{n:'戰鬥續行',r:'A',fx:'survive'},{n:'十二試煉',r:'A',fx:'god_hand'}],
     traits:[{n:'神性',r:'A'},{n:'王'}], np:'十二試煉（God Hand A）',
     align:'混沌・狂', persona:{firstP:'（狂化·僅咆哮）',look:'巨軀岩肌・黑霧纏身的半神戰士、無言低吼的壓迫氣場、狂化無自稱・僅以咆哮、理智回光瞬間殘存的溫柔',words:'戰神・狂化・守護的殘響',toMaster:'理智被黑霧吞沒、僅存護主本能',speech:'狂化無法言語、只以低吼與行動表達；唯護主的本能殘留',moe:'狂暴外殼下對主人(伊莉雅)殘存的溫柔、偶爾理智回光的瞬間、十二試煉一次次自死亡歸來的悲壯',tic:'低沉咆哮、以巨軀擋在主人身前、緩緩起身'} },
@@ -91,9 +91,9 @@ var SEED_SERVANTS = [
   // FAKE 樣本
   { id:'恩奇都-Lancer', cls:'Lancer', realName:'恩奇都', wars:['fake'], gender:'無',
     six:{筋力:'B',耐久:'A',敏捷:'A',魔力:'A',幸運:'-',寶具:'A+'},
-    classSkills:[{n:'對魔力',r:'?',fx:'nullify_magic'}],
-    skills:[{n:'變生',r:'',fx:'shapeshift'},{n:'神性',r:'?',fx:'divine'}],
-    traits:[{n:'神性'},{n:'神造兵器'}], np:'天地乖離開闢之星（變化）',
+    classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'}],
+    skills:[{n:'變生',r:'A',fx:'shapeshift'},{n:'神性',r:'A',fx:'divine'}],
+    traits:[{n:'神性'},{n:'神造兵器'}], np:'天地乖離開闢之星（變化・對界）',
     align:'中立・中庸', persona:{firstP:'我',look:'青綠長髮・中性無垢的神造之軀、平和無機卻溫柔的氣息、自稱「我」・平和中性、談起摯友便柔軟下來的眷戀',words:'純真・神造・追尋摯友・無垢',toMaster:'溫和而疏離，心繫吉爾伽美什',speech:'平和中性、純真直接、無機質卻溫柔、談起摯友便柔軟',moe:'神造兵器卻最有人性、對吉爾伽美什的純粹羈絆、不解人類卻嚮往、變幻自如的天真',tic:'化身千刃、歪頭觀察、望向遠方'} },
   // 斯卡哈 三職階
   { id:'斯卡哈-Lancer', cls:'Lancer', realName:'斯卡哈', wars:['客串'], gender:'女',

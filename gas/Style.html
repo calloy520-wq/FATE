@@ -532,6 +532,8 @@
     border: 2px solid #00ff7f; border-radius: 50%; animation: ripple 2s infinite ease-out; z-index: -1;
   }
   @keyframes ripple { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+  /* 💓 血條/魔力條脈動：血越低跳越快、魔力依量多寡/收支呼吸。亮度起伏=心跳感 */
+  @keyframes barThrob { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.7); } }
   .map-label {
     position: absolute; top: 120%; left: 50%; transform: translateX(-50%);
     color: #e3e3e3; font-size: 14px; font-weight: bold; white-space: nowrap;

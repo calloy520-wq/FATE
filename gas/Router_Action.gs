@@ -2352,7 +2352,7 @@ function actionFateBattle(userData, pcId, sheets) {
       if (!sealEscaped) {
         const spill = (destroyedName ? Math.round(pDmgTaken * 0.5) : pDmgTaken);
         const pHit = fateStrike_(sheets, pcData, enemyC0, atkIdx, { forceDamage: spill }, ctx);
-        if (pHit.destroyed) { destroyedName = destroyedName; knockedOut.push(pHit.knocked); }
+        if (pHit.destroyed && pHit.knocked) knockedOut.push(pHit.knocked); // 我方從者被回震打爆→記入擊倒名單(不覆蓋「敵亡」destroyedName)
         if (pHit.defeat) { defeat = true; victory = false; dreamPrompt = pHit.dreamPrompt; }
       }
       clash = {
@@ -2410,6 +2410,7 @@ function actionFateBattle(userData, pcId, sheets) {
         const hs = fateStrike_(sheets, pcData, horrorC, nIdx, {}, ctx);
         rl.strikes.push({ by: '🐙深淵海怪', horror: true, pRoll: hs.aRoll, pHitVal: hs.aHit, dRoll: hs.dRoll, dEvaVal: hs.dEva, pHit: hs.hit, pDmg: hs.hit ? hs.damage : 0, pCrit: hs.crit, pFired: hs.fired, note: '深淵海怪·觸手撕咬' });
         if (hs.destroyed) destroyedName = hs.destroyed;
+        if (hs.knocked) knockedOut.push(hs.knocked);
         if (hs.godRevived) { godRevived = true; godNote = hs.godNote; }
         if (hs.victory) victory = true;
         if (hs.sealEscaped) { sealEscaped = true; sealNote = hs.sealNote; }
