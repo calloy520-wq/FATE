@@ -610,12 +610,12 @@ function renderRecentLocs(recents = null) {
     // 🩸 強撐：沒 AP 又被困時的保命解（不燒令咒、不推進時間），每日一次
     html += '<div style="border-top:1px dashed rgba(160,80,80,0.3); margin:6px 0 8px; padding-top:8px;"></div>'
       + '<button onclick="secondWind()" style="display:block;width:100%;text-align:left;padding:10px;background:rgba(165,60,60,0.14);color:#e8dcc0;border:1px solid #a04040;border-radius:8px;cursor:pointer;">'
-      + '<b style="color:#e08a8a;">🩸 燃燒生命強撐</b>　<span style="font-size:12px;color:#c89a9a;">透支體力換 +4 行動力（扣血、每日一次）——沒 AP 又走不了時的保命解</span></button>';
+      + '<b style="color:#e08a8a;">🩸 燃燒生命強撐</b>　<span style="font-size:12px;color:#c89a9a;">透支生命換 +4 行動力（扣血約 20%、不耗 AP、可重複）——沒 AP 又走不了時的保命解，血燒乾就撐不住</span></button>';
     showHistoryOverlay(html);
   }
   // 🩸 燃燒生命強撐：扣血換 AP（每日一次）
   async function secondWind() {
-    if (!confirm('🩸 燃燒生命力強撐？\n\n透支體力與魔術迴路，扣除一截生命（約 20% 上限）換取 +4 行動力。\n每遊戲日僅限一次。身體虛弱時禁用。\n\n確定強撐？')) return;
+    if (!confirm('🩸 燃燒生命力強撐？\n\n透支體力與魔術迴路，扣除一截生命（約 20% 上限）換取 +4 行動力。\n不耗 AP、可重複——但血燒到接近見底就撐不住。\n\n確定強撐？')) return;
     if (!beginAction()) return;
     var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none';
     const story = document.getElementById('story');

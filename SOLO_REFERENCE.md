@@ -96,7 +96,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | rule_break_steal | actionRuleBreakSteal | 破戒奪僕：打殘敵從者(HP<35%)+燃令咒→奪為第二從者(上限2) |
 | propose_alliance / break_alliance / ally_bond | 同盟系 | 結盟/撕毀/與盟友共處(見 §8) |
 | set_workshop / scavenge | 陣地系 | 設陣地(提升供魔)／搜索物資 |
-| second_wind | actionSecondWind | 0-AP 死局：扣~20%血換+4AP，每日一次(【強撐】D) |
+| second_wind | actionSecondWind | 0-AP 死局保命解：扣~20%上限血換+4AP，**不耗AP·可重複**(2026-06 移除每日一次限制——血才是天然煞車，HP≤cost 才擋；唯 AP 近滿時擋)。不推進時間、不燒令咒 |
 | scout | actionScout | 偵查：揭露同地敵蹤(設 SEEN，**敵移位後不再清 SEEN→已偵查者持續可見**) |
 | prep_meal | actionPrepMeal | 🍱 整備·進食(戰前 buff)：耗1AP，御主 MEMORY 記`【整備至】<絕對小時>`，效期內從者出擊命中 +`MEAL_BUFF_BONUS`(2)約`MEAL_BUFF_HOURS`(8)小時。solo 無道具欄/商城，食物抽象供給。`fateStrike_` 讀 `mealBuffActive_` 把 `mealBuff` 傳進 `resolveFateBattle_`(Engine_Fate.gs 加 aHit)。前端 `prepMeal()`＋戰場行動列「🍱 整備」鈕 |
 | get_map_nodes / get_all_categorized_maps | 地圖 | 地圖節點＋敵蹤(吃 SEEN 迷霧；有盟友→`hasAllyInGame_`全揭露) |
@@ -263,7 +263,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 【願望】wish 【令咒】N 【迴路】N(預設30) 【魔術】 【出身】 【體術】
 【模式】canon/chaos 【戰爭】4th/5th/fake 【扮演】正典御主id
 【路線】route 【史】firedPins 【試煉】N(god_hand命數)
-【羈絆日】D:type1,type2(跨日重置) 【強撐】D(second_wind日限)
+【羈絆日】D:type1,type2(跨日重置) 【強撐】D(second_wind 舊日限·已棄用·helper 留著無害)
 【陣地】loc 【禮裝】id 【禮充】n 【盟約至】day 【鑑賞緣】 【破戒奪取】 【黑化Alter】
 【魔境】fx(斯卡哈玩家選的通用A階被動，set_mage_realm 寫，rowToCombatant_ 注入)
 ```

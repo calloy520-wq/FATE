@@ -3463,15 +3463,15 @@ function actionSecondWind(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   if (myGameId.indexOf("g_") !== 0) return JSON.stringify({ success: false, message: "此處無需強撐。" });
-  const clk = getClock_(myGameId); const day = clk ? clk.day : 1;
-  if (getSecondWindDay_(pcData[pIdx][COL.PC.MEMORY]) === day) return JSON.stringify({ success: false, message: "今日已透支過一次——再燃燒生命會有性命之危，先歇息恢復吧。" });
+  const clk = getClock_(myGameId);
+  // 🩸 強撐＝沒 AP 又被困時的保命解，本身【不耗 AP、可重複】——唯一限制是「血夠不夠燒」(每次扣 20% 上限)。
+  //   不再每日一次(那會逼玩家去休息·推時間，違背「燃燒生命續行」初衷)。HP 才是天然煞車：燒到接近見底就擋。
   if (clk && clk.ap >= AP_PER_DAY - 1) return JSON.stringify({ success: false, message: "行動力尚足，毋須燃燒生命強撐。" });
   const maxHp = parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 120;
   const cur = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
   const cost = Math.max(10, Math.round(maxHp * 0.20));
-  if (cur <= cost) return JSON.stringify({ success: false, message: "你的身體太過虛弱，再強撐恐危及性命——請務必先休息或脫離。" });
+  if (cur <= cost) return JSON.stringify({ success: false, message: "你的身體太過虛弱，再燃燒生命恐當場斷氣——請改用『休息』恢復，或令咒脫離。" });
   pcData[pIdx][COL.PC.HP] = cur - cost;
-  pcData[pIdx][COL.PC.MEMORY] = setSecondWindDay_(pcData[pIdx][COL.PC.MEMORY], day);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   const ap = grantAp_(myGameId, 4);
   const aiPrompt = `【系統·強撐已結算】御主透支魔術迴路與體力、燃燒生命力強行擠出最後的行動之力（HP −${cost}，行動力 +4＝${ap}/${AP_PER_DAY}）。\n` +
