@@ -1884,14 +1884,14 @@ function renderRecentLocs(recents = null) {
     }
   }
 
-  // 🏆 鑑賞模式：列出已封存的從者，可呼出後日談對話
   // 🧪【DEV·待移除】還沒奪杯時，一鍵塞測試從者進鑑賞，方便測慾海。確認正常後連同後端一起刪。
+  //   塞完直接進「鑑賞」常駐主畫面（用 👥 後日談同伴 邀請她們），不再彈舊名冊視窗。
   async function devSeedGallery() {
     if (!currentAccount) { alert('請先登入帳號。'); return; }
     try {
       const res = await gasRun({ action: 'dev_seed_gallery', acctName: currentAccount });
       alert((res && res.message) || '完成。');
-      if (res && res.success) openGallery();
+      if (res && res.success) enterKanshou();
     } catch (e) { alert('測試塞入失敗。'); }
   }
 
@@ -2056,72 +2056,8 @@ function renderRecentLocs(recents = null) {
     } catch (e) { alert('連線失敗，無法進入後日談。'); } finally { endAction(); }
   }
 
-  async function openGallery() {
-    try {
-      const res = await gasRun({ action: 'list_gallery', acctName: currentAccount });
-      const list = (res && res.servants) || [];
-      let body;
-      if (!list.length) {
-        body = '<div style="color:#888;padding:18px;text-align:center;line-height:1.8;">尚無封存的英靈。<br>於聖杯戰爭中奪得聖杯，與你並肩的從者便會留駐於此。</div>';
-      } else {
-        body = list.map(function (s, i) {
-          var sixStr = '';
-          if (s.six) { try { sixStr = Object.keys(s.six).map(function (k) { return k + s.six[k]; }).join(' '); } catch (e) {} }
-          return '<div style="border:1px solid rgba(231,200,115,0.25);border-radius:10px;padding:12px;margin-bottom:12px;background:rgba(255,255,255,0.02);">'
-            + '<div style="color:#e7c873;font-weight:bold;font-size:15px;">' + s.name + ' <span style="color:#9a7b4f;font-size:12px;">' + (s.cls || '') + '</span></div>'
-            + (s.back ? '<div style="color:#bbb;font-size:12px;margin-top:3px;">' + s.back + '</div>' : '')
-            + (sixStr ? '<div style="color:#8fa;font-size:11.5px;margin-top:4px;">' + sixStr + '</div>' : '')
-            + (s.np ? '<div style="color:#c9a0ff;font-size:12px;margin-top:4px;">寶具：' + s.np + '</div>' : '')
-            + (s.memoir ? '<div style="color:#cfc3aa;font-size:12.5px;line-height:1.8;margin-top:8px;border-top:1px solid rgba(255,255,255,0.06);padding-top:8px;">' + s.memoir.replace(/\n/g, '<br>') + '</div>' : '')
-            + '<button onclick="enterGallery(' + i + ')" style="margin-top:10px;width:100%;padding:11px;background:linear-gradient(90deg,#7a4a6a,#4a3a6a);color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:14px;font-weight:bold;">💕 與 ' + s.name + ' 約會（後日談）</button>'
-            + '</div>';
-        }).join('');
-      }
-      window._galleryList = list;
-      var html = '<h3 style="margin:0 0 10px;color:#e7c873;">🏆 英靈鑑賞</h3>'
-        + '<div style="max-height:58vh;overflow-y:auto;">' + body + '</div>';
-      showHistoryOverlay(html);
-    } catch (e) { alert('讀取鑑賞名冊失敗。'); }
-  }
-
-  // 進入鑑賞·後日談：在和平的 k_ 世界自由移動、約會閒聊（無戰鬥/敵人）
-  async function enterGallery(i) {
-    const list = window._galleryList || [];
-    const s = list[i];
-    if (!s) return;
-    if (!beginAction()) return;
-    try {
-      const res = await gasRun({ action: 'enter_gallery', acctName: currentAccount, servantName: s.name });
-      if (!res || !res.success) { alert((res && res.message) || '無法進入後日談。'); return; }
-      // 關閉名冊
-      var ov = document.getElementById('history-overlay');
-      if (ov) ov.style.display = 'none';
-      // 建立鑑賞視角的 pc（mode=kanshou：隱藏戰鬥相關 UI）
-      pc = { id: res.pcId, name: res.pcName, sex: res.pcSex, mode: 'kanshou', account: currentAccount, servant: s.name };
-      localStorage.setItem('kyushu_v27', JSON.stringify(pc));
-      // 進入遊戲畫面，送出和平開場
-      document.getElementById('setup').style.display = 'none';
-      document.getElementById('game').style.display = 'flex';
-      applyModeUI();
-      // 🌹 慾海＝NSFW 後日談軌：自動打開 NSFW 開關，否則 isNsfwMode=false、後端整段親密/肉體狀態都不會回填試算表。
-      //   （玩家仍可手動關掉，改要純 SFW 約會。）
-      var _nt = document.getElementById('nsfw-mode-toggle'); if (_nt) _nt.checked = true;
-      document.getElementById('ui-name').innerText = pc.name;
-      document.getElementById('ui-sex').innerText = pc.sex;
-      setupHistoryPrevention();
-      const story = document.getElementById('story');
-      story.innerHTML = '<div class="msg-ai"><b>【後日談】</b>' + (res.message || '聖杯戰爭已落幕，這是屬於你們兩人的和平時光。') + '</div>';
-      refreshFateTags();
-      renderMapPane();
-      syncData(true);
-      if (res.resumed) {
-        // 🔁 接續上次的後日談世界：承接既有關係與狀態，不重新開場
-        send('（這是與從者「' + s.name + '」後日談的【延續】，不是初次見面；承接你們既有的關係、默契與上一次的餘韻。）御主再次回到從者身邊。請以溫柔筆觸描寫重逢此刻的氛圍與兩人自然的承接，不要重置情境或當作第一次見面。★禁止任何戰鬥／敵人／血量變化。★禁止複述設定字面。', true);
-      } else {
-        send('（這是聖杯戰爭結束後的和平後日談，沒有敵人也沒有戰鬥。）御主想與身邊的從者「' + s.name + '」一起，在冬木悠閒地展開這個午後。請描寫此刻深山町坡道的陽光與氛圍，聚焦兩人之間鬆弛而溫柔的相處，留下讓御主想開口的契機。★禁止任何戰鬥／敵人／血量變化。★禁止複述設定字面。', true);
-      }
-    } catch (e) { alert('連線失敗，無法進入後日談。'); } finally { endAction(); }
-  }
+  // 🗑【已退役】openGallery()／enterGallery()（舊「英靈鑑賞名冊」彈窗＋逐一從者進場）
+  //   已被 enterKanshou()(常駐主畫面) ＋ 👥 後日談同伴面板 取代，移除以免舊彈窗再冒出來。
 
   function openTigerDojo() {
     const ov = document.getElementById('tiger-dojo-overlay');
