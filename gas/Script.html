@@ -952,7 +952,7 @@ function renderRecentLocs(recents = null) {
 
   function updateUI(s) {
     // 🔴 視覺防護鎖解除：讓逆天改命的按鈕永遠顯示！
-    // 點擊後，後端 GAS 會親自無情審查「好感 100 + 已傾心 + 綠液」
+    // 點擊後，後端 GAS 會審查是否為同行的從者
     ['fate-btn-pref', 'fate-btn-trait', 'fate-btn-back', 'fate-btn-intent'].forEach(id => {
         const btn = document.getElementById(id);
         if (btn) btn.style.display = 'block'; // 永遠打開！
@@ -2128,8 +2128,8 @@ function renderRecentLocs(recents = null) {
   }
   
   function handleRelTagClick(npcName, currentTagFull) {
-   const cleanCurrent = currentTagFull.replace(/\(已傾心\)/g, "").trim();
-   const newTagText = prompt(`你想將與「${npcName}」的羈絆重新定義為何？\n(「已傾心」標記將永久保留)`, cleanCurrent);
+   const cleanCurrent = String(currentTagFull || "").trim();
+   const newTagText = prompt(`你想將與「${npcName}」的羈絆重新定義為何？`, cleanCurrent);
 
    if (newTagText === null || !newTagText.trim()) return;
 
@@ -2911,7 +2911,7 @@ let plainTextContext = cleanText;
       if (!isPC) {
     const relTag = npcData ? (npcData.relTag || '萍水相逢') : '萍水相逢';
     const relVal = npcData ? (npcData.relVal || 0) : 0;
-    const isSoulBound = relVal >= 100 && relTag.includes('(已傾心)');
+    const isSoulBound = !!(npcData && npcData.isParty);
     const editBtn = isSoulBound 
       ? `<span onclick="handleRelTagClick('${npcName}', '${relTag.replace(/'/g, "\\'")}')" style="cursor:pointer; display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; background:rgba(233,30,99,0.15); border:1px solid rgba(233,30,99,0.4); border-radius:4px; margin-left:6px; font-size:11px; vertical-align:middle;" title="重新定義稱呼">✏️</span>` 
       : '';
@@ -3266,7 +3266,7 @@ function renderEpicHistory(res) {
   const container = document.getElementById('epic-history-content');
   let html = '';
 
-  // 已傾心與重大羈絆
+  // 同行夥伴與重大羈絆
   if (res.relRecords && res.relRecords.length > 0) {
     html += `<div style="color:#e91e63; font-size:13px; font-weight:bold; margin-bottom:8px; border-bottom:1px dashed rgba(233,30,99,0.3); padding-bottom:4px;">💕 命中注定的羈絆</div>`;
     res.relRecords.forEach(r => {
@@ -3276,10 +3276,10 @@ function renderEpicHistory(res) {
         <div style="background:rgba(233,30,99,0.04); border:1px solid rgba(233,30,99,0.2); border-left:3px solid #e91e63; border-radius:4px; padding:10px; margin-bottom:8px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
             <span style="color:#e91e63; font-weight:bold; font-size:14px;">『${r.npc}』</span>
-            <span style="font-size:11px; color:#8b5a2b;">${r.isSoulBound ? '💍 已傾心' : '🔗 深厚羈絆'}</span>
+            <span style="font-size:11px; color:#8b5a2b;">${r.isSoulBound ? '💍 同行夥伴' : '🔗 深厚羈絆'}</span>
           </div>
           <div style="font-size:12px; color:#816e54; margin-bottom:4px;">
-            關係：${r.tag.replace('(已傾心)','').trim()} &nbsp;|&nbsp; 好感：${r.fav} &nbsp;|&nbsp; 交談：${talkCount}次 ${r.isSoulBound ? `&nbsp;|&nbsp; 🌸 雙修：${intimacyCount}次` : ''}
+            關係：${r.tag} &nbsp;|&nbsp; 好感：${r.fav} &nbsp;|&nbsp; 交談：${talkCount}次 ${r.isSoulBound ? `&nbsp;|&nbsp; 🌸 雙修：${intimacyCount}次` : ''}
           </div>
           ${r.majorEvent && r.majorEvent !== "無" ? `
   <div style="font-size:11px; color:#b8860b; background:rgba(184,134,11,0.08); padding:4px 8px; border-radius:3px; margin-top:4px; display:flex; justify-content:space-between; align-items:center;">

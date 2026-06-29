@@ -206,7 +206,7 @@ function actionGetFullStatus(userData, pcId, sheets) {
       const rRecord = sheets.rel.getDataRange().getValues().find(r => r[COL.REL.PC] === pcRow[COL.PC.NAME] && r[COL.REL.NPC] === targetName);
       if (rRecord) {
         relMem = rRecord[COL.REL.MEMORY] || "";
-        if ((parseInt(rRecord[COL.REL.FAV]) || 0) >= 100 && String(rRecord[COL.REL.TAG] || "").includes("已傾心")) canEditFate = true;
+        if (String(rRecord[COL.REL.IS_PARTY] || "") === "同行") canEditFate = true;
       }
     }
   }
@@ -223,8 +223,8 @@ function actionUpdateFate(userData, pcId, sheets) {
     const myName = pcData.find(r => r[COL.PC.ID] == pcId)[COL.PC.NAME];
     const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
     const rIdx = relData.findIndex(r => r[COL.REL.PC] === myName && r[COL.REL.NPC] === pcData[pIdx][COL.PC.NAME]);
-    if ((rIdx !== -1 ? parseInt(relData[rIdx][COL.REL.FAV]) || 0 : 0) < 100 || !(rIdx !== -1 ? String(relData[rIdx][COL.REL.TAG]) : "").includes("(已傾心)")) {
-      return JSON.stringify({ success: false, message: `對方羈絆未達至深處，無法逆天改命！` });
+    if ((rIdx !== -1 ? String(relData[rIdx][COL.REL.IS_PARTY]) : "") !== "同行") {
+      return JSON.stringify({ success: false, message: `僅能對同行的從者逆天改命！` });
     }
   }
 
@@ -1180,13 +1180,13 @@ function actionPlay(userData, pcId, sheets) {
   if (presentNames.length > 1) {
     relData.forEach(row => {
       if (row[COL.REL.PC] !== pcName && presentNames.includes(row[COL.REL.PC]) && presentNames.includes(row[COL.REL.NPC])) {
-        if ((parseInt(row[COL.REL.FAV]) || 0) >= 80 || String(row[COL.REL.TAG] || "").includes("已傾心") || row[COL.REL.IS_PARTY] === "同行") {
+        if ((parseInt(row[COL.REL.FAV]) || 0) >= 80 || row[COL.REL.IS_PARTY] === "同行") {
           thirdPartyRels.push(`- 『${row[COL.REL.PC]}』對『${row[COL.REL.NPC]}』：${row[COL.REL.TAG]} (好感:${row[COL.REL.FAV]})${row[COL.REL.IS_PARTY] === "同行" ? " [同行中]" : ""}`);
         }
       }
     });
   }
-  const thirdPartyStr = thirdPartyRels.length > 0 ? `\n\n★【場景人物交叉羈絆 (旁觀親密流露版)】：\n${thirdPartyRels.join("\n")}\n👉若在場人物有「已傾心」等高階親密關係，【絕對禁止】推演為冷血路人！必須讓旁觀者捕捉到外冷內熱的親暱痕跡、假意嗔怒或極度護短的佔有慾！` : "";
+  const thirdPartyStr = thirdPartyRels.length > 0 ? `\n\n★【場景人物交叉羈絆 (旁觀親密流露版)】：\n${thirdPartyRels.join("\n")}\n👉若在場人物有「同行夥伴」等高階親密關係，【絕對禁止】推演為冷血路人！必須讓旁觀者捕捉到外冷內熱的親暱痕跡、假意嗔怒或極度護短的佔有慾！` : "";
 
   let PROMPT_ENV = "", PROMPT_GEAR = "", PROMPT_REL = "";
 
@@ -1530,15 +1530,10 @@ ${isKanshou ? `
 
         if (rIdx !== -1) {
           let oldFav = parseInt(relData[rIdx][COL.REL.FAV]) || 0; let oldTag = relData[rIdx][COL.REL.TAG] || "萍水相逢";
-          const isSoulLocked = oldTag.includes("(已傾心)");
-          if (isSoulLocked) change = Math.max(0, change);
           let newFav = Math.max(-100, Math.min(100, oldFav + change));
 
           let finalTag;
-          if (isSoulLocked) {
-            // 🔴 已傾心永久鎖死：TAG完全不受AI影響，只有玩家透過 update_rel_tag 手動能改
-            finalTag = oldTag;
-          } else {
+          {
             let aiProvidedTag = (rc.tag && typeof rc.tag === 'string') ? rc.tag.trim() : "";
             let isValidAiTag = aiProvidedTag !== "" && aiProvidedTag !== "無" && !aiProvidedTag.includes("禁止");
             if (rc.forceTag) finalTag = rc.tag;
@@ -1866,19 +1861,19 @@ function actionGetEpicHistory(userData, pcId, sheets) {
       .reverse().slice(0, 50);
   }
 
-  // 關係重大紀錄（已傾心 + 重大約定）
+  // 關係重大紀錄（同行夥伴 + 重大約定）
   let relRecords = [];
   if (sheets.rel) {
     const rData = sheets.rel.getDataRange().getValues();
     relRecords = rData.filter(r => r[COL.REL.PC] === pcName && (
-      String(r[COL.REL.TAG] || "").includes("已傾心") ||
+      r[COL.REL.IS_PARTY] === "同行" ||
       (r[COL.REL.MAJOR_EVENT] && r[COL.REL.MAJOR_EVENT] !== "無" && r[COL.REL.MAJOR_EVENT] !== "")
     )).map(r => ({
       npc: r[COL.REL.NPC],
       tag: r[COL.REL.TAG],
       fav: r[COL.REL.FAV],
       majorEvent: r[COL.REL.MAJOR_EVENT] || "無",
-      isSoulBound: String(r[COL.REL.TAG]).includes("已傾心"),
+      isSoulBound: r[COL.REL.IS_PARTY] === "同行",
       memory: r[COL.REL.MEMORY] || ""
     }));
   }
@@ -3646,16 +3641,12 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   if (rIdx === -1) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
 
   const currentFav = parseInt(relData[rIdx][COL.REL.FAV]) || 0;
-  const isSoulBound = String(relData[rIdx][COL.REL.TAG] || "").includes("(已傾心)");
-
-  // 🔴 門檻：好感100 + 已傾心，跟送禮解鎖邏輯一致
-  if (currentFav < 100 || !isSoulBound) {
-    return JSON.stringify({ success: false, message: "羈絆未至深處（需好感100且已傾心），尚無法重新定義這段關係。" });
+  // 🔵 門檻：同行的從者才能重新定義稱呼
+  if (String(relData[rIdx][COL.REL.IS_PARTY]) !== "同行") {
+    return JSON.stringify({ success: false, message: "僅能為同行的從者重新定義這段關係。" });
   }
 
-  // 清掉舊稱呼的"(已傾心)"後綴，套用新文字，再強制補回後綴（後綴永遠鎖死，不開放修改）
-  const cleanNewTag = String(newTagText).trim().replace(/\(已傾心\)/g, "").trim();
-  const finalTag = `${cleanNewTag}(已傾心)`;
+  const finalTag = String(newTagText).trim();
 
   sheets.rel.getRange(rIdx + 1, COL.REL.TAG + 1).setValue(finalTag);
 
