@@ -2750,8 +2750,6 @@ const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatDat
       }
       
 
-      // 🔴 昏迷 NPC 處決確認：統一以打掃戰場卡片列出
-      renderBattlefieldCleanup(data.knockedOut);
       if (data.justRevived) {
   setTimeout(() => {
     send(`【系統動作：玩家從重傷中甦醒，躺在小醫仙藥鋪的病榻上，身旁是忙碌的藥童。請重新描寫甦醒場景並給出符合當下情境的選項。】`, true);
@@ -2937,24 +2935,6 @@ let plainTextContext = cleanText;
 
 
 
-async function confirmExecute(npcName, cardId) {
-  document.getElementById(cardId)?.remove();
-  try {
-    const res = await gasRun({ action: "execute_npc", pcId: pc.id, targetName: npcName });
-    if (res.success) { narrate(res.aiPrompt); syncData(true); }
-    else alert(res.message || "補刀失敗。");
-  } catch (e) { alert("連線失敗，補刀失敗。"); }
-}
-
-function spareNpc(npcName, cardId) {
-  document.getElementById(cardId)?.remove();
-  gasRun({ action: "spare_npc", pcId: pc.id, npcName: npcName }).catch(e => {});
-  const story = document.getElementById('story');
-  story.insertAdjacentHTML('beforeend',
-    `<div class="msg-player" style="border-color:#2e8b57; color:#2e8b57;"><b>【系統】：</b>你收手放過了「${npcName}」，留他一條生路。</div>`);
-  story.scrollTop = story.scrollHeight;
-  syncData(true);
-}
 
 // ==========================================
 // ⚔️ 玩家攻擊：[攻擊XXX]敘述 標籤式輸入，一次可連打多人，由 GAS 依序裁決
@@ -3011,9 +2991,6 @@ async function handleMultiAttack(rawMsg) {
       }
     });
     story.scrollTop = story.scrollHeight;
-
-    // 一次列出本次連擊中所有昏迷對象，統一打掃戰場
-    renderBattlefieldCleanup(res.knockedOut);
 
     input.disabled = false; btn.disabled = false;
 
@@ -3078,31 +3055,6 @@ function renderCombatReport(c) {
   story.scrollTop = story.scrollHeight;
 }
 
-// 🩸 打掃戰場：一次列出本回合所有昏迷對象，各自獨立的 處決/放過 按鈕
-function renderBattlefieldCleanup(npcNames) {
-  if (!npcNames || npcNames.length === 0) return;
-  const story = document.getElementById('story');
-  const groupId = 'sweep-' + Date.now();
-  const rows = npcNames.map((name, idx) => {
-    const rowId = `${groupId}-${idx}`;
-    return `
-    <div id="${rowId}" style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px dashed rgba(128,0,0,0.2);">
-      <span style="font-weight:bold; color:#800;">「${name}」已重傷昏迷</span>
-      <div style="display:flex; gap:8px;">
-        <button class="btn" style="border-color:#800; color:#800; padding:4px 12px; font-size:12px;" onclick="confirmExecute('${name}', '${rowId}')">⚔️ 處決</button>
-        <button class="btn" style="border-color:#2e8b57; color:#2e8b57; padding:4px 12px; font-size:12px;" onclick="spareNpc('${name}', '${rowId}')">🕊️ 放過</button>
-      </div>
-    </div>`;
-  }).join('');
-
-  story.insertAdjacentHTML('beforeend', `
-    <div style="background: rgba(128,0,0,0.07); border: 1px solid #800; border-radius: 8px; padding: 12px; margin: 5px 0;">
-      <div style="color:#800; font-weight:bold; margin-bottom:8px; text-align:center;">⚠️ 打掃戰場：以下對象已倒地不起</div>
-      ${rows}
-    </div>
-  `);
-  story.scrollTop = story.scrollHeight;
-}
 
 
 
