@@ -837,16 +837,6 @@ function renderRecentLocs(recents = null) {
             if (!n.isPC) {
                 actionButtonsHtml += `<button class="btn-act" style="border-color:#8b008b; color:#8b008b; padding: 6px 12px;" onclick="closeNpcList(); openStatus('${n.id}', '${n.name}')">📜 命格</button>`;
 
-                // 🔴 組隊/離隊按鈕：僅多人(full)模式；FATE 單人/鑑賞只有一個從者，不招路人入隊
-                if (pc && pc.mode === 'full') {
-                    if (busyWith && !isInParty) {
-                        actionButtonsHtml += `<button class="btn-act" style="border-color:#6e948a; color:#6e948a; padding: 6px 12px; opacity: 0.5;" onclick="alert('「${n.name}」正與『${busyWith}』同行中，無法分身！')">🔒 已跟隨他人</button>`;
-                    } else {
-                        let partyText = isInParty ? "👋 離隊" : "🤝 組隊";
-                        let partyColor = isInParty ? "#ff6b6b" : "#2e8b57";
-                        actionButtonsHtml += `<button class="btn-act" style="border-color:${partyColor}; color:${partyColor}; padding: 6px 12px;" onclick="interactNpc('組隊', '${n.name}', '${n.loc}', true)">${partyText}</button>`;
-                    }
-                }
             }
         }
 
@@ -2360,12 +2350,8 @@ function showHistoryOverlay(html) {
   ov.style.display = 'flex';
 }
 
-// 🔵 依模式開關功能：單人(solo)隱藏 full 日常系統；多人(full)全開
+// 🔵 依模式開關功能：solo 隱藏輸入框；kanshou 全開
 function applyModeUI() {
-  var isFull = (pc && pc.mode === 'full');
-  document.querySelectorAll('[data-mode="full"]').forEach(function (el) {
-    el.style.display = isFull ? '' : 'none';
-  });
   // 🔵 對話輸入窗只在「鑑賞」(後日談約會)模式出現。
   //   單人聖杯戰爭＝純按鈕：GAS 算數值、AI 只說書，不再猜玩家想幹嘛(actionPlay 演化)。
   //   保留「＋」工具抽屜(狀態/史紀/設定)，只收掉文字輸入框、傳送鈕與慾海開關。
@@ -2723,8 +2709,6 @@ const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatDat
 
       document.getElementById(loadId)?.remove();
       localNPCs = data.people || []; nearbyLocations = data.locations || [];
-      console.log("🔴AI原始文字:", JSON.stringify(data.text));
-
       // 🔴 直接接收後端傳來的狀態字串，不再依賴 AI 的文字解析
       if (data.statusString) {
           localStorage.setItem('kyushu_last_status', data.statusString);
@@ -2896,10 +2880,6 @@ let plainTextContext = cleanText;
             html += `<button class="btn" style="border-color:#b06cd0; color:#b06cd0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, true)">❖ 令咒・絕對命令（必中）</button>`;
             html += `<button class="btn" style="border-color:#4e92c0; color:#7ec8ff; font-weight:bold;" title="催動出戰從者的專屬主動技：本戰增益，耗少量魔力(不足抽御主)" onclick="closeInteractMenu(); servantStrike('${npcName}', false, false, false, true)">⚡ 主動技</button>`;
           }
-          if (pc && pc.mode === 'full') {
-            html += `<button class="btn" style="border-color:#8fa39b; color:#8fa39b;" onclick="closeInteractMenu(); insertActionTag('下毒', '${npcName}')">🧪 下毒</button>`;
-            html += `<button class="btn" style="border-color:#8fa39b; color:#8fa39b;" onclick="closeInteractMenu(); insertActionTag('媚藥', '${npcName}')">🌸 媚藥</button>`;
-          }
       }
 
       document.getElementById('interact-dynamic-buttons').innerHTML = html;
@@ -2917,19 +2897,6 @@ let plainTextContext = cleanText;
 
 
 
-
-// ==========================================
-// ⚔️ 玩家攻擊：[攻擊XXX]敘述 標籤式輸入，一次可連打多人，由 GAS 依序裁決
-// ==========================================
-function insertActionTag(actionType, npcName) {
-  const input = document.getElementById('u-in');
-  const countSel = document.getElementById('combo-count-select');
-  const count = countSel ? (parseInt(countSel.value, 10) || 1) : 1;
-  for (let i = 0; i < count; i++) {
-    input.value += `[${actionType}${npcName}]`;
-  }
-  input.focus();
-}
 
 async function handleMultiAttack(rawMsg) {
   const input = document.getElementById('u-in');
@@ -3044,43 +3011,6 @@ function renderCombatReport(c) {
 
 
 
-  const targetNode = document.getElementById('npc-overlay');
-  const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      if (mutation.attributeName === 'style' && targetNode.style.display === 'none') {
-         console.warn("⚠️ 偵探警報：視窗被關閉了！呼叫堆疊如下：");
-         console.trace(); 
-      }
-    });
-  });
-  observer.observe(targetNode, { attributes: true });
-
-  async function restAndHeal() {
-  try {
-    const data = await gasRun({ action: "rest", pcId: pc.id });
-    if (data.success && data.statusString) {
-      localStorage.setItem('kyushu_last_status', data.statusString); 
-      updateUI(data.statusString.split('§'));
-      const locStr = data.loc ? `在『${data.loc}』` : "就地";
-      let coreMsg = "";
-      if (data.healedNames && data.healedNames.length > 1) {
-        coreMsg = `我與隊友『${data.healedNames.join("、")}』${locStr}盤膝休養，氣血已然補滿`;
-      } else {
-        coreMsg = `我${locStr}盤膝休養，氣血已然補滿`;
-      }
-      let injuryHint = data.wasInjured ? "，先前的傷勢也已大致痊癒" : "（先前並無重傷，純粹是調息養氣，請勿描寫成大難痊癒）";
-      let bystanderHint = (data.bystanderNames && data.bystanderNames.length > 0)
-        ? `現場還有『${data.bystanderNames.join("、")}』在旁，他們並未一同休養，敘事請合理帶到他們的存在或反應，不要視而不見。`
-        : "現場除了休養者外沒有其他人物，請勿憑空捏造路人或對話對象。";
-      const promptMsg = `【純敘事】${coreMsg}${injuryHint}。${bystanderHint}請生動描繪吐納調息的畫面，地點與在場人物務必與上述設定一致。`;
-      narrate(promptMsg);
-    } else {
-      alert(data.message || "休養失敗。");
-    }
-  } catch (e) {
-    alert("連線受阻，無法休養。");
-  }
-}
 
 // ==========================================
 // 🔒 通用按鈕防連點鎖
