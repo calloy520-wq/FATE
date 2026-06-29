@@ -2503,7 +2503,7 @@ function actionFateBattle(userData, pcId, sheets) {
     : sealEscaped ? `「${defC.name}」被對面御主令咒緊急扯離戰場、遁走不在場。`
       : godRevived ? `「${defC.name}」屢屢自死亡歸來、仍未倒下。`
         : defeat ? `『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。`
-          : `「${defC.name}」重傷未死，戰局未決——可再出擊打磨。`;
+          : `「${defC.name}」HP ${parseInt(pcData[nIdx][COL.PC.HP]) || 0}/${parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0}，尚存——生死由御主後續定奪。`;
 
   let aiPrompt;
   // 🎬 敘述：給 AI【事實素材】，少下指令——讓它自己演。只保留必要紅線(show-don't-tell／勿擅自寫死)。
@@ -2527,7 +2527,7 @@ function actionFateBattle(userData, pcId, sheets) {
       ((battery && battery.usedBattery) ? `· 御主電池：${battery.bledMaster ? `御主焚燒自身血肉(餘 ${battery.masterHp}/${battery.masterHpMax} HP)` : `御主導流自身魔力`}為從者頂上魔力缺口。\n` : "") +
       (godRevived ? `· 十二試煉：${godNote}\n` : "") +
       (sealEscaped ? `· 對面御主燃令咒、強行扯離重傷從者，敵已遁走不在場。${sealNote}\n` : "") +
-      ((!destroyedName && !sealEscaped && !godRevived) ? `· 敗方僅重傷未死——勿描寫死亡／消滅／屍體，生死由御主後續定奪。\n` : "") +
+      ((!destroyedName && !sealEscaped && !godRevived) ? `· 敗方尚有餘力(見上方 HP)——勿描寫死亡／消滅／屍體，生死由御主後續定奪。\n` : "") +
       `★以 Fate／TYPE-MOON 筆觸演出這 ${nRounds} 回合互有攻防的交鋒(約 220~280 字)：show, don't tell，把上列事實化為畫面與張力，技能/寶具演其威能而非報菜名。`;
   }
 
@@ -3639,6 +3639,22 @@ function buildDreamPrompt_(pcName, wish, servantName) {
 // 🟢 輕量敘事專用路由：結算已由 GAS 完成，這裡只請 AI 補一段純文字描寫
 // 不讀規矩表、不帶歷史、不解析 JSON 數值，token 砍到最低
 // ==========================================
+// 🧹 把「給 AI 的提示詞」洗成「給玩家看的簡短回顧」：去掉演出依據卡〈…〉、★指令行、──素材──、·條列、【系統標籤】，
+//   只留行動梗概並截短。重整歷史時 getGameHistory 顯示的是這個乾淨版，而非整串幕後鷹架。
+function cleanNarrateEcho_(promptText) {
+  var s = String(promptText || "");
+  s = s.replace(/〈[^〉]*〉[^\n]*/g, "");                       // 整段演出依據卡(到行尾)
+  s = s.split('\n').filter(function (line) {
+    var t = line.trim();
+    if (!t) return false;
+    if (t.charAt(0) === '★' || t.charAt(0) === '·') return false; // 指令行／素材條列
+    if (t.indexOf('──') === 0) return false;                    // 素材分隔
+    return true;
+  }).join(' ');
+  s = s.replace(/【[^】]*】/g, '').replace(/\s+/g, ' ').trim();    // 去【標籤】、收斂空白
+  return s.slice(0, 80) || '御主有所行動。';
+}
+
 function actionNarrateOnly(userData, pcId, sheets) {
   const { promptText, isNsfw } = userData;
 
@@ -3677,7 +3693,7 @@ function actionNarrateOnly(userData, pcId, sheets) {
     const data = JSON.parse(raw.substring(start, end + 1));
     const narrationText = data.narration || "天地靜默，一片祥和。";
     saveGameHistoryBatch(pcId, [
-      { speaker: "player", content: promptText },
+      { speaker: "player", content: cleanNarrateEcho_(promptText) }, // 🧹 存洗淨摘要、非整串提示詞(否則重整歷史會把演出依據/★指令/素材全攤給玩家看)
       { speaker: "ai", content: narrationText }
     ]);
     return JSON.stringify({ success: true, text: narrationText });
