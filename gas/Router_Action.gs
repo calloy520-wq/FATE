@@ -1865,7 +1865,7 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   // 🍱 整備·進食加成：御主一行戰前整備過、且尚在效期內 → 從者出擊命中 +MEAL_BUFF_BONUS
   var mealOn = false;
   try { mealOn = mealBuffActive_(pcData[ctx.pIdx][COL.PC.MEMORY], ctx.myGameId); } catch (e) { }
-  var r = resolveFateBattle_(atkC, defC, { np: !!opts.np, seal: !!opts.seal, mealBuff: mealOn ? MEAL_BUFF_BONUS : 0 });
+  var r = resolveFateBattle_(atkC, defC, { np: !!opts.np, seal: !!opts.seal, skill: opts.skill || null, mealBuff: mealOn ? MEAL_BUFF_BONUS : 0 });
   if (opts.seal) r.atkWins = true; // 絕對命令必中
   // 🌟 寶具對轟結算傷害：傷害已由對轟裁決算好，此處只借 fateStrike_ 套用「死亡/勝負/復活/令咒脫離」全套後續邏輯
   if (opts.forceDamage != null) { r.atkWins = true; r.damage = Math.max(0, Math.round(opts.forceDamage)); r.crit = ''; }
@@ -2231,6 +2231,18 @@ function actionFateBattle(userData, pcId, sheets) {
     }
   }
 
+  // ⚡ 從者主動技：玩家本戰啟動 → 付啟動魔力(付不起走御主電池)，整場我方出擊吃增益。
+  let skillBuff = null, skillBattery = null;
+  if (userData.skill) {
+    skillBuff = servantActiveSkill_(atkC);
+    const skCost = Math.round((parseInt(pcData[atkIdx][COL.PC.MAX_MP]) || 100) * skillBuff.mpPct);
+    skillBattery = drainForNp_(sheets, pcData, atkIdx, pIdx, skCost);
+    atkC.mp = parseInt(pcData[atkIdx][COL.PC.MP]) || 0;
+    if (skillBattery.usedBattery) {
+      logWarEvent_(myGameId, `『${atkC.name}』啟動「${skillBuff.name}」魔力不足，御主${skillBattery.bledMaster ? '焚血' : '導魔'}供能（御主餘 ${skillBattery.masterHp}/${skillBattery.masterHpMax} HP）。`, String(userData.acctName || ""));
+    }
+  }
+
   let knockedOut = [], victory = false, defeat = false, dreamPrompt = "", destroyedName = "", sealEscaped = false, sealNote = "", godRevived = false, godNote = "";
   let enemyNpSpent = false; // 敵寶具一場限一次
   const rounds = [];
@@ -2270,7 +2282,7 @@ function actionFateBattle(userData, pcId, sheets) {
     if (enemyHasNp && Math.random() < clashUrge) {
       enemyNpSpent = true;            // 對轟即用掉敵寶具
       openingNp = false; openingSeal = false; // 玩家寶具/令咒威能已在對轟中釋放，回合迴圈不再重放
-      const pPow = resolveFateBattle_(atkC, enemyC0, { np: true, seal: useSeal }).damage;
+      const pPow = resolveFateBattle_(atkC, enemyC0, { np: true, seal: useSeal, skill: skillBuff }).damage;
       const ePow = resolveFateBattle_(enemyC0, atkC, { np: true }).damage;
       const band = Math.round((pPow + ePow) * 0.10);
       let outcome, pDmgTaken = 0, eDmgTaken = 0;
@@ -2322,7 +2334,7 @@ function actionFateBattle(userData, pcId, sheets) {
       if (String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) break;
       const sC = rowToCombatant_(pcData[sidx]);
       const isActive = (sidx === atkIdx);
-      const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && openingNp && isActive, seal: opening && openingSeal && isActive }, ctx);
+      const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && openingNp && isActive, seal: opening && openingSeal && isActive, skill: isActive ? skillBuff : null }, ctx);
       rl.strikes.push({ by: sC.name, pRoll: ps.aRoll, pHitVal: ps.aHit, dRoll: ps.dRoll, dEvaVal: ps.dEva, pHit: ps.hit, pDmg: ps.hit ? ps.damage : 0, pCrit: ps.crit, pFired: ps.fired, note: ps.sealNote || ps.godNote || "" });
       if (ps.destroyed) destroyedName = ps.destroyed;
       if (ps.knocked) knockedOut.push(ps.knocked);
@@ -2401,6 +2413,7 @@ function actionFateBattle(userData, pcId, sheets) {
       (useSeal ? `★【令咒·絕對命令·務必演出】御主高舉左手，手背上的紅色令咒咒印（聖痕）灼然迸亮、其中一道紋路在燃燒中消褪——請明確描寫「御主燃燒一道令咒、下達不可違逆的絕對命令」這一幕，以及那道命令如何貫徹從者全身、強行引爆超越極限的戰力（這一擊必中）。\n` : "") +
       (clash ? `★【寶具對轟·務必演出】我方與「${defC.name}」同時解放寶具真名，兩道傳說之力正面對撞、光與光在中軸絞鎖角力——${clash.outcome === 'player' ? `終於我方的威能壓過對面、光潮貫穿而出（敵受創 ${clash.eDmgTaken}、我回震 ${clash.pDmgTaken}）` : clash.outcome === 'enemy' ? `終於對面的威能壓過我方、洪流反貫而回（我受創 ${clash.pDmgTaken}、敵回震 ${clash.eDmgTaken}）` : `兩股力量勢均力敵、轟然相抵爆散，雙方俱被餘波震退（各受創約 ${clash.pDmgTaken}）`}。請以 Fate／TYPE-MOON 筆觸濃墨描寫這場寶具對轟的對峙、咬合、與決勝瞬間（這是本戰高潮）。勝負已由系統結算。\n` : "") +
       (useNp && !clash ? `★【寶具解放·務必演出】請描寫從者高呼寶具真名、解放其象徵傳說之力的壯麗瞬間與毀滅性威能。\n` : "") +
+      (skillBuff ? `★【主動技·${skillBuff.name}】我方從者本戰啟動了「${skillBuff.name}」——請把這道技能的發動姿態與氣勢自然融入廝殺演出（演出而非複述標籤）。\n` : "") +
       ((battery && battery.usedBattery) ? `★【御主電池·務必演出】${battery.bledMaster ? `為餵飽寶具的魔力缺口，御主焚燒自身血肉與生命（耗血約 ${battery.fromMasterHp}，僅餘 ${battery.masterHp}/${battery.masterHpMax} HP），` : `御主以自身魔力為從者頂上魔力缺口（導流 ${battery.fromMasterMp} 魔力），`}化作那一發寶具的活體電池——請演出御主臉色刷白、令咒灼痛、血魔被從者透支抽取的代價感，凸顯「以御主為池」的危險浪漫。\n` : "") +
       (godRevived ? `★【十二試煉】${godNote}請演出他靈基崩解又自死亡歸來、神性光輝重燃的不滅之姿。\n` : "") +
       (sealEscaped ? `★【令咒介入】${sealNote}請演出對面御主令咒爆閃、強行扯離重傷從者的瞬間，敵已遁走、不在場。\n` : "") +
@@ -2416,6 +2429,7 @@ function actionFateBattle(userData, pcId, sheets) {
     defHp: parseInt(pcData[nIdx][COL.PC.HP]) || 0, defHpMax: parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0,
     atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0,
     battery: (battery && battery.usedBattery) ? { fromMasterMp: battery.fromMasterMp, fromMasterHp: battery.fromMasterHp, bledMaster: battery.bledMaster, masterHp: battery.masterHp, masterHpMax: battery.masterHpMax } : null,
+    skill: skillBuff ? { name: skillBuff.name, icon: skillBuff.icon, desc: skillBuff.desc, bledMaster: !!(skillBattery && skillBattery.bledMaster), fromMasterHp: skillBattery ? skillBattery.fromMasterHp : 0 } : null,
     clash: clash,
     masterHp: parseInt(pcData[pIdx][COL.PC.HP]) || 0, masterHpMax: parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 0,
     party: partyIdxs.map(i => ({ name: String(pcData[i][COL.PC.NAME]), hp: parseInt(pcData[i][COL.PC.HP]) || 0, hpMax: parseInt(pcData[i][COL.PC.MAX_HP]) || 0 }))

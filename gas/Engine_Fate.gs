@@ -166,6 +166,19 @@ function combatProfile_(c) {
   return { hit: '敏捷', dmg: '筋力', eva: '敏捷', kind: '近戰' };
 }
 
+// ⚡ 從者專屬「主動技」：依其 fx 簽名給一個本戰增益按鈕（每個從者至少有「集中」）。
+//   mpPct＝啟動耗魔(佔 maxMP 比例，付不起走御主電池)；hit＝本戰每擊命中+；dmgMul/dmgAdd＝本戰每擊傷害增益。
+//   ★只增益「我方出擊」，不碰防禦端，避免跨呼叫方向的複雜度。
+function servantActiveSkill_(c) {
+  if (hasFx_(c, 'burst')) return { id: 'burst', name: fxName_(c, 'burst', '魔力放出'), icon: '💥', mpPct: 0.15, hit: 0, dmgMul: 1.3, dmgAdd: 0, desc: '本戰傷害 ×1.3' };
+  if (hasFx_(c, 'stealth')) return { id: 'stealth', name: fxName_(c, 'stealth', '氣息遮斷'), icon: '🌫️', mpPct: 0.12, hit: 6, dmgMul: 1.15, dmgAdd: 0, desc: '本戰命中+6、傷害×1.15(奇襲)' };
+  if (hasFx_(c, 'str_up')) return { id: 'str_up', name: fxName_(c, 'str_up', '怪力'), icon: '💪', mpPct: 0.12, hit: 0, dmgMul: 1.0, dmgAdd: 14, desc: '本戰傷害+14' };
+  if (hasFx_(c, 'aim') || hasFx_(c, 'projection')) return { id: 'aim', name: fxName_(c, hasFx_(c, 'aim') ? 'aim' : 'projection', '狙準'), icon: '🎯', mpPct: 0.12, hit: 6, dmgMul: 1.0, dmgAdd: 10, desc: '本戰命中+6、傷害+10' };
+  if (hasFx_(c, 'morale')) return { id: 'morale', name: fxName_(c, 'morale', '鼓舞'), icon: '📣', mpPct: 0.10, hit: 3, dmgMul: 1.0, dmgAdd: 8, desc: '本戰命中+3、傷害+8' };
+  if (hasFx_(c, 'self_mod')) return { id: 'self_mod', name: fxName_(c, 'self_mod', '自我改造'), icon: '🔧', mpPct: 0.10, hit: 4, dmgMul: 1.0, dmgAdd: 6, desc: '本戰命中+4、傷害+6' };
+  return { id: 'focus', name: '集中', icon: '🎯', mpPct: 0.10, hit: 5, dmgMul: 1.0, dmgAdd: 0, desc: '本戰命中+5' };
+}
+
 // 眾生列 → 戰鬥單位（六圍從六圍欄、技能/特性從標籤欄；無六圍者合成）
 function rowToCombatant_(row) {
   var six = {}, skills = [], traits = [];
@@ -216,6 +229,8 @@ function resolveFateBattle_(atk, def, opts) {
   var madD = hasFx_(def, 'mad'); if (madD) dEva -= Math.round(3 * rankMul_(madD));
   // 自我改造(self_mod)：命中 +2
   if (hasFx_(atk, 'self_mod')) { aHit += 2; fired.push(atk.name + '·' + fxName_(atk, 'self_mod', '自我改造')); }
+  // ⚡ 主動技（玩家本戰啟動）：命中加成 + 標記發動
+  if (opts.skill) { aHit += (opts.skill.hit || 0); fired.push(atk.name + '·' + opts.skill.name + '(主動技)'); }
 
   // 騎乘(ride) 機動 +2×階級
   var rideA = hasFx_(atk, 'ride'); if (rideA) aHit += Math.round(2 * rankMul_(rideA));
@@ -297,6 +312,11 @@ function resolveFateBattle_(atk, def, opts) {
     // 🏰 寶具規模相剋矩陣：對城打對人 ×2.5、對界碾壓常規防禦…（攻擊規模 × 守方防禦規模）
     var scaleMult = npScaleMult_(winner, loser);
     if (scaleMult !== 1) { base = Math.round(base * scaleMult); fired.push(winner.name + '·' + npAtkScale_(winner) + '寶具 vs ' + npDefScale_(loser) + '防(×' + scaleMult + ')'); }
+  }
+  // ⚡ 主動技傷害增益（僅當攻方獲勝＝此增益屬於攻方時生效）
+  if (opts.skill && atkWins) {
+    if (opts.skill.dmgMul && opts.skill.dmgMul !== 1) base = Math.round(base * opts.skill.dmgMul);
+    if (opts.skill.dmgAdd) base += opts.skill.dmgAdd;
   }
   // 令咒·絕對命令：全力一擊
   if (opts.seal) { base = Math.round(base * 1.5); fired.push('令咒·絕對命令'); }

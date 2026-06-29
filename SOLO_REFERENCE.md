@@ -129,6 +129,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
   - 寶具骰：`npBaseDice_(寶具階)`＝E3d10/D5d10/C8d10/B12d10/A20d10/A+22d10/EX30d10；另加 `rankVal(寶具)*0.6+10`。
 - **🔱 概念優先權 Priority(2026-06)**：`CONCEPT_TIER{}`(ea6 / excalibur·divine_age·rule_breaker5 / ubw·anti_magic_lance·gae_bolg4 / god_hand·tsubame·zabaniya·petrify3 / nullify_magic·divine_core·territory2)。`offenseTier_(c,isNp)` 取攻方最高進攻概念階；`pierces(防禦fx)`＝攻方階≥防禦階+`PIERCE_GAP`(2)→該防禦(territory/神核/對魔力)被無視(概念壓制)。把舊「破魔無視神核」系統化＋ ea 凌駕一切。
 - **🏰 寶具規模相剋矩陣(2026-06)**：`npAtkScale_`(對人/對軍/對城/對界，由寶具名或 ea/excalibur 推)×`npDefScale_`(由 ubw/神核/god_hand/territory 推) → `NP_SCALE_MATRIX` 倍率(對城打對人×2.5、對界×3.0…0x 以 Math.max(1)保底)。`ea` 寶具：×1.7+4d12+80。
+- **⚡ 從者專屬主動技(2026-06)**：`servantActiveSkill_(c)` 依 fx 簽名給一個本戰增益(burst→傷×1.3 / stealth→命中+6傷×1.15 / str_up→傷+14 / aim·projection→命中+6傷+10 / morale→命中+3傷+8 / self_mod→命中+4傷+6 / 預設→集中命中+5)。`{id,name,icon,mpPct,hit,dmgMul,dmgAdd,desc}`。`resolveFateBattle_` 讀 `opts.skill`：命中端加 hit；傷害端(僅攻方勝)套 dmgMul/dmgAdd。`actionFateBattle` 讀 `userData.skill`→啟動耗魔 `mpPct*maxMP`(走 drainForNp_ 電池)→傳 `skill:isActive?skillBuff:null` 給我方每擊，並進 clash pPow。前端 `servantStrike(...,useSkill)`＋「⚡ 主動技」鈕＋戰報卡技能行。
 - **🔋 御主電池(2026-06)**：`npPranaCost_(寶具階)`＝E50/D100/C200/B350/A500/EX800。`drainForNp_(sheets,pcData,svIdx,masterIdx,mpCost)`：付款序 ①從者MP ②御主MP(1:1) ③御主HP(`BATTERY_HP_PER_MP`=2HP→1MP，御主血底線1)。回 `{fromSv,fromMasterMp,fromMasterHp,usedBattery,bledMaster,...}`。寫進 report.battery＋aiPrompt【御主電池】星標＋前端血條。三者皆空才擋寶具。
 - `aliveEnemyServants_(sheets,gameId)`：在世敵從者數（勝利判定用）。
 - `enemyRetreatLoc_`：令咒緊急脫離時敵退避地點。

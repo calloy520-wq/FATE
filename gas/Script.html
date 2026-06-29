@@ -564,7 +564,8 @@ function renderRecentLocs(recents = null) {
         const title = '<span style="color:#e8b0b0; font-size:13px; font-weight:bold;">⚔️ 敵從者 ' + f.name + '</span>' + (f.intelCls ? ' <small style="color:#8fd0a0; opacity:.85;">〔' + f.intelCls + '·通報〕</small>' : '');
         let acts = '<button onclick="servantStrike(\'' + safe + '\', false)" title="' + st.hint + '" style="flex:2; min-width:110px; font-size:12.5px; padding:8px 4px; background:linear-gradient(90deg,rgba(' + st.rgb + ',.34),rgba(' + st.rgb + ',.16)); color:' + st.col + '; border:1px solid rgb(' + st.rgb + '); border-radius:7px; cursor:pointer; font-weight:bold;">' + st.emo + ' ' + st.name + '</button>'
           + '<button onclick="servantStrike(\'' + safe + '\', true)" title="解放寶具" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(212,175,55,.15); color:#e7c873; border:1px solid #d4af37; border-radius:7px; cursor:pointer; font-weight:bold;">💥 寶具</button>'
-          + '<button onclick="servantStrike(\'' + safe + '\', false, true)" title="令咒・絕對命令（必中）" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(176,108,208,.15); color:#c79be8; border:1px solid #b06cd0; border-radius:7px; cursor:pointer; font-weight:bold;">❖ 令咒</button>';
+          + '<button onclick="servantStrike(\'' + safe + '\', false, true)" title="令咒・絕對命令（必中）" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(176,108,208,.15); color:#c79be8; border:1px solid #b06cd0; border-radius:7px; cursor:pointer; font-weight:bold;">❖ 令咒</button>'
+          + '<button onclick="servantStrike(\'' + safe + '\', false, false, false, true)" title="催動出戰從者的專屬主動技（依其技能而定）：本戰增益，耗少量魔力，不足則抽御主供能" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(110,180,220,.15); color:#7ec8ff; border:1px solid #4e92c0; border-radius:7px; cursor:pointer; font-weight:bold;">⚡ 主動技</button>';
         if (canMystic && myMystic.target === 'servant') {
           acts += '<button onclick="mysticStrike(\'' + safe + '\')" title="' + (myMystic.desc || '').replace(/"/g, '') + '" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(127,208,192,.16); color:#7fd0c0; border:1px solid #4ea596; border-radius:7px; cursor:pointer; font-weight:bold;">✨ 禮裝·' + myMystic.name + ' <small style="opacity:.7;">充能' + myMystic.charges + '·需迴路' + myMystic.req + '</small></button>';
         }
@@ -1520,7 +1521,8 @@ function renderRecentLocs(recents = null) {
     };
     const critTxt = (c) => ({ atk_crit: '🎯', def_crit: '🛡️', atk_fumble: '💢', def_fumble: '😵' }[c] || '');
     let h = '<div style="border:1px solid rgba(212,175,55,0.35);border-radius:9px;padding:9px 11px;margin:6px 0;background:rgba(28,20,14,0.5);font-size:12px;">';
-    h += '<div style="color:#e7c873;font-weight:bold;margin-bottom:5px;">⚔️ ' + r.atk + (r.useSeal ? ' ❖令咒' : r.useNp ? ' 💥寶具' : '') + ' ⚔ ' + r.def + '　<span style="color:#9a8;font-size:11px;font-weight:normal;">' + r.rounds.length + ' 回合交鋒</span></div>';
+    h += '<div style="color:#e7c873;font-weight:bold;margin-bottom:5px;">⚔️ ' + r.atk + (r.useSeal ? ' ❖令咒' : r.useNp ? ' 💥寶具' : '') + (r.skill ? ' <span style="color:#7ec8ff;">' + (r.skill.icon || '⚡') + r.skill.name + '</span>' : '') + ' ⚔ ' + r.def + '　<span style="color:#9a8;font-size:11px;font-weight:normal;">' + r.rounds.length + ' 回合交鋒</span></div>';
+    if (r.skill) h += '<div style="color:#7ec8ff;font-size:10.5px;margin-bottom:3px;">⚡ 主動技「' + r.skill.name + '」發動：' + (r.skill.desc || '') + (r.skill.bledMaster ? '　<span style="color:#e06a6a;">(御主焚血 −' + r.skill.fromMasterHp + 'HP)</span>' : '') + '</div>';
     if (r.intercept) h += '<div style="color:#c79be8;font-size:11px;margin-bottom:4px;">🛡️ 敵從者攔截護主——攻擊改打從者</div>';
     // 🌟 寶具對轟
     if (r.clash) {
@@ -1581,7 +1583,7 @@ function renderRecentLocs(recents = null) {
     story.scrollTop = story.scrollHeight;
   }
 
-  async function servantStrike(npcName, useNp, useSeal, isMaster) {
+  async function servantStrike(npcName, useNp, useSeal, isMaster, useSkill) {
     // 🗡️ 斬首敵御主極兇險：唯有「大成功（擲 20）」能突破護衛從者、一擊斬殺御主；
     //    否則必被護衛擋下，並反噬 1.5 倍傷害給你的從者（可能直接靈基崩潰、敗北）。
     if (isMaster) {
@@ -1597,10 +1599,10 @@ function renderRecentLocs(recents = null) {
     const story = document.getElementById('story');
     const _plain = myServantCls === 'Caster' ? '詠唱魔砲，轟向' : myServantCls === 'Archer' ? '張弓狙擊，鎖定' : '出擊，目標';
     const verb = isMaster ? '奇襲斬首，直取敵御主' : (useSeal ? '燃令咒・絕對命令，必中斬向' : (useNp ? '解放寶具，目標' : _plain));
-    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主令從者${verb}「${npcName}」！</div>`);
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主令從者${useSkill ? '催動主動技、' : ''}${verb}「${npcName}」！</div>`);
     story.scrollTop = story.scrollHeight;
     try {
-      const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, np: !!useNp, seal: !!useSeal, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount });
+      const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, np: !!useNp, seal: !!useSeal, skill: !!useSkill, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) {
         if (res.report) renderFateBattleReport(res.report); // 📊 先攤開骰子/數字戰報
         narrate(res.aiPrompt);
@@ -2912,6 +2914,7 @@ let plainTextContext = cleanText;
             html += `<button class="btn" title="${_st.hint}" style="border-color:rgb(${_st.rgb}); color:${_st.col}; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false)">${_st.emo} 令從者${_st.name}</button>`;
             html += `<button class="btn" style="border-color:#d4af37; color:#d4af37; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', true)">💥 寶具解放</button>`;
             html += `<button class="btn" style="border-color:#b06cd0; color:#b06cd0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, true)">❖ 令咒・絕對命令（必中）</button>`;
+            html += `<button class="btn" style="border-color:#4e92c0; color:#7ec8ff; font-weight:bold;" title="催動出戰從者的專屬主動技：本戰增益，耗少量魔力(不足抽御主)" onclick="closeInteractMenu(); servantStrike('${npcName}', false, false, false, true)">⚡ 主動技</button>`;
           }
           if (pc && pc.mode === 'full') {
             html += `<button class="btn" style="border-color:#8fa39b; color:#8fa39b;" onclick="closeInteractMenu(); insertActionTag('下毒', '${npcName}')">🧪 下毒</button>`;
