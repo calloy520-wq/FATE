@@ -3601,7 +3601,15 @@ function actionSetWorkshop(userData, pcId, sheets) {
   return JSON.stringify({ success: true, message: `已於「${loc}」佈設陣地（工房）——駐留此地時，從者供魔收入提升。`, clock: clock, ap: ap, apMax: AP_PER_DAY, economy: isFate ? playerServantEconomy_(sheets, pcId) : null });
 }
 
-// 🔍 搜索物資：回復御主魔力，偶察覺鄰近敵蹤（耗 1 AP）
+// 🔍 搜索物資：偵查鄰近敵蹤為主，順手撿拾零星魔力（耗 1 AP）
+//   ⚠ 反「無痛回魔」：每地的散逸魔力有限，搜刮一次即枯竭——同地重搜只得殘渣。
+//   想真正回滿池要付永久代價(補魔)或靠時間(靈脈/陣地/休息)。標記記於 MEMORY【搜刮】loc。
+function getScavengedLoc_(memory) { var m = String(memory || "").match(/【搜刮】([^|【]+)/); return m ? m[1].trim() : ""; }
+function setScavengedLoc_(memory, loc) {
+  var s = String(memory || "");
+  if (/【搜刮】[^|【]*/.test(s)) return s.replace(/【搜刮】[^|【]*/, "【搜刮】" + loc);
+  return (s ? s + "｜" : "") + "【搜刮】" + loc;
+}
 function actionScavenge(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
@@ -3609,15 +3617,19 @@ function actionScavenge(userData, pcId, sheets) {
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const isFate = myGameId.indexOf("g_") === 0;
   if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以細細搜索——請休息恢復。" });
-  // 回復御主魔力 ~30%
+  // 🔋 撿拾零星魔力：基礎 ~10% 上限；同地已搜刮過→枯竭、僅得殘渣 ~3%。靠移動探索換取、非站樁刷魔。
   const mpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || 80;
   const cur = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
-  const gain = Math.max(0, Math.min(mpMax, cur + Math.round(mpMax * 0.30)) - cur);
+  const curLoc = String(pcData[pIdx][COL.PC.LOC] || "").trim();
+  const depleted = getScavengedLoc_(pcData[pIdx][COL.PC.MEMORY]) === curLoc && curLoc !== "";
+  const rate = depleted ? 0.03 : 0.10;
+  const gain = Math.max(0, Math.min(mpMax, cur + Math.round(mpMax * rate)) - cur);
   pcData[pIdx][COL.PC.MP] = cur + gain;
+  if (!depleted && curLoc) pcData[pIdx][COL.PC.MEMORY] = setScavengedLoc_(pcData[pIdx][COL.PC.MEMORY], curLoc);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   let ap = AP_PER_DAY, clock = "";
   if (isFate) { try { ap = spendAp_(myGameId, 1).ap; clock = clockLabel_(myGameId); } catch (e) { } }
-  // 30% 機率察覺鄰近敵蹤（揭露一名最近的未偵查敵）
+  // 35% 機率察覺鄰近敵蹤（揭露一名最近的未偵查敵）——搜索的真正價值在情報
   let intel = "";
   if (Math.random() < 0.35) {
     for (var i = 1; i < pcData.length; i++) {
@@ -3629,7 +3641,9 @@ function actionScavenge(userData, pcId, sheets) {
       }
     }
   }
-  const msg = `搜索此地補給，導入零散魔力——御主魔力 +${gain}（${pcData[pIdx][COL.PC.MP]}/${mpMax}）。${intel || "此地別無所獲。"}`;
+  const haulNote = depleted ? `此地散逸魔力已被你搜刮殆盡，僅再得殘渣——魔力 +${gain}（${pcData[pIdx][COL.PC.MP]}/${mpMax}）。`
+    : `搜索此地補給，導入零星散逸魔力——御主魔力 +${gain}（${pcData[pIdx][COL.PC.MP]}/${mpMax}）。`;
+  const msg = `${haulNote}${intel || "此地別無敵蹤所獲。"}`;
   return JSON.stringify({ success: true, message: msg, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 

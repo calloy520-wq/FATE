@@ -152,9 +152,13 @@ function playerServantEconomy_(sheets, pcId) {
   var ley = leylineAt_(sheets, loc);
   var rootLoc = loc.split('-')[0].trim();
   var atHome = !!(homeLoc && rootLoc && String(homeLoc).split('-')[0].trim() === rootLoc);
+  // 🏕️ 陣地(工房)：玩家以 setWorkshop 設定的【陣地】marker，駐留該地→供魔工房加成。
+  //   與 applyRegen_(實際時回) 對齊，否則 HUD 顯示不出陣地收益（「陣地效果沒有時回」）。
+  var workshopLoc = ""; try { workshopLoc = getWorkshop_(data[pIdx][COL.PC.MEMORY]); } catch (e) { }
+  var atWorkshop = !!(workshopLoc && rootLoc && String(workshopLoc).split('-')[0].trim() === rootLoc);
   var c = rowToCombatant_(sv);
   var hasTerritory = !!hasFx_(c, 'territory');
-  var eco = servantEconomy_(circuits, c.six, !!hasFx_(c, 'mad'), ley, atHome || hasTerritory);
+  var eco = servantEconomy_(circuits, c.six, !!hasFx_(c, 'mad'), ley, atHome || hasTerritory || atWorkshop);
   // 🔋 出力電池制：顯示的是「御主MP」收支——維持費依從者出力檔位放大/縮小。
   var output = servantOutput_(sv[COL.PC.MEMORY]);
   var drain = Math.round(eco.drain * outputTier_(output).drainMul);
@@ -163,7 +167,7 @@ function playerServantEconomy_(sheets, pcId) {
     income: eco.income, drain: drain, net: net,
     supply: eco.supply, ley: eco.ley, workshop: eco.workshop,
     leyLabel: LEYLINE_LABEL_[ley] || "魔力稀薄", loc: rootLoc,
-    atHome: atHome, hasTerritory: hasTerritory, sustainable: net >= 0, circuits: circuits,
+    atHome: atHome, hasTerritory: hasTerritory, atWorkshop: atWorkshop, sustainable: net >= 0, circuits: circuits,
     output: output, outputLabel: outputTier_(output).label
   };
 }
