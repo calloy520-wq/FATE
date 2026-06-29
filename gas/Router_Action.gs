@@ -617,7 +617,12 @@ ${FX_MENU_}
 // 🔵 御主／從者 標籤資料（左側狀態卡用）：只給動作姿勢/令咒/羈絆/寶具，不給六維
 // ==========================================
 function actionGetTags(userData, pcId, sheets) {
-  const pcData = sheets.pc.getDataRange().getValues();
+  return JSON.stringify(buildTagsPayload_(sheets, pcId));
+}
+// 🔧 抽出共用：左側狀態卡資料建構。get_tags 與 sync 共用同一份，讓「一次按鍵」少一趟 round-trip。
+//   preData/preRel＝呼叫端已讀好的整表，傳入即免重讀(省整表 I/O)。
+function buildTagsPayload_(sheets, pcId, preData, preRel) {
+  const pcData = preData || sheets.pc.getDataRange().getValues();
   const m = pcData.find(r => r[COL.PC.ID] == pcId);
   if (!m) return JSON.stringify({ success: false });
   const gameId = String(m[COL.PC.GAME_ID] || "");
@@ -642,7 +647,7 @@ function actionGetTags(userData, pcId, sheets) {
 
   // 🗝️ 雙從者：收齊所有在世我方從者（servants 陣列）；servant＝第一個（向後相容）
   let servants = [];
-  const relRows = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
+  const relRows = preRel || (sheets.rel ? sheets.rel.getDataRange().getValues() : []);
   pcData.forEach(s => {
     if (String(s[COL.PC.FACTION]) !== "從者" || String(s[COL.PC.GAME_ID] || "") !== gameId || String(s[COL.PC.ID]).startsWith("DEAD_")) return;
     let bond = 0;
@@ -674,7 +679,7 @@ function actionGetTags(userData, pcId, sheets) {
   });
   let servant = servants[0] || null;
   // 💠 供魔收支（左側狀態卡顯示用）：僅正式聖杯戰爭世界算
-  var economy = (gameId && gameId.indexOf("g_") === 0) ? playerServantEconomy_(sheets, pcId) : null;
+  var economy = (gameId && gameId.indexOf("g_") === 0) ? playerServantEconomy_(sheets, pcId, pcData) : null;
   // 💕 今日已用過的羈絆互動（前端用來灰掉按鈕）
   var bondUsed = [];
   if (gameId && gameId.indexOf("g_") === 0) {
@@ -693,7 +698,7 @@ function actionGetTags(userData, pcId, sheets) {
   // 🗝️ 破戒之力（前端決定是否顯示「破戒奪僕」按鈕）：限正式聖杯戰爭世界
   var canRB = false;
   try { if (gameId && gameId.indexOf("g_") === 0) { var pIdxRB = pcData.findIndex(r => r[COL.PC.ID] == pcId); if (pIdxRB >= 0) canRB = canRuleBreak_(pcData, pIdxRB, gameId); } } catch (e) { }
-  return JSON.stringify({ success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length });
+  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length };
 }
 
 // 🔴 修正：原本所有缺座標的地點都會被塞進 (0,0)，導致俯瞰圖上大量節點重疊堆疊。
@@ -937,16 +942,21 @@ function actionSync(userData, pcId, sheets) {
   let syncClock = "", syncAp = AP_PER_DAY;
   if (syncGameId && syncGameId.indexOf("g_") === 0) { try { syncClock = clockLabel_(syncGameId); syncAp = getAp_(syncGameId); } catch (e) { } }
 
+  // ⚡ 一趟 round-trip 搞定：sync 同時夾帶 get_tags 的 payload(tags)，前端不必再多打一次 get_tags。
+  //   且整表(allPcData)、關係表(syncRel) 只讀一次，下傳給 people/economy/tags 共用——省掉重複整表 I/O。
+  const syncRel = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
+  const isFateSync = syncGameId && syncGameId.indexOf("g_") === 0;
   return JSON.stringify({
     success: true,
     statusString: buildPlayerStatusString(allPcData[pcIndex]),
-    people: getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, sheets.rel ? sheets.rel.getDataRange().getValues() : [], sheets.task ? sheets.task.getDataRange().getValues() : []),
+    people: getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, syncRel, sheets.task ? sheets.task.getDataRange().getValues() : [], allPcData),
     locations: getNearbyLocations(curL, freshMapData),
     mapDesc: currentMapInfo ? currentMapInfo[COL.MAP.DESC] : "四下靜謐。",
     clock: syncClock,
     ap: syncAp,
     apMax: AP_PER_DAY,
-    economy: (syncGameId && syncGameId.indexOf("g_") === 0) ? playerServantEconomy_(sheets, pcId) : null
+    economy: isFateSync ? playerServantEconomy_(sheets, pcId, allPcData) : null,
+    tags: buildTagsPayload_(sheets, pcId, allPcData, syncRel)
   });
 }
 

@@ -303,7 +303,7 @@ function buildPlayerStatusString(selfRow, relMem = "", isNsfwMode = false) {
 }
 
 function getFreshStatusString(targetId, pIdx, sheets) {
-  SpreadsheetApp.flush();
+  // getValues() 本身會 flush pending 寫入，無需額外 SpreadsheetApp.flush()（省一次強制 commit）。
   const freshPcData = sheets.pc.getDataRange().getValues();
   return buildPlayerStatusString(freshPcData[pIdx]);
 }

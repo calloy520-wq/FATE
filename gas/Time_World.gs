@@ -136,8 +136,8 @@ function playerHomeLoc_(sheets, pcId) {
 }
 
 // 供前端顯示：玩家從者當前魔力收支與所在靈脈（null＝無存活從者）
-function playerServantEconomy_(sheets, pcId) {
-  var data = sheets.pc.getDataRange().getValues();
+function playerServantEconomy_(sheets, pcId, preData) {
+  var data = preData || sheets.pc.getDataRange().getValues();
   var pIdx = -1; for (var i = 1; i < data.length; i++) { if (String(data[i][COL.PC.ID]) === String(pcId)) { pIdx = i; break; } }
   if (pIdx < 0) return null;
   var gid = String(data[pIdx][COL.PC.GAME_ID] || "");

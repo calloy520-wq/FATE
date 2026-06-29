@@ -84,7 +84,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | update_fate | actionUpdateFate | 創角生成御主（身世/願望/魔術→屬性/禮裝/MEMORY） |
 | summon_servant | actionSummonServant | 召喚從者（從英靈殿抓真名/六圍/技能→眾生列）。**種子英靈直接用寫死 persona(萌點/口吻)、不叫 AI**(省一次 API、加速)；只有名冊查無的自訂/未知英靈才走 AI 即時生成(else 分支)。**敘事8格**：個性(PREF)讀 `persona.words`、**特徵(TRAIT)讀 `persona.look`**(35 位種子皆手寫4格 外貌/氣質/自稱/卸下心防私密一面，召喚/鋪敵 直接用、AI原創走通用預設、不再被戰鬥特性污染)。 |
 | get_heroes / get_masters | — | 創角選單列出可選英靈/正典御主 |
-| get_tags | actionGetTags | **左側狀態面板資料**：御主HP/MP/令咒/願望、從者陣列(六圍/技能/羈絆/寶具)、供魔收支、禮裝、破戒能力 |
+| get_tags | actionGetTags | **左側狀態面板資料**：御主HP/MP/令咒/願望、從者陣列(六圍/技能/羈絆/寶具)、供魔收支、禮裝、破戒能力。**⚡ 核心邏輯抽成 `buildTagsPayload_(sheets,pcId,preData,preRel)`**(可吃已讀好的整表免重讀)；`sync` 回應已夾帶 `tags:` 同份 payload，前端 `refreshFateTags(data.tags)` 直接用、不再單獨打 get_tags。**效能鐵則：一次按鍵原本 3 趟 round-trip(action→sync→get_tags)→現 2 趟**；`actionSync`/`actionGetTags` 整表只讀一次下傳 people/economy/tags 共用；`playerServantEconomy_(sheets,pcId,preData)` 與 `getFreshStatusString`(已拔冗餘 flush) 同理。改這幾支前先想清楚別把整表重讀加回來。 |
 | fate_battle | actionFateBattle | **核心戰鬥**：D20＋寶具＋令咒＋斬首＋雙從者＋協同強襲（見 §4） |
 | use_seal | actionUseSeal | 令咒固定選單：修復/補魔/緊急脫離 |
 | mana_supply | actionManaSupply | 補魔(燃迴路)：硬擠迴路回滿共用池，**永久代價** maxHP−5~10、迴路−1~2(地板迴路8/HP40)+羈絆+SFW fade（耗1AP，卸防可能被突襲）。過度＝慢性自盡。 |

@@ -1199,10 +1199,11 @@ function renderRecentLocs(recents = null) {
     showHistoryOverlay(html);
   }
 
-  async function refreshFateTags() {
+  async function refreshFateTags(prefetched) {
     if (!pc || !pc.id) return;
     try {
-      const t = await gasRun({ action: 'get_tags', pcId: pc.id });
+      // ⚡ prefetched＝sync 已夾帶的 tags payload，有就直接用、免再打一趟 get_tags
+      const t = prefetched || await gasRun({ action: 'get_tags', pcId: pc.id });
       if (!t || !t.success) return;
       const box = document.getElementById('fate-tags');
       if (!box) return;
@@ -2227,7 +2228,7 @@ function renderRecentLocs(recents = null) {
       nearbyLocations = data.locations || [];
       updateClock(data.clock, data.ap, data.apMax);
       updateEconomy(data.economy);
-      refreshFateTags();
+      refreshFateTags(data.tags); // ⚡ 用 sync 夾帶的 tags，省一趟 get_tags round-trip
       renderMapPane();
       renderWarActions();
 
