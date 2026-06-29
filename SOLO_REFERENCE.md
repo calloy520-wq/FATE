@@ -25,28 +25,28 @@
 | mode | 意義 | UI |
 |---|---|---|
 | **solo** | FATE 單人聖杯戰爭（本專案主體） | 純按鈕；無聊天輸入框、無慾海開關。`applyModeUI()` 隱藏所有 `data-mode="full"` 武俠日常系統 |
-| **full** | 九州全模擬（武俠日常經營） | 全開：聊天輸入、聽風閣、商城、給銀兩、結識新人、宗門… |
+| **full** | 九州全模擬（停用中／待清理） | 經濟·生活·物品·門派等已全砍，剩聊天輸入框；不作為玩法軌，可隨經濟一起清理 |
 | **kanshou** | 鑑賞（奪杯後後日談約會） | 有聊天輸入框＋慾海開關；無戰鬥／血量 |
 
 `applyModeUI()`（Script.html）是模式總開關。solo 隱藏 full 專屬功能、收掉輸入框、顯示 `war-actions` 行動列。
 
 **雙軌設計**（Index.html `scr-menu`）：玩法只有兩條軌——🎴 純淨(單人聖杯戰爭, newGameFlow/continueGame, SFW) ／ 🌹 慾海(鑑賞後日談, openGallery, NSFW)。共用一張試算表＋核心資料(管線 奪杯→鑑賞 需要)，靠 帳號＋game_id 分流，不拆表。
-另有**兩個唯讀視窗**(非玩法軌)：📜 個人聖杯戰記(showVictoryHistory，自己勝敗) ／ 🏆 排行榜(openLeaderboard/actionLeaderboard，跨帳號比拼)。`full`(九州全模擬)模式碼仍在、是 kanshou 經濟底層，但不作為前台軌。
+另有**兩個唯讀視窗**(非玩法軌)：📜 個人聖杯戰記(showVictoryHistory，自己勝敗) ／ 🏆 排行榜(openLeaderboard/actionLeaderboard，跨帳號比拼)。`full`(九州全模擬)模式碼殘留、停用中，不作為前台軌（經濟已砍、可隨之清理）。
 **持久層(清檔不刪，排行榜/戰記只撈這些)**：帳號表(WON勝場/CREATED/BEST_DAYS最快奪杯日/NAME)、戰史(每場勝敗+真實時間+從者+摘要)、鑑賞表(封存從者)。**會被清檔刪**：眾生(game_id)、關係(name)。`recordWinSpeed_(acct,gameId)` 在三勝利點(斬盡敵從者/斬首/起源彈)讀當前遊戲日取 min→ACC.BEST_DAYS。
 
 **補魔(solo)**：`actionManaSupply` 走 narrate_only(SFW)、不開慾海引擎，prompt 維持「曖昧 fade、點到為止」（玩家認可現狀，勿再收緊）。
 
 **重開/姓名查重**：`actionAccountNewGame`(Account.gs) 清舊單人戰場＝刪同 game_id 整個世界 ＋ 御主本人(按 charId，防 game_id 空的孤兒佔名)。`actionCheckName` 只擋「game_id 非空(進行中世界)」的同名活躍御主；DEAD_ 與 game_id 空的孤兒不佔名→重開後自己舊名可重用，多帳號間活躍同名仍隔離。
 
-**重點：solo 全程無花錢入口**——聽風閣/商城/給銀兩/休養都是 full 專屬。錢在 solo 是死的，身世的財力差異改由「起始禮裝機率」(`rollMysticForMaster_`)體現。
-> ⚠ **但九州經濟系統別砍**：錢/聽風閣/商城/給銀兩在 **kanshou(鑑賞約會)／full** 是活的——玩家規劃鑑賞未來可能「打工賺錢→買禮物」。solo 用不到 ≠ 可刪除；保留給其他兩模式。
+**重點：solo 全程無花錢入口**。身世的財力差異改由「起始禮裝機率」(`rollMysticForMaster_`)體現。
+> ⚠ **經濟/生活層已全砍(2026-06 定案，推翻舊「保留給 kanshou」方針)**：money/商城/物品/給銀兩/任務/賭場/飛書/生活技能/裝備——**兩軌都不要**，AI 需要時自己掰、不寫試算表。kanshou 是「一個更單純的世界」(無經濟·無戰鬥)。code＋分頁＋COL 已清(見 §3 末)。
 
 ---
 
 ## 2. 實例化與資料表
 
 - **game_id**：每局一個世界。`g_`+ts = 聖杯戰爭；`k_`+ts = 鑑賞世界。所有眾生/時鐘/關係查詢都帶 game_id 過濾，杜絕跨世界外洩。
-- **🌹 慾海獨立分頁＋多人(最多3)**：慾海角色住獨立「**鑑賞眾生**」分頁(`getKanshouPcSheet_`，schema 同眾生)，與戰爭主表隔離、頻繁新增/移除不污染。**dispatcher 在 `pcId` 以 `KPC_` 開頭時把 `sheets.pc` 路由到此分頁**(solo 御主 `PC_` 不受影響；全 codebase 唯一硬寫死「眾生」處＝dispatcher line ~146)。`actionEnterGallery` 改寫此分頁＋**持久接續**(同御主×同從者已有 k_ 世界→接續不重建、肉體/親密/羈絆延續)。`kanshouServantRow_` 共用建列。同伴管理 action `kanshou_companions/add/remove`(上限3)；前端抽屜「👥 後日談同伴」(`drawer-companions`，`applyModeUI` 僅鑑賞顯示)→`openCompanions/kanshouAdd/kanshouRemove`。慾海聊天仍走 `actionPlay`(引擎未動)。**NSFW**：`enterGallery` 自動勾 `nsfw-mode-toggle`(否則 isNsfwMode=false→intimacy 回填全跳過、肉體狀態不寫)。**DEV**：`dev_seed_gallery`(待移除)塞測試從者。
+- **🌹 慾海獨立分頁＋多人(最多3)**：慾海角色住獨立「**鑑賞眾生**」分頁(`getKanshouPcSheet_`，schema 同眾生)，與戰爭主表隔離、頻繁新增/移除不污染。**dispatcher 在 `pcId` 以 `KPC_` 開頭時把 `sheets.pc` 路由到此分頁**(solo 御主 `PC_` 不受影響；全 codebase 唯一硬寫死「眾生」處＝dispatcher line ~146)。`actionEnterKanshou` 改寫此分頁＋**持久接續**(同御主×同從者已有 k_ 世界→接續不重建、肉體/親密/羈絆延續)。`kanshouServantRow_` 共用建列。同伴管理 action `kanshou_companions/add/remove`(上限3)；前端抽屜「👥 後日談同伴」(`drawer-companions`，`applyModeUI` 僅鑑賞顯示)→`openCompanions/kanshouAdd/kanshouRemove`。慾海聊天仍走 `actionPlay`(引擎未動)。**NSFW**：`enterKanshou` 自動勾 `nsfw-mode-toggle`(否則 isNsfwMode=false→intimacy 回填全跳過、肉體狀態不寫)。**DEV**：`dev_seed_gallery`(待移除)塞測試從者。(舊 `openGallery/enterGallery` 彈窗已退役)
 - **FACTION 區分**（COL.PC.FACTION 字串）：`御主`(玩家)、`從者`(玩家的)、`敵御主`、`敵從者`、`盟友御主`/`盟友從者`(前端 override，見 §8)。
 - ✅ **九州數值五圍(STR/CON/AGI/INT/LUK) 已移除(2026-06)**：FATE 純六圍 SIX 階級制。戰鬥(Engine_Fate)本就吃 `rankVal(six[...])`；HP/MP 改由 `maxStatsForRow_(row)`＝`fateMaxHpMp_(svNum_(SIX.耐久), svNum_(SIX.魔力))` 算；`getCharacterTotalStats` 的 STR~LUK 顯示值改由 `svNum_(SIX)` 推。`buildPlayerStatusString` 五圍 §位置保留(由 SIX 推/空字串)→前端 s[N] 不變。
 - ✅ **九州境界/物品/銀兩/門派 已移除(2026-06)**：`REALMS/REALM_MODIFIERS/REALM_LIMITS`、`calculateMaxStats`(屬性上限計算器)、`getRealmConstantsJson` 全砍；新 `fateMaxHpMp_(con,mag)` 無境界倍率(`100+con*10`/`50+mag*10`)。`COL.PC.REALM` 死欄保留但一律寫 ""。物品(`RARITY_TABLE/detectItemType`)、貨幣(`CURRENCY_TABLE`)、門派(`registerFactionHelper/updateFactionPower`)helper 一併移除。`actionManualNpc` de-realm：御主固定凡人級、NPC 採 AI 建議 con/int 夾 8~25。快取鍵 `KYUSHU_MAP_DATA`→`FATE_MAP_DATA`。
@@ -100,7 +100,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | get_map_nodes / get_all_categorized_maps | 地圖 | 地圖節點＋敵蹤(吃 SEEN 迷霧；有盟友→`hasAllyInGame_`全揭露) |
 | move / rest / sync | — | 移動(2AP)／休息(補AP+夢境)／資料同步 |
 | narrate_only / multi_attack_narrate | actionNarrateOnly等 | **AI 純說書**(solo 不用 actionPlay；GAS 算數值、AI 只演出) |
-| claim_grail / list_gallery / enter_gallery / gallery_talk | Gallery.gs | 奪杯封存/鑑賞名冊/(舊)挑從者進鑑賞/後日談對話(見 §9) |
+| claim_grail / enter_kanshou / kanshou_companions·add·remove | Gallery.gs | 奪杯封存／進鑑賞後日談世界／同伴管理(見 §9)。⚠ 舊 list_gallery/enter_gallery/gallery_talk 已移除 |
 | enter_kanshou | actionEnterKanshou (Gallery.gs) | **🌹 進入鑑賞主入口(新版)**：每帳號【單一常駐】後日談世界。御主 avatar(KPC_)以 MEMORY `【帳號】<acct>` 綁定、id 持久→`getGameHistory(pcId)` 跟單機一樣接續歷史。無從者預載、不重講開場；從者由 `kanshou_companions/add/remove`(👥面板) 邀請(上限3)。**御主名字＋性別首次進場由玩家定**(不掛帳號)：沒帶齊 `pcName/pcSex`又還沒建過→回 `needSetup:true`(附 `defaultName`)，前端 `askKanshouSetup()` 問一次(名字＋性別)再帶進來建。前端 `enterKanshou()`(Index.html「進入鑑賞」鈕)→ mode=kanshou、自動開 NSFW、撈歷史 |
 | kanshou_set_sex / kanshou_set_name | actionKanshouSetSex／actionKanshouSetName (Gallery.gs) | ⚧/✏ 隨時改後日談御主 avatar 性別/名字(只動該欄，不影響歷史；改名一併遷當前同伴的 REL.PC 羈絆鍵)。👥面板「切換性別」「改名」鈕→`changeKanshouSex()`／`changeKanshouName()` |
 | get_victory_history / get_ranking | — | 戰史/排行 |
@@ -128,11 +128,12 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **🎲 D&D 傷害骰(2026-06)**：`rollDice_(n,sides)`＋`rankTier_(r)`(E1→EX6)。
   - 武器骰(每擊)：`base = round(rankVal(主屬性)*0.5) + rankTier d8 + 命中分差*1.2 − 耐久/2`。
   - 暴擊(擲20)：多骰一輪 `rankTier d8 +12`(取代舊固定 +30)。
-  - 寶具骰：`npBaseDice_(寶具階)`＝E3d10/D5d10/C8d10/B12d10/A20d10/A+22d10/EX30d10；另加 `rankVal(寶具)*0.6+10`。
+  - 寶具骰：`npBaseDice_(寶具階)`＝E3d10/D5d10/C8d10/B12d10/A20d10/(A+·A++)22d10/EX30d10；另加 `rankVal(寶具)*0.6+10`。
+  - ⚠ **EX 嚴格判定(2026-06 修)**：`rankVal('A++')=60` 與 EX 同值，故 `npBaseDice_/npPranaCost_` 改用字串 `/EX/` 認 EX；**A++ 算 A 階**(22d10/prana500)，否則 Saber 誓約勝利之劍(A++)會被收 EX prana800 而永遠放不出。
 - **🔱 概念優先權 Priority(2026-06)**：`CONCEPT_TIER{}`(ea6 / excalibur·divine_age·rule_breaker5 / ubw·anti_magic_lance·gae_bolg4 / god_hand·tsubame·zabaniya·petrify3 / nullify_magic·divine_core·territory2)。`offenseTier_(c,isNp)` 取攻方最高進攻概念階；`pierces(防禦fx)`＝攻方階≥防禦階+`PIERCE_GAP`(2)→該防禦(territory/神核/對魔力)被無視(概念壓制)。把舊「破魔無視神核」系統化＋ ea 凌駕一切。
 - **🏰 寶具規模相剋矩陣(2026-06)**：`npAtkScale_`(對人/對軍/對城/對界，由寶具名或 ea/excalibur 推)×`npDefScale_`(由 ubw/神核/god_hand/territory 推) → `NP_SCALE_MATRIX` 倍率(對城打對人×2.5、對界×3.0…0x 以 Math.max(1)保底)。`ea` 寶具：×1.7+4d12+80。
 - **⚡ 從者專屬主動技(2026-06)**：`servantActiveSkill_(c)` 依 fx 簽名給一個本戰增益(burst→傷×1.3 / stealth→命中+6傷×1.15 / str_up→傷+14 / aim·projection→命中+6傷+10 / morale→命中+3傷+8 / self_mod→命中+4傷+6 / 預設→集中命中+5)。`{id,name,icon,mpPct,hit,dmgMul,dmgAdd,desc}`。`resolveFateBattle_` 讀 `opts.skill`：命中端加 hit；傷害端(僅攻方勝)套 dmgMul/dmgAdd。`actionFateBattle` 讀 `userData.skill`→啟動耗魔 `mpPct*maxMP`(走 drainForNp_ 電池)→傳 `skill:isActive?skillBuff:null` 給我方每擊，並進 clash pPow。前端 `servantStrike(...,useSkill)`＋「⚡ 主動技」鈕＋戰報卡技能行。
-- **🔋 御主電池(2026-06)**：`npPranaCost_(寶具階)`＝E50/D100/C200/B350/A500/EX800。`drainForNp_(sheets,pcData,svIdx,masterIdx,mpCost)`：付款序 ①從者MP ②御主MP(1:1) ③御主HP(`BATTERY_HP_PER_MP`=2HP→1MP，御主血底線1)。回 `{fromSv,fromMasterMp,fromMasterHp,usedBattery,bledMaster,...}`。寫進 report.battery＋aiPrompt【御主電池】星標＋前端血條。三者皆空才擋寶具。
+- **🔋 御主電池(2026-06)**：`npPranaCost_(寶具階)`＝E50/D100/C200/B350/(A·A+·A++)500/EX800(僅字串 EX)。`drainForNp_(sheets,pcData,svIdx,masterIdx,mpCost)`：付款序 ①從者MP ②御主MP(1:1) ③御主HP(`BATTERY_HP_PER_MP`=2HP→1MP，御主血底線1)。回 `{fromSv,fromMasterMp,fromMasterHp,usedBattery,bledMaster,...}`。寫進 report.battery＋aiPrompt【御主電池】星標＋前端血條。三者皆空才擋寶具。
 - `aliveEnemyServants_(sheets,gameId)`：在世敵從者數（勝利判定用）。
 - `enemyRetreatLoc_`：令咒緊急脫離時敵退避地點。
 
@@ -209,10 +210,11 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 ## 9. 鑑賞 Gallery.gs（奪杯後/慾海入口）
 
 - `actionClaimGrail`：奪杯→AI 寫後日談回憶(memoir)→寫入「鑑賞」表→**同盟封存**(羈絆90↑或【鑑賞緣】的盟友一併入冊，御主搭檔 CLS="御主")→`purgeGameData_` 清本局。
-- `actionListGallery`：列帳號已封存。
-- `actionEnterGallery`：在 `k_` 世界重建御主+搭檔(從者480HP／御主搭檔凡人100HP 走 `partnerIsMaster` 分支)，無敵無戰鬥。
-- `actionGalleryTalk`：後日談對話(純 AI，CLS="御主"時敘述為盟友御主)。**慾海**在此模式由前端 toggle 開(只改名冊 gating，引擎不動)。
+- `actionEnterKanshou`：每帳號【單一常駐】後日談世界(KPC_ 御主 avatar，以 MEMORY【帳號】綁定、id 持久接續歷史)。首進需 `pcName/pcSex`(否則回 `needSetup`)。對話仍走 `actionPlay`(NSFW，引擎不動)。
+- `actionKanshouCompanions/Add/Remove`：後日談同伴管理(上限3，住獨立「鑑賞眾生」分頁，`kanshouServantRow_` 建列)。`actionKanshouSetSex/SetName`：改 avatar 性別/名字。
+- `actionDevSeedGallery`：DEV 塞測試從者(待移除)。
 - `findPlayerServant_`、`purgeGameData_`。
+- ⚠ **舊 `actionListGallery/actionEnterGallery/actionGalleryTalk` 已移除**(被 enter_kanshou＋kanshou_* 取代)。
 
 ---
 
@@ -253,14 +255,14 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **移動順序＝世界先動玩家後到**：`actionMove` 先跑 `worldTick_`(敵 tick 換位，移動只換位不死人)→**重讀眾生**→才把玩家落到 target→讀同地人物給 AI。避免「追到敵人所在地、敵人卻在你踏入同一刻被傳走」(撞在一起卻沒對話)。**務必重讀 allPcData 再寫回**，否則整片 setValues 會用舊位置覆蓋掉剛 tick 的敵方移動。
 - **追得到人**：`worldTick_`(Time_World 234)用 `freezeLoc = playerLoc`，**玩家所在/將抵達格上的敵人禁止移動**(`oldLoc === freezeLoc` 直接 continue)，否則玩家永遠撲空。兩個呼叫點都傳玩家格(move 傳 target、rest 傳 pcLoc)。
 - **遭遇態度分流**：`actionMove` 在世界 tick 前算 `preFoesAtTarget`(target 此刻已有的敵名)，回傳 `preFoes`。前端 `travelTo`：現存 foe 有人在 preFoes→「找上門」(對方據守、戒備)；否則→「偶遇」(恰巧撞上)。語氣只給「依個性與立場開口」，不寫死。
-- **🧹 九州系統大清理（已移除 35 個 action ＋ 1817 行）**：修煉/突破(cultivate/breakthrough)、任務(quests/claim_quest_reward/abandon_quest)、門派(get_faction_info/get_ranking/promote_rank/create_faction)、據點收成(estate_get/estate_harvest_all)、倉庫(warehouse_*)、物品/裝備(inventory/discard_item/sell_item/craft_item/consume_item/use_item_self/use_item_on_npc/gift_item/get_available_gear/equip_gear)、給銀兩(give_money)、九州打鬥(attack_npc/multi_attack)、偷竊/情報(steal_npc_item/buy_intel)、組隊(join_party/dismiss_party)、索要(request_item_from_npc/request_discard_npc_item)、強化(empower_npc)、處決(execute_npc)——皆 0 內部呼叫、solo 隱藏、慾海不碰。**保留**：actionPlay(慾海自由聊天引擎)、narrate_only(solo)、gallery、帳號、solo 全部戰爭 action、據點 home_*(模糊未動)、spare_npc/inspect_npc/get_epic_history。COL 欄位**全保留**(死欄不刪)。前端九州 UI 按鈕仍在但 mode 隱藏＋未知 action 優雅回錯誤(`handleGameAction` else 支)，無害；前端清理待後續批次。孤兒 helper(transferMoney 等)留著無害。
+- **🧹 九州系統大清理（已移除 35 個 action ＋ 1817 行）**：修煉/突破(cultivate/breakthrough)、任務(quests/claim_quest_reward/abandon_quest)、門派(get_faction_info/get_ranking/promote_rank/create_faction)、據點收成(estate_get/estate_harvest_all)、倉庫(warehouse_*)、物品/裝備(inventory/discard_item/sell_item/craft_item/consume_item/use_item_self/use_item_on_npc/gift_item/get_available_gear/equip_gear)、給銀兩(give_money)、九州打鬥(attack_npc/multi_attack)、偷竊/情報(steal_npc_item/buy_intel)、組隊(join_party/dismiss_party)、索要(request_item_from_npc/request_discard_npc_item)、強化(empower_npc)、處決(execute_npc)——皆 0 內部呼叫、solo 隱藏、慾海不碰。**保留**：actionPlay(慾海自由聊天引擎)、narrate_only(solo)、gallery、帳號、solo 全部戰爭 action、據點 home_*(模糊未動)、inspect_npc/get_epic_history。(spare_npc 已於 2026-06 連同打掃戰場一併刪除，見 §3 末)COL 欄位**全保留**(死欄不刪)。前端九州 UI 按鈕仍在但 mode 隱藏＋未知 action 優雅回錯誤(`handleGameAction` else 支)，無害；前端清理待後續批次。孤兒 helper(transferMoney 等)留著無害。
 - **令咒透支倒數（單獨行動例外）**：敵從者燃**最後一道令咒**緊急脫離(`fateStrike_` seal-escape, Router ~3914)時，若其 TAGS 無 `fx:'solo'`(單獨行動)→ `stampDoom_` 在 MEMORY 寫 `【靈基透支】{死線絕對時數}`(現在 day*24+hour ＋ `SEAL_DOOM_HOURS`=3)。`worldTick_`(Time_World 末段)每次移動/休息推進時間後掃描，`getDoom_` 到期 → 該敵從者 `DEAD_`＋風聞消滅。若這收掉最後一名敵從者(`aliveEnemyServants_<=0`)→ `worldTick_` 回傳 `victory:true`，`actionMove`/`actionRest` 帶 `victory` 給前端，`travelTo`/`rest` 呼 `handleVictory` 出奪杯。弓兵(單獨行動)＝免倒數、可續存(原作 Independent Action)。helper：`rowHasSolo_/stampDoom_/getDoom_/SEAL_DOOM_HOURS`(Router ~4326)。
 - **📜 戰記（里程碑回顧＋歷史戰役）**：獨立「戰記」表(自動建)，schema `[game_id, 帳號, 日, 時, 內容]`。`logWarEvent_(gameId, text, acctName)`(Router)只記 solo 局(g_)、附遊戲內 day/hour＋帳號(帳號表只記當前局，靠戰記列的帳號歸戶過去戰役；每場召喚必帶帳號)。**上限**：>2000 列砍最舊 500。接線點：召喚開戰、玩家令咒(戰鬥絕對命令／修復/補魔/脫離)、敵令咒脫離、從者擊破(雙方)、令咒透支倒數＋暗處養不起/廝殺(worldTick_，無帳號·靠召喚列歸戶)、斬首擊殺御主、結盟/破盟、奪杯/敗北。讀取：`actionWarChronicle`(`war_chronicle`，無 gameId＝當前局/有 gameId＝回顧過去·需帳號相符防越權)、`actionWarHistoryList`(`war_history_list`，列本帳號歷來戰役＋勝敗)。前端：抽屜「📜 本場戰記」`openWarChronicle()`；主選單「📜 戰役回顧」`openWarHistory()`→點一場→`openWarChronicle(gameId,title,true)`。
 - ⚠ **戰記表保存上限**：其餘表都有修剪(因果 `trimLogRowsByOwner` 每 pcId 留 60／歷史暫存 40／readRecentLogRows 只讀表尾)；戰記用「>2000 砍最舊」自管，勿移除。
 - **敵御主↔敵從者硬連結（誰是誰）**：`reseedRivals_`(Seed_Rivals 末段)種子時，rows 嚴格交替(master,servant…)，互寫 `【從者】名`(御主列)／`【御主】名`(從者列)於 MEMORY。`getServantMaster_`/`getMasterServant_`(Router)讀回。`markMasterLostServant_` 配對改**硬連結優先**(按名找御主，不怕多組同地)、無連結退回同落點。`getLocalPeopleList` 對 `敵從者` 帶 `master`、`敵御主` 帶 `servant`。前端 `travelTo` 在場敵對>1 組時加「在場敵對歸屬·勿張冠李戴」配對清單，AI 才不會把 3 組同場的主從搞混。**舊局無連結→退回同落點(相容)**。
 - **喪失從者的敵御主（選 A：不移除，只標記＋演出）**：敵從者任一路徑死亡時，`markMasterLostServant_`(Router ~4340)在「同地同 game_id 的敵御主」MEMORY 寫 `【喪失從者】從者名·死因`(只記第一次)。三處死亡都接：戰鬥擊破(`fateStrike_` else 支)、令咒透支倒數＋暗處養不起/廝殺(`worldTick_`)。`getLostServant_` 讀回；`getLocalPeopleList` 對 `敵御主` 帶出 `lostServant`。前端 `travelTo` 對在場的喪失從者御主加指令：演出形單影隻、無牙棋手、依個性流露失恃(孤注/惶然/不甘)，別當仍有從者隨侍。配對採同落點(一master一servant結伴移動，無顯式 FK)。helper：`stampLostServant_/getLostServant_/markMasterLostServant_`。
 - **敘事連續記憶**：`lastAiContext`(模組級，最近一段 AI 文 ≤300字)。`narrate()`/`narrateCombatResult`/play 都會更新它。`travelTo` 在 `foes.length` 時把 `lastAiContext.slice(0,280)` 當「前情」塞進抵達提示，讓 AI 知道「方才發生什麼」——逃跑後敵人追上/再遇時承接劇情、不當初次見面。`narrate_only` 後端只吃 promptText，所以前情是在前端拼進去的(零後端改動)。
-- **鑑賞**：`openGallery`/`enterGallery`/`claimGrail`/`renderHeroList`。
+- **鑑賞**：`enterKanshou`(主入口)/`claimGrail`/`renderHeroList`／👥同伴面板 `openCompanions/kanshouAdd/kanshouRemove`。(舊 `openGallery/enterGallery` 已退役)
 - **逆天改命**（玩家改自己御主資料）：`openFateEdit`/`saveFate`→`actionUpdateFate`。**只准改 4 種敘事欄、數值與寶具一律鎖死**(GAS掌數值)：`back`身世(限30)/`intent`萌點(限30)/`trait`特徵(4格×20)/`pref`個性(4格×20)。特徵4格=外貌/氣質舉止/魔術師的癖性/卸下心防的私密一面(末格＝鑑賞慾海的親密種子，NSFW 消費在 Router 2406 `[床笫之間的反應]`)；個性4格=日常表象/真實內裡/喜歡/討厭。改別人(NPC)需好感100+已傾心，改自己免條件(solo 只碰自己)。數值編輯是九州 full 的 breakthrough/cultivate，solo 不露出。
 
 ---
@@ -272,4 +274,4 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 ---
 
-*最後更新：同盟生命週期＋種子補完＋行動列手風琴後。改動前先 grep 對照，改完 node --check，慾海邊界 git diff 驗證 0 改動。*
+*最後更新(2026-06)：戰鬥大改(概念優先權/D&D骰/寶具規模矩陣/御主電池/寶具對轟/從者主動技/敵寶具吃魔力/十二試煉燒命/A++≠EX修正)＋solo 好感招募地圖收歸 GAS＋刪 spare_npc，並全文對照現碼校正(gallery 改 enter_kanshou、full 停用、經濟全砍)。改動前先 grep 對照，改完 node --check，慾海邊界 git diff 驗證 0 改動。*
