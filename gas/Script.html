@@ -651,6 +651,7 @@ function renderRecentLocs(recents = null) {
         if (data.canonBeats && data.canonBeats.length) {
           narrate(`【正典事件】休息之間，冬木的聖杯戰爭並未停歇。以下原作橋段於此時推進，請以 Fate／TYPE-MOON 筆觸演出（演出而非複述指示），停在留白：\n${data.canonBeats.join('\n')}`);
         }
+        if (data.report) renderFateBattleReport(data.report); // ⚔️ 夜襲戰報卡（數字先攤）
         if (data.ambushPrompt) narrate(data.ambushPrompt); // ⚔️ 夜襲演出
         else if (data.servantDream) narrate(data.servantDream); // 🌙 從者之夢·回想
         syncData(true);
@@ -672,8 +673,11 @@ function renderRecentLocs(recents = null) {
         if (data.statusString) { localStorage.setItem('kyushu_last_status', data.statusString); updateUI(data.statusString.split('§')); }
         updateClock(data.clock, data.ap, data.apMax);
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#7fc7c7;font-size:12.5px;text-align:center;border:1px solid rgba(90,150,150,0.3);border-radius:8px;padding:6px 10px;">🔍 ${data.message || '偵查完成。'}</div>`);
+        if (data.report) renderFateBattleReport(data.report); // ⚔️ 偵查遭突襲→戰報卡
+        if (data.ambushPrompt || data.aiPrompt) narrate(data.ambushPrompt || data.aiPrompt);
         renderMapPane();
         syncData(true);
+        if (data.defeat) { await handleDefeat(data); }
       } else { alert((data && data.message) || '偵查失敗。'); }
     } catch (e) { alert('連線失敗，偵查未果。'); } finally { endAction(); }
   }
@@ -717,7 +721,10 @@ function renderRecentLocs(recents = null) {
       if (res && res.success) {
         updateClock(res.clock, res.ap, res.apMax);
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#d0c080;font-size:12.5px;text-align:center;border:1px solid rgba(140,120,70,0.3);border-radius:8px;padding:6px 10px;">🔍 ${res.message}</div>`);
+        if (res.report) renderFateBattleReport(res.report); // ⚔️ 搜索遭突襲→戰報卡
+        if (res.aiPrompt) narrate(res.aiPrompt);
         renderMapPane(); syncData(true);
+        if (res.defeat) { await handleDefeat(res); }
       } else { alert((res && res.message) || '搜索失敗。'); }
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
   }
@@ -1449,8 +1456,23 @@ function renderRecentLocs(recents = null) {
   // ⚔️ 令從者出擊／寶具解放（Fate 戰鬥：六圍＋fx＋寶具）
   // 📊 多回合視覺戰報：一次出戰最多 3 回合「我攻→敵反擊」，逐回合攤開骰子/命中/傷害給玩家看。
   function renderFateBattleReport(r) {
-    if (!r || !r.rounds) return;
+    if (!r) return;  // 🔧 修正：斬首/突襲戰報無 rounds 欄，舊版 !r.rounds 會把它們擋掉(戰報不顯示)
     const story = document.getElementById('story');
+    // ⚔️ 卸防突襲戰報卡（休息/補魔/搜索/偵查時遭敵從者趁隙重擊）
+    if (r.ambush) {
+      const hpct = Math.max(0, Math.min(100, r.svHpMax ? Math.round(r.after / r.svHpMax * 100) : 0));
+      let a = '<div style="border:1px solid rgba(176,48,48,0.5);border-radius:9px;padding:10px 12px;margin:6px 0;background:rgba(40,16,16,0.55);font-size:12px;">';
+      a += '<div style="font-weight:bold;margin-bottom:5px;color:#e08080;">⚔️ 卸防遭突襲・敵從者「' + r.enemyName + '」' + (r.stealthy ? ' <small style="color:#c0a0e0;">氣息遮斷·無聲撲近</small>' : '') + '</div>';
+      a += '<div style="color:#e06a6a;font-size:11px;">「' + r.svName + '」門戶大開時被狠狠貫穿　<b>−' + r.dmg + '</b>' + (r.destroyed ? '　💀 靈基崩潰' : '') + '</div>';
+      a += '<div style="color:#9a8bb0;font-size:10px;margin-top:4px;">' + r.svName + '</div>';
+      a += '<div style="position:relative;height:9px;background:linear-gradient(180deg,#16121c,#241d2c);border-radius:6px;overflow:hidden;margin-top:2px;border:1px solid rgba(0,0,0,.4);"><div style="width:' + hpct + '%;height:100%;background:linear-gradient(180deg,#8ee08e,#4caa4c 55%,#2f8f3f);"></div></div>';
+      a += '<div style="font-size:9.5px;color:#8a7f9a;text-align:right;">' + r.after + '/' + r.svHpMax + '</div>';
+      if (r.defeat) a += '<div style="color:#d65c5c;font-weight:bold;margin-top:3px;">💀 從者全滅、御主敗北！</div>';
+      a += '</div>';
+      story.insertAdjacentHTML('beforeend', a);
+      story.scrollTop = story.scrollHeight;
+      return;
+    }
     // 🗡️ 斬首專用戰報卡（無回合制，純 D20 大成功判定）
     if (r.assassination) {
       const ok = !!r.success;
@@ -1714,6 +1736,7 @@ function renderRecentLocs(recents = null) {
     try {
       const res = await gasRun({ action: 'mana_supply', pcId: pc.id, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) {
+        if (res.report) renderFateBattleReport(res.report); // ⚔️ 補魔遭突襲→戰報卡
         updateClock(res.clock, res.ap, res.apMax); narrate(res.aiPrompt); syncData(true);
         if (res.defeat) { await handleDefeat(res); }
       } else { alert((res && res.message) || '補魔失敗。'); }

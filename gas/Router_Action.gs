@@ -1011,7 +1011,7 @@ function actionRest(userData, pcId, sheets) {
       success: true, statusString: getFreshStatusString(pcId, pIdx, sheets), healedNames: healedNames,
       loc: pcLoc, wasInjured: wasInjured, restHours: restHours, clock: restClock, ap: apAfter, apMax: AP_PER_DAY, rumors: restRumors,
       canonBeats: restBeats, canonLeads: restLeads,
-      ambush: !!restAmbush, defeat: restAmbush ? restAmbush.defeat : false, dreamPrompt: restAmbush ? restAmbush.dreamPrompt : "", ambushPrompt: restAmbushPrompt,
+      ambush: !!restAmbush, defeat: restAmbush ? restAmbush.defeat : false, dreamPrompt: restAmbush ? restAmbush.dreamPrompt : "", ambushPrompt: restAmbushPrompt, report: restAmbush ? restAmbush.report : null,
       servantDream: restDreamPrompt,
       victory: restVictory && !(restAmbush && restAmbush.defeat),
       economy: playerServantEconomy_(sheets, pcId)
@@ -2365,6 +2365,17 @@ function actionFateBattle(userData, pcId, sheets) {
     }
   }
 
+  // 🐙 螺湮城教本：玩家青鬍子解放寶具 → 自深淵召出「深淵海怪」常駐戰場，每回合與本人並肩撕咬，
+  //   靠御主魔力維持(每回合扣 HORROR_UPKEEP)；御主魔力撐不住 → 海怪潰散退場。巨獸物理攻擊、不受對魔力。
+  let horrorActive = (useNp && hasFx_(atkC, 'summon_horror'));
+  const HORROR_UPKEEP = 30;
+  const horrorC = horrorActive ? {
+    name: '深淵海怪', cls: 'Berserker', np: '',
+    six: { 筋力: 'A', 耐久: 'A', 敏捷: 'C', 魔力: 'E', 幸運: 'E', 寶具: '-' },
+    skills: [], traits: [{ n: '巨獸' }], output: 100,
+    hp: 400, hpMax: 400, mp: 0, mpMax: 0
+  } : null;
+
   for (let rd = 0; rd < ROUNDS; rd++) {
     if (sealEscaped || destroyedName || defeat || victory) break;
     if (String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) break;
@@ -2387,6 +2398,22 @@ function actionFateBattle(userData, pcId, sheets) {
       if (ps.godRevived) { godRevived = true; godNote = ps.godNote; }
       if (ps.victory) victory = true;
       if (destroyedName || sealEscaped) break;
+    }
+
+    // 🐙 深淵海怪追擊：青鬍子寶具召喚物，常駐每回合撕咬敵手——先扣御主魔力維持，撐不住則潰散退場。
+    if (horrorActive && targetIsFoeServant && !String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_") && !destroyedName && !sealEscaped && !victory) {
+      const hUp = drainForNp_(sheets, pcData, atkIdx, pIdx, HORROR_UPKEEP);
+      if (hUp.shortfall > 0) {
+        horrorActive = false;
+        rl.strikes.push({ by: '🐙深淵海怪', horror: true, pHit: false, pDmg: 0, pCrit: '', pFired: [], note: '御主魔力枯竭·海怪潰散退場' });
+      } else {
+        const hs = fateStrike_(sheets, pcData, horrorC, nIdx, {}, ctx);
+        rl.strikes.push({ by: '🐙深淵海怪', horror: true, pRoll: hs.aRoll, pHitVal: hs.aHit, dRoll: hs.dRoll, dEvaVal: hs.dEva, pHit: hs.hit, pDmg: hs.hit ? hs.damage : 0, pCrit: hs.crit, pFired: hs.fired, note: '深淵海怪·觸手撕咬' });
+        if (hs.destroyed) destroyedName = hs.destroyed;
+        if (hs.godRevived) { godRevived = true; godNote = hs.godNote; }
+        if (hs.victory) victory = true;
+        if (hs.sealEscaped) { sealEscaped = true; sealNote = hs.sealNote; }
+      }
     }
 
     // 🤝 盟友協同助攻一擊（共同敵人尚存活、本回合未分勝負才出手）
@@ -2453,28 +2480,29 @@ function actionFateBattle(userData, pcId, sheets) {
           : `「${defC.name}」重傷未死，戰局未決——可再出擊打磨。`;
 
   let aiPrompt;
+  // 🎬 敘述：給 AI【事實素材】，少下指令——讓它自己演。只保留必要紅線(show-don't-tell／勿擅自寫死)。
+  const horrorFired = rounds.some(r => (r.strikes || []).some(k => k.horror));
   if (defeat) {
-    aiPrompt = `【系統戰報·已裁定】御主號令從者『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合，終致『${atkC.name}』靈基崩潰、化作光點消散，御主於聖杯戰爭中敗北。\n` +
-      `★以 Fate／TYPE-MOON 筆觸沉痛描寫這數回合廝殺後從者消滅的瞬間（一段即可），語氣留白。勝負已由系統結算。\n` +
-      ``;
+    aiPrompt = servantCard_(pcData[atkIdx]) +
+      `【戰報·已裁定】御主號令『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合。\n${roundsBrief}\n結局：『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。\n` +
+      `★以 Fate／TYPE-MOON 筆觸演出這場敗北的最後一幕(一段即可)，語氣留白。勝負已定，你只演過程。`;
   } else {
     aiPrompt = servantCard_(pcData[atkIdx]) +
-      `【系統戰報·已裁定，嚴禁更改勝負】御主號令${atkLabel}${useNp ? '解放寶具' : ''}${useSeal ? '·燃令咒絕對命令' : ''}出擊，與「${defC.name}」短兵相接，共 ${nRounds} 個回合的你來我往。\n` +
-      (dualAttack ? `★【雙從者協同·務必演出】我方有兩名從者並肩齊攻——請描寫二人默契夾擊、攻防交織壓制單一敵手的場面（敵以一敵二、險象環生）。\n` : "") +
-      (allyAssistName ? `★【盟友協同·務必演出】盟友從者「${allyAssistName}」依約自側翼掩護助攻、與我方從者交叉夾擊「${defC.name}」——請演出同盟並肩作戰的默契與「暫時休兵」下的微妙信任。\n` : "") +
-      (interceptNote ? `〔護主攔截〕${interceptNote}\n` : "") +
-      `${roundsBrief}\n` +
-      `我方共造成 ${totalDealt} 傷害、受創 ${totalTaken}。最終：${finalLine}\n` +
-      `★【篇幅約 220~280 字】以 Fate／TYPE-MOON 筆觸生動描寫這 ${nRounds} 回合互有攻防、你來我往的廝殺（不是單方面挨打），凸顯雙方發動的技能／寶具威能與靈基壓迫感（演出而非複述標籤名）。勝負與傷害已由系統結算。\n` +
-      (useSeal ? `★【令咒·絕對命令·務必演出】御主高舉左手，手背上的紅色令咒咒印（聖痕）灼然迸亮、其中一道紋路在燃燒中消褪——請明確描寫「御主燃燒一道令咒、下達不可違逆的絕對命令」這一幕，以及那道命令如何貫徹從者全身、強行引爆超越極限的戰力（這一擊必中）。\n` : "") +
-      (clash ? `★【寶具對轟·務必演出】我方與「${defC.name}」同時解放寶具真名，兩道傳說之力正面對撞、光與光在中軸絞鎖角力——${clash.outcome === 'player' ? `終於我方的威能壓過對面、光潮貫穿而出（敵受創 ${clash.eDmgTaken}、我回震 ${clash.pDmgTaken}）` : clash.outcome === 'enemy' ? `終於對面的威能壓過我方、洪流反貫而回（我受創 ${clash.pDmgTaken}、敵回震 ${clash.eDmgTaken}）` : `兩股力量勢均力敵、轟然相抵爆散，雙方俱被餘波震退（各受創約 ${clash.pDmgTaken}）`}。請以 Fate／TYPE-MOON 筆觸濃墨描寫這場寶具對轟的對峙、咬合、與決勝瞬間（這是本戰高潮）。勝負已由系統結算。\n` : "") +
-      (useNp && !clash ? `★【寶具解放·務必演出】請描寫從者高呼寶具真名、解放其象徵傳說之力的壯麗瞬間與毀滅性威能。\n` : "") +
-      (skillBuff ? `★【主動技·${skillBuff.name}】我方從者本戰啟動了「${skillBuff.name}」——請把這道技能的發動姿態與氣勢自然融入廝殺演出（演出而非複述標籤）。\n` : "") +
-      ((battery && battery.usedBattery) ? `★【御主電池·務必演出】${battery.bledMaster ? `為餵飽寶具的魔力缺口，御主焚燒自身血肉與生命（耗血約 ${battery.fromMasterHp}，僅餘 ${battery.masterHp}/${battery.masterHpMax} HP），` : `御主以自身魔力為從者頂上魔力缺口（導流 ${battery.fromMasterMp} 魔力），`}化作那一發寶具的活體電池——請演出御主臉色刷白、令咒灼痛、血魔被從者透支抽取的代價感，凸顯「以御主為池」的危險浪漫。\n` : "") +
-      (godRevived ? `★【十二試煉】${godNote}請演出他靈基崩解又自死亡歸來、神性光輝重燃的不滅之姿。\n` : "") +
-      (sealEscaped ? `★【令咒介入】${sealNote}請演出對面御主令咒爆閃、強行扯離重傷從者的瞬間，敵已遁走、不在場。\n` : "") +
-      ((!destroyedName && !sealEscaped && !godRevived) ? `★敗方最多重傷，【絕對禁止】描寫死亡／消滅／屍體，生死由御主後續定奪。\n` : "") +
-      ``;
+      `【戰報·已裁定，勝負與傷害不可改】御主號令${atkLabel}出擊，與「${defC.name}」交鋒 ${nRounds} 回合。\n` +
+      `${roundsBrief}\n我方造成 ${totalDealt} 傷害、受創 ${totalTaken}。${finalLine}\n` +
+      `── 本戰發生的事(素材，自行織入畫面，勿複述標籤名) ──\n` +
+      (useSeal ? `· 御主燃燒一道令咒·絕對命令，強令此擊必中、引爆超限戰力。\n` : "") +
+      (clash ? `· 寶具對轟：雙方同時解放真名正面對撞，${clash.outcome === 'player' ? '我方威能壓過、光潮貫穿對手' : clash.outcome === 'enemy' ? '對面威能壓過、反貫我方' : '勢均力敵、轟然相抵、雙方震退'}。\n` : (useNp ? `· ${atkC.name} 高呼真名、解放了寶具。\n` : "")) +
+      (skillBuff ? `· 我方啟動了主動技「${skillBuff.name}」。\n` : "") +
+      (horrorFired ? `· 青鬍子以螺湮城教本自深淵召出觸手巨獸「深淵海怪」，常駐戰場、每回合與本人並肩撕咬，靠御主魔力維持(枯竭則潰散)。\n` : "") +
+      (dualAttack ? `· 我方兩名從者並肩夾擊同一敵手。\n` : "") +
+      (allyAssistName ? `· 盟友從者「${allyAssistName}」依約自側翼掩護助攻。\n` : "") +
+      (interceptNote ? `· ${interceptNote}\n` : "") +
+      ((battery && battery.usedBattery) ? `· 御主電池：${battery.bledMaster ? `御主焚燒自身血肉(餘 ${battery.masterHp}/${battery.masterHpMax} HP)` : `御主導流自身魔力`}為從者頂上魔力缺口。\n` : "") +
+      (godRevived ? `· 十二試煉：${godNote}\n` : "") +
+      (sealEscaped ? `· 對面御主燃令咒、強行扯離重傷從者，敵已遁走不在場。${sealNote}\n` : "") +
+      ((!destroyedName && !sealEscaped && !godRevived) ? `· 敗方僅重傷未死——勿描寫死亡／消滅／屍體，生死由御主後續定奪。\n` : "") +
+      `★以 Fate／TYPE-MOON 筆觸演出這 ${nRounds} 回合互有攻防的交鋒(約 220~280 字)：show, don't tell，把上列事實化為畫面與張力，技能/寶具演其威能而非報菜名。`;
   }
 
   // 📊 給前端的多回合視覺戰報
@@ -2909,7 +2937,7 @@ function actionManaSupply(userData, pcId, sheets) {
       `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】描寫這場「燃迴路續契約」的私密而沉重的一刻——御主強行催動將要燒斷的魔術迴路、魔力沿靈魂聯繫流向從者、體溫與屏息、從者察覺御主迴路受損／面色透支時的不忍與心疼，甜美中帶悲壯，最後 fade-to-black 留白。\n` +
       `★【鐵律】止於唯美曖昧、點到為止；【不可】出現性器官、性交或露骨情慾描寫（那是奪杯後鑑賞的事）。演出而非複述設定。`;
   }
-  return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", statusString: getFreshStatusString(pcId, pIdx, sheets) });
+  return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", report: ambush ? ambush.report : null, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
 // 🩸 燃血補魔已改為【被動機制】(2026-06)：不再是主動 action。
@@ -2991,7 +3019,7 @@ function actionBond(userData, pcId, sheets) {
   }
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, bond: bondNow, bondUsed: usedToday,
-    ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "",
+    ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", report: ambush ? ambush.report : null,
     statusString: getFreshStatusString(pcId, pIdx, sheets)
   });
 }
@@ -3277,7 +3305,7 @@ function actionAllyBond(userData, pcId, sheets) {
     const aiPromptA = `【系統·盟誼遭突襲·已裁定】御主『${masterName}』正與盟友「${allyName}」交心共處、卸下戒備之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠貫入我方從者（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
       `★以 Fate／TYPE-MOON 筆觸描寫盟誼的私密一刻被突襲撕裂的驚變${ambush.destroyed ? '、從者消滅的痛楚（語氣留白）' : '、從者強撐重傷護主的瞬間'}。傷害與勝負已由系統結算。\n` +
       ``;
-    return JSON.stringify({ success: true, aiPrompt: aiPromptA, clock: clock, ap: ap, apMax: AP_PER_DAY, ambush: true, defeat: ambush.defeat, dreamPrompt: ambush.dreamPrompt || "", statusString: getFreshStatusString(pcId, pIdx, sheets) });
+    return JSON.stringify({ success: true, aiPrompt: aiPromptA, clock: clock, ap: ap, apMax: AP_PER_DAY, ambush: true, defeat: ambush.defeat, dreamPrompt: ambush.dreamPrompt || "", report: ambush.report || null, statusString: getFreshStatusString(pcId, pIdx, sheets) });
   }
 
   const gain = 6 + Math.floor(Math.random() * 6); // +6~11
@@ -3379,6 +3407,13 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, userData, baseMul) 
   }
   out.after = parseInt(pcData[svIdx][COL.PC.HP]) || 0;
   sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+  // 📊 卸防突襲也給戰報卡（讓玩家看到數字，不只 AI 敘述）
+  out.svName = String(pcData[svIdx][COL.PC.NAME]);
+  out.svHpMax = parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 0;
+  out.report = {
+    ambush: true, enemyName: out.enemyName, svName: out.svName, stealthy: stealthy,
+    dmg: dmg, after: out.after, svHpMax: out.svHpMax, destroyed: out.destroyed, defeat: out.defeat
+  };
   return out;
 }
 
