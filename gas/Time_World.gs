@@ -204,10 +204,15 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
     else if (masterI < 0) masterI = i;
   }
 
+  // 🔋 共用魔力池：同隊從者魔力 rankVal 總和 → 重算池上限(迴路×6 + 魔力×2) ＋ 從者回魔貢獻(少)。
+  var partyMagicVal = 0;
+  svRows.forEach(function (ri) { var cs = rowToCombatant_(data[ri]); partyMagicVal += rankVal(cs.six['魔力'] || 'E'); });
+
   // 收入(每小時，靈脈/工房只餵御主一次，不隨從者數倍增)；工房＝居所/已設陣地/任一從者自帶陣地作成(Caster)
   var anyTerritory = svRows.some(function (ri) { return !!hasFx_(rowToCombatant_(data[ri]), 'territory'); });
   var hasWs = atHome || atWorkshop || anyTerritory;
-  var income = servantEconomy_(circuits, {}, false, ley, hasWs).income;
+  //   收入 = 御主迴路供給 + 靈脈 + 工房 + 從者魔力回魔(×0.15，比御主少)
+  var income = servantEconomy_(circuits, {}, false, ley, hasWs).income + Math.round(partyMagicVal * 0.15);
   // 支出(每小時)：Σ 各從者維持費 × 其出力檔 drainMul
   var totalDrain = 0;
   svRows.forEach(function (ri) {
@@ -219,8 +224,10 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
   // 御主魔力淨收支（休息把收入加倍、維持不變）→ 寫回御主 MP；御主HP 走自我修復。
   var masterDry = false;
   if (masterI >= 0) {
-    var mMpMax = parseInt(data[masterI][COL.PC.MAX_MP]) || 0;
-    var mMp = parseInt(data[masterI][COL.PC.MP]) || 0;
+    // 重算共用池上限(把同隊從者魔力併進來)；夾住當前 MP
+    var mMpMax = masterPoolMax_(circuits, partyMagicVal);
+    if (mMpMax !== (parseInt(data[masterI][COL.PC.MAX_MP]) || 0)) { data[masterI][COL.PC.MAX_MP] = mMpMax; did = true; }
+    var mMp = Math.min(parseInt(data[masterI][COL.PC.MP]) || 0, mMpMax);
     var perHour = (income * mult) - totalDrain;
     var nMMp = mMpMax ? Math.max(0, Math.min(mMpMax, Math.round(mMp + perHour * hours))) : mMp;
     if (nMMp <= 0 && totalDrain > income * mult) masterDry = true;   // 連維持都湊不出→乾涸

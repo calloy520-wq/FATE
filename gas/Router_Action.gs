@@ -578,6 +578,18 @@ ${FX_MENU_}
     row[COL.PC.GAME_ID] = gameId;
     sheets.pc.appendRow(row);
 
+    // 🔋 共用魔力池：把新從者魔力併入御主池上限(迴路×6 + 魔力×2)，締約＝魔力暢通故補到滿池
+    try {
+      var _circ = masterCircuits_(masterRow);
+      var _svMag = 0; try { _svMag = rankVal(JSON.parse(row[COL.PC.SIX] || '{}')['魔力'] || 'E'); } catch (e) { }
+      var _newMax = masterPoolMax_(_circ, _svMag);
+      var _mIdx = pcData.findIndex(function (r) { return r[COL.PC.ID] == pcId; });
+      if (_mIdx >= 0) {
+        masterRow[COL.PC.MAX_MP] = _newMax; masterRow[COL.PC.MP] = _newMax;
+        sheets.pc.getRange(_mIdx + 1, 1, 1, masterRow.length).setValues([masterRow]);
+      }
+    } catch (e) { }
+
     if (sheets.rel) {
       try { sheets.rel.appendRow([pcName, realName, 35, "從者", "同行", "", ""]); } catch (e) { }
     }
@@ -2842,20 +2854,43 @@ function actionManaSupply(userData, pcId, sheets) {
   const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可供魔。" });
   const svName = pcData[svIdx][COL.PC.NAME];
-  // 🔋 出力電池制：補魔＝御主凝神、藉與從者的契約共鳴回充【自身】魔力儲備(御主MP＝唯一供魔源)，非灌入從者(從者無池)。
-  const mpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || 240;
-  const cur = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
-  if (cur >= mpMax) return JSON.stringify({ success: false, message: `御主的魔力儲備已然充盈，毋須補魔。` });
+  // 🔋 共用魔力池制：補魔＝御主硬擠魔術迴路、回滿共用池——但【永久】燒蝕：血量上限−5~10、迴路−1~2(有地板)。
+  //   過度補魔＝慢性自盡(迴路↓→池縮、回魔慢、禮裝弱)。與「燃血(扣【當前】HP、可休息回復)」分屬兩條供魔路。
+  const CIRC_FLOOR = 8, HP_FLOOR = 40;
+  const curMpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || masterPoolMax_(masterCircuits_(pcData[pIdx]), 0);
+  const curMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
+  if (curMp >= curMpMax) return JSON.stringify({ success: false, message: `御主的魔力儲備已然充盈，毋須補魔（免付燒蝕之代價）。` });
 
   const isFateMana = myGameId.indexOf("g_") === 0;
   if (isFateMana && getAp_(myGameId) < 1) {
     return JSON.stringify({ success: false, message: "行動力不足以行補魔之儀——請『休息』恢復後再來。" });
   }
-
-  const restored = Math.min(mpMax, cur + Math.round(mpMax * 0.5));
+  const oldCirc = masterCircuits_(pcData[pIdx]);
+  if (oldCirc <= CIRC_FLOOR) {
+    return JSON.stringify({ success: false, message: `你的魔術迴路已燒蝕至極限（${oldCirc} 條），再以補魔強擠恐徹底斷絕——改以靈脈／陣地／休息回魔吧。` });
+  }
+  // 永久代價：迴路−1~2、血量上限−5~10（各有地板）
+  const circCut = Math.floor(Math.random() * 2) + 1;   // 1~2
+  const hpCut = Math.floor(Math.random() * 6) + 5;     // 5~10
+  const newCirc = Math.max(CIRC_FLOOR, oldCirc - circCut);
+  const oldMaxHp = parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 100;
+  const newMaxHp = Math.max(HP_FLOOR, oldMaxHp - hpCut);
+  // 同隊從者魔力 → 重算池上限(新迴路 + 魔力×2)；回滿
+  let partyMag = 0;
+  pcData.forEach(function (r) { if (String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_")) { try { partyMag += rankVal(JSON.parse(r[COL.PC.SIX] || '{}')['魔力'] || 'E'); } catch (e) { } } });
+  const newMpMax = masterPoolMax_(newCirc, partyMag);
+  const restored = newMpMax; // 回滿池
+  // 寫回：迴路(MEMORY)、血上限、(夾)當前血、池上限、回滿魔
+  pcData[pIdx][COL.PC.MEMORY] = /【迴路】\d+/.test(String(pcData[pIdx][COL.PC.MEMORY] || ""))
+    ? String(pcData[pIdx][COL.PC.MEMORY]).replace(/【迴路】\d+/, '【迴路】' + newCirc)
+    : (String(pcData[pIdx][COL.PC.MEMORY] || "") + '｜【迴路】' + newCirc);
+  pcData[pIdx][COL.PC.MAX_HP] = newMaxHp;
+  pcData[pIdx][COL.PC.HP] = Math.min(parseInt(pcData[pIdx][COL.PC.HP]) || 0, newMaxHp);
+  pcData[pIdx][COL.PC.MAX_MP] = newMpMax;
   pcData[pIdx][COL.PC.MP] = restored;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   raiseBond_(sheets, pcData[pIdx][COL.PC.NAME], svName, 3);
+  const mpMax = newMpMax; // 給下方敘述沿用
 
   let manaAp = AP_PER_DAY, manaClock = "";
   if (isFateMana) { try { manaAp = spendAp_(myGameId, 1).ap; manaClock = clockLabel_(myGameId); } catch (e) { } }
@@ -2871,8 +2906,8 @@ function actionManaSupply(userData, pcId, sheets) {
       ``;
   } else {
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
-      `【系統·補魔已結算】御主凝神靜息，藉與「${svName}」的靈魂契約共鳴，回充自身魔力儲備至 ${restored}/${mpMax}，羈絆微升。\n` +
-      `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】，溫柔且帶一絲曖昧張力地描寫這場以契約共鳴回魔的私密一刻——魔力沿著靈魂聯繫流轉、肌膚相觸、體溫與心跳、半句未盡的情話，甜美而克制，最後 fade-to-black 留白。\n` +
+      `【系統·補魔已結算】御主硬擠魔術迴路為「${svName}」回滿共用魔力池（${restored}/${mpMax}），代價沉重——魔術迴路永久燒蝕至 ${newCirc} 條、生命上限永久跌為 ${newMaxHp}。羈絆微升。\n` +
+      `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】描寫這場「燃迴路續契約」的私密而沉重的一刻——御主強行催動將要燒斷的魔術迴路、魔力沿靈魂聯繫流向從者、體溫與屏息、從者察覺御主迴路受損／面色透支時的不忍與心疼，甜美中帶悲壯，最後 fade-to-black 留白。\n` +
       `★【鐵律】止於唯美曖昧、點到為止；【不可】出現性器官、性交或露骨情慾描寫（那是奪杯後鑑賞的事）。演出而非複述設定。`;
   }
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", statusString: getFreshStatusString(pcId, pIdx, sheets) });

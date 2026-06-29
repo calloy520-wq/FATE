@@ -1249,7 +1249,7 @@ function renderRecentLocs(recents = null) {
         + ((pc && pc.mode === 'kanshou') ? '' :  // 🌹 慾海：御主只露名字＋外顯，不露血量/魔力/令咒/禮裝
             bar('體', m.hpNum, m.hpMax, 'hp')
             + bar('魔', m.mpNum, m.mpMax, 'mp')
-            + '<div style="color:#6e9fc0; font-size:9.5px; margin-top:1px; opacity:.85;">🔋 御主魔力＝供養從者的唯一電池：從者按出力檔持續抽取，補魔／燃血／休息回充</div>'
+            + '<div style="color:#6e9fc0; font-size:9.5px; margin-top:1px; opacity:.85;">🔋 共用魔力池(上限＝迴路×6＋從者魔力×2)：從者按出力檔抽取。回魔靠靈脈/休息；🩸燃血扣當前血、💧補魔永久燒蝕迴路</div>'
             + '<div style="color:#9a8bb0; font-size:11px; margin-top:3px;">令咒 <span style="color:#c79be8;">' + '❖'.repeat(myMasterSeals) + '</span></div>'
             + (myMystic ? ('<div style="color:#9a8bb0; font-size:11px; margin-top:3px;" title="' + (myMystic.desc || '').replace(/"/g, '') + '">禮裝 <span style="color:#7fd0c0;">✨ ' + myMystic.name + '</span>' + (myMystic.type === 'active' ? ' <span style="color:#caa44a;">(充能 ' + myMystic.charges + '・需迴路 ' + myMystic.req + ')</span>' : ' <span style="color:#8aa;">(被動)</span>') + '</div>') : ''))
         + '</div>';
@@ -1301,7 +1301,7 @@ function renderRecentLocs(recents = null) {
           + ((pc && pc.mode === 'kanshou') || (dual && !isActive) ? '' :
               '<div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">'
               + (dual ? '<div style="flex:1 0 100%; color:#9a8fae; font-size:10px;">下列動作對「' + s.name + '」生效：</div>' : '')
-              + '<button onclick="event.stopPropagation();manaSupply()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
+              + '<button onclick="event.stopPropagation();manaSupply()" title="補魔：硬擠魔術迴路回滿共用魔力池。⚠永久代價：血上限−5~10、迴路−1~2。孤注一擲，過度=慢性自盡。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
               + '<button onclick="event.stopPropagation();bloodSupply()" title="燃血補魔：燃燒御主自身生命力(扣血)，大量回充御主魔力儲備(供養從者的電池)。血量可休息回復。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(176,42,42,0.18); color:#e08080; border:1px solid #a04a4a; border-radius:6px; cursor:pointer;">🩸 燃血</button>'
               + '<button onclick="event.stopPropagation();openBondMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(224,138,170,0.16); color:#e08aaa; border:1px solid #b06c84; border-radius:6px; cursor:pointer;">💕 羈絆</button>'
               + '<button onclick="event.stopPropagation();openSealMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(176,108,208,0.16); color:#c79be8; border:1px solid #8a5fb0; border-radius:6px; cursor:pointer;">❖ 令咒 ' + '❖'.repeat(myMasterSeals) + '</button>'
@@ -1703,8 +1703,9 @@ function renderRecentLocs(recents = null) {
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
   }
 
-  // 💧 補魔：御主凝神、藉契約共鳴回充【自身】魔力儲備（供養從者的電池）＋羈絆＋fade 演出
+  // 💧 補魔：御主硬擠魔術迴路回滿共用魔力池——但永久燒蝕(血上限−5~10、迴路−1~2)。孤注一擲的回魔。
   async function manaSupply() {
+    if (!confirm('💧 補魔：御主硬擠魔術迴路，將共用魔力池一口氣回滿。\n\n⚠ 代價【永久】：生命上限 −5~10、魔術迴路 −1~2 條（迴路↓會讓魔力池上限縮小、回魔變慢、禮裝變弱）。\n這是燃迴路續契約的孤注一擲——過度依賴等於慢性自盡。\n\n（想省代價：靈脈/陣地/休息自然回魔，或用🩸燃血扣可回復的當前血量。）\n\n確定補魔？')) return;
     const foe = localFoeServantName();
     if (foe && !confirm('⚠ 此地有敵從者「' + foe + '」！\n\n補魔時門戶大開，極可能遭其趁隙突襲重擊你的從者（重則靈基崩潰、敗北）。\n建議先擊退敵人或轉往安全處。\n\n仍要在此補魔？')) return;
     if (!beginAction()) return;

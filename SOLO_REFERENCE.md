@@ -87,7 +87,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | get_tags | actionGetTags | **左側狀態面板資料**：御主HP/MP/令咒/願望、從者陣列(六圍/技能/羈絆/寶具)、供魔收支、禮裝、破戒能力 |
 | fate_battle | actionFateBattle | **核心戰鬥**：D20＋寶具＋令咒＋斬首＋雙從者＋協同強襲（見 §4） |
 | use_seal | actionUseSeal | 令咒固定選單：修復/補魔/緊急脫離 |
-| mana_supply | actionManaSupply | 補魔(出力電池制)：御主凝神回充【自身】MP +50%maxMP(＝供養從者的電池，非灌從者)+羈絆+SFW fade（耗1AP，卸防可能被突襲） |
+| mana_supply | actionManaSupply | 補魔(燃迴路)：硬擠迴路回滿共用池，**永久代價** maxHP−5~10、迴路−1~2(地板迴路8/HP40)+羈絆+SFW fade（耗1AP，卸防可能被突襲）。過度＝慢性自盡。 |
 | blood_supply | actionBloodSupply | 🩸燃血補魔(血→魔)：御主扣 HP(~18%maxHP，留 15% 安全線)→回充【御主自身】MP(~70%maxMP)+羈絆+5。御主 HP 休息回復(applyRegen ~5%/hr)。耗1AP、卸防可能被突襲。SFW 悲壯非情慾。 |
 | set_servant_output | actionSetServantOutput | 🔋設從者靈基出力檔(20/40/60/80/100，存 MEMORY【出力】)。免費即時不耗AP。決定戰力＋御主每小時維持費；100% 才能放寶具。 |
 | bond | actionBond | 羈絆互動(閒聊/共餐/特訓/夜談)，每種每日一次升羈絆 |
@@ -141,7 +141,8 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **⚡ 從者專屬主動技(2026-06)**：`servantActiveSkill_(c)` 依 fx 給本戰增益(gob→命中+6傷+28 / burst→傷×1.3 / stealth→命中+6傷×1.15 / str_up→傷+14 / aim·projection→命中+6傷+10 / morale→命中+3傷+8 / self_mod→命中+4傷+6 / 預設→集中命中+5)，gob 優先。`actionFateBattle` 啟動耗魔 `200×mpPct`(出力電池制：固定基準，非已廢的從者池)→`drainForNp_` 抽御主。前端「⚡ 主動技」鈕。
 - **🌟 乖離劍·執行殺(ea／英雄王，2026-06)**：`resolveFateBattle_` 開頭——**僅 `opts.np`(解放寶具，即出力100%)＋英雄王【自身】血量≤40% 才觸發**(傲慢→認真)。傷害 `寶具rankVal×4＋6d12＋200`、必中越防、early-return。血量足走常規寶具(×1.7)。⚠ 舊「對面血≤30%免費每擊觸發」bug 已修正。
 - **🔋 御主電池付款(2026-06 出力制)**：`npPranaCost_(寶具階)`＝**E40/D70/C110/B160/(A·A+·A++)220/EX300**(對齊御主池迴路×8≈240：A階≈耗盡滿池、EX須再焚血；EX/EA 極罕見)。`drainForNp_(sheets,pcData,svIdx,masterIdx,mpCost)` 付款序 **①御主MP ②御主HP**(`BATTERY_HP_PER_MP`=2HP→1MP，血底線1；從者無池，fromSv 恆0)。寫進 report.battery＋前端血條。御主血魔皆空才擋寶具。
-- **⚖️ 御主血魔(2026-06)**：`masterMaxHpMp_(circuits)`＝HP `100+迴路×2`／**MP `迴路×8`**(預設30迴路→HP160/MP240)。御主(凡人)血魔皆低於從者(HP270~450)；池被從者出力持續抽(見出力電池制)。玩家御主(召喚)＋正典敵御主(`masterToNpcRow_`)同制；偽聖杯匿名御主固定 HP120/MP80。高迴路怪物(伊莉雅80/櫻90→MP640/720)池深，符合原作。
+- **⚖️🔋 共用魔力池(2026-06)**：從者與御主**共用一個魔力池**(存御主MP)。上限 `masterPoolMax_(迴路, 同隊從者魔力val總和)`＝**迴路×6 + 魔力×2**(迴路30+Saber魔A→280；Berserker魔B→260；Assassin魔E→200)。`masterMaxHpMp_` 只給無從者基底(HP100+迴路×2／MP迴路×6)。召喚(actionSummonServant 併入從者魔力、補滿)＋時回(applyRegen 重算)動態更新。回魔＝御主迴路供給＋從者魔力×0.15(從者少)＋靈脈/工房。Caster(魔A·低維持)幾乎自持，Berserker 吃魔。
+- **🩸💧 兩條供魔路 vs ♻️自然回魔(2026-06)**：①靈脈/陣地/休息＝免費自然回魔(首選)；②🩸**燃血**＝扣【當前】HP→回魔(可休息回復)；③💧**補魔(燃迴路)**＝回滿池 BUT【永久】燒蝕 血量上限−5~10、迴路−1~2(地板：迴路≥8、HP上限≥40)。迴路↓→池縮/回魔慢/禮裝弱→過度補魔＝慢性自盡。`actionManaSupply` 改寫永久代價＋重算池。
 - `aliveEnemyServants_(sheets,gameId)`：在世敵從者數（勝利判定用）。
 - `enemyRetreatLoc_`：令咒緊急脫離時敵退避地點。
 
@@ -196,7 +197,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `getClock_/writeClock_`：時鐘表(game_id→day/hour/ap)。
 - `getAp_/spendAp_(gid,n)/grantAp_(gid,n)`(不推時間)、`restHours_`(休息補AP)、`rollHours_`、`timeBand_`(晨/午/夜)、`clockLabel_`(顯示字串)。
 - AP：每日12，移動2AP、戰鬥/偵查/補魔/禮裝/結盟/共處=1AP、休息每hr補2。
-- `playerServantEconomy_`：**御主魔力**收支(左側 HUD，含 output/outputLabel)。`servantEconomy_`(income=迴路供給+靈脈+工房；drain=六圍/8×狂化)。**🔋 出力電池制 `applyRegen_`(2026-06)**：御主MP 是唯一池——income×mult − Σ(從者 drain × `outputTier_(出力).drainMul`)；從者 MP(出力)不在時回變動、無自有池；御主乾涸(連維持都湊不出)→強制全從者降【出力】20% ＋從者 HP 流血(靈基崩解 4%/hr)。御主HP/從者HP 自我修復 5%/hr×(avalon1.6)。`leylineAt_`、`masterCircuits_`(MEMORY【迴路】N 預設30)。
+- `playerServantEconomy_`：**御主魔力**收支(左側 HUD，含 output/outputLabel)。`servantEconomy_`(income=迴路供給+靈脈+工房；drain=六圍/8×狂化)。**🔋 共用池 `applyRegen_`(2026-06)**：御主MP 是共用池——重算上限 `masterPoolMax_(迴路, Σ從者魔力)`；income(迴路供給＋靈脈＋工房＋Σ從者魔力×0.15)×mult − Σ(從者 drain × `outputTier_(出力).drainMul`)；從者出力檔不在時回變動；御主乾涸(連維持都湊不出)→強制全從者降【出力】20% ＋從者 HP 流血(靈基崩解 4%/hr)。御主HP/從者HP 自我修復 5%/hr×(avalon1.6)。`leylineAt_`、`masterCircuits_`(MEMORY【迴路】N 預設30)。
 - `worldTick_`：跨時推進世界。
 
 ---
