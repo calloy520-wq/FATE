@@ -1522,6 +1522,16 @@ function renderRecentLocs(recents = null) {
     let h = '<div style="border:1px solid rgba(212,175,55,0.35);border-radius:9px;padding:9px 11px;margin:6px 0;background:rgba(28,20,14,0.5);font-size:12px;">';
     h += '<div style="color:#e7c873;font-weight:bold;margin-bottom:5px;">⚔️ ' + r.atk + (r.useSeal ? ' ❖令咒' : r.useNp ? ' 💥寶具' : '') + ' ⚔ ' + r.def + '　<span style="color:#9a8;font-size:11px;font-weight:normal;">' + r.rounds.length + ' 回合交鋒</span></div>';
     if (r.intercept) h += '<div style="color:#c79be8;font-size:11px;margin-bottom:4px;">🛡️ 敵從者攔截護主——攻擊改打從者</div>';
+    // 🌟 寶具對轟
+    if (r.clash) {
+      const c = r.clash;
+      const win = c.outcome === 'player' ? '我方壓過' : c.outcome === 'enemy' ? '敵方壓過' : '勢均力敵·相抵';
+      const wc = c.outcome === 'player' ? '#7ec8ff' : c.outcome === 'enemy' ? '#e06a6a' : '#d4af37';
+      h += '<div style="border:1px solid rgba(126,200,255,0.4);border-radius:8px;padding:7px 9px;margin:4px 0;background:linear-gradient(180deg,rgba(20,28,44,0.6),rgba(40,16,38,0.5));">';
+      h += '<div style="font-weight:bold;color:' + wc + ';font-size:12px;">🌟 寶具對轟・真名對撞　<span style="font-size:10.5px;">' + win + '</span></div>';
+      h += '<div style="font-size:10.5px;color:#9ab;margin-top:2px;">火力 我 <b style="color:#7ec8ff;">' + c.pPow + '</b> ⚔ 敵 <b style="color:#e08a8a;">' + c.ePow + '</b>　→　敵受創 <b style="color:#e06a6a;">−' + c.eDmgTaken + '</b>／我回震 <b style="color:#e0a06a;">−' + c.pDmgTaken + '</b></div>';
+      h += '</div>';
+    }
     r.rounds.forEach(rd => {
       h += '<div style="border-top:1px dashed rgba(212,175,55,0.18);margin-top:5px;padding-top:4px;">';
       h += '<div style="color:#caa44a;font-size:10.5px;margin-bottom:2px;">第 ' + rd.n + ' 回合</div>';

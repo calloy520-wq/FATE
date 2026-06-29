@@ -1867,6 +1867,8 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   try { mealOn = mealBuffActive_(pcData[ctx.pIdx][COL.PC.MEMORY], ctx.myGameId); } catch (e) { }
   var r = resolveFateBattle_(atkC, defC, { np: !!opts.np, seal: !!opts.seal, mealBuff: mealOn ? MEAL_BUFF_BONUS : 0 });
   if (opts.seal) r.atkWins = true; // 絕對命令必中
+  // 🌟 寶具對轟結算傷害：傷害已由對轟裁決算好，此處只借 fateStrike_ 套用「死亡/勝負/復活/令咒脫離」全套後續邏輯
+  if (opts.forceDamage != null) { r.atkWins = true; r.damage = Math.max(0, Math.round(opts.forceDamage)); r.crit = ''; }
   var out = {
     hit: r.atkWins, damage: 0, fired: (r.fired || []).slice(),
     aRoll: r.aRoll, aHit: r.aHit, dRoll: r.dRoll, dEva: r.dEva, crit: r.crit || "",
@@ -2254,6 +2256,58 @@ function actionFateBattle(userData, pcId, sheets) {
     if (allyAtkIdx !== -1) allyAssistName = String(pcData[allyAtkIdx][COL.PC.NAME]);
   }
 
+  // 🌟 寶具對轟（光與光的對撞）：玩家開場解放寶具、目標為敵從者時，值得一戰的對手以寶具相迎。
+  //   雙方先算「寶具火力」(不直接扣血) → 高者壓過低者，差額貫穿敗方、勝方僅受少量回震；火力相當(±10%)則相抵僵持、雙方小損。
+  //   傷害一律透過 fateStrike_(forceDamage) 套用，沿用全套死亡/勝負/復活/令咒脫離邏輯。
+  let openingNp = useNp, openingSeal = useSeal; // 給回合迴圈：對轟已用掉開場寶具/令咒威能則清掉，避免重複施放
+  let clash = null;
+  if (useNp && targetIsFoeServant && !String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) {
+    const enemyC0 = rowToCombatant_(pcData[nIdx]);
+    const enemyHasNp = !!String(pcData[nIdx][COL.PC.MARTIAL] || "").trim() && rankVal(enemyC0.six["寶具"] || "-") >= 10;
+    // 對撞意志：健全的對手多半敢正面對轟；暗殺/狂戰系更愛搏命；殘血則未必接招（可能改閃避→走一般回合）
+    const eHpR = (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[nIdx][COL.PC.HP]) || 0) / (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) : 1;
+    const clashUrge = 0.6 + (hasFx_(enemyC0, 'mad') || hasFx_(enemyC0, 'zabaniya') ? 0.25 : 0) - (1 - eHpR) * 0.3;
+    if (enemyHasNp && Math.random() < clashUrge) {
+      enemyNpSpent = true;            // 對轟即用掉敵寶具
+      openingNp = false; openingSeal = false; // 玩家寶具/令咒威能已在對轟中釋放，回合迴圈不再重放
+      const pPow = resolveFateBattle_(atkC, enemyC0, { np: true, seal: useSeal }).damage;
+      const ePow = resolveFateBattle_(enemyC0, atkC, { np: true }).damage;
+      const band = Math.round((pPow + ePow) * 0.10);
+      let outcome, pDmgTaken = 0, eDmgTaken = 0;
+      if (Math.abs(pPow - ePow) <= band) {
+        outcome = 'stalemate';                                   // 勢均力敵·僵持相抵
+        eDmgTaken = Math.round(band * 0.5); pDmgTaken = Math.round(band * 0.5);
+      } else if (pPow > ePow) {
+        outcome = 'player';                                      // 我方寶具壓過
+        eDmgTaken = pPow - ePow; pDmgTaken = Math.round((pPow - ePow) * 0.15);
+      } else {
+        outcome = 'enemy';                                       // 敵寶具壓過
+        pDmgTaken = ePow - pPow; eDmgTaken = Math.round((ePow - pPow) * 0.15);
+      }
+      // 套用傷害（先打敵、再回震我方）——皆走 fateStrike_ 以沿用死亡/勝負/脫離邏輯
+      const eHit = fateStrike_(sheets, pcData, atkC, nIdx, { forceDamage: eDmgTaken }, ctx);
+      if (eHit.destroyed) destroyedName = eHit.destroyed;
+      if (eHit.knocked) knockedOut.push(eHit.knocked);
+      if (eHit.sealEscaped) { sealEscaped = true; sealNote = eHit.sealNote; }
+      if (eHit.godRevived) { godRevived = true; godNote = eHit.godNote; }
+      if (eHit.victory) victory = true;
+      // 我方回震（敵未脫離/未死也照樣有反作用力；敵已亡則回震減半，光潮餘波）
+      if (!sealEscaped) {
+        const spill = (destroyedName ? Math.round(pDmgTaken * 0.5) : pDmgTaken);
+        const pHit = fateStrike_(sheets, pcData, enemyC0, atkIdx, { forceDamage: spill }, ctx);
+        if (pHit.destroyed) { destroyedName = destroyedName; knockedOut.push(pHit.knocked); }
+        if (pHit.defeat) { defeat = true; victory = false; dreamPrompt = pHit.dreamPrompt; }
+      }
+      clash = {
+        outcome: outcome, pPow: pPow, ePow: ePow, pDmgTaken: pDmgTaken, eDmgTaken: eDmgTaken,
+        enemyNp: String(pcData[nIdx][COL.PC.MARTIAL] || ""),
+        atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0,
+        defHp: parseInt(pcData[nIdx][COL.PC.HP]) || 0, defHpMax: parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0
+      };
+      logWarEvent_(myGameId, `寶具對轟！『${atkC.name}』與「${defC.name}」真名解放正面對撞——${outcome === 'player' ? '我方光潮壓過、貫穿對手' : outcome === 'enemy' ? '敵寶具壓過、貫穿我方' : '勢均力敵、兩相抵銷'}。`, String(userData.acctName || ""));
+    }
+  }
+
   for (let rd = 0; rd < ROUNDS; rd++) {
     if (sealEscaped || destroyedName || defeat || victory) break;
     if (String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) break;
@@ -2268,7 +2322,7 @@ function actionFateBattle(userData, pcId, sheets) {
       if (String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) break;
       const sC = rowToCombatant_(pcData[sidx]);
       const isActive = (sidx === atkIdx);
-      const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && useNp && isActive, seal: opening && useSeal && isActive }, ctx);
+      const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && openingNp && isActive, seal: opening && openingSeal && isActive }, ctx);
       rl.strikes.push({ by: sC.name, pRoll: ps.aRoll, pHitVal: ps.aHit, dRoll: ps.dRoll, dEvaVal: ps.dEva, pHit: ps.hit, pDmg: ps.hit ? ps.damage : 0, pCrit: ps.crit, pFired: ps.fired, note: ps.sealNote || ps.godNote || "" });
       if (ps.destroyed) destroyedName = ps.destroyed;
       if (ps.knocked) knockedOut.push(ps.knocked);
@@ -2314,9 +2368,9 @@ function actionFateBattle(userData, pcId, sheets) {
     if (defeat) break;
   }
 
-  // 戰報摘要
-  const totalDealt = rounds.reduce((s, r) => s + (r.strikes || []).reduce((a, k) => a + (k.pDmg || 0), 0), 0);
-  const totalTaken = rounds.reduce((s, r) => s + (r.eDmg || 0), 0);
+  // 戰報摘要（含寶具對轟的傷害）
+  const totalDealt = rounds.reduce((s, r) => s + (r.strikes || []).reduce((a, k) => a + (k.pDmg || 0), 0), 0) + (clash ? (clash.eDmgTaken || 0) : 0);
+  const totalTaken = rounds.reduce((s, r) => s + (r.eDmg || 0), 0) + (clash ? (clash.pDmgTaken || 0) : 0);
   const nRounds = rounds.length;
   const atkLabel = dualAttack ? `${atkC.name} 與另一名從者協同` : atkC.name;
   const roundsBrief = rounds.map(r =>
@@ -2345,7 +2399,8 @@ function actionFateBattle(userData, pcId, sheets) {
       `我方共造成 ${totalDealt} 傷害、受創 ${totalTaken}。最終：${finalLine}\n` +
       `★【篇幅約 220~280 字】以 Fate／TYPE-MOON 筆觸生動描寫這 ${nRounds} 回合互有攻防、你來我往的廝殺（不是單方面挨打），凸顯雙方發動的技能／寶具威能與靈基壓迫感（演出而非複述標籤名）。勝負與傷害已由系統結算。\n` +
       (useSeal ? `★【令咒·絕對命令·務必演出】御主高舉左手，手背上的紅色令咒咒印（聖痕）灼然迸亮、其中一道紋路在燃燒中消褪——請明確描寫「御主燃燒一道令咒、下達不可違逆的絕對命令」這一幕，以及那道命令如何貫徹從者全身、強行引爆超越極限的戰力（這一擊必中）。\n` : "") +
-      (useNp ? `★【寶具解放·務必演出】請描寫從者高呼寶具真名、解放其象徵傳說之力的壯麗瞬間與毀滅性威能。\n` : "") +
+      (clash ? `★【寶具對轟·務必演出】我方與「${defC.name}」同時解放寶具真名，兩道傳說之力正面對撞、光與光在中軸絞鎖角力——${clash.outcome === 'player' ? `終於我方的威能壓過對面、光潮貫穿而出（敵受創 ${clash.eDmgTaken}、我回震 ${clash.pDmgTaken}）` : clash.outcome === 'enemy' ? `終於對面的威能壓過我方、洪流反貫而回（我受創 ${clash.pDmgTaken}、敵回震 ${clash.eDmgTaken}）` : `兩股力量勢均力敵、轟然相抵爆散，雙方俱被餘波震退（各受創約 ${clash.pDmgTaken}）`}。請以 Fate／TYPE-MOON 筆觸濃墨描寫這場寶具對轟的對峙、咬合、與決勝瞬間（這是本戰高潮）。勝負已由系統結算。\n` : "") +
+      (useNp && !clash ? `★【寶具解放·務必演出】請描寫從者高呼寶具真名、解放其象徵傳說之力的壯麗瞬間與毀滅性威能。\n` : "") +
       ((battery && battery.usedBattery) ? `★【御主電池·務必演出】${battery.bledMaster ? `為餵飽寶具的魔力缺口，御主焚燒自身血肉與生命（耗血約 ${battery.fromMasterHp}，僅餘 ${battery.masterHp}/${battery.masterHpMax} HP），` : `御主以自身魔力為從者頂上魔力缺口（導流 ${battery.fromMasterMp} 魔力），`}化作那一發寶具的活體電池——請演出御主臉色刷白、令咒灼痛、血魔被從者透支抽取的代價感，凸顯「以御主為池」的危險浪漫。\n` : "") +
       (godRevived ? `★【十二試煉】${godNote}請演出他靈基崩解又自死亡歸來、神性光輝重燃的不滅之姿。\n` : "") +
       (sealEscaped ? `★【令咒介入】${sealNote}請演出對面御主令咒爆閃、強行扯離重傷從者的瞬間，敵已遁走、不在場。\n` : "") +
@@ -2361,6 +2416,7 @@ function actionFateBattle(userData, pcId, sheets) {
     defHp: parseInt(pcData[nIdx][COL.PC.HP]) || 0, defHpMax: parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0,
     atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0,
     battery: (battery && battery.usedBattery) ? { fromMasterMp: battery.fromMasterMp, fromMasterHp: battery.fromMasterHp, bledMaster: battery.bledMaster, masterHp: battery.masterHp, masterHpMax: battery.masterHpMax } : null,
+    clash: clash,
     masterHp: parseInt(pcData[pIdx][COL.PC.HP]) || 0, masterHpMax: parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 0,
     party: partyIdxs.map(i => ({ name: String(pcData[i][COL.PC.NAME]), hp: parseInt(pcData[i][COL.PC.HP]) || 0, hpMax: parseInt(pcData[i][COL.PC.MAX_HP]) || 0 }))
   };
