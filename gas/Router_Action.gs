@@ -368,7 +368,7 @@ function actionManualNpc(userData, pcId, sheets) {
 ★【OOC】已知動漫/虛構角色保留原著個性語癖，武俠化即可。
 
 ★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
-- traits：外貌、氣質舉止、自稱(第一人稱·如 我/俺/吾)、卸下心防的私密一面
+- traits：外貌、氣質舉止、自稱與口氣(第一人稱·如 我/俺/吾＋說話語氣，如 自稱「吾」・睥睨王者腔)、卸下心防的私密一面
 - personality：日常表象、真實內裡、喜歡的事物、討厭的事物
 - npc_intent：令人會心一笑的「可愛弱點/反差萌」一句話，須結合此角色身分性格量身打造。如冷面殺手怕貓、高傲千金愛吃路邊攤、嚴肅宗主收藏兔子玩偶、毒舌大夫暈血。要反差、可愛、獨特。
 
@@ -385,7 +385,7 @@ function actionManualNpc(userData, pcId, sheets) {
 
 ★【演出而非說明】願望與身世只作為設定底層，不要在 background 裡直接複述願望字面。
 ★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
-- traits：外貌、氣質舉止、自稱(第一人稱·如 我/俺/吾)、卸下心防的私密一面
+- traits：外貌、氣質舉止、自稱與口氣(第一人稱·如 我/俺/吾＋說話語氣，如 自稱「吾」・睥睨王者腔)、卸下心防的私密一面
 - personality：日常表象、真實內裡、喜歡的事物、討厭的事物
 ★npc_intent：一句【簡短】萌點（可愛反差，≤15字），結合此御主身分性格，要反差、可愛、獨特。
 ★background：限20字，呼應其身世／財力，禁出現具體物品名。
@@ -694,8 +694,8 @@ function actionSummonServant(userData, pcId, sheets) {
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       row[COL.PC.REALM] = "凡人";
-      // 🎴 特徵(4格敘事：外貌/氣質/獨特癖性/私密)直接讀寫死的種子 persona.look，穩定一致、不叫 AI 生。
-      row[COL.PC.TRAIT] = parseTraitsHelper(String(persona.look || ""), "外貌出眾、舉止從容、獨特的小癖好、卸下心防時的柔軟一面");
+      // 🎴 特徵(4格敘事：外貌/氣質/自稱與口氣/私密)直接讀寫死的種子 persona.look，穩定一致、不叫 AI 生。
+      row[COL.PC.TRAIT] = parseTraitsHelper(String(persona.look || ""), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
       // 🚀 種子英靈：直接用寫死的種子 persona（萌點/口吻 v3 已補齊），不再叫 AI 重生一次——省一次 API、加速召喚。
       //    個性取 persona.words(四關鍵)、萌點取 persona.moe、生平用種子既有 back 或職階真名模板。細緻演出靠 servantCard_(codexPersona_) 注入。
       let svPref = String(persona.words || "").replace(/・/g, "、");
@@ -735,7 +735,7 @@ ${FX_MENU_}
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       row[COL.PC.REALM] = "凡人";
       // 🎴 AI 即時生成的原創從者：特徵走通用敘事預設(不再用戰鬥特性污染敘事欄)，玩家可逆天改命微調。
-      row[COL.PC.TRAIT] = parseTraitsHelper("", "外貌出眾、舉止從容、獨特的小癖好、卸下心防時的柔軟一面");
+      row[COL.PC.TRAIT] = parseTraitsHelper("", "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
       row[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "沉著表象、堅定內裡、珍視之物、厭惡之事");
       row[COL.PC.INTENT] = String(aiBrief.npc_intent || "").slice(0, 18);
       row[COL.PC.SIX] = JSON.stringify(aiSix);
