@@ -267,7 +267,7 @@ function resolveFateBattle_(atk, def, opts) {
   var wDmgRank = winner.six[wProf.dmg];
   var wTier = rankTier_(wDmgRank);
   var weaponDice = rollDice_(wTier, 8);
-  var base = Math.round(rankVal(wDmgRank) * 0.5) + weaponDice + Math.round(Math.abs(aHit - dEva) * 1.2);
+  var base = Math.round(rankVal(wDmgRank) * 0.8) + weaponDice + Math.round(Math.abs(aHit - dEva) * 1.2);
   fired.push(winner.name + '·武器骰' + wTier + 'd8=' + weaponDice);
   var su = hasFx_(winner, 'str_up'); if (su) { base += Math.round(8 * rankMul_(su)); fired.push(winner.name + '·' + fxName_(winner, 'str_up', '怪力')); }
   var burst = hasFx_(winner, 'burst'); if (burst) { base = Math.round(base * (1 + 0.2 * rankMul_(burst))); fired.push(winner.name + '·' + fxName_(winner, 'burst', '魔力放出')); }

@@ -103,7 +103,7 @@ function blackenFoe_(sheets, gameId) {
     data[idx][COL.PC.TAGS] = JSON.stringify(tg);
   } catch (e) { }
   // HP 上調、狀態標記黑化
-  var hp = parseInt(data[idx][COL.PC.MAX_HP]) || 480;
+  var hp = parseInt(data[idx][COL.PC.MAX_HP]) || 300;
   data[idx][COL.PC.MAX_HP] = Math.round(hp * 1.15); data[idx][COL.PC.HP] = data[idx][COL.PC.MAX_HP];
   data[idx][COL.PC.STATUS] = JSON.stringify({ "衣服": "黑泥纏覆", "姿勢": "妖異佇立", "負面": "黑化·Alter", "顏面": "理性盡褪的兇光" });
   data[idx][COL.PC.NAME] = /黑化/.test(name) ? name : (name + "〔黑化〕");

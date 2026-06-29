@@ -322,8 +322,9 @@ function actionManualNpc(userData, pcId, sheets) {
     newRow[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.traits, "外貌平凡、舉止從容、自稱「我」、卸下心防的私密一面");
     newRow[COL.PC.LOC] = spawnName;
     newRow[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "溫婉謙和、內斂堅韌、明哲保身、隨波逐流");
-    newRow[COL.PC.HP] = maxStats.hp; newRow[COL.PC.MP] = maxStats.mp;
-    newRow[COL.PC.MAX_HP] = maxStats.hp; newRow[COL.PC.MAX_MP] = maxStats.mp;
+    const masterMp = Math.round(parseInt(circuits || 30) * 20);
+    newRow[COL.PC.HP] = maxStats.hp; newRow[COL.PC.MP] = masterMp;
+    newRow[COL.PC.MAX_HP] = maxStats.hp; newRow[COL.PC.MAX_MP] = masterMp;
     newRow[COL.PC.REALM] = "";  // 🎴 階級系統已移除，欄位留空
     newRow[COL.PC.FACTION] = aiBrief.faction || "無"; newRow[COL.PC.RANK] = aiBrief.rank || "御主";
     newRow[COL.PC.CONTRIB] = 0; newRow[COL.PC.ALIGN] = aiBrief.align || "中立";
@@ -512,7 +513,7 @@ function actionSummonServant(userData, pcId, sheets) {
       const nStr = svNum_(six.筋力), nCon = svNum_(six.耐久), nAgi = svNum_(six.敏捷), nInt = svNum_(six.魔力), nLuk = svNum_(six.幸運);
       const maxStats = fateMaxHpMp_(nCon, nInt);
       // 從者血厚：耐久越高越肉
-      const svHp = 300 + svNum_(six.耐久) * 12, svMp = 120 + svNum_(six.魔力) * 6;
+      const svHp = 150 + svNum_(six.耐久) * 6, svMp = 120 + svNum_(six.魔力) * 6;
 
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
@@ -553,7 +554,7 @@ ${FX_MENU_}
       const aiTraits = Array.isArray(aiBrief.traits) ? aiBrief.traits.filter(Boolean).slice(0, 4).map(t => ({ n: String((t && (t.n || t.名稱 || t.name)) || t).slice(0, 8) })) : [];
       // 六圍 → 數值（與名冊路徑一致，svNum_ 橋接）
       const nStr = svNum_(aiSix.筋力), nCon = svNum_(aiSix.耐久), nAgi = svNum_(aiSix.敏捷), nInt = svNum_(aiSix.魔力), nLuk = svNum_(aiSix.幸運);
-      const svHp = 300 + svNum_(aiSix.耐久) * 12, svMp = 120 + svNum_(aiSix.魔力) * 6;
+      const svHp = 150 + svNum_(aiSix.耐久) * 6, svMp = 120 + svNum_(aiSix.魔力) * 6;
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       row[COL.PC.REALM] = "";
@@ -1925,8 +1926,8 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   if (after <= 0 && !severed && hasFx_(defC, 'god_hand')) {
     var lives = getGodHandLives_(pcData[tgtIdx][COL.PC.MEMORY]);
     if (lives > 0) {
-      var ghMaxHp = parseInt(pcData[tgtIdx][COL.PC.MAX_HP]) || 480;
-      var ghReviveHp = Math.max(1, Math.round(ghMaxHp * 0.40));
+      var ghMaxHp = parseInt(pcData[tgtIdx][COL.PC.MAX_HP]) || 300;
+      var ghReviveHp = Math.max(1, Math.round(ghMaxHp * 0.20));
       // 🔱 概念優先權：寶具解放且概念位階高 → 多燒命。位階取「fx 概念階」與「寶具規模(對人/軍/城/界)」較高者，
       //   故 Saber 的對城 Excalibur(規模5)、Gilgamesh 的 ea(概念6) 都吃得到，純對人寶具則只靠 overkill。
       var lossN = 1;
@@ -2492,7 +2493,7 @@ function actionFateBattle(userData, pcId, sheets) {
 // 十二試煉(God Hand) 剩餘命數（從者 MEMORY【試煉】N；無標記預設 7，呼應 FSN 殘存命數）
 function getGodHandLives_(memory) {
   var m = String(memory || "").match(/【試煉】(\d+)/);
-  return m ? parseInt(m[1]) : 7;
+  return m ? parseInt(m[1]) : 11;
 }
 function setGodHandLives_(memory, n) {
   var s = String(memory || "");
@@ -3347,7 +3348,7 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, userData, baseMul) 
   if (after <= 5 && hasFx_(svC, 'survive') && hp > 1) after = 1;
   if (after <= 0 && hasFx_(svC, 'god_hand')) {
     const lives = getGodHandLives_(pcData[svIdx][COL.PC.MEMORY]);
-    if (lives > 0) { after = Math.max(1, Math.round((parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 480) * 0.4)); pcData[svIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[svIdx][COL.PC.MEMORY], lives - 1); }
+    if (lives > 0) { after = Math.max(1, Math.round((parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 300) * 0.2)); pcData[svIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[svIdx][COL.PC.MEMORY], lives - 1); }
   }
   if (after <= 0) {
     out.destroyed = true;
