@@ -352,46 +352,6 @@
     </div>
   </div>
 
-  <div id="bond-overlay" class="modal-overlay" onclick="toggleBondModal()">
-    <div class="modal-scroll" onclick="event.stopPropagation()">
-      <span class="modal-close-btn" onclick="toggleBondModal()">&times;</span>
-      <h2 style="text-align:center; border-bottom:2px solid #332211; padding-bottom:10px; margin-top:0;">—— 結交因果 ——</h2>
-      <div class="status-line"><b>目前地點：</b> <span id="bond-loc-display">--</span></div>
-      <div class="status-line">
-        <b>名號：</b>
-        <input id="npc-name-in" maxlength="10" placeholder="請輸入名號" style="width: 140px;">
-      </div>
-      <div class="status-line">
-        <b>外貌描述：</b>
-        <input type="text" id="npc-desc-in" class="std-in"
-    placeholder="簡單描述此人外貌或特徵(選填)"
-    maxlength="50"
-    style="width: 140px;">
-      </div>
-      <div class="status-line">
-        <b>性別：</b>
-        <select id="npc-sex-in" class="std-select" style="width: 140px; padding: 4px; color:#000; background:#fff; border: 1px solid var(--text-dark); border-radius: 2px;">
-          <option value="男">男</option>
-          <option value="女">女</option>
-          <option value="異">異</option>
-          <option value="獸">獸</option>
-        </select>
-      </div>
-      <div class="status-line">
-        <b>身分關係：</b>
-        <select id="npc-rel-in" class="std-select" style="width: 140px; padding: 4px; color:#000; background:#fff; border: 1px solid var(--text-dark); border-radius: 2px;">
-          <option value="萍水相逢">萍水相逢</option>
-          <option value="結義兄長">結義兄長 (對方是哥)</option>
-          <option value="結義弟弟">結義弟弟 (對方是弟)</option>
-          <option value="結義姊姊">結義姊姊 (對方是姊)</option>
-          <option value="結義妹妹">結義妹妹 (對方是妹)</option>
-          <option value="奴僕">奴僕 (對方是僕)</option>
-          <option value="主子">主子 (對方是主)</option>
-        </select>
-      </div>
-      <button id="bond-confirm-btn" class="btn" style="width:100%; margin-top:15px; background:#332211; color:var(--paper-bg);" onclick="lockBtn(event, submitBond)">締結因果</button>
-    </div>
-  </div>
 
   <div id="interact-modal" class="modal-overlay" onclick="closeInteractMenu()">
     <div class="modal-scroll" onclick="event.stopPropagation()" style="max-width: 320px; padding: 20px;">
