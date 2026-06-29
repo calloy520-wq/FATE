@@ -85,7 +85,7 @@ var SEED_SERVANTS = [
   { id:'蘭斯洛特-Berserker', cls:'Berserker', realName:'蘭斯洛特（湖之騎士）', wars:['4th'], gender:'男',
     six:{筋力:'A',耐久:'A',敏捷:'A+',魔力:'B',幸運:'C',寶具:'A'},
     classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'騎乘',r:'A',fx:'ride'},{n:'對魔力',r:'E',fx:'nullify_magic'}],
-    skills:[{n:'無窮的鍛鍊',r:'A+',fx:'clear_mind'},{n:'無此花的湖光',r:'A',fx:'weapon_steal'}],
+    skills:[{n:'無窮的鍛鍊',r:'A+',fx:'clear_mind'},{n:'無毀的湖光',r:'A',fx:'weapon_steal'}],
     traits:[{n:'騎士'}], np:'騎士不為孤軍 Knight of Owner（萬物化為兵裝）',
     align:'混沌・狂', persona:{firstP:'（狂化·僅低吼）',look:'黑霧鎧甲・湖之騎士的悲愴身影、悲鳴般低吼的壓抑瘋狂、狂化無自稱・僅以低吼、渴望被懲罰的扭曲愧疚溫柔',words:'悔恨・無言的瘋狂・對主君的愧疚',toMaster:'狂化無言，僅以戰鬥宣洩悔恨',speech:'狂化奪去言語，只餘悲鳴般的低吼；理智深處是對亞瑟王與王后之間罪的愧悔',moe:'湖之騎士的高潔被悔恨吞沒的悲劇、渴望被懲罰的扭曲忠誠、理智回光時的痛楚',tic:'黑霧纏身、抓起任何物件化為兵裝、無聲逼近'} },
   // FAKE 樣本
@@ -100,7 +100,7 @@ var SEED_SERVANTS = [
     six:{筋力:'B',耐久:'A',敏捷:'A',魔力:'B',幸運:'E',寶具:'A'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'}],
     skills:[{n:'神速',r:'A',fx:'first_strike'},{n:'戰鬥續行',r:'A',fx:'survive'},
-            {n:'原初符文',r:'A',fx:'rune'},{n:'刺穿死亡之棘',r:'A',fx:'gae_bolg'}],
+            {n:'原初符文',r:'A',fx:'rune'},{n:'魔境的智慧',r:'A',fx:'mage_realm'},{n:'刺穿死亡之棘',r:'A',fx:'gae_bolg'}],
     traits:[{n:'神性'},{n:'人類'}], np:'刺穿死翔之槍 Gáe Bolg Alternative（對界 A）',
     align:'中立・中庸', persona:{firstP:'我',look:'紫髮紅瞳・緊身戰衣的妖豔女王、冷峻威嚴的嚴師氣場、自稱「我」・師長口吻、千年孤高下求一死而不得的寂寞',words:'影之國女王・冷峻嚴師・武人・求死而不得',toMaster:'嚴厲考校、唯認可強者，師者之威',speech:'冷峻威嚴、師長口吻、簡潔如刃、偶露揶揄',moe:'千年女王的孤高、渴望一死卻不得的寂寞、對弟子又嚴又護、揶揄人時的促狹',tic:'魔槍杵地、睥睨、勾唇淺笑'} },
   { id:'斯卡哈-Assassin', cls:'Assassin', realName:'斯卡哈', wars:['客串'], gender:'女',

@@ -197,6 +197,14 @@ function rowToCombatant_(row) {
   var six = {}, skills = [], traits = [];
   try { six = JSON.parse(row[COL.PC.SIX] || "{}"); } catch (e) { }
   try { var tg = JSON.parse(row[COL.PC.TAGS] || "{}"); skills = tg.skills || []; traits = tg.traits || []; } catch (e) { }
+  // 🔮 魔境的智慧：持有 mage_realm 的從者（斯卡哈），把玩家選定的通用 A 階被動注入 skills（戰鬥即時生效）。
+  if (skills.some(function (sk) { return sk && sk.fx === 'mage_realm'; })) {
+    var pick = mageRealmPick_(row[COL.PC.MEMORY]);
+    var ent = pick && mageRealmEntry_(pick);
+    if (ent && !skills.some(function (sk) { return sk && sk.fx === ent.fx; })) {
+      skills = skills.concat([{ n: ent.n, r: 'A', fx: ent.fx }]);
+    }
+  }
   if (!six["筋力"]) {
     var isServant = String(row[COL.PC.FACTION]) === "從者";
     six = isServant
@@ -294,6 +302,8 @@ function resolveFateBattle_(atk, def, opts) {
   var KNIGHT_BEATS = { 'Saber': 'Lancer', 'Lancer': 'Archer', 'Archer': 'Saber' };
   if (KNIGHT_BEATS[atk.cls] === def.cls) aHit += 3;
   else if (KNIGHT_BEATS[def.cls] === atk.cls) dEva += 3;
+  // 🦊 變化(shapeshift／玉藻前·哈桑·恩奇都)：化形流轉，守方滑開致命一擊，迴避小幅提升
+  var sm = hasFx_(def, 'shapeshift'); if (sm) { dEva += Math.round(3 * rankMul_(sm)); fired.push(def.name + '·' + fxName_(def, 'shapeshift', '變化') + '(化形閃避)'); }
   // 👁️ 魔眼·石化(petrify／Rider 美杜莎)：以視線鎖死獵物，令對方迴避大減
   var pet = hasFx_(atk, 'petrify'); if (pet) { dEva -= Math.round(2 * rankMul_(pet)); fired.push(atk.name + '·' + fxName_(atk, 'petrify', '魔眼') + '·石化壓制'); }
   // ⛓️ 天之鎖(chain／Gilgamesh)：對「神性」之敵展開冥界鎖鏈，封住身法
@@ -350,6 +360,8 @@ function resolveFateBattle_(atk, def, opts) {
   var da = hasFx_(winner, 'divine_age'); if (da) { base += Math.round(12 * rankMul_(da)); fired.push(winner.name + '·' + fxName_(winner, 'divine_age', '神代魔術')); }
   // 風王鐵鎚(wind_strike)：不可視之劍追加
   var ws = hasFx_(winner, 'wind_strike'); if (ws) { base += Math.round(6 * rankMul_(ws)); fired.push(winner.name + '·' + fxName_(winner, 'wind_strike', '風王鐵鎚')); }
+  // 🧪 道具作成(crafting／法師·EMIYA)：事前備妥的暗器/毒/符具於關鍵一擊派上用場，傷害小幅追加
+  var craft = hasFx_(winner, 'crafting'); if (craft) { base += Math.round(8 * rankMul_(craft)); fired.push(winner.name + '·' + fxName_(winner, 'crafting', '道具作成') + '(備妥之器)'); }
   // 神殺：對有「神性」者最終傷害放大。神性(divine fx 或特性)階級越高 → 越被神殺剋(×1.3~×1.83，依神性階)。
   var godSlay = (winner.skills || []).concat(winner.traits || []).some(function (t) { return t && String(t.n).indexOf('神殺') >= 0; });
   var divFx = hasFx_(loser, 'divine');  // 神性 fx 的階級(若有)

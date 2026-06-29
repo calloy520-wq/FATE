@@ -32,6 +32,7 @@ const ActionRouter = {
   "use_seal": actionUseSeal,
   "mana_supply": actionManaSupply,
   "set_servant_output": actionSetServantOutput,
+  "set_mage_realm": actionSetMageRealm,
   "bond": actionBond,
   "use_mystic": actionUseMystic,
   "rule_break_steal": actionRuleBreakSteal,
@@ -656,6 +657,9 @@ function actionGetTags(userData, pcId, sheets) {
       output: servantOutput_(s[COL.PC.MEMORY]), outputLabel: outputTier_(servantOutput_(s[COL.PC.MEMORY])).label, // 🔋 靈基出力檔位
       np: s[COL.PC.MARTIAL] || "寶具未顯現", bond: bond,
       six: six, skills: skills, traits: traits,
+      // 🔮 魔境的智慧（斯卡哈）：前端露出可選被動盤。has＝持 mage_realm；pick＝已選 fx；pool＝可選清單
+      mageRealm: skills.some(function (sk) { return sk && sk.fx === 'mage_realm'; })
+        ? { has: true, pick: mageRealmPick_(s[COL.PC.MEMORY]), pool: mageRealmPool_() } : null,
       pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體
       stolen: /【破戒奪取】/.test(String(s[COL.PC.MEMORY] || ""))
     });
@@ -2870,6 +2874,33 @@ function actionSetServantOutput(userData, pcId, sheets) {
     success: true, output: want, label: t.label,
     message: `已將「${svName}」的靈基出力調至 ${want}%（${t.label}）。${want >= 100 ? '全力解放——可釋放寶具，但御主魔力消耗最劇。' : (want <= 20 ? '僅維持靈基——御主魔力消耗最省，但戰力明顯受限、無法解放寶具。' : '')}`,
     statusString: getFreshStatusString(pcId, pIdx, sheets), economy: playerServantEconomy_(sheets, pcId)
+  });
+}
+
+// 🔮 設定魔境的智慧選定標籤（斯卡哈專屬，玩家點選 1 個通用 A 階被動）：免費、即時、不耗 AP。
+//   只接受 mageRealmPool_ 池內 fx；持 mage_realm 的從者才能設；空字串＝清除選擇。
+function actionSetMageRealm(userData, pcId, sheets) {
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無此從者。" });
+  let skills = [];
+  try { const tg = JSON.parse(pcData[svIdx][COL.PC.TAGS] || "{}"); skills = tg.skills || []; } catch (e) { }
+  if (!skills.some(sk => sk && sk.fx === 'mage_realm')) {
+    return JSON.stringify({ success: false, message: "此從者不具「魔境的智慧」，無法自選武技。" });
+  }
+  const wantFx = String(userData.fx || "");
+  const ent = wantFx ? mageRealmEntry_(wantFx) : null;
+  if (wantFx && !ent) return JSON.stringify({ success: false, message: "該標籤不在魔境可選之列。" });
+  pcData[svIdx][COL.PC.MEMORY] = setMageRealmPick_(pcData[svIdx][COL.PC.MEMORY], wantFx);
+  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+  const svName = pcData[svIdx][COL.PC.NAME];
+  return JSON.stringify({
+    success: true, pick: wantFx,
+    message: ent ? `「${svName}」以魔境的智慧運起【${ent.n} A】——${ent.desc}` : `「${svName}」收起所運武技，回歸本來。`,
+    statusString: getFreshStatusString(pcId, pIdx, sheets)
   });
 }
 

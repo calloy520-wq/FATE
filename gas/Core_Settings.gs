@@ -127,6 +127,38 @@ function setServantOutput_(memory, pct) {
   return mem ? (mem + '｜【出力】' + p) : ('【出力】' + p);
 }
 
+// 🔮 魔境的智慧（斯卡哈專屬·玩家可選被動）：影之國女王通曉常見武技，玩家點選【1 個】通用 A 階被動標籤套用。
+//   只給「有階級的常見被動」——不含原初符文(她本有)、不含無階級特性、不含寶具/簽名級招式。存從者 MEMORY【魔境】fx。
+//   注入點：rowToCombatant_（戰鬥讀取時把選定標籤加進 skills，r 固定 A）。前端只對有 mage_realm 的從者露出選盤。
+function mageRealmPool_() {
+  return [
+    { fx: 'nullify_magic', n: '對魔力',   r: 'A', icon: '🛡️', desc: '受魔力系傷害大幅衰減（對魔法的抗性）。' },
+    { fx: 'str_up',        n: '怪力',     r: 'A', icon: '💪', desc: '瞬間強化肌力，近身傷害顯著提升。' },
+    { fx: 'analyze',       n: '心眼（真）', r: 'A', icon: '👁️', desc: '經驗累積的洞察，先機與命中俱增。' },
+    { fx: 'clear_mind',    n: '透化',     r: 'A', icon: '🧘', desc: '心如明鏡，不受鼓舞威壓等精神干擾。' },
+    { fx: 'tactics',       n: '軍略',     r: 'A', icon: '📐', desc: '對軍寶具的運用更精準，寶具威力加成。' },
+    { fx: 'self_mod',      n: '自我改造', r: 'A', icon: '🔧', desc: '改造己身，命中與傷害小幅穩定提升。' },
+  ];
+}
+// 查某 fx 是否在魔境可選池內，回傳該池項目（含 n/icon/desc）或 null。
+function mageRealmEntry_(fx) {
+  var pool = mageRealmPool_();
+  for (var i = 0; i < pool.length; i++) { if (pool[i].fx === String(fx)) return pool[i]; }
+  return null;
+}
+// 讀從者 MEMORY 的【魔境】選定 fx（無則 ''）。
+function mageRealmPick_(memory) {
+  var m = String(memory || "").match(/【魔境】([a-z_]+)/);
+  return (m && mageRealmEntry_(m[1])) ? m[1] : '';
+}
+// 寫/改 MEMORY 的【魔境】選定 fx，回傳新 memory 字串（fx 空字串＝清除選擇）。
+function setMageRealmPick_(memory, fx) {
+  var mem = String(memory || "");
+  var clean = mem.replace(/｜?【魔境】[a-z_]+/g, '');
+  if (!fx) return clean;
+  return clean ? (clean + '｜【魔境】' + fx) : ('【魔境】' + fx);
+}
+
 // 🎴 從一列的六圍 SIX 推 HP/MP（耐久→con、魔力→mag）。
 function maxStatsForRow_(row) {
   var six = {}; try { six = JSON.parse(row[COL.PC.SIX] || "{}"); } catch (e) { }
