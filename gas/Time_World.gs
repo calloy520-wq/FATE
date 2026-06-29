@@ -108,7 +108,7 @@ function leylineAt_(sheets, loc) {
   } catch (e) { }
   return 2;
 }
-var LEYLINE_LABEL_ = { 12: "靈脈匯聚", 6: "靈氣尚可", 2: "靈氣稀薄" };
+var LEYLINE_LABEL_ = { 12: "靈脈匯聚", 6: "魔力尚可", 2: "魔力稀薄" };
 
 // 💠 從者每小時魔力收支（時回與前端顯示共用）。有理有據的供養經濟：
 //   收入 = 御主供給(迴路×0.5) + 靈脈(地點) + 工房(在自己居所／Caster 陣地 +8)
@@ -158,7 +158,7 @@ function playerServantEconomy_(sheets, pcId) {
   return {
     income: eco.income, drain: eco.drain, net: eco.net,
     supply: eco.supply, ley: eco.ley, workshop: eco.workshop,
-    leyLabel: LEYLINE_LABEL_[ley] || "靈氣稀薄", loc: rootLoc,
+    leyLabel: LEYLINE_LABEL_[ley] || "魔力稀薄", loc: rootLoc,
     atHome: atHome, hasTerritory: hasTerritory, sustainable: eco.net >= 0, circuits: circuits
   };
 }

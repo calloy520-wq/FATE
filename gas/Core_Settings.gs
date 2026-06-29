@@ -3,7 +3,7 @@
 // 🔴【第一部分：基礎設定、ORM 映射與數值統計核心】Core_Settings.gs
 // ==========================================
 
-// 🔵 金鑰相容：九州原本叫 API_KEY，FATE Script 存的是 OPENROUTER_API_KEY；兩個名字都吃，免改 Script 屬性
+// 🔵 金鑰相容：舊版原本叫 API_KEY，FATE Script 存的是 OPENROUTER_API_KEY；兩個名字都吃，免改 Script 屬性
 const API_KEY = (function () {
   var p = PropertiesService.getScriptProperties();
   return p.getProperty('API_KEY')
@@ -18,9 +18,9 @@ const MODEL_URL = "https://openrouter.ai/api/v1/chat/completions";
 // ★ 階段一：ORM 資料實體映射 (Data Mapping) 
 // ==========================================
 const COL = {
-  // 🎴 FATE 專屬眾生 schema（2026-06 砍九州經濟/生活/五圍後，25 欄）。
+  // 🎴 FATE 專屬眾生 schema（2026-06 砍舊經濟/生活/五圍後，25 欄）。
   //   已移除：財帛(MONEY)、裝備(WEP/ARM/ACC1/ACC2)、生活技能(LIFESKILL)、冗餘職階(CLS)、
-  //   九州數值五圍(STR/CON/AGI/INT/LUK)——FATE 戰鬥吃六圍 SIX 階級，HP/MP 由 SIX 推算。
+  //   舊數值五圍(STR/CON/AGI/INT/LUK)——FATE 戰鬥吃六圍 SIX 階級，HP/MP 由 SIX 推算。
   PC: {
     ID: 0, NAME: 1, SEX: 2, BACK: 3, STATUS: 4, TRAIT: 5, LOC: 6, PREF: 7,
     HP: 8, MP: 9, MAX_HP: 10, MAX_MP: 11,
@@ -53,9 +53,9 @@ function rankVal(r) {
   return base + plus * 5 - minus * 3;
 }
 
-// 🗑️ 九州境界(REALMS/REALM_MODIFIERS/REALM_LIMITS)、背包/倉儲/懸賞上限、
+// 🗑️ 舊階級制(REALMS/REALM_MODIFIERS/REALM_LIMITS)、背包/倉儲/懸賞上限、
 //   物品稀有度(RARITY_TABLE/getRarityPoints)、貨幣(CURRENCY_TABLE/getCurrencyValue)、
-//   物品類別判定(detectItemType) 全數移除——FATE 雙軌不含境界/物品/銀兩經濟。
+//   物品類別判定(detectItemType) 全數移除——FATE 雙軌不含階級/物品/金錢經濟。
 
 // 🟢 共用 D20 骰子：1=大失敗、20=大成功
 function rollD20() {
@@ -73,7 +73,7 @@ function cleanChineseName(s) {
   return String(s == null ? "" : s).replace(/[^㐀-䶿一-鿿]/g, "").slice(0, 10);
 }
 
-// 🎴 FATE HP/MP 推算（無境界倍率）：耐久→HP、魔力→MP。取代已移除的九州境界·屬性上限計算器。
+// 🎴 FATE HP/MP 推算（無階級倍率）：耐久→HP、魔力→MP。取代已移除的舊階級·屬性上限計算器。
 function fateMaxHpMp_(con, mag) {
   return {
     hp: 100 + (parseInt(con) || 10) * 10,
@@ -111,8 +111,8 @@ function parseTraitsHelper(data, defaultStr) {
   return parts.slice(0, 4).join("、");
 }
 
-// 🗑️ registerFactionHelper（自動註冊門派）、updateFactionPower（大勢氣運）、
-//   resolveItemName / transferMoney 已隨九州門派·物品·銀兩經濟移除（無呼叫者）。
+// 🗑️ registerFactionHelper（自動註冊勢力）、updateFactionPower（勢力氣運）、
+//   resolveItemName / transferMoney 已隨舊勢力·物品·金錢經濟移除（無呼叫者）。
 
 // 🟢 安全寫入：先寫新資料，再刪多餘舊行，避免 clearContent 競態清空表
 function safeWriteSheet(sheet, data) {
@@ -218,7 +218,7 @@ function getCharacterTotalStats(charId, sheets, cachedPcData = null, cachedItemD
   const row = pcData.find(r => r[COL.PC.ID] === charId);
   if (!row) return null;
 
-  // 🎴 FATE 六圍制：數值五圍(STR~LUK 欄)已棄用，顯示用值改由六圍 SIX 階級直接推導(svNum_)，無境界倍率。
+  // 🎴 FATE 六圍制：數值五圍(STR~LUK 欄)已棄用，顯示用值改由六圍 SIX 階級直接推導(svNum_)，無階級倍率。
   let six = {}; try { six = JSON.parse(row[COL.PC.SIX] || "{}"); } catch (e) { }
   const fromSix_ = (k) => svNum_(six[k] || "E");
   let baseSTR = fromSix_("筋力"), baseCON = fromSix_("耐久"), baseAGI = fromSix_("敏捷"), baseINT = fromSix_("魔力"), baseLUK = fromSix_("幸運");

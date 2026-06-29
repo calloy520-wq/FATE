@@ -1,7 +1,7 @@
 <script>
   // ==========================================
   // 🔴 前端 XSS 防護：任何「可能來自其他玩家輸入」的文字，渲染進 innerHTML 前都要過這層轉義
-  //   (自己打的字後端也會清過，但跨玩家可見的內容——飛書內容、傳聞、排行榜暱稱等——多一層保險)
+  //   (自己打的字後端也會清過，但跨玩家可見的內容——訊息內容、排行榜暱稱等——多一層保險)
   // ==========================================
   function escapeHtml(str) {
     if (str === null || str === undefined) return "";
@@ -80,7 +80,7 @@
   let historyPushed = false;
   let categorizedMapData = null;
 
-  // 🗑️ 九州境界常數(REALMS/REALM_MODIFIERS/REALM_LIMITS)已移除——FATE 無境界系統。
+  // 🗑️ 階級常數(REALMS/REALM_MODIFIERS/REALM_LIMITS)已移除——FATE 無階級系統。
 
   const NPC_ACTIONS = {
     '贈禮': { prompt: '請描寫玩家掏出物品示好的過程...' }
@@ -984,12 +984,12 @@ function renderRecentLocs(recents = null) {
     setUI('ui-luk', s[11]);
     setUI('ui-realm', s[16], "凡人");
     
-    // 2. 門派勢力 (新增欄位，防呆檢查)
+    // 2. 陣營 (新增欄位，防呆檢查)
     if (s.length >= 24) {
-        setUI('ui-faction', s[19], "無門派");
+        setUI('ui-faction', s[19], "無");
         setUI('ui-rank', s[20], "散人");
         setUI('ui-align', s[21], "絕對中立");
-        setUI('ui-back', s[23], "江湖散人");
+        setUI('ui-back', s[23], "來歷不明");
     }
     if (s.length >= 26) {
         setUI('ui-intent', s[25], "尚未暴露的可愛弱點");
@@ -1154,7 +1154,7 @@ function renderRecentLocs(recents = null) {
         newValue = `${f1}、${f2}、${f3}、${f4}`;
     }
     
-    document.getElementById('fate-edit-title').innerText = "天道重塑中...";
+    document.getElementById('fate-edit-title').innerText = "重塑中...";
     
     try {
         const res = await gasRun({
@@ -1179,7 +1179,7 @@ function renderRecentLocs(recents = null) {
             alert("改命失敗：" + res.message);
         }
     } catch(e) {
-        alert("天道阻礙，改命失敗。");
+        alert("連線受阻，改命失敗。");
     } finally {
         document.getElementById('fate-edit-title').innerText = "逆天改命";
     }
@@ -2127,7 +2127,7 @@ function renderRecentLocs(recents = null) {
         story.scrollTop = story.scrollHeight;
       }
     } catch(e) { 
-      if(!isSilent) alert("天道感應器崩潰，請打開 F12 查看 Console 的錯誤紀錄。");
+      if(!isSilent) alert("系統錯誤，請打開 F12 查看 Console 的錯誤紀錄。");
     }
   }
   
@@ -2147,7 +2147,7 @@ function renderRecentLocs(recents = null) {
         alert(res.message);
       }
     })
-    .catch(() => alert("天道阻礙，重新定義羈絆失敗。"));
+    .catch(() => alert("連線受阻，重新定義羈絆失敗。"));
 }
   async function submitBond() {
   const name = document.getElementById('npc-name-in').value.trim();
@@ -2168,7 +2168,7 @@ function renderRecentLocs(recents = null) {
       toggleBondModal();
     }
   } catch(e) {
-    alert("天道感應失敗");
+    alert("感應失敗");
   }
 }
   
@@ -2195,7 +2195,7 @@ async function accountLogin() {
     document.getElementById('scr-menu').style.display = 'block';
     document.getElementById('menu-greet').innerText = '御主「' + currentAccount + '」，歡迎來到冬木。' + (res.won ? '（奪杯 ' + res.won + ' 次）' : '');
     document.getElementById('btn-resume').style.display = res.hasGame ? 'block' : 'none';
-  } catch (e) { alert('天道連線受阻，請稍後再試。'); }
+  } catch (e) { alert('連線受阻，請稍後再試。'); }
 }
 
 function continueGame() {
@@ -2409,14 +2409,14 @@ function showHistoryOverlay(html) {
   ov.style.display = 'flex';
 }
 
-// 🔵 依模式開關功能：單人(solo)隱藏武俠日常系統；多人(full)全開
+// 🔵 依模式開關功能：單人(solo)隱藏 full 日常系統；多人(full)全開
 function applyModeUI() {
   var isFull = (pc && pc.mode === 'full');
   document.querySelectorAll('[data-mode="full"]').forEach(function (el) {
     el.style.display = isFull ? '' : 'none';
   });
   // 🔵 對話輸入窗只在「鑑賞」(後日談約會)模式出現。
-  //   單人聖杯戰爭＝純按鈕：GAS 算數值、AI 只說書，不再猜玩家想幹嘛(actionPlay 天道演化)。
+  //   單人聖杯戰爭＝純按鈕：GAS 算數值、AI 只說書，不再猜玩家想幹嘛(actionPlay 演化)。
   //   保留「＋」工具抽屜(狀態/史紀/設定)，只收掉文字輸入框、傳送鈕與慾海開關。
   var isKanshou = (pc && pc.mode === 'kanshou');
   var uin = document.getElementById('u-in'); if (uin) uin.style.display = isKanshou ? '' : 'none';
@@ -2494,7 +2494,7 @@ async function checkName(event) {
     }
   } catch (e) {
     console.error(e);
-    alert("天道連線受阻，請稍後再試。");
+    alert("連線受阻，請稍後再試。");
   }
 }
 
@@ -2595,7 +2595,7 @@ async function doSummon(payload) {
       alert((data && data.message) || '召喚失敗，請重試。');
     }
   } catch (e) {
-    alert('召喚失敗，天道連線受阻。');
+    alert('召喚失敗，連線受阻。');
   } finally {
     hideProcessing();
   }
@@ -2629,7 +2629,7 @@ function summonByDesc() {
       const lastS = localStorage.getItem('kyushu_last_status');
       if(lastS) updateUI(lastS.split('§'));
       
-      // 2. ⛩️ 核心修正：向天道同步「歷史暫存」表中的前塵對話紀錄！
+      // 2. ⛩️ 核心修正：向系統同步「歷史暫存」表中的前塵對話紀錄！
       const story = document.getElementById('story');
       story.innerHTML = `<div class="loading-text">聖杯因果重啟，喚醒前塵記憶…</div>`;
       
@@ -2646,7 +2646,7 @@ function summonByDesc() {
       }).getGameHistory(pc.id, pc.name);
         
     } else {
-      // 🎬 召喚登場：純按鈕模式走精簡 narrate（含角色卡、無 options/位置/武俠那套）；無則退回基本敘事
+      // 🎬 召喚登場：純按鈕模式走精簡 narrate（含角色卡、無 options/位置/full 那套）；無則退回基本敘事
       const summonScene = window._summonScene || `【召喚登場】御主『${pc.name}』剛以令咒召喚出從者${pc.servant ? `「${pc.servant}」` : ""}，兩人初次同處於冬木的夜。\n★以 Fate／TYPE-MOON 筆觸描寫此地燈火氛圍與兩人最初的試探張力（從者依真名性格演出，禁複述設定、禁以外貌代替名字），留下懸念。★禁止替御主做決定、禁問玩家想做什麼、禁介紹玩家身份、禁新增地圖或NPC。`;
       window._summonScene = '';
       narrate(summonScene);
@@ -2657,7 +2657,7 @@ function summonByDesc() {
   let lastAiContext = ""; 
 
 // ==========================================
-  // 🟢 輕量敘事：結算已完成，只請天道補一段描寫(不走完整 actionPlay 規則)
+  // 🟢 輕量敘事：結算已完成，只請 AI 補一段描寫(不走完整 actionPlay 規則)
   // ==========================================
   async function narrate(promptText) {
     const story = document.getElementById('story');
@@ -2828,7 +2828,7 @@ const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatDat
 
       // 🔴 三段式判定：區分「虛無之人」與「遠方之人」
       if (data.mentionedNames && data.mentionedNames.length > 0) {
-        const allKnown = data.allKnownNames || []; // 從後端取得的全九州名單
+        const allKnown = data.allKnownNames || []; // 從後端取得的全部名單
         const contextSnap = lastAiContext.slice(0, 300).replace(/"/g, '&quot;');
 
         data.mentionedNames.forEach(name => {
@@ -2889,7 +2889,7 @@ let plainTextContext = cleanText;
       if (data.defeat) { await handleDefeat(data); }
 
     } catch(e) {
-      document.getElementById(loadId)?.remove(); alert("連結斷絕，天道無應。");
+      document.getElementById(loadId)?.remove(); alert("連結斷絕，連線無回應。");
     } finally { 
       input.disabled = false; btn.disabled = false; story.scrollTop = story.scrollHeight;
       // 🔴 PC 端專屬優化：發送完畢後自動對焦輸入框
@@ -2979,12 +2979,12 @@ function openRemoteNpcAction(npcName) {
 
       // 🟢 選項 1：打聽情報 (旁敲側擊)
       html += `<button class="btn" style="border-color:#b8860b; color:#b8860b; font-weight:bold; padding: 10px;"
-        onclick="closeInteractMenu(); send('【系統動作：玩家向周圍的人打聽關於「${npcName}」的情報與下落。請天道根據對方的江湖閱歷與性格，給出真實的反應或八卦。】', true)">🗣️ 旁敲側擊 (打聽)</button>`;
+        onclick="closeInteractMenu(); send('【系統動作：玩家向周圍的人打聽關於「${npcName}」的情報與下落。請根據對方的閱歷與性格，給出真實的反應或八卦。】', true)">🗣️ 旁敲側擊 (打聽)</button>`;
 
       // 🟢 選項 2：動身尋找 (移動)
       // 巧妙利用剛剛餵給 AI 的 remoteNpcStr 情報，讓 AI 自己讀取位置並觸發 stat_changes！
       html += `<button class="btn" style="border-color:#1e90ff; color:#1e90ff; font-weight:bold; padding: 10px;"
-        onclick="closeInteractMenu(); send('【系統動作：玩家決定啟程前往尋找「${npcName}」。請根據天道情報中該角色的「目前位置」，在 JSON 的 stat_changes 中精準修改玩家的「位置」為該地點，並生動描寫這趟跋涉的過程！】', true)">👣 動身尋找 (移動)</button>`;
+        onclick="closeInteractMenu(); send('【系統動作：玩家決定啟程前往尋找「${npcName}」。請根據情報中該角色的「目前位置」，在 JSON 的 stat_changes 中精準修改玩家的「位置」為該地點，並生動描寫這趟跋涉的過程！】', true)">👣 動身尋找 (移動)</button>`;
 
       // 複用現有的互動面板來顯示
       document.getElementById('interact-dynamic-buttons').innerHTML = html;
@@ -3089,7 +3089,7 @@ async function handleMultiAttack(rawMsg) {
   } catch (e) {
     document.getElementById(loadId)?.remove();
     input.disabled = false; btn.disabled = false;
-    alert("天道阻礙，攻擊未能結算。");
+    alert("連線受阻，攻擊未能結算。");
   }
 }
 
@@ -3204,10 +3204,10 @@ function renderBattlefieldCleanup(npcNames) {
       alert(data.message || "休養失敗。");
     }
   } catch (e) {
-    alert("天道阻礙，無法休養。");
+    alert("連線受阻，無法休養。");
   }
 }
-// 🗑️ 我的家(居所+裝潢)、📜江湖傳聞系統 已移除——solo/kanshou 皆不用。
+// 🗑️ 我的家(居所+裝潢)、📜訊息系統 已移除——solo/kanshou 皆不用。
 
 // ==========================================
 // 🔒 通用按鈕防連點鎖
@@ -3253,18 +3253,18 @@ async function openEpicPanel() {
 
 async function loadEpicData() {
   document.getElementById('epic-history-content').innerHTML = '<p style="text-align:center; color:#816e54; font-style:italic;">翻閱命運長河中...</p>';
-  document.getElementById('epic-stats-content').innerHTML = '<p style="text-align:center; color:#816e54; font-style:italic;">統計江湖足跡中...</p>';
+  document.getElementById('epic-stats-content').innerHTML = '<p style="text-align:center; color:#816e54; font-style:italic;">統計足跡中...</p>';
   
   try {
     const res = await gasRun({ action: 'get_epic_history', pcId: pc.id });
     if (!res.success) {
-      document.getElementById('epic-history-content').innerHTML = '<p style="color:red; text-align:center;">天道感應失敗。</p>';
+      document.getElementById('epic-history-content').innerHTML = '<p style="color:red; text-align:center;">感應失敗。</p>';
       return;
     }
     renderEpicHistory(res);
     renderEpicStats(res.stats);
   } catch(e) {
-    document.getElementById('epic-history-content').innerHTML = '<p style="color:red; text-align:center;">天道感應失敗。</p>';
+    document.getElementById('epic-history-content').innerHTML = '<p style="color:red; text-align:center;">感應失敗。</p>';
   }
 }
 
@@ -3317,13 +3317,13 @@ function renderEpicHistory(res) {
 
 // 🟢 新增：玩家手動斬斷與 NPC 的重大事件因果
   async function removeNpcMajorEvent(npcName) {
-    if (!confirm(`確定要動用天道神識，斬斷與「${npcName}」的這條天命約定嗎？\n(此動作將無情抹除該條重大事件，不可逆轉！)`)) return;
+    if (!confirm(`確定要斬斷與「${npcName}」的這條天命約定嗎？\n(此動作將無情抹除該條重大事件，不可逆轉！)`)) return;
     
     try {
       const res = await gasRun({ action: "clear_npc_major_event", pcId: pc.id, targetName: npcName });
       
       if (res.success) {
-        alert(`天道落筆！已成功抹除與「${npcName}」的錯誤約定。`);
+        alert(`已成功抹除與「${npcName}」的錯誤約定。`);
         
         // 瞬間重新載入個人史紀面板，讓紅字與髒資料立刻消失！
         await loadEpicData(); 
@@ -3389,7 +3389,7 @@ function showRegisterNpcModal(name, npcContext = '') {
       <div style="display:flex; gap:10px; justify-content:center;">
         <button class="btn" style="border-color:#4682b4; color:#4682b4; padding:6px 16px;"
           id="reg-btn-${cardId}">
-          📋 天道補全並登記
+          📋 系統補全並登記
         </button>
         <button class="btn" style="border-color:#666; color:#666; padding:6px 16px;"
           onclick="document.getElementById('${cardId}').remove()">
@@ -3418,7 +3418,7 @@ async function doRegisterNpc(name, sex, cardId, npcContext = '') {
   const story = document.getElementById('story');
   story.insertAdjacentHTML('beforeend', 
     `<div class="msg-player" style="color:#4682b4; border-color:#4682b4;">
-      <b>【天道感應】：</b>正在補全「${name}」的命格資料...
+      <b>【系統】：</b>正在補全「${name}」的命格資料...
     </div>`
   );
   story.scrollTop = story.scrollHeight;
@@ -3450,7 +3450,7 @@ async function doRegisterNpc(name, sex, cardId, npcContext = '') {
       if (sendBtn) sendBtn.disabled = false;
     }
   } catch(e) {
-    alert("天道阻礙，登記失敗。");
+    alert("連線受阻，登記失敗。");
     if (input) input.disabled = false;
     if (sendBtn) sendBtn.disabled = false;
   }
@@ -3501,7 +3501,7 @@ function renderVisualMap(data) {
   canvas.innerHTML = '';
   
   const rawLoc = document.getElementById('ui-loc').innerText || "";
-  const currentLoc = rawLoc.replace(/九州-/g, "").split('-')[0].trim(); 
+  const currentLoc = rawLoc.replace(/冬木-/g, "").split('-')[0].trim();
   
   centerPx = 0; centerPy = 0; 
   let foundPlayer = false; 
@@ -3512,7 +3512,7 @@ function renderVisualMap(data) {
 
     Object.keys(regions).forEach(parentName => {
       const parentData = regions[parentName];
-      const cleanParentName = parentName.replace(/九州-/g, "").split('-')[0].trim(); 
+      const cleanParentName = parentName.replace(/冬木-/g, "").split('-')[0].trim();
       const coords = parentData.coord ? parentData.coord.split(',') : [0, 0];
       // 放大倍率 25px，並將 Y 軸反轉以符合網頁座標
       const px = parseInt(coords[0]) * 25; 
