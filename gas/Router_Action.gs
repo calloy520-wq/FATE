@@ -1979,7 +1979,7 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
     pcData[tgtIdx][COL.PC.ID] = "DEAD_" + String(pcData[tgtIdx][COL.PC.ID]);
     pcData[tgtIdx][COL.PC.HP] = 0;
     pcData[tgtIdx][COL.PC.STATUS] = killedIsMaster
-      ? JSON.stringify({ "衣服": "鮮血浸染", "姿勢": "頹然倒地", "負面": "重傷不治·身亡", "顏面": "錯愕凝固" })
+      ? JSON.stringify({ "衣服": "凌亂", "姿勢": "倒地不起", "負面": "重傷不治·身亡", "顏面": "生機已絕" })
       : JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "靈基崩潰·消滅", "顏面": "已無生息" });
     sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
     if (isPlayerSv) {
@@ -2191,7 +2191,7 @@ function actionFateBattle(userData, pcId, sheets) {
       // 大成功：斬殺御主；御主既亡，護衛從者失去魔力供給隨之消滅
       pcData[nIdx][COL.PC.ID] = "DEAD_" + String(pcData[nIdx][COL.PC.ID]);
       pcData[nIdx][COL.PC.HP] = 0;
-      pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "鮮血浸染", "姿勢": "頹然倒地", "負面": "咽喉已斷·身亡", "顏面": "錯愕凝固" });
+      pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "凌亂", "姿勢": "倒地不起", "負面": "重傷不治·身亡", "顏面": "生機已絕" });
       sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
       pcData[assassinGuardIdx][COL.PC.ID] = "DEAD_" + String(pcData[assassinGuardIdx][COL.PC.ID]);
       pcData[assassinGuardIdx][COL.PC.HP] = 0;
@@ -2208,12 +2208,12 @@ function actionFateBattle(userData, pcId, sheets) {
       asnReport = {
         assassination: true, success: true, aRoll: 20, rolls: rolls.map(r => ({ name: r.name, roll: r.roll })), dual: dualAsn,
         atk: crit.name, master: masterName, guard: guardName,
-        note: `${crit.name} 擲出 20 — 大成功！撕開「${guardName}」的守備，一擊斬斷御主「${masterName}」咽喉。御主既亡，「${guardName}」隨之消散。`,
+        note: `${crit.name} 擲出 20 — 大成功！撕開「${guardName}」的守備、一擊取御主「${masterName}」性命。御主既亡，「${guardName}」隨之消散。`,
         selfDmg: 0, victory: asnVictory, defeat: false,
         atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0
       };
-      asnPrompt = `【系統·斬首戰報·已裁定】御主號令${dualAsn ? '兩名從者齊撲' : `從者『${crit.name}』`}奇襲敵御主「${masterName}」。命運的骰子由『${crit.name}』擲出 20 — 大成功！撕開護衛從者「${guardName}」的防線，一擊斬斷御主咽喉。御主既亡、魔力供給斷絕，「${guardName}」當場化作光點消散。${asnVictory ? '此為最後的敵對陣營——聖杯已然在握！' : ''}\n` +
-        `★以 Fate／TYPE-MOON 筆觸描寫這萬中選一、石破天驚的斬首瞬間（一段即可）${dualAsn ? '：兩名從者夾擊、其中一人覷得破綻一劍封喉' : ''}。勝負已由系統結算。\n` +
+      asnPrompt = `【系統·斬首戰報·已裁定】御主號令${dualAsn ? '兩名從者齊撲' : `從者『${crit.name}』`}奇襲敵御主「${masterName}」。命運的骰子由『${crit.name}』擲出 20 — 大成功！撕開護衛從者「${guardName}」的防線、取下御主性命。御主既亡（凡人之軀·斃命，非靈基消滅）、魔力供給斷絕，從者「${guardName}」失去供魔當場化作光點消散。${asnVictory ? '此為最後的敵對陣營——聖杯已然在握！' : ''}\n` +
+        `★以 Fate／TYPE-MOON 筆觸描寫這萬中選一、石破天驚的斬首瞬間（一段即可）。【致命的手段由你依『${crit.name}』的職階與真名自行演出——法師為魔術一擊、近戰為兵刃、弓兵為遠程，勿假設特定方式】${dualAsn ? '，兩名從者夾擊、其中一人覷得破綻收尾' : ''}。勝負已由系統結算。\n` +
         ``;
     } else {
       // 全部失手：護衛捨身格擋，反手 1.5 倍痛擊「每一名」參與斬首的從者
@@ -2527,7 +2527,7 @@ function actionFateBattle(userData, pcId, sheets) {
   ).join('\n');
   const finalLine = destroyedName
     ? (!targetIsFoeServant
-        ? `敵御主「${defC.name}」咽喉中刃、頹然斃命（凡人之軀，非靈基消滅）${victory ? '——其從者失去供魔亦將隨之消散，聖杯已近！' : '。'}`
+        ? `敵御主「${defC.name}」已斃命——凡人之軀、並非靈基消滅（致命的手段由你依出戰從者的職階自行演出）${victory ? '；其從者失去供魔亦將隨之消散，聖杯已近！' : '。'}`
         : `「${defC.name}」靈基崩潰、徹底消滅${victory ? '——此乃最後一名敵對從者，聖杯已近！' : '。'}`)
     : sealEscaped ? `「${defC.name}」被對面御主令咒緊急扯離戰場、遁走不在場。`
       : godRevived ? `「${defC.name}」屢屢自死亡歸來、仍未倒下。`
