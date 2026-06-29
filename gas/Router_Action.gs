@@ -820,6 +820,7 @@ function actionGetTags(userData, pcId, sheets) {
       mpNum: parseInt(s[COL.PC.MP]) || 0, mpMax: parseInt(s[COL.PC.MAX_MP]) || 0,
       np: s[COL.PC.MARTIAL] || "寶具未顯現", bond: bond,
       six: six, skills: skills, traits: traits,
+      pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體
       stolen: /【破戒奪取】/.test(String(s[COL.PC.MEMORY] || ""))
     });
   });

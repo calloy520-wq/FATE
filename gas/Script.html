@@ -1309,10 +1309,11 @@ function renderRecentLocs(recents = null) {
         + '<div style="color:#d4af37; font-weight:bold; font-size:12px;">⚜️ 御主</div>'
         + '<div style="color:#e8dcc0; font-size:13px; font-weight:bold; margin:1px 0 3px;">' + m.name + '</div>'
         + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">' + m.condition + '</div>'
-        + bar('體', m.hpNum, m.hpMax, 'hp')
-        + bar('魔', m.mpNum, m.mpMax, 'mp')
-        + '<div style="color:#9a8bb0; font-size:11px; margin-top:3px;">令咒 <span style="color:#c79be8;">' + '❖'.repeat(myMasterSeals) + '</span></div>'
-        + (myMystic ? ('<div style="color:#9a8bb0; font-size:11px; margin-top:3px;" title="' + (myMystic.desc || '').replace(/"/g, '') + '">禮裝 <span style="color:#7fd0c0;">✨ ' + myMystic.name + '</span>' + (myMystic.type === 'active' ? ' <span style="color:#caa44a;">(充能 ' + myMystic.charges + '・需迴路 ' + myMystic.req + ')</span>' : ' <span style="color:#8aa;">(被動)</span>') + '</div>') : '')
+        + ((pc && pc.mode === 'kanshou') ? '' :  // 🌹 慾海：御主只露名字＋外顯，不露血量/魔力/令咒/禮裝
+            bar('體', m.hpNum, m.hpMax, 'hp')
+            + bar('魔', m.mpNum, m.mpMax, 'mp')
+            + '<div style="color:#9a8bb0; font-size:11px; margin-top:3px;">令咒 <span style="color:#c79be8;">' + '❖'.repeat(myMasterSeals) + '</span></div>'
+            + (myMystic ? ('<div style="color:#9a8bb0; font-size:11px; margin-top:3px;" title="' + (myMystic.desc || '').replace(/"/g, '') + '">禮裝 <span style="color:#7fd0c0;">✨ ' + myMystic.name + '</span>' + (myMystic.type === 'active' ? ' <span style="color:#caa44a;">(充能 ' + myMystic.charges + '・需迴路 ' + myMystic.req + ')</span>' : ' <span style="color:#8aa;">(被動)</span>') + '</div>') : ''))
         + '</div>';
       // 🗝️ 從者卡（支援雙從者）：點卡切換「出戰中」，動作列只出現在出戰中那張
       var buildSvCard = function (s, isActive, dual) {
@@ -1325,6 +1326,20 @@ function renderRecentLocs(recents = null) {
         };
         var skillPills = (s.skills || []).map(function (sk) { return pill(sk.n, sk.r, sk.fx, '#d9a93a'); }).join('');
         var traitPills = (s.traits || []).map(function (tr) { return pill(tr.n, tr.r, 'trait', '#c0392b'); }).join('');
+        // 🌹 慾海：從者卡只露 名字/外顯/個性/特徵/關係/肉體——不露血量/魔力/六圍/技能/寶具/動作鈕
+        if (pc && pc.mode === 'kanshou') {
+          var prefK = String(s.pref || '').split(/[、,，·・]/).filter(Boolean).slice(0, 4).join('、');
+          var physK = ''; try { var po = JSON.parse(s.physical || '{}'); physK = Object.keys(po).map(function (k) { return k + '：' + po[k]; }).join('　'); } catch (e) { }
+          return '<div style="background:rgba(40,20,34,0.5); border:1px solid #a04a6a; border-radius:8px; padding:6px 8px;">'
+            + '<div style="color:#e0a0bc; font-weight:bold; font-size:12px;">🌹 ' + s.cls + '</div>'
+            + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
+            + '<div style="color:#cbb; font-size:11px; line-height:1.5;">外顯　' + s.condition + '</div>'
+            + (prefK ? '<div style="color:#cbb; font-size:11px; line-height:1.5;">個性　' + prefK + '</div>' : '')
+            + (traitPills ? '<div style="margin-top:2px; font-size:11px; color:#cbb;">特徵　' + traitPills + '</div>' : '')
+            + '<div style="color:#cbb; font-size:11px; margin-top:2px;">關係　' + bondWord(s.bond) + '</div>'
+            + (physK ? '<div style="color:#e0a0bc; font-size:11px; margin-top:3px; line-height:1.5;">肉體　' + physK + '</div>' : '')
+            + '</div>';
+        }
         var bcol = isActive ? '#e0574a' : '#7a4040';
         var safeN = String(s.name).replace(/'/g, '');
         return '<div ' + (dual ? 'onclick="setActiveServant(\'' + safeN + '\')" ' : '') + 'style="background:rgba(20,14,28,0.55); border:1px solid ' + bcol + '; border-radius:8px; padding:6px 8px; ' + (dual ? 'cursor:pointer; ' + (isActive ? 'box-shadow:0 0 8px rgba(224,87,74,.4);' : 'opacity:.82;') : '') + '">'
