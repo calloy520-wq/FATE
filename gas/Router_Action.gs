@@ -1936,18 +1936,39 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
       return out;
     }
   }
-  // 十二試煉
+  // 十二試煉（God Hand）：自死亡歸來；但高位階寶具概念可「一擊燒掉多條命」，壓倒性 overkill 再加成。
   if (after <= 0 && !severed && hasFx_(defC, 'god_hand')) {
     var lives = getGodHandLives_(pcData[tgtIdx][COL.PC.MEMORY]);
     if (lives > 0) {
-      out.godRevived = true;
-      pcData[tgtIdx][COL.PC.HP] = Math.max(1, Math.round((parseInt(pcData[tgtIdx][COL.PC.MAX_HP]) || 480) * 0.40));
-      pcData[tgtIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[tgtIdx][COL.PC.MEMORY], lives - 1);
-      pcData[tgtIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "神性光輝纏身", "姿勢": "緩緩起身", "負面": `十二試煉·餘${lives - 1}命`, "顏面": "不滅的戰意" });
-      sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
-      out.godNote = `「${pcData[tgtIdx][COL.PC.NAME]}」倒下了——卻又緩緩站起。十二試煉的詛咒讓他一次次自死亡歸來（尚餘 ${lives - 1} 條命）。`;
-      out.fired.push(pcData[tgtIdx][COL.PC.NAME] + '·十二試煉(God Hand)');
-      return out;
+      var ghMaxHp = parseInt(pcData[tgtIdx][COL.PC.MAX_HP]) || 480;
+      var ghReviveHp = Math.max(1, Math.round(ghMaxHp * 0.40));
+      // 🔱 概念優先權：寶具解放且概念位階高 → 多燒命。位階取「fx 概念階」與「寶具規模(對人/軍/城/界)」較高者，
+      //   故 Saber 的對城 Excalibur(規模5)、Gilgamesh 的 ea(概念6) 都吃得到，純對人寶具則只靠 overkill。
+      var lossN = 1;
+      if (opts.np) {
+        var ghTier = offenseTier_(atkC, true);
+        var ghScale = npAtkScale_(atkC);
+        var ghScaleTier = ghScale === '對界' ? 6 : ghScale === '對城' ? 5 : ghScale === '對軍' ? 4 : 1;
+        var ghSev = Math.max(ghTier, ghScaleTier);
+        if (ghSev >= 6) lossN += 2; else if (ghSev >= 5) lossN += 1;
+      }
+      // 壓倒性傷害（遠超復活線）也多燒：≥2 倍 +1、≥3 倍 +2。讓 Saber 一記 Excalibur 不會「連一條命都燒不掉」。
+      var ghOver = dmg / ghReviveHp;
+      if (ghOver >= 3) lossN += 2; else if (ghOver >= 2) lossN += 1;
+      if (lossN < lives) {
+        var ghRemain = lives - lossN;
+        out.godRevived = true;
+        pcData[tgtIdx][COL.PC.HP] = ghReviveHp;
+        pcData[tgtIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[tgtIdx][COL.PC.MEMORY], ghRemain);
+        pcData[tgtIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "神性光輝纏身", "姿勢": "緩緩起身", "負面": `十二試煉·餘${ghRemain}命`, "顏面": "不滅的戰意" });
+        sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
+        out.godNote = `「${pcData[tgtIdx][COL.PC.NAME]}」倒下了——卻又緩緩站起。${lossN > 1 ? `這一擊的概念威能極重，一口氣燒去 ${lossN} 條命` : `十二試煉的詛咒讓他自死亡歸來`}（尚餘 ${ghRemain} 條命）。`;
+        out.fired.push(pcData[tgtIdx][COL.PC.NAME] + '·十二試煉(God Hand)' + (lossN > 1 ? `·一擊燒${lossN}命` : ''));
+        return out;
+      }
+      // lossN >= lives：餘命被這一擊燒盡 → 不復活，靈基真正崩潰（落入下方 destroyed 流程）
+      pcData[tgtIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[tgtIdx][COL.PC.MEMORY], 0);
+      out.fired.push(pcData[tgtIdx][COL.PC.NAME] + '·十二試煉·餘命被一擊燒盡');
     }
   }
   if (after <= 0) {
@@ -2030,6 +2051,29 @@ function drainForNp_(sheets, pcData, svIdx, masterIdx, mpCost) {
     masterMp: masterIdx >= 0 ? (parseInt(pcData[masterIdx][COL.PC.MP]) || 0) : 0,
     svMp: parseInt(pcData[svIdx][COL.PC.MP]) || 0
   };
+}
+
+// 找某敵從者的「敵御主」列索引（硬連結【御主】優先，退回同 game 同地的敵御主）；masterless 則 -1。
+function enemyMasterIdx_(pcData, svIdx, gameId) {
+  var link = getServantMaster_(pcData[svIdx][COL.PC.MEMORY]);
+  var loc = String(pcData[svIdx][COL.PC.LOC]).trim();
+  for (var i = 1; i < pcData.length; i++) {
+    if (String(pcData[i][COL.PC.FACTION]) !== "敵御主") continue;
+    if (String(pcData[i][COL.PC.GAME_ID] || "") !== gameId) continue;
+    if (String(pcData[i][COL.PC.ID]).startsWith("DEAD_")) continue;
+    if (link ? (String(pcData[i][COL.PC.NAME]) === link) : (String(pcData[i][COL.PC.LOC]).trim() === loc)) return i;
+  }
+  return -1;
+}
+
+// 🔋 敵方寶具買單：敵從者自身 MP ＋（同陣敵御主）電池 是否付得起 prana。回 {afford, masterIdx}。
+function enemyCanAffordNp_(pcData, svIdx, gameId, prana) {
+  var mi = enemyMasterIdx_(pcData, svIdx, gameId);
+  var mp = parseInt(pcData[svIdx][COL.PC.MP]) || 0;
+  var mMp = mi >= 0 ? (parseInt(pcData[mi][COL.PC.MP]) || 0) : 0;
+  var mHp = mi >= 0 ? (parseInt(pcData[mi][COL.PC.HP]) || 0) : 0;
+  var maxPay = mp + mMp + Math.floor(Math.max(0, mHp - 1) / BATTERY_HP_PER_MP);
+  return { afford: maxPay >= prana, masterIdx: mi };
 }
 
 function actionFateBattle(userData, pcId, sheets) {
@@ -2279,7 +2323,12 @@ function actionFateBattle(userData, pcId, sheets) {
     // 對撞意志：健全的對手多半敢正面對轟；暗殺/狂戰系更愛搏命；殘血則未必接招（可能改閃避→走一般回合）
     const eHpR = (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[nIdx][COL.PC.HP]) || 0) / (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) : 1;
     const clashUrge = 0.6 + (hasFx_(enemyC0, 'mad') || hasFx_(enemyC0, 'zabaniya') ? 0.25 : 0) - (1 - eHpR) * 0.3;
-    if (enemyHasNp && Math.random() < clashUrge) {
+    // 🔋 敵須付得起寶具魔力才接對轟；付不起→不對轟（玩家寶具改於回合迴圈正常命中）
+    const clashPrana = npPranaCost_(enemyC0.six["寶具"]);
+    const clashAfford = enemyHasNp ? enemyCanAffordNp_(pcData, nIdx, myGameId, clashPrana) : { afford: false, masterIdx: -1 };
+    if (enemyHasNp && clashAfford.afford && Math.random() < clashUrge) {
+      drainForNp_(sheets, pcData, nIdx, clashAfford.masterIdx, clashPrana); // 敵付寶具魔力
+      enemyC0.mp = parseInt(pcData[nIdx][COL.PC.MP]) || 0;
       enemyNpSpent = true;            // 對轟即用掉敵寶具
       openingNp = false; openingSeal = false; // 玩家寶具/令咒威能已在對轟中釋放，回合迴圈不再重放
       const pPow = resolveFateBattle_(atkC, enemyC0, { np: true, seal: useSeal, skill: skillBuff }).damage;
@@ -2369,8 +2418,19 @@ function actionFateBattle(userData, pcId, sheets) {
         // 🔥 敵人也會解放寶具！殘血越急越想拼、暗殺/狂戰系更愛搏命；開寶具則全力(不打折)
         const eHpRatio = (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[nIdx][COL.PC.HP]) || 0) / (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) : 1;
         const eNpUrge = (hasFx_(enemyNow, 'zabaniya') || hasFx_(enemyNow, 'mad')) ? 0.22 : 0.10;
-        const enemyFireNp = !enemyNpSpent && (Math.random() < (eNpUrge + (1 - eHpRatio) * 0.45));
-        if (enemyFireNp) enemyNpSpent = true;
+        let enemyFireNp = !enemyNpSpent && (Math.random() < (eNpUrge + (1 - eHpRatio) * 0.45));
+        // 🔋 敵寶具也要吃魔力：自身 MP＋敵御主電池須付得起 prana，否則放不出（EX/EA 幾乎沒人付得起→極罕見；masterless 補不了魔→自限）
+        if (enemyFireNp) {
+          const ePrana = npPranaCost_(enemyNow.six["寶具"]);
+          const eAfford = enemyCanAffordNp_(pcData, nIdx, myGameId, ePrana);
+          if (eAfford.afford) {
+            drainForNp_(sheets, pcData, nIdx, eAfford.masterIdx, ePrana);
+            enemyNow.mp = parseInt(pcData[nIdx][COL.PC.MP]) || 0; // 反映耗魔後出力
+            enemyNpSpent = true;
+          } else {
+            enemyFireNp = false; // 魔力不足，放不出寶具，改為普攻
+          }
+        }
         const es = fateStrike_(sheets, pcData, enemyNow, ctgt, { counterMul: enemyFireNp ? 1.0 : 0.85, np: enemyFireNp }, ctx);
         rl.eHit = es.hit; rl.eRoll = es.aRoll; rl.eHitVal = es.aHit; rl.eDmg = es.hit ? es.damage : 0; rl.eFired = es.fired; rl.eTarget = String(pcData[ctgt][COL.PC.NAME]); rl.eNp = enemyFireNp;
         if (es.defeat) { defeat = true; victory = false; dreamPrompt = es.dreamPrompt; }
