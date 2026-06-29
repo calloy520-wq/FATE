@@ -320,11 +320,6 @@
         </div>
       </div>
 
-      <div class="trait-box" data-mode="full" style="margin-top:8px; background: rgba(139,90,43,0.05); border: 1px solid #8b5a2b;">
-        <span style="color: #8b5a2b;">—— 生活本事 ——</span>
-        <div id="ui-lifeskill" style="font-size: 12px; line-height: 1.8; text-align:center; color:#332211; margin-top:4px;">--</div>
-      </div>
-
       <button id="secret-toggle-btn" class="btn" style="width:100%; margin-top: 5px; border-color: #e91e63; color: #e91e63; background: rgba(233, 30, 99, 0.05); font-weight:bold; letter-spacing: 2px;" onclick="toggleSecretPanel()">🌸 窺視神髓</button>
 
       <div id="secret-panel"
@@ -421,34 +416,14 @@
       <span class="modal-close-btn" onclick="closeNoticePanel()">&times;</span>
 
       <div style="display:flex; border-bottom: 2px solid rgba(184,134,11,0.3); margin-bottom: 15px;">
-        <button id="tab-rumor" onclick="switchNoticeTab('rumor')" style="flex:1; padding:10px; background:none; border:none; border-bottom: 2px solid #b8860b; color:#b8860b; font-weight:bold; font-size:14px; cursor:pointer; margin-bottom:-2px;">
+        <button id="tab-rumor" style="flex:1; padding:10px; background:none; border:none; border-bottom: 2px solid #b8860b; color:#b8860b; font-weight:bold; font-size:14px; cursor:default;">
         🗞️ 戰況情報
-      </button>
-        <button id="tab-mail" onclick="switchNoticeTab('mail')" style="flex:1; padding:10px; background:none; border:none; border-bottom: 2px solid transparent; color:#816e54; font-size:14px; cursor:pointer; margin-bottom:-2px;">
-        ✉️ 傳音信箱
       </button>
       </div>
 
       <div id="panel-rumor">
         <div id="rumor-list" style="display:flex; flex-direction:column; gap:10px;">
           <p style="text-align:center; color:#816e54;">蒐集冬木情報中...</p>
-        </div>
-      </div>
-
-      <div id="panel-mail" style="display:none;">
-        <div id="mail-list" style="display:flex; flex-direction:column; gap:10px;">
-          <p style="text-align:center; color:#816e54;">翻閱傳音玉簡中...</p>
-        </div>
-        <div style="margin-top:15px; border-top:1px dashed rgba(184,134,11,0.3); padding-top:15px;">
-          <div style="color:#b8860b; font-size:13px; font-weight:bold; margin-bottom:8px;">✍️ 寄出傳音</div>
-          <input id="mail-target" class="std-in" placeholder="收信人名號..." maxlength="10" style="width:100%; box-sizing:border-box; margin-bottom:8px; padding:8px;">
-
-          <select id="mail-attach" class="std-select" style="width:100%; box-sizing:border-box; margin-bottom:8px; padding:8px;">
-            <option value="">(無夾帶物品)</option>
-          </select>
-
-          <textarea id="mail-content" class="std-in" placeholder="傳音內容..." maxlength="200" style="width:100%; box-sizing:border-box; padding:8px; height:70px; resize:none; font-family:inherit;"></textarea>
-          <button class="btn" onclick="lockBtn(event, sendMailFromPanel)" style="width:100%; margin-top:8px; border-color:#b8860b; color:#b8860b; font-weight:bold;">📨 傳音出去</button>
         </div>
       </div>
 

@@ -76,14 +76,10 @@
     if (c === 'Archer') return { emo: '🏹', name: '狙擊', hint: '遠程精準', col: '#5cb88f', rgb: '92,184,143' };
     return { emo: '⚔️', name: '出戰', hint: '近身搏殺', col: '#e07a7a', rgb: '165,42,42' };
   }
-  let localItems = []; // 🟢 玩家當前隨身行囊(供敘事中物品連結點擊時查 desc/id/type)
-  let nearbyLocations = []; 
-  let giftTargetNPC = null;
-  let useItemTargetNPC = null;
+  let nearbyLocations = [];
   let historyPushed = false;
   let categorizedMapData = null;
-  let sellMode = false; // 🔴 變賣模式旗標
-  
+
   const _RC = window.KYUSHU_REALM || {}; 
 const REALMS = _RC.REALMS || ["凡人", "引氣", "凝罡", "通玄", "罡氣", "意動", "心象", "登峰", "返璞", "天人"];
 const REALM_MODIFIERS = _RC.REALM_MODIFIERS || {"凡人":1.0, "引氣":1.3, "凝罡":1.6, "通玄":2.0, "罡氣":2.5, "意動":3.2, "心象":4.0, "登峰":8.0, "返璞":20.0, "天人":50.0};
@@ -137,13 +133,6 @@ const REALM_LIMITS = _RC.REALM_LIMITS || {"凡人":20, "引氣":25, "凝罡":30,
         const npcName = registerTarget.getAttribute('data-register');
         const npcContext = registerTarget.getAttribute('data-context') || '';
         showRegisterNpcModal(npcName, npcContext);
-        return;
-      }
-
-      // 🟢 攔截物品連結點擊：跳出小選單(顯示敘述 + 端詳/使用)
-      const itemTarget = e.target.closest('[data-item]');
-      if (itemTarget) {
-        openItemMenu(itemTarget.getAttribute('data-item'));
         return;
       }
 
@@ -322,11 +311,6 @@ function renderRecentLocs(recents = null) {
   function closeSystemModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) modal.style.display = 'none';
-    if (modalId === 'inventory-overlay') {
-      giftTargetNPC = null;
-      useItemTargetNPC = null;
-      sellMode = false;        // 🔴 關閉背包時清空變賣模式
-    }
   }
 
 
@@ -2198,68 +2182,6 @@ function renderRecentLocs(recents = null) {
     }
   }
   
-   // ==========================================
-// 🔴 重構的 handleItemAction (分離「端詳」與「消耗」，杜絕 AI 算錯帳)
-// ==========================================
-async function handleItemAction(action, itemId, itemName, itemType) {
-  if (action === 'discard') {
-    if (!confirm(`確定要將「${itemName}」棄置於荒野之中嗎？`)) return;
-    closeSystemModal('inventory-overlay');
-    try {
-      await gasRun({ action: "discard_item", pcId: pc.id, itemName: itemId }); 
-      syncData(true);
-    } catch(e) { 
-      console.error("丟棄失敗", e); 
-    }
-  }
-  else if (action === 'inspect') {
-    // 🔍 【端詳把玩】：純看劇情，不扣物品
-    closeSystemModal('inventory-overlay');
-    const promptMsg = `【系統動作：玩家從行囊中拿出了「${itemName}」(類型:${itemType}) 仔細端詳與把玩。請天道生動描寫物品的外觀細節、靈力波動，若是書信秘籍則揭露內容。★此為觀察動作，嚴禁輸出 items_used 或 items_lost！】`;
-    send(promptMsg, true);
-  }
-  else if (action === 'consume') {
-    // 💥 【消耗施放】：只要點了就是用掉，絕對扣除！
-    if (itemType === "丹藥" || itemType === "恢復道具") {
-      // 1. 丹藥與補血藥：維持原本的底層無情結算
-      closeSystemModal('inventory-overlay');
-      consumeItemViaGAS(itemId);
-    }
-    else {
-      // 2. 其他雜物/符咒/暗器：輕量直連，GAS 直接扣除，AI 只負責寫特效
-      closeSystemModal('inventory-overlay');
-      try {
-        const res = await gasRun({ action: "use_item_self", pcId: pc.id, itemId: itemId, itemName: itemName });
-        if (res.success) { narrate(res.aiPrompt); syncData(true); }
-        else alert(res.message || "使用失敗。");
-      } catch (e) { alert("連線失敗，使用失敗。"); }
-    }
-  }
-}
-
-  async function consumeItemViaGAS(itemId) {
-    const story = document.getElementById('story');
-    story.innerHTML += `<div class="msg-player"><b>【系統】：</b>正從行囊中取出靈丹妙藥...</div>`;
-    story.scrollTop = story.scrollHeight;
-
-    try {
-      const data = await gasRun({ action: "consume_item", pcId: pc.id, itemId: itemId });
-
-      if (data.success) {
-        // 瞬間更新 UI (面板血量、真氣秒跳動)
-        localStorage.setItem('kyushu_last_status', data.statusString);
-        updateUI(data.statusString.split('§'));
-
-        // 🔴 改走場景敘事：藥效已底層鎖死結算，交由 AI 依當下地點/同行人物寫出貼合情境的服藥場面
-        narrate(data.aiPrompt);
-      } else {
-        alert(data.message || "服用失敗。");
-      }
-    } catch(e) {
-      alert("天道阻礙，丹藥失效。");
-    }
-  }
-  
   function handleRelTagClick(npcName, currentTagFull) {
    const cleanCurrent = currentTagFull.replace(/\(已傾心\)/g, "").trim();
    const newTagText = prompt(`你想將與「${npcName}」的羈絆重新定義為何？\n(「已傾心」標記將永久保留)`, cleanCurrent);
@@ -2278,45 +2200,6 @@ async function handleItemAction(action, itemId, itemName, itemType) {
     })
     .catch(() => alert("天道阻礙，重新定義羈絆失敗。"));
 }
- // 🟢 贈禮：輕量直連，GAS 裁定好感門檻與轉移，AI只負責補一段敘事
- async function handleGiftAction(itemId, itemName, itemType) {
-    if (!giftTargetNPC) return;
-    const targetNpc = giftTargetNPC;
-    giftTargetNPC = null;
-    closeSystemModal('inventory-overlay');
-
-    const story = document.getElementById('story');
-    story.innerHTML += `<div class="msg-player"><b>【系統】：</b>從行囊中取出「${itemName}」，雙手呈遞給「${targetNpc}」...</div>`;
-    story.scrollTop = story.scrollHeight;
-
-    let confession = "";
-    let newRelName = ""; // 🔴 用來記錄妳賦予的專屬羈絆名稱
-
-    if (itemType === "定情信物") {
-      confession = prompt(`這可是「${itemName}」，你想對「${targetNpc}」訴說什麼深情告白？`);
-      // 🔴 賦予命名權：送出信物後，強行改寫基礎關係！
-      newRelName = prompt(`信物送出後，你希望你們的關係轉變為何？\n(例如：道侶、愛妻、紅顏知己、劍侍)`) || "生死相許";
-    }
-
-    try {
-      const res = await gasRun({ action: "gift_item", pcId: pc.id, targetName: targetNpc, giftItemId: itemId, newRelName: newRelName });
-      if (res.success) {
-        let promptMsg = res.aiPrompt;
-        if (itemType === "定情信物") {
-          promptMsg += `\n★【玩家深情告白】：${confession || "（凝視著對方，眼中有說不盡的柔情）"}`;
-        }
-        await narrate(promptMsg);
-        if (res.soulBound && res.soulBoundEventMsg) {
-          story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="border-left:4px solid #ffb6c1;">${res.soulBoundEventMsg}</div>`);
-          story.scrollTop = story.scrollHeight;
-        }
-        syncData(true);
-      } else {
-        alert(res.message || "贈禮失敗。");
-      }
-    } catch (e) { alert("連線失敗，贈禮失敗。"); }
-  }
-  
   async function submitBond() {
   const name = document.getElementById('npc-name-in').value.trim();
   const sex = document.getElementById('npc-sex-in').value;
@@ -2940,7 +2823,6 @@ const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatDat
 
       document.getElementById(loadId)?.remove();
       localNPCs = data.people || []; nearbyLocations = data.locations || [];
-      localItems = data.myItemNames || [];
       console.log("🔴AI原始文字:", JSON.stringify(data.text));
 
       // 🔴 直接接收後端傳來的狀態字串，不再依賴 AI 的文字解析
@@ -3009,17 +2891,6 @@ const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatDat
               // 🌟 狀態 3：虛無之人 (資料庫完全沒有) -> 顯示為藍色，觸發登入眾生
               pushCandidate(name, `<span class="npc-link" style="color:#4682b4; border-bottom:1px dashed #4682b4; cursor:pointer;" data-register="${name}" data-context="${contextSnap}">${name}</span>`);
             }
-          }
-        });
-      }
-
-      // 🟢 物品連結(純前端)：玩家行囊真實持有的物品名，凡出現在敘事中即自動變綠可點。
-      // 候選清單本身就只有玩家真有的物品，「是否持有」天然由前端把關，完全不依賴 AI 標記。
-      if (data.myItemNames && data.myItemNames.length > 0) {
-        data.myItemNames.forEach(it => {
-          if (it.name && it.name.length >= 2 && displayText.includes(it.name)) {
-            const safeType = String(it.type || '雜物').replace(/"/g, '&quot;');
-            pushCandidate(it.name, `<span class="item-link" style="color:#2e8b57; border-bottom:1px dashed #2e8b57; cursor:pointer;" data-item="${it.name}" data-itemtype="${safeType}">${it.name}</span>`);
           }
         });
       }
@@ -3149,25 +3020,7 @@ let plainTextContext = cleanText;
       document.getElementById('interact-modal').style.display = 'none';
   }
 
-  // 🟢 敘事中物品連結 → 小選單：先看敘述文字，再選端詳或使用
-  function openItemMenu(itemName) {
-      const it = (localItems || []).find(i => i.name === itemName);
-      if (!it) { handleItemAction('inspect', itemName, itemName, '雜物'); return; }
-      const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      const jsName = it.name.replace(/'/g, "\\'");
-      const jsType = String(it.type || '雜物').replace(/'/g, "\\'");
-      const jsId = String(it.id || it.name).replace(/'/g, "\\'");
-      document.getElementById('interact-title').innerText = `行囊：「${it.name}」`;
-      let html = '';
-      html += `<div style="grid-column: span 2; font-size:12px; margin-bottom:4px;"><span style="color:#2e8b57; font-weight:bold;">(${esc(it.type || '雜物')})</span></div>`;
-      html += `<div style="grid-column: span 2; font-size:13px; color:#553311; line-height:1.6; background:rgba(46,139,87,0.05); border:1px dashed rgba(46,139,87,0.3); border-radius:4px; padding:8px; margin-bottom:8px;">${esc(it.desc) || '（暫無描述）'}</div>`;
-      html += `<button class="btn" style="border-color:#4682b4; color:#4682b4;" onclick="closeInteractMenu(); handleItemAction('inspect', '${jsId}', '${jsName}', '${jsType}')">🔍 端詳</button>`;
-      html += `<button class="btn" style="border-color:#e91e63; color:#e91e63;" onclick="closeInteractMenu(); handleItemAction('consume', '${jsId}', '${jsName}', '${jsType}')">💥 使用</button>`;
-      document.getElementById('interact-dynamic-buttons').innerHTML = html;
-      document.getElementById('interact-modal').style.display = 'flex';
-  }
-
-// 🔮 遠端人物互動 (打聽 / 移動 / 飛書)
+// 🔮 遠端人物互動 (打聽 / 移動)
 
 function openRemoteNpcAction(npcName) {
       interactTarget = npcName; // 綁定目標
@@ -3183,10 +3036,6 @@ function openRemoteNpcAction(npcName) {
       // 巧妙利用剛剛餵給 AI 的 remoteNpcStr 情報，讓 AI 自己讀取位置並觸發 stat_changes！
       html += `<button class="btn" style="border-color:#1e90ff; color:#1e90ff; font-weight:bold; padding: 10px;"
         onclick="closeInteractMenu(); send('【系統動作：玩家決定啟程前往尋找「${npcName}」。請根據天道情報中該角色的「目前位置」，在 JSON 的 stat_changes 中精準修改玩家的「位置」為該地點，並生動描寫這趟跋涉的過程！】', true)">👣 動身尋找 (移動)</button>`;
-
-      // 🟢 選項 3：修改這裡，直接呼叫 openMailPanel (統一 UI)
-html += `<button class="btn" style="border-color:#9C27B0; color:#9C27B0; font-weight:bold; padding: 10px; grid-column: span 2; margin-top: 5px;"
-        onclick="openMailPanel('${npcName}')">✉️ 飛鴿傳書 (留言)</button>`;
 
       // 複用現有的互動面板來顯示
       document.getElementById('interact-dynamic-buttons').innerHTML = html;
@@ -3414,60 +3263,16 @@ function renderBattlefieldCleanup(npcNames) {
   // ==========================================
 
  // ==========================================
-// 📜 傳聞 + 傳音信箱 整合系統
+// 📜 傳聞系統
 // ==========================================
-
-let currentNoticeTab = 'rumor';
-let unreadMailCount = 0;
-
-function showNoticeBadge(count) {
-  const badge = document.getElementById('notice-badge');
-  if (badge) { badge.style.display = 'block'; badge.innerText = count > 9 ? '9+' : count; }
-}
-
-function clearNoticeBadge() {
-  const badge = document.getElementById('notice-badge');
-  if (badge) { badge.style.display = 'none'; badge.innerText = ''; }
-}
-
-
-
-
 
 async function openNoticePanel() {
   document.getElementById('notice-overlay').style.display = 'flex';
-  // 開啟時預設顯示傳聞，同時背景載入信件計算未讀
   await loadRumors();
-  loadMails(); // 背景非同步，不等它
 }
 
 function closeNoticePanel() {
   document.getElementById('notice-overlay').style.display = 'none';
-}
-
-function switchNoticeTab(tab) {
-  currentNoticeTab = tab;
-  
-  const rumorBtn = document.getElementById('tab-rumor');
-  const mailBtn = document.getElementById('tab-mail');
-  const rumorPanel = document.getElementById('panel-rumor');
-  const mailPanel = document.getElementById('panel-mail');
-
-  if (tab === 'rumor') {
-    rumorBtn.style.borderBottomColor = '#b8860b'; rumorBtn.style.color = '#b8860b'; rumorBtn.style.fontWeight = 'bold';
-    mailBtn.style.borderBottomColor = 'transparent'; mailBtn.style.color = '#816e54'; mailBtn.style.fontWeight = 'normal';
-    rumorPanel.style.display = 'block'; mailPanel.style.display = 'none';
-    loadRumors();
-  } else {
-    mailBtn.style.borderBottomColor = '#b8860b'; mailBtn.style.color = '#b8860b'; mailBtn.style.fontWeight = 'bold';
-    rumorBtn.style.borderBottomColor = 'transparent'; rumorBtn.style.color = '#816e54'; rumorBtn.style.fontWeight = 'normal';
-    rumorPanel.style.display = 'none'; mailPanel.style.display = 'block';
-    
-    // ✨ 紀錄玩家打開信箱的時間戳記
-    localStorage.setItem('kyushu_last_mail_read_time', Date.now());
-    clearNoticeBadge();
-    loadMails();
-  }
 }
 
 async function loadRumors() {
@@ -3501,153 +3306,6 @@ async function loadRumors() {
     container.innerHTML = '<p style="text-align:center; color:red;">天道感應失敗。</p>';
   }
 }
-async function loadMails() {
-  const container = document.getElementById('mail-list');
-  container.innerHTML = '<p style="text-align:center; color:#816e54; font-style:italic;">翻閱傳音玉簡中...</p>';
-  try {
-    // 呼叫新的 get_mails
-    const res = await gasRun({ action: 'get_mails', pcId: pc.id });
-    
-    // 順便把自己的包包載入，為了寄信的下拉選單
-    const invRes = await gasRun({ action: 'inventory', pcId: pc.id });
-    const attachSelect = document.getElementById('mail-attach');
-    if (invRes.success && attachSelect) {
-       attachSelect.innerHTML = '<option value="">(無夾帶物品)</option>' + 
-          invRes.data.map(item => `<option value="${item.id}">${item.name} (${item.type})</option>`).join('');
-    }
-
-    if (!res.success || !res.data || res.data.length === 0) {
-      container.innerHTML = '<p style="text-align:center; color:#816e54; padding:20px;">傳音玉簡空空如也。</p>';
-      unreadMailCount = 0;
-      clearNoticeBadge();
-      return;
-    }
-    
-    // 計算未讀信件 (後端現在傳回的狀態會有 "未讀", "已讀", "已領取")
-    unreadMailCount = res.data.filter(m => m.status === "未讀").length;
-    if (unreadMailCount > 0 && currentNoticeTab !== 'mail') showNoticeBadge(unreadMailCount);
-    else clearNoticeBadge(); // 如果在目前分頁，看完就清空紅點
-
-    container.innerHTML = res.data.map(m => {
-      const timeStr = m.time ? new Date(m.time).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-      
-      // 附件 UI 處理
-      let attachHtml = "";
-      if (m.attachItemId) {
-         if (m.status === "已領取") {
-            attachHtml = `<div style="margin-top:8px; font-size:11px; color:#816e54;">📦 附件：${escapeHtml(m.attachItemName)} (已領取)</div>`;
-         } else {
-            attachHtml = `
-            <div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center; background:rgba(218,165,32,0.1); padding:4px 8px; border-radius:4px; border:1px dashed #daa520;">
-              <span style="font-size:12px; color:#b8860b; font-weight:bold;">📦 附件：${escapeHtml(m.attachItemName)}</span>
-              <button class="btn" style="padding:2px 8px; font-size:11px; border-color:#d4af37; color:#d4af37;" onclick="lockBtn(event, () => claimMailItem('${m.id}'))">領取</button>
-            </div>`;
-         }
-      }
-
-      return `
-        <div style="background: rgba(30,144,255,0.04); border: 1px solid rgba(30,144,255,0.2); border-left: 3px solid #1e90ff; border-radius: 4px; padding: 10px; margin-bottom:8px; position:relative;">
-          ${m.status === "未讀" ? '<div style="position:absolute; top:10px; right:10px; width:8px; height:8px; background:red; border-radius:50%;"></div>' : ''}
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-            <span style="font-size:12px; color:#1e90ff; font-weight:bold;">✉️ 來自『${escapeHtml(m.sender)}』</span>
-            <span style="font-size:11px; color:#666;">${timeStr}</span>
-          </div>
-          <div style="font-size:13px; color:#332211; line-height:1.6;">${escapeHtml(m.content)}</div>
-          ${attachHtml}
-          <div style="text-align:right; margin-top:5px;">
-             <button class="btn" style="padding:2px 8px; font-size:11px; border-color:#800; color:#800;" onclick="lockBtn(event, () => deleteMail('${m.id}'))">🗑️ 銷毀玉簡</button>
-          </div>
-        </div>`;
-    }).join('');
-  } catch(e) {
-    container.innerHTML = '<p style="text-align:center; color:red;">天道感應失敗。</p>';
-  }
-}
-
-async function sendMailFromPanel() {
-  const target = document.getElementById('mail-target').value.trim();
-  const content = document.getElementById('mail-content').value.trim();
-  const attachItemId = document.getElementById('mail-attach').value;
-
-  if (!target) { alert('請輸入收信人名號！'); return; }
-  if (!content) { alert('傳音內容不能為空！'); return; }
-
-  try {
-    const res = await gasRun({ action: 'send_mail', pcId: pc.id, targetName: target, msg: content, attachItemId: attachItemId });
-
-    if (res.success) {
-      document.getElementById('mail-target').value = '';
-      document.getElementById('mail-content').value = '';
-
-      const story = document.getElementById('story');
-      story.insertAdjacentHTML('beforeend',
-        `<div class="msg-player" style="border-color:#1e90ff; color:#1e90ff;"><b>【傳音】：</b>你以玉簡傳音，向『${target}』寄出了一封信${attachItemId ? '(附帶物品)' : ''}。</div>`);
-      story.scrollTop = story.scrollHeight;
-
-      // NPC 已即時回信，重載信箱就看得到；真人玩家則靜默送達
-      if (res.isNPC && res.replied) {
-        loadMails();
-        switchNoticeTab('mail'); // 直接切到信箱讓玩家看到回信
-      } else {
-        loadMails();
-      }
-    } else {
-      alert(res.message || '傳音失敗。');
-    }
-  } catch (e) {
-    alert('天道阻斷，傳音失敗。');
-  }
-}
-
-// 🔴 新增：領取物品函數
-async function claimMailItem(mailId) {
-  try {
-    const res = await gasRun({ action: 'claim_mail_item', pcId: pc.id, mailId: mailId });
-    alert(res.message);
-    if (res.success) {
-      loadMails(); // 重新載入信箱，按鈕會變成已領取
-    }
-  } catch(e) {
-    alert('天道阻斷，無法領取。');
-  }
-}
-
-function openMailPanel(npcName) {
-  closeInteractMenu();
-  openNoticePanel();
-  switchNoticeTab('mail');
-  const t = document.getElementById('mail-target');
-  if (t && npcName) t.value = npcName;
-}
-
-
-
-// 🔴 新增：刪除信件函數
-async function deleteMail(mailId) {
-  if (!confirm("確定要銷毀這枚傳音玉簡嗎？(若有未領取之附件，將一併銷毀於虛空)")) return;
-  try {
-    const res = await gasRun({ action: 'delete_mail', pcId: pc.id, mailId: mailId });
-    if (res.success) {
-      loadMails(); // 重新載入信箱
-    } else {
-      alert(res.message || '銷毀失敗。');
-    }
-  } catch(e) {
-    alert('天道阻斷，無法銷毀。');
-  }
-}
-
-// 🔴 修改背景輪詢：改呼叫 get_mails
-setInterval(async () => {
-  if (!pc || !pc.id) return;
-  try {
-    const res = await gasRun({ action: 'get_mails', pcId: pc.id });
-    if (res.success && res.data) {
-      const unread = res.data.filter(m => m.status === "未讀").length;
-      if (unread > 0 && currentNoticeTab !== 'mail') showNoticeBadge(unread);
-    }
-  } catch(e) {}
-}, 3 * 60 * 1000);
 // ==========================================
 // 🔒 通用按鈕防連點鎖
 // ==========================================
