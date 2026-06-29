@@ -92,7 +92,7 @@ var SEED_SERVANTS = [
   { id:'恩奇都-Lancer', cls:'Lancer', realName:'恩奇都', wars:['fake'], gender:'無',
     six:{筋力:'B',耐久:'A',敏捷:'A',魔力:'A',幸運:'-',寶具:'A+'},
     classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'}],
-    skills:[{n:'變生',r:'A',fx:'shapeshift'},{n:'神性',r:'A',fx:'divine'}],
+    skills:[{n:'天之鎖',r:'A',fx:'chain'},{n:'變生',r:'A',fx:'shapeshift'},{n:'神性',r:'A',fx:'divine'}],
     traits:[{n:'神性'},{n:'神造兵器'}], np:'天地乖離開闢之星（變化・對界）',
     align:'中立・中庸', persona:{firstP:'我',look:'青綠長髮・中性無垢的神造之軀、平和無機卻溫柔的氣息、自稱「我」・平和中性、談起摯友便柔軟下來的眷戀',words:'純真・神造・追尋摯友・無垢',toMaster:'溫和而疏離，心繫吉爾伽美什',speech:'平和中性、純真直接、無機質卻溫柔、談起摯友便柔軟',moe:'神造兵器卻最有人性、對吉爾伽美什的純粹羈絆、不解人類卻嚮往、變幻自如的天真',tic:'化身千刃、歪頭觀察、望向遠方'} },
   // 斯卡哈 三職階

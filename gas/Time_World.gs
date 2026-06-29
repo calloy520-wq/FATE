@@ -234,8 +234,9 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
     var rawNew = mMp + perHour * hours;                                  // 可能為負＝池補不上的缺口
     var nMMp = mMpMax ? Math.max(0, Math.min(mMpMax, Math.round(rawNew))) : mMp;
     var unfunded = (mMpMax && rawNew < 0) ? Math.round(-rawNew) : 0;     // 缺口(mana)，改由血肉支付
-    masterBurn = Math.round(unfunded / 2);
-    svBurnEach = (unfunded - masterBurn) > 0 && svRows.length ? Math.round((unfunded - masterBurn) / svRows.length) : 0;
+    // 🩸 被動燃血(玩家定 2026-06)：缺口/4 由御主與從者各自分攤(各扣 缺口/4)，比舊版溫和、且雙方共擔。
+    masterBurn = Math.round(unfunded / 4);
+    svBurnEach = svRows.length ? Math.round(unfunded / 4) : 0;
     var mHpMax = parseInt(data[masterI][COL.PC.MAX_HP]) || 0, mHp = parseInt(data[masterI][COL.PC.HP]) || 0;
     // 缺口時御主被動燃血扣血(保底1)；否則自我修復
     var nMHp = unfunded > 0 ? Math.max(1, mHp - masterBurn)

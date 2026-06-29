@@ -23,6 +23,8 @@ function rankTier_(r) { var v = rankVal(r); if (v >= 60) return 6; if (v >= 50) 
 
 // 👑 王之財寶(gob) 無盡兵裝彈幕：50 顆 d3、捨去「1」(沒打中的)，只計 2/3。EV≈83＝飽和重擊(吉爾伽美什常駐)。
 function gobVolley_() { var t = 0; for (var i = 0; i < 50; i++) { var r = Math.floor(Math.random() * 3) + 1; if (r >= 2) t += r; } return t; }
+// ⛓️ 天之鎖(chain) 萬鎖彈幕：較王財小(18顆，EV≈30)——因恩奇都六圍本就頂級，給滿 50 會壓過金閃；此為平衡取捨。
+function chainVolley_() { var t = 0; for (var i = 0; i < 18; i++) { var r = Math.floor(Math.random() * 3) + 1; if (r >= 2) t += r; } return t; }
 
 // ⚔️🔱 概念優先權（Priority）：數字越高＝概念位階越高。Fate 世界觀的「真理＞固有結界＞傳說武技＞英靈技能」階梯。
 //   高位階「進攻概念」可碾壓低位階「防禦概念」——當 攻方進攻階 ≥ 守方防禦階 + PIERCE_GAP 時，該防禦被無視（概念壓制）。
@@ -229,6 +231,16 @@ function resolveFateBattle_(atk, def, opts) {
       return { atkWins: true, winner: atk.name, loser: def.name, damage: _eaDmg, aRoll: 20, dRoll: 0, aHit: 99, dEva: 0, fired: fired, crit: 'atk_crit', np: true, seal: !!opts.seal };
     }
   }
+  // 💰 黃金律(wealth／吉爾伽美什)：絕境(自身血≤20%)時，無盡財寶供能→【無視魔力】自寶藏取出乖離劍(EA)執行殺。
+  //   讓金閃殘血翻盤的招牌：不需 opts.np、不吃御主魔力(黃金律＝無限資源)。復活原本死掉的 wealth＋ea 兩標籤。
+  if (hasFx_(atk, 'wealth')) {
+    var _whp = (atk.hpMax > 0) ? (atk.hp / atk.hpMax) : 1.0;
+    if (_whp <= 0.2) {
+      var _waDmg = Math.round(rankVal(atk.six['寶具']) * 4) + rollDice_(6, 12) + 200;
+      fired.push(atk.name + '·黃金律·絕境取乖離劍(無盡財寶供能·執行殺)');
+      return { atkWins: true, winner: atk.name, loser: def.name, damage: _waDmg, aRoll: 20, dRoll: 0, aHit: 99, dEva: 0, fired: fired, crit: 'atk_crit', np: true, seal: !!opts.seal };
+    }
+  }
 
   // 🔋 出力：攻方靈基出力檔位決定表現（御主把魔力灌多少進來）。高檔強但燒御主、低檔有懲罰。
   //   命中端 +outMod；傷害端 ×outTier.dmgMul（於下方主威力處套用）。御主供魔越足、從者越生龍活虎。
@@ -275,6 +287,7 @@ function resolveFateBattle_(atk, def, opts) {
   if (hasFx_(atk, 'stealth')) { aHit += 3; fired.push(atk.name + '·' + fxName_(atk, 'stealth', '氣息遮斷') + '·奇襲'); }
   // 👑 王之財寶(gob)常駐：無盡兵裝鋪天蓋地，命中 +5（飽和彈幕難閃；傷害彈幕在下方）
   if (hasFx_(atk, 'gob')) { aHit += 5; fired.push(atk.name + '·' + fxName_(atk, 'gob', '王之財寶') + '(無盡兵裝)'); }
+  // ⛓️ 天之鎖(chain)：命中加成併入既有「縛神性」效果(下方)；輸出走下方萬鎖彈幕。此處不另加命中(避免恩奇都過載)。
   // 燕返(tsubame)：寶具解放時次元摺疊令守方迴避 -5＋×2.3 傷害；普通出擊不適用（需全力釋放方能發動）
   var tsubame = hasFx_(atk, 'tsubame'); if (tsubame && opts.np) { dEva -= 5; fired.push(atk.name + '·' + fxName_(atk, 'tsubame', '秘劍')); }
   // 🔱 三騎士職階相剋（Saber→Lancer→Archer→Saber）：占上風者搶得先機，命中小幅領先（傷害加成在下方）
@@ -329,16 +342,24 @@ function resolveFateBattle_(atk, def, opts) {
   var fc = hasFx_(winner, 'fast_cast'); if (fc) { base += Math.round(12 * rankMul_(fc)); fired.push(winner.name + '·' + fxName_(winner, 'fast_cast', '高速詠唱') + '(連珠疊咒)'); }
   // 👑 王之財寶(gob)常駐彈幕：50d3捨1 的無盡兵裝飽和傷害（吉爾伽美什不必開寶具就壓制全場）
   if (hasFx_(winner, 'gob')) { var gv = gobVolley_(); base += gv; fired.push(winner.name + '·' + fxName_(winner, 'gob', '王之財寶') + '·無盡彈幕(' + gv + ')'); }
+  // ⛓️ 天之鎖(chain)常駐彈幕：18d3捨1 萬鎖貫穿（金閃有 gob 則不重複；恩奇都專屬輸出，較王財小以平衡其頂級六圍）
+  if (hasFx_(winner, 'chain') && !hasFx_(winner, 'gob')) { var cv = chainVolley_(); base += cv; fired.push(winner.name + '·' + fxName_(winner, 'chain', '天之鎖') + '·萬鎖貫穿(' + cv + ')'); }
   // 狂化(mad)：傷害暴漲
   var madW = hasFx_(winner, 'mad'); if (madW) { base += Math.round(14 * rankMul_(madW)); fired.push(winner.name + '·' + fxName_(winner, 'mad', '狂化')); }
   // 神代魔術(divine_age)：魔力傷害大增（下方對魔力減免也減半）
   var da = hasFx_(winner, 'divine_age'); if (da) { base += Math.round(12 * rankMul_(da)); fired.push(winner.name + '·' + fxName_(winner, 'divine_age', '神代魔術')); }
   // 風王鐵鎚(wind_strike)：不可視之劍追加
   var ws = hasFx_(winner, 'wind_strike'); if (ws) { base += Math.round(6 * rankMul_(ws)); fired.push(winner.name + '·' + fxName_(winner, 'wind_strike', '風王鐵鎚')); }
-  // 神殺：對「神性」特性追加 ×1.5
+  // 神殺：對有「神性」者最終傷害放大。神性(divine fx 或特性)階級越高 → 越被神殺剋(×1.3~×1.83，依神性階)。
   var godSlay = (winner.skills || []).concat(winner.traits || []).some(function (t) { return t && String(t.n).indexOf('神殺') >= 0; });
-  var loserDivine = (loser.traits || []).concat(loser.skills || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
-  if (godSlay && loserDivine) { base = Math.round(base * 1.5); fired.push(winner.name + '·神殺(剋神性)'); }
+  var divFx = hasFx_(loser, 'divine');  // 神性 fx 的階級(若有)
+  var divTrait = (loser.traits || []).concat(loser.skills || []).filter(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
+  var loserDivine = !!divFx || divTrait.length > 0;
+  if (godSlay && loserDivine) {
+    var divRank = divFx || (divTrait[0] && divTrait[0].r) || 'C';   // 取神性階級(fx 優先，再特性，預設C)
+    var slayMul = Math.min(2.0, 1 + 0.5 * rankMul_(divRank));        // C→1.5、A→1.83、E→1.17、EX→2.0
+    base = Math.round(base * slayMul); fired.push(winner.name + '·神殺(剋神性' + (divFx || (divTrait[0] && divTrait[0].r) || '') + '·×' + slayMul.toFixed(2) + ')');
+  }
   // 🔱 職階相性傷害加成：克制方下手更狠（與上方命中先機呼應）
   if (KNIGHT_BEATS[winner.cls] === loser.cls) { base = Math.round(base * 1.12); fired.push(winner.name + '·職階相性·壓制' + loser.cls); }
   if (atkWins && tsubame && opts.np) base = Math.round(base * 2.3);
@@ -382,6 +403,9 @@ function resolveFateBattle_(atk, def, opts) {
   // 🛡️ 陣地作成(territory)：法師以魔術防壁／結界減傷，補償其低耐久（救玻璃大砲美狄亞的存活）
   if (hasFx_(loser, 'territory') && !pierces('territory')) { base = Math.round(base * 0.74); fired.push(loser.name + '·' + fxName_(loser, 'territory', '陣地') + '·魔術防壁'); }
   else if (hasFx_(loser, 'territory')) { fired.push(winner.name + '·概念壓制(碾穿結界)'); }
+  // ᚱ 原初符文(rune)：護符結界減傷 10%×階級(A→-17%/EX→-20%)。救持符文的玻璃法師(斯卡蒂/玉藻前/斯卡哈)存活。
+  //   ※暫採「減傷」單一效果；未來可做「增傷/減傷/回合回血」三選一(需 UI／MEMORY 旗標)。
+  var rn = hasFx_(loser, 'rune'); if (rn) { base = Math.round(base * (1 - 0.10 * rankMul_(rn))); fired.push(loser.name + '·' + fxName_(loser, 'rune', '原初符文') + '(護符減傷)'); }
   // 神核(divine_core)：減傷 18%×階級；但破魔薔薇(anti_magic_lance)等高位階概念無視神核護甲
   var dc = hasFx_(loser, 'divine_core');
   if (dc && (hasFx_(winner, 'anti_magic_lance') || pierces('divine_core'))) { fired.push(winner.name + '·' + (hasFx_(winner, 'anti_magic_lance') ? '破魔(無視神核)' : '概念壓制(無視神核)')); }
