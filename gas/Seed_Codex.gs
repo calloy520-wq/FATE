@@ -250,7 +250,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v6';
+var CODEX_PERSONA_VER = 'v7';
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
@@ -293,6 +293,32 @@ function upgradeMasterCodex_(ss) {
   return n;
 }
 
+// 🔄 重刷「已召喚實體化」從者的【戰鬥數據】(寶具/六圍/標籤 fx)為最新種子值——種子改了，已在場的從者也跟上。
+//   依 (真名, 職階) 對應種子(斯卡哈 Lancer/Assassin 同名靠職階區分)。只刷 GAS 掌的數值欄；
+//   ⚠ 不動 HP/MP/MEMORY(出力·魔境選擇·令咒…)/敘事欄(特徵/個性/身世)/狀態/位置/羈絆，保住玩家實例狀態與逆天改命。
+//   查無種子(AI 原創從者)→ 跳過不動。冪等可重跑。
+function resyncSummonedServants_(ss) {
+  var pc = ss.getSheetByName('眾生');
+  if (!pc || pc.getLastRow() <= 1) return 0;
+  var data = pc.getDataRange().getValues();
+  var key = function (name, cls) { return String(name) + '｜' + String(cls); };
+  var byKey = {};
+  SEED_SERVANTS.forEach(function (s) { byKey[key(s.realName, s.cls)] = s; });
+  var n = 0;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.FACTION]) !== '從者') continue;
+    if (String(data[i][COL.PC.ID]).indexOf('DEAD_') === 0) continue;
+    var s = byKey[key(data[i][COL.PC.NAME], data[i][COL.PC.RANK])];
+    if (!s) continue; // AI 原創從者無種子 → 不動
+    data[i][COL.PC.MARTIAL] = s.np || data[i][COL.PC.MARTIAL];
+    data[i][COL.PC.SIX] = JSON.stringify(s.six);
+    data[i][COL.PC.TAGS] = JSON.stringify({ skills: (s.classSkills || []).concat(s.skills || []), traits: s.traits || [] });
+    n++;
+  }
+  if (n) pc.getRange(1, 1, data.length, data[0].length).setValues(data);
+  return n;
+}
+
 // 🔵 英靈殿/御主殿 為空(只有表頭)時，自動灌入名冊。冪等：有資料就不動。
 //   另：版本升級時自動把既有種子英靈的 persona 刷成最新（萌點/口吻），不動客製英靈。
 function seedFateCodex_(ss) {
@@ -311,8 +337,9 @@ function seedFateCodex_(ss) {
   try {
     var props = PropertiesService.getScriptProperties();
     if (props.getProperty('codex_persona_ver') !== CODEX_PERSONA_VER) {
-      upgradeCodexPersonas_(ss);
+      upgradeCodexPersonas_(ss);   // 刷英靈殿(召喚來源)
       upgradeMasterCodex_(ss);
+      resyncSummonedServants_(ss); // 刷已在場從者的戰鬥數據(寶具/六圍/標籤)
       props.setProperty('codex_persona_ver', CODEX_PERSONA_VER);
     }
   } catch (e) { }
