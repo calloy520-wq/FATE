@@ -694,7 +694,8 @@ function actionSummonServant(userData, pcId, sheets) {
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       row[COL.PC.REALM] = "凡人";
-      row[COL.PC.TRAIT] = parseTraitsHelper(traits.map(t => t.n).join("、"), "氣場凜然、舉止從容、精擅戰技、深藏之面");
+      // 🎴 特徵(4格敘事：外貌/氣質/獨特癖性/私密)直接讀寫死的種子 persona.look，穩定一致、不叫 AI 生。
+      row[COL.PC.TRAIT] = parseTraitsHelper(String(persona.look || ""), "外貌出眾、舉止從容、獨特的小癖好、卸下心防時的柔軟一面");
       // 🚀 種子英靈：直接用寫死的種子 persona（萌點/口吻 v3 已補齊），不再叫 AI 重生一次——省一次 API、加速召喚。
       //    個性取 persona.words(四關鍵)、萌點取 persona.moe、生平用種子既有 back 或職階真名模板。細緻演出靠 servantCard_(codexPersona_) 注入。
       let svPref = String(persona.words || "").replace(/・/g, "、");
@@ -733,7 +734,8 @@ ${FX_MENU_}
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       row[COL.PC.REALM] = "凡人";
-      row[COL.PC.TRAIT] = parseTraitsHelper(aiTraits.map(t => t.n).join("、"), "氣場凜然、舉止從容、精擅戰技、不為人知的一面");
+      // 🎴 AI 即時生成的原創從者：特徵走通用敘事預設(不再用戰鬥特性污染敘事欄)，玩家可逆天改命微調。
+      row[COL.PC.TRAIT] = parseTraitsHelper("", "外貌出眾、舉止從容、獨特的小癖好、卸下心防時的柔軟一面");
       row[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "沉著表象、堅定內裡、珍視之物、厭惡之事");
       row[COL.PC.INTENT] = String(aiBrief.npc_intent || "").slice(0, 18);
       row[COL.PC.SIX] = JSON.stringify(aiSix);
