@@ -364,6 +364,11 @@ function resolveFateBattle_(atk, def, opts) {
   var ws = hasFx_(winner, 'wind_strike'); if (ws) { base += Math.round(6 * rankMul_(ws)); fired.push(winner.name + '·' + fxName_(winner, 'wind_strike', '風王鐵鎚')); }
   // 🧪 道具作成(crafting／法師·EMIYA)：事前備妥的暗器/毒/符具於關鍵一擊派上用場，傷害小幅追加
   var craft = hasFx_(winner, 'crafting'); if (craft) { base += Math.round(8 * rankMul_(craft)); fired.push(winner.name + '·' + fxName_(winner, 'crafting', '道具作成') + '(備妥之器)'); }
+  // 🗡️ 無毀的湖光(weapon_steal／蘭斯洛特·Arondight)：湖之妖精所託的魔劍，對具「龍」屬性之敵解放秘藏威能，傷害×1.5
+  if (hasFx_(winner, 'weapon_steal')) {
+    var foeDragon = (loser.traits || []).concat(loser.skills || []).some(function (t) { return t && /龍|竜/.test(String(t.n)); });
+    if (foeDragon) { base = Math.round(base * 1.5); fired.push(winner.name + '·' + fxName_(winner, 'weapon_steal', '無毀的湖光') + '(對龍解放)'); }
+  }
   // 神殺：對有「神性」者最終傷害放大。神性(divine fx 或特性)階級越高 → 越被神殺剋(×1.3~×1.83，依神性階)。
   var godSlay = (winner.skills || []).concat(winner.traits || []).some(function (t) { return t && String(t.n).indexOf('神殺') >= 0; });
   var divFx = hasFx_(loser, 'divine');  // 神性 fx 的階級(若有)
