@@ -167,7 +167,7 @@ function actionCheckName(userData, pcId, sheets) {
 
 
 
-// 🟢 對同地 NPC 使用丹藥/恢復道具：補血回滿、或單純解去中毒/媚惑等負面狀態
+// 🟢 對同地 NPC 使用恢復道具：補血回滿、或單純解去中毒/媚惑等負面狀態
 
 
 
@@ -245,7 +245,7 @@ function buildNpcRequestPrompt(sheets, pName, pLoc, npcRow, instructionStr, pRow
 
 // 🟢 贈禮：好感門檻與物品轉移全由 GAS 裁定，AI 只負責寫對方的反應
 
-// 🟢 補刀處決：HP<=5 才能裁定，戰利品/門派氣運結算全由 GAS 完成，AI 只負責寫終結場面
+// 🟢 補刀處決：HP<=5 才能裁定，戰利品/氣運結算全由 GAS 完成，AI 只負責寫終結場面
 
 // 🟢 道具自用(非藥水類)：扣除全由 GAS 完成，AI 只負責寫使用特效
 
@@ -384,7 +384,7 @@ function actionManualNpc(userData, pcId, sheets) {
   try {
     const aiBrief = JSON.parse(aiBriefStr);
 
-    // 🎴 FATE：九州境界系統已移除。御主固定凡人級數值；NPC 採 AI 建議耐久/魔力(夾 8~25)，無境界階梯。
+    // 🎴 FATE：階級系統已移除。御主固定凡人級數值；NPC 採 AI 建議耐久/魔力(夾 8~25)，無階級階梯。
     //   HP/MP 由 fateMaxHpMp_ 推算(無倍率)；五圍 STR~LUK 欄已棄、不寫入。
     let nCon, nInt;
     if (isCreate) {
@@ -424,14 +424,14 @@ function actionManualNpc(userData, pcId, sheets) {
         if (mysticId) newRow[COL.PC.MEMORY] = equipMysticToMemory_(newRow[COL.PC.MEMORY], mysticId);
       } catch (e) { }
     }
-    // 經濟層已移除：不再寫入初始銀兩（身世財力差異由起始禮裝體現）
+    // 經濟層已移除：不再寫入初始金錢（身世財力差異由起始禮裝體現）
     newRow[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.traits, "外貌平凡、舉止從容、自稱「我」、卸下心防的私密一面");
     newRow[COL.PC.LOC] = spawnName;
     newRow[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "溫婉謙和、內斂堅韌、明哲保身、隨波逐流");
     newRow[COL.PC.HP] = maxStats.hp; newRow[COL.PC.MP] = maxStats.mp;
     // 🎴 五圍(STR~LUK)已棄欄：戰鬥吃六圍 SIX，HP/MP 由 fateMaxHpMp_ 算，不再寫數值。
     newRow[COL.PC.MAX_HP] = maxStats.hp; newRow[COL.PC.MAX_MP] = maxStats.mp;
-    newRow[COL.PC.REALM] = "";  // 🎴 境界系統已移除，欄位留空
+    newRow[COL.PC.REALM] = "";  // 🎴 階級系統已移除，欄位留空
     newRow[COL.PC.FACTION] = aiBrief.faction || "無"; newRow[COL.PC.RANK] = aiBrief.rank || "散人";
     newRow[COL.PC.CONTRIB] = 0; newRow[COL.PC.ALIGN] = aiBrief.align || "絕對中立";
     newRow[COL.PC.INTENT] = String(aiBrief.npc_intent || "").slice(0, 18) || "（待揭曉）";
@@ -450,7 +450,7 @@ function actionManualNpc(userData, pcId, sheets) {
       }
     }
 
-    // 🗑️ 門派自動註冊(registerFactionHelper)已隨九州門派系統移除。
+    // 🗑️ 陣營自動註冊(registerFactionHelper)已隨舊陣營系統移除。
 
       if (isCreate && userData.account) { try { linkAccountToPc_(userData.account, newId); } catch (e) { } }
   return JSON.stringify({ success: true, pcId: isCreate ? newId : undefined, gameId: isCreate ? gameId : undefined, message: `【聖杯】因果已定，『${finalName}』${isCreate ? `於「${spawnName}」締結令咒，成為御主` : `已收錄`}。` });
@@ -460,7 +460,7 @@ function actionManualNpc(userData, pcId, sheets) {
 // ==========================================
 // 🔵 召喚從者（Servant）— 寫進御主自己的 game_id 實例，並設為同行夥伴
 // ==========================================
-// 🔵 六圍階級 → 九州數值（橋接）：rankVal 轉，最低 8
+// 🔵 六圍階級 → 內部數值（橋接）：rankVal 轉，最低 8
 function svNum_(rank) { return Math.max(8, rankVal(rank)); }
 
 // 🔵 提供前端瀏覽英靈殿：回傳 [{id,cls,name,gender,np}]
@@ -629,7 +629,7 @@ function actionSummonServant(userData, pcId, sheets) {
       const traits = JSON.parse(hero[COL.HERO.TRAITS] || "[]");
       const persona = JSON.parse(hero[COL.HERO.PERSONA] || "{}");
 
-      // 六圍 → 顯示數值（數值即 rankVal，無境界倍率）
+      // 六圍 → 顯示數值（數值即 rankVal，無階級倍率）
       const nStr = svNum_(six.筋力), nCon = svNum_(six.耐久), nAgi = svNum_(six.敏捷), nInt = svNum_(six.魔力), nLuk = svNum_(six.幸運);
       const maxStats = fateMaxHpMp_(nCon, nInt);
       // 從者血厚：耐久越高越肉
@@ -1128,7 +1128,7 @@ function actionRest(userData, pcId, sheets) {
     });
   }
 
-  // ── 以下為非 FATE（九州）舊版休養：全回滿（經濟層已移除，不再收費）──
+  // ── 以下為非 FATE 舊版休養：全回滿（經濟層已移除，不再收費）──
   let healedNames = [pcName];
   const pMax = maxStatsForRow_(pcData[pIdx]);
   const prevHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
@@ -1166,7 +1166,7 @@ function actionRest(userData, pcId, sheets) {
 // ==========================================
 // 📜 全新 MMO 級飛書系統 (支援夾帶物品與刪除，完美兼容 NPC)
 // ==========================================
-// 🔵 信件/賭場/生活/店鋪等九州系統已於 FATE 移除（檔案與 router 註冊一併刪除）。
+// 🔵 信件/賭場/生活/店鋪等舊系統已於 FATE 移除（檔案與 router 註冊一併刪除）。
 
 
 
@@ -1350,7 +1350,7 @@ function actionPlay(userData, pcId, sheets) {
 若好感度未滿 80，或性格屬於冷酷/高傲/剛烈，【絕對禁止】主動迎合、發情或瞬間屈服！必須表現出強烈的抗拒、屈辱、咬牙切齒或冷嘲熱諷。即便肉體有生理反應，靈魂與對話也必須是硬氣且具攻擊性的！違者判定錯亂！`;
 
   } else {
-    // 🎴 solo(SFW)：九州傳聞/勢力/我的家系統已移除，環境欄留空，只給寶具與在場人物。
+    // 🎴 solo(SFW)：舊版情報/勢力/我的家系統已移除，環境欄留空，只給寶具與在場人物。
     PROMPT_ENV = "";
     PROMPT_GEAR = `【寶具／技藝】：${pcData[pcIndex][COL.PC.MARTIAL] || "尚無"}`;
     PROMPT_REL = `【當前同地人物】\n${localSceneStr}${thirdPartyStr}`;
@@ -1413,7 +1413,7 @@ function actionPlay(userData, pcId, sheets) {
       return `- 【${tName}】目前位置:${r[COL.PC.LOC] || "未知"} | 身世:${r[COL.PC.BACK] || "無"} | 性格:${formatPref(r[COL.PC.PREF])} | 玩家與其羈絆:${relTag}(好感:${currentFav})`;
     });
 
-    remoteNpcStr = `\n★【話題人物情報 (遠端/未現身)】：\n玩家在對話中提到了以下不在場的角色。請依據這些真實情報，讓在場的 NPC 給出符合其自身性格與人生閱歷的合理反應（例如：八卦傳聞、敬畏評價、仇恨、或是單純表示不認識）。\n${remoteDetails.join("\n")}\n🛑【鐵律】：以上話題人物【絕對不在場】，嚴禁描寫他們當場現身、開口說話或與玩家產生直接互動！違者敘事錯亂！`;
+    remoteNpcStr = `\n★【話題人物情報 (遠端/未現身)】：\n玩家在對話中提到了以下不在場的角色。請依據這些真實情報，讓在場的 NPC 給出符合其自身性格與人生閱歷的合理反應（例如：八卦流言、敬畏評價、仇恨、或是單純表示不認識）。\n${remoteDetails.join("\n")}\n🛑【鐵律】：以上話題人物【絕對不在場】，嚴禁描寫他們當場現身、開口說話或與玩家產生直接互動！違者敘事錯亂！`;
   }
 
 
@@ -1496,7 +1496,7 @@ ${isKanshou ? `
             attempts++; // 🔴 修正：原本漏了遞增，導致 attempts<200 防呆煞車永遠失效、可能無限迴圈逾時
           } while (memoryMapData.some(r => String(r[COL.MAP.COORD] || "").trim() === coordStr) && attempts < 200);
 
-          const newMapRow = ["九州", fullName, mapType, coordStr, m.desc || "未知地界。", parentName];
+          const newMapRow = ["冬木", fullName, mapType, coordStr, m.desc || "未知地界。", parentName];
           mapsToAppend.push(newMapRow); memoryMapData.push(newMapRow);
         }
       });
@@ -1506,7 +1506,7 @@ ${isKanshou ? `
       }
     }
 
-    // 🗑️ AI 自動生成門派(new_factions / registerFactionHelper)已隨九州門派系統移除。
+    // 🗑️ AI 自動生成陣營(new_factions / registerFactionHelper)已隨舊陣營系統移除。
 
     if (aiData.events && Array.isArray(aiData.events) && sheets.epic) aiData.events.forEach(ev => { sheets.epic.appendRow([pcId, String(ev).trim(), new Date()]); });
 
@@ -1558,7 +1558,7 @@ ${isKanshou ? `
           if (colIdx !== undefined) {
             if (colIdx === COL.PC.PREF || colIdx === COL.PC.TRAIT) return;
             if (colIdx === COL.PC.LOC) {
-              let newLoc = valStr.replace(/九州-/g, "").replace(/\[|\]/g, "").trim();
+              let newLoc = valStr.replace(/冬木-/g, "").replace(/\[|\]/g, "").trim();
               // 🔴 防呆：「行蹤不明」只是AI在劇情沒交代去向時的占位語意，不是真地名，禁止落地存檔或被坤圖自動建檔成假地點，否則NPC會從此完全失聯
               if (newLoc === "行蹤不明" || newLoc === "") {
                 const oldRootLoc = String(pcData[targetIdx][COL.PC.LOC] || "").split('-')[0].trim() || "青丘城";
@@ -1578,8 +1578,8 @@ ${isKanshou ? `
               }
               pcData[targetIdx][COL.PC.LOC] = newLoc; if (targetIdx === pcIndex) curL = newLoc;
               if (!rootKnown && sheets.map && rootLoc) {
-                // 九州舊行為：未知母地圖自動建檔（FATE 不會走到這）
-                const fallbackMapRow = ["九州", rootLoc, "荒野", `${Math.floor(Math.random() * 120) - 60},${Math.floor(Math.random() * 120) - 60}`, "未探明區域。"];
+                // 舊版行為：未知母地圖自動建檔（FATE 不會走到這）
+                const fallbackMapRow = ["冬木", rootLoc, "荒野", `${Math.floor(Math.random() * 120) - 60},${Math.floor(Math.random() * 120) - 60}`, "未探明區域。"];
                 sheets.map.appendRow(fallbackMapRow); memoryMapData.push(fallbackMapRow);
               }
             } else if ([COL.PC.HP, COL.PC.MP, COL.PC.CONTRIB].includes(colIdx)) {
@@ -1612,7 +1612,7 @@ ${isKanshou ? `
                     // 戰史：御主殞命＝敗北（在死亡當下記錄一次；殘局清理由下次登入處理）
                     try { var acctDp = String(userData.acctName || "") || findAccountByPc_(pcId); if (acctDp) recordHistory_(acctDp, "敗", svName, "御主殞命，聖杯戰爭落敗。"); } catch (e) {}
                   } else {
-                    // 九州舊版：血歸 0 送「小醫仙藥鋪」救回（FATE 不走此路）
+                    // 舊版行為：血歸 0 送「小醫仙藥鋪」救回（FATE 不走此路）
                     const healLoc = "小醫仙藥鋪";
                     pcData[targetIdx][COL.PC.HP] = 50; pcData[targetIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "換上乾淨素衣", "姿勢": "平躺靜養", "負面": "重傷初癒", "顏面": "蒼白" }); pcData[targetIdx][COL.PC.LOC] = healLoc;
                     if (targetIdx === pcIndex) curL = healLoc;
@@ -1662,7 +1662,7 @@ ${isKanshou ? `
 
 
 
-    // 經濟層（物品/銀兩/天命）已全數移除：items_gained / items_transferred / money_transferred / items_lost / items_used 不再落地。
+    // 經濟層（物品/金錢/任務）已全數移除：items_gained / items_transferred / money_transferred / items_lost / items_used 不再落地。
 
     let newlyRecruited = aiData.recruited && Array.isArray(aiData.recruited) ? aiData.recruited.map(n => String(n).trim()) : [];
     let dismissedNpc = userMsg.includes("解除了組隊同行關係") ? (userMsg.match(/與「(.*?)」解除/) || [])[1]?.trim() || "" : "";
@@ -1922,7 +1922,7 @@ ${isKanshou ? `
 
 
 
-    // 🔴 好感度渲染（經濟層物品/銀兩渲染已移除）
+    // 🔴 好感度渲染（經濟層物品/金錢渲染已移除）
     if (aiData.rel_changes && Array.isArray(aiData.rel_changes)) {
       aiData.rel_changes.forEach(rc => {
         const change = parseInt(rc.fav_change) || 0;
@@ -1961,7 +1961,7 @@ ${isKanshou ? `
       finalResponseText += `<br><br><span style="font-size:13px; line-height:1.8;">${hpChangeMsgs.join("<br>")}</span>`;
     }
 
-    // 🔴 玩家真氣變化（生命已由上面清單統一顯示，這裡不重複；銀兩經濟層已移除）
+    // 🔴 玩家魔力變化（生命已由上面清單統一顯示，這裡不重複；金錢經濟層已移除）
     const mpAfter = parseInt(pcData[pcIndex][COL.PC.MP]) || 0;
     const extraMsgs = [];
     const mpDiff = mpAfter - mpBefore;
@@ -1999,7 +1999,7 @@ ${isKanshou ? `
       justRevived: justRevived,
       defeat: fatePlayerDefeat, dreamPrompt: fateDreamPrompt, // 🔵 FATE：御主殞命→前端播虛假之夢→老虎道場
       allMapNames: memoryMapData.slice(1).map(m => String(m[COL.MAP.NAME]).trim()).filter(n => n.length >= 2),
-      // 🔴 新增：將全九州活著的眾生名單傳給前端，用於三段式判定
+      // 🔴 新增：將全部活著的眾生名單傳給前端，用於三段式判定
       allKnownNames: pcData.filter((r, i) => i !== 0 && !String(r[COL.PC.ID]).startsWith("DEAD_")).map(r => String(r[COL.PC.NAME]).trim())
     });
 
@@ -2041,7 +2041,7 @@ function actionGetEpicHistory(userData, pcId, sheets) {
     }));
   }
 
-  // 江湖足跡統計
+  // 足跡統計
   let stats = {
     kills: 0,
     questsDone: 0,
@@ -2099,7 +2099,7 @@ function actionGetEpicHistory(userData, pcId, sheets) {
   });
 }
 
-// 🟢 新增：天道強行抹除/斬斷 NPC 的重大事件約定
+// 🟢 新增：系統強制抹除/斬斷 NPC 的重大事件約定
 function actionClearNpcMajorEvent(userData, pcId, sheets) {
   if (!sheets.rel) return JSON.stringify({ success: false, message: "系統異常：REL關係表不存在。" });
 
