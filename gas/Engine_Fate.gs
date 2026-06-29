@@ -86,7 +86,8 @@ var NP_SCALE_MATRIX = [
 // 攻擊寶具規模：由寶具名(對人/對軍/對城/對界)或 ea/excalibur 標籤推定，預設對人。
 function npAtkScale_(c) {
   var np = String(c.np || '');
-  if (hasFx_(c, 'ea') || /對界/.test(np)) return '對界';
+  // 🗡️ 無限劍製(ubw)＝固有結界(Reality Marble)＝對界級：劍之地平的飽和彈幕，足以一發燒掉狂戰多條十二試煉命
+  if (hasFx_(c, 'ea') || hasFx_(c, 'ubw') || /對界/.test(np)) return '對界';
   if (hasFx_(c, 'excalibur') || /對城/.test(np)) return '對城';
   if (/對軍/.test(np)) return '對軍';
   return '對人';
@@ -232,7 +233,10 @@ function resolveFateBattle_(atk, def, opts) {
   var aRoll = d20(), dRoll = d20();
   // 命中／迴避改用「階級隨機區間」(base-10~base+5)，讓低階偶能爆冷、骰運重新有戲
   var aHit = aRoll + rankBand_(atk.six[aProf.hit]) + outMod;
-  var dEva = dRoll + rankBand_(def.six[dProf.eva]);
+  // 🛡️ 迴避＝敏捷(身法)×0.65 ＋ 耐久(硬扛/底子)×0.35：拆掉「敏捷雙吃(命中又迴避)」，
+  //   讓玻璃快刀(高敏低耐：Rider/Assassin)不再無敵閃，肉盾(高耐：狂戰/劍)守得更穩；命中端仍純看敏/魔(進攻不變)。
+  var dEvaVal = Math.round(rankVal(def.six['敏捷']) * 0.65 + rankVal(def.six['耐久']) * 0.35);
+  var dEva = dRoll + dEvaVal + (Math.floor(Math.random() * 16) - 10);
   if (aProf.kind === '魔砲') fired.push(atk.name + '·' + (fxName_(atk, 'territory', '魔術詠唱')));
   // 🍱 整備·進食（戰前 buff）：攻方命中 +opts.mealBuff（由 fateStrike_ 依御主整備狀態傳入）
   if (opts.mealBuff) { aHit += opts.mealBuff; fired.push(atk.name + '·整備進食(+' + opts.mealBuff + ')'); }
@@ -300,6 +304,8 @@ function resolveFateBattle_(atk, def, opts) {
   if (hasFx_(winner, 'self_mod')) base += 3;
   // 🗡️ 投影魔術(projection)：每擊都連續投影複製名劍齊射，給持續傷害底火（救低筋力的 EMIYA）
   if (hasFx_(winner, 'projection')) { base += 24 + Math.round(rankVal(winner.six["寶具"]) * 0.6); fired.push(winner.name + '·投影連射'); }
+  // 🪄 高速詠唱(fast_cast／Caster)：一回合內連珠疊咒，魔砲彈幕加成（救低耐玻璃魔女的輸出）
+  var fc = hasFx_(winner, 'fast_cast'); if (fc) { base += Math.round(12 * rankMul_(fc)); fired.push(winner.name + '·' + fxName_(winner, 'fast_cast', '高速詠唱') + '(連珠疊咒)'); }
   // 狂化(mad)：傷害暴漲
   var madW = hasFx_(winner, 'mad'); if (madW) { base += Math.round(14 * rankMul_(madW)); fired.push(winner.name + '·' + fxName_(winner, 'mad', '狂化')); }
   // 神代魔術(divine_age)：魔力傷害大增（下方對魔力減免也減半）
@@ -357,10 +363,11 @@ function resolveFateBattle_(atk, def, opts) {
   else if (dc) { base = Math.round(base * (1 - 0.18 * rankMul_(dc))); fired.push(loser.name + '·' + fxName_(loser, 'divine_core', '神核')); }
   // 對魔力(nullify_magic)：攻方為魔術系(法師魔砲/魔力放出/神代)時大減魔術傷。
   //   ★原作精髓：A 階對魔力幾乎無視現代魔術——Saber 對 Caster 的魔砲僅如清風拂面。
-  //   但神代魔術(Caster 美狄亞的本領)凌駕現代對魔力，減免折半。
+  //   但神代魔術(神祖之術)凌駕現代對魔力＝完全無視(美狄亞的本領)；概念壓制亦無視。
   var atkMagic = (wProf.dmg === '魔力') || !!hasFx_(winner, 'burst') || !!hasFx_(winner, 'divine_age');
   var nm = hasFx_(loser, 'nullify_magic');
-  if (atkMagic && nm && pierces('nullify_magic')) { fired.push(winner.name + '·概念壓制(凌駕對魔力)'); }
+  if (atkMagic && nm && hasFx_(winner, 'divine_age')) { fired.push(winner.name + '·' + fxName_(winner, 'divine_age', '神代魔術') + '(凌駕對魔力)'); }
+  else if (atkMagic && nm && pierces('nullify_magic')) { fired.push(winner.name + '·概念壓制(凌駕對魔力)'); }
   else if (atkMagic && nm) {
     var nmV = rankVal(nm);
     var red = 0.30 * rankMul_(nm);                 // 基礎：階級越高擋越多

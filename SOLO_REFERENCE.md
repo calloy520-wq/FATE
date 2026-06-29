@@ -126,6 +126,8 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `resolveFateBattle_(atk,def,opts)`：單次交手裁決。處理的 fx 標籤：
   `aim analyze anti_magic_lance burst chain clear_mind divine_age divine_core ea evade_ranged excalibur first_strike gae_bolg gob mad morale nullify_magic petrify projection ride self_mod stealth str_up tactics territory tsubame ubw unreadable wind_strike zabaniya`
   含：職階相剋三角(KNIGHT_BEATS +命中+傷害)、對魔力減魔砲、territory 防壁、divine_age 繞 MR、zabaniya 致命(×1.9+70)、gae_bolg 因果必中、petrify 石化、projection 被動加成(EMIYA) 等。
+- **🛡️ 迴避拆敏捷雙吃(2026-06)**：`dEva = d20 + round(敏捷val×0.65 + 耐久val×0.35) + rand(-10~5)`。舊版迴避純吃敏捷→「命中又迴避」雙吃，高敏(Rider/Assassin 敏A+)無敵閃；改混耐久後玻璃快刀變得打得中、肉盾守得穩。命中端仍純敏/魔(進攻不變)。
+- **🔧 平衡補丁(2026-06)**：①`divine_age`(神代魔術)＝**完全無視**對魔力(原只半減)，救美狄亞魔砲；②`fast_cast`(高速詠唱)新增戰鬥傷害 +12×rankMul(連珠疊咒)；③`ubw`(無限劍製)`npAtkScale_` 標為**對界**級(固有結界飽和彈幕)→寶具規模矩陣加乘＋可一擊燒掉狂戰多條十二試煉命(救 EMIYA 對狂戰)。
 - **🎲 D&D 傷害骰(2026-06)**：`rollDice_(n,sides)`＋`rankTier_(r)`(E1→EX6)。
   - 武器骰(每擊)：`base = round(rankVal(主屬性)*0.5) + rankTier d8 + 命中分差*1.2 − 耐久/2`。
   - 暴擊(擲20)：多骰一輪 `rankTier d8 +12`(取代舊固定 +30)。
