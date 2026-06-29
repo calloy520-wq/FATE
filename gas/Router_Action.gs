@@ -2101,10 +2101,24 @@ function actionFateBattle(userData, pcId, sheets) {
   let assassinGuardIdx = -1;
   if (isMasterTarget) {
     const guardLoc = String(pcData[nIdx][COL.PC.LOC]).trim();
-    assassinGuardIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者"
-      && String(r[COL.PC.GAME_ID] || "") === myGameId
-      && !String(r[COL.PC.ID]).startsWith("DEAD_")
-      && String(r[COL.PC.LOC]).trim() === guardLoc);
+    const masterName = String(pcData[nIdx][COL.PC.NAME]);
+    const ownServantName = getMasterServant_(pcData[nIdx][COL.PC.MEMORY]); // 🔗 這名御主【自己的】從者(硬連結)
+    // 🛡️ 只有「這名御主本人的從者」能護衛——硬連結優先(按名)。別組(B 御主)的從者不會跑來幫 A 御主擋刀。
+    if (ownServantName) {
+      assassinGuardIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者"
+        && String(r[COL.PC.GAME_ID] || "") === myGameId
+        && !String(r[COL.PC.ID]).startsWith("DEAD_")
+        && String(r[COL.PC.NAME]) === ownServantName
+        && String(r[COL.PC.LOC]).trim() === guardLoc);
+    }
+    // 退回(舊存檔無【從者】連結)：同地敵從者中，須其【御主】反指這名御主，仍不會抓到別組
+    if (assassinGuardIdx === -1) {
+      assassinGuardIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者"
+        && String(r[COL.PC.GAME_ID] || "") === myGameId
+        && !String(r[COL.PC.ID]).startsWith("DEAD_")
+        && String(r[COL.PC.LOC]).trim() === guardLoc
+        && getServantMaster_(r[COL.PC.MEMORY]) === masterName);
+    }
   }
 
   // ⏳ 戰鬥耗 1 AP（＝推進 1 小時，1 AP＝1 小時）；行動點不足則無法出戰
