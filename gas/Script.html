@@ -1307,10 +1307,10 @@ function renderRecentLocs(recents = null) {
           + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">' + s.condition + '</div>'
           + bar('體', s.hpNum, s.hpMax, 'hp')
           + ((pc && pc.mode === 'kanshou') ? '' :  // 🔋 靈基出力轉盤（從者無自有魔力，靠御主供魔；出力決定戰力＋御主每小時維持費；100% 才能解放寶具）
-              '<div style="margin-top:4px;">'
-              + '<div style="color:#7ec8ff; font-size:11px;">🔋 靈基出力　<b>' + (s.output || 60) + '%</b>　<small style="opacity:.75;">' + (s.outputLabel || '') + '</small><small style="opacity:.55;"> · 御主供魔強度</small></div>'
+              '<div class="out-dial" style="margin-top:4px;">'
+              + '<div style="color:#7ec8ff; font-size:11px;">🔋 靈基出力　<b class="out-pct">' + (s.output || 60) + '%</b>　<small class="out-label" style="opacity:.75;">' + (s.outputLabel || '') + '</small><small style="opacity:.55;"> · 御主供魔強度</small></div>'
               + '<div style="display:flex; gap:3px; margin-top:3px;" onclick="event.stopPropagation();">'
-              + [20, 40, 60, 80, 100].map(function (o) { var on = (o === (s.output || 60)); return '<button onclick="setServantOutput(\'' + safeN + '\',' + o + ')" title="' + (o === 100 ? '全開：戰力最強、唯一可解放寶具，御主魔力消耗最劇' : o === 20 ? '維持：御主魔力最省，但戰力受限、無法放寶具' : '出力 ' + o + '%') + '" style="flex:1; font-size:10px; padding:3px 0; border-radius:5px; cursor:pointer; border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + '; background:' + (on ? 'rgba(110,180,220,.30)' : 'rgba(40,50,65,.4)') + '; color:' + (on ? '#bfe3ff' : '#7a8aa0') + '; font-weight:' + (on ? 'bold' : 'normal') + ';">' + o + (o === 100 ? '💥' : '') + '</button>'; }).join('')
+              + [20, 40, 60, 80, 100].map(function (o) { var on = (o === (s.output || 60)); return '<button class="out-btn" data-o="' + o + '" onclick="setServantOutput(this,\'' + safeN + '\',' + o + ')" title="' + (o === 100 ? '全開：戰力最強、唯一可解放寶具，御主魔力消耗最劇' : o === 20 ? '維持：御主魔力最省，但戰力受限、無法放寶具' : '出力 ' + o + '%') + '" style="flex:1; font-size:10px; padding:3px 0; border-radius:5px; cursor:pointer; border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + '; background:' + (on ? 'rgba(110,180,220,.30)' : 'rgba(40,50,65,.4)') + '; color:' + (on ? '#bfe3ff' : '#7a8aa0') + '; font-weight:' + (on ? 'bold' : 'normal') + ';">' + o + (o === 100 ? '💥' : '') + '</button>'; }).join('')
               + '</div></div>')
           + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5; margin-top:4px;">羈絆 ' + bondWord(s.bond) + '</div>'
           + '<div style="color:#cdbbe6; font-size:11px; margin-top:3px; letter-spacing:.5px;">六圍　' + sixLine + '</div>'
@@ -1318,11 +1318,11 @@ function renderRecentLocs(recents = null) {
           + (traitPills ? ('<div style="margin-top:1px;">' + traitPills + '</div>') : '')
           + ((skillPills || traitPills) ? '<div style="color:#6a5f80; font-size:9.5px; margin-top:2px;">👆 點標籤看效果</div>' : '')
           + ((s.mageRealm && s.mageRealm.has && !(pc && pc.mode === 'kanshou')) ?  // 🔮 魔境的智慧：玩家自選 1 個通用 A 階被動
-              '<div style="margin-top:6px; padding:5px 7px; border:1px solid #4a6a8a; border-radius:7px; background:rgba(30,40,60,.4);" onclick="event.stopPropagation();">'
+              '<div class="mr-dial" style="margin-top:6px; padding:5px 7px; border:1px solid #4a6a8a; border-radius:7px; background:rgba(30,40,60,.4);" onclick="event.stopPropagation();">'
               + '<div style="color:#9fd0ff; font-size:11px;">✨ 魔境的智慧　<small style="opacity:.75;">運起 1 門通用 A 階武技</small></div>'
               + '<div style="display:flex; flex-wrap:wrap; gap:3px; margin-top:4px;">'
-              + s.mageRealm.pool.map(function (o) { var on = (o.fx === s.mageRealm.pick); return '<button onclick="setMageRealm(\'' + safeN + '\',\'' + o.fx + '\')" title="' + String(o.desc).replace(/"/g, '') + '" style="font-size:10px; padding:3px 7px; border-radius:6px; cursor:pointer; border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + '; background:' + (on ? 'rgba(110,180,220,.30)' : 'rgba(40,50,65,.4)') + '; color:' + (on ? '#bfe3ff' : '#8a9ab0') + '; font-weight:' + (on ? 'bold' : 'normal') + ';">' + o.icon + o.n + (on ? ' ✓' : '') + '</button>'; }).join('')
-              + (s.mageRealm.pick ? '<button onclick="setMageRealm(\'' + safeN + '\',\'\')" title="收起所運武技" style="font-size:10px; padding:3px 7px; border-radius:6px; cursor:pointer; border:1px solid #6a4a4a; background:rgba(60,40,40,.4); color:#c08a8a;">✕ 清除</button>' : '')
+              + s.mageRealm.pool.map(function (o) { var on = (o.fx === s.mageRealm.pick); return '<button class="mr-btn" data-fx="' + o.fx + '" data-n="' + o.icon + o.n + '" onclick="setMageRealm(this,\'' + safeN + '\',\'' + o.fx + '\')" title="' + String(o.desc).replace(/"/g, '') + '" style="font-size:10px; padding:3px 7px; border-radius:6px; cursor:pointer; border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + '; background:' + (on ? 'rgba(110,180,220,.30)' : 'rgba(40,50,65,.4)') + '; color:' + (on ? '#bfe3ff' : '#8a9ab0') + '; font-weight:' + (on ? 'bold' : 'normal') + ';">' + o.icon + o.n + (on ? ' ✓' : '') + '</button>'; }).join('')
+              + '<button class="mr-clear" onclick="setMageRealm(this,\'' + safeN + '\',\'\')" title="收起所運武技" style="font-size:10px; padding:3px 7px; border-radius:6px; cursor:pointer; border:1px solid #6a4a4a; background:rgba(60,40,40,.4); color:#c08a8a;' + (s.mageRealm.pick ? '' : 'display:none;') + '">✕ 清除</button>'
               + '</div></div>' : '')
           + '<div style="color:#9a8bb0; font-size:11px; margin-top:5px;">寶具　' + s.np + '</div>'
           + ((pc && pc.mode === 'kanshou') || (dual && !isActive) ? '' :
@@ -1636,23 +1636,54 @@ function renderRecentLocs(recents = null) {
   }
 
   // 🔋 設定從者靈基出力檔位（20/40/60/80/100）：玩家旋鈕，免費即時。高檔強但御主每小時維持費高；100% 才能解放寶具。
-  async function setServantOutput(npcName, output) {
-    if (!beginAction()) return;
+  async function setServantOutput(btn, npcName, output) {
+    // ⚡ 樂觀更新：點下去「立刻」改轉盤外觀＋百分比，不跳全螢幕遮罩、不整頁重抓——零等待感。
+    try {
+      var wrap = btn && btn.closest ? btn.closest('.out-dial') : null;
+      if (wrap) {
+        wrap.querySelectorAll('.out-btn').forEach(function (b) {
+          var on = parseInt(b.getAttribute('data-o'), 10) === output;
+          b.style.border = '1px solid ' + (on ? '#7ec8ff' : '#3a4a5a');
+          b.style.background = on ? 'rgba(110,180,220,.30)' : 'rgba(40,50,65,.4)';
+          b.style.color = on ? '#bfe3ff' : '#7a8aa0';
+          b.style.fontWeight = on ? 'bold' : 'normal';
+        });
+        var lblMap = { 20: '維持', 40: '節流', 60: '巡航', 80: '高壓', 100: '全開' };
+        var pe = wrap.querySelector('.out-pct'); if (pe) pe.textContent = output + '%';
+        var le = wrap.querySelector('.out-label'); if (le) le.textContent = lblMap[output] || '';
+      }
+    } catch (e) {}
+    // 背景存檔（不阻塞、不遮罩）；回來只更新「供魔收支」那行，整體不重繪
     try {
       const res = await gasRun({ action: 'set_servant_output', pcId: pc.id, servant: npcName, output: output, acctName: (pc && pc.account) || currentAccount });
-      if (res && res.success) { syncData(true); }
-      else alert((res && res.message) || '調整出力失敗。');
-    } catch (e) { alert('連線失敗，出力未調整。'); } finally { endAction(); }
+      if (res && res.success) { try { updateEconomy(res.economy); } catch (e) {} }
+      else if (res && res.message) { alert(res.message); }
+    } catch (e) { /* 靜默：UI 已樂觀更新，下次同步會校正 */ }
   }
 
-  // 🔮 魔境的智慧（斯卡哈）：玩家點選 1 個通用 A 階被動標籤（fx 空字串＝清除）。免費即時。
-  async function setMageRealm(npcName, fx) {
-    if (!beginAction()) return;
+  // 🔮 魔境的智慧（斯卡哈）：玩家點選 1 個通用 A 階被動標籤（fx 空字串＝清除）。樂觀更新·免遮罩。
+  async function setMageRealm(btn, npcName, fx) {
+    // ⚡ 立刻把選盤外觀更新（選中高亮＋✓、清除鈕顯隱），不跳遮罩
+    try {
+      var wrap = btn && btn.closest ? btn.closest('.mr-dial') : null;
+      if (wrap) {
+        wrap.querySelectorAll('.mr-btn').forEach(function (b) {
+          var on = b.getAttribute('data-fx') === fx;
+          b.style.border = '1px solid ' + (on ? '#7ec8ff' : '#3a4a5a');
+          b.style.background = on ? 'rgba(110,180,220,.30)' : 'rgba(40,50,65,.4)';
+          b.style.color = on ? '#bfe3ff' : '#8a9ab0';
+          b.style.fontWeight = on ? 'bold' : 'normal';
+          b.textContent = b.getAttribute('data-n') + (on ? ' ✓' : '');
+        });
+        var clr = wrap.querySelector('.mr-clear'); if (clr) clr.style.display = fx ? '' : 'none';
+      }
+    } catch (e) {}
+    // 背景存檔；成功後輕量同步(讓標籤列那顆 ✨技能 跟著出現/更新)，失敗才提示
     try {
       const res = await gasRun({ action: 'set_mage_realm', pcId: pc.id, servant: npcName, fx: fx, acctName: (pc && pc.account) || currentAccount });
-      if (res && res.success) { syncData(true); }
-      else alert((res && res.message) || '運起武技失敗。');
-    } catch (e) { alert('連線失敗，武技未變更。'); } finally { endAction(); }
+      if (res && res.success) { try { syncData(true); } catch (e) {} }
+      else if (res && res.message) { alert(res.message); }
+    } catch (e) { /* 靜默：UI 已樂觀更新 */ }
   }
 
   // ✨ 發動禮裝（主動型）：吃迴路、耗魔力、扣充能
