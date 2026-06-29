@@ -211,6 +211,8 @@ function rowToCombatant_(row) {
       ? { 筋力: 'C', 耐久: 'C', 敏捷: 'C', 魔力: 'C', 幸運: 'C', 寶具: 'C' }
       : { 筋力: 'E', 耐久: 'E', 敏捷: 'E', 魔力: 'E', 幸運: 'E', 寶具: '-' }; // 御主/凡人
   }
+  // 🐕 主從synergy：理想御主(如恩奇都↔巴茲狄洛特)把從者拉回原作全盛六圍；其餘御主維持削弱基線。
+  six = masterSynergySix_(row[COL.PC.NAME], six, row[COL.PC.MEMORY]);
   return {
     name: row[COL.PC.NAME], cls: row[COL.PC.RANK] || '',
     six: six, skills: skills, traits: traits, np: row[COL.PC.MARTIAL] || '',

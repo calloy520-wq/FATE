@@ -127,6 +127,18 @@ function setServantOutput_(memory, pct) {
   return mem ? (mem + '｜【出力】' + p) : ('【出力】' + p);
 }
 
+// 🐕 主從synergy（原作設定「御主供魔／契合度提升從者能力」）：特定主從組合回到全盛六圍。
+//   目前只：恩奇都 ↔ 巴茲狄洛特（獵犬御主）→ 全能力 A、寶具 A++。其餘御主（含玩家自召）下恩奇都維持削弱基線。
+//   讀從者列 MEMORY【御主】名判定；在 rowToCombatant_ 套用。要擴充別的主從組合就往這加。
+function masterSynergySix_(name, six, memory) {
+  var mm = String(memory || "").match(/【御主】([^｜]+)/);
+  var mName = mm ? mm[1] : "";
+  if (/恩奇都/.test(String(name)) && /巴茲狄洛特/.test(mName)) {
+    return { 筋力: 'A', 耐久: 'A', 敏捷: 'A', 魔力: 'A', 幸運: six['幸運'] || '-', 寶具: 'A++' };
+  }
+  return six;
+}
+
 // 🔮 魔境的智慧（斯卡哈專屬·玩家可選被動）：影之國女王通曉常見武技，玩家點選【1 個】通用 A 階被動標籤套用。
 //   只給「有階級的常見被動」——不含原初符文(她本有)、不含無階級特性、不含寶具/簽名級招式。存從者 MEMORY【魔境】fx。
 //   注入點：rowToCombatant_（戰鬥讀取時把選定標籤加進 skills，r 固定 A）。前端只對有 mage_realm 的從者露出選盤。
