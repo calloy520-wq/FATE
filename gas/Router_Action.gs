@@ -244,58 +244,33 @@ function actionUpdateFate(userData, pcId, sheets) {
 }
 
 function actionManualNpc(userData, pcId, sheets) {
-  const isCreate = userData.action === "create";
-  const newId = isCreate ? "PC_" + Date.now() : "NPC_" + Date.now();
-  const { name, sex, identity, standing, wish, appearance, magic, circuits, origin, melee, currentLoc, npcRel, npcName, npcSex } = userData;
-  const finalName = isCreate ? name : npcName;
-  const finalSex = isCreate ? sex : (npcSex || "異");
+  // 🎴 御主創角專用（action="create"）。手動建 NPC(manual_npc) 已移除；從者另由 actionSummonServant 處理，與此無關。
+  const newId = "PC_" + Date.now();
+  const { name, sex, identity, standing, wish, appearance, magic, circuits, origin, melee } = userData;
+  const finalName = name;
+  const finalSex = sex;
 
   // 🔴 姓名已在 sanitizeUserData_ 清成純中文；若為空代表含非中文字元，直接擋下不寫表
   if (!finalName) {
     return JSON.stringify({ success: false, message: "名號僅限中文字，不可使用英文、數字或符號。" });
   }
 
-  if (!isCreate) {
-    const pcRows = sheets.pc.getDataRange().getValues();
-    if (pcRows.find(r => r[COL.PC.NAME] === finalName && !String(r[COL.PC.ID]).startsWith("DEAD_"))) return JSON.stringify({ success: false, message: "此人已在名錄。" });
-  } else {
-    // 🔴 玩家創角：前端check_name只在送出前驗證過一次，仍可能因延遲填表或直打API而與其他玩家撞名，
-    //   故創角寫入前必須再次擋重複，否則會產生兩個同名PC，後續所有靠姓名查找的功能都會抓錯人。
-    const pcRows = sheets.pc.getDataRange().getValues();
-    if (pcRows.find(r => r[COL.PC.NAME] === finalName && !String(r[COL.PC.ID]).startsWith("DEAD_"))) return JSON.stringify({ success: false, message: "此名號已有大俠使用，請換一個名號。" });
-    if (sheets.auth) { try { sheets.auth.appendRow([finalName, newId, "御主", "", ""]); } catch (e) { } }
-  }
+  // 🔴 創角寫入前再次擋撞名，否則會產生兩個同名 PC，後續所有靠姓名查找的功能都會抓錯人。
+  const pcRows = sheets.pc.getDataRange().getValues();
+  if (pcRows.find(r => r[COL.PC.NAME] === finalName && !String(r[COL.PC.ID]).startsWith("DEAD_"))) return JSON.stringify({ success: false, message: "此名號已有大俠使用，請換一個名號。" });
+  if (sheets.auth) { try { sheets.auth.appendRow([finalName, newId, "御主", "", ""]); } catch (e) { } }
 
-  const pcRow = sheets.pc.getDataRange().getValues().find(r => r[COL.PC.ID] == pcId);
-  const pcNameStr = pcRow ? pcRow[COL.PC.NAME] : "神祕人";
-  // 🔵 實例化：御主創角 → 開新 game_id 世界；其餘(NPC)沿用操作者所屬 game_id
-  const gameId = isCreate ? ("g_" + Date.now()) : (pcRow ? String(pcRow[COL.PC.GAME_ID] || "") : "");
+  // 🔵 實例化：御主創角 → 開一個全新 game_id 世界
+  const gameId = "g_" + Date.now();
 
-  let validMapNames = ["落雁峰", "桃花塢", "崑崙秘境", "萬毒沼澤"];
+  let validMapNames = ["深山町", "新都", "言峰教會", "未遠川"];
   if (sheets.map) {
     const maps = sheets.map.getDataRange().getValues().slice(1).map(r => String(r[COL.MAP.NAME]).trim()).filter(n => n !== "" && !n.includes('-'));
     if (maps.length > 0) validMapNames = maps;
   }
 
-  const sysOverride = `你是《命運停駐之夜》的角色生成核心，負責根據${isCreate ? '玩家執念重構前世今生' : '角色原型進行完整重構'}，舞台是現代冬木市的聖杯戰爭。
+  const promptStr = `【御主】：名號『${finalName}』，性別『${finalSex}』\n【外貌】：${appearance || "隨機"}\n【身世／財力】：${standing || identity || "隨機"}\n【願望】：${wish || "隨機"}\n【魔術系統】：${magic || "隨機"}\n【出身】：${origin || "隨機"}\n【可選地點(冬木)】：${validMapNames.join('、')}`;
 
-★【陣營】無明確所屬則 faction 填「無」、rank 填「無所屬」。
-★【OOC】已知動漫/虛構角色保留原著個性語癖即可。
-
-★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
-- traits：外貌、氣質舉止、自稱與口氣(第一人稱·如 我/俺/吾＋說話語氣，如 自稱「吾」・睥睨王者腔)、卸下心防的私密一面
-- personality：日常表象、真實內裡、喜歡的事物、討厭的事物
-- npc_intent：令人會心一笑的「可愛弱點/反差萌」一句話，須結合此角色身分性格量身打造。如冷面殺手怕貓、高傲千金愛吃路邊攤、嚴肅學者收藏兔子玩偶、毒舌醫師暈血。要反差、可愛、獨特。
-
-★【輸出】合法 JSON、禁 Markdown：
-{${isCreate ? '"start_loc":"出生地",' : ''}"background":"限20字，禁出現具體物品名","traits":"四格頓號字串","personality":"四格頓號字串","con":12,"int":12,"faction":"無","rank":"無所屬","align":"中立","npc_intent":"結合角色身分的獨特可愛反差萌，一句話","start_item":{"name":"與角色強烈相關的隨身之物","desc":"限15字描述"}}`;
-
-  const npcContext = userData.npcContext ? `\n【登場脈絡】：${userData.npcContext.slice(0, 300)}` : "";
-  const promptStr = isCreate
-    ? `【御主】：名號『${finalName}』，性別『${finalSex}』\n【外貌】：${appearance || "隨機"}\n【身世／財力】：${standing || identity || "隨機"}\n【願望】：${wish || "隨機"}\n【魔術系統】：${magic || "隨機"}\n【出身】：${origin || "隨機"}\n【可選地點(冬木)】：${validMapNames.join('、')}`
-    : `【名號】：『${finalName}』\n【性別】：『${finalSex}』\n【地點】：『${currentLoc}』\n【與玩家『${pcNameStr}』初始關係】：『${npcRel || "萍水相逢"}』${npcContext}`;
-
-  // 🔵 御主創角專用 Fate 框架生成提示（NPC 仍走上面的 sysOverride）
   const MASTER_GEN_SYS = `你是《命運停駐之夜》聖杯戰爭的角色生成核心，為玩家建立一位「御主（Master）」——參與第五次聖杯戰爭的現代魔術師，舞台是冬木市。請依玩家提供的姓名、性別、身世／財力、願望，生成合理且具戲劇張力的設定。
 
 ★【演出而非說明】願望與身世只作為設定底層，不要在 background 裡直接複述願望字面。
@@ -311,67 +286,54 @@ function actionManualNpc(userData, pcId, sheets) {
 ★【輸出】合法 JSON、禁 Markdown：
 {"start_loc":"冬木地點","background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","faction":"無","rank":"御主","align":"中立","npc_intent":"結合御主身分的獨特可愛反差萌，一句話","start_item":{"name":"與御主相關的隨身之物","desc":"限15字描述"}}`;
 
-  // 🔴 新版：加上 ignoreLaw: true，把節慶跟天氣隔絕在創建室外
-  const aiBriefStr = callGeminiAPI(promptStr, isCreate ? MASTER_GEN_SYS : sysOverride, { temperature: 0.6, ignoreLaw: true });
+  // 🔴 ignoreLaw: true，把節慶跟天氣隔絕在創建室外
+  const aiBriefStr = callGeminiAPI(promptStr, MASTER_GEN_SYS, { temperature: 0.6, ignoreLaw: true });
   try {
     const aiBrief = JSON.parse(aiBriefStr);
 
-    // 🎴 FATE：階級系統已移除。御主固定凡人級數值；NPC 採 AI 建議耐久/魔力(夾 8~25)，無階級階梯。
-    //   HP/MP 由 fateMaxHpMp_ 推算(無倍率)；五圍 STR~LUK 欄已棄、不寫入。
-    let nCon, nInt;
-    if (isCreate) {
-      // 御主(凡人魔術師)初始：10~15 隨機波動
-      nCon = Math.floor(Math.random() * 6) + 10;
-      nInt = Math.floor(Math.random() * 6) + 10;
-    } else {
-      // NPC：採 AI 建議數值(預設12)，夾在 8~25
-      const clampStat_ = (v) => Math.max(8, Math.min(25, (parseInt(v) || 12)));
-      nCon = clampStat_(aiBrief.con);
-      nInt = clampStat_(aiBrief.int);
-    }
+    // 🎴 御主(凡人魔術師)初始數值：耐久/魔力 10~15 隨機；HP/MP 由 fateMaxHpMp_ 推算(無倍率)。五圍欄已棄不寫。
+    const nCon = Math.floor(Math.random() * 6) + 10;
+    const nInt = Math.floor(Math.random() * 6) + 10;
     const maxStats = fateMaxHpMp_(nCon, nInt);
 
-    let spawnName = isCreate ? (aiBrief.start_loc || validMapNames[0]) : currentLoc;
-    if (isCreate && !validMapNames.includes(spawnName)) spawnName = validMapNames.find(n => spawnName.includes(n)) || validMapNames[0];
+    let spawnName = aiBrief.start_loc || validMapNames[0];
+    if (!validMapNames.includes(spawnName)) spawnName = validMapNames.find(n => spawnName.includes(n)) || validMapNames[0];
 
     const pcColCount = Object.keys(COL.PC).length;
     const newRow = Array(pcColCount).fill("");
     newRow[COL.PC.ID] = newId; newRow[COL.PC.NAME] = finalName; newRow[COL.PC.SEX] = finalSex;
-    newRow[COL.PC.BACK] = isCreate ? (standing || aiBrief.background || "來歷不明的魔術師") : (aiBrief.background || "來歷不明"); newRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
-    if (isCreate) {
-      newRow[COL.PC.MEMORY] = [
-        wish ? `【願望】${wish}` : "",
-        magic ? `【魔術】${magic}` : "",
-        circuits ? `【迴路】${circuits}` : "",
-        origin ? `【出身】${origin}` : "",
-        melee ? `【體術】${melee}` : "",
-        "【令咒】3",
-        `【模式】${userData.warMode === 'chaos' ? 'chaos' : 'canon'}`,
-        userData.warMode === 'chaos' ? "" : `【戰爭】${['4th', '5th', 'fake'].indexOf(String(userData.war)) >= 0 ? userData.war : '5th'}`,
-        (userData.warMode !== 'chaos' && userData.playedMaster) ? `【扮演】${String(userData.playedMaster).trim()}` : ""
-      ].filter(Boolean).join("｜");
-      // ✨ 依財力/身世機率給一件招牌禮裝（非 100%；強禮裝吃迴路）
-      try {
-        const mysticId = rollMysticForMaster_(standing || identity, circuits);
-        if (mysticId) newRow[COL.PC.MEMORY] = equipMysticToMemory_(newRow[COL.PC.MEMORY], mysticId);
-      } catch (e) { }
-    }
-    // 經濟層已移除：不再寫入初始金錢（身世財力差異由起始禮裝體現）
+    newRow[COL.PC.BACK] = standing || aiBrief.background || "來歷不明的魔術師";
+    newRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
+    newRow[COL.PC.MEMORY] = [
+      wish ? `【願望】${wish}` : "",
+      magic ? `【魔術】${magic}` : "",
+      circuits ? `【迴路】${circuits}` : "",
+      origin ? `【出身】${origin}` : "",
+      melee ? `【體術】${melee}` : "",
+      "【令咒】3",
+      `【模式】${userData.warMode === 'chaos' ? 'chaos' : 'canon'}`,
+      userData.warMode === 'chaos' ? "" : `【戰爭】${['4th', '5th', 'fake'].indexOf(String(userData.war)) >= 0 ? userData.war : '5th'}`,
+      (userData.warMode !== 'chaos' && userData.playedMaster) ? `【扮演】${String(userData.playedMaster).trim()}` : ""
+    ].filter(Boolean).join("｜");
+    // ✨ 依財力/身世機率給一件招牌禮裝（非 100%；強禮裝吃迴路）
+    try {
+      const mysticId = rollMysticForMaster_(standing || identity, circuits);
+      if (mysticId) newRow[COL.PC.MEMORY] = equipMysticToMemory_(newRow[COL.PC.MEMORY], mysticId);
+    } catch (e) { }
     newRow[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.traits, "外貌平凡、舉止從容、自稱「我」、卸下心防的私密一面");
     newRow[COL.PC.LOC] = spawnName;
     newRow[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "溫婉謙和、內斂堅韌、明哲保身、隨波逐流");
     newRow[COL.PC.HP] = maxStats.hp; newRow[COL.PC.MP] = maxStats.mp;
-    // 🎴 五圍(STR~LUK)已棄欄：戰鬥吃六圍 SIX，HP/MP 由 fateMaxHpMp_ 算，不再寫數值。
     newRow[COL.PC.MAX_HP] = maxStats.hp; newRow[COL.PC.MAX_MP] = maxStats.mp;
     newRow[COL.PC.REALM] = "";  // 🎴 階級系統已移除，欄位留空
-    newRow[COL.PC.FACTION] = aiBrief.faction || "無"; newRow[COL.PC.RANK] = aiBrief.rank || "散人";
-    newRow[COL.PC.CONTRIB] = 0; newRow[COL.PC.ALIGN] = aiBrief.align || "絕對中立";
+    newRow[COL.PC.FACTION] = aiBrief.faction || "無"; newRow[COL.PC.RANK] = aiBrief.rank || "御主";
+    newRow[COL.PC.CONTRIB] = 0; newRow[COL.PC.ALIGN] = aiBrief.align || "中立";
     newRow[COL.PC.INTENT] = String(aiBrief.npc_intent || "").slice(0, 18) || "（待揭曉）";
     newRow[COL.PC.GAME_ID] = gameId;
     sheets.pc.appendRow(newRow);
 
-      if (isCreate && userData.account) { try { linkAccountToPc_(userData.account, newId); } catch (e) { } }
-  return JSON.stringify({ success: true, pcId: isCreate ? newId : undefined, gameId: isCreate ? gameId : undefined, message: `【聖杯】因果已定，『${finalName}』${isCreate ? `於「${spawnName}」締結令咒，成為御主` : `已收錄`}。` });
+    if (userData.account) { try { linkAccountToPc_(userData.account, newId); } catch (e) { } }
+    return JSON.stringify({ success: true, pcId: newId, gameId: gameId, message: `【聖杯】因果已定，『${finalName}』於「${spawnName}」締結令咒，成為御主。` });
   } catch (e) { return JSON.stringify({ success: false, message: "建立失敗:" + e.message }); }
 }
 
