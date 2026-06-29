@@ -3711,7 +3711,8 @@ function actionNarrateOnly(userData, pcId, sheets) {
 3. 強制分段：每2~3句插入 <br><br>，整段至少3個 <br><br>，禁止整坨。換行一律用 <br><br>，禁止真實換行，禁止輸出任何 HTML 標籤。
 4. ★這是純敘事補完，系統底層已結算完所有數值，你只負責寫字。
 5. ★對話歷史中的內容是「已經發生並結束」的既定事實，僅供掌握語氣與情緒連貫，禁止把歷史中的動作當成本回合又重演一次；本回合唯一真正發生的新事件，只有當前這句指令提供的內容。
-6. 只輸出 JSON：{"narration":"你的敘述，內含<br><br>分段"}，禁止任何其他欄位、禁止 Markdown。`;
+6. ★【連貫與當下狀態】務必依【當前狀態】(血量/魔力)與最近歷史承接劇情：剛歷激戰受創→演出負傷、狼狽、喘息或撤離；血魔將盡→疲態盡顯；移動／互動皆接續前情，絕不可表現得若無其事、像沒事人。但禁止複述數字、禁止重演歷史動作。
+7. 只輸出 JSON：{"narration":"你的敘述，內含<br><br>分段"}，禁止任何其他欄位、禁止 Markdown。`;
 
   let aiConfig = {
     temperature: 0.85,
@@ -3731,7 +3732,25 @@ function actionNarrateOnly(userData, pcId, sheets) {
     }));
   }
 
-  const raw = callGeminiAPI(promptText, miniSystem, aiConfig);
+  // 🩸 自動附上「當前狀態」(御主＋在場從者 HP/MP)，敘事才連貫——剛被爆打後移動該寫狼狽逃離，而非沒事人。
+  //   只給 AI 看、不存歷史(cleanNarrateEcho_ 會去【】標籤)。讀不到就略過。
+  var stateBrief = "";
+  try {
+    var stData = sheets.pc.getDataRange().getValues();
+    var stIdx = stData.findIndex(function (r) { return r[COL.PC.ID] == pcId; });
+    if (stIdx >= 0) {
+      var stGid = String(stData[stIdx][COL.PC.GAME_ID] || "");
+      var sParts = ['御主 HP ' + (parseInt(stData[stIdx][COL.PC.HP]) || 0) + '/' + (parseInt(stData[stIdx][COL.PC.MAX_HP]) || 0) + '·魔力 ' + (parseInt(stData[stIdx][COL.PC.MP]) || 0) + '/' + (parseInt(stData[stIdx][COL.PC.MAX_MP]) || 0)];
+      stData.forEach(function (r) {
+        if (String(r[COL.PC.FACTION]) === '從者' && String(r[COL.PC.GAME_ID] || "") === stGid && !String(r[COL.PC.ID]).startsWith('DEAD_')) {
+          sParts.push('從者「' + r[COL.PC.NAME] + '」HP ' + (parseInt(r[COL.PC.HP]) || 0) + '/' + (parseInt(r[COL.PC.MAX_HP]) || 0));
+        }
+      });
+      stateBrief = '【當前狀態·供連貫演出，勿複述數字】' + sParts.join('；') + '。\n';
+    }
+  } catch (e) { }
+
+  const raw = callGeminiAPI(stateBrief + promptText, miniSystem, aiConfig);
 
   try {
     const start = raw.indexOf('{');
@@ -3785,7 +3804,25 @@ function actionMultiAttackNarrate(userData, pcId, sheets) {
     }));
   }
 
-  const raw = callGeminiAPI(promptText, miniSystem, aiConfig);
+  // 🩸 自動附上「當前狀態」(御主＋在場從者 HP/MP)，敘事才連貫——剛被爆打後移動該寫狼狽逃離，而非沒事人。
+  //   只給 AI 看、不存歷史(cleanNarrateEcho_ 會去【】標籤)。讀不到就略過。
+  var stateBrief = "";
+  try {
+    var stData = sheets.pc.getDataRange().getValues();
+    var stIdx = stData.findIndex(function (r) { return r[COL.PC.ID] == pcId; });
+    if (stIdx >= 0) {
+      var stGid = String(stData[stIdx][COL.PC.GAME_ID] || "");
+      var sParts = ['御主 HP ' + (parseInt(stData[stIdx][COL.PC.HP]) || 0) + '/' + (parseInt(stData[stIdx][COL.PC.MAX_HP]) || 0) + '·魔力 ' + (parseInt(stData[stIdx][COL.PC.MP]) || 0) + '/' + (parseInt(stData[stIdx][COL.PC.MAX_MP]) || 0)];
+      stData.forEach(function (r) {
+        if (String(r[COL.PC.FACTION]) === '從者' && String(r[COL.PC.GAME_ID] || "") === stGid && !String(r[COL.PC.ID]).startsWith('DEAD_')) {
+          sParts.push('從者「' + r[COL.PC.NAME] + '」HP ' + (parseInt(r[COL.PC.HP]) || 0) + '/' + (parseInt(r[COL.PC.MAX_HP]) || 0));
+        }
+      });
+      stateBrief = '【當前狀態·供連貫演出，勿複述數字】' + sParts.join('；') + '。\n';
+    }
+  } catch (e) { }
+
+  const raw = callGeminiAPI(stateBrief + promptText, miniSystem, aiConfig);
 
   try {
     const start = raw.indexOf('{');
