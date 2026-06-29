@@ -35,7 +35,6 @@ GAS 在 `gas/`，clasp 推 branch 自動部署。**我每次開機失憶，這�
 
 - **`SOLO_REFERENCE.md`** — 單人模式完整代碼地圖（函數名＋作用＋schema＋ActionRouter＋MEMORY 標記）。**先查這份再 grep**，省時間。
 - `DESIGN.md` — 設計鐵則（GAS 掌數值、AI 只說書）。
-- `docs/HANDOFF_ENGINE.md` — 引擎交接。
 
 ## ✅ 工作流程
 
