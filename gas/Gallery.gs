@@ -217,7 +217,7 @@ function kanshouServantRow_(rec, gameId, loc) {
   sRow[COL.PC.ID] = "KSV_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
   sRow[COL.PC.NAME] = name;
   sRow[COL.PC.SEX] = String(rec[COL.GAL.SEX] || "異") || "異";
-  sRow[COL.PC.REALM] = "凡人";
+  sRow[COL.PC.REALM] = "";
   if (partnerIsMaster) {
     sRow[COL.PC.HP] = 100; sRow[COL.PC.MAX_HP] = 100; sRow[COL.PC.MP] = 120; sRow[COL.PC.MAX_MP] = 120;
     // 🎴 五圍已棄欄：戰鬥吃六圍 SIX。
@@ -291,7 +291,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
   mRow[COL.PC.ID] = mId;
   mRow[COL.PC.NAME] = mName;
   mRow[COL.PC.SEX] = mSex;
-  mRow[COL.PC.REALM] = "凡人";
+  mRow[COL.PC.REALM] = "";
   mRow[COL.PC.HP] = 100; mRow[COL.PC.MAX_HP] = 100; mRow[COL.PC.MP] = 100; mRow[COL.PC.MAX_MP] = 100;
   // 🎴 五圍已棄欄：戰鬥吃六圍 SIX。
   mRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情輕鬆" });

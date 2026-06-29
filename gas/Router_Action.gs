@@ -147,7 +147,7 @@ function handleGameAction(userData) {
   if (handler) {
     return handler(userData, pcId, sheets);
   } else {
-    return JSON.stringify({ success: false, message: `天道異常：未知的動作指令「${action}」` });
+    return JSON.stringify({ success: false, message: `系統異常：未知的動作指令「${action}」` });
   }
 }
 
@@ -215,7 +215,7 @@ function buildNpcRequestPrompt(sheets, pName, pLoc, npcRow, instructionStr, pRow
   const traitArr = String(npcRow[COL.PC.TRAIT] || "").split('、');
   const nickMatch = relRow ? String(relRow[COL.REL.MEMORY] || "").match(/\[專屬稱呼\](.*?)(?=\| \[|$)/) : null;
   const nickStr = (nickMatch && nickMatch[1].trim()) ? ` | 稱呼玩家:${nickMatch[1].trim()}` : "";
-  const npcCardStr = `【${npcName}】境界:${npcRow[COL.PC.REALM] || "凡人"} | 性格:[表象]${prefArr[0] || "無"} [內裡]${prefArr[1] || "無"} | 特徵:${traitArr[1] || "無"} | 與玩家關係:${relRow ? relRow[COL.REL.TAG] : "萍水相逢"}(好感:${relRow ? relRow[COL.REL.FAV] : 0})${nickStr}`;
+  const npcCardStr = `【${npcName}】性格:[表象]${prefArr[0] || "無"} [內裡]${prefArr[1] || "無"} | 特徵:${traitArr[1] || "無"} | 與玩家關係:${relRow ? relRow[COL.REL.TAG] : "萍水相逢"}(好感:${relRow ? relRow[COL.REL.FAV] : 0})${nickStr}`;
 
   // 🔴 玩家自己的性格也要讓AI知道，台詞與反應才不會千人一面
   const pPrefArr = String((pRow && pRow[COL.PC.PREF]) || "").split('、');
@@ -239,7 +239,7 @@ function buildNpcRequestPrompt(sheets, pName, pLoc, npcRow, instructionStr, pRow
 
   return `【場景】玩家『${pName}』目前位於『${pLoc}』。\n【近期因果】(僅供背景參考，純屬回憶，並非當下在場！)\n${recentLogStr}\n【對象資料】\n${npcCardStr}\n${playerCardStr}\n` +
     `【系統事件·已裁定，嚴禁更改任何結果】${instructionStr}\n` +
-    `★【鐵律】嚴禁輸出任何 items_gained、items_transferred、money_transferred 或 stat_changes，已結算完畢，重複輸出會導致天道崩塌！\n` +
+    `★【鐵律】嚴禁輸出任何 items_gained、items_transferred、money_transferred 或 stat_changes，已結算完畢，重複輸出會導致結算錯亂！\n` +
     `★【在場驗證】本回合在場者僅有${presentStr}，可合理帶到其存在或反應；近期因果中提到的其他姓名均不在場，嚴禁讓其登場、插話或互動！`;
 }
 
@@ -336,7 +336,7 @@ function actionManualNpc(userData, pcId, sheets) {
     //   故創角寫入前必須再次擋重複，否則會產生兩個同名PC，後續所有靠姓名查找的功能都會抓錯人。
     const pcRows = sheets.pc.getDataRange().getValues();
     if (pcRows.find(r => r[COL.PC.NAME] === finalName && !String(r[COL.PC.ID]).startsWith("DEAD_"))) return JSON.stringify({ success: false, message: "此名號已有大俠使用，請換一個名號。" });
-    if (sheets.auth) { try { sheets.auth.appendRow([finalName, newId, "江湖散人", "", ""]); } catch (e) { } }
+    if (sheets.auth) { try { sheets.auth.appendRow([finalName, newId, "御主", "", ""]); } catch (e) { } }
   }
 
   const pcRow = sheets.pc.getDataRange().getValues().find(r => r[COL.PC.ID] == pcId);
@@ -350,27 +350,18 @@ function actionManualNpc(userData, pcId, sheets) {
     if (maps.length > 0) validMapNames = maps;
   }
 
-  const sysOverride = `你是九州天道演化核心，負責根據${isCreate ? '玩家執念重構前世今生' : '角色原型進行完整重構'}。
+  const sysOverride = `你是《命運停駐之夜》的角色生成核心，負責根據${isCreate ? '玩家執念重構前世今生' : '角色原型進行完整重構'}，舞台是現代冬木市的聖杯戰爭。
 
-★【陣營】無明確師承則 faction 填「無」、rank 填「散人」。
-★【階級】rank 須含：掌門/宗主/長老/護法/堂主/執事/弟子/門人，無門派填「散人」。
-★【境界】realm 從中選：${REALMS.join('、')}。對應身分：
-- 普通市井(商人/農夫/店家/僕役/路人)：只能填凡人
-- 初入江湖(茶客/普通鏢師/混混/小頭目)：凡人或引氣
-- 江湖好手(散修/精銳鏢師/盜賊頭目/捕快)：引氣或凝罡
-- 門派中堅(真傳弟子/執事/堂主)：凝罡或通玄
-- 門派高層(長老/護法/總鏢頭)：通玄
-- 頂尖大能(掌門/宗主/教主)：罡氣或意動
-★絕大多數街頭結識的 NPC 應落在凡人～凝罡；通玄以上須有明確崇高地位(大派長老、一方掌門)佐證，禁止僅憑氣勢外貌濫發高境界。心象以上幾乎不應隨機出現。沒有明確武林身分的路人一律凡人。
-★【OOC】已知動漫/虛構角色保留原著個性語癖，武俠化即可。
+★【陣營】無明確所屬則 faction 填「無」、rank 填「無所屬」。
+★【OOC】已知動漫/虛構角色保留原著個性語癖即可。
 
 ★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
 - traits：外貌、氣質舉止、自稱與口氣(第一人稱·如 我/俺/吾＋說話語氣，如 自稱「吾」・睥睨王者腔)、卸下心防的私密一面
 - personality：日常表象、真實內裡、喜歡的事物、討厭的事物
-- npc_intent：令人會心一笑的「可愛弱點/反差萌」一句話，須結合此角色身分性格量身打造。如冷面殺手怕貓、高傲千金愛吃路邊攤、嚴肅宗主收藏兔子玩偶、毒舌大夫暈血。要反差、可愛、獨特。
+- npc_intent：令人會心一笑的「可愛弱點/反差萌」一句話，須結合此角色身分性格量身打造。如冷面殺手怕貓、高傲千金愛吃路邊攤、嚴肅學者收藏兔子玩偶、毒舌醫師暈血。要反差、可愛、獨特。
 
 ★【輸出】合法 JSON、禁 Markdown：
-{${isCreate ? '"start_loc":"出生地",' : ''}"background":"限20字，禁出現具體物品名","traits":"四格頓號字串","personality":"四格頓號字串","realm":"凡人","str":12,"con":12,"agi":12,"int":12,"luk":12,"faction":"無","rank":"散人","align":"絕對中立","npc_intent":"結合角色身分的獨特可愛反差萌，一句話","start_item":{"name":"與角色強烈相關的隨身之物","desc":"限15字描述"}}`;
+{${isCreate ? '"start_loc":"出生地",' : ''}"background":"限20字，禁出現具體物品名","traits":"四格頓號字串","personality":"四格頓號字串","con":12,"int":12,"faction":"無","rank":"無所屬","align":"中立","npc_intent":"結合角色身分的獨特可愛反差萌，一句話","start_item":{"name":"與角色強烈相關的隨身之物","desc":"限15字描述"}}`;
 
   const npcContext = userData.npcContext ? `\n【登場脈絡】：${userData.npcContext.slice(0, 300)}` : "";
   const promptStr = isCreate
@@ -388,7 +379,7 @@ function actionManualNpc(userData, pcId, sheets) {
 ★background：限20字，呼應其身世／財力，禁出現具體物品名。
 ★start_loc：從冬木地點中選一個合理的居所或起點：${validMapNames.join('、')}
 ★faction 填御主所屬（魔術協會／教會／無所屬等，無則「無」），rank 填「御主」。
-★【勿輸出數值】境界(凡人)、五圍、HP/MP 一律由系統裁定，prompt【不要】輸出 realm/str/con/agi/int/luk 等任何數值欄位。
+★【勿輸出數值】戰力數值、HP/MP 一律由系統裁定，prompt【不要】輸出 str/con/agi/int/luk 等任何數值欄位。
 
 ★【輸出】合法 JSON、禁 Markdown：
 {"start_loc":"冬木地點","background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","faction":"無","rank":"御主","align":"中立","npc_intent":"結合御主身分的獨特可愛反差萌，一句話","start_item":{"name":"與御主相關的隨身之物","desc":"限15字描述"}}`;
@@ -398,59 +389,20 @@ function actionManualNpc(userData, pcId, sheets) {
   try {
     const aiBrief = JSON.parse(aiBriefStr);
 
-    // 🔴 境界決定權收歸 GAS：AI 只能「建議」，實際境界由系統依身份+擲骰裁定
-    let targetRealm;
-    const rankStr = String(aiBrief.rank || "");
-
+    // 🎴 FATE：九州境界系統已移除。御主固定凡人級數值；NPC 採 AI 建議耐久/魔力(夾 8~25)，無境界階梯。
+    //   HP/MP 由 fateMaxHpMp_ 推算(無倍率)；五圍 STR~LUK 欄已棄、不寫入。
+    let nCon, nInt;
     if (isCreate) {
-      // 玩家創角：永遠鎖死凡人
-      targetRealm = "凡人";
-    } else {
-      // 先看 AI 有沒有標明確的高位頭銜，有的話按身份給對應境界
-      if (rankStr.match(/掌門|宗主|教主|門主|谷主|閣主|魁首|老祖/)) {
-        // 一派之主：罡氣 ~ 意動
-        targetRealm = Math.random() < 0.5 ? "罡氣" : "意動";
-      } else if (rankStr.match(/長老|護法|太上|副宗主/)) {
-        // 門派高層：通玄 ~ 罡氣
-        targetRealm = Math.random() < 0.5 ? "通玄" : "罡氣";
-      } else if (rankStr.match(/堂主|真傳|首席|執事|香主|統領/)) {
-        // 門派中堅：凝罡 ~ 通玄
-        targetRealm = Math.random() < 0.5 ? "凝罡" : "通玄";
-      } else {
-        // 🎲 沒有明確高位身份 = 普通江湖人，GAS 擲骰決定，絕大多數是凡人
-        const roll = Math.random() * 100;
-        if (roll < 70) targetRealm = "凡人";        // 70%
-        else if (roll < 90) targetRealm = "引氣";   // 20%
-        else if (roll < 98) targetRealm = "凝罡";   // 8%
-        else targetRealm = "通玄";                  // 2% 隱世高手
-      }
-    }
-
-    const rIdx = REALMS.indexOf(targetRealm);
-    let baseFloor = 8, statCap = 25;
-    if (rIdx > 0) {
-      baseFloor = Math.floor(REALM_LIMITS[REALMS[rIdx - 1]] * 0.8);
-      statCap = REALM_LIMITS[targetRealm];
-    }
-
-    // 🔴 3. 數值生成：不信任 AI 的數值平衡！玩家新建強制鎖死在初始範圍，NPC 則依境界給定。
-    let nStr, nCon, nAgi, nInt, nLuk;
-    if (isCreate) {
-      // 玩家初始屬性：給予 10~15 的隨機波動，保留凡人(上限25)的修練與吃藥空間
-      nStr = Math.floor(Math.random() * 6) + 10;
+      // 御主(凡人魔術師)初始：10~15 隨機波動
       nCon = Math.floor(Math.random() * 6) + 10;
-      nAgi = Math.floor(Math.random() * 6) + 10;
       nInt = Math.floor(Math.random() * 6) + 10;
-      nLuk = Math.floor(Math.random() * 6) + 10;
     } else {
-      // NPC 屬性：依照 AI 給的數值 (預設12) 加上該境界的樓地板計算，並受限於該境界上限
-      nStr = Math.max(baseFloor, Math.min(statCap, (parseInt(aiBrief.str) || 12) + baseFloor - 8));
-      nCon = Math.max(baseFloor, Math.min(statCap, (parseInt(aiBrief.con) || 12) + baseFloor - 8));
-      nAgi = Math.max(baseFloor, Math.min(statCap, (parseInt(aiBrief.agi) || 12) + baseFloor - 8));
-      nInt = Math.max(baseFloor, Math.min(statCap, (parseInt(aiBrief.int) || 12) + baseFloor - 8));
-      nLuk = Math.max(baseFloor, Math.min(statCap, (parseInt(aiBrief.luk) || 12) + baseFloor - 8));
+      // NPC：採 AI 建議數值(預設12)，夾在 8~25
+      const clampStat_ = (v) => Math.max(8, Math.min(25, (parseInt(v) || 12)));
+      nCon = clampStat_(aiBrief.con);
+      nInt = clampStat_(aiBrief.int);
     }
-    const maxStats = calculateMaxStats(targetRealm, nCon, nInt);
+    const maxStats = fateMaxHpMp_(nCon, nInt);
 
     let spawnName = isCreate ? (aiBrief.start_loc || validMapNames[0]) : currentLoc;
     if (isCreate && !validMapNames.includes(spawnName)) spawnName = validMapNames.find(n => spawnName.includes(n)) || validMapNames[0];
@@ -458,7 +410,7 @@ function actionManualNpc(userData, pcId, sheets) {
     const pcColCount = Object.keys(COL.PC).length;
     const newRow = Array(pcColCount).fill("");
     newRow[COL.PC.ID] = newId; newRow[COL.PC.NAME] = finalName; newRow[COL.PC.SEX] = finalSex;
-    newRow[COL.PC.BACK] = isCreate ? (standing || aiBrief.background || "來歷不明的魔術師") : (aiBrief.background || "江湖散人"); newRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
+    newRow[COL.PC.BACK] = isCreate ? (standing || aiBrief.background || "來歷不明的魔術師") : (aiBrief.background || "來歷不明"); newRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
     if (isCreate) {
       newRow[COL.PC.MEMORY] = [
         wish ? `【願望】${wish}` : "",
@@ -482,9 +434,9 @@ function actionManualNpc(userData, pcId, sheets) {
     newRow[COL.PC.LOC] = spawnName;
     newRow[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "溫婉謙和、內斂堅韌、明哲保身、隨波逐流");
     newRow[COL.PC.HP] = maxStats.hp; newRow[COL.PC.MP] = maxStats.mp;
-    // 🎴 五圍(STR~LUK)已棄欄：戰鬥吃六圍 SIX，HP/MP 由 calculateMaxStats(SIX) 算，不再寫數值。
+    // 🎴 五圍(STR~LUK)已棄欄：戰鬥吃六圍 SIX，HP/MP 由 fateMaxHpMp_ 算，不再寫數值。
     newRow[COL.PC.MAX_HP] = maxStats.hp; newRow[COL.PC.MAX_MP] = maxStats.mp;
-    newRow[COL.PC.REALM] = isCreate ? "凡人" : targetRealm;
+    newRow[COL.PC.REALM] = "";  // 🎴 境界系統已移除，欄位留空
     newRow[COL.PC.FACTION] = aiBrief.faction || "無"; newRow[COL.PC.RANK] = aiBrief.rank || "散人";
     newRow[COL.PC.CONTRIB] = 0; newRow[COL.PC.ALIGN] = aiBrief.align || "絕對中立";
     newRow[COL.PC.INTENT] = String(aiBrief.npc_intent || "").slice(0, 18) || "（待揭曉）";
@@ -503,7 +455,7 @@ function actionManualNpc(userData, pcId, sheets) {
       }
     }
 
-    registerFactionHelper(aiBrief.faction, aiBrief.rank, aiBrief.align, spawnName, finalName, sheets, isCreate ? newId : pcId, finalName, sheets.faction ? sheets.faction.getDataRange().getValues() : []);
+    // 🗑️ 門派自動註冊(registerFactionHelper)已隨九州門派系統移除。
 
       if (isCreate && userData.account) { try { linkAccountToPc_(userData.account, newId); } catch (e) { } }
   return JSON.stringify({ success: true, pcId: isCreate ? newId : undefined, gameId: isCreate ? gameId : undefined, message: `【聖杯】因果已定，『${finalName}』${isCreate ? `於「${spawnName}」締結令咒，成為御主` : `已收錄`}。` });
@@ -682,15 +634,15 @@ function actionSummonServant(userData, pcId, sheets) {
       const traits = JSON.parse(hero[COL.HERO.TRAITS] || "[]");
       const persona = JSON.parse(hero[COL.HERO.PERSONA] || "{}");
 
-      // 六圍 → 九州數值（REALM 凡人，倍率 1.0，數值即 rankVal）
+      // 六圍 → 顯示數值（數值即 rankVal，無境界倍率）
       const nStr = svNum_(six.筋力), nCon = svNum_(six.耐久), nAgi = svNum_(six.敏捷), nInt = svNum_(six.魔力), nLuk = svNum_(six.幸運);
-      const maxStats = calculateMaxStats("凡人", nCon, nInt);
+      const maxStats = fateMaxHpMp_(nCon, nInt);
       // 從者血厚：耐久越高越肉
       const svHp = 300 + svNum_(six.耐久) * 12, svMp = 120 + svNum_(six.魔力) * 6;
 
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
-      row[COL.PC.REALM] = "凡人";
+      row[COL.PC.REALM] = "";
       // 🎴 特徵(4格敘事：外貌/氣質/自稱與口氣/私密)直接讀寫死的種子 persona.look，穩定一致、不叫 AI 生。
       row[COL.PC.TRAIT] = parseTraitsHelper(String(persona.look || ""), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
       // 🚀 種子英靈：直接用寫死的種子 persona（萌點/口吻 v3 已補齊），不再叫 AI 重生一次——省一次 API、加速召喚。
@@ -730,7 +682,7 @@ ${FX_MENU_}
       const svHp = 300 + svNum_(aiSix.耐久) * 12, svMp = 120 + svNum_(aiSix.魔力) * 6;
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
-      row[COL.PC.REALM] = "凡人";
+      row[COL.PC.REALM] = "";
       // 🎴 AI 即時生成的原創從者：特徵走通用敘事預設(不再用戰鬥特性污染敘事欄)，玩家可逆天改命微調。
       row[COL.PC.TRAIT] = parseTraitsHelper("", "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
       row[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "沉著表象、堅定內裡、珍視之物、厭惡之事");
@@ -1314,7 +1266,7 @@ function actionPlay(userData, pcId, sheets) {
 
   const history = pickRelevantLogs(allLogs.filter(r => String(r[2]).includes(pcName)), 12).map(r => r[2]).join("\n");
   const pTotal = getCharacterTotalStats(pcId, sheets, pcData, []);
-  const currentAmbition = pc[COL.PC.INTENT] ? String(pc[COL.PC.INTENT]).trim() : "初入江湖，隨遇而安。";
+  const currentAmbition = pc[COL.PC.INTENT] ? String(pc[COL.PC.INTENT]).trim() : "尚無明確目標，隨遇而安。";
 
   const partyMembers = relData.filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]);
   let partyDetailsArr = [];
@@ -1323,7 +1275,7 @@ function actionPlay(userData, pcId, sheets) {
     if (r) {
       const nTotal = getCharacterTotalStats(r[COL.PC.ID], sheets, pcData, []);
       const relRecord = relData.find(row => row[COL.REL.PC] === pcName && row[COL.REL.NPC] === pName);
-      partyDetailsArr.push(`【同行夥伴】名號:${pName}(境界:${r[COL.PC.REALM] || "凡人"}) | 氣血:${r[COL.PC.HP]}/${nTotal.maxHp} | 身世:${r[COL.PC.BACK] || "無"} | 狀態:${r[COL.PC.STATUS]} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])} | 關係:${relRecord ? relRecord[COL.REL.TAG] : "結伴同行"}(好感:${relRecord ? relRecord[COL.REL.FAV] : 0})`);
+      partyDetailsArr.push(`【同行夥伴】名號:${pName} | 氣血:${r[COL.PC.HP]}/${nTotal.maxHp} | 身世:${r[COL.PC.BACK] || "無"} | 狀態:${r[COL.PC.STATUS]} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])} | 關係:${relRecord ? relRecord[COL.REL.TAG] : "結伴同行"}(好感:${relRecord ? relRecord[COL.REL.FAV] : 0})`);
     }
   });
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【目前同行隊伍成員命格詳情】:\n${partyDetailsArr.join("\n")}` : "目前沒有同行夥伴，玩家是獨自行動的。";
@@ -1370,7 +1322,7 @@ function actionPlay(userData, pcId, sheets) {
 
     let resistPrompt = "";
     if (currentFav <= -50) {
-      resistPrompt = "【死仇】恨之入骨，見面即強烈敵意，玩家稍有挑釁便主動出手、下手狠辣。但須符合其境界性格，勝負由雙方實力裁決，非無條件秒殺。";
+      resistPrompt = "【死仇】恨之入骨，見面即強烈敵意，玩家稍有挑釁便主動出手、下手狠辣。但須符合其身分性格，勝負由雙方實力裁決，非無條件秒殺。";
     } else if (currentFav <= -30) {
       resistPrompt = "【仇視】充滿敵意，會威脅、冷硬驅趕；唯有玩家正面挑釁、動手或羞辱時才反擊，平時不主動攻擊。";
     } else if (currentFav < 0) {
@@ -1393,11 +1345,11 @@ function actionPlay(userData, pcId, sheets) {
     const majorEventStr = (relRecord && relRecord[COL.REL.MAJOR_EVENT] && relRecord[COL.REL.MAJOR_EVENT] !== "無")
       ? ` [未完成約定:${relRecord[COL.REL.MAJOR_EVENT]}]` : "";
 
-    return `${identityTag}名號:${r[COL.PC.NAME]} 【性別:${r[COL.PC.SEX]}】 境界:${r[COL.PC.REALM] || "凡人"} | 陣營:${r[COL.PC.FACTION] || "無"} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])} | 關係:${relRecord ? relRecord[COL.REL.TAG] : "萍水相逢"}(好感:${currentFav}${majorEventStr} -> 行為準則:${resistPrompt})`;
+    return `${identityTag}名號:${r[COL.PC.NAME]} 【性別:${r[COL.PC.SEX]}】 陣營:${r[COL.PC.FACTION] || "無"} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])} | 關係:${relRecord ? relRecord[COL.REL.TAG] : "萍水相逢"}(好感:${currentFav}${majorEventStr} -> 行為準則:${resistPrompt})`;
   }).join("\n") : "此地四下無人。";
 
   if (isNsfwMode) {
-    PROMPT_ENV = `【天道屏蔽】：外界感知已封鎖。請專注於當下空間氛圍與私密互動。`;
+    PROMPT_ENV = `【感知屏蔽】：外界感知已封鎖。請專注於當下空間氛圍與私密互動。`;
     PROMPT_GEAR = `【武裝與情報】：(暫時屏蔽)`;
 
     // 🟢 新增：性別配對提示，直接算好給 AI，不需要它自己推理
@@ -1434,7 +1386,7 @@ function actionPlay(userData, pcId, sheets) {
 
     PROMPT_REL = `【當前同地人物】\n${localSceneStr}\n★【情境延續鐵律】：請繼續往後推演！${nsfwMemories}${thirdPartyStr}${genderHintStr}
 🛑【絕對禁止 OOC 倒貼鐵律】：NPC 必須【死守】其「性格」與「好感度」！
-若好感度未滿 80，或性格屬於冷酷/高傲/剛烈，【絕對禁止】主動迎合、發情或瞬間屈服！必須表現出強烈的抗拒、屈辱、咬牙切齒或冷嘲熱諷。即便肉體有生理反應，靈魂與對話也必須是硬氣且具攻擊性的！違者天道崩塌！`;
+若好感度未滿 80，或性格屬於冷酷/高傲/剛烈，【絕對禁止】主動迎合、發情或瞬間屈服！必須表現出強烈的抗拒、屈辱、咬牙切齒或冷嘲熱諷。即便肉體有生理反應，靈魂與對話也必須是硬氣且具攻擊性的！違者判定錯亂！`;
 
   } else {
     // 🗑️ 經濟/天命/背包已棄用：full 分支只留近聞＋勢力＋寶具(MARTIAL)，不再讀 QUEST/ITEM/WEP。
@@ -1444,7 +1396,7 @@ function actionPlay(userData, pcId, sheets) {
       rumorDesc = `【江湖近聞】\n` + recentRumors.map(r => `• ${r.content}`).join("\n") + "\n\n";
     }
     PROMPT_ENV = `${rumorDesc}【天下勢力】\n${factionListDesc}`;
-    PROMPT_GEAR = `【武學／寶具】：${pcData[pcIndex][COL.PC.MARTIAL] || "尚無"}`;
+    PROMPT_GEAR = `【寶具／技藝】：${pcData[pcIndex][COL.PC.MARTIAL] || "尚無"}`;
     PROMPT_REL = `【當前同地人物】\n${localSceneStr}${thirdPartyStr}`;
   }
 
@@ -1511,10 +1463,10 @@ function actionPlay(userData, pcId, sheets) {
       const currentFav = relRecord ? parseInt(relRecord[COL.REL.FAV]) || 0 : 0;
       const relTag = relRecord ? relRecord[COL.REL.TAG] : "萍水相逢";
 
-      return `- 【${tName}】(境界:${r[COL.PC.REALM] || "凡人"}) | 目前位置:${r[COL.PC.LOC] || "未知"} | 身世:${r[COL.PC.BACK] || "無"} | 性格:${formatPref(r[COL.PC.PREF])} | 玩家與其羈絆:${relTag}(好感:${currentFav})`;
+      return `- 【${tName}】目前位置:${r[COL.PC.LOC] || "未知"} | 身世:${r[COL.PC.BACK] || "無"} | 性格:${formatPref(r[COL.PC.PREF])} | 玩家與其羈絆:${relTag}(好感:${currentFav})`;
     });
 
-    remoteNpcStr = `\n★【話題人物情報 (遠端/未現身)】：\n玩家在對話中提到了以下不在場的角色。請天道根據這些真實情報，讓在場的 NPC 給出符合其自身性格與江湖閱歷的合理反應（例如：八卦傳聞、敬畏評價、仇恨、或是單純表示不認識）。\n${remoteDetails.join("\n")}\n🛑【天道鐵律】：以上話題人物【絕對不在場】，嚴禁描寫他們當場現身、開口說話或與玩家產生直接互動！違者天道崩塌！`;
+    remoteNpcStr = `\n★【話題人物情報 (遠端/未現身)】：\n玩家在對話中提到了以下不在場的角色。請依據這些真實情報，讓在場的 NPC 給出符合其自身性格與人生閱歷的合理反應（例如：八卦傳聞、敬畏評價、仇恨、或是單純表示不認識）。\n${remoteDetails.join("\n")}\n🛑【鐵律】：以上話題人物【絕對不在場】，嚴禁描寫他們當場現身、開口說話或與玩家產生直接互動！違者敘事錯亂！`;
   }
 
 
@@ -1524,9 +1476,9 @@ function actionPlay(userData, pcId, sheets) {
 
 
   // 🔴【替換開始】淨化後的 prompt 組裝
-  const prompt = `【天道法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。
+  const prompt = `【敘事法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。
 ${PROMPT_PARTY_SYSTEM}
-【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 境界:${pc[COL.PC.REALM]} | 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "江湖散人"} | 位置:${curL} | 狀態:${pc[COL.PC.STATUS] || "氣息平穩"} | 生命:${pc[COL.PC.HP]}/${pc[COL.PC.MAX_HP]} | 真氣:${pc[COL.PC.MP]}/${pc[COL.PC.MAX_MP]} | 臂力:${pTotal.STR} | 根骨:${pTotal.CON} | 身法:${pTotal.AGI} | 神識:${pTotal.INT} | 福緣:${pTotal.LUK}
+【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL} | 狀態:${pc[COL.PC.STATUS] || "氣息平穩"} | 生命:${pc[COL.PC.HP]}/${pc[COL.PC.MAX_HP]} | 魔力:${pc[COL.PC.MP]}/${pc[COL.PC.MAX_MP]}
 
 ${PROMPT_ENV}
 ${PROMPT_GEAR}
@@ -1539,7 +1491,7 @@ ${localHistoryStr}
 
 ${PROMPT_REL}
 ${remoteNpcStr}
-★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可登場、說話、互動的角色，僅限【目前同行隊伍成員】、緊鄰上方【當前同地人物】清單列出之人，${isNsfwMode ? "本回合為慾海模式(私密場景已天道屏蔽)，【絕對禁止】由AI自行安排任何全新陌生人登場打斷或闖入；唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場，AI不得自作主張額外加碼安排其他陌生人" : "以及AI當下【全新初次原創】、從未出現於前塵因果/歷史紀錄/話題情報中的陌生角色(如路人、店家、新面孔，可正常開口說話、給予姓名)"}！前塵因果、歷史紀錄、話題情報中提到的「已知但不在此清單內」之姓名，才視為不在場的回憶，嚴禁無視「同地」設定憑空召喚、穿越或讓其開口說話、出手！若【當前同地人物】顯示「此地四下無人」，本回合除玩家、同行夥伴${isNsfwMode ? "、以及玩家本回合主動引入之人" : "、與全新原創的陌生人"}外，不可讓任何${isNsfwMode ? "" : "「歷史已知」"}具名角色登場！
+★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可登場、說話、互動的角色，僅限【目前同行隊伍成員】、緊鄰上方【當前同地人物】清單列出之人，${isNsfwMode ? "本回合為慾海模式(私密場景已隔絕外界)，【絕對禁止】由AI自行安排任何全新陌生人登場打斷或闖入；唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場，AI不得自作主張額外加碼安排其他陌生人" : "以及AI當下【全新初次原創】、從未出現於前塵因果/歷史紀錄/話題情報中的陌生角色(如路人、店家、新面孔，可正常開口說話、給予姓名)"}！前塵因果、歷史紀錄、話題情報中提到的「已知但不在此清單內」之姓名，才視為不在場的回憶，嚴禁無視「同地」設定憑空召喚、穿越或讓其開口說話、出手！若【當前同地人物】顯示「此地四下無人」，本回合除玩家、同行夥伴${isNsfwMode ? "、以及玩家本回合主動引入之人" : "、與全新原創的陌生人"}外，不可讓任何${isNsfwMode ? "" : "「歷史已知」"}具名角色登場！
 ${locOwnershipNote}
 ${isKanshou ? "" : `
 ★【系統底層防呆·戰鬥雙向裁決】：發生衝突時綜合比對雙方靈基/實力/環境/戰術公平裁決，禁止單方面秒殺玩家；傷害以相對扣血呈現，允許玩家受傷/纏鬥/撤退/奇謀逆襲；惟聖杯戰爭的從者廝殺一律由系統按鈕裁決，敘述不得自行宣告死亡或輸出生命數值變化。
@@ -1552,9 +1504,9 @@ ${isKanshou ? `
 ★敘事結束停在溫柔的留白，把下一步交還御主。
 ` : ""}現在演化玩家動作：『${finalUserMsg}』${npcDialoguePrompt}
 
-🚨【天道終極警告】：
+🚨【敘事終極警告】：
 1. 敘事必須在給出結果後，停在「我」的心境，將下一步交還玩家選擇！
-2.【名字提取鐵律】：在輸出 stat_changes 或 rel_changes 等任何 JSON 數據時，'target' 或 'npc' 欄位【絕對只能】填寫角色的「真實姓名」（例如：「沈清霜」）或「自己」。❌嚴禁填入台詞、對話、地名、動作描述或任何標點符號！若名字抓取錯誤將導致天道崩塌！`;
+2.【名字提取鐵律】：在輸出 stat_changes 或 rel_changes 等任何 JSON 數據時，'target' 或 'npc' 欄位【絕對只能】填寫角色的「真實姓名」（例如：「遠坂凜」）或「自己」。❌嚴禁填入台詞、對話、地名、動作描述或任何標點符號！若名字抓取錯誤將導致解析錯亂！`;
 
   try {
     let aiConfig = isNsfwMode ? { temperature: 1.0, top_p: 0.95, retries: 2, model: "google/gemini-3.1-flash-lite", isNsfwMode: true } : {};
@@ -1606,16 +1558,11 @@ ${isKanshou ? `
       });
       if (mapsToAppend.length > 0) {
         sheets.map.getRange(sheets.map.getLastRow() + 1, 1, mapsToAppend.length, 6).setValues(mapsToAppend);
-        CacheService.getScriptCache().remove("KYUSHU_MAP_DATA");
+        CacheService.getScriptCache().remove("FATE_MAP_DATA");
       }
     }
 
-    if (aiData.new_factions && Array.isArray(aiData.new_factions) && sheets.faction) {
-      let currentFactions = sheets.faction.getDataRange().getValues();
-      aiData.new_factions.forEach(f => {
-        registerFactionHelper(f.name, "掌門", f.align, f.base, f.leader, sheets, pcId, f.leader || "未知人物", currentFactions);
-      });
-    }
+    // 🗑️ AI 自動生成門派(new_factions / registerFactionHelper)已隨九州門派系統移除。
 
     if (aiData.events && Array.isArray(aiData.events) && sheets.epic) aiData.events.forEach(ev => { sheets.epic.appendRow([pcId, String(ev).trim(), new Date()]); });
 
@@ -1635,7 +1582,7 @@ ${isKanshou ? `
       Logger.log("stat_changes: " + JSON.stringify(aiData.stat_changes));
 
 
-      const attrMap = { "生命": COL.PC.HP, "真氣": COL.PC.MP, "位置": COL.PC.LOC, "門派": COL.PC.FACTION, "幫派": COL.PC.FACTION, "宗門": COL.PC.FACTION, "階級": COL.PC.RANK, "職位": COL.PC.RANK, "稱號": COL.PC.RANK, "陣營": COL.PC.ALIGN, "立場": COL.PC.ALIGN, "貢獻度": COL.PC.CONTRIB, "貢獻": COL.PC.CONTRIB, "身世": COL.PC.BACK };
+      const attrMap = { "生命": COL.PC.HP, "魔力": COL.PC.MP, "位置": COL.PC.LOC, "陣營": COL.PC.ALIGN, "立場": COL.PC.ALIGN, "貢獻度": COL.PC.CONTRIB, "貢獻": COL.PC.CONTRIB, "身世": COL.PC.BACK };
       const visibleStateKeys = ["衣服", "姿勢", "負面", "顏面"];
 
       aiData.stat_changes.forEach(sc => {
@@ -1749,7 +1696,7 @@ ${isKanshou ? `
                     "負面": "重傷昏迷", "顏面": "面色慘白"
                   });
                 }
-              } else pcData[targetIdx][colIdx] = Math.max(1, Math.min(REALM_LIMITS[pcData[targetIdx][COL.PC.REALM] || "凡人"] || 25, numNew));
+              } else pcData[targetIdx][colIdx] = Math.max(1, Math.min(999, numNew));
             } else if (colIdx === COL.PC.BACK) {
               // 🔴 身世為終身史記：禁止整段覆寫，新內容以「、」追加並只留最近6段；玩家鎖定時後端強制擋下，不依賴AI自律
               if (!(targetIdx === pcIndex && userData.backLocked)) {
@@ -2074,7 +2021,7 @@ ${isKanshou ? `
     const mpAfter = parseInt(pcData[pcIndex][COL.PC.MP]) || 0;
     const extraMsgs = [];
     const mpDiff = mpAfter - mpBefore;
-    if (mpDiff !== 0) extraMsgs.push(`<span style="color:#4169e1;">${mpDiff < 0 ? "💨" : "🌀"} 真氣 ${mpDiff > 0 ? "+" : ""}${mpDiff}</span>`);
+    if (mpDiff !== 0) extraMsgs.push(`<span style="color:#4169e1;">${mpDiff < 0 ? "💨" : "🌀"} 魔力 ${mpDiff > 0 ? "+" : ""}${mpDiff}</span>`);
     if (extraMsgs.length > 0) {
       finalResponseText += `<br><span style="font-size:13px;">${extraMsgs.join('　')}</span>`;
     }
@@ -2112,7 +2059,7 @@ ${isKanshou ? `
       allKnownNames: pcData.filter((r, i) => i !== 0 && !String(r[COL.PC.ID]).startsWith("DEAD_")).map(r => String(r[COL.PC.NAME]).trim())
     });
 
-  } catch (e) { return JSON.stringify({ text: "天道崩潰：" + e.message, people: [] }); }
+  } catch (e) { return JSON.stringify({ text: "系統錯誤：" + e.message, people: [] }); }
 }
 
 
@@ -2203,14 +2150,14 @@ function actionGetEpicHistory(userData, pcId, sheets) {
       intimacyTotal: stats.intimacyTotal,
       topIntimacy: stats.topIntimacy,
       topIntimacyCount: stats.topIntimacyCount,
-      realm: pcRow[COL.PC.REALM] || "凡人"
+      realm: pcRow[COL.PC.REALM] || ""
     }
   });
 }
 
 // 🟢 新增：天道強行抹除/斬斷 NPC 的重大事件約定
 function actionClearNpcMajorEvent(userData, pcId, sheets) {
-  if (!sheets.rel) return JSON.stringify({ success: false, message: "天道異常：REL關係表不存在。" });
+  if (!sheets.rel) return JSON.stringify({ success: false, message: "系統異常：REL關係表不存在。" });
 
   // 1. 透過 pcId 撈出玩家本人的名號
   const pcData = sheets.pc.getDataRange().getValues();
@@ -3821,7 +3768,7 @@ function actionNarrateOnly(userData, pcId, sheets) {
     ]);
     return JSON.stringify({ success: true, text: narrationText });
   } catch (e) {
-    return JSON.stringify({ success: true, text: "（此處因果已定，天機微微一閃。）" });
+    return JSON.stringify({ success: true, text: "（此處因果已定，氣息微微一閃。）" });
   }
 }
 
@@ -3895,13 +3842,13 @@ function actionMultiAttackNarrate(userData, pcId, sheets) {
 
     return JSON.stringify({ success: true, text: narrationText });
   } catch (e) {
-    return JSON.stringify({ success: true, text: "（此處因果已定，天機微微一閃。）" });
+    return JSON.stringify({ success: true, text: "（此處因果已定，氣息微微一閃。）" });
   }
 }
 
 function actionUpdateRelTag(userData, pcId, sheets) {
   const { targetName, newTagText } = userData;
-  if (!sheets.rel) return JSON.stringify({ success: false, message: "天道異常：關係表不存在。" });
+  if (!sheets.rel) return JSON.stringify({ success: false, message: "系統異常：關係表不存在。" });
   if (!newTagText || !String(newTagText).trim()) return JSON.stringify({ success: false, message: "稱呼不可為空。" });
 
   const pcData = sheets.pc.getDataRange().getValues();

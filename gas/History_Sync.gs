@@ -130,12 +130,12 @@ function getGameHistory(pcId, pcName) {
     const content = row[3];
     
     // 🛡️ 內容洗滌器
-    const safeContent = content ? content.toString().replace(/\n/g, "<br>") : "天道無言。";
+    const safeContent = content ? content.toString().replace(/\n/g, "<br>") : "靜默無言。";
     
     if (role === "player") {
       html += `<div class="msg-player"><span class="msg-name">${pcName}</span><span class="msg-text">${safeContent}</span></div>`;
     } else {
-      html += `<div class="msg-ai"><b>【天道演化】</b>${safeContent}</div>`;
+      html += `<div class="msg-ai"><b>【敘事】</b>${safeContent}</div>`;
     }
   });
   

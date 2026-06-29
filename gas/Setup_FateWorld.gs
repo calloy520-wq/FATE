@@ -123,7 +123,7 @@ function ensureFateSheets_(ss) {
   });
   if (created.length) {
     // 新建地圖後清掉舊地圖快取，讓前端讀到新冬木地圖
-    try { CacheService.getScriptCache().remove("KYUSHU_MAP_DATA"); } catch (e) {}
+    try { CacheService.getScriptCache().remove("FATE_MAP_DATA"); } catch (e) {}
   }
   // 英靈殿/御主殿 若為空，自動灌入名冊（Seed_Codex.gs）
   try { if (typeof seedFateCodex_ === "function") seedFateCodex_(ss); } catch (e) { Logger.log("seedFateCodex_ 失敗(略過): " + e.message); }
@@ -166,7 +166,7 @@ function reseedIfEmpty_(ss) {
     if (upserted) km.getRange(1, 1, d2.length, d2[0].length).setValues(d2);
     if (toAppend.length) km.getRange(km.getLastRow() + 1, 1, toAppend.length, toAppend[0].length).setValues(toAppend);
   }
-  try { CacheService.getScriptCache().remove("KYUSHU_MAP_DATA"); } catch (e) { }
+  try { CacheService.getScriptCache().remove("FATE_MAP_DATA"); } catch (e) { }
 
   // 🔧 既有英靈殿補丁：赫拉克勒斯的「十二試煉」過去只在 np 文字、缺 fx:god_hand → 補上技能
   try {

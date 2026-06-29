@@ -23,12 +23,12 @@
             const data = (typeof responseRaw === 'string') ? JSON.parse(responseRaw) : responseRaw;
             resolve(data);
           } catch (e) {
-            console.error("【天道解析異常】:", responseRaw);
+            console.error("【解析異常】:", responseRaw);
             reject(e);
           }
         })
         .withFailureHandler(err => {
-          console.error("【天道連線中斷】:", err);
+          console.error("【連線中斷】:", err);
           reject(err);
         })
         .handleGameAction(payload);
@@ -80,10 +80,7 @@
   let historyPushed = false;
   let categorizedMapData = null;
 
-  const _RC = window.KYUSHU_REALM || {}; 
-const REALMS = _RC.REALMS || ["凡人", "引氣", "凝罡", "通玄", "罡氣", "意動", "心象", "登峰", "返璞", "天人"];
-const REALM_MODIFIERS = _RC.REALM_MODIFIERS || {"凡人":1.0, "引氣":1.3, "凝罡":1.6, "通玄":2.0, "罡氣":2.5, "意動":3.2, "心象":4.0, "登峰":8.0, "返璞":20.0, "天人":50.0};
-const REALM_LIMITS = _RC.REALM_LIMITS || {"凡人":20, "引氣":25, "凝罡":30, "通玄":40, "罡氣":50, "意動":65, "心象":80, "登峰":120, "返璞":160, "天人":200};
+  // 🗑️ 九州境界常數(REALMS/REALM_MODIFIERS/REALM_LIMITS)已移除——FATE 無境界系統。
 
   const NPC_ACTIONS = {
     '贈禮': { prompt: '請描寫玩家掏出物品示好的過程...' }
@@ -304,7 +301,7 @@ function renderRecentLocs(recents = null) {
         await syncData(true); 
         renderNpcList();      
     } catch (e) {
-        document.getElementById('npc-content').innerHTML = "<p style='text-align:center; color:red;'>天道感應失敗。</p>";
+        document.getElementById('npc-content').innerHTML = "<p style='text-align:center; color:red;'>感應失敗。</p>";
     }
   }
 
@@ -353,7 +350,7 @@ function renderRecentLocs(recents = null) {
           closeStatus();
         }
       } catch(e) {
-        alert("窺探命格失敗，天道屏蔽了感應。");
+        alert("窺探命格失敗，感應被屏蔽。");
         closeStatus();
       }
     }
@@ -412,7 +409,7 @@ function renderRecentLocs(recents = null) {
     let html = `
       <div style="margin-bottom: 20px; border-bottom: 1px dashed rgba(212,175,55,0.3); padding-bottom: 15px;">
         <button class="btn" style="width: 100%; border-color:#d4af37; color:#d4af37; background:rgba(212,175,55,0.1); padding: 15px; font-size: 16px; font-weight: bold; letter-spacing: 2px; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="openVisualMap()">
-          🌌 展開神識 ‧ 俯瞰九州全貌
+          🌌 展開神識 ‧ 俯瞰全貌
         </button>
       </div>
     `;
@@ -809,7 +806,7 @@ function renderRecentLocs(recents = null) {
         // 🕯️ 移動推進時間時，敵從者令咒透支倒數到期、消滅了最後一名敵人 → 聖杯到手
         if (data.victory) { try { await handleVictory(data); } catch (e) {} }
       } else {
-        alert("天道阻礙：" + data.message);
+        alert("連線阻礙：" + data.message);
       }
     } catch(e) {
         console.error("移動時發生錯誤:", e);
@@ -881,7 +878,7 @@ function renderRecentLocs(recents = null) {
           <div class="npc-card" style="${cardStyle}">
             ${roleTag}<b style="color: ${nameColor};">${escapeHtml(n.name)}</b>
             <span style="font-size:12px; color:#2e8b57; margin-left:8px;">${locText}</span><br>
-            <small style="color:#b22222; font-weight:bold;">生命: ${n.hp} | 真氣: ${n.mp}</small><br>
+            <small style="color:#b22222; font-weight:bold;">生命: ${n.hp} | 魔力: ${n.mp}</small><br>
             <small style="color:#666;">狀態：${n.status}</small><br>
             <small style="color:#a52a2a; font-weight:bold;">羈絆：${n.relTag || '萍水相逢'} <span style="color:#e91e63;">(好感：${n.relVal || 0})</span></small>
             <div class="npc-actions">${actionButtonsHtml}</div>
@@ -943,7 +940,7 @@ function renderRecentLocs(recents = null) {
 
       let combatData = null;
       const actionGuidance = NPC_ACTIONS[actName] ? NPC_ACTIONS[actName].prompt : "";
-      const finalMsg = `【系統動作：${moveContext} 請天道嚴格審視玩家當前處境是否能自由行動。若能，${actionGuidance}】`;
+      const finalMsg = `【系統動作：${moveContext} 請嚴格審視玩家當前處境是否能自由行動。若能，${actionGuidance}】`;
       send(finalMsg, true, combatData);
   }
 
@@ -3377,10 +3374,10 @@ function renderEpicHistory(res) {
         // 瞬間重新載入個人史紀面板，讓紅字與髒資料立刻消失！
         await loadEpicData(); 
       } else {
-        alert(res.message || "因果糾纏過深，天道重塑失敗。");
+        alert(res.message || "因果糾纏過深，重塑失敗。");
       }
     } catch(e) {
-      alert("天道阻礙，無法連結命盤伺服器。");
+      alert("連線阻礙，無法連結伺服器。");
     }
   }
 
@@ -3395,17 +3392,9 @@ function renderEpicStats(stats) {
         <div style="font-size:28px; color:#b22222; font-weight:bold;">${stats.kills}</div>
         <div style="font-size:12px; color:#816e54; margin-top:2px;">⚔️ 擊殺</div>
       </div>
-      <div style="background:rgba(156,39,176,0.08); border:1px solid rgba(156,39,176,0.3); border-radius:8px; padding:12px; text-align:center;">
-        <div style="font-size:28px; color:#9C27B0; font-weight:bold;">${stats.questsDone}</div>
-        <div style="font-size:12px; color:#816e54; margin-top:2px;">📜 完成天命</div>
-      </div>
       <div style="background:rgba(70,130,180,0.08); border:1px solid rgba(70,130,180,0.3); border-radius:8px; padding:12px; text-align:center;">
         <div style="font-size:28px; color:#4682b4; font-weight:bold;">${stats.locationsCount}</div>
         <div style="font-size:12px; color:#816e54; margin-top:2px;">🗺️ 踏足地點</div>
-      </div>
-      <div style="background:rgba(212,175,55,0.08); border:1px solid rgba(212,175,55,0.3); border-radius:8px; padding:12px; text-align:center;">
-        <div style="font-size:28px; color:#8b5a2b; font-weight:bold;">${stats.realm}</div>
-        <div style="font-size:12px; color:#816e54; margin-top:2px;">🌌 當前境界</div>
       </div>
     </div>
 
