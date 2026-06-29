@@ -34,6 +34,7 @@ const ActionRouter = {
   "mana_supply": actionManaSupply,
   "set_servant_output": actionSetServantOutput,
   "set_mage_realm": actionSetMageRealm,
+  "set_rune_mode": actionSetRuneMode,
   "bond": actionBond,
   "use_mystic": actionUseMystic,
   "rule_break_steal": actionRuleBreakSteal,
@@ -661,6 +662,8 @@ function actionGetTags(userData, pcId, sheets) {
       // 🔮 魔境的智慧（斯卡哈）：前端露出可選被動盤。has＝持 mage_realm；pick＝已選 fx；pool＝可選清單
       mageRealm: skills.some(function (sk) { return sk && sk.fx === 'mage_realm'; })
         ? { has: true, pick: mageRealmPick_(s[COL.PC.MEMORY]), pool: mageRealmPool_() } : null,
+      // 🔯 原初符文運用方式（持 rune 者才給，前端標籤可點開挑 減傷/增傷/回血）
+      runeMode: skills.some(function (sk) { return sk && sk.fx === 'rune'; }) ? runeMode_(s[COL.PC.MEMORY]) : undefined,
       pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體
       stolen: /【破戒奪取】/.test(String(s[COL.PC.MEMORY] || ""))
     });
@@ -2425,6 +2428,24 @@ function actionFateBattle(userData, pcId, sheets) {
       if (destroyedName || sealEscaped) break;
     }
 
+    // 🔯 原初符文·回血運用：本回合我方持符文且運用為 regen 的從者回復一截體力（5%×階/回合）——持久符文流。
+    for (let rk = 0; rk < livingParty.length; rk++) {
+      const ridx = livingParty[rk];
+      if (String(pcData[ridx][COL.PC.ID]).startsWith("DEAD_")) continue;
+      const rc = rowToCombatant_(pcData[ridx]);
+      const rrn = hasFx_(rc, 'rune');
+      if (rrn && rc.runeMode === 'regen') {
+        const hpMaxR = parseInt(pcData[ridx][COL.PC.MAX_HP]) || 0;
+        const healR = Math.round(hpMaxR * 0.05 * rankMul_(rrn));
+        const curR = parseInt(pcData[ridx][COL.PC.HP]) || 0;
+        if (healR > 0 && curR > 0 && curR < hpMaxR) {
+          pcData[ridx][COL.PC.HP] = Math.min(hpMaxR, curR + healR);
+          sheets.pc.getRange(ridx + 1, 1, 1, pcData[ridx].length).setValues([pcData[ridx]]);
+          rl.strikes.push({ by: rc.name, rune: true, pHit: false, pDmg: 0, pCrit: '', pFired: [], note: '原初符文·治癒（+' + Math.min(healR, hpMaxR - curR) + '）' });
+        }
+      }
+    }
+
     // 🐙 深淵海怪追擊：青鬍子寶具召喚物，常駐每回合撕咬敵手——先扣御主魔力維持，撐不住則潰散退場。
     if (horrorActive && targetIsFoeServant && !String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_") && !destroyedName && !sealEscaped && !victory) {
       const hUp = drainForNp_(sheets, pcData, atkIdx, pIdx, HORROR_UPKEEP);
@@ -2921,6 +2942,31 @@ function actionSetMageRealm(userData, pcId, sheets) {
   return JSON.stringify({
     success: true, pick: wantFx,
     message: ent ? `「${svName}」以魔境的智慧運起【${ent.n} A】——${ent.desc}` : `「${svName}」收起所運武技，回歸本來。`,
+    statusString: getFreshStatusString(pcId, pIdx, sheets)
+  });
+}
+
+// 🔯 設定原初符文運用方式（持 rune 的從者，玩家選 減傷/增傷/回血）：免費、即時、不耗 AP。
+function actionSetRuneMode(userData, pcId, sheets) {
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無此從者。" });
+  let skills = [];
+  try { const tg = JSON.parse(pcData[svIdx][COL.PC.TAGS] || "{}"); skills = (tg.classSkills || []).concat(tg.skills || []); } catch (e) { }
+  if (!skills.some(sk => sk && sk.fx === 'rune')) {
+    return JSON.stringify({ success: false, message: "此從者不具「原初符文」。" });
+  }
+  const want = String(userData.mode || 'def');
+  if (RUNE_MODES_.indexOf(want) < 0) return JSON.stringify({ success: false, message: "無此符文運用方式。" });
+  pcData[svIdx][COL.PC.MEMORY] = setRuneMode_(pcData[svIdx][COL.PC.MEMORY], want);
+  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+  const label = { def: '減傷（護符結界）', dmg: '增傷（符文灼擊）', regen: '回血（治癒符文）' }[want];
+  return JSON.stringify({
+    success: true, mode: want,
+    message: `「${pcData[svIdx][COL.PC.NAME]}」將原初符文運用為【${label}】。`,
     statusString: getFreshStatusString(pcId, pIdx, sheets)
   });
 }

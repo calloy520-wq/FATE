@@ -127,6 +127,18 @@ function setServantOutput_(memory, pct) {
   return mem ? (mem + '｜【出力】' + p) : ('【出力】' + p);
 }
 
+// 🔯 原初符文運用方式（玩家可選）：def 減傷(預設·受傷時生效)／dmg 增傷(出擊時生效)／regen 回血(每回合)。存從者 MEMORY【符文】。
+var RUNE_MODES_ = ['def', 'dmg', 'regen'];
+function runeMode_(memory) {
+  var m = String(memory || "").match(/【符文】(def|dmg|regen)/);
+  return m ? m[1] : 'def';
+}
+function setRuneMode_(memory, mode) {
+  var mode2 = (RUNE_MODES_.indexOf(String(mode)) >= 0) ? String(mode) : 'def';
+  var mem = String(memory || "").replace(/｜?【符文】(def|dmg|regen)/g, '');
+  return mem ? (mem + '｜【符文】' + mode2) : ('【符文】' + mode2);
+}
+
 // 🐕 主從synergy（原作設定「御主供魔／契合度提升從者能力」）：特定主從組合回到全盛六圍。
 //   目前只：恩奇都 ↔ 巴茲狄洛特（獵犬御主）→ 全能力 A、寶具 A++。其餘御主（含玩家自召）下恩奇都維持削弱基線。
 //   讀從者列 MEMORY【御主】名判定；在 rowToCombatant_ 套用。要擴充別的主從組合就往這加。

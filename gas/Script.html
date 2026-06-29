@@ -1281,8 +1281,21 @@ function renderRecentLocs(recents = null) {
           var arg = "'" + String(n).replace(/'/g, '') + "','" + String(fx || '').replace(/'/g, '') + "','" + String(r || '').replace(/'/g, '') + "'";
           return '<span class="' + (glow ? 'tag-selectable' : '') + '" onclick="event.stopPropagation();showSkillDesc(' + arg + ')" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid ' + col + '; color:' + col + '; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;">' + (glow ? '✨' : '') + label + '</span>';
         };
-        // 🔮 可選能力標籤（如斯卡哈魔境的智慧）發亮，提醒玩家可在下方選盤挑選被動
-        var skillPills = (s.skills || []).map(function (sk) { return pill(sk.n, sk.r, sk.fx, '#d9a93a', sk.fx === 'mage_realm'); }).join('');
+        // 🔮 可選能力標籤(魔境的智慧/原初符文)：小膠囊·發亮；點開在說明 popup 裡挑選，選定後標籤即顯示所選項（如 魔境的智慧（千里眼A））
+        var selPill = function (label, onclickJs) {
+          return '<span class="tag-selectable" onclick="event.stopPropagation();' + onclickJs + '" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid #7ec8ff; color:#bfe3ff; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;">✨ ' + label + '</span>';
+        };
+        var skillPills = (s.skills || []).map(function (sk) {
+          if (sk.fx === 'mage_realm' && s.mageRealm && s.mageRealm.has) {
+            var mp = (s.mageRealm.pool || []).filter(function (o) { return o.fx === s.mageRealm.pick; })[0];
+            return selPill('魔境的智慧' + (mp ? '（' + mp.n + ' A）' : ''), 'openMageRealmPicker(\'' + safeN + '\',\'' + (s.mageRealm.pick || '') + '\')');
+          }
+          if (sk.fx === 'rune' && typeof s.runeMode === 'string') {
+            var rmo = RUNE_MODES_JS.filter(function (o) { return o.mode === (s.runeMode || 'def'); })[0];
+            return selPill(sk.n + (rmo ? '（' + rmo.n + '）' : ''), 'openRunePicker(\'' + safeN + '\',\'' + (s.runeMode || 'def') + '\')');
+          }
+          return pill(sk.n, sk.r, sk.fx, '#d9a93a', false);
+        }).join('');
         var traitPills = (s.traits || []).map(function (tr) { return pill(tr.n, tr.r, 'trait', '#c0392b'); }).join('');
         // 🌹 慾海：從者卡只露 名字/外顯/個性/特徵/關係/肉體——不露血量/魔力/六圍/技能/寶具/動作鈕
         if (pc && pc.mode === 'kanshou') {
@@ -1316,14 +1329,7 @@ function renderRecentLocs(recents = null) {
           + '<div style="color:#cdbbe6; font-size:11px; margin-top:3px; letter-spacing:.5px;">六圍　' + sixLine + '</div>'
           + (skillPills ? ('<div style="margin-top:3px;">' + skillPills + '</div>') : '')
           + (traitPills ? ('<div style="margin-top:1px;">' + traitPills + '</div>') : '')
-          + ((skillPills || traitPills) ? '<div style="color:#6a5f80; font-size:9.5px; margin-top:2px;">👆 點標籤看效果</div>' : '')
-          + ((s.mageRealm && s.mageRealm.has && !(pc && pc.mode === 'kanshou')) ?  // 🔮 魔境的智慧：玩家自選 1 個通用 A 階被動
-              '<div class="mr-dial" style="margin-top:6px; padding:5px 7px; border:1px solid #4a6a8a; border-radius:7px; background:rgba(30,40,60,.4);" onclick="event.stopPropagation();">'
-              + '<div style="color:#9fd0ff; font-size:11px;">✨ 魔境的智慧　<small style="opacity:.75;">運起 1 門通用 A 階武技</small></div>'
-              + '<div style="display:flex; flex-wrap:wrap; gap:3px; margin-top:4px;">'
-              + s.mageRealm.pool.map(function (o) { var on = (o.fx === s.mageRealm.pick); return '<button class="mr-btn" data-fx="' + o.fx + '" data-n="' + o.icon + o.n + '" onclick="setMageRealm(this,\'' + safeN + '\',\'' + o.fx + '\')" title="' + String(o.desc).replace(/"/g, '') + '" style="font-size:10px; padding:3px 7px; border-radius:6px; cursor:pointer; border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + '; background:' + (on ? 'rgba(110,180,220,.30)' : 'rgba(40,50,65,.4)') + '; color:' + (on ? '#bfe3ff' : '#8a9ab0') + '; font-weight:' + (on ? 'bold' : 'normal') + ';">' + o.icon + o.n + (on ? ' ✓' : '') + '</button>'; }).join('')
-              + '<button class="mr-clear" onclick="setMageRealm(this,\'' + safeN + '\',\'\')" title="收起所運武技" style="font-size:10px; padding:3px 7px; border-radius:6px; cursor:pointer; border:1px solid #6a4a4a; background:rgba(60,40,40,.4); color:#c08a8a;' + (s.mageRealm.pick ? '' : 'display:none;') + '">✕ 清除</button>'
-              + '</div></div>' : '')
+          + ((skillPills || traitPills) ? '<div style="color:#6a5f80; font-size:9.5px; margin-top:2px;">👆 點標籤看效果' + ((s.mageRealm && s.mageRealm.has) || (s.skills || []).some(function (k) { return k.fx === 'rune'; }) ? '；✨發亮的可點開挑選' : '') + '</div>' : '')
           + '<div style="color:#9a8bb0; font-size:11px; margin-top:5px;">寶具　' + s.np + '</div>'
           + ((pc && pc.mode === 'kanshou') || (dual && !isActive) ? '' :
               '<div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">'
@@ -1661,29 +1667,54 @@ function renderRecentLocs(recents = null) {
     } catch (e) { /* 靜默：UI 已樂觀更新，下次同步會校正 */ }
   }
 
-  // 🔮 魔境的智慧（斯卡哈）：玩家點選 1 個通用 A 階被動標籤（fx 空字串＝清除）。樂觀更新·免遮罩。
-  async function setMageRealm(btn, npcName, fx) {
-    // ⚡ 立刻把選盤外觀更新（選中高亮＋✓、清除鈕顯隱），不跳遮罩
+  // 🔮 可選能力的「點開挑選」資料（前端常數，標籤點開的 popup 用）
+  const MAGE_POOL_JS = [
+    { fx: 'nullify_magic', n: '對魔力', d: '受魔力系傷害大幅衰減（對魔法的抗性）' },
+    { fx: 'str_up', n: '怪力', d: '瞬間強化肌力，近身傷害顯著提升' },
+    { fx: 'analyze', n: '心眼（真）', d: '經驗累積的洞察，先機與命中俱增' },
+    { fx: 'clear_mind', n: '透化', d: '心如明鏡，不受鼓舞威壓等精神干擾' },
+    { fx: 'tactics', n: '軍略', d: '對軍寶具運用更精準，寶具威力加成' },
+    { fx: 'self_mod', n: '自我改造', d: '改造己身，命中與傷害小幅穩定提升' }
+  ];
+  const RUNE_MODES_JS = [
+    { mode: 'def', n: '減傷', d: '護符結界——受到的傷害減免（穩健·預設）' },
+    { mode: 'dmg', n: '增傷', d: '符文灼擊——己方造成的傷害提升（進攻）' },
+    { mode: 'regen', n: '回血', d: '治癒符文——每回合回復一截體力（持久）' }
+  ];
+
+  // 🔮 魔境的智慧：點標籤→在說明 popup 裡挑 1 門通用 A 階武技；選定後標籤即顯示（如 魔境的智慧（千里眼A））。
+  function openMageRealmPicker(svName, curFx) {
+    var btns = MAGE_POOL_JS.map(function (o) {
+      var on = o.fx === curFx;
+      return '<button onclick="pickSelectable(\'set_mage_realm\',\'' + svName + '\',{fx:\'' + o.fx + '\'})" style="display:block;width:100%;text-align:left;margin-bottom:6px;padding:9px 11px;border-radius:8px;cursor:pointer;border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + ';background:' + (on ? 'rgba(110,180,220,.25)' : 'rgba(40,50,65,.4)') + ';color:' + (on ? '#bfe3ff' : '#c8d4e0') + ';"><b>' + o.n + ' A</b>' + (on ? '　✓ 運起中' : '') + '<br><small style="color:#9aa6c0;">' + o.d + '</small></button>';
+    }).join('');
+    var html = '<h3 style="margin:0 0 6px;color:#9fd0ff;">✨ 魔境的智慧</h3>'
+      + '<div style="color:#cfc3d8;font-size:13px;line-height:1.7;margin-bottom:10px;">影之國女王通曉常見武技——挑選 <b>1 門通用 A 階被動</b>運於己身。選定後此標籤即顯示所運武技，戰鬥即時生效；可隨時更換。</div>'
+      + btns
+      + (curFx ? '<button onclick="pickSelectable(\'set_mage_realm\',\'' + svName + '\',{fx:\'\'})" style="display:block;width:100%;padding:8px;margin-top:2px;border-radius:8px;cursor:pointer;border:1px solid #6a4a4a;background:rgba(60,40,40,.4);color:#c08a8a;">✕ 收起武技（清除）</button>' : '');
+    showHistoryOverlay(html);
+  }
+  // 🔯 原初符文：點標籤→在說明 popup 裡選符文運用方式（減傷／增傷／回血）；選定後標籤即顯示（如 原初符文（增傷））。
+  function openRunePicker(svName, curMode) {
+    var btns = RUNE_MODES_JS.map(function (o) {
+      var on = o.mode === (curMode || 'def');
+      return '<button onclick="pickSelectable(\'set_rune_mode\',\'' + svName + '\',{mode:\'' + o.mode + '\'})" style="display:block;width:100%;text-align:left;margin-bottom:6px;padding:9px 11px;border-radius:8px;cursor:pointer;border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + ';background:' + (on ? 'rgba(110,180,220,.25)' : 'rgba(40,50,65,.4)') + ';color:' + (on ? '#bfe3ff' : '#c8d4e0') + ';"><b>' + o.n + '</b>' + (on ? '　✓ 運用中' : '') + '<br><small style="color:#9aa6c0;">' + o.d + '</small></button>';
+    }).join('');
+    var html = '<h3 style="margin:0 0 6px;color:#9fd0ff;">🔯 原初符文</h3>'
+      + '<div style="color:#cfc3d8;font-size:13px;line-height:1.7;margin-bottom:10px;">神代的原初符文可隨意刻劃——選定此戰要如何運用符文之力，戰鬥即時生效；可隨時更換。</div>'
+      + btns;
+    showHistoryOverlay(html);
+  }
+  // 共用：點選後關 popup、背景存檔、輕量同步讓標籤更新
+  async function pickSelectable(action, svName, payload) {
+    try { var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none'; } catch (e) {}
     try {
-      var wrap = btn && btn.closest ? btn.closest('.mr-dial') : null;
-      if (wrap) {
-        wrap.querySelectorAll('.mr-btn').forEach(function (b) {
-          var on = b.getAttribute('data-fx') === fx;
-          b.style.border = '1px solid ' + (on ? '#7ec8ff' : '#3a4a5a');
-          b.style.background = on ? 'rgba(110,180,220,.30)' : 'rgba(40,50,65,.4)';
-          b.style.color = on ? '#bfe3ff' : '#8a9ab0';
-          b.style.fontWeight = on ? 'bold' : 'normal';
-          b.textContent = b.getAttribute('data-n') + (on ? ' ✓' : '');
-        });
-        var clr = wrap.querySelector('.mr-clear'); if (clr) clr.style.display = fx ? '' : 'none';
-      }
-    } catch (e) {}
-    // 背景存檔；成功後輕量同步(讓標籤列那顆 ✨技能 跟著出現/更新)，失敗才提示
-    try {
-      const res = await gasRun({ action: 'set_mage_realm', pcId: pc.id, servant: npcName, fx: fx, acctName: (pc && pc.account) || currentAccount });
+      const req = { action: action, pcId: pc.id, servant: svName, acctName: (pc && pc.account) || currentAccount };
+      if (payload) for (var k in payload) req[k] = payload[k];
+      const res = await gasRun(req);
       if (res && res.success) { try { syncData(true); } catch (e) {} }
       else if (res && res.message) { alert(res.message); }
-    } catch (e) { /* 靜默：UI 已樂觀更新 */ }
+    } catch (e) { /* 靜默 */ }
   }
 
   // ✨ 發動禮裝（主動型）：吃迴路、耗魔力、扣充能

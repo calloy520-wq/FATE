@@ -219,7 +219,8 @@ function rowToCombatant_(row) {
     hp: parseInt(row[COL.PC.HP]) || 100, hpMax: parseInt(row[COL.PC.MAX_HP]) || 100,
     mp: parseInt(row[COL.PC.MP]) || 50, mpMax: parseInt(row[COL.PC.MAX_MP]) || 50,
     // 🔋 出力電池制：從者靈基出力檔位(20~100)，決定本戰命中/傷害＋御主每小時維持費；御主預設凡人巡航 60。
-    output: servantOutput_(row[COL.PC.MEMORY])
+    output: servantOutput_(row[COL.PC.MEMORY]),
+    runeMode: runeMode_(row[COL.PC.MEMORY]) // 🔯 原初符文運用方式(def 減傷／dmg 增傷／regen 回血)
   };
 }
 
@@ -422,9 +423,12 @@ function resolveFateBattle_(atk, def, opts) {
   // 🛡️ 陣地作成(territory)：法師以魔術防壁／結界減傷，補償其低耐久（救玻璃大砲美狄亞的存活）
   if (hasFx_(loser, 'territory') && !pierces('territory')) { base = Math.round(base * 0.74); fired.push(loser.name + '·' + fxName_(loser, 'territory', '陣地') + '·魔術防壁'); }
   else if (hasFx_(loser, 'territory')) { fired.push(winner.name + '·概念壓制(碾穿結界)'); }
-  // ᚱ 原初符文(rune)：護符結界減傷 10%×階級(A→-17%/EX→-20%)。救持符文的玻璃法師(斯卡蒂/玉藻前/斯卡哈)存活。
-  //   ※暫採「減傷」單一效果；未來可做「增傷/減傷/回合回血」三選一(需 UI／MEMORY 旗標)。
-  var rn = hasFx_(loser, 'rune'); if (rn) { base = Math.round(base * (1 - 0.10 * rankMul_(rn))); fired.push(loser.name + '·' + fxName_(loser, 'rune', '原初符文') + '(護符減傷)'); }
+  // ᚱ 原初符文(rune)·玩家可選運用(c.runeMode)：def 減傷(受傷時·預設)／dmg 增傷(出擊時)／regen 回血(每回合·見 actionFateBattle)。
+  //   減傷 10%×階級(A→-17%/EX→-20%)，救持符文的玻璃法師(斯卡蒂/玉藻前/斯卡哈)存活。regen 在此處無戰鬥修正、只在回合迴圈回血。
+  var rnL = hasFx_(loser, 'rune');
+  if (rnL && (loser.runeMode || 'def') === 'def') { base = Math.round(base * (1 - 0.10 * rankMul_(rnL))); fired.push(loser.name + '·' + fxName_(loser, 'rune', '原初符文') + '(護符減傷)'); }
+  var rnW = hasFx_(winner, 'rune');
+  if (rnW && winner.runeMode === 'dmg') { base += Math.round(10 * rankMul_(rnW)); fired.push(winner.name + '·' + fxName_(winner, 'rune', '原初符文') + '(符文灼擊·增傷)'); }
   // 神核(divine_core)：減傷 18%×階級；但破魔薔薇(anti_magic_lance)等高位階概念無視神核護甲
   var dc = hasFx_(loser, 'divine_core');
   if (dc && (hasFx_(winner, 'anti_magic_lance') || pierces('divine_core'))) { fired.push(winner.name + '·' + (hasFx_(winner, 'anti_magic_lance') ? '破魔(無視神核)' : '概念壓制(無視神核)')); }
