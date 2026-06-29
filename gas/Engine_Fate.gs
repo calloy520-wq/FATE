@@ -170,6 +170,8 @@ function combatProfile_(c) {
 //   mpPct＝啟動耗魔(佔 maxMP 比例，付不起走御主電池)；hit＝本戰每擊命中+；dmgMul/dmgAdd＝本戰每擊傷害增益。
 //   ★只增益「我方出擊」，不碰防禦端，避免跨呼叫方向的複雜度。
 function servantActiveSkill_(c) {
+  // 👑 王之財寶(gob／吉爾伽美什)：從無盡寶藏中連射無數英靈兵裝，命中+6、傷害大增
+  if (hasFx_(c, 'gob')) return { id: 'gob', name: fxName_(c, 'gob', '王之財寶'), icon: '👑', mpPct: 0.20, hit: 6, dmgMul: 1.0, dmgAdd: 28, desc: '本戰命中+6、傷害+28(無數寶具連射)' };
   if (hasFx_(c, 'burst')) return { id: 'burst', name: fxName_(c, 'burst', '魔力放出'), icon: '💥', mpPct: 0.15, hit: 0, dmgMul: 1.3, dmgAdd: 0, desc: '本戰傷害 ×1.3' };
   if (hasFx_(c, 'stealth')) return { id: 'stealth', name: fxName_(c, 'stealth', '氣息遮斷'), icon: '🌫️', mpPct: 0.12, hit: 6, dmgMul: 1.15, dmgAdd: 0, desc: '本戰命中+6、傷害×1.15(奇襲)' };
   if (hasFx_(c, 'str_up')) return { id: 'str_up', name: fxName_(c, 'str_up', '怪力'), icon: '💪', mpPct: 0.12, hit: 0, dmgMul: 1.0, dmgAdd: 14, desc: '本戰傷害+14' };
@@ -203,6 +205,19 @@ function resolveFateBattle_(atk, def, opts) {
   opts = opts || {};
   var fired = [];
   var d20 = function () { return Math.floor(Math.random() * 20) + 1; };
+
+  // 🌟 乖離劍·天地乖離開闢之星(ea)：英雄王自身血量≤40%才卸下傲慢「認真」——解放寶具(opts.np)時，
+  //   以神靈概念分割越過一切防禦的「執行殺」。需玩家／敵方主動解放寶具(已由 actionFateBattle 上游補魔閘門把關)，
+  //   非每擊免費觸發；血量充足時則走下方常規寶具路徑(×1.7 加成)，體現「對手不值得我認真」。
+  if (opts.np && hasFx_(atk, 'ea')) {
+    var _selfHpPct = (atk.hpMax > 0) ? (atk.hp / atk.hpMax) : 1.0;
+    if (typeof opts.selfHpPct === 'number') _selfHpPct = opts.selfHpPct;
+    if (_selfHpPct <= 0.4) {
+      var _eaDmg = Math.round(rankVal(atk.six['寶具']) * 4) + rollDice_(6, 12) + 200;
+      fired.push(atk.name + '·乖離劍·天地乖離開闢之星(認真·執行殺)');
+      return { atkWins: true, winner: atk.name, loser: def.name, damage: _eaDmg, aRoll: 20, dRoll: 0, aHit: 99, dEva: 0, fired: fired, crit: 'atk_crit', np: true, seal: !!opts.seal };
+    }
+  }
 
   // 出力：攻方當前魔力% 影響表現（補魔充足生龍活虎／餓著發揮不出）
   var mpPct = atk.mpMax > 0 ? atk.mp / atk.mpMax : 1;
@@ -241,14 +256,14 @@ function resolveFateBattle_(atk, def, opts) {
   if (atk.cls === 'Archer') { var er = hasFx_(def, 'evade_ranged'); if (er) { dEva += Math.round(6 * rankMul_(er)); fired.push(def.name + '·' + fxName_(def, 'evade_ranged', '避矢')); } }
   // 氣息遮斷(stealth)：攻方奇襲 +3
   if (hasFx_(atk, 'stealth')) { aHit += 3; fired.push(atk.name + '·' + fxName_(atk, 'stealth', '氣息遮斷') + '·奇襲'); }
-  // 燕返(tsubame)：攻方令守方迴避 -8
-  var tsubame = hasFx_(atk, 'tsubame'); if (tsubame) { dEva -= 8; fired.push(atk.name + '·' + fxName_(atk, 'tsubame', '秘劍')); }
+  // 燕返(tsubame)：寶具解放時次元摺疊令守方迴避 -5＋×2.3 傷害；普通出擊不適用（需全力釋放方能發動）
+  var tsubame = hasFx_(atk, 'tsubame'); if (tsubame && opts.np) { dEva -= 5; fired.push(atk.name + '·' + fxName_(atk, 'tsubame', '秘劍')); }
   // 🔱 三騎士職階相剋（Saber→Lancer→Archer→Saber）：占上風者搶得先機，命中小幅領先（傷害加成在下方）
   var KNIGHT_BEATS = { 'Saber': 'Lancer', 'Lancer': 'Archer', 'Archer': 'Saber' };
   if (KNIGHT_BEATS[atk.cls] === def.cls) aHit += 3;
   else if (KNIGHT_BEATS[def.cls] === atk.cls) dEva += 3;
   // 👁️ 魔眼·石化(petrify／Rider 美杜莎)：以視線鎖死獵物，令對方迴避大減
-  var pet = hasFx_(atk, 'petrify'); if (pet) { dEva -= Math.round(3 * rankMul_(pet)); fired.push(atk.name + '·' + fxName_(atk, 'petrify', '魔眼') + '·石化壓制'); }
+  var pet = hasFx_(atk, 'petrify'); if (pet) { dEva -= Math.round(2 * rankMul_(pet)); fired.push(atk.name + '·' + fxName_(atk, 'petrify', '魔眼') + '·石化壓制'); }
   // ⛓️ 天之鎖(chain／Gilgamesh)：對「神性」之敵展開冥界鎖鏈，封住身法
   var chn = hasFx_(atk, 'chain'); var defDivine0 = (def.traits || []).concat(def.skills || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
   if (chn && defDivine0) { dEva -= Math.round(6 * rankMul_(chn)); fired.push(atk.name + '·' + fxName_(atk, 'chain', '天之鎖') + '(縛神性)'); }
@@ -290,7 +305,7 @@ function resolveFateBattle_(atk, def, opts) {
   if (godSlay && loserDivine) { base = Math.round(base * 1.5); fired.push(winner.name + '·神殺(剋神性)'); }
   // 🔱 職階相性傷害加成：克制方下手更狠（與上方命中先機呼應）
   if (KNIGHT_BEATS[winner.cls] === loser.cls) { base = Math.round(base * 1.12); fired.push(winner.name + '·職階相性·壓制' + loser.cls); }
-  if (atkWins && tsubame) base = Math.round(base * 2.3);
+  if (atkWins && tsubame && opts.np) base = Math.round(base * 2.3);
   // 寶具解放：主威力＝依寶具階級的 d10 基礎骰（E3→EX30）；階級小補正錦上添花（軍略 +15%、神性 +10%）
   if (opts.np) {
     var npRank = winner.six["寶具"];
@@ -301,8 +316,7 @@ function resolveFateBattle_(atk, def, opts) {
     if (wDivine) base = Math.round(base * 1.1);
     // 🗡️ 無限劍製(ubw／固有結界)：劍之地平展開，攻方在領域內傷害大增
     if (hasFx_(winner, 'ubw')) { base = Math.round(base * 1.25); fired.push(winner.name + '·' + fxName_(winner, 'ubw', '無限劍製') + '(固有結界)'); }
-    // 👑 王之財寶(gob／Gilgamesh)：無數寶具連射，追加寶具階級彈幕
-    if (hasFx_(winner, 'gob')) { base += Math.round(rankVal(winner.six["寶具"]) * 0.9) + 14; fired.push(winner.name + '·' + fxName_(winner, 'gob', '王之財寶') + '(連射)'); }
+    // (王之財寶已移至主動技，寶具槽改為執行殺 EA)
     // 🗡️ 妄想心音／霧夜殺戮(zabaniya)：暗殺系寶具＝奪心一擊，命中即致命級重創（救低六圍刺客/狂戰的本命）
     if (hasFx_(winner, 'zabaniya')) { base = Math.round(base * 1.9) + 70; fired.push(winner.name + '·' + fxName_(winner, 'zabaniya', '妄想心音') + '(奪心致命)'); }
     // 🌑 規則破壞(rule_breaker)寶具化／魔眼石化(petrify)等控場寶具的小加成已於上方命中處理；此處給魔眼一發致殘

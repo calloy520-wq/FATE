@@ -290,10 +290,8 @@ function actionManualNpc(userData, pcId, sheets) {
   try {
     const aiBrief = JSON.parse(aiBriefStr);
 
-    // 🎴 御主(凡人魔術師)初始數值：耐久/魔力 10~15 隨機；HP/MP 由 fateMaxHpMp_ 推算(無倍率)。五圍欄已棄不寫。
-    const nCon = Math.floor(Math.random() * 6) + 10;
-    const nInt = Math.floor(Math.random() * 6) + 10;
-    const maxStats = fateMaxHpMp_(nCon, nInt);
+    // 🎴 御主(凡人魔術師)初始數值：HP/MP 依魔術迴路(財力/身世決定)推算——御主是凡人，血量與魔力儲備皆遠低於英靈從者。
+    const masterStats = masterMaxHpMp_(parseInt(circuits) || 30);
 
     let spawnName = aiBrief.start_loc || validMapNames[0];
     if (!validMapNames.includes(spawnName)) spawnName = validMapNames.find(n => spawnName.includes(n)) || validMapNames[0];
@@ -322,9 +320,8 @@ function actionManualNpc(userData, pcId, sheets) {
     newRow[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.traits, "外貌平凡、舉止從容、自稱「我」、卸下心防的私密一面");
     newRow[COL.PC.LOC] = spawnName;
     newRow[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "溫婉謙和、內斂堅韌、明哲保身、隨波逐流");
-    const masterMp = Math.round(parseInt(circuits || 30) * 20);
-    newRow[COL.PC.HP] = maxStats.hp; newRow[COL.PC.MP] = masterMp;
-    newRow[COL.PC.MAX_HP] = maxStats.hp; newRow[COL.PC.MAX_MP] = masterMp;
+    newRow[COL.PC.HP] = masterStats.hp; newRow[COL.PC.MP] = masterStats.mp;
+    newRow[COL.PC.MAX_HP] = masterStats.hp; newRow[COL.PC.MAX_MP] = masterStats.mp;
     newRow[COL.PC.REALM] = "";  // 🎴 階級系統已移除，欄位留空
     newRow[COL.PC.FACTION] = aiBrief.faction || "無"; newRow[COL.PC.RANK] = aiBrief.rank || "御主";
     newRow[COL.PC.CONTRIB] = 0; newRow[COL.PC.ALIGN] = aiBrief.align || "中立";

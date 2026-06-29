@@ -126,9 +126,10 @@ function masterToNpcRow_(mr, gameId, loc, faction) {
   row[COL.PC.TRAIT] = parseTraitsHelper(mr[COL.MASTER.PERSONA], "外貌平凡、舉止從容、通曉魔術、深藏心事");
   row[COL.PC.LOC] = loc;
   row[COL.PC.PREF] = parseTraitsHelper(mr[COL.MASTER.PERSONA], "沉著表象、堅定內裡、珍視之物、厭惡之事");
-  var hp = 120, mp = Math.round(parseInt(mr[COL.MASTER.CIRCUITS] || 30) * 20);
+  // 🎴 敵御主血魔與玩家御主同制：迴路推算(masterMaxHpMp_)，凡人遠低於從者；正典高迴路怪物(伊莉雅/櫻)才逼近從者級。
+  var mStats = masterMaxHpMp_(parseInt(mr[COL.MASTER.CIRCUITS] || 30));
+  var hp = mStats.hp, mp = mStats.mp;
   row[COL.PC.HP] = hp; row[COL.PC.MP] = mp;
-  // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，HP/MP 由 calculateMaxStats(SIX) 算。
   row[COL.PC.MAX_HP] = hp; row[COL.PC.MAX_MP] = mp; row[COL.PC.REALM] = "";
   row[COL.PC.INTENT] = String(mr[COL.MASTER.MOE] || "");
   row[COL.PC.FACTION] = faction; row[COL.PC.RANK] = "御主";

@@ -78,6 +78,17 @@ function fateMaxHpMp_(con, mag) {
   };
 }
 
+// 🎴 御主(凡人魔術師)HP/MP：唯一核心數值＝魔術迴路(財力/身世決定)。
+//   血(肉身)與魔(體內 od 儲備＋御主電池)皆由迴路縮放——御主是凡人，兩者皆遠低於英靈從者(HP 270~450／MP 180~420)。
+//   預設 30 迴路→HP 160／MP 150；電池只夠約一發寶具的補魔，補魔仍有壓力。僅伊莉雅/黑化櫻等正典怪物迴路(80~90)才逼近從者級。
+function masterMaxHpMp_(circuits) {
+  var c = parseInt(circuits) || 30;
+  return {
+    hp: 100 + c * 2,
+    mp: c * 5
+  };
+}
+
 // 🎴 從一列的六圍 SIX 推 HP/MP（耐久→con、魔力→mag）。
 function maxStatsForRow_(row) {
   var six = {}; try { six = JSON.parse(row[COL.PC.SIX] || "{}"); } catch (e) { }
