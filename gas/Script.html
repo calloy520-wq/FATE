@@ -80,11 +80,7 @@
   let historyPushed = false;
   let categorizedMapData = null;
 
-  // 🗑️ 階級常數(REALMS/REALM_MODIFIERS/REALM_LIMITS)已移除——FATE 無階級系統。
-
-  const NPC_ACTIONS = {
-    '贈禮': { prompt: '請描寫玩家掏出物品示好的過程...' }
-  };
+  const NPC_ACTIONS = {};
 
  window.onload = () => {
     document.documentElement.style.setProperty('--story-scale', parseFloat(localStorage.getItem('kyushu_story_font_scale')) || 1);
@@ -2982,7 +2978,6 @@ function openRemoteNpcAction(npcName) {
         onclick="closeInteractMenu(); send('【系統動作：玩家向周圍的人打聽關於「${npcName}」的情報與下落。請根據對方的閱歷與性格，給出真實的反應或八卦。】', true)">🗣️ 旁敲側擊 (打聽)</button>`;
 
       // 🟢 選項 2：動身尋找 (移動)
-      // 巧妙利用剛剛餵給 AI 的 remoteNpcStr 情報，讓 AI 自己讀取位置並觸發 stat_changes！
       html += `<button class="btn" style="border-color:#1e90ff; color:#1e90ff; font-weight:bold; padding: 10px;"
         onclick="closeInteractMenu(); send('【系統動作：玩家決定啟程前往尋找「${npcName}」。請根據情報中該角色的「目前位置」，在 JSON 的 stat_changes 中精準修改玩家的「位置」為該地點，並生動描寫這趟跋涉的過程！】', true)">👣 動身尋找 (移動)</button>`;
 
@@ -3207,7 +3202,6 @@ function renderBattlefieldCleanup(npcNames) {
     alert("連線受阻，無法休養。");
   }
 }
-// 🗑️ 我的家(居所+裝潢)、📜訊息系統 已移除——solo/kanshou 皆不用。
 
 // ==========================================
 // 🔒 通用按鈕防連點鎖

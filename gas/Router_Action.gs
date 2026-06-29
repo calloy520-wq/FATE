@@ -167,7 +167,6 @@ function actionCheckName(userData, pcId, sheets) {
 
 
 
-// 🟢 對同地 NPC 使用恢復道具：補血回滿、或單純解去中毒/媚惑等負面狀態
 
 
 
@@ -176,13 +175,6 @@ function actionCheckName(userData, pcId, sheets) {
 
 
 
-// 🟢 仙府倉庫：取出倉庫清單(只在開啟時讀取，不影響背包格數)
-
-// 🟢 仙府倉庫：把背包道具存入倉庫(裝備中的道具禁止存入)
-
-// 🟢 仙府倉庫：取出道具回背包(受背包格數上限限制)
-
-// 💰 變賣物品給聽風閣（賣價 = price × 0.4，裝備中與定情信物禁止賣）
 
 
 
@@ -197,65 +189,6 @@ function actionInspectNpc(userData, pcId, sheets) {
   return JSON.stringify({ success: true, data: [] });
 }
 
-// 🟢 索要：需與該 NPC 好感100且已傾心，方可開口要求一件物品，成功直接轉入玩家行囊(受背包上限限制)
-
-// 🟢 要求丟棄：需與該 NPC 好感100且已傾心，方可要求對方丟棄一件物品(物品直接消失，不轉入玩家)
-
-// 🔹 共用：組裝含地點/性格/關係/近期因果的提示詞，避免索要/丟棄敘事出戲
-function buildNpcRequestPrompt(sheets, pName, pLoc, npcRow, instructionStr, pRow) {
-  const npcName = npcRow[COL.PC.NAME];
-  const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
-  const relRow = relData.find(r => r[COL.REL.PC] === pName && r[COL.REL.NPC] === npcName);
-  const prefArr = String(npcRow[COL.PC.PREF] || "").split('、');
-  const traitArr = String(npcRow[COL.PC.TRAIT] || "").split('、');
-  const nickMatch = relRow ? String(relRow[COL.REL.MEMORY] || "").match(/\[專屬稱呼\](.*?)(?=\| \[|$)/) : null;
-  const nickStr = (nickMatch && nickMatch[1].trim()) ? ` | 稱呼玩家:${nickMatch[1].trim()}` : "";
-  const npcCardStr = `【${npcName}】性格:[表象]${prefArr[0] || "無"} [內裡]${prefArr[1] || "無"} | 特徵:${traitArr[1] || "無"} | 與玩家關係:${relRow ? relRow[COL.REL.TAG] : "萍水相逢"}(好感:${relRow ? relRow[COL.REL.FAV] : 0})${nickStr}`;
-
-  // 🔴 玩家自己的性格也要讓AI知道，台詞與反應才不會千人一面
-  const pPrefArr = String((pRow && pRow[COL.PC.PREF]) || "").split('、');
-  const pTraitArr = String((pRow && pRow[COL.PC.TRAIT]) || "").split('、');
-  const playerCardStr = pRow ? `【玩家『${pName}』】性格:[表象]${pPrefArr[0] || "無"} [內裡]${pPrefArr[1] || "無"} | 特徵:${pTraitArr[1] || "無"}\n` : "";
-
-  const recentLogStr = getRecentCausalityStr(sheets, pName, npcName, 5);
-
-  // 🔴 同地點的其他人都是真的在場，不可被「在場驗證」誤鎖成不在場；同行夥伴另外標出，AI才知道誰會吃醋誰只是路人
-  const pcDataAll = sheets.pc.getDataRange().getValues();
-  const partyNames = relData.filter(r => r[COL.REL.PC] === pName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]);
-  const bystanderNames = pcDataAll.filter(r =>
-    String(r[COL.PC.LOC]).trim() === pLoc && r[COL.PC.NAME] !== pName && r[COL.PC.NAME] !== npcName &&
-    !String(r[COL.PC.ID]).startsWith("DEAD_")
-  ).map(r => r[COL.PC.NAME]);
-  const partyHere = bystanderNames.filter(n => partyNames.includes(n));
-  const othersHere = bystanderNames.filter(n => !partyNames.includes(n));
-  let presentStr = `玩家與「${npcName}」`;
-  if (partyHere.length > 0) presentStr += `，同行夥伴${partyHere.join('、')}也在場`;
-  if (othersHere.length > 0) presentStr += `，以及在場的${othersHere.join('、')}`;
-
-  return `【場景】玩家『${pName}』目前位於『${pLoc}』。\n【近期因果】(僅供背景參考，純屬回憶，並非當下在場！)\n${recentLogStr}\n【對象資料】\n${npcCardStr}\n${playerCardStr}\n` +
-    `【系統事件·已裁定，嚴禁更改任何結果】${instructionStr}\n` +
-    `★【鐵律】嚴禁輸出任何 items_gained、items_transferred、money_transferred 或 stat_changes，已結算完畢，重複輸出會導致結算錯亂！\n` +
-    `★【在場驗證】本回合在場者僅有${presentStr}，可合理帶到其存在或反應；近期因果中提到的其他姓名均不在場，嚴禁讓其登場、插話或互動！`;
-}
-
-// ==========================================
-// 🟢 輕量化群組：贈禮 / 補刀處決 / 道具自用 / 妙手空空 / 煉成 / 聽風閣情報
-// GAS 直接裁定結果，AI 只負責補一段不出戲的描寫
-// ==========================================
-
-// 🟢 贈禮：好感門檻與物品轉移全由 GAS 裁定，AI 只負責寫對方的反應
-
-// 🟢 補刀處決：HP<=5 才能裁定，戰利品/氣運結算全由 GAS 完成，AI 只負責寫終結場面
-
-// 🟢 道具自用(非藥水類)：扣除全由 GAS 完成，AI 只負責寫使用特效
-
-// 🟢 妙手空空(指定物品偷竊)：D20 對抗裁定成敗，成功轉移物品，失敗扣好感+扣血當教訓
-
-// 🟢 煉丹/煉器/煉成：必定成功，品級由 D20 查 RARITY_TABLE 裁定(造化綠液入素材=強制20)，AI 只負責想名字/描述與敘事
-const CRAFT_QUALITY_BY_ROLL = ["凡品", "凡品", "粗劣", "粗劣", "普通", "普通", "良品", "良品", "精品", "精品", "珍品", "珍品", "稀世", "稀世", "絕世", "絕世", "神器", "神器", "神器", "傳說"];
-
-
-// 🟢 聽風閣買情報：扣款由 GAS 結構化裁定，AI 只負責想線索內容與敘事
 
 
 
@@ -437,20 +370,6 @@ function actionManualNpc(userData, pcId, sheets) {
     newRow[COL.PC.INTENT] = String(aiBrief.npc_intent || "").slice(0, 18) || "（待揭曉）";
     newRow[COL.PC.GAME_ID] = gameId;
     sheets.pc.appendRow(newRow);
-
-    if (!isCreate && sheets.rel) {
-      // 🔴 防呆：檢查關係表裡是不是已經有感情基礎了 (例如未收錄前就加了好感)
-      const relData = sheets.rel.getDataRange().getValues();
-      const existingRel = relData.find(r => r[COL.REL.PC] === pcNameStr && r[COL.REL.NPC] === finalName);
-
-      if (!existingRel) {
-        // 只有真的完全不認識，才給予預設好感度
-        let initialFav = npcRel === "奴僕" ? 60 : (npcRel === "主子" ? 20 : (String(npcRel).includes("結義") ? 70 : 10));
-        sheets.rel.appendRow([pcNameStr, finalName, initialFav, npcRel, "", ""]);
-      }
-    }
-
-    // 🗑️ 陣營自動註冊(registerFactionHelper)已隨舊陣營系統移除。
 
       if (isCreate && userData.account) { try { linkAccountToPc_(userData.account, newId); } catch (e) { } }
   return JSON.stringify({ success: true, pcId: isCreate ? newId : undefined, gameId: isCreate ? gameId : undefined, message: `【聖杯】因果已定，『${finalName}』${isCreate ? `於「${spawnName}」締結令咒，成為御主` : `已收錄`}。` });
@@ -1163,10 +1082,6 @@ function actionRest(userData, pcId, sheets) {
 
 
 
-// ==========================================
-// 📜 全新 MMO 級飛書系統 (支援夾帶物品與刪除，完美兼容 NPC)
-// ==========================================
-// 🔵 信件/賭場/生活/店鋪等舊系統已於 FATE 移除（檔案與 router 註冊一併刪除）。
 
 
 
@@ -1214,7 +1129,6 @@ function actionPlay(userData, pcId, sheets) {
   let knockedOutList = [];
   let justRevived = false;
   let fatePlayerDefeat = false, fateDreamPrompt = ""; // 🔵 FATE：御主血歸 0＝聖杯戰爭敗北（虛假之夢→老虎道場）
-  let soulBoundEventMsg = "";
   let freshlyBoundNpcName = "";
   const dirtyPcRows = new Set();
   // 玩家本人一定會被處理到，先加進去
@@ -1356,69 +1270,6 @@ function actionPlay(userData, pcId, sheets) {
     PROMPT_REL = `【當前同地人物】\n${localSceneStr}${thirdPartyStr}`;
   }
 
-  // ==========================================
-  // 🔴 新增：話題人物/遠端打聽系統
-  // ==========================================
-  let remoteNpcStr = "";
-  const mentionedRemoteNPCs = [];
-
-  pcData.forEach((r, i) => {
-    if (i === 0 || r[COL.PC.ID] == pcId) return; // 排除標題與玩家自己
-    const npcName = String(r[COL.PC.NAME]).trim();
-
-    // 確保名字長度 >= 2 避免單字誤判，且玩家確實提及
-    // 確保名字有效
-    // 確保名字長度 >= 2 避免單字誤判
-    if (npcName && npcName.length >= 2) {
-      let isMentioned = false;
-
-      // 1. 先比對全名 (最精準，任何人都能提)
-      if (userMsg.includes(npcName)) {
-        isMentioned = true;
-      }
-      // 2. 如果是三個字的名字，允許只提後兩個字 (例如：柳如煙 -> 如煙)
-      else if (npcName.length === 3) {
-        const shortName = npcName.substring(1); // 取得後兩個字
-
-        if (userMsg.includes(shortName)) {
-          // 🔴 加上限制：檢查這個 NPC 是否在關係表 (relData) 裡與玩家有過交集
-          const isKnown = relData.some(row => row[COL.REL.PC] === pcName && row[COL.REL.NPC] === npcName);
-
-          if (isKnown) {
-            isMentioned = true;
-          }
-        }
-      }
-
-      // 只要確認被提到，就檢查是否在現場
-      if (isMentioned) {
-        const isParty = partyMembers.includes(npcName);
-        const isLocal = allLocals.some(local => local[COL.PC.NAME] === npcName);
-
-        // 不在同行隊伍，也不在當前場景，才是遠端話題人物
-        if (!isParty && !isLocal) {
-          mentionedRemoteNPCs.push(r);
-        }
-      }
-    }
-  });
-
-  if (mentionedRemoteNPCs.length > 0) {
-    const remoteDetails = mentionedRemoteNPCs.map(r => {
-      const tName = r[COL.PC.NAME];
-      const relRecord = relData.find(row => row[COL.REL.PC] === pcName && row[COL.REL.NPC] === tName);
-      const currentFav = relRecord ? parseInt(relRecord[COL.REL.FAV]) || 0 : 0;
-      const relTag = relRecord ? relRecord[COL.REL.TAG] : "萍水相逢";
-
-      return `- 【${tName}】目前位置:${r[COL.PC.LOC] || "未知"} | 身世:${r[COL.PC.BACK] || "無"} | 性格:${formatPref(r[COL.PC.PREF])} | 玩家與其羈絆:${relTag}(好感:${currentFav})`;
-    });
-
-    remoteNpcStr = `\n★【話題人物情報 (遠端/未現身)】：\n玩家在對話中提到了以下不在場的角色。請依據這些真實情報，讓在場的 NPC 給出符合其自身性格與人生閱歷的合理反應（例如：八卦流言、敬畏評價、仇恨、或是單純表示不認識）。\n${remoteDetails.join("\n")}\n🛑【鐵律】：以上話題人物【絕對不在場】，嚴禁描寫他們當場現身、開口說話或與玩家產生直接互動！違者敘事錯亂！`;
-  }
-
-
-
-
   const npcDialoguePrompt = displayPeople.length > 0 ? `\n★【對話點名】：若有對話意圖，請包含「${displayPeople.map(r => r[COL.PC.NAME]).join("、")}」的對話。` : "";
 
 
@@ -1435,7 +1286,6 @@ ${history}
 ${localHistoryStr}
 
 ${PROMPT_REL}
-${remoteNpcStr}
 ★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可登場、說話、互動的角色，僅限【目前同行隊伍成員】、緊鄰上方【當前同地人物】清單列出之人，${isNsfwMode ? "本回合為慾海模式(私密場景已隔絕外界)，【絕對禁止】由AI自行安排任何全新陌生人登場打斷或闖入；唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場，AI不得自作主張額外加碼安排其他陌生人" : "以及AI當下【全新初次原創】、從未出現於前塵因果/歷史紀錄/話題情報中的陌生角色(如路人、店家、新面孔，可正常開口說話、給予姓名)"}！前塵因果、歷史紀錄、話題情報中提到的「已知但不在此清單內」之姓名，才視為不在場的回憶，嚴禁無視「同地」設定憑空召喚、穿越或讓其開口說話、出手！若【當前同地人物】顯示「此地四下無人」，本回合除玩家、同行夥伴${isNsfwMode ? "、以及玩家本回合主動引入之人" : "、與全新原創的陌生人"}外，不可讓任何${isNsfwMode ? "" : "「歷史已知」"}具名角色登場！
 ${isKanshou ? "" : `
 ★【系統底層防呆·戰鬥雙向裁決】：發生衝突時綜合比對雙方靈基/實力/環境/戰術公平裁決，禁止單方面秒殺玩家；傷害以相對扣血呈現，允許玩家受傷/纏鬥/撤退/奇謀逆襲；惟聖杯戰爭的從者廝殺一律由系統按鈕裁決，敘述不得自行宣告死亡或輸出生命數值變化。
@@ -1506,11 +1356,7 @@ ${isKanshou ? `
       }
     }
 
-    // 🗑️ AI 自動生成陣營(new_factions / registerFactionHelper)已隨舊陣營系統移除。
-
     if (aiData.events && Array.isArray(aiData.events) && sheets.epic) aiData.events.forEach(ev => { sheets.epic.appendRow([pcId, String(ev).trim(), new Date()]); });
-
-    // 🗑️ 天命/任務(QUEST) 系統已棄用：不再解析 aiData.quests。
 
     // 🔴 血量快照：記錄所有人變化前的血量，供結尾比對真實扣血
     const hpSnapshot = {};
@@ -1934,10 +1780,6 @@ ${isKanshou ? `
 
         finalResponseText += `<br><br><span style="color:${color}; font-size:13px; font-weight:bold;">${icon} 「${rc.target}」好感度 ${sign}${change}</span>`;
       });
-    }
-    // 🟢 新增：徹底傾心事件的專屬渲染（比一般獲得物品更隆重的視覺標記）
-    if (soulBoundEventMsg) {
-      finalResponseText += `<br><br><span style="color:#ff69b4; font-size:15px; font-weight:bold; text-shadow: 0 0 8px rgba(255,105,180,0.6);">${soulBoundEventMsg}</span>`;
     }
 
     // 🔴 全員血量變化（讀系統真實結算值，AI亂寫value也不影響）
