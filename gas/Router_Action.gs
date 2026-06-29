@@ -49,7 +49,6 @@ const ActionRouter = {
   "move": actionMove,
   "sync": actionSync,
   "rest": actionRest,
-  "get_rumors": actionGetRumors,
   "play": actionPlay,
   "get_epic_history": actionGetEpicHistory,
   "leaderboard": actionLeaderboard,
@@ -135,12 +134,8 @@ function handleGameAction(userData) {
   const sheets = {
     map: ss.getSheetByName("坤圖"),
     pc: (isKanshouCtx ? getKanshouPcSheet_(ss) : ss.getSheetByName("眾生")), log: ss.getSheetByName("因果"),
-    item: ss.getSheetByName("琳琅"), auth: ss.getSheetByName("權柄"),
-    rel: ss.getSheetByName("關係"), epic: ss.getSheetByName("史紀"),
-    quest: ss.getSheetByName("天命"), task: ss.getSheetByName("TASK"),
-    faction: ss.getSheetByName("勢力"),
-    rumor: ss.getSheetByName("傳聞"),
-    shop: ss.getSheetByName("店鋪")
+    auth: ss.getSheetByName("權柄"),
+    rel: ss.getSheetByName("關係"), epic: ss.getSheetByName("史紀")
   };
 
   const handler = ActionRouter[action];
@@ -1167,15 +1162,6 @@ function actionRest(userData, pcId, sheets) {
 }
 
 
-function actionGetRumors(userData, pcId, sheets) {
-  const rumors = getRumors(sheets, 15);
-  // 按熱度降冪再排（getRumors 已按時間，這裡再加熱度權重）
-  rumors.sort(function (a, b) {
-    return (b.weight || 1) - (a.weight || 1);
-  });
-  return JSON.stringify({ success: true, data: rumors });
-}
-
 
 // ==========================================
 // 📜 全新 MMO 級飛書系統 (支援夾帶物品與刪除，完美兼容 NPC)
@@ -1216,37 +1202,12 @@ function actionPlay(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
   let relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
 
-  let factionListDesc = "尚無勢力現世。";
-  if (sheets.faction) {
-    const factionData = sheets.faction.getDataRange().getValues();
-
-    // 🔴 偷偷去抓「大勢」表
-    let trendData = [];
-    const trendSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("大勢");
-    if (trendSheet) trendData = trendSheet.getDataRange().getValues();
-
-    if (factionData.length > 1) {
-      factionListDesc = factionData.slice(1).map(r => {
-        let facName = r[COL.FACTION.NAME];
-
-        // 🔴 去大勢表比對，找出該門派目前的氣運狀態
-        let tRow = trendData.find(t => t[0] === facName);
-        let powerDesc = tRow ? `(氣運:${tRow[1]}|影響力:${tRow[2]})` : "(氣運:中立)";
-
-        return `勢力:${facName} ${powerDesc} | 陣營:${r[COL.FACTION.ALIGN]} | 駐地:${r[COL.FACTION.BASE]} | 掌舵者:${r[COL.FACTION.LEADER] || "神祕人"} | 宗旨:${r[COL.FACTION.MOTTO] || "未知"}`;
-      }).join("\n");
-    }
-  }
-
   const pcIndex = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pcIndex === -1) return "查無此人";
   const pc = pcData[pcIndex];
   const pcName = pc[COL.PC.NAME];
   let curL = pc[COL.PC.LOC];
-  const curLRoot = String(curL).split('-')[0].trim();
-  const locOwnershipNote = String(curL).includes('-') ? `\n★【地點歸屬鐵律】：玩家當前位置「${curL}」只是「${curLRoot}」境內由玩家自建的一處私人據點（店鋪/居所/領地等），玩家僅擁有這一處據點本身！「${curLRoot}」依然是廣闊的公共城鎮/地區，住滿其他百姓、商家與往來人物，絕非玩家的地盤或私產！嚴禁將整座「${curLRoot}」敘述成只屬於玩家、唯玩家獨尊，或讓無關路人因此對玩家卑躬屈膝、俯首稱臣！` : '';
 
-  const shopInfoStr = "";
 
 
   let isRelChanged = false;
@@ -1389,25 +1350,11 @@ function actionPlay(userData, pcId, sheets) {
 若好感度未滿 80，或性格屬於冷酷/高傲/剛烈，【絕對禁止】主動迎合、發情或瞬間屈服！必須表現出強烈的抗拒、屈辱、咬牙切齒或冷嘲熱諷。即便肉體有生理反應，靈魂與對話也必須是硬氣且具攻擊性的！違者判定錯亂！`;
 
   } else {
-    // 🗑️ 經濟/天命/背包已棄用：full 分支只留近聞＋勢力＋寶具(MARTIAL)，不再讀 QUEST/ITEM/WEP。
-    let rumorDesc = "";
-    const recentRumors = getRumors(sheets, 5);
-    if (recentRumors.length > 0) {
-      rumorDesc = `【江湖近聞】\n` + recentRumors.map(r => `• ${r.content}`).join("\n") + "\n\n";
-    }
-    PROMPT_ENV = `${rumorDesc}【天下勢力】\n${factionListDesc}`;
+    // 🎴 solo(SFW)：九州傳聞/勢力/我的家系統已移除，環境欄留空，只給寶具與在場人物。
+    PROMPT_ENV = "";
     PROMPT_GEAR = `【寶具／技藝】：${pcData[pcIndex][COL.PC.MARTIAL] || "尚無"}`;
     PROMPT_REL = `【當前同地人物】\n${localSceneStr}${thirdPartyStr}`;
   }
-
-  // 🏡 在家才餵裝潢給 AI（在外面完全不撈，零負擔）
-  let homeDecorPrompt = "";
-  try {
-    const decorStr = getHomeDecorForLoc(sheets, curL);
-    if (decorStr) {
-      homeDecorPrompt = `\n★【此處是玩家親手佈置的家】：${decorStr}\n(請將此居家環境自然融入場景描寫，但這是玩家的佈置，AI只可描述、嚴禁擅自更動或新增家具陳設。)`;
-    }
-  } catch (e) { }
 
   // ==========================================
   // 🔴 新增：話題人物/遠端打聽系統
@@ -1482,8 +1429,6 @@ ${PROMPT_PARTY_SYSTEM}
 
 ${PROMPT_ENV}
 ${PROMPT_GEAR}
-${homeDecorPrompt}
-${shopInfoStr}
 
 【前塵因果】：(此為歷史輪廓，僅供背景參考，請勿當作新事件重複描寫！其中提到的人物，若不在下方【當前同地人物】名單內，純屬「回憶」，本回合絕對禁止讓其現身、開口或互動！)
 ${history}
@@ -1492,7 +1437,6 @@ ${localHistoryStr}
 ${PROMPT_REL}
 ${remoteNpcStr}
 ★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可登場、說話、互動的角色，僅限【目前同行隊伍成員】、緊鄰上方【當前同地人物】清單列出之人，${isNsfwMode ? "本回合為慾海模式(私密場景已隔絕外界)，【絕對禁止】由AI自行安排任何全新陌生人登場打斷或闖入；唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場，AI不得自作主張額外加碼安排其他陌生人" : "以及AI當下【全新初次原創】、從未出現於前塵因果/歷史紀錄/話題情報中的陌生角色(如路人、店家、新面孔，可正常開口說話、給予姓名)"}！前塵因果、歷史紀錄、話題情報中提到的「已知但不在此清單內」之姓名，才視為不在場的回憶，嚴禁無視「同地」設定憑空召喚、穿越或讓其開口說話、出手！若【當前同地人物】顯示「此地四下無人」，本回合除玩家、同行夥伴${isNsfwMode ? "、以及玩家本回合主動引入之人" : "、與全新原創的陌生人"}外，不可讓任何${isNsfwMode ? "" : "「歷史已知」"}具名角色登場！
-${locOwnershipNote}
 ${isKanshou ? "" : `
 ★【系統底層防呆·戰鬥雙向裁決】：發生衝突時綜合比對雙方靈基/實力/環境/戰術公平裁決，禁止單方面秒殺玩家；傷害以相對扣血呈現，允許玩家受傷/纏鬥/撤退/奇謀逆襲；惟聖杯戰爭的從者廝殺一律由系統按鈕裁決，敘述不得自行宣告死亡或輸出生命數值變化。
 `}

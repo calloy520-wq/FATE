@@ -3207,54 +3207,8 @@ function renderBattlefieldCleanup(npcNames) {
     alert("天道阻礙，無法休養。");
   }
 }
-  // ==========================================
-  // 🏡 我的家(居所 + 裝潢)
-  // ==========================================
+// 🗑️ 我的家(居所+裝潢)、📜江湖傳聞系統 已移除——solo/kanshou 皆不用。
 
- // ==========================================
-// 📜 傳聞系統
-// ==========================================
-
-async function openNoticePanel() {
-  document.getElementById('notice-overlay').style.display = 'flex';
-  await loadRumors();
-}
-
-function closeNoticePanel() {
-  document.getElementById('notice-overlay').style.display = 'none';
-}
-
-async function loadRumors() {
-  const container = document.getElementById('rumor-list');
-  container.innerHTML = '<p style="text-align:center; color:#816e54; font-style:italic;">感應江湖氣息中...</p>';
-  try {
-    const res = await gasRun({ action: 'get_rumors', pcId: pc.id });
-    if (!res.success || !res.data || res.data.length === 0) {
-      container.innerHTML = '<p style="text-align:center; color:#816e54; padding:20px;">江湖此刻一片平靜，無甚傳聞。</p>';
-      return;
-    }
-    const typeIcon = {
-      'KILL_NPC': '⚔️', 'BREAKTHROUGH': '🌟', 'GIFT_BOND': '💍',
-      'FACTION_NEW': '🏴', 'QUEST_DONE': '📜', 'EMPOWER': '✨'
-    };
-    container.innerHTML = res.data.map(r => {
-      const icon = typeIcon[r.type] || '📢';
-      const timeStr = r.time ? new Date(r.time).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-      const heatDots = '●'.repeat(Math.min(r.weight || 1, 5));
-      return `
-        <div style="background: rgba(184,134,11,0.05); border: 1px solid rgba(184,134,11,0.2); border-left: 3px solid #b8860b; border-radius: 4px; padding: 10px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-            <span style="font-size:12px; color:#b8860b; font-weight:bold;">${icon} ${escapeHtml(r.loc) || '江湖'}</span>
-            <span style="font-size:11px; color:#666;">${timeStr}</span>
-          </div>
-          <div style="font-size:13px; color:#332211; line-height:1.6;">${escapeHtml(r.content)}</div>
-          <div style="margin-top:4px; font-size:11px; color:#b8860b; opacity:0.7;">${heatDots}</div>
-        </div>`;
-    }).join('');
-  } catch(e) {
-    container.innerHTML = '<p style="text-align:center; color:red;">天道感應失敗。</p>';
-  }
-}
 // ==========================================
 // 🔒 通用按鈕防連點鎖
 // ==========================================
