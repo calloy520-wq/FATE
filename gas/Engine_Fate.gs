@@ -94,8 +94,8 @@ var NP_SCALE_MATRIX = [
 function npAtkScale_(c) {
   var np = String(c.np || '');
   if (hasFx_(c, 'ea') || /對界/.test(np)) return '對界';
-  // 🗡️ 無限劍製(ubw)＝固有結界的飽和彈幕＝對城級：足以多燒狂戰十二試煉命(規模階5→lossN+1)，但不再對人一發秒
-  if (hasFx_(c, 'excalibur') || hasFx_(c, 'ubw') || /對城/.test(np)) return '對城';
+  // 🗡️ 無限劍製(ubw)＝固有結界的飽和彈幕＝對城級；🐙 召喚大海怪(summon_horror／青鬍子)＝深淵巨獸＝對城級
+  if (hasFx_(c, 'excalibur') || hasFx_(c, 'ubw') || hasFx_(c, 'summon_horror') || /對城/.test(np)) return '對城';
   if (/對軍/.test(np)) return '對軍';
   return '對人';
 }
@@ -355,6 +355,8 @@ function resolveFateBattle_(atk, def, opts) {
     // (王之財寶已移至主動技，寶具槽改為執行殺 EA)
     // 🗡️ 妄想心音／霧夜殺戮(zabaniya)：暗殺系寶具＝奪心一擊，命中即致命級重創（救低六圍刺客/狂戰的本命）
     if (hasFx_(winner, 'zabaniya')) { base = Math.round(base * 1.9) + 70; fired.push(winner.name + '·' + fxName_(winner, 'zabaniya', '妄想心音') + '(奪心致命)'); }
+    // 🐙 螺湮城教本(summon_horror／青鬍子)：自深淵召出觸手大海怪鋪天蓋地碾壓——救低六圍支援法師的本命一擊(對城規模)
+    if (hasFx_(winner, 'summon_horror')) { base = Math.round(base * 1.6) + rollDice_(8, 10) + 50; fired.push(winner.name + '·' + fxName_(winner, 'summon_horror', '螺湮城教本') + '(深淵海怪)'); }
     // 🌑 規則破壞(rule_breaker)寶具化／魔眼石化(petrify)等控場寶具的小加成已於上方命中處理；此處給魔眼一發致殘
     if (hasFx_(winner, 'petrify')) { base = Math.round(base * 1.3); fired.push(winner.name + '·魔眼·石化貫穿'); }
     // 🌟 乖離劍·天地乖離開闢之星(ea)：概念位階 6，斬裂世界的真理之劍——最高威力，且無視一切防禦概念（下方概念壓制處理）

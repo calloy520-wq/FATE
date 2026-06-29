@@ -53,7 +53,7 @@ var FATE_FAKE_ROSTER = [
   { master: '巴茲狄洛特', hero: '恩奇都-Lancer', loc: '未遠川河畔' },
   { master: '歐蘭多·里夫', hero: '理查一世-Saber', loc: '冬木·深山町' },
   { master: '約翰·溫加德', hero: '阿基里斯-Rider', loc: '冬木·商店街' },
-  { master: '哈魯利', hero: '大仲馬-Caster', loc: '遠坂宅' },
+  { master: '哈魯利', hero: '玉藻前-Caster', loc: '遠坂宅' },
   { master: '繰丘椿', hero: '開膛手傑克-Berserker', loc: '間桐宅' },
   { master: '漢薩·塞爾旺帝斯', hero: '靜謐的哈桑-Assassin', loc: '言峰教會' }
 ];

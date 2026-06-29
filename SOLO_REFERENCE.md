@@ -124,7 +124,9 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 ### 命中/技能
 - `hasFx_(c,'xxx')`：該角色技能是否帶此 fx。`fxName_(c,'xxx')`：回傳實際技能名(防張冠李戴)。`hasTrait_`：特性(神性/王…)。
 - `resolveFateBattle_(atk,def,opts)`：單次交手裁決。處理的 fx 標籤：
-  `aim analyze anti_magic_lance burst chain clear_mind divine_age divine_core ea evade_ranged excalibur first_strike gae_bolg gob mad morale nullify_magic petrify projection ride self_mod stealth str_up tactics territory tsubame ubw unreadable wind_strike zabaniya`
+  `aim analyze anti_magic_lance burst chain clear_mind divine_age divine_core ea evade_ranged excalibur first_strike gae_bolg gob mad morale nullify_magic petrify projection ride self_mod stealth str_up summon_horror tactics territory tsubame ubw unreadable wind_strike zabaniya`
+  - **🐙 summon_horror(螺湮城教本／青鬍子，2026-06)**：`npAtkScale_`＝對城(深淵巨獸)＋寶具傷 ×1.6+8d10+50。救青鬍子(寶具模式 1%→17%；他無戰鬥技能，靠召海怪寶具爆冷，普通模式仍0%＝gimmick召喚師，貼合原作)。
+  - **🗑️ 移出種子(2026-06)**：`大仲馬-Caster`(亞歷山大·仲馬)＋`漢斯-Watcher`(安徒生)——純支援·無攻擊寶具(1v1 恆敗、非戰鬥從者)，移出 SEED_SERVANTS。FATE_FAKE_ROSTER 的偽戰 Caster 由大仲馬改派`玉藻前-Caster`。種子 35→33。
   含：職階相剋三角(KNIGHT_BEATS +命中+傷害)、對魔力減魔砲、territory 防壁、divine_age 繞 MR、zabaniya 致命(×1.9+70)、gae_bolg 因果必中、petrify 石化、projection 被動加成(EMIYA) 等。
 - **🎴🎯 六圍降權＝角色速寫(2026-06核心哲學)**：TYPE-MOON 官方：參數是「讓人理解這從者」的速寫，非戰力試算表(庫丘林六圍頂尖卻幸運E→運氣/故事才是裁判)。舊版命中/迴避用 `rankVal`(差距50)當主導項→差兩階就鎖死→必然極化(模擬 76% 越界)。修正：
   - **命中** `= d20 + rankTier(hitStat)×K_STAT(2.5) + rand(-3~3) + outMod`（hitStat：Caster魔力/其餘敏捷）。階差壓到~12，d20(運氣)重新主導。
