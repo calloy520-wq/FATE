@@ -53,7 +53,6 @@ const ActionRouter = {
   "leaderboard": actionLeaderboard,
   "war_chronicle": actionWarChronicle,
   "war_history_list": actionWarHistoryList,
-  "spare_npc": actionSpareNpc,
   "narrate_only": actionNarrateOnly,
   "multi_attack_narrate": actionMultiAttackNarrate
 
@@ -1286,7 +1285,8 @@ ${isKanshou ? `
 
 
     let memoryMapData = getMapDataCached(sheets);
-    if (aiData.new_maps && Array.isArray(aiData.new_maps) && sheets.map) {
+    // 🎴 solo：地圖只走 GAS 坤圖／玩家移動，不讓 AI 在自由敘事裡新增地點（鑑賞約會大地圖才允許 AI 即興擴張）
+    if (isNsfwMode && aiData.new_maps && Array.isArray(aiData.new_maps) && sheets.map) {
       let mapsToAppend = [];
       aiData.new_maps.forEach(m => {
         let fullName = String(m.name || "").trim();
@@ -1376,7 +1376,8 @@ ${isKanshou ? `
 
     // 經濟層（物品/金錢/任務）已全數移除：items_gained / items_transferred / money_transferred / items_lost / items_used 不再落地。
 
-    let newlyRecruited = aiData.recruited && Array.isArray(aiData.recruited) ? aiData.recruited.map(n => String(n).trim()) : [];
+    // 🎴 solo：招募(新角色入隊)只走 GAS（召喚從者／破戒奪僕／結盟），不讓 AI 在自由敘事裡招募人；鑑賞才允許
+    let newlyRecruited = (isNsfwMode && aiData.recruited && Array.isArray(aiData.recruited)) ? aiData.recruited.map(n => String(n).trim()) : [];
     let dismissedNpc = userMsg.includes("解除了組隊同行關係") ? (userMsg.match(/與「(.*?)」解除/) || [])[1]?.trim() || "" : "";
 
     if (sheets.rel) {
@@ -1390,7 +1391,8 @@ ${isKanshou ? `
         if (tNpc === freshlyBoundNpcName) return;
 
         const rIdx = relData.findIndex(r => r[COL.REL.PC] === pcName && r[COL.REL.NPC] === tNpc);
-        let change = parseInt(rc.fav_change) || 0;
+        // 🎴 solo：好感收歸 GAS——只有羈絆/補魔/結盟等按鈕能動好感，AI 自由敘事不得改好感數值（鑑賞才允許 AI 推進好感）
+        let change = isNsfwMode ? (parseInt(rc.fav_change) || 0) : 0;
         let isPartyStr = rIdx !== -1 ? relData[rIdx][COL.REL.IS_PARTY] || "" : "";
         if (newlyRecruited.includes(tNpc)) isPartyStr = "同行"; if (dismissedNpc === tNpc) isPartyStr = "";
 
@@ -1629,8 +1631,8 @@ ${isKanshou ? `
 
 
 
-    // 🔴 好感度渲染（經濟層物品/金錢渲染已移除）
-    if (aiData.rel_changes && Array.isArray(aiData.rel_changes)) {
+    // 🔴 好感度渲染（經濟層物品/金錢渲染已移除）。🎴 solo 好感已收歸 GAS、AI 不動好感 → 不渲染 AI 的好感數字（鑑賞才顯示）
+    if (isNsfwMode && aiData.rel_changes && Array.isArray(aiData.rel_changes)) {
       aiData.rel_changes.forEach(rc => {
         const change = parseInt(rc.fav_change) || 0;
         if (change === 0) return; // 沒變動就跳過
@@ -1835,21 +1837,6 @@ function actionClearNpcMajorEvent(userData, pcId, sheets) {
 
 
 
-function actionSpareNpc(userData, pcId, sheets) {
-  const { npcName } = userData;
-  let pcData = sheets.pc.getDataRange().getValues();
-  const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-  if (nIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
-
-  // 放過＝從昏迷恢復成「清醒虛弱」，血拉回 20%，能正常活動而非永久躺 1 血
-  const maxHp = parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 100;
-  pcData[nIdx][COL.PC.HP] = Math.max(1, Math.floor(maxHp * 0.2));
-  pcData[nIdx][COL.PC.STATUS] = JSON.stringify({
-    "衣服": "衣衫破損", "姿勢": "勉強起身", "負面": "傷勢未癒", "顏面": "虛弱"
-  });
-  sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
-  return JSON.stringify({ success: true });
-}
 // ==========================================
 // ⚔️ 系統裁決攻擊 (雙方D20 + 放大後五圍 + 自訂招式，傷害看差距，不致死只到昏迷)
 // ==========================================
