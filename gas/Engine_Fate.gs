@@ -220,8 +220,47 @@ function rowToCombatant_(row) {
     mp: parseInt(row[COL.PC.MP]) || 50, mpMax: parseInt(row[COL.PC.MAX_MP]) || 50,
     // 🔋 出力電池制：從者靈基出力檔位(20~100)，決定本戰命中/傷害＋御主每小時維持費；御主預設凡人巡航 60。
     output: servantOutput_(row[COL.PC.MEMORY]),
-    runeMode: runeMode_(row[COL.PC.MEMORY]) // 🔯 原初符文運用方式(def 減傷／dmg 增傷／regen 回血)
+    runeMode: runeMode_(row[COL.PC.MEMORY]), // 🔯 原初符文運用方式(def 減傷／dmg 增傷／regen 回血)
+    npChoice: npChoice_(row[COL.PC.MEMORY]) // 🌟 多寶具英靈：玩家選定要解放的寶具索引(預設 0)
   };
+}
+
+// 🌟 多寶具英靈的「寶具選單」（玩家點寶具時挑要放哪個）。每項：n 寶具名／scale 尺度／fx 簽名效果碼／desc 短述。
+//   依 真名(＋職階) 對應；首項＝主寶具(預設·敵方也用)。回 null＝單寶具(走字串尺度)。要擴充就往這張表加。
+function servantNpOptions_(name, cls) {
+  name = String(name || ''); cls = String(cls || '');
+  if (name.indexOf('斯卡哈') === 0 && cls === 'Lancer') return [
+    { n: '貫穿死翔之槍 Gáe Bolg Alternative', scale: '對人', fx: 'gae_bolg', desc: '單體·因果逆轉必中＋投擲斷命' },
+    { n: '死亡滿溢的魔境之門 Gate of Skye', scale: '對軍', fx: '', desc: '對軍範圍·吸入影之國（魔力/幸運判定失敗即死）' }
+  ];
+  if (name.indexOf('吉爾伽美什') >= 0) return [
+    { n: '王之財寶 Gate of Babylon', scale: '對人', fx: 'gob', desc: '對人·無盡兵裝的飽和彈幕' },
+    { n: '乖離劍 Ea', scale: '對界', fx: 'ea', desc: '對界·天地乖離開闢之星，斬裂世界的最強一擊' }
+  ];
+  if (name.indexOf('伊斯坎達爾') >= 0) return [
+    { n: '王之軍勢 Ionioi Hetairoi', scale: '對軍', fx: '', desc: '對軍·固有結界召喚萬軍亂踏' },
+    { n: '神威的車輪 Gordius Wheel', scale: '對人', fx: '', desc: '對人·雷神戰車的單騎衝鋒' }
+  ];
+  if (name.indexOf('EMIYA') >= 0 || name.indexOf('無名') >= 0) return [
+    { n: '無限劍製 Unlimited Blade Works', scale: '對城', fx: 'ubw', desc: '對城·固有結界劍雨壓制（不受對魔力）' },
+    { n: '偽·螺旋劍 Caladbolg II', scale: '對人', fx: 'projection', desc: '對人·破斷重塑的流星劍狙擊' }
+  ];
+  return null;
+}
+// 單寶具退路：取該從者最主要的「寶具簽名 fx」（決定寶具乘子）。
+function firstSignatureFx_(c) {
+  var pri = ['ea', 'excalibur', 'ubw', 'summon_horror', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify', 'gob'];
+  for (var i = 0; i < pri.length; i++) { if (hasFx_(c, pri[i])) return pri[i]; }
+  return '';
+}
+// 解出「本次寶具解放」的設定檔 {scale, fx, name, multi}。多寶具讀 c.npChoice 選定項；單寶具退回字串尺度＋簽名fx。
+function npProfile_(c) {
+  var op = servantNpOptions_(c.name, c.cls);
+  if (op && op.length) {
+    var idx = Math.max(0, Math.min(op.length - 1, parseInt(c.npChoice) || 0));
+    return { scale: op[idx].scale, fx: op[idx].fx, name: op[idx].n, multi: true };
+  }
+  return { scale: npAtkScale_(c), fx: firstSignatureFx_(c), name: String(c.np || ''), multi: false };
 }
 
 // 主裁決：一次交手。回傳 {atkWins, winner, loser, damage, aRoll,dRoll,aHit,dEva, fired[], crit, np, seal}
@@ -229,11 +268,14 @@ function resolveFateBattle_(atk, def, opts) {
   opts = opts || {};
   var fired = [];
   var d20 = function () { return Math.floor(Math.random() * 20) + 1; };
+  // 🌟 本次解放的寶具設定檔(多寶具讀 atk.npChoice 選定項，單寶具退回字串)。簽名效果一律以此判定，多寶具才選得對。
+  var atkNp = opts.np ? npProfile_(atk) : null;
+  var npIs = function (fx) { return atkNp && atkNp.fx === fx; };
 
   // 🌟 乖離劍·天地乖離開闢之星(ea)：英雄王自身血量≤40%才卸下傲慢「認真」——解放寶具(opts.np)時，
   //   以神靈概念分割越過一切防禦的「執行殺」。需玩家／敵方主動解放寶具(已由 actionFateBattle 上游補魔閘門把關)，
   //   非每擊免費觸發；血量充足時則走下方常規寶具路徑(×1.7 加成)，體現「對手不值得我認真」。
-  if (opts.np && hasFx_(atk, 'ea')) {
+  if (opts.np && npIs('ea')) {
     var _selfHpPct = (atk.hpMax > 0) ? (atk.hp / atk.hpMax) : 1.0;
     if (typeof opts.selfHpPct === 'number') _selfHpPct = opts.selfHpPct;
     if (_selfHpPct <= 0.4) {
@@ -300,7 +342,7 @@ function resolveFateBattle_(atk, def, opts) {
   if (hasFx_(atk, 'gob')) { aHit += 5; fired.push(atk.name + '·' + fxName_(atk, 'gob', '王之財寶') + '(無盡兵裝)'); }
   // ⛓️ 天之鎖(chain)：命中加成併入既有「縛神性」效果(下方)；輸出走下方萬鎖彈幕。此處不另加命中(避免恩奇都過載)。
   // 燕返(tsubame)：寶具解放時次元摺疊令守方迴避 -5＋×2.3 傷害；普通出擊不適用（需全力釋放方能發動）
-  var tsubame = hasFx_(atk, 'tsubame'); if (tsubame && opts.np) { dEva -= 5; fired.push(atk.name + '·' + fxName_(atk, 'tsubame', '秘劍')); }
+  var tsubame = hasFx_(atk, 'tsubame'); if (tsubame && opts.np && npIs('tsubame')) { dEva -= 5; fired.push(atk.name + '·' + fxName_(atk, 'tsubame', '秘劍')); }
   // 🔱 三騎士職階相剋（Saber→Lancer→Archer→Saber）：占上風者搶得先機，命中小幅領先（傷害加成在下方）
   var KNIGHT_BEATS = { 'Saber': 'Lancer', 'Lancer': 'Archer', 'Archer': 'Saber' };
   if (KNIGHT_BEATS[atk.cls] === def.cls) aHit += 3;
@@ -314,7 +356,7 @@ function resolveFateBattle_(atk, def, opts) {
   if (chn && defDivine0) { dEva -= Math.round(6 * rankMul_(chn)); fired.push(atk.name + '·' + fxName_(atk, 'chain', '天之鎖') + '(縛神性)'); }
 
   // 必中(gae_bolg)：寶具解放時逆因果直接命中
-  var gaebolg = opts.np && hasFx_(atk, 'gae_bolg'); if (gaebolg) fired.push(atk.name + '·' + fxName_(atk, 'gae_bolg', '必中之槍') + '(必中)');
+  var gaebolg = opts.np && npIs('gae_bolg'); if (gaebolg) fired.push(atk.name + '·' + fxName_(atk, 'gae_bolg', '必中之槍') + '(必中)');
 
   // 🍀 幸運＝上演劇情逆轉的旋鈕：幸運差≥2階 → 高者得福星骰(+0~6)、低者被命運捉弄。
   //   Saber(幸A+)的福星、庫丘林(幸E)屢屢倒楣戰死的詛咒——「故事與運氣才是裁判」實裝。
@@ -382,29 +424,32 @@ function resolveFateBattle_(atk, def, opts) {
   }
   // 🔱 職階相性傷害加成：克制方下手更狠（與上方命中先機呼應）
   if (KNIGHT_BEATS[winner.cls] === loser.cls) { base = Math.round(base * 1.12); fired.push(winner.name + '·職階相性·壓制' + loser.cls); }
-  if (atkWins && tsubame && opts.np) base = Math.round(base * 2.3);
+  if (atkWins && opts.np && npIs('tsubame')) base = Math.round(base * 2.3);
   // 寶具解放：主威力＝依寶具階級的 d10 基礎骰（E3→EX30）；階級小補正錦上添花（軍略 +15%、神性 +10%）
   if (opts.np) {
+    // 解放寶具者贏了交手→套用「所選寶具」的簽名乘子；對手反殺(winner=def)則照其自身 fx(不受玩家寶具選擇影響)
+    var wRelease = (winner === atk);
+    var wSig = function (fx) { return wRelease ? npIs(fx) : !!hasFx_(winner, fx); };
     var npRank = winner.six["寶具"];
     var npDice = npBaseDice_(npRank); base += npDice; fired.push(winner.name + '·寶具骰(' + (rankVal(npRank) >= 60 ? 'EX' : npRank) + ')=' + npDice);
-    base += Math.round(rankVal(npRank) * 0.6) + 10; fired.push(winner.name + '·寶具解放');
+    base += Math.round(rankVal(npRank) * 0.6) + 10; fired.push(winner.name + '·寶具解放' + (wRelease && atkNp && atkNp.name ? ('·' + String(atkNp.name).split(' ')[0]) : ''));
     if (hasFx_(winner, 'tactics')) { base = Math.round(base * 1.15); fired.push(winner.name + '·' + fxName_(winner, 'tactics', '軍略')); }
     var wDivine = (winner.traits || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
     if (wDivine) base = Math.round(base * 1.1);
     // 🗡️ 無限劍製(ubw／固有結界)：劍之地平展開，攻方在領域內傷害大增
-    if (hasFx_(winner, 'ubw')) { base = Math.round(base * 1.25); fired.push(winner.name + '·' + fxName_(winner, 'ubw', '無限劍製') + '(固有結界)'); }
-    // (王之財寶已移至主動技，寶具槽改為執行殺 EA)
+    if (wSig('ubw')) { base = Math.round(base * 1.25); fired.push(winner.name + '·' + fxName_(winner, 'ubw', '無限劍製') + '(固有結界)'); }
     // 🗡️ 妄想心音／霧夜殺戮(zabaniya)：暗殺系寶具＝奪心一擊，命中即致命級重創（救低六圍刺客/狂戰的本命）
-    if (hasFx_(winner, 'zabaniya')) { base = Math.round(base * 1.9) + 70; fired.push(winner.name + '·' + fxName_(winner, 'zabaniya', '妄想心音') + '(奪心致命)'); }
+    if (wSig('zabaniya')) { base = Math.round(base * 1.9) + 70; fired.push(winner.name + '·' + fxName_(winner, 'zabaniya', '妄想心音') + '(奪心致命)'); }
     // 🐙 螺湮城教本(summon_horror／青鬍子)：自深淵召出觸手大海怪鋪天蓋地碾壓——救低六圍支援法師的本命一擊(對城規模)
-    if (hasFx_(winner, 'summon_horror')) { base = Math.round(base * 1.6) + rollDice_(8, 10) + 50; fired.push(winner.name + '·' + fxName_(winner, 'summon_horror', '螺湮城教本') + '(深淵海怪)'); }
-    // 🌑 規則破壞(rule_breaker)寶具化／魔眼石化(petrify)等控場寶具的小加成已於上方命中處理；此處給魔眼一發致殘
-    if (hasFx_(winner, 'petrify')) { base = Math.round(base * 1.3); fired.push(winner.name + '·魔眼·石化貫穿'); }
+    if (wSig('summon_horror')) { base = Math.round(base * 1.6) + rollDice_(8, 10) + 50; fired.push(winner.name + '·' + fxName_(winner, 'summon_horror', '螺湮城教本') + '(深淵海怪)'); }
+    // 🌑 魔眼石化(petrify)致殘
+    if (wSig('petrify')) { base = Math.round(base * 1.3); fired.push(winner.name + '·魔眼·石化貫穿'); }
     // 🌟 乖離劍·天地乖離開闢之星(ea)：概念位階 6，斬裂世界的真理之劍——最高威力，且無視一切防禦概念（下方概念壓制處理）
-    if (hasFx_(winner, 'ea')) { base = Math.round(base * 1.7) + rollDice_(4, 12) + 80; fired.push(winner.name + '·' + fxName_(winner, 'ea', '乖離劍') + '(天地乖離·真理之劍)'); }
-    // 🏰 寶具規模相剋矩陣：對城打對人 ×2.5、對界碾壓常規防禦…（攻擊規模 × 守方防禦規模）
-    var scaleMult = npScaleMult_(winner, loser);
-    if (scaleMult !== 1) { base = Math.round(base * scaleMult); fired.push(winner.name + '·' + npAtkScale_(winner) + '寶具 vs ' + npDefScale_(loser) + '防(×' + scaleMult + ')'); }
+    if (wSig('ea')) { base = Math.round(base * 1.7) + rollDice_(4, 12) + 80; fired.push(winner.name + '·' + fxName_(winner, 'ea', '乖離劍') + '(天地乖離·真理之劍)'); }
+    // 🏰 寶具規模相剋矩陣：對城打對人 ×2.5、對界碾壓常規防禦…（攻擊規模 × 守方防禦規模）。多寶具用所選寶具的尺度。
+    var atkScaleLabel = (wRelease && atkNp) ? atkNp.scale : npAtkScale_(winner);
+    var scaleMult = NP_SCALE_MATRIX[NP_SCALE_IDX[atkScaleLabel]][NP_SCALE_IDX[npDefScale_(loser)]];
+    if (scaleMult !== 1) { base = Math.round(base * scaleMult); fired.push(winner.name + '·' + atkScaleLabel + '寶具 vs ' + npDefScale_(loser) + '防(×' + scaleMult + ')'); }
   }
   // ⚡ 主動技傷害增益（僅當攻方獲勝＝此增益屬於攻方時生效）
   if (opts.skill && atkWins) {

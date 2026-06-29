@@ -35,6 +35,7 @@ const ActionRouter = {
   "set_servant_output": actionSetServantOutput,
   "set_mage_realm": actionSetMageRealm,
   "set_rune_mode": actionSetRuneMode,
+  "set_np_choice": actionSetNpChoice,
   "bond": actionBond,
   "use_mystic": actionUseMystic,
   "rule_break_steal": actionRuleBreakSteal,
@@ -664,6 +665,9 @@ function actionGetTags(userData, pcId, sheets) {
         ? { has: true, pick: mageRealmPick_(s[COL.PC.MEMORY]), pool: mageRealmPool_() } : null,
       // 🔯 原初符文運用方式（持 rune 者才給，前端標籤可點開挑 減傷/增傷/回血）
       runeMode: skills.some(function (sk) { return sk && sk.fx === 'rune'; }) ? runeMode_(s[COL.PC.MEMORY]) : undefined,
+      // 🌟 多寶具英靈：寶具選單＋當前選定索引（前端點寶具時挑要放哪個）
+      npOptions: servantNpOptions_(s[COL.PC.NAME], s[COL.PC.RANK]) || undefined,
+      npChoice: npChoice_(s[COL.PC.MEMORY]),
       pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體
       stolen: /【破戒奪取】/.test(String(s[COL.PC.MEMORY] || ""))
     });
@@ -2960,6 +2964,26 @@ function actionSetRuneMode(userData, pcId, sheets) {
   return JSON.stringify({
     success: true, mode: want,
     message: `「${pcData[svIdx][COL.PC.NAME]}」將原初符文運用為【${label}】。`,
+    statusString: getFreshStatusString(pcId, pIdx, sheets)
+  });
+}
+
+// 🌟 設定多寶具英靈要解放哪個寶具（存從者 MEMORY【寶具選】N）：免費、即時、不耗 AP。
+function actionSetNpChoice(userData, pcId, sheets) {
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無此從者。" });
+  const opts = servantNpOptions_(pcData[svIdx][COL.PC.NAME], pcData[svIdx][COL.PC.RANK]);
+  if (!opts || !opts.length) return JSON.stringify({ success: false, message: "此從者只有單一寶具，無從選擇。" });
+  const idx = Math.max(0, Math.min(opts.length - 1, parseInt(userData.idx) || 0));
+  pcData[svIdx][COL.PC.MEMORY] = setNpChoice_(pcData[svIdx][COL.PC.MEMORY], idx);
+  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+  return JSON.stringify({
+    success: true, idx: idx,
+    message: `「${pcData[svIdx][COL.PC.NAME]}」此戰將解放【${opts[idx].n}】——${opts[idx].desc}`,
     statusString: getFreshStatusString(pcId, pIdx, sheets)
   });
 }

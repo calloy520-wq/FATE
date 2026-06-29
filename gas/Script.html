@@ -1600,7 +1600,34 @@ function renderRecentLocs(recents = null) {
     story.scrollTop = story.scrollHeight;
   }
 
-  async function servantStrike(npcName, useNp, useSeal, isMaster, useSkill) {
+  // 🌟 解放寶具前的「選哪個寶具」選單（多寶具英靈：斯卡哈/金閃/EMIYA/伊斯坎達爾…）
+  function openNpReleasePicker(npcName, sv, useSeal, isMaster, useSkill) {
+    var cur = (typeof sv.npChoice === 'number') ? sv.npChoice : 0;
+    var btns = (sv.npOptions || []).map(function (o, i) {
+      var on = i === cur;
+      return '<button onclick="pickNpAndStrike(' + i + ',\'' + String(npcName).replace(/'/g, '') + '\',\'' + String(sv.name).replace(/'/g, '') + '\',' + (useSeal ? 'true' : 'false') + ',' + (useSkill ? 'true' : 'false') + ')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid ' + (on ? '#e7c873' : '#5a4a2a') + ';background:' + (on ? 'rgba(212,175,55,.18)' : 'rgba(45,38,24,.5)') + ';color:#e8dcc0;"><b style="color:#e7c873;">💥 ' + o.n + '</b>' + (on ? '　<small style="color:#9a8;">·上次所選</small>' : '') + '<br><small style="color:#bcae90;">' + o.desc + '　〔' + o.scale + '〕</small></button>';
+    }).join('');
+    var html = '<h3 style="margin:0 0 6px;color:#e7c873;">💥 解放哪一個寶具？</h3>'
+      + '<div style="color:#cfc3d8;font-size:13px;line-height:1.7;margin-bottom:10px;">「' + sv.name + '」擁有複數寶具——挑選此戰要真名解放的那一個。不同寶具尺度／效果各異（單體必中 vs 範圍殲滅…）。</div>'
+      + btns;
+    showHistoryOverlay(html);
+  }
+  // 選定寶具 → 存選擇 → 關選單 → 進入正常解放流程(帶 npPicked 不再彈選單)
+  async function pickNpAndStrike(idx, npcName, svName, useSeal, useSkill) {
+    try { var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none'; } catch (e) {}
+    try { await gasRun({ action: 'set_np_choice', pcId: pc.id, servant: svName, idx: idx, acctName: (pc && pc.account) || currentAccount }); } catch (e) {}
+    servantStrike(npcName, true, useSeal, false, useSkill, true);
+  }
+
+  async function servantStrike(npcName, useNp, useSeal, isMaster, useSkill, npPicked) {
+    // 🌟 多寶具英靈：解放寶具前先讓玩家挑要放哪個（單寶具直接放）。挑完帶 npPicked=true 回來，不再彈選單。
+    if (useNp && !npPicked && !isMaster) {
+      var asv = (myServants || []).find(function (x) { return x.name === myActiveServant; });
+      if (asv && asv.npOptions && asv.npOptions.length > 1) {
+        openNpReleasePicker(npcName, asv, useSeal, isMaster, useSkill);
+        return;
+      }
+    }
     // 🗡️ 斬首敵御主極兇險：唯有「大成功（擲 20）」能突破護衛從者、一擊斬殺御主；
     //    否則必被護衛擋下，並反噬 1.5 倍傷害給你的從者（可能直接靈基崩潰、敗北）。
     if (isMaster) {

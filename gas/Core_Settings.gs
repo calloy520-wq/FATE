@@ -127,6 +127,17 @@ function setServantOutput_(memory, pct) {
   return mem ? (mem + '｜【出力】' + p) : ('【出力】' + p);
 }
 
+// 🌟 多寶具英靈：玩家選「解放哪個寶具」的索引，存從者 MEMORY【寶具選】N（預設 0＝主寶具）。
+function npChoice_(memory) {
+  var m = String(memory || "").match(/【寶具選】(\d+)/);
+  return m ? parseInt(m[1]) : 0;
+}
+function setNpChoice_(memory, idx) {
+  var i = Math.max(0, parseInt(idx) || 0);
+  var mem = String(memory || "").replace(/｜?【寶具選】\d+/g, '');
+  return mem ? (mem + '｜【寶具選】' + i) : ('【寶具選】' + i);
+}
+
 // 🔯 原初符文運用方式（玩家可選）：def 減傷(預設·受傷時生效)／dmg 增傷(出擊時生效)／regen 回血(每回合)。存從者 MEMORY【符文】。
 var RUNE_MODES_ = ['def', 'dmg', 'regen'];
 function runeMode_(memory) {
