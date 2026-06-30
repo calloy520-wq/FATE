@@ -177,8 +177,20 @@ function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
 
   if (war === 'chaos') {
     // 🎲 混亂：洗牌湊六組隨機配對；跳過與玩家相同真名的英靈
-    var mPool = masters.slice(1).filter(function (r) { return r[COL.MASTER.ID]; });
-    var hPool = heroes.slice(1).filter(function (r) { return r[COL.HERO.ID] && String(r[COL.HERO.NAME]) !== playerServantName; });
+    //   ★排除 非參戰職階(Ruler 裁定者) 與 外傳客串(Prisma 美遊/小黑/伊莉雅、賽彌拉米斯等)，別當正規敵從者；
+    //     並依真名去重(斯卡哈雙職階/同名御主 4th·5th)，避免同場兩個同名被 NAME-based 查找塌縮成一人。
+    var seenMaster = {};
+    var mPool = masters.slice(1).filter(function (r) {
+      if (!r[COL.MASTER.ID]) return false;
+      var nm = String(r[COL.MASTER.NAME]); if (seenMaster[nm]) return false; seenMaster[nm] = true; return true;
+    });
+    var seenHero = {};
+    var hPool = heroes.slice(1).filter(function (r) {
+      if (!r[COL.HERO.ID] || String(r[COL.HERO.NAME]) === playerServantName) return false;
+      if (String(r[COL.HERO.CLS]) === 'Ruler') return false;
+      if (String(r[COL.HERO.WARS] || '').indexOf('客串') >= 0) return false;
+      var nm = String(r[COL.HERO.NAME]); if (seenHero[nm]) return false; seenHero[nm] = true; return true;
+    });
     shuffle_(mPool); shuffle_(hPool);
     var locPool = shuffle_(['冬木·深山町', '遠坂宅', '間桐宅', '言峰教會', '柳洞寺', '冬木·新都', '穗群原學園', '冬木·商店街']);
     var n = Math.min(7, mPool.length, hPool.length);
