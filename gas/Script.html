@@ -88,6 +88,9 @@
 
  window.onload = () => {
     document.documentElement.style.setProperty('--story-scale', parseFloat(localStorage.getItem('kyushu_story_font_scale')) || 1);
+    // 預填上次登入的帳號名稱，省去再次輸入
+    var _savedAcct = localStorage.getItem('fate_account');
+    if (_savedAcct) { var _acctIn = document.getElementById('in-account'); if (_acctIn) _acctIn.value = _savedAcct; }
     document.addEventListener('click', (e) => {
       const drawer = document.getElementById('action-drawer');
       const trigger = document.getElementById('plus-trigger');
@@ -1870,6 +1873,7 @@ function renderRecentLocs(recents = null) {
     // 鎖住輸入與行動列，避免敗北後還能操作
     try { var inp = document.getElementById('u-in'); if (inp) { inp.disabled = true; inp.placeholder = '聖杯戰爭已落幕……'; } } catch (e) {}
     try { var oc = document.getElementById('options-container'); if (oc) oc.innerHTML = ''; } catch (e) {}
+    try { var wa = document.getElementById('war-actions'); if (wa) wa.innerHTML = ''; } catch (e) {}
     try {
       if (res.dreamPrompt) {
         story.insertAdjacentHTML('beforeend', `<div class="msg-player" style="align-self:center;color:#c9a0ff;font-size:13px;">（意識墜入聖杯泥編織的夢……）</div>`);
@@ -2145,7 +2149,10 @@ function renderRecentLocs(recents = null) {
   async function runTigerDojo_(servantName, causeCtx) {
     openTigerDojo();
     var body = document.getElementById('dojo-ai-body');
+    var backBtn = document.getElementById('dojo-back-btn');
     if (body) body.innerHTML = '<span style="color:#9a8fb0;">🐯 藤村老師正在翻你的戰報……</span>';
+    // 鎖按鈕，等 AI 生成完再給玩家「下一步」
+    if (backBtn) { backBtn.disabled = true; backBtn.style.opacity = '0.4'; backBtn.style.cursor = 'not-allowed'; }
     try {
       const res = await gasRun({ action: 'narrate_only', pcId: pc.id, promptText: buildTigerDojoPrompt_(servantName, causeCtx), isNsfw: false });
       if (res && res.success && res.text && body) {
@@ -2153,6 +2160,16 @@ function renderRecentLocs(recents = null) {
         body.innerHTML = t + '<div style="color:#9a8fb0; font-size:12px; margin-top:12px;">（敗北的存檔已封存於戰史，可重啟新的一局。）</div>';
       } else if (body) { body.innerHTML = dojoFallbackHtml_(); }
     } catch (e) { if (body) body.innerHTML = dojoFallbackHtml_(); }
+    finally {
+      // AI 完成（或失敗）後：解鎖按鈕，改為「下一步 → 重新登入」直接 reload
+      if (backBtn) {
+        backBtn.disabled = false;
+        backBtn.style.opacity = '';
+        backBtn.style.cursor = '';
+        backBtn.textContent = '下一步 → 重新登入';
+        backBtn.onclick = function () { location.reload(); };
+      }
+    }
   }
   function closeTigerDojo() {
     const ov = document.getElementById('tiger-dojo-overlay');

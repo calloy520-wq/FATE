@@ -2580,7 +2580,7 @@ function actionFateBattle(userData, pcId, sheets) {
   ).join('\n');
   const finalLine = destroyedName
     ? (!targetIsFoeServant
-        ? `敵御主「${defC.name}」已斃命——凡人之軀、並非靈基消滅（致命的手段由你依出戰從者的職階自行演出）${victory ? '；其從者失去供魔亦將隨之消散，聖杯已近！' : '。'}`
+        ? `敵御主「${defC.name}」已斃命——凡人之軀、並非靈基消滅（${atkC.cls === 'Caster' ? 'Caster 以魔術給予決定性一擊、非肉搏；' : ''}致命手段依出戰從者職階自行演出）${victory ? '；其從者失去供魔亦將隨之消散，聖杯已近！' : '。'}`
         : `「${defC.name}」靈基崩潰、徹底消滅${victory ? '——此乃最後一名敵對從者，聖杯已近！' : '。'}`)
     : sealEscaped ? `「${defC.name}」被對面御主令咒緊急扯離戰場、遁走不在場。`
       : godRevived ? `「${defC.name}」屢屢自死亡歸來、仍未倒下。`
@@ -2593,7 +2593,7 @@ function actionFateBattle(userData, pcId, sheets) {
   if (defeat) {
     aiPrompt = servantCard_(pcData[atkIdx]) +
       `【戰報·已裁定】御主號令『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合。\n${roundsBrief}\n結局：『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。\n` +
-      `★以 Fate／TYPE-MOON 筆觸演出這場敗北的最後一幕(一段即可)，語氣留白。勝負已定，你只演過程。`;
+      `★以 Fate／TYPE-MOON 筆觸演出這場敗北的最後一幕(一段即可)${atkC.cls === 'Caster' ? '（Caster 以魔術轟擊為主、非肉搏）' : ''}，語氣留白。勝負已定，你只演過程。`;
   } else {
     aiPrompt = servantCard_(pcData[atkIdx]) +
       `【戰報·已裁定，勝負與傷害不可改】御主號令${atkLabel}出擊，與「${defC.name}」交鋒 ${nRounds} 回合。\n` +
@@ -2610,6 +2610,7 @@ function actionFateBattle(userData, pcId, sheets) {
       (godRevived ? `· 十二試煉：${godNote}\n` : "") +
       (sealEscaped ? `· 對面御主燃令咒、強行扯離重傷從者，敵已遁走不在場。${sealNote}\n` : "") +
       ((!destroyedName && !sealEscaped && !godRevived) ? `· 敗方尚有餘力(見上方 HP)——勿描寫死亡／消滅／屍體，生死由御主後續定奪。\n` : "") +
+      (atkC.cls === 'Caster' ? `· 出戰從者為 Caster（魔術師）職階：此戰以魔術轟擊為主、非肉搏，演出時勿讓其上前近戰。\n` : "") +
       `★以 Fate／TYPE-MOON 筆觸演出這 ${nRounds} 回合互有攻防的交鋒(約 220~280 字)：show, don't tell，把上列事實化為畫面與張力，技能/寶具演其威能而非報菜名。`;
   }
 
@@ -2919,7 +2920,7 @@ function servantCard_(row) {
     var persona = p.words || prefArr.slice(0, 4).join('、');
     var np = String(row[COL.PC.MARTIAL] || "");
     // 狂化偵測：喪失言語、只咆哮（如赫拉克勒斯、蘭斯洛特）。開膛手傑克等會說話的狂戰士不命中。
-    var mad = /狂化|無法言語|僅?咆哮|不語/.test(String(p.speech || "") + String(fp));
+    var mad = /狂化|無法言語|僅咆哮|不語/.test(String(p.speech || "") + String(fp));
     var card = `〈${name}·${cls}·演出依據(僅供內化，禁複述設定字面)〉自稱「${fp}」｜對御主：${toM || '依真名'}｜性格：${persona || '依真名'}` +
       (p.speech ? `｜口吻：${p.speech}` : "") +
       (p.moe ? `｜萌點：${p.moe}` : "") +
