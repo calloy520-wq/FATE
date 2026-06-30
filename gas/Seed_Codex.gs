@@ -28,7 +28,7 @@ var SEED_SERVANTS = [
     six:{筋力:'C',耐久:'C',敏捷:'A+',魔力:'B',幸運:'E',寶具:'A+'},
     classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'A+',fx:'ride'}],
     skills:[{n:'怪力',r:'B',fx:'str_up'},{n:'女神的神核',r:'',fx:'divine_core'},{n:'魔眼',r:'A',fx:'petrify'}],
-    traits:[{n:'神性'},{n:'女神'}], np:'他者封印·鮮血神殿 Blood Fort Andromeda／駿馬天翔 Bellerophon（A+）',
+    traits:[{n:'神性'},{n:'女神'}], np:'他者封印·鮮血神殿 Blood Fort Andromeda（對軍·結界）／騎英之手綱 Bellerophon（對軍 A+）',
     align:'混沌・善', persona:{firstP:'我',look:'紫長髮・眼鏡封印魔眼的修長女子、寡言低斂的幽靜氣息、自稱「我」・語氣壓得很低、卸下眼鏡時近乎獻身的依戀',words:'忠誠・守護・自卑・深藏的溫柔',toMaster:'寡言而深情、極度護主',speech:'寡言低沉、必要才開口、護主時毫不猶豫、語氣壓得很低',moe:'怪力女神卻極度自卑、靠眼鏡壓制魔眼的反差、對御主近乎獻身的忠誠、姊姊般的包容',tic:'推眼鏡、靜默佇立暗處、垂眸'} },
   { id:'美狄亞-Caster', cls:'Caster', realName:'美狄亞', wars:['5th'], gender:'女',
     six:{筋力:'E',耐久:'D',敏捷:'C',魔力:'A',幸運:'B',寶具:'C'},
@@ -145,7 +145,7 @@ var SEED_SERVANTS = [
     six:{筋力:'B',耐久:'C',敏捷:'B',魔力:'A',幸運:'B',寶具:'A+'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'},{n:'單獨行動',r:'A',fx:'solo'}],
     skills:[{n:'神性',r:'A',fx:'divine'},{n:'女神的神核',r:'A',fx:'divine_core'},{n:'魔力放出',r:'A',fx:'burst'}],
-    traits:[{n:'神性'},{n:'女神'}], np:'天之公牛・山海熔毀的天牛 An Gugalanna（對界 A+）',
+    traits:[{n:'神性'},{n:'女神'}], np:'天之公牛・山海熔毀的天牛 An Gugalanna（對城 A+）',
     align:'混沌・善', persona:{firstP:'本小姐',look:'黑髮閃亮・借凜之身的金星女神、高傲任性的傲嬌氣燄、自稱「本小姐」・傲嬌口吻、見閃亮便走不動的嘴硬義氣',words:'女神・任性・傲嬌・愛美愛閃亮',toMaster:'頤指氣使，意外講義氣',speech:'高傲任性、傲嬌口吻、愛炫耀、得意洋洋',moe:'金星女神的任性傲嬌、見閃亮寶物就走不動、嘴硬心軟的義氣、借了凜的身體卻嘴硬',tic:'叉腰仰頭、召喚天舟、哼一聲撇頭'} },
   // 客串英靈
   { id:'莫德雷德-Saber', cls:'Saber', realName:'莫德雷德', wars:['客串'], gender:'女',
@@ -158,7 +158,7 @@ var SEED_SERVANTS = [
     six:{筋力:'A',耐久:'B',敏捷:'A',魔力:'B',幸運:'C',寶具:'EX'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'},{n:'騎乘',r:'A',fx:'ride'}],
     skills:[{n:'神性',r:'B',fx:'divine'},{n:'魔力放出（炎）',r:'A',fx:'burst'},{n:'太陽之鎧',r:'A',fx:'divine_core'}],
-    traits:[{n:'神性'},{n:'英雄'}], np:'日輪啊化作鎧甲吧 Kavacha and Kundala（不滅黃金鎧）／穿刺死亡之槍 Vasavi Shakti（對神 EX·梵天詛咒之槍）／梵天慈悲之槍 Brahmastra',
+    traits:[{n:'神性'},{n:'英雄'}], np:'日輪啊化作鎧甲吧 Kavacha and Kundala（不滅黃金鎧）／穿刺死亡之槍 Vasavi Shakti（對城 EX·梵天弒神之槍）／梵天慈悲之槍 Brahmastra',
     align:'秩序・善', persona:{firstP:'我',look:'白髮金鎧・太陽之鎧加身的高潔英雄、極簡寡言不卑不亢的肅然、自稱「我」・極簡寡言、面冷心熱無聲守護的溫柔',words:'施與者・寡言・高潔・恩怨分明',toMaster:'沉默守諾、恩怨分明，有求必應',speech:'極簡寡言、不卑不亢、直言不諱、一諾千金',moe:'有求必應的施捨英雄、面冷心熱、被誤解也不辯解的高潔、認真到不近人情卻最溫柔',tic:'默然佇立、卸甲相贈、平靜直視'} },
   { id:'阿斯托爾福-Rider', cls:'Rider', realName:'阿斯托爾福', wars:['客串'], gender:'男',
     six:{筋力:'D',耐久:'C',敏捷:'B',魔力:'C',幸運:'A',寶具:'C'},
@@ -250,7 +250,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v8';
+var CODEX_PERSONA_VER = 'v9';
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {

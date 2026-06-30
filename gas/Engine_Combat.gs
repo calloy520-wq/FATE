@@ -147,6 +147,7 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   const topP = config.top_p !== undefined ? config.top_p : 0.95;
   const maxT = config.max_tokens || (config.isNsfwMode ? 2500 : 2000);
   const retries = config.retries || 3;
+  const plainText = !!config.plainText; // 🆕 純散文模式(如奪杯回憶錄)：不強制 json_object、不抽 {…}、原樣回傳內容
   let lastErrorMessage = "";
 
   // 🗑️ 規矩表(主線時局/異象)已移除：舊提示詞補丁，含「廝殺/謀略」等戰爭設定會漏進慾海。
@@ -169,9 +170,9 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
     messages: apiMessages,
     temperature: temp,
     top_p: topP,
-    max_tokens: maxT,
-    response_format: { type: "json_object" }
+    max_tokens: maxT
   };
+  if (!plainText) payload.response_format = { type: "json_object" }; // 散文模式不強制 JSON
   // 🔴【替換結束】
 
   const options = {
@@ -202,6 +203,7 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
           throw new Error("Triggered_NSFW_Filter");
         }
         let text = choice.message.content;
+        if (plainText) return String(text || "").trim(); // 散文模式：原樣回傳，不抽 {…}、不 JSON.parse
         const s = text.indexOf('{');
         const e = text.lastIndexOf('}');
         text = text.substring(s, e + 1);
@@ -226,6 +228,8 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   const fallbackNarration = isBlocked
     ? "🌸【結界觸發】妳的舉動觸動了某種微妙的禁制，此處的景象暫時被屏蔽，請再度嘗試。"
     : `⚡【連線中斷】連線失敗：${lastErrorMessage}`;
+
+  if (plainText) return fallbackNarration; // 散文模式：失敗也回純文字，不污染回憶錄成 JSON
 
   return JSON.stringify({
     narration: fallbackNarration, options: ["1. 深吸一口氣，平復心緒", "2. 溫柔地退開半步", "3. 輕聲轉移話題", "4. 稍作歇息"],

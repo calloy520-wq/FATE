@@ -55,9 +55,6 @@ function rankVal(r) {
 
 
 // 🟢 共用 D20 骰子：1=大失敗、20=大成功
-function rollD20() {
-  return Math.floor(Math.random() * 20) + 1;
-}
 
 
 // ==========================================

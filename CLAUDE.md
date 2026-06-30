@@ -31,6 +31,13 @@ GAS 在 `gas/`，clasp 推 branch 自動部署。**我每次開機失憶，這�
    Claude-Session: https://claude.ai/code/session_016XEdY9i7dRc5MWBkSMi9YN
    ```
 
+## 🎯 現在焦點（2026-06 玩家定向，依序）
+
+1. **加快整體速度**：GAS 慢的主因＝每次按鍵的 google.script.run round-trip ＋ 共用「眾生」整表掃描。**已做**：按鍵 round-trip 3→1（`buildClientState_` 統一刷新 blob＋dispatcher 對 `STATE_AFTER_ACTIONS` 夾 `_state`＋前端 `__pendingState` 優先消費）；整表/關係表單次讀取下傳共用；拔冗餘 `flush()`；「眾生」表縮列（`purge_orphans`＋登入死局自動清）。**鐵則：別把多餘 round-trip 或重複整表讀回加回來。**
+2. **種子庫資料正確性**：`Seed_Codex.gs` 六圍／寶具 NP 尺度關鍵字(對人/對軍/對城/對界，引擎讀字串算傷害·誤標＝偷改平衡)／神性／龍 trait／英文寶具名／persona 格式，要對照原作校正。
+3. **AI 敘述及格式**：提示詞給結果不指定過程、show-don't-tell、不外洩鷹架到歷史、JSON 解析有 try/catch＋`sanitizeAiData_`、基調統一（`miniSystem`）。
+4. **代碼查重**：fork 自九州，殘留死碼／重複函數／重複 inline pattern，逐步清（注意 COL 是位置索引、onclick 字串內的呼叫不算死碼）。
+
 ## 📌 開工前先讀
 
 - **`SOLO_REFERENCE.md`** — 單人模式完整代碼地圖（函數名＋作用＋schema＋ActionRouter＋MEMORY 標記）。**先查這份再 grep**，省時間。

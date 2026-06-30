@@ -7,23 +7,32 @@
 function safeJson_(s, dflt) { try { return JSON.parse(s || ""); } catch (e) { return dflt; } }
 
 // 🔵 戰爭迷霧：玩家當前所在若有未偵查的敵御主/敵從者，標記為「已偵查」(地圖才會點亮)
-function markRivalsSeen_(sheets, pcId) {
+//   ⚡ preData：呼叫端已讀好的整表 → 就地標記 SEEN(不重讀)；變動時整欄一次 setValues(不逐格 setValue)。
+//      回傳(可能已就地改 SEEN 的)data 供呼叫端沿用，避免 buildClientState_ 二次整表讀。
+function markRivalsSeen_(sheets, pcId, preData) {
   try {
-    const data = sheets.pc.getDataRange().getValues();
+    const data = preData || sheets.pc.getDataRange().getValues();
     const me = data.find(r => r[COL.PC.ID] == pcId);
-    if (!me) return;
+    if (!me) return data;
     const myGameId = String(me[COL.PC.GAME_ID] || "");
     const myLoc = String(me[COL.PC.LOC] || "").trim();
-    if (!myLoc) return;
+    if (!myLoc) return data;
+    var dirty = false;
     for (var i = 1; i < data.length; i++) {
       var r = data[i], fac = String(r[COL.PC.FACTION]);
       if (fac !== "敵御主" && fac !== "敵從者") continue;
       if (String(r[COL.PC.GAME_ID] || "") !== myGameId) continue;
       if (String(r[COL.PC.LOC] || "").trim() !== myLoc) continue;
       if (r[COL.PC.SEEN]) continue;
-      sheets.pc.getRange(i + 1, COL.PC.SEEN + 1).setValue(1);
+      r[COL.PC.SEEN] = 1; dirty = true; // 就地標記，下方一次寫回
     }
-  } catch (e) { }
+    if (dirty) {
+      var col = [];
+      for (var k = 1; k < data.length; k++) col.push([data[k][COL.PC.SEEN]]);
+      sheets.pc.getRange(2, COL.PC.SEEN + 1, col.length, 1).setValues(col); // 整欄一次寫回
+    }
+    return data;
+  } catch (e) { return preData || null; }
 }
 
 // 第五次聖杯戰爭正典陣容（master_id, hero_id, 冬木落點）
@@ -142,20 +151,6 @@ function masterToNpcRow_(mr, gameId, loc, faction) {
 function shuffle_(a) {
   for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
   return a;
-}
-
-// 正史第五次的六名正典英靈真名（供「禁止玩家搶角色」與 get_heroes 過濾）
-function canonHeroNames_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var hs = ss.getSheetByName('英靈殿');
-  if (!hs || hs.getLastRow() <= 1) return [];
-  var heroes = hs.getDataRange().getValues();
-  var names = [];
-  FATE_5TH_ROSTER.forEach(function (r) {
-    var h = heroes.find(function (x) { return String(x[COL.HERO.ID]) === r.hero; });
-    if (h) names.push(String(h[COL.HERO.NAME]));
-  });
-  return names;
 }
 
 // 🔵 開局鋪敵：war ∈ '4th'|'5th'|'fake'|'chaos'；playedMaster=玩家扮演的正典御主id(那組移除)。

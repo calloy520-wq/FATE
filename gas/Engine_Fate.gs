@@ -9,7 +9,6 @@ function rankMul_(r) { return rankVal(r) / 30; }
 // 🎲 階級隨機區間（命中用）：每階級不取固定值，而是在 base-10 ~ base+5 之間隨機。
 //   E:0~15 D:10~25 C:20~35 B:30~45 A:40~55 EX:50~65——相鄰階級區間重疊，
 //   故低階偶能擲贏高階（爆冷），骰運重新有戲，不再「差一階就鎖死」。
-function rankBand_(r) { return rankVal(r) + (Math.floor(Math.random() * 16) - 10); }
 
 // 🎲 擲骰：n 顆 d(sides)，回傳總和（D&D 風傷害骰的核心）。n<=0 回 0。
 function rollDice_(n, sides) {
@@ -109,11 +108,6 @@ function npDefScale_(c) {
   if (hasFx_(c, 'territory') || /對軍/.test(np)) return '對軍';
   return '對人';
 }
-function npScaleMult_(atkC, defC) {
-  var a = NP_SCALE_IDX[npAtkScale_(atkC)], d = NP_SCALE_IDX[npDefScale_(defC)];
-  return NP_SCALE_MATRIX[a][d];
-}
-
 // 令咒緊急脫離的落點：隨機挑一個非約會型的冬木地點（≠ 當前地）
 function enemyRetreatLoc_(currentLoc) {
   try {
@@ -153,11 +147,6 @@ function hasFx_(c, fx) {
     if (all[i] && all[i].fx === fx) return (all[i].r || 'C');
   }
   return null;
-}
-function hasTrait_(c, name) {
-  var t = (c.traits || []);
-  for (var i = 0; i < t.length; i++) { if (t[i] && String(t[i].n).indexOf(name) >= 0) return true; }
-  return false;
 }
 // 某 fx 在「這名」從者身上的『實際技能名』（不要硬寫某英靈的招式名，避免張冠李戴）。
 function fxName_(c, fx, fallback) {

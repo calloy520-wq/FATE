@@ -81,7 +81,7 @@ function actionClaimGrail(userData, pcId, sheets) {
       "羈絆深度：" + bond + "\n個性參考：" + pref + "\n" +
       (wish ? "御主願望（僅供氛圍，嚴禁直述）：" + wish + "\n" : "") +
       "結局：御主斬盡所有敵對從者，奪得聖杯。";
-    memoir = String(callGeminiAPI(prompt, sys, { temperature: 0.75, ignoreLaw: true }) || "").trim();
+    memoir = String(callGeminiAPI(prompt, sys, { temperature: 0.75, ignoreLaw: true, plainText: true }) || "").trim();
   } catch (e) { memoir = ""; }
   if (!memoir) memoir = "冬木的夜終於安靜下來。你與「" + realName + "」並肩走過那幾日的腥風血雨，如今聖杯就在眼前——而比起願望，你更想記住的，是她始終在你身側的身影。";
 

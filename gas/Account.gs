@@ -201,19 +201,6 @@ function linkAccountToPc_(accountName, pcCharId) {
   }
 }
 
-// 由御主 charId 反查所屬帳號名（供 actionPlay 等沒帶 acctName 的路徑記錄戰史）
-function findAccountByPc_(charId) {
-  if (!charId) return "";
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var acc = ss.getSheetByName("帳號");
-  if (!acc) return "";
-  var data = acc.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][COL.ACC.PC]) === String(charId)) return String(data[i][COL.ACC.NAME] || "");
-  }
-  return "";
-}
-
 // 帳號勝場 +1
 function incrementWin_(accountName) {
   var name = String(accountName || "").trim();
