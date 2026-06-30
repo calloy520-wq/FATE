@@ -149,6 +149,10 @@ function hasFx_(c, fx) {
   }
   return null;
 }
+// ⚡ 因果律武器：技能帶 causality:true 的從者，寶具對轟時死亡已在因果上先確定（Gáe Bolg 等）。
+function hasCausalityNp_(c) {
+  return (c.skills || []).some(function(s) { return s && s.causality; });
+}
 // 某 fx 在「這名」從者身上的『實際技能名』（不要硬寫某英靈的招式名，避免張冠李戴）。
 function fxName_(c, fx, fallback) {
   var all = (c.skills || []).concat(c.traits || []);

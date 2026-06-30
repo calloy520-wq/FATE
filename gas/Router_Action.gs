@@ -2398,17 +2398,27 @@ function actionFateBattle(userData, pcId, sheets) {
       enemyC0.output = 100;
       const pPow = resolveFateBattle_(atkC, enemyC0, { np: true, seal: useSeal, skill: skillBuff }).damage;
       const ePow = resolveFateBattle_(enemyC0, atkC, { np: true }).damage;
-      const band = Math.round((pPow + ePow) * 0.10);
+      // ⚡ 因果律武器（Gáe Bolg 等）：死亡在投擲前已確定──優先結算，壓過對手寶具威能
+      //   致死：敵方 NP 被截斷，只剩極少殘波打回來；未致死：火力 ×1.35、比完大小再走正常流程。
+      const playerCausality = hasCausalityNp_(atkC);
+      const effectivePPow = playerCausality ? Math.round(pPow * 1.35) : pPow;
+      const eHpNow = parseInt(pcData[nIdx][COL.PC.HP]) || 0;
+      const band = Math.round((effectivePPow + ePow) * 0.10);
       let outcome, pDmgTaken = 0, eDmgTaken = 0;
-      if (Math.abs(pPow - ePow) <= band) {
+      if (playerCausality && effectivePPow >= eHpNow) {
+        // ★ 因果律截斷：敵方在因果時間線上已死，其 NP 主力消散，只剩殘波 8%
+        outcome = 'causality';
+        eDmgTaken = effectivePPow;
+        pDmgTaken = Math.round(ePow * 0.08);
+      } else if (Math.abs(effectivePPow - ePow) <= band) {
         outcome = 'stalemate';
         eDmgTaken = Math.round(band * 0.5); pDmgTaken = Math.round(band * 0.5);
-      } else if (pPow > ePow) {
+      } else if (effectivePPow > ePow) {
         outcome = 'player';
-        eDmgTaken = pPow - ePow; pDmgTaken = Math.round((pPow - ePow) * 0.15);
+        eDmgTaken = effectivePPow - ePow; pDmgTaken = Math.round((effectivePPow - ePow) * 0.15);
       } else {
         outcome = 'enemy';
-        var _rawPDmg = ePow - pPow;
+        var _rawPDmg = ePow - effectivePPow;
         // ★ 對轟輸方不致死：差值再大也只扣到 1 HP 為止
         pDmgTaken = Math.min(_rawPDmg, Math.max(0, (parseInt(pcData[atkIdx][COL.PC.HP]) || 1) - 1));
         eDmgTaken = Math.round(_rawPDmg * 0.15);
@@ -2431,7 +2441,7 @@ function actionFateBattle(userData, pcId, sheets) {
         atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0,
         defHp: parseInt(pcData[nIdx][COL.PC.HP]) || 0, defHpMax: parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0
       };
-      logWarEvent_(myGameId, `寶具對轟！『${atkC.name}』與「${defC.name}」真名解放正面對撞——${outcome === 'player' ? '我方光潮壓過、貫穿對手' : outcome === 'enemy' ? '敵寶具壓過、貫穿我方（但從者拼死撐住）' : '勢均力敵、兩相抵銷'}。`, String(userData.acctName || ""));
+      logWarEvent_(myGameId, `寶具對轟！『${atkC.name}』與「${defC.name}」真名解放正面對撞——${outcome === 'causality' ? '因果律先行截斷——在敵方寶具離弦之前，死亡已先降臨' : outcome === 'player' ? '我方光潮壓過、貫穿對手' : outcome === 'enemy' ? '敵寶具壓過、貫穿我方（但從者拼死撐住）' : '勢均力敵、兩相抵銷'}。`, String(userData.acctName || ""));
     }
   }
 
@@ -2627,7 +2637,7 @@ function actionFateBattle(userData, pcId, sheets) {
       `${roundsBrief}\n我方造成 ${totalDealt} 傷害、受創 ${totalTaken}。${finalLine}\n` +
       `── 本戰發生的事(素材，自行織入畫面，勿複述標籤名) ──\n` +
       (useSeal ? `· 御主燃燒一道令咒·絕對命令，強令此擊必中、引爆超限戰力。\n` : "") +
-      (clash ? `· 寶具對轟：雙方同時解放真名正面對撞，${clash.outcome === 'player' ? '我方威能壓過、光潮貫穿對手' : clash.outcome === 'enemy' ? '對面威能壓過、貫穿我方（從者以鋼鐵意志撐住）' : '勢均力敵、轟然相抵、雙方震退'}。\n` : (useNp ? `· ${atkC.name} 高呼真名、解放了寶具。\n` : "")) +
+      (clash ? `· 寶具對轟：${clash.outcome === 'causality' ? `因果律先行截斷——『${atkC.name}』的死亡詛咒在敵方寶具解放之前便已降臨，敵 NP 殘波極微。` : clash.outcome === 'player' ? '我方威能壓過、光潮貫穿對手。' : clash.outcome === 'enemy' ? '對面威能壓過、貫穿我方（從者以鋼鐵意志撐住）。' : '勢均力敵、轟然相抵、雙方震退。'}\n` : (useNp ? `· ${atkC.name} 高呼真名、解放了寶具。\n` : "")) +
       (skillBuff ? `· 我方啟動了主動技「${skillBuff.name}」。\n` : "") +
       (horrorFired ? `· 青鬍子以螺湮城教本自深淵召出觸手巨獸「深淵海怪」，常駐戰場、每回合與本人並肩撕咬，靠御主魔力維持(枯竭則潰散)。\n` : "") +
       (dualAttack ? `· 我方兩名從者並肩夾擊同一敵手。\n` : "") +
