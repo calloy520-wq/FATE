@@ -789,9 +789,12 @@ function actionMove(userData, pcId, sheets) {
 
   // 💨 撤離追擊(一點點)：從「有活敵從者」的格子離開時，較快的敵從者可能咬一記離別追擊。
   //   ★可生還·不致死(從者血保 1)——只是不讓你一按就從強敵眼皮底下從容全身而退。用移動【前】的初始資料判定。
+  const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : []; // 提前讀一次·下方移動/敘事/追擊判定共用(零淨增讀取)
+  const tgtTrim = String(target || "").trim();
   var pursuit = null;
   try {
     var fromLocM = String(allPcData[pIdx][COL.PC.LOC] || "").trim();
+    var moverNameM = String(allPcData[pIdx][COL.PC.NAME] || "");
     if (isFateMove && fromLocM && tgtTrim && tgtTrim !== fromLocM) {
       var psvIdxM = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
       if (psvIdxM !== -1) {
@@ -804,6 +807,9 @@ function actionMove(userData, pcId, sheets) {
           if (String(r[COL.PC.GAME_ID] || "") !== moveGameId) return;
           if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
           if (String(r[COL.PC.LOC] || "").trim() !== fromLocM) return;
+          if (isAllied_(r)) return; // 🤝 盟約/休兵中→不追殺
+          var bnd = (relData.find(function (x) { return x[COL.REL.PC] === moverNameM && x[COL.REL.NPC] === String(r[COL.PC.NAME]); }) || [])[COL.REL.FAV];
+          if ((parseInt(bnd) || 0) >= 50) return; // 💗 好感友好(≥50)→交情夠·不追殺
           var a = rankVal((rowToCombatant_(r).six['敏捷']) || 'C');
           if (a > chaserAgi) { chaserAgi = a; chaser = r; }
         });
@@ -823,7 +829,6 @@ function actionMove(userData, pcId, sheets) {
 
   // 🎭 抵達態度判定（趁世界尚未 tick，看 target 此刻是否「已有先客」）：
   //   先客在＝玩家主動找上門(對方在自己地盤、會警惕戒備)；無＝偶遇(雙方恰巧撞上、都帶幾分意外)。
-  const tgtTrim = String(target || "").trim();
   const preFoesAtTarget = allPcData.filter(r =>
     (String(r[COL.PC.FACTION]) === "敵御主" || String(r[COL.PC.FACTION]) === "敵從者")
     && (!moveGameId || String(r[COL.PC.GAME_ID] || "") === moveGameId)
@@ -852,7 +857,6 @@ function actionMove(userData, pcId, sheets) {
   pIdx = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
   allPcData[pIdx][COL.PC.LOC] = target;
   const pcName = allPcData[pIdx][COL.PC.NAME];
-  const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
 
   relData.filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]).forEach(npcName => {
     const nIdx = allPcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!moveGameId || String(r[COL.PC.GAME_ID] || "") === moveGameId));
