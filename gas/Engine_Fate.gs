@@ -364,7 +364,21 @@ function resolveFateBattle_(atk, def, opts) {
   if (lkD <= 20 && Math.random() < 0.08) { dEva -= 10; fired.push(def.name + '·幸運' + (def.six['幸運'] || 'E') + '·命運捉弄(露破綻)'); }
   else if (lkD >= 50 && Math.random() < 0.08) { dEva += 8; fired.push(def.name + '·幸運·絕處逢生'); }
 
-  var atkWins = gaebolg ? true : (aHit >= dEva);
+  // 🩸 必中之槍·非全無解(貼原作)：因果逆轉雖直接命中，但【高幸運】能改寫既定命運、【直感/心眼】能預感殺機、【變化】能化形滑開。
+  //   仍是強力寶具(一般從者照樣被釘死)，只有「能扭轉命運/超越感知」者才搏得一線生機。
+  var gbEvaded = false;
+  if (gaebolg) {
+    var lkDef = rankVal(def.six['幸運']);
+    var gbEsc = (lkDef >= 60 ? 0.35 : lkDef >= 50 ? 0.22 : lkDef >= 40 ? 0.10 : 0) // 幸運 A+/A/B
+      + ((hasFx_(def, 'first_strike') || hasFx_(def, 'analyze')) ? 0.15 : 0)         // 直感/心眼
+      + (hasFx_(def, 'shapeshift') ? 0.10 : 0);                                      // 變化·化形
+    gbEsc = Math.min(0.6, gbEsc); // 上限 60%：再強也仍是「必中」級威脅
+    if (gbEsc > 0 && Math.random() < gbEsc) {
+      gbEvaded = true;
+      fired.push(def.name + '·' + (lkDef >= 50 ? '幸運' + (def.six['幸運'] || '') + '改寫命運' : (hasFx_(def, 'shapeshift') ? '化形' : '直感')) + '·避開必中之槍！');
+    }
+  }
+  var atkWins = gaebolg ? !gbEvaded : (aHit >= dEva);
   var winner = atkWins ? atk : def;
   var loser = atkWins ? def : atk;
 
