@@ -261,6 +261,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `servantCard_(row)`：壓成「〈角色背景·僅供內化〉」段塞進 narration prompt。**鐵則一**=當背景揣摩；**鐵則二**=設定字眼禁直述/說嘴；**鐵則三**=依羈絆調親疏(低好感戒備→高羈絆親近，守住性格內核)。
 - `enemyAmbushOnServant_`：卸防(補魔/羈絆/共處/休息)時同地未結盟敵從者趁隙重擊。
 - `raiseBond_`(升既有)／`bumpBond_`(無則建)／`getBond_`。`extractWish_`(取【願望】)、`buildDreamPrompt_`(敗北虛假之夢)。
+- **⏳ 14天時限(2026-06)**：聖杯戰爭上限第14日，`day>14` 未奪杯＝時限耗盡敗北。`warDeadlineDefeat_(gameId,pcName,sheets)`(查時鐘 day>14→回 {defeat,dreamPrompt})＋`buildTimeoutDream_`(時限夢·破綻＝時鐘停在第14日)。注入 `actionRest` 回傳(休息是唯一能跨日的途徑)：deadlineDefeat→defeat=true+dreamPrompt+deadline旗標。前端 rest 處理器 `data.defeat`→`handleDefeat`。
 
 ---
 

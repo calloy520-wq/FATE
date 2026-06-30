@@ -950,12 +950,13 @@ function actionRest(userData, pcId, sheets) {
     if (restAmbush) {
       restAmbushPrompt = `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${restAmbush.enemyName}」${restAmbush.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊重創「${(pcData.find(r=>String(r[COL.PC.FACTION])==='從者'&&String(r[COL.PC.GAME_ID]||'')===restGameId)||[])[COL.PC.NAME]||'從者'}」（−${restAmbush.dmg}）${restAmbush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
     }
+    var deadlineDefeat = (restAmbush && restAmbush.defeat) ? null : warDeadlineDefeat_(restGameId, pcName, sheets); // ⏳ 第14日時限耗盡(夜襲已敗就不重複)
     return JSON.stringify({
       success: true, statusString: getFreshStatusString(pcId, pIdx, sheets), healedNames: healedNames,
       loc: pcLoc, wasInjured: wasInjured, restHours: restHours, clock: restClock, ap: apAfter, apMax: AP_PER_DAY, rumors: restRumors,
-      ambush: !!restAmbush, defeat: restAmbush ? restAmbush.defeat : false, dreamPrompt: restAmbush ? restAmbush.dreamPrompt : "", ambushPrompt: restAmbushPrompt, report: restAmbush ? restAmbush.report : null,
-      servantDream: restDreamPrompt,
-      victory: restVictory && !(restAmbush && restAmbush.defeat),
+      ambush: !!restAmbush, defeat: (restAmbush && restAmbush.defeat) || !!deadlineDefeat, dreamPrompt: (restAmbush && restAmbush.dreamPrompt) ? restAmbush.dreamPrompt : (deadlineDefeat ? deadlineDefeat.dreamPrompt : ""), ambushPrompt: restAmbushPrompt, report: restAmbush ? restAmbush.report : null, deadline: !!deadlineDefeat,
+      servantDream: deadlineDefeat ? "" : restDreamPrompt,
+      victory: restVictory && !(restAmbush && restAmbush.defeat) && !deadlineDefeat,
       economy: playerServantEconomy_(sheets, pcId, pcData) // 復用已寫回的 pcData，免整表重讀
     });
   }
@@ -3647,6 +3648,30 @@ function buildDreamPrompt_(pcName, wish, servantName) {
     (wish ? `（願望核心參考，僅供你構築夢境氛圍，嚴禁逐字複述或直接點明）：${wish}\n` : "") +
     `★以 Fate／TYPE-MOON 筆觸，第二人稱，寫一段唯美而令人心碎的虛假美夢：讓「演出」暗示願望成真的幸福感，絕不可直接說出願望內容或「這是假的」。結尾要微微露出破綻（過於完美的失真感）。\n` +
     `★【鐵律】只輸出夢境敘事，禁選項或系統字樣。`;
+}
+
+// ⏳ 聖杯戰爭時限「第十四日」夢（時限耗盡敗北專用·結尾破綻＝時鐘停在第14日的詭異靜止）
+function buildTimeoutDream_(pcName, wish, servantName) {
+  return `【虛假之夢·時限耗盡·已裁定】聖杯戰爭的第十四日已盡，御主『${pcName}』終究未能在期限內奪得聖杯——聖杯陷入沉默，這場戰爭悄然落幕。意識在不甘與疲憊中，墜入聖杯泥所編織的甜美幻象。\n` +
+    `在這場夢裡，彷彿時間從未流逝、勝利仍在前方${servantName ? `，從者『${servantName}』也仍並肩在側` : ""}——一切圓滿、溫柔而虛假。\n` +
+    (wish ? `（願望核心參考，僅供構築夢境氛圍，嚴禁逐字複述或點明）：${wish}\n` : "") +
+    `★以 Fate／TYPE-MOON 筆觸、第二人稱，寫一段唯美而心碎的「時限將盡前最後幻夢」：暗示願望成真的幸福，絕不可直接說出願望或「這是假的」。${servantName ? `從者依其性格自然相伴。` : ""}結尾微露破綻（過於完美的失真，或時鐘永遠停在第十四日的詭異靜止）。\n` +
+    `★【鐵律】只輸出夢境敘事，禁選項或系統字樣。`;
+}
+
+// ⏳ 聖杯戰爭時限(14日)：時間推進後若 day>14 仍未奪杯 → 時限耗盡敗北。回 {defeat,dreamPrompt} 或 null。
+function warDeadlineDefeat_(gameId, pcName, sheets) {
+  try {
+    var clk = getClock_(gameId);
+    if (!clk || clk.day <= 14) return null;
+    var sv = "";
+    try {
+      var d = sheets.pc.getDataRange().getValues();
+      var svRow = d.find(function (r) { return String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_"); });
+      if (svRow) sv = String(svRow[COL.PC.NAME]);
+    } catch (e) { }
+    return { defeat: true, dreamPrompt: buildTimeoutDream_(pcName, "", sv) };
+  } catch (e) { return null; }
 }
 
 

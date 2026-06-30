@@ -1803,21 +1803,30 @@ function renderRecentLocs(recents = null) {
     } catch (e) { alert('連線失敗，令咒未發動。'); } finally { endAction(); }
   }
 
-  // 敗北：先播「願望實現的虛假之夢」，再進老虎道場
+  // 敗北：先播「願望實現的虛假之夢」，再【由玩家自己按鈕】進老虎道場（敗北後不能輸入，故用按鈕控節奏，不靠死板 timer 搶播）
   async function handleDefeat(res) {
+    const story = document.getElementById('story');
+    // 鎖住輸入與行動列，避免敗北後還能操作
+    try { var inp = document.getElementById('u-in'); if (inp) { inp.disabled = true; inp.placeholder = '聖杯戰爭已落幕……'; } } catch (e) {}
+    try { var oc = document.getElementById('options-container'); if (oc) oc.innerHTML = ''; } catch (e) {}
     try {
       if (res.dreamPrompt) {
-        const story = document.getElementById('story');
         story.insertAdjacentHTML('beforeend', `<div class="msg-player" style="align-self:center;color:#c9a0ff;font-size:13px;">（意識墜入聖杯泥編織的夢……）</div>`);
         story.scrollTop = story.scrollHeight;
-        await new Promise(r => setTimeout(r, 600));
-        narrate(res.dreamPrompt);
-        await new Promise(r => setTimeout(r, 2600));
+        await new Promise(r => setTimeout(r, 500));
+        await narrate(res.dreamPrompt);   // ⏳ 等夢【完整生成並渲染】才往下走，不再跟 timer 賽跑
       }
     } catch (e) {}
     // 🔵 防呆：敗北即清掉本機續玩快取——就算玩家直接關網頁不按返回，下次也不會被丟回死局
     try { localStorage.removeItem('kyushu_v27'); localStorage.removeItem('kyushu_story'); localStorage.removeItem('kyushu_last_status'); } catch (e) {}
-    openTigerDojo();
+    // 🎴 玩家自控：夢醒後出一顆按鈕 → 按了才掀開老虎道場（確保夢一定看得到、節奏由玩家定）
+    const btnId = 'defeat-continue-btn';
+    if (!document.getElementById(btnId)) {
+      story.insertAdjacentHTML('beforeend', `<div id="${btnId}-wrap" style="text-align:center; margin:16px 0 8px;"><button id="${btnId}" style="padding:12px 28px; background:linear-gradient(160deg,#4a3a6a,#3a2c54); color:#fff; border:1px solid #6a5a8a; border-radius:10px; font-size:15px; cursor:pointer; box-shadow:0 4px 18px rgba(0,0,0,.45);">⏭ 夢醒了……直視結局</button></div>`);
+      story.scrollTop = story.scrollHeight;
+      var db = document.getElementById(btnId);
+      if (db) db.onclick = function () { var w = document.getElementById(btnId + '-wrap'); if (w) w.remove(); openTigerDojo(); };
+    }
   }
 
   async function handleVictory(res) {
