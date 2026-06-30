@@ -787,6 +787,38 @@ function actionMove(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: "行動力不足以遠行（需 2 點）——請『休息』恢復後再出發。", clock: clockLabel_(moveGameId), ap: getAp_(moveGameId), apMax: AP_PER_DAY });
   }
 
+  // 💨 撤離追擊(一點點)：從「有活敵從者」的格子離開時，較快的敵從者可能咬一記離別追擊。
+  //   ★可生還·不致死(從者血保 1)——只是不讓你一按就從強敵眼皮底下從容全身而退。用移動【前】的初始資料判定。
+  var pursuit = null;
+  try {
+    var fromLocM = String(allPcData[pIdx][COL.PC.LOC] || "").trim();
+    if (isFateMove && fromLocM && tgtTrim && tgtTrim !== fromLocM) {
+      var psvIdxM = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
+      if (psvIdxM !== -1) {
+        var psvC = rowToCombatant_(allPcData[psvIdxM]);
+        var psvAgi = rankVal(psvC.six['敏捷'] || 'C');
+        var psvHp = parseInt(allPcData[psvIdxM][COL.PC.HP]) || 0, psvMax = parseInt(allPcData[psvIdxM][COL.PC.MAX_HP]) || 1;
+        var chaser = null, chaserAgi = -1;
+        allPcData.forEach(function (r) {
+          if (String(r[COL.PC.FACTION]) !== "敵從者") return;
+          if (String(r[COL.PC.GAME_ID] || "") !== moveGameId) return;
+          if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+          if (String(r[COL.PC.LOC] || "").trim() !== fromLocM) return;
+          var a = rankVal((rowToCombatant_(r).six['敏捷']) || 'C');
+          if (a > chaserAgi) { chaserAgi = a; chaser = r; }
+        });
+        if (chaser && chaserAgi >= psvAgi) { // 追得上(敵敏≥我敏)才追
+          var pProb = 0.30 + (psvHp < psvMax * 0.4 ? 0.20 : 0) - (hasFx_(psvC, 'ride') ? 0.15 : 0);
+          if (Math.random() < pProb) {
+            var chC = rowToCombatant_(chaser);
+            var pDmg = Math.max(6, Math.round(rankVal(chC.six['筋力'] || 'C') * 0.4) + rollDice_(2, 6));
+            pursuit = { enemyName: String(chaser[COL.PC.NAME]), dmg: pDmg };
+          }
+        }
+      }
+    }
+  } catch (e) { }
+
   // 🎭 抵達態度判定（趁世界尚未 tick，看 target 此刻是否「已有先客」）：
   //   先客在＝玩家主動找上門(對方在自己地盤、會警惕戒備)；無＝偶遇(雙方恰巧撞上、都帶幾分意外)。
   const tgtTrim = String(target || "").trim();
@@ -825,6 +857,13 @@ function actionMove(userData, pcId, sheets) {
     if (nIdx !== -1) allPcData[nIdx][COL.PC.LOC] = target;
   });
 
+  // 💨 套用撤離追擊傷害(前述判定)：對在場我方從者扣血·保 1 不致死(隨下方整表 setValues 寫回)。
+  if (pursuit) {
+    var fsvIdx = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
+    if (fsvIdx !== -1) { allPcData[fsvIdx][COL.PC.HP] = Math.max(1, (parseInt(allPcData[fsvIdx][COL.PC.HP]) || 0) - pursuit.dmg); }
+    else { pursuit = null; }
+  }
+
   // ⏳ 時回：移動的 2 小時間，御主與同行從者隨時間自然回復（HP 固定、MP 看魔術迴路）。
   //   大幅恢復靠「休息」（同一套規則 ×2）。便宜：只改記憶體那幾格，隨移動一起寫回，零額外讀寫，不會變慢。
   let regenNote = "";
@@ -857,9 +896,23 @@ function actionMove(userData, pcId, sheets) {
   var svIdxMove = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
   var svCardMove = svIdxMove !== -1 ? servantCard_(allPcData[svIdxMove]) : "";
 
+  // 🎭 在場【敵從者】的人設卡——餵給抵達敘事，讓敵人依其性格/口吻反應(慎二色厲內荏、c媽試探…)，
+  //   而非 AI 即興一個通用兇狠反派(原本只給名字→反應平淡的根因)。servantCard_ 對敵從者一樣適用(低羈絆→戒備敵意)。
+  var foeCardsMove = "";
+  try {
+    allPcData.forEach(function (r) {
+      if (String(r[COL.PC.GAME_ID] || "") !== moveGameId) return;
+      if (String(r[COL.PC.LOC] || "").trim() !== tgtTrim) return;
+      if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+      if (String(r[COL.PC.FACTION]) === "敵從者") foeCardsMove += servantCard_(r);
+    });
+  } catch (e) { }
+
   return JSON.stringify({
     success: true,
     servantCard: svCardMove,
+    foeCards: foeCardsMove,
+    pursuit: pursuit,
     preFoes: preFoesAtTarget,
     victory: moveVictory,
     statusString: buildPlayerStatusString(allPcData[pIdx]),
