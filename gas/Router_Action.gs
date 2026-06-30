@@ -863,7 +863,7 @@ function actionMove(userData, pcId, sheets) {
     preFoes: preFoesAtTarget,
     victory: moveVictory,
     statusString: buildPlayerStatusString(allPcData[pIdx]),
-    people: getLocalPeopleList(sheets, pcName, pcId, target, relData, sheets.task ? sheets.task.getDataRange().getValues() : [], allPcData),
+    people: getLocalPeopleList(sheets, pcName, pcId, target, relData, allPcData),
     locations: getNearbyLocations(target, freshMapData).slice(0, 5),
     mapDesc: mapDesc,
     parentRegion: rootTarget,
@@ -893,7 +893,7 @@ function buildClientState_(sheets, pcId) {
   const relRows = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
   return {
     statusString: buildPlayerStatusString(allPcData[pcIndex]),
-    people: getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, relRows, sheets.task ? sheets.task.getDataRange().getValues() : [], allPcData),
+    people: getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, relRows, allPcData),
     locations: getNearbyLocations(curL, freshMapData),
     mapDesc: currentMapInfo ? currentMapInfo[COL.MAP.DESC] : "四下靜謐。",
     clock: clk, ap: ap, apMax: AP_PER_DAY,
@@ -1594,7 +1594,7 @@ ${isKanshou ? `
     sheets.log.appendRow([new Date(), pcId, formatCausalityEntry(curL, logTag, logPeopleStr, logEvent), curL, logTag]);
     trimLogRowsByOwner(sheets.log, pcId, 60, 20);
 
-    const localPeopleList = getLocalPeopleList(sheets, pcName, pcId, curL, relData, sheets.task ? sheets.task.getDataRange().getValues() : [], pcData);
+    const localPeopleList = getLocalPeopleList(sheets, pcName, pcId, curL, relData, pcData);
 
     let finalResponseText = aiData.narration || "天地混沌，一片寂靜。";
     finalResponseText = finalResponseText.replace(/\n/g, "<br>");
