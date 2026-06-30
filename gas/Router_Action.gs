@@ -3125,10 +3125,10 @@ function setBondUsedToday_(memory, day, type) {
 // 💕 羈絆互動（純按鈕，無對話框）：閒聊／共餐／並肩特訓／促膝夜談。每種每遊戲日限一次、跨日重置。
 //   觸發角色語氣 AI 短劇＋升羈絆；羈絆會餵給路線自然浮現（深羈絆→偏 Fate 線）。
 var BOND_ACTS = {
-  chat: { label: '閒聊', bond: 5, frame: '在巡查或歇腳的空檔閒話家常——些瑣碎的日常、對這個時代的見聞、半開玩笑的拌嘴' },
-  meal: { label: '共餐', bond: 5, frame: '一同用一頓飯——食物的香氣、從者進食的神態、飯桌上難得卸下戒備的尋常溫度' },
+  chat: { label: '閒聊', bond: 4, frame: '在巡查或歇腳的空檔閒話家常——些瑣碎的日常、對這個時代的見聞、半開玩笑的拌嘴' },
+  meal: { label: '共餐', bond: 6, frame: '一同用一頓飯——食物的香氣、從者進食的神態、飯桌上難得卸下戒備的尋常溫度' },
   train: { label: '並肩特訓', bond: 5, frame: '並肩切磋武藝、調整默契——汗水、喘息、招式間的信任，以及戰技之外悄然滋長的默契' },
-  talk: { label: '促膝夜談', bond: 5, frame: '夜深人靜時的促膝長談——交換各自背負的過往與此刻的心緒，一句句靠近彼此的內裡' }
+  talk: { label: '促膝夜談', bond: 8, frame: '夜深人靜時的促膝長談——交換各自背負的過往與此刻的心緒，一句句靠近彼此的內裡' }
 };
 function actionBond(userData, pcId, sheets) {
   const type = String(userData.bondType || "").trim();
@@ -3460,7 +3460,7 @@ function actionAllyBond(userData, pcId, sheets) {
     return JSON.stringify({ success: true, aiPrompt: aiPromptA, clock: clock, ap: ap, apMax: AP_PER_DAY, ambush: true, defeat: ambush.defeat, dreamPrompt: ambush.dreamPrompt || "", report: ambush.report || null, statusString: getFreshStatusString(pcId, pIdx, sheets) });
   }
 
-  const gain = 5; // 盟友交流直接 +5（不勞 AI 判定·簡單可預期）
+  const gain = 6 + Math.floor(Math.random() * 6); // +6~11
   const after = bumpBond_(sheets, masterName, allyName, gain, allyIsMaster ? "盟友御主" : "盟友從者");
   let unlocked = false;
   if (after >= 90 && !/【鑑賞緣】/.test(String(pcData[aIdx][COL.PC.MEMORY] || ""))) {
