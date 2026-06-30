@@ -306,7 +306,7 @@ function resolveFateBattle_(atk, def, opts) {
   var K_STAT = 2.5;
   var aHit = aRoll + Math.round(rankTier_(atk.six[aProf.hit]) * K_STAT) + (Math.floor(Math.random() * 7) - 3) + outMod;
   var dEva = dRoll + Math.round((rankTier_(def.six['敏捷']) * 0.65 + rankTier_(def.six['耐久']) * 0.35) * K_STAT) + (Math.floor(Math.random() * 7) - 3);
-  if (aProf.kind === '魔砲') fired.push(atk.name + '·' + (fxName_(atk, 'territory', '魔術詠唱')));
+  // 魔砲類型不加進 fired（每回合都是、無資訊量；territory 的 buff 效果只在有實際差距時才值得記）
   // 🍱 整備·進食（戰前 buff）：攻方命中 +opts.mealBuff（由 fateStrike_ 依御主整備狀態傳入）
   if (opts.mealBuff) { aHit += opts.mealBuff; fired.push(atk.name + '·整備進食(+' + opts.mealBuff + ')'); }
 
@@ -492,7 +492,7 @@ function resolveFateBattle_(atk, def, opts) {
   // 守方減傷：耐久（階級）
   base -= Math.round(rankVal(loser.six["耐久"]) / 2);
   // 🛡️ 陣地作成(territory)：法師以魔術防壁／結界減傷，補償其低耐久（救玻璃大砲美狄亞的存活）
-  if (hasFx_(loser, 'territory') && !pierces('territory')) { base = Math.round(base * 0.74); fired.push(loser.name + '·' + fxName_(loser, 'territory', '陣地') + '·魔術防壁'); }
+  if (hasFx_(loser, 'territory') && !pierces('territory')) { var _bPre = base; base = Math.round(base * 0.74); if (_bPre > 0) fired.push(loser.name + '·' + fxName_(loser, 'territory', '陣地') + '·魔術防壁'); }
   else if (hasFx_(loser, 'territory')) { fired.push(winner.name + '·概念壓制(碾穿結界)'); }
   // 🛡️ 七天盾·羅·埃亞斯(rho_aias／EMIYA)：投影卡帕涅烏斯之盾，七層花瓣硬擋重擊；遭超位階概念(ea等)貫穿則失效
   if (hasFx_(loser, 'rho_aias') && !pierces('rho_aias')) { base = Math.round(base * 0.6); fired.push(loser.name + '·' + fxName_(loser, 'rho_aias', '七天盾') + '(羅·埃亞斯·七層花瓣)'); }
