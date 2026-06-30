@@ -1803,7 +1803,7 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   // 🍱 整備·進食加成：御主一行戰前整備過、且尚在效期內 → 從者出擊命中 +MEAL_BUFF_BONUS
   var mealOn = false;
   try { mealOn = mealBuffActive_(pcData[ctx.pIdx][COL.PC.MEMORY], ctx.myGameId); } catch (e) { }
-  var r = resolveFateBattle_(atkC, defC, { np: !!opts.np, seal: !!opts.seal, skill: opts.skill || null, mealBuff: mealOn ? MEAL_BUFF_BONUS : 0 });
+  var r = resolveFateBattle_(atkC, defC, { np: !!opts.np, seal: !!opts.seal, skill: opts.skill || null, ambush: !!opts.ambush, mealBuff: mealOn ? MEAL_BUFF_BONUS : 0 });
   if (opts.seal) r.atkWins = true; // 絕對命令必中
   // 🌟 寶具對轟結算傷害：傷害已由對轟裁決算好，此處只借 fateStrike_ 套用「死亡/勝負/復活/令咒脫離」全套後續邏輯
   if (opts.forceDamage != null) { r.atkWins = true; r.damage = Math.max(0, Math.round(opts.forceDamage)); r.crit = ''; }
@@ -2369,7 +2369,7 @@ function actionFateBattle(userData, pcId, sheets) {
       if (String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) break;
       const sC = rowToCombatant_(pcData[sidx]);
       const isActive = (sidx === atkIdx);
-      const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && openingNp && isActive, seal: opening && openingSeal && isActive, skill: isActive ? skillBuff : null }, ctx);
+      const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && openingNp && isActive, seal: opening && openingSeal && isActive, ambush: opening && isActive, skill: isActive ? skillBuff : null }, ctx);
       rl.strikes.push({ by: sC.name, pRoll: ps.aRoll, pHitVal: ps.aHit, dRoll: ps.dRoll, dEvaVal: ps.dEva, pHit: ps.hit, pDmg: ps.hit ? ps.damage : 0, pCrit: ps.crit, pFired: ps.fired, note: ps.sealNote || ps.godNote || "" });
       if (ps.destroyed) destroyedName = ps.destroyed;
       if (ps.knocked) knockedOut.push(ps.knocked);
@@ -3440,7 +3440,7 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, userData, baseMul) 
   if (svIdx === -1) return null;
   const enemyC = rowToCombatant_(pcData[eIdx]);
   const svC = rowToCombatant_(pcData[svIdx]);
-  const probe = resolveFateBattle_(enemyC, svC, {});
+  const probe = resolveFateBattle_(enemyC, svC, { ambush: true });
   let mul = baseMul || 1.4;
   const stealthy = String(pcData[eIdx][COL.PC.RANK]) === 'Assassin' || !!hasFx_(enemyC, 'stealth');
   if (stealthy) mul *= 1.4; // 氣息遮斷／暗殺趁虛而入更致命

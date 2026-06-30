@@ -331,8 +331,10 @@ function resolveFateBattle_(atk, def, opts) {
   var projA = hasFx_(atk, 'projection'); if (projA) aHit += 3;
   // 避矢(evade_ranged)：守方對遠程(Archer)迴避 +6×階級
   if (atk.cls === 'Archer') { var er = hasFx_(def, 'evade_ranged'); if (er) { dEva += Math.round(6 * rankMul_(er)); fired.push(def.name + '·' + fxName_(def, 'evade_ranged', '避矢')); } }
-  // 氣息遮斷(stealth)：攻方奇襲 +3
-  if (hasFx_(atk, 'stealth')) { aHit += 3; fired.push(atk.name + '·' + fxName_(atk, 'stealth', '氣息遮斷') + '·奇襲'); }
+  // 氣息遮斷(stealth)：僅【首擊奇襲】(opts.ambush·開場第一擊／敵突襲)吃命中加成·依階級(A+大、A-小)。
+  //   ★一旦交手氣息即破功——後續回合的刀不再享奇襲(貼原作：發動攻擊瞬間 presence concealment 掉階)。
+  var stA = hasFx_(atk, 'stealth');
+  if (stA && opts.ambush) { aHit += Math.round(rankVal(stA) / 10); fired.push(atk.name + '·' + fxName_(atk, 'stealth', '氣息遮斷') + '·奇襲先機'); }
   // 👑 王之財寶(gob)常駐：無盡兵裝鋪天蓋地，命中 +5（飽和彈幕難閃；傷害彈幕在下方）
   if (hasFx_(atk, 'gob')) { aHit += 5; fired.push(atk.name + '·' + fxName_(atk, 'gob', '王之財寶') + '(無盡兵裝)'); }
   // ⛓️ 天之鎖(chain)：命中加成併入既有「縛神性」效果(下方)；輸出走下方萬鎖彈幕。此處不另加命中(避免恩奇都過載)。
@@ -388,6 +390,12 @@ function resolveFateBattle_(atk, def, opts) {
   if (hasFx_(winner, 'self_mod')) base += 3;
   // 🗡️ 投影魔術(projection)：每擊都連續投影複製名劍齊射，給持續傷害底火（救低筋力的 EMIYA）
   if (hasFx_(winner, 'projection')) { base += 24 + Math.round(rankVal(winner.six["寶具"]) * 0.6); fired.push(winner.name + '·投影連射'); }
+  // 🗡️ 首擊奇襲·要害一擊：氣息遮斷者開場突襲命中→額外重創(吃階級·一次性)。僅【普通首擊】生效——
+  //   若開場直接解放寶具(opts.np)則走寶具自身爆發，不疊奇襲(避免奇襲×zabaniya 雙重爆擊一發秒人)。
+  if (opts.ambush && atkWins && !opts.np && hasFx_(atk, 'stealth')) {
+    var amb = 1.2 + 0.12 * rankMul_(hasFx_(atk, 'stealth')); base = Math.round(base * amb);
+    fired.push(atk.name + '·奇襲·要害一擊(×' + amb.toFixed(2) + ')');
+  }
   // 🪄 高速詠唱(fast_cast／Caster)：一回合內連珠疊咒，魔砲彈幕加成（救低耐玻璃魔女的輸出）
   var fc = hasFx_(winner, 'fast_cast'); if (fc) { base += Math.round(12 * rankMul_(fc)); fired.push(winner.name + '·' + fxName_(winner, 'fast_cast', '高速詠唱') + '(連珠疊咒)'); }
   // 👑 王之財寶(gob)常駐彈幕：50d3捨1 的無盡兵裝飽和傷害（吉爾伽美什不必開寶具就壓制全場）
