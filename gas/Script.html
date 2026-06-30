@@ -88,6 +88,9 @@
 
  window.onload = () => {
     document.documentElement.style.setProperty('--story-scale', parseFloat(localStorage.getItem('kyushu_story_font_scale')) || 1);
+    // 預填上次登入的帳號名稱，省去再次輸入
+    var _savedAcct = localStorage.getItem('fate_account');
+    if (_savedAcct) { var _acctIn = document.getElementById('in-account'); if (_acctIn) _acctIn.value = _savedAcct; }
     document.addEventListener('click', (e) => {
       const drawer = document.getElementById('action-drawer');
       const trigger = document.getElementById('plus-trigger');
@@ -614,7 +617,7 @@ function renderRecentLocs(recents = null) {
 
     try {
       // 呼叫後端移動
-      const data = await gasRun({ action: "move", pcId: pc.id, target: targetName });
+      const data = await gasRun({ action: "move", pcId: pc.id, target: targetName, stance: getStance() });
       
       if (data.success) {
         // 1. 同步狀態 (UI 與 LocalStorage)
@@ -643,7 +646,7 @@ function renderRecentLocs(recents = null) {
           ? `此地有敵蹤：${foes.map(f => f.name + '（' + (f.faction === '敵從者' ? '敵從者' : '敵御主') + '）').join('、')}`
           : '此地暫無明顯敵蹤';
         const timeStr = (data.clock || '').split('・').slice(-1)[0] || '此刻';
-        const arrivePrompt = (data.servantCard || '') + (data.foeCards || '')
+        const arrivePrompt = (data.masterCard || '') + (data.servantCard || '') + (data.foeCards || '')
           + `【抵達場景】御主『${pc.name}』${pc.servant ? `與從者「${pc.servant}」` : ''}剛抵達冬木的「${targetName}」，時值${timeStr}。\n`
           + `此地氛圍：${locDesc}\n敵情：${foeStr}。\n`
           + (data.pursuit ? (data.pursuit.hitWho === 'us'
@@ -655,13 +658,14 @@ function renderRecentLocs(recents = null) {
           + `★各地、各從者依此地氛圍與【角色卡性格＋前情因果】自然發揮，各有其調；忌千篇一律的套語(如每處都「腐臭/作嘔的魔力氣息」)與雷同結構(動作→台詞→轉身)。\n`
           + (foes.length ? (
               (data.preFoes || []).some(n => foes.find(f => f.name === n))
-                ? `★【找上門】此地本就是敵方據守之處，是御主主動尋來——對方在自己的地盤上，先察覺不速之客而起戒備。讓敵方依其個性與立場（是否同盟）開口、有反應，別當沉默佈景；是否動手由御主下令。\n`
-                : `★【偶遇】雙方恰巧在此撞個正著，彼此都帶幾分意外。讓敵方依其個性與立場（是否同盟）開口、有反應，別當沉默佈景；是否動手由御主下令。\n`
+                ? `★【找上門】此地本就是敵方據守之處，是御主主動尋來——對方在自己的地盤上。${stanceNotice_(true)}讓敵方依其個性與立場（是否同盟）開口、有反應，別當沉默佈景；是否動手由御主下令。\n`
+                : `★【偶遇】雙方恰巧在此撞個正著。${stanceNotice_(false)}讓敵方依其個性與立場（是否同盟）開口、有反應，別當沉默佈景；是否動手由御主下令。\n`
             ) : '')
           + foes.filter(f => f.faction === '敵御主' && f.lostServant).map(f =>
               `★敵御主『${f.name}』已痛失從者（${f.lostServant}）、形單影隻、再無從者可驅使——是聖杯戰爭中無牙的棋手。讓其神情與心境流露這份失恃（依個性：孤注一擲／惶然欲逃／不甘怨懟），切勿演成仍有從者隨侍在旁。\n`).join('')
           + (pc.servant ? `★從者「${pc.servant}」隨行在側，依其個性開口、有反應（至少一句台詞），別寫成御主獨自一人的自言自語。\n` : '')
-          + `★禁止替御主做決定、禁止詢問玩家想做什麼，停在留白，讓御主以行動（偵查／出戰／補魔／移動）回應。`;
+          + (foes.length ? '' : stanceLine_()) // 有敵蹤→姿態已折進偶遇/找上門的 stanceNotice_，不重複；無敵蹤→獨行姿態定調
+          + `★御主（我）可依其性格自然開口、有反應與台詞，別當沉默的旁觀者；但【不可】替御主拍板下一步戰略行動（出戰／結盟／移動／補魔由玩家按鍵決定）、不可逼問玩家，停在決策前的留白讓玩家以按鍵回應。`;
         if (data.defeat) { await handleDefeat(data); }  // ⏳ 移動跨過第14日時限 → 直接收場(略過抵達敘事)
         else {
           narrate(arrivePrompt);
@@ -1041,9 +1045,10 @@ function renderRecentLocs(recents = null) {
     unreadable: () => '宗和的心得：無欲無求，使敵方直感／心眼失效（敵無法靠預判加閃避）。',
     stealth: () => '氣息遮斷：抹消氣息，開場奇襲命中 +3。',
     tsubame: () => '秘劍・燕返：三方位同斬，敵迴避 −8，命中則傷害 ×2.3。',
-    gae_bolg: () => '刺穿死棘之槍：逆因果的必中刺擊——寶具解放時直接命中。',
+    gae_bolg: () => '刺穿死棘之槍：逆因果的必中刺擊——寶具解放時直接命中。唯【高幸運】(改寫命運)、【直感／心眼】(預感)、【變化】(化形)能搏得一線閃避。',
     survive: () => '戰鬥續行：受致命傷仍能硬撐一次（HP 留 1）；遭「破戒／破魔」則失效。',
-    clear_mind: () => '透化：清澈靜穆之心，免疫敵方勇猛／卡里斯瑪的精神威壓。',
+    lovespot: () => '愛之痣：臉上魅惑之痣令來犯者一瞬分神——攻向你的敵人命中 −1。',
+    clear_mind: () => '透化：清澈靜穆之心，免疫敵方勇猛／領袖氣質的精神威壓。',
     self_mod: () => '自我改造：強化過的軀體，命中 +2、傷害 +3。',
     tactics: () => '軍略：用兵之才，寶具威力 +15%。',
     anti_magic_lance: () => '破魔紅薔薇：雙槍破魔，無視神核護甲；致命時敵無法續行／復活／令咒脫離。',
@@ -1125,6 +1130,18 @@ function renderRecentLocs(recents = null) {
           + '</div>'
           + '<span style="font-size:9.5px; color:#9a8fae; width:56px; flex:none; text-align:right; font-variant-numeric:tabular-nums;">' + cur + '/' + max + '</span></div>';
       };
+      // 🐙 深淵海怪肉身條：青鬍子寶具召喚物的血池，掩護術師、優先承傷。深淵藍紫色，與體力(紅)/魔力(藍)區隔。
+      const horrorBar = (cur, max) => {
+        if (!max) return '';
+        const pct = Math.max(0, Math.min(100, Math.round(cur / max * 100)));
+        return '<div style="display:flex; align-items:center; gap:6px; margin:4px 0;">'
+          + '<span style="font-size:11px; width:16px; flex:none; text-align:center;">🐙</span>'
+          + '<div style="flex:1; min-width:0; position:relative; height:12px; background:linear-gradient(180deg,#101820,#1a2630); border-radius:7px; overflow:hidden; border:1px solid rgba(0,0,0,0.45); box-shadow:inset 0 1px 2px rgba(0,0,0,.6);">'
+          + '<div style="width:' + pct + '%; height:100%; background:linear-gradient(180deg,#6fe0d0,#2f9fbf 55%,#1f6f9f); border-radius:7px; box-shadow:0 0 6px rgba(80,200,210,.5); transition:width .35s ease;"></div>'
+          + '<div style="position:absolute; top:1px; left:3px; right:3px; height:3px; border-radius:3px; background:linear-gradient(90deg,rgba(255,255,255,.3),rgba(255,255,255,0)); pointer-events:none;"></div>'
+          + '</div>'
+          + '<span style="font-size:9.5px; color:#8fc8c0; width:56px; flex:none; text-align:right; font-variant-numeric:tabular-nums;">' + cur + '/' + max + '</span></div>';
+      };
       const m = t.master;
       myServants = t.servants || (t.servant ? [t.servant] : []);
       myBondUsed = t.bondUsed || [];
@@ -1194,6 +1211,7 @@ function renderRecentLocs(recents = null) {
           + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
           + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">' + s.condition + '</div>'
           + bar('體', s.hpNum, s.hpMax, 'hp')
+          + (s.horror ? horrorBar(s.horror.cur, s.horror.max) : '')  // 🐙 深淵海怪肉身（在前掩護·優先承傷）
           + ((pc && pc.mode === 'kanshou') ? '' :  // 🔋 靈基出力轉盤（從者無自有魔力，靠御主供魔；出力決定戰力＋御主每小時維持費；100% 才能解放寶具）
               '<div class="out-dial" style="margin-top:4px;">'
               + '<div style="color:#7ec8ff; font-size:11px;">🔋 靈基出力　<b class="out-pct">' + (s.output || 60) + '%</b>　<small class="out-label" style="opacity:.75;">' + (s.outputLabel || '') + '</small><small style="opacity:.55;"> · 御主供魔強度</small></div>'
@@ -1251,6 +1269,55 @@ function renderRecentLocs(recents = null) {
     if (name === 'map') renderMapPane();
     if (name === 'status') refreshFateTags();
   }
+  // 🎭 接敵姿態（純敘述 flavor·常駐三段藥丸·存 localStorage·免 round-trip）：
+  //   搭移動便車送後端輕觸撤離追擊機率(隱蔽−/光明+)，並在抵達/撤離敘事加一句定調。
+  var STANCES = {
+    stealth: { icon: '🥷', label: '隱蔽潛行', color: '#8a7fc0' },
+    normal:  { icon: '🚶', label: '泰然如常', color: '#9fb0c0' },
+    open:    { icon: '🔥', label: '正大光明', color: '#d08a5a' }
+  };
+  function getStance() { var s = localStorage.getItem('fate_stance'); return STANCES[s] ? s : 'normal'; }
+  function setStance(s) { if (!STANCES[s]) return; localStorage.setItem('fate_stance', s); paintStancePill_(); }
+  function paintStancePill_() {
+    var cur = getStance();
+    Object.keys(STANCES).forEach(function (k) {
+      var el = document.getElementById('stance-' + k); if (!el) return;
+      var st = STANCES[k], on = k === cur;
+      el.style.border = '1px solid ' + (on ? st.color : '#3a3550');
+      el.style.background = on ? 'rgba(255,255,255,.07)' : 'transparent';
+      el.style.color = on ? st.color : '#6a6580';
+      el.style.fontWeight = on ? 'bold' : 'normal';
+    });
+  }
+  function stancePillHtml_() {
+    var cur = getStance();
+    var segs = Object.keys(STANCES).map(function (k) {
+      var st = STANCES[k], on = k === cur;
+      return '<button id="stance-' + k + '" onclick="setStance(\'' + k + '\')" style="flex:1; font-size:11px; padding:5px 2px; cursor:pointer; border:1px solid ' + (on ? st.color : '#3a3550') + '; background:' + (on ? 'rgba(255,255,255,.07)' : 'transparent') + '; color:' + (on ? st.color : '#6a6580') + '; border-radius:6px; font-weight:' + (on ? 'bold' : 'normal') + ';">' + st.icon + ' ' + st.label + '</button>';
+    }).join('');
+    return '<div style="margin-bottom:8px; padding:6px 7px; background:rgba(20,18,32,.4); border:1px solid #2e2a44; border-radius:7px;">'
+      + '<div style="color:#8a8298; font-size:10.5px; margin-bottom:4px;">🎭 接敵姿態 <small style="opacity:.6;">· 定調遭遇基調與撤離追擊</small></div>'
+      + '<div style="display:flex; gap:4px;">' + segs + '</div></div>';
+  }
+  // 抵達/撤離敘事用的姿態定調句（無敵蹤時用·正常＝不加，留白給資料驅動）
+  function stanceLine_() {
+    var k = getStance(); if (k === 'normal') return '';
+    return '★【接敵姿態】御主此刻以〔' + STANCES[k].label + '〕之姿行動——'
+      + (k === 'stealth' ? '壓低存在感、避免張揚，盡量不被察覺地接近或抽身' : '毫不掩飾、堂堂現身，主動暴露行蹤、不屑隱匿')
+      + '。讓此姿態自然滲入現身與被察覺的方式，勿喧賓奪主、勿替敵人預設反應。\n';
+  }
+  // 遭遇「誰先發現誰」定調句（折進偶遇/找上門框架，免姿態被講兩遍）。isSeek=找上門(主動尋來)；否則偶遇。
+  function stanceNotice_(isSeek) {
+    var k = getStance();
+    if (k === 'stealth') return isSeek
+      ? '但御主刻意壓低氣息潛近，對方未必立時察覺——御主或佔得片刻窺探、先機在握。'
+      : '御主隱於暗處接近，反而可能先一步發現對方、而非被對方撞見。';
+    if (k === 'open') return isSeek
+      ? '御主更是毫不掩飾、堂堂逼近，對方老遠便察覺來敵、戒備瞬間拉滿。'
+      : '加之御主明晃晃現身，對方撞見的剎那便認出這份張揚、無從佯作未見。';
+    return isSeek ? '對方先察覺不速之客而起戒備。' : '彼此都帶幾分意外。'; // 正常
+  }
+
   async function renderMapPane() {
     var c = document.getElementById('map-pane-content'); if (!c) return;
     // ⚡ 地圖真正隱藏時才跳過 get_map_nodes：applyClientState 每動作都呼此函式，手機在「故事」頁時地圖隱藏、
@@ -1265,6 +1332,7 @@ function renderRecentLocs(recents = null) {
       + ((pc && pc.mode === 'kanshou') ? '' : '<button class="btn" style="padding:3px 9px; font-size:12px; border-color:#4a8a8a; color:#7fc7c7;" onclick="scout()">🔍 偵查</button>')
       + '<button class="btn" style="padding:3px 9px; font-size:12px; border-color:#4682b4; color:#9fc0ef;" onclick="refreshMapPane()">🔄 重整</button>'
       + '</div></div>';
+    if (!(pc && pc.mode === 'kanshou')) html += stancePillHtml_(); // 🎭 接敵姿態藥丸（戰爭軌限定·鑑賞無戰鬥）
     html += '<div style="color:#9a8bb0; font-size:11px; margin-bottom:6px;">📍 目前所在：' + (here || '未知') + '　<span style="color:#d65c5c;">⚔ = 敵人</span></div>';
     if (allyIntel) html += '<div style="color:#8fd0a0; font-size:11px; margin-bottom:6px; padding:4px 7px; background:rgba(20,45,28,.3); border:1px solid rgba(90,170,120,.4); border-radius:6px;">🤝 盟友通報·敵蹤全揭露——同盟期間無視戰爭迷霧，全圖敵人位置一覽無遺。</div>';
     html += buildMapSvg_(nodes);
@@ -1813,9 +1881,12 @@ function renderRecentLocs(recents = null) {
   // 敗北：先播「願望實現的虛假之夢」，再【由玩家自己按鈕】進老虎道場（敗北後不能輸入，故用按鈕控節奏，不靠死板 timer 搶播）
   async function handleDefeat(res) {
     const story = document.getElementById('story');
+    const dojoCause = lastAiContext || '';            // 🐯 在夢覆寫 lastAiContext 前先擷取「敗因」戰況給老虎道場
+    const dojoServant = (pc && pc.servant) || '從者';  // 殞滅的從者名
     // 鎖住輸入與行動列，避免敗北後還能操作
     try { var inp = document.getElementById('u-in'); if (inp) { inp.disabled = true; inp.placeholder = '聖杯戰爭已落幕……'; } } catch (e) {}
     try { var oc = document.getElementById('options-container'); if (oc) oc.innerHTML = ''; } catch (e) {}
+    try { var wa = document.getElementById('war-actions'); if (wa) wa.innerHTML = ''; } catch (e) {}
     try {
       if (res.dreamPrompt) {
         story.insertAdjacentHTML('beforeend', `<div class="msg-player" style="align-self:center;color:#c9a0ff;font-size:13px;">（意識墜入聖杯泥編織的夢……）</div>`);
@@ -1832,7 +1903,7 @@ function renderRecentLocs(recents = null) {
       story.insertAdjacentHTML('beforeend', `<div id="${btnId}-wrap" style="text-align:center; margin:16px 0 8px;"><button id="${btnId}" style="padding:12px 28px; background:linear-gradient(160deg,#4a3a6a,#3a2c54); color:#fff; border:1px solid #6a5a8a; border-radius:10px; font-size:15px; cursor:pointer; box-shadow:0 4px 18px rgba(0,0,0,.45);">⏭ 夢醒了……直視結局</button></div>`);
       story.scrollTop = story.scrollHeight;
       var db = document.getElementById(btnId);
-      if (db) db.onclick = function () { var w = document.getElementById(btnId + '-wrap'); if (w) w.remove(); openTigerDojo(); };
+      if (db) db.onclick = function () { var w = document.getElementById(btnId + '-wrap'); if (w) w.remove(); runTigerDojo_(dojoServant, dojoCause); };
     }
   }
 
@@ -2075,6 +2146,43 @@ function renderRecentLocs(recents = null) {
   function openTigerDojo() {
     const ov = document.getElementById('tiger-dojo-overlay');
     if (ov) ov.style.display = 'flex';
+  }
+  // 🐯 老虎道場敗北講評 prompt（藤村大河＋伊莉雅·依實際敗因吐槽＋給一條對症戰術建議）
+  function buildTigerDojoPrompt_(servantName, causeCtx) {
+    return '【老虎道場·敗北講評】Fate 經典搞笑教學橋段——御主敗北、從者「' + (servantName || '從者') + '」已消滅。\n'
+      + '由【藤村大河】(老虎老師·元氣熱血卻常狀況外·愛耍寶)＋【伊莉雅】(毒舌助手·一針見血道出真正敗因)兩人對話復盤。\n'
+      + (causeCtx ? '〔本局敗因參考·僅供你判讀戰況，勿原樣複述〕：' + String(causeCtx).slice(0, 400) + '\n' : '')
+      + '★結構：①藤村大河開場吐槽/打氣(可中二可耍寶)；②伊莉雅冷靜點出【這場真正輸在哪】並給【一條具體可操作的戰術建議】(對症那條：職階相剋、該偷襲御主而非硬拚寶具、出力/補魔/結盟/撤退時機、寶具該留待對方解放後的空檔等)；③藤村大河收尾打氣。\n'
+      + '★【刻意輕鬆詼諧】這是賽後教學番外、非戰場——語氣搞笑溫馨，無視戰場的緊張基調。約 120~180 字、繁體中文。show-don\'t-tell 不直述從者願望/個性字面。只輸出兩人對話，禁選項、禁系統字樣、禁問玩家。';
+  }
+  function dojoFallbackHtml_() {
+    return '聖杯戰爭已然落幕，你的靈基化作了星塵。<br>但別氣餒——藤村大河老師的特訓，能讓下一場聖杯戰爭走得更遠！<br><span style="color:#9a8fb0; font-size:12px;">（敗北的存檔已封存於戰史，可重啟新的一局。）</span>';
+  }
+  // 掀開老虎道場 → 生成 AI 講評填入卡片（一次 AI 呼叫·只在 game-over 收場，失敗則退回罐頭文案）
+  async function runTigerDojo_(servantName, causeCtx) {
+    openTigerDojo();
+    var body = document.getElementById('dojo-ai-body');
+    var backBtn = document.getElementById('dojo-back-btn');
+    if (body) body.innerHTML = '<span style="color:#9a8fb0;">🐯 藤村老師正在翻你的戰報……</span>';
+    // 鎖按鈕，等 AI 生成完再給玩家「下一步」
+    if (backBtn) { backBtn.disabled = true; backBtn.style.opacity = '0.4'; backBtn.style.cursor = 'not-allowed'; }
+    try {
+      const res = await gasRun({ action: 'narrate_only', pcId: pc.id, promptText: buildTigerDojoPrompt_(servantName, causeCtx), isNsfw: false });
+      if (res && res.success && res.text && body) {
+        var t = String(res.text).replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\n{2,}/g, '<br><br>').replace(/\n/g, '<br>');
+        body.innerHTML = t + '<div style="color:#9a8fb0; font-size:12px; margin-top:12px;">（敗北的存檔已封存於戰史，可重啟新的一局。）</div>';
+      } else if (body) { body.innerHTML = dojoFallbackHtml_(); }
+    } catch (e) { if (body) body.innerHTML = dojoFallbackHtml_(); }
+    finally {
+      // AI 完成（或失敗）後：解鎖按鈕，改為「下一步 → 重新登入」直接 reload
+      if (backBtn) {
+        backBtn.disabled = false;
+        backBtn.style.opacity = '';
+        backBtn.style.cursor = '';
+        backBtn.textContent = '下一步 → 重新登入';
+        backBtn.onclick = function () { location.reload(); };
+      }
+    }
   }
   function closeTigerDojo() {
     const ov = document.getElementById('tiger-dojo-overlay');

@@ -336,7 +336,7 @@ function actionManualNpc(userData, pcId, sheets) {
     const pcColCount = Object.keys(COL.PC).length;
     const newRow = Array(pcColCount).fill("");
     newRow[COL.PC.ID] = newId; newRow[COL.PC.NAME] = finalName; newRow[COL.PC.SEX] = finalSex;
-    newRow[COL.PC.BACK] = standing || aiBrief.background || "來歷不明的魔術師";
+    newRow[COL.PC.BACK] = aiBrief.background || standing || "來歷不明的魔術師"; // AI 生成優先(玩家輸入當種子·像性格/特徵那樣展開)；玩家後續可自改
     newRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
     newRow[COL.PC.MEMORY] = [
       wish ? `【願望】${wish}` : "",
@@ -706,6 +706,8 @@ function buildTagsPayload_(sheets, pcId, preData, preRel) {
       // 🌟 多寶具英靈：寶具選單＋當前選定索引（前端點寶具時挑要放哪個）
       npOptions: servantNpOptions_(s[COL.PC.NAME], s[COL.PC.RANK]) || undefined,
       npChoice: npChoice_(s[COL.PC.MEMORY]),
+      // 🐙 深淵海怪肉身（持 summon_horror 且現存海怪時 {cur,max}）：前端在體力條下方獨立渲染一條海怪血條
+      horror: skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) ? horrorShieldView_(s[COL.PC.MEMORY], gameId) : undefined,
       pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體
       stolen: /【破戒奪取】/.test(String(s[COL.PC.MEMORY] || ""))
     });
@@ -789,9 +791,12 @@ function actionMove(userData, pcId, sheets) {
 
   // 💨 撤離追擊(一點點)：從「有活敵從者」的格子離開時，較快的敵從者可能咬一記離別追擊。
   //   ★可生還·不致死(從者血保 1)——只是不讓你一按就從強敵眼皮底下從容全身而退。用移動【前】的初始資料判定。
+  const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : []; // 提前讀一次·下方移動/敘事/追擊判定共用(零淨增讀取)
+  const tgtTrim = String(target || "").trim();
   var pursuit = null;
   try {
     var fromLocM = String(allPcData[pIdx][COL.PC.LOC] || "").trim();
+    var moverNameM = String(allPcData[pIdx][COL.PC.NAME] || "");
     if (isFateMove && fromLocM && tgtTrim && tgtTrim !== fromLocM) {
       var psvIdxM = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
       if (psvIdxM !== -1) {
@@ -804,11 +809,17 @@ function actionMove(userData, pcId, sheets) {
           if (String(r[COL.PC.GAME_ID] || "") !== moveGameId) return;
           if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
           if (String(r[COL.PC.LOC] || "").trim() !== fromLocM) return;
+          if (isAllied_(r)) return; // 🤝 盟約/休兵中→不追殺
+          var bnd = (relData.find(function (x) { return x[COL.REL.PC] === moverNameM && x[COL.REL.NPC] === String(r[COL.PC.NAME]); }) || [])[COL.REL.FAV];
+          if ((parseInt(bnd) || 0) >= 50) return; // 💗 好感友好(≥50)→交情夠·不追殺
           var a = rankVal((rowToCombatant_(r).six['敏捷']) || 'C');
           if (a > chaserAgi) { chaserAgi = a; chaser = r; }
         });
         if (chaser && chaserAgi >= psvAgi) { // 追得上(敵敏≥我敏)才追
           var pProb = 0.30 + (psvHp < psvMax * 0.4 ? 0.20 : 0) - (hasFx_(psvC, 'ride') ? 0.15 : 0);
+          var stanceM = String(userData.stance || 'normal'); // 🎭 接敵姿態(純敘述 flavor·僅此處輕觸追擊)：隱蔽−/光明+
+          pProb += (stanceM === 'open' ? 0.10 : stanceM === 'stealth' ? -0.10 : 0);
+          pProb = Math.max(0, Math.min(0.55, pProb)); // 夾上限·免殘血+光明變「離場必被咬」
           if (Math.random() < pProb) {
             var chC = rowToCombatant_(chaser);
             // ⚔️ 真·交手判定(非單方挨打)：追兵 vs 我方從者一次交鋒，誰輸誰扣血——我方夠強可回身反咬逼退追兵。
@@ -823,7 +834,6 @@ function actionMove(userData, pcId, sheets) {
 
   // 🎭 抵達態度判定（趁世界尚未 tick，看 target 此刻是否「已有先客」）：
   //   先客在＝玩家主動找上門(對方在自己地盤、會警惕戒備)；無＝偶遇(雙方恰巧撞上、都帶幾分意外)。
-  const tgtTrim = String(target || "").trim();
   const preFoesAtTarget = allPcData.filter(r =>
     (String(r[COL.PC.FACTION]) === "敵御主" || String(r[COL.PC.FACTION]) === "敵從者")
     && (!moveGameId || String(r[COL.PC.GAME_ID] || "") === moveGameId)
@@ -852,7 +862,6 @@ function actionMove(userData, pcId, sheets) {
   pIdx = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
   allPcData[pIdx][COL.PC.LOC] = target;
   const pcName = allPcData[pIdx][COL.PC.NAME];
-  const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
 
   relData.filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]).forEach(npcName => {
     const nIdx = allPcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!moveGameId || String(r[COL.PC.GAME_ID] || "") === moveGameId));
@@ -917,6 +926,7 @@ function actionMove(userData, pcId, sheets) {
 
   return JSON.stringify({
     success: true,
+    masterCard: masterCard_(allPcData[pIdx]), // 🎭 御主演出依據→抵達敘事讓「我」依性格開口、不再啞巴主角
     servantCard: svCardMove,
     foeCards: foeCardsMove,
     pursuit: pursuit,
@@ -1213,7 +1223,7 @@ function actionPlay(userData, pcId, sheets) {
     const majorEventStr = (relRecord && relRecord[COL.REL.MAJOR_EVENT] && relRecord[COL.REL.MAJOR_EVENT] !== "無")
       ? ` [未完成約定:${relRecord[COL.REL.MAJOR_EVENT]}]` : "";
 
-    return `${identityTag}名號:${r[COL.PC.NAME]} 【性別:${r[COL.PC.SEX]}】 陣營:${r[COL.PC.FACTION] || "無"} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])} | 關係:${relRecord ? relRecord[COL.REL.TAG] : "萍水相逢"}(好感:${currentFav}${majorEventStr} -> 行為準則:${resistPrompt})`;
+    return `${identityTag}名號:${r[COL.PC.NAME]} 【性別:${r[COL.PC.SEX]}】 陣營:${r[COL.PC.FACTION] || "無"} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])} | 身世:${String(r[COL.PC.BACK] || "來歷不詳")}(僅供內化演出·show-don't-tell·禁直述、禁預告其原作後續結局) | 關係:${relRecord ? relRecord[COL.REL.TAG] : "萍水相逢"}(好感:${currentFav}${majorEventStr} -> 行為準則:${resistPrompt})`;
   }).join("\n") : "此地四下無人。";
 
   if (isNsfwMode) {
@@ -1906,6 +1916,28 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   var isFoeSv = (tgtFaction === "敵從者");
   var severed = hasFx_(atkC, 'rule_breaker') || hasFx_(atkC, 'anti_magic_lance');
   var hp = parseInt(pcData[tgtIdx][COL.PC.HP]) || 0;
+  // 🐙 海怪掩護：持 summon_horror 者寶具解放後，深淵海怪在前以身擋傷——傷害先扣海怪肉身，潰散後才傷及本體。
+  //   faction 無關（玩家青鬍子／敵方青鬍子皆適用）；無「現存海怪」(未解放/已退場)時此段空轉。
+  if (hasFx_(defC, 'summon_horror') && dmg > 0) {
+    var _hClk = getClock_(ctx.myGameId);
+    var _hAbs = _hClk ? _hClk.day * 24 + _hClk.hour : null;
+    var _shield = getHorrorShield_(pcData[tgtIdx][COL.PC.MEMORY], _hAbs);
+    if (_shield.active && _shield.remaining > 0) {
+      var _sAbsorb = Math.min(_shield.remaining, dmg);
+      dmg = Math.max(0, dmg - _sAbsorb);
+      out.damage = dmg;
+      var _sNew = _shield.remaining - _sAbsorb;
+      if (_sNew <= 0) {
+        pcData[tgtIdx][COL.PC.MEMORY] = clearHorrorShield_(pcData[tgtIdx][COL.PC.MEMORY]);
+        out.fired.push(defC.name + '·深淵海怪以身擋下 ' + _sAbsorb + '——海怪潰散！本體暴露');
+      } else {
+        pcData[tgtIdx][COL.PC.MEMORY] = setHorrorShield_(pcData[tgtIdx][COL.PC.MEMORY], _sNew, _shield.max, _shield.expiry);
+        out.fired.push(defC.name + '·深淵海怪以身擋下 ' + _sAbsorb + '（海怪餘 ' + _sNew + '/' + _shield.max + '）');
+      }
+      out.shieldCur = Math.max(0, _sNew); out.shieldMax = _shield.max; // 戰報/前端可顯示海怪肉身條
+      sheets.pc.getRange(tgtIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[tgtIdx][COL.PC.MEMORY]);
+    }
+  }
   var after = hp - dmg;
   if (severed && after <= 0) out.fired.push(atkC.name + '·斬斷救贖(契約已破)');
   if (after <= 5 && hasFx_(defC, 'survive') && hp > 1 && !severed) { after = 1; out.fired.push(defC.name + '·戰鬥續行'); }
@@ -2192,6 +2224,10 @@ function actionFateBattle(userData, pcId, sheets) {
   let battleAp = AP_PER_DAY;
   if (isFateBattle) { try { battleAp = spendAp_(myGameId, 1).ap; } catch (e) { } }
 
+  // ⚔️ 交手即削好感：拔劍相向直接 −5（不勞 AI 判定）。只削既有交情列、不憑空建列(萍水相逢者本就 0)。
+  //   ★同時是「刷好感躲追殺」的天然制衡：要奪杯就得打、打了好感掉破 50→追擊閘重新開啟。
+  try { raiseBond_(sheets, String(pcData[pIdx][COL.PC.NAME]), String(pcData[nIdx][COL.PC.NAME]), -5); } catch (e) { }
+
   // 🗡️ 斬首裁決：敵御主仍有從者在側護衛時，唯有「大成功（擲 20）」能突破護衛、一擊斬殺御主；
   //    否則護衛捨身格擋、並反手予我方從者 1.5 倍痛擊（可能致敗）。寶具／令咒對奇襲斬首不適用。
   if (isMasterTarget && assassinGuardIdx !== -1) {
@@ -2342,6 +2378,77 @@ function actionFateBattle(userData, pcId, sheets) {
   const ctx = { myGameId: myGameId, pIdx: pIdx, userData: userData };
   const targetIsFoeServant = String(pcData[nIdx][COL.PC.FACTION]) === "敵從者";
 
+  // 🌟 寶具對轟（光與光的對撞）：玩家開場解放寶具、目標為敵從者時，值得一戰的對手以寶具相迎。
+  //   雙方先算「寶具火力」→ 高者壓過低者，差額貫穿敗方、勝方僅受少量回震；火力相當(±10%)則相抵僵持。
+  //   ★ 對轟輸方不致死：差值再大也只打到 1 HP——英雄倒下前總能拼出最後一口氣。
+  let openingNp = useNp, openingSeal = useSeal; // 對轟已用掉開場 NP/令咒威能則清掉，避免回合迴圈重放
+  let clash = null;
+  if (useNp && targetIsFoeServant && !String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) {
+    const enemyC0 = rowToCombatant_(pcData[nIdx]);
+    const enemyHasNp = !!String(pcData[nIdx][COL.PC.MARTIAL] || "").trim() && rankVal(enemyC0.six["寶具"] || "-") >= 10;
+    // 只有「攻擊型寶具」才對轟；防禦/生存/召喚型(God Hand、summon_horror…)不去抵銷玩家寶具。
+    const CLASH_OFF_FX = ['ea', 'excalibur', 'ubw', 'gob', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify', 'chain', 'anti_magic_lance', 'wind_strike', 'projection'];
+    const eScaleClash = npAtkScale_(enemyC0);
+    const enemyOffensiveNp = enemyHasNp && (eScaleClash === '對軍' || eScaleClash === '對城' || eScaleClash === '對界' || CLASH_OFF_FX.some(function (f) { return hasFx_(enemyC0, f); }));
+    const eHpR = (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[nIdx][COL.PC.HP]) || 0) / (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) : 1;
+    const clashUrge = 0.6 + (hasFx_(enemyC0, 'mad') || hasFx_(enemyC0, 'zabaniya') ? 0.25 : 0) - (1 - eHpR) * 0.3;
+    const clashPrana = npPranaCost_(enemyC0.six["寶具"]);
+    const clashAfford = enemyOffensiveNp ? enemyCanAffordNp_(pcData, nIdx, myGameId, clashPrana) : { afford: false, masterIdx: -1 };
+    if (enemyOffensiveNp && clashAfford.afford && Math.random() < clashUrge) {
+      drainForNp_(sheets, pcData, nIdx, clashAfford.masterIdx, clashPrana);
+      enemyC0.mp = parseInt(pcData[nIdx][COL.PC.MP]) || 0;
+      enemyNpSpent = true;
+      openingNp = false; openingSeal = false;
+      enemyC0.output = 100;
+      const pPow = resolveFateBattle_(atkC, enemyC0, { np: true, seal: useSeal, skill: skillBuff }).damage;
+      const ePow = resolveFateBattle_(enemyC0, atkC, { np: true }).damage;
+      // ⚡ 因果律武器（Gáe Bolg 等）：死亡在投擲前已確定──優先結算，壓過對手寶具威能
+      //   致死：敵方 NP 被截斷，只剩極少殘波打回來；未致死：火力 ×1.35、比完大小再走正常流程。
+      const playerCausality = hasCausalityNp_(atkC);
+      const effectivePPow = playerCausality ? Math.round(pPow * 1.35) : pPow;
+      const eHpNow = parseInt(pcData[nIdx][COL.PC.HP]) || 0;
+      const band = Math.round((effectivePPow + ePow) * 0.10);
+      let outcome, pDmgTaken = 0, eDmgTaken = 0;
+      if (playerCausality && effectivePPow >= eHpNow) {
+        // ★ 因果律截斷：敵方在因果時間線上已死，其 NP 主力消散，只剩殘波 8%
+        outcome = 'causality';
+        eDmgTaken = effectivePPow;
+        pDmgTaken = Math.round(ePow * 0.08);
+      } else if (Math.abs(effectivePPow - ePow) <= band) {
+        outcome = 'stalemate';
+        eDmgTaken = Math.round(band * 0.5); pDmgTaken = Math.round(band * 0.5);
+      } else if (effectivePPow > ePow) {
+        outcome = 'player';
+        eDmgTaken = effectivePPow - ePow; pDmgTaken = Math.round((effectivePPow - ePow) * 0.15);
+      } else {
+        outcome = 'enemy';
+        var _rawPDmg = ePow - effectivePPow;
+        // ★ 對轟輸方不致死：差值再大也只扣到 1 HP 為止
+        pDmgTaken = Math.min(_rawPDmg, Math.max(0, (parseInt(pcData[atkIdx][COL.PC.HP]) || 1) - 1));
+        eDmgTaken = Math.round(_rawPDmg * 0.15);
+      }
+      const eHit = fateStrike_(sheets, pcData, atkC, nIdx, { forceDamage: eDmgTaken }, ctx);
+      if (eHit.destroyed) destroyedName = eHit.destroyed;
+      if (eHit.knocked) knockedOut.push(eHit.knocked);
+      if (eHit.sealEscaped) { sealEscaped = true; sealNote = eHit.sealNote; }
+      if (eHit.godRevived) { godRevived = true; godNote = eHit.godNote; }
+      if (eHit.victory) victory = true;
+      if (!sealEscaped) {
+        const spill = (destroyedName ? Math.round(pDmgTaken * 0.5) : pDmgTaken);
+        const pHit = fateStrike_(sheets, pcData, enemyC0, atkIdx, { forceDamage: spill }, ctx);
+        if (pHit.destroyed && pHit.knocked) knockedOut.push(pHit.knocked);
+        if (pHit.defeat) { defeat = true; victory = false; dreamPrompt = pHit.dreamPrompt; }
+      }
+      clash = {
+        outcome: outcome, pPow: pPow, ePow: ePow, pDmgTaken: pDmgTaken, eDmgTaken: eDmgTaken,
+        enemyNp: String(pcData[nIdx][COL.PC.MARTIAL] || ""),
+        atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0,
+        defHp: parseInt(pcData[nIdx][COL.PC.HP]) || 0, defHpMax: parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0
+      };
+      logWarEvent_(myGameId, `寶具對轟！『${atkC.name}』與「${defC.name}」真名解放正面對撞——${outcome === 'causality' ? '因果律先行截斷——在敵方寶具離弦之前，死亡已先降臨' : outcome === 'player' ? '我方光潮壓過、貫穿對手' : outcome === 'enemy' ? '敵寶具壓過、貫穿我方（但從者拼死撐住）' : '勢均力敵、兩相抵銷'}。`, String(userData.acctName || ""));
+    }
+  }
+
   // 🗝️ 雙從者齊攻：收齊所有在世我方從者（出戰中 atkIdx 排第一；寶具/令咒只加在他身上）。每回合每名各出一擊。
   const partyIdxs = [];
   for (let pi = 1; pi < pcData.length; pi++) {
@@ -2361,80 +2468,27 @@ function actionFateBattle(userData, pcId, sheets) {
     if (allyAtkIdx !== -1) allyAssistName = String(pcData[allyAtkIdx][COL.PC.NAME]);
   }
 
-  // 🌟 寶具對轟（光與光的對撞）：玩家開場解放寶具、目標為敵從者時，值得一戰的對手以寶具相迎。
-  //   雙方先算「寶具火力」(不直接扣血) → 高者壓過低者，差額貫穿敗方、勝方僅受少量回震；火力相當(±10%)則相抵僵持、雙方小損。
-  //   傷害一律透過 fateStrike_(forceDamage) 套用，沿用全套死亡/勝負/復活/令咒脫離邏輯。
-  let openingNp = useNp, openingSeal = useSeal; // 給回合迴圈：對轟已用掉開場寶具/令咒威能則清掉，避免重複施放
-  let clash = null;
-  if (useNp && targetIsFoeServant && !String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) {
-    const enemyC0 = rowToCombatant_(pcData[nIdx]);
-    const enemyHasNp = !!String(pcData[nIdx][COL.PC.MARTIAL] || "").trim() && rankVal(enemyC0.six["寶具"] || "-") >= 10;
-    // 🌟 只有「攻擊型寶具」才會跟玩家寶具對轟。防禦/生存/支援型(赫拉克勒斯 God Hand、純陣地、治癒…)不會去抵銷
-    //   玩家寶具——否則玩家解放寶具卻被一個「不死之軀」硬抵成震退、看不到威能(就是這個 bug)。
-    //   攻擊型＝寶具尺度達 對軍/對城/對界，或帶明確攻擊系 fx。純對人/防禦型 → 不對轟，玩家寶具於回合迴圈正常貫穿。
-    const CLASH_OFF_FX = ['ea', 'excalibur', 'ubw', 'summon_horror', 'gob', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify', 'chain', 'anti_magic_lance', 'wind_strike', 'projection'];
-    const eScaleClash = npAtkScale_(enemyC0);
-    const enemyOffensiveNp = enemyHasNp && (eScaleClash === '對軍' || eScaleClash === '對城' || eScaleClash === '對界' || CLASH_OFF_FX.some(function (f) { return hasFx_(enemyC0, f); }));
-    // 對撞意志：健全的對手多半敢正面對轟；暗殺/狂戰系更愛搏命；殘血則未必接招（可能改閃避→走一般回合）
-    const eHpR = (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[nIdx][COL.PC.HP]) || 0) / (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) : 1;
-    const clashUrge = 0.6 + (hasFx_(enemyC0, 'mad') || hasFx_(enemyC0, 'zabaniya') ? 0.25 : 0) - (1 - eHpR) * 0.3;
-    // 🔋 敵須付得起寶具魔力才接對轟；付不起→不對轟（玩家寶具改於回合迴圈正常命中）
-    const clashPrana = npPranaCost_(enemyC0.six["寶具"]);
-    const clashAfford = enemyOffensiveNp ? enemyCanAffordNp_(pcData, nIdx, myGameId, clashPrana) : { afford: false, masterIdx: -1 };
-    if (enemyOffensiveNp && clashAfford.afford && Math.random() < clashUrge) {
-      drainForNp_(sheets, pcData, nIdx, clashAfford.masterIdx, clashPrana); // 敵付寶具魔力
-      enemyC0.mp = parseInt(pcData[nIdx][COL.PC.MP]) || 0;
-      enemyNpSpent = true;            // 對轟即用掉敵寶具
-      openingNp = false; openingSeal = false; // 玩家寶具/令咒威能已在對轟中釋放，回合迴圈不再重放
-      enemyC0.output = 100;          // ⚖️ 敵解放寶具＝全開(與玩家被閘到 100 對等)，免敵寶具因預設出力60少約一成威力
-      const pPow = resolveFateBattle_(atkC, enemyC0, { np: true, seal: useSeal, skill: skillBuff }).damage;
-      const ePow = resolveFateBattle_(enemyC0, atkC, { np: true }).damage;
-      const band = Math.round((pPow + ePow) * 0.10);
-      let outcome, pDmgTaken = 0, eDmgTaken = 0;
-      if (Math.abs(pPow - ePow) <= band) {
-        outcome = 'stalemate';                                   // 勢均力敵·僵持相抵
-        eDmgTaken = Math.round(band * 0.5); pDmgTaken = Math.round(band * 0.5);
-      } else if (pPow > ePow) {
-        outcome = 'player';                                      // 我方寶具壓過
-        eDmgTaken = pPow - ePow; pDmgTaken = Math.round((pPow - ePow) * 0.15);
-      } else {
-        outcome = 'enemy';                                       // 敵寶具壓過
-        pDmgTaken = ePow - pPow; eDmgTaken = Math.round((ePow - pPow) * 0.15);
-      }
-      // 套用傷害（先打敵、再回震我方）——皆走 fateStrike_ 以沿用死亡/勝負/脫離邏輯
-      const eHit = fateStrike_(sheets, pcData, atkC, nIdx, { forceDamage: eDmgTaken }, ctx);
-      if (eHit.destroyed) destroyedName = eHit.destroyed;
-      if (eHit.knocked) knockedOut.push(eHit.knocked);
-      if (eHit.sealEscaped) { sealEscaped = true; sealNote = eHit.sealNote; }
-      if (eHit.godRevived) { godRevived = true; godNote = eHit.godNote; }
-      if (eHit.victory) victory = true;
-      // 我方回震（敵未脫離/未死也照樣有反作用力；敵已亡則回震減半，光潮餘波）
-      if (!sealEscaped) {
-        const spill = (destroyedName ? Math.round(pDmgTaken * 0.5) : pDmgTaken);
-        const pHit = fateStrike_(sheets, pcData, enemyC0, atkIdx, { forceDamage: spill }, ctx);
-        if (pHit.destroyed && pHit.knocked) knockedOut.push(pHit.knocked); // 我方從者被回震打爆→記入擊倒名單(不覆蓋「敵亡」destroyedName)
-        if (pHit.defeat) { defeat = true; victory = false; dreamPrompt = pHit.dreamPrompt; }
-      }
-      clash = {
-        outcome: outcome, pPow: pPow, ePow: ePow, pDmgTaken: pDmgTaken, eDmgTaken: eDmgTaken,
-        enemyNp: String(pcData[nIdx][COL.PC.MARTIAL] || ""),
-        atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0,
-        defHp: parseInt(pcData[nIdx][COL.PC.HP]) || 0, defHpMax: parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0
-      };
-      logWarEvent_(myGameId, `寶具對轟！『${atkC.name}』與「${defC.name}」真名解放正面對撞——${outcome === 'player' ? '我方光潮壓過、貫穿對手' : outcome === 'enemy' ? '敵寶具壓過、貫穿我方' : '勢均力敵、兩相抵銷'}。`, String(userData.acctName || ""));
-    }
-  }
 
   // 🐙 螺湮城教本：玩家青鬍子解放寶具 → 自深淵召出「深淵海怪」常駐戰場，每回合與本人並肩撕咬，
   //   靠御主魔力維持(每回合扣 HORROR_UPKEEP)；御主魔力撐不住 → 海怪潰散退場。巨獸物理攻擊、不受對魔力。
   let horrorActive = (useNp && hasFx_(atkC, 'summon_horror'));
   const HORROR_UPKEEP = 30;
+  // 深淵海怪的「肉身血池」＝海怪護盾(下方 setHorrorShield_)；此 horrorC 的 hp 僅追擊判定用、肉身存亡看護盾。
   const horrorC = horrorActive ? {
     name: '深淵海怪', cls: 'Berserker', np: '',
     six: { 筋力: 'A', 耐久: 'A', 敏捷: 'C', 魔力: 'E', 幸運: 'E', 寶具: '-' },
     skills: [], traits: [{ n: '巨獸' }], output: 100,
-    hp: 400, hpMax: 400, mp: 0, mpMax: 0
+    hp: HORROR_SHIELD_HP, hpMax: HORROR_SHIELD_HP, mp: 0, mpMax: 0
   } : null;
+  // 🐙 召喚海怪：寶具解放當下，海怪自深淵現身、以肉身(HORROR_SHIELD_HP)在前掩護術師（逾 HORROR_SHIELD_HOURS 遊戲時退場）。
+  if (horrorActive) {
+    var _hshClk = getClock_(myGameId);
+    if (_hshClk) {
+      var _hshExp = _hshClk.day * 24 + _hshClk.hour + HORROR_SHIELD_HOURS;
+      pcData[atkIdx][COL.PC.MEMORY] = setHorrorShield_(pcData[atkIdx][COL.PC.MEMORY], HORROR_SHIELD_HP, HORROR_SHIELD_HP, _hshExp);
+      sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
+    }
+  }
 
   for (let rd = 0; rd < ROUNDS; rd++) {
     if (sealEscaped || destroyedName || defeat || victory) break;
@@ -2451,7 +2505,11 @@ function actionFateBattle(userData, pcId, sheets) {
       const sC = rowToCombatant_(pcData[sidx]);
       const isActive = (sidx === atkIdx);
       const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && openingNp && isActive, seal: opening && openingSeal && isActive, ambush: opening && isActive, skill: isActive ? skillBuff : null }, ctx);
-      rl.strikes.push({ by: sC.name, pRoll: ps.aRoll, pHitVal: ps.aHit, dRoll: ps.dRoll, dEvaVal: ps.dEva, pHit: ps.hit, pDmg: ps.hit ? ps.damage : 0, pCrit: ps.crit, pFired: ps.fired, note: ps.sealNote || ps.godNote || "" });
+      // 目標為敵御主(非從者)：引擎計算了反傷 fired 但不套用，過濾掉「winner·武器骰」等傷害計算噪音
+      const _pFiredClean = isMasterTarget
+        ? (ps.fired || []).filter(function (t) { return !/·武器骰|·出力\d/.test(String(t)); })
+        : (ps.fired || []);
+      rl.strikes.push({ by: sC.name, pRoll: ps.aRoll, pHitVal: ps.aHit, dRoll: ps.dRoll, dEvaVal: ps.dEva, pHit: ps.hit, pDmg: ps.hit ? ps.damage : 0, pCrit: ps.crit, pFired: _pFiredClean, note: ps.sealNote || ps.godNote || "" });
       if (ps.destroyed) destroyedName = ps.destroyed;
       if (ps.knocked) knockedOut.push(ps.knocked);
       if (ps.sealEscaped) { sealEscaped = true; sealNote = ps.sealNote; }
@@ -2475,6 +2533,24 @@ function actionFateBattle(userData, pcId, sheets) {
           sheets.pc.getRange(ridx + 1, 1, 1, pcData[ridx].length).setValues([pcData[ridx]]);
           rl.strikes.push({ by: rc.name, rune: true, pHit: false, pDmg: 0, pCrit: '', pFired: [], note: '原初符文·治癒（+' + Math.min(healR, hpMaxR - curR) + '）' });
         }
+      }
+    }
+
+    // 🐙 深淵海怪·肉身養護：護盾＝海怪肉身，每回合自深淵汲魔再生 +HORROR_REGEN（不過上限）；
+    //   肉身已潰散(護盾歸零/逾時) → 海怪退場、本回合起不再追擊。
+    if (hasFx_(atkC, 'summon_horror')) {
+      var _hgClk = getClock_(ctx.myGameId);
+      var _hgAbs = _hgClk ? _hgClk.day * 24 + _hgClk.hour : null;
+      var _hgSh = getHorrorShield_(pcData[atkIdx][COL.PC.MEMORY], _hgAbs);
+      if (_hgSh.active && _hgSh.remaining > 0) {
+        if (_hgSh.remaining < _hgSh.max) {
+          var _hgNew = Math.min(_hgSh.max, _hgSh.remaining + HORROR_REGEN);
+          pcData[atkIdx][COL.PC.MEMORY] = setHorrorShield_(pcData[atkIdx][COL.PC.MEMORY], _hgNew, _hgSh.max, _hgSh.expiry);
+          sheets.pc.getRange(atkIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[atkIdx][COL.PC.MEMORY]);
+          rl.strikes.push({ by: '🐙深淵海怪', horror: true, pHit: false, pDmg: 0, pCrit: '', pFired: [], note: '深淵海怪·肉身再生（+' + (_hgNew - _hgSh.remaining) + '·餘 ' + _hgNew + '/' + _hgSh.max + '）' });
+        }
+      } else {
+        horrorActive = false; // 海怪肉身潰散 → 退場
       }
     }
 
@@ -2524,7 +2600,13 @@ function actionFateBattle(userData, pcId, sheets) {
         const ECF = ['ea', 'excalibur', 'ubw', 'summon_horror', 'gob', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify', 'chain', 'anti_magic_lance', 'wind_strike', 'projection'];
         const eOffensiveNp = !!String(pcData[nIdx][COL.PC.MARTIAL] || "").trim() && rankVal(enemyNow.six["寶具"] || "-") >= 10
           && (['對軍', '對城', '對界'].indexOf(npAtkScale_(enemyNow)) >= 0 || ECF.some(function (f) { return hasFx_(enemyNow, f); }));
-        let enemyFireNp = eOffensiveNp && !enemyNpSpent && (Math.random() < (eNpUrge + (1 - eHpRatio) * 0.45));
+        // 🛡️ 寶具是孤注一擲的殺招、不是見面的招呼：敵方唯有【自己被打殘】或【對方已殘可收尾】才解放真名——
+        //    免得玩家一接觸就被無預警的寶具秒殺(「見面開寶具」的惡感)。健康對健康＝先以普攻試探。
+        const pHpRatio = (parseInt(pcData[ctgt][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[ctgt][COL.PC.HP]) || 0) / (parseInt(pcData[ctgt][COL.PC.MAX_HP]) || 1) : 1;
+        const eDesperate = eHpRatio < 0.5;   // 敵自身被打殘→搏命解放
+        const eFinisher = pHpRatio < 0.45;   // 我方從者已殘→敵收尾
+        let enemyFireNp = eOffensiveNp && !enemyNpSpent && (eDesperate || eFinisher)
+          && (Math.random() < (eNpUrge + (1 - eHpRatio) * 0.45 + (eFinisher ? 0.30 : 0)));
         // 🔋 敵寶具也要吃魔力：自身 MP＋敵御主電池須付得起 prana，否則放不出（EX/EA 幾乎沒人付得起→極罕見；masterless 補不了魔→自限）
         if (enemyFireNp) {
           const ePrana = npPranaCost_(enemyNow.six["寶具"]);
@@ -2558,7 +2640,7 @@ function actionFateBattle(userData, pcId, sheets) {
   ).join('\n');
   const finalLine = destroyedName
     ? (!targetIsFoeServant
-        ? `敵御主「${defC.name}」已斃命——凡人之軀、並非靈基消滅（致命的手段由你依出戰從者的職階自行演出）${victory ? '；其從者失去供魔亦將隨之消散，聖杯已近！' : '。'}`
+        ? `敵御主「${defC.name}」已斃命——凡人之軀、並非靈基消滅（${atkC.cls === 'Caster' ? 'Caster 以魔術給予決定性一擊、非肉搏；' : ''}致命手段依出戰從者職階自行演出）${victory ? '；其從者失去供魔亦將隨之消散，聖杯已近！' : '。'}`
         : `「${defC.name}」靈基崩潰、徹底消滅${victory ? '——此乃最後一名敵對從者，聖杯已近！' : '。'}`)
     : sealEscaped ? `「${defC.name}」被對面御主令咒緊急扯離戰場、遁走不在場。`
       : godRevived ? `「${defC.name}」屢屢自死亡歸來、仍未倒下。`
@@ -2571,14 +2653,14 @@ function actionFateBattle(userData, pcId, sheets) {
   if (defeat) {
     aiPrompt = servantCard_(pcData[atkIdx]) +
       `【戰報·已裁定】御主號令『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合。\n${roundsBrief}\n結局：『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。\n` +
-      `★以 Fate／TYPE-MOON 筆觸演出這場敗北的最後一幕(一段即可)，語氣留白。勝負已定，你只演過程。`;
+      `★以 Fate／TYPE-MOON 筆觸演出這場敗北的最後一幕(一段即可)${atkC.cls === 'Caster' ? '（Caster 以魔術轟擊為主、非肉搏）' : ''}，語氣留白。勝負已定，你只演過程。`;
   } else {
     aiPrompt = servantCard_(pcData[atkIdx]) +
       `【戰報·已裁定，勝負與傷害不可改】御主號令${atkLabel}出擊，與「${defC.name}」交鋒 ${nRounds} 回合。\n` +
       `${roundsBrief}\n我方造成 ${totalDealt} 傷害、受創 ${totalTaken}。${finalLine}\n` +
       `── 本戰發生的事(素材，自行織入畫面，勿複述標籤名) ──\n` +
       (useSeal ? `· 御主燃燒一道令咒·絕對命令，強令此擊必中、引爆超限戰力。\n` : "") +
-      (clash ? `· 寶具對轟：雙方同時解放真名正面對撞，${clash.outcome === 'player' ? '我方威能壓過、光潮貫穿對手' : clash.outcome === 'enemy' ? '對面威能壓過、反貫我方' : '勢均力敵、轟然相抵、雙方震退'}。\n` : (useNp ? `· ${atkC.name} 高呼真名、解放了寶具。\n` : "")) +
+      (clash ? `· 寶具對轟：${clash.outcome === 'causality' ? `因果律先行截斷——『${atkC.name}』的死亡詛咒在敵方寶具解放之前便已降臨，敵 NP 殘波極微。` : clash.outcome === 'player' ? '我方威能壓過、光潮貫穿對手。' : clash.outcome === 'enemy' ? '對面威能壓過、貫穿我方（從者以鋼鐵意志撐住）。' : '勢均力敵、轟然相抵、雙方震退。'}\n` : (useNp ? `· ${atkC.name} 高呼真名、解放了寶具。\n` : "")) +
       (skillBuff ? `· 我方啟動了主動技「${skillBuff.name}」。\n` : "") +
       (horrorFired ? `· 青鬍子以螺湮城教本自深淵召出觸手巨獸「深淵海怪」，常駐戰場、每回合與本人並肩撕咬，靠御主魔力維持(枯竭則潰散)。\n` : "") +
       (dualAttack ? `· 我方兩名從者並肩夾擊同一敵手。\n` : "") +
@@ -2588,6 +2670,7 @@ function actionFateBattle(userData, pcId, sheets) {
       (godRevived ? `· 十二試煉：${godNote}\n` : "") +
       (sealEscaped ? `· 對面御主燃令咒、強行扯離重傷從者，敵已遁走不在場。${sealNote}\n` : "") +
       ((!destroyedName && !sealEscaped && !godRevived) ? `· 敗方尚有餘力(見上方 HP)——勿描寫死亡／消滅／屍體，生死由御主後續定奪。\n` : "") +
+      (atkC.cls === 'Caster' ? `· 出戰從者為 Caster（魔術師）職階：此戰以魔術轟擊為主、非肉搏，演出時勿讓其上前近戰。\n` : "") +
       `★以 Fate／TYPE-MOON 筆觸演出這 ${nRounds} 回合互有攻防的交鋒(約 220~280 字)：show, don't tell，把上列事實化為畫面與張力，技能/寶具演其威能而非報菜名。`;
   }
 
@@ -2659,6 +2742,13 @@ function getDoom_(memory) {
 //   不寫道具列、不花錢。MEMORY 記【整備至】<絕對小時>，過期自動失效。
 var MEAL_BUFF_HOURS = 8;   // 持續時數（遊戲內）
 var MEAL_BUFF_BONUS = 2;   // 從者出擊命中加值
+// 🐙 海怪護盾 ＝ 深淵海怪的「肉身血池」：螺湮城教本解放後，海怪自深淵現身、以身掩護術師——
+//   傷害先扣海怪、海怪潰散後才傷及本體；每回合自深淵汲魔再生；逾時退場。
+//   單一真實來源＝MEMORY【海怪護盾】<cur>|<max>|<expiryAbsHour>（三欄·舊兩欄相容讀取）。
+//   要擴充「召喚物掩護」類技能：照此 get/set/clear + view 模式複製即可。
+var HORROR_SHIELD_HP = 300;   // 海怪肉身上限（召喚時的滿值）
+var HORROR_SHIELD_HOURS = 8;  // 持續上限（遊戲內小時·逾時自深淵退場）
+var HORROR_REGEN = 10;        // 每回合肉身再生量（不超過上限）
 function stampMeal_(memory, expiryAbsHour) {
   var s = String(memory || "").replace(/【整備至】\d+/, "");
   s = s.replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
@@ -2673,6 +2763,31 @@ function mealBuffActive_(memory, gameId) {
   var exp = getMeal_(memory); if (!exp) return false;
   var clk = getClock_(gameId); if (!clk) return false;
   return (clk.day * 24 + clk.hour) < exp;
+}
+// 讀海怪肉身：回 {active, remaining, max, expiry}。逾時 → active:false。相容舊兩欄(cur|expiry，max 退回 cur)。
+function getHorrorShield_(memory, absHour) {
+  var m = String(memory || "").match(/【海怪護盾】(\d+)\|(\d+)(?:\|(\d+))?/);
+  if (!m) return { active: false, remaining: 0, max: 0, expiry: 0 };
+  var rem, max, exp;
+  if (m[3] != null) { rem = parseInt(m[1]); max = parseInt(m[2]); exp = parseInt(m[3]); }   // 新三欄 cur|max|expiry
+  else { rem = parseInt(m[1]); max = rem; exp = parseInt(m[2]); }                            // 舊兩欄 cur|expiry
+  if (absHour != null && absHour >= exp) return { active: false, remaining: 0, max: max, expiry: exp };
+  return { active: rem > 0, remaining: rem, max: max, expiry: exp };
+}
+function setHorrorShield_(memory, remaining, max, expiry) {
+  var s = String(memory || "").replace(/【海怪護盾】\d+\|\d+(?:\|\d+)?/, "");
+  s = s.replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
+  return (s ? s + "｜" : "") + "【海怪護盾】" + remaining + "|" + max + "|" + expiry;
+}
+function clearHorrorShield_(memory) {
+  return String(memory || "").replace(/｜?【海怪護盾】\d+\|\d+(?:\|\d+)?/, "").replace(/^｜|｜$/, "");
+}
+// 前端視圖：持 summon_horror 的從者，現存海怪肉身 {cur,max}（無/潰散→null）。供 servant 卡渲染獨立血條。
+function horrorShieldView_(memory, gameId) {
+  var abs = null;
+  try { var c = getClock_(gameId); if (c) abs = c.day * 24 + c.hour; } catch (e) { }
+  var sh = getHorrorShield_(memory, abs);
+  return sh.active ? { cur: sh.remaining, max: sh.max } : null;
 }
 // 🍱 整備·進食：耗 1 AP，給御主一行 MEAL_BUFF_HOURS 小時的戰鬥命中 +MEAL_BUFF_BONUS（戰前 buff）
 function actionPrepMeal(userData, pcId, sheets) {
@@ -2897,7 +3012,7 @@ function servantCard_(row) {
     var persona = p.words || prefArr.slice(0, 4).join('、');
     var np = String(row[COL.PC.MARTIAL] || "");
     // 狂化偵測：喪失言語、只咆哮（如赫拉克勒斯、蘭斯洛特）。開膛手傑克等會說話的狂戰士不命中。
-    var mad = /狂化|無法言語|僅?咆哮|不語/.test(String(p.speech || "") + String(fp));
+    var mad = /狂化|無法言語|僅咆哮|不語/.test(String(p.speech || "") + String(fp));
     var card = `〈${name}·${cls}·演出依據(僅供內化，禁複述設定字面)〉自稱「${fp}」｜對御主：${toM || '依真名'}｜性格：${persona || '依真名'}` +
       (p.speech ? `｜口吻：${p.speech}` : "") +
       (p.moe ? `｜萌點：${p.moe}` : "") +
@@ -2910,7 +3025,7 @@ function servantCard_(row) {
 }
 
 // 🎭 御主「演出依據」卡（精簡）：讓 AI 知道玩家御主是誰(性別/性格/特徵/願望)，以便 portray 互動。
-//   ★只供內化、禁複述；願望僅供氛圍不直述；仍【禁止替御主做決定或代御主說話】。
+//   ★只供內化、禁複述；願望僅供氛圍不直述；【可】依性格給御主台詞/反應(讓角色有聲)，但【不替御主拍板戰略抉擇】。
 function masterCard_(row) {
   if (!row) return "";
   try {
@@ -2923,7 +3038,7 @@ function masterCard_(row) {
       (prefArr.length ? `｜性格：${prefArr.slice(0, 4).join('、')}` : "") +
       (traitArr.length ? `｜特徵：${traitArr.slice(0, 4).join('、')}` : "") +
       (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
-      `。御主是玩家本人，禁止替御主做決定或代御主說出台詞，只描寫其神態/反應供玩家接續。\n`;
+      `。御主＝玩家所扮演的角色：【可】依其性格/身世自然開口、有神態反應與台詞，讓角色鮮活有聲(別只當沉默旁觀者)；但【不可】替御主拍板下一步戰略抉擇(是否出戰/結盟/移動/補魔由玩家按鍵定奪)、不可逼問玩家要做什麼、不可把劇情快轉越過決策點。\n`;
   } catch (e) { return ""; }
 }
 
@@ -3707,7 +3822,7 @@ function raiseBond_(sheets, pcName, svName, delta) {
     const rd = sheets.rel.getDataRange().getValues();
     for (let i = 1; i < rd.length; i++) {
       if (String(rd[i][COL.REL.PC]) === pcName && String(rd[i][COL.REL.NPC]) === svName) {
-        const v = Math.min(100, (parseInt(rd[i][COL.REL.FAV]) || 0) + delta);
+        const v = Math.max(0, Math.min(100, (parseInt(rd[i][COL.REL.FAV]) || 0) + delta)); // 地板 0：負 delta(交手削好感)不破底
         sheets.rel.getRange(i + 1, COL.REL.FAV + 1).setValue(v);
         return;
       }

@@ -130,7 +130,11 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
   `aim analyze anti_magic_lance burst chain clear_mind divine_age divine_core ea evade_ranged excalibur first_strike gae_bolg gob mad morale nullify_magic petrify projection rho_aias ride self_mod stealth str_up summon_horror tactics territory tsubame ubw unreadable wind_strike zabaniya`
   - **🛡️ rho_aias(七天盾·羅·埃亞斯／EMIYA，2026-06)**：守方減傷 ×0.6(七層花瓣硬擋)；遭超位階概念(ea 等，`pierces('rho_aias')`)貫穿則失效。
   - **🗡️ stealth 首擊奇襲(2026-06 改)**：氣息遮斷**只在 `opts.ambush`**(開場第一擊／敵突襲)生效·**吃階級**(命中 +rankVal/10·A+≈6 A-≈5)，非首擊不再享(交手即破功·貼原作)。命中**＋傷害**(普通首擊 ×~1.4 要害·吃階級)，但開場放寶具(opts.np)則走寶具爆發不疊。旗標鏈：`actionFateBattle` opening&&isActive → `fateStrike_` → `resolveFateBattle_(...,{ambush})`；敵突襲 `enemyAmbushOnServant_` probe 傳 `ambush:true`(本就 mul×1.4)。
-  - **🐙 summon_horror(螺湮城教本／青鬍子，2026-06)**：`npAtkScale_`＝對城＋寶具傷 ×1.6+8d10+50。**＋常駐召喚物(actionFateBattle)**：玩家青鬍子解放寶具→召「深淵海怪」(筋A耐A巨獸 horrorC)常駐戰場，每回合與本人並肩追擊一擊、每回合扣御主MP `HORROR_UPKEEP`(30)維持；御主魔力撐不住→海怪潰散退場。海怪攻擊走 `fateStrike_(horrorC...)`、進 rl.strikes(戰報自動顯示)。青鬍子寶具模式 1%→23%；普通/技能仍0%(無寶具=無海怪，gimmick召喚師)。
+  - **🐙 summon_horror(螺湮城教本／青鬍子，2026-06)**：`npAtkScale_`＝對城(攻)＋`npDefScale_`＝對城(防)＋寶具傷 ×1.6+8d10+50。
+    - **召喚物＝肉身護盾(2026-06 改·根源化)**：寶具解放→召「深淵海怪」掩護術師。**單一真實來源＝MEMORY`【海怪護盾】cur|max|expiry`(三欄·舊兩欄相容讀)**。海怪≠加進本體血量，是**獨立護盾肉身**：本體仍 210，海怪 `HORROR_SHIELD_HP`(300)在前。`fateStrike_` 受擊**先扣海怪、潰散後才傷本體**(gate on `hasFx_(defC,'summon_horror')`·faction 無關)；每回合 `HORROR_REGEN`(+10)自深淵再生(不過上限·見 round loop)；潰散/逾 `HORROR_SHIELD_HOURS`(8h)→海怪退場、`horrorActive=false` 不再追擊。helper：`getHorrorShield_/setHorrorShield_(mem,cur,max,exp)/clearHorrorShield_/horrorShieldView_(mem,gid)→{cur,max}|null`。
+    - **追擊**：每回合 horrorC 與本人並肩追擊一擊、扣御主MP `HORROR_UPKEEP`(30)維持；御主魔力撐不住→潰散。走 `fateStrike_(horrorC...)`、進 rl.strikes(戰報自動顯示)。
+    - **前端**：servant payload `horror:{cur,max}|undefined`(`horrorShieldView_`)→Script.html 體力條下方獨立渲染 `🐙海怪` 深淵藍紫血條(`horrorBar`)。
+    - 青鬍子寶具模式 1%→23%；普通/技能仍0%(無寶具=無海怪，gimmick召喚師)。
 - **📊 全戰鬥都有戰報卡(2026-06)**：① `renderFateBattleReport` 舊 guard `!r.rounds` 會擋掉【無回合】的斬首/突襲報(等於斬首戰報一直沒顯示)→改 `if(!r)`。② 新增**突襲戰報卡**(`r.ambush`)：`enemyAmbushOnServant_` 回 `out.report{ambush,enemyName,svName,dmg,after,svHpMax,destroyed,defeat}`，rest/mana_supply/scavenge/scout 四個 caller 都把 `report` 帶回前端並 `renderFateBattleReport`＋補 defeat 處理。
 - **🎬 AI 敘述瘦身(2026-06)**：戰鬥/斬首 prompt 由「★務必演出X」一長串指令 → 改【事實素材列(·)＋單行收尾steer】，給 AI 數據讓它自己演(show-don't-tell)，不報菜名、不堆指令。海怪/對轟/令咒/電池/十二試煉/盟友皆改為事實行。
   - **🗑️ 移出種子(2026-06)**：`大仲馬-Caster`(亞歷山大·仲馬)＋`漢斯-Watcher`(安徒生)——純支援·無攻擊寶具(1v1 恆敗、非戰鬥從者)，移出 SEED_SERVANTS。FATE_FAKE_ROSTER 的偽戰 Caster 由大仲馬改派`玉藻前-Caster`。種子 35→33。
@@ -141,6 +145,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
   - **傷害 flat** `rankVal×0.8→×0.6`：避免高階一發轟死。
   - 模擬結果：普通/技能 **76%→29% 越界**(大多對局回 28~77% 健康區)；寶具 74%→52%(climactic NP 層較swingy屬正常)。
 - **🍀 幸運上演逆轉(2026-06)**：自指變異(非對拼)——低運(≤D)每擊 8% 失手(-10)、高運(≥A)8% 福星(+8)。製造爆冷與劇情感(庫丘林詛咒/Saber福星)，不讓高運方持續輾壓。
+- **🩸 必中之槍非全無解(2026-06·gae_bolg)**：`atkWins = gaebolg ? !gbEvaded : (aHit>=dEva)`。必中閃避機率 `gbEsc`＝幸運(A+0.35/A0.22/B0.10)＋直感或心眼(first_strike/analyze 0.15)＋變化(shapeshift 0.10)，夾上限 0.6。一般從者照樣被釘死，唯「能改寫命運/超越感知」者搏一線(貼原作)。令咒·絕對命令的必中【不受此影響】(玩家王牌仍絕對)。
 - **🔧 平衡補丁(2026-06)**：①`divine_age`(神代魔術)＝**完全無視**對魔力(原只半減)，救美狄亞；②`fast_cast`(高速詠唱)+12×rankMul 傷害；③`ubw`(無限劍製)`npAtkScale_`＝**對城**級(規模階5→可多燒狂戰十二試煉命，救 EMIYA 對狂戰；非對界，避免對人一發秒)；④`npBaseDice_` 下修(A20→13d10/EX30→18d10…)；⑤`NP_SCALE_MATRIX` 壓縮(max ×3.0→1.7)避免大規模寶具秒小規模。
 - **🎲 D&D 傷害骰(2026-06)**：`rollDice_(n,sides)`＋`rankTier_(r)`(E1→EX6)。
   - 武器骰(每擊)：`base = round(rankVal(主屬性)*0.5) + rankTier d8 + 命中分差*1.2 − 耐久/2`。
@@ -178,7 +183,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 2. **斬首**：目標=敵御主且有從者護衛→每名在世從者擲 D20，任一=20 斬殺御主(+護衛隨亡)→勝利判定；全失手→護衛反噬每人 1.5×。
 3. **一般戰**：ROUNDS=3 回合。`partyIdxs`=所有在世從者(雙從者齊攻)。寶具/令咒只加在 atkIdx 開場第一擊。寶具魔力走 `drainForNp_`(御主電池)，前置 `maxPay` 檢查唯三者皆空才擋。
 4. **協同強襲**(§8)：`allyAtkIdx`=同地盟友從者，每回合對共同敵人助攻一擊(不被反擊)。
-5. 敵反擊：`enemyNpSpent` 一場限一次寶具，殘血越急越愛開。
+5. 敵反擊：`enemyNpSpent` 一場限一次寶具。**🛡️ 寶具閘(2026-06)**：寶具是孤注一擲殺招、非見面招呼——敵唯有**自己被打殘**(`eHpRatio<0.5`)或**我方從者已殘可收尾**(`pHpRatio<0.45`)才解放真名；健康對健康一律普攻試探(免玩家一接觸就被無預警寶具秒殺)。觸發後再吃 `eNpUrge`(狂/暗0.22 else 0.10)+殘血加成的機率擲。
    - **🔋 敵寶具吃魔力(2026-06)**：敵開寶具(回合反擊＋對轟)前 `enemyCanAffordNp_`(自身MP＋`enemyMasterIdx_` 敵御主電池 ≥ prana)才放，並 `drainForNp_` 扣魔；付不起→改普攻/不對轟。EX/EA(prana800)幾乎沒人付得起→極罕見；masterless 敵(金閃)補不了魔→寶具自限。
    - **🛡️ 十二試煉概念燒命(2026-06)**：god_hand 致命時，`lossN=1`＋寶具概念加成(取 `offenseTier_` fx階 與 `npAtkScale_` 規模階 較高者：≥6→+2、≥5→+1)＋overkill(傷/復活線 ≥3→+2、≥2→+1)。`lossN≥餘命`→餘命一擊燒盡、不復活落入 destroyed。解決「Saber 對城 Excalibur 連一命都燒不掉」。
    - **🌟 寶具對轟(2026-06)**：玩家開場 useNp＋目標敵從者且敵有寶具(且付得起prana) → `clashUrge`(0.6＋狂/暗殺0.25−殘血) 機率敵以寶具相迎。雙方算 `pPow/ePow`(resolveFateBattle np 火力，不直接扣血)→ 高者壓過、差額貫穿敗方、勝方回震15%；±10% band 內＝僵持相抵雙方小損。傷害經 `fateStrike_({forceDamage})` 套用(沿用死亡/勝負/復活/脫離)。設 `openingNp/openingSeal=false` 防回合迴圈重放。寫進 report.clash＋aiPrompt【寶具對轟】＋前端對轟卡。`fateStrike_` 新增 `opts.forceDamage`(略過 resolve 傷害、只跑後續結算)。
@@ -255,7 +260,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 ## 10. servantCard_ / persona 注入（show-don't-tell 核心）
 
 - `codexPersona_(name)`：從英靈殿 PERSONA 撈細緻人設(firstP/words/toMaster/speech/moe/tic)。
-- `masterCard_(row)`：御主「演出依據」卡(名/性別/性格/特徵/願望)，讓 AI 知道玩家是誰來 portray 互動；禁替御主做決定。互動場景(ally_bond/bond/mana/blood)＝`masterCard_ + servantCard_`。
+- `masterCard_(row)`：御主「演出依據」卡(名/性別/性格/特徵/願望)，讓 AI portray 御主。**🗣️ 御主有聲(2026-06)**：【可】依性格給御主台詞/反應(不再啞巴主角)，但【不替御主拍板戰略抉擇】(出戰/結盟/移動/補魔由玩家按鍵)、不逼問玩家、不快轉越過決策點。互動場景(ally_bond/bond/mana/blood)＝`masterCard_ + servantCard_`；移動抵達 `actionMove` 也回傳 `masterCard` 前置 arrivePrompt。
 - ⚠ **prompt 別再寫「嚴禁輸出 stat_changes/items_gained/money_transferred」**：solo 全走 `narrate_only`/`multi_attack_narrate`，後端只讀 `data.narration`、其餘欄位一律丟棄——禁令是多餘的、還把欄位名秀給 AI。已從 FATE solo prompt 全數移除(九州 actionPlay/item 路徑保留，那裡真的會吃 stat_changes)。
 - `servantCard_` 含**狂化偵測**：persona.speech/firstP 含 狂化/無法言語/咆哮 → 加「禁說完整句、只咆哮」鐵律(赫拉克勒斯/蘭斯洛特命中；會說話的開膛手傑克不中)。
 - `servantCard_(row)`：壓成「〈角色背景·僅供內化〉」段塞進 narration prompt。**鐵則一**=當背景揣摩；**鐵則二**=設定字眼禁直述/說嘴；**鐵則三**=依羈絆調親疏(低好感戒備→高羈絆親近，守住性格內核)。
@@ -286,11 +291,13 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **戰爭行動列**：`renderWarActions`(**手風琴**：每目標一張可點開卡，`toggleWarTarget`/`warExpanded`，單目標自動展開；底部固定偵查/休息/移動)、`attackStyle_`(近戰/魔砲/狙擊樣式)、`localFoeServantName`。
 - **行動 handler**：`servantStrike`(出戰/寶具/令咒/刺殺御主四參數)、`manaSupply`、`bond`/`openBondMenu`/`submitBond`、`rest`/`openRestMenu`/`restAndHeal`、`scout`、`mysticStrike`、`ruleBreakSteal`、`secondWind`、`setWorkshop`/`scavenge`、`proposeAlliance`/`breakAlliance`/`allyBond`。
 - **戰報**：`renderFateBattleReport`(斬首多骰/strikes/雙從者血條)、`renderCombatReport`、`renderMysticReport`、`narrate`/`narrateCombatResult`、`handleDefeat`(敗北→虛假之夢→老虎道場)。
+- **🐯 老虎道場 AI 講評(2026-06)**：敗北「⏭直視結局」按鈕→`runTigerDojo_(servantName,causeCtx)`：`buildTigerDojoPrompt_` 餵藤村大河＋伊莉雅依**實際敗因**(夢覆寫前擷取的 `lastAiContext`)吐槽＋給一條對症戰術建議，走 `narrate_only` 一次呼叫(只在 game-over 收場·不影響遊戲中速度)填入 `#dojo-ai-body`，失敗退回 `dojoFallbackHtml_()` 罐頭文案。
 - **召喚/創角**：`rollFate`/`selectFateRoll`/`renderFateRolls`(魔術天賦測定)、`doSummon`/`summonByHero`/`selectSummonClass`、`chooseWarMode`/`chooseWar`。
 - **地圖**：`renderMapPane`(陣地/搜索物資/盟友通報橫幅)、`buildMapSvg_`、`scout`。**地圖 17 正典地點**(衛宮宅/愛因茲貝倫城/冬木森林/冬木·碼頭/深山町遠坂宅/新都穗群原…)：種子在 `Setup_FateWorld.gs` `FATE_MAP_SEED`，`reseedIfEmpty_` 為 **upsert**(按名更新 TYPE/COORD/DESC＋補缺列)；前端位置是 `buildMapSvg_` 內 **hardcoded `LAYOUT`**(short-name→[x,y]，新都西/深山町東)＋`CONN`，**非試算表座標**(座標只備查)。改地圖要同步改種子(名字)＋LAYOUT(位置)。
 - **移動敘事**：`actionMove`(Router 2121)回傳 `servantCard`(玩家從者卡)，前端 `travelTo` 抵達提示前置該卡＋「從者必在場、依性格至少一句台詞」指令——修掉移動後變御主獨白、從者像不存在。前端 `foes.length` 時再加「遭遇·敵在眼前」指令(敵方開口挑釁/試探，但勝負留待御主下令)。
 - **🎭 敵人人設餵入(2026-06)**：`actionMove` 另回傳 `foeCards`＝target 在場【敵從者】的 `servantCard_`(低羈絆→戒備敵意正確)，前端拼進 arrivePrompt → 敵人依性格/口吻反應(慎二色厲內荏、c媽試探)，不再 AI 即興通用反派(平淡根因)。
-- **💨 撤離追擊(2026-06·一點點·可生還)**：`actionMove` 用移動【前】初始資料判定——離開「有活敵從者」的格子時，最快敵從者(敏≥我從者敏才追得上)依機率(base30%·帶傷+20%·騎乘-15%)咬一記離別追擊；傷害 `rankVal(筋)*0.4+2d6`、**對我方從者扣血保 1 不致死**(隨整表 setValues 寫回)。回傳 `pursuit:{enemyName,dmg}`，前端顯示一條💨提示＋arrivePrompt 加追擊餘悸 cue。
+- **💨 撤離追擊(2026-06·一點點·可生還·雙向)**：`actionMove` 用移動【前】初始資料判定——離開「有活敵從者」的格子時，最快敵從者(敏≥我從者敏才追得上)依機率咬一記離別追擊。**選兵閘**：`isAllied_`(盟約/休兵中)、好感(REL.FAV)≥50(交情夠) 的敵從者**不追**(複用提前讀的 `relData`，零淨增讀取)。機率 `pProb=base30%·帶傷+20%·騎乘-15%`，再吃**接敵姿態**(隱蔽-10%/光明+10%)、夾 `[0,0.55]` 上限。命中則 `resolveFateBattle_(追兵,我從者)` **真·交手雙向判定**(非單方挨打)：`hitWho:'us'`(我輸·挨追擊)或 `'foe'`(我贏·回身逼退追兵)，雙方扣血**保 1 不致死**。回傳 `pursuit:{enemyName,chaserId,dmg,hitWho}`，前端依 hitWho 顯示橘/綠💨提示＋arrivePrompt 加追擊餘悸/反咬斷後 cue。
+- **🎭 接敵姿態(2026-06·純敘述 flavor·零機制重疊)**：地圖面板頂端常駐三段藥丸 `🥷隱蔽潛行/🚶泰然如常/🔥正大光明`(`STANCES`/`getStance`/`setStance`/`stancePillHtml_`/`paintStancePill_`，Script.html)。**存 localStorage `fate_stance`·免 round-trip**(非 MEMORY)，搭 `travelTo` 的 move 便車送 `userData.stance` → 後端**僅** `actionMove` pProb 輕觸(隱蔽-/光明+，見上)。敘事面：**無敵蹤**→`stanceLine_()` 加一句獨行姿態定調(正常=不加)；**有敵蹤**→`stanceNotice_(isSeek)` 折進偶遇/找上門框架定調「誰先發現誰」(隱蔽=玩家先機窺探/光明=對方老遠戒備拉滿)，免姿態被講兩遍。戰爭軌限定(kanshou 無戰鬥不顯示)。
 - **移動順序＝世界先動玩家後到**：`actionMove` 先跑 `worldTick_`(敵 tick 換位，移動只換位不死人)→**重讀眾生**→才把玩家落到 target→讀同地人物給 AI。避免「追到敵人所在地、敵人卻在你踏入同一刻被傳走」(撞在一起卻沒對話)。**務必重讀 allPcData 再寫回**，否則整片 setValues 會用舊位置覆蓋掉剛 tick 的敵方移動。
 - **追得到人**：`worldTick_`(Time_World 234)用 `freezeLoc = playerLoc`，**玩家所在/將抵達格上的敵人禁止移動**(`oldLoc === freezeLoc` 直接 continue)，否則玩家永遠撲空。兩個呼叫點都傳玩家格(move 傳 target、rest 傳 pcLoc)。
 - **遭遇態度分流**：`actionMove` 在世界 tick 前算 `preFoesAtTarget`(target 此刻已有的敵名)，回傳 `preFoes`。前端 `travelTo`：現存 foe 有人在 preFoes→「找上門」(對方據守、戒備)；否則→「偶遇」(恰巧撞上)。語氣只給「依個性與立場開口」，不寫死。

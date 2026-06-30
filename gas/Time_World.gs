@@ -292,14 +292,27 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
       data[i][COL.PC.LOC] = newLoc; locDirty = true;
       // 🔭 已偵查到的敵人移位後【保持可見】(不再清 SEEN)：一旦感應到對手氣息就持續追蹤其當前位置，否則敵人每動一次就
       //   重新隱形、玩家永遠追不到人。未偵查者 SEEN 仍為空、維持迷霧。LOC 改記憶體、整輪後整欄批寫(取代逐列 setValues)。
-      // 同地敵從者隨行
+      // 同地敵從者隨行：優先比對 MEMORY 裡的【御主】tag，避免同格多組互搶從者
+      var mName = String(data[i][COL.PC.NAME] || "");
+      var foundServant = false;
+      // 第一輪：找 MEMORY 有【御主】=mName 的配對從者
       for (var j = 1; j < data.length; j++) {
         if (String(data[j][COL.PC.FACTION]) !== "敵從者") continue;
         if (String(data[j][COL.PC.GAME_ID] || "") !== gameId) continue;
         if (String(data[j][COL.PC.ID]).startsWith("DEAD_")) continue;
         if (String(data[j][COL.PC.LOC]).trim() !== oldLoc) continue;
-        data[j][COL.PC.LOC] = newLoc; // 隨行從者也只改記憶體 LOC
-        break;
+        if (String(data[j][COL.PC.MEMORY] || "").indexOf("【御主】" + mName) < 0) continue;
+        data[j][COL.PC.LOC] = newLoc; foundServant = true; break;
+      }
+      // 第二輪：找不到配對 → fallback 抓同格任一孤身從者（MEMORY 無【御主】或御主不在同格）
+      if (!foundServant) {
+        for (var j = 1; j < data.length; j++) {
+          if (String(data[j][COL.PC.FACTION]) !== "敵從者") continue;
+          if (String(data[j][COL.PC.GAME_ID] || "") !== gameId) continue;
+          if (String(data[j][COL.PC.ID]).startsWith("DEAD_")) continue;
+          if (String(data[j][COL.PC.LOC]).trim() !== oldLoc) continue;
+          data[j][COL.PC.LOC] = newLoc; break;
+        }
       }
       moved++;
     }

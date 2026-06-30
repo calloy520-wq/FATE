@@ -101,12 +101,11 @@ function npAtkScale_(c) {
   if (/對神/.test(np)) return '對神';   // 弒神寶具(梵天弒神之槍等)：不入規模矩陣，傷害計算特判
   return '對人';
 }
-// 防禦規模：固有結界/對界寶具持有者＝對界防；神核/十二試煉/對城寶具＝對城防；陣地/對軍寶具＝對軍防；其餘對人防。
+// 防禦規模：海怪召喚(summon_horror)／城牆防禦(wall_def)＝對城防；陣地作成(territory)＝對軍防；其餘對人防。
+//   ★固有結界(ubw)是進攻型 NP，NP 防禦由 rho_aias 機制承擔；divine_core/god_hand 各有自己的機制——均不疊加防禦規模。
 function npDefScale_(c) {
-  var np = String(c.np || '');
-  if (hasFx_(c, 'ubw') || /對界/.test(np)) return '對界';
-  if (hasFx_(c, 'divine_core') || hasFx_(c, 'god_hand') || /對城/.test(np)) return '對城';
-  if (hasFx_(c, 'territory') || /對軍/.test(np)) return '對軍';
+  if (hasFx_(c, 'summon_horror') || hasFx_(c, 'wall_def')) return '對城';
+  if (hasFx_(c, 'territory')) return '對軍';
   return '對人';
 }
 // 令咒緊急脫離的落點：隨機挑一個非約會型的冬木地點（≠ 當前地）
@@ -148,6 +147,10 @@ function hasFx_(c, fx) {
     if (all[i] && all[i].fx === fx) return (all[i].r || 'C');
   }
   return null;
+}
+// ⚡ 因果律武器：技能帶 causality:true 的從者，寶具對轟時死亡已在因果上先確定（Gáe Bolg 等）。
+function hasCausalityNp_(c) {
+  return (c.skills || []).some(function(s) { return s && s.causality; });
 }
 // 某 fx 在「這名」從者身上的『實際技能名』（不要硬寫某英靈的招式名，避免張冠李戴）。
 function fxName_(c, fx, fallback) {
@@ -306,7 +309,7 @@ function resolveFateBattle_(atk, def, opts) {
   var K_STAT = 2.5;
   var aHit = aRoll + Math.round(rankTier_(atk.six[aProf.hit]) * K_STAT) + (Math.floor(Math.random() * 7) - 3) + outMod;
   var dEva = dRoll + Math.round((rankTier_(def.six['敏捷']) * 0.65 + rankTier_(def.six['耐久']) * 0.35) * K_STAT) + (Math.floor(Math.random() * 7) - 3);
-  if (aProf.kind === '魔砲') fired.push(atk.name + '·' + (fxName_(atk, 'territory', '魔術詠唱')));
+  // 魔砲類型不加進 fired（每回合都是、無資訊量；territory 的 buff 效果只在有實際差距時才值得記）
   // 🍱 整備·進食（戰前 buff）：攻方命中 +opts.mealBuff（由 fateStrike_ 依御主整備狀態傳入）
   if (opts.mealBuff) { aHit += opts.mealBuff; fired.push(atk.name + '·整備進食(+' + opts.mealBuff + ')'); }
 
@@ -346,6 +349,8 @@ function resolveFateBattle_(atk, def, opts) {
   else if (KNIGHT_BEATS[def.cls] === atk.cls) dEva += 3;
   // 🦊 變化(shapeshift／玉藻前·哈桑·恩奇都)：化形流轉，守方滑開致命一擊，迴避小幅提升
   var sm = hasFx_(def, 'shapeshift'); if (sm) { dEva += Math.round(3 * rankMul_(sm)); fired.push(def.name + '·' + fxName_(def, 'shapeshift', '變化') + '(化形閃避)'); }
+  // 💋 愛之痣(lovespot／迪盧木多)：魅惑之痣令來犯者一瞬分神，攻方命中 -1(小幅惑亂)
+  if (hasFx_(def, 'lovespot')) { aHit -= 1; fired.push(def.name + '·' + fxName_(def, 'lovespot', '愛之痣') + '(惑·敵命中-1)'); }
   // 👁️ 魔眼·石化(petrify／Rider 美杜莎)：以視線鎖死獵物，令對方迴避大減
   var pet = hasFx_(atk, 'petrify'); if (pet) { dEva -= Math.round(2 * rankMul_(pet)); fired.push(atk.name + '·' + fxName_(atk, 'petrify', '魔眼') + '·石化壓制'); }
   // ⛓️ 天之鎖(chain／Gilgamesh)：對「神性」之敵展開冥界鎖鏈，封住身法
@@ -364,7 +369,21 @@ function resolveFateBattle_(atk, def, opts) {
   if (lkD <= 20 && Math.random() < 0.08) { dEva -= 10; fired.push(def.name + '·幸運' + (def.six['幸運'] || 'E') + '·命運捉弄(露破綻)'); }
   else if (lkD >= 50 && Math.random() < 0.08) { dEva += 8; fired.push(def.name + '·幸運·絕處逢生'); }
 
-  var atkWins = gaebolg ? true : (aHit >= dEva);
+  // 🩸 必中之槍·非全無解(貼原作)：因果逆轉雖直接命中，但【高幸運】能改寫既定命運、【直感/心眼】能預感殺機、【變化】能化形滑開。
+  //   仍是強力寶具(一般從者照樣被釘死)，只有「能扭轉命運/超越感知」者才搏得一線生機。
+  var gbEvaded = false;
+  if (gaebolg) {
+    var lkDef = rankVal(def.six['幸運']);
+    var gbEsc = (lkDef >= 60 ? 0.35 : lkDef >= 50 ? 0.22 : lkDef >= 40 ? 0.10 : 0) // 幸運 A+/A/B
+      + ((hasFx_(def, 'first_strike') || hasFx_(def, 'analyze')) ? 0.15 : 0)         // 直感/心眼
+      + (hasFx_(def, 'shapeshift') ? 0.10 : 0);                                      // 變化·化形
+    gbEsc = Math.min(0.6, gbEsc); // 上限 60%：再強也仍是「必中」級威脅
+    if (gbEsc > 0 && Math.random() < gbEsc) {
+      gbEvaded = true;
+      fired.push(def.name + '·' + (lkDef >= 50 ? '幸運' + (def.six['幸運'] || '') + '改寫命運' : (hasFx_(def, 'shapeshift') ? '化形' : '直感')) + '·避開必中之槍！');
+    }
+  }
+  var atkWins = gaebolg ? !gbEvaded : (aHit >= dEva);
   var winner = atkWins ? atk : def;
   var loser = atkWins ? def : atk;
 
@@ -476,7 +495,7 @@ function resolveFateBattle_(atk, def, opts) {
   // 守方減傷：耐久（階級）
   base -= Math.round(rankVal(loser.six["耐久"]) / 2);
   // 🛡️ 陣地作成(territory)：法師以魔術防壁／結界減傷，補償其低耐久（救玻璃大砲美狄亞的存活）
-  if (hasFx_(loser, 'territory') && !pierces('territory')) { base = Math.round(base * 0.74); fired.push(loser.name + '·' + fxName_(loser, 'territory', '陣地') + '·魔術防壁'); }
+  if (hasFx_(loser, 'territory') && !pierces('territory')) { var _bPre = base; base = Math.round(base * 0.74); if (_bPre > 0) fired.push(loser.name + '·' + fxName_(loser, 'territory', '陣地') + '·魔術防壁'); }
   else if (hasFx_(loser, 'territory')) { fired.push(winner.name + '·概念壓制(碾穿結界)'); }
   // 🛡️ 七天盾·羅·埃亞斯(rho_aias／EMIYA)：投影卡帕涅烏斯之盾，七層花瓣硬擋重擊；遭超位階概念(ea等)貫穿則失效
   if (hasFx_(loser, 'rho_aias') && !pierces('rho_aias')) { base = Math.round(base * 0.6); fired.push(loser.name + '·' + fxName_(loser, 'rho_aias', '七天盾') + '(羅·埃亞斯·七層花瓣)'); }
@@ -514,6 +533,9 @@ function resolveFateBattle_(atk, def, opts) {
     base = Math.round(base * (1 - red));
     fired.push(loser.name + '·' + fxName_(loser, 'nullify_magic', '對魔力') + (daWin ? '(神代凌駕·殘三成)' : (nmV >= 50 ? '(無視魔術)' : '')));
   }
+  // 🧱 城牆防禦(wall_def)：法師以魔術城牆隔絕物理衝擊，補償 Caster 低耐久（僅擋物理；魔術系傷害穿透）
+  var wdL = hasFx_(loser, 'wall_def');
+  if (wdL && !atkMagic && !pierces('territory')) { base = Math.round(base * 0.82); fired.push(loser.name + '·' + fxName_(loser, 'wall_def', '城牆防禦') + '(物理減傷18%)'); }
 
   var damage = Math.max(1, base);
 
