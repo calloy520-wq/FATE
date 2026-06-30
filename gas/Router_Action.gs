@@ -3703,39 +3703,26 @@ function cleanNarrateEcho_(promptText) {
   return s.slice(0, 80) || '御主有所行動。';
 }
 
-function actionNarrateOnly(userData, pcId, sheets) {
-  const { promptText, isNsfw } = userData;
-
-  const miniSystem = `你是《命運停駐之夜》的說書人。用 Fate／TYPE-MOON 筆觸、第一人稱「我」（玩家＝御主）、強制台灣繁體中文，依指令生動描寫一段劇情。【篇幅以下方指令指定的字數為準，務必節奏明快、不灌水、不堆砌華麗辭藻；無指定時預設精煉 100~160 字】。若為從者廝殺，把關鍵攻防、技能與寶具威能寫得有張力即可，不必逐回合流水帳。
-【鐵律】
-1. 旁白第一人稱「我」，禁用「你」與上帝視角。
-2. 對話格式：角色名：「（動作/神態/眼神/微表情）台詞……（動作/神態/眼神/微表情）台詞（動作/神態/眼神/微表情）」。動作神態【絕對禁止】獨立成段或寫在引號外，一律用全形括號「（）」嵌入台詞開頭/中間/結尾，至少穿插2次以上。
-3. 強制分段：每2~3句插入 <br><br>，整段至少3個 <br><br>，禁止整坨。換行一律用 <br><br>，禁止真實換行，禁止輸出任何 HTML 標籤。
-4. ★這是純敘事補完，系統底層已結算完所有數值，你只負責寫字。
-5. ★對話歷史中的內容是「已經發生並結束」的既定事實，僅供掌握語氣與情緒連貫，禁止把歷史中的動作當成本回合又重演一次；本回合唯一真正發生的新事件，只有當前這句指令提供的內容。
-6. ★【連貫與當下狀態】務必依【當前狀態】(血量/魔力)與最近歷史承接劇情，但語氣由「實際勝負與狀態」決定、【不可臆測勝敗】：剛大勝→昂揚或警戒餘悸；浴血慘勝→疲憊卻挺立；落敗→負傷狼狽。血魔將盡(瀕死)→命懸一線、窒迫緊繃，嚴禁輕鬆閒適的閒聊感。移動/互動皆接續前情，不可表現得若無其事；但也別把打贏寫成敗走。禁止複述數字、禁止重演歷史動作。
-7. 只輸出 JSON：{"narration":"你的敘述，內含<br><br>分段"}，禁止任何其他欄位、禁止 Markdown。`;
-
-  let aiConfig = {
+// 🟢 共用敘事核心：帶最近2筆歷史(chatHistory 維持語氣連貫)＋當前狀態(御主/在場從者 HP/MP)，
+//   呼叫輕量模型生成一段敘述。回 narrationText；JSON 解析失敗回 null(呼叫端給 fallback)。
+//   stateBrief 只給 AI 看、不存歷史。actionNarrateOnly 與 actionMultiAttackNarrate 共用(只差 miniSystem)。
+function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
+  opts = opts || {};
+  var aiConfig = {
     temperature: 0.85,
     ignoreLaw: true,            // 不疊規矩表(節慶/天時)
-    max_tokens: 720,            // 戰鬥約250字、其餘閒聊更短；各情境自指定字數
+    max_tokens: opts.maxTokens || 720,
     model: "google/gemini-3.1-flash-lite",
-    isNsfwMode: !!isNsfw        // NSFW 時讓 fallback 文案合理，但不啟用完整慾海規則
+    isNsfwMode: !!opts.isNsfw    // NSFW 時讓 fallback 文案合理，但不啟用完整慾海規則
   };
-
-  // 🔴 帶最近2筆歷史維持語氣連貫，避免緊接著前一回合劇情卻完全失憶導致出戲；
-  // miniSystem規則5已明確告知AI：歷史是既定事實，不可被誤認成本回合重演。
-  const recentHistoryRaw = getGameHistoryBatchRaw(pcId, 2);
+  // 帶最近2筆歷史(miniSystem 已告知 AI：歷史是既定事實、不可重演)
+  var recentHistoryRaw = getGameHistoryBatchRaw(pcId, 2);
   if (recentHistoryRaw && recentHistoryRaw.length > 0) {
-    aiConfig.chatHistory = recentHistoryRaw.map(msg => ({
-      role: msg.speaker === "player" ? "user" : "assistant",
-      content: String(msg.content)
-    }));
+    aiConfig.chatHistory = recentHistoryRaw.map(function (msg) {
+      return { role: msg.speaker === "player" ? "user" : "assistant", content: String(msg.content) };
+    });
   }
-
-  // 🩸 自動附上「當前狀態」(御主＋在場從者 HP/MP)，敘事才連貫——剛被爆打後移動該寫狼狽逃離，而非沒事人。
-  //   只給 AI 看、不存歷史(cleanNarrateEcho_ 會去【】標籤)。讀不到就略過。
+  // 🩸 自動附「當前狀態」(御主＋在場從者 HP/MP)，敘事才連貫(剛被爆打後該寫狼狽、非沒事人)。讀不到就略過。
   var stateBrief = "";
   try {
     var stData = sheets.pc.getDataRange().getValues();
@@ -3751,22 +3738,34 @@ function actionNarrateOnly(userData, pcId, sheets) {
       stateBrief = '【當前狀態·供連貫演出，勿複述數字】' + sParts.join('；') + '。\n';
     }
   } catch (e) { }
-
-  const raw = callGeminiAPI(stateBrief + promptText, miniSystem, aiConfig);
-
+  var raw = callGeminiAPI(stateBrief + promptText, miniSystem, aiConfig);
   try {
-    const start = raw.indexOf('{');
-    const end = raw.lastIndexOf('}');
-    const data = JSON.parse(raw.substring(start, end + 1));
-    const narrationText = data.narration || "天地靜默，一片祥和。";
-    saveGameHistoryBatch(pcId, [
-      { speaker: "player", content: cleanNarrateEcho_(promptText) }, // 🧹 存洗淨摘要、非整串提示詞(否則重整歷史會把演出依據/★指令/素材全攤給玩家看)
-      { speaker: "ai", content: narrationText }
-    ]);
-    return JSON.stringify({ success: true, text: narrationText });
-  } catch (e) {
-    return JSON.stringify({ success: true, text: "（此處因果已定，氣息微微一閃。）" });
-  }
+    var start = raw.indexOf('{'), end = raw.lastIndexOf('}');
+    var data = JSON.parse(raw.substring(start, end + 1));
+    return data.narration || "天地靜默，一片祥和。";
+  } catch (e) { return null; }
+}
+
+function actionNarrateOnly(userData, pcId, sheets) {
+  const { promptText, isNsfw } = userData;
+
+  const miniSystem = `你是《命運停駐之夜》的說書人。用 Fate／TYPE-MOON 筆觸、第一人稱「我」（玩家＝御主）、強制台灣繁體中文，依指令生動描寫一段劇情。【篇幅以下方指令指定的字數為準，務必節奏明快、不灌水、不堆砌華麗辭藻；無指定時預設精煉 100~160 字】。若為從者廝殺，把關鍵攻防、技能與寶具威能寫得有張力即可，不必逐回合流水帳。
+【鐵律】
+1. 旁白第一人稱「我」，禁用「你」與上帝視角。
+2. 對話格式：角色名：「（動作/神態/眼神/微表情）台詞……（動作/神態/眼神/微表情）台詞（動作/神態/眼神/微表情）」。動作神態【絕對禁止】獨立成段或寫在引號外，一律用全形括號「（）」嵌入台詞開頭/中間/結尾，至少穿插2次以上。
+3. 強制分段：每2~3句插入 <br><br>，整段至少3個 <br><br>，禁止整坨。換行一律用 <br><br>，禁止真實換行，禁止輸出任何 HTML 標籤。
+4. ★這是純敘事補完，系統底層已結算完所有數值，你只負責寫字。
+5. ★對話歷史中的內容是「已經發生並結束」的既定事實，僅供掌握語氣與情緒連貫，禁止把歷史中的動作當成本回合又重演一次；本回合唯一真正發生的新事件，只有當前這句指令提供的內容。
+6. ★【連貫與當下狀態】務必依【當前狀態】(血量/魔力)與最近歷史承接劇情，但語氣由「實際勝負與狀態」決定、【不可臆測勝敗】：剛大勝→昂揚或警戒餘悸；浴血慘勝→疲憊卻挺立；落敗→負傷狼狽。血魔將盡(瀕死)→命懸一線、窒迫緊繃，嚴禁輕鬆閒適的閒聊感。移動/互動皆接續前情，不可表現得若無其事；但也別把打贏寫成敗走。禁止複述數字、禁止重演歷史動作。
+7. 只輸出 JSON：{"narration":"你的敘述，內含<br><br>分段"}，禁止任何其他欄位、禁止 Markdown。`;
+
+  const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw, maxTokens: 720 });
+  if (narrationText === null) return JSON.stringify({ success: true, text: "（此處因果已定，氣息微微一閃。）" });
+  saveGameHistoryBatch(pcId, [
+    { speaker: "player", content: cleanNarrateEcho_(promptText) }, // 🧹 存洗淨摘要、非整串提示詞(否則重整歷史會把演出依據/★指令/素材全攤給玩家看)
+    { speaker: "ai", content: narrationText }
+  ]);
+  return JSON.stringify({ success: true, text: narrationText });
 }
 
 // ==========================================
@@ -3788,55 +3787,13 @@ function actionMultiAttackNarrate(userData, pcId, sheets) {
 7. 依角色職階與寶具掌握其戰鬥方式以維持敘述合理(槍兵突刺、弓兵遠射、術師魔砲、劍兵格鬥、騎兵衝鋒…，勿讓法師被寫成肉搏、弓兵被寫成貼身纏鬥)；寶具／技能名不必逐字複誦全名，可視文筆改用代稱。
 8. 只輸出 JSON：{"narration":"你的敘述，內含<br><br>分段"}，禁止任何其他欄位、禁止 Markdown。`;
 
-  let aiConfig = {
-    temperature: 0.85,
-    ignoreLaw: true,           // 不疊規矩表(節慶/天時)
-    max_tokens: 700,           // 比 actionPlay 的 2000 砍掉一大半
-    model: "google/gemini-3.1-flash-lite",
-    isNsfwMode: !!isNsfw
-  };
-
-  // 🔴 帶最近2筆歷史維持劇情連續性；但miniSystem規則6已明確告知AI：歷史是既定事實，
-  // 結果要延續(NPC態度等)，但動作本身不能被誤認成本回合又重演一次。
-  const recentHistoryRaw = getGameHistoryBatchRaw(pcId, 2);
-  if (recentHistoryRaw && recentHistoryRaw.length > 0) {
-    aiConfig.chatHistory = recentHistoryRaw.map(msg => ({
-      role: msg.speaker === "player" ? "user" : "assistant",
-      content: String(msg.content)
-    }));
-  }
-
-  // 🩸 自動附上「當前狀態」(御主＋在場從者 HP/MP)，敘事才連貫——剛被爆打後移動該寫狼狽逃離，而非沒事人。
-  //   只給 AI 看、不存歷史(cleanNarrateEcho_ 會去【】標籤)。讀不到就略過。
-  var stateBrief = "";
+  const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw, maxTokens: 700 });
+  if (narrationText === null) return JSON.stringify({ success: true, text: "（此處因果已定，氣息微微一閃。）" });
   try {
-    var stData = sheets.pc.getDataRange().getValues();
-    var stIdx = stData.findIndex(function (r) { return r[COL.PC.ID] == pcId; });
-    if (stIdx >= 0) {
-      var stGid = String(stData[stIdx][COL.PC.GAME_ID] || "");
-      var sParts = ['御主 HP ' + (parseInt(stData[stIdx][COL.PC.HP]) || 0) + '/' + (parseInt(stData[stIdx][COL.PC.MAX_HP]) || 0) + '·魔力 ' + (parseInt(stData[stIdx][COL.PC.MP]) || 0) + '/' + (parseInt(stData[stIdx][COL.PC.MAX_MP]) || 0)];
-      stData.forEach(function (r) {
-        if (String(r[COL.PC.FACTION]) === '從者' && String(r[COL.PC.GAME_ID] || "") === stGid && !String(r[COL.PC.ID]).startsWith('DEAD_')) {
-          sParts.push('從者「' + r[COL.PC.NAME] + '」HP ' + (parseInt(r[COL.PC.HP]) || 0) + '/' + (parseInt(r[COL.PC.MAX_HP]) || 0));
-        }
-      });
-      stateBrief = '【當前狀態·供連貫演出，勿複述數字】' + sParts.join('；') + '。\n';
-    }
-  } catch (e) { }
-
-  const raw = callGeminiAPI(stateBrief + promptText, miniSystem, aiConfig);
-
-  try {
-    const start = raw.indexOf('{');
-    const end = raw.lastIndexOf('}');
-    const data = JSON.parse(raw.substring(start, end + 1));
-    const narrationText = data.narration || "天地靜默，一片祥和。";
-
     saveGameHistoryBatch(pcId, [
       { speaker: "player", content: cleanNarrateEcho_(promptText) }, // 洗掉提示詞鷹架，不外洩給玩家(同 actionNarrateOnly)
       { speaker: "ai", content: narrationText }
     ]);
-
     // 🔴 補上因果紀錄：連擊戰報結束後也要寫入「因果」表，否則後續近期因果/play()歷史都看不到這場戰鬥
     // 改寫結構化短摘要(誰打誰/有無擊倒)取代整段150字花俏旁白，避免擠爆casual配額；有擊倒則標「變故」而非「閒聊」
     if (sheets.log) {
@@ -3854,11 +3811,8 @@ function actionMultiAttackNarrate(userData, pcId, sheets) {
         trimLogRowsByOwner(sheets.log, pcId, 60, 20);
       }
     }
-
-    return JSON.stringify({ success: true, text: narrationText });
-  } catch (e) {
-    return JSON.stringify({ success: true, text: "（此處因果已定，氣息微微一閃。）" });
-  }
+  } catch (e) { }
+  return JSON.stringify({ success: true, text: narrationText });
 }
 
 function actionUpdateRelTag(userData, pcId, sheets) {
