@@ -924,6 +924,7 @@ function actionMove(userData, pcId, sheets) {
 
   return JSON.stringify({
     success: true,
+    masterCard: masterCard_(allPcData[pIdx]), // 🎭 御主演出依據→抵達敘事讓「我」依性格開口、不再啞巴主角
     servantCard: svCardMove,
     foeCards: foeCardsMove,
     pursuit: pursuit,
@@ -2927,7 +2928,7 @@ function servantCard_(row) {
 }
 
 // 🎭 御主「演出依據」卡（精簡）：讓 AI 知道玩家御主是誰(性別/性格/特徵/願望)，以便 portray 互動。
-//   ★只供內化、禁複述；願望僅供氛圍不直述；仍【禁止替御主做決定或代御主說話】。
+//   ★只供內化、禁複述；願望僅供氛圍不直述；【可】依性格給御主台詞/反應(讓角色有聲)，但【不替御主拍板戰略抉擇】。
 function masterCard_(row) {
   if (!row) return "";
   try {
@@ -2940,7 +2941,7 @@ function masterCard_(row) {
       (prefArr.length ? `｜性格：${prefArr.slice(0, 4).join('、')}` : "") +
       (traitArr.length ? `｜特徵：${traitArr.slice(0, 4).join('、')}` : "") +
       (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
-      `。御主是玩家本人，禁止替御主做決定或代御主說出台詞，只描寫其神態/反應供玩家接續。\n`;
+      `。御主＝玩家所扮演的角色：【可】依其性格/身世自然開口、有神態反應與台詞，讓角色鮮活有聲(別只當沉默旁觀者)；但【不可】替御主拍板下一步戰略抉擇(是否出戰/結盟/移動/補魔由玩家按鍵定奪)、不可逼問玩家要做什麼、不可把劇情快轉越過決策點。\n`;
   } catch (e) { return ""; }
 }
 
