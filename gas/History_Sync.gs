@@ -83,18 +83,6 @@ function pickNsfwCausalityEvent(tag) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-// 🔴 因果讀取專用共用函式：統一 filter + pickRelevantLogs + join 邏輯，
-// 避免consume_item/use_item_self/贈禮/連擊等多處各自重複一份、未來改動容易漏改。
-function getRecentCausalityStr(sheets, pName, npcName, limit) {
-  if (!sheets.log) return "（尚無相關因果記錄）";
-  const allLogs = readRecentLogRows(sheets.log, 2000);
-  const filtered = allLogs.filter(r =>
-    String(r[2]).includes(pName) || (npcName && String(r[2]).includes(npcName))
-  );
-  const picked = pickRelevantLogs(filtered, limit || 5);
-  return picked.map(r => r[2]).join("\n") || "（尚無相關因果記錄）";
-}
-
 function saveGameHistoryBatch(pcId, entries) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("歷史暫存");

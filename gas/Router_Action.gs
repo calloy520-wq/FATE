@@ -21,7 +21,6 @@ const ActionRouter = {
   "kanshou_set_sex": actionKanshouSetSex,
   "kanshou_set_name": actionKanshouSetName,
   "prep_meal": actionPrepMeal,
-  "inspect_npc": actionInspectNpc,
   "get_full_status": actionGetFullStatus,
   "update_fate": actionUpdateFate,
   "update_rel_tag": actionUpdateRelTag,
@@ -203,15 +202,6 @@ function actionCheckName(userData, pcId, sheets) {
 
 
 
-function actionInspectNpc(userData, pcId, sheets) {
-  const targetName = userData.targetName;
-  const allPcData = sheets.pc.getDataRange().getValues();
-  const npcRow = allPcData.find(r => r[COL.PC.NAME] === targetName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-  if (!npcRow) return JSON.stringify({ success: false, message: "查無此人。" });
-
-  // 🔴 窺探直接成功：偵查動作（物品系統已移除，回傳空清單）
-  return JSON.stringify({ success: true, data: [] });
-}
 
 
 
@@ -3406,17 +3396,6 @@ function breakStaleAlliances_(sheets, gameId) {
   } catch (e) { return { broken: [], forced: false }; }
 }
 
-// 取得 PC↔對象 羈絆值（無紀錄＝0）
-function getBond_(sheets, pcName, npcName) {
-  if (!sheets.rel) return 0;
-  try {
-    var rd = sheets.rel.getDataRange().getValues();
-    for (var i = 1; i < rd.length; i++) {
-      if (String(rd[i][COL.REL.PC]) === pcName && String(rd[i][COL.REL.NPC]) === npcName) return parseInt(rd[i][COL.REL.FAV]) || 0;
-    }
-  } catch (e) { }
-  return 0;
-}
 // 羈絆 +delta（無此列則新建，盟友起步約 40），回傳新值
 function bumpBond_(sheets, pcName, npcName, delta, tag) {
   if (!sheets.rel) return 0;
@@ -3580,14 +3559,7 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, userData, baseMul) 
   return out;
 }
 
-// ── 🩸 燃燒生命強撐（second wind）：透支體力換 AP，每遊戲日一次（MEMORY【強撐】D）──
-function getSecondWindDay_(memory) { var m = String(memory || "").match(/【強撐】(\d+)/); return m ? parseInt(m[1]) : 0; }
-function setSecondWindDay_(memory, day) {
-  var s = String(memory || "");
-  if (/【強撐】\d+/.test(s)) return s.replace(/【強撐】\d+/, "【強撐】" + day);
-  return (s ? s + "｜" : "") + "【強撐】" + day;
-}
-// 🩸 強撐：沒 AP 又被困時的保命解——扣御主生命換 +4 AP，每日一次（不燒令咒）
+// 🩸 強撐：沒 AP 又被困時的保命解——扣御主生命換 +4 AP（不耗AP·可重複；舊【強撐】每日限制已棄用）
 function actionSecondWind(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);

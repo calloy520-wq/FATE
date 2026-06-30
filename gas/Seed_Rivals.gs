@@ -153,20 +153,6 @@ function shuffle_(a) {
   return a;
 }
 
-// 正史第五次的六名正典英靈真名（供「禁止玩家搶角色」與 get_heroes 過濾）
-function canonHeroNames_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var hs = ss.getSheetByName('英靈殿');
-  if (!hs || hs.getLastRow() <= 1) return [];
-  var heroes = hs.getDataRange().getValues();
-  var names = [];
-  FATE_5TH_ROSTER.forEach(function (r) {
-    var h = heroes.find(function (x) { return String(x[COL.HERO.ID]) === r.hero; });
-    if (h) names.push(String(h[COL.HERO.NAME]));
-  });
-  return names;
-}
-
 // 🔵 開局鋪敵：war ∈ '4th'|'5th'|'fake'|'chaos'；playedMaster=玩家扮演的正典御主id(那組移除)。
 //   被玩家奪取的從者真名(playerServantName)那一組也一律從對手移除——「別人正史，你不太正」。
 function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
