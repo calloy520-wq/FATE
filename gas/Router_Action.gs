@@ -158,7 +158,7 @@ function handleGameAction(userData) {
             var gid = String(prow[COL.PC.GAME_ID] || "");
             var svRow = pdata.find(function (r) { return String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gid && !String(r[COL.PC.ID]).startsWith("DEAD_"); });
             ro.defeat = true; ro.deadline = true; ro.victory = false; ro.servantDream = "";
-            if (!ro.dreamPrompt) ro.dreamPrompt = buildTimeoutDream_(String(prow[COL.PC.NAME]), "", svRow ? String(svRow[COL.PC.NAME]) : "");
+            if (!ro.dreamPrompt) ro.dreamPrompt = buildDreamPrompt_(String(prow[COL.PC.NAME]), "", svRow ? String(svRow[COL.PC.NAME]) : "", 'timeout');
             out = JSON.stringify(ro);
           }
         }
@@ -3662,20 +3662,18 @@ function extractWish_(memory) {
 }
 
 // 建立「願望實現的虛假之夢」prompt（敗北安慰幻象，之後接老虎道場）
-function buildDreamPrompt_(pcName, wish, servantName) {
-  return `【虛假之夢·已裁定】御主『${pcName}』在聖杯戰爭中敗北，意識墜入聖杯泥所編織的甜美幻象。\n` +
-    `在這場夢裡，御主的最深願望彷彿已然實現——一切圓滿、溫柔而虛假。從者『${servantName}』也仿佛仍在身旁。\n` +
-    (wish ? `（願望核心參考，僅供你構築夢境氛圍，嚴禁逐字複述或直接點明）：${wish}\n` : "") +
-    `★以 Fate／TYPE-MOON 筆觸，第二人稱，寫一段唯美而令人心碎的虛假美夢：讓「演出」暗示願望成真的幸福感，絕不可直接說出願望內容或「這是假的」。結尾要微微露出破綻（過於完美的失真感）。\n` +
-    `★【鐵律】只輸出夢境敘事，禁選項或系統字樣。`;
-}
-
-// ⏳ 聖杯戰爭時限「第十四日」夢（時限耗盡敗北專用·結尾破綻＝時鐘停在第14日的詭異靜止）
-function buildTimeoutDream_(pcName, wish, servantName) {
-  return `【虛假之夢·時限耗盡·已裁定】聖杯戰爭的第十四日已盡，御主『${pcName}』終究未能在期限內奪得聖杯——聖杯陷入沉默，這場戰爭悄然落幕。意識在不甘與疲憊中，墜入聖杯泥所編織的甜美幻象。\n` +
-    `在這場夢裡，彷彿時間從未流逝、勝利仍在前方${servantName ? `，從者『${servantName}』也仍並肩在側` : ""}——一切圓滿、溫柔而虛假。\n` +
-    (wish ? `（願望核心參考，僅供構築夢境氛圍，嚴禁逐字複述或點明）：${wish}\n` : "") +
-    `★以 Fate／TYPE-MOON 筆觸、第二人稱，寫一段唯美而心碎的「時限將盡前最後幻夢」：暗示願望成真的幸福，絕不可直接說出願望或「這是假的」。${servantName ? `從者依其性格自然相伴。` : ""}結尾微露破綻（過於完美的失真，或時鐘永遠停在第十四日的詭異靜止）。\n` +
+// 敗北虛假之夢（聖杯泥編織的願望成真幻象）。cause==='timeout'＝第14日時限耗盡(破綻改成時鐘停在第14日)；否則＝戰鬥/補魔等敗死。
+function buildDreamPrompt_(pcName, wish, servantName, cause) {
+  var lead = (cause === 'timeout')
+    ? `【虛假之夢·時限耗盡·已裁定】聖杯戰爭的第十四日已盡，御主『${pcName}』終究未能在期限內奪得聖杯，聖杯陷入沉默、戰爭悄然落幕。意識在不甘與疲憊中，墜入聖杯泥所編織的甜美幻象。`
+    : `【虛假之夢·已裁定】御主『${pcName}』在聖杯戰爭中敗北，意識墜入聖杯泥所編織的甜美幻象。`;
+  var flaw = (cause === 'timeout')
+    ? `結尾微露破綻（過於完美的失真，或時鐘永遠停在第十四日的詭異靜止）`
+    : `結尾要微微露出破綻（過於完美的失真感）`;
+  return lead + `\n` +
+    `在這場夢裡，御主的最深願望彷彿已然實現——一切圓滿、溫柔而虛假。${servantName ? `從者『${servantName}』也彷彿仍並肩在側。` : ""}\n` +
+    (wish ? `（願望核心參考，僅供構築夢境氛圍，嚴禁逐字複述或直接點明）：${wish}\n` : "") +
+    `★以 Fate／TYPE-MOON 筆觸，第二人稱，寫一段唯美而令人心碎的虛假美夢：讓「演出」暗示願望成真的幸福感，絕不可直接說出願望內容或「這是假的」。${servantName ? `從者依其性格自然相伴。` : ""}${flaw}。\n` +
     `★【鐵律】只輸出夢境敘事，禁選項或系統字樣。`;
 }
 

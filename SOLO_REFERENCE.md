@@ -261,7 +261,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `servantCard_(row)`：壓成「〈角色背景·僅供內化〉」段塞進 narration prompt。**鐵則一**=當背景揣摩；**鐵則二**=設定字眼禁直述/說嘴；**鐵則三**=依羈絆調親疏(低好感戒備→高羈絆親近，守住性格內核)。
 - `enemyAmbushOnServant_`：卸防(補魔/羈絆/共處/休息)時同地未結盟敵從者趁隙重擊。
 - `raiseBond_`(升既有)／`bumpBond_`(無則建)／`getBond_`。`extractWish_`(取【願望】)、`buildDreamPrompt_`(敗北虛假之夢)。
-- **⏳ 14天時限(2026-06)**：聖杯戰爭上限第14日，`day>14` 未奪杯＝時限耗盡敗北。**中央攔截**：`handleGameAction`(dispatcher)在 handler 跑完後，對 PC_ solo 解析回應現成的 `clock` 字串(零額外時鐘讀)——`第N日` 的 N>14 且 success 且未 victory/defeat → 讀一次眾生取御主/從者名、補 `defeat:true+deadline:true+dreamPrompt(buildTimeoutDream_)+servantDream:""`。所有耗時動作(移動/戰鬥/補魔/偵查/休息…回應都帶 clock)統一覆蓋，不必各自判。`buildTimeoutDream_`=時限夢(破綻＝時鐘停在第14日)。前端各動作 `data.defeat`→`handleDefeat`(travelTo 已補接·跨日略過抵達敘事直接收場)。
+- **⏳ 14天時限(2026-06)**：聖杯戰爭上限第14日，`day>14` 未奪杯＝時限耗盡敗北。**中央攔截**：`handleGameAction`(dispatcher)在 handler 跑完後，對 PC_ solo 解析回應現成的 `clock` 字串(零額外時鐘讀)——`第N日` 的 N>14 且 success 且未 victory/defeat → 讀一次眾生取御主/從者名、補 `defeat:true+deadline:true+dreamPrompt+servantDream:""`。所有耗時動作(移動/戰鬥/補魔/偵查/休息…回應都帶 clock)統一覆蓋，不必各自判。夢用 `buildDreamPrompt_(name,wish,sv,cause)`：`cause==='timeout'`＝時限夢(破綻=時鐘停在第14日)、否則=戰鬥敗死夢(同一函數·勿再另開)。前端各動作 `data.defeat`→`handleDefeat`(travelTo 已補接·跨日略過抵達敘事直接收場)。
 
 ---
 
