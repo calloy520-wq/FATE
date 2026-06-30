@@ -57,8 +57,20 @@ function actionAccountLogin(userData, pcId, sheets) {
       pcId: charId, pcName: pcRow[COL.PC.NAME], pcSex: pcRow[COL.PC.SEX]
     });
   }
-  // charId 指向的御主已被標記 DEAD_（或不存在）→ 殘局，解除連結當作沒有存檔
-  if (charId) { try { acc.getRange(found.idx + 1, COL.ACC.PC + 1).setValue(""); } catch (e) { } }
+  // charId 指向的御主已被標記 DEAD_（或不存在）→ 殘局：先把整局世界清掉(從源頭防殘列累積)，再解除連結、當作沒有存檔。
+  //   死亡時 ID 會被加上 "DEAD_" 前綴(帳號表仍存原 charId)，故含 DEAD_ 反查那一列拿 game_id，連同敵御主/敵從者殘列一併 purge。
+  if (charId) {
+    try {
+      var deadRow = pcData.find(function (r) { var rid = String(r[COL.PC.ID]); return rid === charId || rid === "DEAD_" + charId; });
+      if (deadRow) {
+        var deadGid = String(deadRow[COL.PC.GAME_ID] || "");
+        if (deadGid && deadGid.indexOf("g_") === 0) {
+          purgeGameData_(sheets, deadGid, String(deadRow[COL.PC.NAME] || "").replace(/^DEAD_/, ""), name);
+        }
+      }
+    } catch (e) { }
+    try { acc.getRange(found.idx + 1, COL.ACC.PC + 1).setValue(""); } catch (e) { }
+  }
   return JSON.stringify({ success: true, name: name, hasGame: false, won: won });
 }
 
