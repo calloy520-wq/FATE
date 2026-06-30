@@ -2061,6 +2061,12 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
       }
     }
   } else {
+    // 🐙 海怪再生(summon_horror)：存活時每次受擊後自動回血 +10（深淵魔力持續修復肉體）
+    if (hasFx_(defC, 'summon_horror')) {
+      var _shMax = parseInt(pcData[tgtIdx][COL.PC.MAX_HP]) || 0;
+      after = Math.min(after + 10, _shMax);
+      out.fired.push(defC.name + '·海怪再生(+10)');
+    }
     pcData[tgtIdx][COL.PC.HP] = after;
     sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
   }
