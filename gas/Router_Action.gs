@@ -144,6 +144,27 @@ function handleGameAction(userData) {
     return JSON.stringify({ success: false, message: `系統異常：未知的動作指令「${action}」` });
   }
   let out = handler(userData, pcId, sheets);
+  // ⏳ 14天時限·中央攔截：任何「會推進時間」的動作(回應帶 clock 字串)若已跨過第14日 → 統一補敗北旗標，
+  //   免每個 action 各自判。用回應現成的 clock(零額外時鐘讀)；僅在真跨日(罕見)才做一次眾生讀取建時限夢。
+  if (String(pcId || "").indexOf("PC_") === 0 && !isKanshouCtx) {
+    try {
+      var ro = JSON.parse(out);
+      if (ro && ro.success && !ro.victory && !ro.defeat && ro.clock) {
+        var dym = String(ro.clock).match(/第\s*(\d+)\s*日/);
+        if (dym && parseInt(dym[1]) > 14) {
+          var pdata = sheets.pc.getDataRange().getValues();
+          var prow = pdata.find(function (r) { return String(r[COL.PC.ID]) === pcId; });
+          if (prow) {
+            var gid = String(prow[COL.PC.GAME_ID] || "");
+            var svRow = pdata.find(function (r) { return String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gid && !String(r[COL.PC.ID]).startsWith("DEAD_"); });
+            ro.defeat = true; ro.deadline = true; ro.victory = false; ro.servantDream = "";
+            if (!ro.dreamPrompt) ro.dreamPrompt = buildTimeoutDream_(String(prow[COL.PC.NAME]), "", svRow ? String(svRow[COL.PC.NAME]) : "");
+            out = JSON.stringify(ro);
+          }
+        }
+      }
+    } catch (e) { /* 非 JSON / 無 clock → 略過 */ }
+  }
   // ⚡ 2→1：solo 遊戲動作回應自動夾帶最新 client state(_state)，前端套用後即不必再打一趟 sync。
   //   只對 solo 御主(PC_)＋會改動戰場狀態的動作做；查無人/出錯則略過(前端自動 fallback 回真 sync)。
   if (STATE_AFTER_ACTIONS[action] && String(pcId || "").indexOf("PC_") === 0) {
@@ -950,13 +971,12 @@ function actionRest(userData, pcId, sheets) {
     if (restAmbush) {
       restAmbushPrompt = `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${restAmbush.enemyName}」${restAmbush.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊重創「${(pcData.find(r=>String(r[COL.PC.FACTION])==='從者'&&String(r[COL.PC.GAME_ID]||'')===restGameId)||[])[COL.PC.NAME]||'從者'}」（−${restAmbush.dmg}）${restAmbush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
     }
-    var deadlineDefeat = (restAmbush && restAmbush.defeat) ? null : warDeadlineDefeat_(restGameId, pcName, sheets); // ⏳ 第14日時限耗盡(夜襲已敗就不重複)
     return JSON.stringify({
       success: true, statusString: getFreshStatusString(pcId, pIdx, sheets), healedNames: healedNames,
       loc: pcLoc, wasInjured: wasInjured, restHours: restHours, clock: restClock, ap: apAfter, apMax: AP_PER_DAY, rumors: restRumors,
-      ambush: !!restAmbush, defeat: (restAmbush && restAmbush.defeat) || !!deadlineDefeat, dreamPrompt: (restAmbush && restAmbush.dreamPrompt) ? restAmbush.dreamPrompt : (deadlineDefeat ? deadlineDefeat.dreamPrompt : ""), ambushPrompt: restAmbushPrompt, report: restAmbush ? restAmbush.report : null, deadline: !!deadlineDefeat,
-      servantDream: deadlineDefeat ? "" : restDreamPrompt,
-      victory: restVictory && !(restAmbush && restAmbush.defeat) && !deadlineDefeat,
+      ambush: !!restAmbush, defeat: restAmbush ? restAmbush.defeat : false, dreamPrompt: restAmbush ? restAmbush.dreamPrompt : "", ambushPrompt: restAmbushPrompt, report: restAmbush ? restAmbush.report : null,
+      servantDream: restDreamPrompt,
+      victory: restVictory && !(restAmbush && restAmbush.defeat),
       economy: playerServantEconomy_(sheets, pcId, pcData) // 復用已寫回的 pcData，免整表重讀
     });
   }
@@ -3657,21 +3677,6 @@ function buildTimeoutDream_(pcName, wish, servantName) {
     (wish ? `（願望核心參考，僅供構築夢境氛圍，嚴禁逐字複述或點明）：${wish}\n` : "") +
     `★以 Fate／TYPE-MOON 筆觸、第二人稱，寫一段唯美而心碎的「時限將盡前最後幻夢」：暗示願望成真的幸福，絕不可直接說出願望或「這是假的」。${servantName ? `從者依其性格自然相伴。` : ""}結尾微露破綻（過於完美的失真，或時鐘永遠停在第十四日的詭異靜止）。\n` +
     `★【鐵律】只輸出夢境敘事，禁選項或系統字樣。`;
-}
-
-// ⏳ 聖杯戰爭時限(14日)：時間推進後若 day>14 仍未奪杯 → 時限耗盡敗北。回 {defeat,dreamPrompt} 或 null。
-function warDeadlineDefeat_(gameId, pcName, sheets) {
-  try {
-    var clk = getClock_(gameId);
-    if (!clk || clk.day <= 14) return null;
-    var sv = "";
-    try {
-      var d = sheets.pc.getDataRange().getValues();
-      var svRow = d.find(function (r) { return String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_"); });
-      if (svRow) sv = String(svRow[COL.PC.NAME]);
-    } catch (e) { }
-    return { defeat: true, dreamPrompt: buildTimeoutDream_(pcName, "", sv) };
-  } catch (e) { return null; }
 }
 
 

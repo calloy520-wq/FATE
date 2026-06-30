@@ -658,9 +658,12 @@ function renderRecentLocs(recents = null) {
               `★敵御主『${f.name}』已痛失從者（${f.lostServant}）、形單影隻、再無從者可驅使——是聖杯戰爭中無牙的棋手。讓其神情與心境流露這份失恃（依個性：孤注一擲／惶然欲逃／不甘怨懟），切勿演成仍有從者隨侍在旁。\n`).join('')
           + (pc.servant ? `★從者「${pc.servant}」隨行在側，依其個性開口、有反應（至少一句台詞），別寫成御主獨自一人的自言自語。\n` : '')
           + `★禁止替御主做決定、禁止詢問玩家想做什麼，停在留白，讓御主以行動（偵查／出戰／補魔／移動）回應。`;
-        narrate(arrivePrompt);
-        // 🕯️ 移動推進時間時，敵從者令咒透支倒數到期、消滅了最後一名敵人 → 聖杯到手
-        if (data.victory) { try { await handleVictory(data); } catch (e) {} }
+        if (data.defeat) { await handleDefeat(data); }  // ⏳ 移動跨過第14日時限 → 直接收場(略過抵達敘事)
+        else {
+          narrate(arrivePrompt);
+          // 🕯️ 移動推進時間時，敵從者令咒透支倒數到期、消滅了最後一名敵人 → 聖杯到手
+          if (data.victory) { try { await handleVictory(data); } catch (e) {} }
+        }
       } else {
         alert("連線阻礙：" + data.message);
       }
