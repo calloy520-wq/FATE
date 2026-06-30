@@ -101,10 +101,9 @@ function npAtkScale_(c) {
   if (/對神/.test(np)) return '對神';   // 弒神寶具(梵天弒神之槍等)：不入規模矩陣，傷害計算特判
   return '對人';
 }
-// 防禦規模：固有結界(ubw)＝對界防；海怪召喚(summon_horror)／城牆防禦(wall_def)＝對城防；陣地作成(territory)＝對軍防；其餘對人防。
-//   ★只看「實際防禦性構造」：divine_core/god_hand 各有自己的機制(減傷18%/十二試煉)，不再疊加防禦規模。
+// 防禦規模：海怪召喚(summon_horror)／城牆防禦(wall_def)＝對城防；陣地作成(territory)＝對軍防；其餘對人防。
+//   ★固有結界(ubw)是進攻型 NP，NP 防禦由 rho_aias 機制承擔；divine_core/god_hand 各有自己的機制——均不疊加防禦規模。
 function npDefScale_(c) {
-  if (hasFx_(c, 'ubw')) return '對界';
   if (hasFx_(c, 'summon_horror') || hasFx_(c, 'wall_def')) return '對城';
   if (hasFx_(c, 'territory')) return '對軍';
   return '對人';
