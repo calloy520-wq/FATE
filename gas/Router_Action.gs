@@ -2404,7 +2404,7 @@ function actionFateBattle(userData, pcId, sheets) {
     // 🌟 只有「攻擊型寶具」才會跟玩家寶具對轟。防禦/生存/支援型(赫拉克勒斯 God Hand、純陣地、治癒…)不會去抵銷
     //   玩家寶具——否則玩家解放寶具卻被一個「不死之軀」硬抵成震退、看不到威能(就是這個 bug)。
     //   攻擊型＝寶具尺度達 對軍/對城/對界，或帶明確攻擊系 fx。純對人/防禦型 → 不對轟，玩家寶具於回合迴圈正常貫穿。
-    const CLASH_OFF_FX = ['ea', 'excalibur', 'ubw', 'summon_horror', 'gob', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify', 'chain', 'anti_magic_lance', 'wind_strike', 'projection'];
+    const CLASH_OFF_FX = ['ea', 'excalibur', 'ubw', 'gob', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify', 'chain', 'anti_magic_lance', 'wind_strike', 'projection'];
     const eScaleClash = npAtkScale_(enemyC0);
     const enemyOffensiveNp = enemyHasNp && (eScaleClash === '對軍' || eScaleClash === '對城' || eScaleClash === '對界' || CLASH_OFF_FX.some(function (f) { return hasFx_(enemyC0, f); }));
     // 對撞意志：健全的對手多半敢正面對轟；暗殺/狂戰系更愛搏命；殘血則未必接招（可能改閃避→走一般回合）
