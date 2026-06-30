@@ -547,7 +547,10 @@ function actionSummonServant(userData, pcId, sheets) {
       const nStr = svNum_(six.筋力), nCon = svNum_(six.耐久), nAgi = svNum_(six.敏捷), nInt = svNum_(six.魔力), nLuk = svNum_(six.幸運);
       const maxStats = fateMaxHpMp_(nCon, nInt);
       // 從者血厚：耐久越高越肉。🔋 出力電池制：從者無自有魔力池(MP欄置0)，靠御主供魔；出力檔存 MEMORY、預設 60 巡航。
-      const svHp = 150 + svNum_(six.耐久) * 6, svMp = 0;
+      // 🐙 螺湮城教本(summon_horror)：大海怪常駐護盾，底層 HP +300
+      const _allSk = classSkills.concat(skills);
+      const _npHpBonus = _allSk.some(function(s){ return s && s.fx === 'summon_horror'; }) ? 300 : 0;
+      const svHp = 150 + svNum_(six.耐久) * 6 + _npHpBonus, svMp = 0;
 
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;

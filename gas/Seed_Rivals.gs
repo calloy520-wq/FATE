@@ -97,7 +97,10 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
   var persona = safeJson_(hero[COL.HERO.PERSONA], {});
   var cls = hero[COL.HERO.CLS];
   var nStr = svNum_(six["筋力"]), nCon = svNum_(six["耐久"]), nAgi = svNum_(six["敏捷"]), nInt = svNum_(six["魔力"]), nLuk = svNum_(six["幸運"]);
-  var hp = 150 + svNum_(six["耐久"]) * 6, mp = 120 + svNum_(six["魔力"]) * 6;
+  var _allSk = classSkills.concat(skills);
+  // 🐙 螺湮城教本(summon_horror)：大海怪常駐護盾，底層 HP +300
+  var _npHpBonus = _allSk.some(function(s){ return s && s.fx === 'summon_horror'; }) ? 300 : 0;
+  var hp = 150 + svNum_(six["耐久"]) * 6 + _npHpBonus, mp = 120 + svNum_(six["魔力"]) * 6;
   var row = Array(Object.keys(COL.PC).length).fill("");
   row[COL.PC.ID] = "NPC_" + Date.now() + "_h" + Math.floor(Math.random() * 100000);
   row[COL.PC.NAME] = hero[COL.HERO.NAME];
