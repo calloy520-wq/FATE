@@ -10,44 +10,44 @@ var SEED_SERVANTS = [
     classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
     skills:[{n:'直感',r:'A',fx:'first_strike'},{n:'魔力放出',r:'A',fx:'burst'},{n:'卡里斯瑪',r:'B',fx:'morale'},
             {n:'風王鐵鎚',r:'A',fx:'wind_strike'}],
-    traits:[{n:'王'},{n:'人類'}], np:'誓約勝利之劍（對城 A++）',
+    traits:[{n:'王'},{n:'人類'},{n:'龍'}], np:'誓約勝利之劍 Excalibur（對城 A++）／全世界遙遠的理想鄉 Avalon（永世惑曲·無敵結界·守護持有者）',
     align:'秩序・善', persona:{firstP:'我',look:'金髮碧眼・甲冑藍裙的嬌小騎士、端正挺拔的王者威儀、自稱「我」・武人般簡潔、王者外殼下沒當過少女的笨拙溫柔',words:'騎士道・榮譽・自我犧牲・壓抑的少女心',toMaster:'盡忠職守、初期保持距離，逐漸動搖',speech:'正式鄭重、武人般簡潔、不擅言情、認真到一絲不苟',moe:'食量驚人卻吃相優雅、對現代食物純真驚嘆、王者外殼下沒當過少女的寂寞、笨拙的溫柔',tic:'用餐時無比專注滿足、握劍時氣場驟冷'} },
   { id:'EMIYA-Archer', cls:'Archer', realName:'無名（EMIYA）', wars:['5th'], gender:'男',
     six:{筋力:'D',耐久:'C',敏捷:'C',魔力:'B',幸運:'E',寶具:'B'},
     classSkills:[{n:'對魔力',r:'D',fx:'nullify_magic'},{n:'單獨行動',r:'B',fx:'solo'}],
     skills:[{n:'心眼(真)',r:'B',fx:'analyze'},{n:'千里眼',r:'C',fx:'aim'},{n:'投影魔術',r:'',fx:'projection'},{n:'無限劍製',r:'',fx:'ubw'}],
-    traits:[{n:'人類'}], np:'無限劍製（固有結界）',
+    traits:[{n:'人類'}], np:'無限劍製 Unlimited Blade Works（固有結界）／偽·螺旋劍 Caladbolg II（破斷重塑的流星劍·連射）',
     align:'中立・中庸', persona:{firstP:'我',look:'褐膚白髮・紅黑外衣的厭世弓兵、玩世不恭的疲憊冷峻、自稱「我」・毒舌語氣、毒舌底下藏不住的笨拙照顧慾',words:'現實・諷刺・自我厭惡・藏起來的理想',toMaster:'嘴上不饒人、暗中守護',speech:'老氣橫秋的比喻、毒舌吐槽、看似冷淡的關心、偶爾說教',moe:'毒舌卻替人下廚、家事異常熟練、對年輕時理想的糾結、嘴硬心軟',tic:'做菜時格外認真、雙劍交叉的架式、無奈嘆氣'} },
   { id:'庫丘林-Lancer', cls:'Lancer', realName:'庫·丘林', wars:['5th'], gender:'男',
     six:{筋力:'B',耐久:'C',敏捷:'A',魔力:'C',幸運:'E',寶具:'B'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'}],
     skills:[{n:'避矢加護',r:'B',fx:'evade_ranged'},{n:'戰鬥續行',r:'A',fx:'survive'},{n:'刺穿死亡之棘',r:'B',fx:'gae_bolg'}],
-    traits:[{n:'神性',r:'低'}], np:'刺穿死棘之槍（對人 B・因果逆轉必中）',
+    traits:[{n:'神性',r:'低'}], np:'刺穿死棘之槍 Gáe Bolg（對人 B・因果逆轉必中）',
     align:'秩序・中庸', persona:{firstP:'俺',look:'藍髮赤瞳・精悍結實的青年戰士、豪爽不羈的野性氣場、自稱「俺」・豪爽粗獷、義氣之下意外溫柔的照顧慾',words:'戰士・痛快・重義・運氣爛到極點',toMaster:'爽快直率、討厭被當棋子',speech:'豪爽粗獷、戰鬥狂熱、抱怨自己倒楣、義氣掛嘴邊',moe:'A級幸運卻衰事連連的反差、遇強敵純粹興奮、意外會照顧後輩、被迫做討厭任務時的牢騷',tic:'扛槍咧嘴笑、戰前舔嘴唇、抓頭抱怨'} },
   { id:'美杜莎-Rider', cls:'Rider', realName:'美杜莎', wars:['5th'], gender:'女',
     six:{筋力:'C',耐久:'C',敏捷:'A+',魔力:'B',幸運:'E',寶具:'A+'},
     classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'A+',fx:'ride'}],
     skills:[{n:'怪力',r:'B',fx:'str_up'},{n:'女神的神核',r:'',fx:'divine_core'},{n:'魔眼',r:'A',fx:'petrify'}],
-    traits:[{n:'神性'},{n:'女神'}], np:'他人的神殿／駿馬天翔（A+）',
+    traits:[{n:'神性'},{n:'女神'}], np:'他者封印·鮮血神殿 Blood Fort Andromeda／駿馬天翔 Bellerophon（A+）',
     align:'混沌・善', persona:{firstP:'我',look:'紫長髮・眼鏡封印魔眼的修長女子、寡言低斂的幽靜氣息、自稱「我」・語氣壓得很低、卸下眼鏡時近乎獻身的依戀',words:'忠誠・守護・自卑・深藏的溫柔',toMaster:'寡言而深情、極度護主',speech:'寡言低沉、必要才開口、護主時毫不猶豫、語氣壓得很低',moe:'怪力女神卻極度自卑、靠眼鏡壓制魔眼的反差、對御主近乎獻身的忠誠、姊姊般的包容',tic:'推眼鏡、靜默佇立暗處、垂眸'} },
   { id:'美狄亞-Caster', cls:'Caster', realName:'美狄亞', wars:['5th'], gender:'女',
     six:{筋力:'E',耐久:'D',敏捷:'C',魔力:'A',幸運:'B',寶具:'C'},
     classSkills:[{n:'陣地作成',r:'A',fx:'territory'},{n:'道具作成',r:'A',fx:'crafting'}],
     skills:[{n:'高速詠唱',r:'A',fx:'fast_cast'},{n:'神代魔術',r:'A',fx:'divine_age'},{n:'破戒全咒',r:'C',fx:'rule_breaker'}],
-    traits:[{n:'人類'}], np:'破戒全咒（規則破壞者 C）',
+    traits:[{n:'人類'}], np:'萬符必應破戒 Rule Breaker（規則破壞者 C）',
     align:'中立・惡', persona:{firstP:'我',look:'紫袍兜帽・抱緣紅短劍的清麗魔女、溫婉中帶試探的疏離、自稱「我」・用敬語、被真心相待便慌亂的純情',words:'背叛的傷痕・渴望被信任・腹黑・少女心',toMaster:'防備卻渴望真心相待',speech:'溫婉中帶試探、用敬語、自嘲被背叛的過往、偶爾流露脆弱',moe:'魔女外表下渴望被愛、被真心對待會慌、為所愛之人不擇手段、反差的純情',tic:'抱著緣紅短劍、垂眸輕笑、欲言又止'} },
   { id:'佐佐木小次郎-Assassin', cls:'Assassin', realName:'佐佐木小次郎', wars:['5th'], gender:'男',
     six:{筋力:'C',耐久:'D',敏捷:'A+',魔力:'E',幸運:'E',寶具:'E'},
     classSkills:[{n:'氣息遮斷',r:'D',fx:'stealth'}],
     skills:[{n:'心眼（偽）',r:'A',fx:'analyze'},{n:'透化',r:'B+',fx:'clear_mind'},
             {n:'宗和的心得',r:'B',fx:'unreadable'},{n:'秘劍・燕返',r:'-',fx:'tsubame'}],
-    traits:[{n:'人類'}], np:'燕返（對人魔劍・次元摺疊・三段同時斬）',
+    traits:[{n:'人類'}], np:'燕返 Tsubame Gaeshi（對人魔劍・次元摺疊・三段同時斬）',
     align:'中立・中庸', persona:{firstP:'拙者',look:'墨髮長刀・素樸和裝的清瘦劍客、淡泊洒脫的禪意閒適、自稱「拙者」・古風文雅、無欲之下難得流露的眷戀',words:'劍士・閒適・無欲・宿命',toMaster:'隨遇而安、只求一戰',speech:'古風文雅、淡泊洒脫、帶禪意、慢條斯理',moe:'無欲無求的洒脫、只為一場好決鬥而活、看守山門的隨遇而安、非英雄卻有英雄氣的平凡',tic:'凝望飛燕、按刀靜立、微微一笑'} },
   { id:'赫拉克勒斯-Berserker', cls:'Berserker', realName:'赫拉克勒斯', wars:['5th'], gender:'男',
     six:{筋力:'A',耐久:'A',敏捷:'A',魔力:'B',幸運:'A',寶具:'B'},
-    classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'對魔力',r:'?',fx:'nullify_magic'}],
+    classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'對魔力',r:'D',fx:'nullify_magic'}],
     skills:[{n:'勇猛',r:'A',fx:'morale'},{n:'戰鬥續行',r:'A',fx:'survive'},{n:'十二試煉',r:'A',fx:'god_hand'}],
-    traits:[{n:'神性',r:'A'},{n:'王'}], np:'十二試煉（God Hand A）',
+    traits:[{n:'神性',r:'A'},{n:'王'}], np:'十二試煉 God Hand（A·十二條命）／射殺百頭 Nine Lives（九頭蛇射穿·萬箭連發）',
     align:'混沌・狂', persona:{firstP:'（狂化·僅咆哮）',look:'巨軀岩肌・黑霧纏身的半神戰士、無言低吼的壓迫氣場、狂化無自稱・僅以咆哮、理智回光瞬間殘存的溫柔',words:'戰神・狂化・守護的殘響',toMaster:'理智被黑霧吞沒、僅存護主本能',speech:'狂化無法言語、只以低吼與行動表達；唯護主的本能殘留',moe:'狂暴外殼下對主人(伊莉雅)殘存的溫柔、偶爾理智回光的瞬間、十二試煉一次次自死亡歸來的悲壯',tic:'低沉咆哮、以巨軀擋在主人身前、緩緩起身'} },
   // 第四次
   { id:'吉爾伽美什-Archer', cls:'Archer', realName:'吉爾伽美什', wars:['4th','fake'], gender:'男',
@@ -55,7 +55,7 @@ var SEED_SERVANTS = [
     classSkills:[{n:'對魔力',r:'E',fx:'nullify_magic'},{n:'單獨行動',r:'A+',fx:'solo'}],
     skills:[{n:'黃金律',r:'A',fx:'wealth'},{n:'卡里斯瑪',r:'A',fx:'morale'},{n:'神性',r:'B',fx:'divine'},
             {n:'王之財寶',r:'A',fx:'gob'},{n:'天之鎖',r:'B',fx:'chain'}],
-    traits:[{n:'神性'},{n:'王'}], np:'王之財寶 Gate of Babylon（對人 E~A++）',
+    traits:[{n:'神性'},{n:'王'}], np:'王之財寶 Gate of Babylon（對人 E~A++）／乖離劍 Ea（天地乖離·封藏的至高兵裝，傲慢時不出鞘）',
     align:'混沌・善', persona:{firstP:'吾',look:'金髮赤瞳・金鎧加身的俊美王者、睥睨眾生的慵懶威壓、自稱「吾」・睥睨自矜的王者腔、傲慢底層深藏的孤獨',words:'傲慢・王・俯視眾生・收藏家',toMaster:'視為雜種、幾乎不從令，唯對少數有趣之人起興致',speech:'居高臨下、稱人「雜種」、慵懶而帶威壓、偶爾興味盎然',moe:'唯一承認的友人（恩奇都）、對「有趣」之物異常執著、品酒品人的講究、傲慢底下的孤獨',tic:'金色波紋中抽出寶具、嗤笑、紅瞳微眯'} },
   { id:'迪盧木多-Lancer', cls:'Lancer', realName:'迪盧木多·奧迪那', wars:['4th'], gender:'男',
     six:{筋力:'B',耐久:'C',敏捷:'A',魔力:'C',幸運:'E',寶具:'C'},
@@ -68,13 +68,13 @@ var SEED_SERVANTS = [
     six:{筋力:'A+',耐久:'A',敏捷:'B',魔力:'C',幸運:'A+',寶具:'A++'},
     classSkills:[{n:'對魔力',r:'D',fx:'nullify_magic'},{n:'騎乘',r:'A+',fx:'ride'}],
     skills:[{n:'卡里斯瑪',r:'A',fx:'morale'},{n:'軍略',r:'B',fx:'tactics'}],
-    traits:[{n:'王'}], np:'王之軍勢 Ionioi Hetairoi（對軍 EX）',
+    traits:[{n:'王'}], np:'王之軍勢 Ionioi Hetairoi（對軍 EX·固有結界召喚萬軍）／神威的車輪 Gordius Wheel（雷神戰車·衝鋒）',
     align:'中立・善', persona:{firstP:'余',look:'紅髮虬髯・魁梧壯碩的征服王、豪邁爽朗的王者雅量、自稱「余」・豪邁恢弘的王者氣口、把人收進心裡的栽培溫情',words:'豪邁・征服・雅量・王道',toMaster:'視為臣下亦為摯友，要對方先成為夠格的王',speech:'豪爽大笑、稱「小子」、王者氣度、好酒好戰、講大道理',moe:'征服世界的野心與孩子氣並存、愛酒愛地圖、收伏人心的雅量、把御主當兒子般栽培',tic:'仰天大笑、攤開世界地圖、灌下整桶酒'} },
   { id:'吉爾德萊-Caster', cls:'Caster', realName:'吉爾·德·萊斯（青鬍子）', wars:['4th'], gender:'男',
     six:{筋力:'E',耐久:'E',敏捷:'D',魔力:'C',幸運:'E',寶具:'C'},
     classSkills:[{n:'陣地作成',r:'C',fx:'territory'},{n:'道具作成',r:'C',fx:'crafting'}],
     skills:[{n:'精神汙染',r:'A',fx:'mad'},{n:'螺湮城教本',r:'',fx:'summon_horror'}],
-    traits:[{n:'人類'}], np:'螺湮城教本（深淵召喚・召喚大海怪）',
+    traits:[{n:'人類'}], np:'螺湮城教本 Prelati\'s Spellbook（深淵召喚・召喚大海怪）',
     align:'混沌・惡', persona:{firstP:'我',look:'青鬚華服・捧著教本的瘋狂貴族、虔誠與癲狂交錯的氣息、自稱「我」・時文雅時癲狂、墮落前對聖女信徒般的純粹',words:'瘋狂・虔誠扭曲・對「聖女」的執念',toMaster:'視龍之介為純粹之惡的摯友、相互共鳴',speech:'時而文雅虔誠、時而癲狂咆哮、引經據典又褻瀆神明',moe:'曾為聖女信徒的純粹墮落成深淵的反差、對「神不在場」的悲憤、與龍之介一搭一唱的瘋狂默契',tic:'翻動教本咆哮、淚流滿面的狂笑、自深淵召出觸手海怪'} },
   { id:'百貌哈桑-Assassin', cls:'Assassin', realName:'哈桑·薩巴赫（百貌）', wars:['4th'], gender:'男',
     six:{筋力:'C',耐久:'D',敏捷:'B',魔力:'D',幸運:'E',寶具:'D'},
@@ -85,41 +85,36 @@ var SEED_SERVANTS = [
   { id:'蘭斯洛特-Berserker', cls:'Berserker', realName:'蘭斯洛特（湖之騎士）', wars:['4th'], gender:'男',
     six:{筋力:'A',耐久:'A',敏捷:'A+',魔力:'B',幸運:'C',寶具:'A'},
     classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'騎乘',r:'A',fx:'ride'},{n:'對魔力',r:'E',fx:'nullify_magic'}],
-    skills:[{n:'無窮的鍛鍊',r:'A+',fx:'clear_mind'},{n:'無此花的湖光',r:'A',fx:'weapon_steal'}],
+    skills:[{n:'無窮的鍛鍊',r:'A+',fx:'clear_mind'},{n:'無毀的湖光',r:'A',fx:'weapon_steal'}],
     traits:[{n:'騎士'}], np:'騎士不為孤軍 Knight of Owner（萬物化為兵裝）',
     align:'混沌・狂', persona:{firstP:'（狂化·僅低吼）',look:'黑霧鎧甲・湖之騎士的悲愴身影、悲鳴般低吼的壓抑瘋狂、狂化無自稱・僅以低吼、渴望被懲罰的扭曲愧疚溫柔',words:'悔恨・無言的瘋狂・對主君的愧疚',toMaster:'狂化無言，僅以戰鬥宣洩悔恨',speech:'狂化奪去言語，只餘悲鳴般的低吼；理智深處是對亞瑟王與王后之間罪的愧悔',moe:'湖之騎士的高潔被悔恨吞沒的悲劇、渴望被懲罰的扭曲忠誠、理智回光時的痛楚',tic:'黑霧纏身、抓起任何物件化為兵裝、無聲逼近'} },
   // FAKE 樣本
   { id:'恩奇都-Lancer', cls:'Lancer', realName:'恩奇都', wars:['fake'], gender:'無',
-    six:{筋力:'B',耐久:'A',敏捷:'A',魔力:'A',幸運:'-',寶具:'A+'},
-    classSkills:[{n:'對魔力',r:'?',fx:'nullify_magic'}],
-    skills:[{n:'變生',r:'',fx:'shapeshift'},{n:'神性',r:'?',fx:'divine'}],
-    traits:[{n:'神性'},{n:'神造兵器'}], np:'天地乖離開闢之星（變化）',
+    // ⬇️ 基線＝非理想御主下的恩奇都(供魔不足)。與巴茲狄洛特(獵犬御主)結契才回全盛全A·寶A++(masterSynergySix_)。
+    six:{筋力:'C',耐久:'B',敏捷:'B',魔力:'B',幸運:'-',寶具:'A'},
+    classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'}],
+    skills:[{n:'天之鎖',r:'A',fx:'chain'},{n:'變生',r:'A',fx:'shapeshift'},{n:'神性',r:'A',fx:'divine'}],
+    traits:[{n:'神性'},{n:'神造兵器'}], np:'天地乖離開闢之星 Enuma Elish（變化・對界）',
     align:'中立・中庸', persona:{firstP:'我',look:'青綠長髮・中性無垢的神造之軀、平和無機卻溫柔的氣息、自稱「我」・平和中性、談起摯友便柔軟下來的眷戀',words:'純真・神造・追尋摯友・無垢',toMaster:'溫和而疏離，心繫吉爾伽美什',speech:'平和中性、純真直接、無機質卻溫柔、談起摯友便柔軟',moe:'神造兵器卻最有人性、對吉爾伽美什的純粹羈絆、不解人類卻嚮往、變幻自如的天真',tic:'化身千刃、歪頭觀察、望向遠方'} },
-  { id:'漢斯-Watcher', cls:'Caster', realName:'漢斯·克里斯汀·安徒生', wars:['fake'], gender:'男',
-    six:{筋力:'E',耐久:'E',敏捷:'D',魔力:'C',幸運:'B',寶具:'C'},
-    classSkills:[{n:'陣地作成',r:'C',fx:'territory'},{n:'道具作成',r:'C',fx:'crafting'}],
-    skills:[{n:'心眼（真）',r:'B',fx:'analyze'},{n:'故事創作',r:'A',fx:'narrative'},{n:'透化',r:'C',fx:'clear_mind'}],
-    traits:[{n:'人類'}], np:'無謬之書／人魚靈藥（輔助）',
-    align:'中立・善', persona:{firstP:'我',look:'童顏短軀・握筆不離手的少年文豪、尖酸早慧的旁觀者氣質、自稱「我」・尖酸文人腔、毒舌底下偷偷溫柔的孤獨',words:'毒舌・觀察者・童話・早慧',toMaster:'冷眼旁觀卻心軟，毒舌鞭策',speech:'尖酸刻薄、文人吐槽、嘴上嫌棄、童話般的洞察',moe:'童顏毒舌的反差、看透人心卻偷偷溫柔、用故事治癒他人自己卻孤獨、嫌麻煩還是會幫忙',tic:'振筆疾書、翻白眼吐槽、扶額嘆氣'} },
   // 斯卡哈 三職階
   { id:'斯卡哈-Lancer', cls:'Lancer', realName:'斯卡哈', wars:['客串'], gender:'女',
     six:{筋力:'B',耐久:'A',敏捷:'A',魔力:'B',幸運:'E',寶具:'A'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'}],
     skills:[{n:'神速',r:'A',fx:'first_strike'},{n:'戰鬥續行',r:'A',fx:'survive'},
-            {n:'原初符文',r:'A',fx:'rune'},{n:'刺穿死亡之棘',r:'A',fx:'gae_bolg'}],
-    traits:[{n:'神性'},{n:'人類'}], np:'刺穿死翔之槍 Gáe Bolg Alternative（對界 A）',
+            {n:'原初符文',r:'A',fx:'rune'},{n:'魔境的智慧',r:'A',fx:'mage_realm'},{n:'刺穿死亡之棘',r:'A',fx:'gae_bolg'}],
+    traits:[{n:'神性',r:'低'},{n:'人類'}], np:'貫穿死翔之槍 Gáe Bolg Alternative（對人 B+·釘空必中＋投擲斷命）／死亡滿溢的魔境之門 Gate of Skye（對軍 A+·吸入影之國）',
     align:'中立・中庸', persona:{firstP:'我',look:'紫髮紅瞳・緊身戰衣的妖豔女王、冷峻威嚴的嚴師氣場、自稱「我」・師長口吻、千年孤高下求一死而不得的寂寞',words:'影之國女王・冷峻嚴師・武人・求死而不得',toMaster:'嚴厲考校、唯認可強者，師者之威',speech:'冷峻威嚴、師長口吻、簡潔如刃、偶露揶揄',moe:'千年女王的孤高、渴望一死卻不得的寂寞、對弟子又嚴又護、揶揄人時的促狹',tic:'魔槍杵地、睥睨、勾唇淺笑'} },
   { id:'斯卡哈-Assassin', cls:'Assassin', realName:'斯卡哈', wars:['客串'], gender:'女',
     six:{筋力:'C',耐久:'C',敏捷:'A+',魔力:'B',幸運:'D',寶具:'B'},
     classSkills:[{n:'氣息遮斷',r:'B',fx:'stealth'}],
     skills:[{n:'心眼(真)',r:'B',fx:'analyze'},{n:'戰鬥續行',r:'A',fx:'survive'},{n:'原初符文',r:'B',fx:'rune'}],
-    traits:[{n:'神性'},{n:'人類'}], np:'蹴穿死翔之槍 Gáe Bolg Alternative（影縫穿刺 B）',
+    traits:[{n:'神性',r:'低'},{n:'人類'}], np:'蹴穿死翔之槍 Gáe Bolg Alternative（對人 B·影縫穿刺）',
     align:'中立・中庸', persona:{firstP:'我',look:'紫髮暗裝・融入影中的致命女王、冷冽無聲的審視氣息、自稱「我」・低冷簡短、認可強者後難得鬆動的柔軟',words:'潛行的女王・冷冽・致命・影',toMaster:'冷眼試探、出手無情，認可方鬆動',speech:'低冷簡短、氣息全無、一針見血',moe:'影中女王的致命優雅、試探背後的審視、認可強者後難得的鬆動',tic:'融入暗影、刃尖輕轉、無聲逼近'} },
   { id:'斯卡蒂-Caster', cls:'Caster', realName:'斯卡哈·斯卡蒂（Skadi）', wars:['客串'], gender:'女',
     six:{筋力:'E',耐久:'D',敏捷:'C',魔力:'A',幸運:'B',寶具:'A'},
     classSkills:[{n:'陣地作成',r:'A',fx:'territory'},{n:'高速神言',r:'A',fx:'fast_cast'}],
     skills:[{n:'原初符文',r:'EX',fx:'rune'},{n:'女神的神核',r:'',fx:'divine_core'},{n:'神代魔術',r:'A',fx:'divine_age'}],
-    traits:[{n:'神性'},{n:'女神'}], np:'彼岸薔薇之園・原初的符紋（對界 A）',
+    traits:[{n:'神性'},{n:'女神'}], np:'彼岸薔薇之園・原初的符紋 Víðópnir（對人 A·原初符文加護／支援結界）',
     align:'中立・善', persona:{firstP:'吾',look:'銀紫長髮・符文環繞的冰雪女神、莊重慈悲並存的母性威儀、自稱「吾」・溫柔莊重、害羞時藏不住的可愛溫情',words:'北歐女神・溫柔而威嚴・守護者・嚴母',toMaster:'溫柔包容、暗藏神威，母性',speech:'溫柔而莊重、自稱吾、神祇的慈悲與威嚴並存',moe:'冰雪女神的溫柔母性、害羞時的可愛、守護生靈的執著、威嚴下的溫情',tic:'符文環繞、垂眸微笑、輕撫額前'} },
   // strange Fake
   { id:'理查一世-Saber', cls:'Saber', realName:'獅心王・理查一世', wars:['fake'], gender:'男',
@@ -134,12 +129,6 @@ var SEED_SERVANTS = [
     skills:[{n:'神性',r:'C',fx:'divine'},{n:'勇猛',r:'A+',fx:'morale'},{n:'神威的車輪',r:'A',fx:'survive'}],
     traits:[{n:'神性'},{n:'英雄'}], np:'貫穿戰場的流星（對人 A）／守護領域的車輪（除踵無敵）',
     align:'混沌・中庸', persona:{firstP:'我',look:'金髮健碩・駕戰車的半神戰士、張狂自信的昂揚戰意、自稱「我」・張狂戰意、自由不羈下對戰友的重情',words:'戰士・自由奔放・驕傲重情・不敗',toMaster:'豪爽不羈，認可便傾力相助',speech:'張狂自信、戰意昂揚、重情義、不服輸',moe:'半神英雄的驕傲與孩子氣、唯一弱點腳踵的宿命、對戰友的重情、自由不受拘束',tic:'駕戰車衝鋒、咧嘴挑釁、拍胸脯打包票'} },
-  { id:'大仲馬-Caster', cls:'Caster', realName:'亞歷山大·仲馬', wars:['fake'], gender:'男',
-    six:{筋力:'E',耐久:'E',敏捷:'D',魔力:'D',幸運:'C',寶具:'C'},
-    classSkills:[{n:'道具作成',r:'EX',fx:'crafting'},{n:'陣地作成',r:'C',fx:'territory'}],
-    skills:[{n:'故事創作',r:'A',fx:'narrative'},{n:'心眼(真)',r:'B',fx:'analyze'},{n:'怪力（妙筆生兵）',r:'C',fx:'str_up'}],
-    traits:[{n:'人類'}], np:'文豪的妙筆・鍛造英靈的兵裝（道具作成 EX）',
-    align:'混沌・善', persona:{firstP:'我',look:'捲髮華服・揮筆鍛器的中年文豪、滔滔不絕的市井戲劇腔、自稱「我」・市井戲劇腔、市儈底下熱心又浪漫的真情',words:'文豪・健談・市儈卻浪漫・愛酒愛美人',toMaster:'毒舌愛吐槽，實則悉心照拂',speech:'滔滔不絕、市井俏皮、吐槽不留情、誇張的戲劇腔',moe:'大文豪的市儈與浪漫並存、愛錢愛美人愛美食、毒舌底下的熱心、把人生當小說來寫',tic:'揮筆鍛器、舉杯高談、擠眉弄眼'} },
   { id:'開膛手傑克-Berserker', cls:'Berserker', realName:'開膛手傑克', wars:['fake'], gender:'女',
     six:{筋力:'C',耐久:'C',敏捷:'A',魔力:'B',幸運:'D',寶具:'B'},
     classSkills:[{n:'狂化',r:'C',fx:'mad'},{n:'氣息遮斷',r:'B',fx:'stealth'}],
@@ -156,7 +145,7 @@ var SEED_SERVANTS = [
     six:{筋力:'B',耐久:'C',敏捷:'B',魔力:'A',幸運:'B',寶具:'A+'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'},{n:'單獨行動',r:'A',fx:'solo'}],
     skills:[{n:'神性',r:'A',fx:'divine'},{n:'女神的神核',r:'A',fx:'divine_core'},{n:'魔力放出',r:'A',fx:'burst'}],
-    traits:[{n:'神性'},{n:'女神'}], np:'天之公牛・山海熔毀的天牛（對界 A+）',
+    traits:[{n:'神性'},{n:'女神'}], np:'天之公牛・山海熔毀的天牛 An Gugalanna（對界 A+）',
     align:'混沌・善', persona:{firstP:'本小姐',look:'黑髮閃亮・借凜之身的金星女神、高傲任性的傲嬌氣燄、自稱「本小姐」・傲嬌口吻、見閃亮便走不動的嘴硬義氣',words:'女神・任性・傲嬌・愛美愛閃亮',toMaster:'頤指氣使，意外講義氣',speech:'高傲任性、傲嬌口吻、愛炫耀、得意洋洋',moe:'金星女神的任性傲嬌、見閃亮寶物就走不動、嘴硬心軟的義氣、借了凜的身體卻嘴硬',tic:'叉腰仰頭、召喚天舟、哼一聲撇頭'} },
   // 客串英靈
   { id:'莫德雷德-Saber', cls:'Saber', realName:'莫德雷德', wars:['客串'], gender:'女',
@@ -169,19 +158,19 @@ var SEED_SERVANTS = [
     six:{筋力:'A',耐久:'B',敏捷:'A',魔力:'B',幸運:'C',寶具:'EX'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'},{n:'騎乘',r:'A',fx:'ride'}],
     skills:[{n:'神性',r:'B',fx:'divine'},{n:'魔力放出（炎）',r:'A',fx:'burst'},{n:'太陽之鎧',r:'A',fx:'divine_core'}],
-    traits:[{n:'神性'},{n:'英雄'}], np:'日輪啊化作鎧甲吧／梵天慈悲之槍（對神 EX）',
+    traits:[{n:'神性'},{n:'英雄'}], np:'日輪啊化作鎧甲吧 Kavacha and Kundala（不滅黃金鎧）／穿刺死亡之槍 Vasavi Shakti（對神 EX·梵天詛咒之槍）／梵天慈悲之槍 Brahmastra',
     align:'秩序・善', persona:{firstP:'我',look:'白髮金鎧・太陽之鎧加身的高潔英雄、極簡寡言不卑不亢的肅然、自稱「我」・極簡寡言、面冷心熱無聲守護的溫柔',words:'施與者・寡言・高潔・恩怨分明',toMaster:'沉默守諾、恩怨分明，有求必應',speech:'極簡寡言、不卑不亢、直言不諱、一諾千金',moe:'有求必應的施捨英雄、面冷心熱、被誤解也不辯解的高潔、認真到不近人情卻最溫柔',tic:'默然佇立、卸甲相贈、平靜直視'} },
   { id:'阿斯托爾福-Rider', cls:'Rider', realName:'阿斯托爾福', wars:['客串'], gender:'男',
     six:{筋力:'D',耐久:'C',敏捷:'B',魔力:'C',幸運:'A',寶具:'C'},
     classSkills:[{n:'騎乘',r:'A+',fx:'ride'},{n:'對魔力',r:'C',fx:'nullify_magic'}],
     skills:[{n:'直感',r:'A',fx:'first_strike'},{n:'怪力',r:'C',fx:'str_up'},{n:'純真無垢',r:'B',fx:'clear_mind'}],
-    traits:[{n:'人類'},{n:'騎士'}], np:'觸發傳說的魔笛 La Black Luna／破卻 Casta Diva',
+    traits:[{n:'人類'},{n:'騎士'}], np:'觸發傳說的魔笛 La Black Luna／破卻一切的萬能福音 Casta Diva（重置狀態·解除）／駿馬怪鳥 Hippogriff（神話之翼·飛翔）',
     align:'混沌・善', persona:{firstP:'我',look:'粉髮長辮・分不清性別的元氣騎士、蹦跳活潑毫無心機的爛漫、自稱「我」・想到啥說啥、為朋友赴湯蹈火的純粹忠誠',words:'天真爛漫・無憂・忠誠・元氣',toMaster:'活力滿滿，全心信賴',speech:'元氣滿滿、天真爛漫、想到啥說啥、毫無心機',moe:'十二勇士中最天真的開心果、記性差卻最忠誠、可愛到分不清性別、為朋友赴湯蹈火',tic:'蹦蹦跳跳、騎上駿鷹、燦爛大笑'} },
   { id:'賽彌拉米斯-Assassin', cls:'Assassin', realName:'賽彌拉米斯', wars:['客串'], gender:'女',
     six:{筋力:'D',耐久:'C',敏捷:'C',魔力:'B',幸運:'B',寶具:'A+'},
     classSkills:[{n:'氣息遮斷',r:'C',fx:'stealth'}],
     skills:[{n:'陣地作成（空中庭園）',r:'EX',fx:'territory'},{n:'道具作成（毒）',r:'A',fx:'crafting'},{n:'女神的神核',r:'',fx:'divine_core'}],
-    traits:[{n:'神性'},{n:'人類'}], np:'虛榮的空中庭園（對軍・對界）',
+    traits:[{n:'神性'},{n:'人類'}], np:'虛榮的空中庭園 Hanging Gardens of Babylon（對軍·毒殺結界）',
     align:'混沌・惡', persona:{firstP:'妾',look:'華貴盛裝・君臨空中庭園的毒后、高貴威嚴不容違逆的女王氣度、自稱「妾」・女王口吻、被冒犯時的羞怒與對真愛的執念',words:'毒后・傲慢・貞潔的執念・空中庭園',toMaster:'高高在上，唯認可強主',speech:'高貴威嚴、女王口吻、自稱妾、不容違逆',moe:'史上首位毒殺者女王的傲然、對貞潔與真愛的執念、被冒犯時的羞怒、君臨天下的孤高',tic:'俯瞰眾生、抬手降毒、空中庭園浮現'} },
   { id:'尼祿-Saber', cls:'Saber', realName:'尼祿·克勞狄烏斯', wars:['客串'], gender:'女',
     six:{筋力:'C',耐久:'C',敏捷:'B',魔力:'C',幸運:'B',寶具:'B'},
@@ -211,7 +200,7 @@ var SEED_SERVANTS = [
     six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'C',幸運:'C',寶具:'A'},
     classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
     skills:[{n:'直感',r:'B',fx:'first_strike'},{n:'魔力放出',r:'B',fx:'burst'},{n:'沉著冷靜',r:'B',fx:'clear_mind'}],
-    traits:[{n:'人類'},{n:'騎士'}], np:'約定勝利之劍 Excalibur（對城 A+）',
+    traits:[{n:'人類'},{n:'騎士'}], np:'誓約勝利之劍 Excalibur（對城 A+）',
     align:'秩序・善', persona:{firstP:'我',look:'黑髮藍裙・Saber 之力的內斂少女、寡言守禮認真守護的沉靜、自稱「我」・寡言內斂、聖杯之子孤獨宿命下的依賴溫柔',words:'寡言・認真・溫柔內斂・背負宿命',toMaster:'認真盡責，沉默守護',speech:'寡言內斂、認真守禮、溫柔低語、不擅表達',moe:'聖杯之子的孤獨宿命、被兄長守護的依賴、認真過頭的笨拙、內斂的溫柔',tic:'沉默佇立、握劍守護、垂眸淺應'} },
   { id:'小黑-Archer', cls:'Archer', realName:'克洛伊·馮·愛因茲貝倫（Archer install）', wars:['客串'], gender:'女',
     six:{筋力:'C',耐久:'C',敏捷:'A',魔力:'B',幸運:'C',寶具:'B'},
@@ -261,7 +250,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v6';
+var CODEX_PERSONA_VER = 'v8';
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
@@ -304,6 +293,48 @@ function upgradeMasterCodex_(ss) {
   return n;
 }
 
+// 🔄 重刷「已召喚實體化」從者的【戰鬥數據】(寶具/六圍/標籤 fx)為最新種子值——種子改了，已在場的從者也跟上。
+//   依 (真名, 職階) 對應種子(斯卡哈 Lancer/Assassin 同名靠職階區分)。只刷 GAS 掌的數值欄；
+//   ⚠ 不動 HP/MP/MEMORY(出力·魔境選擇·令咒…)/敘事欄(特徵/個性/身世)/狀態/位置/羈絆，保住玩家實例狀態與逆天改命。
+//   查無種子(AI 原創從者)→ 跳過不動。冪等可重跑。
+function resyncSummonedServants_(ss) {
+  var pc = ss.getSheetByName('眾生');
+  if (!pc || pc.getLastRow() <= 1) return 0;
+  var data = pc.getDataRange().getValues();
+  var key = function (name, cls) { return String(name) + '｜' + String(cls); };
+  var byKey = {};
+  SEED_SERVANTS.forEach(function (s) { byKey[key(s.realName, s.cls)] = s; });
+  var n = 0;
+  for (var i = 1; i < data.length; i++) {
+    var fac = String(data[i][COL.PC.FACTION]);
+    if (fac !== '從者' && fac !== '敵從者') continue;   // 玩家從者＋敵從者都刷(都讀種子戰鬥數據)
+    if (String(data[i][COL.PC.ID]).indexOf('DEAD_') === 0) continue;
+    var s = byKey[key(data[i][COL.PC.NAME], data[i][COL.PC.RANK])];
+    if (!s) continue; // AI 原創從者無種子 → 不動
+    data[i][COL.PC.MARTIAL] = s.np || data[i][COL.PC.MARTIAL];
+    data[i][COL.PC.SIX] = JSON.stringify(s.six);
+    data[i][COL.PC.TAGS] = JSON.stringify({ skills: (s.classSkills || []).concat(s.skills || []), traits: s.traits || [] });
+    n++;
+  }
+  if (n) pc.getRange(1, 1, data.length, data[0].length).setValues(data);
+  return n;
+}
+
+// 🔄【手動·強制】無視版本旗標，立刻把英靈殿＋在場從者重刷成最新種子(套用最新寶具/六圍/標籤/平衡)。
+//   給前端 DEV 按鈕用——不靠自動版本閘(怕部署時序/旗標卡住)，按一下立即生效並回報筆數。
+function actionDevResyncCodex(userData, pcId, sheets) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var codexN = 0, svN = 0, errs = [];
+  try { codexN = upgradeCodexPersonas_(ss); } catch (e) { errs.push('英靈殿:' + e.message); }
+  try { svN = resyncSummonedServants_(ss); } catch (e) { errs.push('從者:' + e.message); }
+  try { PropertiesService.getScriptProperties().setProperty('codex_persona_ver', CODEX_PERSONA_VER); } catch (e) { }
+  return JSON.stringify({
+    success: true,
+    message: '🔄 已強制套用最新種子：英靈殿 ' + codexN + ' 筆、在場從者 ' + svN + ' 筆更新。'
+      + (errs.length ? '　⚠ ' + errs.join('；') : '　請重整頁面看最新寶具/標籤。')
+  });
+}
+
 // 🔵 英靈殿/御主殿 為空(只有表頭)時，自動灌入名冊。冪等：有資料就不動。
 //   另：版本升級時自動把既有種子英靈的 persona 刷成最新（萌點/口吻），不動客製英靈。
 function seedFateCodex_(ss) {
@@ -322,8 +353,9 @@ function seedFateCodex_(ss) {
   try {
     var props = PropertiesService.getScriptProperties();
     if (props.getProperty('codex_persona_ver') !== CODEX_PERSONA_VER) {
-      upgradeCodexPersonas_(ss);
+      upgradeCodexPersonas_(ss);   // 刷英靈殿(召喚來源)
       upgradeMasterCodex_(ss);
+      resyncSummonedServants_(ss); // 刷已在場從者的戰鬥數據(寶具/六圍/標籤)
       props.setProperty('codex_persona_ver', CODEX_PERSONA_VER);
     }
   } catch (e) { }

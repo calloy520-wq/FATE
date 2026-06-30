@@ -136,8 +136,8 @@ function playerHomeLoc_(sheets, pcId) {
 }
 
 // 供前端顯示：玩家從者當前魔力收支與所在靈脈（null＝無存活從者）
-function playerServantEconomy_(sheets, pcId) {
-  var data = sheets.pc.getDataRange().getValues();
+function playerServantEconomy_(sheets, pcId, preData) {
+  var data = preData || sheets.pc.getDataRange().getValues();
   var pIdx = -1; for (var i = 1; i < data.length; i++) { if (String(data[i][COL.PC.ID]) === String(pcId)) { pIdx = i; break; } }
   if (pIdx < 0) return null;
   var gid = String(data[pIdx][COL.PC.GAME_ID] || "");
@@ -152,14 +152,23 @@ function playerServantEconomy_(sheets, pcId) {
   var ley = leylineAt_(sheets, loc);
   var rootLoc = loc.split('-')[0].trim();
   var atHome = !!(homeLoc && rootLoc && String(homeLoc).split('-')[0].trim() === rootLoc);
+  // 🏕️ 陣地(工房)：玩家以 setWorkshop 設定的【陣地】marker，駐留該地→供魔工房加成。
+  //   與 applyRegen_(實際時回) 對齊，否則 HUD 顯示不出陣地收益（「陣地效果沒有時回」）。
+  var workshopLoc = ""; try { workshopLoc = getWorkshop_(data[pIdx][COL.PC.MEMORY]); } catch (e) { }
+  var atWorkshop = !!(workshopLoc && rootLoc && String(workshopLoc).split('-')[0].trim() === rootLoc);
   var c = rowToCombatant_(sv);
   var hasTerritory = !!hasFx_(c, 'territory');
-  var eco = servantEconomy_(circuits, c.six, !!hasFx_(c, 'mad'), ley, atHome || hasTerritory);
+  var eco = servantEconomy_(circuits, c.six, !!hasFx_(c, 'mad'), ley, atHome || hasTerritory || atWorkshop);
+  // 🔋 出力電池制：顯示的是「御主MP」收支——維持費依從者出力檔位放大/縮小。
+  var output = servantOutput_(sv[COL.PC.MEMORY]);
+  var drain = Math.round(eco.drain * outputTier_(output).drainMul);
+  var net = eco.income - drain;
   return {
-    income: eco.income, drain: eco.drain, net: eco.net,
+    income: eco.income, drain: drain, net: net,
     supply: eco.supply, ley: eco.ley, workshop: eco.workshop,
     leyLabel: LEYLINE_LABEL_[ley] || "魔力稀薄", loc: rootLoc,
-    atHome: atHome, hasTerritory: hasTerritory, sustainable: eco.net >= 0, circuits: circuits
+    atHome: atHome, hasTerritory: hasTerritory, atWorkshop: atWorkshop, sustainable: net >= 0, circuits: circuits,
+    output: output, outputLabel: outputTier_(output).label
   };
 }
 
@@ -187,27 +196,65 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
   var atWorkshop = !!(workshopLoc && rootLoc && String(workshopLoc).split('-')[0].trim() === rootLoc);
   var hpRate = 0.05 * (avalon ? 1.6 : 1);
   var did = false;
+
+  // 🔋 出力電池制(2026-06)：從者【沒有自有魔力池】——御主MP 是唯一且持續的魔力資源，被同隊從者按「出力檔位」持續抽取。
+  //   先蒐集御主列＋在世同隊從者，再算御主魔力收支：收入(迴路供給+靈脈+工房) − Σ 從者維持費×出力 drainMul。
+  var masterI = -1, svRows = [];
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][COL.PC.GAME_ID] || "") !== gameId) continue;
     if (String(data[i][COL.PC.ID]).startsWith("DEAD_")) continue;
     if (!party[String(data[i][COL.PC.NAME])]) continue;
-    var fac = String(data[i][COL.PC.FACTION]);
-    var hpMax = parseInt(data[i][COL.PC.MAX_HP]) || 0, mpMax = parseInt(data[i][COL.PC.MAX_MP]) || 0;
-    var hp = parseInt(data[i][COL.PC.HP]) || 0, mp = parseInt(data[i][COL.PC.MP]) || 0;
-    var nhp = hpMax ? Math.min(hpMax, hp + Math.round(hpMax * hpRate * hours * mult)) : hp;
-    var nmp = mp;
-    if (fac === "從者" && mpMax) {
-      var c = rowToCombatant_(data[i]);
-      var hasWs = atHome || atWorkshop || !!hasFx_(c, 'territory'); // 居所／已設陣地／自帶陣地作成(Caster)
-      var eco = servantEconomy_(circuits, c.six, !!hasFx_(c, 'mad'), ley, hasWs);
-      var perHour = (eco.income * mult) - eco.drain;  // 休息把收入加倍、維持不變
-      nmp = Math.max(0, Math.min(mpMax, mp + perHour * hours));
-      if (nmp <= 0) nhp = Math.max(1, nhp - Math.round((hpMax || 100) * 0.02 * hours)); // 魔力枯竭反傷靈基
-    } else if (mpMax) {
-      nmp = Math.min(mpMax, mp + Math.round(mpMax * 0.05 * hours * mult)); // 御主等：簡單回魔
-    }
-    if (nhp !== hp || nmp !== mp) { data[i][COL.PC.HP] = nhp; data[i][COL.PC.MP] = nmp; did = true; }
+    if (String(data[i][COL.PC.FACTION]) === "從者") svRows.push(i);
+    else if (masterI < 0) masterI = i;
   }
+
+  // 🔋 共用魔力池：同隊從者魔力 rankVal 總和 → 重算池上限(迴路×6 + 魔力×2) ＋ 從者回魔貢獻(少)。
+  var partyMagicVal = 0;
+  svRows.forEach(function (ri) { var cs = rowToCombatant_(data[ri]); partyMagicVal += rankVal(cs.six['魔力'] || 'E'); });
+
+  // 收入(每小時，靈脈/工房只餵御主一次，不隨從者數倍增)；工房＝居所/已設陣地/任一從者自帶陣地作成(Caster)
+  var anyTerritory = svRows.some(function (ri) { return !!hasFx_(rowToCombatant_(data[ri]), 'territory'); });
+  var hasWs = atHome || atWorkshop || anyTerritory;
+  //   收入 = 御主迴路供給 + 靈脈 + 工房 + 從者魔力回魔(×0.15，比御主少)
+  var income = servantEconomy_(circuits, {}, false, ley, hasWs).income + Math.round(partyMagicVal * 0.15);
+  // 支出(每小時)：Σ 各從者維持費 × 其出力檔 drainMul
+  var totalDrain = 0;
+  svRows.forEach(function (ri) {
+    var cs = rowToCombatant_(data[ri]);
+    var d = servantEconomy_(circuits, cs.six, !!hasFx_(cs, 'mad'), ley, hasWs).drain;
+    totalDrain += d * outputTier_(cs.output).drainMul;
+  });
+
+  // 御主魔力淨收支（休息把收入加倍、維持不變）→ 寫回御主 MP。
+  //   🩸 被動燃血(2026-06)：池見底、時消耗補不上的缺口 → 自動燃命續契約——缺口÷2，同時扣御主HP＋從者HP(平均)。
+  //   不再強制降出力(玩家想少流血就自己節流)；各保底 1 HP(被動 tick 不直接秒死，但會磨成殘血任人宰)。
+  var masterBurn = 0, svBurnEach = 0;
+  if (masterI >= 0) {
+    // 重算共用池上限(把同隊從者魔力併進來)；夾住當前 MP
+    var mMpMax = masterPoolMax_(circuits, partyMagicVal);
+    if (mMpMax !== (parseInt(data[masterI][COL.PC.MAX_MP]) || 0)) { data[masterI][COL.PC.MAX_MP] = mMpMax; did = true; }
+    var mMp = Math.min(parseInt(data[masterI][COL.PC.MP]) || 0, mMpMax);
+    var perHour = (income * mult) - totalDrain;
+    var rawNew = mMp + perHour * hours;                                  // 可能為負＝池補不上的缺口
+    var nMMp = mMpMax ? Math.max(0, Math.min(mMpMax, Math.round(rawNew))) : mMp;
+    var unfunded = (mMpMax && rawNew < 0) ? Math.round(-rawNew) : 0;     // 缺口(mana)，改由血肉支付
+    // 🩸 被動燃血(玩家定 2026-06)：缺口/4 由御主與從者各自分攤(各扣 缺口/4)，比舊版溫和、且雙方共擔。
+    masterBurn = Math.round(unfunded / 4);
+    svBurnEach = svRows.length ? Math.round(unfunded / 4) : 0;
+    var mHpMax = parseInt(data[masterI][COL.PC.MAX_HP]) || 0, mHp = parseInt(data[masterI][COL.PC.HP]) || 0;
+    // 缺口時御主被動燃血扣血(保底1)；否則自我修復
+    var nMHp = unfunded > 0 ? Math.max(1, mHp - masterBurn)
+                            : (mHpMax ? Math.min(mHpMax, mHp + Math.round(mHpMax * hpRate * hours * mult)) : mHp);
+    if (nMMp !== mMp || nMHp !== mHp) { data[masterI][COL.PC.MP] = nMMp; data[masterI][COL.PC.HP] = nMHp; did = true; }
+  }
+
+  // 從者：缺口時被動燃血扣 HP(平均分擔另一半缺口，保底1)；否則靈基自我修復。出力檔＝玩家旋鈕，不在時回變動；無自有魔力池。
+  svRows.forEach(function (ri) {
+    var shpMax = parseInt(data[ri][COL.PC.MAX_HP]) || 0, shp = parseInt(data[ri][COL.PC.HP]) || 0;
+    var snhp = svBurnEach > 0 ? Math.max(1, shp - svBurnEach)
+                              : (shpMax ? Math.min(shpMax, shp + Math.round(shpMax * hpRate * hours * mult)) : shp);
+    if (snhp !== shp) { data[ri][COL.PC.HP] = snhp; did = true; }
+  });
   return did;
 }
 

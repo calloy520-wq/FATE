@@ -53,7 +53,7 @@ var FATE_FAKE_ROSTER = [
   { master: '巴茲狄洛特', hero: '恩奇都-Lancer', loc: '未遠川河畔' },
   { master: '歐蘭多·里夫', hero: '理查一世-Saber', loc: '冬木·深山町' },
   { master: '約翰·溫加德', hero: '阿基里斯-Rider', loc: '冬木·商店街' },
-  { master: '哈魯利', hero: '大仲馬-Caster', loc: '遠坂宅' },
+  { master: '哈魯利', hero: '玉藻前-Caster', loc: '遠坂宅' },
   { master: '繰丘椿', hero: '開膛手傑克-Berserker', loc: '間桐宅' },
   { master: '漢薩·塞爾旺帝斯', hero: '靜謐的哈桑-Assassin', loc: '言峰教會' }
 ];
@@ -87,7 +87,7 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
   var persona = safeJson_(hero[COL.HERO.PERSONA], {});
   var cls = hero[COL.HERO.CLS];
   var nStr = svNum_(six["筋力"]), nCon = svNum_(six["耐久"]), nAgi = svNum_(six["敏捷"]), nInt = svNum_(six["魔力"]), nLuk = svNum_(six["幸運"]);
-  var hp = 300 + svNum_(six["耐久"]) * 12, mp = 120 + svNum_(six["魔力"]) * 6;
+  var hp = 150 + svNum_(six["耐久"]) * 6, mp = 120 + svNum_(six["魔力"]) * 6;
   var row = Array(Object.keys(COL.PC).length).fill("");
   row[COL.PC.ID] = "NPC_" + Date.now() + "_h" + Math.floor(Math.random() * 100000);
   row[COL.PC.NAME] = hero[COL.HERO.NAME];
@@ -126,13 +126,14 @@ function masterToNpcRow_(mr, gameId, loc, faction) {
   row[COL.PC.TRAIT] = parseTraitsHelper(mr[COL.MASTER.PERSONA], "外貌平凡、舉止從容、通曉魔術、深藏心事");
   row[COL.PC.LOC] = loc;
   row[COL.PC.PREF] = parseTraitsHelper(mr[COL.MASTER.PERSONA], "沉著表象、堅定內裡、珍視之物、厭惡之事");
-  var hp = 120, mp = 80;
+  // 🎴 敵御主血魔與玩家御主同制：迴路推算(masterMaxHpMp_)，凡人遠低於從者；正典高迴路怪物(伊莉雅/櫻)才逼近從者級。
+  var mStats = masterMaxHpMp_(parseInt(mr[COL.MASTER.CIRCUITS] || 30));
+  var hp = mStats.hp, mp = mStats.mp;
   row[COL.PC.HP] = hp; row[COL.PC.MP] = mp;
-  // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，HP/MP 由 calculateMaxStats(SIX) 算。
   row[COL.PC.MAX_HP] = hp; row[COL.PC.MAX_MP] = mp; row[COL.PC.REALM] = "";
   row[COL.PC.INTENT] = String(mr[COL.MASTER.MOE] || "");
   row[COL.PC.FACTION] = faction; row[COL.PC.RANK] = "御主";
-  row[COL.PC.MEMORY] = `【願望】${mr[COL.MASTER.WISH] || ""}｜【魔術】${mr[COL.MASTER.MAGIC] || ""}`;
+  row[COL.PC.MEMORY] = `【願望】${mr[COL.MASTER.WISH] || ""}｜【魔術】${mr[COL.MASTER.MAGIC] || ""}｜【迴路】${parseInt(mr[COL.MASTER.CIRCUITS] || 30)}`;
   row[COL.PC.GAME_ID] = gameId;
   return row;
 }

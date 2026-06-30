@@ -78,6 +78,122 @@ function fateMaxHpMp_(con, mag) {
   };
 }
 
+// 🎴 御主(凡人魔術師)HP/MP：唯一核心數值＝魔術迴路(財力/身世決定)。
+//   🔋 共用魔力池制(2026-06)：從者【沒有獨立魔力池】，與御主共用一個魔力池(存御主MP)。
+//   池上限 = 御主迴路×6 ＋ 同隊從者魔力×2(見 masterPoolMax_)；召喚/時回時重算把從者魔力併進來。
+//   masterMaxHpMp_ 只給「尚無從者」的基底(迴路×6)；血(肉身，焚血/補魔備援)由迴路×2。
+function masterMaxHpMp_(circuits) {
+  var c = parseInt(circuits) || 30;
+  return {
+    hp: 100 + c * 2,
+    mp: c * 6
+  };
+}
+
+// 🔋 共用魔力池上限 = 御主迴路×6 ＋ 同隊從者魔力 rankVal 總和×2。
+//   魔力高的從者(Caster/Saber 魔A)擴充共用槽；魔力低者(Assassin 魔E)幾乎只靠御主迴路。
+function masterPoolMax_(circuits, partyMagicVal) {
+  return (parseInt(circuits) || 30) * 6 + (parseInt(partyMagicVal) || 0) * 2;
+}
+
+// 🔋 從者靈基出力檔位（玩家手動旋鈕，存從者 MEMORY【出力】）：從者無自有魔力，靠御主供魔的「出力」決定戰力與耗魔。
+//   檔位→{ hit 命中加減, dmgMul 傷害乘子, drainMul 御主每小時維持費乘子, np 是否可解放寶具, label }。
+//   100% 全開最強但燒御主最兇、且唯一能放寶具的檔；60% 基準無加成；20% 僅維持靈基、低出力有明顯懲罰。
+var OUTPUT_TIERS_ = {
+  100: { hit:  3, dmgMul: 1.30, drainMul: 2.0, np: true,  label: '全開' },
+  80:  { hit:  1, dmgMul: 1.10, drainMul: 1.5, np: false, label: '高壓' },
+  60:  { hit:  0, dmgMul: 1.00, drainMul: 1.0, np: false, label: '巡航' },
+  40:  { hit: -2, dmgMul: 0.85, drainMul: 0.6, np: false, label: '節流' },
+  20:  { hit: -5, dmgMul: 0.70, drainMul: 0.3, np: false, label: '維持' },
+};
+// 把任意百分比吸附到最近的合法檔位（20/40/60/80/100）。
+function snapOutput_(pct) {
+  var p = parseInt(pct); if (isNaN(p)) return 60;
+  var tiers = [20, 40, 60, 80, 100], best = 60, bd = 999;
+  for (var i = 0; i < tiers.length; i++) { var d = Math.abs(tiers[i] - p); if (d < bd) { bd = d; best = tiers[i]; } }
+  return best;
+}
+function outputTier_(pct) { return OUTPUT_TIERS_[snapOutput_(pct)] || OUTPUT_TIERS_[60]; }
+// 讀從者 MEMORY 的【出力】檔位（無則預設 60 巡航）。
+function servantOutput_(memory) {
+  var m = String(memory || "").match(/【出力】(\d+)/);
+  return m ? snapOutput_(m[1]) : 60;
+}
+// 寫/改 MEMORY 的【出力】檔位，回傳新 memory 字串。
+function setServantOutput_(memory, pct) {
+  var p = snapOutput_(pct);
+  var mem = String(memory || "");
+  if (/【出力】\d+/.test(mem)) return mem.replace(/【出力】\d+/, '【出力】' + p);
+  return mem ? (mem + '｜【出力】' + p) : ('【出力】' + p);
+}
+
+// 🌟 多寶具英靈：玩家選「解放哪個寶具」的索引，存從者 MEMORY【寶具選】N（預設 0＝主寶具）。
+function npChoice_(memory) {
+  var m = String(memory || "").match(/【寶具選】(\d+)/);
+  return m ? parseInt(m[1]) : 0;
+}
+function setNpChoice_(memory, idx) {
+  var i = Math.max(0, parseInt(idx) || 0);
+  var mem = String(memory || "").replace(/｜?【寶具選】\d+/g, '');
+  return mem ? (mem + '｜【寶具選】' + i) : ('【寶具選】' + i);
+}
+
+// 🔯 原初符文運用方式（玩家可選）：def 減傷(預設·受傷時生效)／dmg 增傷(出擊時生效)／regen 回血(每回合)。存從者 MEMORY【符文】。
+var RUNE_MODES_ = ['def', 'dmg', 'regen'];
+function runeMode_(memory) {
+  var m = String(memory || "").match(/【符文】(def|dmg|regen)/);
+  return m ? m[1] : 'def';
+}
+function setRuneMode_(memory, mode) {
+  var mode2 = (RUNE_MODES_.indexOf(String(mode)) >= 0) ? String(mode) : 'def';
+  var mem = String(memory || "").replace(/｜?【符文】(def|dmg|regen)/g, '');
+  return mem ? (mem + '｜【符文】' + mode2) : ('【符文】' + mode2);
+}
+
+// 🐕 主從synergy（原作設定「御主供魔／契合度提升從者能力」）：特定主從組合回到全盛六圍。
+//   目前只：恩奇都 ↔ 巴茲狄洛特（獵犬御主）→ 全能力 A、寶具 A++。其餘御主（含玩家自召）下恩奇都維持削弱基線。
+//   讀從者列 MEMORY【御主】名判定；在 rowToCombatant_ 套用。要擴充別的主從組合就往這加。
+function masterSynergySix_(name, six, memory) {
+  var mm = String(memory || "").match(/【御主】([^｜]+)/);
+  var mName = mm ? mm[1] : "";
+  if (/恩奇都/.test(String(name)) && /巴茲狄洛特/.test(mName)) {
+    return { 筋力: 'A', 耐久: 'A', 敏捷: 'A', 魔力: 'A', 幸運: six['幸運'] || '-', 寶具: 'A++' };
+  }
+  return six;
+}
+
+// 🔮 魔境的智慧（斯卡哈專屬·玩家可選被動）：影之國女王通曉常見武技，玩家點選【1 個】通用 A 階被動標籤套用。
+//   只給「有階級的常見被動」——不含原初符文(她本有)、不含無階級特性、不含寶具/簽名級招式。存從者 MEMORY【魔境】fx。
+//   注入點：rowToCombatant_（戰鬥讀取時把選定標籤加進 skills，r 固定 A）。前端只對有 mage_realm 的從者露出選盤。
+function mageRealmPool_() {
+  return [
+    { fx: 'nullify_magic', n: '對魔力',   r: 'A', icon: '🛡️', desc: '受魔力系傷害大幅衰減（對魔法的抗性）。' },
+    { fx: 'str_up',        n: '怪力',     r: 'A', icon: '💪', desc: '瞬間強化肌力，近身傷害顯著提升。' },
+    { fx: 'analyze',       n: '心眼（真）', r: 'A', icon: '👁️', desc: '經驗累積的洞察，先機與命中俱增。' },
+    { fx: 'clear_mind',    n: '透化',     r: 'A', icon: '🧘', desc: '心如明鏡，不受鼓舞威壓等精神干擾。' },
+    { fx: 'tactics',       n: '軍略',     r: 'A', icon: '📐', desc: '對軍寶具的運用更精準，寶具威力加成。' },
+    { fx: 'self_mod',      n: '自我改造', r: 'A', icon: '🔧', desc: '改造己身，命中與傷害小幅穩定提升。' },
+  ];
+}
+// 查某 fx 是否在魔境可選池內，回傳該池項目（含 n/icon/desc）或 null。
+function mageRealmEntry_(fx) {
+  var pool = mageRealmPool_();
+  for (var i = 0; i < pool.length; i++) { if (pool[i].fx === String(fx)) return pool[i]; }
+  return null;
+}
+// 讀從者 MEMORY 的【魔境】選定 fx（無則 ''）。
+function mageRealmPick_(memory) {
+  var m = String(memory || "").match(/【魔境】([a-z_]+)/);
+  return (m && mageRealmEntry_(m[1])) ? m[1] : '';
+}
+// 寫/改 MEMORY 的【魔境】選定 fx，回傳新 memory 字串（fx 空字串＝清除選擇）。
+function setMageRealmPick_(memory, fx) {
+  var mem = String(memory || "");
+  var clean = mem.replace(/｜?【魔境】[a-z_]+/g, '');
+  if (!fx) return clean;
+  return clean ? (clean + '｜【魔境】' + fx) : ('【魔境】' + fx);
+}
+
 // 🎴 從一列的六圍 SIX 推 HP/MP（耐久→con、魔力→mag）。
 function maxStatsForRow_(row) {
   var six = {}; try { six = JSON.parse(row[COL.PC.SIX] || "{}"); } catch (e) { }
@@ -169,31 +285,27 @@ function maskPhysicalStatus(jsonStr, isNsfwMode) {
   } catch (e) { return "{}"; }
 }
 
-function buildPlayerStatusString(selfRow, totals, itemData, relMem = "", isNsfwMode = false) {
-  // 🗑️ FATE 已棄用 裝備(WEP/ARM/ACC1/ACC2) 與 生活技能(LIFESKILL)：§ 位置保留空字串、不再讀那些欄，
-  //   前端 s[N] 契約完全不動(零風險)，依賴解除後該些欄即可於 schema 重建時安全刪除。
+function buildPlayerStatusString(selfRow, relMem = "", isNsfwMode = false) {
   const safeMemory = String(selfRow[COL.PC.MEMORY] || "").replace(/\|/g, '@@@');
   const safeRelMem = String(relMem || "").replace(/\|/g, '@@@');
   const maskedPhysical = maskPhysicalStatus(selfRow[COL.PC.PHYSICAL] || "{}", isNsfwMode);
   const safePhysical = String(maskedPhysical).replace(/§/g, '###');
   const visibleStatusStr = buildVisibleStatusString(selfRow[COL.PC.STATUS]);
 
+  // 位置索引固定（§ 協議），s[7-16] 為廢棄的九州五圍/裝備/境界欄，填空保持前端定位不位移。
   return [
     visibleStatusStr, "", selfRow[COL.PC.TRAIT], selfRow[COL.PC.LOC], selfRow[COL.PC.PREF],
-    selfRow[COL.PC.HP], selfRow[COL.PC.MP], totals ? totals.STR : "", totals ? totals.CON : "",
-    totals ? totals.AGI : "", totals ? totals.INT : "", totals ? totals.LUK : "",
-    "", "", "", "", selfRow[COL.PC.REALM], safeMemory, safeRelMem, selfRow[COL.PC.FACTION],
+    selfRow[COL.PC.HP], selfRow[COL.PC.MP], "", "", "", "", "",
+    "", "", "", "", "", safeMemory, safeRelMem, selfRow[COL.PC.FACTION],
     selfRow[COL.PC.RANK], selfRow[COL.PC.ALIGN], selfRow[COL.PC.CONTRIB], selfRow[COL.PC.BACK], safePhysical,
     selfRow[COL.PC.INTENT], selfRow[COL.PC.MARTIAL], ""
   ].join('§');
 }
 
 function getFreshStatusString(targetId, pIdx, sheets) {
-  SpreadsheetApp.flush();
+  // getValues() 本身會 flush pending 寫入，無需額外 SpreadsheetApp.flush()（省一次強制 commit）。
   const freshPcData = sheets.pc.getDataRange().getValues();
-  const totals = getCharacterTotalStats(targetId, sheets, freshPcData);
-  const freshItemData = sheets.item ? sheets.item.getDataRange().getValues() : [];
-  return buildPlayerStatusString(freshPcData[pIdx], totals, freshItemData);
+  return buildPlayerStatusString(freshPcData[pIdx]);
 }
 
 function getMapDataCached(sheets) {
@@ -217,11 +329,9 @@ function getCharacterTotalStats(charId, sheets, cachedPcData = null, cachedItemD
   const fromSix_ = (k) => svNum_(six[k] || "E");
   let baseSTR = fromSix_("筋力"), baseCON = fromSix_("耐久"), baseAGI = fromSix_("敏捷"), baseINT = fromSix_("魔力"), baseLUK = fromSix_("幸運");
 
-  // 🗑️ 裝備系統亦已棄用：回傳維持原形狀(WEP/wepSTR/armCON/wepName/armName 供下游沿用)，恆為空/0。
   return {
     id: charId, name: row[COL.PC.NAME], hp: parseInt(row[COL.PC.HP]) || 100, maxHp: parseInt(row[COL.PC.MAX_HP]) || 100,
-    STR: baseSTR, CON: baseCON, AGI: baseAGI, INT: baseINT, LUK: baseLUK,
-    WEP: "", ARM: "", wepSTR: 0, armCON: 0, wepName: "", armName: ""
+    STR: baseSTR, CON: baseCON, AGI: baseAGI, INT: baseINT, LUK: baseLUK
   };
 }
 

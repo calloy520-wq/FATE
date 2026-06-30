@@ -34,6 +34,8 @@
         <p style="color:#9a7f8c; font-size:10.5px; text-align:center; margin:0 0 9px;">直接回到你們的後日談時光，再用 👥 同伴面板邀她入席（贏過才有人可約）</p>
         <button class="btn" style="width:100%; margin-bottom:7px; padding:12px; border-color:#c87896; color:#e8b8cc;" onclick="enterKanshou()">🌹 進入鑑賞</button>
         <button class="btn" style="width:100%; padding:7px; border-color:#5a6a8a; color:#8a9ac0; font-size:11px;" onclick="devSeedGallery()">🧪 DEV：產生測試從者（還沒奪杯也能測）</button>
+        <button class="btn" style="width:100%; margin-top:7px; padding:7px; border-color:#6a8a5a; color:#9ac08a; font-size:11px;" onclick="devResyncCodex()">🔄 DEV：套用最新平衡到現有從者（寶具/標籤更新）</button>
+        <button class="btn" style="width:100%; margin-top:7px; padding:7px; border-color:#8a6a5a; color:#c0a08a; font-size:11px;" onclick="devPurgeOrphans()">🧹 DEV：清殘列（刪孤兒戰局／加速操作）</button>
       </div>
 
       <!-- 多人：以排行榜形式呈現（帳號為單位、撈持久層） -->
@@ -236,7 +238,6 @@
       <h2 class="sheet-title">
         <span id="ui-name" style="font-size: 24px;">--</span>
         <span id="ui-sex" style="font-size: 14px; color: #555; border: 1px solid #555; padding: 0 4px; border-radius: 3px; margin-left: 5px;">--</span>
-        <span id="ui-realm" data-mode="full" style="font-size: 14px; color: var(--gold-accent); border: 1px solid var(--gold-accent); padding: 0 6px; border-radius: 4px; margin-left: 8px;">凡人</span>
       </h2>
 
       <div class="status-flex-container" style="display: flex; gap: 8px; margin-bottom: 12px; align-items: stretch;">
@@ -257,18 +258,6 @@
               <span>📍 位置</span>
               <b id="ui-loc" style="color:#2e8b57; font-size:11px; display:block; max-width:55px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="位置">--</b>
             </div>
-            <div class="stat-box" style="padding:3px 2px;">
-              <span>💰 資金</span><b id="ui-money" style="color:#b8860b; font-size:12px;">--</b>
-            </div>
-          </div>
-
-          <div data-mode="full"
-            style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.04); border-radius: 4px; padding: 4px 6px; margin-top: 6px; font-size: 11px;">
-            <div title="臂力">💪<b id="ui-str" style="color:#b22222; margin-left:2px;">--</b></div>
-            <div title="根骨">🦴<b id="ui-con" style="color:#8b4513; margin-left:2px;">--</b></div>
-            <div title="身法">🍃<b id="ui-agi" style="color:#2e8b57; margin-left:2px;">--</b></div>
-            <div title="神識">👁️<b id="ui-int" style="color:#4169e1; margin-left:2px;">--</b></div>
-            <div title="福緣">🍀<b id="ui-luk" style="color:#d4af37; margin-left:2px;">--</b></div>
           </div>
         </div>
 

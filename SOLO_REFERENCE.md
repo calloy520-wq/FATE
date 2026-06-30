@@ -84,17 +84,21 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | update_fate | actionUpdateFate | 創角生成御主（身世/願望/魔術→屬性/禮裝/MEMORY） |
 | summon_servant | actionSummonServant | 召喚從者（從英靈殿抓真名/六圍/技能→眾生列）。**種子英靈直接用寫死 persona(萌點/口吻)、不叫 AI**(省一次 API、加速)；只有名冊查無的自訂/未知英靈才走 AI 即時生成(else 分支)。**敘事8格**：個性(PREF)讀 `persona.words`、**特徵(TRAIT)讀 `persona.look`**(35 位種子皆手寫4格 外貌/氣質/自稱/卸下心防私密一面，召喚/鋪敵 直接用、AI原創走通用預設、不再被戰鬥特性污染)。 |
 | get_heroes / get_masters | — | 創角選單列出可選英靈/正典御主 |
-| get_tags | actionGetTags | **左側狀態面板資料**：御主HP/MP/令咒/願望、從者陣列(六圍/技能/羈絆/寶具)、供魔收支、禮裝、破戒能力 |
+| get_tags | actionGetTags | **左側狀態面板資料**：御主HP/MP/令咒/願望、從者陣列(六圍/技能/羈絆/寶具)、供魔收支、禮裝、破戒能力。**⚡ 核心邏輯抽成 `buildTagsPayload_(sheets,pcId,preData,preRel)`**(可吃已讀好的整表免重讀)；`sync` 回應已夾帶 `tags:` 同份 payload，前端 `refreshFateTags(data.tags)` 直接用、不再單獨打 get_tags。**效能鐵則：一次按鍵原本 3 趟 round-trip(action→sync→get_tags)→現 1 趟**。機制：①`buildClientState_(sheets,pcId)`＝完整刷新 blob(statusString/people/locations/clock/ap/economy/tags，先 markRivalsSeen_ 再讀、整表+rel 只讀一次下傳共用)，`actionSync` 即回它。②dispatcher 對 `STATE_AFTER_ACTIONS` 白名單動作(fate_battle/mana_supply/move/rest/scavenge/scout/bond… 凡前端事後會整頁 syncData 者)＋ `PC_` 御主，自動把 `_state:buildClientState_()` 夾進回應。③前端 `gasRun` 暫存 `data._state`→`__pendingState`，`syncData` 優先消費它(`applyClientState`)、沒有才打真 sync(graceful fallback)。**不列入白名單**：樂觀 setter(set_servant_output/mage_realm/rune_mode/np_choice 不 syncData、只吃 res.economy)。`playerServantEconomy_(sheets,pcId,preData)`／`getFreshStatusString`(已拔冗餘 flush) 同理。改這幾支前先想清楚別把整表重讀或多餘 round-trip 加回來。 |
 | fate_battle | actionFateBattle | **核心戰鬥**：D20＋寶具＋令咒＋斬首＋雙從者＋協同強襲（見 §4） |
 | use_seal | actionUseSeal | 令咒固定選單：修復/補魔/緊急脫離 |
-| mana_supply | actionManaSupply | 補魔：御主→從者回魔+羈絆+SFW fade（耗1AP，卸防可能被突襲） |
-| blood_supply | actionBloodSupply | 🩸燃血補魔(血→魔)：御主扣 HP(~18%maxHP，留 15% 安全線)→從者大量回魔(~70%maxMP)+羈絆+5。御主 HP 休息回復(applyRegen ~5%/hr)。耗1AP、卸防可能被突襲。SFW 悲壯非情慾。 |
+| mana_supply | actionManaSupply | 補魔(燃迴路)：硬擠迴路回滿共用池，**永久代價** maxHP−5~10、迴路−1~2(地板迴路8/HP40)+羈絆+SFW fade（耗1AP，卸防可能被突襲）。過度＝慢性自盡。 |
+| ~~blood_supply~~ | (已移除) | 🩸燃血改【被動】：池見底時 applyRegen_ 自動燃御主＋從者HP續契約(缺口÷2同扣)。主動 action/按鈕/函數皆已刪。 |
+| set_servant_output | actionSetServantOutput | 🔋設從者靈基出力檔(20/40/60/80/100，存 MEMORY【出力】)。免費即時不耗AP。決定戰力＋御主每小時維持費；100% 才能放寶具。 |
+| set_mage_realm | actionSetMageRealm | 🔮魔境的智慧(斯卡哈專屬)：玩家點選 **1 個通用 A 階被動 fx**(`mageRealmPool_`：對魔力/怪力/心眼/透化/軍略/自我改造)，存 MEMORY【魔境】fx；fx 空字串＝清除。免費即時不耗AP。`rowToCombatant_` 戰鬥時注入 skills(r:'A')。只接受持 `mage_realm` 的從者。 |
+| set_np_choice | actionSetNpChoice | 🌟多寶具英靈：玩家點寶具時選「解放哪個」，存 MEMORY【寶具選】N(預設0=主寶具)。`servantNpOptions_(name,cls)`(Engine_Fate 中央表：斯卡哈L/金閃/EMIYA/伊斯坎達爾…)定義每英靈的寶具清單{n,scale,fx,desc}。`npProfile_(c)`解出本次解放的{scale,fx}：多寶具讀 c.npChoice 選定項，單寶具退回字串尺度＋`firstSignatureFx_`。`resolveFateBattle_` 簽名效果(gae_bolg必中/ea執行殺/ubw/zabaniya/summon_horror/petrify/scaleMult)一律改吃 npProfile→選對寶具才生效。前端寶具鈕→`openNpReleasePicker`(>1才彈)→`pickNpAndStrike`(set_np_choice→servantStrike npPicked)。免費即時。 |
+| set_rune_mode | actionSetRuneMode | 🔯原初符文運用(持 rune 者)：玩家選 **def 減傷/dmg 增傷/regen 回血**，存 MEMORY【符文】mode(預設 def)。`runeMode_`/`setRuneMode_`(Core_Settings)。`rowToCombatant_`→c.runeMode；`resolveFateBattle_`：def loser減傷10%×階／dmg winner增傷10×階；regen 在 `actionFateBattle` 回合迴圈回血 5%×階/回合。get_tags 給 `runeMode`。免費即時。 |
 | bond | actionBond | 羈絆互動(閒聊/共餐/特訓/夜談)，每種每日一次升羈絆 |
 | use_mystic | actionUseMystic | 發動主動禮裝（吃迴路/耗魔/扣充能，對敵造魔力傷害） |
 | rule_break_steal | actionRuleBreakSteal | 破戒奪僕：打殘敵從者(HP<35%)+燃令咒→奪為第二從者(上限2) |
 | propose_alliance / break_alliance / ally_bond | 同盟系 | 結盟/撕毀/與盟友共處(見 §8) |
-| set_workshop / scavenge | 陣地系 | 設陣地(提升供魔)／搜索物資 |
-| second_wind | actionSecondWind | 0-AP 死局：扣~20%血換+4AP，每日一次(【強撐】D) |
+| set_workshop / scavenge | 陣地系 | 設陣地(提升供魔)／搜索物資(主情報、順手撿零星魔力 ~10%/地、同地搜過枯竭剩 3%；標記【搜刮】loc，防站樁刷魔) |
+| second_wind | actionSecondWind | 0-AP 死局保命解：扣~20%上限血換+4AP，**不耗AP·可重複**(2026-06 移除每日一次限制——血才是天然煞車，HP≤cost 才擋；唯 AP 近滿時擋)。不推進時間、不燒令咒 |
 | scout | actionScout | 偵查：揭露同地敵蹤(設 SEEN，**敵移位後不再清 SEEN→已偵查者持續可見**) |
 | prep_meal | actionPrepMeal | 🍱 整備·進食(戰前 buff)：耗1AP，御主 MEMORY 記`【整備至】<絕對小時>`，效期內從者出擊命中 +`MEAL_BUFF_BONUS`(2)約`MEAL_BUFF_HOURS`(8)小時。solo 無道具欄/商城，食物抽象供給。`fateStrike_` 讀 `mealBuffActive_` 把 `mealBuff` 傳進 `resolveFateBattle_`(Engine_Fate.gs 加 aHit)。前端 `prepMeal()`＋戰場行動列「🍱 整備」鈕 |
 | get_map_nodes / get_all_categorized_maps | 地圖 | 地圖節點＋敵蹤(吃 SEEN 迷霧；有盟友→`hasAllyInGame_`全揭露) |
@@ -123,17 +127,43 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 ### 命中/技能
 - `hasFx_(c,'xxx')`：該角色技能是否帶此 fx。`fxName_(c,'xxx')`：回傳實際技能名(防張冠李戴)。`hasTrait_`：特性(神性/王…)。
 - `resolveFateBattle_(atk,def,opts)`：單次交手裁決。處理的 fx 標籤：
-  `aim analyze anti_magic_lance burst chain clear_mind divine_age divine_core ea evade_ranged excalibur first_strike gae_bolg gob mad morale nullify_magic petrify projection ride self_mod stealth str_up tactics territory tsubame ubw unreadable wind_strike zabaniya`
+  `aim analyze anti_magic_lance burst chain clear_mind divine_age divine_core ea evade_ranged excalibur first_strike gae_bolg gob mad morale nullify_magic petrify projection ride self_mod stealth str_up summon_horror tactics territory tsubame ubw unreadable wind_strike zabaniya`
+  - **🐙 summon_horror(螺湮城教本／青鬍子，2026-06)**：`npAtkScale_`＝對城＋寶具傷 ×1.6+8d10+50。**＋常駐召喚物(actionFateBattle)**：玩家青鬍子解放寶具→召「深淵海怪」(筋A耐A巨獸 horrorC)常駐戰場，每回合與本人並肩追擊一擊、每回合扣御主MP `HORROR_UPKEEP`(30)維持；御主魔力撐不住→海怪潰散退場。海怪攻擊走 `fateStrike_(horrorC...)`、進 rl.strikes(戰報自動顯示)。青鬍子寶具模式 1%→23%；普通/技能仍0%(無寶具=無海怪，gimmick召喚師)。
+- **📊 全戰鬥都有戰報卡(2026-06)**：① `renderFateBattleReport` 舊 guard `!r.rounds` 會擋掉【無回合】的斬首/突襲報(等於斬首戰報一直沒顯示)→改 `if(!r)`。② 新增**突襲戰報卡**(`r.ambush`)：`enemyAmbushOnServant_` 回 `out.report{ambush,enemyName,svName,dmg,after,svHpMax,destroyed,defeat}`，rest/mana_supply/scavenge/scout 四個 caller 都把 `report` 帶回前端並 `renderFateBattleReport`＋補 defeat 處理。
+- **🎬 AI 敘述瘦身(2026-06)**：戰鬥/斬首 prompt 由「★務必演出X」一長串指令 → 改【事實素材列(·)＋單行收尾steer】，給 AI 數據讓它自己演(show-don't-tell)，不報菜名、不堆指令。海怪/對轟/令咒/電池/十二試煉/盟友皆改為事實行。
+  - **🗑️ 移出種子(2026-06)**：`大仲馬-Caster`(亞歷山大·仲馬)＋`漢斯-Watcher`(安徒生)——純支援·無攻擊寶具(1v1 恆敗、非戰鬥從者)，移出 SEED_SERVANTS。FATE_FAKE_ROSTER 的偽戰 Caster 由大仲馬改派`玉藻前-Caster`。種子 35→33。
   含：職階相剋三角(KNIGHT_BEATS +命中+傷害)、對魔力減魔砲、territory 防壁、divine_age 繞 MR、zabaniya 致命(×1.9+70)、gae_bolg 因果必中、petrify 石化、projection 被動加成(EMIYA) 等。
+- **🎴🎯 六圍降權＝角色速寫(2026-06核心哲學)**：TYPE-MOON 官方：參數是「讓人理解這從者」的速寫，非戰力試算表(庫丘林六圍頂尖卻幸運E→運氣/故事才是裁判)。舊版命中/迴避用 `rankVal`(差距50)當主導項→差兩階就鎖死→必然極化(模擬 76% 越界)。修正：
+  - **命中** `= d20 + rankTier(hitStat)×K_STAT(2.5) + rand(-3~3) + outMod`（hitStat：Caster魔力/其餘敏捷）。階差壓到~12，d20(運氣)重新主導。
+  - **迴避** `= d20 + (rankTier(敏)×0.65+rankTier(耐)×0.35)×2.5 + rand(-3~3)`：拆「敏捷雙吃」＋降權。
+  - **傷害 flat** `rankVal×0.8→×0.6`：避免高階一發轟死。
+  - 模擬結果：普通/技能 **76%→29% 越界**(大多對局回 28~77% 健康區)；寶具 74%→52%(climactic NP 層較swingy屬正常)。
+- **🍀 幸運上演逆轉(2026-06)**：自指變異(非對拼)——低運(≤D)每擊 8% 失手(-10)、高運(≥A)8% 福星(+8)。製造爆冷與劇情感(庫丘林詛咒/Saber福星)，不讓高運方持續輾壓。
+- **🔧 平衡補丁(2026-06)**：①`divine_age`(神代魔術)＝**完全無視**對魔力(原只半減)，救美狄亞；②`fast_cast`(高速詠唱)+12×rankMul 傷害；③`ubw`(無限劍製)`npAtkScale_`＝**對城**級(規模階5→可多燒狂戰十二試煉命，救 EMIYA 對狂戰；非對界，避免對人一發秒)；④`npBaseDice_` 下修(A20→13d10/EX30→18d10…)；⑤`NP_SCALE_MATRIX` 壓縮(max ×3.0→1.7)避免大規模寶具秒小規模。
 - **🎲 D&D 傷害骰(2026-06)**：`rollDice_(n,sides)`＋`rankTier_(r)`(E1→EX6)。
   - 武器骰(每擊)：`base = round(rankVal(主屬性)*0.5) + rankTier d8 + 命中分差*1.2 − 耐久/2`。
   - 暴擊(擲20)：多骰一輪 `rankTier d8 +12`(取代舊固定 +30)。
   - 寶具骰：`npBaseDice_(寶具階)`＝E3d10/D5d10/C8d10/B12d10/A20d10/(A+·A++)22d10/EX30d10；另加 `rankVal(寶具)*0.6+10`。
   - ⚠ **EX 嚴格判定(2026-06 修)**：`rankVal('A++')=60` 與 EX 同值，故 `npBaseDice_/npPranaCost_` 改用字串 `/EX/` 認 EX；**A++ 算 A 階**(22d10/prana500)，否則 Saber 誓約勝利之劍(A++)會被收 EX prana800 而永遠放不出。
 - **🔱 概念優先權 Priority(2026-06)**：`CONCEPT_TIER{}`(ea6 / excalibur·divine_age·rule_breaker5 / ubw·anti_magic_lance·gae_bolg4 / god_hand·tsubame·zabaniya·petrify3 / nullify_magic·divine_core·territory2)。`offenseTier_(c,isNp)` 取攻方最高進攻概念階；`pierces(防禦fx)`＝攻方階≥防禦階+`PIERCE_GAP`(2)→該防禦(territory/神核/對魔力)被無視(概念壓制)。把舊「破魔無視神核」系統化＋ ea 凌駕一切。
-- **🏰 寶具規模相剋矩陣(2026-06)**：`npAtkScale_`(對人/對軍/對城/對界，由寶具名或 ea/excalibur 推)×`npDefScale_`(由 ubw/神核/god_hand/territory 推) → `NP_SCALE_MATRIX` 倍率(對城打對人×2.5、對界×3.0…0x 以 Math.max(1)保底)。`ea` 寶具：×1.7+4d12+80。
-- **⚡ 從者專屬主動技(2026-06)**：`servantActiveSkill_(c)` 依 fx 簽名給一個本戰增益(burst→傷×1.3 / stealth→命中+6傷×1.15 / str_up→傷+14 / aim·projection→命中+6傷+10 / morale→命中+3傷+8 / self_mod→命中+4傷+6 / 預設→集中命中+5)。`{id,name,icon,mpPct,hit,dmgMul,dmgAdd,desc}`。`resolveFateBattle_` 讀 `opts.skill`：命中端加 hit；傷害端(僅攻方勝)套 dmgMul/dmgAdd。`actionFateBattle` 讀 `userData.skill`→啟動耗魔 `mpPct*maxMP`(走 drainForNp_ 電池)→傳 `skill:isActive?skillBuff:null` 給我方每擊，並進 clash pPow。前端 `servantStrike(...,useSkill)`＋「⚡ 主動技」鈕＋戰報卡技能行。
-- **🔋 御主電池(2026-06)**：`npPranaCost_(寶具階)`＝E50/D100/C200/B350/(A·A+·A++)500/EX800(僅字串 EX)。`drainForNp_(sheets,pcData,svIdx,masterIdx,mpCost)`：付款序 ①從者MP ②御主MP(1:1) ③御主HP(`BATTERY_HP_PER_MP`=2HP→1MP，御主血底線1)。回 `{fromSv,fromMasterMp,fromMasterHp,usedBattery,bledMaster,...}`。寫進 report.battery＋aiPrompt【御主電池】星標＋前端血條。三者皆空才擋寶具。
+- **🏰 寶具規模相剋矩陣(2026-06)**：`npAtkScale_`(對人/對軍/對城/對界，由寶具名或 ea→對界/excalibur·ubw→對城 推)×`npDefScale_`(由 ubw/神核/god_hand/territory 推) → `NP_SCALE_MATRIX` 倍率(**已壓縮：對城打對人×1.5、對界×1.7、min×0.4**；非舊×2.5/3.0)。`ea` 寶具：×1.7+4d12+80。
+- **🔋🔋 出力電池制(2026-06 大改·玩家定案)**：**從者【沒有自有魔力池】**(召喚時 MP/MAX_MP=0)，全靠御主供魔。**御主MP＝唯一且持續的魔力資源(電池)**。從者有「靈基出力檔位」(玩家旋鈕，20/40/60/80/100，存從者 MEMORY【出力】，預設60巡航)：
+  - `outputTier_(pct)`(Core_Settings)→`{hit,dmgMul,drainMul,np,label}`五檔：100%(+3/×1.3/×2.0/可放寶具/全開)、80%(+1/×1.1/×1.5/高壓)、60%(0/×1.0/×1.0/巡航)、40%(-2/×0.85/×0.6/節流)、20%(-5/×0.7/×0.3/維持)。`snapOutput_`吸附、`servantOutput_(memory)`讀、`setServantOutput_(memory,pct)`寫。
+  - `resolveFateBattle_`：`atk.output`(rowToCombatant_ 從 MEMORY 讀)→`outMod=outTier.hit`(命中)；勝方傷害 `base×outputTier_(winner.output).dmgMul`。
+  - **寶具僅出力 100% 可解放**(`actionFateBattle` 閘：`servantOutput_<100`→擋並提示)。前端 `servantStrike(useNp)` 自動先 `set_servant_output:100`(解放寶具＝全開)。
+  - **set_servant_output** action→`actionSetServantOutput`(免費即時，不耗AP)。前端從者卡「🔋靈基出力轉盤」5鈕；`get_tags` servant 物件帶 `output/outputLabel`。
+- **👑 王之財寶(gob) 常駐被動(2026-06)**：吉爾伽美什不再把 gob 當主動技——`resolveFateBattle_` 內**每擊**命中+5 ＋ `gobVolley_()`(50d3 捨去1，EV≈83)無盡兵裝彈幕傷害，不論模式都壓制全場。模擬：金閃普通模式對全場 31%→**80%**(回到 top3，貼合原作「最強之一」)。其主動技槽自動落到鼓舞(morale)。
+- **⚡ 從者專屬主動技(2026-06)**：`servantActiveSkill_(c)` 依 fx 給本戰增益(burst→傷×1.3 / stealth→命中+6傷×1.15 / str_up→傷+14 / aim·projection→命中+6傷+10 / morale→命中+3傷+8 / self_mod→命中+4傷+6 / 預設→集中命中+5)。`actionFateBattle` 啟動耗魔 `200×mpPct`(出力電池制：固定基準，非已廢的從者池)→`drainForNp_` 抽御主。前端「⚡ 主動技」鈕。
+- **🌟 乖離劍·執行殺(ea／英雄王，2026-06)**：`resolveFateBattle_` 開頭——**僅 `opts.np`(解放寶具，即出力100%)＋英雄王【自身】血量≤40% 才觸發**(傲慢→認真)。傷害 `寶具rankVal×4＋6d12＋200`、必中越防、early-return。血量足走常規寶具(×1.7)。⚠ 舊「對面血≤30%免費每擊觸發」bug 已修正。
+- **🔋 御主電池付款(2026-06 出力制)**：`npPranaCost_(寶具階)`＝**E40/D70/C110/B160/(A·A+·A++)220/EX300**(對齊御主池迴路×8≈240：A階≈耗盡滿池、EX須再焚血；EX/EA 極罕見)。`drainForNp_(sheets,pcData,svIdx,masterIdx,mpCost)` 付款序 **①御主MP ②御主HP**(`BATTERY_HP_PER_MP`=2HP→1MP，血底線1；從者無池，fromSv 恆0)。寫進 report.battery＋前端血條。御主血魔皆空才擋寶具。
+- **⚖️🔋 共用魔力池(2026-06)**：從者與御主**共用一個魔力池**(存御主MP)。上限 `masterPoolMax_(迴路, 同隊從者魔力val總和)`＝**迴路×6 + 魔力×2**(迴路30+Saber魔A→280；Berserker魔B→260；Assassin魔E→200)。`masterMaxHpMp_` 只給無從者基底(HP100+迴路×2／MP迴路×6)。召喚(actionSummonServant 併入從者魔力、補滿)＋時回(applyRegen 重算)動態更新。回魔＝御主迴路供給＋從者魔力×0.15(從者少)＋靈脈/工房。Caster(魔A·低維持)幾乎自持，Berserker 吃魔。
+- **♻️💧🩸 回魔三態(2026-06)**：①♻️靈脈/陣地/休息＝免費自然回魔(首選)；②💧**補魔(燃迴路·主動)**＝回滿池 BUT【永久】燒蝕 血量上限−5~10、迴路−1~2(地板：迴路≥8、HP上限≥40)，過度＝慢性自盡(`actionManaSupply`)；③🩸**燃血(被動)**＝**池見底**、時消耗補不上時，`applyRegen_` 自動把缺口÷2同時扣御主HP＋從者HP(平均·各保底1)，不再強制降出力——想少流血就自己節流。`actionBloodSupply`/blood_supply/前端 bloodSupply 已全移除。
+- **🏷️ 被動 fx 功能化(2026-06)**：`resolveFateBattle_` 內生效的常駐被動——神性(被神殺者×1+0.5×神性階,上限2.0)／黃金律 wealth(金閃自身HP≤20%免魔力放 EA)／天之鎖 chain(`chainVolley_` 18d3捨1,gated !gob,對神性另有縛神性 debuff)／原初符文 rune(loser 減傷10%×階)／**變化 shapeshift(守方迴避+3×階,滑開致命擊)**／**道具作成 crafting(winner傷害+8×階,備妥之器)**／**無毀的湖光 weapon_steal(蘭斯洛特·Arondight)：對具「龍/竜」trait之敵傷害×1.5(對龍解放)——龍 trait：阿爾托莉雅(龍之因子)、莫德雷德**。台灣譯名：寶具「騎士不為孤軍/騎士不死於徒手」、聖劍「無毀的湖光」(非「湖光奪兵」——那不是官方譯名)。
+- **🔮✨ 魔境的智慧·玩家可選被動(2026-06)**：斯卡哈-Lancer 持 `{n:'魔境的智慧',fx:'mage_realm'}`。玩家在從者卡點選盤挑 **1 個** `mageRealmPool_()` 內的通用 A 階被動(對魔力/怪力/心眼/透化/軍略/自我改造——皆有階級、非寶具/簽名、不含她本有的原初符文)。`actionSetMageRealm`→存 MEMORY【魔境】fx→`rowToCombatant_` 戰鬥時注入 skills(r:'A')。**可選能力標籤一律發亮**：前端 `pill()` 第5參 `glow`＋`.tag-selectable`(Style.html `@keyframes tagGlow` 藍光脈動)＋'✨'前綴，提醒玩家可點選。新增可選能力時沿用此 glow 框架。
+- **🔄 種子改了要傳到「已在場從者」**：召喚是**讀英靈殿 sheet**(非 SEED_SERVANTS 陣列)→ 凍進眾生列(MARTIAL/SIX/TAGS)。改 SEED 後不會自動生效！傳播鏈：①升 `CODEX_PERSONA_VER`(Seed_Codex)→ `seedFateCodex_`(每次 doGet/action 經 ensureFateSheets_ 跑、版本不符才動)→ `upgradeCodexPersonas_`(刷英靈殿) ＋ `resyncSummonedServants_`(刷已召喚從者的寶具/六圍/標籤，依真名+職階對應種子；不動 HP/MP/MEMORY/敘事/狀態)。**動了 SEED 的六圍/寶具/標籤(如新增魔境的智慧 fx)務必升版本**否則 UI/戰鬥都吃舊值。`resyncSummonedServants_` 含玩家從者＋敵從者(FACTION 從者/敵從者)。⚠ 版本閘靠部署時序＋script property，可能卡住→另備**手動強制鈕**：主選單 DEV「🔄 套用最新平衡到現有從者」→`dev_resync_codex`→`actionDevResyncCodex`(無視旗標，立刻 upgradeCodexPersonas_＋resyncSummonedServants_ 並回報筆數)。
+- **⏳ 全域等待遮罩(2026-06)**：`beginAction(msg)` 進場即 `showProcessing(msg||'聖杯演算中…', true)`(quick 模式·隱藏「10～30秒」那行)，`endAction` 收場 `hideProcessing()`。所有走 beginAction 的動作(出力/補魔/強撐/魔境/休息/偵查/戰鬥…)都有即時回饋，玩家才知道按到了。召喚/締約流程仍用非 quick(顯示秒數)。
+- **⚠️ 寶具尺度標籤是「會算進傷害的」(別當純文字)**：`npAtkScale_`/`npDefScale_` 直接 regex 讀 np 字串裡的 `對人/對軍/對城/對界`(＋部分 fx)決定 `NP_SCALE_MATRIX` 乘子(對界最高×1.7)。**亂寫高階標籤＝偷偷暴力 buff**。已修正誤標：斯卡哈-Lancer(原誤標 對界 A→實為 對人B+ 槍＋對軍A+ Gate of Skye)、斯卡蒂(原誤標 對界 A→support 對人 A)——兩者把 97%/81% 拉回 ~82%/55%。新增/改寶具文字務必對齊真實尺度。範圍(5~50)/最大捕捉(200人)是純敘事、引擎不讀。
+- **🐕 主從synergy(2026-06，原作「御主供魔/契合提升從者能力」)**：`masterSynergySix_(name,six,memory)`(Core_Settings)讀從者列 MEMORY【御主】名，特定主從組合回到全盛六圍。目前只 **恩奇都↔巴茲狄洛特(獵犬御主)→ 全A·寶A++**；其餘御主(含玩家自召)下恩奇都維持**削弱基線**(種子已降為 筋C/耐B/敏B/魔B/寶A)。`rowToCombatant_` 套用。擴充別組就往該表加。
 - `aliveEnemyServants_(sheets,gameId)`：在世敵從者數（勝利判定用）。
 - `enemyRetreatLoc_`：令咒緊急脫離時敵退避地點。
 
@@ -166,10 +196,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
   - `masterToNpcRow_`：御主殿列→敵御主眾生列。BACK←身世(+外貌)、INTENT←萌點、TRAIT/PREF←persona 解析、凡人弱數值、MEMORY=【願望】|【魔術】。
   - `heroToNpcRow_`：英靈殿列→敵從者眾生列。
   - `canonHeroNames_`：正史6騎真名(禁玩家搶角)。
-- **Seed_Canon.gs**：正典劇情橋段。
-  - `checkCanonPins_`：回 {beats,leads,route}，劇情釘(開場/巴傑特/Lancer誘敵/教會/神殿/Excalibur/影/黑化/櫻/吉爾late…)。
-  - `lockRoute_`(ROUTE_PIVOT_DAY=4 依 wish/bond/kills 鎖路線)、`spawnGilgamesh_`(後期遊蕩金閃)、`blackenFoe_`(黑化)、`shadowDevourFoe_`(影吞)。
-  - `getRoute_/setRoute_/getFiredPins_/addFiredPin_`：MEMORY【路線】【史】讀寫。
+- **Seed_Canon.gs**：📜 正典劇情插針系統 **已退役(2026-06 玩家定案·沒啥用處)**。`checkCanonPins_` 留 no-op 空殼(永遠回 {beats:[],leads:[],route:""})；actionMove/actionRest 不再呼叫、前端不再顯示 canonBeats/canonLeads；CANON_PINS 資料＋lockRoute_/spawnGilgamesh_/blackenFoe_/shadowDevourFoe_/route 讀寫 一併移除。**未動**：正史/混亂【戰爭】模式＋扮演正典御主(敵方陣營生成，在 Router_Action)。MEMORY【路線】【史】成無用遺留。
 
 ---
 
@@ -188,7 +215,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `getClock_/writeClock_`：時鐘表(game_id→day/hour/ap)。
 - `getAp_/spendAp_(gid,n)/grantAp_(gid,n)`(不推時間)、`restHours_`(休息補AP)、`rollHours_`、`timeBand_`(晨/午/夜)、`clockLabel_`(顯示字串)。
 - AP：每日12，移動2AP、戰鬥/偵查/補魔/禮裝/結盟/共處=1AP、休息每hr補2。
-- `playerServantEconomy_`：供魔收支(左側 HUD)。`servantEconomy_`、`leylineAt_`(靈脈)、`applyRegen_`(avalon×1.6/陣地加成)、`masterCircuits_`(MEMORY【迴路】N 預設30)。
+- `playerServantEconomy_`：**御主魔力**收支(左側 HUD，含 output/outputLabel)。**工房加成＝atHome‖hasTerritory‖atWorkshop**(atWorkshop 讀御主【陣地】marker，須與 applyRegen_ 對齊，否則設陣地 HUD 顯示不出 +8 時回)。`servantEconomy_`(income=迴路供給+靈脈+工房；drain=六圍/8×狂化)。**🔋 共用池 `applyRegen_`(2026-06)**：御主MP 是共用池——重算上限 `masterPoolMax_(迴路, Σ從者魔力)`；income(迴路供給＋靈脈＋工房＋Σ從者魔力×0.15)×mult − Σ(從者 drain × `outputTier_(出力).drainMul`)；從者出力檔不在時回變動；御主乾涸(連維持都湊不出)→強制全從者降【出力】20% ＋從者 HP 流血(靈基崩解 4%/hr)。御主HP/從者HP 自我修復 5%/hr×(avalon1.6)。`leylineAt_`、`masterCircuits_`(MEMORY【迴路】N 預設30)。
 - `worldTick_`：跨時推進世界。
 
 ---
@@ -213,6 +240,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `actionEnterKanshou`：每帳號【單一常駐】後日談世界(KPC_ 御主 avatar，以 MEMORY【帳號】綁定、id 持久接續歷史)。首進需 `pcName/pcSex`(否則回 `needSetup`)。對話仍走 `actionPlay`(NSFW，引擎不動)。
 - `actionKanshouCompanions/Add/Remove`：後日談同伴管理(上限3，住獨立「鑑賞眾生」分頁，`kanshouServantRow_` 建列)。`actionKanshouSetSex/SetName`：改 avatar 性別/名字。
 - `actionDevSeedGallery`：DEV 塞測試從者(待移除)。
+- `actionPurgeOrphans`(action `purge_orphans`，主選單 DEV「🧹 清殘列」)：清「眾生」表孤兒——刪①所有 `DEAD_` 列 ②game_id 非任一帳號當前連結(COL.ACC.PC 反推 liveGids)的世界(敗北殘局/棄局/亡靈)。**保留**：活躍戰局、game_id 空白列(創角中)、鑑賞另表。整表 rewrite(setValues+單次 deleteRows tail，非逐列)。連帶清關係表：只刪「被刪御主(PC_)名下、非存活、非鑑賞御主」的 rel(防誤刪鑑賞關係)。回 {removed,kept,relRemoved}。**用途＝縮表加速每次按鍵的整表掃描**(眾生肥大主因＝每局敵御主+敵從者整批殘留)。
 - `findPlayerServant_`、`purgeGameData_`。
 - ⚠ **舊 `actionListGallery/actionEnterGallery/actionGalleryTalk` 已移除**(被 enter_kanshou＋kanshou_* 取代)。
 
@@ -235,9 +263,11 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 ```
 【願望】wish 【令咒】N 【迴路】N(預設30) 【魔術】 【出身】 【體術】
 【模式】canon/chaos 【戰爭】4th/5th/fake 【扮演】正典御主id
-【路線】route 【史】firedPins 【試煉】N(god_hand命數)
-【羈絆日】D:type1,type2(跨日重置) 【強撐】D(second_wind日限)
-【陣地】loc 【禮裝】id 【禮充】n 【盟約至】day 【鑑賞緣】 【破戒奪取】 【黑化Alter】
+【試煉】N(god_hand命數) 【寶具選】N(多寶具英靈解放哪個·set_np_choice)　※【路線】route／【史】firedPins 已隨正典插針退役·無用遺留
+【羈絆日】D:type1,type2(跨日重置) 【強撐】D(second_wind 舊日限·已棄用·helper 留著無害)
+【陣地】loc(setWorkshop 寫·駐留該地供魔工房+8·getWorkshop_/setWorkshopMemory_) 【搜刮】loc(scavenge 寫·該地散逸魔力枯竭標記·getScavengedLoc_/setScavengedLoc_) 【禮裝】id 【禮充】n 【盟約至】day 【鑑賞緣】 【破戒奪取】 【黑化Alter】
+【魔境】fx(斯卡哈玩家選的通用A階被動，set_mage_realm 寫，rowToCombatant_ 注入) 【符文】def/dmg/regen(原初符文運用，set_rune_mode 寫)
+⚠ 可選能力標籤(魔境的智慧/原初符文)UI＝**小膠囊·發亮，點開在說明 popup 內挑選**(前端 openMageRealmPicker/openRunePicker→pickSelectable)，選定後標籤顯示所選(如 魔境的智慧（千里眼A）/原初符文（增傷）)。已棄大選盤面板。
 ```
 
 ---
@@ -263,13 +293,13 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **喪失從者的敵御主（選 A：不移除，只標記＋演出）**：敵從者任一路徑死亡時，`markMasterLostServant_`(Router ~4340)在「同地同 game_id 的敵御主」MEMORY 寫 `【喪失從者】從者名·死因`(只記第一次)。三處死亡都接：戰鬥擊破(`fateStrike_` else 支)、令咒透支倒數＋暗處養不起/廝殺(`worldTick_`)。`getLostServant_` 讀回；`getLocalPeopleList` 對 `敵御主` 帶出 `lostServant`。前端 `travelTo` 對在場的喪失從者御主加指令：演出形單影隻、無牙棋手、依個性流露失恃(孤注/惶然/不甘)，別當仍有從者隨侍。配對採同落點(一master一servant結伴移動，無顯式 FK)。helper：`stampLostServant_/getLostServant_/markMasterLostServant_`。
 - **敘事連續記憶**：`lastAiContext`(模組級，最近一段 AI 文 ≤300字)。`narrate()`/`narrateCombatResult`/play 都會更新它。`travelTo` 在 `foes.length` 時把 `lastAiContext.slice(0,280)` 當「前情」塞進抵達提示，讓 AI 知道「方才發生什麼」——逃跑後敵人追上/再遇時承接劇情、不當初次見面。`narrate_only` 後端只吃 promptText，所以前情是在前端拼進去的(零後端改動)。
 - **鑑賞**：`enterKanshou`(主入口)/`claimGrail`/`renderHeroList`／👥同伴面板 `openCompanions/kanshouAdd/kanshouRemove`。(舊 `openGallery/enterGallery` 已退役)
-- **逆天改命**（玩家改自己御主資料）：`openFateEdit`/`saveFate`→`actionUpdateFate`。**只准改 4 種敘事欄、數值與寶具一律鎖死**(GAS掌數值)：`back`身世(限30)/`intent`萌點(限30)/`trait`特徵(4格×20)/`pref`個性(4格×20)。特徵4格=外貌/氣質舉止/魔術師的癖性/卸下心防的私密一面(末格＝鑑賞慾海的親密種子，NSFW 消費在 Router 2406 `[床笫之間的反應]`)；個性4格=日常表象/真實內裡/喜歡/討厭。改別人(NPC)需好感100+已傾心，改自己免條件(solo 只碰自己)。數值編輯是九州 full 的 breakthrough/cultivate，solo 不露出。
+- **逆天改命**（玩家改自己御主資料）：`openFateEdit`/`saveFate`→`actionUpdateFate`。**只准改 4 種敘事欄、數值與寶具一律鎖死**(GAS掌數值)：`back`身世(限30)/`intent`萌點(限30)/`trait`特徵(4格×20)/`pref`個性(4格×20)。特徵4格=外貌/氣質舉止/自稱與口氣/卸下心防的私密一面(末格＝鑑賞慾海的親密種子，NSFW 消費在 Router 2406 `[床笫之間的反應]`)；個性4格=日常表象/真實內裡/喜歡/討厭。改別人(NPC)需好感100+已傾心，改自己免條件(solo 只碰自己)。數值編輯是九州 full 的 breakthrough/cultivate，solo 不露出。
 
 ---
 
 ## 13. 已完成的四大區塊（本專案進度）
 
-①戰鬥職階相剋＋寶具專屬(Engine_Fate) ②正典劇情橋段(Seed_Canon) ③戰爭規則含結盟(同盟系統) ④日常與羈絆(bond/補魔/夢境/禮裝/雙從者/破戒奪僕/同盟生命週期→鑑賞)。
+①戰鬥職階相剋＋寶具專屬(Engine_Fate) ②~~正典劇情橋段(Seed_Canon)~~已退役 ③戰爭規則含結盟(同盟系統) ④日常與羈絆(bond/補魔/夢境/禮裝/雙從者/破戒奪僕/同盟生命週期→鑑賞)。
 種子庫 36 從者＋13 御主 persona 全補完(v3)。
 
 ---

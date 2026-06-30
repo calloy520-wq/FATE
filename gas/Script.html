@@ -15,12 +15,15 @@
   // ==========================================
   // 🔴 核心通訊層：封裝 google.script.run 成 Promise，完美替換 fetch
   // ==========================================
+  let __pendingState = null; // ⚡ 動作回應夾帶的最新 client state，供緊接的 syncData 直接消費(免再打一趟 sync)
   function gasRun(payload) {
+    __pendingState = null; // 新一趟伺服器呼叫開始 → 作廢任何未消費的舊 state(防過期錯套)
     return new Promise((resolve, reject) => {
       google.script.run
         .withSuccessHandler(responseRaw => {
           try {
             const data = (typeof responseRaw === 'string') ? JSON.parse(responseRaw) : responseRaw;
+            if (data && data._state) __pendingState = data._state; // ⚡ 暫存，syncData 會優先吃這份
             resolve(data);
           } catch (e) {
             console.error("【解析異常】:", responseRaw);
@@ -37,14 +40,16 @@
 
   // 🔒 全域動作鎖：任一動作進行中就擋掉連點與其他動作，等系統回應再放行
   let __actionBusy = false;
-  function beginAction() {
+  function beginAction(msg) {
     if (__actionBusy) return false;
     __actionBusy = true;
     try { document.body.style.cursor = 'progress'; } catch (e) {}
+    try { showProcessing(msg || '聖杯演算中…', true); } catch (e) {}  // ⏳ 每個動作都給等待遮罩，玩家才知道按到了
     return true;
   }
   function endAction() {
     __actionBusy = false;
+    try { hideProcessing(); } catch (e) {}
     try { document.body.style.cursor = ''; } catch (e) {}
   }
 
@@ -487,7 +492,7 @@ function renderRecentLocs(recents = null) {
       hud.style.display = 'none';
     }
   }
-  // 💠 從者魔力收支 HUD：供給(迴路)＋靈脈＋工房 − 維持＝淨值。赤字標紅警告，提醒搶靈脈/回家/補魔。
+  // 💠 御主魔力收支 HUD：供給(迴路)＋靈脈＋工房 − 從者維持(依出力檔)＝淨值/時。赤字標紅，提醒搶靈脈/設陣地/降出力/補魔。
   function updateEconomy(eco) {
     const hud = document.getElementById('economy-hud');
     if (!hud) return;
@@ -499,10 +504,10 @@ function renderRecentLocs(recents = null) {
     const net = eco.net;
     const netColor = net > 0 ? '#7ec87e' : net < 0 ? '#e06a6a' : '#c9b885';
     const netStr = (net > 0 ? '+' : '') + net;
-    let html = `<span style="color:#9aa6c8;">💠 供魔</span> <span style="color:#bcd;">${parts.join('　')}</span>`
-      + ` <span style="color:#9a8;">－維持 ${eco.drain}</span>`
+    let html = `<span style="color:#9aa6c8;">💠 御主魔力</span> <span style="color:#bcd;">${parts.join('　')}</span>`
+      + ` <span style="color:#9a8;">－維持 ${eco.drain}${eco.output ? '(出力' + eco.output + '%' + (eco.outputLabel ? '·' + eco.outputLabel : '') + ')' : ''}</span>`
       + ` ＝ <b style="color:${netColor};">淨 ${netStr}/時</b>`;
-    if (net < 0) html += ` <span style="color:#e06a6a;">⚠ 入不敷出，宜搶靈脈/設陣地工房/補魔</span>`;
+    if (net < 0) html += ` <span style="color:#e06a6a;">⚠ 入不敷出，宜搶靈脈/設陣地/降出力/補魔</span>`;
     hud.innerHTML = html;
     hud.style.display = 'block';
   }
@@ -610,12 +615,12 @@ function renderRecentLocs(recents = null) {
     // 🩸 強撐：沒 AP 又被困時的保命解（不燒令咒、不推進時間），每日一次
     html += '<div style="border-top:1px dashed rgba(160,80,80,0.3); margin:6px 0 8px; padding-top:8px;"></div>'
       + '<button onclick="secondWind()" style="display:block;width:100%;text-align:left;padding:10px;background:rgba(165,60,60,0.14);color:#e8dcc0;border:1px solid #a04040;border-radius:8px;cursor:pointer;">'
-      + '<b style="color:#e08a8a;">🩸 燃燒生命強撐</b>　<span style="font-size:12px;color:#c89a9a;">透支體力換 +4 行動力（扣血、每日一次）——沒 AP 又走不了時的保命解</span></button>';
+      + '<b style="color:#e08a8a;">🩸 燃燒生命強撐</b>　<span style="font-size:12px;color:#c89a9a;">透支生命換 +4 行動力（扣血約 20%、不耗 AP、可重複）——沒 AP 又走不了時的保命解，血燒乾就撐不住</span></button>';
     showHistoryOverlay(html);
   }
   // 🩸 燃燒生命強撐：扣血換 AP（每日一次）
   async function secondWind() {
-    if (!confirm('🩸 燃燒生命力強撐？\n\n透支體力與魔術迴路，扣除一截生命（約 20% 上限）換取 +4 行動力。\n每遊戲日僅限一次。身體虛弱時禁用。\n\n確定強撐？')) return;
+    if (!confirm('🩸 燃燒生命力強撐？\n\n透支體力與魔術迴路，扣除一截生命（約 20% 上限）換取 +4 行動力。\n不耗 AP、可重複——但血燒到接近見底就撐不住。\n\n確定強撐？')) return;
     if (!beginAction()) return;
     var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none';
     const story = document.getElementById('story');
@@ -646,11 +651,7 @@ function renderRecentLocs(recents = null) {
         updateEconomy(data.economy);
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【休息 ${hours} 小時】</b>${(data.healedNames||['你']).join('與')}恢復了氣力，行動力 ${data.ap}/${data.apMax}。${data.clock ? '（' + data.clock + '）' : ''}</div>`);
         showRumors(data.rumors);
-        showRumors(data.canonLeads); // ⚐ 正典引導
-        // 📜 休息跨日若觸發正典橋段 → 演出一段
-        if (data.canonBeats && data.canonBeats.length) {
-          narrate(`【正典事件】休息之間，冬木的聖杯戰爭並未停歇。以下原作橋段於此時推進，請以 Fate／TYPE-MOON 筆觸演出（演出而非複述指示），停在留白：\n${data.canonBeats.join('\n')}`);
-        }
+        if (data.report) renderFateBattleReport(data.report); // ⚔️ 夜襲戰報卡（數字先攤）
         if (data.ambushPrompt) narrate(data.ambushPrompt); // ⚔️ 夜襲演出
         else if (data.servantDream) narrate(data.servantDream); // 🌙 從者之夢·回想
         syncData(true);
@@ -672,8 +673,11 @@ function renderRecentLocs(recents = null) {
         if (data.statusString) { localStorage.setItem('kyushu_last_status', data.statusString); updateUI(data.statusString.split('§')); }
         updateClock(data.clock, data.ap, data.apMax);
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#7fc7c7;font-size:12.5px;text-align:center;border:1px solid rgba(90,150,150,0.3);border-radius:8px;padding:6px 10px;">🔍 ${data.message || '偵查完成。'}</div>`);
+        if (data.report) renderFateBattleReport(data.report); // ⚔️ 偵查遭突襲→戰報卡
+        if (data.ambushPrompt || data.aiPrompt) narrate(data.ambushPrompt || data.aiPrompt);
         renderMapPane();
         syncData(true);
+        if (data.defeat) { await handleDefeat(data); }
       } else { alert((data && data.message) || '偵查失敗。'); }
     } catch (e) { alert('連線失敗，偵查未果。'); } finally { endAction(); }
   }
@@ -717,7 +721,10 @@ function renderRecentLocs(recents = null) {
       if (res && res.success) {
         updateClock(res.clock, res.ap, res.apMax);
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#d0c080;font-size:12.5px;text-align:center;border:1px solid rgba(140,120,70,0.3);border-radius:8px;padding:6px 10px;">🔍 ${res.message}</div>`);
+        if (res.report) renderFateBattleReport(res.report); // ⚔️ 搜索遭突襲→戰報卡
+        if (res.aiPrompt) narrate(res.aiPrompt);
         renderMapPane(); syncData(true);
+        if (res.defeat) { await handleDefeat(res); }
       } else { alert((res && res.message) || '搜索失敗。'); }
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
   }
@@ -754,7 +761,6 @@ function renderRecentLocs(recents = null) {
         updateClock(data.clock, data.ap, data.apMax);
         updateEconomy(data.economy);
         showRumors(data.rumors);
-        showRumors(data.canonLeads); // ⚐ 正典引導：把玩家勾向該去的地方
         if (optContainer) optContainer.innerHTML = '';
         try { renderMapPane(); refreshFateTags(); renderWarActions(); } catch (e) {}
         story.scrollTop = story.scrollHeight;
@@ -765,13 +771,11 @@ function renderRecentLocs(recents = null) {
           ? `此地有敵蹤：${foes.map(f => f.name + '（' + (f.faction === '敵從者' ? '敵從者' : '敵御主') + '）').join('、')}`
           : '此地暫無明顯敵蹤';
         const timeStr = (data.clock || '').split('・').slice(-1)[0] || '此刻';
-        const canon = (data.canonBeats && data.canonBeats.length) ? data.canonBeats.join('\n') : '';
         const arrivePrompt = (data.servantCard || '')
           + `【抵達場景】御主『${pc.name}』${pc.servant ? `與從者「${pc.servant}」` : ''}剛抵達冬木的「${targetName}」，時值${timeStr}。\n`
           + `此地氛圍：${locDesc}\n敵情：${foeStr}。\n`
-          + (canon ? `\n【★正典事件·本次抵達的重頭戲】以下原作橋段正在此刻上演，請把它編織成這段抵達敘事的核心，自然演出（演出而非複述指示）：\n${canon}\n\n` : '')
           + ((foes.filter(f => f.faction === '敵御主' || f.faction === '敵從者').length > 1) ? `【在場敵對歸屬·勿張冠李戴】${foes.filter(f => f.faction === '敵御主').map(f => `御主「${f.name}」${f.servant ? `↔從者「${f.servant}」` : '（已無從者）'}`).concat(foes.filter(f => f.faction === '敵從者' && !foes.some(m => m.faction === '敵御主' && m.servant === f.name)).map(f => `從者「${f.name}」${f.master ? `↔御主「${f.master}」` : ''}`)).join('；')}。各組從者只聽命於自己的御主，彼此可能也互為敵手。\n` : '')
-          + (foes.length && lastAiContext ? `\n【前情·僅供承接劇情連貫，勿原樣複述】方才之事：${lastAiContext.slice(0, 280)}\n若眼前敵人正是方才那場的對手，便是對方一路追上來／再度狹路相逢——承接前情、別當第一次見面（對方可能仍帶著方才的傷或怒）。\n` : '')
+          + (lastAiContext ? `\n【前情·僅供承接劇情連貫，勿原樣複述】方才之事：${lastAiContext.slice(0, 280)}\n${foes.length ? '若眼前敵人正是方才那場的對手，便是對方一路追上來／再度狹路相逢——承接前情、別當第一次見面（對方可能仍帶著方才的傷或怒）。' : '此番移動承接前情——【依方才的勝負結果與當前血量自行定調，勿臆測】：剛大勝→可帶餘勇或警戒餘悸；浴血慘勝→疲憊卻仍挺立；落敗逃離→狼狽負傷。別硬演成敗走、也別當若無其事。'}\n` : '')
           + `★以 Fate／TYPE-MOON 筆觸描寫兩人抵達此地的所見所感、環境細節與當下氛圍。若有敵蹤，營造一觸即發的對峙張力（但是否交戰、勝負留待御主下令，禁止自行開打或分勝負）；若無敵蹤，寫一段巡查、警戒或短暫喘息的氛圍，並自然暗示「可凝神偵查四周，或轉往他處」。\n`
           + (foes.length ? (
               (data.preFoes || []).some(n => foes.find(f => f.name === n))
@@ -837,16 +841,6 @@ function renderRecentLocs(recents = null) {
             if (!n.isPC) {
                 actionButtonsHtml += `<button class="btn-act" style="border-color:#8b008b; color:#8b008b; padding: 6px 12px;" onclick="closeNpcList(); openStatus('${n.id}', '${n.name}')">📜 命格</button>`;
 
-                // 🔴 組隊/離隊按鈕：僅多人(full)模式；FATE 單人/鑑賞只有一個從者，不招路人入隊
-                if (pc && pc.mode === 'full') {
-                    if (busyWith && !isInParty) {
-                        actionButtonsHtml += `<button class="btn-act" style="border-color:#6e948a; color:#6e948a; padding: 6px 12px; opacity: 0.5;" onclick="alert('「${n.name}」正與『${busyWith}』同行中，無法分身！')">🔒 已跟隨他人</button>`;
-                    } else {
-                        let partyText = isInParty ? "👋 離隊" : "🤝 組隊";
-                        let partyColor = isInParty ? "#ff6b6b" : "#2e8b57";
-                        actionButtonsHtml += `<button class="btn-act" style="border-color:${partyColor}; color:${partyColor}; padding: 6px 12px;" onclick="interactNpc('組隊', '${n.name}', '${n.loc}', true)">${partyText}</button>`;
-                    }
-                }
             }
         }
 
@@ -938,20 +932,13 @@ function renderRecentLocs(recents = null) {
 
     // 1. 基礎屬性更新
     setUI('ui-status', s[0]);
-    setUI('ui-money', s[1]);
+
     setUI('ui-trait', s[2]);
     setUI('ui-loc', s[3]);
     if (currentStatusTargetId === pc.id) updateRecentLocations(s[3]);
     setUI('ui-pref', s[4]);
     setUI('ui-hp', s[5]);
     setUI('ui-mp', s[6]);
-    setUI('ui-str', s[7]);
-    setUI('ui-con', s[8]);
-    setUI('ui-agi', s[9]);
-    setUI('ui-int', s[10]);
-    setUI('ui-luk', s[11]);
-    setUI('ui-realm', s[16], "凡人");
-    
     // 2. 陣營 (新增欄位，防呆檢查)
     if (s.length >= 24) {
         setUI('ui-faction', s[19], "無");
@@ -966,18 +953,7 @@ function renderRecentLocs(recents = null) {
     const headerEl = document.getElementById('header-loc');
     if (headerEl) headerEl.innerText = s[3] ? "📍 " + s[3] : "未知區域";
 
-    // 3. 裝備欄位
-    const eqMap = { "eq-weapon": s[12], "eq-armor": s[13], "eq-acc1": s[14], "eq-acc2": s[15] };
-    Object.keys(eqMap).forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            const val = eqMap[id] ? eqMap[id].trim() : "";
-            el.innerText = val ? `[ ${val} ]` : "[ (空) ]";
-            el.className = val ? "eq-filled" : "eq-empty";
-        }
-    });
-
-    // 4. 雙修解析邏輯
+    // 3. 雙修解析邏輯
     if (s.length >= 18) {
         const memoryStr = (s[17] || "").replace(/@@@/g, '|');
         
@@ -1193,7 +1169,7 @@ function renderRecentLocs(recents = null) {
     tactics: () => '軍略：用兵之才，寶具威力 +15%。',
     anti_magic_lance: () => '破魔紅薔薇：雙槍破魔，無視神核護甲；致命時敵無法續行／復活／令咒脫離。',
     rule_breaker: () => '破戒全咒：斬斷契約與救贖——致命一擊下，敵無法戰鬥續行／十二試煉復活／令咒脫離。',
-    god_hand: () => '十二試煉：不死之軀，靈基崩解前自死亡歸來（約 11 次）。',
+    god_hand: () => '十二試煉：不死之軀，靈基崩解前自死亡歸來（11 次，每次回 20% 靈基）。',
     // 寶具名類：實際威力由「寶具解放」統一結算（依寶具階級＋軍略／神性加成）
     excalibur: () => '誓約勝利之劍：對城寶具，光之斬擊——解放寶具時的最高物理傷。',
     ubw: () => '無限劍製：固有結界，劍之地平線——解放寶具時的劍雨壓制（不受對魔力）。',
@@ -1226,10 +1202,11 @@ function renderRecentLocs(recents = null) {
     showHistoryOverlay(html);
   }
 
-  async function refreshFateTags() {
+  async function refreshFateTags(prefetched) {
     if (!pc || !pc.id) return;
     try {
-      const t = await gasRun({ action: 'get_tags', pcId: pc.id });
+      // ⚡ prefetched＝sync 已夾帶的 tags payload，有就直接用、免再打一趟 get_tags
+      const t = prefetched || await gasRun({ action: 'get_tags', pcId: pc.id });
       if (!t || !t.success) return;
       const box = document.getElementById('fate-tags');
       if (!box) return;
@@ -1240,9 +1217,19 @@ function renderRecentLocs(recents = null) {
         lines.map(l => `<div style="color:#9a8bb0; font-size:11px; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${l}</div>`).join('') +
         `</div>`;
       // 🟥🟦 血條／魔力條：直覺顯示當前 HP/MP
-      const bar = (label, cur, max, kind) => {
+      const bar = (label, cur, max, kind, net) => {
         if (!max) return '';
         const pct = Math.max(0, Math.min(100, Math.round(cur / max * 100)));
+        // 💓 脈動：血越低跳越快(危急感)；魔力依量多寡＋收支(赤字)決定呼吸快慢
+        let anim = '';
+        if (kind === 'hp') {
+          const d = pct <= 20 ? 0.5 : pct <= 40 ? 0.85 : pct <= 60 ? 1.4 : 0; // >60% 不跳(平穩)
+          if (d) anim = 'animation: barThrob ' + d + 's ease-in-out infinite;';
+        } else if (kind === 'mp') {
+          // 量少(<30%)或收支赤字→脈動快(警示)；量多→緩慢呼吸
+          const d = pct <= 30 ? 0.8 : (typeof net === 'number' && net < 0) ? 1.5 : pct >= 70 ? 3.0 : 2.2;
+          anim = 'animation: barThrob ' + d + 's ease-in-out infinite;';
+        }
         // 漸層＋玻璃高光＋leading-edge 微光，依血量變色
         const grad = kind === 'mp'
           ? 'linear-gradient(180deg,#7ec0ff,#4a90d9 55%,#2f6fb0)'
@@ -1254,7 +1241,7 @@ function renderRecentLocs(recents = null) {
         return '<div style="display:flex; align-items:center; gap:6px; margin:4px 0;">'
           + '<span style="font-size:11px; width:16px; flex:none; text-align:center;">' + icon + '</span>'
           + '<div style="flex:1; min-width:0; position:relative; height:12px; background:linear-gradient(180deg,#16121c,#241d2c); border-radius:7px; overflow:hidden; border:1px solid rgba(0,0,0,0.45); box-shadow:inset 0 1px 2px rgba(0,0,0,.6);">'
-          + '<div style="width:' + pct + '%; height:100%; background:' + grad + '; border-radius:7px; box-shadow:0 0 6px ' + glow + '; transition:width .35s ease;"></div>'
+          + '<div style="width:' + pct + '%; height:100%; background:' + grad + '; border-radius:7px; box-shadow:0 0 6px ' + glow + '; transition:width .35s ease;' + anim + '"></div>'
           + '<div style="position:absolute; top:1px; left:3px; right:3px; height:3px; border-radius:3px; background:linear-gradient(90deg,rgba(255,255,255,.35),rgba(255,255,255,0)); pointer-events:none;"></div>'
           + '</div>'
           + '<span style="font-size:9.5px; color:#9a8fae; width:56px; flex:none; text-align:right; font-variant-numeric:tabular-nums;">' + cur + '/' + max + '</span></div>';
@@ -1276,7 +1263,8 @@ function renderRecentLocs(recents = null) {
         + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">' + m.condition + '</div>'
         + ((pc && pc.mode === 'kanshou') ? '' :  // 🌹 慾海：御主只露名字＋外顯，不露血量/魔力/令咒/禮裝
             bar('體', m.hpNum, m.hpMax, 'hp')
-            + bar('魔', m.mpNum, m.mpMax, 'mp')
+            + bar('魔', m.mpNum, m.mpMax, 'mp', (t.economy && typeof t.economy.net === 'number') ? t.economy.net : null)
+            + '<div style="color:#6e9fc0; font-size:9.5px; margin-top:1px; opacity:.85;">🔋 共用魔力池(上限＝迴路×6＋從者魔力×2)：從者按出力檔抽取。回魔靠靈脈/休息或💧補魔(永久燒蝕迴路)；⚠池見底→🩸被動燃血(缺口÷2同扣御主＋從者HP)</div>'
             + '<div style="color:#9a8bb0; font-size:11px; margin-top:3px;">令咒 <span style="color:#c79be8;">' + '❖'.repeat(myMasterSeals) + '</span></div>'
             + (myMystic ? ('<div style="color:#9a8bb0; font-size:11px; margin-top:3px;" title="' + (myMystic.desc || '').replace(/"/g, '') + '">禮裝 <span style="color:#7fd0c0;">✨ ' + myMystic.name + '</span>' + (myMystic.type === 'active' ? ' <span style="color:#caa44a;">(充能 ' + myMystic.charges + '・需迴路 ' + myMystic.req + ')</span>' : ' <span style="color:#8aa;">(被動)</span>') + '</div>') : ''))
         + '</div>';
@@ -1284,12 +1272,26 @@ function renderRecentLocs(recents = null) {
       var buildSvCard = function (s, isActive, dual) {
         var six = s.six || {};
         var sixLine = ['筋' + (six.筋力 || '?'), '耐' + (six.耐久 || '?'), '敏' + (six.敏捷 || '?'), '魔' + (six.魔力 || '?'), '運' + (six.幸運 || '?'), '寶' + (six.寶具 || '?')].join('　');
-        var pill = function (n, r, fx, col) {
+        var pill = function (n, r, fx, col, glow) {
           var label = n + (r && r !== '-' ? (' ' + r) : '');
           var arg = "'" + String(n).replace(/'/g, '') + "','" + String(fx || '').replace(/'/g, '') + "','" + String(r || '').replace(/'/g, '') + "'";
-          return '<span onclick="event.stopPropagation();showSkillDesc(' + arg + ')" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid ' + col + '; color:' + col + '; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;">' + label + '</span>';
+          return '<span class="' + (glow ? 'tag-selectable' : '') + '" onclick="event.stopPropagation();showSkillDesc(' + arg + ')" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid ' + col + '; color:' + col + '; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;">' + (glow ? '✨' : '') + label + '</span>';
         };
-        var skillPills = (s.skills || []).map(function (sk) { return pill(sk.n, sk.r, sk.fx, '#d9a93a'); }).join('');
+        // 🔮 可選能力標籤(魔境的智慧/原初符文)：小膠囊·發亮；點開在說明 popup 裡挑選，選定後標籤即顯示所選項（如 魔境的智慧（千里眼A））
+        var selPill = function (label, onclickJs) {
+          return '<span class="tag-selectable" onclick="event.stopPropagation();' + onclickJs + '" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid #7ec8ff; color:#bfe3ff; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;">✨ ' + label + '</span>';
+        };
+        var skillPills = (s.skills || []).map(function (sk) {
+          if (sk.fx === 'mage_realm' && s.mageRealm && s.mageRealm.has) {
+            var mp = (s.mageRealm.pool || []).filter(function (o) { return o.fx === s.mageRealm.pick; })[0];
+            return selPill('魔境的智慧' + (mp ? '（' + mp.n + ' A）' : ''), 'openMageRealmPicker(\'' + safeN + '\',\'' + (s.mageRealm.pick || '') + '\')');
+          }
+          if (sk.fx === 'rune' && typeof s.runeMode === 'string') {
+            var rmo = RUNE_MODES_JS.filter(function (o) { return o.mode === (s.runeMode || 'def'); })[0];
+            return selPill(sk.n + (rmo ? '（' + rmo.n + '）' : ''), 'openRunePicker(\'' + safeN + '\',\'' + (s.runeMode || 'def') + '\')');
+          }
+          return pill(sk.n, sk.r, sk.fx, '#d9a93a', false);
+        }).join('');
         var traitPills = (s.traits || []).map(function (tr) { return pill(tr.n, tr.r, 'trait', '#c0392b'); }).join('');
         // 🌹 慾海：從者卡只露 名字/外顯/個性/特徵/關係/肉體——不露血量/魔力/六圍/技能/寶具/動作鈕
         if (pc && pc.mode === 'kanshou') {
@@ -1313,18 +1315,22 @@ function renderRecentLocs(recents = null) {
           + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
           + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">' + s.condition + '</div>'
           + bar('體', s.hpNum, s.hpMax, 'hp')
-          + bar('魔', s.mpNum, s.mpMax, 'mp')
-          + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">羈絆 ' + bondWord(s.bond) + '</div>'
+          + ((pc && pc.mode === 'kanshou') ? '' :  // 🔋 靈基出力轉盤（從者無自有魔力，靠御主供魔；出力決定戰力＋御主每小時維持費；100% 才能解放寶具）
+              '<div class="out-dial" style="margin-top:4px;">'
+              + '<div style="color:#7ec8ff; font-size:11px;">🔋 靈基出力　<b class="out-pct">' + (s.output || 60) + '%</b>　<small class="out-label" style="opacity:.75;">' + (s.outputLabel || '') + '</small><small style="opacity:.55;"> · 御主供魔強度</small></div>'
+              + '<div style="display:flex; gap:3px; margin-top:3px;" onclick="event.stopPropagation();">'
+              + [20, 40, 60, 80, 100].map(function (o) { var on = (o === (s.output || 60)); return '<button class="out-btn" data-o="' + o + '" onclick="setServantOutput(this,\'' + safeN + '\',' + o + ')" title="' + (o === 100 ? '全開：戰力最強、唯一可解放寶具，御主魔力消耗最劇' : o === 20 ? '維持：御主魔力最省，但戰力受限、無法放寶具' : '出力 ' + o + '%') + '" style="flex:1; font-size:10px; padding:3px 0; border-radius:5px; cursor:pointer; border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + '; background:' + (on ? 'rgba(110,180,220,.30)' : 'rgba(40,50,65,.4)') + '; color:' + (on ? '#bfe3ff' : '#7a8aa0') + '; font-weight:' + (on ? 'bold' : 'normal') + ';">' + o + (o === 100 ? '💥' : '') + '</button>'; }).join('')
+              + '</div></div>')
+          + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5; margin-top:4px;">羈絆 ' + bondWord(s.bond) + '</div>'
           + '<div style="color:#cdbbe6; font-size:11px; margin-top:3px; letter-spacing:.5px;">六圍　' + sixLine + '</div>'
           + (skillPills ? ('<div style="margin-top:3px;">' + skillPills + '</div>') : '')
           + (traitPills ? ('<div style="margin-top:1px;">' + traitPills + '</div>') : '')
-          + ((skillPills || traitPills) ? '<div style="color:#6a5f80; font-size:9.5px; margin-top:2px;">👆 點標籤看效果</div>' : '')
+          + ((skillPills || traitPills) ? '<div style="color:#6a5f80; font-size:9.5px; margin-top:2px;">👆 點標籤看效果' + ((s.mageRealm && s.mageRealm.has) || (s.skills || []).some(function (k) { return k.fx === 'rune'; }) ? '；✨發亮的可點開挑選' : '') + '</div>' : '')
           + '<div style="color:#9a8bb0; font-size:11px; margin-top:5px;">寶具　' + s.np + '</div>'
           + ((pc && pc.mode === 'kanshou') || (dual && !isActive) ? '' :
               '<div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">'
               + (dual ? '<div style="flex:1 0 100%; color:#9a8fae; font-size:10px;">下列動作對「' + s.name + '」生效：</div>' : '')
-              + '<button onclick="event.stopPropagation();manaSupply()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
-              + '<button onclick="event.stopPropagation();bloodSupply()" title="燃血補魔：燃燒御主自身生命力(扣血)，大量灌注從者魔力。血量可休息回復。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(176,42,42,0.18); color:#e08080; border:1px solid #a04a4a; border-radius:6px; cursor:pointer;">🩸 燃血</button>'
+              + '<button onclick="event.stopPropagation();manaSupply()" title="補魔：硬擠魔術迴路回滿共用魔力池。⚠永久代價：血上限−5~10、迴路−1~2。孤注一擲，過度=慢性自盡。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
               + '<button onclick="event.stopPropagation();openBondMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(224,138,170,0.16); color:#e08aaa; border:1px solid #b06c84; border-radius:6px; cursor:pointer;">💕 羈絆</button>'
               + '<button onclick="event.stopPropagation();openSealMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(176,108,208,0.16); color:#c79be8; border:1px solid #8a5fb0; border-radius:6px; cursor:pointer;">❖ 令咒 ' + '❖'.repeat(myMasterSeals) + '</button>'
               + '<button onclick="event.stopPropagation();openRestMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(120,120,160,0.16); color:#a9a9d8; border:1px solid #5a5a8a; border-radius:6px; cursor:pointer;">🛏️ 休息</button>'
@@ -1472,8 +1478,23 @@ function renderRecentLocs(recents = null) {
   // ⚔️ 令從者出擊／寶具解放（Fate 戰鬥：六圍＋fx＋寶具）
   // 📊 多回合視覺戰報：一次出戰最多 3 回合「我攻→敵反擊」，逐回合攤開骰子/命中/傷害給玩家看。
   function renderFateBattleReport(r) {
-    if (!r || !r.rounds) return;
+    if (!r) return;  // 🔧 修正：斬首/突襲戰報無 rounds 欄，舊版 !r.rounds 會把它們擋掉(戰報不顯示)
     const story = document.getElementById('story');
+    // ⚔️ 卸防突襲戰報卡（休息/補魔/搜索/偵查時遭敵從者趁隙重擊）
+    if (r.ambush) {
+      const hpct = Math.max(0, Math.min(100, r.svHpMax ? Math.round(r.after / r.svHpMax * 100) : 0));
+      let a = '<div style="border:1px solid rgba(176,48,48,0.5);border-radius:9px;padding:10px 12px;margin:6px 0;background:rgba(40,16,16,0.55);font-size:12px;">';
+      a += '<div style="font-weight:bold;margin-bottom:5px;color:#e08080;">⚔️ 卸防遭突襲・敵從者「' + r.enemyName + '」' + (r.stealthy ? ' <small style="color:#c0a0e0;">氣息遮斷·無聲撲近</small>' : '') + '</div>';
+      a += '<div style="color:#e06a6a;font-size:11px;">「' + r.svName + '」門戶大開時被狠狠貫穿　<b>−' + r.dmg + '</b>' + (r.destroyed ? '　💀 靈基崩潰' : '') + '</div>';
+      a += '<div style="color:#9a8bb0;font-size:10px;margin-top:4px;">' + r.svName + '</div>';
+      a += '<div style="position:relative;height:9px;background:linear-gradient(180deg,#16121c,#241d2c);border-radius:6px;overflow:hidden;margin-top:2px;border:1px solid rgba(0,0,0,.4);"><div style="width:' + hpct + '%;height:100%;background:linear-gradient(180deg,#8ee08e,#4caa4c 55%,#2f8f3f);"></div></div>';
+      a += '<div style="font-size:9.5px;color:#8a7f9a;text-align:right;">' + r.after + '/' + r.svHpMax + '</div>';
+      if (r.defeat) a += '<div style="color:#d65c5c;font-weight:bold;margin-top:3px;">💀 從者全滅、御主敗北！</div>';
+      a += '</div>';
+      story.insertAdjacentHTML('beforeend', a);
+      story.scrollTop = story.scrollHeight;
+      return;
+    }
     // 🗡️ 斬首專用戰報卡（無回合制，純 D20 大成功判定）
     if (r.assassination) {
       const ok = !!r.success;
@@ -1583,7 +1604,33 @@ function renderRecentLocs(recents = null) {
     story.scrollTop = story.scrollHeight;
   }
 
-  async function servantStrike(npcName, useNp, useSeal, isMaster, useSkill) {
+  // 🌟 解放寶具前的「選哪個寶具」選單（多寶具英靈：斯卡哈/金閃/EMIYA/伊斯坎達爾…）
+  function openNpReleasePicker(npcName, sv, useSeal, isMaster, useSkill) {
+    var cur = (typeof sv.npChoice === 'number') ? sv.npChoice : 0;
+    var btns = (sv.npOptions || []).map(function (o, i) {
+      var on = i === cur;
+      return '<button onclick="pickNpAndStrike(' + i + ',\'' + String(npcName).replace(/'/g, '') + '\',\'' + String(sv.name).replace(/'/g, '') + '\',' + (useSeal ? 'true' : 'false') + ',' + (useSkill ? 'true' : 'false') + ')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid ' + (on ? '#e7c873' : '#5a4a2a') + ';background:' + (on ? 'rgba(212,175,55,.18)' : 'rgba(45,38,24,.5)') + ';color:#e8dcc0;"><b style="color:#e7c873;">💥 ' + o.n + '</b>' + (on ? '　<small style="color:#9a8;">·上次所選</small>' : '') + '<br><small style="color:#bcae90;">' + o.desc + '　〔' + o.scale + '〕</small></button>';
+    }).join('');
+    var html = '<h3 style="margin:0 0 6px;color:#e7c873;">💥 解放哪一個寶具？</h3>'
+      + '<div style="color:#cfc3d8;font-size:13px;line-height:1.7;margin-bottom:10px;">「' + sv.name + '」擁有複數寶具——挑選此戰要真名解放的那一個。不同寶具尺度／效果各異（單體必中 vs 範圍殲滅…）。</div>'
+      + btns;
+    showHistoryOverlay(html);
+  }
+  // 選定寶具 → 關選單 → 直接帶 idx 進解放流程（idx 隨 fate_battle 一起送，省一次往返）
+  function pickNpAndStrike(idx, npcName, svName, useSeal, useSkill) {
+    try { var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none'; } catch (e) {}
+    servantStrike(npcName, true, useSeal, false, useSkill, true, idx);
+  }
+
+  async function servantStrike(npcName, useNp, useSeal, isMaster, useSkill, npPicked, npChoiceArg) {
+    // 🌟 多寶具英靈：解放寶具前先讓玩家挑要放哪個（單寶具直接放）。挑完帶 npPicked=true 回來，不再彈選單。
+    if (useNp && !npPicked && !isMaster) {
+      var asv = (myServants || []).find(function (x) { return x.name === myActiveServant; });
+      if (asv && asv.npOptions && asv.npOptions.length > 1) {
+        openNpReleasePicker(npcName, asv, useSeal, isMaster, useSkill);
+        return;
+      }
+    }
     // 🗡️ 斬首敵御主極兇險：唯有「大成功（擲 20）」能突破護衛從者、一擊斬殺御主；
     //    否則必被護衛擋下，並反噬 1.5 倍傷害給你的從者（可能直接靈基崩潰、敗北）。
     if (isMaster) {
@@ -1592,17 +1639,19 @@ function renderRecentLocs(recents = null) {
       // ❖ 防誤按：令咒有限且一次性
       if (!confirm('❖ 對「' + npcName + '」燃燒一道令咒‧絕對命令？\n\n效果：此擊必中＋威力倍增。\n令咒總共只有 3 道、用一道少一道，請謹慎。\n\n確定燃燒令咒？')) return;
     } else if (useNp) {
-      // 💥 防誤按：寶具耗大量魔力
-      if (!confirm('💥 命「' + npcName + '」解放寶具？\n\n將消耗從者約 35% 魔力（魔力不足則無法發動），威力巨大。\n\n確定解放寶具？')) return;
+      // 💥 防誤按：寶具＝靈基全力解放，自動推到出力 100%、御主灌注全部魔力
+      if (!confirm('💥 命「' + npcName + '」解放寶具？\n\n寶具乃靈基全力解放——將自動把出力推到 100%（全開），御主灌注全部魔力（御主魔力／血不足則無法發動）。威力巨大、御主消耗最劇。\n\n確定解放寶具？')) return;
     }
     if (!beginAction()) return;
+    // 🔋 解放寶具＝全開：先把出戰從者出力推到 100%（御主全力灌注），再發動
+    if (useNp) { try { await gasRun({ action: 'set_servant_output', pcId: pc.id, servant: myActiveServant, output: 100, acctName: (pc && pc.account) || currentAccount }); } catch (e) {} }
     const story = document.getElementById('story');
     const _plain = myServantCls === 'Caster' ? '詠唱魔砲，轟向' : myServantCls === 'Archer' ? '張弓狙擊，鎖定' : '出擊，目標';
     const verb = isMaster ? '奇襲斬首，直取敵御主' : (useSeal ? '燃令咒・絕對命令，必中斬向' : (useNp ? '解放寶具，目標' : _plain));
     story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主令從者${useSkill ? '催動主動技、' : ''}${verb}「${npcName}」！</div>`);
     story.scrollTop = story.scrollHeight;
     try {
-      const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, np: !!useNp, seal: !!useSeal, skill: !!useSkill, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount });
+      const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, np: !!useNp, seal: !!useSeal, skill: !!useSkill, servant: myActiveServant, npChoice: (typeof npChoiceArg === 'number' ? npChoiceArg : undefined), acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) {
         if (res.report) renderFateBattleReport(res.report); // 📊 先攤開骰子/數字戰報
         narrate(res.aiPrompt);
@@ -1612,6 +1661,82 @@ function renderRecentLocs(recents = null) {
       }
       else { alert((res && res.message) || '出擊失敗。'); try { syncData(true); } catch (e) {} } // 失敗(常見：目標已不在/已亡的幽靈卡)→重新同步清掉殘留敵蹤卡
     } catch (e) { alert('連線失敗，出擊未果。'); } finally { endAction(); }
+  }
+
+  // 🔋 設定從者靈基出力檔位（20/40/60/80/100）：玩家旋鈕，免費即時。高檔強但御主每小時維持費高；100% 才能解放寶具。
+  async function setServantOutput(btn, npcName, output) {
+    // ⚡ 樂觀更新：點下去「立刻」改轉盤外觀＋百分比，不跳全螢幕遮罩、不整頁重抓——零等待感。
+    try {
+      var wrap = btn && btn.closest ? btn.closest('.out-dial') : null;
+      if (wrap) {
+        wrap.querySelectorAll('.out-btn').forEach(function (b) {
+          var on = parseInt(b.getAttribute('data-o'), 10) === output;
+          b.style.border = '1px solid ' + (on ? '#7ec8ff' : '#3a4a5a');
+          b.style.background = on ? 'rgba(110,180,220,.30)' : 'rgba(40,50,65,.4)';
+          b.style.color = on ? '#bfe3ff' : '#7a8aa0';
+          b.style.fontWeight = on ? 'bold' : 'normal';
+        });
+        var lblMap = { 20: '維持', 40: '節流', 60: '巡航', 80: '高壓', 100: '全開' };
+        var pe = wrap.querySelector('.out-pct'); if (pe) pe.textContent = output + '%';
+        var le = wrap.querySelector('.out-label'); if (le) le.textContent = lblMap[output] || '';
+      }
+    } catch (e) {}
+    // 背景存檔（不阻塞、不遮罩）；回來只更新「供魔收支」那行，整體不重繪
+    try {
+      const res = await gasRun({ action: 'set_servant_output', pcId: pc.id, servant: npcName, output: output, acctName: (pc && pc.account) || currentAccount });
+      if (res && res.success) { try { updateEconomy(res.economy); } catch (e) {} }
+      else if (res && res.message) { alert(res.message); }
+    } catch (e) { /* 靜默：UI 已樂觀更新，下次同步會校正 */ }
+  }
+
+  // 🔮 可選能力的「點開挑選」資料（前端常數，標籤點開的 popup 用）
+  const MAGE_POOL_JS = [
+    { fx: 'nullify_magic', n: '對魔力', d: '受魔力系傷害大幅衰減（對魔法的抗性）' },
+    { fx: 'str_up', n: '怪力', d: '瞬間強化肌力，近身傷害顯著提升' },
+    { fx: 'analyze', n: '心眼（真）', d: '經驗累積的洞察，先機與命中俱增' },
+    { fx: 'clear_mind', n: '透化', d: '心如明鏡，不受鼓舞威壓等精神干擾' },
+    { fx: 'tactics', n: '軍略', d: '對軍寶具運用更精準，寶具威力加成' },
+    { fx: 'self_mod', n: '自我改造', d: '改造己身，命中與傷害小幅穩定提升' }
+  ];
+  const RUNE_MODES_JS = [
+    { mode: 'def', n: '減傷', d: '護符結界——受到的傷害減免（穩健·預設）' },
+    { mode: 'dmg', n: '增傷', d: '符文灼擊——己方造成的傷害提升（進攻）' },
+    { mode: 'regen', n: '回血', d: '治癒符文——每回合回復一截體力（持久）' }
+  ];
+
+  // 🔮 魔境的智慧：點標籤→在說明 popup 裡挑 1 門通用 A 階武技；選定後標籤即顯示（如 魔境的智慧（千里眼A））。
+  function openMageRealmPicker(svName, curFx) {
+    var btns = MAGE_POOL_JS.map(function (o) {
+      var on = o.fx === curFx;
+      return '<button onclick="pickSelectable(\'set_mage_realm\',\'' + svName + '\',{fx:\'' + o.fx + '\'})" style="display:block;width:100%;text-align:left;margin-bottom:6px;padding:9px 11px;border-radius:8px;cursor:pointer;border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + ';background:' + (on ? 'rgba(110,180,220,.25)' : 'rgba(40,50,65,.4)') + ';color:' + (on ? '#bfe3ff' : '#c8d4e0') + ';"><b>' + o.n + ' A</b>' + (on ? '　✓ 運起中' : '') + '<br><small style="color:#9aa6c0;">' + o.d + '</small></button>';
+    }).join('');
+    var html = '<h3 style="margin:0 0 6px;color:#9fd0ff;">✨ 魔境的智慧</h3>'
+      + '<div style="color:#cfc3d8;font-size:13px;line-height:1.7;margin-bottom:10px;">影之國女王通曉常見武技——挑選 <b>1 門通用 A 階被動</b>運於己身。選定後此標籤即顯示所運武技，戰鬥即時生效；可隨時更換。</div>'
+      + btns
+      + (curFx ? '<button onclick="pickSelectable(\'set_mage_realm\',\'' + svName + '\',{fx:\'\'})" style="display:block;width:100%;padding:8px;margin-top:2px;border-radius:8px;cursor:pointer;border:1px solid #6a4a4a;background:rgba(60,40,40,.4);color:#c08a8a;">✕ 收起武技（清除）</button>' : '');
+    showHistoryOverlay(html);
+  }
+  // 🔯 原初符文：點標籤→在說明 popup 裡選符文運用方式（減傷／增傷／回血）；選定後標籤即顯示（如 原初符文（增傷））。
+  function openRunePicker(svName, curMode) {
+    var btns = RUNE_MODES_JS.map(function (o) {
+      var on = o.mode === (curMode || 'def');
+      return '<button onclick="pickSelectable(\'set_rune_mode\',\'' + svName + '\',{mode:\'' + o.mode + '\'})" style="display:block;width:100%;text-align:left;margin-bottom:6px;padding:9px 11px;border-radius:8px;cursor:pointer;border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + ';background:' + (on ? 'rgba(110,180,220,.25)' : 'rgba(40,50,65,.4)') + ';color:' + (on ? '#bfe3ff' : '#c8d4e0') + ';"><b>' + o.n + '</b>' + (on ? '　✓ 運用中' : '') + '<br><small style="color:#9aa6c0;">' + o.d + '</small></button>';
+    }).join('');
+    var html = '<h3 style="margin:0 0 6px;color:#9fd0ff;">🔯 原初符文</h3>'
+      + '<div style="color:#cfc3d8;font-size:13px;line-height:1.7;margin-bottom:10px;">神代的原初符文可隨意刻劃——選定此戰要如何運用符文之力，戰鬥即時生效；可隨時更換。</div>'
+      + btns;
+    showHistoryOverlay(html);
+  }
+  // 共用：點選後關 popup、背景存檔、輕量同步讓標籤更新
+  async function pickSelectable(action, svName, payload) {
+    try { var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none'; } catch (e) {}
+    try {
+      const req = { action: action, pcId: pc.id, servant: svName, acctName: (pc && pc.account) || currentAccount };
+      if (payload) for (var k in payload) req[k] = payload[k];
+      const res = await gasRun(req);
+      if (res && res.success) { try { syncData(true); } catch (e) {} }
+      else if (res && res.message) { alert(res.message); }
+    } catch (e) { /* 靜默 */ }
   }
 
   // ✨ 發動禮裝（主動型）：吃迴路、耗魔力、扣充能
@@ -1713,40 +1838,28 @@ function renderRecentLocs(recents = null) {
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
   }
 
-  // 💧 補魔：御主供魔給從者（回魔＋羈絆＋fade 演出）
+  // 💧 補魔：御主硬擠魔術迴路回滿共用魔力池——但永久燒蝕(血上限−5~10、迴路−1~2)。孤注一擲的回魔。
   async function manaSupply() {
+    if (!confirm('💧 補魔：御主硬擠魔術迴路，將共用魔力池一口氣回滿。\n\n⚠ 代價【永久】：生命上限 −5~10、魔術迴路 −1~2 條（迴路↓會讓魔力池上限縮小、回魔變慢、禮裝變弱）。\n這是燃迴路續契約的孤注一擲——過度依賴等於慢性自盡。\n\n（想省代價：靠靈脈/陣地/休息自然回魔。注意：池見底會被動燃血、缺口÷2同時扣御主與從者血量。）\n\n確定補魔？')) return;
     const foe = localFoeServantName();
     if (foe && !confirm('⚠ 此地有敵從者「' + foe + '」！\n\n補魔時門戶大開，極可能遭其趁隙突襲重擊你的從者（重則靈基崩潰、敗北）。\n建議先擊退敵人或轉往安全處。\n\n仍要在此補魔？')) return;
     if (!beginAction()) return;
     const story = document.getElementById('story');
-    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主將魔力導入從者，行補魔之儀……</div>`);
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主凝神靜息，藉與從者的契約共鳴回充魔力儲備……</div>`);
     story.scrollTop = story.scrollHeight;
     try {
       const res = await gasRun({ action: 'mana_supply', pcId: pc.id, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) {
+        if (res.report) renderFateBattleReport(res.report); // ⚔️ 補魔遭突襲→戰報卡
+        // 💧 即時反饋：補魔代價沉重(血上限↓/迴路↓/回滿魔)——敘述前先把狀態條刷成最新，別等 syncData
+        if (res.statusString) { localStorage.setItem('kyushu_last_status', res.statusString); updateUI(res.statusString.split('§')); }
         updateClock(res.clock, res.ap, res.apMax); narrate(res.aiPrompt); syncData(true);
         if (res.defeat) { await handleDefeat(res); }
       } else { alert((res && res.message) || '補魔失敗。'); }
     } catch (e) { alert('連線失敗，補魔未果。'); } finally { endAction(); }
   }
 
-  // 🩸 燃血補魔：御主燃燒自身生命力(扣血)，大量灌注從者魔力（血量可休息回復）
-  async function bloodSupply() {
-    if (!confirm('🩸 燃血補魔：燃燒御主自身生命力轉化為魔力，大量灌注從者（扣御主血量、回血需休息）。\n\n以血為魔、代價沉重——確定要燃血嗎？')) return;
-    const foe = localFoeServantName();
-    if (foe && !confirm('⚠ 此地有敵從者「' + foe + '」！\n\n燃血時門戶大開，極可能遭其趁隙突襲重擊你的從者。\n仍要在此燃血？')) return;
-    if (!beginAction()) return;
-    const story = document.getElementById('story');
-    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主咬牙逼出血色魔力，以自身生命為媒，行燃血補魔之儀……</div>`);
-    story.scrollTop = story.scrollHeight;
-    try {
-      const res = await gasRun({ action: 'blood_supply', pcId: pc.id, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount });
-      if (res && res.success) {
-        updateClock(res.clock, res.ap, res.apMax); narrate(res.aiPrompt); syncData(true);
-        if (res.defeat) { await handleDefeat(res); }
-      } else { alert((res && res.message) || '燃血失敗。'); }
-    } catch (e) { alert('連線失敗，燃血未果。'); } finally { endAction(); }
-  }
+  // 🩸 燃血已改為【被動】：共用魔力池見底時，applyRegen_ 自動燃御主＋從者 HP 續契約（缺口÷2同扣）。無主動按鈕。
 
   // 💕 羈絆選單（純按鈕，無對話框）：每種每遊戲日限一次、跨日重置
   const BOND_MENU = [
@@ -1881,6 +1994,27 @@ function renderRecentLocs(recents = null) {
       alert((res && res.message) || '完成。');
       if (res && res.success) enterKanshou();
     } catch (e) { alert('測試塞入失敗。'); }
+  }
+
+  // 🔄【DEV】強制把最新種子(寶具尺度/標籤fx/六圍/平衡)套到英靈殿＋現有在場從者，免等版本閘/部署時序。
+  async function devResyncCodex() {
+    showProcessing('套用最新平衡中…', true);
+    try {
+      const res = await gasRun({ action: 'dev_resync_codex' });
+      alert((res && res.message) || '完成。');
+      try { if (typeof syncData === 'function') syncData(true); } catch (e) {}
+    } catch (e) { alert('刷新失敗，請稍後再試。'); } finally { hideProcessing(); }
+  }
+
+  // 🧹 清殘列：刪掉孤兒戰局/亡靈殘留，縮小「眾生」表 → 每次按鍵更快。不影響進行中的活躍戰局與鑑賞。
+  async function devPurgeOrphans() {
+    if (!confirm('🧹 清理殘列？\n\n會刪除「沒有任何帳號在玩」的舊戰局殘留（敗北殘局、棄局、亡靈），縮小資料表、加快每次操作。\n\n✅ 安全：不會動到任何進行中的戰局，也不影響鑑賞後日談與已封存從者。\n\n確定清理？')) return;
+    showProcessing('清理殘列中…', true);
+    try {
+      const res = await gasRun({ action: 'purge_orphans', pcId: (pc && pc.id) || '' });
+      alert((res && res.message) || '清理完成。');
+      try { if (typeof syncData === 'function') syncData(true); } catch (e) {}
+    } catch (e) { alert('清理失敗，請稍後再試。'); } finally { hideProcessing(); }
   }
 
   // 👥 後日談同伴管理（鑑賞限定·最多3人）：邀請/請走已封存從者
@@ -2083,41 +2217,43 @@ function renderRecentLocs(recents = null) {
     showGamePane('chat');
   }
 
+  // 🔄 把一份 client state(來自 sync 回應，或動作夾帶的 _state) 套進 UI。兩條路徑共用，避免邏輯分岔。
+  function applyClientState(data, isSilent) {
+    if (!data) return;
+    // 🔴 視角防呆：記憶體一律更新為最新；只有在看自己命格時才刷新主 UI
+    if (data.statusString) {
+      localStorage.setItem('kyushu_last_status', data.statusString);
+      if (currentStatusTargetId === pc.id) updateUI(data.statusString.split('§'));
+    }
+    localNPCs = data.people || [];
+    nearbyLocations = data.locations || [];
+    updateClock(data.clock, data.ap, data.apMax);
+    updateEconomy(data.economy);
+    refreshFateTags(data.tags); // ⚡ 用夾帶的 tags，省一趟 get_tags round-trip
+    renderMapPane();
+    renderWarActions();
+    if (!isSilent) {
+      const story = document.getElementById('story');
+      story.innerHTML += `<div class="msg-player" style="align-self:center; border-radius:8px; background:rgba(255,255,255,0.05); color:#aaa; font-size:13px; text-align:center;">（感應天地，已同步氣息）</div>`;
+      story.scrollTop = story.scrollHeight;
+    }
+  }
+
   async function syncData(isSilent = false) {
+    // ⚡ 2→1：剛剛的動作已夾帶最新 state → 直接套用、免再打一趟 sync round-trip
+    if (__pendingState) {
+      const st = __pendingState; __pendingState = null;
+      try { applyClientState(st, isSilent); } catch (e) { console.error("【套用夾帶狀態異常】:", e); }
+      return;
+    }
     try {
       const data = await gasRun({ action: "sync", pcId: pc ? pc.id : "" });
-      
       if (!data.success) {
         if(!isSilent) alert("感應失敗：" + (data.message || "查無此人"));
         return;
       }
-
-      // 🔴 替換掉原本單純的 updateUI，加上視角防呆！
-      if (data.statusString) {
-        // 🔥 核心修復：無論視角在哪，瀏覽器的記憶體絕對要更新為最新狀態！
-        localStorage.setItem('kyushu_last_status', data.statusString);
-        
-        if (currentStatusTargetId === pc.id) {
-          // 只有在看自己的命格時，才允許刷新 UI
-          updateUI(data.statusString.split('§'));
-        }
-      }
-      // ⚠️ 剛剛就是這裡多了一個 } 導致全盤崩潰！大貓已經把它拔掉了！
-      
-      localNPCs = data.people || [];
-      nearbyLocations = data.locations || [];
-      updateClock(data.clock, data.ap, data.apMax);
-      updateEconomy(data.economy);
-      refreshFateTags();
-      renderMapPane();
-      renderWarActions();
-
-      if (!isSilent) {
-        const story = document.getElementById('story');
-        story.innerHTML += `<div class="msg-player" style="align-self:center; border-radius:8px; background:rgba(255,255,255,0.05); color:#aaa; font-size:13px; text-align:center;">（感應天地，已同步氣息）</div>`;
-        story.scrollTop = story.scrollHeight;
-      }
-    } catch(e) { 
+      applyClientState(data, isSilent);
+    } catch(e) {
       if(!isSilent) alert("系統錯誤，請打開 F12 查看 Console 的錯誤紀錄。");
     }
   }
@@ -2378,12 +2514,8 @@ function showHistoryOverlay(html) {
   ov.style.display = 'flex';
 }
 
-// 🔵 依模式開關功能：單人(solo)隱藏 full 日常系統；多人(full)全開
+// 🔵 依模式開關功能：solo 隱藏輸入框；kanshou 全開
 function applyModeUI() {
-  var isFull = (pc && pc.mode === 'full');
-  document.querySelectorAll('[data-mode="full"]').forEach(function (el) {
-    el.style.display = isFull ? '' : 'none';
-  });
   // 🔵 對話輸入窗只在「鑑賞」(後日談約會)模式出現。
   //   單人聖杯戰爭＝純按鈕：GAS 算數值、AI 只說書，不再猜玩家想幹嘛(actionPlay 演化)。
   //   保留「＋」工具抽屜(狀態/史紀/設定)，只收掉文字輸入框、傳送鈕與慾海開關。
@@ -2468,17 +2600,19 @@ async function checkName(event) {
 }
 
   // ⏳ 全螢幕「處理中」遮罩：AI 生成需數秒，避免玩家以為當機
-  function showProcessing(msg) {
+  function showProcessing(msg, quick) {
     let el = document.getElementById('proc-overlay');
     if (!el) {
       el = document.createElement('div');
       el.id = 'proc-overlay';
       el.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(8,6,12,0.82);';
-      el.innerHTML = '<div style="text-align:center;color:#e8dcc0;padding:24px;"><div style="width:48px;height:48px;margin:0 auto 16px;border:3px solid rgba(212,175,55,0.22);border-top-color:#d4af37;border-radius:50%;animation:procspin 0.9s linear infinite;"></div><div id="proc-msg" style="font-size:15px;letter-spacing:1px;color:#e7c873;font-weight:bold;"></div><div style="font-size:11.5px;color:#9a8bb0;margin-top:8px;">聖杯演算中，請稍候約 10～30 秒……</div></div>';
+      el.innerHTML = '<div style="text-align:center;color:#e8dcc0;padding:24px;"><div style="width:48px;height:48px;margin:0 auto 16px;border:3px solid rgba(212,175,55,0.22);border-top-color:#d4af37;border-radius:50%;animation:procspin 0.9s linear infinite;"></div><div id="proc-msg" style="font-size:15px;letter-spacing:1px;color:#e7c873;font-weight:bold;"></div><div id="proc-hint" style="font-size:11.5px;color:#9a8bb0;margin-top:8px;">聖杯演算中，請稍候約 10～30 秒……</div></div>';
       document.body.appendChild(el);
       const st = document.createElement('style'); st.textContent = '@keyframes procspin{to{transform:rotate(360deg)}}'; document.head.appendChild(st);
     }
     document.getElementById('proc-msg').textContent = msg || '處理中…';
+    // quick＝快速動作(出力/補魔/強撐/魔境…)：只留轉圈＋訊息，不顯示「10～30 秒」那行(那是給 AI 生成用的)
+    var hint = document.getElementById('proc-hint'); if (hint) hint.style.display = quick ? 'none' : 'block';
     el.style.display = 'flex';
   }
   function hideProcessing() { const el = document.getElementById('proc-overlay'); if (el) el.style.display = 'none'; }
@@ -2741,8 +2875,6 @@ const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatDat
 
       document.getElementById(loadId)?.remove();
       localNPCs = data.people || []; nearbyLocations = data.locations || [];
-      console.log("🔴AI原始文字:", JSON.stringify(data.text));
-
       // 🔴 直接接收後端傳來的狀態字串，不再依賴 AI 的文字解析
       if (data.statusString) {
           localStorage.setItem('kyushu_last_status', data.statusString);
@@ -2914,10 +3046,6 @@ let plainTextContext = cleanText;
             html += `<button class="btn" style="border-color:#b06cd0; color:#b06cd0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, true)">❖ 令咒・絕對命令（必中）</button>`;
             html += `<button class="btn" style="border-color:#4e92c0; color:#7ec8ff; font-weight:bold;" title="催動出戰從者的專屬主動技：本戰增益，耗少量魔力(不足抽御主)" onclick="closeInteractMenu(); servantStrike('${npcName}', false, false, false, true)">⚡ 主動技</button>`;
           }
-          if (pc && pc.mode === 'full') {
-            html += `<button class="btn" style="border-color:#8fa39b; color:#8fa39b;" onclick="closeInteractMenu(); insertActionTag('下毒', '${npcName}')">🧪 下毒</button>`;
-            html += `<button class="btn" style="border-color:#8fa39b; color:#8fa39b;" onclick="closeInteractMenu(); insertActionTag('媚藥', '${npcName}')">🌸 媚藥</button>`;
-          }
       }
 
       document.getElementById('interact-dynamic-buttons').innerHTML = html;
@@ -2935,19 +3063,6 @@ let plainTextContext = cleanText;
 
 
 
-
-// ==========================================
-// ⚔️ 玩家攻擊：[攻擊XXX]敘述 標籤式輸入，一次可連打多人，由 GAS 依序裁決
-// ==========================================
-function insertActionTag(actionType, npcName) {
-  const input = document.getElementById('u-in');
-  const countSel = document.getElementById('combo-count-select');
-  const count = countSel ? (parseInt(countSel.value, 10) || 1) : 1;
-  for (let i = 0; i < count; i++) {
-    input.value += `[${actionType}${npcName}]`;
-  }
-  input.focus();
-}
 
 async function handleMultiAttack(rawMsg) {
   const input = document.getElementById('u-in');
@@ -3062,43 +3177,6 @@ function renderCombatReport(c) {
 
 
 
-  const targetNode = document.getElementById('npc-overlay');
-  const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      if (mutation.attributeName === 'style' && targetNode.style.display === 'none') {
-         console.warn("⚠️ 偵探警報：視窗被關閉了！呼叫堆疊如下：");
-         console.trace(); 
-      }
-    });
-  });
-  observer.observe(targetNode, { attributes: true });
-
-  async function restAndHeal() {
-  try {
-    const data = await gasRun({ action: "rest", pcId: pc.id });
-    if (data.success && data.statusString) {
-      localStorage.setItem('kyushu_last_status', data.statusString); 
-      updateUI(data.statusString.split('§'));
-      const locStr = data.loc ? `在『${data.loc}』` : "就地";
-      let coreMsg = "";
-      if (data.healedNames && data.healedNames.length > 1) {
-        coreMsg = `我與隊友『${data.healedNames.join("、")}』${locStr}盤膝休養，氣血已然補滿`;
-      } else {
-        coreMsg = `我${locStr}盤膝休養，氣血已然補滿`;
-      }
-      let injuryHint = data.wasInjured ? "，先前的傷勢也已大致痊癒" : "（先前並無重傷，純粹是調息養氣，請勿描寫成大難痊癒）";
-      let bystanderHint = (data.bystanderNames && data.bystanderNames.length > 0)
-        ? `現場還有『${data.bystanderNames.join("、")}』在旁，他們並未一同休養，敘事請合理帶到他們的存在或反應，不要視而不見。`
-        : "現場除了休養者外沒有其他人物，請勿憑空捏造路人或對話對象。";
-      const promptMsg = `【純敘事】${coreMsg}${injuryHint}。${bystanderHint}請生動描繪吐納調息的畫面，地點與在場人物務必與上述設定一致。`;
-      narrate(promptMsg);
-    } else {
-      alert(data.message || "休養失敗。");
-    }
-  } catch (e) {
-    alert("連線受阻，無法休養。");
-  }
-}
 
 // ==========================================
 // 🔒 通用按鈕防連點鎖

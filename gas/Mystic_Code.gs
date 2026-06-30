@@ -124,7 +124,7 @@ function applyMysticDamageToServant_(sheets, pcData, tgtIdx, dmg, ctx) {
     var lives = getGodHandLives_(pcData[tgtIdx][COL.PC.MEMORY]);
     if (lives > 0) {
       out.godRevived = true;
-      pcData[tgtIdx][COL.PC.HP] = Math.max(1, Math.round((parseInt(pcData[tgtIdx][COL.PC.MAX_HP]) || 480) * 0.40));
+      pcData[tgtIdx][COL.PC.HP] = Math.max(1, Math.round((parseInt(pcData[tgtIdx][COL.PC.MAX_HP]) || 300) * 0.20));
       pcData[tgtIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[tgtIdx][COL.PC.MEMORY], lives - 1);
       sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
       out.godNote = '「' + pcData[tgtIdx][COL.PC.NAME] + '」自死亡歸來（餘 ' + (lives - 1) + ' 命）。';
