@@ -100,7 +100,7 @@ var SEED_SERVANTS = [
     six:{筋力:'C',耐久:'B',敏捷:'B',魔力:'B',幸運:'-',寶具:'A'},
     classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'}],
     skills:[{n:'天之鎖',r:'A',fx:'chain'},{n:'變生',r:'A',fx:'shapeshift'},{n:'神性',r:'A',fx:'divine'}],
-    traits:[{n:'神性'},{n:'神造兵器'}], np:'天地乖離開闢之星 Enuma Elish（變化・對界）',
+    traits:[{n:'神性'},{n:'神造兵器'},{n:'病死宿命'}], np:'天地乖離開闢之星 Enuma Elish（變化・對界）',
     align:'中立・中庸', persona:{firstP:'我',look:'青綠長髮・中性無垢的神造之軀、平和無機卻溫柔的氣息、自稱「我」・平和中性、談起摯友便柔軟下來的眷戀',words:'純真・神造・追尋摯友・無垢',toMaster:'溫和而疏離，心繫吉爾伽美什',speech:'平和中性、純真直接、無機質卻溫柔、談起摯友便柔軟',moe:'神造兵器卻最有人性、對吉爾伽美什的純粹羈絆、不解人類卻嚮往、變幻自如的天真',tic:'化身千刃、歪頭觀察、望向遠方'} },
   // 斯卡哈 三職階
   { id:'斯卡哈-Lancer', cls:'Lancer', realName:'斯卡哈', wars:['客串'], gender:'女',
@@ -263,7 +263,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v15';
+var CODEX_PERSONA_VER = 'v16';
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {

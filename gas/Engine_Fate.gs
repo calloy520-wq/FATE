@@ -443,11 +443,15 @@ function resolveFateBattle_(atk, def, opts) {
     if (wSig('ea')) { base = Math.round(base * 1.7) + rollDice_(4, 12) + 80; fired.push(winner.name + '·' + fxName_(winner, 'ea', '乖離劍') + '(天地乖離·真理之劍)'); }
     // 🏰 寶具規模相剋矩陣：對城打對人 ×2.5、對界碾壓常規防禦…（攻擊規模 × 守方防禦規模）。多寶具用所選寶具的尺度。
     var atkScaleLabel = (wRelease && atkNp) ? atkNp.scale : npAtkScale_(winner);
+    // 🦠 疫病·病死宿命：蒼白騎兵(疫病具現)對「傳說中死於疾病」之敵(恩奇都等)，重演其宿命之死——無視規模防禦·概念碾壓 ×3。
+    var plagueDoom = (winner.traits || []).some(function (t) { return t && /疫病/.test(String(t.n)); }) &&
+                     (loser.traits || []).concat(loser.skills || []).some(function (t) { return t && /病死宿命/.test(String(t.n)); });
     // ⚔️ 對神(弒神寶具·梵天弒神之槍 Vasavi Shakti 等)：對「神性」之敵單體特大傷害(弒神)，對凡人僅單體重擊。不入規模矩陣，特判。
     var scaleMult;
-    if (atkScaleLabel === '對神') { scaleMult = loserDivine ? 2.4 : 1.15; }
+    if (plagueDoom) { scaleMult = 3.0; }
+    else if (atkScaleLabel === '對神') { scaleMult = loserDivine ? 2.4 : 1.15; }
     else { scaleMult = NP_SCALE_MATRIX[NP_SCALE_IDX[atkScaleLabel]][NP_SCALE_IDX[npDefScale_(loser)]]; }
-    if (scaleMult !== 1) { base = Math.round(base * scaleMult); fired.push(winner.name + '·' + atkScaleLabel + '寶具' + (atkScaleLabel === '對神' && loserDivine ? '·弒神特大' : '') + ' vs ' + npDefScale_(loser) + '防(×' + scaleMult + ')'); }
+    if (scaleMult !== 1) { base = Math.round(base * scaleMult); fired.push(winner.name + '·' + (plagueDoom ? '疫病·病死宿命(無可逃避·概念碾壓)' : (atkScaleLabel + '寶具' + (atkScaleLabel === '對神' && loserDivine ? '·弒神特大' : ''))) + ' vs ' + npDefScale_(loser) + '防(×' + scaleMult + ')'); }
   }
   // ⚡ 主動技傷害增益（僅當攻方獲勝＝此增益屬於攻方時生效）
   if (opts.skill && atkWins) {
