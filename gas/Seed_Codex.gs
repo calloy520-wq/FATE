@@ -111,10 +111,10 @@ var SEED_SERVANTS = [
     traits:[{n:'神性',r:'低'},{n:'人類'}], np:'蹴穿死翔之槍 Gáe Bolg Alternative（對人 B·影縫穿刺）',
     align:'中立・中庸', persona:{firstP:'我',look:'紫髮暗裝・融入影中的致命女王、冷冽無聲的審視氣息、自稱「我」・低冷簡短、認可強者後難得鬆動的柔軟',words:'潛行的女王・冷冽・致命・影',toMaster:'冷眼試探、出手無情，認可方鬆動',speech:'低冷簡短、氣息全無、一針見血',moe:'影中女王的致命優雅、試探背後的審視、認可強者後難得的鬆動',tic:'融入暗影、刃尖輕轉、無聲逼近'} },
   { id:'斯卡蒂-Caster', cls:'Caster', realName:'斯卡哈·斯卡蒂（Skadi）', wars:['客串'], gender:'女',
-    six:{筋力:'E',耐久:'D',敏捷:'C',魔力:'A',幸運:'B',寶具:'A'},
-    classSkills:[{n:'陣地作成',r:'A',fx:'territory'},{n:'高速神言',r:'A',fx:'fast_cast'}],
-    skills:[{n:'原初符文',r:'EX',fx:'rune'},{n:'女神的神核',r:'',fx:'divine_core'},{n:'神代魔術',r:'A',fx:'divine_age'}],
-    traits:[{n:'神性'},{n:'女神'}], np:'彼岸薔薇之園・原初的符紋 Víðópnir（對人 A·原初符文加護／支援結界）',
+    six:{筋力:'B',耐久:'D',敏捷:'C',魔力:'EX',幸運:'D',寶具:'A'},
+    classSkills:[{n:'陣地作成',r:'EX',fx:'territory'},{n:'道具作成',r:'A',fx:'crafting'}],
+    skills:[{n:'女神的神核',r:'A',fx:'divine_core'},{n:'原初符文',r:'EX',fx:'rune'},{n:'大神的睿智',r:'B+',fx:'analyze'},{n:'冰凍暴風雪',r:'B',fx:''}],
+    traits:[{n:'神性'},{n:'女神'},{n:'巨人'}], np:'通往死亡滿溢的魔境之門 Gate of Skye（對軍 A+·影之城的祝福·開戰寶具）',
     align:'中立・善', persona:{firstP:'吾',look:'銀紫長髮・符文環繞的冰雪女神、莊重慈悲並存的母性威儀、自稱「吾」・溫柔莊重、害羞時藏不住的可愛溫情',words:'北歐女神・溫柔而威嚴・守護者・嚴母',toMaster:'溫柔包容、暗藏神威，母性',speech:'溫柔而莊重、自稱吾、神祇的慈悲與威嚴並存',moe:'冰雪女神的溫柔母性、害羞時的可愛、守護生靈的執著、威嚴下的溫情',tic:'符文環繞、垂眸微笑、輕撫額前'} },
   // strange Fake
   { id:'理查一世-Saber', cls:'Saber', realName:'獅心王・理查一世', wars:['fake'], gender:'男',
@@ -250,7 +250,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v10';
+var CODEX_PERSONA_VER = 'v11';
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
