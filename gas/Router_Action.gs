@@ -1914,6 +1914,26 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   var isFoeSv = (tgtFaction === "敵從者");
   var severed = hasFx_(atkC, 'rule_breaker') || hasFx_(atkC, 'anti_magic_lance');
   var hp = parseInt(pcData[tgtIdx][COL.PC.HP]) || 0;
+  // 🐙 海怪護盾：優先吸收傷害（護盾歸零或超過 HORROR_SHIELD_HOURS 時消散）
+  if (isPlayerSv && dmg > 0) {
+    var _hClk = getClock_(ctx.myGameId);
+    var _hAbs = _hClk ? _hClk.day * 24 + _hClk.hour : null;
+    var _shield = getHorrorShield_(pcData[tgtIdx][COL.PC.MEMORY], _hAbs);
+    if (_shield.active && _shield.remaining > 0) {
+      var _sAbsorb = Math.min(_shield.remaining, dmg);
+      dmg = Math.max(0, dmg - _sAbsorb);
+      out.damage = dmg;
+      var _sNew = _shield.remaining - _sAbsorb;
+      if (_sNew <= 0) {
+        pcData[tgtIdx][COL.PC.MEMORY] = clearHorrorShield_(pcData[tgtIdx][COL.PC.MEMORY]);
+        out.fired.push(defC.name + '·海怪護盾(吸收' + _sAbsorb + '·護盾破碎)');
+      } else {
+        pcData[tgtIdx][COL.PC.MEMORY] = setHorrorShield_(pcData[tgtIdx][COL.PC.MEMORY], _sNew, _shield.expiry);
+        out.fired.push(defC.name + '·海怪護盾(吸收' + _sAbsorb + '·餘' + _sNew + ')');
+      }
+      sheets.pc.getRange(tgtIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[tgtIdx][COL.PC.MEMORY]);
+    }
+  }
   var after = hp - dmg;
   if (severed && after <= 0) out.fired.push(atkC.name + '·斬斷救贖(契約已破)');
   if (after <= 5 && hasFx_(defC, 'survive') && hp > 1 && !severed) { after = 1; out.fired.push(defC.name + '·戰鬥續行'); }
@@ -2447,6 +2467,15 @@ function actionFateBattle(userData, pcId, sheets) {
     skills: [], traits: [{ n: '巨獸' }], output: 100,
     hp: 400, hpMax: 400, mp: 0, mpMax: 0
   } : null;
+  // 🐙 海怪護盾：深淵海怪以身為盾護住吉爾，寶具觸發當下即生效（200 HP 護盾，8 遊戲時後消散）
+  if (horrorActive) {
+    var _hshClk = getClock_(myGameId);
+    if (_hshClk) {
+      var _hshExp = _hshClk.day * 24 + _hshClk.hour + HORROR_SHIELD_HOURS;
+      pcData[atkIdx][COL.PC.MEMORY] = setHorrorShield_(pcData[atkIdx][COL.PC.MEMORY], HORROR_SHIELD_HP, _hshExp);
+      sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
+    }
+  }
 
   for (let rd = 0; rd < ROUNDS; rd++) {
     if (sealEscaped || destroyedName || defeat || victory) break;
@@ -2682,6 +2711,9 @@ function getDoom_(memory) {
 //   不寫道具列、不花錢。MEMORY 記【整備至】<絕對小時>，過期自動失效。
 var MEAL_BUFF_HOURS = 8;   // 持續時數（遊戲內）
 var MEAL_BUFF_BONUS = 2;   // 從者出擊命中加值
+// 🐙 海怪護盾：吉爾解放寶具後，深淵海怪以身為盾護住術師；以 MEMORY【海怪護盾】remaining|expiryAbsHour 持久化。
+var HORROR_SHIELD_HP = 200;   // 護盾初始量
+var HORROR_SHIELD_HOURS = 8;  // 持續上限（遊戲內小時）
 function stampMeal_(memory, expiryAbsHour) {
   var s = String(memory || "").replace(/【整備至】\d+/, "");
   s = s.replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
@@ -2696,6 +2728,21 @@ function mealBuffActive_(memory, gameId) {
   var exp = getMeal_(memory); if (!exp) return false;
   var clk = getClock_(gameId); if (!clk) return false;
   return (clk.day * 24 + clk.hour) < exp;
+}
+function getHorrorShield_(memory, absHour) {
+  var m = String(memory || "").match(/【海怪護盾】(\d+)\|(\d+)/);
+  if (!m) return { active: false, remaining: 0, expiry: 0 };
+  var rem = parseInt(m[1]), exp = parseInt(m[2]);
+  if (absHour != null && absHour >= exp) return { active: false, remaining: 0, expiry: exp };
+  return { active: rem > 0, remaining: rem, expiry: exp };
+}
+function setHorrorShield_(memory, remaining, expiry) {
+  var s = String(memory || "").replace(/【海怪護盾】\d+\|\d+/, "");
+  s = s.replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
+  return (s ? s + "｜" : "") + "【海怪護盾】" + remaining + "|" + expiry;
+}
+function clearHorrorShield_(memory) {
+  return String(memory || "").replace(/｜?【海怪護盾】\d+\|\d+/, "").replace(/^｜|｜$/, "");
 }
 // 🍱 整備·進食：耗 1 AP，給御主一行 MEAL_BUFF_HOURS 小時的戰鬥命中 +MEAL_BUFF_BONUS（戰前 buff）
 function actionPrepMeal(userData, pcId, sheets) {

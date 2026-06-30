@@ -72,7 +72,7 @@ var SEED_SERVANTS = [
     align:'中立・善', persona:{firstP:'余',look:'紅髮虬髯・魁梧壯碩、披風加身的征服王、豪邁爽朗的王者雅量、自稱「余」・氣口恢弘如雷',words:'豪邁・征服・雅量・王道',toMaster:'視為臣下亦為摯友，要對方先成為夠格的王',speech:'豪爽大笑、稱「小鬼」、王者氣度、好酒好戰、講大道理',moe:'征服世界的野心與孩子氣並存、愛酒愛地圖、收伏人心的雅量、把御主當孩子般栽培（不分男女）',tic:'仰天大笑、攤開世界地圖、灌下整桶酒'} },
   { id:'吉爾德萊-Caster', cls:'Caster', realName:'吉爾·德·萊斯（青鬍子）', wars:['4th'], gender:'男',
     six:{筋力:'E',耐久:'E',敏捷:'D',魔力:'C',幸運:'E',寶具:'A+'},
-    classSkills:[{n:'陣地作成',r:'C',fx:'territory'},{n:'道具作成',r:'C',fx:'crafting'}],
+    classSkills:[{n:'陣地作成',r:'C',fx:'territory'},{n:'道具作成',r:'C',fx:'crafting'},{n:'城牆防禦',r:'C',fx:'wall_def'}],
     skills:[{n:'精神汙染',r:'A',fx:'mad'},{n:'螺湮城教本',r:'',fx:'summon_horror'}],
     traits:[{n:'人類'}], np:'螺湮城教本 Prelati\'s Spellbook（深淵召喚・召喚大海怪）',
     align:'混沌・惡', persona:{firstP:'我',look:'青鬚華服・捧著厚重教本的貴族、虔誠與癲狂交錯的氣息、自稱「我」・時文雅時癲狂咆哮',words:'瘋狂・虔誠扭曲・對「聖女」的執念',toMaster:'與同其瘋狂共鳴的御主引為純粹之惡的摯友、相互共鳴；否則貌合神離',speech:'時而文雅虔誠、時而癲狂咆哮、引經據典又褻瀆神明',moe:'曾為聖女信徒的純粹墮落成深淵的反差、對「神不在場」的悲憤、與志同道合的御主一搭一唱的瘋狂默契',tic:'翻動教本咆哮、淚流滿面的狂笑、自深淵召出觸手海怪'} },

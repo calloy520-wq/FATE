@@ -530,6 +530,9 @@ function resolveFateBattle_(atk, def, opts) {
     base = Math.round(base * (1 - red));
     fired.push(loser.name + '·' + fxName_(loser, 'nullify_magic', '對魔力') + (daWin ? '(神代凌駕·殘三成)' : (nmV >= 50 ? '(無視魔術)' : '')));
   }
+  // 🧱 城牆防禦(wall_def)：法師以魔術城牆隔絕物理衝擊，補償 Caster 低耐久（僅擋物理；魔術系傷害穿透）
+  var wdL = hasFx_(loser, 'wall_def');
+  if (wdL && !atkMagic && !pierces('territory')) { base = Math.round(base * 0.82); fired.push(loser.name + '·' + fxName_(loser, 'wall_def', '城牆防禦') + '(物理減傷18%)'); }
 
   var damage = Math.max(1, base);
 
