@@ -811,8 +811,10 @@ function actionMove(userData, pcId, sheets) {
           var pProb = 0.30 + (psvHp < psvMax * 0.4 ? 0.20 : 0) - (hasFx_(psvC, 'ride') ? 0.15 : 0);
           if (Math.random() < pProb) {
             var chC = rowToCombatant_(chaser);
-            var pDmg = Math.max(6, Math.round(rankVal(chC.six['筋力'] || 'C') * 0.4) + rollDice_(2, 6));
-            pursuit = { enemyName: String(chaser[COL.PC.NAME]), dmg: pDmg };
+            // ⚔️ 真·交手判定(非單方挨打)：追兵 vs 我方從者一次交鋒，誰輸誰扣血——我方夠強可回身反咬逼退追兵。
+            //   雙方保 1 不致死(離別小衝突·防玩家來回刷殺/也防被追擊秒殺)。
+            var pr = resolveFateBattle_(chC, psvC, {});
+            pursuit = { enemyName: String(chaser[COL.PC.NAME]), chaserId: String(chaser[COL.PC.ID]), dmg: Math.max(1, pr.damage), hitWho: pr.atkWins ? 'us' : 'foe' };
           }
         }
       }
@@ -857,11 +859,16 @@ function actionMove(userData, pcId, sheets) {
     if (nIdx !== -1) allPcData[nIdx][COL.PC.LOC] = target;
   });
 
-  // 💨 套用撤離追擊傷害(前述判定)：對在場我方從者扣血·保 1 不致死(隨下方整表 setValues 寫回)。
+  // 💨 套用撤離追擊判定(前述交手)：輸的一方扣血·保 1 不致死(隨下方整表 setValues 寫回)。
   if (pursuit) {
-    var fsvIdx = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
-    if (fsvIdx !== -1) { allPcData[fsvIdx][COL.PC.HP] = Math.max(1, (parseInt(allPcData[fsvIdx][COL.PC.HP]) || 0) - pursuit.dmg); }
-    else { pursuit = null; }
+    if (pursuit.hitWho === 'us') { // 我方從者輸→挨追擊
+      var fsvIdx = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
+      if (fsvIdx !== -1) { allPcData[fsvIdx][COL.PC.HP] = Math.max(1, (parseInt(allPcData[fsvIdx][COL.PC.HP]) || 0) - pursuit.dmg); }
+      else { pursuit = null; }
+    } else { // 追兵輸→被回身反咬逼退(對追兵 ID 扣血·保1；追兵已 tick 走/不在則仍報甩脫成功)
+      var fchIdx = allPcData.findIndex(function (r) { return String(r[COL.PC.ID]) === pursuit.chaserId; });
+      if (fchIdx !== -1) { allPcData[fchIdx][COL.PC.HP] = Math.max(1, (parseInt(allPcData[fchIdx][COL.PC.HP]) || 0) - pursuit.dmg); }
+    }
   }
 
   // ⏳ 時回：移動的 2 小時間，御主與同行從者隨時間自然回復（HP 固定、MP 看魔術迴路）。

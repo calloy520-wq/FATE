@@ -629,7 +629,7 @@ function renderRecentLocs(recents = null) {
         nearbyLocations = data.locations || [];
         // 1. 地點小標
         story.insertAdjacentHTML('beforeend', `<div class="msg-player" style="align-self:center;color:#9fc0ef;font-size:12.5px;">📍 抵達「${targetName}」</div>`);
-        if (data.pursuit) story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#e0915c;font-size:12px;text-align:center;border:1px solid rgba(200,120,70,.35);border-radius:8px;padding:5px 10px;">💨 撤離追擊：「${data.pursuit.enemyName}」咬了一記——從者 <b>−${data.pursuit.dmg}</b></div>`);
+        if (data.pursuit) { const _pu = data.pursuit, _us = _pu.hitWho === 'us'; story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:${_us ? '#e0915c' : '#7fc77f'};font-size:12px;text-align:center;border:1px solid rgba(${_us ? '200,120,70' : '120,180,120'},.35);border-radius:8px;padding:5px 10px;">💨 ${_us ? '撤離追擊：被「' + _pu.enemyName + '」咬了一記——從者' : '撤離反咬：回身將「' + _pu.enemyName + '」逼退——追兵'} <b>−${_pu.dmg}</b></div>`); }
         updateClock(data.clock, data.ap, data.apMax);
         updateEconomy(data.economy);
         showRumors(data.rumors);
@@ -646,7 +646,9 @@ function renderRecentLocs(recents = null) {
         const arrivePrompt = (data.servantCard || '') + (data.foeCards || '')
           + `【抵達場景】御主『${pc.name}』${pc.servant ? `與從者「${pc.servant}」` : ''}剛抵達冬木的「${targetName}」，時值${timeStr}。\n`
           + `此地氛圍：${locDesc}\n敵情：${foeStr}。\n`
-          + (data.pursuit ? `★【撤離追擊】方才從「${data.pursuit.enemyName}」的勢力範圍抽身時，對方並未善罷甘休、咬了一記離別追擊（從者受創 −${data.pursuit.dmg}）——抵達時帶著甩脫追兵的餘悸與狼狽，而非從容無事。\n` : '')
+          + (data.pursuit ? (data.pursuit.hitWho === 'us'
+              ? `★【撤離追擊】方才從「${data.pursuit.enemyName}」的勢力範圍抽身時，對方追上來咬了一記（從者受創 −${data.pursuit.dmg}）——抵達時帶著甩脫追兵的餘悸與狼狽，而非從容無事。\n`
+              : `★【撤離反咬】方才「${data.pursuit.enemyName}」追擊而至，從者回身一擊將其逼退（追兵受創 −${data.pursuit.dmg}）方才從容退場——可演出那記漂亮的斷後，但仍是脫離、非纏戰。\n`) : '')
           + ((foes.filter(f => f.faction === '敵御主' || f.faction === '敵從者').length > 1) ? `★【在場敵對歸屬·勿張冠李戴】${foes.filter(f => f.faction === '敵御主').map(f => `御主「${f.name}」${f.servant ? `↔從者「${f.servant}」` : '（已無從者）'}`).concat(foes.filter(f => f.faction === '敵從者' && !foes.some(m => m.faction === '敵御主' && m.servant === f.name)).map(f => `從者「${f.name}」${f.master ? `↔御主「${f.master}」` : ''}`)).join('；')}。各組從者只聽命於自己的御主，彼此可能也互為敵手。\n` : '')
           + (lastAiContext ? `\n【前情·僅供承接劇情連貫，勿原樣複述】方才之事：${lastAiContext.slice(0, 280)}\n${foes.length ? '若眼前敵人正是方才那場的對手，便是對方一路追上來／再度狹路相逢——承接前情、別當第一次見面（對方可能仍帶著方才的傷或怒）。' : '此番移動承接前情——【依方才的勝負結果與當前血量自行定調，勿臆測】：剛大勝→可帶餘勇或警戒餘悸；浴血慘勝→疲憊卻仍挺立；落敗逃離→狼狽負傷。別硬演成敗走、也別當若無其事。'}\n` : '')
           + `★以 Fate／TYPE-MOON 筆觸描寫兩人抵達此地的所見所感、環境細節與當下氛圍。若有敵蹤，營造一觸即發的對峙張力（但是否交戰、勝負留待御主下令，禁止自行開打或分勝負）；若無敵蹤，寫一段巡查、警戒或短暫喘息的氛圍，並自然暗示「可凝神偵查四周，或轉往他處」。\n`
