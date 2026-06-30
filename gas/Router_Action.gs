@@ -2163,7 +2163,10 @@ function actionFateBattle(userData, pcId, sheets) {
       rolls.forEach(r => {
         const sC = rowToCombatant_(pcData[r.idx]);
         const probe = resolveFateBattle_(guardC, sC, {});
-        const selfDmg = Math.max(1, Math.round((probe.damage || 1) * 1.5));
+        // 反噬取「護衛端」傷害：護衛擲贏→其全力反噬(probe.damage 即護衛傷)；護衛擲輸(奇襲突破)→反噬大減，
+        //   底傷依護衛筋力而非玩家自己的攻擊力(原 bug：玩家擲贏時 probe.damage 是玩家傷害，反噬越強自噬越重)。
+        const guardBase = probe.atkWins ? (probe.damage || 1) : Math.round(rankVal(guardC.six['筋力'] || 'C') * 1.5 + 8);
+        const selfDmg = Math.max(1, Math.round(guardBase * 1.5));
         const ahp = parseInt(pcData[r.idx][COL.PC.HP]) || 0;
         let after = ahp - selfDmg;
         if (after <= 5 && hasFx_(sC, 'survive') && ahp > 1) after = 1; // 戰鬥續行
@@ -2302,6 +2305,7 @@ function actionFateBattle(userData, pcId, sheets) {
       enemyC0.mp = parseInt(pcData[nIdx][COL.PC.MP]) || 0;
       enemyNpSpent = true;            // 對轟即用掉敵寶具
       openingNp = false; openingSeal = false; // 玩家寶具/令咒威能已在對轟中釋放，回合迴圈不再重放
+      enemyC0.output = 100;          // ⚖️ 敵解放寶具＝全開(與玩家被閘到 100 對等)，免敵寶具因預設出力60少約一成威力
       const pPow = resolveFateBattle_(atkC, enemyC0, { np: true, seal: useSeal, skill: skillBuff }).damage;
       const ePow = resolveFateBattle_(enemyC0, atkC, { np: true }).damage;
       const band = Math.round((pPow + ePow) * 0.10);
@@ -2435,7 +2439,11 @@ function actionFateBattle(userData, pcId, sheets) {
         // 🔥 敵人也會解放寶具！殘血越急越想拼、暗殺/狂戰系更愛搏命；開寶具則全力(不打折)
         const eHpRatio = (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[nIdx][COL.PC.HP]) || 0) / (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) : 1;
         const eNpUrge = (hasFx_(enemyNow, 'zabaniya') || hasFx_(enemyNow, 'mad')) ? 0.22 : 0.10;
-        let enemyFireNp = !enemyNpSpent && (Math.random() < (eNpUrge + (1 - eHpRatio) * 0.45));
+        // ⚔️ 只有「攻擊型寶具」才反擊解放(與對轟同準)：純防禦/對人寶具(如 Rule Breaker 對人C·無攻擊 fx)不該吃解放加成
+        const ECF = ['ea', 'excalibur', 'ubw', 'summon_horror', 'gob', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify', 'chain', 'anti_magic_lance', 'wind_strike', 'projection'];
+        const eOffensiveNp = !!String(pcData[nIdx][COL.PC.MARTIAL] || "").trim() && rankVal(enemyNow.six["寶具"] || "-") >= 10
+          && (['對軍', '對城', '對界'].indexOf(npAtkScale_(enemyNow)) >= 0 || ECF.some(function (f) { return hasFx_(enemyNow, f); }));
+        let enemyFireNp = eOffensiveNp && !enemyNpSpent && (Math.random() < (eNpUrge + (1 - eHpRatio) * 0.45));
         // 🔋 敵寶具也要吃魔力：自身 MP＋敵御主電池須付得起 prana，否則放不出（EX/EA 幾乎沒人付得起→極罕見；masterless 補不了魔→自限）
         if (enemyFireNp) {
           const ePrana = npPranaCost_(enemyNow.six["寶具"]);
@@ -2443,6 +2451,7 @@ function actionFateBattle(userData, pcId, sheets) {
           if (eAfford.afford) {
             drainForNp_(sheets, pcData, nIdx, eAfford.masterIdx, ePrana);
             enemyNow.mp = parseInt(pcData[nIdx][COL.PC.MP]) || 0; // 反映耗魔後出力
+            enemyNow.output = 100; // ⚖️ 敵解放寶具＝全開(與玩家對等)
             enemyNpSpent = true;
           } else {
             enemyFireNp = false; // 魔力不足，放不出寶具，改為普攻
@@ -3435,7 +3444,10 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, userData, baseMul) 
   let mul = baseMul || 1.4;
   const stealthy = String(pcData[eIdx][COL.PC.RANK]) === 'Assassin' || !!hasFx_(enemyC, 'stealth');
   if (stealthy) mul *= 1.4; // 氣息遮斷／暗殺趁虛而入更致命
-  const dmg = Math.max(1, Math.round((probe.damage || 1) * mul));
+  // 突襲傷害取「敵方端」：敵擲贏→全力(probe.damage 即敵傷)；玩家從者擲贏(擋下偷襲)→大減、底傷依敵筋力，
+  //   而非玩家自己的攻擊力(原 bug：玩家從者越強、砸自己頭上的突襲傷反而越重)。
+  const enemyBase = probe.atkWins ? (probe.damage || 1) : Math.round(rankVal(enemyC.six['筋力'] || 'C') * 1.2 + 6);
+  const dmg = Math.max(1, Math.round(enemyBase * mul));
   const out = { enemyName: String(pcData[eIdx][COL.PC.NAME]), dmg: dmg, destroyed: false, defeat: false, dreamPrompt: "", after: 0, stealthy: stealthy };
   let hp = parseInt(pcData[svIdx][COL.PC.HP]) || 0, after = hp - dmg;
   if (after <= 5 && hasFx_(svC, 'survive') && hp > 1) after = 1;
