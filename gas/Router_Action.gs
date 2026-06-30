@@ -336,7 +336,7 @@ function actionManualNpc(userData, pcId, sheets) {
     const pcColCount = Object.keys(COL.PC).length;
     const newRow = Array(pcColCount).fill("");
     newRow[COL.PC.ID] = newId; newRow[COL.PC.NAME] = finalName; newRow[COL.PC.SEX] = finalSex;
-    newRow[COL.PC.BACK] = standing || aiBrief.background || "來歷不明的魔術師";
+    newRow[COL.PC.BACK] = aiBrief.background || standing || "來歷不明的魔術師"; // AI 生成優先(玩家輸入當種子·像性格/特徵那樣展開)；玩家後續可自改
     newRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
     newRow[COL.PC.MEMORY] = [
       wish ? `【願望】${wish}` : "",
