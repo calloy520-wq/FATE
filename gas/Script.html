@@ -2840,8 +2840,9 @@ function summonByDesc() {
     if (!msg) return;
     if (!customMsg && btn.disabled) return;
 
-    // 🟢 多目標動作標籤：[攻擊/下毒/媚藥 XXX]敘述... 走專屬 GAS 裁決路徑，數值不交給AI自由心證
-    if (!combatData && /\[(攻擊|下毒|媚藥).+?\]/.test(msg)) {
+    // 🟢 多目標動作標籤：[攻擊 XXX]敘述... 走專屬 GAS 裁決路徑，數值不交給AI自由心證
+    //   (下毒/媚藥 為九州/NSFW 殘留詞彙，solo 不用，已移除)
+    if (!combatData && /\[(攻擊).+?\]/.test(msg)) {
       return handleMultiAttack(msg);
     }
 

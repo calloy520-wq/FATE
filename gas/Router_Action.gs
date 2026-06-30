@@ -282,7 +282,7 @@ function actionManualNpc(userData, pcId, sheets) {
 
   // 🔴 創角寫入前再次擋撞名，否則會產生兩個同名 PC，後續所有靠姓名查找的功能都會抓錯人。
   const pcRows = sheets.pc.getDataRange().getValues();
-  if (pcRows.find(r => r[COL.PC.NAME] === finalName && !String(r[COL.PC.ID]).startsWith("DEAD_"))) return JSON.stringify({ success: false, message: "此名號已有大俠使用，請換一個名號。" });
+  if (pcRows.find(r => r[COL.PC.NAME] === finalName && !String(r[COL.PC.ID]).startsWith("DEAD_"))) return JSON.stringify({ success: false, message: "此名號已有魔術師使用，請換一個名號。" });
   if (sheets.auth) { try { sheets.auth.appendRow([finalName, newId, "御主", "", ""]); } catch (e) { } }
 
   // 🔵 實例化：御主創角 → 開一個全新 game_id 世界
@@ -309,7 +309,7 @@ function actionManualNpc(userData, pcId, sheets) {
 ★【勿輸出數值】戰力數值、HP/MP 一律由系統裁定，prompt【不要】輸出 str/con/agi/int/luk 等任何數值欄位。
 
 ★【輸出】合法 JSON、禁 Markdown：
-{"start_loc":"冬木地點","background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","faction":"無","rank":"御主","align":"中立","npc_intent":"結合御主身分的獨特可愛反差萌，一句話","start_item":{"name":"與御主相關的隨身之物","desc":"限15字描述"}}`;
+{"start_loc":"冬木地點","background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","faction":"無","rank":"御主","align":"中立","npc_intent":"結合御主身分的獨特可愛反差萌，一句話"}`;
 
   // 🔴 ignoreLaw: true，把節慶跟天氣隔絕在創建室外
   const aiBriefStr = callGeminiAPI(promptStr, MASTER_GEN_SYS, { temperature: 0.6, ignoreLaw: true });
@@ -3909,7 +3909,7 @@ function actionMultiAttackNarrate(userData, pcId, sheets) {
     const narrationText = data.narration || "天地靜默，一片祥和。";
 
     saveGameHistoryBatch(pcId, [
-      { speaker: "player", content: promptText },
+      { speaker: "player", content: cleanNarrateEcho_(promptText) }, // 洗掉提示詞鷹架，不外洩給玩家(同 actionNarrateOnly)
       { speaker: "ai", content: narrationText }
     ]);
 
