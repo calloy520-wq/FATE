@@ -355,16 +355,25 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, relData, taskData, allPc
     if ((af === "敵御主" || af === "敵從者") && !String(ar[COL.PC.ID]).startsWith("DEAD_") && /【盟約至】\d+/.test(String(ar[COL.PC.MEMORY] || ""))) { hasAlly = true; break; }
   }
 
+  // ⚡ 預建查表：免在 per-person 迴圈內對 relData 做兩次線性 .find（O(人數×關係列數)→O(關係列數+人數)）
+  const relByNpc = {};        // 我(pcName)對某 npc 的關係列
+  const otherPartyByNpc = {}; // 某 npc 的「別人(非我)同行」御主名
+  for (let k = 1; k < relData.length; k++) {
+    const row = relData[k]; const npc = row[COL.REL.NPC];
+    if (row[COL.REL.PC] === pcName) { if (!(npc in relByNpc)) relByNpc[npc] = row; }
+    else if (row[COL.REL.IS_PARTY] === "同行") { if (!(npc in otherPartyByNpc)) otherPartyByNpc[npc] = row[COL.REL.PC]; }
+  }
+
   for (let i = 1; i < allPcData.length; i++) {
     const r = allPcData[i];
     if (r[COL.PC.ID] == pcId || String(r[COL.PC.ID]).startsWith("DEAD_")) continue;
     if (myGameId && String(r[COL.PC.GAME_ID] || "") !== myGameId) continue;
 
     const tLoc = String(r[COL.PC.LOC] || ""); const tName = r[COL.PC.NAME];
-    const relRecord = relData.find(row => row[COL.REL.PC] === pcName && row[COL.REL.NPC] === tName);
+    const relRecord = relByNpc[tName];
     const rVal = relRecord ? parseInt(relRecord[COL.REL.FAV]) || 0 : 0;
     const rIsParty = relRecord ? (relRecord[COL.REL.IS_PARTY] === "同行") : false;
-    const otherParty = relData.find(row => row[COL.REL.NPC] === tName && row[COL.REL.IS_PARTY] === "同行" && row[COL.REL.PC] !== pcName);
+    const otherParty = otherPartyByNpc[tName] || null;
 
     if (tLoc === safeCurL || rVal >= 60 || rIsParty) {
       let finalDisplayStatus = buildVisibleStatusString(r[COL.PC.STATUS]);
@@ -387,7 +396,7 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, relData, taskData, allPc
         loc: tLoc, isExact: (tLoc === safeCurL), isHighRel: (rVal >= 60), isParty: rIsParty,
         faction: fac, allied: allied, intelCls: revealCls, lostServant: lostSv,
         master: pairMaster, servant: pairServant,
-        busyWith: otherParty ? otherParty[COL.REL.PC] : null, hp: r[COL.PC.HP], mp: r[COL.PC.MP]
+        busyWith: otherParty || null, hp: r[COL.PC.HP], mp: r[COL.PC.MP]
       });
     }
   }

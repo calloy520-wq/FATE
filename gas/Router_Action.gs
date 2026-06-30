@@ -47,7 +47,6 @@ const ActionRouter = {
   "second_wind": actionSecondWind,
   "scout": actionScout,
   "clear_npc_major_event": actionClearNpcMajorEvent,
-  "get_all_categorized_maps": actionGetAllCategorizedMaps,
   "get_map_nodes": actionGetMapNodes,
   "move": actionMove,
   "sync": actionSync,
@@ -162,10 +161,11 @@ function handleGameAction(userData) {
 //   不含：sync(本身即 state)／get_tags／純讀取(inspect/get_*)／創角召喚(自走 reload)／kanshou(KPC_)；
 //   也不含「樂觀更新」的輕量 setter(set_servant_output/set_mage_realm/set_rune_mode/set_np_choice)——
 //   它們不 syncData、只吃 res.economy，夾 _state 反而白做整表讀取。
+//   也不含 narrate_only/multi_attack_narrate——前端 narrate() 只吃 res.text、不消費 _state，夾它純浪費整表讀。
 const STATE_AFTER_ACTIONS = {
   fate_battle: 1, use_seal: 1, mana_supply: 1, bond: 1, use_mystic: 1, rule_break_steal: 1,
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
-  second_wind: 1, scout: 1, move: 1, rest: 1, narrate_only: 1, multi_attack_narrate: 1,
+  second_wind: 1, scout: 1, move: 1, rest: 1,
   update_fate: 1, update_rel_tag: 1, clear_npc_major_event: 1
 };
 
@@ -713,19 +713,6 @@ function buildTagsPayload_(sheets, pcId, preData, preRel) {
   return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length };
 }
 
-// 🔴 修正：原本所有缺座標的地點都會被塞進 (0,0)，導致俯瞰圖上大量節點重疊堆疊。
-// 改用方形螺旋演算法，讓每個缺座標的地點依序分配到唯一、不重疊的座標。
-function _spiralCoordForIndex(n) {
-  let x = 0, y = 0, dx = 0, dy = -1;
-  for (let i = 0; i < n; i++) {
-    if (x === y || (x < 0 && x === -y) || (x > 0 && x === 1 - y)) {
-      const t = dx; dx = -dy; dy = t;
-    }
-    x += dx; y += dy;
-  }
-  return [x, y];
-}
-
 // 🔵 視覺地圖節點：冬木頂層地點 + 座標 + 我是否在此 + 已偵查敵人數(吃迷霧/game_id)
 function actionGetMapNodes(userData, pcId, sheets) {
   try {
@@ -764,81 +751,6 @@ function actionGetMapNodes(userData, pcId, sheets) {
   } catch (e) {
     return JSON.stringify({ success: false, nodes: [], message: e.message });
   }
-}
-
-function actionGetAllCategorizedMaps(userData, pcId, sheets) {
-  if (!sheets.map) return JSON.stringify({ success: false, message: "坤圖表不存在" });
-  try {
-  const mapData = sheets.map.getDataRange().getValues();
-  let missingCoordIndex = 0;
-  const SPIRAL_SPACING = 4; // 網格間距，避免自動分配的節點互相重疊
-  const nextFallbackCoord = () => {
-    const [sx, sy] = _spiralCoordForIndex(missingCoordIndex++);
-    return `${sx * SPIRAL_SPACING},${sy * SPIRAL_SPACING}`;
-  };
-  // 🔴 母節點座標去重：展開神識時母節點是用座標定位的，只要座標為空、或與已用座標相撞
-  //    (含舊資料字面 "0,0")，就改派一個唯一的螺旋座標，徹底避免在 (0,0) 重疊堆疊。
-  const usedCoords = new Set();
-  const resolveCoord = (desired) => {
-    let c = String(desired || "").trim();
-    if (c === "") c = nextFallbackCoord();
-    while (usedCoords.has(c)) c = nextFallbackCoord();
-    usedCoords.add(c);
-    return c;
-  };
-
-  // 🔴 統計每個地點的人數（🔵 只算自己 game_id 世界的人，杜絕跨世界人數外洩）
-  const allPcData = sheets.pc.getDataRange().getValues();
-  const meRowMap = allPcData.find(r => r[COL.PC.ID] == pcId);
-  const myGameIdMap = meRowMap ? String(meRowMap[COL.PC.GAME_ID] || "") : "";
-  const allyIntelMap = hasAllyInGame_(allPcData, myGameIdMap); // 🤝 有盟友→敵蹤全揭露
-  const locCount = {};
-  allPcData.slice(1).forEach(r => {
-    const id = String(r[COL.PC.ID]);
-    if (id.startsWith("DEAD_")) return;
-    if (myGameIdMap && String(r[COL.PC.GAME_ID] || "") !== myGameIdMap) return;
-    const facM = String(r[COL.PC.FACTION]);
-    if ((facM === "敵御主" || facM === "敵從者") && !r[COL.PC.SEEN] && !allyIntelMap) return; // 🔵 戰爭迷霧：未偵查到的敵人不在地圖顯示（🤝 有盟友通報則揭露）
-    const fullLoc = String(r[COL.PC.LOC] || "").trim();
-    const rootLoc = fullLoc.split('-')[0].trim();
-
-    // 母區域計數
-    if (rootLoc) locCount[rootLoc] = (locCount[rootLoc] || 0) + 1;
-
-    // 子分支計數（只有真的在子分支才加）
-    if (fullLoc !== rootLoc && fullLoc) {
-      locCount[fullLoc] = (locCount[fullLoc] || 0) + 1;
-    }
-  });
-
-  const mapTree = {};
-  for (let i = 1; i < mapData.length; i++) {
-    const name = String(mapData[i][COL.MAP.NAME]).trim();
-    const cat = String(mapData[i][COL.MAP.TYPE] || "未分類").trim();
-    const parent = String(mapData[i][COL.MAP.PARENT] || "").trim();
-    const desc = String(mapData[i][COL.MAP.DESC] || "");
-    // 🔴 這裡多抓了 COORD 欄位（缺座標或撞號時改派唯一座標，避免疊圖在0,0）
-    const rawCoord = String(mapData[i][COL.MAP.COORD] || "").trim();
-
-    if (!mapTree[cat]) mapTree[cat] = {};
-    if (parent === "") {
-      // 🔴 這裡把 coord 塞進去（若子分支已先建立佔位節點，補上真正的座標與描述）
-      const existing = mapTree[cat][name];
-      if (existing) {
-        existing.desc = desc;
-        existing.coord = resolveCoord(rawCoord);
-      } else {
-        mapTree[cat][name] = { desc: desc, subs: [], count: locCount[name] || 0, coord: resolveCoord(rawCoord) };
-      }
-    } else {
-      if (!mapTree[cat][parent]) mapTree[cat][parent] = { desc: "區域中心", subs: [], count: locCount[parent] || 0, coord: resolveCoord("") };
-      mapTree[cat][parent].subs.push({
-        name: name, desc: desc, count: locCount[name] || 0
-      });
-    }
-  }
-  return JSON.stringify({ success: true, data: mapTree });
-  } catch (e) { return JSON.stringify({ success: false, message: "地圖讀取異常：" + e.message }); }
 }
 
 function actionMove(userData, pcId, sheets) {
@@ -913,7 +825,7 @@ function actionMove(userData, pcId, sheets) {
 
   // 📜 正典劇情插針已移除（2026-06 玩家定案·沒啥用處）——抵達不再自動塞 Fate 原作橋段／路線引導。
 
-  const freshMapData = sheets.map.getDataRange().getValues();
+  const freshMapData = getMapDataCached(sheets); // 坤圖靜態→走 1h 快取，免整表讀
   const rootTarget = target ? String(target).split('-')[0].trim() : "";
   const parentMapInfo = freshMapData.find(m => String(m[COL.MAP.NAME]).trim() === rootTarget);
   const subMapInfo = (target !== rootTarget) ? freshMapData.find(m => String(m[COL.MAP.NAME]).trim() === target) : null;
@@ -951,7 +863,7 @@ function buildClientState_(sheets, pcId) {
   const pcIndex = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pcIndex === -1) return null;
   const curL = allPcData[pcIndex][COL.PC.LOC];
-  const freshMapData = sheets.map ? sheets.map.getDataRange().getValues() : [];
+  const freshMapData = getMapDataCached(sheets); // 坤圖靜態→走 1h 快取
   const currentMapInfo = freshMapData.find(m => m[COL.MAP.NAME] === (curL ? String(curL).split('-')[0] : ""));
   const gid = String(allPcData[pcIndex][COL.PC.GAME_ID] || "");
   const isFate = gid && gid.indexOf("g_") === 0;
@@ -1036,7 +948,7 @@ function actionRest(userData, pcId, sheets) {
     // 📜 正典劇情插針已移除（2026-06）——休息跨日不再自動塞 Fate 原作橋段。
     let restAmbushPrompt = "";
     if (restAmbush) {
-      restAmbushPrompt = `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${restAmbush.enemyName}」${restAmbush.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊重創「${(pcData.find(r=>String(r[COL.PC.FACTION])==='從者'&&String(r[COL.PC.GAME_ID]||'')===restGameId)||[])[COL.PC.NAME]||'從者'}」（−${restAmbush.dmg}）${restAmbush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。★【鐵律】嚴禁輸出 stat_changes、items_gained、money_transferred。`;
+      restAmbushPrompt = `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${restAmbush.enemyName}」${restAmbush.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊重創「${(pcData.find(r=>String(r[COL.PC.FACTION])==='從者'&&String(r[COL.PC.GAME_ID]||'')===restGameId)||[])[COL.PC.NAME]||'從者'}」（−${restAmbush.dmg}）${restAmbush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
     }
     return JSON.stringify({
       success: true, statusString: getFreshStatusString(pcId, pIdx, sheets), healedNames: healedNames,
@@ -1044,7 +956,7 @@ function actionRest(userData, pcId, sheets) {
       ambush: !!restAmbush, defeat: restAmbush ? restAmbush.defeat : false, dreamPrompt: restAmbush ? restAmbush.dreamPrompt : "", ambushPrompt: restAmbushPrompt, report: restAmbush ? restAmbush.report : null,
       servantDream: restDreamPrompt,
       victory: restVictory && !(restAmbush && restAmbush.defeat),
-      economy: playerServantEconomy_(sheets, pcId)
+      economy: playerServantEconomy_(sheets, pcId, pcData) // 復用已寫回的 pcData，免整表重讀
     });
   }
 
@@ -1294,7 +1206,7 @@ ${isKanshou ? `
 💕【鑑賞·後日談模式·最高優先級覆寫】：聖杯戰爭【早已落幕】，這是奪得聖杯後與從者『${displayPeople.length ? displayPeople.map(r => r[COL.PC.NAME]).join("、") : "你的從者"}』共度的【和平日常／約會時光】。
 ★【絕對禁止】任何戰鬥、廝殺、敵人、敵御主、敵從者、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅。世界是安全的。
 ★氛圍＝溫柔、悠閒、戀愛向的日常：散步、閒聊、吃東西、看風景、逛冬木街景。讓從者貼近其官方性格自然地與御主相處互動。
-★【演出而非說明】不得直述其願望／萌點／個性字面。嚴禁輸出任何 stat_changes 生命變化、items_lost、戰鬥裁決。可有 rel_changes(好感)。
+★【演出而非說明】不得直述其願望／萌點／個性字面。嚴禁輸出任何 stat_changes 生命變化、戰鬥裁決。可有 rel_changes(好感)。
 ★敘事結束停在溫柔的留白，把下一步交還御主。
 ` : ""}現在演化玩家動作：『${finalUserMsg}』${npcDialoguePrompt}
 
@@ -2251,7 +2163,10 @@ function actionFateBattle(userData, pcId, sheets) {
       rolls.forEach(r => {
         const sC = rowToCombatant_(pcData[r.idx]);
         const probe = resolveFateBattle_(guardC, sC, {});
-        const selfDmg = Math.max(1, Math.round((probe.damage || 1) * 1.5));
+        // 反噬取「護衛端」傷害：護衛擲贏→其全力反噬(probe.damage 即護衛傷)；護衛擲輸(奇襲突破)→反噬大減，
+        //   底傷依護衛筋力而非玩家自己的攻擊力(原 bug：玩家擲贏時 probe.damage 是玩家傷害，反噬越強自噬越重)。
+        const guardBase = probe.atkWins ? (probe.damage || 1) : Math.round(rankVal(guardC.six['筋力'] || 'C') * 1.5 + 8);
+        const selfDmg = Math.max(1, Math.round(guardBase * 1.5));
         const ahp = parseInt(pcData[r.idx][COL.PC.HP]) || 0;
         let after = ahp - selfDmg;
         if (after <= 5 && hasFx_(sC, 'survive') && ahp > 1) after = 1; // 戰鬥續行
@@ -2390,6 +2305,7 @@ function actionFateBattle(userData, pcId, sheets) {
       enemyC0.mp = parseInt(pcData[nIdx][COL.PC.MP]) || 0;
       enemyNpSpent = true;            // 對轟即用掉敵寶具
       openingNp = false; openingSeal = false; // 玩家寶具/令咒威能已在對轟中釋放，回合迴圈不再重放
+      enemyC0.output = 100;          // ⚖️ 敵解放寶具＝全開(與玩家被閘到 100 對等)，免敵寶具因預設出力60少約一成威力
       const pPow = resolveFateBattle_(atkC, enemyC0, { np: true, seal: useSeal, skill: skillBuff }).damage;
       const ePow = resolveFateBattle_(enemyC0, atkC, { np: true }).damage;
       const band = Math.round((pPow + ePow) * 0.10);
@@ -2523,7 +2439,11 @@ function actionFateBattle(userData, pcId, sheets) {
         // 🔥 敵人也會解放寶具！殘血越急越想拼、暗殺/狂戰系更愛搏命；開寶具則全力(不打折)
         const eHpRatio = (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[nIdx][COL.PC.HP]) || 0) / (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) : 1;
         const eNpUrge = (hasFx_(enemyNow, 'zabaniya') || hasFx_(enemyNow, 'mad')) ? 0.22 : 0.10;
-        let enemyFireNp = !enemyNpSpent && (Math.random() < (eNpUrge + (1 - eHpRatio) * 0.45));
+        // ⚔️ 只有「攻擊型寶具」才反擊解放(與對轟同準)：純防禦/對人寶具(如 Rule Breaker 對人C·無攻擊 fx)不該吃解放加成
+        const ECF = ['ea', 'excalibur', 'ubw', 'summon_horror', 'gob', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify', 'chain', 'anti_magic_lance', 'wind_strike', 'projection'];
+        const eOffensiveNp = !!String(pcData[nIdx][COL.PC.MARTIAL] || "").trim() && rankVal(enemyNow.six["寶具"] || "-") >= 10
+          && (['對軍', '對城', '對界'].indexOf(npAtkScale_(enemyNow)) >= 0 || ECF.some(function (f) { return hasFx_(enemyNow, f); }));
+        let enemyFireNp = eOffensiveNp && !enemyNpSpent && (Math.random() < (eNpUrge + (1 - eHpRatio) * 0.45));
         // 🔋 敵寶具也要吃魔力：自身 MP＋敵御主電池須付得起 prana，否則放不出（EX/EA 幾乎沒人付得起→極罕見；masterless 補不了魔→自限）
         if (enemyFireNp) {
           const ePrana = npPranaCost_(enemyNow.six["寶具"]);
@@ -2531,6 +2451,7 @@ function actionFateBattle(userData, pcId, sheets) {
           if (eAfford.afford) {
             drainForNp_(sheets, pcData, nIdx, eAfford.masterIdx, ePrana);
             enemyNow.mp = parseInt(pcData[nIdx][COL.PC.MP]) || 0; // 反映耗魔後出力
+            enemyNow.output = 100; // ⚖️ 敵解放寶具＝全開(與玩家對等)
             enemyNpSpent = true;
           } else {
             enemyFireNp = false; // 魔力不足，放不出寶具，改為普攻
@@ -3523,7 +3444,10 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, userData, baseMul) 
   let mul = baseMul || 1.4;
   const stealthy = String(pcData[eIdx][COL.PC.RANK]) === 'Assassin' || !!hasFx_(enemyC, 'stealth');
   if (stealthy) mul *= 1.4; // 氣息遮斷／暗殺趁虛而入更致命
-  const dmg = Math.max(1, Math.round((probe.damage || 1) * mul));
+  // 突襲傷害取「敵方端」：敵擲贏→全力(probe.damage 即敵傷)；玩家從者擲贏(擋下偷襲)→大減、底傷依敵筋力，
+  //   而非玩家自己的攻擊力(原 bug：玩家從者越強、砸自己頭上的突襲傷反而越重)。
+  const enemyBase = probe.atkWins ? (probe.damage || 1) : Math.round(rankVal(enemyC.six['筋力'] || 'C') * 1.2 + 6);
+  const dmg = Math.max(1, Math.round(enemyBase * mul));
   const out = { enemyName: String(pcData[eIdx][COL.PC.NAME]), dmg: dmg, destroyed: false, defeat: false, dreamPrompt: "", after: 0, stealthy: stealthy };
   let hp = parseInt(pcData[svIdx][COL.PC.HP]) || 0, after = hp - dmg;
   if (after <= 5 && hasFx_(svC, 'survive') && hp > 1) after = 1;
@@ -3606,7 +3530,7 @@ function actionSetWorkshop(userData, pcId, sheets) {
   sheets.pc.getRange(pIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[pIdx][COL.PC.MEMORY]);
   let ap = AP_PER_DAY, clock = "";
   if (isFate) { try { ap = spendAp_(myGameId, 1).ap; clock = clockLabel_(myGameId); } catch (e) { } }
-  return JSON.stringify({ success: true, message: `已於「${loc}」佈設陣地（工房）——駐留此地時，從者供魔收入提升。`, clock: clock, ap: ap, apMax: AP_PER_DAY, economy: isFate ? playerServantEconomy_(sheets, pcId) : null });
+  return JSON.stringify({ success: true, message: `已於「${loc}」佈設陣地（工房）——駐留此地時，從者供魔收入提升。`, clock: clock, ap: ap, apMax: AP_PER_DAY, economy: isFate ? playerServantEconomy_(sheets, pcId, pcData) : null });
 }
 
 // 🔍 搜索物資：偵查鄰近敵蹤為主，順手撿拾零星魔力（耗 1 AP）
@@ -3667,7 +3591,7 @@ function actionScout(userData, pcId, sheets) {
   }
   const curLoc = String(pcData[pIdx][COL.PC.LOC] || "").trim();
   // 附近地點（含當前）作為偵查範圍
-  const mapData = sheets.map ? sheets.map.getDataRange().getValues() : [];
+  const mapData = getMapDataCached(sheets); // 坤圖靜態→走 1h 快取
   let scope = [curLoc];
   try { getNearbyLocations(curLoc, mapData).forEach(l => { const nm = (l && l.name) ? l.name : l; if (nm) scope.push(String(nm).trim()); }); } catch (e) { }
 
@@ -3833,7 +3757,7 @@ function actionMultiAttackNarrate(userData, pcId, sheets) {
 4. ★這是純敘事補完，系統底層已結算完所有勝負、傷害與藥效數值，你只負責寫過程的字，禁止更改任何結果。
 5. 敘事務必與提供的【場景】地點、【近期因果】與【參戰者資料】(性格/特徵/關係)一致，禁止憑空換地點或讓角色性格走偏。
 6. ★對話歷史中的內容是「已經發生並結束」的既定事實：歷史中的行動方式(例如特定接近手法、招式、道具)絕對禁止被當成本回合仍在持續或重新發生一次；但歷史造成的後續影響(例如NPC因此產生的警戒、敵意、態度轉變)必須視為既定事實並自然延續下去。本回合唯一真正發生的新事件，只有【系統戰報】裡提供的內容。
-7. 戰報中提到的武器/防具名稱，僅供你掌握該角色當下用的是什麼兵刃/護具以維持敘述合理(例如持槊者不該被寫成肉搏、披甲者不該被寫成衣衫單薄)，並非要求逐字唸出全名，可視文筆需要改用「手中兵刃」、「身上護甲」等代稱，禁止每段都機械式重複完整物品名稱。
+7. 依角色職階與寶具掌握其戰鬥方式以維持敘述合理(槍兵突刺、弓兵遠射、術師魔砲、劍兵格鬥、騎兵衝鋒…，勿讓法師被寫成肉搏、弓兵被寫成貼身纏鬥)；寶具／技能名不必逐字複誦全名，可視文筆改用代稱。
 8. 只輸出 JSON：{"narration":"你的敘述，內含<br><br>分段"}，禁止任何其他欄位、禁止 Markdown。`;
 
   let aiConfig = {

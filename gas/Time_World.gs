@@ -279,6 +279,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
 
     // 1) 敵御主帶著從者隨機移位（機率 35%），移走者重設偵查旗標→地圖再次隱形
     var freezeLoc = String(playerLoc || "").trim(); // 🔒 玩家所在/將抵達的格子上的敵人禁止移動，否則玩家永遠追不到人
+    var locDirty = false;
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][COL.PC.FACTION]) !== "敵御主") continue;
       if (String(data[i][COL.PC.GAME_ID] || "") !== gameId) continue;
@@ -288,22 +289,25 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
       if (Math.random() >= 0.35) continue;
       var newLoc = enemyRetreatLoc_(oldLoc);
       if (newLoc === oldLoc) continue;
-      data[i][COL.PC.LOC] = newLoc;
-      // 🔭 已偵查到的敵人移位後【保持可見】(不再清 SEEN)：一旦感應到對手氣息就持續追蹤其當前位置，
-      //   否則敵人每動一次就重新隱形、玩家永遠追不到人(「又找不到人」的根因)。未偵查者 SEEN 仍為空、維持迷霧。
-      sheets.pc.getRange(i + 1, 1, 1, data[i].length).setValues([data[i]]);
+      data[i][COL.PC.LOC] = newLoc; locDirty = true;
+      // 🔭 已偵查到的敵人移位後【保持可見】(不再清 SEEN)：一旦感應到對手氣息就持續追蹤其當前位置，否則敵人每動一次就
+      //   重新隱形、玩家永遠追不到人。未偵查者 SEEN 仍為空、維持迷霧。LOC 改記憶體、整輪後整欄批寫(取代逐列 setValues)。
       // 同地敵從者隨行
       for (var j = 1; j < data.length; j++) {
         if (String(data[j][COL.PC.FACTION]) !== "敵從者") continue;
         if (String(data[j][COL.PC.GAME_ID] || "") !== gameId) continue;
         if (String(data[j][COL.PC.ID]).startsWith("DEAD_")) continue;
         if (String(data[j][COL.PC.LOC]).trim() !== oldLoc) continue;
-        data[j][COL.PC.LOC] = newLoc;
-        // (同上)隨行從者移位後也保持原本的偵查狀態，不重置隱形
-        sheets.pc.getRange(j + 1, 1, 1, data[j].length).setValues([data[j]]);
+        data[j][COL.PC.LOC] = newLoc; // 隨行從者也只改記憶體 LOC
         break;
       }
       moved++;
+    }
+    // ⚡ 整輪敵移位後，LOC 整欄一次寫回（取代迴圈內逐列 setValues 的零散往返；下方 attrition fresh 重讀前已落地）
+    if (locDirty) {
+      var locCol = [];
+      for (var z = 1; z < data.length; z++) locCol.push([data[z][COL.PC.LOC]]);
+      sheets.pc.getRange(2, COL.PC.LOC + 1, locCol.length, 1).setValues(locCol);
     }
 
     // 2) 暗處從者廝殺/養不起爆炸：只在「休息」時可能發生（移動只換位，不死人）；

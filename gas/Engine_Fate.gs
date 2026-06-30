@@ -273,9 +273,10 @@ function resolveFateBattle_(atk, def, opts) {
       return { atkWins: true, winner: atk.name, loser: def.name, damage: _eaDmg, aRoll: 20, dRoll: 0, aHit: 99, dEva: 0, fired: fired, crit: 'atk_crit', np: true, seal: !!opts.seal };
     }
   }
-  // 💰 黃金律(wealth／吉爾伽美什)：絕境(自身血≤20%)時，無盡財寶供能→【無視魔力】自寶藏取出乖離劍(EA)執行殺。
-  //   讓金閃殘血翻盤的招牌：不需 opts.np、不吃御主魔力(黃金律＝無限資源)。復活原本死掉的 wealth＋ea 兩標籤。
-  if (hasFx_(atk, 'wealth')) {
+  // 💰 黃金律(wealth／吉爾伽美什)：絕境(自身血≤20%)時，自寶藏取出乖離劍(EA)執行殺翻盤。
+  //   ★平衡修(2026-06)：須【主動解放寶具】(opts.np)才觸發——上游 actionFateBattle 的補魔閘門會扣御主魔力，
+  //   故不再是「殘血時每一發普攻/反擊都免費執行殺」(原本掛在函式頂端每擊重入＝最破壞平衡的單點)。傷害保留。
+  if (opts.np && hasFx_(atk, 'wealth')) {
     var _whp = (atk.hpMax > 0) ? (atk.hp / atk.hpMax) : 1.0;
     if (_whp <= 0.2) {
       var _waDmg = Math.round(rankVal(atk.six['寶具']) * 4) + rollDice_(6, 12) + 200;

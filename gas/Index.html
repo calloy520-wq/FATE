@@ -152,7 +152,6 @@
       <button id="tab-map" class="game-tab" onclick="showGamePane('map')">🗺️ 地圖</button>
     </div>
     <div id="action-drawer">
-      <button class="drawer-item" onclick="triggerDrawerAction('explore')"><i>🧭</i><span>探索冬木</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('status')"><i>👤</i><span>查看狀態</span></button>
       <button class="drawer-item" onclick="openEpicPanel()"><i>📖</i><span>個人史紀</span></button>
       <button class="drawer-item" onclick="openWarChronicle()"><i>📜</i><span>本場戰記</span></button>
@@ -214,14 +213,6 @@
   </div>
 
   
-  <div id="explore-overlay" class="modal-overlay" onclick="toggleExplore()">
-    <div class="modal-scroll" onclick="event.stopPropagation()">
-      <span class="modal-close-btn" onclick="toggleExplore()">&times;</span>
-      <h2 style="text-align:center; border-bottom:2px solid #332211; padding-bottom:10px; margin-top:0;">—— 冬木地圖 ——</h2>
-      <p style="text-align:center; font-size:12px; color:#800;">點擊類別，閱覽天下地界</p>
-      <div id="explore-content"></div>
-    </div>
-  </div>
 
   <div id="npc-overlay" class="modal-overlay" onclick="closeNpcList()">
     <div class="modal-scroll" onclick="event.stopPropagation()">
@@ -383,16 +374,6 @@
           <p style="text-align:center; color:#816e54;">統計冬木足跡中...</p>
         </div>
       </div>
-    </div>
-  </div>
-
-  <div id="map-visual-overlay">
-    <button style="position:absolute; top:20px; right:20px; z-index:1002; background:rgba(0,0,0,0.5); border:1px solid #d4af37; color:#d4af37; padding:8px 15px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="closeVisualMap()">✖ 退出神識</button>
-    <div id="map-canvas"></div>
-    <div id="map-info-card">
-      <h3 id="map-card-title" style="color:#d4af37; margin:0 0 5px 0;">節點名稱</h3>
-      <div id="map-card-desc" style="color:#aaa; font-size:13px; margin-bottom:15px; line-height:1.5;">敘述...</div>
-      <button id="map-card-btn" class="btn" style="width:100%; border-color:#2e8b57; color:#2e8b57; font-weight:bold; padding:10px;">👣 傳送至此</button>
     </div>
   </div>
 

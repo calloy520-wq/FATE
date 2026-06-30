@@ -540,6 +540,18 @@
     50%      { box-shadow: 0 0 9px rgba(126,200,255,.9); border-color: #cfeaff; }
   }
   .tag-selectable { animation: tagGlow 1.6s ease-in-out infinite; }
+
+  /* 🗺️ 戰場地圖動態效果（buildMapSvg_ 用·viewBox 0 0 100 100·純前端零後端成本）*/
+  @keyframes fkHereBreath { 0%,100%{ r:5; opacity:.9; } 50%{ r:7.5; opacity:.35; } }
+  @keyframes fkHereCore  { 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.5); } }
+  @keyframes fkFoePulse  { 0%{ r:5.5; opacity:.9; } 100%{ r:9; opacity:0; } }
+  @keyframes fkRiverFlow { 0%{ stroke-dashoffset:0; } 100%{ stroke-dashoffset:-24; } }
+  @keyframes fkTwinkle   { 0%,100%{ opacity:.15; } 50%{ opacity:.5; } }
+  .fk-here-ring { animation: fkHereBreath 2.2s ease-in-out infinite; }
+  .fk-here-core { animation: fkHereCore 2.2s ease-in-out infinite; }
+  .fk-foe-ring  { animation: fkFoePulse 1.6s ease-out infinite; }
+  .fk-river-flow{ animation: fkRiverFlow 2.2s linear infinite; }
+  .fk-star      { animation: fkTwinkle 3s ease-in-out infinite; }
   .map-label {
     position: absolute; top: 120%; left: 50%; transform: translateX(-50%);
     color: #e3e3e3; font-size: 14px; font-weight: bold; white-space: nowrap;
