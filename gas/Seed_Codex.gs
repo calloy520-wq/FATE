@@ -142,7 +142,7 @@ var SEED_SERVANTS = [
     traits:[{n:'人類'}], np:'解體聖母 Maria the Ripper（對人・心臟摘除）',
     align:'混沌・惡', persona:{firstP:'我們',look:'幼小裸身・霧氣繚繞的詭譎孩童、天真與殺意交錯的空洞、自稱「我們」・童言複數、被溫柔對待會怔住的渴求',words:'孩童・空虛・渴求母愛・霧',toMaster:'試探地索求溫柔，將溫柔之人視作「母親」',speech:'稚嫩天真與冷酷殺意交錯、以「我們」複數自稱、童言童語問著殘忍的話',moe:'渴求母愛而不得的悲傷孩子、天真與殘酷的巨大反差、被溫柔對待會怔住、霧中現身的詭譎',tic:'霧氣繚繞中現身、歪頭天真發問、扯住衣角'} },
   { id:'蒼白騎兵-Rider', cls:'Rider', realName:'蒼白騎兵（Pale Rider）', wars:['fake'], gender:'異',
-    six:{筋力:'E',耐久:'A',敏捷:'B',魔力:'EX',幸運:'E',寶具:'EX'},
+    six:{筋力:'E',耐久:'A',敏捷:'B',魔力:'EX',幸運:'E',寶具:'A'},
     classSkills:[{n:'騎乘',r:'D',fx:'ride'}],
     skills:[{n:'感染（疫病擴散）',r:'A',fx:'petrify'},{n:'純真的世界（難以感知）',r:'EX',fx:'unreadable'},{n:'冥府的引導',r:'EX',fx:'territory'}],
     traits:[{n:'災厄'},{n:'疫病'}], np:'終末降臨 Doomsday Come（對界·以御主為起點的死之冥界結界）',
@@ -263,7 +263,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v16';
+var CODEX_PERSONA_VER = 'v17';
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {

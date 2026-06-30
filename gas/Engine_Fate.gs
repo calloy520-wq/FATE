@@ -472,6 +472,12 @@ function resolveFateBattle_(atk, def, opts) {
   else if (hasFx_(loser, 'territory')) { fired.push(winner.name + '·概念壓制(碾穿結界)'); }
   // 🛡️ 七天盾·羅·埃亞斯(rho_aias／EMIYA)：投影卡帕涅烏斯之盾，七層花瓣硬擋重擊；遭超位階概念(ea等)貫穿則失效
   if (hasFx_(loser, 'rho_aias') && !pierces('rho_aias')) { base = Math.round(base * 0.6); fired.push(loser.name + '·' + fxName_(loser, 'rho_aias', '七天盾') + '(羅·埃亞斯·七層花瓣)'); }
+  // 🦠 對瘟疫抗性：攻方為「疫病」(蒼白騎兵)時，守方持高魔抗(對魔力≥B·詛咒防護)或神性(神之加護)者抵抗疾病，傷害減半。
+  //   ★唯「病死宿命」之敵(恩奇都)不適用——其宿命之死無可逃避(上方已 ×3 概念碾壓)。
+  if (!plagueDoom && (winner.traits || []).some(function (t) { return t && /疫病/.test(String(t.n)); })) {
+    var plagueImmune = rankVal(hasFx_(loser, 'nullify_magic')) >= 40 || (loser.traits || []).concat(loser.skills || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
+    if (plagueImmune) { base = Math.round(base * 0.5); fired.push(loser.name + '·對瘟疫抗性(魔抗/神性·疾病減半)'); }
+  }
   // ᚱ 原初符文(rune)·玩家可選運用(c.runeMode)：def 減傷(受傷時·預設)／dmg 增傷(出擊時)／regen 回血(每回合·見 actionFateBattle)。
   //   減傷 10%×階級(A→-17%/EX→-20%)，救持符文的玻璃法師(斯卡蒂/玉藻前/斯卡哈)存活。regen 在此處無戰鬥修正、只在回合迴圈回血。
   var rnL = hasFx_(loser, 'rune');
