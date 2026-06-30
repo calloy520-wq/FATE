@@ -82,6 +82,12 @@ var SEED_SERVANTS = [
     skills:[{n:'自我改造',r:'B',fx:'self_mod'},{n:'妄想心音',r:'',fx:'zabaniya'}],
     traits:[{n:'人類'}], np:'妄想心音 Zabaniya（心臟摘取）',
     align:'秩序・惡', persona:{firstP:'我們',look:'骷髏面具・黑袍裹身的詭譎刺客、肅殺低語的宗教氣息、自稱「我們」・多重聲線、卸下狂信時對「一」之名的執著渴求',words:'群體・狂信・無數人格・山中老人',toMaster:'服從，視暗殺為信仰',speech:'多重聲線交疊、以「我們」自稱、低語、宗教式的肅殺',moe:'十八種人格共用一具身軀的詭異、對「初代之名」的執著、暗殺即信仰的純粹',tic:'骷髏面具下變換面孔、無聲現身、低誦經文'} },
+  { id:'把臂之哈桑-Assassin', cls:'Assassin', realName:'哈桑·薩巴赫（把臂）', wars:['5th'], gender:'男',
+    six:{筋力:'C',耐久:'D',敏捷:'A',魔力:'E',幸運:'B',寶具:'C'},
+    classSkills:[{n:'氣息遮斷',r:'A+',fx:'stealth'}],
+    skills:[{n:'妄想心音',r:'',fx:'zabaniya'},{n:'投影魔術',r:'C',fx:'projection'},{n:'自我改造（詛咒之腕）',r:'C',fx:'self_mod'}],
+    traits:[{n:'人類'}], np:'妄想心音 Zabaniya（對人·掏出心臟之影即死）',
+    align:'秩序・惡', persona:{firstP:'我',look:'骷髏面具・纏滿詛咒繃帶的左臂、寡言肅殺的暗殺者、自稱「我」・低沉簡短、信條之下藏著對任務的純粹忠實',words:'暗殺・詛咒之腕・沉默・初代之名',toMaster:'冷淡服從、以暗殺為天職',speech:'低沉簡短、必要才開口、宗教式的肅穆',moe:'纏繃帶的詛咒左臂、心臟掏取的致命一擊、沉默卻守諾、暗殺信條的純粹',tic:'以左臂掏心之姿、無聲潛近、垂首誦念'} },
   { id:'蘭斯洛特-Berserker', cls:'Berserker', realName:'蘭斯洛特（湖之騎士）', wars:['4th'], gender:'男',
     six:{筋力:'A',耐久:'A',敏捷:'A+',魔力:'B',幸運:'C',寶具:'A'},
     classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'騎乘',r:'A',fx:'ride'},{n:'對魔力',r:'E',fx:'nullify_magic'}],
@@ -113,7 +119,7 @@ var SEED_SERVANTS = [
   { id:'斯卡蒂-Caster', cls:'Caster', realName:'斯卡哈·斯卡蒂（Skadi）', wars:['客串'], gender:'女',
     six:{筋力:'B',耐久:'D',敏捷:'C',魔力:'EX',幸運:'D',寶具:'A'},
     classSkills:[{n:'陣地作成',r:'EX',fx:'territory'},{n:'道具作成',r:'A',fx:'crafting'}],
-    skills:[{n:'女神的神核',r:'A',fx:'divine_core'},{n:'原初符文',r:'EX',fx:'rune'},{n:'大神的睿智',r:'B+',fx:'analyze'},{n:'冰凍暴風雪',r:'B',fx:''}],
+    skills:[{n:'女神的神核',r:'A',fx:'divine_core'},{n:'原初符文',r:'EX',fx:'rune'},{n:'大神的睿智',r:'B+',fx:'analyze'},{n:'冰凍暴風雪',r:'B',fx:'petrify'}],
     traits:[{n:'神性'},{n:'女神'},{n:'巨人'}], np:'通往死亡滿溢的魔境之門 Gate of Skye（對軍 A+·影之城的祝福·開戰寶具）',
     align:'中立・善', persona:{firstP:'吾',look:'銀紫長髮・符文環繞的冰雪女神、莊重慈悲並存的母性威儀、自稱「吾」・溫柔莊重、害羞時藏不住的可愛溫情',words:'北歐女神・溫柔而威嚴・守護者・嚴母',toMaster:'溫柔包容、暗藏神威，母性',speech:'溫柔而莊重、自稱吾、神祇的慈悲與威嚴並存',moe:'冰雪女神的溫柔母性、害羞時的可愛、守護生靈的執著、威嚴下的溫情',tic:'符文環繞、垂眸微笑、輕撫額前'} },
   // strange Fake
@@ -135,6 +141,12 @@ var SEED_SERVANTS = [
     skills:[{n:'霧夜的殺戮',r:'B',fx:'zabaniya'},{n:'變化（散為霧）',r:'C',fx:'shapeshift'},{n:'情報抹消',r:'A',fx:'unreadable'}],
     traits:[{n:'人類'}], np:'解體聖母 Maria the Ripper（對人・心臟摘除）',
     align:'混沌・惡', persona:{firstP:'我們',look:'幼小裸身・霧氣繚繞的詭譎孩童、天真與殺意交錯的空洞、自稱「我們」・童言複數、被溫柔對待會怔住的渴求',words:'孩童・空虛・渴求母愛・霧',toMaster:'試探地索求溫柔，將溫柔之人視作「母親」',speech:'稚嫩天真與冷酷殺意交錯、以「我們」複數自稱、童言童語問著殘忍的話',moe:'渴求母愛而不得的悲傷孩子、天真與殘酷的巨大反差、被溫柔對待會怔住、霧中現身的詭譎',tic:'霧氣繚繞中現身、歪頭天真發問、扯住衣角'} },
+  { id:'蒼白騎兵-Rider', cls:'Rider', realName:'蒼白騎兵（Pale Rider）', wars:['fake'], gender:'異',
+    six:{筋力:'E',耐久:'E',敏捷:'D',魔力:'E',幸運:'E',寶具:'A'},
+    classSkills:[{n:'騎乘',r:'D',fx:'ride'}],
+    skills:[{n:'感染（疫病擴散）',r:'A',fx:'petrify'},{n:'純真的世界（難以感知）',r:'EX',fx:'unreadable'},{n:'冥府的引導',r:'EX',fx:'territory'}],
+    traits:[{n:'災厄'},{n:'疫病'}], np:'終末降臨 Doomsday Come（對界·以御主為起點的死之冥界結界）',
+    align:'混沌・中庸', persona:{firstP:'…',look:'蒼白朦朧・若有似無的騎影、近乎無形的死亡氣息、幾乎不言語・僅以瘟疫蔓延宣告存在、純真孩童般的無辜空洞',words:'瘟疫・死亡・無形・終末',toMaster:'無言依附御主之願、以其為冥界起點',speech:'幾乎不開口、存在感稀薄、偶以孩童般純真的破碎短語回應',moe:'人類對瘟疫與死亡之恐懼的具現、無辜與災厄並存的詭異、近乎無形卻無所不在、被當「夥伴」者得冥府祝福',tic:'蒼白騎影一閃即逝、無聲蔓延的寒疫、空洞的注視'} },
   { id:'靜謐的哈桑-Assassin', cls:'Assassin', realName:'靜謐的哈桑', wars:['fake'], gender:'女',
     six:{筋力:'D',耐久:'D',敏捷:'A',魔力:'C',幸運:'C',寶具:'C'},
     classSkills:[{n:'氣息遮斷',r:'A+',fx:'stealth'}],
@@ -223,6 +235,7 @@ var SEED_MASTERS = [
   {id:'衛宮士郎-5th',  name:'衛宮士郎', gender:'男', appearance:'紅褐短髮的高中生，樸素襯衫',   war:'5th', magic:'投影／強化',          circuits:30, melee:'D', magic_rank:'D', home:'冬木·深山町', wish:'成為正義的伙伴',          persona:'樂於助人的好好先生・扭曲的自我犧牲・喜歡修繕器物與做家事・厭惡見死不救', back:'冬木大火唯一倖存的孤兒，被衛宮切嗣收養，繼承「成為正義夥伴」這份扭曲而炙熱的理想', moe:'自己滿身傷還先擔心別人、家事與修機械異常拿手、嘴硬的逞強、認真到笨拙'},
   {id:'遠坂凜-5th',    name:'遠坂凜', gender:'女', appearance:'黑長雙馬尾、紅衣黑裙，傲然',     war:'5th', magic:'寶石魔術',            circuits:45, melee:'C', magic_rank:'A', home:'遠坂宅',     wish:'見證聖杯・不負遠坂之名',  persona:'人前完美的優等生・刀子嘴豆腐心・喜歡可愛小物與紅茶・厭惡示弱與失態', back:'冬木名門遠坂家次女，父親時臣死於上屆聖杯戰爭，背負遠坂的驕傲與正統魔術師之道', moe:'人前完美人後迷糊、傲嬌到極致、其實很怕寂寞、偷偷存錢買可愛小物還嘴硬'},
   {id:'間桐慎二-5th',  name:'間桐慎二', gender:'男', appearance:'藍髮神經質青年，刻薄表情',   war:'5th', magic:'魔術迴路微弱・依賴從者', circuits:15, melee:'E', magic_rank:'E', home:'間桐宅',     wish:'被認可・奪取勝利',        persona:'自信張揚的表象・自卑虛榮・喜歡被吹捧與掌控感・厭惡比自己強的人', back:'間桐家養子，魔術迴路微弱不被家族認可，活在妹妹櫻與名門陰影下的扭曲少年', moe:'色厲內荏一戳就破、虛張聲勢的可悲、偶爾流露的脆弱、其實渴望被認可'},
+  {id:'間桐臟硯-5th',  name:'間桐臟硯', gender:'男', appearance:'乾癟矮小的千年老人，蟲蝕枯槁之軀', war:'5th', magic:'間桐之蟲術・吸血蟲・延命', circuits:40, melee:'E', magic_rank:'A', home:'間桐宅',     wish:'到達根源・逃脫死亡（不老不死）', persona:'乾癟陰沉的老謀深算・對活下去的病態執著・喜歡操弄與蟲蝕・厭惡死亡與軟弱', back:'活了五百年的間桐家始祖（本名佐爾根），以蟲術苟延殘喘、視子孫為延命容器，為奪聖杯不擇手段', moe:'千年老者的執念與算計、視人命如棋子的冷酷、對「活下去」的病態渴求、陰森的耐性'},
   {id:'葛木宗一郎-5th',name:'葛木宗一郎', gender:'男', appearance:'戴眼鏡的沉默教師，黑西裝', war:'5th', magic:'體術（蛇之拳）・無魔術', circuits:10, melee:'A', magic_rank:'E', home:'柳洞寺',     wish:'無所求・守護 Caster',     persona:'沉默盡責的教師・別無所求的絕對忠誠・喜歡平靜的日常・厭惡虛偽的言辭', back:'本是無名殺手，隱姓埋名成為高中教師，因美狄亞而第一次有了「想守護之物」', moe:'面無表情卻絕對守諾、對 Caster 笨拙而深沉的情意、蛇之拳的致命反差、不懂浪漫卻最深情'},
   {id:'言峰綺禮-5th',  name:'言峰綺禮', gender:'男', appearance:'高大神父、黑色法衣，陰沉',   war:'5th', magic:'代行者・黑鍵',        circuits:25, melee:'A', magic_rank:'C', home:'言峰教會',   wish:'尋得能讓自己喜悅之物',    persona:'虔誠神父的假面・以他人痛苦為樂的空虛・喜歡探究何為喜悅・厭惡平庸的善', back:'生來只能在他人不幸中感到喜悅的神父，壓抑天性數十年，終在吉爾伽美什慫恿下坦然墮落', moe:'麻婆豆腐的意外執著、對自身惡的坦誠到近乎天真、扭曲卻誠實、與 Archer 的損友默契'},
   {id:'伊莉雅絲菲爾-5th',name:'伊莉雅絲菲爾', gender:'女', appearance:'紅眼白髮的幼小少女，毛領大衣',war:'5th',magic:'愛因茲貝倫煉金術・聖杯依代',    circuits:80, melee:'D', magic_rank:'A', home:'冬木·新都', wish:'完成聖杯的使命',          persona:'天真爛漫的少女・哀傷的聖杯依代・喜歡士郎與雪・厭惡孤獨', back:'愛因茲貝倫煉金術製造的人造人、第三魔法的聖杯之器，被當作工具養大卻渴望親情', moe:'天真與哀傷並存、把士郎當哥哥的執著、人造人的純真、強顏歡笑的寂寞'},
@@ -250,7 +263,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v11';
+var CODEX_PERSONA_VER = 'v12';
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
@@ -260,10 +273,19 @@ function upgradeCodexPersonas_(ss) {
   var byId = {};
   SEED_SERVANTS.forEach(function (s) { byId[s.id] = s; });
   var n = 0;
+  var existing = {};
   for (var i = 1; i < d.length; i++) {
+    existing[String(d[i][COL.HERO.ID])] = true;
     var s = byId[String(d[i][COL.HERO.ID])];
     // 整列依種子重寫(六圍/職階技能/固有技能/特性/寶具/人設/陣營)，只刷種子英靈(ID 對應)、不動客製英靈
     if (s) { var row = servantToHeroRow_(s); hero.getRange(i + 1, 1, 1, row.length).setValues([row]); n++; }
+  }
+  // 🆕 補入「種子有、英靈殿還沒有」的新英靈(新增從者後不必清表即生效；冪等：下次已存在就不重加)
+  var toAdd = SEED_SERVANTS.filter(function (s) { return !existing[s.id]; });
+  if (toAdd.length) {
+    var addRows = toAdd.map(servantToHeroRow_);
+    hero.getRange(hero.getLastRow() + 1, 1, addRows.length, addRows[0].length).setValues(addRows);
+    n += addRows.length;
   }
   return n;
 }
@@ -281,14 +303,23 @@ function upgradeMasterCodex_(ss) {
   var d = msh.getDataRange().getValues();
   var byId = {};
   SEED_MASTERS.forEach(function (m) { byId[m.id] = m; });
+  var existing = {};
   var n = 0;
   for (var i = 1; i < d.length; i++) {
+    existing[String(d[i][COL.MASTER.ID])] = true;
     var m = byId[String(d[i][COL.MASTER.ID])];
     if (!m) continue;
     msh.getRange(i + 1, COL.MASTER.PERSONA + 1).setValue(m.persona);
     msh.getRange(i + 1, COL.MASTER.BACK + 1).setValue(m.back || '');
     msh.getRange(i + 1, COL.MASTER.MOE + 1).setValue(m.moe || '');
     n++;
+  }
+  // 🆕 補入「種子有、御主殿還沒有」的新御主(新增御主後不必清表即生效)
+  var toAdd = SEED_MASTERS.filter(function (m) { return !existing[m.id]; });
+  if (toAdd.length) {
+    var addRows = toAdd.map(masterToCodexRow_);
+    msh.getRange(msh.getLastRow() + 1, 1, addRows.length, addRows[0].length).setValues(addRows);
+    n += addRows.length;
   }
   return n;
 }

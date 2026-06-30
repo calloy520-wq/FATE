@@ -42,7 +42,8 @@ var FATE_5TH_ROSTER = [
   { master: '間桐慎二-5th', hero: '美杜莎-Rider', loc: '間桐宅' },
   { master: '言峰綺禮-5th', hero: '庫丘林-Lancer', loc: '言峰教會' },
   { master: '葛木宗一郎-5th', hero: '美狄亞-Caster', loc: '柳洞寺' },
-  { master: '伊莉雅絲菲爾-5th', hero: '赫拉克勒斯-Berserker', loc: '冬木·新都' }
+  { master: '伊莉雅絲菲爾-5th', hero: '赫拉克勒斯-Berserker', loc: '冬木·新都' },
+  { master: '間桐臟硯-5th', hero: '把臂之哈桑-Assassin', loc: '間桐宅' } // 第五次真·Assassin：蟲爺臟硯召喚的呪腕哈桑
 ];
 
 // 第四次聖杯戰爭正典陣容（Fate/Zero）
@@ -63,7 +64,7 @@ var FATE_FAKE_ROSTER = [
   { master: '歐蘭多·里夫', hero: '理查一世-Saber', loc: '冬木·深山町' },
   { master: '約翰·溫加德', hero: '阿基里斯-Rider', loc: '冬木·商店街' },
   { master: '哈魯利', hero: '玉藻前-Caster', loc: '遠坂宅' },
-  { master: '繰丘椿', hero: '開膛手傑克-Berserker', loc: '間桐宅' },
+  { master: '繰丘椿', hero: '蒼白騎兵-Rider', loc: '間桐宅' }, // strange Fake 正典：繰丘椿召喚 Pale Rider
   { master: '漢薩·塞爾旺帝斯', hero: '靜謐的哈桑-Assassin', loc: '言峰教會' }
 ];
 
