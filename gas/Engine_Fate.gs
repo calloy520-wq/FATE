@@ -101,12 +101,12 @@ function npAtkScale_(c) {
   if (/對神/.test(np)) return '對神';   // 弒神寶具(梵天弒神之槍等)：不入規模矩陣，傷害計算特判
   return '對人';
 }
-// 防禦規模：固有結界/對界寶具持有者＝對界防；神核/十二試煉/對城寶具＝對城防；陣地/對軍寶具＝對軍防；其餘對人防。
+// 防禦規模：固有結界(ubw)＝對界防；海怪召喚(summon_horror)／城牆防禦(wall_def)＝對城防；陣地作成(territory)＝對軍防；其餘對人防。
+//   ★只看「實際防禦性構造」：divine_core/god_hand 各有自己的機制(減傷18%/十二試煉)，不再疊加防禦規模。
 function npDefScale_(c) {
-  var np = String(c.np || '');
-  if (hasFx_(c, 'ubw') || /對界/.test(np)) return '對界';
-  if (hasFx_(c, 'divine_core') || hasFx_(c, 'god_hand') || /對城/.test(np)) return '對城';
-  if (hasFx_(c, 'territory') || /對軍/.test(np)) return '對軍';
+  if (hasFx_(c, 'ubw')) return '對界';
+  if (hasFx_(c, 'summon_horror') || hasFx_(c, 'wall_def')) return '對城';
+  if (hasFx_(c, 'territory')) return '對軍';
   return '對人';
 }
 // 令咒緊急脫離的落點：隨機挑一個非約會型的冬木地點（≠ 當前地）
