@@ -43,7 +43,7 @@ var FATE_5TH_ROSTER = [
   { master: '言峰綺禮-5th', hero: '庫丘林-Lancer', loc: '言峰教會' },
   { master: '葛木宗一郎-5th', hero: '美狄亞-Caster', loc: '柳洞寺' },
   { master: '伊莉雅絲菲爾-5th', hero: '赫拉克勒斯-Berserker', loc: '冬木·新都' },
-  { master: '間桐臟硯-5th', hero: '把臂之哈桑-Assassin', loc: '間桐宅' } // 第五次真·Assassin：蟲爺臟硯召喚的呪腕哈桑
+  { master: '間桐臟硯-5th', hero: '咒腕之哈桑-Assassin', loc: '間桐宅' } // 第五次真·Assassin：蟲爺臟硯召喚的咒腕哈桑
 ];
 
 // 第四次聖杯戰爭正典陣容（Fate/Zero）
@@ -65,7 +65,7 @@ var FATE_FAKE_ROSTER = [
   { master: '約翰·溫加德', hero: '阿基里斯-Rider', loc: '冬木·商店街' },
   { master: '哈魯利', hero: '玉藻前-Caster', loc: '遠坂宅' },
   { master: '繰丘椿', hero: '蒼白騎兵-Rider', loc: '間桐宅' }, // strange Fake 正典：繰丘椿召喚 Pale Rider
-  { master: '漢薩·塞爾旺帝斯', hero: '靜謐的哈桑-Assassin', loc: '言峰教會' }
+  { master: '傑斯塔·卡爾托雷', hero: '狂信者哈桑-Assassin', loc: '言峰教會' } // strange Fake 正典：偽Assassin＝狂信者哈桑，御主傑斯塔（偽裝的死徒）
 ];
 
 // 合成一名匿名御主列（偽聖杯／無正典御主資料時用）

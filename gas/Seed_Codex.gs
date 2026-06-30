@@ -82,7 +82,7 @@ var SEED_SERVANTS = [
     skills:[{n:'自我改造',r:'B',fx:'self_mod'},{n:'妄想心音',r:'',fx:'zabaniya'}],
     traits:[{n:'人類'}], np:'妄想心音 Zabaniya（心臟摘取）',
     align:'秩序・惡', persona:{firstP:'我們',look:'骷髏面具・黑袍裹身的詭譎刺客、肅殺低語的宗教氣息、自稱「我們」・多重聲線、卸下狂信時對「一」之名的執著渴求',words:'群體・狂信・無數人格・山中老人',toMaster:'服從，視暗殺為信仰',speech:'多重聲線交疊、以「我們」自稱、低語、宗教式的肅殺',moe:'十八種人格共用一具身軀的詭異、對「初代之名」的執著、暗殺即信仰的純粹',tic:'骷髏面具下變換面孔、無聲現身、低誦經文'} },
-  { id:'把臂之哈桑-Assassin', cls:'Assassin', realName:'哈桑·薩巴赫（把臂）', wars:['5th'], gender:'男',
+  { id:'咒腕之哈桑-Assassin', cls:'Assassin', realName:'哈桑·薩巴赫（咒腕）', wars:['5th'], gender:'男',
     six:{筋力:'C',耐久:'D',敏捷:'A',魔力:'E',幸運:'B',寶具:'C'},
     classSkills:[{n:'氣息遮斷',r:'A+',fx:'stealth'}],
     skills:[{n:'妄想心音',r:'',fx:'zabaniya'},{n:'投影魔術',r:'C',fx:'projection'},{n:'自我改造（詛咒之腕）',r:'C',fx:'self_mod'}],
@@ -147,12 +147,12 @@ var SEED_SERVANTS = [
     skills:[{n:'感染（疫病擴散）',r:'A',fx:'petrify'},{n:'純真的世界（難以感知）',r:'EX',fx:'unreadable'},{n:'冥府的引導',r:'EX',fx:'territory'}],
     traits:[{n:'災厄'},{n:'疫病'}], np:'終末降臨 Doomsday Come（對界·以御主為起點的死之冥界結界）',
     align:'混沌・中庸', persona:{firstP:'…',look:'蒼白朦朧・若有似無的騎影、近乎無形的死亡氣息、幾乎不言語・僅以瘟疫蔓延宣告存在、純真孩童般的無辜空洞',words:'瘟疫・死亡・無形・終末',toMaster:'無言依附御主之願、以其為冥界起點',speech:'幾乎不開口、存在感稀薄、偶以孩童般純真的破碎短語回應',moe:'人類對瘟疫與死亡之恐懼的具現、無辜與災厄並存的詭異、近乎無形卻無所不在、被當「夥伴」者得冥府祝福',tic:'蒼白騎影一閃即逝、無聲蔓延的寒疫、空洞的注視'} },
-  { id:'靜謐的哈桑-Assassin', cls:'Assassin', realName:'靜謐的哈桑', wars:['fake'], gender:'女',
-    six:{筋力:'D',耐久:'D',敏捷:'A',魔力:'C',幸運:'C',寶具:'C'},
-    classSkills:[{n:'氣息遮斷',r:'A+',fx:'stealth'}],
-    skills:[{n:'自我改造（毒身）',r:'B',fx:'self_mod'},{n:'妄想心音',r:'B',fx:'zabaniya'},{n:'透化',r:'C',fx:'clear_mind'}],
-    traits:[{n:'人類'}], np:'妄想心音・幻影瞬心 Zabaniya（心臟一擊）',
-    align:'秩序・惡', persona:{firstP:'我',look:'面紗低垂・素衣裹身的纖弱刺客、氣若游絲的溫柔肅靜、自稱「我」・氣若游絲、毒身不可觸碰下藏著的羞怯渴望',words:'孤獨・自我毒身・溫柔的殺意・面紗',toMaster:'寡言順從，珍視「被需要」',speech:'氣若游絲、寡言溫柔、毒與慈悲並存、低聲細語',moe:'毒身不能觸碰他人的孤獨、溫柔殺意的反差、被需要時微小的喜悅、面紗下的羞怯',tic:'面紗低垂、無聲送毒、欲觸又收回手'} },
+  { id:'狂信者哈桑-Assassin', cls:'Assassin', realName:'哈桑·薩巴赫（狂信者）', wars:['fake'], gender:'女',
+    six:{筋力:'C',耐久:'B',敏捷:'A',魔力:'C',幸運:'D',寶具:'B+'},
+    classSkills:[{n:'氣息遮斷',r:'A',fx:'stealth'}],
+    skills:[{n:'狂信',r:'A',fx:'clear_mind'},{n:'幻想血統',r:'',fx:'zabaniya'},{n:'自我改造',r:'A',fx:'self_mod'}],
+    traits:[{n:'人類'}], np:'幻想血統 Zabaniya（對人・對軍・再現十八位哈桑之奇蹟）',
+    align:'秩序・善', persona:{firstP:'我',look:'黑長直・雙麻花辮・面具半遮的纖細刺客、斗篷裹身赤足而行、自稱「我」・虔敬低語、面具下對「初代」之名與信仰的全然奉獻',words:'信仰・初代之名・十八奇蹟・殉道',toMaster:'虔敬奉獻、視契約為聖戰',speech:'虔敬低語、宗教式的肅穆、提及信仰時激越',moe:'黑長直雙麻花辮、粉紅瞳、面具半遮、赤足斗篷、為信仰殉道的純粹狂熱、再現十八哈桑的奇蹟',tic:'垂首誦念、撫過面具、赤足無聲而至'} },
   { id:'伊絲塔-Archer', cls:'Archer', realName:'伊絲塔', wars:['fake'], gender:'女',
     six:{筋力:'B',耐久:'C',敏捷:'B',魔力:'A',幸運:'B',寶具:'A+'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'},{n:'單獨行動',r:'A',fx:'solo'}],
@@ -263,7 +263,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v12';
+var CODEX_PERSONA_VER = 'v13';
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
@@ -286,6 +286,12 @@ function upgradeCodexPersonas_(ss) {
     var addRows = toAdd.map(servantToHeroRow_);
     hero.getRange(hero.getLastRow() + 1, 1, addRows.length, addRows[0].length).setValues(addRows);
     n += addRows.length;
+  }
+  // 🧹 淘汰名單：種子改名/汰換後，精準刪掉指定的舊種子列(只刪 hard-code 的已知舊 ID，
+  //    絕不碰 AI 原創從者——英靈殿也存 recordOriginalHero_ 寫回的原創)。由下往上刪避免位移。
+  var OBSOLETE_HERO_IDS = { '把臂之哈桑-Assassin': 1, '靜謐的哈桑-Assassin': 1 };
+  for (var j = d.length - 1; j >= 1; j--) {
+    if (OBSOLETE_HERO_IDS[String(d[j][COL.HERO.ID])]) { hero.deleteRow(j + 1); n++; }
   }
   return n;
 }
