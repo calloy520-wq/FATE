@@ -1320,12 +1320,12 @@ function renderRecentLocs(recents = null) {
     s += '<rect x="0" y="0" width="100" height="100" fill="url(#mapsky)"/>';
     // 點點星塵
     s += '<g fill="#cdd6f5" opacity="0.22">';
-    [[12,9],[27,6],[63,8],[83,14],[91,40],[8,33],[20,75],[78,88],[36,28],[57,33]].forEach(function (q) { s += '<circle cx="' + q[0] + '" cy="' + q[1] + '" r="0.4"/>'; });
+    [[12,9],[27,6],[63,8],[83,14],[91,40],[8,33],[20,75],[78,88],[36,28],[57,33]].forEach(function (q, i) { s += '<circle class="fk-star" cx="' + q[0] + '" cy="' + q[1] + '" r="0.4" style="animation-delay:' + (i * 0.4) + 's"/>'; });
     s += '</g>';
     // 🌊 未遠川：自北側山丘蜿蜒南流，覆蓋河畔↔大橋一線
     var riverPath = 'M50,1 C53,14 47,28 50,46 C52,55 48,60 49,66 C46,80 44,90 43,100';
     s += '<path d="' + riverPath + '" fill="none" stroke="url(#riverg)" stroke-width="7" stroke-linecap="round" opacity="0.32"/>';
-    s += '<path d="' + riverPath + '" fill="none" stroke="#86b6ff" stroke-width="2" stroke-linecap="round" opacity="0.30"/>';
+    s += '<path class="fk-river-flow" d="' + riverPath + '" fill="none" stroke="#86b6ff" stroke-width="2" stroke-linecap="round" opacity="0.30" stroke-dasharray="10 14"/>';
     // 街道（細線，跳過落在河上的兩段，避免蓋掉河流）
     var riverSeg = { '言峰教會|未遠川河畔': 1, '未遠川河畔|大橋': 1 };
     CONN.forEach(function (c) {
@@ -1339,9 +1339,9 @@ function renderRecentLocs(recents = null) {
       var cx = p[0], cy = p[1], col = typeColor[n.type] || '#888';
       var nm = String(n.name).replace(/'/g, '');
       s += '<circle cx="' + cx + '" cy="' + cy + '" r="3" fill="' + col + '" opacity="0.28" filter="url(#nglow)"/>'; // 光暈
-      if (n.here) s += '<circle cx="' + cx + '" cy="' + cy + '" r="4.3" fill="none" stroke="#ffd86a" stroke-width="0.9" filter="url(#nglow)"/>';
-      if (n.enemy) s += '<circle cx="' + cx + '" cy="' + cy + '" r="5.2" fill="none" stroke="#ff6a6a" stroke-width="0.7" stroke-dasharray="1.6,1.3"/>';
-      s += '<circle cx="' + cx + '" cy="' + cy + '" r="2.1" fill="' + col + '" stroke="#0a0810" stroke-width="0.5" style="cursor:pointer" onclick="travelFromPane(\'' + nm + '\')"/>';
+      if (n.here) s += '<circle class="fk-here-ring" cx="' + cx + '" cy="' + cy + '" r="5" fill="none" stroke="#ffd86a" stroke-width="0.9"/>';
+      if (n.enemy) s += '<circle class="fk-foe-ring" cx="' + cx + '" cy="' + cy + '" fill="none" stroke="#ff6a6a" stroke-width="1"/>';
+      s += '<circle ' + (n.here ? 'class="fk-here-core" ' : '') + 'cx="' + cx + '" cy="' + cy + '" r="2.1" fill="' + col + '" stroke="#0a0810" stroke-width="0.5" style="cursor:pointer" onclick="travelFromPane(\'' + nm + '\')"/>';
       s += '<circle cx="' + (cx - 0.6) + '" cy="' + (cy - 0.6) + '" r="0.7" fill="rgba(255,255,255,0.6)"/>'; // 高光點
       s += '<text x="' + cx + '" y="' + (cy + 5.3) + '" font-size="3.1" fill="#ede7fb" text-anchor="middle" paint-order="stroke" stroke="#0a0810" stroke-width="0.9" style="cursor:pointer; font-weight:bold;" onclick="travelFromPane(\'' + nm + '\')">' + short(n.name) + (n.enemy ? ' ⚔' : '') + (n.here ? ' ◈' : '') + '</text>';
     });
