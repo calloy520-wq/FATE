@@ -614,7 +614,7 @@ function renderRecentLocs(recents = null) {
 
     try {
       // 呼叫後端移動
-      const data = await gasRun({ action: "move", pcId: pc.id, target: targetName });
+      const data = await gasRun({ action: "move", pcId: pc.id, target: targetName, stance: getStance() });
       
       if (data.success) {
         // 1. 同步狀態 (UI 與 LocalStorage)
@@ -661,6 +661,7 @@ function renderRecentLocs(recents = null) {
           + foes.filter(f => f.faction === '敵御主' && f.lostServant).map(f =>
               `★敵御主『${f.name}』已痛失從者（${f.lostServant}）、形單影隻、再無從者可驅使——是聖杯戰爭中無牙的棋手。讓其神情與心境流露這份失恃（依個性：孤注一擲／惶然欲逃／不甘怨懟），切勿演成仍有從者隨侍在旁。\n`).join('')
           + (pc.servant ? `★從者「${pc.servant}」隨行在側，依其個性開口、有反應（至少一句台詞），別寫成御主獨自一人的自言自語。\n` : '')
+          + stanceLine_()
           + `★禁止替御主做決定、禁止詢問玩家想做什麼，停在留白，讓御主以行動（偵查／出戰／補魔／移動）回應。`;
         if (data.defeat) { await handleDefeat(data); }  // ⏳ 移動跨過第14日時限 → 直接收場(略過抵達敘事)
         else {
@@ -1251,6 +1252,44 @@ function renderRecentLocs(recents = null) {
     if (name === 'map') renderMapPane();
     if (name === 'status') refreshFateTags();
   }
+  // 🎭 接敵姿態（純敘述 flavor·常駐三段藥丸·存 localStorage·免 round-trip）：
+  //   搭移動便車送後端輕觸撤離追擊機率(隱蔽−/光明+)，並在抵達/撤離敘事加一句定調。
+  var STANCES = {
+    stealth: { icon: '🥷', label: '隱蔽潛行', color: '#8a7fc0' },
+    normal:  { icon: '🚶', label: '泰然如常', color: '#9fb0c0' },
+    open:    { icon: '🔥', label: '正大光明', color: '#d08a5a' }
+  };
+  function getStance() { var s = localStorage.getItem('fate_stance'); return STANCES[s] ? s : 'normal'; }
+  function setStance(s) { if (!STANCES[s]) return; localStorage.setItem('fate_stance', s); paintStancePill_(); }
+  function paintStancePill_() {
+    var cur = getStance();
+    Object.keys(STANCES).forEach(function (k) {
+      var el = document.getElementById('stance-' + k); if (!el) return;
+      var st = STANCES[k], on = k === cur;
+      el.style.border = '1px solid ' + (on ? st.color : '#3a3550');
+      el.style.background = on ? 'rgba(255,255,255,.07)' : 'transparent';
+      el.style.color = on ? st.color : '#6a6580';
+      el.style.fontWeight = on ? 'bold' : 'normal';
+    });
+  }
+  function stancePillHtml_() {
+    var cur = getStance();
+    var segs = Object.keys(STANCES).map(function (k) {
+      var st = STANCES[k], on = k === cur;
+      return '<button id="stance-' + k + '" onclick="setStance(\'' + k + '\')" style="flex:1; font-size:11px; padding:5px 2px; cursor:pointer; border:1px solid ' + (on ? st.color : '#3a3550') + '; background:' + (on ? 'rgba(255,255,255,.07)' : 'transparent') + '; color:' + (on ? st.color : '#6a6580') + '; border-radius:6px; font-weight:' + (on ? 'bold' : 'normal') + ';">' + st.icon + ' ' + st.label + '</button>';
+    }).join('');
+    return '<div style="margin-bottom:8px; padding:6px 7px; background:rgba(20,18,32,.4); border:1px solid #2e2a44; border-radius:7px;">'
+      + '<div style="color:#8a8298; font-size:10.5px; margin-bottom:4px;">🎭 接敵姿態 <small style="opacity:.6;">· 定調遭遇基調與撤離追擊</small></div>'
+      + '<div style="display:flex; gap:4px;">' + segs + '</div></div>';
+  }
+  // 抵達/撤離敘事用的姿態定調句（正常＝不加，留白給資料驅動）
+  function stanceLine_() {
+    var k = getStance(); if (k === 'normal') return '';
+    return '★【接敵姿態】御主此刻以〔' + STANCES[k].label + '〕之姿行動——'
+      + (k === 'stealth' ? '壓低存在感、避免張揚，盡量不被察覺地接近或抽身' : '毫不掩飾、堂堂現身，主動暴露行蹤、不屑隱匿')
+      + '。讓此姿態自然滲入現身與被察覺的方式，勿喧賓奪主、勿替敵人預設反應。\n';
+  }
+
   async function renderMapPane() {
     var c = document.getElementById('map-pane-content'); if (!c) return;
     // ⚡ 地圖真正隱藏時才跳過 get_map_nodes：applyClientState 每動作都呼此函式，手機在「故事」頁時地圖隱藏、
@@ -1265,6 +1304,7 @@ function renderRecentLocs(recents = null) {
       + ((pc && pc.mode === 'kanshou') ? '' : '<button class="btn" style="padding:3px 9px; font-size:12px; border-color:#4a8a8a; color:#7fc7c7;" onclick="scout()">🔍 偵查</button>')
       + '<button class="btn" style="padding:3px 9px; font-size:12px; border-color:#4682b4; color:#9fc0ef;" onclick="refreshMapPane()">🔄 重整</button>'
       + '</div></div>';
+    if (!(pc && pc.mode === 'kanshou')) html += stancePillHtml_(); // 🎭 接敵姿態藥丸（戰爭軌限定·鑑賞無戰鬥）
     html += '<div style="color:#9a8bb0; font-size:11px; margin-bottom:6px;">📍 目前所在：' + (here || '未知') + '　<span style="color:#d65c5c;">⚔ = 敵人</span></div>';
     if (allyIntel) html += '<div style="color:#8fd0a0; font-size:11px; margin-bottom:6px; padding:4px 7px; background:rgba(20,45,28,.3); border:1px solid rgba(90,170,120,.4); border-radius:6px;">🤝 盟友通報·敵蹤全揭露——同盟期間無視戰爭迷霧，全圖敵人位置一覽無遺。</div>';
     html += buildMapSvg_(nodes);
