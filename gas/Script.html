@@ -1864,6 +1864,8 @@ function renderRecentLocs(recents = null) {
   // 敗北：先播「願望實現的虛假之夢」，再【由玩家自己按鈕】進老虎道場（敗北後不能輸入，故用按鈕控節奏，不靠死板 timer 搶播）
   async function handleDefeat(res) {
     const story = document.getElementById('story');
+    const dojoCause = lastAiContext || '';            // 🐯 在夢覆寫 lastAiContext 前先擷取「敗因」戰況給老虎道場
+    const dojoServant = (pc && pc.servant) || '從者';  // 殞滅的從者名
     // 鎖住輸入與行動列，避免敗北後還能操作
     try { var inp = document.getElementById('u-in'); if (inp) { inp.disabled = true; inp.placeholder = '聖杯戰爭已落幕……'; } } catch (e) {}
     try { var oc = document.getElementById('options-container'); if (oc) oc.innerHTML = ''; } catch (e) {}
@@ -1883,7 +1885,7 @@ function renderRecentLocs(recents = null) {
       story.insertAdjacentHTML('beforeend', `<div id="${btnId}-wrap" style="text-align:center; margin:16px 0 8px;"><button id="${btnId}" style="padding:12px 28px; background:linear-gradient(160deg,#4a3a6a,#3a2c54); color:#fff; border:1px solid #6a5a8a; border-radius:10px; font-size:15px; cursor:pointer; box-shadow:0 4px 18px rgba(0,0,0,.45);">⏭ 夢醒了……直視結局</button></div>`);
       story.scrollTop = story.scrollHeight;
       var db = document.getElementById(btnId);
-      if (db) db.onclick = function () { var w = document.getElementById(btnId + '-wrap'); if (w) w.remove(); openTigerDojo(); };
+      if (db) db.onclick = function () { var w = document.getElementById(btnId + '-wrap'); if (w) w.remove(); runTigerDojo_(dojoServant, dojoCause); };
     }
   }
 
@@ -2126,6 +2128,30 @@ function renderRecentLocs(recents = null) {
   function openTigerDojo() {
     const ov = document.getElementById('tiger-dojo-overlay');
     if (ov) ov.style.display = 'flex';
+  }
+  // 🐯 老虎道場敗北講評 prompt（藤村大河＋伊莉雅·依實際敗因吐槽＋給一條對症戰術建議）
+  function buildTigerDojoPrompt_(servantName, causeCtx) {
+    return '【老虎道場·敗北講評】Fate 經典搞笑教學橋段——御主敗北、從者「' + (servantName || '從者') + '」已消滅。\n'
+      + '由【藤村大河】(老虎老師·元氣熱血卻常狀況外·愛耍寶)＋【伊莉雅】(毒舌助手·一針見血道出真正敗因)兩人對話復盤。\n'
+      + (causeCtx ? '〔本局敗因參考·僅供你判讀戰況，勿原樣複述〕：' + String(causeCtx).slice(0, 400) + '\n' : '')
+      + '★結構：①藤村大河開場吐槽/打氣(可中二可耍寶)；②伊莉雅冷靜點出【這場真正輸在哪】並給【一條具體可操作的戰術建議】(對症那條：職階相剋、該偷襲御主而非硬拚寶具、出力/補魔/結盟/撤退時機、寶具該留待對方解放後的空檔等)；③藤村大河收尾打氣。\n'
+      + '★【刻意輕鬆詼諧】這是賽後教學番外、非戰場——語氣搞笑溫馨，無視戰場的緊張基調。約 120~180 字、繁體中文。show-don\'t-tell 不直述從者願望/個性字面。只輸出兩人對話，禁選項、禁系統字樣、禁問玩家。';
+  }
+  function dojoFallbackHtml_() {
+    return '聖杯戰爭已然落幕，你的靈基化作了星塵。<br>但別氣餒——藤村大河老師的特訓，能讓下一場聖杯戰爭走得更遠！<br><span style="color:#9a8fb0; font-size:12px;">（敗北的存檔已封存於戰史，可重啟新的一局。）</span>';
+  }
+  // 掀開老虎道場 → 生成 AI 講評填入卡片（一次 AI 呼叫·只在 game-over 收場，失敗則退回罐頭文案）
+  async function runTigerDojo_(servantName, causeCtx) {
+    openTigerDojo();
+    var body = document.getElementById('dojo-ai-body');
+    if (body) body.innerHTML = '<span style="color:#9a8fb0;">🐯 藤村老師正在翻你的戰報……</span>';
+    try {
+      const res = await gasRun({ action: 'narrate_only', pcId: pc.id, promptText: buildTigerDojoPrompt_(servantName, causeCtx), isNsfw: false });
+      if (res && res.success && res.text && body) {
+        var t = String(res.text).replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\n{2,}/g, '<br><br>').replace(/\n/g, '<br>');
+        body.innerHTML = t + '<div style="color:#9a8fb0; font-size:12px; margin-top:12px;">（敗北的存檔已封存於戰史，可重啟新的一局。）</div>';
+      } else if (body) { body.innerHTML = dojoFallbackHtml_(); }
+    } catch (e) { if (body) body.innerHTML = dojoFallbackHtml_(); }
   }
   function closeTigerDojo() {
     const ov = document.getElementById('tiger-dojo-overlay');

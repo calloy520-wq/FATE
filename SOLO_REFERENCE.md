@@ -178,7 +178,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 2. **斬首**：目標=敵御主且有從者護衛→每名在世從者擲 D20，任一=20 斬殺御主(+護衛隨亡)→勝利判定；全失手→護衛反噬每人 1.5×。
 3. **一般戰**：ROUNDS=3 回合。`partyIdxs`=所有在世從者(雙從者齊攻)。寶具/令咒只加在 atkIdx 開場第一擊。寶具魔力走 `drainForNp_`(御主電池)，前置 `maxPay` 檢查唯三者皆空才擋。
 4. **協同強襲**(§8)：`allyAtkIdx`=同地盟友從者，每回合對共同敵人助攻一擊(不被反擊)。
-5. 敵反擊：`enemyNpSpent` 一場限一次寶具，殘血越急越愛開。
+5. 敵反擊：`enemyNpSpent` 一場限一次寶具。**🛡️ 寶具閘(2026-06)**：寶具是孤注一擲殺招、非見面招呼——敵唯有**自己被打殘**(`eHpRatio<0.5`)或**我方從者已殘可收尾**(`pHpRatio<0.45`)才解放真名；健康對健康一律普攻試探(免玩家一接觸就被無預警寶具秒殺)。觸發後再吃 `eNpUrge`(狂/暗0.22 else 0.10)+殘血加成的機率擲。
    - **🔋 敵寶具吃魔力(2026-06)**：敵開寶具(回合反擊＋對轟)前 `enemyCanAffordNp_`(自身MP＋`enemyMasterIdx_` 敵御主電池 ≥ prana)才放，並 `drainForNp_` 扣魔；付不起→改普攻/不對轟。EX/EA(prana800)幾乎沒人付得起→極罕見；masterless 敵(金閃)補不了魔→寶具自限。
    - **🛡️ 十二試煉概念燒命(2026-06)**：god_hand 致命時，`lossN=1`＋寶具概念加成(取 `offenseTier_` fx階 與 `npAtkScale_` 規模階 較高者：≥6→+2、≥5→+1)＋overkill(傷/復活線 ≥3→+2、≥2→+1)。`lossN≥餘命`→餘命一擊燒盡、不復活落入 destroyed。解決「Saber 對城 Excalibur 連一命都燒不掉」。
    - **🌟 寶具對轟(2026-06)**：玩家開場 useNp＋目標敵從者且敵有寶具(且付得起prana) → `clashUrge`(0.6＋狂/暗殺0.25−殘血) 機率敵以寶具相迎。雙方算 `pPow/ePow`(resolveFateBattle np 火力，不直接扣血)→ 高者壓過、差額貫穿敗方、勝方回震15%；±10% band 內＝僵持相抵雙方小損。傷害經 `fateStrike_({forceDamage})` 套用(沿用死亡/勝負/復活/脫離)。設 `openingNp/openingSeal=false` 防回合迴圈重放。寫進 report.clash＋aiPrompt【寶具對轟】＋前端對轟卡。`fateStrike_` 新增 `opts.forceDamage`(略過 resolve 傷害、只跑後續結算)。
@@ -286,6 +286,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **戰爭行動列**：`renderWarActions`(**手風琴**：每目標一張可點開卡，`toggleWarTarget`/`warExpanded`，單目標自動展開；底部固定偵查/休息/移動)、`attackStyle_`(近戰/魔砲/狙擊樣式)、`localFoeServantName`。
 - **行動 handler**：`servantStrike`(出戰/寶具/令咒/刺殺御主四參數)、`manaSupply`、`bond`/`openBondMenu`/`submitBond`、`rest`/`openRestMenu`/`restAndHeal`、`scout`、`mysticStrike`、`ruleBreakSteal`、`secondWind`、`setWorkshop`/`scavenge`、`proposeAlliance`/`breakAlliance`/`allyBond`。
 - **戰報**：`renderFateBattleReport`(斬首多骰/strikes/雙從者血條)、`renderCombatReport`、`renderMysticReport`、`narrate`/`narrateCombatResult`、`handleDefeat`(敗北→虛假之夢→老虎道場)。
+- **🐯 老虎道場 AI 講評(2026-06)**：敗北「⏭直視結局」按鈕→`runTigerDojo_(servantName,causeCtx)`：`buildTigerDojoPrompt_` 餵藤村大河＋伊莉雅依**實際敗因**(夢覆寫前擷取的 `lastAiContext`)吐槽＋給一條對症戰術建議，走 `narrate_only` 一次呼叫(只在 game-over 收場·不影響遊戲中速度)填入 `#dojo-ai-body`，失敗退回 `dojoFallbackHtml_()` 罐頭文案。
 - **召喚/創角**：`rollFate`/`selectFateRoll`/`renderFateRolls`(魔術天賦測定)、`doSummon`/`summonByHero`/`selectSummonClass`、`chooseWarMode`/`chooseWar`。
 - **地圖**：`renderMapPane`(陣地/搜索物資/盟友通報橫幅)、`buildMapSvg_`、`scout`。**地圖 17 正典地點**(衛宮宅/愛因茲貝倫城/冬木森林/冬木·碼頭/深山町遠坂宅/新都穗群原…)：種子在 `Setup_FateWorld.gs` `FATE_MAP_SEED`，`reseedIfEmpty_` 為 **upsert**(按名更新 TYPE/COORD/DESC＋補缺列)；前端位置是 `buildMapSvg_` 內 **hardcoded `LAYOUT`**(short-name→[x,y]，新都西/深山町東)＋`CONN`，**非試算表座標**(座標只備查)。改地圖要同步改種子(名字)＋LAYOUT(位置)。
 - **移動敘事**：`actionMove`(Router 2121)回傳 `servantCard`(玩家從者卡)，前端 `travelTo` 抵達提示前置該卡＋「從者必在場、依性格至少一句台詞」指令——修掉移動後變御主獨白、從者像不存在。前端 `foes.length` 時再加「遭遇·敵在眼前」指令(敵方開口挑釁/試探，但勝負留待御主下令)。

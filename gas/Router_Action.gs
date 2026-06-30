@@ -2535,7 +2535,13 @@ function actionFateBattle(userData, pcId, sheets) {
         const ECF = ['ea', 'excalibur', 'ubw', 'summon_horror', 'gob', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify', 'chain', 'anti_magic_lance', 'wind_strike', 'projection'];
         const eOffensiveNp = !!String(pcData[nIdx][COL.PC.MARTIAL] || "").trim() && rankVal(enemyNow.six["寶具"] || "-") >= 10
           && (['對軍', '對城', '對界'].indexOf(npAtkScale_(enemyNow)) >= 0 || ECF.some(function (f) { return hasFx_(enemyNow, f); }));
-        let enemyFireNp = eOffensiveNp && !enemyNpSpent && (Math.random() < (eNpUrge + (1 - eHpRatio) * 0.45));
+        // 🛡️ 寶具是孤注一擲的殺招、不是見面的招呼：敵方唯有【自己被打殘】或【對方已殘可收尾】才解放真名——
+        //    免得玩家一接觸就被無預警的寶具秒殺(「見面開寶具」的惡感)。健康對健康＝先以普攻試探。
+        const pHpRatio = (parseInt(pcData[ctgt][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[ctgt][COL.PC.HP]) || 0) / (parseInt(pcData[ctgt][COL.PC.MAX_HP]) || 1) : 1;
+        const eDesperate = eHpRatio < 0.5;   // 敵自身被打殘→搏命解放
+        const eFinisher = pHpRatio < 0.45;   // 我方從者已殘→敵收尾
+        let enemyFireNp = eOffensiveNp && !enemyNpSpent && (eDesperate || eFinisher)
+          && (Math.random() < (eNpUrge + (1 - eHpRatio) * 0.45 + (eFinisher ? 0.30 : 0)));
         // 🔋 敵寶具也要吃魔力：自身 MP＋敵御主電池須付得起 prana，否則放不出（EX/EA 幾乎沒人付得起→極罕見；masterless 補不了魔→自限）
         if (enemyFireNp) {
           const ePrana = npPranaCost_(enemyNow.six["寶具"]);
