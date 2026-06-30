@@ -547,10 +547,7 @@ function actionSummonServant(userData, pcId, sheets) {
       const nStr = svNum_(six.筋力), nCon = svNum_(six.耐久), nAgi = svNum_(six.敏捷), nInt = svNum_(six.魔力), nLuk = svNum_(six.幸運);
       const maxStats = fateMaxHpMp_(nCon, nInt);
       // 從者血厚：耐久越高越肉。🔋 出力電池制：從者無自有魔力池(MP欄置0)，靠御主供魔；出力檔存 MEMORY、預設 60 巡航。
-      // 🐙 螺湮城教本(summon_horror)：大海怪常駐護盾，底層 HP +300
-      const _allSk = classSkills.concat(skills);
-      const _npHpBonus = _allSk.some(function(s){ return s && s.fx === 'summon_horror'; }) ? 300 : 0;
-      const svHp = 150 + svNum_(six.耐久) * 6 + _npHpBonus, svMp = 0;
+      const svHp = 150 + svNum_(six.耐久) * 6, svMp = 0;
 
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
@@ -709,6 +706,8 @@ function buildTagsPayload_(sheets, pcId, preData, preRel) {
       // 🌟 多寶具英靈：寶具選單＋當前選定索引（前端點寶具時挑要放哪個）
       npOptions: servantNpOptions_(s[COL.PC.NAME], s[COL.PC.RANK]) || undefined,
       npChoice: npChoice_(s[COL.PC.MEMORY]),
+      // 🐙 深淵海怪肉身（持 summon_horror 且現存海怪時 {cur,max}）：前端在體力條下方獨立渲染一條海怪血條
+      horror: skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) ? horrorShieldView_(s[COL.PC.MEMORY], gameId) : undefined,
       pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體
       stolen: /【破戒奪取】/.test(String(s[COL.PC.MEMORY] || ""))
     });
@@ -1917,8 +1916,9 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   var isFoeSv = (tgtFaction === "敵從者");
   var severed = hasFx_(atkC, 'rule_breaker') || hasFx_(atkC, 'anti_magic_lance');
   var hp = parseInt(pcData[tgtIdx][COL.PC.HP]) || 0;
-  // 🐙 海怪護盾：優先吸收傷害（護盾歸零或超過 HORROR_SHIELD_HOURS 時消散）
-  if (isPlayerSv && dmg > 0) {
+  // 🐙 海怪掩護：持 summon_horror 者寶具解放後，深淵海怪在前以身擋傷——傷害先扣海怪肉身，潰散後才傷及本體。
+  //   faction 無關（玩家青鬍子／敵方青鬍子皆適用）；無「現存海怪」(未解放/已退場)時此段空轉。
+  if (hasFx_(defC, 'summon_horror') && dmg > 0) {
     var _hClk = getClock_(ctx.myGameId);
     var _hAbs = _hClk ? _hClk.day * 24 + _hClk.hour : null;
     var _shield = getHorrorShield_(pcData[tgtIdx][COL.PC.MEMORY], _hAbs);
@@ -1929,11 +1929,12 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
       var _sNew = _shield.remaining - _sAbsorb;
       if (_sNew <= 0) {
         pcData[tgtIdx][COL.PC.MEMORY] = clearHorrorShield_(pcData[tgtIdx][COL.PC.MEMORY]);
-        out.fired.push(defC.name + '·海怪護盾(吸收' + _sAbsorb + '·護盾破碎)');
+        out.fired.push(defC.name + '·深淵海怪以身擋下 ' + _sAbsorb + '——海怪潰散！本體暴露');
       } else {
-        pcData[tgtIdx][COL.PC.MEMORY] = setHorrorShield_(pcData[tgtIdx][COL.PC.MEMORY], _sNew, _shield.expiry);
-        out.fired.push(defC.name + '·海怪護盾(吸收' + _sAbsorb + '·餘' + _sNew + ')');
+        pcData[tgtIdx][COL.PC.MEMORY] = setHorrorShield_(pcData[tgtIdx][COL.PC.MEMORY], _sNew, _shield.max, _shield.expiry);
+        out.fired.push(defC.name + '·深淵海怪以身擋下 ' + _sAbsorb + '（海怪餘 ' + _sNew + '/' + _shield.max + '）');
       }
+      out.shieldCur = Math.max(0, _sNew); out.shieldMax = _shield.max; // 戰報/前端可顯示海怪肉身條
       sheets.pc.getRange(tgtIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[tgtIdx][COL.PC.MEMORY]);
     }
   }
@@ -2061,12 +2062,6 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
       }
     }
   } else {
-    // 🐙 海怪再生(summon_horror)：存活時每次受擊後自動回血 +10（深淵魔力持續修復肉體）
-    if (hasFx_(defC, 'summon_horror')) {
-      var _shMax = parseInt(pcData[tgtIdx][COL.PC.MAX_HP]) || 0;
-      after = Math.min(after + 10, _shMax);
-      out.fired.push(defC.name + '·海怪再生(+10)');
-    }
     pcData[tgtIdx][COL.PC.HP] = after;
     sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
   }
@@ -2478,18 +2473,19 @@ function actionFateBattle(userData, pcId, sheets) {
   //   靠御主魔力維持(每回合扣 HORROR_UPKEEP)；御主魔力撐不住 → 海怪潰散退場。巨獸物理攻擊、不受對魔力。
   let horrorActive = (useNp && hasFx_(atkC, 'summon_horror'));
   const HORROR_UPKEEP = 30;
+  // 深淵海怪的「肉身血池」＝海怪護盾(下方 setHorrorShield_)；此 horrorC 的 hp 僅追擊判定用、肉身存亡看護盾。
   const horrorC = horrorActive ? {
     name: '深淵海怪', cls: 'Berserker', np: '',
     six: { 筋力: 'A', 耐久: 'A', 敏捷: 'C', 魔力: 'E', 幸運: 'E', 寶具: '-' },
     skills: [], traits: [{ n: '巨獸' }], output: 100,
-    hp: 400, hpMax: 400, mp: 0, mpMax: 0
+    hp: HORROR_SHIELD_HP, hpMax: HORROR_SHIELD_HP, mp: 0, mpMax: 0
   } : null;
-  // 🐙 海怪護盾：深淵海怪以身為盾護住吉爾，寶具觸發當下即生效（200 HP 護盾，8 遊戲時後消散）
+  // 🐙 召喚海怪：寶具解放當下，海怪自深淵現身、以肉身(HORROR_SHIELD_HP)在前掩護術師（逾 HORROR_SHIELD_HOURS 遊戲時退場）。
   if (horrorActive) {
     var _hshClk = getClock_(myGameId);
     if (_hshClk) {
       var _hshExp = _hshClk.day * 24 + _hshClk.hour + HORROR_SHIELD_HOURS;
-      pcData[atkIdx][COL.PC.MEMORY] = setHorrorShield_(pcData[atkIdx][COL.PC.MEMORY], HORROR_SHIELD_HP, _hshExp);
+      pcData[atkIdx][COL.PC.MEMORY] = setHorrorShield_(pcData[atkIdx][COL.PC.MEMORY], HORROR_SHIELD_HP, HORROR_SHIELD_HP, _hshExp);
       sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
     }
   }
@@ -2537,6 +2533,24 @@ function actionFateBattle(userData, pcId, sheets) {
           sheets.pc.getRange(ridx + 1, 1, 1, pcData[ridx].length).setValues([pcData[ridx]]);
           rl.strikes.push({ by: rc.name, rune: true, pHit: false, pDmg: 0, pCrit: '', pFired: [], note: '原初符文·治癒（+' + Math.min(healR, hpMaxR - curR) + '）' });
         }
+      }
+    }
+
+    // 🐙 深淵海怪·肉身養護：護盾＝海怪肉身，每回合自深淵汲魔再生 +HORROR_REGEN（不過上限）；
+    //   肉身已潰散(護盾歸零/逾時) → 海怪退場、本回合起不再追擊。
+    if (hasFx_(atkC, 'summon_horror')) {
+      var _hgClk = getClock_(ctx.myGameId);
+      var _hgAbs = _hgClk ? _hgClk.day * 24 + _hgClk.hour : null;
+      var _hgSh = getHorrorShield_(pcData[atkIdx][COL.PC.MEMORY], _hgAbs);
+      if (_hgSh.active && _hgSh.remaining > 0) {
+        if (_hgSh.remaining < _hgSh.max) {
+          var _hgNew = Math.min(_hgSh.max, _hgSh.remaining + HORROR_REGEN);
+          pcData[atkIdx][COL.PC.MEMORY] = setHorrorShield_(pcData[atkIdx][COL.PC.MEMORY], _hgNew, _hgSh.max, _hgSh.expiry);
+          sheets.pc.getRange(atkIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[atkIdx][COL.PC.MEMORY]);
+          rl.strikes.push({ by: '🐙深淵海怪', horror: true, pHit: false, pDmg: 0, pCrit: '', pFired: [], note: '深淵海怪·肉身再生（+' + (_hgNew - _hgSh.remaining) + '·餘 ' + _hgNew + '/' + _hgSh.max + '）' });
+        }
+      } else {
+        horrorActive = false; // 海怪肉身潰散 → 退場
       }
     }
 
@@ -2728,9 +2742,13 @@ function getDoom_(memory) {
 //   不寫道具列、不花錢。MEMORY 記【整備至】<絕對小時>，過期自動失效。
 var MEAL_BUFF_HOURS = 8;   // 持續時數（遊戲內）
 var MEAL_BUFF_BONUS = 2;   // 從者出擊命中加值
-// 🐙 海怪護盾：吉爾解放寶具後，深淵海怪以身為盾護住術師；以 MEMORY【海怪護盾】remaining|expiryAbsHour 持久化。
-var HORROR_SHIELD_HP = 200;   // 護盾初始量
-var HORROR_SHIELD_HOURS = 8;  // 持續上限（遊戲內小時）
+// 🐙 海怪護盾 ＝ 深淵海怪的「肉身血池」：螺湮城教本解放後，海怪自深淵現身、以身掩護術師——
+//   傷害先扣海怪、海怪潰散後才傷及本體；每回合自深淵汲魔再生；逾時退場。
+//   單一真實來源＝MEMORY【海怪護盾】<cur>|<max>|<expiryAbsHour>（三欄·舊兩欄相容讀取）。
+//   要擴充「召喚物掩護」類技能：照此 get/set/clear + view 模式複製即可。
+var HORROR_SHIELD_HP = 300;   // 海怪肉身上限（召喚時的滿值）
+var HORROR_SHIELD_HOURS = 8;  // 持續上限（遊戲內小時·逾時自深淵退場）
+var HORROR_REGEN = 10;        // 每回合肉身再生量（不超過上限）
 function stampMeal_(memory, expiryAbsHour) {
   var s = String(memory || "").replace(/【整備至】\d+/, "");
   s = s.replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
@@ -2746,20 +2764,30 @@ function mealBuffActive_(memory, gameId) {
   var clk = getClock_(gameId); if (!clk) return false;
   return (clk.day * 24 + clk.hour) < exp;
 }
+// 讀海怪肉身：回 {active, remaining, max, expiry}。逾時 → active:false。相容舊兩欄(cur|expiry，max 退回 cur)。
 function getHorrorShield_(memory, absHour) {
-  var m = String(memory || "").match(/【海怪護盾】(\d+)\|(\d+)/);
-  if (!m) return { active: false, remaining: 0, expiry: 0 };
-  var rem = parseInt(m[1]), exp = parseInt(m[2]);
-  if (absHour != null && absHour >= exp) return { active: false, remaining: 0, expiry: exp };
-  return { active: rem > 0, remaining: rem, expiry: exp };
+  var m = String(memory || "").match(/【海怪護盾】(\d+)\|(\d+)(?:\|(\d+))?/);
+  if (!m) return { active: false, remaining: 0, max: 0, expiry: 0 };
+  var rem, max, exp;
+  if (m[3] != null) { rem = parseInt(m[1]); max = parseInt(m[2]); exp = parseInt(m[3]); }   // 新三欄 cur|max|expiry
+  else { rem = parseInt(m[1]); max = rem; exp = parseInt(m[2]); }                            // 舊兩欄 cur|expiry
+  if (absHour != null && absHour >= exp) return { active: false, remaining: 0, max: max, expiry: exp };
+  return { active: rem > 0, remaining: rem, max: max, expiry: exp };
 }
-function setHorrorShield_(memory, remaining, expiry) {
-  var s = String(memory || "").replace(/【海怪護盾】\d+\|\d+/, "");
+function setHorrorShield_(memory, remaining, max, expiry) {
+  var s = String(memory || "").replace(/【海怪護盾】\d+\|\d+(?:\|\d+)?/, "");
   s = s.replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
-  return (s ? s + "｜" : "") + "【海怪護盾】" + remaining + "|" + expiry;
+  return (s ? s + "｜" : "") + "【海怪護盾】" + remaining + "|" + max + "|" + expiry;
 }
 function clearHorrorShield_(memory) {
-  return String(memory || "").replace(/｜?【海怪護盾】\d+\|\d+/, "").replace(/^｜|｜$/, "");
+  return String(memory || "").replace(/｜?【海怪護盾】\d+\|\d+(?:\|\d+)?/, "").replace(/^｜|｜$/, "");
+}
+// 前端視圖：持 summon_horror 的從者，現存海怪肉身 {cur,max}（無/潰散→null）。供 servant 卡渲染獨立血條。
+function horrorShieldView_(memory, gameId) {
+  var abs = null;
+  try { var c = getClock_(gameId); if (c) abs = c.day * 24 + c.hour; } catch (e) { }
+  var sh = getHorrorShield_(memory, abs);
+  return sh.active ? { cur: sh.remaining, max: sh.max } : null;
 }
 // 🍱 整備·進食：耗 1 AP，給御主一行 MEAL_BUFF_HOURS 小時的戰鬥命中 +MEAL_BUFF_BONUS（戰前 buff）
 function actionPrepMeal(userData, pcId, sheets) {
