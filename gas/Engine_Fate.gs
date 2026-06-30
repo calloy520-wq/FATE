@@ -390,7 +390,7 @@ function resolveFateBattle_(atk, def, opts) {
   if (hasFx_(winner, 'chain') && !hasFx_(winner, 'gob')) { var cv = chainVolley_(); base += cv; fired.push(winner.name + '·' + fxName_(winner, 'chain', '天之鎖') + '·萬鎖貫穿(' + cv + ')'); }
   // 狂化(mad)：傷害暴漲
   var madW = hasFx_(winner, 'mad'); if (madW) { base += Math.round(14 * rankMul_(madW)); fired.push(winner.name + '·' + fxName_(winner, 'mad', '狂化')); }
-  // 神代魔術(divine_age)：魔力傷害大增（下方對魔力減免也減半）
+  // 神代魔術(divine_age)：魔力傷害大增（下方對魔力對它僅剩三成效果·凌駕但非無敵）
   var da = hasFx_(winner, 'divine_age'); if (da) { base += Math.round(12 * rankMul_(da)); fired.push(winner.name + '·' + fxName_(winner, 'divine_age', '神代魔術')); }
   // 風王鐵鎚(wind_strike)：不可視之劍追加
   var ws = hasFx_(winner, 'wind_strike'); if (ws) { base += Math.round(6 * rankMul_(ws)); fired.push(winner.name + '·' + fxName_(winner, 'wind_strike', '風王鐵鎚')); }
@@ -472,16 +472,18 @@ function resolveFateBattle_(atk, def, opts) {
   //   但神代魔術(神祖之術)凌駕現代對魔力＝完全無視(美狄亞的本領)；概念壓制亦無視。
   var atkMagic = (wProf.dmg === '魔力') || !!hasFx_(winner, 'burst') || !!hasFx_(winner, 'divine_age');
   var nm = hasFx_(loser, 'nullify_magic');
-  if (atkMagic && nm && hasFx_(winner, 'divine_age')) { fired.push(winner.name + '·' + fxName_(winner, 'divine_age', '神代魔術') + '(凌駕對魔力)'); }
-  else if (atkMagic && nm && pierces('nullify_magic')) { fired.push(winner.name + '·概念壓制(凌駕對魔力)'); }
+  // 概念壓制(更高位階進攻概念·破戒/破魔等)→完全無視對魔力；神代魔術→凌駕但【非無敵】(對魔力僅剩三成效果，見下)。
+  if (atkMagic && nm && pierces('nullify_magic')) { fired.push(winner.name + '·概念壓制(凌駕對魔力)'); }
   else if (atkMagic && nm) {
     var nmV = rankVal(nm);
     var red = 0.30 * rankMul_(nm);                 // 基礎：階級越高擋越多
     if (nmV >= 50) red = Math.max(red, 0.80);      // A 階以上：現代魔術近乎無效
     else if (nmV >= 40) red = Math.max(red, 0.55); // B 階：大幅削弱
-    if (hasFx_(winner, 'divine_age')) red *= 0.3;  // 神代魔術凌駕一般對魔力（神祖之術，現代對魔力難擋）
+    var daWin = hasFx_(winner, 'divine_age');
+    if (daWin) red *= 0.3;                          // 🔱 神代魔術凌駕現代對魔力：效果僅剩三成(非無敵·原作 Caster vs Saber 仍是硬仗)
     red = Math.min(0.92, red);
-    base = Math.round(base * (1 - red)); fired.push(loser.name + '·' + fxName_(loser, 'nullify_magic', '對魔力') + (nmV >= 50 ? '(無視魔術)' : ''));
+    base = Math.round(base * (1 - red));
+    fired.push(loser.name + '·' + fxName_(loser, 'nullify_magic', '對魔力') + (daWin ? '(神代凌駕·殘三成)' : (nmV >= 50 ? '(無視魔術)' : '')));
   }
 
   var damage = Math.max(1, base);
