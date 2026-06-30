@@ -391,7 +391,7 @@ function getWarName_(memory) {
 }
 // 玩家扮演的正典御主 id（自創則空）
 function getPlayedMaster_(memory) {
-  var m = String(memory || "").match(/【扮演】([^|【]+)/);
+  var m = String(memory || "").match(/【扮演】([^｜|【]+)/);  // ★須排除全形分隔符 ｜(U+FF5C)，否則尾巴吃進下個標籤致比對失敗(自我分身敵)
   return m ? m[1].trim() : "";
 }
 
@@ -666,7 +666,7 @@ function buildTagsPayload_(sheets, pcId, preData, preRel) {
   };
 
   let wish = "";
-  const wm = String(m[COL.PC.MEMORY] || "").match(/【願望】([^|【]*)/);
+  const wm = String(m[COL.PC.MEMORY] || "").match(/【願望】([^｜|【]*)/);
   if (wm) wish = wm[1].trim();
 
   const master = {
@@ -3033,7 +3033,7 @@ function masterCard_(row) {
     var sex = String(row[COL.PC.SEX] || "");
     var prefArr = String(row[COL.PC.PREF] || "").split('、').filter(function (x) { return x && x !== "無"; });
     var traitArr = String(row[COL.PC.TRAIT] || "").split('、').filter(function (x) { return x && x !== "無"; });
-    var wish = (String(row[COL.PC.MEMORY] || "").match(/【願望】([^|【\n]*)/) || [])[1] || "";
+    var wish = (String(row[COL.PC.MEMORY] || "").match(/【願望】([^｜|【\n]*)/) || [])[1] || "";
     return `〈御主「${name}」·演出依據(僅內化、禁複述)〉` + (sex ? `性別${sex}` : "") +
       (prefArr.length ? `｜性格：${prefArr.slice(0, 4).join('、')}` : "") +
       (traitArr.length ? `｜特徵：${traitArr.slice(0, 4).join('、')}` : "") +
@@ -3704,7 +3704,7 @@ function actionSecondWind(userData, pcId, sheets) {
 }
 
 // ── 🏕️ 陣地（工房）：存於御主 MEMORY【陣地】loc，駐留該地時供魔得工房加成 ──
-function getWorkshop_(memory) { var m = String(memory || "").match(/【陣地】([^|【]+)/); return m ? m[1].trim() : ""; }
+function getWorkshop_(memory) { var m = String(memory || "").match(/【陣地】([^｜|【]+)/); return m ? m[1].trim() : ""; }
 function setWorkshopMemory_(memory, loc) {
   var s = String(memory || "");
   if (/【陣地】[^|【]*/.test(s)) return s.replace(/【陣地】[^|【]*/, "【陣地】" + loc);
@@ -3732,7 +3732,7 @@ function actionSetWorkshop(userData, pcId, sheets) {
 // 🔍 搜索物資：偵查鄰近敵蹤為主，順手撿拾零星魔力（耗 1 AP）
 //   ⚠ 反「無痛回魔」：每地的散逸魔力有限，搜刮一次即枯竭——同地重搜只得殘渣。
 //   想真正回滿池要付永久代價(補魔)或靠時間(靈脈/陣地/休息)。標記記於 MEMORY【搜刮】loc。
-function getScavengedLoc_(memory) { var m = String(memory || "").match(/【搜刮】([^|【]+)/); return m ? m[1].trim() : ""; }
+function getScavengedLoc_(memory) { var m = String(memory || "").match(/【搜刮】([^｜|【]+)/); return m ? m[1].trim() : ""; }
 function setScavengedLoc_(memory, loc) {
   var s = String(memory || "");
   if (/【搜刮】[^|【]*/.test(s)) return s.replace(/【搜刮】[^|【]*/, "【搜刮】" + loc);
@@ -3832,7 +3832,7 @@ function raiseBond_(sheets, pcName, svName, delta) {
 
 // 從御主 MEMORY 取出【願望】內容（show-don't-tell：僅供生成虛假之夢，不直述）
 function extractWish_(memory) {
-  var m = String(memory || "").match(/【願望】([^【\n]+)/);
+  var m = String(memory || "").match(/【願望】([^｜|【\n]+)/);
   return m ? m[1].trim() : "";
 }
 
