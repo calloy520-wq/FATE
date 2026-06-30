@@ -60,7 +60,7 @@ var SEED_SERVANTS = [
   { id:'迪盧木多-Lancer', cls:'Lancer', realName:'迪盧木多·奧迪那', wars:['4th'], gender:'男',
     six:{筋力:'B',耐久:'C',敏捷:'A+',魔力:'D',幸運:'E',寶具:'B'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'}],
-    skills:[{n:'戰鬥續行',r:'A',fx:'survive'},{n:'愛之痣',r:'-',fx:'morale'},
+    skills:[{n:'戰鬥續行',r:'A',fx:'survive'},{n:'愛之痣',r:'B',fx:'lovespot'},
             {n:'破魔紅薔薇／必滅黃薔薇',r:'B',fx:'anti_magic_lance'}],
     traits:[{n:'人類'}], np:'破魔紅薔薇 Gáe Dearg・必滅黃薔薇 Gáe Buidhe（雙槍・破魔／不癒之傷）',
     align:'秩序・善', persona:{firstP:'我',look:'墨綠髮・面有愛之痣的俊美騎士、謙恭正直的武人風骨、自稱「我」・謙恭有禮、溫柔到自我犧牲的赤誠',words:'忠義・騎士・哀愁・宿命的女難',toMaster:'絕對忠誠，渴望堂堂正正之戰',speech:'謙恭有禮、武人正直、壓抑情感、自責時沉聲',moe:'臉上愛之痣令女性傾心的悲劇宿命、對主君的死忠、渴望光明磊落決鬥卻屢遭背叛、溫柔到自我犧牲',tic:'雙槍交握行禮、垂眸掩去面痣、沉聲立誓'} },
@@ -185,9 +185,9 @@ var SEED_SERVANTS = [
     traits:[{n:'神性'},{n:'人類'}], np:'虛榮的空中庭園 Hanging Gardens of Babylon（對界 EX·浮空要塞·毒殺結界）',
     align:'混沌・惡', persona:{firstP:'妾',look:'華貴盛裝・君臨空中庭園的毒后、高貴威嚴不容違逆的女王氣度、自稱「妾」・女王口吻、被冒犯時的羞怒與對真愛的執念',words:'毒后・傲慢・貞潔的執念・空中庭園',toMaster:'高高在上，唯認可強主',speech:'高貴威嚴、女王口吻、自稱妾、不容違逆',moe:'史上首位毒殺者女王的傲然、對貞潔與真愛的執念、被冒犯時的羞怒、君臨天下的孤高',tic:'俯瞰眾生、抬手降毒、空中庭園浮現'} },
   { id:'尼祿-Saber', cls:'Saber', realName:'尼祿·克勞狄烏斯', wars:['客串'], gender:'女',
-    six:{筋力:'C',耐久:'C',敏捷:'B',魔力:'C',幸運:'A',寶具:'B'},
-    classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'},{n:'騎乘',r:'C',fx:'ride'}],
-    skills:[{n:'領袖氣質',r:'C',fx:'morale'},{n:'皇帝特權',r:'A',fx:'survive'},{n:'三度全否定',r:'-',fx:'clear_mind'}],
+    six:{筋力:'D',耐久:'D',敏捷:'A',魔力:'B',幸運:'A',寶具:'B'},
+    classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
+    skills:[{n:'頭痛宿疾',r:'B',fx:''},{n:'皇帝特權',r:'EX',fx:'survive'},{n:'縱使三度迎來落日',r:'A',fx:'survive'},{n:'領袖氣質（皇帝特權借得）',r:'A',fx:'morale'}],
     traits:[{n:'王'},{n:'人類'}], np:'燃燒吧、世界的盡頭 Aestus Domus Aurea（對軍・黃金劇場）',
     align:'混沌・善', persona:{firstP:'余',look:'金髮綠瞳・紅薔薇綻放的華美皇帝、張揚自信滿溢的熱情、自稱「余」・張揚自信、暴君之名下渴望被愛被讚美的純真',words:'暴君・自戀・藝術・天真爛漫',toMaster:'熱情張揚，渴望被讚美',speech:'張揚熱情、自稱余、滿口藝術、自信滿溢、愛唱歌',moe:'暴君之名下的純真自戀、對自身美貌與才藝的迷之自信、渴望被愛被讚美、其實非常努力',tic:'振臂高歌、紅薔薇綻放、得意揚眉'} },
   { id:'玉藻前-Caster', cls:'Caster', realName:'玉藻前', wars:['客串'], gender:'女',
@@ -247,7 +247,7 @@ var SEED_MASTERS = [
   {id:'韋伯·維爾維特-4th',name:'韋伯·維爾維特', gender:'男', appearance:'黑髮瘦小的少年魔術師',war:'4th',magic:'自我暗示・基礎魔術', circuits:25, melee:'E', magic_rank:'C', home:'冬木·新都', wish:'證明自己的價值',          persona:'故作老成的少年・自卑卻好強・喜歡證明自己・厭惡被當作無能', back:'出身平凡的時鐘塔末席學生，為證明「才能非血統決定」偷走觸媒召喚征服王，一路成長', moe:'嘴硬的自卑少年、被 Rider 一路調教成長、口嫌體正直、偷偷崇拜征服王'},
   {id:'雨生龍之介-4th',name:'雨生龍之介', gender:'男', appearance:'輕浮的金髮青年，咧嘴而笑', war:'4th', magic:'無魔術・召喚術（外行）', circuits:10, melee:'C', magic_rank:'E', home:'冬木·新都', wish:'見識更有趣的事物・召喚惡魔',persona:'輕浮開朗的青年・天生純粹之惡・喜歡有趣與新鮮的死亡・厭惡無聊', back:'毫無魔術素養卻天生純粹的殺人狂，誤打誤撞召喚出青鬍子，把殺戮當成有趣的遊戲', moe:'開朗笑容下的純粹瘋狂、對「有趣」孩子般的好奇、與 Caster 的瘋狂默契、毫無惡意的惡'},
   {id:'言峰綺禮-4th',  name:'言峰綺禮', gender:'男', appearance:'尚未墮落的青年神父，壓抑',   war:'4th', magic:'代行者・黑鍵',        circuits:25, melee:'A', magic_rank:'C', home:'言峰教會',   wish:'探求自身空虛的答案',      persona:'壓抑的青年神父・尚未墮落的空虛・執著探求自身的答案・厭惡虛假的自己', back:'尚未墮落的代行者神父，奉命輔佐時臣，卻在追問「自身為何空虛」中逐步走向深淵', moe:'壓抑天性的痛苦掙扎、對自身空虛的執著探求、未墮落前的克制、宿命般走向黑暗'},
-  {id:'間桐雁夜-4th',  name:'間桐雁夜', gender:'男', appearance:'蟲蝕半白頭髮的憔悴男子',   war:'4th', magic:'間桐之蟲術',          circuits:15, melee:'D', magic_rank:'C', home:'間桐宅',     wish:'從間桐手中救出櫻',        persona:'憔悴的悲憤男子・自我犧牲的執念・只為救出櫻・厭惡間桐家', back:'捨棄魔術逃離間桐家的男人，為救受蟲蝕之苦的櫻，重回家門植入蟲術、賭上性命參戰', moe:'憔悴外表下的純粹父愛、明知必死仍奮不顧身、被蟲蝕的痛苦、悲劇的溫柔'}
+  {id:'間桐雁夜-4th',  name:'間桐雁夜', gender:'男', appearance:'蟲蝕半白頭髮的憔悴男子',   war:'4th', magic:'間桐之蟲術',          circuits:15, melee:'D', magic_rank:'C', home:'間桐宅',     wish:'從間桐手中救出櫻',        persona:'憔悴的悲憤男子・自我犧牲的執念・只為救出櫻・厭惡間桐家', back:'捨棄魔術逃離間桐家的男人，為救受蟲蝕之苦的櫻，重回家門植入蟲術、賭上性命參戰', moe:'憔悴外表下對櫻純粹的守護（叔父般的疼惜·非生父）、明知必死仍奮不顧身、被蟲蝕的痛苦、悲劇的溫柔'}
 ];
 
 // 從者物件 → 英靈殿列（順序＝COL.HERO）
