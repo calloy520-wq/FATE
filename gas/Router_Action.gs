@@ -948,7 +948,7 @@ function actionRest(userData, pcId, sheets) {
     // 📜 正典劇情插針已移除（2026-06）——休息跨日不再自動塞 Fate 原作橋段。
     let restAmbushPrompt = "";
     if (restAmbush) {
-      restAmbushPrompt = `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${restAmbush.enemyName}」${restAmbush.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊重創「${(pcData.find(r=>String(r[COL.PC.FACTION])==='從者'&&String(r[COL.PC.GAME_ID]||'')===restGameId)||[])[COL.PC.NAME]||'從者'}」（−${restAmbush.dmg}）${restAmbush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。★【鐵律】嚴禁輸出 stat_changes、items_gained、money_transferred。`;
+      restAmbushPrompt = `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${restAmbush.enemyName}」${restAmbush.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊重創「${(pcData.find(r=>String(r[COL.PC.FACTION])==='從者'&&String(r[COL.PC.GAME_ID]||'')===restGameId)||[])[COL.PC.NAME]||'從者'}」（−${restAmbush.dmg}）${restAmbush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
     }
     return JSON.stringify({
       success: true, statusString: getFreshStatusString(pcId, pIdx, sheets), healedNames: healedNames,
@@ -1206,7 +1206,7 @@ ${isKanshou ? `
 💕【鑑賞·後日談模式·最高優先級覆寫】：聖杯戰爭【早已落幕】，這是奪得聖杯後與從者『${displayPeople.length ? displayPeople.map(r => r[COL.PC.NAME]).join("、") : "你的從者"}』共度的【和平日常／約會時光】。
 ★【絕對禁止】任何戰鬥、廝殺、敵人、敵御主、敵從者、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅。世界是安全的。
 ★氛圍＝溫柔、悠閒、戀愛向的日常：散步、閒聊、吃東西、看風景、逛冬木街景。讓從者貼近其官方性格自然地與御主相處互動。
-★【演出而非說明】不得直述其願望／萌點／個性字面。嚴禁輸出任何 stat_changes 生命變化、items_lost、戰鬥裁決。可有 rel_changes(好感)。
+★【演出而非說明】不得直述其願望／萌點／個性字面。嚴禁輸出任何 stat_changes 生命變化、戰鬥裁決。可有 rel_changes(好感)。
 ★敘事結束停在溫柔的留白，把下一步交還御主。
 ` : ""}現在演化玩家動作：『${finalUserMsg}』${npcDialoguePrompt}
 
@@ -3745,7 +3745,7 @@ function actionMultiAttackNarrate(userData, pcId, sheets) {
 4. ★這是純敘事補完，系統底層已結算完所有勝負、傷害與藥效數值，你只負責寫過程的字，禁止更改任何結果。
 5. 敘事務必與提供的【場景】地點、【近期因果】與【參戰者資料】(性格/特徵/關係)一致，禁止憑空換地點或讓角色性格走偏。
 6. ★對話歷史中的內容是「已經發生並結束」的既定事實：歷史中的行動方式(例如特定接近手法、招式、道具)絕對禁止被當成本回合仍在持續或重新發生一次；但歷史造成的後續影響(例如NPC因此產生的警戒、敵意、態度轉變)必須視為既定事實並自然延續下去。本回合唯一真正發生的新事件，只有【系統戰報】裡提供的內容。
-7. 戰報中提到的武器/防具名稱，僅供你掌握該角色當下用的是什麼兵刃/護具以維持敘述合理(例如持槊者不該被寫成肉搏、披甲者不該被寫成衣衫單薄)，並非要求逐字唸出全名，可視文筆需要改用「手中兵刃」、「身上護甲」等代稱，禁止每段都機械式重複完整物品名稱。
+7. 依角色職階與寶具掌握其戰鬥方式以維持敘述合理(槍兵突刺、弓兵遠射、術師魔砲、劍兵格鬥、騎兵衝鋒…，勿讓法師被寫成肉搏、弓兵被寫成貼身纏鬥)；寶具／技能名不必逐字複誦全名，可視文筆改用代稱。
 8. 只輸出 JSON：{"narration":"你的敘述，內含<br><br>分段"}，禁止任何其他欄位、禁止 Markdown。`;
 
   let aiConfig = {

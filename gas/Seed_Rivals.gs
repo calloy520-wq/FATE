@@ -132,9 +132,9 @@ function masterToNpcRow_(mr, gameId, loc, faction) {
   var mAppear = String(mr[COL.MASTER.APPEAR] || "").trim();
   row[COL.PC.BACK] = (mBack ? mBack : "魔術師") + (mAppear ? "。外貌：" + mAppear : "");
   row[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "平靜" });
-  row[COL.PC.TRAIT] = parseTraitsHelper(mr[COL.MASTER.PERSONA], "外貌平凡、舉止從容、通曉魔術、深藏心事");
+  row[COL.PC.TRAIT] = parseTraitsHelper(String(mr[COL.MASTER.PERSONA] || "").replace(/・/g, "、"), "外貌平凡、舉止從容、通曉魔術、深藏心事");
   row[COL.PC.LOC] = loc;
-  row[COL.PC.PREF] = parseTraitsHelper(mr[COL.MASTER.PERSONA], "沉著表象、堅定內裡、珍視之物、厭惡之事");
+  row[COL.PC.PREF] = parseTraitsHelper(String(mr[COL.MASTER.PERSONA] || "").replace(/・/g, "、"), "沉著表象、堅定內裡、珍視之物、厭惡之事");
   // 🎴 敵御主血魔與玩家御主同制：迴路推算(masterMaxHpMp_)，凡人遠低於從者；正典高迴路怪物(伊莉雅/櫻)才逼近從者級。
   var mStats = masterMaxHpMp_(parseInt(mr[COL.MASTER.CIRCUITS] || 30));
   var hp = mStats.hp, mp = mStats.mp;
