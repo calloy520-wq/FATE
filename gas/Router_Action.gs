@@ -2393,69 +2393,6 @@ function actionFateBattle(userData, pcId, sheets) {
     if (allyAtkIdx !== -1) allyAssistName = String(pcData[allyAtkIdx][COL.PC.NAME]);
   }
 
-  // 🌟 寶具對轟（光與光的對撞）：玩家開場解放寶具、目標為敵從者時，值得一戰的對手以寶具相迎。
-  //   雙方先算「寶具火力」(不直接扣血) → 高者壓過低者，差額貫穿敗方、勝方僅受少量回震；火力相當(±10%)則相抵僵持、雙方小損。
-  //   傷害一律透過 fateStrike_(forceDamage) 套用，沿用全套死亡/勝負/復活/令咒脫離邏輯。
-  let openingNp = useNp, openingSeal = useSeal; // 給回合迴圈：對轟已用掉開場寶具/令咒威能則清掉，避免重複施放
-  let clash = null;
-  if (useNp && targetIsFoeServant && !String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) {
-    const enemyC0 = rowToCombatant_(pcData[nIdx]);
-    const enemyHasNp = !!String(pcData[nIdx][COL.PC.MARTIAL] || "").trim() && rankVal(enemyC0.six["寶具"] || "-") >= 10;
-    // 🌟 只有「攻擊型寶具」才會跟玩家寶具對轟。防禦/生存/支援型(赫拉克勒斯 God Hand、純陣地、治癒…)不會去抵銷
-    //   玩家寶具——否則玩家解放寶具卻被一個「不死之軀」硬抵成震退、看不到威能(就是這個 bug)。
-    //   攻擊型＝寶具尺度達 對軍/對城/對界，或帶明確攻擊系 fx。純對人/防禦型 → 不對轟，玩家寶具於回合迴圈正常貫穿。
-    const CLASH_OFF_FX = ['ea', 'excalibur', 'ubw', 'gob', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify', 'chain', 'anti_magic_lance', 'wind_strike', 'projection'];
-    const eScaleClash = npAtkScale_(enemyC0);
-    const enemyOffensiveNp = enemyHasNp && (eScaleClash === '對軍' || eScaleClash === '對城' || eScaleClash === '對界' || CLASH_OFF_FX.some(function (f) { return hasFx_(enemyC0, f); }));
-    // 對撞意志：健全的對手多半敢正面對轟；暗殺/狂戰系更愛搏命；殘血則未必接招（可能改閃避→走一般回合）
-    const eHpR = (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[nIdx][COL.PC.HP]) || 0) / (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) : 1;
-    const clashUrge = 0.6 + (hasFx_(enemyC0, 'mad') || hasFx_(enemyC0, 'zabaniya') ? 0.25 : 0) - (1 - eHpR) * 0.3;
-    // 🔋 敵須付得起寶具魔力才接對轟；付不起→不對轟（玩家寶具改於回合迴圈正常命中）
-    const clashPrana = npPranaCost_(enemyC0.six["寶具"]);
-    const clashAfford = enemyOffensiveNp ? enemyCanAffordNp_(pcData, nIdx, myGameId, clashPrana) : { afford: false, masterIdx: -1 };
-    if (enemyOffensiveNp && clashAfford.afford && Math.random() < clashUrge) {
-      drainForNp_(sheets, pcData, nIdx, clashAfford.masterIdx, clashPrana); // 敵付寶具魔力
-      enemyC0.mp = parseInt(pcData[nIdx][COL.PC.MP]) || 0;
-      enemyNpSpent = true;            // 對轟即用掉敵寶具
-      openingNp = false; openingSeal = false; // 玩家寶具/令咒威能已在對轟中釋放，回合迴圈不再重放
-      enemyC0.output = 100;          // ⚖️ 敵解放寶具＝全開(與玩家被閘到 100 對等)，免敵寶具因預設出力60少約一成威力
-      const pPow = resolveFateBattle_(atkC, enemyC0, { np: true, seal: useSeal, skill: skillBuff }).damage;
-      const ePow = resolveFateBattle_(enemyC0, atkC, { np: true }).damage;
-      const band = Math.round((pPow + ePow) * 0.10);
-      let outcome, pDmgTaken = 0, eDmgTaken = 0;
-      if (Math.abs(pPow - ePow) <= band) {
-        outcome = 'stalemate';                                   // 勢均力敵·僵持相抵
-        eDmgTaken = Math.round(band * 0.5); pDmgTaken = Math.round(band * 0.5);
-      } else if (pPow > ePow) {
-        outcome = 'player';                                      // 我方寶具壓過
-        eDmgTaken = pPow - ePow; pDmgTaken = Math.round((pPow - ePow) * 0.15);
-      } else {
-        outcome = 'enemy';                                       // 敵寶具壓過
-        pDmgTaken = ePow - pPow; eDmgTaken = Math.round((ePow - pPow) * 0.15);
-      }
-      // 套用傷害（先打敵、再回震我方）——皆走 fateStrike_ 以沿用死亡/勝負/脫離邏輯
-      const eHit = fateStrike_(sheets, pcData, atkC, nIdx, { forceDamage: eDmgTaken }, ctx);
-      if (eHit.destroyed) destroyedName = eHit.destroyed;
-      if (eHit.knocked) knockedOut.push(eHit.knocked);
-      if (eHit.sealEscaped) { sealEscaped = true; sealNote = eHit.sealNote; }
-      if (eHit.godRevived) { godRevived = true; godNote = eHit.godNote; }
-      if (eHit.victory) victory = true;
-      // 我方回震（敵未脫離/未死也照樣有反作用力；敵已亡則回震減半，光潮餘波）
-      if (!sealEscaped) {
-        const spill = (destroyedName ? Math.round(pDmgTaken * 0.5) : pDmgTaken);
-        const pHit = fateStrike_(sheets, pcData, enemyC0, atkIdx, { forceDamage: spill }, ctx);
-        if (pHit.destroyed && pHit.knocked) knockedOut.push(pHit.knocked); // 我方從者被回震打爆→記入擊倒名單(不覆蓋「敵亡」destroyedName)
-        if (pHit.defeat) { defeat = true; victory = false; dreamPrompt = pHit.dreamPrompt; }
-      }
-      clash = {
-        outcome: outcome, pPow: pPow, ePow: ePow, pDmgTaken: pDmgTaken, eDmgTaken: eDmgTaken,
-        enemyNp: String(pcData[nIdx][COL.PC.MARTIAL] || ""),
-        atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0,
-        defHp: parseInt(pcData[nIdx][COL.PC.HP]) || 0, defHpMax: parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0
-      };
-      logWarEvent_(myGameId, `寶具對轟！『${atkC.name}』與「${defC.name}」真名解放正面對撞——${outcome === 'player' ? '我方光潮壓過、貫穿對手' : outcome === 'enemy' ? '敵寶具壓過、貫穿我方' : '勢均力敵、兩相抵銷'}。`, String(userData.acctName || ""));
-    }
-  }
 
   // 🐙 螺湮城教本：玩家青鬍子解放寶具 → 自深淵召出「深淵海怪」常駐戰場，每回合與本人並肩撕咬，
   //   靠御主魔力維持(每回合扣 HORROR_UPKEEP)；御主魔力撐不住 → 海怪潰散退場。巨獸物理攻擊、不受對魔力。
@@ -2491,7 +2428,7 @@ function actionFateBattle(userData, pcId, sheets) {
       if (String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) break;
       const sC = rowToCombatant_(pcData[sidx]);
       const isActive = (sidx === atkIdx);
-      const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && openingNp && isActive, seal: opening && openingSeal && isActive, ambush: opening && isActive, skill: isActive ? skillBuff : null }, ctx);
+      const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && useNp && isActive, seal: opening && useSeal && isActive, ambush: opening && isActive, skill: isActive ? skillBuff : null }, ctx);
       // 目標為敵御主(非從者)：引擎計算了反傷 fired 但不套用，過濾掉「winner·武器骰」等傷害計算噪音
       const _pFiredClean = isMasterTarget
         ? (ps.fired || []).filter(function (t) { return !/·武器骰|·出力\d/.test(String(t)); })
@@ -2599,8 +2536,8 @@ function actionFateBattle(userData, pcId, sheets) {
   }
 
   // 戰報摘要（含寶具對轟的傷害）
-  const totalDealt = rounds.reduce((s, r) => s + (r.strikes || []).reduce((a, k) => a + (k.pDmg || 0), 0), 0) + (clash ? (clash.eDmgTaken || 0) : 0);
-  const totalTaken = rounds.reduce((s, r) => s + (r.eDmg || 0), 0) + (clash ? (clash.pDmgTaken || 0) : 0);
+  const totalDealt = rounds.reduce((s, r) => s + (r.strikes || []).reduce((a, k) => a + (k.pDmg || 0), 0), 0);
+  const totalTaken = rounds.reduce((s, r) => s + (r.eDmg || 0), 0);
   const nRounds = rounds.length;
   const atkLabel = dualAttack ? `${atkC.name} 與另一名從者協同` : atkC.name;
   const roundsBrief = rounds.map(r =>
@@ -2629,7 +2566,7 @@ function actionFateBattle(userData, pcId, sheets) {
       `${roundsBrief}\n我方造成 ${totalDealt} 傷害、受創 ${totalTaken}。${finalLine}\n` +
       `── 本戰發生的事(素材，自行織入畫面，勿複述標籤名) ──\n` +
       (useSeal ? `· 御主燃燒一道令咒·絕對命令，強令此擊必中、引爆超限戰力。\n` : "") +
-      (clash ? `· 寶具對轟：雙方同時解放真名正面對撞，${clash.outcome === 'player' ? '我方威能壓過、光潮貫穿對手' : clash.outcome === 'enemy' ? '對面威能壓過、反貫我方' : '勢均力敵、轟然相抵、雙方震退'}。\n` : (useNp ? `· ${atkC.name} 高呼真名、解放了寶具。\n` : "")) +
+      (useNp ? `· ${atkC.name} 高呼真名、解放了寶具。\n` : "") +
       (skillBuff ? `· 我方啟動了主動技「${skillBuff.name}」。\n` : "") +
       (horrorFired ? `· 青鬍子以螺湮城教本自深淵召出觸手巨獸「深淵海怪」，常駐戰場、每回合與本人並肩撕咬，靠御主魔力維持(枯竭則潰散)。\n` : "") +
       (dualAttack ? `· 我方兩名從者並肩夾擊同一敵手。\n` : "") +
@@ -2652,7 +2589,6 @@ function actionFateBattle(userData, pcId, sheets) {
     atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0,
     battery: (battery && battery.usedBattery) ? { fromMasterMp: battery.fromMasterMp, fromMasterHp: battery.fromMasterHp, bledMaster: battery.bledMaster, masterHp: battery.masterHp, masterHpMax: battery.masterHpMax } : null,
     skill: skillBuff ? { name: skillBuff.name, icon: skillBuff.icon, desc: skillBuff.desc, bledMaster: !!(skillBattery && skillBattery.bledMaster), fromMasterHp: skillBattery ? skillBattery.fromMasterHp : 0 } : null,
-    clash: clash,
     masterHp: parseInt(pcData[pIdx][COL.PC.HP]) || 0, masterHpMax: parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 0,
     party: partyIdxs.map(i => ({ name: String(pcData[i][COL.PC.NAME]), hp: parseInt(pcData[i][COL.PC.HP]) || 0, hpMax: parseInt(pcData[i][COL.PC.MAX_HP]) || 0 }))
   };
