@@ -1245,10 +1245,10 @@ function renderRecentLocs(recents = null) {
   }
   async function renderMapPane() {
     var c = document.getElementById('map-pane-content'); if (!c) return;
-    // ⚡ 地圖頁未顯示時不打 get_map_nodes：applyClientState 每動作都呼此函式，但玩家多半在「故事」頁，
-    //   對隱藏的地圖白打一趟 round-trip。切到地圖頁(showGamePane('map')→renderMapPane)時才真正渲染。
-    var mp = document.getElementById('pane-map');
-    if (mp && !mp.classList.contains('active')) return;
+    // ⚡ 地圖真正隱藏時才跳過 get_map_nodes：applyClientState 每動作都呼此函式，手機在「故事」頁時地圖隱藏、
+    //   白打一趟 round-trip。★用 offsetParent===null 判「實際是否顯示」而非 .active class——寬螢幕(≥601)是三欄
+    //   並排、地圖恆顯示但【沒有 .active class】(那是手機分頁機制)，誤用 class 會讓寬螢幕地圖永不刷新(光圈不動)。
+    if (c.offsetParent === null) return;
     var nodes = [], here = '', allyIntel = false;
     try { var r = await gasRun({ action: 'get_map_nodes', pcId: pc.id }); if (r && r.success) { nodes = r.nodes || []; here = r.here || ''; allyIntel = !!r.allyIntel; } } catch (e) { }
     var html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">'
