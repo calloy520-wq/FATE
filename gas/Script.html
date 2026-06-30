@@ -1643,15 +1643,14 @@ function renderRecentLocs(recents = null) {
       if (!confirm('💥 命「' + npcName + '」解放寶具？\n\n寶具乃靈基全力解放——將自動把出力推到 100%（全開），御主灌注全部魔力（御主魔力／血不足則無法發動）。威力巨大、御主消耗最劇。\n\n確定解放寶具？')) return;
     }
     if (!beginAction()) return;
-    // 🔋 解放寶具＝全開：先把出戰從者出力推到 100%（御主全力灌注），再發動
-    if (useNp) { try { await gasRun({ action: 'set_servant_output', pcId: pc.id, servant: myActiveServant, output: 100, acctName: (pc && pc.account) || currentAccount }); } catch (e) {} }
+    // 🔋 解放寶具＝全開：把出力 100% 隨 fate_battle 一起送(後端就地推滿)，省一趟 set_servant_output 往返。
     const story = document.getElementById('story');
     const _plain = myServantCls === 'Caster' ? '詠唱魔砲，轟向' : myServantCls === 'Archer' ? '張弓狙擊，鎖定' : '出擊，目標';
     const verb = isMaster ? '奇襲斬首，直取敵御主' : (useSeal ? '燃令咒・絕對命令，必中斬向' : (useNp ? '解放寶具，目標' : _plain));
     story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主令從者${useSkill ? '催動主動技、' : ''}${verb}「${npcName}」！</div>`);
     story.scrollTop = story.scrollHeight;
     try {
-      const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, np: !!useNp, seal: !!useSeal, skill: !!useSkill, servant: myActiveServant, npChoice: (typeof npChoiceArg === 'number' ? npChoiceArg : undefined), acctName: (pc && pc.account) || currentAccount });
+      const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, np: !!useNp, seal: !!useSeal, skill: !!useSkill, servant: myActiveServant, npChoice: (typeof npChoiceArg === 'number' ? npChoiceArg : undefined), output: (useNp ? 100 : undefined), acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) {
         if (res.report) renderFateBattleReport(res.report); // 📊 先攤開骰子/數字戰報
         narrate(res.aiPrompt);
