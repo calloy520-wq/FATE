@@ -47,7 +47,6 @@ const ActionRouter = {
   "second_wind": actionSecondWind,
   "scout": actionScout,
   "clear_npc_major_event": actionClearNpcMajorEvent,
-  "get_all_categorized_maps": actionGetAllCategorizedMaps,
   "get_map_nodes": actionGetMapNodes,
   "move": actionMove,
   "sync": actionSync,
@@ -714,19 +713,6 @@ function buildTagsPayload_(sheets, pcId, preData, preRel) {
   return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length };
 }
 
-// 🔴 修正：原本所有缺座標的地點都會被塞進 (0,0)，導致俯瞰圖上大量節點重疊堆疊。
-// 改用方形螺旋演算法，讓每個缺座標的地點依序分配到唯一、不重疊的座標。
-function _spiralCoordForIndex(n) {
-  let x = 0, y = 0, dx = 0, dy = -1;
-  for (let i = 0; i < n; i++) {
-    if (x === y || (x < 0 && x === -y) || (x > 0 && x === 1 - y)) {
-      const t = dx; dx = -dy; dy = t;
-    }
-    x += dx; y += dy;
-  }
-  return [x, y];
-}
-
 // 🔵 視覺地圖節點：冬木頂層地點 + 座標 + 我是否在此 + 已偵查敵人數(吃迷霧/game_id)
 function actionGetMapNodes(userData, pcId, sheets) {
   try {
@@ -765,81 +751,6 @@ function actionGetMapNodes(userData, pcId, sheets) {
   } catch (e) {
     return JSON.stringify({ success: false, nodes: [], message: e.message });
   }
-}
-
-function actionGetAllCategorizedMaps(userData, pcId, sheets) {
-  if (!sheets.map) return JSON.stringify({ success: false, message: "坤圖表不存在" });
-  try {
-  const mapData = sheets.map.getDataRange().getValues();
-  let missingCoordIndex = 0;
-  const SPIRAL_SPACING = 4; // 網格間距，避免自動分配的節點互相重疊
-  const nextFallbackCoord = () => {
-    const [sx, sy] = _spiralCoordForIndex(missingCoordIndex++);
-    return `${sx * SPIRAL_SPACING},${sy * SPIRAL_SPACING}`;
-  };
-  // 🔴 母節點座標去重：展開神識時母節點是用座標定位的，只要座標為空、或與已用座標相撞
-  //    (含舊資料字面 "0,0")，就改派一個唯一的螺旋座標，徹底避免在 (0,0) 重疊堆疊。
-  const usedCoords = new Set();
-  const resolveCoord = (desired) => {
-    let c = String(desired || "").trim();
-    if (c === "") c = nextFallbackCoord();
-    while (usedCoords.has(c)) c = nextFallbackCoord();
-    usedCoords.add(c);
-    return c;
-  };
-
-  // 🔴 統計每個地點的人數（🔵 只算自己 game_id 世界的人，杜絕跨世界人數外洩）
-  const allPcData = sheets.pc.getDataRange().getValues();
-  const meRowMap = allPcData.find(r => r[COL.PC.ID] == pcId);
-  const myGameIdMap = meRowMap ? String(meRowMap[COL.PC.GAME_ID] || "") : "";
-  const allyIntelMap = hasAllyInGame_(allPcData, myGameIdMap); // 🤝 有盟友→敵蹤全揭露
-  const locCount = {};
-  allPcData.slice(1).forEach(r => {
-    const id = String(r[COL.PC.ID]);
-    if (id.startsWith("DEAD_")) return;
-    if (myGameIdMap && String(r[COL.PC.GAME_ID] || "") !== myGameIdMap) return;
-    const facM = String(r[COL.PC.FACTION]);
-    if ((facM === "敵御主" || facM === "敵從者") && !r[COL.PC.SEEN] && !allyIntelMap) return; // 🔵 戰爭迷霧：未偵查到的敵人不在地圖顯示（🤝 有盟友通報則揭露）
-    const fullLoc = String(r[COL.PC.LOC] || "").trim();
-    const rootLoc = fullLoc.split('-')[0].trim();
-
-    // 母區域計數
-    if (rootLoc) locCount[rootLoc] = (locCount[rootLoc] || 0) + 1;
-
-    // 子分支計數（只有真的在子分支才加）
-    if (fullLoc !== rootLoc && fullLoc) {
-      locCount[fullLoc] = (locCount[fullLoc] || 0) + 1;
-    }
-  });
-
-  const mapTree = {};
-  for (let i = 1; i < mapData.length; i++) {
-    const name = String(mapData[i][COL.MAP.NAME]).trim();
-    const cat = String(mapData[i][COL.MAP.TYPE] || "未分類").trim();
-    const parent = String(mapData[i][COL.MAP.PARENT] || "").trim();
-    const desc = String(mapData[i][COL.MAP.DESC] || "");
-    // 🔴 這裡多抓了 COORD 欄位（缺座標或撞號時改派唯一座標，避免疊圖在0,0）
-    const rawCoord = String(mapData[i][COL.MAP.COORD] || "").trim();
-
-    if (!mapTree[cat]) mapTree[cat] = {};
-    if (parent === "") {
-      // 🔴 這裡把 coord 塞進去（若子分支已先建立佔位節點，補上真正的座標與描述）
-      const existing = mapTree[cat][name];
-      if (existing) {
-        existing.desc = desc;
-        existing.coord = resolveCoord(rawCoord);
-      } else {
-        mapTree[cat][name] = { desc: desc, subs: [], count: locCount[name] || 0, coord: resolveCoord(rawCoord) };
-      }
-    } else {
-      if (!mapTree[cat][parent]) mapTree[cat][parent] = { desc: "區域中心", subs: [], count: locCount[parent] || 0, coord: resolveCoord("") };
-      mapTree[cat][parent].subs.push({
-        name: name, desc: desc, count: locCount[name] || 0
-      });
-    }
-  }
-  return JSON.stringify({ success: true, data: mapTree });
-  } catch (e) { return JSON.stringify({ success: false, message: "地圖讀取異常：" + e.message }); }
 }
 
 function actionMove(userData, pcId, sheets) {

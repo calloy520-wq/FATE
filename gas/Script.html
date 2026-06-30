@@ -83,7 +83,6 @@
   }
   let nearbyLocations = [];
   let historyPushed = false;
-  let categorizedMapData = null;
 
   const NPC_ACTIONS = {};
 
@@ -218,7 +217,6 @@ function renderRecentLocs(recents = null) {
     toggleActionDrawer();
     switch(actionType) {
       case 'sync': syncData(); break;
-      case 'explore': toggleExplore(); break;
       case 'npc': refreshAndOpenNpcList(); break;
       case 'status': openStatus(); break;
       
@@ -348,130 +346,6 @@ function renderRecentLocs(recents = null) {
     document.getElementById('ui-sex').innerText = pc.sex; // 🔴 補上這行：關閉視窗時，將背景狀態切回玩家性別
     currentStatusTargetId = pc.id;
     currentStatusTargetName = pc.name;
-  }
-
-  function toggleExplore() {
-    const el = document.getElementById('explore-overlay');
-    const isOpening = (el.style.display !== 'flex');
-    el.style.display = isOpening ? 'flex' : 'none';
-    
-    if(isOpening) fetchCategorizedMaps();
-  }
-
-  async function fetchCategorizedMaps() {
-    const container = document.getElementById('explore-content');
-
-    container.innerHTML = "<p style='text-align:center; color:#816e54; font-style:italic; padding: 20px 0;'>正在展開天地畫卷...</p>";
-    
-    try {
-      const data = await gasRun({ action: "get_all_categorized_maps" });
-      if (data.success) {
-        categorizedMapData = data.data; 
-        renderMapCategories();
-      } else {
-        container.innerHTML = `<p style="text-align:center; color:red;">${data.message}</p>`;
-      }
-    } catch(e) {
-      container.innerHTML = `<p style="text-align:center; color:red;">輿圖殘缺，無法讀取。</p>`;
-    }
-  }
-
-  // ==========================================
-  // 1. 渲染類別目錄 (地圖第一層)
-  // ==========================================
-  // ==========================================
-  // 1. 渲染類別目錄 (地圖第一層)
-  // ==========================================
-  function renderMapCategories() {
-    const container = document.getElementById('explore-content');
-    if (!categorizedMapData || Object.keys(categorizedMapData).length === 0) {
-      container.innerHTML = "<p style='text-align:center; color:#816e54;'>天下大亂，輿圖已毀。</p>";
-      return;
-    }
-
-    // 🔴 新增：在最上方插入「展開神識」的大按鈕
-    let html = `
-      <div style="margin-bottom: 20px; border-bottom: 1px dashed rgba(212,175,55,0.3); padding-bottom: 15px;">
-        <button class="btn" style="width: 100%; border-color:#d4af37; color:#d4af37; background:rgba(212,175,55,0.1); padding: 15px; font-size: 16px; font-weight: bold; letter-spacing: 2px; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="openVisualMap()">
-          🌌 展開神識 ‧ 俯瞰全貌
-        </button>
-      </div>
-    `;
-
-    html += `<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">`;
-    const iconMap = { "大城市": "🏙️", "鄉鎮": "🏡", "險地": "💀", "勝境": "🌸", "宗門": "⛩️" };
-
-    for (let category in categorizedMapData) {
-      const icon = iconMap[category] || "🗺️";
-      const count = Object.keys(categorizedMapData[category]).length;
-      const totalPeople = Object.values(categorizedMapData[category]).reduce((sum, r) => sum + (r.count || 0), 0);
-      const peopleBadge = totalPeople > 0 ? `<span style="font-size:11px; color:#e91e63;">👥${totalPeople}人</span>` : '';
-      html += `<button class="btn" style="border-color:#d4af37; color:#d4af37; padding: 15px 5px; font-size: 15px; display:flex; flex-direction:column; align-items:center; gap:6px;" onclick="renderMapLocationsByCategory('${category}')">
-      <span style="font-size:26px;">${icon}</span>
-      <span>${category} <small style="color:#888; font-size:11px;">(${count}區)</small></span>
-      ${peopleBadge}
-      </button>`;
-    }
-    html += `</div>`;
-    container.innerHTML = html;
-  }
-
-  // ==========================================
-  // 2. 渲染特定類別下的區域與分支 (地圖第二、三層)
-  // ==========================================
-  function renderMapLocationsByCategory(category) {
-    const container = document.getElementById('explore-content');
-    const regions = categorizedMapData[category];
-
-    // 1. 頂部標題區
-    let html = `
-      <div style="text-align:center; margin-bottom: 20px; border-bottom: 2px solid #4682b4; padding-bottom: 10px;">
-        <h3 style="color:#4682b4; margin:0; font-size: 18px;">【 ${category} 】</h3>
-        <button class="btn" style="border-color:#888; color:#888; padding: 2px 12px; font-size: 11px; margin-top: 8px;" onclick="renderMapCategories()">🔙 返回分類目錄</button>
-      </div>`;
-
-    // 2. 遍歷每一個母區域
-    Object.keys(regions).forEach(parentName => {
-    const parentData = regions[parentName];
-    const parentPeopleTag = parentData.count > 0 
-        ? `<span style="font-size:11px; color:#e91e63;">👥${parentData.count}人</span>` 
-        : '';
-
-    html += `<div style="color:#4682b4; font-size: 15px; font-weight:bold; margin: 20px 0 5px 5px; border-bottom: 1px solid #4682b4; padding-bottom: 2px;">${parentName}</div>`;
-    
-    html += `
-    <div class="npc-card" style="margin-bottom: 8px; border-left: 3px solid #4682b4; padding: 10px; background: rgba(70, 130, 180, 0.1);">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div style="display:flex; align-items:center; gap:6px;">
-          <b style="color: #4682b4; font-size: 14px;">${parentName} (中心)</b>
-          ${parentPeopleTag}
-        </div>
-        <button class="btn" style="padding: 4px 10px; font-size: 11px; background: #4682b4; color: #fff; border:none;" onclick="travelTo('${parentName}', 0)">傳送</button>
-      </div>
-      <div style="color:#886633; font-size:11px; margin-top:5px; line-height:1.4;">${parentData.desc}</div>
-    </div>`;
-
-    if (parentData.subs && parentData.subs.length > 0) {
-        parentData.subs.forEach(sub => {
-            const subPeopleTag = sub.count > 0 
-                ? `<span style="font-size:11px; color:#e91e63;">👥${sub.count}人</span>` 
-                : '';
-            html += `
-            <div style="margin-left: 20px; margin-bottom: 8px; border-left: 2px solid #666; padding: 8px; background: rgba(0,0,0,0.03); border-radius: 0 4px 4px 0;">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div style="display:flex; align-items:center; gap:6px;">
-                  <b style="color: #333; font-size: 13px;">${sub.name.split('-')[1] || sub.name}</b>
-                  ${subPeopleTag}
-                </div>
-                <button class="btn" style="padding: 3px 8px; font-size: 10px; background: #666; color: #fff; border:none;" onclick="travelTo('${sub.name}', 0)">傳送</button>
-              </div>
-              <div style="color:#777; font-size:11px; margin-top:3px;">${sub.desc}</div>
-            </div>`;
-        });
-    }
-});
-
-    container.innerHTML = html;
   }
 
   // ⏳ 時鐘 HUD（鑑賞模式不顯示戰爭時鐘）：第N日·時刻·時段 ⚡AP/12
@@ -730,8 +604,6 @@ function renderRecentLocs(recents = null) {
 
   async function travelTo(targetName, distance) {
     if (!beginAction()) return;
-    // 👇 把原本的 toggleExplore(); 刪掉，改成這行強制隱藏！
-    document.getElementById('explore-overlay').style.display = 'none';
 
     // 🔴 優化：清理選項，防止玩家在移動中點擊過期選項
     const optContainer = document.getElementById('options-container');
@@ -3361,166 +3233,4 @@ function switchEpicTab(tab) {
   }
 }
 
-// ==========================================
-// 🌌 神識星圖引擎邏輯 (終極數學修正版)
-// ==========================================
-let mapTransform = { scale: 1, x: 0, y: 0 };
-let currentActiveParent = null;
-let centerPx = 0, centerPy = 0; 
-
-function openVisualMap() {
-  document.getElementById('explore-overlay').style.display = 'none';
-  document.getElementById('map-visual-overlay').style.display = 'block';
-  if (categorizedMapData) {
-    renderVisualMap(categorizedMapData);
-    initMapControls(); 
-  }
-}
-
-function closeVisualMap() {
-  document.getElementById('map-visual-overlay').style.display = 'none';
-  document.getElementById('explore-overlay').style.display = 'flex'; 
-  document.getElementById('map-info-card').style.bottom = '-200px'; 
-}
-
-function renderVisualMap(data) {
-  const canvas = document.getElementById('map-canvas');
-  canvas.innerHTML = '';
-  
-  const rawLoc = document.getElementById('ui-loc').innerText || "";
-  const currentLoc = rawLoc.replace(/冬木-/g, "").split('-')[0].trim();
-  
-  centerPx = 0; centerPy = 0; 
-  let foundPlayer = false; 
-
-  for (let category in data) {
-    const regions = data[category];
-    let glowColor = category === "宗門" ? "#4682b4" : category === "險地" ? "#a52a2a" : category === "勝境" ? "#e91e63" : "#d4af37";
-
-    Object.keys(regions).forEach(parentName => {
-      const parentData = regions[parentName];
-      const cleanParentName = parentName.replace(/冬木-/g, "").split('-')[0].trim();
-      const coords = parentData.coord ? parentData.coord.split(',') : [0, 0];
-      // 放大倍率 25px，並將 Y 軸反轉以符合網頁座標
-      const px = parseInt(coords[0]) * 25; 
-      const py = -(parseInt(coords[1]) * 25);
-
-      if (currentLoc === cleanParentName) {
-         centerPx = px;
-         centerPy = py;
-         foundPlayer = true; 
-      }
-
-      const pNode = document.createElement('div');
-      pNode.className = 'map-node-parent' + (currentLoc === cleanParentName ? ' player-here' : '');
-      pNode.style.left = `${px}px`; pNode.style.top = `${py}px`;
-      pNode.style.boxShadow = `0 0 15px ${glowColor}, inset 0 0 8px rgba(255,255,255,0.8)`;
-      if (category === "宗門") pNode.style.background = glowColor;
-
-      const badge = parentData.count > 0 ? `<div class="npc-badge">${parentData.count}</div>` : '';
-      pNode.innerHTML = `<div class="map-label">${parentName}</div>${badge}`;
-      
-      pNode.subNodes = []; 
-
-      pNode.onclick = (e) => {
-        e.stopPropagation();
-        if (currentActiveParent && currentActiveParent !== pNode) {
-          currentActiveParent.classList.remove('active');
-          if (currentActiveParent.subNodes) {
-             currentActiveParent.subNodes.forEach(n => n.classList.remove('show'));
-          }
-        }
-        pNode.classList.toggle('active');
-        const isActive = pNode.classList.contains('active');
-        currentActiveParent = isActive ? pNode : null;
-        pNode.subNodes.forEach(n => isActive ? n.classList.add('show') : n.classList.remove('show'));
-        showInfoCard(parentName, parentData.desc);
-      };
-      
-      canvas.appendChild(pNode);
-
-      if (parentData.subs && parentData.subs.length > 0) {
-        const radius = 60; const angleStep = (Math.PI * 2) / parentData.subs.length;
-        parentData.subs.forEach((sub, index) => {
-          const subX = px + Math.cos(index * angleStep) * radius;
-          const subY = py + Math.sin(index * angleStep) * radius;
-          const sNode = document.createElement('div');
-          sNode.className = 'map-node-sub';
-          sNode.style.left = `${subX}px`; sNode.style.top = `${subY}px`;
-          const sBadge = sub.count > 0 ? `<div class="npc-badge" style="background:#4682b4;">${sub.count}</div>` : '';
-          sNode.innerHTML = `<div class="map-label" style="font-size:11px; color:#aaa;">${sub.name.split('-')[1] || sub.name}</div>${sBadge}`;
-          
-          sNode.onclick = (e) => { e.stopPropagation(); showInfoCard(sub.name, sub.desc); };
-          canvas.appendChild(sNode);
-          
-          pNode.subNodes.push(sNode); 
-        });
-      }
-    });
-  }
-
-  // 🔴 依照要求：如果地圖找不到玩家，安靜地待在 (0,0) 的無名小鎮
-  if (!foundPlayer) {
-    centerPx = 0; 
-    centerPy = 0; 
-  }
-}
-
-function showInfoCard(locName, desc) {
-  document.getElementById('map-card-title').innerText = locName;
-  document.getElementById('map-card-desc').innerText = desc || "未知區域";
-  document.getElementById('map-card-btn').onclick = () => { 
-    closeVisualMap(); 
-    document.getElementById('explore-overlay').style.display = 'none'; 
-    travelTo(locName, 0); 
-  };
-  document.getElementById('map-info-card').style.bottom = '20px';
-}
-
-document.getElementById('map-visual-overlay').addEventListener('click', () => {
-  if (currentActiveParent) {
-    currentActiveParent.classList.remove('active');
-    if (currentActiveParent.subNodes) {
-      currentActiveParent.subNodes.forEach(n => n.classList.remove('show'));
-    }
-  }
-  document.getElementById('map-info-card').style.bottom = '-200px';
-  currentActiveParent = null;
-});
-
-function initMapControls() {
-  const overlay = document.getElementById('map-visual-overlay');
-  const canvas = document.getElementById('map-canvas');
-  let isDragging = false, startX, startY, initialPinchDist = null;
-  
-  const updateTransform = () => {
-    mapTransform.scale = Math.max(0.4, Math.min(mapTransform.scale, 3.0)); 
-    canvas.style.transform = `translate(${mapTransform.x}px, ${mapTransform.y}px) scale(${mapTransform.scale})`;
-  };
-  
-  // 🔴 抓到蟲了！修正數學：因為 CSS 已經 top:50%; left:50%;，所以不需要再加螢幕寬度了！
-  mapTransform.scale = 1; 
-  mapTransform.x = -centerPx; // 直接把玩家座標反推回來
-  mapTransform.y = -centerPy; // 直接把玩家座標反推回來
-  updateTransform();
-
-  overlay.addEventListener('mousedown', (e) => { isDragging = true; startX = e.clientX - mapTransform.x; startY = e.clientY - mapTransform.y; });
-  overlay.addEventListener('mousemove', (e) => { if (isDragging) { mapTransform.x = e.clientX - startX; mapTransform.y = e.clientY - startY; updateTransform(); }});
-  overlay.addEventListener('mouseup', () => isDragging = false);
-  overlay.addEventListener('wheel', (e) => { e.preventDefault(); mapTransform.scale += e.deltaY > 0 ? -0.1 : 0.1; updateTransform(); });
-
-  overlay.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 1) { isDragging = true; startX = e.touches[0].clientX - mapTransform.x; startY = e.touches[0].clientY - mapTransform.y; }
-    else if (e.touches.length === 2) { isDragging = false; initialPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }
-  });
-  overlay.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-    if (e.touches.length === 1 && isDragging) { mapTransform.x = e.touches[0].clientX - startX; mapTransform.y = e.touches[0].clientY - startY; updateTransform(); }
-    else if (e.touches.length === 2 && initialPinchDist) {
-      const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-      mapTransform.scale += (dist - initialPinchDist) * 0.005; initialPinchDist = dist; updateTransform();
-    }
-  }, { passive: false });
-  overlay.addEventListener('touchend', () => { isDragging = false; initialPinchDist = null; });
-}
 </script>
