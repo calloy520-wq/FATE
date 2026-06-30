@@ -84,7 +84,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | update_fate | actionUpdateFate | 創角生成御主（身世/願望/魔術→屬性/禮裝/MEMORY） |
 | summon_servant | actionSummonServant | 召喚從者（從英靈殿抓真名/六圍/技能→眾生列）。**種子英靈直接用寫死 persona(萌點/口吻)、不叫 AI**(省一次 API、加速)；只有名冊查無的自訂/未知英靈才走 AI 即時生成(else 分支)。**敘事8格**：個性(PREF)讀 `persona.words`、**特徵(TRAIT)讀 `persona.look`**(35 位種子皆手寫4格 外貌/氣質/自稱/卸下心防私密一面，召喚/鋪敵 直接用、AI原創走通用預設、不再被戰鬥特性污染)。 |
 | get_heroes / get_masters | — | 創角選單列出可選英靈/正典御主 |
-| get_tags | actionGetTags | **左側狀態面板資料**：御主HP/MP/令咒/願望、從者陣列(六圍/技能/羈絆/寶具)、供魔收支、禮裝、破戒能力。**⚡ 核心邏輯抽成 `buildTagsPayload_(sheets,pcId,preData,preRel)`**(可吃已讀好的整表免重讀)；`sync` 回應已夾帶 `tags:` 同份 payload，前端 `refreshFateTags(data.tags)` 直接用、不再單獨打 get_tags。**效能鐵則：一次按鍵原本 3 趟 round-trip(action→sync→get_tags)→現 2 趟**；`actionSync`/`actionGetTags` 整表只讀一次下傳 people/economy/tags 共用；`playerServantEconomy_(sheets,pcId,preData)` 與 `getFreshStatusString`(已拔冗餘 flush) 同理。改這幾支前先想清楚別把整表重讀加回來。 |
+| get_tags | actionGetTags | **左側狀態面板資料**：御主HP/MP/令咒/願望、從者陣列(六圍/技能/羈絆/寶具)、供魔收支、禮裝、破戒能力。**⚡ 核心邏輯抽成 `buildTagsPayload_(sheets,pcId,preData,preRel)`**(可吃已讀好的整表免重讀)；`sync` 回應已夾帶 `tags:` 同份 payload，前端 `refreshFateTags(data.tags)` 直接用、不再單獨打 get_tags。**效能鐵則：一次按鍵原本 3 趟 round-trip(action→sync→get_tags)→現 1 趟**。機制：①`buildClientState_(sheets,pcId)`＝完整刷新 blob(statusString/people/locations/clock/ap/economy/tags，先 markRivalsSeen_ 再讀、整表+rel 只讀一次下傳共用)，`actionSync` 即回它。②dispatcher 對 `STATE_AFTER_ACTIONS` 白名單動作(fate_battle/mana_supply/move/rest/scavenge/scout/bond… 凡前端事後會整頁 syncData 者)＋ `PC_` 御主，自動把 `_state:buildClientState_()` 夾進回應。③前端 `gasRun` 暫存 `data._state`→`__pendingState`，`syncData` 優先消費它(`applyClientState`)、沒有才打真 sync(graceful fallback)。**不列入白名單**：樂觀 setter(set_servant_output/mage_realm/rune_mode/np_choice 不 syncData、只吃 res.economy)。`playerServantEconomy_(sheets,pcId,preData)`／`getFreshStatusString`(已拔冗餘 flush) 同理。改這幾支前先想清楚別把整表重讀或多餘 round-trip 加回來。 |
 | fate_battle | actionFateBattle | **核心戰鬥**：D20＋寶具＋令咒＋斬首＋雙從者＋協同強襲（見 §4） |
 | use_seal | actionUseSeal | 令咒固定選單：修復/補魔/緊急脫離 |
 | mana_supply | actionManaSupply | 補魔(燃迴路)：硬擠迴路回滿共用池，**永久代價** maxHP−5~10、迴路−1~2(地板迴路8/HP40)+羈絆+SFW fade（耗1AP，卸防可能被突襲）。過度＝慢性自盡。 |
@@ -240,6 +240,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `actionEnterKanshou`：每帳號【單一常駐】後日談世界(KPC_ 御主 avatar，以 MEMORY【帳號】綁定、id 持久接續歷史)。首進需 `pcName/pcSex`(否則回 `needSetup`)。對話仍走 `actionPlay`(NSFW，引擎不動)。
 - `actionKanshouCompanions/Add/Remove`：後日談同伴管理(上限3，住獨立「鑑賞眾生」分頁，`kanshouServantRow_` 建列)。`actionKanshouSetSex/SetName`：改 avatar 性別/名字。
 - `actionDevSeedGallery`：DEV 塞測試從者(待移除)。
+- `actionPurgeOrphans`(action `purge_orphans`，主選單 DEV「🧹 清殘列」)：清「眾生」表孤兒——刪①所有 `DEAD_` 列 ②game_id 非任一帳號當前連結(COL.ACC.PC 反推 liveGids)的世界(敗北殘局/棄局/亡靈)。**保留**：活躍戰局、game_id 空白列(創角中)、鑑賞另表。整表 rewrite(setValues+單次 deleteRows tail，非逐列)。連帶清關係表：只刪「被刪御主(PC_)名下、非存活、非鑑賞御主」的 rel(防誤刪鑑賞關係)。回 {removed,kept,relRemoved}。**用途＝縮表加速每次按鍵的整表掃描**(眾生肥大主因＝每局敵御主+敵從者整批殘留)。
 - `findPlayerServant_`、`purgeGameData_`。
 - ⚠ **舊 `actionListGallery/actionEnterGallery/actionGalleryTalk` 已移除**(被 enter_kanshou＋kanshou_* 取代)。
 

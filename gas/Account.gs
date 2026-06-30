@@ -95,6 +95,85 @@ function actionAccountNewGame(userData, pcId, sheets) {
   return JSON.stringify({ success: true });
 }
 
+// 🧹 清殘列：清掉「孤兒戰局」殘留——已無任何帳號連結的 game_id 世界(敗北殘局/棄局/亡靈) ＋ 所有 DEAD_ 列。
+//   每局的敵御主＋敵從者整批殘留是「眾生」表肥大、拖慢每次按鍵整表掃描的主因。
+//   安全準則：① 不碰任一帳號「當前連結中」的活躍戰局；② 不碰 game_id 空白列(可能創角中/舊資料)；
+//             ③ 鑑賞(KPC_)在另表「鑑賞眾生」不受影響；④ 關係表只清「被刪御主」名下、且非鑑賞御主的 rel 列。
+//   一次性整表 rewrite(setValues + 單次 deleteRows tail)，遠快於逐列 deleteRow。
+function actionPurgeOrphans(userData, pcId, sheets) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var pc = sheets.pc;
+  if (!pc) return JSON.stringify({ success: false, message: "眾生表不存在。" });
+  var all = pc.getDataRange().getValues();
+  if (all.length < 2) return JSON.stringify({ success: true, removed: 0, kept: 0, relRemoved: 0, message: "眾生表無資料，無殘列可清。" });
+  var header = all[0];
+
+  // 1) 收集所有帳號「當前連結中」的御主 charId
+  var linkedIds = {};
+  var acc = ss.getSheetByName("帳號");
+  if (acc) {
+    var ad = acc.getDataRange().getValues();
+    for (var a = 1; a < ad.length; a++) { var cid = String(ad[a][COL.ACC.PC] || ""); if (cid) linkedIds[cid] = true; }
+  }
+  // 2) 由連結御主反推「活躍 game_id」（只有這些世界要保）
+  var liveGids = {};
+  for (var i = 1; i < all.length; i++) {
+    var id0 = String(all[i][COL.PC.ID]);
+    if (id0.indexOf("DEAD_") === 0) continue;
+    if (linkedIds[id0]) { var g0 = String(all[i][COL.PC.GAME_ID] || ""); if (g0) liveGids[g0] = true; }
+  }
+  // 3) 逐列保留判定；記下被刪的御主名(供關係表清理)
+  var kept = [], survivors = {}, purgedMasters = {};
+  for (var r = 1; r < all.length; r++) {
+    var row = all[r];
+    var rid = String(row[COL.PC.ID]);
+    var gid = String(row[COL.PC.GAME_ID] || "");
+    var keep;
+    if (rid.indexOf("DEAD_") === 0) keep = false;   // 死列一律清
+    else if (!gid) keep = true;                      // 無 game_id：保守保留
+    else keep = !!liveGids[gid];                     // 只留活躍戰局
+    if (keep) { kept.push(row); survivors[String(row[COL.PC.NAME])] = true; }
+    else if (rid.indexOf("PC_") === 0) purgedMasters[String(row[COL.PC.NAME])] = true; // 玩家御主以 PC_ 為準(FACTION 是門派非"御主")
+  }
+  var removed = (all.length - 1) - kept.length;
+  if (removed > 0) {
+    var dataRows = all.length - 1;
+    if (kept.length) pc.getRange(2, 1, kept.length, header.length).setValues(kept);
+    var tail = dataRows - kept.length;
+    if (tail > 0) pc.deleteRows(2 + kept.length, tail);
+  }
+
+  // 4) 關係表清理：只刪「被刪御主名下、且該名既非存活御主、也非鑑賞御主」的 rel 列（防誤刪鑑賞關係）
+  var relRemoved = 0;
+  if (sheets.rel) {
+    var kanshouNames = {};
+    try {
+      var ksh = ss.getSheetByName("鑑賞眾生");
+      if (ksh) { var kd = ksh.getDataRange().getValues(); for (var x = 1; x < kd.length; x++) kanshouNames[String(kd[x][COL.PC.NAME])] = true; }
+    } catch (e) { }
+    var rd = sheets.rel.getDataRange().getValues();
+    if (rd.length > 1) {
+      var rhead = rd[0], rkept = [];
+      for (var k = 1; k < rd.length; k++) {
+        var pcNm = String(rd[k][COL.REL.PC]);
+        var orphan = purgedMasters[pcNm] && !survivors[pcNm] && !kanshouNames[pcNm];
+        if (!orphan) rkept.push(rd[k]);
+      }
+      relRemoved = (rd.length - 1) - rkept.length;
+      if (relRemoved > 0) {
+        if (rkept.length) sheets.rel.getRange(2, 1, rkept.length, rhead.length).setValues(rkept);
+        var rtail = (rd.length - 1) - rkept.length;
+        if (rtail > 0) sheets.rel.deleteRows(2 + rkept.length, rtail);
+      }
+    }
+  }
+
+  return JSON.stringify({
+    success: true, removed: removed, kept: kept.length, relRemoved: relRemoved,
+    message: "🧹 清殘列完成：眾生移除 " + removed + " 列（孤兒戰局／亡靈殘留），保留 " + kept.length + " 列；關係表清 " + relRemoved + " 列。每次按鍵的整表掃描會更快。"
+  });
+}
+
 // 把新建的御主連結到帳號（創角後呼叫）
 function linkAccountToPc_(accountName, pcCharId) {
   if (!accountName || !pcCharId) return;

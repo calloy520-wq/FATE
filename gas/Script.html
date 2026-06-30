@@ -15,12 +15,15 @@
   // ==========================================
   // 🔴 核心通訊層：封裝 google.script.run 成 Promise，完美替換 fetch
   // ==========================================
+  let __pendingState = null; // ⚡ 動作回應夾帶的最新 client state，供緊接的 syncData 直接消費(免再打一趟 sync)
   function gasRun(payload) {
+    __pendingState = null; // 新一趟伺服器呼叫開始 → 作廢任何未消費的舊 state(防過期錯套)
     return new Promise((resolve, reject) => {
       google.script.run
         .withSuccessHandler(responseRaw => {
           try {
             const data = (typeof responseRaw === 'string') ? JSON.parse(responseRaw) : responseRaw;
+            if (data && data._state) __pendingState = data._state; // ⚡ 暫存，syncData 會優先吃這份
             resolve(data);
           } catch (e) {
             console.error("【解析異常】:", responseRaw);
@@ -2003,6 +2006,17 @@ function renderRecentLocs(recents = null) {
     } catch (e) { alert('刷新失敗，請稍後再試。'); } finally { hideProcessing(); }
   }
 
+  // 🧹 清殘列：刪掉孤兒戰局/亡靈殘留，縮小「眾生」表 → 每次按鍵更快。不影響進行中的活躍戰局與鑑賞。
+  async function devPurgeOrphans() {
+    if (!confirm('🧹 清理殘列？\n\n會刪除「沒有任何帳號在玩」的舊戰局殘留（敗北殘局、棄局、亡靈），縮小資料表、加快每次操作。\n\n✅ 安全：不會動到任何進行中的戰局，也不影響鑑賞後日談與已封存從者。\n\n確定清理？')) return;
+    showProcessing('清理殘列中…', true);
+    try {
+      const res = await gasRun({ action: 'purge_orphans', pcId: (pc && pc.id) || '' });
+      alert((res && res.message) || '清理完成。');
+      try { if (typeof syncData === 'function') syncData(true); } catch (e) {}
+    } catch (e) { alert('清理失敗，請稍後再試。'); } finally { hideProcessing(); }
+  }
+
   // 👥 後日談同伴管理（鑑賞限定·最多3人）：邀請/請走已封存從者
   async function openCompanions() {
     try { var dr = document.getElementById('action-drawer'); if (dr && dr.style.display !== 'none' && typeof toggleActionDrawer === 'function') toggleActionDrawer(); } catch (e) {}
@@ -2203,41 +2217,43 @@ function renderRecentLocs(recents = null) {
     showGamePane('chat');
   }
 
+  // 🔄 把一份 client state(來自 sync 回應，或動作夾帶的 _state) 套進 UI。兩條路徑共用，避免邏輯分岔。
+  function applyClientState(data, isSilent) {
+    if (!data) return;
+    // 🔴 視角防呆：記憶體一律更新為最新；只有在看自己命格時才刷新主 UI
+    if (data.statusString) {
+      localStorage.setItem('kyushu_last_status', data.statusString);
+      if (currentStatusTargetId === pc.id) updateUI(data.statusString.split('§'));
+    }
+    localNPCs = data.people || [];
+    nearbyLocations = data.locations || [];
+    updateClock(data.clock, data.ap, data.apMax);
+    updateEconomy(data.economy);
+    refreshFateTags(data.tags); // ⚡ 用夾帶的 tags，省一趟 get_tags round-trip
+    renderMapPane();
+    renderWarActions();
+    if (!isSilent) {
+      const story = document.getElementById('story');
+      story.innerHTML += `<div class="msg-player" style="align-self:center; border-radius:8px; background:rgba(255,255,255,0.05); color:#aaa; font-size:13px; text-align:center;">（感應天地，已同步氣息）</div>`;
+      story.scrollTop = story.scrollHeight;
+    }
+  }
+
   async function syncData(isSilent = false) {
+    // ⚡ 2→1：剛剛的動作已夾帶最新 state → 直接套用、免再打一趟 sync round-trip
+    if (__pendingState) {
+      const st = __pendingState; __pendingState = null;
+      try { applyClientState(st, isSilent); } catch (e) { console.error("【套用夾帶狀態異常】:", e); }
+      return;
+    }
     try {
       const data = await gasRun({ action: "sync", pcId: pc ? pc.id : "" });
-      
       if (!data.success) {
         if(!isSilent) alert("感應失敗：" + (data.message || "查無此人"));
         return;
       }
-
-      // 🔴 替換掉原本單純的 updateUI，加上視角防呆！
-      if (data.statusString) {
-        // 🔥 核心修復：無論視角在哪，瀏覽器的記憶體絕對要更新為最新狀態！
-        localStorage.setItem('kyushu_last_status', data.statusString);
-        
-        if (currentStatusTargetId === pc.id) {
-          // 只有在看自己的命格時，才允許刷新 UI
-          updateUI(data.statusString.split('§'));
-        }
-      }
-      // ⚠️ 剛剛就是這裡多了一個 } 導致全盤崩潰！大貓已經把它拔掉了！
-      
-      localNPCs = data.people || [];
-      nearbyLocations = data.locations || [];
-      updateClock(data.clock, data.ap, data.apMax);
-      updateEconomy(data.economy);
-      refreshFateTags(data.tags); // ⚡ 用 sync 夾帶的 tags，省一趟 get_tags round-trip
-      renderMapPane();
-      renderWarActions();
-
-      if (!isSilent) {
-        const story = document.getElementById('story');
-        story.innerHTML += `<div class="msg-player" style="align-self:center; border-radius:8px; background:rgba(255,255,255,0.05); color:#aaa; font-size:13px; text-align:center;">（感應天地，已同步氣息）</div>`;
-        story.scrollTop = story.scrollHeight;
-      }
-    } catch(e) { 
+      applyClientState(data, isSilent);
+    } catch(e) {
       if(!isSilent) alert("系統錯誤，請打開 F12 查看 Console 的錯誤紀錄。");
     }
   }

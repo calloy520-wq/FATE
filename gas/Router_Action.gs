@@ -14,6 +14,7 @@ const ActionRouter = {
   "enter_kanshou": actionEnterKanshou,
   "dev_seed_gallery": actionDevSeedGallery,
   "dev_resync_codex": actionDevResyncCodex,
+  "purge_orphans": actionPurgeOrphans,
   "kanshou_companions": actionKanshouCompanions,
   "kanshou_add": actionKanshouAdd,
   "kanshou_remove": actionKanshouRemove,
@@ -141,12 +142,33 @@ function handleGameAction(userData) {
   };
 
   const handler = ActionRouter[action];
-  if (handler) {
-    return handler(userData, pcId, sheets);
-  } else {
+  if (!handler) {
     return JSON.stringify({ success: false, message: `系統異常：未知的動作指令「${action}」` });
   }
+  let out = handler(userData, pcId, sheets);
+  // ⚡ 2→1：solo 遊戲動作回應自動夾帶最新 client state(_state)，前端套用後即不必再打一趟 sync。
+  //   只對 solo 御主(PC_)＋會改動戰場狀態的動作做；查無人/出錯則略過(前端自動 fallback 回真 sync)。
+  if (STATE_AFTER_ACTIONS[action] && String(pcId || "").indexOf("PC_") === 0) {
+    try {
+      const obj = JSON.parse(out);
+      if (obj && obj.success && obj._state === undefined) {
+        const st = buildClientState_(sheets, pcId);
+        if (st) { obj._state = st; out = JSON.stringify(obj); }
+      }
+    } catch (e) { /* 非 JSON 或建構失敗 → 維持原回應，前端 fallback */ }
+  }
+  return out;
 }
+// ⚡ 會改動 solo 戰場狀態、前端事後會 syncData(整頁刷新) 的動作 → 夾帶 _state 省一趟 round-trip。
+//   不含：sync(本身即 state)／get_tags／純讀取(inspect/get_*)／創角召喚(自走 reload)／kanshou(KPC_)；
+//   也不含「樂觀更新」的輕量 setter(set_servant_output/set_mage_realm/set_rune_mode/set_np_choice)——
+//   它們不 syncData、只吃 res.economy，夾 _state 反而白做整表讀取。
+const STATE_AFTER_ACTIONS = {
+  fate_battle: 1, use_seal: 1, mana_supply: 1, bond: 1, use_mystic: 1, rule_break_steal: 1,
+  propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
+  second_wind: 1, scout: 1, move: 1, rest: 1, narrate_only: 1, multi_attack_narrate: 1,
+  update_fate: 1, update_rel_tag: 1, clear_npc_major_event: 1
+};
 
 // ==========================================
 // 🔴 動作處理模組 (Action Handlers)
@@ -930,34 +952,37 @@ function actionMove(userData, pcId, sheets) {
   });
 }
 
-function actionSync(userData, pcId, sheets) {
+// ⚡ 前端「一次刷新」所需的完整狀態 blob：sync 與「動作夾帶 _state」共用同一份。
+//   整表(allPcData)＋關係表(relRows) 只讀一次，下傳 people/economy/tags 共用——省重複整表 I/O。
+//   先 markRivalsSeen_(寫 SEEN) 再讀，確保剛到場/剛移動的敵蹤即時點亮(戰爭迷霧)。回 null＝查無此人。
+function buildClientState_(sheets, pcId) {
   try { markRivalsSeen_(sheets, pcId); } catch (e) { } // 🔵 戰爭迷霧：到場即偵查到此地敵人
   const allPcData = sheets.pc.getDataRange().getValues();
   const pcIndex = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pcIndex === -1) return JSON.stringify({ success: false, message: "查無此人" });
+  if (pcIndex === -1) return null;
   const curL = allPcData[pcIndex][COL.PC.LOC];
-  const freshMapData = sheets.map.getDataRange().getValues();
+  const freshMapData = sheets.map ? sheets.map.getDataRange().getValues() : [];
   const currentMapInfo = freshMapData.find(m => m[COL.MAP.NAME] === (curL ? String(curL).split('-')[0] : ""));
-  const syncGameId = String(allPcData[pcIndex][COL.PC.GAME_ID] || "");
-  let syncClock = "", syncAp = AP_PER_DAY;
-  if (syncGameId && syncGameId.indexOf("g_") === 0) { try { syncClock = clockLabel_(syncGameId); syncAp = getAp_(syncGameId); } catch (e) { } }
-
-  // ⚡ 一趟 round-trip 搞定：sync 同時夾帶 get_tags 的 payload(tags)，前端不必再多打一次 get_tags。
-  //   且整表(allPcData)、關係表(syncRel) 只讀一次，下傳給 people/economy/tags 共用——省掉重複整表 I/O。
-  const syncRel = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
-  const isFateSync = syncGameId && syncGameId.indexOf("g_") === 0;
-  return JSON.stringify({
-    success: true,
+  const gid = String(allPcData[pcIndex][COL.PC.GAME_ID] || "");
+  const isFate = gid && gid.indexOf("g_") === 0;
+  let clk = "", ap = AP_PER_DAY;
+  if (isFate) { try { clk = clockLabel_(gid); ap = getAp_(gid); } catch (e) { } }
+  const relRows = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
+  return {
     statusString: buildPlayerStatusString(allPcData[pcIndex]),
-    people: getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, syncRel, sheets.task ? sheets.task.getDataRange().getValues() : [], allPcData),
+    people: getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, relRows, sheets.task ? sheets.task.getDataRange().getValues() : [], allPcData),
     locations: getNearbyLocations(curL, freshMapData),
     mapDesc: currentMapInfo ? currentMapInfo[COL.MAP.DESC] : "四下靜謐。",
-    clock: syncClock,
-    ap: syncAp,
-    apMax: AP_PER_DAY,
-    economy: isFateSync ? playerServantEconomy_(sheets, pcId, allPcData) : null,
-    tags: buildTagsPayload_(sheets, pcId, allPcData, syncRel)
-  });
+    clock: clk, ap: ap, apMax: AP_PER_DAY,
+    economy: isFate ? playerServantEconomy_(sheets, pcId, allPcData) : null,
+    tags: buildTagsPayload_(sheets, pcId, allPcData, relRows)
+  };
+}
+function actionSync(userData, pcId, sheets) {
+  const st = buildClientState_(sheets, pcId);
+  if (!st) return JSON.stringify({ success: false, message: "查無此人" });
+  st.success = true;
+  return JSON.stringify(st);
 }
 
 function actionRest(userData, pcId, sheets) {
