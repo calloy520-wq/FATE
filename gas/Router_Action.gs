@@ -162,10 +162,11 @@ function handleGameAction(userData) {
 //   不含：sync(本身即 state)／get_tags／純讀取(inspect/get_*)／創角召喚(自走 reload)／kanshou(KPC_)；
 //   也不含「樂觀更新」的輕量 setter(set_servant_output/set_mage_realm/set_rune_mode/set_np_choice)——
 //   它們不 syncData、只吃 res.economy，夾 _state 反而白做整表讀取。
+//   也不含 narrate_only/multi_attack_narrate——前端 narrate() 只吃 res.text、不消費 _state，夾它純浪費整表讀。
 const STATE_AFTER_ACTIONS = {
   fate_battle: 1, use_seal: 1, mana_supply: 1, bond: 1, use_mystic: 1, rule_break_steal: 1,
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
-  second_wind: 1, scout: 1, move: 1, rest: 1, narrate_only: 1, multi_attack_narrate: 1,
+  second_wind: 1, scout: 1, move: 1, rest: 1,
   update_fate: 1, update_rel_tag: 1, clear_npc_major_event: 1
 };
 
@@ -913,7 +914,7 @@ function actionMove(userData, pcId, sheets) {
 
   // 📜 正典劇情插針已移除（2026-06 玩家定案·沒啥用處）——抵達不再自動塞 Fate 原作橋段／路線引導。
 
-  const freshMapData = sheets.map.getDataRange().getValues();
+  const freshMapData = getMapDataCached(sheets); // 坤圖靜態→走 1h 快取，免整表讀
   const rootTarget = target ? String(target).split('-')[0].trim() : "";
   const parentMapInfo = freshMapData.find(m => String(m[COL.MAP.NAME]).trim() === rootTarget);
   const subMapInfo = (target !== rootTarget) ? freshMapData.find(m => String(m[COL.MAP.NAME]).trim() === target) : null;
@@ -951,7 +952,7 @@ function buildClientState_(sheets, pcId) {
   const pcIndex = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pcIndex === -1) return null;
   const curL = allPcData[pcIndex][COL.PC.LOC];
-  const freshMapData = sheets.map ? sheets.map.getDataRange().getValues() : [];
+  const freshMapData = getMapDataCached(sheets); // 坤圖靜態→走 1h 快取
   const currentMapInfo = freshMapData.find(m => m[COL.MAP.NAME] === (curL ? String(curL).split('-')[0] : ""));
   const gid = String(allPcData[pcIndex][COL.PC.GAME_ID] || "");
   const isFate = gid && gid.indexOf("g_") === 0;
@@ -1044,7 +1045,7 @@ function actionRest(userData, pcId, sheets) {
       ambush: !!restAmbush, defeat: restAmbush ? restAmbush.defeat : false, dreamPrompt: restAmbush ? restAmbush.dreamPrompt : "", ambushPrompt: restAmbushPrompt, report: restAmbush ? restAmbush.report : null,
       servantDream: restDreamPrompt,
       victory: restVictory && !(restAmbush && restAmbush.defeat),
-      economy: playerServantEconomy_(sheets, pcId)
+      economy: playerServantEconomy_(sheets, pcId, pcData) // 復用已寫回的 pcData，免整表重讀
     });
   }
 
@@ -3606,7 +3607,7 @@ function actionSetWorkshop(userData, pcId, sheets) {
   sheets.pc.getRange(pIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[pIdx][COL.PC.MEMORY]);
   let ap = AP_PER_DAY, clock = "";
   if (isFate) { try { ap = spendAp_(myGameId, 1).ap; clock = clockLabel_(myGameId); } catch (e) { } }
-  return JSON.stringify({ success: true, message: `已於「${loc}」佈設陣地（工房）——駐留此地時，從者供魔收入提升。`, clock: clock, ap: ap, apMax: AP_PER_DAY, economy: isFate ? playerServantEconomy_(sheets, pcId) : null });
+  return JSON.stringify({ success: true, message: `已於「${loc}」佈設陣地（工房）——駐留此地時，從者供魔收入提升。`, clock: clock, ap: ap, apMax: AP_PER_DAY, economy: isFate ? playerServantEconomy_(sheets, pcId, pcData) : null });
 }
 
 // 🔍 搜索物資：偵查鄰近敵蹤為主，順手撿拾零星魔力（耗 1 AP）
@@ -3667,7 +3668,7 @@ function actionScout(userData, pcId, sheets) {
   }
   const curLoc = String(pcData[pIdx][COL.PC.LOC] || "").trim();
   // 附近地點（含當前）作為偵查範圍
-  const mapData = sheets.map ? sheets.map.getDataRange().getValues() : [];
+  const mapData = getMapDataCached(sheets); // 坤圖靜態→走 1h 快取
   let scope = [curLoc];
   try { getNearbyLocations(curLoc, mapData).forEach(l => { const nm = (l && l.name) ? l.name : l; if (nm) scope.push(String(nm).trim()); }); } catch (e) { }
 

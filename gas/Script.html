@@ -675,8 +675,7 @@ function renderRecentLocs(recents = null) {
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#7fc7c7;font-size:12.5px;text-align:center;border:1px solid rgba(90,150,150,0.3);border-radius:8px;padding:6px 10px;">🔍 ${data.message || '偵查完成。'}</div>`);
         if (data.report) renderFateBattleReport(data.report); // ⚔️ 偵查遭突襲→戰報卡
         if (data.ambushPrompt || data.aiPrompt) narrate(data.ambushPrompt || data.aiPrompt);
-        renderMapPane();
-        syncData(true);
+        syncData(true); // syncData→applyClientState 已含 renderMapPane()，免重複打 get_map_nodes
         if (data.defeat) { await handleDefeat(data); }
       } else { alert((data && data.message) || '偵查失敗。'); }
     } catch (e) { alert('連線失敗，偵查未果。'); } finally { endAction(); }
@@ -708,7 +707,7 @@ function renderRecentLocs(recents = null) {
       if (res && res.success) {
         updateClock(res.clock, res.ap, res.apMax); updateEconomy(res.economy);
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#8fd0a0;font-size:12.5px;text-align:center;border:1px solid rgba(90,150,110,0.3);border-radius:8px;padding:6px 10px;">🏕️ ${res.message}</div>`);
-        renderMapPane(); syncData(true);
+        syncData(true); // applyClientState 已含 renderMapPane()，免重複
       } else { alert((res && res.message) || '設置陣地失敗。'); }
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
   }
@@ -723,7 +722,7 @@ function renderRecentLocs(recents = null) {
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#d0c080;font-size:12.5px;text-align:center;border:1px solid rgba(140,120,70,0.3);border-radius:8px;padding:6px 10px;">🔍 ${res.message}</div>`);
         if (res.report) renderFateBattleReport(res.report); // ⚔️ 搜索遭突襲→戰報卡
         if (res.aiPrompt) narrate(res.aiPrompt);
-        renderMapPane(); syncData(true);
+        syncData(true); // applyClientState 已含 renderMapPane()，免重複
         if (res.defeat) { await handleDefeat(res); }
       } else { alert((res && res.message) || '搜索失敗。'); }
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
@@ -1374,6 +1373,10 @@ function renderRecentLocs(recents = null) {
   }
   async function renderMapPane() {
     var c = document.getElementById('map-pane-content'); if (!c) return;
+    // ⚡ 地圖頁未顯示時不打 get_map_nodes：applyClientState 每動作都呼此函式，但玩家多半在「故事」頁，
+    //   對隱藏的地圖白打一趟 round-trip。切到地圖頁(showGamePane('map')→renderMapPane)時才真正渲染。
+    var mp = document.getElementById('pane-map');
+    if (mp && !mp.classList.contains('active')) return;
     var nodes = [], here = '', allyIntel = false;
     try { var r = await gasRun({ action: 'get_map_nodes', pcId: pc.id }); if (r && r.success) { nodes = r.nodes || []; here = r.here || ''; allyIntel = !!r.allyIntel; } } catch (e) { }
     var html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">'

@@ -130,6 +130,7 @@ function ensureFateSheets_(ss) {
 }
 
 // 🔵 修復：種子表為空就補；坤圖舊資料的 PARENT「冬木」改成頂層("")，避免地圖渲染出錯
+var RESEED_VER = 'r1'; // ⚡ bump 此值 → 讓「坤圖升級＋英靈殿補丁」這段一次性遷移重跑一次(改 FATE_MAP_SEED/補丁邏輯時)
 function reseedIfEmpty_(ss) {
   var seedMap = { "坤圖": FATE_MAP_SEED, "戰鬥標籤": FATE_CTAG_SEED };
   Object.keys(seedMap).forEach(function (name) {
@@ -139,6 +140,9 @@ function reseedIfEmpty_(ss) {
       sh.getRange(2, 1, seed.length, seed[0].length).setValues(seed);
     }
   });
+  // ⚡ 以下坤圖升級＋赫拉克勒斯補丁＝一次性遷移(過去每按鍵都重跑：坤圖整表讀×2＋英靈殿整表讀×1＋清掉地圖快取)。
+  //   版本旗標守門：套用過即 return；如此 getMapDataCached 的 1h 快取才不會每按鍵被 line 清掉而失效。
+  try { if (PropertiesService.getScriptProperties().getProperty('fate_reseed_ver') === RESEED_VER) return; } catch (e) { }
   var km = ss.getSheetByName("坤圖");
   if (km && km.getLastRow() > 1) {
     var data = km.getDataRange().getValues();
@@ -182,6 +186,7 @@ function reseedIfEmpty_(ss) {
       }
     }
   } catch (e) { }
+  try { PropertiesService.getScriptProperties().setProperty('fate_reseed_ver', RESEED_VER); } catch (e) { } // 一次性遷移完成、之後跳過
 }
 
 // 🔵 可從編輯器手動執行：回報建了哪些分頁
