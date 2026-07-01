@@ -122,7 +122,7 @@ function actionManaSupply(userData, pcId, sheets) {
   const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可供魔。" });
   const svName = pcData[svIdx][COL.PC.NAME];
-  // 🔋 共用魔力池制：補魔＝御主硬擠魔術迴路、回滿共用池——但【永久】燒蝕：血量上限−5~10、迴路−1~2(有地板)。
+  // 🔋 共用魔力池制：補魔＝御主硬擠魔術迴路、回滿共用池——但【永久】燒蝕：血量上限−15、迴路−3(有地板)。
   //   過度補魔＝慢性自盡(迴路↓→池縮、回魔慢、禮裝弱)。另有「被動燃血」：池見底時 applyRegen_ 自動扣御主＋從者HP續契約。
   const CIRC_FLOOR = 8, HP_FLOOR = 40;
   const curMpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || masterPoolMax_(masterCircuits_(pcData[pIdx]), 0);
@@ -137,9 +137,9 @@ function actionManaSupply(userData, pcId, sheets) {
   if (oldCirc <= CIRC_FLOOR) {
     return JSON.stringify({ success: false, message: `你的魔術迴路已燒蝕至極限（${oldCirc} 條），再以補魔強擠恐徹底斷絕——改以靈脈／陣地／休息回魔吧。` });
   }
-  // 永久代價：迴路−1~2、血量上限−5~10（各有地板）
-  const circCut = Math.floor(Math.random() * 2) + 1;   // 1~2
-  const hpCut = Math.floor(Math.random() * 6) + 5;     // 5~10
+  // 永久代價：迴路−3、血量上限−15（各有地板）。2026-07 加碼——補魔燒身該是「賭上未來換這一發」的重決定，非廉價回魔。
+  const circCut = 3;
+  const hpCut = 15;
   const newCirc = Math.max(CIRC_FLOOR, oldCirc - circCut);
   const oldMaxHp = parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 100;
   const newMaxHp = Math.max(HP_FLOOR, oldMaxHp - hpCut);
