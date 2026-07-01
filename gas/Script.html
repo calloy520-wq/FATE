@@ -1653,7 +1653,8 @@ function renderRecentLocs(recents = null) {
     // 🔋 解放寶具＝全開：把出力 100% 隨 fate_battle 一起送(後端就地推滿)，省一趟 set_servant_output 往返。
     const story = document.getElementById('story');
     const _plain = myServantCls === 'Caster' ? '詠唱魔砲，轟向' : myServantCls === 'Archer' ? '張弓狙擊，鎖定' : '出擊，目標';
-    const verb = isMaster ? '奇襲斬首，直取敵御主' : (useSeal ? '燃令咒・絕對命令，必中斬向' : (useNp ? '解放寶具，目標' : _plain));
+    const _sealVerb = myServantCls === 'Caster' ? '燃令咒・絕對命令，必中轟向' : myServantCls === 'Archer' ? '燃令咒・絕對命令，必中鎖定' : '燃令咒・絕對命令，必中出擊';
+    const verb = isMaster ? '奇襲斬首，直取敵御主' : (useSeal ? _sealVerb : (useNp ? '解放寶具，目標' : _plain));
     story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主令從者${useSkill ? '催動主動技、' : ''}${verb}「${npcName}」！</div>`);
     story.scrollTop = story.scrollHeight;
     try {
