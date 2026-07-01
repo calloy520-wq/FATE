@@ -363,16 +363,30 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
     if (aliveTotal <= WORLD_FLOOR_) continue; // 已到底線→世界不再清人，剩下的全交給玩家
     var faraway = offstage.filter(function (o) { return o.loc !== String(playerLoc).trim(); });
     if (!faraway.length) continue;
-    // 維持費(六圍 rank 總和)：越貴越可能養不起
+    // 養不起爆炸：真查其御主電池比例(mp/maxMp)，不再只憑英靈自身六圍瞎猜——
+    //   迴路高的御主池大，扣同一筆寶具魔力比例掉得慢，天然不容易中；迴路低的小池子養強英靈才真的常撐不住。
+    //   masterless(已無御主)不進這池子，那些已交給上方 SEAL_DOOM_HOURS 的透支倒數處理，避免重複判死。
+    var candidates = [];
     faraway.forEach(function (o) {
       var six = {}; try { six = JSON.parse(fresh[o.idx][COL.PC.SIX] || "{}"); } catch (e) { }
       var sum = 0; ["筋力", "耐久", "敏捷", "魔力", "幸運", "寶具"].forEach(function (k) { sum += rankVal(six[k] || "C"); });
       o.upkeep = sum;
+      var mi = enemyMasterIdx_(fresh, o.idx, gameId);
+      if (mi < 0) return;
+      var mMax = parseInt(fresh[mi][COL.PC.MAX_MP]) || 0;
+      o.mpRatio = mMax > 0 ? (parseInt(fresh[mi][COL.PC.MP]) || 0) / mMax : 1;
+      candidates.push(o);
     });
-    faraway.sort(function (a, b) { return b.upkeep - a.upkeep; });
-    var top = faraway[0];
-    // 養不起爆炸：只有「極度昂貴(>=260)」的英靈才有機會，且機率溫和(上限 18%)
-    var boom = (top.upkeep >= 260) ? Math.min(0.18, (top.upkeep - 260) / 500 + 0.06) : 0;
+    var top = null, boom = 0;
+    if (candidates.length) {
+      candidates.forEach(function (o) { o.strain = (1 - o.mpRatio) * (o.upkeep / 300); });
+      candidates.sort(function (a, b) { return b.strain - a.strain; });
+      top = candidates[0];
+      // 電池真的偏低(<25%) ＋ 這隻本來就貴(六圍總和≥200) 才有機會，且機率溫和(上限 18%)
+      if (top.mpRatio < 0.25 && top.upkeep >= 200) {
+        boom = Math.min(0.18, (0.25 - top.mpRatio) * 0.4 + (top.upkeep - 200) / 500);
+      }
+    }
     if (boom > 0 && Math.random() < boom) {
       fresh[top.idx][COL.PC.ID] = "DEAD_" + String(fresh[top.idx][COL.PC.ID]);
       fresh[top.idx][COL.PC.HP] = 0;
