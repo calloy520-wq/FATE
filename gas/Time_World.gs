@@ -300,6 +300,7 @@ function refillMastersDaily_(sheets, gameId, day) {
 //   rounds：跑幾輪；allowAttrition：是否允許「暗處廝殺/養不起爆炸」（僅休息時 true，移動只換位）
 //   回傳 { rumors:[..文字..], moved:n }
 var WORLD_FLOOR_ = 4; // 世界自走永遠至少保留這麼多名敵從者給玩家親手解決（不會被自走清光）
+var ATTRITION_START_DAY = 3; // ⏳ 開戰前期不減員：第 N 日(含)前，世界不會有從者暗處殞落（給玩家喘息＋貼戰爭初期蟄伏）
 function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
   var rumors = [];
   if (!gameId) return { rumors: rumors, moved: 0 };
@@ -359,13 +360,18 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
     // 2) 暗處從者廝殺：只在「休息」時可能發生（移動只換位，不死人）；
     //    且永遠至少保留 WORLD_FLOOR_ 名敵從者給玩家親手解決——絕不會被世界自走清光。
     if (!allowAttrition) continue;
+    // ⏳ 開戰前期(第 ATTRITION_START_DAY 日前)世界不減員——給玩家喘息，也貼「戰爭初期各方按兵蟄伏」。
+    var _dayNow = 1; try { var _c = getClock_(gameId); if (_c) _dayNow = _c.day; } catch (e) { }
+    if (_dayNow < ATTRITION_START_DAY) continue;
     var fresh = sheets.pc.getDataRange().getValues();
     var offstage = [];
     for (var k = 1; k < fresh.length; k++) {
       if (String(fresh[k][COL.PC.FACTION]) !== "敵從者") continue;
       if (String(fresh[k][COL.PC.GAME_ID] || "") !== gameId) continue;
       if (String(fresh[k][COL.PC.ID]).startsWith("DEAD_")) continue;
-      offstage.push({ idx: k, name: String(fresh[k][COL.PC.NAME]), loc: String(fresh[k][COL.PC.LOC]).trim() });
+      // 🩸 戰力分＝六圍階總和(給「低能力先死」用)；解析失敗給高分(不優先被清)
+      var pw = 999; try { var _s6 = JSON.parse(fresh[k][COL.PC.SIX] || '{}'); pw = ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].reduce(function (a, key) { return a + rankVal(_s6[key] || 'E'); }, 0); } catch (e) { }
+      offstage.push({ idx: k, name: String(fresh[k][COL.PC.NAME]), loc: String(fresh[k][COL.PC.LOC]).trim(), pow: pw });
     }
     var aliveTotal = offstage.length;
     if (aliveTotal <= WORLD_FLOOR_) continue; // 已到底線→世界不再清人，剩下的全交給玩家
@@ -376,7 +382,11 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
     //   跟「隨機」的初衷矛盾，玩家體感就是「Saber每次都爆炸」。移除，不留殘骸；masterless 有 SEAL_DOOM_HOURS，
     //   一般戰損有 fateStrike_，死法夠多，不缺這個。
     if (Math.random() < 0.07) { // 暗處廝殺：偶爾一名在他人手中殞落
-      var victim = faraway[Math.floor(Math.random() * faraway.length)];
+      // 🩸 低能力先死：挑「戰力(六圍階總和)最低」者殞落——貼「弱者先在混戰中出局」；同分則隨機
+      faraway.sort(function (a, b) { return a.pow - b.pow; });
+      var _weak = faraway[0].pow;
+      var _pool = faraway.filter(function (o) { return o.pow === _weak; });
+      var victim = _pool[Math.floor(Math.random() * _pool.length)];
       fresh[victim.idx][COL.PC.ID] = "DEAD_" + String(fresh[victim.idx][COL.PC.ID]);
       fresh[victim.idx][COL.PC.HP] = 0;
       fresh[victim.idx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "暗處殞落", "顏面": "已無生息" });
