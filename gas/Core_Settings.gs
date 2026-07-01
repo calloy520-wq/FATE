@@ -184,6 +184,12 @@ function clearNpTelegraph_(memory) { return String(memory || "").replace(/｜?�
 function getOvercharge_(memory) { var m = String(memory || "").match(/【過充】(\d+)/); return m ? (parseInt(m[1]) || 0) : 0; }
 function setOvercharge_(memory, amt) { var s = clearOvercharge_(String(memory || "")); amt = Math.max(0, Math.round(amt)); return s ? s + "｜【過充】" + amt : "【過充】" + amt; }
 function clearOvercharge_(memory) { return String(memory || "").replace(/｜?【過充】\d+/g, ""); }
+// 👗 從者換裝（存從者 MEMORY【換裝】<服裝文字>）：玩家自訂當前【服裝穿著】·疊在種子外貌本相之上餵給 AI 敘述——
+//   只換衣不換人(五官/髮色/體態/氣質仍依 persona.look)。純外觀·不碰數值。get/set/clear 成套；清空＝恢復本相。
+//   ｜【】換行皆為 MEMORY/提示分隔字元 → set 時剝除，限 40 字，守住寫表冪等與提示安全。
+function getOutfit_(memory) { var m = String(memory || "").match(/【換裝】([^｜【】]*)/); return m ? m[1].trim() : ""; }
+function setOutfit_(memory, text) { var s = clearOutfit_(String(memory || "")); text = String(text || "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, 40); if (!text) return s; return s ? s + "｜【換裝】" + text : "【換裝】" + text; }
+function clearOutfit_(memory) { return String(memory || "").replace(/｜?【換裝】[^｜【】]*/g, ""); }
 // 前端「變容」標籤用的 synergy 視圖：非 synergy 從者回 null；恩奇都回 {has,on,master,peak}。
 //   on＝當前御主觸發全盛(亮)；否則暗(提醒需該御主)。玩家不可控——由御主決定。
 function masterSynergyView_(name, memory) {

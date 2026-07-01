@@ -35,13 +35,18 @@ function servantCard_(row) {
     var prefArr = String(row[COL.PC.PREF] || "").split('、').filter(Boolean);
     var persona = p.words || prefArr.slice(0, 4).join('、');
     var np = String(row[COL.PC.MARTIAL] || "");
+    var look = String(p.look || "");           // 種子外貌本相：五官/髮色/體態/氣質(不變的本人特徵)
+    var outfit = getOutfit_(mem);              // 👗 玩家換裝：當前服裝穿著(疊在本相上·可清)
     // 狂化偵測：喪失言語、只咆哮（如赫拉克勒斯、蘭斯洛特）。開膛手傑克等會說話的狂戰士不命中。
     var mad = /狂化|無法言語|僅咆哮|不語/.test(String(p.speech || "") + String(fp));
     var card = `〈${name}·${cls}·演出依據(僅供內化，禁複述設定字面)〉自稱「${fp}」｜對御主：${toM || '依真名'}｜性格：${persona || '依真名'}` +
       (p.speech ? `｜口吻：${p.speech}` : "") +
       (p.moe ? `｜萌點：${p.moe}` : "") +
       (p.tic ? `｜小動作：${p.tic}` : "") +
+      (look ? `｜外貌本相：${look}` : "") +
+      (outfit ? `｜此刻裝扮：${outfit}` : "") +
       (np ? `｜寶具「${np}」` : "") + `。\n`;
+    if (outfit) card += `★【換裝】此從者當前穿著＝「${outfit}」：以此為現下服裝入畫，但五官/髮色/體態/氣質仍嚴格依「外貌本相」——換衣不換人，不得改其相貌或身分。\n`;
     if (mad) card += `★【狂化·絕對】此從者已狂化、喪失言語：【嚴禁】說出任何完整句子或台詞，只能以低吼、咆哮、肢體與本能反應表達（旁白可寫其情緒，但他不開口）。\n`;
     card += `★依「${name}」真名與上述性格/口吻演出（show, don't tell）：用言行神態自然流露，【禁】把性格詞/萌點/六圍/技能/寶具名當台詞或由旁白點破。依羈絆高低調親疏：低→保留戒備矜持、高→漸親近，守住性格內核、未深不越界倒貼。\n`;
     return card;
