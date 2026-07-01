@@ -301,7 +301,12 @@ function actionFateBattle(userData, pcId, sheets) {
   }
   if (atkMemDirty) sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
 
-  let nIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1 && r[COL.PC.ID] != pcData[atkIdx][COL.PC.ID] && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
+  // 🎯 目標解析：優先用前端帶的【穩定列 ID】(npcId)精準命中——名字比對(nameLoose·CJK 點號/全形括號變體)易失手，
+  //   常見「查無此目標」正因名字位元組不一致。ID 為主、名字為退路(相容舊前端/無 id 情況)。
+  const npcId = String(userData.npcId || "").trim();
+  const _notMeAlive = function (r) { return r[COL.PC.ID] != pcData[atkIdx][COL.PC.ID] && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId); };
+  let nIdx = npcId ? pcData.findIndex(r => String(r[COL.PC.ID]) === npcId && _notMeAlive(r)) : -1;
+  if (nIdx === -1) nIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1 && _notMeAlive(r));
   if (nIdx === -1) return JSON.stringify({ success: false, message: "此世界查無此目標。" });
   if (String(pcData[pIdx][COL.PC.LOC]).trim() !== String(pcData[nIdx][COL.PC.LOC]).trim()) {
     return JSON.stringify({ success: false, message: "對方不在你身邊，鞭長莫及。" });
