@@ -25,6 +25,7 @@ const ActionRouter = {
   "update_fate": actionUpdateFate,
   "update_rel_tag": actionUpdateRelTag,
   "create": actionManualNpc, // 御主創角(isCreate 分支)。手動建 NPC(manual_npc) 已移除、其 !isCreate 分支成死碼。
+  "backfill_master_ai": actionBackfillMasterAi, // 🚀 開局非阻塞：create 後於召喚頁背景補御主敘事欄
   "summon_servant": actionSummonServant,
   "get_heroes": actionGetHeroes,
   "get_masters": actionGetMasters,
@@ -302,38 +303,19 @@ function actionManualNpc(userData, pcId, sheets) {
     if (maps.length > 0) validMapNames = maps;
   }
 
-  const promptStr = `【御主】：名號『${finalName}』，性別『${finalSex}』\n【外貌】：${appearance || "隨機"}\n【身世／財力】：${standing || identity || "隨機"}\n【願望】：${wish || "隨機"}\n【魔術系統】：${magic || "隨機"}\n【出身】：${origin || "隨機"}\n【可選地點(冬木)】：${validMapNames.join('、')}`;
-
-  const MASTER_GEN_SYS = `你是《命運停駐之夜》聖杯戰爭的角色生成核心，為玩家建立一位「御主（Master）」——參與第五次聖杯戰爭的現代魔術師，舞台是冬木市。請依玩家提供的姓名、性別、身世／財力、願望，生成合理且具戲劇張力的設定。
-
-★【演出而非說明】願望與身世只作為設定底層，不要在 background 裡直接複述願望字面。
-★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
-- traits：外貌、氣質舉止、自稱與口氣(第一人稱·如 我/俺/吾＋說話語氣，如 自稱「吾」・睥睨王者腔)、卸下心防的私密一面
-- personality：日常表象、真實內裡、喜歡的事物、討厭的事物
-★npc_intent：一句【簡短】萌點（可愛反差，≤15字），結合此御主身分性格，要反差、可愛、獨特。
-★background：限20字，呼應其身世／財力，禁出現具體物品名。
-★start_loc：從冬木地點中選一個合理的居所或起點：${validMapNames.join('、')}
-★faction 填御主所屬（魔術協會／教會／無所屬等，無則「無」），rank 填「御主」。
-★【勿輸出數值】戰力數值、HP/MP 一律由系統裁定，prompt【不要】輸出 str/con/agi/int/luk 等任何數值欄位。
-
-★【輸出】合法 JSON、禁 Markdown：
-{"start_loc":"冬木地點","background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","faction":"無","rank":"御主","align":"中立","npc_intent":"結合御主身分的獨特可愛反差萌，一句話"}`;
-
-  // 🔴 ignoreLaw: true，把節慶跟天氣隔絕在創建室外
-  const aiBriefStr = callGeminiAPI(promptStr, MASTER_GEN_SYS, { temperature: 0.6, ignoreLaw: true });
+  // 🚀 開局非阻塞(2026-07)：create【不叫 AI】，用玩家輸入的種子值秒寫入御主列、立刻進場；
+  //   AI 生成的背景/特徵/個性/萌點由 backfill_master_ai 在「召喚從者頁」背景補上(見 actionBackfillMasterAi)。
+  //   ★數值(HP/MP/game_id/MEMORY 標記)全由 GAS 決定、與 AI 無關，故無 AI 也是結構完整、可直接開打的列。
   try {
-    const aiBrief = JSON.parse(aiBriefStr);
-
-    // 🎴 御主(凡人魔術師)初始數值：HP/MP 依魔術迴路(財力/身世決定)推算——御主是凡人，血量與魔力儲備皆遠低於英靈從者。
+    // 🎴 御主(凡人魔術師)初始數值：HP/MP 依魔術迴路(財力/身世決定)推算——御主是凡人，遠低於英靈從者。
     const masterStats = masterMaxHpMp_(parseInt(circuits) || 30);
-
-    let spawnName = aiBrief.start_loc || validMapNames[0];
-    if (!validMapNames.includes(spawnName)) spawnName = validMapNames.find(n => spawnName.includes(n)) || validMapNames[0];
+    // 起始落點：確定性選一個有效冬木居所(偏好新都)，不需 AI；backfill 不動落點以免與移動競寫。
+    const spawnName = validMapNames.find(n => /新都/.test(n)) || validMapNames[0];
 
     const pcColCount = Object.keys(COL.PC).length;
     const newRow = Array(pcColCount).fill("");
     newRow[COL.PC.ID] = newId; newRow[COL.PC.NAME] = finalName; newRow[COL.PC.SEX] = finalSex;
-    newRow[COL.PC.BACK] = aiBrief.background || standing || "來歷不明的魔術師"; // AI 生成優先(玩家輸入當種子·像性格/特徵那樣展開)；玩家後續可自改
+    newRow[COL.PC.BACK] = standing || identity || "來歷不明的魔術師"; // 種子＝玩家輸入身世；backfill 會用 AI 潤成 20 字背景
     newRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
     newRow[COL.PC.MEMORY] = [
       wish ? `【願望】${wish}` : "",
@@ -351,21 +333,69 @@ function actionManualNpc(userData, pcId, sheets) {
       const mysticId = rollMysticForMaster_(standing || identity, circuits);
       if (mysticId) newRow[COL.PC.MEMORY] = equipMysticToMemory_(newRow[COL.PC.MEMORY], mysticId);
     } catch (e) { }
-    newRow[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.traits, "外貌平凡、舉止從容、自稱「我」、卸下心防的私密一面");
+    // 種子敘事欄(4 格預設)：backfill 成功會用單格 setValue 覆蓋為 AI 版；AI 失敗則保留這些預設(優雅降級)。
+    newRow[COL.PC.TRAIT] = parseTraitsHelper("", "外貌平凡、舉止從容、自稱「我」、卸下心防的私密一面");
     newRow[COL.PC.LOC] = spawnName;
-    newRow[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "溫婉謙和、內斂堅韌、明哲保身、隨波逐流");
+    newRow[COL.PC.PREF] = parseTraitsHelper("", "溫婉謙和、內斂堅韌、明哲保身、隨波逐流");
     newRow[COL.PC.HP] = masterStats.hp; newRow[COL.PC.MP] = masterStats.mp;
     newRow[COL.PC.MAX_HP] = masterStats.hp; newRow[COL.PC.MAX_MP] = masterStats.mp;
     newRow[COL.PC.REALM] = "";  // 🎴 階級系統已移除，欄位留空
-    newRow[COL.PC.FACTION] = aiBrief.faction || "無"; newRow[COL.PC.RANK] = aiBrief.rank || "御主";
-    newRow[COL.PC.CONTRIB] = 0; newRow[COL.PC.ALIGN] = aiBrief.align || "中立";
-    newRow[COL.PC.INTENT] = String(aiBrief.npc_intent || "").slice(0, 18) || "（待揭曉）";
+    newRow[COL.PC.FACTION] = "無"; newRow[COL.PC.RANK] = "御主";
+    newRow[COL.PC.CONTRIB] = 0; newRow[COL.PC.ALIGN] = "中立";
+    newRow[COL.PC.INTENT] = "（待揭曉）";
     newRow[COL.PC.GAME_ID] = gameId;
     sheets.pc.appendRow(newRow);
 
     if (userData.account) { try { linkAccountToPc_(userData.account, newId); } catch (e) { } }
     return JSON.stringify({ success: true, pcId: newId, gameId: gameId, message: `【聖杯】因果已定，『${finalName}』於「${spawnName}」締結令咒，成為御主。` });
   } catch (e) { return JSON.stringify({ success: false, message: "建立失敗:" + e.message }); }
+}
+
+// 🚀 御主敘事·非阻塞補生成(2026-07)：create 已用種子值秒建御主；此處於「召喚從者頁」背景叫 AI 補
+//   背景/特徵/個性/萌點，只以【單格 setValue】更新 4 個敘事欄(不整列 write-back·避免與玩家動作競寫)。
+//   失敗＝保留 create 寫的種子預設(優雅降級·玩家仍可逆天改命自改)。數值欄一律不碰。
+function actionBackfillMasterAi(userData, pcId, sheets) {
+  const pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const row = pcData[pIdx];
+  const finalName = String(row[COL.PC.NAME] || ""), finalSex = String(row[COL.PC.SEX] || "異");
+  const appearance = String(userData.appearance || ""), standing = String(userData.standing || "");
+  const wish = String(userData.wish || ""), magic = String(userData.magic || ""), origin = String(userData.origin || "");
+
+  let validMapNames = ["深山町", "新都", "言峰教會", "未遠川"];
+  if (sheets.map) {
+    const maps = sheets.map.getDataRange().getValues().slice(1).map(r => String(r[COL.MAP.NAME]).trim()).filter(n => n !== "" && !n.includes('-'));
+    if (maps.length > 0) validMapNames = maps;
+  }
+
+  const promptStr = `【御主】：名號『${finalName}』，性別『${finalSex}』\n【外貌】：${appearance || "隨機"}\n【身世／財力】：${standing || "隨機"}\n【願望】：${wish || "隨機"}\n【魔術系統】：${magic || "隨機"}\n【出身】：${origin || "隨機"}`;
+
+  const MASTER_GEN_SYS = `你是《命運停駐之夜》聖杯戰爭的角色生成核心，為玩家建立一位「御主（Master）」——參與第五次聖杯戰爭的現代魔術師，舞台是冬木市。請依玩家提供的姓名、性別、身世／財力、願望，生成合理且具戲劇張力的設定。
+
+★【演出而非說明】願望與身世只作為設定底層，不要在 background 裡直接複述願望字面。
+★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
+- traits：外貌、氣質舉止、自稱與口氣(第一人稱·如 我/俺/吾＋說話語氣，如 自稱「吾」・睥睨王者腔)、卸下心防的私密一面
+- personality：日常表象、真實內裡、喜歡的事物、討厭的事物
+★npc_intent：一句【簡短】萌點（可愛反差，≤15字），結合此御主身分性格，要反差、可愛、獨特。
+★background：限20字，呼應其身世／財力，禁出現具體物品名。
+★【勿輸出數值】戰力數值、HP/MP 一律由系統裁定，prompt【不要】輸出任何數值欄位；也不要輸出地點。
+
+★【輸出】合法 JSON、禁 Markdown：
+{"background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","npc_intent":"結合御主身分的獨特可愛反差萌，一句話"}`;
+
+  try {
+    // 🔴 ignoreLaw: true，把節慶跟天氣隔絕在創建室外
+    const aiBrief = JSON.parse(callGeminiAPI(promptStr, MASTER_GEN_SYS, { temperature: 0.6, ignoreLaw: true }));
+    // 單格寫回(不整列)：只覆蓋敘事欄，且僅在 AI 有給值時；數值/MEMORY/位置一律不碰。
+    if (aiBrief.background) sheets.pc.getRange(pIdx + 1, COL.PC.BACK + 1).setValue(String(aiBrief.background).slice(0, 40));
+    if (aiBrief.traits) sheets.pc.getRange(pIdx + 1, COL.PC.TRAIT + 1).setValue(parseTraitsHelper(aiBrief.traits, row[COL.PC.TRAIT]));
+    if (aiBrief.personality) sheets.pc.getRange(pIdx + 1, COL.PC.PREF + 1).setValue(parseTraitsHelper(aiBrief.personality, row[COL.PC.PREF]));
+    if (aiBrief.npc_intent) sheets.pc.getRange(pIdx + 1, COL.PC.INTENT + 1).setValue(String(aiBrief.npc_intent).slice(0, 18));
+    return JSON.stringify({ success: true });
+  } catch (e) {
+    return JSON.stringify({ success: false, message: "背景補生成失敗（已保留種子設定）" });
+  }
 }
 
 // ==========================================
@@ -619,7 +649,9 @@ ${FX_MENU_}
       var _mIdx = pcData.findIndex(function (r) { return r[COL.PC.ID] == pcId; });
       if (_mIdx >= 0) {
         masterRow[COL.PC.MAX_MP] = _newMax; masterRow[COL.PC.MP] = _newMax;
-        sheets.pc.getRange(_mIdx + 1, 1, 1, masterRow.length).setValues([masterRow]);
+        // 🚀 只寫 MP/MAX_MP 兩格(非整列)：與開局非阻塞 backfill_master_ai 的敘事欄單格寫互不覆蓋(無競寫)。
+        sheets.pc.getRange(_mIdx + 1, COL.PC.MP + 1).setValue(_newMax);
+        sheets.pc.getRange(_mIdx + 1, COL.PC.MAX_MP + 1).setValue(_newMax);
       }
     } catch (e) { }
 
