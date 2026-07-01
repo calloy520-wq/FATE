@@ -185,18 +185,27 @@ function actionGetMasters(userData, pcId, sheets) {
   return JSON.stringify({ success: true, masters: out });
 }
 
-// 引擎實際吃得到的 fx 字典（AI 生成新從者時從中挑選，確保新角色也能「吃到標籤」）
+// 引擎實際吃得到的 fx 字典（AI 生成新從者時從中挑選，確保新角色也能「吃到標籤」）。
+//   ⚖️ 刻意【不放】頂級概念寶具 fx：ea(乖離劍·對界)／gob(王之財寶)／excalibur／ubw(無限劍製)／
+//     summon_horror(海怪)／chain(天之鎖)／wealth(黃金律)——避免玩家一鍵生出「乖離劍氾濫」的破壞平衡從者；
+//   也【不放】需專屬 UI/MEMORY 的機制 fx：mage_realm(斯卡蒂可選盤)／rune(符文模式)。這些留給手工種子(SEED_SERVANTS)。
+//   其餘中階以下(含施放/防禦/對人放大)已開放，讓自訂/AI 從者的天花板貼近種子。
 var ALLOWED_FX_ = {
   nullify_magic: 1, first_strike: 1, analyze: 1, str_up: 1, burst: 1, ride: 1, stealth: 1,
   evade_ranged: 1, survive: 1, divine_core: 1, mad: 1, morale: 1, divine_age: 1,
   unreadable: 1, wind_strike: 1, tsubame: 1, gae_bolg: 1, god_hand: 1,
-  clear_mind: 1, self_mod: 1, tactics: 1, anti_magic_lance: 1, rule_breaker: 1
+  clear_mind: 1, self_mod: 1, tactics: 1, anti_magic_lance: 1, rule_breaker: 1,
+  // 🆕 2026-07 放寬(A)：施放技術/命中/防禦/對人放大——中階以下，拉高自訂從者上限、不含頂級概念寶具
+  aim: 1, projection: 1, fast_cast: 1, crafting: 1, petrify: 1, shapeshift: 1,
+  solo: 1, weapon_steal: 1, rho_aias: 1, territory: 1, wall_def: 1, zabaniya: 1
 };
-var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應就填空字串\"\"：" +
-  "對魔力=nullify_magic、直感=first_strike、心眼=analyze、怪力=str_up、魔力放出=burst、騎乘=ride、" +
-  "氣息遮斷=stealth、避矢=evade_ranged、戰鬥續行=survive、神核=divine_core、狂化=mad、" +
-  "勇猛/卡里斯瑪=morale、神代魔術=divine_age、無欲(封先機)=unreadable、透化(免威壓)=clear_mind、" +
-  "自我改造(命中傷害+)=self_mod、軍略(寶具+)=tactics、必中槍=gae_bolg、不死復活=god_hand、" +
+var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應就填空字串\"\"（頂級概念寶具 乖離劍/王之財寶/無限劍製 等為種子專屬、不在此清單）：" +
+  "對魔力=nullify_magic、直感=first_strike、心眼=analyze、千里眼=aim、怪力=str_up、魔力放出=burst、投影魔術=projection、" +
+  "高速詠唱=fast_cast、道具作成=crafting、騎乘=ride、氣息遮斷=stealth、變化(迴避+)=shapeshift、避矢=evade_ranged、" +
+  "戰鬥續行=survive、單獨行動=solo、神核=divine_core、七天盾(投影減傷)=rho_aias、陣地作成(減傷)=territory、城牆防禦(物理減傷)=wall_def、" +
+  "狂化=mad、勇猛/卡里斯瑪=morale、神代魔術=divine_age、無欲(封先機)=unreadable、透化(免威壓)=clear_mind、" +
+  "自我改造(命中傷害+)=self_mod、軍略(寶具+)=tactics、風王鐵鎚(傷+)=wind_strike、魔眼(石化)=petrify、必中槍=gae_bolg、" +
+  "秘劍燕返(寶具強化)=tsubame、妄想心音(暗殺致命)=zabaniya、無毀湖光(對龍+)=weapon_steal、不死復活=god_hand、" +
   "破魔(無視神核/續行)=anti_magic_lance、破戒(斬契約救贖)=rule_breaker";
 
 // 清洗 AI 給的技能陣列為 [{n,r,fx}]（fx 不在字典就清空，仍保留為演出用標籤）
