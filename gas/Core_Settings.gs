@@ -236,8 +236,7 @@ function safeWriteSheet(sheet, data) {
   if (oldLastRow > numRows) {
     sheet.deleteRows(numRows + 1, oldLastRow - numRows);
   }
-
-  SpreadsheetApp.flush();
+  // 唯一呼叫端(Router_Narrative)寫完後不再讀回同一表，flush() 純屬多花一次強制 commit，已移除。
 }
 
 // ==========================================

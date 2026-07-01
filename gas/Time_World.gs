@@ -276,6 +276,7 @@ function stampManaDay_(memory, day) {
 }
 function refillMastersDaily_(sheets, gameId, day) {
   var data = sheets.pc.getDataRange().getValues();
+  var dirty = false;
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][COL.PC.FACTION]) !== "敵御主") continue;
     if (String(data[i][COL.PC.GAME_ID] || "") !== gameId) continue;
@@ -284,7 +285,14 @@ function refillMastersDaily_(sheets, gameId, day) {
     var maxMp = parseInt(data[i][COL.PC.MAX_MP]) || 0;
     data[i][COL.PC.MP] = maxMp;
     data[i][COL.PC.MEMORY] = stampManaDay_(data[i][COL.PC.MEMORY], day);
-    sheets.pc.getRange(i + 1, 1, 1, data[i].length).setValues([data[i]]);
+    dirty = true;
+  }
+  // 多名敵御主同天需回魔時，MP/MEMORY 各整欄一次寫回(取代迴圈內逐列 setValues 的零散往返，同 worldTick_ LOC 批寫手法)
+  if (dirty) {
+    var mpCol = [], memCol = [];
+    for (var z = 1; z < data.length; z++) { mpCol.push([data[z][COL.PC.MP]]); memCol.push([data[z][COL.PC.MEMORY]]); }
+    sheets.pc.getRange(2, COL.PC.MP + 1, mpCol.length, 1).setValues(mpCol);
+    sheets.pc.getRange(2, COL.PC.MEMORY + 1, memCol.length, 1).setValues(memCol);
   }
 }
 
