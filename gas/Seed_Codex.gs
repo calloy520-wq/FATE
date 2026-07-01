@@ -175,7 +175,7 @@ var SEED_SERVANTS = [
     traits:[{n:'龍'},{n:'騎士'}], np:'我的憤怒不會退去 Clarent Blood Arthur（對軍 A）',
     align:'混沌・中庸', persona:{firstP:'我',look:'金髮馬尾・銀甲纏紅雷的反逆騎士、粗豪叛逆爭強好勝、自稱「我」・不服輸的粗豪挑釁口吻',words:'叛逆・倔強・渴求認同・反逆之騎',toMaster:'桀驁不馴，認可便死忠',speech:'粗豪叛逆、不服輸、稱亞瑟王「父親」、爭強好勝',moe:'外表狂傲內心渴求父親認同、不肯承認的少女心、死要面子、對「弒父叛逆」的執念與悔',tic:'掀面甲咆哮、紅雷纏劍、別過頭'} },
   { id:'迦爾納-Lancer', cls:'Lancer', realName:'迦爾納', wars:['客串'], gender:'男',
-    six:{筋力:'B',耐久:'A',敏捷:'A',魔力:'B',幸運:'D',寶具:'EX'},
+    six:{筋力:'B',耐久:'C',敏捷:'A',魔力:'D',幸運:'E',寶具:'EX'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'},{n:'騎乘',r:'A',fx:'ride'}],
     skills:[{n:'神性',r:'A',fx:'divine'},{n:'魔力放出（炎）',r:'A',fx:'burst'},{n:'太陽之鎧',r:'A',fx:'divine_core'}],
     traits:[{n:'神性'},{n:'英雄'}], np:'日輪啊化作鎧甲吧 Kavacha and Kundala（不滅黃金鎧）／穿刺死亡之槍 Vasavi Shakti（對神 EX·梵天弒神之槍）／梵天慈悲之槍 Brahmastra',
@@ -199,7 +199,7 @@ var SEED_SERVANTS = [
     traits:[{n:'王'},{n:'人類'}], np:'燃燒吧、世界的盡頭 Aestus Domus Aurea（對軍・黃金劇場）',
     align:'混沌・善', persona:{firstP:'余',look:'金髮綠瞳・紅薔薇綻放的華美皇帝、張揚自信滿溢的熱情、自稱「余」・滿口藝術張揚自信',words:'暴君・自戀・藝術・天真爛漫',toMaster:'熱情張揚，渴望被讚美',speech:'張揚熱情、自稱余、滿口藝術、自信滿溢、愛唱歌',moe:'暴君之名下的純真自戀、對自身美貌與才藝的迷之自信、渴望被愛被讚美、其實非常努力',tic:'振臂高歌、紅薔薇綻放、得意揚眉'} },
   { id:'玉藻前-Caster', cls:'Caster', realName:'玉藻前', wars:['客串'], gender:'女',
-    six:{筋力:'E',耐久:'D',敏捷:'C',魔力:'A',幸運:'A',寶具:'A'},
+    six:{筋力:'E',耐久:'E',敏捷:'B',魔力:'A',幸運:'D',寶具:'A'},
     classSkills:[{n:'陣地作成',r:'A',fx:'territory'},{n:'道具作成',r:'B',fx:'crafting'}],
     skills:[{n:'高速神言',r:'A',fx:'fast_cast'},{n:'變化',r:'A',fx:'shapeshift'},{n:'狐之治癒',r:'A',fx:'rune'}],
     traits:[{n:'神性'},{n:'野獸'}], np:'水天日光天照八野鎮（治癒結界）／八純之鎖',
@@ -271,7 +271,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v25'; // v25：查證原作三修——佐佐木 幸A→E(FSN 無名劍客宿命·引擎讀幸算命中暴擊)、咒腕之哈桑 六圍正回原作(筋B/耐C/魔C/幸E·True Assassin FSN 參數表)、牛若丸 拔掉捏造的神性D(源義經純人類·divine 旗標會誤觸神殺/對神/疫病減傷)→換領袖氣質C·騎乘A→A+。v24：蒼白騎兵 寶具 A→EX(原作 Doomsday Come 是 EX 對界寶具·先前被寫低威力·規模對界原本就對)。v23：修規模盛標(誤標=偷改平衡)——美遊 Excalibur 對界→對城(同阿爾托莉雅·Saber install 同一劍)、賽米拉米斯 空中庭園 對界→對城(TYPE-MOON 設定=對城寶具 EX)。威力(six.寶具)與規模關鍵字兩件事·分開校。
+var CODEX_PERSONA_VER = 'v26'; // v26：續查六圍盛標——迦爾納 耐A→C/魔B→D/幸D→E(Apocrypha 赤Lancer 官方參數·金鎧防禦已由 divine_core fx 模型化·底耐非A)、玉藻前 耐D→E/敏C→B/幸A→D(FGO 官方·幸A屬大幅盛)。v25：查證原作三修——佐佐木 幸A→E(FSN 無名劍客宿命·引擎讀幸算命中暴擊)、咒腕之哈桑 六圍正回原作(筋B/耐C/魔C/幸E·True Assassin FSN 參數表)、牛若丸 拔掉捏造的神性D(源義經純人類·divine 旗標會誤觸神殺/對神/疫病減傷)→換領袖氣質C·騎乘A→A+。v24：蒼白騎兵 寶具 A→EX(原作 Doomsday Come 是 EX 對界寶具·先前被寫低威力·規模對界原本就對)。v23：修規模盛標(誤標=偷改平衡)——美遊 Excalibur 對界→對城(同阿爾托莉雅·Saber install 同一劍)、賽米拉米斯 空中庭園 對界→對城(TYPE-MOON 設定=對城寶具 EX)。威力(six.寶具)與規模關鍵字兩件事·分開校。
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
