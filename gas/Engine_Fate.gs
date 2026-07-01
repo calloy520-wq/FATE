@@ -523,7 +523,8 @@ function resolveFateBattle_(atk, def, opts) {
     if (foeDragon) { base = Math.round(base * 1.5); fired.push(winner.name + '·' + fxName_(winner, 'weapon_steal', '無毀的湖光') + '(對龍解放)'); }
   }
   // 神殺：對有「神性」者最終傷害放大。神性(divine fx 或特性)階級越高 → 越被神殺剋(×1.3~×1.83，依神性階)。
-  var godSlay = (winner.skills || []).concat(winner.traits || []).some(function (t) { return t && String(t.n).indexOf('神殺') >= 0; });
+  //   觸發＝技能帶 fx:'god_slay'(資料驅動·如阿爾喀德斯復仇者) 或 技能/特性名含「神殺」(如斯卡哈)。
+  var godSlay = hasFx_(winner, 'god_slay') || (winner.skills || []).concat(winner.traits || []).some(function (t) { return t && String(t.n).indexOf('神殺') >= 0; });
   var divFx = hasFx_(loser, 'divine');  // 神性 fx 的階級(若有)
   var divTrait = (loser.traits || []).concat(loser.skills || []).filter(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
   var loserDivine = !!divFx || divTrait.length > 0;
