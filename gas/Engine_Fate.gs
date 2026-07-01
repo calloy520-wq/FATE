@@ -29,6 +29,8 @@ function chainVolley_() { var t = 0; for (var i = 0; i < 18; i++) { var r = Math
 //   高位階「進攻概念」可碾壓低位階「防禦概念」——當 攻方進攻階 ≥ 守方防禦階 + PIERCE_GAP 時，該防禦被無視（概念壓制）。
 //   把原本散落各處的 if（破魔無視神核／神代凌駕對魔力…）系統化成一張可擴充的表。
 var CONCEPT_TIER = {
+  // 7｜理想鄉 Avalon：凌駕一切的無敵結界(概念 7 階·專剋 6 階究極寶具)。不入此表跑 pierce 數學——
+  //    以 Router_Battle「敵解放≥6階概念 → Avalon 硬擋(耗100魔)」實現，等同不可被任何概念貫穿。
   // 6｜世界·真理級：斬裂世界，凌駕一切防禦與結界
   ea: 6, enuma: 6, // enuma＝恩奇都 Enuma Elish(天之楔·可匹敵乖離劍)
 

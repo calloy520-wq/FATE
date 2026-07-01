@@ -803,22 +803,22 @@ function actionFateBattle(userData, pcId, sheets) {
             }
           }
         }
-        // 🗡️ 理想鄉·無敵結界（被動自動）：敵本回合解放寶具、目標為阿爾托莉雅(持 Avalon)、且御主純魔 ≥200 →
-        //   Avalon 自動展開無敵結界、完全擋下該發＋扣 200 魔。付不起(如剛放完自己寶具)則結界張不起、照常挨打。
-        //   ★天然取捨：留魔則自動擋、耗魔攻擊則擋不住——不需按鈕。
+        // 🗡️ 理想鄉·無敵結界（被動自動·概念 7 階·專剋 6 階究極寶具）：敵本回合解放【6 階概念寶具】(ea/enuma·
+        //   會碾穿一切防禦·一發足以秒殺)、目標為阿爾托莉雅(持 Avalon)、且御主純魔 ≥100 → Avalon 自動展開無敵結界、
+        //   完全擋下該發＋扣 100 魔。普通寶具(＜6階)不勞理想鄉·靠基本鞘減傷(×0.82)＋六圍扛。付不起 100 魔則張不起。
         let idealBlocked = false;
         if (enemyFireNp) {
           const tgtC0 = rowToCombatant_(pcData[ctgt]); injectMysticBuff_(tgtC0, pcData[pIdx][COL.PC.MEMORY]);
           const mMpNow = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
-          if (hasFx_(tgtC0, 'avalon_saber') && mMpNow >= 200) {
-            pcData[pIdx][COL.PC.MP] = mMpNow - 200;
+          if (hasFx_(tgtC0, 'avalon_saber') && offenseTier_(enemyNow, true) >= 6 && mMpNow >= 100) {
+            pcData[pIdx][COL.PC.MP] = mMpNow - 100;
             sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
             idealBlocked = true;
           }
         }
         if (idealBlocked) {
           rl.eHit = false; rl.eDmg = 0; rl.eNp = true; rl.eTarget = String(pcData[ctgt][COL.PC.NAME]);
-          rl.eFired = [`「${enemyNow.name}」真名解放 vs 「${pcData[ctgt][COL.PC.NAME]}」·理想鄉——Avalon 自動展開隔絕於世界之外的無敵結界，寶具威能盡數湮滅（御主耗 200 魔）`];
+          rl.eFired = [`「${enemyNow.name}」的究極真名解放 vs 「${pcData[ctgt][COL.PC.NAME]}」·理想鄉——Avalon 展開隔絕於世界之外的無敵結界(概念 7 階·凌駕一切)，連斬裂世界的一擊亦盡數湮滅（御主耗 100 魔）`];
         } else {
           // 🎯 敵AI無主動技按鈕→自動施展其招牌施放技術(魔力放出/怪力/投影)，免費(視為其戰鬥本色)——
           //   精確還原「改制前這些是免費被動」的敵方戰力，避免單層歸屬後悄悄削弱敵人(玩家側才改為主動付魔)。
