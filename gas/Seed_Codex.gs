@@ -195,7 +195,7 @@ var SEED_SERVANTS = [
   { id:'尼祿-Saber', cls:'Saber', realName:'尼祿·克勞狄烏斯', wars:['客串'], gender:'女',
     six:{筋力:'D',耐久:'D',敏捷:'A',魔力:'B',幸運:'A',寶具:'B'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
-    skills:[{n:'頭痛宿疾',r:'B',fx:''},{n:'皇帝特權',r:'EX',fx:'survive'},{n:'縱使三度迎來落日',r:'A',fx:'survive'},{n:'領袖氣質（皇帝特權借得）',r:'A',fx:'morale'}],
+    skills:[{n:'頭痛宿疾',r:'B',fx:''},{n:'皇帝特權',r:'EX',fx:'mage_realm'},{n:'縱使三度迎來落日',r:'A',fx:'survive'},{n:'領袖氣質',r:'A',fx:'morale'}],
     traits:[{n:'王'},{n:'人類'}], np:'燃燒吧、世界的盡頭 Aestus Domus Aurea（對軍・黃金劇場）',
     align:'混沌・善', persona:{firstP:'余',look:'金髮綠瞳・紅薔薇綻放的華美皇帝、張揚自信滿溢的熱情、自稱「余」・滿口藝術張揚自信',words:'暴君・自戀・藝術・天真爛漫',toMaster:'熱情張揚，渴望被讚美',speech:'張揚熱情、自稱余、滿口藝術、自信滿溢、愛唱歌',moe:'暴君之名下的純真自戀、對自身美貌與才藝的迷之自信、渴望被愛被讚美、其實非常努力',tic:'振臂高歌、紅薔薇綻放、得意揚眉'} },
   { id:'玉藻前-Caster', cls:'Caster', realName:'玉藻前', wars:['客串'], gender:'女',
@@ -271,7 +271,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v20'; // v20：新增 赫拉克勒斯-Archer(偽聖杯正確版本)＋修正 Berserker np(拿掉狂化下用不到的射殺百頭)
+var CODEX_PERSONA_VER = 'v21'; // v21：尼祿 皇帝特權 改「可選借得技能」(mage_realm·picker)、消掉重複 survive；petrify 標籤中性化
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {

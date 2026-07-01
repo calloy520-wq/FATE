@@ -437,7 +437,7 @@ function resolveFateBattle_(atk, def, opts) {
   // 💋 愛之痣(lovespot／迪盧木多)：魅惑之痣令來犯者一瞬分神，攻方命中 -1(小幅惑亂)
   if (hasFx_(def, 'lovespot')) { aHit -= 1; fired.push(def.name + '·' + fxName_(def, 'lovespot', '愛之痣') + '(惑·敵命中-1)'); }
   // 👁️ 魔眼·石化(petrify／Rider 美杜莎)：以視線鎖死獵物，令對方迴避大減
-  var pet = hasFx_(atk, 'petrify'); if (pet) { dEva -= Math.round(2 * rankMul_(pet)); fired.push(atk.name + '·' + fxName_(atk, 'petrify', '魔眼') + '·石化壓制'); }
+  var pet = hasFx_(atk, 'petrify'); if (pet) { dEva -= Math.round(2 * rankMul_(pet)); fired.push(atk.name + '·' + fxName_(atk, 'petrify', '魔眼') + '·鎖死身法'); }
   // ⛓️ 天之鎖(chain／Gilgamesh)：對「神性」之敵展開冥界鎖鏈，封住身法
   var chn = hasFx_(atk, 'chain'); var defDivine0 = (def.traits || []).concat(def.skills || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
   if (chn && defDivine0) { dEva -= Math.round(6 * rankMul_(chn)); fired.push(atk.name + '·' + fxName_(atk, 'chain', '天之鎖') + '(縛神性)'); }
@@ -553,7 +553,7 @@ function resolveFateBattle_(atk, def, opts) {
     // 🐙 螺湮城教本(summon_horror／青鬍子)：自深淵召出觸手大海怪鋪天蓋地碾壓——救低六圍支援法師的本命一擊(對城規模)
     if (wSig('summon_horror')) { base = Math.round(base * 1.6) + rollDice_(8, 10) + 50; fired.push(winner.name + '·' + fxName_(winner, 'summon_horror', '螺湮城教本') + '(深淵海怪)'); }
     // 🌑 魔眼石化(petrify)致殘
-    if (wSig('petrify')) { base = Math.round(base * 1.3); fired.push(winner.name + '·魔眼·石化貫穿'); }
+    if (wSig('petrify')) { base = Math.round(base * 1.3); fired.push(winner.name + '·' + fxName_(winner, 'petrify', '魔眼') + '·乘隙重創'); }
     // 🌟 乖離劍·天地乖離開闢之星(ea)：概念位階 6，斬裂世界的真理之劍——最高威力，且無視一切防禦概念（下方概念壓制處理）
     if (wSig('ea')) { base = Math.round(base * 1.7) + rollDice_(4, 12) + 80; fired.push(winner.name + '·' + fxName_(winner, 'ea', '乖離劍') + '(天地乖離·真理之劍)'); }
     // 🏰 寶具規模相剋矩陣：對城打對人 ×2.5、對界碾壓常規防禦…（攻擊規模 × 守方防禦規模）。多寶具用所選寶具的尺度。

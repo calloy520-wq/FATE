@@ -1053,8 +1053,8 @@ function renderRecentLocs(recents = null) {
     crafting: m => `道具作成：戰前備妥的暗器／符具於關鍵一擊派上用場，傷害 +${Math.round(8 * m)}。`,
     divine: m => `神性：神裔血脈的證明，階級即神格高低——但「神殺」之敵會依此階放大傷害，受傷最高 ×${Math.min(2.0, 1 + 0.5 * m).toFixed(2)}。`,
     fast_cast: m => `高速詠唱：一回合內連珠疊咒，魔砲彈幕傷害 +${Math.round(12 * m)}。`,
-    mage_realm: () => '魔境的智慧：由御主在從者卡挑選一個通用 A 階被動注入此戰——實際威力依所選的那個被動決定，見已選擇的技能。',
-    petrify: m => `魔眼(石化)：以視線鎖死獵物，令敵迴避 −${Math.round(2 * m)}；寶具解放時石化貫穿，傷害 ×1.3。`,
+    mage_realm: () => '可選借得技能（魔境的智慧／皇帝特權…）：由御主在從者卡挑選一個通用 A 階被動注入此戰——實際威力依所選的那個被動決定，見已選擇的技能。',
+    petrify: m => `鎖死身法（魔眼石化／冰封／疫染等）：鎖死獵物身法，令敵迴避 −${Math.round(2 * m)}；寶具解放時乘隙致命，傷害 ×1.3。`,
     projection: () => '投影魔術（⚡主動技·開關）：詠唱「Trace on」連續投影名劍齊射。🟢開啟＝每戰命中+9、追加大量傷害（每戰耗魔一次）；⚪關閉＝微量版（約3.5成、免費、每擊自動）。點從者卡⚡標籤切換。',
     rho_aias: () => '七天盾・羅・埃亞斯：投影卡帕涅烏斯之盾，七層花瓣硬擋重擊，受傷 ×0.6（唯超位階概念寶具可貫穿）。',
     rune: m => `原初符文：可選三種運用——護符減傷(受傷 ×${(1 - 0.10 * m).toFixed(2)})／符文灼擊增傷(+${Math.round(10 * m)})／涓流回血(每回合約${(2.5 * m).toFixed(1)}%上限HP，上限30)，戰前自選一種。`,
@@ -1256,7 +1256,8 @@ function renderRecentLocs(recents = null) {
         var skillPills = (s.skills || []).map(function (sk) {
           if (sk.fx === 'mage_realm' && s.mageRealm && s.mageRealm.has) {
             var mp = (s.mageRealm.pool || []).filter(function (o) { return o.fx === s.mageRealm.pick; })[0];
-            return selPill('魔境的智慧' + (mp ? '（' + mp.n + ' A）' : ''), 'openMageRealmPicker(\'' + safeN + '\',\'' + (s.mageRealm.pick || '') + '\')');
+            var _mrT = String(sk.n || '魔境的智慧').replace(/'/g, ''); // 🎴 標題用技能自己的名字(斯卡哈=魔境的智慧、尼祿=皇帝特權…)
+            return selPill(sk.n + (mp ? '（' + mp.n + ' A）' : ''), 'openMageRealmPicker(\'' + safeN + '\',\'' + (s.mageRealm.pick || '') + '\',\'' + _mrT + '\')');
           }
           if (sk.fx === 'rune' && typeof s.runeMode === 'string') {
             var rmo = RUNE_MODES_JS.filter(function (o) { return o.mode === (s.runeMode || 'def'); })[0];
@@ -1750,13 +1751,14 @@ function renderRecentLocs(recents = null) {
   ];
 
   // 🔮 魔境的智慧：點標籤→在說明 popup 裡挑 1 門通用 A 階武技；選定後標籤即顯示（如 魔境的智慧（千里眼A））。
-  function openMageRealmPicker(svName, curFx) {
+  function openMageRealmPicker(svName, curFx, title) {
+    var t = title || '魔境的智慧'; // 🎴 各從者顯示自己的技能名(魔境的智慧／皇帝特權…)——同一套「挑1門通用被動」引擎
     var btns = MAGE_POOL_JS.map(function (o) {
       var on = o.fx === curFx;
       return '<button onclick="pickSelectable(\'set_mage_realm\',\'' + svName + '\',{fx:\'' + o.fx + '\'})" style="display:block;width:100%;text-align:left;margin-bottom:6px;padding:9px 11px;border-radius:8px;cursor:pointer;border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + ';background:' + (on ? 'rgba(110,180,220,.25)' : 'rgba(40,50,65,.4)') + ';color:' + (on ? '#bfe3ff' : '#c8d4e0') + ';"><b>' + o.n + ' A</b>' + (on ? '　✓ 運起中' : '') + '<br><small style="color:#9aa6c0;">' + o.d + '</small></button>';
     }).join('');
-    var html = '<h3 style="margin:0 0 6px;color:#9fd0ff;">✨ 魔境的智慧</h3>'
-      + '<div style="color:#cfc3d8;font-size:13px;line-height:1.7;margin-bottom:10px;">影之國女王通曉常見武技——挑選 <b>1 門通用 A 階被動</b>運於己身。選定後此標籤即顯示所運武技，戰鬥即時生效；可隨時更換。</div>'
+    var html = '<h3 style="margin:0 0 6px;color:#9fd0ff;">✨ ' + t + '</h3>'
+      + '<div style="color:#cfc3d8;font-size:13px;line-height:1.7;margin-bottom:10px;">通曉常見武技——挑選 <b>1 門通用 A 階被動</b>運於己身，戰鬥即時生效；可隨時更換。</div>'
       + btns
       + (curFx ? '<button onclick="pickSelectable(\'set_mage_realm\',\'' + svName + '\',{fx:\'\'})" style="display:block;width:100%;padding:8px;margin-top:2px;border-radius:8px;cursor:pointer;border:1px solid #6a4a4a;background:rgba(60,40,40,.4);color:#c08a8a;">✕ 收起武技（清除）</button>' : '');
     showHistoryOverlay(html);
