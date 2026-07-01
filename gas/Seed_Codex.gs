@@ -271,7 +271,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v35'; // v35：瘦寶具補招式意象(AI 敘述由種子保證·不靠模型記性)——Excalibur(阿爾托莉雅/人類 Saber)金色收束光炮、美杜莎 Bellerophon 天馬白光突刺、伊絲塔 An Gugalanna 天牛踏地熔毀、莫德雷德 Clarent Blood Arthur 血色奔雷。show-don't-tell 不受影響(真名照喊·描述仍屬內化素材)。v34：吉爾伽美什 補招牌寶具「全知全能之星 Sha Naqba Imuru」(insight·看穿本質)——命中+4＋看破奇襲(比照氣息感知)·中等被動(他懶得認真開)。v33：恩奇都 Enuma Elish 入 CONCEPT_TIER 6 階(可匹敵乖離劍)——恩奇都改多寶具(Enuma Elish 對界·enuma／Age of Babylon 對軍·gob)；offenseTier_ 根源修(解放寶具自身概念也計入·順修吉爾 Ea 漏吃概念壓制)。v32：蒼白騎兵 對官方面板全面校正——魔EX→A·幸E→C(補上次漏改·官方表=筋E/耐A/敏B/魔A/幸C/寶EX)、騎乘D→EX(乘風水人概念級)＋補對魔力C、技能正名(感染/無辜的世界/冥界的引導)、寶具補第二 Kagome Kagome(對軍A)＋Doomsday Come正名、align 中立中庸。v31：氣息感知升真機制——恩奇都 氣息感知 fx aim→sense；引擎新增 sense：守方階級≥攻方stealth→抵銷敵奇襲的命中先機＋要害一擊(senseNegate 橫跨兩處)。v30：恩奇都補正典技＋寶具正名——寶具真名「天地乖離開闢之星(吉爾的Ea名·掛錯)」→「世人啊冀以鎖繫神明 Enuma Elish」＋民之睿智Age of Babylon；變生→變容(正名)；拔非正典神性A技/trait(他是神造兵器非神裔)→換完全之形A(regen·大地再生)；補氣息感知A+(aim)。變容真·重分配/氣息感知真·破隱形＝引擎級·暫用proxy。v29：赫拉克勒斯(fake)正名為 Avenger·阿爾喀德斯(令咒歪曲·非單純Archer)——捨神性不死性換十二榮光→拔十二試煉(god_hand)、六圍升官方 A/B/A/A/B/A++、職技 對魔力A/復仇者A(god_slay·天生噬神)/單獨行動B、保有 心眼(真)B/勇猛E/戰鬥續行A+、寶具 Nine Lives+十二榮光+天風的篡奪者、persona 改阿爾喀德斯。引擎 god_slay 改 fx 驅動。v28：續補招牌+去矛盾技——赫拉克勒斯Archer 拔矛盾狂化D→心眼(真)A·陣地作成C→對魔力A(弓兵正典職技)、斯卡哈Assassin(泳裝) 氣息遮斷B→E(原作梗)、阿斯托爾福+單獨行動A(solo)、莫德雷德 寶具A→A+(Clarent Blood Arthur 原作威力)。v27：補招牌技標籤(能活用的給真fx)——斯卡哈+神殺(god_slay·對神性放大·引擎讀名觸發)、理查+獅子心(clear_mind)、阿基里斯+女神的寵愛(divine_core常駐減傷·冥河淬體)、莫德雷德+戰鬥續行(survive)、賽彌拉米斯+二重召喚(double_summon·金羊毛式無數值標籤)。v26：續查六圍盛標——迦爾納 耐A→C/魔B→D/幸D→E(Apocrypha 赤Lancer 官方參數·金鎧防禦已由 divine_core fx 模型化·底耐非A)、玉藻前 耐D→E/敏C→B/幸A→D(FGO 官方·幸A屬大幅盛)。v25：查證原作三修——佐佐木 幸A→E(FSN 無名劍客宿命·引擎讀幸算命中暴擊)、咒腕之哈桑 六圍正回原作(筋B/耐C/魔C/幸E·True Assassin FSN 參數表)、牛若丸 拔掉捏造的神性D(源義經純人類·divine 旗標會誤觸神殺/對神/疫病減傷)→換領袖氣質C·騎乘A→A+。v24：蒼白騎兵 寶具 A→EX(原作 Doomsday Come 是 EX 對界寶具·先前被寫低威力·規模對界原本就對)。v23：修規模盛標(誤標=偷改平衡)——美遊 Excalibur 對界→對城(同阿爾托莉雅·Saber install 同一劍)、賽米拉米斯 空中庭園 對界→對城(TYPE-MOON 設定=對城寶具 EX)。威力(six.寶具)與規模關鍵字兩件事·分開校。
+var CODEX_PERSONA_VER = 'v36'; // v36：英靈殿孤兒自動收斂——upgradeCodexPersonas_ 改為「ID 不在 SEED_SERVANTS 且 來源≠ai_gen」即刪(取代手動 OBSOLETE 名單)，一次清掉 pre-v29 殘留的「赫拉克勒斯-Archer」等舊列(奇怪的阿恰b叔)；AI 原創不動。v35：瘦寶具補招式意象(AI 敘述由種子保證·不靠模型記性)——Excalibur(阿爾托莉雅/人類 Saber)金色收束光炮、美杜莎 Bellerophon 天馬白光突刺、伊絲塔 An Gugalanna 天牛踏地熔毀、莫德雷德 Clarent Blood Arthur 血色奔雷。show-don't-tell 不受影響(真名照喊·描述仍屬內化素材)。v34：吉爾伽美什 補招牌寶具「全知全能之星 Sha Naqba Imuru」(insight·看穿本質)——命中+4＋看破奇襲(比照氣息感知)·中等被動(他懶得認真開)。v33：恩奇都 Enuma Elish 入 CONCEPT_TIER 6 階(可匹敵乖離劍)——恩奇都改多寶具(Enuma Elish 對界·enuma／Age of Babylon 對軍·gob)；offenseTier_ 根源修(解放寶具自身概念也計入·順修吉爾 Ea 漏吃概念壓制)。v32：蒼白騎兵 對官方面板全面校正——魔EX→A·幸E→C(補上次漏改·官方表=筋E/耐A/敏B/魔A/幸C/寶EX)、騎乘D→EX(乘風水人概念級)＋補對魔力C、技能正名(感染/無辜的世界/冥界的引導)、寶具補第二 Kagome Kagome(對軍A)＋Doomsday Come正名、align 中立中庸。v31：氣息感知升真機制——恩奇都 氣息感知 fx aim→sense；引擎新增 sense：守方階級≥攻方stealth→抵銷敵奇襲的命中先機＋要害一擊(senseNegate 橫跨兩處)。v30：恩奇都補正典技＋寶具正名——寶具真名「天地乖離開闢之星(吉爾的Ea名·掛錯)」→「世人啊冀以鎖繫神明 Enuma Elish」＋民之睿智Age of Babylon；變生→變容(正名)；拔非正典神性A技/trait(他是神造兵器非神裔)→換完全之形A(regen·大地再生)；補氣息感知A+(aim)。變容真·重分配/氣息感知真·破隱形＝引擎級·暫用proxy。v29：赫拉克勒斯(fake)正名為 Avenger·阿爾喀德斯(令咒歪曲·非單純Archer)——捨神性不死性換十二榮光→拔十二試煉(god_hand)、六圍升官方 A/B/A/A/B/A++、職技 對魔力A/復仇者A(god_slay·天生噬神)/單獨行動B、保有 心眼(真)B/勇猛E/戰鬥續行A+、寶具 Nine Lives+十二榮光+天風的篡奪者、persona 改阿爾喀德斯。引擎 god_slay 改 fx 驅動。v28：續補招牌+去矛盾技——赫拉克勒斯Archer 拔矛盾狂化D→心眼(真)A·陣地作成C→對魔力A(弓兵正典職技)、斯卡哈Assassin(泳裝) 氣息遮斷B→E(原作梗)、阿斯托爾福+單獨行動A(solo)、莫德雷德 寶具A→A+(Clarent Blood Arthur 原作威力)。v27：補招牌技標籤(能活用的給真fx)——斯卡哈+神殺(god_slay·對神性放大·引擎讀名觸發)、理查+獅子心(clear_mind)、阿基里斯+女神的寵愛(divine_core常駐減傷·冥河淬體)、莫德雷德+戰鬥續行(survive)、賽彌拉米斯+二重召喚(double_summon·金羊毛式無數值標籤)。v26：續查六圍盛標——迦爾納 耐A→C/魔B→D/幸D→E(Apocrypha 赤Lancer 官方參數·金鎧防禦已由 divine_core fx 模型化·底耐非A)、玉藻前 耐D→E/敏C→B/幸A→D(FGO 官方·幸A屬大幅盛)。v25：查證原作三修——佐佐木 幸A→E(FSN 無名劍客宿命·引擎讀幸算命中暴擊)、咒腕之哈桑 六圍正回原作(筋B/耐C/魔C/幸E·True Assassin FSN 參數表)、牛若丸 拔掉捏造的神性D(源義經純人類·divine 旗標會誤觸神殺/對神/疫病減傷)→換領袖氣質C·騎乘A→A+。v24：蒼白騎兵 寶具 A→EX(原作 Doomsday Come 是 EX 對界寶具·先前被寫低威力·規模對界原本就對)。v23：修規模盛標(誤標=偷改平衡)——美遊 Excalibur 對界→對城(同阿爾托莉雅·Saber install 同一劍)、賽米拉米斯 空中庭園 對界→對城(TYPE-MOON 設定=對城寶具 EX)。威力(six.寶具)與規模關鍵字兩件事·分開校。
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
@@ -295,11 +295,12 @@ function upgradeCodexPersonas_(ss) {
     hero.getRange(hero.getLastRow() + 1, 1, addRows.length, addRows[0].length).setValues(addRows);
     n += addRows.length;
   }
-  // 🧹 淘汰名單：種子改名/汰換後，精準刪掉指定的舊種子列(只刪 hard-code 的已知舊 ID，
-  //    絕不碰 AI 原創從者——英靈殿也存 recordOriginalHero_ 寫回的原創)。由下往上刪避免位移。
-  var OBSOLETE_HERO_IDS = { '把臂之哈桑-Assassin': 1, '靜謐的哈桑-Assassin': 1 };
+  // 🧹 淘汰孤兒（根源自動收斂·取代舊 hard-code OBSOLETE 名單）：種子改名/汰換後，英靈殿殘留的
+  //    舊種子列（ID 已不在 SEED_SERVANTS）自動清除——【只刪種子來源】(來源欄≠'ai_gen')，
+  //    AI 原創(recordOriginalHero_ 寫 'ai_gen') 一律不碰。由下往上刪避免位移。
+  //    （例：pre-v29 的「赫拉克勒斯-Archer」舊列、把臂/靜謐之哈桑等，都會在此一次收乾淨。）
   for (var j = d.length - 1; j >= 1; j--) {
-    if (OBSOLETE_HERO_IDS[String(d[j][COL.HERO.ID])]) { hero.deleteRow(j + 1); n++; }
+    if (!byId[String(d[j][COL.HERO.ID])] && String(d[j][COL.HERO.SOURCE]) !== 'ai_gen') { hero.deleteRow(j + 1); n++; }
   }
   return n;
 }

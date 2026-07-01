@@ -106,16 +106,17 @@
     <div id="step-summon" style="display:none; width:320px;">
       <p style="text-align:center; color:var(--gold-accent); font-size:16px; font-weight:bold; margin-bottom:4px;">📿 召喚從者</p>
       <p style="text-align:center; color:#816e54; font-size:12px; margin:0 0 10px;">選擇職階，從英靈殿挑選與你締約的英靈：</p>
-      <div id="summon-class-grid" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-bottom:8px;">
-        <button type="button" class="btn summon-cls" data-cls="Saber" onclick="selectSummonClass('Saber')">⚔️ Saber</button>
-        <button type="button" class="btn summon-cls" data-cls="Archer" onclick="selectSummonClass('Archer')">🏹 Archer</button>
-        <button type="button" class="btn summon-cls" data-cls="Lancer" onclick="selectSummonClass('Lancer')">🔱 Lancer</button>
-        <button type="button" class="btn summon-cls" data-cls="Rider" onclick="selectSummonClass('Rider')">🐎 Rider</button>
-        <button type="button" class="btn summon-cls" data-cls="Caster" onclick="selectSummonClass('Caster')">📖 Caster</button>
-        <button type="button" class="btn summon-cls" data-cls="Assassin" onclick="selectSummonClass('Assassin')">🗡️ Assassin</button>
-        <button type="button" class="btn summon-cls" data-cls="Berserker" onclick="selectSummonClass('Berserker')" style="grid-column:1 / span 2;">💢 Berserker</button>
-        <button type="button" class="btn summon-cls" data-cls="__all__" onclick="selectSummonClass('__all__')">📜 全部</button>
+      <!-- 🎴 七正職階：等寬不換行、flex 置中（第 7 個 Berserker 自動置中），全部按鈕獨立拉出 -->
+      <div id="summon-class-grid" style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:8px;">
+        <button type="button" class="btn summon-cls" data-cls="Saber" onclick="selectSummonClass('Saber')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">⚔️ Saber</button>
+        <button type="button" class="btn summon-cls" data-cls="Archer" onclick="selectSummonClass('Archer')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🏹 Archer</button>
+        <button type="button" class="btn summon-cls" data-cls="Lancer" onclick="selectSummonClass('Lancer')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🔱 Lancer</button>
+        <button type="button" class="btn summon-cls" data-cls="Rider" onclick="selectSummonClass('Rider')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🐎 Rider</button>
+        <button type="button" class="btn summon-cls" data-cls="Caster" onclick="selectSummonClass('Caster')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">📖 Caster</button>
+        <button type="button" class="btn summon-cls" data-cls="Assassin" onclick="selectSummonClass('Assassin')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🗡️ Assassin</button>
+        <button type="button" class="btn summon-cls" data-cls="Berserker" onclick="selectSummonClass('Berserker')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">💢 Berserker</button>
       </div>
+      <button type="button" class="btn summon-cls" data-cls="__all__" onclick="selectSummonClass('__all__')" style="width:100%; box-sizing:border-box; margin-bottom:8px; padding:9px; font-size:13px; border-color:#9a7b4f; color:#c9a86a; border-style:dashed;">📜 瀏覽全部英靈殿（含 Avenger 等特殊職階）</button>
       <div id="hero-list" style="max-height:190px; overflow-y:auto; margin:6px 0; padding:4px; background:rgba(0,0,0,0.18); border:1px solid rgba(212,175,55,0.25); border-radius:6px;">
         <p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">↑ 選一個職階，或按「全部」瀏覽整個英靈殿</p>
       </div>
