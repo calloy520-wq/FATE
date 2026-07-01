@@ -101,11 +101,11 @@ function npAtkScale_(c) {
   if (/對神/.test(np)) return '對神';   // 弒神寶具(梵天弒神之槍等)：不入規模矩陣，傷害計算特判
   return '對人';
 }
-// 防禦規模：海怪召喚(summon_horror)／城牆防禦(wall_def)＝對城防；陣地作成(territory)＝對軍防；其餘對人防。
+// 防禦規模表(對稱 npAtkScale_)：依 fx 定 NP 防禦規模，餵 NP_SCALE_MATRIX。優先序＝陣列順序(對城優先於對軍)。
 //   ★固有結界(ubw)是進攻型 NP，NP 防禦由 rho_aias 機制承擔；divine_core/god_hand 各有自己的機制——均不疊加防禦規模。
+var DEF_SCALE_ = [['summon_horror', '對城'], ['wall_def', '對城'], ['territory', '對軍']];
 function npDefScale_(c) {
-  if (hasFx_(c, 'summon_horror') || hasFx_(c, 'wall_def')) return '對城';
-  if (hasFx_(c, 'territory')) return '對軍';
+  for (var i = 0; i < DEF_SCALE_.length; i++) { if (hasFx_(c, DEF_SCALE_[i][0])) return DEF_SCALE_[i][1]; }
   return '對人';
 }
 // 令咒緊急脫離的落點：隨機挑一個非約會型的冬木地點（≠ 當前地）
@@ -240,6 +240,32 @@ function fxDmgApply_(base, winner, loser, fx, fired) {
   if (e.dmgMul != null) base = Math.round(base * skillFxVal_(e.dmgMul, r, winner));
   if (e.dmgAdd != null) { var a = Math.round(skillFxVal_(e.dmgAdd, r, winner)); if (a) base += a; }
   if (!e.silent) fired.push(winner.name + '·' + fxName_(winner, fx, e.zh) + (e.note || ''));
+  return base;
+}
+
+// 🛡 防禦 fx 格式表（2026-07 資料驅動·對稱 SKILL_FX_）：敗方持有 → 傷害 ×mul，除非被概念貫穿(pierces(pierceKey))／
+//   破魔(alsoPiercedByFx)／魔術穿透(physicalOnly 時 atkMagic)。骰子彈幕/必中/復活等仍明碼(不進表)。欄位：
+//     mul＝減傷乘子(數字或 r=>..)｜pierceKey＝概念貫穿判定的防禦概念名｜zh/note＝fired 標籤｜
+//     physicalOnly＝僅擋物理(魔術系穿透)｜alsoPiercedByFx＝此攻方 fx 亦無視此防禦｜
+//     piercedMsg＝被貫穿時推的訊息 fn(winner)→string(無則靜默)｜guardPositive＝base>0 才推套用標籤。
+var DEF_FX_ = {
+  territory: { mul: 0.74, zh: '陣地', note: '·魔術防壁', pierceKey: 'territory', guardPositive: true, piercedMsg: function (w) { return w.name + '·概念壓制(碾穿結界)'; } },
+  rho_aias: { mul: 0.60, zh: '七天盾', note: '(羅·埃亞斯·七層花瓣)', pierceKey: 'rho_aias' },
+  divine_core: { mul: function (r) { return 1 - 0.18 * r; }, zh: '神核', pierceKey: 'divine_core', alsoPiercedByFx: 'anti_magic_lance', piercedMsg: function (w) { return w.name + '·' + (hasFx_(w, 'anti_magic_lance') ? '破魔(無視神核)' : '概念壓制(無視神核)'); } },
+  wall_def: { mul: 0.82, zh: '城牆防禦', note: '(物理減傷18%)', pierceKey: 'territory', physicalOnly: true }
+};
+// 🛡 套用防禦減傷（敗方持有 fx 時）：pierces＝概念貫穿判定函式；atkMagic＝本擊是否魔術系。回新 base。
+function fxDefApply_(base, loser, winner, fx, pierces, atkMagic, fired) {
+  var e = DEF_FX_[fx], rk = e && hasFx_(loser, fx);
+  if (!e || !rk) return base;
+  if (e.physicalOnly && atkMagic) return base; // 魔術系攻擊穿透物理牆·無減傷無訊息
+  if (pierces(e.pierceKey) || (e.alsoPiercedByFx && hasFx_(winner, e.alsoPiercedByFx))) {
+    if (e.piercedMsg) fired.push(e.piercedMsg(winner)); // 被貫穿/破魔→減傷失效
+    return base;
+  }
+  var m = (typeof e.mul === 'function') ? e.mul(rankMul_(rk)) : e.mul;
+  var pre = base; base = Math.round(base * m);
+  if (!e.guardPositive || pre > 0) fired.push(loser.name + '·' + fxName_(loser, fx, e.zh) + (e.note || ''));
   return base;
 }
 
@@ -557,10 +583,9 @@ function resolveFateBattle_(atk, def, opts) {
   // 守方減傷：耐久（階級）
   base -= Math.round(rankVal(loser.six["耐久"]) / 2);
   // 🛡️ 陣地作成(territory)：法師以魔術防壁／結界減傷，補償其低耐久（救玻璃大砲美狄亞的存活）
-  if (hasFx_(loser, 'territory') && !pierces('territory')) { var _bPre = base; base = Math.round(base * 0.74); if (_bPre > 0) fired.push(loser.name + '·' + fxName_(loser, 'territory', '陣地') + '·魔術防壁'); }
-  else if (hasFx_(loser, 'territory')) { fired.push(winner.name + '·概念壓制(碾穿結界)'); }
+  base = fxDefApply_(base, loser, winner, 'territory', pierces, atkMagic, fired);
   // 🛡️ 七天盾·羅·埃亞斯(rho_aias／EMIYA)：投影卡帕涅烏斯之盾，七層花瓣硬擋重擊；遭超位階概念(ea等)貫穿則失效
-  if (hasFx_(loser, 'rho_aias') && !pierces('rho_aias')) { base = Math.round(base * 0.6); fired.push(loser.name + '·' + fxName_(loser, 'rho_aias', '七天盾') + '(羅·埃亞斯·七層花瓣)'); }
+  base = fxDefApply_(base, loser, winner, 'rho_aias', pierces, atkMagic, fired);
   // 🦠 對瘟疫抗性：攻方為「疫病」(蒼白騎兵)時，守方持高魔抗(對魔力≥B·詛咒防護)或神性(神之加護)者抵抗疾病，傷害減半。
   //   ★唯「病死宿命」之敵(恩奇都)不適用——其宿命之死無可逃避(上方已 ×3 概念碾壓)。
   if (!plagueDoom && (winner.traits || []).some(function (t) { return t && /疫病/.test(String(t.n)); })) {
@@ -574,9 +599,7 @@ function resolveFateBattle_(atk, def, opts) {
   var rnW = hasFx_(winner, 'rune');
   if (rnW && winner.runeMode === 'dmg') { base += Math.round(10 * rankMul_(rnW)); fired.push(winner.name + '·' + fxName_(winner, 'rune', '原初符文') + '(符文灼擊·增傷)'); }
   // 神核(divine_core)：減傷 18%×階級；但破魔薔薇(anti_magic_lance)等高位階概念無視神核護甲
-  var dc = hasFx_(loser, 'divine_core');
-  if (dc && (hasFx_(winner, 'anti_magic_lance') || pierces('divine_core'))) { fired.push(winner.name + '·' + (hasFx_(winner, 'anti_magic_lance') ? '破魔(無視神核)' : '概念壓制(無視神核)')); }
-  else if (dc) { base = Math.round(base * (1 - 0.18 * rankMul_(dc))); fired.push(loser.name + '·' + fxName_(loser, 'divine_core', '神核')); }
+  base = fxDefApply_(base, loser, winner, 'divine_core', pierces, atkMagic, fired);
   // 對魔力(nullify_magic)：攻方為魔術系(法師魔砲/魔力放出/神代)時大減魔術傷。
   //   ★原作精髓：A 階對魔力幾乎無視現代魔術——Saber 對 Caster 的魔砲僅如清風拂面。
   //   但神代魔術(神祖之術)凌駕現代對魔力＝完全無視(美狄亞的本領)；概念壓制亦無視。
@@ -599,8 +622,7 @@ function resolveFateBattle_(atk, def, opts) {
     fired.push(loser.name + '·' + fxName_(loser, 'nullify_magic', '對魔力') + (daWin ? '(神代凌駕·殘三成)' : (nmV >= 50 ? '(無視魔術)' : '')));
   }
   // 🧱 城牆防禦(wall_def)：法師以魔術城牆隔絕物理衝擊，補償 Caster 低耐久（僅擋物理；魔術系傷害穿透）
-  var wdL = hasFx_(loser, 'wall_def');
-  if (wdL && !atkMagic && !pierces('territory')) { base = Math.round(base * 0.82); fired.push(loser.name + '·' + fxName_(loser, 'wall_def', '城牆防禦') + '(物理減傷18%)'); }
+  base = fxDefApply_(base, loser, winner, 'wall_def', pierces, atkMagic, fired);
   // ✨ 禮裝被動加持·承受寶具減傷（如全世界之鞘 ×0.82／月靈髓液攻防一體 ×0.88）：被動恆常生效，不受概念壓制
   var mcLose = mcCombatFx_(loser);
   if (mcLose && opts.np && mcLose.npDefMul && mcLose.npDefMul !== 1) { base = Math.round(base * mcLose.npDefMul); fired.push(loser.name + '·禮裝「' + mcLose.label + '」(寶具減傷×' + mcLose.npDefMul + ')'); }
