@@ -431,25 +431,58 @@ function renderRecentLocs(recents = null) {
         + '<button onclick="breakAlliance(\'' + sa + '\')" style="flex:1; min-width:80px; font-size:11.5px; padding:7px; background:rgba(165,42,42,.18); color:#e08a8a; border:1px solid #a05050; border-radius:7px; cursor:pointer; font-weight:bold;">💔 撕毀盟約</button>';
       h += card(String(a.name), 'rgba(90,170,120,.5)', 'rgba(20,45,28,.25)', title, acts);
     });
-    // ⚔️ 敵蹤卡
-    foes.forEach(f => {
+    // ⚔️ 敵蹤：御主↔從者【成對並列】(a御主 a從者 / b御主 b從者)。收合＝兩欄精簡標籤(長名省略號)；點該格→其行動整排全寬攤開、按鈕不擠。
+    const foeMasters = foes.filter(f => f.faction === '敵御主');
+    const foeServs = foes.filter(f => f.faction === '敵從者');
+    // 精簡標籤(可點收合/展開)：御主紫框、從者紅框(展開時鑲金)。長名 ellipsis 省略、不撐爆欄。
+    const foeChip = (f) => {
+      const open = isOpen(String(f.name));
+      const sk = String(f.name).replace(/'/g, '');
+      const isM = (f.faction === '敵御主');
+      const accent = isM ? 'rgba(160,48,122,.6)' : (open ? '#d4af37' : 'rgba(165,42,42,.6)');
+      const bg = isM ? 'rgba(40,16,34,.28)' : 'rgba(50,18,18,.24)';
+      const col = isM ? '#e8b0d8' : '#e8b0b0';
+      const cls = (!isM && f.intelCls) ? (' <small style="color:#8fd0a0;opacity:.85;font-weight:normal;">〔' + f.intelCls + '〕</small>') : '';
+      return '<button onclick="toggleWarTarget(\'' + sk + '\')" style="border:1px solid ' + accent + '; background:' + bg + '; border-radius:9px; padding:7px 8px; display:flex; align-items:center; gap:4px; cursor:pointer; color:' + col + '; font-family:inherit; font-size:12px; font-weight:bold; text-align:left; min-width:0;">'
+        + '<span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;">' + (isM ? '🎭 ' : '⚔️ ') + f.name + cls + '</span>'
+        + '<span style="margin-left:auto; opacity:.55; font-size:11px; flex-shrink:0;">' + (open ? '▴' : '▾') + '</span>'
+        + '</button>';
+    };
+    // 空位占位(御主已無從者／從者已無主)
+    const foeGhost = (txt) => '<div style="border:1px dashed rgba(120,70,80,.4); border-radius:9px; padding:7px 8px; color:#8a6a72; font-size:11px; display:flex; align-items:center; justify-content:center; text-align:center;">' + txt + '</div>';
+    // 展開後的行動面板(grid-column:1/-1 整排全寬)
+    const foePanel = (f) => {
+      if (!isOpen(String(f.name))) return '';
       const safe = String(f.name).replace(/'/g, '');
+      let acts;
       if (f.faction === '敵御主') {
-        const title = '<span style="color:#e8b0d8; font-size:13px; font-weight:bold;">🎭 敵御主 ' + f.name + '</span> <small style="color:#e8b0d8; opacity:.55;">刺殺須擲20</small>';
-        let acts = '<button onclick="servantStrike(\'' + safe + '\', false, false, true)" style="flex:1 0 100%; font-size:13px; padding:9px; background:linear-gradient(90deg,rgba(120,30,90,.32),rgba(80,20,60,.18)); color:#e8b0d8; border:1px solid #a0307a; border-radius:8px; cursor:pointer; font-weight:bold;">🗡️ 刺殺御主 <small style="opacity:.65;">須護衛盡除或擲20</small></button>'
+        acts = '<button onclick="servantStrike(\'' + safe + '\', false, false, true)" style="flex:1 0 100%; font-size:13px; padding:9px; background:linear-gradient(90deg,rgba(120,30,90,.32),rgba(80,20,60,.18)); color:#e8b0d8; border:1px solid #a0307a; border-radius:8px; cursor:pointer; font-weight:bold;">🗡️ 刺殺御主 <small style="opacity:.65;">須護衛盡除或擲20</small></button>'
           + '<button onclick="proposeAlliance(\'' + safe + '\')" title="交涉結盟：暫時休兵互不侵犯（成敗由對方性格與戰局而定）" style="flex:1 0 100%; font-size:12.5px; padding:8px; background:rgba(90,170,120,.14); color:#8fd0a0; border:1px solid #4ea56a; border-radius:8px; cursor:pointer; font-weight:bold;">🤝 交涉結盟</button>';
-        h += card(String(f.name), 'rgba(160,48,122,.5)', 'rgba(40,16,34,.25)', title, acts);
       } else {
-        const title = '<span style="color:#e8b0b0; font-size:13px; font-weight:bold;">⚔️ 敵從者 ' + f.name + '</span>' + (f.intelCls ? ' <small style="color:#8fd0a0; opacity:.85;">〔' + f.intelCls + '·通報〕</small>' : '');
-        let acts = '<button onclick="servantStrike(\'' + safe + '\', false)" title="' + st.hint + '" style="flex:2; min-width:110px; font-size:12.5px; padding:8px 4px; background:linear-gradient(90deg,rgba(' + st.rgb + ',.34),rgba(' + st.rgb + ',.16)); color:' + st.col + '; border:1px solid rgb(' + st.rgb + '); border-radius:7px; cursor:pointer; font-weight:bold;">' + st.emo + ' ' + st.name + '</button>'
+        acts = '<button onclick="servantStrike(\'' + safe + '\', false)" title="' + st.hint + '" style="flex:2; min-width:110px; font-size:12.5px; padding:8px 4px; background:linear-gradient(90deg,rgba(' + st.rgb + ',.34),rgba(' + st.rgb + ',.16)); color:' + st.col + '; border:1px solid rgb(' + st.rgb + '); border-radius:7px; cursor:pointer; font-weight:bold;">' + st.emo + ' ' + st.name + '</button>'
           + '<button onclick="servantStrike(\'' + safe + '\', true)" title="解放寶具" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(212,175,55,.15); color:#e7c873; border:1px solid #d4af37; border-radius:7px; cursor:pointer; font-weight:bold;">💥 寶具</button>'
           + '<button onclick="servantStrike(\'' + safe + '\', false, true)" title="令咒・絕對命令（必中）" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(176,108,208,.15); color:#c79be8; border:1px solid #b06cd0; border-radius:7px; cursor:pointer; font-weight:bold;">❖ 令咒</button>';
-          // ⚡ 主動技已改「開關制」(點從者卡的青色⚡標籤切換 ON/OFF)，不再是戰場按鈕——開啟時每次攻擊自動全效發動。
         if (myCanRB && myServants.length < 2 && myMasterSeals > 0) {
           acts += '<button onclick="ruleBreakSteal(\'' + safe + '\')" title="破戒奪僕：對打殘(HP<35%)的敵從者斬契奪為第二從者，燃一道令咒" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(176,108,208,.16); color:#d0a0e8; border:1px solid #8a5fb0; border-radius:7px; cursor:pointer; font-weight:bold;">⛓ 破戒奪僕 <small style="opacity:.7;">須打殘至35%＋燃令咒</small></button>';
         }
-        h += card(String(f.name), 'rgba(165,42,42,.5)', 'rgba(50,18,18,.22)', title, acts);
       }
+      return '<div style="grid-column:1 / -1; padding:5px 2px 2px; display:flex; gap:5px; flex-wrap:wrap;">' + acts + '</div>';
+    };
+    // 成對：每個御主配其硬連結從者(f.master/f.servant)；一列＝一組 2 欄 grid
+    const usedSv = {};
+    foeMasters.forEach(m => {
+      const sv = foeServs.find(s => !usedSv[s.name] && (s.master === m.name || m.servant === s.name));
+      if (sv) usedSv[sv.name] = 1;
+      h += '<div style="flex:1 0 100%; display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-bottom:5px;">'
+        + foeChip(m) + (sv ? foeChip(sv) : foeGhost('（已無從者）'))
+        + foePanel(m) + (sv ? foePanel(sv) : '')
+        + '</div>';
+    });
+    // 無主從者(其主已殞)：從者左格、右格標示
+    foeServs.filter(s => !usedSv[s.name]).forEach(s => {
+      h += '<div style="flex:1 0 100%; display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-bottom:5px;">'
+        + foeChip(s) + foeGhost('（其主已殞）') + foePanel(s)
+        + '</div>';
     });
     if (!foes.length && !allies.length) h += '<div style="flex:1 0 100%; text-align:center; color:#6a5f80; font-size:11.5px; padding:1px 0 5px;">此地暫無敵蹤——可偵查、補魔整備，或往地圖移動</div>';
     // 底部固定行動（永遠可見）：💧補魔／💕羈絆 在左側狀態面板，此列只留戰場即時行動
