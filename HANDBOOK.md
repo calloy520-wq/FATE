@@ -61,7 +61,8 @@ CLK(時鐘): GAME_ID0 DAY1 HOUR2 AP3
 | 檔 | 行 | 用途 | 關鍵物 |
 |---|---|---|---|
 | **Router_Action.gs** | 3932 | 後端總分流器＋幾乎所有 solo action | `handleGameAction`(dispatch)、`actionFateBattle`、`fateStrike_`、`actionMove/Rest/Scout`、`actionManaSupply`、`actionBond`、`actionRuleBreakSteal`、`buildClientState_`、`actionPlay`(AI敘事)、大量 MEMORY 存取器 |
-| **Script.html** | 3260 | 全部前端 SPA（單一 `<script>`） | `gasRun`/`syncData`/`applyClientState`、`servantStrike`/`renderFateBattleReport`、`refreshFateTags`/`bar`/`horrorBar`、`renderMapPane`/`buildMapSvg_`、創角召喚流程 |
+| **Script.html** | ~3100 | 前端 SPA 核心（solo 主體＋共用機制） | `gasRun`/`syncData`/`applyClientState`、`servantStrike`/`renderFateBattleReport`、`refreshFateTags`/`bar`/`horrorBar`、`renderMapPane`/`buildMapSvg_`、創角召喚流程、`applyModeUI`(兩軌切換總開關) |
+| **Script_Kanshou.html** | ~150 | 前端 SPA·鑑賞(慾海)專屬(2026-07 從 Script.html 拆出) | `enterKanshou`/`openCompanions`/`kanshouAdd`/`kanshouRemove`/`changeKanshouName`/`changeKanshouSex`/`askKanshouSex`/`askKanshouSetup`。與 Script.html 共享同一頁面全域作用域(見 §4.1) |
 | **Engine_Fate.gs** | 564 | 純數值戰鬥核心（D20+六圍+fx+寶具） | `resolveFateBattle_`、`rowToCombatant_`、`npAtkScale_/npDefScale_`、`NP_SCALE_MATRIX`、`CONCEPT_TIER`、`servantActiveSkill_`、`servantNpOptions_` |
 | **Core_Settings.gs** | 422 | 金鑰/COL schema/六圍換算/狀態封裝/地理雷達 | `COL`、`rankVal`、`fateMaxHpMp_`/`masterMaxHpMp_`/`masterPoolMax_`、`outputTier_`、`masterSynergySix_`、`getLocalPeopleList`、`buildPlayerStatusString` |
 | **Gallery.gs** | 430 | 奪杯→封存→慾海管線（NSFW軌資料層） | `actionClaimGrail`、`actionEnterKanshou`、`actionKanshou*`、`purgeGameData_`、`getKanshouPcSheet_` |
@@ -75,6 +76,21 @@ CLK(時鐘): GAME_ID0 DAY1 HOUR2 AP3
 | **Index.html** | 414 | HTML 進入殼＋各屏 div | `#setup`/`#game` 兩容器、創角召喚各屏 ID、雙軌入口卡片 |
 | **History_Sync.gs** | 153 | 對話歷史暫存＋因果分級保留 | `saveGameHistoryBatch`、`getGameHistory`、`pickRelevantLogs`、`IMPORTANT_LOG_TAGS` |
 | **Mystic_Code.gs** | 130 | 禮裝系統（2026-06 全面被動化） | `MYSTIC_CODES`、`MC_COMBAT_`、`injectMysticBuff_`/`mcCombatFx_`、`rollMysticForMaster_` |
+
+### 4.1 檔案拆分慣例（2026-07 定案·未來新增檔案照這個模式，別重新發明）
+
+**為什麼能拆**：GAS 的 `.gs` 檔全部共用一個全域作用域（沒有 import/module，任何檔案的函數/變數對其他檔案都是全域可見）；`.html` 檔則靠 `doGet()` 的 `HtmlService.createTemplateFromFile('Index').evaluate()` 模板引擎，用 `<?!= HtmlService.createHtmlOutputFromFile('X').getContent(); ?>` 把多個檔案的內容**依序拼接進同一個網頁**——多個 `<script>` 區塊在同一頁面仍共享同一個 `window` 全域作用域。**結論：怎麼切檔案都不影響執行期行為，純粹是給人看的組織方式**，可以放手拆、不必擔心「切錯會不會執行不到」。
+
+**命名慣例**：`<領域>_<子概念>.gs` / `Script_<子概念>.html`（如 `Seed_Codex.gs`、`Engine_Fate.gs`、`Script_Kanshou.html`）。**拆分準則**：
+- 兩軌（solo/kanshou）分岔的功能——各自一個檔，別混在共用檔裡（範例：`Gallery.gs` 本就是鑑賞後端專屬；`Script_Kanshou.html` 是鑑賞前端專屬）。
+- 一個檔案裝不下的「單一大關注點」（戰鬥引擎、種子資料、時間經濟）各自一個檔，不要塞進總路由。
+- **共用機制留在核心檔**（`gasRun`/`syncData`/`applyModeUI` 等兩軌都要用的東西），別跟著業務邏輯搬走。
+
+**驗證鐵則**：
+1. `.gs` 新檔／搬移函數後跑 `bash check.sh`——它會**自動掃描 `gas/*.gs` 全部檔案**，新增檔案零額外設定。
+2. `.html` 新檔若含 `<script>`，**檔名開頭要接在 `Script` 之後**（如 `Script_XXX.html`）——`check.sh` 用萬用比對 `gas/Script*.html`，自動抓到並用「去頭尾 `<script>`/`</script>` 剩下純 JS」的方式驗證。**不是這個命名規則就不會被驗到**，等於埋一顆只有部署後才炸的地雷（CLAUDE.md 點名的坑：CI 不查 .html JS，這裡是唯一防線）。
+3. 搬移函數後用 `grep -rc "function 函數名"` 確認**新舊位置合計恰好 1 次**（零遺留、零重複定義）。
+4. `.html` 拆檔別忘了在 `Index.html` 補一行 `<?!= HtmlService.createHtmlOutputFromFile('新檔名').getContent(); ?>`——不加這行，檔案存在但**永遠不會被送到瀏覽器**，是最隱蔽的失敗模式（deploy 綠燈、功能卻整個消失，且不報錯）。
 
 ## 5. 一次按鍵的生命週期（效能核心：3→1 round-trip）
 
