@@ -264,6 +264,38 @@ function masterCircuits_(masterRow) {
   return m ? parseInt(m[1]) : 30;
 }
 
+// 🔋 敵御主每日回魔：敵御主電池只會被 drainForNp_ 扣、從不隨時間自然回——長局若不補，
+//   放過一次寶具後就永久魔力見底，往後所有遭遇都啞火(反而喪失「寶具是孤注一擲」的張力)。
+//   不用玩家那套逐時供需經濟(NPC 不必算到那麼細)，改用最簡單的「新的一天回滿」：MEMORY 記
+//   最後回魔的絕對日；worldTick_ 每次執行，見到記錄的日 < 當前日 → 補滿並蓋新日期戳。
+function getManaDay_(memory) { var m = String(memory || "").match(/【回魔日】(\d+)/); return m ? parseInt(m[1]) : -1; }
+function stampManaDay_(memory, day) {
+  var s = String(memory || "").replace(/【回魔日】\d+/, "");
+  s = s.replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
+  return (s ? s + "｜" : "") + "【回魔日】" + day;
+}
+function refillMastersDaily_(sheets, gameId, day) {
+  var data = sheets.pc.getDataRange().getValues();
+  var dirty = false;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.FACTION]) !== "敵御主") continue;
+    if (String(data[i][COL.PC.GAME_ID] || "") !== gameId) continue;
+    if (String(data[i][COL.PC.ID]).startsWith("DEAD_")) continue;
+    if (getManaDay_(data[i][COL.PC.MEMORY]) >= day) continue; // 今天已補過
+    var maxMp = parseInt(data[i][COL.PC.MAX_MP]) || 0;
+    data[i][COL.PC.MP] = maxMp;
+    data[i][COL.PC.MEMORY] = stampManaDay_(data[i][COL.PC.MEMORY], day);
+    dirty = true;
+  }
+  // 多名敵御主同天需回魔時，MP/MEMORY 各整欄一次寫回(取代迴圈內逐列 setValues 的零散往返，同 worldTick_ LOC 批寫手法)
+  if (dirty) {
+    var mpCol = [], memCol = [];
+    for (var z = 1; z < data.length; z++) { mpCol.push([data[z][COL.PC.MP]]); memCol.push([data[z][COL.PC.MEMORY]]); }
+    sheets.pc.getRange(2, COL.PC.MP + 1, mpCol.length, 1).setValues(mpCol);
+    sheets.pc.getRange(2, COL.PC.MEMORY + 1, memCol.length, 1).setValues(memCol);
+  }
+}
+
 // 🌐 世界自走一輪：敵移位（偵查失效）＋ 暗處從者陣亡（戰爭自走）
 //   rounds：跑幾輪；allowAttrition：是否允許「暗處廝殺/養不起爆炸」（僅休息時 true，移動只換位）
 //   回傳 { rumors:[..文字..], moved:n }
@@ -272,6 +304,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
   var rumors = [];
   if (!gameId) return { rumors: rumors, moved: 0 };
   rounds = rounds || 1;
+  try { var _ck = getClock_(gameId); if (_ck) refillMastersDaily_(sheets, gameId, _ck.day); } catch (e) { }
   var moved = 0;
 
   for (var rd = 0; rd < rounds; rd++) {
@@ -323,7 +356,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
       sheets.pc.getRange(2, COL.PC.LOC + 1, locCol.length, 1).setValues(locCol);
     }
 
-    // 2) 暗處從者廝殺/養不起爆炸：只在「休息」時可能發生（移動只換位，不死人）；
+    // 2) 暗處從者廝殺：只在「休息」時可能發生（移動只換位，不死人）；
     //    且永遠至少保留 WORLD_FLOOR_ 名敵從者給玩家親手解決——絕不會被世界自走清光。
     if (!allowAttrition) continue;
     var fresh = sheets.pc.getDataRange().getValues();
@@ -338,25 +371,11 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
     if (aliveTotal <= WORLD_FLOOR_) continue; // 已到底線→世界不再清人，剩下的全交給玩家
     var faraway = offstage.filter(function (o) { return o.loc !== String(playerLoc).trim(); });
     if (!faraway.length) continue;
-    // 維持費(六圍 rank 總和)：越貴越可能養不起
-    faraway.forEach(function (o) {
-      var six = {}; try { six = JSON.parse(fresh[o.idx][COL.PC.SIX] || "{}"); } catch (e) { }
-      var sum = 0; ["筋力", "耐久", "敏捷", "魔力", "幸運", "寶具"].forEach(function (k) { sum += rankVal(six[k] || "C"); });
-      o.upkeep = sum;
-    });
-    faraway.sort(function (a, b) { return b.upkeep - a.upkeep; });
-    var top = faraway[0];
-    // 養不起爆炸：只有「極度昂貴(>=260)」的英靈才有機會，且機率溫和(上限 18%)
-    var boom = (top.upkeep >= 260) ? Math.min(0.18, (top.upkeep - 260) / 500 + 0.06) : 0;
-    if (boom > 0 && Math.random() < boom) {
-      fresh[top.idx][COL.PC.ID] = "DEAD_" + String(fresh[top.idx][COL.PC.ID]);
-      fresh[top.idx][COL.PC.HP] = 0;
-      fresh[top.idx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "供魔不繼·靈基崩潰", "顏面": "已無生息" });
-      sheets.pc.getRange(top.idx + 1, 1, 1, fresh[top.idx].length).setValues([fresh[top.idx]]);
-      markMasterLostServant_(sheets.pc, fresh, top.idx, "供魔不繼、靈基終究餵不飽而崩潰消散");
-      logWarEvent_(gameId, "敵從者「" + top.name + "」的御主供魔不繼，龐大靈基餵不飽而崩潰消散。");
-      rumors.push("〔風聞〕「" + top.name + "」的御主供魔不繼——龐大的靈基終究餵不飽，崩潰消散了。");
-    } else if (Math.random() < 0.07) { // 暗處廝殺：偶爾一名在他人手中殞落
+    // 🗑️ 養不起爆炸(2026-07 移除)：不管怎麼調門檻，全種子庫能真正撞進危險區的組合幾乎只有士郎配阿爾托莉雅
+    //   (小迴路撐頂級從者)，其餘配對池子夠用、根本進不了候選——結果變成「隨機世界事件」實際上總是同一個目標，
+    //   跟「隨機」的初衷矛盾，玩家體感就是「Saber每次都爆炸」。移除，不留殘骸；masterless 有 SEAL_DOOM_HOURS，
+    //   一般戰損有 fateStrike_，死法夠多，不缺這個。
+    if (Math.random() < 0.07) { // 暗處廝殺：偶爾一名在他人手中殞落
       var victim = faraway[Math.floor(Math.random() * faraway.length)];
       fresh[victim.idx][COL.PC.ID] = "DEAD_" + String(fresh[victim.idx][COL.PC.ID]);
       fresh[victim.idx][COL.PC.HP] = 0;

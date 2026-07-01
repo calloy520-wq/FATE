@@ -324,6 +324,46 @@
     font-style: italic;
     margin: 10px 0;
     letter-spacing: 3px;
+    animation: loadingPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes loadingPulse {
+    0%, 100% { opacity: 0.45; }
+    50% { opacity: 1; }
+  }
+
+  /* 🎲 戰報骰子：落地時小小一彈，別的都不動，只讓骰子本身有「剛擲出來」的感覺 */
+  .dice-roll {
+    display: inline-block;
+    animation: diceRoll .45s cubic-bezier(.34, 1.56, .64, 1);
+  }
+  @keyframes diceRoll {
+    0% { transform: rotate(-25deg) scale(.4); opacity: 0; }
+    60% { transform: rotate(8deg) scale(1.15); }
+    100% { transform: rotate(0deg) scale(1); opacity: 1; }
+  }
+
+  /* 💥 真名解放橫幅：戰報卡最上面秀一下，簡潔有力、播一次就停 */
+  .np-release-banner {
+    margin: 4px 0 7px;
+    padding: 6px 10px;
+    border-radius: 7px;
+    text-align: center;
+    font-weight: bold;
+    letter-spacing: 2px;
+    color: #fff8e0;
+    background: linear-gradient(120deg, #7a5a10, #d4af37, #7a5a10);
+    background-size: 200% 100%;
+    box-shadow: 0 0 14px rgba(212, 175, 55, .55);
+    animation: npReleasePop .5s cubic-bezier(.34, 1.56, .64, 1), npReleaseShine 1s ease-out;
+  }
+  @keyframes npReleasePop {
+    0% { transform: scale(.85); opacity: 0; }
+    60% { transform: scale(1.04); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes npReleaseShine {
+    0% { background-position: 200% 0; }
+    100% { background-position: -20% 0; }
   }
 
   .npc-card {

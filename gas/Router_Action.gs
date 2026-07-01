@@ -36,6 +36,7 @@ const ActionRouter = {
   "set_servant_output": actionSetServantOutput,
   "set_mage_realm": actionSetMageRealm,
   "set_rune_mode": actionSetRuneMode,
+  "set_active_skill": actionSetActiveSkill,
   "set_np_choice": actionSetNpChoice,
   "bond": actionBond,
   "rule_break_steal": actionRuleBreakSteal,
@@ -178,7 +179,7 @@ function handleGameAction(userData) {
 }
 // ⚡ 會改動 solo 戰場狀態、前端事後會 syncData(整頁刷新) 的動作 → 夾帶 _state 省一趟 round-trip。
 //   不含：sync(本身即 state)／get_tags／純讀取(inspect/get_*)／創角召喚(自走 reload)／kanshou(KPC_)；
-//   也不含「樂觀更新」的輕量 setter(set_servant_output/set_mage_realm/set_rune_mode/set_np_choice)——
+//   也不含「樂觀更新」的輕量 setter(set_servant_output/set_mage_realm/set_rune_mode/set_np_choice/set_active_skill)——
 //   它們不 syncData、只吃 res.economy，夾 _state 反而白做整表讀取。
 //   也不含 narrate_only——前端 narrate() 只吃 res.text、不消費 _state，夾它純浪費整表讀。
 const STATE_AFTER_ACTIONS = {
@@ -312,9 +313,15 @@ function buildTagsPayload_(sheets, pcId, preData, preRel) {
         ? { has: true, pick: mageRealmPick_(s[COL.PC.MEMORY]), pool: mageRealmPool_() } : null,
       // 🔯 原初符文運用方式（持 rune 者才給，前端標籤可點開挑 減傷/增傷/回血）
       runeMode: skills.some(function (sk) { return sk && sk.fx === 'rune'; }) ? runeMode_(s[COL.PC.MEMORY]) : undefined,
+      // 🐕 主從synergy（恩奇都·變容）：與銀狼結契時亮起全盛(全能A·寶A++)、否則暗示需該御主。玩家不可控·御主決定
+      synergy: masterSynergyView_(s[COL.PC.NAME], s[COL.PC.MEMORY]),
+      // 🗡️ 理想鄉·無敵結界（阿爾托莉雅＋御主持 Avalon 禮裝）：被動自動·滿 200 魔則自動擋下來襲寶具。此旗標僅供卡片資訊標籤
+      canIdealRealm: (/阿爾托莉雅/.test(String(s[COL.PC.NAME] || "")) && String(s[COL.PC.RANK]) === 'Saber' && getMystic_(m[COL.PC.MEMORY]) === 'avalon'),
       // 🌟 多寶具英靈：寶具選單＋當前選定索引（前端點寶具時挑要放哪個）
       npOptions: servantNpOptions_(s[COL.PC.NAME], s[COL.PC.RANK]) || undefined,
       npChoice: npChoice_(s[COL.PC.MEMORY]),
+      // ⚡ 主動技開關狀態（前端據此顯示 ON/OFF 標籤色＋切換）：預設 off(微量被動·免費)、on=每戰全效發動·耗魔
+      activeSkillOn: activeSkillOn_(s[COL.PC.MEMORY]),
       // 🐙 深淵海怪肉身（持 summon_horror 且現存海怪時 {cur,max}）：前端在體力條下方獨立渲染一條海怪血條
       horror: skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) ? horrorShieldView_(s[COL.PC.MEMORY], gameId) : undefined,
       pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體

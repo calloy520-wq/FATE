@@ -55,7 +55,10 @@ var MC_COMBAT_ = {
   mc_origin:      { hit: 3, dmgAdd: 8,  npMul: 1.0,  npDefMul: 1.0,  label: '起源彈·斷絕' },
   mc_mercury:     { hit: 4, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.88, label: '月靈髓液·攻防一體' },
   mc_jewel:       { hit: 0, dmgAdd: 0,  npMul: 1.5,  npDefMul: 1.0,  label: '寶石劍·奇蹟一擊' },
-  avalon:         { hit: 0, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.82, label: '全世界之鞘' }
+  avalon:         { hit: 0, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.82, label: '全世界之鞘' },
+  // 🗡️ Avalon 回到正主阿爾托莉雅手中：被動＝鞘之基本減傷(×0.82·同一般 Avalon)＋時回；
+  //    「理想鄉·無敵結界」的【完全擋寶具】改為主動技(耗 200 魔·每場一次)，見 idealRealm 邏輯，不在此永久生效。
+  avalon_saber:   { hit: 0, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.82, label: '全世界遙遠的理想鄉' }
 };
 // 取某戰鬥單位身上的禮裝戰鬥效果（找第一個命中 MC_COMBAT_ 的 fx）。回 null＝無。
 function mcCombatFx_(c) {
@@ -71,6 +74,14 @@ function masterMysticBuffSkill_(memory) {
 }
 // 把御主禮裝被動加持注入「我方從者」戰鬥單位 c（c 由 servantRow 建；masterMemory＝其御主 MEMORY）。已注入則略過。
 function injectMysticBuff_(c, masterMemory) {
+  // 🗡️ Avalon（全世界之鞘）回到正主阿爾托莉雅手中 → 理想鄉全效：承受寶具傷近乎歸零(avalon_saber ×0.20)＋常駐時回(regen)。
+  //   非阿爾托莉雅持 Avalon → 走下方一般 avalon(鞘之基本減傷 ×0.82)。
+  if (getMystic_(masterMemory) === 'avalon' && c && /阿爾托莉雅/.test(String(c.name || '')) && String(c.cls) === 'Saber') {
+    c.skills = (c.skills || []);
+    if (!c.skills.some(function (s) { return s && s.fx === 'avalon_saber'; })) c.skills = c.skills.concat([{ n: '理想鄉 Avalon', r: 'A', fx: 'avalon_saber' }]);
+    if (!c.skills.some(function (s) { return s && s.fx === 'regen'; })) c.skills = c.skills.concat([{ n: '鞘之恩澤', r: 'A', fx: 'regen' }]);
+    return c;
+  }
   var sk = masterMysticBuffSkill_(masterMemory); if (!sk) return c;
   c.skills = (c.skills || []);
   if (!c.skills.some(function (s) { return s && s.fx === sk.fx; })) c.skills = c.skills.concat([sk]);
@@ -99,7 +110,8 @@ function setMystic_(memory, id) {
 // 持有的禮裝是否帶某 fx（給戰鬥/時回查被動用，如 avalon）
 function masterMysticFx_(memory, fx) { var id = getMystic_(memory); return (id && MYSTIC_CODES[id] && MYSTIC_CODES[id].fx === fx) ? id : ""; }
 
-// 🎲 創角依財力/身世「機率」給禮裝（非 100%）。鉅富/名門/鐘塔→高機率好禮裝；窮學徒→多半空手。
+// 🎲 依財力/身世「機率」給禮裝（非 100%）。⚠ 2026-07 創角已改【玩家自選】(Router_Creation 讀 userData.mystic)，
+//   此函式現無呼叫者·保留給「戰中可另獲禮裝」等未來掉落用途。鉅富/名門/鐘塔→高機率好禮裝；窮學徒→多半空手。
 function rollMysticForMaster_(standing, circuits) {
   var s = String(standing || ""), c = parseInt(circuits) || 30;
   var rich = /鐘塔|貴族|名門|富|世家|豪|大魔術師|君主|繼承|聖堂|教會|協會菁英/.test(s);

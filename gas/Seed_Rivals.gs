@@ -6,6 +6,9 @@
 
 function safeJson_(s, dflt) { try { return JSON.parse(s || ""); } catch (e) { return dflt; } }
 
+// 讀某英靈殿列的六圍【魔力】階(給 masterToNpcRow_/fakeMasterRow_ 算共用魔力池用)
+function heroMagicRank_(heroRow) { return String(safeJson_(heroRow[COL.HERO.SIX], {})["魔力"] || "C"); }
+
 // 🔵 戰爭迷霧：玩家當前所在若有未偵查的敵御主/敵從者，標記為「已偵查」(地圖才會點亮)
 //   ⚡ preData：呼叫端已讀好的整表 → 就地標記 SEEN(不重讀)；變動時整欄一次 setValues(不逐格 setValue)。
 //      回傳(可能已就地改 SEEN 的)data 供呼叫端沿用，避免 buildClientState_ 二次整表讀。
@@ -60,7 +63,8 @@ var FATE_4TH_ROSTER = [
 // 偽聖杯戰爭（Fate/strange Fake）：正典從者 ＋ 雪原匿名御主（御主殿無資料，直接合成）
 var FATE_FAKE_ROSTER = [
   { master: '提奈·切爾克', hero: '吉爾伽美什-Archer', loc: '冬木·新都' },
-  { master: '巴茲狄洛特', hero: '恩奇都-Lancer', loc: '未遠川河畔' },
+  { master: '銀狼', hero: '恩奇都-Lancer', loc: '未遠川河畔' }, // 原作：以銀狼為觸媒召喚，令咒落在狼身上、恩奇都便認狼為主
+  { master: '巴茲狄洛特', hero: '赫拉克勒斯-Avenger', loc: '柳洞寺' }, // 原作：巴茲狄洛特召喚的赫拉克勒斯被令咒歪曲成 Avenger·阿爾喀德斯
   { master: '歐蘭多·里夫', hero: '理查一世-Saber', loc: '冬木·深山町' },
   { master: '約翰·溫加德', hero: '阿基里斯-Rider', loc: '冬木·商店街' },
   { master: '哈魯利', hero: '玉藻前-Caster', loc: '遠坂宅' },
@@ -69,7 +73,9 @@ var FATE_FAKE_ROSTER = [
 ];
 
 // 合成一名匿名御主列（偽聖杯／無正典御主資料時用）
-function fakeMasterRow_(name, gameId, loc) {
+//   heroMagicRank：與其締結的英靈六圍【魔力】階(如'A')——魔力池跟玩家御主同制(共用魔力池)看雙方魔力決定，
+//   不能只算御主自己那份，否則契約強英靈的御主反而池子明顯偏小、不公正。
+function fakeMasterRow_(name, gameId, loc, heroMagicRank) {
   var row = Array(Object.keys(COL.PC).length).fill("");
   row[COL.PC.ID] = "NPC_" + Date.now() + "_f" + Math.floor(Math.random() * 100000);
   row[COL.PC.NAME] = name;
@@ -79,9 +85,10 @@ function fakeMasterRow_(name, gameId, loc) {
   row[COL.PC.TRAIT] = parseTraitsHelper("", "外貌平凡、舉止從容、通曉魔術、深藏心事");
   row[COL.PC.LOC] = loc;
   row[COL.PC.PREF] = parseTraitsHelper("", "沉著表象、堅定內裡、珍視之物、厭惡之事");
-  row[COL.PC.HP] = 120; row[COL.PC.MP] = 80;
+  var mp = 80 + rankVal(heroMagicRank || 'C') * 2;
+  row[COL.PC.HP] = 120; row[COL.PC.MP] = mp;
   // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，HP/MP 由 calculateMaxStats(SIX) 算。
-  row[COL.PC.MAX_HP] = 120; row[COL.PC.MAX_MP] = 80; row[COL.PC.REALM] = "";
+  row[COL.PC.MAX_HP] = 120; row[COL.PC.MAX_MP] = mp; row[COL.PC.REALM] = "";
   row[COL.PC.FACTION] = "敵御主"; row[COL.PC.RANK] = "御主";
   row[COL.PC.MEMORY] = "【偽聖杯】雪原的參戰魔術師。";
   row[COL.PC.GAME_ID] = gameId;
@@ -97,7 +104,8 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
   var persona = safeJson_(hero[COL.HERO.PERSONA], {});
   var cls = hero[COL.HERO.CLS];
   var nStr = svNum_(six["筋力"]), nCon = svNum_(six["耐久"]), nAgi = svNum_(six["敏捷"]), nInt = svNum_(six["魔力"]), nLuk = svNum_(six["幸運"]);
-  var hp = 150 + svNum_(six["耐久"]) * 6, mp = 120 + svNum_(six["魔力"]) * 6;
+  // 🔋 出力電池制：敵從者跟玩家從者同制——無自有魔力池，寶具魔力全由(敵)御主電池供給(見 enemyCanAffordNp_)。
+  var hp = 150 + svNum_(six["耐久"]) * 6, mp = 0;
   var row = Array(Object.keys(COL.PC).length).fill("");
   row[COL.PC.ID] = "NPC_" + Date.now() + "_h" + Math.floor(Math.random() * 100000);
   row[COL.PC.NAME] = hero[COL.HERO.NAME];
@@ -123,7 +131,9 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
 }
 
 // 御主殿列 → 眾生(NPC)列（敵御主：凡人、弱）
-function masterToNpcRow_(mr, gameId, loc, faction) {
+//   heroMagicRank：與其締結的英靈六圍【魔力】階——魔力池跟玩家御主同制(共用魔力池，見 masterPoolMax_)看雙方魔力決定，
+//   不能只算御主自己迴路，否則契約強英靈(如阿爾托莉雅魔力A)的御主反而池子明顯偏小、不公正。
+function masterToNpcRow_(mr, gameId, loc, faction, heroMagicRank) {
   var row = Array(Object.keys(COL.PC).length).fill("");
   row[COL.PC.ID] = "NPC_" + Date.now() + "_m" + Math.floor(Math.random() * 100000);
   row[COL.PC.NAME] = mr[COL.MASTER.NAME];
@@ -136,9 +146,10 @@ function masterToNpcRow_(mr, gameId, loc, faction) {
   row[COL.PC.TRAIT] = parseTraitsHelper(String(mr[COL.MASTER.PERSONA] || "").replace(/・/g, "、"), "外貌平凡、舉止從容、通曉魔術、深藏心事");
   row[COL.PC.LOC] = loc;
   row[COL.PC.PREF] = parseTraitsHelper(String(mr[COL.MASTER.PERSONA] || "").replace(/・/g, "、"), "沉著表象、堅定內裡、珍視之物、厭惡之事");
-  // 🎴 敵御主血魔與玩家御主同制：迴路推算(masterMaxHpMp_)，凡人遠低於從者；正典高迴路怪物(伊莉雅/櫻)才逼近從者級。
-  var mStats = masterMaxHpMp_(parseInt(mr[COL.MASTER.CIRCUITS] || 30));
-  var hp = mStats.hp, mp = mStats.mp;
+  // 🎴 敵御主血魔與玩家御主同制：HP 純看迴路(masterMaxHpMp_)，凡人遠低於從者；MP 走共用魔力池公式
+  //   (masterPoolMax_＝迴路×6＋從者魔力×2)，正典高迴路怪物(伊莉雅/櫻)或契約強英靈者才逼近從者級。
+  var circuits = parseInt(mr[COL.MASTER.CIRCUITS] || 30);
+  var hp = masterMaxHpMp_(circuits).hp, mp = masterPoolMax_(circuits, rankVal(heroMagicRank || 'C'));
   row[COL.PC.HP] = hp; row[COL.PC.MP] = mp;
   row[COL.PC.MAX_HP] = hp; row[COL.PC.MAX_MP] = mp; row[COL.PC.REALM] = "";
   row[COL.PC.INTENT] = String(mr[COL.MASTER.MOE] || "");
@@ -197,7 +208,7 @@ function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
     var n = Math.min(7, mPool.length, hPool.length);
     for (var k = 0; k < n; k++) {
       var loc = locPool[k % locPool.length];
-      rows.push(masterToNpcRow_(mPool[k], gameId, loc, '敵御主'));
+      rows.push(masterToNpcRow_(mPool[k], gameId, loc, '敵御主', heroMagicRank_(hPool[k])));
       rows.push(heroToNpcRow_(hPool[k], gameId, loc, '敵從者'));
     }
   } else if (war === 'fake') {
@@ -206,7 +217,7 @@ function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
       var hero = findHero(r.hero);
       if (!hero) return;
       if (playerServantName && String(hero[COL.HERO.NAME]) === playerServantName) return; // 玩家奪取那組移除
-      rows.push(fakeMasterRow_(r.master, gameId, r.loc));
+      rows.push(fakeMasterRow_(r.master, gameId, r.loc, heroMagicRank_(hero)));
       rows.push(heroToNpcRow_(hero, gameId, r.loc, '敵從者'));
     });
   } else {
@@ -217,7 +228,7 @@ function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
       var hero = findHero(r.hero), master = findMaster(r.master);
       if (!hero || !master) return;
       if (playerServantName && String(hero[COL.HERO.NAME]) === playerServantName) return; // 你奪取的那組
-      rows.push(masterToNpcRow_(master, gameId, r.loc, '敵御主'));
+      rows.push(masterToNpcRow_(master, gameId, r.loc, '敵御主', heroMagicRank_(hero)));
       rows.push(heroToNpcRow_(hero, gameId, r.loc, '敵從者'));
     });
   }

@@ -77,20 +77,20 @@ function fateMaxHpMp_(con, mag) {
 
 // 🎴 御主(凡人魔術師)HP/MP：唯一核心數值＝魔術迴路(財力/身世決定)。
 //   🔋 共用魔力池制(2026-06)：從者【沒有獨立魔力池】，與御主共用一個魔力池(存御主MP)。
-//   池上限 = 御主迴路×6 ＋ 同隊從者魔力×2(見 masterPoolMax_)；召喚/時回時重算把從者魔力併進來。
-//   masterMaxHpMp_ 只給「尚無從者」的基底(迴路×6)；血(肉身，焚血/補魔備援)由迴路×2。
+//   池上限 = 御主迴路×8 ＋ 同隊從者魔力×2(見 masterPoolMax_)；召喚/時回時重算把從者魔力併進來。
+//   masterMaxHpMp_ 只給「尚無從者」的基底(迴路×8)；血(肉身，焚血/補魔備援)由迴路×2。
 function masterMaxHpMp_(circuits) {
   var c = parseInt(circuits) || 30;
   return {
     hp: 100 + c * 2,
-    mp: c * 6
+    mp: c * 8   // 🔋 2026-07 迴路係數 ×6→×8(魔力池提高·NP/理想鄉較吃得起)
   };
 }
 
-// 🔋 共用魔力池上限 = 御主迴路×6 ＋ 同隊從者魔力 rankVal 總和×2。
+// 🔋 共用魔力池上限 = 御主迴路×8 ＋ 同隊從者魔力 rankVal 總和×2。(2026-07 迴路 ×6→×8·魔力池提高)
 //   魔力高的從者(Caster/Saber 魔A)擴充共用槽；魔力低者(Assassin 魔E)幾乎只靠御主迴路。
 function masterPoolMax_(circuits, partyMagicVal) {
-  return (parseInt(circuits) || 30) * 6 + (parseInt(partyMagicVal) || 0) * 2;
+  return (parseInt(circuits) || 30) * 8 + (parseInt(partyMagicVal) || 0) * 2;
 }
 
 // 🔋 從者靈基出力檔位（玩家手動旋鈕，存從者 MEMORY【出力】）：從者無自有魔力，靠御主供魔的「出力」決定戰力與耗魔。
@@ -147,16 +147,48 @@ function setRuneMode_(memory, mode) {
   return mem ? (mem + '｜【符文】' + mode2) : ('【符文】' + mode2);
 }
 
+// ⚡ 主動技開關（玩家可切，存從者 MEMORY【主動技】）：on＝每戰自動全效發動(耗魔)／off＝微量被動(免費)。
+//   預設 off（省魔安全，要爆發再自己開）。開/關二選一，永不並存，故不會回到 double-dip。
+function activeSkillOn_(memory) {
+  return /【主動技】on/.test(String(memory || ""));
+}
+function setActiveSkillMode_(memory, on) {
+  var mem = String(memory || "").replace(/｜?【主動技】(on|off)/g, '');
+  var v = on ? 'on' : 'off';
+  return mem ? (mem + '｜【主動技】' + v) : ('【主動技】' + v);
+}
+
 // 🐕 主從synergy（原作設定「御主供魔／契合度提升從者能力」）：特定主從組合回到全盛六圍。
-//   目前只：恩奇都 ↔ 巴茲狄洛特（獵犬御主）→ 全能力 A、寶具 A++。其餘御主（含玩家自召）下恩奇都維持削弱基線。
-//   讀從者列 MEMORY【御主】名判定；在 rowToCombatant_ 套用。要擴充別的主從組合就往這加。
+//   目前只：恩奇都 ↔ 銀狼（獵犬御主，原作真正的御主——以銀狼為觸媒召喚、令咒落在狼身上）→ 全能力 A、寶具 A++。
+//   其餘御主（含玩家自召）下恩奇都維持削弱基線。讀從者列 MEMORY【御主】名判定；在 rowToCombatant_ 套用。
+//   ⚠ 2026-07 修正：原碼誤寫「巴茲狄洛特」——他其實是赫拉克勒斯(Archer)的御主，跟恩奇都無關，已改回銀狼。
 function masterSynergySix_(name, six, memory) {
-  var mm = String(memory || "").match(/【御主】([^｜]+)/);
-  var mName = mm ? mm[1] : "";
-  if (/恩奇都/.test(String(name)) && /巴茲狄洛特/.test(mName)) {
+  if (masterSynergyOn_(name, memory)) {
     return { 筋力: 'A', 耐久: 'A', 敏捷: 'A', 魔力: 'A', 幸運: six['幸運'] || '-', 寶具: 'A++' };
   }
   return six;
+}
+// 主從synergy 是否觸發（單一真實來源·masterSynergySix_ 與 前端變容標籤 共用）：讀 MEMORY【御主】名比對。
+function masterSynergyOn_(name, memory) {
+  var mm = String(memory || "").match(/【御主】([^｜]+)/);
+  var mName = mm ? mm[1] : "";
+  return /恩奇都/.test(String(name)) && /銀狼/.test(mName);
+}
+// 🔮 敵寶具預告旗標（跨按鍵持久·存敵從者 MEMORY）：達成解放條件時先「預告」蓄勢，下次接觸必定發動——
+//   給玩家一回合準備(開結界/寶具對轟/逃跑)，杜絕「無預警寶具秒殺」。get/set/clear 成套。
+function getNpTelegraph_(memory) { return /【寶具預告】/.test(String(memory || "")); }
+function setNpTelegraph_(memory) { var s = String(memory || ""); return getNpTelegraph_(s) ? s : (s ? s + "｜【寶具預告】1" : "【寶具預告】1"); }
+function clearNpTelegraph_(memory) { return String(memory || "").replace(/｜?【寶具預告】1/g, ""); }
+// 🔥 補魔過充存量（存御主 MEMORY【過充】<額度>）：補魔一儀＝除回滿池外，另存下一發「規格外寶具(＋/EX)」可無償超載灌入的
+//   一池份魔力；發動大砲時優先由此支付，一次性(用完即清)。get/set/clear 成套；額度＝補魔當下的池上限。
+function getOvercharge_(memory) { var m = String(memory || "").match(/【過充】(\d+)/); return m ? (parseInt(m[1]) || 0) : 0; }
+function setOvercharge_(memory, amt) { var s = clearOvercharge_(String(memory || "")); amt = Math.max(0, Math.round(amt)); return s ? s + "｜【過充】" + amt : "【過充】" + amt; }
+function clearOvercharge_(memory) { return String(memory || "").replace(/｜?【過充】\d+/g, ""); }
+// 前端「變容」標籤用的 synergy 視圖：非 synergy 從者回 null；恩奇都回 {has,on,master,peak}。
+//   on＝當前御主觸發全盛(亮)；否則暗(提醒需該御主)。玩家不可控——由御主決定。
+function masterSynergyView_(name, memory) {
+  if (!/恩奇都/.test(String(name))) return null;
+  return { has: true, on: masterSynergyOn_(name, memory), master: '銀狼', peak: '全能 A・寶具 A++' };
 }
 
 // 🔮 魔境的智慧（斯卡哈專屬·玩家可選被動）：影之國女王通曉常見武技，玩家點選【1 個】通用 A 階被動標籤套用。
@@ -236,8 +268,7 @@ function safeWriteSheet(sheet, data) {
   if (oldLastRow > numRows) {
     sheet.deleteRows(numRows + 1, oldLastRow - numRows);
   }
-
-  SpreadsheetApp.flush();
+  // 唯一呼叫端(Router_Narrative)寫完後不再讀回同一表，flush() 純屬多花一次強制 commit，已移除。
 }
 
 // ==========================================

@@ -72,6 +72,28 @@ function actionSetRuneMode(userData, pcId, sheets) {
   }); // 樂觀更新·前端自走輕量 syncData，不再算丟棄的 statusString
 }
 
+// ⚡ 切換從者主動技開關（存從者 MEMORY【主動技】on/off）：免費、即時、不耗 AP。
+//   on＝每戰自動全效發動(耗魔)／off＝微量被動(免費)。只對「真有施放技術(burst/str_up/projection)」的從者有意義。
+function actionSetActiveSkill(userData, pcId, sheets) {
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無此從者。" });
+  const buff = servantActiveSkill_(rowToCombatant_(pcData[svIdx]));
+  if (!buff) return JSON.stringify({ success: false, message: "此從者無可主動施放的技術（其技能皆為被動）。" });
+  const on = (userData.on === true || userData.on === 'true');
+  pcData[svIdx][COL.PC.MEMORY] = setActiveSkillMode_(pcData[svIdx][COL.PC.MEMORY], on);
+  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+  return JSON.stringify({
+    success: true, on: on,
+    message: on
+      ? `「${pcData[svIdx][COL.PC.NAME]}」的「${buff.name}」已【開啟】——此後每戰自動全力發動（每戰耗魔約 ${Math.round(200 * buff.mpPct)}）。`
+      : `「${pcData[svIdx][COL.PC.NAME]}」的「${buff.name}」已【關閉】——回到微量被動（免費、每擊自動生效）。`
+  }); // 樂觀更新·前端自走輕量 syncData
+}
+
 // 🌟 設定多寶具英靈要解放哪個寶具（存從者 MEMORY【寶具選】N）：免費、即時、不耗 AP。
 function actionSetNpChoice(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
@@ -134,6 +156,8 @@ function actionManaSupply(userData, pcId, sheets) {
   pcData[pIdx][COL.PC.HP] = Math.min(parseInt(pcData[pIdx][COL.PC.HP]) || 0, newMaxHp);
   pcData[pIdx][COL.PC.MAX_MP] = newMpMax;
   pcData[pIdx][COL.PC.MP] = restored;
+  // 🔥 補魔過充：除回滿池，另存「下一發規格外寶具(＋/EX)可【無償】超載灌入的一池份魔力」(一次性·發動即清)
+  pcData[pIdx][COL.PC.MEMORY] = setOvercharge_(pcData[pIdx][COL.PC.MEMORY], newMpMax);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   raiseBond_(sheets, pcData[pIdx][COL.PC.NAME], svName, 3);
   const mpMax = newMpMax; // 給下方敘述沿用
@@ -146,13 +170,15 @@ function actionManaSupply(userData, pcId, sheets) {
 
   // 戰場補魔：甜而克制的曖昧 fade（給點甜頭、不開慾海引擎）——真・慾海留給鑑賞
   let aiPrompt;
-  if (ambush) {
-    aiPrompt = `【系統·補魔遭突襲·已裁定】御主正以魔力供給「${svName}」、彼此門戶大開之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠貫入「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
+  if (ambush && ambush.homeRepel) {
+    aiPrompt = ambush.repelNote; // 🏰 陣地反擊·優雅擊退
+  } else if (ambush) {
+    aiPrompt = `【系統·補魔遭突襲·已裁定】御主正以魔力供給「${svName}」、彼此門戶大開之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
       `★以 Fate／TYPE-MOON 筆觸描寫補魔的私密一刻被突襲打斷的驚變：魔力交融的脆弱、敵襲的兇險、${ambush.destroyed ? '從者消滅的痛楚（語氣留白）' : '從者依其性格與羈絆對此突襲的反應（重情者強撐護主、疏離者未必）'}。傷害與勝負已由系統結算。\n` +
       ``;
   } else {
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
-      `【系統·補魔已結算】御主硬擠魔術迴路為「${svName}」回滿共用魔力池（${restored}/${mpMax}），代價沉重——魔術迴路永久燒蝕至 ${newCirc} 條、生命上限永久跌為 ${newMaxHp}。羈絆微升。\n` +
+      `【系統·補魔已結算】御主硬擠魔術迴路為「${svName}」回滿共用魔力池（${restored}/${mpMax}），代價沉重——魔術迴路永久燒蝕至 ${newCirc} 條、生命上限永久跌為 ${newMaxHp}。羈絆微升。澎湃魔力於體內鼓盪、蓄勢待發——【下一發規格外寶具可全力超載解放】。\n` +
       `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】描寫這場「燃迴路續契約」的私密而沉重的一刻——御主強行催動將要燒斷的魔術迴路、魔力沿靈魂聯繫流向從者、體溫與屏息、從者察覺御主迴路受損／面色透支時的反應【一概依其性格與當前羈絆自然演出·不預設溫情(高羈絆或有不忍、冷傲疏離者則淡然受之)】，最後 fade-to-black 留白。\n` +
       `★【鐵律】止於唯美曖昧、點到為止；【不可】出現性器官、性交或露骨情慾描寫（那是奪杯後鑑賞的事）。演出而非複述設定。`;
   }

@@ -62,7 +62,23 @@ function masterCard_(row) {
       (prefArr.length ? `｜性格：${prefArr.slice(0, 4).join('、')}` : "") +
       (traitArr.length ? `｜特徵：${traitArr.slice(0, 4).join('、')}` : "") +
       (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
-      `。御主＝玩家所扮演的角色：【可】依其性格/身世自然開口、有神態反應與台詞，讓角色鮮活有聲(別只當沉默旁觀者)；但【不可】替御主拍板下一步戰略抉擇(是否出戰/結盟/移動/補魔由玩家按鍵定奪)、不可逼問玩家要做什麼、不可把劇情快轉越過決策點。\n`;
+      `。御主＝玩家所扮演的角色：【可】依其性格/身世自然開口、有神態反應與台詞，讓角色鮮活有聲(別只當沉默旁觀者)；從者可開口問御主接下來怎麼辦，御主(我)也可以自問該如何是好——但【不可】替御主拍板下一步戰略抉擇(是否出戰/結盟/移動/補魔由玩家按鍵定奪)，停在問句/思索即可，不可自己接著演出答案，也不可把劇情快轉越過決策點。\n`;
+  } catch (e) { return ""; }
+}
+
+// 🎭 敵御主「演出依據」卡（精簡）：戰鬥現場若敵御主本人在場(同地)，讓 AI 依其性格給反應/台詞，
+//   別讓對方全程沉默——只塞夠判斷語氣的精簡片段(性格/特徵各取前3項)，不塞六圍/寶具/全份人設。
+//   跟 masterCard_ 不同：這是 NPC、AI 可自行決定其言行反應，不受「不可替玩家做決定」那條限制。
+function enemyMasterCard_(row) {
+  if (!row) return "";
+  try {
+    var name = String(row[COL.PC.NAME] || "敵御主");
+    var prefArr = String(row[COL.PC.PREF] || "").split('、').filter(function (x) { return x && x !== "無"; });
+    var traitArr = String(row[COL.PC.TRAIT] || "").split('、').filter(function (x) { return x && x !== "無"; });
+    return `〈敵御主「${name}」·演出依據(僅內化、禁複述)〉` +
+      (prefArr.length ? `性格：${prefArr.slice(0, 3).join('、')}` : "") +
+      (traitArr.length ? `｜特徵：${traitArr.slice(0, 3).join('、')}` : "") +
+      `。★此役敵御主本人在場，依其性格自行決定是否開口、有何神態反應——非沉默背景板，但戰局勝負與傷害不可改。\n`;
   } catch (e) { return ""; }
 }
 

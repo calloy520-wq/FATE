@@ -69,10 +69,34 @@ function actionMove(userData, pcId, sheets) {
       var psvIdxM = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
       if (psvIdxM !== -1) {
         var psvC = rowToCombatant_(allPcData[psvIdxM]);
+        try { injectMysticBuff_(psvC, allPcData[pIdx][COL.PC.MEMORY]); } catch (e) { } // ✨ 逃跑時也吃御主禮裝(如 Avalon 承受寶具減傷)
         var psvAgi = rankVal(psvC.six['敏捷'] || 'C');
         var psvHp = parseInt(allPcData[psvIdxM][COL.PC.HP]) || 0, psvMax = parseInt(allPcData[psvIdxM][COL.PC.MAX_HP]) || 1;
-        var chaser = null, chaserAgi = -1;
+        // 🔮 預告寶具·背後傾瀉：離場格若有敵人正「寶具預告」蓄勢中 → 朝你退卻的背影傾瀉充能寶具＝NP 級臨別重擊
+        //   (優先於一般追擊；八成挨到·騎乘可減、夠強可反擋逼退；保 1 不致死但很痛；消耗預告旗標於下方套用處)。
+        var teleFoe = null;
         allPcData.forEach(function (r) {
+          if (String(r[COL.PC.FACTION]) !== "敵從者") return;
+          if (String(r[COL.PC.GAME_ID] || "") !== moveGameId) return;
+          if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+          if (String(r[COL.PC.LOC] || "").trim() !== fromLocM) return;
+          if (isAllied_(r)) return;
+          if (getNpTelegraph_(r[COL.PC.MEMORY])) teleFoe = r;
+        });
+        if (teleFoe) {
+          var teleProb = 0.85 - (hasFx_(psvC, 'ride') ? 0.15 : 0);
+          var teleName = String(teleFoe[COL.PC.NAME]);
+          if (Math.random() < teleProb) {
+            var prT = resolveFateBattle_(rowToCombatant_(teleFoe), psvC, { np: true });
+            pursuit = { enemyName: teleName, chaserId: String(teleFoe[COL.PC.ID]), dmg: Math.max(1, prT.damage), hitWho: prT.atkWins ? 'us' : 'foe', np: true,
+              note: prT.atkWins ? ('「' + teleName + '」蓄勢已久的真名解放朝你退卻的背影轟然傾瀉——這一擊的代價，是逃離強敵的必然。') : ('「' + teleName + '」的寶具在你身後炸開，卻被你的從者堪堪擋開、反手逼退。') };
+          } else {
+            pursuit = { enemyName: teleName, chaserId: String(teleFoe[COL.PC.ID]), dmg: 0, hitWho: 'foe', np: true,
+              note: '你在「' + teleName + '」真名解放的前一瞬堪堪脫離範圍——寶具的餘威掃過空無一人的殘影。' };
+          }
+        }
+        var chaser = null, chaserAgi = -1;
+        if (!pursuit) allPcData.forEach(function (r) {
           if (String(r[COL.PC.FACTION]) !== "敵從者") return;
           if (String(r[COL.PC.GAME_ID] || "") !== moveGameId) return;
           if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
@@ -83,7 +107,7 @@ function actionMove(userData, pcId, sheets) {
           var a = rankVal((rowToCombatant_(r).six['敏捷']) || 'C');
           if (a > chaserAgi) { chaserAgi = a; chaser = r; }
         });
-        if (chaser && chaserAgi >= psvAgi) { // 追得上(敵敏≥我敏)才追
+        if (!pursuit && chaser && chaserAgi >= psvAgi) { // 追得上(敵敏≥我敏)才追
           var pProb = 0.30 + (psvHp < psvMax * 0.4 ? 0.20 : 0) - (hasFx_(psvC, 'ride') ? 0.15 : 0);
           var stanceM = String(userData.stance || 'normal'); // 🎭 接敵姿態(純敘述 flavor·僅此處輕觸追擊)：隱蔽−/光明+
           pProb += (stanceM === 'open' ? 0.10 : stanceM === 'stealth' ? -0.10 : 0);
@@ -142,9 +166,17 @@ function actionMove(userData, pcId, sheets) {
       var fsvIdx = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
       if (fsvIdx !== -1) { allPcData[fsvIdx][COL.PC.HP] = Math.max(1, (parseInt(allPcData[fsvIdx][COL.PC.HP]) || 0) - pursuit.dmg); }
       else { pursuit = null; }
-    } else { // 追兵輸→被回身反咬逼退(對追兵 ID 扣血·保1；追兵已 tick 走/不在則仍報甩脫成功)
+    } else if (pursuit.dmg) { // 追兵輸→被回身反咬逼退(對追兵 ID 扣血·保1；追兵已 tick 走/不在則仍報甩脫成功)
       var fchIdx = allPcData.findIndex(function (r) { return String(r[COL.PC.ID]) === pursuit.chaserId; });
       if (fchIdx !== -1) { allPcData[fchIdx][COL.PC.HP] = Math.max(1, (parseInt(allPcData[fchIdx][COL.PC.HP]) || 0) - pursuit.dmg); }
+    }
+    // 🔮 消耗預告寶具旗標(已朝你砸出/落空)——在 tick 後資料上清、隨最終 setValues 寫回；並補戰報進見聞
+    if (pursuit && pursuit.np && pursuit.chaserId) {
+      var tClrIdx = allPcData.findIndex(function (r) { return String(r[COL.PC.ID]) === pursuit.chaserId; });
+      if (tClrIdx !== -1) allPcData[tClrIdx][COL.PC.MEMORY] = clearNpTelegraph_(allPcData[tClrIdx][COL.PC.MEMORY]);
+    }
+    if (pursuit && pursuit.note) {
+      worldRumors.unshift('〔撤離·' + (pursuit.np ? '寶具追擊' : '追擊') + '〕' + pursuit.note + (pursuit.dmg ? `（${pursuit.hitWho === 'us' ? '從者受創' : '反咬逼退追兵'} −${pursuit.dmg}）` : ''));
     }
   }
 
@@ -262,21 +294,23 @@ function actionRest(userData, pcId, sheets) {
     const restAmbush = enemyAmbushOnServant_(sheets, pcData, pIdx, restGameId, userData, 1.5);
     // 🌙 從者之夢（回想）：安睡(≥3h)且未遭突襲時，有機會順著聯繫夢見從者生前傳說的片段，加深羈絆
     let restDreamPrompt = "";
-    if (!restAmbush && restHours >= 3) {
+    if ((!restAmbush || restAmbush.homeRepel) && restHours >= 3) { // 🏰 陣地反擊＝安睡無虞·仍可做夢
       const svRow = pcData.find(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === restGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-      if (svRow && Math.random() < 0.55) {
+      if (svRow && Math.random() < 0.25) {
         const dSvName = String(svRow[COL.PC.NAME]);
         try { raiseBond_(sheets, pcName, dSvName, 3); } catch (e) { }
         restDreamPrompt = servantCard_(svRow) +
           `【系統·從者之夢·回想】御主沉沉睡去，意識卻順著與從者的靈魂聯繫，墜入「${dSvName}」成為英靈之前的記憶長河——夢見其傳說中的一個片段。\n` +
           `★以 Fate／TYPE-MOON 筆觸，用夢境／回想的朦朧史詩質感，演出「${dSvName}」這名英靈生前傳說裡的某一幕（取材自其真實的神話／史實／傳說：其榮光、抉擇、孤獨或傷痕）。讓御主（與玩家）窺見這名英靈所背負的過往與信念。\n` +
-          `★【show, don't tell】以畫面與情境流露，不直接點破其願望或心結，停在夢醒前的餘韻與一絲說不清的悸動。\n` +
+          `★【show, don't tell】以畫面與情境流露，不直接點破其願望或心結，停在夢醒後的餘韻與一絲說不清的悸動；收尾可帶一絲「${dSvName}」隱約察覺御主窺見了這段記憶的細微反應，份量點到為止即可。\n` +
           ``;
       }
     }
     // 📜 正典劇情插針已移除（2026-06）——休息跨日不再自動塞 Fate 原作橋段。
     let restAmbushPrompt = "";
-    if (restAmbush) {
+    if (restAmbush && restAmbush.homeRepel) {
+      restAmbushPrompt = restAmbush.repelNote; // 🏰 陣地反擊·優雅擊退
+    } else if (restAmbush) {
       restAmbushPrompt = `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${restAmbush.enemyName}」${restAmbush.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊重創「${(pcData.find(r=>String(r[COL.PC.FACTION])==='從者'&&String(r[COL.PC.GAME_ID]||'')===restGameId)||[])[COL.PC.NAME]||'從者'}」（−${restAmbush.dmg}）${restAmbush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
     }
     return JSON.stringify({
@@ -366,9 +400,34 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, userData, baseMul) 
   if (eIdx === -1) return null;
   const svIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
   if (svIdx === -1) return null;
+  // 🏰 陣地·安全港·反擊：玩家於【自己佈設的陣地】(隊有陣地作成從者)遭潛入 → 結界示警、機關迭起，從者從容起身反擊、
+  //   將來犯者擊退驅離(敵扣血·保1不斬)，我方毫髮無傷；代價＝御主耗魔維持結界。魔力不足則結界失效、照常挨突襲。
+  const homeRank = homeTerritoryRank_(pcData, pIdx, gameId);
+  if (homeRank) {
+    const wardCost = 20 + Math.round(rankVal(homeRank) * 0.6); // ~30~55 魔·隨陣地作成階
+    const mMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
+    if (mMp >= wardCost) {
+      pcData[pIdx][COL.PC.MP] = mMp - wardCost;
+      sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+      const svR = rowToCombatant_(pcData[svIdx]); injectHomeField_(svR, homeRank);
+      const cr = resolveFateBattle_(svR, rowToCombatant_(pcData[eIdx]), {});
+      const backDmg = Math.max(1, Math.round((cr.atkWins ? (cr.damage || 1) : rankVal(svR.six['筋力'] || 'C')) * 0.6));
+      const eHp = parseInt(pcData[eIdx][COL.PC.HP]) || 0, eAfter = Math.max(1, eHp - backDmg); // 驅離·保1不斬殺
+      pcData[eIdx][COL.PC.HP] = eAfter;
+      sheets.pc.getRange(eIdx + 1, 1, 1, pcData[eIdx].length).setValues([pcData[eIdx]]);
+      const eNm = String(pcData[eIdx][COL.PC.NAME]), sNm = String(pcData[svIdx][COL.PC.NAME]);
+      return {
+        homeRepel: true, enemyName: eNm, svName: sNm, backDmg: backDmg, wardCost: wardCost, homeRank: homeRank,
+        dmg: 0, destroyed: false, defeat: false, dreamPrompt: "", after: parseInt(pcData[svIdx][COL.PC.HP]) || 0,
+        repelNote: `【系統·陣地反擊·已裁定】潛伏同地的敵從者「${eNm}」欲趁御主一行卸防時偷襲，然此地正是我方親手佈設的陣地——魔術結界示警、機關迭起，「${sNm}」從容起身、反手將來犯者擊退驅離（敵受創 −${backDmg}），我方毫髮無傷（御主耗 ${wardCost} 魔維持結界運作）。★以 Fate／TYPE-MOON 筆觸演出「潛入者反被主場結界與從者從容擊退」的優雅反制，語氣留白。`,
+        report: { homeRepel: true, ambush: false, enemyName: eNm, svName: sNm, backDmg: backDmg, wardCost: wardCost, homeRank: homeRank }
+      };
+    }
+  }
   const enemyC = rowToCombatant_(pcData[eIdx]);
   const svC = rowToCombatant_(pcData[svIdx]);
-  const probe = resolveFateBattle_(enemyC, svC, { ambush: true });
+  // 🎯 敵AI自動施展招牌施放技術(免費·戰鬥本色)：還原單層歸屬前這些是免費被動的敵方偷襲威力。
+  const probe = resolveFateBattle_(enemyC, svC, { ambush: true, skill: servantActiveSkill_(enemyC) });
   let mul = baseMul || 1.4;
   const stealthy = String(pcData[eIdx][COL.PC.RANK]) === 'Assassin' || !!hasFx_(enemyC, 'stealth');
   if (stealthy) mul *= 1.4; // 氣息遮斷／暗殺趁虛而入更致命
@@ -443,7 +502,32 @@ function setWorkshopMemory_(memory, loc) {
   return (s ? s + "｜" : "") + "【陣地】" + loc;
 }
 
-// 🏕️ 設置陣地：把當前地設為工房（提升駐留供魔）。耗 1 AP。
+// 🏰 主場陣地判定：玩家於【自己佈設的陣地】迎戰、且隊上有【陣地作成】從者 → 回最高陣地作成階(供主場結界減傷)；否則空。
+//   引敵入陣地決戰＝主場優勢的核心。階級越高(EX 空中庭園級)結界越強。
+function homeTerritoryRank_(pcData, pIdx, gameId) {
+  try {
+    var ws = getWorkshop_(pcData[pIdx][COL.PC.MEMORY]); if (!ws) return "";
+    var battleLoc = String(pcData[pIdx][COL.PC.LOC] || "").trim();
+    if (!battleLoc || String(ws).split('-')[0].trim() !== battleLoc.split('-')[0].trim()) return "";
+    var best = "";
+    for (var i = 0; i < pcData.length; i++) {
+      if (String(pcData[i][COL.PC.FACTION]) !== "從者" || String(pcData[i][COL.PC.GAME_ID] || "") !== gameId || String(pcData[i][COL.PC.ID]).startsWith("DEAD_")) continue;
+      var r = hasFx_(rowToCombatant_(pcData[i]), 'territory');
+      if (r && (!best || rankVal(r) > rankVal(best))) best = r;
+    }
+    return best;
+  } catch (e) { return ""; }
+}
+// 把「主場·陣地結界」buff 注入我方從者戰鬥單位（僅玩家於自己陣地決戰時）——複用 DEF_FX_ home_field·隨陣地作成階減傷。
+function injectHomeField_(c, rank) {
+  if (!rank || !c) return c;
+  c.skills = (c.skills || []);
+  if (!c.skills.some(function (s) { return s && s.fx === 'home_field'; })) c.skills = c.skills.concat([{ n: '主場·陣地結界', r: rank, fx: 'home_field' }]);
+  return c;
+}
+
+// 🏕️ 設置陣地：把當前地設為工房（提升駐留供魔＋主場結界／安全港的前提）。耗 1 AP ＋ 御主魔力（布設結界的勞動）。
+var WORKSHOP_MANA_COST = 40;
 function actionSetWorkshop(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
@@ -454,11 +538,21 @@ function actionSetWorkshop(userData, pcId, sheets) {
   if (!loc) return JSON.stringify({ success: false, message: "無法在虛無之地佈設陣地。" });
   if (getWorkshop_(pcData[pIdx][COL.PC.MEMORY]) === loc) return JSON.stringify({ success: false, message: `「${loc}」已是你的陣地。` });
   if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以佈設陣地——請休息恢復。" });
+  // 🔮 布設陣地的勞動：灌注魔力築起結界／機關／術式，須御主純魔 ≥ WORKSHOP_MANA_COST
+  const mMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
+  if (isFate && mMp < WORKSHOP_MANA_COST) return JSON.stringify({ success: false, message: `佈設陣地要灌注魔力築起結界與機關（需 ${WORKSHOP_MANA_COST} 魔），當前御主魔力不足（${mMp}／需 ${WORKSHOP_MANA_COST}）——先補魔或休整。` });
+  if (isFate) pcData[pIdx][COL.PC.MP] = Math.max(0, mMp - WORKSHOP_MANA_COST);
   pcData[pIdx][COL.PC.MEMORY] = setWorkshopMemory_(pcData[pIdx][COL.PC.MEMORY], loc);
-  sheets.pc.getRange(pIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[pIdx][COL.PC.MEMORY]);
+  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]); // MP＋MEMORY 一起寫回
   let ap = AP_PER_DAY, clock = "";
   if (isFate) { try { ap = spendAp_(myGameId, 1).ap; clock = clockLabel_(myGameId); } catch (e) { } }
-  return JSON.stringify({ success: true, message: `已於「${loc}」佈設陣地（工房）——駐留此地時，從者供魔收入提升。`, clock: clock, ap: ap, apMax: AP_PER_DAY, economy: isFate ? playerServantEconomy_(sheets, pcId, pcData) : null });
+  // 🎬 AI 演出：布設陣地的勞作（有陣地作成 Caster→其親手築結界；否則御主張設簡易營地）。給事實素材、少下指令。
+  const casterRow = pcData.find(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && hasFx_(rowToCombatant_(r), 'territory'));
+  const csName = casterRow ? String(casterRow[COL.PC.NAME]) : "";
+  const wsPrompt = (casterRow ? servantCard_(casterRow) : masterCard_(pcData[pIdx])) +
+    `【系統·陣地佈設·已裁定】御主一行於「${loc}」紮下陣地——${csName ? `「${csName}」以陣地作成之能，在此地` : '御主親手在此地'}布設層層魔術結界、暗藏機關與監視術式，御主灌注了 ${WORKSHOP_MANA_COST} 點魔力為根基。自此這裡成為我方的堡壘：駐留可加速供魔回復，於此迎戰享主場結界庇護，敵人潛入亦難越雷池。\n` +
+    `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】演出這場「築起陣地」的勞作——${csName ? `「${csName}」施展術式、鋪設結界的專注與魔力流轉，法師將一方土地化為己身堡壘的過程` : '御主費心張設營地與警戒的辛勞'}；show, don't tell，落在完工後那份「這裡是我們的據點了」的踏實與底氣。`;
+  return JSON.stringify({ success: true, message: `已於「${loc}」佈設陣地（工房）——耗 ${WORKSHOP_MANA_COST} 魔築起結界。駐留供魔提升；於此決戰享主場庇護、敵襲反被擊退。`, aiPrompt: wsPrompt, clock: clock, ap: ap, apMax: AP_PER_DAY, economy: isFate ? playerServantEconomy_(sheets, pcId, pcData) : null });
 }
 
 // 🔍 搜索物資：偵查鄰近敵蹤為主，順手撿拾零星魔力（耗 1 AP）

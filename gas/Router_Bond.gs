@@ -230,7 +230,9 @@ function actionBond(userData, pcId, sheets) {
   const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, userData, 1.2);
 
   let aiPrompt;
-  if (ambush) {
+  if (ambush && ambush.homeRepel) {
+    aiPrompt = ambush.repelNote; // 🏰 陣地反擊·優雅擊退
+  } else if (ambush) {
     aiPrompt = `【系統·相伴遭突襲·已裁定】御主『${masterName}』與「${svName}」正${act.label}、卸下心防之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自暗處無聲突襲' : '抓準這破綻殺出'}，一擊重創「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n` +
       `★以 Fate／TYPE-MOON 筆觸描寫溫存被突襲撕裂的驚變與兇險，${ambush.destroyed ? '及從者消滅的痛楚（語氣留白）' : '及從者依其性格與羈絆對此突襲的反應（重情者強撐護主、疏離者未必）'}。傷害與勝負已由系統結算。\n` +
       ``;
@@ -340,12 +342,14 @@ function actionBreakAlliance(userData, pcId, sheets) {
     const fac = String(pcData[i][COL.PC.FACTION]);
     if ((fac === "敵御主" || fac === "敵從者") && isAllied_(pcData[i]) && (!npcName || String(pcData[i][COL.PC.NAME]).includes(npcName))) {
       pcData[i][COL.PC.MEMORY] = clearAllyMem_(pcData[i][COL.PC.MEMORY]);
-      sheets.pc.getRange(i + 1, COL.PC.MEMORY + 1).setValue(pcData[i][COL.PC.MEMORY]);
       if (fac === "敵御主") who = String(pcData[i][COL.PC.NAME]);
       broke++;
     }
   }
   if (!broke) return JSON.stringify({ success: false, message: "你目前沒有與此人結盟。" });
+  // 一組同盟通常master+從者一起破，MEMORY 整欄一次寫回(取代逐列 setValues 的零散往返)
+  const brokeMemCol = []; for (let z = 1; z < pcData.length; z++) brokeMemCol.push([pcData[z][COL.PC.MEMORY]]);
+  sheets.pc.getRange(2, COL.PC.MEMORY + 1, brokeMemCol.length, 1).setValues(brokeMemCol);
   logWarEvent_(myGameId, `單方面撕毀與「${who || npcName}」的盟約，雙方重回敵對。`, String(userData.acctName || ""));
   const aiPrompt = `【系統·盟約撕毀·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』單方面撕毀與「${who || npcName}」的盟約，雙方重回敵對。\n` +
     `★以 Fate／TYPE-MOON 筆觸【約 80~130 字】演出背叛/決裂的一瞬間張力。`;
@@ -360,16 +364,21 @@ function breakStaleAlliances_(sheets, gameId) {
     var aliveFoes = 0;
     for (var i = 1; i < data.length; i++) { if (String(data[i][COL.PC.FACTION]) === "敵從者" && String(data[i][COL.PC.GAME_ID] || "") === gameId && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) aliveFoes++; }
     var forceAll = aliveFoes <= 3;
-    var broken = [];
+    var broken = [], dirty = false;
     for (var j = 1; j < data.length; j++) {
       var fac = String(data[j][COL.PC.FACTION]);
       if ((fac === "敵御主" || fac === "敵從者") && String(data[j][COL.PC.GAME_ID] || "") === gameId && isAllied_(data[j])) {
         if (forceAll || day > allyUntil_(data[j])) {
           data[j][COL.PC.MEMORY] = clearAllyMem_(data[j][COL.PC.MEMORY]);
-          sheets.pc.getRange(j + 1, COL.PC.MEMORY + 1).setValue(data[j][COL.PC.MEMORY]);
+          dirty = true;
           if (fac === "敵御主") { broken.push(String(data[j][COL.PC.NAME])); logWarEvent_(gameId, `與「${String(data[j][COL.PC.NAME])}」的同盟${forceAll ? '因戰局逼近終局而瓦解' : '到期失效'}，重回敵對。`); }
         }
       }
+    }
+    // forceAll(終局逼近)時常一次瓦解多組同盟，MEMORY 整欄一次寫回(取代逐列 setValues 的零散往返)
+    if (dirty) {
+      var memCol = []; for (var z = 1; z < data.length; z++) memCol.push([data[z][COL.PC.MEMORY]]);
+      sheets.pc.getRange(2, COL.PC.MEMORY + 1, memCol.length, 1).setValues(memCol);
     }
     return { broken: broken, forced: forceAll && broken.length > 0 };
   } catch (e) { return { broken: [], forced: false }; }
@@ -423,9 +432,8 @@ function actionAllyBond(userData, pcId, sheets) {
   // ⚔️ 卸防突襲：與盟友交流時門戶大開，同地若有「未結盟」敵從者→趁隙重擊我方從者
   const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, userData, 1.3);
   if (ambush) {
-    const aiPromptA = `【系統·盟誼遭突襲·已裁定】御主『${masterName}』正與盟友「${allyName}」交心共處、卸下戒備之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠貫入我方從者（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
-      `★以 Fate／TYPE-MOON 筆觸描寫盟誼的私密一刻被突襲撕裂的驚變${ambush.destroyed ? '、從者消滅的痛楚（語氣留白）' : '、從者強撐重傷護主的瞬間'}。傷害與勝負已由系統結算。\n` +
-      ``;
+    const aiPromptA = ambush.homeRepel ? ambush.repelNote : (`【系統·盟誼遭突襲·已裁定】御主『${masterName}』正與盟友「${allyName}」交心共處、卸下戒備之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中我方從者（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
+      `★以 Fate／TYPE-MOON 筆觸描寫盟誼的私密一刻被突襲撕裂的驚變${ambush.destroyed ? '、從者消滅的痛楚（語氣留白）' : '、從者強撐重傷護主的瞬間'}。傷害與勝負已由系統結算。\n`);
     return JSON.stringify({ success: true, aiPrompt: aiPromptA, clock: clock, ap: ap, apMax: AP_PER_DAY, ambush: true, defeat: ambush.defeat, dreamPrompt: ambush.dreamPrompt || "", report: ambush.report || null, statusString: getFreshStatusString(pcId, pIdx, sheets) });
   }
 
