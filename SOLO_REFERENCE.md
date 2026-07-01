@@ -133,6 +133,8 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `hasFx_(c,'xxx')`：該角色技能是否帶此 fx。`fxName_(c,'xxx')`：回傳實際技能名(防張冠李戴)。`hasTrait_`：特性(神性/王…)。
 - `resolveFateBattle_(atk,def,opts)`：單次交手裁決。處理的 fx 標籤：
   `aim analyze anti_magic_lance burst chain clear_mind divine_age divine_core ea evade_ranged excalibur first_strike gae_bolg gob mad morale nullify_magic petrify projection rho_aias ride self_mod stealth str_up summon_horror tactics territory tsubame ubw unreadable wind_strike zabaniya`
+  - **⚔️ god_slay(神殺／斯卡哈-Lancer，2026-07)**：對具「神性」之敵最終傷害 ×1.3~1.83(依敵神格階)。**引擎讀「技能名含『神殺』」觸發**(godSlay·非讀 fx 碼)；fx `god_slay` 僅供 UI FX_DESC 說明。對凡人無加成。
+  - **🏷️ 金羊毛式無數值標籤(golden_fleece／double_summon…)**：招牌傳說但戰場使不出的能力(金羊毛=Caster 駕馭不了的召龍寶具；二重召喚=雙職前提·效已分呈於各技；頭痛宿疾=弱點)——**只掛 FX_DESC 酷炫說明、引擎完全不讀**。新增此類＝Seed 掛 fx 名＋Script.html `FX_DESC` 補一句，勿接任何引擎讀取路徑。
   - **🛡️ rho_aias(七天盾·羅·埃亞斯／EMIYA，2026-06)**：守方減傷 ×0.6(七層花瓣硬擋)；遭超位階概念(ea 等，`pierces('rho_aias')`)貫穿則失效。
   - **🗡️ stealth 首擊奇襲(2026-06 改)**：氣息遮斷**只在 `opts.ambush`**(開場第一擊／敵突襲)生效·**吃階級**(命中 +rankVal/10·A+≈6 A-≈5)，非首擊不再享(交手即破功·貼原作)。命中**＋傷害**(普通首擊 ×~1.4 要害·吃階級)，但開場放寶具(opts.np)則走寶具爆發不疊。旗標鏈：`actionFateBattle` opening&&isActive → `fateStrike_` → `resolveFateBattle_(...,{ambush})`；敵突襲 `enemyAmbushOnServant_` probe 傳 `ambush:true`(本就 mul×1.4)。
   - **🐙 summon_horror(螺湮城教本／青鬍子，2026-06)**：`npAtkScale_`＝對城(攻)＋`npDefScale_`＝對城(防)＋寶具傷 ×1.6+8d10+50。
