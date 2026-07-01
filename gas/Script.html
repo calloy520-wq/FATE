@@ -2581,7 +2581,8 @@ async function checkName(event) {
   const wish = document.getElementById('s-wish')?.value.trim() || "";
   const roll = masterRoll || {};
 
-  showProcessing('正在締結御主契約…');
+  // 🚀 開局非阻塞：create 不再叫 AI(秒回)，故用 quick 遮罩(不顯「10~30秒」)。
+  showProcessing('正在締結御主契約…', true);
   try {
     const data = await gasRun({ action: "create", name, sex, appearance, standing, wish, account: currentAccount,
       warMode: warMode, war: currentWar, playedMaster: playedMaster,
@@ -2596,6 +2597,9 @@ async function checkName(event) {
       localStorage.removeItem('kyushu_back_locked');
       pc = { id: data.pcId, name, sex, gameId: data.gameId || "", mode: selectedMode, account: currentAccount };
       localStorage.setItem('kyushu_v27', JSON.stringify(pc));
+      // 🚀 御主敘事(背景/特徵/個性/萌點)背景補生成：不 await，趁玩家在召喚頁挑從者的空檔跑，
+      //    進遊戲前多半已就位；失敗則保留種子預設(優雅降級)。
+      backfillMasterAi({ appearance, standing, wish, magic: roll.magic || "", origin: roll.origin || "" });
       // 御主締結完成 → 進入召喚從者步驟
       document.getElementById('step-detail').style.display = 'none';
       document.getElementById('step-summon').style.display = 'block';
@@ -2608,6 +2612,21 @@ async function checkName(event) {
   } finally {
     hideProcessing();
   }
+}
+
+// 🚀 非阻塞補生成御主敘事欄：於召喚頁背景呼叫，成功且已進遊戲畫面則刷新御主卡；失敗靜默(保留種子)。
+async function backfillMasterAi(seed) {
+  try {
+    if (!pc || !pc.id) return;
+    const res = await gasRun({ action: 'backfill_master_ai', pcId: pc.id,
+      appearance: seed.appearance || "", standing: seed.standing || "", wish: seed.wish || "",
+      magic: seed.magic || "", origin: seed.origin || "" });
+    if (res && res.success) {
+      // 若玩家已進遊戲主畫面(手腳快)，刷新左側御主卡讓 AI 版背景/個性即時就位
+      const gameEl = document.getElementById('game');
+      if (gameEl && gameEl.style.display !== 'none') { try { syncData(); } catch (e) {} }
+    }
+  } catch (e) { /* 靜默：保留 create 寫的種子設定 */ }
 }
 
 let heroesData = [];

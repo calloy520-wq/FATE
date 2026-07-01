@@ -81,7 +81,9 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | action | handler | 作用 |
 |---|---|---|
 | check_name / account_login / account_new_game | Account 系 | 登入／建帳號／開新局 |
-| update_fate | actionUpdateFate | 創角生成御主（身世/願望/魔術→屬性/禮裝/MEMORY） |
+| create | actionManualNpc | 御主創角。**🚀 開局非阻塞(2026-07)：create【不叫 AI】**，用玩家輸入的種子值(身世→背景、4格預設特徵/個性)＋GAS 算的數值(HP/MP/game_id/迴路/令咒/模式/戰爭/扮演 MEMORY)＋起始禮裝**秒寫入**、立刻進召喚頁。落點確定性選(偏好新都)。 |
+| backfill_master_ai | actionBackfillMasterAi | 🚀 御主敘事·非阻塞補生成：create 後由前端 `backfillMasterAi(seed)`(不 await·趁玩家在召喚頁挑從者空檔)呼叫，AI 補 背景/特徵/個性/萌點，**只以單格 setValue 更新 4 敘事欄**(BACK/TRAIT/PREF/INTENT)、不整列 write-back、不碰數值/位置/MEMORY。失敗＝保留種子(優雅降級)。**穩健**：與 `summon_servant` 的御主池更新已改單格寫(MP/MAX_MP)→兩者欄位互斥、無競寫。 |
+| update_fate | actionUpdateFate | 逆天改命：玩家在遊戲中改自己 4 敘事欄(個性/特徵/身世/萌點)，數值/寶具不可改。 |
 | summon_servant | actionSummonServant | 召喚從者（從英靈殿抓真名/六圍/技能→眾生列）。**種子英靈直接用寫死 persona(萌點/口吻)、不叫 AI**(省一次 API、加速)；只有名冊查無的自訂/未知英靈才走 AI 即時生成(else 分支)。**敘事8格**：個性(PREF)讀 `persona.words`、**特徵(TRAIT)讀 `persona.look`**(35 位種子皆手寫4格 外貌/氣質/自稱/卸下心防私密一面，召喚/鋪敵 直接用、AI原創走通用預設、不再被戰鬥特性污染)。 |
 | get_heroes / get_masters | — | 創角選單列出可選英靈/正典御主 |
 | get_tags | actionGetTags | **左側狀態面板資料**：御主HP/MP/令咒/願望、從者陣列(六圍/技能/羈絆/寶具)、供魔收支、禮裝、破戒能力。**⚡ 核心邏輯抽成 `buildTagsPayload_(sheets,pcId,preData,preRel)`**(可吃已讀好的整表免重讀)；`sync` 回應已夾帶 `tags:` 同份 payload，前端 `refreshFateTags(data.tags)` 直接用、不再單獨打 get_tags。**效能鐵則：一次按鍵原本 3 趟 round-trip(action→sync→get_tags)→現 1 趟**。機制：①`buildClientState_(sheets,pcId)`＝完整刷新 blob(statusString/people/locations/clock/ap/economy/tags，先 markRivalsSeen_ 再讀、整表+rel 只讀一次下傳共用)，`actionSync` 即回它。②dispatcher 對 `STATE_AFTER_ACTIONS` 白名單動作(fate_battle/mana_supply/move/rest/scavenge/scout/bond… 凡前端事後會整頁 syncData 者)＋ `PC_` 御主，自動把 `_state:buildClientState_()` 夾進回應。③前端 `gasRun` 暫存 `data._state`→`__pendingState`，`syncData` 優先消費它(`applyClientState`)、沒有才打真 sync(graceful fallback)。**不列入白名單**：樂觀 setter(set_servant_output/mage_realm/rune_mode/np_choice 不 syncData、只吃 res.economy)。`playerServantEconomy_(sheets,pcId,preData)`／`getFreshStatusString`(已拔冗餘 flush) 同理。改這幾支前先想清楚別把整表重讀或多餘 round-trip 加回來。 |
