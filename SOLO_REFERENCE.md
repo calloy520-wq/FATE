@@ -141,6 +141,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
     - 青鬍子寶具模式 1%→23%；普通/技能仍0%(無寶具=無海怪，gimmick召喚師)。
 - **📊 全戰鬥都有戰報卡(2026-06)**：① `renderFateBattleReport` 舊 guard `!r.rounds` 會擋掉【無回合】的斬首/突襲報(等於斬首戰報一直沒顯示)→改 `if(!r)`。② 新增**突襲戰報卡**(`r.ambush`)：`enemyAmbushOnServant_` 回 `out.report{ambush,enemyName,svName,dmg,after,svHpMax,destroyed,defeat}`，rest/mana_supply/scavenge/scout 四個 caller 都把 `report` 帶回前端並 `renderFateBattleReport`＋補 defeat 處理。
 - **🎬 AI 敘述瘦身(2026-06)**：戰鬥/斬首 prompt 由「★務必演出X」一長串指令 → 改【事實素材列(·)＋單行收尾steer】，給 AI 數據讓它自己演(show-don't-tell)，不報菜名、不堆指令。海怪/對轟/令咒/電池/十二試煉/盟友皆改為事實行。
+  - **🐛→✅ 「生死由御主後續定奪」誘發AI杜撰饒恕戲(2026-07)**：戰鬥未分生死時(`finalLine`＋「敗方尚有餘力」那行)，舊措辭「生死由御主後續定奪」被AI讀成「該演一場御主做決定的戲」，於是自己編出「御主下令收手／饒過對方」的橋段——玩家根本沒按過這個決定，且下一次繼續攻擊時故事還接不上(說要饒命、下一擊又補刀補死)。已改成純陳述「交鋒未分生死、單純告一段落、非任何一方主動停手」＋明文禁止杜撰御主下令收手/饒過對方的橋段。同一套「具體措辭誘發AI過度演繹」的坑，跟「腐臭味」／赫拉克勒斯盔甲範例是同一類問題，遇到類似「AI擅自加戲」回報，先檢查對應 aiPrompt 措辭是不是在暗示AI該編一場沒發生過的戲。
   - **🗑️ 移出種子(2026-06)**：`大仲馬-Caster`(亞歷山大·仲馬)＋`漢斯-Watcher`(安徒生)——純支援·無攻擊寶具(1v1 恆敗、非戰鬥從者)，移出 SEED_SERVANTS。FATE_FAKE_ROSTER 的偽戰 Caster 由大仲馬改派`玉藻前-Caster`。種子 35→33。
   含：職階相剋三角(KNIGHT_BEATS +命中+傷害)、對魔力減魔砲、territory 防壁、divine_age 繞 MR、zabaniya 致命(×1.9+70)、gae_bolg 因果必中、petrify 石化、projection 被動加成(EMIYA) 等。
 - **🎴🎯 六圍降權＝角色速寫(2026-06核心哲學)**：TYPE-MOON 官方：參數是「讓人理解這從者」的速寫，非戰力試算表(庫丘林六圍頂尖卻幸運E→運氣/故事才是裁判)。舊版命中/迴避用 `rankVal`(差距50)當主導項→差兩階就鎖死→必然極化(模擬 76% 越界)。修正：
