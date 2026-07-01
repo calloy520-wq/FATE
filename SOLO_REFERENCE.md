@@ -141,6 +141,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
   - **🌟 insight 全知全能之星(吉爾，2026-07)**：命中+4＋看破奇襲(併入 senseNegate·階級≥敵stealth)。中等被動·非傷害。
   - **🐾 sense 氣息感知(恩奇都，2026-07)**：**守方**專屬——`hasFx_(def,'sense')` 且 `rankVal(sense) ≥ rankVal(攻方 stealth)` → 攻方氣息遮斷者的奇襲**命中先機(line ~425)＋要害一擊(×1.2~·line ~504)全數失效**(`senseNegate` 旗標橫跨兩處)。貼原作「近距離廢掉同級以下的隱形」。刺客偷襲恩奇都會被一眼看穿。
   - **🏷️ 金羊毛式無數值標籤(golden_fleece／double_summon…)**：招牌傳說但戰場使不出的能力(金羊毛=Caster 駕馭不了的召龍寶具；二重召喚=雙職前提·效已分呈於各技；頭痛宿疾=弱點)——**只掛 FX_DESC 酷炫說明、引擎完全不讀**。新增此類＝Seed 掛 fx 名＋Script.html `FX_DESC` 補一句，勿接任何引擎讀取路徑。
+  - **🏰 home_field 主場·陣地結界(陣地作成強化·2026-07)**：玩家於【自己 set_workshop 佈設的陣地】決戰、且隊上有【陣地作成】從者 → 全隊 DEF_FX_ home_field 額外減傷 `×(1−0.16r)`(r=陣地作成 rankMul·EX空中庭園≈−32%/A−26%/C−16%)。`homeTerritoryRank_`(Router_Movement·比對 workshop loc==battle loc＋掃隊上 territory 最高階)→`injectHomeField_` 注入我方從者(atkC/sC/defC 三注入點·同 injectMysticBuff_)→ctx.homeField 傳遞。pierceKey 'territory'(超位階概念 ea/enuma 仍碾穿)。引敵入陣地決戰的主場優勢·讓陣地作成階級終於有份量(原本 territory 走到哪都 ×0.74·與地點/階級無關)。report.homeField→前端綠框＋AI 主場敘述。
   - **🛡️ rho_aias(七天盾·羅·埃亞斯／EMIYA，2026-06)**：守方減傷 ×0.6(七層花瓣硬擋)；遭超位階概念(ea 等，`pierces('rho_aias')`)貫穿則失效。
   - **🗡️ stealth 首擊奇襲(2026-06 改)**：氣息遮斷**只在 `opts.ambush`**(開場第一擊／敵突襲)生效·**吃階級**(命中 +rankVal/10·A+≈6 A-≈5)，非首擊不再享(交手即破功·貼原作)。命中**＋傷害**(普通首擊 ×~1.4 要害·吃階級)，但開場放寶具(opts.np)則走寶具爆發不疊。旗標鏈：`actionFateBattle` opening&&isActive → `fateStrike_` → `resolveFateBattle_(...,{ambush})`；敵突襲 `enemyAmbushOnServant_` probe 傳 `ambush:true`(本就 mul×1.4)。
   - **🐙 summon_horror(螺湮城教本／青鬍子，2026-06)**：`npAtkScale_`＝對城(攻)＋`npDefScale_`＝對城(防)＋寶具傷 ×1.6+8d10+50。

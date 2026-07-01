@@ -256,6 +256,7 @@ function fxDmgApply_(base, winner, loser, fx, fired) {
 //     piercedMsg＝被貫穿時推的訊息 fn(winner)→string(無則靜默)｜guardPositive＝base>0 才推套用標籤。
 var DEF_FX_ = {
   territory: { mul: 0.74, zh: '陣地', note: '·魔術防壁', pierceKey: 'territory', guardPositive: true, piercedMsg: function (w) { return w.name + '·概念壓制(碾穿結界)'; } },
+  home_field: { mul: function (r) { return 1 - 0.16 * r; }, zh: '主場陣地結界', pierceKey: 'territory', guardPositive: true, piercedMsg: function (w) { return w.name + '·概念壓制(碾穿主場結界)'; } },
   rho_aias: { mul: 0.60, zh: '七天盾', note: '(羅·埃亞斯·七層花瓣)', pierceKey: 'rho_aias' },
   divine_core: { mul: function (r) { return 1 - 0.18 * r; }, zh: '神核', pierceKey: 'divine_core', alsoPiercedByFx: 'anti_magic_lance', piercedMsg: function (w) { return w.name + '·' + (hasFx_(w, 'anti_magic_lance') ? '破魔(無視神核)' : '概念壓制(無視神核)'); } },
   wall_def: { mul: 0.82, zh: '城牆防禦', note: '(物理減傷18%)', pierceKey: 'territory', physicalOnly: true }
@@ -621,6 +622,8 @@ function resolveFateBattle_(atk, def, opts) {
   base -= Math.round(rankVal(loser.six["耐久"]) / 2);
   // 🛡️ 陣地作成(territory)：法師以魔術防壁／結界減傷，補償其低耐久（救玻璃大砲美狄亞的存活）
   base = fxDefApply_(base, loser, winner, 'territory', pierces, atkMagic, fired);
+  // 🏰 主場·陣地結界(home_field)：於自己佈設的陣地決戰時全隊額外減傷（隨陣地作成階·引敵入陣地的主場優勢）
+  base = fxDefApply_(base, loser, winner, 'home_field', pierces, atkMagic, fired);
   // 🛡️ 七天盾·羅·埃亞斯(rho_aias／EMIYA)：投影卡帕涅烏斯之盾，七層花瓣硬擋重擊；遭超位階概念(ea等)貫穿則失效
   base = fxDefApply_(base, loser, winner, 'rho_aias', pierces, atkMagic, fired);
   // 🦠 對瘟疫抗性：攻方為「疫病」(蒼白騎兵)時，守方持高魔抗(對魔力≥B·詛咒防護)或神性(神之加護)者抵抗疾病，傷害減半。

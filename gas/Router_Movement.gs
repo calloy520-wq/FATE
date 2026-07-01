@@ -476,6 +476,30 @@ function setWorkshopMemory_(memory, loc) {
   return (s ? s + "｜" : "") + "【陣地】" + loc;
 }
 
+// 🏰 主場陣地判定：玩家於【自己佈設的陣地】迎戰、且隊上有【陣地作成】從者 → 回最高陣地作成階(供主場結界減傷)；否則空。
+//   引敵入陣地決戰＝主場優勢的核心。階級越高(EX 空中庭園級)結界越強。
+function homeTerritoryRank_(pcData, pIdx, gameId) {
+  try {
+    var ws = getWorkshop_(pcData[pIdx][COL.PC.MEMORY]); if (!ws) return "";
+    var battleLoc = String(pcData[pIdx][COL.PC.LOC] || "").trim();
+    if (!battleLoc || String(ws).split('-')[0].trim() !== battleLoc.split('-')[0].trim()) return "";
+    var best = "";
+    for (var i = 0; i < pcData.length; i++) {
+      if (String(pcData[i][COL.PC.FACTION]) !== "從者" || String(pcData[i][COL.PC.GAME_ID] || "") !== gameId || String(pcData[i][COL.PC.ID]).startsWith("DEAD_")) continue;
+      var r = hasFx_(rowToCombatant_(pcData[i]), 'territory');
+      if (r && (!best || rankVal(r) > rankVal(best))) best = r;
+    }
+    return best;
+  } catch (e) { return ""; }
+}
+// 把「主場·陣地結界」buff 注入我方從者戰鬥單位（僅玩家於自己陣地決戰時）——複用 DEF_FX_ home_field·隨陣地作成階減傷。
+function injectHomeField_(c, rank) {
+  if (!rank || !c) return c;
+  c.skills = (c.skills || []);
+  if (!c.skills.some(function (s) { return s && s.fx === 'home_field'; })) c.skills = c.skills.concat([{ n: '主場·陣地結界', r: rank, fx: 'home_field' }]);
+  return c;
+}
+
 // 🏕️ 設置陣地：把當前地設為工房（提升駐留供魔）。耗 1 AP。
 function actionSetWorkshop(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();

@@ -13,7 +13,7 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   opts = opts || {};
   var defC = rowToCombatant_(pcData[tgtIdx]);
   // ✨ 我方從者作守方時也吃御主禮裝被動（防禦端：如全世界之鞘承受寶具減傷）
-  if (String(pcData[tgtIdx][COL.PC.FACTION]) === "從者" && ctx && ctx.pIdx >= 0) injectMysticBuff_(defC, pcData[ctx.pIdx][COL.PC.MEMORY]);
+  if (String(pcData[tgtIdx][COL.PC.FACTION]) === "從者" && ctx && ctx.pIdx >= 0) { injectMysticBuff_(defC, pcData[ctx.pIdx][COL.PC.MEMORY]); injectHomeField_(defC, ctx && ctx.homeField); }
   // 🍱 整備·進食加成：御主一行戰前整備過、且尚在效期內 → 從者出擊命中 +MEAL_BUFF_BONUS
   var mealOn = false;
   try { mealOn = mealBuffActive_(pcData[ctx.pIdx][COL.PC.MEMORY], ctx.myGameId); } catch (e) { }
@@ -345,8 +345,10 @@ function actionFateBattle(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: `「${pcData[nIdx][COL.PC.NAME]}」是你的盟友——若要動手，須先『撕毀盟約』。` });
   }
 
+  const homeField = homeTerritoryRank_(pcData, pIdx, myGameId); // 🏰 於自己陣地決戰＋隊有陣地作成→主場結界階級(否則"")
   const atkC = rowToCombatant_(pcData[atkIdx]);
   injectMysticBuff_(atkC, pcData[pIdx][COL.PC.MEMORY]);  // ✨ 御主禮裝被動加持我方從者（含開場對轟攻防）
+  injectHomeField_(atkC, homeField);                    // 🏰 主場·陣地結界（僅玩家於自己陣地決戰）
   const defC = rowToCombatant_(pcData[nIdx]);
 
   // 🔋 寶具魔力（出力電池制）：寶具全由御主供魔。① 寶具僅能在「出力 100%（全開·認真）」解放——御主把魔力全灌進去才釋放得了真名。
@@ -533,7 +535,7 @@ function actionFateBattle(userData, pcId, sheets) {
   let npTeleHandled = false; // 🔮 本次按鍵的「預告/發動」決策一次即止(rounds loop 多回合勿重複蓄勢)
   let idealRealmFired = false, idealRealmFoe = "", idealRealmSaber = ""; // 🗡️ 理想鄉是否擋下究極寶具(供 AI 敘述＋前端)
   const rounds = [];
-  const ctx = { myGameId: myGameId, pIdx: pIdx, userData: userData };
+  const ctx = { myGameId: myGameId, pIdx: pIdx, userData: userData, homeField: homeField };
   const targetIsFoeServant = String(pcData[nIdx][COL.PC.FACTION]) === "敵從者";
 
   // 🌟 寶具對轟（光與光的對撞）：玩家開場解放寶具、目標為敵從者時，值得一戰的對手以寶具相迎。
@@ -662,6 +664,7 @@ function actionFateBattle(userData, pcId, sheets) {
       if (String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) break;
       const sC = rowToCombatant_(pcData[sidx]);
       injectMysticBuff_(sC, pcData[pIdx][COL.PC.MEMORY]);  // ✨ 御主禮裝被動加持我方從者（每回合出擊）
+      injectHomeField_(sC, homeField);                     // 🏰 主場·陣地結界
       const isActive = (sidx === atkIdx);
       const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && openingNp && isActive, seal: opening && openingSeal && isActive, ambush: opening && isActive, skill: isActive ? skillBuff : null }, ctx);
       // 目標為敵御主(非從者)：引擎計算了反傷 fired 但不套用，過濾掉「winner·武器骰」等傷害計算噪音
@@ -899,6 +902,7 @@ function actionFateBattle(userData, pcId, sheets) {
       (allyAssistName ? `· 盟友從者「${allyAssistName}」依約自側翼掩護助攻。\n` : "") +
       (interceptNote ? `· ${interceptNote}\n` : "") +
       (npTelegraphed ? `· 「${defC.name}」的靈基驟然高鳴——真名解放的預兆正急速匯聚、殺意如實質般壓來，寶具即將出鞘卻【尚未發動】。演出這股「山雨欲來、下一擊便是真名解放」的窒息壓迫感，讓御主明白必須當機立斷。\n` : "") +
+      (homeField ? `· 【主場·陣地】這場交鋒發生在我方 Caster 親手佈設的陣地之中——魔術防壁、結界與布下的機關層層環伺，這裡是法師的堡壘。我方全員承其庇護、受創大減；敵手則在滿是術式的敵境中步步受制。演出「引敵入陣地決戰」的主場壓制感。\n` : "") +
       (idealRealmFired ? `· 【理想鄉】「${idealRealmFoe}」傾盡全力解放了斬裂世界／碾穿一切的究極真名，然而在觸及「${idealRealmSaber}」的剎那，全世界遙遠的理想鄉 Avalon 悄然展開——那是隔絕於世界之外、永不凋零的無敵結界。究極寶具的威能盡數湮滅於金色的理想鄉中，「${idealRealmSaber}」毫髮無傷。演出這一擋的神聖、靜謐與絕對，御主付出大量魔力方換得此護。\n` : "") +
       ((battery && battery.usedBattery) ? `· 御主電池：${battery.bledMaster ? `御主焚燒自身血肉(餘 ${battery.masterHp}/${battery.masterHpMax} HP)` : `御主導流自身魔力`}為從者頂上魔力缺口。\n` : "") +
       (godRevived ? `· 十二試煉：${godNote}\n` : "") +
@@ -914,6 +918,8 @@ function actionFateBattle(userData, pcId, sheets) {
     useNp: useNp, npName: npName, useSeal: useSeal, totalDealt: totalDealt, totalTaken: totalTaken,
     destroyed: destroyedName || "", godRevived: godRevived, sealEscaped: sealEscaped, victory: victory, defeat: defeat,
     telegraph: npTelegraphed ? String(defC.name) : "", // 🔮 敵寶具預告→前端彈紅框警告
+    homeField: homeField || "", // 🏰 主場·陣地結界階級(在自己陣地決戰)→前端標示
+
     idealRealm: idealRealmFired ? { foe: idealRealmFoe, saber: idealRealmSaber } : null, // 🗡️ 理想鄉擋下究極寶具→前端金框
 
     defHp: parseInt(pcData[nIdx][COL.PC.HP]) || 0, defHpMax: parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0,
