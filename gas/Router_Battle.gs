@@ -675,20 +675,25 @@ function actionFateBattle(userData, pcId, sheets) {
       if (destroyedName || sealEscaped) break;
     }
 
-    // 🔯 原初符文·回血運用：本回合我方持符文且運用為 regen 的從者回復一截體力（5%×階/回合）——持久符文流。
+    // 🩹 每回合涓流回血（約 2.5%×階/回合·上限30）：兩種來源——①原初符文運用為 regen(玩家選模式)
+    //   ②持有專屬治癒 fx `regen`(金羊毛/甦生大釜/狐之治癒等·常駐、無需選模式)。標籤顯示技能自己的名字。
     for (let rk = 0; rk < livingParty.length; rk++) {
       const ridx = livingParty[rk];
       if (String(pcData[ridx][COL.PC.ID]).startsWith("DEAD_")) continue;
       const rc = rowToCombatant_(pcData[ridx]);
       const rrn = hasFx_(rc, 'rune');
-      if (rrn && rc.runeMode === 'regen') {
+      const runeRegen = rrn && rc.runeMode === 'regen';
+      const healFx = hasFx_(rc, 'regen');              // 專屬治癒 fx
+      const healRank = runeRegen ? rrn : healFx;       // 符文 regen 優先(同時有也不疊)
+      if (healRank) {
         const hpMaxR = parseInt(pcData[ridx][COL.PC.MAX_HP]) || 0;
-        const healR = Math.min(Math.round(hpMaxR * 0.025 * rankMul_(rrn)), 30); // 🔧 涓流回血(約4%/回合·上限30)，不再無敵壁
+        const healR = Math.min(Math.round(hpMaxR * 0.025 * rankMul_(healRank)), 30);
         const curR = parseInt(pcData[ridx][COL.PC.HP]) || 0;
         if (healR > 0 && curR > 0 && curR < hpMaxR) {
           pcData[ridx][COL.PC.HP] = Math.min(hpMaxR, curR + healR);
           sheets.pc.getRange(ridx + 1, 1, 1, pcData[ridx].length).setValues([pcData[ridx]]);
-          rl.strikes.push({ by: rc.name, rune: true, pHit: false, pDmg: 0, pCrit: '', pFired: [], note: '原初符文·治癒（+' + Math.min(healR, hpMaxR - curR) + '）' });
+          const healLbl = runeRegen ? '原初符文·治癒' : fxName_(rc, 'regen', '治癒');
+          rl.strikes.push({ by: rc.name, rune: true, pHit: false, pDmg: 0, pCrit: '', pFired: [], note: healLbl + '（+' + Math.min(healR, hpMaxR - curR) + '）' });
         }
       }
     }
