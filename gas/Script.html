@@ -1666,6 +1666,7 @@ function renderRecentLocs(recents = null) {
     if (r.destroyed) h += '<div style="color:#d65c5c;font-weight:bold;margin-top:2px;">💀 「' + r.def + '」靈基崩潰·消滅！' + (r.victory ? '　🏆 聖杯已近！' : '') + '</div>';
     else if (r.sealEscaped) h += '<div style="color:#c79be8;margin-top:2px;">❖ 敵令咒緊急脫離、遁走</div>';
     else if (r.godRevived) h += '<div style="color:#d4af37;margin-top:2px;">✨ 十二試煉·自死亡歸來</div>';
+    if (r.telegraph) h += '<div style="color:#ffcf6a;font-weight:bold;margin-top:4px;padding:5px 8px;border:1px solid #c0872e;border-radius:6px;background:rgba(200,120,40,.15);font-size:12px;line-height:1.5;">⚠️ 寶具預兆！「' + r.telegraph + '」真名解放蓄勢待發——<b>下次接觸必傾瀉而出</b>。留魔開理想鄉結界／寶具對衝／速速脫離！</div>';
     if (!r.destroyed && !r.sealEscaped) { h += '<div style="color:#9a8bb0;font-size:10px;margin-top:3px;">敵 ' + r.def + '</div>'; h += hpbar(r.defHp, r.defHpMax, '#d0473f'); }
     if (r.party && r.party.length) {
       r.party.forEach(p => { h += '<div style="color:#9a8bb0;font-size:10px;margin-top:2px;">我 ' + p.name + '</div>' + ''; h += hpbar(p.hp, p.hpMax, '#5cb85c'); });
