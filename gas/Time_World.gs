@@ -382,9 +382,9 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
       candidates.forEach(function (o) { o.strain = (1 - o.mpRatio) * (o.upkeep / 300); });
       candidates.sort(function (a, b) { return b.strain - a.strain; });
       top = candidates[0];
-      // 電池真的偏低(<25%) ＋ 這隻本來就貴(六圍總和≥200) 才有機會，且機率溫和(上限 18%)
-      if (top.mpRatio < 0.25 && top.upkeep >= 200) {
-        boom = Math.min(0.18, (0.25 - top.mpRatio) * 0.4 + (top.upkeep - 200) / 500);
+      // 電池真的偏低(<25%) ＋ 這隻是真正頂尖強者(六圍總和≥230，全種子庫僅前14名過線) 才有機會，且機率溫和(上限 18%)
+      if (top.mpRatio < 0.25 && top.upkeep >= 230) {
+        boom = Math.min(0.18, (0.25 - top.mpRatio) * 0.4 + (top.upkeep - 230) / 500);
       }
     }
     if (boom > 0 && Math.random() < boom) {
