@@ -64,7 +64,7 @@ function actionClaimGrail(userData, pcId, sheets) {
   }
   // 御主願望（show-don't-tell：只供 AI 建構回憶氛圍）
   var wish = "";
-  var wm = String(pcData[pIdx][COL.PC.MEMORY] || "").match(/【願望】([^|【\n]*)/);
+  var wm = String(pcData[pIdx][COL.PC.MEMORY] || "").match(/【願望】([^｜|【\n]*)/);
   if (wm) wish = wm[1].trim();
   var pref = String(s[COL.PC.PREF] || "");
   var back = String(s[COL.PC.BACK] || "");

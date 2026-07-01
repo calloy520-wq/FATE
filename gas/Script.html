@@ -399,7 +399,7 @@ function renderRecentLocs(recents = null) {
     const allies = (localNPCs || []).filter(n => n && n.isExact && (n.faction === '盟友御主' || n.faction === '盟友從者'));
     const chip = (label, onclick, rgb) => '<button onclick="' + onclick + '" style="flex:1; min-width:78px; font-size:12px; padding:8px 5px; background:rgba(' + rgb + ',0.15); color:rgb(' + rgb + '); border:1px solid rgba(' + rgb + ',0.55); border-radius:8px; cursor:pointer; font-weight:bold;">' + label + '</button>';
     const st = attackStyle_();
-    const canMystic = myMystic && myMystic.type === 'active' && myMystic.charges > 0;
+    // ✨ 禮裝已全面被動化：戰鬥自動加持我方從者，敵卡不再有主動發動按鈕
     // 單一目標時自動展開，省一次點擊；多目標一律收攏
     const total = foes.length + allies.length;
     const autoKey = (total === 1) ? String((foes[0] || allies[0]).name) : null;
@@ -438,9 +438,6 @@ function renderRecentLocs(recents = null) {
         const title = '<span style="color:#e8b0d8; font-size:13px; font-weight:bold;">🎭 敵御主 ' + f.name + '</span> <small style="color:#e8b0d8; opacity:.55;">刺殺須擲20</small>';
         let acts = '<button onclick="servantStrike(\'' + safe + '\', false, false, true)" style="flex:1 0 100%; font-size:13px; padding:9px; background:linear-gradient(90deg,rgba(120,30,90,.32),rgba(80,20,60,.18)); color:#e8b0d8; border:1px solid #a0307a; border-radius:8px; cursor:pointer; font-weight:bold;">🗡️ 刺殺御主 <small style="opacity:.65;">須護衛盡除或擲20</small></button>'
           + '<button onclick="proposeAlliance(\'' + safe + '\')" title="交涉結盟：暫時休兵互不侵犯（成敗由對方性格與戰局而定）" style="flex:1 0 100%; font-size:12.5px; padding:8px; background:rgba(90,170,120,.14); color:#8fd0a0; border:1px solid #4ea56a; border-radius:8px; cursor:pointer; font-weight:bold;">🤝 交涉結盟</button>';
-        if (canMystic && myMystic.target === 'master') {
-          acts += '<button onclick="mysticStrike(\'' + safe + '\')" title="' + (myMystic.desc || '').replace(/"/g, '') + '" style="flex:1 0 100%; font-size:12.5px; padding:8px; background:rgba(127,208,192,.16); color:#7fd0c0; border:1px solid #4ea596; border-radius:8px; cursor:pointer; font-weight:bold;">✨ 禮裝·' + myMystic.name + ' <small style="opacity:.7;">狙御主·充能' + myMystic.charges + '</small></button>';
-        }
         h += card(String(f.name), 'rgba(160,48,122,.5)', 'rgba(40,16,34,.25)', title, acts);
       } else {
         const title = '<span style="color:#e8b0b0; font-size:13px; font-weight:bold;">⚔️ 敵從者 ' + f.name + '</span>' + (f.intelCls ? ' <small style="color:#8fd0a0; opacity:.85;">〔' + f.intelCls + '·通報〕</small>' : '');
@@ -448,9 +445,6 @@ function renderRecentLocs(recents = null) {
           + '<button onclick="servantStrike(\'' + safe + '\', true)" title="解放寶具" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(212,175,55,.15); color:#e7c873; border:1px solid #d4af37; border-radius:7px; cursor:pointer; font-weight:bold;">💥 寶具</button>'
           + '<button onclick="servantStrike(\'' + safe + '\', false, true)" title="令咒・絕對命令（必中）" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(176,108,208,.15); color:#c79be8; border:1px solid #b06cd0; border-radius:7px; cursor:pointer; font-weight:bold;">❖ 令咒</button>'
           + '<button onclick="servantStrike(\'' + safe + '\', false, false, false, true)" title="催動出戰從者的專屬主動技（依其技能而定）：本戰增益，耗少量魔力，不足則抽御主供能" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(110,180,220,.15); color:#7ec8ff; border:1px solid #4e92c0; border-radius:7px; cursor:pointer; font-weight:bold;">⚡ 主動技</button>';
-        if (canMystic && myMystic.target === 'servant') {
-          acts += '<button onclick="mysticStrike(\'' + safe + '\')" title="' + (myMystic.desc || '').replace(/"/g, '') + '" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(127,208,192,.16); color:#7fd0c0; border:1px solid #4ea596; border-radius:7px; cursor:pointer; font-weight:bold;">✨ 禮裝·' + myMystic.name + ' <small style="opacity:.7;">充能' + myMystic.charges + '·需迴路' + myMystic.req + '</small></button>';
-        }
         if (myCanRB && myServants.length < 2 && myMasterSeals > 0) {
           acts += '<button onclick="ruleBreakSteal(\'' + safe + '\')" title="破戒奪僕：對打殘(HP<35%)的敵從者斬契奪為第二從者，燃一道令咒" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(176,108,208,.16); color:#d0a0e8; border:1px solid #8a5fb0; border-radius:7px; cursor:pointer; font-weight:bold;">⛓ 破戒奪僕 <small style="opacity:.7;">須打殘至35%＋燃令咒</small></button>';
         }
@@ -1162,7 +1156,7 @@ function renderRecentLocs(recents = null) {
             + bar('魔', m.mpNum, m.mpMax, 'mp', (t.economy && typeof t.economy.net === 'number') ? t.economy.net : null)
             + '<div style="color:#6e9fc0; font-size:9.5px; margin-top:1px; opacity:.85;">🔋 共用魔力池(上限＝迴路×6＋從者魔力×2)：從者按出力檔抽取。回魔靠靈脈/休息或💧補魔(永久燒蝕迴路)；⚠池見底→🩸被動燃血(缺口÷2同扣御主＋從者HP)</div>'
             + '<div style="color:#9a8bb0; font-size:11px; margin-top:3px;">令咒 <span style="color:#c79be8;">' + '❖'.repeat(myMasterSeals) + '</span></div>'
-            + (myMystic ? ('<div style="color:#9a8bb0; font-size:11px; margin-top:3px;" title="' + (myMystic.desc || '').replace(/"/g, '') + '">禮裝 <span style="color:#7fd0c0;">✨ ' + myMystic.name + '</span>' + (myMystic.type === 'active' ? ' <span style="color:#caa44a;">(充能 ' + myMystic.charges + '・需迴路 ' + myMystic.req + ')</span>' : ' <span style="color:#8aa;">(被動)</span>') + '</div>') : ''))
+            + (myMystic ? ('<div style="color:#9a8bb0; font-size:11px; margin-top:3px;" title="' + (myMystic.desc || '').replace(/"/g, '') + '">禮裝 <span style="color:#7fd0c0;">✨ ' + myMystic.name + '</span> <span style="color:#8aa;">(被動·戰鬥自動加持從者)</span>' + (myMystic.effect ? ' <span style="color:#7ec8a0;">' + myMystic.effect + '</span>' : '') + '</div>') : ''))
         + '</div>';
       // 🗝️ 從者卡（支援雙從者）：點卡切換「出戰中」，動作列只出現在出戰中那張
       var buildSvCard = function (s, isActive, dual) {
@@ -1689,44 +1683,7 @@ function renderRecentLocs(recents = null) {
     } catch (e) { /* 靜默 */ }
   }
 
-  // ✨ 發動禮裝（主動型）：吃迴路、耗魔力、扣充能
-  async function mysticStrike(npcName) {
-    if (!myMystic || myMystic.type !== 'active') return;
-    if (myMystic.charges <= 0) { alert('禮裝充能已耗盡。'); return; }
-    if (!confirm('✨ 發動禮裝「' + myMystic.name + '」轟向「' + npcName + '」？\n\n需魔術迴路 ' + myMystic.req + ' 方能全力；不足將走火（威力打折＋魔力反噬）。\n剩餘充能：' + myMystic.charges + '。確定？')) return;
-    if (!beginAction()) return;
-    const story = document.getElementById('story');
-    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主發動禮裝「${myMystic.name}」，直取「${npcName}」！</div>`);
-    story.scrollTop = story.scrollHeight;
-    try {
-      const res = await gasRun({ action: 'use_mystic', pcId: pc.id, npcName: npcName, acctName: (pc && pc.account) || currentAccount });
-      if (res && res.success) {
-        if (res.report) renderMysticReport(res.report);
-        narrate(res.aiPrompt);
-        syncData(true);
-        if (res.victory) { await handleVictory(res); }
-      } else { alert((res && res.message) || '禮裝發動失敗。'); }
-    } catch (e) { alert('連線失敗，禮裝未果。'); } finally { endAction(); }
-  }
-  // ✨ 禮裝戰報卡
-  function renderMysticReport(r) {
-    if (!r || !r.mystic) return;
-    const story = document.getElementById('story');
-    let h = '<div style="border:1px solid rgba(78,165,150,0.5);border-radius:9px;padding:10px 12px;margin:6px 0;background:rgba(14,30,28,0.55);font-size:12px;">';
-    h += '<div style="font-weight:bold;margin-bottom:5px;color:#7fd0c0;">✨ 禮裝·' + r.name + ' → ' + r.target + '</div>';
-    if (r.fizzle) h += '<div style="color:#c99;">⚠ 迴路不足，禮裝啞火、魔力潰散，未能成形。</div>';
-    else {
-      if (r.backfire) h += '<div style="color:#e0a06a;font-size:11px;">⚠ 迴路駕馭不全·走火反噬（威力減半、額外燒魔力）</div>';
-      h += '<div style="font-size:13px;">造成 <b style="color:#ffae6a;">' + (r.dmg || 0) + '</b> 點重創</div>';
-      if (r.masterKilled) h += '<div style="color:#e07a9a;font-weight:bold;margin-top:2px;">🩸 敵御主迴路碎裂、斃命' + (r.fade ? '，其從者「' + r.fade + '」隨之消散' : '') + '！' + (r.victory ? '　🏆 聖杯已近！' : '') + '</div>';
-      if (r.destroyed) h += '<div style="color:#d65c5c;font-weight:bold;margin-top:2px;">💀 「' + r.target + '」靈基崩潰·消滅！' + (r.victory ? '　🏆 聖杯已近！' : '') + '</div>';
-      if (r.godRevived) h += '<div style="color:#d4af37;margin-top:2px;">✨ 對方自死亡歸來（十二試煉）</div>';
-      if (!r.masterKilled && !r.destroyed && r.defHpMax) h += '<div style="color:#9a8bb0;font-size:10px;margin-top:3px;">敵 ' + r.target + ' ' + r.defHp + '/' + r.defHpMax + '</div>';
-    }
-    h += '<div style="color:#8a7f9a;font-size:10px;margin-top:4px;">餘充能 ' + r.charges + '</div></div>';
-    story.insertAdjacentHTML('beforeend', h);
-    story.scrollTop = story.scrollHeight;
-  }
+  // ✨ 禮裝已全面被動化（2026-06）：持有即於戰鬥自動加持我方從者，無主動發動入口。
 
   // 同地是否有清醒敵從者（卸防行動會招致突襲的警示用）
   function localFoeServantName() {
@@ -2790,45 +2747,6 @@ function summonByDesc() {
   // 🟢 連擊戰報專用輕量敘事：narrate() 同等成本，但會把同地參戰NPC名字轉成可點擊超連結，
   // 讓玩家能直接點名字繼續連擊，不需要 AI 額外生成 options
   // ==========================================
-  async function narrateCombatResult(promptText, touchedNames, knockedOut) {
-    const story = document.getElementById('story');
-    const optContainer = document.getElementById('options-container');
-    if (optContainer) optContainer.innerHTML = '';
-    const loadId = "L" + Date.now();
-    story.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="loading-text">聖杯演算中…</div>`);
-    story.scrollTop = story.scrollHeight;
-
-    try {
-      const isNsfw = document.getElementById('nsfw-mode-toggle')?.checked || false;
-      const res = await gasRun({ action: "multi_attack_narrate", pcId: pc.id, promptText: promptText, isNsfw: isNsfw, touchedNames: touchedNames, knockedOut: knockedOut });
-      document.getElementById(loadId)?.remove();
-
-      if (res.success && res.text) {
-        let cleanText = res.text.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
-        let displayText = cleanText.replace(/\n{2,}/g, "<br><br>").replace(/\n/g, "<br><br>");
-
-        // 🔴 同地參戰NPC一律是「實際在場」，直接做成可點擊超連結，方便繼續連擊
-        if (touchedNames && touchedNames.length > 0) {
-          const escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const uniqueNames = [...new Set(touchedNames)].filter(n => n && n.length >= 2);
-          if (uniqueNames.length > 0) {
-            uniqueNames.sort((a, b) => b.length - a.length);
-            const combinedRegex = new RegExp(uniqueNames.map(escapeRegExp).join('|'), 'g');
-            displayText = displayText.replace(combinedRegex, matched => `<span class="npc-link" data-interact="${matched}">${matched}</span>`);
-          }
-        }
-
-        story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【說書人】</b>${displayText}</div>`);
-        lastAiContext = cleanText;
-
-        localStorage.setItem('kyushu_story', story.innerHTML);
-        story.scrollTop = story.scrollHeight;
-      }
-    } catch (e) {
-      document.getElementById(loadId)?.remove();
-      console.error("戰鬥敘事失敗:", e);
-    }
-  }
 
   async function send(customMsg, isSilent = false, combatData = null) {
     const input = document.getElementById('u-in');
@@ -2840,12 +2758,7 @@ function summonByDesc() {
     if (!msg) return;
     if (!customMsg && btn.disabled) return;
 
-    // 🟢 多目標動作標籤：[攻擊 XXX]敘述... 走專屬 GAS 裁決路徑，數值不交給AI自由心證
-    //   (下毒/媚藥 為九州/NSFW 殘留詞彙，solo 不用，已移除)
-    if (!combatData && /\[(攻擊).+?\]/.test(msg)) {
-      return handleMultiAttack(msg);
-    }
-
+    // 🧹 舊九州 [攻擊 XXX] 文字裁決路徑已移除（solo 走按鍵 servantStrike、kanshou 無戰鬥）。
     if (/^[1-4]$/.test(msg) && currentOptions.length >= parseInt(msg)) {
       const optIndex = parseInt(msg) - 1;
       msg = currentOptions[optIndex]; 
@@ -3064,112 +2977,8 @@ let plainTextContext = cleanText;
 
 
 
-async function handleMultiAttack(rawMsg) {
-  const input = document.getElementById('u-in');
-  const btn = document.getElementById('send-btn');
-  const story = document.getElementById('story');
-  input.value = ""; input.disabled = true;
-  btn.disabled = true;
-
-  story.insertAdjacentHTML('beforeend',
-    `<div class="msg-player"><span class="msg-name">${pc.name}</span><span class="msg-text">${rawMsg}</span></div>`);
-  story.scrollTop = story.scrollHeight;
-
-  const loadId = "L" + Date.now();
-  story.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="loading-text">聖杯演算中…</div>`);
-  story.scrollTop = story.scrollHeight;
-
-  try {
-    const res = await gasRun({ action: "multi_attack", pcId: pc.id, rawInput: rawMsg });
-    document.getElementById(loadId)?.remove();
-
-    if (!res.success) {
-      input.disabled = false; btn.disabled = false;
-      alert(res.message || "攻擊未能結算。");
-      return;
-    }
-
-    if (res.statusString) {
-      localStorage.setItem('kyushu_last_status', res.statusString);
-      updateUI(res.statusString.split('§'));
-    }
-
-    (res.results || []).forEach(r => {
-      if (r.skipped) {
-        const skipMsg = r.reason === "no_item" ? `（行囊中找不到合適的藥材，無法對「${r.targetName}」動手）`
-          : r.reason === "already_down" ? `（「${r.targetName}」已昏迷倒地，未再追擊）`
-          : `（「${r.targetName}」查無此人在場，此招落空）`;
-        story.insertAdjacentHTML('beforeend',
-          `<div style="text-align:center; color:#888; font-size:12px; margin:4px 0;">${skipMsg}</div>`);
-      } else {
-        renderCombatReport({ actionType: r.actionType, playerName: pc.name, npcName: r.targetName, pRoll: r.pRoll, pMod: r.pMod, pScore: r.pScore, nRoll: r.nRoll, nMod: r.nMod, nScore: r.nScore, playerWins: r.playerWins, damage: r.damage, critFlavor: r.critFlavor, isStalemate: r.isStalemate, isDodge: r.isDodge });
-      }
-    });
-    story.scrollTop = story.scrollHeight;
-
-    input.disabled = false; btn.disabled = false;
-
-    // 把已裁定的結果（含玩家自己的招式敘述）餵給 AI 描寫(輕量路徑，帶地點/因果/角色資料)
-    narrateCombatResult(res.aiPrompt, res.touchedNames, res.knockedOut);
-
-    // 玩家中途被打趴送藥鋪
-    if (res.justRevived) {
-      setTimeout(() => {
-        send(`【系統動作：玩家從重傷中甦醒，躺在小醫仙藥鋪的病榻上。請描寫甦醒場景並給出選項。】`, true);
-      }, 1500);
-    }
-  } catch (e) {
-    document.getElementById(loadId)?.remove();
-    input.disabled = false; btn.disabled = false;
-    alert("連線受阻，攻擊未能結算。");
-  }
-}
-
-function renderCombatReport(c) {
-  if (!c) return;
-  const story = document.getElementById('story');
-  let critBadge = "";
-  if (c.critFlavor === "player_crit") critBadge = `<div style="color:#d4af37; font-weight:bold;">🎯 你·大成功！</div>`;
-  else if (c.critFlavor === "npc_crit") critBadge = `<div style="color:#a52a2a; font-weight:bold;">🛡️ ${c.npcName}·大成功！</div>`;
-  else if (c.critFlavor === "player_fumble") critBadge = `<div style="color:#a52a2a; font-weight:bold;">💥 你·大失敗！</div>`;
-  else if (c.critFlavor === "npc_fumble") critBadge = `<div style="color:#d4af37; font-weight:bold;">💥 ${c.npcName}·大失敗！</div>`;
-
-  const winColor = c.isStalemate ? "#888" : (c.playerWins ? "#2e8b57" : "#a52a2a");
-  const actionType = c.actionType || "攻擊";
-  let winText, bottomLine;
-  if (actionType === "攻擊" && c.isStalemate) {
-    winText = c.isDodge ? `${c.npcName} 堂堂正正避開` : `擊中卻被卸力`;
-    bottomLine = `⚖️ 棋逢對手，${winText}，未傷`;
-  } else if (actionType === "攻擊") {
-    winText = c.playerWins ? `你擊中 ${c.npcName}` : `${c.npcName} 反擊得手`;
-    bottomLine = `⚔️ ${winText}，造成 ${c.damage} 點傷害`;
-  } else {
-    winText = c.playerWins ? `${actionType}成功！「${c.npcName}」已中招` : `${actionType}失敗，被「${c.npcName}」識破`;
-    bottomLine = `${actionType === "下毒" ? "🧪" : "🌸"} ${winText}`;
-  }
-
-  story.insertAdjacentHTML('beforeend', `
-    <div style="background:rgba(0,0,0,0.04); border:1px solid ${winColor}; border-radius:8px; padding:12px; margin:5px 0; font-size:13px;">
-      <div style="display:flex; justify-content:space-around; text-align:center; margin-bottom:8px;">
-        <div>
-          <div style="font-weight:bold; color:#333;">${c.playerName}</div>
-          <div style="font-size:20px; color:#4682b4;">🎲 ${c.pRoll}</div>
-          <div style="font-size:11px; color:#888;">+${c.pMod} = <b>${c.pScore}</b></div>
-        </div>
-        <div style="align-self:center; color:#888; font-weight:bold;">VS</div>
-        <div>
-          <div style="font-weight:bold; color:#333;">${c.npcName}</div>
-          <div style="font-size:20px; color:#a52a2a;">🎲 ${c.nRoll}</div>
-          <div style="font-size:11px; color:#888;">+${c.nMod} = <b>${c.nScore}</b></div>
-        </div>
-      </div>
-      ${critBadge}
-      <div style="text-align:center; color:${winColor}; font-weight:bold; margin-top:6px;">${bottomLine}</div>
-    </div>
-  `);
-  story.scrollTop = story.scrollHeight;
-}
-
+// 🧹 舊九州多目標攻擊裁決 handleMultiAttack/renderCombatReport/narrateCombatResult 已移除
+//    （呼叫的 multi_attack action 不存在；solo 走按鍵 servantStrike、kanshou 無戰鬥）。
 
 
 

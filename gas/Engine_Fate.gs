@@ -326,6 +326,8 @@ function resolveFateBattle_(atk, def, opts) {
   if (hasFx_(atk, 'self_mod')) { aHit += 2; fired.push(atk.name + '·' + fxName_(atk, 'self_mod', '自我改造')); }
   // ⚡ 主動技（玩家本戰啟動）：命中加成 + 標記發動
   if (opts.skill) { aHit += (opts.skill.hit || 0); fired.push(atk.name + '·' + opts.skill.name + '(主動技)'); }
+  // ✨ 禮裝被動加持·命中（御主禮裝注入我方從者，見 injectMysticBuff_）
+  var mcAtk = mcCombatFx_(atk); if (mcAtk && mcAtk.hit) { aHit += mcAtk.hit; fired.push(atk.name + '·禮裝「' + mcAtk.label + '」(命中+' + mcAtk.hit + ')'); }
 
   // 騎乘(ride) 機動 +2×階級
   var rideA = hasFx_(atk, 'ride'); if (rideA) aHit += Math.round(2 * rankMul_(rideA));
@@ -407,6 +409,13 @@ function resolveFateBattle_(atk, def, opts) {
   else if (mor && hasFx_(loser, 'clear_mind')) { fired.push(loser.name + '·透化(免威壓)'); }
   // 自我改造(self_mod)：傷害 +3
   if (hasFx_(winner, 'self_mod')) base += 3;
+  // ✨ 禮裝被動加持·傷害（每擊+dmgAdd；解放寶具時另乘 npMul，如寶石劍奇蹟一擊 ×1.5）
+  var mcWin = mcCombatFx_(winner);
+  if (mcWin) {
+    if (mcWin.dmgAdd) base += mcWin.dmgAdd;
+    if (opts.np && mcWin.npMul && mcWin.npMul !== 1) { base = Math.round(base * mcWin.npMul); fired.push(winner.name + '·禮裝「' + mcWin.label + '」(寶具×' + mcWin.npMul + ')'); }
+    else if (mcWin.dmgAdd) fired.push(winner.name + '·禮裝「' + mcWin.label + '」(傷+' + mcWin.dmgAdd + ')');
+  }
   // 🗡️ 投影魔術(projection)：每擊都連續投影複製名劍齊射，給持續傷害底火（救低筋力的 EMIYA）
   if (hasFx_(winner, 'projection')) { base += 24 + Math.round(rankVal(winner.six["寶具"]) * 0.6); fired.push(winner.name + '·投影連射'); }
   // 🗡️ 首擊奇襲·要害一擊：氣息遮斷者開場突襲命中→額外重創(吃階級·一次性)。僅【普通首擊】生效——
@@ -536,6 +545,9 @@ function resolveFateBattle_(atk, def, opts) {
   // 🧱 城牆防禦(wall_def)：法師以魔術城牆隔絕物理衝擊，補償 Caster 低耐久（僅擋物理；魔術系傷害穿透）
   var wdL = hasFx_(loser, 'wall_def');
   if (wdL && !atkMagic && !pierces('territory')) { base = Math.round(base * 0.82); fired.push(loser.name + '·' + fxName_(loser, 'wall_def', '城牆防禦') + '(物理減傷18%)'); }
+  // ✨ 禮裝被動加持·承受寶具減傷（如全世界之鞘 ×0.82／月靈髓液攻防一體 ×0.88）：被動恆常生效，不受概念壓制
+  var mcLose = mcCombatFx_(loser);
+  if (mcLose && opts.np && mcLose.npDefMul && mcLose.npDefMul !== 1) { base = Math.round(base * mcLose.npDefMul); fired.push(loser.name + '·禮裝「' + mcLose.label + '」(寶具減傷×' + mcLose.npDefMul + ')'); }
 
   var damage = Math.max(1, base);
 
