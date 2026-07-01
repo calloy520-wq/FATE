@@ -37,7 +37,6 @@ const ActionRouter = {
   "set_mage_realm": actionSetMageRealm,
   "set_rune_mode": actionSetRuneMode,
   "set_active_skill": actionSetActiveSkill,
-  "set_ideal_realm": actionSetIdealRealm,
   "set_np_choice": actionSetNpChoice,
   "bond": actionBond,
   "rule_break_steal": actionRuleBreakSteal,
@@ -316,9 +315,8 @@ function buildTagsPayload_(sheets, pcId, preData, preRel) {
       runeMode: skills.some(function (sk) { return sk && sk.fx === 'rune'; }) ? runeMode_(s[COL.PC.MEMORY]) : undefined,
       // 🐕 主從synergy（恩奇都·變容）：與銀狼結契時亮起全盛(全能A·寶A++)、否則暗示需該御主。玩家不可控·御主決定
       synergy: masterSynergyView_(s[COL.PC.NAME], s[COL.PC.MEMORY]),
-      // 🗡️ 理想鄉·無敵結界（阿爾托莉雅＋御主持 Avalon 禮裝才露出主動 toggle）：can＝可用；on＝已張開待命
+      // 🗡️ 理想鄉·無敵結界（阿爾托莉雅＋御主持 Avalon 禮裝）：被動自動·滿 200 魔則自動擋下來襲寶具。此旗標僅供卡片資訊標籤
       canIdealRealm: (/阿爾托莉雅/.test(String(s[COL.PC.NAME] || "")) && String(s[COL.PC.RANK]) === 'Saber' && getMystic_(m[COL.PC.MEMORY]) === 'avalon'),
-      idealRealm: idealRealmOn_(s[COL.PC.MEMORY]),
       // 🌟 多寶具英靈：寶具選單＋當前選定索引（前端點寶具時挑要放哪個）
       npOptions: servantNpOptions_(s[COL.PC.NAME], s[COL.PC.RANK]) || undefined,
       npChoice: npChoice_(s[COL.PC.MEMORY]),

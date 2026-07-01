@@ -94,29 +94,6 @@ function actionSetActiveSkill(userData, pcId, sheets) {
   }); // 樂觀更新·前端自走輕量 syncData
 }
 
-// 🗡️ 理想鄉·無敵結界主動開關（唯阿爾托莉雅持「全世界之鞘 Avalon」禮裝可用）：ON＝待命，
-//   敵寶具來襲且御主純魔 ≥200 → 完全擋下該發＋扣 200＋自動關閉。免費開關·即時·不耗 AP。
-function actionSetIdealRealm(userData, pcId, sheets) {
-  let pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
-  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
-  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無此從者。" });
-  const sc = rowToCombatant_(pcData[svIdx]); injectMysticBuff_(sc, pcData[pIdx][COL.PC.MEMORY]);
-  if (!hasFx_(sc, 'avalon_saber')) return JSON.stringify({ success: false, message: "唯有『阿爾托莉雅』手持『全世界之鞘 Avalon』禮裝，方能展開理想鄉。" });
-  const on = (userData.on === true || userData.on === 'true');
-  pcData[svIdx][COL.PC.MEMORY] = setIdealRealm_(pcData[svIdx][COL.PC.MEMORY], on);
-  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
-  const mMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
-  return JSON.stringify({
-    success: true, on: on,
-    message: on
-      ? `「${pcData[svIdx][COL.PC.NAME]}」展開【理想鄉】待命——下一發來襲的真名解放將被無敵結界完全隔絕（觸發時耗御主 200 魔·自動收起）。${mMp < 200 ? '⚠️當前御主魔力不足 200，結界雖張、觸發時恐無力支撐。' : `（御主現有魔力 ${mMp}）`}`
-      : `「${pcData[svIdx][COL.PC.NAME]}」收起了理想鄉結界。`
-  }); // 樂觀更新·前端自走輕量 syncData
-}
-
 // 🌟 設定多寶具英靈要解放哪個寶具（存從者 MEMORY【寶具選】N）：免費、即時、不耗 AP。
 function actionSetNpChoice(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
