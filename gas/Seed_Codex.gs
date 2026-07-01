@@ -114,7 +114,7 @@ var SEED_SERVANTS = [
   { id:'斯卡哈-Lancer', cls:'Lancer', realName:'斯卡哈', wars:['客串'], gender:'女',
     six:{筋力:'B',耐久:'A',敏捷:'A',魔力:'C',幸運:'D',寶具:'A+'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'}],
-    skills:[{n:'神速',r:'A',fx:'first_strike'},{n:'戰鬥續行',r:'A',fx:'survive'},
+    skills:[{n:'神殺',r:'A',fx:'god_slay'},{n:'神速',r:'A',fx:'first_strike'},{n:'戰鬥續行',r:'A',fx:'survive'},
             {n:'原初符文',r:'A',fx:'rune'},{n:'魔境的智慧',r:'A',fx:'mage_realm'},{n:'刺穿死亡之棘',r:'A',fx:'gae_bolg',causality:true}],
     traits:[{n:'人類'}], np:'貫穿死翔之槍 Gáe Bolg Alternative（對人 B+·釘空必中＋投擲斷命）／死亡滿溢的魔境之門 Gate of Skye（對軍 A+·吸入影之國）',
     align:'中立・中庸', persona:{firstP:'我',look:'紫髮紅瞳・緊身戰衣的妖豔女王、冷峻威嚴的嚴師氣場、自稱「我」・師長口吻簡潔如刃',words:'影之國女王・冷峻嚴師・武人・求死而不得',toMaster:'嚴厲考校、唯認可強者，師者之威',speech:'冷峻威嚴、師長口吻、簡潔如刃、偶露揶揄',moe:'千年女王的孤高、渴望一死卻不得的寂寞、對弟子又嚴又護、揶揄人時的促狹',tic:'魔槍杵地、睥睨、勾唇淺笑'} },
@@ -134,13 +134,13 @@ var SEED_SERVANTS = [
   { id:'理查一世-Saber', cls:'Saber', realName:'獅心王・理查一世', wars:['fake'], gender:'男',
     six:{筋力:'B',耐久:'B',敏捷:'C',魔力:'C',幸運:'A',寶具:'B'},
     classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'A',fx:'ride'}],
-    skills:[{n:'領袖氣質',r:'B',fx:'morale'},{n:'軍略',r:'B',fx:'tactics'},{n:'戰鬥續行',r:'A',fx:'survive'}],
+    skills:[{n:'獅子心',r:'A',fx:'clear_mind'},{n:'領袖氣質',r:'B',fx:'morale'},{n:'軍略',r:'B',fx:'tactics'},{n:'戰鬥續行',r:'A',fx:'survive'}],
     traits:[{n:'王'},{n:'人類'}], np:'圓桌之證・呼喚英雄之劍 Rounds of Lionheart（對軍 A）',
     align:'中立・善', persona:{firstP:'余',look:'金髮碧眼・佩劍披風的獅心王、豪邁不羈孩子氣的昂揚王者、自稱「余」・熱情奔放滿口傳說',words:'浪漫・崇拜英雄・天真豪邁・獅心',toMaster:'坦率信賴，視為冒險夥伴',speech:'熱情奔放、滿口傳說英雄、孩子氣的興奮、王者豪氣',moe:'獅心王卻像個追星少年、對亞瑟王傳說的狂熱崇拜、天真到可愛的浪漫、豪邁不拘小節',tic:'眼睛發亮談英雄、揮劍大笑、勾肩搭背'} },
   { id:'阿基里斯-Rider', cls:'Rider', realName:'阿基里斯', wars:['fake'], gender:'男',
     six:{筋力:'B+',耐久:'A',敏捷:'A+',魔力:'C',幸運:'D',寶具:'A'},
     classSkills:[{n:'騎乘',r:'A+',fx:'ride'},{n:'對魔力',r:'C',fx:'nullify_magic'}],
-    skills:[{n:'神性',r:'C',fx:'divine'},{n:'勇猛',r:'A+',fx:'morale'},{n:'神威的車輪',r:'A',fx:'survive'}],
+    skills:[{n:'神性',r:'C',fx:'divine'},{n:'女神的寵愛',r:'B',fx:'divine_core'},{n:'勇猛',r:'A+',fx:'morale'},{n:'神威的車輪',r:'A',fx:'survive'}],
     traits:[{n:'神性'},{n:'英雄'}], np:'貫穿戰場的流星（對人 A）／守護領域的車輪（除踵無敵）',
     align:'混沌・中庸', persona:{firstP:'我',look:'金髮健碩・駕戰車執長槍的半神戰士、張狂自信戰意昂揚、自稱「我」・不服輸的挑釁口吻',words:'戰士・自由奔放・驕傲重情・不敗',toMaster:'豪爽不羈，認可便傾力相助',speech:'張狂自信、戰意昂揚、重情義、不服輸',moe:'半神英雄的驕傲與孩子氣、唯一弱點腳踵的宿命、對戰友的重情、自由不受拘束',tic:'駕戰車衝鋒、咧嘴挑釁、拍胸脯打包票'} },
   { id:'開膛手傑克-Berserker', cls:'Berserker', realName:'開膛手傑克', wars:['fake'], gender:'女',
@@ -171,7 +171,7 @@ var SEED_SERVANTS = [
   { id:'莫德雷德-Saber', cls:'Saber', realName:'莫德雷德', wars:['客串'], gender:'女',
     six:{筋力:'B+',耐久:'A',敏捷:'B',魔力:'B',幸運:'D',寶具:'A'},
     classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
-    skills:[{n:'直感',r:'B',fx:'first_strike'},{n:'魔力放出',r:'A',fx:'burst'},{n:'領袖氣質',r:'C',fx:'morale'}],
+    skills:[{n:'直感',r:'B',fx:'first_strike'},{n:'魔力放出',r:'A',fx:'burst'},{n:'領袖氣質',r:'C',fx:'morale'},{n:'戰鬥續行',r:'B',fx:'survive'}],
     traits:[{n:'龍'},{n:'騎士'}], np:'我的憤怒不會退去 Clarent Blood Arthur（對軍 A）',
     align:'混沌・中庸', persona:{firstP:'我',look:'金髮馬尾・銀甲纏紅雷的反逆騎士、粗豪叛逆爭強好勝、自稱「我」・不服輸的粗豪挑釁口吻',words:'叛逆・倔強・渴求認同・反逆之騎',toMaster:'桀驁不馴，認可便死忠',speech:'粗豪叛逆、不服輸、稱亞瑟王「父親」、爭強好勝',moe:'外表狂傲內心渴求父親認同、不肯承認的少女心、死要面子、對「弒父叛逆」的執念與悔',tic:'掀面甲咆哮、紅雷纏劍、別過頭'} },
   { id:'迦爾納-Lancer', cls:'Lancer', realName:'迦爾納', wars:['客串'], gender:'男',
@@ -189,7 +189,7 @@ var SEED_SERVANTS = [
   { id:'賽彌拉米斯-Assassin', cls:'Assassin', realName:'賽彌拉米斯', wars:['客串'], gender:'女',
     six:{筋力:'D',耐久:'C',敏捷:'C',魔力:'A',幸運:'A',寶具:'A+'},
     classSkills:[{n:'氣息遮斷',r:'C',fx:'stealth'}],
-    skills:[{n:'陣地作成（空中庭園）',r:'EX',fx:'territory'},{n:'道具作成（毒）',r:'A',fx:'crafting'}],
+    skills:[{n:'二重召喚',r:'A',fx:'double_summon'},{n:'陣地作成（空中庭園）',r:'EX',fx:'territory'},{n:'道具作成（毒）',r:'A',fx:'crafting'}],
     traits:[{n:'神性'},{n:'人類'}], np:'虛榮的空中庭園 Hanging Gardens of Babylon（對城 EX·浮空要塞·毒殺結界）',
     align:'混沌・惡', persona:{firstP:'妾',look:'華貴盛裝・君臨空中庭園的毒后、高貴威嚴不容違逆的女王氣度、自稱「妾」・女王口吻不容忤逆',words:'毒后・傲慢・貞潔的執念・空中庭園',toMaster:'高高在上，唯認可強主',speech:'高貴威嚴、女王口吻、自稱妾、不容違逆',moe:'史上首位毒殺者女王的傲然、對貞潔與真愛的執念、被冒犯時的羞怒、君臨天下的孤高',tic:'俯瞰眾生、抬手降毒、空中庭園浮現'} },
   { id:'尼祿-Saber', cls:'Saber', realName:'尼祿·克勞狄烏斯', wars:['客串'], gender:'女',
@@ -271,7 +271,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v26'; // v26：續查六圍盛標——迦爾納 耐A→C/魔B→D/幸D→E(Apocrypha 赤Lancer 官方參數·金鎧防禦已由 divine_core fx 模型化·底耐非A)、玉藻前 耐D→E/敏C→B/幸A→D(FGO 官方·幸A屬大幅盛)。v25：查證原作三修——佐佐木 幸A→E(FSN 無名劍客宿命·引擎讀幸算命中暴擊)、咒腕之哈桑 六圍正回原作(筋B/耐C/魔C/幸E·True Assassin FSN 參數表)、牛若丸 拔掉捏造的神性D(源義經純人類·divine 旗標會誤觸神殺/對神/疫病減傷)→換領袖氣質C·騎乘A→A+。v24：蒼白騎兵 寶具 A→EX(原作 Doomsday Come 是 EX 對界寶具·先前被寫低威力·規模對界原本就對)。v23：修規模盛標(誤標=偷改平衡)——美遊 Excalibur 對界→對城(同阿爾托莉雅·Saber install 同一劍)、賽米拉米斯 空中庭園 對界→對城(TYPE-MOON 設定=對城寶具 EX)。威力(six.寶具)與規模關鍵字兩件事·分開校。
+var CODEX_PERSONA_VER = 'v27'; // v27：補招牌技標籤(能活用的給真fx)——斯卡哈+神殺(god_slay·對神性放大·引擎讀名觸發)、理查+獅子心(clear_mind)、阿基里斯+女神的寵愛(divine_core常駐減傷·冥河淬體)、莫德雷德+戰鬥續行(survive)、賽彌拉米斯+二重召喚(double_summon·金羊毛式無數值標籤)。v26：續查六圍盛標——迦爾納 耐A→C/魔B→D/幸D→E(Apocrypha 赤Lancer 官方參數·金鎧防禦已由 divine_core fx 模型化·底耐非A)、玉藻前 耐D→E/敏C→B/幸A→D(FGO 官方·幸A屬大幅盛)。v25：查證原作三修——佐佐木 幸A→E(FSN 無名劍客宿命·引擎讀幸算命中暴擊)、咒腕之哈桑 六圍正回原作(筋B/耐C/魔C/幸E·True Assassin FSN 參數表)、牛若丸 拔掉捏造的神性D(源義經純人類·divine 旗標會誤觸神殺/對神/疫病減傷)→換領袖氣質C·騎乘A→A+。v24：蒼白騎兵 寶具 A→EX(原作 Doomsday Come 是 EX 對界寶具·先前被寫低威力·規模對界原本就對)。v23：修規模盛標(誤標=偷改平衡)——美遊 Excalibur 對界→對城(同阿爾托莉雅·Saber install 同一劍)、賽米拉米斯 空中庭園 對界→對城(TYPE-MOON 設定=對城寶具 EX)。威力(six.寶具)與規模關鍵字兩件事·分開校。
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
