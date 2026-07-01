@@ -866,6 +866,17 @@ function actionFateBattle(userData, pcId, sheets) {
   }
   const enemyMasterCardStr = enemyMasterRow ? enemyMasterCard_(enemyMasterRow) : "";
 
+  // 💥 本次解放寶具的【真名】(多寶具取所選那把)：拆中文／原名供戰報橫幅＋AI 高呼。寶具解放必唸真名。
+  let npName = null;
+  if (useNp) {
+    try {
+      atkC.npChoice = (userData.npChoice != null ? userData.npChoice : npChoice_(pcData[atkIdx][COL.PC.MEMORY]));
+      const _npFull = String(npProfile_(atkC).name || atkC.np || "").split(/[（(／]/)[0].trim();
+      const _m = _npFull.match(/^([^A-Za-z]+?)\s*([A-Za-z][A-Za-z0-9 :·'’.\-]*)?$/);
+      npName = { zh: (_m && _m[1] ? _m[1].trim() : _npFull), en: (_m && _m[2] ? _m[2].trim() : "") };
+    } catch (e) { npName = null; }
+  }
+
   let aiPrompt;
   // 🎬 敘述：給 AI【事實素材】，少下指令——讓它自己演。只保留必要紅線(show-don't-tell／勿擅自寫死)。
   const horrorFired = rounds.some(r => (r.strikes || []).some(k => k.horror));
@@ -879,7 +890,7 @@ function actionFateBattle(userData, pcId, sheets) {
       `${roundsBrief}\n我方造成 ${totalDealt} 傷害、受創 ${totalTaken}。${finalLine}\n` +
       `── 本戰發生的事(素材，自行織入畫面，勿複述標籤名) ──\n` +
       (useSeal ? `· 御主燃燒一道令咒·絕對命令，強令此擊必中、引爆超限戰力。\n` : "") +
-      (clash ? `· 寶具對轟：${clash.outcome === 'causality' ? `因果律先行截斷——『${atkC.name}』的死亡詛咒在敵方寶具解放之前便已降臨，敵 NP 殘波極微。` : clash.outcome === 'player' ? '我方威能壓過對手。' : clash.outcome === 'enemy' ? '對面威能壓過我方（從者以鋼鐵意志撐住）。' : '勢均力敵、轟然相抵、雙方震退。'}\n` : (useNp ? `· ${atkC.name} 高呼真名、解放了寶具。\n` : "")) +
+      (clash ? `· 寶具對轟：${clash.outcome === 'causality' ? `因果律先行截斷——『${atkC.name}』的死亡詛咒在敵方寶具解放之前便已降臨，敵 NP 殘波極微。` : clash.outcome === 'player' ? '我方威能壓過對手。' : clash.outcome === 'enemy' ? '對面威能壓過我方（從者以鋼鐵意志撐住）。' : '勢均力敵、轟然相抵、雙方震退。'}\n` : (useNp ? `· ${atkC.name} 高呼真名【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】、解放了寶具——★演出時務必讓其【親口唸出這個真名】(中文真名與原名並呼、氣勢拉滿)，這是 Fate 寶具解放的靈魂。\n` : "")) +
       (skillActivated ? `· 我方全力催動了主動技「${skillBuff.name}」。\n` : "") +
       (horrorFired ? `· 青鬍子以螺湮城教本自深淵召出觸手巨獸「深淵海怪」，常駐戰場、每回合與本人並肩撕咬，靠御主魔力維持(枯竭則潰散)。\n` : "") +
       (dualAttack ? `· 我方兩名從者並肩夾擊同一敵手。\n` : "") +
@@ -897,7 +908,7 @@ function actionFateBattle(userData, pcId, sheets) {
   // 📊 給前端的多回合視覺戰報
   const report = {
     atk: atkLabel, def: defC.name, rounds: rounds, intercept: !!interceptNote, dual: dualAttack, allyAssist: allyAssistName,
-    useNp: useNp, useSeal: useSeal, totalDealt: totalDealt, totalTaken: totalTaken,
+    useNp: useNp, npName: npName, useSeal: useSeal, totalDealt: totalDealt, totalTaken: totalTaken,
     destroyed: destroyedName || "", godRevived: godRevived, sealEscaped: sealEscaped, victory: victory, defeat: defeat,
     telegraph: npTelegraphed ? String(defC.name) : "", // 🔮 敵寶具預告→前端彈紅框警告
 

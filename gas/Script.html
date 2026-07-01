@@ -1618,7 +1618,16 @@ function renderRecentLocs(recents = null) {
     //   別人的名字(如守方自身被動觸發)不受影響、照樣保留以區分是誰的效果。
     const stripOwnName = (list, ownName) => (list || []).map(s => (ownName && s.indexOf(ownName + '·') === 0) ? s.slice(ownName.length + 1) : s);
     let h = '<div style="border:1px solid rgba(212,175,55,0.35);border-radius:9px;padding:9px 11px;margin:6px 0;background:rgba(28,20,14,0.5);font-size:12px;">';
-    if (r.useNp && !r.clash) h += '<div class="np-release-banner">💥 真名解放！</div>'; // 寶具對轟(r.clash)另有自己的橫幅，這裡不重複疊加
+    // 💥 寶具真名橫幅（英文原名小字在上·中文真名大字在下·Fate 寶具卡感）；對轟(r.clash)另有橫幅不重複
+    if (r.useNp && !r.clash) {
+      if (r.npName && r.npName.zh) {
+        h += '<div style="text-align:center;margin:2px 0 8px;padding:7px 4px;border-top:1px solid rgba(212,175,55,.45);border-bottom:1px solid rgba(212,175,55,.45);background:radial-gradient(ellipse at center,rgba(212,175,55,.14),transparent 72%);">'
+          + (r.npName.en ? '<div style="color:#cbab52;font-size:10px;letter-spacing:2.5px;text-transform:uppercase;opacity:.9;">' + r.npName.en + '</div>' : '')
+          + '<div style="color:#ffe28f;font-size:18px;font-weight:bold;letter-spacing:1.5px;text-shadow:0 0 9px rgba(255,205,110,.55);margin-top:1px;">' + r.npName.zh + '</div>'
+          + '<div style="color:#b2953f;font-size:9px;letter-spacing:4px;margin-top:2px;">— 真名解放 —</div>'
+          + '</div>';
+      } else h += '<div class="np-release-banner">💥 真名解放！</div>';
+    }
     h += '<div style="color:#e7c873;font-weight:bold;margin-bottom:5px;">⚔️ ' + r.atk + (r.useSeal ? ' ❖令咒' : r.useNp ? ' 💥寶具' : '') + (r.skill ? ' <span style="color:#7ec8ff;">' + (r.skill.icon || '⚡') + r.skill.name + '</span>' : '') + ' ⚔ ' + r.def + '　<span style="color:#9a8;font-size:11px;font-weight:normal;">' + r.rounds.length + ' 回合交鋒</span></div>';
     if (r.skill) h += '<div style="color:#7ec8ff;font-size:10.5px;margin-bottom:3px;">⚡ 主動技「' + r.skill.name + '」發動：' + (r.skill.desc || '') + (r.skill.bledMaster ? '　<span style="color:#e06a6a;">(御主焚血 −' + r.skill.fromMasterHp + 'HP)</span>' : '') + '</div>';
     if (r.intercept) h += '<div style="color:#c79be8;font-size:11px;margin-bottom:4px;">🛡️ 敵從者攔截護主——攻擊改打從者</div>';
