@@ -150,11 +150,11 @@ var SEED_SERVANTS = [
     traits:[{n:'人類'}], np:'解體聖母 Maria the Ripper（對人・心臟摘除）',
     align:'混沌・惡', persona:{firstP:'我們',look:'幼小赤裸・霧氣繚繞的詭譎孩童、天真與殺意交錯的空洞、自稱「我們」・童言複數問著殘忍',words:'孩童・空虛・渴求親情・霧',toMaster:'試探地索求溫柔，將溫柔待己之人視作至親般的依戀',speech:'稚嫩天真與冷酷殺意交錯、以「我們」複數自稱、童言童語問著殘忍的話',moe:'渴求親情而不得的悲傷孩子、天真與殘酷的巨大反差、被溫柔對待會怔住、霧中現身的詭譎',tic:'霧氣繚繞中現身、歪頭天真發問、扯住衣角'} },
   { id:'蒼白騎兵-Rider', cls:'Rider', realName:'蒼白騎兵（Pale Rider）', wars:['fake'], gender:'異',
-    six:{筋力:'E',耐久:'A',敏捷:'B',魔力:'EX',幸運:'E',寶具:'EX'},
-    classSkills:[{n:'騎乘',r:'D',fx:'ride'}],
-    skills:[{n:'感染（疫病擴散）',r:'A',fx:'petrify'},{n:'純真的世界（難以感知）',r:'EX',fx:'unreadable'},{n:'冥府的引導',r:'EX',fx:'territory'}],
-    traits:[{n:'災厄'},{n:'疫病'}], np:'終末降臨 Doomsday Come（對界·以御主為起點的死之冥界結界）',
-    align:'混沌・中庸', persona:{firstP:'…',look:'蒼白朦朧・若有似無的騎影、近乎無形的死亡氣息、自稱「…」・幾乎不言僅以瘟疫宣告存在',words:'瘟疫・死亡・無形・終末',toMaster:'無言依附御主之願、以其為冥界起點',speech:'幾乎不開口、存在感稀薄、偶以孩童般純真的破碎短語回應',moe:'人類對瘟疫與死亡之恐懼的具現、無辜與災厄並存的詭異、近乎無形卻無所不在、被當「夥伴」者得冥府祝福',tic:'蒼白騎影一閃即逝、無聲蔓延的寒疫、空洞的注視'} },
+    six:{筋力:'E',耐久:'A',敏捷:'B',魔力:'A',幸運:'C',寶具:'EX'},
+    classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'},{n:'騎乘',r:'EX',fx:'ride'}],
+    skills:[{n:'感染',r:'A',fx:'petrify'},{n:'無辜的世界',r:'EX',fx:'unreadable'},{n:'冥界的引導',r:'EX',fx:'territory'}],
+    traits:[{n:'災厄'},{n:'疫病'}], np:'到來吧、冥途啊 Doomsday Come（對界 EX·以御主為起點的模擬冥界結界·可連肉體拉入）／劍、饑饉、死、獸 Kagome Kagome（對軍 A·結界內具現致死之物·天啟四騎士之力）',
+    align:'中立・中庸', persona:{firstP:'…',look:'蒼白朦朧・若有似無的騎影、近乎無形的死亡氣息、自稱「…」・幾乎不言僅以瘟疫宣告存在',words:'瘟疫・死亡・無形・終末',toMaster:'無言依附御主之願、以其為冥界起點',speech:'幾乎不開口、存在感稀薄、偶以孩童般純真的破碎短語回應',moe:'人類對瘟疫與死亡之恐懼的具現、無辜與災厄並存的詭異、近乎無形卻無所不在、被當「夥伴」者得冥府祝福',tic:'蒼白騎影一閃即逝、無聲蔓延的寒疫、空洞的注視'} },
   { id:'狂信者哈桑-Assassin', cls:'Assassin', realName:'哈桑·薩巴赫（狂信者）', wars:['fake'], gender:'女',
     six:{筋力:'C',耐久:'B',敏捷:'A',魔力:'C',幸運:'D',寶具:'B+'},
     classSkills:[{n:'氣息遮斷',r:'A-',fx:'stealth'}],
@@ -271,7 +271,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v31'; // v31：氣息感知升真機制——恩奇都 氣息感知 fx aim→sense；引擎新增 sense：守方階級≥攻方stealth→抵銷敵奇襲的命中先機＋要害一擊(senseNegate 橫跨兩處)。v30：恩奇都補正典技＋寶具正名——寶具真名「天地乖離開闢之星(吉爾的Ea名·掛錯)」→「世人啊冀以鎖繫神明 Enuma Elish」＋民之睿智Age of Babylon；變生→變容(正名)；拔非正典神性A技/trait(他是神造兵器非神裔)→換完全之形A(regen·大地再生)；補氣息感知A+(aim)。變容真·重分配/氣息感知真·破隱形＝引擎級·暫用proxy。v29：赫拉克勒斯(fake)正名為 Avenger·阿爾喀德斯(令咒歪曲·非單純Archer)——捨神性不死性換十二榮光→拔十二試煉(god_hand)、六圍升官方 A/B/A/A/B/A++、職技 對魔力A/復仇者A(god_slay·天生噬神)/單獨行動B、保有 心眼(真)B/勇猛E/戰鬥續行A+、寶具 Nine Lives+十二榮光+天風的篡奪者、persona 改阿爾喀德斯。引擎 god_slay 改 fx 驅動。v28：續補招牌+去矛盾技——赫拉克勒斯Archer 拔矛盾狂化D→心眼(真)A·陣地作成C→對魔力A(弓兵正典職技)、斯卡哈Assassin(泳裝) 氣息遮斷B→E(原作梗)、阿斯托爾福+單獨行動A(solo)、莫德雷德 寶具A→A+(Clarent Blood Arthur 原作威力)。v27：補招牌技標籤(能活用的給真fx)——斯卡哈+神殺(god_slay·對神性放大·引擎讀名觸發)、理查+獅子心(clear_mind)、阿基里斯+女神的寵愛(divine_core常駐減傷·冥河淬體)、莫德雷德+戰鬥續行(survive)、賽彌拉米斯+二重召喚(double_summon·金羊毛式無數值標籤)。v26：續查六圍盛標——迦爾納 耐A→C/魔B→D/幸D→E(Apocrypha 赤Lancer 官方參數·金鎧防禦已由 divine_core fx 模型化·底耐非A)、玉藻前 耐D→E/敏C→B/幸A→D(FGO 官方·幸A屬大幅盛)。v25：查證原作三修——佐佐木 幸A→E(FSN 無名劍客宿命·引擎讀幸算命中暴擊)、咒腕之哈桑 六圍正回原作(筋B/耐C/魔C/幸E·True Assassin FSN 參數表)、牛若丸 拔掉捏造的神性D(源義經純人類·divine 旗標會誤觸神殺/對神/疫病減傷)→換領袖氣質C·騎乘A→A+。v24：蒼白騎兵 寶具 A→EX(原作 Doomsday Come 是 EX 對界寶具·先前被寫低威力·規模對界原本就對)。v23：修規模盛標(誤標=偷改平衡)——美遊 Excalibur 對界→對城(同阿爾托莉雅·Saber install 同一劍)、賽米拉米斯 空中庭園 對界→對城(TYPE-MOON 設定=對城寶具 EX)。威力(six.寶具)與規模關鍵字兩件事·分開校。
+var CODEX_PERSONA_VER = 'v32'; // v32：蒼白騎兵 對官方面板全面校正——魔EX→A·幸E→C(補上次漏改·官方表=筋E/耐A/敏B/魔A/幸C/寶EX)、騎乘D→EX(乘風水人概念級)＋補對魔力C、技能正名(感染/無辜的世界/冥界的引導)、寶具補第二 Kagome Kagome(對軍A)＋Doomsday Come正名、align 中立中庸。v31：氣息感知升真機制——恩奇都 氣息感知 fx aim→sense；引擎新增 sense：守方階級≥攻方stealth→抵銷敵奇襲的命中先機＋要害一擊(senseNegate 橫跨兩處)。v30：恩奇都補正典技＋寶具正名——寶具真名「天地乖離開闢之星(吉爾的Ea名·掛錯)」→「世人啊冀以鎖繫神明 Enuma Elish」＋民之睿智Age of Babylon；變生→變容(正名)；拔非正典神性A技/trait(他是神造兵器非神裔)→換完全之形A(regen·大地再生)；補氣息感知A+(aim)。變容真·重分配/氣息感知真·破隱形＝引擎級·暫用proxy。v29：赫拉克勒斯(fake)正名為 Avenger·阿爾喀德斯(令咒歪曲·非單純Archer)——捨神性不死性換十二榮光→拔十二試煉(god_hand)、六圍升官方 A/B/A/A/B/A++、職技 對魔力A/復仇者A(god_slay·天生噬神)/單獨行動B、保有 心眼(真)B/勇猛E/戰鬥續行A+、寶具 Nine Lives+十二榮光+天風的篡奪者、persona 改阿爾喀德斯。引擎 god_slay 改 fx 驅動。v28：續補招牌+去矛盾技——赫拉克勒斯Archer 拔矛盾狂化D→心眼(真)A·陣地作成C→對魔力A(弓兵正典職技)、斯卡哈Assassin(泳裝) 氣息遮斷B→E(原作梗)、阿斯托爾福+單獨行動A(solo)、莫德雷德 寶具A→A+(Clarent Blood Arthur 原作威力)。v27：補招牌技標籤(能活用的給真fx)——斯卡哈+神殺(god_slay·對神性放大·引擎讀名觸發)、理查+獅子心(clear_mind)、阿基里斯+女神的寵愛(divine_core常駐減傷·冥河淬體)、莫德雷德+戰鬥續行(survive)、賽彌拉米斯+二重召喚(double_summon·金羊毛式無數值標籤)。v26：續查六圍盛標——迦爾納 耐A→C/魔B→D/幸D→E(Apocrypha 赤Lancer 官方參數·金鎧防禦已由 divine_core fx 模型化·底耐非A)、玉藻前 耐D→E/敏C→B/幸A→D(FGO 官方·幸A屬大幅盛)。v25：查證原作三修——佐佐木 幸A→E(FSN 無名劍客宿命·引擎讀幸算命中暴擊)、咒腕之哈桑 六圍正回原作(筋B/耐C/魔C/幸E·True Assassin FSN 參數表)、牛若丸 拔掉捏造的神性D(源義經純人類·divine 旗標會誤觸神殺/對神/疫病減傷)→換領袖氣質C·騎乘A→A+。v24：蒼白騎兵 寶具 A→EX(原作 Doomsday Come 是 EX 對界寶具·先前被寫低威力·規模對界原本就對)。v23：修規模盛標(誤標=偷改平衡)——美遊 Excalibur 對界→對城(同阿爾托莉雅·Saber install 同一劍)、賽米拉米斯 空中庭園 對界→對城(TYPE-MOON 設定=對城寶具 EX)。威力(six.寶具)與規模關鍵字兩件事·分開校。
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
