@@ -33,7 +33,7 @@ var SEED_SERVANTS = [
   { id:'美狄亞-Caster', cls:'Caster', realName:'美狄亞', wars:['5th'], gender:'女',
     six:{筋力:'E',耐久:'D',敏捷:'C',魔力:'A',幸運:'B',寶具:'C'},
     classSkills:[{n:'陣地作成',r:'A',fx:'territory'},{n:'道具作成',r:'A',fx:'crafting'}],
-    skills:[{n:'高速詠唱',r:'A',fx:'fast_cast'},{n:'神代魔術',r:'A',fx:'divine_age'},{n:'破戒全咒',r:'C',fx:'rule_breaker'},{n:'治癒魔藥（限定不老不死）',r:'B',fx:'regen'}],
+    skills:[{n:'高速詠唱',r:'A',fx:'fast_cast'},{n:'神代魔術',r:'A',fx:'divine_age'},{n:'破戒全咒',r:'C',fx:'rule_breaker'},{n:'金羊毛 Argon Coin',r:'EX',fx:'golden_fleece'}],
     traits:[{n:'人類'}], np:'萬符必應破戒 Rule Breaker（規則破壞者 C）',
     align:'中立・惡', persona:{firstP:'我',look:'紫袍兜帽・抱緣紅短劍的清麗魔女、溫婉中帶試探的疏離、自稱「我」・用敬語',words:'背叛的傷痕・渴望被信任・腹黑・少女心',toMaster:'防備卻渴望真心相待',speech:'溫婉中帶試探、用敬語、自嘲被背叛的過往、偶爾流露脆弱',moe:'魔女外表下渴望被愛、被真心對待會慌、為所愛之人不擇手段、反差的純情',tic:'抱著緣紅短劍、垂眸輕笑、欲言又止'} },
   { id:'佐佐木小次郎-Assassin', cls:'Assassin', realName:'佐佐木小次郎', wars:['5th'], gender:'男',
@@ -271,7 +271,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v22'; // v22：美狄亞 加 治癒魔藥(限定不老不死·FSN原典·道具作成系回復魔藥)＝新增專屬治癒 fx `regen`(每回合涓流回血)
+var CODEX_PERSONA_VER = 'v22'; // v22：美狄亞 加 金羊毛 EX 演出招牌(FSN 第二寶具·召科爾基斯龍·她駕馭不了故 fx 空·無數值)；另備通用治癒 fx `regen`(engine 就緒·暫無人掛)
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
