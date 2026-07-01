@@ -6,46 +6,76 @@
 //     不足→走火（威力打折＋魔力反噬，差越多越慘），再加魔力消耗＋充能上限。
 // ==========================================
 
-// 📕 禮裝圖鑑。type:'passive' 持有即生效；'active' 需啟動（耗魔力/充能/吃迴路）。
-//   req＝全力發揮所需魔術迴路；mp＝啟動魔力消耗（御主MP）；charges＝充能次數；power＝威力係數；
-//   target:'servant'|'master'；tier＝稀有度(創角依財力給的門檻)。
+// 📕 禮裝圖鑑（2026-06 全面被動化·玩家定案）。type:'passive' 持有即生效，戰鬥時自動加持我方從者；
+//   'special'＝破戒奪僕(另套機制)。不再有主動發動／充能／迴路門檻。
+//   fx＝戰鬥效果碼(進 MC_COMBAT_ 表)；tier＝稀有度(創角依財力給的門檻)。
 var MYSTIC_CODES = {
   avalon: {
-    name: '全世界之鞘 Avalon', type: 'passive', fx: 'avalon', tier: 5, req: 0, mp: 0, charges: 0, power: 0, target: '',
-    desc: '亞瑟王傳說的理想鄉之鞘。持有時，從者氣血持續回復加快，並對寶具傷害有所減免。',
+    name: '全世界之鞘 Avalon', type: 'passive', fx: 'avalon', tier: 5,
+    desc: '亞瑟王傳說的理想鄉之鞘。持有時，從者氣血持續回復加快（時回），且承受寶具傷害大幅減免。',
     flavor: '溫煦的金色光輝自體內漫出，將傷勢一點一滴撫平——這是隔絕於世界之外的、永不凋零的理想鄉。'
   },
   jeweled_sword: {
-    name: '寶石劍 Zelretch', type: 'active', fx: 'jewel_blast', tier: 5, req: 45, mp: 60, charges: 2, power: 2.0, target: 'servant',
-    desc: '第二魔法的結晶兵裝。傾瀉龐大魔力的奇蹟一擊，足以打破僵局、轟破不死之軀。極吃迴路。',
-    flavor: '寶石劍尖凝聚起足以扭曲因果的魔力洪流，向目標傾瀉出一道貫穿平行世界的奇蹟之光。'
+    name: '寶石劍 Zelretch', type: 'passive', fx: 'mc_jewel', tier: 5,
+    desc: '第二魔法的結晶兵裝。傾瀉平行世界魔力於從者寶具，解放時威力奇蹟般大增。',
+    flavor: '寶石劍引來貫穿平行世界的魔力洪流，注入從者的寶具——這一擊已不只屬於這個世界。'
   },
   volumen: {
-    name: '月靈髓液（水銀）', type: 'active', fx: 'mercury', tier: 4, req: 50, mp: 45, charges: 99, power: 1.4, target: 'servant',
-    desc: '肯尼斯引以為傲的攻防一體水銀禮裝。威力強橫，但對掌控者的迴路要求極高——駕馭不了便是反噬。',
-    flavor: '銀色的水銀如有生命般翻湧而起，化作千百道利刃與壁壘，朝目標絞殺而去。'
+    name: '月靈髓液（水銀）', type: 'passive', fx: 'mc_mercury', tier: 4,
+    desc: '肯尼斯引以為傲的攻防一體水銀禮裝。如活物般環繞從者，攻擊更銳、且削減承受的寶具傷害。',
+    flavor: '銀色水銀如有生命般環身翻湧，既是斬向敵手的千刃、也是擋下殺著的壁壘。'
   },
   origin_bullet: {
-    name: '起源彈', type: 'active', fx: 'origin_round', tier: 3, req: 20, mp: 30, charges: 3, power: 1.0, target: 'master',
-    desc: '衛宮切嗣的特製彈：以自身起源「斷絕」貫入，破壞敵御主的魔術迴路。專獵御主的暗殺利器。',
-    flavor: '一聲悶響，那發以「斷絕」為起源的子彈精準貫入——魔術迴路被生生攪碎，再無迴轉的可能。'
+    name: '起源彈', type: 'passive', fx: 'mc_origin', tier: 3,
+    desc: '衛宮切嗣的特製彈：以「斷絕」為起源。從者攻擊染上斷絕之概念，命中更準、傷害更沉。',
+    flavor: '那以「斷絕」為起源的概念悄然附於每一擊——擦中即是難以挽回的崩解。'
   },
   jewels: {
-    name: '魔力儲存寶石', type: 'active', fx: 'jewel_minor', tier: 2, req: 15, mp: 25, charges: 5, power: 0.7, target: 'servant',
-    desc: '遠坂家風格的儲魔寶石。預先封存魔力、臨陣釋放中等魔力衝擊，輕便而易於驅使。',
-    flavor: '指間的寶石應聲碎裂，封存其中的魔力化作一道衝擊轟然迸發。'
+    name: '魔力儲存寶石', type: 'passive', fx: 'mc_jewel_minor', tier: 2,
+    desc: '遠坂家風格的儲魔寶石。源源供給從者額外魔力，每擊傷害略增。',
+    flavor: '袖中寶石微微發燙，將封存的魔力一縷縷渡入從者的每一次出手。'
   },
   black_keys: {
-    name: '黑鍵', type: 'active', fx: 'black_key', tier: 1, req: 5, mp: 15, charges: 6, power: 0.4, target: 'servant',
-    desc: '聖堂教會代行者的擲擊聖鍵。輕巧廉價的牽制，魔力門檻極低、人人可使。',
-    flavor: '數柄細長的黑色聖鍵自指縫激射而出，劃破空氣釘向目標。'
+    name: '黑鍵', type: 'passive', fx: 'mc_blackkey', tier: 1,
+    desc: '聖堂教會代行者的擲擊聖鍵。輕巧的牽制掩護，讓從者出手時的命中略為提升。',
+    flavor: '數柄黑色聖鍵不時自暗處激射牽制，為從者撕開一線可乘之機。'
   },
   rule_breaker: {
-    name: '破戒全咒 Rule Breaker（緣紅短劍）', type: 'special', fx: 'rule_break', tier: 5, req: 0, mp: 0, charges: 0, power: 0, target: '',
+    name: '破戒全咒 Rule Breaker（緣紅短劍）', type: 'special', fx: 'rule_break', tier: 5,
     desc: '美狄亞之寶具凝成的緣紅短劍。能斬斷一切締約——可對「打殘(HP<35%)的敵從者」斬契奪僕，化為你的第二從者（需燃一道令咒重締）。在地圖頁／敵卡操作。',
     flavor: '緣紅的短劍劃過，舊有的契約如琉璃般寸寸碎裂。'
   }
 };
+
+// ⚔️ 禮裝戰鬥效果表（被動·自動加持我方從者）：fx → {hit 命中+, dmgAdd 每擊傷+, npMul 寶具傷×(攻), npDefMul 承受寶具傷×(防)}。
+//   要新增/調整禮裝戰力，只動這張表＋上面的 fx 對應；引擎(resolveFateBattle_)透過 mcCombatFx_ 自動讀取。
+var MC_COMBAT_ = {
+  mc_blackkey:    { hit: 2, dmgAdd: 0,  npMul: 1.0,  npDefMul: 1.0,  label: '黑鍵·牽制' },
+  mc_jewel_minor: { hit: 1, dmgAdd: 10, npMul: 1.0,  npDefMul: 1.0,  label: '魔力儲存寶石' },
+  mc_origin:      { hit: 3, dmgAdd: 8,  npMul: 1.0,  npDefMul: 1.0,  label: '起源彈·斷絕' },
+  mc_mercury:     { hit: 4, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.88, label: '月靈髓液·攻防一體' },
+  mc_jewel:       { hit: 0, dmgAdd: 0,  npMul: 1.5,  npDefMul: 1.0,  label: '寶石劍·奇蹟一擊' },
+  avalon:         { hit: 0, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.82, label: '全世界之鞘' }
+};
+// 取某戰鬥單位身上的禮裝戰鬥效果（找第一個命中 MC_COMBAT_ 的 fx）。回 null＝無。
+function mcCombatFx_(c) {
+  var all = (c && c.skills || []).concat(c && c.traits || []);
+  for (var i = 0; i < all.length; i++) { var s = all[i]; if (s && s.fx && MC_COMBAT_[s.fx]) return MC_COMBAT_[s.fx]; }
+  return null;
+}
+// 御主持有的禮裝 → 給我方從者注入的「被動加持技能」{n,r,fx}（戰鬥單位建好後注入 skills）。無戰鬥效果(如破戒)回 null。
+function masterMysticBuffSkill_(memory) {
+  var id = getMystic_(memory); if (!id) return null;
+  var code = MYSTIC_CODES[id]; if (!code || !code.fx || !MC_COMBAT_[code.fx]) return null;
+  return { n: code.name, r: 'A', fx: code.fx };
+}
+// 把御主禮裝被動加持注入「我方從者」戰鬥單位 c（c 由 servantRow 建；masterMemory＝其御主 MEMORY）。已注入則略過。
+function injectMysticBuff_(c, masterMemory) {
+  var sk = masterMysticBuffSkill_(masterMemory); if (!sk) return c;
+  c.skills = (c.skills || []);
+  if (!c.skills.some(function (s) { return s && s.fx === sk.fx; })) c.skills = c.skills.concat([sk]);
+  return c;
+}
 
 // 🗝️ 是否具破戒全咒之力：我方從者帶 rule_breaker(Caster) 或 御主持破戒禮裝
 function canRuleBreak_(pcData, pIdx, gameId) {
@@ -58,19 +88,13 @@ function canRuleBreak_(pcData, pIdx, gameId) {
   return false;
 }
 
-// ── 存取：【禮裝】id、【禮充】n ──
+// ── 存取：【禮裝】id（禮裝全面被動化後，不再有【禮充】充能）──
 function getMystic_(memory) { var m = String(memory || "").match(/【禮裝】([a-z_]+)/); return m ? m[1] : ""; }
 function setMystic_(memory, id) {
   var s = String(memory || "");
   if (/【禮裝】[a-z_]+/.test(s)) s = s.replace(/【禮裝】[a-z_]+/, "【禮裝】" + id);
   else s = (s ? s + "｜" : "") + "【禮裝】" + id;
   return s;
-}
-function getMysticCharges_(memory) { var m = String(memory || "").match(/【禮充】(\d+)/); return m ? parseInt(m[1]) : -1; }
-function setMysticCharges_(memory, n) {
-  var s = String(memory || "");
-  if (/【禮充】\d+/.test(s)) return s.replace(/【禮充】\d+/, "【禮充】" + n);
-  return (s ? s + "｜" : "") + "【禮充】" + n;
 }
 // 持有的禮裝是否帶某 fx（給戰鬥/時回查被動用，如 avalon）
 function masterMysticFx_(memory, fx) { var id = getMystic_(memory); return (id && MYSTIC_CODES[id] && MYSTIC_CODES[id].fx === fx) ? id : ""; }
@@ -104,49 +128,8 @@ function pickByTier_(tiers) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-// 給御主 MEMORY 裝上禮裝（含初始充能），回傳新 memory
+// 給御主 MEMORY 裝上禮裝（被動·持有即生效），回傳新 memory
 function equipMysticToMemory_(memory, id) {
   if (!id || !MYSTIC_CODES[id]) return memory;
-  var mem = setMystic_(memory, id);
-  var code = MYSTIC_CODES[id];
-  if (code.type === 'active') mem = setMysticCharges_(mem, code.charges);
-  return mem;
-}
-
-// 🩸 對從者套用禮裝傷害（god_hand/戰鬥續行/消滅/勝利判定），仿 fateStrike_ 的死亡處理
-function applyMysticDamageToServant_(sheets, pcData, tgtIdx, dmg, ctx) {
-  var out = { destroyed: "", godRevived: false, godNote: "", victory: false, after: 0 };
-  var defC = rowToCombatant_(pcData[tgtIdx]);
-  var hp = parseInt(pcData[tgtIdx][COL.PC.HP]) || 0;
-  var after = hp - dmg;
-  if (after <= 5 && hasFx_(defC, 'survive') && hp > 1) { after = 1; }
-  if (after <= 0 && hasFx_(defC, 'god_hand')) {
-    var lives = getGodHandLives_(pcData[tgtIdx][COL.PC.MEMORY]);
-    if (lives > 0) {
-      out.godRevived = true;
-      pcData[tgtIdx][COL.PC.HP] = Math.max(1, Math.round((parseInt(pcData[tgtIdx][COL.PC.MAX_HP]) || 300) * 0.20));
-      pcData[tgtIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[tgtIdx][COL.PC.MEMORY], lives - 1);
-      sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
-      out.godNote = '「' + pcData[tgtIdx][COL.PC.NAME] + '」自死亡歸來（餘 ' + (lives - 1) + ' 命）。';
-      out.after = parseInt(pcData[tgtIdx][COL.PC.HP]) || 0;
-      return out;
-    }
-  }
-  if (after <= 0) {
-    out.destroyed = String(pcData[tgtIdx][COL.PC.NAME]);
-    pcData[tgtIdx][COL.PC.ID] = "DEAD_" + String(pcData[tgtIdx][COL.PC.ID]);
-    pcData[tgtIdx][COL.PC.HP] = 0;
-    pcData[tgtIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "禮裝轟殺·消滅", "顏面": "已無生息" });
-    sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
-    if (String(pcData[tgtIdx][COL.PC.FACTION]) === "敵從者" && aliveEnemyServants_(sheets, ctx.myGameId) <= 0) {
-      out.victory = true;
-      var acctW = String(ctx.acctName || "");
-      if (acctW) { incrementWin_(acctW); recordHistory_(acctW, "勝", ctx.masterName, "以禮裝之力斬盡敵從者，奪得聖杯。"); }
-    }
-  } else {
-    pcData[tgtIdx][COL.PC.HP] = after;
-    sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
-  }
-  out.after = parseInt(pcData[tgtIdx][COL.PC.HP]) || 0;
-  return out;
+  return setMystic_(memory, id);
 }

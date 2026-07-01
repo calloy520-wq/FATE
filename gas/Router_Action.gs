@@ -37,7 +37,6 @@ const ActionRouter = {
   "set_rune_mode": actionSetRuneMode,
   "set_np_choice": actionSetNpChoice,
   "bond": actionBond,
-  "use_mystic": actionUseMystic,
   "rule_break_steal": actionRuleBreakSteal,
   "propose_alliance": actionProposeAlliance,
   "break_alliance": actionBreakAlliance,
@@ -184,7 +183,7 @@ function handleGameAction(userData) {
 //   它們不 syncData、只吃 res.economy，夾 _state 反而白做整表讀取。
 //   也不含 narrate_only/multi_attack_narrate——前端 narrate() 只吃 res.text、不消費 _state，夾它純浪費整表讀。
 const STATE_AFTER_ACTIONS = {
-  fate_battle: 1, use_seal: 1, mana_supply: 1, bond: 1, use_mystic: 1, rule_break_steal: 1,
+  fate_battle: 1, use_seal: 1, mana_supply: 1, bond: 1, rule_break_steal: 1,
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
   second_wind: 1, scout: 1, move: 1, rest: 1,
   update_fate: 1, update_rel_tag: 1, clear_npc_major_event: 1
@@ -726,8 +725,9 @@ function buildTagsPayload_(sheets, pcId, preData, preRel) {
     var mid = getMystic_(m[COL.PC.MEMORY]);
     if (mid && MYSTIC_CODES[mid]) {
       var mc = MYSTIC_CODES[mid];
-      var ch = getMysticCharges_(m[COL.PC.MEMORY]); if (ch < 0) ch = mc.charges;
-      mystic = { id: mid, name: mc.name, type: mc.type, desc: mc.desc, req: mc.req, charges: ch, target: mc.target };
+      var mcb = mc.fx && MC_COMBAT_[mc.fx] ? MC_COMBAT_[mc.fx] : null;
+      var eff = mcb ? [(mcb.hit ? '命中+' + mcb.hit : ''), (mcb.dmgAdd ? '傷+' + mcb.dmgAdd : ''), (mcb.npMul && mcb.npMul !== 1 ? '寶具×' + mcb.npMul : ''), (mcb.npDefMul && mcb.npDefMul !== 1 ? '承受寶具×' + mcb.npDefMul : '')].filter(Boolean).join('・') : '';
+      mystic = { id: mid, name: mc.name, type: mc.type, desc: mc.desc, effect: eff };
     }
   } catch (e) { }
   // 🗝️ 破戒之力（前端決定是否顯示「破戒奪僕」按鈕）：限正式聖杯戰爭世界
@@ -1891,6 +1891,8 @@ function actionClearNpcMajorEvent(userData, pcId, sheets) {
 function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   opts = opts || {};
   var defC = rowToCombatant_(pcData[tgtIdx]);
+  // ✨ 我方從者作守方時也吃御主禮裝被動（防禦端：如全世界之鞘承受寶具減傷）
+  if (String(pcData[tgtIdx][COL.PC.FACTION]) === "從者" && ctx && ctx.pIdx >= 0) injectMysticBuff_(defC, pcData[ctx.pIdx][COL.PC.MEMORY]);
   // 🍱 整備·進食加成：御主一行戰前整備過、且尚在效期內 → 從者出擊命中 +MEAL_BUFF_BONUS
   var mealOn = false;
   try { mealOn = mealBuffActive_(pcData[ctx.pIdx][COL.PC.MEMORY], ctx.myGameId); } catch (e) { }
@@ -2196,6 +2198,7 @@ function actionFateBattle(userData, pcId, sheets) {
   }
 
   const atkC = rowToCombatant_(pcData[atkIdx]);
+  injectMysticBuff_(atkC, pcData[pIdx][COL.PC.MEMORY]);  // ✨ 御主禮裝被動加持我方從者（含開場對轟攻防）
   const defC = rowToCombatant_(pcData[nIdx]);
 
   // 🔋 寶具魔力（出力電池制）：寶具全由御主供魔。① 寶具僅能在「出力 100%（全開·認真）」解放——御主把魔力全灌進去才釋放得了真名。
@@ -2503,6 +2506,7 @@ function actionFateBattle(userData, pcId, sheets) {
       const sidx = livingParty[k];
       if (String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) break;
       const sC = rowToCombatant_(pcData[sidx]);
+      injectMysticBuff_(sC, pcData[pIdx][COL.PC.MEMORY]);  // ✨ 御主禮裝被動加持我方從者（每回合出擊）
       const isActive = (sidx === atkIdx);
       const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && openingNp && isActive, seal: opening && openingSeal && isActive, ambush: opening && isActive, skill: isActive ? skillBuff : null }, ctx);
       // 目標為敵御主(非從者)：引擎計算了反傷 fired 但不套用，過濾掉「winner·武器骰」等傷害計算噪音
@@ -3294,100 +3298,8 @@ function actionBond(userData, pcId, sheets) {
   });
 }
 
-// ✨ 發動禮裝（主動型）：吃迴路（不足走火）＋耗魔力＋扣充能，對同地敵從者/敵御主造成魔力傷害
-function actionUseMystic(userData, pcId, sheets) {
-  const npcName = String(userData.npcName || "").trim();
-  let pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
-  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  const memory = String(pcData[pIdx][COL.PC.MEMORY] || "");
-  const id = getMystic_(memory);
-  const code = MYSTIC_CODES[id];
-  if (!code) return JSON.stringify({ success: false, message: "你並未持有禮裝。" });
-  if (code.type !== 'active') return JSON.stringify({ success: false, message: `「${code.name}」是被動禮裝，持有即生效。` });
-
-  let charges = getMysticCharges_(memory); if (charges < 0) charges = code.charges;
-  if (charges <= 0) return JSON.stringify({ success: false, message: `「${code.name}」的充能已耗盡。` });
-
-  const isFate = myGameId.indexOf("g_") === 0;
-  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以發動禮裝——請休息恢復。" });
-  const mpCur = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
-  if (mpCur < Math.round(code.mp * 0.5)) return JSON.stringify({ success: false, message: `御主魔力不足以驅動「${code.name}」。` });
-
-  const wantFaction = code.target === 'master' ? '敵御主' : '敵從者';
-  const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
-  const nIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).includes(npcName) && String(r[COL.PC.FACTION]) === wantFaction && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc);
-  if (nIdx === -1) return JSON.stringify({ success: false, message: code.target === 'master' ? "此地沒有可狙擊的敵御主。" : "此地沒有可轟擊的敵從者。" });
-
-  // 🔧 迴路門檻 → 走火（不足越多越易反噬/啞火）
-  const circuits = masterCircuits_(pcData[pIdx]);
-  let powerMul = Math.min(1, code.req > 0 ? circuits / code.req : 1);
-  let backfire = false, fizzle = false;
-  if (circuits < code.req) {
-    const gap = (code.req - circuits) / code.req;
-    if (Math.random() < gap * 0.80) backfire = true;
-    if (Math.random() < gap * 0.35) fizzle = true;
-  }
-
-  // 扣 AP / 魔力 / 充能
-  let ap = AP_PER_DAY, clock = "";
-  if (isFate) { try { ap = spendAp_(myGameId, 1).ap; clock = clockLabel_(myGameId); } catch (e) { } }
-  const mpCost = code.mp + (backfire ? Math.round(code.mp * 0.5) : 0);
-  pcData[pIdx][COL.PC.MP] = Math.max(0, mpCur - mpCost);
-  charges -= 1;
-  pcData[pIdx][COL.PC.MEMORY] = setMysticCharges_(memory, charges);
-  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-
-  const ctx = { myGameId: myGameId, acctName: String(userData.acctName || ""), masterName: pcData[pIdx][COL.PC.NAME] };
-  const tgtName = String(pcData[nIdx][COL.PC.NAME]);
-  let report = { mystic: true, name: code.name, target: tgtName, backfire: backfire, fizzle: fizzle, charges: charges, victory: false, dmg: 0, destroyed: "", godRevived: false, masterKilled: false, fade: "" };
-  let aiCore = "";
-
-  if (fizzle) {
-    aiCore = `禮裝「${code.name}」因御主魔術迴路不足（${circuits}／需求 ${code.req}），魔力潰散、當場啞火，未能成形。`;
-  } else {
-    let dmg = Math.round((30 + circuits * 2) * code.power * powerMul);
-    if (backfire) dmg = Math.round(dmg * 0.5);
-    report.dmg = dmg;
-    if (code.target === 'master') {
-      let mhp = parseInt(pcData[nIdx][COL.PC.HP]) || 0, mafter = mhp - dmg;
-      if (mafter <= 0) {
-        pcData[nIdx][COL.PC.ID] = "DEAD_" + String(pcData[nIdx][COL.PC.ID]); pcData[nIdx][COL.PC.HP] = 0;
-        pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "鮮血浸染", "姿勢": "倒地", "負面": "迴路碎裂·身亡", "顏面": "錯愕" });
-        sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
-        const gIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc);
-        if (gIdx >= 0) {
-          report.fade = String(pcData[gIdx][COL.PC.NAME]);
-          pcData[gIdx][COL.PC.ID] = "DEAD_" + String(pcData[gIdx][COL.PC.ID]); pcData[gIdx][COL.PC.HP] = 0;
-          pcData[gIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "化作光點", "負面": "御主既亡·消滅", "顏面": "消散" });
-          sheets.pc.getRange(gIdx + 1, 1, 1, pcData[gIdx].length).setValues([pcData[gIdx]]);
-        }
-        report.masterKilled = true;
-        if (aliveEnemyServants_(sheets, myGameId) <= 0) { report.victory = true; if (ctx.acctName) { incrementWin_(ctx.acctName); recordHistory_(ctx.acctName, "勝", ctx.masterName, "以起源彈狙殺敵御主，奪得聖杯。"); recordWinSpeed_(ctx.acctName, myGameId); } }
-        aiCore = `${code.flavor}子彈貫入敵御主「${tgtName}」，魔術迴路碎裂、當場斃命${report.fade ? `，其從者「${report.fade}」失去魔力供給、隨之消散` : ""}。`;
-      } else {
-        pcData[nIdx][COL.PC.HP] = mafter; sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
-        aiCore = `${code.flavor}子彈擊中敵御主「${tgtName}」，重創其魔術迴路，但未致命。`;
-      }
-    } else {
-      const r = applyMysticDamageToServant_(sheets, pcData, nIdx, dmg, ctx);
-      report.destroyed = r.destroyed; report.godRevived = r.godRevived; report.victory = r.victory;
-      report.defHp = r.after; report.defHpMax = parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0;
-      aiCore = `${code.flavor}對「${tgtName}」造成 ${dmg} 點重創${r.destroyed ? "，其靈基崩潰、徹底消滅" : ""}${r.godRevived ? "，但對方竟自死亡歸來" : ""}。`;
-    }
-  }
-
-  const aiPrompt = `【系統·禮裝已裁定】御主『${ctx.masterName}』發動禮裝「${code.name}」` +
-    `（迴路 ${circuits}／需求 ${code.req}${backfire ? "，迴路不足·走火反噬" : ""}）。${aiCore}（餘充能 ${charges}）\n` +
-    `★以 Fate／TYPE-MOON 筆觸描寫這次禮裝發動的奇景與威能（一段即可）${backfire ? "，並演出迴路駕馭不全、魔力反噬御主自身的險象" : ""}。效果與勝負已由系統結算。\n` +
-    ``;
-  return JSON.stringify({
-    success: true, aiPrompt: aiPrompt, report: report,
-    victory: report.victory, charges: charges,
-    clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets)
-  });
-}
+// ✨ 禮裝已全面被動化（2026-06 玩家定案）：持有即於戰鬥自動加持我方從者（見 injectMysticBuff_ / MC_COMBAT_），
+//   不再有主動發動入口。原 actionUseMystic（吃迴路/耗魔/充能/起源彈狙御主）已移除。
 
 // ── 🤝 結盟（暫時非敵對）：盟約標記存於敵御主/敵從者列 MEMORY 的【盟約至】<day> ──
 function isAllied_(row) { return /【盟約至】\d+/.test(String(row && row[COL.PC.MEMORY] || "")); }

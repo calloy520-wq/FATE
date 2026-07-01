@@ -94,7 +94,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | set_np_choice | actionSetNpChoice | 🌟多寶具英靈：玩家點寶具時選「解放哪個」，存 MEMORY【寶具選】N(預設0=主寶具)。`servantNpOptions_(name,cls)`(Engine_Fate 中央表：斯卡哈L/金閃/EMIYA/伊斯坎達爾…)定義每英靈的寶具清單{n,scale,fx,desc}。`npProfile_(c)`解出本次解放的{scale,fx}：多寶具讀 c.npChoice 選定項，單寶具退回字串尺度＋`firstSignatureFx_`。`resolveFateBattle_` 簽名效果(gae_bolg必中/ea執行殺/ubw/zabaniya/summon_horror/petrify/scaleMult)一律改吃 npProfile→選對寶具才生效。前端寶具鈕→`openNpReleasePicker`(>1才彈)→`pickNpAndStrike`(set_np_choice→servantStrike npPicked)。免費即時。 |
 | set_rune_mode | actionSetRuneMode | 🔯原初符文運用(持 rune 者)：玩家選 **def 減傷/dmg 增傷/regen 回血**，存 MEMORY【符文】mode(預設 def)。`runeMode_`/`setRuneMode_`(Core_Settings)。`rowToCombatant_`→c.runeMode；`resolveFateBattle_`：def loser減傷10%×階／dmg winner增傷10×階；regen 在 `actionFateBattle` 回合迴圈回血 5%×階/回合。get_tags 給 `runeMode`。免費即時。 |
 | bond | actionBond | 羈絆互動(閒聊/共餐/特訓/夜談)，每種每日一次升羈絆 |
-| use_mystic | actionUseMystic | 發動主動禮裝（吃迴路/耗魔/扣充能，對敵造魔力傷害） |
+| ~~use_mystic~~ | — | **已移除**（禮裝全面被動化，戰鬥自動加持我方從者，見 §6） |
 | rule_break_steal | actionRuleBreakSteal | 破戒奪僕：打殘敵從者(HP<35%)+燃令咒→奪為第二從者(上限2) |
 | propose_alliance / break_alliance / ally_bond | 同盟系 | 結盟/撕毀/與盟友共處(見 §8) |
 | set_workshop / scavenge | 陣地系 | 設陣地(提升供魔)／搜索物資(主情報、順手撿零星魔力 ~10%/地、同地搜過枯竭剩 3%；標記【搜刮】loc，防站樁刷魔) |
@@ -211,13 +211,17 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 ---
 
-## 6. 禮裝 Mystic_Code.gs
+## 6. 禮裝 Mystic_Code.gs（2026-06 全面被動化）
 
-- `MYSTIC_CODES{}`：avalon(被動回血×1.6)、jeweled_sword(寶石劍 req45)、volumen(肯尼斯水銀 req50)、origin_bullet(起源彈,target:master)、jewels、black_keys、rule_breaker(破戒,fx:rule_break)…各有 type(active/passive)/req(迴路)/charges/target/desc。
-- `getMystic_/setMystic_`(MEMORY【禮裝】id)、`getMysticCharges_/setMysticCharges_`(【禮充】n)。
-- `rollMysticForMaster_(standing,circuits)`：**身世/財力→起始禮裝機率**。富/名門/鐘塔/教會(或迴路≥45)→30%頂級；清貧/孤兒(或<20)→50%空手。`pickByTier_`、`equipMysticToMemory_`。
+- **★禮裝全部被動·持有即生效·無主動發動**（玩家定案）：戰鬥時自動加持「我方從者」，不再有按鈕／充能／迴路門檻／起源彈狙御主。
+- `MYSTIC_CODES{}`：每項 `{name,type,fx,tier,desc,flavor}`。type＝`passive`(avalon/寶石劍/月靈髓液/起源彈/魔力寶石/黑鍵) 或 `special`(rule_breaker 破戒奪僕·另套機制)。fx 進 `MC_COMBAT_` 表。
+- **`MC_COMBAT_{fx→{hit,dmgAdd,npMul,npDefMul,label}}`**：禮裝戰鬥效果表（單一調平衡點）。
+  - mc_blackkey(命中+2)／mc_jewel_minor(命中+1,傷+10)／mc_origin(命中+3,傷+8)／mc_mercury(命中+4,承受寶具×0.88)／mc_jewel(寶石劍·解放寶具傷×1.5)／avalon(承受寶具×0.82 ＋ Time_World 時回×1.6)。
+- **接線**：`masterMysticBuffSkill_(memory)`→{n,r,fx}；`injectMysticBuff_(c,masterMemory)` 把禮裝 fx 注入我方從者戰鬥單位 skills(冪等)。在 Router_Action `actionFateBattle` 三處注入：atkC(2198·含開場對轟)、每回合 sC、以及 `fateStrike_` 內 defC(我方從者作守方·吃 avalon 減傷)。引擎 `mcCombatFx_(c)` 在 `resolveFateBattle_` 三通道讀取(命中/winner攻/loser防)。注入只在戰鬥單位、不寫回 row。
+- `getMystic_/setMystic_`(MEMORY【禮裝】id；**【禮充】充能已廢除**)、`masterMysticFx_`(查單一 fx，如 Time_World avalon)。
+- `rollMysticForMaster_(standing,circuits)`：**身世/財力→起始禮裝機率**。富/名門/鐘塔/教會(或迴路≥45)→30%頂級；清貧/孤兒(或<20)→50%空手。`pickByTier_`、`equipMysticToMemory_`(僅寫【禮裝】id)。
 - `canRuleBreak_(pcData,pIdx,gameId)`：是否具破戒力(召 Caster美狄亞 或 持破戒禮裝)。
-- `masterMysticFx_`、`applyMysticDamageToServant_`：發動效果/結算傷害。
+- ⚠ 已移除：`actionUseMystic`／`applyMysticDamageToServant_`／`getMysticCharges_`/`setMysticCharges_`／前端 `mysticStrike`/`renderMysticReport`/敵卡禮裝鈕。
 
 ---
 
