@@ -69,6 +69,7 @@ function actionMove(userData, pcId, sheets) {
       var psvIdxM = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
       if (psvIdxM !== -1) {
         var psvC = rowToCombatant_(allPcData[psvIdxM]);
+        try { injectMysticBuff_(psvC, allPcData[pIdx][COL.PC.MEMORY]); } catch (e) { } // ✨ 逃跑時也吃御主禮裝(如 Avalon 承受寶具減傷)
         var psvAgi = rankVal(psvC.six['敏捷'] || 'C');
         var psvHp = parseInt(allPcData[psvIdxM][COL.PC.HP]) || 0, psvMax = parseInt(allPcData[psvIdxM][COL.PC.MAX_HP]) || 1;
         // 🔮 預告寶具·背後傾瀉：離場格若有敵人正「寶具預告」蓄勢中 → 朝你退卻的背影傾瀉充能寶具＝NP 級臨別重擊

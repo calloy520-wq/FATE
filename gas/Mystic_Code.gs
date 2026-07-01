@@ -55,7 +55,9 @@ var MC_COMBAT_ = {
   mc_origin:      { hit: 3, dmgAdd: 8,  npMul: 1.0,  npDefMul: 1.0,  label: '起源彈·斷絕' },
   mc_mercury:     { hit: 4, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.88, label: '月靈髓液·攻防一體' },
   mc_jewel:       { hit: 0, dmgAdd: 0,  npMul: 1.5,  npDefMul: 1.0,  label: '寶石劍·奇蹟一擊' },
-  avalon:         { hit: 0, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.82, label: '全世界之鞘' }
+  avalon:         { hit: 0, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.82, label: '全世界之鞘' },
+  // 🗡️ 理想鄉：Avalon 回到正主阿爾托莉雅手中＝隔絕於世界之外的無敵結界，承受寶具傷近乎歸零(×0.20)。
+  avalon_saber:   { hit: 0, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.20, label: '全世界遙遠的理想鄉' }
 };
 // 取某戰鬥單位身上的禮裝戰鬥效果（找第一個命中 MC_COMBAT_ 的 fx）。回 null＝無。
 function mcCombatFx_(c) {
@@ -71,6 +73,14 @@ function masterMysticBuffSkill_(memory) {
 }
 // 把御主禮裝被動加持注入「我方從者」戰鬥單位 c（c 由 servantRow 建；masterMemory＝其御主 MEMORY）。已注入則略過。
 function injectMysticBuff_(c, masterMemory) {
+  // 🗡️ Avalon（全世界之鞘）回到正主阿爾托莉雅手中 → 理想鄉全效：承受寶具傷近乎歸零(avalon_saber ×0.20)＋常駐時回(regen)。
+  //   非阿爾托莉雅持 Avalon → 走下方一般 avalon(鞘之基本減傷 ×0.82)。
+  if (getMystic_(masterMemory) === 'avalon' && c && /阿爾托莉雅/.test(String(c.name || '')) && String(c.cls) === 'Saber') {
+    c.skills = (c.skills || []);
+    if (!c.skills.some(function (s) { return s && s.fx === 'avalon_saber'; })) c.skills = c.skills.concat([{ n: '理想鄉 Avalon', r: 'A', fx: 'avalon_saber' }]);
+    if (!c.skills.some(function (s) { return s && s.fx === 'regen'; })) c.skills = c.skills.concat([{ n: '鞘之恩澤', r: 'A', fx: 'regen' }]);
+    return c;
+  }
   var sk = masterMysticBuffSkill_(masterMemory); if (!sk) return c;
   c.skills = (c.skills || []);
   if (!c.skills.some(function (s) { return s && s.fx === sk.fx; })) c.skills = c.skills.concat([sk]);
