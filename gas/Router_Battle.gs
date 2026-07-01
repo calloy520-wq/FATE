@@ -510,19 +510,21 @@ function actionFateBattle(userData, pcId, sheets) {
     }
   }
 
-  // ⚡ 從者主動技：玩家本戰啟動 → 付啟動魔力(付不起走御主電池)，整場我方出擊吃增益。
-  let skillBuff = null, skillBattery = null;
-  if (userData.skill) {
-    skillBuff = servantActiveSkill_(atkC);
-    // 🎯 servantActiveSkill_ 現在對「無真·施放技術」的從者回 null（單層歸屬後不再有通用備援）——no-op 略過，不扣魔。
-    if (skillBuff) {
-      // 🔋 出力電池制：技能魔力亦由御主供。改以固定基準(200)×mpPct 計，不再依已廢的從者魔力池。
-      const skCost = Math.round(200 * skillBuff.mpPct);
+  // ⚡ 從者主動技（2026-07 開關制）：改由從者 MEMORY【主動技】開關決定，不再是每次攻擊的按鈕——
+  //   開＝每場戰鬥自動【全效】發動＋【扣魔一次】(非每回合)；關(預設)＝【微量】被動、免費。開/關二選一、永不並存。
+  let skillBuff = null, skillBattery = null, skillActivated = false;
+  const _fullSkill = servantActiveSkill_(atkC);  // 完整效果表(或 null＝無真·施放技術)
+  if (_fullSkill) {
+    if (activeSkillOn_(pcData[atkIdx][COL.PC.MEMORY])) {
+      skillBuff = _fullSkill; skillActivated = true;
+      const skCost = Math.round(200 * skillBuff.mpPct);   // 🔋 整場扣一次(此區塊只跑一次·非回合迴圈內)，付不起走御主電池
       skillBattery = drainForNp_(sheets, pcData, atkIdx, pIdx, skCost);
       atkC.mp = parseInt(pcData[atkIdx][COL.PC.MP]) || 0;
       if (skillBattery.usedBattery) {
-        logWarEvent_(myGameId, `『${atkC.name}』啟動「${skillBuff.name}」魔力不足，御主${skillBattery.bledMaster ? '焚血' : '導魔'}供能（御主餘 ${skillBattery.masterHp}/${skillBattery.masterHpMax} HP）。`, String(userData.acctName || ""));
+        logWarEvent_(myGameId, `『${atkC.name}』全力催動「${skillBuff.name}」，御主${skillBattery.bledMaster ? '焚血' : '導魔'}供能（御主餘 ${skillBattery.masterHp}/${skillBattery.masterHpMax} HP）。`, String(userData.acctName || ""));
       }
+    } else {
+      skillBuff = tinyActiveSkill_(_fullSkill);   // 關閉→微量被動、免費(無 drain)
     }
   }
 
@@ -830,7 +832,7 @@ function actionFateBattle(userData, pcId, sheets) {
       `── 本戰發生的事(素材，自行織入畫面，勿複述標籤名) ──\n` +
       (useSeal ? `· 御主燃燒一道令咒·絕對命令，強令此擊必中、引爆超限戰力。\n` : "") +
       (clash ? `· 寶具對轟：${clash.outcome === 'causality' ? `因果律先行截斷——『${atkC.name}』的死亡詛咒在敵方寶具解放之前便已降臨，敵 NP 殘波極微。` : clash.outcome === 'player' ? '我方威能壓過對手。' : clash.outcome === 'enemy' ? '對面威能壓過我方（從者以鋼鐵意志撐住）。' : '勢均力敵、轟然相抵、雙方震退。'}\n` : (useNp ? `· ${atkC.name} 高呼真名、解放了寶具。\n` : "")) +
-      (skillBuff ? `· 我方啟動了主動技「${skillBuff.name}」。\n` : "") +
+      (skillActivated ? `· 我方全力催動了主動技「${skillBuff.name}」。\n` : "") +
       (horrorFired ? `· 青鬍子以螺湮城教本自深淵召出觸手巨獸「深淵海怪」，常駐戰場、每回合與本人並肩撕咬，靠御主魔力維持(枯竭則潰散)。\n` : "") +
       (dualAttack ? `· 我方兩名從者並肩夾擊同一敵手。\n` : "") +
       (allyAssistName ? `· 盟友從者「${allyAssistName}」依約自側翼掩護助攻。\n` : "") +
@@ -851,7 +853,7 @@ function actionFateBattle(userData, pcId, sheets) {
     defHp: parseInt(pcData[nIdx][COL.PC.HP]) || 0, defHpMax: parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0,
     atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0,
     battery: (battery && battery.usedBattery) ? { fromMasterMp: battery.fromMasterMp, fromMasterHp: battery.fromMasterHp, bledMaster: battery.bledMaster, masterHp: battery.masterHp, masterHpMax: battery.masterHpMax } : null,
-    skill: skillBuff ? { name: skillBuff.name, icon: skillBuff.icon, desc: skillBuff.desc, bledMaster: !!(skillBattery && skillBattery.bledMaster), fromMasterHp: skillBattery ? skillBattery.fromMasterHp : 0 } : null,
+    skill: skillActivated ? { name: skillBuff.name, icon: skillBuff.icon, desc: skillBuff.desc, bledMaster: !!(skillBattery && skillBattery.bledMaster), fromMasterHp: skillBattery ? skillBattery.fromMasterHp : 0 } : null,
     clash: clash,
     masterHp: parseInt(pcData[pIdx][COL.PC.HP]) || 0, masterHpMax: parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 0,
     party: partyIdxs.map(i => ({ name: String(pcData[i][COL.PC.NAME]), hp: parseInt(pcData[i][COL.PC.HP]) || 0, hpMax: parseInt(pcData[i][COL.PC.MAX_HP]) || 0 }))

@@ -72,6 +72,28 @@ function actionSetRuneMode(userData, pcId, sheets) {
   }); // 樂觀更新·前端自走輕量 syncData，不再算丟棄的 statusString
 }
 
+// ⚡ 切換從者主動技開關（存從者 MEMORY【主動技】on/off）：免費、即時、不耗 AP。
+//   on＝每戰自動全效發動(耗魔)／off＝微量被動(免費)。只對「真有施放技術(burst/str_up/projection)」的從者有意義。
+function actionSetActiveSkill(userData, pcId, sheets) {
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無此從者。" });
+  const buff = servantActiveSkill_(rowToCombatant_(pcData[svIdx]));
+  if (!buff) return JSON.stringify({ success: false, message: "此從者無可主動施放的技術（其技能皆為被動）。" });
+  const on = (userData.on === true || userData.on === 'true');
+  pcData[svIdx][COL.PC.MEMORY] = setActiveSkillMode_(pcData[svIdx][COL.PC.MEMORY], on);
+  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+  return JSON.stringify({
+    success: true, on: on,
+    message: on
+      ? `「${pcData[svIdx][COL.PC.NAME]}」的「${buff.name}」已【開啟】——此後每戰自動全力發動（每戰耗魔約 ${Math.round(200 * buff.mpPct)}）。`
+      : `「${pcData[svIdx][COL.PC.NAME]}」的「${buff.name}」已【關閉】——回到微量被動（免費、每擊自動生效）。`
+  }); // 樂觀更新·前端自走輕量 syncData
+}
+
 // 🌟 設定多寶具英靈要解放哪個寶具（存從者 MEMORY【寶具選】N）：免費、即時、不耗 AP。
 function actionSetNpChoice(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();

@@ -187,7 +187,20 @@ function servantActiveSkill_(c) {
   if (hasFx_(c, 'burst')) { var bm = 1 + 0.45 * fxMul_('burst'); return { id: 'burst', name: fxName_(c, 'burst', '魔力放出'), icon: '💥', mpPct: 0.15, hit: 0, dmgMul: bm, dmgAdd: 0, desc: '本戰傷害 ×' + bm.toFixed(2) + '（灌注魔力放出）' }; }
   if (hasFx_(c, 'str_up')) { var sa = Math.round(8 * fxMul_('str_up')) + 14; return { id: 'str_up', name: fxName_(c, 'str_up', '怪力'), icon: '💪', mpPct: 0.12, hit: 0, dmgMul: 1.0, dmgAdd: sa, desc: '本戰傷害 +' + sa + '（激發怪力）' }; }
   if (hasFx_(c, 'projection')) { var pa = 34 + Math.round(rankVal((c.six && c.six['寶具']) || 'C') * 0.6); return { id: 'projection', name: fxName_(c, 'projection', '投影魔術'), icon: '🗡️', mpPct: 0.12, hit: 9, dmgMul: 1.0, dmgAdd: pa, desc: '本戰命中+9、傷害+' + pa + '（連續投影名劍齊射）' }; }
-  return null;  // 無真·施放技術者→不顯示主動技按鈕（戰力全在被動＋寶具）
+  return null;  // 無真·施放技術者→無主動技（戰力全在被動＋寶具）
+}
+// ⚡ 主動技【關閉】時的微量被動版：完整效果按 ACTIVE_SKILL_TINY_ 比例縮小、免費。開/關二選一、永不並存(不回 double-dip)。
+var ACTIVE_SKILL_TINY_ = 0.35;
+function tinyActiveSkill_(buff) {
+  if (!buff) return null;
+  var F = ACTIVE_SKILL_TINY_;
+  return {
+    id: buff.id, name: buff.name, icon: buff.icon, mpPct: 0, tiny: true,
+    hit: Math.round((buff.hit || 0) * F),
+    dmgMul: 1 + ((buff.dmgMul || 1) - 1) * F,
+    dmgAdd: Math.round((buff.dmgAdd || 0) * F),
+    desc: buff.desc
+  };
 }
 
 // 眾生列 → 戰鬥單位（六圍從六圍欄、技能/特性從標籤欄；無六圍者合成）
@@ -330,7 +343,7 @@ function resolveFateBattle_(atk, def, opts) {
   // 自我改造(self_mod)：命中 +2
   if (hasFx_(atk, 'self_mod')) { aHit += 2; fired.push(atk.name + '·' + fxName_(atk, 'self_mod', '自我改造')); }
   // ⚡ 主動技（玩家本戰啟動）：命中加成 + 標記發動
-  if (opts.skill) { aHit += (opts.skill.hit || 0); fired.push(atk.name + '·' + opts.skill.name + '(主動技)'); }
+  if (opts.skill) { aHit += (opts.skill.hit || 0); fired.push(atk.name + '·' + opts.skill.name + (opts.skill.tiny ? '(微量)' : '(主動技·全開)')); }
   // ✨ 禮裝被動加持·命中（御主禮裝注入我方從者，見 injectMysticBuff_）
   var mcAtk = mcCombatFx_(atk); if (mcAtk && mcAtk.hit) { aHit += mcAtk.hit; fired.push(atk.name + '·禮裝「' + mcAtk.label + '」(命中+' + mcAtk.hit + ')'); }
 
@@ -534,7 +547,7 @@ function resolveFateBattle_(atk, def, opts) {
   //   但神代魔術(神祖之術)凌駕現代對魔力＝完全無視(美狄亞的本領)；概念壓制亦無視。
   // ⚡ 魔力放出改主動 only 後，「本擊是否魔術系」只在【實際發動魔力放出】時成立(灌注魔力才是魔術系一擊)，
   //   而非光憑持有 burst——否則沒發動時只吃對魔力減傷卻無 burst 增益，全是壞處。
-  var burstFired = !!(opts.skill && opts.skill.id === 'burst' && winner === atk);
+  var burstFired = !!(opts.skill && opts.skill.id === 'burst' && !opts.skill.tiny && winner === atk);
   var atkMagic = (wProf.dmg === '魔力') || burstFired || !!hasFx_(winner, 'divine_age');
   var nm = hasFx_(loser, 'nullify_magic');
   // 概念壓制(更高位階進攻概念·破戒/破魔等)→完全無視對魔力；神代魔術→凌駕但【非無敵】(對魔力僅剩三成效果，見下)。

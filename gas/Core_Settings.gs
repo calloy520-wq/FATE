@@ -147,6 +147,17 @@ function setRuneMode_(memory, mode) {
   return mem ? (mem + '｜【符文】' + mode2) : ('【符文】' + mode2);
 }
 
+// ⚡ 主動技開關（玩家可切，存從者 MEMORY【主動技】）：on＝每戰自動全效發動(耗魔)／off＝微量被動(免費)。
+//   預設 off（省魔安全，要爆發再自己開）。開/關二選一，永不並存，故不會回到 double-dip。
+function activeSkillOn_(memory) {
+  return /【主動技】on/.test(String(memory || ""));
+}
+function setActiveSkillMode_(memory, on) {
+  var mem = String(memory || "").replace(/｜?【主動技】(on|off)/g, '');
+  var v = on ? 'on' : 'off';
+  return mem ? (mem + '｜【主動技】' + v) : ('【主動技】' + v);
+}
+
 // 🐕 主從synergy（原作設定「御主供魔／契合度提升從者能力」）：特定主從組合回到全盛六圍。
 //   目前只：恩奇都 ↔ 銀狼（獵犬御主，原作真正的御主——以銀狼為觸媒召喚、令咒落在狼身上）→ 全能力 A、寶具 A++。
 //   其餘御主（含玩家自召）下恩奇都維持削弱基線。讀從者列 MEMORY【御主】名判定；在 rowToCombatant_ 套用。
