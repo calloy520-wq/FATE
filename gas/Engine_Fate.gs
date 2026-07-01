@@ -353,6 +353,22 @@ function npProfile_(c) {
   }
   return { scale: npAtkScale_(c), fx: firstSignatureFx_(c), name: String(c.np || ''), multi: false };
 }
+// 🌟 多寶具英靈的「最強攻擊寶具」索引（敵 AI 解放/預告用·非玩家）：只挑攻擊型(有攻擊 fx 或 對軍以上/對神規模)，
+//   按 概念階×10＋規模 排序取最高；無攻擊型則退 0。純防禦寶具(divine_core 金鎧等)不入選(不會拿來砸人)。
+var OFFENSIVE_NP_FX_ = { ea: 1, enuma: 1, excalibur: 1, ubw: 1, summon_horror: 1, gob: 1, gae_bolg: 1, tsubame: 1, zabaniya: 1, petrify: 1, projection: 1 };
+function bestNpChoice_(name, cls) {
+  var op = servantNpOptions_(name, cls);
+  if (!op || !op.length) return 0;
+  var best = 0, bestScore = -1;
+  for (var i = 0; i < op.length; i++) {
+    var sc = op[i].scale, fx = op[i].fx;
+    var offensive = OFFENSIVE_NP_FX_[fx] || ['對軍', '對城', '對界', '對神'].indexOf(sc) >= 0;
+    if (!offensive) continue;
+    var score = conceptTier_(fx) * 10 + (NP_SCALE_IDX[sc] != null ? NP_SCALE_IDX[sc] : 2);
+    if (score > bestScore) { bestScore = score; best = i; }
+  }
+  return best;
+}
 
 // 主裁決：一次交手。回傳 {atkWins, winner, loser, damage, aRoll,dRoll,aHit,dEva, fired[], crit, np, seal}
 function resolveFateBattle_(atk, def, opts) {
