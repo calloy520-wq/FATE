@@ -190,7 +190,7 @@ var SEED_SERVANTS = [
     six:{筋力:'D',耐久:'C',敏捷:'C',魔力:'A',幸運:'A',寶具:'A+'},
     classSkills:[{n:'氣息遮斷',r:'C',fx:'stealth'}],
     skills:[{n:'陣地作成（空中庭園）',r:'EX',fx:'territory'},{n:'道具作成（毒）',r:'A',fx:'crafting'}],
-    traits:[{n:'神性'},{n:'人類'}], np:'虛榮的空中庭園 Hanging Gardens of Babylon（對界 EX·浮空要塞·毒殺結界）',
+    traits:[{n:'神性'},{n:'人類'}], np:'虛榮的空中庭園 Hanging Gardens of Babylon（對城 EX·浮空要塞·毒殺結界）',
     align:'混沌・惡', persona:{firstP:'妾',look:'華貴盛裝・君臨空中庭園的毒后、高貴威嚴不容違逆的女王氣度、自稱「妾」・女王口吻不容忤逆',words:'毒后・傲慢・貞潔的執念・空中庭園',toMaster:'高高在上，唯認可強主',speech:'高貴威嚴、女王口吻、自稱妾、不容違逆',moe:'史上首位毒殺者女王的傲然、對貞潔與真愛的執念、被冒犯時的羞怒、君臨天下的孤高',tic:'俯瞰眾生、抬手降毒、空中庭園浮現'} },
   { id:'尼祿-Saber', cls:'Saber', realName:'尼祿·克勞狄烏斯', wars:['客串'], gender:'女',
     six:{筋力:'D',耐久:'D',敏捷:'A',魔力:'B',幸運:'A',寶具:'B'},
@@ -220,7 +220,7 @@ var SEED_SERVANTS = [
     six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'C',幸運:'C',寶具:'A'},
     classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
     skills:[{n:'直感',r:'B',fx:'first_strike'},{n:'魔力放出',r:'B',fx:'burst'},{n:'沉著冷靜',r:'B',fx:'clear_mind'}],
-    traits:[{n:'人類'},{n:'騎士'}], np:'誓約勝利之劍 Excalibur（對界 A++）',
+    traits:[{n:'人類'},{n:'騎士'}], np:'誓約勝利之劍 Excalibur（對城 A++）',
     align:'秩序・善', persona:{firstP:'我',look:'黑髮藍裙・Saber 之力的內斂少女、寡言守禮認真守護的沉靜、自稱「我」・寡言低語守禮認真',words:'寡言・認真・溫柔內斂・背負宿命',toMaster:'認真盡責，沉默守護',speech:'寡言內斂、認真守禮、溫柔低語、不擅表達',moe:'聖杯之子的孤獨宿命、被兄長守護的依賴、認真過頭的笨拙、內斂的溫柔',tic:'沉默佇立、握劍守護、垂眸淺應'} },
   { id:'小黑-Archer', cls:'Archer', realName:'克洛伊·馮·愛因茲貝倫（Archer install）', wars:['客串'], gender:'女',
     six:{筋力:'C',耐久:'C',敏捷:'A',魔力:'B',幸運:'C',寶具:'B'},
@@ -271,7 +271,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v22'; // v22：美狄亞 加 金羊毛 EX 演出招牌(FSN 第二寶具·召科爾基斯龍·她駕馭不了故 fx 空·無數值)；另備通用治癒 fx `regen`(engine 就緒·暫無人掛)
+var CODEX_PERSONA_VER = 'v23'; // v23：修規模盛標(誤標=偷改平衡)——美遊 Excalibur 對界→對城(同阿爾托莉雅·Saber install 同一劍)、賽米拉米斯 空中庭園 對界→對城(TYPE-MOON 設定=對城寶具 EX)。威力(six.寶具)不動，只正規模關鍵字。
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
