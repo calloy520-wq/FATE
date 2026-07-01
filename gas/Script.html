@@ -1448,7 +1448,7 @@ function renderRecentLocs(recents = null) {
       a += '<div style="font-weight:bold;margin-bottom:5px;color:' + (ok ? '#e7c873' : '#e0a0d0') + ';">🗡️ 斬首・直取御主「' + r.master + '」' + (r.dual ? ' <small style="color:#d0a0e8;">雙從者齊撲·各擲一骰</small>' : '') + '</div>';
       // 骰子列（雙從者＝多顆）
       const rollList = r.dual && r.rolls ? r.rolls : [r.aRoll];
-      a += '<div style="font-size:13px;margin-bottom:4px;">命運骰：' + rollList.map(function (x) { var v = (typeof x === 'object') ? x.roll : x; return '<b style="color:' + (v === 20 ? '#ffd76a' : '#e07a9a') + ';font-size:16px;">🎲' + v + '</b>'; }).join(' ') + ' <span style="color:#9a8;font-size:10.5px;">（唯 20 為大成功）</span></div>';
+      a += '<div style="font-size:13px;margin-bottom:4px;">命運骰：' + rollList.map(function (x) { var v = (typeof x === 'object') ? x.roll : x; return '<b class="dice-roll" style="color:' + (v === 20 ? '#ffd76a' : '#e07a9a') + ';font-size:16px;">🎲' + v + '</b>'; }).join(' ') + ' <span style="color:#9a8;font-size:10.5px;">（唯 20 為大成功）</span></div>';
       if (ok) {
         a += '<div style="color:#e7c873;font-weight:bold;">⚡ 大成功！' + (r.atk ? '『' + r.atk + '』' : '') + '突破護衛「' + r.guard + '」，一擊斬殺御主！</div>';
         a += '<div style="color:#caa44a;font-size:10.5px;margin-top:2px;">御主既亡、魔力斷絕，「' + r.guard + '」隨之消散。' + (r.victory ? '　🏆 聖杯已然在握！' : '') + '</div>';
@@ -1487,6 +1487,7 @@ function renderRecentLocs(recents = null) {
     };
     const critTxt = (c) => ({ atk_crit: '🎯', def_crit: '🛡️', atk_fumble: '💢', def_fumble: '😵' }[c] || '');
     let h = '<div style="border:1px solid rgba(212,175,55,0.35);border-radius:9px;padding:9px 11px;margin:6px 0;background:rgba(28,20,14,0.5);font-size:12px;">';
+    if (r.useNp && !r.clash) h += '<div class="np-release-banner">💥 真名解放！</div>'; // 寶具對轟(r.clash)另有自己的橫幅，這裡不重複疊加
     h += '<div style="color:#e7c873;font-weight:bold;margin-bottom:5px;">⚔️ ' + r.atk + (r.useSeal ? ' ❖令咒' : r.useNp ? ' 💥寶具' : '') + (r.skill ? ' <span style="color:#7ec8ff;">' + (r.skill.icon || '⚡') + r.skill.name + '</span>' : '') + ' ⚔ ' + r.def + '　<span style="color:#9a8;font-size:11px;font-weight:normal;">' + r.rounds.length + ' 回合交鋒</span></div>';
     if (r.skill) h += '<div style="color:#7ec8ff;font-size:10.5px;margin-bottom:3px;">⚡ 主動技「' + r.skill.name + '」發動：' + (r.skill.desc || '') + (r.skill.bledMaster ? '　<span style="color:#e06a6a;">(御主焚血 −' + r.skill.fromMasterHp + 'HP)</span>' : '') + '</div>';
     if (r.intercept) h += '<div style="color:#c79be8;font-size:11px;margin-bottom:4px;">🛡️ 敵從者攔截護主——攻擊改打從者</div>';
@@ -1506,7 +1507,7 @@ function renderRecentLocs(recents = null) {
       // 我方出擊（雙從者＝多筆 strikes）
       const strikes = rd.strikes || [{ by: r.atk, pHitVal: rd.pHitVal, pRoll: rd.pRoll, dEvaVal: rd.dEvaVal, dRoll: rd.dRoll, pCrit: rd.pCrit, pHit: rd.pHit, pDmg: rd.pDmg, pFired: rd.pFired, note: rd.note }];
       strikes.forEach(k => {
-        h += '<div style="color:#bcd;font-size:11px;">▸ ' + k.by + '：命中 <b style="color:#fff;">' + k.pHitVal + '</b> 🎲' + k.pRoll + ' vs 迴避 <b style="color:#fff;">' + k.dEvaVal + '</b> 🎲' + k.dRoll + ' ' + critTxt(k.pCrit)
+        h += '<div style="color:#bcd;font-size:11px;">▸ ' + k.by + '：命中 <b style="color:#fff;">' + k.pHitVal + '</b> <span class="dice-roll">🎲' + k.pRoll + '</span> vs 迴避 <b style="color:#fff;">' + k.dEvaVal + '</b> <span class="dice-roll">🎲' + k.dRoll + '</span> ' + critTxt(k.pCrit)
           + '<span style="margin-left:6px;color:' + (k.pHit ? '#7ec87e' : '#888') + ';font-weight:bold;">' + (k.pHit ? '命中 −' + k.pDmg : '揮空') + '</span></div>';
         if (k.pFired && k.pFired.length) h += '<div style="color:#9a8;font-size:10px;">　〔發動〕' + k.pFired.join('・') + '</div>';
         if (k.note) h += '<div style="color:#d4af37;font-size:10px;">　' + String(k.note).replace(/\n/g, ' ') + '</div>';
