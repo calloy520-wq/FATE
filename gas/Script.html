@@ -1764,7 +1764,9 @@ function renderRecentLocs(recents = null) {
     story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主令從者${useSkill ? '催動主動技、' : ''}${verb}「${npcName}」！</div>`);
     story.scrollTop = story.scrollHeight;
     try {
-      const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, np: !!useNp, seal: !!useSeal, skill: !!useSkill, servant: myActiveServant, npChoice: (typeof npChoiceArg === 'number' ? npChoiceArg : undefined), output: (useNp ? 100 : undefined), acctName: (pc && pc.account) || currentAccount });
+      // 🎯 帶上目標的【穩定列 ID】：後端優先用 ID 精準命中，杜絕 CJK 名字(點號/全形括號變體)比對失手的「查無此目標」
+      const _foe = (localNPCs || []).find(function (n) { return n && String(n.name) === npcName; });
+      const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, npcId: (_foe && _foe.id) ? String(_foe.id) : "", np: !!useNp, seal: !!useSeal, skill: !!useSkill, servant: myActiveServant, npChoice: (typeof npChoiceArg === 'number' ? npChoiceArg : undefined), output: (useNp ? 100 : undefined), acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) {
         if (res.report) renderFateBattleReport(res.report); // 📊 先攤開骰子/數字戰報(秒顯，不等AI)
         await narrate(res.aiPrompt); // ⏳ 敘述生成完才解鎖按鈕(endAction)，防止玩家在AI還沒回來時亂按其他動作
