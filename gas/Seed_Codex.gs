@@ -47,8 +47,16 @@ var SEED_SERVANTS = [
     six:{筋力:'A',耐久:'A',敏捷:'A',魔力:'A',幸運:'B',寶具:'A'},
     classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'對魔力',r:'D',fx:'nullify_magic'}],
     skills:[{n:'勇猛',r:'A',fx:'morale'},{n:'戰鬥續行',r:'A',fx:'survive'},{n:'十二試煉',r:'A',fx:'god_hand'}],
-    traits:[{n:'神性',r:'A'},{n:'王'}], np:'十二試煉 God Hand（A·十二條命）／射殺百頭 Nine Lives（九頭蛇射穿·萬箭連發）',
+    traits:[{n:'神性',r:'A'},{n:'王'}], np:'十二試煉 God Hand（A·十二條命）',
+    // ⚠ 原作設定：射殺百頭 Nine Lives 是狂化壓制下【無法使用】的寶具(福瓦基體系被Berserker職階鎖住，僅原典/FGO非狂化狀態可用)，
+    //   已從這版拿掉、移給下方 赫拉克勒斯-Archer(偽聖杯·未狂化版)。這版狂化下就只有 God Hand。
     align:'混沌・狂', persona:{firstP:'（狂化·僅咆哮）',look:'巨軀岩肌・黑霧纏身的半神戰士、無言低吼的壓迫氣場、狂化無自稱・僅以咆哮',words:'戰神・狂化・守護的殘響',toMaster:'理智被黑霧吞沒、僅存護主本能',speech:'狂化無法言語、只以低吼與行動表達；唯護主的本能殘留',moe:'狂暴外殼下對御主殘存的溫柔、偶爾理智回光的瞬間、十二試煉一次次自死亡歸來的悲壯',tic:'低沉咆哮、以巨軀擋在主人身前、緩緩起身'} },
+  { id:'赫拉克勒斯-Archer', cls:'Archer', realName:'赫拉克勒斯', wars:['fake'], gender:'男',
+    six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'B',幸運:'B',寶具:'A'},
+    classSkills:[{n:'單獨行動',r:'A',fx:'solo'},{n:'陣地作成',r:'C',fx:'territory'}],
+    skills:[{n:'狂化',r:'D',fx:'mad'},{n:'十二試煉',r:'A',fx:'god_hand'}],
+    traits:[{n:'神性',r:'A'}], np:'十二試煉 God Hand（A·十二條命）／射殺百頭 Nine Lives（九頭蛇射穿·九連速射）',
+    align:'混沌・善', persona:{firstP:'我',look:'獸皮纏身、掛弓負箭的巨軀戰士、褪去大半狂化後難得清明的眼神、自稱「我」・偶有粗獷笑意',words:'解放・清明殘存・箭矢與試煉',toMaster:'狂化枷鎖鬆開後少見的忠誠與眷戀，視御主為稀有的珍寶',speech:'話少但清晰(狂化壓下大半理智但未全失)、偶爾粗獷豪笑、對戰鬥本身仍有純粹的渴望',moe:'狂化鬆綁後罕見流露的溫和眼神、對「能好好說話」這件小事的珍惜、獸皮下藏不住的巨大孤獨、十二試煉不滅的悲壯依舊',tic:'摸過肩上的獸皮、搭箭前的短暫沉默、戰鬥後罕見的安穩喘息'} },
   // 第四次
   { id:'吉爾伽美什-Archer', cls:'Archer', realName:'吉爾伽美什', wars:['4th','fake'], gender:'男',
     six:{筋力:'B',耐久:'C',敏捷:'C',魔力:'B',幸運:'A',寶具:'EX'},
@@ -96,7 +104,7 @@ var SEED_SERVANTS = [
     align:'混沌・狂', persona:{firstP:'（狂化·僅低吼）',look:'黑霧鎧甲・湖之騎士的悲愴身影、悲鳴般低吼的壓抑瘋狂、狂化無自稱・僅餘悲鳴般低吼',words:'悔恨・無言的瘋狂・對主君的愧疚',toMaster:'狂化無言，僅以戰鬥宣洩悔恨',speech:'狂化奪去言語，只餘悲鳴般的低吼；理智深處是對亞瑟王與王后之間罪的愧悔',moe:'湖之騎士的高潔被悔恨吞沒的悲劇、渴望被懲罰的扭曲忠誠、理智回光時的痛楚',tic:'黑霧纏身、抓起任何物件化為兵裝、無聲逼近'} },
   // FAKE 樣本
   { id:'恩奇都-Lancer', cls:'Lancer', realName:'恩奇都', wars:['fake'], gender:'無',
-    // ⬇️ 基線＝非理想御主下的恩奇都(供魔不足)。與巴茲狄洛特(獵犬御主)結契才回全盛全A·寶A++(masterSynergySix_)。
+    // ⬇️ 基線＝非理想御主下的恩奇都(供魔不足)。與銀狼(獵犬御主，原作真正的御主)結契才回全盛全A·寶A++(masterSynergySix_)。
     six:{筋力:'C',耐久:'B',敏捷:'B',魔力:'B',幸運:'-',寶具:'A'},
     classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'}],
     skills:[{n:'天之鎖',r:'A',fx:'chain'},{n:'變生',r:'A',fx:'shapeshift'},{n:'神性',r:'A',fx:'divine'}],
@@ -263,7 +271,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v19'; // v19：查到已在場敵從者(赫拉克勒斯)標籤跟種子不同步(對城防誤判)，升版強制全體resync
+var CODEX_PERSONA_VER = 'v20'; // v20：新增 赫拉克勒斯-Archer(偽聖杯正確版本)＋修正 Berserker np(拿掉狂化下用不到的射殺百頭)
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {

@@ -63,7 +63,8 @@ var FATE_4TH_ROSTER = [
 // 偽聖杯戰爭（Fate/strange Fake）：正典從者 ＋ 雪原匿名御主（御主殿無資料，直接合成）
 var FATE_FAKE_ROSTER = [
   { master: '提奈·切爾克', hero: '吉爾伽美什-Archer', loc: '冬木·新都' },
-  { master: '巴茲狄洛特', hero: '恩奇都-Lancer', loc: '未遠川河畔' },
+  { master: '銀狼', hero: '恩奇都-Lancer', loc: '未遠川河畔' }, // 原作：以銀狼為觸媒召喚，令咒落在狼身上、恩奇都便認狼為主
+  { master: '巴茲狄洛特', hero: '赫拉克勒斯-Archer', loc: '柳洞寺' }, // 原作：巴茲狄洛特才是赫拉克勒斯(Archer)真正的御主
   { master: '歐蘭多·里夫', hero: '理查一世-Saber', loc: '冬木·深山町' },
   { master: '約翰·溫加德', hero: '阿基里斯-Rider', loc: '冬木·商店街' },
   { master: '哈魯利', hero: '玉藻前-Caster', loc: '遠坂宅' },

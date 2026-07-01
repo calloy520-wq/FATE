@@ -148,12 +148,13 @@ function setRuneMode_(memory, mode) {
 }
 
 // 🐕 主從synergy（原作設定「御主供魔／契合度提升從者能力」）：特定主從組合回到全盛六圍。
-//   目前只：恩奇都 ↔ 巴茲狄洛特（獵犬御主）→ 全能力 A、寶具 A++。其餘御主（含玩家自召）下恩奇都維持削弱基線。
-//   讀從者列 MEMORY【御主】名判定；在 rowToCombatant_ 套用。要擴充別的主從組合就往這加。
+//   目前只：恩奇都 ↔ 銀狼（獵犬御主，原作真正的御主——以銀狼為觸媒召喚、令咒落在狼身上）→ 全能力 A、寶具 A++。
+//   其餘御主（含玩家自召）下恩奇都維持削弱基線。讀從者列 MEMORY【御主】名判定；在 rowToCombatant_ 套用。
+//   ⚠ 2026-07 修正：原碼誤寫「巴茲狄洛特」——他其實是赫拉克勒斯(Archer)的御主，跟恩奇都無關，已改回銀狼。
 function masterSynergySix_(name, six, memory) {
   var mm = String(memory || "").match(/【御主】([^｜]+)/);
   var mName = mm ? mm[1] : "";
-  if (/恩奇都/.test(String(name)) && /巴茲狄洛特/.test(mName)) {
+  if (/恩奇都/.test(String(name)) && /銀狼/.test(mName)) {
     return { 筋力: 'A', 耐久: 'A', 敏捷: 'A', 魔力: 'A', 幸運: six['幸運'] || '-', 寶具: 'A++' };
   }
   return six;
