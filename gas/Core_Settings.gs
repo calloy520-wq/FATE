@@ -174,6 +174,11 @@ function masterSynergyOn_(name, memory) {
   var mName = mm ? mm[1] : "";
   return /恩奇都/.test(String(name)) && /銀狼/.test(mName);
 }
+// 🔮 敵寶具預告旗標（跨按鍵持久·存敵從者 MEMORY）：達成解放條件時先「預告」蓄勢，下次接觸必定發動——
+//   給玩家一回合準備(開結界/寶具對轟/逃跑)，杜絕「無預警寶具秒殺」。get/set/clear 成套。
+function getNpTelegraph_(memory) { return /【寶具預告】/.test(String(memory || "")); }
+function setNpTelegraph_(memory) { var s = String(memory || ""); return getNpTelegraph_(s) ? s : (s ? s + "｜【寶具預告】1" : "【寶具預告】1"); }
+function clearNpTelegraph_(memory) { return String(memory || "").replace(/｜?【寶具預告】1/g, ""); }
 // 前端「變容」標籤用的 synergy 視圖：非 synergy 從者回 null；恩奇都回 {has,on,master,peak}。
 //   on＝當前御主觸發全盛(亮)；否則暗(提醒需該御主)。玩家不可控——由御主決定。
 function masterSynergyView_(name, memory) {

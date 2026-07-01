@@ -530,6 +530,7 @@ function actionFateBattle(userData, pcId, sheets) {
 
   let knockedOut = [], victory = false, defeat = false, dreamPrompt = "", destroyedName = "", sealEscaped = false, sealNote = "", godRevived = false, godNote = "";
   let enemyNpSpent = false; // 敵寶具一場限一次
+  let npTeleHandled = false; // 🔮 本次按鍵的「預告/發動」決策一次即止(rounds loop 多回合勿重複蓄勢)
   const rounds = [];
   const ctx = { myGameId: myGameId, pIdx: pIdx, userData: userData };
   const targetIsFoeServant = String(pcData[nIdx][COL.PC.FACTION]) === "敵從者";
@@ -767,18 +768,39 @@ function actionFateBattle(userData, pcId, sheets) {
         const pHpRatio = (parseInt(pcData[ctgt][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[ctgt][COL.PC.HP]) || 0) / (parseInt(pcData[ctgt][COL.PC.MAX_HP]) || 1) : 1;
         const eDesperate = eHpRatio < 0.5;   // 敵自身被打殘→搏命解放
         const eFinisher = pHpRatio < 0.45;   // 我方從者已殘→敵收尾
-        let enemyFireNp = eOffensiveNp && !enemyNpSpent && (eDesperate || eFinisher)
+        // 🔮 寶具預告制：敵寶具不再無預警秒殺——首次達成解放條件時「預告」(蓄勢·存 MEMORY 跨按鍵)，
+        //    下次接觸必定發動，給玩家整整一回合準備(開結界/寶具對轟/逃跑)。旗標消耗於發動或被寶具對轟答覆。
+        const eTelegraphed = getNpTelegraph_(pcData[nIdx][COL.PC.MEMORY]); // 上次已預告→這次必發
+        const eWantsNp = eOffensiveNp && (eDesperate || eFinisher)
           && (Math.random() < (eNpUrge + (1 - eHpRatio) * 0.45 + (eFinisher ? 0.30 : 0)));
-        // 🔋 敵寶具也要吃魔力：自身 MP＋敵御主電池須付得起 prana，否則放不出（EX/EA 幾乎沒人付得起→極罕見；masterless 補不了魔→自限）
-        if (enemyFireNp) {
-          const ePrana = npPranaCost_(enemyNow.six["寶具"]);
-          const eAfford = enemyCanAffordNp_(pcData, nIdx, myGameId, ePrana);
-          if (eAfford.afford) {
-            drainForNp_(sheets, pcData, nIdx, eAfford.masterIdx, ePrana);
-            enemyNow.output = 100; // ⚖️ 敵解放寶具＝全開(與玩家對等)
-            enemyNpSpent = true;
-          } else {
-            enemyFireNp = false; // 魔力不足，放不出寶具，改為普攻
+        let enemyFireNp = false;
+        if (!enemyNpSpent && !npTeleHandled) {
+          if (eTelegraphed && eOffensiveNp) {
+            enemyFireNp = true; // ⚡ 已預告→這回合必定發動
+          } else if (eWantsNp && !eTelegraphed) {
+            // 尚未預告→這次只蓄勢預告、不發動；設旗標＋警告，須付得起 prana 才值得預告
+            const ePranaT = npPranaCost_(enemyNow.six["寶具"]);
+            if (enemyCanAffordNp_(pcData, nIdx, myGameId, ePranaT).afford) {
+              pcData[nIdx][COL.PC.MEMORY] = setNpTelegraph_(pcData[nIdx][COL.PC.MEMORY]);
+              sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
+              rl.eTelegraph = String(pcData[nIdx][COL.PC.MARTIAL] || "").split(/[（(／]/)[0].trim() || defC.name; // 前端/AI 警告用
+              npTeleHandled = true;
+            }
+          }
+          // 🔋 敵寶具也要吃魔力：自身 MP＋敵御主電池須付得起 prana，否則放不出（EX/EA 幾乎沒人付得起→極罕見）
+          if (enemyFireNp) {
+            const ePrana = npPranaCost_(enemyNow.six["寶具"]);
+            const eAfford = enemyCanAffordNp_(pcData, nIdx, myGameId, ePrana);
+            if (eAfford.afford) {
+              drainForNp_(sheets, pcData, nIdx, eAfford.masterIdx, ePrana);
+              enemyNow.output = 100; // ⚖️ 敵解放寶具＝全開(與玩家對等)
+              enemyNpSpent = true;
+              pcData[nIdx][COL.PC.MEMORY] = clearNpTelegraph_(pcData[nIdx][COL.PC.MEMORY]); // 消耗預告
+              sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
+              npTeleHandled = true;
+            } else {
+              enemyFireNp = false; // 魔力不足(通常不會·預告時已驗)，改普攻
+            }
           }
         }
         // 🎯 敵AI無主動技按鈕→自動施展其招牌施放技術(魔力放出/怪力/投影)，免費(視為其戰鬥本色)——
@@ -800,7 +822,8 @@ function actionFateBattle(userData, pcId, sheets) {
   const atkLabel = dualAttack ? `${atkC.name} 與另一名從者協同` : atkC.name;
   const roundsBrief = rounds.map(r =>
     `第${r.n}回合：` + (r.strikes || []).map(k => `${k.by}${k.pHit ? `命中(−${k.pDmg})` : '揮空'}${k.note ? `【${String(k.note).replace(/\n/g, ' ')}】` : ''}`).join('、') +
-    (targetIsFoeServant ? (r.eDmg ? `，「${defC.name}」回擊${r.eTarget ? `「${r.eTarget}」` : ''}(−${r.eDmg})` : (r.eHit === false ? `，「${defC.name}」反擊被擋` : '')) : '')
+    (targetIsFoeServant ? (r.eDmg ? `，「${defC.name}」回擊${r.eTarget ? `「${r.eTarget}」` : ''}(−${r.eDmg})` : (r.eHit === false ? `，「${defC.name}」反擊被擋` : '')) : '') +
+    (r.eTelegraph ? `　⚠️【寶具預兆】「${defC.name}」真名解放的預兆匯聚——下次接觸必傾瀉而出！速謀防禦／寶具對衝／脫離。` : '')
   ).join('\n');
   const finalLine = destroyedName
     ? (!targetIsFoeServant
