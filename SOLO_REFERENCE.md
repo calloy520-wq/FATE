@@ -16,7 +16,9 @@
 | **model id** | `claude-opus-4-8` 不可出現在 commit／PR／程式碼。 |
 | **branch** | 只在 `claude/fate-error-review-w8q42w` 開發。 |
 
-驗證套路：改完 `node --check`（.gs 複製成 .js 檢查；Script.html 用 `sed '1d;$d'` 去頭尾 `<script>` 再檢查）。改慾海邊界務必 `git diff | grep nsfwBaseRules` 確認 0 改動。
+驗證套路：跑 `bash check.sh`（自動掃全部 .gs ＋萬用比對 `gas/Script*.html`，見 `HANDBOOK.md` §4.1）。改慾海邊界務必 `git diff | grep nsfwBaseRules` 確認 0 改動。
+
+⚠ **2026-07 檔案改版**：`Router_Action.gs`(原 3918 行)已拆成 8 檔——`Router_Action.gs`(核心dispatch)/`Router_Creation.gs`(創角召喚)/`Router_Movement.gs`(地圖移動休息)/`Router_Battle.gs`(戰鬥核心)/`Router_Bond.gs`(羈絆令咒結盟戰記)/`Router_Narrative.gs`(actionPlay敘事)/`Router_Persona.gs`(演出卡)/`Router_Economy.gs`(出力補魔)。下文各節提到「Router ~行號」的**行號已隨拆檔位移**，函數名不變、用函數名 grep 即可找到——全域作用域共用，切到哪個檔不影響行為。檔案對照表看 `HANDBOOK.md` §4。
 
 ---
 

@@ -56,11 +56,18 @@ CLK(時鐘): GAME_ID0 DAY1 HOUR2 AP3
 ### MEMORY 標記（存 `COL.PC.MEMORY`·全形 `｜` 分隔，讀取器須排除 `｜`）
 `【願望】【魔術】【迴路】N【出身】【體術】`(御主種子) ｜ `【令咒】N`(預設3) ｜ `【試煉】N`(十二試煉命·預設11) ｜ `【模式】canon/chaos`｜`【戰爭】4th/5th/fake`｜`【扮演】<御主id>`(創角設定) ｜ `【禮裝】id`(被動禮裝) ｜ `【出力】`(靈基出力檔·預設60) ｜ `【寶具選】N`(多寶具) ｜ `【符文】`(斯卡哈) ｜ `【御主】名`/`【從者】名`(敵主從硬連結) ｜ `【海怪護盾】cur|max|expiry`(青鬍子海怪肉身) ｜ `【整備至】N`(餐buff) ｜ `【陣地】地`(工房) ｜ `【搜刮】地`(枯竭) ｜ `【盟約至】day`｜`【鑑賞緣】`(盟友90+解鎖封存) ｜ `【靈基透支】N`(令咒盡死線) ｜ `【喪失從者】名`｜`【破戒奪取】`｜`【帳號】acct`(慾海御主) ｜ NSFW：`[雙修技巧][性愛時敏感部位][專屬稱呼][親密次數][交談輪數]`。
 
-## 4. 檔案地圖（11,700 行·15 檔）
+## 4. 檔案地圖（11,700 行·21 檔·2026-07 Router_Action.gs 拆成 8 檔＋鑑賞前端拆出，見 §4.1）
 
 | 檔 | 行 | 用途 | 關鍵物 |
 |---|---|---|---|
-| **Router_Action.gs** | 3932 | 後端總分流器＋幾乎所有 solo action | `handleGameAction`(dispatch)、`actionFateBattle`、`fateStrike_`、`actionMove/Rest/Scout`、`actionManaSupply`、`actionBond`、`actionRuleBreakSteal`、`buildClientState_`、`actionPlay`(AI敘事)、大量 MEMORY 存取器 |
+| **Router_Action.gs** | ~400 | 後端總分流器·核心(2026-07 拆成 8 檔，見下) | `ActionRouter`(dispatch表)、`handleGameAction`(14天時限攔截＋`_state`夾帶)、`sanitizeUserData_`、`actionGetTags`/`buildTagsPayload_`、`buildClientState_`/`actionSync`、`actionCheckName/GetFullStatus/UpdateFate/UpdateRelTag`(小型通用action) |
+| **Router_Creation.gs** | ~400 | 創角／召喚 | `actionManualNpc`(create，2026-07 非阻塞化)、`actionBackfillMasterAi`、`actionSummonServant`、`actionGetHeroes/GetMasters` |
+| **Router_Movement.gs** | ~550 | 地圖／移動／休息／偵查／搜刮／整備／工房／卸防突襲 | `actionMove`(世界先動玩家後到)、`actionRest`、`actionScout`、`actionScavenge`、`actionSetWorkshop`、`actionSecondWind`、`actionPrepMeal`、`enemyAmbushOnServant_` |
+| **Router_Battle.gs** | ~910 | 戰鬥核心(單檔最大，符合「單一大關注點」) | `fateStrike_`(單次出擊裁決)、`actionFateBattle`(出戰主流程)、`drainForNp_`(御主電池)、十二試煉/令咒餘量/靈基透支死線/餐buff/海怪護盾 MEMORY 存取器 |
+| **Router_Bond.gs** | ~490 | 羈絆／令咒使用／結盟／破戒奪僕／戰記／主從連結 | `actionBond`、`actionUseSeal`、結盟三部曲(`actionProposeAlliance/BreakAlliance/AllyBond`)、`actionRuleBreakSteal`、`actionWarChronicle/WarHistoryList`、`markMasterLostServant_` |
+| **Router_Narrative.gs** | ~910 | AI 敘事引擎(actionPlay，solo/kanshou 共用) | `actionPlay`、`narrateWithState_`/`actionNarrateOnly`、`buildDreamPrompt_`(虛假之夢)、`actionGetEpicHistory` |
+| **Router_Persona.gs** | ~80 | 演出依據卡(跨檔共用小工具，不歸屬任何領域) | `servantCard_`/`masterCard_`/`codexPersona_`/`findPlayerServantIdx_` |
+| **Router_Economy.gs** | ~165 | 靈基出力／魔境／符文／寶具選／補魔 | `actionSetServantOutput/MageRealm/RuneMode/NpChoice`(樂觀更新setter)、`actionManaSupply` |
 | **Script.html** | ~3100 | 前端 SPA 核心（solo 主體＋共用機制） | `gasRun`/`syncData`/`applyClientState`、`servantStrike`/`renderFateBattleReport`、`refreshFateTags`/`bar`/`horrorBar`、`renderMapPane`/`buildMapSvg_`、創角召喚流程、`applyModeUI`(兩軌切換總開關) |
 | **Script_Kanshou.html** | ~150 | 前端 SPA·鑑賞(慾海)專屬(2026-07 從 Script.html 拆出) | `enterKanshou`/`openCompanions`/`kanshouAdd`/`kanshouRemove`/`changeKanshouName`/`changeKanshouSex`/`askKanshouSex`/`askKanshouSetup`。與 Script.html 共享同一頁面全域作用域(見 §4.1) |
 | **Engine_Fate.gs** | 564 | 純數值戰鬥核心（D20+六圍+fx+寶具） | `resolveFateBattle_`、`rowToCombatant_`、`npAtkScale_/npDefScale_`、`NP_SCALE_MATRIX`、`CONCEPT_TIER`、`servantActiveSkill_`、`servantNpOptions_` |
