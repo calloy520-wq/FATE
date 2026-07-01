@@ -368,7 +368,8 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, userData, baseMul) 
   if (svIdx === -1) return null;
   const enemyC = rowToCombatant_(pcData[eIdx]);
   const svC = rowToCombatant_(pcData[svIdx]);
-  const probe = resolveFateBattle_(enemyC, svC, { ambush: true });
+  // 🎯 敵AI自動施展招牌施放技術(免費·戰鬥本色)：還原單層歸屬前這些是免費被動的敵方偷襲威力。
+  const probe = resolveFateBattle_(enemyC, svC, { ambush: true, skill: servantActiveSkill_(enemyC) });
   let mul = baseMul || 1.4;
   const stealthy = String(pcData[eIdx][COL.PC.RANK]) === 'Assassin' || !!hasFx_(enemyC, 'stealth');
   if (stealthy) mul *= 1.4; // 氣息遮斷／暗殺趁虛而入更致命

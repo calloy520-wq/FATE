@@ -174,16 +174,20 @@ function combatProfile_(c) {
 //   mpPct＝啟動耗魔(佔 maxMP 比例，付不起走御主電池)；hit＝本戰每擊命中+；dmgMul/dmgAdd＝本戰每擊傷害增益。
 //   ★只增益「我方出擊」，不碰防禦端，避免跨呼叫方向的複雜度。
 function servantActiveSkill_(c) {
-  // 👑 王之財寶(gob)已改為「常駐被動」(見 resolveFateBattle_：每擊命中+5 ＋ 50d3捨1 無盡兵裝彈幕)，
-  //   故不再佔主動技槽；吉爾伽美什的主動技自動落到下一個 fx(鼓舞)。
-  // 🌫️ 氣息遮斷(stealth)不進主動技候選：原作是刺客職階技能／等級，一旦擺出攻擊姿態等級就自動驟降，
-  //   不是能花魔力重新買回來的東西——其唯一的戰鬥效益已在 resolveFateBattle_ 走 opts.ambush 免費判定(僅首擊)。
-  if (hasFx_(c, 'burst')) return { id: 'burst', name: fxName_(c, 'burst', '魔力放出'), icon: '💥', mpPct: 0.15, hit: 0, dmgMul: 1.3, dmgAdd: 0, desc: '本戰傷害 ×1.3' };
-  if (hasFx_(c, 'str_up')) return { id: 'str_up', name: fxName_(c, 'str_up', '怪力'), icon: '💪', mpPct: 0.12, hit: 0, dmgMul: 1.0, dmgAdd: 14, desc: '本戰傷害+14' };
-  if (hasFx_(c, 'aim') || hasFx_(c, 'projection')) return { id: 'aim', name: fxName_(c, hasFx_(c, 'aim') ? 'aim' : 'projection', '狙準'), icon: '🎯', mpPct: 0.12, hit: 6, dmgMul: 1.0, dmgAdd: 10, desc: '本戰命中+6、傷害+10' };
-  if (hasFx_(c, 'morale')) return { id: 'morale', name: fxName_(c, 'morale', '鼓舞'), icon: '📣', mpPct: 0.10, hit: 3, dmgMul: 1.0, dmgAdd: 8, desc: '本戰命中+3、傷害+8' };
-  if (hasFx_(c, 'self_mod')) return { id: 'self_mod', name: fxName_(c, 'self_mod', '自我改造'), icon: '🔧', mpPct: 0.10, hit: 4, dmgMul: 1.0, dmgAdd: 6, desc: '本戰命中+4、傷害+6' };
-  return { id: 'focus', name: '集中', icon: '🎯', mpPct: 0.10, hit: 5, dmgMul: 1.0, dmgAdd: 0, desc: '本戰命中+5' };
+  // 🎯 單層歸屬(2026-07·原作查證)：只有「原作真·意識施放的技術」配得上主動技按鈕，且每個 fx 只活在單一層——
+  //   ⚡主動 only：魔力放出(灌注瞬放)／怪力(限時激發)／投影(詠唱 Trace on)——下方 resolveFateBattle_ 已【不再】給它們被動加成。
+  //   🛡被動 only：卡里斯瑪(morale·常駐氣場)／千里眼(aim·恆常眼力)／自我改造(self_mod·已定局的肉身)——只留 resolveFateBattle_ 被動層，不做主動技。
+  //   其餘：氣息遮斷(stealth·僅開場首擊 opts.ambush)、王之財寶(gob·常駐彈幕)亦為被動，皆不進候選。
+  //   ★rank 尺度折進主動值：把舊「被動＋主動」的合計威力改為「按下才拿、且隨技能自身階級成長」，高階仍更強。
+  function fxMul_(fx) {  // 取帶此 fx 的技能自身階級乘子（無則 C）
+    var all = (c.skills || []).concat(c.traits || []);
+    for (var i = 0; i < all.length; i++) { if (all[i] && all[i].fx === fx) return rankMul_(all[i].r || 'C'); }
+    return rankMul_('C');
+  }
+  if (hasFx_(c, 'burst')) { var bm = 1 + 0.45 * fxMul_('burst'); return { id: 'burst', name: fxName_(c, 'burst', '魔力放出'), icon: '💥', mpPct: 0.15, hit: 0, dmgMul: bm, dmgAdd: 0, desc: '本戰傷害 ×' + bm.toFixed(2) + '（灌注魔力放出）' }; }
+  if (hasFx_(c, 'str_up')) { var sa = Math.round(8 * fxMul_('str_up')) + 14; return { id: 'str_up', name: fxName_(c, 'str_up', '怪力'), icon: '💪', mpPct: 0.12, hit: 0, dmgMul: 1.0, dmgAdd: sa, desc: '本戰傷害 +' + sa + '（激發怪力）' }; }
+  if (hasFx_(c, 'projection')) { var pa = 34 + Math.round(rankVal((c.six && c.six['寶具']) || 'C') * 0.6); return { id: 'projection', name: fxName_(c, 'projection', '投影魔術'), icon: '🗡️', mpPct: 0.12, hit: 9, dmgMul: 1.0, dmgAdd: pa, desc: '本戰命中+9、傷害+' + pa + '（連續投影名劍齊射）' }; }
+  return null;  // 無真·施放技術者→不顯示主動技按鈕（戰力全在被動＋寶具）
 }
 
 // 眾生列 → 戰鬥單位（六圍從六圍欄、技能/特性從標籤欄；無六圍者合成）
@@ -332,9 +336,9 @@ function resolveFateBattle_(atk, def, opts) {
 
   // 騎乘(ride) 機動 +2×階級
   var rideA = hasFx_(atk, 'ride'); if (rideA) aHit += Math.round(2 * rankMul_(rideA));
-  // 🎯 千里眼(aim)／投影魔術(projection)：弓兵的命中靠眼力與劍雨飽和，不全看身法
+  // 🎯 千里眼(aim)：恆常的卓越目力鎖破綻（原作常駐被動·每擊自動生效）。
+  //   ⚠ 投影魔術(projection) 的命中/傷害已改為【主動技 only】(見 servantActiveSkill_)，此處不再給被動加成。
   var aimA = hasFx_(atk, 'aim'); if (aimA) { aHit += Math.round(4 * rankMul_(aimA)); fired.push(atk.name + '·' + fxName_(atk, 'aim', '千里眼')); }
-  var projA = hasFx_(atk, 'projection'); if (projA) aHit += 3;
   // 避矢(evade_ranged)：守方對遠程(Archer)迴避 +6×階級
   if (atk.cls === 'Archer') { var er = hasFx_(def, 'evade_ranged'); if (er) { dEva += Math.round(6 * rankMul_(er)); fired.push(def.name + '·' + fxName_(def, 'evade_ranged', '避矢')); } }
   // 氣息遮斷(stealth)：僅【首擊奇襲】(opts.ambush·開場第一擊／敵突襲)吃命中加成·依階級(A+大、A-小)。
@@ -403,9 +407,9 @@ function resolveFateBattle_(atk, def, opts) {
   // 🔋 出力傷害乘子：依勝方(出擊方)靈基出力檔位放大/縮小本擊威力（御主供魔越足、傷害越高）。
   var wOut = outputTier_(winner.output);
   if (wOut.dmgMul !== 1.0) { base = Math.round(base * wOut.dmgMul); fired.push(winner.name + '·出力' + (winner.output || 60) + '%·' + wOut.label); }
-  var su = hasFx_(winner, 'str_up'); if (su) { base += Math.round(8 * rankMul_(su)); fired.push(winner.name + '·' + fxName_(winner, 'str_up', '怪力')); }
-  var burst = hasFx_(winner, 'burst'); if (burst) { base = Math.round(base * (1 + 0.2 * rankMul_(burst))); fired.push(winner.name + '·' + fxName_(winner, 'burst', '魔力放出')); }
-  // 勇猛/卡里斯瑪(morale)：傷害+；但對方「透化(clear_mind)」免疫此精神威壓
+  // ⚠ 怪力(str_up)／魔力放出(burst) 已改為【主動技 only】(見 servantActiveSkill_)——此處【不再】給被動傷害，
+  //   消滅「被動＋主動雙重計算」；玩家須主動點 ⚡主動技 發動、耗魔力，方享其威能。
+  // 勇猛/卡里斯瑪(morale)：常駐氣場·傷害+（原作被動·每擊自動生效）；但對方「透化(clear_mind)」免疫此精神威壓
   var mor = hasFx_(winner, 'morale'); if (mor && !hasFx_(loser, 'clear_mind')) { base += Math.round(3 * rankMul_(mor)); }
   else if (mor && hasFx_(loser, 'clear_mind')) { fired.push(loser.name + '·透化(免威壓)'); }
   // 自我改造(self_mod)：傷害 +3
@@ -417,8 +421,8 @@ function resolveFateBattle_(atk, def, opts) {
     if (opts.np && mcWin.npMul && mcWin.npMul !== 1) { base = Math.round(base * mcWin.npMul); fired.push(winner.name + '·禮裝「' + mcWin.label + '」(寶具×' + mcWin.npMul + ')'); }
     else if (mcWin.dmgAdd) fired.push(winner.name + '·禮裝「' + mcWin.label + '」(傷+' + mcWin.dmgAdd + ')');
   }
-  // 🗡️ 投影魔術(projection)：每擊都連續投影複製名劍齊射，給持續傷害底火（救低筋力的 EMIYA）
-  if (hasFx_(winner, 'projection')) { base += 24 + Math.round(rankVal(winner.six["寶具"]) * 0.6); fired.push(winner.name + '·投影連射'); }
+  // ⚠ 投影魔術(projection) 已改為【主動技 only】(見 servantActiveSkill_)——連續投影名劍齊射的命中/傷害
+  //   全併入主動技，此處【不再】給被動傷害；玩家須點 ⚡主動技 發動、耗魔力，方享劍雨齊射。
   // 🗡️ 首擊奇襲·要害一擊：氣息遮斷者開場突襲命中→額外重創(吃階級·一次性)。僅【普通首擊】生效——
   //   若開場直接解放寶具(opts.np)則走寶具自身爆發，不疊奇襲(避免奇襲×zabaniya 雙重爆擊一發秒人)。
   if (opts.ambush && atkWins && !opts.np && hasFx_(atk, 'stealth')) {
@@ -528,7 +532,10 @@ function resolveFateBattle_(atk, def, opts) {
   // 對魔力(nullify_magic)：攻方為魔術系(法師魔砲/魔力放出/神代)時大減魔術傷。
   //   ★原作精髓：A 階對魔力幾乎無視現代魔術——Saber 對 Caster 的魔砲僅如清風拂面。
   //   但神代魔術(神祖之術)凌駕現代對魔力＝完全無視(美狄亞的本領)；概念壓制亦無視。
-  var atkMagic = (wProf.dmg === '魔力') || !!hasFx_(winner, 'burst') || !!hasFx_(winner, 'divine_age');
+  // ⚡ 魔力放出改主動 only 後，「本擊是否魔術系」只在【實際發動魔力放出】時成立(灌注魔力才是魔術系一擊)，
+  //   而非光憑持有 burst——否則沒發動時只吃對魔力減傷卻無 burst 增益，全是壞處。
+  var burstFired = !!(opts.skill && opts.skill.id === 'burst' && winner === atk);
+  var atkMagic = (wProf.dmg === '魔力') || burstFired || !!hasFx_(winner, 'divine_age');
   var nm = hasFx_(loser, 'nullify_magic');
   // 概念壓制(更高位階進攻概念·破戒/破魔等)→完全無視對魔力；神代魔術→凌駕但【非無敵】(對魔力僅剩三成效果，見下)。
   if (atkMagic && nm && pierces('nullify_magic')) { fired.push(winner.name + '·概念壓制(凌駕對魔力)'); }

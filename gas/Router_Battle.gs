@@ -514,12 +514,15 @@ function actionFateBattle(userData, pcId, sheets) {
   let skillBuff = null, skillBattery = null;
   if (userData.skill) {
     skillBuff = servantActiveSkill_(atkC);
-    // 🔋 出力電池制：技能魔力亦由御主供。改以固定基準(200)×mpPct 計，不再依已廢的從者魔力池。
-    const skCost = Math.round(200 * skillBuff.mpPct);
-    skillBattery = drainForNp_(sheets, pcData, atkIdx, pIdx, skCost);
-    atkC.mp = parseInt(pcData[atkIdx][COL.PC.MP]) || 0;
-    if (skillBattery.usedBattery) {
-      logWarEvent_(myGameId, `『${atkC.name}』啟動「${skillBuff.name}」魔力不足，御主${skillBattery.bledMaster ? '焚血' : '導魔'}供能（御主餘 ${skillBattery.masterHp}/${skillBattery.masterHpMax} HP）。`, String(userData.acctName || ""));
+    // 🎯 servantActiveSkill_ 現在對「無真·施放技術」的從者回 null（單層歸屬後不再有通用備援）——no-op 略過，不扣魔。
+    if (skillBuff) {
+      // 🔋 出力電池制：技能魔力亦由御主供。改以固定基準(200)×mpPct 計，不再依已廢的從者魔力池。
+      const skCost = Math.round(200 * skillBuff.mpPct);
+      skillBattery = drainForNp_(sheets, pcData, atkIdx, pIdx, skCost);
+      atkC.mp = parseInt(pcData[atkIdx][COL.PC.MP]) || 0;
+      if (skillBattery.usedBattery) {
+        logWarEvent_(myGameId, `『${atkC.name}』啟動「${skillBuff.name}」魔力不足，御主${skillBattery.bledMaster ? '焚血' : '導魔'}供能（御主餘 ${skillBattery.masterHp}/${skillBattery.masterHpMax} HP）。`, String(userData.acctName || ""));
+      }
     }
   }
 
@@ -771,7 +774,10 @@ function actionFateBattle(userData, pcId, sheets) {
             enemyFireNp = false; // 魔力不足，放不出寶具，改為普攻
           }
         }
-        const es = fateStrike_(sheets, pcData, enemyNow, ctgt, { counterMul: enemyFireNp ? 1.0 : 0.85, np: enemyFireNp }, ctx);
+        // 🎯 敵AI無主動技按鈕→自動施展其招牌施放技術(魔力放出/怪力/投影)，免費(視為其戰鬥本色)——
+        //   精確還原「改制前這些是免費被動」的敵方戰力，避免單層歸屬後悄悄削弱敵人(玩家側才改為主動付魔)。
+        const eSkill = servantActiveSkill_(enemyNow);
+        const es = fateStrike_(sheets, pcData, enemyNow, ctgt, { counterMul: enemyFireNp ? 1.0 : 0.85, np: enemyFireNp, skill: eSkill }, ctx);
         rl.eHit = es.hit; rl.eRoll = es.aRoll; rl.eHitVal = es.aHit; rl.eDmg = es.hit ? es.damage : 0; rl.eFired = es.fired; rl.eTarget = String(pcData[ctgt][COL.PC.NAME]); rl.eNp = enemyFireNp;
         if (es.defeat) { defeat = true; victory = false; dreamPrompt = es.dreamPrompt; }
       }

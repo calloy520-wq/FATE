@@ -61,6 +61,7 @@
   let currentStatusTargetName = pc ? pc.name : "";
   let localNPCs = [];
   let myServantCls = ''; // 🗡️ 我方從者職階（決定攻擊類別的按鈕顯示：近戰/魔砲/狙擊）
+  let myActiveSkill = null; // ⚡ 出戰從者的主動技（{fx,name,icon,cost,desc} 或 null）——決定 ⚡主動技 鈕是否顯示
   let myBondUsed = [];   // 💕 今日已用過的羈絆互動（灰掉按鈕）
   let myMystic = null;   // ✨ 御主禮裝（{id,name,type,charges,req,target}）
   let myServants = [];   // 🗝️ 我方所有在世從者（雙從者）
@@ -444,7 +445,7 @@ function renderRecentLocs(recents = null) {
         let acts = '<button onclick="servantStrike(\'' + safe + '\', false)" title="' + st.hint + '" style="flex:2; min-width:110px; font-size:12.5px; padding:8px 4px; background:linear-gradient(90deg,rgba(' + st.rgb + ',.34),rgba(' + st.rgb + ',.16)); color:' + st.col + '; border:1px solid rgb(' + st.rgb + '); border-radius:7px; cursor:pointer; font-weight:bold;">' + st.emo + ' ' + st.name + '</button>'
           + '<button onclick="servantStrike(\'' + safe + '\', true)" title="解放寶具" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(212,175,55,.15); color:#e7c873; border:1px solid #d4af37; border-radius:7px; cursor:pointer; font-weight:bold;">💥 寶具</button>'
           + '<button onclick="servantStrike(\'' + safe + '\', false, true)" title="令咒・絕對命令（必中）" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(176,108,208,.15); color:#c79be8; border:1px solid #b06cd0; border-radius:7px; cursor:pointer; font-weight:bold;">❖ 令咒</button>'
-          + '<button onclick="servantStrike(\'' + safe + '\', false, false, false, true)" title="催動出戰從者的專屬主動技（依其技能而定）：本戰增益，耗少量魔力，不足則抽御主供能" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(110,180,220,.15); color:#7ec8ff; border:1px solid #4e92c0; border-radius:7px; cursor:pointer; font-weight:bold;">⚡ 主動技</button>';
+          + (myActiveSkill ? '<button onclick="servantStrike(\'' + safe + '\', false, false, false, true)" title="' + myActiveSkill.desc.replace(/"/g, '') + '（耗魔力·不足抽御主供能）" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(110,180,220,.15); color:#7ec8ff; border:1px solid #4e92c0; border-radius:7px; cursor:pointer; font-weight:bold;">' + myActiveSkill.icon + ' ' + myActiveSkill.name + '</button>' : '');
         if (myCanRB && myServants.length < 2 && myMasterSeals > 0) {
           acts += '<button onclick="ruleBreakSteal(\'' + safe + '\')" title="破戒奪僕：對打殘(HP<35%)的敵從者斬契奪為第二從者，燃一道令咒" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(176,108,208,.16); color:#d0a0e8; border:1px solid #8a5fb0; border-radius:7px; cursor:pointer; font-weight:bold;">⛓ 破戒奪僕 <small style="opacity:.7;">須打殘至35%＋燃令咒</small></button>';
         }
@@ -1028,9 +1029,9 @@ function renderRecentLocs(recents = null) {
     ride: m => `騎乘：駕馭一切坐騎，命中 +${Math.round(2 * m)}。`,
     first_strike: m => `直感：戰鬥第六感，先機——命中與迴避 +${Math.round(3 * m)}。`,
     analyze: m => `心眼：洞察破綻，命中與迴避 +${Math.round(3 * m)}。`,
-    str_up: m => `怪力：膂力暴增，傷害 +${Math.round(8 * m)}。`,
-    burst: m => `魔力放出：魔力爆發，傷害 ×${(1 + 0.2 * m).toFixed(2)}。`,
-    morale: m => `勇猛／卡里斯瑪：傷害 +${Math.round(3 * m)}（敵「透化」可免疫）。`,
+    str_up: m => `怪力（⚡主動技）：激發膂力，發動時本戰傷害 +${Math.round(8 * m) + 14}。★普通攻擊無此加成，須主動點「⚡主動技」發動、耗魔力。`,
+    burst: m => `魔力放出（⚡主動技）：灌注魔力瞬間爆發，發動時本戰傷害 ×${(1 + 0.45 * m).toFixed(2)}。★普通攻擊無此加成，須主動點「⚡主動技」發動、耗魔力。`,
+    morale: m => `勇猛／卡里斯瑪（被動）：與生俱來的統率氣場，傷害 +${Math.round(3 * m)}（敵「透化」可免疫；每擊自動生效）。`,
     evade_ranged: m => `避矢加護：對 Archer 遠程的迴避 +${Math.round(6 * m)}。`,
     divine_core: m => `神核：女神之軀，受傷 −${Math.round(18 * m)}%（破魔可無視）。`,
     mad: m => `狂化：理智換力量——命中／迴避 −${Math.round(3 * m)}，但傷害 +${Math.round(14 * m)}。`,
@@ -1043,19 +1044,19 @@ function renderRecentLocs(recents = null) {
     survive: () => '戰鬥續行：受致命傷仍能硬撐一次（HP 留 1）；遭「破戒／破魔」則失效。',
     lovespot: () => '愛之痣：臉上魅惑之痣令來犯者一瞬分神——攻向你的敵人命中 −1。',
     clear_mind: () => '透化：清澈靜穆之心，免疫敵方勇猛／領袖氣質的精神威壓。',
-    self_mod: () => '自我改造：強化過的軀體，命中 +2、傷害 +3。',
+    self_mod: () => '自我改造（被動）：已改造定型的軀體構造，命中 +2、傷害 +3（每擊自動生效）。',
     tactics: () => '軍略：用兵之才，寶具威力 +15%。',
     anti_magic_lance: () => '破魔紅薔薇：雙槍破魔，無視神核護甲；致命時敵無法續行／復活／令咒脫離。',
     rule_breaker: () => '破戒全咒：斬斷契約與救贖——致命一擊下，敵無法戰鬥續行／十二試煉復活／令咒脫離。',
     god_hand: () => '十二試煉：不死之軀，靈基崩解前自死亡歸來（11 次，每次回 20% 靈基）。',
-    aim: m => `千里眼：以卓越目力鎖定破綻，命中 +${Math.round(4 * m)}。`,
+    aim: m => `千里眼（被動）：附於肉體的卓越目力，恆常鎖定破綻，命中 +${Math.round(4 * m)}（每擊自動生效）。`,
     chain: m => `天之鎖：冥界鎖鏈常駐彈幕(萬鎖貫穿，均傷約30)；對「神性」之敵額外纏縛身法，令其迴避 −${Math.round(6 * m)}。`,
     crafting: m => `道具作成：戰前備妥的暗器／符具於關鍵一擊派上用場，傷害 +${Math.round(8 * m)}。`,
     divine: m => `神性：神裔血脈的證明，階級即神格高低——但「神殺」之敵會依此階放大傷害，受傷最高 ×${Math.min(2.0, 1 + 0.5 * m).toFixed(2)}。`,
     fast_cast: m => `高速詠唱：一回合內連珠疊咒，魔砲彈幕傷害 +${Math.round(12 * m)}。`,
     mage_realm: () => '魔境的智慧：由御主在從者卡挑選一個通用 A 階被動注入此戰——實際威力依所選的那個被動決定，見已選擇的技能。',
     petrify: m => `魔眼(石化)：以視線鎖死獵物，令敵迴避 −${Math.round(2 * m)}；寶具解放時石化貫穿，傷害 ×1.3。`,
-    projection: () => '投影魔術：連續投影複製名劍齊射，命中 +3、每擊追加持續傷害。',
+    projection: () => '投影魔術（⚡主動技）：詠唱「Trace on」連續投影複製名劍齊射，發動時命中 +9、追加大量傷害。★普通攻擊無此加成，須主動點「⚡主動技」發動、耗魔力。',
     rho_aias: () => '七天盾・羅・埃亞斯：投影卡帕涅烏斯之盾，七層花瓣硬擋重擊，受傷 ×0.6（唯超位階概念寶具可貫穿）。',
     rune: m => `原初符文：可選三種運用——護符減傷(受傷 ×${(1 - 0.10 * m).toFixed(2)})／符文灼擊增傷(+${Math.round(10 * m)})／涓流回血(每回合約${(2.5 * m).toFixed(1)}%上限HP，上限30)，戰前自選一種。`,
     shapeshift: m => `變化：化形流轉滑開致命一擊，迴避 +${Math.round(3 * m)}。`,
@@ -1204,6 +1205,7 @@ function renderRecentLocs(recents = null) {
       if (!myServants.some(function (x) { return x.name === myActiveServant; })) myActiveServant = (myServants[0] || {}).name || '';
       var activeSv = myServants.find(function (x) { return x.name === myActiveServant; }) || myServants[0] || null;
       myServantCls = (activeSv && activeSv.cls) || '';
+      myActiveSkill = activeSv ? previewActiveSkill_(activeSv.skills) : null; // ⚡ 只有真·施放技術者才有主動技鈕
       try { renderWarActions(); } catch (e) {}
       let mh = '<div style="background:rgba(20,14,28,0.55); border:1px solid #d4af37; border-radius:8px; padding:6px 8px;">'
         + '<div style="color:#d4af37; font-weight:bold; font-size:12px;">⚜️ 御主</div>'
@@ -1219,10 +1221,10 @@ function renderRecentLocs(recents = null) {
       var buildSvCard = function (s, isActive, dual) {
         var six = s.six || {};
         var sixLine = ['筋' + (six.筋力 || '?'), '耐' + (six.耐久 || '?'), '敏' + (six.敏捷 || '?'), '魔' + (six.魔力 || '?'), '運' + (six.幸運 || '?'), '寶' + (six.寶具 || '?')].join('　');
-        var pill = function (n, r, fx, col, glow) {
+        var pill = function (n, r, fx, col, glow, pre) {
           var label = n + (r && r !== '-' ? (' ' + r) : '');
           var arg = "'" + String(n).replace(/'/g, '') + "','" + String(fx || '').replace(/'/g, '') + "','" + String(r || '').replace(/'/g, '') + "'";
-          return '<span class="' + (glow ? 'tag-selectable' : '') + '" onclick="event.stopPropagation();showSkillDesc(' + arg + ')" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid ' + col + '; color:' + col + '; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;">' + (glow ? '✨' : '') + label + '</span>';
+          return '<span class="' + (glow ? 'tag-selectable' : '') + '" onclick="event.stopPropagation();showSkillDesc(' + arg + ')" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid ' + col + '; color:' + col + '; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;">' + (pre || '') + (glow ? '✨' : '') + label + '</span>';
         };
         // 🔮 可選能力標籤(魔境的智慧/原初符文)：小膠囊·發亮；點開在說明 popup 裡挑選，選定後標籤即顯示所選項（如 魔境的智慧（千里眼A））
         var selPill = function (label, onclickJs) {
@@ -1237,8 +1239,11 @@ function renderRecentLocs(recents = null) {
             var rmo = RUNE_MODES_JS.filter(function (o) { return o.mode === (s.runeMode || 'def'); })[0];
             return selPill(sk.n + (rmo ? '（' + rmo.n + '）' : ''), 'openRunePicker(\'' + safeN + '\',\'' + (s.runeMode || 'def') + '\')');
           }
+          // ⚡ 主動技標籤：青色＋⚡前綴，一看就知道是「須主動點才發動、普攻無加成」的施放技術；被動技維持金色。
+          if (ACTIVE_FX_JS[sk.fx]) return pill(sk.n, sk.r, sk.fx, '#7ec8ff', false, '⚡');
           return pill(sk.n, sk.r, sk.fx, '#d9a93a', false);
         }).join('');
+        var hasActiveSkill = (s.skills || []).some(function (sk) { return sk && ACTIVE_FX_JS[sk.fx]; });
         var traitPills = (s.traits || []).map(function (tr) { return pill(tr.n, tr.r, 'trait', '#c0392b'); }).join('');
         // 🌹 慾海：從者卡只露 名字/外顯/個性/特徵/關係/肉體——不露血量/魔力/六圍/技能/寶具/動作鈕
         if (pc && pc.mode === 'kanshou') {
@@ -1273,7 +1278,7 @@ function renderRecentLocs(recents = null) {
           + '<div style="color:#cdbbe6; font-size:11px; margin-top:3px; letter-spacing:.5px;">六圍 <span onclick="event.stopPropagation();showSixHelp(\'' + sixLine.replace(/'/g, '') + '\')" style="cursor:pointer; font-size:10px; color:#cdbbe6; border:1px solid #6a5a8a; border-radius:8px; width:13px; height:13px; display:inline-block; line-height:13px; text-align:center;">?</span></div>'
           + (skillPills ? ('<div style="margin-top:3px;">' + skillPills + '</div>') : '')
           + (traitPills ? ('<div style="margin-top:1px;">' + traitPills + '</div>') : '')
-          + ((skillPills || traitPills) ? '<div style="color:#6a5f80; font-size:9.5px; margin-top:2px;">👆 點標籤看效果' + ((s.mageRealm && s.mageRealm.has) || (s.skills || []).some(function (k) { return k.fx === 'rune'; }) ? '；✨發亮的可點開挑選' : '') + '</div>' : '')
+          + ((skillPills || traitPills) ? '<div style="color:#6a5f80; font-size:9.5px; margin-top:2px;">👆 點標籤看效果' + ((s.mageRealm && s.mageRealm.has) || (s.skills || []).some(function (k) { return k.fx === 'rune'; }) ? '；✨發亮的可點開挑選' : '') + (hasActiveSkill ? '；<span style="color:#7ec8ff;">⚡藍標＝主動技（普攻無加成，須點⚡發動）</span>' : '') + '</div>' : '')
           + '<div style="margin-top:5px;">寶具 ' + npPillsHtml(s) + '</div>'
           + ((pc && pc.mode === 'kanshou') || (dual && !isActive) ? '' :
               '<div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">'
@@ -1613,19 +1618,19 @@ function renderRecentLocs(recents = null) {
 
   // ⚡ 主動技預覽：與後端 servantActiveSkill_ 同一套優先序＋固定耗魔(200×mpPct)，鏡射到前端秒顯，
   //   免為了「看一眼會發動什麼」多打一趟往返；實際判定與扣魔仍以後端為準，這裡純預覽。
+  // ⚡ 主動技候選：只有原作真·意識施放技術（魔力放出/怪力/投影）；卡里斯瑪/千里眼/自我改造是常駐被動、不進此表。
+  //   數值鏡射後端 servantActiveSkill_（含 rank 折算）。無真·施放技術 → 回 null（前端據此不顯示主動技鈕）。
+  var ACTIVE_FX_JS = { burst: 1, str_up: 1, projection: 1 };
   function previewActiveSkill_(skills) {
     var find = function (fx) { return (skills || []).find(function (sk) { return sk && sk.fx === fx; }); };
+    var mul = function (sk) { return rankVal_((sk && sk.r) || 'C') / 30; };
     var pick = find('burst');
-    if (pick) return { name: pick.n || '魔力放出', icon: '💥', cost: 30, desc: '本戰傷害 ×1.3' };
+    if (pick) return { fx: 'burst', name: pick.n || '魔力放出', icon: '💥', cost: 30, desc: '本戰傷害 ×' + (1 + 0.45 * mul(pick)).toFixed(2) + '（灌注魔力放出）' };
     pick = find('str_up');
-    if (pick) return { name: pick.n || '怪力', icon: '💪', cost: 24, desc: '本戰傷害+14' };
-    pick = find('aim') || find('projection');
-    if (pick) return { name: pick.n || '狙準', icon: '🎯', cost: 24, desc: '本戰命中+6、傷害+10' };
-    pick = find('morale');
-    if (pick) return { name: pick.n || '鼓舞', icon: '📣', cost: 20, desc: '本戰命中+3、傷害+8' };
-    pick = find('self_mod');
-    if (pick) return { name: pick.n || '自我改造', icon: '🔧', cost: 20, desc: '本戰命中+4、傷害+6' };
-    return { name: '集中', icon: '🎯', cost: 20, desc: '本戰命中+5' };
+    if (pick) return { fx: 'str_up', name: pick.n || '怪力', icon: '💪', cost: 24, desc: '本戰傷害 +' + (Math.round(8 * mul(pick)) + 14) + '（激發怪力）' };
+    pick = find('projection');
+    if (pick) return { fx: 'projection', name: pick.n || '投影魔術', icon: '🗡️', cost: 24, desc: '本戰命中+9、連續投影名劍齊射追加傷害' };
+    return null; // 無真·施放技術 → 不顯示主動技
   }
 
   // 🌟 解放寶具前的「選哪個寶具」選單（多寶具英靈：斯卡哈/金閃/EMIYA/伊斯坎達爾…）
@@ -1669,6 +1674,7 @@ function renderRecentLocs(recents = null) {
       // ⚡ 防誤按：主動技先讓玩家看清楚會發動哪一招、效果與耗魔多少，再決定要不要送出
       var _asv = (myServants || []).find(function (x) { return x.name === myActiveServant; });
       var _pv = previewActiveSkill_(_asv && _asv.skills);
+      if (!_pv) { alert('此從者沒有可主動施放的技術（其技能皆為被動、每擊自動生效）。'); return; } // 單層歸屬後：無真·施放技術者無主動技
       if (!confirm(_pv.icon + ' 催動「' + _pv.name + '」主動技？\n\n效果：' + _pv.desc + '\n約耗魔力 ' + _pv.cost + '（御主電池不足則抽血供能）。\n\n確定發動？')) return;
     }
     if (!beginAction()) return;
@@ -2563,7 +2569,7 @@ let plainTextContext = cleanText;
             html += `<button class="btn" title="${_st.hint}" style="border-color:rgb(${_st.rgb}); color:${_st.col}; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false)">${_st.emo} 令從者${_st.name}</button>`;
             html += `<button class="btn" style="border-color:#d4af37; color:#d4af37; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', true)">💥 寶具解放</button>`;
             html += `<button class="btn" style="border-color:#b06cd0; color:#b06cd0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, true)">❖ 令咒・絕對命令（必中）</button>`;
-            html += `<button class="btn" style="border-color:#4e92c0; color:#7ec8ff; font-weight:bold;" title="催動出戰從者的專屬主動技：本戰增益，耗少量魔力(不足抽御主)" onclick="closeInteractMenu(); servantStrike('${npcName}', false, false, false, true)">⚡ 主動技</button>`;
+            if (myActiveSkill) html += `<button class="btn" style="border-color:#4e92c0; color:#7ec8ff; font-weight:bold;" title="${myActiveSkill.desc.replace(/"/g, '')}（耗魔力·不足抽御主）" onclick="closeInteractMenu(); servantStrike('${npcName}', false, false, false, true)">${myActiveSkill.icon} ${myActiveSkill.name}</button>`;
           }
       }
 
