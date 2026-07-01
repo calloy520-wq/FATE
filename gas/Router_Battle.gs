@@ -676,7 +676,7 @@ function actionFateBattle(userData, pcId, sheets) {
     }
 
     // 🩹 每回合涓流回血（約 2.5%×階/回合·上限30）：兩種來源——①原初符文運用為 regen(玩家選模式)
-    //   ②持有專屬治癒 fx `regen`(金羊毛/甦生大釜/狐之治癒等·常駐、無需選模式)。標籤顯示技能自己的名字。
+    //   ②持有專屬治癒 fx `regen`(回復魔藥/狐之治癒等·常駐、無需選模式)。標籤顯示技能自己的名字。
     for (let rk = 0; rk < livingParty.length; rk++) {
       const ridx = livingParty[rk];
       if (String(pcData[ridx][COL.PC.ID]).startsWith("DEAD_")) continue;
