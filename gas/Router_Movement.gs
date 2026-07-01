@@ -264,13 +264,13 @@ function actionRest(userData, pcId, sheets) {
     let restDreamPrompt = "";
     if (!restAmbush && restHours >= 3) {
       const svRow = pcData.find(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === restGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-      if (svRow && Math.random() < 0.55) {
+      if (svRow && Math.random() < 0.25) {
         const dSvName = String(svRow[COL.PC.NAME]);
         try { raiseBond_(sheets, pcName, dSvName, 3); } catch (e) { }
         restDreamPrompt = servantCard_(svRow) +
           `【系統·從者之夢·回想】御主沉沉睡去，意識卻順著與從者的靈魂聯繫，墜入「${dSvName}」成為英靈之前的記憶長河——夢見其傳說中的一個片段。\n` +
           `★以 Fate／TYPE-MOON 筆觸，用夢境／回想的朦朧史詩質感，演出「${dSvName}」這名英靈生前傳說裡的某一幕（取材自其真實的神話／史實／傳說：其榮光、抉擇、孤獨或傷痕）。讓御主（與玩家）窺見這名英靈所背負的過往與信念。\n` +
-          `★【show, don't tell】以畫面與情境流露，不直接點破其願望或心結，停在夢醒前的餘韻與一絲說不清的悸動。\n` +
+          `★【show, don't tell】以畫面與情境流露，不直接點破其願望或心結，停在夢醒後的餘韻與一絲說不清的悸動；收尾可帶一絲「${dSvName}」隱約察覺御主窺見了這段記憶的細微反應，份量點到為止即可。\n` +
           ``;
       }
     }
