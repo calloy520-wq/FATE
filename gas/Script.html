@@ -2747,45 +2747,6 @@ function summonByDesc() {
   // 🟢 連擊戰報專用輕量敘事：narrate() 同等成本，但會把同地參戰NPC名字轉成可點擊超連結，
   // 讓玩家能直接點名字繼續連擊，不需要 AI 額外生成 options
   // ==========================================
-  async function narrateCombatResult(promptText, touchedNames, knockedOut) {
-    const story = document.getElementById('story');
-    const optContainer = document.getElementById('options-container');
-    if (optContainer) optContainer.innerHTML = '';
-    const loadId = "L" + Date.now();
-    story.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="loading-text">聖杯演算中…</div>`);
-    story.scrollTop = story.scrollHeight;
-
-    try {
-      const isNsfw = document.getElementById('nsfw-mode-toggle')?.checked || false;
-      const res = await gasRun({ action: "multi_attack_narrate", pcId: pc.id, promptText: promptText, isNsfw: isNsfw, touchedNames: touchedNames, knockedOut: knockedOut });
-      document.getElementById(loadId)?.remove();
-
-      if (res.success && res.text) {
-        let cleanText = res.text.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
-        let displayText = cleanText.replace(/\n{2,}/g, "<br><br>").replace(/\n/g, "<br><br>");
-
-        // 🔴 同地參戰NPC一律是「實際在場」，直接做成可點擊超連結，方便繼續連擊
-        if (touchedNames && touchedNames.length > 0) {
-          const escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const uniqueNames = [...new Set(touchedNames)].filter(n => n && n.length >= 2);
-          if (uniqueNames.length > 0) {
-            uniqueNames.sort((a, b) => b.length - a.length);
-            const combinedRegex = new RegExp(uniqueNames.map(escapeRegExp).join('|'), 'g');
-            displayText = displayText.replace(combinedRegex, matched => `<span class="npc-link" data-interact="${matched}">${matched}</span>`);
-          }
-        }
-
-        story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【說書人】</b>${displayText}</div>`);
-        lastAiContext = cleanText;
-
-        localStorage.setItem('kyushu_story', story.innerHTML);
-        story.scrollTop = story.scrollHeight;
-      }
-    } catch (e) {
-      document.getElementById(loadId)?.remove();
-      console.error("戰鬥敘事失敗:", e);
-    }
-  }
 
   async function send(customMsg, isSilent = false, combatData = null) {
     const input = document.getElementById('u-in');
@@ -2797,12 +2758,7 @@ function summonByDesc() {
     if (!msg) return;
     if (!customMsg && btn.disabled) return;
 
-    // 🟢 多目標動作標籤：[攻擊 XXX]敘述... 走專屬 GAS 裁決路徑，數值不交給AI自由心證
-    //   (下毒/媚藥 為九州/NSFW 殘留詞彙，solo 不用，已移除)
-    if (!combatData && /\[(攻擊).+?\]/.test(msg)) {
-      return handleMultiAttack(msg);
-    }
-
+    // 🧹 舊九州 [攻擊 XXX] 文字裁決路徑已移除（solo 走按鍵 servantStrike、kanshou 無戰鬥）。
     if (/^[1-4]$/.test(msg) && currentOptions.length >= parseInt(msg)) {
       const optIndex = parseInt(msg) - 1;
       msg = currentOptions[optIndex]; 
@@ -3021,112 +2977,8 @@ let plainTextContext = cleanText;
 
 
 
-async function handleMultiAttack(rawMsg) {
-  const input = document.getElementById('u-in');
-  const btn = document.getElementById('send-btn');
-  const story = document.getElementById('story');
-  input.value = ""; input.disabled = true;
-  btn.disabled = true;
-
-  story.insertAdjacentHTML('beforeend',
-    `<div class="msg-player"><span class="msg-name">${pc.name}</span><span class="msg-text">${rawMsg}</span></div>`);
-  story.scrollTop = story.scrollHeight;
-
-  const loadId = "L" + Date.now();
-  story.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="loading-text">聖杯演算中…</div>`);
-  story.scrollTop = story.scrollHeight;
-
-  try {
-    const res = await gasRun({ action: "multi_attack", pcId: pc.id, rawInput: rawMsg });
-    document.getElementById(loadId)?.remove();
-
-    if (!res.success) {
-      input.disabled = false; btn.disabled = false;
-      alert(res.message || "攻擊未能結算。");
-      return;
-    }
-
-    if (res.statusString) {
-      localStorage.setItem('kyushu_last_status', res.statusString);
-      updateUI(res.statusString.split('§'));
-    }
-
-    (res.results || []).forEach(r => {
-      if (r.skipped) {
-        const skipMsg = r.reason === "no_item" ? `（行囊中找不到合適的藥材，無法對「${r.targetName}」動手）`
-          : r.reason === "already_down" ? `（「${r.targetName}」已昏迷倒地，未再追擊）`
-          : `（「${r.targetName}」查無此人在場，此招落空）`;
-        story.insertAdjacentHTML('beforeend',
-          `<div style="text-align:center; color:#888; font-size:12px; margin:4px 0;">${skipMsg}</div>`);
-      } else {
-        renderCombatReport({ actionType: r.actionType, playerName: pc.name, npcName: r.targetName, pRoll: r.pRoll, pMod: r.pMod, pScore: r.pScore, nRoll: r.nRoll, nMod: r.nMod, nScore: r.nScore, playerWins: r.playerWins, damage: r.damage, critFlavor: r.critFlavor, isStalemate: r.isStalemate, isDodge: r.isDodge });
-      }
-    });
-    story.scrollTop = story.scrollHeight;
-
-    input.disabled = false; btn.disabled = false;
-
-    // 把已裁定的結果（含玩家自己的招式敘述）餵給 AI 描寫(輕量路徑，帶地點/因果/角色資料)
-    narrateCombatResult(res.aiPrompt, res.touchedNames, res.knockedOut);
-
-    // 玩家中途被打趴送藥鋪
-    if (res.justRevived) {
-      setTimeout(() => {
-        send(`【系統動作：玩家從重傷中甦醒，躺在小醫仙藥鋪的病榻上。請描寫甦醒場景並給出選項。】`, true);
-      }, 1500);
-    }
-  } catch (e) {
-    document.getElementById(loadId)?.remove();
-    input.disabled = false; btn.disabled = false;
-    alert("連線受阻，攻擊未能結算。");
-  }
-}
-
-function renderCombatReport(c) {
-  if (!c) return;
-  const story = document.getElementById('story');
-  let critBadge = "";
-  if (c.critFlavor === "player_crit") critBadge = `<div style="color:#d4af37; font-weight:bold;">🎯 你·大成功！</div>`;
-  else if (c.critFlavor === "npc_crit") critBadge = `<div style="color:#a52a2a; font-weight:bold;">🛡️ ${c.npcName}·大成功！</div>`;
-  else if (c.critFlavor === "player_fumble") critBadge = `<div style="color:#a52a2a; font-weight:bold;">💥 你·大失敗！</div>`;
-  else if (c.critFlavor === "npc_fumble") critBadge = `<div style="color:#d4af37; font-weight:bold;">💥 ${c.npcName}·大失敗！</div>`;
-
-  const winColor = c.isStalemate ? "#888" : (c.playerWins ? "#2e8b57" : "#a52a2a");
-  const actionType = c.actionType || "攻擊";
-  let winText, bottomLine;
-  if (actionType === "攻擊" && c.isStalemate) {
-    winText = c.isDodge ? `${c.npcName} 堂堂正正避開` : `擊中卻被卸力`;
-    bottomLine = `⚖️ 棋逢對手，${winText}，未傷`;
-  } else if (actionType === "攻擊") {
-    winText = c.playerWins ? `你擊中 ${c.npcName}` : `${c.npcName} 反擊得手`;
-    bottomLine = `⚔️ ${winText}，造成 ${c.damage} 點傷害`;
-  } else {
-    winText = c.playerWins ? `${actionType}成功！「${c.npcName}」已中招` : `${actionType}失敗，被「${c.npcName}」識破`;
-    bottomLine = `${actionType === "下毒" ? "🧪" : "🌸"} ${winText}`;
-  }
-
-  story.insertAdjacentHTML('beforeend', `
-    <div style="background:rgba(0,0,0,0.04); border:1px solid ${winColor}; border-radius:8px; padding:12px; margin:5px 0; font-size:13px;">
-      <div style="display:flex; justify-content:space-around; text-align:center; margin-bottom:8px;">
-        <div>
-          <div style="font-weight:bold; color:#333;">${c.playerName}</div>
-          <div style="font-size:20px; color:#4682b4;">🎲 ${c.pRoll}</div>
-          <div style="font-size:11px; color:#888;">+${c.pMod} = <b>${c.pScore}</b></div>
-        </div>
-        <div style="align-self:center; color:#888; font-weight:bold;">VS</div>
-        <div>
-          <div style="font-weight:bold; color:#333;">${c.npcName}</div>
-          <div style="font-size:20px; color:#a52a2a;">🎲 ${c.nRoll}</div>
-          <div style="font-size:11px; color:#888;">+${c.nMod} = <b>${c.nScore}</b></div>
-        </div>
-      </div>
-      ${critBadge}
-      <div style="text-align:center; color:${winColor}; font-weight:bold; margin-top:6px;">${bottomLine}</div>
-    </div>
-  `);
-  story.scrollTop = story.scrollHeight;
-}
-
+// 🧹 舊九州多目標攻擊裁決 handleMultiAttack/renderCombatReport/narrateCombatResult 已移除
+//    （呼叫的 multi_attack action 不存在；solo 走按鍵 servantStrike、kanshou 無戰鬥）。
 
 
 

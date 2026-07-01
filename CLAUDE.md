@@ -40,7 +40,8 @@ GAS 在 `gas/`，clasp 推 branch 自動部署。**我每次開機失憶，這�
 
 ## 📌 開工前先讀
 
-- **`SOLO_REFERENCE.md`** — 單人模式完整代碼地圖（函數名＋作用＋schema＋ActionRouter＋MEMORY 標記）。**先查這份再 grep**，省時間。
+- **`HANDBOOK.md`** — 全專案工具書（理念＋架構＋資料層＋每個檔案在做什麼＋戰鬥引擎管線＋三軌）。**想「這專案在幹嘛/某檔做什麼」先看這份。**
+- **`SOLO_REFERENCE.md`** — 單人模式完整代碼地圖（函數名＋作用＋schema＋ActionRouter＋MEMORY 標記）。**要 grep 前先查這份**，省時間。
 - `DESIGN.md` — 設計鐵則（GAS 掌數值、AI 只說書）。
 
 ## ✅ 工作流程

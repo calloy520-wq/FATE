@@ -55,9 +55,7 @@ const ActionRouter = {
   "leaderboard": actionLeaderboard,
   "war_chronicle": actionWarChronicle,
   "war_history_list": actionWarHistoryList,
-  "narrate_only": actionNarrateOnly,
-  "multi_attack_narrate": actionMultiAttackNarrate
-
+  "narrate_only": actionNarrateOnly
 };
 
 // ------------------------------------------
@@ -181,7 +179,7 @@ function handleGameAction(userData) {
 //   不含：sync(本身即 state)／get_tags／純讀取(inspect/get_*)／創角召喚(自走 reload)／kanshou(KPC_)；
 //   也不含「樂觀更新」的輕量 setter(set_servant_output/set_mage_realm/set_rune_mode/set_np_choice)——
 //   它們不 syncData、只吃 res.economy，夾 _state 反而白做整表讀取。
-//   也不含 narrate_only/multi_attack_narrate——前端 narrate() 只吃 res.text、不消費 _state，夾它純浪費整表讀。
+//   也不含 narrate_only——前端 narrate() 只吃 res.text、不消費 _state，夾它純浪費整表讀。
 const STATE_AFTER_ACTIONS = {
   fate_battle: 1, use_seal: 1, mana_supply: 1, bond: 1, rule_break_steal: 1,
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
@@ -3792,7 +3790,7 @@ function cleanNarrateEcho_(promptText) {
 
 // 🟢 共用敘事核心：帶最近2筆歷史(chatHistory 維持語氣連貫)＋當前狀態(御主/在場從者 HP/MP)，
 //   呼叫輕量模型生成一段敘述。回 narrationText；JSON 解析失敗回 null(呼叫端給 fallback)。
-//   stateBrief 只給 AI 看、不存歷史。actionNarrateOnly 與 actionMultiAttackNarrate 共用(只差 miniSystem)。
+//   stateBrief 只給 AI 看、不存歷史。actionNarrateOnly 使用(輕量敘事共用核心)。
 function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
   opts = opts || {};
   var aiConfig = {
@@ -3855,52 +3853,8 @@ function actionNarrateOnly(userData, pcId, sheets) {
   return JSON.stringify({ success: true, text: narrationText });
 }
 
-// ==========================================
-// 🟢 連擊戰報專用輕量路由：同樣不讀規矩表，但帶 2 筆歷史以維持語氣連貫，
-// 取代 actionMultiAttack 原本走的完整 play 管線。不產生 options，
-// 因為連擊後直接點同地NPC名字(超連結)繼續打即可，不需要選項。
-// ==========================================
-function actionMultiAttackNarrate(userData, pcId, sheets) {
-  const { promptText, isNsfw, touchedNames, knockedOut } = userData;
-
-  const miniSystem = `你是《命運停駐之夜》的說書人。用 Fate／TYPE-MOON 筆觸、第一人稱「我」（玩家＝御主）、強制台灣繁體中文，依指令生動描寫一段交鋒過程（150~250字）。
-【鐵律】
-1. 旁白第一人稱「我」，禁用「你」與上帝視角。
-2. 對話格式：角色名：「（動作/神態/眼神/微表情）台詞……（動作/神態/眼神/微表情）台詞（動作/神態/眼神/微表情）」。動作神態【絕對禁止】獨立成段或寫在引號外，一律用全形括號「（）」嵌入台詞開頭/中間/結尾，至少穿插2次以上。
-3. 強制分段：每2~3句插入 <br><br>，整段至少3個 <br><br>，禁止整坨。換行一律用 <br><br>，禁止真實換行，禁止輸出任何 HTML 標籤。
-4. ★這是純敘事補完，系統底層已結算完所有勝負、傷害與藥效數值，你只負責寫過程的字，禁止更改任何結果。
-5. 敘事務必與提供的【場景】地點、【近期因果】與【參戰者資料】(性格/特徵/關係)一致，禁止憑空換地點或讓角色性格走偏。
-6. ★對話歷史中的內容是「已經發生並結束」的既定事實：歷史中的行動方式(例如特定接近手法、招式、道具)絕對禁止被當成本回合仍在持續或重新發生一次；但歷史造成的後續影響(例如NPC因此產生的警戒、敵意、態度轉變)必須視為既定事實並自然延續下去。本回合唯一真正發生的新事件，只有【系統戰報】裡提供的內容。
-7. 依角色職階與寶具掌握其戰鬥方式以維持敘述合理(槍兵突刺、弓兵遠射、術師魔砲、劍兵格鬥、騎兵衝鋒…，勿讓法師被寫成肉搏、弓兵被寫成貼身纏鬥)；寶具／技能名不必逐字複誦全名，可視文筆改用代稱。
-8. 只輸出 JSON：{"narration":"你的敘述，內含<br><br>分段"}，禁止任何其他欄位、禁止 Markdown。`;
-
-  const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw, maxTokens: 700 });
-  if (narrationText === null) return JSON.stringify({ success: true, text: "（此處因果已定，氣息微微一閃。）" });
-  try {
-    saveGameHistoryBatch(pcId, [
-      { speaker: "player", content: cleanNarrateEcho_(promptText) }, // 洗掉提示詞鷹架，不外洩給玩家(同 actionNarrateOnly)
-      { speaker: "ai", content: narrationText }
-    ]);
-    // 🔴 補上因果紀錄：連擊戰報結束後也要寫入「因果」表，否則後續近期因果/play()歷史都看不到這場戰鬥
-    // 改寫結構化短摘要(誰打誰/有無擊倒)取代整段150字花俏旁白，避免擠爆casual配額；有擊倒則標「變故」而非「閒聊」
-    if (sheets.log) {
-      const pcData = sheets.pc.getDataRange().getValues();
-      const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-      if (pIdx !== -1) {
-        const pName = pcData[pIdx][COL.PC.NAME];
-        const pLoc = pcData[pIdx][COL.PC.LOC];
-        const targets = Array.isArray(touchedNames) ? [...new Set(touchedNames)].filter(Boolean) : [];
-        const downed = Array.isArray(knockedOut) ? [...new Set(knockedOut)].filter(Boolean) : [];
-        const tag = downed.length > 0 ? "變故" : "閒聊";
-        let summary = targets.length > 0 ? `${pName}與${targets.join("、")}交手` : `${pName}動手交鋒`;
-        if (downed.length > 0) summary += `，擊倒了${downed.join("、")}`;
-        sheets.log.appendRow([new Date(), pcId, formatCausalityEntry(pLoc, tag, pName, summary), pLoc, tag]);
-        trimLogRowsByOwner(sheets.log, pcId, 60, 20);
-      }
-    }
-  } catch (e) { }
-  return JSON.stringify({ success: true, text: narrationText });
-}
+// 🧹 舊九州連擊戰報路由 actionMultiAttackNarrate 已移除（前端 handleMultiAttack 鏈一併移除；
+//    solo 戰鬥走 actionFateBattle＋fate_battle，敘事走 actionNarrateOnly）。
 
 function actionUpdateRelTag(userData, pcId, sheets) {
   const { targetName, newTagText } = userData;
