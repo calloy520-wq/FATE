@@ -71,6 +71,7 @@ function buildDefaultSystemPrompt(isNsfwMode, backLocked) {
   } else {
     baseJson.intimacy_feedback = { "npcs": [{ "name": "NPC名", "mutual_nicknames": "無" }] };
     finalJson = baseJson;
+    delete finalJson.options; // 🎴 solo：純按鍵＋AI敘述，不要AI自己生選項——選項一律來自遊戲按鍵，不靠AI建議
   }
 
   // 3. 組合共通鐵律 Prompt (極致超壓縮版)
@@ -98,7 +99,7 @@ function buildDefaultSystemPrompt(isNsfwMode, backLocked) {
 3. 戰鬥：聖杯戰爭的從者廝殺一律由系統按鈕裁決，AI【禁止】自行宣告任何角色死亡或輸出生命數值變化；只描寫本回合新結果，不重演前塵。
 
 【JSON格式】
-1. 只輸出合法JSON。options固定4個且順序不可變：[主動][被動][接續][反差]，每項約20字。
+1. 只輸出合法JSON，不含 options 欄位——玩家的下一步一律來自遊戲按鍵，不需要你建議。
 2. log_summary.tag：預設「閒聊」，有承諾/邀約標「承諾」，揭露隱私/陰謀標「秘密」，死亡/背叛/重傷等轉折標「變故」。`;
 
   // 🔴 NSFW(慾海模式)：本回合聚焦當下的近身互動(情慾/調情/鋪陳皆可)，雜務(物品/金錢/陣營/任務/招募/地圖/戰鬥數值/身世)
