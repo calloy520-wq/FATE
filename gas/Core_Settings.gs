@@ -163,12 +163,22 @@ function setActiveSkillMode_(memory, on) {
 //   其餘御主（含玩家自召）下恩奇都維持削弱基線。讀從者列 MEMORY【御主】名判定；在 rowToCombatant_ 套用。
 //   ⚠ 2026-07 修正：原碼誤寫「巴茲狄洛特」——他其實是赫拉克勒斯(Archer)的御主，跟恩奇都無關，已改回銀狼。
 function masterSynergySix_(name, six, memory) {
-  var mm = String(memory || "").match(/【御主】([^｜]+)/);
-  var mName = mm ? mm[1] : "";
-  if (/恩奇都/.test(String(name)) && /銀狼/.test(mName)) {
+  if (masterSynergyOn_(name, memory)) {
     return { 筋力: 'A', 耐久: 'A', 敏捷: 'A', 魔力: 'A', 幸運: six['幸運'] || '-', 寶具: 'A++' };
   }
   return six;
+}
+// 主從synergy 是否觸發（單一真實來源·masterSynergySix_ 與 前端變容標籤 共用）：讀 MEMORY【御主】名比對。
+function masterSynergyOn_(name, memory) {
+  var mm = String(memory || "").match(/【御主】([^｜]+)/);
+  var mName = mm ? mm[1] : "";
+  return /恩奇都/.test(String(name)) && /銀狼/.test(mName);
+}
+// 前端「變容」標籤用的 synergy 視圖：非 synergy 從者回 null；恩奇都回 {has,on,master,peak}。
+//   on＝當前御主觸發全盛(亮)；否則暗(提醒需該御主)。玩家不可控——由御主決定。
+function masterSynergyView_(name, memory) {
+  if (!/恩奇都/.test(String(name))) return null;
+  return { has: true, on: masterSynergyOn_(name, memory), master: '銀狼', peak: '全能 A・寶具 A++' };
 }
 
 // 🔮 魔境的智慧（斯卡哈專屬·玩家可選被動）：影之國女王通曉常見武技，玩家點選【1 個】通用 A 階被動標籤套用。

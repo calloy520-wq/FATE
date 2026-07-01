@@ -1128,6 +1128,16 @@ function renderRecentLocs(recents = null) {
   }
 
   // 🎴 六圍旁的「?」：純教學(這幾個字代表什麼)，把數值挪出主卡面
+  function showSynergyInfo(on, master, peak) {
+    var html = '<h3 style="margin:0 0 8px; color:#cdbbe6;">🐕 變容 · 主從契合</h3>'
+      + '<div style="color:#cfc3d8; font-size:14px; line-height:1.9;">'
+      + '恩奇都以神代粘土之軀「變容」——六圍隨御主的供魔與契合浮動，<b>玩家無法手動控制</b>，由當前御主決定：<br><br>'
+      + '<b style="color:#7ec8ff;">✨ 與「' + master + '」結契 → 全盛（' + peak + '）</b><br>'
+      + '<span style="color:#8a8296;">· 其餘御主 → 維持削弱基線</span><br><br>'
+      + (on ? '<span style="color:#7ec8ff;">目前：全盛發動中 ✨</span>' : '<span style="color:#b58a8a;">目前：基線狀態——需「' + master + '」為御主方能全盛。</span>')
+      + '</div>';
+    showHistoryOverlay(html);
+  }
   function showSixHelp(line) {
     var html = '<h3 style="margin:0 0 8px; color:#cdbbe6;">🎴 六圍</h3>'
       + '<div style="color:#cfc3d8; font-size:14px; line-height:1.9;">'
@@ -1267,6 +1277,15 @@ function renderRecentLocs(recents = null) {
           if (sk.fx === 'rune' && typeof s.runeMode === 'string') {
             var rmo = RUNE_MODES_JS.filter(function (o) { return o.mode === (s.runeMode || 'def'); })[0];
             return selPill(sk.n + (rmo ? '（' + rmo.n + '）' : ''), 'openRunePicker(\'' + safeN + '\',\'' + (s.runeMode || 'def') + '\')');
+          }
+          // 🐕 變容（恩奇都）：不可控·御主決定的亮/暗標籤——與銀狼結契亮起全盛(全能A)、否則暗示需該御主。點開看說明。
+          if (s.synergy && s.synergy.has && sk.n && sk.n.indexOf('變容') >= 0) {
+            var _syon = !!s.synergy.on;
+            var _sycol = _syon ? '#7ec8ff' : '#5a5468';
+            var _sytxt = _syon ? ('✨' + sk.n + '·全盛') : (sk.n + '·基線');
+            var _sybg = _syon ? 'rgba(110,180,220,.22)' : 'transparent';
+            var _syarg = (_syon ? 'true' : 'false') + ",'" + String(s.synergy.master).replace(/'/g, '') + "','" + String(s.synergy.peak).replace(/'/g, '') + "'";
+            return '<span onclick="event.stopPropagation();showSynergyInfo(' + _syarg + ')" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid ' + _sycol + '; color:' + _sycol + '; background:' + _sybg + '; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;' + (_syon ? ' box-shadow:0 0 6px rgba(110,180,220,.55);' : ' opacity:.7;') + '">' + _sytxt + '</span>';
           }
           // ⚡ 主動技標籤＝開關：亮青⚡＝ON(每戰全效·耗魔)、暗青⚡＝OFF(微量被動·免費)。點開看說明＋切換。
           if (ACTIVE_FX_JS[sk.fx]) {
