@@ -155,6 +155,26 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
       ? JSON.stringify({ "衣服": "凌亂", "姿勢": "倒地不起", "負面": "重傷不治·身亡", "顏面": "生機已絕" })
       : JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "靈基崩潰·消滅", "顏面": "已無生息" });
     sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
+    // 🕯️ 御主(非護衛斬首場)戰死 → 失去供魔的敵從者與令咒燒盡同一套下場：無「單獨行動」者掛 SEAL_DOOM_HOURS 倒數消滅，
+    //   有「單獨行動」者靠靈基殘存苟活(見 enemyCanAffordNp_ 的 INDEPENDENT_ACTION_RESERVE，不設倒數)。
+    //   斬首·護衛在場的即死已在上方 assassinGuardIdx 分支處理，此處只補「無護衛」的一般陣亡路徑。
+    if (killedIsMaster) {
+      var oClk = getClock_(ctx.myGameId);
+      if (oClk) {
+        var oDeadAbs = oClk.day * 24 + oClk.hour + SEAL_DOOM_HOURS;
+        for (var oi = 1; oi < pcData.length; oi++) {
+          if (String(pcData[oi][COL.PC.FACTION]) !== "敵從者") continue;
+          if (String(pcData[oi][COL.PC.GAME_ID] || "") !== ctx.myGameId) continue;
+          if (String(pcData[oi][COL.PC.ID]).startsWith("DEAD_")) continue;
+          if (enemyMasterIdx_(pcData, oi, ctx.myGameId) !== -1) continue; // 仍有在世御主(連結別的御主)，不受此死波及
+          if (rowHasSolo_(pcData[oi])) continue;                          // 單獨行動：靈基殘存，不設倒數
+          if (getDoom_(pcData[oi][COL.PC.MEMORY]) > 0) continue;          // 已有倒數在算(例如先前令咒燒盡)，不覆蓋
+          pcData[oi][COL.PC.MEMORY] = stampDoom_(pcData[oi][COL.PC.MEMORY], oDeadAbs);
+          pcData[oi][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰蝕", "姿勢": "踉蹌", "負面": `御主已亡·靈基透支(約 ${SEAL_DOOM_HOURS} 時消滅)`, "顏面": "強撐將潰" });
+          sheets.pc.getRange(oi + 1, 1, 1, pcData[oi].length).setValues([pcData[oi]]);
+        }
+      }
+    }
     if (isPlayerSv) {
       var svName = String(pcData[tgtIdx][COL.PC.NAME]);
       // 🗝️ 雙從者：僅當「所有」我方從者皆已消滅才算敗北；尚有從者存活＝只是折損一員
@@ -239,13 +259,17 @@ function enemyMasterIdx_(pcData, svIdx, gameId) {
   return -1;
 }
 
-// 🔋 敵方寶具買單：敵從者自身 MP ＋（同陣敵御主）電池 是否付得起 prana。回 {afford, masterIdx}。
+// 🔮 單獨行動(Independent Action)：御主已亡/查無連結時，僅此特性的從者能靠靈基殘存硬撐一手——
+//   是「殘存的最後一口氣」不是「獨立供魔」，固定小額、不隨階級放大，通常不夠再放一次寶具(見 npPranaCost_)。
+var INDEPENDENT_ACTION_RESERVE = 60;
+// 🔋 敵方寶具買單：（同陣敵御主）電池是否付得起 prana(從者無自有魔力池，跟玩家從者同制)；
+//   無主時僅「單獨行動」者靠殘存靈基硬撐 INDEPENDENT_ACTION_RESERVE，其餘無主即啞火。回 {afford, masterIdx}。
 function enemyCanAffordNp_(pcData, svIdx, gameId, prana) {
   var mi = enemyMasterIdx_(pcData, svIdx, gameId);
-  var mp = parseInt(pcData[svIdx][COL.PC.MP]) || 0;
   var mMp = mi >= 0 ? (parseInt(pcData[mi][COL.PC.MP]) || 0) : 0;
   var mHp = mi >= 0 ? (parseInt(pcData[mi][COL.PC.HP]) || 0) : 0;
-  var maxPay = mp + mMp + Math.floor(Math.max(0, mHp - 1) / BATTERY_HP_PER_MP);
+  var maxPay = mMp + Math.floor(Math.max(0, mHp - 1) / BATTERY_HP_PER_MP);
+  if (mi < 0 && rowHasSolo_(pcData[svIdx])) maxPay += INDEPENDENT_ACTION_RESERVE;
   return { afford: maxPay >= prana, masterIdx: mi };
 }
 
@@ -738,7 +762,6 @@ function actionFateBattle(userData, pcId, sheets) {
           const eAfford = enemyCanAffordNp_(pcData, nIdx, myGameId, ePrana);
           if (eAfford.afford) {
             drainForNp_(sheets, pcData, nIdx, eAfford.masterIdx, ePrana);
-            enemyNow.mp = parseInt(pcData[nIdx][COL.PC.MP]) || 0; // 反映耗魔後出力
             enemyNow.output = 100; // ⚖️ 敵解放寶具＝全開(與玩家對等)
             enemyNpSpent = true;
           } else {

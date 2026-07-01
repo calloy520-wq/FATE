@@ -97,7 +97,8 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
   var persona = safeJson_(hero[COL.HERO.PERSONA], {});
   var cls = hero[COL.HERO.CLS];
   var nStr = svNum_(six["筋力"]), nCon = svNum_(six["耐久"]), nAgi = svNum_(six["敏捷"]), nInt = svNum_(six["魔力"]), nLuk = svNum_(six["幸運"]);
-  var hp = 150 + svNum_(six["耐久"]) * 6, mp = 120 + svNum_(six["魔力"]) * 6;
+  // 🔋 出力電池制：敵從者跟玩家從者同制——無自有魔力池，寶具魔力全由(敵)御主電池供給(見 enemyCanAffordNp_)。
+  var hp = 150 + svNum_(six["耐久"]) * 6, mp = 0;
   var row = Array(Object.keys(COL.PC).length).fill("");
   row[COL.PC.ID] = "NPC_" + Date.now() + "_h" + Math.floor(Math.random() * 100000);
   row[COL.PC.NAME] = hero[COL.HERO.NAME];
