@@ -65,7 +65,43 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   if (severed && after <= 0) out.fired.push(atkC.name + '·斬斷救贖(契約已破)');
   if (after <= 5 && hasFx_(defC, 'survive') && hp > 1 && !severed) { after = 1; out.fired.push(defC.name + '·戰鬥續行'); }
 
-  // 令咒緊急脫離（僅敵從者）
+  // 十二試煉（God Hand）：自死亡歸來、不花御主任何資源——優先於令咒脫離判定，別讓有 God Hand 的從者(如赫拉克勒斯)
+  //   平白燒掉御主寶貴的令咒逃命，牠自己就能免費復活。高位階寶具概念可「一擊燒掉多條命」，壓倒性 overkill 再加成。
+  if (after <= 0 && !severed && hasFx_(defC, 'god_hand')) {
+    var lives = getGodHandLives_(pcData[tgtIdx][COL.PC.MEMORY]);
+    if (lives > 0) {
+      var ghMaxHp = parseInt(pcData[tgtIdx][COL.PC.MAX_HP]) || 300;
+      var ghReviveHp = Math.max(1, Math.round(ghMaxHp * 0.20));
+      // 🔱 概念優先權：寶具解放且概念位階高 → 多燒命。位階取「fx 概念階」與「寶具規模(對人/軍/城/界)」較高者，
+      //   故 Saber 的對城 Excalibur(規模5)、Gilgamesh 的 ea(概念6) 都吃得到，純對人寶具則只靠 overkill。
+      var lossN = 1;
+      if (opts.np) {
+        var ghTier = offenseTier_(atkC, true);
+        var ghScale = npAtkScale_(atkC);
+        var ghScaleTier = ghScale === '對界' ? 6 : ghScale === '對城' ? 5 : ghScale === '對軍' ? 4 : 1;
+        var ghSev = Math.max(ghTier, ghScaleTier);
+        if (ghSev >= 6) lossN += 2; else if (ghSev >= 5) lossN += 1;
+      }
+      // 壓倒性傷害（遠超復活線）也多燒：≥2 倍 +1、≥3 倍 +2。讓 Saber 一記 Excalibur 不會「連一條命都燒不掉」。
+      var ghOver = dmg / ghReviveHp;
+      if (ghOver >= 3) lossN += 2; else if (ghOver >= 2) lossN += 1;
+      if (lossN < lives) {
+        var ghRemain = lives - lossN;
+        out.godRevived = true;
+        pcData[tgtIdx][COL.PC.HP] = ghReviveHp;
+        pcData[tgtIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[tgtIdx][COL.PC.MEMORY], ghRemain);
+        pcData[tgtIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "神性光輝纏身", "姿勢": "緩緩起身", "負面": `十二試煉·餘${ghRemain}命`, "顏面": "不滅的戰意" });
+        sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
+        out.godNote = `「${pcData[tgtIdx][COL.PC.NAME]}」倒下了——卻又緩緩站起。${lossN > 1 ? `這一擊的概念威能極重，一口氣燒去 ${lossN} 條命` : `十二試煉的詛咒讓他自死亡歸來`}（尚餘 ${ghRemain} 條命）。`;
+        out.fired.push(pcData[tgtIdx][COL.PC.NAME] + '·十二試煉(God Hand)' + (lossN > 1 ? `·一擊燒${lossN}命` : ''));
+        return out;
+      }
+      // lossN >= lives：餘命被這一擊燒盡 → 不復活，落入下方(令咒脫離／真正崩潰)流程
+      pcData[tgtIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[tgtIdx][COL.PC.MEMORY], 0);
+      out.fired.push(pcData[tgtIdx][COL.PC.NAME] + '·十二試煉·餘命被一擊燒盡');
+    }
+  }
+  // 令咒緊急脫離（僅敵從者；God Hand 已在上方優先判定過，這裡是「連命都燒盡/沒有 God Hand」才輪到的最後手段）
   if (after <= 0 && isFoeSv && !severed) {
     var eSeals = parseInt(pcData[tgtIdx][COL.PC.CONTRIB]) || 0;
     if (eSeals > 0 && Math.random() < 0.30) {
@@ -105,44 +141,11 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
         }
         break;
       }
-      out.sealNote = `${escMasterName ? '敵御主「' + escMasterName + '」' : '對面御主'}一道令咒迸發，強令其從者「${defC.name}」於靈基崩解前一瞬撤離戰場，遁向「${newLoc}」（敵餘令咒 ${leftSeals}）。★此撤離僅止於「${defC.name}」及其本主，與在場其他御主／從者無關。${doomNote}`;
+      // ⚠ sealNote 同時會進玩家看得到的回合報告(k.note)，別在這裡塞「★」AI指令字面(那種只該進 aiPrompt，見下方
+      //   buildDreamPrompt_ 呼叫處另加的一行)——玩家讀到裸露的鷹架指令會很怪。
+      out.sealNote = `${escMasterName ? '敵御主「' + escMasterName + '」' : '對面御主'}一道令咒迸發，強令其從者「${defC.name}」於靈基崩解前一瞬撤離戰場，遁向「${newLoc}」（敵餘令咒 ${leftSeals}）。${doomNote}`;
       logWarEvent_(ctx.myGameId, `${escMasterName ? '敵御主「' + escMasterName + '」' : '敵御主'}燃一道令咒，令重傷的從者「${defC.name}」緊急脫離戰場（敵餘令咒 ${leftSeals}）${doomNote ? '；其令咒已盡、靈基進入透支倒數' : ''}。`, String(ctx.userData.acctName || ""));
       return out;
-    }
-  }
-  // 十二試煉（God Hand）：自死亡歸來；但高位階寶具概念可「一擊燒掉多條命」，壓倒性 overkill 再加成。
-  if (after <= 0 && !severed && hasFx_(defC, 'god_hand')) {
-    var lives = getGodHandLives_(pcData[tgtIdx][COL.PC.MEMORY]);
-    if (lives > 0) {
-      var ghMaxHp = parseInt(pcData[tgtIdx][COL.PC.MAX_HP]) || 300;
-      var ghReviveHp = Math.max(1, Math.round(ghMaxHp * 0.20));
-      // 🔱 概念優先權：寶具解放且概念位階高 → 多燒命。位階取「fx 概念階」與「寶具規模(對人/軍/城/界)」較高者，
-      //   故 Saber 的對城 Excalibur(規模5)、Gilgamesh 的 ea(概念6) 都吃得到，純對人寶具則只靠 overkill。
-      var lossN = 1;
-      if (opts.np) {
-        var ghTier = offenseTier_(atkC, true);
-        var ghScale = npAtkScale_(atkC);
-        var ghScaleTier = ghScale === '對界' ? 6 : ghScale === '對城' ? 5 : ghScale === '對軍' ? 4 : 1;
-        var ghSev = Math.max(ghTier, ghScaleTier);
-        if (ghSev >= 6) lossN += 2; else if (ghSev >= 5) lossN += 1;
-      }
-      // 壓倒性傷害（遠超復活線）也多燒：≥2 倍 +1、≥3 倍 +2。讓 Saber 一記 Excalibur 不會「連一條命都燒不掉」。
-      var ghOver = dmg / ghReviveHp;
-      if (ghOver >= 3) lossN += 2; else if (ghOver >= 2) lossN += 1;
-      if (lossN < lives) {
-        var ghRemain = lives - lossN;
-        out.godRevived = true;
-        pcData[tgtIdx][COL.PC.HP] = ghReviveHp;
-        pcData[tgtIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[tgtIdx][COL.PC.MEMORY], ghRemain);
-        pcData[tgtIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "神性光輝纏身", "姿勢": "緩緩起身", "負面": `十二試煉·餘${ghRemain}命`, "顏面": "不滅的戰意" });
-        sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
-        out.godNote = `「${pcData[tgtIdx][COL.PC.NAME]}」倒下了——卻又緩緩站起。${lossN > 1 ? `這一擊的概念威能極重，一口氣燒去 ${lossN} 條命` : `十二試煉的詛咒讓他自死亡歸來`}（尚餘 ${ghRemain} 條命）。`;
-        out.fired.push(pcData[tgtIdx][COL.PC.NAME] + '·十二試煉(God Hand)' + (lossN > 1 ? `·一擊燒${lossN}命` : ''));
-        return out;
-      }
-      // lossN >= lives：餘命被這一擊燒盡 → 不復活，靈基真正崩潰（落入下方 destroyed 流程）
-      pcData[tgtIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[tgtIdx][COL.PC.MEMORY], 0);
-      out.fired.push(pcData[tgtIdx][COL.PC.NAME] + '·十二試煉·餘命被一擊燒盡');
     }
   }
   if (after <= 0) {
@@ -816,7 +819,7 @@ function actionFateBattle(userData, pcId, sheets) {
       (interceptNote ? `· ${interceptNote}\n` : "") +
       ((battery && battery.usedBattery) ? `· 御主電池：${battery.bledMaster ? `御主焚燒自身血肉(餘 ${battery.masterHp}/${battery.masterHpMax} HP)` : `御主導流自身魔力`}為從者頂上魔力缺口。\n` : "") +
       (godRevived ? `· 十二試煉：${godNote}\n` : "") +
-      (sealEscaped ? `· 對面御主燃令咒、強行扯離重傷從者，敵已遁走不在場。${sealNote}\n` : "") +
+      (sealEscaped ? `· 對面御主燃令咒、強行扯離重傷從者，敵已遁走不在場。${sealNote}★此撤離僅止於該從者及其本主，與在場其他御主／從者無關。\n` : "") +
       ((!destroyedName && !sealEscaped && !godRevived) ? `· 敗方尚有餘力(見上方 HP)——勿描寫死亡／消滅／屍體，生死由御主後續定奪。\n` : "") +
       (atkC.cls === 'Caster' ? `· 出戰從者為 Caster（魔術師）職階：此戰以魔術轟擊為主、非肉搏，演出時勿讓其上前近戰。\n` : "") +
       `★以 Fate／TYPE-MOON 筆觸演出這 ${nRounds} 回合互有攻防的交鋒(約 220~280 字)：show, don't tell，把上列事實化為畫面與張力，技能/寶具演其威能而非報菜名。`;
