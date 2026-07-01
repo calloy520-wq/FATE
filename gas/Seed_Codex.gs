@@ -263,7 +263,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v18';
+var CODEX_PERSONA_VER = 'v19'; // v19：查到已在場敵從者(赫拉克勒斯)標籤跟種子不同步(對城防誤判)，升版強制全體resync
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
