@@ -1617,8 +1617,6 @@ function renderRecentLocs(recents = null) {
     var find = function (fx) { return (skills || []).find(function (sk) { return sk && sk.fx === fx; }); };
     var pick = find('burst');
     if (pick) return { name: pick.n || '魔力放出', icon: '💥', cost: 30, desc: '本戰傷害 ×1.3' };
-    pick = find('stealth');
-    if (pick) return { name: pick.n || '氣息遮斷', icon: '🌫️', cost: 24, desc: '本戰命中+6、傷害×1.15(奇襲)' };
     pick = find('str_up');
     if (pick) return { name: pick.n || '怪力', icon: '💪', cost: 24, desc: '本戰傷害+14' };
     pick = find('aim') || find('projection');

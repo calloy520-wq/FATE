@@ -176,8 +176,9 @@ function combatProfile_(c) {
 function servantActiveSkill_(c) {
   // 👑 王之財寶(gob)已改為「常駐被動」(見 resolveFateBattle_：每擊命中+5 ＋ 50d3捨1 無盡兵裝彈幕)，
   //   故不再佔主動技槽；吉爾伽美什的主動技自動落到下一個 fx(鼓舞)。
+  // 🌫️ 氣息遮斷(stealth)不進主動技候選：原作是刺客職階技能／等級，一旦擺出攻擊姿態等級就自動驟降，
+  //   不是能花魔力重新買回來的東西——其唯一的戰鬥效益已在 resolveFateBattle_ 走 opts.ambush 免費判定(僅首擊)。
   if (hasFx_(c, 'burst')) return { id: 'burst', name: fxName_(c, 'burst', '魔力放出'), icon: '💥', mpPct: 0.15, hit: 0, dmgMul: 1.3, dmgAdd: 0, desc: '本戰傷害 ×1.3' };
-  if (hasFx_(c, 'stealth')) return { id: 'stealth', name: fxName_(c, 'stealth', '氣息遮斷'), icon: '🌫️', mpPct: 0.12, hit: 6, dmgMul: 1.15, dmgAdd: 0, desc: '本戰命中+6、傷害×1.15(奇襲)' };
   if (hasFx_(c, 'str_up')) return { id: 'str_up', name: fxName_(c, 'str_up', '怪力'), icon: '💪', mpPct: 0.12, hit: 0, dmgMul: 1.0, dmgAdd: 14, desc: '本戰傷害+14' };
   if (hasFx_(c, 'aim') || hasFx_(c, 'projection')) return { id: 'aim', name: fxName_(c, hasFx_(c, 'aim') ? 'aim' : 'projection', '狙準'), icon: '🎯', mpPct: 0.12, hit: 6, dmgMul: 1.0, dmgAdd: 10, desc: '本戰命中+6、傷害+10' };
   if (hasFx_(c, 'morale')) return { id: 'morale', name: fxName_(c, 'morale', '鼓舞'), icon: '📣', mpPct: 0.10, hit: 3, dmgMul: 1.0, dmgAdd: 8, desc: '本戰命中+3、傷害+8' };
