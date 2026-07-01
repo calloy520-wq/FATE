@@ -1611,6 +1611,25 @@ function renderRecentLocs(recents = null) {
     story.scrollTop = story.scrollHeight;
   }
 
+  // ⚡ 主動技預覽：與後端 servantActiveSkill_ 同一套優先序＋固定耗魔(200×mpPct)，鏡射到前端秒顯，
+  //   免為了「看一眼會發動什麼」多打一趟往返；實際判定與扣魔仍以後端為準，這裡純預覽。
+  function previewActiveSkill_(skills) {
+    var find = function (fx) { return (skills || []).find(function (sk) { return sk && sk.fx === fx; }); };
+    var pick = find('burst');
+    if (pick) return { name: pick.n || '魔力放出', icon: '💥', cost: 30, desc: '本戰傷害 ×1.3' };
+    pick = find('stealth');
+    if (pick) return { name: pick.n || '氣息遮斷', icon: '🌫️', cost: 24, desc: '本戰命中+6、傷害×1.15(奇襲)' };
+    pick = find('str_up');
+    if (pick) return { name: pick.n || '怪力', icon: '💪', cost: 24, desc: '本戰傷害+14' };
+    pick = find('aim') || find('projection');
+    if (pick) return { name: pick.n || '狙準', icon: '🎯', cost: 24, desc: '本戰命中+6、傷害+10' };
+    pick = find('morale');
+    if (pick) return { name: pick.n || '鼓舞', icon: '📣', cost: 20, desc: '本戰命中+3、傷害+8' };
+    pick = find('self_mod');
+    if (pick) return { name: pick.n || '自我改造', icon: '🔧', cost: 20, desc: '本戰命中+4、傷害+6' };
+    return { name: '集中', icon: '🎯', cost: 20, desc: '本戰命中+5' };
+  }
+
   // 🌟 解放寶具前的「選哪個寶具」選單（多寶具英靈：斯卡哈/金閃/EMIYA/伊斯坎達爾…）
   function openNpReleasePicker(npcName, sv, useSeal, isMaster, useSkill) {
     var cur = (typeof sv.npChoice === 'number') ? sv.npChoice : 0;
@@ -1648,6 +1667,11 @@ function renderRecentLocs(recents = null) {
     } else if (useNp) {
       // 💥 防誤按：寶具＝靈基全力解放，自動推到出力 100%、御主灌注全部魔力
       if (!confirm('💥 命「' + npcName + '」解放寶具？\n\n寶具乃靈基全力解放——將自動把出力推到 100%（全開），御主灌注全部魔力（御主魔力／血不足則無法發動）。威力巨大、御主消耗最劇。\n\n確定解放寶具？')) return;
+    } else if (useSkill) {
+      // ⚡ 防誤按：主動技先讓玩家看清楚會發動哪一招、效果與耗魔多少，再決定要不要送出
+      var _asv = (myServants || []).find(function (x) { return x.name === myActiveServant; });
+      var _pv = previewActiveSkill_(_asv && _asv.skills);
+      if (!confirm(_pv.icon + ' 催動「' + _pv.name + '」主動技？\n\n效果：' + _pv.desc + '\n約耗魔力 ' + _pv.cost + '（御主電池不足則抽血供能）。\n\n確定發動？')) return;
     }
     if (!beginAction()) return;
     // 🔋 解放寶具＝全開：把出力 100% 隨 fate_battle 一起送(後端就地推滿)，省一趟 set_servant_output 往返。
