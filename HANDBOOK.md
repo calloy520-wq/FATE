@@ -150,6 +150,8 @@ CLK(時鐘): GAME_ID0 DAY1 HOUR2 AP3
 **部署**：push 該分支 → GitHub Action(clasp 3.3.0·`clasp push -f`) 自動覆蓋上 GAS。
 **紀律**：改代碼順手更新 `SOLO_REFERENCE.md`／本檔（新增 action/函數/MEMORY標記/schema 欄位時回補）。
 
+**🛠️ 工程準則（最高價值觀·詳見 `CLAUDE.md`）**：**穩健・快速・易擴充・易維護，永遠從根源解、不做臨時應變方案。** 資料驅動優先（查表勝 if 鏈）、單一真實來源、複用引擎機制不加特例、守 3→1 round-trip、發現舊做法錯就重構掉（別疊補丁）。
+
 ## 10. 已知遺產/待辦（掃描發現）
 
 - `COL.PC.REALM`：階級系統移除後恆寫空字串，但 COL 位置索引不可刪，維持棄用。

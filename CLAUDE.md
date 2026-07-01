@@ -31,6 +31,16 @@ GAS 在 `gas/`，clasp 推 branch 自動部署。**我每次開機失憶，這�
    Claude-Session: https://claude.ai/code/session_016XEdY9i7dRc5MWBkSMi9YN
    ```
 
+## 🛠️ 工程準則（玩家定案·寫 code 的最高價值觀，違反＝重做）
+
+**四字訣：穩健・快速・易擴充・易維護。永遠從根源解，不做臨時應變方案（band-aid）。**
+
+- **🧱 穩健**：邊界/空值先擋（`parseInt||0`、`try/catch`＋fallback、失敗不炸整局）；輸入當不可信（`sanitizeUserData_` 是唯一真線）；寫表冪等（重跑不重複）；改一處先想「別的路徑會不會也走這」。
+- **⚡ 快速**：守住**每按鍵 3→1 round-trip**（`_state`/`__pendingState`）＋整表只讀一次下傳共用＋樂觀更新。**鐵則：別把多餘 round-trip 或重複整表讀回加回來。** AI 阻塞能非阻塞就非阻塞（先秒顯數字、prose 後補）。
+- **🧩 易擴充**：**資料驅動優先**——能查表就別寫 if 鏈（範本：`MC_COMBAT_`禮裝/`NP_SCALE_MATRIX`規模/`CONCEPT_TIER`概念/`OUTPUT_TIERS_`出力）。要加東西＝往表加一列＋既有引擎自動吃，不動流程。
+- **🔧 易維護**：**單一真實來源**（一個數只存一處，如海怪肉身＝`【海怪護盾】`一個池）；**複用引擎機制、不加特例**（範本：禮裝 `injectMysticBuff_` 注入 fx→走既有 `resolveFateBattle_`，不另開結算路徑）；helper 成套（get/set/clear/view）；改代碼**順手更新 `SOLO_REFERENCE.md`／`HANDBOOK.md`**。
+- **🚫 不要臨時應變**：不疊補丁繞過症狀、不 hardcode 特判塞需求、不「先這樣之後再說」。發現舊做法錯就**重構掉**（範本：海怪從「+300 baked HP」根源化成獨立護盾模型；分隔符 bug **系統性修 7 處**而非只修犯錯那一處）。臨時方案＝債，這裡不欠。
+
 ## 🎯 現在焦點（2026-06 玩家定向，依序）
 
 1. **加快整體速度**：GAS 慢的主因＝每次按鍵的 google.script.run round-trip ＋ 共用「眾生」整表掃描。**已做**：按鍵 round-trip 3→1（`buildClientState_` 統一刷新 blob＋dispatcher 對 `STATE_AFTER_ACTIONS` 夾 `_state`＋前端 `__pendingState` 優先消費）；整表/關係表單次讀取下傳共用；拔冗餘 `flush()`；「眾生」表縮列（`purge_orphans`＋登入死局自動清）。**鐵則：別把多餘 round-trip 或重複整表讀回加回來。**
