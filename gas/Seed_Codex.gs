@@ -150,7 +150,7 @@ var SEED_SERVANTS = [
     traits:[{n:'人類'}], np:'解體聖母 Maria the Ripper（對人・心臟摘除）',
     align:'混沌・惡', persona:{firstP:'我們',look:'幼小赤裸・霧氣繚繞的詭譎孩童、天真與殺意交錯的空洞、自稱「我們」・童言複數問著殘忍',words:'孩童・空虛・渴求親情・霧',toMaster:'試探地索求溫柔，將溫柔待己之人視作至親般的依戀',speech:'稚嫩天真與冷酷殺意交錯、以「我們」複數自稱、童言童語問著殘忍的話',moe:'渴求親情而不得的悲傷孩子、天真與殘酷的巨大反差、被溫柔對待會怔住、霧中現身的詭譎',tic:'霧氣繚繞中現身、歪頭天真發問、扯住衣角'} },
   { id:'蒼白騎兵-Rider', cls:'Rider', realName:'蒼白騎兵（Pale Rider）', wars:['fake'], gender:'異',
-    six:{筋力:'E',耐久:'A',敏捷:'B',魔力:'EX',幸運:'E',寶具:'A'},
+    six:{筋力:'E',耐久:'A',敏捷:'B',魔力:'EX',幸運:'E',寶具:'EX'},
     classSkills:[{n:'騎乘',r:'D',fx:'ride'}],
     skills:[{n:'感染（疫病擴散）',r:'A',fx:'petrify'},{n:'純真的世界（難以感知）',r:'EX',fx:'unreadable'},{n:'冥府的引導',r:'EX',fx:'territory'}],
     traits:[{n:'災厄'},{n:'疫病'}], np:'終末降臨 Doomsday Come（對界·以御主為起點的死之冥界結界）',
@@ -271,7 +271,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v23'; // v23：修規模盛標(誤標=偷改平衡)——美遊 Excalibur 對界→對城(同阿爾托莉雅·Saber install 同一劍)、賽米拉米斯 空中庭園 對界→對城(TYPE-MOON 設定=對城寶具 EX)。威力(six.寶具)不動，只正規模關鍵字。
+var CODEX_PERSONA_VER = 'v24'; // v24：蒼白騎兵 寶具 A→EX(原作 Doomsday Come 是 EX 對界寶具·先前被寫低威力·規模對界原本就對)。v23：修規模盛標(誤標=偷改平衡)——美遊 Excalibur 對界→對城(同阿爾托莉雅·Saber install 同一劍)、賽米拉米斯 空中庭園 對界→對城(TYPE-MOON 設定=對城寶具 EX)。威力(six.寶具)與規模關鍵字兩件事·分開校。
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
