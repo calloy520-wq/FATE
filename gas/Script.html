@@ -1117,7 +1117,7 @@ function renderRecentLocs(recents = null) {
     try { var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none'; } catch (e) {}
     try {
       const res = await gasRun({ action: 'set_active_skill', pcId: pc.id, servant: sv, on: on, acctName: (pc && pc.account) || currentAccount });
-      if (res && res.success) { try { story.insertAdjacentHTML('beforeend', '<div style="color:#7ec8ff; font-size:12.5px; margin:5px 0; padding:5px 9px; border-left:2px solid #4e92c0; background:rgba(110,180,220,.08);">⚡ ' + res.message + '</div>'); story.scrollTop = story.scrollHeight; } catch (e) {} syncData(true); }
+      if (res && res.success) { try { var story = document.getElementById('story'); if (story) { story.insertAdjacentHTML('beforeend', '<div style="color:#7ec8ff; font-size:12.5px; margin:5px 0; padding:5px 9px; border-left:2px solid #4e92c0; background:rgba(110,180,220,.08);">⚡ ' + res.message + '</div>'); story.scrollTop = story.scrollHeight; } } catch (e) {} syncData(true); }
       else { alert((res && res.message) || '切換失敗。'); }
     } catch (e) { alert('連線失敗，切換未果。'); }
   }
@@ -1242,6 +1242,7 @@ function renderRecentLocs(recents = null) {
       // 🗝️ 從者卡（支援雙從者）：點卡切換「出戰中」，動作列只出現在出戰中那張
       var buildSvCard = function (s, isActive, dual) {
         var six = s.six || {};
+        var safeN = String(s.name).replace(/'/g, ''); // 🩹 提前定義：下方 skillPills map(魔境/符文/主動技開關)即用到，晚定義會因 var hoisting 取到 undefined
         var sixLine = ['筋' + (six.筋力 || '?'), '耐' + (six.耐久 || '?'), '敏' + (six.敏捷 || '?'), '魔' + (six.魔力 || '?'), '運' + (six.幸運 || '?'), '寶' + (six.寶具 || '?')].join('　');
         var pill = function (n, r, fx, col, glow, pre) {
           var label = n + (r && r !== '-' ? (' ' + r) : '');
@@ -1288,7 +1289,6 @@ function renderRecentLocs(recents = null) {
             + '</div>';
         }
         var bcol = isActive ? '#e0574a' : '#7a4040';
-        var safeN = String(s.name).replace(/'/g, '');
         return '<div ' + (dual ? 'onclick="setActiveServant(\'' + safeN + '\')" ' : '') + 'style="background:rgba(20,14,28,0.55); border:1px solid ' + bcol + '; border-radius:8px; padding:6px 8px; ' + (dual ? 'cursor:pointer; ' + (isActive ? 'box-shadow:0 0 8px rgba(224,87,74,.4);' : 'opacity:.82;') : '') + '">'
           + '<div style="color:#c0392b; font-weight:bold; font-size:12px;">📿 從者・' + s.cls + (s.stolen ? ' <small style="color:#b06cd0;">⛓奪取</small>' : '') + (dual ? (isActive ? ' <small style="color:#e0574a;">⚔出戰中</small>' : ' <small style="color:#8a7;">待命·點擊出戰</small>') : '') + '</div>'
           + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
