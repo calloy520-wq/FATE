@@ -422,7 +422,14 @@ function resolveFateBattle_(atk, def, opts) {
   // 氣息遮斷(stealth)：僅【首擊奇襲】(opts.ambush·開場第一擊／敵突襲)吃命中加成·依階級(A+大、A-小)。
   //   ★一旦交手氣息即破功——後續回合的刀不再享奇襲(貼原作：發動攻擊瞬間 presence concealment 掉階)。
   var stA = hasFx_(atk, 'stealth');
-  if (stA && opts.ambush) { aHit += Math.round(rankVal(stA) / 10); fired.push(atk.name + '·' + fxName_(atk, 'stealth', '氣息遮斷') + '·奇襲先機'); }
+  // 🐾 氣息感知(sense／恩奇都)：守方以穿透大地的感知看穿奇襲——階級 ≥ 攻方氣息遮斷者，
+  //   突襲的命中先機＋下方「要害一擊」全數失效(貼原作「近距離廢掉同級以下的氣息遮斷」)。
+  var senseD = hasFx_(def, 'sense');
+  var senseNegate = !!(stA && senseD && rankVal(senseD) >= rankVal(stA));
+  if (stA && opts.ambush) {
+    if (senseNegate) { fired.push(def.name + '·' + fxName_(def, 'sense', '氣息感知') + '·看穿奇襲(氣息遮斷失效)'); }
+    else { aHit += Math.round(rankVal(stA) / 10); fired.push(atk.name + '·' + fxName_(atk, 'stealth', '氣息遮斷') + '·奇襲先機'); }
+  }
   // 👑 王之財寶(gob)常駐：無盡兵裝鋪天蓋地，命中 +5（飽和彈幕難閃；傷害彈幕在下方）
   if (hasFx_(atk, 'gob')) { aHit += 5; fired.push(atk.name + '·' + fxName_(atk, 'gob', '王之財寶') + '(無盡兵裝)'); }
   // ⛓️ 天之鎖(chain)：命中加成併入既有「縛神性」效果(下方)；輸出走下方萬鎖彈幕。此處不另加命中(避免恩奇都過載)。
@@ -501,7 +508,7 @@ function resolveFateBattle_(atk, def, opts) {
   //   全併入主動技，此處【不再】給被動傷害；玩家須點 ⚡主動技 發動、耗魔力，方享劍雨齊射。
   // 🗡️ 首擊奇襲·要害一擊：氣息遮斷者開場突襲命中→額外重創(吃階級·一次性)。僅【普通首擊】生效——
   //   若開場直接解放寶具(opts.np)則走寶具自身爆發，不疊奇襲(避免奇襲×zabaniya 雙重爆擊一發秒人)。
-  if (opts.ambush && atkWins && !opts.np && hasFx_(atk, 'stealth')) {
+  if (opts.ambush && atkWins && !opts.np && hasFx_(atk, 'stealth') && !senseNegate) {
     var amb = 1.2 + 0.12 * rankMul_(hasFx_(atk, 'stealth')); base = Math.round(base * amb);
     fired.push(atk.name + '·奇襲·要害一擊(×' + amb.toFixed(2) + ')');
   }
