@@ -348,7 +348,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
       sheets.pc.getRange(2, COL.PC.LOC + 1, locCol.length, 1).setValues(locCol);
     }
 
-    // 2) 暗處從者廝殺/養不起爆炸：只在「休息」時可能發生（移動只換位，不死人）；
+    // 2) 暗處從者廝殺：只在「休息」時可能發生（移動只換位，不死人）；
     //    且永遠至少保留 WORLD_FLOOR_ 名敵從者給玩家親手解決——絕不會被世界自走清光。
     if (!allowAttrition) continue;
     var fresh = sheets.pc.getDataRange().getValues();
@@ -363,39 +363,11 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
     if (aliveTotal <= WORLD_FLOOR_) continue; // 已到底線→世界不再清人，剩下的全交給玩家
     var faraway = offstage.filter(function (o) { return o.loc !== String(playerLoc).trim(); });
     if (!faraway.length) continue;
-    // 養不起爆炸：真查其御主電池比例(mp/maxMp)，不再只憑英靈自身六圍瞎猜——
-    //   迴路高的御主池大，扣同一筆寶具魔力比例掉得慢，天然不容易中；迴路低的小池子養強英靈才真的常撐不住。
-    //   masterless(已無御主)不進這池子，那些已交給上方 SEAL_DOOM_HOURS 的透支倒數處理，避免重複判死。
-    var candidates = [];
-    faraway.forEach(function (o) {
-      var six = {}; try { six = JSON.parse(fresh[o.idx][COL.PC.SIX] || "{}"); } catch (e) { }
-      var sum = 0; ["筋力", "耐久", "敏捷", "魔力", "幸運", "寶具"].forEach(function (k) { sum += rankVal(six[k] || "C"); });
-      o.upkeep = sum;
-      var mi = enemyMasterIdx_(fresh, o.idx, gameId);
-      if (mi < 0) return;
-      var mMax = parseInt(fresh[mi][COL.PC.MAX_MP]) || 0;
-      o.mpRatio = mMax > 0 ? (parseInt(fresh[mi][COL.PC.MP]) || 0) / mMax : 1;
-      candidates.push(o);
-    });
-    var top = null, boom = 0;
-    if (candidates.length) {
-      candidates.forEach(function (o) { o.strain = (1 - o.mpRatio) * (o.upkeep / 300); });
-      candidates.sort(function (a, b) { return b.strain - a.strain; });
-      top = candidates[0];
-      // 電池真的偏低(<25%) ＋ 這隻是真正頂尖強者(六圍總和≥230，全種子庫僅前14名過線) 才有機會，且機率溫和(上限 18%)
-      if (top.mpRatio < 0.25 && top.upkeep >= 230) {
-        boom = Math.min(0.18, (0.25 - top.mpRatio) * 0.4 + (top.upkeep - 230) / 500);
-      }
-    }
-    if (boom > 0 && Math.random() < boom) {
-      fresh[top.idx][COL.PC.ID] = "DEAD_" + String(fresh[top.idx][COL.PC.ID]);
-      fresh[top.idx][COL.PC.HP] = 0;
-      fresh[top.idx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "供魔不繼·靈基崩潰", "顏面": "已無生息" });
-      sheets.pc.getRange(top.idx + 1, 1, 1, fresh[top.idx].length).setValues([fresh[top.idx]]);
-      markMasterLostServant_(sheets.pc, fresh, top.idx, "供魔不繼、靈基終究餵不飽而崩潰消散");
-      logWarEvent_(gameId, "敵從者「" + top.name + "」的御主供魔不繼，龐大靈基餵不飽而崩潰消散。");
-      rumors.push("〔風聞〕「" + top.name + "」的御主供魔不繼——龐大的靈基終究餵不飽，崩潰消散了。");
-    } else if (Math.random() < 0.07) { // 暗處廝殺：偶爾一名在他人手中殞落
+    // 🗑️ 養不起爆炸(2026-07 移除)：不管怎麼調門檻，全種子庫能真正撞進危險區的組合幾乎只有士郎配阿爾托莉雅
+    //   (小迴路撐頂級從者)，其餘配對池子夠用、根本進不了候選——結果變成「隨機世界事件」實際上總是同一個目標，
+    //   跟「隨機」的初衷矛盾，玩家體感就是「Saber每次都爆炸」。移除，不留殘骸；masterless 有 SEAL_DOOM_HOURS，
+    //   一般戰損有 fateStrike_，死法夠多，不缺這個。
+    if (Math.random() < 0.07) { // 暗處廝殺：偶爾一名在他人手中殞落
       var victim = faraway[Math.floor(Math.random() * faraway.length)];
       fresh[victim.idx][COL.PC.ID] = "DEAD_" + String(fresh[victim.idx][COL.PC.ID]);
       fresh[victim.idx][COL.PC.HP] = 0;
