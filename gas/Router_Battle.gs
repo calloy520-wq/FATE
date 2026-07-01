@@ -501,11 +501,33 @@ function actionFateBattle(userData, pcId, sheets) {
     sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
     logWarEvent_(String(pcData[pIdx][COL.PC.GAME_ID] || ""), `御主燃一道令咒·絕對命令，強令『${atkC.name}』對「${defC.name}」發動必中的全力一擊（我餘令咒 ${left}）。`, String(userData.acctName || ""));
   }
-  // 🔋 寶具魔力 = 依寶具階級的 Prana Cost（E50 D100 C200 B350 A500 EX800）。從者付不起 → 御主電池接力供能。
+  // 🔋 寶具魔力 = 依寶具階級的 Prana Cost（E40 D70 C110 B160 A220 EX300）。從者付不起 → 御主電池接力供能。
   let battery = null;
   if (useNp) {
     const prana = npPranaCost_(atkC.six["寶具"]);
-    battery = drainForNp_(sheets, pcData, atkIdx, pIdx, prana);
+    // 🔥 灌魔加乘：規格外寶具(＋/EX)於【全開 100%】時，把御主餘裕魔力超載灌入 → 威力線性放大至上限(＋×1.5、＋＋/EX×2)。
+    //   auto-pour：達上限需額外「底費×2」的魔力，不足則按比例。補魔過充【過充】額度先行【無償】支付、一次性用完即清。
+    const cap = npOverloadCap_(atkC.six["寶具"]);
+    let totalDrain = prana, npOverloadMul = 1.0, ocUsed = 0, usedOvercharge = false;
+    if (cap > 1.0 && (parseInt(atkC.output) || 60) >= 100) { // 僅規格外(＋/EX)寶具·全開時可超載/動用過充
+      const ocBonus = getOvercharge_(pcData[pIdx][COL.PC.MEMORY]);
+      const mMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
+      const mHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
+      const maxPay = mMp + Math.floor(Math.max(0, mHp - 1) / BATTERY_HP_PER_MP) + ocBonus; // 過充額度計入可付上限
+      const extraToCap = prana * 2;
+      const pour = Math.max(0, Math.min(extraToCap, maxPay - prana));
+      npOverloadMul = 1 + (pour / extraToCap) * (cap - 1);
+      totalDrain = prana + pour;
+      ocUsed = Math.min(ocBonus, totalDrain);         // 過充額度優先【無償】支付，剩餘才走御主電池
+      usedOvercharge = ocBonus > 0;
+      if (usedOvercharge) {                            // 過充一次性：發動即清(這口蓄勢的魔力已然呼出)
+        pcData[pIdx][COL.PC.MEMORY] = clearOvercharge_(pcData[pIdx][COL.PC.MEMORY]);
+        sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+      }
+    }
+    battery = drainForNp_(sheets, pcData, atkIdx, pIdx, totalDrain - ocUsed);
+    atkC.npOverloadMul = npOverloadMul;    // → resolveFateBattle_ 放大寶具威力
+    atkC.overcharge = usedOvercharge;      // → resolveFateBattle_ 全能力微揚
     atkC.mp = parseInt(pcData[atkIdx][COL.PC.MP]) || 0; // 反映耗魔後的出力
     if (battery.usedBattery) {
       logWarEvent_(myGameId, `『${atkC.name}』解放寶具魔力不足，御主以${battery.bledMaster ? '自身血肉與' : ''}魔力為電池供能（御主餘 ${battery.masterHp}/${battery.masterHpMax} HP）。`, String(userData.acctName || ""));
@@ -896,6 +918,7 @@ function actionFateBattle(userData, pcId, sheets) {
       `── 本戰發生的事(素材，自行織入畫面，勿複述標籤名) ──\n` +
       (useSeal ? `· 御主燃燒一道令咒·絕對命令，強令此擊必中、引爆超限戰力。\n` : "") +
       (clash ? `· 寶具對轟：${clash.outcome === 'causality' ? `因果律先行截斷——『${atkC.name}』的死亡詛咒在敵方寶具解放之前便已降臨，敵 NP 殘波極微。` : clash.outcome === 'player' ? '我方威能壓過對手。' : clash.outcome === 'enemy' ? '對面威能壓過我方（從者以鋼鐵意志撐住）。' : '勢均力敵、轟然相抵、雙方震退。'}\n` : (useNp ? `· ${atkC.name} 高呼真名【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】、解放了寶具——★演出時務必讓其【親口唸出這個真名】(中文真名與原名並呼、氣勢拉滿)，這是 Fate 寶具解放的靈魂。\n` : "")) +
+      ((useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.25) ? `· 【灌魔超載】御主把餘裕魔力盡數傾注這一發真名解放${atkC.overcharge ? '（方才補魔蓄積的澎湃魔力一併傾瀉而出）' : ''}——寶具威能被推至${atkC.npOverloadMul >= 1.9 ? '極限、化作規格外的毀滅光輝' : '遠超尋常的輝度'}。演出這股「傾盡一切、超載解放」的壯烈與光壓。\n` : "") +
       (skillActivated ? `· 我方全力催動了主動技「${skillBuff.name}」。\n` : "") +
       (horrorFired ? `· 青鬍子以螺湮城教本自深淵召出觸手巨獸「深淵海怪」，常駐戰場、每回合與本人並肩撕咬，靠御主魔力維持(枯竭則潰散)。\n` : "") +
       (dualAttack ? `· 我方兩名從者並肩夾擊同一敵手。\n` : "") +
@@ -916,6 +939,8 @@ function actionFateBattle(userData, pcId, sheets) {
   const report = {
     atk: atkLabel, def: defC.name, rounds: rounds, intercept: !!interceptNote, dual: dualAttack, allyAssist: allyAssistName,
     useNp: useNp, npName: npName, useSeal: useSeal, totalDealt: totalDealt, totalTaken: totalTaken,
+    overload: (useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.01) ? +atkC.npOverloadMul.toFixed(2) : 0, // 🔥 灌魔超載倍率→前端橫幅
+    overcharge: !!(useNp && atkC.overcharge), // 🔥 本發吃到補魔過充
     destroyed: destroyedName || "", godRevived: godRevived, sealEscaped: sealEscaped, victory: victory, defeat: defeat,
     telegraph: npTelegraphed ? String(defC.name) : "", // 🔮 敵寶具預告→前端彈紅框警告
     homeField: homeField || "", // 🏰 主場·陣地結界階級(在自己陣地決戰)→前端標示

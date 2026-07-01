@@ -179,6 +179,11 @@ function masterSynergyOn_(name, memory) {
 function getNpTelegraph_(memory) { return /【寶具預告】/.test(String(memory || "")); }
 function setNpTelegraph_(memory) { var s = String(memory || ""); return getNpTelegraph_(s) ? s : (s ? s + "｜【寶具預告】1" : "【寶具預告】1"); }
 function clearNpTelegraph_(memory) { return String(memory || "").replace(/｜?【寶具預告】1/g, ""); }
+// 🔥 補魔過充存量（存御主 MEMORY【過充】<額度>）：補魔一儀＝除回滿池外，另存下一發「規格外寶具(＋/EX)」可無償超載灌入的
+//   一池份魔力；發動大砲時優先由此支付，一次性(用完即清)。get/set/clear 成套；額度＝補魔當下的池上限。
+function getOvercharge_(memory) { var m = String(memory || "").match(/【過充】(\d+)/); return m ? (parseInt(m[1]) || 0) : 0; }
+function setOvercharge_(memory, amt) { var s = clearOvercharge_(String(memory || "")); amt = Math.max(0, Math.round(amt)); return s ? s + "｜【過充】" + amt : "【過充】" + amt; }
+function clearOvercharge_(memory) { return String(memory || "").replace(/｜?【過充】\d+/g, ""); }
 // 前端「變容」標籤用的 synergy 視圖：非 synergy 從者回 null；恩奇都回 {has,on,master,peak}。
 //   on＝當前御主觸發全盛(亮)；否則暗(提醒需該御主)。玩家不可控——由御主決定。
 function masterSynergyView_(name, memory) {

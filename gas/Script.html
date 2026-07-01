@@ -1638,8 +1638,9 @@ function renderRecentLocs(recents = null) {
           + (r.npName.en ? '<div style="color:#cbab52;font-size:10px;letter-spacing:2.5px;text-transform:uppercase;opacity:.9;">' + r.npName.en + '</div>' : '')
           + '<div style="color:#ffe28f;font-size:18px;font-weight:bold;letter-spacing:1.5px;text-shadow:0 0 9px rgba(255,205,110,.55);margin-top:1px;">' + r.npName.zh + '</div>'
           + '<div style="color:#b2953f;font-size:9px;letter-spacing:4px;margin-top:2px;">— 真名解放 —</div>'
+          + (r.overload > 1.25 ? '<div style="color:' + (r.overload >= 1.9 ? '#ff9a5b' : '#ffcf6a') + ';font-size:11px;font-weight:bold;margin-top:3px;text-shadow:0 0 8px rgba(255,150,60,.6);">🔥 灌魔超載 ×' + r.overload.toFixed(2) + (r.overcharge ? '（補魔傾瀉）' : '') + '</div>' : '')
           + '</div>';
-      } else h += '<div class="np-release-banner">💥 真名解放！</div>';
+      } else h += '<div class="np-release-banner">💥 真名解放！' + (r.overload > 1.25 ? ' 🔥灌魔超載×' + r.overload.toFixed(2) : '') + '</div>';
     }
     h += '<div style="color:#e7c873;font-weight:bold;margin-bottom:5px;">⚔️ ' + r.atk + (r.useSeal ? ' ❖令咒' : r.useNp ? ' 💥寶具' : '') + (r.skill ? ' <span style="color:#7ec8ff;">' + (r.skill.icon || '⚡') + r.skill.name + '</span>' : '') + ' ⚔ ' + r.def + '　<span style="color:#9a8;font-size:11px;font-weight:normal;">' + r.rounds.length + ' 回合交鋒</span></div>';
     if (r.homeField) h += '<div style="color:#8fd6a0;font-size:10.5px;margin-bottom:3px;padding:3px 7px;border:1px solid #4e8a5e;border-radius:5px;background:rgba(60,120,80,.14);">🏰 主場·陣地決戰（陣地作成 ' + r.homeField + '）——我方全員承結界庇護·受創大減</div>';

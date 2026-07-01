@@ -70,6 +70,18 @@ function npPranaCost_(npRank) {
   return 40;                // E
 }
 
+// 🔥 灌魔加乘·上限（規格外寶具才有旋鈕）：寶具階含「＋」＝規格外·可超載，威力隨御主灌注魔力線性放大到上限。
+//   無＋(A/B/C…)＝定額釋放·不可調(回 1.0)；＋(A+)＝最高 ×1.5；＋＋/EX(A++·EA)＝最高 ×2.0。資料驅動·數 '+' 即分流，
+//   對應原作「A++ 對城劍隨輸入魔力提高威力」。跨名冊通用(Excalibur/Enuma/Ea…)，非某從者專利；達上限所需的額外魔力＝底費×2。
+function npOverloadCap_(npRank) {
+  var s = String(npRank || '');
+  if (/EX/i.test(s)) return 2.0;
+  var plus = (s.match(/\+/g) || []).length;
+  if (plus >= 2) return 2.0;
+  if (plus === 1) return 1.5;
+  return 1.0;
+}
+
 // 🎲 寶具基礎傷害骰（依寶具階級，d10 系）：E3d10 D5d10 C8d10 B12d10 A20d10 EX30d10。
 //   ★與原作「階級＝絕對威力」掛鉤——寶具解放這一發的主威力來源；其餘 buff 只是錦上添花。
 function npBaseDice_(npRank) {
@@ -423,6 +435,8 @@ function resolveFateBattle_(atk, def, opts) {
   // 魔砲類型不加進 fired（每回合都是、無資訊量；territory 的 buff 效果只在有實際差距時才值得記）
   // 🍱 整備·進食（戰前 buff）：攻方命中 +opts.mealBuff（由 fateStrike_ 依御主整備狀態傳入）
   if (opts.mealBuff) { aHit += opts.mealBuff; fired.push(atk.name + '·整備進食(+' + opts.mealBuff + ')'); }
+  // 🔥 補魔過充：御主剛行補魔、澎湃魔力流貫靈基——攻方全身狀態微揚(命中+2；傷害端於下方另×1.06)。
+  if (atk.overcharge) { aHit += 2; fired.push(atk.name + '·補魔過充(魔力充盈·全能力微揚)'); }
 
   // 直感/心眼(first_strike/analyze)：攻守先機 +3×階級
   var fsA = hasFx_(atk, 'first_strike') || hasFx_(atk, 'analyze'); if (fsA) { aHit += Math.round(3 * rankMul_(fsA)); fired.push(atk.name + '·' + fxName_(atk, hasFx_(atk, 'analyze') ? 'analyze' : 'first_strike', hasFx_(atk, 'analyze') ? '心眼' : '直感')); }
@@ -522,6 +536,8 @@ function resolveFateBattle_(atk, def, opts) {
   // 🔋 出力傷害乘子：依勝方(出擊方)靈基出力檔位放大/縮小本擊威力（御主供魔越足、傷害越高）。
   var wOut = outputTier_(winner.output);
   if (wOut.dmgMul !== 1.0) { base = Math.round(base * wOut.dmgMul); fired.push(winner.name + '·出力' + (winner.output || 60) + '%·' + wOut.label); }
+  // 🔥 補魔過充傷害端：攻方持過充狀態且此擊由其打出時，傷害微揚(命中端已於上方+2)。
+  if (winner === atk && atk.overcharge) base = Math.round(base * 1.06);
   // ⚠ 怪力(str_up)／魔力放出(burst) 已改為【主動技 only】(見 servantActiveSkill_)——此處【不再】給被動傷害，
   //   消滅「被動＋主動雙重計算」；玩家須主動點 ⚡主動技 發動、耗魔力，方享其威能。
   // 勇猛/卡里斯瑪(morale·敵透化免疫)＋自我改造(self_mod)：常駐被動傷害（SKILL_FX_ 表驅動·位置順序不變）。
@@ -581,6 +597,11 @@ function resolveFateBattle_(atk, def, opts) {
     var npRank = winner.six["寶具"];
     var npDice = npBaseDice_(npRank); base += npDice; fired.push(winner.name + '·寶具骰(' + (rankVal(npRank) >= 60 ? 'EX' : npRank) + ')=' + npDice);
     base += Math.round(rankVal(npRank) * 1.2) + 35; fired.push(winner.name + '·寶具解放' + (wRelease && atkNp && atkNp.name ? ('·' + String(atkNp.name).split(' ')[0]) : '')); // 🎴 寶具威力大幅提升·看得出差別
+    // 🔥 灌魔加乘：規格外寶具(＋/EX)超載——威力隨御主灌注的餘裕魔力線性放大(倍率由上游 actionFateBattle 依實灌量算好·已扣魔)。
+    //   僅「主動解放者本人(wRelease)」享用；對手反殺照其自身寶具、不吃玩家的灌注。
+    if (wRelease && atk.npOverloadMul && atk.npOverloadMul > 1.01) {
+      base = Math.round(base * atk.npOverloadMul); fired.push(winner.name + '·灌魔超載(×' + atk.npOverloadMul.toFixed(2) + ')');
+    }
     if (hasFx_(winner, 'tactics')) { base = Math.round(base * 1.15); fired.push(winner.name + '·' + fxName_(winner, 'tactics', '軍略')); }
     var wDivine = (winner.traits || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
     if (wDivine) base = Math.round(base * 1.1);
