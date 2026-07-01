@@ -38,6 +38,7 @@ const ActionRouter = {
   "set_rune_mode": actionSetRuneMode,
   "set_active_skill": actionSetActiveSkill,
   "set_np_choice": actionSetNpChoice,
+  "outfit": actionSetOutfit,
   "bond": actionBond,
   "rule_break_steal": actionRuleBreakSteal,
   "propose_alliance": actionProposeAlliance,
@@ -324,6 +325,7 @@ function buildTagsPayload_(sheets, pcId, preData, preRel) {
       activeSkillOn: activeSkillOn_(s[COL.PC.MEMORY]),
       // 🐙 深淵海怪肉身（持 summon_horror 且現存海怪時 {cur,max}）：前端在體力條下方獨立渲染一條海怪血條
       horror: skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) ? horrorShieldView_(s[COL.PC.MEMORY], gameId) : undefined,
+      outfit: getOutfit_(s[COL.PC.MEMORY]), // 👗 玩家換裝：當前服裝(前端預填/顯示·換衣不換人)
       pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體
       stolen: /【破戒奪取】/.test(String(s[COL.PC.MEMORY] || ""))
     });

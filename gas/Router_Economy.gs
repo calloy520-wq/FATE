@@ -113,6 +113,25 @@ function actionSetNpChoice(userData, pcId, sheets) {
   }); // 樂觀更新·前端自走輕量 syncData，不再算丟棄的 statusString
 }
 
+// 👗 從者換裝（玩家自訂當前服裝穿著，存從者 MEMORY【換裝】）：純外觀·免費·即時·不耗 AP。
+//   只換衣不換人(五官/髮色/體態依種子 look)；空字串＝恢復本相。餵進 servantCard_／actionPlay 敘述、兩軌通用。
+function actionSetOutfit(userData, pcId, sheets) {
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無此從者。" });
+  pcData[svIdx][COL.PC.MEMORY] = setOutfit_(pcData[svIdx][COL.PC.MEMORY], userData.outfit); // set 內已剝分隔字元＋限 40 字
+  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+  const now = getOutfit_(pcData[svIdx][COL.PC.MEMORY]);
+  const svName = pcData[svIdx][COL.PC.NAME];
+  return JSON.stringify({
+    success: true, outfit: now,
+    message: now ? `已為「${svName}」換上【${now}】——此後敘述將依此裝扮描寫（換衣不換人）。` : `已卸下「${svName}」的自訂裝扮，恢復其本來裝束。`
+  }); // 樂觀更新·前端自走輕量 syncData
+}
+
 // 🔵 補魔（魔力供給）：把御主魔力導入從者，回魔＋羈絆＋fade 演出。耗 1 AP（導入魔力需時）
 function actionManaSupply(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();

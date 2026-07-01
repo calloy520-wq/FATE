@@ -1184,7 +1184,7 @@ function renderRecentLocs(recents = null) {
     var html = '<h3 style="margin:0 0 8px; color:#7ec8ff;">🔷 魔力</h3>'
       + '<div style="color:#cfc3d8; font-size:14px; line-height:1.9;">'
       + '這是你跟從者共用的一個池子——從者出力越高、寶具解放，吃你的魔力就越兇。<br><br>'
-      + '💧 快沒了先靠靈脈或休息自然回魔；急用可以「補魔」硬擠回滿，但會永久扣一點迴路上限，別常用。<br><br>'
+      + '💧 快沒了先靠靈脈或休息自然回魔；急用可以「補魔」硬擠回滿，但會永久扣迴路上限（−3）與血上限（−15），別常用。<br><br>'
       + '⚠️ 真的見底時，缺口會直接燒你跟從者的血——記得別讓它掉到底。'
       + '</div>';
     showHistoryOverlay(html);
@@ -1321,10 +1321,12 @@ function renderRecentLocs(recents = null) {
             + '<div style="color:#e0a0bc; font-weight:bold; font-size:12px;">🌹 ' + s.cls + '</div>'
             + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
             + '<div style="color:#cbb; font-size:11px; line-height:1.5;">外顯　' + s.condition + '</div>'
+            + (s.outfit ? '<div style="color:#c9a0e0; font-size:11px; line-height:1.5;">裝扮　' + s.outfit + '</div>' : '')
             + (prefK ? '<div style="color:#cbb; font-size:11px; line-height:1.5;">個性　' + prefK + '</div>' : '')
             + (traitK ? '<div style="color:#cbb; font-size:11px; line-height:1.5;">特徵　' + traitK + '</div>' : '')
             + '<div style="color:#cbb; font-size:11px; margin-top:2px;">關係　' + bondWord(s.bond) + '</div>'
             + (physK ? '<div style="color:#e0a0bc; font-size:11px; margin-top:3px; line-height:1.5;">肉體　' + physK + '</div>' : '')
+            + '<div style="margin-top:6px;"><button onclick="changeOutfit(\'' + safeN + '\')" title="換裝：自訂她此刻的服裝穿著，AI 會依此描寫（只換衣不換人）。免費即時、留空恢復本相。" style="font-size:11px; padding:4px 11px; background:rgba(150,110,190,0.18); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👗 換裝</button></div>'
             + '</div>';
         }
         var bcol = isActive ? '#e0574a' : '#7a4040';
@@ -1332,6 +1334,7 @@ function renderRecentLocs(recents = null) {
           + '<div style="color:#c0392b; font-weight:bold; font-size:12px;">📿 從者・' + s.cls + (s.stolen ? ' <small style="color:#b06cd0;">⛓奪取</small>' : '') + (dual ? (isActive ? ' <small style="color:#e0574a;">⚔出戰中</small>' : ' <small style="color:#8a7;">待命·點擊出戰</small>') : '') + '</div>'
           + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
           + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">' + s.condition + '</div>'
+          + (s.outfit ? '<div style="color:#c9a0e0; font-size:10.5px; margin-top:1px;">👗 ' + s.outfit + '</div>' : '')
           + bar('體', s.hpNum, s.hpMax, 'hp')
           + (s.horror ? horrorBar(s.horror.cur, s.horror.max) : '')  // 🐙 深淵海怪肉身（在前掩護·優先承傷）
           + ((pc && pc.mode === 'kanshou') ? '' :  // 🔋 靈基出力轉盤（從者無自有魔力，靠御主供魔；出力決定戰力＋御主每小時維持費；100% 才能解放寶具）
@@ -1350,10 +1353,11 @@ function renderRecentLocs(recents = null) {
           + ((pc && pc.mode === 'kanshou') || (dual && !isActive) ? '' :
               '<div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">'
               + (dual ? '<div style="flex:1 0 100%; color:#9a8fae; font-size:10px;">下列動作對「' + s.name + '」生效：</div>' : '')
-              + '<button onclick="event.stopPropagation();manaSupply()" title="補魔：硬擠魔術迴路回滿共用魔力池。⚠永久代價：血上限−5~10、迴路−1~2。孤注一擲，過度=慢性自盡。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
+              + '<button onclick="event.stopPropagation();manaSupply()" title="補魔：硬擠魔術迴路回滿共用魔力池。⚠永久代價：血上限−15、迴路−3。孤注一擲，過度=慢性自盡。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
               + '<button onclick="event.stopPropagation();openBondMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(224,138,170,0.16); color:#e08aaa; border:1px solid #b06c84; border-radius:6px; cursor:pointer;">💕 羈絆</button>'
               + '<button onclick="event.stopPropagation();openSealMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(176,108,208,0.16); color:#c79be8; border:1px solid #8a5fb0; border-radius:6px; cursor:pointer;">❖ 令咒 ' + '❖'.repeat(myMasterSeals) + '</button>'
               + '<button onclick="event.stopPropagation();openRestMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(120,120,160,0.16); color:#a9a9d8; border:1px solid #5a5a8a; border-radius:6px; cursor:pointer;">🛏️ 休息</button>'
+              + '<button onclick="event.stopPropagation();changeOutfit(\'' + safeN + '\')" title="換裝：自訂從者當前服裝穿著，AI 敘述依此描寫（只換衣不換人·五官/髮色/體態不變）。免費即時、留空恢復本相。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(150,110,190,0.16); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👗 換裝</button>'
               + '</div>')
           + '</div>';
       };
@@ -1798,6 +1802,20 @@ function renderRecentLocs(recents = null) {
     } catch (e) { /* 靜默：UI 已樂觀更新，下次同步會校正 */ }
   }
 
+  // 👗 換裝：自訂從者當前服裝穿著（只換衣不換人·五官體態不變）。免費即時、留空恢復本相。兩軌通用。
+  function changeOutfit(name) {
+    var sv = (myServants || []).find(function (x) { return x && x.name === name; });
+    var cur = (sv && sv.outfit) ? sv.outfit : '';
+    var txt = prompt('👗 換裝「' + name + '」\n\n輸入她此刻的服裝／裝扮，AI 敘述會依此描寫。\n只換衣不換人——五官、髮色、體態、氣質不變。\n留空＝恢復原本裝束。（限 40 字）', cur);
+    if (txt === null) return; // 取消
+    gasRun({ action: 'outfit', pcId: pc.id, servant: name, outfit: txt, acctName: (pc && pc.account) || currentAccount })
+      .then(function (res) {
+        if (res && res.success) { try { refreshFateTags(); } catch (e) {} }
+        else if (res && res.message) { alert(res.message); }
+      })
+      .catch(function (e) { /* 靜默：下次同步會校正 */ });
+  }
+
   // 🔮 可選能力的「點開挑選」資料（前端常數，標籤點開的 popup 用）
   const MAGE_POOL_JS = [
     { fx: 'nullify_magic', n: '對魔力', d: '受魔力系傷害大幅衰減（對魔法的抗性）' },
@@ -1911,9 +1929,9 @@ function renderRecentLocs(recents = null) {
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
   }
 
-  // 💧 補魔：御主硬擠魔術迴路回滿共用魔力池——但永久燒蝕(血上限−5~10、迴路−1~2)。孤注一擲的回魔。
+  // 💧 補魔：御主硬擠魔術迴路回滿共用魔力池——但永久燒蝕(血上限−15、迴路−3)。孤注一擲的回魔。
   async function manaSupply() {
-    if (!confirm('💧 補魔：御主硬擠魔術迴路，將共用魔力池一口氣回滿。\n\n⚠ 代價【永久】：生命上限 −5~10、魔術迴路 −1~2 條（迴路↓會讓魔力池上限縮小、回魔變慢、禮裝變弱）。\n這是燃迴路續契約的孤注一擲——過度依賴等於慢性自盡。\n\n（想省代價：靠靈脈/陣地/休息自然回魔。注意：池見底會被動燃血、缺口÷2同時扣御主與從者血量。）\n\n確定補魔？')) return;
+    if (!confirm('💧 補魔：御主硬擠魔術迴路，將共用魔力池一口氣回滿。\n\n⚠ 代價【永久】：生命上限 −15、魔術迴路 −3 條（迴路↓會讓魔力池上限縮小、回魔變慢、禮裝變弱）。\n這是燃迴路續契約的孤注一擲——過度依賴等於慢性自盡。\n\n（想省代價：靠靈脈/陣地/休息自然回魔。注意：池見底會被動燃血、缺口÷2同時扣御主與從者血量。）\n\n確定補魔？')) return;
     const foe = localFoeServantName();
     if (foe && !confirm('⚠ 此地有敵從者「' + foe + '」！\n\n補魔時門戶大開，極可能遭其趁隙突襲重擊你的從者（重則靈基崩潰、敗北）。\n建議先擊退敵人或轉往安全處。\n\n仍要在此補魔？')) return;
     if (!beginAction()) return;
