@@ -37,7 +37,7 @@ var SEED_SERVANTS = [
     traits:[{n:'人類'}], np:'萬符必應破戒 Rule Breaker（規則破壞者 C）',
     align:'中立・惡', persona:{firstP:'我',look:'紫袍兜帽・抱緣紅短劍的清麗魔女、溫婉中帶試探的疏離、自稱「我」・用敬語',words:'背叛的傷痕・渴望被信任・腹黑・少女心',toMaster:'防備卻渴望真心相待',speech:'溫婉中帶試探、用敬語、自嘲被背叛的過往、偶爾流露脆弱',moe:'魔女外表下渴望被愛、被真心對待會慌、為所愛之人不擇手段、反差的純情',tic:'抱著緣紅短劍、垂眸輕笑、欲言又止'} },
   { id:'佐佐木小次郎-Assassin', cls:'Assassin', realName:'佐佐木小次郎', wars:['5th'], gender:'男',
-    six:{筋力:'C',耐久:'E',敏捷:'A+',魔力:'E',幸運:'A',寶具:'E'},
+    six:{筋力:'C',耐久:'E',敏捷:'A+',魔力:'E',幸運:'E',寶具:'E'},
     classSkills:[{n:'氣息遮斷',r:'D',fx:'stealth'}],
     skills:[{n:'心眼（偽）',r:'A',fx:'analyze'},{n:'透化',r:'B+',fx:'clear_mind'},
             {n:'宗和的心得',r:'B',fx:'unreadable'},{n:'秘劍・燕返',r:'-',fx:'tsubame'}],
@@ -91,7 +91,7 @@ var SEED_SERVANTS = [
     traits:[{n:'人類'}], np:'妄想幻像 Zabaniya: Delusional Illusion（對人·分裂為百種人格·最多同時八十體）',
     align:'秩序・惡', persona:{firstP:'我們',look:'骷髏面具・黑袍裹身的詭譎刺客、肅殺低語的宗教氣息、自稱「我們」・多重聲線交疊低語',words:'群體・狂信・無數人格・山中老人',toMaster:'服從，視暗殺為信仰',speech:'多重聲線交疊、以「我們」自稱、低語、宗教式的肅殺',moe:'十八種人格共用一具身軀的詭異、對「初代之名」的執著、暗殺即信仰的純粹',tic:'骷髏面具下變換面孔、無聲現身、低誦經文'} },
   { id:'咒腕之哈桑-Assassin', cls:'Assassin', realName:'哈桑·薩巴赫（咒腕）', wars:['5th'], gender:'男',
-    six:{筋力:'C',耐久:'D',敏捷:'A',魔力:'E',幸運:'B',寶具:'C'},
+    six:{筋力:'B',耐久:'C',敏捷:'A',魔力:'C',幸運:'E',寶具:'C'},
     classSkills:[{n:'氣息遮斷',r:'A+',fx:'stealth'}],
     skills:[{n:'妄想心音',r:'',fx:'zabaniya'},{n:'投影魔術',r:'C',fx:'projection'},{n:'自我改造（詛咒之腕）',r:'C',fx:'self_mod'}],
     traits:[{n:'人類'}], np:'妄想心音 Zabaniya（對人·掏出心臟之影即死）',
@@ -206,8 +206,8 @@ var SEED_SERVANTS = [
     align:'混沌・中庸', persona:{firstP:'妾身',look:'金髮狐耳・和服盛裝的九尾賢妻、甜膩撒嬌裹著腹黑的氣息、自稱「妾身」・賢妻口吻甜膩撒嬌',words:'賢妻・腹黑・愛吐槽・狐狸',toMaster:'撒嬌又掌控，黏人',speech:'甜膩撒嬌、賢妻口吻、暗藏腹黑、毒舌吐槽裹著糖衣',moe:'賢妻外皮下的腹黑掌控慾、九尾狐的撒嬌黏人、吐槽精準狠辣、為愛奉獻的執著',tic:'狐耳輕顫、掩嘴輕笑、鏡前理妝'} },
   { id:'牛若丸-Rider', cls:'Rider', realName:'源義經（牛若丸）', wars:['客串'], gender:'女',
     six:{筋力:'D',耐久:'D',敏捷:'A',魔力:'D',幸運:'C',寶具:'C'},
-    classSkills:[{n:'騎乘',r:'A',fx:'ride'},{n:'對魔力',r:'C',fx:'nullify_magic'}],
-    skills:[{n:'神性',r:'D',fx:'divine'},{n:'天狗之兵法',r:'B',fx:'first_strike'},{n:'牛若之武略',r:'B',fx:'tactics'}],
+    classSkills:[{n:'騎乘',r:'A+',fx:'ride'},{n:'對魔力',r:'C',fx:'nullify_magic'}],
+    skills:[{n:'領袖氣質',r:'C',fx:'morale'},{n:'天狗之兵法',r:'B',fx:'first_strike'},{n:'牛若之武略',r:'B',fx:'tactics'}],
     traits:[{n:'人類'}], np:'壇之浦・八艘飛（對人・神速跳躍）',
     align:'混沌・中庸', persona:{firstP:'牛若',look:'黑髮武裝・嬌小靈動的武家少女、純真赤誠的武者英氣、自稱「牛若」・赤誠語氣純真直率',words:'悲劇武者・純真・崇拜兄長・赤誠',toMaster:'純粹追隨，赤誠相待',speech:'純真赤誠、武家少女、自稱牛若、崇拜地談起兄長',moe:'悲劇宿命下的純真、對兄長賴朝近乎信仰的崇拜（卻被其所害）、天真爛漫的武勇、赤子之心',tic:'八艘飛躍、雙眸發亮、抱膝談兄長'} },
   { id:'貞德-Ruler', cls:'Ruler', realName:'貞德', wars:['客串'], gender:'女',
@@ -271,7 +271,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v24'; // v24：蒼白騎兵 寶具 A→EX(原作 Doomsday Come 是 EX 對界寶具·先前被寫低威力·規模對界原本就對)。v23：修規模盛標(誤標=偷改平衡)——美遊 Excalibur 對界→對城(同阿爾托莉雅·Saber install 同一劍)、賽米拉米斯 空中庭園 對界→對城(TYPE-MOON 設定=對城寶具 EX)。威力(six.寶具)與規模關鍵字兩件事·分開校。
+var CODEX_PERSONA_VER = 'v25'; // v25：查證原作三修——佐佐木 幸A→E(FSN 無名劍客宿命·引擎讀幸算命中暴擊)、咒腕之哈桑 六圍正回原作(筋B/耐C/魔C/幸E·True Assassin FSN 參數表)、牛若丸 拔掉捏造的神性D(源義經純人類·divine 旗標會誤觸神殺/對神/疫病減傷)→換領袖氣質C·騎乘A→A+。v24：蒼白騎兵 寶具 A→EX(原作 Doomsday Come 是 EX 對界寶具·先前被寫低威力·規模對界原本就對)。v23：修規模盛標(誤標=偷改平衡)——美遊 Excalibur 對界→對城(同阿爾托莉雅·Saber install 同一劍)、賽米拉米斯 空中庭園 對界→對城(TYPE-MOON 設定=對城寶具 EX)。威力(six.寶具)與規模關鍵字兩件事·分開校。
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
