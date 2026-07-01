@@ -578,6 +578,7 @@ function renderRecentLocs(recents = null) {
       if (res && res.success) {
         updateClock(res.clock, res.ap, res.apMax); updateEconomy(res.economy);
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#8fd0a0;font-size:12.5px;text-align:center;border:1px solid rgba(90,150,110,0.3);border-radius:8px;padding:6px 10px;">🏕️ ${res.message}</div>`);
+        if (res.aiPrompt) await narrate(res.aiPrompt); // 🎬 演出布設陣地的勞作
         syncData(true); // applyClientState 已含 renderMapPane()，免重複
       } else { alert((res && res.message) || '設置陣地失敗。'); }
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
