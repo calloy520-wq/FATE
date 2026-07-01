@@ -34,8 +34,8 @@ var CONCEPT_TIER = {
 
   // 5｜神祖·王權·斬契約級
   excalibur: 5, divine_age: 5, rule_breaker: 5,
-  // 4｜固有結界·破魔·必中級
-  ubw: 4, anti_magic_lance: 4, gae_bolg: 4,
+  // 4｜固有結界·破魔·必中·深淵召喚·超位階盾級（唯 6 階 ea/enuma 可貫穿 rho_aias）
+  ubw: 4, anti_magic_lance: 4, gae_bolg: 4, summon_horror: 4, rho_aias: 4,
   // 3｜傳說武技·不死·暗殺級
   god_hand: 3, tsubame: 3, zabaniya: 3, petrify: 3,
   // 2｜英靈防禦技能級（會被高位階概念壓制的那一層）
@@ -45,7 +45,7 @@ var PIERCE_GAP = 2; // 攻方概念階高出守方此值以上 → 概念壓制�
 function conceptTier_(fx) { return CONCEPT_TIER[fx] || 1; }
 // 取某戰鬥單位「進攻概念」的最高位階（只看寶具解放時真正打出的高位階攻擊概念）
 function offenseTier_(c, isNp) {
-  var pierceFx = isNp ? ['ea', 'enuma', 'excalibur', 'rule_breaker', 'ubw', 'anti_magic_lance', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify']
+  var pierceFx = isNp ? ['ea', 'enuma', 'excalibur', 'rule_breaker', 'ubw', 'summon_horror', 'anti_magic_lance', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify']
                       : ['rule_breaker', 'anti_magic_lance']; // 非解放時，只有破戒/破魔這類「常駐穿透概念」生效
   var t = 1;
   for (var i = 0; i < pierceFx.length; i++) { if (hasFx_(c, pierceFx[i])) t = Math.max(t, conceptTier_(pierceFx[i])); }
