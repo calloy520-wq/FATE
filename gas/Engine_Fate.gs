@@ -30,7 +30,8 @@ function chainVolley_() { var t = 0; for (var i = 0; i < 18; i++) { var r = Math
 //   把原本散落各處的 if（破魔無視神核／神代凌駕對魔力…）系統化成一張可擴充的表。
 var CONCEPT_TIER = {
   // 6｜世界·真理級：斬裂世界，凌駕一切防禦與結界
-  ea: 6,
+  ea: 6, enuma: 6, // enuma＝恩奇都 Enuma Elish(天之楔·可匹敵乖離劍)
+
   // 5｜神祖·王權·斬契約級
   excalibur: 5, divine_age: 5, rule_breaker: 5,
   // 4｜固有結界·破魔·必中級
@@ -44,10 +45,13 @@ var PIERCE_GAP = 2; // 攻方概念階高出守方此值以上 → 概念壓制�
 function conceptTier_(fx) { return CONCEPT_TIER[fx] || 1; }
 // 取某戰鬥單位「進攻概念」的最高位階（只看寶具解放時真正打出的高位階攻擊概念）
 function offenseTier_(c, isNp) {
-  var pierceFx = isNp ? ['ea', 'excalibur', 'rule_breaker', 'ubw', 'anti_magic_lance', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify']
+  var pierceFx = isNp ? ['ea', 'enuma', 'excalibur', 'rule_breaker', 'ubw', 'anti_magic_lance', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify']
                       : ['rule_breaker', 'anti_magic_lance']; // 非解放時，只有破戒/破魔這類「常駐穿透概念」生效
   var t = 1;
   for (var i = 0; i < pierceFx.length; i++) { if (hasFx_(c, pierceFx[i])) t = Math.max(t, conceptTier_(pierceFx[i])); }
+  // 🌟 本次解放寶具「自身」的概念也計入(多寶具選定項 / 單寶具簽名)——修正吉爾 Ea·恩奇都 Enuma Elish 等
+  //   寶具真名概念不必另掛成 skill 才生效(它們的 fx 在 npOptions 而非 skills，原本被 hasFx_ 漏掉)。
+  if (isNp) { var _npfx = npProfile_(c).fx; if (_npfx) t = Math.max(t, conceptTier_(_npfx)); }
   return t;
 }
 
@@ -94,7 +98,7 @@ var NP_SCALE_MATRIX = [
 // 攻擊寶具規模：由寶具名(對人/對軍/對城/對界)或 ea/excalibur 標籤推定，預設對人。
 function npAtkScale_(c) {
   var np = String(c.np || '');
-  if (hasFx_(c, 'ea') || /對界/.test(np)) return '對界';
+  if (hasFx_(c, 'ea') || hasFx_(c, 'enuma') || /對界/.test(np)) return '對界';
   // 🗡️ 無限劍製(ubw)＝固有結界的飽和彈幕＝對城級；🐙 召喚大海怪(summon_horror／青鬍子)＝深淵巨獸＝對城級
   if (hasFx_(c, 'excalibur') || hasFx_(c, 'ubw') || hasFx_(c, 'summon_horror') || /對城/.test(np)) return '對城';
   if (/對軍/.test(np)) return '對軍';
@@ -314,6 +318,10 @@ function servantNpOptions_(name, cls) {
     { n: '王之財寶 Gate of Babylon', scale: '對人', fx: 'gob', desc: '對人·無盡兵裝的飽和彈幕' },
     { n: '乖離劍 Ea', scale: '對界', fx: 'ea', desc: '對界·天地乖離開闢之星，斬裂世界的最強一擊' }
   ];
+  if (name.indexOf('恩奇都') >= 0) return [
+    { n: '世人啊、冀以鎖繫神明 Enuma Elish', scale: '對界', fx: 'enuma', desc: '對界·天之楔·反星球/人類破壞行為增幅，可匹敵乖離劍的概念級一擊' },
+    { n: '民之睿智 Age of Babylon', scale: '對軍', fx: 'gob', desc: '對軍·自大地召出萬千劍槍鎖齊射（用法類王之財寶·可抵銷之）' }
+  ];
   if (name.indexOf('伊斯坎達爾') >= 0) return [
     { n: '王之軍勢 Ionioi Hetairoi', scale: '對軍', fx: '', desc: '對軍·固有結界召喚萬軍亂踏' },
     { n: '神威的車輪 Gordius Wheel', scale: '對人', fx: '', desc: '對人·雷神戰車的單騎衝鋒' }
@@ -330,7 +338,7 @@ function servantNpOptions_(name, cls) {
 }
 // 單寶具退路：取該從者最主要的「寶具簽名 fx」（決定寶具乘子）。
 function firstSignatureFx_(c) {
-  var pri = ['ea', 'excalibur', 'ubw', 'summon_horror', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify', 'gob'];
+  var pri = ['ea', 'enuma', 'excalibur', 'ubw', 'summon_horror', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify', 'gob'];
   for (var i = 0; i < pri.length; i++) { if (hasFx_(c, pri[i])) return pri[i]; }
   return '';
 }
