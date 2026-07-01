@@ -264,6 +264,30 @@ function masterCircuits_(masterRow) {
   return m ? parseInt(m[1]) : 30;
 }
 
+// 🔋 敵御主每日回魔：敵御主電池只會被 drainForNp_ 扣、從不隨時間自然回——長局若不補，
+//   放過一次寶具後就永久魔力見底，往後所有遭遇都啞火(反而喪失「寶具是孤注一擲」的張力)。
+//   不用玩家那套逐時供需經濟(NPC 不必算到那麼細)，改用最簡單的「新的一天回滿」：MEMORY 記
+//   最後回魔的絕對日；worldTick_ 每次執行，見到記錄的日 < 當前日 → 補滿並蓋新日期戳。
+function getManaDay_(memory) { var m = String(memory || "").match(/【回魔日】(\d+)/); return m ? parseInt(m[1]) : -1; }
+function stampManaDay_(memory, day) {
+  var s = String(memory || "").replace(/【回魔日】\d+/, "");
+  s = s.replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
+  return (s ? s + "｜" : "") + "【回魔日】" + day;
+}
+function refillMastersDaily_(sheets, gameId, day) {
+  var data = sheets.pc.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.FACTION]) !== "敵御主") continue;
+    if (String(data[i][COL.PC.GAME_ID] || "") !== gameId) continue;
+    if (String(data[i][COL.PC.ID]).startsWith("DEAD_")) continue;
+    if (getManaDay_(data[i][COL.PC.MEMORY]) >= day) continue; // 今天已補過
+    var maxMp = parseInt(data[i][COL.PC.MAX_MP]) || 0;
+    data[i][COL.PC.MP] = maxMp;
+    data[i][COL.PC.MEMORY] = stampManaDay_(data[i][COL.PC.MEMORY], day);
+    sheets.pc.getRange(i + 1, 1, 1, data[i].length).setValues([data[i]]);
+  }
+}
+
 // 🌐 世界自走一輪：敵移位（偵查失效）＋ 暗處從者陣亡（戰爭自走）
 //   rounds：跑幾輪；allowAttrition：是否允許「暗處廝殺/養不起爆炸」（僅休息時 true，移動只換位）
 //   回傳 { rumors:[..文字..], moved:n }
@@ -272,6 +296,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
   var rumors = [];
   if (!gameId) return { rumors: rumors, moved: 0 };
   rounds = rounds || 1;
+  try { var _ck = getClock_(gameId); if (_ck) refillMastersDaily_(sheets, gameId, _ck.day); } catch (e) { }
   var moved = 0;
 
   for (var rd = 0; rd < rounds; rd++) {
