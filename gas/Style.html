@@ -324,6 +324,11 @@
     font-style: italic;
     margin: 10px 0;
     letter-spacing: 3px;
+    animation: loadingPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes loadingPulse {
+    0%, 100% { opacity: 0.45; }
+    50% { opacity: 1; }
   }
 
   .npc-card {
