@@ -21,15 +21,18 @@ for f in "$GAS"/*.gs; do
   fi
 done
 
-# Script.html：去掉首行 <script> 與末行 </script>，驗證內嵌 JS
-if [ -f "$GAS/Script.html" ]; then
-  sed '1d;$d' "$GAS/Script.html" > "$TMP/script_body.js"
-  if node --check "$TMP/script_body.js" 2>"$TMP/err"; then
-    echo "OK   Script.html (內嵌 JS)"
+# Script*.html（Script.html 主檔 ＋ Script_XXX.html 拆檔）：各自去掉首行 <script> 與末行 </script>，驗證內嵌 JS。
+#   ★新增 Script_XXX.html 拆檔時不用改這裡——萬用比對自動吃到，別再把驗證寫死成單一檔名。
+for f in "$GAS"/Script*.html; do
+  [ -e "$f" ] || continue
+  base="$(basename "$f")"
+  sed '1d;$d' "$f" > "$TMP/${base}.js"
+  if node --check "$TMP/${base}.js" 2>"$TMP/err"; then
+    echo "OK   $base (內嵌 JS)"
   else
-    echo "FAIL Script.html (內嵌 JS)"; cat "$TMP/err"; fail=1
+    echo "FAIL $base (內嵌 JS)"; cat "$TMP/err"; fail=1
   fi
-fi
+done
 
 echo "──────────────"
 if [ "$fail" = 0 ]; then echo "✅ 全部通過"; else echo "❌ 有語法錯誤，勿 push"; fi

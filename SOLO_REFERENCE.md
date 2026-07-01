@@ -16,7 +16,9 @@
 | **model id** | `claude-opus-4-8` 不可出現在 commit／PR／程式碼。 |
 | **branch** | 只在 `claude/fate-error-review-w8q42w` 開發。 |
 
-驗證套路：改完 `node --check`（.gs 複製成 .js 檢查；Script.html 用 `sed '1d;$d'` 去頭尾 `<script>` 再檢查）。改慾海邊界務必 `git diff | grep nsfwBaseRules` 確認 0 改動。
+驗證套路：跑 `bash check.sh`（自動掃全部 .gs ＋萬用比對 `gas/Script*.html`，見 `HANDBOOK.md` §4.1）。改慾海邊界務必 `git diff | grep nsfwBaseRules` 確認 0 改動。
+
+⚠ **2026-07 檔案改版**：`Router_Action.gs`(原 3918 行)已拆成 8 檔——`Router_Action.gs`(核心dispatch)/`Router_Creation.gs`(創角召喚)/`Router_Movement.gs`(地圖移動休息)/`Router_Battle.gs`(戰鬥核心)/`Router_Bond.gs`(羈絆令咒結盟戰記)/`Router_Narrative.gs`(actionPlay敘事)/`Router_Persona.gs`(演出卡)/`Router_Economy.gs`(出力補魔)。下文各節提到「Router ~行號」的**行號已隨拆檔位移**，函數名不變、用函數名 grep 即可找到——全域作用域共用，切到哪個檔不影響行為。檔案對照表看 `HANDBOOK.md` §4。
 
 ---
 
@@ -298,7 +300,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **行動 handler**：`servantStrike`(出戰/寶具/令咒/刺殺御主四參數)、`manaSupply`、`bond`/`openBondMenu`/`submitBond`、`rest`/`openRestMenu`/`restAndHeal`、`scout`、`mysticStrike`、`ruleBreakSteal`、`secondWind`、`setWorkshop`/`scavenge`、`proposeAlliance`/`breakAlliance`/`allyBond`。
 - **戰報**：`renderFateBattleReport`(斬首多骰/strikes/雙從者血條)、`renderCombatReport`、`renderMysticReport`、`narrate`/`narrateCombatResult`、`handleDefeat`(敗北→虛假之夢→老虎道場)。
 - **🐯 老虎道場 AI 講評(2026-06)**：敗北「⏭直視結局」按鈕→`runTigerDojo_(servantName,causeCtx)`：`buildTigerDojoPrompt_` 餵藤村大河＋伊莉雅依**實際敗因**(夢覆寫前擷取的 `lastAiContext`)吐槽＋給一條對症戰術建議，走 `narrate_only` 一次呼叫(只在 game-over 收場·不影響遊戲中速度)填入 `#dojo-ai-body`，失敗退回 `dojoFallbackHtml_()` 罐頭文案。
-- **召喚/創角**：`rollFate`/`selectFateRoll`/`renderFateRolls`(魔術天賦測定)、`doSummon`/`summonByHero`/`selectSummonClass`、`chooseWarMode`/`chooseWar`。
+- **召喚/創角**（2026-07 整段搬到 `Script_Onboarding.html`，天然時間邊界：只在開局跑一次）：`accountLogin`/`chooseWarMode`/`chooseWar`/`chooseRole`/`loadCanonMasters`/`pickCanonMaster`、`rollFate`/`selectFateRoll`/`renderFateRolls`(魔術天賦測定)、`checkName`/`createPC`/`backfillMasterAi`、`doSummon`/`summonByHero`/`selectSummonClass`、`startGame`。與 Script.html 共享同一頁面全域作用域。
 - **地圖**：`renderMapPane`(陣地/搜索物資/盟友通報橫幅)、`buildMapSvg_`、`scout`。**地圖 17 正典地點**(衛宮宅/愛因茲貝倫城/冬木森林/冬木·碼頭/深山町遠坂宅/新都穗群原…)：種子在 `Setup_FateWorld.gs` `FATE_MAP_SEED`，`reseedIfEmpty_` 為 **upsert**(按名更新 TYPE/COORD/DESC＋補缺列)；前端位置是 `buildMapSvg_` 內 **hardcoded `LAYOUT`**(short-name→[x,y]，新都西/深山町東)＋`CONN`，**非試算表座標**(座標只備查)。改地圖要同步改種子(名字)＋LAYOUT(位置)。
 - **移動敘事**：`actionMove`(Router 2121)回傳 `servantCard`(玩家從者卡)，前端 `travelTo` 抵達提示前置該卡＋「從者必在場、依性格至少一句台詞」指令——修掉移動後變御主獨白、從者像不存在。前端 `foes.length` 時再加「遭遇·敵在眼前」指令(敵方開口挑釁/試探，但勝負留待御主下令)。
 - **🎭 敵人人設餵入(2026-06)**：`actionMove` 另回傳 `foeCards`＝target 在場【敵從者】的 `servantCard_`(低羈絆→戒備敵意正確)，前端拼進 arrivePrompt → 敵人依性格/口吻反應(慎二色厲內荏、c媽試探)，不再 AI 即興通用反派(平淡根因)。
@@ -314,7 +316,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **敵御主↔敵從者硬連結（誰是誰）**：`reseedRivals_`(Seed_Rivals 末段)種子時，rows 嚴格交替(master,servant…)，互寫 `【從者】名`(御主列)／`【御主】名`(從者列)於 MEMORY。`getServantMaster_`/`getMasterServant_`(Router)讀回。`markMasterLostServant_` 配對改**硬連結優先**(按名找御主，不怕多組同地)、無連結退回同落點。`getLocalPeopleList` 對 `敵從者` 帶 `master`、`敵御主` 帶 `servant`。前端 `travelTo` 在場敵對>1 組時加「在場敵對歸屬·勿張冠李戴」配對清單，AI 才不會把 3 組同場的主從搞混。**舊局無連結→退回同落點(相容)**。
 - **喪失從者的敵御主（選 A：不移除，只標記＋演出）**：敵從者任一路徑死亡時，`markMasterLostServant_`(Router ~4340)在「同地同 game_id 的敵御主」MEMORY 寫 `【喪失從者】從者名·死因`(只記第一次)。三處死亡都接：戰鬥擊破(`fateStrike_` else 支)、令咒透支倒數＋暗處養不起/廝殺(`worldTick_`)。`getLostServant_` 讀回；`getLocalPeopleList` 對 `敵御主` 帶出 `lostServant`。前端 `travelTo` 對在場的喪失從者御主加指令：演出形單影隻、無牙棋手、依個性流露失恃(孤注/惶然/不甘)，別當仍有從者隨侍。配對採同落點(一master一servant結伴移動，無顯式 FK)。helper：`stampLostServant_/getLostServant_/markMasterLostServant_`。
 - **敘事連續記憶**：`lastAiContext`(模組級，最近一段 AI 文 ≤300字)。`narrate()`/`narrateCombatResult`/play 都會更新它。`travelTo` 在 `foes.length` 時把 `lastAiContext.slice(0,280)` 當「前情」塞進抵達提示，讓 AI 知道「方才發生什麼」——逃跑後敵人追上/再遇時承接劇情、不當初次見面。`narrate_only` 後端只吃 promptText，所以前情是在前端拼進去的(零後端改動)。
-- **鑑賞**：`enterKanshou`(主入口)/`claimGrail`/`renderHeroList`／👥同伴面板 `openCompanions/kanshouAdd/kanshouRemove`。(舊 `openGallery/enterGallery` 已退役)
+- **鑑賞**：`claimGrail`/`renderHeroList` 仍在 Script.html；**鑑賞(慾海)前端主體已搬到 `Script_Kanshou.html`(2026-07)**——`enterKanshou`(主入口)、👥同伴面板 `openCompanions/kanshouAdd/kanshouRemove/changeKanshouName/changeKanshouSex/askKanshouSex/askKanshouSetup`。兩檔共用同一頁面全域作用域(Index.html 依序 include)，互叫無礙；新增鑑賞前端功能請往 `Script_Kanshou.html` 加，見 `HANDBOOK.md` §4.1 拆分慣例。(舊 `openGallery/enterGallery` 已退役)
 - **逆天改命**（玩家改自己御主資料）：`openFateEdit`/`saveFate`→`actionUpdateFate`。**只准改 4 種敘事欄、數值與寶具一律鎖死**(GAS掌數值)：`back`身世(限30)/`intent`萌點(限30)/`trait`特徵(4格×20)/`pref`個性(4格×20)。特徵4格=外貌/氣質舉止/自稱與口氣/卸下心防的私密一面(末格＝鑑賞慾海的親密種子，NSFW 消費在 Router 2406 `[床笫之間的反應]`)；個性4格=日常表象/真實內裡/喜歡/討厭。改別人(NPC)需好感100+已傾心，改自己免條件(solo 只碰自己)。數值編輯是九州 full 的 breakthrough/cultivate，solo 不露出。
 
 ---
