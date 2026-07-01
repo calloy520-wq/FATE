@@ -56,7 +56,7 @@ CLK(時鐘): GAME_ID0 DAY1 HOUR2 AP3
 ### MEMORY 標記（存 `COL.PC.MEMORY`·全形 `｜` 分隔，讀取器須排除 `｜`）
 `【願望】【魔術】【迴路】N【出身】【體術】`(御主種子) ｜ `【令咒】N`(預設3) ｜ `【試煉】N`(十二試煉命·預設11) ｜ `【模式】canon/chaos`｜`【戰爭】4th/5th/fake`｜`【扮演】<御主id>`(創角設定) ｜ `【禮裝】id`(被動禮裝) ｜ `【出力】`(靈基出力檔·預設60) ｜ `【寶具選】N`(多寶具) ｜ `【符文】`(斯卡哈) ｜ `【御主】名`/`【從者】名`(敵主從硬連結) ｜ `【海怪護盾】cur|max|expiry`(青鬍子海怪肉身) ｜ `【整備至】N`(餐buff) ｜ `【陣地】地`(工房) ｜ `【搜刮】地`(枯竭) ｜ `【盟約至】day`｜`【鑑賞緣】`(盟友90+解鎖封存) ｜ `【靈基透支】N`(令咒盡死線) ｜ `【喪失從者】名`｜`【破戒奪取】`｜`【帳號】acct`(慾海御主) ｜ NSFW：`[雙修技巧][性愛時敏感部位][專屬稱呼][親密次數][交談輪數]`。
 
-## 4. 檔案地圖（11,700 行·21 檔·2026-07 Router_Action.gs 拆成 8 檔＋鑑賞前端拆出，見 §4.1）
+## 4. 檔案地圖（11,700 行·22 檔·2026-07 Router_Action.gs 拆成 8 檔＋前端拆出鑑賞/開局兩檔，見 §4.1）
 
 | 檔 | 行 | 用途 | 關鍵物 |
 |---|---|---|---|
@@ -68,7 +68,8 @@ CLK(時鐘): GAME_ID0 DAY1 HOUR2 AP3
 | **Router_Narrative.gs** | ~910 | AI 敘事引擎(actionPlay，solo/kanshou 共用) | `actionPlay`、`narrateWithState_`/`actionNarrateOnly`、`buildDreamPrompt_`(虛假之夢)、`actionGetEpicHistory` |
 | **Router_Persona.gs** | ~80 | 演出依據卡(跨檔共用小工具，不歸屬任何領域) | `servantCard_`/`masterCard_`/`codexPersona_`/`findPlayerServantIdx_` |
 | **Router_Economy.gs** | ~165 | 靈基出力／魔境／符文／寶具選／補魔 | `actionSetServantOutput/MageRealm/RuneMode/NpChoice`(樂觀更新setter)、`actionManaSupply` |
-| **Script.html** | ~3100 | 前端 SPA 核心（solo 主體＋共用機制） | `gasRun`/`syncData`/`applyClientState`、`servantStrike`/`renderFateBattleReport`、`refreshFateTags`/`bar`/`horrorBar`、`renderMapPane`/`buildMapSvg_`、創角召喚流程、`applyModeUI`(兩軌切換總開關) |
+| **Script.html** | ~2700 | 前端 SPA 核心（共用機制＋戰鬥/地圖/狀態面板，遊戲進行中用到的一切） | `gasRun`/`syncData`/`applyClientState`、`servantStrike`/`renderFateBattleReport`、`refreshFateTags`/`bar`/`horrorBar`、`renderMapPane`/`buildMapSvg_`、`applyModeUI`(兩軌切換總開關，跨onboarding/kanshou共用) |
+| **Script_Onboarding.html** | ~350 | 前端 SPA·登入/創角/召喚開局流程(2026-07 拆出) | `accountLogin`/`chooseWarMode`/`chooseWar`/`chooseRole`/`loadCanonMasters`/`pickCanonMaster`、`rollFate`/`checkName`/`createPC`/`backfillMasterAi`、`loadHeroes`/`doSummon`家族、`startGame`。**只在開局跑一次**，`startGame` 之後永不再被呼叫，與戰鬥/地圖零交集(天然時間邊界，見§4.1) |
 | **Script_Kanshou.html** | ~150 | 前端 SPA·鑑賞(慾海)專屬(2026-07 從 Script.html 拆出) | `enterKanshou`/`openCompanions`/`kanshouAdd`/`kanshouRemove`/`changeKanshouName`/`changeKanshouSex`/`askKanshouSex`/`askKanshouSetup`。與 Script.html 共享同一頁面全域作用域(見 §4.1) |
 | **Engine_Fate.gs** | 564 | 純數值戰鬥核心（D20+六圍+fx+寶具） | `resolveFateBattle_`、`rowToCombatant_`、`npAtkScale_/npDefScale_`、`NP_SCALE_MATRIX`、`CONCEPT_TIER`、`servantActiveSkill_`、`servantNpOptions_` |
 | **Core_Settings.gs** | 422 | 金鑰/COL schema/六圍換算/狀態封裝/地理雷達 | `COL`、`rankVal`、`fateMaxHpMp_`/`masterMaxHpMp_`/`masterPoolMax_`、`outputTier_`、`masterSynergySix_`、`getLocalPeopleList`、`buildPlayerStatusString` |
@@ -90,8 +91,10 @@ CLK(時鐘): GAME_ID0 DAY1 HOUR2 AP3
 
 **命名慣例**：`<領域>_<子概念>.gs` / `Script_<子概念>.html`（如 `Seed_Codex.gs`、`Engine_Fate.gs`、`Script_Kanshou.html`）。**拆分準則**：
 - 兩軌（solo/kanshou）分岔的功能——各自一個檔，別混在共用檔裡（範例：`Gallery.gs` 本就是鑑賞後端專屬；`Script_Kanshou.html` 是鑑賞前端專屬）。
+- **有天然時間邊界**的一段流程（只在某階段跑一次，之後永不再被呼叫）——獨立成檔（範例：`Script_Onboarding.html` 只在開局跑，`startGame()` 之後與戰鬥/地圖/狀態面板零交集）。
 - 一個檔案裝不下的「單一大關注點」（戰鬥引擎、種子資料、時間經濟）各自一個檔，不要塞進總路由。
-- **共用機制留在核心檔**（`gasRun`/`syncData`/`applyModeUI` 等兩軌都要用的東西），別跟著業務邏輯搬走。
+- **共用機制留在核心檔**（`gasRun`/`syncData`/`applyModeUI` 等兩軌都要用、或跨階段都要用的東西），別跟著業務邏輯搬走。
+- **值得停手的訊號**：如果剩下的內容彼此高度耦合（共用同一批模組層變數、互相呼叫頻繁），繼續切只是搬家、不會降低複雜度——這時就該停，不要為了切而切。
 
 **驗證鐵則**：
 1. `.gs` 新檔／搬移函數後跑 `bash check.sh`——它會**自動掃描 `gas/*.gs` 全部檔案**，新增檔案零額外設定。
