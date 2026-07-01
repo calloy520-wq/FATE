@@ -72,19 +72,19 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
     if (lives > 0) {
       var ghMaxHp = parseInt(pcData[tgtIdx][COL.PC.MAX_HP]) || 300;
       var ghReviveHp = Math.max(1, Math.round(ghMaxHp * 0.20));
-      // 🔱 概念優先權：寶具解放且概念位階高 → 多燒命。位階取「fx 概念階」與「寶具規模(對人/軍/城/界)」較高者，
-      //   故 Saber 的對城 Excalibur(規模5)、Gilgamesh 的 ea(概念6) 都吃得到，純對人寶具則只靠 overkill。
+      // 🔱 概念優先權【下限】：寶具解放且概念位階高 → 保證燒多命(世界級概念繞過不死·即使傷害普通)。
+      //   位階取「fx 概念階」與「寶具規模(對人/軍/城/界)」較高者，故 Saber 對城 Excalibur、Gilgamesh 的 ea 都吃得到。
       var lossN = 1;
       if (opts.np) {
         var ghTier = offenseTier_(atkC, true);
         var ghScale = npAtkScale_(atkC);
         var ghScaleTier = ghScale === '對界' ? 6 : ghScale === '對城' ? 5 : ghScale === '對軍' ? 4 : 1;
         var ghSev = Math.max(ghTier, ghScaleTier);
-        if (ghSev >= 6) lossN += 2; else if (ghSev >= 5) lossN += 1;
+        if (ghSev >= 6) lossN = Math.max(lossN, 3); else if (ghSev >= 5) lossN = Math.max(lossN, 2);
       }
-      // 壓倒性傷害（遠超復活線）也多燒：≥2 倍 +1、≥3 倍 +2。讓 Saber 一記 Excalibur 不會「連一條命都燒不掉」。
-      var ghOver = dmg / ghReviveHp;
-      if (ghOver >= 3) lossN += 2; else if (ghOver >= 2) lossN += 1;
+      // 🩸 傷害溢出【不封頂】：一擊打穿現有 HP 後，每再滿一個「復活線(20%靈基)」的溢出傷害 → 多燒一條命
+      //   (同海怪護盾的溢出原則)。故一記壓倒性寶具可一口氣燒去多條命，而非每擊固定一條。與概念下限取較狠者。
+      lossN = Math.max(lossN, 1 + Math.floor(Math.max(0, dmg - hp) / ghReviveHp));
       if (lossN < lives) {
         var ghRemain = lives - lossN;
         out.godRevived = true;
