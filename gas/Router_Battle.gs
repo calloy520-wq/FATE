@@ -798,15 +798,27 @@ function actionFateBattle(userData, pcId, sheets) {
         : defeat ? `『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。`
           : `「${defC.name}」HP ${parseInt(pcData[nIdx][COL.PC.HP]) || 0}/${parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0}，交鋒未分生死，尚存。`;
 
+  // 🎭 敵御主本人是否在場(同地)：是的話給AI一張精簡演出卡，讓對方在戰報裡也有反應/台詞，不再全程沉默旁觀。
+  var enemyMasterRow = null;
+  if (isMasterTarget) {
+    enemyMasterRow = pcData[nIdx];
+  } else {
+    var _emIdx = enemyMasterIdx_(pcData, nIdx, myGameId);
+    if (_emIdx >= 0 && String(pcData[_emIdx][COL.PC.LOC]).trim() === String(pcData[nIdx][COL.PC.LOC]).trim()) {
+      enemyMasterRow = pcData[_emIdx];
+    }
+  }
+  const enemyMasterCardStr = enemyMasterRow ? enemyMasterCard_(enemyMasterRow) : "";
+
   let aiPrompt;
   // 🎬 敘述：給 AI【事實素材】，少下指令——讓它自己演。只保留必要紅線(show-don't-tell／勿擅自寫死)。
   const horrorFired = rounds.some(r => (r.strikes || []).some(k => k.horror));
   if (defeat) {
-    aiPrompt = servantCard_(pcData[atkIdx]) +
+    aiPrompt = servantCard_(pcData[atkIdx]) + enemyMasterCardStr +
       `【戰報·已裁定】御主號令『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合。\n${roundsBrief}\n結局：『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。\n` +
       `★以 Fate／TYPE-MOON 筆觸演出這場敗北的最後一幕(一段即可)${atkC.cls === 'Caster' ? '（Caster 以魔術轟擊為主、非肉搏）' : ''}，語氣留白。勝負已定，你只演過程。`;
   } else {
-    aiPrompt = servantCard_(pcData[atkIdx]) +
+    aiPrompt = servantCard_(pcData[atkIdx]) + enemyMasterCardStr +
       `【戰報·已裁定，勝負與傷害不可改】御主號令${atkLabel}出擊，與「${defC.name}」交鋒 ${nRounds} 回合。\n` +
       `${roundsBrief}\n我方造成 ${totalDealt} 傷害、受創 ${totalTaken}。${finalLine}\n` +
       `── 本戰發生的事(素材，自行織入畫面，勿複述標籤名) ──\n` +
