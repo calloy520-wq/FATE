@@ -71,8 +71,31 @@ function actionMove(userData, pcId, sheets) {
         var psvC = rowToCombatant_(allPcData[psvIdxM]);
         var psvAgi = rankVal(psvC.six['敏捷'] || 'C');
         var psvHp = parseInt(allPcData[psvIdxM][COL.PC.HP]) || 0, psvMax = parseInt(allPcData[psvIdxM][COL.PC.MAX_HP]) || 1;
-        var chaser = null, chaserAgi = -1;
+        // 🔮 預告寶具·背後傾瀉：離場格若有敵人正「寶具預告」蓄勢中 → 朝你退卻的背影傾瀉充能寶具＝NP 級臨別重擊
+        //   (優先於一般追擊；八成挨到·騎乘可減、夠強可反擋逼退；保 1 不致死但很痛；消耗預告旗標於下方套用處)。
+        var teleFoe = null;
         allPcData.forEach(function (r) {
+          if (String(r[COL.PC.FACTION]) !== "敵從者") return;
+          if (String(r[COL.PC.GAME_ID] || "") !== moveGameId) return;
+          if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+          if (String(r[COL.PC.LOC] || "").trim() !== fromLocM) return;
+          if (isAllied_(r)) return;
+          if (getNpTelegraph_(r[COL.PC.MEMORY])) teleFoe = r;
+        });
+        if (teleFoe) {
+          var teleProb = 0.85 - (hasFx_(psvC, 'ride') ? 0.15 : 0);
+          var teleName = String(teleFoe[COL.PC.NAME]);
+          if (Math.random() < teleProb) {
+            var prT = resolveFateBattle_(rowToCombatant_(teleFoe), psvC, { np: true });
+            pursuit = { enemyName: teleName, chaserId: String(teleFoe[COL.PC.ID]), dmg: Math.max(1, prT.damage), hitWho: prT.atkWins ? 'us' : 'foe', np: true,
+              note: prT.atkWins ? ('「' + teleName + '」蓄勢已久的真名解放朝你退卻的背影轟然傾瀉——這一擊的代價，是逃離強敵的必然。') : ('「' + teleName + '」的寶具在你身後炸開，卻被你的從者堪堪擋開、反手逼退。') };
+          } else {
+            pursuit = { enemyName: teleName, chaserId: String(teleFoe[COL.PC.ID]), dmg: 0, hitWho: 'foe', np: true,
+              note: '你在「' + teleName + '」真名解放的前一瞬堪堪脫離範圍——寶具的餘威掃過空無一人的殘影。' };
+          }
+        }
+        var chaser = null, chaserAgi = -1;
+        if (!pursuit) allPcData.forEach(function (r) {
           if (String(r[COL.PC.FACTION]) !== "敵從者") return;
           if (String(r[COL.PC.GAME_ID] || "") !== moveGameId) return;
           if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
@@ -83,7 +106,7 @@ function actionMove(userData, pcId, sheets) {
           var a = rankVal((rowToCombatant_(r).six['敏捷']) || 'C');
           if (a > chaserAgi) { chaserAgi = a; chaser = r; }
         });
-        if (chaser && chaserAgi >= psvAgi) { // 追得上(敵敏≥我敏)才追
+        if (!pursuit && chaser && chaserAgi >= psvAgi) { // 追得上(敵敏≥我敏)才追
           var pProb = 0.30 + (psvHp < psvMax * 0.4 ? 0.20 : 0) - (hasFx_(psvC, 'ride') ? 0.15 : 0);
           var stanceM = String(userData.stance || 'normal'); // 🎭 接敵姿態(純敘述 flavor·僅此處輕觸追擊)：隱蔽−/光明+
           pProb += (stanceM === 'open' ? 0.10 : stanceM === 'stealth' ? -0.10 : 0);
@@ -142,9 +165,17 @@ function actionMove(userData, pcId, sheets) {
       var fsvIdx = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
       if (fsvIdx !== -1) { allPcData[fsvIdx][COL.PC.HP] = Math.max(1, (parseInt(allPcData[fsvIdx][COL.PC.HP]) || 0) - pursuit.dmg); }
       else { pursuit = null; }
-    } else { // 追兵輸→被回身反咬逼退(對追兵 ID 扣血·保1；追兵已 tick 走/不在則仍報甩脫成功)
+    } else if (pursuit.dmg) { // 追兵輸→被回身反咬逼退(對追兵 ID 扣血·保1；追兵已 tick 走/不在則仍報甩脫成功)
       var fchIdx = allPcData.findIndex(function (r) { return String(r[COL.PC.ID]) === pursuit.chaserId; });
       if (fchIdx !== -1) { allPcData[fchIdx][COL.PC.HP] = Math.max(1, (parseInt(allPcData[fchIdx][COL.PC.HP]) || 0) - pursuit.dmg); }
+    }
+    // 🔮 消耗預告寶具旗標(已朝你砸出/落空)——在 tick 後資料上清、隨最終 setValues 寫回；並補戰報進見聞
+    if (pursuit && pursuit.np && pursuit.chaserId) {
+      var tClrIdx = allPcData.findIndex(function (r) { return String(r[COL.PC.ID]) === pursuit.chaserId; });
+      if (tClrIdx !== -1) allPcData[tClrIdx][COL.PC.MEMORY] = clearNpTelegraph_(allPcData[tClrIdx][COL.PC.MEMORY]);
+    }
+    if (pursuit && pursuit.note) {
+      worldRumors.unshift('〔撤離·' + (pursuit.np ? '寶具追擊' : '追擊') + '〕' + pursuit.note + (pursuit.dmg ? `（${pursuit.hitWho === 'us' ? '從者受創' : '反咬逼退追兵'} −${pursuit.dmg}）` : ''));
     }
   }
 
