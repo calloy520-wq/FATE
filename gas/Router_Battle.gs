@@ -513,14 +513,16 @@ function actionFateBattle(userData, pcId, sheets) {
       const ocBonus = getOvercharge_(pcData[pIdx][COL.PC.MEMORY]);
       const mMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
       const mHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
-      const maxPay = mMp + Math.floor(Math.max(0, mHp - 1) / BATTERY_HP_PER_MP) + ocBonus; // 過充額度計入可付上限
-      const extraToCap = prana * 2;
-      const pour = Math.max(0, Math.min(extraToCap, maxPay - prana));
+      // 🔋 底費恆由御主自付(上游閘門已保證付得起)；過充【只】擴充「超載段」預算、絕不代付底費。
+      const masterPayable = mMp + Math.floor(Math.max(0, mHp - 1) / BATTERY_HP_PER_MP);
+      const masterSurplus = Math.max(0, masterPayable - prana);   // 付完底費後御主自己還能再灌多少
+      const extraToCap = prana * 2;                                // 再灌「底費×2」達上限
+      const pour = Math.min(extraToCap, masterSurplus + ocBonus);  // 超載段預算＝御主餘裕＋過充額度
       npOverloadMul = 1 + (pour / extraToCap) * (cap - 1);
       totalDrain = prana + pour;
-      ocUsed = Math.min(ocBonus, totalDrain);         // 過充額度優先【無償】支付，剩餘才走御主電池
-      usedOvercharge = ocBonus > 0;
-      if (usedOvercharge) {                            // 過充一次性：發動即清(這口蓄勢的魔力已然呼出)
+      ocUsed = Math.min(ocBonus, pour);               // 過充【只】無償支付超載段·絕不代付底費(修雙重折抵)
+      usedOvercharge = ocUsed > 0;                     // 真的灌到超載才消耗；沒派上用場則保留過充(修無謂燒 token)
+      if (usedOvercharge) {                            // 過充一次性：確實流入這一發即清
         pcData[pIdx][COL.PC.MEMORY] = clearOvercharge_(pcData[pIdx][COL.PC.MEMORY]);
         sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
       }
