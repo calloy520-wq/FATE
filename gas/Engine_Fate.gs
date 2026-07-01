@@ -425,6 +425,8 @@ function resolveFateBattle_(atk, def, opts) {
   var rideA = hasFx_(atk, 'ride'); if (rideA) aHit += Math.round(2 * rankMul_(rideA));
   // 🎯 千里眼(aim)：恆常的卓越目力鎖破綻（被動·SKILL_FX_ 表驅動）。投影(projection) 為主動技 only、此處不給被動。
   aHit = fxHitAdd_(aHit, atk, 'aim', fired);
+  // 🌟 全知全能之星(insight／吉爾伽美什)：看穿本質·洞悉破綻，恆常命中 +4（他懶得認真開·僅中等被動）。
+  if (hasFx_(atk, 'insight')) { aHit += 4; fired.push(atk.name + '·' + fxName_(atk, 'insight', '全知全能之星') + '(洞悉破綻·命中+4)'); }
   // 避矢(evade_ranged)：守方對遠程(Archer)迴避 +6×階級
   if (atk.cls === 'Archer') { var er = hasFx_(def, 'evade_ranged'); if (er) { dEva += Math.round(6 * rankMul_(er)); fired.push(def.name + '·' + fxName_(def, 'evade_ranged', '避矢')); } }
   // 氣息遮斷(stealth)：僅【首擊奇襲】(opts.ambush·開場第一擊／敵突襲)吃命中加成·依階級(A+大、A-小)。
@@ -432,10 +434,11 @@ function resolveFateBattle_(atk, def, opts) {
   var stA = hasFx_(atk, 'stealth');
   // 🐾 氣息感知(sense／恩奇都)：守方以穿透大地的感知看穿奇襲——階級 ≥ 攻方氣息遮斷者，
   //   突襲的命中先機＋下方「要害一擊」全數失效(貼原作「近距離廢掉同級以下的氣息遮斷」)。
-  var senseD = hasFx_(def, 'sense');
+  // 氣息感知(sense)＝穿透大地的感知；全知全能之星(insight／吉爾)＝看穿本質——兩者皆能看破奇襲。
+  var senseD = hasFx_(def, 'sense') || hasFx_(def, 'insight');
   var senseNegate = !!(stA && senseD && rankVal(senseD) >= rankVal(stA));
   if (stA && opts.ambush) {
-    if (senseNegate) { fired.push(def.name + '·' + fxName_(def, 'sense', '氣息感知') + '·看穿奇襲(氣息遮斷失效)'); }
+    if (senseNegate) { var _sN = hasFx_(def, 'sense') ? fxName_(def, 'sense', '氣息感知') : fxName_(def, 'insight', '全知全能之星'); fired.push(def.name + '·' + _sN + '·看穿奇襲(氣息遮斷失效)'); }
     else { aHit += Math.round(rankVal(stA) / 10); fired.push(atk.name + '·' + fxName_(atk, 'stealth', '氣息遮斷') + '·奇襲先機'); }
   }
   // 👑 王之財寶(gob)常駐：無盡兵裝鋪天蓋地，命中 +5（飽和彈幕難閃；傷害彈幕在下方）
