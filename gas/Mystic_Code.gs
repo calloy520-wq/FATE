@@ -110,7 +110,8 @@ function setMystic_(memory, id) {
 // 持有的禮裝是否帶某 fx（給戰鬥/時回查被動用，如 avalon）
 function masterMysticFx_(memory, fx) { var id = getMystic_(memory); return (id && MYSTIC_CODES[id] && MYSTIC_CODES[id].fx === fx) ? id : ""; }
 
-// 🎲 創角依財力/身世「機率」給禮裝（非 100%）。鉅富/名門/鐘塔→高機率好禮裝；窮學徒→多半空手。
+// 🎲 依財力/身世「機率」給禮裝（非 100%）。⚠ 2026-07 創角已改【玩家自選】(Router_Creation 讀 userData.mystic)，
+//   此函式現無呼叫者·保留給「戰中可另獲禮裝」等未來掉落用途。鉅富/名門/鐘塔→高機率好禮裝；窮學徒→多半空手。
 function rollMysticForMaster_(standing, circuits) {
   var s = String(standing || ""), c = parseInt(circuits) || 30;
   var rich = /鐘塔|貴族|名門|富|世家|豪|大魔術師|君主|繼承|聖堂|教會|協會菁英/.test(s);

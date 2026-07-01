@@ -86,6 +86,17 @@
       <input type="text" id="s-appear" class="std-in" placeholder="外貌（如：紅褐短髮的高中生／黑長雙馬尾）" maxlength="30" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
       <input type="text" id="s-standing" class="std-in" placeholder="身世／財力（如：沒落魔術名門末裔／揮金如土的醫科生）" maxlength="40" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
       <input type="text" id="s-wish" class="std-in" placeholder="你對聖杯的願望（如：拯救某個人／證明自己的價值）" maxlength="40" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
+      <!-- 🎴 起始禮裝（玩家自選·2026-07 不再隨機）。id 需對應後端 MYSTIC_CODES（成對維護·同 ALLOWED_FX_/FX_MENU_）；破戒(rule_breaker·戰中奪僕)不列。 -->
+      <div style="color:#cdbbe6; font-size:12px; margin-bottom:4px;">🎴 起始禮裝（御主裝備·戰鬥被動加持）</div>
+      <select id="s-mystic" class="std-select" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
+        <option value="">（不帶禮裝）</option>
+        <option value="avalon">🛡️ 全世界之鞘 Avalon｜承受寶具傷減免＋時回回血（＋阿爾托莉雅＝解鎖理想鄉）</option>
+        <option value="jeweled_sword">💎 寶石劍 Zelretch｜寶具解放威力大增</option>
+        <option value="volumen">🩶 月靈髓液（水銀）｜攻擊更銳＋削減承受寶具傷</option>
+        <option value="origin_bullet">🔫 起源彈｜命中＋傷害俱增</option>
+        <option value="jewels">🔷 魔力儲存寶石｜每擊傷害略增</option>
+        <option value="black_keys">🗝️ 黑鍵｜命中略增</option>
+      </select>
       <div style="background:rgba(212,175,55,0.06); border:1px solid rgba(212,175,55,0.3); border-radius:6px; padding:8px; margin-bottom:8px;">
         <button class="btn" type="button" style="width:100%; border-color:var(--gold-accent); color:var(--gold-accent); font-size:13px; padding:8px;" onclick="rollFate()">🎲 命運測定（魔術天賦）</button>
         <div id="fate-roll-box" style="color:#cdbbe6; font-size:12px; line-height:1.6; margin-top:8px; text-align:center;">尚未測定 —— 可測定 3 次取最滿意的</div>

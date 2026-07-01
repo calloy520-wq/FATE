@@ -194,13 +194,14 @@ async function checkName(event) {
   const appearance = document.getElementById('s-appear')?.value.trim() || "";
   const standing = document.getElementById('s-standing')?.value.trim() || "";
   const wish = document.getElementById('s-wish')?.value.trim() || "";
+  const mystic = document.getElementById('s-mystic')?.value || "";  // 🎴 玩家自選起始禮裝
   const roll = masterRoll || {};
 
   // 🚀 開局非阻塞：create 不再叫 AI(秒回)，故用 quick 遮罩(不顯「10~30秒」)。
   showProcessing('正在締結御主契約…', true);
   try {
     const data = await gasRun({ action: "create", name, sex, appearance, standing, wish, account: currentAccount,
-      warMode: warMode, war: currentWar, playedMaster: playedMaster,
+      warMode: warMode, war: currentWar, playedMaster: playedMaster, mystic: mystic,
       magic: roll.magic || "", circuits: roll.circuits || "", origin: roll.origin || "", melee: roll.melee || "" });
     if (data.success) {
       // 🔴 新角色一律清空所有舊暫存

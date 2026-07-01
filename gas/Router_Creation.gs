@@ -55,10 +55,12 @@ function actionManualNpc(userData, pcId, sheets) {
       userData.warMode === 'chaos' ? "" : `【戰爭】${['4th', '5th', 'fake'].indexOf(String(userData.war)) >= 0 ? userData.war : '5th'}`,
       (userData.warMode !== 'chaos' && userData.playedMaster) ? `【扮演】${String(userData.playedMaster).trim()}` : ""
     ].filter(Boolean).join("｜");
-    // ✨ 依財力/身世機率給一件招牌禮裝（非 100%；強禮裝吃迴路）
+    // 🎴 起始禮裝：玩家自選（2026-07 不再隨機）。驗證＝合法的【被動】禮裝 id；空／'none'／破戒(special) 一律不帶。
     try {
-      const mysticId = rollMysticForMaster_(standing || identity, circuits);
-      if (mysticId) newRow[COL.PC.MEMORY] = equipMysticToMemory_(newRow[COL.PC.MEMORY], mysticId);
+      const pick = String(userData.mystic || "").trim();
+      if (pick && MYSTIC_CODES[pick] && MYSTIC_CODES[pick].type === 'passive') {
+        newRow[COL.PC.MEMORY] = equipMysticToMemory_(newRow[COL.PC.MEMORY], pick);
+      }
     } catch (e) { }
     // 種子敘事欄(4 格預設)：backfill 成功會用單格 setValue 覆蓋為 AI 版；AI 失敗則保留這些預設(優雅降級)。
     newRow[COL.PC.TRAIT] = parseTraitsHelper("", "外貌平凡、舉止從容、自稱「我」、卸下心防的私密一面");
