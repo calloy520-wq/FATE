@@ -296,11 +296,11 @@ function upgradeCodexPersonas_(ss) {
     n += addRows.length;
   }
   // 🧹 淘汰孤兒（根源自動收斂·取代舊 hard-code OBSOLETE 名單）：種子改名/汰換後，英靈殿殘留的
-  //    舊種子列（ID 已不在 SEED_SERVANTS）自動清除——【只刪種子來源】(來源欄≠'ai_gen')，
-  //    AI 原創(recordOriginalHero_ 寫 'ai_gen') 一律不碰。由下往上刪避免位移。
-  //    （例：pre-v29 的「赫拉克勒斯-Archer」舊列、把臂/靜謐之哈桑等，都會在此一次收乾淨。）
+  //    舊種子列（ID 已不在 SEED_SERVANTS）自動清除——【嚴格只刪來源=='seed' 者】。
+  //    AI 原創(recordOriginalHero_ 恆寫 'ai_gen'·自初版即如此) 與任何非 'seed' 來源列一律不碰，
+  //    杜絕誤刪玩家自創英靈。由下往上刪避免位移。（例：pre-v29 的「赫拉克勒斯-Archer」等舊種子列一次收乾淨。）
   for (var j = d.length - 1; j >= 1; j--) {
-    if (!byId[String(d[j][COL.HERO.ID])] && String(d[j][COL.HERO.SOURCE]) !== 'ai_gen') { hero.deleteRow(j + 1); n++; }
+    if (!byId[String(d[j][COL.HERO.ID])] && String(d[j][COL.HERO.SOURCE]) === 'seed') { hero.deleteRow(j + 1); n++; }
   }
   return n;
 }
