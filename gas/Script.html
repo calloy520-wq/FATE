@@ -1098,6 +1098,44 @@ function renderRecentLocs(recents = null) {
     showHistoryOverlay(html);
   }
 
+  // 🎴 六圍旁的「?」：純教學(這幾個字代表什麼)，把數值挪出主卡面
+  function showSixHelp(line) {
+    var html = '<h3 style="margin:0 0 8px; color:#cdbbe6;">🎴 六圍</h3>'
+      + '<div style="color:#cfc3d8; font-size:14px; line-height:1.9;">'
+      + '從者的六項基礎能力，階級 E～EX 越高越強：<br>'
+      + '筋力(近戰力)　耐久(抗打)　敏捷(命中/迴避)　魔力(耗魔/寶具倍率)　幸運(逆轉機率)　寶具(真名威力階級)<br><br>'
+      + '這名從者：' + line
+      + '</div>';
+    showHistoryOverlay(html);
+  }
+  // 💥 寶具標籤：純說明用途，點開看描述，不影響戰鬥中的寶具選擇/解放(那走 openNpReleasePicker)
+  function npPillsHtml(s) {
+    var pill = function (n, desc) {
+      var arg = "'" + String(n).replace(/'/g, '') + "','" + String(desc || '').replace(/'/g, '') + "'";
+      return '<span onclick="event.stopPropagation();showNpDesc(' + arg + ')" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid #d9a93a; color:#e7c873; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;">💥 ' + n + '</span>';
+    };
+    if (s.npOptions && s.npOptions.length) {
+      return s.npOptions.map(function (o) { return pill(o.n, o.desc + (o.scale ? '　〔' + o.scale + '〕' : '')); }).join('');
+    }
+    var np = String(s.np || '');
+    var m = np.match(/^([^（(]+)([（(][\s\S]*)?$/);
+    return pill(m ? m[1].trim() : np, m && m[2] ? m[2] : '');
+  }
+  function showNpDesc(n, desc) {
+    var html = '<h3 style="margin:0 0 8px; color:#e7c873;">💥 寶具：' + n + '</h3>'
+      + '<div style="color:#cfc3d8; font-size:14px; line-height:1.9;">' + (desc || '此寶具的詳細效果由戰鬥中的寶具解放結算，見「⚔ 解放寶具」。') + '</div>';
+    showHistoryOverlay(html);
+  }
+  // 🔷 魔力條旁的「?」：純教學(怎麼用)，不塞公式/設定細節
+  function showManaHelp() {
+    var html = '<h3 style="margin:0 0 8px; color:#7ec8ff;">🔷 魔力</h3>'
+      + '<div style="color:#cfc3d8; font-size:14px; line-height:1.9;">'
+      + '這是你跟從者共用的一個池子——從者出力越高、寶具解放，吃你的魔力就越兇。<br><br>'
+      + '💧 快沒了先靠靈脈或休息自然回魔；急用可以「補魔」硬擠回滿，但會永久扣一點迴路上限，別常用。<br><br>'
+      + '⚠️ 真的見底時，缺口會直接燒你跟從者的血——記得別讓它掉到底。'
+      + '</div>';
+    showHistoryOverlay(html);
+  }
   async function refreshFateTags(prefetched) {
     if (!pc || !pc.id) return;
     try {
@@ -1134,8 +1172,10 @@ function renderRecentLocs(recents = null) {
               : 'linear-gradient(180deg,#ef8a82,#d0473f 55%,#a52f28)');
         const glow = kind === 'mp' ? 'rgba(120,180,255,.55)' : (pct > 50 ? 'rgba(140,224,140,.5)' : pct > 20 ? 'rgba(224,176,64,.5)' : 'rgba(224,90,80,.55)');
         const icon = kind === 'mp' ? '🔷' : '❤️';
+        const help = kind === 'mp' ? '<span onclick="event.stopPropagation();showManaHelp()" style="cursor:pointer; font-size:10px; color:#7ec8ff; border:1px solid #4a6fa0; border-radius:8px; width:13px; height:13px; line-height:13px; text-align:center; flex:none;">?</span>' : '';
         return '<div style="display:flex; align-items:center; gap:6px; margin:4px 0;">'
           + '<span style="font-size:11px; width:16px; flex:none; text-align:center;">' + icon + '</span>'
+          + help
           + '<div style="flex:1; min-width:0; position:relative; height:12px; background:linear-gradient(180deg,#16121c,#241d2c); border-radius:7px; overflow:hidden; border:1px solid rgba(0,0,0,0.45); box-shadow:inset 0 1px 2px rgba(0,0,0,.6);">'
           + '<div style="width:' + pct + '%; height:100%; background:' + grad + '; border-radius:7px; box-shadow:0 0 6px ' + glow + '; transition:width .35s ease;' + anim + '"></div>'
           + '<div style="position:absolute; top:1px; left:3px; right:3px; height:3px; border-radius:3px; background:linear-gradient(90deg,rgba(255,255,255,.35),rgba(255,255,255,0)); pointer-events:none;"></div>'
@@ -1172,7 +1212,6 @@ function renderRecentLocs(recents = null) {
         + ((pc && pc.mode === 'kanshou') ? '' :  // 🌹 慾海：御主只露名字＋外顯，不露血量/魔力/令咒/禮裝
             bar('體', m.hpNum, m.hpMax, 'hp')
             + bar('魔', m.mpNum, m.mpMax, 'mp', (t.economy && typeof t.economy.net === 'number') ? t.economy.net : null)
-            + '<div style="color:#6e9fc0; font-size:9.5px; margin-top:1px; opacity:.85;">🔋 共用魔力池(上限＝迴路×6＋從者魔力×2)：從者按出力檔抽取。回魔靠靈脈/休息或💧補魔(永久燒蝕迴路)；⚠池見底→🩸被動燃血(缺口÷2同扣御主＋從者HP)</div>'
             + '<div style="color:#9a8bb0; font-size:11px; margin-top:3px;">令咒 <span style="color:#c79be8;">' + '❖'.repeat(myMasterSeals) + '</span></div>'
             + (myMystic ? ('<div style="color:#9a8bb0; font-size:11px; margin-top:3px;" title="' + (myMystic.desc || '').replace(/"/g, '') + '">禮裝 <span style="color:#7fd0c0;">✨ ' + myMystic.name + '</span> <span style="color:#8aa;">(被動·戰鬥自動加持從者)</span>' + (myMystic.effect ? ' <span style="color:#7ec8a0;">' + myMystic.effect + '</span>' : '') + '</div>') : ''))
         + '</div>';
@@ -1231,11 +1270,11 @@ function renderRecentLocs(recents = null) {
               + [20, 40, 60, 80, 100].map(function (o) { var on = (o === (s.output || 60)); return '<button class="out-btn" data-o="' + o + '" onclick="setServantOutput(this,\'' + safeN + '\',' + o + ')" title="' + (o === 100 ? '全開：戰力最強、唯一可解放寶具，御主魔力消耗最劇' : o === 20 ? '維持：御主魔力最省，但戰力受限、無法放寶具' : '出力 ' + o + '%') + '" style="flex:1; font-size:10px; padding:3px 0; border-radius:5px; cursor:pointer; border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + '; background:' + (on ? 'rgba(110,180,220,.30)' : 'rgba(40,50,65,.4)') + '; color:' + (on ? '#bfe3ff' : '#7a8aa0') + '; font-weight:' + (on ? 'bold' : 'normal') + ';">' + o + (o === 100 ? '💥' : '') + '</button>'; }).join('')
               + '</div></div>')
           + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5; margin-top:4px;">羈絆 ' + bondWord(s.bond) + '</div>'
-          + '<div style="color:#cdbbe6; font-size:11px; margin-top:3px; letter-spacing:.5px;">六圍　' + sixLine + '</div>'
+          + '<div style="color:#cdbbe6; font-size:11px; margin-top:3px; letter-spacing:.5px;">六圍 <span onclick="event.stopPropagation();showSixHelp(\'' + sixLine.replace(/'/g, '') + '\')" style="cursor:pointer; font-size:10px; color:#cdbbe6; border:1px solid #6a5a8a; border-radius:8px; width:13px; height:13px; display:inline-block; line-height:13px; text-align:center;">?</span></div>'
           + (skillPills ? ('<div style="margin-top:3px;">' + skillPills + '</div>') : '')
           + (traitPills ? ('<div style="margin-top:1px;">' + traitPills + '</div>') : '')
           + ((skillPills || traitPills) ? '<div style="color:#6a5f80; font-size:9.5px; margin-top:2px;">👆 點標籤看效果' + ((s.mageRealm && s.mageRealm.has) || (s.skills || []).some(function (k) { return k.fx === 'rune'; }) ? '；✨發亮的可點開挑選' : '') + '</div>' : '')
-          + '<div style="color:#9a8bb0; font-size:11px; margin-top:5px;">寶具　' + s.np + '</div>'
+          + '<div style="margin-top:5px;">寶具 ' + npPillsHtml(s) + '</div>'
           + ((pc && pc.mode === 'kanshou') || (dual && !isActive) ? '' :
               '<div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">'
               + (dual ? '<div style="flex:1 0 100%; color:#9a8fae; font-size:10px;">下列動作對「' + s.name + '」生效：</div>' : '')
