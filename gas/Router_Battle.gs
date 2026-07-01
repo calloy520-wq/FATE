@@ -803,12 +803,31 @@ function actionFateBattle(userData, pcId, sheets) {
             }
           }
         }
-        // 🎯 敵AI無主動技按鈕→自動施展其招牌施放技術(魔力放出/怪力/投影)，免費(視為其戰鬥本色)——
-        //   精確還原「改制前這些是免費被動」的敵方戰力，避免單層歸屬後悄悄削弱敵人(玩家側才改為主動付魔)。
-        const eSkill = servantActiveSkill_(enemyNow);
-        const es = fateStrike_(sheets, pcData, enemyNow, ctgt, { counterMul: enemyFireNp ? 1.0 : 0.85, np: enemyFireNp, skill: eSkill }, ctx);
-        rl.eHit = es.hit; rl.eRoll = es.aRoll; rl.eHitVal = es.aHit; rl.eDmg = es.hit ? es.damage : 0; rl.eFired = es.fired; rl.eTarget = String(pcData[ctgt][COL.PC.NAME]); rl.eNp = enemyFireNp;
-        if (es.defeat) { defeat = true; victory = false; dreamPrompt = es.dreamPrompt; }
+        // 🗡️ 理想鄉·無敵結界：目標為阿爾托莉雅(理想鄉 armed) 且敵本回合解放寶具 且御主純魔 ≥200 →
+        //   完全擋下該發＋扣 200＋自動關閉(消耗)。付不起則結界張不起、照常挨打。
+        let idealBlocked = false;
+        if (enemyFireNp && idealRealmOn_(pcData[ctgt][COL.PC.MEMORY])) {
+          const tgtC0 = rowToCombatant_(pcData[ctgt]); injectMysticBuff_(tgtC0, pcData[pIdx][COL.PC.MEMORY]);
+          const mMpNow = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
+          if (hasFx_(tgtC0, 'avalon_saber') && mMpNow >= 200) {
+            pcData[pIdx][COL.PC.MP] = mMpNow - 200;
+            pcData[ctgt][COL.PC.MEMORY] = setIdealRealm_(pcData[ctgt][COL.PC.MEMORY], false);
+            sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+            sheets.pc.getRange(ctgt + 1, 1, 1, pcData[ctgt].length).setValues([pcData[ctgt]]);
+            idealBlocked = true;
+          }
+        }
+        if (idealBlocked) {
+          rl.eHit = false; rl.eDmg = 0; rl.eNp = true; rl.eTarget = String(pcData[ctgt][COL.PC.NAME]);
+          rl.eFired = [`「${enemyNow.name}」真名解放 vs 「${pcData[ctgt][COL.PC.NAME]}」·理想鄉——隔絕於世界之外的無敵結界將寶具威能盡數湮滅（御主耗 200 魔·結界收起）`];
+        } else {
+          // 🎯 敵AI無主動技按鈕→自動施展其招牌施放技術(魔力放出/怪力/投影)，免費(視為其戰鬥本色)——
+          //   精確還原「改制前這些是免費被動」的敵方戰力，避免單層歸屬後悄悄削弱敵人(玩家側才改為主動付魔)。
+          const eSkill = servantActiveSkill_(enemyNow);
+          const es = fateStrike_(sheets, pcData, enemyNow, ctgt, { counterMul: enemyFireNp ? 1.0 : 0.85, np: enemyFireNp, skill: eSkill }, ctx);
+          rl.eHit = es.hit; rl.eRoll = es.aRoll; rl.eHitVal = es.aHit; rl.eDmg = es.hit ? es.damage : 0; rl.eFired = es.fired; rl.eTarget = String(pcData[ctgt][COL.PC.NAME]); rl.eNp = enemyFireNp;
+          if (es.defeat) { defeat = true; victory = false; dreamPrompt = es.dreamPrompt; }
+        }
       }
     }
     rounds.push(rl);

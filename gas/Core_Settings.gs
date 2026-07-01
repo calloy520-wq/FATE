@@ -179,6 +179,13 @@ function masterSynergyOn_(name, memory) {
 function getNpTelegraph_(memory) { return /【寶具預告】/.test(String(memory || "")); }
 function setNpTelegraph_(memory) { var s = String(memory || ""); return getNpTelegraph_(s) ? s : (s ? s + "｜【寶具預告】1" : "【寶具預告】1"); }
 function clearNpTelegraph_(memory) { return String(memory || "").replace(/｜?【寶具預告】1/g, ""); }
+// 🗡️ 理想鄉·無敵結界 armed 旗標（阿爾托莉雅＋Avalon 專屬·主動 toggle·存從者 MEMORY）：
+//   ON＝待命，敵寶具來襲且御主純魔 ≥200 → 完全擋下該發＋扣 200＋自動關閉(消耗)。付不起則擋不住。
+function idealRealmOn_(memory) { return /【理想鄉】on/.test(String(memory || "")); }
+function setIdealRealm_(memory, on) {
+  var s = String(memory || "").replace(/｜?【理想鄉】on/g, "");
+  return on ? ((s ? s + "｜" : "") + "【理想鄉】on") : s;
+}
 // 前端「變容」標籤用的 synergy 視圖：非 synergy 從者回 null；恩奇都回 {has,on,master,peak}。
 //   on＝當前御主觸發全盛(亮)；否則暗(提醒需該御主)。玩家不可控——由御主決定。
 function masterSynergyView_(name, memory) {

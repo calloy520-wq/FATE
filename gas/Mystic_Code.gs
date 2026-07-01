@@ -56,8 +56,9 @@ var MC_COMBAT_ = {
   mc_mercury:     { hit: 4, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.88, label: '月靈髓液·攻防一體' },
   mc_jewel:       { hit: 0, dmgAdd: 0,  npMul: 1.5,  npDefMul: 1.0,  label: '寶石劍·奇蹟一擊' },
   avalon:         { hit: 0, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.82, label: '全世界之鞘' },
-  // 🗡️ 理想鄉：Avalon 回到正主阿爾托莉雅手中＝隔絕於世界之外的無敵結界，承受寶具傷近乎歸零(×0.20)。
-  avalon_saber:   { hit: 0, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.20, label: '全世界遙遠的理想鄉' }
+  // 🗡️ Avalon 回到正主阿爾托莉雅手中：被動＝鞘之基本減傷(×0.82·同一般 Avalon)＋時回；
+  //    「理想鄉·無敵結界」的【完全擋寶具】改為主動技(耗 200 魔·每場一次)，見 idealRealm 邏輯，不在此永久生效。
+  avalon_saber:   { hit: 0, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.82, label: '全世界遙遠的理想鄉' }
 };
 // 取某戰鬥單位身上的禮裝戰鬥效果（找第一個命中 MC_COMBAT_ 的 fx）。回 null＝無。
 function mcCombatFx_(c) {
