@@ -151,9 +151,7 @@ function getPlayedMaster_(memory) {
 
 function actionGetHeroes(userData, pcId, sheets) {
   try {
-    const hs = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("英靈殿");
-    if (!hs || hs.getLastRow() <= 1) return JSON.stringify({ success: true, heroes: [] });
-    const rows = hs.getDataRange().getValues().slice(1);
+    const rows = getHeroCodexCached().slice(1);
     const heroes = rows.filter(r => r[COL.HERO.ID]).map(r => ({
       id: r[COL.HERO.ID], cls: r[COL.HERO.CLS], name: r[COL.HERO.NAME],
       gender: r[COL.HERO.SEX], np: r[COL.HERO.NP]
@@ -168,10 +166,8 @@ function actionGetHeroes(userData, pcId, sheets) {
 function actionGetMasters(userData, pcId, sheets) {
   const war = String(userData.war || "5th");
   const roster = (war === '4th') ? FATE_4TH_ROSTER : FATE_5TH_ROSTER;
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const msh = ss.getSheetByName("御主殿");
-  if (!msh) return JSON.stringify({ success: true, masters: [] });
-  const mrows = msh.getDataRange().getValues();
+  const mrows = getMasterCodexCached();
+  if (!mrows.length) return JSON.stringify({ success: true, masters: [] });
   const out = roster.map(function (r) {
     const m = mrows.find(function (x) { return String(x[COL.MASTER.ID]) === r.master; });
     if (!m) return null;
@@ -240,7 +236,7 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hs = ss.getSheetByName("英靈殿");
   if (!hs) return;
-  var data = hs.getDataRange().getValues();
+  var data = getHeroCodexCached();
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][COL.HERO.NAME]).trim() === name) return; // 已有同名 → 不重複收錄
   }
@@ -248,6 +244,7 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
   hs.appendRow([name + "-" + cls, cls, name, sex || "異", sixJson || "{}",
     JSON.stringify(classSkills || []), JSON.stringify(skills || []), JSON.stringify(traits || []),
     np || "", persona, align || "中立", "[]", "ai_gen"]);
+  try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { } // 種子表已變動→清快取，下次讀到新從者
 }
 
 function actionSummonServant(userData, pcId, sheets) {
@@ -277,9 +274,8 @@ function actionSummonServant(userData, pcId, sheets) {
   // ── 從英靈殿尋找對應英靈（heroId 指定 / 真名比對 / 隨機）──
   let hero = null;
   try {
-    const hs = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("英靈殿");
-    if (hs && hs.getLastRow() > 1) {
-      const hrows = hs.getDataRange().getValues().slice(1).filter(r => r[COL.HERO.ID]);
+    const hrows = getHeroCodexCached().slice(1).filter(r => r[COL.HERO.ID]);
+    if (hrows.length) {
       if (heroId) {
         hero = hrows.find(r => String(r[COL.HERO.ID]) === heroId);
       } else if (trueName) {
@@ -319,12 +315,13 @@ function actionSummonServant(userData, pcId, sheets) {
       // 🎴 特徵(4格敘事：外貌/氣質/自稱與口氣/私密)直接讀寫死的種子 persona.look，穩定一致、不叫 AI 生。
       row[COL.PC.TRAIT] = parseTraitsHelper(String(persona.look || ""), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
       // 🚀 種子英靈：直接用寫死的種子 persona（萌點/口吻 v3 已補齊），不再叫 AI 重生一次——省一次 API、加速召喚。
-      //    個性取 persona.words(四關鍵)、萌點取 persona.moe、生平用種子既有 back 或職階真名模板。細緻演出靠 servantCard_(codexPersona_) 注入。
+      //    個性取 persona.words(四關鍵)、萌點取 persona.moe、生平用種子既有 back 或職階真名模板。
+      //    口吻/小動作(persona.speech/tic)已由 stampPersonaFlavor_ 複製進 MEMORY，servantCard_ 平常直接讀列即可，不必查英靈殿。
       let svPref = String(persona.words || "").replace(/・/g, "、");
       let svMoe = String(persona.moe || "").slice(0, 18);
       let svBack = persona.back ? String(persona.back).slice(0, 28) : `${cls}・${realName}`;
       row[COL.PC.PREF] = parseTraitsHelper(svPref, "沉著表象、堅定內裡、珍視之物、厭惡之事");
-      row[COL.PC.MEMORY] = `第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || "保持距離"}`;
+      row[COL.PC.MEMORY] = stampPersonaFlavor_(`第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || "保持距離"}`, persona.speech, persona.tic);
       row[COL.PC.SIX] = JSON.stringify(six);
       row[COL.PC.TAGS] = JSON.stringify({ skills: classSkills.concat(skills), traits: traits });
       // 🕯️ 復活命數：AI 原創英靈(ai_gen·從英靈殿重召)持 god_hand → 標【試煉】3(尼祿「三度輝映」基準)。
