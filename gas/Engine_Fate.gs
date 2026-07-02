@@ -269,7 +269,7 @@ function fxDmgApply_(base, winner, loser, fx, fired) {
 var DEF_FX_ = {
   territory: { mul: 0.74, zh: '陣地', note: '·魔術防壁', pierceKey: 'territory', guardPositive: true, piercedMsg: function (w) { return w.name + '·概念壓制(碾穿結界)'; } },
   home_field: { mul: function (r) { return 1 - 0.16 * r; }, zh: '主場陣地結界', pierceKey: 'territory', guardPositive: true, piercedMsg: function (w) { return w.name + '·概念壓制(碾穿主場結界)'; } },
-  rho_aias: { mul: 0.60, zh: '七天盾', note: '(羅·埃亞斯·七層花瓣)', pierceKey: 'rho_aias' },
+  rho_aias: { mul: 0.60, zh: '概念護盾', pierceKey: 'rho_aias' }, // note 拿掉：顯示持有者自己的技能名(EMIYA 七天盾/貞德 守護大旗)，防張冠李戴
   divine_core: { mul: function (r) { return 1 - 0.18 * r; }, zh: '神核', pierceKey: 'divine_core', alsoPiercedByFx: 'anti_magic_lance', piercedMsg: function (w) { return w.name + '·' + (hasFx_(w, 'anti_magic_lance') ? '破魔(無視神核)' : '概念壓制(無視神核)'); } },
   wall_def: { mul: 0.82, zh: '城牆防禦', note: '(物理減傷18%)', pierceKey: 'territory', physicalOnly: true }
 };
@@ -355,6 +355,10 @@ function servantNpOptions_(name, cls) {
   if (name === '蒼白騎兵（Pale Rider）') return [
     { n: '審判日將至 Doomsday Come', scale: '對界', fx: '', desc: '對界·疫病具現的終末審判（EX）' },
     { n: '籠中之鳥 Kagome Kagome', scale: '對軍', fx: '', desc: '對軍·封鎖之疫瘴結界（A）' }
+  ];
+  if (name === '貞德') return [
+    { n: '紅蓮聖女 La Pucelle', scale: '對人', fx: '', desc: '對人·聖女的火焰聖劍——燃燒魔力、捨身覺悟的最後王牌' },
+    { n: '吾主在此 Luminosité Eternelle', scale: '對人', fx: '', desc: '守護大旗·豎旗則神明在此（防禦寶具·非攻擊——旗之守護為常駐減傷）' }
   ];
   return null;
 }
@@ -601,6 +605,9 @@ function resolveFateBattle_(atk, def, opts) {
   if (KNIGHT_BEATS[winner.cls] === loser.cls) { base = Math.round(base * 1.12); fired.push(winner.name + '·職階相性·壓制' + loser.cls); }
   if (atkWins && opts.np && npIs('tsubame')) base = Math.round(base * 2.3);
   // 寶具解放：主威力＝依寶具階級的 d10 基礎骰（E3→EX30）；階級小補正錦上添花（軍略 +15%、神性 +10%）
+  // ⚠【呼叫端契約】此區塊套在 winner 身上——opts.np 時若守方反殺(winner=def)，damage 會含【守方自己的寶具骰】。
+  //   既有呼叫端皆安全(fateStrike_ 對 atkWins=false 早退丟棄／對轟取樣用 forceHit／背擊反手另以普通交鋒結算)；
+  //   新增呼叫端若要把「守方勝」的 damage 用出去，須自行改用 forceHit 或普通交鋒重算，別白嫖寶具骰。
   if (opts.np) {
     // 解放寶具者贏了交手→套用「所選寶具」的簽名乘子；對手反殺(winner=def)則照其自身 fx(不受玩家寶具選擇影響)
     var wRelease = (winner === atk);

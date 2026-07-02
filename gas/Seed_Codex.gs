@@ -31,7 +31,7 @@ var SEED_SERVANTS = [
     traits:[{n:'神性',r:'E-'},{n:'女神'}], np:'他者封印·鮮血神殿 Blood Fort Andromeda（對軍·結界）／騎英之手綱 Bellerophon（對軍 A+·喚出神駿天馬珀伽索斯·踏虛凌空·振翅撕裂長空、化作一往無前的純白光矢突刺）',
     align:'混沌・善', persona:{firstP:'我',look:'紫長髮・眼鏡封印魔眼的修長女子、寡言低斂的幽靜氣息、自稱「我」・語氣壓得很低',words:'忠誠・守護・自卑・深藏的溫柔',toMaster:'寡言而深情、極度護主',speech:'寡言低沉、必要才開口、護主時毫不猶豫、語氣壓得很低',moe:'怪力女神卻極度自卑、靠眼鏡壓制魔眼的反差、對御主近乎獻身的忠誠、姊姊般的包容',tic:'推眼鏡、靜默佇立暗處、垂眸'} },
   { id:'美狄亞-Caster', cls:'Caster', realName:'美狄亞', wars:['5th'], gender:'女',
-    six:{筋力:'E',耐久:'D',敏捷:'C',魔力:'A',幸運:'B',寶具:'C'},
+    six:{筋力:'E',耐久:'D',敏捷:'C',魔力:'A++',幸運:'B',寶具:'C'},
     classSkills:[{n:'陣地作成',r:'A',fx:'territory'},{n:'道具作成',r:'A',fx:'crafting'}],
     skills:[{n:'高速詠唱',r:'A',fx:'fast_cast'},{n:'神代魔術',r:'A',fx:'divine_age'},{n:'破戒全咒',r:'C',fx:'rule_breaker'},{n:'金羊毛 Argon Coin',r:'EX',fx:'golden_fleece'}],
     traits:[{n:'人類'}], np:'萬符必應破戒 Rule Breaker（規則破壞者 C）',
@@ -44,7 +44,7 @@ var SEED_SERVANTS = [
     traits:[{n:'人類'}], np:'燕返 Tsubame Gaeshi（對人魔劍・次元摺疊・三段同時斬）',
     align:'中立・中庸', persona:{firstP:'拙者',look:'墨髮長刀・素樸和裝的清瘦劍客、淡泊洒脫的禪意閒適、自稱「拙者」・古風文雅',words:'劍士・閒適・無欲・宿命',toMaster:'隨遇而安、只求一戰',speech:'古風文雅、淡泊洒脫、帶禪意、慢條斯理',moe:'無欲無求的洒脫、只為一場好決鬥而活、看守山門的隨遇而安、非英雄卻有英雄氣的平凡',tic:'凝望飛燕、按刀靜立、微微一笑'} },
   { id:'赫拉克勒斯-Berserker', cls:'Berserker', realName:'赫拉克勒斯', wars:['5th'], gender:'男',
-    six:{筋力:'A',耐久:'A',敏捷:'A',魔力:'A',幸運:'B',寶具:'A'},
+    six:{筋力:'A+',耐久:'A',敏捷:'A',魔力:'A',幸運:'B',寶具:'A'},
     classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'對魔力',r:'D',fx:'nullify_magic'}],
     skills:[{n:'勇猛',r:'A',fx:'morale'},{n:'戰鬥續行',r:'A',fx:'survive'},{n:'十二試煉',r:'A',fx:'god_hand'}],
     traits:[{n:'神性',r:'A'},{n:'王'}], np:'十二試煉 God Hand（A·十二條命）',
@@ -79,7 +79,7 @@ var SEED_SERVANTS = [
     traits:[{n:'王'}], np:'王之軍勢 Ionioi Hetairoi（對軍 EX·固有結界召喚萬軍）／神威的車輪 Gordius Wheel（雷神戰車·衝鋒）',
     align:'中立・善', persona:{firstP:'余',look:'紅髮虬髯・魁梧壯碩、披風加身的征服王、豪邁爽朗的王者雅量、自稱「余」・氣口恢弘如雷',words:'豪邁・征服・雅量・王道',toMaster:'視為臣下亦為摯友，要對方先成為夠格的王',speech:'豪爽大笑、稱「小鬼」、王者氣度、好酒好戰、講大道理',moe:'征服世界的野心與孩子氣並存、愛酒愛地圖、收伏人心的雅量、把御主當孩子般栽培（不分男女）',tic:'仰天大笑、攤開世界地圖、灌下整桶酒'} },
   { id:'吉爾德萊-Caster', cls:'Caster', realName:'吉爾·德·萊斯（青鬍子）', wars:['4th'], gender:'男',
-    six:{筋力:'E',耐久:'E',敏捷:'D',魔力:'C',幸運:'E',寶具:'A+'},
+    six:{筋力:'D',耐久:'E',敏捷:'D',魔力:'C',幸運:'E',寶具:'A+'},
     classSkills:[{n:'陣地作成',r:'C',fx:'territory'},{n:'道具作成',r:'C',fx:'crafting'},{n:'城牆防禦',r:'C',fx:'wall_def'}],
     skills:[{n:'精神汙染',r:'A',fx:'mad'},{n:'螺湮城教本',r:'',fx:'summon_horror'}],
     traits:[{n:'人類'}], np:'螺湮城教本 Prelati\'s Spellbook（深淵召喚・召喚大海怪）',
@@ -97,7 +97,7 @@ var SEED_SERVANTS = [
     traits:[{n:'人類'}], np:'妄想心音 Zabaniya（對人·掏出心臟之影即死）',
     align:'秩序・惡', persona:{firstP:'我',look:'骷髏面具・纏滿詛咒繃帶左臂的暗殺者、寡言肅殺的氣息、自稱「我」・低沉簡短肅穆',words:'暗殺・詛咒之腕・沉默・初代之名',toMaster:'冷淡服從、以暗殺為天職',speech:'低沉簡短、必要才開口、宗教式的肅穆',moe:'纏繃帶的詛咒左臂、心臟掏取的致命一擊、沉默卻守諾、暗殺信條的純粹',tic:'以左臂掏心之姿、無聲潛近、垂首誦念'} },
   { id:'蘭斯洛特-Berserker', cls:'Berserker', realName:'蘭斯洛特（湖之騎士）', wars:['4th'], gender:'男',
-    six:{筋力:'A',耐久:'A',敏捷:'A+',魔力:'C',幸運:'B',寶具:'A'},
+    six:{筋力:'A+',耐久:'A',敏捷:'A+',魔力:'C',幸運:'B',寶具:'A'},
     classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'騎乘',r:'A',fx:'ride'},{n:'對魔力',r:'E',fx:'nullify_magic'}],
     skills:[{n:'無窮的鍛鍊',r:'A+',fx:'clear_mind'},{n:'無毀的湖光',r:'A',fx:'weapon_steal'}],
     traits:[{n:'騎士'},{n:'人類'}], np:'騎士不為孤軍 Knight of Owner（萬物化為兵裝）',
@@ -213,8 +213,8 @@ var SEED_SERVANTS = [
   { id:'貞德-Ruler', cls:'Ruler', realName:'貞德', wars:['客串'], gender:'女',
     six:{筋力:'B',耐久:'B',敏捷:'A',魔力:'A',幸運:'C',寶具:'A++'},
     classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'},{n:'真名看破',r:'A',fx:'analyze'}],
-    skills:[{n:'啟示',r:'A',fx:'first_strike'},{n:'守護的旗幟',r:'B',fx:'survive'},{n:'領袖氣質',r:'B',fx:'morale'}],
-    traits:[{n:'人類'}], np:'吾主在此 Luminosité Eternelle（守護結界）／紅蓮聖女 La Pucelle',
+    skills:[{n:'啟示',r:'A',fx:'first_strike'},{n:'吾主在此 Luminosité Eternelle',r:'A',fx:'rho_aias'},{n:'領袖氣質',r:'B',fx:'morale'}],
+    traits:[{n:'人類'}], np:'紅蓮聖女 La Pucelle（火焰聖劍·捨身的最後王牌）／吾主在此 Luminosité Eternelle（守護大旗·非攻擊寶具·豎旗則神明在此）',
     align:'秩序・善', persona:{firstP:'我',look:'金髮持旗・銀甲聖潔的奧爾良聖女、溫柔堅定的信仰氣度、自稱「我」・語氣溫柔循循善誘',words:'聖女・堅毅・溫柔的信念・無私',toMaster:'溫柔守護，循循善誘',speech:'溫柔堅定、信仰之言、循循善誘、無私包容',moe:'聖女的堅毅與少女的羞澀、不恨將自己處刑之人的寬容、認真到固執的信念、其實很平凡的願望',tic:'按旗祈禱、溫柔微笑、堅定直視'} },
   { id:'美遊-Saber', cls:'Saber', realName:'美遊·埃德費爾特（Saber install）', wars:['客串'], gender:'女',
     six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'C',幸運:'C',寶具:'A'},
@@ -225,8 +225,8 @@ var SEED_SERVANTS = [
   { id:'小黑-Archer', cls:'Archer', realName:'克洛伊·馮·愛因茲貝倫（Archer install）', wars:['客串'], gender:'女',
     six:{筋力:'C',耐久:'C',敏捷:'A',魔力:'B',幸運:'C',寶具:'B'},
     classSkills:[{n:'對魔力',r:'D',fx:'nullify_magic'},{n:'單獨行動',r:'B',fx:'solo'}],
-    skills:[{n:'投影魔術',r:'B',fx:'projection'},{n:'千里眼',r:'C',fx:'aim'},{n:'無限劍製',r:'C',fx:'ubw'}],
-    traits:[{n:'人類'}], np:'無限劍製 Unlimited Blade Works／干將・莫邪（雙劍亂舞）',
+    skills:[{n:'投影魔術',r:'B',fx:'projection'},{n:'千里眼',r:'C',fx:'aim'}],
+    traits:[{n:'人類'}], np:'鶴翼三連 Triple-Linked Crane Wings（對人 B·投影干將・莫邪，雙劍交擊、三連必殺的劍技）',
     align:'混沌・中庸', persona:{firstP:'本小姐',look:'褐膚白髮・Archer 之力的活潑少女、促狹好戰的腹黑氣燄、自稱「本小姐」・促狹挑釁愛逗弄',words:'腹黑・愛捉弄・直率好戰・撒嬌',toMaster:'又黏又愛逗弄，戰意旺盛',speech:'促狹捉弄、直率好戰、撒嬌耍賴、得意挑釁',moe:'愛捉弄人的腹黑、黏人又傲嬌、戰鬥狂的興奮、其實很重感情',tic:'勾肩貼近、雙劍交叉、吐舌挑釁'} },
   { id:'伊莉雅-Caster', cls:'Caster', realName:'伊莉雅絲菲爾·馮·愛因茲貝倫（Caster install）', wars:['客串'], gender:'女',
     six:{筋力:'D',耐久:'C',敏捷:'C',魔力:'A',幸運:'B',寶具:'B'},
@@ -271,7 +271,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v38'; // v38：全面體檢批修——①阿爾喀德斯 拔自相矛盾的 神性A trait(strange Fake 原作：神性已被「泥」剝奪·persona 也明寫「捨神性」；殘留會平白吃 神殺/天之鎖/對神 剋神放大)→換 英雄。②美杜莎 神性補階 E-(原無階·引擎 fallback C 偏強)。③蘭斯洛特 補 人類 trait。④阿爾托莉雅 Avalon 錯字「永世惑曲」→「永世隔絕」。⑤蒼白騎兵 入 servantNpOptions_ 多寶具表(Doomsday Come 對界 EX／Kagome Kagome 對軍 A——原單字串同含對界+對軍、引擎恆取對界)。⑥servantNpOptions_ 改【精確比對種子真名】(原 indexOf 子字串→自創從者名含「無名」等即整組繼承 Ea/Enuma 選單·繞過 fx 白名單)。v37：Excalibur 接回概念 5 階——阿爾托莉雅/美遊 skills 補掛 fx:'excalibur'(比照庫丘林 gae_bolg/EMIYA ubw 的單寶具簽名模式)。此前全專案零產生者：誓約勝利之劍只寫在 np 字串(規模對城吃得到)，但 firstSignatureFx_/offenseTier_/CLASH_OFF_FX 全靠 hasFx_ 讀 skills→解放時拿不到 CONCEPT_TIER 5、無法概念壓制 陣地/對魔力/神核，敵方寶具對轟判斷也漏她。順修美遊 np 字串「對城 A++」→「對城 A」(對齊其 six.寶具 A；A++ 是從阿爾托莉雅抄來的殘留)。v36：英靈殿孤兒自動收斂——upgradeCodexPersonas_ 改為「ID 不在 SEED_SERVANTS 且 來源≠ai_gen」即刪(取代手動 OBSOLETE 名單)，一次清掉 pre-v29 殘留的「赫拉克勒斯-Archer」等舊列(奇怪的阿恰b叔)；AI 原創不動。v35：瘦寶具補招式意象(AI 敘述由種子保證·不靠模型記性)——Excalibur(阿爾托莉雅/人類 Saber)金色收束光炮、美杜莎 Bellerophon 天馬白光突刺、伊絲塔 An Gugalanna 天牛踏地熔毀、莫德雷德 Clarent Blood Arthur 血色奔雷。show-don't-tell 不受影響(真名照喊·描述仍屬內化素材)。v34：吉爾伽美什 補招牌寶具「全知全能之星 Sha Naqba Imuru」(insight·看穿本質)——命中+4＋看破奇襲(比照氣息感知)·中等被動(他懶得認真開)。v33：恩奇都 Enuma Elish 入 CONCEPT_TIER 6 階(可匹敵乖離劍)——恩奇都改多寶具(Enuma Elish 對界·enuma／Age of Babylon 對軍·gob)；offenseTier_ 根源修(解放寶具自身概念也計入·順修吉爾 Ea 漏吃概念壓制)。v32：蒼白騎兵 對官方面板全面校正——魔EX→A·幸E→C(補上次漏改·官方表=筋E/耐A/敏B/魔A/幸C/寶EX)、騎乘D→EX(乘風水人概念級)＋補對魔力C、技能正名(感染/無辜的世界/冥界的引導)、寶具補第二 Kagome Kagome(對軍A)＋Doomsday Come正名、align 中立中庸。v31：氣息感知升真機制——恩奇都 氣息感知 fx aim→sense；引擎新增 sense：守方階級≥攻方stealth→抵銷敵奇襲的命中先機＋要害一擊(senseNegate 橫跨兩處)。v30：恩奇都補正典技＋寶具正名——寶具真名「天地乖離開闢之星(吉爾的Ea名·掛錯)」→「世人啊冀以鎖繫神明 Enuma Elish」＋民之睿智Age of Babylon；變生→變容(正名)；拔非正典神性A技/trait(他是神造兵器非神裔)→換完全之形A(regen·大地再生)；補氣息感知A+(aim)。變容真·重分配/氣息感知真·破隱形＝引擎級·暫用proxy。v29：赫拉克勒斯(fake)正名為 Avenger·阿爾喀德斯(令咒歪曲·非單純Archer)——捨神性不死性換十二榮光→拔十二試煉(god_hand)、六圍升官方 A/B/A/A/B/A++、職技 對魔力A/復仇者A(god_slay·天生噬神)/單獨行動B、保有 心眼(真)B/勇猛E/戰鬥續行A+、寶具 Nine Lives+十二榮光+天風的篡奪者、persona 改阿爾喀德斯。引擎 god_slay 改 fx 驅動。v28：續補招牌+去矛盾技——赫拉克勒斯Archer 拔矛盾狂化D→心眼(真)A·陣地作成C→對魔力A(弓兵正典職技)、斯卡哈Assassin(泳裝) 氣息遮斷B→E(原作梗)、阿斯托爾福+單獨行動A(solo)、莫德雷德 寶具A→A+(Clarent Blood Arthur 原作威力)。v27：補招牌技標籤(能活用的給真fx)——斯卡哈+神殺(god_slay·對神性放大·引擎讀名觸發)、理查+獅子心(clear_mind)、阿基里斯+女神的寵愛(divine_core常駐減傷·冥河淬體)、莫德雷德+戰鬥續行(survive)、賽彌拉米斯+二重召喚(double_summon·金羊毛式無數值標籤)。v26：續查六圍盛標——迦爾納 耐A→C/魔B→D/幸D→E(Apocrypha 赤Lancer 官方參數·金鎧防禦已由 divine_core fx 模型化·底耐非A)、玉藻前 耐D→E/敏C→B/幸A→D(FGO 官方·幸A屬大幅盛)。v25：查證原作三修——佐佐木 幸A→E(FSN 無名劍客宿命·引擎讀幸算命中暴擊)、咒腕之哈桑 六圍正回原作(筋B/耐C/魔C/幸E·True Assassin FSN 參數表)、牛若丸 拔掉捏造的神性D(源義經純人類·divine 旗標會誤觸神殺/對神/疫病減傷)→換領袖氣質C·騎乘A→A+。v24：蒼白騎兵 寶具 A→EX(原作 Doomsday Come 是 EX 對界寶具·先前被寫低威力·規模對界原本就對)。v23：修規模盛標(誤標=偷改平衡)——美遊 Excalibur 對界→對城(同阿爾托莉雅·Saber install 同一劍)、賽米拉米斯 空中庭園 對界→對城(TYPE-MOON 設定=對城寶具 EX)。威力(six.寶具)與規模關鍵字兩件事·分開校。
+var CODEX_PERSONA_VER = 'v39'; // v39：原作貼合批修——①貞德 寶具正典化：La Pucelle(對人·火焰聖劍)為攻擊主寶具、吾主在此 Luminosité Eternelle 為【防禦寶具】(skills 掛 rho_aias A＝旗之守護常駐減傷·取代非正典的戰鬥續行)，兩者入 servantNpOptions_ 多寶具表；沿引擎慣例防禦寶具不標對軍(否則敵AI拿旗當炮轟)。②小黑 寶具正典化：UBW(她沒展開過·EMIYA 專屬)→鶴翼三連 Triple-Linked Crane Wings(對人 B·投影干將莫邪三連殺)、skills 拔 ubw fx。③六圍對原作參數表：赫拉克勒斯 筋A→A+(FSN)、蘭斯洛特 筋A→A+(Zero)、美狄亞 魔A→A++(FSN)、吉爾德萊 筋E→D(Zero)。④DEF_FX_.rho_aias note 拿掉寫死的「羅·埃亞斯」字樣→顯示持有者自己的技能名(貞德旗/EMIYA盾 各自正名)。v38：全面體檢批修——①阿爾喀德斯 拔自相矛盾的 神性A trait(strange Fake 原作：神性已被「泥」剝奪·persona 也明寫「捨神性」；殘留會平白吃 神殺/天之鎖/對神 剋神放大)→換 英雄。②美杜莎 神性補階 E-(原無階·引擎 fallback C 偏強)。③蘭斯洛特 補 人類 trait。④阿爾托莉雅 Avalon 錯字「永世惑曲」→「永世隔絕」。⑤蒼白騎兵 入 servantNpOptions_ 多寶具表(Doomsday Come 對界 EX／Kagome Kagome 對軍 A——原單字串同含對界+對軍、引擎恆取對界)。⑥servantNpOptions_ 改【精確比對種子真名】(原 indexOf 子字串→自創從者名含「無名」等即整組繼承 Ea/Enuma 選單·繞過 fx 白名單)。v37：Excalibur 接回概念 5 階——阿爾托莉雅/美遊 skills 補掛 fx:'excalibur'(比照庫丘林 gae_bolg/EMIYA ubw 的單寶具簽名模式)。此前全專案零產生者：誓約勝利之劍只寫在 np 字串(規模對城吃得到)，但 firstSignatureFx_/offenseTier_/CLASH_OFF_FX 全靠 hasFx_ 讀 skills→解放時拿不到 CONCEPT_TIER 5、無法概念壓制 陣地/對魔力/神核，敵方寶具對轟判斷也漏她。順修美遊 np 字串「對城 A++」→「對城 A」(對齊其 six.寶具 A；A++ 是從阿爾托莉雅抄來的殘留)。v36：英靈殿孤兒自動收斂——upgradeCodexPersonas_ 改為「ID 不在 SEED_SERVANTS 且 來源≠ai_gen」即刪(取代手動 OBSOLETE 名單)，一次清掉 pre-v29 殘留的「赫拉克勒斯-Archer」等舊列(奇怪的阿恰b叔)；AI 原創不動。v35：瘦寶具補招式意象(AI 敘述由種子保證·不靠模型記性)——Excalibur(阿爾托莉雅/人類 Saber)金色收束光炮、美杜莎 Bellerophon 天馬白光突刺、伊絲塔 An Gugalanna 天牛踏地熔毀、莫德雷德 Clarent Blood Arthur 血色奔雷。show-don't-tell 不受影響(真名照喊·描述仍屬內化素材)。v34：吉爾伽美什 補招牌寶具「全知全能之星 Sha Naqba Imuru」(insight·看穿本質)——命中+4＋看破奇襲(比照氣息感知)·中等被動(他懶得認真開)。v33：恩奇都 Enuma Elish 入 CONCEPT_TIER 6 階(可匹敵乖離劍)——恩奇都改多寶具(Enuma Elish 對界·enuma／Age of Babylon 對軍·gob)；offenseTier_ 根源修(解放寶具自身概念也計入·順修吉爾 Ea 漏吃概念壓制)。v32：蒼白騎兵 對官方面板全面校正——魔EX→A·幸E→C(補上次漏改·官方表=筋E/耐A/敏B/魔A/幸C/寶EX)、騎乘D→EX(乘風水人概念級)＋補對魔力C、技能正名(感染/無辜的世界/冥界的引導)、寶具補第二 Kagome Kagome(對軍A)＋Doomsday Come正名、align 中立中庸。v31：氣息感知升真機制——恩奇都 氣息感知 fx aim→sense；引擎新增 sense：守方階級≥攻方stealth→抵銷敵奇襲的命中先機＋要害一擊(senseNegate 橫跨兩處)。v30：恩奇都補正典技＋寶具正名——寶具真名「天地乖離開闢之星(吉爾的Ea名·掛錯)」→「世人啊冀以鎖繫神明 Enuma Elish」＋民之睿智Age of Babylon；變生→變容(正名)；拔非正典神性A技/trait(他是神造兵器非神裔)→換完全之形A(regen·大地再生)；補氣息感知A+(aim)。變容真·重分配/氣息感知真·破隱形＝引擎級·暫用proxy。v29：赫拉克勒斯(fake)正名為 Avenger·阿爾喀德斯(令咒歪曲·非單純Archer)——捨神性不死性換十二榮光→拔十二試煉(god_hand)、六圍升官方 A/B/A/A/B/A++、職技 對魔力A/復仇者A(god_slay·天生噬神)/單獨行動B、保有 心眼(真)B/勇猛E/戰鬥續行A+、寶具 Nine Lives+十二榮光+天風的篡奪者、persona 改阿爾喀德斯。引擎 god_slay 改 fx 驅動。v28：續補招牌+去矛盾技——赫拉克勒斯Archer 拔矛盾狂化D→心眼(真)A·陣地作成C→對魔力A(弓兵正典職技)、斯卡哈Assassin(泳裝) 氣息遮斷B→E(原作梗)、阿斯托爾福+單獨行動A(solo)、莫德雷德 寶具A→A+(Clarent Blood Arthur 原作威力)。v27：補招牌技標籤(能活用的給真fx)——斯卡哈+神殺(god_slay·對神性放大·引擎讀名觸發)、理查+獅子心(clear_mind)、阿基里斯+女神的寵愛(divine_core常駐減傷·冥河淬體)、莫德雷德+戰鬥續行(survive)、賽彌拉米斯+二重召喚(double_summon·金羊毛式無數值標籤)。v26：續查六圍盛標——迦爾納 耐A→C/魔B→D/幸D→E(Apocrypha 赤Lancer 官方參數·金鎧防禦已由 divine_core fx 模型化·底耐非A)、玉藻前 耐D→E/敏C→B/幸A→D(FGO 官方·幸A屬大幅盛)。v25：查證原作三修——佐佐木 幸A→E(FSN 無名劍客宿命·引擎讀幸算命中暴擊)、咒腕之哈桑 六圍正回原作(筋B/耐C/魔C/幸E·True Assassin FSN 參數表)、牛若丸 拔掉捏造的神性D(源義經純人類·divine 旗標會誤觸神殺/對神/疫病減傷)→換領袖氣質C·騎乘A→A+。v24：蒼白騎兵 寶具 A→EX(原作 Doomsday Come 是 EX 對界寶具·先前被寫低威力·規模對界原本就對)。v23：修規模盛標(誤標=偷改平衡)——美遊 Excalibur 對界→對城(同阿爾托莉雅·Saber install 同一劍)、賽米拉米斯 空中庭園 對界→對城(TYPE-MOON 設定=對城寶具 EX)。威力(six.寶具)與規模關鍵字兩件事·分開校。
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
