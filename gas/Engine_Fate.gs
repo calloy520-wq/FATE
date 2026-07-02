@@ -98,7 +98,7 @@ function npBaseDice_(npRank) {
 }
 
 // 🏰 寶具規模相剋矩陣（攻擊規模 × 防禦規模 → 傷害倍率）：
-//   對城打對人 ×2.5、對界無視防禦進行概念碾壓。0x（無效）以引擎 Math.max(1) 保底為一絲擦傷，不硬鎖。
+//   對城打對人 ×1.5、對界打對人 ×1.7（壓縮後值，見下）。0x（無效）以引擎 Math.max(1) 保底為一絲擦傷，不硬鎖。
 var NP_SCALE_IDX = { '對人': 0, '對軍': 1, '對城': 2, '對界': 3 };
 // 🎴 壓縮(2026-06平衡)：舊矩陣 ×2.5/×3 會讓「大規模寶具一發秒小規模」＝寶具模式淪為先手樂透。
 //   收斂到「規模優勢＝明顯傾向，非必殺」(max ×1.7、min ×0.4)，保留相剋骨架但不再一鍵抹除。
@@ -325,29 +325,36 @@ function rowToCombatant_(row) {
 //   依 真名(＋職階) 對應；首項＝主寶具(預設·敵方也用)。回 null＝單寶具(走字串尺度)。要擴充就往這張表加。
 function servantNpOptions_(name, cls) {
   name = String(name || ''); cls = String(cls || '');
-  if (name.indexOf('斯卡哈') === 0 && cls === 'Lancer') return [
+  // ⚠ 【精確比對種子真名】(2026-07 根源修)：原以 indexOf 子字串比對，AI/自訂從者只要真名【含】「無名」「吉爾伽美什」
+  //   等字樣就整組繼承乖離劍/Enuma Elish 選單，完全繞過 ALLOWED_FX_ 刻意排除 ea/enuma/gob 的防線。
+  //   改為 === 種子 realName(見 Seed_Codex)——頂級概念寶具回歸種子專屬。
+  if (name === '斯卡哈' && cls === 'Lancer') return [
     { n: '貫穿死翔之槍 Gáe Bolg Alternative', scale: '對人', fx: 'gae_bolg', desc: '單體·因果逆轉必中＋投擲斷命' },
     { n: '死亡滿溢的魔境之門 Gate of Skye', scale: '對軍', fx: '', desc: '對軍範圍·吸入影之國（魔力/幸運判定失敗即死）' }
   ];
-  if (name.indexOf('吉爾伽美什') >= 0) return [
+  if (name === '吉爾伽美什') return [
     { n: '王之財寶 Gate of Babylon', scale: '對人', fx: 'gob', desc: '對人·無盡兵裝的飽和彈幕' },
     { n: '乖離劍 Ea', scale: '對界', fx: 'ea', desc: '對界·天地乖離開闢之星，斬裂世界的最強一擊' }
   ];
-  if (name.indexOf('恩奇都') >= 0) return [
+  if (name === '恩奇都') return [
     { n: '世人啊、冀以鎖繫神明 Enuma Elish', scale: '對界', fx: 'enuma', desc: '對界·天之楔·反星球/人類破壞行為增幅，可匹敵乖離劍的概念級一擊' },
     { n: '民之睿智 Age of Babylon', scale: '對軍', fx: 'gob', desc: '對軍·自大地召出萬千劍槍鎖齊射（用法類王之財寶·可抵銷之）' }
   ];
-  if (name.indexOf('伊斯坎達爾') >= 0) return [
+  if (name === '伊斯坎達爾（征服王）') return [
     { n: '王之軍勢 Ionioi Hetairoi', scale: '對軍', fx: '', desc: '對軍·固有結界召喚萬軍亂踏' },
     { n: '神威的車輪 Gordius Wheel', scale: '對人', fx: '', desc: '對人·雷神戰車的單騎衝鋒' }
   ];
-  if (name.indexOf('EMIYA') >= 0 || name.indexOf('無名') >= 0) return [
+  if (name === '無名（EMIYA）') return [
     { n: '無限劍製 Unlimited Blade Works', scale: '對城', fx: 'ubw', desc: '對城·固有結界劍雨壓制（不受對魔力）' },
     { n: '偽·螺旋劍 Caladbolg II', scale: '對人', fx: 'projection', desc: '對人·破斷重塑的流星劍狙擊' }
   ];
-  if (name.indexOf('迦爾納') >= 0) return [
+  if (name === '迦爾納') return [
     { n: '穿刺死亡之槍 Vasavi Shakti', scale: '對神', fx: '', desc: '對神·梵天弒神之槍：對神性之敵單體特大傷害（弒神）' },
     { n: '日輪啊化作鎧甲吧 Kavacha and Kundala', scale: '對人', fx: 'divine_core', desc: '對人·不滅黃金鎧·常駐防護' }
+  ];
+  if (name === '蒼白騎兵（Pale Rider）') return [
+    { n: '審判日將至 Doomsday Come', scale: '對界', fx: '', desc: '對界·疫病具現的終末審判（EX）' },
+    { n: '籠中之鳥 Kagome Kagome', scale: '對軍', fx: '', desc: '對軍·封鎖之疫瘴結界（A）' }
   ];
   return null;
 }
@@ -520,6 +527,10 @@ function resolveFateBattle_(atk, def, opts) {
     }
   }
   var atkWins = gaebolg ? !gbEvaded : (aHit >= dEva);
+  // ❖ 令咒·絕對命令(opts.seal)＝必中：凌駕擲骰、亦不受必中槍閃避影響(玩家王牌絕對)。在【此處】定生死
+  //   而非呼叫端事後翻旗——否則 damage 已按「擲贏方」算完，翻旗等於拿敵方的傷害數字打敵方(2026-07 根源修)。
+  //   opts.forceHit＝火力取樣用強制命中(寶具對轟比大小)，同理保證 damage 屬於攻方。
+  if (opts.seal || opts.forceHit) atkWins = true;
   var winner = atkWins ? atk : def;
   var loser = atkWins ? def : atk;
 
@@ -615,7 +626,7 @@ function resolveFateBattle_(atk, def, opts) {
     if (wSig('petrify')) { base = Math.round(base * 1.3); fired.push(winner.name + '·' + fxName_(winner, 'petrify', '魔眼') + '·乘隙重創'); }
     // 🌟 乖離劍·天地乖離開闢之星(ea)：概念位階 6，斬裂世界的真理之劍——最高威力，且無視一切防禦概念（下方概念壓制處理）
     if (wSig('ea')) { base = Math.round(base * 1.7) + rollDice_(4, 12) + 80; fired.push(winner.name + '·' + fxName_(winner, 'ea', '乖離劍') + '(天地乖離·真理之劍)'); }
-    // 🏰 寶具規模相剋矩陣：對城打對人 ×2.5、對界碾壓常規防禦…（攻擊規模 × 守方防禦規模）。多寶具用所選寶具的尺度。
+    // 🏰 寶具規模相剋矩陣：對城打對人 ×1.5、對界打對人 ×1.7（壓縮後值·攻擊規模 × 守方防禦規模）。多寶具用所選寶具的尺度。
     var atkScaleLabel = (wRelease && atkNp) ? atkNp.scale : npAtkScale_(winner);
     // 🦠 疫病·病死宿命：蒼白騎兵(疫病具現)對「傳說中死於疾病」之敵(恩奇都等)，重演其宿命之死——無視規模防禦·概念碾壓 ×3。
     var plagueDoom = (winner.traits || []).some(function (t) { return t && /疫病/.test(String(t.n)); }) &&
@@ -639,6 +650,11 @@ function resolveFateBattle_(atk, def, opts) {
   //   把「破魔無視神核」「ea 凌駕一切結界」這類交互系統化：pierces(防禦fx) 為 true 即跳過該減傷。
   var pierceT = offenseTier_(winner, !!opts.np);
   var pierces = function (defFx) { return pierceT >= conceptTier_(defFx) + PIERCE_GAP; };
+  // ⚡ 「本擊是否魔術系」（physicalOnly 防禦的穿透判定）——必須在【第一個 fxDefApply_ 之前】算好：
+  //   魔力放出改主動 only 後，只在【實際發動魔力放出】時成立(灌注魔力才是魔術系一擊)，
+  //   而非光憑持有 burst——否則沒發動時只吃對魔力減傷卻無 burst 增益，全是壞處。
+  var burstFired = !!(opts.skill && opts.skill.id === 'burst' && !opts.skill.tiny && winner === atk);
+  var atkMagic = (wProf.dmg === '魔力') || burstFired || !!hasFx_(winner, 'divine_age');
   // 守方減傷：耐久（階級）
   base -= Math.round(rankVal(loser.six["耐久"]) / 2);
   // 🛡️ 陣地作成(territory)：法師以魔術防壁／結界減傷，補償其低耐久（救玻璃大砲美狄亞的存活）
@@ -664,10 +680,6 @@ function resolveFateBattle_(atk, def, opts) {
   // 對魔力(nullify_magic)：攻方為魔術系(法師魔砲/魔力放出/神代)時大減魔術傷。
   //   ★原作精髓：A 階對魔力幾乎無視現代魔術——Saber 對 Caster 的魔砲僅如清風拂面。
   //   但神代魔術(神祖之術)凌駕現代對魔力＝完全無視(美狄亞的本領)；概念壓制亦無視。
-  // ⚡ 魔力放出改主動 only 後，「本擊是否魔術系」只在【實際發動魔力放出】時成立(灌注魔力才是魔術系一擊)，
-  //   而非光憑持有 burst——否則沒發動時只吃對魔力減傷卻無 burst 增益，全是壞處。
-  var burstFired = !!(opts.skill && opts.skill.id === 'burst' && !opts.skill.tiny && winner === atk);
-  var atkMagic = (wProf.dmg === '魔力') || burstFired || !!hasFx_(winner, 'divine_age');
   var nm = hasFx_(loser, 'nullify_magic');
   // 概念壓制(更高位階進攻概念·破戒/破魔等)→完全無視對魔力；神代魔術→凌駕但【非無敵】(對魔力僅剩三成效果，見下)。
   if (atkMagic && nm && pierces('nullify_magic')) { fired.push(winner.name + '·概念壓制(凌駕對魔力)'); }

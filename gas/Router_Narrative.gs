@@ -514,11 +514,17 @@ ${isKanshou ? `
 
       while (row.length < pcColCount) row.push("");
 
-      const maxVals = maxStatsForRow_(row);
-      row[COL.PC.MAX_HP] = maxVals.hp;
-      row[COL.PC.MAX_MP] = maxVals.mp;
-      row[COL.PC.HP] = Math.min(parseInt(row[COL.PC.HP]) || 0, maxVals.hp);
-      row[COL.PC.MP] = Math.min(parseInt(row[COL.PC.MP]) || 0, maxVals.mp);
+      // ⚔️ 從者/敵從者＝出力電池制：MAX_HP 由召喚公式(150+耐久×6)定、MP 恆 0(無自有魔力池)——
+      //   不可用 maxStatsForRow_(凡人公式 100+耐久×10/50+魔力×10)重算，否則 MAX 被改基準、MP 憑空生池，
+      //   違反單一真實來源(2026-07 修)。凡人(御主/NPC)照舊重算。
+      const _fac = String(row[COL.PC.FACTION] || "");
+      if (_fac !== "從者" && _fac !== "敵從者") {
+        const maxVals = maxStatsForRow_(row);
+        row[COL.PC.MAX_HP] = maxVals.hp;
+        row[COL.PC.MAX_MP] = maxVals.mp;
+        row[COL.PC.HP] = Math.min(parseInt(row[COL.PC.HP]) || 0, maxVals.hp);
+        row[COL.PC.MP] = Math.min(parseInt(row[COL.PC.MP]) || 0, maxVals.mp);
+      }
 
       // 只寫這一行，不寫全表
       sheets.pc.getRange(idx + 1, 1, 1, pcColCount).setValues([row]);

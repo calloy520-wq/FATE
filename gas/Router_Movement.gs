@@ -61,6 +61,15 @@ function actionMove(userData, pcId, sheets) {
   //   ★可生還·不致死(從者血保 1)——只是不讓你一按就從強敵眼皮底下從容全身而退。用移動【前】的初始資料判定。
   const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : []; // 提前讀一次·下方移動/敘事/追擊判定共用(零淨增讀取)
   const tgtTrim = String(target || "").trim();
+  // 🗺️ 目的地必須存在於坤圖(母區域或分支名)——擋掉偽造參數傳送到「地圖外」當永久安全屋(敵AI/夜襲永遠碰不到)。
+  if (!tgtTrim) return JSON.stringify({ success: false, message: "未指定目的地。" });
+  try {
+    const _mapChk = getMapDataCached(sheets);
+    const _tgtRoot = tgtTrim.split('-')[0].trim();
+    if (!_mapChk.some(m => { const nm = String(m[COL.MAP.NAME]).trim(); return nm === tgtTrim || nm === _tgtRoot; })) {
+      return JSON.stringify({ success: false, message: "輿圖之上查無此地，無路可達。" });
+    }
+  } catch (e) { }
   var pursuit = null;
   try {
     var fromLocM = String(allPcData[pIdx][COL.PC.LOC] || "").trim();
@@ -84,15 +93,32 @@ function actionMove(userData, pcId, sheets) {
           if (getNpTelegraph_(r[COL.PC.MEMORY])) teleFoe = r;
         });
         if (teleFoe) {
-          var teleProb = 0.85 - (hasFx_(psvC, 'ride') ? 0.15 : 0);
           var teleName = String(teleFoe[COL.PC.NAME]);
-          if (Math.random() < teleProb) {
-            var prT = resolveFateBattle_(rowToCombatant_(teleFoe), psvC, { np: true });
-            pursuit = { enemyName: teleName, chaserId: String(teleFoe[COL.PC.ID]), dmg: Math.max(1, prT.damage), hitWho: prT.atkWins ? 'us' : 'foe', np: true,
-              note: prT.atkWins ? ('「' + teleName + '」蓄勢已久的真名解放朝你退卻的背影轟然傾瀉——這一擊的代價，是逃離強敵的必然。') : ('「' + teleName + '」的寶具在你身後炸開，卻被你的從者堪堪擋開、反手逼退。') };
-          } else {
-            pursuit = { enemyName: teleName, chaserId: String(teleFoe[COL.PC.ID]), dmg: 0, hitWho: 'foe', np: true,
-              note: '你在「' + teleName + '」真名解放的前一瞬堪堪脫離範圍——寶具的餘威掃過空無一人的殘影。' };
+          // 🔋 背擊也要買單(2026-07 修三漏)：①與戰鬥內同準——敵御主電池付得起 prana 才轟得出來(付不起→不發·
+          //   走一般追擊)；②解放＝出力全開(原漏設=60 反而比正規弱)；③我方擋下時的反手一擊【另以普通交鋒結算】
+          //   ——原本沿用 np 裁決的 winner 傷害，等於我方沒解放寶具卻免費吃到自己寶具骰的 NP 級反擊。
+          var teleIdx = allPcData.findIndex(function (r) { return String(r[COL.PC.ID]) === String(teleFoe[COL.PC.ID]); });
+          var foeC2 = rowToCombatant_(teleFoe);
+          var telePrana = npPranaCost_(foeC2.six['寶具'] || '-');
+          var teleAfford = (teleIdx !== -1) ? enemyCanAffordNp_(allPcData, teleIdx, moveGameId, telePrana) : { afford: false, masterIdx: -1 };
+          if (teleAfford.afford) {
+            drainForNp_(sheets, allPcData, teleIdx, teleAfford.masterIdx, telePrana); // 寶具已離弦(中與不中都燒魔)
+            foeC2.output = 100;
+            var teleProb = 0.85 - (hasFx_(psvC, 'ride') ? 0.15 : 0);
+            if (Math.random() < teleProb) {
+              var prT = resolveFateBattle_(foeC2, psvC, { np: true });
+              if (prT.atkWins) {
+                pursuit = { enemyName: teleName, chaserId: String(teleFoe[COL.PC.ID]), dmg: Math.max(1, prT.damage), hitWho: 'us', np: true,
+                  note: '「' + teleName + '」蓄勢已久的真名解放朝你退卻的背影轟然傾瀉——這一擊的代價，是逃離強敵的必然。' };
+              } else {
+                var cntT = resolveFateBattle_(psvC, foeC2, {}); // 反手＝普通交鋒(不白嫖寶具骰)
+                pursuit = { enemyName: teleName, chaserId: String(teleFoe[COL.PC.ID]), dmg: Math.max(1, cntT.atkWins ? cntT.damage : Math.round(rankVal(psvC.six['筋力'] || 'C') * 0.5)), hitWho: 'foe', np: true,
+                  note: '「' + teleName + '」的寶具在你身後炸開，卻被你的從者堪堪擋開、反手逼退。' };
+              }
+            } else {
+              pursuit = { enemyName: teleName, chaserId: String(teleFoe[COL.PC.ID]), dmg: 0, hitWho: 'foe', np: true,
+                note: '你在「' + teleName + '」真名解放的前一瞬堪堪脫離範圍——寶具的餘威掃過空無一人的殘影。' };
+            }
           }
         }
         var chaser = null, chaserAgi = -1;
@@ -290,6 +316,9 @@ function actionRest(userData, pcId, sheets) {
       restClock = clockLabel_(restGameId);
     } catch (e) { }
     try { sheets.log.appendRow([new Date(), pcId, `【系統】御主一行休息了 ${restHours} 小時，恢復行動力。`, pcLoc]); } catch (e) { }
+    // 🔄 世界已 tick(靈基透支到期者可能剛判死·敵可能移位)：【重讀眾生】再判夜襲——
+    //   原用 tick 前舊資料：剛判死的敵從者還能「偷襲」你，陣地反擊分支整列寫回舊 row 更會把死者復活(2026-07 修)。
+    pcData = sheets.pc.getDataRange().getValues();
     // ⚔️ 卸防突襲：當敵蹤同地時休息＝酣睡門戶大開，最為兇險（mul 1.5）
     const restAmbush = enemyAmbushOnServant_(sheets, pcData, pIdx, restGameId, userData, 1.5);
     // 🌙 從者之夢（回想）：安睡(≥3h)且未遭突襲時，有機會順著聯繫夢見從者生前傳說的片段，加深羈絆
@@ -311,7 +340,7 @@ function actionRest(userData, pcId, sheets) {
     if (restAmbush && restAmbush.homeRepel) {
       restAmbushPrompt = restAmbush.repelNote; // 🏰 陣地反擊·優雅擊退
     } else if (restAmbush) {
-      restAmbushPrompt = `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${restAmbush.enemyName}」${restAmbush.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊重創「${(pcData.find(r=>String(r[COL.PC.FACTION])==='從者'&&String(r[COL.PC.GAME_ID]||'')===restGameId)||[])[COL.PC.NAME]||'從者'}」（−${restAmbush.dmg}）${restAmbush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
+      restAmbushPrompt = `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${restAmbush.enemyName}」${restAmbush.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊重創「${restAmbush.svName || '從者'}」（−${restAmbush.dmg}）${restAmbush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
     }
     return JSON.stringify({
       success: true, statusString: getFreshStatusString(pcId, pIdx, sheets), healedNames: healedNames,
@@ -437,7 +466,7 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, userData, baseMul) 
   const dmg = Math.max(1, Math.round(enemyBase * mul));
   const out = { enemyName: String(pcData[eIdx][COL.PC.NAME]), dmg: dmg, destroyed: false, defeat: false, dreamPrompt: "", after: 0, stealthy: stealthy };
   let hp = parseInt(pcData[svIdx][COL.PC.HP]) || 0, after = hp - dmg;
-  if (after <= 5 && hasFx_(svC, 'survive') && hp > 1) after = 1;
+  if (after <= 0 && hasFx_(svC, 'survive') && hp > 1) after = 1; // 戰鬥續行(致命傷才硬撐留1·2026-07 修)
   if (after <= 0 && hasFx_(svC, 'god_hand')) {
     const lives = getGodHandLives_(pcData[svIdx][COL.PC.MEMORY]);
     if (lives > 0) { after = Math.max(1, Math.round((parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 300) * 0.2)); pcData[svIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[svIdx][COL.PC.MEMORY], lives - 1); }

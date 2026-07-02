@@ -1071,8 +1071,8 @@ function renderRecentLocs(recents = null) {
     divine_age: m => `神代魔術：魔力傷 +${Math.round(12 * m)}，且使敵「對魔力」半效。`,
     wind_strike: m => `風王鐵鎚：不可視之風的斬擊，傷害 +${Math.round(6 * m)}。`,
     unreadable: () => '宗和的心得：無欲無求，使敵方直感／心眼失效（敵無法靠預判加閃避）。',
-    stealth: () => '氣息遮斷：抹消氣息，開場奇襲命中 +3。',
-    tsubame: () => '秘劍・燕返：三方位同斬，敵迴避 −8，命中則傷害 ×2.3。',
+    stealth: () => '氣息遮斷：抹消氣息，開場奇襲命中依階級提升（A≈+5、A+≈+6），命中要害再重創；一旦交手氣息即破功。',
+    tsubame: () => '秘劍・燕返：三方位同斬（寶具解放時），敵迴避 −5，命中則傷害 ×2.3。',
     gae_bolg: () => '刺穿死棘之槍：逆因果的必中刺擊——寶具解放時直接命中。唯【高幸運】(改寫命運)、【直感／心眼】(預感)、【變化】(化形)能搏得一線閃避。',
     survive: () => '戰鬥續行：受致命傷仍能硬撐一次（HP 留 1）；遭「破戒／破魔」則失效。',
     lovespot: () => '愛之痣：臉上魅惑之痣令來犯者一瞬分神——攻向你的敵人命中 −1。',
@@ -1682,7 +1682,6 @@ function renderRecentLocs(recents = null) {
     h += '<div style="color:#e7c873;font-weight:bold;margin-bottom:5px;">⚔️ ' + r.atk + (r.useSeal ? ' ❖令咒' : r.useNp ? ' 💥寶具' : '') + (r.skill ? ' <span style="color:#7ec8ff;">' + (r.skill.icon || '⚡') + r.skill.name + '</span>' : '') + ' ⚔ ' + r.def + '　<span style="color:#9a8;font-size:11px;font-weight:normal;">' + r.rounds.length + ' 回合交鋒</span></div>';
     if (r.homeField) h += '<div style="color:#8fd6a0;font-size:10.5px;margin-bottom:3px;padding:3px 7px;border:1px solid #4e8a5e;border-radius:5px;background:rgba(60,120,80,.14);">🏰 主場·陣地決戰（陣地作成 ' + r.homeField + '）——我方全員承結界庇護·受創大減</div>';
     if (r.skill) h += '<div style="color:#7ec8ff;font-size:10.5px;margin-bottom:3px;">⚡ 主動技「' + r.skill.name + '」發動：' + (r.skill.desc || '') + (r.skill.bledMaster ? '　<span style="color:#e06a6a;">(御主焚血 −' + r.skill.fromMasterHp + 'HP)</span>' : '') + '</div>';
-    if (r.intercept) h += '<div style="color:#c79be8;font-size:11px;margin-bottom:4px;">🛡️ 敵從者攔截護主——攻擊改打從者</div>';
     // 🌟 寶具對轟
     if (r.clash) {
       const c = r.clash;
@@ -1969,7 +1968,7 @@ function renderRecentLocs(recents = null) {
 
   // 💧 補魔：御主硬擠魔術迴路回滿共用魔力池——但永久燒蝕(血上限−15、迴路−3)。孤注一擲的回魔。
   async function manaSupply() {
-    if (!confirm('💧 補魔：御主硬擠魔術迴路，將共用魔力池一口氣回滿。\n\n⚠ 代價【永久】：生命上限 −15、魔術迴路 −3 條（迴路↓會讓魔力池上限縮小、回魔變慢、禮裝變弱）。\n這是燃迴路續契約的孤注一擲——過度依賴等於慢性自盡。\n\n（想省代價：靠靈脈/陣地/休息自然回魔。注意：池見底會被動燃血、缺口÷2同時扣御主與從者血量。）\n\n確定補魔？')) return;
+    if (!confirm('💧 補魔：御主硬擠魔術迴路，將共用魔力池一口氣回滿。\n\n⚠ 代價【永久】：生命上限 −15、魔術迴路 −3 條（迴路↓會讓魔力池上限縮小、回魔變慢、禮裝變弱）。\n這是燃迴路續契約的孤注一擲——過度依賴等於慢性自盡。\n\n（想省代價：靠靈脈/陣地/休息自然回魔。注意：池見底會被動燃血、缺口÷2 由御主血量獨自承擔。）\n\n確定補魔？')) return;
     const foe = localFoeServantName();
     if (foe && !confirm('⚠ 此地有敵從者「' + foe + '」！\n\n補魔時門戶大開，極可能遭其趁隙突襲重擊你的從者（重則靈基崩潰、敗北）。\n建議先擊退敵人或轉往安全處。\n\n仍要在此補魔？')) return;
     if (!beginAction()) return;
@@ -1988,7 +1987,7 @@ function renderRecentLocs(recents = null) {
     } catch (e) { alert('連線失敗，補魔未果。'); } finally { endAction(); }
   }
 
-  // 🩸 燃血已改為【被動】：共用魔力池見底時，applyRegen_ 自動燃御主＋從者 HP 續契約（缺口÷2同扣）。無主動按鈕。
+  // 🩸 燃血已改為【被動】：共用魔力池見底時，applyRegen_ 自動燃【御主】HP 續契約（缺口÷2·從者不扣血）。無主動按鈕。
 
   // 💕 羈絆選單（純按鈕，無對話框）：每種每遊戲日限一次、跨日重置
   const BOND_MENU = [

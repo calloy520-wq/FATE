@@ -222,11 +222,12 @@ function sanitizeSkills_(arr) {
     };
   });
 }
-// 清洗六圍：6 鍵齊全、階級合法（E~EX、可帶+）；缺則補 C
+// 清洗六圍：6 鍵齊全、階級合法（E~EX、可帶 +/++/−）；缺或亂給則補 C。
+//   2026-07 放寬：承認 A++/B−——AI 泡在 Fate 語料很常自發吐 A++，原 regex 只認單 + 會把名將靜默打成 C。
 function sanitizeSix_(o) {
   var keys = ["筋力", "耐久", "敏捷", "魔力", "幸運", "寶具"], out = {};
-  var ok = function (v) { return /^(E|D|C|B|A|EX)\+?$/.test(String(v || "").toUpperCase()); };
-  keys.forEach(function (k) { var v = o && o[k] ? String(o[k]).toUpperCase() : "C"; out[k] = ok(v) ? v : "C"; });
+  var ok = function (v) { return /^(E|D|C|B|A|EX)(\+{1,2}|\-)?$/.test(String(v || "").toUpperCase()); };
+  keys.forEach(function (k) { var v = o && o[k] ? String(o[k]).toUpperCase().trim() : "C"; out[k] = ok(v) ? v : "C"; });
   return out;
 }
 
@@ -308,9 +309,6 @@ function actionSummonServant(userData, pcId, sheets) {
       const traits = JSON.parse(hero[COL.HERO.TRAITS] || "[]");
       const persona = JSON.parse(hero[COL.HERO.PERSONA] || "{}");
 
-      // 六圍 → 顯示數值（數值即 rankVal，無階級倍率）
-      const nStr = svNum_(six.筋力), nCon = svNum_(six.耐久), nAgi = svNum_(six.敏捷), nInt = svNum_(six.魔力), nLuk = svNum_(six.幸運);
-      const maxStats = fateMaxHpMp_(nCon, nInt);
       // 從者血厚：耐久越高越肉。🔋 出力電池制：從者無自有魔力池(MP欄置0)，靠御主供魔；出力檔存 MEMORY、預設 60 巡航。
       const svHp = 150 + svNum_(six.耐久) * 6, svMp = 0;
 
@@ -345,14 +343,21 @@ ${FX_MENU_}
 ★【輸出】合法 JSON、禁 Markdown：
 {"realName":"英靈真名","sex":"女","align":"中立・善","background":"限20字","npc_intent":"反差萌一句","personality":"四格頓號","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"classSkills":[{"n":"對魔力","r":"B","fx":"nullify_magic"}],"skills":[{"n":"直感","r":"A","fx":"first_strike"},{"n":"怪力","r":"B","fx":"str_up"}],"traits":[{"n":"人類"}]}`;
       const aiBrief = JSON.parse(callGeminiAPI(`【職階】：${cls}\n【御主】：${pcName}${trueName ? `\n【指定真名】：${trueName}` : ""}${custDesc ? `\n【玩家自訂描述】：${custDesc}` : ""}`, sysOverride, { temperature: custDesc ? 0.85 : 0.6, ignoreLaw: true }));
+      // 🛡️ API 失敗防線(2026-07 修)：callGeminiAPI 連線失敗不丟例外、而是回「fallback 敘事 JSON」(narration/options)
+      //   ——照收會靜默生出全C六圍/零技能的殘缺從者、寫入眾生＋recordOriginalHero_ 永久污染英靈殿，
+      //   且 already 閘讓該局無法重召。缺 realName 或 six ＝ 生成失敗，中止讓玩家重試。
+      if (!aiBrief || !aiBrief.realName || !aiBrief.six) {
+        return JSON.stringify({ success: false, message: "英靈之座的迴響中斷——召喚失敗，請稍候再試一次。" });
+      }
       realName = String(aiBrief.realName || trueName || (cls + "從者")).trim() || (cls + "從者");
       sex = aiBrief.sex || "異"; align = aiBrief.align || "中立"; np = aiBrief.np || "寶具（未顯現）";
+      // ⚖️ 寶具規模上限(2026-07 修)：npAtkScale_ 讀 np 字串關鍵字算規模——AI 自訂寶具最高「對軍」，
+      //   對城/對界/對神為種子專屬(與 ALLOWED_FX_ 排除頂級概念 fx 同一精神，堵字串後門)。
+      np = String(np).replace(/對界|對城|對神/g, "對軍").slice(0, 80);
       const aiSix = sanitizeSix_(aiBrief.six);
       const aiCSkills = sanitizeSkills_(aiBrief.classSkills);
       const aiSkills = sanitizeSkills_(aiBrief.skills);
       const aiTraits = Array.isArray(aiBrief.traits) ? aiBrief.traits.filter(Boolean).slice(0, 4).map(t => ({ n: String((t && (t.n || t.名稱 || t.name)) || t).slice(0, 8) })) : [];
-      // 六圍 → 數值（與名冊路徑一致，svNum_ 橋接）
-      const nStr = svNum_(aiSix.筋力), nCon = svNum_(aiSix.耐久), nAgi = svNum_(aiSix.敏捷), nInt = svNum_(aiSix.魔力), nLuk = svNum_(aiSix.幸運);
       const svHp = 150 + svNum_(aiSix.耐久) * 6, svMp = 0; // 🔋 出力電池制：從者無自有魔力池，出力檔存 MEMORY、預設 60 巡航
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
@@ -361,6 +366,7 @@ ${FX_MENU_}
       row[COL.PC.TRAIT] = parseTraitsHelper("", "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
       row[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "沉著表象、堅定內裡、珍視之物、厭惡之事");
       row[COL.PC.INTENT] = String(aiBrief.npc_intent || "").slice(0, 18);
+      row[COL.PC.MEMORY] = `第一人稱「我」｜對御主：初締約·尚在觀察`; // 與種子路徑對稱(原漏寫→servantCard_ 演出資訊變薄)
       row[COL.PC.SIX] = JSON.stringify(aiSix);
       row[COL.PC.TAGS] = JSON.stringify({ skills: aiCSkills.concat(aiSkills), traits: aiTraits });
       row[COL.PC.BACK] = aiBrief.background || `${cls} 職階的英靈`;

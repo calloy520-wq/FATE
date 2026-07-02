@@ -226,9 +226,10 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
   });
 
   // 御主魔力淨收支（休息把收入加倍、維持不變）→ 寫回御主 MP。
-  //   🩸 被動燃血(2026-06)：池見底、時消耗補不上的缺口 → 自動燃命續契約——缺口÷2，同時扣御主HP＋從者HP(平均)。
-  //   不再強制降出力(玩家想少流血就自己節流)；各保底 1 HP(被動 tick 不直接秒死，但會磨成殘血任人宰)。
-  var masterBurn = 0, svBurnEach = 0;
+  //   🩸 被動燃血(2026-07 玩家定案：只扣御主)：池見底、時消耗補不上的缺口 → 御主自動燃命續契約——
+  //   缺口÷2 全額由御主血肉支付、【從者一律不扣血】(從者無自有魔力池，代價全在電池=御主身上)。
+  //   不再強制降出力(玩家想少流血就自己節流)；保底 1 HP(被動 tick 不直接秒死，但會磨成殘血任人宰)。
+  var masterBurn = 0;
   if (masterI >= 0) {
     // 重算共用池上限(把同隊從者魔力併進來)；夾住當前 MP
     var mMpMax = masterPoolMax_(circuits, partyMagicVal);
@@ -238,9 +239,8 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
     var rawNew = mMp + perHour * hours;                                  // 可能為負＝池補不上的缺口
     var nMMp = mMpMax ? Math.max(0, Math.min(mMpMax, Math.round(rawNew))) : mMp;
     var unfunded = (mMpMax && rawNew < 0) ? Math.round(-rawNew) : 0;     // 缺口(mana)，改由血肉支付
-    // 🩸 被動燃血(玩家定 2026-06)：缺口/4 由御主與從者各自分攤(各扣 缺口/4)，比舊版溫和、且雙方共擔。
-    masterBurn = Math.round(unfunded / 4);
-    svBurnEach = svRows.length ? Math.round(unfunded / 4) : 0;
+    // 🩸 被動燃血(玩家定 2026-07)：缺口/2 全額由御主承擔——從者不扣血(電池代價歸電池)。
+    masterBurn = Math.round(unfunded / 2);
     var mHpMax = parseInt(data[masterI][COL.PC.MAX_HP]) || 0, mHp = parseInt(data[masterI][COL.PC.HP]) || 0;
     // 缺口時御主被動燃血扣血(保底1)；否則自我修復
     var nMHp = unfunded > 0 ? Math.max(1, mHp - masterBurn)
@@ -248,11 +248,13 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
     if (nMMp !== mMp || nMHp !== mHp) { data[masterI][COL.PC.MP] = nMMp; data[masterI][COL.PC.HP] = nMHp; did = true; }
   }
 
-  // 從者：缺口時被動燃血扣 HP(平均分擔另一半缺口，保底1)；否則靈基自我修復。出力檔＝玩家旋鈕，不在時回變動；無自有魔力池。
+  // 從者：【不參與燃血】(2026-07 玩家定案)。缺口時魔力短缺、靈基自我修復停擺(HP 不動)；無缺口則正常自我修復。
+  //   出力檔＝玩家旋鈕，不在時回變動；無自有魔力池。
+  var deficitNow = masterBurn > 0;
   svRows.forEach(function (ri) {
     var shpMax = parseInt(data[ri][COL.PC.MAX_HP]) || 0, shp = parseInt(data[ri][COL.PC.HP]) || 0;
-    var snhp = svBurnEach > 0 ? Math.max(1, shp - svBurnEach)
-                              : (shpMax ? Math.min(shpMax, shp + Math.round(shpMax * hpRate * hours * mult)) : shp);
+    var snhp = deficitNow ? shp
+                          : (shpMax ? Math.min(shpMax, shp + Math.round(shpMax * hpRate * hours * mult)) : shp);
     if (snhp !== shp) { data[ri][COL.PC.HP] = snhp; did = true; }
   });
   return did;
