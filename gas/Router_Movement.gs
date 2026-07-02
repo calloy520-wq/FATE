@@ -25,7 +25,7 @@ function actionGetMapNodes(userData, pcId, sheets) {
       const loc = String(r[COL.PC.LOC] || "").trim();
       enemyAt[loc] = (enemyAt[loc] || 0) + 1;
     });
-    const md = sheets.map.getDataRange().getValues();
+    const md = getMapDataCached(sheets); // 坤圖靜態→走 1h 快取，免整表讀
     const nodes = [];
     for (let i = 1; i < md.length; i++) {
       const name = String(md[i][COL.MAP.NAME] || "").trim();
