@@ -190,6 +190,12 @@ function clearOvercharge_(memory) { return String(memory || "").replace(/｜?【
 function getOutfit_(memory) { var m = String(memory || "").match(/【換裝】([^｜【】]*)/); return m ? m[1].trim() : ""; }
 function setOutfit_(memory, text) { var s = clearOutfit_(String(memory || "")); text = String(text || "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, 40); if (!text) return s; return s ? s + "｜【換裝】" + text : "【換裝】" + text; }
 function clearOutfit_(memory) { return String(memory || "").replace(/｜?【換裝】[^｜【】]*/g, ""); }
+// 🔥 灌魔超載檔位（玩家手動·存從者 MEMORY【超載】<倍率>）：規格外寶具(＋/EX)全開解放時要衝到多少倍。
+//   預設(未設)＝拉滿階級上限(＋×1.5、＋＋/EX×2.0)；玩家可調降(想省魔力/不想灌)，最低 1.0(不超載)。
+//   魔力不夠時引擎仍會自動往下(灌到付得起為止)——此檔位只是「天花板」。get/set/clear 成套。
+function getOverloadTier_(memory) { var m = String(memory || "").match(/【超載】([0-9.]+)/); return m ? (parseFloat(m[1]) || null) : null; }
+function setOverloadTier_(memory, mul) { var s = clearOverloadTier_(String(memory || "")); mul = Math.max(1.0, Math.min(2.0, parseFloat(mul) || 1.0)); return s ? s + "｜【超載】" + mul : "【超載】" + mul; }
+function clearOverloadTier_(memory) { return String(memory || "").replace(/｜?【超載】[0-9.]+/g, ""); }
 // 前端「變容」標籤用的 synergy 視圖：非 synergy 從者回 null；恩奇都回 {has,on,master,peak}。
 //   on＝當前御主觸發全盛(亮)；否則暗(提醒需該御主)。玩家不可控——由御主決定。
 function masterSynergyView_(name, memory) {

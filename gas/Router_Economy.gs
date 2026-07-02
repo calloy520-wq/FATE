@@ -132,6 +132,23 @@ function actionSetOutfit(userData, pcId, sheets) {
   }); // 樂觀更新·前端自走輕量 syncData
 }
 
+// 🔥 設定灌魔超載檔位（規格外＋/EX寶具·玩家調本戰要衝到多少倍·存從者 MEMORY【超載】<倍率>）：免費·即時·不耗 AP。
+function actionSetOverload(userData, pcId, sheets) {
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無此從者。" });
+  let npRank = '-'; try { npRank = JSON.parse(pcData[svIdx][COL.PC.SIX] || '{}')['寶具'] || '-'; } catch (e) { }
+  const rankCap = npOverloadCap_(npRank);
+  if (rankCap <= 1.0) return JSON.stringify({ success: false, message: "此寶具非規格外（無＋／EX），無超載可調。" });
+  const mul = Math.max(1.0, Math.min(rankCap, parseFloat(userData.mul) || rankCap));
+  pcData[svIdx][COL.PC.MEMORY] = setOverloadTier_(pcData[svIdx][COL.PC.MEMORY], mul);
+  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+  return JSON.stringify({ success: true, mul: mul, message: `「${pcData[svIdx][COL.PC.NAME]}」灌魔超載檔位設為 ×${(+mul.toFixed(2))}（${mul >= rankCap ? '拉滿' : '節制'}）。` }); // 樂觀更新·前端自走 syncData
+}
+
 // 🔵 補魔（魔力供給）：把御主魔力導入從者，回魔＋羈絆＋fade 演出。耗 1 AP（導入魔力需時）
 function actionManaSupply(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();

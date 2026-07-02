@@ -38,6 +38,7 @@ const ActionRouter = {
   "set_rune_mode": actionSetRuneMode,
   "set_active_skill": actionSetActiveSkill,
   "set_np_choice": actionSetNpChoice,
+  "set_overload": actionSetOverload,
   "outfit": actionSetOutfit,
   "bond": actionBond,
   "rule_break_steal": actionRuleBreakSteal,
@@ -321,6 +322,9 @@ function buildTagsPayload_(sheets, pcId, preData, preRel) {
       // 🌟 多寶具英靈：寶具選單＋當前選定索引（前端點寶具時挑要放哪個）
       npOptions: servantNpOptions_(s[COL.PC.NAME], s[COL.PC.RANK]) || undefined,
       npChoice: npChoice_(s[COL.PC.MEMORY]),
+      // 🔥 灌魔超載：階級上限(＋×1.5/++×2·0=不可調) ＋ 玩家設定的檔位(null=拉滿)。前端在寶具膠囊給檔位選擇。
+      overloadCap: npOverloadCap_(six['寶具']),
+      overloadTier: getOverloadTier_(s[COL.PC.MEMORY]),
       // ⚡ 主動技開關狀態（前端據此顯示 ON/OFF 標籤色＋切換）：預設 off(微量被動·免費)、on=每戰全效發動·耗魔
       activeSkillOn: activeSkillOn_(s[COL.PC.MEMORY]),
       // 🐙 深淵海怪肉身（持 summon_horror 且現存海怪時 {cur,max}）：前端在體力條下方獨立渲染一條海怪血條

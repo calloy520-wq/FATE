@@ -358,7 +358,9 @@ function actionFateBattle(userData, pcId, sheets) {
 
   // 🔋 寶具魔力（出力電池制）：寶具全由御主供魔。① 寶具僅能在「出力 100%（全開·認真）」解放——御主把魔力全灌進去才釋放得了真名。
   //   ② 御主魔力(MP)＋焚血(HP)都湊不出 prana → 油盡燈枯，擋下。
-  if (useNp) {
+  // 🔋 一般寶具解放要過閘門(出力 100% ＋ 御主付得起 prana)。❖令咒·絕對命令則【繞過閘門】——
+  //   令咒是神的權能，強令從者全力解放寶具、無視出力/魔力枯竭(原作士郎油盡燈枯仍令咒逼出 Excalibur)。
+  if (useNp && !useSeal) {
     const atkOutput = servantOutput_(pcData[atkIdx][COL.PC.MEMORY]);
     if (atkOutput < 100) {
       return JSON.stringify({ success: false, message: `寶具乃靈基全力之解放——須先將「${atkC.name}」的出力推到 100%（全開），御主灌注全部魔力，方能釋放真名。當前出力 ${atkOutput}%。` });
@@ -368,7 +370,7 @@ function actionFateBattle(userData, pcId, sheets) {
     const mHpPre = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
     const maxPay = mMpPre + Math.floor(Math.max(0, mHpPre - 1) / BATTERY_HP_PER_MP);
     if (maxPay < npCostPre) {
-      return JSON.stringify({ success: false, message: `御主魔力已油盡燈枯——以血魔竭力相湊仍不足以供「${atkC.name}」解放寶具(需 ${npCostPre})，須先休整／補魔。` });
+      return JSON.stringify({ success: false, message: `御主魔力已油盡燈枯——以血魔竭力相湊仍不足以供「${atkC.name}」解放寶具(需 ${npCostPre})，須先休整／補魔（或燃令咒·絕對命令強令解放）。` });
     }
   }
 
@@ -512,18 +514,22 @@ function actionFateBattle(userData, pcId, sheets) {
     const prana = npPranaCost_(atkC.six["寶具"]);
     // 🔥 灌魔加乘：規格外寶具(＋/EX)於【全開 100%】時，把御主餘裕魔力超載灌入 → 威力線性放大至上限(＋×1.5、＋＋/EX×2)。
     //   auto-pour：達上限需額外「底費×2」的魔力，不足則按比例。補魔過充【過充】額度先行【無償】支付、一次性用完即清。
-    const cap = npOverloadCap_(atkC.six["寶具"]);
+    const rankCap = npOverloadCap_(atkC.six["寶具"]);
+    // 🔥 玩家手動超載檔位(存從者【超載】)：預設拉滿階級上限；可調降(想省魔力/不想灌)。魔力不夠時仍會自動往下。
+    const _tier = getOverloadTier_(pcData[atkIdx][COL.PC.MEMORY]);
+    const cap = (_tier != null) ? Math.max(1.0, Math.min(_tier, rankCap)) : rankCap; // 天花板取「玩家設定」與「階級上限」較低者
     let totalDrain = prana, npOverloadMul = 1.0, ocUsed = 0, usedOvercharge = false;
-    if (cap > 1.0 && (parseInt(atkC.output) || 60) >= 100) { // 僅規格外(＋/EX)寶具·全開時可超載/動用過充
+    if (cap > 1.0 && (parseInt(atkC.output) || 60) >= 100) { // 規格外(＋/EX)寶具·全開·且檔位>基礎時可超載/動用過充
       const ocBonus = getOvercharge_(pcData[pIdx][COL.PC.MEMORY]);
       const mMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
       const mHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
       // 🔋 底費恆由御主自付(上游閘門已保證付得起)；過充【只】擴充「超載段」預算、絕不代付底費。
       const masterPayable = mMp + Math.floor(Math.max(0, mHp - 1) / BATTERY_HP_PER_MP);
       const masterSurplus = Math.max(0, masterPayable - prana);   // 付完底費後御主自己還能再灌多少
-      const extraToCap = prana * 2;                                // 再灌「底費×2」達上限
-      const pour = Math.min(extraToCap, masterSurplus + ocBonus);  // 超載段預算＝御主餘裕＋過充額度
-      npOverloadMul = 1 + (pour / extraToCap) * (cap - 1);
+      const extraToCap = prana * 2;                                // 灌到【階級上限 rankCap】所需的額外魔力
+      const pourForChosen = extraToCap * (cap - 1) / (rankCap - 1); // 只灌到玩家設定的天花板 cap(≤rankCap)
+      const pour = Math.min(pourForChosen, masterSurplus + ocBonus); // 超載段預算＝御主餘裕＋過充額度·封頂在檔位
+      npOverloadMul = 1 + (pour / extraToCap) * (rankCap - 1);      // 斜率用 rankCap；pour≤pourForChosen 保證 mul≤cap
       totalDrain = prana + pour;
       ocUsed = Math.min(ocBonus, pour);               // 過充【只】無償支付超載段·絕不代付底費(修雙重折抵)
       usedOvercharge = ocUsed > 0;                     // 真的灌到超載才消耗；沒派上用場則保留過充(修無謂燒 token)
