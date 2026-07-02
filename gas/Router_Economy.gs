@@ -142,7 +142,7 @@ function actionManaSupply(userData, pcId, sheets) {
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可供魔。" });
   const svName = pcData[svIdx][COL.PC.NAME];
   // 🔋 共用魔力池制：補魔＝御主硬擠魔術迴路、回滿共用池——但【永久】燒蝕：血量上限−15、迴路−3(有地板)。
-  //   過度補魔＝慢性自盡(迴路↓→池縮、回魔慢、禮裝弱)。另有「被動燃血」：池見底時 applyRegen_ 自動扣御主＋從者HP續契約。
+  //   過度補魔＝慢性自盡(迴路↓→池縮、回魔慢、禮裝弱)。另有「被動燃血」：池見底時 applyRegen_ 自動扣【御主】HP續契約(從者不扣血)。
   const CIRC_FLOOR = 8, HP_FLOOR = 40;
   const curMpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || masterPoolMax_(masterCircuits_(pcData[pIdx]), 0);
   const curMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
@@ -206,6 +206,6 @@ function actionManaSupply(userData, pcId, sheets) {
 
 // 🩸 燃血補魔已改為【被動機制】(2026-06)：不再是主動 action。
 //   共用魔力池見底、時消耗補不上時，於 applyRegen_(Time_World) 自動「燃命續契約」——
-//   缺口÷2，同時扣御主HP＋從者HP(各保底1)。詳見 applyRegen_。舊主動 actionBloodSupply 已移除。
+//   缺口÷2 全額扣【御主】HP(保底1)、從者不扣血(2026-07 玩家定案)。詳見 applyRegen_。舊主動 actionBloodSupply 已移除。
 
 // ── 💕 羈絆日限：記於御主 MEMORY 的【羈絆日】D:type1,type2（跨日自動重置）──

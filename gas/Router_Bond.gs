@@ -483,7 +483,15 @@ function actionRuleBreakSteal(userData, pcId, sheets) {
   pcData[nIdx][COL.PC.HP] = Math.max(hp, Math.round(hpMax * 0.5));
   pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "契約重締", "姿勢": "屈膝聽令", "負面": "無", "顏面": "複雜而臣服" });
   pcData[nIdx][COL.PC.CONTRIB] = 0;
-  pcData[nIdx][COL.PC.MEMORY] = String(pcData[nIdx][COL.PC.MEMORY] || "") + "｜【破戒奪取】契約已轉予新御主。";
+  // 🧹 清除敵屬時代殘留標記(2026-07 修)：舊主硬連結【御主】(殘留會誤觸 masterSynergy 全盛六圍/主從誤鏈)、
+  //   【寶具預告】【盟約至】【靈基透支】(敵方機制·奪來後不再適用)。
+  var _stMem = String(pcData[nIdx][COL.PC.MEMORY] || "")
+    .replace(/｜?【御主】[^｜]+/g, "")
+    .replace(/｜?【寶具預告】1/g, "")
+    .replace(/｜?【盟約至】\d+/g, "")
+    .replace(/｜?【靈基透支】\d+/g, "")
+    .replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
+  pcData[nIdx][COL.PC.MEMORY] = _stMem + "｜【破戒奪取】契約已轉予新御主。";
   sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
   seals -= 1;
   pcData[pIdx][COL.PC.MEMORY] = setPlayerSeals_(pcData[pIdx][COL.PC.MEMORY], seals);

@@ -144,7 +144,7 @@ CLK(時鐘): GAME_ID0 DAY1 HOUR2 AP3
 `ea:6 ＞ excalibur/divine_age/rule_breaker:5 ＞ ubw/anti_magic_lance/gae_bolg:4 ＞ god_hand/tsubame/zabaniya/petrify:3 ＞ nullify_magic/divine_core/territory:2`。
 
 ### 🔋 出力電池制（御主＝唯一魔力池）
-從者**無自有魔力池**，與御主共用一池（存御主MP，上限 `masterPoolMax_`=迴路×6＋從者魔力×2）。從者有「靈基出力檔位」旋鈕(20~100%·`OUTPUT_TIERS_`)，持續抽御主MP維持；放寶具須100%全開＋付 `npPranaCost_`(E40→EX300，`drainForNp_`：MP不足焚御主血2:1)。池見底→**被動燃血**(`applyRegen_`：缺口÷4同扣御主＋從者HP)。回魔三態：♻️自然(靈脈/休息·`applyRegen_`)／💧補魔(`mana_supply`·永久燒迴路·血上限↓)／🩸燃血(被動)。
+從者**無自有魔力池**，與御主共用一池（存御主MP，上限 `masterPoolMax_`=迴路×6＋從者魔力×2）。從者有「靈基出力檔位」旋鈕(20~100%·`OUTPUT_TIERS_`)，持續抽御主MP維持；放寶具須100%全開＋付 `npPranaCost_`(E40→EX300，`drainForNp_`：MP不足焚御主血2:1)。池見底→**被動燃血**(`applyRegen_`：缺口÷2 全額扣【御主】HP·從者不扣血·2026-07 玩家定案)。回魔三態：♻️自然(靈脈/休息·`applyRegen_`)／💧補魔(`mana_supply`·永久燒迴路·血上限↓)／🩸燃血(被動)。
 
 ## 7. 禮裝（`Mystic_Code.gs`·2026-06 全面被動化）
 

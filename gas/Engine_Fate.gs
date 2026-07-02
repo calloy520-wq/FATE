@@ -325,29 +325,36 @@ function rowToCombatant_(row) {
 //   依 真名(＋職階) 對應；首項＝主寶具(預設·敵方也用)。回 null＝單寶具(走字串尺度)。要擴充就往這張表加。
 function servantNpOptions_(name, cls) {
   name = String(name || ''); cls = String(cls || '');
-  if (name.indexOf('斯卡哈') === 0 && cls === 'Lancer') return [
+  // ⚠ 【精確比對種子真名】(2026-07 根源修)：原以 indexOf 子字串比對，AI/自訂從者只要真名【含】「無名」「吉爾伽美什」
+  //   等字樣就整組繼承乖離劍/Enuma Elish 選單，完全繞過 ALLOWED_FX_ 刻意排除 ea/enuma/gob 的防線。
+  //   改為 === 種子 realName(見 Seed_Codex)——頂級概念寶具回歸種子專屬。
+  if (name === '斯卡哈' && cls === 'Lancer') return [
     { n: '貫穿死翔之槍 Gáe Bolg Alternative', scale: '對人', fx: 'gae_bolg', desc: '單體·因果逆轉必中＋投擲斷命' },
     { n: '死亡滿溢的魔境之門 Gate of Skye', scale: '對軍', fx: '', desc: '對軍範圍·吸入影之國（魔力/幸運判定失敗即死）' }
   ];
-  if (name.indexOf('吉爾伽美什') >= 0) return [
+  if (name === '吉爾伽美什') return [
     { n: '王之財寶 Gate of Babylon', scale: '對人', fx: 'gob', desc: '對人·無盡兵裝的飽和彈幕' },
     { n: '乖離劍 Ea', scale: '對界', fx: 'ea', desc: '對界·天地乖離開闢之星，斬裂世界的最強一擊' }
   ];
-  if (name.indexOf('恩奇都') >= 0) return [
+  if (name === '恩奇都') return [
     { n: '世人啊、冀以鎖繫神明 Enuma Elish', scale: '對界', fx: 'enuma', desc: '對界·天之楔·反星球/人類破壞行為增幅，可匹敵乖離劍的概念級一擊' },
     { n: '民之睿智 Age of Babylon', scale: '對軍', fx: 'gob', desc: '對軍·自大地召出萬千劍槍鎖齊射（用法類王之財寶·可抵銷之）' }
   ];
-  if (name.indexOf('伊斯坎達爾') >= 0) return [
+  if (name === '伊斯坎達爾（征服王）') return [
     { n: '王之軍勢 Ionioi Hetairoi', scale: '對軍', fx: '', desc: '對軍·固有結界召喚萬軍亂踏' },
     { n: '神威的車輪 Gordius Wheel', scale: '對人', fx: '', desc: '對人·雷神戰車的單騎衝鋒' }
   ];
-  if (name.indexOf('EMIYA') >= 0 || name.indexOf('無名') >= 0) return [
+  if (name === '無名（EMIYA）') return [
     { n: '無限劍製 Unlimited Blade Works', scale: '對城', fx: 'ubw', desc: '對城·固有結界劍雨壓制（不受對魔力）' },
     { n: '偽·螺旋劍 Caladbolg II', scale: '對人', fx: 'projection', desc: '對人·破斷重塑的流星劍狙擊' }
   ];
-  if (name.indexOf('迦爾納') >= 0) return [
+  if (name === '迦爾納') return [
     { n: '穿刺死亡之槍 Vasavi Shakti', scale: '對神', fx: '', desc: '對神·梵天弒神之槍：對神性之敵單體特大傷害（弒神）' },
     { n: '日輪啊化作鎧甲吧 Kavacha and Kundala', scale: '對人', fx: 'divine_core', desc: '對人·不滅黃金鎧·常駐防護' }
+  ];
+  if (name === '蒼白騎兵（Pale Rider）') return [
+    { n: '審判日將至 Doomsday Come', scale: '對界', fx: '', desc: '對界·疫病具現的終末審判（EX）' },
+    { n: '籠中之鳥 Kagome Kagome', scale: '對軍', fx: '', desc: '對軍·封鎖之疫瘴結界（A）' }
   ];
   return null;
 }
@@ -520,6 +527,10 @@ function resolveFateBattle_(atk, def, opts) {
     }
   }
   var atkWins = gaebolg ? !gbEvaded : (aHit >= dEva);
+  // ❖ 令咒·絕對命令(opts.seal)＝必中：凌駕擲骰、亦不受必中槍閃避影響(玩家王牌絕對)。在【此處】定生死
+  //   而非呼叫端事後翻旗——否則 damage 已按「擲贏方」算完，翻旗等於拿敵方的傷害數字打敵方(2026-07 根源修)。
+  //   opts.forceHit＝火力取樣用強制命中(寶具對轟比大小)，同理保證 damage 屬於攻方。
+  if (opts.seal || opts.forceHit) atkWins = true;
   var winner = atkWins ? atk : def;
   var loser = atkWins ? def : atk;
 
