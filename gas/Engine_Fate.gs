@@ -502,8 +502,8 @@ function resolveFateBattle_(atk, def, opts) {
   // 👑 王之財寶(gob)常駐：無盡兵裝鋪天蓋地，命中 +5（飽和彈幕難閃；傷害彈幕在下方）
   if (hasFx_(atk, 'gob')) { aHit += 5; fired.push(atk.name + '·' + fxName_(atk, 'gob', '王之財寶') + '(無盡兵裝)'); }
   // ⛓️ 天之鎖(chain)：命中加成併入既有「縛神性」效果(下方)；輸出走下方萬鎖彈幕。此處不另加命中(避免恩奇都過載)。
-  // 燕返(tsubame)：寶具解放時次元摺疊令守方迴避 -5＋×2.3 傷害；普通出擊不適用（需全力釋放方能發動）
-  var tsubame = hasFx_(atk, 'tsubame'); if (tsubame && opts.np && npIs('tsubame')) { dEva -= 5; fired.push(atk.name + '·' + fxName_(atk, 'tsubame', '秘劍')); }
+  // 秘劍・燕返(tsubame)：劍術本身而非寶具，普攻／寶具皆可發動——次元摺疊令守方迴避 -5(傷害倍率見下方)
+  var tsubame = hasFx_(atk, 'tsubame'); if (tsubame) { dEva -= 5; fired.push(atk.name + '·' + fxName_(atk, 'tsubame', '秘劍')); }
   // 🔱 三騎士職階相剋（Saber→Lancer→Archer→Saber）：占上風者搶得先機，命中小幅領先（傷害加成在下方）
   var KNIGHT_BEATS = { 'Saber': 'Lancer', 'Lancer': 'Archer', 'Archer': 'Saber' };
   if (KNIGHT_BEATS[atk.cls] === def.cls) aHit += 3;
@@ -599,6 +599,8 @@ function resolveFateBattle_(atk, def, opts) {
   base = fxDmgApply_(base, winner, loser, 'divine_age', fired);
   base = fxDmgApply_(base, winner, loser, 'wind_strike', fired);
   base = fxDmgApply_(base, winner, loser, 'crafting', fired);
+  // 🗡️ 秘劍・燕返(tsubame)：劍術本身而非寶具限定——只要勝方持有即三方位同斬，命中就傷害 ×2.3(普攻/寶具皆同、不重複疊加)
+  if (hasFx_(winner, 'tsubame')) { base = Math.round(base * 2.3); fired.push(winner.name + '·' + fxName_(winner, 'tsubame', '秘劍・燕返') + '(三方位同斬)'); }
   // 🗡️ 無毀的湖光(weapon_steal／蘭斯洛特·Arondight)：湖之妖精所託的魔劍，對具「龍」屬性之敵解放秘藏威能，傷害×1.5
   if (hasFx_(winner, 'weapon_steal')) {
     var foeDragon = (loser.traits || []).concat(loser.skills || []).some(function (t) { return t && /龍|竜/.test(String(t.n)); });
@@ -644,9 +646,6 @@ function resolveFateBattle_(atk, def, opts) {
     if (wDivine) base = Math.round(base * 1.1);
     // 🗡️ 無限劍製(ubw／固有結界)：劍之地平展開，攻方在領域內傷害大增
     if (wSig('ubw')) { base = Math.round(base * 1.25); fired.push(winner.name + '·' + fxName_(winner, 'ubw', '無限劍製') + '(固有結界)'); }
-    // 🗡️ 秘劍・燕返(tsubame)：三方位同斬，命中即×2.3——2026-07 修：原寫在 if(opts.np) 區塊外，只放大寶具骰/固定加成前的小基數，
-    //   沒吃到後面才加的寶具骰與固定加成，實際傷害遠低於同規模簽名寶具；改進區塊內，比照其他簽名寶具乘在完整 base 上。
-    if (wSig('tsubame')) { base = Math.round(base * 2.3); fired.push(winner.name + '·' + fxName_(winner, 'tsubame', '秘劍・燕返') + '(三方位同斬)'); }
     // 🗡️ 妄想心音／霧夜殺戮(zabaniya)：暗殺系寶具＝奪心一擊，命中即致命級重創（救低六圍刺客/狂戰的本命）
     if (wSig('zabaniya')) { base = Math.round(base * 1.9) + 70; fired.push(winner.name + '·' + fxName_(winner, 'zabaniya', '妄想心音') + '(奪心致命)'); }
     // 🐙 螺湮城教本(summon_horror／青鬍子)：自深淵召出觸手大海怪鋪天蓋地碾壓——救低六圍支援法師的本命一擊(對城規模)

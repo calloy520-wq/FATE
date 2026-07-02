@@ -147,7 +147,9 @@ function masterToNpcRow_(mr, gameId, loc, faction, heroMagicRank) {
   var mAppear = String(mr[COL.MASTER.APPEAR] || "").trim();
   row[COL.PC.BACK] = (mBack ? mBack : "魔術師") + (mAppear ? "。外貌：" + mAppear : "");
   row[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "平靜" });
-  row[COL.PC.TRAIT] = parseTraitsHelper(String(mr[COL.MASTER.PERSONA] || "").replace(/・/g, "、"), "外貌平凡、舉止從容、通曉魔術、深藏心事");
+  // ⚠ 2026-07 修：TRAIT 原本跟 PREF 抄同一份 PERSONA 來源，兩者變成逐字重複(敵御主卡「性格」「特徵」塞了同一句)；
+  //   比照 heroToNpcRow_(TRAIT=外貌、PREF=性格 分開兩欄) 改用 mAppear(種子 appearance 外貌欄)當 TRAIT 真正來源。
+  row[COL.PC.TRAIT] = parseTraitsHelper(mAppear, "外貌平凡、舉止從容、通曉魔術、深藏心事");
   row[COL.PC.LOC] = loc;
   row[COL.PC.PREF] = parseTraitsHelper(String(mr[COL.MASTER.PERSONA] || "").replace(/・/g, "、"), "沉著表象、堅定內裡、珍視之物、厭惡之事");
   // 🎴 敵御主血魔與玩家御主同制：HP 純看迴路(masterMaxHpMp_)，凡人遠低於從者；MP 走共用魔力池公式

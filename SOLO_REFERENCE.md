@@ -112,7 +112,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | second_wind | actionSecondWind | 0-AP 死局保命解：扣~20%上限血換+4AP，**不耗AP·可重複**(2026-06 移除每日一次限制——血才是天然煞車，HP≤cost 才擋；唯 AP 近滿時擋)。不推進時間、不燒令咒 |
 | scout | actionScout | 偵查：揭露同地敵蹤(設 SEEN，**敵移位後不再清 SEEN→已偵查者持續可見**) |
 | prep_meal | actionPrepMeal | 🍱 整備·進食(戰前 buff)：耗1AP，御主 MEMORY 記`【整備至】<絕對小時>`，效期內從者出擊命中 +`MEAL_BUFF_BONUS`(2)約`MEAL_BUFF_HOURS`(8)小時。solo 無道具欄/商城，食物抽象供給。`fateStrike_` 讀 `mealBuffActive_` 把 `mealBuff` 傳進 `resolveFateBattle_`(Engine_Fate.gs 加 aHit)。前端 `prepMeal()`＋戰場行動列「🍱 整備」鈕 |
-| get_map_nodes / get_all_categorized_maps | 地圖 | 地圖節點＋敵蹤(吃 SEEN 迷霧；有盟友→`hasAllyInGame_`全揭露) |
+| get_map_nodes / get_all_categorized_maps | 地圖 | 地圖節點＋敵蹤(吃 SEEN 迷霧；有盟友→`hasAllyInGame_`全揭露)。**⚡ 2026-07 效能修**：算法抽成 `buildMapNodesPayload_(sheets,pcData,gid,loc)`(吃已讀好的 pcData，零額外整表讀)，`buildClientState_`／`actionMove` 都夾帶 `mapNodes:` 進各自回應；前端 `renderMapPane(preNodes)` 優先吃夾帶值、存進全域快取 `lastMapNodes`，只有兩者皆無才退回獨立 `get_map_nodes` round-trip。**這是修「手機切地圖頁很慢」的根因**——舊版每次顯示地圖頁都強制多打一趟 `google.script.run`(即使資料剛在同一次動作已經算過)。 |
 | move / rest / sync | — | 移動(2AP)／休息(補AP+夢境)／資料同步 |
 | narrate_only / multi_attack_narrate | actionNarrateOnly等 | **AI 純說書**(solo 不用 actionPlay；GAS 算數值、AI 只演出) |
 | claim_grail / enter_kanshou / kanshou_companions·add·remove | Gallery.gs | 奪杯封存／進鑑賞後日談世界／同伴管理(見 §9)。⚠ 舊 list_gallery/enter_gallery/gallery_talk 已移除 |
@@ -188,7 +188,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **🔱 概念優先權 Priority(2026-06)**：`CONCEPT_TIER{}`(**ea·enuma6** / excalibur·divine_age·rule_breaker5 / ubw·anti_magic_lance·gae_bolg·**summon_horror·rho_aias**4 / god_hand·tsubame·zabaniya·petrify3 / nullify_magic·divine_core·territory2)。`offenseTier_(c,isNp)` 取攻方最高進攻概念階；`pierces(防禦fx)`＝攻方階≥防禦階+`PIERCE_GAP`(2)→該防禦(territory/神核/對魔力)被無視(概念壓制)。把舊「破魔無視神核」系統化＋ ea 凌駕一切。
   - **🌟 2026-07 根源修**：`offenseTier_` 除了掃 skills(hasFx_)，**也把「本次解放寶具自身的概念」計入**(`conceptTier_(npProfile_(c).fx)`)——因寶具真名 fx 存在 `servantNpOptions_` 而非 skills，原本被 hasFx_ 漏掉，導致**吉爾 Ea 竟吃不到 tier-6 概念壓制**(已一併修好)。`enuma`＝恩奇都 Enuma Elish(天之楔·可匹敵乖離劍)，6 階；恩奇都改為多寶具(Enuma Elish 對界·enuma／民之睿智 Age of Babylon 對軍·gob)。
 - **🏰 寶具規模相剋矩陣(2026-06)**：`npAtkScale_`(對人/對軍/對城/對界，由寶具名或 ea→對界/excalibur·ubw→對城 推)×`npDefScale_`(由 ubw/神核/god_hand/territory 推) → `NP_SCALE_MATRIX` 倍率(**已壓縮：對城打對人×1.5、對界×1.7、min×0.4**；非舊×2.5/3.0)。`ea` 寶具：×1.7+4d12+80。
-  - **🐛→✅ 秘劍・燕返(tsubame) ×2.3 算錯位置(2026-07 修)**：原本寫在 `if(opts.np)` 區塊【外面】，只放大寶具骰/固定加成前的小基數；其餘簽名寶具倍率(ubw/zabaniya/summon_horror/ea 等)全在區塊【裡面】，吃到寶具骰＋寶具解放固定加成後的完整 base 才乘。已移進區塊內、比照其他簽名寶具寫法，傷害不再無故偏低。
+  - **🗡️ 秘劍・燕返(tsubame) 改為劍術非寶具限定(2026-07 修·玩家定案)**：原設計「僅寶具解放時」發動，但小次郎缺主動技(不在 burst/str_up/projection 三選一)，導致他在「普攻」「開主動」兩模式吊車尾(模擬勝率僅 22%/10.2%，見下)。已改成**只要持有 tsubame 即每次攻擊都吃 迴避-5＋傷害×2.3**(`Engine_Fate.gs`：dEva 段移出 `opts.np` 判斷；dmg 段從舊「移進 if(opts.np) 區塊內比照其他簽名寶具」改成移到區塊【外面】、與 morale/self_mod 等常駐被動同層，opts.np/opts.skill 都不影響、不重複疊加)。寶具模式因大家都能吃到自己爆發，他的相對優勢被抵銷、排名不變；普攻/開主動模式勝率躍升至 77%/50.2%(中上游)。**8 位第五次英靈的三模式循環賽勝率模擬腳本**存於使用者 scratchpad `sim5th.js`(非 repo 內，僅平衡性驗證用)。
   - **⚔️ 對神(弒神寶具，2026-06)**：第5種尺度 keyword，**不入矩陣**(特判)。對「神性」之敵(`loserDivine`)×2.4 單體特大(弒神)、對凡人僅×1.15。迦爾納梵天弒神之槍 Vasavi Shakti 用此(多寶具選項，見 `servantNpOptions_`)。注意引擎無「對城/對軍↔對神」矩陣交互，純看守方有無神性。
   - **🌟 多寶具英靈(`servantNpOptions_`)**：斯卡哈L／吉爾(王財·**Ea對界核爆**)／伊斯坎達爾／EMIYA(UBW對城·偽螺旋劍)／**迦爾納(Vasavi對神·Kavacha對人)**。首項=主寶具(敵方預設用)。玩家 set_np_choice 選。
   - **🦠 病死宿命(疫病克制，2026-06)**：攻方帶「疫病」trait(蒼白騎兵)＋守方帶「病死宿命」trait(恩奇都·原作病死) → **scaleMult=3.0·無視規模防禦**(概念碾壓·重演宿命之死)。優先於對神/矩陣判定。要擴充就給該從者掛 `{n:'病死宿命'}` trait。
@@ -214,7 +214,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
     - **前端**：get_tags servant 帶 `activeSkillOn`；從者卡技能膠囊——主動技 fx(`ACTIVE_FX_JS`)顯示為**開關標籤**(亮青⚡ON/暗青⚡OFF)，點開 `showActiveSkillToggle(sv,name,fx,rank,on)` popup 看說明＋切換鈕→`setActiveSkill(sv,on)`(呼 set_active_skill＋syncData)。⚡戰場攻擊按鈕已【移除】。FX_DESC 三招標「🟢開啟＝…每戰耗魔／⚪關閉＝微量免費」。
 - **🗂️ 技能 fx 格式表 `SKILL_FX_`(2026-07 資料驅動重構)**：`Engine_Fate.gs` 把散落的主動技 if 鏈＋線性被動加成收成**一張表**，要加/調技能＝改一列。欄位：`active/prio/mpPct/icon/descFn`(主動施放技術)、`zh`(中文名·fired fallback)、`hit/hitAdd`(命中·攻方)、`dmgMul/dmgAdd`(傷害·勝方，皆可數字或 `r=>`/`(r,c)=>`)、`blockedByLoserFx`(敗方有此 fx 則免疫)、`silent`(傷害段不推 fired·morale靜默/self_mod避免重列)、`note`(標籤後綴)。
   - 收表者：主動 `burst/str_up/projection`(引擎 `servantActiveSkill_` 掃 active 依 prio)＋線性被動 `aim/self_mod/morale/fast_cast/mad/divine_age/wind_strike/crafting`(`resolveFateBattle_` 於**原位置**呼 `fxHitAdd_`/`fxDmgApply_`＋`skillFxVal_`)。**位置/順序/標籤/數值與重構前一致**(morale/self_mod 在 mystic·ambush 乘子【前】、其餘在【後】，故分兩處呼叫而非單一迴圈——保平衡數值不漂)。
-  - **不進 SKILL_FX_(保持明碼·特例)**：骰子彈幕 `gob/chain`(gobVolley_/chainVolley_·隨機+多段)、時機/條件觸發 `stealth`(僅 ambush 首擊)/`tsubame/petrify/gae_bolg`(寶具條件·改對手迴避或必中)、`god_hand`(復活·非戰鬥數字)、`weapon_steal`(敵龍 trait 條件)、`mad` 的命中/迴避-penalty(雙向)、`divine_age` 使敵對魔力半效之交互。硬塞進表＝過度工程。
+  - **不進 SKILL_FX_(保持明碼·特例)**：骰子彈幕 `gob/chain`(gobVolley_/chainVolley_·隨機+多段)、時機/條件觸發 `stealth`(僅 ambush 首擊)/`petrify/gae_bolg`(寶具條件·改對手迴避或必中)、`tsubame`(2026-07 改為每次攻擊皆觸發·非寶具限定，見上)、`god_hand`(復活·非戰鬥數字)、`weapon_steal`(敵龍 trait 條件)、`mad` 的命中/迴避-penalty(雙向)、`divine_age` 使敵對魔力半效之交互。硬塞進表＝過度工程。
 - **🛡️ 防禦 fx 格式表 `DEF_FX_`＋防禦規模表 `DEF_SCALE_`(2026-07 資料驅動·對稱攻擊側)**：`Engine_Fate.gs`。
   - **`DEF_FX_`＝平減傷 fx 表**(`rho_aias`×0.6／`territory`×0.74／`wall_def`×0.82／`divine_core`×(1-0.18r))：欄位 `mul`(數字或 r=>)｜`pierceKey`(概念貫穿判定的防禦概念名)｜`zh/note`(fired 標籤)｜`physicalOnly`(僅擋物理·魔術系穿透，wall_def)｜`alsoPiercedByFx`(此攻方 fx 亦無視，divine_core←anti_magic_lance)｜`piercedMsg`(被貫穿時推的訊息 fn，territory/divine_core 有·rho_aias/wall_def 靜默)｜`guardPositive`(base>0 才推標籤，territory)。引擎 `fxDefApply_(base,loser,winner,fx,pierces,atkMagic,fired)` 於 `resolveFateBattle_` 各 fx【原位置】呼叫(位置/順序/標籤/數值與改前一致——因夾雜其他乘子·分處呼叫不併迴圈)。
   - **`DEF_SCALE_`＝防禦規模表**(2026-07 收斂：`c.horrorUp`(🐙海怪在場·變身態)→對城、`territory→對軍`)：`npDefScale_(c, pierces)` 先查 horrorUp 再掃表，餵 `NP_SCALE_MATRIX[攻][防]`(對稱 `npAtkScale_`)。`summon_horror` fx 恆給對城已改綁狀態；`wall_def` 移出規模表(本職＝物理減傷×0.82·恆給對城會架空海怪變身＋AI 自訂掛牆砍半對人寶具)。
@@ -281,7 +281,8 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
   - `seedFateCodex_(ss)`：英靈殿/御主殿為空才灌入(冪等)。版本 `CODEX_PERSONA_VER='v3'`，升版觸發 `upgradeCodexPersonas_`(覆寫英靈 persona)＋`upgradeMasterCodex_`(覆寫御主 persona/身世/萌點＋補欄)，皆不動客製。
 - **Seed_Rivals.gs**：開局鋪敵。
   - `seedRivalsForGame_`：依 war(4th/5th/fake/chaos)鋪敵御主+敵從者；移除玩家扮演的那組。
-  - `masterToNpcRow_`：御主殿列→敵御主眾生列。BACK←身世(+外貌)、INTENT←萌點、TRAIT/PREF←persona 解析、凡人弱數值、MEMORY=【願望】|【魔術】。
+  - `masterToNpcRow_`：御主殿列→敵御主眾生列。BACK←身世(+外貌)、INTENT←萌點、PREF←persona 解析、凡人弱數值、MEMORY=【願望】|【魔術】。
+    - **🐛→✅ TRAIT 原本跟 PREF 抄同一份 PERSONA(2026-07 修)**：導致 `enemyMasterCard_` 印出的「性格」「特徵」逐字重複。已比照 `heroToNpcRow_`(TRAIT=外貌、PREF=性格 分開兩欄)，TRAIT 改讀 `mAppear`(種子 appearance 外貌欄)。
   - `heroToNpcRow_`：英靈殿列→敵從者眾生列。
   - `canonHeroNames_`：正史6騎真名(禁玩家搶角)。
 - **Seed_Canon.gs**：📜 正典劇情插針系統 **已退役(2026-06 玩家定案·沒啥用處)**。`checkCanonPins_` 留 no-op 空殼(永遠回 {beats:[],leads:[],route:""})；actionMove/actionRest 不再呼叫、前端不再顯示 canonBeats/canonLeads；CANON_PINS 資料＋lockRoute_/spawnGilgamesh_/blackenFoe_/shadowDevourFoe_/route 讀寫 一併移除。**未動**：正史/混亂【戰爭】模式＋扮演正典御主(敵方陣營生成，在 Router_Action)。MEMORY【路線】【史】成無用遺留。
@@ -344,7 +345,8 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 - `codexPersona_(name)`：從英靈殿 PERSONA 撈細緻人設(firstP/words/toMaster/speech/moe/tic)。
 - `masterCard_(row)`：御主「演出依據」卡(名/性別/性格/特徵/願望)，讓 AI portray 御主。**🗣️ 御主有聲(2026-06)**：【可】依性格給御主台詞/反應(不再啞巴主角)，但【不替御主拍板戰略抉擇】(出戰/結盟/移動/補魔由玩家按鍵)、不逼問玩家、不快轉越過決策點；從者可開口問御主怎麼辦、御主也可自問，但停在問句/思索不可自演答案。互動場景(ally_bond/bond/mana/blood)＝`masterCard_ + servantCard_`；移動抵達 `actionMove` 也回傳 `masterCard` 前置 arrivePrompt。
-- **🎭 敵御主有聲(2026-07)**：`enemyMasterCard_(row)`——精簡演出卡(性格/特徵各取前3項，不塞六圍/寶具)，NPC 不受「不可替玩家決定」限制、AI 可自行決定其言行反應。只在敵御主本人**同地在場**時注入，靠 `enemyMasterIdx_` 找連結御主＋加一道位置比對(硬連結≠必然在場，可能是遠端指揮)；`actionFateBattle` 兩個 aiPrompt 分支(defeat/正常)都在 `servantCard_(pcData[atkIdx])` 後接 `enemyMasterCardStr`。解決「打從者對方御主全程沉默」的問題，且非每戰必塞——不在場則空字串。
+- **🎭 敵御主有聲(2026-07)**：`enemyMasterCard_(row)`——精簡演出卡(性格取前4項/特徵取前3項/萌點，不塞六圍/寶具)，NPC 不受「不可替玩家決定」限制、AI 可自行決定其言行反應。只在敵御主本人**同地在場**時注入，靠 `enemyMasterIdx_` 找連結御主＋加一道位置比對(硬連結≠必然在場，可能是遠端指揮)；`actionFateBattle` 兩個 aiPrompt 分支(defeat/正常)都在 `servantCard_(pcData[atkIdx])` 後接 `enemyMasterCardStr`。解決「打從者對方御主全程沉默」的問題，且非每戰必塞——不在場則空字串。
+  - **🐛→✅ 沒讀萌點、性格漏第4項(2026-07 修)**：原本只塞 `性格`(slice 0,3，漏掉「厭惡」那格)＋`特徵`(當時跟性格逐字重複，見上)，完全沒讀 `COL.PC.INTENT`(萌點/反差)——伊莉雅這類「表象天真、內裡哀傷、強顏歡笑掩寂寞」的反差角色，AI 拿不到萌點錨點時就滑向類型套路(如「冷眼旁觀殺戮的無情幼女」)而非角色本來的反差設計。已補回萌點欄位＋收尾加 show-don't-tell 提醒(禁把萌點/性格詞當台詞)。
 - ⚠ **prompt 別再寫「嚴禁輸出 stat_changes/items_gained/money_transferred」**：solo 全走 `narrate_only`/`multi_attack_narrate`，後端只讀 `data.narration`、其餘欄位一律丟棄——禁令是多餘的、還把欄位名秀給 AI。已從 FATE solo prompt 全數移除(九州 actionPlay/item 路徑保留，那裡真的會吃 stat_changes)。
 - `servantCard_` 含**狂化偵測**：persona.speech/firstP 含 狂化/無法言語/咆哮 → 加「禁說完整句、只咆哮」鐵律(赫拉克勒斯/蘭斯洛特命中；會說話的開膛手傑克不中)。
 - `servantCard_(row)`：壓成「〈角色背景·僅供內化〉」段塞進 narration prompt。**鐵則一**=當背景揣摩；**鐵則二**=設定字眼禁直述/說嘴；**鐵則三**=依羈絆調親疏(低好感戒備→高羈絆親近，守住性格內核)。
