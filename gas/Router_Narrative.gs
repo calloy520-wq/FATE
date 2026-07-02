@@ -600,23 +600,8 @@ ${isKanshou ? `
 
 
 
-// 🟢 系統強制抹除/斬斷 NPC 的重大事件約定（羈絆已併入該 NPC 自己列的 MAJOR_EVENT 欄）
-function actionClearNpcMajorEvent(userData, pcId, sheets) {
-  const pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人命格。" });
-  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-
-  const targetName = userData.targetName; // 前端傳過來的 NPC 名字
-  const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === targetName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
-  if (nIdx === -1) {
-    return JSON.stringify({ success: false, message: "在冥冥眾生冊中，未尋得你與此人的命運約定。" });
-  }
-
-  sheets.pc.getRange(nIdx + 1, COL.PC.MAJOR_EVENT + 1).setValue("無");
-
-  return JSON.stringify({ success: true, message: "天命已改，因果落筆重塑！" });
-}
+// 🗑️ 2026-07：actionClearNpcMajorEvent 已刪——唯一入口「個人史紀」面板已隨回顧類功能整套砍除，
+//   這個 action 因此不再有任何按鈕能觸發。COL.PC.MAJOR_EVENT 欄位本身仍在用(見 servantCard_/actionPlay)，未動。
 
 
 // ==========================================

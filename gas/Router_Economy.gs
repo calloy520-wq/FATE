@@ -94,24 +94,9 @@ function actionSetActiveSkill(userData, pcId, sheets) {
   }); // 樂觀更新·前端自走輕量 syncData
 }
 
-// 🌟 設定多寶具英靈要解放哪個寶具（存從者 MEMORY【寶具選】N）：免費、即時、不耗 AP。
-function actionSetNpChoice(userData, pcId, sheets) {
-  let pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
-  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
-  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無此從者。" });
-  const opts = servantNpOptions_(pcData[svIdx][COL.PC.NAME], pcData[svIdx][COL.PC.RANK]);
-  if (!opts || !opts.length) return JSON.stringify({ success: false, message: "此從者只有單一寶具，無從選擇。" });
-  const idx = Math.max(0, Math.min(opts.length - 1, parseInt(userData.idx) || 0));
-  pcData[svIdx][COL.PC.MEMORY] = setNpChoice_(pcData[svIdx][COL.PC.MEMORY], idx);
-  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
-  return JSON.stringify({
-    success: true, idx: idx,
-    message: `「${pcData[svIdx][COL.PC.NAME]}」此戰將解放【${opts[idx].n}】——${opts[idx].desc}`
-  }); // 樂觀更新·前端自走輕量 syncData，不再算丟棄的 statusString
-}
+// 🗑️ 2026-07：actionSetNpChoice(獨立設定多寶具索引的 action)已刪——前端從未呼叫過(從一開始就沒接線)，
+//   多寶具索引改走 fate_battle 一併夾帶的 userData.npChoice(見 Router_Battle.gs)。setNpChoice_/npChoice_
+//   兩個 helper 仍在用，未動。
 
 // 👗 從者換裝（玩家自訂當前服裝穿著，存從者 MEMORY【換裝】）：純外觀·免費·即時·不耗 AP。
 //   只換衣不換人(五官/髮色/體態依種子 look)；空字串＝恢復本相。餵進 servantCard_／actionPlay 敘述、兩軌通用。

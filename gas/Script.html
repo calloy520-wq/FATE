@@ -2054,7 +2054,9 @@ function renderRecentLocs(recents = null) {
     try {
       const res = await gasRun({ action: 'bond', bondType: type, pcId: pc.id, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) {
-        myBondUsed = res.bondUsed || myBondUsed; await narrate(res.aiPrompt); syncData(true);
+        myBondUsed = res.bondUsed || myBondUsed;
+        if (res.report) renderFateBattleReport(res.report); // ⚔️ 相伴遭突襲→戰報卡(跟 rest()/scout() 同一套)
+        await narrate(res.aiPrompt); syncData(true);
         if (res.defeat) { await handleDefeat(res); }
       } else { alert((res && res.message) || '今日無法再敘。'); if (res && res.bondUsed) myBondUsed = res.bondUsed; }
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }

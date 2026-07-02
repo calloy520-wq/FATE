@@ -37,7 +37,6 @@ const ActionRouter = {
   "set_mage_realm": actionSetMageRealm,
   "set_rune_mode": actionSetRuneMode,
   "set_active_skill": actionSetActiveSkill,
-  "set_np_choice": actionSetNpChoice,
   "outfit": actionSetOutfit,
   "bond": actionBond,
   "rule_break_steal": actionRuleBreakSteal,
@@ -48,7 +47,6 @@ const ActionRouter = {
   "scavenge": actionScavenge,
   "second_wind": actionSecondWind,
   "scout": actionScout,
-  "clear_npc_major_event": actionClearNpcMajorEvent,
   "get_map_nodes": actionGetMapNodes,
   "move": actionMove,
   "sync": actionSync,
@@ -193,14 +191,14 @@ const LOCK_EXEMPT_ACTIONS_ = {
 };
 // ⚡ 會改動 solo 戰場狀態、前端事後會 syncData(整頁刷新) 的動作 → 夾帶 _state 省一趟 round-trip。
 //   不含：sync(本身即 state)／get_tags／純讀取(inspect/get_*)／創角召喚(自走 reload)／kanshou(KPC_)；
-//   也不含「樂觀更新」的輕量 setter(set_servant_output/set_mage_realm/set_rune_mode/set_np_choice/set_active_skill)——
+//   也不含「樂觀更新」的輕量 setter(set_servant_output/set_mage_realm/set_rune_mode/set_active_skill)——
 //   它們不 syncData、只吃 res.economy，夾 _state 反而白做整表讀取。
 //   也不含 narrate_only——前端 narrate() 只吃 res.text、不消費 _state，夾它純浪費整表讀。
 const STATE_AFTER_ACTIONS = {
   fate_battle: 1, use_seal: 1, mana_supply: 1, bond: 1, rule_break_steal: 1,
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
   second_wind: 1, scout: 1, move: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
-  update_fate: 1, update_rel_tag: 1, clear_npc_major_event: 1
+  update_fate: 1, update_rel_tag: 1
 };
 
 // ==========================================
