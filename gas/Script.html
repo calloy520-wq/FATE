@@ -609,6 +609,8 @@ function renderRecentLocs(recents = null) {
     try {
       const res = await gasRun({ action: 'summon_horror_beast', pcId: pc.id, servant: name || '' });
       if (res && res.success) {
+        // ⚡ 先刷狀態列(御主被抽走整筆寶具 prana)再跑 AI 敘事——與 補魔/偵查/整備 同模式，數字不等敘事
+        if (res.statusString) { localStorage.setItem('kyushu_last_status', res.statusString); updateUI(res.statusString.split('§')); }
         updateClock(res.clock, res.ap, res.apMax);
         if (res.aiPrompt) await narrate(res.aiPrompt); // 🎬 演出巨獸自書頁湧現
         syncData(true);
