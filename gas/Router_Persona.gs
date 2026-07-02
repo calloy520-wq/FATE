@@ -74,8 +74,11 @@ function servantCard_(row) {
   } catch (e) { return ""; }
 }
 
-// 🎭 御主「演出依據」卡（精簡）：讓 AI 知道玩家御主是誰(性別/性格/特徵/願望)，以便 portray 互動。
+// 🎭 御主「演出依據」卡（精簡）：讓 AI 知道玩家御主是誰(性別/性格/特徵/願望/萌點)，以便 portray 互動。
 //   ★只供內化、禁複述；願望僅供氛圍不直述；【可】依性格給御主台詞/反應(讓角色有聲)，但【不替御主拍板戰略抉擇】。
+// ⚠ 2026-07 修：原本完全沒讀 COL.PC.INTENT(萌點)——actionBackfillMasterAi 明明有請 AI 生成
+//   「結合此御主身分性格的獨特可愛反差萌」寫回這欄(Router_Creation.gs)，卡片卻從沒讀過，跟
+//   enemyMasterCard_ 修復前一樣的疏漏：御主容易被演成套路化的「魔術師」而非設計好的反差角色。
 function masterCard_(row) {
   if (!row) return "";
   try {
@@ -83,12 +86,14 @@ function masterCard_(row) {
     var sex = String(row[COL.PC.SEX] || "");
     var prefArr = String(row[COL.PC.PREF] || "").split('、').filter(function (x) { return x && x !== "無"; });
     var traitArr = String(row[COL.PC.TRAIT] || "").split('、').filter(function (x) { return x && x !== "無"; });
+    var moe = String(row[COL.PC.INTENT] || "").trim();
     var wish = (String(row[COL.PC.MEMORY] || "").match(/【願望】([^｜|【\n]*)/) || [])[1] || "";
     return `〈御主「${name}」·演出依據(僅內化、禁複述)〉` + (sex ? `性別${sex}` : "") +
       (prefArr.length ? `｜性格：${prefArr.slice(0, 4).join('、')}` : "") +
       (traitArr.length ? `｜特徵：${traitArr.slice(0, 4).join('、')}` : "") +
+      (moe && moe !== "（待揭曉）" ? `｜萌點(反差·僅供內化)：${moe}` : "") +
       (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
-      `。御主＝玩家所扮演的角色：【可】依其性格/身世自然開口、有神態反應與台詞，讓角色鮮活有聲(別只當沉默旁觀者)；從者可開口問御主接下來怎麼辦，御主(我)也可以自問該如何是好——但【不可】替御主拍板下一步戰略抉擇(是否出戰/結盟/移動/補魔由玩家按鍵定奪)，停在問句/思索即可，不可自己接著演出答案，也不可把劇情快轉越過決策點。\n`;
+      `。御主＝玩家所扮演的角色：【可】依其性格/身世自然開口、有神態反應與台詞，讓角色鮮活有聲(別只當沉默旁觀者，show, don't tell：禁把性格詞/萌點當台詞或由旁白點破)；從者可開口問御主接下來怎麼辦，御主(我)也可以自問該如何是好——但【不可】替御主拍板下一步戰略抉擇(是否出戰/結盟/移動/補魔由玩家按鍵定奪)，停在問句/思索即可，不可自己接著演出答案，也不可把劇情快轉越過決策點。\n`;
   } catch (e) { return ""; }
 }
 

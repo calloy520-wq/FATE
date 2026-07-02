@@ -75,7 +75,11 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   if (severed && after <= 0) out.fired.push(atkC.name + '·斬斷救贖(契約已破)');
   // 🛡️ 戰鬥續行＝受【致命傷】(after<=0)才觸發硬撐留 1——非「殘血 2~5 也被拖到 1」(2026-07 修倒扣血)。
   //   「僅一次」由 hp>1 天然保證：撐過後站在 1 血，下一記致死擊不再觸發。
-  if (after <= 0 && hasFx_(defC, 'survive') && hp > 1 && !severed) { after = 1; out.fired.push(defC.name + '·戰鬥續行'); }
+  // ⚠ 2026-07 修：加 !hasFx_(defC,'god_hand') 結構性互斥——兩者原本只靠「種子資料別同時掛」自律，
+  //   赫拉克勒斯-Berserker 曾誤兩者皆掛，survive 判定順序在前就會免費接住幾乎所有致命傷、god_hand 的
+  //   燒命判定永遠輪不到(下方 82 行)。當時只刪了那筆種子資料，沒把互斥做進引擎——只要日後任何角色
+  //   (種子或 AI 自訂)又同時持有兩者，同一顆地雷會再炸一次。持有 god_hand 者一律優先吃 god_hand。
+  if (after <= 0 && hasFx_(defC, 'survive') && !hasFx_(defC, 'god_hand') && hp > 1 && !severed) { after = 1; out.fired.push(defC.name + '·戰鬥續行'); }
 
   // 十二試煉（God Hand）：自死亡歸來、不花御主任何資源——優先於令咒脫離判定，別讓有 God Hand 的從者(如赫拉克勒斯)
   //   平白燒掉御主寶貴的令咒逃命，牠自己就能免費復活。高位階寶具概念可「一擊燒掉多條命」，壓倒性 overkill 再加成。
