@@ -279,10 +279,11 @@ function actionBreakAlliance(userData, pcId, sheets) {
 }
 
 // ⏳ 盟約自然瓦解：效期到 或 存活敵從者 ≤3（最後只能剩一個→強制翻臉）。回傳破裂的御主名單。
-function breakStaleAlliances_(sheets, gameId) {
+//   ⚡ 2026-07：preData 給了就在同一份陣列上原地改，不重讀；沒給(相容)才自己整表讀一次。
+function breakStaleAlliances_(sheets, gameId, preData) {
   try {
-    var clk = getClock_(gameId); var day = clk ? clk.day : 1;
-    var data = sheets.pc.getDataRange().getValues();
+    var data = preData || sheets.pc.getDataRange().getValues();
+    var clk = getClock_(gameId, data); var day = clk ? clk.day : 1;
     var aliveFoes = 0;
     for (var i = 1; i < data.length; i++) { if (String(data[i][COL.PC.FACTION]) === "敵從者" && String(data[i][COL.PC.GAME_ID] || "") === gameId && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) aliveFoes++; }
     var forceAll = aliveFoes <= 3;
