@@ -59,7 +59,6 @@ function actionMove(userData, pcId, sheets) {
 
   // 💨 撤離追擊(一點點)：從「有活敵從者」的格子離開時，較快的敵從者可能咬一記離別追擊。
   //   ★可生還·不致死(從者血保 1)——只是不讓你一按就從強敵眼皮底下從容全身而退。用移動【前】的初始資料判定。
-  const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : []; // 提前讀一次·下方移動/敘事/追擊判定共用(零淨增讀取)
   const tgtTrim = String(target || "").trim();
   // 🗺️ 目的地必須存在於坤圖(母區域或分支名)——擋掉偽造參數傳送到「地圖外」當永久安全屋(敵AI/夜襲永遠碰不到)。
   if (!tgtTrim) return JSON.stringify({ success: false, message: "未指定目的地。" });
@@ -73,7 +72,6 @@ function actionMove(userData, pcId, sheets) {
   var pursuit = null;
   try {
     var fromLocM = String(allPcData[pIdx][COL.PC.LOC] || "").trim();
-    var moverNameM = String(allPcData[pIdx][COL.PC.NAME] || "");
     if (isFateMove && fromLocM && tgtTrim && tgtTrim !== fromLocM) {
       var psvIdxM = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
       if (psvIdxM !== -1) {
@@ -128,8 +126,7 @@ function actionMove(userData, pcId, sheets) {
           if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
           if (String(r[COL.PC.LOC] || "").trim() !== fromLocM) return;
           if (isAllied_(r)) return; // 🤝 盟約/休兵中→不追殺
-          var bnd = (relData.find(function (x) { return x[COL.REL.PC] === moverNameM && x[COL.REL.NPC] === String(r[COL.PC.NAME]); }) || [])[COL.REL.FAV];
-          if ((parseInt(bnd) || 0) >= 50) return; // 💗 好感友好(≥50)→交情夠·不追殺
+          if ((parseInt(r[COL.PC.BOND]) || 0) >= 50) return; // 💗 好感友好(≥50，2026-07 讀該敵從者自己的 BOND 欄)→交情夠·不追殺
           var a = rankVal((rowToCombatant_(r).six['敏捷']) || 'C');
           if (a > chaserAgi) { chaserAgi = a; chaser = r; }
         });
@@ -181,9 +178,12 @@ function actionMove(userData, pcId, sheets) {
   allPcData[pIdx][COL.PC.LOC] = target;
   const pcName = allPcData[pIdx][COL.PC.NAME];
 
-  relData.filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]).forEach(npcName => {
-    const nIdx = allPcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!moveGameId || String(r[COL.PC.GAME_ID] || "") === moveGameId));
-    if (nIdx !== -1) allPcData[nIdx][COL.PC.LOC] = target;
+  allPcData.forEach((r, nIdx) => {
+    if (nIdx === pIdx) return;
+    if (String(r[COL.PC.IS_PARTY] || "") !== "同行") return;
+    if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+    if (moveGameId && String(r[COL.PC.GAME_ID] || "") !== moveGameId) return;
+    allPcData[nIdx][COL.PC.LOC] = target;
   });
 
   // 💨 套用撤離追擊判定(前述交手)：輸的一方扣血·保 1 不致死(隨下方整表 setValues 寫回)。
@@ -210,8 +210,8 @@ function actionMove(userData, pcId, sheets) {
   //   大幅恢復靠「休息」（同一套規則 ×2）。便宜：只改記憶體那幾格，隨移動一起寫回，零額外讀寫，不會變慢。
   let regenNote = "";
   if (isFateMove) {
-    const partyNames = relData.filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]);
-    const homeLoc = playerHomeLoc_(sheets, pcId);
+    const partyNames = allPcData.filter(r => String(r[COL.PC.GAME_ID] || "") === moveGameId && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_")).map(r => r[COL.PC.NAME]);
+    const homeLoc = playerHomeLoc_(sheets, pcId, allPcData);
     const did = applyRegen_(allPcData, moveGameId, pcName, partyNames, masterCircuits_(allPcData[pIdx]), 2, 1, sheets, target, homeLoc);
     if (did) regenNote = "〔時回〕數小時的奔波之間，靈基與魔力隨時間悄然回流了一些。";
   }
@@ -259,7 +259,7 @@ function actionMove(userData, pcId, sheets) {
     preFoes: preFoesAtTarget,
     victory: moveVictory,
     statusString: buildPlayerStatusString(allPcData[pIdx]),
-    people: getLocalPeopleList(sheets, pcName, pcId, target, relData, allPcData),
+    people: getLocalPeopleList(sheets, pcName, pcId, target, allPcData),
     locations: getNearbyLocations(target, freshMapData).slice(0, 5),
     mapDesc: mapDesc,
     parentRegion: rootTarget,
@@ -293,14 +293,15 @@ function actionRest(userData, pcId, sheets) {
     const wasInjured = prevHp < hpMaxP;
     let healedNames = [pcName];
     const partyNames = [];
-    if (sheets.rel) {
-      sheets.rel.getDataRange().getValues().filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]).forEach(npcName => {
-        const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!restGameId || String(r[COL.PC.GAME_ID] || "") === restGameId));
-        if (nIdx !== -1 && parseInt(pcData[nIdx][COL.PC.HP]) > 0) { partyNames.push(npcName); healedNames.push(npcName); }
-      });
-    }
+    pcData.forEach(r => {
+      if (String(r[COL.PC.NAME]) === pcName) return;
+      if (String(r[COL.PC.IS_PARTY] || "") !== "同行") return;
+      if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+      if (restGameId && String(r[COL.PC.GAME_ID] || "") !== restGameId) return;
+      if (parseInt(r[COL.PC.HP]) > 0) { partyNames.push(r[COL.PC.NAME]); healedNames.push(r[COL.PC.NAME]); }
+    });
     // 時回 ×2：休息 restHours 小時的回復（HP 自我修復；MP 走魔力收支經濟，休息把收入加倍）
-    applyRegen_(pcData, restGameId, pcName, partyNames, masterCircuits_(pcData[pIdx]), restHours, 2, sheets, pcLoc, playerHomeLoc_(sheets, pcId));
+    applyRegen_(pcData, restGameId, pcName, partyNames, masterCircuits_(pcData[pIdx]), restHours, 2, sheets, pcLoc, playerHomeLoc_(sheets, pcId, pcData));
     // 休滿（HP 回到上限）者重置體態為平穩
     [pIdx].concat(partyNames.map(n => pcData.findIndex(r => r[COL.PC.NAME] === n && String(r[COL.PC.GAME_ID] || "") === restGameId && !String(r[COL.PC.ID]).startsWith("DEAD_")))).forEach(idx => {
       if (idx >= 0 && (parseInt(pcData[idx][COL.PC.HP]) || 0) >= (parseInt(pcData[idx][COL.PC.MAX_HP]) || 0)) pcData[idx][COL.PC.STATUS] = normalStatus;
@@ -315,7 +316,6 @@ function actionRest(userData, pcId, sheets) {
       if (rounds > 0) { const tick = worldTick_(sheets, restGameId, pcLoc, rounds, true); restRumors = tick.rumors || []; restVictory = !!tick.victory; }
       restClock = clockLabel_(restGameId);
     } catch (e) { }
-    try { sheets.log.appendRow([new Date(), pcId, `【系統】御主一行休息了 ${restHours} 小時，恢復行動力。`, pcLoc]); } catch (e) { }
     // 🔄 世界已 tick(靈基透支到期者可能剛判死·敵可能移位)：【重讀眾生】再判夜襲——
     //   原用 tick 前舊資料：剛判死的敵從者還能「偷襲」你，陣地反擊分支整列寫回舊 row 更會把死者復活(2026-07 修)。
     pcData = sheets.pc.getDataRange().getValues();
@@ -361,24 +361,22 @@ function actionRest(userData, pcId, sheets) {
   pcData[pIdx][COL.PC.HP] = pMax.hp; pcData[pIdx][COL.PC.MP] = pMax.mp;
   pcData[pIdx][COL.PC.STATUS] = normalStatus;
 
-  if (sheets.rel) {
-    sheets.rel.getDataRange().getValues().filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]).forEach(npcName => {
-      const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === npcName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-      if (nIdx !== -1 && pcData[nIdx][COL.PC.STATUS] !== "屍體" && parseInt(pcData[nIdx][COL.PC.HP]) > 0) {
-        const nMax = maxStatsForRow_(pcData[nIdx]);
-        pcData[nIdx][COL.PC.MAX_HP] = nMax.hp; pcData[nIdx][COL.PC.MAX_MP] = nMax.mp;
-        pcData[nIdx][COL.PC.HP] = nMax.hp; pcData[nIdx][COL.PC.MP] = nMax.mp;
-        pcData[nIdx][COL.PC.STATUS] = normalStatus;
-        healedNames.push(npcName);
-      }
-    });
-  }
+  pcData.forEach((r, nIdx) => {
+    if (String(r[COL.PC.NAME]) === pcName) return;
+    if (String(r[COL.PC.IS_PARTY] || "") !== "同行") return;
+    if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+    if (r[COL.PC.STATUS] === "屍體" || !(parseInt(r[COL.PC.HP]) > 0)) return;
+    const nMax = maxStatsForRow_(r);
+    pcData[nIdx][COL.PC.MAX_HP] = nMax.hp; pcData[nIdx][COL.PC.MAX_MP] = nMax.mp;
+    pcData[nIdx][COL.PC.HP] = nMax.hp; pcData[nIdx][COL.PC.MP] = nMax.mp;
+    pcData[nIdx][COL.PC.STATUS] = normalStatus;
+    healedNames.push(r[COL.PC.NAME]);
+  });
   const bystanderNames = pcData
     .filter(r => r[COL.PC.ID] != pcId && !String(r[COL.PC.ID]).startsWith("DEAD_") &&
       String(r[COL.PC.LOC]).trim() === pcLoc && !healedNames.includes(r[COL.PC.NAME]))
     .map(r => r[COL.PC.NAME]);
   sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
-  sheets.log.appendRow([new Date(), pcId, `【系統】${healedNames.join("與")} 就地休養，狀態回歸平穩。`, pcData[pIdx][COL.PC.LOC]]);
   return JSON.stringify({
     success: true, statusString: getFreshStatusString(pcId, pIdx, sheets), healedNames: healedNames,
     loc: pcLoc, wasInjured: wasInjured, bystanderNames: bystanderNames
@@ -412,7 +410,6 @@ function actionPrepMeal(userData, pcId, sheets) {
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   var ap = AP_PER_DAY, clock = "";
   if (isFate) { try { ap = spendAp_(myGameId, 1).ap; clock = clockLabel_(myGameId); } catch (e) { } }
-  try { sheets.log.appendRow([new Date(), pcId, `【系統】御主一行整備進食，戰意高昂（從者命中 +${MEAL_BUFF_BONUS}，約 ${MEAL_BUFF_HOURS} 小時）。`, pcData[pIdx][COL.PC.LOC]]); } catch (e) { }
   return JSON.stringify({
     success: true,
     message: `整備完畢——你與從者飽餐一頓、稍事休整。接下來約 ${MEAL_BUFF_HOURS} 小時內，從者出擊命中 +${MEAL_BUFF_BONUS}。`,
@@ -482,7 +479,6 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, userData, baseMul) 
       out.defeat = true;
       const wish = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
       out.dreamPrompt = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wish, String(pcData[svIdx][COL.PC.NAME]));
-      const acctD = String(userData.acctName || ""); if (acctD) recordHistory_(acctD, "敗", String(pcData[svIdx][COL.PC.NAME]), `「${pcData[svIdx][COL.PC.NAME]}」卸下防備時遭「${out.enemyName}」突襲斬殺。`);
     }
   } else {
     pcData[svIdx][COL.PC.HP] = after;

@@ -13,8 +13,8 @@
 
 **雙軌設計（玩家定案，別偏離）**：
 - **🎴 純淨 solo（主體·SFW）**：單人聖杯戰爭，只有「按鍵＋AI 敘述」。多帳號可玩、`game_id` 實例化＋帳號綁定分流。盡量貼近原作。
-- **🌹 慾海 kanshou（鑑賞後日談·NSFW）**：奪杯後與封存從者約會。一張約會大地圖，只持久化 個性/特徵/關係/外顯/肉體＋歷史因果；無經濟、無戰鬥。共用 `actionPlay` 引擎與 `nsfwBaseRules`（🔴紅線①不可改）。
-- **兩個唯讀視窗**：📜 個人聖杯戰記／🏆 排行榜。
+- **🌹 慾海 kanshou（鑑賞後日談·NSFW）**：奪杯後與封存從者約會。一張約會大地圖，只持久化 個性/特徵/關係/外顯/肉體＋歷史紀錄（「歷史暫存」逐句對話，驅動敘事連續性）；無經濟、無戰鬥。共用 `actionPlay` 引擎與 `nsfwBaseRules`（🔴紅線①不可改）。⚠ 「因果」(事件log) 機制已於 2026-07 整套刪除，與此處持久化的「歷史紀錄」是不同機制。
+- ⚠ **2026-07 玩家定案(推翻舊方針)**：原本的兩個唯讀視窗（📜 個人聖杯戰記／🏆 排行榜）已全數砍除——單人專注，不做跨帳號回顧比拼。連帶「戰史」表、`incrementWin_`/`recordHistory_`/`recordWinSpeed_`/`actionLeaderboard`/`actionGetVictoryHistory` 一併刪除，帳號表 WON/BEST_DAYS 欄砍除。
 
 **三鐵則**：① GAS 掌所有數值（先算→寫表→再敘述）；② AI 只把已裁定結果說書、把玩家自由發揮摘成事實列，**永不決定勝負/寫數字**（LLM 輸出的硬數值一律被夾值/忽略）；③ show-don't-tell（禁直述 願望/個性/萌點 字面）。
 
@@ -26,32 +26,35 @@
 GAS Web App (doGet→Index.html·HTML Service)
   └─ google.script.run.handleGameAction(json) → Router_Action.gs 分流器
        ├─ 數值引擎：Engine_Fate(戰鬥) / Time_World(時間·經濟) 全在 GAS
-       ├─ Google Sheets（唯一資料庫·13 分頁）
+       ├─ Google Sheets（唯一資料庫·7 分頁，2026-07 精簡自 13 分頁）
        └─ UrlFetchApp → OpenRouter（google/gemini-*·只做敘述）  ← Engine_Combat.callGeminiAPI
 ```
 - API key 存 GAS **Script Properties**（不進代碼）。
 - 前端 `Index.html`(殼) 內嵌 `Style.html`(CSS) ＋ `Script.html`(全部前端 JS·單一 SPA)。
 
-## 3. 資料層（試算表 13 分頁）
+## 3. 資料層（試算表 7 分頁，2026-07 精簡自 13 分頁）
 
-`Setup_FateWorld.gs` 冪等建表（缺就補、含則略）。分頁：**坤圖**(地圖)／**眾生**(參戰者·一列一人)／**英靈殿**(種子從者範本)／**御主殿**(種子御主範本)／**帳號**／**戰史**／**鑑賞**(奪杯封存)／**時鐘**／**因果**(事件log)／**權柄**(帳號↔角色↔居所)／**關係**(好感/盟約)／**史紀**／**歷史暫存**(逐句對話)。另有 **鑑賞眾生** 分頁（慾海活動角色，`getKanshouPcSheet_` 動態建，與戰爭主表隔離）。
+`Setup_FateWorld.gs` 冪等建表（缺就補、含則略）。分頁：**坤圖**(地圖)／**眾生**(參戰者·一列一人)／**英靈殿**(種子從者範本)／**御主殿**(種子御主範本)／**帳號**／**鑑賞**(奪杯封存)／**歷史暫存**(逐句對話)。另有 **鑑賞眾生** 分頁（慾海活動角色，`getKanshouPcSheet_` 動態建，與戰爭主表隔離）。
 
-### COL schema（位置索引·刪欄會位移全表→只可棄用不可刪，定義在 `Core_Settings.gs:20`）
+⚠ **2026-07 舊分頁移除**：時鐘／權柄／關係 三表**摺進「眾生」自己這一列**（每個 game_id 世界恆只有一位御主，故 NPC 對御主的關係＝那名 NPC 自己這一列的欄位；日/時/AP/居所＝御主自己那一列的欄位，天然 1:1、無需獨立 join 表）。因果(事件log)／戰史／史紀(命運長河) 三表**直接刪除、無替代機制**（單人專注，不留跨局回顧資料，見 §11）。
+
+### COL schema（位置索引·刪欄會位移全表→只可棄用不可刪，定義在 `Core_Settings.gs` 開頭 `const COL`）
 ```
-PC(眾生·25欄):  ID0 NAME1 SEX2 BACK3 STATUS4 TRAIT5 LOC6 PREF7 HP8 MP9 MAX_HP10
-                MAX_MP11 REALM12(棄用·寫空) MEMORY13 INTENT14 FACTION15 RANK16
-                CONTRIB17(敵令咒餘量) ALIGN18 PHYSICAL19 MARTIAL20(寶具字串) GAME_ID21 SIX22 TAGS23 SEEN24
-REL:  PC0 NPC1 FAV2 TAG3 IS_PARTY4 MEMORY5 MAJOR_EVENT6
+PC(眾生·33欄，2026-07 折表後):
+                ID0 NAME1 SEX2 BACK3 STATUS4 TRAIT5 LOC6 PREF7 HP8 MP9 MAX_HP10
+                MAX_MP11 MEMORY12 INTENT13 FACTION14 RANK15
+                CONTRIB16(敵令咒餘量) ALIGN17 PHYSICAL18 MARTIAL19(寶具字串) GAME_ID20 SIX21 TAGS22 SEEN23
+                🆕 關係欄(原 REL 表·這名 NPC 對本世界御主的關係，御主自己這列留空)：
+                  BOND24(好感0-100) REL_TAG25 IS_PARTY26("同行"/"") MAJOR_EVENT27 REL_MEM28(關係專屬記憶，與角色自己MEMORY分開存)
+                🆕 世界狀態欄(原 CLK/AUTH 表·只在御主自己那一列有意義)：
+                  DAY29 HOUR30 AP31 HOME_LOC32(居所·工房加成)
 MAP:  REGION0 NAME1 TYPE2 COORD3 DESC4 PARENT5
-AUTH(權柄): NAME0 ID1 TITLE2 HOME_LOC3 DECOR4
 HERO(英靈殿): ID0 CLS1 NAME2 SEX3 SIX4 CLASS_SKILLS5 SKILLS6 TRAITS7 NP8 PERSONA9 ALIGN10 WARS11 SOURCE12
 MASTER(御主殿): ID0 NAME1 SEX2 APPEAR3 MAGIC4 CIRCUITS5 MELEE6 MAGIC_RANK7 HOME8 WISH9 PERSONA10 WAR11 SOURCE12 BACK13 MOE14
-ACC(帳號): NAME0 PC1 WON2 CREATED3 BEST_DAYS4
-HIST(戰史): ACC0 RESULT1 SERVANT2 SUMMARY3 TIME4
+ACC(帳號·2026-07 縮為3欄，WON/BEST_DAYS隨排行榜砍除): NAME0 PC1 CREATED2
 GAL(鑑賞): ACC0 NAME1 CLS2 SEX3 SIX4 TAGS5 NP6 BACK7 PREF8 MOE9 MEMOIR10 WISH11 TIME12 MASTER13 MSEX14
-CLK(時鐘): GAME_ID0 DAY1 HOUR2 AP3
 ```
-註：舊九州欄（MONEY/WEP/ARM/ACC1-2/LIFESKILL/CLS/五圍 STR~LUK）已**真的刪除並重排到 25 欄**（非保留死欄）；但 `buildPlayerStatusString` 的 `§` 字串仍填 6 個空位保前端定位（協議層佔位）。
+註：舊九州欄（MONEY/WEP/ARM/ACC1-2/LIFESKILL/CLS/五圍 STR~LUK）與 2026-07 折表前的獨立 REL/CLK/AUTH/HIST 表已**真的刪除**（非保留死欄）；`REALM` 死欄亦於 2026-07 真的移除。`buildPlayerStatusString` 的 `§` 字串仍填 6 個空位保前端定位（協議層佔位）。
 
 ### MEMORY 標記（存 `COL.PC.MEMORY`·全形 `｜` 分隔，讀取器須排除 `｜`）
 `【願望】【魔術】【迴路】N【出身】【體術】`(御主種子) ｜ `【令咒】N`(預設3) ｜ `【試煉】N`(god_hand 復活命數·無標記預設11＝赫拉克勒斯專屬；AI 產物召喚時標3·尼祿三度輝映基準) ｜ `【模式】canon/chaos`｜`【戰爭】4th/5th/fake`｜`【扮演】<御主id>`(創角設定) ｜ `【禮裝】id`(被動禮裝) ｜ `【出力】`(靈基出力檔·預設60) ｜ `【寶具選】N`(多寶具) ｜ `【符文】`(斯卡哈) ｜ `【御主】名`/`【從者】名`(敵主從硬連結) ｜ `【海怪護盾】cur|max|expiry`(青鬍子海怪肉身) ｜ `【整備至】N`(餐buff) ｜ `【陣地】地`(工房) ｜ `【搜刮】地`(枯竭) ｜ `【盟約至】day`｜`【鑑賞緣】`(盟友90+解鎖封存) ｜ `【靈基透支】N`(令咒盡死線) ｜ `【喪失從者】名`｜`【破戒奪取】`｜`【帳號】acct`(慾海御主) ｜ NSFW：`[雙修技巧][性愛時敏感部位][專屬稱呼][親密次數][交談輪數]`。
@@ -64,8 +67,8 @@ CLK(時鐘): GAME_ID0 DAY1 HOUR2 AP3
 | **Router_Creation.gs** | ~400 | 創角／召喚 | `actionManualNpc`(create，2026-07 非阻塞化)、`actionBackfillMasterAi`、`actionSummonServant`、`actionGetHeroes/GetMasters` |
 | **Router_Movement.gs** | ~550 | 地圖／移動／休息／偵查／搜刮／整備／工房／卸防突襲 | `actionMove`(世界先動玩家後到)、`actionRest`、`actionScout`、`actionScavenge`、`actionSetWorkshop`、`actionSecondWind`、`actionPrepMeal`、`enemyAmbushOnServant_` |
 | **Router_Battle.gs** | ~910 | 戰鬥核心(單檔最大，符合「單一大關注點」) | `fateStrike_`(單次出擊裁決)、`actionFateBattle`(出戰主流程)、`drainForNp_`(御主電池)、十二試煉/令咒餘量/靈基透支死線/餐buff/海怪護盾 MEMORY 存取器 |
-| **Router_Bond.gs** | ~490 | 羈絆／令咒使用／結盟／破戒奪僕／戰記／主從連結 | `actionBond`、`actionUseSeal`、結盟三部曲(`actionProposeAlliance/BreakAlliance/AllyBond`)、`actionRuleBreakSteal`、`actionWarChronicle/WarHistoryList`、`markMasterLostServant_` |
-| **Router_Narrative.gs** | ~910 | AI 敘事引擎(actionPlay，solo/kanshou 共用) | `actionPlay`、`narrateWithState_`/`actionNarrateOnly`、`buildDreamPrompt_`(虛假之夢)、`actionGetEpicHistory` |
+| **Router_Bond.gs** | ~490 | 羈絆／令咒使用／結盟／破戒奪僕／主從連結 | `actionBond`、`actionUseSeal`、結盟三部曲(`actionProposeAlliance/BreakAlliance/AllyBond`)、`actionRuleBreakSteal`、`markMasterLostServant_`。⚠ 2026-07：`actionWarChronicle/WarHistoryList`(「戰記」)已整套刪除 |
+| **Router_Narrative.gs** | ~910 | AI 敘事引擎(actionPlay，solo/kanshou 共用) | `actionPlay`、`narrateWithState_`/`actionNarrateOnly`、`buildDreamPrompt_`(虛假之夢)。⚠ 2026-07：`actionGetEpicHistory`(「史紀」命運長河面板)已整套刪除 |
 | **Router_Persona.gs** | ~80 | 演出依據卡(跨檔共用小工具，不歸屬任何領域) | `servantCard_`/`masterCard_`/`codexPersona_`/`findPlayerServantIdx_` |
 | **Router_Economy.gs** | ~165 | 靈基出力／魔境／符文／寶具選／補魔 | `actionSetServantOutput/MageRealm/RuneMode/NpChoice`(樂觀更新setter)、`actionManaSupply` |
 | **Script.html** | ~2700 | 前端 SPA 核心（共用機制＋戰鬥/地圖/狀態面板，遊戲進行中用到的一切） | `gasRun`/`syncData`/`applyClientState`、`servantStrike`/`renderFateBattleReport`、`refreshFateTags`/`bar`/`horrorBar`、`renderMapPane`/`buildMapSvg_`、`applyModeUI`(兩軌切換總開關，跨onboarding/kanshou共用) |
@@ -76,13 +79,13 @@ CLK(時鐘): GAME_ID0 DAY1 HOUR2 AP3
 | **Gallery.gs** | 430 | 奪杯→封存→慾海管線（NSFW軌資料層） | `actionClaimGrail`、`actionEnterKanshou`、`actionKanshou*`、`purgeGameData_`、`getKanshouPcSheet_` |
 | **Time_World.gs** | 400 | 時間/AP＋御主電池經濟＋世界自走 | `getClock_`/`spendAp_`、`servantEconomy_`/`applyRegen_`、`worldTick_`、`AP_PER_DAY=12` |
 | **Seed_Codex.gs** | 405 | 種子英靈(37騎)/御主(14名)名冊＋灌表/升級管線 | `SEED_SERVANTS`、`SEED_MASTERS`、`seedFateCodex_`、`upgradeCodexPersonas_`、`resyncSummonedServants_` |
-| **Account.gs** | 316 | 帳號登入/存檔/清殘局/排行榜/戰史 | `actionAccountLogin`、`actionAccountNewGame`、`actionPurgeOrphans`、`actionLeaderboard`、`incrementWin_`/`recordHistory_` |
+| **Account.gs** | 316 | 帳號登入/存檔/清殘局 | `actionAccountLogin`、`actionAccountNewGame`、`actionPurgeOrphans`。⚠ 2026-07：排行榜/戰史相關 `actionLeaderboard`/`actionGetVictoryHistory`/`incrementWin_`/`recordHistory_`/`recordWinSpeed_` 已整套刪除（單人專注，不做跨帳號回顧） |
 | **Seed_Rivals.gs** | 231 | 開局鋪敵（正典/混亂/偽聖杯陣容） | `FATE_5TH/4TH/FAKE_ROSTER`、`seedRivalsForGame_`、`heroToNpcRow_`/`masterToNpcRow_`、`markRivalsSeen_` |
-| **Setup_FateWorld.gs** | 166 | 冪等建 13 分頁＋冬木地圖種子 | `ensureFateSheets_`、`FATE_SHEET_DEFS`、`FATE_MAP_SEED`、`doGet` 觸發 |
+| **Setup_FateWorld.gs** | 166 | 冪等建 7 分頁(2026-07 精簡自 13 分頁)＋冬木地圖種子 | `ensureFateSheets_`、`FATE_SHEET_DEFS`、`FATE_MAP_SEED`、`doGet` 觸發 |
 | **Engine_Combat.gs** | 245 | 🔴 LLM 調用核心＋NSFW 演化規則 | `buildDefaultSystemPrompt`、`callGeminiAPI`、`doGet`、`nsfwBaseRules`(紅線①) |
 | **Style.html** | 594 | 全站 CSS（暗色·金色主題·三欄RWD） | `:root` 變數、`.msg-*`、`.modal-*`、`fk*` 地圖動畫、`barThrob` |
 | **Index.html** | 414 | HTML 進入殼＋各屏 div | `#setup`/`#game` 兩容器、創角召喚各屏 ID、雙軌入口卡片 |
-| **History_Sync.gs** | 153 | 對話歷史暫存＋因果分級保留 | `saveGameHistoryBatch`、`getGameHistory`、`pickRelevantLogs`、`IMPORTANT_LOG_TAGS` |
+| **History_Sync.gs** | 153 | 對話歷史暫存(逐句對話，驅動聊天記錄/敘事連續性) | `saveGameHistoryBatch`、`getGameHistoryBatchRaw`、`getGameHistory`。⚠ 2026-07：「因果」(事件log)機制已整套刪除——`pickRelevantLogs`/`readRecentLogRows`/`formatCausalityEntry`/`pickNsfwCausalityEvent`/`trimLogRowsByOwner`/`IMPORTANT_LOG_TAGS` 全數移除，`actionPlay` 提示詞不再組「前塵因果」段；此與仍保留的「歷史暫存」是兩套不同機制 |
 | **Mystic_Code.gs** | 130 | 禮裝系統（2026-06 全面被動化） | `MYSTIC_CODES`、`MC_COMBAT_`、`injectMysticBuff_`/`mcCombatFx_`、`rollMysticForMaster_` |
 
 ### 4.1 檔案拆分慣例（2026-07 定案·未來新增檔案照這個模式，別重新發明）
@@ -180,7 +183,7 @@ CLK(時鐘): GAME_ID0 DAY1 HOUR2 AP3
 
 ## 10. 已知遺產/待辦（掃描發現）
 
-- `COL.PC.REALM`：階級系統移除後恆寫空字串，但 COL 位置索引不可刪，維持棄用。
+- ~~`COL.PC.REALM`：階級系統移除後恆寫空字串，但 COL 位置索引不可刪，維持棄用。~~ 2026-07：隨整體 COL.PC 折表重排，`REALM` 已真的移除（非棄用死欄），見 §3 COL schema。
 - `actionGetMasters` 對 `fake`/`chaos` 戰爭回傳 5th 名冊；`seedRivalsForGame_` fake 分支不理 `【扮演】`——目前前端觸發不到（latent），未來若開放 fake 扮演須補。
 - `dev_seed_gallery`(Gallery·自標【DEV·待移除】)／`dev_resync_codex`(套最新平衡·可留)：DEV 工具，確認慾海穩定後可清前者。
 - `RESEED_VER`/`CODEX_PERSONA_VER`：一次性遷移旗標，旗標守門下無效能損失，保留無害。

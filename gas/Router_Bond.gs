@@ -1,7 +1,7 @@
 // ==========================================
-// 🤝 Router_Bond.gs — 羈絆／令咒／結盟／破戒奪僕／戰記／主從連結（2026-07 拆出）
+// 🤝 Router_Bond.gs — 羈絆／令咒／結盟／破戒奪僕／主從連結（2026-07 拆出，戰記已砍）
 //   actionBond／actionUseSeal／結盟三部曲(propose/break/ally_bond)／actionRuleBreakSteal／
-//   戰記(actionWarChronicle/actionWarHistoryList)／敵御主↔敵從者硬連結／喪失從者標記。
+//   敵御主↔敵從者硬連結／喪失從者標記。
 // ==========================================
 
 function stampLostServant_(memory, svName, cause) {
@@ -17,81 +17,6 @@ function getLostServant_(memory) {
 function getServantMaster_(memory) { var m = String(memory || "").match(/【御主】([^｜]+)/); return m ? m[1] : ""; }
 function getMasterServant_(memory) { var m = String(memory || "").match(/【從者】([^｜]+)/); return m ? m[1] : ""; }
 
-// 📖 本場戰記（里程碑）：用 GAS 寫進獨立「戰記」表，附遊戲內日期時段，供玩家回顧。
-//   只記 solo 戰爭局(g_)；schema = [game_id, 帳號, 日, 時, 內容]。表不存在則自動建立。
-//   帳號用於回顧過去戰役(帳號表只記當前局)；每場召喚必帶帳號→靠那筆把整場 game_id 歸戶。
-//   上限：超過 2000 列就砍最舊 500（≈ 數十場戰役），避免無限成長。
-function logWarEvent_(gameId, text, acctName) {
-  try {
-    var gid = String(gameId || "");
-    if (gid.indexOf("g_") !== 0 || !text) return; // 只記單人聖杯戰爭局
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sh = ss.getSheetByName("戰記");
-    if (!sh) { sh = ss.insertSheet("戰記"); sh.appendRow(["game_id", "帳號", "日", "時", "內容"]); }
-    var clk = getClock_(gid);
-    var day = clk ? clk.day : 0, hour = clk ? clk.hour : 0;
-    sh.appendRow([gid, String(acctName || ""), day, hour, String(text)]);
-    var last = sh.getLastRow();
-    if (last > 2000) { try { sh.deleteRows(2, last - 1500); } catch (e) { } }
-  } catch (e) { }
-}
-
-// 📖 取戰記：預設玩家當前 game_id；若帶 userData.gameId(回顧過去)則驗證屬於該帳號才給。
-function actionWarChronicle(userData, pcId, sheets) {
-  var wantGid = String((userData && userData.gameId) || "").trim();
-  var acct = String((userData && userData.acctName) || "").trim();
-  var gid = wantGid;
-  if (!gid) {
-    var allPc = sheets.pc.getDataRange().getValues();
-    var me = allPc.find(function (r) { return r[COL.PC.ID] == pcId; });
-    gid = me ? String(me[COL.PC.GAME_ID] || "") : "";
-  }
-  var events = [];
-  if (gid) {
-    try {
-      var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("戰記");
-      if (sh) {
-        var data = sh.getDataRange().getValues();
-        // 回顧過去局：必須該 game_id 有任一列帳號 === 登入帳號，才放行(防越權看別人戰役)
-        var owned = !wantGid;
-        if (wantGid && acct) { for (var k = 1; k < data.length; k++) { if (String(data[k][0]) === gid && String(data[k][1]) === acct) { owned = true; break; } } }
-        if (owned) {
-          for (var i = 1; i < data.length; i++) {
-            if (String(data[i][0]) === gid) events.push({ day: data[i][2], hour: data[i][3], text: String(data[i][4] || "") });
-          }
-        }
-      }
-    } catch (e) { }
-  }
-  return JSON.stringify({ success: true, events: events });
-}
-
-// 📖 戰役回顧清單：列出某帳號歷來的戰役(依戰記表帳號欄)，每場給標題/結果/最後日。
-function actionWarHistoryList(userData, pcId, sheets) {
-  var acct = String((userData && userData.acctName) || "").trim();
-  var wars = [];
-  if (acct) {
-    try {
-      var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("戰記");
-      if (sh) {
-        var data = sh.getDataRange().getValues();
-        var order = [], map = {};
-        for (var i = 1; i < data.length; i++) {
-          if (String(data[i][1]) !== acct) continue;
-          var g = String(data[i][0]); var txt = String(data[i][4] || "");
-          if (!map[g]) { map[g] = { gameId: g, title: txt, result: "進行中", lastDay: data[i][2] || 0 }; order.push(g); }
-          map[g].lastDay = data[i][2] || map[g].lastDay;
-          if (/奪得聖杯|聖杯戰爭勝利|聖杯到手/.test(txt)) map[g].result = "奪杯";
-          else if (/落敗|敗北/.test(txt)) map[g].result = "敗北";
-        }
-        // 當前局排最前；其餘依出現序倒過來(新到舊)
-        order.reverse();
-        wars = order.map(function (g) { return map[g]; });
-      }
-    } catch (e) { }
-  }
-  return JSON.stringify({ success: true, wars: wars });
-}
 // data：眾生二維陣列；svIdx：剛死亡的敵從者列索引；sheet：sheets.pc。就地改 data 並寫回該御主列。
 //   配對優先用硬連結【御主】名(精準，不怕多組同地)，舊角色無連結則退回同落點比對。
 function markMasterLostServant_(sheet, data, svIdx, cause) {
@@ -160,7 +85,6 @@ function actionUseSeal(userData, pcId, sheets) {
   seals -= 1;
   pcData[pIdx][COL.PC.MEMORY] = setPlayerSeals_(pcData[pIdx][COL.PC.MEMORY], seals);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-  logWarEvent_(myGameId, `御主燃一道令咒（${type === 'repair' ? '靈基重塑·回滿' : type === 'mana' ? '灌頂補魔' : '緊急脫離'}）施於「${svName}」（我餘令咒 ${seals}）。`, String(userData.acctName || ""));
 
   const aiPrompt = `【系統·令咒已發動，已裁定】御主燃燒一道令咒。${effectMsg}（餘 ${seals} 道令咒）\n` +
     `★以 Fate／TYPE-MOON 筆觸描寫令咒在手背灼亮、絕對命令權貫徹的瞬間（一段即可）。效果已由系統結算。\n` +
@@ -219,12 +143,12 @@ function actionBond(userData, pcId, sheets) {
   sheets.pc.getRange(pIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[pIdx][COL.PC.MEMORY]);
   usedToday = getBondUsedToday_(pcData[pIdx][COL.PC.MEMORY], day);
 
-  // 取最新羈絆值供顯示
+  // 取最新羈絆值供顯示（羈絆存於從者自己列的 BOND 欄，raiseBond_ 已寫回，這裡重讀一次拿最新值）
   let bondNow = 0;
-  if (sheets.rel) {
-    const rel = sheets.rel.getDataRange().getValues().find(r => r[COL.REL.PC] === masterName && r[COL.REL.NPC] === svName);
-    if (rel) bondNow = parseInt(rel[COL.REL.FAV]) || 0;
-  }
+  try {
+    const freshSv = sheets.pc.getRange(svIdx + 1, COL.PC.BOND + 1).getValue();
+    bondNow = parseInt(freshSv) || 0;
+  } catch (e) { }
 
   // ⚔️ 卸防突襲：相伴談心時門戶大開，同地若有清醒敵從者→趁隙重擊
   const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, userData, 1.2);
@@ -315,7 +239,6 @@ function actionProposeAlliance(userData, pcId, sheets) {
     const gIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc);
     let allyServant = "";
     if (gIdx >= 0) { allyServant = String(pcData[gIdx][COL.PC.NAME]); pcData[gIdx][COL.PC.MEMORY] = setAllyMem_(pcData[gIdx][COL.PC.MEMORY], until); sheets.pc.getRange(gIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[gIdx][COL.PC.MEMORY]); }
-    logWarEvent_(myGameId, `與敵御主「${masterName}」${allyServant ? `（從者「${allyServant}」）` : ""}締結同盟、暫時休兵（至第 ${until} 日）。`, String(userData.acctName || ""));
     aiPrompt = servantCard_(gIdx >= 0 ? pcData[gIdx] : null) +
       `【系統·結盟已達成·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』向敵御主「${masterName}」${allyServant ? `（從者「${allyServant}」）` : ""}提議結盟，對方權衡利害後接受了——雙方暫時休兵、互不侵犯（至第 ${until} 日前後）。\n` +
       `★以 Fate／TYPE-MOON 筆觸【約 120~180 字】演出這場談判：「${masterName}」依其性格回應（務實的權衡、開出條件或冷淡的「暫時」），最後達成不穩固的同盟。對方的算計與保留要演出來，留一絲不信任的伏筆。\n` +
@@ -350,7 +273,6 @@ function actionBreakAlliance(userData, pcId, sheets) {
   // 一組同盟通常master+從者一起破，MEMORY 整欄一次寫回(取代逐列 setValues 的零散往返)
   const brokeMemCol = []; for (let z = 1; z < pcData.length; z++) brokeMemCol.push([pcData[z][COL.PC.MEMORY]]);
   sheets.pc.getRange(2, COL.PC.MEMORY + 1, brokeMemCol.length, 1).setValues(brokeMemCol);
-  logWarEvent_(myGameId, `單方面撕毀與「${who || npcName}」的盟約，雙方重回敵對。`, String(userData.acctName || ""));
   const aiPrompt = `【系統·盟約撕毀·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』單方面撕毀與「${who || npcName}」的盟約，雙方重回敵對。\n` +
     `★以 Fate／TYPE-MOON 筆觸【約 80~130 字】演出背叛/決裂的一瞬間張力。`;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, statusString: getFreshStatusString(pcId, pIdx, sheets) });
@@ -371,7 +293,7 @@ function breakStaleAlliances_(sheets, gameId) {
         if (forceAll || day > allyUntil_(data[j])) {
           data[j][COL.PC.MEMORY] = clearAllyMem_(data[j][COL.PC.MEMORY]);
           dirty = true;
-          if (fac === "敵御主") { broken.push(String(data[j][COL.PC.NAME])); logWarEvent_(gameId, `與「${String(data[j][COL.PC.NAME])}」的同盟${forceAll ? '因戰局逼近終局而瓦解' : '到期失效'}，重回敵對。`); }
+          if (fac === "敵御主") broken.push(String(data[j][COL.PC.NAME]));
         }
       }
     }
@@ -384,22 +306,12 @@ function breakStaleAlliances_(sheets, gameId) {
   } catch (e) { return { broken: [], forced: false }; }
 }
 
-// 羈絆 +delta（無此列則新建，盟友起步約 40），回傳新值
-function bumpBond_(sheets, pcName, npcName, delta, tag) {
-  if (!sheets.rel) return 0;
-  try {
-    var rd = sheets.rel.getDataRange().getValues();
-    for (var i = 1; i < rd.length; i++) {
-      if (String(rd[i][COL.REL.PC]) === pcName && String(rd[i][COL.REL.NPC]) === npcName) {
-        var v = Math.max(0, Math.min(100, (parseInt(rd[i][COL.REL.FAV]) || 0) + delta));
-        sheets.rel.getRange(i + 1, COL.REL.FAV + 1).setValue(v);
-        return v;
-      }
-    }
-    var nv = Math.max(0, Math.min(100, 40 + delta));
-    sheets.rel.appendRow([pcName, npcName, nv, tag || "盟友", "", "聖杯戰爭中暫時結盟、漸生交情", ""]);
-    return nv;
-  } catch (e) { return 0; }
+// 羈絆 +delta（寫在該 NPC 自己列的 BOND 欄；無互動過的盟友起步約 40），回傳新值
+function bumpBond_(sheets, pcData, npcIdx, delta) {
+  var v = Math.max(0, Math.min(100, (parseInt(pcData[npcIdx][COL.PC.BOND]) || 40) + delta));
+  pcData[npcIdx][COL.PC.BOND] = v;
+  sheets.pc.getRange(npcIdx + 1, COL.PC.BOND + 1).setValue(v);
+  return v;
 }
 
 // 🤝 與盟友共處／共濟魔力：對同地盟友（敵御主或敵從者·結盟中）交流增進羈絆——同盟的「交流」維度。
@@ -438,7 +350,7 @@ function actionAllyBond(userData, pcId, sheets) {
   }
 
   const gain = 6 + Math.floor(Math.random() * 6); // +6~11
-  const after = bumpBond_(sheets, masterName, allyName, gain, allyIsMaster ? "盟友御主" : "盟友從者");
+  const after = bumpBond_(sheets, pcData, aIdx, gain);
   let unlocked = false;
   if (after >= 90 && !/【鑑賞緣】/.test(String(pcData[aIdx][COL.PC.MEMORY] || ""))) {
     pcData[aIdx][COL.PC.MEMORY] = String(pcData[aIdx][COL.PC.MEMORY] || "") + "｜【鑑賞緣】";

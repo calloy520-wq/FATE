@@ -22,11 +22,10 @@ function actionAccountLogin(userData, pcId, sheets) {
 
   var found = findAccountRow_(acc, name);
   if (!found) {
-    acc.appendRow([name, "", 0, new Date()]);
-    return JSON.stringify({ success: true, name: name, hasGame: false, won: 0 });
+    acc.appendRow([name, "", new Date()]);
+    return JSON.stringify({ success: true, name: name, hasGame: false });
   }
   var charId = String(found.row[COL.ACC.PC] || "");
-  var won = parseInt(found.row[COL.ACC.WON]) || 0;
   var pcData = charId ? sheets.pc.getDataRange().getValues() : [];
   var pcRow = null;
   if (charId) {
@@ -47,13 +46,12 @@ function actionAccountLogin(userData, pcId, sheets) {
         if ((parseInt(pcData[j][COL.PC.HP]) || 0) > 0) { servantAlive = true; break; }
       }
       if (!masterAlive || !servantAlive) {
-        // 戰史已在死亡當下（戰鬥敗北／御主殞命）寫入，這裡只負責清理殘局，避免重複記錄。
         try { purgeGameData_(sheets, gid, pcRow[COL.PC.NAME], name); } catch (e) { }
-        return JSON.stringify({ success: true, name: name, hasGame: false, won: won, ended: true });
+        return JSON.stringify({ success: true, name: name, hasGame: false, ended: true });
       }
     }
     return JSON.stringify({
-      success: true, name: name, hasGame: true, won: won,
+      success: true, name: name, hasGame: true,
       pcId: charId, pcName: pcRow[COL.PC.NAME], pcSex: pcRow[COL.PC.SEX]
     });
   }
@@ -71,10 +69,10 @@ function actionAccountLogin(userData, pcId, sheets) {
     } catch (e) { }
     try { acc.getRange(found.idx + 1, COL.ACC.PC + 1).setValue(""); } catch (e) { }
   }
-  return JSON.stringify({ success: true, name: name, hasGame: false, won: won });
+  return JSON.stringify({ success: true, name: name, hasGame: false });
 }
 
-// 開新局前清除舊存檔（刪該 game_id 的眾生 + 該御主的關係），並解除帳號連結
+// 開新局前清除舊存檔（刪該 game_id 的整個眾生世界，關係已隨列一起刪），並解除帳號連結
 function actionAccountNewGame(userData, pcId, sheets) {
   var name = String(userData.acctName || "").trim().slice(0, 20);
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -88,19 +86,12 @@ function actionAccountNewGame(userData, pcId, sheets) {
     var pcData = sheets.pc.getDataRange().getValues();
     var prow = pcData.find(function (r) { return String(r[COL.PC.ID]) === charId; });
     var gid = prow ? String(prow[COL.PC.GAME_ID] || "") : "";
-    var pcNm = prow ? prow[COL.PC.NAME] : "";
     // 刪舊單人戰場：同 game_id 的整個世界 ＋ 御主本人(按 charId，防 game_id 為空的孤兒殘留佔名)
     var fresh = sheets.pc.getDataRange().getValues();
     for (var r = fresh.length - 1; r >= 1; r--) {
       var rgid = String(fresh[r][COL.PC.GAME_ID] || "");
       var rid = String(fresh[r][COL.PC.ID]);
       if ((gid && rgid === gid) || rid === charId) sheets.pc.deleteRow(r + 1);
-    }
-    if (sheets.rel && pcNm) {
-      var rd = sheets.rel.getDataRange().getValues();
-      for (var k = rd.length - 1; k >= 1; k--) {
-        if (String(rd[k][COL.REL.PC]) === pcNm) sheets.rel.deleteRow(k + 1);
-      }
     }
   }
   acc.getRange(found.idx + 1, COL.ACC.PC + 1).setValue(""); // 解除連結
@@ -110,14 +101,14 @@ function actionAccountNewGame(userData, pcId, sheets) {
 // 🧹 清殘列：清掉「孤兒戰局」殘留——已無任何帳號連結的 game_id 世界(敗北殘局/棄局/亡靈) ＋ 所有 DEAD_ 列。
 //   每局的敵御主＋敵從者整批殘留是「眾生」表肥大、拖慢每次按鍵整表掃描的主因。
 //   安全準則：① 不碰任一帳號「當前連結中」的活躍戰局；② 不碰 game_id 空白列(可能創角中/舊資料)；
-//             ③ 鑑賞(KPC_)在另表「鑑賞眾生」不受影響；④ 關係表只清「被刪御主」名下、且非鑑賞御主的 rel 列。
+//             ③ 鑑賞(KPC_)在另表「鑑賞眾生」不受影響。2026-07：關係已併入眾生列，隨列一起清、不再需要步驟④。
 //   一次性整表 rewrite(setValues + 單次 deleteRows tail)，遠快於逐列 deleteRow。
 function actionPurgeOrphans(userData, pcId, sheets) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var pc = sheets.pc;
   if (!pc) return JSON.stringify({ success: false, message: "眾生表不存在。" });
   var all = pc.getDataRange().getValues();
-  if (all.length < 2) return JSON.stringify({ success: true, removed: 0, kept: 0, relRemoved: 0, message: "眾生表無資料，無殘列可清。" });
+  if (all.length < 2) return JSON.stringify({ success: true, removed: 0, kept: 0, message: "眾生表無資料，無殘列可清。" });
   var header = all[0];
 
   // 1) 收集所有帳號「當前連結中」的御主 charId
@@ -134,8 +125,8 @@ function actionPurgeOrphans(userData, pcId, sheets) {
     if (id0.indexOf("DEAD_") === 0) continue;
     if (linkedIds[id0]) { var g0 = String(all[i][COL.PC.GAME_ID] || ""); if (g0) liveGids[g0] = true; }
   }
-  // 3) 逐列保留判定；記下被刪的御主名(供關係表清理)
-  var kept = [], survivors = {}, purgedMasters = {};
+  // 3) 逐列保留判定
+  var kept = [];
   for (var r = 1; r < all.length; r++) {
     var row = all[r];
     var rid = String(row[COL.PC.ID]);
@@ -144,8 +135,7 @@ function actionPurgeOrphans(userData, pcId, sheets) {
     if (rid.indexOf("DEAD_") === 0) keep = false;   // 死列一律清
     else if (!gid) keep = true;                      // 無 game_id：保守保留
     else keep = !!liveGids[gid];                     // 只留活躍戰局
-    if (keep) { kept.push(row); survivors[String(row[COL.PC.NAME])] = true; }
-    else if (rid.indexOf("PC_") === 0) purgedMasters[String(row[COL.PC.NAME])] = true; // 玩家御主以 PC_ 為準(FACTION 是門派非"御主")
+    if (keep) kept.push(row);
   }
   var removed = (all.length - 1) - kept.length;
   if (removed > 0) {
@@ -155,34 +145,9 @@ function actionPurgeOrphans(userData, pcId, sheets) {
     if (tail > 0) pc.deleteRows(2 + kept.length, tail);
   }
 
-  // 4) 關係表清理：只刪「被刪御主名下、且該名既非存活御主、也非鑑賞御主」的 rel 列（防誤刪鑑賞關係）
-  var relRemoved = 0;
-  if (sheets.rel) {
-    var kanshouNames = {};
-    try {
-      var ksh = ss.getSheetByName("鑑賞眾生");
-      if (ksh) { var kd = ksh.getDataRange().getValues(); for (var x = 1; x < kd.length; x++) kanshouNames[String(kd[x][COL.PC.NAME])] = true; }
-    } catch (e) { }
-    var rd = sheets.rel.getDataRange().getValues();
-    if (rd.length > 1) {
-      var rhead = rd[0], rkept = [];
-      for (var k = 1; k < rd.length; k++) {
-        var pcNm = String(rd[k][COL.REL.PC]);
-        var orphan = purgedMasters[pcNm] && !survivors[pcNm] && !kanshouNames[pcNm];
-        if (!orphan) rkept.push(rd[k]);
-      }
-      relRemoved = (rd.length - 1) - rkept.length;
-      if (relRemoved > 0) {
-        if (rkept.length) sheets.rel.getRange(2, 1, rkept.length, rhead.length).setValues(rkept);
-        var rtail = (rd.length - 1) - rkept.length;
-        if (rtail > 0) sheets.rel.deleteRows(2 + rkept.length, rtail);
-      }
-    }
-  }
-
   return JSON.stringify({
-    success: true, removed: removed, kept: kept.length, relRemoved: relRemoved,
-    message: "🧹 清殘列完成：眾生移除 " + removed + " 列（孤兒戰局／亡靈殘留），保留 " + kept.length + " 列；關係表清 " + relRemoved + " 列。每次按鍵的整表掃描會更快。"
+    success: true, removed: removed, kept: kept.length,
+    message: "🧹 清殘列完成：眾生移除 " + removed + " 列（孤兒戰局／亡靈殘留），保留 " + kept.length + " 列。每次按鍵的整表掃描會更快。"
   });
 }
 
@@ -197,120 +162,10 @@ function linkAccountToPc_(accountName, pcCharId) {
   if (found) {
     acc.getRange(found.idx + 1, COL.ACC.PC + 1).setValue(pcCharId);
   } else {
-    acc.appendRow([name, pcCharId, 0, new Date()]);
+    acc.appendRow([name, pcCharId, new Date()]);
   }
 }
 
-// 帳號勝場 +1
-function incrementWin_(accountName) {
-  var name = String(accountName || "").trim();
-  if (!name) return;
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var acc = ss.getSheetByName("帳號");
-  if (!acc) return;
-  var found = findAccountRow_(acc, name);
-  if (found) {
-    var w = parseInt(found.row[COL.ACC.WON]) || 0;
-    acc.getRange(found.idx + 1, COL.ACC.WON + 1).setValue(w + 1);
-  }
-}
-
-// 寫入一筆戰史（勝/敗）
-function recordHistory_(accountName, result, servant, summary) {
-  var name = String(accountName || "").trim();
-  if (!name) return;
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var his = ss.getSheetByName("戰史");
-  if (!his) return;
-  his.appendRow([name, String(result || ""), String(servant || ""), String(summary || ""), new Date()]);
-}
-
-// 🏆 記錄「最快奪杯日數」（取 min 更新）：勝利時由 game_id 讀時鐘當前遊戲日。game_id 空/無時鐘則略過。
-function recordWinSpeed_(accountName, gameId) {
-  try {
-    var name = String(accountName || "").trim();
-    if (!name) return;
-    var clk = getClock_(gameId);
-    if (!clk) return;
-    var days = parseInt(clk.day) || 0;
-    if (days <= 0) return;
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var acc = ss.getSheetByName("帳號");
-    if (!acc) return;
-    // 補表頭（本版新增欄，冪等）
-    try { if (String(acc.getRange(1, COL.ACC.BEST_DAYS + 1).getValue() || "") === "") acc.getRange(1, COL.ACC.BEST_DAYS + 1).setValue("最快奪杯日"); } catch (e) { }
-    var found = findAccountRow_(acc, name);
-    if (!found) return;
-    var prev = parseInt(found.row[COL.ACC.BEST_DAYS]) || 0;
-    if (prev <= 0 || days < prev) acc.getRange(found.idx + 1, COL.ACC.BEST_DAYS + 1).setValue(days);
-  } catch (e) { }
-}
-
-// 🏆 排行榜（以帳號為單位，只撈持久層：帳號表勝場/最快奪杯/建立時間 ＋ 鑑賞圖鑑數）
-function actionLeaderboard(userData, pcId, sheets) {
-  try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var acc = ss.getSheetByName("帳號");
-    if (!acc) return JSON.stringify({ success: true, rows: [] });
-    var accData = acc.getDataRange().getValues();
-    // 鑑賞圖鑑數（每帳號封存的從者數）
-    var galCount = {};
-    var gal = ss.getSheetByName("鑑賞");
-    if (gal) {
-      var gd = gal.getDataRange().getValues();
-      for (var i = 1; i < gd.length; i++) {
-        var ga = String(gd[i][COL.GAL.ACC] || "").trim();
-        if (ga) galCount[ga] = (galCount[ga] || 0) + 1;
-      }
-    }
-    var me = String(userData.acctName || "").trim();
-    var rows = [];
-    for (var r = 1; r < accData.length; r++) {
-      var nm = String(accData[r][COL.ACC.NAME] || "").trim();
-      if (!nm) continue;
-      var won = parseInt(accData[r][COL.ACC.WON]) || 0;
-      var best = parseInt(accData[r][COL.ACC.BEST_DAYS]) || 0;
-      var created = accData[r][COL.ACC.CREATED];
-      var createdStr = "";
-      try { createdStr = (created instanceof Date) ? Utilities.formatDate(created, Session.getScriptTimeZone(), "yyyy-MM-dd") : String(created || ""); } catch (e) { }
-      rows.push({ name: nm, wins: won, bestDays: best, gallery: galCount[nm] || 0, created: createdStr, isMe: (nm === me) });
-    }
-    // 排序：勝場↓ → 最快奪杯↑(0=未達標排後) → 圖鑑↓
-    rows.sort(function (a, b) {
-      if (b.wins !== a.wins) return b.wins - a.wins;
-      var ab = a.bestDays || 99999, bb = b.bestDays || 99999;
-      if (ab !== bb) return ab - bb;
-      return b.gallery - a.gallery;
-    });
-    return JSON.stringify({ success: true, rows: rows.slice(0, 100), me: me });
-  } catch (e) { return JSON.stringify({ success: false, message: String(e) }); }
-}
-
-// 勝利歷史（帳號勝場 + 戰史明細，新到舊）
-function actionGetVictoryHistory(userData, pcId, sheets) {
-  var name = String(userData.acctName || "").trim();
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var acc = ss.getSheetByName("帳號");
-  var won = 0;
-  if (acc) { var f = findAccountRow_(acc, name); if (f) won = parseInt(f.row[COL.ACC.WON]) || 0; }
-
-  var records = [];
-  var his = ss.getSheetByName("戰史");
-  if (his) {
-    var data = his.getDataRange().getValues();
-    for (var i = 1; i < data.length; i++) {
-      if (String(data[i][COL.HIST.ACC]).trim() !== name) continue;
-      var t = data[i][COL.HIST.TIME];
-      var ts = "";
-      try { ts = (t instanceof Date) ? Utilities.formatDate(t, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm") : String(t || ""); } catch (e) { ts = String(t || ""); }
-      records.push({
-        result: String(data[i][COL.HIST.RESULT] || ""),
-        servant: String(data[i][COL.HIST.SERVANT] || ""),
-        summary: String(data[i][COL.HIST.SUMMARY] || ""),
-        time: ts
-      });
-    }
-    records.reverse(); // 新到舊
-  }
-  return JSON.stringify({ success: true, won: won, records: records });
-}
+// 🗑️ 2026-07：排行榜／戰史／勝場計數／最快奪杯天數 全數移除(單人專注·不做跨帳號回顧比拼)。
+//   incrementWin_/recordHistory_/recordWinSpeed_/actionLeaderboard/actionGetVictoryHistory 已刪，
+//   呼叫端(戰鬥/斬首/夜襲勝利路徑)同步拔除呼叫。

@@ -18,7 +18,7 @@
 
 驗證套路：跑 `bash check.sh`（自動掃全部 .gs ＋萬用比對 `gas/Script*.html`，見 `HANDBOOK.md` §4.1）。改慾海邊界務必 `git diff | grep nsfwBaseRules` 確認 0 改動。
 
-⚠ **2026-07 檔案改版**：`Router_Action.gs`(原 3918 行)已拆成 8 檔——`Router_Action.gs`(核心dispatch)/`Router_Creation.gs`(創角召喚)/`Router_Movement.gs`(地圖移動休息)/`Router_Battle.gs`(戰鬥核心)/`Router_Bond.gs`(羈絆令咒結盟戰記)/`Router_Narrative.gs`(actionPlay敘事)/`Router_Persona.gs`(演出卡)/`Router_Economy.gs`(出力補魔)。下文各節提到「Router ~行號」的**行號已隨拆檔位移**，函數名不變、用函數名 grep 即可找到——全域作用域共用，切到哪個檔不影響行為。檔案對照表看 `HANDBOOK.md` §4。
+⚠ **2026-07 檔案改版**：`Router_Action.gs`(原 3918 行)已拆成 8 檔——`Router_Action.gs`(核心dispatch)/`Router_Creation.gs`(創角召喚)/`Router_Movement.gs`(地圖移動休息)/`Router_Battle.gs`(戰鬥核心)/`Router_Bond.gs`(羈絆令咒結盟破戒奪僕)/`Router_Narrative.gs`(actionPlay敘事)/`Router_Persona.gs`(演出卡)/`Router_Economy.gs`(出力補魔)。下文各節提到「Router ~行號」的**行號已隨拆檔位移**，函數名不變、用函數名 grep 即可找到——全域作用域共用，切到哪個檔不影響行為。檔案對照表看 `HANDBOOK.md` §4。
 
 ---
 
@@ -33,8 +33,8 @@
 `applyModeUI()`（Script.html）是模式總開關。solo 隱藏 full 專屬功能、收掉輸入框、顯示 `war-actions` 行動列。
 
 **雙軌設計**（Index.html `scr-menu`）：玩法只有兩條軌——🎴 純淨(單人聖杯戰爭, newGameFlow/continueGame, SFW) ／ 🌹 慾海(鑑賞後日談, openGallery, NSFW)。共用一張試算表＋核心資料(管線 奪杯→鑑賞 需要)，靠 帳號＋game_id 分流，不拆表。
-另有**兩個唯讀視窗**(非玩法軌)：📜 個人聖杯戰記(showVictoryHistory，自己勝敗) ／ 🏆 排行榜(openLeaderboard/actionLeaderboard，跨帳號比拼)。`full`(九州全模擬)模式碼殘留、停用中，不作為前台軌（經濟已砍、可隨之清理）。
-**持久層(清檔不刪，排行榜/戰記只撈這些)**：帳號表(WON勝場/CREATED/BEST_DAYS最快奪杯日/NAME)、戰史(每場勝敗+真實時間+從者+摘要)、鑑賞表(封存從者)。**會被清檔刪**：眾生(game_id)、關係(name)。`recordWinSpeed_(acct,gameId)` 在三勝利點(斬盡敵從者/斬首/起源彈)讀當前遊戲日取 min→ACC.BEST_DAYS。
+⚠ **2026-07 玩家定案(推翻舊方針)：兩個唯讀視窗(📜 個人聖杯戰記／🏆 排行榜)已全數砍除**——單人專注、不做跨帳號回顧比拼，`showVictoryHistory`/`actionGetVictoryHistory`/`openLeaderboard`/`actionLeaderboard` 連同「戰史」表、`incrementWin_`/`recordHistory_`/`recordWinSpeed_` 一併刪除，帳號表 WON/BEST_DAYS 欄砍除。`full`(九州全模擬)模式碼殘留、停用中，不作為前台軌（經濟已砍、可隨之清理）。
+**持久層(清檔不刪)**：帳號表(2026-07 縮為 NAME/PC/CREATED 3 欄，WON/BEST_DAYS 已隨排行榜砍除)、鑑賞表(封存從者)。**會被清檔刪**：眾生(game_id)——NPC 對御主的關係(BOND/REL_TAG/IS_PARTY/MAJOR_EVENT/REL_MEM)已 2026-07 併入眾生列，隨列一起被清、不再是獨立表。
 
 **補魔(solo)**：`actionManaSupply` 走 narrate_only(SFW)、不開慾海引擎，prompt 維持「曖昧 fade、點到為止」（玩家認可現狀，勿再收緊）。
 
@@ -53,23 +53,28 @@
 - ✅ **九州數值五圍(STR/CON/AGI/INT/LUK) 已移除(2026-06)**：FATE 純六圍 SIX 階級制。戰鬥(Engine_Fate)本就吃 `rankVal(six[...])`；HP/MP 改由 `maxStatsForRow_(row)`＝`fateMaxHpMp_(svNum_(SIX.耐久), svNum_(SIX.魔力))` 算；`getCharacterTotalStats` 的 STR~LUK 顯示值改由 `svNum_(SIX)` 推。`buildPlayerStatusString` 五圍 §位置保留(由 SIX 推/空字串)→前端 s[N] 不變。
 - ✅ **九州境界/物品/銀兩/門派 已移除(2026-06)**：`REALMS/REALM_MODIFIERS/REALM_LIMITS`、`calculateMaxStats`(屬性上限計算器)、`getRealmConstantsJson` 全砍；新 `fateMaxHpMp_(con,mag)` 無境界倍率(`100+con*10`/`50+mag*10`)。`COL.PC.REALM` 死欄保留但一律寫 ""。物品(`RARITY_TABLE/detectItemType`)、貨幣(`CURRENCY_TABLE`)、門派(`registerFactionHelper/updateFactionPower`)helper 一併移除。`actionManualNpc` de-realm：御主固定凡人級、NPC 採 AI 建議 con/int 夾 8~25。快取鍵 `KYUSHU_MAP_DATA`→`FATE_MAP_DATA`。
 - ✅ **提示詞清九州(2026-06)**：solo `sfwBaseRules`、各 NPC/玩家卡、慾海 `nsfwBaseRules`(玩家授權「只換詞·機制原封不動」：九州天道→敘事演化核心、境界/真氣/江湖/武學→中性)全清九州詞，讓 AI 完全不知九州。**例外**：`雙修技巧` 是 NSFW `[雙修技巧]` MEMORY 機制，依機制原封不動保留；`凡人`作「人類御主」描述語(非境界值)保留。
-- **分頁**（Setup_FateWorld.gs `FATE_SHEET_DEFS`，缺頁自動補、冪等）：眾生/英靈殿/御主殿/戰鬥標籤/帳號/戰史/鑑賞/時鐘/關係/坤圖(地圖)/因果(log)…
+- **分頁**（Setup_FateWorld.gs `FATE_SHEET_DEFS`，缺頁自動補、冪等）：**2026-07 精簡為 7 頁**——坤圖(地圖)/眾生/英靈殿/御主殿/帳號/鑑賞/歷史暫存。另有動態建的「鑑賞眾生」分頁（見下）。舊分頁戰史/時鐘/因果/權柄/關係/史紀 全數移除：時鐘(CLK)/權柄(AUTH，居所)/關係(REL，好感等) 併入眾生列各欄(見下 COL schema)；因果(事件log)/戰史/史紀(命運長河) 直接刪除、無替代機制(2026-07 玩家定案，單人專注不留跨局回顧資料)。
 
-### COL schema（索引讀取，表頭僅供人看）
+### COL schema（索引讀取，表頭僅供人看；定義在 `Core_Settings.gs` 開頭 `const COL`）
+
+⚠ **2026-07 單人重構**：獨立的 關係(REL)／時鐘(CLK)／權柄(AUTH) 表全部**摺進「眾生」自己這一列**——單人模式每個 game_id 世界恆只有一位御主，故「NPC 對御主的關係」= 那名 NPC 自己這一列的欄位；「日/時/AP/居所」= 御主自己那一列的欄位，天然 1:1、無需獨立 join 表。因果(LOG)／戰記／史紀(EPIC) 三個機制直接刪除（見 §3、§10）。
+
 ```
-PC(眾生)【FATE 25欄·2026-06 砍九州經濟/生活/五圍後】:
+PC(眾生)【FATE 33欄·2026-07 折表後】:
   ID0 NAME1 SEX2 BACK3(身世) STATUS4(外顯) TRAIT5 LOC6 PREF7(個性)
   HP8 MP9 MAX_HP10 MAX_MP11
-  REALM12 MEMORY13 INTENT14(萌點) FACTION15 RANK16(職階) CONTRIB17 ALIGN18
-  PHYSICAL19(肉體·NSFW) MARTIAL20(寶具) GAME_ID21 SIX22(六圍JSON) TAGS23(技能JSON) SEEN24(戰爭迷霧)
-  🗑️已刪:財帛MONEY/裝備WEP·ARM·ACC1·ACC2/生活技能LIFESKILL/冗餘職階CLS(併RANK)/數值五圍STR·CON·AGI·INT·LUK(改吃六圍SIX)。
+  MEMORY12 INTENT13(萌點) FACTION14 RANK15(職階) CONTRIB16 ALIGN17
+  PHYSICAL18(肉體·NSFW) MARTIAL19(寶具) GAME_ID20 SIX21(六圍JSON) TAGS22(技能JSON) SEEN23(戰爭迷霧)
+  🆕 關係欄(原 REL 表·這名 NPC 對「本世界御主」的關係。御主自己這一列這五欄留空)：
+    BOND24(好感值0-100) REL_TAG25(關係標籤) IS_PARTY26(同行旗標"同行"/"") MAJOR_EVENT27(未完成重大約定) REL_MEM28(關係專屬記憶，NSFW稱呼/親密次數等，與角色自己MEMORY分開存)
+  🆕 世界狀態欄(原 CLK/AUTH 表·只在【御主自己那一列】有意義，其餘角色列留空)：
+    DAY29 HOUR30 AP31(1AP=1hr，每日12AP，休息每hr補2AP) HOME_LOC32(居所·工房加成判定用，原權柄表)
+  🗑️已刪:財帛MONEY/裝備WEP·ARM·ACC1·ACC2/生活技能LIFESKILL/冗餘職階CLS(併RANK)/數值五圍STR·CON·AGI·INT·LUK(改吃六圍SIX)/死欄REALM(2026-07 真的移除，非棄用)。
   🗑️COL 已無 ITEM/QUEST/SHOP/MAIL/TASK/CTAG 子表(戰鬥標籤分頁仍在、以fx碼查找不需索引)。
 HERO(英靈殿): ID0 CLS1 NAME2(真名) SEX3 SIX4 CLASS_SKILLS5 SKILLS6 TRAITS7 NP8 PERSONA9(JSON) ALIGN10 WARS11 SOURCE12
 MASTER(御主殿): ID0 NAME1 SEX2 APPEAR3 MAGIC4 CIRCUITS5 MELEE6 MAGIC_RANK7 HOME8 WISH9 PERSONA10 WAR11 SOURCE12 BACK13(身世) MOE14(萌點)
-REL(關係): PC0 NPC1 FAV2(好感/羈絆) TAG3 IS_PARTY4 MEMORY5 MAJOR_EVENT6
 GAL(鑑賞): ACC0 NAME1 CLS2 SEX3 SIX4 TAGS5 NP6 BACK7 PREF8 MOE9 MEMOIR10 WISH11 TIME12 MASTER13 MSEX14
-CLK(時鐘): GAME_ID0 DAY1 HOUR2 AP3   (1AP=1hr，每日12AP，休息每hr補2AP)
-ACC(帳號): NAME0 PC1 WON2 CREATED3 BEST_DAYS4(最快奪杯日)
+ACC(帳號)【2026-07 縮為3欄，WON/BEST_DAYS隨排行榜砍除】: NAME0 PC1 CREATED2
 GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master 分支）
 ```
 
@@ -89,7 +94,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | summon_servant | actionSummonServant | 召喚從者（從英靈殿抓真名/六圍/技能→眾生列）。**種子英靈直接用寫死 persona(萌點/口吻)、不叫 AI**(省一次 API、加速)；只有名冊查無的自訂/未知英靈才走 AI 即時生成(else 分支)。**敘事8格**：個性(PREF)讀 `persona.words`、**特徵(TRAIT)讀 `persona.look`**(35 位種子皆手寫4格 外貌/氣質/自稱/卸下心防私密一面，召喚/鋪敵 直接用、AI原創走通用預設、不再被戰鬥特性污染)。 |
 | — (AI 從者 fx 調色盤) | ALLOWED_FX_ / FX_MENU_ (Router_Creation.gs) | **AI 即時生成從者的 fx 白名單＋提示菜單**(兩者要同步)：`sanitizeSkills_` 用 `ALLOWED_FX_` 過濾(不在的 fx 清空、只留當演出標籤)，`FX_MENU_` 是餵 AI 的可選清單。**2026-07 放寬(A)**：加開 aim/projection/fast_cast/crafting/petrify/shapeshift/solo/weapon_steal/rho_aias/territory/wall_def/zabaniya(中階以下·施放/防禦/對人放大)，拉高自訂從者上限貼近種子。**刻意仍 gate**(種子專屬·防「乖離劍氾濫」)：頂級概念寶具 ea/gob/excalibur/ubw/summon_horror/chain/wealth＋需專屬UI的 mage_realm/rune。⚠ 但 `npAtkScale_` 讀 np 字串的 對城/對界 關鍵字→AI 仍可靠字串拿高規模(缺的只是 fx 放大器)，非全鎖。要頂級同人→加進 SEED_SERVANTS。 |
 | get_heroes / get_masters | — | 創角選單列出可選英靈/正典御主 |
-| get_tags | actionGetTags | **左側狀態面板資料**：御主HP/MP/令咒/願望、從者陣列(六圍/技能/羈絆/寶具)、供魔收支、禮裝、破戒能力。**⚡ 核心邏輯抽成 `buildTagsPayload_(sheets,pcId,preData,preRel)`**(可吃已讀好的整表免重讀)；`sync` 回應已夾帶 `tags:` 同份 payload，前端 `refreshFateTags(data.tags)` 直接用、不再單獨打 get_tags。**效能鐵則：一次按鍵原本 3 趟 round-trip(action→sync→get_tags)→現 1 趟**。機制：①`buildClientState_(sheets,pcId)`＝完整刷新 blob(statusString/people/locations/clock/ap/economy/tags，先 markRivalsSeen_ 再讀、整表+rel 只讀一次下傳共用)，`actionSync` 即回它。②dispatcher 對 `STATE_AFTER_ACTIONS` 白名單動作(fate_battle/mana_supply/move/rest/scavenge/scout/bond… 凡前端事後會整頁 syncData 者)＋ `PC_` 御主，自動把 `_state:buildClientState_()` 夾進回應。③前端 `gasRun` 暫存 `data._state`→`__pendingState`，`syncData` 優先消費它(`applyClientState`)、沒有才打真 sync(graceful fallback)。**不列入白名單**：樂觀 setter(set_servant_output/mage_realm/rune_mode/np_choice 不 syncData、只吃 res.economy)。`playerServantEconomy_(sheets,pcId,preData)`／`getFreshStatusString`(已拔冗餘 flush) 同理。改這幾支前先想清楚別把整表重讀或多餘 round-trip 加回來。 |
+| get_tags | actionGetTags | **左側狀態面板資料**：御主HP/MP/令咒/願望、從者陣列(六圍/技能/羈絆/寶具)、供魔收支、禮裝、破戒能力。**⚡ 核心邏輯抽成 `buildTagsPayload_(sheets,pcId,preData)`**(可吃已讀好的整表免重讀；2026-07 關係併入眾生列後，已無獨立 `preRel` 參數——關係資料就在 `preData` 同一張表裡)；`sync` 回應已夾帶 `tags:` 同份 payload，前端 `refreshFateTags(data.tags)` 直接用、不再單獨打 get_tags。**效能鐵則：一次按鍵原本 3 趟 round-trip(action→sync→get_tags)→現 1 趟**。機制：①`buildClientState_(sheets,pcId)`＝完整刷新 blob(statusString/people/locations/clock/ap/economy/tags，先 markRivalsSeen_ 再讀、整表只讀一次下傳共用)，`actionSync` 即回它。②dispatcher 對 `STATE_AFTER_ACTIONS` 白名單動作(fate_battle/mana_supply/move/rest/scavenge/scout/bond… 凡前端事後會整頁 syncData 者)＋ `PC_` 御主，自動把 `_state:buildClientState_()` 夾進回應。③前端 `gasRun` 暫存 `data._state`→`__pendingState`，`syncData` 優先消費它(`applyClientState`)、沒有才打真 sync(graceful fallback)。**不列入白名單**：樂觀 setter(set_servant_output/mage_realm/rune_mode/np_choice 不 syncData、只吃 res.economy)。`playerServantEconomy_(sheets,pcId,preData)`／`getFreshStatusString`(已拔冗餘 flush) 同理。改這幾支前先想清楚別把整表重讀或多餘 round-trip 加回來。 |
 | fate_battle | actionFateBattle | **核心戰鬥**：D20＋寶具＋令咒＋斬首＋雙從者＋協同強襲（見 §4） |
 | use_seal | actionUseSeal | 令咒固定選單：修復/補魔/緊急脫離 |
 | mana_supply | actionManaSupply | 補魔(燃迴路)：硬擠迴路回滿共用池，**永久代價** maxHP−15、迴路−3(地板迴路8/HP40)+羈絆+SFW fade（耗1AP，卸防可能被突襲）。過度＝慢性自盡。**另存一次性【過充】token**(下一發規格外＋/EX寶具可全力灌魔超載·見 §10 灌魔超載)。 |
@@ -112,11 +117,13 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | narrate_only / multi_attack_narrate | actionNarrateOnly等 | **AI 純說書**(solo 不用 actionPlay；GAS 算數值、AI 只演出) |
 | claim_grail / enter_kanshou / kanshou_companions·add·remove | Gallery.gs | 奪杯封存／進鑑賞後日談世界／同伴管理(見 §9)。⚠ 舊 list_gallery/enter_gallery/gallery_talk 已移除 |
 | enter_kanshou | actionEnterKanshou (Gallery.gs) | **🌹 進入鑑賞主入口(新版)**：每帳號【單一常駐】後日談世界。御主 avatar(KPC_)以 MEMORY `【帳號】<acct>` 綁定、id 持久→`getGameHistory(pcId)` 跟單機一樣接續歷史。無從者預載、不重講開場；從者由 `kanshou_companions/add/remove`(👥面板) 邀請(上限3)。**御主名字＋性別首次進場由玩家定**(不掛帳號)：沒帶齊 `pcName/pcSex`又還沒建過→回 `needSetup:true`(附 `defaultName`)，前端 `askKanshouSetup()` 問一次(名字＋性別)再帶進來建。前端 `enterKanshou()`(Index.html「進入鑑賞」鈕)→ mode=kanshou、自動開 NSFW、撈歷史 |
-| kanshou_set_sex / kanshou_set_name | actionKanshouSetSex／actionKanshouSetName (Gallery.gs) | ⚧/✏ 隨時改後日談御主 avatar 性別/名字(只動該欄，不影響歷史；改名一併遷當前同伴的 REL.PC 羈絆鍵)。👥面板「切換性別」「改名」鈕→`changeKanshouSex()`／`changeKanshouName()` |
-| get_victory_history / get_ranking | — | 戰史/排行 |
+| kanshou_set_sex / kanshou_set_name | actionKanshouSetSex／actionKanshouSetName (Gallery.gs) | ⚧/✏ 隨時改後日談御主 avatar 性別/名字(只動該欄，不影響歷史)。**2026-07**：關係已併入眾生列(存在同伴自己那一列，不記「對誰」的名字)，改名不再需要遷移任何羈絆鍵。👥面板「切換性別」「改名」鈕→`changeKanshouSex()`／`changeKanshouName()` |
+| ~~get_victory_history / get_ranking~~ | (已移除) | 🗑️ 2026-07：個人聖杯戰記／排行榜兩個唯讀視窗連同「戰史」表全數砍除（單人專注，不做跨帳號回顧比拼）。 |
+| ~~war_chronicle / war_history_list~~ | (已移除) | 🗑️ 2026-07：「戰記」表(里程碑回顧)整套刪除，`logWarEvent_`／`actionWarChronicle`／`actionWarHistoryList` 及 Router_Battle/Bond/Creation/Time_World 內所有呼叫點一併拔除。 |
+| ~~get_epic_history~~ | (已移除) | 🗑️ 2026-07：「史紀」表(命運長河面板)整套刪除，`actionGetEpicHistory` 已拔。前端 `openEpicPanel/loadEpicData/renderEpicHistory/renderEpicStats/switchEpicTab/removeNpcMajorEvent`(Script.html)＋抽屜「📖 個人史紀」鈕、Index.html `#epic-overlay` 面板(含 `#tab-epic-history`/`#tab-epic-stats`/`#panel-epic-history`/`#panel-epic-stats`) 已於前端清理批次一併拔除(兩個分頁同源自同一支已死 action，一併砍、不留半死的「冬木足跡」分頁)。 |
 
 ### 🗑️ 九州經濟/生活層已全數移除（2026-06，code＋分頁＋COL 一併清）
-銀兩(MONEY)/商城·店鋪(SHOP)/物品·背包(ITEM)/天命·任務(QUEST)/工房(TASK)/賭場/飛書(MAIL)/生活技能(LIFESKILL)/裝備(WEP·ARM·ACC1·ACC2)——對應 action、helper(resolveItemName/transferMoney/checkAndExpireQuests…)、actionPlay 內 items_gained/transferred/lost/used·money_transferred·quest 解析、前端背包/物品連結/飛書 UI 全拆；COL 子表與分頁定義一併刪。**保留**：魔力收支(playerServantEconomy_/工房/`economy:`欄＝FATE 戰鬥機制非錢)、關係(REL)、肉體(PHYSICAL)/外顯(STATUS)。`play`(actionPlay) 仍用於 kanshou(NSFW)，**solo 戰爭走 narrate_only 不走 play**。
+銀兩(MONEY)/商城·店鋪(SHOP)/物品·背包(ITEM)/天命·任務(QUEST)/工房(TASK)/賭場/飛書(MAIL)/生活技能(LIFESKILL)/裝備(WEP·ARM·ACC1·ACC2)——對應 action、helper(resolveItemName/transferMoney/checkAndExpireQuests…)、actionPlay 內 items_gained/transferred/lost/used·money_transferred·quest 解析、前端背包/物品連結/飛書 UI 全拆；COL 子表與分頁定義一併刪。**保留**：魔力收支(playerServantEconomy_/工房/`economy:`欄＝FATE 戰鬥機制非錢)、關係(2026-07 併入眾生列 BOND/REL_TAG/IS_PARTY/MAJOR_EVENT/REL_MEM，非獨立表)、肉體(PHYSICAL)/外顯(STATUS)。`play`(actionPlay) 仍用於 kanshou(NSFW)，**solo 戰爭走 narrate_only 不走 play**。
 > **🎴 actionPlay 的 AI 回寫三閘已 solo-only 關閉(2026-06，鑑賞照舊)**：`new_maps`(AI 加地點)／`recruited`(AI 招募入隊)／`rel_changes.fav_change`(AI 改好感) 三者一律 `if (isNsfwMode)` 才生效。solo 的地圖只走坤圖/移動、招募只走召喚·破戒奪僕·結盟、**好感只走羈絆/補魔/結盟等 GAS 按鈕**——AI 自由敘事改不動數值。好感渲染(顯示 ❤️±N)同樣 solo 不顯示。
 > **🗑️ spare_npc(放過)＋打掃戰場(處決/放過昏迷者)已刪(2026-06)**：九州「擊昏→處決/放過」殘留，與 FATE「靈基崩潰消滅」矛盾；`execute_npc` action 早已不存在(死按鈕)。移除 `actionSpareNpc`＋router＋前端 `spareNpc`/`confirmExecute`/`renderBattlefieldCleanup` 及兩處呼叫。
 
@@ -290,7 +297,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 ## 7. 時間/AP/供魔 Time_World.gs
 
-- `getClock_/writeClock_`：時鐘表(game_id→day/hour/ap)。
+- `getClock_/writeClock_`：**2026-07 重構**——不再是獨立「時鐘」表，日/時/AP 直接存在【御主自己那一列】(COL.PC.DAY/HOUR/AP)，因每個世界(game_id)恆只有一位御主、天然 1:1 對應御主列，無需獨立 join 表。
 - `getAp_/spendAp_(gid,n)/grantAp_(gid,n)`(不推時間)、`restHours_`(休息補AP)、`rollHours_`、`timeBand_`(晨/午/夜)、`clockLabel_`(顯示字串)。
 - AP：每日12，移動2AP、戰鬥/偵查/補魔/禮裝/結盟/共處=1AP、休息每hr補2。
 - `playerServantEconomy_`：**御主魔力**收支(左側 HUD，含 output/outputLabel)。**工房加成＝atHome‖hasTerritory‖atWorkshop**(atWorkshop 讀御主【陣地】marker，須與 applyRegen_ 對齊，否則設陣地 HUD 顯示不出 +8 時回)。`servantEconomy_`(income=迴路供給+靈脈+工房；drain=六圍/8×狂化)。**🔋 共用池 `applyRegen_`(2026-06)**：御主MP 是共用池——重算上限 `masterPoolMax_(迴路, Σ從者魔力)`；income(迴路供給＋靈脈＋工房＋Σ從者魔力×0.15)×mult − Σ(從者 drain × `outputTier_(出力).drainMul`)；從者出力檔不在時回變動；御主乾涸(連維持都湊不出)→強制全從者降【出力】20% ＋從者 HP 流血(靈基崩解 4%/hr)。御主HP/從者HP 自我修復 5%/hr×(avalon1.6)。`leylineAt_`、`masterCircuits_`(MEMORY【迴路】N 預設30)。
@@ -364,17 +371,17 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **地圖**：`renderMapPane`(陣地/搜索物資/盟友通報橫幅)、`buildMapSvg_`、`scout`。**地圖 17 正典地點**(衛宮宅/愛因茲貝倫城/冬木森林/冬木·碼頭/深山町遠坂宅/新都穗群原…)：種子在 `Setup_FateWorld.gs` `FATE_MAP_SEED`，`reseedIfEmpty_` 為 **upsert**(按名更新 TYPE/COORD/DESC＋補缺列)；前端位置是 `buildMapSvg_` 內 **hardcoded `LAYOUT`**(short-name→[x,y]，新都西/深山町東)＋`CONN`，**非試算表座標**(座標只備查)。改地圖要同步改種子(名字)＋LAYOUT(位置)。
 - **移動敘事**：`actionMove`(Router 2121)回傳 `servantCard`(玩家從者卡)，前端 `travelTo` 抵達提示前置該卡＋「從者必在場、依性格至少一句台詞」指令——修掉移動後變御主獨白、從者像不存在。前端 `foes.length` 時再加「遭遇·敵在眼前」指令(敵方開口挑釁/試探，但勝負留待御主下令)。
 - **🎭 敵人人設餵入(2026-06)**：`actionMove` 另回傳 `foeCards`＝target 在場【敵從者】的 `servantCard_`(低羈絆→戒備敵意正確)，前端拼進 arrivePrompt → 敵人依性格/口吻反應(慎二色厲內荏、c媽試探)，不再 AI 即興通用反派(平淡根因)。
-- **💨 撤離追擊(2026-06·一點點·可生還·雙向)**：`actionMove` 用移動【前】初始資料判定——離開「有活敵從者」的格子時，最快敵從者(敏≥我從者敏才追得上)依機率咬一記離別追擊。**選兵閘**：`isAllied_`(盟約/休兵中)、好感(REL.FAV)≥50(交情夠) 的敵從者**不追**(複用提前讀的 `relData`，零淨增讀取)。機率 `pProb=base30%·帶傷+20%·騎乘-15%`，再吃**接敵姿態**(隱蔽-10%/光明+10%)、夾 `[0,0.55]` 上限。命中則 `resolveFateBattle_(追兵,我從者)` **真·交手雙向判定**(非單方挨打)：`hitWho:'us'`(我輸·挨追擊)或 `'foe'`(我贏·回身逼退追兵)，雙方扣血**保 1 不致死**。回傳 `pursuit:{enemyName,chaserId,dmg,hitWho}`，前端依 hitWho 顯示橘/綠💨提示＋arrivePrompt 加追擊餘悸/反咬斷後 cue。
+- **💨 撤離追擊(2026-06·一點點·可生還·雙向)**：`actionMove` 用移動【前】初始資料判定——離開「有活敵從者」的格子時，最快敵從者(敏≥我從者敏才追得上)依機率咬一記離別追擊。**選兵閘**：`isAllied_`(盟約/休兵中)、好感(COL.PC.BOND，2026-07 已併入眾生列)≥50(交情夠) 的敵從者**不追**(複用提前讀的整表資料，零淨增讀取)。機率 `pProb=base30%·帶傷+20%·騎乘-15%`，再吃**接敵姿態**(隱蔽-10%/光明+10%)、夾 `[0,0.55]` 上限。命中則 `resolveFateBattle_(追兵,我從者)` **真·交手雙向判定**(非單方挨打)：`hitWho:'us'`(我輸·挨追擊)或 `'foe'`(我贏·回身逼退追兵)，雙方扣血**保 1 不致死**。回傳 `pursuit:{enemyName,chaserId,dmg,hitWho}`，前端依 hitWho 顯示橘/綠💨提示＋arrivePrompt 加追擊餘悸/反咬斷後 cue。
 - **🎭 接敵姿態(2026-06·純敘述 flavor·零機制重疊)**：地圖面板頂端常駐三段藥丸 `🥷隱蔽潛行/🚶泰然如常/🔥正大光明`(`STANCES`/`getStance`/`setStance`/`stancePillHtml_`/`paintStancePill_`，Script.html)。**存 localStorage `fate_stance`·免 round-trip**(非 MEMORY)，搭 `travelTo` 的 move 便車送 `userData.stance` → 後端**僅** `actionMove` pProb 輕觸(隱蔽-/光明+，見上)。敘事面：**無敵蹤**→`stanceLine_()` 加一句獨行姿態定調(正常=不加)；**有敵蹤**→`stanceNotice_(isSeek)` 折進偶遇/找上門框架定調「誰先發現誰」(隱蔽=玩家先機窺探/光明=對方老遠戒備拉滿)，免姿態被講兩遍。戰爭軌限定(kanshou 無戰鬥不顯示)。
 - **移動順序＝世界先動玩家後到**：`actionMove` 先跑 `worldTick_`(敵 tick 換位，移動只換位不死人)→**重讀眾生**→才把玩家落到 target→讀同地人物給 AI。避免「追到敵人所在地、敵人卻在你踏入同一刻被傳走」(撞在一起卻沒對話)。**務必重讀 allPcData 再寫回**，否則整片 setValues 會用舊位置覆蓋掉剛 tick 的敵方移動。
 - **追得到人**：`worldTick_`(Time_World 234)用 `freezeLoc = playerLoc`，**玩家所在/將抵達格上的敵人禁止移動**(`oldLoc === freezeLoc` 直接 continue)，否則玩家永遠撲空。兩個呼叫點都傳玩家格(move 傳 target、rest 傳 pcLoc)。
 - **遭遇態度分流**：`actionMove` 在世界 tick 前算 `preFoesAtTarget`(target 此刻已有的敵名)，回傳 `preFoes`。前端 `travelTo`：現存 foe 有人在 preFoes→「找上門」(對方據守、戒備)；否則→「偶遇」(恰巧撞上)。語氣只給「依個性與立場開口」，不寫死。
-- **🧹 九州系統大清理（已移除 35 個 action ＋ 1817 行）**：修煉/突破(cultivate/breakthrough)、任務(quests/claim_quest_reward/abandon_quest)、門派(get_faction_info/get_ranking/promote_rank/create_faction)、據點收成(estate_get/estate_harvest_all)、倉庫(warehouse_*)、物品/裝備(inventory/discard_item/sell_item/craft_item/consume_item/use_item_self/use_item_on_npc/gift_item/get_available_gear/equip_gear)、給銀兩(give_money)、九州打鬥(attack_npc/multi_attack)、偷竊/情報(steal_npc_item/buy_intel)、組隊(join_party/dismiss_party)、索要(request_item_from_npc/request_discard_npc_item)、強化(empower_npc)、處決(execute_npc)——皆 0 內部呼叫、solo 隱藏、慾海不碰。**保留**：actionPlay(慾海自由聊天引擎)、narrate_only(solo)、gallery、帳號、solo 全部戰爭 action、據點 home_*(模糊未動)、inspect_npc/get_epic_history。(spare_npc 已於 2026-06 連同打掃戰場一併刪除，見 §3 末)COL 欄位**全保留**(死欄不刪)。前端九州 UI 按鈕仍在但 mode 隱藏＋未知 action 優雅回錯誤(`handleGameAction` else 支)，無害；前端清理待後續批次。孤兒 helper(transferMoney 等)留著無害。
+- **🧹 九州系統大清理（已移除 35 個 action ＋ 1817 行）**：修煉/突破(cultivate/breakthrough)、任務(quests/claim_quest_reward/abandon_quest)、門派(get_faction_info/get_ranking/promote_rank/create_faction)、據點收成(estate_get/estate_harvest_all)、倉庫(warehouse_*)、物品/裝備(inventory/discard_item/sell_item/craft_item/consume_item/use_item_self/use_item_on_npc/gift_item/get_available_gear/equip_gear)、給銀兩(give_money)、九州打鬥(attack_npc/multi_attack)、偷竊/情報(steal_npc_item/buy_intel)、組隊(join_party/dismiss_party)、索要(request_item_from_npc/request_discard_npc_item)、強化(empower_npc)、處決(execute_npc)——皆 0 內部呼叫、solo 隱藏、慾海不碰。**保留**：actionPlay(慾海自由聊天引擎)、narrate_only(solo)、gallery、帳號、solo 全部戰爭 action、據點 home_*(模糊未動)、inspect_npc。(spare_npc 已於 2026-06 連同打掃戰場一併刪除，見 §3 末；`get_epic_history` 已於 2026-07 隨「史紀」表整套刪除，見 §3 頂)COL 欄位**全保留**(死欄不刪，唯 2026-06/07 兩波確實刪除的欄位是真移除、非死欄，見 §2 COL schema 註記)。前端九州 UI 按鈕仍在但 mode 隱藏＋未知 action 優雅回錯誤(`handleGameAction` else 支)，無害；前端清理待後續批次。孤兒 helper(transferMoney 等)留著無害。
 - **令咒透支倒數（單獨行動例外）**：敵從者燃**最後一道令咒**緊急脫離(`fateStrike_` seal-escape, Router ~3914)時，若其 TAGS 無 `fx:'solo'`(單獨行動)→ `stampDoom_` 在 MEMORY 寫 `【靈基透支】{死線絕對時數}`(現在 day*24+hour ＋ `SEAL_DOOM_HOURS`=3)。`worldTick_`(Time_World 末段)每次移動/休息推進時間後掃描，`getDoom_` 到期 → 該敵從者 `DEAD_`＋風聞消滅。若這收掉最後一名敵從者(`aliveEnemyServants_<=0`)→ `worldTick_` 回傳 `victory:true`，`actionMove`/`actionRest` 帶 `victory` 給前端，`travelTo`/`rest` 呼 `handleVictory` 出奪杯。弓兵(單獨行動)＝免倒數、可續存(原作 Independent Action)。helper：`rowHasSolo_/stampDoom_/getDoom_/SEAL_DOOM_HOURS`(Router ~4326)。
 - **御主戰死→從者透支倒數（與令咒燒盡同一套下場，2026-07）**：`fateStrike_` 一般陣亡路徑(非斬首·護衛在場即死那支，那支已當場一併打殘護衛)擊殺 `敵御主` 時，順帶掃一輪同 game_id 的在世 `敵從者`：`enemyMasterIdx_` 查回 -1(確實因這位御主死而失聯，非連結別的在世御主)且無 `fx:'solo'` 且尚未有倒數(`getDoom_`)→同樣 `stampDoom_` 蓋 `SEAL_DOOM_HOURS` 死線(靈基潰蝕)。單獨行動者不設倒數，改靠上方 `INDEPENDENT_ACTION_RESERVE` 的魔力自限苟活——呼應原作「Independent Action 讓從者能撐一段時間，但終究不是無限供魔」。**斬首·護衛在場**那支仍是即死(戲劇性一擊定生死，不查 solo)，此為刻意的敘事分流、非疏漏。
 - **「養不起爆炸」機制已移除(2026-07)**：`worldTick_` 原本的「供魔不繼爆炸」(休息時，靠敵從者六圍/後改真查電池比例判定)，實測發現**不管怎麼調門檻，全種子庫真能撞進危險區的組合幾乎只有士郎(迴路30)配阿爾托莉雅(六圍285)**——其餘配對(伊莉雅迴路80/凜迴路45等)池子夠用、根本進不了候選。結果是「隨機世界事件」實際上總是同一個目標，跟隨機的初衷矛盾，玩家體感是「Saber每次都爆炸」。**已整段移除，不留殘骸**；masterless 有 `SEAL_DOOM_HOURS` 透支倒數、一般戰損有 `fateStrike_`，死法夠多不缺這個。同段落的「暗處廝殺」保留但2026-07改聰明：**只在休息(allowAttrition)、第 `ATTRITION_START_DAY`(=3) 日起、遠處(非玩家格)敵從者、且存活>`WORLD_FLOOR_`(=4)** 才可能發生(7%/tick)；受害者不再純隨機，改**挑「戰力(六圍階總和)最低」者先死**(同分隨機)——貼「弱者先在混戰中出局」。前 2 日世界不減員(喘息)。
-- **📜 戰記（里程碑回顧＋歷史戰役）**：獨立「戰記」表(自動建)，schema `[game_id, 帳號, 日, 時, 內容]`。`logWarEvent_(gameId, text, acctName)`(Router)只記 solo 局(g_)、附遊戲內 day/hour＋帳號(帳號表只記當前局，靠戰記列的帳號歸戶過去戰役；每場召喚必帶帳號)。**上限**：>2000 列砍最舊 500。接線點：召喚開戰、玩家令咒(戰鬥絕對命令／修復/補魔/脫離)、敵令咒脫離、從者擊破(雙方)、令咒透支倒數＋暗處廝殺(worldTick_，無帳號·靠召喚列歸戶)、斬首擊殺御主、結盟/破盟、奪杯/敗北。讀取：`actionWarChronicle`(`war_chronicle`，無 gameId＝當前局/有 gameId＝回顧過去·需帳號相符防越權)、`actionWarHistoryList`(`war_history_list`，列本帳號歷來戰役＋勝敗)。前端：抽屜「📜 本場戰記」`openWarChronicle()`；主選單「📜 戰役回顧」`openWarHistory()`→點一場→`openWarChronicle(gameId,title,true)`。
-- ⚠ **戰記表保存上限**：其餘表都有修剪(因果 `trimLogRowsByOwner` 每 pcId 留 60／歷史暫存 40／readRecentLogRows 只讀表尾)；戰記用「>2000 砍最舊」自管，勿移除。
+- **🗑️ 📜 戰記（里程碑回顧＋歷史戰役）已於 2026-07 整套刪除**：獨立「戰記」表(`[game_id, 帳號, 日, 時, 內容]`)、`logWarEvent_`、`actionWarChronicle`(`war_chronicle`)、`actionWarHistoryList`(`war_history_list`) 及 Router_Battle/Router_Bond/Router_Creation/Time_World 內全部呼叫點一併移除。前端抽屜「📜 本場戰記」/主選單「📜 戰役回顧」按鈕隨之拔除。2026-07 玩家定案：單人專注，不留跨局回顧資料。
+- **🗑️ 「因果」(事件log) 機制已於 2026-07 整套刪除**：`readRecentLogRows`/`pickRelevantLogs`/`formatCausalityEntry`/`pickNsfwCausalityEvent`/`trimLogRowsByOwner`/`IMPORTANT_LOG_TAGS`(History_Sync.gs) 全數移除，`actionPlay`(Router_Narrative.gs) 提示詞不再組「前塵因果」段。**與此機制無關、仍保留**：「歷史暫存」(逐句對話，`saveGameHistoryBatch`/`getGameHistoryBatchRaw`/`getGameHistory`)，仍是聊天記錄/敘事連續性的資料來源，未受影響。
 - **敵御主↔敵從者硬連結（誰是誰）**：`reseedRivals_`(Seed_Rivals 末段)種子時，rows 嚴格交替(master,servant…)，互寫 `【從者】名`(御主列)／`【御主】名`(從者列)於 MEMORY。`getServantMaster_`/`getMasterServant_`(Router)讀回。`markMasterLostServant_` 配對改**硬連結優先**(按名找御主，不怕多組同地)、無連結退回同落點。`getLocalPeopleList` 對 `敵從者` 帶 `master`、`敵御主` 帶 `servant`。前端 `travelTo` 在場敵對>1 組時加「在場敵對歸屬·勿張冠李戴」配對清單，AI 才不會把 3 組同場的主從搞混。**舊局無連結→退回同落點(相容)**。
 - **喪失從者的敵御主（選 A：不移除，只標記＋演出）**：敵從者任一路徑死亡時，`markMasterLostServant_`(Router ~4340)在「同地同 game_id 的敵御主」MEMORY 寫 `【喪失從者】從者名·死因`(只記第一次)。三處死亡都接：戰鬥擊破(`fateStrike_` else 支)、令咒透支倒數＋暗處廝殺(`worldTick_`)。`getLostServant_` 讀回；`getLocalPeopleList` 對 `敵御主` 帶出 `lostServant`。前端 `travelTo` 對在場的喪失從者御主加指令：演出形單影隻、無牙棋手、依個性流露失恃(孤注/惶然/不甘)，別當仍有從者隨侍。配對採同落點(一master一servant結伴移動，無顯式 FK)。helper：`stampLostServant_/getLostServant_/markMasterLostServant_`。
 - **敘事連續記憶**：`lastAiContext`(模組級，最近一段 AI 文 ≤300字)。`narrate()`/`narrateCombatResult`/play 都會更新它。`travelTo` 在 `foes.length` 時把 `lastAiContext.slice(0,280)` 當「前情」塞進抵達提示，讓 AI 知道「方才發生什麼」——逃跑後敵人追上/再遇時承接劇情、不當初次見面。`narrate_only` 後端只吃 promptText，所以前情是在前端拼進去的(零後端改動)。

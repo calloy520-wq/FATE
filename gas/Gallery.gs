@@ -15,18 +15,13 @@ function findPlayerServant_(pcData, gameId) {
   return null;
 }
 
-// 清理某 game_id 的整局資料（眾生 + 該御主關係），並解除帳號連結
+// 清理某 game_id 的整局資料（眾生，含關係/時鐘欄位已隨列一起刪），並解除帳號連結
+//   2026-07：關係已併入眾生列自身欄位，刪列即刪關係，不再需要單獨掃關係表。
 function purgeGameData_(sheets, gameId, masterName, accountName) {
   if (gameId) {
     var fresh = sheets.pc.getDataRange().getValues();
     for (var r = fresh.length - 1; r >= 1; r--) {
       if (String(fresh[r][COL.PC.GAME_ID] || "") === gameId) sheets.pc.deleteRow(r + 1);
-    }
-  }
-  if (sheets.rel && masterName) {
-    var rd = sheets.rel.getDataRange().getValues();
-    for (var k = rd.length - 1; k >= 1; k--) {
-      if (String(rd[k][COL.REL.PC]) === masterName) sheets.rel.deleteRow(k + 1);
     }
   }
   if (accountName) {
@@ -54,14 +49,8 @@ function actionClaimGrail(userData, pcId, sheets) {
   var realName = String(s[COL.PC.NAME] || "從者");
   var cls = String(s[COL.PC.RANK] || "從者");
 
-  // 羈絆值
-  var bond = 0;
-  if (sheets.rel) {
-    var rel = sheets.rel.getDataRange().getValues().find(function (r) {
-      return r[COL.REL.PC] === masterName && r[COL.REL.NPC] === realName;
-    });
-    if (rel) bond = parseInt(rel[COL.REL.FAV]) || 0;
-  }
+  // 羈絆值（2026-07：關係併入眾生列，直接讀這名從者自己的 BOND 欄）
+  var bond = parseInt(s[COL.PC.BOND]) || 0;
   // 御主願望（show-don't-tell：只供 AI 建構回憶氛圍）
   var wish = "";
   var wm = String(pcData[pIdx][COL.PC.MEMORY] || "").match(/【願望】([^｜|【\n]*)/);
@@ -108,8 +97,8 @@ function actionClaimGrail(userData, pcId, sheets) {
 
     // 🤝 同盟羈絆封存：羈絆養至 90↑（或已標【鑑賞緣】）的盟友（御主／從者）一併納入鑑賞名冊。
     //   原作依據：聖杯戰爭中結下深刻羈絆的同伴（遠坂凜／間桐櫻 等）戰後相伴。御主搭檔以 CLS="御主" 為辨識。
+    //   2026-07：關係併入眾生列，直接讀該列自己的 BOND 欄，不再需要關係表查找。
     try {
-      var relAll = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
       var galNow = gal.getDataRange().getValues();
       for (var ai = 1; ai < pcData.length; ai++) {
         if (String(pcData[ai][COL.PC.GAME_ID] || "") !== gameId) continue;
@@ -118,9 +107,7 @@ function actionClaimGrail(userData, pcId, sheets) {
         if (String(pcData[ai][COL.PC.ID]).startsWith("DEAD_")) continue;
         var aMem = String(pcData[ai][COL.PC.MEMORY] || "");
         var aName = String(pcData[ai][COL.PC.NAME] || "");
-        var aBond = 0;
-        var aRel = relAll.find(function (r) { return r[COL.REL.PC] === masterName && r[COL.REL.NPC] === aName; });
-        if (aRel) aBond = parseInt(aRel[COL.REL.FAV]) || 0;
+        var aBond = parseInt(pcData[ai][COL.PC.BOND]) || 0;
         if (!/【鑑賞緣】/.test(aMem) && aBond < 90) continue; // 未達羈絆門檻、不入名冊
         var aIsMaster = (afac === "敵御主");
         var aCls = aIsMaster ? "御主" : String(pcData[ai][COL.PC.RANK] || "從者");
@@ -179,7 +166,6 @@ function kanshouServantRow_(rec, gameId, loc) {
   sRow[COL.PC.ID] = "KSV_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
   sRow[COL.PC.NAME] = name;
   sRow[COL.PC.SEX] = String(rec[COL.GAL.SEX] || "異") || "異";
-  sRow[COL.PC.REALM] = "";
   if (partnerIsMaster) {
     sRow[COL.PC.HP] = 100; sRow[COL.PC.MAX_HP] = 100; sRow[COL.PC.MP] = 120; sRow[COL.PC.MAX_MP] = 120;
     // 🎴 五圍已棄欄：戰鬥吃六圍 SIX。
@@ -199,6 +185,9 @@ function kanshouServantRow_(rec, gameId, loc) {
   sRow[COL.PC.TAGS] = String(rec[COL.GAL.TAGS] || "{}");
   sRow[COL.PC.MEMORY] = "【鑑賞後日談】聖杯戰爭已結束，安然陪伴在御主身邊。";
   sRow[COL.PC.GAME_ID] = gameId;
+  // 🆕 關係欄(併入眾生列)：邀入的同伴直接帶著並肩奪杯的羈絆入場，同行狀態即刻生效
+  sRow[COL.PC.BOND] = 90; sRow[COL.PC.REL_TAG] = "從者"; sRow[COL.PC.IS_PARTY] = "同行";
+  sRow[COL.PC.REL_MEM] = "聖杯戰爭並肩奪杯的羈絆"; sRow[COL.PC.MAJOR_EVENT] = "";
   return sRow;
 }
 
@@ -253,7 +242,6 @@ function actionEnterKanshou(userData, pcId, sheets) {
   mRow[COL.PC.ID] = mId;
   mRow[COL.PC.NAME] = mName;
   mRow[COL.PC.SEX] = mSex;
-  mRow[COL.PC.REALM] = "";
   mRow[COL.PC.HP] = 100; mRow[COL.PC.MAX_HP] = 100; mRow[COL.PC.MP] = 100; mRow[COL.PC.MAX_MP] = 100;
   // 🎴 五圍已棄欄：戰鬥吃六圍 SIX。
   mRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情輕鬆" });
@@ -303,7 +291,7 @@ function actionKanshouAdd(userData, pcId, sheets) {
   var me = null;
   for (var m = 1; m < data.length; m++) { if (String(data[m][COL.PC.ID]) === String(pcId)) { me = data[m]; break; } }
   if (!me) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
-  var gid = String(me[COL.PC.GAME_ID] || ""); var loc = String(me[COL.PC.LOC] || "冬木·深山町"); var masterName = String(me[COL.PC.NAME] || "御主");
+  var gid = String(me[COL.PC.GAME_ID] || ""); var loc = String(me[COL.PC.LOC] || "冬木·深山町");
   var cnt = 0;
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) {
@@ -314,15 +302,8 @@ function actionKanshouAdd(userData, pcId, sheets) {
   if (cnt >= 3) return JSON.stringify({ success: false, message: "後日談最多 3 名同伴，請先請走一位再邀。" });
   var rec = galleryRec_(ss, acctName, addName);
   if (!rec) return JSON.stringify({ success: false, message: "鑑賞名冊查無「" + addName + "」。" });
+  // 🆕 羈絆已直接寫在 kanshouServantRow_ 建好的列上(BOND/IS_PARTY 等)，不再需要另寫關係表。
   kpc.appendRow(kanshouServantRow_(rec, gid, loc));
-  if (sheets.rel) {
-    try {
-      var rd = sheets.rel.getDataRange().getValues();
-      var ex = false;
-      for (var k = 1; k < rd.length; k++) { if (String(rd[k][COL.REL.PC]) === masterName && String(rd[k][COL.REL.NPC]) === addName) { ex = true; break; } }
-      if (!ex) sheets.rel.appendRow([masterName, addName, 90, "從者", "同行", "聖杯戰爭並肩奪杯的羈絆", ""]);
-    } catch (e) { }
-  }
   return JSON.stringify({ success: true, added: addName, message: "「" + addName + "」來到了你們身邊。" });
 }
 
@@ -359,34 +340,19 @@ function actionKanshouSetSex(userData, pcId, sheets) {
 }
 
 // ✏ 更改後日談御主 avatar 的名字（隨時可改）。pcId＝KPC_。
-//   一併把當前同伴的羈絆列(REL.PC=舊名)遷到新名，避免改名後 bond 斷掉。
+//   2026-07：關係併入眾生列(存在同伴自己那一列，不記「對誰」的名字)，改名不影響任何同伴的羈絆，無需遷移。
 function actionKanshouSetName(userData, pcId, sheets) {
   var newName = String(userData.pcName || "").trim();
   if (!newName) return JSON.stringify({ success: false, message: "名字不能空白。" });
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var kpc = getKanshouPcSheet_(ss);
   var data = kpc.getDataRange().getValues();
-  var meIdx = -1, oldName = "", gid = "";
+  var meIdx = -1;
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][COL.PC.ID]) === String(pcId)) { meIdx = i; oldName = String(data[i][COL.PC.NAME] || ""); gid = String(data[i][COL.PC.GAME_ID] || ""); break; }
+    if (String(data[i][COL.PC.ID]) === String(pcId)) { meIdx = i; break; }
   }
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
-  // 當前同伴名單（只遷這些人的羈絆，避免誤動跨局/單機同名列）
-  var comps = [];
-  for (var c = 1; c < data.length; c++) {
-    if (String(data[c][COL.PC.GAME_ID] || "") === gid && String(data[c][COL.PC.FACTION]) === "從者" && !String(data[c][COL.PC.ID]).startsWith("DEAD_")) comps.push(String(data[c][COL.PC.NAME]));
-  }
   kpc.getRange(meIdx + 1, COL.PC.NAME + 1).setValue(newName);
-  if (sheets.rel && oldName && oldName !== newName) {
-    try {
-      var rd = sheets.rel.getDataRange().getValues();
-      for (var k = 1; k < rd.length; k++) {
-        if (String(rd[k][COL.REL.PC]) === oldName && comps.indexOf(String(rd[k][COL.REL.NPC])) !== -1) {
-          sheets.rel.getRange(k + 1, COL.REL.PC + 1).setValue(newName);
-        }
-      }
-    } catch (e) { }
-  }
   return JSON.stringify({ success: true, pcName: newName, message: "御主已改名為「" + newName + "」。" });
 }
 

@@ -18,29 +18,31 @@ const MODEL_URL = "https://openrouter.ai/api/v1/chat/completions";
 // ★ 階段一：ORM 資料實體映射 (Data Mapping) 
 // ==========================================
 const COL = {
-  // 🎴 FATE 專屬眾生 schema（2026-06 砍舊經濟/生活/五圍後，25 欄）。
-  //   已移除：財帛(MONEY)、裝備(WEP/ARM/ACC1/ACC2)、生活技能(LIFESKILL)、冗餘職階(CLS)、
-  //   舊數值五圍(STR/CON/AGI/INT/LUK)——FATE 戰鬥吃六圍 SIX 階級，HP/MP 由 SIX 推算。
+  // 🎴 FATE 專屬眾生 schema（2026-07 單人重構·33 欄）。
+  //   已移除：財帛/裝備/生活技能/冗餘職階/舊數值五圍(2026-06)、REALM(死欄)、
+  //   關係表(REL)/時鐘表(CLK)/權柄表(AUTH)——2026-07 全部併入本表欄位(單人模式每世界僅一位御主，
+  //   NPC 對御主的關係＝那名 NPC 自己這一列的欄位；日/時/AP/居所＝御主自己這一列的欄位)。
   PC: {
     ID: 0, NAME: 1, SEX: 2, BACK: 3, STATUS: 4, TRAIT: 5, LOC: 6, PREF: 7,
     HP: 8, MP: 9, MAX_HP: 10, MAX_MP: 11,
-    REALM: 12, MEMORY: 13, INTENT: 14, FACTION: 15, RANK: 16, CONTRIB: 17, ALIGN: 18,
-    PHYSICAL: 19, MARTIAL: 20, GAME_ID: 21, SIX: 22, TAGS: 23, SEEN: 24
+    MEMORY: 12, INTENT: 13, FACTION: 14, RANK: 15, CONTRIB: 16, ALIGN: 17,
+    PHYSICAL: 18, MARTIAL: 19, GAME_ID: 20, SIX: 21, TAGS: 22, SEEN: 23,
+    // 🆕 關係欄(原 REL 表)：這名 NPC 對「本世界御主」的關係。BOND=好感值、REL_TAG=關係標籤(漸生情愫等)、
+    //   IS_PARTY=同行旗標("同行"/"")、MAJOR_EVENT=未完成重大約定、REL_MEM=關係專屬記憶(NSFW專屬稱呼/親密次數等，
+    //   與角色自己的 MEMORY 用途不同、分開存)。御主自己這一列這五欄不使用(留空)。
+    BOND: 24, REL_TAG: 25, IS_PARTY: 26, MAJOR_EVENT: 27, REL_MEM: 28,
+    // 🆕 世界狀態欄(原 CLK/AUTH 表)：只在【御主自己那一列】有意義，其餘角色列留空。
+    //   DAY/HOUR/AP=時鐘(1AP=1小時，每日12AP)；HOME_LOC=居所(工房加成判定用，原權柄表)。
+    DAY: 29, HOUR: 30, AP: 31, HOME_LOC: 32
   },
-  REL: { PC: 0, NPC: 1, FAV: 2, TAG: 3, IS_PARTY: 4, MEMORY: 5, MAJOR_EVENT: 6 },
   MAP: { REGION: 0, NAME: 1, TYPE: 2, COORD: 3, DESC: 4, PARENT: 5 },
-  AUTH: { NAME: 0, ID: 1, TITLE: 2, HOME_LOC: 3, DECOR: 4 },
   // 🔵 英靈殿(從者範本)、御主殿（戰鬥 fx 走 hasFx_＋SEED_SERVANTS 的 skills/traits JSON，不需 COL 索引；戰鬥標籤分頁已棄）
   HERO: { ID: 0, CLS: 1, NAME: 2, SEX: 3, SIX: 4, CLASS_SKILLS: 5, SKILLS: 6, TRAITS: 7, NP: 8, PERSONA: 9, ALIGN: 10, WARS: 11, SOURCE: 12 },
   MASTER: { ID: 0, NAME: 1, SEX: 2, APPEAR: 3, MAGIC: 4, CIRCUITS: 5, MELEE: 6, MAGIC_RANK: 7, HOME: 8, WISH: 9, PERSONA: 10, WAR: 11, SOURCE: 12, BACK: 13, MOE: 14 },
-  // 帳號（存檔身分）：帳號名 → 目前御主角色ID、勝場
-  ACC: { NAME: 0, PC: 1, WON: 2, CREATED: 3, BEST_DAYS: 4 },
-  // 戰史：每局結果紀錄
-  HIST: { ACC: 0, RESULT: 1, SERVANT: 2, SUMMARY: 3, TIME: 4 },
+  // 帳號（存檔身分）：帳號名 → 目前御主角色ID。2026-07：勝場/最快奪杯日(排行榜用)已隨排行榜砍除。
+  ACC: { NAME: 0, PC: 1, CREATED: 2 },
   // 鑑賞：奪杯後封存的從者（可於鑑賞模式呼出）
-  GAL: { ACC: 0, NAME: 1, CLS: 2, SEX: 3, SIX: 4, TAGS: 5, NP: 6, BACK: 7, PREF: 8, MOE: 9, MEMOIR: 10, WISH: 11, TIME: 12, MASTER: 13, MSEX: 14 },
-  // 時鐘：每個 game_id 一筆（第幾日／幾點／行動點）。1 AP = 1 小時，每日 12 AP（休息每小時補 2 AP）。
-  CLK: { GAME_ID: 0, DAY: 1, HOUR: 2, AP: 3 }
+  GAL: { ACC: 0, NAME: 1, CLS: 2, SEX: 3, SIX: 4, TAGS: 5, NP: 6, BACK: 7, PREF: 8, MOE: 9, MEMOIR: 10, WISH: 11, TIME: 12, MASTER: 13, MSEX: 14 }
 };
 
 // 🔵 Fate 六圍階級：E~EX 轉數值（戰鬥系統換 D20 後會用到；+ 視為 +5）
@@ -259,24 +261,6 @@ function parseTraitsHelper(data, defaultStr) {
   return parts.slice(0, 4).join("、");
 }
 
-// 🟢 安全寫入：先寫新資料，再刪多餘舊行，避免 clearContent 競態清空表
-function safeWriteSheet(sheet, data) {
-  if (!sheet || !data || data.length === 0) return;
-
-  const numCols = data[0].length;
-  const numRows = data.length;
-
-  // 1. 先把新資料全部寫上去（覆蓋現有行）
-  sheet.getRange(1, 1, numRows, numCols).setValues(data);
-
-  // 2. 如果舊表比新資料多行，把多的刪掉
-  const oldLastRow = sheet.getLastRow();
-  if (oldLastRow > numRows) {
-    sheet.deleteRows(numRows + 1, oldLastRow - numRows);
-  }
-  // 唯一呼叫端(Router_Narrative)寫完後不再讀回同一表，flush() 純屬多花一次強制 commit，已移除。
-}
-
 // ==========================================
 // ★ 階段三：狀態融合與資料封裝
 // ==========================================
@@ -373,7 +357,8 @@ function getCharacterTotalStats(charId, sheets, cachedPcData = null, cachedItemD
 // 🔴 狀態掃描器與地理雷達
 // ==========================================
 
-function getLocalPeopleList(sheets, pcName, pcId, curL, relData, allPcData) {
+// 2026-07：關係已併入眾生表自身欄位(BOND/REL_TAG/IS_PARTY)，不再需要 relData 參數／跨表查找。
+function getLocalPeopleList(sheets, pcName, pcId, curL, allPcData) {
   if (!allPcData) allPcData = sheets.pc.getDataRange().getValues();
   const localPeopleList = [];
   const safeCurL = String(curL || "");
@@ -384,21 +369,16 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, relData, allPcData) {
 
   // 🤝 情報共享（同盟背景生效）：只要當前世界尚有任一盟友（敵御主/敵從者結盟中），盟友便會通報敵情——
   //   敵從者的「職階」對玩家揭露（原作依據：遠坂凜為士郎判明敵方職階／真名）。無盟友則維持迷霧。
+  // 🤝 順帶找「別人(非我)同行」的 NPC：那名 NPC 正忙著陪誰（busyWith 顯示用）
   let hasAlly = false;
+  const otherPartyByNpc = {};
   for (let a = 1; a < allPcData.length; a++) {
     const ar = allPcData[a];
     if (myGameId && String(ar[COL.PC.GAME_ID] || "") !== myGameId) continue;
     const af = String(ar[COL.PC.FACTION] || "");
-    if ((af === "敵御主" || af === "敵從者") && !String(ar[COL.PC.ID]).startsWith("DEAD_") && /【盟約至】\d+/.test(String(ar[COL.PC.MEMORY] || ""))) { hasAlly = true; break; }
-  }
-
-  // ⚡ 預建查表：免在 per-person 迴圈內對 relData 做兩次線性 .find（O(人數×關係列數)→O(關係列數+人數)）
-  const relByNpc = {};        // 我(pcName)對某 npc 的關係列
-  const otherPartyByNpc = {}; // 某 npc 的「別人(非我)同行」御主名
-  for (let k = 1; k < relData.length; k++) {
-    const row = relData[k]; const npc = row[COL.REL.NPC];
-    if (row[COL.REL.PC] === pcName) { if (!(npc in relByNpc)) relByNpc[npc] = row; }
-    else if (row[COL.REL.IS_PARTY] === "同行") { if (!(npc in otherPartyByNpc)) otherPartyByNpc[npc] = row[COL.REL.PC]; }
+    if ((af === "敵御主" || af === "敵從者") && !String(ar[COL.PC.ID]).startsWith("DEAD_") && /【盟約至】\d+/.test(String(ar[COL.PC.MEMORY] || ""))) { hasAlly = true; }
+    // 這名角色自己這一列標了「同行」，但同行對象不是本世界唯一御主(即另有其人陪伴)——單人模式僅一位御主，
+    // 故「同行」旗標即代表陪的是御主本人，這裡只需標出「已同行中」給 busyWith 用即可，無須記對象名字。
   }
 
   for (let i = 1; i < allPcData.length; i++) {
@@ -407,10 +387,8 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, relData, allPcData) {
     if (myGameId && String(r[COL.PC.GAME_ID] || "") !== myGameId) continue;
 
     const tLoc = String(r[COL.PC.LOC] || ""); const tName = r[COL.PC.NAME];
-    const relRecord = relByNpc[tName];
-    const rVal = relRecord ? parseInt(relRecord[COL.REL.FAV]) || 0 : 0;
-    const rIsParty = relRecord ? (relRecord[COL.REL.IS_PARTY] === "同行") : false;
-    const otherParty = otherPartyByNpc[tName] || null;
+    const rVal = parseInt(r[COL.PC.BOND]) || 0;
+    const rIsParty = (String(r[COL.PC.IS_PARTY] || "") === "同行");
 
     if (tLoc === safeCurL || rVal >= 60 || rIsParty) {
       let finalDisplayStatus = buildVisibleStatusString(r[COL.PC.STATUS]);
@@ -429,11 +407,11 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, relData, allPcData) {
       const pairServant = (rawFac === "敵御主") ? getMasterServant_(r[COL.PC.MEMORY]) : "";
       localPeopleList.push({
         id: r[COL.PC.ID], isPC: String(r[COL.PC.ID]).startsWith("PC_"), name: tName, status: finalDisplayStatus,
-        pref: r[COL.PC.PREF] || "神祕莫測", relTag: relRecord ? relRecord[COL.REL.TAG] : "萍水相逢", relVal: rVal,
+        pref: r[COL.PC.PREF] || "神祕莫測", relTag: r[COL.PC.REL_TAG] || "萍水相逢", relVal: rVal,
         loc: tLoc, isExact: (tLoc === safeCurL), isHighRel: (rVal >= 60), isParty: rIsParty,
         faction: fac, allied: allied, intelCls: revealCls, lostServant: lostSv,
         master: pairMaster, servant: pairServant,
-        busyWith: otherParty || null, hp: r[COL.PC.HP], mp: r[COL.PC.MP]
+        busyWith: null, hp: r[COL.PC.HP], mp: r[COL.PC.MP]
       });
     }
   }

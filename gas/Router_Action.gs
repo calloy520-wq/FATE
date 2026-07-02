@@ -9,7 +9,6 @@ const ActionRouter = {
   "check_name": actionCheckName,
   "account_login": actionAccountLogin,
   "account_new_game": actionAccountNewGame,
-  "get_victory_history": actionGetVictoryHistory,
   "claim_grail": actionClaimGrail,
   "enter_kanshou": actionEnterKanshou,
   "dev_resync_codex": actionDevResyncCodex,
@@ -55,10 +54,6 @@ const ActionRouter = {
   "sync": actionSync,
   "rest": actionRest,
   "play": actionPlay,
-  "get_epic_history": actionGetEpicHistory,
-  "leaderboard": actionLeaderboard,
-  "war_chronicle": actionWarChronicle,
-  "war_history_list": actionWarHistoryList,
   "narrate_only": actionNarrateOnly
 };
 
@@ -135,9 +130,7 @@ function handleGameAction(userData) {
   const isKanshouCtx = String(pcId || "").indexOf("KPC_") === 0;
   const sheets = {
     map: ss.getSheetByName("坤圖"),
-    pc: (isKanshouCtx ? getKanshouPcSheet_(ss) : ss.getSheetByName("眾生")), log: ss.getSheetByName("因果"),
-    auth: ss.getSheetByName("權柄"),
-    rel: ss.getSheetByName("關係"), epic: ss.getSheetByName("史紀")
+    pc: (isKanshouCtx ? getKanshouPcSheet_(ss) : ss.getSheetByName("眾生"))
   };
 
   const handler = ActionRouter[action];
@@ -194,9 +187,8 @@ function handleGameAction(userData) {
 // 🔒 不取寫入鎖的動作：純讀取(不寫表·鎖了白繳成本) ＋ 長 AI 敘事(佔鎖數秒會卡住全域)。
 //   ⚠ sync 雖會 markRivalsSeen_ 標記 SEEN，但該寫入冪等(重標無害)，不值得為它鎖每一次同步。
 const LOCK_EXEMPT_ACTIONS_ = {
-  check_name: 1, get_victory_history: 1, get_full_status: 1, get_heroes: 1, get_masters: 1,
-  get_tags: 1, get_map_nodes: 1, sync: 1, get_epic_history: 1, leaderboard: 1,
-  war_chronicle: 1, war_history_list: 1,
+  check_name: 1, get_full_status: 1, get_heroes: 1, get_masters: 1,
+  get_tags: 1, get_map_nodes: 1, sync: 1,
   narrate_only: 1, play: 1, backfill_master_ai: 1
 };
 // ⚡ 會改動 solo 戰場狀態、前端事後會 syncData(整頁刷新) 的動作 → 夾帶 _state 省一趟 round-trip。
@@ -236,17 +228,9 @@ function actionGetFullStatus(userData, pcId, sheets) {
   if (!row) return JSON.stringify({ success: false, message: "查無此人" });
 
   const targetId = row[COL.PC.ID];
-  let relMem = "", canEditFate = false;
-  if (sheets.rel) {
-    const pcRow = allPcData.find(r => r[COL.PC.ID] == pcId);
-    if (pcRow) {
-      const rRecord = sheets.rel.getDataRange().getValues().find(r => r[COL.REL.PC] === pcRow[COL.PC.NAME] && r[COL.REL.NPC] === targetName);
-      if (rRecord) {
-        relMem = rRecord[COL.REL.MEMORY] || "";
-        if (String(rRecord[COL.REL.IS_PARTY] || "") === "同行") canEditFate = true;
-      }
-    }
-  }
+  // 2026-07：關係併入眾生列，這名角色對御主的關係就是他自己這一列的欄位，不用再查關係表。
+  const relMem = String(row[COL.PC.REL_MEM] || "");
+  const canEditFate = (String(row[COL.PC.IS_PARTY] || "") === "同行");
   return JSON.stringify({ success: true, statusString: buildPlayerStatusString(row, relMem), targetId: targetId, targetSex: row[COL.PC.SEX], canEditFate: canEditFate });
 }
 
@@ -257,10 +241,8 @@ function actionUpdateFate(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
 
   if (targetId !== pcId) {
-    const myName = pcData.find(r => r[COL.PC.ID] == pcId)[COL.PC.NAME];
-    const relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
-    const rIdx = relData.findIndex(r => r[COL.REL.PC] === myName && r[COL.REL.NPC] === pcData[pIdx][COL.PC.NAME]);
-    if ((rIdx !== -1 ? String(relData[rIdx][COL.REL.IS_PARTY]) : "") !== "同行") {
+    // 2026-07：關係併入眾生列，直接看這名角色自己的 IS_PARTY 欄。
+    if (String(pcData[pIdx][COL.PC.IS_PARTY] || "") !== "同行") {
       return JSON.stringify({ success: false, message: `僅能對同行的從者逆天改命！` });
     }
   }
@@ -273,11 +255,7 @@ function actionUpdateFate(userData, pcId, sheets) {
   pcData[pIdx][targetCol] = String(fateValue || "").slice(0, cap);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
 
-  let relMem = "";
-  if (targetId !== pcId && sheets.rel) {
-    const rRecord = sheets.rel.getDataRange().getValues().find(r => r[COL.REL.PC] === pcData.find(r => r[COL.PC.ID] == pcId)[COL.PC.NAME] && r[COL.REL.NPC] === pcData[pIdx][COL.PC.NAME]);
-    if (rRecord) relMem = rRecord[COL.REL.MEMORY] || "";
-  }
+  const relMem = String(pcData[pIdx][COL.PC.REL_MEM] || "");
   return JSON.stringify({ success: true, statusString: buildPlayerStatusString(pcData[pIdx], relMem) });
 }
 
@@ -285,8 +263,8 @@ function actionGetTags(userData, pcId, sheets) {
   return JSON.stringify(buildTagsPayload_(sheets, pcId));
 }
 // 🔧 抽出共用：左側狀態卡資料建構。get_tags 與 sync 共用同一份，讓「一次按鍵」少一趟 round-trip。
-//   preData/preRel＝呼叫端已讀好的整表，傳入即免重讀(省整表 I/O)。
-function buildTagsPayload_(sheets, pcId, preData, preRel) {
+//   preData＝呼叫端已讀好的整表，傳入即免重讀(省整表 I/O)。2026-07：關係併入眾生列，不再需要 preRel。
+function buildTagsPayload_(sheets, pcId, preData) {
   const pcData = preData || sheets.pc.getDataRange().getValues();
   const m = pcData.find(r => r[COL.PC.ID] == pcId);
   if (!m) return JSON.stringify({ success: false });
@@ -312,12 +290,10 @@ function buildTagsPayload_(sheets, pcId, preData, preRel) {
 
   // 🗝️ 雙從者：收齊所有在世我方從者（servants 陣列）；servant＝第一個（向後相容）
   let servants = [];
-  const relRows = preRel || (sheets.rel ? sheets.rel.getDataRange().getValues() : []);
   pcData.forEach(s => {
     if (String(s[COL.PC.FACTION]) !== "從者" || String(s[COL.PC.GAME_ID] || "") !== gameId || String(s[COL.PC.ID]).startsWith("DEAD_")) return;
-    let bond = 0;
-    const rel = relRows.find(r => r[COL.REL.PC] === m[COL.PC.NAME] && r[COL.REL.NPC] === s[COL.PC.NAME]);
-    if (rel) bond = parseInt(rel[COL.REL.FAV]) || 0;
+    // 2026-07：關係併入眾生列，好感直接是這名從者自己的 BOND 欄
+    const bond = parseInt(s[COL.PC.BOND]) || 0;
     let six = {}, skills = [], traits = [];
     try { six = JSON.parse(s[COL.PC.SIX] || "{}"); } catch (e) { }
     try { const tg = JSON.parse(s[COL.PC.TAGS] || "{}"); skills = tg.skills || []; traits = tg.traits || []; } catch (e) { }
@@ -388,17 +364,18 @@ function buildClientState_(sheets, pcId) {
   const currentMapInfo = freshMapData.find(m => m[COL.MAP.NAME] === (curL ? String(curL).split('-')[0] : ""));
   const gid = String(allPcData[pcIndex][COL.PC.GAME_ID] || "");
   const isFate = gid && gid.indexOf("g_") === 0;
+  // ⚡ 2026-07：時鐘併入御主列，clockLabel_/getAp_ 傳 allPcData 走記憶體查找，不再另外整表讀時鐘表。
   let clk = "", ap = AP_PER_DAY;
-  if (isFate) { try { clk = clockLabel_(gid); ap = getAp_(gid); } catch (e) { } }
-  const relRows = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
+  if (isFate) { try { clk = clockLabel_(gid, allPcData); ap = getAp_(gid, allPcData); } catch (e) { } }
   return {
     statusString: buildPlayerStatusString(allPcData[pcIndex]),
-    people: getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, relRows, allPcData),
+    // 2026-07：關係併入眾生列，不再需要關係表 → 少一次整表讀
+    people: getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, allPcData),
     locations: getNearbyLocations(curL, freshMapData),
     mapDesc: currentMapInfo ? currentMapInfo[COL.MAP.DESC] : "四下靜謐。",
     clock: clk, ap: ap, apMax: AP_PER_DAY,
     economy: isFate ? playerServantEconomy_(sheets, pcId, allPcData) : null,
-    tags: buildTagsPayload_(sheets, pcId, allPcData, relRows)
+    tags: buildTagsPayload_(sheets, pcId, allPcData)
   };
 }
 function actionSync(userData, pcId, sheets) {
@@ -408,28 +385,22 @@ function actionSync(userData, pcId, sheets) {
   return JSON.stringify(st);
 }
 
+// 2026-07：關係併入眾生列——直接改這名 NPC 自己那一列的 REL_TAG 欄，不再查關係表。
 function actionUpdateRelTag(userData, pcId, sheets) {
   const { targetName, newTagText } = userData;
-  if (!sheets.rel) return JSON.stringify({ success: false, message: "系統異常：關係表不存在。" });
   if (!newTagText || !String(newTagText).trim()) return JSON.stringify({ success: false, message: "稱呼不可為空。" });
 
   const pcData = sheets.pc.getDataRange().getValues();
-  const myName = pcData.find(r => r[COL.PC.ID] == pcId)[COL.PC.NAME];
+  const tIdx = pcData.findIndex(r => r[COL.PC.NAME] === targetName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  if (tIdx === -1) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
 
-  let relData = sheets.rel.getDataRange().getValues();
-  const rIdx = relData.findIndex(r => r[COL.REL.PC] === myName && r[COL.REL.NPC] === targetName);
-
-  if (rIdx === -1) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
-
-  const currentFav = parseInt(relData[rIdx][COL.REL.FAV]) || 0;
   // 🔵 門檻：同行的從者才能重新定義稱呼
-  if (String(relData[rIdx][COL.REL.IS_PARTY]) !== "同行") {
+  if (String(pcData[tIdx][COL.PC.IS_PARTY] || "") !== "同行") {
     return JSON.stringify({ success: false, message: "僅能為同行的從者重新定義這段關係。" });
   }
 
   const finalTag = String(newTagText).trim();
-
-  sheets.rel.getRange(rIdx + 1, COL.REL.TAG + 1).setValue(finalTag);
+  sheets.pc.getRange(tIdx + 1, COL.PC.REL_TAG + 1).setValue(finalTag);
 
   return JSON.stringify({ success: true, message: `羈絆已重新定義為「${finalTag}」。`, newTag: finalTag });
 }

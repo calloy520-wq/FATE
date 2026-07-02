@@ -26,7 +26,6 @@ function actionPlay(userData, pcId, sheets) {
 
 
   let pcData = sheets.pc.getDataRange().getValues();
-  let relData = sheets.rel ? sheets.rel.getDataRange().getValues() : [];
 
   const pcIndex = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pcIndex === -1) return "查無此人";
@@ -36,7 +35,6 @@ function actionPlay(userData, pcId, sheets) {
 
 
 
-  let isRelChanged = false;
   let knockedOutList = [];
   let justRevived = false;
   let fatePlayerDefeat = false, fateDreamPrompt = ""; // 🔵 FATE：御主血歸 0＝聖杯戰爭敗北（虛假之夢→老虎道場）
@@ -47,64 +45,33 @@ function actionPlay(userData, pcId, sheets) {
 
 
 
-  // 🔴 只讀一次 log，後面兩處共用；改為只讀最近2000筆，避免歷史成長後每回合全表讀取拖慢
-  const allLogs = readRecentLogRows(sheets.log, 2000);
-
-  const history = pickRelevantLogs(allLogs.filter(r => String(r[2]).includes(pcName)), 12).map(r => r[2]).join("\n");
   const currentAmbition = pc[COL.PC.INTENT] ? String(pc[COL.PC.INTENT]).trim() : "尚無明確目標，隨遇而安。";
-
-  const partyMembers = relData.filter(r => r[COL.REL.PC] === pcName && r[COL.REL.IS_PARTY] === "同行").map(r => r[COL.REL.NPC]);
-  let partyDetailsArr = [];
-  partyMembers.forEach(pName => {
-    const r = pcData.find(row => String(row[COL.PC.NAME]).trim() === String(pName).trim() && !String(row[COL.PC.ID]).startsWith("DEAD_"));
-    if (r) {
-      const nTotal = getCharacterTotalStats(r[COL.PC.ID], sheets, pcData, []);
-      const relRecord = relData.find(row => row[COL.REL.PC] === pcName && row[COL.REL.NPC] === pName);
-      const pOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 玩家換裝：當前服裝穿著(換衣不換人)
-      partyDetailsArr.push(`【同行夥伴】名號:${pName} | 氣血:${r[COL.PC.HP]}/${nTotal.maxHp} | 身世:${r[COL.PC.BACK] || "無"} | 狀態:${r[COL.PC.STATUS]}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])} | 關係:${relRecord ? relRecord[COL.REL.TAG] : "結伴同行"}(好感:${relRecord ? relRecord[COL.REL.FAV] : 0})`);
-    }
-  });
-  const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【目前同行隊伍成員命格詳情】:\n${partyDetailsArr.join("\n")}` : "目前沒有同行夥伴，玩家是獨自行動的。";
 
   // 🔵 實例化：只取自己 game_id 世界內、同地點的人（御主無 game_id 時不過濾，相容舊角色）
   const myGameId = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
   const isKanshou = myGameId.indexOf("k_") === 0; // 鑑賞（後日談·約會）世界
   const sameGame = (r) => !myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId;
+
+  const partyMembers = pcData.filter(r => r !== pc && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r)).map(r => r[COL.PC.NAME]);
+  let partyDetailsArr = [];
+  partyMembers.forEach(pName => {
+    const r = pcData.find(row => String(row[COL.PC.NAME]).trim() === String(pName).trim() && !String(row[COL.PC.ID]).startsWith("DEAD_"));
+    if (r) {
+      const nTotal = getCharacterTotalStats(r[COL.PC.ID], sheets, pcData, []);
+      const pOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 玩家換裝：當前服裝穿著(換衣不換人)
+      partyDetailsArr.push(`【同行夥伴】名號:${pName} | 氣血:${r[COL.PC.HP]}/${nTotal.maxHp} | 身世:${r[COL.PC.BACK] || "無"} | 狀態:${r[COL.PC.STATUS]}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])} | 關係:${r[COL.PC.REL_TAG] || "結伴同行"}(好感:${parseInt(r[COL.PC.BOND]) || 0})`);
+    }
+  });
+  const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【目前同行隊伍成員命格詳情】:\n${partyDetailsArr.join("\n")}` : "目前沒有同行夥伴，玩家是獨自行動的。";
+
   const allLocals = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && (r[COL.PC.LOC] === curL) && sameGame(r) && !partyMembers.includes(r[COL.PC.NAME]));
   let displayPeople = allLocals.length > 6 ? allLocals.sort((a, b) => (b[COL.PC.PREF].includes(pcName) ? 1 : 0) - (a[COL.PC.PREF].includes(pcName) ? 1 : 0)).slice(0, 6) : allLocals;
 
-
-  const presentNpcNamesForLog = [...displayPeople.map(r => r[COL.PC.NAME]), ...partyMembers];
-  let localHistoryStr = "";
-
-  if (presentNpcNamesForLog.length > 0) {
-    const localLogs = allLogs.filter(r => {
-      const eventStr = String(r[2] || "");
-      return !eventStr.includes(pcName) && presentNpcNamesForLog.some(n => eventStr.includes(n));
-    });
-    const localHistory = pickRelevantLogs(localLogs, 10).map(r => `[他人因果] ${r[2]}`).join("\n");
-    if (localHistory) localHistoryStr = `\n★【眼前眾生近期遭遇】：(NPC 可能會告狀或展露餘韻！)\n${localHistory}`;
-  }
-
-  let thirdPartyRels = [];
-  const presentNames = [...displayPeople.map(r => r[COL.PC.NAME]), ...partyMembers];
-  if (presentNames.length > 1) {
-    relData.forEach(row => {
-      if (row[COL.REL.PC] !== pcName && presentNames.includes(row[COL.REL.PC]) && presentNames.includes(row[COL.REL.NPC])) {
-        if ((parseInt(row[COL.REL.FAV]) || 0) >= 80 || row[COL.REL.IS_PARTY] === "同行") {
-          thirdPartyRels.push(`- 『${row[COL.REL.PC]}』對『${row[COL.REL.NPC]}』：${row[COL.REL.TAG]} (好感:${row[COL.REL.FAV]})${row[COL.REL.IS_PARTY] === "同行" ? " [同行中]" : ""}`);
-        }
-      }
-    });
-  }
-  const thirdPartyStr = thirdPartyRels.length > 0 ? `\n\n★【場景人物交叉羈絆 (旁觀親密流露版)】：\n${thirdPartyRels.join("\n")}\n👉若在場人物有「同行夥伴」等高階親密關係，兩人之間的互動請依這段關係實際的親密程度自然演出，別當彼此陌生的路人。` : "";
-
   let PROMPT_ENV = "", PROMPT_GEAR = "", PROMPT_REL = "";
 
-  // 🔴 統一建構 localSceneStr，SFW/NSFW 共用同一份好感抗拒邏輯
+  // 🔴 統一建構 localSceneStr，SFW/NSFW 共用同一份好感抗拒邏輯（羈絆存於該 NPC 自己列的 BOND/REL_TAG/MAJOR_EVENT 欄）
   const localSceneStr = displayPeople.length > 0 ? displayPeople.map(r => {
-    const relRecord = relData.find(row => row[COL.REL.PC] === pcName && row[COL.REL.NPC] === r[COL.PC.NAME]);
-    let currentFav = relRecord ? parseInt(relRecord[COL.REL.FAV]) || 0 : 0;
+    let currentFav = parseInt(r[COL.PC.BOND]) || 0;
 
     let resistPrompt = "";
     if (currentFav <= -50) {
@@ -128,10 +95,10 @@ function actionPlay(userData, pcId, sheets) {
       identityTag += partyMembers.includes(r[COL.PC.NAME]) ? "【同行伴侶】" : "【同地路人/嚴禁強制互動】";
     }
 
-    const majorEventStr = (relRecord && relRecord[COL.REL.MAJOR_EVENT] && relRecord[COL.REL.MAJOR_EVENT] !== "無")
-      ? ` [未完成約定:${relRecord[COL.REL.MAJOR_EVENT]}]` : "";
+    const majorEventStr = (r[COL.PC.MAJOR_EVENT] && r[COL.PC.MAJOR_EVENT] !== "無")
+      ? ` [未完成約定:${r[COL.PC.MAJOR_EVENT]}]` : "";
 
-    return `${identityTag}名號:${r[COL.PC.NAME]} 【性別:${r[COL.PC.SEX]}】 陣營:${r[COL.PC.FACTION] || "無"} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])} | 身世:${String(r[COL.PC.BACK] || "來歷不詳")}(僅供內化演出·show-don't-tell·禁直述、禁預告其原作後續結局) | 關係:${relRecord ? relRecord[COL.REL.TAG] : "萍水相逢"}(好感:${currentFav}${majorEventStr} -> 行為準則:${resistPrompt})`;
+    return `${identityTag}名號:${r[COL.PC.NAME]} 【性別:${r[COL.PC.SEX]}】 陣營:${r[COL.PC.FACTION] || "無"} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])} | 身世:${String(r[COL.PC.BACK] || "來歷不詳")}(僅供內化演出·show-don't-tell·禁直述、禁預告其原作後續結局) | 關係:${r[COL.PC.REL_TAG] || "萍水相逢"}(好感:${currentFav}${majorEventStr} -> 行為準則:${resistPrompt})`;
   }).join("\n") : "此地四下無人。";
 
   if (isNsfwMode) {
@@ -166,19 +133,19 @@ function actionPlay(userData, pcId, sheets) {
       let npcPhysicalObj = JSON.parse(r[COL.PC.PHYSICAL] || "{}");
       if (Object.keys(npcPhysicalObj).length === 0) npcPhysicalObj = { "蜜穴": "未開" };
       let npcSkills = (r[COL.PC.MEMORY] || "無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/, (m, p1) => `[雙修技巧]${p1.trim().split('、').slice(0, 5).join('、')}`);
-      let relMem = (relData.find(row => row[COL.REL.PC] === pcName && row[COL.REL.NPC] === r[COL.PC.NAME]) || {})[COL.REL.MEMORY] || "無";
+      let relMem = r[COL.PC.REL_MEM] || "無";
       let npcOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 玩家換裝：當前服裝穿著(換衣不換人·五官體態依本相)
       nsfwMemories += `\n[${r[COL.PC.NAME]} 狀態]：${buildVisibleStatusString(r[COL.PC.STATUS])}${npcOutfit ? `\n[${r[COL.PC.NAME]} 裝扮]：${npcOutfit}（玩家指定當前服裝·五官/髮色/體態不變）` : ""}\n[${r[COL.PC.NAME]} 肉體]：${JSON.stringify(npcPhysicalObj)}\n[快照]：[技巧]${npcSkills} | [羈絆]${relMem} | [萌點]${r[COL.PC.INTENT] || "無"}`;
     });
 
-    PROMPT_REL = `【當前同地人物】\n${localSceneStr}\n★【情境延續鐵律】：請繼續往後推演！${nsfwMemories}${thirdPartyStr}${genderHintStr}
+    PROMPT_REL = `【當前同地人物】\n${localSceneStr}\n★【情境延續鐵律】：請繼續往後推演！${nsfwMemories}${genderHintStr}
 🛑【角色一致性鐵律】：NPC 的反應必須【死守】其「性格」與目前「好感度」的真實落差——好感未滿 80、或性格屬於冷酷/高傲/剛烈者，依這個設定判斷此刻合理的抗拒/抵觸程度演出，不因劇情推進就無視好感度線性軟化。即便肉體有生理反應，靈魂與對話的態度仍以角色設定為準。`;
 
   } else {
     // 🎴 solo(SFW)：舊版情報/勢力/我的家系統已移除，環境欄留空，只給寶具與在場人物。
     PROMPT_ENV = "";
     PROMPT_GEAR = `【寶具／技藝】：${pcData[pcIndex][COL.PC.MARTIAL] || "尚無"}`;
-    PROMPT_REL = `【當前同地人物】\n${localSceneStr}${thirdPartyStr}`;
+    PROMPT_REL = `【當前同地人物】\n${localSceneStr}`;
   }
 
   const npcDialoguePrompt = displayPeople.length > 0 ? `\n★【對話點名】：若有對話意圖，請包含「${displayPeople.map(r => r[COL.PC.NAME]).join("、")}」的對話。` : "";
@@ -192,12 +159,8 @@ ${PROMPT_PARTY_SYSTEM}
 ${PROMPT_ENV}
 ${PROMPT_GEAR}
 
-【前塵因果】：(此為歷史輪廓，僅供背景參考，請勿當作新事件重複描寫！其中提到的人物，若不在下方【當前同地人物】名單內，純屬「回憶」，本回合絕對禁止讓其現身、開口或互動！)
-${history}
-${localHistoryStr}
-
 ${PROMPT_REL}
-★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可登場、說話、互動的角色，僅限【目前同行隊伍成員】、緊鄰上方【當前同地人物】清單列出之人，${isNsfwMode ? "本回合為慾海模式(私密場景已隔絕外界)，【絕對禁止】由AI自行安排任何全新陌生人登場打斷或闖入；唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場，AI不得自作主張額外加碼安排其他陌生人" : "以及AI當下【全新初次原創】、從未出現於前塵因果/歷史紀錄/話題情報中的陌生角色(如路人、店家、新面孔，可正常開口說話、給予姓名)"}！前塵因果、歷史紀錄、話題情報中提到的「已知但不在此清單內」之姓名，才視為不在場的回憶，嚴禁無視「同地」設定憑空召喚、穿越或讓其開口說話、出手！若【當前同地人物】顯示「此地四下無人」，本回合除玩家、同行夥伴${isNsfwMode ? "、以及玩家本回合主動引入之人" : "、與全新原創的陌生人"}外，不可讓任何${isNsfwMode ? "" : "「歷史已知」"}具名角色登場！
+★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可登場、說話、互動的角色，僅限【目前同行隊伍成員】、緊鄰上方【當前同地人物】清單列出之人，${isNsfwMode ? "本回合為慾海模式(私密場景已隔絕外界)，【絕對禁止】由AI自行安排任何全新陌生人登場打斷或闖入；唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場，AI不得自作主張額外加碼安排其他陌生人" : "以及AI當下【全新初次原創】、從未出現於歷史紀錄/話題情報中的陌生角色(如路人、店家、新面孔，可正常開口說話、給予姓名)"}！歷史紀錄、話題情報中提到的「已知但不在此清單內」之姓名，才視為不在場的回憶，嚴禁無視「同地」設定憑空召喚、穿越或讓其開口說話、出手！若【當前同地人物】顯示「此地四下無人」，本回合除玩家、同行夥伴${isNsfwMode ? "、以及玩家本回合主動引入之人" : "、與全新原創的陌生人"}外，不可讓任何${isNsfwMode ? "" : "「歷史已知」"}具名角色登場！
 ${isKanshou ? "" : `
 ★【系統底層防呆·戰鬥雙向裁決】：發生衝突時綜合比對雙方靈基/實力/環境/戰術公平裁決，禁止單方面秒殺玩家；傷害以相對扣血呈現，允許玩家受傷/纏鬥/撤退/奇謀逆襲；惟聖杯戰爭的從者廝殺一律由系統按鈕裁決，敘述不得自行宣告死亡或輸出生命數值變化。
 `}
@@ -268,8 +231,6 @@ ${isKanshou ? `
       }
     }
 
-    if (aiData.events && Array.isArray(aiData.events) && sheets.epic) aiData.events.forEach(ev => { sheets.epic.appendRow([pcId, String(ev).trim(), new Date()]); });
-
     // 🔴 血量快照：記錄所有人變化前的血量，供結尾比對真實扣血
     const hpSnapshot = {};
     pcData.forEach((row, idx) => {
@@ -331,7 +292,7 @@ ${isKanshou ? `
     let newlyRecruited = (isNsfwMode && aiData.recruited && Array.isArray(aiData.recruited)) ? aiData.recruited.map(n => String(n).trim()) : [];
     let dismissedNpc = userMsg.includes("解除了組隊同行關係") ? (userMsg.match(/與「(.*?)」解除/) || [])[1]?.trim() || "" : "";
 
-    if (sheets.rel) {
+    {
       const relChangesToProcess = aiData.rel_changes || [];
       newlyRecruited.forEach(npc => { if (!relChangesToProcess.find(r => r.npc === npc)) relChangesToProcess.push({ npc: npc }); });
       if (dismissedNpc && !relChangesToProcess.find(r => r.npc === dismissedNpc)) relChangesToProcess.push({ npc: dismissedNpc });
@@ -341,47 +302,46 @@ ${isKanshou ? `
         if (tNpc === pcName || tNpc === "自己") return;
         if (tNpc === freshlyBoundNpcName) return;
 
-        const rIdx = relData.findIndex(r => r[COL.REL.PC] === pcName && r[COL.REL.NPC] === tNpc);
+        // 羈絆已併入該 NPC 自己列（BOND/REL_TAG/IS_PARTY/MAJOR_EVENT）——找不到該人此局的列就無可寫入。
+        const nIdx = pcData.findIndex(r => String(r[COL.PC.NAME]) === tNpc && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
+        if (nIdx === -1) return;
+        dirtyPcRows.add(nIdx);
+
         // 🎴 solo：好感收歸 GAS——只有羈絆/補魔/結盟等按鈕能動好感，AI 自由敘事不得改好感數值（鑑賞才允許 AI 推進好感）
         let change = isNsfwMode ? (parseInt(rc.fav_change) || 0) : 0;
-        let isPartyStr = rIdx !== -1 ? relData[rIdx][COL.REL.IS_PARTY] || "" : "";
+        let isPartyStr = String(pcData[nIdx][COL.PC.IS_PARTY] || "");
         if (newlyRecruited.includes(tNpc)) isPartyStr = "同行"; if (dismissedNpc === tNpc) isPartyStr = "";
 
-        if (rIdx !== -1) {
-          let oldFav = parseInt(relData[rIdx][COL.REL.FAV]) || 0; let oldTag = relData[rIdx][COL.REL.TAG] || "萍水相逢";
-          let newFav = Math.max(-100, Math.min(100, oldFav + change));
+        let oldFav = parseInt(pcData[nIdx][COL.PC.BOND]) || 0; let oldTag = pcData[nIdx][COL.PC.REL_TAG] || "萍水相逢";
+        let newFav = Math.max(-100, Math.min(100, oldFav + change));
 
-          let finalTag;
-          {
-            let aiProvidedTag = (rc.tag && typeof rc.tag === 'string') ? rc.tag.trim() : "";
-            let isValidAiTag = aiProvidedTag !== "" && aiProvidedTag !== "無" && !aiProvidedTag.includes("禁止");
-            if (rc.forceTag) finalTag = rc.tag;
-            else if (isValidAiTag) finalTag = aiProvidedTag;
-            else finalTag = oldTag;
-          }
+        let finalTag;
+        {
+          let aiProvidedTag = (rc.tag && typeof rc.tag === 'string') ? rc.tag.trim() : "";
+          let isValidAiTag = aiProvidedTag !== "" && aiProvidedTag !== "無" && !aiProvidedTag.includes("禁止");
+          if (rc.forceTag) finalTag = rc.tag;
+          else if (isValidAiTag) finalTag = aiProvidedTag;
+          else finalTag = oldTag;
+        }
 
-          relData[rIdx][COL.REL.FAV] = newFav; relData[rIdx][COL.REL.TAG] = finalTag; relData[rIdx][COL.REL.IS_PARTY] = isPartyStr;
+        pcData[nIdx][COL.PC.BOND] = newFav; pcData[nIdx][COL.PC.REL_TAG] = finalTag; pcData[nIdx][COL.PC.IS_PARTY] = isPartyStr;
 
-          if (rc.major_event && rc.major_event.trim() !== "無") {
-            let oldEventsStr = String(relData[rIdx][COL.REL.MAJOR_EVENT] || "").trim();
-            let newEvent = String(rc.major_event).trim();
-            let eventArray = (oldEventsStr === "無" || oldEventsStr === "") ? [] : oldEventsStr.split('、').map(e => e.trim());
+        if (rc.major_event && rc.major_event.trim() !== "無") {
+          let oldEventsStr = String(pcData[nIdx][COL.PC.MAJOR_EVENT] || "").trim();
+          let newEvent = String(rc.major_event).trim();
+          let eventArray = (oldEventsStr === "無" || oldEventsStr === "") ? [] : oldEventsStr.split('、').map(e => e.trim());
 
-            if (newEvent === "[清空]") relData[rIdx][COL.REL.MAJOR_EVENT] = "無";
-            else if (newEvent.includes("[達成]")) {
-              let doneTask = newEvent.replace("[達成]", "").trim();
-              if (doneTask) {
-                if (sheets.epic) sheets.epic.appendRow([pcId, `【因果圓滿】『${pcName}』兌現了昔日諾言，與『${tNpc}』達成了約定：${eventArray.find(e => e.includes(doneTask)) || doneTask}。`, new Date()]);
-                eventArray = eventArray.filter(e => !e.includes(doneTask));
-                relData[rIdx][COL.REL.MAJOR_EVENT] = eventArray.length > 0 ? eventArray.join("、") : "無";
-              }
-            } else if (!eventArray.includes(newEvent)) {
-              eventArray.push(newEvent); if (eventArray.length > 3) eventArray.shift();
-              relData[rIdx][COL.REL.MAJOR_EVENT] = eventArray.join("、");
+          if (newEvent === "[清空]") pcData[nIdx][COL.PC.MAJOR_EVENT] = "無";
+          else if (newEvent.includes("[達成]")) {
+            let doneTask = newEvent.replace("[達成]", "").trim();
+            if (doneTask) {
+              eventArray = eventArray.filter(e => !e.includes(doneTask));
+              pcData[nIdx][COL.PC.MAJOR_EVENT] = eventArray.length > 0 ? eventArray.join("、") : "無";
             }
+          } else if (!eventArray.includes(newEvent)) {
+            eventArray.push(newEvent); if (eventArray.length > 3) eventArray.shift();
+            pcData[nIdx][COL.PC.MAJOR_EVENT] = eventArray.join("、");
           }
-        } else {
-          relData.push([pcName, tNpc, Math.max(-100, Math.min(100, change)), rc.forceTag ? rc.tag : "萍水相逢", isPartyStr, "", rc.major_event || "無"]);
         }
       });
     }
@@ -464,10 +424,10 @@ ${isKanshou ? `
       if (aiData.intimacy_feedback.npcs) {
         aiData.intimacy_feedback.npcs.forEach(nfb => {
           const tName = String(nfb.name).trim();
-          const targetIdx = pcData.findIndex(r => r[COL.PC.NAME] === tName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-          const rIdx = relData.findIndex(r => r[COL.REL.PC] === pcName && r[COL.REL.NPC] === tName);
+          const targetIdx = pcData.findIndex(r => r[COL.PC.NAME] === tName && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
+          if (targetIdx === -1) return;
 
-          if (targetIdx !== -1 && isNsfwMode) {
+          if (isNsfwMode) {
             dirtyPcRows.add(targetIdx); // 🔴 新增
             if (nfb.visible_state) {
               pcData[targetIdx][COL.PC.STATUS] = mergeVisibleState(pcData[targetIdx][COL.PC.STATUS], nfb.visible_state);
@@ -481,13 +441,13 @@ ${isKanshou ? `
             }
           }
 
-          if (rIdx !== -1) {
-            let oldRMem = relData[rIdx][COL.REL.MEMORY] || "";
-            let count = (oldRMem.match(/\[親密次數\](\d+)/) || [])[1] ? parseInt((oldRMem.match(/\[親密次數\](\d+)/) || [])[1]) : 0;
-            if (isNsfwMode) count += 1;
-            let talkStr = (oldRMem.match(/\[交談輪數\](\d+)/) || [])[1] ? ` | [交談輪數]${(oldRMem.match(/\[交談輪數\](\d+)/) || [])[1]}` : "";
-            relData[rIdx][COL.REL.MEMORY] = `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/, nfb.mutual_nicknames, 3)} | [親密次數]${count}${talkStr}`;
-          }
+          // 羈絆記憶(專屬稱呼/親密次數/交談輪數)已併入該 NPC 自己列的 REL_MEM 欄
+          dirtyPcRows.add(targetIdx);
+          let oldRMem = pcData[targetIdx][COL.PC.REL_MEM] || "";
+          let count = (oldRMem.match(/\[親密次數\](\d+)/) || [])[1] ? parseInt((oldRMem.match(/\[親密次數\](\d+)/) || [])[1]) : 0;
+          if (isNsfwMode) count += 1;
+          let talkStr = (oldRMem.match(/\[交談輪數\](\d+)/) || [])[1] ? ` | [交談輪數]${(oldRMem.match(/\[交談輪數\](\d+)/) || [])[1]}` : "";
+          pcData[targetIdx][COL.PC.REL_MEM] = `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/, nfb.mutual_nicknames, 3)} | [親密次數]${count}${talkStr}`;
         });
       }
     }
@@ -500,7 +460,22 @@ ${isKanshou ? `
       }
     });
 
-
+    // 📖 交談輪數：本回合有互動意圖提及的在場人物，累計交談輪數於其自己列的 REL_MEM 欄
+    const logSum = aiData.log_summary || {};
+    const validInteractNames = new Set([
+      ...displayPeople.map(r => r[COL.PC.NAME]),
+      ...partyMembers
+    ]);
+    pcData.forEach((r, nIdx) => {
+      const name = r[COL.PC.NAME];
+      if (!name || name === pcName) return;
+      if (!String(logSum.people).includes(name)) return;
+      if (!validInteractNames.has(name)) return;
+      dirtyPcRows.add(nIdx);
+      let oldMem = String(r[COL.PC.REL_MEM] || "");
+      let countMatch = oldMem.match(/\[交談輪數\](\d+)/);
+      pcData[nIdx][COL.PC.REL_MEM] = countMatch ? oldMem.replace(/\[交談輪數\]\d+/, `[交談輪數]${parseInt(countMatch[1]) + 1}`) : (oldMem ? oldMem + ` | [交談輪數]1` : `[交談輪數]1`);
+    });
 
     const pcColCount = Object.keys(COL.PC).length;
 
@@ -530,55 +505,9 @@ ${isKanshou ? `
       sheets.pc.getRange(idx + 1, 1, 1, pcColCount).setValues([row]);
     });
 
-    isRelChanged = isRelChanged || !!(aiData.rel_changes && aiData.rel_changes.length > 0) || !!(aiData.recruited && aiData.recruited.length > 0) || !!dismissedNpc;
-
-    const logSum = aiData.log_summary || {};
-    // 相容新結構(subject/object/event)與舊結構(people/event)
-    let logSubject = String(logSum.subject || "").trim();
-    let logObject = String(logSum.object || "").trim();
-    let logTag = IMPORTANT_LOG_TAGS.has(String(logSum.tag || "").trim()) ? String(logSum.tag).trim() : "閒聊";
-    // 🔴 慾海模式：因果文字不交由AI自由生成(避免肉體細節寫入表單)，改由GAS依tag固定挑選隱晦樣板
-    let logEvent = isNsfwMode ? pickNsfwCausalityEvent(logTag) : String(logSum.event || "因果輪轉").trim();
-    // 組出「人」欄字串：有主被動就標方向，沒有就退回舊寫法
-    let logPeopleStr;
-    if (logSubject) {
-      let dirPart = (logObject && logObject !== "無" && logObject !== logSubject)
-        ? `${logSubject}→${logObject}`   // 主→受 方向錨
-        : logSubject;
-      logPeopleStr = dirPart;
-    } else {
-      logPeopleStr = String(logSum.people || pcName).trim();  // 完全相容舊格式
-    }
-    const validInteractNames = new Set([
-      ...displayPeople.map(r => r[COL.PC.NAME]),
-      ...partyMembers
-    ]);
-    pcData.map(r => r[COL.PC.NAME]).filter(name =>
-      name &&
-      name !== pcName &&
-      String(logSum.people).includes(name) &&
-      validInteractNames.has(name)
-    ).forEach(tName => {
-      let rIdx = relData.findIndex(r => r[COL.REL.PC] === pcName && r[COL.REL.NPC] === tName);
-      if (rIdx !== -1) {
-        let oldMem = String(relData[rIdx][COL.REL.MEMORY] || "");
-        let countMatch = oldMem.match(/\[交談輪數\](\d+)/);
-        relData[rIdx][COL.REL.MEMORY] = countMatch ? oldMem.replace(/\[交談輪數\]\d+/, `[交談輪數]${parseInt(countMatch[1]) + 1}`) : (oldMem ? oldMem + ` | [交談輪數]1` : `[交談輪數]1`);
-        isRelChanged = true;
-      } else {
-        relData.push([pcName, tName, 0, "萍水相逢", "", "[交談輪數]1", "無"]); isRelChanged = true;
-      }
-    });
-
-    if (isRelChanged && relData.length > 0) {
-      safeWriteSheet(sheets.rel, relData);
-    }
-
     curL = pcData[pcIndex][COL.PC.LOC];
-    sheets.log.appendRow([new Date(), pcId, formatCausalityEntry(curL, logTag, logPeopleStr, logEvent), curL, logTag]);
-    trimLogRowsByOwner(sheets.log, pcId, 60, 20);
 
-    const localPeopleList = getLocalPeopleList(sheets, pcName, pcId, curL, relData, pcData);
+    const localPeopleList = getLocalPeopleList(sheets, pcName, pcId, curL, pcData);
 
     let finalResponseText = aiData.narration || "天地混沌，一片寂靜。";
     finalResponseText = finalResponseText.replace(/\n/g, "<br>");
@@ -671,117 +600,20 @@ ${isKanshou ? `
 
 
 
-function actionGetEpicHistory(userData, pcId, sheets) {
-  const pcData = sheets.pc.getDataRange().getValues();
-  const pcRow = pcData.find(r => r[COL.PC.ID] == pcId);
-  if (!pcRow) return JSON.stringify({ success: false });
-  const pcName = pcRow[COL.PC.NAME];
-
-  // 史紀大事
-  let epicEvents = [];
-  if (sheets.epic) {
-    const eData = sheets.epic.getDataRange().getValues();
-    epicEvents = eData.filter(r => r[0] == pcId)
-      .map(r => ({ content: r[1], time: r[2] }))
-      .reverse().slice(0, 50);
-  }
-
-  // 關係重大紀錄（同行夥伴 + 重大約定）
-  let relRecords = [];
-  if (sheets.rel) {
-    const rData = sheets.rel.getDataRange().getValues();
-    relRecords = rData.filter(r => r[COL.REL.PC] === pcName && (
-      r[COL.REL.IS_PARTY] === "同行" ||
-      (r[COL.REL.MAJOR_EVENT] && r[COL.REL.MAJOR_EVENT] !== "無" && r[COL.REL.MAJOR_EVENT] !== "")
-    )).map(r => ({
-      npc: r[COL.REL.NPC],
-      tag: r[COL.REL.TAG],
-      fav: r[COL.REL.FAV],
-      majorEvent: r[COL.REL.MAJOR_EVENT] || "無",
-      isSoulBound: r[COL.REL.IS_PARTY] === "同行",
-      memory: r[COL.REL.MEMORY] || ""
-    }));
-  }
-
-  // 足跡統計
-  let stats = {
-    kills: 0,
-    questsDone: 0,
-    locationsVisited: new Set(),
-    intimacyTotal: 0,
-    topIntimacy: null,
-    topIntimacyCount: 0
-  };
-
-  if (sheets.epic) {
-    const eData = sheets.epic.getDataRange().getValues();
-    eData.filter(r => r[0] == pcId).forEach(r => {
-      const content = String(r[1] || "");
-      if (content.includes("因果終結")) stats.kills++;
-      if (content.includes("天命圓滿")) stats.questsDone++;
-    });
-  }
-
-  if (sheets.log) {
-    const lData = sheets.log.getDataRange().getValues();
-    lData.filter(r => String(r[1]) == pcId || String(r[2]).includes(pcName)).forEach(r => {
-      if (r[3]) stats.locationsVisited.add(String(r[3]).split('-')[0]);
-    });
-  }
-
-  if (sheets.rel) {
-    const rData = sheets.rel.getDataRange().getValues();
-    rData.filter(r => r[COL.REL.PC] === pcName).forEach(r => {
-      const mem = String(r[COL.REL.MEMORY] || "");
-      const countMatch = mem.match(/\[親密次數\](\d+)/);
-      if (countMatch) {
-        const count = parseInt(countMatch[1]);
-        stats.intimacyTotal += count;
-        if (count > stats.topIntimacyCount) {
-          stats.topIntimacyCount = count;
-          stats.topIntimacy = r[COL.REL.NPC];
-        }
-      }
-    });
-  }
-
-  return JSON.stringify({
-    success: true,
-    epicEvents: epicEvents,
-    relRecords: relRecords,
-    stats: {
-      kills: stats.kills,
-      questsDone: stats.questsDone,
-      locationsCount: stats.locationsVisited.size,
-      intimacyTotal: stats.intimacyTotal,
-      topIntimacy: stats.topIntimacy,
-      topIntimacyCount: stats.topIntimacyCount
-    }
-  });
-}
-
-// 🟢 新增：系統強制抹除/斬斷 NPC 的重大事件約定
+// 🟢 系統強制抹除/斬斷 NPC 的重大事件約定（羈絆已併入該 NPC 自己列的 MAJOR_EVENT 欄）
 function actionClearNpcMajorEvent(userData, pcId, sheets) {
-  if (!sheets.rel) return JSON.stringify({ success: false, message: "系統異常：REL關係表不存在。" });
-
-  // 1. 透過 pcId 撈出玩家本人的名號
   const pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人命格。" });
-  const myName = pcData[pIdx][COL.PC.NAME];
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
 
   const targetName = userData.targetName; // 前端傳過來的 NPC 名字
-
-  // 2. 進入關係表尋找這兩人的因果列
-  let relData = sheets.rel.getDataRange().getValues();
-  const rIdx = relData.findIndex(r => r[COL.REL.PC] === myName && r[COL.REL.NPC] === targetName);
-
-  if (rIdx === -1) {
+  const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === targetName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
+  if (nIdx === -1) {
     return JSON.stringify({ success: false, message: "在冥冥眾生冊中，未尋得你與此人的命運約定。" });
   }
 
-  // 3. 完美對齊：利用妳的 COL 欄位常數，強行將該列的重大事件覆寫為 "無"
-  sheets.rel.getRange(rIdx + 1, COL.REL.MAJOR_EVENT + 1).setValue("無");
+  sheets.pc.getRange(nIdx + 1, COL.PC.MAJOR_EVENT + 1).setValue("無");
 
   return JSON.stringify({ success: true, message: "天命已改，因果落筆重塑！" });
 }
@@ -790,16 +622,14 @@ function actionClearNpcMajorEvent(userData, pcId, sheets) {
 // ==========================================
 // 提升御主×從者羈絆（關係表好感）
 function raiseBond_(sheets, pcName, svName, delta) {
-  if (!sheets.rel) return;
   try {
-    const rd = sheets.rel.getDataRange().getValues();
-    for (let i = 1; i < rd.length; i++) {
-      if (String(rd[i][COL.REL.PC]) === pcName && String(rd[i][COL.REL.NPC]) === svName) {
-        const v = Math.max(0, Math.min(100, (parseInt(rd[i][COL.REL.FAV]) || 0) + delta)); // 地板 0：負 delta(交手削好感)不破底
-        sheets.rel.getRange(i + 1, COL.REL.FAV + 1).setValue(v);
-        return;
-      }
-    }
+    const pd = sheets.pc.getDataRange().getValues();
+    const mIdx = pd.findIndex(r => String(r[COL.PC.NAME]) === pcName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+    const gid = mIdx !== -1 ? String(pd[mIdx][COL.PC.GAME_ID] || "") : "";
+    const nIdx = pd.findIndex(r => String(r[COL.PC.NAME]) === svName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!gid || String(r[COL.PC.GAME_ID] || "") === gid));
+    if (nIdx === -1) return;
+    const v = Math.max(0, Math.min(100, (parseInt(pd[nIdx][COL.PC.BOND]) || 0) + delta)); // 地板 0：負 delta(交手削好感)不破底
+    sheets.pc.getRange(nIdx + 1, COL.PC.BOND + 1).setValue(v);
   } catch (e) { }
 }
 
