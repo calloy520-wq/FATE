@@ -118,11 +118,11 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
   row[COL.PC.HP] = hp; row[COL.PC.MP] = mp;
   // 🎴 五圍已棄欄：戰鬥吃六圍 SIX。
   row[COL.PC.MAX_HP] = hp; row[COL.PC.MAX_MP] = mp;
-  row[COL.PC.INTENT] = "";
+  row[COL.PC.INTENT] = String(persona.moe || "").slice(0, 18); // 🎴 敵從者也複製萌點(原漏，servantCard_ 曾要靠即時查表補)
   row[COL.PC.FACTION] = faction; row[COL.PC.RANK] = cls;
   row[COL.PC.ALIGN] = hero[COL.HERO.ALIGN] || "中立";
   row[COL.PC.MARTIAL] = hero[COL.HERO.NP] || "寶具";
-  row[COL.PC.MEMORY] = `第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || ""}`;
+  row[COL.PC.MEMORY] = stampPersonaFlavor_(`第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || ""}`, persona.speech, persona.tic);
   row[COL.PC.SIX] = JSON.stringify(six);
   row[COL.PC.TAGS] = JSON.stringify({ skills: classSkills.concat(skills), traits: traits });
   row[COL.PC.CONTRIB] = (faction === "敵從者") ? 3 : 0; // 敵方令咒餘量(對面御主的 3 道令咒，可緊急脫離)
@@ -181,8 +181,8 @@ function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
     if (String(existing[i][COL.PC.GAME_ID] || "") === gameId && String(existing[i][COL.PC.FACTION]) === "敵御主") return;
   }
 
-  var heroes = hs.getDataRange().getValues();
-  var masters = msh.getDataRange().getValues();
+  var heroes = getHeroCodexCached();
+  var masters = getMasterCodexCached();
   var findHero = function (id) { return heroes.find(function (r) { return String(r[COL.HERO.ID]) === id; }); };
   var findMaster = function (id) { return masters.find(function (r) { return String(r[COL.MASTER.ID]) === id; }); };
   var rows = [];

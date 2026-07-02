@@ -326,6 +326,10 @@ function getFreshStatusString(targetId, pIdx, sheets) {
   return buildPlayerStatusString(freshPcData[pIdx]);
 }
 
+// ⚡ 靜態種子表快取共用時數：坤圖/英靈殿/御主殿都幾乎不寫(只在創角/召喚/版本升級時)，
+//   卻被戰鬥/移動/羈絆等熱路徑高頻讀取——6 小時內免整表重讀，寫入點各自呼叫對應 remove() 清快取。
+const SEED_CACHE_SECONDS_ = 21600; // 6 小時
+
 function getMapDataCached(sheets) {
   if (!sheets.map) return [];
   const cache = CacheService.getScriptCache();
@@ -333,8 +337,34 @@ function getMapDataCached(sheets) {
   if (cachedMap) return JSON.parse(cachedMap);
 
   const freshData = sheets.map.getDataRange().getValues();
-  cache.put("FATE_MAP_DATA", JSON.stringify(freshData), 3600);
+  cache.put("FATE_MAP_DATA", JSON.stringify(freshData), SEED_CACHE_SECONDS_);
   return freshData;
+}
+
+// 英靈殿(種子從者名冊)：codexPersona_/actionGetHeroes/actionSummonServant/seedRivalsForGame_ 共用。
+//   寫入點(recordOriginalHero_/upgradeCodexPersonas_/seedFateCodex_)須各自 remove("FATE_HERO_CODEX")。
+function getHeroCodexCached() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get("FATE_HERO_CODEX");
+  if (cached) return JSON.parse(cached);
+  const hs = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("英靈殿");
+  if (!hs || hs.getLastRow() <= 1) return [];
+  const fresh = hs.getDataRange().getValues();
+  cache.put("FATE_HERO_CODEX", JSON.stringify(fresh), SEED_CACHE_SECONDS_);
+  return fresh;
+}
+
+// 御主殿(種子正典御主名冊)：actionGetMasters/seedRivalsForGame_ 共用。
+//   寫入點(upgradeMasterCodex_/seedFateCodex_)須各自 remove("FATE_MASTER_CODEX")。
+function getMasterCodexCached() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get("FATE_MASTER_CODEX");
+  if (cached) return JSON.parse(cached);
+  const msh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("御主殿");
+  if (!msh || msh.getLastRow() <= 1) return [];
+  const fresh = msh.getDataRange().getValues();
+  cache.put("FATE_MASTER_CODEX", JSON.stringify(fresh), SEED_CACHE_SECONDS_);
+  return fresh;
 }
 
 function getCharacterTotalStats(charId, sheets, cachedPcData = null, cachedItemData = null) {

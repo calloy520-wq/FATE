@@ -4,11 +4,24 @@
 //   結盟全域共用的「AI 演出依據」建構器，故獨立成小檔，不歸屬任何單一領域檔。
 // ==========================================
 
+// 🎭 種子人設細節(口吻/小動作)：召喚當下已從英靈殿複製進眾生列自己的 MEMORY(見 Router_Creation.gs/
+//   Seed_Rivals.gs 的 stampPersonaFlavor_ 呼叫點)，讓 servantCard_ 平常直接讀列、不必再查英靈殿。
+//   查無(舊局/AI原創從者原本就沒有這兩項/鑑賞封存後重建的同伴列) 時回 ""，servantCard_ 才退回
+//   codexPersona_ 的即時查表(已走 6h 快取，成本低，僅作為過渡期安全網)。
+function getPersonaSpeech_(memory) { var m = String(memory || "").match(/【口吻】([^｜|【]*)/); return m ? m[1].trim() : ""; }
+function getPersonaTic_(memory) { var m = String(memory || "").match(/【小動作】([^｜|【]*)/); return m ? m[1].trim() : ""; }
+// 把種子的口吻/小動作附加到既有 MEMORY 字串尾端(召喚建列時呼叫，僅在有值時才附加)。
+function stampPersonaFlavor_(memory, speech, tic) {
+  var s = String(memory || "");
+  if (speech) s = (s ? s + "｜" : "") + "【口吻】" + String(speech).slice(0, 40);
+  if (tic) s = (s ? s + "｜" : "") + "【小動作】" + String(tic).slice(0, 30);
+  return s;
+}
+
 function codexPersona_(name) {
   try {
-    var hs = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('英靈殿');
-    if (!hs || hs.getLastRow() <= 1) return {};
-    var d = hs.getDataRange().getValues();
+    var d = getHeroCodexCached();
+    if (!d.length) return {};
     var nm = String(name || "").trim();
     if (!nm) return {};
     for (var i = 1; i < d.length; i++) {
@@ -29,20 +42,26 @@ function servantCard_(row) {
     var name = String(row[COL.PC.NAME] || "");
     var cls = String(row[COL.PC.RANK] || "");
     var mem = String(row[COL.PC.MEMORY] || "");
-    var p = codexPersona_(name); // 種子庫的細緻人設（萌點/口吻）
+    var rowSpeech = getPersonaSpeech_(mem), rowTic = getPersonaTic_(mem);
+    var rowMoe = String(row[COL.PC.INTENT] || "");
+    // 召喚時已複製 speech/tic 到列上 → 平常不必查英靈殿；缺任一項(舊局/鑑賞封存重建)才退回即時查表(已走快取)。
+    var p = (rowSpeech && rowTic && rowMoe) ? {} : codexPersona_(name);
     var fp = p.firstP || (mem.match(/第一人稱「([^」]*)」/) || [])[1] || "我";
     var toM = p.toMaster || (mem.match(/對御主：([^|【]*)/) || [])[1] || "";
     var prefArr = String(row[COL.PC.PREF] || "").split('、').filter(Boolean);
     var persona = p.words || prefArr.slice(0, 4).join('、');
     var np = String(row[COL.PC.MARTIAL] || "");
+    var speech = rowSpeech || p.speech || "";
+    var moe = rowMoe || p.moe || "";
+    var tic = rowTic || p.tic || "";
     var look = String(p.look || "");           // 種子外貌本相：五官/髮色/體態/氣質(不變的本人特徵)
     var outfit = getOutfit_(mem);              // 👗 玩家換裝：當前服裝穿著(疊在本相上·可清)
     // 狂化偵測：喪失言語、只咆哮（如赫拉克勒斯、蘭斯洛特）。開膛手傑克等會說話的狂戰士不命中。
-    var mad = /狂化|無法言語|僅咆哮|不語/.test(String(p.speech || "") + String(fp));
+    var mad = /狂化|無法言語|僅咆哮|不語/.test(speech + String(fp));
     var card = `〈${name}·${cls}·演出依據(僅供內化，禁複述設定字面)〉自稱「${fp}」｜對御主：${toM || '依真名'}｜性格：${persona || '依真名'}` +
-      (p.speech ? `｜口吻：${p.speech}` : "") +
-      (p.moe ? `｜萌點：${p.moe}` : "") +
-      (p.tic ? `｜小動作：${p.tic}` : "") +
+      (speech ? `｜口吻：${speech}` : "") +
+      (moe ? `｜萌點：${moe}` : "") +
+      (tic ? `｜小動作：${tic}` : "") +
       (look ? `｜外貌本相：${look}` : "") +
       (outfit ? `｜此刻裝扮：${outfit}` : "") +
       (np ? `｜寶具「${np}」` : "") + `。\n`;

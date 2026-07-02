@@ -145,6 +145,7 @@ function reseedIfEmpty_(ss) {
         if (!has) {
           sk.push({ n: "十二試煉", r: "A", fx: "god_hand" });
           hs.getRange(h + 1, COL.HERO.SKILLS + 1).setValue(JSON.stringify(sk));
+          try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { }
         }
         break;
       }

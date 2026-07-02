@@ -302,6 +302,7 @@ function upgradeCodexPersonas_(ss) {
   for (var j = d.length - 1; j >= 1; j--) {
     if (!byId[String(d[j][COL.HERO.ID])] && String(d[j][COL.HERO.SOURCE]) === 'seed') { hero.deleteRow(j + 1); n++; }
   }
+  if (n) try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { }
   return n;
 }
 
@@ -336,6 +337,7 @@ function upgradeMasterCodex_(ss) {
     msh.getRange(msh.getLastRow() + 1, 1, addRows.length, addRows[0].length).setValues(addRows);
     n += addRows.length;
   }
+  if (n) try { CacheService.getScriptCache().remove("FATE_MASTER_CODEX"); } catch (e) { }
   return n;
 }
 
@@ -389,11 +391,13 @@ function seedFateCodex_(ss) {
   if (hero && hero.getLastRow() <= 1) {
     var hrows = SEED_SERVANTS.map(servantToHeroRow_);
     hero.getRange(2, 1, hrows.length, hrows[0].length).setValues(hrows);
+    try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { }
   }
   var master = ss.getSheetByName('御主殿');
   if (master && master.getLastRow() <= 1) {
     var mrows = SEED_MASTERS.map(masterToCodexRow_);
     master.getRange(2, 1, mrows.length, mrows[0].length).setValues(mrows);
+    try { CacheService.getScriptCache().remove("FATE_MASTER_CODEX"); } catch (e) { }
   }
   // 人設版本升級（只跑一次）
   try {
