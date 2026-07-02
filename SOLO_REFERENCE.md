@@ -157,7 +157,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
   - **🗡️ stealth 首擊奇襲(2026-06 改)**：氣息遮斷**只在 `opts.ambush`**(開場第一擊／敵突襲)生效·**吃階級**(命中 +rankVal/10·A+≈6 A-≈5)，非首擊不再享(交手即破功·貼原作)。命中**＋傷害**(普通首擊 ×~1.4 要害·吃階級)，但開場放寶具(opts.np)則走寶具爆發不疊。旗標鏈：`actionFateBattle` opening&&isActive → `fateStrike_` → `resolveFateBattle_(...,{ambush})`；敵突襲 `enemyAmbushOnServant_` probe 傳 `ambush:true`(本就 mul×1.4)。
   - **🐙 summon_horror(螺湮城教本／青鬍子)＝【變身框架】(2026-07 重構·狀態機化＋魔力供養制)**：從「本場解放才在場」變成**無期限的變身態**——單一狀態源＝MEMORY`【海怪護盾】cur|max|expiry`(**expiry 0＝無期限**·非0=舊制碼表存檔過渡)。**碼表已拔(玩家定案)：維持全走魔力經濟**。
     - **入場兩路**：①戰鬥中解放寶具(`actionFateBattle` useNp)②**戰前召喚 `summon_horror_beast`/`actionSummonHorror`**(不進戰鬥·付寶具 prana＋1AP)。**退場三路**：①肉身被打光②魔力供養不起(見下)③**玩家主動解除 `dismiss_horror_beast`/`actionDismissHorror`**(免費即時不耗AP·止住時耗·重召須再付全額 prana)。前端卡片 `s.canSummonHorror`→🐙召喚海怪鈕／`s.horror`→🌊解除海怪鈕(互斥)。
-    - **在場＝變身態(四效果全綁狀態)**：①**擋傷**`fateStrike_` 先扣海怪潰散才傷本體；②**再生**每回合 `HORROR_REGEN`(+10)；③**追擊**horrorC(A/A巨獸)每回合並肩咬、抽御主 `HORROR_UPKEEP`(10·※原30)·付不出潰散；④**對城防**`npDefScale_` 吃 `c.horrorUp`(rowToCombatant_ 讀 MEMORY 現存肉身)→**只變身時**本體享對城防禦規模。
+    - **在場＝變身態(四效果全綁狀態)**：①**擋傷**`fateStrike_` 先扣海怪潰散才傷本體(2026-07 修：此段原本完全不查 pierces()——`summon_horror` 在 `CONCEPT_TIER` 登記與 `rho_aias` 同 4 階、唯 6 階 ea/enuma 可貫穿 rho_aias，海怪護盾卻無視一切攻擊；現用同一份 `offenseTier_/conceptTier_/PIERCE_GAP` 算貫穿，高階概念寶具可直接無視護盾，一併推 fired 訊息)；②**再生**每回合 `HORROR_REGEN`(+10)；③**追擊**horrorC(A/A巨獸)每回合並肩咬、抽御主 `HORROR_UPKEEP`(10·※原30)·付不出潰散；④**對城防**`npDefScale_` 吃 `c.horrorUp`(rowToCombatant_ 讀 MEMORY 現存肉身)→**只變身時**本體享對城防禦規模。
     - **⏳ 時間維持費(取代碼表)**：`HORROR_HOURLY_UPKEEP`(8)——`applyRegen_` 支出多一張嘴；**池赤字時【海怪先沉回深淵、才輪到御主燃血】**(deficit 分支先 clearHorrorShield_＋logWarEvent_ 再重算收支)。HUD 收支 `playerServantEconomy_` 同步計入(掃全隊·回 `horrorUpkeep` 欄)。
     - **狀態源＝single truth**：`horrorPresent_(mem,gid)` 判在場(expiry 0 恆真·非0舊檔查時鐘)；舊檔逾時殘影由 `clearExpiredHorror_`(戰前入口)＋regen 逾時分支＋維持費潰散 三處清乾淨。常數 `HORROR_SHIELD_HP`300/`REGEN`10/`UPKEEP`10/`HOURLY_UPKEEP`8。
     - **helper**：`getHorrorShield_/setHorrorShield_(mem,cur,max,exp)/clearHorrorShield_/horrorShieldView_(mem,gid)→{cur,max}|null`＋`horrorPresent_/summonHorror_/clearExpiredHorror_`(Router_Battle)。前端 servant payload `horror:{cur,max}`→體力條下 `🐙海怪` 藍紫血條(`horrorBar`)。
@@ -188,6 +188,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **🔱 概念優先權 Priority(2026-06)**：`CONCEPT_TIER{}`(**ea·enuma6** / excalibur·divine_age·rule_breaker5 / ubw·anti_magic_lance·gae_bolg·**summon_horror·rho_aias**4 / god_hand·tsubame·zabaniya·petrify3 / nullify_magic·divine_core·territory2)。`offenseTier_(c,isNp)` 取攻方最高進攻概念階；`pierces(防禦fx)`＝攻方階≥防禦階+`PIERCE_GAP`(2)→該防禦(territory/神核/對魔力)被無視(概念壓制)。把舊「破魔無視神核」系統化＋ ea 凌駕一切。
   - **🌟 2026-07 根源修**：`offenseTier_` 除了掃 skills(hasFx_)，**也把「本次解放寶具自身的概念」計入**(`conceptTier_(npProfile_(c).fx)`)——因寶具真名 fx 存在 `servantNpOptions_` 而非 skills，原本被 hasFx_ 漏掉，導致**吉爾 Ea 竟吃不到 tier-6 概念壓制**(已一併修好)。`enuma`＝恩奇都 Enuma Elish(天之楔·可匹敵乖離劍)，6 階；恩奇都改為多寶具(Enuma Elish 對界·enuma／民之睿智 Age of Babylon 對軍·gob)。
 - **🏰 寶具規模相剋矩陣(2026-06)**：`npAtkScale_`(對人/對軍/對城/對界，由寶具名或 ea→對界/excalibur·ubw→對城 推)×`npDefScale_`(由 ubw/神核/god_hand/territory 推) → `NP_SCALE_MATRIX` 倍率(**已壓縮：對城打對人×1.5、對界×1.7、min×0.4**；非舊×2.5/3.0)。`ea` 寶具：×1.7+4d12+80。
+  - **🐛→✅ 秘劍・燕返(tsubame) ×2.3 算錯位置(2026-07 修)**：原本寫在 `if(opts.np)` 區塊【外面】，只放大寶具骰/固定加成前的小基數；其餘簽名寶具倍率(ubw/zabaniya/summon_horror/ea 等)全在區塊【裡面】，吃到寶具骰＋寶具解放固定加成後的完整 base 才乘。已移進區塊內、比照其他簽名寶具寫法，傷害不再無故偏低。
   - **⚔️ 對神(弒神寶具，2026-06)**：第5種尺度 keyword，**不入矩陣**(特判)。對「神性」之敵(`loserDivine`)×2.4 單體特大(弒神)、對凡人僅×1.15。迦爾納梵天弒神之槍 Vasavi Shakti 用此(多寶具選項，見 `servantNpOptions_`)。注意引擎無「對城/對軍↔對神」矩陣交互，純看守方有無神性。
   - **🌟 多寶具英靈(`servantNpOptions_`)**：斯卡哈L／吉爾(王財·**Ea對界核爆**)／伊斯坎達爾／EMIYA(UBW對城·偽螺旋劍)／**迦爾納(Vasavi對神·Kavacha對人)**。首項=主寶具(敵方預設用)。玩家 set_np_choice 選。
   - **🦠 病死宿命(疫病克制，2026-06)**：攻方帶「疫病」trait(蒼白騎兵)＋守方帶「病死宿命」trait(恩奇都·原作病死) → **scaleMult=3.0·無視規模防禦**(概念碾壓·重演宿命之死)。優先於對神/矩陣判定。要擴充就給該從者掛 `{n:'病死宿命'}` trait。
@@ -216,8 +217,8 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
   - **不進 SKILL_FX_(保持明碼·特例)**：骰子彈幕 `gob/chain`(gobVolley_/chainVolley_·隨機+多段)、時機/條件觸發 `stealth`(僅 ambush 首擊)/`tsubame/petrify/gae_bolg`(寶具條件·改對手迴避或必中)、`god_hand`(復活·非戰鬥數字)、`weapon_steal`(敵龍 trait 條件)、`mad` 的命中/迴避-penalty(雙向)、`divine_age` 使敵對魔力半效之交互。硬塞進表＝過度工程。
 - **🛡️ 防禦 fx 格式表 `DEF_FX_`＋防禦規模表 `DEF_SCALE_`(2026-07 資料驅動·對稱攻擊側)**：`Engine_Fate.gs`。
   - **`DEF_FX_`＝平減傷 fx 表**(`rho_aias`×0.6／`territory`×0.74／`wall_def`×0.82／`divine_core`×(1-0.18r))：欄位 `mul`(數字或 r=>)｜`pierceKey`(概念貫穿判定的防禦概念名)｜`zh/note`(fired 標籤)｜`physicalOnly`(僅擋物理·魔術系穿透，wall_def)｜`alsoPiercedByFx`(此攻方 fx 亦無視，divine_core←anti_magic_lance)｜`piercedMsg`(被貫穿時推的訊息 fn，territory/divine_core 有·rho_aias/wall_def 靜默)｜`guardPositive`(base>0 才推標籤，territory)。引擎 `fxDefApply_(base,loser,winner,fx,pierces,atkMagic,fired)` 於 `resolveFateBattle_` 各 fx【原位置】呼叫(位置/順序/標籤/數值與改前一致——因夾雜其他乘子·分處呼叫不併迴圈)。
-  - **`DEF_SCALE_`＝防禦規模表**(2026-07 收斂：`c.horrorUp`(🐙海怪在場·變身態)→對城、`territory→對軍`)：`npDefScale_(c)` 先查 horrorUp 再掃表，餵 `NP_SCALE_MATRIX[攻][防]`(對稱 `npAtkScale_`)。`summon_horror` fx 恆給對城已改綁狀態；`wall_def` 移出規模表(本職＝物理減傷×0.82·恆給對城會架空海怪變身＋AI 自訂掛牆砍半對人寶具)。
-  - ⚠ **兩層防禦別混淆**：①`NP_SCALE_MATRIX` 規模相剋(對城攻打對人防 ×1.5…，`npAtkScale_`×`npDefScale_`)＝粗粒度；②`DEF_FX_` 平減傷(pierce-gated)＝細粒度。`territory/wall_def` 同時出現在兩層(既是規模防、又是平減傷)——刻意分層。
+  - **`DEF_SCALE_`＝防禦規模表**(2026-07 收斂：`c.horrorUp`(🐙海怪在場·變身態)→對城、`territory→對軍`)：`npDefScale_(c, pierces)` 先查 horrorUp 再掃表，餵 `NP_SCALE_MATRIX[攻][防]`(對稱 `npAtkScale_`)。`summon_horror` fx 恆給對城已改綁狀態；`wall_def` 移出規模表(本職＝物理減傷×0.82·恆給對城會架空海怪變身＋AI 自訂掛牆砍半對人寶具)。
+  - ⚠ **兩層防禦別混淆，但要同一份貫穿判定(2026-07 修雙重疊加)**：①`NP_SCALE_MATRIX` 規模相剋(對城攻打對人防 ×1.5…，`npAtkScale_`×`npDefScale_`)＝粗粒度；②`DEF_FX_` 平減傷(pierce-gated)＝細粒度。`territory` 同時出現在兩層——原本①完全不查 `pierces()`，讓能貫穿②固定減傷的高階概念寶具仍白吃①的規模防禦重分類；現在 `resolveFateBattle_` 把 `pierces` closure 提前到規模矩陣之前算好、傳進 `npDefScale_(loser, pierces)`，兩層共用同一份概念貫穿判定，不再各自為政。
   - **⚡ 按下前先預覽(2026-07)**：`Script.html` `previewActiveSkill_(skills)` 鏡射後端優先序＋耗魔(30/24/24)，`servantStrike` 的 `useSkill` 分支比照 `useSeal`/`useNp` 加 `confirm()`，秒顯招式名/效果/約耗魔力再確認；回 null 則 alert「此從者無可主動施放的技術」。實際判定與扣魔仍以後端 `servantActiveSkill_`/`drainForNp_` 為準。
   - **⚠ 原作查證·哪些配主動(2026-07)**：用 8-agent workflow 查證(TYPE-MOON Wiki，**刻意排除 FGO——FGO 把每個 personal skill 都做成冷卻按鈕、不能當「主動 vs 被動」的判準**)。結論：**魔力放出/投影＝每次意識施放的技術；怪力＝限時激發**(非常駐)→三者配⚡主動。**卡里斯瑪(與生俱來統率氣場)/千里眼(附於肉體的恆常眼力)/自我改造(已定局的軀體構造)＝常駐被動特性**→只留被動、拔出主動候選。**氣息遮斷＝刺客職階被動**(擺攻擊姿態即自動驟降·不可花魔重買)→僅 `opts.ambush` 免費首擊。**七天盾(rho_aias)＝自動觸發被動防禦**，維持現況。順帶修掉「morale 主動 +8 傷繞過 clear_mind 透化免疫」隱藏 bug(morale 失去主動路徑後自動消失)。
 - **🌟 乖離劍·執行殺(ea／英雄王，2026-06)**：`resolveFateBattle_` 開頭——**僅 `opts.np`(解放寶具，即出力100%)＋英雄王【自身】血量≤40% 才觸發**(傲慢→認真)。傷害 `寶具rankVal×4＋6d12＋200`、必中越防、early-return。血量足走常規寶具(×1.7)。⚠ 舊「對面血≤30%免費每擊觸發」bug 已修正。
@@ -311,11 +312,13 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `isAllied_(row)`：MEMORY 是否帶【盟約至】N。`allyUntil_/setAllyMem_/clearAllyMem_`。
 - `allianceWillingness_(masterRow,aliveFoes)`：結盟意願(base.42；務實+.25/孤高-.32；剩≤3騎-.45)。
 - `actionProposeAlliance`：對同地敵御主提議，`Math.random()<willingness` 判定。成→盟主+其同地從者標【盟約至】day+3。
-- `actionBreakAlliance`／`breakStaleAlliances_`：撕毀／自然瓦解(效期到 或 在世敵從者≤3 強制翻臉)。
+- `actionBreakAlliance`／`breakStaleAlliances_`：撕毀／自然瓦解(效期到 或 在世敵從者≤3 強制翻臉)。**2026-07 修**：原本只在 `actionMove` 呼叫，玩家只休息不移動就永遠不會過期/強制解盟——已在 `actionRest`(worldTick_ 剛推進時間之後、同一份 pcData 傳參考)一併呼叫。
 - `actionAllyBond`：與同地盟友共處，耗1AP，`bumpBond_`升羈絆(無列則建)，達90標【鑑賞緣】(戰後入鑑賞)。SFW only，卸防可能被未結盟敵突襲。`getBond_/bumpBond_`。
 - **協同強襲**(actionFateBattle 內)：盟友從者每回合助攻一擊。
 - **情報共享**：`hasAllyInGame_` 有盟友→地圖無視 SEEN 迷霧全揭露(get_map_nodes/categorized 都吃)＋敵從者職階揭露(getLocalPeopleList `intelCls`)。
 - **前端 override**：`getLocalPeopleList`(Core_Settings.gs) 把結盟的敵御主/敵從者 faction 改顯 `盟友御主/盟友從者`(`allied:true`)，前端不列為可攻擊。
+- **🐛→✅ 破戒奪僕漏擋盟友(2026-07 修)**：`actionRuleBreakSteal`(Router_Bond.gs) 原本沒查 `isAllied_`，玩家可以先跟殘血敵從者的御主結盟、再對這個「盟友」發動破戒奪僕，繞過「盟友不可攻擊」規則。已補上與 `actionFateBattle` 同一道 `isAllied_` 閘門。
+- **🐛→✅ 卸防突襲沒有 `severed`(斬斷救贖)概念(2026-07 修)**：`fateStrike_` 正規戰鬥中，帶 `rule_breaker`／`anti_magic_lance` 的攻方用 `severed` 旗標擋掉目標的「戰鬥續行」與「十二試煉」復活；`enemyAmbushOnServant_`(卸防偷襲，Router_Movement.gs)原本沒這個判斷，同一敵從者用同樣寶具偷襲卻繞得過復活封鎖。已補上同款 `severed` 閘門。
 
 ---
 

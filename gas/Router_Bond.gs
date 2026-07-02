@@ -388,6 +388,10 @@ function actionRuleBreakSteal(userData, pcId, sheets) {
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
   const nIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).includes(npcName) && String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc);
   if (nIdx === -1) return JSON.stringify({ success: false, message: "此地沒有這名敵從者。" });
+  // 🤝 盟友不可奪：與 actionFateBattle 同一道閘門(2026-07 修破戒奪僕漏擋盟友)——若要奪，須先撕毀盟約。
+  if (isAllied_(pcData[nIdx])) {
+    return JSON.stringify({ success: false, message: `「${pcData[nIdx][COL.PC.NAME]}」是你的盟友——若要奪僕，須先『撕毀盟約』。` });
+  }
   const hp = parseInt(pcData[nIdx][COL.PC.HP]) || 0, hpMax = parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1;
   if (hp / hpMax >= 0.35) return JSON.stringify({ success: false, message: `「${pcData[nIdx][COL.PC.NAME]}」靈基仍旺（${Math.round(hp / hpMax * 100)}%），破戒奪僕無法奏效——須先在戰鬥中將其打殘至 35% 以下。` });
 
