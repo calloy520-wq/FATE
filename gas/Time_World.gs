@@ -162,13 +162,23 @@ function playerServantEconomy_(sheets, pcId, preData) {
   // 🔋 出力電池制：顯示的是「御主MP」收支——維持費依從者出力檔位放大/縮小。
   var output = servantOutput_(sv[COL.PC.MEMORY]);
   var drain = Math.round(eco.drain * outputTier_(output).drainMul);
+  // 🐙 海怪在場＝共用池另一張嘴(每小時 HORROR_HOURLY_UPKEEP)：HUD 收支與 applyRegen_ 實際時耗對齊。
+  //   掃全隊(海怪可能掛在第二從者·如破戒奪來的青鬍子)，與 applyRegen_ 的 svRows 掃描同準。
+  var horrorUpkeep = 0;
+  try {
+    for (var hj = 1; hj < data.length; hj++) {
+      if (String(data[hj][COL.PC.FACTION]) !== "從者" || String(data[hj][COL.PC.GAME_ID] || "") !== gid || String(data[hj][COL.PC.ID]).startsWith("DEAD_")) continue;
+      if (horrorPresent_(data[hj][COL.PC.MEMORY], gid)) { horrorUpkeep = HORROR_HOURLY_UPKEEP; break; }
+    }
+  } catch (e) { }
+  drain += horrorUpkeep;
   var net = eco.income - drain;
   return {
     income: eco.income, drain: drain, net: net,
     supply: eco.supply, ley: eco.ley, workshop: eco.workshop,
     leyLabel: LEYLINE_LABEL_[ley] || "魔力稀薄", loc: rootLoc,
     atHome: atHome, hasTerritory: hasTerritory, atWorkshop: atWorkshop, sustainable: net >= 0, circuits: circuits,
-    output: output, outputLabel: outputTier_(output).label
+    output: output, outputLabel: outputTier_(output).label, horrorUpkeep: horrorUpkeep
   };
 }
 
@@ -224,6 +234,14 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
     var d = servantEconomy_(circuits, cs.six, !!hasFx_(cs, 'mad'), ley, hasWs).drain;
     totalDrain += d * outputTier_(cs.output).drainMul;
   });
+  // 🐙 深淵海怪·時間維持費(2026-07 玩家定案·取代 12h 碼表)：海怪在場＝共用池的另一張嘴，
+  //   每小時另抽 HORROR_HOURLY_UPKEEP。池赤字時【海怪先沉回深淵、才輪到御主燃血】(見下方 deficit 分支)。
+  var horrorIdx = -1;
+  svRows.forEach(function (ri) {
+    if (horrorIdx !== -1) return;
+    if (horrorPresent_(data[ri][COL.PC.MEMORY], gameId)) horrorIdx = ri;
+  });
+  if (horrorIdx !== -1) totalDrain += HORROR_HOURLY_UPKEEP;
 
   // 御主魔力淨收支（休息把收入加倍、維持不變）→ 寫回御主 MP。
   //   🩸 被動燃血(2026-07 玩家定案：只扣御主)：池見底、時消耗補不上的缺口 → 御主自動燃命續契約——
@@ -237,6 +255,16 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
     var mMp = Math.min(parseInt(data[masterI][COL.PC.MP]) || 0, mMpMax);
     var perHour = (income * mult) - totalDrain;
     var rawNew = mMp + perHour * hours;                                  // 可能為負＝池補不上的缺口
+    // 🐙 海怪先於御主血沉沒：池補不上且海怪在場 → 放走召喚物止耗、重算收支，御主不必為牠燃血
+    if (mMpMax && rawNew < 0 && horrorIdx !== -1) {
+      data[horrorIdx][COL.PC.MEMORY] = clearHorrorShield_(data[horrorIdx][COL.PC.MEMORY]);
+      did = true;
+      try { logWarEvent_(gameId, '共用魔力難以為繼——「深淵海怪」失去供養，悄然沉回深淵。', ""); } catch (e) { }
+      totalDrain -= HORROR_HOURLY_UPKEEP;
+      horrorIdx = -1;
+      perHour = (income * mult) - totalDrain;
+      rawNew = mMp + perHour * hours;
+    }
     var nMMp = mMpMax ? Math.max(0, Math.min(mMpMax, Math.round(rawNew))) : mMp;
     var unfunded = (mMpMax && rawNew < 0) ? Math.round(-rawNew) : 0;     // 缺口(mana)，改由血肉支付
     // 🩸 被動燃血(玩家定 2026-07)：缺口/2 全額由御主承擔——從者不扣血(電池代價歸電池)。
