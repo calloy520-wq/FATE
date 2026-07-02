@@ -367,13 +367,16 @@ function refillMastersDaily_(sheets, gameId, day, preData) {
 //   回傳 { rumors:[..文字..], moved:n }
 var WORLD_FLOOR_ = 4; // 世界自走永遠至少保留這麼多名敵從者給玩家親手解決（不會被自走清光）
 var ATTRITION_START_DAY = 3; // ⏳ 開戰前期不減員：第 N 日(含)前，世界不會有從者暗處殞落（給玩家喘息＋貼戰爭初期蟄伏）
-function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
+function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) {
   var rumors = [];
   if (!gameId) return { rumors: rumors, moved: 0 };
   rounds = rounds || 1;
   // ⚡ 2026-07 收斂：全函式只整表讀一次，往後各階段(移位/廝殺/透支判定)共用同一份記憶體 data、
   //   只做局部批次寫回(LOC欄/單列)——原本每輪重讀一次+廝殺前後各再讀一次，一次 worldTick_ 呼叫最多整表讀 3+ 次。
-  var data = sheets.pc.getDataRange().getValues();
+  // ⚡ 2026-07 再收斂：呼叫端(actionMove/actionRest)手上通常已有剛讀好的整表 → 傳 preData 直接在
+  //   同一份陣列上原地改(JS 陣列傳參考)，呼叫端事後不必為了「拿到 tick 後最新狀態」而重讀一次整表；
+  //   沒傳(其餘呼叫點)才自己整表讀一次(相容)。
+  var data = preData || sheets.pc.getDataRange().getValues();
   var _ck0 = getClock_(gameId, data); if (_ck0) refillMastersDaily_(sheets, gameId, _ck0.day, data);
   var moved = 0;
 

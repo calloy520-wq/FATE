@@ -53,8 +53,8 @@ function actionMove(userData, pcId, sheets) {
   // ⏳ 行動點檢查（移動耗 2 AP＝2 小時；鑑賞 k_ 不耗 AP）
   const moveGameId = String(allPcData[pIdx][COL.PC.GAME_ID] || "");
   const isFateMove = moveGameId.indexOf("g_") === 0;
-  if (isFateMove && getAp_(moveGameId) < 2) {
-    return JSON.stringify({ success: false, message: "行動力不足以遠行（需 2 點）——請『休息』恢復後再出發。", clock: clockLabel_(moveGameId), ap: getAp_(moveGameId), apMax: AP_PER_DAY });
+  if (isFateMove && getAp_(moveGameId, allPcData) < 2) {
+    return JSON.stringify({ success: false, message: "行動力不足以遠行（需 2 點）——請『休息』恢復後再出發。", clock: clockLabel_(moveGameId, allPcData), ap: getAp_(moveGameId, allPcData), apMax: AP_PER_DAY });
   }
 
   // 💨 撤離追擊(一點點)：從「有活敵從者」的格子離開時，較快的敵從者可能咬一記離別追擊。
@@ -162,19 +162,20 @@ function actionMove(userData, pcId, sheets) {
   let clockLabel = "", worldRumors = [], apLeft = AP_PER_DAY, moveVictory = false;
   if (isFateMove) {
     try {
-      const sp = spendAp_(moveGameId, 2);
+      const sp = spendAp_(moveGameId, 2, allPcData, sheets);
       apLeft = sp.ap;
-      const tick = worldTick_(sheets, moveGameId, target, 1, false); // 移動只讓敵換位，不死人；但令咒透支倒數可能到期收尾
+      // ⚡ 2026-07：把 allPcData 傳給 worldTick_/breakStaleAlliances_，讓它們在同一份陣列上原地改
+      //   (JS 陣列傳參考)，不必像過去那樣事後重讀整表才能拿到 tick 後的最新狀態。
+      const tick = worldTick_(sheets, moveGameId, target, 1, false, allPcData); // 移動只讓敵換位，不死人；但令咒透支倒數可能到期收尾
       worldRumors = tick.rumors || [];
       moveVictory = !!tick.victory;
-      try { const ab = breakStaleAlliances_(sheets, moveGameId); if (ab.broken.length) worldRumors.push(`〔盟約${ab.forced ? '瓦解' : '到期'}〕你與「${ab.broken.join('、')}」的同盟已${ab.forced ? '因戰局逼近終局而破裂——最後只能剩一個' : '到期失效'}，重回敵對。`); } catch (e) { }
-      clockLabel = clockLabel_(moveGameId);
+      try { const ab = breakStaleAlliances_(sheets, moveGameId, allPcData); if (ab.broken.length) worldRumors.push(`〔盟約${ab.forced ? '瓦解' : '到期'}〕你與「${ab.broken.join('、')}」的同盟已${ab.forced ? '因戰局逼近終局而破裂——最後只能剩一個' : '到期失效'}，重回敵對。`); } catch (e) { }
+      clockLabel = clockLabel_(moveGameId, allPcData);
     } catch (e) { }
   }
 
-  // 🔁 敵人已 tick 就位 → 重讀眾生，再把玩家(與同行從者)落到 target，避免用舊資料覆蓋掉剛剛的敵方移動
-  allPcData = sheets.pc.getDataRange().getValues();
-  pIdx = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
+  // 🔁 敵人已在同一份 allPcData 上 tick 就位(worldTick_/breakStaleAlliances_ 皆原地改、不必重讀)，
+  //   直接把玩家(與同行從者)落到 target；pIdx 全程未變(過程中沒有任何列被新增/刪除)。
   allPcData[pIdx][COL.PC.LOC] = target;
   const pcName = allPcData[pIdx][COL.PC.NAME];
 
@@ -310,15 +311,15 @@ function actionRest(userData, pcId, sheets) {
 
     let restClock = "", restRumors = [], apAfter = AP_PER_DAY, restVictory = false;
     try {
-      const clk = restHours_(restGameId, restHours);
+      const clk = restHours_(restGameId, restHours, pcData, sheets);
       apAfter = clk ? clk.ap : AP_PER_DAY;
       const rounds = Math.floor(restHours / 3); // 1h:0、3h:1、6h:2 輪世界自走
-      if (rounds > 0) { const tick = worldTick_(sheets, restGameId, pcLoc, rounds, true); restRumors = tick.rumors || []; restVictory = !!tick.victory; }
-      restClock = clockLabel_(restGameId);
+      // ⚡ 2026-07：worldTick_ 拿 pcData 在同一份陣列上原地改(傳參考)，不必事後重讀整表才拿得到最新狀態。
+      if (rounds > 0) { const tick = worldTick_(sheets, restGameId, pcLoc, rounds, true, pcData); restRumors = tick.rumors || []; restVictory = !!tick.victory; }
+      restClock = clockLabel_(restGameId, pcData);
     } catch (e) { }
-    // 🔄 世界已 tick(靈基透支到期者可能剛判死·敵可能移位)：【重讀眾生】再判夜襲——
-    //   原用 tick 前舊資料：剛判死的敵從者還能「偷襲」你，陣地反擊分支整列寫回舊 row 更會把死者復活(2026-07 修)。
-    pcData = sheets.pc.getDataRange().getValues();
+    // 世界已在同一份 pcData 上 tick 完(靈基透支到期者可能剛判死·敵可能移位)，直接沿用即可判夜襲——
+    //   不必重讀整表：pcData 全程沒有任何列被新增/刪除，剛判死的敵從者狀態也已經在這份陣列裡反映。
     // ⚔️ 卸防突襲：當敵蹤同地時休息＝酣睡門戶大開，最為兇險（mul 1.5）
     const restAmbush = enemyAmbushOnServant_(sheets, pcData, pIdx, restGameId, userData, 1.5);
     // 🌙 從者之夢（回想）：安睡(≥3h)且未遭突襲時，有機會順著聯繫夢見從者生前傳說的片段，加深羈絆
