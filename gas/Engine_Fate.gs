@@ -122,14 +122,19 @@ function npAtkScale_(c) {
 // 防禦規模表(對稱 npAtkScale_)：依 fx 定 NP 防禦規模，餵 NP_SCALE_MATRIX。優先序＝陣列順序(對城優先於對軍)。
 //   ★固有結界(ubw)是進攻型 NP，NP 防禦由 rho_aias 機制承擔；divine_core/god_hand 各有自己的機制——均不疊加防禦規模。
 var DEF_SCALE_ = [['territory', '對軍']];
-function npDefScale_(c) {
+// pierces：可選的 pierces(defFx)=>bool 閘門(resolveFateBattle_ 傳入)，與 fxDefApply_ 共用同一份概念貫穿判定——
+//   territory 同時吃這裡的規模防禦「和」DEF_FX_ 的固定減傷兩層，若只有後者查 pierces() 會讓能貫穿其固定減傷
+//   的高階概念寶具，仍白吃前者的規模重分類(2026-07 修雙重疊加)。不傳 pierces 時視同不貫穿(向後相容)。
+function npDefScale_(c, pierces) {
   // 🐙 海怪在場(變身態·c.horrorUp)才享對城防禦規模——退場/未召則回一般對人。
   //   原本 summon_horror fx 恆給對城(沒召海怪也享·與召喚物直覺相反)；改綁狀態＝變身時才升防。
   //   ⚖️ wall_def 一併移出規模表(2026-07)：城牆防禦的本職＝物理減傷×0.82(DEF_FX_)，
   //   若同時恆給「對城防規模」會讓 對人寶具 vs 持牆者恆×0.50——①架空海怪變身的專屬對城防
   //   ②AI 自訂從者掛個 C 階城牆(白名單內)就把敵對人寶具砍半。規模防禦收斂為 海怪(狀態)與 territory(對軍)。
   if (c && c.horrorUp) return '對城';
-  for (var i = 0; i < DEF_SCALE_.length; i++) { if (hasFx_(c, DEF_SCALE_[i][0])) return DEF_SCALE_[i][1]; }
+  for (var i = 0; i < DEF_SCALE_.length; i++) {
+    if (hasFx_(c, DEF_SCALE_[i][0]) && !(pierces && pierces(DEF_SCALE_[i][0]))) return DEF_SCALE_[i][1];
+  }
   return '對人';
 }
 // 令咒緊急脫離的落點：隨機挑一個非約會型的冬木地點（≠ 當前地）
@@ -612,7 +617,12 @@ function resolveFateBattle_(atk, def, opts) {
   }
   // 🔱 職階相性傷害加成：克制方下手更狠（與上方命中先機呼應）
   if (KNIGHT_BEATS[winner.cls] === loser.cls) { base = Math.round(base * 1.12); fired.push(winner.name + '·職階相性·壓制' + loser.cls); }
-  if (atkWins && opts.np && npIs('tsubame')) base = Math.round(base * 2.3);
+  // 🔱 概念優先權壓制：勝方的最高「進攻概念」位階若高出某防禦概念 PIERCE_GAP 階以上 → 該防禦被無視。
+  //   提前到規模矩陣之前算好(2026-07 修 territory 雙重疊加：territory 同時吃 DEF_SCALE_ 對軍規模防禦與
+  //   DEF_FX_ 固定減傷兩層，原本規模防禦完全不看 pierces()，讓能貫穿 territory 固定減傷的高階概念寶具
+  //   仍白吃一層規模防禦重分類；改讓 npDefScale_ 也吃同一份 pierces() 判定，兩層一致貫穿)。
+  var pierceT = offenseTier_(winner, !!opts.np);
+  var pierces = function (defFx) { return pierceT >= conceptTier_(defFx) + PIERCE_GAP; };
   // 寶具解放：主威力＝依寶具階級的 d10 基礎骰（E3→EX30）；階級小補正錦上添花（軍略 +15%、神性 +10%）
   // ⚠【呼叫端契約】此區塊套在 winner 身上——opts.np 時若守方反殺(winner=def)，damage 會含【守方自己的寶具骰】。
   //   既有呼叫端皆安全(fateStrike_ 對 atkWins=false 早退丟棄／對轟取樣用 forceHit／背擊反手另以普通交鋒結算)；
@@ -634,6 +644,9 @@ function resolveFateBattle_(atk, def, opts) {
     if (wDivine) base = Math.round(base * 1.1);
     // 🗡️ 無限劍製(ubw／固有結界)：劍之地平展開，攻方在領域內傷害大增
     if (wSig('ubw')) { base = Math.round(base * 1.25); fired.push(winner.name + '·' + fxName_(winner, 'ubw', '無限劍製') + '(固有結界)'); }
+    // 🗡️ 秘劍・燕返(tsubame)：三方位同斬，命中即×2.3——2026-07 修：原寫在 if(opts.np) 區塊外，只放大寶具骰/固定加成前的小基數，
+    //   沒吃到後面才加的寶具骰與固定加成，實際傷害遠低於同規模簽名寶具；改進區塊內，比照其他簽名寶具乘在完整 base 上。
+    if (wSig('tsubame')) { base = Math.round(base * 2.3); fired.push(winner.name + '·' + fxName_(winner, 'tsubame', '秘劍・燕返') + '(三方位同斬)'); }
     // 🗡️ 妄想心音／霧夜殺戮(zabaniya)：暗殺系寶具＝奪心一擊，命中即致命級重創（救低六圍刺客/狂戰的本命）
     if (wSig('zabaniya')) { base = Math.round(base * 1.9) + 70; fired.push(winner.name + '·' + fxName_(winner, 'zabaniya', '妄想心音') + '(奪心致命)'); }
     // 🐙 螺湮城教本(summon_horror／青鬍子)：自深淵召出觸手大海怪鋪天蓋地碾壓——救低六圍支援法師的本命一擊(對城規模)
@@ -651,8 +664,8 @@ function resolveFateBattle_(atk, def, opts) {
     var scaleMult;
     if (plagueDoom) { scaleMult = 3.0; }
     else if (atkScaleLabel === '對神') { scaleMult = loserDivine ? 2.4 : 1.15; }
-    else { scaleMult = NP_SCALE_MATRIX[NP_SCALE_IDX[atkScaleLabel]][NP_SCALE_IDX[npDefScale_(loser)]]; }
-    if (scaleMult !== 1) { base = Math.round(base * scaleMult); fired.push(winner.name + '·' + (plagueDoom ? '疫病·病死宿命(無可逃避·概念碾壓)' : (atkScaleLabel + '寶具' + (atkScaleLabel === '對神' && loserDivine ? '·弒神特大' : ''))) + ' vs ' + npDefScale_(loser) + '防(×' + scaleMult + ')'); }
+    else { scaleMult = NP_SCALE_MATRIX[NP_SCALE_IDX[atkScaleLabel]][NP_SCALE_IDX[npDefScale_(loser, pierces)]]; }
+    if (scaleMult !== 1) { base = Math.round(base * scaleMult); fired.push(winner.name + '·' + (plagueDoom ? '疫病·病死宿命(無可逃避·概念碾壓)' : (atkScaleLabel + '寶具' + (atkScaleLabel === '對神' && loserDivine ? '·弒神特大' : ''))) + ' vs ' + npDefScale_(loser, pierces) + '防(×' + scaleMult + ')'); }
   }
   // ⚡ 主動技傷害增益（僅當攻方獲勝＝此增益屬於攻方時生效）
   if (opts.skill && atkWins) {
@@ -662,10 +675,6 @@ function resolveFateBattle_(atk, def, opts) {
   // 令咒·絕對命令：全力一擊
   if (opts.seal) { base = Math.round(base * 1.5); fired.push('令咒·絕對命令'); }
 
-  // 🔱 概念優先權壓制：勝方的最高「進攻概念」位階若高出某防禦概念 PIERCE_GAP 階以上 → 該防禦被無視。
-  //   把「破魔無視神核」「ea 凌駕一切結界」這類交互系統化：pierces(防禦fx) 為 true 即跳過該減傷。
-  var pierceT = offenseTier_(winner, !!opts.np);
-  var pierces = function (defFx) { return pierceT >= conceptTier_(defFx) + PIERCE_GAP; };
   // ⚡ 「本擊是否魔術系」（physicalOnly 防禦的穿透判定）——必須在【第一個 fxDefApply_ 之前】算好：
   //   魔力放出改主動 only 後，只在【實際發動魔力放出】時成立(灌注魔力才是魔術系一擊)，
   //   而非光憑持有 burst——否則沒發動時只吃對魔力減傷卻無 burst 增益，全是壞處。

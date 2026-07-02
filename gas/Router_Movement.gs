@@ -81,15 +81,16 @@ function actionMove(userData, pcId, sheets) {
         var psvHp = parseInt(allPcData[psvIdxM][COL.PC.HP]) || 0, psvMax = parseInt(allPcData[psvIdxM][COL.PC.MAX_HP]) || 1;
         // 🔮 預告寶具·背後傾瀉：離場格若有敵人正「寶具預告」蓄勢中 → 朝你退卻的背影傾瀉充能寶具＝NP 級臨別重擊
         //   (優先於一般追擊；八成挨到·騎乘可減、夠強可反擋逼退；保 1 不致死但很痛；消耗預告旗標於下方套用處)。
-        var teleFoe = null;
-        allPcData.forEach(function (r) {
-          if (String(r[COL.PC.FACTION]) !== "敵從者") return;
-          if (String(r[COL.PC.GAME_ID] || "") !== moveGameId) return;
-          if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
-          if (String(r[COL.PC.LOC] || "").trim() !== fromLocM) return;
-          if (isAllied_(r)) return;
-          if (getNpTelegraph_(r[COL.PC.MEMORY])) teleFoe = r;
-        });
+        // 2026-07 修：原本 forEach 沒 break，離場格多個敵人同時預告寶具時只有陣列順序最後一個會結算，
+        //   其餘預告旗標這回合既不觸發也不清除——改 find() 只取第一個相符者(找到即停)。
+        var teleFoe = allPcData.find(function (r) {
+          if (String(r[COL.PC.FACTION]) !== "敵從者") return false;
+          if (String(r[COL.PC.GAME_ID] || "") !== moveGameId) return false;
+          if (String(r[COL.PC.ID]).startsWith("DEAD_")) return false;
+          if (String(r[COL.PC.LOC] || "").trim() !== fromLocM) return false;
+          if (isAllied_(r)) return false;
+          return !!getNpTelegraph_(r[COL.PC.MEMORY]);
+        }) || null;
         if (teleFoe) {
           var teleName = String(teleFoe[COL.PC.NAME]);
           // 🔋 背擊也要買單(2026-07 修三漏)：①與戰鬥內同準——敵御主電池付得起 prana 才轟得出來(付不起→不發·
@@ -315,7 +316,12 @@ function actionRest(userData, pcId, sheets) {
       apAfter = clk ? clk.ap : AP_PER_DAY;
       const rounds = Math.floor(restHours / 3); // 1h:0、3h:1、6h:2 輪世界自走
       // ⚡ 2026-07：worldTick_ 拿 pcData 在同一份陣列上原地改(傳參考)，不必事後重讀整表才拿得到最新狀態。
-      if (rounds > 0) { const tick = worldTick_(sheets, restGameId, pcLoc, rounds, true, pcData); restRumors = tick.rumors || []; restVictory = !!tick.victory; }
+      if (rounds > 0) {
+        const tick = worldTick_(sheets, restGameId, pcLoc, rounds, true, pcData); restRumors = tick.rumors || []; restVictory = !!tick.victory;
+        // 🤝 2026-07 修：同盟到期/終局強制瓦解，原本只在 actionMove 判——玩家只休息不移動就永遠不會過期/強制解盟。
+        //   休息一樣會推進時間(worldTick_ 剛 tick 完)，理應同步判一次；沿用同一份 pcData(傳參考)，breakStaleAlliances_ 內部自行寫回。
+        try { const ab = breakStaleAlliances_(sheets, restGameId, pcData); if (ab.broken.length) restRumors.push(`〔盟約${ab.forced ? '瓦解' : '到期'}〕你與「${ab.broken.join('、')}」的同盟已${ab.forced ? '因戰局逼近終局而破裂——最後只能剩一個' : '到期失效'}，重回敵對。`); } catch (e) { }
+      }
       restClock = clockLabel_(restGameId, pcData);
     } catch (e) { }
     // 世界已在同一份 pcData 上 tick 完(靈基透支到期者可能剛判死·敵可能移位)，直接沿用即可判夜襲——
@@ -463,9 +469,12 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, userData, baseMul) 
   const enemyBase = probe.atkWins ? (probe.damage || 1) : Math.round(rankVal(enemyC.six['筋力'] || 'C') * 1.2 + 6);
   const dmg = Math.max(1, Math.round(enemyBase * mul));
   const out = { enemyName: String(pcData[eIdx][COL.PC.NAME]), dmg: dmg, destroyed: false, defeat: false, dreamPrompt: "", after: 0, stealthy: stealthy };
+  // 🗡️ 斬斷救贖(severed)：與 fateStrike_ 同一道閘門(2026-07 修)——原本卸防突襲路徑沒有這個概念，
+  //   同一隻帶 rule_breaker／anti_magic_lance 的敵從者，正規開戰會封鎖戰鬥續行/十二試煉復活，突襲卻繞得過去。
+  const severed = hasFx_(enemyC, 'rule_breaker') || hasFx_(enemyC, 'anti_magic_lance');
   let hp = parseInt(pcData[svIdx][COL.PC.HP]) || 0, after = hp - dmg;
-  if (after <= 0 && hasFx_(svC, 'survive') && hp > 1) after = 1; // 戰鬥續行(致命傷才硬撐留1·2026-07 修)
-  if (after <= 0 && hasFx_(svC, 'god_hand')) {
+  if (after <= 0 && hasFx_(svC, 'survive') && hp > 1 && !severed) after = 1; // 戰鬥續行(致命傷才硬撐留1·2026-07 修)
+  if (after <= 0 && !severed && hasFx_(svC, 'god_hand')) {
     const lives = getGodHandLives_(pcData[svIdx][COL.PC.MEMORY]);
     if (lives > 0) { after = Math.max(1, Math.round((parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 300) * 0.2)); pcData[svIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[svIdx][COL.PC.MEMORY], lives - 1); }
   }

@@ -45,11 +45,17 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   var hp = parseInt(pcData[tgtIdx][COL.PC.HP]) || 0;
   // 🐙 海怪掩護：持 summon_horror 者寶具解放後，深淵海怪在前以身擋傷——傷害先扣海怪肉身，潰散後才傷及本體。
   //   faction 無關（玩家青鬍子／敵方青鬍子皆適用）；無「現存海怪」(未解放/已退場)時此段空轉。
+  //   ⚖️ 貫穿判定(2026-07 修)：summon_horror 在 CONCEPT_TIER 登記與 rho_aias 同 4 階(唯 6 階 ea/enuma 可貫穿 rho_aias)，
+  //   但海怪護盾原本是獨立扣血、完全不查 pierces()——沒有任何攻擊能貫穿，跟 rho_aias 走的同一套框架不一致；
+  //   改用同一份 offenseTier_/conceptTier_/PIERCE_GAP 算貫穿，高階概念寶具可比照 rho_aias 直接無視護盾。
   if (hasFx_(defC, 'summon_horror') && dmg > 0) {
     var _hClk = getClock_(ctx.myGameId);
     var _hAbs = _hClk ? _hClk.day * 24 + _hClk.hour : null;
     var _shield = getHorrorShield_(pcData[tgtIdx][COL.PC.MEMORY], _hAbs);
-    if (_shield.active && _shield.remaining > 0) {
+    var _hPierced = offenseTier_(atkC, !!opts.np) >= conceptTier_('summon_horror') + PIERCE_GAP;
+    if (_shield.active && _shield.remaining > 0 && _hPierced) {
+      out.fired.push(atkC.name + '·概念貫穿(深淵海怪護盾失效)');
+    } else if (_shield.active && _shield.remaining > 0) {
       var _sAbsorb = Math.min(_shield.remaining, dmg);
       dmg = Math.max(0, dmg - _sAbsorb);
       out.damage = dmg;
