@@ -125,6 +125,10 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
   row[COL.PC.MEMORY] = stampPersonaFlavor_(`第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || ""}`, persona.speech, persona.tic);
   row[COL.PC.SIX] = JSON.stringify(six);
   row[COL.PC.TAGS] = JSON.stringify({ skills: classSkills.concat(skills), traits: traits });
+  // 🕯️ 復活命數：敵從者也要吃 god_hand 的 lives 覆寫(如尼祿 lives:3)，否則 getGodHandLives_ 會誤套
+  //   赫拉克勒斯專屬的預設11——此前 heroToNpcRow_ 完全沒處理這塊，敵方尼祿會平白多拿8條命。
+  var ghSkillNpc = classSkills.concat(skills).find(function (s) { return s && s.fx === 'god_hand'; });
+  if (ghSkillNpc && ghSkillNpc.lives != null) row[COL.PC.MEMORY] += '｜【試煉】' + ghSkillNpc.lives;
   row[COL.PC.CONTRIB] = (faction === "敵從者") ? 3 : 0; // 敵方令咒餘量(對面御主的 3 道令咒，可緊急脫離)
   row[COL.PC.GAME_ID] = gameId;
   return row;

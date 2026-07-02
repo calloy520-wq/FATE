@@ -324,10 +324,13 @@ function actionSummonServant(userData, pcId, sheets) {
       row[COL.PC.MEMORY] = stampPersonaFlavor_(`第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || "保持距離"}`, persona.speech, persona.tic);
       row[COL.PC.SIX] = JSON.stringify(six);
       row[COL.PC.TAGS] = JSON.stringify({ skills: classSkills.concat(skills), traits: traits });
-      // 🕯️ 復活命數：AI 原創英靈(ai_gen·從英靈殿重召)持 god_hand → 標【試煉】3(尼祿「三度輝映」基準)。
-      //   無標記時 getGodHandLives_ 預設 11——那是赫拉克勒斯(seed)的十二試煉專屬，別讓 AI 產物白拿。
-      if (String(hero[COL.HERO.SOURCE]) === 'ai_gen' && classSkills.concat(skills).some(function (s) { return s && s.fx === 'god_hand'; })) {
-        row[COL.PC.MEMORY] += '｜【試煉】3';
+      // 🕯️ 復活命數：god_hand 持有者的起始命數——優先讀該技能物件自己的 lives 屬性(如尼祿 lives:3)，
+      //   種子沒標 lives 時(如赫拉克勒斯)才照舊規則：ai_gen 給3(尼祿「三度輝映」基準)，其餘無標記、
+      //   靠 getGodHandLives_ 預設11(赫拉克勒斯十二試煉專屬)，別讓 AI 產物白拿。
+      var ghSkill = classSkills.concat(skills).find(function (s) { return s && s.fx === 'god_hand'; });
+      if (ghSkill) {
+        var ghLives = (ghSkill.lives != null) ? ghSkill.lives : (String(hero[COL.HERO.SOURCE]) === 'ai_gen' ? 3 : null);
+        if (ghLives != null) row[COL.PC.MEMORY] += '｜【試煉】' + ghLives;
       }
       row[COL.PC.INTENT] = svMoe;
       row[COL.PC.BACK] = svBack;

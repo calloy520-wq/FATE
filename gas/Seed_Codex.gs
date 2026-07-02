@@ -6,7 +6,9 @@
 var SEED_SERVANTS = [
   // 第五次
   { id:'阿爾托莉雅-Saber', cls:'Saber', realName:'阿爾托莉雅·潘德拉貢', wars:['4th','5th'], gender:'女',
-    six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'A',幸運:'A+',寶具:'A++'},
+    // ⚠ 2026-07 修：筋力原B——其餘五圍對齊「凜當御主」的高階官方參數(A/A+/A++)，唯獨筋力停在「士郎當御主」
+    //   的弱版官方參數，兩條參數表混用；補齊為A使整組數值對齊同一條參數線。
+    six:{筋力:'A',耐久:'B',敏捷:'B',魔力:'A',幸運:'A+',寶具:'A++'},
     classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
     skills:[{n:'直感',r:'A',fx:'first_strike'},{n:'魔力放出',r:'A',fx:'burst'},{n:'領袖氣質',r:'B',fx:'morale'},
             {n:'風王鐵鎚',r:'A',fx:'wind_strike'},{n:'誓約勝利之劍',r:'A++',fx:'excalibur'}],
@@ -30,7 +32,8 @@ var SEED_SERVANTS = [
     // ⚠ 2026-07 修：女神的神核 原漏填階級(空字串)——rankVal()保底吃E階，減傷只剩~6%形同虛設(全種子庫其餘4個
     //   divine_core 持有者皆填A/B/A/A明確階級)。補D階：對照 神性C的阿基里斯配B、神性A的伊絲塔/斯卡蒂配A，
     //   美杜莎神性E-(全種子庫最弱神格·被詛咒的墮落半神)理應是最弱一檔，D階給她一點真實但微弱的神核防護。
-    skills:[{n:'怪力',r:'B',fx:'str_up'},{n:'女神的神核',r:'D',fx:'divine_core'},{n:'魔眼',r:'A',fx:'petrify'}],
+    //   魔眼(petrify)原A→A+：官方稱「寶石級」魔眼、凌駕金等死徒眼，多筆來源一致給A+。
+    skills:[{n:'怪力',r:'B',fx:'str_up'},{n:'女神的神核',r:'D',fx:'divine_core'},{n:'魔眼',r:'A+',fx:'petrify'}],
     traits:[{n:'神性',r:'E-'},{n:'女神'}], np:'他者封印·鮮血神殿 Blood Fort Andromeda（對軍·結界）／騎英之手綱 Bellerophon（對軍 A+·喚出神駿天馬珀伽索斯·踏虛凌空·振翅撕裂長空、化作一往無前的純白光矢突刺）',
     align:'混沌・善', persona:{firstP:'我',look:'紫長髮・深紫裹紗長裙・眼鏡封印魔眼的修長女子、寡言低斂的幽靜氣息、自稱「我」・語氣壓得很低',words:'忠誠・守護・自卑・深藏的溫柔',toMaster:'寡言而深情、極度護主',speech:'寡言低沉、必要才開口、護主時毫不猶豫、語氣壓得很低',moe:'怪力女神卻極度自卑、靠眼鏡壓制魔眼的反差、對御主近乎獻身的忠誠、姊姊般的包容',tic:'推眼鏡、靜默佇立暗處、垂眸'} },
   { id:'美狄亞-Caster', cls:'Caster', realName:'美狄亞', wars:['5th'], gender:'女',
@@ -39,8 +42,12 @@ var SEED_SERVANTS = [
     skills:[{n:'高速詠唱',r:'A',fx:'fast_cast'},{n:'神代魔術',r:'A',fx:'divine_age'},{n:'破戒全咒',r:'C',fx:'rule_breaker'},{n:'金羊毛 Argon Coin',r:'EX',fx:'golden_fleece'}],
     traits:[{n:'人類'}], np:'萬符必應破戒 Rule Breaker（規則破壞者 C）',
     align:'中立・惡', persona:{firstP:'我',look:'紫袍兜帽・抱緣紅短劍的清麗魔女、溫婉中帶試探的疏離、自稱「我」・用敬語',words:'背叛的傷痕・渴望被信任・腹黑・少女心',toMaster:'防備卻渴望真心相待',speech:'溫婉中帶試探、用敬語、自嘲被背叛的過往、偶爾流露脆弱',moe:'魔女外表下渴望被愛、被真心對待會慌、為所愛之人不擇手段、反差的純情',tic:'抱著緣紅短劍、垂眸輕笑、欲言又止'} },
+  // ⚠ 2026-07 修：幸運原E→A——幸運A卻仍死於決鬥，是他角色最出名的反差設定，寫成E完全反了。
+  //   寶具原E→'-'：官方對燕返本就不給明確階級(是被硬拗成寶具級的凡人絕技，這正是他被Caster破格召喚的關鍵)，
+  //   寫死E會矮化這個設定巧思；'-'比照本表tsubame技能已用的慣例(下方skills)，rankVal()仍會保底吃E階運算、
+  //   數值行為不變，只是誠實標記「無明確階級」。
   { id:'佐佐木小次郎-Assassin', cls:'Assassin', realName:'佐佐木小次郎', wars:['5th'], gender:'男',
-    six:{筋力:'C',耐久:'E',敏捷:'A+',魔力:'E',幸運:'E',寶具:'E'},
+    six:{筋力:'C',耐久:'E',敏捷:'A+',魔力:'E',幸運:'A',寶具:'-'},
     classSkills:[{n:'氣息遮斷',r:'D',fx:'stealth'}],
     skills:[{n:'心眼（偽）',r:'A',fx:'analyze'},{n:'透化',r:'B+',fx:'clear_mind'},
             {n:'宗和的心得',r:'B',fx:'unreadable'},{n:'秘劍・燕返',r:'-',fx:'tsubame'}],
@@ -53,7 +60,9 @@ var SEED_SERVANTS = [
     //   只要致命傷前 hp>1 就先被 survive 免費接住(after 不再<=0)、十二試煉的燒命判定永遠輪不到，
     //   跟「十二條命、每次瀕死真的燒一命」的設計初衷矛盾(Avenger版拔十二試煉時才保留戰鬥續行，兩者本應互斥擇一)。
     skills:[{n:'勇猛',r:'A',fx:'morale'},{n:'十二試煉',r:'A',fx:'god_hand'}],
-    traits:[{n:'神性',r:'A'},{n:'王'}], np:'十二試煉 God Hand（A·十二條命）',
+    // ⚠ 2026-07 修：拔「王」trait——赫拉克勒斯終身未曾稱王(神話裡他是為贖罪替歐律斯透斯王打工的英雄，非君王)；
+    //   十二試煉NP自身官方階級是B(六圍寶具欄仍是A沒錯，B是God Hand這把寶具本身的階級數字)。
+    traits:[{n:'神性',r:'A'}], np:'十二試煉 God Hand（B·十二條命）',
     // ⚠ 原作設定：射殺百頭 Nine Lives 是狂化壓制下【無法使用】的寶具(福瓦基體系被Berserker職階鎖住，僅原典/FGO非狂化狀態可用)，
     //   已從這版拿掉、移給下方 赫拉克勒斯-Avenger(偽聖杯·阿爾喀德斯)。這版狂化下就只有 God Hand。
     align:'混沌・狂', persona:{firstP:'（狂化·僅咆哮）',look:'巨軀岩肌・黑霧纏身的半神戰士、無言低吼的壓迫氣場、狂化無自稱・僅以咆哮',words:'戰神・狂化・守護的殘響',toMaster:'理智被黑霧吞沒、僅存護主本能',speech:'狂化無法言語、只以低吼與行動表達；唯護主的本能殘留',moe:'狂暴外殼下對御主殘存的溫柔、偶爾理智回光的瞬間、十二試煉一次次自死亡歸來的悲壯',tic:'低沉咆哮、以巨軀擋在主人身前、緩緩起身'} },
@@ -62,36 +71,49 @@ var SEED_SERVANTS = [
     classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'},{n:'復仇者',r:'A',fx:'god_slay'},{n:'單獨行動',r:'B',fx:'solo'}],
     skills:[{n:'心眼(真)',r:'B',fx:'analyze'},{n:'勇猛',r:'E',fx:'morale'},{n:'戰鬥續行',r:'A+',fx:'survive'}],
     traits:[{n:'英雄'}], np:'射殺百頭 Nine Lives（對軍 A+·九連射·纏繞海德拉毒龍·乃至攻城之勢）／十二榮光 King\'s Order（A++·十二功業寶具群：神獸之裘否定人造兵器·怪鳥之箭·戰神軍帶）／天風的篡奪者 Reincarnation Pandora（EX·篡奪敵寶具）',
-    align:'混沌・善', persona:{firstP:'我',look:'膚色黝黑的高大戰士(逾兩公尺)、精悍健美而非虯結、古希臘裙袍配綁帶戰靴、頭覆獅皮長布、沉靜莊嚴的威儀、自稱「我」・語調沉穩如紳士',words:'復仇・對神之恨・高潔・十二功業',toMaster:'待人沉穩有禮、絕不坐視無辜受難；然主若危及世界安定，不惜背弒主之名將其斬殺',speech:'沉穩紳士、莊嚴威儀、談及神明時恨意森冷、對無辜者卻溫和有度',moe:'高潔英雄與噬神復仇者並存的矛盾、對幼子與無辜者的絕對守護、被令咒歪曲扭成復仇者的悲愴、捨神性不死性只為復仇的執念、獅皮下難掩的孤高',tic:'撫過肩頭的獅皮長布、搭箭前的一瞬靜默、提及諸神時眸色轉冷'} },
+    // ⚠ 2026-07 修：align原「混沌・善」——原作明寫他被聖杯泥+令咒逼著從「中立・善」歪曲扭轉成「混沌・惡」，
+    //   這是他淪為復仇者的關鍵設定，標善會抹掉這層悲劇轉折。
+    align:'混沌・惡', persona:{firstP:'我',look:'膚色黝黑的高大戰士(逾兩公尺)、精悍健美而非虯結、古希臘裙袍配綁帶戰靴、頭覆獅皮長布、沉靜莊嚴的威儀、自稱「我」・語調沉穩如紳士',words:'復仇・對神之恨・高潔・十二功業',toMaster:'待人沉穩有禮、絕不坐視無辜受難；然主若危及世界安定，不惜背弒主之名將其斬殺',speech:'沉穩紳士、莊嚴威儀、談及神明時恨意森冷、對無辜者卻溫和有度',moe:'高潔英雄與噬神復仇者並存的矛盾、對幼子與無辜者的絕對守護、被令咒歪曲扭成復仇者的悲愴、捨神性不死性只為復仇的執念、獅皮下難掩的孤高',tic:'撫過肩頭的獅皮長布、搭箭前的一瞬靜默、提及諸神時眸色轉冷'} },
   // 第四次
+  // ⚠ 2026-07 修：對魔力/單獨行動 原E/A+其實是「被聖杯泥養到第五次聖杯戰爭」後的數值——entry標wars含4th，
+  //   第四次(冬木·凜之父當御主前)官方數值是對魔力C／單獨行動A，兩次戰爭的數值被錯放混用；領袖氣質A→A+對齊官方。
   { id:'吉爾伽美什-Archer', cls:'Archer', realName:'吉爾伽美什', wars:['4th','fake'], gender:'男',
     six:{筋力:'B',耐久:'C',敏捷:'C',魔力:'B',幸運:'A',寶具:'EX'},
-    classSkills:[{n:'對魔力',r:'E',fx:'nullify_magic'},{n:'單獨行動',r:'A+',fx:'solo'}],
-    skills:[{n:'黃金律',r:'A',fx:'wealth'},{n:'領袖氣質',r:'A',fx:'morale'},{n:'神性',r:'B',fx:'divine'},
+    classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'},{n:'單獨行動',r:'A',fx:'solo'}],
+    skills:[{n:'黃金律',r:'A',fx:'wealth'},{n:'領袖氣質',r:'A+',fx:'morale'},{n:'神性',r:'B',fx:'divine'},
             {n:'王之財寶',r:'A',fx:'gob'},{n:'天之鎖',r:'B',fx:'chain'},{n:'全知全能之星 Sha Naqba Imuru',r:'EX',fx:'insight'}],
     traits:[{n:'神性'},{n:'王'}], np:'王之財寶 Gate of Babylon（對人 E~A++）／乖離劍 Ea（天地乖離·封藏的至高兵裝，傲慢時不出鞘）',
     align:'混沌・善', persona:{firstP:'吾',look:'金髮赤瞳・金鎧加身的俊美王者、睥睨眾生的慵懶威壓、自稱「吾」・睥睨自矜的王者腔',words:'傲慢・王・俯視眾生・收藏家',toMaster:'視為雜種、幾乎不從令，唯對少數有趣之人起興致',speech:'居高臨下、稱人「雜種」、慵懶而帶威壓、偶爾興味盎然',moe:'唯一承認的友人（恩奇都）、對「有趣」之物異常執著、品酒品人的講究、傲慢底下的孤獨',tic:'金色波紋中抽出寶具、嗤笑、紅瞳微眯'} },
+  // ⚠ 2026-07 修：對魔力原C→B(官方「B階可擋三節詠唱以下」的常引細節)；愛之痣原B→C(官方「愛の黒子C」)；
+  //   「戰鬥續行」查無此技能歸他所有，他真正的第二技能是心眼(真)B(危險預知/迴避判斷)，已替換。
   { id:'迪盧木多-Lancer', cls:'Lancer', realName:'迪盧木多·奧迪那', wars:['4th'], gender:'男',
     six:{筋力:'B',耐久:'C',敏捷:'A+',魔力:'D',幸運:'E',寶具:'B'},
-    classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'}],
-    skills:[{n:'戰鬥續行',r:'A',fx:'survive'},{n:'愛之痣',r:'B',fx:'lovespot'},
+    classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'}],
+    skills:[{n:'心眼(真)',r:'B',fx:'analyze'},{n:'愛之痣',r:'C',fx:'lovespot'},
             {n:'破魔紅薔薇／必滅黃薔薇',r:'B',fx:'anti_magic_lance'}],
     traits:[{n:'人類'}], np:'破魔紅薔薇 Gáe Dearg・必滅黃薔薇 Gáe Buidhe（雙槍・破魔／不癒之傷）',
     align:'秩序・善', persona:{firstP:'我',look:'墨綠髮・面有愛之痣的俊美騎士、謙恭正直的武人風骨、自稱「我」・謙恭有禮',words:'忠義・騎士・哀愁・宿命的女難',toMaster:'絕對忠誠，渴望堂堂正正之戰',speech:'謙恭有禮、武人正直、壓抑情感、自責時沉聲',moe:'臉上愛之痣令女性傾心的悲劇宿命、對主君的死忠、渴望光明磊落決鬥卻屢遭背叛、溫柔到自我犧牲',tic:'雙槍交握行禮、垂眸掩去面痣、沉聲立誓'} },
   { id:'伊斯坎達爾-Rider', cls:'Rider', realName:'伊斯坎達爾（征服王）', wars:['4th'], gender:'男',
     six:{筋力:'B',耐久:'A',敏捷:'D',魔力:'C',幸運:'A+',寶具:'A++'},
     classSkills:[{n:'對魔力',r:'D',fx:'nullify_magic'},{n:'騎乘',r:'A+',fx:'ride'}],
-    skills:[{n:'領袖氣質',r:'A',fx:'morale'},{n:'軍略',r:'B',fx:'tactics'}],
+    // ⚠ 2026-07 補：官方參數表明列神性C(源於「宙斯之子」的傳說地位)，原漏收此技能。
+    skills:[{n:'領袖氣質',r:'A',fx:'morale'},{n:'軍略',r:'B',fx:'tactics'},{n:'神性',r:'C',fx:'divine'}],
     traits:[{n:'王'}], np:'王之軍勢 Ionioi Hetairoi（對軍 EX·固有結界召喚萬軍）／神威的車輪 Gordius Wheel（雷神戰車·衝鋒）',
     align:'中立・善', persona:{firstP:'余',look:'紅髮虬髯・魁梧壯碩、披風加身的征服王、豪邁爽朗的王者雅量、自稱「余」・氣口恢弘如雷',words:'豪邁・征服・雅量・王道',toMaster:'視為臣下亦為摯友，要對方先成為夠格的王',speech:'豪爽大笑、稱「小鬼」、王者氣度、好酒好戰、講大道理',moe:'征服世界的野心與孩子氣並存、愛酒愛地圖、收伏人心的雅量、把御主當孩子般栽培（不分男女）',tic:'仰天大笑、攤開世界地圖、灌下整桶酒'} },
+  // ⚠ 2026-07 修：陣地作成原C→B(官方一致給B)。拔「道具作成」——他是少數沒有此技能的Caster，官方設定他
+  //   放棄道具作成換取寶具的召喚能力，這是他很出名的角色特色，寫成有反而抹掉這個梗。拔「城牆防禦」——查無
+  //   此技能歸他所有，標準Caster職階技能只有陣地作成+道具作成兩項，這個疑似捏造(此fx其餘無人使用，非刪功能)。
+  //   外觀「青鬚」原是他自稱化名(藍鬍子)的形象，官方設計他其實沒有鬍子(甚至沒眉毛)——刻意的反差惡搞，已修正。
+  //   螺湮城教本(summon_horror)/召喚海怪 為玩家既定設計、經查證符合原作「深淵召喚巨大海怪」的描述，維持不動。
   { id:'吉爾德萊-Caster', cls:'Caster', realName:'吉爾·德·萊斯（青鬍子）', wars:['4th'], gender:'男',
     six:{筋力:'D',耐久:'E',敏捷:'D',魔力:'C',幸運:'E',寶具:'A+'},
-    classSkills:[{n:'陣地作成',r:'C',fx:'territory'},{n:'道具作成',r:'C',fx:'crafting'},{n:'城牆防禦',r:'C',fx:'wall_def'}],
+    classSkills:[{n:'陣地作成',r:'B',fx:'territory'}],
     skills:[{n:'精神汙染',r:'A',fx:'mad'},{n:'螺湮城教本',r:'',fx:'summon_horror'}],
     traits:[{n:'人類'}], np:'螺湮城教本 Prelati\'s Spellbook（深淵召喚・召喚大海怪）',
-    align:'混沌・惡', persona:{firstP:'我',look:'青鬚華服・捧著厚重教本的貴族、虔誠與癲狂交錯的氣息、自稱「我」・時文雅時癲狂咆哮',words:'瘋狂・虔誠扭曲・對「聖女」的執念',toMaster:'與同其瘋狂共鳴的御主引為純粹之惡的摯友、相互共鳴；否則貌合神離',speech:'時而文雅虔誠、時而癲狂咆哮、引經據典又褻瀆神明',moe:'曾為聖女信徒的純粹墮落成深淵的反差、對「神不在場」的悲憤、與志同道合的御主一搭一唱的瘋狂默契',tic:'翻動教本咆哮、淚流滿面的狂笑、自深淵召出觸手海怪'} },
+    align:'混沌・惡', persona:{firstP:'我',look:'無鬚捧書・自稱「藍鬍子」的清瘦貴族(其實臉上無鬚無眉)、虔誠與癲狂交錯的氣息、自稱「我」・時文雅時癲狂咆哮',words:'瘋狂・虔誠扭曲・對「聖女」的執念',toMaster:'與同其瘋狂共鳴的御主引為純粹之惡的摯友、相互共鳴；否則貌合神離',speech:'時而文雅虔誠、時而癲狂咆哮、引經據典又褻瀆神明',moe:'曾為聖女信徒的純粹墮落成深淵的反差、對「神不在場」的悲憤、與志同道合的御主一搭一唱的瘋狂默契',tic:'翻動教本咆哮、淚流滿面的狂笑、自深淵召出觸手海怪'} },
+  // ⚠ 2026-07 修：敏捷B→A、魔力D→C、寶具D→B，第四次聖杯戰爭材料一致給這三個階級。
   { id:'百貌哈桑-Assassin', cls:'Assassin', realName:'哈桑·薩巴赫（百貌）', wars:['4th'], gender:'男',
-    six:{筋力:'C',耐久:'D',敏捷:'B',魔力:'D',幸運:'E',寶具:'D'},
+    six:{筋力:'C',耐久:'D',敏捷:'A',魔力:'C',幸運:'E',寶具:'B'},
     classSkills:[{n:'氣息遮斷',r:'A+',fx:'stealth'}],
     skills:[{n:'自我改造',r:'B',fx:'self_mod'},{n:'妄想幻像',r:'',fx:'zabaniya'}],
     traits:[{n:'人類'}], np:'妄想幻像 Zabaniya: Delusional Illusion（對人·分裂為百種人格·最多同時八十體）',
@@ -101,27 +123,34 @@ var SEED_SERVANTS = [
     classSkills:[{n:'氣息遮斷',r:'A+',fx:'stealth'}],
     skills:[{n:'妄想心音',r:'',fx:'zabaniya'},{n:'投影魔術',r:'C',fx:'projection'},{n:'自我改造（詛咒之腕）',r:'C',fx:'self_mod'}],
     traits:[{n:'人類'}], np:'妄想心音 Zabaniya（對人·掏出心臟之影即死）',
-    align:'秩序・惡', persona:{firstP:'我',look:'骷髏面具・纏滿詛咒繃帶左臂的暗殺者、寡言肅殺的氣息、自稱「我」・低沉簡短肅穆',words:'暗殺・詛咒之腕・沉默・初代之名',toMaster:'冷淡服從、以暗殺為天職',speech:'低沉簡短、必要才開口、宗教式的肅穆',moe:'纏繃帶的詛咒左臂、心臟掏取的致命一擊、沉默卻守諾、暗殺信條的純粹',tic:'以左臂掏心之姿、無聲潛近、垂首誦念'} },
+    // ⚠ 2026-07 修：詛咒手臂原寫「左」臂，官方(撒旦之手嫁接)是「右」臂，已修正。
+    align:'秩序・惡', persona:{firstP:'我',look:'骷髏面具・纏滿詛咒繃帶右臂的暗殺者、寡言肅殺的氣息、自稱「我」・低沉簡短肅穆',words:'暗殺・詛咒之腕・沉默・初代之名',toMaster:'冷淡服從、以暗殺為天職',speech:'低沉簡短、必要才開口、宗教式的肅穆',moe:'纏繃帶的詛咒右臂、心臟掏取的致命一擊、沉默卻守諾、暗殺信條的純粹',tic:'以右臂掏心之姿、無聲潛近、垂首誦念'} },
+  // ⚠ 2026-07 修：官方參數是 筋A／耐A／敏A+／魔C／幸B／寶A——A+屬於敏捷，筋力數值原被錯放；
+  //   狂化原B→C(官方一致給C)；np真名原「騎士不為孤軍」語意有誤，官方原名「騎士は徒手にて死せず」
+  //   通行中譯是「騎士不死於徒手」，已修正。
   { id:'蘭斯洛特-Berserker', cls:'Berserker', realName:'蘭斯洛特（湖之騎士）', wars:['4th'], gender:'男',
-    six:{筋力:'A+',耐久:'A',敏捷:'A+',魔力:'C',幸運:'B',寶具:'A'},
-    classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'騎乘',r:'A',fx:'ride'},{n:'對魔力',r:'E',fx:'nullify_magic'}],
+    six:{筋力:'A',耐久:'A',敏捷:'A+',魔力:'C',幸運:'B',寶具:'A'},
+    classSkills:[{n:'狂化',r:'C',fx:'mad'},{n:'騎乘',r:'A',fx:'ride'},{n:'對魔力',r:'E',fx:'nullify_magic'}],
     skills:[{n:'無窮的鍛鍊',r:'A+',fx:'clear_mind'},{n:'無毀的湖光',r:'A',fx:'weapon_steal'}],
-    traits:[{n:'騎士'},{n:'人類'}], np:'騎士不為孤軍 Knight of Owner（萬物化為兵裝）',
+    traits:[{n:'騎士'},{n:'人類'}], np:'騎士不死於徒手 Knight of Owner（萬物化為兵裝）',
     align:'混沌・狂', persona:{firstP:'（狂化·僅低吼）',look:'黑霧鎧甲・湖之騎士的悲愴身影、悲鳴般低吼的壓抑瘋狂、狂化無自稱・僅餘悲鳴般低吼',words:'悔恨・無言的瘋狂・對主君的愧疚',toMaster:'狂化無言，僅以戰鬥宣洩悔恨',speech:'狂化奪去言語，只餘悲鳴般的低吼；理智深處是對亞瑟王與王后之間罪的愧悔',moe:'湖之騎士的高潔被悔恨吞沒的悲劇、渴望被懲罰的扭曲忠誠、理智回光時的痛楚',tic:'黑霧纏身、抓起任何物件化為兵裝、無聲逼近'} },
   // FAKE 樣本
   { id:'恩奇都-Lancer', cls:'Lancer', realName:'恩奇都', wars:['fake'], gender:'無',
     // ⬇️ 基線＝非理想御主下的恩奇都(供魔不足)。與銀狼(獵犬御主，原作真正的御主)結契才回全盛全A·寶A++(masterSynergySix_)。
-    six:{筋力:'C',耐久:'B',敏捷:'B',魔力:'B',幸運:'-',寶具:'A'},
+    // ⚠ 2026-07 修：筋力原C——原作明講「變容」使他六圍浮動範圍恆在A~B之間、從不掉到C，即使供魔不足的基線亦同，
+    //   已補至B(下限)。
+    six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'B',幸運:'-',寶具:'A'},
     classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'}],
     skills:[{n:'天之鎖',r:'A',fx:'chain'},{n:'氣息感知',r:'A+',fx:'sense'},{n:'變容',r:'A',fx:'shapeshift'},{n:'完全之形',r:'A',fx:'regen'}],
     traits:[{n:'神造兵器'},{n:'病死宿命'}], np:'世人啊，冀以鎖繫神明 Enuma Elish（對界 A++~EX·對肅正寶具·反星球/人類破壞行為增幅·可匹敵乖離劍）／民之睿智 Age of Babylon（大地召出萬千劍槍鎖齊射·抵銷王之財寶）',
     align:'中立・中庸', persona:{firstP:'我',look:'青綠長髮・中性無垢的神造之軀、平和無機卻溫柔的氣息、自稱「我」・平和中性而純真',words:'純真・神造・追尋摯友・無垢',toMaster:'溫和而疏離，心繫吉爾伽美什',speech:'平和中性、純真直接、無機質卻溫柔、談起摯友便柔軟',moe:'神造兵器卻最有人性、對吉爾伽美什的純粹羈絆、不解人類卻嚮往、變幻自如的天真',tic:'化身千刃、歪頭觀察、望向遠方'} },
   // 斯卡哈 三職階
+  // ⚠ 2026-07 修：對魔力原C→A(官方「可無效A階以下魔術」)；神殺原A→B、魔境的智慧原A→A+，官方技能表一致。
   { id:'斯卡哈-Lancer', cls:'Lancer', realName:'斯卡哈', wars:['客串'], gender:'女',
     six:{筋力:'B',耐久:'A',敏捷:'A',魔力:'C',幸運:'D',寶具:'A+'},
-    classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'}],
-    skills:[{n:'神殺',r:'A',fx:'god_slay'},{n:'神速',r:'A',fx:'first_strike'},{n:'戰鬥續行',r:'A',fx:'survive'},
-            {n:'原初符文',r:'A',fx:'rune'},{n:'魔境的智慧',r:'A',fx:'mage_realm'},{n:'刺穿死亡之棘',r:'A',fx:'gae_bolg',causality:true}],
+    classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'}],
+    skills:[{n:'神殺',r:'B',fx:'god_slay'},{n:'神速',r:'A',fx:'first_strike'},{n:'戰鬥續行',r:'A',fx:'survive'},
+            {n:'原初符文',r:'A',fx:'rune'},{n:'魔境的智慧',r:'A+',fx:'mage_realm'},{n:'刺穿死亡之棘',r:'A',fx:'gae_bolg',causality:true}],
     traits:[{n:'人類'}], np:'貫穿死翔之槍 Gáe Bolg Alternative（對人 B+·釘空必中＋投擲斷命）／死亡滿溢的魔境之門 Gate of Skye（對軍 A+·吸入影之國）',
     align:'中立・中庸', persona:{firstP:'我',look:'紫髮紅瞳・緊身戰衣的妖豔女王、冷峻威嚴的嚴師氣場、自稱「我」・師長口吻簡潔如刃',words:'影之國女王・冷峻嚴師・武人・求死而不得',toMaster:'嚴厲考校、唯認可強者，師者之威',speech:'冷峻威嚴、師長口吻、簡潔如刃、偶露揶揄',moe:'千年女王的孤高、渴望一死卻不得的寂寞、對弟子又嚴又護、揶揄人時的促狹',tic:'魔槍杵地、睥睨、勾唇淺笑'} },
   { id:'斯卡哈-Assassin', cls:'Assassin', realName:'斯卡哈', wars:['客串'], gender:'女',
@@ -129,32 +158,48 @@ var SEED_SERVANTS = [
     classSkills:[{n:'氣息遮斷',r:'E',fx:'stealth'}],
     skills:[{n:'心眼(真)',r:'B',fx:'analyze'},{n:'戰鬥續行',r:'A',fx:'survive'},{n:'原初符文',r:'B',fx:'rune'}],
     traits:[{n:'人類'}], np:'蹴穿死翔之槍 Gáe Bolg Alternative（對人 B+·影縫穿刺）',
-    align:'中立・中庸', persona:{firstP:'我',look:'紫髮暗裝・融入影中的致命女王、冷冽無聲的審視氣息、自稱「我」・低冷簡短一針見血',words:'潛行的女王・冷冽・致命・影',toMaster:'冷眼試探、出手無情，認可方鬆動',speech:'低冷簡短、氣息全無、一針見血',moe:'影中女王的致命優雅、試探背後的審視、認可強者後難得的鬆動',tic:'融入暗影、刃尖輕轉、無聲逼近'} },
+    // ⚠ 2026-07 修：外觀原「暗裝潛行」——這個Assassin版是夏季活動限定的泳裝造型，官方立繪是比基尼/沙灘裝，
+    //   跟「暗殺潛行」的調性正好相反，已修正為海灘造型(仍保留她一貫的冷峻女王氣場)。
+    align:'中立・中庸', persona:{firstP:'我',look:'紫髮紅瞳・海灘造型的致命女王(泳裝配飾依舊難掩鋒芒)、冷冽無聲的審視氣息、自稱「我」・低冷簡短一針見血',words:'潛行的女王・冷冽・致命・影',toMaster:'冷眼試探、出手無情，認可方鬆動',speech:'低冷簡短、氣息全無、一針見血',moe:'影中女王的致命優雅、試探背後的審視、認可強者後難得的鬆動',tic:'融入暗影、刃尖輕轉、無聲逼近'} },
   { id:'斯卡蒂-Caster', cls:'Caster', realName:'斯卡哈·斯卡蒂（Skadi）', wars:['客串'], gender:'女',
     six:{筋力:'B',耐久:'D',敏捷:'C',魔力:'EX',幸運:'D',寶具:'A'},
     classSkills:[{n:'陣地作成',r:'EX',fx:'territory'},{n:'道具作成',r:'A',fx:'crafting'}],
     skills:[{n:'女神的神核',r:'A',fx:'divine_core'},{n:'原初符文',r:'EX',fx:'rune'},{n:'大神的睿智',r:'B+',fx:'analyze'},{n:'冰凍暴風雪',r:'B',fx:'petrify'}],
-    traits:[{n:'神性'},{n:'女神'},{n:'巨人'}], np:'通往死亡滿溢的魔境之門 Gate of Skye（對軍 A+·影之城的祝福·開戰寶具）',
-    align:'中立・善', persona:{firstP:'吾',look:'銀紫長髮・符文環繞的冰雪女神、莊重慈悲並存的母性威儀、自稱「吾」・溫柔莊重如神祇',words:'北歐女神・溫柔而威嚴・守護者・嚴母',toMaster:'溫柔包容、暗藏神威，母性',speech:'溫柔而莊重、自稱吾、神祇的慈悲與威嚴並存',moe:'冰雪女神的溫柔母性、害羞時的可愛、守護生靈的執著、威嚴下的溫情',tic:'符文環繞、垂眸微笑、輕撫額前'} },
+    // ⚠ 2026-07 修：拔「女神」trait——FGO正式trait只有神性/巨人/人型三項，「女神」只是台詞稱呼非機制標籤；
+    //   np移除「開戰寶具」標籤——Gate of Skye是任何時機都能發動的隊伍增益寶具，非開場限定，跟官方分類矛盾；
+    //   髮色原「銀紫」→「深紫」，週邊/官方描述一致是深紫髮配紅瞳，銀色成分查無依據(順手補上紅瞳)。
+    traits:[{n:'神性'},{n:'巨人'}], np:'通往死亡滿溢的魔境之門 Gate of Skye（對軍 A+·影之城的祝福）',
+    align:'中立・善', persona:{firstP:'吾',look:'深紫長髮・紅瞳・符文環繞的冰雪女神、莊重慈悲並存的母性威儀、自稱「吾」・溫柔莊重如神祇',words:'北歐女神・溫柔而威嚴・守護者・嚴母',toMaster:'溫柔包容、暗藏神威，母性',speech:'溫柔而莊重、自稱吾、神祇的慈悲與威嚴並存',moe:'冰雪女神的溫柔母性、害羞時的可愛、守護生靈的執著、威嚴下的溫情',tic:'符文環繞、垂眸微笑、輕撫額前'} },
   // strange Fake
+  // ⚠ 2026-07 修：敏捷C→EX(他是首位敏捷達EX的從者·越戰越快是招牌設定)、魔力C→B、幸運A→C(原本整個反了)、
+  //   寶具B→A，多筆來源一致。np描述原把「圓桌之證」寫成召喚聖劍——實際效果是喚出生前的夥伴們助戰(最多7位)，
+  //   召喚聖劍的是他另一把叫Excalibur的寶具，兩者被混在一起了，已修正描述。軍略/戰鬥續行查無此二技能歸他，
+  //   真正的兩個個人技能是驥足百般(萬能百藝)與神速(越戰越快)，已替換。
   { id:'理查一世-Saber', cls:'Saber', realName:'獅心王・理查一世', wars:['fake'], gender:'男',
-    six:{筋力:'B',耐久:'B',敏捷:'C',魔力:'C',幸運:'A',寶具:'B'},
+    six:{筋力:'B',耐久:'B',敏捷:'EX',魔力:'B',幸運:'C',寶具:'A'},
     classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'A',fx:'ride'}],
-    skills:[{n:'獅子心',r:'A',fx:'clear_mind'},{n:'領袖氣質',r:'B',fx:'morale'},{n:'軍略',r:'B',fx:'tactics'},{n:'戰鬥續行',r:'A',fx:'survive'}],
-    traits:[{n:'王'},{n:'人類'}], np:'圓桌之證・呼喚英雄之劍 Rounds of Lionheart（對軍 A）',
+    skills:[{n:'獅子心',r:'A',fx:'clear_mind'},{n:'領袖氣質',r:'B',fx:'morale'},{n:'驥足百般',r:'A',fx:'analyze'},{n:'神速',r:'A',fx:'first_strike'}],
+    traits:[{n:'王'},{n:'人類'}], np:'圓桌之證 Rounds of Lionheart（對軍 A・喚出生前的夥伴們自暗影助戰，非召喚聖劍）',
     align:'中立・善', persona:{firstP:'余',look:'金髮碧眼・佩劍披風的獅心王、豪邁不羈孩子氣的昂揚王者、自稱「余」・熱情奔放滿口傳說',words:'浪漫・崇拜英雄・天真豪邁・獅心',toMaster:'坦率信賴，視為冒險夥伴',speech:'熱情奔放、滿口傳說英雄、孩子氣的興奮、王者豪氣',moe:'獅心王卻像個追星少年、對亞瑟王傳說的狂熱崇拜、天真到可愛的浪漫、豪邁不拘小節',tic:'眼睛發亮談英雄、揮劍大笑、勾肩搭背'} },
+  // ⚠ 2026-07 修：wars維持標'fake'(玩家定案，不論正史出處)。「神威的車輪」查無此名歸他，機制(致命傷保留一命)
+  //   對應的真正技能名是「戰鬥續行」，已正名；「貫穿戰場的流星」官方階級是B+非A，已修正；「守護領域的車輪」
+  //   實為除踵無敵的個人被動、非車輪/領域類效果，描述已調整避免誤導成範圍技。
   { id:'阿基里斯-Rider', cls:'Rider', realName:'阿基里斯', wars:['fake'], gender:'男',
     six:{筋力:'B+',耐久:'A',敏捷:'A+',魔力:'C',幸運:'D',寶具:'A'},
     classSkills:[{n:'騎乘',r:'A+',fx:'ride'},{n:'對魔力',r:'C',fx:'nullify_magic'}],
-    skills:[{n:'神性',r:'C',fx:'divine'},{n:'女神的寵愛',r:'B',fx:'divine_core'},{n:'勇猛',r:'A+',fx:'morale'},{n:'神威的車輪',r:'A',fx:'survive'}],
-    traits:[{n:'神性'},{n:'英雄'}], np:'貫穿戰場的流星（對人 A）／守護領域的車輪（除踵無敵）',
+    skills:[{n:'神性',r:'C',fx:'divine'},{n:'女神的寵愛',r:'B',fx:'divine_core'},{n:'勇猛',r:'A+',fx:'morale'},{n:'戰鬥續行',r:'A',fx:'survive'}],
+    traits:[{n:'神性'},{n:'英雄'}], np:'貫穿戰場的流星（對人 B+）／除踵無敵（自身免疫致命傷·唯腳踵例外）',
     align:'混沌・中庸', persona:{firstP:'我',look:'金髮健碩・駕戰車執長槍的半神戰士、張狂自信戰意昂揚、自稱「我」・不服輸的挑釁口吻',words:'戰士・自由奔放・驕傲重情・不敗',toMaster:'豪爽不羈，認可便傾力相助',speech:'張狂自信、戰意昂揚、重情義、不服輸',moe:'半神英雄的驕傲與孩子氣、唯一弱點腳踵的宿命、對戰友的重情、自由不受拘束',tic:'駕戰車衝鋒、咧嘴挑釁、拍胸脯打包票'} },
-  { id:'開膛手傑克-Berserker', cls:'Berserker', realName:'開膛手傑克', wars:['fake'], gender:'女',
-    six:{筋力:'C',耐久:'C',敏捷:'A',魔力:'B',幸運:'E',寶具:'B'},
-    classSkills:[{n:'狂化',r:'C',fx:'mad'},{n:'氣息遮斷',r:'B',fx:'stealth'}],
-    skills:[{n:'霧夜的殺戮',r:'B',fx:'zabaniya'},{n:'變化（散為霧）',r:'C',fx:'shapeshift'},{n:'情報抹消',r:'A',fx:'unreadable'}],
-    traits:[{n:'人類'}], np:'解體聖母 Maria the Ripper（對人・心臟摘除）',
-    align:'混沌・惡', persona:{firstP:'我們',look:'幼小赤裸・霧氣繚繞的詭譎孩童、天真與殺意交錯的空洞、自稱「我們」・童言複數問著殘忍',words:'孩童・空虛・渴求親情・霧',toMaster:'試探地索求溫柔，將溫柔待己之人視作至親般的依戀',speech:'稚嫩天真與冷酷殺意交錯、以「我們」複數自稱、童言童語問著殘忍的話',moe:'渴求親情而不得的悲傷孩子、天真與殘酷的巨大反差、被溫柔對待會怔住、霧中現身的詭譎',tic:'霧氣繚繞中現身、歪頭天真發問、扯住衣角'} },
+  // ⚠ 2026-07 大修：原內容整套(解體聖母/骷髏孩童/氣息遮斷/情報抹消)其實是《Apocrypha》黑方刺客版傑克的設定，
+  //   跟這裡標的《strange Fake》Berserker版(福拉特的從者)完全是兩個不同角色——已改寫為 strange Fake 本尊：
+  //   無固定實體、靠「千貌」變化成任何「被推測是開膛手真身」的人事物；狂化被自身瘋狂具現的本質悖論封印(負負得正)
+  //   而理智清醒，故 classSkills 狂化 fx 刻意留空(不吃機制加成/懲罰)；六圍原作未給明確數值，取中庸值代表工程近似。
+  { id:'開膛手傑克-Berserker', cls:'Berserker', realName:'開膛手傑克', wars:['fake'], gender:'異',
+    six:{筋力:'C',耐久:'C',敏捷:'B',魔力:'B',幸運:'D',寶具:'B'},
+    classSkills:[{n:'狂化(已封印)',r:'-',fx:''}],
+    skills:[{n:'千貌',r:'A',fx:'shapeshift'}],
+    traits:[{n:'瘋狂具現'}], np:'其乃不值悲劇之終末 Natural Born Killers（對軍 B・分裂百餘化身應戰）／悪霧は倫敦の暁と共に滅び逝きて From Hell（對人・可變E~A+・化作巨大幻想種、以周遭人類恐懼為力）',
+    align:'混沌・中庸', persona:{firstP:'我',look:'無固定實體・平時僅以無性別無age感的平靜嗓音現身，戰時藉「千貌」瞬間化身成任何「被世間推測為開膛手真身」的人事物(醫師／貴族／警察／野獸／孩童皆可)、借其形借其技，自稱「我」・語調溫雅從容',words:'無名・千貌・尋根究底的自我・悖論中的清醒',toMaster:'耐心包容其笨拙的御主，語氣總帶幾分優雅的無奈',speech:'溫雅從容、措辭考究近乎詩意、偶爾被自己「不像瘋子」的言行逗笑',moe:'瘋狂具現卻異常清醒優雅的悖論、連自己真實身分都不知道的執著追尋、對御主笨手笨腳的縱容包容、不自覺化身成與另一個「開膛手傑克」相似的少女模樣卻不明所以',tic:'身形在霧氣中悄然變換、輕聲失笑、若有所思地凝望自己的手'} },
   { id:'蒼白騎兵-Rider', cls:'Rider', realName:'蒼白騎兵（Pale Rider）', wars:['fake'], gender:'異',
     six:{筋力:'E',耐久:'A',敏捷:'B',魔力:'A',幸運:'C',寶具:'EX'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'},{n:'騎乘',r:'EX',fx:'ride'}],
@@ -166,60 +211,89 @@ var SEED_SERVANTS = [
     classSkills:[{n:'氣息遮斷',r:'A-',fx:'stealth'}],
     skills:[{n:'狂信',r:'A',fx:'clear_mind'},{n:'幻想血統',r:'',fx:'zabaniya'},{n:'自我改造',r:'A',fx:'self_mod'}],
     traits:[{n:'人類'}], np:'幻想血統 Zabaniya（對人・對軍・再現十八位哈桑之奇蹟）',
-    align:'秩序・善', persona:{firstP:'我',look:'黑長直・雙麻花辮・面具半遮的纖細刺客、斗篷裹身赤足而行、自稱「我」・宗教式肅穆的虔敬低語',words:'信仰・初代之名・十八奇蹟・殉道',toMaster:'虔敬奉獻、視契約為聖戰',speech:'虔敬低語、宗教式的肅穆、提及信仰時激越',moe:'黑長直雙麻花辮、粉紅瞳、面具半遮、赤足斗篷、為信仰殉道的純粹狂熱、再現十八哈桑的奇蹟',tic:'垂首誦念、撫過面具、赤足無聲而至'} },
+    // ⚠ 2026-07 修：她從未真正繼承「哈桑」之名，白骨面具是正式繼承者的專屬標誌，她其實是用面紗遮臉非硬質面具；
+    //   瞳色原「粉紅」多筆來源指向「紫瞳」，已修正；speech原多打一個「不」字變成「不宗教式」跟她狂熱信仰的
+    //   人設核心完全矛盾，已刪去衍字。
+    align:'秩序・善', persona:{firstP:'我',look:'黑長直・雙麻花辮・面紗半遮的纖細刺客、斗篷裹身赤足而行、自稱「我」・宗教式肅穆的虔敬低語',words:'信仰・初代之名・十八奇蹟・殉道',toMaster:'虔敬奉獻、視契約為聖戰',speech:'虔敬低語、宗教式的肅穆、提及信仰時激越',moe:'黑長直雙麻花辮、紫瞳、面紗半遮、赤足斗篷、為信仰殉道的純粹狂熱、再現十八哈桑的奇蹟',tic:'垂首誦念、撫過面紗、赤足無聲而至'} },
   { id:'伊絲塔-Archer', cls:'Archer', realName:'伊絲塔', wars:['fake'], gender:'女',
     six:{筋力:'B',耐久:'C',敏捷:'B',魔力:'A',幸運:'B',寶具:'A+'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'},{n:'單獨行動',r:'A',fx:'solo'}],
     skills:[{n:'神性',r:'A',fx:'divine'},{n:'女神的神核',r:'A',fx:'divine_core'},{n:'魔力放出',r:'A',fx:'burst'}],
     traits:[{n:'神性'},{n:'女神'}], np:'天之公牛・山海熔毀的天牛 An Gugalanna（對軍 A+·自天界召落神獸天之公牛·踏地則山崩海沸·所過之處盡化熔毀焦土）',
-    align:'混沌・善', persona:{firstP:'本小姐',look:'黑髮閃亮・借凜之身的金星女神、高傲任性傲嬌的氣燄、自稱「本小姐」・得意洋洋愛炫耀',words:'女神・任性・傲嬌・愛美愛閃亮',toMaster:'頤指氣使，意外講義氣',speech:'高傲任性、傲嬌口吻、愛炫耀、得意洋洋',moe:'金星女神的任性傲嬌、見閃亮寶物就走不動、嘴硬心軟的義氣、借了凜的身體卻嘴硬',tic:'叉腰仰頭、召喚天舟、哼一聲撇頭'} },
+    // ⚠ 2026-07 修：附體對象原「借凜之身」——那是FGO(Babylonia)限定設定，strange Fake小說裡她附體的其實是
+    //   人造人「菲莉雅」，髮色瞳色也一併改回菲莉雅的愛因茲貝倫外貌(白髮紅瞳)，不再沿用凜本人的黑髮。
+    align:'混沌・善', persona:{firstP:'本小姐',look:'白髮紅瞳・借菲莉雅之身的金星女神、高傲任性傲嬌的氣燄、自稱「本小姐」・得意洋洋愛炫耀',words:'女神・任性・傲嬌・愛美愛閃亮',toMaster:'頤指氣使，意外講義氣',speech:'高傲任性、傲嬌口吻、愛炫耀、得意洋洋',moe:'金星女神的任性傲嬌、見閃亮寶物就走不動、嘴硬心軟的義氣、借了菲莉雅的身體卻嘴硬',tic:'叉腰仰頭、召喚天舟、哼一聲撇頭'} },
   // 客串英靈
   { id:'莫德雷德-Saber', cls:'Saber', realName:'莫德雷德', wars:['客串'], gender:'女',
     six:{筋力:'B+',耐久:'A',敏捷:'B',魔力:'B',幸運:'D',寶具:'A+'},
     classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
     skills:[{n:'直感',r:'B',fx:'first_strike'},{n:'魔力放出',r:'A',fx:'burst'},{n:'領袖氣質',r:'C',fx:'morale'},{n:'戰鬥續行',r:'B',fx:'survive'}],
     traits:[{n:'龍'},{n:'騎士'}], np:'我的憤怒不會退去 Clarent Blood Arthur（對軍 A+·深紅雷光自劍身爆湧·裹挾弒父之恨轟成撕裂天地的血色奔雷）',
-    align:'混沌・中庸', persona:{firstP:'我',look:'金髮馬尾・銀甲纏紅雷的反逆騎士、粗豪叛逆爭強好勝、自稱「我」・不服輸的粗豪挑釁口吻',words:'叛逆・倔強・渴求認同・反逆之騎',toMaster:'桀驁不馴，認可便死忠',speech:'粗豪叛逆、不服輸、稱亞瑟王「父親」、爭強好勝',moe:'外表狂傲內心渴求父親認同、不肯承認的少女心、死要面子、對「弒父叛逆」的執念與悔',tic:'掀面甲咆哮、紅雷纏劍、別過頭'} },
+    // ⚠ 2026-07 補：原人設把她寫得偏溫和(不肯承認的少女心)，補上原作核心性格特徵——她堅持以陽性口吻自稱、
+    //   對「被當女性看待」有強烈牴觸，這是Apocrypha原作最鮮明的性格核心之一，原描述把這點磨得太淡。
+    align:'混沌・中庸', persona:{firstP:'我',look:'金髮馬尾・銀甲纏紅雷的反逆騎士、粗豪叛逆爭強好勝、自稱「我」・不服輸的粗豪挑釁口吻',words:'叛逆・倔強・渴求認同・反逆之騎',toMaster:'桀驁不馴，認可便死忠，堅持以男性自居、忌諱被當女性看待',speech:'粗豪叛逆、不服輸、稱亞瑟王「父親」、爭強好勝',moe:'外表狂傲內心渴求父親認同、被稱作「女性」會激烈牴觸、死要面子、對「弒父叛逆」的執念與悔',tic:'掀面甲咆哮、紅雷纏劍、別過頭'} },
+  // ⚠ 2026-07 修：魔力D→B、幸運E→D，多筆來源一致。np「Vasavi Shakti」原寫「梵天弒神之槍」——這把槍其實是
+  //   因陀羅為騙走他鎧甲而授予的，跟梵天無關(梵天是另一把「梵天慈悲之槍」的神格，兩把寶具的神格被錯放互換)，
+  //   已修正歸屬。look「太陽之鎧加身」語感像可穿脫裝備——那副鎧甲其實是他出生就長在身上的一部分，只能靠
+  //   割下獻祭才能拿掉(因陀羅設局的關鍵)，已改用「與生俱來」強調不可拆卸。
   { id:'迦爾納-Lancer', cls:'Lancer', realName:'迦爾納', wars:['客串'], gender:'男',
-    six:{筋力:'B',耐久:'C',敏捷:'A',魔力:'D',幸運:'E',寶具:'EX'},
+    six:{筋力:'B',耐久:'C',敏捷:'A',魔力:'B',幸運:'D',寶具:'EX'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'},{n:'騎乘',r:'A',fx:'ride'}],
     skills:[{n:'神性',r:'A',fx:'divine'},{n:'魔力放出（炎）',r:'A',fx:'burst'},{n:'太陽之鎧',r:'A',fx:'divine_core'}],
-    traits:[{n:'神性'},{n:'英雄'}], np:'日輪啊化作鎧甲吧 Kavacha and Kundala（不滅黃金鎧）／穿刺死亡之槍 Vasavi Shakti（對神 EX·梵天弒神之槍）／梵天慈悲之槍 Brahmastra',
-    align:'秩序・善', persona:{firstP:'我',look:'白髮金鎧・太陽之鎧加身的高潔英雄、極簡寡言不卑不亢的肅然、自稱「我」・直言不諱一諾千金',words:'施與者・寡言・高潔・恩怨分明',toMaster:'沉默守諾、恩怨分明，有求必應',speech:'極簡寡言、不卑不亢、直言不諱、一諾千金',moe:'有求必應的施捨英雄、面冷心熱、被誤解也不辯解的高潔、認真到不近人情卻最溫柔',tic:'默然佇立、卸甲相贈、平靜直視'} },
+    traits:[{n:'神性'},{n:'英雄'}], np:'日輪啊化作鎧甲吧 Kavacha and Kundala（與生俱來·不滅黃金鎧）／穿刺死亡之槍 Vasavi Shakti（對神 EX·因陀羅授予的弒神之槍）／梵天慈悲之槍 Brahmastra',
+    align:'秩序・善', persona:{firstP:'我',look:'白髮・與生俱來融於血肉的太陽之鎧(唯獻祭可卸)、極簡寡言不卑不亢的肅然、自稱「我」・直言不諱一諾千金',words:'施與者・寡言・高潔・恩怨分明',toMaster:'沉默守諾、恩怨分明，有求必應',speech:'極簡寡言、不卑不亢、直言不諱、一諾千金',moe:'有求必應的施捨英雄、面冷心熱、被誤解也不辯解的高潔、認真到不近人情卻最溫柔',tic:'默然佇立、卸甲相贈、平靜直視'} },
+  // ⚠ 2026-07 修：對魔力原C——他隨身攜帶的破魔書「破卻一切的萬能福音」常駐把對魔力拉到A階，這是角色機制的
+  //   常駐效果非戰鬥觸發，已修正。np原漏收第四把寶具「阿爾加莉亞的陷阱」——Apocrypha原作他共有四把寶具，
+  //   這把是小說裡摧毀黑方指揮權冠冕的關鍵寶具，已補上。
   { id:'阿斯托爾福-Rider', cls:'Rider', realName:'阿斯托爾福', wars:['客串'], gender:'男',
     six:{筋力:'D',耐久:'D',敏捷:'B',魔力:'C',幸運:'A+',寶具:'C'},
-    classSkills:[{n:'騎乘',r:'A+',fx:'ride'},{n:'對魔力',r:'C',fx:'nullify_magic'}],
+    classSkills:[{n:'騎乘',r:'A+',fx:'ride'},{n:'對魔力',r:'A',fx:'nullify_magic'}],
     skills:[{n:'單獨行動',r:'A',fx:'solo'},{n:'直感',r:'A',fx:'first_strike'},{n:'怪力',r:'C',fx:'str_up'},{n:'純真無垢',r:'B',fx:'clear_mind'}],
-    traits:[{n:'人類'},{n:'騎士'}], np:'觸發傳說的魔笛 La Black Luna／破卻一切的萬能福音 Casseur de Logistille（解除魔術·對人）／駿馬怪鳥 Hippogriff（神話之翼·飛翔）',
+    traits:[{n:'人類'},{n:'騎士'}], np:'觸發傳說的魔笛 La Black Luna／阿爾加莉亞的陷阱 Trap of Argalia—Down with a Touch!（觸即倒·對人）／破卻一切的萬能福音 Casseur de Logistille（解除魔術·對人）／駿馬怪鳥 Hippogriff（神話之翼·飛翔）',
     align:'混沌・善', persona:{firstP:'我',look:'粉髮長辮・分不清性別的元氣騎士、蹦跳活潑毫無心機、自稱「我」・想到啥說啥的爛漫元氣',words:'天真爛漫・無憂・忠誠・元氣',toMaster:'活力滿滿，全心信賴',speech:'元氣滿滿、天真爛漫、想到啥說啥、毫無心機',moe:'十二勇士中最天真的開心果、記性差卻最忠誠、可愛到分不清性別、為朋友赴湯蹈火',tic:'蹦蹦跳跳、騎上駿鷹、燦爛大笑'} },
+  // ⚠ 2026-07 修：氣息遮斷C→C+；二重召喚A→B(官方一致給B，這是她獨有的「同時持有刺客與魔術師雙職階技能」的
+  //   稀有技能)；np規模原「對城」→「對界」——官方明確強調「這是對界寶具，不是對城寶具」，已修正。
   { id:'賽彌拉米斯-Assassin', cls:'Assassin', realName:'賽彌拉米斯', wars:['客串'], gender:'女',
     six:{筋力:'D',耐久:'C',敏捷:'C',魔力:'A',幸運:'A',寶具:'A+'},
-    classSkills:[{n:'氣息遮斷',r:'C',fx:'stealth'}],
-    skills:[{n:'二重召喚',r:'A',fx:'double_summon'},{n:'陣地作成（空中庭園）',r:'EX',fx:'territory'},{n:'道具作成（毒）',r:'A',fx:'crafting'}],
-    traits:[{n:'神性'},{n:'人類'}], np:'虛榮的空中庭園 Hanging Gardens of Babylon（對城 EX·浮空要塞·毒殺結界）',
+    classSkills:[{n:'氣息遮斷',r:'C+',fx:'stealth'}],
+    skills:[{n:'二重召喚',r:'B',fx:'double_summon'},{n:'陣地作成（空中庭園）',r:'EX',fx:'territory'},{n:'道具作成（毒）',r:'A',fx:'crafting'}],
+    traits:[{n:'神性'},{n:'人類'}], np:'虛榮的空中庭園 Hanging Gardens of Babylon（對界 EX·浮空要塞·毒殺結界）',
     align:'混沌・惡', persona:{firstP:'妾',look:'華貴盛裝・君臨空中庭園的毒后、高貴威嚴不容違逆的女王氣度、自稱「妾」・女王口吻不容忤逆',words:'毒后・傲慢・貞潔的執念・空中庭園',toMaster:'高高在上，唯認可強主',speech:'高貴威嚴、女王口吻、自稱妾、不容違逆',moe:'史上首位毒殺者女王的傲然、對貞潔與真愛的執念、被冒犯時的羞怒、君臨天下的孤高',tic:'俯瞰眾生、抬手降毒、空中庭園浮現'} },
   { id:'尼祿-Saber', cls:'Saber', realName:'尼祿·克勞狄烏斯', wars:['客串'], gender:'女',
     six:{筋力:'D',耐久:'D',敏捷:'A',魔力:'B',幸運:'A',寶具:'B'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
-    skills:[{n:'頭痛宿疾',r:'B',fx:''},{n:'皇帝特權',r:'EX',fx:'mage_realm'},{n:'縱使三度迎來落日',r:'A',fx:'survive'},{n:'領袖氣質',r:'A',fx:'morale'}],
-    traits:[{n:'王'},{n:'人類'}], np:'燃燒吧、世界的盡頭 Aestus Domus Aurea（對軍・黃金劇場）',
+    // ⚠ 2026-07 修：縱使三度迎來落日 原掛 survive(單次戰鬥續行)——查證這其實是「三度」各自獨立的復活(比照
+  //   十二試煉god_hand機制)，非一次性戰鬥續行；改掛 god_hand，階級降為C(她的復活不如赫拉克勒斯十二試煉那樣強力)，
+  //   lives:3 讓召喚時標記【試煉】3(而非god_hand預設的赫拉克勒斯專屬11)，此前 Router_Creation.gs 早已把「尼祿三度輝映」
+  //   當AI原創god_hand從者的3命基準寫進註解，這裡才補上她自己本尊的標籤一致。
+  skills:[{n:'頭痛宿疾',r:'B',fx:''},{n:'皇帝特權',r:'EX',fx:'mage_realm'},{n:'縱使三度迎來落日',r:'C',fx:'god_hand',lives:3},{n:'領袖氣質',r:'A',fx:'morale'}],
+    // ⚠ 2026-07 修：np中譯原「燃燒吧、世界的盡頭」文不對題——官方原名直譯是「引人沉醉的黃金劇場」，取材自
+    //   她真實存在的「黃金宮」劇場，已修正扣連黃金劇場意象。
+    traits:[{n:'王'},{n:'人類'}], np:'招引沉醉的黃金劇場 Aestus Domus Aurea（對軍）',
     align:'混沌・善', persona:{firstP:'余',look:'金髮綠瞳・紅薔薇綻放的華美皇帝、張揚自信滿溢的熱情、自稱「余」・滿口藝術張揚自信',words:'暴君・自戀・藝術・天真爛漫',toMaster:'熱情張揚，渴望被讚美',speech:'張揚熱情、自稱余、滿口藝術、自信滿溢、愛唱歌',moe:'暴君之名下的純真自戀、對自身美貌與才藝的迷之自信、渴望被愛被讚美、其實非常努力',tic:'振臂高歌、紅薔薇綻放、得意揚眉'} },
+  // ⚠ 2026-07 修：寶具A→B、陣地作成A→C(官方明講「她的個性不適合搞這套」，只有C階)。「道具作成」改造成她的
+  //   專屬技能「狐之嫁入」EX階，非通用B階道具作成；「高速神言」查無出處，替換為她真正的第二技能「呪術」EX；
+  //   「狐之治癒」查無出處，保留「變化」一項固有技能。髮色原「金髮」→「粉髮」，官方立繪一致是粉色雙馬尾狐耳。
+  //   拔「八純之鎖」——查無此寶具歸屬她，疑似捏造。
   { id:'玉藻前-Caster', cls:'Caster', realName:'玉藻前', wars:['客串'], gender:'女',
-    six:{筋力:'E',耐久:'E',敏捷:'B',魔力:'A',幸運:'D',寶具:'A'},
-    classSkills:[{n:'陣地作成',r:'A',fx:'territory'},{n:'道具作成',r:'B',fx:'crafting'}],
-    skills:[{n:'高速神言',r:'A',fx:'fast_cast'},{n:'變化',r:'A',fx:'shapeshift'},{n:'狐之治癒',r:'A',fx:'rune'}],
-    traits:[{n:'神性'},{n:'野獸'}], np:'水天日光天照八野鎮（治癒結界）／八純之鎖',
-    align:'混沌・中庸', persona:{firstP:'妾身',look:'金髮狐耳・和服盛裝的九尾賢妻、甜膩撒嬌裹著腹黑的氣息、自稱「妾身」・賢妻口吻甜膩撒嬌',words:'賢妻・腹黑・愛吐槽・狐狸',toMaster:'撒嬌又掌控，黏人',speech:'甜膩撒嬌、賢妻口吻、暗藏腹黑、毒舌吐槽裹著糖衣',moe:'賢妻外皮下的腹黑掌控慾、九尾狐的撒嬌黏人、吐槽精準狠辣、為愛奉獻的執著',tic:'狐耳輕顫、掩嘴輕笑、鏡前理妝'} },
+    six:{筋力:'E',耐久:'E',敏捷:'B',魔力:'A',幸運:'D',寶具:'B'},
+    classSkills:[{n:'陣地作成',r:'C',fx:'territory'},{n:'狐之嫁入',r:'EX',fx:'crafting'}],
+    skills:[{n:'呪術',r:'EX',fx:'fast_cast'},{n:'變化',r:'A',fx:'shapeshift'}],
+    traits:[{n:'神性'},{n:'野獸'}], np:'水天日光天照八野鎮（治癒結界）',
+    align:'混沌・中庸', persona:{firstP:'妾身',look:'粉髮狐耳・和服盛裝的九尾賢妻、甜膩撒嬌裹著腹黑的氣息、自稱「妾身」・賢妻口吻甜膩撒嬌',words:'賢妻・腹黑・愛吐槽・狐狸',toMaster:'撒嬌又掌控，黏人',speech:'甜膩撒嬌、賢妻口吻、暗藏腹黑、毒舌吐槽裹著糖衣',moe:'賢妻外皮下的腹黑掌控慾、九尾狐的撒嬌黏人、吐槽精準狠辣、為愛奉獻的執著',tic:'狐耳輕顫、掩嘴輕笑、鏡前理妝'} },
+  // ⚠ 2026-07 修：官方六圍為 D/C/A+/B/A/A+，耐久/敏捷/魔力/幸運/寶具原值幾乎整排偏低估，已對齊；
+  //   天狗之兵法B→A。
   { id:'牛若丸-Rider', cls:'Rider', realName:'源義經（牛若丸）', wars:['客串'], gender:'女',
-    six:{筋力:'D',耐久:'D',敏捷:'A',魔力:'D',幸運:'C',寶具:'C'},
+    six:{筋力:'D',耐久:'C',敏捷:'A+',魔力:'B',幸運:'A',寶具:'A+'},
     classSkills:[{n:'騎乘',r:'A+',fx:'ride'},{n:'對魔力',r:'C',fx:'nullify_magic'}],
-    skills:[{n:'領袖氣質',r:'C',fx:'morale'},{n:'天狗之兵法',r:'B',fx:'first_strike'},{n:'牛若之武略',r:'B',fx:'tactics'}],
+    skills:[{n:'領袖氣質',r:'C',fx:'morale'},{n:'天狗之兵法',r:'A',fx:'first_strike'},{n:'牛若之武略',r:'B',fx:'tactics'}],
     traits:[{n:'人類'}], np:'壇之浦・八艘飛（對人・神速跳躍）',
     align:'混沌・中庸', persona:{firstP:'牛若',look:'黑髮武裝・嬌小靈動的武家少女、純真赤誠的武者英氣、自稱「牛若」・赤誠語氣純真直率',words:'悲劇武者・純真・崇拜兄長・赤誠',toMaster:'純粹追隨，赤誠相待',speech:'純真赤誠、武家少女、自稱牛若、崇拜地談起兄長',moe:'悲劇宿命下的純真、對兄長賴朝近乎信仰的崇拜（卻被其所害）、天真爛漫的武勇、赤子之心',tic:'八艘飛躍、雙眸發亮、抱膝談兄長'} },
+  // ⚠ 2026-07 修：對魔力A→EX(官方明講「連神代魔術都傷不了她」)；真名看破A→B；領袖氣質B→C，官方一致。
   { id:'貞德-Ruler', cls:'Ruler', realName:'貞德', wars:['客串'], gender:'女',
     six:{筋力:'B',耐久:'B',敏捷:'A',魔力:'A',幸運:'C',寶具:'A++'},
-    classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'},{n:'真名看破',r:'A',fx:'analyze'}],
-    skills:[{n:'啟示',r:'A',fx:'first_strike'},{n:'吾主在此 Luminosité Eternelle',r:'A',fx:'rho_aias'},{n:'領袖氣質',r:'B',fx:'morale'}],
+    classSkills:[{n:'對魔力',r:'EX',fx:'nullify_magic'},{n:'真名看破',r:'B',fx:'analyze'}],
+    skills:[{n:'啟示',r:'A',fx:'first_strike'},{n:'吾主在此 Luminosité Eternelle',r:'A',fx:'rho_aias'},{n:'領袖氣質',r:'C',fx:'morale'}],
     traits:[{n:'人類'}], np:'紅蓮聖女 La Pucelle（火焰聖劍·捨身的最後王牌）／吾主在此 Luminosité Eternelle（守護大旗·非攻擊寶具·豎旗則神明在此）',
     align:'秩序・善', persona:{firstP:'我',look:'金髮持旗・銀甲聖潔的奧爾良聖女、溫柔堅定的信仰氣度、自稱「我」・語氣溫柔循循善誘',words:'聖女・堅毅・溫柔的信念・無私',toMaster:'溫柔守護，循循善誘',speech:'溫柔堅定、信仰之言、循循善誘、無私包容',moe:'聖女的堅毅與少女的羞澀、不恨將自己處刑之人的寬容、認真到固執的信念、其實很平凡的願望',tic:'按旗祈禱、溫柔微笑、堅定直視'} },
   { id:'美遊-Saber', cls:'Saber', realName:'美遊·埃德費爾特（Saber install）', wars:['客串'], gender:'女',
@@ -277,7 +351,15 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v41'; // v41：美杜莎(Rider) 女神的神核 補階級(空字串→D)——rankVal保底吃E階、減傷僅~6%形同虛設，
+var CODEX_PERSONA_VER = 'v42'; // v42：全種子庫(36位英靈)深度校對批修(玩家2026-07要求·6組研究agent逐條查證+親自複核)——
+//   六圍/技能/寶具階級與名稱錯位共約40處(阿爾托莉雅筋力/佐佐木幸運/赫拉克勒斯拔王trait/吉爾伽美什4th戰數值/
+//   迪盧木多技能誤植/伊斯坎達爾補神性/吉爾德萊拔道具作成+城牆防禦+改無鬚/百貌哈桑六圍/咒腕哈桑手臂側/
+//   蘭斯洛特六圍對調+np正名/斯卡哈-Lancer技能/斯卡哈-Assassin改泳裝版/斯卡蒂拔女神trait+改深紫髮/
+//   理查一世六圍+np正名+技能替換/阿基里斯技能正名+np階級/迦爾納神格歸屬修正/阿斯托爾福補寶具/
+//   賽彌拉米斯np規模/尼祿np正名/玉藻前技能大修+改粉髮/牛若丸六圍/貞德三技能階級/伊絲塔附體對象修正/
+//   莫德雷德補性格核心)。開膛手傑克-Berserker 整組重寫(原內容誤植Apocrypha刺客版、實為strange Fake本尊，
+//   維持wars:'fake'標籤但內容全面校正)。尼祿「縱使三度迎來落日」改掛god_hand(lives:3)取代誤用的survive，
+//   Router_Creation.gs/Seed_Rivals.gs同步支援 skill.lives 屬性覆寫復活命數。詳見 SOLO_REFERENCE.md。
 //   全種子庫其餘4個divine_core持有者皆有明確階級；比照神性C的阿基里斯配B、神性A的伊絲塔/斯卡蒂配A，
 //   美杜莎神性E-(全種子庫最弱神格)配D階；look 補服飾描述「深紫裹紗長裙」(原只有髮色/眼鏡/體態、獨缺服飾，
 //   對照阿爾托莉雅/EMIYA/美狄亞皆有嵌服飾描述)。玩家2026-07實機比對種子發現。v40：赫拉克勒斯(Berserker) 拔戰鬥續行(survive)——與十二試煉(god_hand)重疊，fateStrike_ 判定順序 survive 先攔下致命傷、god_hand 燒命永遠輪不到，跟「十二條命每次真燒一命」設計矛盾(玩家2026-07回報實機發現)；Avenger版拔god_hand時本就保留survive、兩者互斥擇一才對。v39：原作貼合批修——①貞德 寶具正典化：La Pucelle(對人·火焰聖劍)為攻擊主寶具、吾主在此 Luminosité Eternelle 為【防禦寶具】(skills 掛 rho_aias A＝旗之守護常駐減傷·取代非正典的戰鬥續行)，兩者入 servantNpOptions_ 多寶具表；沿引擎慣例防禦寶具不標對軍(否則敵AI拿旗當炮轟)。②小黑 寶具正典化：UBW(她沒展開過·EMIYA 專屬)→鶴翼三連 Triple-Linked Crane Wings(對人 B·投影干將莫邪三連殺)、skills 拔 ubw fx。③六圍對原作參數表：赫拉克勒斯 筋A→A+(FSN)、蘭斯洛特 筋A→A+(Zero)、美狄亞 魔A→A++(FSN)、吉爾德萊 筋E→D(Zero)。④DEF_FX_.rho_aias note 拿掉寫死的「羅·埃亞斯」字樣→顯示持有者自己的技能名(貞德旗/EMIYA盾 各自正名)。v38：全面體檢批修——①阿爾喀德斯 拔自相矛盾的 神性A trait(strange Fake 原作：神性已被「泥」剝奪·persona 也明寫「捨神性」；殘留會平白吃 神殺/天之鎖/對神 剋神放大)→換 英雄。②美杜莎 神性補階 E-(原無階·引擎 fallback C 偏強)。③蘭斯洛特 補 人類 trait。④阿爾托莉雅 Avalon 錯字「永世惑曲」→「永世隔絕」。⑤蒼白騎兵 入 servantNpOptions_ 多寶具表(Doomsday Come 對界 EX／Kagome Kagome 對軍 A——原單字串同含對界+對軍、引擎恆取對界)。⑥servantNpOptions_ 改【精確比對種子真名】(原 indexOf 子字串→自創從者名含「無名」等即整組繼承 Ea/Enuma 選單·繞過 fx 白名單)。v37：Excalibur 接回概念 5 階——阿爾托莉雅/美遊 skills 補掛 fx:'excalibur'(比照庫丘林 gae_bolg/EMIYA ubw 的單寶具簽名模式)。此前全專案零產生者：誓約勝利之劍只寫在 np 字串(規模對城吃得到)，但 firstSignatureFx_/offenseTier_/CLASH_OFF_FX 全靠 hasFx_ 讀 skills→解放時拿不到 CONCEPT_TIER 5、無法概念壓制 陣地/對魔力/神核，敵方寶具對轟判斷也漏她。順修美遊 np 字串「對城 A++」→「對城 A」(對齊其 six.寶具 A；A++ 是從阿爾托莉雅抄來的殘留)。v36：英靈殿孤兒自動收斂——upgradeCodexPersonas_ 改為「ID 不在 SEED_SERVANTS 且 來源≠ai_gen」即刪(取代手動 OBSOLETE 名單)，一次清掉 pre-v29 殘留的「赫拉克勒斯-Archer」等舊列(奇怪的阿恰b叔)；AI 原創不動。v35：瘦寶具補招式意象(AI 敘述由種子保證·不靠模型記性)——Excalibur(阿爾托莉雅/人類 Saber)金色收束光炮、美杜莎 Bellerophon 天馬白光突刺、伊絲塔 An Gugalanna 天牛踏地熔毀、莫德雷德 Clarent Blood Arthur 血色奔雷。show-don't-tell 不受影響(真名照喊·描述仍屬內化素材)。v34：吉爾伽美什 補招牌寶具「全知全能之星 Sha Naqba Imuru」(insight·看穿本質)——命中+4＋看破奇襲(比照氣息感知)·中等被動(他懶得認真開)。v33：恩奇都 Enuma Elish 入 CONCEPT_TIER 6 階(可匹敵乖離劍)——恩奇都改多寶具(Enuma Elish 對界·enuma／Age of Babylon 對軍·gob)；offenseTier_ 根源修(解放寶具自身概念也計入·順修吉爾 Ea 漏吃概念壓制)。v32：蒼白騎兵 對官方面板全面校正——魔EX→A·幸E→C(補上次漏改·官方表=筋E/耐A/敏B/魔A/幸C/寶EX)、騎乘D→EX(乘風水人概念級)＋補對魔力C、技能正名(感染/無辜的世界/冥界的引導)、寶具補第二 Kagome Kagome(對軍A)＋Doomsday Come正名、align 中立中庸。v31：氣息感知升真機制——恩奇都 氣息感知 fx aim→sense；引擎新增 sense：守方階級≥攻方stealth→抵銷敵奇襲的命中先機＋要害一擊(senseNegate 橫跨兩處)。v30：恩奇都補正典技＋寶具正名——寶具真名「天地乖離開闢之星(吉爾的Ea名·掛錯)」→「世人啊冀以鎖繫神明 Enuma Elish」＋民之睿智Age of Babylon；變生→變容(正名)；拔非正典神性A技/trait(他是神造兵器非神裔)→換完全之形A(regen·大地再生)；補氣息感知A+(aim)。變容真·重分配/氣息感知真·破隱形＝引擎級·暫用proxy。v29：赫拉克勒斯(fake)正名為 Avenger·阿爾喀德斯(令咒歪曲·非單純Archer)——捨神性不死性換十二榮光→拔十二試煉(god_hand)、六圍升官方 A/B/A/A/B/A++、職技 對魔力A/復仇者A(god_slay·天生噬神)/單獨行動B、保有 心眼(真)B/勇猛E/戰鬥續行A+、寶具 Nine Lives+十二榮光+天風的篡奪者、persona 改阿爾喀德斯。引擎 god_slay 改 fx 驅動。v28：續補招牌+去矛盾技——赫拉克勒斯Archer 拔矛盾狂化D→心眼(真)A·陣地作成C→對魔力A(弓兵正典職技)、斯卡哈Assassin(泳裝) 氣息遮斷B→E(原作梗)、阿斯托爾福+單獨行動A(solo)、莫德雷德 寶具A→A+(Clarent Blood Arthur 原作威力)。v27：補招牌技標籤(能活用的給真fx)——斯卡哈+神殺(god_slay·對神性放大·引擎讀名觸發)、理查+獅子心(clear_mind)、阿基里斯+女神的寵愛(divine_core常駐減傷·冥河淬體)、莫德雷德+戰鬥續行(survive)、賽彌拉米斯+二重召喚(double_summon·金羊毛式無數值標籤)。v26：續查六圍盛標——迦爾納 耐A→C/魔B→D/幸D→E(Apocrypha 赤Lancer 官方參數·金鎧防禦已由 divine_core fx 模型化·底耐非A)、玉藻前 耐D→E/敏C→B/幸A→D(FGO 官方·幸A屬大幅盛)。v25：查證原作三修——佐佐木 幸A→E(FSN 無名劍客宿命·引擎讀幸算命中暴擊)、咒腕之哈桑 六圍正回原作(筋B/耐C/魔C/幸E·True Assassin FSN 參數表)、牛若丸 拔掉捏造的神性D(源義經純人類·divine 旗標會誤觸神殺/對神/疫病減傷)→換領袖氣質C·騎乘A→A+。v24：蒼白騎兵 寶具 A→EX(原作 Doomsday Come 是 EX 對界寶具·先前被寫低威力·規模對界原本就對)。v23：修規模盛標(誤標=偷改平衡)——美遊 Excalibur 對界→對城(同阿爾托莉雅·Saber install 同一劍)、賽米拉米斯 空中庭園 對界→對城(TYPE-MOON 設定=對城寶具 EX)。威力(six.寶具)與規模關鍵字兩件事·分開校。
