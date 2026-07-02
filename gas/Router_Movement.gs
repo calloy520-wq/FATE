@@ -5,6 +5,40 @@
 // ==========================================
 
 // 🔵 視覺地圖節點：冬木頂層地點 + 座標 + 我是否在此 + 已偵查敵人數(吃迷霧/game_id)
+//   ⚡ 2026-07：算法拆成 buildMapNodesPayload_(吃呼叫端已讀好的 pcData/md，零額外整表讀)——
+//   actionGetMapNodes(獨立 round-trip) 與 buildClientState_(夾帶進共用 state blob) 共用同一份邏輯，
+//   免得地圖每次顯示都要手機再打一趟 google.script.run(這是手機「地圖更新很慢」的根因：多餘 round-trip)。
+function buildMapNodesPayload_(sheets, pcData, myGameId, myLoc) {
+  if (!sheets.map) return { nodes: [], here: myLoc, allyIntel: false };
+  // 🤝 情報共享：有在世盟友時，盟友通報敵蹤——無視戰爭迷霧，全圖敵人位置揭露
+  const allyIntel = hasAllyInGame_(pcData, myGameId);
+  const enemyAt = {};
+  pcData.slice(1).forEach(r => {
+    const fac = String(r[COL.PC.FACTION]);
+    if (fac !== "敵御主" && fac !== "敵從者") return;
+    if (myGameId && String(r[COL.PC.GAME_ID] || "") !== myGameId) return;
+    if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+    if (!r[COL.PC.SEEN] && !allyIntel) return;
+    if (isAllied_(r)) return; // 盟友自身不列為敵蹤
+    const loc = String(r[COL.PC.LOC] || "").trim();
+    enemyAt[loc] = (enemyAt[loc] || 0) + 1;
+  });
+  const md = getMapDataCached(sheets); // 坤圖靜態→走 1h 快取，免整表讀
+  const nodes = [];
+  for (let i = 1; i < md.length; i++) {
+    const name = String(md[i][COL.MAP.NAME] || "").trim();
+    if (!name) continue;
+    if (String(md[i][COL.MAP.PARENT] || "").trim() !== "") continue; // 只取頂層冬木地點
+    const co = String(md[i][COL.MAP.COORD] || "0,0").split(',');
+    nodes.push({
+      name: name, type: String(md[i][COL.MAP.TYPE] || ""),
+      x: parseFloat(co[0]) || 0, y: parseFloat(co[1]) || 0,
+      here: name === myLoc, enemy: enemyAt[name] || 0
+    });
+  }
+  return { nodes: nodes, here: myLoc, allyIntel: allyIntel };
+}
+
 function actionGetMapNodes(userData, pcId, sheets) {
   try {
     if (!sheets.map) return JSON.stringify({ success: false, nodes: [] });
@@ -12,33 +46,8 @@ function actionGetMapNodes(userData, pcId, sheets) {
     const me = pcData.find(r => r[COL.PC.ID] == pcId);
     const myGameId = me ? String(me[COL.PC.GAME_ID] || "") : "";
     const myLoc = me ? String(me[COL.PC.LOC] || "").trim() : "";
-    // 🤝 情報共享：有在世盟友時，盟友通報敵蹤——無視戰爭迷霧，全圖敵人位置揭露
-    const allyIntel = hasAllyInGame_(pcData, myGameId);
-    const enemyAt = {};
-    pcData.slice(1).forEach(r => {
-      const fac = String(r[COL.PC.FACTION]);
-      if (fac !== "敵御主" && fac !== "敵從者") return;
-      if (myGameId && String(r[COL.PC.GAME_ID] || "") !== myGameId) return;
-      if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
-      if (!r[COL.PC.SEEN] && !allyIntel) return;
-      if (isAllied_(r)) return; // 盟友自身不列為敵蹤
-      const loc = String(r[COL.PC.LOC] || "").trim();
-      enemyAt[loc] = (enemyAt[loc] || 0) + 1;
-    });
-    const md = getMapDataCached(sheets); // 坤圖靜態→走 1h 快取，免整表讀
-    const nodes = [];
-    for (let i = 1; i < md.length; i++) {
-      const name = String(md[i][COL.MAP.NAME] || "").trim();
-      if (!name) continue;
-      if (String(md[i][COL.MAP.PARENT] || "").trim() !== "") continue; // 只取頂層冬木地點
-      const co = String(md[i][COL.MAP.COORD] || "0,0").split(',');
-      nodes.push({
-        name: name, type: String(md[i][COL.MAP.TYPE] || ""),
-        x: parseFloat(co[0]) || 0, y: parseFloat(co[1]) || 0,
-        here: name === myLoc, enemy: enemyAt[name] || 0
-      });
-    }
-    return JSON.stringify({ success: true, nodes: nodes, here: myLoc, allyIntel: allyIntel });
+    const payload = buildMapNodesPayload_(sheets, pcData, myGameId, myLoc);
+    return JSON.stringify(Object.assign({ success: true }, payload));
   } catch (e) {
     return JSON.stringify({ success: false, nodes: [], message: e.message });
   }
@@ -263,6 +272,7 @@ function actionMove(userData, pcId, sheets) {
     statusString: buildPlayerStatusString(allPcData[pIdx]),
     people: getLocalPeopleList(sheets, pcName, pcId, target, allPcData),
     locations: getNearbyLocations(target, freshMapData).slice(0, 5),
+    mapNodes: buildMapNodesPayload_(sheets, allPcData, moveGameId, target), // ⚡ 夾帶地圖節點，免手機抵達後再打一趟 get_map_nodes
     mapDesc: mapDesc,
     parentRegion: rootTarget,
     clock: clockLabel,

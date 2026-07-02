@@ -373,7 +373,10 @@ function buildClientState_(sheets, pcId) {
     mapDesc: currentMapInfo ? currentMapInfo[COL.MAP.DESC] : "四下靜謐。",
     clock: clk, ap: ap, apMax: AP_PER_DAY,
     economy: isFate ? playerServantEconomy_(sheets, pcId, allPcData) : null,
-    tags: buildTagsPayload_(sheets, pcId, allPcData)
+    tags: buildTagsPayload_(sheets, pcId, allPcData),
+    // ⚡ 2026-07：地圖節點夾帶進共用 state blob(零額外整表讀，allPcData 已在手)——
+    //   免得手機每次切到地圖頁/每個動作後都要另打一趟 get_map_nodes round-trip(地圖更新慢的根因)。
+    mapNodes: buildMapNodesPayload_(sheets, allPcData, gid, curL ? String(curL).trim() : "")
   };
 }
 function actionSync(userData, pcId, sheets) {

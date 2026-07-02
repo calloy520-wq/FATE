@@ -60,6 +60,7 @@
   let currentStatusTargetId = pc ? pc.id : ""; 
   let currentStatusTargetName = pc ? pc.name : "";
   let localNPCs = [];
+  let lastMapNodes = null; // 🗺️ 最近一次動作夾帶的地圖節點快取(手機切到地圖頁直接吃這份，免再打一趟 round-trip)
   let myServantCls = ''; // 🗡️ 我方從者職階（決定攻擊類別的按鈕顯示：近戰/魔砲/狙擊）
   let myBondUsed = [];   // 💕 今日已用過的羈絆互動（灰掉按鈕）
   let myMystic = null;   // ✨ 御主禮裝（{id,name,type,charges,req,target}）
@@ -695,7 +696,7 @@ function renderRecentLocs(recents = null) {
         updateEconomy(data.economy);
         showRumors(data.rumors);
         if (optContainer) optContainer.innerHTML = '';
-        try { renderMapPane(); refreshFateTags(); renderWarActions(); } catch (e) {}
+        try { renderMapPane(data.mapNodes); refreshFateTags(); renderWarActions(); } catch (e) {}
         story.scrollTop = story.scrollHeight;
 
         // 2. 🎬 抵達即觸發一段 AI 劇情——純按鈕模式靠它讓世界活起來
@@ -1513,14 +1514,22 @@ function renderRecentLocs(recents = null) {
     return isSeek ? '對方先察覺不速之客而起戒備。' : '彼此都帶幾分意外。'; // 正常
   }
 
-  async function renderMapPane() {
+  async function renderMapPane(preNodes) {
+    // ⚡ 2026-07：每個動作(buildClientState_/actionMove)都已夾帶 mapNodes 進共用 state blob——
+    //   優先吃 preNodes(或前一次快取 lastMapNodes)，只有真的兩者皆無時才退回獨立 get_map_nodes round-trip。
+    //   這是手機切到「地圖」分頁時明顯延遲的根因：舊版每次顯示地圖都強制多打一趟 google.script.run。
+    if (preNodes) lastMapNodes = preNodes;
     var c = document.getElementById('map-pane-content'); if (!c) return;
-    // ⚡ 地圖真正隱藏時才跳過 get_map_nodes：applyClientState 每動作都呼此函式，手機在「故事」頁時地圖隱藏、
-    //   白打一趟 round-trip。★用 offsetParent===null 判「實際是否顯示」而非 .active class——寬螢幕(≥601)是三欄
+    // ⚡ 地圖真正隱藏時才跳過渲染：applyClientState 每動作都呼此函式，手機在「故事」頁時地圖隱藏、
+    //   白算一趟。★用 offsetParent===null 判「實際是否顯示」而非 .active class——寬螢幕(≥601)是三欄
     //   並排、地圖恆顯示但【沒有 .active class】(那是手機分頁機制)，誤用 class 會讓寬螢幕地圖永不刷新(光圈不動)。
     if (c.offsetParent === null) return;
     var nodes = [], here = '', allyIntel = false;
-    try { var r = await gasRun({ action: 'get_map_nodes', pcId: pc.id }); if (r && r.success) { nodes = r.nodes || []; here = r.here || ''; allyIntel = !!r.allyIntel; } } catch (e) { }
+    var cached = preNodes || lastMapNodes;
+    if (cached) { nodes = cached.nodes || []; here = cached.here || ''; allyIntel = !!cached.allyIntel; }
+    else {
+      try { var r = await gasRun({ action: 'get_map_nodes', pcId: pc.id }); if (r && r.success) { nodes = r.nodes || []; here = r.here || ''; allyIntel = !!r.allyIntel; lastMapNodes = r; } } catch (e) { }
+    }
     var html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">'
       + '<div style="color:#d4af37; font-weight:bold; font-size:14px;">🗺️ 冬木 · 戰場</div>'
       + '<div style="display:flex; gap:5px;">'
@@ -2275,7 +2284,7 @@ function renderRecentLocs(recents = null) {
     updateClock(data.clock, data.ap, data.apMax);
     updateEconomy(data.economy);
     refreshFateTags(data.tags); // ⚡ 用夾帶的 tags，省一趟 get_tags round-trip
-    renderMapPane();
+    renderMapPane(data.mapNodes); // ⚡ 用夾帶的 mapNodes，省一趟 get_map_nodes round-trip
     renderWarActions();
     if (!isSilent) {
       const story = document.getElementById('story');
