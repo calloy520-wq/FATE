@@ -87,10 +87,10 @@ function actionAccountNewGame(userData, pcId, sheets) {
     var prow = pcData.find(function (r) { return String(r[COL.PC.ID]) === charId; });
     var gid = prow ? String(prow[COL.PC.GAME_ID] || "") : "";
     // 刪舊單人戰場：同 game_id 的整個世界 ＋ 御主本人(按 charId，防 game_id 為空的孤兒殘留佔名)
-    var fresh = sheets.pc.getDataRange().getValues();
-    for (var r = fresh.length - 1; r >= 1; r--) {
-      var rgid = String(fresh[r][COL.PC.GAME_ID] || "");
-      var rid = String(fresh[r][COL.PC.ID]);
+    //   中間沒有任何寫入，沿用剛讀的 pcData 即可，不必重讀一次整表(2026-07 修：原本重讀的 fresh 純屬多餘)。
+    for (var r = pcData.length - 1; r >= 1; r--) {
+      var rgid = String(pcData[r][COL.PC.GAME_ID] || "");
+      var rid = String(pcData[r][COL.PC.ID]);
       if ((gid && rgid === gid) || rid === charId) sheets.pc.deleteRow(r + 1);
     }
   }
