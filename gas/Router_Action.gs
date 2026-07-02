@@ -12,7 +12,6 @@ const ActionRouter = {
   "get_victory_history": actionGetVictoryHistory,
   "claim_grail": actionClaimGrail,
   "enter_kanshou": actionEnterKanshou,
-  "dev_seed_gallery": actionDevSeedGallery,
   "dev_resync_codex": actionDevResyncCodex,
   "purge_orphans": actionPurgeOrphans,
   "kanshou_companions": actionKanshouCompanions,
@@ -143,6 +142,17 @@ function handleGameAction(userData) {
   if (!handler) {
     return JSON.stringify({ success: false, message: `系統異常：未知的動作指令「${action}」` });
   }
+  // 🔒 寫入互斥(2026-07·技術債清償)：會寫表的動作取 ScriptLock，擋「同鍵重送/連點」重複扣血扣AP。
+  //   豁免不取鎖(零成本·不礙 3→1 round-trip 鐵則)：①純讀取 ②長 AI 敘事(narrate_only/play/backfill——
+  //   鎖是全域的，被數秒的 AI 呼叫佔住會卡到其他請求)。搶不到鎖(上一動作尚在結算)→回「稍候」而非疊加重跑。
+  let _mutex = null;
+  if (!LOCK_EXEMPT_ACTIONS_[action]) {
+    try {
+      _mutex = LockService.getScriptLock();
+      if (!_mutex.tryLock(8000)) return JSON.stringify({ success: false, message: "上一個動作尚在結算中——請稍候片刻再操作。" });
+    } catch (e) { _mutex = null; } // 取鎖機制本身異常 → 照舊執行(不因鎖壞掉癱瘓遊戲)
+  }
+  try {
   let out = handler(userData, pcId, sheets);
   // ⏳ 14天時限·中央攔截：任何「會推進時間」的動作(回應帶 clock 字串)若已跨過第14日 → 統一補敗北旗標，
   //   免每個 action 各自判。用回應現成的 clock(零額外時鐘讀)；僅在真跨日(罕見)才做一次眾生讀取建時限夢。
@@ -177,7 +187,16 @@ function handleGameAction(userData) {
     } catch (e) { /* 非 JSON 或建構失敗 → 維持原回應，前端 fallback */ }
   }
   return out;
+  } finally { if (_mutex) { try { _mutex.releaseLock(); } catch (e) { } } }
 }
+// 🔒 不取寫入鎖的動作：純讀取(不寫表·鎖了白繳成本) ＋ 長 AI 敘事(佔鎖數秒會卡住全域)。
+//   ⚠ sync 雖會 markRivalsSeen_ 標記 SEEN，但該寫入冪等(重標無害)，不值得為它鎖每一次同步。
+const LOCK_EXEMPT_ACTIONS_ = {
+  check_name: 1, get_victory_history: 1, get_full_status: 1, get_heroes: 1, get_masters: 1,
+  get_tags: 1, get_map_nodes: 1, sync: 1, get_epic_history: 1, leaderboard: 1,
+  war_chronicle: 1, war_history_list: 1,
+  narrate_only: 1, play: 1, backfill_master_ai: 1
+};
 // ⚡ 會改動 solo 戰場狀態、前端事後會 syncData(整頁刷新) 的動作 → 夾帶 _state 省一趟 round-trip。
 //   不含：sync(本身即 state)／get_tags／純讀取(inspect/get_*)／創角召喚(自走 reload)／kanshou(KPC_)；
 //   也不含「樂觀更新」的輕量 setter(set_servant_output/set_mage_realm/set_rune_mode/set_np_choice/set_active_skill)——
