@@ -37,12 +37,6 @@
         <button class="btn" style="width:100%; margin-top:7px; padding:7px; border-color:#8a6a5a; color:#c0a08a; font-size:11px;" onclick="devPurgeOrphans()">🧹 DEV：清殘列（刪孤兒戰局／加速操作）</button>
       </div>
 
-      <!-- 多人：以排行榜形式呈現（帳號為單位、撈持久層） -->
-      <button class="btn" style="width:100%; margin-bottom:9px; padding:11px; border-color:#c9a84a; color:#e0c66a; font-weight:bold;" onclick="openLeaderboard()">🏆 排行榜</button>
-      <div style="display:flex; gap:8px; margin-bottom:9px;">
-        <button class="btn" style="flex:1; padding:10px; border-color:#9a7b4f; color:#9a7b4f; font-size:12px;" onclick="showVictoryHistory()">📜 勝利歷史</button>
-        <button class="btn" style="flex:1; padding:10px; border-color:#7f6fa0; color:#a99cc6; font-size:12px;" onclick="openWarHistory()">📜 戰役回顧</button>
-      </div>
       <button class="btn" style="width:100%; padding:9px; border-color:#777; color:#999; font-size:12px;" onclick="logoutAccount()">🚪 登出</button>
     </div>
     <div id="scr-warmode" style="display:none; width:300px;">
@@ -164,8 +158,6 @@
     </div>
     <div id="action-drawer">
       <button class="drawer-item" onclick="triggerDrawerAction('status')"><i>👤</i><span>查看狀態</span></button>
-      <button class="drawer-item" onclick="openEpicPanel()"><i>📖</i><span>個人史紀</span></button>
-      <button class="drawer-item" onclick="openWarChronicle()"><i>📜</i><span>本場戰記</span></button>
       <button class="drawer-item" id="drawer-companions" onclick="openCompanions()" style="display:none;"><i>👥</i><span>後日談同伴</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('settings')"><i>⚙️</i><span>系統設定</span></button>
     </div>
@@ -356,35 +348,6 @@
       </div>
 
       <button class="btn" style="margin-top: 20px; width: 100%; background-color: #332211; color: var(--paper-bg);" onclick="closeInteractMenu()">取消</button>
-    </div>
-  </div>
-
-  <div id="epic-overlay" class="modal-overlay" onclick="closeSystemModal('epic-overlay')">
-    <div class="modal-scroll" onclick="event.stopPropagation()" style="max-width: 420px;">
-      <span class="modal-close-btn" onclick="closeSystemModal('epic-overlay')">&times;</span>
-
-      <div style="display:flex; border-bottom: 2px solid rgba(128,0,128,0.3); margin-bottom: 15px;">
-        <button id="tab-epic-history" onclick="switchEpicTab('history')"
-        style="flex:1; padding:10px; background:none; border:none; border-bottom: 2px solid #800080; color:#800080; font-weight:bold; font-size:14px; cursor:pointer; margin-bottom:-2px;">
-        📜 命運長河
-      </button>
-        <button id="tab-epic-stats" onclick="switchEpicTab('stats')"
-        style="flex:1; padding:10px; background:none; border:none; border-bottom: 2px solid transparent; color:#816e54; font-size:14px; cursor:pointer; margin-bottom:-2px;">
-        🗺️ 冬木足跡
-      </button>
-      </div>
-
-      <div id="panel-epic-history">
-        <div id="epic-history-content">
-          <p style="text-align:center; color:#816e54;">翻閱命運長河中...</p>
-        </div>
-      </div>
-
-      <div id="panel-epic-stats" style="display:none;">
-        <div id="epic-stats-content">
-          <p style="text-align:center; color:#816e54;">統計冬木足跡中...</p>
-        </div>
-      </div>
     </div>
   </div>
 
