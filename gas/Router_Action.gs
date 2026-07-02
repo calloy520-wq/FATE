@@ -30,7 +30,8 @@ const ActionRouter = {
   "get_masters": actionGetMasters,
   "get_tags": actionGetTags,
   "fate_battle": actionFateBattle,
-  "summon_horror_beast": actionSummonHorror, // 🐙 戰前召喚深淵海怪(變身態)
+  "summon_horror_beast": actionSummonHorror, // 🐙 戰前召喚深淵海怪(變身態·付 prana+1AP)
+  "dismiss_horror_beast": actionDismissHorror, // 🐙 解除召喚(免費即時·止住每小時維持費)
   "use_seal": actionUseSeal,
   "mana_supply": actionManaSupply,
   "set_servant_output": actionSetServantOutput,
@@ -204,9 +205,9 @@ const LOCK_EXEMPT_ACTIONS_ = {
 //   它們不 syncData、只吃 res.economy，夾 _state 反而白做整表讀取。
 //   也不含 narrate_only——前端 narrate() 只吃 res.text、不消費 _state，夾它純浪費整表讀。
 const STATE_AFTER_ACTIONS = {
-  fate_battle: 1, summon_horror_beast: 1, use_seal: 1, mana_supply: 1, bond: 1, rule_break_steal: 1,
+  fate_battle: 1, use_seal: 1, mana_supply: 1, bond: 1, rule_break_steal: 1,
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
-  second_wind: 1, scout: 1, move: 1, rest: 1, summon_horror_beast: 1,
+  second_wind: 1, scout: 1, move: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
   update_fate: 1, update_rel_tag: 1, clear_npc_major_event: 1
 };
 

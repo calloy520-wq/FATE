@@ -121,10 +121,13 @@ function npAtkScale_(c) {
 }
 // 防禦規模表(對稱 npAtkScale_)：依 fx 定 NP 防禦規模，餵 NP_SCALE_MATRIX。優先序＝陣列順序(對城優先於對軍)。
 //   ★固有結界(ubw)是進攻型 NP，NP 防禦由 rho_aias 機制承擔；divine_core/god_hand 各有自己的機制——均不疊加防禦規模。
-var DEF_SCALE_ = [['wall_def', '對城'], ['territory', '對軍']];
+var DEF_SCALE_ = [['territory', '對軍']];
 function npDefScale_(c) {
   // 🐙 海怪在場(變身態·c.horrorUp)才享對城防禦規模——退場/未召則回一般對人。
   //   原本 summon_horror fx 恆給對城(沒召海怪也享·與召喚物直覺相反)；改綁狀態＝變身時才升防。
+  //   ⚖️ wall_def 一併移出規模表(2026-07)：城牆防禦的本職＝物理減傷×0.82(DEF_FX_)，
+  //   若同時恆給「對城防規模」會讓 對人寶具 vs 持牆者恆×0.50——①架空海怪變身的專屬對城防
+  //   ②AI 自訂從者掛個 C 階城牆(白名單內)就把敵對人寶具砍半。規模防禦收斂為 海怪(狀態)與 territory(對軍)。
   if (c && c.horrorUp) return '對城';
   for (var i = 0; i < DEF_SCALE_.length; i++) { if (hasFx_(c, DEF_SCALE_[i][0])) return DEF_SCALE_[i][1]; }
   return '對人';

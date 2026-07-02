@@ -138,7 +138,7 @@ CLK(時鐘): GAME_ID0 DAY1 HOUR2 AP3
 對城攻   1.50  1.30  1.00  0.60
 對界攻   1.70  1.50  1.30  1.00
 ```
-攻擊規模由寶具名關鍵字或 `ea/excalibur/ubw/summon_horror` 推定；防禦規模：`c.horrorUp`(🐙海怪在場·變身態)或 `wall_def`=對城、`territory`=對軍，其餘對人。※2026-07：對城防由「有 summon_horror fx 恆給」改綁「海怪實際在場」(見 §變身框架)。特判：`對神`(弒神寶具·vs神性×2.4)、`疫病 vs 病死宿命`×3.0。
+攻擊規模由寶具名關鍵字或 `ea/excalibur/ubw/summon_horror` 推定；防禦規模：`c.horrorUp`(🐙海怪在場·變身態)=對城、`territory`=對軍，其餘對人。※2026-07：對城防由「有 summon_horror fx 恆給」改綁「海怪實際在場」；`wall_def` 一併移出規模表(本職＝物理減傷×0.82·恆給對城規模會架空海怪變身＋讓 AI 自訂掛牆砍半對人寶具)。特判：`對神`(弒神寶具·vs神性×2.4)、`疫病 vs 病死宿命`×3.0。
 
 ### 概念位階 `CONCEPT_TIER`（PIERCE_GAP=2）
 `ea:6 ＞ excalibur/divine_age/rule_breaker:5 ＞ ubw/anti_magic_lance/gae_bolg:4 ＞ god_hand/tsubame/zabaniya/petrify:3 ＞ nullify_magic/divine_core/territory:2`。
