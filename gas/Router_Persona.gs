@@ -112,7 +112,11 @@ function enemyMasterCard_(row) {
     var moe = String(row[COL.PC.INTENT] || "").trim();
     return `〈敵御主「${name}」·演出依據(僅內化、禁複述)〉` +
       (prefArr.length ? `性格：${prefArr.slice(0, 4).join('、')}` : "") +
-      (traitArr.length ? `｜特徵：${traitArr.slice(0, 3).join('、')}` : "") +
+      // ⚠ 2026-07 修：跟上面 prefArr 同一顆地雷，改 slice(0,4) 對齊 masterCard_ 的寫法——目前 TRAIT 來源
+      // (mAppear，單句外貌)通常只有1段、slice(0,3)暫無實害，但只要哪個 SEED_MASTERS 缺 appearance 欄
+      // 退回 parseTraitsHelper 的4段預設值("外貌平凡、舉止從容、通曉魔術、深藏心事")，(0,3) 就會靜默砍掉
+      // 第4段——同一函式兩個並排欄位卻用不同上限，屬遺漏而非刻意設計，一併改掉不留地雷。
+      (traitArr.length ? `｜特徵：${traitArr.slice(0, 4).join('、')}` : "") +
       (moe ? `｜萌點(反差·僅供內化)：${moe}` : "") +
       `。★此役敵御主本人在場，依其性格與萌點反差自行決定是否開口、有何神態反應(show, don't tell：別把萌點/性格詞當台詞或由旁白點破)——非沉默背景板，但戰局勝負與傷害不可改。\n`;
   } catch (e) { return ""; }
