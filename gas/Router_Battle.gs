@@ -152,7 +152,6 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
       // ⚠ sealNote 同時會進玩家看得到的回合報告(k.note)，別在這裡塞「★」AI指令字面(那種只該進 aiPrompt，見下方
       //   buildDreamPrompt_ 呼叫處另加的一行)——玩家讀到裸露的鷹架指令會很怪。
       out.sealNote = `${escMasterName ? '敵御主「' + escMasterName + '」' : '對面御主'}一道令咒迸發，強令其從者「${defC.name}」於靈基崩解前一瞬撤離戰場，遁向「${newLoc}」（敵餘令咒 ${leftSeals}）。${doomNote}`;
-      logWarEvent_(ctx.myGameId, `${escMasterName ? '敵御主「' + escMasterName + '」' : '敵御主'}燃一道令咒，令重傷的從者「${defC.name}」緊急脫離戰場（敵餘令咒 ${leftSeals}）${doomNote ? '；其令咒已盡、靈基進入透支倒數' : ''}。`, String(ctx.userData.acctName || ""));
       return out;
     }
   }
@@ -198,21 +197,14 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
         out.defeat = true;
         var wish = extractWish_(pcData[ctx.pIdx][COL.PC.MEMORY]);
         out.dreamPrompt = buildDreamPrompt_(pcData[ctx.pIdx][COL.PC.NAME], wish, svName);
-        var acctD = String(ctx.userData.acctName || "");
-        if (acctD) recordHistory_(acctD, "敗", svName, `「${svName}」於「${atkC.name}」之手靈基崩潰，聖杯戰爭落敗。`);
-        logWarEvent_(ctx.myGameId, `我方從者「${svName}」於「${atkC.name}」之手靈基崩潰消滅——聖杯戰爭落敗。`, String(ctx.userData.acctName || ""));
       } else {
-        logWarEvent_(ctx.myGameId, `我方從者「${svName}」被「${atkC.name}」擊破消滅（尚有從者續戰）。`, String(ctx.userData.acctName || ""));
       }
     } else {
       out.knocked = out.destroyed;
       // 🕯️ 敵從者被擊破 → 在其御主身上記下「如何痛失從者」，供日後遭遇時 AI 演出無牙御主
-      if (isFoeSv) { markMasterLostServant_(sheets.pc, pcData, tgtIdx, `被『${atkC.name}』當場擊破、靈基崩潰消滅`); logWarEvent_(ctx.myGameId, `敵從者「${out.destroyed}」被我方『${atkC.name}』擊破、靈基崩潰消滅。`, String(ctx.userData.acctName || "")); }
+      if (isFoeSv) markMasterLostServant_(sheets.pc, pcData, tgtIdx, `被『${atkC.name}』當場擊破、靈基崩潰消滅`);
       if (isFoeSv && aliveEnemyServants_(sheets, ctx.myGameId) <= 0) {
         out.victory = true;
-        var acctW = String(ctx.userData.acctName || "");
-        if (acctW) { incrementWin_(acctW); recordHistory_(acctW, "勝", atkC.name, `「${atkC.name}」擊破所有敵對從者，奪得聖杯。`); recordWinSpeed_(acctW, ctx.myGameId); }
-        logWarEvent_(ctx.myGameId, `🏆『${atkC.name}』擊破所有敵對從者，奪得聖杯——聖杯戰爭勝利！`, String(ctx.userData.acctName || ""));
       }
     }
   } else {
@@ -441,12 +433,8 @@ function actionFateBattle(userData, pcId, sheets) {
       pcData[assassinGuardIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "化作光點", "負面": "御主既亡·魔力斷絕消滅", "顏面": "黯然消散" });
       sheets.pc.getRange(assassinGuardIdx + 1, 1, 1, pcData[assassinGuardIdx].length).setValues([pcData[assassinGuardIdx]]);
       asnKnocked = [masterName, guardName];
-      logWarEvent_(myGameId, `我方『${crit.name}』奇襲斬首敵御主「${masterName}」，御主既亡、護衛從者「${guardName}」失去魔力供給隨之消散。`, String(userData.acctName || ""));
       if (aliveEnemyServants_(sheets, myGameId) <= 0) {
         asnVictory = true;
-        const acctW = String(userData.acctName || "");
-        if (acctW) { incrementWin_(acctW); recordHistory_(acctW, "勝", crit.name, `「${crit.name}」奇襲斬首敵御主「${masterName}」，奪得聖杯。`); recordWinSpeed_(acctW, myGameId); }
-        logWarEvent_(myGameId, `🏆 已無敵對從者存世——聖杯到手，聖杯戰爭勝利！`, String(userData.acctName || ""));
       }
       asnReport = {
         assassination: true, success: true, aRoll: 20, rolls: rolls.map(r => ({ name: r.name, roll: r.roll })), dual: dualAsn,
@@ -491,8 +479,6 @@ function actionFateBattle(userData, pcId, sheets) {
         asnDefeat = true;
         const wish = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
         asnDream = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wish, hits[0].name);
-        const acctD = String(userData.acctName || "");
-        if (acctD) recordHistory_(acctD, "敗", hits[0].name, `斬首失手，遭護衛「${guardName}」反噬全滅，聖杯戰爭落敗。`);
       }
       const rollsTxt = hits.map(h => `${h.name}擲${h.roll}→受創 −${h.dmg}${h.knocked ? '·崩潰' : ''}`).join('；');
       asnReport = {
@@ -531,7 +517,6 @@ function actionFateBattle(userData, pcId, sheets) {
     const left = getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]) - 1;
     pcData[pIdx][COL.PC.MEMORY] = setPlayerSeals_(pcData[pIdx][COL.PC.MEMORY], left);
     sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-    logWarEvent_(String(pcData[pIdx][COL.PC.GAME_ID] || ""), `御主燃一道令咒·絕對命令，強令『${atkC.name}』對「${defC.name}」發動必中的全力一擊（我餘令咒 ${left}）。`, String(userData.acctName || ""));
   }
   // 🔋 寶具魔力 = 依寶具階級的 Prana Cost（E40 D70 C110 B160 A220 EX300）。從者付不起 → 御主電池接力供能。
   let battery = null;
@@ -564,7 +549,6 @@ function actionFateBattle(userData, pcId, sheets) {
     atkC.overcharge = usedOvercharge;      // → resolveFateBattle_ 全能力微揚
     atkC.mp = parseInt(pcData[atkIdx][COL.PC.MP]) || 0; // 反映耗魔後的出力
     if (battery.usedBattery) {
-      logWarEvent_(myGameId, `『${atkC.name}』解放寶具魔力不足，御主以${battery.bledMaster ? '自身血肉與' : ''}魔力為電池供能（御主餘 ${battery.masterHp}/${battery.masterHpMax} HP）。`, String(userData.acctName || ""));
     }
   }
 
@@ -579,7 +563,6 @@ function actionFateBattle(userData, pcId, sheets) {
       skillBattery = drainForNp_(sheets, pcData, atkIdx, pIdx, skCost);
       atkC.mp = parseInt(pcData[atkIdx][COL.PC.MP]) || 0;
       if (skillBattery.usedBattery) {
-        logWarEvent_(myGameId, `『${atkC.name}』全力催動「${skillBuff.name}」，御主${skillBattery.bledMaster ? '焚血' : '導魔'}供能（御主餘 ${skillBattery.masterHp}/${skillBattery.masterHpMax} HP）。`, String(userData.acctName || ""));
       }
     } else {
       skillBuff = tinyActiveSkill_(_fullSkill);   // 關閉→微量被動、免費(無 drain)
@@ -669,7 +652,6 @@ function actionFateBattle(userData, pcId, sheets) {
         atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0,
         defHp: parseInt(pcData[nIdx][COL.PC.HP]) || 0, defHpMax: parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0
       };
-      logWarEvent_(myGameId, `寶具對轟！『${atkC.name}』與「${defC.name}」真名解放正面對撞——${outcome === 'causality' ? '因果律先行截斷——在敵方寶具離弦之前，死亡已先降臨' : outcome === 'player' ? '我方威能壓過對手' : outcome === 'enemy' ? '敵寶具威能壓過我方（但從者拼死撐住）' : '勢均力敵、兩相抵銷'}。`, String(userData.acctName || ""));
     }
   }
 
@@ -1057,7 +1039,6 @@ function actionSummonHorror(userData, pcId, sheets) {
   sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
   let ap = AP_PER_DAY, clock = "";
   if (isFate) { try { ap = spendAp_(gameId, 1).ap; clock = clockLabel_(gameId); } catch (e) { } }
-  logWarEvent_(gameId, `『${svName}』翻開螺湮城教本，自深淵召出「深淵海怪」常駐身側掩護（御主${battery.bledMaster ? '焚血' : '導魔'}供能）。`, String(userData.acctName || ""));
   const aiPrompt = servantCard_(pcData[svIdx]) +
     `【系統·螺湮城教本·已解放】御主號令「${svName}」翻開螺湮城教本，自深淵召出觸手巨獸「深淵海怪」（肉身 ${HORROR_SHIELD_HP}）常駐身側——只要魔力供養不絕，海怪便持續以身擋傷、每回合再生、並肩撕咬敵手，本體防禦亦升至對城規模；代價是每小時抽 ${HORROR_HOURLY_UPKEEP} 魔、每個交鋒回合另抽 ${HORROR_UPKEEP} 魔維持，共用魔力見底時海怪將先行沉回深淵。\n` +
     `★以 Fate／TYPE-MOON 筆觸演出深淵巨獸自書頁裂隙湧現、觸手蔽天的壓迫一幕（一段即可）。已結算。`;
@@ -1086,7 +1067,6 @@ function actionDismissHorror(userData, pcId, sheets) {
   const svName = String(pcData[svIdx][COL.PC.NAME]);
   pcData[svIdx][COL.PC.MEMORY] = clearHorrorShield_(pcData[svIdx][COL.PC.MEMORY]);
   sheets.pc.getRange(svIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[svIdx][COL.PC.MEMORY]);
-  logWarEvent_(gameId, `『${svName}』闔上螺湮城教本——「深淵海怪」緩緩沉回深淵，魔力維持就此止息。`, String(userData.acctName || ""));
   return JSON.stringify({
     success: true, message: `「深淵海怪」已沉回深淵（停止每小時 ${HORROR_HOURLY_UPKEEP} 魔的維持）。要再召喚須重付寶具魔力。`,
     statusString: getFreshStatusString(pcId, pIdx, sheets)

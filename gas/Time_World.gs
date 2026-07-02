@@ -7,28 +7,46 @@
 
 var AP_PER_DAY = 12; // 體力池上限（1 AP = 1 小時的行動）
 
-// 取得（或初始化）某 game_id 的時鐘
-function getClock_(gameId) {
-  if (!gameId) return null;
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sh = ss.getSheetByName("時鐘");
-  if (!sh) return null;
-  var data = sh.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][COL.CLK.GAME_ID]) === gameId) {
-      var apCell = data[i][COL.CLK.AP];
-      var ap = (apCell === "" || apCell == null) ? AP_PER_DAY : (parseInt(apCell) || 0);
-      return { sheet: sh, gameId: gameId, row: i + 1, day: parseInt(data[i][COL.CLK.DAY]) || 1, hour: parseInt(data[i][COL.CLK.HOUR]) || 20, ap: ap };
-    }
-  }
-  // 初始化：第 1 日 20:00（夜）、AP 滿
-  sh.appendRow([gameId, 1, 20, AP_PER_DAY]);
-  return { sheet: sh, gameId: gameId, row: sh.getLastRow(), day: 1, hour: 20, ap: AP_PER_DAY };
-}
+// ⏳ 時鐘 2026-07 重構：不再是獨立「時鐘」表——日/時/AP 直接存在【御主自己那一列】(COL.PC.DAY/HOUR/AP)，
+//   因為每個世界(game_id)恆只有一位御主，時鐘就是這個世界的狀態、天然 1:1 對應御主列，無需獨立 join 表。
+//   函式簽名刻意維持「傳 gameId」不變(呼叫端多達 20+ 處)，只在內部找御主列；效能鍵在於：
+//   凡是呼叫端手上已有整表 pcData 時，一律走「_withData」變體直接吃記憶體，不重新整表掃描；
+//   只有極少數「手上沒有 pcData」的呼叫點才退回「自己整表掃一次找御主列」的 fallback。
 
-function writeClock_(clk) {
-  if (!clk || !clk.sheet) return;
-  clk.sheet.getRange(clk.row, 1, 1, 4).setValues([[clk.gameId, clk.day, clk.hour, clk.ap]]);
+// 內部：在(已載入的) pcData 中找某 game_id 的御主列索引。
+function findGameMasterIdx_(pcData, gameId) {
+  if (!gameId) return -1;
+  for (var i = 1; i < pcData.length; i++) {
+    if (String(pcData[i][COL.PC.GAME_ID] || "") !== gameId) continue;
+    if (String(pcData[i][COL.PC.ID]).startsWith("DEAD_")) continue;
+    var f = String(pcData[i][COL.PC.FACTION] || "");
+    if (f !== "從者" && f !== "敵從者" && f !== "敵御主") return i; // 御主(含盟友御主等非敵非從者陣營)
+  }
+  return -1;
+}
+// 從御主列讀出時鐘 {day,hour,ap}；idx=-1(查無/尚未實例化)回預設滿血時鐘。
+function clockFromRow_(pcData, idx) {
+  if (idx < 0) return { day: 1, hour: 20, ap: AP_PER_DAY };
+  var row = pcData[idx];
+  var apCell = row[COL.PC.AP];
+  var ap = (apCell === "" || apCell == null) ? AP_PER_DAY : (parseInt(apCell) || 0);
+  var day = parseInt(row[COL.PC.DAY]) || 1, hour = row[COL.PC.HOUR] === "" || row[COL.PC.HOUR] == null ? 20 : (parseInt(row[COL.PC.HOUR]) || 0);
+  return { day: day, hour: hour, ap: ap };
+}
+// 取得（或初始化）某 game_id 的時鐘——無 pcData 時自行整表讀一次(fallback，呼叫端沒有現成資料才會走這)。
+function getClock_(gameId, pcData, sheets) {
+  if (!gameId) return null;
+  var data = pcData;
+  if (!data) {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sh = (sheets && sheets.pc) || ss.getSheetByName("眾生");
+    if (!sh) return null;
+    data = sh.getDataRange().getValues();
+  }
+  var idx = findGameMasterIdx_(data, gameId);
+  var clk = clockFromRow_(data, idx);
+  clk.gameId = gameId; clk.masterIdx = idx;
+  return clk;
 }
 
 // 推進小時（內部用，roll day）
@@ -36,41 +54,56 @@ function rollHours_(clk, hours) {
   clk.hour += hours;
   while (clk.hour >= 24) { clk.hour -= 24; clk.day += 1; }
 }
+// 把時鐘寫回御主列 + 表（僅在 masterIdx 有效時才動作；沒有現成 pcData/sheets 則整表讀一次落地）。
+function writeClockToRow_(clk, pcData, sheets) {
+  if (!clk || clk.masterIdx == null || clk.masterIdx < 0) return;
+  var data = pcData, sh = sheets && sheets.pc;
+  if (!data || !sh) {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    sh = sh || ss.getSheetByName("眾生");
+    data = data || sh.getDataRange().getValues();
+  }
+  data[clk.masterIdx][COL.PC.DAY] = clk.day;
+  data[clk.masterIdx][COL.PC.HOUR] = clk.hour;
+  data[clk.masterIdx][COL.PC.AP] = clk.ap;
+  sh.getRange(clk.masterIdx + 1, COL.PC.DAY + 1, 1, 3).setValues([[clk.day, clk.hour, clk.ap]]);
+}
 
-// 取目前 AP（無時鐘回滿）
-function getAp_(gameId) {
-  var clk = getClock_(gameId);
+// 取目前 AP（無時鐘回滿）。傳 pcData 可省一次整表讀。
+function getAp_(gameId, pcData) {
+  var clk = getClock_(gameId, pcData);
   return clk ? clk.ap : AP_PER_DAY;
 }
 
-// 消耗 AP：1 AP = 1 小時。足夠則扣 cost、推進 cost 小時、回 {ok,ap}；不足回 {ok:false,ap}
-function spendAp_(gameId, cost) {
-  var clk = getClock_(gameId);
-  if (!clk) return { ok: true, ap: AP_PER_DAY }; // 無時鐘(相容)→不擋
+// 消耗 AP：1 AP = 1 小時。足夠則扣 cost、推進 cost 小時、回 {ok,ap}；不足回 {ok:false,ap}。
+//   傳 pcData+sheets 可全程零額外整表讀寫(只改記憶體+單列3欄寫回)；不傳則自行整表讀一次(相容舊呼叫)。
+function spendAp_(gameId, cost, pcData, sheets) {
+  var clk = getClock_(gameId, pcData, sheets);
+  if (!clk || clk.masterIdx < 0) return { ok: true, ap: AP_PER_DAY }; // 無御主列(相容)→不擋
   if (clk.ap < cost) return { ok: false, ap: clk.ap };
   clk.ap -= cost;
   rollHours_(clk, cost);
-  writeClock_(clk);
+  writeClockToRow_(clk, pcData, sheets);
   return { ok: true, ap: clk.ap, day: clk.day, hour: clk.hour };
 }
 
 // 🩸 不推進時間、直接補 n 點 AP（second wind 燃燒生命強撐用）
-function grantAp_(gameId, n) {
-  var clk = getClock_(gameId);
-  if (!clk) return AP_PER_DAY;
+function grantAp_(gameId, n, pcData, sheets) {
+  var clk = getClock_(gameId, pcData, sheets);
+  if (!clk || clk.masterIdx < 0) return AP_PER_DAY;
   clk.ap = Math.min(AP_PER_DAY, clk.ap + n);
-  writeClock_(clk);
+  writeClockToRow_(clk, pcData, sheets);
   return clk.ap;
 }
 
 // 🛏️ 休息 N 小時：推進 N 小時、補 2×N AP（上限 12）。何時休、休多久由玩家決定。
-function restHours_(gameId, hours) {
-  var clk = getClock_(gameId);
-  if (!clk) return null;
+function restHours_(gameId, hours, pcData, sheets) {
+  var clk = getClock_(gameId, pcData, sheets);
+  if (!clk || clk.masterIdx < 0) return null;
   hours = Math.max(1, Math.min(12, parseInt(hours) || 1));
   rollHours_(clk, hours);
   clk.ap = Math.min(AP_PER_DAY, clk.ap + hours * 2);
-  writeClock_(clk);
+  writeClockToRow_(clk, pcData, sheets);
   return clk;
 }
 
@@ -84,8 +117,8 @@ function timeBand_(hour) {
 }
 
 // 時鐘文字標籤
-function clockLabel_(gameId) {
-  var clk = getClock_(gameId);
+function clockLabel_(gameId, pcData) {
+  var clk = getClock_(gameId, pcData);
   if (!clk) return "";
   return "第 " + clk.day + " 日・" + ("0" + clk.hour).slice(-2) + ":00・" + timeBand_(clk.hour);
 }
@@ -123,13 +156,14 @@ function servantEconomy_(circuits, six, isMad, leyline, hasWorkshop) {
   return { supply: supply, ley: leyline || 0, workshop: ws, income: income, drain: drain, net: income - drain };
 }
 
-// 取玩家家園(居所 COL.AUTH.HOME_LOC)所在地；無則 ""。
-function playerHomeLoc_(sheets, pcId) {
-  if (!sheets || !sheets.auth) return "";
+// 取玩家家園(居所)所在地；無則 ""。2026-07：權柄表已刪，居所併入御主自己那一列(COL.PC.HOME_LOC)。
+//   傳 pcData 可省一次整表讀(呼叫端手上通常已有)；沒傳才自行整表讀一次(相容)。
+function playerHomeLoc_(sheets, pcId, pcData) {
+  if (!sheets || !sheets.pc) return "";
   try {
-    var d = sheets.auth.getDataRange().getValues();
+    var d = pcData || sheets.pc.getDataRange().getValues();
     for (var i = 1; i < d.length; i++) {
-      if (String(d[i][COL.AUTH.ID]).trim() === String(pcId).trim()) return String(d[i][COL.AUTH.HOME_LOC] || "").trim();
+      if (String(d[i][COL.PC.ID]).trim() === String(pcId).trim()) return String(d[i][COL.PC.HOME_LOC] || "").trim();
     }
   } catch (e) { }
   return "";
@@ -142,7 +176,7 @@ function playerServantEconomy_(sheets, pcId, preData) {
   if (pIdx < 0) return null;
   var gid = String(data[pIdx][COL.PC.GAME_ID] || "");
   var circuits = masterCircuits_(data[pIdx]);
-  var homeLoc = playerHomeLoc_(sheets, pcId);
+  var homeLoc = playerHomeLoc_(sheets, pcId, data);
   var sv = null;
   for (var j = 1; j < data.length; j++) {
     if (String(data[j][COL.PC.FACTION]) === "從者" && String(data[j][COL.PC.GAME_ID] || "") === gid && !String(data[j][COL.PC.ID]).startsWith("DEAD_")) { sv = data[j]; break; }
@@ -259,7 +293,6 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
     if (mMpMax && rawNew < 0 && horrorIdx !== -1) {
       data[horrorIdx][COL.PC.MEMORY] = clearHorrorShield_(data[horrorIdx][COL.PC.MEMORY]);
       did = true;
-      try { logWarEvent_(gameId, '共用魔力難以為繼——「深淵海怪」失去供養，悄然沉回深淵。', ""); } catch (e) { }
       totalDrain -= HORROR_HOURLY_UPKEEP;
       horrorIdx = -1;
       perHour = (income * mult) - totalDrain;
@@ -304,8 +337,8 @@ function stampManaDay_(memory, day) {
   s = s.replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
   return (s ? s + "｜" : "") + "【回魔日】" + day;
 }
-function refillMastersDaily_(sheets, gameId, day) {
-  var data = sheets.pc.getDataRange().getValues();
+function refillMastersDaily_(sheets, gameId, day, preData) {
+  var data = preData || sheets.pc.getDataRange().getValues();
   var dirty = false;
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][COL.PC.FACTION]) !== "敵御主") continue;
@@ -335,12 +368,13 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
   var rumors = [];
   if (!gameId) return { rumors: rumors, moved: 0 };
   rounds = rounds || 1;
-  try { var _ck = getClock_(gameId); if (_ck) refillMastersDaily_(sheets, gameId, _ck.day); } catch (e) { }
+  // ⚡ 2026-07 收斂：全函式只整表讀一次，往後各階段(移位/廝殺/透支判定)共用同一份記憶體 data、
+  //   只做局部批次寫回(LOC欄/單列)——原本每輪重讀一次+廝殺前後各再讀一次，一次 worldTick_ 呼叫最多整表讀 3+ 次。
+  var data = sheets.pc.getDataRange().getValues();
+  var _ck0 = getClock_(gameId, data); if (_ck0) refillMastersDaily_(sheets, gameId, _ck0.day, data);
   var moved = 0;
 
   for (var rd = 0; rd < rounds; rd++) {
-    var data = sheets.pc.getDataRange().getValues();
-
     // 1) 敵御主帶著從者隨機移位（機率 35%），移走者重設偵查旗標→地圖再次隱形
     var freezeLoc = String(playerLoc || "").trim(); // 🔒 玩家所在/將抵達的格子上的敵人禁止移動，否則玩家永遠追不到人
     var locDirty = false;
@@ -391,17 +425,16 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
     //    且永遠至少保留 WORLD_FLOOR_ 名敵從者給玩家親手解決——絕不會被世界自走清光。
     if (!allowAttrition) continue;
     // ⏳ 開戰前期(第 ATTRITION_START_DAY 日前)世界不減員——給玩家喘息，也貼「戰爭初期各方按兵蟄伏」。
-    var _dayNow = 1; try { var _c = getClock_(gameId); if (_c) _dayNow = _c.day; } catch (e) { }
-    if (_dayNow < ATTRITION_START_DAY) continue;
-    var fresh = sheets.pc.getDataRange().getValues();
+    var _ckR = getClock_(gameId, data);
+    if (_ckR && _ckR.day < ATTRITION_START_DAY) continue;
     var offstage = [];
-    for (var k = 1; k < fresh.length; k++) {
-      if (String(fresh[k][COL.PC.FACTION]) !== "敵從者") continue;
-      if (String(fresh[k][COL.PC.GAME_ID] || "") !== gameId) continue;
-      if (String(fresh[k][COL.PC.ID]).startsWith("DEAD_")) continue;
+    for (var k = 1; k < data.length; k++) {
+      if (String(data[k][COL.PC.FACTION]) !== "敵從者") continue;
+      if (String(data[k][COL.PC.GAME_ID] || "") !== gameId) continue;
+      if (String(data[k][COL.PC.ID]).startsWith("DEAD_")) continue;
       // 🩸 戰力分＝六圍階總和(給「低能力先死」用)；解析失敗給高分(不優先被清)
-      var pw = 999; try { var _s6 = JSON.parse(fresh[k][COL.PC.SIX] || '{}'); pw = ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].reduce(function (a, key) { return a + rankVal(_s6[key] || 'E'); }, 0); } catch (e) { }
-      offstage.push({ idx: k, name: String(fresh[k][COL.PC.NAME]), loc: String(fresh[k][COL.PC.LOC]).trim(), pow: pw });
+      var pw = 999; try { var _s6 = JSON.parse(data[k][COL.PC.SIX] || '{}'); pw = ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].reduce(function (a, key) { return a + rankVal(_s6[key] || 'E'); }, 0); } catch (e) { }
+      offstage.push({ idx: k, name: String(data[k][COL.PC.NAME]), loc: String(data[k][COL.PC.LOC]).trim(), pow: pw });
     }
     var aliveTotal = offstage.length;
     if (aliveTotal <= WORLD_FLOOR_) continue; // 已到底線→世界不再清人，剩下的全交給玩家
@@ -417,12 +450,11 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
       var _weak = faraway[0].pow;
       var _pool = faraway.filter(function (o) { return o.pow === _weak; });
       var victim = _pool[Math.floor(Math.random() * _pool.length)];
-      fresh[victim.idx][COL.PC.ID] = "DEAD_" + String(fresh[victim.idx][COL.PC.ID]);
-      fresh[victim.idx][COL.PC.HP] = 0;
-      fresh[victim.idx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "暗處殞落", "顏面": "已無生息" });
-      sheets.pc.getRange(victim.idx + 1, 1, 1, fresh[victim.idx].length).setValues([fresh[victim.idx]]);
-      markMasterLostServant_(sheets.pc, fresh, victim.idx, "在冬木暗處的廝殺中、歿於他人之手");
-      logWarEvent_(gameId, "敵從者「" + victim.name + "」在冬木暗處的廝殺中歿於他人之手。");
+      data[victim.idx][COL.PC.ID] = "DEAD_" + String(data[victim.idx][COL.PC.ID]);
+      data[victim.idx][COL.PC.HP] = 0;
+      data[victim.idx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "暗處殞落", "顏面": "已無生息" });
+      sheets.pc.getRange(victim.idx + 1, 1, 1, data[victim.idx].length).setValues([data[victim.idx]]);
+      markMasterLostServant_(sheets.pc, data, victim.idx, "在冬木暗處的廝殺中、歿於他人之手");
       rumors.push("〔風聞〕昨夜冬木某處傳出靈基崩潰的餘波——「" + victim.name + "」似乎已在他人手中殞落。");
     }
   }
@@ -430,24 +462,22 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition) {
   //   這不是世界隨機清人(那有 WORLD_FLOOR_ 保底)，而是玩家親手把對方打到燃盡令咒後的「延遲結算」，故允許收尾、可觸發勝利。
   var victory = false;
   try {
-    var ck = getClock_(gameId);
+    var ck = getClock_(gameId, data);
     if (ck) {
       var nowAbs = ck.day * 24 + ck.hour;
-      var dd = sheets.pc.getDataRange().getValues();
       var faded = false;
-      for (var di = 1; di < dd.length; di++) {
-        if (String(dd[di][COL.PC.FACTION]) !== "敵從者") continue;
-        if (String(dd[di][COL.PC.GAME_ID] || "") !== gameId) continue;
-        if (String(dd[di][COL.PC.ID]).startsWith("DEAD_")) continue;
-        var dl = getDoom_(dd[di][COL.PC.MEMORY]);
+      for (var di = 1; di < data.length; di++) {
+        if (String(data[di][COL.PC.FACTION]) !== "敵從者") continue;
+        if (String(data[di][COL.PC.GAME_ID] || "") !== gameId) continue;
+        if (String(data[di][COL.PC.ID]).startsWith("DEAD_")) continue;
+        var dl = getDoom_(data[di][COL.PC.MEMORY]);
         if (dl > 0 && nowAbs >= dl) {
-          dd[di][COL.PC.ID] = "DEAD_" + String(dd[di][COL.PC.ID]);
-          dd[di][COL.PC.HP] = 0;
-          dd[di][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "令咒耗盡·靈基透支消滅", "顏面": "已無生息" });
-          sheets.pc.getRange(di + 1, 1, 1, dd[di].length).setValues([dd[di]]);
-          markMasterLostServant_(sheets.pc, dd, di, "三道令咒燃盡、靈基透支崩解而消滅");
-          logWarEvent_(gameId, "敵從者「" + String(dd[di][COL.PC.NAME]) + "」三道令咒燃盡、無單獨行動自持，靈基透支崩解消滅。");
-          rumors.push("〔風聞〕「" + String(dd[di][COL.PC.NAME]) + "」三道令咒已燃盡、又無『單獨行動』自持，失穩的靈基終究撐不過——崩解消散於冬木的夜色中。");
+          data[di][COL.PC.ID] = "DEAD_" + String(data[di][COL.PC.ID]);
+          data[di][COL.PC.HP] = 0;
+          data[di][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "令咒耗盡·靈基透支消滅", "顏面": "已無生息" });
+          sheets.pc.getRange(di + 1, 1, 1, data[di].length).setValues([data[di]]);
+          markMasterLostServant_(sheets.pc, data, di, "三道令咒燃盡、靈基透支崩解而消滅");
+          rumors.push("〔風聞〕「" + String(data[di][COL.PC.NAME]) + "」三道令咒已燃盡、又無『單獨行動』自持，失穩的靈基終究撐不過——崩解消散於冬木的夜色中。");
           faded = true;
         }
       }

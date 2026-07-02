@@ -19,7 +19,6 @@ function actionManualNpc(userData, pcId, sheets) {
   // 🔴 創角寫入前再次擋撞名，否則會產生兩個同名 PC，後續所有靠姓名查找的功能都會抓錯人。
   const pcRows = sheets.pc.getDataRange().getValues();
   if (pcRows.find(r => r[COL.PC.NAME] === finalName && !String(r[COL.PC.ID]).startsWith("DEAD_"))) return JSON.stringify({ success: false, message: "此名號已有魔術師使用，請換一個名號。" });
-  if (sheets.auth) { try { sheets.auth.appendRow([finalName, newId, "御主", "", ""]); } catch (e) { } }
 
   // 🔵 實例化：御主創角 → 開一個全新 game_id 世界
   const gameId = "g_" + Date.now();
@@ -68,7 +67,6 @@ function actionManualNpc(userData, pcId, sheets) {
     newRow[COL.PC.PREF] = parseTraitsHelper("", "溫婉謙和、內斂堅韌、明哲保身、隨波逐流");
     newRow[COL.PC.HP] = masterStats.hp; newRow[COL.PC.MP] = masterStats.mp;
     newRow[COL.PC.MAX_HP] = masterStats.hp; newRow[COL.PC.MAX_MP] = masterStats.mp;
-    newRow[COL.PC.REALM] = "";  // 🎴 階級系統已移除，欄位留空
     newRow[COL.PC.FACTION] = "無"; newRow[COL.PC.RANK] = "御主";
     newRow[COL.PC.CONTRIB] = 0; newRow[COL.PC.ALIGN] = "中立";
     newRow[COL.PC.INTENT] = "（待揭曉）";
@@ -318,7 +316,6 @@ function actionSummonServant(userData, pcId, sheets) {
 
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
-      row[COL.PC.REALM] = "";
       // 🎴 特徵(4格敘事：外貌/氣質/自稱與口氣/私密)直接讀寫死的種子 persona.look，穩定一致、不叫 AI 生。
       row[COL.PC.TRAIT] = parseTraitsHelper(String(persona.look || ""), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
       // 🚀 種子英靈：直接用寫死的種子 persona（萌點/口吻 v3 已補齊），不再叫 AI 重生一次——省一次 API、加速召喚。
@@ -370,7 +367,6 @@ ${FX_MENU_}
       const svHp = 150 + svNum_(aiSix.耐久) * 6, svMp = 0; // 🔋 出力電池制：從者無自有魔力池，出力檔存 MEMORY、預設 60 巡航
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
-      row[COL.PC.REALM] = "";
       // 🎴 AI 即時生成的原創從者：特徵走通用敘事預設(不再用戰鬥特性污染敘事欄)，玩家可逆天改命微調。
       row[COL.PC.TRAIT] = parseTraitsHelper("", "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
       row[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "沉著表象、堅定內裡、珍視之物、厭惡之事");
@@ -396,6 +392,7 @@ ${FX_MENU_}
     row[COL.PC.CONTRIB] = 0; row[COL.PC.ALIGN] = align;
     row[COL.PC.MARTIAL] = np;
     row[COL.PC.GAME_ID] = gameId;
+    row[COL.PC.BOND] = 35; row[COL.PC.REL_TAG] = "從者"; row[COL.PC.IS_PARTY] = "同行";
     sheets.pc.appendRow(row);
 
     // 🔋 共用魔力池：把新從者魔力併入御主池上限(迴路×6 + 魔力×2)，締約＝魔力暢通故補到滿池
@@ -412,14 +409,8 @@ ${FX_MENU_}
       }
     } catch (e) { }
 
-    if (sheets.rel) {
-      try { sheets.rel.appendRow([pcName, realName, 35, "從者", "同行", "", ""]); } catch (e) { }
-    }
-
     // 🔵 召喚完成 → 鋪敵方御主×從者進這個 game_id 世界（一次性）
     try { seedRivalsForGame_(gameId, realName, warName, playedMaster); } catch (e) { }
-    // 📖 戰記開卷：開戰＋召喚
-    try { logWarEvent_(gameId, `⚔️ 冬木的聖杯戰爭開幕——御主『${pcName}』以令咒召喚出 ${cls} 職階的從者「${realName}」，締結契約。`, userData.acctName); } catch (e) { }
 
     // 🎬 召喚登場場景（精簡敘事用，含角色卡；前端純按鈕模式直接 narrate，不走 options 那套）
     const summonPrompt = servantCard_(row) +

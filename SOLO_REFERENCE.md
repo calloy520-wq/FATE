@@ -33,8 +33,8 @@
 `applyModeUI()`（Script.html）是模式總開關。solo 隱藏 full 專屬功能、收掉輸入框、顯示 `war-actions` 行動列。
 
 **雙軌設計**（Index.html `scr-menu`）：玩法只有兩條軌——🎴 純淨(單人聖杯戰爭, newGameFlow/continueGame, SFW) ／ 🌹 慾海(鑑賞後日談, openGallery, NSFW)。共用一張試算表＋核心資料(管線 奪杯→鑑賞 需要)，靠 帳號＋game_id 分流，不拆表。
-另有**兩個唯讀視窗**(非玩法軌)：📜 個人聖杯戰記(showVictoryHistory，自己勝敗) ／ 🏆 排行榜(openLeaderboard/actionLeaderboard，跨帳號比拼)。`full`(九州全模擬)模式碼殘留、停用中，不作為前台軌（經濟已砍、可隨之清理）。
-**持久層(清檔不刪，排行榜/戰記只撈這些)**：帳號表(WON勝場/CREATED/BEST_DAYS最快奪杯日/NAME)、戰史(每場勝敗+真實時間+從者+摘要)、鑑賞表(封存從者)。**會被清檔刪**：眾生(game_id)、關係(name)。`recordWinSpeed_(acct,gameId)` 在三勝利點(斬盡敵從者/斬首/起源彈)讀當前遊戲日取 min→ACC.BEST_DAYS。
+⚠ **2026-07 玩家定案(推翻舊方針)：兩個唯讀視窗(📜 個人聖杯戰記／🏆 排行榜)已全數砍除**——單人專注、不做跨帳號回顧比拼，`showVictoryHistory`/`actionGetVictoryHistory`/`openLeaderboard`/`actionLeaderboard` 連同「戰史」表、`incrementWin_`/`recordHistory_`/`recordWinSpeed_` 一併刪除，帳號表 WON/BEST_DAYS 欄砍除。`full`(九州全模擬)模式碼殘留、停用中，不作為前台軌（經濟已砍、可隨之清理）。
+**持久層(清檔不刪)**：帳號表(2026-07 縮為 NAME/PC/CREATED 3 欄，WON/BEST_DAYS 已隨排行榜砍除)、鑑賞表(封存從者)。**會被清檔刪**：眾生(game_id)——NPC 對御主的關係(BOND/REL_TAG/IS_PARTY/MAJOR_EVENT/REL_MEM)已 2026-07 併入眾生列，隨列一起被清、不再是獨立表。
 
 **補魔(solo)**：`actionManaSupply` 走 narrate_only(SFW)、不開慾海引擎，prompt 維持「曖昧 fade、點到為止」（玩家認可現狀，勿再收緊）。
 
@@ -53,23 +53,28 @@
 - ✅ **九州數值五圍(STR/CON/AGI/INT/LUK) 已移除(2026-06)**：FATE 純六圍 SIX 階級制。戰鬥(Engine_Fate)本就吃 `rankVal(six[...])`；HP/MP 改由 `maxStatsForRow_(row)`＝`fateMaxHpMp_(svNum_(SIX.耐久), svNum_(SIX.魔力))` 算；`getCharacterTotalStats` 的 STR~LUK 顯示值改由 `svNum_(SIX)` 推。`buildPlayerStatusString` 五圍 §位置保留(由 SIX 推/空字串)→前端 s[N] 不變。
 - ✅ **九州境界/物品/銀兩/門派 已移除(2026-06)**：`REALMS/REALM_MODIFIERS/REALM_LIMITS`、`calculateMaxStats`(屬性上限計算器)、`getRealmConstantsJson` 全砍；新 `fateMaxHpMp_(con,mag)` 無境界倍率(`100+con*10`/`50+mag*10`)。`COL.PC.REALM` 死欄保留但一律寫 ""。物品(`RARITY_TABLE/detectItemType`)、貨幣(`CURRENCY_TABLE`)、門派(`registerFactionHelper/updateFactionPower`)helper 一併移除。`actionManualNpc` de-realm：御主固定凡人級、NPC 採 AI 建議 con/int 夾 8~25。快取鍵 `KYUSHU_MAP_DATA`→`FATE_MAP_DATA`。
 - ✅ **提示詞清九州(2026-06)**：solo `sfwBaseRules`、各 NPC/玩家卡、慾海 `nsfwBaseRules`(玩家授權「只換詞·機制原封不動」：九州天道→敘事演化核心、境界/真氣/江湖/武學→中性)全清九州詞，讓 AI 完全不知九州。**例外**：`雙修技巧` 是 NSFW `[雙修技巧]` MEMORY 機制，依機制原封不動保留；`凡人`作「人類御主」描述語(非境界值)保留。
-- **分頁**（Setup_FateWorld.gs `FATE_SHEET_DEFS`，缺頁自動補、冪等）：眾生/英靈殿/御主殿/戰鬥標籤/帳號/戰史/鑑賞/時鐘/關係/坤圖(地圖)/因果(log)…
+- **分頁**（Setup_FateWorld.gs `FATE_SHEET_DEFS`，缺頁自動補、冪等）：**2026-07 精簡為 7 頁**——坤圖(地圖)/眾生/英靈殿/御主殿/帳號/鑑賞/歷史暫存。另有動態建的「鑑賞眾生」分頁（見下）。舊分頁戰史/時鐘/因果/權柄/關係/史紀 全數移除：時鐘(CLK)/權柄(AUTH，居所)/關係(REL，好感等) 併入眾生列各欄(見下 COL schema)；因果(事件log)/戰史/史紀(命運長河) 直接刪除、無替代機制(2026-07 玩家定案，單人專注不留跨局回顧資料)。
 
-### COL schema（索引讀取，表頭僅供人看）
+### COL schema（索引讀取，表頭僅供人看；定義在 `Core_Settings.gs` 開頭 `const COL`）
+
+⚠ **2026-07 單人重構**：獨立的 關係(REL)／時鐘(CLK)／權柄(AUTH) 表全部**摺進「眾生」自己這一列**——單人模式每個 game_id 世界恆只有一位御主，故「NPC 對御主的關係」= 那名 NPC 自己這一列的欄位；「日/時/AP/居所」= 御主自己那一列的欄位，天然 1:1、無需獨立 join 表。因果(LOG)／戰記／史紀(EPIC) 三個機制直接刪除（見 §3、§10）。
+
 ```
-PC(眾生)【FATE 25欄·2026-06 砍九州經濟/生活/五圍後】:
+PC(眾生)【FATE 33欄·2026-07 折表後】:
   ID0 NAME1 SEX2 BACK3(身世) STATUS4(外顯) TRAIT5 LOC6 PREF7(個性)
   HP8 MP9 MAX_HP10 MAX_MP11
-  REALM12 MEMORY13 INTENT14(萌點) FACTION15 RANK16(職階) CONTRIB17 ALIGN18
-  PHYSICAL19(肉體·NSFW) MARTIAL20(寶具) GAME_ID21 SIX22(六圍JSON) TAGS23(技能JSON) SEEN24(戰爭迷霧)
-  🗑️已刪:財帛MONEY/裝備WEP·ARM·ACC1·ACC2/生活技能LIFESKILL/冗餘職階CLS(併RANK)/數值五圍STR·CON·AGI·INT·LUK(改吃六圍SIX)。
+  MEMORY12 INTENT13(萌點) FACTION14 RANK15(職階) CONTRIB16 ALIGN17
+  PHYSICAL18(肉體·NSFW) MARTIAL19(寶具) GAME_ID20 SIX21(六圍JSON) TAGS22(技能JSON) SEEN23(戰爭迷霧)
+  🆕 關係欄(原 REL 表·這名 NPC 對「本世界御主」的關係。御主自己這一列這五欄留空)：
+    BOND24(好感值0-100) REL_TAG25(關係標籤) IS_PARTY26(同行旗標"同行"/"") MAJOR_EVENT27(未完成重大約定) REL_MEM28(關係專屬記憶，NSFW稱呼/親密次數等，與角色自己MEMORY分開存)
+  🆕 世界狀態欄(原 CLK/AUTH 表·只在【御主自己那一列】有意義，其餘角色列留空)：
+    DAY29 HOUR30 AP31(1AP=1hr，每日12AP，休息每hr補2AP) HOME_LOC32(居所·工房加成判定用，原權柄表)
+  🗑️已刪:財帛MONEY/裝備WEP·ARM·ACC1·ACC2/生活技能LIFESKILL/冗餘職階CLS(併RANK)/數值五圍STR·CON·AGI·INT·LUK(改吃六圍SIX)/死欄REALM(2026-07 真的移除，非棄用)。
   🗑️COL 已無 ITEM/QUEST/SHOP/MAIL/TASK/CTAG 子表(戰鬥標籤分頁仍在、以fx碼查找不需索引)。
 HERO(英靈殿): ID0 CLS1 NAME2(真名) SEX3 SIX4 CLASS_SKILLS5 SKILLS6 TRAITS7 NP8 PERSONA9(JSON) ALIGN10 WARS11 SOURCE12
 MASTER(御主殿): ID0 NAME1 SEX2 APPEAR3 MAGIC4 CIRCUITS5 MELEE6 MAGIC_RANK7 HOME8 WISH9 PERSONA10 WAR11 SOURCE12 BACK13(身世) MOE14(萌點)
-REL(關係): PC0 NPC1 FAV2(好感/羈絆) TAG3 IS_PARTY4 MEMORY5 MAJOR_EVENT6
 GAL(鑑賞): ACC0 NAME1 CLS2 SEX3 SIX4 TAGS5 NP6 BACK7 PREF8 MOE9 MEMOIR10 WISH11 TIME12 MASTER13 MSEX14
-CLK(時鐘): GAME_ID0 DAY1 HOUR2 AP3   (1AP=1hr，每日12AP，休息每hr補2AP)
-ACC(帳號): NAME0 PC1 WON2 CREATED3 BEST_DAYS4(最快奪杯日)
+ACC(帳號)【2026-07 縮為3欄，WON/BEST_DAYS隨排行榜砍除】: NAME0 PC1 CREATED2
 GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master 分支）
 ```
 
@@ -113,10 +118,12 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | claim_grail / enter_kanshou / kanshou_companions·add·remove | Gallery.gs | 奪杯封存／進鑑賞後日談世界／同伴管理(見 §9)。⚠ 舊 list_gallery/enter_gallery/gallery_talk 已移除 |
 | enter_kanshou | actionEnterKanshou (Gallery.gs) | **🌹 進入鑑賞主入口(新版)**：每帳號【單一常駐】後日談世界。御主 avatar(KPC_)以 MEMORY `【帳號】<acct>` 綁定、id 持久→`getGameHistory(pcId)` 跟單機一樣接續歷史。無從者預載、不重講開場；從者由 `kanshou_companions/add/remove`(👥面板) 邀請(上限3)。**御主名字＋性別首次進場由玩家定**(不掛帳號)：沒帶齊 `pcName/pcSex`又還沒建過→回 `needSetup:true`(附 `defaultName`)，前端 `askKanshouSetup()` 問一次(名字＋性別)再帶進來建。前端 `enterKanshou()`(Index.html「進入鑑賞」鈕)→ mode=kanshou、自動開 NSFW、撈歷史 |
 | kanshou_set_sex / kanshou_set_name | actionKanshouSetSex／actionKanshouSetName (Gallery.gs) | ⚧/✏ 隨時改後日談御主 avatar 性別/名字(只動該欄，不影響歷史；改名一併遷當前同伴的 REL.PC 羈絆鍵)。👥面板「切換性別」「改名」鈕→`changeKanshouSex()`／`changeKanshouName()` |
-| get_victory_history / get_ranking | — | 戰史/排行 |
+| ~~get_victory_history / get_ranking~~ | (已移除) | 🗑️ 2026-07：個人聖杯戰記／排行榜兩個唯讀視窗連同「戰史」表全數砍除（單人專注，不做跨帳號回顧比拼）。 |
+| ~~war_chronicle / war_history_list~~ | (已移除) | 🗑️ 2026-07：「戰記」表(里程碑回顧)整套刪除，`logWarEvent_`／`actionWarChronicle`／`actionWarHistoryList` 及 Router_Battle/Bond/Creation/Time_World 內所有呼叫點一併拔除。 |
+| ~~get_epic_history~~ | (已移除) | 🗑️ 2026-07：「史紀」表(命運長河面板)整套刪除，`actionGetEpicHistory` 已拔。前端 Script.html ~2804 仍呼叫 `get_epic_history`——已知死按鈕(回「未知的動作指令」優雅錯誤、不崩)，待後續前端清理批次拔除按鈕。 |
 
 ### 🗑️ 九州經濟/生活層已全數移除（2026-06，code＋分頁＋COL 一併清）
-銀兩(MONEY)/商城·店鋪(SHOP)/物品·背包(ITEM)/天命·任務(QUEST)/工房(TASK)/賭場/飛書(MAIL)/生活技能(LIFESKILL)/裝備(WEP·ARM·ACC1·ACC2)——對應 action、helper(resolveItemName/transferMoney/checkAndExpireQuests…)、actionPlay 內 items_gained/transferred/lost/used·money_transferred·quest 解析、前端背包/物品連結/飛書 UI 全拆；COL 子表與分頁定義一併刪。**保留**：魔力收支(playerServantEconomy_/工房/`economy:`欄＝FATE 戰鬥機制非錢)、關係(REL)、肉體(PHYSICAL)/外顯(STATUS)。`play`(actionPlay) 仍用於 kanshou(NSFW)，**solo 戰爭走 narrate_only 不走 play**。
+銀兩(MONEY)/商城·店鋪(SHOP)/物品·背包(ITEM)/天命·任務(QUEST)/工房(TASK)/賭場/飛書(MAIL)/生活技能(LIFESKILL)/裝備(WEP·ARM·ACC1·ACC2)——對應 action、helper(resolveItemName/transferMoney/checkAndExpireQuests…)、actionPlay 內 items_gained/transferred/lost/used·money_transferred·quest 解析、前端背包/物品連結/飛書 UI 全拆；COL 子表與分頁定義一併刪。**保留**：魔力收支(playerServantEconomy_/工房/`economy:`欄＝FATE 戰鬥機制非錢)、關係(2026-07 併入眾生列 BOND/REL_TAG/IS_PARTY/MAJOR_EVENT/REL_MEM，非獨立表)、肉體(PHYSICAL)/外顯(STATUS)。`play`(actionPlay) 仍用於 kanshou(NSFW)，**solo 戰爭走 narrate_only 不走 play**。
 > **🎴 actionPlay 的 AI 回寫三閘已 solo-only 關閉(2026-06，鑑賞照舊)**：`new_maps`(AI 加地點)／`recruited`(AI 招募入隊)／`rel_changes.fav_change`(AI 改好感) 三者一律 `if (isNsfwMode)` 才生效。solo 的地圖只走坤圖/移動、招募只走召喚·破戒奪僕·結盟、**好感只走羈絆/補魔/結盟等 GAS 按鈕**——AI 自由敘事改不動數值。好感渲染(顯示 ❤️±N)同樣 solo 不顯示。
 > **🗑️ spare_npc(放過)＋打掃戰場(處決/放過昏迷者)已刪(2026-06)**：九州「擊昏→處決/放過」殘留，與 FATE「靈基崩潰消滅」矛盾；`execute_npc` action 早已不存在(死按鈕)。移除 `actionSpareNpc`＋router＋前端 `spareNpc`/`confirmExecute`/`renderBattlefieldCleanup` 及兩處呼叫。
 
