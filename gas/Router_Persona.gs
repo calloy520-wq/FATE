@@ -93,18 +93,23 @@ function masterCard_(row) {
 }
 
 // 🎭 敵御主「演出依據」卡（精簡）：戰鬥現場若敵御主本人在場(同地)，讓 AI 依其性格給反應/台詞，
-//   別讓對方全程沉默——只塞夠判斷語氣的精簡片段(性格/特徵各取前3項)，不塞六圍/寶具/全份人設。
+//   別讓對方全程沉默——只塞夠判斷語氣與反差的精簡片段(性格全4項/特徵/萌點)，不塞六圍/寶具/全份人設。
 //   跟 masterCard_ 不同：這是 NPC、AI 可自行決定其言行反應，不受「不可替玩家做決定」那條限制。
+// ⚠ 2026-07 修：原本沒讀 INTENT(萌點)——敵御主(如伊莉雅)只吃到光禿禿的性格詞，沒有「反差萌點」
+//   撐住 show-don't-tell，AI 沒別的錨點時就會滑向類型套路(如「冷眼旁觀殺戮」)而非角色本來的反差設計；
+//   性格也從 slice(0,3) 補回 slice(0,4)(原本會漏掉「厭惡」那格，那格常常正是理解反差的關鍵)。
 function enemyMasterCard_(row) {
   if (!row) return "";
   try {
     var name = String(row[COL.PC.NAME] || "敵御主");
     var prefArr = String(row[COL.PC.PREF] || "").split('、').filter(function (x) { return x && x !== "無"; });
     var traitArr = String(row[COL.PC.TRAIT] || "").split('、').filter(function (x) { return x && x !== "無"; });
+    var moe = String(row[COL.PC.INTENT] || "").trim();
     return `〈敵御主「${name}」·演出依據(僅內化、禁複述)〉` +
-      (prefArr.length ? `性格：${prefArr.slice(0, 3).join('、')}` : "") +
+      (prefArr.length ? `性格：${prefArr.slice(0, 4).join('、')}` : "") +
       (traitArr.length ? `｜特徵：${traitArr.slice(0, 3).join('、')}` : "") +
-      `。★此役敵御主本人在場，依其性格自行決定是否開口、有何神態反應——非沉默背景板，但戰局勝負與傷害不可改。\n`;
+      (moe ? `｜萌點(反差·僅供內化)：${moe}` : "") +
+      `。★此役敵御主本人在場，依其性格與萌點反差自行決定是否開口、有何神態反應(show, don't tell：別把萌點/性格詞當台詞或由旁白點破)——非沉默背景板，但戰局勝負與傷害不可改。\n`;
   } catch (e) { return ""; }
 }
 

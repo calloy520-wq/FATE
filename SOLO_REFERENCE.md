@@ -281,7 +281,8 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
   - `seedFateCodex_(ss)`：英靈殿/御主殿為空才灌入(冪等)。版本 `CODEX_PERSONA_VER='v3'`，升版觸發 `upgradeCodexPersonas_`(覆寫英靈 persona)＋`upgradeMasterCodex_`(覆寫御主 persona/身世/萌點＋補欄)，皆不動客製。
 - **Seed_Rivals.gs**：開局鋪敵。
   - `seedRivalsForGame_`：依 war(4th/5th/fake/chaos)鋪敵御主+敵從者；移除玩家扮演的那組。
-  - `masterToNpcRow_`：御主殿列→敵御主眾生列。BACK←身世(+外貌)、INTENT←萌點、TRAIT/PREF←persona 解析、凡人弱數值、MEMORY=【願望】|【魔術】。
+  - `masterToNpcRow_`：御主殿列→敵御主眾生列。BACK←身世(+外貌)、INTENT←萌點、PREF←persona 解析、凡人弱數值、MEMORY=【願望】|【魔術】。
+    - **🐛→✅ TRAIT 原本跟 PREF 抄同一份 PERSONA(2026-07 修)**：導致 `enemyMasterCard_` 印出的「性格」「特徵」逐字重複。已比照 `heroToNpcRow_`(TRAIT=外貌、PREF=性格 分開兩欄)，TRAIT 改讀 `mAppear`(種子 appearance 外貌欄)。
   - `heroToNpcRow_`：英靈殿列→敵從者眾生列。
   - `canonHeroNames_`：正史6騎真名(禁玩家搶角)。
 - **Seed_Canon.gs**：📜 正典劇情插針系統 **已退役(2026-06 玩家定案·沒啥用處)**。`checkCanonPins_` 留 no-op 空殼(永遠回 {beats:[],leads:[],route:""})；actionMove/actionRest 不再呼叫、前端不再顯示 canonBeats/canonLeads；CANON_PINS 資料＋lockRoute_/spawnGilgamesh_/blackenFoe_/shadowDevourFoe_/route 讀寫 一併移除。**未動**：正史/混亂【戰爭】模式＋扮演正典御主(敵方陣營生成，在 Router_Action)。MEMORY【路線】【史】成無用遺留。
@@ -344,7 +345,8 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 - `codexPersona_(name)`：從英靈殿 PERSONA 撈細緻人設(firstP/words/toMaster/speech/moe/tic)。
 - `masterCard_(row)`：御主「演出依據」卡(名/性別/性格/特徵/願望)，讓 AI portray 御主。**🗣️ 御主有聲(2026-06)**：【可】依性格給御主台詞/反應(不再啞巴主角)，但【不替御主拍板戰略抉擇】(出戰/結盟/移動/補魔由玩家按鍵)、不逼問玩家、不快轉越過決策點；從者可開口問御主怎麼辦、御主也可自問，但停在問句/思索不可自演答案。互動場景(ally_bond/bond/mana/blood)＝`masterCard_ + servantCard_`；移動抵達 `actionMove` 也回傳 `masterCard` 前置 arrivePrompt。
-- **🎭 敵御主有聲(2026-07)**：`enemyMasterCard_(row)`——精簡演出卡(性格/特徵各取前3項，不塞六圍/寶具)，NPC 不受「不可替玩家決定」限制、AI 可自行決定其言行反應。只在敵御主本人**同地在場**時注入，靠 `enemyMasterIdx_` 找連結御主＋加一道位置比對(硬連結≠必然在場，可能是遠端指揮)；`actionFateBattle` 兩個 aiPrompt 分支(defeat/正常)都在 `servantCard_(pcData[atkIdx])` 後接 `enemyMasterCardStr`。解決「打從者對方御主全程沉默」的問題，且非每戰必塞——不在場則空字串。
+- **🎭 敵御主有聲(2026-07)**：`enemyMasterCard_(row)`——精簡演出卡(性格取前4項/特徵取前3項/萌點，不塞六圍/寶具)，NPC 不受「不可替玩家決定」限制、AI 可自行決定其言行反應。只在敵御主本人**同地在場**時注入，靠 `enemyMasterIdx_` 找連結御主＋加一道位置比對(硬連結≠必然在場，可能是遠端指揮)；`actionFateBattle` 兩個 aiPrompt 分支(defeat/正常)都在 `servantCard_(pcData[atkIdx])` 後接 `enemyMasterCardStr`。解決「打從者對方御主全程沉默」的問題，且非每戰必塞——不在場則空字串。
+  - **🐛→✅ 沒讀萌點、性格漏第4項(2026-07 修)**：原本只塞 `性格`(slice 0,3，漏掉「厭惡」那格)＋`特徵`(當時跟性格逐字重複，見上)，完全沒讀 `COL.PC.INTENT`(萌點/反差)——伊莉雅這類「表象天真、內裡哀傷、強顏歡笑掩寂寞」的反差角色，AI 拿不到萌點錨點時就滑向類型套路(如「冷眼旁觀殺戮的無情幼女」)而非角色本來的反差設計。已補回萌點欄位＋收尾加 show-don't-tell 提醒(禁把萌點/性格詞當台詞)。
 - ⚠ **prompt 別再寫「嚴禁輸出 stat_changes/items_gained/money_transferred」**：solo 全走 `narrate_only`/`multi_attack_narrate`，後端只讀 `data.narration`、其餘欄位一律丟棄——禁令是多餘的、還把欄位名秀給 AI。已從 FATE solo prompt 全數移除(九州 actionPlay/item 路徑保留，那裡真的會吃 stat_changes)。
 - `servantCard_` 含**狂化偵測**：persona.speech/firstP 含 狂化/無法言語/咆哮 → 加「禁說完整句、只咆哮」鐵律(赫拉克勒斯/蘭斯洛特命中；會說話的開膛手傑克不中)。
 - `servantCard_(row)`：壓成「〈角色背景·僅供內化〉」段塞進 narration prompt。**鐵則一**=當背景揣摩；**鐵則二**=設定字眼禁直述/說嘴；**鐵則三**=依羈絆調親疏(低好感戒備→高羈絆親近，守住性格內核)。
