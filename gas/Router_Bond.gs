@@ -337,7 +337,6 @@ function actionAllyBond(userData, pcId, sheets) {
   const masterName = String(pcData[pIdx][COL.PC.NAME]);
   const allyName = String(pcData[aIdx][COL.PC.NAME]);
   const allyIsMaster = String(pcData[aIdx][COL.PC.FACTION]) === "敵御主";
-  const allyPref = String(pcData[aIdx][COL.PC.PREF] || "神祕莫測");
 
   let ap = AP_PER_DAY, clock = "";
   if (isFate) { try { ap = spendAp_(myGameId, 1).ap; clock = clockLabel_(myGameId); } catch (e) { } }
@@ -364,8 +363,10 @@ function actionAllyBond(userData, pcId, sheets) {
     : after >= 70 ? "【羈絆漸增】有限度的信任、偶爾流露一絲真心，但仍保留戒備與分寸，不主動親暱"
     : after >= 45 ? "【羈絆尚淺】純屬利益結盟：維持戒備、客套與算計，【絕不可】親近或交心，至多一閃而過的微妙交集"
     : "【幾無私交】冷淡、警惕、公事公辦，話語間滿是試探與保留";
-  // 盟友從者→servantCard_(含狂化禁言等口吻)；盟友御主→簡短性格
-  const allyCard = allyIsMaster ? `〈盟友御主「${allyName}」·演出依據(僅內化、禁複述)〉性格：${allyPref}。\n` : servantCard_(pcData[aIdx]);
+  // 盟友從者→servantCard_(含狂化禁言等口吻)；盟友御主→enemyMasterCard_(性格/特徵/萌點反差)
+  // ⚠ 2026-07 修：原本盟友御主是手刻的「性格：xxx」一行陽春卡(漏特徵/萌點)，跟同一角色在
+  //   戰鬥交鋒(Router_Battle.gs)拿到的 enemyMasterCard_ 厚度不一致——結盟橋段反而比戰鬥時更扁平。
+  const allyCard = allyIsMaster ? enemyMasterCard_(pcData[aIdx]) : servantCard_(pcData[aIdx]);
   const aiPrompt = masterCard_(pcData[pIdx]) + allyCard +
     `【系統·盟誼】御主『${masterName}』與盟友「${allyName}」${allyIsMaster ? '共處' : '交流'}，當前羈絆 ${after}/100。\n` +
     `★Fate 筆觸【90~140字】寫一段此次共處的小品，自由發揮、勿每次都同一套說辭。語氣親疏【務必嚴格】貼合當前羈絆：${tier}。對方仍是「暫時」盟友，留一絲各自的算計與保留。show, don't tell。` +
