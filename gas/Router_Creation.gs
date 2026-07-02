@@ -207,7 +207,7 @@ var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應�
   "戰鬥續行=survive、單獨行動=solo、神核=divine_core、七天盾(投影減傷)=rho_aias、陣地作成(減傷)=territory、城牆防禦(物理減傷)=wall_def、" +
   "狂化=mad、勇猛/卡里斯瑪=morale、神代魔術=divine_age、無欲(封先機)=unreadable、透化(免威壓)=clear_mind、" +
   "自我改造(命中傷害+)=self_mod、軍略(寶具+)=tactics、風王鐵鎚(傷+)=wind_strike、魔眼(石化)=petrify、必中槍=gae_bolg、" +
-  "秘劍燕返(寶具強化)=tsubame、妄想心音(暗殺致命)=zabaniya、無毀湖光(對龍+)=weapon_steal、治癒(每回合回血)=regen、不死復活=god_hand、" +
+  "秘劍燕返(寶具強化)=tsubame、妄想心音(暗殺致命)=zabaniya、無毀湖光(對龍+)=weapon_steal、治癒(每回合回血)=regen、不死復活(復活3次·如尼祿三度輝映)=god_hand、" +
   "破魔(無視神核/續行)=anti_magic_lance、破戒(斬契約救贖)=rule_breaker";
 
 // 清洗 AI 給的技能陣列為 [{n,r,fx}]（fx 不在字典就清空，仍保留為演出用標籤）
@@ -326,6 +326,11 @@ function actionSummonServant(userData, pcId, sheets) {
       row[COL.PC.MEMORY] = `第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || "保持距離"}`;
       row[COL.PC.SIX] = JSON.stringify(six);
       row[COL.PC.TAGS] = JSON.stringify({ skills: classSkills.concat(skills), traits: traits });
+      // 🕯️ 復活命數：AI 原創英靈(ai_gen·從英靈殿重召)持 god_hand → 標【試煉】3(尼祿「三度輝映」基準)。
+      //   無標記時 getGodHandLives_ 預設 11——那是赫拉克勒斯(seed)的十二試煉專屬，別讓 AI 產物白拿。
+      if (String(hero[COL.HERO.SOURCE]) === 'ai_gen' && classSkills.concat(skills).some(function (s) { return s && s.fx === 'god_hand'; })) {
+        row[COL.PC.MEMORY] += '｜【試煉】3';
+      }
       row[COL.PC.INTENT] = svMoe;
       row[COL.PC.BACK] = svBack;
     } else {
@@ -369,6 +374,10 @@ ${FX_MENU_}
       row[COL.PC.MEMORY] = `第一人稱「我」｜對御主：初締約·尚在觀察`; // 與種子路徑對稱(原漏寫→servantCard_ 演出資訊變薄)
       row[COL.PC.SIX] = JSON.stringify(aiSix);
       row[COL.PC.TAGS] = JSON.stringify({ skills: aiCSkills.concat(aiSkills), traits: aiTraits });
+      // 🕯️ 復活命數：AI 產物持 god_hand → 標【試煉】3(尼祿「三度輝映」基準)——預設 11 是赫拉克勒斯(seed)專屬。
+      if (aiCSkills.concat(aiSkills).some(function (s) { return s && s.fx === 'god_hand'; })) {
+        row[COL.PC.MEMORY] += '｜【試煉】3';
+      }
       row[COL.PC.BACK] = aiBrief.background || `${cls} 職階的英靈`;
       // 🆕 不重名的原創從者 → 寫回英靈殿（含六圍/技能fx/特性），日後可重用（御主不收）
       try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], aiCSkills, aiSkills, aiTraits, np, aiBrief.personality, align); } catch (e) { }
