@@ -98,7 +98,7 @@ function npBaseDice_(npRank) {
 }
 
 // 🏰 寶具規模相剋矩陣（攻擊規模 × 防禦規模 → 傷害倍率）：
-//   對城打對人 ×2.5、對界無視防禦進行概念碾壓。0x（無效）以引擎 Math.max(1) 保底為一絲擦傷，不硬鎖。
+//   對城打對人 ×1.5、對界打對人 ×1.7（壓縮後值，見下）。0x（無效）以引擎 Math.max(1) 保底為一絲擦傷，不硬鎖。
 var NP_SCALE_IDX = { '對人': 0, '對軍': 1, '對城': 2, '對界': 3 };
 // 🎴 壓縮(2026-06平衡)：舊矩陣 ×2.5/×3 會讓「大規模寶具一發秒小規模」＝寶具模式淪為先手樂透。
 //   收斂到「規模優勢＝明顯傾向，非必殺」(max ×1.7、min ×0.4)，保留相剋骨架但不再一鍵抹除。
@@ -615,7 +615,7 @@ function resolveFateBattle_(atk, def, opts) {
     if (wSig('petrify')) { base = Math.round(base * 1.3); fired.push(winner.name + '·' + fxName_(winner, 'petrify', '魔眼') + '·乘隙重創'); }
     // 🌟 乖離劍·天地乖離開闢之星(ea)：概念位階 6，斬裂世界的真理之劍——最高威力，且無視一切防禦概念（下方概念壓制處理）
     if (wSig('ea')) { base = Math.round(base * 1.7) + rollDice_(4, 12) + 80; fired.push(winner.name + '·' + fxName_(winner, 'ea', '乖離劍') + '(天地乖離·真理之劍)'); }
-    // 🏰 寶具規模相剋矩陣：對城打對人 ×2.5、對界碾壓常規防禦…（攻擊規模 × 守方防禦規模）。多寶具用所選寶具的尺度。
+    // 🏰 寶具規模相剋矩陣：對城打對人 ×1.5、對界打對人 ×1.7（壓縮後值·攻擊規模 × 守方防禦規模）。多寶具用所選寶具的尺度。
     var atkScaleLabel = (wRelease && atkNp) ? atkNp.scale : npAtkScale_(winner);
     // 🦠 疫病·病死宿命：蒼白騎兵(疫病具現)對「傳說中死於疾病」之敵(恩奇都等)，重演其宿命之死——無視規模防禦·概念碾壓 ×3。
     var plagueDoom = (winner.traits || []).some(function (t) { return t && /疫病/.test(String(t.n)); }) &&
@@ -639,6 +639,11 @@ function resolveFateBattle_(atk, def, opts) {
   //   把「破魔無視神核」「ea 凌駕一切結界」這類交互系統化：pierces(防禦fx) 為 true 即跳過該減傷。
   var pierceT = offenseTier_(winner, !!opts.np);
   var pierces = function (defFx) { return pierceT >= conceptTier_(defFx) + PIERCE_GAP; };
+  // ⚡ 「本擊是否魔術系」（physicalOnly 防禦的穿透判定）——必須在【第一個 fxDefApply_ 之前】算好：
+  //   魔力放出改主動 only 後，只在【實際發動魔力放出】時成立(灌注魔力才是魔術系一擊)，
+  //   而非光憑持有 burst——否則沒發動時只吃對魔力減傷卻無 burst 增益，全是壞處。
+  var burstFired = !!(opts.skill && opts.skill.id === 'burst' && !opts.skill.tiny && winner === atk);
+  var atkMagic = (wProf.dmg === '魔力') || burstFired || !!hasFx_(winner, 'divine_age');
   // 守方減傷：耐久（階級）
   base -= Math.round(rankVal(loser.six["耐久"]) / 2);
   // 🛡️ 陣地作成(territory)：法師以魔術防壁／結界減傷，補償其低耐久（救玻璃大砲美狄亞的存活）
@@ -664,10 +669,6 @@ function resolveFateBattle_(atk, def, opts) {
   // 對魔力(nullify_magic)：攻方為魔術系(法師魔砲/魔力放出/神代)時大減魔術傷。
   //   ★原作精髓：A 階對魔力幾乎無視現代魔術——Saber 對 Caster 的魔砲僅如清風拂面。
   //   但神代魔術(神祖之術)凌駕現代對魔力＝完全無視(美狄亞的本領)；概念壓制亦無視。
-  // ⚡ 魔力放出改主動 only 後，「本擊是否魔術系」只在【實際發動魔力放出】時成立(灌注魔力才是魔術系一擊)，
-  //   而非光憑持有 burst——否則沒發動時只吃對魔力減傷卻無 burst 增益，全是壞處。
-  var burstFired = !!(opts.skill && opts.skill.id === 'burst' && !opts.skill.tiny && winner === atk);
-  var atkMagic = (wProf.dmg === '魔力') || burstFired || !!hasFx_(winner, 'divine_age');
   var nm = hasFx_(loser, 'nullify_magic');
   // 概念壓制(更高位階進攻概念·破戒/破魔等)→完全無視對魔力；神代魔術→凌駕但【非無敵】(對魔力僅剩三成效果，見下)。
   if (atkMagic && nm && pierces('nullify_magic')) { fired.push(winner.name + '·概念壓制(凌駕對魔力)'); }

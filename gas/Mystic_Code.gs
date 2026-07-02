@@ -57,7 +57,8 @@ var MC_COMBAT_ = {
   mc_jewel:       { hit: 0, dmgAdd: 0,  npMul: 1.5,  npDefMul: 1.0,  label: '寶石劍·奇蹟一擊' },
   avalon:         { hit: 0, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.82, label: '全世界之鞘' },
   // 🗡️ Avalon 回到正主阿爾托莉雅手中：被動＝鞘之基本減傷(×0.82·同一般 Avalon)＋時回；
-  //    「理想鄉·無敵結界」的【完全擋寶具】改為主動技(耗 200 魔·每場一次)，見 idealRealm 邏輯，不在此永久生效。
+  //    「理想鄉·無敵結界」的【完全擋寶具】＝被動自動(無開關)：敵解放 6 階究極寶具(ea/enuma)且御主魔力≥100
+  //    → Router_Battle 敵擊前攔截完全擋下＋扣 100 魔（見 idealRealm 邏輯），不在此表永久生效。
   avalon_saber:   { hit: 0, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.82, label: '全世界遙遠的理想鄉' }
 };
 // 取某戰鬥單位身上的禮裝戰鬥效果（找第一個命中 MC_COMBAT_ 的 fx）。回 null＝無。
@@ -74,8 +75,9 @@ function masterMysticBuffSkill_(memory) {
 }
 // 把御主禮裝被動加持注入「我方從者」戰鬥單位 c（c 由 servantRow 建；masterMemory＝其御主 MEMORY）。已注入則略過。
 function injectMysticBuff_(c, masterMemory) {
-  // 🗡️ Avalon（全世界之鞘）回到正主阿爾托莉雅手中 → 理想鄉全效：承受寶具傷近乎歸零(avalon_saber ×0.20)＋常駐時回(regen)。
-  //   非阿爾托莉雅持 Avalon → 走下方一般 avalon(鞘之基本減傷 ×0.82)。
+  // 🗡️ Avalon（全世界之鞘）回到正主阿爾托莉雅手中 → 注入 avalon_saber(鞘之基本減傷 ×0.82·同一般 avalon)＋常駐時回(regen)；
+  //   「完全擋 6 階究極寶具」由 Router_Battle 理想鄉攔截(耗 100 魔)以 avalon_saber 旗標觸發，非此處乘子。
+  //   非阿爾托莉雅持 Avalon → 走下方一般 avalon(鞘之基本減傷 ×0.82·無理想鄉攔截)。
   if (getMystic_(masterMemory) === 'avalon' && c && /阿爾托莉雅/.test(String(c.name || '')) && String(c.cls) === 'Saber') {
     c.skills = (c.skills || []);
     if (!c.skills.some(function (s) { return s && s.fx === 'avalon_saber'; })) c.skills = c.skills.concat([{ n: '理想鄉 Avalon', r: 'A', fx: 'avalon_saber' }]);
