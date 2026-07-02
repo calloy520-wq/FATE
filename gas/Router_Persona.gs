@@ -54,7 +54,9 @@ function servantCard_(row) {
     var speech = rowSpeech || p.speech || "";
     var moe = rowMoe || p.moe || "";
     var tic = rowTic || p.tic || "";
-    var look = String(p.look || "");           // 種子外貌本相：五官/髮色/體態/氣質(不變的本人特徵)
+    // 種子外貌本相：五官/髮色/體態/氣質(不變的本人特徵)——persona.look 召喚時已複製進 row.TRAIT(parseTraitsHelper)，
+    //   跟 fp/toM/persona 一樣退回讀列，別讓 p 變空物件時這格靜默消失。
+    var look = String(p.look || row[COL.PC.TRAIT] || "");
     var outfit = getOutfit_(mem);              // 👗 玩家換裝：當前服裝穿著(疊在本相上·可清)
     // 狂化偵測：喪失言語、只咆哮（如赫拉克勒斯、蘭斯洛特）。開膛手傑克等會說話的狂戰士不命中。
     var mad = /狂化|無法言語|僅咆哮|不語/.test(speech + String(fp));
