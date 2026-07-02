@@ -121,8 +121,11 @@ function npAtkScale_(c) {
 }
 // 防禦規模表(對稱 npAtkScale_)：依 fx 定 NP 防禦規模，餵 NP_SCALE_MATRIX。優先序＝陣列順序(對城優先於對軍)。
 //   ★固有結界(ubw)是進攻型 NP，NP 防禦由 rho_aias 機制承擔；divine_core/god_hand 各有自己的機制——均不疊加防禦規模。
-var DEF_SCALE_ = [['summon_horror', '對城'], ['wall_def', '對城'], ['territory', '對軍']];
+var DEF_SCALE_ = [['wall_def', '對城'], ['territory', '對軍']];
 function npDefScale_(c) {
+  // 🐙 海怪在場(變身態·c.horrorUp)才享對城防禦規模——退場/未召則回一般對人。
+  //   原本 summon_horror fx 恆給對城(沒召海怪也享·與召喚物直覺相反)；改綁狀態＝變身時才升防。
+  if (c && c.horrorUp) return '對城';
   for (var i = 0; i < DEF_SCALE_.length; i++) { if (hasFx_(c, DEF_SCALE_[i][0])) return DEF_SCALE_[i][1]; }
   return '對人';
 }
@@ -317,7 +320,10 @@ function rowToCombatant_(row) {
     // 🔋 出力電池制：從者靈基出力檔位(20~100)，決定本戰命中/傷害＋御主每小時維持費；御主預設凡人巡航 60。
     output: servantOutput_(row[COL.PC.MEMORY]),
     runeMode: runeMode_(row[COL.PC.MEMORY]), // 🔯 原初符文運用方式(def 減傷／dmg 增傷／regen 回血)
-    npChoice: npChoice_(row[COL.PC.MEMORY]) // 🌟 多寶具英靈：玩家選定要解放的寶具索引(預設 0)
+    npChoice: npChoice_(row[COL.PC.MEMORY]), // 🌟 多寶具英靈：玩家選定要解放的寶具索引(預設 0)
+    // 🐙 海怪在場(變身態)＝MEMORY 尚有殘存肉身(cur>0)。單一狀態源·驅動 npDefScale 的對城防禦。
+    //   （逾時殘影由戰鬥流程 clearHorrorShield_ 清除·此處讀 presence 即真實·不需再查時鐘·守效能）
+    horrorUp: (function () { var m = String(row[COL.PC.MEMORY] || "").match(/【海怪護盾】(\d+)\|/); return !!(m && parseInt(m[1]) > 0); })()
   };
 }
 

@@ -372,6 +372,11 @@ function actionFateBattle(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: `「${pcData[nIdx][COL.PC.NAME]}」是你的盟友——若要動手，須先『撕毀盟約』。` });
   }
 
+  // 🐙 清逾時海怪殘影(戰前)：讓 atkC.horrorUp 與城防判定準確——單一真實來源不留過期字串
+  {
+    const _hce = clearExpiredHorror_(pcData[atkIdx][COL.PC.MEMORY], myGameId);
+    if (_hce.cleared) { pcData[atkIdx][COL.PC.MEMORY] = _hce.mem; sheets.pc.getRange(atkIdx + 1, COL.PC.MEMORY + 1).setValue(_hce.mem); }
+  }
   const homeField = homeTerritoryRank_(pcData, pIdx, myGameId); // 🏰 於自己陣地決戰＋隊有陣地作成→主場結界階級(否則"")
   const atkC = rowToCombatant_(pcData[atkIdx]);
   injectMysticBuff_(atkC, pcData[pIdx][COL.PC.MEMORY]);  // ✨ 御主禮裝被動加持我方從者（含開場對轟攻防）
@@ -688,26 +693,22 @@ function actionFateBattle(userData, pcId, sheets) {
   }
 
 
-  // 🐙 螺湮城教本：玩家青鬍子解放寶具 → 自深淵召出「深淵海怪」常駐戰場，每回合與本人並肩撕咬，
-  //   靠御主魔力維持(每回合扣 HORROR_UPKEEP)；御主魔力撐不住 → 海怪潰散退場。巨獸物理攻擊、不受對魔力。
-  let horrorActive = (useNp && hasFx_(atkC, 'summon_horror'));
-  const HORROR_UPKEEP = 30;
-  // 深淵海怪的「肉身血池」＝海怪護盾(下方 setHorrorShield_)；此 horrorC 的 hp 僅追擊判定用、肉身存亡看護盾。
+  // 🐙 螺湮城教本(變身框架)：青鬍子解放寶具【或戰前召喚】→ 深淵海怪在場(狀態存 MEMORY·跨戰鬥 12h)。
+  //   在場則：以肉身擋傷(fateStrike_)＋每回合再生＋並肩追擊(每回合抽 HORROR_UPKEEP 御主魔力)＋本體防禦升對城規模(npDefScale)。
+  //   ★寶具解放當下(重新)召喚·刷新肉身與 12h 效期；此前已召(12h 內)則沿用現存肉身。
+  if (useNp && hasFx_(atkC, 'summon_horror')) {
+    pcData[atkIdx][COL.PC.MEMORY] = summonHorror_(pcData[atkIdx][COL.PC.MEMORY], myGameId);
+    sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
+    atkC.horrorUp = true; // 反映到本場已建好的 atkC(後續回合的 sC 由 rowToCombatant_ 讀新 MEMORY 自然帶旗)
+  }
+  let horrorActive = horrorPresent_(pcData[atkIdx][COL.PC.MEMORY], myGameId); // 召喚當下 or 12h 內先前召喚 → 在場
+  // 深淵海怪的「肉身血池」＝海怪護盾(setHorrorShield_)；此 horrorC 的 hp 僅追擊判定用、肉身存亡看護盾。
   const horrorC = horrorActive ? {
     name: '深淵海怪', cls: 'Berserker', np: '',
     six: { 筋力: 'A', 耐久: 'A', 敏捷: 'C', 魔力: 'E', 幸運: 'E', 寶具: '-' },
     skills: [], traits: [{ n: '巨獸' }], output: 100,
     hp: HORROR_SHIELD_HP, hpMax: HORROR_SHIELD_HP, mp: 0, mpMax: 0
   } : null;
-  // 🐙 召喚海怪：寶具解放當下，海怪自深淵現身、以肉身(HORROR_SHIELD_HP)在前掩護術師（逾 HORROR_SHIELD_HOURS 遊戲時退場）。
-  if (horrorActive) {
-    var _hshClk = getClock_(myGameId);
-    if (_hshClk) {
-      var _hshExp = _hshClk.day * 24 + _hshClk.hour + HORROR_SHIELD_HOURS;
-      pcData[atkIdx][COL.PC.MEMORY] = setHorrorShield_(pcData[atkIdx][COL.PC.MEMORY], HORROR_SHIELD_HP, HORROR_SHIELD_HP, _hshExp);
-      sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
-    }
-  }
 
   for (let rd = 0; rd < ROUNDS; rd++) {
     if (sealEscaped || destroyedName || defeat || victory) break;
@@ -776,7 +777,12 @@ function actionFateBattle(userData, pcId, sheets) {
           rl.strikes.push({ by: '🐙深淵海怪', horror: true, pHit: false, pDmg: 0, pCrit: '', pFired: [], note: '深淵海怪·肉身再生（+' + (_hgNew - _hgSh.remaining) + '·餘 ' + _hgNew + '/' + _hgSh.max + '）' });
         }
       } else {
-        horrorActive = false; // 海怪肉身潰散 → 退場
+        horrorActive = false; // 海怪肉身潰散/逾時 → 退場
+        // 🐙 清 MEMORY 殘影(逾時的護盾字串仍在)：讓後續 horrorUp/城防歸位·單一真實來源
+        if (/【海怪護盾】/.test(String(pcData[atkIdx][COL.PC.MEMORY] || ""))) {
+          pcData[atkIdx][COL.PC.MEMORY] = clearHorrorShield_(pcData[atkIdx][COL.PC.MEMORY]);
+          sheets.pc.getRange(atkIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[atkIdx][COL.PC.MEMORY]);
+        }
       }
     }
 
@@ -785,6 +791,9 @@ function actionFateBattle(userData, pcId, sheets) {
       const hUp = drainForNp_(sheets, pcData, atkIdx, pIdx, HORROR_UPKEEP);
       if (hUp.shortfall > 0) {
         horrorActive = false;
+        // 🐙 維持費付不出 → 海怪潰散，清肉身狀態(不留殘影·下場不再誤判在場)
+        pcData[atkIdx][COL.PC.MEMORY] = clearHorrorShield_(pcData[atkIdx][COL.PC.MEMORY]);
+        sheets.pc.getRange(atkIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[atkIdx][COL.PC.MEMORY]);
         rl.strikes.push({ by: '🐙深淵海怪', horror: true, pHit: false, pDmg: 0, pCrit: '', pFired: [], note: '御主魔力枯竭·海怪潰散退場' });
       } else {
         const hs = fateStrike_(sheets, pcData, horrorC, nIdx, {}, ctx);
@@ -1001,6 +1010,59 @@ function actionFateBattle(userData, pcId, sheets) {
   });
 }
 
+// 🐙 戰前召喚·螺湮城教本：不進戰鬥、先自深淵召出「深淵海怪」變身態（跨戰鬥 12h）。
+//   持 summon_horror 的我方從者→付寶具 prana(御主電池·同解放)＋耗 1AP，設肉身 12h。
+//   在場則：以肉身擋傷＋每回合再生＋並肩追擊(每回合抽 10 魔)＋本體防禦升對城規模(見 actionFateBattle／npDefScale)。
+//   ★這是「變身框架」的戰前入口——日後其它變身技(靈基二階段等)照此模式加一個 action 即可。
+function actionSummonHorror(userData, pcId, sheets) {
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const gameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const wantSv = String(userData.servant || "").trim();
+  // 找持 summon_horror 的我方從者(指定優先·否則第一個具此力者)
+  let svIdx = -1;
+  for (let i = 1; i < pcData.length; i++) {
+    if (String(pcData[i][COL.PC.FACTION]) !== "從者") continue;
+    if (String(pcData[i][COL.PC.GAME_ID] || "") !== gameId) continue;
+    if (String(pcData[i][COL.PC.ID]).startsWith("DEAD_")) continue;
+    if (!hasFx_(rowToCombatant_(pcData[i]), 'summon_horror')) continue;
+    if (wantSv && String(pcData[i][COL.PC.NAME]).indexOf(wantSv) === -1) continue;
+    svIdx = i; break;
+  }
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "無能翻閱螺湮城教本的從者（需持此寶具的召喚師·如青鬍子）。" });
+  const svC = rowToCombatant_(pcData[svIdx]);
+  const svName = String(pcData[svIdx][COL.PC.NAME]);
+  // 已在場？先清逾時殘影再判
+  const _hce = clearExpiredHorror_(pcData[svIdx][COL.PC.MEMORY], gameId);
+  if (_hce.cleared) pcData[svIdx][COL.PC.MEMORY] = _hce.mem;
+  if (horrorPresent_(pcData[svIdx][COL.PC.MEMORY], gameId)) {
+    return JSON.stringify({ success: false, message: "深淵海怪已在場，無需重複召喚。" });
+  }
+  const isFate = gameId.indexOf("g_") === 0;
+  if (isFate && getAp_(gameId) < 1) return JSON.stringify({ success: false, message: "行動點不足——召喚深淵海怪需 1 AP。" });
+  // 🔋 付寶具 prana（御主電池·MP＋焚血）：湊不出則召不動
+  const prana = npPranaCost_(svC.six["寶具"]);
+  const mMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0, mHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
+  if (mMp + Math.floor(Math.max(0, mHp - 1) / BATTERY_HP_PER_MP) < prana) {
+    return JSON.stringify({ success: false, message: `御主魔力不足以自深淵召出海怪（需 ${prana}）——須先休整／補魔。` });
+  }
+  const battery = drainForNp_(sheets, pcData, svIdx, pIdx, prana);
+  // 🐙 設肉身 12h（變身態·單一狀態源）
+  pcData[svIdx][COL.PC.MEMORY] = summonHorror_(pcData[svIdx][COL.PC.MEMORY], gameId);
+  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+  let ap = AP_PER_DAY, clock = "";
+  if (isFate) { try { ap = spendAp_(gameId, 1).ap; clock = clockLabel_(gameId); } catch (e) { } }
+  logWarEvent_(gameId, `『${svName}』翻開螺湮城教本，自深淵召出「深淵海怪」常駐身側掩護（御主${battery.bledMaster ? '焚血' : '導魔'}供能）。`, String(userData.acctName || ""));
+  const aiPrompt = servantCard_(pcData[svIdx]) +
+    `【系統·螺湮城教本·已解放】御主號令「${svName}」翻開螺湮城教本，自深淵召出觸手巨獸「深淵海怪」（肉身 ${HORROR_SHIELD_HP}）常駐身側——此後約 ${HORROR_SHIELD_HOURS} 小時內，海怪以身擋傷、每回合再生、並肩撕咬敵手，本體防禦亦升至對城規模；代價是每個交鋒回合抽 ${HORROR_UPKEEP} 魔維持，魔力枯竭則海怪潰散。\n` +
+    `★以 Fate／TYPE-MOON 筆觸演出深淵巨獸自書頁裂隙湧現、觸手蔽天的壓迫一幕（一段即可）。已結算。`;
+  return JSON.stringify({
+    success: true, aiPrompt: aiPrompt, clock: clock, ap: ap, apMax: AP_PER_DAY,
+    statusString: getFreshStatusString(pcId, pIdx, sheets)
+  });
+}
+
 // 十二試煉(God Hand) 剩餘命數（從者 MEMORY【試煉】N；無標記預設 11＝十二命扣除本體，呼應 FSN 設定）
 function getGodHandLives_(memory) {
   var m = String(memory || "").match(/【試煉】(\d+)/);
@@ -1051,8 +1113,27 @@ var MEAL_BUFF_BONUS = 2;   // 從者出擊命中加值
 //   單一真實來源＝MEMORY【海怪護盾】<cur>|<max>|<expiryAbsHour>（三欄·舊兩欄相容讀取）。
 //   要擴充「召喚物掩護」類技能：照此 get/set/clear + view 模式複製即可。
 var HORROR_SHIELD_HP = 300;   // 海怪肉身上限（召喚時的滿值）
-var HORROR_SHIELD_HOURS = 8;  // 持續上限（遊戲內小時·逾時自深淵退場）
+var HORROR_SHIELD_HOURS = 12; // 持續上限（遊戲內小時·逾時自深淵退場）※2026-07 8→12
 var HORROR_REGEN = 10;        // 每回合肉身再生量（不超過上限）
+var HORROR_UPKEEP = 10;       // 海怪在場·每交鋒回合抽御主魔力維持（撐不住則潰散）※2026-07 30→10
+// 🐙 變身框架·單一狀態源：海怪是否在場＝現存肉身(cur>0)且未逾時。擋傷/回血/追擊/城防 全讀它。
+//   ★這是「MEMORY 狀態旗標→引擎讀旗標調整攻防」的通用變身範本；日後靈基二階段/化身切換照此複製。
+function horrorPresent_(memory, gameId) {
+  var abs = null; try { var c = getClock_(gameId); if (c) abs = c.day * 24 + c.hour; } catch (e) { }
+  return getHorrorShield_(memory, abs).active;
+}
+// 🐙 召喚/刷新海怪肉身：設 300/300/(now+12h)，回新 memory。寶具解放與【戰前召喚】共用同一入口。
+function summonHorror_(memory, gameId) {
+  var abs = 0; try { var c = getClock_(gameId); if (c) abs = c.day * 24 + c.hour; } catch (e) { }
+  return setHorrorShield_(memory, HORROR_SHIELD_HP, HORROR_SHIELD_HP, abs + HORROR_SHIELD_HOURS);
+}
+// 🐙 清除逾時海怪的 MEMORY 殘影(單一真實來源不留過期字串·讓 rowToCombatant_ 的 horrorUp 準確)。回 {mem, cleared}。
+function clearExpiredHorror_(memory, gameId) {
+  var m = String(memory || "");
+  if (!/【海怪護盾】/.test(m)) return { mem: m, cleared: false };
+  if (horrorPresent_(m, gameId)) return { mem: m, cleared: false };
+  return { mem: clearHorrorShield_(m), cleared: true };
+}
 function stampMeal_(memory, expiryAbsHour) {
   var s = String(memory || "").replace(/【整備至】\d+/, "");
   s = s.replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
