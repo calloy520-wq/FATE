@@ -178,7 +178,7 @@ function actionPlay(userData, pcId, sheets) {
   // 🔴【替換開始】淨化後的 prompt 組裝
   const prompt = `【敘事法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。
 ${PROMPT_PARTY_SYSTEM}
-【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL} | 狀態:${pc[COL.PC.STATUS] || "氣息平穩"} | 生命:${pc[COL.PC.HP]}/${pc[COL.PC.MAX_HP]} | 魔力:${pc[COL.PC.MP]}/${pc[COL.PC.MAX_MP]}${((parseInt(pc[COL.PC.HP]) || 0) <= Math.max(1, Math.round((parseInt(pc[COL.PC.MAX_HP]) || 1) * 0.15)) || (parseInt(pc[COL.PC.MP]) || 0) <= Math.round((parseInt(pc[COL.PC.MAX_MP]) || 1) * 0.1)) ? '\n★【瀕死·最高張力】御主氣力放盡、命懸一線(見上方血/魔)——敘述須透出窒迫沉重、孤注一擲的緊繃，連從者氣場都因御主將枯竭而繃緊；嚴禁輕鬆閒適的閒聊感。' : ''}
+【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}${isNsfwMode ? ` | 狀態:${pc[COL.PC.STATUS] || "氣息平穩"}` : ""} | 生命:${pc[COL.PC.HP]}/${pc[COL.PC.MAX_HP]} | 魔力:${pc[COL.PC.MP]}/${pc[COL.PC.MAX_MP]}${((parseInt(pc[COL.PC.HP]) || 0) <= Math.max(1, Math.round((parseInt(pc[COL.PC.MAX_HP]) || 1) * 0.15)) || (parseInt(pc[COL.PC.MP]) || 0) <= Math.round((parseInt(pc[COL.PC.MAX_MP]) || 1) * 0.1)) ? '\n★【瀕死·最高張力】御主氣力放盡、命懸一線(見上方血/魔)——敘述須透出窒迫沉重、孤注一擲的緊繃，連從者氣場都因御主將枯竭而繃緊；嚴禁輕鬆閒適的閒聊感。' : ''}
 
 ${PROMPT_ENV}
 ${PROMPT_GEAR}
@@ -195,13 +195,13 @@ ${isKanshou ? `
   }
 ★【絕對禁止】任何戰鬥、廝殺、敵人、敵御主、敵從者、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅。世界是安全的。
 ★氛圍＝溫柔、悠閒、戀愛向的日常：散步、閒聊、吃東西、看風景、逛冬木街景。讓從者貼近其官方性格自然地與御主相處互動。
-★【演出而非說明】不得直述其願望／萌點／個性字面。嚴禁輸出任何 stat_changes 生命變化、戰鬥裁決。可有 rel_changes(好感)。
+★【演出而非說明】不得直述其願望／萌點／個性字面。嚴禁輸出任何生命變化、戰鬥裁決。可有 rel_changes(好感)。
 ★敘事結束停在溫柔的留白，把下一步交還御主。
 ` : ""}現在演化玩家動作：『${finalUserMsg}』${npcDialoguePrompt}
 
 🚨【敘事終極警告】：
 1. 敘事必須在給出結果後，停在「我」的心境，將下一步交還玩家選擇！
-2.【名字提取鐵律】：在輸出 stat_changes 或 rel_changes 等任何 JSON 數據時，'target' 或 'npc' 欄位【絕對只能】填寫角色的「真實姓名」（例如：「遠坂凜」）或「自己」。❌嚴禁填入台詞、對話、地名、動作描述或任何標點符號！若名字抓取錯誤將導致解析錯亂！`;
+2.【名字提取鐵律】：在輸出 rel_changes 等任何 JSON 數據時，'target' 或 'npc' 欄位【絕對只能】填寫角色的「真實姓名」（例如：「遠坂凜」）或「自己」。❌嚴禁填入台詞、對話、地名、動作描述或任何標點符號！若名字抓取錯誤將導致解析錯亂！`;
 
   try {
     let aiConfig = isNsfwMode ? { temperature: 1.0, top_p: 0.95, retries: 2, model: "google/gemini-3.1-flash-lite", isNsfwMode: true } : {};
@@ -268,43 +268,11 @@ ${isKanshou ? `
     const mpBefore = parseInt(pcData[pcIndex][COL.PC.MP]) || 0;
 
 
-    if (aiData.stat_changes && Array.isArray(aiData.stat_changes)) {
-      Logger.log("stat_changes: " + JSON.stringify(aiData.stat_changes));
-
-
-      // 🎴 FATE：AI 的 stat_changes 只准更新「外顯狀態」(衣服/姿勢/負面/顏面)；
-      //   位置/生命/魔力/陣營/貢獻/身世 一律由 GAS(按鈕/戰鬥)裁定，AI 寫了也忽略。
-      const visibleStateKeys = ["衣服", "姿勢", "負面", "顏面"];
-
-      aiData.stat_changes.forEach(sc => {
-        const tName = String(sc.target).trim(); const attrKey = String(sc.attr).trim(); const valStr = String(sc.value).trim();
-        let targetIdx = (tName === "自己" || tName === String(pcName).trim()) ? pcIndex : pcData.findIndex(r => (String(r[COL.PC.NAME]).trim() === tName || String(r[COL.PC.ID]).trim() === tName) && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
-
-        if (targetIdx !== -1) {
-          dirtyPcRows.add(targetIdx);
-
-          // 🔴 支援 AI 合併輸出，例如 attr:"姿勢/衣服/負面/顏面"
-          if (attrKey.includes('/') && valStr.includes('/')) {
-            const attrParts = attrKey.split('/').map(a => a.trim());
-            const valParts = valStr.split('/').map(v => v.trim());
-            attrParts.forEach((a, i) => {
-              if (visibleStateKeys.includes(a)) {
-                let currentVs = parseVisibleStatus(pcData[targetIdx][COL.PC.STATUS]);
-                currentVs[a] = valParts[i] || "無";
-                pcData[targetIdx][COL.PC.STATUS] = JSON.stringify(currentVs);
-              }
-            });
-            return;
-          }
-          if (visibleStateKeys.includes(attrKey)) {
-            let currentVs = parseVisibleStatus(pcData[targetIdx][COL.PC.STATUS]);
-            currentVs[attrKey] = valStr; pcData[targetIdx][COL.PC.STATUS] = JSON.stringify(currentVs); return;
-          }
-
-          // 其餘 attr(位置/生命/魔力/陣營/貢獻/身世)一律忽略——GAS 掌數值、戰鬥裁定生死，AI 不寫。
-        }
-      });
-    }
+    // 🗑️ 2026-07：stat_changes(外顯狀態刷新)套用區塊已整組移除(玩家定案)——solo 戰鬥演出卡/戰報
+    //   從不讀 STATUS，卡片外顯恆顯示預設「穿戴整齊，站立，氣息平穩」＝AI寫、無人讀的死資料迴圈；
+    //   SFW schema 的 stat_changes 欄位與「狀態刷新」指令已同步自 Engine_Combat.gs(SFW區) 拔除。
+    //   慾海不受影響：其外顯/肉體走 intimacy_feedback(visible_state/physical_state·紅線機制·見下方)，
+    //   且已改由「肉體狀態」抵換外顯的顯示位。
 
 
 

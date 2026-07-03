@@ -9,9 +9,9 @@ function buildDefaultSystemPrompt(isNsfwMode, backLocked) {
   const baseJson = {
     "narration": isNsfwMode ? "極致細膩動人的劇情描述(約600字，第一人稱，嚴禁替玩家做決定；篇幅務必充足，但長度靠情感起伏、神態心理、氛圍張力與對話堆疊撐起，而非器官部位逐項點名)..." : "劇情描述(約200字，第一人稱，節奏明快不灌水，嚴禁替玩家做決定)...",
     "options": ["1. [主動]強勢掌握主導...", "2. [被動]順從委婉試探...", "3. [接續]順劇情延續互動...", "4. [反差]跳脫氛圍的驚人舉動..."],
-    "stat_changes": [
-      { "target": "角色名號", "attr": "姿勢/衣服/負面/顏面", "value": "跌坐/衣衫破爛/重傷/慘白" }
-    ],
+    // 🗑️ 2026-07：stat_changes(外顯狀態刷新)已自 SFW schema 移除——solo 戰鬥演出卡/戰報從不讀取
+    //   STATUS，卡片外顯恆顯示預設字樣＝死資料迴圈(AI寫→無人讀)，玩家定案整段移除省 token。
+    //   慾海(NSFW)本就不用 stat_changes(intimacy_feedback.visible_state 才是其管道·紅線區未動)。
     "rel_changes": [{ "target": "NPC名", "fav_change": 3, "tag": "無", "major_event": "無" }],
     "mentioned_names": ["劇情中出現的具名角色名字，不含玩家自己"],
     "log_summary": { "subject": "主動方真名", "object": "被動/承受方真名(三人以上填眾人)", "event": "誰對誰做了什麼+對方反應，須含明確主被動方向，50字內", "tag": "閒聊/承諾/秘密/變故，四選一" }
@@ -93,10 +93,9 @@ function buildDefaultSystemPrompt(isNsfwMode, backLocked) {
 3b.【原作忠實度】你熟知 Fate／TYPE-MOON 全系列每位英靈的真實傳說、武裝與戰鬥方式，描寫依你對該英靈本身的知識判斷其真實樣貌與戰法，不同版本/媒介可能略有差異、取你判斷最貼近原典者。從者受傷是靈基震盪／崩解，非普通生物流血。角色卡上的 persona／look／寶具／技能是精確設定，非籠統描述，優先依此發揮；勿憑空套用與該英靈本身無關的通用奇幻/RPG套語。
 4. 萌點節制：角色「萌點」只是反差背景彩蛋，【禁止】刻意安排情境去觸發或反覆強調，僅在場景本就自然涉及時順勢輕帶。
 
-【狀態與位置】
-1. 狀態刷新：有肢體/情緒波動就更新外顯狀態(stat_changes 的 姿勢/衣服/負面/顏面)。負面限實質物理/毒理(無則填無)。
-2. 位置：玩家與NPC的移動一律由系統按鈕管理，AI【禁止】輸出任何位置變更；NPC 若於敘事中離場，僅以文字交代去向即可，禁自創假地名。
-3. 戰鬥：聖杯戰爭的從者廝殺一律由系統按鈕裁決，AI【禁止】自行宣告任何角色死亡或輸出生命數值變化；只描寫本回合新結果，不重演前塵。
+【位置與戰鬥】
+1. 位置：玩家與NPC的移動一律由系統按鈕管理，AI【禁止】輸出任何位置變更；NPC 若於敘事中離場，僅以文字交代去向即可，禁自創假地名。
+2. 戰鬥：聖杯戰爭的從者廝殺一律由系統按鈕裁決，AI【禁止】自行宣告任何角色死亡或輸出生命數值變化；只描寫本回合新結果，不重演前塵。
 
 【JSON格式】
 1. 只輸出合法JSON，不含 options 欄位——玩家的下一步一律來自遊戲按鍵，不需要你建議。
@@ -235,7 +234,7 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
 
   return JSON.stringify({
     narration: fallbackNarration, options: ["1. 深吸一口氣，平復心緒", "2. 溫柔地退開半步", "3. 輕聲轉移話題", "4. 稍作歇息"],
-    stat_changes: [], rel_changes: [], events: []
+    rel_changes: [], events: []
   });
 }
 

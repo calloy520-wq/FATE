@@ -820,7 +820,7 @@ function renderRecentLocs(recents = null) {
             ${roleTag}<b style="color: ${nameColor};">${escapeHtml(n.name)}</b>
             <span style="font-size:12px; color:#2e8b57; margin-left:8px;">${locText}</span><br>
             <small style="color:#b22222; font-weight:bold;">生命: ${n.hp} | 魔力: ${n.mp}</small><br>
-            <small style="color:#666;">狀態：${n.status}</small><br>
+            ${pc && pc.mode === 'kanshou' ? `<small style="color:#666;">狀態：${n.status}</small><br>` : ''}
             <small style="color:#a52a2a; font-weight:bold;">羈絆：${n.relTag || '萍水相逢'} <span style="color:#e91e63;">(好感：${n.relVal || 0})</span></small>
             <div class="npc-actions">${actionButtonsHtml}</div>
           </div>`;
@@ -899,6 +899,9 @@ function renderRecentLocs(recents = null) {
     };
 
     // 1. 基礎屬性更新
+    // solo 外顯狀態已移除（s[0] 為空字串）→ 整格「當前狀態」隱藏；慾海為肉體狀態抵換值，照常顯示
+    var stEl = document.getElementById('ui-status');
+    if (stEl && stEl.parentElement) stEl.parentElement.style.display = s[0] ? '' : 'none';
     setUI('ui-status', s[0]);
 
     setUI('ui-trait', s[2]);
@@ -1355,11 +1358,16 @@ function renderRecentLocs(recents = null) {
       var activeSv = myServants.find(function (x) { return x.name === myActiveServant; }) || myServants[0] || null;
       myServantCls = (activeSv && activeSv.cls) || '';
       try { renderWarActions(); } catch (e) {}
+      // 🎴 2026-07：外顯狀態自 solo 移除(死資料·恆顯示預設字樣)；慾海御主卡以「肉體狀態」抵換此列。
+      var mPhysLine = '';
+      if (pc && pc.mode === 'kanshou') {
+        try { var mpo = JSON.parse(m.physical || '{}'); var mps = Object.keys(mpo).map(function (k) { return k + '：' + mpo[k]; }).join('　'); if (mps) mPhysLine = '<div style="color:#e0a0bc; font-size:11px; line-height:1.5;">肉體　' + mps + '</div>'; } catch (e) { }
+      }
       let mh = '<div style="background:rgba(20,14,28,0.55); border:1px solid #d4af37; border-radius:8px; padding:6px 8px;">'
         + '<div style="color:#d4af37; font-weight:bold; font-size:12px;">⚜️ 御主</div>'
         + '<div style="color:#e8dcc0; font-size:13px; font-weight:bold; margin:1px 0 3px;">' + m.name + '</div>'
-        + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">' + m.condition + '</div>'
-        + ((pc && pc.mode === 'kanshou') ? '' :  // 🌹 慾海：御主只露名字＋外顯，不露血量/魔力/令咒/禮裝
+        + mPhysLine
+        + ((pc && pc.mode === 'kanshou') ? '' :  // 🌹 慾海：御主只露名字＋肉體，不露血量/魔力/令咒/禮裝
             bar('體', m.hpNum, m.hpMax, 'hp')
             + bar('魔', m.mpNum, m.mpMax, 'mp', (t.economy && typeof t.economy.net === 'number') ? t.economy.net : null)
             + '<div style="color:#9a8bb0; font-size:11px; margin-top:3px;">令咒 <span style="color:#c79be8;">' + '❖'.repeat(myMasterSeals) + '</span></div>'
@@ -1418,7 +1426,7 @@ function renderRecentLocs(recents = null) {
         }).join('');
         var hasActiveSkill = (s.skills || []).some(function (sk) { return sk && ACTIVE_FX_JS[sk.fx]; });
         var traitPills = (s.traits || []).map(function (tr) { return pill(tr.n, tr.r, 'trait', '#c0392b'); }).join('');
-        // 🌹 慾海：從者卡只露 名字/外顯/個性/特徵/關係/肉體——不露血量/魔力/六圍/技能/寶具/動作鈕
+        // 🌹 慾海：從者卡只露 名字/裝扮/個性/特徵/關係/肉體——不露血量/魔力/六圍/技能/寶具/動作鈕
         if (pc && pc.mode === 'kanshou') {
           var prefK = String(s.pref || '').split(/[、,，·・]/).filter(Boolean).slice(0, 4).join('、');
           var traitK = (s.traits || []).map(function (t) { return t && t.n; }).filter(Boolean).join('、'); // 🌹 純文字、不用戰鬥膠囊
@@ -1426,7 +1434,6 @@ function renderRecentLocs(recents = null) {
           return '<div style="background:rgba(40,20,34,0.5); border:1px solid #a04a6a; border-radius:8px; padding:6px 8px;">'
             + '<div style="color:#e0a0bc; font-weight:bold; font-size:12px;">🌹 ' + s.cls + '</div>'
             + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
-            + '<div style="color:#cbb; font-size:11px; line-height:1.5;">外顯　' + s.condition + '</div>'
             + (s.outfit ? '<div style="color:#c9a0e0; font-size:11px; line-height:1.5;">裝扮　' + s.outfit + '</div>' : '')
             + (prefK ? '<div style="color:#cbb; font-size:11px; line-height:1.5;">個性　' + prefK + '</div>' : '')
             + (traitK ? '<div style="color:#cbb; font-size:11px; line-height:1.5;">特徵　' + traitK + '</div>' : '')
@@ -1439,7 +1446,6 @@ function renderRecentLocs(recents = null) {
         return '<div ' + (dual ? 'onclick="setActiveServant(\'' + safeN + '\')" ' : '') + 'style="background:rgba(20,14,28,0.55); border:1px solid ' + bcol + '; border-radius:8px; padding:6px 8px; ' + (dual ? 'cursor:pointer; ' + (isActive ? 'box-shadow:0 0 8px rgba(224,87,74,.4);' : 'opacity:.82;') : '') + '">'
           + '<div style="color:#c0392b; font-weight:bold; font-size:12px;">📿 從者・' + s.cls + (s.stolen ? ' <small style="color:#b06cd0;">⛓奪取</small>' : '') + (dual ? (isActive ? ' <small style="color:#e0574a;">⚔出戰中</small>' : ' <small style="color:#8a7;">待命·點擊出戰</small>') : '') + '</div>'
           + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
-          + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5;">' + s.condition + '</div>'
           + (s.outfit ? '<div style="color:#c9a0e0; font-size:10.5px; margin-top:1px;">👗 ' + s.outfit + '</div>' : '')
           + bar('體', s.hpNum, s.hpMax, 'hp')
           + (s.horror ? horrorBar(s.horror.cur, s.horror.max) : '')  // 🐙 深淵海怪肉身（在前掩護·優先承傷）
