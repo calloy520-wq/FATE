@@ -210,7 +210,11 @@ var SKILL_FX_ = {
   // ⚡ 主動施放技術（開關制·單層）：tiny 版由 tinyActiveSkill_ 自動 ×ACTIVE_SKILL_TINY_ 生成
   burst: { active: true, prio: 1, mpPct: 0.15, icon: '💥', zh: '魔力放出', dmgMul: function (r) { return 1 + 0.45 * r; }, descFn: function (ht, dm) { return '本戰傷害 ×' + dm.toFixed(2) + '（灌注魔力放出）'; } },
   str_up: { active: true, prio: 2, mpPct: 0.12, icon: '💪', zh: '怪力', dmgAdd: function (r) { return Math.round(8 * r) + 14; }, descFn: function (ht, dm, da) { return '本戰傷害 +' + da + '（激發怪力）'; } },
-  projection: { active: true, prio: 3, mpPct: 0.12, icon: '🗡️', zh: '投影魔術', hit: 9, dmgAdd: function (r, c) { return 34 + Math.round(rankVal((c.six && c.six['寶具']) || 'C') * 0.6); }, descFn: function (ht, dm, da) { return '本戰命中+' + ht + '、傷害+' + da + '（連續投影名劍齊射）'; } },
+  // ⚠ 2026-07 修：投影魔術原 hit:9+dmgAdd(34+寶具×0.6，最高近70) 遠超同表 burst/str_up 同類加成——
+  //   全循環賽模擬(tools/battle_sim/roundrobin.js)測出 EMIYA/小黑/咒腕之哈桑 三位持有者「關閉↔開啟」
+  //   勝率差距高達 +44~+76 個百分點(其餘 burst/str_up 持有者多在 +30 內)，形同「沒開這顆等於半殘」。
+  //   降階對齊同表量級，玩家定案「開關差距不要超過30」，實測後三人差距收斂至 +19~+27。
+  projection: { active: true, prio: 3, mpPct: 0.12, icon: '🗡️', zh: '投影魔術', hit: 2, dmgAdd: function (r, c) { return 5 + Math.round(rankVal((c.six && c.six['寶具']) || 'C') * 0.12); }, descFn: function (ht, dm, da) { return '本戰命中+' + ht + '、傷害+' + da + '（連續投影名劍齊射）'; } },
   // 🛡 常駐被動（每擊自動·免費）：resolveFateBattle_ 於其原位置呼 fxHitAdd_/fxDmgApply_ 套用(順序/標籤與改前一致)
   aim: { passive: true, zh: '千里眼', hitAdd: function (r) { return Math.round(4 * r); } },
   self_mod: { passive: true, zh: '自我改造', hitAdd: 2, dmgAdd: 3, silent: true }, // 傷害段靜默(命中段已列一次)
