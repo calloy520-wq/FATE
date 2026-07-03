@@ -542,23 +542,34 @@ function actionFateBattle(userData, pcId, sheets) {
     const prana = npPranaCost_(atkC.six["寶具"]);
     // 🔥 灌魔加乘：規格外寶具(＋/EX)於【全開 100%】時，把御主餘裕魔力超載灌入 → 威力線性放大至上限(＋×1.5、＋＋/EX×2)。
     //   auto-pour：達上限需額外「底費×2」的魔力，不足則按比例。補魔過充【過充】額度先行【無償】支付、一次性用完即清。
-    //   ⚠ 2026-07 玩家定案(二修)：超載三段可選(userData.overload)——false＝不超載(僅底費)／true 或未帶旗標
-    //     (舊前端/相容)＝超載【只灌 MP 餘裕·不焚血】／'blood'＝玩家明選「連血肉一併燃燒」全力梭哈(舊行為·
-    //     會燒到剩 1 HP)。原本 auto-pour 恆連血算進預算＝每發規格外寶具必自動剩 1 血，改成焚血須玩家主動選。
-    //     底費不足時的焚血(drainForNp_)照舊；想無償灌滿→補魔拿【過充】token。
+    //   ⚠ 2026-07 玩家定案(三修·定檔制)：超載＝【固定價格檔位】依寶具階等比(A階＝總耗 220/440/660，即 底費P/2P/3P)，
+    //     魔力優先支付、【不足的缺口才焚血】(drainForNp_ 2HP=1MP)——不再「把身上全部梭進去」的浮動池。
+    //     userData.overload：false＝僅底費(不超載)／'p1'＝超載檔(總價2P·灌P)／'p2'＝極限檔(總價3P·灌2P)／
+    //     true·'blood'·未帶旗標(舊前端快取/敵方)＝相容(只灌MP餘裕；'blood'含血梭哈)。倍率走引擎線性公式：
+    //     灌P→cap2.0時×1.5(cap1.5時×1.25)、灌2P→達上限。過充 token 照舊只無償折抵超載段。
     const cap = npOverloadCap_(atkC.six["寶具"]);
-    const wantOverload = !(userData.overload === false || userData.overload === 'false'); // 未帶旗標(舊前端/敵方)＝超載(不焚血)
-    const bloodPour = (userData.overload === 'blood');              // 玩家明選：血肉也化為魔力
+    const ov = userData.overload;
+    const wantOverload = !(ov === false || ov === 'false');         // 未帶旗標(舊前端/敵方)＝超載(不焚血)
     let totalDrain = prana, npOverloadMul = 1.0, ocUsed = 0, usedOvercharge = false;
     if (cap > 1.0 && wantOverload && (parseInt(atkC.output) || 60) >= 100) { // 僅規格外(＋/EX)寶具·全開時可超載/動用過充
       const ocBonus = getOvercharge_(pcData[pIdx][COL.PC.MEMORY]);
       const mMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
       const mHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
+      const extraToCap = prana * 2;                                 // 灌好灌滿＝再灌「底費×2」(總價3P)
       // 🔋 底費恆由御主自付(上游閘門已保證付得起)；過充【只】擴充「超載段」預算、絕不代付底費。
-      const masterPayable = bloodPour ? (mMp + Math.floor(Math.max(0, mHp - 1) / BATTERY_HP_PER_MP)) : mMp;
-      const masterSurplus = Math.max(0, masterPayable - prana);    // 付完底費後還能再灌多少(焚血梭哈才把血列入)
-      const extraToCap = prana * 2;                                // 再灌「底費×2」達上限
-      const pour = Math.min(extraToCap, masterSurplus + ocBonus);  // 超載段預算＝御主餘裕＋過充額度
+      const payableAll = mMp + Math.floor(Math.max(0, mHp - 1) / BATTERY_HP_PER_MP); // 血也列入(定檔/梭哈才用)
+      let pourTarget, pourBudget;
+      if (ov === 'p1' || ov === 'p2') {          // 🎚️ 定檔制：固定總價、MP 優先、缺口焚血
+        pourTarget = (ov === 'p2') ? extraToCap : prana;
+        pourBudget = Math.max(0, payableAll - prana) + ocBonus;
+      } else if (ov === 'blood') {               // 相容：舊「全力梭哈」(血列入·灌到滿或灌到乾)
+        pourTarget = extraToCap;
+        pourBudget = Math.max(0, payableAll - prana) + ocBonus;
+      } else {                                    // true/未帶旗標：只灌 MP 餘裕(不焚血)
+        pourTarget = extraToCap;
+        pourBudget = Math.max(0, mMp - prana) + ocBonus;
+      }
+      const pour = Math.min(pourTarget, pourBudget);                // 超載段實灌＝檔位目標與預算取小
       npOverloadMul = 1 + (pour / extraToCap) * (cap - 1);
       totalDrain = prana + pour;
       ocUsed = Math.min(ocBonus, pour);               // 過充【只】無償支付超載段·絕不代付底費(修雙重折抵)
