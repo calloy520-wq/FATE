@@ -88,20 +88,20 @@ function fateMaxHpMp_(con, mag) {
 
 // 🎴 御主(凡人魔術師)HP/MP：唯一核心數值＝魔術迴路(財力/身世決定)。
 //   🔋 共用魔力池制(2026-06)：從者【沒有獨立魔力池】，與御主共用一個魔力池(存御主MP)。
-//   池上限 = 御主迴路×8 ＋ 同隊從者魔力×2(見 masterPoolMax_)；召喚/時回時重算把從者魔力併進來。
-//   masterMaxHpMp_ 只給「尚無從者」的基底(迴路×8)；血(肉身，焚血/補魔備援)由迴路×2。
+//   池上限 = 御主迴路×10 ＋ 同隊從者魔力×2(見 masterPoolMax_)；召喚/時回時重算把從者魔力併進來。
+//   masterMaxHpMp_ 只給「尚無從者」的基底(迴路×10)；血(肉身，焚血/補魔備援)由迴路×2。
 function masterMaxHpMp_(circuits) {
   var c = parseInt(circuits) || 30;
   return {
     hp: 100 + c * 2,
-    mp: c * 8   // 🔋 2026-07 迴路係數 ×6→×8(魔力池提高·NP/理想鄉較吃得起)
+    mp: c * 10   // 🔋 2026-07 迴路係數 ×6→×8→×10(玩家定案再加深：A階寶具付完底費仍有超載餘裕)
   };
 }
 
-// 🔋 共用魔力池上限 = 御主迴路×8 ＋ 同隊從者魔力 rankVal 總和×2。(2026-07 迴路 ×6→×8·魔力池提高)
+// 🔋 共用魔力池上限 = 御主迴路×10 ＋ 同隊從者魔力 rankVal 總和×2。(2026-07 ×6→×8→×10·玩家定案)
 //   魔力高的從者(Caster/Saber 魔A)擴充共用槽；魔力低者(Assassin 魔E)幾乎只靠御主迴路。
 function masterPoolMax_(circuits, partyMagicVal) {
-  return (parseInt(circuits) || 30) * 8 + (parseInt(partyMagicVal) || 0) * 2;
+  return (parseInt(circuits) || 30) * 10 + (parseInt(partyMagicVal) || 0) * 2;
 }
 
 // 🔋 從者靈基出力檔位（玩家手動旋鈕，存從者 MEMORY【出力】）：從者無自有魔力，靠御主供魔的「出力」決定戰力與耗魔。

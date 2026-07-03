@@ -542,17 +542,19 @@ function actionFateBattle(userData, pcId, sheets) {
     const prana = npPranaCost_(atkC.six["寶具"]);
     // 🔥 灌魔加乘：規格外寶具(＋/EX)於【全開 100%】時，把御主餘裕魔力超載灌入 → 威力線性放大至上限(＋×1.5、＋＋/EX×2)。
     //   auto-pour：達上限需額外「底費×2」的魔力，不足則按比例。補魔過充【過充】額度先行【無償】支付、一次性用完即清。
+    //   ⚠ 2026-07 玩家定案：①超載段【不再自動焚血】——預算只算 MP 餘裕(原本連血算進去，每發規格外寶具
+    //     必被抽到剩 1 HP)；底費不足時的焚血(drainForNp_)照舊。想灌更滿→補魔拿【過充】token(無償超載)。
+    //     ②玩家可選擇不超載(前端寶具確認第二問→userData.overload=false)，保留魔力給戰後維持費。
     const cap = npOverloadCap_(atkC.six["寶具"]);
+    const wantOverload = !(userData.overload === false || userData.overload === 'false'); // 未帶旗標(舊前端/敵方)＝照舊超載
     let totalDrain = prana, npOverloadMul = 1.0, ocUsed = 0, usedOvercharge = false;
-    if (cap > 1.0 && (parseInt(atkC.output) || 60) >= 100) { // 僅規格外(＋/EX)寶具·全開時可超載/動用過充
+    if (cap > 1.0 && wantOverload && (parseInt(atkC.output) || 60) >= 100) { // 僅規格外(＋/EX)寶具·全開時可超載/動用過充
       const ocBonus = getOvercharge_(pcData[pIdx][COL.PC.MEMORY]);
       const mMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
-      const mHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
       // 🔋 底費恆由御主自付(上游閘門已保證付得起)；過充【只】擴充「超載段」預算、絕不代付底費。
-      const masterPayable = mMp + Math.floor(Math.max(0, mHp - 1) / BATTERY_HP_PER_MP);
-      const masterSurplus = Math.max(0, masterPayable - prana);   // 付完底費後御主自己還能再灌多少
+      const masterSurplus = Math.max(0, mMp - prana);              // 付完底費後 MP 還剩多少可灌(血不列入)
       const extraToCap = prana * 2;                                // 再灌「底費×2」達上限
-      const pour = Math.min(extraToCap, masterSurplus + ocBonus);  // 超載段預算＝御主餘裕＋過充額度
+      const pour = Math.min(extraToCap, masterSurplus + ocBonus);  // 超載段預算＝御主MP餘裕＋過充額度
       npOverloadMul = 1 + (pour / extraToCap) * (cap - 1);
       totalDrain = prana + pour;
       ocUsed = Math.min(ocBonus, pour);               // 過充【只】無償支付超載段·絕不代付底費(修雙重折抵)
