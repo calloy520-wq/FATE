@@ -284,7 +284,8 @@ function fxDmgApply_(base, winner, loser, fx, fired) {
 // ⚠ 2026-07 修：territory/rho_aias/wall_def 原本 mul 是寫死數字，不像 home_field/divine_core 用函式
 //   隨階級縮放(fxDefApply_ 只在 typeof mul==='function' 時才呼叫 rankMul_)——導致陣地作成 C 階跟 EX 階
 //   減傷完全相同，七天盾/城牆防禦同理，違反本檔案頭「每個 fx 效果都隨技能階級縮放」的設計原則。
-//   已改成函式，並以 B 階(rankMul_=1)校準回原本的數值，B 階持有者行為不變，A/EX 階變強、C/D 階變弱。
+//   已改成函式，並以 C 階(rankMul_=1.0，見檔頭「以 C(30) 為 1.0 基準」)校準回原本的數值——
+//   C 階持有者行為不變，B/A/EX 階變強(EX territory 0.48/rho_aias 0.20)、D/E 階變弱。
 var DEF_FX_ = {
   territory: { mul: function (r) { return 1 - 0.26 * r; }, zh: '陣地', note: '·魔術防壁', pierceKey: 'territory', guardPositive: true, piercedMsg: function (w) { return w.name + '·概念壓制(碾穿結界)'; } },
   home_field: { mul: function (r) { return 1 - 0.16 * r; }, zh: '主場陣地結界', pierceKey: 'territory', guardPositive: true, piercedMsg: function (w) { return w.name + '·概念壓制(碾穿主場結界)'; } },
@@ -301,7 +302,9 @@ function fxDefApply_(base, loser, winner, fx, pierces, atkMagic, fired) {
     if (e.piercedMsg) fired.push(e.piercedMsg(winner)); // 被貫穿/破魔→減傷失效
     return base;
   }
-  var m = (typeof e.mul === 'function') ? e.mul(rankMul_(rk)) : e.mul;
+  // ⚠ 下限 clamp：mul 係數×rankMul>1 時(如未來有人給 rho_aias 掛超過 EX+ 的階級)會算出負乘子→
+  //   負傷害→打人變補血。現行持有者皆不可達，純結構性防呆。
+  var m = Math.max(0, (typeof e.mul === 'function') ? e.mul(rankMul_(rk)) : e.mul);
   var pre = base; base = Math.round(base * m);
   if (!e.guardPositive || pre > 0) fired.push(loser.name + '·' + fxName_(loser, fx, e.zh) + (e.note || ''));
   return base;
