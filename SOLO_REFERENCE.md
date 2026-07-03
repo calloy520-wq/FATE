@@ -367,7 +367,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `servantCard_` 含**狂化偵測**：persona.speech/firstP 含 狂化/無法言語/咆哮 → 加「禁說完整句、只咆哮」鐵律(赫拉克勒斯/蘭斯洛特命中；會說話的開膛手傑克不中)。
 - `servantCard_(row)`：壓成「〈角色背景·僅供內化〉」段塞進 narration prompt。**鐵則一**=當背景揣摩；**鐵則二**=設定字眼禁直述/說嘴；**鐵則三**=依羈絆調親疏(低好感戒備→高羈絆親近，守住性格內核)。
 - `enemyAmbushOnServant_`：卸防(補魔/羈絆/共處/休息)時同地未結盟敵從者趁隙重擊。
-- `raiseBond_`(升既有)／`bumpBond_`(無則建)／`getBond_`。`extractWish_`(取【願望】)、`buildDreamPrompt_`(敗北虛假之夢)。
+- `raiseBond_`(升既有)／`bumpBond_`(無則建)／`getBond_`。`extractWish_`(取【願望】)、`buildDreamPrompt_`(敗北虛假之夢)、`buildVictoryDreamPrompt_`(2026-07 新增·勝利真夢，見下方「勝利收場對稱補完」條目)。
 - **⏳ 14天時限(2026-06)**：聖杯戰爭上限第14日，`day>14` 未奪杯＝時限耗盡敗北。**中央攔截**：`handleGameAction`(dispatcher)在 handler 跑完後，對 PC_ solo 解析回應現成的 `clock` 字串(零額外時鐘讀)——`第N日` 的 N>14 且 success 且未 victory/defeat → 讀一次眾生取御主/從者名、補 `defeat:true+deadline:true+dreamPrompt+servantDream:""`。所有耗時動作(移動/戰鬥/補魔/偵查/休息…回應都帶 clock)統一覆蓋，不必各自判。夢用 `buildDreamPrompt_(name,wish,sv,cause)`：`cause==='timeout'`＝時限夢(破綻=時鐘停在第14日)、否則=戰鬥敗死夢(同一函數·勿再另開)。前端各動作 `data.defeat`→`handleDefeat`(travelTo 已補接·跨日略過抵達敘事直接收場)。
 
 ---
@@ -392,8 +392,11 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **狀態面板**：`refreshFateTags`(御主/雙從者卡、補魔/羈絆/令咒/休息/禮裝)、`setActiveServant`、`bondWord`。
 - **戰爭行動列**：`renderWarActions`(**手風琴**：每目標一張可點開卡，`toggleWarTarget`/`warExpanded`，單目標自動展開；底部固定偵查/休息/移動)、`attackStyle_`(近戰/魔砲/狙擊樣式)、`localFoeServantName`。
 - **行動 handler**：`servantStrike`(出戰/寶具/令咒/刺殺御主四參數)、`manaSupply`、`bond`/`openBondMenu`/`submitBond`、`rest`/`openRestMenu`/`restAndHeal`、`scout`、`mysticStrike`、`ruleBreakSteal`、`secondWind`、`setWorkshop`/`scavenge`、`proposeAlliance`/`breakAlliance`/`allyBond`。
-- **戰報**：`renderFateBattleReport`(斬首多骰/strikes/雙從者血條)、`renderCombatReport`、`renderMysticReport`、`narrate`/`narrateCombatResult`、`handleDefeat`(敗北→虛假之夢→老虎道場)。
+- **戰報**：`renderFateBattleReport`(斬首多骰/strikes/雙從者血條)、`renderCombatReport`、`renderMysticReport`、`narrate`/`narrateCombatResult`、`handleDefeat`(敗北→虛假之夢→老虎道場)、`handleVictory`(勝利→**願望終於實現的真實夢**→奪杯畫面，2026-07 新增，見下)。
 - **🐯 老虎道場 AI 講評(2026-06)**：敗北「⏭直視結局」按鈕→`runTigerDojo_(servantName,causeCtx)`：`buildTigerDojoPrompt_` 餵藤村大河＋伊莉雅依**實際敗因**(夢覆寫前擷取的 `lastAiContext`)吐槽＋給一條對症戰術建議，走 `narrate_only` 一次呼叫(只在 game-over 收場·不影響遊戲中速度)填入 `#dojo-ai-body`，失敗退回 `dojoFallbackHtml_()` 罐頭文案。
+- **🎉 勝利收場對稱補完(2026-07 新增)**：玩家發現勝利流程缺了敗北那套「夢→道場」的儀式感(只有一個空泛的獎杯畫面直接跳去封存)，要求做「死亡那套的小改版」。
+  - **願望真夢**：新增 `buildVictoryDreamPrompt_(pcName,wish,servantName)`(Router_Narrative.gs)，與 `buildDreamPrompt_` 同結構但**不露破綻**(這次是真的)。所有會觸發 `victory:true` 的路徑都同步補上：`fateStrike_` 主擊殺敵/對轟回震/背擊/盟友協同/深淵海怪(Router_Battle.gs 共6處)、斬首戰術(`asnVictory`)、`worldTick_` 令咒透支延遲結算(Time_World.gs，額外查 `findGameMasterIdx_`+己方從者)。`actionMove`/`actionRest`(Router_Movement.gs)把 `tick.dreamPrompt` 一併穿進回應(`actionRest` 與夜襲致敗的 dreamPrompt 互斥，defeat 優先)。前端 `handleVictory(res)` 先 `narrate(res.dreamPrompt)` 才開金色奪杯畫面，跟 `handleDefeat` 同一節奏。
+  - **老虎道場祝賀版**：`tiger-dojo-overlay` 改成**共用殼**(標題/表情/副標三個 id 化：`dojo-emoji`/`dojo-title`/`dojo-subtitle`)，`openTigerDojo(mode)`/`runTigerDojo_(servantName,causeCtx,mode)` 依 `mode==='victory'` 切換文案與收尾按鈕行為(勝利收尾走既有 `dojoBackToMenu()`、不強制 reload)。新增 `buildTigerDojoVictoryPrompt_`(同兩人，這次真心祝賀+吐槽最精彩瞬間)。`claimGrail()` 封存成功後，「返回選單」鈕改標「🎉 慶祝一下」並動態接上 `runTigerDojo_(res.servantName,'','victory')`，看完祝賀才回選單——原本的 AI 回憶(memoir)顯示不變，祝賀道場接在其後多一拍。
 - **召喚/創角**（2026-07 整段搬到 `Script_Onboarding.html`，天然時間邊界：只在開局跑一次）：`accountLogin`/`chooseWarMode`/`chooseWar`/`chooseRole`/`loadCanonMasters`/`pickCanonMaster`、`rollFate`/`selectFateRoll`/`renderFateRolls`(魔術天賦測定)、`checkName`/`createPC`/`backfillMasterAi`、`doSummon`/`summonByHero`/`selectSummonClass`、`startGame`。與 Script.html 共享同一頁面全域作用域。
 - **地圖**：`renderMapPane`(陣地/搜索物資/盟友通報橫幅)、`buildMapSvg_`、`scout`。**地圖 17 正典地點**(衛宮宅/愛因茲貝倫城/冬木森林/冬木·碼頭/深山町遠坂宅/新都穗群原…)：種子在 `Setup_FateWorld.gs` `FATE_MAP_SEED`，`reseedIfEmpty_` 為 **upsert**(按名更新 TYPE/COORD/DESC＋補缺列)；前端位置是 `buildMapSvg_` 內 **hardcoded `LAYOUT`**(short-name→[x,y]，新都西/深山町東)＋`CONN`，**非試算表座標**(座標只備查)。改地圖要同步改種子(名字)＋LAYOUT(位置)。
 - **移動敘事**：`actionMove`(Router 2121)回傳 `servantCard`(玩家從者卡)，前端 `travelTo` 抵達提示前置該卡＋「從者必在場、依性格至少一句台詞」指令——修掉移動後變御主獨白、從者像不存在。前端 `foes.length` 時再加「遭遇·敵在眼前」指令(敵方開口挑釁/試探，但勝負留待御主下令)。

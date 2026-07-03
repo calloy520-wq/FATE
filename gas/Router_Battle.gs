@@ -215,6 +215,9 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
       if (isFoeSv) markMasterLostServant_(sheets.pc, pcData, tgtIdx, `被『${atkC.name}』當場擊破、靈基崩潰消滅`);
       if (isFoeSv && aliveEnemyServants_(sheets, ctx.myGameId) <= 0) {
         out.victory = true;
+        // 🏆 勝利同款「願望夢」：與敗北的 buildDreamPrompt_ 對稱，帶玩家自己的從者(atkC，此刻是攻方)入場。
+        var vWish = extractWish_(pcData[ctx.pIdx][COL.PC.MEMORY]);
+        out.dreamPrompt = buildVictoryDreamPrompt_(pcData[ctx.pIdx][COL.PC.NAME], vWish, atkC.name);
       }
     }
   } else {
@@ -445,6 +448,8 @@ function actionFateBattle(userData, pcId, sheets) {
       asnKnocked = [masterName, guardName];
       if (aliveEnemyServants_(sheets, myGameId) <= 0) {
         asnVictory = true;
+        var asnWish = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
+        asnDream = buildVictoryDreamPrompt_(pcData[pIdx][COL.PC.NAME], asnWish, crit.name);
       }
       asnReport = {
         assassination: true, success: true, aRoll: 20, rolls: rolls.map(r => ({ name: r.name, roll: r.roll })), dual: dualAsn,
@@ -646,7 +651,7 @@ function actionFateBattle(userData, pcId, sheets) {
       if (eHit.knocked) knockedOut.push(eHit.knocked);
       if (eHit.sealEscaped) { sealEscaped = true; sealNote = eHit.sealNote; }
       if (eHit.godRevived) { godRevived = true; godNote = eHit.godNote; }
-      if (eHit.victory) victory = true;
+      if (eHit.victory) { victory = true; dreamPrompt = eHit.dreamPrompt; }
       if (!sealEscaped) {
         // ★ 對轟【回震】不致死(勝方/僵持方吃的是餘波)：夾到至多打到 1 HP——原本回震可打死殘血從者，
         //   造成「同一場先記勝又記敗」的勝敗雙記(2026-07 修)。輸方(outcome='enemy')在上方已同樣保 1。
@@ -728,7 +733,7 @@ function actionFateBattle(userData, pcId, sheets) {
       if (ps.knocked) knockedOut.push(ps.knocked);
       if (ps.sealEscaped) { sealEscaped = true; sealNote = ps.sealNote; }
       if (ps.godRevived) { godRevived = true; godNote = ps.godNote; }
-      if (ps.victory) victory = true;
+      if (ps.victory) { victory = true; dreamPrompt = ps.dreamPrompt; }
       if (destroyedName || sealEscaped) break;
     }
 
@@ -793,7 +798,7 @@ function actionFateBattle(userData, pcId, sheets) {
         if (hs.destroyed) destroyedName = hs.destroyed;
         if (hs.knocked) knockedOut.push(hs.knocked);
         if (hs.godRevived) { godRevived = true; godNote = hs.godNote; }
-        if (hs.victory) victory = true;
+        if (hs.victory) { victory = true; dreamPrompt = hs.dreamPrompt; }
         if (hs.sealEscaped) { sealEscaped = true; sealNote = hs.sealNote; }
       }
     }
@@ -806,7 +811,7 @@ function actionFateBattle(userData, pcId, sheets) {
       rl.strikes.push({ by: allyC.name, ally: true, pRoll: aps.aRoll, pHitVal: aps.aHit, dRoll: aps.dRoll, dEvaVal: aps.dEva, pHit: aps.hit, pDmg: aps.hit ? aps.damage : 0, pCrit: aps.crit, pFired: aps.fired, note: "盟友協同" });
       if (aps.destroyed) destroyedName = aps.destroyed;
       if (aps.knocked) knockedOut.push(aps.knocked);
-      if (aps.victory) victory = true;
+      if (aps.victory) { victory = true; dreamPrompt = aps.dreamPrompt; }
     }
 
     if (sealEscaped || destroyedName || victory) { rounds.push(rl); break; }

@@ -169,7 +169,7 @@ function actionMove(userData, pcId, sheets) {
   // 🌍 世界先動，玩家後到：先讓敵御主／敵從者 tick 到各自的新位置，再把玩家落到 target——
   //   這樣「追到敵人所在地」時，敵人不會在你踏進來的同一瞬間又被傳走（修：撞在一起卻沒對話）。
   //   敵人就位後才讀同地資料給 AI，這一輪它們鎖在原地，遭遇敘事才跑得起來。
-  let clockLabel = "", worldRumors = [], apLeft = AP_PER_DAY, moveVictory = false;
+  let clockLabel = "", worldRumors = [], apLeft = AP_PER_DAY, moveVictory = false, moveDream = "";
   if (isFateMove) {
     try {
       const sp = spendAp_(moveGameId, 2, allPcData, sheets);
@@ -179,6 +179,7 @@ function actionMove(userData, pcId, sheets) {
       const tick = worldTick_(sheets, moveGameId, target, 1, false, allPcData); // 移動只讓敵換位，不死人；但令咒透支倒數可能到期收尾
       worldRumors = tick.rumors || [];
       moveVictory = !!tick.victory;
+      moveDream = tick.dreamPrompt || ""; // 🏆 令咒透支延遲結算若剛好收尾此局，願望夢跟著帶出來
       try { const ab = breakStaleAlliances_(sheets, moveGameId, allPcData); if (ab.broken.length) worldRumors.push(`〔盟約${ab.forced ? '瓦解' : '到期'}〕你與「${ab.broken.join('、')}」的同盟已${ab.forced ? '因戰局逼近終局而破裂——最後只能剩一個' : '到期失效'}，重回敵對。`); } catch (e) { }
       clockLabel = clockLabel_(moveGameId, allPcData);
     } catch (e) { }
@@ -269,6 +270,7 @@ function actionMove(userData, pcId, sheets) {
     pursuit: pursuit,
     preFoes: preFoesAtTarget,
     victory: moveVictory,
+    dreamPrompt: moveDream,
     statusString: buildPlayerStatusString(allPcData[pIdx]),
     people: getLocalPeopleList(sheets, pcName, pcId, target, allPcData),
     locations: getNearbyLocations(target, freshMapData).slice(0, 5),
@@ -320,7 +322,7 @@ function actionRest(userData, pcId, sheets) {
     });
     sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
 
-    let restClock = "", restRumors = [], apAfter = AP_PER_DAY, restVictory = false;
+    let restClock = "", restRumors = [], apAfter = AP_PER_DAY, restVictory = false, restVictoryDream = "";
     try {
       const clk = restHours_(restGameId, restHours, pcData, sheets);
       apAfter = clk ? clk.ap : AP_PER_DAY;
@@ -328,6 +330,7 @@ function actionRest(userData, pcId, sheets) {
       // ⚡ 2026-07：worldTick_ 拿 pcData 在同一份陣列上原地改(傳參考)，不必事後重讀整表才拿得到最新狀態。
       if (rounds > 0) {
         const tick = worldTick_(sheets, restGameId, pcLoc, rounds, true, pcData); restRumors = tick.rumors || []; restVictory = !!tick.victory;
+        restVictoryDream = tick.dreamPrompt || ""; // 🏆 令咒透支延遲結算若剛好收尾此局，願望夢跟著帶出來
         // 🤝 2026-07 修：同盟到期/終局強制瓦解，原本只在 actionMove 判——玩家只休息不移動就永遠不會過期/強制解盟。
         //   休息一樣會推進時間(worldTick_ 剛 tick 完)，理應同步判一次；沿用同一份 pcData(傳參考)，breakStaleAlliances_ 內部自行寫回。
         try { const ab = breakStaleAlliances_(sheets, restGameId, pcData); if (ab.broken.length) restRumors.push(`〔盟約${ab.forced ? '瓦解' : '到期'}〕你與「${ab.broken.join('、')}」的同盟已${ab.forced ? '因戰局逼近終局而破裂——最後只能剩一個' : '到期失效'}，重回敵對。`); } catch (e) { }
@@ -359,12 +362,15 @@ function actionRest(userData, pcId, sheets) {
     } else if (restAmbush) {
       restAmbushPrompt = `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${restAmbush.enemyName}」${restAmbush.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊重創「${restAmbush.svName || '從者'}」（−${restAmbush.dmg}）${restAmbush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
     }
+    // 🏆 夢的優先序：夜襲致敗的虛假之夢 > 令咒透支延遲結算的勝利真夢 > 空——兩者互斥(defeat/victory 本就互斥)。
+    const restFinalVictory = restVictory && !(restAmbush && restAmbush.defeat);
+    const restFinalDream = (restAmbush && restAmbush.defeat) ? restAmbush.dreamPrompt : (restFinalVictory ? restVictoryDream : "");
     return JSON.stringify({
       success: true, statusString: getFreshStatusString(pcId, pIdx, sheets), healedNames: healedNames,
       loc: pcLoc, wasInjured: wasInjured, restHours: restHours, clock: restClock, ap: apAfter, apMax: AP_PER_DAY, rumors: restRumors,
-      ambush: !!restAmbush, defeat: restAmbush ? restAmbush.defeat : false, dreamPrompt: restAmbush ? restAmbush.dreamPrompt : "", ambushPrompt: restAmbushPrompt, report: restAmbush ? restAmbush.report : null,
+      ambush: !!restAmbush, defeat: restAmbush ? restAmbush.defeat : false, dreamPrompt: restFinalDream, ambushPrompt: restAmbushPrompt, report: restAmbush ? restAmbush.report : null,
       servantDream: restDreamPrompt,
-      victory: restVictory && !(restAmbush && restAmbush.defeat),
+      victory: restFinalVictory,
       economy: playerServantEconomy_(sheets, pcId, pcData) // 復用已寫回的 pcData，免整表重讀
     });
   }
