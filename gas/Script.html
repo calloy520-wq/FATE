@@ -1949,7 +1949,13 @@ function renderRecentLocs(recents = null) {
         if (res.defeat) { await handleDefeat(res); }
         else if (res.victory) { await handleVictory(res); }
       }
-      else { alert((res && res.message) || '出擊失敗。'); try { syncData(true); } catch (e) {} } // 失敗(常見：目標已不在/已亡的幽靈卡)→重新同步清掉殘留敵蹤卡
+      else {
+        // 失敗(常見：目標已不在/魔力不足以付寶具底費)→故事流補一行痕跡(alert 關掉就沒了，
+        //   回讀時才不會看到「喊了解放寶具卻無下文」的斷頭訊息)＋重新同步清掉殘留敵蹤卡
+        story.insertAdjacentHTML('beforeend', '<div class="msg-player" style="color:#c9a0a0;"><b>【系統】：</b>' + ((res && res.message) || '出擊未遂。') + '</div>');
+        story.scrollTop = story.scrollHeight;
+        alert((res && res.message) || '出擊失敗。'); try { syncData(true); } catch (e) {}
+      }
     } catch (e) { alert('連線失敗，出擊未果。'); } finally { endAction(); }
   }
 
