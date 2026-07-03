@@ -9,26 +9,7 @@
 //
 // 用法：node tools/battle_sim/duel.js
 'use strict';
-const { loadEngineContext } = require('./engine.js');
-
-function buildCombatant(ctx, seed, overrides) {
-  const c = {
-    name: seed.realName, cls: seed.cls,
-    six: Object.assign({}, seed.six),
-    skills: seed.skills.map(s => Object.assign({}, s)),
-    traits: seed.traits.map(t => Object.assign({}, t)),
-    np: seed.np,
-    hpMax: 150 + Math.max(8, ctx.rankVal(seed.six['耐久'])) * 6, // svHp 公式(Router_Creation.gs:321)
-    mp: 0, mpMax: 0,
-    output: 60,   // servantOutput_ 預設「巡航」檔(未特別調整出力)
-    runeMode: 'def',
-    npChoice: 0,
-    horrorUp: false,
-  };
-  c.hp = c.hpMax;
-  Object.assign(c, overrides);
-  return c;
-}
+const { loadEngineContext, buildCombatant } = require('./engine.js');
 
 function stripFx(skills, fxList) {
   return skills.filter(s => !fxList.includes(s.fx));
@@ -52,8 +33,8 @@ function applyGodHandRevive(def, dmg) {
 // 一場戰鬥打到其中一方陣亡(或撞到安全上限回合數，視為平手/膠著)。
 // order: subject 先攻，每回合 subject 攻擊一次；enemy 存活就反擊一次。
 function runDuel(ctx, subjectSeed, subjectOverrides, enemySeed, enemyOverrides) {
-  const subject = buildCombatant(ctx, subjectSeed, subjectOverrides);
-  const enemy = buildCombatant(ctx, enemySeed, enemyOverrides);
+  const subject = buildCombatant(ctx, subjectSeed, { overrides: subjectOverrides });
+  const enemy = buildCombatant(ctx, enemySeed, { overrides: enemyOverrides });
   enemy._lives = ctx.hasFx_(enemy, 'god_hand') ? 11 : 0; // getGodHandLives_ 預設值(Router_Battle.gs:1114)
   subject._lives = ctx.hasFx_(subject, 'god_hand') ? 11 : 0;
 
@@ -126,7 +107,8 @@ function main() {
   console.log(`每組模擬 ${N} 場（單場＝普通攻擊反覆交鋒至一方陣亡；不解放寶具/不吃補魔整備/禮裝）\n`);
 
   function report(label, seed, fxToStrip) {
-    const overrides = fxToStrip ? { skills: stripFx(seed.skills.map(s => Object.assign({}, s)), fxToStrip) } : {};
+    const fullSkills = (seed.classSkills || []).concat(seed.skills || []).map(s => Object.assign({}, s));
+    const overrides = fxToStrip ? { skills: stripFx(fullSkills, fxToStrip) } : {};
     const res = simulate(ctx, seed, overrides, her, N);
     console.log(`${label}`);
     console.log(`  勝率＝${(res.subjectWinRate * 100).toFixed(1)}%　　敗率＝${(res.enemyWinRate * 100).toFixed(1)}%　　膠著(撞${60}回合上限)＝${(res.stalemateRate * 100).toFixed(1)}%`);
