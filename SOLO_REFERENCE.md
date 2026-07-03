@@ -343,9 +343,10 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 ## 9. 鑑賞 Gallery.gs（奪杯後/慾海入口）
 
 - `actionClaimGrail`：奪杯→AI 寫後日談回憶(memoir)→寫入「鑑賞」表→**同盟封存**(羈絆90↑或【鑑賞緣】的盟友一併入冊，御主搭檔 CLS="御主")→`purgeGameData_` 清本局。
-- `actionEnterKanshou`：每帳號【單一常駐】後日談世界(KPC_ 御主 avatar，以 MEMORY【帳號】綁定、id 持久接續歷史)。首進需 `pcName/pcSex`(否則回 `needSetup`)。對話仍走 `actionPlay`(NSFW，引擎不動)。
+- `actionEnterKanshou`：每帳號【單一常駐】後日談世界(KPC_ 御主 avatar，id 持久接續歷史)。首進需 `pcName/pcSex`(否則回 `needSetup`)。對話仍走 `actionPlay`(NSFW，引擎不動)。
 - `actionKanshouCompanions/Add/Remove`：後日談同伴管理(上限3，住獨立「鑑賞眾生」分頁，`kanshouServantRow_` 建列)。`actionKanshouSetSex/SetName`：改 avatar 性別/名字。
-  - **🐛→✅ 帳號歸屬完全沒驗證(2026-07 修·本次盤查最嚴重的一項)**：`KPC_`/`g_`/`k_` 的 ID 只用 `Date.now()`(毫秒級、無隨機尾碼)，理論上可預測；而這 5 支 action 過去只憑 `pcId` 找列就直接改寫/刪除，**完全沒驗證呼叫者是否真的擁有這個 pcId**(`kanshou_set_name/set_sex` 甚至連 `acctName` 都沒收)。只要拿到/猜中他人 `pcId`，就能把自己的封存從者塞進對方後日談、請走對方同伴、竄改對方 avatar 名字性別，對方毫無所覺。已新增 `kanshouOwnedRowIdx_(data,pcId,acctName)` 共用驗證(比對 MEMORY 內的 `【帳號】<acct>` 標記，找到列但帳號不符時視為查無)，5 支 action 全部改用；前端 `kanshou_set_name`/`kanshou_set_sex` 補上 `acctName` 參數。
+  - **🐛→✅ 帳號歸屬完全沒驗證(2026-07 修·本次盤查最嚴重的一項)**：`KPC_`/`g_`/`k_` 的 ID 只用 `Date.now()`(毫秒級、無隨機尾碼)，理論上可預測；而這 5 支 action 過去只憑 `pcId` 找列就直接改寫/刪除，**完全沒驗證呼叫者是否真的擁有這個 pcId**(`kanshou_set_name/set_sex` 甚至連 `acctName` 都沒收)。只要拿到/猜中他人 `pcId`，就能把自己的封存從者塞進對方後日談、請走對方同伴、竄改對方 avatar 名字性別，對方毫無所覺。
+  - **🔧 2026-07 二次修正·結構性根除(玩家要求「跟 solo 一樣」)**：第一輪修法是靠 `kanshouOwnedRowIdx_` 比對角色自己 MEMORY 內的 `【帳號】<acct>` 標記——這只是「補一道檢查」，屬於角色自己宣稱歸屬、驗證責任落在每個呼叫端，容易在未來新增 kanshou action 時被遺漏重蹈覆轍。已改成跟 solo(`linkAccountToPc_`/`COL.ACC.PC`)**同一套結構**：「帳號」表新增 `KPC` 欄位(`COL.ACC.KPC`)，由 `linkAccountToKanshouPc_`/`getAccountKanshouPcId_` 專責讀寫，只有伺服器碼會寫這個連結、玩家端無法透過任何參數影響——結構上就不可能繞過，不必靠每個操作各自記得驗證。`kanshouOwnedRowIdx_` 改為比對「帳號表記錄的 KPC 是否等於呼叫者聲稱的 pcId」。`actionEnterKanshou` 優先讀帳號表連結；若無(舊存檔)則一次性回退掃描舊版 MEMORY 標記並補寫帳號表連結(遷移不中斷玩家既有後日談世界)，之後就走新機制。MEMORY 內的 `【帳號】` 標記予以保留但**降級為人工檢視試算表用的辨識文字**，不再是驗證依據。
 - `actionDevSeedGallery`：DEV 塞測試從者(待移除)。
 - `actionPurgeOrphans`(action `purge_orphans`，主選單 DEV「🧹 清殘列」)：清「眾生」表孤兒——刪①所有 `DEAD_` 列 ②game_id 非任一帳號當前連結(COL.ACC.PC 反推 liveGids)的世界(敗北殘局/棄局/亡靈)。**保留**：活躍戰局、game_id 空白列(創角中)、鑑賞另表。整表 rewrite(setValues+單次 deleteRows tail，非逐列)。連帶清關係表：只刪「被刪御主(PC_)名下、非存活、非鑑賞御主」的 rel(防誤刪鑑賞關係)。回 {removed,kept,relRemoved}。**用途＝縮表加速每次按鍵的整表掃描**(眾生肥大主因＝每局敵御主+敵從者整批殘留)。
 - `findPlayerServant_`、`purgeGameData_`。

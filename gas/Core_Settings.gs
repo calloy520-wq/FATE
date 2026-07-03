@@ -40,7 +40,11 @@ const COL = {
   HERO: { ID: 0, CLS: 1, NAME: 2, SEX: 3, SIX: 4, CLASS_SKILLS: 5, SKILLS: 6, TRAITS: 7, NP: 8, PERSONA: 9, ALIGN: 10, WARS: 11, SOURCE: 12 },
   MASTER: { ID: 0, NAME: 1, SEX: 2, APPEAR: 3, MAGIC: 4, CIRCUITS: 5, MELEE: 6, MAGIC_RANK: 7, HOME: 8, WISH: 9, PERSONA: 10, WAR: 11, SOURCE: 12, BACK: 13, MOE: 14 },
   // 帳號（存檔身分）：帳號名 → 目前御主角色ID。2026-07：勝場/最快奪杯日(排行榜用)已隨排行榜砍除。
-  ACC: { NAME: 0, PC: 1, CREATED: 2 },
+  // ⚠ 2026-07 修：新增 KPC(鑑賞角色ID)——原本鑑賞的帳號歸屬是角色自己 MEMORY 裡宣稱的
+  // 【帳號】標記，沒有結構性防護(任何操作忘了驗證就能被冒充)；現在跟 PC 欄位同一套機制，
+  // 由伺服器端的 linkAccountToKanshouPc_/getAccountKanshouPcId_ 專責讀寫，比照 solo 的
+  // 「連結存在外部表、玩家端無法影響」，結構上就不可能繞過，不必靠每個呼叫端各自記得檢查。
+  ACC: { NAME: 0, PC: 1, CREATED: 2, KPC: 3 },
   // 鑑賞：奪杯後封存的從者（可於鑑賞模式呼出）
   GAL: { ACC: 0, NAME: 1, CLS: 2, SEX: 3, SIX: 4, TAGS: 5, NP: 6, BACK: 7, PREF: 8, MOE: 9, MEMOIR: 10, WISH: 11, TIME: 12, MASTER: 13, MSEX: 14 }
 };
