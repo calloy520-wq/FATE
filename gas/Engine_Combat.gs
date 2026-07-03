@@ -235,7 +235,7 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
 
   return JSON.stringify({
     narration: fallbackNarration, options: ["1. 深吸一口氣，平復心緒", "2. 溫柔地退開半步", "3. 輕聲轉移話題", "4. 稍作歇息"],
-    stat_changes: [], rel_changes: [], events: [], items_gained: []
+    stat_changes: [], rel_changes: [], events: []
   });
 }
 

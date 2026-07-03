@@ -8,8 +8,13 @@
 function actionPlay(userData, pcId, sheets) {
   const userMsg = userData.message;
   // 🌹 慾海(KPC_ 御主)＝NSFW 後日談軌，一律當 NSFW：否則 intimacy/肉體/衣服狀態整段不回填。
-  //   不再依賴前端開關(會被快取/忘了開)。solo 仍純看 userData.isNsfw(預設 SFW)。
-  const isNsfwMode = userData.isNsfw || String(pcId || "").indexOf("KPC_") === 0;
+  // ⚠ 2026-07 修：原本 solo 仍信 userData.isNsfw——但前端 nsfw-mode-toggle 是整頁共用同一個
+  //   checkbox(Script_Kanshou.html 進鑑賞時強制 .checked=true)，applyModeUI() 離開鑑賞時只隱藏它、
+  //   從不重置回 false，玩家從鑑賞切回 solo 後只要該勾選格還沒被使用者手動點掉，就會把 isNsfw:true
+  //   一路帶進 solo 的 actionPlay，讓「純淨 solo 一律 SFW」這條紅線被一顆殘留的前端旗標繞過——
+  //   後端才是唯一可信防線(sanitizeUserData_ 同一哲學)，改成純看 pcId 路由，完全不信任何前端旗標：
+  //   非 KPC_(kanshou) 一律鎖 SFW，userData.isNsfw 對 solo 不再有任何作用。
+  const isNsfwMode = String(pcId || "").indexOf("KPC_") === 0;
   const finalUserMsg = `【玩家意圖】：${userMsg}`;
 
   const formatPref = (str) => {
@@ -153,7 +158,11 @@ function actionPlay(userData, pcId, sheets) {
     PROMPT_REL = `【當前同地人物】\n${localSceneStr}`;
   }
 
-  const npcDialoguePrompt = displayPeople.length > 0 ? `\n★【對話點名】：若有對話意圖，請包含「${displayPeople.map(r => r[COL.PC.NAME]).join("、")}」的對話。` : "";
+  // ⚠ 2026-07 修：原句「請包含...的對話」讀起來像強制指令全員都要出聲，跟緊鄰的
+  //   「同地路人/嚴禁強制互動」標籤互相矛盾——玩家只想找同行從者講話，卻可能被這行逼得
+  //   連路人 B、C 都插話。改成「姓名參考用」措辭：只提供正確姓名給 AI 拼字用，
+  //   是否真的互動仍完全依上方【在場驗證鐵律】與各人的強制互動限制判斷。
+  const npcDialoguePrompt = displayPeople.length > 0 ? `\n★【姓名參考】：若對話對象在此清單內，請使用真實姓名「${displayPeople.map(r => r[COL.PC.NAME]).join("、")}」，不得另編新名字；是否互動仍依上方在場規則與各人強制互動限制判斷，非清單所有人都要出聲。` : "";
 
 
   // 🔴【替換開始】淨化後的 prompt 組裝
