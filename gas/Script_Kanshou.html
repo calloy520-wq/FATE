@@ -61,7 +61,7 @@
     nm = String(nm).trim();
     if (!nm) { alert('名字不能空白。'); return; }
     try {
-      const res = await gasRun({ action: 'kanshou_set_name', pcId: pc.id, pcName: nm });
+      const res = await gasRun({ action: 'kanshou_set_name', pcId: pc.id, acctName: currentAccount, pcName: nm });
       if (res && res.success) {
         pc.name = res.pcName;
         localStorage.setItem('kyushu_v27', JSON.stringify(pc));
@@ -75,7 +75,7 @@
     if (!pc || !pc.id) { alert('尚未進入後日談。'); return; }
     const sex = await askKanshouSex();
     try {
-      const res = await gasRun({ action: 'kanshou_set_sex', pcId: pc.id, pcSex: sex });
+      const res = await gasRun({ action: 'kanshou_set_sex', pcId: pc.id, acctName: currentAccount, pcSex: sex });
       if (res && res.success) {
         pc.sex = res.pcSex;
         localStorage.setItem('kyushu_v27', JSON.stringify(pc));

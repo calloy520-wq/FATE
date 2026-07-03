@@ -4,6 +4,20 @@
 //   鑑賞模式：列出已封存的從者，可呼出她（後日談對話）。
 // ==========================================
 
+// 🔒 帳號歸屬驗證：找 KPC_ 那一列，且必須其 MEMORY 內【帳號】標記與 acctName 相符才算擁有者，
+//   否則視同查無此列。⚠ 2026-07 修：KPC_/g_/k_ 的 ID 只用 Date.now()(無隨機尾碼)，理論上可預測；
+//   之前 kanshou_add/remove/set_name/set_sex 只憑 pcId 找列就直接改寫，沒驗證呼叫者是否真的擁有
+//   這個 pcId——只要猜中/取得他人 pcId，就能竄改其後日談世界(塞從者/請走同伴/改名改性別)而對方無感。
+//   一律比對 MEMORY 的帳號標記，找到列但帳號不符時視為查無(不洩漏「這個ID其實存在」的資訊)。
+function kanshouOwnedRowIdx_(data, pcId, acctName) {
+  var acctTag = "【帳號】" + String(acctName || "").trim();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.ID]) !== String(pcId)) continue;
+    return String(data[i][COL.PC.MEMORY] || "").indexOf(acctTag) === -1 ? -1 : i;
+  }
+  return -1;
+}
+
 // 找玩家目前世界仍存活的從者列（回傳 row 與 index）
 function findPlayerServant_(pcData, gameId) {
   for (var i = 1; i < pcData.length; i++) {
@@ -263,9 +277,9 @@ function actionKanshouCompanions(userData, pcId, sheets) {
   var kpc = getKanshouPcSheet_(ss);
   var acctName = String(userData.acctName || "").trim();
   var data = kpc.getDataRange().getValues();
-  var me = null;
-  for (var m = 1; m < data.length; m++) { if (String(data[m][COL.PC.ID]) === String(pcId)) { me = data[m]; break; } }
-  if (!me) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  var me = data[meIdx];
   var gid = String(me[COL.PC.GAME_ID] || "");
   var current = [];
   for (var i = 1; i < data.length; i++) {
@@ -288,9 +302,9 @@ function actionKanshouAdd(userData, pcId, sheets) {
   var acctName = String(userData.acctName || "").trim();
   var addName = String(userData.servantName || "").trim();
   var data = kpc.getDataRange().getValues();
-  var me = null;
-  for (var m = 1; m < data.length; m++) { if (String(data[m][COL.PC.ID]) === String(pcId)) { me = data[m]; break; } }
-  if (!me) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  var me = data[meIdx];
   var gid = String(me[COL.PC.GAME_ID] || ""); var loc = String(me[COL.PC.LOC] || "冬木·深山町");
   var cnt = 0;
   for (var i = 1; i < data.length; i++) {
@@ -311,11 +325,12 @@ function actionKanshouAdd(userData, pcId, sheets) {
 function actionKanshouRemove(userData, pcId, sheets) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var kpc = getKanshouPcSheet_(ss);
+  var acctName = String(userData.acctName || "").trim();
   var rmName = String(userData.servantName || "").trim();
   var data = kpc.getDataRange().getValues();
-  var me = null;
-  for (var m = 1; m < data.length; m++) { if (String(data[m][COL.PC.ID]) === String(pcId)) { me = data[m]; break; } }
-  if (!me) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  var me = data[meIdx];
   var gid = String(me[COL.PC.GAME_ID] || "");
   for (var d = data.length - 1; d >= 1; d--) {
     if (String(data[d][COL.PC.GAME_ID] || "") === gid && String(data[d][COL.PC.FACTION]) === "從者" && String(data[d][COL.PC.NAME]) === rmName) kpc.deleteRow(d + 1);
@@ -329,14 +344,12 @@ function actionKanshouSetSex(userData, pcId, sheets) {
   if (newSex !== "男" && newSex !== "女") return JSON.stringify({ success: false, message: "性別僅限 男／女。" });
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var kpc = getKanshouPcSheet_(ss);
+  var acctName = String(userData.acctName || "").trim();
   var data = kpc.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][COL.PC.ID]) === String(pcId)) {
-      kpc.getRange(i + 1, COL.PC.SEX + 1).setValue(newSex);
-      return JSON.stringify({ success: true, pcSex: newSex, message: "已切換為「" + newSex + "」之身。" });
-    }
-  }
-  return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  var i = kanshouOwnedRowIdx_(data, pcId, acctName);
+  if (i < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  kpc.getRange(i + 1, COL.PC.SEX + 1).setValue(newSex);
+  return JSON.stringify({ success: true, pcSex: newSex, message: "已切換為「" + newSex + "」之身。" });
 }
 
 // ✏ 更改後日談御主 avatar 的名字（隨時可改）。pcId＝KPC_。
@@ -346,11 +359,9 @@ function actionKanshouSetName(userData, pcId, sheets) {
   if (!newName) return JSON.stringify({ success: false, message: "名字不能空白。" });
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var kpc = getKanshouPcSheet_(ss);
+  var acctName = String(userData.acctName || "").trim();
   var data = kpc.getDataRange().getValues();
-  var meIdx = -1;
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][COL.PC.ID]) === String(pcId)) { meIdx = i; break; }
-  }
+  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   kpc.getRange(meIdx + 1, COL.PC.NAME + 1).setValue(newName);
   return JSON.stringify({ success: true, pcName: newName, message: "御主已改名為「" + newName + "」。" });
