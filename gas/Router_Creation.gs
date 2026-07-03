@@ -207,10 +207,13 @@ var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應�
 
 // 清洗 AI 給的技能陣列為 [{n,r,fx}]（fx 不在字典就清空，仍保留為演出用標籤）
 //   r 階級與 sanitizeSix_ 同一套驗證(承認 A++/B−)——原 slice(0,2) 會把 "A++" 截成 "A+"(2026-07 修)。
-function sanitizeSkills_(arr) {
+//   ⚠ 2026-07 修：maxCount 預設 5，但 prompt 實際只要求 classSkills(1~2個)/skills(2~3個)——
+//   原本不論呼叫端都固定 slice(0,5)，等於允許 AI 吐兩倍於預算的技能數量(每個格式都合法，
+//   只是整體密度失控)。呼叫端各自傳自己的真實預算上限，不再共用同一個寬鬆值。
+function sanitizeSkills_(arr, maxCount) {
   if (!Array.isArray(arr)) return [];
   var okR = function (v) { return /^(E|D|C|B|A|EX)(\+{1,2}|\-)?$/.test(v); };
-  return arr.filter(Boolean).slice(0, 5).map(function (s) {
+  return arr.filter(Boolean).slice(0, maxCount || 5).map(function (s) {
     var fx = String((s && (s.fx || s.效果碼)) || "").trim();
     var r = String((s && (s.r || s.階級 || s.rank)) || "C").toUpperCase().trim();
     return {
@@ -222,10 +225,17 @@ function sanitizeSkills_(arr) {
 }
 // 清洗六圍：6 鍵齊全、階級合法（E~EX、可帶 +/++/−）；缺或亂給則補 C。
 //   2026-07 放寬：承認 A++/B−——AI 泡在 Fate 語料很常自發吐 A++，原 regex 只認單 + 會把名將靜默打成 C。
+// ⚠ 2026-07 修：格式檢查只驗證「單一階級字串合法」，沒有整體強度上限——AI 可以讓六圍全部合法
+//   但全部給 EX(遠超任何種子英靈)，且 recordOriginalHero_ 會把這個角色永久寫回英靈殿供之後任何
+//   玩家重召，等於一次 prompt 誘導固化成長期破台角色。比照現有種子最強者的分布(EX 級頂格通常只
+//   保留給單一招牌屬性，如吉爾伽美什寶具EX、理查一世敏捷EX，即使赫拉克勒斯五圍逼近頂格也僅
+//   一項真 EX)，EX 級最多保留 2 項，其餘超額者降階為 A(仍是強者、但收斂進種子庫的強度分布)。
 function sanitizeSix_(o) {
   var keys = ["筋力", "耐久", "敏捷", "魔力", "幸運", "寶具"], out = {};
   var ok = function (v) { return /^(E|D|C|B|A|EX)(\+{1,2}|\-)?$/.test(String(v || "").toUpperCase()); };
   keys.forEach(function (k) { var v = o && o[k] ? String(o[k]).toUpperCase().trim() : "C"; out[k] = ok(v) ? v : "C"; });
+  var exKeys = keys.filter(function (k) { return rankVal(out[k]) >= 60; });
+  if (exKeys.length > 2) exKeys.slice(2).forEach(function (k) { out[k] = "A"; });
   return out;
 }
 
@@ -361,8 +371,8 @@ ${FX_MENU_}
       //   對城/對界/對神為種子專屬(與 ALLOWED_FX_ 排除頂級概念 fx 同一精神，堵字串後門)。
       np = String(np).replace(/對界|對城|對神/g, "對軍").slice(0, 80);
       const aiSix = sanitizeSix_(aiBrief.six);
-      const aiCSkills = sanitizeSkills_(aiBrief.classSkills);
-      const aiSkills = sanitizeSkills_(aiBrief.skills);
+      const aiCSkills = sanitizeSkills_(aiBrief.classSkills, 2); // prompt 要求 1~2 個
+      const aiSkills = sanitizeSkills_(aiBrief.skills, 3);       // prompt 要求 2~3 個
       const aiTraits = Array.isArray(aiBrief.traits) ? aiBrief.traits.filter(Boolean).slice(0, 4).map(t => ({ n: String((t && (t.n || t.名稱 || t.name)) || t).slice(0, 8) })) : [];
       const svHp = 150 + svNum_(aiSix.耐久) * 6, svMp = 0; // 🔋 出力電池制：從者無自有魔力池，出力檔存 MEMORY、預設 60 巡航
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。

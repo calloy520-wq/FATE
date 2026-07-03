@@ -222,7 +222,12 @@ function actionCheckName(userData, pcId, sheets) {
 function actionGetFullStatus(userData, pcId, sheets) {
   const targetName = userData.targetName;
   const allPcData = sheets.pc.getDataRange().getValues();
-  const row = allPcData.find(r => r[COL.PC.NAME] === targetName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  // ⚠ 2026-07 修：原本純用 NAME 找列，沒比對 game_id——不同帳號/不同局若剛好撞名(種子有限、
+  // chaos/AI原創從者都可能撞)，會把別局角色的狀態字串/關係/是否可編修洩漏出去。改比對呼叫者
+  // 自己那列現查出的 game_id(myGameId 為空時放行，相容沒有 game_id 的舊資料)。
+  const me = allPcData.find(r => r[COL.PC.ID] == pcId);
+  const myGameId = me ? String(me[COL.PC.GAME_ID] || "") : "";
+  const row = allPcData.find(r => r[COL.PC.NAME] === targetName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
   if (!row) return JSON.stringify({ success: false, message: "查無此人" });
 
   const targetId = row[COL.PC.ID];
@@ -392,7 +397,12 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   if (!newTagText || !String(newTagText).trim()) return JSON.stringify({ success: false, message: "稱呼不可為空。" });
 
   const pcData = sheets.pc.getDataRange().getValues();
-  const tIdx = pcData.findIndex(r => r[COL.PC.NAME] === targetName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  // ⚠ 2026-07 修：原本純比對姓名就直接寫 REL_TAG——下面雖有「同行」門檻，但那只檢查該列自己
+  // 的 IS_PARTY 旗標，不保證是「我這局」的同行者；不同局剛好有同名同行從者仍會被誤改。改比對
+  // 呼叫者自己列現查出的 game_id(myGameId 為空時放行，相容沒有 game_id 的舊資料)。
+  const me = pcData.find(r => r[COL.PC.ID] == pcId);
+  const myGameId = me ? String(me[COL.PC.GAME_ID] || "") : "";
+  const tIdx = pcData.findIndex(r => r[COL.PC.NAME] === targetName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
   if (tIdx === -1) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
 
   // 🔵 門檻：同行的從者才能重新定義稱呼

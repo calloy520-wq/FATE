@@ -60,7 +60,9 @@ function actionPlay(userData, pcId, sheets) {
   const partyMembers = pcData.filter(r => r !== pc && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r)).map(r => r[COL.PC.NAME]);
   let partyDetailsArr = [];
   partyMembers.forEach(pName => {
-    const r = pcData.find(row => String(row[COL.PC.NAME]).trim() === String(pName).trim() && !String(row[COL.PC.ID]).startsWith("DEAD_"));
+    // ⚠ 2026-07 修：原本純比對姓名，沒有 sameGame——若不同局/不同帳號剛好撞名(種子有限、
+    //   AI原創從者皆可能撞)，會把別局同名者的 HP/身世/狀態塞進本局的敘事提示詞。
+    const r = pcData.find(row => String(row[COL.PC.NAME]).trim() === String(pName).trim() && !String(row[COL.PC.ID]).startsWith("DEAD_") && sameGame(row));
     if (r) {
       const nTotal = getCharacterTotalStats(r[COL.PC.ID], sheets, pcData, []);
       const pOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 玩家換裝：當前服裝穿著(換衣不換人)
@@ -466,8 +468,10 @@ ${isKanshou ? `
       }
     }
 
+    // ⚠ 2026-07 修：原本純比對姓名就直接寫 LOC——若不同局剛好有同名角色(種子有限、AI原創從者
+    //   都可能撞名)，會把玩家的新座標寫到別局那位同名角色身上，悄悄把對方傳送到隨機地點。
     partyMembers.forEach(pName => {
-      const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === pName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+      const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === pName && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
       if (nIdx !== -1) {
         pcData[nIdx][COL.PC.LOC] = pcData[pcIndex][COL.PC.LOC];
         dirtyPcRows.add(nIdx); // 🔴 加進去才會寫入
@@ -480,9 +484,12 @@ ${isKanshou ? `
       ...displayPeople.map(r => r[COL.PC.NAME]),
       ...partyMembers
     ]);
+    // ⚠ 2026-07 修：validInteractNames 是本局的名字集合沒錯，但下面掃「整張表」比對姓名時漏了
+    //   sameGame——若別局剛好有同名角色，會被誤判為「在場」而一併累加交談輪數(跨局寫入)。
     pcData.forEach((r, nIdx) => {
       const name = r[COL.PC.NAME];
       if (!name || name === pcName) return;
+      if (!sameGame(r)) return;
       if (!String(logSum.people).includes(name)) return;
       if (!validInteractNames.has(name)) return;
       dirtyPcRows.add(nIdx);
@@ -724,7 +731,11 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
 }
 
 function actionNarrateOnly(userData, pcId, sheets) {
-  const { promptText, isNsfw } = userData;
+  const { promptText } = userData;
+  // ⚠ 2026-07 修：比照 actionPlay，不再信任前端 userData.isNsfw(同一顆共用 checkbox、同一個
+  //   「鑑賞離場不重置」風險)——目前 narrateWithState_ 這條路徑此旗標恰好是死旗標(miniSystem/
+  //   max_tokens 皆恆為真值蓋掉它)，但那是巧合安全、非設計安全，一併改成純看 pcId 路由。
+  const isNsfw = String(pcId || "").indexOf("KPC_") === 0;
 
   const miniSystem = `你是《命運停駐之夜》的說書人。用 Fate／TYPE-MOON 筆觸、第一人稱「我」（玩家＝御主）、強制台灣繁體中文，依指令生動描寫一段劇情。【篇幅以下方指令指定的字數為準，務必節奏明快、不灌水、不堆砌華麗辭藻；無指定時預設精煉 100~160 字】。若為從者廝殺，把關鍵攻防、技能與寶具威能寫得有張力即可，不必逐回合流水帳。
 【鐵律】

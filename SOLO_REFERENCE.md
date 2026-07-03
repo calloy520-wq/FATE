@@ -93,6 +93,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | update_fate | actionUpdateFate | 逆天改命：玩家在遊戲中改自己 4 敘事欄(個性/特徵/身世/萌點)，數值/寶具不可改。 |
 | summon_servant | actionSummonServant | 召喚從者（從英靈殿抓真名/六圍/技能→眾生列）。**種子英靈直接用寫死 persona(萌點/口吻)、不叫 AI**(省一次 API、加速)；只有名冊查無的自訂/未知英靈才走 AI 即時生成(else 分支)。**敘事8格**：個性(PREF)讀 `persona.words`、**特徵(TRAIT)讀 `persona.look`**(35 位種子皆手寫4格 外貌/氣質/自稱/卸下心防私密一面，召喚/鋪敵 直接用、AI原創走通用預設、不再被戰鬥特性污染)。 |
 | — (AI 從者 fx 調色盤) | ALLOWED_FX_ / FX_MENU_ (Router_Creation.gs) | **AI 即時生成從者的 fx 白名單＋提示菜單**(兩者要同步)：`sanitizeSkills_` 用 `ALLOWED_FX_` 過濾(不在的 fx 清空、只留當演出標籤)，`FX_MENU_` 是餵 AI 的可選清單。**2026-07 放寬(A)**：加開 aim/projection/fast_cast/crafting/petrify/shapeshift/solo/weapon_steal/rho_aias/territory/wall_def/zabaniya(中階以下·施放/防禦/對人放大)，拉高自訂從者上限貼近種子。**刻意仍 gate**(種子專屬·防「乖離劍氾濫」)：頂級概念寶具 ea/gob/excalibur/ubw/summon_horror/chain/wealth＋需專屬UI的 mage_realm/rune。⚠ 但 `npAtkScale_` 讀 np 字串的 對城/對界 關鍵字→AI 仍可靠字串拿高規模(缺的只是 fx 放大器)，非全鎖。要頂級同人→加進 SEED_SERVANTS。 |
+| — (AI 從者強度上限，2026-07 修) | `sanitizeSix_`/`sanitizeSkills_` (Router_Creation.gs) | **🐛→✅ 個別格式合法≠整體強度合理**：`sanitizeSix_` 原本只驗證單一階級字串格式(E~EX 合法即收)，沒有整體強度上限——AI 可以讓六圍全部合法但全部給 EX(遠超任何種子英靈)，且 `recordOriginalHero_` 會把這個角色永久寫回英靈殿供之後任何玩家重召，等於一次 prompt 誘導固化成長期破台角色。已加「EX 級最多保留 2 項、其餘超額降階為 A」(比照現有種子最強者的分布：吉爾伽美什/理查一世都只有 1 項真 EX，即使赫拉克勒斯五圍逼近頂格也只算 1 項)。`sanitizeSkills_` 也補上 `maxCount` 參數——原本 classSkills/skills 共用同一個 `.slice(0,5)`，但 prompt 實際只要求 1~2 個/2~3 個，等於允許 AI 吐兩倍於預算的技能數量；呼叫端改分別傳真實預算(2/3)。 |
 | get_heroes / get_masters | — | 創角選單列出可選英靈/正典御主 |
 | get_tags | actionGetTags | **左側狀態面板資料**：御主HP/MP/令咒/願望、從者陣列(六圍/技能/羈絆/寶具)、供魔收支、禮裝、破戒能力。**⚡ 核心邏輯抽成 `buildTagsPayload_(sheets,pcId,preData)`**(可吃已讀好的整表免重讀；2026-07 關係併入眾生列後，已無獨立 `preRel` 參數——關係資料就在 `preData` 同一張表裡)；`sync` 回應已夾帶 `tags:` 同份 payload，前端 `refreshFateTags(data.tags)` 直接用、不再單獨打 get_tags。**效能鐵則：一次按鍵原本 3 趟 round-trip(action→sync→get_tags)→現 1 趟**。機制：①`buildClientState_(sheets,pcId)`＝完整刷新 blob(statusString/people/locations/clock/ap/economy/tags，先 markRivalsSeen_ 再讀、整表只讀一次下傳共用)，`actionSync` 即回它。②dispatcher 對 `STATE_AFTER_ACTIONS` 白名單動作(fate_battle/mana_supply/move/rest/scavenge/scout/bond… 凡前端事後會整頁 syncData 者)＋ `PC_` 御主，自動把 `_state:buildClientState_()` 夾進回應。③前端 `gasRun` 暫存 `data._state`→`__pendingState`，`syncData` 優先消費它(`applyClientState`)、沒有才打真 sync(graceful fallback)。**不列入白名單**：樂觀 setter(set_servant_output/mage_realm/rune_mode/np_choice 不 syncData、只吃 res.economy)。`playerServantEconomy_(sheets,pcId,preData)`／`getFreshStatusString`(已拔冗餘 flush) 同理。改這幾支前先想清楚別把整表重讀或多餘 round-trip 加回來。 |
 | fate_battle | actionFateBattle | **核心戰鬥**：D20＋寶具＋令咒＋斬首＋雙從者＋協同強襲（見 §4） |
@@ -327,6 +328,13 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **協同強襲**(actionFateBattle 內)：盟友從者每回合助攻一擊。
 - **情報共享**：`hasAllyInGame_` 有盟友→地圖無視 SEEN 迷霧全揭露(get_map_nodes/categorized 都吃)＋敵從者職階揭露(getLocalPeopleList `intelCls`)。
 - **前端 override**：`getLocalPeopleList`(Core_Settings.gs) 把結盟的敵御主/敵從者 faction 改顯 `盟友御主/盟友從者`(`allied:true`)，前端不列為可攻擊。
+
+### 🔒 game_id 資料分流稽核(2026-07)——多帳號/多局同名撞列修復
+「可多帳號遊玩，但資料必須分流不污染」是專案定案的硬性要求(`game_id` 實例化＋帳號綁定)。系統性盤查找出多處「純比對姓名、沒比對 game_id」的讀寫，若不同局(甚至不同帳號)剛好有同名角色(種子庫有限、AI 原創從者都可能撞名)就會跨局洩漏/污染：
+- **🐛→✅ `actionGetFullStatus`(Router_Action.gs)**：查某角色詳細狀態原本純比對 `NAME`，沒有 game_id 過濾——已改為先現查呼叫者自己列的 game_id，再用 `sameGame` 條件過濾候選列。
+- **🐛→✅ `actionUpdateRelTag`(Router_Action.gs)**：重新定義稱呼只靠姓名+「同行」旗標找列寫入 `REL_TAG`，「同行」旗標只保證該列自己標同行、不保證是同一局——已補同款 game_id 比對。
+- **🐛→✅ `actionPlay`(Router_Narrative.gs) 三處**：①組 prompt 時查找同行夥伴詳情(63行)漏 `sameGame`；②AI 回合結束後把玩家新座標寫回同行夥伴列(471行)漏 `sameGame`，會把玩家的新座標寫到「別局」同名者身上，悄悄把對方傳送到隨機地點；③累計交談輪數時全表比對姓名(485行)漏 `sameGame`，會誤把交談次數寫進別局同名列。三處皆已補上該檔案既有的 `sameGame(r)` helper。
+- **🐛→✅ Gallery.gs 鑑賞(kanshou)帳號歸屬完全沒驗證** — 見上方「後日談同伴管理」條目，是本輪最嚴重的一項。
 - **🐛→✅ 破戒奪僕漏擋盟友(2026-07 修)**：`actionRuleBreakSteal`(Router_Bond.gs) 原本沒查 `isAllied_`，玩家可以先跟殘血敵從者的御主結盟、再對這個「盟友」發動破戒奪僕，繞過「盟友不可攻擊」規則。已補上與 `actionFateBattle` 同一道 `isAllied_` 閘門。
 - **🐛→✅ 卸防突襲沒有 `severed`(斬斷救贖)概念(2026-07 修)**：`fateStrike_` 正規戰鬥中，帶 `rule_breaker`／`anti_magic_lance` 的攻方用 `severed` 旗標擋掉目標的「戰鬥續行」與「十二試煉」復活；`enemyAmbushOnServant_`(卸防偷襲，Router_Movement.gs)原本沒這個判斷，同一敵從者用同樣寶具偷襲卻繞得過復活封鎖。已補上同款 `severed` 閘門。
 
@@ -337,6 +345,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `actionClaimGrail`：奪杯→AI 寫後日談回憶(memoir)→寫入「鑑賞」表→**同盟封存**(羈絆90↑或【鑑賞緣】的盟友一併入冊，御主搭檔 CLS="御主")→`purgeGameData_` 清本局。
 - `actionEnterKanshou`：每帳號【單一常駐】後日談世界(KPC_ 御主 avatar，以 MEMORY【帳號】綁定、id 持久接續歷史)。首進需 `pcName/pcSex`(否則回 `needSetup`)。對話仍走 `actionPlay`(NSFW，引擎不動)。
 - `actionKanshouCompanions/Add/Remove`：後日談同伴管理(上限3，住獨立「鑑賞眾生」分頁，`kanshouServantRow_` 建列)。`actionKanshouSetSex/SetName`：改 avatar 性別/名字。
+  - **🐛→✅ 帳號歸屬完全沒驗證(2026-07 修·本次盤查最嚴重的一項)**：`KPC_`/`g_`/`k_` 的 ID 只用 `Date.now()`(毫秒級、無隨機尾碼)，理論上可預測；而這 5 支 action 過去只憑 `pcId` 找列就直接改寫/刪除，**完全沒驗證呼叫者是否真的擁有這個 pcId**(`kanshou_set_name/set_sex` 甚至連 `acctName` 都沒收)。只要拿到/猜中他人 `pcId`，就能把自己的封存從者塞進對方後日談、請走對方同伴、竄改對方 avatar 名字性別，對方毫無所覺。已新增 `kanshouOwnedRowIdx_(data,pcId,acctName)` 共用驗證(比對 MEMORY 內的 `【帳號】<acct>` 標記，找到列但帳號不符時視為查無)，5 支 action 全部改用；前端 `kanshou_set_name`/`kanshou_set_sex` 補上 `acctName` 參數。
 - `actionDevSeedGallery`：DEV 塞測試從者(待移除)。
 - `actionPurgeOrphans`(action `purge_orphans`，主選單 DEV「🧹 清殘列」)：清「眾生」表孤兒——刪①所有 `DEAD_` 列 ②game_id 非任一帳號當前連結(COL.ACC.PC 反推 liveGids)的世界(敗北殘局/棄局/亡靈)。**保留**：活躍戰局、game_id 空白列(創角中)、鑑賞另表。整表 rewrite(setValues+單次 deleteRows tail，非逐列)。連帶清關係表：只刪「被刪御主(PC_)名下、非存活、非鑑賞御主」的 rel(防誤刪鑑賞關係)。回 {removed,kept,relRemoved}。**用途＝縮表加速每次按鍵的整表掃描**(眾生肥大主因＝每局敵御主+敵從者整批殘留)。
 - `findPlayerServant_`、`purgeGameData_`。
