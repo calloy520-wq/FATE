@@ -15,6 +15,7 @@ const ActionRouter = {
   "purge_orphans": actionPurgeOrphans,
   "kanshou_companions": actionKanshouCompanions,
   "kanshou_add": actionKanshouAdd,
+  "kanshou_summon_hero": actionKanshouSummonHero, // 🌹 直接從英靈庫挑選(與封存路徑並存，不需先在solo贏得戰爭)
   "kanshou_remove": actionKanshouRemove,
   "kanshou_set_sex": actionKanshouSetSex,
   "kanshou_set_name": actionKanshouSetName,

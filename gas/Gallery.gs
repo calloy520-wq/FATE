@@ -228,6 +228,71 @@ function kanshouServantRow_(rec, gameId, loc) {
   return sRow;
 }
 
+// 🌹 慾海直接從英靈庫挑選(2026-07 玩家定案·與「封存後邀請」並存)：不必先在 solo 打贏一場戰爭
+// 封存，直接從英靈殿挑一位召喚進後日談。刻意【不帶任何戰鬥資料】(SIX/TAGS/MARTIAL 留空)——
+// 慾海本就無戰鬥，養這些資料只白增加 AI 誤讀/亂加戲的風險面，不是漏寫。
+// 好感給 45(「尚淺·剛認識」門檻，非封存路徑「並肩奪杯」的 90)：剛見面就給滿好感會架空
+// Router_Narrative.gs 那條「好感未滿80/性格冷酷高傲者要演出真實戒備」的一致性鐵律，
+// 冷艷/高傲角色會被迫演出不符設定的毫無防備——45 讓角色自己的性格決定要花多久暖起來。
+function heroToKanshouRow_(heroRow, gameId, loc) {
+  var pcColCount = Object.keys(COL.PC).length;
+  var name = String(heroRow[COL.HERO.NAME] || "從者");
+  var p = {}; try { p = JSON.parse(heroRow[COL.HERO.PERSONA] || "{}"); } catch (e) { }
+  var sex = String(heroRow[COL.HERO.SEX] || "異") || "異";
+  var sRow = Array(pcColCount).fill("");
+  sRow[COL.PC.ID] = "KHV_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
+  sRow[COL.PC.NAME] = name;
+  sRow[COL.PC.SEX] = sex;
+  sRow[COL.PC.HP] = 480; sRow[COL.PC.MAX_HP] = 480; sRow[COL.PC.MP] = 200; sRow[COL.PC.MAX_MP] = 200;
+  sRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情從容" });
+  sRow[COL.PC.LOC] = loc;
+  sRow[COL.PC.FACTION] = "從者";
+  sRow[COL.PC.RANK] = String(heroRow[COL.HERO.CLS] || "從者");
+  sRow[COL.PC.PREF] = p.words || "";
+  sRow[COL.PC.TRAIT] = p.look || "";
+  sRow[COL.PC.INTENT] = p.moe || "";
+  sRow[COL.PC.MEMORY] = stampPersonaFlavor_("【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", p.speech, p.tic);
+  sRow[COL.PC.PHYSICAL] = (sex === "男") ? JSON.stringify({ "肉棒": "如常" }) : JSON.stringify({ "蜜穴": "未開", "菊穴": "緊閉" });
+  sRow[COL.PC.GAME_ID] = gameId;
+  sRow[COL.PC.BOND] = 45; sRow[COL.PC.REL_TAG] = "從者"; sRow[COL.PC.IS_PARTY] = "同行";
+  sRow[COL.PC.REL_MEM] = "初次相遇，緣分才剛開始"; sRow[COL.PC.MAJOR_EVENT] = "";
+  return sRow;
+}
+
+// 👥➕ 直接從英靈庫召喚一位英靈進入當前後日談(不需先在 solo 封存；上限與封存路徑共用同一個 3)
+function actionKanshouSummonHero(userData, pcId, sheets) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var kpc = getKanshouPcSheet_(ss);
+  var acctName = String(userData.acctName || "").trim();
+  var heroId = String(userData.heroId || "").trim();
+  var data = kpc.getDataRange().getValues();
+  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  var me = data[meIdx];
+  var gid = String(me[COL.PC.GAME_ID] || ""); var loc = String(me[COL.PC.LOC] || "冬木·深山町");
+  var cnt = 0;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) cnt++;
+  }
+  if (cnt >= 3) return JSON.stringify({ success: false, message: "後日談最多 3 名同伴，請先請走一位再邀。" });
+  var heroes = getHeroCodexCached();
+  var hero = heroes.find(function (r) { return String(r[COL.HERO.ID]) === heroId; });
+  if (!hero) return JSON.stringify({ success: false, message: "英靈庫查無此英靈。" });
+  var heroName = String(hero[COL.HERO.NAME] || "從者");
+  var heroSex = String(hero[COL.HERO.SEX] || "異") || "異";
+  // 🎨 玩家定案·不開放男男配對(與封存路徑同一條規則)
+  if (String(me[COL.PC.SEX]) === "男" && heroSex === "男") {
+    return JSON.stringify({ success: false, message: "「" + heroName + "」暫時無法召喚——僅支援 男女／女女 配對。" });
+  }
+  var already = false;
+  for (var d = 1; d < data.length; d++) {
+    if (String(data[d][COL.PC.GAME_ID] || "") === gid && String(data[d][COL.PC.FACTION]) === "從者" && String(data[d][COL.PC.NAME]) === heroName) { already = true; break; }
+  }
+  if (already) return JSON.stringify({ success: false, message: "「" + heroName + "」已在場。" });
+  kpc.appendRow(heroToKanshouRow_(hero, gid, loc));
+  return JSON.stringify({ success: true, added: heroName, message: "「" + heroName + "」來到了你們身邊。" });
+}
+
 // 鑑賞名冊查某帳號某真名的紀錄列
 function galleryRec_(ss, acctName, name) {
   var gal = ss.getSheetByName("鑑賞"); if (!gal) return null;
