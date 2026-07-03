@@ -37,7 +37,6 @@ const ActionRouter = {
   "set_servant_output": actionSetServantOutput,
   "set_mage_realm": actionSetMageRealm,
   "set_rune_mode": actionSetRuneMode,
-  "set_active_skill": actionSetActiveSkill,
   "outfit": actionSetOutfit,
   "bond": actionBond,
   "rule_break_steal": actionRuleBreakSteal,
@@ -201,7 +200,7 @@ const LOCK_EXEMPT_ACTIONS_ = {
 };
 // ⚡ 會改動 solo 戰場狀態、前端事後會 syncData(整頁刷新) 的動作 → 夾帶 _state 省一趟 round-trip。
 //   不含：sync(本身即 state)／get_tags／純讀取(inspect/get_*)／創角召喚(自走 reload)／kanshou(KPC_)；
-//   也不含「樂觀更新」的輕量 setter(set_servant_output/set_mage_realm/set_rune_mode/set_active_skill)——
+//   也不含「樂觀更新」的輕量 setter(set_servant_output/set_mage_realm/set_rune_mode)——
 //   它們不 syncData、只吃 res.economy，夾 _state 反而白做整表讀取。
 //   也不含 narrate_only——前端 narrate() 只吃 res.text、不消費 _state，夾它純浪費整表讀。
 const STATE_AFTER_ACTIONS = {
@@ -213,7 +212,7 @@ const STATE_AFTER_ACTIONS = {
 // 🛡️ 慾海(KPC_)明確擋下的戰鬥／經濟／結盟類 action(2026-07 加固)——皆為 solo 戰爭專屬，前端在
 //   kanshou 模式下本就全數隱藏對應按鈕(Script.html applyModeUI/renderWarActions)。取自
 //   STATE_AFTER_ACTIONS 扣掉 move(慾海約會地圖也要移動)/update_fate/update_rel_tag(確認為通用
-//   敘事欄編輯、不涉陣營或戰鬥概念，慾海也適用不擋)，另補上 4 個「樂觀更新」輕量 setter(不進
+//   敘事欄編輯、不涉陣營或戰鬥概念，慾海也適用不擋)，另補上 3 個「樂觀更新」輕量 setter(不進
 //   STATE_AFTER_ACTIONS，但同樣是純戰鬥概念、solo 從者卡專屬)。
 // ⚠ 2026-07 再修：補上 prep_meal(純戰鬥向 buff，UI 因 war-actions 隱藏而點不到，但未列入黑名單、
 //   直打 API 仍可對「鑑賞眾生」寫入無意義的戰鬥記憶戳)、purge_orphans(嚴重——見 Account.gs
@@ -223,7 +222,7 @@ const KANSHOU_BLOCKED_ACTIONS_ = {
   fate_battle: 1, use_seal: 1, mana_supply: 1, bond: 1, rule_break_steal: 1,
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
   second_wind: 1, scout: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
-  set_servant_output: 1, set_mage_realm: 1, set_rune_mode: 1, set_active_skill: 1,
+  set_servant_output: 1, set_mage_realm: 1, set_rune_mode: 1,
   prep_meal: 1, purge_orphans: 1
 };
 
@@ -347,8 +346,6 @@ function buildTagsPayload_(sheets, pcId, preData) {
       // 🌟 多寶具英靈：寶具選單＋當前選定索引（前端點寶具時挑要放哪個）
       npOptions: servantNpOptions_(s[COL.PC.NAME], s[COL.PC.RANK]) || undefined,
       npChoice: npChoice_(s[COL.PC.MEMORY]),
-      // ⚡ 主動技開關狀態（前端據此顯示 ON/OFF 標籤色＋切換）：預設 off(微量被動·免費)、on=每戰全效發動·耗魔
-      activeSkillOn: activeSkillOn_(s[COL.PC.MEMORY]),
       // 🐙 深淵海怪肉身（持 summon_horror 且現存海怪時 {cur,max}）：前端在體力條下方獨立渲染一條海怪血條
       horror: skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) ? horrorShieldView_(s[COL.PC.MEMORY], gameId) : undefined,
       // 🐙 戰前召喚鈕：持 summon_horror 且海怪【尚未在場】→ 前端露出「召喚海怪」按鈕(變身態·跨戰鬥 12h)
