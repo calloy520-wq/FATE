@@ -634,45 +634,17 @@ function actionFateBattle(userData, pcId, sheets) {
       //   敵反擊(:918)/夜襲(Router_Movement)都有補 servantActiveSkill_(敵AI恆全效免費·戰鬥本色)，
       //   唯獨這裡漏掉，導致持這三技的敵從者在開場對轟火力系統性偏低、天秤偏向玩家。
       const ePow = resolveFateBattle_(enemyC0, atkC, { np: true, skill: servantActiveSkill_(enemyC0), forceHit: true }).damage;
-      // ⚡ 因果律武器（Gáe Bolg 等）：死亡在投擲前已確定──優先結算，壓過對手寶具威能
-      //   致死：敵方 NP 被截斷，只剩極少殘波打回來；未致死：火力 ×1.35、比完大小再走正常流程。
-      // ⚠ 2026-07 修：原本只查玩家方(hasCausalityNp_(atkC))，敵方持因果律武器(如庫丘林 gae_bolg)時
-      //   完全沒被檢查——玩家永遠不會在對轟裡被「因果律先行判定」直接擊敗，即便對手正是原作中
-      //   「必中即死」的蓋亞·博爾格使用者。已補上對稱的敵方因果律檢查與「敵方截斷玩家」分支。
-      const playerCausality = hasCausalityNp_(atkC);
-      const enemyCausality = hasCausalityNp_(enemyC0);
-      const effectivePPow = playerCausality ? Math.round(pPow * 1.35) : pPow;
-      const effectiveEPow = enemyCausality ? Math.round(ePow * 1.35) : ePow;
-      const eHpNow = parseInt(pcData[nIdx][COL.PC.HP]) || 0;
-      const pHpNow = parseInt(pcData[atkIdx][COL.PC.HP]) || 0;
-      const band = Math.round((effectivePPow + effectiveEPow) * 0.10);
-      let outcome, pDmgTaken = 0, eDmgTaken = 0, pLethalOk = false;
-      if (playerCausality && effectivePPow >= eHpNow) {
-        // ★ 因果律截斷：敵方在因果時間線上已死，其 NP 主力消散，只剩殘波 8%
-        outcome = 'causality';
-        eDmgTaken = effectivePPow;
-        pDmgTaken = Math.round(effectiveEPow * 0.08);
-      } else if (enemyCausality && effectiveEPow >= pHpNow) {
-        // ★ 敵方因果律截斷：換敵方先行判定死亡——這次玩家從者真的會被打死(不再保1 HP)，
-        //   對稱於上面玩家持因果律的情況，畢竟「必中即死」本來就該雙向成立。pLethalOk 標記
-        //   給下方「回震保1」那段用，否則會被那道通用防線悄悄把致死傷害又砍回保1。
-        outcome = 'enemy';
-        pDmgTaken = effectiveEPow;
-        eDmgTaken = Math.round(effectivePPow * 0.08);
-        pLethalOk = true;
-      } else if (Math.abs(effectivePPow - effectiveEPow) <= band) {
-        outcome = 'stalemate';
-        eDmgTaken = Math.round(band * 0.5); pDmgTaken = Math.round(band * 0.5);
-      } else if (effectivePPow > effectiveEPow) {
-        outcome = 'player';
-        eDmgTaken = effectivePPow - effectiveEPow; pDmgTaken = Math.round((effectivePPow - effectiveEPow) * 0.15);
-      } else {
-        outcome = 'enemy';
-        var _rawPDmg = effectiveEPow - effectivePPow;
-        // ★ 對轟輸方不致死(除上面的敵方因果律分支)：差值再大也只扣到 1 HP 為止
-        pDmgTaken = Math.min(_rawPDmg, Math.max(0, pHpNow - 1));
-        eDmgTaken = Math.round(_rawPDmg * 0.15);
-      }
+      // ⚡ 對轟裁決(2026-07 重構)：四層特例(雙向因果律/輸方保1/pLethal)收進 Engine_Fate.gs 的
+      //   純函式 resolveNpClash_(單一優先序階梯·battle_sim 可單元測試)，這裡只做 I/O：
+      //   取樣火力→拿決策→落傷。優先序/數值與重構前完全一致。
+      const clashRes = resolveNpClash_(
+        pPow, ePow,
+        parseInt(pcData[atkIdx][COL.PC.HP]) || 0,
+        parseInt(pcData[nIdx][COL.PC.HP]) || 0,
+        hasCausalityNp_(atkC), hasCausalityNp_(enemyC0)
+      );
+      const outcome = clashRes.outcome;
+      const pDmgTaken = clashRes.pDmg, eDmgTaken = clashRes.eDmg, pLethalOk = clashRes.pLethal;
       const eHit = fateStrike_(sheets, pcData, atkC, nIdx, { forceDamage: eDmgTaken }, ctx);
       if (eHit.destroyed) destroyedName = eHit.destroyed;
       if (eHit.knocked) knockedOut.push(eHit.knocked);
