@@ -181,6 +181,46 @@ function hasFx_(c, fx) {
 function hasCausalityNp_(c) {
   return (c.skills || []).some(function(s) { return s && s.causality; });
 }
+
+// 🕊️ 目標的「神性階級」單一真實來源(2026-07 統一重構)：divine fx 的階級優先，退 特性/技能名含
+//   神性|神格|神靈 者標的階級，再退 'C'(有神性但沒標階級)。查無神性回 null。
+//   神殺(god_slay)／天之鎖縛神(chain)／對神寶具(Vasavi Shakti)／寶具解放神性加成／對瘟疫神性抗性
+//   全部吃這一個函式——原作精髓「神性越高，剋神效果越重；神性越低，效果越弱」
+//   (美杜莎 E- 的墮落神格幾乎不受天之鎖壓制；伊絲塔 A 的正神核被縛得死死的)。
+function divineRankOf_(c) {
+  var fx = hasFx_(c, 'divine');
+  if (fx) return fx;
+  var t = (c.traits || []).concat(c.skills || []).find(function (x) { return x && /神性|神格|神靈/.test(String(x.n)); });
+  return t ? (t.r || 'C') : null;
+}
+
+// 🌟 寶具對轟·純裁決函式(2026-07 重構)：原本內嵌在 actionFateBattle 的四層特例(雙向因果律/
+//   輸方保1/pLethal 旗標)收成單一優先序階梯——I/O(火力取樣/落傷/寫表/回震腰斬)留在 Router_Battle，
+//   這裡只吃數字、回決策。純函式＝tools/battle_sim 可直接單元測試。
+//   優先序：①玩家因果律且足以致死敵方→'causality'(玩家截斷·敵只剩8%殘波回擊)
+//           ②敵方因果律且足以致死玩家→'enemy'+pLethal=true(必死·呼叫端不得對其套任何保命/腰斬)
+//           ③火力相當(差距≤總和10%)→'stalemate'(各吃半個 band)
+//           ④火力高者勝：敗方吃差額(玩家敗則此處先夾保1)、勝方吃差額15%回震。
+//   保命原則：因果律以外玩家永遠保1(輸方在此夾、勝方回震由呼叫端 spill 段夾)；敵方無保命(被打死=合法勝利)。
+function resolveNpClash_(pPow, ePow, pHpNow, eHpNow, playerCausality, enemyCausality) {
+  var effP = playerCausality ? Math.round(pPow * 1.35) : pPow;
+  var effE = enemyCausality ? Math.round(ePow * 1.35) : ePow;
+  var band = Math.round((effP + effE) * 0.10);
+  if (playerCausality && effP >= eHpNow) {
+    return { outcome: 'causality', pDmg: Math.round(effE * 0.08), eDmg: effP, pLethal: false };
+  }
+  if (enemyCausality && effE >= pHpNow) {
+    return { outcome: 'enemy', pDmg: effE, eDmg: Math.round(effP * 0.08), pLethal: true };
+  }
+  if (Math.abs(effP - effE) <= band) {
+    return { outcome: 'stalemate', pDmg: Math.round(band * 0.5), eDmg: Math.round(band * 0.5), pLethal: false };
+  }
+  if (effP > effE) {
+    return { outcome: 'player', pDmg: Math.round((effP - effE) * 0.15), eDmg: effP - effE, pLethal: false };
+  }
+  var raw = effE - effP;
+  return { outcome: 'enemy', pDmg: Math.min(raw, Math.max(0, pHpNow - 1)), eDmg: Math.round(raw * 0.15), pLethal: false };
+}
 // 某 fx 在「這名」從者身上的『實際技能名』（不要硬寫某英靈的招式名，避免張冠李戴）。
 function fxName_(c, fx, fallback) {
   var all = (c.skills || []).concat(c.traits || []);
@@ -524,9 +564,14 @@ function resolveFateBattle_(atk, def, opts) {
   if (hasFx_(def, 'lovespot')) { aHit -= 1; fired.push(def.name + '·' + fxName_(def, 'lovespot', '愛之痣') + '(惑·敵命中-1)'); }
   // 👁️ 魔眼·石化(petrify／Rider 美杜莎)：以視線鎖死獵物，令對方迴避大減
   var pet = hasFx_(atk, 'petrify'); if (pet) { dEva -= Math.round(2 * rankMul_(pet)); fired.push(atk.name + '·' + fxName_(atk, 'petrify', '魔眼') + '·鎖死身法'); }
-  // ⛓️ 天之鎖(chain／Gilgamesh)：對「神性」之敵展開冥界鎖鏈，封住身法
-  var chn = hasFx_(atk, 'chain'); var defDivine0 = (def.traits || []).concat(def.skills || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
-  if (chn && defDivine0) { dEva -= Math.round(6 * rankMul_(chn)); fired.push(atk.name + '·' + fxName_(atk, 'chain', '天之鎖') + '(縛神性)'); }
+  // ⛓️ 天之鎖(chain／Gilgamesh·Enkidu)：對「神性」之敵展開冥界鎖鏈，封住身法。
+  //   ⚠ 2026-07 統一重構：縛神強度改依【對方神格】縮放(divineRankOf_·原作「神性越高縛得越死」)——
+  //   0.5+0.5×rankMul(對方神格)：C 神格＝×1.0(與舊值完全一致)、A＝×1.33、EX＝×1.5、E-(美杜莎)＝×0.62。
+  var chn = hasFx_(atk, 'chain'); var defDivR = divineRankOf_(def);
+  if (chn && defDivR) {
+    var chainBind = Math.round(6 * rankMul_(chn) * (0.5 + 0.5 * rankMul_(defDivR)));
+    dEva -= chainBind; fired.push(atk.name + '·' + fxName_(atk, 'chain', '天之鎖') + '(縛神性' + defDivR + '·避-' + chainBind + ')');
+  }
 
   // 必中(gae_bolg)：寶具解放時逆因果直接命中
   var gaebolg = opts.np && npIs('gae_bolg'); if (gaebolg) fired.push(atk.name + '·' + fxName_(atk, 'gae_bolg', '必中之槍') + '(必中)');
@@ -616,16 +661,14 @@ function resolveFateBattle_(atk, def, opts) {
     var foeDragon = (loser.traits || []).concat(loser.skills || []).some(function (t) { return t && /龍|竜/.test(String(t.n)); });
     if (foeDragon) { base = Math.round(base * 1.5); fired.push(winner.name + '·' + fxName_(winner, 'weapon_steal', '無毀的湖光') + '(對龍解放)'); }
   }
-  // 神殺：對有「神性」者最終傷害放大。神性(divine fx 或特性)階級越高 → 越被神殺剋(×1.3~×1.83，依神性階)。
+  // 神殺：對有「神性」者最終傷害放大。神性階級越高 → 越被神殺剋(×1.17~×2.0，依神性階)——
+  //   原作精髓「神性越低，神殺效果越低」(2026-07 統一改吃 divineRankOf_ 單一真實來源，數值不變)。
   //   觸發＝技能帶 fx:'god_slay'(資料驅動·如阿爾喀德斯復仇者) 或 技能/特性名含「神殺」(如斯卡哈)。
   var godSlay = hasFx_(winner, 'god_slay') || (winner.skills || []).concat(winner.traits || []).some(function (t) { return t && String(t.n).indexOf('神殺') >= 0; });
-  var divFx = hasFx_(loser, 'divine');  // 神性 fx 的階級(若有)
-  var divTrait = (loser.traits || []).concat(loser.skills || []).filter(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
-  var loserDivine = !!divFx || divTrait.length > 0;
-  if (godSlay && loserDivine) {
-    var divRank = divFx || (divTrait[0] && divTrait[0].r) || 'C';   // 取神性階級(fx 優先，再特性，預設C)
-    var slayMul = Math.min(2.0, 1 + 0.5 * rankMul_(divRank));        // C→1.5、A→1.83、E→1.17、EX→2.0
-    base = Math.round(base * slayMul); fired.push(winner.name + '·神殺(剋神性' + (divFx || (divTrait[0] && divTrait[0].r) || '') + '·×' + slayMul.toFixed(2) + ')');
+  var loserDivR = divineRankOf_(loser); // 🕊️ 對方神格(單一真實來源)：null＝無神性
+  if (godSlay && loserDivR) {
+    var slayMul = Math.min(2.0, 1 + 0.5 * rankMul_(loserDivR));      // C→1.5、B→1.67、A→1.83、E→1.17、EX→2.0
+    base = Math.round(base * slayMul); fired.push(winner.name + '·神殺(剋神性' + loserDivR + '·×' + slayMul.toFixed(2) + ')');
   }
   // 🔱 職階相性傷害加成：克制方下手更狠（與上方命中先機呼應）
   if (KNIGHT_BEATS[winner.cls] === loser.cls) { base = Math.round(base * 1.12); fired.push(winner.name + '·職階相性·壓制' + loser.cls); }
@@ -652,8 +695,11 @@ function resolveFateBattle_(atk, def, opts) {
       base = Math.round(base * atk.npOverloadMul); fired.push(winner.name + '·灌魔超載(×' + atk.npOverloadMul.toFixed(2) + ')');
     }
     if (hasFx_(winner, 'tactics')) { base = Math.round(base * 1.15); fired.push(winner.name + '·' + fxName_(winner, 'tactics', '軍略')); }
-    var wDivine = (winner.traits || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
-    if (wDivine) base = Math.round(base * 1.1);
+    // 🕊️ 寶具解放·神性加成(2026-07 統一重構)：原本只查 traits、且不論神格高低恆 ×1.1——改吃
+    //   divineRankOf_(fx 也算·如伊斯坎達爾神性C只掛技能沒掛trait，原本吃不到)並依神格縮放：
+    //   1+0.1×rankMul(自身神格)——C＝×1.1(與舊值一致)、A＝×1.17、EX＝×1.2、E-＝×1.02。
+    var wDivR = divineRankOf_(winner);
+    if (wDivR) base = Math.round(base * (1 + 0.1 * rankMul_(wDivR)));
     // 🗡️ 無限劍製(ubw／固有結界)：劍之地平展開，攻方在領域內傷害大增
     if (wSig('ubw')) { base = Math.round(base * 1.25); fired.push(winner.name + '·' + fxName_(winner, 'ubw', '無限劍製') + '(固有結界)'); }
     // 🗡️ 妄想心音／霧夜殺戮(zabaniya)：暗殺系寶具＝奪心一擊，命中即致命級重創（救低六圍刺客/狂戰的本命）
@@ -670,11 +716,13 @@ function resolveFateBattle_(atk, def, opts) {
     var plagueDoom = (winner.traits || []).some(function (t) { return t && /疫病/.test(String(t.n)); }) &&
                      (loser.traits || []).concat(loser.skills || []).some(function (t) { return t && /病死宿命/.test(String(t.n)); });
     // ⚔️ 對神(弒神寶具·梵天弒神之槍 Vasavi Shakti 等)：對「神性」之敵單體特大傷害(弒神)，對凡人僅單體重擊。不入規模矩陣，特判。
+    //   🕊️ 2026-07 統一重構：弒神倍率依【對方神格】縮放(原恆 2.4)——1+1.4×rankMul(對方神格)、上限 3.0：
+    //   C＝×2.4(與舊值一致)、A＝×3.0(正神吃滿弒神槍)、E-(美杜莎)＝×1.32(墮落殘神沒多少神格可弒)。
     var scaleMult;
     if (plagueDoom) { scaleMult = 3.0; }
-    else if (atkScaleLabel === '對神') { scaleMult = loserDivine ? 2.4 : 1.15; }
+    else if (atkScaleLabel === '對神') { scaleMult = loserDivR ? Math.min(3.0, +(1 + 1.4 * rankMul_(loserDivR)).toFixed(2)) : 1.15; }
     else { scaleMult = NP_SCALE_MATRIX[NP_SCALE_IDX[atkScaleLabel]][NP_SCALE_IDX[npDefScale_(loser, pierces)]]; }
-    if (scaleMult !== 1) { base = Math.round(base * scaleMult); fired.push(winner.name + '·' + (plagueDoom ? '疫病·病死宿命(無可逃避·概念碾壓)' : (atkScaleLabel + '寶具' + (atkScaleLabel === '對神' && loserDivine ? '·弒神特大' : ''))) + ' vs ' + npDefScale_(loser, pierces) + '防(×' + scaleMult + ')'); }
+    if (scaleMult !== 1) { base = Math.round(base * scaleMult); fired.push(winner.name + '·' + (plagueDoom ? '疫病·病死宿命(無可逃避·概念碾壓)' : (atkScaleLabel + '寶具' + (atkScaleLabel === '對神' && loserDivR ? '·弒神(神格' + loserDivR + ')' : ''))) + ' vs ' + npDefScale_(loser, pierces) + '防(×' + scaleMult + ')'); }
   }
   // ⚡ 主動技傷害增益（僅當攻方獲勝＝此增益屬於攻方時生效）
   if (opts.skill && atkWins) {
@@ -700,7 +748,9 @@ function resolveFateBattle_(atk, def, opts) {
   // 🦠 對瘟疫抗性：攻方為「疫病」(蒼白騎兵)時，守方持高魔抗(對魔力≥B·詛咒防護)或神性(神之加護)者抵抗疾病，傷害減半。
   //   ★唯「病死宿命」之敵(恩奇都)不適用——其宿命之死無可逃避(上方已 ×3 概念碾壓)。
   if (!plagueDoom && (winner.traits || []).some(function (t) { return t && /疫病/.test(String(t.n)); })) {
-    var plagueImmune = rankVal(hasFx_(loser, 'nullify_magic')) >= 40 || (loser.traits || []).concat(loser.skills || []).some(function (t) { return t && /神性|神格|神靈/.test(String(t.n)); });
+    // 🕊️ 2026-07：神性判定改吃 divineRankOf_(單一真實來源)。刻意維持【二值】不隨神格縮放——
+    //   這是「神之加護擋不擋得住疫病」的門檻概念，非傷害倍率；有神格庇護即減半。
+    var plagueImmune = rankVal(hasFx_(loser, 'nullify_magic')) >= 40 || !!divineRankOf_(loser);
     if (plagueImmune) { base = Math.round(base * 0.5); fired.push(loser.name + '·對瘟疫抗性(魔抗/神性·疾病減半)'); }
   }
   // ᚱ 原初符文(rune)·玩家可選運用(c.runeMode)：def 減傷(受傷時·預設)／dmg 增傷(出擊時)／regen 回血(每回合·見 actionFateBattle)。
