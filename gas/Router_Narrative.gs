@@ -491,6 +491,11 @@ ${isKanshou ? `
 
     // 📖 交談輪數：本回合有互動意圖提及的在場人物，累計交談輪數於其自己列的 REL_MEM 欄
     const logSum = aiData.log_summary || {};
+    // ⚠ 2026-07 修：因果表(舊「因果」機制)整組砍除時，這裡漏了同步——log_summary 的 schema
+    // (Engine_Combat.gs)早就從舊格式的 people 改成 subject/object(主被動方向)，這裡卻還在比對
+    // 已不存在的 logSum.people，String(undefined) 恆為 "undefined"，.includes(name) 幾乎不可能
+    // 命中任何真實姓名——交談輪數自那次重構後就悄悄壞掉，一直沒人發現。改用現行的 subject/object。
+    const logNamesStr = `${logSum.subject || ""}${logSum.object || ""}`;
     const validInteractNames = new Set([
       ...displayPeople.map(r => r[COL.PC.NAME]),
       ...partyMembers
@@ -501,7 +506,7 @@ ${isKanshou ? `
       const name = r[COL.PC.NAME];
       if (!name || name === pcName) return;
       if (!sameGame(r)) return;
-      if (!String(logSum.people).includes(name)) return;
+      if (!logNamesStr.includes(name)) return;
       if (!validInteractNames.has(name)) return;
       dirtyPcRows.add(nIdx);
       let oldMem = String(r[COL.PC.REL_MEM] || "");

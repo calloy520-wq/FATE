@@ -428,8 +428,12 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, allPcData) {
     const tLoc = String(r[COL.PC.LOC] || ""); const tName = r[COL.PC.NAME];
     const rVal = parseInt(r[COL.PC.BOND]) || 0;
     const rIsParty = (String(r[COL.PC.IS_PARTY] || "") === "同行");
+    // ⚠ 2026-07 修：慾海「請走」已改成保留列只退出同行(不再刪列)，若沿用 solo 那套「同地/高好感
+    // 就算在場」的寬鬆判定，被請走的同伴(好感通常≥60、且 LOC 早已凍結在請走當下那格)一旦玩家
+    // 剛好晃到同一格，會被誤判成「在場」而重新登場——慾海只有目前同行的人才該在場，收緊成純看 IS_PARTY。
+    const isKanshouCtx = myGameId.indexOf("k_") === 0;
 
-    if (tLoc === safeCurL || rVal >= 60 || rIsParty) {
+    if (isKanshouCtx ? rIsParty : (tLoc === safeCurL || rVal >= 60 || rIsParty)) {
       let finalDisplayStatus = buildVisibleStatusString(r[COL.PC.STATUS]);
       // 🤝 結盟中的敵御主/敵從者 → 對前端顯示為「盟友*」，即不再列為可攻擊敵蹤
       let fac = String(r[COL.PC.FACTION] || "");

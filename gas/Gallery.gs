@@ -53,22 +53,32 @@ function purgeGameData_(sheets, gameId, masterName, accountName) {
 // 🎭 封存當下的「外貌肉體」快照：TRAIT(外貌本相，固定錨、不可被 AI 每次重新詮釋)
 //   ＋ STATUS 的姿勢/顏面(戰爭落幕那刻的姿態，非重置成通用預設) ＋ PHYSICAL(肉體，若戰時
 //   已有 NSFW 互動紀錄則原樣帶走)。合併一格 JSON，避免拆多欄、封存/邀入兩處各自對齊麻煩。
+// ⚠ 2026-07 修：只捕捉了外貌/姿態/肉體，漏了 MEMORY 內的[雙修技巧][性愛時敏感部位]與 REL_MEM 內的
+//   [專屬稱呼][親密次數][交談輪數]——這些在 solo 正史(SFW)本就不會有(NSFW互動只在慾海發生)，但玩家在
+//   慾海裡累積的這些紀錄，若走「請走→再邀」的流程(見 actionKanshouRemove/Add/SummonHero)會需要延續，
+//   一併收進快照；bond 也一起帶，讓再次封存/延續時能反映真實好感而非固定值。
 function buildGalleryForm_(row) {
   var trait = String(row[COL.PC.TRAIT] || "");
   var st = {}; try { st = JSON.parse(row[COL.PC.STATUS] || "{}"); } catch (e) { }
   var phys = String(row[COL.PC.PHYSICAL] || "").trim();
   return JSON.stringify({
     trait: trait, pose: st["姿勢"] || "", face: st["顏面"] || "",
-    physical: (phys && phys !== "{}") ? phys : ""
+    physical: (phys && phys !== "{}") ? phys : "",
+    memory: String(row[COL.PC.MEMORY] || ""), relMem: String(row[COL.PC.REL_MEM] || ""),
+    bond: parseInt(row[COL.PC.BOND]) || 0
   });
 }
 // 邀入慾海時解開快照，寫回新列。肉體若戰時從未有 NSFW 紀錄(SFW 正史本就不會有)→ 依性別給
 // 正確的起始狀態(不再無視性別統一預設女性生理結構)；之後由既有的 pfb/nfb.physical_state 機制接手演進。
-function applyGalleryForm_(sRow, formStr, sex) {
+// defaultBond：查無快照紀錄的 bond(0/未定義)時退回的初始值，由呼叫端依情境(封存90/直召喚45)決定。
+function applyGalleryForm_(sRow, formStr, sex, defaultBond) {
   var f = {}; try { f = JSON.parse(formStr || "{}"); } catch (e) { }
   sRow[COL.PC.TRAIT] = f.trait || "";
   sRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": f.pose || "站立", "負面": "無", "顏面": f.face || "神情柔和" });
   sRow[COL.PC.PHYSICAL] = f.physical || ((String(sex) === "男") ? JSON.stringify({ "肉棒": "如常" }) : JSON.stringify({ "蜜穴": "未開", "菊穴": "緊閉" }));
+  sRow[COL.PC.MEMORY] = f.memory || "【鑑賞後日談】聖杯戰爭已結束，安然陪伴在御主身邊。";
+  sRow[COL.PC.REL_MEM] = f.relMem || "聖杯戰爭並肩奪杯的羈絆";
+  sRow[COL.PC.BOND] = (f.bond > 0) ? f.bond : defaultBond;
 }
 
 // 🏆 奪得聖杯：封存從者（含 AI 後日談）＋ 清理該局
@@ -210,7 +220,7 @@ function kanshouServantRow_(rec, gameId, loc) {
     sRow[COL.PC.HP] = 480; sRow[COL.PC.MAX_HP] = 480; sRow[COL.PC.MP] = 200; sRow[COL.PC.MAX_MP] = 200;
     // 🎴 五圍已棄欄：戰鬥吃六圍 SIX。
   }
-  applyGalleryForm_(sRow, String(rec[COL.GAL.FORM] || ""), sRow[COL.PC.SEX]); // 外貌本相+姿勢/顏面+肉體 一次解開寫回
+  applyGalleryForm_(sRow, String(rec[COL.GAL.FORM] || ""), sRow[COL.PC.SEX], 90); // 外貌本相+姿勢/顏面+肉體+雙修技巧/專屬稱呼+好感 一次解開寫回(查無紀錄退回90＝並肩奪杯)
   sRow[COL.PC.LOC] = loc;
   sRow[COL.PC.FACTION] = "從者";
   sRow[COL.PC.RANK] = String(rec[COL.GAL.CLS] || "從者");
@@ -220,11 +230,9 @@ function kanshouServantRow_(rec, gameId, loc) {
   sRow[COL.PC.INTENT] = String(rec[COL.GAL.MOE] || "");
   sRow[COL.PC.SIX] = String(rec[COL.GAL.SIX] || "{}");
   sRow[COL.PC.TAGS] = String(rec[COL.GAL.TAGS] || "{}");
-  sRow[COL.PC.MEMORY] = "【鑑賞後日談】聖杯戰爭已結束，安然陪伴在御主身邊。";
   sRow[COL.PC.GAME_ID] = gameId;
   // 🆕 關係欄(併入眾生列)：邀入的同伴直接帶著並肩奪杯的羈絆入場，同行狀態即刻生效
-  sRow[COL.PC.BOND] = 90; sRow[COL.PC.REL_TAG] = "從者"; sRow[COL.PC.IS_PARTY] = "同行";
-  sRow[COL.PC.REL_MEM] = "聖杯戰爭並肩奪杯的羈絆"; sRow[COL.PC.MAJOR_EVENT] = "";
+  sRow[COL.PC.REL_TAG] = "從者"; sRow[COL.PC.IS_PARTY] = "同行"; sRow[COL.PC.MAJOR_EVENT] = "";
   return sRow;
 }
 
@@ -270,11 +278,6 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   var me = data[meIdx];
   var gid = String(me[COL.PC.GAME_ID] || ""); var loc = String(me[COL.PC.LOC] || "冬木·深山町");
-  var cnt = 0;
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) cnt++;
-  }
-  if (cnt >= 3) return JSON.stringify({ success: false, message: "後日談最多 3 名同伴，請先請走一位再邀。" });
   var heroes = getHeroCodexCached();
   var hero = heroes.find(function (r) { return String(r[COL.HERO.ID]) === heroId; });
   if (!hero) return JSON.stringify({ success: false, message: "英靈庫查無此英靈。" });
@@ -284,11 +287,21 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
   if (String(me[COL.PC.SEX]) === "男" && heroSex === "男") {
     return JSON.stringify({ success: false, message: "「" + heroName + "」暫時無法召喚——僅支援 男女／女女 配對。" });
   }
-  var already = false;
-  for (var d = 1; d < data.length; d++) {
-    if (String(data[d][COL.PC.GAME_ID] || "") === gid && String(data[d][COL.PC.FACTION]) === "從者" && String(data[d][COL.PC.NAME]) === heroName) { already = true; break; }
+  // ⚠ 2026-07 修：同上(actionKanshouAdd)——請走已改成保留列只退出同行，先找「此局是否已有這位
+  // 英靈的列」，有就直接喚回延續累積紀錄，不重建覆蓋掉。
+  var cnt = 0, existingIdx = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.GAME_ID] || "") !== gid || String(data[i][COL.PC.FACTION]) !== "從者" || String(data[i][COL.PC.ID]).startsWith("DEAD_")) continue;
+    if (String(data[i][COL.PC.NAME]) === heroName) existingIdx = i;
+    if (String(data[i][COL.PC.IS_PARTY] || "") === "同行") cnt++;
   }
-  if (already) return JSON.stringify({ success: false, message: "「" + heroName + "」已在場。" });
+  if (existingIdx >= 0 && String(data[existingIdx][COL.PC.IS_PARTY] || "") === "同行") return JSON.stringify({ success: false, message: "「" + heroName + "」已在場。" });
+  if (cnt >= 3) return JSON.stringify({ success: false, message: "後日談最多 3 名同伴，請先請走一位再邀。" });
+  if (existingIdx >= 0) {
+    kpc.getRange(existingIdx + 1, COL.PC.IS_PARTY + 1).setValue("同行");
+    kpc.getRange(existingIdx + 1, COL.PC.LOC + 1).setValue(loc);
+    return JSON.stringify({ success: true, added: heroName, message: "「" + heroName + "」回到了你們身邊。" });
+  }
   kpc.appendRow(heroToKanshouRow_(hero, gid, loc));
   return JSON.stringify({ success: true, added: heroName, message: "「" + heroName + "」來到了你們身邊。" });
 }
@@ -392,7 +405,9 @@ function actionKanshouCompanions(userData, pcId, sheets) {
   var gid = String(me[COL.PC.GAME_ID] || "");
   var current = [];
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) current.push(String(data[i][COL.PC.NAME]));
+    // ⚠ 2026-07 修：請走已改成「保留列、只退出同行」(見 actionKanshouRemove)，此處必須加 IS_PARTY
+    // 過濾，否則被請走、資料仍在表上的同伴會被誤判成「在場」。
+    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && String(data[i][COL.PC.IS_PARTY] || "") === "同行" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) current.push(String(data[i][COL.PC.NAME]));
   }
   var gal = ss.getSheetByName("鑑賞"); var gd = gal ? gal.getDataRange().getValues() : [];
   var meSex = String(me[COL.PC.SEX] || "");
@@ -417,14 +432,25 @@ function actionKanshouAdd(userData, pcId, sheets) {
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   var me = data[meIdx];
   var gid = String(me[COL.PC.GAME_ID] || ""); var loc = String(me[COL.PC.LOC] || "冬木·深山町");
-  var cnt = 0;
+  // ⚠ 2026-07 修：同時找「此局是否已有這位同伴的列」(不論在場與否)——請走已改成保留列只退出
+  // 同行，若這裡只看在場人數會漏掉「之前請走過、資料還在」的情況，導致重建新列蓋掉累積的
+  // 雙修技巧/性愛時敏感部位/專屬稱呼/親密次數/好感，變回請走一次就全部歸零。
+  var cnt = 0, existingIdx = -1;
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) {
+    if (String(data[i][COL.PC.GAME_ID] || "") !== gid || String(data[i][COL.PC.FACTION]) !== "從者" || String(data[i][COL.PC.ID]).startsWith("DEAD_")) continue;
+    if (String(data[i][COL.PC.NAME]) === addName) existingIdx = i;
+    if (String(data[i][COL.PC.IS_PARTY] || "") === "同行") {
       cnt++;
       if (String(data[i][COL.PC.NAME]) === addName) return JSON.stringify({ success: false, message: "「" + addName + "」已在場。" });
     }
   }
   if (cnt >= 3) return JSON.stringify({ success: false, message: "後日談最多 3 名同伴，請先請走一位再邀。" });
+  if (existingIdx >= 0) {
+    // 🔁 之前請走過、資料仍在此局——直接喚回，雙修技巧/性癖/專屬稱呼/親密次數/好感全部延續，不重建。
+    kpc.getRange(existingIdx + 1, COL.PC.IS_PARTY + 1).setValue("同行");
+    kpc.getRange(existingIdx + 1, COL.PC.LOC + 1).setValue(loc);
+    return JSON.stringify({ success: true, added: addName, message: "「" + addName + "」回到了你們身邊。" });
+  }
   var rec = galleryRec_(ss, acctName, addName);
   if (!rec) return JSON.stringify({ success: false, message: "鑑賞名冊查無「" + addName + "」。" });
   // 🎨 玩家定案：不開放男男配對(女女/男女皆可)。慾海御主性別在 actionEnterKanshou 就已鎖死只能
@@ -437,7 +463,12 @@ function actionKanshouAdd(userData, pcId, sheets) {
   return JSON.stringify({ success: true, added: addName, message: "「" + addName + "」來到了你們身邊。" });
 }
 
-// 👥➖ 請走一名同伴（從當前後日談移除；資料仍封存在鑑賞名冊，隨時可再邀）
+// 👥➖ 請走一名同伴（退出當前同行；資料原地保留，隨時可再邀回、累積紀錄不歸零）
+// ⚠ 2026-07 修：原本直接 deleteRow，等於把這位同伴在慾海裡累積的雙修技巧/性愛時敏感部位
+// (MEMORY)、專屬稱呼/親密次數/交談輪數(REL_MEM)、當下肉體(PHYSICAL)、好感(BOND)全部銷毀——
+// 「資料仍封存在鑑賞名冊」這句話其實只精確到「原始封存那一刻」的舊快照，請走之後在慾海裡
+// 累積的一切都救不回來。改成只退出同行(IS_PARTY 清空)、保留整列，之後 actionKanshouAdd/
+// SummonHero 偵測到同名列存在時會直接喚回、不重建。
 function actionKanshouRemove(userData, pcId, sheets) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var kpc = getKanshouPcSheet_(ss);
@@ -448,10 +479,15 @@ function actionKanshouRemove(userData, pcId, sheets) {
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   var me = data[meIdx];
   var gid = String(me[COL.PC.GAME_ID] || "");
-  for (var d = data.length - 1; d >= 1; d--) {
-    if (String(data[d][COL.PC.GAME_ID] || "") === gid && String(data[d][COL.PC.FACTION]) === "從者" && String(data[d][COL.PC.NAME]) === rmName) kpc.deleteRow(d + 1);
+  var found = false;
+  for (var d = 1; d < data.length; d++) {
+    if (String(data[d][COL.PC.GAME_ID] || "") === gid && String(data[d][COL.PC.FACTION]) === "從者" && String(data[d][COL.PC.NAME]) === rmName && String(data[d][COL.PC.IS_PARTY] || "") === "同行") {
+      kpc.getRange(d + 1, COL.PC.IS_PARTY + 1).setValue("");
+      found = true;
+    }
   }
-  return JSON.stringify({ success: true, removed: rmName, message: "「" + rmName + "」暫別了，隨時可再邀回。" });
+  if (!found) return JSON.stringify({ success: false, message: "「" + rmName + "」不在場。" });
+  return JSON.stringify({ success: true, removed: rmName, message: "「" + rmName + "」暫別了，隨時可再邀回（過往點滴都還在）。" });
 }
 
 // ⚧ 切換後日談御主 avatar 的性別（隨時可改；只動 SEX 欄，不影響從者/歷史）。pcId＝KPC_。
