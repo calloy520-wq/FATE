@@ -67,6 +67,14 @@
   let myServants = [];   // 🗝️ 我方所有在世從者（雙從者）
   let myActiveServant = '';// 🗝️ 目前出戰／操作中的從者名
   let myMasterSeals = 0;  // 令咒餘量
+  // ❖ 令咒·蓄勢開關(2026-07 玩家定案)：按❖發亮＝蓄勢(免費·可再按取消)；之後按 普攻/⚡主動/💥寶具
+  //   任一攻擊即自動帶上令咒(必中＋×1.5)並熄滅。按其他任何行動(移動/偵查/互動…)都不消耗、蓄勢保留。
+  let sealArmed = false;
+  function toggleSealArm() {
+    if (!sealArmed && myMasterSeals <= 0) { alert('❖ 令咒已用盡，無法再施加絕對命令。'); return; }
+    sealArmed = !sealArmed;
+    try { renderWarActions(); } catch (e) { }
+  }
   let myCanRB = false;    // 是否具破戒之力
   function setActiveServant(name) {
     myActiveServant = name;
@@ -488,7 +496,7 @@ function renderRecentLocs(recents = null) {
         acts = '<button onclick="servantStrike(\'' + safe + '\', false)" title="' + st.hint + '" style="flex:2; min-width:110px; font-size:12.5px; padding:8px 4px; background:linear-gradient(90deg,rgba(' + st.rgb + ',.34),rgba(' + st.rgb + ',.16)); color:' + st.col + '; border:1px solid rgb(' + st.rgb + '); border-radius:7px; cursor:pointer; font-weight:bold;">' + st.emo + ' ' + st.name + '</button>'
           + (_ask ? '<button onclick="servantStrike(\'' + safe + '\', false, false, false, true)" title="催動主動技「' + _ask.n + '」全力出擊（該次交鋒全效·抽御主魔力一次）" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(110,180,220,.15); color:#7ec8ff; border:1px solid #4e92c0; border-radius:7px; cursor:pointer; font-weight:bold;">⚡ 主動</button>' : '')
           + '<button onclick="servantStrike(\'' + safe + '\', true)" title="解放寶具" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(212,175,55,.15); color:#e7c873; border:1px solid #d4af37; border-radius:7px; cursor:pointer; font-weight:bold;">💥 寶具</button>'
-          + '<button onclick="servantStrike(\'' + safe + '\', false, true)" title="令咒・絕對命令（必中）" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(176,108,208,.15); color:#c79be8; border:1px solid #b06cd0; border-radius:7px; cursor:pointer; font-weight:bold;">❖ 令咒</button>';
+          + '<button onclick="toggleSealArm()" title="' + (sealArmed ? '令咒蓄勢中——下一記 普攻/主動/寶具 將必中＋威力×1.5；再按一次取消蓄勢(不耗令咒)' : '令咒・絕對命令：按下蓄勢(免費)，下一記 普攻/主動/寶具 自動帶上必中＋×1.5') + '" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:' + (sealArmed ? 'rgba(200,120,240,.38)' : 'rgba(176,108,208,.15)') + '; color:' + (sealArmed ? '#f0d0ff' : '#c79be8') + '; border:1px solid ' + (sealArmed ? '#d09af0' : '#b06cd0') + '; border-radius:7px; cursor:pointer; font-weight:bold;' + (sealArmed ? ' box-shadow:0 0 10px rgba(200,120,240,.65); text-shadow:0 0 6px rgba(240,200,255,.8);' : '') + '">' + (sealArmed ? '❖ 蓄勢中' : '❖ 令咒') + '</button>';
         if (myCanRB && myServants.length < 2 && myMasterSeals > 0) {
           acts += '<button onclick="ruleBreakSteal(\'' + safe + '\')" title="破戒奪僕：對打殘(HP<35%)的敵從者斬契奪為第二從者，燃一道令咒" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(176,108,208,.16); color:#d0a0e8; border:1px solid #8a5fb0; border-radius:7px; cursor:pointer; font-weight:bold;">⛓ 破戒奪僕 <small style="opacity:.7;">須打殘至35%＋燃令咒</small></button>';
         }
@@ -1863,6 +1871,9 @@ function renderRecentLocs(recents = null) {
 
   async function servantStrike(npcName, useNp, useSeal, isMaster, useSkill, npPicked, npChoiceArg) {
     var _npOverload; // 🔥 規格外寶具的超載選擇(undefined＝非規格外/未問；false/'p1'/'p2'＝玩家檔位答案)
+    // ❖ 令咒·蓄勢消費：蓄勢中按 普攻/⚡主動/💥寶具 即自動帶上令咒(必中＋×1.5)；刺殺(isMaster)不適用、蓄勢保留。
+    //   實際熄燈在所有確認通過後(beginAction 前)——中途取消不熄、令咒不白燒。
+    if (sealArmed && !isMaster && !useSeal) useSeal = true;
     // 🌟 多寶具英靈：解放寶具前先讓玩家挑要放哪個（單寶具直接放）。挑完帶 npPicked=true 回來，不再彈選單。
     if (useNp && !npPicked && !isMaster) {
       var asv = (myServants || []).find(function (x) { return x.name === myActiveServant; });
@@ -1876,9 +1887,8 @@ function renderRecentLocs(recents = null) {
     if (isMaster) {
       if (!confirm('🗡️ 刺殺敵御主「' + npcName + '」？\n\n唯有擲出 20（大成功，1/20）能突破護衛從者、斬殺御主奪勝；\n否則必被護衛捨身擋下，並反噬 1.5 倍傷害給你的從者——重則靈基崩潰、聖杯戰爭落敗。\n\n確定發動奇襲斬首？')) return;
     } else if (useNp) {
-      // 💥 防誤按：寶具＝靈基全力解放，自動推到出力 100%。
-      //   ❖疊令咒路徑(useSeal=true)由令咒流程遞迴進來、意圖已確認過→跳過此基礎確認，只問超載檔位。
-      if (!useSeal && !confirm('💥 命「' + npcName + '」解放寶具？\n\n寶具乃靈基全力解放——將自動把出力推到 100%（全開），並支付寶具底費（魔力不足則焚血代付）。威力巨大、御主消耗最劇。\n\n確定解放寶具？')) return;
+      // 💥 防誤按：寶具＝靈基全力解放，自動推到出力 100%。令咒蓄勢中則在同一個確認裡標明加持。
+      if (!confirm('💥 命「' + npcName + '」解放寶具？\n\n' + (useSeal ? '❖ 令咒蓄勢加持——這發真名解放【絕對必中】＋威力再 ×1.5（燃一道令咒）。\n' : '') + '寶具乃靈基全力解放——將自動把出力推到 100%（全開），並支付寶具底費（魔力不足則焚血代付）。威力巨大、御主消耗最劇。\n\n確定解放寶具？')) return;
       // 🔥 規格外寶具(＋/EX)超載定檔(2026-07 玩家定案三修)：固定價格檔位——底費P／超載2P／極限3P
       //   (A階＝220/440/660)，魔力優先、不足缺口才焚血(2HP=1MP)。沒＋的寶具＝定額釋放、無此旋鈕(原設計)。
       var _oSv = (myServants || []).find(function (x) { return x.name === myActiveServant; });
@@ -1894,25 +1904,18 @@ function renderRecentLocs(recents = null) {
           _npOverload = false;
         }
       }
-    } else if (useSeal) {
-      // ❖ 令咒流程(2026-07 玩家定案·防繁瑣)：疊加選擇【全收在這顆鈕】——寶具/主動鈕零多問。
-      //   令咒＝絕對必中＋×1.5，可疊在 寶具(遞迴走寶具流程·跳過其基礎確認)／主動技／普攻 上。
-      if (!confirm('❖ 對「' + npcName + '」燃燒一道令咒‧絕對命令？（餘 ' + myMasterSeals + ' 道）\n\n效果：此擊【絕對必中】＋威力 ×1.5，可疊加在寶具／主動技／普攻上（下一步選）。\n令咒總共只有 3 道、用一道少一道，請謹慎。\n\n確定燃燒令咒？')) return;
-      if (confirm('❖ 疊加在【💥寶具解放】上？——令咒疊寶具的孤注一擲\n\n確定＝必中的真名解放（推出力 100%＋支付寶具底費，規格外寶具可再選超載檔位）\n取消＝下一步（主動技／普攻）')) {
-        await servantStrike(npcName, true, true, false, false, false, undefined); // 遞迴走寶具流程(多寶具選單/超載檔位照問·基礎確認已跳過)
-        return;
-      }
-      var _skS = activeSkillOfActive_();
-      if (_skS && confirm('❖ 疊加在【⚡主動技「' + _skS.n + '」】上？\n\n確定＝必中的主動技（照常耗魔一次）\n取消＝必中普攻')) {
-        useSkill = true;
-      }
     } else if (useSkill) {
-      // ⚡ 防誤按：主動技＝該次交鋒全力發動、抽御主魔力一次（比寶具便宜得多，仍是資源決策）
+      // ⚡ 防誤按：主動技＝該次交鋒全力發動、抽御主魔力一次。令咒蓄勢中則在同一個確認裡標明加持。
       var _cSk = activeSkillOfActive_();
       var _cCost = (_cSk && _cSk.fx === 'burst') ? 30 : 24;
-      if (!confirm('⚡ 令從者催動主動技' + (_cSk ? '「' + _cSk.n + '」' : '') + '，全力攻擊「' + npcName + '」？\n\n該次交鋒【全效】發動，抽御主魔力一次（約 ' + _cCost + '，魔力不足則焚血代付）。\n\n確定發動？')) return;
+      if (!confirm('⚡ 令從者催動主動技' + (_cSk ? '「' + _cSk.n + '」' : '') + '，全力攻擊「' + npcName + '」？\n\n' + (useSeal ? '❖ 令咒蓄勢加持——這記【絕對必中】＋威力再 ×1.5（燃一道令咒）。\n' : '') + '該次交鋒【全效】發動，抽御主魔力一次（約 ' + _cCost + '，魔力不足則焚血代付）。\n\n確定發動？')) return;
+    } else if (useSeal) {
+      // ❖ 令咒普攻(蓄勢消費或互動選單直發·普攻原本無確認)：燃令咒是大事，補一個確認防誤耗——取消則不出擊、蓄勢保留。
+      if (!confirm('❖ 這記普攻將燃燒一道令咒‧絕對命令——必中＋威力 ×1.5（餘 ' + myMasterSeals + ' 道）。\n\n確定出擊？（取消＝不出擊' + (sealArmed ? '、蓄勢保留' : '') + '）')) return;
     }
     if (!beginAction()) return;
+    // ❖ 蓄勢熄燈：所有確認已過、此擊確定帶令咒出手（中途取消不會走到這裡，蓄勢保留）
+    if (sealArmed && useSeal) { sealArmed = false; try { renderWarActions(); } catch (e) { } }
     // 🔋 解放寶具＝全開：把出力 100% 隨 fate_battle 一起送(後端就地推滿)，省一趟 set_servant_output 往返。
     const story = document.getElementById('story');
     const _plain = myServantCls === 'Caster' ? '詠唱魔砲，轟向' : myServantCls === 'Archer' ? '張弓狙擊，鎖定' : '出擊，目標';
@@ -2749,7 +2752,7 @@ let plainTextContext = cleanText;
             var _iSk = activeSkillOfActive_();
             if (_iSk) html += `<button class="btn" style="border-color:#4e92c0; color:#7ec8ff; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, false, false, true)">⚡ 主動技「${String(_iSk.n).replace(/'/g, '')}」全力出擊</button>`;
             html += `<button class="btn" style="border-color:#d4af37; color:#d4af37; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', true)">💥 寶具解放</button>`;
-            html += `<button class="btn" style="border-color:#b06cd0; color:#b06cd0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, true)">❖ 令咒・絕對命令（必中）</button>`;
+            html += `<button class="btn" style="border-color:#b06cd0; color:#b06cd0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, true)">❖ 令咒・絕對命令（必中普攻；想疊寶具/主動請在戰爭行動列按❖蓄勢）</button>`;
           }
       }
 
