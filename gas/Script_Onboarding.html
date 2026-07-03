@@ -60,19 +60,31 @@ function chooseWarMode(m) {
   if (warMode === 'chaos') { currentWar = 'chaos'; showOnly_('step-name'); }
   else { showOnly_('scr-war'); }
 }
+var _mastersPrefetch = {}; // ⚡ 正典御主名單預取(2026-07 玩家反饋「扮演正典御主讀取好久」)：war → Promise
 function chooseWar(w) {
   currentWar = w;
   playedMaster = '';
   if (w === 'fake') { showOnly_('step-name'); }   // 偽聖杯無正典御主 → 只能自創
-  else { showOnly_('scr-role'); }
+  else {
+    // ⚡ 進「自創/扮演」選擇畫面就先背景抓名單——玩家在畫面上讀選項的幾秒剛好蓋掉 round-trip，
+    //   點「扮演」時多半已回、幾乎秒開。失敗不管(loadCanonMasters 會 fallback 重抓)。
+    if (!_mastersPrefetch[w]) _mastersPrefetch[w] = gasRun({ action: 'get_masters', war: w });
+    showOnly_('scr-role');
+  }
 }
 function chooseRole(r) {
   if (r === 'original') { playedMaster = ''; showOnly_('step-name'); return; }
   loadCanonMasters();
 }
 async function loadCanonMasters() {
+  var res = null;
   try {
-    var res = await gasRun({ action: 'get_masters', war: currentWar });
+    res = await (_mastersPrefetch[currentWar] || gasRun({ action: 'get_masters', war: currentWar }));
+  } catch (e) {
+    delete _mastersPrefetch[currentWar]; // 預取失敗(網路抖動)→丟掉壞快取、現場重抓一次
+    try { res = await gasRun({ action: 'get_masters', war: currentWar }); } catch (e2) { alert('讀取正典御主失敗。'); return; }
+  }
+  try {
     var list = (res && res.masters) || [];
     window._canonMasters = list;
     var box = document.getElementById('master-pick-list');
