@@ -365,7 +365,11 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v47'; // v47：貞德-Ruler → 貞德-Archer(泳裝版)換版——原Ruler版(對魔力EX+rho_aias A+
+var CODEX_PERSONA_VER = 'v48'; // v48：戰鬥系統體檢修正——①resyncSummonedServants_ 補 SEED_RECLASSED_ 換職階遷移表
+//   (v47換版前已召喚的貞德-Ruler因(名,職階)key對不上新種子而逃過削弱、保留OP kit——升版重跑讓她們吃到Archer新kit)；
+//   ②寶具對轟敵方火力取樣補 skill(單層歸屬後漏帶·開場對轟系統性偏向玩家)；③因果律截斷不吃「敵滅回震腰斬」；
+//   ④DEF_FX_ mul 下限clamp＋校準基準註解修正(實為C階非B階)。
+// v47：貞德-Ruler → 貞德-Archer(泳裝版)換版——原Ruler版(對魔力EX+rho_aias A+
 //   啟示/真名看破三重疊加)經 tools/battle_sim/roundrobin.js 全循環賽模擬證實是全種子庫最強(36位互毆
 //   99%+勝率、僅2人技能位階能繞過其對魔力)，玩家要求整組換成官方泳裝Archer版：對魔力降回B、拔掉
 //   rho_aias/first_strike/analyze，改配單一對軍寶具(豐收之海啊)，數值不再失控。id 隨之改為
@@ -470,6 +474,10 @@ function upgradeMasterCodex_(ss) {
 //   依 (真名, 職階) 對應種子(斯卡哈 Lancer/Assassin 同名靠職階區分)。只刷 GAS 掌的數值欄；
 //   ⚠ 不動 HP/MP/MEMORY(出力·魔境選擇·令咒…)/敘事欄(特徵/個性/身世)/狀態/位置/羈絆，保住玩家實例狀態與逆天改命。
 //   查無種子(AI 原創從者)→ 跳過不動。冪等可重跑。
+// ⚠ 換職階遷移表：種子改版連職階都換掉時(舊 key→新 key)，已召喚實體的 RANK 欄還存舊職階、
+//   單靠 (真名,職階) 對不上新種子——沒有這張表，換版削弱對既有存檔的實體【永遠不生效】
+//   (2026-07 稽核發現：貞德 Ruler→Archer 換版後，換版前召喚的她保留舊 OP kit 逃過削弱)。
+var SEED_RECLASSED_ = { '貞德｜Ruler': '貞德｜Archer' };
 function resyncSummonedServants_(ss) {
   var pc = ss.getSheetByName('眾生');
   if (!pc || pc.getLastRow() <= 1) return 0;
@@ -482,7 +490,12 @@ function resyncSummonedServants_(ss) {
     var fac = String(data[i][COL.PC.FACTION]);
     if (fac !== '從者' && fac !== '敵從者') continue;   // 玩家從者＋敵從者都刷(都讀種子戰鬥數據)
     if (String(data[i][COL.PC.ID]).indexOf('DEAD_') === 0) continue;
-    var s = byKey[key(data[i][COL.PC.NAME], data[i][COL.PC.RANK])];
+    var k = key(data[i][COL.PC.NAME], data[i][COL.PC.RANK]);
+    if (!byKey[k] && SEED_RECLASSED_[k]) {
+      k = SEED_RECLASSED_[k];
+      data[i][COL.PC.RANK] = k.split('｜')[1]; // 職階欄跟著換新(戰鬥 profile/演出都吃這欄)
+    }
+    var s = byKey[k];
     if (!s) continue; // AI 原創從者無種子 → 不動
     data[i][COL.PC.MARTIAL] = s.np || data[i][COL.PC.MARTIAL];
     data[i][COL.PC.SIX] = JSON.stringify(s.six);

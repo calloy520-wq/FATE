@@ -627,7 +627,10 @@ function actionFateBattle(userData, pcId, sheets) {
       // 🎯 火力取樣用 forceHit：damage 恆屬「攻方」——原本擲輸時取到的是對面的反殺傷害(含對面寶具骰)，
       //   把與雙方寶具威能無關的噪音帶進對轟比大小(2026-07 根源修)。
       const pPow = resolveFateBattle_(atkC, enemyC0, { np: true, seal: useSeal, skill: skillBuff, forceHit: true }).damage;
-      const ePow = resolveFateBattle_(enemyC0, atkC, { np: true, forceHit: true }).damage;
+      // ⚠ 2026-07 修：敵方火力取樣原本漏帶 skill——單層歸屬後 burst/str_up/projection 已是主動 only，
+      //   敵反擊(:918)/夜襲(Router_Movement)都有補 servantActiveSkill_(敵AI恆全效免費·戰鬥本色)，
+      //   唯獨這裡漏掉，導致持這三技的敵從者在開場對轟火力系統性偏低、天秤偏向玩家。
+      const ePow = resolveFateBattle_(enemyC0, atkC, { np: true, skill: servantActiveSkill_(enemyC0), forceHit: true }).damage;
       // ⚡ 因果律武器（Gáe Bolg 等）：死亡在投擲前已確定──優先結算，壓過對手寶具威能
       //   致死：敵方 NP 被截斷，只剩極少殘波打回來；未致死：火力 ×1.35、比完大小再走正常流程。
       // ⚠ 2026-07 修：原本只查玩家方(hasCausalityNp_(atkC))，敵方持因果律武器(如庫丘林 gae_bolg)時
@@ -677,7 +680,9 @@ function actionFateBattle(userData, pcId, sheets) {
         // ★ 對轟【回震】不致死(勝方/僵持方吃的是餘波)：夾到至多打到 1 HP——原本回震可打死殘血從者，
         //   造成「同一場先記勝又記敗」的勝敗雙記(2026-07 修)。輸方(outcome='enemy')在上方已同樣保 1；
         //   唯獨敵方因果律截斷(pLethalOk)是刻意的例外——那本就該真的打死，不能被這道通用保命線攔下。
-        const spill0 = (destroyedName ? Math.round(pDmgTaken * 0.5) : pDmgTaken);
+        // ⚠ 2026-07 修：敵方因果律截斷(pLethalOk)不吃「敵滅→回震腰斬」——因果律的死在投擲前已確定，
+        //   不因持槍者自己被殘波擊殺而減半；否則玩家會在極罕見的互殺情境「意外不死」，架空必死分支。
+        const spill0 = (destroyedName && !pLethalOk) ? Math.round(pDmgTaken * 0.5) : pDmgTaken;
         const spill = pLethalOk ? spill0 : Math.min(spill0, Math.max(0, (parseInt(pcData[atkIdx][COL.PC.HP]) || 1) - 1));
         const pHit = fateStrike_(sheets, pcData, enemyC0, atkIdx, { forceDamage: spill }, ctx);
         if (pHit.destroyed && pHit.knocked) knockedOut.push(pHit.knocked);
