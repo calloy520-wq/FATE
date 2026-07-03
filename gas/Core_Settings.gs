@@ -35,7 +35,9 @@ const COL = {
     //   DAY/HOUR/AP=時鐘(1AP=1小時，每日12AP)；HOME_LOC=居所(工房加成判定用，原權柄表)。
     DAY: 29, HOUR: 30, AP: 31, HOME_LOC: 32
   },
-  MAP: { REGION: 0, NAME: 1, TYPE: 2, COORD: 3, DESC: 4, PARENT: 5 },
+  // ⚠ 2026-07 新增 WAR：地圖原本無戰爭概念、全局共用同一份地點——但第四次限定地點(海特飯店等)
+  //   若在第五次局也顯示會是明確的設定錯誤。空字串＝通用地點(全戰爭皆顯示)，'4th'/'5th' 則限定該戰爭。
+  MAP: { REGION: 0, NAME: 1, TYPE: 2, COORD: 3, DESC: 4, PARENT: 5, WAR: 6 },
   // 🔵 英靈殿(從者範本)、御主殿（戰鬥 fx 走 hasFx_＋SEED_SERVANTS 的 skills/traits JSON，不需 COL 索引；戰鬥標籤分頁已棄）
   HERO: { ID: 0, CLS: 1, NAME: 2, SEX: 3, SIX: 4, CLASS_SKILLS: 5, SKILLS: 6, TRAITS: 7, NP: 8, PERSONA: 9, ALIGN: 10, WARS: 11, SOURCE: 12 },
   MASTER: { ID: 0, NAME: 1, SEX: 2, APPEAR: 3, MAGIC: 4, CIRCUITS: 5, MELEE: 6, MAGIC_RANK: 7, HOME: 8, WISH: 9, PERSONA: 10, WAR: 11, SOURCE: 12, BACK: 13, MOE: 14 },
