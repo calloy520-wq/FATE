@@ -166,6 +166,35 @@ function linkAccountToPc_(accountName, pcCharId) {
   }
 }
 
+// 🌹 把鑑賞(後日談)avatar 連結到帳號——跟 linkAccountToPc_ 同一套機制(外部表存連結，
+//   非角色自己宣稱)，讓「這個帳號的鑑賞世界是哪個 KPC_」結構上只有伺服器碼能寫。
+function linkAccountToKanshouPc_(accountName, kpcId) {
+  if (!accountName || !kpcId) return;
+  var name = String(accountName).trim();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var acc = ss.getSheetByName("帳號");
+  if (!acc) return;
+  var found = findAccountRow_(acc, name);
+  if (found) {
+    acc.getRange(found.idx + 1, COL.ACC.KPC + 1).setValue(kpcId);
+  } else {
+    var row = Array(Object.keys(COL.ACC).length).fill("");
+    row[COL.ACC.NAME] = name; row[COL.ACC.KPC] = kpcId; row[COL.ACC.CREATED] = new Date();
+    acc.appendRow(row);
+  }
+}
+
+// 🌹 查某帳號目前連結的鑑賞 avatar pcId（查無回 ""）。
+function getAccountKanshouPcId_(accountName) {
+  var name = String(accountName || "").trim();
+  if (!name) return "";
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var acc = ss.getSheetByName("帳號");
+  if (!acc) return "";
+  var found = findAccountRow_(acc, name);
+  return found ? String(found.row[COL.ACC.KPC] || "") : "";
+}
+
 // 🗑️ 2026-07：排行榜／戰史／勝場計數／最快奪杯天數 全數移除(單人專注·不做跨帳號回顧比拼)。
 //   incrementWin_/recordHistory_/recordWinSpeed_/actionLeaderboard/actionGetVictoryHistory 已刪，
 //   呼叫端(戰鬥/斬首/夜襲勝利路徑)同步拔除呼叫。

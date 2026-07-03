@@ -4,16 +4,18 @@
 //   鑑賞模式：列出已封存的從者，可呼出她（後日談對話）。
 // ==========================================
 
-// 🔒 帳號歸屬驗證：找 KPC_ 那一列，且必須其 MEMORY 內【帳號】標記與 acctName 相符才算擁有者，
-//   否則視同查無此列。⚠ 2026-07 修：KPC_/g_/k_ 的 ID 只用 Date.now()(無隨機尾碼)，理論上可預測；
-//   之前 kanshou_add/remove/set_name/set_sex 只憑 pcId 找列就直接改寫，沒驗證呼叫者是否真的擁有
-//   這個 pcId——只要猜中/取得他人 pcId，就能竄改其後日談世界(塞從者/請走同伴/改名改性別)而對方無感。
-//   一律比對 MEMORY 的帳號標記，找到列但帳號不符時視為查無(不洩漏「這個ID其實存在」的資訊)。
+// 🔒 帳號歸屬驗證：比照 solo 的 linkAccountToPc_/COL.ACC.PC 機制——「帳號」表新增的 KPC 欄位
+//   才是唯一權威來源，由伺服器碼在 actionEnterKanshou 專責寫入，玩家端無法透過任何參數影響它。
+//   ⚠ 2026-07 修：KPC_/g_/k_ 的 ID 只用 Date.now()(無隨機尾碼)，理論上可預測；之前
+//   kanshou_add/remove/set_name/set_sex 只憑 pcId 找列就直接改寫，靠角色自己 MEMORY 裡宣稱的
+//   【帳號】標記做防護(每個呼叫端得自己記得驗證，容易漏)——只要猜中/取得他人 pcId 就能竄改
+//   對方的後日談世界而對方無感。改成跟 solo 同一結構：查「帳號」表這個 acctName 連結的
+//   KPC 是否確實等於呼叫者聲稱的 pcId，不符或查無帳號一律視為找不到列。
 function kanshouOwnedRowIdx_(data, pcId, acctName) {
-  var acctTag = "【帳號】" + String(acctName || "").trim();
+  var trueKpc = getAccountKanshouPcId_(acctName);
+  if (!trueKpc || trueKpc !== String(pcId || "")) return -1;
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][COL.PC.ID]) !== String(pcId)) continue;
-    return String(data[i][COL.PC.MEMORY] || "").indexOf(acctTag) === -1 ? -1 : i;
+    if (String(data[i][COL.PC.ID]) === String(pcId)) return i;
   }
   return -1;
 }
@@ -218,29 +220,48 @@ function galleryRec_(ss, acctName, name) {
 // 🌹 進入慾海·後日談（新版單一持久主畫面）：每個帳號只有【一個】常駐後日談世界。
 //   點「進入鑑賞」→ 直接回到這個世界（御主 avatar），不再先挑從者、不再每次重講開場。
 //   從者由 👥 後日談同伴面板自行邀請。歷史紀錄跟單機一樣靠 pcId 從「歷史暫存」撈。
-//   ⚠ 御主 avatar 以 MEMORY 內【帳號】<acct> 標記綁定帳號，id 持久不變(KPC_)，故 getGameHistory 能接續。
+//   🔒 2026-07 修：御主 avatar 綁定帳號原本靠角色自己 MEMORY 內【帳號】<acct> 標記宣稱，
+//   沒有結構性防護(任何操作忘了驗證就能被冒充/竄改)。改成比照 solo 的 linkAccountToPc_ 機制——
+//   權威連結存在「帳號」表新增的 KPC 欄位，只有伺服器碼(這裡)會寫，玩家端無法影響。
 function actionEnterKanshou(userData, pcId, sheets) {
   var acctName = String(userData.acctName || "").trim();
   if (!acctName) return JSON.stringify({ success: false, message: "未登入帳號。" });
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var kpc = getKanshouPcSheet_(ss);            // 🌹 慾海專屬分頁
   var data = kpc.getDataRange().getValues();
-  var acctTag = "【帳號】" + acctName;
 
-  // 1️⃣ 找這個帳號既有的常駐後日談御主 → 直接接續(不重製)
-  for (var r = 1; r < data.length; r++) {
-    if (String(data[r][COL.PC.FACTION]) !== "御主") continue;
-    if (String(data[r][COL.PC.ID]).startsWith("DEAD_")) continue;
-    if (String(data[r][COL.PC.MEMORY] || "").indexOf(acctTag) === -1) continue;
-    var loc = String(data[r][COL.PC.LOC] || "冬木·深山町");
-    return JSON.stringify({
-      success: true, resumed: true,
-      pcId: String(data[r][COL.PC.ID]), pcName: String(data[r][COL.PC.NAME] || acctName),
-      pcSex: String(data[r][COL.PC.SEX] || "異"), loc: loc
-    });
+  // 1️⃣ 帳號表已有連結(權威來源) → 直接接續(不重製)
+  var linkedKpcId = getAccountKanshouPcId_(acctName);
+  if (linkedKpcId) {
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][COL.PC.ID]) !== linkedKpcId) continue;
+      var loc = String(data[r][COL.PC.LOC] || "冬木·深山町");
+      return JSON.stringify({
+        success: true, resumed: true,
+        pcId: linkedKpcId, pcName: String(data[r][COL.PC.NAME] || acctName),
+        pcSex: String(data[r][COL.PC.SEX] || "異"), loc: loc
+      });
+    }
+    // 連結指向的列不存在(手動整理試算表等邊角情況)→ 當作沒有存檔，往下走新建流程。
+  } else {
+    // 2️⃣ 一次性遷移：帳號表還沒連結，但舊版用 MEMORY【帳號】標記識別的角色可能還在——
+    //    找到就補寫帳號表連結(下次直接走①)，不必讓玩家既有的後日談世界憑空消失。
+    var acctTag = "【帳號】" + acctName;
+    for (var m = 1; m < data.length; m++) {
+      if (String(data[m][COL.PC.FACTION]) !== "御主") continue;
+      if (String(data[m][COL.PC.ID]).startsWith("DEAD_")) continue;
+      if (String(data[m][COL.PC.MEMORY] || "").indexOf(acctTag) === -1) continue;
+      var migId = String(data[m][COL.PC.ID]);
+      linkAccountToKanshouPc_(acctName, migId);
+      return JSON.stringify({
+        success: true, resumed: true,
+        pcId: migId, pcName: String(data[m][COL.PC.NAME] || acctName),
+        pcSex: String(data[m][COL.PC.SEX] || "異"), loc: String(data[m][COL.PC.LOC] || "冬木·深山町")
+      });
+    }
   }
 
-  // 2️⃣ 沒有常駐御主 → 要新建。御主名字＋性別由玩家「首次進場時自己定」(一帳號可能有不同
+  // 3️⃣ 沒有常駐御主 → 要新建。御主名字＋性別由玩家「首次進場時自己定」(一帳號可能有不同
   //   名字/性別的奪杯，不該由系統掛帳號或亂猜)。前端沒帶齊 → 回 needSetup 請前端先問一次。
   //   建好後持久存於這列，之後可用 kanshou_set_name／kanshou_set_sex 隨時改。
   var mSex = String(userData.pcSex || "").trim();
@@ -261,9 +282,11 @@ function actionEnterKanshou(userData, pcId, sheets) {
   mRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情輕鬆" });
   mRow[COL.PC.LOC] = loc2;
   mRow[COL.PC.FACTION] = "御主";
-  mRow[COL.PC.MEMORY] = acctTag + "｜【鑑賞後日談】聖杯戰爭已結束，這是與封存從者的和平約會時光。";
+  // 【帳號】標記保留供人工檢視試算表時辨識(非驗證用途，真正的歸屬判斷已走帳號表 KPC 欄位)。
+  mRow[COL.PC.MEMORY] = "【帳號】" + acctName + "｜【鑑賞後日談】聖杯戰爭已結束，這是與封存從者的和平約會時光。";
   mRow[COL.PC.GAME_ID] = gameId;
   kpc.appendRow(mRow);
+  linkAccountToKanshouPc_(acctName, mId); // 🔒 權威連結寫進帳號表
 
   return JSON.stringify({
     success: true, resumed: false,
