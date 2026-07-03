@@ -562,6 +562,55 @@
   }
   .tag-selectable { animation: tagGlow 1.6s ease-in-out infinite; }
 
+  /* 🌈 技能膠囊·階級流光分級(2026-07)：EX彩虹流光／A系紅流光／B系黃微光／C與無階級=基準金褐(原inline樣式)／
+     D·E灰暗。純CSS零後端成本；特性(trait)不吃分級。搭配 Script.html pill() 的 pillRankCls_()。 */
+  @keyframes rankExFlow { from { background-position: 0% 50%; } to { background-position: 300% 50%; } }
+  .pill-rank-ex {
+    display: inline-block; padding: 1px; border-radius: 10px; margin: 2px 3px 0 0;
+    background: linear-gradient(100deg, #ff5f5f, #ffb84d, #ffe95c, #6de07e, #5cc8ff, #b48cff, #ff6fd8, #ff5f5f);
+    background-size: 300% 100%;
+    animation: rankExFlow 3.2s linear infinite;
+    box-shadow: 0 0 7px rgba(180, 140, 255, .45);
+    cursor: pointer; white-space: nowrap; font-size: 10px;
+  }
+  .pill-rank-ex > i {
+    font-style: normal; display: block; border-radius: 9px; padding: 0 6px;
+    background: #1d1526; background-clip: padding-box;
+  }
+  .pill-rank-ex > i > b {
+    font-weight: normal;
+    background: linear-gradient(100deg, #ffd9d9, #ffe9bf, #fff7c2, #c8f5d0, #c9e9ff, #e3d4ff, #ffd6f1, #ffd9d9);
+    background-size: 300% 100%;
+    animation: rankExFlow 3.2s linear infinite reverse;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  @keyframes rankASweep { 0% { background-position: 120% 50%; } 100% { background-position: -130% 50%; } }
+  .pill-rank-a {
+    display: inline-block; cursor: pointer; font-size: 10px;
+    border: 1px solid #e0574a; color: #ffb3a8;
+    border-radius: 10px; padding: 1px 7px; margin: 2px 3px 0 0; white-space: nowrap;
+    background: linear-gradient(100deg, rgba(224,87,74,0) 30%, rgba(255,140,110,.32) 50%, rgba(224,87,74,0) 70%);
+    background-size: 250% 100%;
+    animation: rankASweep 2.6s ease-in-out infinite;
+    box-shadow: 0 0 6px rgba(224, 87, 74, .4);
+  }
+  .pill-rank-b {
+    display: inline-block; cursor: pointer; font-size: 10px;
+    border: 1px solid #e7c873; color: #f2df9e;
+    border-radius: 10px; padding: 1px 7px; margin: 2px 3px 0 0; white-space: nowrap;
+    background: rgba(231, 200, 115, .10);
+    box-shadow: 0 0 4px rgba(231, 200, 115, .3);
+  }
+  .pill-rank-de {
+    display: inline-block; cursor: pointer; font-size: 10px;
+    border: 1px solid #6a6a78; color: #9a9aa8;
+    border-radius: 10px; padding: 1px 7px; margin: 2px 3px 0 0; white-space: nowrap;
+    opacity: .85;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pill-rank-ex, .pill-rank-ex > i > b, .pill-rank-a { animation: none; }
+  }
+
   /* 🗺️ 戰場地圖動態效果（buildMapSvg_ 用·viewBox 0 0 100 100·純前端零後端成本）*/
   @keyframes fkHereBreath { 0%,100%{ r:5; opacity:.9; } 50%{ r:7.5; opacity:.35; } }
   @keyframes fkHereCore  { 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.5); } }

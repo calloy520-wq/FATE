@@ -1113,6 +1113,19 @@ function renderRecentLocs(recents = null) {
     if (r.indexOf('+') >= 0) v += 5;
     return v;
   }
+  // 🌈 技能膠囊·階級流光分級(2026-07 玩家定案)：回 Style.html 的 .pill-rank-* 後綴。
+  //   EX='ex'彩虹流光／A系='a'紅流光／B系='b'黃微光／D·E='de'灰暗／C與無階級=''(基準金褐·沿用原樣式，
+  //   引擎 hasFx_ 對無階級技能本就 fallback C 計算，視覺與機制對齊；燕返/妄想心音等無階級簽名招不灰化)。
+  function pillRankCls_(r) {
+    var s = String(r || '').trim();
+    if (!s || s === '-') return '';
+    if (/EX/i.test(s)) return 'ex';
+    var c = s.charAt(0).toUpperCase();
+    if (c === 'A') return 'a';
+    if (c === 'B') return 'b';
+    if (c === 'D' || c === 'E') return 'de';
+    return '';
+  }
   // 🏷️ 標籤白話字典（依該技能「實際階級」算出具體數值，看得出分級差別）——點 pill 時顯示
   const FX_DESC = {
     nullify_magic: m => `對魔力：減免「魔術」傷害約 −${Math.round(25 * m)}%（敵為 Caster／魔力放出／神代時生效）；擋術不擋肉體。`,
@@ -1360,7 +1373,15 @@ function renderRecentLocs(recents = null) {
         var pill = function (n, r, fx, col, glow, pre) {
           var label = n + (r && r !== '-' ? (' ' + r) : '');
           var arg = "'" + String(n).replace(/'/g, '') + "','" + String(fx || '').replace(/'/g, '') + "','" + String(r || '').replace(/'/g, '') + "'";
-          return '<span class="' + (glow ? 'tag-selectable' : '') + '" onclick="event.stopPropagation();showSkillDesc(' + arg + ')" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid ' + col + '; color:' + col + '; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;">' + (pre || '') + (glow ? '✨' : '') + label + '</span>';
+          var click = 'onclick="event.stopPropagation();showSkillDesc(' + arg + ')"';
+          // 🌈 階級流光分級(2026-07·CSS 見 Style.html .pill-rank-*)：僅技能吃分級，特性(trait)維持暗紅框。
+          //   EX＝雙層結構(外殼彩虹邊框＋內層文字彩虹漸層)；A/B/D·E＝單層 class 全樣式；C/無階級落回原基準。
+          if (fx !== 'trait') {
+            var rc = pillRankCls_(r);
+            if (rc === 'ex') return '<span class="pill-rank-ex" ' + click + '><i><b>' + (pre || '') + label + '</b></i></span>';
+            if (rc) return '<span class="pill-rank-' + rc + (glow ? ' tag-selectable' : '') + '" ' + click + '>' + (pre || '') + (glow ? '✨' : '') + label + '</span>';
+          }
+          return '<span class="' + (glow ? 'tag-selectable' : '') + '" ' + click + ' style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid ' + col + '; color:' + col + '; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;">' + (pre || '') + (glow ? '✨' : '') + label + '</span>';
         };
         // 🔮 可選能力標籤(魔境的智慧/原初符文)：小膠囊·發亮；點開在說明 popup 裡挑選，選定後標籤即顯示所選項（如 魔境的智慧（千里眼A））
         var selPill = function (label, onclickJs) {
@@ -1386,9 +1407,12 @@ function renderRecentLocs(recents = null) {
             return '<span onclick="event.stopPropagation();showSynergyInfo(' + _syarg + ')" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid ' + _sycol + '; color:' + _sycol + '; background:' + _sybg + '; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;' + (_syon ? ' box-shadow:0 0 6px rgba(110,180,220,.55);' : ' opacity:.7;') + '">' + _sytxt + '</span>';
           }
           // ⚡ 主動技標籤(2026-07 改回按鈕制)：純資訊標籤——實際發動改在攻擊列按「⚡主動」，點標籤看說明。
+          //   🌈 階級分級：青字青框不動(保住「主動技」識別)，只疊對應階級的光暈色(EX紫暈/A紅暈/B黃暈/其餘無)。
           if (ACTIVE_FX_JS[sk.fx]) {
             var _arg = "'" + String(sk.n).replace(/'/g, '') + "','" + sk.fx + "','" + String(sk.r || '').replace(/'/g, '') + "'";
-            return '<span onclick="event.stopPropagation();showActiveSkillInfo(' + _arg + ')" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid #7ec8ff; color:#7ec8ff; background:rgba(110,180,220,.12); border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;">⚡' + sk.n + (sk.r && sk.r !== '-' ? ' ' + sk.r : '') + '</span>';
+            var _rc = pillRankCls_(sk.r);
+            var _sh = _rc === 'ex' ? '0 0 7px rgba(180,140,255,.55)' : _rc === 'a' ? '0 0 6px rgba(224,87,74,.45)' : _rc === 'b' ? '0 0 4px rgba(231,200,115,.4)' : 'none';
+            return '<span onclick="event.stopPropagation();showActiveSkillInfo(' + _arg + ')" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid #7ec8ff; color:#7ec8ff; background:rgba(110,180,220,.12); border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap; box-shadow:' + _sh + ';">⚡' + sk.n + (sk.r && sk.r !== '-' ? ' ' + sk.r : '') + '</span>';
           }
           return pill(sk.n, sk.r, sk.fx, '#d9a93a', false);
         }).join('');
