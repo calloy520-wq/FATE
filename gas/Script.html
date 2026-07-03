@@ -75,6 +75,10 @@
     sealArmed = !sealArmed;
     try { renderWarActions(); } catch (e) { }
   }
+  // 🔥 超載檔位·蓄勢鈕(2026-07 玩家定案「不用一直確定·開錯就開錯不要擋」)：💥寶具旁的 ＋/＋＋ 小鈕，
+  //   亮哪個＝開哪檔(p1/p2)、按💥直接開火【零確認】；沒亮＝僅付底費。發射後自動歸零(下一發重選)。
+  let npTierArmed = false; // false=僅底費 / 'p1'=超載檔 / 'p2'=極限檔
+  function toggleNpTier(t) { npTierArmed = (npTierArmed === t) ? false : t; try { renderWarActions(); } catch (e) { } }
   let myCanRB = false;    // 是否具破戒之力
   function setActiveServant(name) {
     myActiveServant = name;
@@ -494,12 +498,25 @@ function renderRecentLocs(recents = null) {
         //   按下＝該次交鋒全力發動＋扣魔一次，跟 💥寶具/❖令咒 同一套「按下當次生效」模式。
         var _ask = activeSkillOfActive_();
         // 🛡️ 常駐寶具(2026-07·B叔案)：God Hand/治癒結界等【常駐寶具】自動生效、非攻擊解放→💥灰化不可按
-        var _npPas = /【常駐寶具】/.test(String((((myServants || []).find(function (x) { return x.name === myActiveServant; })) || {}).np || ''));
+        var _aSv = (myServants || []).find(function (x) { return x.name === myActiveServant; }) || {};
+        var _npPas = /【常駐寶具】/.test(String(_aSv.np || ''));
+        // 🔥 超載檔位蓄勢鈕資料：規格外寶具(＋/EX)才有；價格/倍率/反噬%全進 tooltip(零確認制)
+        var _npr = String((_aSv.six && _aSv.six['寶具']) || '');
+        var _npPlus = /EX/i.test(_npr) ? 2 : (_npr.match(/\+/g) || []).length;
+        var _npP = { E: 40, D: 70, C: 110, B: 160, A: 220, EX: 300 }[_npr.replace(/[+\-]/g, '').toUpperCase()] || 110;
+        var _npCap = _npPlus >= 2 ? 2.0 : 1.5;
+        var _npM1 = String(1 + 0.5 * (_npCap - 1)).slice(0, 4);
+        var _tierBtn = function (t, label, tip, col) {
+          var on = npTierArmed === t;
+          return '<button onclick="toggleNpTier(\'' + t + '\')" title="' + tip + '" style="flex:0 0 auto; min-width:44px; font-size:11px; padding:8px 3px; background:' + (on ? 'rgba(255,150,60,.35)' : 'rgba(60,45,30,.3)') + '; color:' + (on ? '#ffe0b0' : col) + '; border:1px solid ' + (on ? '#ffb060' : '#7a5a3a') + '; border-radius:7px; cursor:pointer; font-weight:bold;' + (on ? ' box-shadow:0 0 9px rgba(255,150,60,.6);' : ' opacity:.8;') + '">' + label + '</button>';
+        };
         acts = '<button onclick="servantStrike(\'' + safe + '\', false)" title="' + st.hint + '" style="flex:2; min-width:110px; font-size:12.5px; padding:8px 4px; background:linear-gradient(90deg,rgba(' + st.rgb + ',.34),rgba(' + st.rgb + ',.16)); color:' + st.col + '; border:1px solid rgb(' + st.rgb + '); border-radius:7px; cursor:pointer; font-weight:bold;">' + st.emo + ' ' + st.name + '</button>'
           + (_ask ? '<button onclick="servantStrike(\'' + safe + '\', false, false, false, true)" title="催動主動技「' + _ask.n + '」全力出擊（該次交鋒全效·抽御主魔力一次）" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(110,180,220,.15); color:#7ec8ff; border:1px solid #4e92c0; border-radius:7px; cursor:pointer; font-weight:bold;">⚡ 主動</button>' : '')
           + (_npPas
             ? '<button disabled title="此從者的寶具為【常駐型】（如十二試煉／治癒結界）——已自動生效，並非可解放的攻擊寶具" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(90,80,60,.18); color:#8a7f6a; border:1px solid #5a5040; border-radius:7px; cursor:not-allowed; font-weight:bold; opacity:.75;">💥 常駐</button>'
-            : '<button onclick="servantStrike(\'' + safe + '\', true)" title="解放寶具" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(212,175,55,.15); color:#e7c873; border:1px solid #d4af37; border-radius:7px; cursor:pointer; font-weight:bold;">💥 寶具</button>')
+            : '<button onclick="servantStrike(\'' + safe + '\', true)" title="解放寶具（僅付底費' + (_npPlus ? '；要超載請先點亮右側 ＋/＋＋ 檔位' : '') + '）" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(212,175,55,.15); color:#e7c873; border:1px solid #d4af37; border-radius:7px; cursor:pointer; font-weight:bold;">💥 寶具' + (npTierArmed === 'p1' ? '·🔥＋' : npTierArmed === 'p2' ? '·🩸＋＋' : '') + '</button>'
+              + (_npPlus >= 1 ? _tierBtn('p1', '🔥＋', '超載灌注 ×' + _npM1 + '（總耗 ' + (_npP * 2) + '·反噬30%隨機扣血）——再按一次取消', '#ffab5e') : '')
+              + (_npPlus >= 2 ? _tierBtn('p2', '🩸＋＋', '極限灌注 ×' + _npCap + '（總耗 ' + (_npP * 3) + '·反噬65%隨機扣血）——再按一次取消', '#ff7a6a') : ''))
           + '<button onclick="toggleSealArm()" title="' + (sealArmed ? '令咒蓄勢中——下一記 普攻/主動/寶具 將必中＋威力×1.5；再按一次取消蓄勢(不耗令咒)' : '令咒・絕對命令：按下蓄勢(免費)，下一記 普攻/主動/寶具 自動帶上必中＋×1.5') + '" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:' + (sealArmed ? 'rgba(200,120,240,.38)' : 'rgba(176,108,208,.15)') + '; color:' + (sealArmed ? '#f0d0ff' : '#c79be8') + '; border:1px solid ' + (sealArmed ? '#d09af0' : '#b06cd0') + '; border-radius:7px; cursor:pointer; font-weight:bold;' + (sealArmed ? ' box-shadow:0 0 10px rgba(200,120,240,.65); text-shadow:0 0 6px rgba(240,200,255,.8);' : '') + '">' + (sealArmed ? '❖ 蓄勢中' : '❖ 令咒') + '</button>';
         if (myCanRB && myServants.length < 2 && myMasterSeals > 0) {
           acts += '<button onclick="ruleBreakSteal(\'' + safe + '\')" title="破戒奪僕：對打殘(HP<35%)的敵從者斬契奪為第二從者，燃一道令咒" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(176,108,208,.16); color:#d0a0e8; border:1px solid #8a5fb0; border-radius:7px; cursor:pointer; font-weight:bold;">⛓ 破戒奪僕 <small style="opacity:.7;">須打殘至35%＋燃令咒</small></button>';
@@ -1872,32 +1889,10 @@ function renderRecentLocs(recents = null) {
     servantStrike(npcName, true, useSeal, false, useSkill, true, idx);
   }
 
-  // 🔥 超載檔位選單(2026-07 玩家反饋「開令咒+寶具一直問東問西」)：規格外寶具的 確認＋超載＋檔位 三問
-  //   收成【一個選單一次點】——點選即確認出手、關掉選單即中止，全程零 confirm()。
-  function openOverloadPicker(npcName, npr, npChoice) {
-    var P = { E: 40, D: 70, C: 110, B: 160, A: 220, EX: 300 }[npr.replace(/[+\-]/g, '').toUpperCase()] || 110;
-    var cap = /EX/i.test(npr) ? 2.0 : (((npr.match(/\+/g) || []).length >= 2) ? 2.0 : 1.5);
-    var m1 = String(1 + 0.5 * (cap - 1)).slice(0, 4);
-    var safeN = String(npcName).replace(/'/g, '');
-    var nc = (typeof npChoice === 'number') ? npChoice : 'null';
-    var mk = function (tier, icon, title, sub, col) {
-      return '<button onclick="pickOverloadAndStrike(\'' + tier + '\',\'' + safeN + '\',' + nc + ')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid ' + col + ';background:rgba(45,38,24,.5);color:#e8dcc0;"><b style="color:' + col + ';">' + icon + ' ' + title + '</b><br><small style="color:#bcae90;">' + sub + '</small></button>';
-    };
-    var html = '<h3 style="margin:0 0 6px;color:#e7c873;">💥 真名解放——灌注多少魔力？</h3>'
-      + (sealArmed ? '<div style="color:#f0d0ff;font-size:12px;margin-bottom:6px;">❖ 令咒蓄勢加持：此發【絕對必中】＋威力再 ×1.5（燃一道令咒）</div>' : '')
-      + '<div style="color:#9a8fae;font-size:11.5px;line-height:1.6;margin-bottom:10px;">出力自動推至 100%。費用【魔力優先】支付、不足的缺口焚血（2HP＝1MP、保底 1）；超載檔解放後有機率【過載反噬】隨機扣血（不致死·保底 1）。補魔過充額度自動免費折抵超載段。點選即出手；關掉選單＝先不解放。</div>'
-      + mk('none', '💥', '僅付底費 ' + P + '（×1.0）', '定額釋放·無反噬·保留魔力應付戰後維持', '#e7c873')
-      + mk('p1', '🔥', '超載灌注 ' + (P * 2) + '（×' + m1 + '）', '反噬 30%（隨機扣 血量上限 4~12%）', '#ffab5e')
-      + mk('p2', '🩸', '極限灌注 ' + (P * 3) + '（×' + cap + '）', '反噬 65%（隨機扣 血量上限 8~24%）——孤注一擲', '#ff7a6a');
-    showHistoryOverlay(html);
-  }
-  function pickOverloadAndStrike(tier, npcName, npChoice) {
-    try { var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none'; } catch (e) { }
-    servantStrike(npcName, true, false, false, false, true, (npChoice === null ? undefined : npChoice), tier === 'none' ? false : tier);
-  }
+  // 🔥 超載檔位選單已再改版為攻擊列 ＋/＋＋ 蓄勢鈕(零確認制·2026-07 玩家三修)，選單函式已移除。
 
-  async function servantStrike(npcName, useNp, useSeal, isMaster, useSkill, npPicked, npChoiceArg, overloadArg) {
-    var _npOverload; // 🔥 規格外寶具的超載選擇(undefined＝非規格外/未選；false/'p1'/'p2'＝選單答案·經 overloadArg 帶回)
+  async function servantStrike(npcName, useNp, useSeal, isMaster, useSkill, npPicked, npChoiceArg) {
+    var _npOverload; // 🔥 規格外寶具的超載選擇(undefined＝非規格外；false=僅底費/'p1'/'p2'＝攻擊列蓄勢鈕預選)
     // ❖ 令咒·蓄勢消費：蓄勢中按 普攻/⚡主動/💥寶具 即自動帶上令咒(必中＋×1.5)；刺殺(isMaster)不適用、蓄勢保留。
     //   實際熄燈在所有確認通過後(beginAction 前)——中途取消不熄、令咒不白燒。
     if (sealArmed && !isMaster && !useSeal) useSeal = true;
@@ -1914,16 +1909,11 @@ function renderRecentLocs(recents = null) {
     if (isMaster) {
       if (!confirm('🗡️ 刺殺敵御主「' + npcName + '」？\n\n唯有擲出 20（大成功，1/20）能突破護衛從者、斬殺御主奪勝；\n否則必被護衛捨身擋下，並反噬 1.5 倍傷害給你的從者——重則靈基崩潰、聖杯戰爭落敗。\n\n確定發動奇襲斬首？')) return;
     } else if (useNp) {
-      // 🔥 規格外寶具(＋/EX)：檔位選單一次點選(openOverloadPicker·點選即確認)——取代舊的 確認+超載+檔位 三連問。
+      // 💥 寶具零確認(2026-07 玩家定案「不用一直確定·開錯就開錯不要擋」)：檔位由攻擊列 ＋/＋＋ 蓄勢鈕
+      //   預選(未亮＝僅付底費·overload:false)，按💥直接開火。價格/倍率/反噬%資訊在按鈕 tooltip。
       var _oSv = (myServants || []).find(function (x) { return x.name === myActiveServant; });
       var _oNpr = String((_oSv && _oSv.six && _oSv.six['寶具']) || '');
-      if (/\+|EX/i.test(_oNpr)) {
-        if (overloadArg === undefined) { openOverloadPicker(npcName, _oNpr, (typeof npChoiceArg === 'number' ? npChoiceArg : null)); return; }
-        _npOverload = overloadArg;
-      } else {
-        // 沒＋的寶具＝定額釋放，維持單一確認（無檔位選單）。令咒蓄勢中則在同一個確認裡標明加持。
-        if (!confirm('💥 命「' + npcName + '」解放寶具？\n\n' + (useSeal ? '❖ 令咒蓄勢加持——這發真名解放【絕對必中】＋威力再 ×1.5（燃一道令咒）。\n' : '') + '寶具乃靈基全力解放——將自動把出力推到 100%（全開），並支付寶具底費（魔力不足則焚血代付）。威力巨大、御主消耗最劇。\n\n確定解放寶具？')) return;
-      }
+      _npOverload = /\+|EX/i.test(_oNpr) ? (npTierArmed || false) : undefined;
     } else if (useSkill) {
       // ⚡ 防誤按：主動技＝該次交鋒全力發動、抽御主魔力一次。令咒蓄勢中則在同一個確認裡標明加持。
       var _cSk = activeSkillOfActive_();
@@ -1936,6 +1926,8 @@ function renderRecentLocs(recents = null) {
     if (!beginAction()) return;
     // ❖ 蓄勢熄燈：所有確認已過、此擊確定帶令咒出手（中途取消不會走到這裡，蓄勢保留）
     if (sealArmed && useSeal) { sealArmed = false; try { renderWarActions(); } catch (e) { } }
+    // 🔥 檔位歸零：這發已按預選檔位開火，下一發重新選（防手滑連環 660）
+    if (useNp && npTierArmed) { npTierArmed = false; }
     // 🔋 解放寶具＝全開：把出力 100% 隨 fate_battle 一起送(後端就地推滿)，省一趟 set_servant_output 往返。
     const story = document.getElementById('story');
     const _plain = myServantCls === 'Caster' ? '詠唱魔砲，轟向' : myServantCls === 'Archer' ? '張弓狙擊，鎖定' : '出擊，目標';
