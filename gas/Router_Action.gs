@@ -136,6 +136,15 @@ function handleGameAction(userData) {
   if (!handler) {
     return JSON.stringify({ success: false, message: `系統異常：未知的動作指令「${action}」` });
   }
+  // 🛡️ 2026-07 加固：慾海(kanshou)無戰鬥／經濟機制(CLAUDE.md「不打工、無經濟、無戰鬥」)，這批戰鬥/
+  //   結盟/工房類 action 過去沒有任何明確擋牆——只是前端 UI 全部隱藏(玩家點不到)，後端本身若被直打
+  //   API，多半只能靠「鑑賞眾生表從不會有敵對陣營列」這種資料結構上的間接效果提前失敗(如 fate_battle
+  //   查無敵方目標)，但並非每個都吃得到這道隱含防線——例如 set_workshop 只跳過費用檢查、陣地標記仍
+  //   會被寫入(純無害廢資料，但不是設計上刻意允許)。改在此統一明確擋下，不再依賴各 action 資料結構
+  //   湊巧擋住，讓「慾海不能打仗/不能用經濟機制」是結構保證而非副作用。
+  if (isKanshouCtx && KANSHOU_BLOCKED_ACTIONS_[action]) {
+    return JSON.stringify({ success: false, message: "慾海是純粹的約會後日談，沒有戰鬥／經濟機制。" });
+  }
   // 🔒 寫入互斥(2026-07·技術債清償)：會寫表的動作取 ScriptLock，擋「同鍵重送/連點」重複扣血扣AP。
   //   豁免不取鎖(零成本·不礙 3→1 round-trip 鐵則)：①純讀取 ②長 AI 敘事(narrate_only/play/backfill——
   //   鎖是全域的，被數秒的 AI 呼叫佔住會卡到其他請求)。搶不到鎖(上一動作尚在結算)→回「稍候」而非疊加重跑。
@@ -200,6 +209,17 @@ const STATE_AFTER_ACTIONS = {
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
   second_wind: 1, scout: 1, move: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
   update_fate: 1, update_rel_tag: 1
+};
+// 🛡️ 慾海(KPC_)明確擋下的戰鬥／經濟／結盟類 action(2026-07 加固)——皆為 solo 戰爭專屬，前端在
+//   kanshou 模式下本就全數隱藏對應按鈕(Script.html applyModeUI/renderWarActions)。取自
+//   STATE_AFTER_ACTIONS 扣掉 move(慾海約會地圖也要移動)/update_fate/update_rel_tag(未確認是否
+//   kanshou 也會用到，故不擋)，另補上 4 個「樂觀更新」輕量 setter(不進 STATE_AFTER_ACTIONS，但
+//   同樣是純戰鬥概念、solo 從者卡專屬)。
+const KANSHOU_BLOCKED_ACTIONS_ = {
+  fate_battle: 1, use_seal: 1, mana_supply: 1, bond: 1, rule_break_steal: 1,
+  propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
+  second_wind: 1, scout: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
+  set_servant_output: 1, set_mage_realm: 1, set_rune_mode: 1, set_active_skill: 1
 };
 
 // ==========================================
