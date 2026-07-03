@@ -111,7 +111,13 @@ function sanitizeAiData_(aiData) {
   return aiData;
 }
 
+// ⚡ handler → dispatcher 的整表陣列交棒(2026-07 提速)：寫入完整性已驗證的 handler(move/rest/
+//   fate_battle——其所有寫入 helper 皆原地改回同一份 pcData)在成功返回前設此全域，dispatcher 夾
+//   _state 時直接複用、省一次整表重讀。GAS 每個請求執行環境獨立，全域不跨請求；dispatcher 開頭重置防呆。
+var STATE_PRE_DATA_ = null;
+
 function handleGameAction(userData) {
+  STATE_PRE_DATA_ = null; // 每次 dispatch 重置(防同執行環境內殘留)
   if (typeof userData === "string") {
     try { userData = JSON.parse(userData); }
     catch (err) { return JSON.stringify({ success: false, message: "後端偵測：JSON結構解析異常" }); }
@@ -179,11 +185,13 @@ function handleGameAction(userData) {
   }
   // ⚡ 2→1：solo 遊戲動作回應自動夾帶最新 client state(_state)，前端套用後即不必再打一趟 sync。
   //   只對 solo 御主(PC_)＋會改動戰場狀態的動作做；查無人/出錯則略過(前端自動 fallback 回真 sync)。
+  //   ⚡ 2026-07 再提速：優先吃 STATE_PRE_DATA_(寫入完整性已驗證的 handler 交棒的權威陣列)，
+  //   省掉 buildClientState_ 的整表重讀；未交棒的 handler 照舊 fallback 重讀，正確性不變。
   if (STATE_AFTER_ACTIONS[action] && String(pcId || "").indexOf("PC_") === 0) {
     try {
       const obj = JSON.parse(out);
       if (obj && obj.success && obj._state === undefined) {
-        const st = buildClientState_(sheets, pcId);
+        const st = buildClientState_(sheets, pcId, STATE_PRE_DATA_);
         if (st) { obj._state = st; out = JSON.stringify(obj); }
       }
     } catch (e) { /* 非 JSON 或建構失敗 → 維持原回應，前端 fallback */ }
@@ -380,8 +388,11 @@ function buildTagsPayload_(sheets, pcId, preData) {
   return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length };
 }
 
-function buildClientState_(sheets, pcId) {
-  const allPcData = sheets.pc.getDataRange().getValues();
+// ⚡ preData(2026-07 提速)：手上已有最新整表陣列的呼叫端(見 STATE_PRE_DATA_ 交棒機制)傳入複用，
+//   省掉這裡的整表重讀——前提是該 handler 的所有寫入都已反映回它那份陣列(worldTick_/spendAp_/
+//   raiseBond_/fateStrike_ 等 helper 皆已支援原地改)。沒給→照舊自己讀(權威 fallback)。
+function buildClientState_(sheets, pcId, preData) {
+  const allPcData = preData || sheets.pc.getDataRange().getValues();
   try { markRivalsSeen_(sheets, pcId, allPcData); } catch (e) { } // 🔵 戰爭迷霧：就地標記 SEEN+批次寫回，免二次整表讀
   const pcIndex = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pcIndex === -1) return null;

@@ -367,8 +367,10 @@ function actionFateBattle(userData, pcId, sheets) {
   }
 
   // ⏳ 戰鬥耗 1 AP（＝推進 1 小時，1 AP＝1 小時）；行動點不足則無法出戰
+  //   ⚡ 2026-07：getAp_/spendAp_ 傳入手上這份 pcData(記憶體查找+原地改)——免各自透過 getClock_ 重讀整表，
+  //   也讓 pcData 的 AP/時鐘欄保持權威，結尾可直接餵 buildClientState_ 夾 _state(省一次整表重讀)。
   const isFateBattle = myGameId.indexOf("g_") === 0;
-  if (isFateBattle && getAp_(myGameId) < 1) {
+  if (isFateBattle && getAp_(myGameId, pcData) < 1) {
     return JSON.stringify({ success: false, message: "行動點已耗盡，從者也需喘息——請『歇息』恢復後再戰。" });
   }
 
@@ -412,11 +414,11 @@ function actionFateBattle(userData, pcId, sheets) {
 
   // 戰鬥確定開打 → 耗 1 AP（推進 2 小時）
   let battleAp = AP_PER_DAY;
-  if (isFateBattle) { try { battleAp = spendAp_(myGameId, 1).ap; } catch (e) { } }
+  if (isFateBattle) { try { battleAp = spendAp_(myGameId, 1, pcData, sheets).ap; } catch (e) { } }
 
   // ⚔️ 交手即削好感：拔劍相向直接 −5（不勞 AI 判定）。只削既有交情列、不憑空建列(萍水相逢者本就 0)。
   //   ★同時是「刷好感躲追殺」的天然制衡：要奪杯就得打、打了好感掉破 50→追擊閘重新開啟。
-  try { raiseBond_(sheets, String(pcData[pIdx][COL.PC.NAME]), String(pcData[nIdx][COL.PC.NAME]), -5); } catch (e) { }
+  try { raiseBond_(sheets, String(pcData[pIdx][COL.PC.NAME]), String(pcData[nIdx][COL.PC.NAME]), -5, pcData); } catch (e) { }
 
   // 🗡️ 斬首裁決：敵御主仍有從者在側護衛時，唯有「大成功（擲 20）」能突破護衛、一擊斬殺御主；
   //    否則護衛捨身格擋、並反手予我方從者 1.5 倍痛擊（可能致敗）。寶具／令咒對奇襲斬首不適用。
@@ -516,12 +518,13 @@ function actionFateBattle(userData, pcId, sheets) {
       }
     }
 
+    STATE_PRE_DATA_ = pcData; // ⚡ 交棒：斬首路徑的所有寫入(fateStrike_/spendAp_/raiseBond_)皆已原地改回 pcData
     return JSON.stringify({
       success: true, aiPrompt: asnPrompt, knockedOut: asnKnocked,
       victory: asnVictory, defeat: asnDefeat, dreamPrompt: asnDream,
       sealEscaped: false, report: asnReport,
-      clock: isFateBattle ? clockLabel_(myGameId) : "", ap: battleAp, apMax: AP_PER_DAY,
-      statusString: getFreshStatusString(pcId, pIdx, sheets)
+      clock: isFateBattle ? clockLabel_(myGameId, pcData) : "", ap: battleAp, apMax: AP_PER_DAY,
+      statusString: buildPlayerStatusString(pcData[pIdx]) // ⚡ pcData 即權威，免 getFreshStatusString 的整表重讀
     });
   }
 
@@ -1025,12 +1028,13 @@ function actionFateBattle(userData, pcId, sheets) {
     party: partyIdxs.map(i => ({ name: String(pcData[i][COL.PC.NAME]), hp: parseInt(pcData[i][COL.PC.HP]) || 0, hpMax: parseInt(pcData[i][COL.PC.MAX_HP]) || 0 }))
   };
 
+  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：主戰鬥路徑所有寫入(fateStrike_/drainForNp_/spendAp_/raiseBond_/對轟/預告旗標)皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, knockedOut: knockedOut,
     victory: victory, defeat: defeat, dreamPrompt: dreamPrompt,
     sealEscaped: sealEscaped, report: report,
-    clock: isFateBattle ? clockLabel_(myGameId) : "", ap: battleAp, apMax: AP_PER_DAY,
-    statusString: getFreshStatusString(pcId, pIdx, sheets)
+    clock: isFateBattle ? clockLabel_(myGameId, pcData) : "", ap: battleAp, apMax: AP_PER_DAY,
+    statusString: buildPlayerStatusString(pcData[pIdx]) // ⚡ pcData 即權威，免 getFreshStatusString 的整表重讀
   });
 }
 

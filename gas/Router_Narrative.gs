@@ -516,6 +516,11 @@ ${isKanshou ? `
 
     const pcColCount = Object.keys(COL.PC).length;
 
+    // 🔒 競態修(2026-07)：play 豁免寫入鎖(AI 呼叫佔數秒會卡全域)，但上面的列索引是 AI 呼叫【前】
+    //   讀到的——期間其他上鎖動作若刪列(清殘列/登入自動清)，索引位移、寫入會落錯列。寫回前做一次
+    //   ID 欄窄讀重定位，用「當下的真實列索引」寫；列已被刪→跳過，絕不寫錯人。
+    const liveIdx = buildLiveIdIndex_(sheets.pc);
+
     // MAX_HP/MAX_MP 重算只針對有變動的行，不全表掃描
     dirtyPcRows.forEach(idx => {
       const row = pcData[idx];
@@ -523,6 +528,8 @@ ${isKanshou ? `
       const id = String(row[COL.PC.ID] || "");
       // 🌹 含慾海角色前綴 KPC_(御主 avatar)／KSV_(同伴從者)，否則後日談的肉體/衣服/親密狀態寫不回去
       if (!id.startsWith("PC_") && !id.startsWith("NPC_") && !id.startsWith("DEAD_") && !id.startsWith("KPC_") && !id.startsWith("KSV_")) return;
+      const curIdx = liveIdx[id];
+      if (curIdx === undefined) return; // 列在 AI 呼叫期間被刪(競態) → 安全跳過
 
       while (row.length < pcColCount) row.push("");
 
@@ -538,8 +545,8 @@ ${isKanshou ? `
         row[COL.PC.MP] = Math.min(parseInt(row[COL.PC.MP]) || 0, maxVals.mp);
       }
 
-      // 只寫這一行，不寫全表
-      sheets.pc.getRange(idx + 1, 1, 1, pcColCount).setValues([row]);
+      // 只寫這一行，不寫全表(用重定位後的真實列索引)
+      sheets.pc.getRange(curIdx + 1, 1, 1, pcColCount).setValues([row]);
     });
 
     curL = pcData[pcIndex][COL.PC.LOC];
@@ -643,14 +650,18 @@ ${isKanshou ? `
 
 // ==========================================
 // 提升御主×從者羈絆（關係表好感）
-function raiseBond_(sheets, pcName, svName, delta) {
+// ⚡ 2026-07：可選 preData(呼叫端已讀好的整表陣列)——給了就在同一份陣列上【原地改+寫格】
+//   (比照 worldTick_/spendAp_ 的 preData 模式)，讓呼叫端的 pcData 保持權威、可直接餵 buildClientState_
+//   夾 _state(省一次整表重讀)；沒給(其他呼叫端相容)才自己整表讀一次。
+function raiseBond_(sheets, pcName, svName, delta, preData) {
   try {
-    const pd = sheets.pc.getDataRange().getValues();
+    const pd = preData || sheets.pc.getDataRange().getValues();
     const mIdx = pd.findIndex(r => String(r[COL.PC.NAME]) === pcName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
     const gid = mIdx !== -1 ? String(pd[mIdx][COL.PC.GAME_ID] || "") : "";
     const nIdx = pd.findIndex(r => String(r[COL.PC.NAME]) === svName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!gid || String(r[COL.PC.GAME_ID] || "") === gid));
     if (nIdx === -1) return;
     const v = Math.max(0, Math.min(100, (parseInt(pd[nIdx][COL.PC.BOND]) || 0) + delta)); // 地板 0：負 delta(交手削好感)不破底
+    pd[nIdx][COL.PC.BOND] = v; // 原地回填(preData 模式下呼叫端陣列即權威；自讀模式下無副作用)
     sheets.pc.getRange(nIdx + 1, COL.PC.BOND + 1).setValue(v);
   } catch (e) { }
 }
