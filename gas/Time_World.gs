@@ -180,9 +180,9 @@ function playerServantEconomy_(sheets, pcId, preData) {
   var gid = String(data[pIdx][COL.PC.GAME_ID] || "");
   var circuits = masterCircuits_(data[pIdx]);
   var homeLoc = playerHomeLoc_(sheets, pcId, data);
-  var sv = null;
+  var sv = null, svRowsE = [];
   for (var j = 1; j < data.length; j++) {
-    if (String(data[j][COL.PC.FACTION]) === "從者" && String(data[j][COL.PC.GAME_ID] || "") === gid && !String(data[j][COL.PC.ID]).startsWith("DEAD_")) { sv = data[j]; break; }
+    if (String(data[j][COL.PC.FACTION]) === "從者" && String(data[j][COL.PC.GAME_ID] || "") === gid && !String(data[j][COL.PC.ID]).startsWith("DEAD_")) { if (!sv) sv = data[j]; svRowsE.push(data[j]); }
   }
   if (!sv) return null;
   var loc = String(sv[COL.PC.LOC] || "");
@@ -193,28 +193,38 @@ function playerServantEconomy_(sheets, pcId, preData) {
   //   與 applyRegen_(實際時回) 對齊，否則 HUD 顯示不出陣地收益（「陣地效果沒有時回」）。
   var workshopLoc = ""; try { workshopLoc = getWorkshop_(data[pIdx][COL.PC.MEMORY]); } catch (e) { }
   var atWorkshop = !!(workshopLoc && rootLoc && String(workshopLoc).split('-')[0].trim() === rootLoc);
-  var c = rowToCombatant_(sv);
-  var hasTerritory = !!hasFx_(c, 'territory');
-  var eco = servantEconomy_(circuits, c.six, !!hasFx_(c, 'mad'), ley, atHome || hasTerritory || atWorkshop);
-  // 🔋 出力電池制：顯示的是「御主MP」收支——維持費依從者出力檔位放大/縮小。
+  // 🧮 2026-07 修：HUD 與 applyRegen_(實際時回) 完全同一套算式——原本 ①收入漏算「從者魔力×0.15」
+  //   回魔貢獻 ②雙從者時只算第一位的維持費 ③工房判定漏看第二從者的 territory，玩家看到的
+  //   「淨 X/時」對不上實際魔力增量。日後改收支公式，兩函式務必一起動。
+  var combatantsE = svRowsE.map(function (r) { return rowToCombatant_(r); });
+  var partyMagicVal = 0, anyTerritory = false;
+  combatantsE.forEach(function (c0) { partyMagicVal += rankVal(c0.six['魔力'] || 'E'); if (hasFx_(c0, 'territory')) anyTerritory = true; });
+  var hasWs = atHome || anyTerritory || atWorkshop;
+  var baseEco = servantEconomy_(circuits, {}, false, ley, hasWs);
+  var svFeed = Math.round(partyMagicVal * 0.15); // 從者魔力回魔貢獻(比御主少)
+  var income = baseEco.income + svFeed;
+  // 🔋 出力電池制：維持費 = Σ 各從者(六圍/8·狂化×1.5)×出力檔 drainMul，與 applyRegen_ 同準。
+  var drainSum = 0;
+  combatantsE.forEach(function (c0) {
+    drainSum += servantEconomy_(circuits, c0.six, !!hasFx_(c0, 'mad'), ley, hasWs).drain * outputTier_(c0.output).drainMul;
+  });
   var output = servantOutput_(sv[COL.PC.MEMORY]);
-  var drain = Math.round(eco.drain * outputTier_(output).drainMul);
+  var drain = Math.round(drainSum);
   // 🐙 海怪在場＝共用池另一張嘴(每小時 HORROR_HOURLY_UPKEEP)：HUD 收支與 applyRegen_ 實際時耗對齊。
   //   掃全隊(海怪可能掛在第二從者·如破戒奪來的青鬍子)，與 applyRegen_ 的 svRows 掃描同準。
   var horrorUpkeep = 0;
   try {
-    for (var hj = 1; hj < data.length; hj++) {
-      if (String(data[hj][COL.PC.FACTION]) !== "從者" || String(data[hj][COL.PC.GAME_ID] || "") !== gid || String(data[hj][COL.PC.ID]).startsWith("DEAD_")) continue;
-      if (horrorPresent_(data[hj][COL.PC.MEMORY], gid)) { horrorUpkeep = HORROR_HOURLY_UPKEEP; break; }
+    for (var hj = 0; hj < svRowsE.length; hj++) {
+      if (horrorPresent_(svRowsE[hj][COL.PC.MEMORY], gid)) { horrorUpkeep = HORROR_HOURLY_UPKEEP; break; }
     }
   } catch (e) { }
   drain += horrorUpkeep;
-  var net = eco.income - drain;
+  var net = income - drain;
   return {
-    income: eco.income, drain: drain, net: net,
-    supply: eco.supply, ley: eco.ley, workshop: eco.workshop,
+    income: income, drain: drain, net: net,
+    supply: baseEco.supply, ley: baseEco.ley, workshop: baseEco.workshop, svFeed: svFeed,
     leyLabel: LEYLINE_LABEL_[ley] || "魔力稀薄", loc: rootLoc,
-    atHome: atHome, hasTerritory: hasTerritory, atWorkshop: atWorkshop, sustainable: net >= 0, circuits: circuits,
+    atHome: atHome, hasTerritory: anyTerritory, atWorkshop: atWorkshop, sustainable: net >= 0, circuits: circuits,
     output: output, outputLabel: outputTier_(output).label, horrorUpkeep: horrorUpkeep
   };
 }
@@ -255,7 +265,7 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
     else if (masterI < 0) masterI = i;
   }
 
-  // 🔋 共用魔力池：同隊從者魔力 rankVal 總和 → 重算池上限(迴路×6 + 魔力×2) ＋ 從者回魔貢獻(少)。
+  // 🔋 共用魔力池：同隊從者魔力 rankVal 總和 → 重算池上限(迴路×8 + 魔力×2) ＋ 從者回魔貢獻(少)。
   var partyMagicVal = 0;
   svRows.forEach(function (ri) { var cs = rowToCombatant_(data[ri]); partyMagicVal += rankVal(cs.six['魔力'] || 'E'); });
 

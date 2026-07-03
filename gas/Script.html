@@ -378,6 +378,7 @@ function renderRecentLocs(recents = null) {
     if (!eco || (pc && pc.mode === 'kanshou')) { hud.style.display = 'none'; return; }
     const leyIcon = eco.ley >= 12 ? '🔵' : eco.ley >= 6 ? '🟢' : '⚪';
     const parts = [`迴路 +${eco.supply}`, `${leyIcon}靈脈 +${eco.ley}`];
+    if (eco.svFeed) parts.push('📿從者 +' + eco.svFeed); // 從者魔力回魔貢獻(與後端 applyRegen_ 同準·2026-07 補顯示)
     if (eco.workshop) parts.push((eco.atHome ? '🏠工房' : '🔯陣地') + ' +' + eco.workshop);
     const net = eco.net;
     const netColor = net > 0 ? '#7ec87e' : net < 0 ? '#e06a6a' : '#c9b885';
@@ -1490,7 +1491,7 @@ function renderRecentLocs(recents = null) {
         var wsStr = eco.workshop ? ((eco.atHome ? '🏠工房' : '🔯陣地') + ' +' + eco.workshop + '　') : '';
         ecoStrip = '<div style="background:rgba(20,14,28,0.55); border:1px solid rgba(120,120,160,0.3); border-radius:8px; padding:6px 9px; font-size:11px; color:#bcd; margin-top:6px;">'
           + '<div style="color:#9aa6c8; font-weight:bold; margin-bottom:3px;">💠 供魔收支（每小時）</div>'
-          + '迴路 +' + eco.supply + '　' + leyIcon + '靈脈 +' + eco.ley + '　' + wsStr + '<span style="color:#9a8;">維持 −' + eco.drain + '</span>'
+          + '迴路 +' + eco.supply + '　' + leyIcon + '靈脈 +' + eco.ley + '　' + (eco.svFeed ? '📿從者 +' + eco.svFeed + '　' : '') + wsStr + '<span style="color:#9a8;">維持 −' + eco.drain + '</span>'
           + '　＝ <b style="color:' + netCol + ';">淨 ' + (net > 0 ? '+' : '') + net + '/時</b>'
           + (net < 0 ? '<div style="color:#e06a6a; margin-top:2px;">⚠ 入不敷出——宜搶靈脈／設陣地工房／補魔</div>' : '')
           + '</div>';
