@@ -1880,11 +1880,17 @@ function renderRecentLocs(recents = null) {
     } else if (useNp) {
       // 💥 防誤按：寶具＝靈基全力解放，自動推到出力 100%
       if (!confirm('💥 命「' + npcName + '」解放寶具？\n\n寶具乃靈基全力解放——將自動把出力推到 100%（全開），並支付寶具底費（魔力不足則焚血代付）。威力巨大、御主消耗最劇。\n\n確定解放寶具？')) return;
-      // 🔥 規格外寶具(＋/EX)第二問(2026-07 玩家定案)：超載改為【可選】且【不焚血】——只灌 MP 餘裕。
+      // 🔥 規格外寶具(＋/EX)第二/三問(2026-07 玩家定案二修)：超載三段可選——不超載／只灌魔力／連血梭哈。
+      //   沒＋的寶具(A/B/C…)＝定額釋放，完全沒有這個旋鈕(維持原設計)。
       var _oSv = (myServants || []).find(function (x) { return x.name === myActiveServant; });
       var _oNpr = String((_oSv && _oSv.six && _oSv.six['寶具']) || '');
       if (/\+|EX/i.test(_oNpr)) {
-        _npOverload = confirm('🔥 灌魔超載？（規格外寶具 ' + _oNpr + '）\n\n確定＝付完底費後，把剩餘魔力全數超載灌入、威力推向極限（只用魔力、不焚血；補魔過充另計免費）。\n取消＝僅付底費解放、不超載，保留魔力應付戰後維持。');
+        var _ov1 = confirm('🔥 灌魔超載？（規格外寶具 ' + _oNpr + '·威力可隨灌注魔力放大）\n\n確定＝付完底費後，把剩餘魔力超載灌入、威力推向極限（補魔過充另計免費）。\n取消＝僅付底費解放、不超載，保留魔力應付戰後維持。');
+        if (_ov1) {
+          _npOverload = confirm('🩸 連血肉也一併燃燒灌入嗎？\n\n確定＝魔力＋燃血全力梭哈——威力最高，但御主將只剩 1 HP（血肉化為魔力、孤注一擲）。\n取消＝只灌魔力餘裕、不焚血。') ? 'blood' : true;
+        } else {
+          _npOverload = false;
+        }
       }
     } else if (useSkill) {
       // ⚡ 防誤按：主動技＝該次交鋒全力發動、抽御主魔力一次（比寶具便宜得多，仍是資源決策）
@@ -1903,7 +1909,7 @@ function renderRecentLocs(recents = null) {
     try {
       // 🎯 帶上目標的【穩定列 ID】：後端優先用 ID 精準命中，杜絕 CJK 名字(點號/全形括號變體)比對失手的「查無此目標」
       const _foe = (localNPCs || []).find(function (n) { return n && String(n.name) === npcName; });
-      const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, npcId: (_foe && _foe.id) ? String(_foe.id) : "", np: !!useNp, seal: !!useSeal, skill: !!useSkill, servant: myActiveServant, npChoice: (typeof npChoiceArg === 'number' ? npChoiceArg : undefined), output: (useNp ? 100 : undefined), overload: (useNp && typeof _npOverload === 'boolean' ? _npOverload : undefined), acctName: (pc && pc.account) || currentAccount });
+      const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, npcId: (_foe && _foe.id) ? String(_foe.id) : "", np: !!useNp, seal: !!useSeal, skill: !!useSkill, servant: myActiveServant, npChoice: (typeof npChoiceArg === 'number' ? npChoiceArg : undefined), output: (useNp ? 100 : undefined), overload: (useNp ? _npOverload : undefined), acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) {
         if (res.report) {
           renderFateBattleReport(res.report); // 📊 先攤開骰子/數字戰報(秒顯，不等AI)
