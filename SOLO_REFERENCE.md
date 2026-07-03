@@ -84,6 +84,8 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 主進入點 `handleGameAction` → `sanitizeUserData_`(輸入清洗) → 查 `ActionRouter[action]`。AI 輸出經 `sanitizeAiData_` 夾值防幻覺。
 
+- **🛡️ 慾海戰鬥/經濟類 action 明確擋牆(2026-07 加固)**：玩家問「戰鬥不會用到慾海的吧」查證後發現——這批 action(`fate_battle`/`use_seal`/`mana_supply`/`bond`/`rule_break_steal`/`propose_alliance`/`break_alliance`/`ally_bond`/`set_workshop`/`scavenge`/`second_wind`/`scout`/`rest`/`summon_horror_beast`/`dismiss_horror_beast`/`set_servant_output`/`set_mage_realm`/`set_rune_mode`/`set_active_skill`)過去完全沒有「這是慾海 pcId 就拒絕」的明確檢查，只靠前端 UI 全部隱藏對應按鈕(`applyModeUI`/`renderWarActions`)擋玩家；後端本身若被直打 API，多半只能靠資料結構的間接效果提前失敗(如 `fate_battle` 因「鑑賞眾生」表從不會有敵對陣營列而查無目標)，但並非每個都吃得到這道隱含防線——例如 `set_workshop` 只跳過費用檢查，陣地標記仍會被寫入(純無害廢資料，但非設計上刻意允許)。已在 `handleGameAction` 新增 `KANSHOU_BLOCKED_ACTIONS_` 白名單，`isKanshouCtx` 命中就統一在 dispatcher 層擋下，不再依賴各 action 資料結構湊巧擋住。**刻意不擋** `move`(慾海約會地圖也要移動)／`update_fate`／`update_rel_tag`(未確認慾海是否也會用到，保守不動)。
+
 ### solo 會用到的 action
 | action | handler | 作用 |
 |---|---|---|
