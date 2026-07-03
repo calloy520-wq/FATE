@@ -280,9 +280,11 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 - **Seed_Codex.gs**：
   - `SEED_SERVANTS`(36騎)：每筆 id/cls/realName/wars/gender/six/classSkills/skills/traits/np/align/**persona**。persona 物件={firstP,words,toMaster,**speech,moe,tic**}（全 36 騎已補齊，貼原作）。
-  - `SEED_MASTERS`(13名)：id/name/sex/appearance/magic/circuits/melee/magic_rank/home/wish/**persona**(4段頓號)/**back(身世)**/**moe(萌點)**。
+  - `SEED_MASTERS`(15名)：id/name/sex/appearance/magic/circuits/melee/magic_rank/home/wish/**persona**(4段頓號)/**back(身世)**/**moe(萌點)**。
   - `servantToHeroRow_` / `masterToCodexRow_`：物件→分頁列。
-  - `seedFateCodex_(ss)`：英靈殿/御主殿為空才灌入(冪等)。版本 `CODEX_PERSONA_VER='v3'`，升版觸發 `upgradeCodexPersonas_`(覆寫英靈 persona)＋`upgradeMasterCodex_`(覆寫御主 persona/身世/萌點＋補欄)，皆不動客製。
+  - `seedFateCodex_(ss)`：英靈殿/御主殿為空才灌入(冪等)。版本 `CODEX_PERSONA_VER`(現行版號見 Seed_Codex.gs 頂端註解)，升版觸發 `upgradeCodexPersonas_`(英靈殿·整列覆寫+孤兒清理)＋`upgradeMasterCodex_`(御主殿)，皆不動客製。
+    - **🐛→✅ upgradeMasterCodex_ 原本只刷 persona/back/moe 三欄(2026-07 修)**：circuits/home/wish/melee/magic_rank/appearance/magic 等會實際影響玩法的欄位(如迴路→敵御主魔力池 `masterPoolMax_`)完全沒有刷新機制——種子校正的數值永遠進不了已部署試算表的既有列，只有全新建表才吃得到。已改成比照 `upgradeCodexPersonas_` 的整列重寫(`masterToCodexRow_`)+孤兒清理(只刪 `source==='seed'` 者，御主殿本就是純唯讀參考表、不存玩家自創資料，清理安全)。
+    - **📜 御主庫首次深度校對(2026-07·v44)**：玩家要求「跟英靈殿同規格」查證15位正史御主，3組研究agent逐一比對原作+我親自複核，原則「描述要準確但精簡、不寫死、留白給AI表演」。修正：遠坂凜 back「次女」→「長女」(她是姊姊)、間桐慎二 back「養子」→「血親獨子」(他才是間桐親生子，妹妹櫻才是被收養頂替魔術後嗣的)、間桐臟硯 wish 改「逃脫死亡+視奪杯為餘生消遣」(原「到達根源」是他早已放棄的舊初衷)、黑化間桐櫻 circuits 90→50(她本人天賦與凜同級·人類頂尖水準，無限魔力來自聖杯泥附體、已在magic欄體現、不該混進她自己的回路數字)、衛宮切嗣 circuits 35→15+magic_rank B→C(原作明寫他回路質量差、真正殺傷力在起源彈與戰術非魔術本身)、肯尼斯 circuits 50→65+home補「海特飯店」、韋伯 circuits 25→15+home補「麥肯基宅」(原作明寫他是時鐘塔墊底資質，與肯尼斯拉開懸殊差距)、雨生龍之介 wish「召喚惡魔」→「見識新奇殺戮」(誤植·他對聖杯本身無興趣)+home補「澪標川廢棄工房」。
 - **Seed_Rivals.gs**：開局鋪敵。
   - `seedRivalsForGame_`：依 war(4th/5th/fake/chaos)鋪敵御主+敵從者；移除玩家扮演的那組。
   - `masterToNpcRow_`：御主殿列→敵御主眾生列。BACK←身世(+外貌)、INTENT←萌點、PREF←persona 解析、凡人弱數值、MEMORY=【願望】|【魔術】。
