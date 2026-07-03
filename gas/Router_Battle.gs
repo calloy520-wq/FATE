@@ -599,6 +599,11 @@ function actionFateBattle(userData, pcId, sheets) {
   let clash = null;
   if (useNp && targetIsFoeServant && !String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) {
     const enemyC0 = rowToCombatant_(pcData[nIdx]);
+    // ⚠ 2026-07 修：多寶具敵人(如吉爾伽美什)npChoice_ 從 MEMORY 讀，但敵方從未被 setNpChoice_ 寫入過
+    //   選擇，永遠退回預設索引0——吉爾伽美什索引0是王之財寶(對人·概念階僅1)，並非他最強的乖離劍
+    //   Ea(索引1·對界·概念階6)。稍後「敵反擊」段落(下方 enemyNow.npChoice = bestNpChoice_(...))有
+    //   正確選最強寶具，但這裡的「開場對轟」漏了同一步，導致同一場戰鬥前後不一致地低估敵方火力。
+    enemyC0.npChoice = bestNpChoice_(enemyC0.name, enemyC0.cls);
     const enemyHasNp = !!String(pcData[nIdx][COL.PC.MARTIAL] || "").trim() && rankVal(enemyC0.six["寶具"] || "-") >= 10;
     // 只有「攻擊型寶具」才對轟；防禦/生存/召喚型(God Hand、summon_horror…)不去抵銷玩家寶具。
     const CLASH_OFF_FX = ['ea', 'excalibur', 'ubw', 'gob', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify', 'chain', 'anti_magic_lance', 'wind_strike', 'projection'];
@@ -623,27 +628,41 @@ function actionFateBattle(userData, pcId, sheets) {
       const ePow = resolveFateBattle_(enemyC0, atkC, { np: true, forceHit: true }).damage;
       // ⚡ 因果律武器（Gáe Bolg 等）：死亡在投擲前已確定──優先結算，壓過對手寶具威能
       //   致死：敵方 NP 被截斷，只剩極少殘波打回來；未致死：火力 ×1.35、比完大小再走正常流程。
+      // ⚠ 2026-07 修：原本只查玩家方(hasCausalityNp_(atkC))，敵方持因果律武器(如庫丘林 gae_bolg)時
+      //   完全沒被檢查——玩家永遠不會在對轟裡被「因果律先行判定」直接擊敗，即便對手正是原作中
+      //   「必中即死」的蓋亞·博爾格使用者。已補上對稱的敵方因果律檢查與「敵方截斷玩家」分支。
       const playerCausality = hasCausalityNp_(atkC);
+      const enemyCausality = hasCausalityNp_(enemyC0);
       const effectivePPow = playerCausality ? Math.round(pPow * 1.35) : pPow;
+      const effectiveEPow = enemyCausality ? Math.round(ePow * 1.35) : ePow;
       const eHpNow = parseInt(pcData[nIdx][COL.PC.HP]) || 0;
-      const band = Math.round((effectivePPow + ePow) * 0.10);
-      let outcome, pDmgTaken = 0, eDmgTaken = 0;
+      const pHpNow = parseInt(pcData[atkIdx][COL.PC.HP]) || 0;
+      const band = Math.round((effectivePPow + effectiveEPow) * 0.10);
+      let outcome, pDmgTaken = 0, eDmgTaken = 0, pLethalOk = false;
       if (playerCausality && effectivePPow >= eHpNow) {
         // ★ 因果律截斷：敵方在因果時間線上已死，其 NP 主力消散，只剩殘波 8%
         outcome = 'causality';
         eDmgTaken = effectivePPow;
-        pDmgTaken = Math.round(ePow * 0.08);
-      } else if (Math.abs(effectivePPow - ePow) <= band) {
+        pDmgTaken = Math.round(effectiveEPow * 0.08);
+      } else if (enemyCausality && effectiveEPow >= pHpNow) {
+        // ★ 敵方因果律截斷：換敵方先行判定死亡——這次玩家從者真的會被打死(不再保1 HP)，
+        //   對稱於上面玩家持因果律的情況，畢竟「必中即死」本來就該雙向成立。pLethalOk 標記
+        //   給下方「回震保1」那段用，否則會被那道通用防線悄悄把致死傷害又砍回保1。
+        outcome = 'enemy';
+        pDmgTaken = effectiveEPow;
+        eDmgTaken = Math.round(effectivePPow * 0.08);
+        pLethalOk = true;
+      } else if (Math.abs(effectivePPow - effectiveEPow) <= band) {
         outcome = 'stalemate';
         eDmgTaken = Math.round(band * 0.5); pDmgTaken = Math.round(band * 0.5);
-      } else if (effectivePPow > ePow) {
+      } else if (effectivePPow > effectiveEPow) {
         outcome = 'player';
-        eDmgTaken = effectivePPow - ePow; pDmgTaken = Math.round((effectivePPow - ePow) * 0.15);
+        eDmgTaken = effectivePPow - effectiveEPow; pDmgTaken = Math.round((effectivePPow - effectiveEPow) * 0.15);
       } else {
         outcome = 'enemy';
-        var _rawPDmg = ePow - effectivePPow;
-        // ★ 對轟輸方不致死：差值再大也只扣到 1 HP 為止
-        pDmgTaken = Math.min(_rawPDmg, Math.max(0, (parseInt(pcData[atkIdx][COL.PC.HP]) || 1) - 1));
+        var _rawPDmg = effectiveEPow - effectivePPow;
+        // ★ 對轟輸方不致死(除上面的敵方因果律分支)：差值再大也只扣到 1 HP 為止
+        pDmgTaken = Math.min(_rawPDmg, Math.max(0, pHpNow - 1));
         eDmgTaken = Math.round(_rawPDmg * 0.15);
       }
       const eHit = fateStrike_(sheets, pcData, atkC, nIdx, { forceDamage: eDmgTaken }, ctx);
@@ -654,9 +673,10 @@ function actionFateBattle(userData, pcId, sheets) {
       if (eHit.victory) { victory = true; dreamPrompt = eHit.dreamPrompt; }
       if (!sealEscaped) {
         // ★ 對轟【回震】不致死(勝方/僵持方吃的是餘波)：夾到至多打到 1 HP——原本回震可打死殘血從者，
-        //   造成「同一場先記勝又記敗」的勝敗雙記(2026-07 修)。輸方(outcome='enemy')在上方已同樣保 1。
+        //   造成「同一場先記勝又記敗」的勝敗雙記(2026-07 修)。輸方(outcome='enemy')在上方已同樣保 1；
+        //   唯獨敵方因果律截斷(pLethalOk)是刻意的例外——那本就該真的打死，不能被這道通用保命線攔下。
         const spill0 = (destroyedName ? Math.round(pDmgTaken * 0.5) : pDmgTaken);
-        const spill = Math.min(spill0, Math.max(0, (parseInt(pcData[atkIdx][COL.PC.HP]) || 1) - 1));
+        const spill = pLethalOk ? spill0 : Math.min(spill0, Math.max(0, (parseInt(pcData[atkIdx][COL.PC.HP]) || 1) - 1));
         const pHit = fateStrike_(sheets, pcData, enemyC0, atkIdx, { forceDamage: spill }, ctx);
         if (pHit.destroyed && pHit.knocked) knockedOut.push(pHit.knocked);
         if (pHit.defeat) { defeat = true; victory = false; dreamPrompt = pHit.dreamPrompt; }

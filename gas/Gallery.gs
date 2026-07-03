@@ -481,7 +481,7 @@ function actionKanshouRemove(userData, pcId, sheets) {
   var gid = String(me[COL.PC.GAME_ID] || "");
   var found = false;
   for (var d = 1; d < data.length; d++) {
-    if (String(data[d][COL.PC.GAME_ID] || "") === gid && String(data[d][COL.PC.FACTION]) === "從者" && String(data[d][COL.PC.NAME]) === rmName && String(data[d][COL.PC.IS_PARTY] || "") === "同行") {
+    if (String(data[d][COL.PC.GAME_ID] || "") === gid && String(data[d][COL.PC.FACTION]) === "從者" && String(data[d][COL.PC.NAME]) === rmName && String(data[d][COL.PC.IS_PARTY] || "") === "同行" && !String(data[d][COL.PC.ID]).startsWith("DEAD_")) {
       kpc.getRange(d + 1, COL.PC.IS_PARTY + 1).setValue("");
       found = true;
     }
@@ -491,6 +491,9 @@ function actionKanshouRemove(userData, pcId, sheets) {
 }
 
 // ⚧ 切換後日談御主 avatar 的性別（隨時可改；只動 SEX 欄，不影響從者/歷史）。pcId＝KPC_。
+// ⚠ 2026-07 修：原本只驗證新性別合法，沒回頭檢查會不會跟現有「同行」同伴組成不合規配對——
+// 御主原本是女、邀了一位男同伴(合法)後改成男，該男同伴會悄悄變成不合規配對卻沒被擋、也沒被
+// 請走，之後的敘事框架仍會用新性別去演出。比照 actionKanshouAdd 的規則直接擋下這次改性別。
 function actionKanshouSetSex(userData, pcId, sheets) {
   var newSex = String(userData.pcSex || "").trim();
   if (newSex !== "男" && newSex !== "女") return JSON.stringify({ success: false, message: "性別僅限 男／女。" });
@@ -500,6 +503,16 @@ function actionKanshouSetSex(userData, pcId, sheets) {
   var data = kpc.getDataRange().getValues();
   var i = kanshouOwnedRowIdx_(data, pcId, acctName);
   if (i < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  if (newSex === "男") {
+    var gid = String(data[i][COL.PC.GAME_ID] || "");
+    var hasMaleCompanion = data.some(function (r, ri) {
+      return ri !== i && String(r[COL.PC.GAME_ID] || "") === gid && String(r[COL.PC.FACTION]) === "從者" &&
+        String(r[COL.PC.IS_PARTY] || "") === "同行" && String(r[COL.PC.SEX]) === "男" && !String(r[COL.PC.ID]).startsWith("DEAD_");
+    });
+    if (hasMaleCompanion) {
+      return JSON.stringify({ success: false, message: "目前有男性同伴同行中——僅支援男女／女女配對，請先請走該同伴再切換性別。" });
+    }
+  }
   kpc.getRange(i + 1, COL.PC.SEX + 1).setValue(newSex);
   return JSON.stringify({ success: true, pcSex: newSex, message: "已切換為「" + newSex + "」之身。" });
 }

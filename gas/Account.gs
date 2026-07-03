@@ -103,9 +103,17 @@ function actionAccountNewGame(userData, pcId, sheets) {
 //   安全準則：① 不碰任一帳號「當前連結中」的活躍戰局；② 不碰 game_id 空白列(可能創角中/舊資料)；
 //             ③ 鑑賞(KPC_)在另表「鑑賞眾生」不受影響。2026-07：關係已併入眾生列，隨列一起清、不再需要步驟④。
 //   一次性整表 rewrite(setValues + 單次 deleteRows tail)，遠快於逐列 deleteRow。
+// ⚠ 2026-07 修(嚴重)：上面③那句話原本只是「假設」——孤兒判定只讀「帳號」表的 COL.ACC.PC(solo 連結)，
+// 從未讀 COL.ACC.KPC(慾海連結)。原本吃參數傳入的 sheets.pc，但 dispatcher 會依 pcId 前綴把它路由到
+// 「鑑賞眾生」；若此 action 被以 KPC_ 呼叫(前端「🧹 DEV：清殘列」按鈕就放在慾海卡片裡緊鄰「進入鑑賞」，
+// pc.id 若殘留上次的 KPC_ 就會踩到)，liveGids 永遠對不上任何慾海列的 game_id(k_開頭)，會把整張
+// 「鑑賞眾生」表(所有帳號的慾海御主與同伴，含雙修技巧/親密次數等心血)判定為孤兒整批清空。
+// 已在 Router_Action.gs 的 KANSHOU_BLOCKED_ACTIONS_ 擋掉這個 action 的 KPC_ 呼叫，但這裡再加一道
+// 結構性防線：此函式的設計目的就是「清理 solo 戰局孤兒」，改成直接指名讀「眾生」表，完全不理會
+// sheets.pc 被路由到哪，即使 dispatcher 那道擋牆未來被繞過或漏掉，這裡也不可能碰到「鑑賞眾生」。
 function actionPurgeOrphans(userData, pcId, sheets) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var pc = sheets.pc;
+  var pc = ss.getSheetByName("眾生");
   if (!pc) return JSON.stringify({ success: false, message: "眾生表不存在。" });
   var all = pc.getDataRange().getValues();
   if (all.length < 2) return JSON.stringify({ success: true, removed: 0, kept: 0, message: "眾生表無資料，無殘列可清。" });
