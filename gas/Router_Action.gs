@@ -212,14 +212,19 @@ const STATE_AFTER_ACTIONS = {
 };
 // 🛡️ 慾海(KPC_)明確擋下的戰鬥／經濟／結盟類 action(2026-07 加固)——皆為 solo 戰爭專屬，前端在
 //   kanshou 模式下本就全數隱藏對應按鈕(Script.html applyModeUI/renderWarActions)。取自
-//   STATE_AFTER_ACTIONS 扣掉 move(慾海約會地圖也要移動)/update_fate/update_rel_tag(未確認是否
-//   kanshou 也會用到，故不擋)，另補上 4 個「樂觀更新」輕量 setter(不進 STATE_AFTER_ACTIONS，但
-//   同樣是純戰鬥概念、solo 從者卡專屬)。
+//   STATE_AFTER_ACTIONS 扣掉 move(慾海約會地圖也要移動)/update_fate/update_rel_tag(確認為通用
+//   敘事欄編輯、不涉陣營或戰鬥概念，慾海也適用不擋)，另補上 4 個「樂觀更新」輕量 setter(不進
+//   STATE_AFTER_ACTIONS，但同樣是純戰鬥概念、solo 從者卡專屬)。
+// ⚠ 2026-07 再修：補上 prep_meal(純戰鬥向 buff，UI 因 war-actions 隱藏而點不到，但未列入黑名單、
+//   直打 API 仍可對「鑑賞眾生」寫入無意義的戰鬥記憶戳)、purge_orphans(嚴重——見 Account.gs
+//   actionPurgeOrphans 註解，若以 KPC_ 呼叫會誤刪整張「鑑賞眾生」表的所有帳號資料；該函式本身
+//   也已改成直接指名讀「眾生」表當第二道防線，這裡是第一道)。
 const KANSHOU_BLOCKED_ACTIONS_ = {
   fate_battle: 1, use_seal: 1, mana_supply: 1, bond: 1, rule_break_steal: 1,
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
   second_wind: 1, scout: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
-  set_servant_output: 1, set_mage_realm: 1, set_rune_mode: 1, set_active_skill: 1
+  set_servant_output: 1, set_mage_realm: 1, set_rune_mode: 1, set_active_skill: 1,
+  prep_meal: 1, purge_orphans: 1
 };
 
 // ==========================================

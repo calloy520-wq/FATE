@@ -277,12 +277,16 @@ function fxDmgApply_(base, winner, loser, fx, fired) {
 //     mul＝減傷乘子(數字或 r=>..)｜pierceKey＝概念貫穿判定的防禦概念名｜zh/note＝fired 標籤｜
 //     physicalOnly＝僅擋物理(魔術系穿透)｜alsoPiercedByFx＝此攻方 fx 亦無視此防禦｜
 //     piercedMsg＝被貫穿時推的訊息 fn(winner)→string(無則靜默)｜guardPositive＝base>0 才推套用標籤。
+// ⚠ 2026-07 修：territory/rho_aias/wall_def 原本 mul 是寫死數字，不像 home_field/divine_core 用函式
+//   隨階級縮放(fxDefApply_ 只在 typeof mul==='function' 時才呼叫 rankMul_)——導致陣地作成 C 階跟 EX 階
+//   減傷完全相同，七天盾/城牆防禦同理，違反本檔案頭「每個 fx 效果都隨技能階級縮放」的設計原則。
+//   已改成函式，並以 B 階(rankMul_=1)校準回原本的數值，B 階持有者行為不變，A/EX 階變強、C/D 階變弱。
 var DEF_FX_ = {
-  territory: { mul: 0.74, zh: '陣地', note: '·魔術防壁', pierceKey: 'territory', guardPositive: true, piercedMsg: function (w) { return w.name + '·概念壓制(碾穿結界)'; } },
+  territory: { mul: function (r) { return 1 - 0.26 * r; }, zh: '陣地', note: '·魔術防壁', pierceKey: 'territory', guardPositive: true, piercedMsg: function (w) { return w.name + '·概念壓制(碾穿結界)'; } },
   home_field: { mul: function (r) { return 1 - 0.16 * r; }, zh: '主場陣地結界', pierceKey: 'territory', guardPositive: true, piercedMsg: function (w) { return w.name + '·概念壓制(碾穿主場結界)'; } },
-  rho_aias: { mul: 0.60, zh: '概念護盾', pierceKey: 'rho_aias' }, // note 拿掉：顯示持有者自己的技能名(EMIYA 七天盾/貞德 守護大旗)，防張冠李戴
+  rho_aias: { mul: function (r) { return 1 - 0.40 * r; }, zh: '概念護盾', pierceKey: 'rho_aias' }, // note 拿掉：顯示持有者自己的技能名(EMIYA 七天盾/貞德 守護大旗)，防張冠李戴
   divine_core: { mul: function (r) { return 1 - 0.18 * r; }, zh: '神核', pierceKey: 'divine_core', alsoPiercedByFx: 'anti_magic_lance', piercedMsg: function (w) { return w.name + '·' + (hasFx_(w, 'anti_magic_lance') ? '破魔(無視神核)' : '概念壓制(無視神核)'); } },
-  wall_def: { mul: 0.82, zh: '城牆防禦', note: '(物理減傷18%)', pierceKey: 'territory', physicalOnly: true }
+  wall_def: { mul: function (r) { return 1 - 0.18 * r; }, zh: '城牆防禦', note: '(物理減傷，依階級)', pierceKey: 'territory', physicalOnly: true }
 };
 // 🛡 套用防禦減傷（敗方持有 fx 時）：pierces＝概念貫穿判定函式；atkMagic＝本擊是否魔術系。回新 base。
 function fxDefApply_(base, loser, winner, fx, pierces, atkMagic, fired) {
