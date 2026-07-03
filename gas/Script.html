@@ -705,7 +705,7 @@ function renderRecentLocs(recents = null) {
           ? `此地有敵蹤：${foes.map(f => f.name + '（' + (f.faction === '敵從者' ? '敵從者' : '敵御主') + '）').join('、')}`
           : '此地暫無明顯敵蹤';
         const timeStr = (data.clock || '').split('・').slice(-1)[0] || '此刻';
-        const arrivePrompt = (data.masterCard || '') + (data.servantCard || '') + (data.foeCards || '')
+        const arrivePrompt = (data.masterCard || '') + (data.servantCard ? '【我方從者】' + data.servantCard : '') + (data.foeCards ? '【敵方從者·非我方】' + data.foeCards : '')
           + `【抵達場景】御主『${pc.name}』${pc.servant ? `與從者「${pc.servant}」` : ''}剛抵達冬木的「${targetName}」，時值${timeStr}。\n`
           + `此地氛圍：${locDesc}\n敵情：${foeStr}。\n`
           + (data.pursuit ? (data.pursuit.hitWho === 'us'
