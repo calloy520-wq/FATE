@@ -373,7 +373,9 @@ ${FX_MENU_}
       sex = aiBrief.sex || "異"; align = aiBrief.align || "中立"; np = aiBrief.np || "寶具（未顯現）";
       // ⚖️ 寶具規模上限(2026-07 修)：npAtkScale_ 讀 np 字串關鍵字算規模——AI 自訂寶具最高「對軍」，
       //   對城/對界/對神為種子專屬(與 ALLOWED_FX_ 排除頂級概念 fx 同一精神，堵字串後門)。
-      np = String(np).replace(/對界|對城|對神/g, "對軍").slice(0, 80);
+      //   同精神再堵一手：【常駐寶具】標記為種子專屬(B叔/玉藻)——AI/玩家自訂描述若混入這五個字，
+      //   生出的從者自己的💥會被鎖死(前端灰化＋後端擋攻擊解放)，故一律剝除。
+      np = String(np).replace(/對界|對城|對神/g, "對軍").replace(/【常駐寶具】/g, "").slice(0, 80);
       const aiSix = sanitizeSix_(aiBrief.six);
       const aiCSkills = sanitizeSkills_(aiBrief.classSkills, 2); // prompt 要求 1~2 個
       const aiSkills = sanitizeSkills_(aiBrief.skills, 3);       // prompt 要求 2~3 個
