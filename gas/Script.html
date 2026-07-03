@@ -493,9 +493,13 @@ function renderRecentLocs(recents = null) {
         // ⚡ 主動技按鈕(2026-07 改回按鈕制)：出戰從者持施放技術(魔力放出/怪力/投影)才露出——
         //   按下＝該次交鋒全力發動＋扣魔一次，跟 💥寶具/❖令咒 同一套「按下當次生效」模式。
         var _ask = activeSkillOfActive_();
+        // 🛡️ 常駐寶具(2026-07·B叔案)：God Hand/治癒結界等【常駐寶具】自動生效、非攻擊解放→💥灰化不可按
+        var _npPas = /【常駐寶具】/.test(String((((myServants || []).find(function (x) { return x.name === myActiveServant; })) || {}).np || ''));
         acts = '<button onclick="servantStrike(\'' + safe + '\', false)" title="' + st.hint + '" style="flex:2; min-width:110px; font-size:12.5px; padding:8px 4px; background:linear-gradient(90deg,rgba(' + st.rgb + ',.34),rgba(' + st.rgb + ',.16)); color:' + st.col + '; border:1px solid rgb(' + st.rgb + '); border-radius:7px; cursor:pointer; font-weight:bold;">' + st.emo + ' ' + st.name + '</button>'
           + (_ask ? '<button onclick="servantStrike(\'' + safe + '\', false, false, false, true)" title="催動主動技「' + _ask.n + '」全力出擊（該次交鋒全效·抽御主魔力一次）" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(110,180,220,.15); color:#7ec8ff; border:1px solid #4e92c0; border-radius:7px; cursor:pointer; font-weight:bold;">⚡ 主動</button>' : '')
-          + '<button onclick="servantStrike(\'' + safe + '\', true)" title="解放寶具" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(212,175,55,.15); color:#e7c873; border:1px solid #d4af37; border-radius:7px; cursor:pointer; font-weight:bold;">💥 寶具</button>'
+          + (_npPas
+            ? '<button disabled title="此從者的寶具為【常駐型】（如十二試煉／治癒結界）——已自動生效，並非可解放的攻擊寶具" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(90,80,60,.18); color:#8a7f6a; border:1px solid #5a5040; border-radius:7px; cursor:not-allowed; font-weight:bold; opacity:.75;">💥 常駐</button>'
+            : '<button onclick="servantStrike(\'' + safe + '\', true)" title="解放寶具" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(212,175,55,.15); color:#e7c873; border:1px solid #d4af37; border-radius:7px; cursor:pointer; font-weight:bold;">💥 寶具</button>')
           + '<button onclick="toggleSealArm()" title="' + (sealArmed ? '令咒蓄勢中——下一記 普攻/主動/寶具 將必中＋威力×1.5；再按一次取消蓄勢(不耗令咒)' : '令咒・絕對命令：按下蓄勢(免費)，下一記 普攻/主動/寶具 自動帶上必中＋×1.5') + '" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:' + (sealArmed ? 'rgba(200,120,240,.38)' : 'rgba(176,108,208,.15)') + '; color:' + (sealArmed ? '#f0d0ff' : '#c79be8') + '; border:1px solid ' + (sealArmed ? '#d09af0' : '#b06cd0') + '; border-radius:7px; cursor:pointer; font-weight:bold;' + (sealArmed ? ' box-shadow:0 0 10px rgba(200,120,240,.65); text-shadow:0 0 6px rgba(240,200,255,.8);' : '') + '">' + (sealArmed ? '❖ 蓄勢中' : '❖ 令咒') + '</button>';
         if (myCanRB && myServants.length < 2 && myMasterSeals > 0) {
           acts += '<button onclick="ruleBreakSteal(\'' + safe + '\')" title="破戒奪僕：對打殘(HP<35%)的敵從者斬契奪為第二從者，燃一道令咒" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(176,108,208,.16); color:#d0a0e8; border:1px solid #8a5fb0; border-radius:7px; cursor:pointer; font-weight:bold;">⛓ 破戒奪僕 <small style="opacity:.7;">須打殘至35%＋燃令咒</small></button>';
@@ -2751,7 +2755,9 @@ let plainTextContext = cleanText;
             // ⚡ 主動技(2026-07 改回按鈕制)：出戰從者持施放技術才露出，該次交鋒全效發動＋扣魔一次
             var _iSk = activeSkillOfActive_();
             if (_iSk) html += `<button class="btn" style="border-color:#4e92c0; color:#7ec8ff; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, false, false, true)">⚡ 主動技「${String(_iSk.n).replace(/'/g, '')}」全力出擊</button>`;
-            html += `<button class="btn" style="border-color:#d4af37; color:#d4af37; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', true)">💥 寶具解放</button>`;
+            // 🛡️ 常駐寶具(B叔/玉藻)：非攻擊解放→互動選單不給寶具鈕(戰爭行動列有灰化說明鈕)
+            var _iNpPas = /【常駐寶具】/.test(String((((myServants || []).find(function (x) { return x.name === myActiveServant; })) || {}).np || ''));
+            if (!_iNpPas) html += `<button class="btn" style="border-color:#d4af37; color:#d4af37; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', true)">💥 寶具解放</button>`;
             html += `<button class="btn" style="border-color:#b06cd0; color:#b06cd0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, true)">❖ 令咒・絕對命令（必中普攻；想疊寶具/主動請在戰爭行動列按❖蓄勢）</button>`;
           }
       }
