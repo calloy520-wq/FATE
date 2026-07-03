@@ -317,7 +317,8 @@ function buildTagsPayload_(sheets, pcId, preData) {
 
   const master = {
     name: m[COL.PC.NAME], sex: m[COL.PC.SEX],
-    condition: buildVisibleStatusString(m[COL.PC.STATUS]),
+    // 🎴 2026-07：外顯狀態(condition)自 payload 移除——solo 卡不顯示、慾海御主卡以 physical(肉體)抵換
+    physical: m[COL.PC.PHYSICAL] || "{}", // 🌹 慾海御主卡「肉體狀態抵換外顯」用；solo 恆 "{}"、前端不顯示
     hp: hpWord(m[COL.PC.HP], m[COL.PC.MAX_HP]),
     hpNum: parseInt(m[COL.PC.HP]) || 0, hpMax: parseInt(m[COL.PC.MAX_HP]) || 0,
     mpNum: parseInt(m[COL.PC.MP]) || 0, mpMax: parseInt(m[COL.PC.MAX_MP]) || 0,
@@ -335,7 +336,6 @@ function buildTagsPayload_(sheets, pcId, preData) {
     try { const tg = JSON.parse(s[COL.PC.TAGS] || "{}"); skills = tg.skills || []; traits = tg.traits || []; } catch (e) { }
     servants.push({
       name: s[COL.PC.NAME], cls: s[COL.PC.RANK] || "從者", sex: s[COL.PC.SEX],
-      condition: buildVisibleStatusString(s[COL.PC.STATUS]),
       hp: hpWord(s[COL.PC.HP], s[COL.PC.MAX_HP]),
       hpNum: parseInt(s[COL.PC.HP]) || 0, hpMax: parseInt(s[COL.PC.MAX_HP]) || 0,
       mpNum: parseInt(s[COL.PC.MP]) || 0, mpMax: parseInt(s[COL.PC.MAX_MP]) || 0,

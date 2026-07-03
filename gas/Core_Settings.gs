@@ -325,7 +325,17 @@ function buildPlayerStatusString(selfRow, relMem = "", isNsfwMode = false) {
   const safeRelMem = String(relMem || "").replace(/\|/g, '@@@');
   const maskedPhysical = maskPhysicalStatus(selfRow[COL.PC.PHYSICAL] || "{}", isNsfwMode);
   const safePhysical = String(maskedPhysical).replace(/§/g, '###');
-  const visibleStatusStr = buildVisibleStatusString(selfRow[COL.PC.STATUS]);
+  // 🎴 2026-07 玩家定案：外顯狀態自 solo 移除(戰鬥AI/演出卡從不讀取，HUD 恆顯示預設字樣＝死資料)——
+  //   位置0 solo 留空(前端空值即隱藏該列)；慾海(K 系 id)以「肉體狀態」抵換此欄位顯示。
+  //   慾海的 STATUS 欄本身仍由 NSFW 機制(intimacy_feedback)維護、僅供 AI 場景連續性內化。
+  const _sid = String(selfRow[COL.PC.ID] || "");
+  let visibleStatusStr = "";
+  if (_sid.indexOf("KPC_") === 0 || _sid.indexOf("KSV_") === 0 || _sid.indexOf("KHV_") === 0) {
+    try {
+      const _po = JSON.parse(selfRow[COL.PC.PHYSICAL] || "{}");
+      visibleStatusStr = Object.keys(_po).map(function (k) { return k + "：" + _po[k]; }).join("　");
+    } catch (e) { }
+  }
 
   // 位置索引固定（§ 協議），s[7-16] 為廢棄的九州五圍/裝備/境界欄，填空保持前端定位不位移。
   return [
