@@ -567,20 +567,22 @@ function actionFateBattle(userData, pcId, sheets) {
     }
   }
 
-  // ⚡ 從者主動技（2026-07 開關制）：改由從者 MEMORY【主動技】開關決定，不再是每次攻擊的按鈕——
-  //   開＝每場戰鬥自動【全效】發動＋【扣魔一次】(非每回合)；關(預設)＝【微量】被動、免費。開/關二選一、永不並存。
+  // ⚡ 從者主動技（2026-07 改回按鈕制·玩家定案）：開關制得先去從者卡點⚡切換(多一趟round-trip)、
+  //   手機上左側切換難按——改成攻擊列第4顆「⚡主動」按鈕，userData.skill=true 才全效發動＋扣魔一次，
+  //   跟 💥寶具/❖令咒 同一套「按下當次生效」的資源決策模式。未按＝微量被動(免費·每擊自動)。
+  //   與寶具互斥由前端按鈕天然保證(一次只按得了一顆)；同趟 fate_battle 夾帶、零額外 round-trip。
   let skillBuff = null, skillBattery = null, skillActivated = false;
   const _fullSkill = servantActiveSkill_(atkC);  // 完整效果表(或 null＝無真·施放技術)
   if (_fullSkill) {
-    if (activeSkillOn_(pcData[atkIdx][COL.PC.MEMORY])) {
+    if (userData.skill === true || userData.skill === 'true') {
       skillBuff = _fullSkill; skillActivated = true;
-      const skCost = Math.round(200 * skillBuff.mpPct);   // 🔋 整場扣一次(此區塊只跑一次·非回合迴圈內)，付不起走御主電池
+      const skCost = Math.round(200 * skillBuff.mpPct);   // 🔋 本戰扣一次(此區塊只跑一次·非回合迴圈內)，付不起走御主電池
       skillBattery = drainForNp_(sheets, pcData, atkIdx, pIdx, skCost);
       atkC.mp = parseInt(pcData[atkIdx][COL.PC.MP]) || 0;
       if (skillBattery.usedBattery) {
       }
     } else {
-      skillBuff = tinyActiveSkill_(_fullSkill);   // 關閉→微量被動、免費(無 drain)
+      skillBuff = tinyActiveSkill_(_fullSkill);   // 未按→微量被動、免費(無 drain)
     }
   }
 
