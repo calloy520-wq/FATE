@@ -9,26 +9,7 @@
 //
 // 用法：node tools/battle_sim/roundrobin.js [pool=4th|5th|all] [mode=basic|skill|np] [N=200]
 'use strict';
-const { loadEngineContext } = require('./engine.js');
-
-function buildCombatant(ctx, seed, opts) {
-  opts = opts || {};
-  const c = {
-    name: seed.realName, cls: seed.cls,
-    six: Object.assign({}, seed.six),
-    skills: seed.skills.map(s => Object.assign({}, s)),
-    traits: seed.traits.map(t => Object.assign({}, t)),
-    np: seed.np,
-    hpMax: 150 + Math.max(8, ctx.rankVal(seed.six['耐久'])) * 6,
-    mp: 0, mpMax: 0,
-    output: opts.output || 60,
-    runeMode: 'def',
-    npChoice: opts.np ? ctx.bestNpChoice_(seed.realName, seed.cls) : 0,
-    horrorUp: false,
-  };
-  c.hp = c.hpMax;
-  return c;
-}
+const { loadEngineContext, buildCombatant } = require('./engine.js');
 
 // 十二試煉復活：逐行移植 Router_Battle.gs fateStrike_ 第 84~120 行(含 opts.np 的概念下限燒命，
 // 因為 np 模式下這條分支會實際觸發，basic/skill 模式沒解放寶具永遠吃不到、保持跟 duel.js 一致)。

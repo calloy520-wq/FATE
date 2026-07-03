@@ -32,4 +32,30 @@ function loadEngineContext() {
   return sandbox;
 }
 
-module.exports = { loadEngineContext };
+// 種子物件 → 戰鬥單位。單一真實來源，供 duel.js/roundrobin.js 共用——
+// ⚠ skills 務必是 classSkills.concat(skills)，逐行對照 Router_Creation.gs:336
+// (`row[COL.PC.TAGS] = JSON.stringify({ skills: classSkills.concat(skills), traits })`)：
+// 真正遊戲裡職階技能(對魔力/騎乘/氣息遮斷/狂化...)跟固有技能是合併進同一個 skills 陣列給 hasFx_ 讀，
+// 兩邊分開存只是種子資料的可讀性分類，不是引擎認知的兩個不同陣列——只複製 seed.skills 會漏掉每個
+// 從者的職階技能(遍及全種子庫，非單一角色個案)。
+function buildCombatant(ctx, seed, opts) {
+  opts = opts || {};
+  const c = {
+    name: seed.realName, cls: seed.cls,
+    six: Object.assign({}, seed.six),
+    skills: (seed.classSkills || []).concat(seed.skills || []).map(s => Object.assign({}, s)),
+    traits: (seed.traits || []).map(t => Object.assign({}, t)),
+    np: seed.np,
+    hpMax: 150 + Math.max(8, ctx.rankVal(seed.six['耐久'])) * 6, // svHp 公式(Router_Creation.gs:321)
+    mp: 0, mpMax: 0,
+    output: opts.output || 60, // servantOutput_ 預設「巡航」檔
+    runeMode: 'def',
+    npChoice: opts.np ? ctx.bestNpChoice_(seed.realName, seed.cls) : 0,
+    horrorUp: false,
+  };
+  c.hp = c.hpMax;
+  if (opts.overrides) Object.assign(c, opts.overrides);
+  return c;
+}
+
+module.exports = { loadEngineContext, buildCombatant };
