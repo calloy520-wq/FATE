@@ -53,9 +53,9 @@ var FATE_5TH_ROSTER = [
 var FATE_4TH_ROSTER = [
   { master: '衛宮切嗣-4th', hero: '阿爾托莉雅-Saber', loc: '冬木·深山町' },
   { master: '遠坂時臣-4th', hero: '吉爾伽美什-Archer', loc: '遠坂宅' },
-  { master: '肯尼斯-4th', hero: '迪盧木多-Lancer', loc: '冬木·新都' },
-  { master: '韋伯·維爾維特-4th', hero: '伊斯坎達爾-Rider', loc: '冬木·商店街' },
-  { master: '雨生龍之介-4th', hero: '吉爾德萊-Caster', loc: '未遠川河畔' },
+  { master: '肯尼斯-4th', hero: '迪盧木多-Lancer', loc: '海特飯店' },
+  { master: '韋伯·維爾維特-4th', hero: '伊斯坎達爾-Rider', loc: '麥肯基宅' },
+  { master: '雨生龍之介-4th', hero: '吉爾德萊-Caster', loc: '碼頭倉庫' },
   { master: '言峰綺禮-4th', hero: '百貌哈桑-Assassin', loc: '言峰教會' },
   { master: '間桐雁夜-4th', hero: '蘭斯洛特-Berserker', loc: '間桐宅' }
 ];
