@@ -1674,7 +1674,8 @@ function renderRecentLocs(recents = null) {
       s += '<text x="' + cx + '" y="' + (cy + 5.3) + '" font-size="3.1" fill="#ede7fb" text-anchor="middle" paint-order="stroke" stroke="#0a0810" stroke-width="0.9" style="cursor:pointer; font-weight:bold;" onclick="travelFromPane(\'' + nm + '\')">' + short(n.name) + (n.enemy ? ' ⚔' : '') + (n.here ? ' ◈' : '') + '</text>';
     });
     var legend = '<div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding:5px 6px 2px; font-size:10px; color:#9a8fae;">'
-      + ['🔵靈地', '🟡據點/祭壇', '🔷城區', '💗約會'].map(function (x) { return '<span>' + x + '</span>'; }).join('')
+      // 🎨 圖例務必對齊上方 typeColor 實色：靈地綠/城區藍/祭壇金/據點橙/約會粉(2026-07 修：原 🔵靈地、據點併祭壇 皆與實色不符)
+      + ['🟢靈地', '🔵城區', '🟡祭壇', '🟠據點', '💗約會'].map(function (x) { return '<span>' + x + '</span>'; }).join('')
       + '<span style="color:#ffd86a;">◈所在</span><span style="color:#ff6a6a;">⚔敵蹤</span></div>';
     return '<div style="border:1px solid rgba(212,175,55,0.3); border-radius:10px; overflow:hidden; box-shadow:inset 0 0 24px rgba(0,0,0,.5);"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" style="width:100%; height:auto; display:block;">' + s + '</svg>' + legend + '</div>';
   }
