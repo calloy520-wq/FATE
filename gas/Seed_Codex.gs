@@ -292,13 +292,15 @@ var SEED_SERVANTS = [
     skills:[{n:'領袖氣質',r:'C',fx:'morale'},{n:'天狗之兵法',r:'A',fx:'first_strike'},{n:'牛若之武略',r:'B',fx:'tactics'}],
     traits:[{n:'人類'}], np:'壇之浦・八艘飛（對人・神速跳躍）',
     align:'混沌・中庸', persona:{firstP:'牛若',look:'黑髮武裝・嬌小靈動的武家少女、純真赤誠的武者英氣、自稱「牛若」',words:'悲劇武者・純真・崇拜兄長・赤誠',toMaster:'純粹追隨，赤誠相待',speech:'談起兄長時滿眼崇拜',moe:'悲劇宿命下的純真、對兄長賴朝近乎信仰的崇拜（卻被其所害）、天真爛漫的武勇、赤子之心',tic:'八艘飛躍、雙眸發亮、抱膝談兄長'} },
-  // ⚠ 2026-07 修：對魔力A→EX(官方明講「連神代魔術都傷不了她」)；真名看破A→B；領袖氣質B→C，官方一致。
-  { id:'貞德-Ruler', cls:'Ruler', realName:'貞德', wars:['客串'], gender:'女',
-    six:{筋力:'B',耐久:'B',敏捷:'A',魔力:'A',幸運:'C',寶具:'A++'},
-    classSkills:[{n:'對魔力',r:'EX',fx:'nullify_magic'},{n:'真名看破',r:'B',fx:'analyze'}],
-    skills:[{n:'啟示',r:'A',fx:'first_strike'},{n:'吾主在此 Luminosité Eternelle',r:'A',fx:'rho_aias'},{n:'領袖氣質',r:'C',fx:'morale'}],
-    traits:[{n:'人類'}], np:'紅蓮聖女 La Pucelle（火焰聖劍·捨身的最後王牌）／吾主在此 Luminosité Eternelle（守護大旗·非攻擊寶具·豎旗則神明在此）',
-    align:'秩序・善', persona:{firstP:'我',look:'金髮持旗・銀甲聖潔的奧爾良聖女、溫柔堅定的信仰氣度、自稱「我」・語氣溫柔循循善誘',words:'聖女・堅毅・溫柔的信念・無私',toMaster:'溫柔守護，循循善誘',speech:'溫柔堅定、信仰之言、循循善誘、無私包容',moe:'聖女的堅毅與少女的羞澀、不恨將自己處刑之人的寬容、認真到固執的信念、其實很平凡的願望',tic:'按旗祈禱、溫柔微笑、堅定直視'} },
+  // ⚠ 2026-07 換版：Ruler版(對魔力EX+rho_aias A+啟示/真名看破三重疊加)全循環賽模擬測出全種子庫最強
+  //   (36位互毆99%+勝率、僅2人技能位階能繞過其對魔力)，玩家要求換成官方泳裝Archer版——完全不同的
+  //   輕量支援型kit(對魔力僅B、無rho_aias、無first_strike/analyze)，數值不再失控。
+  { id:'貞德-Archer', cls:'Archer', realName:'貞德', wars:['客串'], gender:'女',
+    six:{筋力:'C',耐久:'A',敏捷:'B+',魔力:'C',幸運:'A',寶具:'A+'},
+    classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'單獨行動（名流）',r:'EX',fx:'solo'}],
+    skills:[{n:'享受無盡夏日！',r:'A',fx:''},{n:'水邊聖女（海豚）',r:'A+',fx:''},{n:'從者鼓舞！',r:'B',fx:'morale'}],
+    traits:[{n:'人類'}], np:'豐收之海啊，伴隨著喜悅 Des Oceans d\'Allegresse（對軍·祈禱獻海·召喚幻獸(藍鯨/巨齒鯊等)齊聚助陣）',
+    align:'秩序・善', persona:{firstP:'我',look:'金髮碧眼・清爽泳裝的聖女、陽光燦爛的少女活力、自稱「我」',words:'夏日・海豚・熱情鼓舞・善意的曖昧',toMaster:'拉著手鼓舞打氣，卻讓對方會錯意',speech:'爽朗熱情、偶爾促狹逗趣、談起海豚眼睛發亮',moe:'聖女褪下鎧甲後的天真爛漫、鼓舞人心卻渾然不覺會錯意的曖昧、與海豚心靈相通的奇妙緣分',tic:'喚來海豚嬉戲、燦笑握住雙手、踩浪嬉笑'} },
   { id:'美遊-Saber', cls:'Saber', realName:'美遊·埃德費爾特（Saber install）', wars:['客串'], gender:'女',
     six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'C',幸運:'C',寶具:'A'},
     classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
@@ -363,7 +365,12 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v46'; // v46：英靈庫(SEED_SERVANTS)+御主庫(SEED_MASTERS) persona 減贅述——look/speech/moe(或
+var CODEX_PERSONA_VER = 'v47'; // v47：貞德-Ruler → 貞德-Archer(泳裝版)換版——原Ruler版(對魔力EX+rho_aias A+
+//   啟示/真名看破三重疊加)經 tools/battle_sim/roundrobin.js 全循環賽模擬證實是全種子庫最強(36位互毆
+//   99%+勝率、僅2人技能位階能繞過其對魔力)，玩家要求整組換成官方泳裝Archer版：對魔力降回B、拔掉
+//   rho_aias/first_strike/analyze，改配單一對軍寶具(豐收之海啊)，數值不再失控。id 隨之改為
+//   '貞德-Archer'；servantNpOptions_ 同步拔除她原本掛的Ruler雙寶具選單(見 Engine_Fate.gs)。
+// v46：英靈庫(SEED_SERVANTS)+御主庫(SEED_MASTERS) persona 減贅述——look/speech/moe(或
 //   persona/moe)之間大量逐字重複同一特質(如「人前完美」「天真與哀傷」「壓抑的空虛」各講兩遍)，只留一處講清楚、拿掉
 //   純複誦的另一份，濃度提高但骨肉不變(玩家2026-07要求"深度校對但別寫死，表演交給AI")。
 // v45：肯尼斯/韋伯/雨生龍之介的 home 改成直接對應新增地圖節點名稱(海特飯店/麥肯基宅/碼頭倉庫)，
