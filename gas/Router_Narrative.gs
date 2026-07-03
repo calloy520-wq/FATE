@@ -122,10 +122,15 @@ function actionPlay(userData, pcId, sheets) {
     if (presentRowsForGender.length > 0) {
       const playerSex = pc[COL.PC.SEX] || "未知";
       const pairHints = presentRowsForGender.map(r => {
-        const npcSex = r[COL.PC.SEX] || "未知";
+        // ⚠ 2026-07 修：原本非「女/女」「男/男」的組合一律落入模糊的「依雙方實際性別器官裁決」，
+        // 「異/無」(如開膛手傑克「無固定實體」)這類非二元性別值完全沒被正規化，等於把該用什麼
+        // 器官全丟給 AI 臨場亂猜。玩家定案：不開放男男配對(邀請關卡已擋)，故這裡只會遇到
+        // 女/女、男/女、女/男、或某方為異/無 這幾種——異/無 一律按女性向器官處理(對齊
+        // applyGalleryForm_ 的肉體起始預設，且與傑克本身「不自覺化身少女模樣」的角色設定一致)。
+        const npcSexRaw = r[COL.PC.SEX] || "未知";
+        const npcSex = (npcSexRaw === "男" || npcSexRaw === "女") ? npcSexRaw : "女";
         let combo = "";
         if (playerSex === "女" && npcSex === "女") combo = "女女配對：禁止插入式陽具動作，肉棒欄位雙方皆填「無」，以手指/舌頭/器物替代器官接觸";
-        else if (playerSex === "男" && npcSex === "男") combo = "男男配對：依雙方實際器官裁決動作邏輯";
         else combo = `${playerSex}(${pcName}) × ${npcSex}(${r[COL.PC.NAME]})配對：依雙方實際性別器官裁決`;
         return `${r[COL.PC.NAME]}：${combo}`;
       });
@@ -134,7 +139,8 @@ function actionPlay(userData, pcId, sheets) {
 
     let pPhysicalObj = JSON.parse(pcData[pcIndex][COL.PC.PHYSICAL] || "{}");
     if (Object.keys(pPhysicalObj).length === 0) {
-      pPhysicalObj = { "蜜穴": "未開", "菊穴": "緊閉" };
+      // ⚠ 2026-07 修：原本不論性別統一預設女性生理結構起始值，男御主也被塞這組——改依實際性別。
+      pPhysicalObj = (String(pc[COL.PC.SEX]) === "男") ? { "肉棒": "如常" } : { "蜜穴": "未開", "菊穴": "緊閉" };
     }
     let pSkills = (pcData[pcIndex][COL.PC.MEMORY] || "無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/, (m, p1) => `[雙修技巧]${p1.trim().split('、').slice(0, 5).join('、')}`);
     let nsfwMemories = `\n[玩家『${pcName}』狀態]：${pcData[pcIndex][COL.PC.STATUS]}\n[玩家『${pcName}』肉體]：${JSON.stringify(pPhysicalObj)}\n[身體記憶]：${pSkills}`;
@@ -142,7 +148,9 @@ function actionPlay(userData, pcId, sheets) {
     let allPresentRows = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && r[COL.PC.LOC] === curL && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_"));
     allPresentRows.forEach(r => {
       let npcPhysicalObj = JSON.parse(r[COL.PC.PHYSICAL] || "{}");
-      if (Object.keys(npcPhysicalObj).length === 0) npcPhysicalObj = { "蜜穴": "未開" };
+      // ⚠ 2026-07 修：原本不論性別統一預設女性生理結構起始值(男同伴也被塞這組)——改依實際性別；
+      // 異/無比照 applyGalleryForm_ 的處理方式，一律按女性向。
+      if (Object.keys(npcPhysicalObj).length === 0) npcPhysicalObj = (String(r[COL.PC.SEX]) === "男") ? { "肉棒": "如常" } : { "蜜穴": "未開" };
       let npcSkills = (r[COL.PC.MEMORY] || "無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/, (m, p1) => `[雙修技巧]${p1.trim().split('、').slice(0, 5).join('、')}`);
       let relMem = r[COL.PC.REL_MEM] || "無";
       let npcOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 玩家換裝：當前服裝穿著(換衣不換人·五官體態依本相)

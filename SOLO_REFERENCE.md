@@ -345,6 +345,8 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 ## 9. 鑑賞 Gallery.gs（奪杯後/慾海入口）
 
 - `actionClaimGrail`：奪杯→AI 寫後日談回憶(memoir)→寫入「鑑賞」表→**同盟封存**(羈絆90↑或【鑑賞緣】的盟友一併入冊，御主搭檔 CLS="御主")→`purgeGameData_` 清本局。
+  - **🐛→✅ 封存時外貌/肉體憑空消失(2026-07 修)**：「鑑賞」表 schema(`COL.GAL`)原本只有15欄，沒有 TRAIT(外貌本相)也沒有 PHYSICAL(肉體)——封存當下這兩欄直接被丟棄，`kanshouServantRow_` 重建同伴列時 TRAIT 永遠是空字串(慾海每個同伴的外貌描述都吃到「無」)，連 MEMORY 都整段被覆寫(召喚時 stamp 的【口吻】【小動作】一併消失)；PHYSICAL 空白時不論性別統一預設 `{"蜜穴":"未開"}`，男性同伴也被塞女性生理結構起始值。新增 `COL.GAL.FORM`(第16欄「外貌肉體」，`ensureFateSheets_` 自動補尾端表頭)，用 `buildGalleryForm_(row)`/`applyGalleryForm_(sRow,formStr,sex)` 把 TRAIT(固定錨，非 AI 每次重新詮釋)＋STATUS 的姿勢/顏面(戰爭落幕那刻的姿態，不再重置成通用預設)＋PHYSICAL(若戰時已有紀錄則原樣帶走)合併一格 JSON 帶過去；PHYSICAL 若無紀錄則依實際性別給正確起始值(男→肉棒/女→蜜穴+菊穴)，之後由既有的 `pfb`/`nfb.physical_state` 機制(Engine_Combat.gs 紅線區·未動)接手動態演進。`actionClaimGrail` 的主角色與同盟封存兩處都已接上 `buildGalleryForm_`。
+  - **🎨 玩家定案·不開放男男配對(2026-07)**：`actionEnterKanshou` 本就強制慾海御主性別二選一(男/女)，故只需擋「御主=男 且 同伴=男」這一種組合。`actionKanshouAdd` 邀請關卡直接擋(回錯誤訊息)；`actionKanshouCompanions` 的可邀清單同步濾掉，UI 上根本不會列出。同伴性別非「男」(含女/異/無)一律放行，女女/男女皆可。連帶修正 `Router_Narrative.gs` 的 `genderHintStr`：原本「異/無」這類非二元性別值(如開膛手傑克「無固定實體」)完全沒被正規化，直接落入模糊的「依雙方實際性別器官裁決」丟給 AI 猜——已改成非男/女一律按女性向處理(跟 `applyGalleryForm_` 的肉體起始預設一致)；已無法出現的「男男」分支一併移除。
 - `actionEnterKanshou`：每帳號【單一常駐】後日談世界(KPC_ 御主 avatar，id 持久接續歷史)。首進需 `pcName/pcSex`(否則回 `needSetup`)。對話仍走 `actionPlay`(NSFW，引擎不動)。
 - `actionKanshouCompanions/Add/Remove`：後日談同伴管理(上限3，住獨立「鑑賞眾生」分頁，`kanshouServantRow_` 建列)。`actionKanshouSetSex/SetName`：改 avatar 性別/名字。
   - **🐛→✅ 帳號歸屬完全沒驗證(2026-07 修·本次盤查最嚴重的一項)**：`KPC_`/`g_`/`k_` 的 ID 只用 `Date.now()`(毫秒級、無隨機尾碼)，理論上可預測；而這 5 支 action 過去只憑 `pcId` 找列就直接改寫/刪除，**完全沒驗證呼叫者是否真的擁有這個 pcId**(`kanshou_set_name/set_sex` 甚至連 `acctName` 都沒收)。只要拿到/猜中他人 `pcId`，就能把自己的封存從者塞進對方後日談、請走對方同伴、竄改對方 avatar 名字性別，對方毫無所覺。

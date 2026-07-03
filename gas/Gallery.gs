@@ -50,6 +50,27 @@ function purgeGameData_(sheets, gameId, masterName, accountName) {
   }
 }
 
+// 🎭 封存當下的「外貌肉體」快照：TRAIT(外貌本相，固定錨、不可被 AI 每次重新詮釋)
+//   ＋ STATUS 的姿勢/顏面(戰爭落幕那刻的姿態，非重置成通用預設) ＋ PHYSICAL(肉體，若戰時
+//   已有 NSFW 互動紀錄則原樣帶走)。合併一格 JSON，避免拆多欄、封存/邀入兩處各自對齊麻煩。
+function buildGalleryForm_(row) {
+  var trait = String(row[COL.PC.TRAIT] || "");
+  var st = {}; try { st = JSON.parse(row[COL.PC.STATUS] || "{}"); } catch (e) { }
+  var phys = String(row[COL.PC.PHYSICAL] || "").trim();
+  return JSON.stringify({
+    trait: trait, pose: st["姿勢"] || "", face: st["顏面"] || "",
+    physical: (phys && phys !== "{}") ? phys : ""
+  });
+}
+// 邀入慾海時解開快照，寫回新列。肉體若戰時從未有 NSFW 紀錄(SFW 正史本就不會有)→ 依性別給
+// 正確的起始狀態(不再無視性別統一預設女性生理結構)；之後由既有的 pfb/nfb.physical_state 機制接手演進。
+function applyGalleryForm_(sRow, formStr, sex) {
+  var f = {}; try { f = JSON.parse(formStr || "{}"); } catch (e) { }
+  sRow[COL.PC.TRAIT] = f.trait || "";
+  sRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": f.pose || "站立", "負面": "無", "顏面": f.face || "神情柔和" });
+  sRow[COL.PC.PHYSICAL] = f.physical || ((String(sex) === "男") ? JSON.stringify({ "肉棒": "如常" }) : JSON.stringify({ "蜜穴": "未開", "菊穴": "緊閉" }));
+}
+
 // 🏆 奪得聖杯：封存從者（含 AI 後日談）＋ 清理該局
 function actionClaimGrail(userData, pcId, sheets) {
   var acctName = String(userData.acctName || "").trim();
@@ -101,7 +122,7 @@ function actionClaimGrail(userData, pcId, sheets) {
       acctName, realName, cls, String(s[COL.PC.SEX] || ""),
       String(s[COL.PC.SIX] || "{}"), String(s[COL.PC.TAGS] || "{}"),
       String(s[COL.PC.MARTIAL] || ""), back, pref, moe, memoir, wishEnd, new Date(),
-      masterName, String(pcData[pIdx][COL.PC.SEX] || "")
+      masterName, String(pcData[pIdx][COL.PC.SEX] || ""), buildGalleryForm_(s)
     ];
     var gd = gal.getDataRange().getValues();
     var existingIdx = -1;
@@ -136,7 +157,7 @@ function actionClaimGrail(userData, pcId, sheets) {
           String(pcData[ai][COL.PC.MARTIAL] || ""), String(pcData[ai][COL.PC.BACK] || ""),
           String(pcData[ai][COL.PC.PREF] || ""), String(pcData[ai][COL.PC.INTENT] || ""),
           aMemoir, "（並肩走過聖杯戰爭的盟友）", new Date(),
-          masterName, String(pcData[pIdx][COL.PC.SEX] || "")
+          masterName, String(pcData[pIdx][COL.PC.SEX] || ""), buildGalleryForm_(pcData[ai])
         ];
         var aExist = -1;
         for (var gj = 1; gj < galNow.length; gj++) {
@@ -189,7 +210,7 @@ function kanshouServantRow_(rec, gameId, loc) {
     sRow[COL.PC.HP] = 480; sRow[COL.PC.MAX_HP] = 480; sRow[COL.PC.MP] = 200; sRow[COL.PC.MAX_MP] = 200;
     // 🎴 五圍已棄欄：戰鬥吃六圍 SIX。
   }
-  sRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情柔和" });
+  applyGalleryForm_(sRow, String(rec[COL.GAL.FORM] || ""), sRow[COL.PC.SEX]); // 外貌本相+姿勢/顏面+肉體 一次解開寫回
   sRow[COL.PC.LOC] = loc;
   sRow[COL.PC.FACTION] = "從者";
   sRow[COL.PC.RANK] = String(rec[COL.GAL.CLS] || "從者");
@@ -309,9 +330,11 @@ function actionKanshouCompanions(userData, pcId, sheets) {
     if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) current.push(String(data[i][COL.PC.NAME]));
   }
   var gal = ss.getSheetByName("鑑賞"); var gd = gal ? gal.getDataRange().getValues() : [];
+  var meSex = String(me[COL.PC.SEX] || "");
   var avail = [];
   for (var j = 1; j < gd.length; j++) {
     if (String(gd[j][COL.GAL.ACC]).trim() !== acctName) continue;
+    if (meSex === "男" && String(gd[j][COL.GAL.SEX]).trim() === "男") continue; // 不開放男男配對，可邀清單就不列出
     var n = String(gd[j][COL.GAL.NAME]).trim();
     if (current.indexOf(n) === -1 && avail.indexOf(n) === -1) avail.push(n);
   }
@@ -339,6 +362,11 @@ function actionKanshouAdd(userData, pcId, sheets) {
   if (cnt >= 3) return JSON.stringify({ success: false, message: "後日談最多 3 名同伴，請先請走一位再邀。" });
   var rec = galleryRec_(ss, acctName, addName);
   if (!rec) return JSON.stringify({ success: false, message: "鑑賞名冊查無「" + addName + "」。" });
+  // 🎨 玩家定案：不開放男男配對(女女/男女皆可)。慾海御主性別在 actionEnterKanshou 就已鎖死只能
+  // 「男」或「女」二選一，故只需擋這一種組合；同伴性別非「男」(含女/異/無)一律放行。
+  if (String(me[COL.PC.SEX]) === "男" && String(rec[COL.GAL.SEX]) === "男") {
+    return JSON.stringify({ success: false, message: "「" + addName + "」暫時無法邀入——僅支援 男女／女女 配對。" });
+  }
   // 🆕 羈絆已直接寫在 kanshouServantRow_ 建好的列上(BOND/IS_PARTY 等)，不再需要另寫關係表。
   kpc.appendRow(kanshouServantRow_(rec, gid, loc));
   return JSON.stringify({ success: true, added: addName, message: "「" + addName + "」來到了你們身邊。" });
