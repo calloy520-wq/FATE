@@ -317,6 +317,11 @@ function actionFateBattle(userData, pcId, sheets) {
   const wantSv = String(userData.servant || "").trim();
   let atkIdx = wantSv ? pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.NAME]).includes(wantSv)) : -1;
   if (atkIdx === -1) atkIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  // 🛡️ 常駐寶具閘(2026-07·B叔案)：God Hand/治癒結界等【常駐寶具】自動生效、不是攻擊——擋下攻擊解放
+  //   (前端💥鈕已灰化，此為舊快取前端的後端保險)。標記存 np 字串(種子→MARTIAL·v49 resync 傳播)。
+  if (useNp && atkIdx !== -1 && /【常駐寶具】/.test(String(pcData[atkIdx][COL.PC.MARTIAL] || ""))) {
+    return JSON.stringify({ success: false, message: "此從者的寶具為【常駐型】（已自動生效），並非可解放的攻擊寶具——請以普攻／主動技／令咒作戰。" });
+  }
   if (atkIdx === -1) return JSON.stringify({ success: false, message: "你尚未召喚從者，無從者可出戰。" });
   // 🌟 多寶具選定索引 ＋ 🔋 解放寶具自動全開出力：兩者隨 fate_battle 一起送來，省去單獨 set_np_choice／set_servant_output 往返。
   let atkMemDirty = false;
@@ -1028,7 +1033,9 @@ function actionFateBattle(userData, pcId, sheets) {
       `${roundsBrief}\n我方造成 ${totalDealt} 傷害、受創 ${totalTaken}。${finalLine}\n` +
       `── 本戰發生的事(素材，自行織入畫面，勿複述標籤名) ──\n` +
       (useSeal ? `· 御主燃燒一道令咒·絕對命令，強令此擊必中、引爆超限戰力。\n` : "") +
-      (clash ? `· 寶具對轟：${clash.outcome === 'causality' ? `因果律先行截斷——『${atkC.name}』的死亡詛咒在敵方寶具解放之前便已降臨，敵 NP 殘波極微。` : clash.outcome === 'player' ? '我方威能壓過對手。' : clash.outcome === 'enemy' ? '對面威能壓過我方（從者以鋼鐵意志撐住）。' : '勢均力敵、轟然相抵、雙方震退。'}\n` : (useNp ? `· ${atkC.name} 高呼真名【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】、解放了寶具——★演出時務必讓其【親口唸出這個真名】(中文真名與原名並呼、氣勢拉滿)，這是 Fate 寶具解放的靈魂。\n` : "")) +
+      (clash ? `· 寶具對轟：${clash.outcome === 'causality' ? `因果律先行截斷——『${atkC.name}』的死亡詛咒在敵方寶具解放之前便已降臨，敵 NP 殘波極微。` : clash.outcome === 'player' ? '我方威能壓過對手。' : clash.outcome === 'enemy' ? '對面威能壓過我方（從者以鋼鐵意志撐住）。' : '勢均力敵、轟然相抵、雙方震退。'}\n` : (useNp ? (hasFx_(atkC, 'mad')
+        ? `· ${atkC.name} 解放了寶具【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】——★此從者已狂化、無法詠唱：解放是咆哮與本能的爆發，旁白可呈現真名與威能，但【嚴禁】讓其開口唸出任何字句。\n`
+        : `· ${atkC.name} 高呼真名【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】、解放了寶具——★演出時務必讓其【親口唸出這個真名】(中文真名與原名並呼、氣勢拉滿)，這是 Fate 寶具解放的靈魂。\n`) : "")) +
       ((useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.25) ? `· 【灌魔超載】御主把餘裕魔力盡數傾注這一發真名解放${atkC.overcharge ? '（方才補魔蓄積的澎湃魔力一併傾瀉而出）' : ''}——寶具威能被推至${atkC.npOverloadMul >= 1.9 ? '極限、化作規格外的毀滅光輝' : '遠超尋常的輝度'}。演出這股「傾盡一切、超載解放」的壯烈與光壓。\n` : "") +
       (backlash ? `· 【過載反噬】倍額魔力灌注的代價在解放後湧回——御主魔術迴路暴走灼身(−${backlash.dmg} HP)${backlash.survivedByWin ? '，在聖杯戰爭終局的執念下硬撐住了意識' : ''}。★這是迴路過載的內在劇痛與虛脫，非外傷流血，切勿描寫成血流滿地。\n` : "") +
       (skillActivated ? `· 我方全力催動了主動技「${skillBuff.name}」。\n` : "") +

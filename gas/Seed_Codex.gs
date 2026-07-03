@@ -62,7 +62,10 @@ var SEED_SERVANTS = [
     skills:[{n:'勇猛',r:'A',fx:'morale'},{n:'十二試煉',r:'A',fx:'god_hand'}],
     // ⚠ 2026-07 修：拔「王」trait——赫拉克勒斯終身未曾稱王(神話裡他是為贖罪替歐律斯透斯王打工的英雄，非君王)；
     //   十二試煉NP自身官方階級是B(六圍寶具欄仍是A沒錯，B是God Hand這把寶具本身的階級數字)。
-    traits:[{n:'神性',r:'A'}], np:'十二試煉 God Hand（B·十二條命）',
+    // ⚠ 2026-07 修(玩家點名「B叔的寶具不是攻擊」)：God Hand＝常駐復活寶具(god_hand fx 已模型化生效)，
+    //   按💥卻把它當砲打＝出戲；狂化下 Nine Lives 又鎖死(見下註·已移給Avenger版)——故標記【常駐寶具】，
+    //   前後端據此擋下攻擊解放(💥鈕灰化＋actionFateBattle 阻擋)，他的戰力＝普攻蠻力＋十二條命。
+    traits:[{n:'神性',r:'A'}], np:'十二試煉 God Hand（B·十二條命·【常駐寶具】自動生效·狂化下無可解放的攻擊寶具）',
     // ⚠ 原作設定：射殺百頭 Nine Lives 是狂化壓制下【無法使用】的寶具(福瓦基體系被Berserker職階鎖住，僅原典/FGO非狂化狀態可用)，
     //   已從這版拿掉、移給下方 赫拉克勒斯-Avenger(偽聖杯·阿爾喀德斯)。這版狂化下就只有 God Hand。
     align:'混沌・狂', persona:{firstP:'（狂化·僅咆哮）',look:'巨軀岩肌・黑霧纏身的半神戰士、無言低吼的壓迫氣場、狂化無自稱・僅以咆哮',words:'戰神・狂化・守護的殘響',toMaster:'理智被黑霧吞沒、僅存護主本能',speech:'狂化無法言語、只以低吼與行動表達；唯護主的本能殘留',moe:'狂暴外殼下對御主殘存的溫柔、偶爾理智回光的瞬間、十二試煉一次次自死亡歸來的悲壯',tic:'低沉咆哮、以巨軀擋在主人身前、緩緩起身'} },
@@ -281,8 +284,10 @@ var SEED_SERVANTS = [
   { id:'玉藻前-Caster', cls:'Caster', realName:'玉藻前', wars:['客串'], gender:'女',
     six:{筋力:'E',耐久:'E',敏捷:'B',魔力:'A',幸運:'D',寶具:'B'},
     classSkills:[{n:'陣地作成',r:'C',fx:'territory'},{n:'狐之嫁入',r:'EX',fx:'crafting'}],
-    skills:[{n:'呪術',r:'EX',fx:'fast_cast'},{n:'變化',r:'A',fx:'shapeshift'}],
-    traits:[{n:'神性'},{n:'野獸'}], np:'水天日光天照八野鎮（治癒結界）',
+    // ⚠ 2026-07 修(同 B叔常駐寶具案)：水天日光＝治癒結界、非攻擊——標記【常駐寶具】擋攻擊解放，
+    //   並補 regen fx 讓治癒結界真的常駐生效(每回合涓流回血·引擎既有機制)，她的輸出靠呪術EX(fast_cast)。
+    skills:[{n:'呪術',r:'EX',fx:'fast_cast'},{n:'變化',r:'A',fx:'shapeshift'},{n:'水天日光天照八野鎮',r:'B',fx:'regen'}],
+    traits:[{n:'神性'},{n:'野獸'}], np:'水天日光天照八野鎮（B·治癒結界·【常駐寶具】戰鬥中徐徐治癒·非攻擊解放）',
     align:'混沌・中庸', persona:{firstP:'妾身',look:'粉髮狐耳・和服盛裝的九尾賢妻、甜膩撒嬌裹著腹黑的氣息、自稱「妾身」',words:'賢妻・腹黑・愛吐槽・狐狸',toMaster:'撒嬌又掌控，黏人',speech:'暗藏腹黑、毒舌吐槽裹著糖衣',moe:'賢妻外皮下的腹黑掌控慾、九尾狐的撒嬌黏人、吐槽精準狠辣、為愛奉獻的執著',tic:'狐耳輕顫、掩嘴輕笑、鏡前理妝'} },
   // ⚠ 2026-07 修：官方六圍為 D/C/A+/B/A/A+，耐久/敏捷/魔力/幸運/寶具原值幾乎整排偏低估，已對齊；
   //   天狗之兵法B→A。
@@ -365,7 +370,10 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v48'; // v48：戰鬥系統體檢修正——①resyncSummonedServants_ 補 SEED_RECLASSED_ 換職階遷移表
+var CODEX_PERSONA_VER = 'v49'; // v49：常駐寶具標記(玩家點名「B叔的寶具不是攻擊」)——赫拉克勒斯 God Hand／玉藻前 水天日光
+//   np 字串加【常駐寶具】標記(前端💥灰化＋後端 actionFateBattle 擋攻擊解放·God Hand 的 god_hand fx 本就常駐生效)；
+//   玉藻前補 regen B(治癒結界真的每回合回血)。狂化從者解放寶具的「高呼真名」prompt 同批改為咆哮本能解放(Router_Battle)。
+// v48：戰鬥系統體檢修正——①resyncSummonedServants_ 補 SEED_RECLASSED_ 換職階遷移表
 //   (v47換版前已召喚的貞德-Ruler因(名,職階)key對不上新種子而逃過削弱、保留OP kit——升版重跑讓她們吃到Archer新kit)；
 //   ②寶具對轟敵方火力取樣補 skill(單層歸屬後漏帶·開場對轟系統性偏向玩家)；③因果律截斷不吃「敵滅回震腰斬」；
 //   ④DEF_FX_ mul 下限clamp＋校準基準註解修正(實為C階非B階)。
