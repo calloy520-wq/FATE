@@ -18,6 +18,8 @@
 
 驗證套路：跑 `bash check.sh`（自動掃全部 .gs ＋萬用比對 `gas/Script*.html`，見 `HANDBOOK.md` §4.1）。改慾海邊界務必 `git diff | grep nsfwBaseRules` 確認 0 改動。
 
+**戰鬥平衡測試**：`tools/battle_sim/`（Node，不進 clasp 部署·常駐工具，別再每次臨時搭）——`node tools/battle_sim/duel.js` 直接載入真實的 `Engine_Fate.gs`/`Seed_Codex.gs` 到 vm sandbox 跑蒙地卡羅對戰模擬(不複製戰鬥算式，永遠吃當下版本)，可秒測任兩個從者對戰、任意 fx 開關的勝率差異。詳見該資料夾 `README.md`。
+
 ⚠ **2026-07 檔案改版**：`Router_Action.gs`(原 3918 行)已拆成 8 檔——`Router_Action.gs`(核心dispatch)/`Router_Creation.gs`(創角召喚)/`Router_Movement.gs`(地圖移動休息)/`Router_Battle.gs`(戰鬥核心)/`Router_Bond.gs`(羈絆令咒結盟破戒奪僕)/`Router_Narrative.gs`(actionPlay敘事)/`Router_Persona.gs`(演出卡)/`Router_Economy.gs`(出力補魔)。下文各節提到「Router ~行號」的**行號已隨拆檔位移**，函數名不變、用函數名 grep 即可找到——全域作用域共用，切到哪個檔不影響行為。檔案對照表看 `HANDBOOK.md` §4。
 
 ---
