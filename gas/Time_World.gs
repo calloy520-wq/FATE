@@ -265,7 +265,7 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
     else if (masterI < 0) masterI = i;
   }
 
-  // 🔋 共用魔力池：同隊從者魔力 rankVal 總和 → 重算池上限(迴路×8 + 魔力×2) ＋ 從者回魔貢獻(少)。
+  // 🔋 共用魔力池：同隊從者魔力 rankVal 總和 → 重算池上限(迴路×10 + 魔力×2) ＋ 從者回魔貢獻(少)。
   var partyMagicVal = 0;
   svRows.forEach(function (ri) { var cs = rowToCombatant_(data[ri]); partyMagicVal += rankVal(cs.six['魔力'] || 'E'); });
 

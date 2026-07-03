@@ -58,7 +58,7 @@ function offenseTier_(c, isNp) {
 }
 
 // 🔋 寶具 Prana Cost（依寶具階級）：E40 D70 C110 B160 A220 EX300。
-//   🔋 出力電池制(2026-06)：寶具魔力全由御主供（從者無池）。已對齊御主池(迴路×8，預設240)——
+//   🔋 出力電池制(2026-06)：寶具魔力全由御主供（從者無池）。已對齊御主池(迴路×10，預設300)——
 //   A 階≈耗盡滿池、EX 須再焚血墊；故 EX/EA 仍極罕見。寶具僅在出力 100% 才可解放(見 actionFateBattle 閘門)。
 function npPranaCost_(npRank) {
   if (/EX/i.test(String(npRank))) return 300;  // 僅「EX」階；A++(rankVal 亦=60)不算 EX
