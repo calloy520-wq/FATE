@@ -588,9 +588,10 @@ function actionFateBattle(userData, pcId, sheets) {
     atkC.npOverloadMul = npOverloadMul;    // → resolveFateBattle_ 放大寶具威力
     atkC.overcharge = usedOvercharge;      // → resolveFateBattle_ 全能力微揚
     atkC.mp = parseInt(pcData[atkIdx][COL.PC.MP]) || 0; // 反映耗魔後的出力
-    // ⚡🩸 過載反噬(2026-07 玩家定案·堵「反正死不了」)：凡人之軀強行導引倍額魔力，解放後機率性迴路暴走——
-    //   隨機扣御主血、【可致死】(致死＝供魔斷絕→己方從者盡數消散→敗北；同發奪勝則奇蹟保命 1HP，見戰果後結算)。
-    //   只掛玩家【明選】的超載檔位(p1/p2/舊blood梭哈比照極限檔)；不超載/相容MP檔不反噬。資料驅動查表。
+    // ⚡🩸 過載反噬(2026-07·二修「純資源傷害」)：凡人之軀強行導引倍額魔力，解放後機率性迴路暴走隨機扣血。
+    //   ⚠ 玩家實測「太容易死」——極限檔定價已把血燒到見底(drainForNp_)，反噬再補刀＝第一發就 65% 出局的
+    //   雙重懲罰。改【不致死·保底1】：反噬是資源壓力(血魔雙空＝接下來放不了寶具/主動、燃血回魔也見底)，
+    //   不是即死輪盤。只掛玩家【明選】的超載檔位(p1/p2/舊blood比照p2)；不超載/相容MP檔不反噬。
     var OVERLOAD_BACKLASH_ = { p1: { chance: 0.30, min: 0.04, max: 0.12 }, p2: { chance: 0.65, min: 0.08, max: 0.24 } };
     var _blKey = (ov === 'p2' || ov === 'blood') ? 'p2' : (ov === 'p1' ? 'p1' : null);
     if (_blKey && npOverloadMul > 1.0 && Math.random() < OVERLOAD_BACKLASH_[_blKey].chance) {
@@ -598,10 +599,9 @@ function actionFateBattle(userData, pcId, sheets) {
       var _mMaxHp = parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 100;
       var _blDmg = Math.max(1, Math.round(_mMaxHp * (_bl.min + Math.random() * (_bl.max - _bl.min))));
       var _mHpNow = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
-      var _blFatal = (_mHpNow - _blDmg) <= 0;
-      pcData[pIdx][COL.PC.HP] = _blFatal ? 1 : (_mHpNow - _blDmg); // 先保1，致死與否待戰果判定(勝利同發＝奇蹟保命)
+      pcData[pIdx][COL.PC.HP] = Math.max(1, _mHpNow - _blDmg); // 保底1·不致死
       sheets.pc.getRange(pIdx + 1, COL.PC.HP + 1).setValue(pcData[pIdx][COL.PC.HP]);
-      backlash = { dmg: _blDmg, fatal: _blFatal, hp: parseInt(pcData[pIdx][COL.PC.HP]) || 1, hpMax: _mMaxHp };
+      backlash = { dmg: _blDmg, hp: parseInt(pcData[pIdx][COL.PC.HP]) || 1, hpMax: _mMaxHp };
     }
     if (battery.usedBattery) {
     }
@@ -943,27 +943,6 @@ function actionFateBattle(userData, pcId, sheets) {
     if (defeat) break;
   }
 
-  // ⚡🩸 過載反噬·致死結算(戰果已定才判)：勝利同發＝聖杯戰爭已終、奇蹟保命(1HP)；
-  //   否則御主迴路燒斷昏厥、供魔斷絕——己方從者盡數化作光點消散(比照斬首失敗全滅路徑)、敗北。
-  if (backlash && backlash.fatal) {
-    if (victory) { backlash.fatal = false; backlash.survivedByWin = true; }
-    else if (!defeat) {
-      defeat = true;
-      backlash.causedDefeat = true; // 敗因＝反噬本身(從者戰死的既有 defeat 不掛此旗，敗北文案分流)
-      const wishB = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
-      let lastSvNameB = atkC.name;
-      for (let bi = 1; bi < pcData.length; bi++) {
-        if (String(pcData[bi][COL.PC.FACTION]) !== "從者" || String(pcData[bi][COL.PC.GAME_ID] || "") !== myGameId || String(pcData[bi][COL.PC.ID]).startsWith("DEAD_")) continue;
-        lastSvNameB = String(pcData[bi][COL.PC.NAME]);
-        pcData[bi][COL.PC.ID] = "DEAD_" + String(pcData[bi][COL.PC.ID]);
-        pcData[bi][COL.PC.HP] = 0;
-        pcData[bi][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "消散", "負面": "御主迴路燒斷·供魔斷絕", "顏面": "已無生息" });
-        sheets.pc.getRange(bi + 1, 1, 1, pcData[bi].length).setValues([pcData[bi]]);
-      }
-      dreamPrompt = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wishB, lastSvNameB);
-    }
-  }
-
   // 戰報摘要（含寶具對轟的傷害）
   const totalDealt = rounds.reduce((s, r) => s + (r.strikes || []).reduce((a, k) => a + (k.pDmg || 0), 0), 0) + (clash ? (clash.eDmgTaken || 0) : 0);
   const totalTaken = rounds.reduce((s, r) => s + (r.eDmg || 0), 0) + (clash ? (clash.pDmgTaken || 0) : 0);
@@ -1021,11 +1000,8 @@ function actionFateBattle(userData, pcId, sheets) {
   // 🎬 敘述：給 AI【事實素材】，少下指令——讓它自己演。只保留必要紅線(show-don't-tell／勿擅自寫死)。
   const horrorFired = rounds.some(r => (r.strikes || []).some(k => k.horror));
   if (defeat) {
-    const defeatEnd = (backlash && backlash.causedDefeat)
-      ? `結局：勝負未及分曉——御主的魔術迴路在過載解放的反噬中轟然燒斷、昏厥倒地(★迴路過載的內在崩潰，非外傷流血)。供魔就此斷絕，『${atkC.name}』與麾下從者化作光點消散，聖杯戰爭敗北。`
-      : `結局：『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。`;
     aiPrompt = servantCard_(pcData[atkIdx]) + foeServantCardStr + enemyMasterCardStr +
-      `【戰報·已裁定】御主號令『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合。\n${roundsBrief}\n${defeatEnd}\n` +
+      `【戰報·已裁定】御主號令『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合。\n${roundsBrief}\n結局：『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。\n` +
       `★以 Fate／TYPE-MOON 筆觸演出這場敗北的最後一幕(一段即可)${atkC.cls === 'Caster' ? '（Caster 以魔術轟擊為主、非肉搏）' : ''}，語氣留白。勝負已定，你只演過程。`;
   } else {
     aiPrompt = servantCard_(pcData[atkIdx]) + foeServantCardStr + enemyMasterCardStr +
@@ -1037,7 +1013,7 @@ function actionFateBattle(userData, pcId, sheets) {
         ? `· ${atkC.name} 解放了寶具【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】——★此從者已狂化、無法詠唱：解放是咆哮與本能的爆發，旁白可呈現真名與威能，但【嚴禁】讓其開口唸出任何字句。\n`
         : `· ${atkC.name} 高呼真名【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】、解放了寶具——★演出時務必讓其【親口唸出這個真名】(中文真名與原名並呼、氣勢拉滿)，這是 Fate 寶具解放的靈魂。\n`) : "")) +
       ((useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.25) ? `· 【灌魔超載】御主把餘裕魔力盡數傾注這一發真名解放${atkC.overcharge ? '（方才補魔蓄積的澎湃魔力一併傾瀉而出）' : ''}——寶具威能被推至${atkC.npOverloadMul >= 1.9 ? '極限、化作規格外的毀滅光輝' : '遠超尋常的輝度'}。演出這股「傾盡一切、超載解放」的壯烈與光壓。\n` : "") +
-      (backlash ? `· 【過載反噬】倍額魔力灌注的代價在解放後湧回——御主魔術迴路暴走灼身(−${backlash.dmg} HP)${backlash.survivedByWin ? '，在聖杯戰爭終局的執念下硬撐住了意識' : ''}。★這是迴路過載的內在劇痛與虛脫，非外傷流血，切勿描寫成血流滿地。\n` : "") +
+      (backlash ? `· 【過載反噬】倍額魔力灌注的代價在解放後湧回——御主魔術迴路暴走灼身(−${backlash.dmg} HP)，強撐住了意識。★這是迴路過載的內在劇痛與虛脫，非外傷流血，切勿描寫成血流滿地。\n` : "") +
       (skillActivated ? `· 我方全力催動了主動技「${skillBuff.name}」。\n` : "") +
       (horrorFired ? `· 青鬍子以螺湮城教本自深淵召出觸手巨獸「深淵海怪」，常駐戰場、每回合與本人並肩撕咬，靠御主魔力維持(枯竭則潰散)。\n` : "") +
       (dualAttack ? `· 我方兩名從者並肩夾擊同一敵手。\n` : "") +
@@ -1060,7 +1036,7 @@ function actionFateBattle(userData, pcId, sheets) {
     useNp: useNp, npName: npName, useSeal: useSeal, totalDealt: totalDealt, totalTaken: totalTaken,
     overload: (useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.01) ? +atkC.npOverloadMul.toFixed(2) : 0, // 🔥 灌魔超載倍率→前端橫幅
     overcharge: !!(useNp && atkC.overcharge), // 🔥 本發吃到補魔過充
-    backlash: backlash, // ⚡🩸 過載反噬 {dmg,fatal,hp,hpMax,survivedByWin?}→前端紅幅
+    backlash: backlash, // ⚡🩸 過載反噬 {dmg,hp,hpMax}→前端紅幅(2026-07 二修：不致死·純資源傷害)
 
     destroyed: destroyedName || "", godRevived: godRevived, sealEscaped: sealEscaped, victory: victory, defeat: defeat,
     telegraph: npTelegraphed ? String(defC.name) : "", // 🔮 敵寶具預告→前端彈紅框警告
