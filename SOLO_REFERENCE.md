@@ -10,7 +10,7 @@
 
 | 規則 | 說明 |
 |---|---|
-| **慾海禁區** | `Engine_Combat.gs` 的 `nsfwBaseRules`（演化核心）＋整套 NSFW 機制**一律不可改**。只能改 SFW 的 gating／名冊。`isNsfwMode` 由前端 `nsfw-mode-toggle` 開關，只在 kanshou(鑑賞)模式露出。 |
+| **慾海禁區** | `Engine_Combat.gs` 的 `nsfwBaseRules`（演化核心）＋整套 NSFW 機制**一律不可改**。只能改 SFW 的 gating／名冊。**⚠ 2026-07 修**：`actionPlay` 的 `isNsfwMode` 原本 solo 仍信前端 `userData.isNsfw`(來自共用 `nsfw-mode-toggle` checkbox，鑑賞模式進場會強制設 true、離場只隱藏不重置)，玩家鑑賞切回 solo 若忘了手動取消勾選，殘留的 true 會讓 solo 也跑 `nsfwBaseRules`——已改純看 `pcId` 是否 `KPC_` 開頭(kanshou路由)，完全不信任何前端旗標，solo 一律鎖 SFW。 |
 | **九州 GAS 不可動** | 原始九州/GAS repo 只能複製過來，不可改。 |
 | **show-don't-tell** | 敘事中**禁止**直接寫出角色的 願望／個性／萌點 字面。只能用神態動作演出。`servantCard_` 鐵則一二三 已強制。 |
 | **model id** | `claude-opus-4-8` 不可出現在 commit／PR／程式碼。 |
@@ -126,6 +126,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 銀兩(MONEY)/商城·店鋪(SHOP)/物品·背包(ITEM)/天命·任務(QUEST)/工房(TASK)/賭場/飛書(MAIL)/生活技能(LIFESKILL)/裝備(WEP·ARM·ACC1·ACC2)——對應 action、helper(resolveItemName/transferMoney/checkAndExpireQuests…)、actionPlay 內 items_gained/transferred/lost/used·money_transferred·quest 解析、前端背包/物品連結/飛書 UI 全拆；COL 子表與分頁定義一併刪。**保留**：魔力收支(playerServantEconomy_/工房/`economy:`欄＝FATE 戰鬥機制非錢)、關係(2026-07 併入眾生列 BOND/REL_TAG/IS_PARTY/MAJOR_EVENT/REL_MEM，非獨立表)、肉體(PHYSICAL)/外顯(STATUS)。`play`(actionPlay) 仍用於 kanshou(NSFW)，**solo 戰爭走 narrate_only 不走 play**。
 > **🎴 actionPlay 的 AI 回寫三閘已 solo-only 關閉(2026-06，鑑賞照舊)**：`new_maps`(AI 加地點)／`recruited`(AI 招募入隊)／`rel_changes.fav_change`(AI 改好感) 三者一律 `if (isNsfwMode)` 才生效。solo 的地圖只走坤圖/移動、招募只走召喚·破戒奪僕·結盟、**好感只走羈絆/補魔/結盟等 GAS 按鈕**——AI 自由敘事改不動數值。好感渲染(顯示 ❤️±N)同樣 solo 不顯示。
 > **🗑️ spare_npc(放過)＋打掃戰場(處決/放過昏迷者)已刪(2026-06)**：九州「擊昏→處決/放過」殘留，與 FATE「靈基崩潰消滅」矛盾；`execute_npc` action 早已不存在(死按鈕)。移除 `actionSpareNpc`＋router＋前端 `spareNpc`/`confirmExecute`/`renderBattlefieldCleanup` 及兩處呼叫。
+> **🐛→✅ 「對話點名」跟「嚴禁強制互動」自相矛盾(2026-07 修)**：`npcDialoguePrompt` 原句「若有對話意圖，請包含『A、B、C』的對話」是無差別指令 AI 讓在場所有人都要出聲，跟緊鄰的「同地路人/嚴禁強制互動」標籤直接衝突——玩家只想找同行從者講話，卻可能被逼得連無關路人都插話。改成「姓名參考用」措辭：只提供正確姓名供 AI 拼字用，是否互動仍完全依【在場驗證鐵律】與各人的強制互動限制判斷。
 
 ---
 
