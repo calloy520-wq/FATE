@@ -162,6 +162,21 @@ function setRuneMode_(memory, mode) {
 //   主動技改回攻擊時的「⚡主動」按鈕(fate_battle 夾帶 userData.skill，見 Router_Battle.gs)，
 //   舊存檔殘留的【主動技】標記無害(無人再讀，不影響其他 MEMORY 標記的正則)。
 
+// 🔒 AI 呼叫後寫回前的「列重定位」索引(2026-07 競態修)：play/backfill 因 AI 呼叫長達數秒被豁免
+//   寫入鎖(LOCK_EXEMPT)，但它們用「AI 呼叫【前】讀到的列索引」寫表——期間其他上鎖動作若刪列
+//   (清殘列/登入自動清)，列索引位移、寫入會落到錯的列上。寫回前呼此函式做一次【單欄窄讀】
+//   (只讀 ID 欄，非整表)，回 {id → 當下真實列索引(0-based)}；ID 已消失(列被刪)→查無，呼叫端跳過。
+function buildLiveIdIndex_(sheet) {
+  var map = {};
+  try {
+    var last = sheet.getLastRow();
+    if (last < 1) return map;
+    var ids = sheet.getRange(1, COL.PC.ID + 1, last, 1).getValues();
+    for (var i = 0; i < ids.length; i++) { var v = String(ids[i][0] || ""); if (v) map[v] = i; }
+  } catch (e) { }
+  return map;
+}
+
 // 🐕 主從synergy（原作設定「御主供魔／契合度提升從者能力」）：特定主從組合回到全盛六圍。
 //   目前只：恩奇都 ↔ 銀狼（獵犬御主，原作真正的御主——以銀狼為觸媒召喚、令咒落在狼身上）→ 全能力 A、寶具 A++。
 //   其餘御主（含玩家自召）下恩奇都維持削弱基線。讀從者列 MEMORY【御主】名判定；在 rowToCombatant_ 套用。

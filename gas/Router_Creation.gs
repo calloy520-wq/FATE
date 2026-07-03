@@ -114,11 +114,15 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
   try {
     // 🔴 ignoreLaw: true，把節慶跟天氣隔絕在創建室外
     const aiBrief = JSON.parse(callGeminiAPI(promptStr, MASTER_GEN_SYS, { temperature: 0.6, ignoreLaw: true }));
+    // 🔒 競態修(2026-07)：backfill 豁免寫入鎖，pIdx 是 AI 呼叫【前】的列索引——期間清殘列若刪列，
+    //   索引位移會把御主敘事寫到別列。寫回前 ID 欄窄讀重定位；列已被刪→放棄寫入。
+    const wIdx = buildLiveIdIndex_(sheets.pc)[String(pcId)];
+    if (wIdx === undefined) return JSON.stringify({ success: false, message: "御主列已不存在（可能剛被清理）。" });
     // 單格寫回(不整列)：只覆蓋敘事欄，且僅在 AI 有給值時；數值/MEMORY/位置一律不碰。
-    if (aiBrief.background) sheets.pc.getRange(pIdx + 1, COL.PC.BACK + 1).setValue(String(aiBrief.background).slice(0, 40));
-    if (aiBrief.traits) sheets.pc.getRange(pIdx + 1, COL.PC.TRAIT + 1).setValue(parseTraitsHelper(aiBrief.traits, row[COL.PC.TRAIT]));
-    if (aiBrief.personality) sheets.pc.getRange(pIdx + 1, COL.PC.PREF + 1).setValue(parseTraitsHelper(aiBrief.personality, row[COL.PC.PREF]));
-    if (aiBrief.npc_intent) sheets.pc.getRange(pIdx + 1, COL.PC.INTENT + 1).setValue(String(aiBrief.npc_intent).slice(0, 18));
+    if (aiBrief.background) sheets.pc.getRange(wIdx + 1, COL.PC.BACK + 1).setValue(String(aiBrief.background).slice(0, 40));
+    if (aiBrief.traits) sheets.pc.getRange(wIdx + 1, COL.PC.TRAIT + 1).setValue(parseTraitsHelper(aiBrief.traits, row[COL.PC.TRAIT]));
+    if (aiBrief.personality) sheets.pc.getRange(wIdx + 1, COL.PC.PREF + 1).setValue(parseTraitsHelper(aiBrief.personality, row[COL.PC.PREF]));
+    if (aiBrief.npc_intent) sheets.pc.getRange(wIdx + 1, COL.PC.INTENT + 1).setValue(String(aiBrief.npc_intent).slice(0, 18));
     return JSON.stringify({ success: true });
   } catch (e) {
     return JSON.stringify({ success: false, message: "背景補生成失敗（已保留種子設定）" });

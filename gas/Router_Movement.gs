@@ -269,6 +269,7 @@ function actionMove(userData, pcId, sheets) {
     });
   } catch (e) { }
 
+  STATE_PRE_DATA_ = allPcData; // ⚡ 交棒：本 handler 所有寫入(worldTick_/spendAp_/markRivalsSeen_/夜襲…)皆已原地改回 allPcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({
     success: true,
     masterCard: masterCard_(allPcData[pIdx]), // 🎭 御主演出依據→抵達敘事讓「我」依性格開口、不再啞巴主角
@@ -354,7 +355,7 @@ function actionRest(userData, pcId, sheets) {
       const svRow = pcData.find(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === restGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
       if (svRow && Math.random() < 0.25) {
         const dSvName = String(svRow[COL.PC.NAME]);
-        try { raiseBond_(sheets, pcName, dSvName, 3); } catch (e) { }
+        try { raiseBond_(sheets, pcName, dSvName, 3, pcData); } catch (e) { }
         restDreamPrompt = servantCard_(svRow) +
           `【系統·從者之夢·回想】御主沉沉睡去，意識卻順著與從者的靈魂聯繫，墜入「${dSvName}」成為英靈之前的記憶長河——夢見其傳說中的一個片段。\n` +
           `★以 Fate／TYPE-MOON 筆觸，用夢境／回想的朦朧史詩質感，演出「${dSvName}」這名英靈生前傳說裡的某一幕（取材自其真實的神話／史實／傳說：其榮光、抉擇、孤獨或傷痕）。讓御主（與玩家）窺見這名英靈所背負的過往與信念。\n` +
@@ -372,8 +373,9 @@ function actionRest(userData, pcId, sheets) {
     // 🏆 夢的優先序：夜襲致敗的虛假之夢 > 令咒透支延遲結算的勝利真夢 > 空——兩者互斥(defeat/victory 本就互斥)。
     const restFinalVictory = restVictory && !(restAmbush && restAmbush.defeat);
     const restFinalDream = (restAmbush && restAmbush.defeat) ? restAmbush.dreamPrompt : (restFinalVictory ? restVictoryDream : "");
+    STATE_PRE_DATA_ = pcData; // ⚡ 交棒：restHours_/worldTick_/breakStale/夜襲/raiseBond_ 皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
     return JSON.stringify({
-      success: true, statusString: getFreshStatusString(pcId, pIdx, sheets), healedNames: healedNames,
+      success: true, statusString: buildPlayerStatusString(pcData[pIdx]), healedNames: healedNames, // ⚡ pcData 即權威，免 getFreshStatusString 整表重讀
       loc: pcLoc, wasInjured: wasInjured, restHours: restHours, clock: restClock, ap: apAfter, apMax: AP_PER_DAY, rumors: restRumors,
       ambush: !!restAmbush, defeat: restAmbush ? restAmbush.defeat : false, dreamPrompt: restFinalDream, ambushPrompt: restAmbushPrompt, report: restAmbush ? restAmbush.report : null,
       servantDream: restDreamPrompt,
@@ -407,8 +409,9 @@ function actionRest(userData, pcId, sheets) {
       String(r[COL.PC.LOC]).trim() === pcLoc && !healedNames.includes(r[COL.PC.NAME]))
     .map(r => r[COL.PC.NAME]);
   sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
+  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：上一行整表寫回的正是這份陣列，權威性由構造保證
   return JSON.stringify({
-    success: true, statusString: getFreshStatusString(pcId, pIdx, sheets), healedNames: healedNames,
+    success: true, statusString: buildPlayerStatusString(pcData[pIdx]), healedNames: healedNames,
     loc: pcLoc, wasInjured: wasInjured, bystanderNames: bystanderNames
   });
 }
