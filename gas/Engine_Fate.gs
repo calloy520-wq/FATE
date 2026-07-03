@@ -374,10 +374,9 @@ function servantNpOptions_(name, cls) {
     { n: '審判日將至 Doomsday Come', scale: '對界', fx: '', desc: '對界·疫病具現的終末審判（EX）' },
     { n: '籠中之鳥 Kagome Kagome', scale: '對軍', fx: '', desc: '對軍·封鎖之疫瘴結界（A）' }
   ];
-  if (name === '貞德') return [
-    { n: '紅蓮聖女 La Pucelle', scale: '對人', fx: '', desc: '對人·聖女的火焰聖劍——燃燒魔力、捨身覺悟的最後王牌' },
-    { n: '吾主在此 Luminosité Eternelle', scale: '對人', fx: '', desc: '守護大旗·豎旗則神明在此（防禦寶具·非攻擊——旗之守護為常駐減傷）' }
-  ];
+  // ⚠ 2026-07 修：'貞德' 原本掛在此處的雙寶具選單(La Pucelle攻擊/Luminosité Eternelle防禦盾)是
+  //   Ruler版的專屬kit——她已換成泳裝Archer版(單一對軍寶具"豐收之海啊"，見 Seed_Codex.gs)，這裡若
+  //   不拔掉，會讓她繼續吃到已不存在的舊寶具選單(含引用她已拔除的rho_aias)。單寶具退回下方預設路徑。
   return null;
 }
 // 單寶具退路：取該從者最主要的「寶具簽名 fx」（決定寶具乘子）。
