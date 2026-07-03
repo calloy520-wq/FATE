@@ -1879,8 +1879,10 @@ function renderRecentLocs(recents = null) {
     try {
       const res = await gasRun({ action: 'set_servant_output', pcId: pc.id, servant: npcName, output: output, acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) { try { updateEconomy(res.economy); } catch (e) {} }
-      else if (res && res.message) { alert(res.message); }
-    } catch (e) { /* 靜默：UI 已樂觀更新，下次同步會校正 */ }
+      // ⚠ 2026-07 修：失敗(如從者剛陣亡/換人的競態)時，樂觀畫的轉盤外觀原本不會復原，會停在玩家點的
+      // 檔位一路卡到下個動作才被悄悄糾正——比照 servantStrike 失敗路徑，強制 syncData(true) 立即校正。
+      else { alert((res && res.message) || '出力設定失敗。'); try { syncData(true); } catch (e) {} }
+    } catch (e) { alert('連線失敗，出力設定未果。'); try { syncData(true); } catch (e2) {} }
   }
 
   // 👗 換裝：自訂從者當前服裝穿著（只換衣不換人·五官體態不變）。免費即時、留空恢復本相。兩軌通用。
