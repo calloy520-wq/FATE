@@ -936,7 +936,17 @@ function actionFateBattle(userData, pcId, sheets) {
       enemyMasterRow = pcData[_emIdx];
     }
   }
-  const enemyMasterCardStr = enemyMasterRow ? enemyMasterCard_(enemyMasterRow) : "";
+  let enemyMasterCardStr = enemyMasterRow ? enemyMasterCard_(enemyMasterRow) : "";
+  // 🎭 關係錨(2026-07 伊莉雅沉默案根因)：明說在場敵御主與「defC」的契約關係——否則提示詞裡
+  //   兩人只是不相干的名詞，AI 演不出「自己的從者在眼前交戰/被消滅」的切身衝擊，只會照性格詞
+  //   即興出「冷眼旁觀」的類型套路。
+  if (enemyMasterCardStr && !isMasterTarget) {
+    enemyMasterCardStr += `★上述敵御主正是「${defC.name}」的契約御主——自己的從者正在眼前搏命交戰，戰局每一刀都切身相關。\n`;
+  }
+  // 🎭 敵從者演出卡(2026-07 補)：戰鬥提示詞原本只附我方從者卡，敵從者的性格/口吻/狂化禁言
+  //   全靠 AI 憑真名即興——移動抵達敘事(Router_Movement.gs)早就附敵從者卡，戰鬥反而沒有。
+  //   同一張 servantCard_，狂化「嚴禁台詞」鐵則對敵方一併生效。
+  const foeServantCardStr = targetIsFoeServant ? '〔敵方出戰者〕' + servantCard_(pcData[nIdx]) : "";
 
   // 💥 本次解放寶具的【真名】(多寶具取所選那把)：拆中文／原名供戰報橫幅＋AI 高呼。寶具解放必唸真名。
   let npName = null;
@@ -953,11 +963,11 @@ function actionFateBattle(userData, pcId, sheets) {
   // 🎬 敘述：給 AI【事實素材】，少下指令——讓它自己演。只保留必要紅線(show-don't-tell／勿擅自寫死)。
   const horrorFired = rounds.some(r => (r.strikes || []).some(k => k.horror));
   if (defeat) {
-    aiPrompt = servantCard_(pcData[atkIdx]) + enemyMasterCardStr +
+    aiPrompt = servantCard_(pcData[atkIdx]) + foeServantCardStr + enemyMasterCardStr +
       `【戰報·已裁定】御主號令『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合。\n${roundsBrief}\n結局：『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。\n` +
       `★以 Fate／TYPE-MOON 筆觸演出這場敗北的最後一幕(一段即可)${atkC.cls === 'Caster' ? '（Caster 以魔術轟擊為主、非肉搏）' : ''}，語氣留白。勝負已定，你只演過程。`;
   } else {
-    aiPrompt = servantCard_(pcData[atkIdx]) + enemyMasterCardStr +
+    aiPrompt = servantCard_(pcData[atkIdx]) + foeServantCardStr + enemyMasterCardStr +
       `【戰報·已裁定，勝負與傷害不可改】御主號令${atkLabel}出擊，與「${defC.name}」交鋒 ${nRounds} 回合。\n` +
       `${roundsBrief}\n我方造成 ${totalDealt} 傷害、受創 ${totalTaken}。${finalLine}\n` +
       `── 本戰發生的事(素材，自行織入畫面，勿複述標籤名) ──\n` +
@@ -974,6 +984,7 @@ function actionFateBattle(userData, pcId, sheets) {
       ((battery && battery.usedBattery) ? `· 御主電池：${battery.bledMaster ? `御主燃燒生命力硬扛魔力缺口，魔術迴路過載灼痛難當(餘 ${battery.masterHp}/${battery.masterHpMax} HP)——★這是迴路透支的內在劇痛與虛脫，非外傷流血，切勿描寫成血流滿地或皮肉傷` : `御主導流自身魔力`}為從者頂上魔力缺口。\n` : "") +
       (godRevived ? `· 十二試煉：${godNote}\n` : "") +
       (sealEscaped ? `· 對面御主燃令咒、強行扯離重傷從者，敵已遁走不在場。${sealNote}★此撤離僅止於該從者及其本主，與在場其他御主／從者無關。\n` : "") +
+      ((destroyedName && targetIsFoeServant && enemyMasterRow && !isMasterTarget) ? `· 在場敵御主「${String(enemyMasterRow[COL.PC.NAME])}」親眼目睹自己契約的從者靈基崩潰、化作光點消散——失去從者＝失去依靠與這場戰爭的資格。★依其性格與身世演出這一刻的衝擊與反應(崩潰/嘶喊/怔忡/強撐皆可，由性格定)，非沉默背景板。\n` : "") +
       ((!destroyedName && !sealEscaped && !godRevived) ? `· 敗方尚有餘力(見上方 HP)，勿描寫死亡／消滅／屍體。此乃御主下令出擊、雙方仍在交鋒中，下回合是否再戰仍由御主決定。\n` : "") +
       (atkC.cls === 'Caster' ? `· 出戰從者為 Caster（魔術師）職階：此戰以魔術轟擊為主、非肉搏，演出時勿讓其上前近戰。\n` : "") +
       `★以 Fate／TYPE-MOON 筆觸演出這 ${nRounds} 回合互有攻防的交鋒(約 220~280 字)：show, don't tell，把上列事實化為畫面與張力，技能/寶具演其威能而非報菜名。`;

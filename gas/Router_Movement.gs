@@ -368,7 +368,7 @@ function actionRest(userData, pcId, sheets) {
     if (restAmbush && restAmbush.homeRepel) {
       restAmbushPrompt = restAmbush.repelNote; // 🏰 陣地反擊·優雅擊退
     } else if (restAmbush) {
-      restAmbushPrompt = `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${restAmbush.enemyName}」${restAmbush.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊重創「${restAmbush.svName || '從者'}」（−${restAmbush.dmg}）${restAmbush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
+      restAmbushPrompt = (restAmbush.foeCard || '') + `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${restAmbush.enemyName}」${restAmbush.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊重創「${restAmbush.svName || '從者'}」（−${restAmbush.dmg}）${restAmbush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
     }
     // 🏆 夢的優先序：夜襲致敗的虛假之夢 > 令咒透支延遲結算的勝利真夢 > 空——兩者互斥(defeat/victory 本就互斥)。
     const restFinalVictory = restVictory && !(restAmbush && restAmbush.defeat);
@@ -494,7 +494,9 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, userData, baseMul) 
   //   而非玩家自己的攻擊力(原 bug：玩家從者越強、砸自己頭上的突襲傷反而越重)。
   const enemyBase = probe.atkWins ? (probe.damage || 1) : Math.round(rankVal(enemyC.six['筋力'] || 'C') * 1.2 + 6);
   const dmg = Math.max(1, Math.round(enemyBase * mul));
-  const out = { enemyName: String(pcData[eIdx][COL.PC.NAME]), dmg: dmg, destroyed: false, defeat: false, dreamPrompt: "", after: 0, stealthy: stealthy };
+  // 🎭 foeCard(2026-07 補)：夜襲提示詞原本只有敵從者【名字】，性格/口吻/狂化禁言全靠 AI 即興——
+  //   比照戰鬥主路徑附上演出卡，四個突襲呼叫端(休息/羈絆/結盟/補魔)共用。
+  const out = { enemyName: String(pcData[eIdx][COL.PC.NAME]), dmg: dmg, destroyed: false, defeat: false, dreamPrompt: "", after: 0, stealthy: stealthy, foeCard: '〔夜襲者〕' + servantCard_(pcData[eIdx]) };
   // 🗡️ 斬斷救贖(severed)：與 fateStrike_ 同一道閘門(2026-07 修)——原本卸防突襲路徑沒有這個概念，
   //   同一隻帶 rule_breaker／anti_magic_lance 的敵從者，正規開戰會封鎖戰鬥續行/十二試煉復活，突襲卻繞得過去。
   const severed = hasFx_(enemyC, 'rule_breaker') || hasFx_(enemyC, 'anti_magic_lance');

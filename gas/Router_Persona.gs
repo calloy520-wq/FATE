@@ -110,6 +110,12 @@ function enemyMasterCard_(row) {
     var prefArr = String(row[COL.PC.PREF] || "").split('、').filter(function (x) { return x && x !== "無"; });
     var traitArr = String(row[COL.PC.TRAIT] || "").split('、').filter(function (x) { return x && x !== "無"; });
     var moe = String(row[COL.PC.INTENT] || "").trim();
+    // 🎭 2026-07 補：身世＋願望原本不進卡(伊莉雅沉默案根因之一)——性格詞光禿禿沒有情感錨點，
+    //   AI 沒別的依據就滑向類型套路(如「天真殘忍冷眼旁觀」)。BACK 欄格式＝「身世。外貌：…」
+    //   (masterToNpcRow_)，外貌已由 TRAIT 欄呈現，這裡只取「。外貌：」前的身世段，避免逐字重複。
+    var back = String(row[COL.PC.BACK] || "").split("。外貌：")[0].trim();
+    if (back === "魔術師") back = ""; // masterToNpcRow_ 的無資料預設值，塞卡無資訊量
+    var wish = (String(row[COL.PC.MEMORY] || "").match(/【願望】([^｜|【\n]*)/) || [])[1] || "";
     return `〈敵御主「${name}」·演出依據(僅內化、禁複述)〉` +
       (prefArr.length ? `性格：${prefArr.slice(0, 4).join('、')}` : "") +
       // ⚠ 2026-07 修：跟上面 prefArr 同一顆地雷，改 slice(0,4) 對齊 masterCard_ 的寫法——目前 TRAIT 來源
@@ -118,7 +124,9 @@ function enemyMasterCard_(row) {
       // 第4段——同一函式兩個並排欄位卻用不同上限，屬遺漏而非刻意設計，一併改掉不留地雷。
       (traitArr.length ? `｜特徵：${traitArr.slice(0, 4).join('、')}` : "") +
       (moe ? `｜萌點(反差·僅供內化)：${moe}` : "") +
-      `。★此役敵御主本人在場，依其性格與萌點反差自行決定是否開口、有何神態反應(show, don't tell：別把萌點/性格詞當台詞或由旁白點破)——非沉默背景板，但戰局勝負與傷害不可改。\n`;
+      (back ? `｜身世(僅內化)：${back.slice(0, 60)}` : "") +
+      (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
+      `。★此役敵御主本人在場，依其性格/身世與萌點反差給出神態反應或台詞(show, don't tell：別把萌點/性格詞當台詞或由旁白點破)——非沉默背景板，但戰局勝負與傷害不可改。\n`;
   } catch (e) { return ""; }
 }
 
