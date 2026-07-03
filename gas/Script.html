@@ -2133,7 +2133,17 @@ function renderRecentLocs(recents = null) {
     }
   }
 
+  // 勝利：先播「願望終於實現」的真實美夢（與敗北的虛假之夢對稱，但這次是真的），再開奪杯畫面
   async function handleVictory(res) {
+    const story = document.getElementById('story');
+    try {
+      if (res && res.dreamPrompt && story) {
+        story.insertAdjacentHTML('beforeend', `<div class="msg-player" style="align-self:center;color:#e7c873;font-size:13px;">（近乎不敢置信的圓滿……）</div>`);
+        story.scrollTop = story.scrollHeight;
+        await new Promise(r => setTimeout(r, 500));
+        await narrate(res.dreamPrompt); // ⏳ 等夢【完整生成並渲染】才往下走，跟敗北那套同一節奏
+      }
+    } catch (e) {}
     // 重置畫面：顯示奪杯按鈕、隱藏回憶與返回鈕
     var memo = document.getElementById('victory-memoir');
     if (memo) { memo.style.display = 'none'; memo.innerHTML = ''; }
@@ -2160,7 +2170,12 @@ function renderRecentLocs(recents = null) {
         }
         if (cbtn) cbtn.style.display = 'none';
         var mbtn = document.getElementById('victory-menu-btn');
-        if (mbtn) mbtn.style.display = 'block';
+        if (mbtn) {
+          mbtn.style.display = 'block';
+          mbtn.textContent = '🎉 慶祝一下';
+          // 🎉 老虎道場·祝賀特輯(死亡那套的小改版)：跟敗北的老虎道場同一個殼，換成祝賀，收尾才回選單。
+          mbtn.onclick = function () { closeVictory(); runTigerDojo_(res.servantName || '從者', '', 'victory'); };
+        }
         // 🔵 防呆：奪杯後本局已封存清理，清掉本機續玩快取，避免下次殘留死局
         try { localStorage.removeItem('kyushu_v27'); localStorage.removeItem('kyushu_story'); localStorage.removeItem('kyushu_last_status'); } catch (e) {}
       } else {
@@ -2200,9 +2215,20 @@ function renderRecentLocs(recents = null) {
   //   openCompanions/kanshouAdd/kanshouRemove/changeKanshouName/changeKanshouSex/
   //   askKanshouSex/askKanshouSetup/enterKanshou。共用同一頁面全域作用域，此檔可直接呼叫它們。
 
-  function openTigerDojo() {
+  // mode: 'defeat'(預設，藤村大河+伊莉雅講評敗因) ｜ 'victory'(同兩人祝賀，換皮不換殼)
+  function openTigerDojo(mode) {
     const ov = document.getElementById('tiger-dojo-overlay');
     if (ov) ov.style.display = 'flex';
+    const emoji = document.getElementById('dojo-emoji'), title = document.getElementById('dojo-title'), sub = document.getElementById('dojo-subtitle');
+    if (mode === 'victory') {
+      if (emoji) emoji.textContent = '🎉';
+      if (title) { title.textContent = '老虎道場·祝賀特輯'; title.style.color = '#e7c873'; }
+      if (sub) sub.textContent = '「诶诶诶～你奪得聖杯了！」';
+    } else {
+      if (emoji) emoji.textContent = '🐯';
+      if (title) { title.textContent = '老虎道場'; title.style.color = '#ff8a8a'; }
+      if (sub) sub.textContent = '「哎呀呀～你的從者被打倒了呢！」';
+    }
   }
   // 🐯 老虎道場敗北講評 prompt（藤村大河＋伊莉雅·依實際敗因吐槽＋給一條對症戰術建議）
   function buildTigerDojoPrompt_(servantName, causeCtx) {
@@ -2212,32 +2238,50 @@ function renderRecentLocs(recents = null) {
       + '★結構：①藤村大河開場吐槽/打氣(可中二可耍寶)；②伊莉雅冷靜點出【這場真正輸在哪】並給【一條具體可操作的戰術建議】(對症那條：職階相剋、該偷襲御主而非硬拚寶具、出力/補魔/結盟/撤退時機、寶具該留待對方解放後的空檔等)；③藤村大河收尾打氣。\n'
       + '★【刻意輕鬆詼諧】這是賽後教學番外、非戰場——語氣搞笑溫馨，無視戰場的緊張基調。約 120~180 字、繁體中文。show-don\'t-tell 不直述從者願望/個性字面。只輸出兩人對話，禁選項、禁系統字樣、禁問玩家。';
   }
-  function dojoFallbackHtml_() {
-    return '聖杯戰爭已然落幕，你的靈基化作了星塵。<br>但別氣餒——藤村大河老師的特訓，能讓下一場聖杯戰爭走得更遠！<br><span style="color:#9a8fb0; font-size:12px;">（敗北的存檔已封存於戰史，可重啟新的一局。）</span>';
+  // 🎉 老虎道場·勝利祝賀 prompt（同兩人，這次是真心祝賀＋一句對這場勝利的犀利吐槽/彩蛋觀察，非講評戰術）
+  function buildTigerDojoVictoryPrompt_(servantName) {
+    return '【老虎道場·祝賀特輯】Fate 經典搞笑教學橋段——御主已奪得聖杯、贏得這場聖杯戰爭，從者「' + (servantName || '從者') + '」與有榮焉。\n'
+      + '由【藤村大河】(老虎老師·元氣熱血卻常狀況外·愛耍寶)＋【伊莉雅】(毒舌助手·這次改用犀利吐槽表達由衷佩服)兩人對話慶祝。\n'
+      + '★結構：①藤村大河誇張慶祝/賣萌邀功(可中二可耍寶，像是自己也出了力)；②伊莉雅嘴上毒舌吐槽但話裡藏著真心的佩服，順帶調侃一下這場戰鬥中最精彩/驚險的瞬間類型(不用具體複述戰報數字，用泛泛的戰鬥意象即可)；③藤村大河收尾，用她一貫誇張的方式恭喜御主。\n'
+      + '★【刻意輕鬆詼諧】這是慶功番外、非戰場——語氣搞笑溫馨歡樂，無視戰場的緊張基調。約 120~180 字、繁體中文。show-don\'t-tell 不直述從者願望/個性字面。只輸出兩人對話，禁選項、禁系統字樣、禁問玩家。';
   }
-  // 掀開老虎道場 → 生成 AI 講評填入卡片（一次 AI 呼叫·只在 game-over 收場，失敗則退回罐頭文案）
-  async function runTigerDojo_(servantName, causeCtx) {
-    openTigerDojo();
+  function dojoFallbackHtml_(mode) {
+    return mode === 'victory'
+      ? '聖杯戰爭終於落幕，你贏得了這場聖杯戰爭！<br>藤村大河老師與伊莉雅都在為你鼓掌喝彩！<br><span style="color:#9a8fb0; font-size:12px;">（這段羈絆已封存於鑑賞，可隨時呼出回味。）</span>'
+      : '聖杯戰爭已然落幕，你的靈基化作了星塵。<br>但別氣餒——藤村大河老師的特訓，能讓下一場聖杯戰爭走得更遠！<br><span style="color:#9a8fb0; font-size:12px;">（敗北的存檔已封存於戰史，可重啟新的一局。）</span>';
+  }
+  // 掀開老虎道場 → 生成 AI 講評/祝賀填入卡片（一次 AI 呼叫·只在 game-over 收場，失敗則退回罐頭文案）
+  //   mode='victory' 時：用祝賀 prompt、完成後按鈕走 dojoBackToMenu()(沿用既有勝利流程，不強制 reload)。
+  async function runTigerDojo_(servantName, causeCtx, mode) {
+    openTigerDojo(mode);
     var body = document.getElementById('dojo-ai-body');
     var backBtn = document.getElementById('dojo-back-btn');
-    if (body) body.innerHTML = '<span style="color:#9a8fb0;">🐯 藤村老師正在翻你的戰報……</span>';
+    var loadingTxt = mode === 'victory' ? '🎉 藤村老師正在準備慶功……' : '🐯 藤村老師正在翻你的戰報……';
+    if (body) body.innerHTML = '<span style="color:#9a8fb0;">' + loadingTxt + '</span>';
     // 鎖按鈕，等 AI 生成完再給玩家「下一步」
     if (backBtn) { backBtn.disabled = true; backBtn.style.opacity = '0.4'; backBtn.style.cursor = 'not-allowed'; }
     try {
-      const res = await gasRun({ action: 'narrate_only', pcId: pc.id, promptText: buildTigerDojoPrompt_(servantName, causeCtx), isNsfw: false });
+      const promptText = mode === 'victory' ? buildTigerDojoVictoryPrompt_(servantName) : buildTigerDojoPrompt_(servantName, causeCtx);
+      const res = await gasRun({ action: 'narrate_only', pcId: pc.id, promptText: promptText, isNsfw: false });
       if (res && res.success && res.text && body) {
         var t = String(res.text).replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\n{2,}/g, '<br><br>').replace(/\n/g, '<br>');
-        body.innerHTML = t + '<div style="color:#9a8fb0; font-size:12px; margin-top:12px;">（敗北的存檔已封存於戰史，可重啟新的一局。）</div>';
-      } else if (body) { body.innerHTML = dojoFallbackHtml_(); }
-    } catch (e) { if (body) body.innerHTML = dojoFallbackHtml_(); }
+        var tailNote = mode === 'victory' ? '（這段羈絆已封存於鑑賞，可隨時呼出回味。）' : '（敗北的存檔已封存於戰史，可重啟新的一局。）';
+        body.innerHTML = t + '<div style="color:#9a8fb0; font-size:12px; margin-top:12px;">' + tailNote + '</div>';
+      } else if (body) { body.innerHTML = dojoFallbackHtml_(mode); }
+    } catch (e) { if (body) body.innerHTML = dojoFallbackHtml_(mode); }
     finally {
-      // AI 完成（或失敗）後：解鎖按鈕，改為「下一步 → 重新登入」直接 reload
+      // AI 完成（或失敗）後：解鎖按鈕；敗北走「下一步 → 重新登入」直接 reload，勝利沿用既有 dojoBackToMenu()(不強制 reload)。
       if (backBtn) {
         backBtn.disabled = false;
         backBtn.style.opacity = '';
         backBtn.style.cursor = '';
-        backBtn.textContent = '下一步 → 重新登入';
-        backBtn.onclick = function () { location.reload(); };
+        if (mode === 'victory') {
+          backBtn.textContent = '返回選單';
+          backBtn.onclick = function () { dojoBackToMenu(); };
+        } else {
+          backBtn.textContent = '下一步 → 重新登入';
+          backBtn.onclick = function () { location.reload(); };
+        }
       }
     }
   }

@@ -466,7 +466,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
   }
   // 🕯️ 令咒耗盡·靈基透支：時間到 → 無「單獨行動」自持的脫逃敵從者，靈基崩解消滅。
   //   這不是世界隨機清人(那有 WORLD_FLOOR_ 保底)，而是玩家親手把對方打到燃盡令咒後的「延遲結算」，故允許收尾、可觸發勝利。
-  var victory = false;
+  var victory = false, dreamPrompt = "";
   try {
     var ck = getClock_(gameId, data);
     if (ck) {
@@ -487,9 +487,21 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
           faded = true;
         }
       }
-      if (faded && aliveEnemyServants_(sheets, gameId) <= 0) victory = true;
+      if (faded && aliveEnemyServants_(sheets, gameId) <= 0) {
+        victory = true;
+        // 🏆 這裡是唯二的「非直接戰鬥致勝」路徑(令咒透支延遲結算)，同樣要有願望夢——查玩家自己的
+        // 御主/從者列給 buildVictoryDreamPrompt_。
+        try {
+          var vmIdx = findGameMasterIdx_(data, gameId);
+          var vsIdx = data.findIndex(function (r) { return String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_"); });
+          if (vmIdx !== -1) {
+            var vWish = extractWish_(data[vmIdx][COL.PC.MEMORY]);
+            dreamPrompt = buildVictoryDreamPrompt_(String(data[vmIdx][COL.PC.NAME]), vWish, vsIdx !== -1 ? String(data[vsIdx][COL.PC.NAME]) : "");
+          }
+        } catch (e) { }
+      }
     }
   } catch (e) { }
 
-  return { rumors: rumors, moved: moved, victory: victory };
+  return { rumors: rumors, moved: moved, victory: victory, dreamPrompt: dreamPrompt };
 }
