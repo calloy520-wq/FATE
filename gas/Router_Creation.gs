@@ -409,7 +409,7 @@ ${FX_MENU_}
     row[COL.PC.BOND] = 35; row[COL.PC.REL_TAG] = "從者"; row[COL.PC.IS_PARTY] = "同行";
     sheets.pc.appendRow(row);
 
-    // 🔋 共用魔力池：把新從者魔力併入御主池上限(迴路×6 + 魔力×2)，締約＝魔力暢通故補到滿池
+    // 🔋 共用魔力池：把新從者魔力併入御主池上限(迴路×8 + 魔力×2)，締約＝魔力暢通故補到滿池
     try {
       var _circ = masterCircuits_(masterRow);
       var _svMag = 0; try { _svMag = rankVal(JSON.parse(row[COL.PC.SIX] || '{}')['魔力'] || 'E'); } catch (e) { }
