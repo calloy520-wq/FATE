@@ -8,8 +8,13 @@
 //   ⚡ 2026-07：算法拆成 buildMapNodesPayload_(吃呼叫端已讀好的 pcData/md，零額外整表讀)——
 //   actionGetMapNodes(獨立 round-trip) 與 buildClientState_(夾帶進共用 state blob) 共用同一份邏輯，
 //   免得地圖每次顯示都要手機再打一趟 google.script.run(這是手機「地圖更新很慢」的根因：多餘 round-trip)。
+// ⚠ 2026-07 新增戰爭分流：地圖原本全局共用同一份地點，但海特飯店/麥肯基宅等第四次限定據點
+//   若在第五次局也顯示是明確的設定錯誤(那幾位御主根本不在那場戰爭)。查玩家自己這局的
+//   【戰爭】標記(getWarName_ 已存在、Router_Creation.gs 定義)，只留通用地點(WAR空白)＋符合本局戰爭者。
 function buildMapNodesPayload_(sheets, pcData, myGameId, myLoc) {
   if (!sheets.map) return { nodes: [], here: myLoc, allyIntel: false };
+  const myMasterIdx = findGameMasterIdx_(pcData, myGameId);
+  const myWar = myMasterIdx !== -1 ? getWarName_(pcData[myMasterIdx][COL.PC.MEMORY]) : "";
   // 🤝 情報共享：有在世盟友時，盟友通報敵蹤——無視戰爭迷霧，全圖敵人位置揭露
   const allyIntel = hasAllyInGame_(pcData, myGameId);
   const enemyAt = {};
@@ -29,6 +34,8 @@ function buildMapNodesPayload_(sheets, pcData, myGameId, myLoc) {
     const name = String(md[i][COL.MAP.NAME] || "").trim();
     if (!name) continue;
     if (String(md[i][COL.MAP.PARENT] || "").trim() !== "") continue; // 只取頂層冬木地點
+    const nodeWar = String(md[i][COL.MAP.WAR] || "").trim();
+    if (nodeWar && nodeWar !== myWar) continue; // 戰爭限定地點：非通用且與本局戰爭不符 → 不顯示
     const co = String(md[i][COL.MAP.COORD] || "0,0").split(',');
     nodes.push({
       name: name, type: String(md[i][COL.MAP.TYPE] || ""),
