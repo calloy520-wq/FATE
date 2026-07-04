@@ -261,7 +261,7 @@ let heroesData = [];
 let selectedSummonClass = '';
 async function loadHeroes() {
   try {
-    const r = await gasRun({ action: 'get_heroes', pcId: pc.id });
+    const r = await gasRun({ action: 'get_heroes', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '' });
     heroesData = (r && r.heroes) || [];
   } catch (e) { heroesData = []; }
 }
@@ -351,13 +351,22 @@ var FORGE_FX = [
 var _forgeInit = false;
 // 🛠️ 工房獨立一屏(2026-07 玩家反饋「塞召喚頁太長」)：召喚屏 ↔ 工房屏 換頁，欄位狀態保留(只藏不清)。
 var _forgeEditId = null; // ✏️ 編輯模式：正在修改的英靈殿 ID(null=製造新英靈)
-function openForge() {
+var _forgeFrom = 'summon'; // 🛠️ 工房起點：'menu'(主選單)或'summon'(召喚頁)——返回鍵回對地方
+function openForge(from) {
+  // 起點：明給就用；沒給(forgeEdit 內部呼叫)→依當前可見畫面自動偵測，偵測不到則沿用上次
+  var menuEl = document.getElementById('scr-menu'), sumEl = document.getElementById('step-summon');
+  if (from === 'menu' || from === 'summon') _forgeFrom = from;
+  else if (menuEl && menuEl.style.display !== 'none') _forgeFrom = 'menu';
+  else if (sumEl && sumEl.style.display === 'block') _forgeFrom = 'summon';
   _forgeEditId = null;
   var nm = document.getElementById('cf-name'); if (nm) nm.disabled = false;
-  var s = document.getElementById('step-summon'), f = document.getElementById('step-forge');
-  if (s) s.style.display = 'none';
+  if (menuEl) menuEl.style.display = 'none';
+  if (sumEl) sumEl.style.display = 'none';
+  var f = document.getElementById('step-forge');
   if (f) { f.style.display = 'block'; window.scrollTo(0, 0); }
   if (!_forgeInit) { initForge_(); _forgeInit = true; }
+  // 主選單直入時名冊可能還沒載(loadHeroes 原本在進召喚頁才跑)→補載後刷「我的作品」列
+  if (!heroesData || !heroesData.length) { loadHeroes().then(function () { renderForgeMine_(); }).catch(function () { }); }
   renderForgeMine_();
 }
 // 🛠️ 工房頂部「我的作品」列(2026-07)：本帳號創造的英靈一鍵進編輯(與 🌟 專區的 ✏️ 同路)
@@ -407,9 +416,10 @@ function forgeEdit(id) {
   renderForgeMine_(); // 刷新「我的作品」列的選中高亮
 }
 function closeForge() {
-  var s = document.getElementById('step-summon'), f = document.getElementById('step-forge');
+  var f = document.getElementById('step-forge');
   if (f) f.style.display = 'none';
-  if (s) { s.style.display = 'block'; window.scrollTo(0, 0); }
+  var back = document.getElementById(_forgeFrom === 'menu' ? 'scr-menu' : 'step-summon');
+  if (back) { back.style.display = 'block'; window.scrollTo(0, 0); }
 }
 function initForge_() {
   var opt = function (v, t) { return '<option value="' + v + '">' + (t || v) + '</option>'; };
@@ -488,14 +498,14 @@ async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，�
   // 💾 工房＝純製造/修改(2026-07 玩家定案二版)：存英靈殿(save_hero)，召喚一律走「🌟 玩家原創」專區
   showProcessing(_forgeEditId ? '正在重鑄靈基…' : '正在鑄造靈基…');
   try {
-    var res = await gasRun({ action: 'save_hero', pcId: pc.id, build: JSON.stringify(build), heroId: _forgeEditId || '', acctName: (typeof currentAccount !== 'undefined' ? currentAccount : '') });
+    var res = await gasRun({ action: 'save_hero', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '', build: JSON.stringify(build), heroId: _forgeEditId || '', acctName: (typeof currentAccount !== 'undefined' ? currentAccount : '') });
     if (res && res.success) {
       alert(res.message || '已鑄入英靈殿。');
       _forgeEditId = null;
       var nmEl = document.getElementById('cf-name'); if (nmEl) nmEl.disabled = false;
       await loadHeroes();          // 重抓名冊(含新作品)
       closeForge();
-      selectSummonClass('__custom__'); // 回召喚頁直接展示 🌟 玩家原創清單
+      if (_forgeFrom !== 'menu') selectSummonClass('__custom__'); // 召喚頁起點→直接展示 🌟 清單；主選單起點→回主選單
     } else { alert((res && res.message) || '鑄造失敗，請重試。'); }
   } catch (e) { alert('鑄造失敗，連線受阻。'); } finally { hideProcessing(); }
 }
