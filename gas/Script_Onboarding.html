@@ -365,9 +365,23 @@ function openForge(from) {
   var f = document.getElementById('step-forge');
   if (f) { f.style.display = 'block'; window.scrollTo(0, 0); }
   if (!_forgeInit) { initForge_(); _forgeInit = true; }
+  forgeTab(2); // 📑 預設開在中間「⚔️ 靈基」主頁
   // 主選單直入時名冊可能還沒載(loadHeroes 原本在進召喚頁才跑)→補載後刷「我的作品」列
   if (!heroesData || !heroesData.length) { loadHeroes().then(function () { renderForgeMine_(); }).catch(function () { }); }
   renderForgeMine_();
+}
+// 📑 工房三分頁(2026-07 玩家反饋「手機的極限」)：🎭演出(1)｜⚔️靈基(2·主)｜🌟寶具(3)。
+//   純版面切換·欄位常駐 DOM(值不丟)；預算/存檔鈕常駐底欄三頁共用。
+function forgeTab(n) {
+  [1, 2, 3].forEach(function (i) {
+    var pg = document.getElementById('cf-page-' + i); if (pg) pg.style.display = (i === n) ? 'block' : 'none';
+    var tb = document.getElementById('cf-tab-' + i);
+    if (tb) {
+      tb.style.borderColor = (i === n) ? 'var(--gold-accent)' : '#3a3550';
+      tb.style.color = (i === n) ? 'var(--gold-accent)' : '#8a8298';
+      tb.style.fontWeight = (i === n) ? 'bold' : 'normal';
+    }
+  });
 }
 // 🛠️ 工房頂部「我的作品」列(2026-07)：本帳號創造的英靈一鍵進編輯(與 🌟 專區的 ✏️ 同路)
 function renderForgeMine_() {
@@ -411,7 +425,7 @@ function forgeEdit(id) {
   V('cf-weapon', d.weapon); V('cf-look', d.look); V('cf-pref', d.pref);
   V('cf-align', d.align || '中立'); V('cf-fp', d.fp); V('cf-tomaster', d.toMaster);
   V('cf-speech', d.speech); V('cf-tic', d.tic); V('cf-moe', d.moe); V('cf-back', d.back);
-  var dr = document.getElementById('cf-drama'); if (dr && (d.fp || d.speech || d.tic || d.moe || d.back)) dr.style.display = 'block';
+  forgeTab(2); // 編輯從主頁(靈基)開始看
   forgeBudget_();
   renderForgeMine_(); // 刷新「我的作品」列的選中高亮
 }
