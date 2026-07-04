@@ -538,10 +538,19 @@ function skillBtnLabel_(i) {
 function refreshSkillBtn_(i) {
   var b = document.getElementById('cf-sk' + i + '-btn');
   if (!b) return;
-  var has = !!document.getElementById('cf-sk' + i + '-fx').value;
+  var fx = document.getElementById('cf-sk' + i + '-fx').value;
+  var has = !!fx;
   b.innerText = skillBtnLabel_(i);
   b.style.color = has ? '#bfe3ff' : '#8a96b0';
   b.style.borderColor = has ? '#4e92c0' : '#3a4a5a';
+  // 🔒 二元效果(固定價·引擎不讀階級)→階級選單鎖灰，防「選A比較強」的假旋鈕錯覺
+  var r = document.getElementById('cf-sk' + i + '-r');
+  if (r) {
+    var flat = !!FORGE_FLAT_FX[fx];
+    r.disabled = flat;
+    r.style.opacity = flat ? '.35' : '1';
+    r.title = flat ? '此效果為二元固定價——引擎不讀階級，選哪階都一樣' : '';
+  }
 }
 function openSkillPick(i) { _skPickSlot = (_skPickSlot === i) ? -1 : i; renderSkillPick_(); }
 function renderSkillPick_() {
