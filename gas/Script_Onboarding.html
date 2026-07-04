@@ -169,7 +169,7 @@ async function checkName(event) {
 
 
     if (res.exists) {
-      alert('此御主之名已有人使用，請換一個名字。');
+      alert(res.message || '此名號是聖杯戰爭中已知的角色，請換一個名字。');
       return;
     } else {
       // 名字可用，進入創角細節 (step-detail)

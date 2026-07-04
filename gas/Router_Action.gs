@@ -243,13 +243,12 @@ function actionCheckName(userData, pcId, sheets) {
   if (!userData.name) {
     return JSON.stringify({ invalidName: true, message: "名號僅限中文字，不可使用英文、數字或符號。" });
   }
-  const pcRows = sheets.pc.getDataRange().getValues();
-  // 🔵 只有「進行中世界(game_id 非空)」的角色才保留名字；DEAD_ 與 game_id 空的孤兒(舊資料/已清局殘留)不佔名。
-  //   這同時維持多帳號間「同名活躍御主」的隔離，又讓重開遊戲後自己的舊名可重用。
-  const found = pcRows.find(r => r[COL.PC.NAME] === userData.name
-    && !String(r[COL.PC.ID]).startsWith("DEAD_")
-    && String(r[COL.PC.GAME_ID] || "") !== "");
-  return JSON.stringify({ exists: !!found, pcId: found ? found[COL.PC.ID] : null, sex: found ? found[COL.PC.SEX] : "未知" });
+  // 🔵 2026-07 修：與 create(actionManualNpc) 一致——不再擋跨局同名（game_id 實例化·多帳號分流·玩家御主
+  //   靠 pcId 認人，跨局撞名無害；原本全表擋撞名害「分享出去多人玩」時常見/正典名號被別局佔走而創不了角）。
+  //   只擋【正典角色名】(避免與本局被種入的同名正典敵手雙胞胎)；想扮演正典請走「扮演正典御主」入口。省整表讀。
+  const _canonHit = (typeof SEED_MASTERS !== 'undefined' && SEED_MASTERS.some(m => m && m.name === userData.name))
+    || (typeof SEED_SERVANTS !== 'undefined' && SEED_SERVANTS.some(s => s && s.name === userData.name));
+  return JSON.stringify({ exists: _canonHit, canon: _canonHit, message: _canonHit ? `「${userData.name}」是聖杯戰爭中已知的英靈／御主——請另取名號，或用「扮演正典御主」入口。` : "" });
 }
 
 function actionGetFullStatus(userData, pcId, sheets) {

@@ -16,9 +16,14 @@ function actionManualNpc(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: "名號僅限中文字，不可使用英文、數字或符號。" });
   }
 
-  // 🔴 創角寫入前再次擋撞名，否則會產生兩個同名 PC，後續所有靠姓名查找的功能都會抓錯人。
-  const pcRows = sheets.pc.getDataRange().getValues();
-  if (pcRows.find(r => r[COL.PC.NAME] === finalName && !String(r[COL.PC.ID]).startsWith("DEAD_"))) return JSON.stringify({ success: false, message: "此名號已有魔術師使用，請換一個名號。" });
+  // 🔵 御主名號＝角色名（登入身分是「帳號名」·見 Account.gs）。2026-07 修：原本全表擋撞名——多帳號
+  //   共用一張表、game_id 實例化後，不同局的同名御主由 game_id＋faction 徹底分流（所有查找皆 game_id 內、
+  //   玩家御主永遠靠 pcId/ID 認人），跨局撞名無害；卻害「分享出去多人玩」時常見/正典名號被別局佔走而創不了角。
+  //   改為只擋【正典角色名】：避免自創御主與被種入本局的同名正典敵手變雙胞胎（同局內按名字查會歧義）；
+  //   想當正典角色請走「扮演正典御主」入口。用記憶體種子常數比對·順帶省掉一次整表讀。
+  const _canonHit = (typeof SEED_MASTERS !== 'undefined' && SEED_MASTERS.some(m => m && m.name === finalName))
+    || (typeof SEED_SERVANTS !== 'undefined' && SEED_SERVANTS.some(s => s && s.name === finalName));
+  if (_canonHit) return JSON.stringify({ success: false, message: `「${finalName}」是聖杯戰爭中已知的英靈／御主——自創御主請另取名號；若想扮演此角，請用「扮演正典御主」入口。` });
 
   // 🔵 實例化：御主創角 → 開一個全新 game_id 世界
   const gameId = "g_" + Date.now();
