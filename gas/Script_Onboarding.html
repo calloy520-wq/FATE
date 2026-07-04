@@ -468,7 +468,7 @@ function forgeEdit(id) {
     var raw = String((d.six || {})[k] || 'C').replace(/[+\-]/g, ''); // 舊資料可能帶 +/−·工房純階制→去修飾
     V('cf-six-' + k, /^(E|D|C|B|A|EX)$/.test(raw) ? raw : 'C');
   });
-  for (var i = 0; i < 3; i++) {
+  for (var i = 0; i < 4; i++) {
     var sk = (d.skills || [])[i] || {};
     V('cf-sk' + i + '-fx', sk.fx || '');
     var r = String(sk.r || 'C').replace(/[+\-]/g, ''); V('cf-sk' + i + '-r', /^(E|D|C|B|A)$/.test(r) ? r : 'C');
@@ -482,7 +482,7 @@ function forgeEdit(id) {
   V('cf-weapon', d.weapon); V('cf-look', d.look); V('cf-pref', d.pref);
   V('cf-align', d.align || '中立'); V('cf-fp', d.fp); V('cf-tomaster', d.toMaster);
   V('cf-speech', d.speech); V('cf-tic', d.tic); V('cf-moe', d.moe); V('cf-back', d.back);
-  for (var j = 0; j < 3; j++) refreshSkillBtn_(j); // 🎨 晶片鈕標籤跟上預填值
+  for (var j = 0; j < 4; j++) refreshSkillBtn_(j); // 🎨 晶片鈕標籤跟上預填值
   _skPickSlot = -1; renderSkillPick_();
   forgeMode('create'); // 從作品頁點修改→切回創造表單(已預填)
   forgeTab(2); // 編輯從主頁(靈基)開始看
@@ -529,11 +529,12 @@ function initForge_() {
       }).join('')
     + '</div>';
   // 🎨 技能選擇改晶片目錄(2026-07 玩家反饋「以為會好看點」)：每槽一鈕→點開兩欄晶片格(名稱+效果+價格)
+  // 🎰 第4欄(2026-07 玩家定案)：用到第4個技能才收+20欄位費(計「已用技能數>3」·與後端 parseForgeBuild_ 同規則)
   var h = '';
-  for (var i = 0; i < 3; i++) {
+  for (var i = 0; i < 4; i++) {
     h += '<div style="display:flex; gap:5px; margin-bottom:4px;">'
       + '<input type="hidden" id="cf-sk' + i + '-fx" value="">'
-      + '<button type="button" id="cf-sk' + i + '-btn" class="btn" style="flex:3; min-width:0; text-align:left; font-size:11.5px; padding:7px 8px; border-color:#3a4a5a; color:#8a96b0;" onclick="openSkillPick(' + i + ')">＋ 挑選效果標籤</button>'
+      + '<button type="button" id="cf-sk' + i + '-btn" class="btn" style="flex:3; min-width:0; text-align:left; font-size:11.5px; padding:7px 8px; border-color:#3a4a5a; color:#8a96b0;" onclick="openSkillPick(' + i + ')">' + (i === 3 ? '＋ 第4欄（帶滿4技+20點）' : '＋ 挑選效果標籤') + '</button>'
       + rankSel('cf-sk' + i + '-r', 'C', true)
       + '<input id="cf-sk' + i + '-n" class="std-in" maxlength="10" placeholder="改名(選填)" style="flex:2; min-width:0;">'
       + '</div>';
@@ -546,7 +547,7 @@ function initForge_() {
 var _skPickSlot = -1;
 function skillBtnLabel_(i) {
   var fx = document.getElementById('cf-sk' + i + '-fx').value;
-  if (!fx) return '＋ 挑選效果標籤';
+  if (!fx) return (i === 3 ? '＋ 第4欄（帶滿4技+20點）' : '＋ 挑選效果標籤');
   var e = FORGE_FX.find(function (o) { return o[0] === fx; });
   return '✨ ' + ((e ? e[1] : fx).split('（')[0]);
 }
@@ -627,18 +628,22 @@ function forgeBudget_() {
     var el = document.getElementById('cf-six-' + k); if (el) sum += FORGE_PTS[el.value] || 30;
   });
   // ⚡ 技能階級也用預算買(2026-07)：有 fx 效果的才計費(六圍半價)、純演出標籤免費；二元 fx 平價25
-  var skSum = 0;
-  for (var i = 0; i < 3; i++) {
+  var skSum = 0, usedSlots = 0;
+  for (var i = 0; i < 4; i++) {
     var fxEl = document.getElementById('cf-sk' + i + '-fx'), rEl = document.getElementById('cf-sk' + i + '-r');
+    var nEl = document.getElementById('cf-sk' + i + '-n');
+    if ((fxEl && fxEl.value) || (nEl && nEl.value.trim())) usedSlots++;
     if (fxEl && rEl && fxEl.value) skSum += FORGE_FLAT_FX[fxEl.value] || forgeSkPts_(fxEl.value)[rEl.value] || 15;
   }
-  sum += skSum;
+  var slotFee = usedSlots > 3 ? 20 : 0; // 🎰 帶滿4個技能才收欄位費(與後端 skills.length>3 同規則)
+  sum += skSum + slotFee;
   // 🌟 寶具規模也用預算買(2026-07)：對軍在規模矩陣對絕大多數對局×1.25、免費必人人選→標價 +20
   var scEl = document.getElementById('cf-np-scale');
   var scOn = scEl && scEl.value === '對軍';
   if (scOn) sum += 20;
   var parts = [];
   if (skSum) parts.push('技能+' + skSum);
+  if (slotFee) parts.push('第4欄+20');
   if (scOn) parts.push('對軍+20');
   var b = document.getElementById('cf-budget');
   if (b) { b.innerHTML = '已用 <b style="color:' + (sum > FORGE_BUDGET ? '#e06a6a' : '#8fd0a0') + ';">' + sum + '</b> / ' + FORGE_BUDGET + (parts.length ? ' <small style="color:#9a8bb0;">(含' + parts.join('·') + ')</small>' : ''); }
@@ -653,7 +658,7 @@ async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，�
   if (exN > 2) { alert('EX 至多 2 項（與種子英靈同規）。'); return; }
   var six = {}, skills = [];
   ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].forEach(function (k) { six[k] = document.getElementById('cf-six-' + k).value; });
-  for (var i = 0; i < 3; i++) {
+  for (var i = 0; i < 4; i++) {
     var fx = document.getElementById('cf-sk' + i + '-fx').value;
     var rn = (document.getElementById('cf-sk' + i + '-n').value || '').trim();
     if (!fx && !rn) continue; // 空槽跳過

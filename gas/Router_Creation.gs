@@ -300,7 +300,7 @@ var FORGE_CLS_SKILLS_ = {
   Assassin: [{ n: "氣息遮斷", r: "B", fx: "stealth" }], Berserker: [{ n: "狂化", r: "C", fx: "mad" }]
 };
 // 🛠️ 工房 build 解析＋全套驗證（單一真實來源：召喚 actionSummonServant build 分支 與 修改 actionUpdateHero 共用）。
-//   規格：預算340·六圍+技能+規模同一錢包(EX≤2)＋技能≤3(fx白名單·上限A·階級計價·二元平價·燕返60)＋規模計價(對軍+20)＋
+//   規格：預算340·六圍+技能+規模同一錢包(EX≤2)＋技能≤4(前3免欄位費·第4欄+20·fx白名單·上限A·三軌計價·二元平價·燕返60)＋規模計價(對軍+20)＋
 //   寶具名/描述剝高規模關鍵字＋正典名擋＋演出七欄清洗。回 {ok:false,message} 或 {ok:true,...欄位}。
 function parseForgeBuild_(build, reqCls) {
   const VALID_CLS = ["Saber", "Archer", "Lancer", "Rider", "Caster", "Assassin", "Berserker"];
@@ -330,7 +330,9 @@ function parseForgeBuild_(build, reqCls) {
   const spent = Object.keys(out.six).reduce((s, k) => s + rankVal(out.six[k]), 0);
   out.npScale = (String(build.npScale) === "對軍") ? "對軍" : "對人";
   const scaleCost = (out.npScale === "對軍") ? 20 : 0;
-  out.skills = (Array.isArray(build.skills) ? build.skills : []).filter(Boolean).slice(0, 3).map(s => {
+  // 🎰 第4技能欄(2026-07 玩家定案·欄位費+20)：壓力測試證實安全——預算才是真約束(第4技+20費逼六圍讓位)，
+  //   疊加上限±8 讓多買的命中/迴避冗餘；最壞情況四技組合(83~85%)皆未超過三技頂點(93%)。
+  out.skills = (Array.isArray(build.skills) ? build.skills : []).filter(Boolean).slice(0, 4).map(s => {
     const fx = ALLOWED_FX_[String(s && s.fx || "").trim()] ? String(s.fx).trim() : "";
     let r = String(s && s.r || "C").toUpperCase(); if (!/^(E|D|C|B|A)$/.test(r)) r = "C";
     return { n: String(s && s.n || "").replace(/[<>&"'`]/g, "").slice(0, 10) || "技能", r: r, fx: fx };
@@ -344,10 +346,11 @@ function parseForgeBuild_(build, reqCls) {
   const SKILL_TRACK_ = { aim: 1, petrify: 1, fast_cast: 1, divine_age: 1, territory: 1, ride: -1, wind_strike: -1, morale: -1 }; // 1=強效 -1=輕效 其餘標準
   // 二元平價(引擎不讀階級)：weapon_steal 對龍恆×1.5(2026-07 補洞：原階級計價可 E5 白撿)、god_slay 依【對方】神格縮放、lovespot 恆-1(風味價5)
   const FLAT_FX_ = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25, weapon_steal: 25, god_slay: 25, lovespot: 5 };
+  const slotFee = out.skills.length > 3 ? 20 : 0; // 🎰 第4欄啟用費(有第4個技能條目即收·純演出標籤也占欄)
   const skillCost = out.skills.reduce((s, k) => s + (k.fx ? (FLAT_FX_[k.fx] ||
-    (SKILL_TRACK_[k.fx] === 1 ? SKILL_PTS_BIG_ : SKILL_TRACK_[k.fx] === -1 ? SKILL_PTS_SMALL_ : SKILL_PTS_)[k.r] || 15) : 0), 0);
+    (SKILL_TRACK_[k.fx] === 1 ? SKILL_PTS_BIG_ : SKILL_TRACK_[k.fx] === -1 ? SKILL_PTS_SMALL_ : SKILL_PTS_)[k.r] || 15) : 0), slotFee);
   const total = spent + scaleCost + skillCost;
-  if (total > FORGE_BUDGET) return { ok: false, message: `六圍 ${spent}＋技能 ${skillCost}＋規模「${out.npScale}」${scaleCost ? `+${scaleCost}` : "0"} ＝ ${total}，超過預算 ${FORGE_BUDGET}——請調降六圍/技能階級或改對人規模。` };
+  if (total > FORGE_BUDGET) return { ok: false, message: `六圍 ${spent}＋技能 ${skillCost}${slotFee ? "(含第4欄+20)" : ""}＋規模「${out.npScale}」${scaleCost ? `+${scaleCost}` : "0"} ＝ ${total}，超過預算 ${FORGE_BUDGET}——請調降六圍/技能階級或改對人規模。` };
   out.classSkills = FORGE_CLS_SKILLS_[out.cls] || [];
   out.npName = String(build.npName || "").replace(/[<>&"'`]/g, "").replace(/【常駐寶具】|對城|對界|對神/g, "").trim().slice(0, 20) || "無名寶具";
   out.npR = out.six["寶具"]; // 顯示階＝六圍寶具階(引擎本就只吃 six.寶具)
