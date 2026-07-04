@@ -273,10 +273,20 @@ function actionGetFullStatus(userData, pcId, sheets) {
 function actionUpdateFate(userData, pcId, sheets) {
   const { targetId, fateType, fateValue } = userData;
   let pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] === targetId);
+  // 🔧 2026-07 修：從者狀態(📜 狀態鈕)開的 openStatus 傳的是【名字】非 ID(currentStatusTargetId=名)——
+  //   原本只比對 r.ID===targetId，對從者改命恆「查無此人」。改成【ID 或 同行從者名字】皆可、限本局
+  //   game_id(防跨局撞名／名字誤中敵方非同行者)。御主自己走 ID 分支照舊。
+  const me = pcData.find(r => r[COL.PC.ID] == pcId);
+  const myGameId = me ? String(me[COL.PC.GAME_ID] || "") : "";
+  const pIdx = pcData.findIndex(r => {
+    if (String(r[COL.PC.ID]).startsWith("DEAD_")) return false;
+    if (myGameId && String(r[COL.PC.GAME_ID] || "") !== myGameId) return false;
+    if (r[COL.PC.ID] == targetId) return true; // ID 直配（御主自己／舊路徑）
+    return String(r[COL.PC.NAME]) === String(targetId) && String(r[COL.PC.IS_PARTY] || "") === "同行"; // 名字配·限同行從者
+  });
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
 
-  if (targetId !== pcId) {
+  if (String(pcData[pIdx][COL.PC.ID]) != String(pcId)) {
     // 2026-07：關係併入眾生列，直接看這名角色自己的 IS_PARTY 欄。
     if (String(pcData[pIdx][COL.PC.IS_PARTY] || "") !== "同行") {
       return JSON.stringify({ success: false, message: `僅能對同行的從者逆天改命！` });
