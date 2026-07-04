@@ -295,7 +295,7 @@ var FORGE_CLS_SKILLS_ = {
   Assassin: [{ n: "氣息遮斷", r: "B", fx: "stealth" }], Berserker: [{ n: "狂化", r: "C", fx: "mad" }]
 };
 // 🛠️ 工房 build 解析＋全套驗證（單一真實來源：召喚 actionSummonServant build 分支 與 修改 actionUpdateHero 共用）。
-//   規格：六圍預算270(EX≤2)＋技能≤3(fx白名單·上限A·階級計價·二元平價·燕返60)＋規模計價(對軍+20)＋
+//   規格：預算340·六圍+技能+規模同一錢包(EX≤2)＋技能≤3(fx白名單·上限A·階級計價·二元平價·燕返60)＋規模計價(對軍+20)＋
 //   寶具名/描述剝高規模關鍵字＋正典名擋＋演出七欄清洗。回 {ok:false,message} 或 {ok:true,...欄位}。
 function parseForgeBuild_(build, reqCls) {
   const VALID_CLS = ["Saber", "Archer", "Lancer", "Rider", "Caster", "Assassin", "Berserker"];
