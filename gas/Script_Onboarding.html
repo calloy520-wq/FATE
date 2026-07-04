@@ -528,18 +528,22 @@ function initForge_() {
           + rankSel('cf-six-' + k, 'E', false).replace('style="flex:1; min-width:0;"', 'style="width:100%; box-sizing:border-box; padding:6px 2px; text-align:center;"') + '</div>';
       }).join('')
     + '</div>';
-  // 🎨 技能選擇改晶片目錄(2026-07 玩家反饋「以為會好看點」)：每槽一鈕→點開兩欄晶片格(名稱+效果+價格)
-  // 🎰 第4欄(2026-07 玩家定案)：用到第4個技能才收+20欄位費(計「已用技能數>3」·與後端 parseForgeBuild_ 同規則)
-  var h = '';
+  // 🎨 技能槽 2×2 卡片格(2026-07 玩家反饋「手機的極限太長」)：每槽=小卡(效果鈕在上·階級+改名在下)，
+  //   四槽兩欄兩列·高度砍半。🎰 第4欄+20 費照「已用技能數>3」計(與後端 parseForgeBuild_ 同規則)。
+  var h = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:5px;">';
   for (var i = 0; i < 4; i++) {
-    h += '<div style="display:flex; gap:5px; margin-bottom:4px;">'
+    h += '<div style="border:1px solid #2e3a4e; border-radius:8px; padding:5px; min-width:0;">'
       + '<input type="hidden" id="cf-sk' + i + '-fx" value="">'
-      + '<button type="button" id="cf-sk' + i + '-btn" class="btn" style="flex:3; min-width:0; text-align:left; font-size:11.5px; padding:7px 8px; border-color:#3a4a5a; color:#8a96b0;" onclick="openSkillPick(' + i + ')">' + (i === 3 ? '＋ 第4欄（帶滿4技+20點）' : '＋ 挑選效果標籤') + '</button>'
+      + '<button type="button" id="cf-sk' + i + '-btn" class="btn" style="width:100%; box-sizing:border-box; min-width:0; text-align:left; font-size:11px; padding:6px 7px; border-color:#3a4a5a; color:#8a96b0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" onclick="openSkillPick(' + i + ')">' + (i === 3 ? '＋ 第4欄(+20點)' : '＋ 挑選效果') + '</button>'
+      + '<div style="display:flex; gap:4px; margin-top:4px;">'
       + rankSel('cf-sk' + i + '-r', 'C', true)
-      + '<input id="cf-sk' + i + '-n" class="std-in" maxlength="10" placeholder="改名(選填)" style="flex:2; min-width:0;">'
-      + '</div>';
+      + '<input id="cf-sk' + i + '-n" class="std-in" maxlength="10" placeholder="改名" style="flex:2; min-width:0;">'
+      + '</div></div>';
   }
-  h += '<div id="cf-skpick" style="display:none; margin-top:4px; padding:7px; background:rgba(20,26,40,.55); border:1px solid rgba(110,140,200,.3); border-radius:8px; max-height:46vh; overflow-y:auto; -webkit-overflow-scrolling:touch;"></div>'; // 📏 限高內捲(2026-07 玩家反饋「最下面看不到」)：晶片在面板內滑·頁面不再被撐爆
+  h += '</div>';
+  // 📌 效果目錄=釘在螢幕底部的浮層(2026-07 玩家反饋「展開又把頁面撐爆」)：fixed 定位不佔頁面高度，
+  //   內部照舊 48vh 內捲·手風琴分組；選晶片/按✕即收。
+  h += '<div id="cf-skpick" style="display:none; position:fixed; left:10px; right:10px; bottom:10px; z-index:80; padding:8px; background:rgba(14,18,30,.97); border:1px solid rgba(110,140,200,.45); border-radius:10px; max-height:48vh; overflow-y:auto; -webkit-overflow-scrolling:touch; box-shadow:0 -6px 24px rgba(0,0,0,.5);"></div>';
   document.getElementById('cf-skills').innerHTML = h;
   forgeBudget_();
 }
@@ -547,7 +551,7 @@ function initForge_() {
 var _skPickSlot = -1;
 function skillBtnLabel_(i) {
   var fx = document.getElementById('cf-sk' + i + '-fx').value;
-  if (!fx) return (i === 3 ? '＋ 第4欄（帶滿4技+20點）' : '＋ 挑選效果標籤');
+  if (!fx) return (i === 3 ? '＋ 第4欄(+20點)' : '＋ 挑選效果');
   var e = FORGE_FX.find(function (o) { return o[0] === fx; });
   return '✨ ' + ((e ? e[1] : fx).split('（')[0]);
 }
@@ -577,10 +581,9 @@ function openSkillPick(i) {
     var cur = document.getElementById('cf-sk' + _skPickSlot + '-fx').value;
     if (cur) FORGE_FX_GROUPS.forEach(function (g, gi) { if (g.items.some(function (o) { return o[0] === cur; })) _skPickGroup = gi; });
   }
-  renderSkillPick_();
-  var box = document.getElementById('cf-skpick');
-  if (box && _skPickSlot >= 0) setTimeout(function () { try { box.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) { box.scrollIntoView(); } }, 30);
+  renderSkillPick_(); // 📌 浮層固定於螢幕底·免捲動對位(原 scrollIntoView 已不需要)
 }
+function closeSkillPick() { _skPickSlot = -1; renderSkillPick_(); }
 function toggleSkillGroup(gi) {
   _skPickGroup = (_skPickGroup === gi) ? -1 : gi;
   renderSkillPick_();
@@ -603,7 +606,8 @@ function renderSkillPick_() {
   };
   box.style.display = 'block';
   // 🪗 手風琴(2026-07 玩家反饋「太長」)：無效果晶片＋七組標題列，點組才展開晶片、一次只開一組
-  var hx = '<div style="color:#8fb0e8; font-size:11px; margin:1px 0 5px;">技能 ' + (_skPickSlot + 1) + '：先挑分類再挑效果（名字可自取·同效者擇一）</div>'
+  var hx = '<div style="display:flex; align-items:center; margin:1px 0 5px;"><span style="flex:1; color:#8fb0e8; font-size:11px;">技能 ' + (_skPickSlot + 1) + '：先挑分類再挑效果（名字可自取·同效者擇一）</span>'
+    + '<button type="button" onclick="closeSkillPick()" style="border:1px solid #3a4a5a; background:none; color:#8a96b0; border-radius:6px; padding:2px 9px; font-size:12px; cursor:pointer;">✕</button></div>'
     + '<div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-bottom:5px;">' + chip(FORGE_FX[0]) + '</div>';
   FORGE_FX_GROUPS.forEach(function (g, gi) {
     var open = (gi === _skPickGroup);
