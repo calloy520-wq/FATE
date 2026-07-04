@@ -454,6 +454,8 @@ function forgeEdit(id) {
   V('cf-weapon', d.weapon); V('cf-look', d.look); V('cf-pref', d.pref);
   V('cf-align', d.align || '中立'); V('cf-fp', d.fp); V('cf-tomaster', d.toMaster);
   V('cf-speech', d.speech); V('cf-tic', d.tic); V('cf-moe', d.moe); V('cf-back', d.back);
+  for (var j = 0; j < 3; j++) refreshSkillBtn_(j); // 🎨 晶片鈕標籤跟上預填值
+  _skPickSlot = -1; renderSkillPick_();
   forgeMode('create'); // 從作品頁點修改→切回創造表單(已預填)
   forgeTab(2); // 編輯從主頁(靈基)開始看
   forgeBudget_();
@@ -489,16 +491,59 @@ function initForge_() {
           + rankSel('cf-six-' + k, 'C', false).replace('style="flex:1; min-width:0;"', 'style="width:100%; box-sizing:border-box; padding:6px 2px; text-align:center;"') + '</div>';
       }).join('')
     + '</div>';
-  var fxOpts = FORGE_FX.map(function (o) { return opt(o[0], o[1]); }).join('');
+  // 🎨 技能選擇改晶片目錄(2026-07 玩家反饋「以為會好看點」)：每槽一鈕→點開兩欄晶片格(名稱+效果+價格)
   var h = '';
   for (var i = 0; i < 3; i++) {
     h += '<div style="display:flex; gap:5px; margin-bottom:4px;">'
-      + '<select id="cf-sk' + i + '-fx" class="std-in" style="flex:3; min-width:0;" onchange="forgeBudget_()">' + fxOpts + '</select>'
+      + '<input type="hidden" id="cf-sk' + i + '-fx" value="">'
+      + '<button type="button" id="cf-sk' + i + '-btn" class="btn" style="flex:3; min-width:0; text-align:left; font-size:11.5px; padding:7px 8px; border-color:#3a4a5a; color:#8a96b0;" onclick="openSkillPick(' + i + ')">＋ 挑選效果標籤</button>'
       + rankSel('cf-sk' + i + '-r', 'C', true)
       + '<input id="cf-sk' + i + '-n" class="std-in" maxlength="10" placeholder="改名(選填)" style="flex:2; min-width:0;">'
       + '</div>';
   }
+  h += '<div id="cf-skpick" style="display:none; margin-top:4px; padding:7px; background:rgba(20,26,40,.55); border:1px solid rgba(110,140,200,.3); border-radius:8px;"></div>';
   document.getElementById('cf-skills').innerHTML = h;
+  forgeBudget_();
+}
+// 🎨 技能晶片目錄：openSkillPick(槽)→兩欄格；pickSkillFx→寫值/換鈕標籤/計價/收合
+var _skPickSlot = -1;
+function skillBtnLabel_(i) {
+  var fx = document.getElementById('cf-sk' + i + '-fx').value;
+  if (!fx) return '＋ 挑選效果標籤';
+  var e = FORGE_FX.find(function (o) { return o[0] === fx; });
+  return '✨ ' + ((e ? e[1] : fx).split('（')[0]);
+}
+function refreshSkillBtn_(i) {
+  var b = document.getElementById('cf-sk' + i + '-btn');
+  if (!b) return;
+  var has = !!document.getElementById('cf-sk' + i + '-fx').value;
+  b.innerText = skillBtnLabel_(i);
+  b.style.color = has ? '#bfe3ff' : '#8a96b0';
+  b.style.borderColor = has ? '#4e92c0' : '#3a4a5a';
+}
+function openSkillPick(i) { _skPickSlot = (_skPickSlot === i) ? -1 : i; renderSkillPick_(); }
+function renderSkillPick_() {
+  var box = document.getElementById('cf-skpick'); if (!box) return;
+  if (_skPickSlot < 0) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  var cur = document.getElementById('cf-sk' + _skPickSlot + '-fx').value;
+  box.style.display = 'block';
+  box.innerHTML = '<div style="color:#8fb0e8; font-size:11px; margin:1px 0 5px;">技能 ' + (_skPickSlot + 1) + '：挑一個效果（有效果才計價·名字可自取）</div>'
+    + '<div style="display:grid; grid-template-columns:1fr 1fr; gap:4px;">'
+    + FORGE_FX.map(function (o) {
+        var name = o[1].split('（')[0] || '（無效果）';
+        var hint = (o[1].match(/（(.*)）/) || [])[1] || '純演出標籤';
+        var price = !o[0] ? '免費' : (FORGE_FLAT_FX[o[0]] ? ('固定 ' + FORGE_FLAT_FX[o[0]] + ' 點') : '依階 5~25 點');
+        var on = (o[0] === cur);
+        return '<button type="button" onclick="pickSkillFx(\'' + o[0] + '\')" style="text-align:left; padding:6px 7px; border-radius:7px; cursor:pointer; border:1px solid ' + (on ? 'var(--gold-accent)' : '#3a4a5a') + '; background:' + (on ? 'rgba(212,175,55,.12)' : 'rgba(30,38,52,.4)') + '; color:' + (on ? 'var(--gold-accent)' : '#c8d4e0') + ';">'
+          + '<b style="font-size:11.5px;">' + name + '</b><br><small style="font-size:9.5px; color:#8a96b0;">' + hint + '｜' + price + '</small></button>';
+      }).join('')
+    + '</div>';
+}
+function pickSkillFx(fx) {
+  if (_skPickSlot < 0) return;
+  document.getElementById('cf-sk' + _skPickSlot + '-fx').value = fx;
+  refreshSkillBtn_(_skPickSlot);
+  _skPickSlot = -1; renderSkillPick_();
   forgeBudget_();
 }
 function forgeBudget_() {
