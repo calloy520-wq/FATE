@@ -338,24 +338,37 @@ function fxDmgApply_(base, winner, loser, fx, fired) {
 var DEF_FX_ = {
   territory: { mul: function (r) { return 1 - 0.26 * r; }, zh: '陣地', note: '·魔術防壁', pierceKey: 'territory', guardPositive: true, piercedMsg: function (w) { return w.name + '·概念壓制(碾穿結界)'; } },
   home_field: { mul: function (r) { return 1 - 0.16 * r; }, zh: '主場陣地結界', pierceKey: 'territory', guardPositive: true, piercedMsg: function (w) { return w.name + '·概念壓制(碾穿主場結界)'; } },
-  rho_aias: { mul: function (r) { return 1 - 0.40 * r; }, zh: '概念護盾', pierceKey: 'rho_aias' }, // note 拿掉：顯示持有者自己的技能名(EMIYA 七天盾/貞德 守護大旗)，防張冠李戴
+  // 🛡️ 七天盾(2026-07 玩家定案改制)：npOnly＝只對【寶具解放】的一擊反應性投影(普攻不勞七層花瓣·不減傷)；
+  //   mana＝每次展開的費用——玩家側由呼叫端注入 _shieldMp(御主純魔)扣款、付不起張不開；敵方側無注入＝免費
+  //   (沿用「敵AI主動技免費·視為戰鬥本色」慣例)。改制動機：常駐盾+燕返組合經模擬證實普攻流對全池100%勝率。
+  rho_aias: { mul: function (r) { return 1 - 0.40 * r; }, zh: '概念護盾', pierceKey: 'rho_aias', npOnly: true, mana: 30 }, // note 拿掉：顯示持有者自己的技能名(EMIYA 七天盾/貞德 守護大旗)，防張冠李戴
   divine_core: { mul: function (r) { return 1 - 0.18 * r; }, zh: '神核', pierceKey: 'divine_core', alsoPiercedByFx: 'anti_magic_lance', piercedMsg: function (w) { return w.name + '·' + (hasFx_(w, 'anti_magic_lance') ? '破魔(無視神核)' : '概念壓制(無視神核)'); } },
   wall_def: { mul: function (r) { return 1 - 0.18 * r; }, zh: '城牆防禦', note: '(物理減傷，依階級)', pierceKey: 'territory', physicalOnly: true }
 };
-// 🛡 套用防禦減傷（敗方持有 fx 時）：pierces＝概念貫穿判定函式；atkMagic＝本擊是否魔術系。回新 base。
-function fxDefApply_(base, loser, winner, fx, pierces, atkMagic, fired) {
+// 🛡 套用防禦減傷（敗方持有 fx 時）：pierces＝概念貫穿判定函式；atkMagic＝本擊是否魔術系；
+//   npStrike＝本擊是否【攻方寶具解放】(npOnly 防禦如七天盾只對這種擊反應)。回新 base。
+function fxDefApply_(base, loser, winner, fx, pierces, atkMagic, fired, npStrike) {
   var e = DEF_FX_[fx], rk = e && hasFx_(loser, fx);
   if (!e || !rk) return base;
   if (e.physicalOnly && atkMagic) return base; // 魔術系攻擊穿透物理牆·無減傷無訊息
+  if (e.npOnly && !npStrike) return base; // 🛡️ 對寶具限定(七天盾)：普通攻擊不勞投影——不減傷、不觸發、不收費
   if (pierces(e.pierceKey) || (e.alsoPiercedByFx && hasFx_(winner, e.alsoPiercedByFx))) {
     if (e.piercedMsg) fired.push(e.piercedMsg(winner)); // 被貫穿/破魔→減傷失效
     return base;
+  }
+  // 💠 展開費用(e.mana)：僅當呼叫端注入 loser._shieldMp(玩家側·御主純魔) 才收費——付不起→張不開；
+  //   引擎只記帳(_shieldSpent)，實際落表由呼叫端 settleShieldMana_ 統一結算。敵方無注入＝免費觸發。
+  var paidNote = '';
+  if (e.mana && loser._shieldMp != null) {
+    if (loser._shieldMp < e.mana) { fired.push(loser.name + '·魔力不足·' + fxName_(loser, fx, e.zh) + '未能展開'); return base; }
+    loser._shieldMp -= e.mana; loser._shieldSpent = (loser._shieldSpent || 0) + e.mana;
+    paidNote = '（御主耗' + e.mana + '魔展開）';
   }
   // ⚠ 下限 clamp：mul 係數×rankMul>1 時(如未來有人給 rho_aias 掛超過 EX+ 的階級)會算出負乘子→
   //   負傷害→打人變補血。現行持有者皆不可達，純結構性防呆。
   var m = Math.max(0, (typeof e.mul === 'function') ? e.mul(rankMul_(rk)) : e.mul);
   var pre = base; base = Math.round(base * m);
-  if (!e.guardPositive || pre > 0) fired.push(loser.name + '·' + fxName_(loser, fx, e.zh) + (e.note || ''));
+  if (!e.guardPositive || pre > 0) fired.push(loser.name + '·' + fxName_(loser, fx, e.zh) + (e.note || '') + paidNote);
   return base;
 }
 
@@ -750,14 +763,18 @@ function resolveFateBattle_(atk, def, opts) {
   //   而非光憑持有 burst——否則沒發動時只吃對魔力減傷卻無 burst 增益，全是壞處。
   var burstFired = !!(opts.skill && opts.skill.id === 'burst' && !opts.skill.tiny && winner === atk);
   var atkMagic = (wProf.dmg === '魔力') || burstFired || !!hasFx_(winner, 'divine_age');
+  // ⚡ 「本擊是否寶具解放」（npOnly 防禦的觸發判定）：opts.np 且勝方＝解放者本人才算——
+  //   守方反殺(winner=def)時敗方吃到的是普通反擊，七天盾不對其反應。
+  var npStrike = !!(opts.np && winner === atk);
   // 守方減傷：耐久（階級）
   base -= Math.round(rankVal(loser.six["耐久"]) / 2);
   // 🛡️ 陣地作成(territory)：法師以魔術防壁／結界減傷，補償其低耐久（救玻璃大砲美狄亞的存活）
-  base = fxDefApply_(base, loser, winner, 'territory', pierces, atkMagic, fired);
+  base = fxDefApply_(base, loser, winner, 'territory', pierces, atkMagic, fired, npStrike);
   // 🏰 主場·陣地結界(home_field)：於自己佈設的陣地決戰時全隊額外減傷（隨陣地作成階·引敵入陣地的主場優勢）
-  base = fxDefApply_(base, loser, winner, 'home_field', pierces, atkMagic, fired);
-  // 🛡️ 七天盾·羅·埃亞斯(rho_aias／EMIYA)：投影卡帕涅烏斯之盾，七層花瓣硬擋重擊；遭超位階概念(ea等)貫穿則失效
-  base = fxDefApply_(base, loser, winner, 'rho_aias', pierces, atkMagic, fired);
+  base = fxDefApply_(base, loser, winner, 'home_field', pierces, atkMagic, fired, npStrike);
+  // 🛡️ 七天盾·羅·埃亞斯(rho_aias／EMIYA)：對【寶具解放】的一擊反應性投影卡帕涅烏斯之盾，七層花瓣硬擋——
+  //   普攻不觸發；玩家側每次展開耗御主30魔(見 DEF_FX_.rho_aias)；遭超位階概念(ea等)貫穿則失效
+  base = fxDefApply_(base, loser, winner, 'rho_aias', pierces, atkMagic, fired, npStrike);
   // 🦠 對瘟疫抗性：攻方為「疫病」(蒼白騎兵)時，守方持高魔抗(對魔力≥B·詛咒防護)或神性(神之加護)者抵抗疾病，傷害減半。
   //   ★唯「病死宿命」之敵(恩奇都)不適用——其宿命之死無可逃避(上方已 ×3 概念碾壓)。
   if (!plagueDoom && (winner.traits || []).some(function (t) { return t && /疫病/.test(String(t.n)); })) {
@@ -773,7 +790,7 @@ function resolveFateBattle_(atk, def, opts) {
   var rnW = hasFx_(winner, 'rune');
   if (rnW && winner.runeMode === 'dmg') { base += Math.round(10 * rankMul_(rnW)); fired.push(winner.name + '·' + fxName_(winner, 'rune', '原初符文') + '(符文灼擊·增傷)'); }
   // 神核(divine_core)：減傷 18%×階級；但破魔薔薇(anti_magic_lance)等高位階概念無視神核護甲
-  base = fxDefApply_(base, loser, winner, 'divine_core', pierces, atkMagic, fired);
+  base = fxDefApply_(base, loser, winner, 'divine_core', pierces, atkMagic, fired, npStrike);
   // 對魔力(nullify_magic)：攻方為魔術系(法師魔砲/魔力放出/神代)時大減魔術傷。
   //   ★原作精髓：A 階對魔力幾乎無視現代魔術——Saber 對 Caster 的魔砲僅如清風拂面。
   //   但神代魔術(神祖之術)凌駕現代對魔力＝完全無視(美狄亞的本領)；概念壓制亦無視。
@@ -792,7 +809,7 @@ function resolveFateBattle_(atk, def, opts) {
     fired.push(loser.name + '·' + fxName_(loser, 'nullify_magic', '對魔力') + (daWin ? '(神代凌駕·殘三成)' : (nmV >= 50 ? '(無視魔術)' : '')));
   }
   // 🧱 城牆防禦(wall_def)：法師以魔術城牆隔絕物理衝擊，補償 Caster 低耐久（僅擋物理；魔術系傷害穿透）
-  base = fxDefApply_(base, loser, winner, 'wall_def', pierces, atkMagic, fired);
+  base = fxDefApply_(base, loser, winner, 'wall_def', pierces, atkMagic, fired, npStrike);
   // ✨ 禮裝被動加持·承受寶具減傷（如全世界之鞘 ×0.82／月靈髓液攻防一體 ×0.88）：被動恆常生效，不受概念壓制
   var mcLose = mcCombatFx_(loser);
   if (mcLose && opts.np && mcLose.npDefMul && mcLose.npDefMul !== 1) { base = Math.round(base * mcLose.npDefMul); fired.push(loser.name + '·禮裝「' + mcLose.label + '」(寶具減傷×' + mcLose.npDefMul + ')'); }

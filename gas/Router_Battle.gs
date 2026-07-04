@@ -9,11 +9,25 @@
 // ⚔️ 單次出擊裁決：atkC 攻擊 pcData[tgtIdx]。命中才扣血（未中＝撲空、不自傷）。
 //   處理破戒/戰鬥續行/令咒緊急脫離/十二試煉復活/死亡(敵→勝利判定；我→敗北)。
 //   opts:{np,seal,counterMul}　ctx:{myGameId,pIdx,userData}
+// 💠 「展開扣魔」防禦(七天盾)的帳單結算：引擎(fxDefApply_)只在呼叫端注入 c._shieldMp(御主純魔)時
+//   才收費並記帳於 c._shieldSpent，此處統一從御主純魔扣款落表。冪等：結算後清 _shieldSpent，重呼不重扣。
+function settleShieldMana_(sheets, pcData, masterIdx, c) {
+  var spent = c && c._shieldSpent;
+  if (!spent || masterIdx == null || masterIdx < 0) return;
+  pcData[masterIdx][COL.PC.MP] = Math.max(0, (parseInt(pcData[masterIdx][COL.PC.MP]) || 0) - spent);
+  sheets.pc.getRange(masterIdx + 1, COL.PC.MP + 1).setValue(pcData[masterIdx][COL.PC.MP]);
+  c._shieldSpent = 0;
+}
+
 function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   opts = opts || {};
   var defC = rowToCombatant_(pcData[tgtIdx]);
-  // ✨ 我方從者作守方時也吃御主禮裝被動（防禦端：如全世界之鞘承受寶具減傷）
-  if (String(pcData[tgtIdx][COL.PC.FACTION]) === "從者" && ctx && ctx.pIdx >= 0) { injectMysticBuff_(defC, pcData[ctx.pIdx][COL.PC.MEMORY]); injectHomeField_(defC, ctx && ctx.homeField); }
+  // ✨ 我方從者作守方時也吃御主禮裝被動（防禦端：如全世界之鞘承受寶具減傷）＋
+  //   💠 注入御主純魔作「展開扣魔」防禦(七天盾)的付費額度——引擎付不起就張不開
+  if (String(pcData[tgtIdx][COL.PC.FACTION]) === "從者" && ctx && ctx.pIdx >= 0) {
+    injectMysticBuff_(defC, pcData[ctx.pIdx][COL.PC.MEMORY]); injectHomeField_(defC, ctx && ctx.homeField);
+    defC._shieldMp = parseInt(pcData[ctx.pIdx][COL.PC.MP]) || 0;
+  }
   // 🍱 整備·進食加成：御主一行戰前整備過、且尚在效期內 → 從者出擊命中 +MEAL_BUFF_BONUS。
   //   ⚠ 只屬於【我方陣營的出擊】——目標是我方從者＝攻擊者是敵人，不吃玩家的餐(2026-07 修「敵人蹭飯」)；
   //   盟友助攻亦非御主一行，呼叫端以 opts.noMeal 排除。
@@ -23,6 +37,8 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   }
   // ❖ 令咒必中(opts.seal)已改在 resolveFateBattle_ 內部定生死(damage 屬於攻方)——勿在此事後翻 atkWins(2026-07 根源修)。
   var r = resolveFateBattle_(atkC, defC, { np: !!opts.np, seal: !!opts.seal, skill: opts.skill || null, ambush: !!opts.ambush, mealBuff: mealOn ? MEAL_BUFF_BONUS : 0 });
+  // 💠 七天盾展開費結算（引擎已判付得起才展開；僅玩家側從者有 _shieldMp 會產生帳單）
+  settleShieldMana_(sheets, pcData, ctx ? ctx.pIdx : -1, defC);
   // 🌟 寶具對轟結算傷害：傷害已由對轟裁決算好，此處只借 fateStrike_ 套用「死亡/勝負/復活/令咒脫離」全套後續邏輯
   if (opts.forceDamage != null) { r.atkWins = true; r.damage = Math.max(0, Math.round(opts.forceDamage)); r.crit = ''; }
   var out = {
@@ -673,7 +689,10 @@ function actionFateBattle(userData, pcId, sheets) {
       // ⚠ 2026-07 修：敵方火力取樣原本漏帶 skill——單層歸屬後 burst/str_up/projection 已是主動 only，
       //   敵反擊(:918)/夜襲(Router_Movement)都有補 servantActiveSkill_(敵AI恆全效免費·戰鬥本色)，
       //   唯獨這裡漏掉，導致持這三技的敵從者在開場對轟火力系統性偏低、天秤偏向玩家。
+      // 💠 對轟中敵寶具轟向我方從者＝七天盾的正戲：注入御主純魔供其展開(削 ePow)，取樣後立即結算費用
+      atkC._shieldMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
       const ePow = resolveFateBattle_(enemyC0, atkC, { np: true, skill: servantActiveSkill_(enemyC0), forceHit: true }).damage;
+      settleShieldMana_(sheets, pcData, pIdx, atkC);
       // ⚡ 對轟裁決(2026-07 重構)：四層特例(雙向因果律/輸方保1/pLethal)收進 Engine_Fate.gs 的
       //   純函式 resolveNpClash_(單一優先序階梯·battle_sim 可單元測試)，這裡只做 I/O：
       //   取樣火力→拿決策→落傷。優先序/數值與重構前完全一致。

@@ -93,6 +93,7 @@ function actionMove(userData, pcId, sheets) {
       if (psvIdxM !== -1) {
         var psvC = rowToCombatant_(allPcData[psvIdxM]);
         try { injectMysticBuff_(psvC, allPcData[pIdx][COL.PC.MEMORY]); } catch (e) { } // ✨ 逃跑時也吃御主禮裝(如 Avalon 承受寶具減傷)
+        psvC._shieldMp = parseInt(allPcData[pIdx][COL.PC.MP]) || 0; // 💠 背擊寶具＝七天盾可展開(扣魔)，付不起張不開
         var psvAgi = rankVal(psvC.six['敏捷'] || 'C');
         var psvHp = parseInt(allPcData[psvIdxM][COL.PC.HP]) || 0, psvMax = parseInt(allPcData[psvIdxM][COL.PC.MAX_HP]) || 1;
         // 🔮 預告寶具·背後傾瀉：離場格若有敵人正「寶具預告」蓄勢中 → 朝你退卻的背影傾瀉充能寶具＝NP 級臨別重擊
@@ -122,6 +123,7 @@ function actionMove(userData, pcId, sheets) {
             var teleProb = 0.85 - (hasFx_(psvC, 'ride') ? 0.15 : 0);
             if (Math.random() < teleProb) {
               var prT = resolveFateBattle_(foeC2, psvC, { np: true });
+              settleShieldMana_(sheets, allPcData, pIdx, psvC); // 💠 七天盾展開費結算(引擎已判付得起才展開)
               if (prT.atkWins) {
                 pursuit = { enemyName: teleName, chaserId: String(teleFoe[COL.PC.ID]), dmg: Math.max(1, prT.damage), hitWho: 'us', np: true,
                   note: '「' + teleName + '」蓄勢已久的真名解放朝你退卻的背影轟然傾瀉——這一擊的代價，是逃離強敵的必然。' };

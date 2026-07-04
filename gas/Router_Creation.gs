@@ -221,7 +221,7 @@ var ALLOWED_FX_ = {
 var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應就填空字串\"\"（頂級概念寶具 乖離劍/王之財寶/無限劍製 等為種子專屬、不在此清單）：" +
   "對魔力=nullify_magic、直感=first_strike、心眼=analyze、千里眼=aim、怪力=str_up、魔力放出=burst、投影魔術=projection、" +
   "高速詠唱=fast_cast、道具作成=crafting、騎乘=ride、氣息遮斷=stealth、變化(迴避+)=shapeshift、避矢=evade_ranged、" +
-  "戰鬥續行=survive、單獨行動=solo、神核=divine_core、七天盾(投影減傷)=rho_aias、陣地作成(減傷)=territory、城牆防禦(物理減傷)=wall_def、" +
+  "戰鬥續行=survive、單獨行動=solo、神核=divine_core、七天盾(對寶具展開·投影減傷·御主耗魔)=rho_aias、陣地作成(減傷)=territory、城牆防禦(物理減傷)=wall_def、" +
   "狂化=mad、勇猛/卡里斯瑪=morale、神代魔術=divine_age、無欲(封先機)=unreadable、透化(免威壓)=clear_mind、" +
   "自我改造(命中傷害+)=self_mod、軍略(寶具+)=tactics、風王鐵鎚(傷+)=wind_strike、魔眼(石化)=petrify、必中槍=gae_bolg、" +
   "秘劍燕返(普攻/寶具皆強化)=tsubame、妄想心音(暗殺致命)=zabaniya、無毀湖光(對龍+)=weapon_steal、治癒(每回合回血)=regen、不死復活(復活3次·如尼祿三度輝映)=god_hand、" +
@@ -295,7 +295,7 @@ var FORGE_CLS_SKILLS_ = {
   Assassin: [{ n: "氣息遮斷", r: "B", fx: "stealth" }], Berserker: [{ n: "狂化", r: "C", fx: "mad" }]
 };
 // 🛠️ 工房 build 解析＋全套驗證（單一真實來源：召喚 actionSummonServant build 分支 與 修改 actionUpdateHero 共用）。
-//   規格：預算340·六圍+技能+規模同一錢包(EX≤2)＋技能≤3(fx白名單·上限A·階級計價·二元平價·燕返60)＋規模計價(對軍+20)＋
+//   規格：預算340·六圍+技能+規模同一錢包(EX≤2)＋技能≤3(fx白名單·上限A·階級計價·二元平價·燕返100)＋規模計價(對軍+20)＋
 //   寶具名/描述剝高規模關鍵字＋正典名擋＋演出七欄清洗。回 {ok:false,message} 或 {ok:true,...欄位}。
 function parseForgeBuild_(build, reqCls) {
   const VALID_CLS = ["Saber", "Archer", "Lancer", "Rider", "Caster", "Assassin", "Berserker"];
@@ -331,7 +331,7 @@ function parseForgeBuild_(build, reqCls) {
     return { n: String(s && s.n || "").replace(/[<>&"'`]/g, "").slice(0, 10) || "技能", r: r, fx: fx };
   });
   const SKILL_PTS_ = { E: 5, D: 10, C: 15, B: 20, A: 25 };
-  const FLAT_FX_ = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25 };
+  const FLAT_FX_ = { god_hand: 25, survive: 25, tsubame: 100, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25 };
   const skillCost = out.skills.reduce((s, k) => s + (k.fx ? (FLAT_FX_[k.fx] || SKILL_PTS_[k.r] || 15) : 0), 0);
   const total = spent + scaleCost + skillCost;
   if (total > FORGE_BUDGET) return { ok: false, message: `六圍 ${spent}＋技能 ${skillCost}＋規模「${out.npScale}」${scaleCost ? `+${scaleCost}` : "0"} ＝ ${total}，超過預算 ${FORGE_BUDGET}——請調降六圍/技能階級或改對人規模。` };

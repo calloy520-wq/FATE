@@ -336,7 +336,7 @@ function summonByDesc() {
 //   後端 actionSummonServant build 分支為權威驗證，這裡的預算/清單只是即時 UX 鏡射（改後端 ALLOWED_FX_ 記得同步 FORGE_FX）。
 var FORGE_PTS = { E: 10, D: 20, C: 30, B: 40, A: 50, EX: 60 }, FORGE_BUDGET = 340; // 💰 270→340(2026-07·種子中位數·技能/規模併入錢包後的重校·鏡射後端)
 var FORGE_SK_PTS = { E: 5, D: 10, C: 15, B: 20, A: 25 }; // ⚡ 技能階級定價(六圍半價·無 fx 純演出免費·鏡射後端 SKILL_PTS_)
-var FORGE_FLAT_FX = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25 }; // 🔒 二元 fx 平價(fx→價·引擎不讀其階級·鏡射後端 FLAT_FX_；燕返60=實測+56pp頂級劍技)
+var FORGE_FLAT_FX = { god_hand: 25, survive: 25, tsubame: 100, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25 }; // 🔒 二元 fx 平價(fx→價·引擎不讀其階級·鏡射後端 FLAT_FX_；燕返100=模擬證實普攻流核心·配盾曾達全池100%勝率，天價擋疊加)
 // 🗂️ 效果目錄·按機制分組(2026-07 玩家點破「很多效果一樣但名字不同」——名字是原作梗·機制就十來種，
 //   名字本可自取→按效果挑、同效者標明擇一即可)。flat FORGE_FX 由 groups 攤平(label 查找/驗證介面不變)。
 var FORGE_FX_GROUPS = [
@@ -354,7 +354,7 @@ var FORGE_FX_GROUPS = [
     ['weapon_steal', '無毀湖光（對龍×1.5）'], ['agile_striker', '以巧破力（以敏捷為傷害底）']
   ]},
   { t: '🛡️ 減傷系', items: [
-    ['nullify_magic', '對魔力（抗魔減傷）'], ['rho_aias', '七天盾（投影減傷）'],
+    ['nullify_magic', '對魔力（抗魔減傷）'], ['rho_aias', '七天盾（只對寶具展開·御主耗魔30/次）'],
     ['territory', '陣地作成（陣地減傷）'], ['wall_def', '城牆防禦（物理減傷）'], ['divine_core', '神核（常駐減傷）']
   ]},
   { t: '💨 迴避·隱匿·精神', items: [
@@ -365,7 +365,7 @@ var FORGE_FX_GROUPS = [
     ['survive', '戰鬥續行（致命傷撐1·可反覆·破魔剋）'], ['god_hand', '不死復活（真死後復活·共3命）'], ['regen', '治癒（每回合回血）']
   ]},
   { t: '✨ 特殊·雙面刃', items: [
-    ['gae_bolg', '必中槍（因果逆轉·寶具時必中）'], ['tsubame', '秘劍·燕返（平A每擊×2.3）'],
+    ['gae_bolg', '必中槍（因果逆轉·寶具時必中）'], ['tsubame', '秘劍·燕返（平A每擊×2.3·天價絕技）'],
     ['zabaniya', '妄想心音（寶具·暗殺致命）'], ['rule_breaker', '破戒（斬契約·無視續行/復活）'],
     ['anti_magic_lance', '破魔（無視神核/續行/復活）'],
     ['mad', '狂化（傷+但命中−）'], ['solo', '單獨行動（無主續存）'], ['divine', '神性（神裔·會被神殺剋·弱點）']
