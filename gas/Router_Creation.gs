@@ -344,13 +344,18 @@ function actionSummonServant(userData, pcId, sheets) {
       //   免費＝人人必選對軍。改用同一份預算買：對人=0、對軍=+20 點。
       const fNpScale = (String(build.npScale) === "對軍") ? "對軍" : "對人";
       const fScaleCost = (fNpScale === "對軍") ? 20 : 0;
-      if (fSpent + fScaleCost > FORGE_BUDGET) return JSON.stringify({ success: false, message: `六圍 ${fSpent} 點＋寶具規模「${fNpScale}」${fScaleCost ? `(+${fScaleCost})` : ""} ＝ ${fSpent + fScaleCost}，超過預算 ${FORGE_BUDGET}——請調降六圍或改對人規模。` });
       // 技能 ≤3：fx 必在 ALLOWED_FX_（空＝純演出標籤）、階級上限 A、可改名（效果吃 fx）
       const fSkills = (Array.isArray(build.skills) ? build.skills : []).filter(Boolean).slice(0, 3).map(s => {
         const fx = ALLOWED_FX_[String(s && s.fx || "").trim()] ? String(s.fx).trim() : "";
         let r = String(s && s.r || "C").toUpperCase(); if (!/^(E|D|C|B|A)$/.test(r)) r = "C";
         return { n: String(s && s.n || "").replace(/[<>&"'`]/g, "").slice(0, 10) || "技能", r: r, fx: fx };
       });
+      // ⚡ 技能階級定價(2026-07 玩家定案)：fx 效果隨階級放大(引擎 rankMul_)，白拿＝免費戰力。
+      //   六圍半價 E5/D10/C15/B20/A25；純演出標籤(無 fx)免費。與六圍/規模同一份預算。
+      const SKILL_PTS_ = { E: 5, D: 10, C: 15, B: 20, A: 25 };
+      const fSkillCost = fSkills.reduce((s, k) => s + (k.fx ? (SKILL_PTS_[k.r] || 15) : 0), 0);
+      const fTotal = fSpent + fScaleCost + fSkillCost;
+      if (fTotal > FORGE_BUDGET) return JSON.stringify({ success: false, message: `六圍 ${fSpent}＋技能 ${fSkillCost}＋規模「${fNpScale}」${fScaleCost ? `+${fScaleCost}` : "0"} ＝ ${fTotal}，超過預算 ${FORGE_BUDGET}——請調降六圍/技能階級或改對人規模。` });
       // 職階技能：依職階慣例自動附贈（不占 3 槽·與種子/AI 生成對稱）
       const FORGE_CLS_SKILLS_ = {
         Saber: [{ n: "對魔力", r: "B", fx: "nullify_magic" }], Lancer: [{ n: "對魔力", r: "C", fx: "nullify_magic" }],

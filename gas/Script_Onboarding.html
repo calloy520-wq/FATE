@@ -323,6 +323,7 @@ function summonByDesc() {
 //   規格：六圍預算 270（E10/D20/C30/B40/A50/EX60·EX≤2）／技能 3 槽·上限 A·可改名效果吃 fx／寶具名自定·上限 A·規模 對人/對軍。
 //   後端 actionSummonServant build 分支為權威驗證，這裡的預算/清單只是即時 UX 鏡射（改後端 ALLOWED_FX_ 記得同步 FORGE_FX）。
 var FORGE_PTS = { E: 10, D: 20, C: 30, B: 40, A: 50, EX: 60 }, FORGE_BUDGET = 270;
+var FORGE_SK_PTS = { E: 5, D: 10, C: 15, B: 20, A: 25 }; // ⚡ 技能階級定價(六圍半價·無 fx 純演出免費·鏡射後端 SKILL_PTS_)
 var FORGE_FX = [
   ['', '（無效果·純演出標籤）'], ['nullify_magic', '對魔力（抗魔）'], ['first_strike', '直感（先機）'], ['analyze', '心眼（看破）'],
   ['aim', '千里眼（命中+）'], ['str_up', '怪力（主動·傷+）'], ['burst', '魔力放出（主動·傷×）'], ['projection', '投影魔術（主動·中傷+）'],
@@ -356,7 +357,7 @@ function initForge_() {
   var h = '';
   for (var i = 0; i < 3; i++) {
     h += '<div style="display:flex; gap:5px; margin-bottom:4px;">'
-      + '<select id="cf-sk' + i + '-fx" class="std-in" style="flex:3; min-width:0;">' + fxOpts + '</select>'
+      + '<select id="cf-sk' + i + '-fx" class="std-in" style="flex:3; min-width:0;" onchange="forgeBudget_()">' + fxOpts + '</select>'
       + rankSel('cf-sk' + i + '-r', 'C', true)
       + '<input id="cf-sk' + i + '-n" class="std-in" maxlength="10" placeholder="改名(選填)" style="flex:2; min-width:0;">'
       + '</div>';
@@ -369,18 +370,29 @@ function forgeBudget_() {
   ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].forEach(function (k) {
     var el = document.getElementById('cf-six-' + k); if (el) sum += FORGE_PTS[el.value] || 30;
   });
+  // ⚡ 技能階級也用預算買(2026-07)：有 fx 效果的才計費(六圍半價)、純演出標籤免費
+  var skSum = 0;
+  for (var i = 0; i < 3; i++) {
+    var fxEl = document.getElementById('cf-sk' + i + '-fx'), rEl = document.getElementById('cf-sk' + i + '-r');
+    if (fxEl && rEl && fxEl.value) skSum += FORGE_SK_PTS[rEl.value] || 15;
+  }
+  sum += skSum;
   // 🌟 寶具規模也用預算買(2026-07)：對軍在規模矩陣對絕大多數對局×1.25、免費必人人選→標價 +20
   var scEl = document.getElementById('cf-np-scale');
-  if (scEl && scEl.value === '對軍') sum += 20;
+  var scOn = scEl && scEl.value === '對軍';
+  if (scOn) sum += 20;
+  var parts = [];
+  if (skSum) parts.push('技能+' + skSum);
+  if (scOn) parts.push('對軍+20');
   var b = document.getElementById('cf-budget');
-  if (b) { b.innerHTML = '已用 <b style="color:' + (sum > FORGE_BUDGET ? '#e06a6a' : '#8fd0a0') + ';">' + sum + '</b> / ' + FORGE_BUDGET + (scEl && scEl.value === '對軍' ? ' <small style="color:#9a8bb0;">(含對軍+20)</small>' : ''); }
+  if (b) { b.innerHTML = '已用 <b style="color:' + (sum > FORGE_BUDGET ? '#e06a6a' : '#8fd0a0') + ';">' + sum + '</b> / ' + FORGE_BUDGET + (parts.length ? ' <small style="color:#9a8bb0;">(含' + parts.join('·') + ')</small>' : ''); }
   return sum;
 }
 function summonByForge() {
   var nm = (document.getElementById('cf-name').value || '').trim();
   if (!nm) { alert('請為英靈取一個真名。'); return; }
   var sum = forgeBudget_(); // 已含 對軍規模+20
-  if (sum > FORGE_BUDGET) { alert('總點數 ' + sum + '（含寶具規模）超過預算 ' + FORGE_BUDGET + '，請調降六圍或改對人規模。'); return; }
+  if (sum > FORGE_BUDGET) { alert('總點數 ' + sum + '（含技能階級與寶具規模）超過預算 ' + FORGE_BUDGET + '，請調降六圍/技能階級或改對人規模。'); return; }
   var exN = ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].filter(function (k) { return document.getElementById('cf-six-' + k).value === 'EX'; }).length;
   if (exN > 2) { alert('EX 至多 2 項（與種子英靈同規）。'); return; }
   var six = {}, skills = [];
