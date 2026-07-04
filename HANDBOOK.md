@@ -121,7 +121,7 @@ GAL(鑑賞): ACC0 NAME1 CLS2 SEX3 SIX4 TAGS5 NP6 BACK7 PREF8 MOE9 MEMOIR10 WISH1
 **管線順序（改順序＝改平衡）**：
 1. **執行殺早退**：`ea`(認真·自身血≤40%) / `wealth`(黃金律·≤20%) → `rankVal(寶具)*4 + 骰 + 200` 直接必勝（上游 `actionFateBattle` 補魔閘把關）。
 2. **命中 `aHit` vs 迴避 `dEva`**：各 `D20 + rankTier(屬性)*2.5 + 隨機 + 出力修正`。攻方屬性看職階(`combatProfile_`：Caster魔力/Archer敏捷/近戰敏捷)；守方 = 敏捷0.65+耐久0.35。
-3. **命中端 fx**：整備餐 / 直感·心眼(unreadable封先機) / 狂化 / 自我改造 / 主動技 / **禮裝命中(mcCombatFx_)** / 騎乘 / 千里眼·投影 / 避矢(vs Archer) / 氣息遮斷(僅ambush) / 王財+5 / 燕返-5(僅每場第1回合) / **三騎士相剋(Saber>Lancer>Archer>Saber ±3)** / 變化 / 愛之痣 / 石化 / 天之鎖(vs神性)。
+3. **命中端 fx**：整備餐 / 直感·心眼(unreadable封先機) / 狂化 / 自我改造 / 主動技 / **禮裝命中(mcCombatFx_)** / 騎乘 / 千里眼·投影 / 避矢(vs Archer) / 氣息遮斷(僅ambush) / 王財+5 / 燕返-5(僅每場第1回合) / **三騎士相剋(Saber>Lancer>Archer>Saber ±3)** / 變化 / 愛之痣 / 石化 / 天之鎖(vs神性)。**🎚️ 被動技能 fx 淨加成 clamp ±HIT_FX_CAP(=8·2026-07)**——攻方命中fx/守方迴避fx各自加總後夾上限(出力/整備/主動技/禮裝/職階相剋/幸運骰/奇襲不入帳)，堆疊流無法把差距拉到「永遠打不到」。
 4. **幸運旋鈕**（2026-07 線性化）：以 C 為零點每離 1 階 ±2% 機率——低於 C 失手-10、高於 C 福星+8（E4%/D2%/C0/B2%/A4%/EX6%）。
 5. **gae_bolg 必中**：守方靠幸運(A+0.35/A0.22/B0.10)+直感+變化搏閃避（上限0.6）。
 6. **勝負**：`gaebolg ? !gbEvaded : aHit>=dEva`。

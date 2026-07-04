@@ -480,6 +480,11 @@ function bestNpChoice_(name, cls) {
   return best;
 }
 
+// 🎚️ 被動技能 fx 對 命中/迴避 的【淨加成上限】(2026-07 玩家定案·抓「以巧變化流」敏EX+變化+直感疊加)：
+//   直感/心眼/千里眼/騎乘/變化/避矢/王財/洞悉/自我改造/狂化/魔眼/天之鎖/燕返/愛之痣 等被動 fx 的
+//   命中(攻)與迴避(守)各自加總後 clamp ±HIT_FX_CAP——買越多遞減為零，堆疊流無法把差距拉到「永遠打不到」。
+//   ★不入帳(各有自己的成本/體系)：出力/整備/過充/主動技(耗魔)/禮裝(裝備)/職階相剋(身分)/幸運骰/奇襲(一次性)。
+var HIT_FX_CAP = 8;
 // 主裁決：一次交手。回傳 {atkWins, winner, loser, damage, aRoll,dRoll,aHit,dEva, fired[], crit, np, seal}
 function resolveFateBattle_(atk, def, opts) {
   opts = opts || {};
@@ -535,30 +540,32 @@ function resolveFateBattle_(atk, def, opts) {
   // 🔥 補魔過充：御主剛行補魔、澎湃魔力流貫靈基——攻方全身狀態微揚(命中+2；傷害端於下方另×1.06)。
   if (atk.overcharge) { aHit += 2; fired.push(atk.name + '·補魔過充(魔力充盈·全能力微揚)'); }
 
+  // 🎚️ 被動技能 fx 命中/迴避走累積器(見檔頂 HIT_FX_CAP)：全部加總後 clamp ±上限再入 aHit/dEva。
+  var aHitFx = 0, dEvaFx = 0;
   // 直感/心眼(first_strike/analyze)：攻守先機 +3×階級
-  var fsA = hasFx_(atk, 'first_strike') || hasFx_(atk, 'analyze'); if (fsA) { aHit += Math.round(3 * rankMul_(fsA)); fired.push(atk.name + '·' + fxName_(atk, hasFx_(atk, 'analyze') ? 'analyze' : 'first_strike', hasFx_(atk, 'analyze') ? '心眼' : '直感')); }
+  var fsA = hasFx_(atk, 'first_strike') || hasFx_(atk, 'analyze'); if (fsA) { aHitFx += Math.round(3 * rankMul_(fsA)); fired.push(atk.name + '·' + fxName_(atk, hasFx_(atk, 'analyze') ? 'analyze' : 'first_strike', hasFx_(atk, 'analyze') ? '心眼' : '直感')); }
   var fsD = hasFx_(def, 'first_strike') || hasFx_(def, 'analyze');
   if (hasFx_(atk, 'unreadable')) { fsD = null; fired.push(atk.name + '·' + fxName_(atk, 'unreadable', '無貌') + '(封先機)'); } // 使對方直感/心眼失效
-  if (fsD) { dEva += Math.round(3 * rankMul_(fsD)); fired.push(def.name + '·' + fxName_(def, hasFx_(def, 'analyze') ? 'analyze' : 'first_strike', hasFx_(def, 'analyze') ? '心眼' : '直感')); }
+  if (fsD) { dEvaFx += Math.round(3 * rankMul_(fsD)); fired.push(def.name + '·' + fxName_(def, hasFx_(def, 'analyze') ? 'analyze' : 'first_strike', hasFx_(def, 'analyze') ? '心眼' : '直感')); }
 
   // 狂化(mad)：六圍暴漲但理智低 → 命中／迴避 -3×階級（傷害加成在下方）
-  var madA = hasFx_(atk, 'mad'); if (madA) aHit -= Math.round(3 * rankMul_(madA));
-  var madD = hasFx_(def, 'mad'); if (madD) dEva -= Math.round(3 * rankMul_(madD));
+  var madA = hasFx_(atk, 'mad'); if (madA) aHitFx -= Math.round(3 * rankMul_(madA));
+  var madD = hasFx_(def, 'mad'); if (madD) dEvaFx -= Math.round(3 * rankMul_(madD));
   // 自我改造(self_mod)：命中 +2（被動·SKILL_FX_ 表驅動）
-  aHit = fxHitAdd_(aHit, atk, 'self_mod', fired);
+  aHitFx = fxHitAdd_(aHitFx, atk, 'self_mod', fired);
   // ⚡ 主動技（玩家本戰啟動）：命中加成 + 標記發動
   if (opts.skill) { aHit += (opts.skill.hit || 0); fired.push(atk.name + '·' + opts.skill.name + (opts.skill.tiny ? '(微量)' : '(主動技·全開)')); }
   // ✨ 禮裝被動加持·命中（御主禮裝注入我方從者，見 injectMysticBuff_）
   var mcAtk = mcCombatFx_(atk); if (mcAtk && mcAtk.hit) { aHit += mcAtk.hit; fired.push(atk.name + '·禮裝「' + mcAtk.label + '」(命中+' + mcAtk.hit + ')'); }
 
   // 騎乘(ride) 機動 +2×階級
-  var rideA = hasFx_(atk, 'ride'); if (rideA) aHit += Math.round(2 * rankMul_(rideA));
+  var rideA = hasFx_(atk, 'ride'); if (rideA) aHitFx += Math.round(2 * rankMul_(rideA));
   // 🎯 千里眼(aim)：恆常的卓越目力鎖破綻（被動·SKILL_FX_ 表驅動）。投影(projection) 為主動技 only、此處不給被動。
-  aHit = fxHitAdd_(aHit, atk, 'aim', fired);
+  aHitFx = fxHitAdd_(aHitFx, atk, 'aim', fired);
   // 🌟 全知全能之星(insight／吉爾伽美什)：看穿本質·洞悉破綻，恆常命中 +4（他懶得認真開·僅中等被動）。
-  if (hasFx_(atk, 'insight')) { aHit += 4; fired.push(atk.name + '·' + fxName_(atk, 'insight', '全知全能之星') + '(洞悉破綻·命中+4)'); }
+  if (hasFx_(atk, 'insight')) { aHitFx += 4; fired.push(atk.name + '·' + fxName_(atk, 'insight', '全知全能之星') + '(洞悉破綻·命中+4)'); }
   // 避矢(evade_ranged)：守方對遠程(Archer)迴避 +6×階級
-  if (atk.cls === 'Archer') { var er = hasFx_(def, 'evade_ranged'); if (er) { dEva += Math.round(6 * rankMul_(er)); fired.push(def.name + '·' + fxName_(def, 'evade_ranged', '避矢')); } }
+  if (atk.cls === 'Archer') { var er = hasFx_(def, 'evade_ranged'); if (er) { dEvaFx += Math.round(6 * rankMul_(er)); fired.push(def.name + '·' + fxName_(def, 'evade_ranged', '避矢')); } }
   // 氣息遮斷(stealth)：僅【首擊奇襲】(opts.ambush·開場第一擊／敵突襲)吃命中加成·依階級(A+大、A-小)。
   //   ★一旦交手氣息即破功——後續回合的刀不再享奇襲(貼原作：發動攻擊瞬間 presence concealment 掉階)。
   var stA = hasFx_(atk, 'stealth');
@@ -572,31 +579,38 @@ function resolveFateBattle_(atk, def, opts) {
     else { aHit += Math.round(rankVal(stA) / 10); fired.push(atk.name + '·' + fxName_(atk, 'stealth', '氣息遮斷') + '·奇襲先機'); }
   }
   // 👑 王之財寶(gob)常駐：無盡兵裝鋪天蓋地，命中 +5（飽和彈幕難閃；傷害彈幕在下方）
-  if (hasFx_(atk, 'gob')) { aHit += 5; fired.push(atk.name + '·' + fxName_(atk, 'gob', '王之財寶') + '(無盡兵裝)'); }
+  if (hasFx_(atk, 'gob')) { aHitFx += 5; fired.push(atk.name + '·' + fxName_(atk, 'gob', '王之財寶') + '(無盡兵裝)'); }
   // ⛓️ 天之鎖(chain)：命中加成併入既有「縛神性」效果(下方)；輸出走下方萬鎖彈幕。此處不另加命中(避免恩奇都過載)。
   // 秘劍・燕返(tsubame)：劍術本身而非寶具——次元摺疊令守方迴避 -5(傷害倍率見下方)。
   //   ⚔️ 2026-07 三修(玩家定案)：僅【每場戰鬥第 1 回合】發動(opts.round·呼叫端 fateStrike_ 傳入·未傳=單次交鋒視同首回合)
   //   ——絕技是蓄勢的一閃，非回回可出；擋「普攻流回回×2.3」的無敵化。第2/3回合命中/傷害段皆不觸發。
   var tsubame = hasFx_(atk, 'tsubame') && (opts.round || 1) === 1;
-  if (tsubame) { dEva -= 5; fired.push(atk.name + '·' + fxName_(atk, 'tsubame', '秘劍')); }
+  if (tsubame) { dEvaFx -= 5; fired.push(atk.name + '·' + fxName_(atk, 'tsubame', '秘劍')); }
   // 🔱 三騎士職階相剋（Saber→Lancer→Archer→Saber）：占上風者搶得先機，命中小幅領先（傷害加成在下方）
   var KNIGHT_BEATS = { 'Saber': 'Lancer', 'Lancer': 'Archer', 'Archer': 'Saber' };
   if (KNIGHT_BEATS[atk.cls] === def.cls) aHit += 3;
   else if (KNIGHT_BEATS[def.cls] === atk.cls) dEva += 3;
   // 🦊 變化(shapeshift／玉藻前·哈桑·恩奇都)：化形流轉，守方滑開致命一擊，迴避小幅提升
-  var sm = hasFx_(def, 'shapeshift'); if (sm) { dEva += Math.round(3 * rankMul_(sm)); fired.push(def.name + '·' + fxName_(def, 'shapeshift', '變化') + '(化形閃避)'); }
+  var sm = hasFx_(def, 'shapeshift'); if (sm) { dEvaFx += Math.round(3 * rankMul_(sm)); fired.push(def.name + '·' + fxName_(def, 'shapeshift', '變化') + '(化形閃避)'); }
   // 💋 愛之痣(lovespot／迪盧木多)：魅惑之痣令來犯者一瞬分神，攻方命中 -1(小幅惑亂)
-  if (hasFx_(def, 'lovespot')) { aHit -= 1; fired.push(def.name + '·' + fxName_(def, 'lovespot', '愛之痣') + '(惑·敵命中-1)'); }
+  if (hasFx_(def, 'lovespot')) { aHitFx -= 1; fired.push(def.name + '·' + fxName_(def, 'lovespot', '愛之痣') + '(惑·敵命中-1)'); }
   // 👁️ 魔眼·石化(petrify／Rider 美杜莎)：以視線鎖死獵物，令對方迴避大減
-  var pet = hasFx_(atk, 'petrify'); if (pet) { dEva -= Math.round(2 * rankMul_(pet)); fired.push(atk.name + '·' + fxName_(atk, 'petrify', '魔眼') + '·鎖死身法'); }
+  var pet = hasFx_(atk, 'petrify'); if (pet) { dEvaFx -= Math.round(2 * rankMul_(pet)); fired.push(atk.name + '·' + fxName_(atk, 'petrify', '魔眼') + '·鎖死身法'); }
   // ⛓️ 天之鎖(chain／Gilgamesh·Enkidu)：對「神性」之敵展開冥界鎖鏈，封住身法。
   //   ⚠ 2026-07 統一重構：縛神強度改依【對方神格】縮放(divineRankOf_·原作「神性越高縛得越死」)——
   //   0.5+0.5×rankMul(對方神格)：C 神格＝×1.0(與舊值完全一致)、A＝×1.33、EX＝×1.5、E-(美杜莎)＝×0.62。
   var chn = hasFx_(atk, 'chain'); var defDivR = divineRankOf_(def);
   if (chn && defDivR) {
     var chainBind = Math.round(6 * rankMul_(chn) * (0.5 + 0.5 * rankMul_(defDivR)));
-    dEva -= chainBind; fired.push(atk.name + '·' + fxName_(atk, 'chain', '天之鎖') + '(縛神性' + defDivR + '·避-' + chainBind + ')');
+    dEvaFx -= chainBind; fired.push(atk.name + '·' + fxName_(atk, 'chain', '天之鎖') + '(縛神性' + defDivR + '·避-' + chainBind + ')');
   }
+  // 🎚️ 被動技能 fx 淨加成收帳：各自 clamp ±HIT_FX_CAP 再入命中/迴避——堆疊流(敏EX+變化+直感…)無法把差距
+  //   拉到「永遠打不到」；敵方施加的壓制(魔眼/天之鎖/燕返)計入同一淨額，天然是堆疊流的解。被截斷時推標籤供演出。
+  var _aFxC = Math.max(-HIT_FX_CAP, Math.min(HIT_FX_CAP, aHitFx));
+  var _dFxC = Math.max(-HIT_FX_CAP, Math.min(HIT_FX_CAP, dEvaFx));
+  if (_aFxC !== aHitFx) fired.push(atk.name + '·技巧疊加已達極限(' + (aHitFx > 0 ? '+' : '') + aHitFx + '→' + (_aFxC > 0 ? '+' : '') + _aFxC + ')');
+  if (_dFxC !== dEvaFx) fired.push(def.name + '·身法疊加已達極限(' + (dEvaFx > 0 ? '+' : '') + dEvaFx + '→' + (_dFxC > 0 ? '+' : '') + _dFxC + ')');
+  aHit += _aFxC; dEva += _dFxC;
 
   // 必中(gae_bolg)：寶具解放時逆因果直接命中
   var gaebolg = opts.np && npIs('gae_bolg'); if (gaebolg) fired.push(atk.name + '·' + fxName_(atk, 'gae_bolg', '必中之槍') + '(必中)');
@@ -645,6 +659,9 @@ function resolveFateBattle_(atk, def, opts) {
   // 🎴 傷害同樣降六圍權重(flat 0.8→0.6)：避免高階一發轟死；主威力交給武器骰(帶骰運)＋命中分差＋fx/寶具。
   var base = Math.round(rankVal(wDmgRank) * 0.6) + weaponDice + Math.round(Math.abs(aHit - dEva) * 1.2);
   fired.push(winner.name + '·武器骰' + wTier + 'd8=' + weaponDice);
+  // 💨 以巧破力·全能稅(2026-07 玩家定案 ×0.85)：敏捷已主宰命中/迴避，再兼傷害底(agile_striker)須打折——
+  //   否則「敏EX+迴避疊加」一個數值包辦攻防(模擬：以巧變化流普攻對全池 97.9%·互鬥無天敵)。僅敏捷入傷時生效。
+  if (wProf.dmg === '敏捷') { base = Math.round(base * 0.85); fired.push(winner.name + '·' + fxName_(winner, 'agile_striker', '以巧破力') + '(以巧入傷·×0.85)'); }
   // 🔋 出力傷害乘子：依勝方(出擊方)靈基出力檔位放大/縮小本擊威力（御主供魔越足、傷害越高）。
   var wOut = outputTier_(winner.output);
   if (wOut.dmgMul !== 1.0) { base = Math.round(base * wOut.dmgMul); fired.push(winner.name + '·出力' + (winner.output || 60) + '%·' + wOut.label); }
