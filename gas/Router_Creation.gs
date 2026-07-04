@@ -387,14 +387,18 @@ function actionSummonServant(userData, pcId, sheets) {
       const fNpDesc = String(build.npDesc || "").replace(/【常駐寶具】|對城|對界|對神/g, "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, 40); // 威能一句(選填)
       const bDesc = String(build.desc || "").trim().slice(0, 120);
       const bWeapon = String(build.weapon || "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, 30); // ⚔️ 玩家自定武裝(選填)
-      const bLook = String(build.look || "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, 60);    // 🎨 玩家自定外貌本相(選填·給了就原樣用)
-      const bPref = String(build.pref || "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, 60);    // 💭 玩家自定個性四短句(選填·給了就原樣用)
+      const bLook = String(build.look || "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, 60);    // 🎨 玩家自定外貌本相(選填)
+      const bPref = String(build.pref || "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, 60);    // 💭 玩家自定個性四短句(選填)
+      // 📏 短輸入策略(2026-07)：外貌/個性是四格頓號格式——玩家寫得夠完整(≥3段)才「照抄勿改」直接用；
+      //   寫太短(如只有「傲嬌」)改當【核心設定】讓 AI 擴寫成四短句(勿改本意)，避免照抄出光禿禿的演出卡。
+      const _segs = v => v ? v.split(/[、,，]/).filter(Boolean).length : 0;
+      const bLookFull = _segs(bLook) >= 3, bPrefFull = _segs(bPref) >= 3;
       // 🎭 AI 只補「玩家沒填的」演出欄＋寶具英文真名讀法——失敗不擋召喚，玩家數值/設定不當 AI 人質
       let flavor = null;
       try {
         flavor = JSON.parse(callGeminiAPI(
-          `【真名】：${realName}\n【職階】：${cls}\n【性別】：${sex}\n【玩家描述】：${bDesc || "無"}${bLook ? `\n【外貌(玩家已定·照抄勿改)】：${bLook}` : ""}${bPref ? `\n【個性(玩家已定·照抄勿改)】：${bPref}` : ""}${bFp ? `\n【自稱(玩家已定)】：${bFp}` : ""}${bSpeech ? `\n【口吻(玩家已定)】：${bSpeech}` : ""}${bMoe ? `\n【萌點(玩家已定·照抄勿改)】：${bMoe}` : ""}${bBack ? `\n【身世(玩家已定·照抄勿改)】：${bBack}` : ""}${bWeapon ? `\n【武裝(以此為準·勿依職階/原典改寫)】：${bWeapon}` : ""}\n【技能】：${fSkills.map(s => s.n).join("、") || "無"}\n【寶具】：${fNpName}${fNpDesc ? `（${fNpDesc}）` : ""}`,
-          `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名原創從者的數值與設定，你【只】負責補完演出側寫與寶具英文真名，【嚴禁】輸出任何數值/階級/技能設定、【嚴禁】改寫玩家已定的外貌/個性/武裝。★輸出合法 JSON、禁 Markdown：{"background":"生平一句·限20字","personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔；玩家已定個性則照抄）","npc_intent":"一句反差萌·限15字","npEn":"寶具的英文真名讀法(拉丁字母·如 Excalibur、Gate of Babylon 風格·貼合寶具名意境·限4個單字)"}`,
+          `【真名】：${realName}\n【職階】：${cls}\n【性別】：${sex}\n【玩家描述】：${bDesc || "無"}${bLook ? `\n【外貌(${bLookFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${bLook}` : ""}${bPref ? `\n【個性(${bPrefFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${bPref}` : ""}${bFp ? `\n【自稱(玩家已定)】：${bFp}` : ""}${bSpeech ? `\n【口吻(玩家已定)】：${bSpeech}` : ""}${bMoe ? `\n【萌點(玩家已定·照抄勿改)】：${bMoe}` : ""}${bBack ? `\n【身世(玩家已定·照抄勿改)】：${bBack}` : ""}${bWeapon ? `\n【武裝(以此為準·勿依職階/原典改寫)】：${bWeapon}` : ""}\n【技能】：${fSkills.map(s => s.n).join("、") || "無"}\n【寶具】：${fNpName}${fNpDesc ? `（${fNpDesc}）` : ""}`,
+          `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名原創從者的數值與設定，你【只】負責補完演出側寫與寶具英文真名，【嚴禁】輸出任何數值/階級/技能設定。玩家標「照抄勿改」的欄位原樣沿用；標「核心設定·擴寫」的欄位以玩家給的為靈魂擴寫、【嚴禁】偏離或覆蓋其本意。★輸出合法 JSON、禁 Markdown：{"background":"生平一句·限20字","personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔）","look":"外貌四短句頓號分隔（五官髮色/氣質/身形/衣著印象）","npc_intent":"一句反差萌·限15字","npEn":"寶具的英文真名讀法(拉丁字母·如 Excalibur、Gate of Babylon 風格·貼合寶具名意境·限4個單字)"}`,
           { temperature: 0.85, ignoreLaw: true }));
       } catch (e) { flavor = null; }
       // 🌟 寶具字串：中文名＋AI英文真名(有才嵌)＋（規模 階級）＋玩家威能一句——格式對齊種子(如 誓約勝利之劍 Excalibur（對城 A））
@@ -402,9 +406,12 @@ function actionSummonServant(userData, pcId, sheets) {
       np = `${fNpName}${fNpEn ? " " + fNpEn : ""}（${fNpScale} ${fNpR}）${fNpDesc ? "·" + fNpDesc : ""}`;
       const svHp = 150 + svNum_(fSix.耐久) * 6, svMp = 0; // 🔋 出力電池制：從者無自有魔力池
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
-      // 🎨💭 玩家自定 外貌/個性 優先原樣寫入(玩家寫自己的種子)；沒給才用 AI/通用預設
-      row[COL.PC.TRAIT] = parseTraitsHelper(bLook, "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
-      row[COL.PC.PREF] = parseTraitsHelper(bPref || (flavor && flavor.personality), "沉著表象、堅定內裡、珍視之物、厭惡之事");
+      // 🎨💭 外貌/個性：玩家寫得完整(≥3段)→原樣；寫短→AI 以其為核心的擴寫版(flavor.look/personality)；都沒有→AI/預設。
+      //   短輸入 fallback 鏈尾仍掛 bLook/bPref——AI 掛掉時玩家的核心詞至少直接入卡，不會整欄退回通用預設。
+      const finalLook = bLookFull ? bLook : (String((flavor && flavor.look) || "").trim() || bLook);
+      const finalPref = bPrefFull ? bPref : (String((flavor && flavor.personality) || "").trim() || bPref);
+      row[COL.PC.TRAIT] = parseTraitsHelper(finalLook, "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
+      row[COL.PC.PREF] = parseTraitsHelper(finalPref, "沉著表象、堅定內裡、珍視之物、厭惡之事");
       row[COL.PC.INTENT] = bMoe || String((flavor && flavor.npc_intent) || "").slice(0, 18); // 🎭 萌點玩家優先
       // 🎭 自稱/態度玩家優先；口吻/小動作走種子同款 stampPersonaFlavor_（servantCard_ 直接讀列）
       row[COL.PC.MEMORY] = stampPersonaFlavor_(`第一人稱「${bFp || "我"}」｜對御主：${bToM || "初締約·尚在觀察"}`, bSpeech, bTic);
@@ -414,7 +421,7 @@ function actionSummonServant(userData, pcId, sheets) {
       if (fClsSkills.concat(fSkills).some(s => s && s.fx === "god_hand")) row[COL.PC.MEMORY] += "｜【試煉】3"; // 復活命數＝3（尼祿基準）
       row[COL.PC.BACK] = bBack || String((flavor && flavor.background) || `${cls}・${realName}`).slice(0, 28); // 🎭 身世玩家優先
       // 收錄英靈殿（重名不收）→ 日後可真名重召（含玩家自定 個性/外貌/萌點/自稱/態度/口吻/小動作·重召不掉設定）
-      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], fClsSkills, fSkills, [], np, bPref || (flavor && flavor.personality) || "", align, { look: bLook, moe: row[COL.PC.INTENT], firstP: bFp, toMaster: bToM, speech: bSpeech, tic: bTic, back: bBack }); } catch (e) { }
+      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], fClsSkills, fSkills, [], np, finalPref || "", align, { look: finalLook, moe: row[COL.PC.INTENT], firstP: bFp, toMaster: bToM, speech: bSpeech, tic: bTic, back: bBack }); } catch (e) { }
     } else if (hero) {
       // ✅ 從英靈殿實體化：用真實六圍/技能/寶具/人格
       cls = hero[COL.HERO.CLS];
