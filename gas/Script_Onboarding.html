@@ -507,10 +507,12 @@ function initForge_() {
     return '<select id="' + id + '" class="std-in" style="flex:1; min-width:0;" onchange="forgeBudget_()">' + ranks.map(function (r) { return '<option' + (r === def ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>';
   };
   // 📏 六圍一行(2026-07 玩家反饋)：6 欄橫排·標籤在上選單在下，省 5 行高度
+  // 🎚️ 預設全 E(2026-07 玩家定案)：C 起步會默默吃掉 180 點預算——E 起步(60 點)讓玩家把每一點都
+  //   有意識地親手分配，「捏角色」的分配感更強；後端 parseForgeBuild_ 的 fallback 'C' 只防缺欄、不受影響。
   document.getElementById('cf-six').innerHTML = '<div style="display:flex; gap:4px;">'
     + ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].map(function (k) {
         return '<div style="flex:1; min-width:0; text-align:center;"><div style="color:#c8d4e0; font-size:10.5px; margin-bottom:2px;">' + k + '</div>'
-          + rankSel('cf-six-' + k, 'C', false).replace('style="flex:1; min-width:0;"', 'style="width:100%; box-sizing:border-box; padding:6px 2px; text-align:center;"') + '</div>';
+          + rankSel('cf-six-' + k, 'E', false).replace('style="flex:1; min-width:0;"', 'style="width:100%; box-sizing:border-box; padding:6px 2px; text-align:center;"') + '</div>';
       }).join('')
     + '</div>';
   // 🎨 技能選擇改晶片目錄(2026-07 玩家反饋「以為會好看點」)：每槽一鈕→點開兩欄晶片格(名稱+效果+價格)
