@@ -1,7 +1,7 @@
 # 命運停駐之夜 — 工具書（全專案地圖）
 
 > 全代碼掃描後彙整（2026-07）。給每次失憶開機的自己：**這個專案在做什麼、代碼長怎樣、能做什麼**，一份看懂。
-> 三本錨檔分工：**`CLAUDE.md`**（紅線＋當前焦點）／**`DESIGN.md`**（設計鐵則·為什麼）／**本檔 `HANDBOOK.md`**（架構＋每個檔案有什麼·怎麼運作）／**`SOLO_REFERENCE.md`**（solo action/函數/schema 速查）。常數會漂，看代碼為準。
+> 錨檔分工：**`CLAUDE.md`**（紅線＋當前焦點）／**`DESIGN.md`**（設計鐵則·為什麼）／**本檔 `HANDBOOK.md`**（架構＋每個檔案有什麼·怎麼運作）／**`SOLO_REFERENCE.md`**（solo action/函數/schema 速查）／**`AI_PROMPT_MAP.md`**（每個 action↔按鈕↔handler↔送 AI 的 prompt 全景）。常數會漂，看代碼為準。
 
 ---
 
@@ -187,3 +187,12 @@ GAL(鑑賞): ACC0 NAME1 CLS2 SEX3 SIX4 TAGS5 NP6 BACK7 PREF8 MOE9 MEMOIR10 WISH1
 - `actionGetMasters` 對 `fake`/`chaos` 戰爭回傳 5th 名冊；`seedRivalsForGame_` fake 分支不理 `【扮演】`——目前前端觸發不到（latent），未來若開放 fake 扮演須補。
 - `dev_seed_gallery`(Gallery·自標【DEV·待移除】)／`dev_resync_codex`(套最新平衡·可留)：DEV 工具，確認慾海穩定後可清前者。
 - `RESEED_VER`/`CODEX_PERSONA_VER`：一次性遷移旗標，旗標守門下無效能損失，保留無害。
+
+## 11. 平衡測試工具（`tools/battle_sim/`·Node·不進 clasp）
+
+`tools/` 不被 clasp 部署（`.clasp.json` rootDir=`gas`、`.claspignore` 只放行 `gas/`），可常駐 repo。`engine.js` 把真實 `Core_Settings.gs`＋`Engine_Fate.gs`＋`Seed_Codex.gs` 原始碼載進 Node vm sandbox——**不複製任何算式/六圍**，永遠吃當下 repo 的真引擎＋真種子（只 stub 少數 GAS 全域：`PropertiesService`/`SpreadsheetApp`/`mcCombatFx_`）。是改平衡後的迴歸測試利器。
+
+- `node tools/battle_sim/duel.js [場數=20000]`：兩騎對打模擬（範例＝金閃/恩奇都 vs B叔·比較有無招牌被動）。改 `main()` 的 servant id 與 `stripFx` 陣列測別組，或 `require('./engine.js')` 自寫腳本（`ctx.SEED_SERVANTS`/`ctx.resolveFateBattle_`/`ctx.hasFx_` 都是真引擎）。
+- `node tools/battle_sim/roundrobin.js [pool=4th|5th|all] [mode=basic|skill|np] [N=200]`：戰爭池(或全36騎)內全循環賽·輸出對全池勝率排名。三 mode 各自獨立：`basic`＝裸普攻／`skill`＝開主動技全效／`np`＝每手解放寶具(出力強制100%·多寶具挑最強攻擊項·不模擬御主魔力上限)。
+- **模擬範圍**：預設只跑普攻交鋒至一方陣亡（不解放寶具/補魔/整備/禮裝），量的是「被動 fx 本身」的貢獻、不被寶具巨傷蓋過。God Hand 十二試煉復活公式逐行對照 `Router_Battle.gs` 的 `fateStrike_` 移植。
+- **用途**：改六圍/fx/寶具 NP 尺度後跑一輪，看有沒有把某騎調爆或調廢。改完平衡順手更新 `duel.js` 的範例對戰組合。
