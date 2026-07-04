@@ -1474,7 +1474,8 @@ function renderRecentLocs(recents = null) {
         var bcol = isActive ? '#e0574a' : '#7a4040';
         return '<div ' + (dual ? 'onclick="setActiveServant(\'' + safeN + '\')" ' : '') + 'style="background:rgba(20,14,28,0.55); border:1px solid ' + bcol + '; border-radius:8px; padding:6px 8px; ' + (dual ? 'cursor:pointer; ' + (isActive ? 'box-shadow:0 0 8px rgba(224,87,74,.4);' : 'opacity:.82;') : '') + '">'
           + '<div style="color:#c0392b; font-weight:bold; font-size:12px;">📿 從者・' + s.cls + (s.stolen ? ' <small style="color:#b06cd0;">⛓奪取</small>' : '') + (dual ? (isActive ? ' <small style="color:#e0574a;">⚔出戰中</small>' : ' <small style="color:#8a7;">待命·點擊出戰</small>') : '') + '</div>'
-          + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
+          // 📜 詳細狀態(2026-07 玩家定案「做個按鈕也能看自己從者」)：呼叫既有 openStatus→完整命盤視窗(個性/特徵/身世/六圍/羈絆…)＋逆天改命(同行從者 canEditFate=true)。event.stopPropagation 防 dual 卡點名觸發切換出戰。
+          + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + ' <button onclick="event.stopPropagation();openStatus(\'' + safeN + '\',\'' + safeN + '\')" title="查看「' + safeN + '」的完整狀態：個性／特徵／身世／六圍／技能／羈絆等，並可逆天改命微調敘事欄" style="font-size:10px; font-weight:normal; padding:1px 7px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer; vertical-align:middle;">📜 狀態</button></div>'
           + (s.outfit ? '<div style="color:#c9a0e0; font-size:10.5px; margin-top:1px;">👗 ' + s.outfit + '</div>' : '')
           + bar('體', s.hpNum, s.hpMax, 'hp')
           + (s.horror ? horrorBar(s.horror.cur, s.horror.max) : '')  // 🐙 深淵海怪肉身（在前掩護·優先承傷）
