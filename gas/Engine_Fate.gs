@@ -234,11 +234,12 @@ function fxName_(c, fx, fallback) {
 //   hit=命中所用六圍　dmg=傷害所用六圍　eva=迴避所用六圍　kind=演出用招式類別
 function combatProfile_(c) {
   var cls = String(c.cls || '');
-  // 🗡 2026-07 玩家定案：傷害屬性＝筋力/魔力/敏捷 三攻擊屬取【最高】——敏捷型劍士(燕返流)不再被
-  //   硬套筋力算傷、魔力型非Caster亦然(以自身最強的攻擊方式出手)。耐久=防禦、幸運=命運骰、寶具=寶具
-  //   傷害段，皆不入普攻底。命中/迴避維持職階本色(Caster 魔力瞄準、其餘敏捷)。battle_sim 前後對照驗證。
+  // 🗡 2026-07 玩家定案(二修)：傷害底＝【筋力/魔力 取高】——力量與魔力是「出力」、敏捷是「技巧」。
+  //   敏捷已獨佔 命中＋迴避 兩項、傷害還有「命中差×1.2」那條技巧通道(甩尾越大打越痛)，再讓它當傷害底
+  //   ＝一圍三吃(理查敏EX實測衝93.8%榜首·筋力淪死圍)。魔力型非Caster(神代/魔攻物理)自此成立。
+  //   耐久=防禦、幸運=命運骰、寶具=寶具傷害段，皆不入普攻底。命中/迴避維持職階本色。battle_sim 驗證。
   var six = c.six || {};
-  var dmgStat = ['筋力', '魔力', '敏捷'].reduce(function (best, k) { return rankVal(six[k]) > rankVal(six[best]) ? k : best; }, '筋力');
+  var dmgStat = (rankVal(six['魔力']) > rankVal(six['筋力'])) ? '魔力' : '筋力';
   if (cls === 'Caster') return { hit: '魔力', dmg: dmgStat, eva: '敏捷', kind: '魔砲' }; // 魔力轟擊的玻璃大砲：攻強、近身脆
   if (cls === 'Archer') return { hit: '敏捷', dmg: dmgStat, eva: '敏捷', kind: '狙擊' }; // 遠程精準
   return { hit: '敏捷', dmg: dmgStat, eva: '敏捷', kind: '近戰' };
@@ -612,7 +613,7 @@ function resolveFateBattle_(atk, def, opts) {
   var winner = atkWins ? atk : def;
   var loser = atkWins ? def : atk;
 
-  // 傷害：勝方依職階主屬性為底（法師＝魔力轟擊／近戰＝筋力）+ 分差
+  // 傷害：勝方以「出力屬性」為底（筋力/魔力取高·見 combatProfile_ 2026-07 二修）+ 分差(敏捷的傷害通道)
   //   🎲 D&D 風武器骰：底傷 = 階級基底×0.5（穩定底）＋ rankTier 顆 d8（武器骰，帶骰運起伏）＋ 命中分差×1.2
   //   中位數約等於舊「rankVal 平值」，但每一擊有 ±的浮動，低階偶爆高傷、高階偶失手，貼近擲骰桌遊手感。
   var wProf = (winner === atk) ? aProf : dProf;
