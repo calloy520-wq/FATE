@@ -380,7 +380,9 @@ function forgeEdit(id) {
   }
   // 寶具字串反解：中文名 [英文]（規模 階）·描述
   var m = String(h.np || '').match(/^([^（]+?)(?:\s+[A-Za-z][^（]*)?（(對人|對軍)[^）]*）(?:·(.*))?$/);
-  V('cf-np-name', m ? m[1].trim() : ''); V('cf-np-scale', (m && m[2]) || '對人'); V('cf-np-desc', (m && m[3]) || '');
+  // 反解失敗(舊盲盒自由格式)→ fallback 取「（」前段剝英文尾——避免欄位空白、存檔把寶具靜默改成「無名寶具」
+  var npFallback = String(h.np || '').split('（')[0].replace(/\s+[A-Za-z][A-Za-z0-9 .'\-:]*$/, '').trim().slice(0, 20);
+  V('cf-np-name', m ? m[1].trim() : npFallback); V('cf-np-scale', (m && m[2]) || '對人'); V('cf-np-desc', (m && m[3]) || '');
   V('cf-weapon', d.weapon); V('cf-look', d.look); V('cf-pref', d.pref);
   V('cf-align', d.align || '中立'); V('cf-fp', d.fp); V('cf-tomaster', d.toMaster);
   V('cf-speech', d.speech); V('cf-tic', d.tic); V('cf-moe', d.moe); V('cf-back', d.back);
