@@ -120,9 +120,7 @@
   document.head.insertAdjacentHTML("beforeend", `<style>
     .loc-link { color: #2e8b57; border-bottom: 1px dashed #2e8b57; cursor: pointer; font-weight: bold; }
     .loc-link:hover { background: rgba(46,139,87,0.2); }
-    #recent-loc-bar::-webkit-scrollbar { display: none; }
   </style>`);
-  renderRecentLocs();
 }
 
 
@@ -204,29 +202,7 @@
   }
   
 
-  function updateRecentLocations(newLoc) {
-  if (!newLoc || newLoc === "--" || newLoc === "未知區域") return;
-  let recents = JSON.parse(localStorage.getItem('kyushu_recent_locs') || "[]");
-  if (recents[0] === newLoc) return;
-  recents = recents.filter(loc => loc !== newLoc);
-  recents.unshift(newLoc);
-  if (recents.length > 5) recents = recents.slice(0, 5);
-  localStorage.setItem('kyushu_recent_locs', JSON.stringify(recents));
-  renderRecentLocs(recents);
-}
-
-function renderRecentLocs(recents = null) {
-  if (!recents) recents = JSON.parse(localStorage.getItem('kyushu_recent_locs') || "[]");
-  const bar = document.getElementById('recent-loc-bar');
-  if (!bar) return;
-  if (recents.length === 0) { bar.style.display = 'none'; return; }
-  bar.style.display = 'flex';
-  bar.innerHTML = `<span style="font-size:11px; color:#666; margin-right:2px; font-weight:bold;">👣 捷徑：</span>` +
-    recents.map(loc => {
-      const shortName = loc.split('-')[1] || loc;
-      return `<button class="btn" style="padding:2px 8px; font-size:12px; border-color:#2e8b57; color:#2e8b57; background:rgba(46,139,87,0.05); white-space:nowrap;" onclick="travelTo('${loc}', 0)">${shortName}</button>`;
-    }).join('');
-}
+  // 🧹 捷徑列(recent-loc-bar)＋頂部休息鈕已移除(2026-07 玩家定案「用不到」)——底部動作列有休息、地圖分頁可移動，兩者重複。
   // 🔴 替換調用 openStatus
   // 找到這段並替換 case 'settings' 的內容：
   function triggerDrawerAction(actionType) {
@@ -935,7 +911,6 @@ function renderRecentLocs(recents = null) {
 
     setUI('ui-trait', s[2]);
     setUI('ui-loc', s[3]);
-    if (currentStatusTargetId === pc.id) updateRecentLocations(s[3]);
     setUI('ui-pref', s[4]);
     setUI('ui-hp', s[5]);
     setUI('ui-mp', s[6]);
