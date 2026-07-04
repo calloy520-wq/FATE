@@ -1437,17 +1437,11 @@
           return '<span class="tag-selectable" onclick="event.stopPropagation();' + onclickJs + '" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid #7ec8ff; color:#bfe3ff; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;">✨ ' + label + '</span>';
         };
         var skillPills = (s.skills || []).map(function (sk) {
-          if (sk.fx === 'mage_realm' && s.mageRealm && s.mageRealm.has) {
-            var mp = (s.mageRealm.pool || []).filter(function (o) { return o.fx === s.mageRealm.pick; })[0];
-            var _mrT = String(sk.n || '魔境的智慧').replace(/'/g, ''); // 🎴 標題用技能自己的名字(斯卡哈=魔境的智慧、尼祿=皇帝特權…)
-            return selPill(sk.n + (mp ? '（' + mp.n + ' A）' : ''), 'openMageRealmPicker(\'' + safeN + '\',\'' + (s.mageRealm.pick || '') + '\',\'' + _mrT + '\')');
-          }
-          if (sk.fx === 'rune' && typeof s.runeMode === 'string') {
-            var rmo = RUNE_MODES_JS.filter(function (o) { return o.mode === (s.runeMode || 'def'); })[0];
-            return selPill(sk.n + (rmo ? '（' + rmo.n + '）' : ''), 'openRunePicker(\'' + safeN + '\',\'' + (s.runeMode || 'def') + '\')');
-          }
-          // 🐕 變容（恩奇都）：不可控·御主決定的亮/暗標籤——與銀狼結契亮起全盛(全能A)、否則暗示需該御主。點開看說明。
-          if (s.synergy && s.synergy.has && sk.n && sk.n.indexOf('變容') >= 0) {
+          // ✨ 特殊·可選（查 SELECTABLE_FX 表·資料驅動）：魔境的智慧／皇帝特權／原初符文·盧恩…要玩家自選武技/模式者
+          var selDef = SELECTABLE_FX[sk.fx];
+          if (selDef && selDef.ready(s)) return selPill(sk.n + selDef.suffix(s), selDef.onclick(s, safeN, sk));
+          // 🐕 變容（恩奇都·fx shapeshift）：不可控·御主決定的亮/暗標籤——與銀狼結契亮起全盛(全能A)、否則暗示需該御主。點開看說明。
+          if (sk.fx === 'shapeshift' && s.synergy && s.synergy.has) {
             var _syon = !!s.synergy.on;
             var _sycol = _syon ? '#7ec8ff' : '#5a5468';
             var _sytxt = _syon ? ('✨' + sk.n + '·全盛') : (sk.n + '·基線');
@@ -1883,6 +1877,22 @@
   //   免為了「看一眼會發動什麼」多打一趟往返；實際判定與扣魔仍以後端為準，這裡純預覽。
   // ⚡ 主動技 fx 集合（魔力放出/怪力/投影）：從者卡標籤據此上青色⚡開關；卡里斯瑪/千里眼/自我改造是常駐被動、不在此表。
   var ACTIVE_FX_JS = { burst: 1, str_up: 1, projection: 1 };
+
+  // 🔮 ✨特殊·可選 註冊表（資料驅動·不寫 if 鏈）：一列＝一種「要玩家自選武技/模式」的能力。
+  //   ready＝該從者是否具備(決定顯不顯)；suffix＝標籤後綴(顯示當前選了什麼)；onclick＝點開的 picker。
+  //   要加第三種可選能力＝往這表加一列＋寫那支 picker，skillPills 迴圈一字不動。
+  var SELECTABLE_FX = {
+    mage_realm: { // 魔境的智慧／皇帝特權…：挑 1 門通用 A 階武技
+      ready: function (s) { return !!(s.mageRealm && s.mageRealm.has); },
+      suffix: function (s) { var mp = (s.mageRealm.pool || []).filter(function (o) { return o.fx === s.mageRealm.pick; })[0]; return mp ? '（' + mp.n + ' A）' : ''; },
+      onclick: function (s, safeN, sk) { return 'openMageRealmPicker(\'' + safeN + '\',\'' + (s.mageRealm.pick || '') + '\',\'' + String(sk.n || '魔境的智慧').replace(/'/g, '') + '\')'; }
+    },
+    rune: { // 原初符文·盧恩：挑 減傷/增傷/回血 模式
+      ready: function (s) { return typeof s.runeMode === 'string'; },
+      suffix: function (s) { var rmo = RUNE_MODES_JS.filter(function (o) { return o.mode === (s.runeMode || 'def'); })[0]; return rmo ? '（' + rmo.n + '）' : ''; },
+      onclick: function (s, safeN) { return 'openRunePicker(\'' + safeN + '\',\'' + (s.runeMode || 'def') + '\')'; }
+    }
+  };
 
   // 🌟 解放寶具前的「選哪個寶具」選單（多寶具英靈：斯卡哈/金閃/EMIYA/伊斯坎達爾…）
   function openNpReleasePicker(npcName, sv, useSeal, isMaster, useSkill) {
