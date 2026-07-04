@@ -2185,14 +2185,11 @@
 
   // 💕 羈絆選單（純按鈕，無對話框）：每種每遊戲日限一次、跨日重置
   const BOND_MENU = [
-    ['chat', '💬 閒聊', '巡查歇腳間的家常與拌嘴'],
-    ['meal', '🍙 共餐', '一同用餐、卸下戒備的尋常溫度'],
-    ['train', '⚔️ 並肩特訓', '切磋武藝、磨合默契'],
-    ['talk', '🌙 促膝夜談', '夜深交換心事、靠近彼此的內裡'],
+    ['together', '💕 相處', '與從者共度一段時光——AI 依當下時段與心境即興（閒話／共餐／特訓／夜談自然浮現）'],
   ];
   function openBondMenu() {
     let html = '<h3 style="margin:0 0 6px;color:#e08aaa;">💕 與從者相伴</h3>'
-      + '<p style="color:#9a8bb0;font-size:12px;margin:0 0 10px;">並肩作戰之餘的點滴，悄悄加深彼此的羈絆。<br>（每種互動每日一次，隔日重置）</p>';
+      + '<p style="color:#9a8bb0;font-size:12px;margin:0 0 10px;">並肩作戰之餘的點滴，悄悄加深彼此的羈絆。<br>（每遊戲日一次，隔日重置）</p>';
     html += BOND_MENU.map(function (o) {
       const used = myBondUsed.indexOf(o[0]) >= 0;
       const dis = used ? 'opacity:.4;pointer-events:none;' : '';
