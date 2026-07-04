@@ -358,6 +358,22 @@ function openForge() {
   if (s) s.style.display = 'none';
   if (f) { f.style.display = 'block'; window.scrollTo(0, 0); }
   if (!_forgeInit) { initForge_(); _forgeInit = true; }
+  renderForgeMine_();
+}
+// 🛠️ 工房頂部「我的作品」列(2026-07)：本帳號創造的英靈一鍵進編輯(與 🌟 專區的 ✏️ 同路)
+function renderForgeMine_() {
+  var box = document.getElementById('cf-mine'); if (!box) return;
+  var mine = (heroesData || []).filter(function (h) { return h.src === 'ai_gen' && h.creator && (typeof currentAccount !== 'undefined') && h.creator === currentAccount; });
+  if (!mine.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = 'block';
+  box.innerHTML = '<div style="color:#8fb0e8; font-size:11.5px; margin-bottom:4px;">✏️ 我的作品（點選進入修改·改的是範本、重召生效）</div>'
+    + '<div style="display:flex; flex-wrap:wrap; gap:5px;">'
+    + mine.map(function (h) {
+        var id = String(h.id).replace(/'/g, '');
+        var cur = (_forgeEditId === String(h.id));
+        return '<button class="btn" style="flex:0 1 auto; font-size:11.5px; padding:5px 9px; border-color:' + (cur ? 'var(--gold-accent)' : '#6a8ac0') + '; color:' + (cur ? 'var(--gold-accent)' : '#8fb0e8') + ';" onclick="forgeEdit(\'' + id + '\')">' + h.name + ' <small style="opacity:.6;">' + (h.cls || '') + '</small></button>';
+      }).join('')
+    + '</div>';
 }
 // ✏️ 修改原創英靈（僅創造者·由 🌟 專區進入）：工房預填該英靈現有設定，存檔＝覆寫英靈殿範本
 function forgeEdit(id) {
@@ -388,6 +404,7 @@ function forgeEdit(id) {
   V('cf-speech', d.speech); V('cf-tic', d.tic); V('cf-moe', d.moe); V('cf-back', d.back);
   var dr = document.getElementById('cf-drama'); if (dr && (d.fp || d.speech || d.tic || d.moe || d.back)) dr.style.display = 'block';
   forgeBudget_();
+  renderForgeMine_(); // 刷新「我的作品」列的選中高亮
 }
 function closeForge() {
   var s = document.getElementById('step-summon'), f = document.getElementById('step-forge');
