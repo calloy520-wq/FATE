@@ -421,8 +421,11 @@
   function manaSetOutput(name, o) {
     var sv = (myServants || []).find(function (x) { return x && x.name === name; });
     if (sv) { sv.output = o; sv.outputLabel = OUT_LABEL_JS[o] || ''; }
-    try { gasRun({ action: 'set_servant_output', pcId: pc.id, servant: name, output: o, acctName: (pc && pc.account) || currentAccount }).then(function (res) { if (res && res.success) { try { updateEconomy(res.economy); } catch (e) {} try { if (typeof renderWarActions === 'function') renderWarActions(); } catch (e) {} } }); } catch (e) {}
-    openManaPanel(); // 重繪彈窗反映新檔位
+    try { gasRun({ action: 'set_servant_output', pcId: pc.id, servant: name, output: o, acctName: (pc && pc.account) || currentAccount }).then(function (res) { if (res && res.success) { try { updateEconomy(res.economy); } catch (e) {} try { if (typeof renderWarActions === 'function') renderWarActions(); } catch (e) {}
+      // 🔮 收支及時反饋：後端回來的新 economy(維持費/淨值已反映新出力檔)→ 若魔力面板還開著就重繪，免關窗重開才更新
+      try { var ov = document.getElementById('history-overlay'); if (ov && ov.style.display !== 'none') openManaPanel(); } catch (e) {}
+    } }); } catch (e) {}
+    openManaPanel(); // 樂觀重繪：先反映新檔位高亮(收支數字待後端回來再刷一次)
   }
   // ⚔️ 戰爭行動列（手風琴收攏）：每個目標收成一張卡，點開才展開後續行動，避免按鈕爆量。
   var warExpanded = null; // 目前展開的目標 key（name）
