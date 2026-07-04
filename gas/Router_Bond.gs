@@ -141,6 +141,10 @@ function actionBond(userData, pcId, sheets) {
   sheets.pc.getRange(pIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[pIdx][COL.PC.MEMORY]);
   usedToday = getBondUsedToday_(pcData[pIdx][COL.PC.MEMORY], day);
 
+  // ⏳ 相處耗 1 AP＝推進 1 小時（2026-07 玩家定案·與令咒/偵查同級：相處也要花時間）
+  let bondAp = null, bondClock = "";
+  if (myGameId && myGameId.indexOf("g_") === 0) { try { bondAp = spendAp_(myGameId, 1).ap; bondClock = clockLabel_(myGameId); } catch (e) { } }
+
   // 取最新羈絆值供顯示（羈絆存於從者自己列的 BOND 欄，raiseBond_ 已寫回，這裡重讀一次拿最新值）
   let bondNow = 0;
   try {
@@ -160,7 +164,8 @@ function actionBond(userData, pcId, sheets) {
       ``;
   } else {
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
-      `【系統·羈絆已結算】御主『${masterName}』與從者「${svName}」${act.label}，兩人的羈絆又深了一分（時值${band}）。\n` +
+      `【系統·羈絆已結算】御主『${masterName}』與從者「${svName}」${act.label}、共度約莫一個小時的光景，兩人的羈絆又深了一分（時值${band}）。\n` +
+      `★【時間尺度】這是一段約一個小時的相處，寫出「有一段時光緩緩流過」的從容，勿寫成三言兩語的瞬間、也勿橫跨大半天。\n` +
       `★以 Fate／TYPE-MOON 筆觸寫一段【精煉 90~150 字、輕快不冗長】${svName} 與御主${act.frame}的小品。務必貼合上方「演出依據」中的性格、自稱與口吻，演出其獨有神態，點到為止留餘味。\n` +
       `★【show, don't tell】用言行、神態、停頓去流露情感與性格，絕不可直白說出其「願望／個性／萌點」等設定詞；停在含蓄的留白。\n` +
       `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。`;
@@ -168,6 +173,7 @@ function actionBond(userData, pcId, sheets) {
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, bond: bondNow, bondUsed: usedToday,
     ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", report: ambush ? ambush.report : null,
+    ap: bondAp, clock: bondClock,
     statusString: getFreshStatusString(pcId, pIdx, sheets)
   });
 }
