@@ -209,6 +209,12 @@ function clearOvercharge_(memory) { return String(memory || "").replace(/｜?【
 function getOutfit_(memory) { var m = String(memory || "").match(/【換裝】([^｜【】]*)/); return m ? m[1].trim() : ""; }
 function setOutfit_(memory, text) { var s = clearOutfit_(String(memory || "")); text = String(text || "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, 40); if (!text) return s; return s ? s + "｜【換裝】" + text : "【換裝】" + text; }
 function clearOutfit_(memory) { return String(memory || "").replace(/｜?【換裝】[^｜【】]*/g, ""); }
+// ⚔️ 玩家自定武裝（2026-07·「Saber斯卡哈仍拿槍」案）：武器/戰鬥方式存 MEMORY【武裝】<文字>，
+//   servantCard_ 讀後強制 AI 以此為準——蓋過職階慣例(Saber=劍/Lancer=槍…)與該真名的原典武器習慣。
+//   get/set/clear 成套(鏡射換裝)；清空＝恢復依職階/原典自然演出。限 30 字。
+function getWeapon_(memory) { var m = String(memory || "").match(/【武裝】([^｜【】]*)/); return m ? m[1].trim() : ""; }
+function setWeapon_(memory, text) { var s = clearWeapon_(String(memory || "")); text = String(text || "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, 30); if (!text) return s; return s ? s + "｜【武裝】" + text : "【武裝】" + text; }
+function clearWeapon_(memory) { return String(memory || "").replace(/｜?【武裝】[^｜【】]*/g, ""); }
 // 前端「變容」標籤用的 synergy 視圖：非 synergy 從者回 null；恩奇都回 {has,on,master,peak}。
 //   on＝當前御主觸發全盛(亮)；否則暗(提醒需該御主)。玩家不可控——由御主決定。
 function masterSynergyView_(name, memory) {

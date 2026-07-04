@@ -99,6 +99,25 @@ function actionSetOutfit(userData, pcId, sheets) {
   }); // 樂觀更新·前端自走輕量 syncData
 }
 
+// ⚔️ 設定從者武裝（存 MEMORY【武裝】·2026-07）：玩家自定武器/戰鬥方式，敘述以此為準(蓋過職階慣例/原典習慣)。
+//   免費、即時、不耗 AP；留空＝清除、恢復自然演出。鏡射 actionSetOutfit。
+function actionSetWeapon(userData, pcId, sheets) {
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無此從者。" });
+  pcData[svIdx][COL.PC.MEMORY] = setWeapon_(pcData[svIdx][COL.PC.MEMORY], userData.weapon); // set 內已剝分隔字元＋限 30 字
+  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+  const now = getWeapon_(pcData[svIdx][COL.PC.MEMORY]);
+  const svName = pcData[svIdx][COL.PC.NAME];
+  return JSON.stringify({
+    success: true, weapon: now,
+    message: now ? `已為「${svName}」定下武裝【${now}】——此後攻防敘述皆以此為準。` : `已清除「${svName}」的自訂武裝，恢復依職階與傳說自然演出。`
+  }); // 樂觀更新·前端自走輕量 syncData
+}
+
 // 🔵 補魔（魔力供給）：把御主魔力導入從者，回魔＋羈絆＋fade 演出。耗 1 AP（導入魔力需時）
 function actionManaSupply(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();

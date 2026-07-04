@@ -38,6 +38,7 @@ const ActionRouter = {
   "set_mage_realm": actionSetMageRealm,
   "set_rune_mode": actionSetRuneMode,
   "outfit": actionSetOutfit,
+  "weapon": actionSetWeapon,
   "bond": actionBond,
   "rule_break_steal": actionRuleBreakSteal,
   "propose_alliance": actionProposeAlliance,
@@ -371,6 +372,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
       // 🐙 戰前召喚鈕：持 summon_horror 且海怪【尚未在場】→ 前端露出「召喚海怪」按鈕(變身態·跨戰鬥 12h)
       canSummonHorror: skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) && !horrorShieldView_(s[COL.PC.MEMORY], gameId),
       outfit: getOutfit_(s[COL.PC.MEMORY]), // 👗 玩家換裝：當前服裝(前端預填/顯示·換衣不換人)
+      weapon: getWeapon_(s[COL.PC.MEMORY]), // ⚔️ 玩家自定武裝：武器/戰鬥方式(前端預填/顯示·敘述以此為準)
       pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體
       stolen: /【破戒奪取】/.test(String(s[COL.PC.MEMORY] || ""))
     });

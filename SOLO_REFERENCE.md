@@ -108,8 +108,9 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | set_mage_realm | actionSetMageRealm | 🔮魔境的智慧(斯卡哈專屬)：玩家點選 **1 個通用 A 階被動 fx**(`mageRealmPool_`：對魔力/怪力/心眼/透化/軍略/自我改造)，存 MEMORY【魔境】fx；fx 空字串＝清除。免費即時不耗AP。`rowToCombatant_` 戰鬥時注入 skills(r:'A')。只接受持 `mage_realm` 的從者。 |
 | set_np_choice | actionSetNpChoice | 🌟多寶具英靈：玩家點寶具時選「解放哪個」，存 MEMORY【寶具選】N(預設0=主寶具)。`servantNpOptions_(name,cls)`(Engine_Fate 中央表：斯卡哈L/金閃/EMIYA/伊斯坎達爾…)定義每英靈的寶具清單{n,scale,fx,desc}。`npProfile_(c)`解出本次解放的{scale,fx}：多寶具讀 c.npChoice 選定項，單寶具退回字串尺度＋`firstSignatureFx_`。`resolveFateBattle_` 簽名效果(gae_bolg必中/ea執行殺/ubw/zabaniya/summon_horror/petrify/scaleMult)一律改吃 npProfile→選對寶具才生效。前端寶具鈕→`openNpReleasePicker`(>1才彈)→`pickNpAndStrike`(set_np_choice→servantStrike npPicked)。免費即時。 |
 | outfit | actionSetOutfit | 👗**從者換裝**(玩家自訂當前服裝穿著)：存從者 MEMORY`【換裝】<文字>`(`getOutfit_/setOutfit_/clearOutfit_`·Core_Settings·set 內剝`｜【】`換行＋限40字)。**只換衣不換人**——五官/髮色/體態/氣質仍依種子`persona.look`。餵進敘述三處：`servantCard_`(solo 戰鬥/羈絆/移動·同時補注`外貌本相`＝先前漏掉的 look)＋actionPlay `【同行夥伴】裝扮:`(solo/full)＋kanshou `[名 裝扮]:`(Router_Narrative)。純外觀·免費即時·不耗 AP·兩軌通用·留空恢復本相。get_tags 給 `outfit`(前端預填/顯示)。前端 `changeOutfit(name)`(prompt)＋卡片 👗換裝鈕(solo 動作列＋kanshou 卡)。 |
+| weapon | actionSetWeapon | ⚔️**從者武裝**(2026-07·「Saber斯卡哈仍拿槍」案)：玩家自定武器/戰鬥方式，存從者 MEMORY`【武裝】<文字>`(`getWeapon_/setWeapon_/clearWeapon_`·Core_Settings·限30字)。`servantCard_` 讀後上【武裝·絕對】強制線——**蓋過職階慣例(Saber=劍…)與該真名的原典武器習慣**(自訂腦洞職階×武器搭配的根源解)。免費即時·不耗AP·留空恢復自然演出。servants payload 給 `weapon`。前端 `changeWeapon(name)`(prompt·鏡射換裝)＋卡片 ⚔️武裝鈕；工房 `cf-weapon` 欄創建時直接定。 |
 | set_rune_mode | actionSetRuneMode | 🔯原初符文運用(持 rune 者)：玩家選 **def 減傷/dmg 增傷/regen 回血**，存 MEMORY【符文】mode(預設 def)。`runeMode_`/`setRuneMode_`(Core_Settings)。`rowToCombatant_`→c.runeMode；`resolveFateBattle_`：def loser減傷10%×階／dmg winner增傷10×階；regen 在 `actionFateBattle` 回合迴圈回血 5%×階/回合。get_tags 給 `runeMode`。免費即時。 |
-| bond | actionBond | 羈絆互動(閒聊/共餐/特訓/夜談)，每種每日一次升羈絆 |
+| bond | actionBond | 羈絆互動：單一「相處」(2026-07 收攏·原4種打卡)，每遊戲日一次 +10、耗1AP(推進1小時·不觸發worldTick)，味道由 AI 依時段/羈絆/性格即興 |
 | ~~use_mystic~~ | — | **已移除**（禮裝全面被動化，戰鬥自動加持我方從者，見 §6） |
 | rule_break_steal | actionRuleBreakSteal | 破戒奪僕：打殘敵從者(HP<35%)+燃令咒→奪為第二從者(上限2) |
 | propose_alliance / break_alliance / ally_bond | 同盟系 | 結盟/撕毀/與盟友共處(見 §8) |
@@ -423,7 +424,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 ```
 【願望】wish 【令咒】N 【迴路】N(預設30) 【魔術】 【出身】 【體術】
 【模式】canon/chaos 【戰爭】4th/5th/fake 【扮演】正典御主id
-【試煉】N(god_hand命數) 【寶具選】N(多寶具英靈解放哪個·set_np_choice) 【寶具預告】1(敵蓄勢·getNpTelegraph_) 【過充】N(補魔存的無償超載額度·一次性·getOvercharge_/set/clear) 【換裝】文字(玩家自訂從者服裝·換衣不換人·getOutfit_/set/clear)　※【路線】route／【史】firedPins 已隨正典插針退役·無用遺留
+【試煉】N(god_hand命數) 【寶具選】N(多寶具英靈解放哪個·set_np_choice) 【寶具預告】1(敵蓄勢·getNpTelegraph_) 【過充】N(補魔存的無償超載額度·一次性·getOvercharge_/set/clear) 【換裝】文字(玩家自訂從者服裝·換衣不換人·getOutfit_/set/clear) 【武裝】文字(玩家自定武器/戰鬥方式·敘述強制以此為準·getWeapon_/set/clear)　※【路線】route／【史】firedPins 已隨正典插針退役·無用遺留
 【羈絆日】D:type1,type2(跨日重置) 【強撐】D(second_wind 舊日限·已棄用·helper 留著無害)
 【陣地】loc(setWorkshop 寫·駐留該地供魔工房+8·getWorkshop_/setWorkshopMemory_) 【搜刮】loc(scavenge 寫·該地散逸魔力枯竭標記·getScavengedLoc_/setScavengedLoc_) 【禮裝】id 【禮充】n 【盟約至】day 【鑑賞緣】 【破戒奪取】 【黑化Alter】
 【魔境】fx(斯卡哈玩家選的通用A階被動，set_mage_realm 寫，rowToCombatant_ 注入) 【符文】def/dmg/regen(原初符文運用，set_rune_mode 寫)

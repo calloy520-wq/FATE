@@ -360,11 +360,12 @@ function actionSummonServant(userData, pcId, sheets) {
       const fNpScale = (String(build.npScale) === "對軍") ? "對軍" : "對人";
       np = `${fNpName}（${fNpScale} ${fNpR}）`;
       const bDesc = String(build.desc || "").trim().slice(0, 120);
+      const bWeapon = String(build.weapon || "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, 30); // ⚔️ 玩家自定武裝(選填)
       // 🎭 AI 只補演出 persona（背景/個性/反差萌）——失敗不擋召喚，玩家數值不當 AI 人質
       let flavor = null;
       try {
         flavor = JSON.parse(callGeminiAPI(
-          `【真名】：${realName}\n【職階】：${cls}\n【性別】：${sex}\n【玩家描述】：${bDesc || "無"}\n【技能】：${fSkills.map(s => s.n).join("、") || "無"}\n【寶具】：${fNpName}`,
+          `【真名】：${realName}\n【職階】：${cls}\n【性別】：${sex}\n【玩家描述】：${bDesc || "無"}${bWeapon ? `\n【武裝(以此為準·勿依職階/原典改寫)】：${bWeapon}` : ""}\n【技能】：${fSkills.map(s => s.n).join("、") || "無"}\n【寶具】：${fNpName}`,
           `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名原創從者的全部數值，你【只】負責演出用人格側寫，【嚴禁】輸出任何數值/階級/技能/寶具設定。★輸出合法 JSON、禁 Markdown：{"background":"生平一句·限20字","personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔）","npc_intent":"一句反差萌·限15字"}`,
           { temperature: 0.85, ignoreLaw: true }));
       } catch (e) { flavor = null; }
@@ -374,6 +375,7 @@ function actionSummonServant(userData, pcId, sheets) {
       row[COL.PC.PREF] = parseTraitsHelper(flavor && flavor.personality, "沉著表象、堅定內裡、珍視之物、厭惡之事");
       row[COL.PC.INTENT] = String((flavor && flavor.npc_intent) || "").slice(0, 18);
       row[COL.PC.MEMORY] = `第一人稱「我」｜對御主：初締約·尚在觀察`;
+      if (bWeapon) row[COL.PC.MEMORY] = setWeapon_(row[COL.PC.MEMORY], bWeapon); // ⚔️ 武裝入 MEMORY·servantCard_ 強制以此演出
       row[COL.PC.SIX] = JSON.stringify(fSix);
       row[COL.PC.TAGS] = JSON.stringify({ skills: fClsSkills.concat(fSkills), traits: [] });
       if (fClsSkills.concat(fSkills).some(s => s && s.fx === "god_hand")) row[COL.PC.MEMORY] += "｜【試煉】3"; // 復活命數＝3（尼祿基準）

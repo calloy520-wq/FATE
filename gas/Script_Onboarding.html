@@ -395,6 +395,7 @@ function summonByForge() {
     six: six, skills: skills,
     npName: (document.getElementById('cf-np-name').value || '').trim(),
     npRank: document.getElementById('cf-np-r').value, npScale: document.getElementById('cf-np-scale').value,
+    weapon: (document.getElementById('cf-weapon') && document.getElementById('cf-weapon').value || '').trim(),
     desc: (document.getElementById('cf-desc').value || '').trim()
   };
   return doSummon({ build: JSON.stringify(build) });
