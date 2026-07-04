@@ -594,8 +594,10 @@ function resolveFateBattle_(atk, def, opts) {
   var sm = hasFx_(def, 'shapeshift'); if (sm) { dEvaFx += Math.round(3 * rankMul_(sm)); fired.push(def.name + '·' + fxName_(def, 'shapeshift', '變化') + '(化形閃避)'); }
   // 💋 愛之痣(lovespot／迪盧木多)：魅惑之痣令來犯者一瞬分神，攻方命中 -1(小幅惑亂)
   if (hasFx_(def, 'lovespot')) { aHitFx -= 1; fired.push(def.name + '·' + fxName_(def, 'lovespot', '愛之痣') + '(惑·敵命中-1)'); }
-  // 👁️ 魔眼·石化(petrify／Rider 美杜莎)：以視線鎖死獵物，令對方迴避大減
-  var pet = hasFx_(atk, 'petrify'); if (pet) { dEvaFx -= Math.round(2 * rankMul_(pet)); fired.push(atk.name + '·' + fxName_(atk, 'petrify', '魔眼') + '·鎖死身法'); }
+  // 👁️ 魔眼·石化(petrify／Rider 美杜莎)：以視線鎖死獵物，令對方迴避大減。
+  //   2026-07 加強 2×階→4×階(玩家定案)：升格為「閃避堆疊流」的正牌剋星——工房唯一可購的反迴避工具，
+  //   原 2×階(A僅-3.3)在敏EX+變化+直感的+8上限疊加前太薄。美杜莎連動受益。
+  var pet = hasFx_(atk, 'petrify'); if (pet) { dEvaFx -= Math.round(4 * rankMul_(pet)); fired.push(atk.name + '·' + fxName_(atk, 'petrify', '魔眼') + '·鎖死身法'); }
   // ⛓️ 天之鎖(chain／Gilgamesh·Enkidu)：對「神性」之敵展開冥界鎖鏈，封住身法。
   //   ⚠ 2026-07 統一重構：縛神強度改依【對方神格】縮放(divineRankOf_·原作「神性越高縛得越死」)——
   //   0.5+0.5×rankMul(對方神格)：C 神格＝×1.0(與舊值完全一致)、A＝×1.33、EX＝×1.5、E-(美杜莎)＝×0.62。

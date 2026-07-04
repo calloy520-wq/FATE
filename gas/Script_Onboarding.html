@@ -336,14 +336,14 @@ function summonByDesc() {
 //   後端 actionSummonServant build 分支為權威驗證，這裡的預算/清單只是即時 UX 鏡射（改後端 ALLOWED_FX_ 記得同步 FORGE_FX）。
 var FORGE_PTS = { E: 10, D: 20, C: 30, B: 40, A: 50, EX: 60 }, FORGE_BUDGET = 340; // 💰 270→340(2026-07·種子中位數·技能/規模併入錢包後的重校·鏡射後端)
 var FORGE_SK_PTS = { E: 5, D: 10, C: 15, B: 20, A: 25 }; // ⚡ 技能階級定價(六圍半價·無 fx 純演出免費·鏡射後端 SKILL_PTS_)
-var FORGE_FLAT_FX = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25 }; // 🔒 二元 fx 平價(fx→價·引擎不讀其階級·鏡射後端 FLAT_FX_；燕返60=僅每場第1回合一閃後的重校·曾100擋「回回×2.3」時代的疊加)
+var FORGE_FLAT_FX = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25, weapon_steal: 25, god_slay: 25, lovespot: 5 }; // 🔒 二元 fx 平價(fx→價·引擎不讀其階級·鏡射後端 FLAT_FX_；燕返60=僅每場第1回合一閃後的重校；weapon_steal/god_slay/lovespot 2026-07 三波·引擎皆不讀階)
 // 🗂️ 效果目錄·按機制分組(2026-07 玩家點破「很多效果一樣但名字不同」——名字是原作梗·機制就十來種，
 //   名字本可自取→按效果挑、同效者標明擇一即可)。flat FORGE_FX 由 groups 攤平(label 查找/驗證介面不變)。
 var FORGE_FX_GROUPS = [
   { t: '⚔️ 命中系', items: [
     ['first_strike', '直感（先機·命中+）'], ['analyze', '心眼（＝直感同效·擇一）'],
     ['aim', '千里眼（命中+·幅度大）'], ['ride', '騎乘（命中+·幅度小）'],
-    ['self_mod', '自我改造（命中＋傷害小幅+）'], ['petrify', '魔眼·石化（壓低敵迴避）']
+    ['self_mod', '自我改造（命中＋傷害小幅+）'], ['petrify', '魔眼·石化（大削敵迴避·剋閃避流）']
   ]},
   { t: '💥 傷害系·主動（按⚡發動·耗魔）', items: [
     ['burst', '魔力放出（傷害×倍率）'], ['str_up', '怪力（傷害+固定值）'], ['projection', '投影魔術（命中+傷害+）']
@@ -351,7 +351,8 @@ var FORGE_FX_GROUPS = [
   { t: '🗡️ 傷害系·常駐（免費被動）', items: [
     ['fast_cast', '高速詠唱（傷+）'], ['crafting', '道具作成（傷+）'], ['wind_strike', '風王鐵鎚（傷+）'],
     ['divine_age', '神代魔術（凌駕對魔力）'], ['tactics', '軍略（寶具傷+）'],
-    ['weapon_steal', '無毀湖光（對龍×1.5）'], ['agile_striker', '以巧破力（以敏捷為傷害底）']
+    ['weapon_steal', '無毀湖光（對龍×1.5）'], ['agile_striker', '以巧破力（以敏捷為傷害底·×0.85）'],
+    ['god_slay', '神殺（對神性之敵大傷·依對方神格）']
   ]},
   { t: '🛡️ 減傷系', items: [
     ['nullify_magic', '對魔力（抗魔減傷）'], ['rho_aias', '七天盾（只對寶具展開·御主耗魔30/次）'],
@@ -359,7 +360,8 @@ var FORGE_FX_GROUPS = [
   ]},
   { t: '💨 迴避·隱匿·精神', items: [
     ['shapeshift', '變化（迴避+）'], ['evade_ranged', '避矢（剋弓兵）'], ['stealth', '氣息遮斷（奇襲增傷）'],
-    ['unreadable', '無欲（封敵先機）'], ['clear_mind', '透化（免威壓·剋勇猛）'], ['morale', '勇猛／卡里斯瑪（威壓）']
+    ['unreadable', '無欲（封敵先機）'], ['clear_mind', '透化（免威壓·剋勇猛）'], ['morale', '勇猛／卡里斯瑪（威壓）'],
+    ['sense', '氣息感知（看穿奇襲·剋氣息遮斷）'], ['lovespot', '愛之痣（魅惑·敵命中−1）']
   ]},
   { t: '🕯️ 生存·復活', items: [
     ['survive', '戰鬥續行（致命傷撐1·可反覆·破魔剋）'], ['god_hand', '不死復活（真死後復活·共3命）'], ['regen', '治癒（每回合回血）']
