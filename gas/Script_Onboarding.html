@@ -390,13 +390,15 @@ function summonByForge() {
     var zh = (FORGE_FX.filter(function (o) { return o[0] === fx; })[0] || ['', '技能'])[1].replace(/（.*）/, '');
     skills.push({ n: rn || zh || '技能', r: document.getElementById('cf-sk' + i + '-r').value, fx: fx });
   }
+  var _v = function (id) { var el = document.getElementById(id); return (el && el.value || '').trim(); };
   var build = {
     name: nm, cls: document.getElementById('cf-cls').value, sex: document.getElementById('cf-sex').value,
     six: six, skills: skills,
-    npName: (document.getElementById('cf-np-name').value || '').trim(),
-    npRank: document.getElementById('cf-np-r').value, npScale: document.getElementById('cf-np-scale').value,
-    weapon: (document.getElementById('cf-weapon') && document.getElementById('cf-weapon').value || '').trim(),
-    desc: (document.getElementById('cf-desc').value || '').trim()
+    npName: _v('cf-np-name'), npRank: document.getElementById('cf-np-r').value, npScale: document.getElementById('cf-np-scale').value,
+    npDesc: _v('cf-np-desc'),   // 寶具威能一句(選填)
+    look: _v('cf-look'),        // 🎨 外貌本相(選填·玩家寫自己的種子)
+    pref: _v('cf-pref'),        // 💭 個性四短句(選填)
+    weapon: _v('cf-weapon'), desc: _v('cf-desc')
   };
   return doSummon({ build: JSON.stringify(build) });
 }
