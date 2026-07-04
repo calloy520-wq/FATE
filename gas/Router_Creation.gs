@@ -353,7 +353,9 @@ function actionSummonServant(userData, pcId, sheets) {
       // ⚡ 技能階級定價(2026-07 玩家定案)：fx 效果隨階級放大(引擎 rankMul_)，白拿＝免費戰力。
       //   六圍半價 E5/D10/C15/B20/A25；純演出標籤(無 fx)免費。與六圍/規模同一份預算。
       const SKILL_PTS_ = { E: 5, D: 10, C: 15, B: 20, A: 25 };
-      const fSkillCost = fSkills.reduce((s, k) => s + (k.fx ? (SKILL_PTS_[k.r] || 15) : 0), 0);
+      // 🔒 二元 fx 平價(引擎不讀其階級·E階白撿同 A 效果的洞)：復活3命/致命撐1/燕返×2.3/妄想心音/必中槍/破戒/破魔 → 一律 25(A價)
+      const FLAT_FX_ = { god_hand: 25, survive: 25, tsubame: 25, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25 };
+      const fSkillCost = fSkills.reduce((s, k) => s + (k.fx ? (FLAT_FX_[k.fx] || SKILL_PTS_[k.r] || 15) : 0), 0);
       const fTotal = fSpent + fScaleCost + fSkillCost;
       if (fTotal > FORGE_BUDGET) return JSON.stringify({ success: false, message: `六圍 ${fSpent}＋技能 ${fSkillCost}＋規模「${fNpScale}」${fScaleCost ? `+${fScaleCost}` : "0"} ＝ ${fTotal}，超過預算 ${FORGE_BUDGET}——請調降六圍/技能階級或改對人規模。` });
       // 職階技能：依職階慣例自動附贈（不占 3 槽·與種子/AI 生成對稱）

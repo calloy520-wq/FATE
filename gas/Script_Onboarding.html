@@ -324,17 +324,18 @@ function summonByDesc() {
 //   後端 actionSummonServant build 分支為權威驗證，這裡的預算/清單只是即時 UX 鏡射（改後端 ALLOWED_FX_ 記得同步 FORGE_FX）。
 var FORGE_PTS = { E: 10, D: 20, C: 30, B: 40, A: 50, EX: 60 }, FORGE_BUDGET = 270;
 var FORGE_SK_PTS = { E: 5, D: 10, C: 15, B: 20, A: 25 }; // ⚡ 技能階級定價(六圍半價·無 fx 純演出免費·鏡射後端 SKILL_PTS_)
+var FORGE_FLAT_FX = { god_hand: 1, survive: 1, tsubame: 1, zabaniya: 1, gae_bolg: 1, rule_breaker: 1, anti_magic_lance: 1 }; // 🔒 二元 fx 平價25(引擎不讀其階級·鏡射後端 FLAT_FX_)
 var FORGE_FX = [
   ['', '（無效果·純演出標籤）'], ['nullify_magic', '對魔力（抗魔）'], ['first_strike', '直感（先機）'], ['analyze', '心眼（看破）'],
   ['aim', '千里眼（命中+）'], ['str_up', '怪力（主動·傷+）'], ['burst', '魔力放出（主動·傷×）'], ['projection', '投影魔術（主動·中傷+）'],
   ['fast_cast', '高速詠唱（傷+）'], ['crafting', '道具作成（傷+）'], ['ride', '騎乘（命中+）'], ['stealth', '氣息遮斷（奇襲）'],
-  ['shapeshift', '變化（迴避+）'], ['evade_ranged', '避矢（剋弓）'], ['survive', '戰鬥續行（致命傷撐1）'], ['solo', '單獨行動（無主續存）'],
+  ['shapeshift', '變化（迴避+）'], ['evade_ranged', '避矢（剋弓）'], ['survive', '戰鬥續行（致命傷撐1·固定25點）'], ['solo', '單獨行動（無主續存）'],
   ['divine_core', '神核（常駐減傷）'], ['rho_aias', '七天盾（投影減傷）'], ['territory', '陣地作成（減傷）'], ['wall_def', '城牆防禦（物理減傷）'],
   ['mad', '狂化（傷+命中−）'], ['morale', '勇猛／卡里斯瑪'], ['divine_age', '神代魔術（凌駕抗魔）'], ['unreadable', '無欲（封敵先機）'],
   ['clear_mind', '透化（免威壓）'], ['self_mod', '自我改造（命中傷+）'], ['tactics', '軍略（寶具+）'], ['wind_strike', '風王鐵鎚（傷+）'],
-  ['petrify', '魔眼·石化'], ['gae_bolg', '必中槍（因果逆轉）'], ['tsubame', '秘劍·燕返（多重斬）'], ['zabaniya', '妄想心音（暗殺致命）'],
-  ['weapon_steal', '無毀湖光（對龍×1.5）'], ['regen', '治癒（每回合回血）'], ['god_hand', '不死復活（燒命×3）'],
-  ['anti_magic_lance', '破魔（無視神核/續行）'], ['rule_breaker', '破戒（斬契約）'], ['divine', '神性（神裔·會被神殺剋）']
+  ['petrify', '魔眼·石化'], ['gae_bolg', '必中槍（因果逆轉·固定25點）'], ['tsubame', '秘劍·燕返（多重斬·固定25點）'], ['zabaniya', '妄想心音（暗殺致命·固定25點）'],
+  ['weapon_steal', '無毀湖光（對龍×1.5）'], ['regen', '治癒（每回合回血）'], ['god_hand', '不死復活（燒命×3·固定25點）'],
+  ['anti_magic_lance', '破魔（無視神核/續行·固定25點）'], ['rule_breaker', '破戒（斬契約·固定25點）'], ['divine', '神性（神裔·會被神殺剋）']
 ];
 var _forgeInit = false;
 function toggleForge() {
@@ -370,11 +371,11 @@ function forgeBudget_() {
   ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].forEach(function (k) {
     var el = document.getElementById('cf-six-' + k); if (el) sum += FORGE_PTS[el.value] || 30;
   });
-  // ⚡ 技能階級也用預算買(2026-07)：有 fx 效果的才計費(六圍半價)、純演出標籤免費
+  // ⚡ 技能階級也用預算買(2026-07)：有 fx 效果的才計費(六圍半價)、純演出標籤免費；二元 fx 平價25
   var skSum = 0;
   for (var i = 0; i < 3; i++) {
     var fxEl = document.getElementById('cf-sk' + i + '-fx'), rEl = document.getElementById('cf-sk' + i + '-r');
-    if (fxEl && rEl && fxEl.value) skSum += FORGE_SK_PTS[rEl.value] || 15;
+    if (fxEl && rEl && fxEl.value) skSum += FORGE_FLAT_FX[fxEl.value] ? 25 : (FORGE_SK_PTS[rEl.value] || 15);
   }
   sum += skSum;
   // 🌟 寶具規模也用預算買(2026-07)：對軍在規模矩陣對絕大多數對局×1.25、免費必人人選→標價 +20
