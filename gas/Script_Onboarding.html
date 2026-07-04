@@ -382,6 +382,8 @@ function forgeTab(n) {
       tb.style.fontWeight = (i === n) ? 'bold' : 'normal';
     }
   });
+  // 💾 存檔鈕只在中間「⚔️ 靈基」主頁顯示(2026-07 玩家定案)；預算計數保持三頁常駐(寶具頁調規模要看得到)
+  var sv = document.getElementById('cf-save'); if (sv) sv.style.display = (n === 2) ? 'block' : 'none';
 }
 // 🛠️ 工房頂部「我的作品」列(2026-07)：本帳號創造的英靈一鍵進編輯(與 🌟 專區的 ✏️ 同路)
 function renderForgeMine_() {
