@@ -290,9 +290,11 @@ function renderHeroList() {
   box.innerHTML = list.map(function (h) {
     var id = String(h.id).replace(/'/g, '');
     var mine = custom && h.creator && (typeof currentAccount !== 'undefined') && h.creator === currentAccount;
+    var unclaimed = custom && h.src === 'ai_gen' && !h.creator; // 🖐 印記功能上線前鑄的無主原創→可認領
     return '<div style="display:flex; gap:4px; margin-bottom:5px;">'
       + '<button class="btn" style="flex:1; min-width:0; text-align:left; border-color:#d4af37; color:#e8dcc0; padding:8px 10px;" onclick="lockBtn(event, function(){return summonByHero(\'' + id + '\');})"><b>' + h.name + '</b>' + ((all || custom) && h.cls ? ' <small style="color:#9a7b4f;">' + h.cls + '</small>' : '') + (h.np ? '<br><small style="color:#9a8bb0;">' + h.np + '</small>' : '') + '</button>'
       + (mine ? '<button class="btn" title="修改這名英靈（僅創造者本人）——改的是範本，之後召喚生效" style="flex:none; width:44px; border-color:#6a8ac0; color:#8fb0e8; padding:0;" onclick="forgeEdit(\'' + id + '\')">✏️</button>' : '')
+      + (unclaimed ? '<button class="btn" title="認領：這名原創英靈是「創造者印記」功能上線前鑄的、目前無主——認領後你就是創造者、可修改" style="flex:none; width:44px; border-color:#8a7a4a; color:#c9b885; padding:0;" onclick="claimHero(\'' + id + '\')">🖐</button>' : '')
       + '</div>';
   }).join('');
 }
@@ -430,6 +432,17 @@ function forgeEdit(id) {
   forgeTab(2); // 編輯從主頁(靈基)開始看
   forgeBudget_();
   renderForgeMine_(); // 刷新「我的作品」列的選中高亮
+}
+// 🖐 認領無主原創英靈(印記功能上線前鑄的)：認領後成為創造者、可修改
+async function claimHero(id) {
+  var h = (heroesData || []).find(function (x) { return String(x.id) === String(id); });
+  if (!h) return;
+  if (!confirm('🖐 認領「' + h.name + '」？\n\n這名原創英靈目前無主（創造者印記功能上線前鑄造）。\n認領後你就是她的創造者，可在工房修改；先到先得。')) return;
+  try {
+    var res = await gasRun({ action: 'claim_hero', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '', heroId: String(id), acctName: (typeof currentAccount !== 'undefined' ? currentAccount : '') });
+    alert((res && res.message) || (res && res.success ? '已認領。' : '認領失敗。'));
+    if (res && res.success) { await loadHeroes(); renderHeroList(); renderForgeMine_(); }
+  } catch (e) { alert('認領失敗，連線受阻。'); }
 }
 function closeForge() {
   var f = document.getElementById('step-forge');

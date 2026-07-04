@@ -349,6 +349,29 @@ function parseForgeBuild_(build, reqCls) {
 //   create＝寫英靈殿新列(AI 補 persona/寶具英文名·蓋創造者印記)；edit(帶 heroId)＝僅創造者本人可改、
 //   真名不可改(識別鍵)、演出欄非空覆寫/空保留、寶具英文名沿用舊值。改的是英靈殿【範本】——
 //   之後召喚才生效，已在場的分身不追改(可用 DEV「套用最新平衡」同步)。
+// 🖐 認領無主原創英靈（action="claim_hero"·2026-07）：創造者印記功能上線【前】鑄的 ai_gen 英靈
+//   沒有 persona.creator——「我的作品」不列、✏️ 不亮、誰都不能改。開放認領：無主者先到先得，
+//   認領後即為創造者(可修改)。已有主的不可搶(拒絕)。
+function actionClaimHero(userData, pcId, sheets) {
+  const acct = String(userData.acctName || "").trim();
+  const heroId = String(userData.heroId || "").trim();
+  if (!acct || !heroId) return JSON.stringify({ success: false, message: "缺少帳號或英靈識別。" });
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hs = ss.getSheetByName("英靈殿");
+  if (!hs) return JSON.stringify({ success: false, message: "英靈殿不存在。" });
+  const data = hs.getDataRange().getValues();
+  const idx = data.findIndex((r, i) => i > 0 && String(r[COL.HERO.ID]) === heroId);
+  if (idx < 0) return JSON.stringify({ success: false, message: "查無此英靈。" });
+  if (String(data[idx][COL.HERO.SOURCE]) !== "ai_gen") return JSON.stringify({ success: false, message: "正典種子英靈不可認領。" });
+  let pj = {}; try { pj = JSON.parse(data[idx][COL.HERO.PERSONA] || "{}"); } catch (e) { }
+  if (pj.creator) return JSON.stringify({ success: false, message: `「${data[idx][COL.HERO.NAME]}」已有創造者（${pj.creator}），不可認領。` });
+  pj.creator = acct;
+  data[idx][COL.HERO.PERSONA] = JSON.stringify(pj);
+  hs.getRange(idx + 1, COL.HERO.PERSONA + 1).setValue(data[idx][COL.HERO.PERSONA]);
+  try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { }
+  return JSON.stringify({ success: true, message: `「${data[idx][COL.HERO.NAME]}」已認領——現在你是她的創造者，可在工房修改。` });
+}
+
 function actionSaveHero(userData, pcId, sheets) {
   const acct = String(userData.acctName || "").trim();
   if (!acct) return JSON.stringify({ success: false, message: "缺少帳號身分，請重新登入。" });

@@ -40,6 +40,7 @@ const ActionRouter = {
   "outfit": actionSetOutfit,
   "weapon": actionSetWeapon,
   "save_hero": actionSaveHero,
+  "claim_hero": actionClaimHero, // 🖐 認領無主原創英靈(印記功能前鑄的·認領後可修改)
   "bond": actionBond,
   "rule_break_steal": actionRuleBreakSteal,
   "propose_alliance": actionProposeAlliance,
