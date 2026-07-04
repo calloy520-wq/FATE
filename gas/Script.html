@@ -359,24 +359,61 @@
     }
   }
   // 💠 御主魔力收支 HUD：供給(迴路)＋靈脈＋工房 − 從者維持(依出力檔)＝淨值/時。赤字標紅，提醒搶靈脈/設陣地/降出力/補魔。
+  // 🎴 2026-07 UI 大改：供魔收支明細移到頂部「🔮 魔力」按鈕彈窗——updateEconomy 只存最新資料＋
+  //   隱藏故事頁常駐條(不再佔版面)。資料由 openManaPanel 消費。
   function updateEconomy(eco) {
+    if (eco) window._lastEco = eco;
     const hud = document.getElementById('economy-hud');
-    if (!hud) return;
-    if (eco === undefined) return;                                  // 此動作未計算經濟→保留現狀，不閃動
-    if (!eco || (pc && pc.mode === 'kanshou')) { hud.style.display = 'none'; return; }
-    const leyIcon = eco.ley >= 12 ? '🔵' : eco.ley >= 6 ? '🟢' : '⚪';
-    const parts = [`迴路 +${eco.supply}`, `${leyIcon}靈脈 +${eco.ley}`];
-    if (eco.svFeed) parts.push('📿從者 +' + eco.svFeed); // 從者魔力回魔貢獻(與後端 applyRegen_ 同準·2026-07 補顯示)
-    if (eco.workshop) parts.push((eco.atHome ? '🏠工房' : '🔯陣地') + ' +' + eco.workshop);
-    const net = eco.net;
-    const netColor = net > 0 ? '#7ec87e' : net < 0 ? '#e06a6a' : '#c9b885';
-    const netStr = (net > 0 ? '+' : '') + net;
-    let html = `<span style="color:#9aa6c8;">💠 御主魔力</span> <span style="color:#bcd;">${parts.join('　')}</span>`
-      + ` <span style="color:#9a8;">－維持 ${eco.drain}${eco.output ? '(出力' + eco.output + '%' + (eco.outputLabel ? '·' + eco.outputLabel : '') + ')' : ''}</span>`
-      + ` ＝ <b style="color:${netColor};">淨 ${netStr}/時</b>`;
-    if (net < 0) html += ` <span style="color:#e06a6a;">⚠ 入不敷出，宜搶靈脈/設陣地/降出力/補魔</span>`;
-    hud.innerHTML = html;
-    hud.style.display = 'block';
+    if (hud) hud.style.display = 'none';
+  }
+  function closeHistoryOverlay() { var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none'; }
+  // 👁 查看：御主／從者狀態切換(2026-07 UI 大改·玩家「看自己還可切換看從者」)。單一角色直接開、多角色列選單。
+  function openViewMenu() {
+    var svs = myServants || [];
+    if (!svs.length) { openStatus(); return; } // 尚無從者→直接看御主
+    var h = '<h3 style="margin:0 0 10px;color:#4fd0b0;">👁 查看誰的狀態？</h3>'
+      + '<button onclick="closeHistoryOverlay();openStatus()" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:11px 12px;border-radius:8px;cursor:pointer;border:1px solid #2ca68c;background:rgba(44,166,140,.12);color:#e8dcc0;"><b style="color:#4fd0b0;">👤 御主</b>　' + (pc && pc.name ? pc.name : '') + '</button>';
+    svs.forEach(function (s) {
+      var sn = String(s.name).replace(/'/g, '');
+      h += '<button onclick="closeHistoryOverlay();openStatus(\'' + sn + '\',\'' + sn + '\')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:11px 12px;border-radius:8px;cursor:pointer;border:1px solid #7a4040;background:rgba(192,57,43,.10);color:#e8dcc0;"><b style="color:#e0796a;">📿 ' + s.cls + '</b>　' + s.name + '</button>';
+    });
+    showHistoryOverlay(h);
+  }
+  // 🔮 魔力：供魔收支明細＋各從者出力調整＋補魔捷徑(2026-07 UI 大改·彈窗制)。
+  function openManaPanel() {
+    var eco = window._lastEco;
+    var h = '<h3 style="margin:0 0 10px;color:#7fb0e8;">🔮 御主魔力・供魔收支（每小時）</h3>';
+    if (eco) {
+      var leyIcon = eco.ley >= 12 ? '🔵' : eco.ley >= 6 ? '🟢' : '⚪';
+      var net = eco.net, netCol = net > 0 ? '#7ec87e' : net < 0 ? '#e06a6a' : '#c9b885';
+      h += '<div style="background:rgba(20,14,28,.5);border:1px solid rgba(120,120,160,.3);border-radius:8px;padding:10px 12px;font-size:13px;color:#bcd;line-height:1.9;">'
+        + '<div>迴路供給　<b style="color:#9ac0e8;">+' + eco.supply + '</b></div>'
+        + '<div>' + leyIcon + ' 靈脈　<b style="color:#9ac0e8;">+' + eco.ley + '</b></div>'
+        + (eco.svFeed ? '<div>📿 從者　<b style="color:#9ac0e8;">+' + eco.svFeed + '</b></div>' : '')
+        + (eco.workshop ? '<div>' + (eco.atHome ? '🏠 工房' : '🔯 陣地') + '　<b style="color:#9ac0e8;">+' + eco.workshop + '</b></div>' : '')
+        + '<div style="color:#c99;">維持費　<b>−' + eco.drain + '</b>' + (eco.output ? '　<small>(出力 ' + eco.output + '%' + (eco.outputLabel ? '·' + eco.outputLabel : '') + ')</small>' : '') + '</div>'
+        + '<div style="border-top:1px solid rgba(120,120,160,.3);margin-top:6px;padding-top:6px;">淨值　<b style="color:' + netCol + ';font-size:16px;">' + (net > 0 ? '+' : '') + net + ' /時</b></div>'
+        + (net < 0 ? '<div style="color:#e06a6a;font-size:11.5px;margin-top:4px;">⚠ 入不敷出——宜搶靈脈／設陣地／降出力／補魔</div>' : '')
+        + '</div>';
+    } else { h += '<p style="color:#816e54;">尚無供魔資料——先進行一個動作即可刷新。</p>'; }
+    h += '<div style="color:#7ec8ff;font-size:12px;margin:14px 0 6px;">🔋 靈基出力（供魔強度·點檔位即調·100%💥才能解放寶具）</div>';
+    (myServants || []).forEach(function (s) {
+      var sn = String(s.name).replace(/'/g, '');
+      h += '<div style="margin-bottom:9px;"><div style="color:#e8dcc0;font-size:12px;margin-bottom:3px;">' + s.name + '　<small style="color:#7ec8ff;">' + (s.output || 60) + '%·' + (s.outputLabel || '') + '</small></div>'
+        + '<div style="display:flex;gap:4px;">'
+        + [20, 40, 60, 80, 100].map(function (o) { var on = (o === (s.output || 60)); return '<button onclick="manaSetOutput(\'' + sn + '\',' + o + ')" style="flex:1;font-size:11px;padding:6px 0;border-radius:5px;cursor:pointer;border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + ';background:' + (on ? 'rgba(110,180,220,.3)' : 'rgba(40,50,65,.4)') + ';color:' + (on ? '#bfe3ff' : '#7a8aa0') + ';font-weight:' + (on ? 'bold' : 'normal') + ';">' + o + (o === 100 ? '💥' : '') + '</button>'; }).join('')
+        + '</div></div>';
+    });
+    h += '<div style="margin-top:10px;"><button onclick="closeHistoryOverlay();manaSupply();" style="width:100%;padding:10px;font-size:12px;background:rgba(80,130,200,.18);color:#7fb0e8;border:1px solid #4a6fa0;border-radius:6px;cursor:pointer;">💧 補魔（硬擠迴路回滿魔力池·永久代價 血上限−15/迴路−3）</button></div>';
+    showHistoryOverlay(h);
+  }
+  // 🔋 魔力面板內調出力：樂觀更新＋背景存檔＋重繪面板(即時反饋·不必關窗)
+  var OUT_LABEL_JS = { 20: '維持', 40: '節流', 60: '巡航', 80: '高壓', 100: '全開' };
+  function manaSetOutput(name, o) {
+    var sv = (myServants || []).find(function (x) { return x && x.name === name; });
+    if (sv) { sv.output = o; sv.outputLabel = OUT_LABEL_JS[o] || ''; }
+    try { gasRun({ action: 'set_servant_output', pcId: pc.id, servant: name, output: o, acctName: (pc && pc.account) || currentAccount }).then(function (res) { if (res && res.success) { try { updateEconomy(res.economy); } catch (e) {} try { if (typeof renderWarActions === 'function') renderWarActions(); } catch (e) {} } }); } catch (e) {}
+    openManaPanel(); // 重繪彈窗反映新檔位
   }
   // ⚔️ 戰爭行動列（手風琴收攏）：每個目標收成一張卡，點開才展開後續行動，避免按鈕爆量。
   var warExpanded = null; // 目前展開的目標 key（name）
@@ -2502,6 +2539,11 @@ function applyModeUI() {
   var sbtn = document.getElementById('send-btn'); if (sbtn) sbtn.style.display = isKanshou ? '' : 'none';
   var nsfw = document.getElementById('nsfw-mode-toggle');
   if (nsfw) { var lab = nsfw.closest('label'); if (lab) lab.style.display = isKanshou ? '' : 'none'; }
+  // 🎴 2026-07 UI 大改：solo 頂部＝查看/魔力/系統三鍵(取代地點)、底部輸入框整條隱藏(純按鍵)；
+  //   慾海維持原本(頂部地點徽章＋底部輸入框打字互動＋NSFW開關)，零改動守紅線②。
+  var tSolo = document.getElementById('topbar-solo'); if (tSolo) tSolo.style.display = isKanshou ? 'none' : 'flex';
+  var tKan = document.getElementById('topbar-kanshou'); if (tKan) tKan.style.display = isKanshou ? '' : 'none';
+  var ibar = document.getElementById('input-bar'); if (ibar) ibar.style.display = isKanshou ? '' : 'none';
   // 👥 後日談同伴管理：只在鑑賞模式出現
   var dcomp = document.getElementById('drawer-companions'); if (dcomp) dcomp.style.display = isKanshou ? '' : 'none';
   // 戰爭行動列：取代輸入框，只在戰爭模式顯示
