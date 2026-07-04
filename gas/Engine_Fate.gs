@@ -601,14 +601,17 @@ function resolveFateBattle_(atk, def, opts) {
   // 必中(gae_bolg)：寶具解放時逆因果直接命中
   var gaebolg = opts.np && npIs('gae_bolg'); if (gaebolg) fired.push(atk.name + '·' + fxName_(atk, 'gae_bolg', '必中之槍') + '(必中)');
 
-  // 🍀 幸運＝上演劇情逆轉的旋鈕：幸運差≥2階 → 高者得福星骰(+0~6)、低者被命運捉弄。
-  //   Saber(幸A+)的福星、庫丘林(幸E)屢屢倒楣戰死的詛咒——「故事與運氣才是裁判」實裝。
-  //   做法＝自指變異(非對拼)：低運(≤D)每擊小機率失手、高運(≥A)小機率福星，製造爆冷與劇情感，而非讓高運方持續輾壓。
+  // 🍀 幸運＝上演劇情逆轉的旋鈕：Saber(幸A+)的福星、庫丘林(幸E)屢屢倒楣戰死的詛咒——「故事與運氣才是裁判」。
+  //   做法＝自指變異(非對拼)：低運每擊小機率失手、高運小機率福星，製造爆冷與劇情感，而非讓高運方持續輾壓。
+  //   📏 2026-07 線性化(玩家定案)：以 C(30) 為中性零點、每離 1 階 ±2% 機率(E4%倒楣/D2%/C0/B2%福星/A4%/EX6%，
+  //   A+ 等修飾符連續計 5%)。舊制 ≤D 恆8%/≥A 恆8% 是三檔階梯——C/B、E/D、A/EX 同檔無差，工房裡同檔加 10 點
+  //   ＝白花錢的價格陷阱(模擬：E22.9%=D22.8%＜C27.7%=B27.6%＜A33.6%=EX33.4%)。線性化後六階每階皆有真效果。
+  var luckDice_ = function (v) { return 0.002 * Math.abs(v - 30); }; // 每離 1 點=0.2% → 每階(10點)=2%
   var lkA = rankVal(atk.six['幸運']), lkD = rankVal(def.six['幸運']);
-  if (lkA <= 20 && Math.random() < 0.08) { aHit -= 10; fired.push(atk.name + '·幸運' + (atk.six['幸運'] || 'E') + '·天不從人(失手)'); }
-  else if (lkA >= 50 && Math.random() < 0.08) { aHit += 8; fired.push(atk.name + '·幸運·福星眷顧'); }
-  if (lkD <= 20 && Math.random() < 0.08) { dEva -= 10; fired.push(def.name + '·幸運' + (def.six['幸運'] || 'E') + '·命運捉弄(露破綻)'); }
-  else if (lkD >= 50 && Math.random() < 0.08) { dEva += 8; fired.push(def.name + '·幸運·絕處逢生'); }
+  if (lkA < 30 && Math.random() < luckDice_(lkA)) { aHit -= 10; fired.push(atk.name + '·幸運' + (atk.six['幸運'] || 'E') + '·天不從人(失手)'); }
+  else if (lkA > 30 && Math.random() < luckDice_(lkA)) { aHit += 8; fired.push(atk.name + '·幸運·福星眷顧'); }
+  if (lkD < 30 && Math.random() < luckDice_(lkD)) { dEva -= 10; fired.push(def.name + '·幸運' + (def.six['幸運'] || 'E') + '·命運捉弄(露破綻)'); }
+  else if (lkD > 30 && Math.random() < luckDice_(lkD)) { dEva += 8; fired.push(def.name + '·幸運·絕處逢生'); }
 
   // 🩸 必中之槍·非全無解(貼原作)：因果逆轉雖直接命中，但【高幸運】能改寫既定命運、【直感/心眼】能預感殺機、【變化】能化形滑開。
   //   仍是強力寶具(一般從者照樣被釘死)，只有「能扭轉命運/超越感知」者才搏得一線生機。
