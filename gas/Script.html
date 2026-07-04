@@ -309,6 +309,15 @@
       if (el) el.style.display = 'flex'; // 顯示面板
     } else {
       if (el) el.style.display = 'flex'; // 顯示面板
+      // ⚡ 從者狀態預取(2026-07 提速)：myServants 已隨 state 帶回 statusString → 直接秒顯，
+      //   免 get_full_status 往返(那 5~6 秒的根因)。NPC 或無預取才走後端(權威 fallback)。
+      var _localSv = (myServants || []).find(function (x) { return x && x.name === targetName && x.statusString; });
+      if (_localSv) {
+        updateUI(_localSv.statusString.split('§'));
+        document.getElementById('ui-name').innerText = targetName;
+        document.getElementById('ui-sex').innerText = _localSv.sex || "未知";
+        return;
+      }
       document.getElementById('ui-name').innerText = "命盤解析中...";
       try {
         const res = await gasRun({ action: "get_full_status", targetName: targetName, pcId: pc.id });

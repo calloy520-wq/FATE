@@ -336,6 +336,9 @@ function buildTagsPayload_(sheets, pcId, preData) {
     try { const tg = JSON.parse(s[COL.PC.TAGS] || "{}"); skills = tg.skills || []; traits = tg.traits || []; } catch (e) { }
     servants.push({
       name: s[COL.PC.NAME], cls: s[COL.PC.RANK] || "從者", sex: s[COL.PC.SEX],
+      // ⚡ 預取狀態字串(2026-07 提速)：隨 state 一併帶回，前端「📋資料→切從者」直接秒顯，
+      //   免每次點從者都打一趟 get_full_status(GAS round-trip 正是那 5~6 秒的根因)。與御主自看(localStorage 快照)同款即時。
+      statusString: buildPlayerStatusString(s, String(s[COL.PC.REL_MEM] || "")),
       hp: hpWord(s[COL.PC.HP], s[COL.PC.MAX_HP]),
       hpNum: parseInt(s[COL.PC.HP]) || 0, hpMax: parseInt(s[COL.PC.MAX_HP]) || 0,
       mpNum: parseInt(s[COL.PC.MP]) || 0, mpMax: parseInt(s[COL.PC.MAX_MP]) || 0,
