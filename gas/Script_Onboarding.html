@@ -416,6 +416,26 @@ function forgeTab(n) {
   // 💾 存檔鈕只在中間「⚔️ 靈基」主頁顯示(2026-07 玩家定案)；預算計數保持三頁常駐(寶具頁調規模要看得到)
   var sv = document.getElementById('cf-save'); if (sv) sv.style.display = (n === 2) ? 'block' : 'none';
 }
+// 🧹 工房表單歸零(2026-07 修「修改存檔後創造一直卡在這支角色」)：欄位「只藏不清」是為保留未存檔草稿，
+//   但【存檔成功後】與【編輯中改點創造】必須清乾淨——否則舊角色資料殘留在創造表單=體感卡死。
+function forgeReset_() {
+  _forgeEditId = null;
+  var V = function (eid, v) { var el = document.getElementById(eid); if (el) el.value = v; };
+  var nm = document.getElementById('cf-name'); if (nm) { nm.value = ''; nm.disabled = false; }
+  V('cf-cls', 'Saber'); refreshClsHint_(); V('cf-sex', '女');
+  ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].forEach(function (k) { V('cf-six-' + k, 'E'); });
+  for (var i = 0; i < 4; i++) { V('cf-sk' + i + '-fx', ''); V('cf-sk' + i + '-r', 'C'); V('cf-sk' + i + '-n', ''); refreshSkillBtn_(i); }
+  ['cf-np-name', 'cf-np-desc', 'cf-weapon', 'cf-look', 'cf-pref', 'cf-desc', 'cf-fp', 'cf-tomaster', 'cf-speech', 'cf-tic', 'cf-moe', 'cf-back'].forEach(function (id) { V(id, ''); });
+  V('cf-np-scale', '對人'); V('cf-align', '中立');
+  closeSkillPick();
+  forgeBudget_();
+}
+// 🛠️ 「創造」模式鈕(玩家點擊專用)：若正處編輯狀態→先歸零(創造=從零開始；改舊作走 作品→✏️)。
+//   forgeEdit 內部預填流程仍呼叫 forgeMode('create')、不經此包裝，預填不會被誤清。
+function forgeModeCreate() {
+  if (_forgeEditId) forgeReset_();
+  forgeMode('create');
+}
 // 📚 工房「作品」頁(2026-07 玩家定案)：本帳號創造的英靈完整清單(點 ✏️修改)＋無主舊作認領區。
 function forgeMode(m) {
   var isWorks = (m === 'works');
@@ -712,8 +732,7 @@ async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，�
     var res = await gasRun({ action: 'save_hero', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '', build: JSON.stringify(build), heroId: _forgeEditId || '', acctName: (typeof currentAccount !== 'undefined' ? currentAccount : '') });
     if (res && res.success) {
       alert(res.message || '已鑄入英靈殿。');
-      _forgeEditId = null;
-      var nmEl = document.getElementById('cf-name'); if (nmEl) nmEl.disabled = false;
+      forgeReset_();               // 🧹 存檔成功→表單歸零(舊資料殘留=「創造卡在這支角色」bug)
       await loadHeroes();          // 重抓名冊(含新作品)
       closeForge();
       if (_forgeFrom !== 'menu') selectSummonClass('__custom__'); // 召喚頁起點→直接展示 🌟 清單；主選單起點→回主選單
