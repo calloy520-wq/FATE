@@ -540,7 +540,7 @@ function initForge_() {
       + '<button type="button" id="cf-sk' + i + '-btn" class="btn" style="width:100%; box-sizing:border-box; min-width:0; text-align:left; font-size:11px; padding:6px 7px; border-color:#3a4a5a; color:#8a96b0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" onclick="openSkillPick(' + i + ')">' + (i === 3 ? '＋ 第4欄(+20點)' : '＋ 挑選效果') + '</button>'
       + '<div style="display:flex; gap:4px; margin-top:4px;">'
       + rankSel('cf-sk' + i + '-r', 'C', true)
-      + '<input id="cf-sk' + i + '-n" class="std-in" maxlength="10" placeholder="改名" style="flex:2; min-width:0;">'
+      + '<input id="cf-sk' + i + '-n" class="std-in" maxlength="10" placeholder="改名" style="flex:2; min-width:0;" oninput="forgeBudget_()">'
       + '</div></div>';
   }
   h += '</div>';
@@ -654,6 +654,27 @@ function forgeBudget_() {
   if (scOn) parts.push('對軍+20');
   var b = document.getElementById('cf-budget');
   if (b) { b.innerHTML = '已用 <b style="color:' + (sum > FORGE_BUDGET ? '#e06a6a' : '#8fd0a0') + ';">' + sum + '</b> / ' + FORGE_BUDGET + (parts.length ? ' <small style="color:#9a8bb0;">(含' + parts.join('·') + ')</small>' : ''); }
+  // 📊 預算進度條(2026-07 玩家定案 UI 三件套②)：綠→黃(≥85%)→紅(超支)
+  var fill = document.getElementById('cf-budget-fill');
+  if (fill) { fill.style.width = Math.min(100, sum / FORGE_BUDGET * 100) + '%'; fill.style.background = sum > FORGE_BUDGET ? '#e06a6a' : (sum >= FORGE_BUDGET * 0.85 ? '#d4af37' : '#8fd0a0'); }
+  // 🎨 階級染色(③)：六圍＋技能階 select 依當前值上色(E/D 灰暗→C 白→B 藍→A 金→EX 鎏金粗體)
+  var RANK_TINT = { E: '#6c7688', D: '#8a94a6', C: '#c8d4e0', B: '#8fb8e8', A: '#d4af37', EX: '#f0cf6a' };
+  ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].forEach(function (k) { var el = document.getElementById('cf-six-' + k); if (el) { el.style.color = RANK_TINT[el.value] || '#c8d4e0'; el.style.fontWeight = (el.value === 'EX' || el.value === 'A') ? 'bold' : 'normal'; } });
+  for (var t = 0; t < 4; t++) { var rl = document.getElementById('cf-sk' + t + '-r'); if (rl) { rl.style.color = RANK_TINT[rl.value] || '#c8d4e0'; rl.style.fontWeight = (rl.value === 'A') ? 'bold' : 'normal'; } }
+  // ⚡ 靈基即時預覽(①·鏡射引擎公式)：HP=150+max(8,階值)×6(Router_Creation svHp)；傷害底=筋/魔取高、
+  //   持以巧破力且敏更高→敏(×0.85全能稅)；寶具耗魔=npPranaCost_(E40 D70 C110 B160 A220 EX300)
+  var pv = document.getElementById('cf-preview');
+  if (pv) {
+    var sv = function (k) { var el = document.getElementById('cf-six-' + k); return el ? el.value : 'C'; };
+    var hp = 150 + Math.max(8, FORGE_PTS[sv('耐久')] || 30) * 6;
+    var dmgK = (FORGE_PTS[sv('魔力')] > FORGE_PTS[sv('筋力')]) ? '魔力' : '筋力';
+    var hasAgile = false;
+    for (var q = 0; q < 4; q++) { var fe = document.getElementById('cf-sk' + q + '-fx'); if (fe && fe.value === 'agile_striker') hasAgile = true; }
+    var dmgTxt = dmgK.charAt(0) + sv(dmgK);
+    if (hasAgile && FORGE_PTS[sv('敏捷')] > FORGE_PTS[sv(dmgK)]) dmgTxt = '敏' + sv('敏捷') + '<small style="color:#9a8bb0;">×0.85巧</small>';
+    var NP_COST = { E: 40, D: 70, C: 110, B: 160, A: 220, EX: 300 };
+    pv.innerHTML = '⚡ HP <b style="color:#bfe3ff;">' + hp + '</b>｜傷害底 <b style="color:#ffd9a0;">' + dmgTxt + '</b>｜寶具解放耗魔 <b style="color:#c8a8e8;">' + (NP_COST[sv('寶具')] || 110) + '</b>';
+  }
   return sum;
 }
 async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，不召喚)

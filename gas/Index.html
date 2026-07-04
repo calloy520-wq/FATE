@@ -192,8 +192,10 @@
             <input id="cf-np-desc" class="std-in" maxlength="40" placeholder="寶具威能一句（選填·如：斬鋼之風化作千刃奔湧）" style="width:100%; box-sizing:border-box; margin-top:6px;">
             <input id="cf-weapon" class="std-in" maxlength="30" placeholder="⚔️ 武裝／戰鬥方式（選填·如：雙持大劍——敘述以此為準）" style="width:100%; box-sizing:border-box; margin-top:6px;">
           </div>
-          <!-- 常駐底欄：預算＋存檔（三頁共用） -->
-          <div style="text-align:right; color:#8fb0e8; font-size:12px; margin-top:9px;"><span id="cf-budget"></span></div>
+          <!-- 常駐底欄：⚡靈基即時預覽＋預算(進度條)＋存檔（三頁共用·全由 forgeBudget_ 單點刷新） -->
+          <div id="cf-preview" style="color:#9fb8d8; font-size:11px; margin-top:9px;"></div>
+          <div style="text-align:right; color:#8fb0e8; font-size:12px; margin-top:4px;"><span id="cf-budget"></span></div>
+          <div id="cf-budget-bar" style="height:4px; background:#242c3c; border-radius:2px; margin-top:3px; overflow:hidden;"><div id="cf-budget-fill" style="width:0%; height:100%; border-radius:2px; background:#8fd0a0; transition:width .15s;"></div></div>
           <button id="cf-save" class="btn" style="width:100%; margin-top:5px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="lockBtn(event, summonByForge)">💾 鑄入英靈殿（回「🌟 玩家原創」即可召喚）</button>
       </div>
       <button class="btn" style="width:100%; margin-top:8px; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="closeForge()">← 返回召喚</button>
