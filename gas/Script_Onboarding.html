@@ -289,13 +289,17 @@ function renderHeroList() {
   }
   box.innerHTML = list.map(function (h) {
     var id = String(h.id).replace(/'/g, '');
-    return '<button class="btn" style="width:100%; text-align:left; margin-bottom:5px; border-color:#d4af37; color:#e8dcc0; padding:8px 10px;" onclick="lockBtn(event, function(){return summonByHero(\'' + id + '\');})"><b>' + h.name + '</b>' + ((all || custom) && h.cls ? ' <small style="color:#9a7b4f;">' + h.cls + '</small>' : '') + (h.np ? '<br><small style="color:#9a8bb0;">' + h.np + '</small>' : '') + '</button>';
+    var mine = custom && h.creator && (typeof currentAccount !== 'undefined') && h.creator === currentAccount;
+    return '<div style="display:flex; gap:4px; margin-bottom:5px;">'
+      + '<button class="btn" style="flex:1; min-width:0; text-align:left; border-color:#d4af37; color:#e8dcc0; padding:8px 10px;" onclick="lockBtn(event, function(){return summonByHero(\'' + id + '\');})"><b>' + h.name + '</b>' + ((all || custom) && h.cls ? ' <small style="color:#9a7b4f;">' + h.cls + '</small>' : '') + (h.np ? '<br><small style="color:#9a8bb0;">' + h.np + '</small>' : '') + '</button>'
+      + (mine ? '<button class="btn" title="修改這名英靈（僅創造者本人）——改的是範本，之後召喚生效" style="flex:none; width:44px; border-color:#6a8ac0; color:#8fb0e8; padding:0;" onclick="forgeEdit(\'' + id + '\')">✏️</button>' : '')
+      + '</div>';
   }).join('');
 }
 async function doSummon(payload) {
   showProcessing('正在以令咒召喚英靈…');
   try {
-    const data = await gasRun(Object.assign({ action: 'summon_servant', pcId: pc.id }, payload));
+    const data = await gasRun(Object.assign({ action: 'summon_servant', pcId: pc.id, acctName: (typeof currentAccount !== 'undefined' ? currentAccount : '') }, payload));
     if (data && data.success) {
       pc.servant = data.servantName || '';
       window._summonScene = data.summonPrompt || '';
@@ -346,11 +350,42 @@ var FORGE_FX = [
 ];
 var _forgeInit = false;
 // 🛠️ 工房獨立一屏(2026-07 玩家反饋「塞召喚頁太長」)：召喚屏 ↔ 工房屏 換頁，欄位狀態保留(只藏不清)。
+var _forgeEditId = null; // ✏️ 編輯模式：正在修改的英靈殿 ID(null=製造新英靈)
 function openForge() {
+  _forgeEditId = null;
+  var nm = document.getElementById('cf-name'); if (nm) nm.disabled = false;
   var s = document.getElementById('step-summon'), f = document.getElementById('step-forge');
   if (s) s.style.display = 'none';
   if (f) { f.style.display = 'block'; window.scrollTo(0, 0); }
   if (!_forgeInit) { initForge_(); _forgeInit = true; }
+}
+// ✏️ 修改原創英靈（僅創造者·由 🌟 專區進入）：工房預填該英靈現有設定，存檔＝覆寫英靈殿範本
+function forgeEdit(id) {
+  var h = (heroesData || []).find(function (x) { return String(x.id) === String(id); });
+  if (!h || !h.detail) { alert('讀不到這名英靈的設定。'); return; }
+  openForge();
+  _forgeEditId = String(id);
+  var d = h.detail, V = function (eid, v) { var el = document.getElementById(eid); if (el) el.value = v || ''; };
+  V('cf-name', h.name); var nm = document.getElementById('cf-name'); if (nm) nm.disabled = true; // 真名＝識別鍵不可改
+  V('cf-cls', h.cls); V('cf-sex', ['男', '女', '異'].indexOf(h.gender) >= 0 ? h.gender : '異');
+  ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].forEach(function (k) {
+    var raw = String((d.six || {})[k] || 'C').replace(/[+\-]/g, ''); // 舊資料可能帶 +/−·工房純階制→去修飾
+    V('cf-six-' + k, /^(E|D|C|B|A|EX)$/.test(raw) ? raw : 'C');
+  });
+  for (var i = 0; i < 3; i++) {
+    var sk = (d.skills || [])[i] || {};
+    V('cf-sk' + i + '-fx', sk.fx || '');
+    var r = String(sk.r || 'C').replace(/[+\-]/g, ''); V('cf-sk' + i + '-r', /^(E|D|C|B|A)$/.test(r) ? r : 'C');
+    V('cf-sk' + i + '-n', sk.n && sk.fx ? sk.n : (sk.n || ''));
+  }
+  // 寶具字串反解：中文名 [英文]（規模 階）·描述
+  var m = String(h.np || '').match(/^([^（]+?)(?:\s+[A-Za-z][^（]*)?（(對人|對軍)[^）]*）(?:·(.*))?$/);
+  V('cf-np-name', m ? m[1].trim() : ''); V('cf-np-scale', (m && m[2]) || '對人'); V('cf-np-desc', (m && m[3]) || '');
+  V('cf-weapon', d.weapon); V('cf-look', d.look); V('cf-pref', d.pref);
+  V('cf-align', d.align || '中立'); V('cf-fp', d.fp); V('cf-tomaster', d.toMaster);
+  V('cf-speech', d.speech); V('cf-tic', d.tic); V('cf-moe', d.moe); V('cf-back', d.back);
+  var dr = document.getElementById('cf-drama'); if (dr && (d.fp || d.speech || d.tic || d.moe || d.back)) dr.style.display = 'block';
+  forgeBudget_();
 }
 function closeForge() {
   var s = document.getElementById('step-summon'), f = document.getElementById('step-forge');
@@ -402,7 +437,7 @@ function forgeBudget_() {
   if (b) { b.innerHTML = '已用 <b style="color:' + (sum > FORGE_BUDGET ? '#e06a6a' : '#8fd0a0') + ';">' + sum + '</b> / ' + FORGE_BUDGET + (parts.length ? ' <small style="color:#9a8bb0;">(含' + parts.join('·') + ')</small>' : ''); }
   return sum;
 }
-function summonByForge() {
+async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，不召喚)
   var nm = (document.getElementById('cf-name').value || '').trim();
   if (!nm) { alert('請為英靈取一個真名。'); return; }
   var sum = forgeBudget_(); // 已含 對軍規模+20
@@ -431,7 +466,19 @@ function summonByForge() {
     fp: _v('cf-fp'), align: _v('cf-align'), toMaster: _v('cf-tomaster'),
     speech: _v('cf-speech'), tic: _v('cf-tic'), moe: _v('cf-moe'), back: _v('cf-back')
   };
-  return doSummon({ build: JSON.stringify(build) });
+  // 💾 工房＝純製造/修改(2026-07 玩家定案二版)：存英靈殿(save_hero)，召喚一律走「🌟 玩家原創」專區
+  showProcessing(_forgeEditId ? '正在重鑄靈基…' : '正在鑄造靈基…');
+  try {
+    var res = await gasRun({ action: 'save_hero', pcId: pc.id, build: JSON.stringify(build), heroId: _forgeEditId || '', acctName: (typeof currentAccount !== 'undefined' ? currentAccount : '') });
+    if (res && res.success) {
+      alert(res.message || '已鑄入英靈殿。');
+      _forgeEditId = null;
+      var nmEl = document.getElementById('cf-name'); if (nmEl) nmEl.disabled = false;
+      await loadHeroes();          // 重抓名冊(含新作品)
+      closeForge();
+      selectSummonClass('__custom__'); // 回召喚頁直接展示 🌟 玩家原創清單
+    } else { alert((res && res.message) || '鑄造失敗，請重試。'); }
+  } catch (e) { alert('鑄造失敗，連線受阻。'); } finally { hideProcessing(); }
 }
 
   function startGame(isRet) {

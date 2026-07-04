@@ -130,7 +130,7 @@
     <!-- 🛠️ 自訂英靈工房：獨立一屏（2026-07 玩家反饋「塞召喚頁太長」）——一步一屏對齊 onboarding 慣例，欄位 ID 全部不變 -->
     <div id="step-forge" style="display:none; width:320px;">
       <p style="text-align:center; color:#8fb0e8; font-size:16px; font-weight:bold; margin-bottom:2px;">🛠️ 自訂英靈工房</p>
-      <p style="text-align:center; color:#816e54; font-size:11.5px; margin:0 0 10px;">數值全由你定（270 點預算）·AI 只補人格與寶具英文名</p>
+      <p style="text-align:center; color:#816e54; font-size:11.5px; margin:0 0 10px;">數值全由你定（270 點預算）·AI 只補人格與寶具英文名<br>工房＝製造與修改；召喚請回「🌟 玩家原創」專區</p>
       <div id="cust-forge" style="padding:10px; background:rgba(20,18,34,.45); border:1px solid rgba(120,140,200,.35); border-radius:8px; text-align:left;">
           <input id="cf-name" class="std-in" maxlength="20" placeholder="真名（必填·原創，正典角色請走真名召喚）" style="width:100%; box-sizing:border-box;">
           <div style="display:flex; gap:6px; margin-top:6px;">
@@ -164,7 +164,7 @@
             <input id="cf-back" class="std-in" maxlength="28" placeholder="身世一句（你的傳說）" style="width:100%; box-sizing:border-box; margin-top:6px;">
           </div>
           <textarea id="cf-desc" class="std-in" maxlength="120" placeholder="外貌／性格描述（AI 只拿來寫人格演出，不碰數值）" style="width:100%; box-sizing:border-box; height:44px; resize:none; margin-top:8px; font-family:inherit;"></textarea>
-          <button class="btn" style="width:100%; margin-top:8px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="lockBtn(event, summonByForge)">⚜️ 以此靈基召喚</button>
+          <button class="btn" style="width:100%; margin-top:8px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="lockBtn(event, summonByForge)">💾 鑄入英靈殿（回「🌟 玩家原創」即可召喚）</button>
       </div>
       <button class="btn" style="width:100%; margin-top:8px; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="closeForge()">← 返回召喚</button>
     </div>

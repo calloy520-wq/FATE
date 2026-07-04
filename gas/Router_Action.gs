@@ -39,6 +39,7 @@ const ActionRouter = {
   "set_rune_mode": actionSetRuneMode,
   "outfit": actionSetOutfit,
   "weapon": actionSetWeapon,
+  "save_hero": actionSaveHero,
   "bond": actionBond,
   "rule_break_steal": actionRuleBreakSteal,
   "propose_alliance": actionProposeAlliance,
