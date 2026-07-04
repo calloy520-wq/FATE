@@ -313,7 +313,10 @@ function parseForgeBuild_(build, reqCls) {
   out.tic = _fClean(build.tic, 30); out.moe = _fClean(build.moe, 18); out.back = _fClean(build.back, 28);
   const ALIGNS_ = ["秩序・善", "秩序・中庸", "秩序・惡", "中立・善", "中立", "中立・惡", "混沌・善", "混沌・中庸", "混沌・惡"];
   out.align = ALIGNS_.includes(String(build.align)) ? String(build.align) : "中立";
-  const FORGE_BUDGET = 270;
+  // 💰 2026-07 調升 270→340：技能計價/規模計價後來併入同一錢包，270(原純六圍的 A−設定)實測按
+  //   工房價格計價全種子＝排 32/36(咒腕級墊底)。340＝種子中位數——點滿≈尼祿/美杜莎中堅，
+  //   強者種子(420~505·且握有 Excalibur/王財等工房買不到的概念 fx)仍明確在上。
+  const FORGE_BUDGET = 340;
   const okPlain = v => /^(E|D|C|B|A|EX)$/.test(String(v || "").toUpperCase());
   out.six = {};
   ["筋力", "耐久", "敏捷", "魔力", "幸運", "寶具"].forEach(k => { const v = String((build.six || {})[k] || "C").toUpperCase(); out.six[k] = okPlain(v) ? v : "C"; });

@@ -334,7 +334,7 @@ function summonByDesc() {
 // ══ 🛠️ 自訂英靈工房（2026-07 玩家定案）══
 //   規格：六圍預算 270（E10/D20/C30/B40/A50/EX60·EX≤2）／技能 3 槽·上限 A·可改名效果吃 fx／寶具名自定·上限 A·規模 對人/對軍。
 //   後端 actionSummonServant build 分支為權威驗證，這裡的預算/清單只是即時 UX 鏡射（改後端 ALLOWED_FX_ 記得同步 FORGE_FX）。
-var FORGE_PTS = { E: 10, D: 20, C: 30, B: 40, A: 50, EX: 60 }, FORGE_BUDGET = 270;
+var FORGE_PTS = { E: 10, D: 20, C: 30, B: 40, A: 50, EX: 60 }, FORGE_BUDGET = 340; // 💰 270→340(2026-07·種子中位數·技能/規模併入錢包後的重校·鏡射後端)
 var FORGE_SK_PTS = { E: 5, D: 10, C: 15, B: 20, A: 25 }; // ⚡ 技能階級定價(六圍半價·無 fx 純演出免費·鏡射後端 SKILL_PTS_)
 var FORGE_FLAT_FX = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25 }; // 🔒 二元 fx 平價(fx→價·引擎不讀其階級·鏡射後端 FLAT_FX_；燕返60=實測+56pp頂級劍技)
 var FORGE_FX = [
