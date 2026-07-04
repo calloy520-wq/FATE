@@ -337,19 +337,41 @@ function summonByDesc() {
 var FORGE_PTS = { E: 10, D: 20, C: 30, B: 40, A: 50, EX: 60 }, FORGE_BUDGET = 340; // 💰 270→340(2026-07·種子中位數·技能/規模併入錢包後的重校·鏡射後端)
 var FORGE_SK_PTS = { E: 5, D: 10, C: 15, B: 20, A: 25 }; // ⚡ 技能階級定價(六圍半價·無 fx 純演出免費·鏡射後端 SKILL_PTS_)
 var FORGE_FLAT_FX = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25 }; // 🔒 二元 fx 平價(fx→價·引擎不讀其階級·鏡射後端 FLAT_FX_；燕返60=實測+56pp頂級劍技)
-var FORGE_FX = [
-  ['', '（無效果·純演出標籤）'], ['nullify_magic', '對魔力（抗魔）'], ['first_strike', '直感（先機）'], ['analyze', '心眼（看破）'],
-  ['aim', '千里眼（命中+）'], ['str_up', '怪力（主動·傷+）'], ['burst', '魔力放出（主動·傷×）'], ['projection', '投影魔術（主動·中傷+）'],
-  ['fast_cast', '高速詠唱（傷+）'], ['crafting', '道具作成（傷+）'], ['ride', '騎乘（命中+）'], ['stealth', '氣息遮斷（奇襲）'],
-  ['shapeshift', '變化（迴避+）'], ['evade_ranged', '避矢（剋弓）'], ['survive', '戰鬥續行（致命傷撐1·固定25點）'], ['solo', '單獨行動（無主續存）'],
-  ['divine_core', '神核（常駐減傷）'], ['rho_aias', '七天盾（投影減傷）'], ['territory', '陣地作成（減傷）'], ['wall_def', '城牆防禦（物理減傷）'],
-  ['mad', '狂化（傷+命中−）'], ['morale', '勇猛／卡里斯瑪'], ['divine_age', '神代魔術（凌駕抗魔）'], ['unreadable', '無欲（封敵先機）'],
-  ['clear_mind', '透化（免威壓）'], ['self_mod', '自我改造（命中傷+）'], ['tactics', '軍略（寶具+）'], ['wind_strike', '風王鐵鎚（傷+）'],
-  ['petrify', '魔眼·石化'], ['gae_bolg', '必中槍（因果逆轉·固定25點）'], ['tsubame', '秘劍·燕返（每擊×2.3·固定60點）'], ['zabaniya', '妄想心音（暗殺致命·固定25點）'],
-  ['weapon_steal', '無毀湖光（對龍×1.5）'], ['regen', '治癒（每回合回血）'], ['god_hand', '不死復活（燒命×3·固定25點）'],
-  ['anti_magic_lance', '破魔（無視神核/續行·固定25點）'], ['rule_breaker', '破戒（斬契約·固定25點）'], ['divine', '神性（神裔·會被神殺剋）'],
-  ['agile_striker', '以巧破力（以敏捷為傷害底·固定25點）']
+// 🗂️ 效果目錄·按機制分組(2026-07 玩家點破「很多效果一樣但名字不同」——名字是原作梗·機制就十來種，
+//   名字本可自取→按效果挑、同效者標明擇一即可)。flat FORGE_FX 由 groups 攤平(label 查找/驗證介面不變)。
+var FORGE_FX_GROUPS = [
+  { t: '⚔️ 命中系', items: [
+    ['first_strike', '直感（先機·命中+）'], ['analyze', '心眼（＝直感同效·擇一）'],
+    ['aim', '千里眼（命中+·幅度大）'], ['ride', '騎乘（命中+·幅度小）'],
+    ['self_mod', '自我改造（命中＋傷害小幅+）'], ['petrify', '魔眼·石化（壓低敵迴避）']
+  ]},
+  { t: '💥 傷害系·主動（按⚡發動·耗魔）', items: [
+    ['burst', '魔力放出（傷害×倍率）'], ['str_up', '怪力（傷害+固定值）'], ['projection', '投影魔術（命中+傷害+）']
+  ]},
+  { t: '🗡️ 傷害系·常駐（免費被動）', items: [
+    ['fast_cast', '高速詠唱（傷+）'], ['crafting', '道具作成（傷+）'], ['wind_strike', '風王鐵鎚（傷+）'],
+    ['divine_age', '神代魔術（凌駕對魔力）'], ['tactics', '軍略（寶具傷+）'],
+    ['weapon_steal', '無毀湖光（對龍×1.5）'], ['agile_striker', '以巧破力（以敏捷為傷害底·固定25點）']
+  ]},
+  { t: '🛡️ 減傷系', items: [
+    ['nullify_magic', '對魔力（抗魔減傷）'], ['rho_aias', '七天盾（投影減傷）'],
+    ['territory', '陣地作成（陣地減傷）'], ['wall_def', '城牆防禦（物理減傷）'], ['divine_core', '神核（常駐減傷）']
+  ]},
+  { t: '💨 迴避·隱匿·精神', items: [
+    ['shapeshift', '變化（迴避+）'], ['evade_ranged', '避矢（剋弓兵）'], ['stealth', '氣息遮斷（奇襲增傷）'],
+    ['unreadable', '無欲（封敵先機）'], ['clear_mind', '透化（免威壓·剋勇猛）'], ['morale', '勇猛／卡里斯瑪（威壓）']
+  ]},
+  { t: '🕯️ 生存·復活', items: [
+    ['survive', '戰鬥續行（致命傷撐1·固定25點）'], ['god_hand', '不死復活（燒命×3·固定25點）'], ['regen', '治癒（每回合回血）']
+  ]},
+  { t: '✨ 特殊·雙面刃', items: [
+    ['gae_bolg', '必中槍（因果逆轉·固定25點）'], ['tsubame', '秘劍·燕返（每擊×2.3·固定60點）'],
+    ['zabaniya', '妄想心音（暗殺致命·固定25點）'], ['rule_breaker', '破戒（斬契約·固定25點）'],
+    ['anti_magic_lance', '破魔（無視神核/續行·固定25點）'],
+    ['mad', '狂化（傷+但命中−）'], ['solo', '單獨行動（無主續存）'], ['divine', '神性（神裔·會被神殺剋·弱點）']
+  ]}
 ];
+var FORGE_FX = [['', '（無效果·純演出標籤）']].concat(FORGE_FX_GROUPS.reduce(function (a, g) { return a.concat(g.items); }, []));
 var _forgeInit = false;
 // 🛠️ 工房獨立一屏(2026-07 玩家反饋「塞召喚頁太長」)：召喚屏 ↔ 工房屏 換頁，欄位狀態保留(只藏不清)。
 var _forgeEditId = null; // ✏️ 編輯模式：正在修改的英靈殿 ID(null=製造新英靈)
@@ -526,18 +548,22 @@ function renderSkillPick_() {
   var box = document.getElementById('cf-skpick'); if (!box) return;
   if (_skPickSlot < 0) { box.style.display = 'none'; box.innerHTML = ''; return; }
   var cur = document.getElementById('cf-sk' + _skPickSlot + '-fx').value;
+  var chip = function (o) {
+    var name = o[1].split('（')[0] || '（無效果）';
+    var hint = (o[1].match(/（(.*)）/) || [])[1] || '純演出標籤';
+    var price = !o[0] ? '免費' : (FORGE_FLAT_FX[o[0]] ? ('固定 ' + FORGE_FLAT_FX[o[0]] + ' 點') : '依階 5~25 點');
+    var on = (o[0] === cur);
+    return '<button type="button" onclick="pickSkillFx(\'' + o[0] + '\')" style="text-align:left; padding:6px 7px; border-radius:7px; cursor:pointer; border:1px solid ' + (on ? 'var(--gold-accent)' : '#3a4a5a') + '; background:' + (on ? 'rgba(212,175,55,.12)' : 'rgba(30,38,52,.4)') + '; color:' + (on ? 'var(--gold-accent)' : '#c8d4e0') + ';">'
+      + '<b style="font-size:11.5px;">' + name + '</b><br><small style="font-size:9.5px; color:#8a96b0;">' + hint + '｜' + price + '</small></button>';
+  };
   box.style.display = 'block';
-  box.innerHTML = '<div style="color:#8fb0e8; font-size:11px; margin:1px 0 5px;">技能 ' + (_skPickSlot + 1) + '：挑一個效果（有效果才計價·名字可自取）</div>'
-    + '<div style="display:grid; grid-template-columns:1fr 1fr; gap:4px;">'
-    + FORGE_FX.map(function (o) {
-        var name = o[1].split('（')[0] || '（無效果）';
-        var hint = (o[1].match(/（(.*)）/) || [])[1] || '純演出標籤';
-        var price = !o[0] ? '免費' : (FORGE_FLAT_FX[o[0]] ? ('固定 ' + FORGE_FLAT_FX[o[0]] + ' 點') : '依階 5~25 點');
-        var on = (o[0] === cur);
-        return '<button type="button" onclick="pickSkillFx(\'' + o[0] + '\')" style="text-align:left; padding:6px 7px; border-radius:7px; cursor:pointer; border:1px solid ' + (on ? 'var(--gold-accent)' : '#3a4a5a') + '; background:' + (on ? 'rgba(212,175,55,.12)' : 'rgba(30,38,52,.4)') + '; color:' + (on ? 'var(--gold-accent)' : '#c8d4e0') + ';">'
-          + '<b style="font-size:11.5px;">' + name + '</b><br><small style="font-size:9.5px; color:#8a96b0;">' + hint + '｜' + price + '</small></button>';
-      }).join('')
-    + '</div>';
+  var hx = '<div style="color:#8fb0e8; font-size:11px; margin:1px 0 5px;">技能 ' + (_skPickSlot + 1) + '：按【效果】挑（名字可自取·同效者擇一即可）</div>'
+    + '<div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-bottom:6px;">' + chip(FORGE_FX[0]) + '</div>';
+  FORGE_FX_GROUPS.forEach(function (g) {
+    hx += '<div style="color:#9a8bb0; font-size:10.5px; margin:7px 0 3px;">' + g.t + '</div>'
+      + '<div style="display:grid; grid-template-columns:1fr 1fr; gap:4px;">' + g.items.map(chip).join('') + '</div>';
+  });
+  box.innerHTML = hx;
 }
 function pickSkillFx(fx) {
   if (_skPickSlot < 0) return;
