@@ -224,7 +224,7 @@ var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應�
   "戰鬥續行=survive、單獨行動=solo、神核=divine_core、七天盾(對寶具展開·投影減傷·御主耗魔)=rho_aias、陣地作成(減傷)=territory、城牆防禦(物理減傷)=wall_def、" +
   "狂化=mad、勇猛/卡里斯瑪=morale、神代魔術=divine_age、無欲(封先機)=unreadable、透化(免威壓)=clear_mind、" +
   "自我改造(命中傷害+)=self_mod、軍略(寶具+)=tactics、風王鐵鎚(傷+)=wind_strike、魔眼(石化)=petrify、必中槍=gae_bolg、" +
-  "秘劍燕返(普攻/寶具皆強化)=tsubame、妄想心音(暗殺致命)=zabaniya、無毀湖光(對龍+)=weapon_steal、治癒(每回合回血)=regen、不死復活(復活3次·如尼祿三度輝映)=god_hand、" +
+  "秘劍燕返(每場首回合強化)=tsubame、妄想心音(暗殺致命)=zabaniya、無毀湖光(對龍+)=weapon_steal、治癒(每回合回血)=regen、不死復活(復活3次·如尼祿三度輝映)=god_hand、" +
   "破魔(無視神核/續行)=anti_magic_lance、破戒(斬契約救贖)=rule_breaker、神性(神裔·會被神殺剋)=divine、以巧破力(以敏捷為傷害底)=agile_striker";
 
 // 清洗 AI 給的技能陣列為 [{n,r,fx}]（fx 不在字典就清空，仍保留為演出用標籤）
@@ -477,7 +477,10 @@ function actionSummonServant(userData, pcId, sheets) {
       } else if (trueName) {
         hero = hrows.find(r => String(r[COL.HERO.NAME]).includes(trueName) || trueName.includes(String(r[COL.HERO.NAME])));
       } else {
-        let pool = reqCls ? hrows.filter(r => r[COL.HERO.CLS] === reqCls) : hrows;
+        // 🎲 隨機召喚只抽正典種子——玩家原創(ai_gen)排除(2026-07 玩家反映「隨機都抓英靈殿尾端」＝
+        //   原創英靈稀釋池；原創走「🌟玩家原創」專區 heroId 指名召喚，上方兩分支不受此濾網影響)
+        let pool = (reqCls ? hrows.filter(r => r[COL.HERO.CLS] === reqCls) : hrows)
+          .filter(r => String(r[COL.HERO.SOURCE]) !== 'ai_gen');
         if (pool.length) hero = pool[Math.floor(Math.random() * pool.length)];
       }
     }

@@ -574,8 +574,11 @@ function resolveFateBattle_(atk, def, opts) {
   // 👑 王之財寶(gob)常駐：無盡兵裝鋪天蓋地，命中 +5（飽和彈幕難閃；傷害彈幕在下方）
   if (hasFx_(atk, 'gob')) { aHit += 5; fired.push(atk.name + '·' + fxName_(atk, 'gob', '王之財寶') + '(無盡兵裝)'); }
   // ⛓️ 天之鎖(chain)：命中加成併入既有「縛神性」效果(下方)；輸出走下方萬鎖彈幕。此處不另加命中(避免恩奇都過載)。
-  // 秘劍・燕返(tsubame)：劍術本身而非寶具，普攻／寶具皆可發動——次元摺疊令守方迴避 -5(傷害倍率見下方)
-  var tsubame = hasFx_(atk, 'tsubame'); if (tsubame) { dEva -= 5; fired.push(atk.name + '·' + fxName_(atk, 'tsubame', '秘劍')); }
+  // 秘劍・燕返(tsubame)：劍術本身而非寶具——次元摺疊令守方迴避 -5(傷害倍率見下方)。
+  //   ⚔️ 2026-07 三修(玩家定案)：僅【每場戰鬥第 1 回合】發動(opts.round·呼叫端 fateStrike_ 傳入·未傳=單次交鋒視同首回合)
+  //   ——絕技是蓄勢的一閃，非回回可出；擋「普攻流回回×2.3」的無敵化。第2/3回合命中/傷害段皆不觸發。
+  var tsubame = hasFx_(atk, 'tsubame') && (opts.round || 1) === 1;
+  if (tsubame) { dEva -= 5; fired.push(atk.name + '·' + fxName_(atk, 'tsubame', '秘劍')); }
   // 🔱 三騎士職階相剋（Saber→Lancer→Archer→Saber）：占上風者搶得先機，命中小幅領先（傷害加成在下方）
   var KNIGHT_BEATS = { 'Saber': 'Lancer', 'Lancer': 'Archer', 'Archer': 'Saber' };
   if (KNIGHT_BEATS[atk.cls] === def.cls) aHit += 3;
@@ -676,9 +679,10 @@ function resolveFateBattle_(atk, def, opts) {
   base = fxDmgApply_(base, winner, loser, 'divine_age', fired);
   base = fxDmgApply_(base, winner, loser, 'wind_strike', fired);
   base = fxDmgApply_(base, winner, loser, 'crafting', fired);
-  // 🗡️ 秘劍・燕返(tsubame)：劍術本身——三方位同斬 ×2.3【普攻限定】(2026-07 玩家定案：原普攻/寶具皆吃，
-  //   與寶具骰/超載/規模疊乘會爆炸；寶具解放段仍保有其 簽名/概念位階3/貫穿 與命中段-5迴避，只拔這個平A乘子)
-  if (hasFx_(winner, 'tsubame') && !opts.np) { base = Math.round(base * 2.3); fired.push(winner.name + '·' + fxName_(winner, 'tsubame', '秘劍・燕返') + '(三方位同斬)'); }
+  // 🗡️ 秘劍・燕返(tsubame)：劍術本身——三方位同斬 ×2.3【普攻限定·僅每場第1回合】(2026-07 三修玩家定案：
+  //   與寶具骰/超載/規模疊乘會爆炸故普攻限定；再限首回合一閃(opts.round)擋「回回×2.3」普攻流無敵化。
+  //   寶具解放段仍保有其 簽名×1.5/概念位階3/貫穿，不受首回合限制)
+  if (hasFx_(winner, 'tsubame') && !opts.np && (opts.round || 1) === 1) { base = Math.round(base * 2.3); fired.push(winner.name + '·' + fxName_(winner, 'tsubame', '秘劍・燕返') + '(三方位同斬)'); }
   // 🗡️ 無毀的湖光(weapon_steal／蘭斯洛特·Arondight)：湖之妖精所託的魔劍，對具「龍」屬性之敵解放秘藏威能，傷害×1.5
   if (hasFx_(winner, 'weapon_steal')) {
     var foeDragon = (loser.traits || []).concat(loser.skills || []).some(function (t) { return t && /龍|竜/.test(String(t.n)); });

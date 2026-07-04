@@ -121,12 +121,12 @@ GAL(鑑賞): ACC0 NAME1 CLS2 SEX3 SIX4 TAGS5 NP6 BACK7 PREF8 MOE9 MEMOIR10 WISH1
 **管線順序（改順序＝改平衡）**：
 1. **執行殺早退**：`ea`(認真·自身血≤40%) / `wealth`(黃金律·≤20%) → `rankVal(寶具)*4 + 骰 + 200` 直接必勝（上游 `actionFateBattle` 補魔閘把關）。
 2. **命中 `aHit` vs 迴避 `dEva`**：各 `D20 + rankTier(屬性)*2.5 + 隨機 + 出力修正`。攻方屬性看職階(`combatProfile_`：Caster魔力/Archer敏捷/近戰敏捷)；守方 = 敏捷0.65+耐久0.35。
-3. **命中端 fx**：整備餐 / 直感·心眼(unreadable封先機) / 狂化 / 自我改造 / 主動技 / **禮裝命中(mcCombatFx_)** / 騎乘 / 千里眼·投影 / 避矢(vs Archer) / 氣息遮斷(僅ambush) / 王財+5 / 燕返-5 / **三騎士相剋(Saber>Lancer>Archer>Saber ±3)** / 變化 / 愛之痣 / 石化 / 天之鎖(vs神性)。
+3. **命中端 fx**：整備餐 / 直感·心眼(unreadable封先機) / 狂化 / 自我改造 / 主動技 / **禮裝命中(mcCombatFx_)** / 騎乘 / 千里眼·投影 / 避矢(vs Archer) / 氣息遮斷(僅ambush) / 王財+5 / 燕返-5(僅每場第1回合) / **三騎士相剋(Saber>Lancer>Archer>Saber ±3)** / 變化 / 愛之痣 / 石化 / 天之鎖(vs神性)。
 4. **幸運旋鈕**：幸運≤D 8%失手-10、≥A 8%福星+8。
 5. **gae_bolg 必中**：守方靠幸運(A+0.35/A0.22/B0.10)+直感+變化搏閃避（上限0.6）。
 6. **勝負**：`gaebolg ? !gbEvaded : aHit>=dEva`。
 7. **骰傷 base**：`rankVal(dmg屬性)*0.6 + rankTier d8 + |aHit-dEva|*1.2`。
-8. **傷害端 fx**：出力乘子 / 怪力 / 魔力放出 / 勇猛(clear_mind免疫) / **禮裝(dmgAdd＋np時npMul如寶石劍×1.5)** / 投影連射 / 奇襲要害×1.2 / 高速詠唱 / 王財彈幕(gobVolley 50d3 EV≈83) / 天之鎖(chainVolley 18d3) / 狂化+ / 神代 / 風王鐵鎚 / 道具作成 / 無毀湖光(vs龍×1.5) / **神殺(vs神性×≤2)** / 職階相性×1.12 / 燕返×2.3(普攻限定·解放時降為簽名×1.5)。
+8. **傷害端 fx**：出力乘子 / 怪力 / 魔力放出 / 勇猛(clear_mind免疫) / **禮裝(dmgAdd＋np時npMul如寶石劍×1.5)** / 投影連射 / 奇襲要害×1.2 / 高速詠唱 / 王財彈幕(gobVolley 50d3 EV≈83) / 天之鎖(chainVolley 18d3) / 狂化+ / 神代 / 風王鐵鎚 / 道具作成 / 無毀湖光(vs龍×1.5) / **神殺(vs神性×≤2)** / 職階相性×1.12 / 燕返×2.3(普攻限定·**僅每場第1回合**·解放時另為簽名×1.5不限回合)。
 9. **寶具 NP block**(僅opts.np)：寶具骰(`npBaseDice_` E4d10→EX24d10)＋`rankVal*1.2+35`＋軍略×1.15＋神性×1.1＋簽名效果(ubw×1.25/zabaniya×1.9+70/summon_horror×1.6+骰/ea×1.7+骰)＋**規模相剋矩陣**（見下）。
 10. **令咒** `opts.seal` ×1.5。
 11. **概念壓制 pierce**：`offenseTier(winner) >= conceptTier(defFx)+2` → 該防禦被無視。

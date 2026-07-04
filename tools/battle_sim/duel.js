@@ -43,8 +43,10 @@ function runDuel(ctx, subjectSeed, subjectOverrides, enemySeed, enemyOverrides) 
   let subjectLivesBurned = 0, enemyLivesBurned = 0;
 
   for (rounds = 1; rounds <= MAX_ROUNDS; rounds++) {
+    // 🗡️ 燕返 2026-07 三修「僅每場第1回合」：一次按鍵=一場(3回合)——以 3 回合週期映射 opts.round
+    const rdOpt = ((rounds - 1) % 3) + 1;
     // subject 出擊
-    let r = ctx.resolveFateBattle_(subject, enemy, {});
+    let r = ctx.resolveFateBattle_(subject, enemy, { round: rdOpt });
     if (r.atkWins) {
       enemy.hp -= r.damage;
       if (enemy.hp <= 0) {
@@ -60,7 +62,7 @@ function runDuel(ctx, subjectSeed, subjectOverrides, enemySeed, enemyOverrides) 
     if (enemy.hp <= 0 && enemy._lives <= 0) return { winner: 'subject', rounds, subjectLivesBurned, enemyLivesBurned };
 
     // enemy 反擊(存活才反擊)
-    r = ctx.resolveFateBattle_(enemy, subject, {});
+    r = ctx.resolveFateBattle_(enemy, subject, { round: rdOpt });
     if (r.atkWins) {
       subject.hp -= r.damage;
       if (subject.hp <= 0) {

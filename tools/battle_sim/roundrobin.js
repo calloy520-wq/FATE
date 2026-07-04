@@ -41,7 +41,9 @@ function runDuel(ctx, A, B, mode) {
   for (let round = 1; round <= MAX_ROUNDS; round++) {
     // 交替先攻，消除單場模擬內的先手偏誤
     const [atk, def] = (round % 2 === 1) ? [A, B] : [B, A];
-    const r = ctx.resolveFateBattle_(atk, def, { np: npFlag, skill: skillOptFor(atk) });
+    // 🗡️ 燕返 2026-07 三修「僅每場第1回合」：真實遊戲一次按鍵=一場(3回合)，打到死要按很多次——
+    //   以 3 回合為週期映射 opts.round，模擬「每場重置、僅首回合×2.3」的實際節奏。
+    const r = ctx.resolveFateBattle_(atk, def, { np: npFlag, skill: skillOptFor(atk), round: ((round - 1) % 3) + 1 });
     if (r.atkWins) {
       def.hp -= r.damage;
       if (def.hp <= 0) {
