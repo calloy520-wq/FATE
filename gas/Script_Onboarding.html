@@ -345,18 +345,24 @@ function forgeSkPts_(fx) { return FORGE_SK_TRACK[fx] === 1 ? FORGE_SK_PTS_BIG : 
 var FORGE_FLAT_FX = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25, weapon_steal: 25, god_slay: 25, lovespot: 5 }; // 🔒 二元 fx 平價(fx→價·引擎不讀其階級·鏡射後端 FLAT_FX_；燕返60=僅每場第1回合一閃後的重校；weapon_steal/god_slay/lovespot 2026-07 三波·引擎皆不讀階)
 // 🗂️ 效果目錄·按機制分組(2026-07 玩家點破「很多效果一樣但名字不同」——名字是原作梗·機制就十來種，
 //   名字本可自取→按效果挑、同效者標明擇一即可)。flat FORGE_FX 由 groups 攤平(label 查找/驗證介面不變)。
+// 🎯 2026-07 四波(玩家提案「大中小＋自訂名」)：命中／常駐傷害兩類本就是「同公式不同係數」的換皮技能
+//   (aim=千里眼4×階/first_strike=直感3×階/ride=騎乘2×階；fast_cast=高速詠唱12×階/crafting=道具作成8×階/
+//   wind_strike=風王鐵鎚6×階)——收斂成「選強度→自己命名」，玩家不必再從一堆本質相同的花名裡挑。
+//   ⚠ 刻意捨棄的細節(玩家定案「最簡單」)：無欲(unreadable)原本只封「直感/心眼」先機、對「千里眼」無效
+//   的剋制不對稱——收斂後三檔命中皆一視同仁被無欲封。機制沿用既有 fx(aim/first_strike/fast_cast/
+//   crafting/wind_strike)，engine/ALLOWED_FX_/種子英靈零改動，analyze 仍是合法別名(舊角色相容)。
 var FORGE_FX_GROUPS = [
-  { t: '⚔️ 命中系', items: [
-    ['first_strike', '直感（先機·命中+）'], ['analyze', '心眼（＝直感同效·擇一）'],
-    ['aim', '千里眼（命中+·幅度大）'], ['ride', '騎乘（命中+·幅度小）'],
-    ['self_mod', '自我改造（命中＋傷害小幅+）'], ['petrify', '魔眼·石化（大削敵迴避·剋閃避流）']
+  { t: '🎯 命中（選強度→自己命名）', items: [
+    ['aim', '命中·大（+4/階）'], ['first_strike', '命中·中（+3/階）'], ['ride', '命中·小（+2/階）']
   ]},
   { t: '💥 傷害系·主動（按⚡發動·耗魔）', items: [
     ['burst', '魔力放出（傷害×倍率）'], ['str_up', '怪力（傷害+固定值）'], ['projection', '投影魔術（命中+傷害+）']
   ]},
-  { t: '🗡️ 傷害系·常駐（免費被動）', items: [
-    ['fast_cast', '高速詠唱（傷+）'], ['crafting', '道具作成（傷+）'], ['wind_strike', '風王鐵鎚（傷+）'],
-    ['divine_age', '神代魔術（凌駕對魔力）'], ['tactics', '軍略（寶具傷+）'],
+  { t: '🗡️ 傷害·常駐（選強度→自己命名）', items: [
+    ['fast_cast', '常駐傷害·大（+12/階）'], ['crafting', '常駐傷害·中（+8/階）'], ['wind_strike', '常駐傷害·小（+6/階）']
+  ]},
+  { t: '✨ 傷害·特殊（各具獨立機制·不可歸類強度）', items: [
+    ['self_mod', '自我改造（命中+2＋傷+3）'], ['divine_age', '神代魔術（傷+·凌駕對魔力）'], ['tactics', '軍略（寶具傷+）'],
     ['weapon_steal', '無毀湖光（對龍×1.5）'], ['agile_striker', '以巧破力（以敏捷為傷害底·×0.85）'],
     ['god_slay', '神殺（對神性之敵大傷·依對方神格）']
   ]},
@@ -364,8 +370,8 @@ var FORGE_FX_GROUPS = [
     ['nullify_magic', '對魔力（抗魔減傷）'], ['rho_aias', '七天盾（只對寶具展開·御主耗魔30/次）'],
     ['territory', '陣地作成（陣地減傷）'], ['wall_def', '城牆防禦（物理減傷）'], ['divine_core', '神核（常駐減傷）']
   ]},
-  { t: '💨 迴避·隱匿·精神', items: [
-    ['shapeshift', '變化（迴避+）'], ['evade_ranged', '避矢（剋弓兵）'], ['stealth', '氣息遮斷（奇襲增傷）'],
+  { t: '💨 迴避·反迴避·先制·精神', items: [
+    ['shapeshift', '變化（迴避+）'], ['petrify', '魔眼·石化（大削敵迴避·剋閃避流）'], ['evade_ranged', '避矢（剋弓兵）'], ['stealth', '氣息遮斷（奇襲增傷）'],
     ['unreadable', '無欲（封敵先機）'], ['clear_mind', '透化（免威壓·剋勇猛）'], ['morale', '勇猛／卡里斯瑪（威壓）'],
     ['sense', '氣息感知（看穿奇襲·剋氣息遮斷）'], ['lovespot', '愛之痣（魅惑·敵命中−1）']
   ]},
@@ -380,6 +386,10 @@ var FORGE_FX_GROUPS = [
   ]}
 ];
 var FORGE_FX = [['', '（無效果·純演出標籤）']].concat(FORGE_FX_GROUPS.reduce(function (a, g) { return a.concat(g.items); }, []));
+// 🔗 舊角色相容別名(2026-07 四波收斂後)：'analyze' 已收進「命中·中」不再是獨立可挑選項，但已鑄造的
+// 英靈可能存著這個 fx——補進 FORGE_FX 供標籤/計價查找(不進 FORGE_FX_GROUPS·picker 裡挑不到、僅顯示用)。
+FORGE_FX.push(['analyze', '命中·中（+3/階，同 first_strike）']);
+var FORGE_FX_ALIAS_ = { analyze: 'first_strike' }; // 供 openSkillPick 自動展開對應的「命中」組
 var _forgeInit = false;
 // 🛠️ 工房獨立一屏(2026-07 玩家反饋「塞召喚頁太長」)：召喚屏 ↔ 工房屏 換頁，欄位狀態保留(只藏不清)。
 var _forgeEditId = null; // ✏️ 編輯模式：正在修改的英靈殿 ID(null=製造新英靈)
@@ -605,7 +615,8 @@ function openSkillPick(i) {
   _skPickGroup = -1;
   if (_skPickSlot >= 0) {
     var cur = document.getElementById('cf-sk' + _skPickSlot + '-fx').value;
-    if (cur) FORGE_FX_GROUPS.forEach(function (g, gi) { if (g.items.some(function (o) { return o[0] === cur; })) _skPickGroup = gi; });
+    var curEff = FORGE_FX_ALIAS_[cur] || cur; // 舊角色 analyze→對應到「命中」組(first_strike)
+    if (cur) FORGE_FX_GROUPS.forEach(function (g, gi) { if (g.items.some(function (o) { return o[0] === curEff; })) _skPickGroup = gi; });
   }
   renderSkillPick_(); // 📌 浮層固定於螢幕底·免捲動對位(原 scrollIntoView 已不需要)
 }
