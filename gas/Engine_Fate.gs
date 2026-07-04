@@ -561,7 +561,12 @@ function resolveFateBattle_(atk, def, opts) {
   // 騎乘(ride) 機動 +2×階級
   var rideA = hasFx_(atk, 'ride'); if (rideA) aHitFx += Math.round(2 * rankMul_(rideA));
   // 🎯 千里眼(aim)：恆常的卓越目力鎖破綻（被動·SKILL_FX_ 表驅動）。投影(projection) 為主動技 only、此處不給被動。
-  aHitFx = fxHitAdd_(aHitFx, atk, 'aim', fired);
+  //   ⚔️ 2026-07 五波(玩家定案「無欲封先機能不能花更多錢連千里眼也封」)：守方「無欲」達 A 階(rankVal≥50)時，
+  //   連攻方千里眼也一併封鎖——無欲的極致不只讓人猜不到攻勢(封先機/直感·下方 fsD 判定不變)，
+  //   連瞄準本身都失了準頭。不開新計價欄位：本就是 unreadable 既有的階級價目(C15→A25，多付10即解鎖)。
+  var urD = hasFx_(def, 'unreadable');
+  if (urD && rankVal(urD) >= 50) { fired.push(def.name + '·' + fxName_(def, 'unreadable', '無貌') + '(無欲·極意·封千里眼)'); }
+  else { aHitFx = fxHitAdd_(aHitFx, atk, 'aim', fired); }
   // 🌟 全知全能之星(insight／吉爾伽美什)：看穿本質·洞悉破綻，恆常命中 +4（他懶得認真開·僅中等被動）。
   if (hasFx_(atk, 'insight')) { aHitFx += 4; fired.push(atk.name + '·' + fxName_(atk, 'insight', '全知全能之星') + '(洞悉破綻·命中+4)'); }
   // 避矢(evade_ranged)：守方對遠程(Archer)迴避 +6×階級
