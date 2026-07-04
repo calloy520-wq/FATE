@@ -142,6 +142,19 @@
           </div>
           <input id="cf-np-desc" class="std-in" maxlength="40" placeholder="寶具威能一句（選填·如：斬鋼之風化作千刃奔湧）" style="width:100%; box-sizing:border-box; margin-top:6px;">
           <input id="cf-weapon" class="std-in" maxlength="30" placeholder="⚔️ 武裝／戰鬥方式（選填·如：雙持大劍、鎖鏈鐮刀——敘述以此為準，不受職階慣例綁）" style="width:100%; box-sizing:border-box; margin-top:6px;">
+          <!-- 🎭 演出細節（2026-07 三期·全選填·零數值不佔預算）：留空＝AI 補 -->
+          <button type="button" class="btn" style="width:100%; margin-top:8px; border-color:#7a5aa0; color:#c9a0e0; font-size:12px;" onclick="var d=document.getElementById('cf-drama'); d.style.display=(d.style.display==='none')?'block':'none';">🎭 演出細節（選填·自稱/口吻/態度/萌點…點開）</button>
+          <div id="cf-drama" style="display:none; margin-top:6px;">
+            <div style="display:flex; gap:6px;">
+              <input id="cf-fp" class="std-in" maxlength="4" placeholder="自稱（本王/妾身/俺…）" style="flex:1; min-width:0;">
+              <select id="cf-align" class="std-in" style="flex:1; min-width:0;"><option>中立</option><option>秩序・善</option><option>秩序・中庸</option><option>秩序・惡</option><option>中立・善</option><option>中立・惡</option><option>混沌・善</option><option>混沌・中庸</option><option>混沌・惡</option></select>
+            </div>
+            <input id="cf-tomaster" class="std-in" maxlength="20" placeholder="對御主初始態度（忠誠騎士/傲慢俯視/警戒觀察…）" style="width:100%; box-sizing:border-box; margin-top:6px;">
+            <input id="cf-speech" class="std-in" maxlength="40" placeholder="口吻（古風敬語/句尾帶「呢」/簡短冷淡…）" style="width:100%; box-sizing:border-box; margin-top:6px;">
+            <input id="cf-tic" class="std-in" maxlength="30" placeholder="小動作（撥髮/擦劍/瞇眼…）" style="width:100%; box-sizing:border-box; margin-top:6px;">
+            <input id="cf-moe" class="std-in" maxlength="15" placeholder="萌點·反差（嗜甜/怕黑/會做菜…）" style="width:100%; box-sizing:border-box; margin-top:6px;">
+            <input id="cf-back" class="std-in" maxlength="28" placeholder="身世一句（你的傳說）" style="width:100%; box-sizing:border-box; margin-top:6px;">
+          </div>
           <textarea id="cf-desc" class="std-in" maxlength="120" placeholder="外貌／性格描述（AI 只拿來寫人格演出，不碰數值）" style="width:100%; box-sizing:border-box; height:44px; resize:none; margin-top:8px; font-family:inherit;"></textarea>
           <button class="btn" style="width:100%; margin-top:8px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="lockBtn(event, summonByForge)">⚜️ 以此靈基召喚</button>
         </div>

@@ -249,9 +249,10 @@ function sanitizeSix_(o) {
 }
 
 // 🆕 把 AI 生成的原創從者寫回英靈殿（重名則不收；御主不適用此機制）
-//   2026-07：加選填 personaLook/personaMoe(工房玩家自定外貌/反差萌)——hero 分支重召時讀 persona.look/moe，
-//   不存的話玩家親手寫的外貌會在重召時退回通用預設。舊呼叫端不傳＝空字串、行為不變。
-function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, traits, np, personaWords, align, personaLook, personaMoe) {
+//   2026-07：加選填 pExtra 物件(工房玩家自定 外貌look/萌點moe/自稱firstP/態度toMaster/口吻speech/小動作tic/身世back)
+//   ——hero 分支重召時讀 persona 同名欄(stampPersonaFlavor_ 等)，不存的話玩家親手寫的設定會在重召時退回預設。
+//   舊呼叫端不傳＝空物件、行為不變。
+function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, traits, np, personaWords, align, pExtra) {
   name = String(name || "").trim();
   if (!name) return;
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -261,7 +262,11 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][COL.HERO.NAME]).trim() === name) return; // 已有同名 → 不重複收錄
   }
-  var persona = JSON.stringify({ words: String(personaWords || ""), firstP: "我", toMaster: "", look: String(personaLook || ""), moe: String(personaMoe || "") });
+  var px = pExtra || {};
+  var persona = JSON.stringify({
+    words: String(personaWords || ""), firstP: String(px.firstP || "") || "我", toMaster: String(px.toMaster || ""),
+    look: String(px.look || ""), moe: String(px.moe || ""), speech: String(px.speech || ""), tic: String(px.tic || ""), back: String(px.back || "")
+  });
   hs.appendRow([name + "-" + cls, cls, name, sex || "異", sixJson || "{}",
     JSON.stringify(classSkills || []), JSON.stringify(skills || []), JSON.stringify(traits || []),
     np || "", persona, align || "中立", "[]", "ai_gen"]);
@@ -331,7 +336,13 @@ function actionSummonServant(userData, pcId, sheets) {
         return JSON.stringify({ success: false, message: `「${realName}」是英靈殿正典角色——請用「✨真名召喚」直接召喚，或另取原創真名。` });
       }
       sex = ["男", "女", "異"].includes(String(build.sex)) ? String(build.sex) : "異";
-      align = "中立";
+      // 🎭 演出細節(2026-07 三期·全選填·純演出零數值)：自稱/口吻/對御主態度/萌點/小動作/陣營/身世——
+      //   玩家給了原樣用(接種子同款管線：MEMORY 第一人稱/對御主＋stampPersonaFlavor_ 口吻/小動作)，沒給照舊 AI 補。
+      const _fClean = (v, n) => String(v || "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, n);
+      const bFp = _fClean(build.fp, 4), bToM = _fClean(build.toMaster, 20), bSpeech = _fClean(build.speech, 40);
+      const bTic = _fClean(build.tic, 30), bMoe = _fClean(build.moe, 18), bBack = _fClean(build.back, 28);
+      const ALIGNS_ = ["秩序・善", "秩序・中庸", "秩序・惡", "中立・善", "中立", "中立・惡", "混沌・善", "混沌・中庸", "混沌・惡"];
+      align = ALIGNS_.includes(String(build.align)) ? String(build.align) : "中立";
       // 六圍：工房只收 E/D/C/B/A/EX 純階（不給 +/−）；EX≤2 照舊；總分驗 270 預算
       const FORGE_BUDGET = 270;
       const okPlain = v => /^(E|D|C|B|A|EX)$/.test(String(v || "").toUpperCase());
@@ -380,7 +391,7 @@ function actionSummonServant(userData, pcId, sheets) {
       let flavor = null;
       try {
         flavor = JSON.parse(callGeminiAPI(
-          `【真名】：${realName}\n【職階】：${cls}\n【性別】：${sex}\n【玩家描述】：${bDesc || "無"}${bLook ? `\n【外貌(玩家已定·照抄勿改)】：${bLook}` : ""}${bPref ? `\n【個性(玩家已定·照抄勿改)】：${bPref}` : ""}${bWeapon ? `\n【武裝(以此為準·勿依職階/原典改寫)】：${bWeapon}` : ""}\n【技能】：${fSkills.map(s => s.n).join("、") || "無"}\n【寶具】：${fNpName}${fNpDesc ? `（${fNpDesc}）` : ""}`,
+          `【真名】：${realName}\n【職階】：${cls}\n【性別】：${sex}\n【玩家描述】：${bDesc || "無"}${bLook ? `\n【外貌(玩家已定·照抄勿改)】：${bLook}` : ""}${bPref ? `\n【個性(玩家已定·照抄勿改)】：${bPref}` : ""}${bFp ? `\n【自稱(玩家已定)】：${bFp}` : ""}${bSpeech ? `\n【口吻(玩家已定)】：${bSpeech}` : ""}${bMoe ? `\n【萌點(玩家已定·照抄勿改)】：${bMoe}` : ""}${bBack ? `\n【身世(玩家已定·照抄勿改)】：${bBack}` : ""}${bWeapon ? `\n【武裝(以此為準·勿依職階/原典改寫)】：${bWeapon}` : ""}\n【技能】：${fSkills.map(s => s.n).join("、") || "無"}\n【寶具】：${fNpName}${fNpDesc ? `（${fNpDesc}）` : ""}`,
           `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名原創從者的數值與設定，你【只】負責補完演出側寫與寶具英文真名，【嚴禁】輸出任何數值/階級/技能設定、【嚴禁】改寫玩家已定的外貌/個性/武裝。★輸出合法 JSON、禁 Markdown：{"background":"生平一句·限20字","personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔；玩家已定個性則照抄）","npc_intent":"一句反差萌·限15字","npEn":"寶具的英文真名讀法(拉丁字母·如 Excalibur、Gate of Babylon 風格·貼合寶具名意境·限4個單字)"}`,
           { temperature: 0.85, ignoreLaw: true }));
       } catch (e) { flavor = null; }
@@ -392,15 +403,16 @@ function actionSummonServant(userData, pcId, sheets) {
       // 🎨💭 玩家自定 外貌/個性 優先原樣寫入(玩家寫自己的種子)；沒給才用 AI/通用預設
       row[COL.PC.TRAIT] = parseTraitsHelper(bLook, "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
       row[COL.PC.PREF] = parseTraitsHelper(bPref || (flavor && flavor.personality), "沉著表象、堅定內裡、珍視之物、厭惡之事");
-      row[COL.PC.INTENT] = String((flavor && flavor.npc_intent) || "").slice(0, 18);
-      row[COL.PC.MEMORY] = `第一人稱「我」｜對御主：初締約·尚在觀察`;
+      row[COL.PC.INTENT] = bMoe || String((flavor && flavor.npc_intent) || "").slice(0, 18); // 🎭 萌點玩家優先
+      // 🎭 自稱/態度玩家優先；口吻/小動作走種子同款 stampPersonaFlavor_（servantCard_ 直接讀列）
+      row[COL.PC.MEMORY] = stampPersonaFlavor_(`第一人稱「${bFp || "我"}」｜對御主：${bToM || "初締約·尚在觀察"}`, bSpeech, bTic);
       if (bWeapon) row[COL.PC.MEMORY] = setWeapon_(row[COL.PC.MEMORY], bWeapon); // ⚔️ 武裝入 MEMORY·servantCard_ 強制以此演出
       row[COL.PC.SIX] = JSON.stringify(fSix);
       row[COL.PC.TAGS] = JSON.stringify({ skills: fClsSkills.concat(fSkills), traits: [] });
       if (fClsSkills.concat(fSkills).some(s => s && s.fx === "god_hand")) row[COL.PC.MEMORY] += "｜【試煉】3"; // 復活命數＝3（尼祿基準）
-      row[COL.PC.BACK] = String((flavor && flavor.background) || `${cls}・${realName}`).slice(0, 28);
-      // 收錄英靈殿（重名不收）→ 日後可真名重召（含玩家自定 個性/外貌/反差萌·重召不掉設定）
-      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], fClsSkills, fSkills, [], np, bPref || (flavor && flavor.personality) || "", align, bLook, String((flavor && flavor.npc_intent) || "").slice(0, 18)); } catch (e) { }
+      row[COL.PC.BACK] = bBack || String((flavor && flavor.background) || `${cls}・${realName}`).slice(0, 28); // 🎭 身世玩家優先
+      // 收錄英靈殿（重名不收）→ 日後可真名重召（含玩家自定 個性/外貌/萌點/自稱/態度/口吻/小動作·重召不掉設定）
+      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], fClsSkills, fSkills, [], np, bPref || (flavor && flavor.personality) || "", align, { look: bLook, moe: row[COL.PC.INTENT], firstP: bFp, toMaster: bToM, speech: bSpeech, tic: bTic, back: bBack }); } catch (e) { }
     } else if (hero) {
       // ✅ 從英靈殿實體化：用真實六圍/技能/寶具/人格
       cls = hero[COL.HERO.CLS];

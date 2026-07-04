@@ -413,7 +413,10 @@ function summonByForge() {
     npDesc: _v('cf-np-desc'),   // 寶具威能一句(選填)
     look: _v('cf-look'),        // 🎨 外貌本相(選填·玩家寫自己的種子)
     pref: _v('cf-pref'),        // 💭 個性四短句(選填)
-    weapon: _v('cf-weapon'), desc: _v('cf-desc')
+    weapon: _v('cf-weapon'), desc: _v('cf-desc'),
+    // 🎭 演出細節(選填·零數值)：自稱/陣營/態度/口吻/小動作/萌點/身世——留空＝AI 補
+    fp: _v('cf-fp'), align: _v('cf-align'), toMaster: _v('cf-tomaster'),
+    speech: _v('cf-speech'), tic: _v('cf-tic'), moe: _v('cf-moe'), back: _v('cf-back')
   };
   return doSummon({ build: JSON.stringify(build) });
 }
