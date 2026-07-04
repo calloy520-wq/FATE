@@ -240,6 +240,9 @@ function combatProfile_(c) {
   //   耐久=防禦、幸運=命運骰、寶具=寶具傷害段，皆不入普攻底。命中/迴避維持職階本色。battle_sim 驗證。
   var six = c.six || {};
   var dmgStat = (rankVal(six['魔力']) > rankVal(six['筋力'])) ? '魔力' : '筋力';
+  // 💨 神速(agile_striker·2026-07)：唯一讓敏捷入傷害底的通道——持此 fx 且敏捷高於筋/魔時，以技巧為力
+  //   (原一修「人人敏捷可當傷害底」被玩家抓出一圍三吃，收成付費標籤：要當敏捷輸出流→工房買 神速)。
+  if (hasFx_(c, 'agile_striker') && rankVal(six['敏捷']) > rankVal(six[dmgStat])) dmgStat = '敏捷';
   if (cls === 'Caster') return { hit: '魔力', dmg: dmgStat, eva: '敏捷', kind: '魔砲' }; // 魔力轟擊的玻璃大砲：攻強、近身脆
   if (cls === 'Archer') return { hit: '敏捷', dmg: dmgStat, eva: '敏捷', kind: '狙擊' }; // 遠程精準
   return { hit: '敏捷', dmg: dmgStat, eva: '敏捷', kind: '近戰' };

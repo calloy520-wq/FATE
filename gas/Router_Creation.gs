@@ -203,7 +203,8 @@ var ALLOWED_FX_ = {
   // 🆕 2026-07 放寬(A)：施放技術/命中/防禦/對人放大——中階以下，拉高自訂從者上限、不含頂級概念寶具
   aim: 1, projection: 1, fast_cast: 1, crafting: 1, petrify: 1, shapeshift: 1,
   solo: 1, weapon_steal: 1, rho_aias: 1, territory: 1, wall_def: 1, zabaniya: 1, regen: 1,
-  divine: 1 // 🆕 2026-07：神性(帶階級·比 trait 名判定精準)——引擎中主要是弱點(被神殺/天之鎖/對神剋)，濫用價值低
+  divine: 1, // 🆕 2026-07：神性(帶階級·比 trait 名判定精準)——引擎中主要是弱點(被神殺/天之鎖/對神剋)，濫用價值低
+  agile_striker: 1 // 💨 2026-07：神速——以敏捷為傷害底(敏高於筋/魔時)。敏捷輸出流唯一通道·二元·平價25
 };
 var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應就填空字串\"\"（頂級概念寶具 乖離劍/王之財寶/無限劍製 等為種子專屬、不在此清單）：" +
   "對魔力=nullify_magic、直感=first_strike、心眼=analyze、千里眼=aim、怪力=str_up、魔力放出=burst、投影魔術=projection、" +
@@ -212,7 +213,7 @@ var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應�
   "狂化=mad、勇猛/卡里斯瑪=morale、神代魔術=divine_age、無欲(封先機)=unreadable、透化(免威壓)=clear_mind、" +
   "自我改造(命中傷害+)=self_mod、軍略(寶具+)=tactics、風王鐵鎚(傷+)=wind_strike、魔眼(石化)=petrify、必中槍=gae_bolg、" +
   "秘劍燕返(普攻/寶具皆強化)=tsubame、妄想心音(暗殺致命)=zabaniya、無毀湖光(對龍+)=weapon_steal、治癒(每回合回血)=regen、不死復活(復活3次·如尼祿三度輝映)=god_hand、" +
-  "破魔(無視神核/續行)=anti_magic_lance、破戒(斬契約救贖)=rule_breaker、神性(神裔·會被神殺剋)=divine";
+  "破魔(無視神核/續行)=anti_magic_lance、破戒(斬契約救贖)=rule_breaker、神性(神裔·會被神殺剋)=divine、神速(以敏捷為傷害底)=agile_striker";
 
 // 清洗 AI 給的技能陣列為 [{n,r,fx}]（fx 不在字典就清空，仍保留為演出用標籤）
 //   r 階級與 sanitizeSix_ 同一套驗證(承認 A++/B−)——原 slice(0,2) 會把 "A++" 截成 "A+"(2026-07 修)。
@@ -367,7 +368,7 @@ function actionSummonServant(userData, pcId, sheets) {
       // 🔒 二元 fx 平價(引擎不讀其階級·E階白撿同 A 效果的洞)：復活3命/致命撐1/妄想心音/必中槍/破戒/破魔 → 25(A價)。
       //   燕返＝例外重價 60(EX價)：每次普攻勝手×2.3 常駐免費，battle_sim 實測單技能貢獻 +56 個百分點
       //   (86.2%→拔掉剩30.2%·頂級概念寶具等級)；必中槍/妄想心音為寶具簽名、basic 實測 ±0、維持25。
-      const FLAT_FX_ = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25 };
+      const FLAT_FX_ = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25 };
       const fSkillCost = fSkills.reduce((s, k) => s + (k.fx ? (FLAT_FX_[k.fx] || SKILL_PTS_[k.r] || 15) : 0), 0);
       const fTotal = fSpent + fScaleCost + fSkillCost;
       if (fTotal > FORGE_BUDGET) return JSON.stringify({ success: false, message: `六圍 ${fSpent}＋技能 ${fSkillCost}＋規模「${fNpScale}」${fScaleCost ? `+${fScaleCost}` : "0"} ＝ ${fTotal}，超過預算 ${FORGE_BUDGET}——請調降六圍/技能階級或改對人規模。` });

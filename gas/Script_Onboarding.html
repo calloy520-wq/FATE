@@ -324,7 +324,7 @@ function summonByDesc() {
 //   後端 actionSummonServant build 分支為權威驗證，這裡的預算/清單只是即時 UX 鏡射（改後端 ALLOWED_FX_ 記得同步 FORGE_FX）。
 var FORGE_PTS = { E: 10, D: 20, C: 30, B: 40, A: 50, EX: 60 }, FORGE_BUDGET = 270;
 var FORGE_SK_PTS = { E: 5, D: 10, C: 15, B: 20, A: 25 }; // ⚡ 技能階級定價(六圍半價·無 fx 純演出免費·鏡射後端 SKILL_PTS_)
-var FORGE_FLAT_FX = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25 }; // 🔒 二元 fx 平價(fx→價·引擎不讀其階級·鏡射後端 FLAT_FX_；燕返60=實測+56pp頂級劍技)
+var FORGE_FLAT_FX = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25 }; // 🔒 二元 fx 平價(fx→價·引擎不讀其階級·鏡射後端 FLAT_FX_；燕返60=實測+56pp頂級劍技)
 var FORGE_FX = [
   ['', '（無效果·純演出標籤）'], ['nullify_magic', '對魔力（抗魔）'], ['first_strike', '直感（先機）'], ['analyze', '心眼（看破）'],
   ['aim', '千里眼（命中+）'], ['str_up', '怪力（主動·傷+）'], ['burst', '魔力放出（主動·傷×）'], ['projection', '投影魔術（主動·中傷+）'],
@@ -335,7 +335,8 @@ var FORGE_FX = [
   ['clear_mind', '透化（免威壓）'], ['self_mod', '自我改造（命中傷+）'], ['tactics', '軍略（寶具+）'], ['wind_strike', '風王鐵鎚（傷+）'],
   ['petrify', '魔眼·石化'], ['gae_bolg', '必中槍（因果逆轉·固定25點）'], ['tsubame', '秘劍·燕返（每擊×2.3·固定60點）'], ['zabaniya', '妄想心音（暗殺致命·固定25點）'],
   ['weapon_steal', '無毀湖光（對龍×1.5）'], ['regen', '治癒（每回合回血）'], ['god_hand', '不死復活（燒命×3·固定25點）'],
-  ['anti_magic_lance', '破魔（無視神核/續行·固定25點）'], ['rule_breaker', '破戒（斬契約·固定25點）'], ['divine', '神性（神裔·會被神殺剋）']
+  ['anti_magic_lance', '破魔（無視神核/續行·固定25點）'], ['rule_breaker', '破戒（斬契約·固定25點）'], ['divine', '神性（神裔·會被神殺剋）'],
+  ['agile_striker', '神速（以敏捷為傷害底·固定25點）']
 ];
 var _forgeInit = false;
 function toggleForge() {
