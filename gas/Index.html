@@ -135,11 +135,10 @@
           <div id="cf-six"></div>
           <div style="color:#8fb0e8; font-size:12px; margin:9px 0 4px;">技能 ×3（挑效果＋階級·名字可自取·效果吃所選標籤）</div>
           <div id="cf-skills"></div>
-          <div style="color:#8fb0e8; font-size:12px; margin:9px 0 4px;">寶具（中文名由你定·AI 只補英文真名讀法；職階技能依職階自動附贈）</div>
+          <div style="color:#8fb0e8; font-size:12px; margin:9px 0 4px;">寶具（中文名由你定·AI 只補英文真名讀法；威力＝六圍的「寶具」階；職階技能自動附贈）</div>
           <div style="display:flex; gap:6px;">
             <input id="cf-np-name" class="std-in" maxlength="20" placeholder="寶具名" style="flex:3; min-width:0;">
-            <select id="cf-np-r" class="std-in" style="flex:1;"></select>
-            <select id="cf-np-scale" class="std-in" style="flex:1;"><option>對人</option><option>對軍</option></select>
+            <select id="cf-np-scale" class="std-in" style="flex:2;" onchange="forgeBudget_()"><option value="對人">對人（免費）</option><option value="對軍">對軍（+20點）</option></select>
           </div>
           <input id="cf-np-desc" class="std-in" maxlength="40" placeholder="寶具威能一句（選填·如：斬鋼之風化作千刃奔湧）" style="width:100%; box-sizing:border-box; margin-top:6px;">
           <input id="cf-weapon" class="std-in" maxlength="30" placeholder="⚔️ 武裝／戰鬥方式（選填·如：雙持大劍、鎖鏈鐮刀——敘述以此為準，不受職階慣例綁）" style="width:100%; box-sizing:border-box; margin-top:6px;">

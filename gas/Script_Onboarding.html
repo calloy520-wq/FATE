@@ -362,7 +362,6 @@ function initForge_() {
       + '</div>';
   }
   document.getElementById('cf-skills').innerHTML = h;
-  document.getElementById('cf-np-r').outerHTML = rankSel('cf-np-r', 'B', true);
   forgeBudget_();
 }
 function forgeBudget_() {
@@ -370,15 +369,18 @@ function forgeBudget_() {
   ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].forEach(function (k) {
     var el = document.getElementById('cf-six-' + k); if (el) sum += FORGE_PTS[el.value] || 30;
   });
+  // 🌟 寶具規模也用預算買(2026-07)：對軍在規模矩陣對絕大多數對局×1.25、免費必人人選→標價 +20
+  var scEl = document.getElementById('cf-np-scale');
+  if (scEl && scEl.value === '對軍') sum += 20;
   var b = document.getElementById('cf-budget');
-  if (b) { b.innerHTML = '已用 <b style="color:' + (sum > FORGE_BUDGET ? '#e06a6a' : '#8fd0a0') + ';">' + sum + '</b> / ' + FORGE_BUDGET; }
+  if (b) { b.innerHTML = '已用 <b style="color:' + (sum > FORGE_BUDGET ? '#e06a6a' : '#8fd0a0') + ';">' + sum + '</b> / ' + FORGE_BUDGET + (scEl && scEl.value === '對軍' ? ' <small style="color:#9a8bb0;">(含對軍+20)</small>' : ''); }
   return sum;
 }
 function summonByForge() {
   var nm = (document.getElementById('cf-name').value || '').trim();
   if (!nm) { alert('請為英靈取一個真名。'); return; }
-  var sum = forgeBudget_();
-  if (sum > FORGE_BUDGET) { alert('六圍總點數 ' + sum + ' 超過預算 ' + FORGE_BUDGET + '，請調降。'); return; }
+  var sum = forgeBudget_(); // 已含 對軍規模+20
+  if (sum > FORGE_BUDGET) { alert('總點數 ' + sum + '（含寶具規模）超過預算 ' + FORGE_BUDGET + '，請調降六圍或改對人規模。'); return; }
   var exN = ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].filter(function (k) { return document.getElementById('cf-six-' + k).value === 'EX'; }).length;
   if (exN > 2) { alert('EX 至多 2 項（與種子英靈同規）。'); return; }
   var six = {}, skills = [];
@@ -394,7 +396,7 @@ function summonByForge() {
   var build = {
     name: nm, cls: document.getElementById('cf-cls').value, sex: document.getElementById('cf-sex').value,
     six: six, skills: skills,
-    npName: _v('cf-np-name'), npRank: document.getElementById('cf-np-r').value, npScale: document.getElementById('cf-np-scale').value,
+    npName: _v('cf-np-name'), npScale: document.getElementById('cf-np-scale').value, // 階級旋鈕已拆：顯示階＝六圍寶具階(引擎本就只吃 six.寶具)
     npDesc: _v('cf-np-desc'),   // 寶具威能一句(選填)
     look: _v('cf-look'),        // 🎨 外貌本相(選填·玩家寫自己的種子)
     pref: _v('cf-pref'),        // 💭 個性四短句(選填)

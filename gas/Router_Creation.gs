@@ -340,7 +340,11 @@ function actionSummonServant(userData, pcId, sheets) {
       const fExK = Object.keys(fSix).filter(k => fSix[k] === "EX");
       if (fExK.length > 2) fExK.slice(2).forEach(k => fSix[k] = "A");
       const fSpent = Object.keys(fSix).reduce((s, k) => s + rankVal(fSix[k]), 0);
-      if (fSpent > FORGE_BUDGET) return JSON.stringify({ success: false, message: `六圍總點數 ${fSpent} 超過預算 ${FORGE_BUDGET}——請調降後再召喚。` });
+      // 🌟 寶具規模定價(2026-07 玩家定案)：對軍在 NP_SCALE_MATRIX 對絕大多數對局嚴格優於對人(×1.25)，
+      //   免費＝人人必選對軍。改用同一份預算買：對人=0、對軍=+20 點。
+      const fNpScale = (String(build.npScale) === "對軍") ? "對軍" : "對人";
+      const fScaleCost = (fNpScale === "對軍") ? 20 : 0;
+      if (fSpent + fScaleCost > FORGE_BUDGET) return JSON.stringify({ success: false, message: `六圍 ${fSpent} 點＋寶具規模「${fNpScale}」${fScaleCost ? `(+${fScaleCost})` : ""} ＝ ${fSpent + fScaleCost}，超過預算 ${FORGE_BUDGET}——請調降六圍或改對人規模。` });
       // 技能 ≤3：fx 必在 ALLOWED_FX_（空＝純演出標籤）、階級上限 A、可改名（效果吃 fx）
       const fSkills = (Array.isArray(build.skills) ? build.skills : []).filter(Boolean).slice(0, 3).map(s => {
         const fx = ALLOWED_FX_[String(s && s.fx || "").trim()] ? String(s.fx).trim() : "";
@@ -356,10 +360,10 @@ function actionSummonServant(userData, pcId, sheets) {
         Assassin: [{ n: "氣息遮斷", r: "B", fx: "stealth" }], Berserker: [{ n: "狂化", r: "C", fx: "mad" }]
       };
       const fClsSkills = FORGE_CLS_SKILLS_[cls] || [];
-      // 寶具：玩家名稱原樣保留（AI 不插手）·階級上限 A·規模限 對人/對軍·剝種子專屬標記(名/描述都剝——npAtkScale_ 讀整串關鍵字)
+      // 寶具：玩家名稱原樣保留（AI 不插手）·剝種子專屬標記(名/描述都剝——npAtkScale_ 讀整串關鍵字)。
+      //   顯示階＝六圍寶具階(單一真實來源·引擎威力/耗魔/骰本就吃 six.寶具，原「另選階級」是假旋鈕、已拆)。
       let fNpName = String(build.npName || "").replace(/[<>&"'`]/g, "").replace(/【常駐寶具】|對城|對界|對神/g, "").trim().slice(0, 20) || "無名寶具";
-      let fNpR = String(build.npRank || "C").toUpperCase(); if (!/^(E|D|C|B|A)$/.test(fNpR)) fNpR = "C";
-      const fNpScale = (String(build.npScale) === "對軍") ? "對軍" : "對人";
+      const fNpR = fSix["寶具"];
       const fNpDesc = String(build.npDesc || "").replace(/【常駐寶具】|對城|對界|對神/g, "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, 40); // 威能一句(選填)
       const bDesc = String(build.desc || "").trim().slice(0, 120);
       const bWeapon = String(build.weapon || "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, 30); // ⚔️ 玩家自定武裝(選填)
