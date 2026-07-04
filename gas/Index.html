@@ -122,8 +122,14 @@
         <textarea id="s-desc" class="std-in" maxlength="120" placeholder="或自訂描述生成原創從者（如：手持巨鎌、沉默寡言的死神少女）" style="width:100%; box-sizing:border-box; height:48px; resize:none; margin-top:8px; font-family:inherit;"></textarea>
         <button class="btn" style="width:100%; margin-top:6px; border-color:#a06cd0; color:#c79be8;" onclick="lockBtn(event, summonByDesc)">🖋️ 自訂生成原創從者（AI 快速盲盒）</button>
         <!-- 🛠️ 自訂英靈工房（2026-07）：玩家親手定 職階/六圍/技能/寶具；AI 只補人格演出、不碰數值 -->
-        <button type="button" class="btn" style="width:100%; margin-top:6px; border-color:#6a8ac0; color:#8fb0e8; font-size:12.5px;" onclick="toggleForge()">🛠️ 自訂英靈工房（進階：親手打造數值）</button>
-        <div id="cust-forge" style="display:none; margin-top:8px; padding:10px; background:rgba(20,18,34,.45); border:1px solid rgba(120,140,200,.35); border-radius:8px; text-align:left;">
+        <button type="button" class="btn" style="width:100%; margin-top:6px; border-color:#6a8ac0; color:#8fb0e8; font-size:12.5px;" onclick="openForge()">🛠️ 自訂英靈工房（進階：親手打造數值）</button>
+      </div>
+    </div>
+    <!-- 🛠️ 自訂英靈工房：獨立一屏（2026-07 玩家反饋「塞召喚頁太長」）——一步一屏對齊 onboarding 慣例，欄位 ID 全部不變 -->
+    <div id="step-forge" style="display:none; width:320px;">
+      <p style="text-align:center; color:#8fb0e8; font-size:16px; font-weight:bold; margin-bottom:2px;">🛠️ 自訂英靈工房</p>
+      <p style="text-align:center; color:#816e54; font-size:11.5px; margin:0 0 10px;">數值全由你定（270 點預算）·AI 只補人格與寶具英文名</p>
+      <div id="cust-forge" style="padding:10px; background:rgba(20,18,34,.45); border:1px solid rgba(120,140,200,.35); border-radius:8px; text-align:left;">
           <input id="cf-name" class="std-in" maxlength="20" placeholder="真名（必填·原創，正典角色請走真名召喚）" style="width:100%; box-sizing:border-box;">
           <div style="display:flex; gap:6px; margin-top:6px;">
             <select id="cf-cls" class="std-in" style="flex:2;"></select>
@@ -157,8 +163,8 @@
           </div>
           <textarea id="cf-desc" class="std-in" maxlength="120" placeholder="外貌／性格描述（AI 只拿來寫人格演出，不碰數值）" style="width:100%; box-sizing:border-box; height:44px; resize:none; margin-top:8px; font-family:inherit;"></textarea>
           <button class="btn" style="width:100%; margin-top:8px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="lockBtn(event, summonByForge)">⚜️ 以此靈基召喚</button>
-        </div>
       </div>
+      <button class="btn" style="width:100%; margin-top:8px; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="closeForge()">← 返回召喚</button>
     </div>
   </div>
 

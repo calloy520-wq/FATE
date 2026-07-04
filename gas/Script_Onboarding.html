@@ -296,6 +296,7 @@ async function doSummon(payload) {
       window._summonScene = data.summonPrompt || '';
       localStorage.setItem('kyushu_v27', JSON.stringify(pc));
       document.getElementById('step-summon').style.display = 'none';
+      var _fscr = document.getElementById('step-forge'); if (_fscr) _fscr.style.display = 'none'; // 🛠️ 從工房屏召喚成功也收屏，防重開新局時疊影
       startGame(false);
     } else {
       alert((data && data.message) || '召喚失敗，請重試。');
@@ -339,11 +340,17 @@ var FORGE_FX = [
   ['agile_striker', '以巧破力（以敏捷為傷害底·固定25點）']
 ];
 var _forgeInit = false;
-function toggleForge() {
-  var f = document.getElementById('cust-forge'); if (!f) return;
-  var show = f.style.display === 'none';
-  f.style.display = show ? 'block' : 'none';
-  if (show && !_forgeInit) { initForge_(); _forgeInit = true; }
+// 🛠️ 工房獨立一屏(2026-07 玩家反饋「塞召喚頁太長」)：召喚屏 ↔ 工房屏 換頁，欄位狀態保留(只藏不清)。
+function openForge() {
+  var s = document.getElementById('step-summon'), f = document.getElementById('step-forge');
+  if (s) s.style.display = 'none';
+  if (f) { f.style.display = 'block'; window.scrollTo(0, 0); }
+  if (!_forgeInit) { initForge_(); _forgeInit = true; }
+}
+function closeForge() {
+  var s = document.getElementById('step-summon'), f = document.getElementById('step-forge');
+  if (f) f.style.display = 'none';
+  if (s) { s.style.display = 'block'; window.scrollTo(0, 0); }
 }
 function initForge_() {
   var opt = function (v, t) { return '<option value="' + v + '">' + (t || v) + '</option>'; };
