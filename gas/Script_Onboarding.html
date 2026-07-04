@@ -394,6 +394,7 @@ function openForge(from) {
   if (sumEl) sumEl.style.display = 'none';
   var f = document.getElementById('step-forge');
   if (f) { f.style.display = 'block'; window.scrollTo(0, 0); }
+  var gt = document.getElementById('game-title'); if (gt) gt.style.display = 'none'; // 🏷️ 工房屏藏大標題省高度(2026-07 玩家定案)
   if (!_forgeInit) { initForge_(); _forgeInit = true; }
   forgeTab(2); // 📑 預設開在中間「⚔️ 靈基」主頁
   // 主選單直入時名冊可能還沒載(loadHeroes 原本在進召喚頁才跑)→補載後刷「我的作品」列
@@ -502,6 +503,8 @@ async function claimHero(id) {
 function closeForge() {
   var f = document.getElementById('step-forge');
   if (f) f.style.display = 'none';
+  var gt = document.getElementById('game-title'); if (gt) gt.style.display = ''; // 🏷️ 還原大標題(工房屏才藏)
+  closeSkillPick(); // 📌 底部浮層一併收(避免殘留蓋住選單)
   var back = document.getElementById(_forgeFrom === 'menu' ? 'scr-menu' : 'step-summon');
   if (back) { back.style.display = 'block'; window.scrollTo(0, 0); }
 }
