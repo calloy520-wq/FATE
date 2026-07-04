@@ -219,7 +219,13 @@ function actionProposeAlliance(userData, pcId, sheets) {
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
   const mIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).includes(npcName) && String(r[COL.PC.FACTION]) === "敵御主" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc);
-  if (mIdx === -1) return JSON.stringify({ success: false, message: "此地沒有可交涉的敵御主。" });
+  if (mIdx === -1) {
+    // 🔍 診斷「能點卻沒人」：照名字找這名敵御主(不限地點)，回報他實際在哪 vs 玩家在哪——
+    //   若兩地字面相同卻仍不中＝隱藏字元/全半形落差；不同＝前端顯示過期(他已移走)。
+    const anyIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).includes(npcName) && String(r[COL.PC.FACTION]) === "敵御主" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+    const detail = anyIdx >= 0 ? `「${pcData[anyIdx][COL.PC.NAME]}」現在「${String(pcData[anyIdx][COL.PC.LOC]).trim()}」，你在「${myLoc}」` : `名冊查無「${npcName}」`;
+    return JSON.stringify({ success: false, message: `此地沒有可交涉的敵御主（${detail}）——須與對方同處一地才能交涉。` });
+  }
   if (isAllied_(pcData[mIdx])) return JSON.stringify({ success: false, message: `你已與「${pcData[mIdx][COL.PC.NAME]}」結盟。` });
 
   const isFate = myGameId.indexOf("g_") === 0;
