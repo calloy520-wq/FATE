@@ -194,5 +194,6 @@ GAL(鑑賞): ACC0 NAME1 CLS2 SEX3 SIX4 TAGS5 NP6 BACK7 PREF8 MOE9 MEMOIR10 WISH1
 
 - `node tools/battle_sim/duel.js [場數=20000]`：兩騎對打模擬（範例＝金閃/恩奇都 vs B叔·比較有無招牌被動）。改 `main()` 的 servant id 與 `stripFx` 陣列測別組，或 `require('./engine.js')` 自寫腳本（`ctx.SEED_SERVANTS`/`ctx.resolveFateBattle_`/`ctx.hasFx_` 都是真引擎）。
 - `node tools/battle_sim/roundrobin.js [pool=4th|5th|all] [mode=basic|skill|np] [N=200]`：戰爭池(或全36騎)內全循環賽·輸出對全池勝率排名。三 mode 各自獨立：`basic`＝裸普攻／`skill`＝開主動技全效／`np`＝每手解放寶具(出力強制100%·多寶具挑最強攻擊項·不模擬御主魔力上限)。
+- **`node tools/battle_sim/extremes.js [N=200]`：🏟️ 極端組合回歸測試——平衡改動後必跑**(2026-07·約3分鐘)。收錄歷次退化組合(燕巧盾/以巧變化流…含四技版)＋事件註記：①每組合 vs 全種子池(紅旗=破9成) ②互鬥全循環(紅旗=無天敵)。預算按檔內鏡射價目現算·改價後買不起的自動❌棄測；改 parseForgeBuild_ 價目記得同步鏡射表、新退化組合往 BUILDS 加。場數：tier 榜 N=200 夠(±1.2pp)、單對局結論用 N=1000。
 - **模擬範圍**：預設只跑普攻交鋒至一方陣亡（不解放寶具/補魔/整備/禮裝），量的是「被動 fx 本身」的貢獻、不被寶具巨傷蓋過。God Hand 十二試煉復活公式逐行對照 `Router_Battle.gs` 的 `fateStrike_` 移植。
 - **用途**：改六圍/fx/寶具 NP 尺度後跑一輪，看有沒有把某騎調爆或調廢。改完平衡順手更新 `duel.js` 的範例對戰組合。
