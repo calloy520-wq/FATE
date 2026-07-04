@@ -405,7 +405,7 @@
         + (net < 0 ? '<div style="color:#e06a6a;font-size:11.5px;margin-top:4px;">⚠ 入不敷出——宜搶靈脈／設陣地／降出力／補魔</div>' : '')
         + '</div>';
     } else { h += '<p style="color:#816e54;">尚無供魔資料——先進行一個動作即可刷新。</p>'; }
-    h += '<div style="color:#7ec8ff;font-size:12px;margin:14px 0 6px;">🔋 靈基出力（供魔強度·點檔位即調·100%💥才能解放寶具）</div>';
+    h += '<div style="color:#7ec8ff;font-size:12px;margin:14px 0 6px;">🔋 靈基出力（供魔強度·切換出力需等待約2秒刷新·100%💥才能解放寶具）</div>';
     (myServants || []).forEach(function (s) {
       var sn = String(s.name).replace(/'/g, '');
       h += '<div style="margin-bottom:9px;"><div style="color:#e8dcc0;font-size:12px;margin-bottom:3px;">' + s.name + '　<small style="color:#7ec8ff;">' + (s.output || 60) + '%·' + (s.outputLabel || '') + '</small></div>'
