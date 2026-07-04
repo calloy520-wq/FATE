@@ -336,9 +336,16 @@ function parseForgeBuild_(build, reqCls) {
     return { n: String(s && s.n || "").replace(/[<>&"'`]/g, "").slice(0, 10) || "技能", r: r, fx: fx };
   });
   const SKILL_PTS_ = { E: 5, D: 10, C: 15, B: 20, A: 25 };
+  // 🎚️ 三軌計價(2026-07 玩家定案「效果不同價錢不能一樣」)：同組同價會讓大係數標籤嚴格支配小係數——
+  //   照引擎真實係數分軌：強效(千里眼/魔眼4×階·高速詠唱/神代12×階＋剋對魔力·陣地26%×階)貴 1/3、
+  //   輕效(騎乘2×階·風王6×階·勇猛3×階且被透化封)便宜 1/3。鏡射前端 FORGE_SK_TRACK/FORGE_SK_PTS_*。
+  const SKILL_PTS_BIG_ = { E: 7, D: 13, C: 20, B: 27, A: 33 };
+  const SKILL_PTS_SMALL_ = { E: 3, D: 7, C: 10, B: 13, A: 17 };
+  const SKILL_TRACK_ = { aim: 1, petrify: 1, fast_cast: 1, divine_age: 1, territory: 1, ride: -1, wind_strike: -1, morale: -1 }; // 1=強效 -1=輕效 其餘標準
   // 二元平價(引擎不讀階級)：weapon_steal 對龍恆×1.5(2026-07 補洞：原階級計價可 E5 白撿)、god_slay 依【對方】神格縮放、lovespot 恆-1(風味價5)
   const FLAT_FX_ = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25, weapon_steal: 25, god_slay: 25, lovespot: 5 };
-  const skillCost = out.skills.reduce((s, k) => s + (k.fx ? (FLAT_FX_[k.fx] || SKILL_PTS_[k.r] || 15) : 0), 0);
+  const skillCost = out.skills.reduce((s, k) => s + (k.fx ? (FLAT_FX_[k.fx] ||
+    (SKILL_TRACK_[k.fx] === 1 ? SKILL_PTS_BIG_ : SKILL_TRACK_[k.fx] === -1 ? SKILL_PTS_SMALL_ : SKILL_PTS_)[k.r] || 15) : 0), 0);
   const total = spent + scaleCost + skillCost;
   if (total > FORGE_BUDGET) return { ok: false, message: `六圍 ${spent}＋技能 ${skillCost}＋規模「${out.npScale}」${scaleCost ? `+${scaleCost}` : "0"} ＝ ${total}，超過預算 ${FORGE_BUDGET}——請調降六圍/技能階級或改對人規模。` };
   out.classSkills = FORGE_CLS_SKILLS_[out.cls] || [];
