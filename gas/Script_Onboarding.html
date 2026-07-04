@@ -523,7 +523,7 @@ function initForge_() {
       + '<input id="cf-sk' + i + '-n" class="std-in" maxlength="10" placeholder="改名(選填)" style="flex:2; min-width:0;">'
       + '</div>';
   }
-  h += '<div id="cf-skpick" style="display:none; margin-top:4px; padding:7px; background:rgba(20,26,40,.55); border:1px solid rgba(110,140,200,.3); border-radius:8px;"></div>';
+  h += '<div id="cf-skpick" style="display:none; margin-top:4px; padding:7px; background:rgba(20,26,40,.55); border:1px solid rgba(110,140,200,.3); border-radius:8px; max-height:46vh; overflow-y:auto; -webkit-overflow-scrolling:touch;"></div>'; // 📏 限高內捲(2026-07 玩家反饋「最下面看不到」)：晶片在面板內滑·頁面不再被撐爆
   document.getElementById('cf-skills').innerHTML = h;
   forgeBudget_();
 }
@@ -562,8 +562,16 @@ function openSkillPick(i) {
     if (cur) FORGE_FX_GROUPS.forEach(function (g, gi) { if (g.items.some(function (o) { return o[0] === cur; })) _skPickGroup = gi; });
   }
   renderSkillPick_();
+  var box = document.getElementById('cf-skpick');
+  if (box && _skPickSlot >= 0) setTimeout(function () { try { box.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) { box.scrollIntoView(); } }, 30);
 }
-function toggleSkillGroup(gi) { _skPickGroup = (_skPickGroup === gi) ? -1 : gi; renderSkillPick_(); }
+function toggleSkillGroup(gi) {
+  _skPickGroup = (_skPickGroup === gi) ? -1 : gi;
+  renderSkillPick_();
+  // 展開組後把該組標題捲到面板頂(晶片緊接在下·不用再找)
+  var box = document.getElementById('cf-skpick');
+  if (box && _skPickGroup >= 0) { var gh = document.getElementById('cf-skg-' + gi); if (gh) box.scrollTop = gh.offsetTop - box.offsetTop - 4; }
+}
 function renderSkillPick_() {
   var box = document.getElementById('cf-skpick'); if (!box) return;
   if (_skPickSlot < 0) { box.style.display = 'none'; box.innerHTML = ''; return; }
@@ -583,7 +591,7 @@ function renderSkillPick_() {
   FORGE_FX_GROUPS.forEach(function (g, gi) {
     var open = (gi === _skPickGroup);
     var hasCur = cur && g.items.some(function (o) { return o[0] === cur; });
-    hx += '<button type="button" onclick="toggleSkillGroup(' + gi + ')" style="display:flex; width:100%; box-sizing:border-box; align-items:center; text-align:left; padding:7px 9px; margin-top:4px; border-radius:7px; cursor:pointer; border:1px solid ' + (open ? 'var(--gold-accent)' : (hasCur ? '#8a7a4a' : '#33304a')) + '; background:rgba(26,24,40,.5); color:' + (open ? 'var(--gold-accent)' : '#a9a2c0') + '; font-size:11.5px;">'
+    hx += '<button type="button" id="cf-skg-' + gi + '" onclick="toggleSkillGroup(' + gi + ')" style="display:flex; width:100%; box-sizing:border-box; align-items:center; text-align:left; padding:7px 9px; margin-top:4px; border-radius:7px; cursor:pointer; border:1px solid ' + (open ? 'var(--gold-accent)' : (hasCur ? '#8a7a4a' : '#33304a')) + '; background:rgba(26,24,40,.5); color:' + (open ? 'var(--gold-accent)' : '#a9a2c0') + '; font-size:11.5px;">'
       + g.t + (hasCur ? '　<small style="color:var(--gold-accent);">●已選</small>' : '')
       + '<span style="margin-left:auto; opacity:.6;">' + g.items.length + ' 項 ' + (open ? '▴' : '▾') + '</span></button>';
     if (open) hx += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:4px;">' + g.items.map(chip).join('') + '</div>';
