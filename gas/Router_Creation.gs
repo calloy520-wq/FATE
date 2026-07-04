@@ -163,7 +163,8 @@ function actionGetHeroes(userData, pcId, sheets) {
     const rows = getHeroCodexCached().slice(1);
     const heroes = rows.filter(r => r[COL.HERO.ID]).map(r => ({
       id: r[COL.HERO.ID], cls: r[COL.HERO.CLS], name: r[COL.HERO.NAME],
-      gender: r[COL.HERO.SEX], np: r[COL.HERO.NP]
+      gender: r[COL.HERO.SEX], np: r[COL.HERO.NP],
+      src: String(r[COL.HERO.SOURCE] || "") // 🌟 來源：ai_gen＝玩家原創(工房/盲盒)·前端「玩家原創」專區用
     }));
     return JSON.stringify({ success: true, heroes: heroes });
   } catch (e) {

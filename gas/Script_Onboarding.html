@@ -277,14 +277,19 @@ function selectSummonClass(cls) {
 function renderHeroList() {
   var box = document.getElementById('hero-list'); if (!box) return;
   var all = (selectedSummonClass === '__all__');
-  var list = all ? heroesData.slice() : heroesData.filter(function (h) { return h.cls === selectedSummonClass; });
+  var custom = (selectedSummonClass === '__custom__'); // 🌟 玩家原創專區：工房/盲盒創造的英靈(src=ai_gen)全在這
+  var list = all ? heroesData.slice()
+    : custom ? heroesData.filter(function (h) { return h.src === 'ai_gen'; })
+    : heroesData.filter(function (h) { return h.cls === selectedSummonClass; });
   if (!list.length) {
-    box.innerHTML = '<p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">此職階英靈殿暫無資料，可用下方真名召喚。</p>';
+    box.innerHTML = custom
+      ? '<p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">尚無玩家原創英靈——用下方「🛠️ 自訂英靈工房」打造第一位吧！</p>'
+      : '<p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">此職階英靈殿暫無資料，可用下方真名召喚。</p>';
     return;
   }
   box.innerHTML = list.map(function (h) {
     var id = String(h.id).replace(/'/g, '');
-    return '<button class="btn" style="width:100%; text-align:left; margin-bottom:5px; border-color:#d4af37; color:#e8dcc0; padding:8px 10px;" onclick="lockBtn(event, function(){return summonByHero(\'' + id + '\');})"><b>' + h.name + '</b>' + (all && h.cls ? ' <small style="color:#9a7b4f;">' + h.cls + '</small>' : '') + (h.np ? '<br><small style="color:#9a8bb0;">' + h.np + '</small>' : '') + '</button>';
+    return '<button class="btn" style="width:100%; text-align:left; margin-bottom:5px; border-color:#d4af37; color:#e8dcc0; padding:8px 10px;" onclick="lockBtn(event, function(){return summonByHero(\'' + id + '\');})"><b>' + h.name + '</b>' + ((all || custom) && h.cls ? ' <small style="color:#9a7b4f;">' + h.cls + '</small>' : '') + (h.np ? '<br><small style="color:#9a8bb0;">' + h.np + '</small>' : '') + '</button>';
   }).join('');
 }
 async function doSummon(payload) {
