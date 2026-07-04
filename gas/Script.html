@@ -408,9 +408,11 @@
     h += '<div style="color:#7ec8ff;font-size:12px;margin:14px 0 6px;">🔋 靈基出力（供魔強度·切換出力需等待約2秒刷新）<span style="color:#6a7a90;">　※解放寶具自動全開</span></div>';
     (myServants || []).forEach(function (s) {
       var sn = String(s.name).replace(/'/g, '');
-      h += '<div style="margin-bottom:9px;"><div style="color:#e8dcc0;font-size:12px;margin-bottom:3px;">' + s.name + '　<small style="color:#7ec8ff;">' + (s.output || 60) + '%·' + (s.outputLabel || '') + '</small></div>'
+      var _co = s.output || 60, _fx = OUTPUT_FX_JS[_co] || {};
+      h += '<div style="margin-bottom:9px;"><div style="color:#e8dcc0;font-size:12px;margin-bottom:3px;">' + s.name + '　<small style="color:#7ec8ff;">' + _co + '%·' + (s.outputLabel || '') + '</small>'
+        + '<small style="color:#9a9; margin-left:6px;">傷害 <b style="color:' + (_co >= 80 ? '#7ec87e' : _co <= 40 ? '#e0906a' : '#c9c9a0') + ';">' + (_fx.dmg || '') + '</b>·命中 <b style="color:' + (_co >= 80 ? '#7ec87e' : _co <= 40 ? '#e0906a' : '#c9c9a0') + ';">' + (_fx.hit || '') + '</b></small></div>'
         + '<div style="display:flex;gap:4px;">'
-        + [20, 40, 60, 80, 100].map(function (o) { var on = (o === (s.output || 60)); return '<button onclick="manaSetOutput(\'' + sn + '\',' + o + ')" style="flex:1;font-size:11px;padding:6px 0;border-radius:5px;cursor:pointer;border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + ';background:' + (on ? 'rgba(110,180,220,.3)' : 'rgba(40,50,65,.4)') + ';color:' + (on ? '#bfe3ff' : '#7a8aa0') + ';font-weight:' + (on ? 'bold' : 'normal') + ';">' + o + (o === 100 ? '💥' : '') + '</button>'; }).join('')
+        + [20, 40, 60, 80, 100].map(function (o) { var on = (o === _co); var f = OUTPUT_FX_JS[o] || {}; return '<button onclick="manaSetOutput(\'' + sn + '\',' + o + ')" title="' + (OUT_LABEL_JS[o] || '') + '：傷害' + (f.dmg || '') + '·命中' + (f.hit || '') + '·維持費' + (f.drain || '') + (o === 100 ? '·可解放寶具' : '') + '" style="flex:1;font-size:11px;padding:6px 0;border-radius:5px;cursor:pointer;border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + ';background:' + (on ? 'rgba(110,180,220,.3)' : 'rgba(40,50,65,.4)') + ';color:' + (on ? '#bfe3ff' : '#7a8aa0') + ';font-weight:' + (on ? 'bold' : 'normal') + ';">' + o + (o === 100 ? '💥' : '') + '</button>'; }).join('')
         + '</div></div>';
     });
     h += '<div style="margin-top:10px;"><button onclick="closeHistoryOverlay();manaSupply();" style="width:100%;padding:10px;font-size:12px;background:rgba(80,130,200,.18);color:#7fb0e8;border:1px solid #4a6fa0;border-radius:6px;cursor:pointer;">💧 補魔（硬擠迴路回滿魔力池·永久代價 血上限−15/迴路−3）</button></div>';
@@ -418,6 +420,15 @@
   }
   // 🔋 魔力面板內調出力：樂觀更新＋背景存檔＋重繪面板(即時反饋·不必關窗)
   var OUT_LABEL_JS = { 20: '維持', 40: '節流', 60: '巡航', 80: '高壓', 100: '全開' };
+  // 🔋 出力檔位戰力增減·前端顯示鏡射（僅供魔力面板顯示傷害/命中/維持費增減；數值權威在後端
+  //   Core_Settings.OUTPUT_TIERS_·改後端 hit/dmgMul/drainMul 記得同步此表）。
+  var OUTPUT_FX_JS = {
+    100: { dmg: '×1.30', hit: '+3', drain: '×2.0' },
+    80:  { dmg: '×1.10', hit: '+1', drain: '×1.5' },
+    60:  { dmg: '×1.00', hit: '±0', drain: '×1.0' },
+    40:  { dmg: '×0.85', hit: '−2', drain: '×0.6' },
+    20:  { dmg: '×0.70', hit: '−5', drain: '×0.3' }
+  };
   function manaSetOutput(name, o) {
     var sv = (myServants || []).find(function (x) { return x && x.name === name; });
     if (sv) { sv.output = o; sv.outputLabel = OUT_LABEL_JS[o] || ''; }
