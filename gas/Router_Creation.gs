@@ -295,7 +295,7 @@ var FORGE_CLS_SKILLS_ = {
   Assassin: [{ n: "氣息遮斷", r: "B", fx: "stealth" }], Berserker: [{ n: "狂化", r: "C", fx: "mad" }]
 };
 // 🛠️ 工房 build 解析＋全套驗證（單一真實來源：召喚 actionSummonServant build 分支 與 修改 actionUpdateHero 共用）。
-//   規格：預算340·六圍+技能+規模同一錢包(EX≤2)＋技能≤3(fx白名單·上限A·階級計價·二元平價·燕返100)＋規模計價(對軍+20)＋
+//   規格：預算340·六圍+技能+規模同一錢包(EX≤2)＋技能≤3(fx白名單·上限A·階級計價·二元平價·燕返60)＋規模計價(對軍+20)＋
 //   寶具名/描述剝高規模關鍵字＋正典名擋＋演出七欄清洗。回 {ok:false,message} 或 {ok:true,...欄位}。
 function parseForgeBuild_(build, reqCls) {
   const VALID_CLS = ["Saber", "Archer", "Lancer", "Rider", "Caster", "Assassin", "Berserker"];
@@ -331,7 +331,7 @@ function parseForgeBuild_(build, reqCls) {
     return { n: String(s && s.n || "").replace(/[<>&"'`]/g, "").slice(0, 10) || "技能", r: r, fx: fx };
   });
   const SKILL_PTS_ = { E: 5, D: 10, C: 15, B: 20, A: 25 };
-  const FLAT_FX_ = { god_hand: 25, survive: 25, tsubame: 100, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25 };
+  const FLAT_FX_ = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25 };
   const skillCost = out.skills.reduce((s, k) => s + (k.fx ? (FLAT_FX_[k.fx] || SKILL_PTS_[k.r] || 15) : 0), 0);
   const total = spent + scaleCost + skillCost;
   if (total > FORGE_BUDGET) return { ok: false, message: `六圍 ${spent}＋技能 ${skillCost}＋規模「${out.npScale}」${scaleCost ? `+${scaleCost}` : "0"} ＝ ${total}，超過預算 ${FORGE_BUDGET}——請調降六圍/技能階級或改對人規模。` };
@@ -477,10 +477,8 @@ function actionSummonServant(userData, pcId, sheets) {
       } else if (trueName) {
         hero = hrows.find(r => String(r[COL.HERO.NAME]).includes(trueName) || trueName.includes(String(r[COL.HERO.NAME])));
       } else {
-        // 🎲 隨機召喚只抽正典種子——玩家原創(ai_gen)排除(2026-07 玩家反映「隨機都抓英靈殿尾端」＝
-        //   原創英靈稀釋池；原創走「🌟玩家原創」專區 heroId 指名召喚，上方兩分支不受此濾網影響)
-        let pool = (reqCls ? hrows.filter(r => r[COL.HERO.CLS] === reqCls) : hrows)
-          .filter(r => String(r[COL.HERO.SOURCE]) !== 'ai_gen');
+        // 🎲 隨機召喚：全英靈殿(含玩家原創 ai_gen)均勻抽(2026-07 玩家定案「原創角色可以進去 確實隨機就好」)
+        let pool = reqCls ? hrows.filter(r => r[COL.HERO.CLS] === reqCls) : hrows;
         if (pool.length) hero = pool[Math.floor(Math.random() * pool.length)];
       }
     }

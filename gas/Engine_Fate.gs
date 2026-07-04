@@ -681,7 +681,7 @@ function resolveFateBattle_(atk, def, opts) {
   base = fxDmgApply_(base, winner, loser, 'crafting', fired);
   // 🗡️ 秘劍・燕返(tsubame)：劍術本身——三方位同斬 ×2.3【普攻限定·僅每場第1回合】(2026-07 三修玩家定案：
   //   與寶具骰/超載/規模疊乘會爆炸故普攻限定；再限首回合一閃(opts.round)擋「回回×2.3」普攻流無敵化。
-  //   寶具解放段仍保有其 簽名×1.5/概念位階3/貫穿，不受首回合限制)
+  //   寶具解放段(四修)已無疊乘、僅剩 概念位階3/貫穿＋演出標籤，不受首回合限制)
   if (hasFx_(winner, 'tsubame') && !opts.np && (opts.round || 1) === 1) { base = Math.round(base * 2.3); fired.push(winner.name + '·' + fxName_(winner, 'tsubame', '秘劍・燕返') + '(三方位同斬)'); }
   // 🗡️ 無毀的湖光(weapon_steal／蘭斯洛特·Arondight)：湖之妖精所託的魔劍，對具「龍」屬性之敵解放秘藏威能，傷害×1.5
   if (hasFx_(winner, 'weapon_steal')) {
@@ -729,9 +729,9 @@ function resolveFateBattle_(atk, def, opts) {
     if (wDivR) base = Math.round(base * (1 + 0.1 * rankMul_(wDivR)));
     // 🗡️ 無限劍製(ubw／固有結界)：劍之地平展開，攻方在領域內傷害大增
     if (wSig('ubw')) { base = Math.round(base * 1.25); fired.push(winner.name + '·' + fxName_(winner, 'ubw', '無限劍製') + '(固有結界)'); }
-    // 🗡️ 燕返·寶具解放段＝簽名級 ×1.5(2026-07 玩家定案)：平A ×2.3 是劍技本體(上方傷害段·普攻限定)；
-    //   解放時降為與 ubw/zabaniya 同族的簽名乘子——佐佐木解放「秘劍·燕返」仍有意義，但不再與寶具骰/超載/規模疊爆。
-    if (wSig('tsubame')) { base = Math.round(base * 1.5); fired.push(winner.name + '·' + fxName_(winner, 'tsubame', '秘劍・燕返') + '(寶具解放·三段同時斬)'); }
+    // 🗡️ 燕返·寶具解放段(2026-07 四修玩家定案)：簽名 ×1.5 拔除(×1.0)——平A首回合 ×2.3 才是絕技本體，
+    //   解放時只吃寶具骰/概念位階3/貫穿、不再另疊乘；fired 標籤保留供 AI 演出「真名解放·三段同時斬」。
+    if (wSig('tsubame')) { fired.push(winner.name + '·' + fxName_(winner, 'tsubame', '秘劍・燕返') + '(寶具解放·三段同時斬)'); }
     // 🗡️ 妄想心音／霧夜殺戮(zabaniya)：暗殺系寶具＝奪心一擊，命中即致命級重創（救低六圍刺客/狂戰的本命）
     if (wSig('zabaniya')) { base = Math.round(base * 1.9) + 70; fired.push(winner.name + '·' + fxName_(winner, 'zabaniya', '妄想心音') + '(奪心致命)'); }
     // 🐙 螺湮城教本(summon_horror／青鬍子)：自深淵召出觸手大海怪鋪天蓋地碾壓——救低六圍支援法師的本命一擊(對城規模)

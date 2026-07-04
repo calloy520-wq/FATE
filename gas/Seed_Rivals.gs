@@ -207,9 +207,8 @@ function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
       if (!r[COL.HERO.ID] || String(r[COL.HERO.NAME]) === playerServantName) return false;
       if (String(r[COL.HERO.CLS]) === 'Ruler') return false;
       if (String(r[COL.HERO.WARS] || '').indexOf('客串') >= 0) return false;
-      // 🌟 玩家原創(ai_gen·工房/盲盒)不進敵人池(2026-07 玩家反映「都從英靈殿尾端抓」——洗牌本身無偏差，
-      //   是測試期原創英靈越積越多稀釋了正典池；原創只該在「🌟玩家原創」專區被主動召喚)
-      if (String(r[COL.HERO.SOURCE]) === 'ai_gen') return false;
+      // 🌟 玩家原創(ai_gen)【可】進混亂敵人池(2026-07 玩家定案「原創角色可以進去 確實隨機就好」——
+      //   Fisher-Yates 洗牌無偏差，「都抽到尾端」體感=原創數量多、佔比自然高，屬正常機率)
       var nm = String(r[COL.HERO.NAME]); if (seenHero[nm]) return false; seenHero[nm] = true; return true;
     });
     shuffle_(mPool); shuffle_(hPool);
