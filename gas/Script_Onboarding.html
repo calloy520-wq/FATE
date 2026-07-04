@@ -457,7 +457,7 @@ function forgeEdit(id) {
   _forgeEditId = String(id);
   var d = h.detail, V = function (eid, v) { var el = document.getElementById(eid); if (el) el.value = v || ''; };
   V('cf-name', h.name); var nm = document.getElementById('cf-name'); if (nm) nm.disabled = true; // 真名＝識別鍵不可改
-  V('cf-cls', h.cls); V('cf-sex', ['男', '女', '異'].indexOf(h.gender) >= 0 ? h.gender : '異');
+  V('cf-cls', h.cls); refreshClsHint_(); V('cf-sex', ['男', '女', '異'].indexOf(h.gender) >= 0 ? h.gender : '異');
   ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].forEach(function (k) {
     var raw = String((d.six || {})[k] || 'C').replace(/[+\-]/g, ''); // 舊資料可能帶 +/−·工房純階制→去修飾
     V('cf-six-' + k, /^(E|D|C|B|A|EX)$/.test(raw) ? raw : 'C');
@@ -499,9 +499,16 @@ function closeForge() {
   var back = document.getElementById(_forgeFrom === 'menu' ? 'scr-menu' : 'step-summon');
   if (back) { back.style.display = 'block'; window.scrollTo(0, 0); }
 }
+// 🎁 職階附贈技能(鏡射後端 FORGE_CLS_SKILLS_·固定階級·免費·不占3槽)——選職階即自動獲得，UI 顯示防「我的職階技能呢/能調階嗎」困惑
+var FORGE_CLS_HINT = { Saber: '對魔力B', Lancer: '對魔力C', Archer: '對魔力C・單獨行動C', Rider: '對魔力C・騎乘B', Caster: '陣地作成C・道具作成C', Assassin: '氣息遮斷B', Berserker: '狂化C' };
+function refreshClsHint_() {
+  var el = document.getElementById('cf-cls-hint'), cls = (document.getElementById('cf-cls') || {}).value;
+  if (el) el.textContent = '🎁 職階附贈：' + (FORGE_CLS_HINT[cls] || '—') + '（免費・階級固定・不占技能槽）';
+}
 function initForge_() {
   var opt = function (v, t) { return '<option value="' + v + '">' + (t || v) + '</option>'; };
   document.getElementById('cf-cls').innerHTML = ['Saber', 'Archer', 'Lancer', 'Rider', 'Caster', 'Assassin', 'Berserker'].map(function (c) { return opt(c); }).join('');
+  refreshClsHint_();
   var rankSel = function (id, def, maxA) {
     var ranks = maxA ? ['E', 'D', 'C', 'B', 'A'] : ['E', 'D', 'C', 'B', 'A', 'EX'];
     return '<select id="' + id + '" class="std-in" style="flex:1; min-width:0;" onchange="forgeBudget_()">' + ranks.map(function (r) { return '<option' + (r === def ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>';

@@ -149,9 +149,11 @@
           <div id="cf-page-2">
             <input id="cf-name" class="std-in" maxlength="20" placeholder="真名（必填·原創，正典角色請走真名召喚）" style="width:100%; box-sizing:border-box;">
             <div style="display:flex; gap:6px; margin-top:6px;">
-              <select id="cf-cls" class="std-in" style="flex:2;"></select>
+              <select id="cf-cls" class="std-in" style="flex:2;" onchange="refreshClsHint_()"></select>
               <select id="cf-sex" class="std-in" style="flex:1;"><option>女</option><option>男</option><option>異</option></select>
             </div>
+            <!-- 🎁 職階附贈技能提示（固定階級·免費·不占3槽·由 refreshClsHint_ 依所選職階更新） -->
+            <div id="cf-cls-hint" style="color:#9a8bb0; font-size:11px; margin-top:3px;"></div>
             <div style="color:#8fb0e8; font-size:12px; margin:9px 0 4px;">六圍（傷害底＝筋/魔取高·敏捷走命中與迴避）</div>
             <div id="cf-six"></div>
             <div style="color:#8fb0e8; font-size:12px; margin:9px 0 4px;">技能 ×3（挑效果＋階級·名字可自取·效果吃所選標籤）</div>
