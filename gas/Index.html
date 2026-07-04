@@ -132,7 +132,12 @@
     <div id="step-forge" style="display:none; width:320px;">
       <p style="text-align:center; color:#8fb0e8; font-size:16px; font-weight:bold; margin-bottom:2px;">🛠️ 自訂英靈工房</p>
       <p style="text-align:center; color:#816e54; font-size:11.5px; margin:0 0 10px;">數值全由你定（270 點預算）·AI 只補人格與寶具英文名<br>工房＝製造與修改；召喚請回「🌟 玩家原創」專區</p>
-      <div id="cf-mine" style="display:none; margin-bottom:8px;"></div>
+      <!-- 🛠️/📚 工房雙模式(2026-07 玩家定案)：創造＝三分頁表單；作品＝本帳號英靈清單(點修改) -->
+      <div style="display:flex; gap:5px; margin-bottom:8px;">
+        <button type="button" id="cf-mode-create" class="btn" style="flex:1; padding:8px 2px; font-size:13px;" onclick="forgeMode('create')">🛠️ 創造</button>
+        <button type="button" id="cf-mode-works" class="btn" style="flex:1; padding:8px 2px; font-size:13px;" onclick="forgeMode('works')">📚 作品</button>
+      </div>
+      <div id="cf-works" style="display:none; padding:10px; background:rgba(20,18,34,.45); border:1px solid rgba(120,140,200,.35); border-radius:8px; text-align:left;"></div>
       <div id="cust-forge" style="padding:10px; background:rgba(20,18,34,.45); border:1px solid rgba(120,140,200,.35); border-radius:8px; text-align:left;">
           <!-- 📑 三分頁(2026-07 玩家反饋「手機的極限」)：🎭演出｜⚔️靈基(主·預設)｜🌟寶具——欄位 ID 全不變·純版面分裝 -->
           <div style="display:flex; gap:5px; margin-bottom:9px;">

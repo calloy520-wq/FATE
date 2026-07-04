@@ -369,8 +369,8 @@ function openForge(from) {
   if (!_forgeInit) { initForge_(); _forgeInit = true; }
   forgeTab(2); // 📑 預設開在中間「⚔️ 靈基」主頁
   // 主選單直入時名冊可能還沒載(loadHeroes 原本在進召喚頁才跑)→補載後刷「我的作品」列
-  if (!heroesData || !heroesData.length) { loadHeroes().then(function () { renderForgeMine_(); }).catch(function () { }); }
-  renderForgeMine_();
+  if (!heroesData || !heroesData.length) { loadHeroes().then(function () { renderForgeWorks_(); }).catch(function () { }); }
+  forgeMode('create'); // 預設創造模式(玩家定案)
 }
 // 📑 工房三分頁(2026-07 玩家反饋「手機的極限」)：🎭演出(1)｜⚔️靈基(2·主)｜🌟寶具(3)。
 //   純版面切換·欄位常駐 DOM(值不丟)；預算/存檔鈕常駐底欄三頁共用。
@@ -387,20 +387,45 @@ function forgeTab(n) {
   // 💾 存檔鈕只在中間「⚔️ 靈基」主頁顯示(2026-07 玩家定案)；預算計數保持三頁常駐(寶具頁調規模要看得到)
   var sv = document.getElementById('cf-save'); if (sv) sv.style.display = (n === 2) ? 'block' : 'none';
 }
-// 🛠️ 工房頂部「我的作品」列(2026-07)：本帳號創造的英靈一鍵進編輯(與 🌟 專區的 ✏️ 同路)
-function renderForgeMine_() {
-  var box = document.getElementById('cf-mine'); if (!box) return;
-  var mine = (heroesData || []).filter(function (h) { return h.src === 'ai_gen' && h.creator && (typeof currentAccount !== 'undefined') && h.creator === currentAccount; });
-  if (!mine.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
-  box.style.display = 'block';
-  box.innerHTML = '<div style="color:#8fb0e8; font-size:11.5px; margin-bottom:4px;">✏️ 我的作品（點選進入修改·改的是範本、重召生效）</div>'
-    + '<div style="display:flex; flex-wrap:wrap; gap:5px;">'
-    + mine.map(function (h) {
-        var id = String(h.id).replace(/'/g, '');
-        var cur = (_forgeEditId === String(h.id));
-        return '<button class="btn" style="flex:0 1 auto; font-size:11.5px; padding:5px 9px; border-color:' + (cur ? 'var(--gold-accent)' : '#6a8ac0') + '; color:' + (cur ? 'var(--gold-accent)' : '#8fb0e8') + ';" onclick="forgeEdit(\'' + id + '\')">' + h.name + ' <small style="opacity:.6;">' + (h.cls || '') + '</small></button>';
-      }).join('')
-    + '</div>';
+// 📚 工房「作品」頁(2026-07 玩家定案)：本帳號創造的英靈完整清單(點 ✏️修改)＋無主舊作認領區。
+function forgeMode(m) {
+  var isWorks = (m === 'works');
+  var wk = document.getElementById('cf-works'), cr = document.getElementById('cust-forge');
+  if (wk) wk.style.display = isWorks ? 'block' : 'none';
+  if (cr) cr.style.display = isWorks ? 'none' : 'block';
+  [['cf-mode-create', !isWorks], ['cf-mode-works', isWorks]].forEach(function (x) {
+    var b = document.getElementById(x[0]); if (!b) return;
+    b.style.borderColor = x[1] ? 'var(--gold-accent)' : '#3a3550';
+    b.style.color = x[1] ? 'var(--gold-accent)' : '#8a8298';
+    b.style.fontWeight = x[1] ? 'bold' : 'normal';
+  });
+  if (isWorks) renderForgeWorks_();
+}
+function renderForgeWorks_() {
+  var box = document.getElementById('cf-works'); if (!box) return;
+  var acct = (typeof currentAccount !== 'undefined') ? currentAccount : '';
+  var mine = (heroesData || []).filter(function (h) { return h.src === 'ai_gen' && h.creator && h.creator === acct; });
+  var unclaimed = (heroesData || []).filter(function (h) { return h.src === 'ai_gen' && !h.creator; });
+  var row = function (h, btnHtml) {
+    return '<div style="display:flex; gap:5px; align-items:stretch; margin-bottom:6px;">'
+      + '<div style="flex:1; min-width:0; border:1px solid #3a4a5a; border-radius:7px; padding:7px 9px;">'
+      + '<b style="color:#e8dcc0;">' + h.name + '</b> <small style="color:#9a7b4f;">' + (h.cls || '') + '</small>'
+      + (h.np ? '<br><small style="color:#9a8bb0;">' + h.np + '</small>' : '') + '</div>'
+      + btnHtml + '</div>';
+  };
+  var hxml = '<div style="color:#8fb0e8; font-size:12px; margin-bottom:6px;">📚 我的作品（點 ✏️ 修改——改的是範本，之後召喚生效）</div>';
+  hxml += mine.length ? mine.map(function (h) {
+    var id = String(h.id).replace(/'/g, '');
+    return row(h, '<button class="btn" style="flex:none; width:52px; border-color:#6a8ac0; color:#8fb0e8;" onclick="forgeEdit(\'' + id + '\')">✏️<br><small style="font-size:9px;">修改</small></button>');
+  }).join('') : '<p style="color:#816e54; font-size:12px; text-align:center; padding:8px 0;">還沒有作品——切到「🛠️ 創造」打造第一位吧！</p>';
+  if (unclaimed.length) {
+    hxml += '<div style="color:#c9b885; font-size:11.5px; margin:10px 0 6px;">🖐 無主原創（印記功能上線前鑄的·認領後可修改·先到先得）</div>'
+      + unclaimed.map(function (h) {
+          var id = String(h.id).replace(/'/g, '');
+          return row(h, '<button class="btn" style="flex:none; width:52px; border-color:#8a7a4a; color:#c9b885;" onclick="claimHero(\'' + id + '\')">🖐<br><small style="font-size:9px;">認領</small></button>');
+        }).join('');
+  }
+  box.innerHTML = hxml;
 }
 // ✏️ 修改原創英靈（僅創造者·由 🌟 專區進入）：工房預填該英靈現有設定，存檔＝覆寫英靈殿範本
 function forgeEdit(id) {
@@ -429,9 +454,9 @@ function forgeEdit(id) {
   V('cf-weapon', d.weapon); V('cf-look', d.look); V('cf-pref', d.pref);
   V('cf-align', d.align || '中立'); V('cf-fp', d.fp); V('cf-tomaster', d.toMaster);
   V('cf-speech', d.speech); V('cf-tic', d.tic); V('cf-moe', d.moe); V('cf-back', d.back);
+  forgeMode('create'); // 從作品頁點修改→切回創造表單(已預填)
   forgeTab(2); // 編輯從主頁(靈基)開始看
   forgeBudget_();
-  renderForgeMine_(); // 刷新「我的作品」列的選中高亮
 }
 // 🖐 認領無主原創英靈(印記功能上線前鑄的)：認領後成為創造者、可修改
 async function claimHero(id) {
@@ -441,7 +466,7 @@ async function claimHero(id) {
   try {
     var res = await gasRun({ action: 'claim_hero', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '', heroId: String(id), acctName: (typeof currentAccount !== 'undefined' ? currentAccount : '') });
     alert((res && res.message) || (res && res.success ? '已認領。' : '認領失敗。'));
-    if (res && res.success) { await loadHeroes(); renderHeroList(); renderForgeMine_(); }
+    if (res && res.success) { await loadHeroes(); renderHeroList(); renderForgeWorks_(); }
   } catch (e) { alert('認領失敗，連線受阻。'); }
 }
 function closeForge() {
