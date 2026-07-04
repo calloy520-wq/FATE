@@ -353,7 +353,7 @@ var FORGE_FLAT_FX = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_
 //   crafting/wind_strike)，engine/ALLOWED_FX_/種子英靈零改動，analyze 仍是合法別名(舊角色相容)。
 var FORGE_FX_GROUPS = [
   { t: '🎯 命中（選強度→自己命名）', items: [
-    ['aim', '命中·大（+4/階）'], ['first_strike', '命中·中（+3/階）'], ['ride', '命中·小（+2/階）']
+    ['aim', '命中·大（+4/階·免疫無欲封鎖）'], ['first_strike', '命中·中（+3/階·會被無欲封）'], ['ride', '命中·小（+2/階）']
   ]},
   { t: '💥 傷害系·主動（按⚡發動·耗魔）', items: [
     ['burst', '魔力放出（傷害×倍率）'], ['str_up', '怪力（傷害+固定值）'], ['projection', '投影魔術（命中+傷害+）']
@@ -372,7 +372,7 @@ var FORGE_FX_GROUPS = [
   ]},
   { t: '💨 迴避·反迴避·先制·精神', items: [
     ['shapeshift', '變化（迴避+）'], ['petrify', '魔眼·石化（大削敵迴避·剋閃避流）'], ['evade_ranged', '避矢（剋弓兵）'], ['stealth', '氣息遮斷（奇襲增傷）'],
-    ['unreadable', '無欲（封敵直感/心眼·練A階再封千里眼）'], ['clear_mind', '透化（免威壓·剋勇猛）'], ['morale', '勇猛／卡里斯瑪（威壓）'],
+    ['unreadable', '無欲（封敵直感/心眼·封不到千里眼）'], ['clear_mind', '透化（免威壓·剋勇猛）'], ['morale', '勇猛／卡里斯瑪（威壓）'],
     ['sense', '氣息感知（看穿奇襲·剋氣息遮斷）'], ['lovespot', '愛之痣（魅惑·敵命中−1）']
   ]},
   { t: '🕯️ 生存·復活', items: [
