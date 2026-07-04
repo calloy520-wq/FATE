@@ -528,7 +528,7 @@
       let acts;
       if (f.faction === '敵御主') {
         acts = '<button onclick="servantStrike(\'' + safe + '\', false, false, true)" style="flex:1 0 100%; font-size:13px; padding:9px; background:linear-gradient(90deg,rgba(120,30,90,.32),rgba(80,20,60,.18)); color:#e8b0d8; border:1px solid #a0307a; border-radius:8px; cursor:pointer; font-weight:bold;">🗡️ 刺殺御主 <small style="opacity:.65;">須護衛盡除或擲20</small></button>'
-          + '<button onclick="proposeAlliance(\'' + safe + '\')" title="交涉結盟：暫時休兵互不侵犯（成敗由對方性格與戰局而定）" style="flex:1 0 100%; font-size:12.5px; padding:8px; background:rgba(90,170,120,.14); color:#8fd0a0; border:1px solid #4ea56a; border-radius:8px; cursor:pointer; font-weight:bold;">🤝 交涉結盟</button>';
+          + '<button onclick="proposeAlliance(\'' + safe + '\',\'' + String(f.id).replace(/'/g, '') + '\')" title="交涉結盟：暫時休兵互不侵犯（成敗由對方性格與戰局而定）" style="flex:1 0 100%; font-size:12.5px; padding:8px; background:rgba(90,170,120,.14); color:#8fd0a0; border:1px solid #4ea56a; border-radius:8px; cursor:pointer; font-weight:bold;">🤝 交涉結盟</button>';
       } else {
         // ⚡ 主動技按鈕(2026-07 改回按鈕制)：出戰從者持施放技術(魔力放出/怪力/投影)才露出——
         //   按下＝該次交鋒全力發動＋扣魔一次，跟 💥寶具/❖令咒 同一套「按下當次生效」模式。
@@ -2120,14 +2120,15 @@
   }
 
   // 🤝 交涉結盟（系統判定成敗，AI 演出）
-  async function proposeAlliance(npcName) {
+  async function proposeAlliance(npcName, npcId) {
     if (!confirm('🤝 向敵御主「' + npcName + '」交涉結盟？\n\n成敗取決於對方的性格／陣營、是否有共同強敵、以及戰局階段（剩越少騎越難結盟）。\n成盟後暫時休兵、互不侵犯（約 3 日，或存活 ≤3 騎時強制翻臉）。\n\n提議結盟？')) return;
     if (!beginAction()) return;
     const story = document.getElementById('story');
     story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主向「${npcName}」遞出結盟的橄欖枝……</div>`);
     story.scrollTop = story.scrollHeight;
     try {
-      const res = await gasRun({ action: 'propose_alliance', pcId: pc.id, npcName: npcName });
+      // 🔧 帶 npcId（比照攻擊路徑）：名字含中點（韋伯·維爾維特）走 raw 比對會漏，後端改吃 id/nameLoose_
+      const res = await gasRun({ action: 'propose_alliance', pcId: pc.id, npcName: npcName, npcId: npcId || "" });
       if (res && res.success) { updateClock(res.clock, res.ap, res.apMax); await narrate(res.aiPrompt); syncData(true); }
       else { alert((res && res.message) || '交涉失敗。'); }
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }

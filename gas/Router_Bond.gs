@@ -213,16 +213,21 @@ function allianceWillingness_(masterRow, aliveFoes) {
 // 🤝 交涉結盟：對同地敵御主提議；GAS 判定成敗，AI 只演出談判場景。成盟＝該御主＋其從者暫時非敵對。
 function actionProposeAlliance(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
+  const npcId = String(userData.npcId || "").trim();
+  const npcKey = nameLoose_(npcName); // 去中點/空白·比照攻擊路徑
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
-  const mIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).includes(npcName) && String(r[COL.PC.FACTION]) === "敵御主" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc);
+  // 🔧 比照攻擊路徑(actionFateBattle)：先 npcId 精準配、再 nameLoose_(去中點/空白)——原本 raw includes
+  //   對含中點名字(韋伯·維爾維特·不同 Unicode 中點變體)對不上→「打得到英靈、卻交涉恆沒人」。
+  const _foeMasterHere = (r) => String(r[COL.PC.FACTION]) === "敵御主" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc;
+  let mIdx = npcId ? pcData.findIndex(r => String(r[COL.PC.ID]) === npcId && _foeMasterHere(r)) : -1;
+  if (mIdx === -1) mIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1 && _foeMasterHere(r));
   if (mIdx === -1) {
-    // 🔍 診斷「能點卻沒人」：照名字找這名敵御主(不限地點)，回報他實際在哪 vs 玩家在哪——
-    //   若兩地字面相同卻仍不中＝隱藏字元/全半形落差；不同＝前端顯示過期(他已移走)。
-    const anyIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).includes(npcName) && String(r[COL.PC.FACTION]) === "敵御主" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+    // 🔍 診斷：照名字(loose)找這名敵御主(不限地點)，回報他實際在哪 vs 玩家在哪——不同地＝顯示過期。
+    const anyIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1 && String(r[COL.PC.FACTION]) === "敵御主" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
     const detail = anyIdx >= 0 ? `「${pcData[anyIdx][COL.PC.NAME]}」現在「${String(pcData[anyIdx][COL.PC.LOC]).trim()}」，你在「${myLoc}」` : `名冊查無「${npcName}」`;
     return JSON.stringify({ success: false, message: `此地沒有可交涉的敵御主（${detail}）——須與對方同處一地才能交涉。` });
   }
@@ -273,7 +278,7 @@ function actionBreakAlliance(userData, pcId, sheets) {
   for (let i = 1; i < pcData.length; i++) {
     if (String(pcData[i][COL.PC.GAME_ID] || "") !== myGameId) continue;
     const fac = String(pcData[i][COL.PC.FACTION]);
-    if ((fac === "敵御主" || fac === "敵從者") && isAllied_(pcData[i]) && (!npcName || String(pcData[i][COL.PC.NAME]).includes(npcName))) {
+    if ((fac === "敵御主" || fac === "敵從者") && isAllied_(pcData[i]) && (!npcName || nameLoose_(pcData[i][COL.PC.NAME]).indexOf(nameLoose_(npcName)) !== -1)) { // 🔧 loose 比對·含中點名字不漏
       pcData[i][COL.PC.MEMORY] = clearAllyMem_(pcData[i][COL.PC.MEMORY]);
       if (fac === "敵御主") who = String(pcData[i][COL.PC.NAME]);
       broke++;
@@ -335,7 +340,7 @@ function actionAllyBond(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
-  const aIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).includes(npcName)
+  const aIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(nameLoose_(npcName)) !== -1 // 🔧 loose 比對·含中點名字不漏
     && (String(r[COL.PC.FACTION]) === "敵御主" || String(r[COL.PC.FACTION]) === "敵從者")
     && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_")
     && isAllied_(r) && String(r[COL.PC.LOC]).trim() === myLoc);
