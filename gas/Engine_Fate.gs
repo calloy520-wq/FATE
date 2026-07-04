@@ -234,9 +234,14 @@ function fxName_(c, fx, fallback) {
 //   hit=命中所用六圍　dmg=傷害所用六圍　eva=迴避所用六圍　kind=演出用招式類別
 function combatProfile_(c) {
   var cls = String(c.cls || '');
-  if (cls === 'Caster') return { hit: '魔力', dmg: '魔力', eva: '敏捷', kind: '魔砲' }; // 魔力轟擊的玻璃大砲：攻強、近身脆
-  if (cls === 'Archer') return { hit: '敏捷', dmg: '筋力', eva: '敏捷', kind: '狙擊' }; // 遠程精準
-  return { hit: '敏捷', dmg: '筋力', eva: '敏捷', kind: '近戰' };
+  // 🗡 2026-07 玩家定案：傷害屬性＝筋力/魔力/敏捷 三攻擊屬取【最高】——敏捷型劍士(燕返流)不再被
+  //   硬套筋力算傷、魔力型非Caster亦然(以自身最強的攻擊方式出手)。耐久=防禦、幸運=命運骰、寶具=寶具
+  //   傷害段，皆不入普攻底。命中/迴避維持職階本色(Caster 魔力瞄準、其餘敏捷)。battle_sim 前後對照驗證。
+  var six = c.six || {};
+  var dmgStat = ['筋力', '魔力', '敏捷'].reduce(function (best, k) { return rankVal(six[k]) > rankVal(six[best]) ? k : best; }, '筋力');
+  if (cls === 'Caster') return { hit: '魔力', dmg: dmgStat, eva: '敏捷', kind: '魔砲' }; // 魔力轟擊的玻璃大砲：攻強、近身脆
+  if (cls === 'Archer') return { hit: '敏捷', dmg: dmgStat, eva: '敏捷', kind: '狙擊' }; // 遠程精準
+  return { hit: '敏捷', dmg: dmgStat, eva: '敏捷', kind: '近戰' };
 }
 
 // ⚡🛡 技能 fx 戰鬥效果「格式表」（2026-07 資料驅動）：把散落的主動技 if 鏈＋線性被動加成收成一張表，
