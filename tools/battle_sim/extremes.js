@@ -16,6 +16,7 @@ const SP_STD = { E: 5, D: 10, C: 15, B: 20, A: 25 }, SP_BIG = { E: 7, D: 13, C: 
 const TRACK = { aim: 1, petrify: 1, fast_cast: 1, divine_age: 1, territory: 1, ride: -1, wind_strike: -1, morale: -1 };
 const FLAT = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25, weapon_steal: 25, god_slay: 25, lovespot: 5 };
 const BUDGET = 340, SLOT_FEE_AFTER = 3; // 第4技+20
+const CLS_BONUS = { Berserker: 30 }; // 🐗 狂化補正(2026-07·鏡射 FORGE_CLS_BONUS_)
 const CLS_SK = {
   Saber: [{ n: '對魔力', r: 'B', fx: 'nullify_magic' }], Lancer: [{ n: '對魔力', r: 'C', fx: 'nullify_magic' }],
   Archer: [{ n: '對魔力', r: 'C', fx: 'nullify_magic' }, { n: '單獨行動', r: 'C', fx: 'solo' }],
@@ -119,8 +120,9 @@ function runDuelBB(A, B, npFlag) { // build vs build：雙方皆工房(3命)
 
 function main() {
   const N = parseInt(process.argv[2] || '200', 10);
-  const legal = BUILDS.filter(b => b.cost <= BUDGET);
-  const dead = BUILDS.filter(b => b.cost > BUDGET);
+  const cap = b => BUDGET + (CLS_BONUS[b.cls] || 0);
+  const legal = BUILDS.filter(b => b.cost <= cap(b));
+  const dead = BUILDS.filter(b => b.cost > cap(b));
   console.log(`=== 極端組合回歸測試　N=${N}/對　預算=${BUDGET} ===`);
   if (dead.length) console.log('❌ 現行價目下已買不起(棄測)：' + dead.map(b => `${b.name}(${b.cost})`).join('、'));
   const flags = [];

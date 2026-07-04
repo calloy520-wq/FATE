@@ -322,6 +322,10 @@ function parseForgeBuild_(build, reqCls) {
   //   工房價格計價全種子＝排 32/36(咒腕級墊底)。340＝種子中位數——點滿≈尼祿/美杜莎中堅，
   //   強者種子(420~505·且握有 Excalibur/王財等工房買不到的概念 fx)仍明確在上。
   const FORGE_BUDGET = 340;
+  // 🐗 狂化補正(2026-07 玩家定案+30)：Berserker 職階附贈=狂化C(傷+但命中/迴避−·不可關)是七職階唯一
+  //   「負資產禮物」——同素體實測墊底(普攻3.0%/寶具3.0%·Caster 6.1/13.3)。差距換算 20~45 點(幸運階梯
+  //   匯率 10點≈1.2pp)，取中 30；+50 會反轉成最優職階。370 頂配狂戰實測 70.9%/45.9%=強力中堅·安全。
+  const FORGE_CLS_BONUS_ = { Berserker: 30 };
   const okPlain = v => /^(E|D|C|B|A|EX)$/.test(String(v || "").toUpperCase());
   out.six = {};
   ["筋力", "耐久", "敏捷", "魔力", "幸運", "寶具"].forEach(k => { const v = String((build.six || {})[k] || "C").toUpperCase(); out.six[k] = okPlain(v) ? v : "C"; });
@@ -350,7 +354,8 @@ function parseForgeBuild_(build, reqCls) {
   const skillCost = out.skills.reduce((s, k) => s + (k.fx ? (FLAT_FX_[k.fx] ||
     (SKILL_TRACK_[k.fx] === 1 ? SKILL_PTS_BIG_ : SKILL_TRACK_[k.fx] === -1 ? SKILL_PTS_SMALL_ : SKILL_PTS_)[k.r] || 15) : 0), slotFee);
   const total = spent + scaleCost + skillCost;
-  if (total > FORGE_BUDGET) return { ok: false, message: `六圍 ${spent}＋技能 ${skillCost}${slotFee ? "(含第4欄+20)" : ""}＋規模「${out.npScale}」${scaleCost ? `+${scaleCost}` : "0"} ＝ ${total}，超過預算 ${FORGE_BUDGET}——請調降六圍/技能階級或改對人規模。` };
+  const clsBudget = FORGE_BUDGET + (FORGE_CLS_BONUS_[out.cls] || 0);
+  if (total > clsBudget) return { ok: false, message: `六圍 ${spent}＋技能 ${skillCost}${slotFee ? "(含第4欄+20)" : ""}＋規模「${out.npScale}」${scaleCost ? `+${scaleCost}` : "0"} ＝ ${total}，超過預算 ${clsBudget}${FORGE_CLS_BONUS_[out.cls] ? "(含狂化補正+" + FORGE_CLS_BONUS_[out.cls] + ")" : ""}——請調降六圍/技能階級或改對人規模。` };
   out.classSkills = FORGE_CLS_SKILLS_[out.cls] || [];
   out.npName = String(build.npName || "").replace(/[<>&"'`]/g, "").replace(/【常駐寶具】|對城|對界|對神/g, "").trim().slice(0, 20) || "無名寶具";
   out.npR = out.six["寶具"]; // 顯示階＝六圍寶具階(引擎本就只吃 six.寶具)
