@@ -34,7 +34,10 @@ var SEED_SERVANTS = [
     //   改補原文確有列出、之前缺漏的單獨行動C(solo)。怪力維持B(原文亦寫B，另一次搜尋摘要誤植E、不採信)。
     skills:[{n:'怪力',r:'B',fx:'str_up'},{n:'單獨行動',r:'C',fx:'solo'},{n:'魔眼',r:'A+',fx:'petrify'}],
     traits:[{n:'神性',r:'E-'},{n:'女神'}], np:'他者封印·鮮血神殿 Blood Fort Andromeda（對軍·結界）／騎英之手綱 Bellerophon（對軍 A+·喚出神駿天馬珀伽索斯·踏虛凌空·振翅撕裂長空、化作一往無前的純白光矢突刺）',
-    align:'混沌・善', persona:{firstP:'我',look:'紫長髮・裹紗長裙・眼鏡封印魔眼的修長女子、幽靜',words:'忠誠・深藏的溫柔',toMaster:'寡言而深情、極度護主',speech:'寡言低沉、必要才開口',moe:'怪力女神卻極度自卑',tic:'推眼鏡'} },
+    // ⚠ 2026-07 修(玩家點名「衣裝跟眼罩呢」)：查證 TYPE-MOON Wiki，聖杯戰爭期間封印魔眼的是「眼罩」(緋色飾帶
+    //   眼罩)，「眼鏡」其實是戰後日常生活才換戴的便服配件(配隱形眼鏡)，兩者搞混了；服裝也不是寬鬆裹紗長裙，
+    //   是貼身的希臘風短式戰甲勁裝(黑色短裙+緋色飾邊)。已修正 look/tic。
+    align:'混沌・善', persona:{firstP:'我',look:'紫長髮・貼身黑色戰甲勁裝(緋色飾邊)・眼罩封印魔眼的矯健女子、幽靜',words:'忠誠・深藏的溫柔',toMaster:'寡言而深情、極度護主',speech:'寡言低沉、必要才開口',moe:'怪力女神卻極度自卑',tic:'輕觸眼罩'} },
   { id:'美狄亞-Caster', cls:'Caster', realName:'美狄亞', wars:['5th'], gender:'女',
     six:{筋力:'E',耐久:'D',敏捷:'C',魔力:'A++',幸運:'B',寶具:'C'},
     classSkills:[{n:'陣地作成',r:'A',fx:'territory'},{n:'道具作成',r:'A',fx:'crafting'}],
