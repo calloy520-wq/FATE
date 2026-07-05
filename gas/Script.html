@@ -101,6 +101,11 @@
 
  window.onload = () => {
     document.documentElement.style.setProperty('--story-scale', parseFloat(localStorage.getItem('kyushu_story_font_scale')) || 1);
+    // 🐛→✅ 2026-07 修：撤離攔截(setupHistoryPrevention)過去只在 startGame()/鑑賞進場時才呼叫——
+    //   主選單(帳號登入/新局續玩/戰爭模式/創角/召喚)全程沒有這層防護，手滑按上一頁會直接離開、
+    //   創角進度全丟。從頁面一載入就掛上，之後 startGame()/鑑賞進場再呼叫一次也無妨(historyPushed
+    //   旗標擋重複註冊)，讓整個流程從第一畫面開始就防手滑。
+    setupHistoryPrevention();
     // 預填上次登入的帳號名稱，省去再次輸入
     var _savedAcct = localStorage.getItem('fate_account');
     if (_savedAcct) { var _acctIn = document.getElementById('in-account'); if (_acctIn) _acctIn.value = _savedAcct; }
