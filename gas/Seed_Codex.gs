@@ -29,11 +29,10 @@ var SEED_SERVANTS = [
   { id:'美杜莎-Rider', cls:'Rider', realName:'美杜莎', wars:['5th'], gender:'女',
     six:{筋力:'B',耐久:'D',敏捷:'A',魔力:'B',幸運:'E',寶具:'A+'},
     classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'A+',fx:'ride'}],
-    // ⚠ 2026-07 修：女神的神核 原漏填階級(空字串)——rankVal()保底吃E階，減傷只剩~6%形同虛設(全種子庫其餘4個
-    //   divine_core 持有者皆填A/B/A/A明確階級)。補D階：對照 神性C的阿基里斯配B、神性A的伊絲塔/斯卡蒂配A，
-    //   美杜莎神性E-(全種子庫最弱神格·被詛咒的墮落半神)理應是最弱一檔，D階給她一點真實但微弱的神核防護。
-    //   魔眼(petrify)原A→A+：官方稱「寶石級」魔眼、凌駕金等死徒眼，多筆來源一致給A+。
-    skills:[{n:'怪力',r:'B',fx:'str_up'},{n:'女神的神核',r:'D',fx:'divine_core'},{n:'魔眼',r:'A+',fx:'petrify'}],
+    // ⚠ 2026-07 玩家貼萌娘百科原文覆核：官方「保有技能」清單＝魔眼A+/單獨行動C/怪力B/神性E-/天然呆，
+    //   【沒有】女神的神核——之前補的 divine_core(D，舊session憑「神性弱→神核也弱」推論填的，未查證)拔除；
+    //   改補原文確有列出、之前缺漏的單獨行動C(solo)。怪力維持B(原文亦寫B，另一次搜尋摘要誤植E、不採信)。
+    skills:[{n:'怪力',r:'B',fx:'str_up'},{n:'單獨行動',r:'C',fx:'solo'},{n:'魔眼',r:'A+',fx:'petrify'}],
     traits:[{n:'神性',r:'E-'},{n:'女神'}], np:'他者封印·鮮血神殿 Blood Fort Andromeda（對軍·結界）／騎英之手綱 Bellerophon（對軍 A+·喚出神駿天馬珀伽索斯·踏虛凌空·振翅撕裂長空、化作一往無前的純白光矢突刺）',
     align:'混沌・善', persona:{firstP:'我',look:'紫長髮・裹紗長裙・眼鏡封印魔眼的修長女子、幽靜',words:'忠誠・深藏的溫柔',toMaster:'寡言而深情、極度護主',speech:'寡言低沉、必要才開口',moe:'怪力女神卻極度自卑',tic:'推眼鏡'} },
   { id:'美狄亞-Caster', cls:'Caster', realName:'美狄亞', wars:['5th'], gender:'女',
