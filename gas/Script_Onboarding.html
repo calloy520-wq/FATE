@@ -431,7 +431,7 @@ function forgeReset_() {
   V('cf-cls', 'Saber'); refreshClsHint_(); V('cf-sex', '女');
   ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].forEach(function (k) { V('cf-six-' + k, 'E'); });
   for (var i = 0; i < 4; i++) { V('cf-sk' + i + '-fx', ''); V('cf-sk' + i + '-r', 'C'); V('cf-sk' + i + '-n', ''); refreshSkillBtn_(i); }
-  ['cf-np-name', 'cf-np-desc', 'cf-weapon', 'cf-look', 'cf-pref', 'cf-desc', 'cf-fp', 'cf-tomaster', 'cf-speech', 'cf-tic', 'cf-moe', 'cf-back'].forEach(function (id) { V(id, ''); });
+  ['cf-np-name', 'cf-np-desc', 'cf-weapon', 'cf-look-1', 'cf-look-2', 'cf-look-3', 'cf-look-4', 'cf-pref-1', 'cf-pref-2', 'cf-pref-3', 'cf-pref-4', 'cf-desc', 'cf-fp', 'cf-tomaster', 'cf-speech', 'cf-tic', 'cf-moe', 'cf-back'].forEach(function (id) { V(id, ''); });
   V('cf-np-scale', '對人'); V('cf-align', '中立');
   closeSkillPick();
   forgeBudget_();
@@ -506,7 +506,10 @@ function forgeEdit(id) {
   // 反解失敗(舊盲盒自由格式)→ fallback 取「（」前段剝英文尾——避免欄位空白、存檔把寶具靜默改成「無名寶具」
   var npFallback = String(h.np || '').split('（')[0].replace(/\s+[A-Za-z][A-Za-z0-9 .'\-:]*$/, '').trim().slice(0, 20);
   V('cf-np-name', m ? m[1].trim() : npFallback); V('cf-np-scale', (m && m[2]) || '對人'); V('cf-np-desc', (m && m[3]) || '');
-  V('cf-weapon', d.weapon); V('cf-look', d.look); V('cf-pref', d.pref);
+  V('cf-weapon', d.weapon);
+  // 🎨💭 外貌/個性拆4欄後的反解：已存字串是頓號合併過的，編輯時要拆回4個小欄位個別預填
+  var _lookParts = String(d.look || '').split(/[、,，]/); for (var li = 0; li < 4; li++) V('cf-look-' + (li + 1), (_lookParts[li] || '').trim());
+  var _prefParts = String(d.pref || '').split(/[、,，]/); for (var pi = 0; pi < 4; pi++) V('cf-pref-' + (pi + 1), (_prefParts[pi] || '').trim());
   V('cf-align', d.align || '中立'); V('cf-fp', d.fp); V('cf-tomaster', d.toMaster);
   V('cf-speech', d.speech); V('cf-tic', d.tic); V('cf-moe', d.moe); V('cf-back', d.back);
   for (var j = 0; j < 4; j++) refreshSkillBtn_(j); // 🎨 晶片鈕標籤跟上預填值
@@ -723,13 +726,20 @@ async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，�
     skills.push({ n: rn || zh || '技能', r: document.getElementById('cf-sk' + i + '-r').value, fx: fx });
   }
   var _v = function (id) { var el = document.getElementById(id); return (el && el.value || '').trim(); };
+  // 🎨💭 2026-07 拆細：玩家分開填4個小欄位，這裡用頓號組回單一字串——只接非空欄位，
+  //   欄位數＝後端 parseForgeBuild_ 用來判斷「玩家填了幾成」的依據(_segs>=3→lookFull/prefFull，AI不准改)。
+  var _joinParts = function (prefix) {
+    var parts = [];
+    for (var k = 1; k <= 4; k++) { var v = _v(prefix + '-' + k); if (v) parts.push(v); }
+    return parts.join('、');
+  };
   var build = {
     name: nm, cls: document.getElementById('cf-cls').value, sex: document.getElementById('cf-sex').value,
     six: six, skills: skills,
     npName: _v('cf-np-name'), npScale: document.getElementById('cf-np-scale').value, // 階級旋鈕已拆：顯示階＝六圍寶具階(引擎本就只吃 six.寶具)
     npDesc: _v('cf-np-desc'),   // 寶具威能一句(選填)
-    look: _v('cf-look'),        // 🎨 外貌本相(選填·玩家寫自己的種子)
-    pref: _v('cf-pref'),        // 💭 個性四短句(選填)
+    look: _joinParts('cf-look'), // 🎨 外貌(選填·4小欄位組回·五官髮色/氣質/身形/衣著印象)
+    pref: _joinParts('cf-pref'), // 💭 個性(選填·4小欄位組回·日常表象/真實內裡/喜歡/討厭)
     weapon: _v('cf-weapon'), desc: _v('cf-desc'),
     // 🎭 演出細節(選填·零數值)：自稱/陣營/態度/口吻/小動作/萌點/身世——留空＝AI 補
     fp: _v('cf-fp'), align: _v('cf-align'), toMaster: _v('cf-tomaster'),

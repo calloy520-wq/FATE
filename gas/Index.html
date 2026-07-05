@@ -159,8 +159,26 @@
           </div>
           <!-- 🎭 頁1·演出：外貌/個性/演出七欄/整體描述 -->
           <div id="cf-page-1" style="display:none;">
-            <input id="cf-look" class="std-in" maxlength="60" placeholder="🎨 外貌本相（選填·如：銀髮紅瞳、黑鎧修長——寫了 AI 不准改）" style="width:100%; box-sizing:border-box;">
-            <input id="cf-pref" class="std-in" maxlength="60" placeholder="💭 個性（選填·四短句頓號：日常表象、真實內裡、喜歡、討厭）" style="width:100%; box-sizing:border-box; margin-top:6px;">
+            <!-- 🎨💭 2026-07 拆細(玩家反饋「玩家不可能自己打頓號分隔」)：外貌/個性各拆4個小欄位，
+                 玩家分開填、JS 送出前自動用頓號組回單一字串——欄位 ID(cf-look/cf-pref) 與後端格式完全不變。 -->
+            <div style="color:#e0a0c9; font-size:12px; margin-bottom:4px;">🎨 外貌（4項全選填·留空＝AI補；填越多AI越不准改）</div>
+            <div style="display:flex; gap:5px;">
+              <input id="cf-look-1" class="std-in" maxlength="14" placeholder="五官髮色" style="flex:1; min-width:0;">
+              <input id="cf-look-2" class="std-in" maxlength="14" placeholder="氣質" style="flex:1; min-width:0;">
+            </div>
+            <div style="display:flex; gap:5px; margin-top:5px;">
+              <input id="cf-look-3" class="std-in" maxlength="14" placeholder="身形" style="flex:1; min-width:0;">
+              <input id="cf-look-4" class="std-in" maxlength="14" placeholder="衣著印象" style="flex:1; min-width:0;">
+            </div>
+            <div style="color:#e0a0c9; font-size:12px; margin:9px 0 4px;">💭 個性（4項全選填·留空＝AI補）</div>
+            <div style="display:flex; gap:5px;">
+              <input id="cf-pref-1" class="std-in" maxlength="14" placeholder="日常表象" style="flex:1; min-width:0;">
+              <input id="cf-pref-2" class="std-in" maxlength="14" placeholder="真實內裡" style="flex:1; min-width:0;">
+            </div>
+            <div style="display:flex; gap:5px; margin-top:5px;">
+              <input id="cf-pref-3" class="std-in" maxlength="14" placeholder="喜歡的事物" style="flex:1; min-width:0;">
+              <input id="cf-pref-4" class="std-in" maxlength="14" placeholder="討厭的事物" style="flex:1; min-width:0;">
+            </div>
             <div style="color:#c9a0e0; font-size:12px; margin:9px 0 4px;">🎭 演出細節（全選填·留空＝AI 補）</div>
             <div id="cf-drama">
               <div style="display:flex; gap:5px;">
@@ -177,7 +195,7 @@
                 <input id="cf-back" class="std-in" maxlength="28" placeholder="身世一句" style="flex:1; min-width:0;">
               </div>
             </div>
-            <textarea id="cf-desc" class="std-in" maxlength="120" placeholder="外貌／性格描述（AI 只拿來寫人格演出，不碰數值）" style="width:100%; box-sizing:border-box; height:44px; resize:none; margin-top:8px; font-family:inherit;"></textarea>
+            <textarea id="cf-desc" class="std-in" maxlength="120" placeholder="（選填·可留白）補充描述——想讓 AI 多讀一點的氛圍/靈感，不碰數值，也不影響上面欄位" style="width:100%; box-sizing:border-box; height:44px; resize:none; margin-top:8px; font-family:inherit;"></textarea>
           </div>
           <!-- 🌟 頁3·寶具與武裝 -->
           <div id="cf-page-3" style="display:none;">
