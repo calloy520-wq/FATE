@@ -223,7 +223,11 @@ var SEED_SERVANTS = [
   { id:'伊絲塔-Archer', cls:'Archer', realName:'伊絲塔', wars:['fake'], gender:'女',
     six:{筋力:'B',耐久:'C',敏捷:'B',魔力:'A',幸運:'B',寶具:'A+'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'},{n:'單獨行動',r:'A',fx:'solo'}],
-    skills:[{n:'神性',r:'A',fx:'divine'},{n:'女神的神核',r:'A',fx:'divine_core'},{n:'魔力放出',r:'A',fx:'burst'}],
+    // ⚠ 2026-07 修：女神的神核(divine_core A)拔除——查證時發現原本引用的「B階」出自
+    //   《FGO Material IV》，是【附身凜】版本(FGO/Babylonia)的專屬資料，我們這位明確是【附身菲莉雅】
+    //   的 strange Fake 版本(見下方附體修正註解)，查無該版本專屬來源確認她持有此技能，比照美杜莎同一
+    //   標準(查不到該版本確實有就不給)拔除，只留神性(divine)本體。
+    skills:[{n:'神性',r:'A',fx:'divine'},{n:'魔力放出',r:'A',fx:'burst'}],
     traits:[{n:'神性'},{n:'女神'}], np:'天之公牛・山海熔毀的天牛 An Gugalanna（對軍 A+·自天界召落神獸天之公牛·踏地則山崩海沸·所過之處盡化熔毀焦土）',
     // ⚠ 2026-07 修：附體對象原「借凜之身」——那是FGO(Babylonia)限定設定，strange Fake小說裡她附體的其實是
     //   人造人「菲莉雅」，髮色瞳色也一併改回菲莉雅的愛因茲貝倫外貌(白髮紅瞳)，不再沿用凜本人的黑髮。
