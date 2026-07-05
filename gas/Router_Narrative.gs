@@ -714,7 +714,11 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
     });
   }
   // 🩸 自動附「當前狀態」(御主＋在場從者 HP/MP)，敘事才連貫(剛被爆打後該寫狼狽、非沒事人)。讀不到就略過。
+  // 🧭 2026-07：順帶組「軌跡骨幹」(見 Core_Settings.gs buildTrajectoryDigest_)——沿用同一次整表讀取，
+  //   零額外讀表。骨幹接在 system 訊息(miniSystem)後面，結構上永遠排在 callGeminiAPI 組出的
+  //   messages 陣列最前面(system → chatHistory → 當前這輪)，精準卡在「最近1輪對話」之前。
   var stateBrief = "";
+  var trajectoryDigest = "";
   try {
     var stData = sheets.pc.getDataRange().getValues();
     var stIdx = stData.findIndex(function (r) { return r[COL.PC.ID] == pcId; });
@@ -727,9 +731,11 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
         }
       });
       stateBrief = '【當前狀態·供連貫演出，勿複述數字】' + sParts.join('；') + '。\n';
+      try { trajectoryDigest = buildTrajectoryDigest_(stData, stGid, stData[stIdx]); } catch (e2) { }
     }
   } catch (e) { }
-  var raw = callGeminiAPI(stateBrief + promptText, miniSystem, aiConfig);
+  var systemWithTrajectory = trajectoryDigest ? (miniSystem + '\n' + trajectoryDigest) : miniSystem;
+  var raw = callGeminiAPI(stateBrief + promptText, systemWithTrajectory, aiConfig);
   try {
     var start = raw.indexOf('{'), end = raw.lastIndexOf('}');
     var data = JSON.parse(raw.substring(start, end + 1));
