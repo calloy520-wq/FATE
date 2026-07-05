@@ -431,8 +431,8 @@ function actionRuleBreakSteal(userData, pcId, sheets) {
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   try { raiseBond_(sheets, pcData[pIdx][COL.PC.NAME], stolenName, 10); } catch (e) { }
 
-  const aiPrompt = `【系統·破戒奪僕·已裁定】御主以破戒全咒（緣紅短劍）斬斷「${stolenName}」與原御主的契約、強行重締為己用——「${stolenName}」自此成為你的第二從者（燃一道令咒，餘 ${seals} 道）。\n` +
-    `★以 Fate／TYPE-MOON 筆觸描寫緣紅短劍刺入、舊契約如琉璃寸寸碎裂、新締約的魔力烙印纏上手背的瞬間，與這名從者被迫易主的複雜神情（一段即可）。已結算。\n` +
+  const aiPrompt = `【系統·破戒奪僕·已裁定】御主以破戒全咒（七彩短劍）斬斷「${stolenName}」與原御主的契約、強行重締為己用——「${stolenName}」自此成為你的第二從者（燃一道令咒，餘 ${seals} 道）。\n` +
+    `★以 Fate／TYPE-MOON 筆觸描寫妖異七彩短劍刺入、舊契約如琉璃寸寸碎裂、新締約的魔力烙印纏上手背的瞬間，與這名從者被迫易主的複雜神情（一段即可）。已結算。\n` +
     ``;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, stolen: stolenName, seals: seals, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }

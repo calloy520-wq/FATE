@@ -66,7 +66,8 @@ var FATE_FAKE_ROSTER = [
   { master: '銀狼', hero: '恩奇都-Lancer', loc: '未遠川河畔' }, // 原作：以銀狼為觸媒召喚，令咒落在狼身上、恩奇都便認狼為主
   { master: '巴茲狄洛特', hero: '赫拉克勒斯-Avenger', loc: '柳洞寺' }, // 原作：巴茲狄洛特召喚的赫拉克勒斯被令咒歪曲成 Avenger·阿爾喀德斯
   { master: '歐蘭多·里夫', hero: '理查一世-Saber', loc: '冬木·深山町' },
-  { master: '約翰·溫加德', hero: '阿基里斯-Rider', loc: '冬木·商店街' },
+  // ⚠ 2026-07 拔除：阿基里斯(約翰·溫加德的從者)——複查外觀時發現他其實從未在 strange Fake 原作登場過，
+  //   這組配對本身查無出處，wars 已改標'客串'(見 Seed_Codex.gs)，客串角色不進任一戰爭的正典陣容。
   { master: '哈魯利', hero: '玉藻前-Caster', loc: '遠坂宅' },
   { master: '繰丘椿', hero: '蒼白騎兵-Rider', loc: '間桐宅' }, // strange Fake 正典：繰丘椿召喚 Pale Rider
   { master: '傑斯塔·卡爾托雷', hero: '狂信者哈桑-Assassin', loc: '言峰教會' } // strange Fake 正典：偽Assassin＝狂信者哈桑，御主傑斯塔（偽裝的死徒）

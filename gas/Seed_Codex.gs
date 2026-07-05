@@ -43,7 +43,10 @@ var SEED_SERVANTS = [
     classSkills:[{n:'陣地作成',r:'A',fx:'territory'},{n:'道具作成',r:'A',fx:'crafting'}],
     skills:[{n:'高速詠唱',r:'A',fx:'fast_cast'},{n:'神代魔術',r:'A',fx:'divine_age'},{n:'破戒全咒',r:'C',fx:'rule_breaker'},{n:'金羊毛 Argon Coin',r:'EX',fx:'golden_fleece'}],
     traits:[{n:'人類'}], np:'萬符必應破戒 Rule Breaker（規則破壞者 C）',
-    align:'中立・惡', persona:{firstP:'我',look:'紫袍兜帽・抱緣紅短劍的清麗魔女、疏離',words:'背叛的傷痕・渴望被信任',toMaster:'防備卻渴望真心相待',speech:'溫婉敬語、藏著試探',moe:'被真心對待會慌',tic:'抱著緣紅短劍'} },
+    // ⚠ 2026-07 修(玩家定案「都改官方」)：Rule Breaker 官方描述是「妖しく七色に輝く歪な形の短剣」
+    //   (妖異七彩流光的歪異短劍)，非紅色——連同 Mystic_Code.gs/Router_Bond.gs/Script.html 全專案
+    //   「緣紅短劍」既定命名一併正名為「七彩短劍」，取得一致。
+    align:'中立・惡', persona:{firstP:'我',look:'紫袍兜帽・持妖異七彩短劍的清麗魔女、疏離',words:'背叛的傷痕・渴望被信任',toMaster:'防備卻渴望真心相待',speech:'溫婉敬語、藏著試探',moe:'被真心對待會慌',tic:'摩挲手中的七彩短劍'} },
   // ⚠ 2026-07 修：幸運原E→A——幸運A卻仍死於決鬥，是他角色最出名的反差設定，寫成E完全反了。
   //   寶具原E→'-'：官方對燕返本就不給明確階級(是被硬拗成寶具級的凡人絕技，這正是他被Caster破格召喚的關鍵)，
   //   寫死E會矮化這個設定巧思；'-'比照本表tsubame技能已用的慣例(下方skills)，rankVal()仍會保底吃E階運算、
@@ -192,10 +195,13 @@ var SEED_SERVANTS = [
     traits:[{n:'王'},{n:'人類'}], np:'圓桌之證 Rounds of Lionheart（對軍 A・喚出生前的夥伴們自暗影助戰，非召喚聖劍）',
     // ⚠ 2026-07 修(玩家要求全種子外觀對照登場)：查證雙眼應是紅瞳(非碧眼)、髮色是金髮夾雜紅色髮束，已修正。
     align:'中立・善', persona:{firstP:'余',look:'金髮夾紅髮束・紅瞳・佩劍披風的青年王者、昂揚',words:'浪漫・獅心',toMaster:'坦率信賴，視為冒險夥伴',speech:'熱情奔放、孩子氣的興奮',moe:'對亞瑟王傳說狂熱崇拜、活像追星少年',tic:'眼睛發亮談英雄'} },
-  // ⚠ 2026-07 修：wars維持標'fake'(玩家定案，不論正史出處)。「神威的車輪」查無此名歸他，機制(致命傷保留一命)
-  //   對應的真正技能名是「戰鬥續行」，已正名；「貫穿戰場的流星」官方階級是B+非A，已修正；「守護領域的車輪」
-  //   實為除踵無敵的個人被動、非車輪/領域類效果，描述已調整避免誤導成範圍技。
-  { id:'阿基里斯-Rider', cls:'Rider', realName:'阿基里斯', wars:['fake'], gender:'男',
+  // ⚠ 2026-07 修：wars 原維持標'fake'——但外觀複查時查證他其實從未在 strange Fake 原作登場過(該作真正的
+  //   Rider 是蒼白騎兵/希波呂忒，他只在《Apocrypha》/FGO 登場過)，玩家定案改標'客串'(比照莫德雷德/迦爾納/
+  //   阿斯托爾福等同為Apocrypha借用角色的既有慣例)；同步從 Seed_Rivals.gs 的 FATE_FAKE_ROSTER 拔除(客串
+  //   角色不進任一戰爭的正典陣容，也退出 chaos 亂鬥池·見該檔案排除邏輯)。「神威的車輪」查無此名歸他，機制
+  //   (致命傷保留一命)對應的真正技能名是「戰鬥續行」，已正名；「貫穿戰場的流星」官方階級是B+非A，已修正；
+  //   「守護領域的車輪」實為除踵無敵的個人被動、非車輪/領域類效果，描述已調整避免誤導成範圍技。
+  { id:'阿基里斯-Rider', cls:'Rider', realName:'阿基里斯', wars:['客串'], gender:'男',
     six:{筋力:'B+',耐久:'A',敏捷:'A+',魔力:'C',幸運:'D',寶具:'A'},
     classSkills:[{n:'騎乘',r:'A+',fx:'ride'},{n:'對魔力',r:'C',fx:'nullify_magic'}],
     skills:[{n:'神性',r:'C',fx:'divine'},{n:'女神的寵愛',r:'B',fx:'divine_core'},{n:'勇猛',r:'A+',fx:'morale'},{n:'戰鬥續行',r:'A',fx:'survive'}],
