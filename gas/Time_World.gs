@@ -382,7 +382,9 @@ var ATTRITION_START_DAY = 3; // ⏳ 開戰前期不減員：第 N 日(含)前，
 //   撤離又幾乎零成本(見 actionMove 撤離判定)，兩者相加＝「打一下、撤退回血、再打一下」保證磨死任何敵人，
 //   毫無風險。給敵從者一點點自癒(比玩家慢很多、不隨休息倍增)，讓無限次撤退刷血不再穩贏，逼玩家要嘛
 //   加快節奏、要嘛正面找到真正的剋制手段——而不是純靠耐心。
-var ENEMY_REGEN_RATE_ = 0.03;
+//   ⚠ 2026-07 二修(玩家反饋 0.03 太少、6h 只回 6% 沒感覺)：0.03→0.06，休息 6h(2輪)回 12%、
+//   12h上限(4輪)回 24%；對比玩家自己休息 6h 回 60% HP(0.05×6×2)，敵人仍慢得多，但磨血刀不再幾乎無感。
+var ENEMY_REGEN_RATE_ = 0.06;
 function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) {
   var rumors = [];
   if (!gameId) return { rumors: rumors, moved: 0 };
