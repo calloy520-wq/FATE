@@ -344,12 +344,12 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 ## 6. 禮裝 Mystic_Code.gs（2026-06 全面被動化）
 
 - **★禮裝全部被動·持有即生效·無主動發動**（玩家定案）：戰鬥時自動加持「我方從者」，不再有按鈕／充能／迴路門檻／起源彈狙御主。
-- `MYSTIC_CODES{}`：每項 `{name,type,fx,tier,desc,flavor}`。type＝`passive`(avalon/寶石劍/月靈髓液/起源彈/魔力寶石/黑鍵) 或 `special`(rule_breaker 破戒奪僕·另套機制)。fx 進 `MC_COMBAT_` 表。
-- **`MC_COMBAT_{fx→{hit,dmgAdd,npMul,npDefMul,label}}`**：禮裝戰鬥效果表（單一調平衡點）。
-  - mc_blackkey(命中+2)／mc_jewel_minor(命中+1,傷+10)／mc_origin(命中+3,傷+8)／mc_mercury(命中+4,承受寶具×0.88)／mc_jewel(寶石劍·解放寶具傷×1.5)／avalon(承受寶具×0.82 ＋ Time_World 時回×1.6)。
+- `MYSTIC_CODES{}`：每項 `{name,type,fx,tier,desc,flavor}`。type＝`passive`(avalon/魔力寶石/黑鍵) 或 `special`(rule_breaker 破戒奪僕·另套機制)。fx 進 `MC_COMBAT_` 表。
+  - **⚠ 2026-07 玩家定案·砍 3 項**：寶石劍(jeweled_sword)／月靈髓液·水銀(volumen)／起源彈(origin_bullet) 連同其 fx(mc_jewel/mc_mercury/mc_origin) 一併移除(前端下拉選單同步拔除選項)。舊存檔若剛好裝著這 3 項——`masterMysticBuffSkill_`/`get_tags`(Router_Action.gs) 皆已對 `MYSTIC_CODES[id]` 做 null 檢查，靜默退回無禮裝狀態(不噴錯、不用另外遷移)。
+- **`MC_COMBAT_{fx→{hit,dmgAdd,npMul,npDefMul,label}}`**：禮裝戰鬥效果表（單一調平衡點）。現存 3 項：mc_blackkey(命中+2)／mc_jewel_minor(命中+1,傷+10)／avalon(承受寶具×0.82 ＋ Time_World 時回×1.6)。
 - **接線**：`masterMysticBuffSkill_(memory)`→{n,r,fx}；`injectMysticBuff_(c,masterMemory)` 把禮裝 fx 注入我方從者戰鬥單位 skills(冪等)。在 Router_Action `actionFateBattle` 三處注入：atkC(2198·含開場對轟)、每回合 sC、以及 `fateStrike_` 內 defC(我方從者作守方·吃 avalon 減傷)。引擎 `mcCombatFx_(c)` 在 `resolveFateBattle_` 三通道讀取(命中/winner攻/loser防)。注入只在戰鬥單位、不寫回 row。
 - `getMystic_/setMystic_`(MEMORY【禮裝】id；**【禮充】充能已廢除**)、`masterMysticFx_`(查單一 fx，如 Time_World avalon)。
-- `rollMysticForMaster_(standing,circuits)`：**身世/財力→起始禮裝機率**。富/名門/鐘塔/教會(或迴路≥45)→30%頂級；清貧/孤兒(或<20)→50%空手。`pickByTier_`、`equipMysticToMemory_`(僅寫【禮裝】id)。
+- **⚠ 2026-07 盤查·財力→禮裝的門檻其實已名存實亡**：`rollMysticForMaster_(standing,circuits)`(身世/財力→起始禮裝機率的完整實作，富/名門/鐘塔/教會(或迴路≥45)→30%頂級；清貧/孤兒(或<20)→50%空手)**現無任何呼叫者**——創角(`Router_Creation.gs` create handler)改成玩家直接自選 `userData.mystic`，只驗證是不是合法的被動禮裝 id，完全不看身世/迴路。前端下拉選單也是平的，不分財力層級。**玩家定案(2026-07)：維持自選、不恢復財力/迴路門檻**("迴路限制沒啥用")——`rollMysticForMaster_`/`pickByTier_` 保留原樣(供未來「戰中掉落」用途用，非死碼但目前無呼叫點)。
 - `canRuleBreak_(pcData,pIdx,gameId)`：是否具破戒力(召 Caster美狄亞 或 持破戒禮裝)。
 - ⚠ 已移除：`actionUseMystic`／`applyMysticDamageToServant_`／`getMysticCharges_`/`setMysticCharges_`／前端 `mysticStrike`/`renderMysticReport`/敵卡禮裝鈕。
 

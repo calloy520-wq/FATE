@@ -151,15 +151,12 @@ GAL(鑑賞): ACC0 NAME1 CLS2 SEX3 SIX4 TAGS5 NP6 BACK7 PREF8 MOE9 MEMOIR10 WISH1
 
 ## 7. 禮裝（`Mystic_Code.gs`·2026-06 全面被動化）
 
-持有即戰鬥自動加持我方從者，**無主動發動/充能/迴路門檻**。`injectMysticBuff_` 在 `actionFateBattle` 三處把 `{n,r,fx}` 注入我方從者(atkC開場對轟／每回合sC／fateStrike_ defC守方)，引擎 `mcCombatFx_` 讀 `MC_COMBAT_` 三通道套用。創角依財力機率給(`rollMysticForMaster_`)。
+持有即戰鬥自動加持我方從者，**無主動發動/充能/迴路門檻**。`injectMysticBuff_` 在 `actionFateBattle` 三處把 `{n,r,fx}` 注入我方從者(atkC開場對轟／每回合sC／fateStrike_ defC守方)，引擎 `mcCombatFx_` 讀 `MC_COMBAT_` 三通道套用。**創角玩家自選**(2026-07)，不看財力/迴路——`rollMysticForMaster_`(財力機率版)現無呼叫者，保留給未來「戰中掉落」用途。**2026-07 玩家定案砍3項**：起源彈/月靈髓液/寶石劍已移除。
 
 | id | fx | 效果(MC_COMBAT_) |
 |---|---|---|
 | 黑鍵 | mc_blackkey | 命中+2 |
 | 魔力儲存寶石 | mc_jewel_minor | 命中+1·傷+10 |
-| 起源彈 | mc_origin | 命中+3·傷+8 |
-| 月靈髓液 | mc_mercury | 命中+4·承受寶具×0.88 |
-| 寶石劍 Zelretch | mc_jewel | 解放寶具傷×1.5 |
 | 全世界之鞘 Avalon | avalon | 承受寶具×0.82＋時回×1.6 |
 | 破戒全咒 | rule_break | special·斬契奪僕(不在MC_COMBAT_) |
 
