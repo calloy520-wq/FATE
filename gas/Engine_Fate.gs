@@ -182,16 +182,21 @@ function hasCausalityNp_(c) {
   return (c.skills || []).some(function(s) { return s && s.causality; });
 }
 
-// 🕊️ 目標的「神性階級」單一真實來源(2026-07 統一重構)：divine fx 的階級優先，退 特性/技能名含
-//   神性|神格|神靈 者標的階級，再退 'C'(有神性但沒標階級)。查無神性回 null。
-//   神殺(god_slay)／天之鎖縛神(chain)／對神寶具(Vasavi Shakti)／寶具解放神性加成／對瘟疫神性抗性
-//   全部吃這一個函式——原作精髓「神性越高，剋神效果越重；神性越低，效果越弱」
-//   (美杜莎 E- 的墮落神格幾乎不受天之鎖壓制；伊絲塔 A 的正神核被縛得死死的)。
+// 🕊️ 目標的「神性階級」單一真實來源(2026-07 統一重構；同月再修：納入 divine_core)：
+//   divine fx／divine_core fx／特性技能名含 神性|神格|神靈(無標階退'C') 三者取階級最高者。
+//   查無任一者回 null。神殺(god_slay)／天之鎖縛神(chain)／對神寶具(Vasavi Shakti)／
+//   寶具解放神性加成／對瘟疫神性抗性 全部吃這一個函式——原作精髓「神性越高，剋神效果越重；
+//   神性越低，效果越弱」(美杜莎 E- 的墮落神格幾乎不受天之鎖壓制；伊絲塔 A 的正神核被縛得死死的)。
+//   納入 divine_core 的理由：神核代表「真正神靈軀體」，其階級本就該≥表面神性標籤——
+//   如斯卡蒂神核 A 卻只掛無階神性(退回C)，等於擁有真神之軀反而被神殺當弱神打，取高者修正此矛盾。
 function divineRankOf_(c) {
   var fx = hasFx_(c, 'divine');
-  if (fx) return fx;
+  var core = hasFx_(c, 'divine_core');
   var t = (c.traits || []).concat(c.skills || []).find(function (x) { return x && /神性|神格|神靈/.test(String(x.n)); });
-  return t ? (t.r || 'C') : null;
+  var traitR = t ? (t.r || 'C') : null;
+  var best = null;
+  [fx, core, traitR].forEach(function (r) { if (r && (!best || rankVal(r) > rankVal(best))) best = r; });
+  return best;
 }
 
 // 🌟 寶具對轟·純裁決函式(2026-07 重構)：原本內嵌在 actionFateBattle 的四層特例(雙向因果律/
@@ -234,9 +239,18 @@ function fxName_(c, fx, fallback) {
 //   hit=命中所用六圍　dmg=傷害所用六圍　eva=迴避所用六圍　kind=演出用招式類別
 function combatProfile_(c) {
   var cls = String(c.cls || '');
-  if (cls === 'Caster') return { hit: '魔力', dmg: '魔力', eva: '敏捷', kind: '魔砲' }; // 魔力轟擊的玻璃大砲：攻強、近身脆
-  if (cls === 'Archer') return { hit: '敏捷', dmg: '筋力', eva: '敏捷', kind: '狙擊' }; // 遠程精準
-  return { hit: '敏捷', dmg: '筋力', eva: '敏捷', kind: '近戰' };
+  // 🗡 2026-07 玩家定案(二修)：傷害底＝【筋力/魔力 取高】——力量與魔力是「出力」、敏捷是「技巧」。
+  //   敏捷已獨佔 命中＋迴避 兩項、傷害還有「命中差×1.2」那條技巧通道(甩尾越大打越痛)，再讓它當傷害底
+  //   ＝一圍三吃(理查敏EX實測衝93.8%榜首·筋力淪死圍)。魔力型非Caster(神代/魔攻物理)自此成立。
+  //   耐久=防禦、幸運=命運骰、寶具=寶具傷害段，皆不入普攻底。命中/迴避維持職階本色。battle_sim 驗證。
+  var six = c.six || {};
+  var dmgStat = (rankVal(six['魔力']) > rankVal(six['筋力'])) ? '魔力' : '筋力';
+  // 💨 以巧破力(agile_striker·2026-07)：唯一讓敏捷入傷害底的通道(顯示名勿用「神速」——理查正史技能撞名)——持此 fx 且敏捷高於筋/魔時，以技巧為力
+  //   (原一修「人人敏捷可當傷害底」被玩家抓出一圍三吃，收成付費標籤：要當敏捷輸出流→工房買 神速)。
+  if (hasFx_(c, 'agile_striker') && rankVal(six['敏捷']) > rankVal(six[dmgStat])) dmgStat = '敏捷';
+  if (cls === 'Caster') return { hit: '魔力', dmg: dmgStat, eva: '敏捷', kind: '魔砲' }; // 魔力轟擊的玻璃大砲：攻強、近身脆
+  if (cls === 'Archer') return { hit: '敏捷', dmg: dmgStat, eva: '敏捷', kind: '狙擊' }; // 遠程精準
+  return { hit: '敏捷', dmg: dmgStat, eva: '敏捷', kind: '近戰' };
 }
 
 // ⚡🛡 技能 fx 戰鬥效果「格式表」（2026-07 資料驅動）：把散落的主動技 if 鏈＋線性被動加成收成一張表，
@@ -329,24 +343,37 @@ function fxDmgApply_(base, winner, loser, fx, fired) {
 var DEF_FX_ = {
   territory: { mul: function (r) { return 1 - 0.26 * r; }, zh: '陣地', note: '·魔術防壁', pierceKey: 'territory', guardPositive: true, piercedMsg: function (w) { return w.name + '·概念壓制(碾穿結界)'; } },
   home_field: { mul: function (r) { return 1 - 0.16 * r; }, zh: '主場陣地結界', pierceKey: 'territory', guardPositive: true, piercedMsg: function (w) { return w.name + '·概念壓制(碾穿主場結界)'; } },
-  rho_aias: { mul: function (r) { return 1 - 0.40 * r; }, zh: '概念護盾', pierceKey: 'rho_aias' }, // note 拿掉：顯示持有者自己的技能名(EMIYA 七天盾/貞德 守護大旗)，防張冠李戴
+  // 🛡️ 七天盾(2026-07 玩家定案改制)：npOnly＝只對【寶具解放】的一擊反應性投影(普攻不勞七層花瓣·不減傷)；
+  //   mana＝每次展開的費用——玩家側由呼叫端注入 _shieldMp(御主純魔)扣款、付不起張不開；敵方側無注入＝免費
+  //   (沿用「敵AI主動技免費·視為戰鬥本色」慣例)。改制動機：常駐盾+燕返組合經模擬證實普攻流對全池100%勝率。
+  rho_aias: { mul: function (r) { return 1 - 0.40 * r; }, zh: '概念護盾', pierceKey: 'rho_aias', npOnly: true, mana: 30 }, // note 拿掉：顯示持有者自己的技能名(EMIYA 七天盾/貞德 守護大旗)，防張冠李戴
   divine_core: { mul: function (r) { return 1 - 0.18 * r; }, zh: '神核', pierceKey: 'divine_core', alsoPiercedByFx: 'anti_magic_lance', piercedMsg: function (w) { return w.name + '·' + (hasFx_(w, 'anti_magic_lance') ? '破魔(無視神核)' : '概念壓制(無視神核)'); } },
   wall_def: { mul: function (r) { return 1 - 0.18 * r; }, zh: '城牆防禦', note: '(物理減傷，依階級)', pierceKey: 'territory', physicalOnly: true }
 };
-// 🛡 套用防禦減傷（敗方持有 fx 時）：pierces＝概念貫穿判定函式；atkMagic＝本擊是否魔術系。回新 base。
-function fxDefApply_(base, loser, winner, fx, pierces, atkMagic, fired) {
+// 🛡 套用防禦減傷（敗方持有 fx 時）：pierces＝概念貫穿判定函式；atkMagic＝本擊是否魔術系；
+//   npStrike＝本擊是否【攻方寶具解放】(npOnly 防禦如七天盾只對這種擊反應)。回新 base。
+function fxDefApply_(base, loser, winner, fx, pierces, atkMagic, fired, npStrike) {
   var e = DEF_FX_[fx], rk = e && hasFx_(loser, fx);
   if (!e || !rk) return base;
   if (e.physicalOnly && atkMagic) return base; // 魔術系攻擊穿透物理牆·無減傷無訊息
+  if (e.npOnly && !npStrike) return base; // 🛡️ 對寶具限定(七天盾)：普通攻擊不勞投影——不減傷、不觸發、不收費
   if (pierces(e.pierceKey) || (e.alsoPiercedByFx && hasFx_(winner, e.alsoPiercedByFx))) {
     if (e.piercedMsg) fired.push(e.piercedMsg(winner)); // 被貫穿/破魔→減傷失效
     return base;
+  }
+  // 💠 展開費用(e.mana)：僅當呼叫端注入 loser._shieldMp(玩家側·御主純魔) 才收費——付不起→張不開；
+  //   引擎只記帳(_shieldSpent)，實際落表由呼叫端 settleShieldMana_ 統一結算。敵方無注入＝免費觸發。
+  var paidNote = '';
+  if (e.mana && loser._shieldMp != null) {
+    if (loser._shieldMp < e.mana) { fired.push(loser.name + '·魔力不足·' + fxName_(loser, fx, e.zh) + '未能展開'); return base; }
+    loser._shieldMp -= e.mana; loser._shieldSpent = (loser._shieldSpent || 0) + e.mana;
+    paidNote = '（御主耗' + e.mana + '魔展開）';
   }
   // ⚠ 下限 clamp：mul 係數×rankMul>1 時(如未來有人給 rho_aias 掛超過 EX+ 的階級)會算出負乘子→
   //   負傷害→打人變補血。現行持有者皆不可達，純結構性防呆。
   var m = Math.max(0, (typeof e.mul === 'function') ? e.mul(rankMul_(rk)) : e.mul);
   var pre = base; base = Math.round(base * m);
-  if (!e.guardPositive || pre > 0) fired.push(loser.name + '·' + fxName_(loser, fx, e.zh) + (e.note || ''));
+  if (!e.guardPositive || pre > 0) fired.push(loser.name + '·' + fxName_(loser, fx, e.zh) + (e.note || '') + paidNote);
   return base;
 }
 
@@ -393,33 +420,38 @@ function servantNpOptions_(name, cls) {
   // ⚠ 【精確比對種子真名】(2026-07 根源修)：原以 indexOf 子字串比對，AI/自訂從者只要真名【含】「無名」「吉爾伽美什」
   //   等字樣就整組繼承乖離劍/Enuma Elish 選單，完全繞過 ALLOWED_FX_ 刻意排除 ea/enuma/gob 的防線。
   //   改為 === 種子 realName(見 Seed_Codex)——頂級概念寶具回歸種子專屬。
+  // 🎴 2026-07 六波(玩家查證原作官方階級·非兩寶具共用六圍表數字)：r 欄＝該寶具真實官方階級，
+  //   缺 r 者(恩奇都/EMIYA)retreat 至六圍表寶具值——恩奇都兩寶具原作階級相近(均封頂A++附近)、
+  //   EMIYA 官方資料多數寶具本就未標定階級(???，含七天盾原型)，不適用「各自固定階級」模型。
+  //   ⚠ 階級可能【高於】六圍表寶具值(如伊斯坎達爾王之軍勢EX＞六圍表A++)——原作本就允許王牌
+  //   單一寶具超越角色頭銜數字，npBaseDice_/npPranaCost_ 對 EX 有獨立字串判定(rankVal同分不混淆)。
   if (name === '斯卡哈' && cls === 'Lancer') return [
-    { n: '貫穿死翔之槍 Gáe Bolg Alternative', scale: '對人', fx: 'gae_bolg', desc: '單體·因果逆轉必中＋投擲斷命' },
-    { n: '死亡滿溢的魔境之門 Gate of Skye', scale: '對軍', fx: '', desc: '對軍範圍·吸入影之國（魔力/幸運判定失敗即死）' }
+    { n: '貫穿死翔之槍 Gáe Bolg Alternative', r: 'B+', scale: '對人', fx: 'gae_bolg', desc: '單體·因果逆轉必中＋投擲斷命' },
+    { n: '死亡滿溢的魔境之門 Gate of Skye', r: 'A+', scale: '對軍', fx: '', desc: '對軍範圍·吸入影之國（魔力/幸運判定失敗即死）' }
   ];
   if (name === '吉爾伽美什') return [
-    { n: '王之財寶 Gate of Babylon', scale: '對人', fx: 'gob', desc: '對人·無盡兵裝的飽和彈幕' },
-    { n: '乖離劍 Ea', scale: '對界', fx: 'ea', desc: '對界·天地乖離開闢之星，斬裂世界的最強一擊' }
+    { n: '王之財寶 Gate of Babylon', r: 'A++', scale: '對人', fx: 'gob', desc: '對人·無盡兵裝的飽和彈幕' },
+    { n: '乖離劍 Ea', r: 'EX', scale: '對界', fx: 'ea', desc: '對界·天地乖離開闢之星，斬裂世界的最強一擊' }
   ];
   if (name === '恩奇都') return [
     { n: '世人啊、冀以鎖繫神明 Enuma Elish', scale: '對界', fx: 'enuma', desc: '對界·天之楔·反星球/人類破壞行為增幅，可匹敵乖離劍的概念級一擊' },
     { n: '民之睿智 Age of Babylon', scale: '對軍', fx: 'gob', desc: '對軍·自大地召出萬千劍槍鎖齊射（用法類王之財寶·可抵銷之）' }
   ];
   if (name === '伊斯坎達爾（征服王）') return [
-    { n: '王之軍勢 Ionioi Hetairoi', scale: '對軍', fx: '', desc: '對軍·固有結界召喚萬軍亂踏' },
-    { n: '神威的車輪 Gordius Wheel', scale: '對人', fx: '', desc: '對人·雷神戰車的單騎衝鋒' }
+    { n: '王之軍勢 Ionioi Hetairoi', r: 'EX', scale: '對軍', fx: '', desc: '對軍·固有結界召喚萬軍亂踏' },
+    { n: '神威的車輪 Gordius Wheel', r: 'A+', scale: '對人', fx: '', desc: '對人·雷神戰車的單騎衝鋒' }
   ];
   if (name === '無名（EMIYA）') return [
     { n: '無限劍製 Unlimited Blade Works', scale: '對城', fx: 'ubw', desc: '對城·固有結界劍雨壓制（不受對魔力）' },
     { n: '偽·螺旋劍 Caladbolg II', scale: '對人', fx: 'projection', desc: '對人·破斷重塑的流星劍狙擊' }
   ];
   if (name === '迦爾納') return [
-    { n: '穿刺死亡之槍 Vasavi Shakti', scale: '對神', fx: '', desc: '對神·梵天弒神之槍：對神性之敵單體特大傷害（弒神）' },
-    { n: '日輪啊化作鎧甲吧 Kavacha and Kundala', scale: '對人', fx: 'divine_core', desc: '對人·不滅黃金鎧·常駐防護' }
+    { n: '穿刺死亡之槍 Vasavi Shakti', r: 'EX', scale: '對神', fx: '', desc: '對神·梵天弒神之槍：對神性之敵單體特大傷害（弒神）' },
+    { n: '日輪啊化作鎧甲吧 Kavacha and Kundala', r: 'A', scale: '對人', fx: 'divine_core', desc: '對人·不滅黃金鎧·常駐防護' }
   ];
   if (name === '蒼白騎兵（Pale Rider）') return [
-    { n: '審判日將至 Doomsday Come', scale: '對界', fx: '', desc: '對界·疫病具現的終末審判（EX）' },
-    { n: '籠中之鳥 Kagome Kagome', scale: '對軍', fx: '', desc: '對軍·封鎖之疫瘴結界（A）' }
+    { n: '審判日將至 Doomsday Come', r: 'EX', scale: '對界', fx: '', desc: '對界·疫病具現的終末審判' },
+    { n: '籠中之鳥 Kagome Kagome', r: 'A', scale: '對軍', fx: '', desc: '對軍·封鎖之疫瘴結界' }
   ];
   // ⚠ 2026-07 修：'貞德' 原本掛在此處的雙寶具選單(La Pucelle攻擊/Luminosité Eternelle防禦盾)是
   //   Ruler版的專屬kit——她已換成泳裝Archer版(單一對軍寶具"豐收之海啊"，見 Seed_Codex.gs)，這裡若
@@ -432,15 +464,19 @@ function firstSignatureFx_(c) {
   for (var i = 0; i < pri.length; i++) { if (hasFx_(c, pri[i])) return pri[i]; }
   return '';
 }
-// 解出「本次寶具解放」的設定檔 {scale, fx, name, multi}。多寶具讀 c.npChoice 選定項；單寶具退回字串尺度＋簽名fx。
+// 解出「本次寶具解放」的設定檔 {scale, fx, name, multi, r}。多寶具讀 c.npChoice 選定項；單寶具退回字串尺度＋簽名fx。
+//   r＝該次解放實際吃的階級——多寶具選項有自己的官方階級(見 servantNpOptions_)才用，沒有就退回六圍表寶具值
+//   (2026-07 六波：拆開「兩寶具共用一個數字」的失真，每個選項各自貼近原作威力)。
 function npProfile_(c) {
   var op = servantNpOptions_(c.name, c.cls);
   if (op && op.length) {
     var idx = Math.max(0, Math.min(op.length - 1, parseInt(c.npChoice) || 0));
-    return { scale: op[idx].scale, fx: op[idx].fx, name: op[idx].n, multi: true };
+    return { scale: op[idx].scale, fx: op[idx].fx, name: op[idx].n, multi: true, r: op[idx].r || c.six['寶具'] };
   }
-  return { scale: npAtkScale_(c), fx: firstSignatureFx_(c), name: String(c.np || ''), multi: false };
+  return { scale: npAtkScale_(c), fx: firstSignatureFx_(c), name: String(c.np || ''), multi: false, r: c.six['寶具'] };
 }
+// 🎯 本次解放實際要吃的寶具階級（給 npBaseDice_/npPranaCost_ 用·單一真實來源，避免各呼叫點各自兜底邏輯分岔）。
+function npEffectiveRank_(c) { return npProfile_(c).r; }
 // 🌟 多寶具英靈的「最強攻擊寶具」索引（敵 AI 解放/預告用·非玩家）：只挑攻擊型(有攻擊 fx 或 對軍以上/對神規模)，
 //   按 概念階×10＋規模 排序取最高；無攻擊型則退 0。純防禦寶具(divine_core 金鎧等)不入選(不會拿來砸人)。
 var OFFENSIVE_NP_FX_ = { ea: 1, enuma: 1, excalibur: 1, ubw: 1, summon_horror: 1, gob: 1, gae_bolg: 1, tsubame: 1, zabaniya: 1, petrify: 1, projection: 1 };
@@ -458,6 +494,11 @@ function bestNpChoice_(name, cls) {
   return best;
 }
 
+// 🎚️ 被動技能 fx 對 命中/迴避 的【淨加成上限】(2026-07 玩家定案·抓「以巧變化流」敏EX+變化+直感疊加)：
+//   直感/心眼/千里眼/騎乘/變化/避矢/王財/洞悉/自我改造/狂化/魔眼/天之鎖/燕返/愛之痣 等被動 fx 的
+//   命中(攻)與迴避(守)各自加總後 clamp ±HIT_FX_CAP——買越多遞減為零，堆疊流無法把差距拉到「永遠打不到」。
+//   ★不入帳(各有自己的成本/體系)：出力/整備/過充/主動技(耗魔)/禮裝(裝備)/職階相剋(身分)/幸運骰/奇襲(一次性)。
+var HIT_FX_CAP = 8;
 // 主裁決：一次交手。回傳 {atkWins, winner, loser, damage, aRoll,dRoll,aHit,dEva, fired[], crit, np, seal}
 function resolveFateBattle_(atk, def, opts) {
   opts = opts || {};
@@ -513,30 +554,34 @@ function resolveFateBattle_(atk, def, opts) {
   // 🔥 補魔過充：御主剛行補魔、澎湃魔力流貫靈基——攻方全身狀態微揚(命中+2；傷害端於下方另×1.06)。
   if (atk.overcharge) { aHit += 2; fired.push(atk.name + '·補魔過充(魔力充盈·全能力微揚)'); }
 
+  // 🎚️ 被動技能 fx 命中/迴避走累積器(見檔頂 HIT_FX_CAP)：全部加總後 clamp ±上限再入 aHit/dEva。
+  var aHitFx = 0, dEvaFx = 0;
   // 直感/心眼(first_strike/analyze)：攻守先機 +3×階級
-  var fsA = hasFx_(atk, 'first_strike') || hasFx_(atk, 'analyze'); if (fsA) { aHit += Math.round(3 * rankMul_(fsA)); fired.push(atk.name + '·' + fxName_(atk, hasFx_(atk, 'analyze') ? 'analyze' : 'first_strike', hasFx_(atk, 'analyze') ? '心眼' : '直感')); }
+  var fsA = hasFx_(atk, 'first_strike') || hasFx_(atk, 'analyze'); if (fsA) { aHitFx += Math.round(3 * rankMul_(fsA)); fired.push(atk.name + '·' + fxName_(atk, hasFx_(atk, 'analyze') ? 'analyze' : 'first_strike', hasFx_(atk, 'analyze') ? '心眼' : '直感')); }
   var fsD = hasFx_(def, 'first_strike') || hasFx_(def, 'analyze');
   if (hasFx_(atk, 'unreadable')) { fsD = null; fired.push(atk.name + '·' + fxName_(atk, 'unreadable', '無貌') + '(封先機)'); } // 使對方直感/心眼失效
-  if (fsD) { dEva += Math.round(3 * rankMul_(fsD)); fired.push(def.name + '·' + fxName_(def, hasFx_(def, 'analyze') ? 'analyze' : 'first_strike', hasFx_(def, 'analyze') ? '心眼' : '直感')); }
+  if (fsD) { dEvaFx += Math.round(3 * rankMul_(fsD)); fired.push(def.name + '·' + fxName_(def, hasFx_(def, 'analyze') ? 'analyze' : 'first_strike', hasFx_(def, 'analyze') ? '心眼' : '直感')); }
 
   // 狂化(mad)：六圍暴漲但理智低 → 命中／迴避 -3×階級（傷害加成在下方）
-  var madA = hasFx_(atk, 'mad'); if (madA) aHit -= Math.round(3 * rankMul_(madA));
-  var madD = hasFx_(def, 'mad'); if (madD) dEva -= Math.round(3 * rankMul_(madD));
+  var madA = hasFx_(atk, 'mad'); if (madA) aHitFx -= Math.round(3 * rankMul_(madA));
+  var madD = hasFx_(def, 'mad'); if (madD) dEvaFx -= Math.round(3 * rankMul_(madD));
   // 自我改造(self_mod)：命中 +2（被動·SKILL_FX_ 表驅動）
-  aHit = fxHitAdd_(aHit, atk, 'self_mod', fired);
+  aHitFx = fxHitAdd_(aHitFx, atk, 'self_mod', fired);
   // ⚡ 主動技（玩家本戰啟動）：命中加成 + 標記發動
   if (opts.skill) { aHit += (opts.skill.hit || 0); fired.push(atk.name + '·' + opts.skill.name + (opts.skill.tiny ? '(微量)' : '(主動技·全開)')); }
   // ✨ 禮裝被動加持·命中（御主禮裝注入我方從者，見 injectMysticBuff_）
   var mcAtk = mcCombatFx_(atk); if (mcAtk && mcAtk.hit) { aHit += mcAtk.hit; fired.push(atk.name + '·禮裝「' + mcAtk.label + '」(命中+' + mcAtk.hit + ')'); }
 
   // 騎乘(ride) 機動 +2×階級
-  var rideA = hasFx_(atk, 'ride'); if (rideA) aHit += Math.round(2 * rankMul_(rideA));
+  var rideA = hasFx_(atk, 'ride'); if (rideA) aHitFx += Math.round(2 * rankMul_(rideA));
   // 🎯 千里眼(aim)：恆常的卓越目力鎖破綻（被動·SKILL_FX_ 表驅動）。投影(projection) 為主動技 only、此處不給被動。
-  aHit = fxHitAdd_(aHit, atk, 'aim', fired);
+  //   ⚠ 2026-07 五波復原：曾誤把「無欲(A階)連千里眼也封」寫進來——玩家指正「千里眼本來就不會被無欲擋住，
+  //   這正是它比命中·中(first_strike/analyze)貴的理由(免疫先機封鎖·三軌計價已反映此溢價)」。恢復永久免疫。
+  aHitFx = fxHitAdd_(aHitFx, atk, 'aim', fired);
   // 🌟 全知全能之星(insight／吉爾伽美什)：看穿本質·洞悉破綻，恆常命中 +4（他懶得認真開·僅中等被動）。
-  if (hasFx_(atk, 'insight')) { aHit += 4; fired.push(atk.name + '·' + fxName_(atk, 'insight', '全知全能之星') + '(洞悉破綻·命中+4)'); }
+  if (hasFx_(atk, 'insight')) { aHitFx += 4; fired.push(atk.name + '·' + fxName_(atk, 'insight', '全知全能之星') + '(洞悉破綻·命中+4)'); }
   // 避矢(evade_ranged)：守方對遠程(Archer)迴避 +6×階級
-  if (atk.cls === 'Archer') { var er = hasFx_(def, 'evade_ranged'); if (er) { dEva += Math.round(6 * rankMul_(er)); fired.push(def.name + '·' + fxName_(def, 'evade_ranged', '避矢')); } }
+  if (atk.cls === 'Archer') { var er = hasFx_(def, 'evade_ranged'); if (er) { dEvaFx += Math.round(6 * rankMul_(er)); fired.push(def.name + '·' + fxName_(def, 'evade_ranged', '避矢')); } }
   // 氣息遮斷(stealth)：僅【首擊奇襲】(opts.ambush·開場第一擊／敵突襲)吃命中加成·依階級(A+大、A-小)。
   //   ★一旦交手氣息即破功——後續回合的刀不再享奇襲(貼原作：發動攻擊瞬間 presence concealment 掉階)。
   var stA = hasFx_(atk, 'stealth');
@@ -550,40 +595,55 @@ function resolveFateBattle_(atk, def, opts) {
     else { aHit += Math.round(rankVal(stA) / 10); fired.push(atk.name + '·' + fxName_(atk, 'stealth', '氣息遮斷') + '·奇襲先機'); }
   }
   // 👑 王之財寶(gob)常駐：無盡兵裝鋪天蓋地，命中 +5（飽和彈幕難閃；傷害彈幕在下方）
-  if (hasFx_(atk, 'gob')) { aHit += 5; fired.push(atk.name + '·' + fxName_(atk, 'gob', '王之財寶') + '(無盡兵裝)'); }
+  if (hasFx_(atk, 'gob')) { aHitFx += 5; fired.push(atk.name + '·' + fxName_(atk, 'gob', '王之財寶') + '(無盡兵裝)'); }
   // ⛓️ 天之鎖(chain)：命中加成併入既有「縛神性」效果(下方)；輸出走下方萬鎖彈幕。此處不另加命中(避免恩奇都過載)。
-  // 秘劍・燕返(tsubame)：劍術本身而非寶具，普攻／寶具皆可發動——次元摺疊令守方迴避 -5(傷害倍率見下方)
-  var tsubame = hasFx_(atk, 'tsubame'); if (tsubame) { dEva -= 5; fired.push(atk.name + '·' + fxName_(atk, 'tsubame', '秘劍')); }
+  // 秘劍・燕返(tsubame)：劍術本身而非寶具——次元摺疊令守方迴避 -5(傷害倍率見下方)。
+  //   ⚔️ 2026-07 三修(玩家定案)：僅【每場戰鬥第 1 回合】發動(opts.round·呼叫端 fateStrike_ 傳入·未傳=單次交鋒視同首回合)
+  //   ——絕技是蓄勢的一閃，非回回可出；擋「普攻流回回×2.3」的無敵化。第2/3回合命中/傷害段皆不觸發。
+  var tsubame = hasFx_(atk, 'tsubame') && (opts.round || 1) === 1;
+  if (tsubame) { dEvaFx -= 5; fired.push(atk.name + '·' + fxName_(atk, 'tsubame', '秘劍')); }
   // 🔱 三騎士職階相剋（Saber→Lancer→Archer→Saber）：占上風者搶得先機，命中小幅領先（傷害加成在下方）
   var KNIGHT_BEATS = { 'Saber': 'Lancer', 'Lancer': 'Archer', 'Archer': 'Saber' };
   if (KNIGHT_BEATS[atk.cls] === def.cls) aHit += 3;
   else if (KNIGHT_BEATS[def.cls] === atk.cls) dEva += 3;
   // 🦊 變化(shapeshift／玉藻前·哈桑·恩奇都)：化形流轉，守方滑開致命一擊，迴避小幅提升
-  var sm = hasFx_(def, 'shapeshift'); if (sm) { dEva += Math.round(3 * rankMul_(sm)); fired.push(def.name + '·' + fxName_(def, 'shapeshift', '變化') + '(化形閃避)'); }
+  var sm = hasFx_(def, 'shapeshift'); if (sm) { dEvaFx += Math.round(3 * rankMul_(sm)); fired.push(def.name + '·' + fxName_(def, 'shapeshift', '變化') + '(化形閃避)'); }
   // 💋 愛之痣(lovespot／迪盧木多)：魅惑之痣令來犯者一瞬分神，攻方命中 -1(小幅惑亂)
-  if (hasFx_(def, 'lovespot')) { aHit -= 1; fired.push(def.name + '·' + fxName_(def, 'lovespot', '愛之痣') + '(惑·敵命中-1)'); }
-  // 👁️ 魔眼·石化(petrify／Rider 美杜莎)：以視線鎖死獵物，令對方迴避大減
-  var pet = hasFx_(atk, 'petrify'); if (pet) { dEva -= Math.round(2 * rankMul_(pet)); fired.push(atk.name + '·' + fxName_(atk, 'petrify', '魔眼') + '·鎖死身法'); }
+  if (hasFx_(def, 'lovespot')) { aHitFx -= 1; fired.push(def.name + '·' + fxName_(def, 'lovespot', '愛之痣') + '(惑·敵命中-1)'); }
+  // 👁️ 魔眼·石化(petrify／Rider 美杜莎)：以視線鎖死獵物，令對方迴避大減。
+  //   2026-07 加強 2×階→4×階(玩家定案)：升格為「閃避堆疊流」的正牌剋星——工房唯一可購的反迴避工具，
+  //   原 2×階(A僅-3.3)在敏EX+變化+直感的+8上限疊加前太薄。美杜莎連動受益。
+  var pet = hasFx_(atk, 'petrify'); if (pet) { dEvaFx -= Math.round(4 * rankMul_(pet)); fired.push(atk.name + '·' + fxName_(atk, 'petrify', '魔眼') + '·鎖死身法'); }
   // ⛓️ 天之鎖(chain／Gilgamesh·Enkidu)：對「神性」之敵展開冥界鎖鏈，封住身法。
   //   ⚠ 2026-07 統一重構：縛神強度改依【對方神格】縮放(divineRankOf_·原作「神性越高縛得越死」)——
   //   0.5+0.5×rankMul(對方神格)：C 神格＝×1.0(與舊值完全一致)、A＝×1.33、EX＝×1.5、E-(美杜莎)＝×0.62。
   var chn = hasFx_(atk, 'chain'); var defDivR = divineRankOf_(def);
   if (chn && defDivR) {
     var chainBind = Math.round(6 * rankMul_(chn) * (0.5 + 0.5 * rankMul_(defDivR)));
-    dEva -= chainBind; fired.push(atk.name + '·' + fxName_(atk, 'chain', '天之鎖') + '(縛神性' + defDivR + '·避-' + chainBind + ')');
+    dEvaFx -= chainBind; fired.push(atk.name + '·' + fxName_(atk, 'chain', '天之鎖') + '(縛神性' + defDivR + '·避-' + chainBind + ')');
   }
+  // 🎚️ 被動技能 fx 淨加成收帳：各自 clamp ±HIT_FX_CAP 再入命中/迴避——堆疊流(敏EX+變化+直感…)無法把差距
+  //   拉到「永遠打不到」；敵方施加的壓制(魔眼/天之鎖/燕返)計入同一淨額，天然是堆疊流的解。被截斷時推標籤供演出。
+  var _aFxC = Math.max(-HIT_FX_CAP, Math.min(HIT_FX_CAP, aHitFx));
+  var _dFxC = Math.max(-HIT_FX_CAP, Math.min(HIT_FX_CAP, dEvaFx));
+  if (_aFxC !== aHitFx) fired.push(atk.name + '·技巧疊加已達極限(' + (aHitFx > 0 ? '+' : '') + aHitFx + '→' + (_aFxC > 0 ? '+' : '') + _aFxC + ')');
+  if (_dFxC !== dEvaFx) fired.push(def.name + '·身法疊加已達極限(' + (dEvaFx > 0 ? '+' : '') + dEvaFx + '→' + (_dFxC > 0 ? '+' : '') + _dFxC + ')');
+  aHit += _aFxC; dEva += _dFxC;
 
   // 必中(gae_bolg)：寶具解放時逆因果直接命中
   var gaebolg = opts.np && npIs('gae_bolg'); if (gaebolg) fired.push(atk.name + '·' + fxName_(atk, 'gae_bolg', '必中之槍') + '(必中)');
 
-  // 🍀 幸運＝上演劇情逆轉的旋鈕：幸運差≥2階 → 高者得福星骰(+0~6)、低者被命運捉弄。
-  //   Saber(幸A+)的福星、庫丘林(幸E)屢屢倒楣戰死的詛咒——「故事與運氣才是裁判」實裝。
-  //   做法＝自指變異(非對拼)：低運(≤D)每擊小機率失手、高運(≥A)小機率福星，製造爆冷與劇情感，而非讓高運方持續輾壓。
+  // 🍀 幸運＝上演劇情逆轉的旋鈕：Saber(幸A+)的福星、庫丘林(幸E)屢屢倒楣戰死的詛咒——「故事與運氣才是裁判」。
+  //   做法＝自指變異(非對拼)：低運每擊小機率失手、高運小機率福星，製造爆冷與劇情感，而非讓高運方持續輾壓。
+  //   📏 2026-07 線性化(玩家定案)：以 C(30) 為中性零點、每離 1 階 ±2% 機率(E4%倒楣/D2%/C0/B2%福星/A4%/EX6%，
+  //   A+ 等修飾符連續計 5%)。舊制 ≤D 恆8%/≥A 恆8% 是三檔階梯——C/B、E/D、A/EX 同檔無差，工房裡同檔加 10 點
+  //   ＝白花錢的價格陷阱(模擬：E22.9%=D22.8%＜C27.7%=B27.6%＜A33.6%=EX33.4%)。線性化後六階每階皆有真效果。
+  var luckDice_ = function (v) { return 0.002 * Math.abs(v - 30); }; // 每離 1 點=0.2% → 每階(10點)=2%
   var lkA = rankVal(atk.six['幸運']), lkD = rankVal(def.six['幸運']);
-  if (lkA <= 20 && Math.random() < 0.08) { aHit -= 10; fired.push(atk.name + '·幸運' + (atk.six['幸運'] || 'E') + '·天不從人(失手)'); }
-  else if (lkA >= 50 && Math.random() < 0.08) { aHit += 8; fired.push(atk.name + '·幸運·福星眷顧'); }
-  if (lkD <= 20 && Math.random() < 0.08) { dEva -= 10; fired.push(def.name + '·幸運' + (def.six['幸運'] || 'E') + '·命運捉弄(露破綻)'); }
-  else if (lkD >= 50 && Math.random() < 0.08) { dEva += 8; fired.push(def.name + '·幸運·絕處逢生'); }
+  if (lkA < 30 && Math.random() < luckDice_(lkA)) { aHit -= 10; fired.push(atk.name + '·幸運' + (atk.six['幸運'] || 'E') + '·天不從人(失手)'); }
+  else if (lkA > 30 && Math.random() < luckDice_(lkA)) { aHit += 8; fired.push(atk.name + '·幸運·福星眷顧'); }
+  if (lkD < 30 && Math.random() < luckDice_(lkD)) { dEva -= 10; fired.push(def.name + '·幸運' + (def.six['幸運'] || 'E') + '·命運捉弄(露破綻)'); }
+  else if (lkD > 30 && Math.random() < luckDice_(lkD)) { dEva += 8; fired.push(def.name + '·幸運·絕處逢生'); }
 
   // 🩸 必中之槍·非全無解(貼原作)：因果逆轉雖直接命中，但【高幸運】能改寫既定命運、【直感/心眼】能預感殺機、【變化】能化形滑開。
   //   仍是強力寶具(一般從者照樣被釘死)，只有「能扭轉命運/超越感知」者才搏得一線生機。
@@ -607,7 +667,7 @@ function resolveFateBattle_(atk, def, opts) {
   var winner = atkWins ? atk : def;
   var loser = atkWins ? def : atk;
 
-  // 傷害：勝方依職階主屬性為底（法師＝魔力轟擊／近戰＝筋力）+ 分差
+  // 傷害：勝方以「出力屬性」為底（筋力/魔力取高·見 combatProfile_ 2026-07 二修）+ 分差(敏捷的傷害通道)
   //   🎲 D&D 風武器骰：底傷 = 階級基底×0.5（穩定底）＋ rankTier 顆 d8（武器骰，帶骰運起伏）＋ 命中分差×1.2
   //   中位數約等於舊「rankVal 平值」，但每一擊有 ±的浮動，低階偶爆高傷、高階偶失手，貼近擲骰桌遊手感。
   var wProf = (winner === atk) ? aProf : dProf;
@@ -617,6 +677,9 @@ function resolveFateBattle_(atk, def, opts) {
   // 🎴 傷害同樣降六圍權重(flat 0.8→0.6)：避免高階一發轟死；主威力交給武器骰(帶骰運)＋命中分差＋fx/寶具。
   var base = Math.round(rankVal(wDmgRank) * 0.6) + weaponDice + Math.round(Math.abs(aHit - dEva) * 1.2);
   fired.push(winner.name + '·武器骰' + wTier + 'd8=' + weaponDice);
+  // 💨 以巧破力·全能稅(2026-07 玩家定案 ×0.85)：敏捷已主宰命中/迴避，再兼傷害底(agile_striker)須打折——
+  //   否則「敏EX+迴避疊加」一個數值包辦攻防(模擬：以巧變化流普攻對全池 97.9%·互鬥無天敵)。僅敏捷入傷時生效。
+  if (wProf.dmg === '敏捷') { base = Math.round(base * 0.85); fired.push(winner.name + '·' + fxName_(winner, 'agile_striker', '以巧破力') + '(以巧入傷·×0.85)'); }
   // 🔋 出力傷害乘子：依勝方(出擊方)靈基出力檔位放大/縮小本擊威力（御主供魔越足、傷害越高）。
   var wOut = outputTier_(winner.output);
   if (wOut.dmgMul !== 1.0) { base = Math.round(base * wOut.dmgMul); fired.push(winner.name + '·出力' + (winner.output || 60) + '%·' + wOut.label); }
@@ -654,8 +717,10 @@ function resolveFateBattle_(atk, def, opts) {
   base = fxDmgApply_(base, winner, loser, 'divine_age', fired);
   base = fxDmgApply_(base, winner, loser, 'wind_strike', fired);
   base = fxDmgApply_(base, winner, loser, 'crafting', fired);
-  // 🗡️ 秘劍・燕返(tsubame)：劍術本身而非寶具限定——只要勝方持有即三方位同斬，命中就傷害 ×2.3(普攻/寶具皆同、不重複疊加)
-  if (hasFx_(winner, 'tsubame')) { base = Math.round(base * 2.3); fired.push(winner.name + '·' + fxName_(winner, 'tsubame', '秘劍・燕返') + '(三方位同斬)'); }
+  // 🗡️ 秘劍・燕返(tsubame)：劍術本身——三方位同斬 ×2.3【普攻限定·僅每場第1回合】(2026-07 三修玩家定案：
+  //   與寶具骰/超載/規模疊乘會爆炸故普攻限定；再限首回合一閃(opts.round)擋「回回×2.3」普攻流無敵化。
+  //   寶具解放段(四修)已無疊乘、僅剩 概念位階3/貫穿＋演出標籤，不受首回合限制)
+  if (hasFx_(winner, 'tsubame') && !opts.np && (opts.round || 1) === 1) { base = Math.round(base * 2.3); fired.push(winner.name + '·' + fxName_(winner, 'tsubame', '秘劍・燕返') + '(三方位同斬)'); }
   // 🗡️ 無毀的湖光(weapon_steal／蘭斯洛特·Arondight)：湖之妖精所託的魔劍，對具「龍」屬性之敵解放秘藏威能，傷害×1.5
   if (hasFx_(winner, 'weapon_steal')) {
     var foeDragon = (loser.traits || []).concat(loser.skills || []).some(function (t) { return t && /龍|竜/.test(String(t.n)); });
@@ -686,7 +751,9 @@ function resolveFateBattle_(atk, def, opts) {
     // 解放寶具者贏了交手→套用「所選寶具」的簽名乘子；對手反殺(winner=def)則照其自身 fx(不受玩家寶具選擇影響)
     var wRelease = (winner === atk);
     var wSig = function (fx) { return wRelease ? npIs(fx) : !!hasFx_(winner, fx); };
-    var npRank = winner.six["寶具"];
+    // 🎴 2026-07 六波：wRelease(解放者本人)吃「所選寶具」自己的官方階級(atkNp.r，多寶具選項各自定義·
+    //   沒定義則退回六圍表)；對手反殺(!wRelease)維持吃自身六圍表寶具值(不受玩家寶具選擇影響·既有行為不變)。
+    var npRank = wRelease ? atkNp.r : winner.six["寶具"];
     var npDice = npBaseDice_(npRank); base += npDice; fired.push(winner.name + '·寶具骰(' + (rankVal(npRank) >= 60 ? 'EX' : npRank) + ')=' + npDice);
     base += Math.round(rankVal(npRank) * 1.2) + 35; fired.push(winner.name + '·寶具解放' + (wRelease && atkNp && atkNp.name ? ('·' + String(atkNp.name).split(' ')[0]) : '')); // 🎴 寶具威力大幅提升·看得出差別
     // 🔥 灌魔加乘：規格外寶具(＋/EX)超載——威力隨御主灌注的餘裕魔力線性放大(倍率由上游 actionFateBattle 依實灌量算好·已扣魔)。
@@ -702,6 +769,9 @@ function resolveFateBattle_(atk, def, opts) {
     if (wDivR) base = Math.round(base * (1 + 0.1 * rankMul_(wDivR)));
     // 🗡️ 無限劍製(ubw／固有結界)：劍之地平展開，攻方在領域內傷害大增
     if (wSig('ubw')) { base = Math.round(base * 1.25); fired.push(winner.name + '·' + fxName_(winner, 'ubw', '無限劍製') + '(固有結界)'); }
+    // 🗡️ 燕返·寶具解放段(2026-07 四修玩家定案)：簽名 ×1.5 拔除(×1.0)——平A首回合 ×2.3 才是絕技本體，
+    //   解放時只吃寶具骰/概念位階3/貫穿、不再另疊乘；fired 標籤保留供 AI 演出「真名解放·三段同時斬」。
+    if (wSig('tsubame')) { fired.push(winner.name + '·' + fxName_(winner, 'tsubame', '秘劍・燕返') + '(寶具解放·三段同時斬)'); }
     // 🗡️ 妄想心音／霧夜殺戮(zabaniya)：暗殺系寶具＝奪心一擊，命中即致命級重創（救低六圍刺客/狂戰的本命）
     if (wSig('zabaniya')) { base = Math.round(base * 1.9) + 70; fired.push(winner.name + '·' + fxName_(winner, 'zabaniya', '妄想心音') + '(奪心致命)'); }
     // 🐙 螺湮城教本(summon_horror／青鬍子)：自深淵召出觸手大海怪鋪天蓋地碾壓——救低六圍支援法師的本命一擊(對城規模)
@@ -737,14 +807,18 @@ function resolveFateBattle_(atk, def, opts) {
   //   而非光憑持有 burst——否則沒發動時只吃對魔力減傷卻無 burst 增益，全是壞處。
   var burstFired = !!(opts.skill && opts.skill.id === 'burst' && !opts.skill.tiny && winner === atk);
   var atkMagic = (wProf.dmg === '魔力') || burstFired || !!hasFx_(winner, 'divine_age');
+  // ⚡ 「本擊是否寶具解放」（npOnly 防禦的觸發判定）：opts.np 且勝方＝解放者本人才算——
+  //   守方反殺(winner=def)時敗方吃到的是普通反擊，七天盾不對其反應。
+  var npStrike = !!(opts.np && winner === atk);
   // 守方減傷：耐久（階級）
   base -= Math.round(rankVal(loser.six["耐久"]) / 2);
   // 🛡️ 陣地作成(territory)：法師以魔術防壁／結界減傷，補償其低耐久（救玻璃大砲美狄亞的存活）
-  base = fxDefApply_(base, loser, winner, 'territory', pierces, atkMagic, fired);
+  base = fxDefApply_(base, loser, winner, 'territory', pierces, atkMagic, fired, npStrike);
   // 🏰 主場·陣地結界(home_field)：於自己佈設的陣地決戰時全隊額外減傷（隨陣地作成階·引敵入陣地的主場優勢）
-  base = fxDefApply_(base, loser, winner, 'home_field', pierces, atkMagic, fired);
-  // 🛡️ 七天盾·羅·埃亞斯(rho_aias／EMIYA)：投影卡帕涅烏斯之盾，七層花瓣硬擋重擊；遭超位階概念(ea等)貫穿則失效
-  base = fxDefApply_(base, loser, winner, 'rho_aias', pierces, atkMagic, fired);
+  base = fxDefApply_(base, loser, winner, 'home_field', pierces, atkMagic, fired, npStrike);
+  // 🛡️ 七天盾·羅·埃亞斯(rho_aias／EMIYA)：對【寶具解放】的一擊反應性投影卡帕涅烏斯之盾，七層花瓣硬擋——
+  //   普攻不觸發；玩家側每次展開耗御主30魔(見 DEF_FX_.rho_aias)；遭超位階概念(ea等)貫穿則失效
+  base = fxDefApply_(base, loser, winner, 'rho_aias', pierces, atkMagic, fired, npStrike);
   // 🦠 對瘟疫抗性：攻方為「疫病」(蒼白騎兵)時，守方持高魔抗(對魔力≥B·詛咒防護)或神性(神之加護)者抵抗疾病，傷害減半。
   //   ★唯「病死宿命」之敵(恩奇都)不適用——其宿命之死無可逃避(上方已 ×3 概念碾壓)。
   if (!plagueDoom && (winner.traits || []).some(function (t) { return t && /疫病/.test(String(t.n)); })) {
@@ -760,7 +834,7 @@ function resolveFateBattle_(atk, def, opts) {
   var rnW = hasFx_(winner, 'rune');
   if (rnW && winner.runeMode === 'dmg') { base += Math.round(10 * rankMul_(rnW)); fired.push(winner.name + '·' + fxName_(winner, 'rune', '原初符文') + '(符文灼擊·增傷)'); }
   // 神核(divine_core)：減傷 18%×階級；但破魔薔薇(anti_magic_lance)等高位階概念無視神核護甲
-  base = fxDefApply_(base, loser, winner, 'divine_core', pierces, atkMagic, fired);
+  base = fxDefApply_(base, loser, winner, 'divine_core', pierces, atkMagic, fired, npStrike);
   // 對魔力(nullify_magic)：攻方為魔術系(法師魔砲/魔力放出/神代)時大減魔術傷。
   //   ★原作精髓：A 階對魔力幾乎無視現代魔術——Saber 對 Caster 的魔砲僅如清風拂面。
   //   但神代魔術(神祖之術)凌駕現代對魔力＝完全無視(美狄亞的本領)；概念壓制亦無視。
@@ -779,7 +853,7 @@ function resolveFateBattle_(atk, def, opts) {
     fired.push(loser.name + '·' + fxName_(loser, 'nullify_magic', '對魔力') + (daWin ? '(神代凌駕·殘三成)' : (nmV >= 50 ? '(無視魔術)' : '')));
   }
   // 🧱 城牆防禦(wall_def)：法師以魔術城牆隔絕物理衝擊，補償 Caster 低耐久（僅擋物理；魔術系傷害穿透）
-  base = fxDefApply_(base, loser, winner, 'wall_def', pierces, atkMagic, fired);
+  base = fxDefApply_(base, loser, winner, 'wall_def', pierces, atkMagic, fired, npStrike);
   // ✨ 禮裝被動加持·承受寶具減傷（如全世界之鞘 ×0.82／月靈髓液攻防一體 ×0.88）：被動恆常生效，不受概念壓制
   var mcLose = mcCombatFx_(loser);
   if (mcLose && opts.np && mcLose.npDefMul && mcLose.npDefMul !== 1) { base = Math.round(base * mcLose.npDefMul); fired.push(loser.name + '·禮裝「' + mcLose.label + '」(寶具減傷×' + mcLose.npDefMul + ')'); }

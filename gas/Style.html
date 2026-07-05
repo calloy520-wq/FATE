@@ -103,6 +103,13 @@
     #pane-chat { flex: 1; }
     #pane-map { flex: 0 0 360px; border-left: 1px solid var(--border-color); }
   }
+
+  /* 🛠️ 英靈工房：手機窄版 320px；桌機放大(2026-07 玩家反饋「電腦上太小」)——
+     其餘 onboarding 窄屏(登入/選單/召喚)維持一致的手機感，僅工房內容密度高、值得放大 */
+  #step-forge { width: 320px; }
+  @media (min-width: 700px) {
+    #step-forge { width: 560px; }
+  }
   /* 手機(≤600)：三分頁，按鈕切換 */
   @media (max-width: 600px) {
     #pane-wrap { flex-direction: column; }

@@ -52,6 +52,7 @@ GAS 在 `gas/`，clasp 推 branch 自動部署。**我每次開機失憶，這�
 
 - **`HANDBOOK.md`** — 全專案工具書（理念＋架構＋資料層＋每個檔案在做什麼＋戰鬥引擎管線＋三軌）。**想「這專案在幹嘛/某檔做什麼」先看這份。**
 - **`SOLO_REFERENCE.md`** — 單人模式完整代碼地圖（函數名＋作用＋schema＋ActionRouter＋MEMORY 標記）。**要 grep 前先查這份**，省時間。
+- **`AI_PROMPT_MAP.md`** — 每個 action ↔ 觸發按鈕 ↔ handler ↔ 送 AI 的 prompt 全景圖（含 `miniSystem`／各卡片逐字引文）。**改提示詞／動 narrate 管線前先查這份、改完順手更新**（行號會漂·以函數名為錨）。
 - `DESIGN.md` — 設計鐵則（GAS 掌數值、AI 只說書）。
 
 ## ✅ 工作流程

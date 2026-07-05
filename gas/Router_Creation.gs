@@ -16,9 +16,14 @@ function actionManualNpc(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: "名號僅限中文字，不可使用英文、數字或符號。" });
   }
 
-  // 🔴 創角寫入前再次擋撞名，否則會產生兩個同名 PC，後續所有靠姓名查找的功能都會抓錯人。
-  const pcRows = sheets.pc.getDataRange().getValues();
-  if (pcRows.find(r => r[COL.PC.NAME] === finalName && !String(r[COL.PC.ID]).startsWith("DEAD_"))) return JSON.stringify({ success: false, message: "此名號已有魔術師使用，請換一個名號。" });
+  // 🔵 御主名號＝角色名（登入身分是「帳號名」·見 Account.gs）。2026-07 修：原本全表擋撞名——多帳號
+  //   共用一張表、game_id 實例化後，不同局的同名御主由 game_id＋faction 徹底分流（所有查找皆 game_id 內、
+  //   玩家御主永遠靠 pcId/ID 認人），跨局撞名無害；卻害「分享出去多人玩」時常見/正典名號被別局佔走而創不了角。
+  //   改為只擋【正典角色名】：避免自創御主與被種入本局的同名正典敵手變雙胞胎（同局內按名字查會歧義）；
+  //   想當正典角色請走「扮演正典御主」入口。用記憶體種子常數比對·順帶省掉一次整表讀。
+  const _canonHit = (typeof SEED_MASTERS !== 'undefined' && SEED_MASTERS.some(m => m && m.name === finalName))
+    || (typeof SEED_SERVANTS !== 'undefined' && SEED_SERVANTS.some(s => s && s.name === finalName));
+  if (_canonHit) return JSON.stringify({ success: false, message: `「${finalName}」是聖杯戰爭中已知的英靈／御主——自創御主請另取名號；若想扮演此角，請用「扮演正典御主」入口。` });
 
   // 🔵 實例化：御主創角 → 開一個全新 game_id 世界
   const gameId = "g_" + Date.now();
@@ -156,10 +161,22 @@ function getPlayedMaster_(memory) {
 function actionGetHeroes(userData, pcId, sheets) {
   try {
     const rows = getHeroCodexCached().slice(1);
-    const heroes = rows.filter(r => r[COL.HERO.ID]).map(r => ({
-      id: r[COL.HERO.ID], cls: r[COL.HERO.CLS], name: r[COL.HERO.NAME],
-      gender: r[COL.HERO.SEX], np: r[COL.HERO.NP]
-    }));
+    const heroes = rows.filter(r => r[COL.HERO.ID]).map(r => {
+      const h = {
+        id: r[COL.HERO.ID], cls: r[COL.HERO.CLS], name: r[COL.HERO.NAME],
+        gender: r[COL.HERO.SEX], np: r[COL.HERO.NP],
+        src: String(r[COL.HERO.SOURCE] || "") // 🌟 來源：ai_gen＝玩家原創(工房/盲盒)·前端「玩家原創」專區用
+      };
+      if (h.src === "ai_gen") { // ✏️ 原創英靈附 創造者＋編輯預填資料(工房修改模式用·種子不附)
+        let pj = {}; try { pj = JSON.parse(r[COL.HERO.PERSONA] || "{}"); } catch (e) { }
+        h.creator = String(pj.creator || "");
+        let six = {}, sk = []; try { six = JSON.parse(r[COL.HERO.SIX] || "{}"); } catch (e) { } try { sk = JSON.parse(r[COL.HERO.SKILLS] || "[]"); } catch (e) { }
+        h.detail = { six: six, skills: sk, align: String(r[COL.HERO.ALIGN] || "中立"),
+          look: String(pj.look || ""), pref: String(pj.words || ""), moe: String(pj.moe || ""), fp: String(pj.firstP || ""),
+          toMaster: String(pj.toMaster || ""), speech: String(pj.speech || ""), tic: String(pj.tic || ""), back: String(pj.back || ""), weapon: String(pj.weapon || "") };
+      }
+      return h;
+    });
     return JSON.stringify({ success: true, heroes: heroes });
   } catch (e) {
     return JSON.stringify({ success: false, heroes: [], message: e.message });
@@ -192,22 +209,32 @@ function actionGetMasters(userData, pcId, sheets) {
 //   其餘中階以下(含施放/防禦/對人放大)已開放，讓自訂/AI 從者的天花板貼近種子。
 var ALLOWED_FX_ = {
   nullify_magic: 1, first_strike: 1, analyze: 1, str_up: 1, burst: 1, ride: 1, stealth: 1,
-  evade_ranged: 1, survive: 1, divine_core: 1, mad: 1, morale: 1, divine_age: 1,
+  evade_ranged: 1, survive: 1, mad: 1, morale: 1, divine_age: 1,
   unreadable: 1, wind_strike: 1, tsubame: 1, gae_bolg: 1, god_hand: 1,
   clear_mind: 1, self_mod: 1, tactics: 1, anti_magic_lance: 1, rule_breaker: 1,
   // 🆕 2026-07 放寬(A)：施放技術/命中/防禦/對人放大——中階以下，拉高自訂從者上限、不含頂級概念寶具
   aim: 1, projection: 1, fast_cast: 1, crafting: 1, petrify: 1, shapeshift: 1,
   solo: 1, weapon_steal: 1, rho_aias: 1, territory: 1, wall_def: 1, zabaniya: 1, regen: 1,
-  divine: 1 // 🆕 2026-07：神性(帶階級·比 trait 名判定精準)——引擎中主要是弱點(被神殺/天之鎖/對神剋)，濫用價值低
+  // ⚠ 2026-07 六波拔除 divine_core(神核)：玩家點破「這是只有真正神靈軀體才有的，是不是有人拿到了」——
+  //   查證種子庫 5 位持有者裡 2 位(美杜莎/伊絲塔)其實查無來源確認、已拔除，剩 3 位(斯卡蒂/阿基里斯/迦爾納)
+  //   皆貨真價實神裔。工房原本零門檻任何自訂角色可買，跟 ea/王之財寶/UBW/海怪/天之鎖/黃金律 等
+  //   種子專屬機制的處理邏輯矛盾——漲價解決不了「凡人不該有」的問題(有預算照樣買得到)，改比照收為種子專屬。
+  divine: 1, // 🆕 2026-07：神性(帶階級·比 trait 名判定精準)——引擎中主要是弱點(被神殺/天之鎖/對神剋)，濫用價值低
+  agile_striker: 1, // 💨 2026-07：以巧破力——以敏捷為傷害底(敏高於筋/魔時)。敏捷輸出流唯一通道·二元·全能稅×0.85·平價25。⚠顯示名勿用「神速」：理查/斯卡哈-Assassin 正史技能已叫神速(fx=first_strike·先機)，兩機制撞名必混淆
+  // 🆕 2026-07 三波開放(玩家定案·互鬥錦標賽揪出剋制缺口後補貨架)：
+  sense: 1,    // 氣息感知(恩奇都同款)：階級≥對方氣息遮斷→看穿奇襲。刺客流的天然反制。
+  god_slay: 1, // 神殺(斯卡哈同款)：對神性之敵×1.17~2.0(依對方神格·binary→固定25)。counter-pick 剋神核/神裔。
+  lovespot: 1  // 愛之痣(迪盧木多同款)：敵命中-1(微量風味·固定5)。
 };
-var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應就填空字串\"\"（頂級概念寶具 乖離劍/王之財寶/無限劍製 等為種子專屬、不在此清單）：" +
+var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應就填空字串\"\"（頂級概念寶具 乖離劍/王之財寶/無限劍製/神核 等為種子專屬、不在此清單）：" +
   "對魔力=nullify_magic、直感=first_strike、心眼=analyze、千里眼=aim、怪力=str_up、魔力放出=burst、投影魔術=projection、" +
   "高速詠唱=fast_cast、道具作成=crafting、騎乘=ride、氣息遮斷=stealth、變化(迴避+)=shapeshift、避矢=evade_ranged、" +
-  "戰鬥續行=survive、單獨行動=solo、神核=divine_core、七天盾(投影減傷)=rho_aias、陣地作成(減傷)=territory、城牆防禦(物理減傷)=wall_def、" +
+  "戰鬥續行=survive、單獨行動=solo、七天盾(對寶具展開·投影減傷·御主耗魔)=rho_aias、陣地作成(減傷)=territory、城牆防禦(物理減傷)=wall_def、" +
   "狂化=mad、勇猛/卡里斯瑪=morale、神代魔術=divine_age、無欲(封先機)=unreadable、透化(免威壓)=clear_mind、" +
   "自我改造(命中傷害+)=self_mod、軍略(寶具+)=tactics、風王鐵鎚(傷+)=wind_strike、魔眼(石化)=petrify、必中槍=gae_bolg、" +
-  "秘劍燕返(普攻/寶具皆強化)=tsubame、妄想心音(暗殺致命)=zabaniya、無毀湖光(對龍+)=weapon_steal、治癒(每回合回血)=regen、不死復活(復活3次·如尼祿三度輝映)=god_hand、" +
-  "破魔(無視神核/續行)=anti_magic_lance、破戒(斬契約救贖)=rule_breaker、神性(神裔·會被神殺剋)=divine";
+  "秘劍燕返(每場首回合強化)=tsubame、妄想心音(暗殺致命)=zabaniya、無毀湖光(對龍+)=weapon_steal、治癒(每回合回血)=regen、不死復活(復活3次·如尼祿三度輝映)=god_hand、" +
+  "破魔(無視神核/續行)=anti_magic_lance、破戒(斬契約救贖)=rule_breaker、神性(神裔·會被神殺剋)=divine、以巧破力(以敏捷為傷害底)=agile_striker、" +
+  "氣息感知(看穿奇襲)=sense、神殺(剋神性之敵)=god_slay、愛之痣(魅惑·敵命中-1)=lovespot";
 
 // 清洗 AI 給的技能陣列為 [{n,r,fx}]（fx 不在字典就清空，仍保留為演出用標籤）
 //   r 階級與 sanitizeSix_ 同一套驗證(承認 A++/B−)——原 slice(0,2) 會把 "A++" 截成 "A+"(2026-07 修)。
@@ -244,7 +271,10 @@ function sanitizeSix_(o) {
 }
 
 // 🆕 把 AI 生成的原創從者寫回英靈殿（重名則不收；御主不適用此機制）
-function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, traits, np, personaWords, align) {
+//   2026-07：加選填 pExtra 物件(工房玩家自定 外貌look/萌點moe/自稱firstP/態度toMaster/口吻speech/小動作tic/身世back)
+//   ——hero 分支重召時讀 persona 同名欄(stampPersonaFlavor_ 等)，不存的話玩家親手寫的設定會在重召時退回預設。
+//   舊呼叫端不傳＝空物件、行為不變。
+function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, traits, np, personaWords, align, pExtra) {
   name = String(name || "").trim();
   if (!name) return;
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -254,11 +284,188 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][COL.HERO.NAME]).trim() === name) return; // 已有同名 → 不重複收錄
   }
-  var persona = JSON.stringify({ words: String(personaWords || ""), firstP: "我", toMaster: "" });
+  var px = pExtra || {};
+  var persona = JSON.stringify({
+    words: String(personaWords || ""), firstP: String(px.firstP || "") || "我", toMaster: String(px.toMaster || ""),
+    look: String(px.look || ""), moe: String(px.moe || ""), speech: String(px.speech || ""), tic: String(px.tic || ""), back: String(px.back || "")
+  });
   hs.appendRow([name + "-" + cls, cls, name, sex || "異", sixJson || "{}",
     JSON.stringify(classSkills || []), JSON.stringify(skills || []), JSON.stringify(traits || []),
     np || "", persona, align || "中立", "[]", "ai_gen"]);
   try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { } // 種子表已變動→清快取，下次讀到新從者
+}
+
+// 🛠️ 職階技能慣例表（工房自動附贈·不占 3 槽·與種子/AI 生成對稱）
+var FORGE_CLS_SKILLS_ = {
+  Saber: [{ n: "對魔力", r: "B", fx: "nullify_magic" }], Lancer: [{ n: "對魔力", r: "C", fx: "nullify_magic" }],
+  Archer: [{ n: "對魔力", r: "C", fx: "nullify_magic" }, { n: "單獨行動", r: "C", fx: "solo" }],
+  Rider: [{ n: "對魔力", r: "C", fx: "nullify_magic" }, { n: "騎乘", r: "B", fx: "ride" }],
+  Caster: [{ n: "陣地作成", r: "C", fx: "territory" }, { n: "道具作成", r: "C", fx: "crafting" }],
+  Assassin: [{ n: "氣息遮斷", r: "B", fx: "stealth" }], Berserker: [{ n: "狂化", r: "C", fx: "mad" }]
+};
+// 🛠️ 工房 build 解析＋全套驗證（單一真實來源：召喚 actionSummonServant build 分支 與 修改 actionUpdateHero 共用）。
+//   規格：預算340·六圍+技能+規模同一錢包(EX≤2)＋技能≤4(前3免欄位費·第4欄+20·fx白名單·上限A·三軌計價·二元平價·燕返60)＋規模計價(對軍+20)＋
+//   寶具名/描述剝高規模關鍵字＋正典名擋＋演出七欄清洗。回 {ok:false,message} 或 {ok:true,...欄位}。
+function parseForgeBuild_(build, reqCls) {
+  const VALID_CLS = ["Saber", "Archer", "Lancer", "Rider", "Caster", "Assassin", "Berserker"];
+  const out = {};
+  out.cls = VALID_CLS.includes(String(build.cls)) ? String(build.cls) : (reqCls || "Saber");
+  out.name = String(build.name || "").replace(/[<>&"'`]/g, "").trim().slice(0, 20);
+  if (!out.name) return { ok: false, message: "請為英靈取一個真名。" };
+  if ((typeof SEED_SERVANTS !== "undefined" && SEED_SERVANTS.some(s => s && s.name === out.name)) ||
+      (typeof SEED_MASTERS !== "undefined" && SEED_MASTERS.some(m => m && m.name === out.name))) {
+    return { ok: false, message: `「${out.name}」是英靈殿正典角色——請用「✨真名召喚」直接召喚，或另取原創真名。` };
+  }
+  out.sex = ["男", "女", "異"].includes(String(build.sex)) ? String(build.sex) : "異";
+  const _fClean = (v, n) => String(v || "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, n);
+  out.fp = _fClean(build.fp, 4); out.toM = _fClean(build.toMaster, 20); out.speech = _fClean(build.speech, 40);
+  out.tic = _fClean(build.tic, 30); out.moe = _fClean(build.moe, 18); out.back = _fClean(build.back, 28);
+  const ALIGNS_ = ["秩序・善", "秩序・中庸", "秩序・惡", "中立・善", "中立", "中立・惡", "混沌・善", "混沌・中庸", "混沌・惡"];
+  out.align = ALIGNS_.includes(String(build.align)) ? String(build.align) : "中立";
+  // 💰 2026-07 調升 270→340：技能計價/規模計價後來併入同一錢包，270(原純六圍的 A−設定)實測按
+  //   工房價格計價全種子＝排 32/36(咒腕級墊底)。340＝種子中位數——點滿≈尼祿/美杜莎中堅，
+  //   強者種子(420~505·且握有 Excalibur/王財等工房買不到的概念 fx)仍明確在上。
+  const FORGE_BUDGET = 340;
+  // 🐗 狂化補正(2026-07 玩家定案+30)：Berserker 職階附贈=狂化C(傷+但命中/迴避−·不可關)是七職階唯一
+  //   「負資產禮物」——同素體實測墊底(普攻3.0%/寶具3.0%·Caster 6.1/13.3)。差距換算 20~45 點(幸運階梯
+  //   匯率 10點≈1.2pp)，取中 30；+50 會反轉成最優職階。370 頂配狂戰實測 70.9%/45.9%=強力中堅·安全。
+  const FORGE_CLS_BONUS_ = { Berserker: 30 };
+  const okPlain = v => /^(E|D|C|B|A|EX)$/.test(String(v || "").toUpperCase());
+  out.six = {};
+  ["筋力", "耐久", "敏捷", "魔力", "幸運", "寶具"].forEach(k => { const v = String((build.six || {})[k] || "C").toUpperCase(); out.six[k] = okPlain(v) ? v : "C"; });
+  const exK = Object.keys(out.six).filter(k => out.six[k] === "EX");
+  if (exK.length > 2) exK.slice(2).forEach(k => out.six[k] = "A");
+  const spent = Object.keys(out.six).reduce((s, k) => s + rankVal(out.six[k]), 0);
+  out.npScale = (String(build.npScale) === "對軍") ? "對軍" : "對人";
+  const scaleCost = (out.npScale === "對軍") ? 20 : 0;
+  // 🎰 第4技能欄(2026-07 玩家定案·欄位費+20)：壓力測試證實安全——預算才是真約束(第4技+20費逼六圍讓位)，
+  //   疊加上限±8 讓多買的命中/迴避冗餘；最壞情況四技組合(83~85%)皆未超過三技頂點(93%)。
+  out.skills = (Array.isArray(build.skills) ? build.skills : []).filter(Boolean).slice(0, 4).map(s => {
+    const fx = ALLOWED_FX_[String(s && s.fx || "").trim()] ? String(s.fx).trim() : "";
+    let r = String(s && s.r || "C").toUpperCase(); if (!/^(E|D|C|B|A)$/.test(r)) r = "C";
+    return { n: String(s && s.n || "").replace(/[<>&"'`]/g, "").slice(0, 10) || "技能", r: r, fx: fx };
+  });
+  const SKILL_PTS_ = { E: 5, D: 10, C: 15, B: 20, A: 25 };
+  // 🎚️ 三軌計價(2026-07 玩家定案「效果不同價錢不能一樣」)：同組同價會讓大係數標籤嚴格支配小係數——
+  //   照引擎真實係數分軌：強效(千里眼/魔眼4×階·高速詠唱/神代12×階＋剋對魔力·陣地26%×階)貴 1/3、
+  //   輕效(騎乘2×階·風王6×階·勇猛3×階且被透化封)便宜 1/3。鏡射前端 FORGE_SK_TRACK/FORGE_SK_PTS_*。
+  const SKILL_PTS_BIG_ = { E: 7, D: 13, C: 20, B: 27, A: 33 };
+  const SKILL_PTS_SMALL_ = { E: 3, D: 7, C: 10, B: 13, A: 17 };
+  const SKILL_TRACK_ = { aim: 1, petrify: 1, fast_cast: 1, divine_age: 1, territory: 1, ride: -1, wind_strike: -1, morale: -1 }; // 1=強效 -1=輕效 其餘標準
+  // 二元平價(引擎不讀階級)：weapon_steal 對龍恆×1.5(2026-07 補洞：原階級計價可 E5 白撿)、god_slay 依【對方】神格縮放、lovespot 恆-1(風味價5)
+  const FLAT_FX_ = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25, weapon_steal: 25, god_slay: 25, lovespot: 5 };
+  const slotFee = out.skills.length > 3 ? 20 : 0; // 🎰 第4欄啟用費(有第4個技能條目即收·純演出標籤也占欄)
+  const skillCost = out.skills.reduce((s, k) => s + (k.fx ? (FLAT_FX_[k.fx] ||
+    (SKILL_TRACK_[k.fx] === 1 ? SKILL_PTS_BIG_ : SKILL_TRACK_[k.fx] === -1 ? SKILL_PTS_SMALL_ : SKILL_PTS_)[k.r] || 15) : 0), slotFee);
+  const total = spent + scaleCost + skillCost;
+  const clsBudget = FORGE_BUDGET + (FORGE_CLS_BONUS_[out.cls] || 0);
+  if (total > clsBudget) return { ok: false, message: `六圍 ${spent}＋技能 ${skillCost}${slotFee ? "(含第4欄+20)" : ""}＋規模「${out.npScale}」${scaleCost ? `+${scaleCost}` : "0"} ＝ ${total}，超過預算 ${clsBudget}${FORGE_CLS_BONUS_[out.cls] ? "(含狂化補正+" + FORGE_CLS_BONUS_[out.cls] + ")" : ""}——請調降六圍/技能階級或改對人規模。` };
+  out.classSkills = FORGE_CLS_SKILLS_[out.cls] || [];
+  out.npName = String(build.npName || "").replace(/[<>&"'`]/g, "").replace(/【常駐寶具】|對城|對界|對神/g, "").trim().slice(0, 20) || "無名寶具";
+  out.npR = out.six["寶具"]; // 顯示階＝六圍寶具階(引擎本就只吃 six.寶具)
+  out.npDesc = String(build.npDesc || "").replace(/【常駐寶具】|對城|對界|對神/g, "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, 40);
+  out.weapon = _fClean(build.weapon, 30);
+  out.look = _fClean(build.look, 60); out.pref = _fClean(build.pref, 60);
+  const _segs = v => v ? v.split(/[、,，]/).filter(Boolean).length : 0;
+  out.lookFull = _segs(out.look) >= 3; out.prefFull = _segs(out.pref) >= 3;
+  out.desc = String(build.desc || "").trim().slice(0, 120);
+  out.ok = true;
+  return out;
+}
+
+// 💾 工房存檔（action="save_hero"·2026-07 玩家定案二版：工房＝純製造/修改，不召喚）：
+//   create＝寫英靈殿新列(AI 補 persona/寶具英文名·蓋創造者印記)；edit(帶 heroId)＝僅創造者本人可改、
+//   真名不可改(識別鍵)、演出欄非空覆寫/空保留、寶具英文名沿用舊值。改的是英靈殿【範本】——
+//   之後召喚才生效，已在場的分身不追改(可用 DEV「套用最新平衡」同步)。
+// 🖐 認領無主原創英靈（action="claim_hero"·2026-07）：創造者印記功能上線【前】鑄的 ai_gen 英靈
+//   沒有 persona.creator——「我的作品」不列、✏️ 不亮、誰都不能改。開放認領：無主者先到先得，
+//   認領後即為創造者(可修改)。已有主的不可搶(拒絕)。
+function actionClaimHero(userData, pcId, sheets) {
+  const acct = String(userData.acctName || "").trim();
+  const heroId = String(userData.heroId || "").trim();
+  if (!acct || !heroId) return JSON.stringify({ success: false, message: "缺少帳號或英靈識別。" });
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hs = ss.getSheetByName("英靈殿");
+  if (!hs) return JSON.stringify({ success: false, message: "英靈殿不存在。" });
+  const data = hs.getDataRange().getValues();
+  const idx = data.findIndex((r, i) => i > 0 && String(r[COL.HERO.ID]) === heroId);
+  if (idx < 0) return JSON.stringify({ success: false, message: "查無此英靈。" });
+  if (String(data[idx][COL.HERO.SOURCE]) !== "ai_gen") return JSON.stringify({ success: false, message: "正典種子英靈不可認領。" });
+  let pj = {}; try { pj = JSON.parse(data[idx][COL.HERO.PERSONA] || "{}"); } catch (e) { }
+  if (pj.creator) return JSON.stringify({ success: false, message: `「${data[idx][COL.HERO.NAME]}」已有創造者（${pj.creator}），不可認領。` });
+  pj.creator = acct;
+  data[idx][COL.HERO.PERSONA] = JSON.stringify(pj);
+  hs.getRange(idx + 1, COL.HERO.PERSONA + 1).setValue(data[idx][COL.HERO.PERSONA]);
+  try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { }
+  return JSON.stringify({ success: true, message: `「${data[idx][COL.HERO.NAME]}」已認領——現在你是她的創造者，可在工房修改。` });
+}
+
+function actionSaveHero(userData, pcId, sheets) {
+  const acct = String(userData.acctName || "").trim();
+  if (!acct) return JSON.stringify({ success: false, message: "缺少帳號身分，請重新登入。" });
+  let build = null;
+  try { build = (typeof userData.build === "string") ? JSON.parse(userData.build) : userData.build; } catch (e) { }
+  if (!build) return JSON.stringify({ success: false, message: "工房資料格式錯誤。" });
+  const heroId = String(userData.heroId || "").trim();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hs = ss.getSheetByName("英靈殿");
+  if (!hs) return JSON.stringify({ success: false, message: "英靈殿不存在。" });
+
+  if (heroId) {
+    // ── ✏️ 修改模式 ──
+    const data = hs.getDataRange().getValues();
+    const idx = data.findIndex((r, i) => i > 0 && String(r[COL.HERO.ID]) === heroId);
+    if (idx < 0) return JSON.stringify({ success: false, message: "查無此英靈。" });
+    if (String(data[idx][COL.HERO.SOURCE]) !== "ai_gen") return JSON.stringify({ success: false, message: "正典種子英靈不可修改。" });
+    let pj = {}; try { pj = JSON.parse(data[idx][COL.HERO.PERSONA] || "{}"); } catch (e) { }
+    if (!pj.creator || pj.creator !== acct) return JSON.stringify({ success: false, message: "僅創造者本人可修改這名英靈。" });
+    build.name = String(data[idx][COL.HERO.NAME]); // 真名＝識別鍵，不可改
+    const pb = parseForgeBuild_(build, String(data[idx][COL.HERO.CLS] || ""));
+    if (!pb.ok) return JSON.stringify({ success: false, message: pb.message });
+    // 寶具英文名沿用舊值（修改不重叫 AI）
+    const oldNp = String(data[idx][COL.HERO.NP] || "");
+    const enM = oldNp.match(/\s([A-Za-z][A-Za-z0-9 .'\-:]{2,29})（/);
+    const np = `${pb.npName}${enM ? " " + enM[1] : ""}（${pb.npScale} ${pb.npR}）${pb.npDesc ? "·" + pb.npDesc : ""}`;
+    const keep = (nv, ov) => nv ? nv : String(ov || "");
+    data[idx][COL.HERO.CLS] = pb.cls; data[idx][COL.HERO.SEX] = pb.sex;
+    data[idx][COL.HERO.SIX] = JSON.stringify(pb.six);
+    data[idx][COL.HERO.CLASS_SKILLS] = JSON.stringify(pb.classSkills);
+    data[idx][COL.HERO.SKILLS] = JSON.stringify(pb.skills);
+    data[idx][COL.HERO.NP] = np; data[idx][COL.HERO.ALIGN] = pb.align;
+    data[idx][COL.HERO.PERSONA] = JSON.stringify({
+      words: keep(pb.pref, pj.words), firstP: keep(pb.fp, pj.firstP) || "我", toMaster: keep(pb.toM, pj.toMaster),
+      look: keep(pb.look, pj.look), moe: keep(pb.moe, pj.moe), speech: keep(pb.speech, pj.speech),
+      tic: keep(pb.tic, pj.tic), back: keep(pb.back, pj.back), weapon: keep(pb.weapon, pj.weapon), creator: pj.creator
+    });
+    hs.getRange(idx + 1, 1, 1, data[idx].length).setValues([data[idx]]);
+    try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { }
+    return JSON.stringify({ success: true, edited: true, message: `「${build.name}」的靈基已重鑄——之後召喚皆用新設定（已在場的分身不追改）。` });
+  }
+
+  // ── 🛠️ 製造模式 ──
+  const pb = parseForgeBuild_(build, "");
+  if (!pb.ok) return JSON.stringify({ success: false, message: pb.message });
+  const dup = getHeroCodexCached().slice(1).find(r => String(r[COL.HERO.NAME]).trim() === pb.name);
+  if (dup) return JSON.stringify({ success: false, message: `英靈殿已有「${pb.name}」——請換一個真名，或請其創造者修改。` });
+  // 🎭 AI 只補「玩家沒填的」演出欄＋寶具英文真名——失敗不擋鑄造
+  let flavor = null;
+  try {
+    flavor = JSON.parse(callGeminiAPI(
+      `【真名】：${pb.name}\n【職階】：${pb.cls}\n【性別】：${pb.sex}\n【玩家描述】：${pb.desc || "無"}${pb.look ? `\n【外貌(${pb.lookFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.look}` : ""}${pb.pref ? `\n【個性(${pb.prefFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.pref}` : ""}${pb.fp ? `\n【自稱(玩家已定)】：${pb.fp}` : ""}${pb.speech ? `\n【口吻(玩家已定)】：${pb.speech}` : ""}${pb.moe ? `\n【萌點(玩家已定·照抄勿改)】：${pb.moe}` : ""}${pb.back ? `\n【身世(玩家已定·照抄勿改)】：${pb.back}` : ""}${pb.weapon ? `\n【武裝(以此為準·勿依職階/原典改寫)】：${pb.weapon}` : ""}\n【技能】：${pb.skills.map(s => s.n).join("、") || "無"}\n【寶具】：${pb.npName}${pb.npDesc ? `（${pb.npDesc}）` : ""}`,
+      `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名原創從者的數值與設定，你【只】負責補完演出側寫與寶具英文真名，【嚴禁】輸出任何數值/階級/技能設定。玩家標「照抄勿改」的欄位原樣沿用；標「核心設定·擴寫」的欄位以玩家給的為靈魂擴寫、【嚴禁】偏離或覆蓋其本意。★輸出合法 JSON、禁 Markdown：{"personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔）","look":"外貌四短句頓號分隔（五官髮色/氣質/身形/衣著印象）","background":"生平一句·限20字","npc_intent":"一句反差萌·限15字","npEn":"寶具的英文真名讀法(拉丁字母·如 Excalibur 風格·限4個單字)"}`,
+      { temperature: 0.85, ignoreLaw: true }));
+  } catch (e) { flavor = null; }
+  const fNpEn = String((flavor && flavor.npEn) || "").replace(/[^A-Za-z0-9 .'\-:]/g, "").trim().slice(0, 30);
+  const np = `${pb.npName}${fNpEn ? " " + fNpEn : ""}（${pb.npScale} ${pb.npR}）${pb.npDesc ? "·" + pb.npDesc : ""}`;
+  const finalLook = pb.lookFull ? pb.look : (String((flavor && flavor.look) || "").trim() || pb.look);
+  const finalPref = pb.prefFull ? pb.pref : (String((flavor && flavor.personality) || "").trim() || pb.pref);
+  const moe = pb.moe || String((flavor && flavor.npc_intent) || "").slice(0, 18);
+  const back = pb.back || String((flavor && flavor.background) || "").slice(0, 28);
+  try {
+    recordOriginalHero_(pb.name, pb.cls, pb.sex, JSON.stringify(pb.six), pb.classSkills, pb.skills, [], np, finalPref || "", pb.align,
+      { look: finalLook, moe: moe, firstP: pb.fp, toMaster: pb.toM, speech: pb.speech, tic: pb.tic, back: back, weapon: pb.weapon, creator: acct });
+  } catch (e) { return JSON.stringify({ success: false, message: "寫入英靈殿失敗：" + e.message }); }
+  return JSON.stringify({ success: true, created: true, name: pb.name, message: `「${pb.name}」已鑄入英靈殿——到召喚頁「🌟 玩家原創英靈」即可召喚；之後想調整可在該區「✏️ 修改」（僅你本人）。` });
 }
 
 function actionSummonServant(userData, pcId, sheets) {
@@ -295,12 +502,15 @@ function actionSummonServant(userData, pcId, sheets) {
       } else if (trueName) {
         hero = hrows.find(r => String(r[COL.HERO.NAME]).includes(trueName) || trueName.includes(String(r[COL.HERO.NAME])));
       } else {
+        // 🎲 隨機召喚：全英靈殿(含玩家原創 ai_gen)均勻抽(2026-07 玩家定案「原創角色可以進去 確實隨機就好」)
         let pool = reqCls ? hrows.filter(r => r[COL.HERO.CLS] === reqCls) : hrows;
         if (pool.length) hero = pool[Math.floor(Math.random() * pool.length)];
       }
     }
   } catch (e) { hero = null; }
   if (custDesc) hero = null; // 自訂描述 → 強制走 AI 生成原創，不抓名冊
+  // 🛠️ 工房(2026-07 玩家定案二版)：工房＝純「製造/修改」寫英靈殿(save_hero)，不再直接召喚——
+  //   做好的原創英靈到召喚頁「🌟 玩家原創」專區點選召喚(走下方 hero 分支實體化)。
 
   const newId = "NPC_" + Date.now();
   const pcColCount = Object.keys(COL.PC).length;
@@ -336,6 +546,7 @@ function actionSummonServant(userData, pcId, sheets) {
       let svBack = persona.back ? String(persona.back).slice(0, 28) : `${cls}・${realName}`;
       row[COL.PC.PREF] = parseTraitsHelper(svPref, "沉著表象、堅定內裡、珍視之物、厭惡之事");
       row[COL.PC.MEMORY] = stampPersonaFlavor_(`第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || "保持距離"}`, persona.speech, persona.tic);
+      if (persona.weapon) row[COL.PC.MEMORY] = setWeapon_(row[COL.PC.MEMORY], persona.weapon); // ⚔️ 工房原創的自定武裝·重召不掉
       row[COL.PC.SIX] = JSON.stringify(six);
       row[COL.PC.TAGS] = JSON.stringify({ skills: classSkills.concat(skills), traits: traits });
       // 🕯️ 復活命數：god_hand 持有者的起始命數——優先讀該技能物件自己的 lives 屬性(如尼祿 lives:3)，
@@ -396,7 +607,7 @@ ${FX_MENU_}
       }
       row[COL.PC.BACK] = aiBrief.background || `${cls} 職階的英靈`;
       // 🆕 不重名的原創從者 → 寫回英靈殿（含六圍/技能fx/特性），日後可重用（御主不收）
-      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], aiCSkills, aiSkills, aiTraits, np, aiBrief.personality, align); } catch (e) { }
+      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], aiCSkills, aiSkills, aiTraits, np, aiBrief.personality, align, { creator: String(userData.acctName || "").trim() }); } catch (e) { }
     }
 
     row[COL.PC.ID] = newId;

@@ -2,7 +2,9 @@
 
 > 目的：列出 `ActionRouter`（`Router_Action.gs` 行 8）內**每一個** action，對照其在 `Script.html` / `Script_Onboarding.html` / `Script_Kanshou.html` 的觸發按鈕、後端 handler 檔案位置，以及**是否組出送給 AI 的 prompt**（若有，摘要嵌入事實＋逐字引用收尾指令行）。
 >
-> 底層架構一句話：GAS 算數值（擲骰/HP/MP/勝負）→ 若該動作需要敘事，handler 組一段 `aiPrompt`（或 `dreamPrompt`/`summonPrompt`/`sealNote`附掛等）隨 JSON 回前端 → 前端 `narrate(text)` 呼叫 `action:'narrate_only'` → `actionNarrateOnly`（`Router_Narrative.gs:889`）套上共用 `miniSystem` 系統提示詞 → `narrateWithState_` 補目前血量/魔力 state brief ＋近期對話歷史 → `callGeminiAPI`（`Engine_Combat.gs`）。**唯一真正打 API 的函式只有 `narrateWithState_`／`actionPlay`**；其餘 handler 都只是「組字串」，不自己叫 AI。
+> ⚠ **行號說明**：本文 `檔.gs:NN` 行號是撰寫當下快照、會隨改碼漂移；**以函數名／按鈕文字 grep 為定位錨點**，行號僅供粗略跳轉。前端小函數的行號已拔除（只留函數名）。
+>
+> 底層架構一句話：GAS 算數值（擲骰/HP/MP/勝負）→ 若該動作需要敘事，handler 組一段 `aiPrompt`（或 `dreamPrompt`/`summonPrompt`/`sealNote`附掛等）隨 JSON 回前端 → 前端 `narrate(text)` 呼叫 `action:'narrate_only'` → `actionNarrateOnly`（`Router_Narrative.gs:739`）套上共用 `miniSystem` 系統提示詞 → `narrateWithState_` 補目前血量/魔力 state brief ＋近期對話歷史 → `callGeminiAPI`（`Engine_Combat.gs`）。**唯一真正打 API 的函式只有 `narrateWithState_`／`actionPlay`**；其餘 handler 都只是「組字串」，不自己叫 AI。
 >
 > 例外：`actionPlay`（kanshou 慾海 ／九州 full 遺留的自由聊天引擎）自己組完整 prompt **並直接呼叫** `callGeminiAPI`，不經過 `narrate_only`。另有 `actionBackfillMasterAi`、`actionSummonServant`(自訂英靈分支)、`actionClaimGrail` 三個「建角/建資料」用途的 AI 呼叫，也是直接組 prompt 呼叫 API（走 `callGeminiAPI` 拿 JSON 結構化資料，而非敘事文字）。
 
@@ -25,19 +27,21 @@
 
 ## 1. 系統／敘事引擎共用機制
 
-### `actionNarrateOnly`（action: `narrate_only`）— Router_Narrative.gs:889
+### `actionNarrateOnly`（action: `narrate_only`）— Router_Narrative.gs:739
 唯一的「純敘事」出口。前端 `narrate(promptText, isNsfw)` 呼叫。**不自己組事實內容**——`promptText` 是呼叫端（各 handler 的 `aiPrompt`，或前端自組的 `arrivePrompt`/`summonPrompt`）已經組好傳進來的；這裡只負責套上共用系統提示詞 `miniSystem` 並轉呼叫 `narrateWithState_`。
 
-`miniSystem`（逐字，Router_Narrative.gs:892-900）關鍵鐵則：
-> 你是《命運停駐之夜》的說書人。用 Fate／TYPE-MOON 筆觸、第一人稱「我」（玩家＝御主）、強制台灣繁體中文…
+`miniSystem`（逐字，Router_Narrative.gs:746，就地宣告於 `actionNarrateOnly` 內）關鍵鐵則：
+> 你是《命運停駐之夜》的說書人。用 Fate／TYPE-MOON 筆觸、第一人稱「我」（玩家＝御主）、強制台灣繁體中文…【篇幅依指令字數、精煉不灌水；無指定預設 100~160 字】。
 > 1. 旁白第一人稱「我」，禁用「你」與上帝視角。
-> 2. 對話格式：角色名：「（動作/神態/眼神/微表情）台詞……」…動作神態【絕對禁止】獨立成段或寫在引號外。
-> 4. ★這是純敘事補完，系統底層已結算完所有數值，你只負責寫字。
-> 5. ★對話歷史中的內容是「已經發生並結束」的既定事實…本回合唯一真正發生的新事件，只有當前這句指令提供的內容。
-> 6. ★【連貫與當下狀態】…語氣由「實際勝負與狀態」決定、【不可臆測勝敗】…
-> 7. 只輸出 JSON：{"narration":"…"}，禁止任何其他欄位、禁止 Markdown。
+> 2. 對話格式（全遊戲統一）：角色名：「（動作/神態）台詞」。「」內開頭放【一個】全形括號（）後接台詞即收尾——動作括號限（）禁【】；禁台詞中途/結尾再插動作、禁動作獨立成段或寫在引號外；引號僅一層「」禁嵌『』；禁「她說道：」引導句、禁角色名再現於「」內。
+> 3. 強制分段：每 2~3 句插 `<br><br>`，整段至少 3 個；換行一律 `<br><br>`、禁真實換行、禁任何 HTML 標籤。
+> 4. ★純敘事補完，數值系統已結算完，你只負責寫字。
+> 5. ★歷史內容是「已發生並結束」的既定事實，只供語氣連貫，禁把歷史動作當本回合重演；本回合唯一新事件只有當前指令。
+> 6. ★【連貫與當下狀態】依【當前狀態】(血/魔)與歷史承接，語氣由「實際勝負與狀態」決定、【不可臆測勝敗】…禁複述數字、禁重演歷史動作。
+> 6b. ★【服裝與外貌】嚴格依角色卡「外貌本相／此刻裝扮」——【此刻裝扮】(玩家換裝)最優先·寫什麼穿什麼；卡上沒寫的【嚴禁】自行裸露或增減服裝(戰鬥可寫甲冑碎裂衣袂破損、不得升級成裸身)；解結界/隱匿只顯現【武器】、與衣著無關。
+> 7. 只輸出 JSON：{"narration":"…含 `<br><br>` 分段"}，禁其他欄位、禁 Markdown。
 
-`narrateWithState_`（Router_Narrative.gs:849）：在 `promptText` 前掛 `stateBrief`（御主/在場從者當前血/魔）＋近 2 輪對話歷史，呼叫 `callGeminiAPI(stateBrief+promptText, miniSystem, aiConfig)`（`model: google/gemini-3.1-flash-lite`, `temperature:0.85`, `max_tokens:720`）。解析失敗回 `null`→`actionNarrateOnly` 退回罐頭句「（此處因果已定，氣息微微一閃。）」。存歷史時，玩家側存的是 `cleanNarrateEcho_(promptText)`（剝掉〈〉演出卡／★指令／【】標籤／──分隔線的乾淨摘要，避免鷹架外洩給玩家）。
+`narrateWithState_`（Router_Narrative.gs:699）：在 `promptText` 前掛 `stateBrief`（御主/在場從者當前血/魔）＋近 2 輪對話歷史，呼叫 `callGeminiAPI(stateBrief+promptText, miniSystem, aiConfig)`（`model: google/gemini-3.1-flash-lite`, `temperature:0.85`, `max_tokens:720`）。解析失敗回 `null`→`actionNarrateOnly` 退回罐頭句「（此處因果已定，氣息微微一閃。）」。存歷史時，玩家側存的是 `cleanNarrateEcho_(promptText)`（剝掉〈〉演出卡／★指令／【】標籤／──分隔線的乾淨摘要，避免鷹架外洩給玩家）。
 
 ### `servantCard_` / `masterCard_`（Router_Persona.gs）
 幾乎每個「有敘事」的 handler 都會把這兩張卡串進 `aiPrompt` 開頭，作為「演出依據」。
@@ -52,7 +56,7 @@
 `masterCard_(row)` 組出：
 > 〈御主「${name}」·演出依據(僅內化、禁複述)〉性別…｜性格：…｜特徵：…｜願望(僅供氛圍、禁直述)：…。御主＝玩家所扮演的角色：【可】依其性格/身世自然開口、有神態反應與台詞…；但【不可】替御主拍板下一步戰略抉擇(是否出戰/結盟/移動/補魔由玩家按鍵定奪)、不可逼問玩家要做什麼、不可把劇情快轉越過決策點。
 
-### `buildDreamPrompt_(pcName, wish, servantName, cause)`（Router_Narrative.gs:806）
+### `buildDreamPrompt_(pcName, wish, servantName, cause)`（Router_Narrative.gs:645）
 敗北／時限耗盡的「虛假之夢」共用產生器，被 `fateStrike_`、`enemyAmbushOnServant_`(團滅)、dispatcher 的 14 天時限中央攔截等多處呼叫。
 
 `cause==='timeout'` 開頭：
@@ -65,7 +69,7 @@
 > ★以 Fate／TYPE-MOON 筆觸，第二人稱，寫一段唯美而令人心碎的虛假美夢：讓「演出」暗示願望成真的幸福感，絕不可直接說出願望內容或「這是假的」。…
 > ★【鐵律】只輸出夢境敘事，禁選項或系統字樣。
 
-### `buildTigerDojoPrompt_`（Script.html:2010，前端函式，非 GAS）
+### `buildTigerDojoPrompt_`（Script.html:2369，前端函式，非 GAS）
 敗北收場後「老虎道場」講評，前端組 prompt 直接走 `narrate_only`（`action:'narrate_only', promptText: buildTigerDojoPrompt_(servantName, causeCtx), isNsfw:false`）。餵藤村大河＋伊莉雅依實際敗因吐槽＋給戰術建議，一次性呼叫，不影響遊戲中速度。
 
 ---
@@ -74,16 +78,16 @@
 
 | Action | 按鈕/觸發 | Handler | AI |
 |---|---|---|---|
-| `fate_battle` | 從者卡「⚔️出戰／💥寶具／❖令咒／⚡主動技／🗡️刺殺御主」等鈕 →`servantStrike(...)`（Script.html:1660） | `actionFateBattle`（Router_Battle.gs） | **是**，最多 5 種 prompt 分支（見下） |
-| `use_seal` | 令咒選單「修復/補魔/緊急脫離」→`useSeal(type)`（1894） | `actionUseSeal`（Router_Bond.gs） | 是 |
-| `mana_supply` | 從者卡「💧補魔」→`manaSupply()`（1820） | `actionManaSupply`（Router_Economy.gs） | 是（含突襲分支） |
-| `set_servant_output` | 從者卡🔋出力轉盤 5 鈕 →`setOutput(npcName,output)`（1692） | `actionSetServantOutput`（Router_Economy.gs） | 否，純樂觀更新 setter |
-| `set_mage_realm` | 技能膠囊「✨魔境的智慧」→`openMageRealmPicker`→`pickSelectable('set_mage_realm',...)`（1714/1737） | `actionSetMageRealm`（Router_Economy.gs） | 否 |
-| `set_rune_mode` | 技能膠囊「✨原初符文」→`openRunePicker`→`pickSelectable('set_rune_mode',...)`（1726/1737） | `actionSetRuneMode`（Router_Economy.gs） | 否 |
-| `set_np_choice` | 寶具鈕→多寶具時彈`openNpReleasePicker`→`pickNpAndStrike`（1615-1637） | `actionSetNpChoice`（Router_Economy.gs） | 否 |
-| `rule_break_steal` | 從者卡「⛓ 破戒奪僕」鈕（1763） | `actionRuleBreakSteal`（Router_Bond.gs） | 是 |
-| `second_wind` | 休息選單「強撐」鈕（501） | `actionSecondWind`（Router_Battle.gs 的鄰接檔，見 §3 中一併列） | 是 |
-| `prep_meal` | 「🍱 整備」鈕（562） | `actionPrepMeal`（Router_Movement.gs） | 否 |
+| `fate_battle` | 從者卡「⚔️出戰／💥寶具／❖令咒／⚡主動技／🗡️刺殺御主」等鈕 →`servantStrike(...)`（Script.html:1917） | `actionFateBattle`（Router_Battle.gs） | **是**，最多 5 種 prompt 分支（見下） |
+| `use_seal` | 令咒選單「修復/補魔/緊急脫離」→`useSeal(type)` | `actionUseSeal`（Router_Bond.gs） | 是 |
+| `mana_supply` | 從者卡「💧補魔」→`manaSupply()` | `actionManaSupply`（Router_Economy.gs） | 是（含突襲分支） |
+| `set_servant_output` | 從者卡🔋出力轉盤 5 鈕 →`setOutput(npcName,output)` | `actionSetServantOutput`（Router_Economy.gs） | 否，純樂觀更新 setter |
+| `set_mage_realm` | 技能膠囊「✨魔境的智慧」→`openMageRealmPicker`→`pickSelectable('set_mage_realm',...)` | `actionSetMageRealm`（Router_Economy.gs） | 否 |
+| `set_rune_mode` | 技能膠囊「✨原初符文」→`openRunePicker`→`pickSelectable('set_rune_mode',...)` | `actionSetRuneMode`（Router_Economy.gs） | 否 |
+| `set_np_choice` | 寶具鈕→多寶具時彈`openNpReleasePicker`→`pickNpAndStrike` | `actionSetNpChoice`（Router_Economy.gs） | 否 |
+| `rule_break_steal` | 從者卡「⛓ 破戒奪僕」鈕 | `actionRuleBreakSteal`（Router_Bond.gs） | 是 |
+| `second_wind` | 休息選單「強撐」鈕 | `actionSecondWind`（Router_Battle.gs 的鄰接檔，見 §3 中一併列） | 是 |
+| `prep_meal` | 「🍱 整備」鈕 | `actionPrepMeal`（Router_Movement.gs） | 否 |
 
 ### `actionFateBattle`（action `fate_battle`）— 核心戰鬥，五種 prompt 分支
 
@@ -139,13 +143,13 @@
 
 | Action | 按鈕/觸發 | Handler | AI |
 |---|---|---|---|
-| `get_map_nodes` | 地圖分頁載入/`refreshMapPane`（1379） | `actionGetMapNodes` | 否 |
-| `move` | 地圖節點/`travelTo(name)`（602/1471） | `actionMove` | **後端否，前端組`arrivePrompt`後叫`narrate_only`**（見 §10） |
-| `rest` | 休息選單各時長鈕/`rest(hours)`（483/518） | `actionRest` | 是（條件式：夢境／突襲） |
-| `scout` | 地圖「🔍 偵查」（1383/542） | `actionScout` | 否，純 message |
-| `scavenge` | 地圖「🔍 搜索物資」（1398/590） | `actionScavenge` | 否，純 message |
-| `set_workshop` | 地圖「🏕️ 設置陣地」（1397/577） | `actionSetWorkshop` | 否，純 message |
-| `clear_npc_major_event` | 因果面板「🗑️ 斬斷」（2654/2684） | `actionClearNpcMajorEvent`（其實在 Router_Narrative.gs） | 否 |
+| `get_map_nodes` | 地圖分頁載入/`refreshMapPane` | `actionGetMapNodes` | 否 |
+| `move` | 地圖節點/`travelTo(name)` | `actionMove` | **後端否，前端組`arrivePrompt`後叫`narrate_only`**（見 §10） |
+| `rest` | 休息選單各時長鈕/`rest(hours)` | `actionRest` | 是（條件式：夢境／突襲） |
+| `scout` | 地圖「🔍 偵查」 | `actionScout` | 否，純 message |
+| `scavenge` | 地圖「🔍 搜索物資」 | `actionScavenge` | 否，純 message |
+| `set_workshop` | 地圖「🏕️ 設置陣地」 | `actionSetWorkshop` | 否，純 message |
+| `clear_npc_major_event` | 因果面板「🗑️ 斬斷」 | `actionClearNpcMajorEvent`（其實在 Router_Narrative.gs） | 否 |
 | `prep_meal` | 見 §2 | `actionPrepMeal` | 否 |
 
 ### `actionRest`（action `rest`）— 兩條件式 prompt
@@ -169,10 +173,10 @@
 
 | Action | 按鈕/觸發 | Handler | AI |
 |---|---|---|---|
-| `bond` | 羈絆選單「閒聊/共餐/特訓/夜談」→`bond(type)`（1846/1862） | `actionBond` | 是（含突襲分支） |
-| `propose_alliance` | 敵御主卡「🤝 交涉結盟」（1777/440） | `actionProposeAlliance` | 是（成功/失敗兩分支） |
-| `break_alliance` | 盟友卡「💔 撕毀盟約」（1787/431） | `actionBreakAlliance` | 是 |
-| `ally_bond` | 盟友卡「🤝 與盟友共處」（1801/430） | `actionAllyBond` | 是（含突襲分支＋羈絆檔位語氣） |
+| `bond` | 羈絆選單「閒聊/共餐/特訓/夜談」→`bond(type)` | `actionBond` | 是（含突襲分支） |
+| `propose_alliance` | 敵御主卡「🤝 交涉結盟」 | `actionProposeAlliance` | 是（成功/失敗兩分支） |
+| `break_alliance` | 盟友卡「💔 撕毀盟約」 | `actionBreakAlliance` | 是 |
+| `ally_bond` | 盟友卡「🤝 與盟友共處」 | `actionAllyBond` | 是（含突襲分支＋羈絆檔位語氣） |
 
 ### `actionBond`（action `bond`）
 - **突襲**：
@@ -208,10 +212,10 @@
 
 | Action | 按鈕 | Handler | AI |
 |---|---|---|---|
-| `set_servant_output` | 從者卡🔋出力轉盤（1692） | `actionSetServantOutput` | 否 |
-| `set_mage_realm` | 技能膠囊（1714） | `actionSetMageRealm` | 否 |
-| `set_rune_mode` | 技能膠囊（1726） | `actionSetRuneMode` | 否 |
-| `set_np_choice` | 寶具選擇彈窗（1615） | `actionSetNpChoice` | 否 |
+| `set_servant_output` | 從者卡🔋出力轉盤 | `actionSetServantOutput` | 否 |
+| `set_mage_realm` | 技能膠囊 | `actionSetMageRealm` | 否 |
+| `set_rune_mode` | 技能膠囊 | `actionSetRuneMode` | 否 |
+| `set_np_choice` | 寶具選擇彈窗 | `actionSetNpChoice` | 否 |
 | `mana_supply` | 見 §2 | `actionManaSupply` | 是 |
 
 （`actionBloodSupply`／`blood_supply` 已移除，燃血改純被動機制，見 `SOLO_REFERENCE.md` §3。）
@@ -222,12 +226,12 @@
 
 | Action | 按鈕/觸發 | Handler | AI |
 |---|---|---|---|
-| `check_name` | 創角「啟程」鈕（Script_Onboarding.html:154） | `actionCheckName`（Router_Action.gs） | 否 |
-| `create` | 「⚜️ 締結令咒」鈕（Index.html:93 / Onboarding:202） | `actionManualNpc` | **否**（2026-07 改為秒寫入、不叫 AI） |
+| `check_name` | 創角「啟程」鈕（Script_Onboarding.html:150） | `actionCheckName`（Router_Action.gs） | 否 |
+| `create` | 「⚜️ 締結令咒」鈕（Index.html:97 / Onboarding:202） | `actionManualNpc` | **否**（2026-07 改為秒寫入、不叫 AI） |
 | `backfill_master_ai` | create 後前端背景呼叫（Onboarding:236） | `actionBackfillMasterAi` | **是**（結構化 JSON，非敘事） |
 | `get_heroes` | 召喚頁載入英靈清單（Onboarding:251） | `actionGetHeroes` | 否 |
 | `get_masters` | 選正典御主清單（Onboarding:75） | `actionGetMasters` | 否 |
-| `summon_servant` | 「✨真名召喚／🎲隨機／🖋️自訂生成」（Index.html:114-118 / Onboarding:280） | `actionSummonServant` | **條件式**：種子英靈否／自訂或名冊查無者是（結構化 JSON）；召喚後一律另組 `summonPrompt` 交 `narrate_only` |
+| `summon_servant` | 「✨真名召喚／🎲隨機／🖋️自訂生成」（Index.html:117-119 / Onboarding:280） | `actionSummonServant` | **條件式**：種子英靈否／自訂或名冊查無者是（結構化 JSON）；召喚後一律另組 `summonPrompt` 交 `narrate_only` |
 
 ### `actionManualNpc`（action `create`）
 確認**不叫 AI**：所有敘事欄（BACK/TRAIT/PREF/INTENT）用玩家輸入種子值或硬編碼預設（如「外貌平凡、舉止從容、自稱「我」、卸下心防的私密一面」）直接寫入，數值/HP/MP/迴路/令咒/模式/起始禮裝由 GAS 算。AI 補完延後到 `backfill_master_ai`。
@@ -251,7 +255,10 @@
   > ★np：寶具名＋一句威能簡述。★npc_intent：一句【簡短】反差萌（≤15字）。★sex 從 男／女／異 擇一。
   > ★【輸出】合法 JSON、禁 Markdown：（附 schema）
   成功後 `recordOriginalHero_` 把新原創英靈寫回英靈殿供之後重用（純寫入，非 AI）。
-- **兩分支皆會**再組一份 `summonPrompt`（含 `servantCard_`）走 `narrate_only` 敘事召喚初遇場景：
+- **🛠️ 工房分支**（`userData.build`·2026-07·優先於上兩分支）：玩家親手定全部數值（職階/六圍預算270/技能3槽/寶具名），**AI 只補人格側寫**（小型結構化 JSON 呼叫）：
+  > 你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名原創從者的全部數值，你【只】負責演出用人格側寫，【嚴禁】輸出任何數值/階級/技能/寶具設定。★輸出合法 JSON…{"background":"生平一句·限20字","personality":"…四短句頓號分隔","npc_intent":"一句反差萌·限15字"}
+  失敗不擋召喚（玩家數值不當 AI 人質，落通用預設）。
+- **各分支皆會**再組一份 `summonPrompt`（含 `servantCard_`）走 `narrate_only` 敘事召喚初遇場景：
   > ★以 Fate／TYPE-MOON 筆觸描寫所在地的燈火與氛圍，聚焦御主與從者最初的試探、對話與張力（依上方角色背景內化演出，禁止複述設定字面、禁止用外貌代替名字）。場景留下懸念、讓玩家想以行動回應。
   > ★禁止替御主做決定、禁止詢問玩家想做什麼、禁止介紹玩家自身身份、禁止新增任何地圖或NPC。
 
@@ -263,16 +270,16 @@
 
 | Action | 按鈕/觸發 | Handler | AI |
 |---|---|---|---|
-| `claim_grail` | 勝利畫面「⚜️ 奪得聖杯」（1946/1934） | `actionClaimGrail` | **是**（回憶散文，結構化+散文混合） |
-| `enter_kanshou` | 主選單「🌹 進入鑑賞」→`enterKanshou()`（Script_Kanshou.html:136-141） | `actionEnterKanshou` | 否 |
+| `claim_grail` | 勝利畫面「⚜️ 奪得聖杯」 | `actionClaimGrail` | **是**（回憶散文，結構化+散文混合） |
+| `enter_kanshou` | 主選單「🌹 進入鑑賞」→`enterKanshou()`（Script_Kanshou.html:150） | `actionEnterKanshou` | 否 |
 | `kanshou_companions` | 抽屜「👥 後日談同伴」→`openCompanions()`（Kanshou:16） | `actionKanshouCompanions` | 否 |
 | `kanshou_add` | 同伴面板「邀請」→`kanshouAdd(name)`（Kanshou:46） | `actionKanshouAdd` | 否 |
 | `kanshou_remove` | 同伴面板「移除」→`kanshouRemove(name)`（Kanshou:52） | `actionKanshouRemove` | 否 |
 | `kanshou_set_name` | 「✏改名」→`changeKanshouName()`（Kanshou:64） | `actionKanshouSetName` | 否 |
 | `kanshou_set_sex` | 「⚧切換性別」→`changeKanshouSex()`（Kanshou:78） | `actionKanshouSetSex` | 否 |
-| `dev_seed_gallery` | 主選單 DEV「🧪 產生測試從者」（Index:36/1974） | `actionDevSeedGallery` | 否（罐頭測試文案） |
-| `purge_orphans` | 主選單 DEV「🧹 清殘列」（Index:38/1995） | `actionPurgeOrphans`（其實在 Account.gs） | 否 |
-| `dev_resync_codex` | 主選單 DEV「🔄 套用最新平衡」（Index:37/1984） | `actionDevResyncCodex`（Seed 系統） | 否 |
+| `dev_seed_gallery` | 主選單 DEV「🧪 產生測試從者」（Index.html） | `actionDevSeedGallery` | 否（罐頭測試文案） |
+| `purge_orphans` | 主選單 DEV「🧹 清殘列」（Index.html） | `actionPurgeOrphans`（其實在 Account.gs） | 否 |
+| `dev_resync_codex` | 主選單 DEV「🔄 套用最新平衡」（Index.html） | `actionDevResyncCodex`（Seed 系統） | 否 |
 
 ### `actionClaimGrail`（action `claim_grail`）
 奪杯寫入「鑑賞」表的回憶散文。系統提示詞：
@@ -294,31 +301,31 @@ Account.gs 全部函式 **零 AI 呼叫**——單純帳號/存檔/歷史記錄�
 |---|---|---|---|
 | `account_login` | 登入畫面「進　入」（Index:19/Onboarding:15） | `actionAccountLogin` | 否 |
 | `account_new_game` | 「🔥 開啟新的聖杯戰爭」（Index:28/Onboarding:38） | `actionAccountNewGame` | 否 |
-| `leaderboard` | 「🏆 排行榜」（Index:42/2176） | `actionLeaderboard` | 否，唯讀跨帳號排行 |
-| `get_victory_history` | 「📜 勝利歷史」（Index:44/2151） | `actionGetVictoryHistory` | 否，唯讀自己戰績 |
+| `leaderboard` | 「🏆 排行榜」（Index.html） | `actionLeaderboard` | 否，唯讀跨帳號排行 |
+| `get_victory_history` | 「📜 勝利歷史」（Index.html） | `actionGetVictoryHistory` | 否，唯讀自己戰績 |
 
 Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.gs 本檔內定義，見檔案開頭已讀內容）：
 
 | Action | 按鈕/觸發 | Handler | AI |
 |---|---|---|---|
 | `check_name` | 「啟程」（Onboarding:154） | `actionCheckName` | 否 |
-| `get_full_status` | NPC「📜 命格」鈕（325） | `actionGetFullStatus` | 否 |
-| `update_fate` | 逆天改命存檔（982） | `actionUpdateFate` | 否，純寫表（4 敘事欄，數值/寶具鎖死） |
+| `get_full_status` | NPC「📜 命格」鈕 | `actionGetFullStatus` | 否 |
+| `update_fate` | 逆天改命存檔 | `actionUpdateFate` | 否，純寫表（4 敘事欄，數值/寶具鎖死） |
 | `get_tags` | （現多由 sync 附帶，獨立呼叫見 1143） | `actionGetTags`→`buildTagsPayload_` | 否，左側狀態面板資料 |
-| `sync` | 主動刷新（2108） | `actionSync`→`buildClientState_` | 否 |
-| `update_rel_tag` | 稱呼編輯「✏️」（2125/2506） | `actionUpdateRelTag` | 否，純寫表 |
-| `get_epic_history` | 抽屜「📖 個人史紀」（Index:156/2620） | `actionGetEpicHistory`（Router_Narrative.gs） | 否，唯讀彙整 |
-| `war_chronicle` | 抽屜「📜 本場戰記」（Index:157/2207） | `actionWarChronicle`（Router_Bond.gs） | 否，唯讀戰記列表 |
-| `war_history_list` | 「📜 戰役回顧」（Index:45/2240） | `actionWarHistoryList`（Router_Bond.gs） | 否，唯讀歷史戰役列表 |
-| `clear_npc_major_event` | 因果面板「🗑️ 斬斷」（2684） | `actionClearNpcMajorEvent`（Router_Narrative.gs） | 否 |
+| `sync` | 主動刷新 | `actionSync`→`buildClientState_` | 否 |
+| `update_rel_tag` | 稱呼編輯「✏️」 | `actionUpdateRelTag` | 否，純寫表 |
+| `get_epic_history` | 抽屜「📖 個人史紀」（Index.html） | `actionGetEpicHistory`（Router_Narrative.gs） | 否，唯讀彙整 |
+| `war_chronicle` | 抽屜「📜 本場戰記」（Index.html） | `actionWarChronicle`（Router_Bond.gs） | 否，唯讀戰記列表 |
+| `war_history_list` | 「📜 戰役回顧」（Index.html） | `actionWarHistoryList`（Router_Bond.gs） | 否，唯讀歷史戰役列表 |
+| `clear_npc_major_event` | 因果面板「🗑️ 斬斷」 | `actionClearNpcMajorEvent`（Router_Narrative.gs） | 否 |
 
-**14 天時限中央攔截**（`handleGameAction` 內，Router_Action.gs:145-165）：非獨立 action，是 dispatcher 對所有會推進時間的動作事後檢查——一旦 `clock` 字串顯示天數 >14 且未 victory/defeat，強制補 `defeat:true` 並呼叫共用 `buildDreamPrompt_(...,'timeout')` 填 `dreamPrompt`（見 §1）。
+**14 天時限中央攔截**（`handleGameAction` 內，Router_Action.gs:165-178）：非獨立 action，是 dispatcher 對所有會推進時間的動作事後檢查——一旦 `clock` 字串顯示天數 >14 且未 victory/defeat，強制補 `defeat:true` 並呼叫共用 `buildDreamPrompt_(...,'timeout')` 填 `dreamPrompt`（見 §1）。
 
 ---
 
 ## 9. 自由聊天引擎 `actionPlay`（action `play`）— Router_Narrative.gs:8
 
-**用途**：kanshou（慾海後日談，NSFW）＋九州 full 模式（停用中）的自由文字聊天輸入框，走前端 `send()`（Script.html:2369, `action:"play"`）。**solo 聖杯戰爭主軌完全不用這個**——solo 全走按鈕→`narrate_only`。
+**用途**：kanshou（慾海後日談，NSFW）＋九州 full 模式（停用中）的自由文字聊天輸入框，走前端 `send()`（Script.html:2600, `action:"play"`）。**solo 聖杯戰爭主軌完全不用這個**——solo 全走按鈕→`narrate_only`。
 
 與 `narrate_only` 的關鍵差異：`actionPlay` **自己從零組完整 prompt**（不假手 caller），且**直接呼叫 `callGeminiAPI(prompt, null, aiConfig)`**（第二參數系統提示詞傳 `null`——所有指令混在 user prompt 內，不像 `narrate_only` 另有獨立 `miniSystem`）。
 
@@ -347,7 +354,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 
 `actionMove`（action `move`）後端**不组 aiPrompt**，只回傳素材：`masterCard`／`servantCard`（`servantCard_`）／`foeCards`（在場敵從者的 `servantCard_` 陣列）／`pursuit`（撤離追擊結果）／`preFoes`／`mapDesc`／`people`／`locations`／`clock`/`ap`。
 
-前端 `travelTo()`（Script.html:602-668）**自己拼出** `arrivePrompt`：
+前端 `travelTo()`（Script.html:735-803）**自己拼出** `arrivePrompt`：
 ```
 (masterCard) + (servantCard) + (foeCards)
 + 【抵達場景】御主『${pc.name}』…剛抵達冬木的「${targetName}」，時值${timeStr}。

@@ -107,13 +107,11 @@ function setBondUsedToday_(memory, day, type) {
   return (s ? s + "｜" : "") + marker;
 }
 
-// 💕 羈絆互動（純按鈕，無對話框）：閒聊／共餐／並肩特訓／促膝夜談。每種每遊戲日限一次、跨日重置。
-//   觸發角色語氣 AI 短劇＋升羈絆；羈絆會餵給路線自然浮現（深羈絆→偏 Fate 線）。
+// 💕 羈絆互動（純按鈕，無對話框）：2026-07 玩家定案——原本閒聊/共餐/特訓/夜談 4 種「每日打卡」
+//   收成單一「相處」（每遊戲日限一次、跨日重置、+10 羈絆）。味道(閒話/共餐/特訓/夜談)交給 AI
+//   依當下時段/羈絆/性格自由即興，不再是假選擇的每日清單。羈絆會餵給路線自然浮現（深羈絆→偏 Fate 線）。
 var BOND_ACTS = {
-  chat: { label: '閒聊', bond: 4, frame: '在巡查或歇腳的空檔閒話家常——些瑣碎的日常、對這個時代的見聞、半開玩笑的拌嘴' },
-  meal: { label: '共餐', bond: 6, frame: '一同用一頓飯——食物的香氣、從者進食的神態、飯桌上難得卸下戒備的尋常溫度' },
-  train: { label: '並肩特訓', bond: 5, frame: '並肩切磋武藝、調整默契——汗水、喘息、招式間的信任，以及戰技之外悄然滋長的默契' },
-  talk: { label: '促膝夜談', bond: 8, frame: '夜深人靜時的促膝長談——交換各自背負的過往與此刻的心緒，一句句靠近彼此的內裡' }
+  together: { label: '相處', bond: 10, frame: '一段與御主相處的時光——由你依當下時段、兩人羈絆的深淺與從者性格，自由定調是巡查歇腳的閒話家常、一同用餐的尋常溫度、並肩切磋的默契，或夜深促膝的交心；擇一自然發生、勿逐項羅列' }
 };
 function actionBond(userData, pcId, sheets) {
   const type = String(userData.bondType || "").trim();
@@ -143,6 +141,10 @@ function actionBond(userData, pcId, sheets) {
   sheets.pc.getRange(pIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[pIdx][COL.PC.MEMORY]);
   usedToday = getBondUsedToday_(pcData[pIdx][COL.PC.MEMORY], day);
 
+  // ⏳ 相處耗 1 AP＝推進 1 小時（2026-07 玩家定案·與令咒/偵查同級：相處也要花時間）
+  let bondAp = null, bondClock = "";
+  if (myGameId && myGameId.indexOf("g_") === 0) { try { bondAp = spendAp_(myGameId, 1).ap; bondClock = clockLabel_(myGameId); } catch (e) { } }
+
   // 取最新羈絆值供顯示（羈絆存於從者自己列的 BOND 欄，raiseBond_ 已寫回，這裡重讀一次拿最新值）
   let bondNow = 0;
   try {
@@ -162,7 +164,8 @@ function actionBond(userData, pcId, sheets) {
       ``;
   } else {
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
-      `【系統·羈絆已結算】御主『${masterName}』與從者「${svName}」${act.label}，兩人的羈絆又深了一分（時值${band}）。\n` +
+      `【系統·羈絆已結算】御主『${masterName}』與從者「${svName}」${act.label}、共度約莫一個小時的光景，兩人的羈絆又深了一分（時值${band}）。\n` +
+      `★【時間尺度】這是一段約一個小時的相處，寫出「有一段時光緩緩流過」的從容，勿寫成三言兩語的瞬間、也勿橫跨大半天。\n` +
       `★以 Fate／TYPE-MOON 筆觸寫一段【精煉 90~150 字、輕快不冗長】${svName} 與御主${act.frame}的小品。務必貼合上方「演出依據」中的性格、自稱與口吻，演出其獨有神態，點到為止留餘味。\n` +
       `★【show, don't tell】用言行、神態、停頓去流露情感與性格，絕不可直白說出其「願望／個性／萌點」等設定詞；停在含蓄的留白。\n` +
       `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。`;
@@ -170,6 +173,7 @@ function actionBond(userData, pcId, sheets) {
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, bond: bondNow, bondUsed: usedToday,
     ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", report: ambush ? ambush.report : null,
+    ap: bondAp, clock: bondClock,
     statusString: getFreshStatusString(pcId, pIdx, sheets)
   });
 }
@@ -209,13 +213,24 @@ function allianceWillingness_(masterRow, aliveFoes) {
 // 🤝 交涉結盟：對同地敵御主提議；GAS 判定成敗，AI 只演出談判場景。成盟＝該御主＋其從者暫時非敵對。
 function actionProposeAlliance(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
+  const npcId = String(userData.npcId || "").trim();
+  const npcKey = nameLoose_(npcName); // 去中點/空白·比照攻擊路徑
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
-  const mIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).includes(npcName) && String(r[COL.PC.FACTION]) === "敵御主" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc);
-  if (mIdx === -1) return JSON.stringify({ success: false, message: "此地沒有可交涉的敵御主。" });
+  // 🔧 比照攻擊路徑(actionFateBattle)：先 npcId 精準配、再 nameLoose_(去中點/空白)——原本 raw includes
+  //   對含中點名字(韋伯·維爾維特·不同 Unicode 中點變體)對不上→「打得到英靈、卻交涉恆沒人」。
+  const _foeMasterHere = (r) => String(r[COL.PC.FACTION]) === "敵御主" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc;
+  let mIdx = npcId ? pcData.findIndex(r => String(r[COL.PC.ID]) === npcId && _foeMasterHere(r)) : -1;
+  if (mIdx === -1) mIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1 && _foeMasterHere(r));
+  if (mIdx === -1) {
+    // 🔍 診斷：照名字(loose)找這名敵御主(不限地點)，回報他實際在哪 vs 玩家在哪——不同地＝顯示過期。
+    const anyIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1 && String(r[COL.PC.FACTION]) === "敵御主" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+    const detail = anyIdx >= 0 ? `「${pcData[anyIdx][COL.PC.NAME]}」現在「${String(pcData[anyIdx][COL.PC.LOC]).trim()}」，你在「${myLoc}」` : `名冊查無「${npcName}」`;
+    return JSON.stringify({ success: false, message: `此地沒有可交涉的敵御主（${detail}）——須與對方同處一地才能交涉。` });
+  }
   if (isAllied_(pcData[mIdx])) return JSON.stringify({ success: false, message: `你已與「${pcData[mIdx][COL.PC.NAME]}」結盟。` });
 
   const isFate = myGameId.indexOf("g_") === 0;
@@ -263,7 +278,7 @@ function actionBreakAlliance(userData, pcId, sheets) {
   for (let i = 1; i < pcData.length; i++) {
     if (String(pcData[i][COL.PC.GAME_ID] || "") !== myGameId) continue;
     const fac = String(pcData[i][COL.PC.FACTION]);
-    if ((fac === "敵御主" || fac === "敵從者") && isAllied_(pcData[i]) && (!npcName || String(pcData[i][COL.PC.NAME]).includes(npcName))) {
+    if ((fac === "敵御主" || fac === "敵從者") && isAllied_(pcData[i]) && (!npcName || nameLoose_(pcData[i][COL.PC.NAME]).indexOf(nameLoose_(npcName)) !== -1)) { // 🔧 loose 比對·含中點名字不漏
       pcData[i][COL.PC.MEMORY] = clearAllyMem_(pcData[i][COL.PC.MEMORY]);
       if (fac === "敵御主") who = String(pcData[i][COL.PC.NAME]);
       broke++;
@@ -325,7 +340,7 @@ function actionAllyBond(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
-  const aIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).includes(npcName)
+  const aIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(nameLoose_(npcName)) !== -1 // 🔧 loose 比對·含中點名字不漏
     && (String(r[COL.PC.FACTION]) === "敵御主" || String(r[COL.PC.FACTION]) === "敵從者")
     && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_")
     && isAllied_(r) && String(r[COL.PC.LOC]).trim() === myLoc);
@@ -416,8 +431,8 @@ function actionRuleBreakSteal(userData, pcId, sheets) {
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   try { raiseBond_(sheets, pcData[pIdx][COL.PC.NAME], stolenName, 10); } catch (e) { }
 
-  const aiPrompt = `【系統·破戒奪僕·已裁定】御主以破戒全咒（緣紅短劍）斬斷「${stolenName}」與原御主的契約、強行重締為己用——「${stolenName}」自此成為你的第二從者（燃一道令咒，餘 ${seals} 道）。\n` +
-    `★以 Fate／TYPE-MOON 筆觸描寫緣紅短劍刺入、舊契約如琉璃寸寸碎裂、新締約的魔力烙印纏上手背的瞬間，與這名從者被迫易主的複雜神情（一段即可）。已結算。\n` +
+  const aiPrompt = `【系統·破戒奪僕·已裁定】御主以破戒全咒（七彩短劍）斬斷「${stolenName}」與原御主的契約、強行重締為己用——「${stolenName}」自此成為你的第二從者（燃一道令咒，餘 ${seals} 道）。\n` +
+    `★以 Fate／TYPE-MOON 筆觸描寫妖異七彩短劍刺入、舊契約如琉璃寸寸碎裂、新締約的魔力烙印纏上手背的瞬間，與這名從者被迫易主的複雜神情（一段即可）。已結算。\n` +
     ``;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, stolen: stolenName, seals: seals, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }

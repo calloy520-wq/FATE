@@ -9,11 +9,25 @@
 // ⚔️ 單次出擊裁決：atkC 攻擊 pcData[tgtIdx]。命中才扣血（未中＝撲空、不自傷）。
 //   處理破戒/戰鬥續行/令咒緊急脫離/十二試煉復活/死亡(敵→勝利判定；我→敗北)。
 //   opts:{np,seal,counterMul}　ctx:{myGameId,pIdx,userData}
+// 💠 「展開扣魔」防禦(七天盾)的帳單結算：引擎(fxDefApply_)只在呼叫端注入 c._shieldMp(御主純魔)時
+//   才收費並記帳於 c._shieldSpent，此處統一從御主純魔扣款落表。冪等：結算後清 _shieldSpent，重呼不重扣。
+function settleShieldMana_(sheets, pcData, masterIdx, c) {
+  var spent = c && c._shieldSpent;
+  if (!spent || masterIdx == null || masterIdx < 0) return;
+  pcData[masterIdx][COL.PC.MP] = Math.max(0, (parseInt(pcData[masterIdx][COL.PC.MP]) || 0) - spent);
+  sheets.pc.getRange(masterIdx + 1, COL.PC.MP + 1).setValue(pcData[masterIdx][COL.PC.MP]);
+  c._shieldSpent = 0;
+}
+
 function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   opts = opts || {};
   var defC = rowToCombatant_(pcData[tgtIdx]);
-  // ✨ 我方從者作守方時也吃御主禮裝被動（防禦端：如全世界之鞘承受寶具減傷）
-  if (String(pcData[tgtIdx][COL.PC.FACTION]) === "從者" && ctx && ctx.pIdx >= 0) { injectMysticBuff_(defC, pcData[ctx.pIdx][COL.PC.MEMORY]); injectHomeField_(defC, ctx && ctx.homeField); }
+  // ✨ 我方從者作守方時也吃御主禮裝被動（防禦端：如全世界之鞘承受寶具減傷）＋
+  //   💠 注入御主純魔作「展開扣魔」防禦(七天盾)的付費額度——引擎付不起就張不開
+  if (String(pcData[tgtIdx][COL.PC.FACTION]) === "從者" && ctx && ctx.pIdx >= 0) {
+    injectMysticBuff_(defC, pcData[ctx.pIdx][COL.PC.MEMORY]); injectHomeField_(defC, ctx && ctx.homeField);
+    defC._shieldMp = parseInt(pcData[ctx.pIdx][COL.PC.MP]) || 0;
+  }
   // 🍱 整備·進食加成：御主一行戰前整備過、且尚在效期內 → 從者出擊命中 +MEAL_BUFF_BONUS。
   //   ⚠ 只屬於【我方陣營的出擊】——目標是我方從者＝攻擊者是敵人，不吃玩家的餐(2026-07 修「敵人蹭飯」)；
   //   盟友助攻亦非御主一行，呼叫端以 opts.noMeal 排除。
@@ -22,7 +36,9 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
     try { mealOn = mealBuffActive_(pcData[ctx.pIdx][COL.PC.MEMORY], ctx.myGameId); } catch (e) { }
   }
   // ❖ 令咒必中(opts.seal)已改在 resolveFateBattle_ 內部定生死(damage 屬於攻方)——勿在此事後翻 atkWins(2026-07 根源修)。
-  var r = resolveFateBattle_(atkC, defC, { np: !!opts.np, seal: !!opts.seal, skill: opts.skill || null, ambush: !!opts.ambush, mealBuff: mealOn ? MEAL_BUFF_BONUS : 0 });
+  var r = resolveFateBattle_(atkC, defC, { np: !!opts.np, seal: !!opts.seal, skill: opts.skill || null, ambush: !!opts.ambush, mealBuff: mealOn ? MEAL_BUFF_BONUS : 0, round: opts.round || 1 });
+  // 💠 七天盾展開費結算（引擎已判付得起才展開；僅玩家側從者有 _shieldMp 會產生帳單）
+  settleShieldMana_(sheets, pcData, ctx ? ctx.pIdx : -1, defC);
   // 🌟 寶具對轟結算傷害：傷害已由對轟裁決算好，此處只借 fateStrike_ 套用「死亡/勝負/復活/令咒脫離」全套後續邏輯
   if (opts.forceDamage != null) { r.atkWins = true; r.damage = Math.max(0, Math.round(opts.forceDamage)); r.crit = ''; }
   var out = {
@@ -402,7 +418,7 @@ function actionFateBattle(userData, pcId, sheets) {
     if (atkOutput < 100) {
       return JSON.stringify({ success: false, message: `寶具乃靈基全力之解放——須先將「${atkC.name}」的出力推到 100%（全開）並支付寶具底費，方能釋放真名。當前出力 ${atkOutput}%。` });
     }
-    const npCostPre = npPranaCost_(atkC.six["寶具"]);
+    const npCostPre = npPranaCost_(npEffectiveRank_(atkC)); // 🎴 2026-07 六波：吃玩家所選寶具的官方階級(多寶具選項各自定價)，非概括六圍表寶具值
     const mMpPre = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
     const mHpPre = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
     const maxPay = mMpPre + Math.floor(Math.max(0, mHpPre - 1) / BATTERY_HP_PER_MP);
@@ -544,7 +560,7 @@ function actionFateBattle(userData, pcId, sheets) {
   // 🔋 寶具魔力 = 依寶具階級的 Prana Cost（E40 D70 C110 B160 A220 EX300）。從者付不起 → 御主電池接力供能。
   let battery = null, backlash = null;
   if (useNp) {
-    const prana = npPranaCost_(atkC.six["寶具"]);
+    const prana = npPranaCost_(npEffectiveRank_(atkC)); // 🎴 2026-07 六波：同上，吃所選寶具官方階級
     // 🔥 灌魔加乘：規格外寶具(＋/EX)於【全開 100%】時，把御主餘裕魔力超載灌入 → 威力線性放大至上限(＋×1.5、＋＋/EX×2)。
     //   auto-pour：達上限需額外「底費×2」的魔力，不足則按比例。補魔過充【過充】額度先行【無償】支付、一次性用完即清。
     //   ⚠ 2026-07 玩家定案(三修·定檔制)：超載＝【固定價格檔位】依寶具階等比(A階＝總耗 220/440/660，即 底費P/2P/3P)，
@@ -552,7 +568,7 @@ function actionFateBattle(userData, pcId, sheets) {
     //     userData.overload：false＝僅底費(不超載)／'p1'＝超載檔(總價2P·灌P)／'p2'＝極限檔(總價3P·灌2P)／
     //     true·'blood'·未帶旗標(舊前端快取/敵方)＝相容(只灌MP餘裕；'blood'含血梭哈)。倍率走引擎線性公式：
     //     灌P→cap2.0時×1.5(cap1.5時×1.25)、灌2P→達上限。過充 token 照舊只無償折抵超載段。
-    const cap = npOverloadCap_(atkC.six["寶具"]);
+    const cap = npOverloadCap_(npEffectiveRank_(atkC)); // 🎴 2026-07 六波：超載上限依所選寶具階級(如迦爾納選A階黃金鎧則無法超載，選EX的Vasavi Shakti才能)
     const ov = userData.overload;
     const wantOverload = !(ov === false || ov === 'false');         // 未帶旗標(舊前端/敵方)＝超載(不焚血)
     let totalDrain = prana, npOverloadMul = 1.0, ocUsed = 0, usedOvercharge = false;
@@ -656,7 +672,7 @@ function actionFateBattle(userData, pcId, sheets) {
     const enemyOffensiveNp = enemyHasNp && (eScaleClash === '對軍' || eScaleClash === '對城' || eScaleClash === '對界' || CLASH_OFF_FX.some(function (f) { return hasFx_(enemyC0, f); }));
     const eHpR = (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[nIdx][COL.PC.HP]) || 0) / (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) : 1;
     const clashUrge = 0.6 + (hasFx_(enemyC0, 'mad') || hasFx_(enemyC0, 'zabaniya') ? 0.25 : 0) - (1 - eHpR) * 0.3;
-    const clashPrana = npPranaCost_(enemyC0.six["寶具"]);
+    const clashPrana = npPranaCost_(npEffectiveRank_(enemyC0)); // 🎴 2026-07 六波：吃已選定(bestNpChoice_)寶具的官方階級
     const clashAfford = enemyOffensiveNp ? enemyCanAffordNp_(pcData, nIdx, myGameId, clashPrana) : { afford: false, masterIdx: -1 };
     if (enemyOffensiveNp && clashAfford.afford && Math.random() < clashUrge) {
       drainForNp_(sheets, pcData, nIdx, clashAfford.masterIdx, clashPrana);
@@ -673,7 +689,10 @@ function actionFateBattle(userData, pcId, sheets) {
       // ⚠ 2026-07 修：敵方火力取樣原本漏帶 skill——單層歸屬後 burst/str_up/projection 已是主動 only，
       //   敵反擊(:918)/夜襲(Router_Movement)都有補 servantActiveSkill_(敵AI恆全效免費·戰鬥本色)，
       //   唯獨這裡漏掉，導致持這三技的敵從者在開場對轟火力系統性偏低、天秤偏向玩家。
+      // 💠 對轟中敵寶具轟向我方從者＝七天盾的正戲：注入御主純魔供其展開(削 ePow)，取樣後立即結算費用
+      atkC._shieldMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
       const ePow = resolveFateBattle_(enemyC0, atkC, { np: true, skill: servantActiveSkill_(enemyC0), forceHit: true }).damage;
+      settleShieldMana_(sheets, pcData, pIdx, atkC);
       // ⚡ 對轟裁決(2026-07 重構)：四層特例(雙向因果律/輸方保1/pLethal)收進 Engine_Fate.gs 的
       //   純函式 resolveNpClash_(單一優先序階梯·battle_sim 可單元測試)，這裡只做 I/O：
       //   取樣火力→拿決策→落傷。優先序/數值與重構前完全一致。
@@ -765,7 +784,7 @@ function actionFateBattle(userData, pcId, sheets) {
       injectMysticBuff_(sC, pcData[pIdx][COL.PC.MEMORY]);  // ✨ 御主禮裝被動加持我方從者（每回合出擊）
       injectHomeField_(sC, homeField);                     // 🏰 主場·陣地結界
       const isActive = (sidx === atkIdx);
-      const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && openingNp && isActive, seal: opening && openingSeal && isActive, ambush: opening && isActive, skill: isActive ? skillBuff : null }, ctx);
+      const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && openingNp && isActive, seal: opening && openingSeal && isActive, ambush: opening && isActive, skill: isActive ? skillBuff : null, round: rd + 1 }, ctx);
       // 目標為敵御主(非從者)：引擎計算了反傷 fired 但不套用，過濾掉「winner·武器骰」等傷害計算噪音
       const _pFiredClean = isMasterTarget
         ? (ps.fired || []).filter(function (t) { return !/·武器骰|·出力\d/.test(String(t)); })
@@ -835,7 +854,7 @@ function actionFateBattle(userData, pcId, sheets) {
         sheets.pc.getRange(atkIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[atkIdx][COL.PC.MEMORY]);
         rl.strikes.push({ by: '🐙深淵海怪', horror: true, pHit: false, pDmg: 0, pCrit: '', pFired: [], note: '御主魔力枯竭·海怪潰散退場' });
       } else {
-        const hs = fateStrike_(sheets, pcData, horrorC, nIdx, {}, ctx);
+        const hs = fateStrike_(sheets, pcData, horrorC, nIdx, { round: rd + 1 }, ctx);
         rl.strikes.push({ by: '🐙深淵海怪', horror: true, pRoll: hs.aRoll, pHitVal: hs.aHit, dRoll: hs.dRoll, dEvaVal: hs.dEva, pHit: hs.hit, pDmg: hs.hit ? hs.damage : 0, pCrit: hs.crit, pFired: hs.fired, note: '深淵海怪·觸手撕咬' });
         if (hs.destroyed) destroyedName = hs.destroyed;
         if (hs.knocked) knockedOut.push(hs.knocked);
@@ -849,7 +868,7 @@ function actionFateBattle(userData, pcId, sheets) {
     if (allyAtkIdx !== -1 && !String(pcData[allyAtkIdx][COL.PC.ID]).startsWith("DEAD_")
         && !String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_") && !destroyedName && !sealEscaped && !victory) {
       const allyC = rowToCombatant_(pcData[allyAtkIdx]);
-      const aps = fateStrike_(sheets, pcData, allyC, nIdx, { noMeal: true }, ctx); // 盟友非御主一行·不吃整備餐
+      const aps = fateStrike_(sheets, pcData, allyC, nIdx, { noMeal: true, round: rd + 1 }, ctx); // 盟友非御主一行·不吃整備餐
       rl.strikes.push({ by: allyC.name, ally: true, pRoll: aps.aRoll, pHitVal: aps.aHit, dRoll: aps.dRoll, dEvaVal: aps.dEva, pHit: aps.hit, pDmg: aps.hit ? aps.damage : 0, pCrit: aps.crit, pFired: aps.fired, note: "盟友協同" });
       if (aps.destroyed) destroyedName = aps.destroyed;
       if (aps.knocked) knockedOut.push(aps.knocked);
@@ -891,7 +910,7 @@ function actionFateBattle(userData, pcId, sheets) {
             enemyFireNp = true; // ⚡ 已預告→這回合必定發動
           } else if (eWantsNp && !eTelegraphed) {
             // 尚未預告→這次只蓄勢預告、不發動；設旗標＋警告，須付得起 prana 才值得預告
-            const ePranaT = npPranaCost_(enemyNow.six["寶具"]);
+            const ePranaT = npPranaCost_(npEffectiveRank_(enemyNow)); // 🎴 2026-07 六波：吃已選定寶具的官方階級
             if (enemyCanAffordNp_(pcData, nIdx, myGameId, ePranaT).afford) {
               pcData[nIdx][COL.PC.MEMORY] = setNpTelegraph_(pcData[nIdx][COL.PC.MEMORY]);
               sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
@@ -901,7 +920,7 @@ function actionFateBattle(userData, pcId, sheets) {
           }
           // 🔋 敵寶具也要吃魔力：自身 MP＋敵御主電池須付得起 prana，否則放不出（EX/EA 幾乎沒人付得起→極罕見）
           if (enemyFireNp) {
-            const ePrana = npPranaCost_(enemyNow.six["寶具"]);
+            const ePrana = npPranaCost_(npEffectiveRank_(enemyNow)); // 🎴 2026-07 六波：同上
             const eAfford = enemyCanAffordNp_(pcData, nIdx, myGameId, ePrana);
             if (eAfford.afford) {
               drainForNp_(sheets, pcData, nIdx, eAfford.masterIdx, ePrana);
@@ -936,7 +955,7 @@ function actionFateBattle(userData, pcId, sheets) {
           // 🎯 敵AI無主動技按鈕→自動施展其招牌施放技術(魔力放出/怪力/投影)，免費(視為其戰鬥本色)——
           //   精確還原「改制前這些是免費被動」的敵方戰力，避免單層歸屬後悄悄削弱敵人(玩家側才改為主動付魔)。
           const eSkill = servantActiveSkill_(enemyNow);
-          const es = fateStrike_(sheets, pcData, enemyNow, ctgt, { counterMul: enemyFireNp ? 1.0 : 0.85, np: enemyFireNp, skill: eSkill }, ctx);
+          const es = fateStrike_(sheets, pcData, enemyNow, ctgt, { counterMul: enemyFireNp ? 1.0 : 0.85, np: enemyFireNp, skill: eSkill, round: rd + 1 }, ctx);
           rl.eHit = es.hit; rl.eRoll = es.aRoll; rl.eHitVal = es.aHit; rl.eDmg = es.hit ? es.damage : 0; rl.eFired = es.fired; rl.eTarget = String(pcData[ctgt][COL.PC.NAME]); rl.eNp = enemyFireNp;
           if (es.defeat) { defeat = true; victory = false; dreamPrompt = es.dreamPrompt; }
         }

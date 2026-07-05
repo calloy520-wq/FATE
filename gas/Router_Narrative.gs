@@ -193,6 +193,7 @@ ${isKanshou ? `
     ? `『${displayPeople.map(r => r[COL.PC.NAME]).join("、")}』是剛從英靈殿被召喚而來——這不是並肩打過聖杯戰爭的緣分，是彼此【初次相遇】的日常時光，讓相處自然生澀、依好感漸漸升溫，嚴禁暗示雙方早已相熟或曾並肩作戰。`
     : `聖杯戰爭【早已落幕】，這是奪得聖杯後與從者『${displayPeople.length ? displayPeople.map(r => r[COL.PC.NAME]).join("、") : "你的從者"}』共度的【和平日常／約會時光】。`
   }
+🕰️【真實時間參考】：現在是 ${realWorldClockStr_()}——僅供你揣摩場景氛圍與時段感(如深夜的靜謐、週五夜晚的悠閒、清晨的慵懶)，不必刻意報時或提及具體數字，讓氛圍自然呼應即可，不影響上方的相遇/日常設定。
 ★【絕對禁止】任何戰鬥、廝殺、敵人、敵御主、敵從者、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅。世界是安全的。
 ★氛圍＝溫柔、悠閒、戀愛向的日常：散步、閒聊、吃東西、看風景、逛冬木街景。讓從者貼近其官方性格自然地與御主相處互動。
 ★【演出而非說明】不得直述其願望／萌點／個性字面。嚴禁輸出任何生命變化、戰鬥裁決。可有 rel_changes(好感)。
@@ -713,7 +714,11 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
     });
   }
   // 🩸 自動附「當前狀態」(御主＋在場從者 HP/MP)，敘事才連貫(剛被爆打後該寫狼狽、非沒事人)。讀不到就略過。
+  // 🧭 2026-07：順帶組「軌跡骨幹」(見 Core_Settings.gs buildTrajectoryDigest_)——沿用同一次整表讀取，
+  //   零額外讀表。骨幹接在 system 訊息(miniSystem)後面，結構上永遠排在 callGeminiAPI 組出的
+  //   messages 陣列最前面(system → chatHistory → 當前這輪)，精準卡在「最近1輪對話」之前。
   var stateBrief = "";
+  var trajectoryDigest = "";
   try {
     var stData = sheets.pc.getDataRange().getValues();
     var stIdx = stData.findIndex(function (r) { return r[COL.PC.ID] == pcId; });
@@ -726,9 +731,11 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
         }
       });
       stateBrief = '【當前狀態·供連貫演出，勿複述數字】' + sParts.join('；') + '。\n';
+      try { trajectoryDigest = buildTrajectoryDigest_(stData, stGid, stData[stIdx]); } catch (e2) { }
     }
   } catch (e) { }
-  var raw = callGeminiAPI(stateBrief + promptText, miniSystem, aiConfig);
+  var systemWithTrajectory = trajectoryDigest ? (miniSystem + '\n' + trajectoryDigest) : miniSystem;
+  var raw = callGeminiAPI(stateBrief + promptText, systemWithTrajectory, aiConfig);
   try {
     var start = raw.indexOf('{'), end = raw.lastIndexOf('}');
     var data = JSON.parse(raw.substring(start, end + 1));

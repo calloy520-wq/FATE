@@ -1,34 +1,18 @@
 // ==========================================
 // ✨ Mystic_Code.gs — 禮裝（御主裝備）系統（Block ③-2）
-//   1 個專屬槽，存於御主 MEMORY：【禮裝】id、【禮充】n（剩餘充能）。不佔道具欄。
-//   ▸ 取得：創角依財力/身世機率給；戰中可另獲（非 100%）。
-//   ▸ 使用難度（肯尼斯·月靈髓液精髓）：強禮裝吃魔術迴路——啟動時若御主迴路 ≥ 需求→全力；
-//     不足→走火（威力打折＋魔力反噬，差越多越慘），再加魔力消耗＋充能上限。
+//   1 個專屬槽，存於御主 MEMORY：【禮裝】id。不佔道具欄。
+//   ▸ 取得：創角玩家自選(2026-07)。⚠ 2026-07 玩家定案：迴路/財力門檻沒意義，已取消——
+//     不論身世/迴路多少，皆可自由挑選任一款被動禮裝，不設限制。
 // ==========================================
 
 // 📕 禮裝圖鑑（2026-06 全面被動化·玩家定案）。type:'passive' 持有即生效，戰鬥時自動加持我方從者；
 //   'special'＝破戒奪僕(另套機制)。不再有主動發動／充能／迴路門檻。
-//   fx＝戰鬥效果碼(進 MC_COMBAT_ 表)；tier＝稀有度(創角依財力給的門檻)。
+//   fx＝戰鬥效果碼(進 MC_COMBAT_ 表)；tier＝稀有度標記(僅供 rollMysticForMaster_ 保留的未來掉落用途分級，創角自選不吃這欄)。
 var MYSTIC_CODES = {
   avalon: {
     name: '全世界之鞘 Avalon', type: 'passive', fx: 'avalon', tier: 5,
     desc: '亞瑟王傳說的理想鄉之鞘。持有時，從者氣血持續回復加快（時回），且承受寶具傷害大幅減免。',
     flavor: '溫煦的金色光輝自體內漫出，將傷勢一點一滴撫平——這是隔絕於世界之外的、永不凋零的理想鄉。'
-  },
-  jeweled_sword: {
-    name: '寶石劍 Zelretch', type: 'passive', fx: 'mc_jewel', tier: 5,
-    desc: '第二魔法的結晶兵裝。傾瀉平行世界魔力於從者寶具，解放時威力奇蹟般大增。',
-    flavor: '寶石劍引來貫穿平行世界的魔力洪流，注入從者的寶具——這一擊已不只屬於這個世界。'
-  },
-  volumen: {
-    name: '月靈髓液（水銀）', type: 'passive', fx: 'mc_mercury', tier: 4,
-    desc: '肯尼斯引以為傲的攻防一體水銀禮裝。如活物般環繞從者，攻擊更銳、且削減承受的寶具傷害。',
-    flavor: '銀色水銀如有生命般環身翻湧，既是斬向敵手的千刃、也是擋下殺著的壁壘。'
-  },
-  origin_bullet: {
-    name: '起源彈', type: 'passive', fx: 'mc_origin', tier: 3,
-    desc: '衛宮切嗣的特製彈：以「斷絕」為起源。從者攻擊染上斷絕之概念，命中更準、傷害更沉。',
-    flavor: '那以「斷絕」為起源的概念悄然附於每一擊——擦中即是難以挽回的崩解。'
   },
   jewels: {
     name: '魔力儲存寶石', type: 'passive', fx: 'mc_jewel_minor', tier: 2,
@@ -40,10 +24,12 @@ var MYSTIC_CODES = {
     desc: '聖堂教會代行者的擲擊聖鍵。輕巧的牽制掩護，讓從者出手時的命中略為提升。',
     flavor: '數柄黑色聖鍵不時自暗處激射牽制，為從者撕開一線可乘之機。'
   },
+  // ⚠ 2026-07 修(玩家要求全改官方)：查證 Rule Breaker 官方描述是「妖しく七色に輝く歪な形の短剣」
+  //   (妖異七彩流光的歪異短劍)，非紅色——全專案「緣紅短劍」的既定命名一併正名為「七彩短劍」。
   rule_breaker: {
-    name: '破戒全咒 Rule Breaker（緣紅短劍）', type: 'special', fx: 'rule_break', tier: 5,
-    desc: '美狄亞之寶具凝成的緣紅短劍。能斬斷一切締約——可對「打殘(HP<35%)的敵從者」斬契奪僕，化為你的第二從者（需燃一道令咒重締）。在地圖頁／敵卡操作。',
-    flavor: '緣紅的短劍劃過，舊有的契約如琉璃般寸寸碎裂。'
+    name: '破戒全咒 Rule Breaker（七彩短劍）', type: 'special', fx: 'rule_break', tier: 5,
+    desc: '美狄亞之寶具凝成的妖異七彩短劍。能斬斷一切締約——可對「打殘(HP<35%)的敵從者」斬契奪僕，化為你的第二從者（需燃一道令咒重締）。在地圖頁／敵卡操作。',
+    flavor: '妖異七彩流光的短劍劃過，舊有的契約如琉璃般寸寸碎裂。'
   }
 };
 
@@ -52,9 +38,6 @@ var MYSTIC_CODES = {
 var MC_COMBAT_ = {
   mc_blackkey:    { hit: 2, dmgAdd: 0,  npMul: 1.0,  npDefMul: 1.0,  label: '黑鍵·牽制' },
   mc_jewel_minor: { hit: 1, dmgAdd: 10, npMul: 1.0,  npDefMul: 1.0,  label: '魔力儲存寶石' },
-  mc_origin:      { hit: 3, dmgAdd: 8,  npMul: 1.0,  npDefMul: 1.0,  label: '起源彈·斷絕' },
-  mc_mercury:     { hit: 4, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.88, label: '月靈髓液·攻防一體' },
-  mc_jewel:       { hit: 0, dmgAdd: 0,  npMul: 1.5,  npDefMul: 1.0,  label: '寶石劍·奇蹟一擊' },
   avalon:         { hit: 0, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.82, label: '全世界之鞘' },
   // 🗡️ Avalon 回到正主阿爾托莉雅手中：被動＝鞘之基本減傷(×0.82·同一般 Avalon)＋時回；
   //    「理想鄉·無敵結界」的【完全擋寶具】＝被動自動(無開關)：敵解放 6 階究極寶具(ea/enuma)且御主魔力≥100

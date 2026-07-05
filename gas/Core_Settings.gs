@@ -78,6 +78,50 @@ function cleanChineseName(s) {
   return String(s == null ? "" : s).replace(/[^㐀-䶿一-鿿]/g, "").slice(0, 10);
 }
 
+// 🕰️ 2026-07：真實日期/時間字串(鑑賞後日談用)——鑑賞刻意無遊戲內時鐘/AP系統(玩家定案「一個更單純的世界」)，
+//   沒有時間流動感；比起另蓋一套模擬時鐘，直接把「現在真實幾點幾分星期幾」餵給 AI 更划算：零新資料/零新
+//   欄位，只是 prompt 多一行，讓場景自然帶出時段氛圍(深夜的靜謐/週五夜晚的悠閒)，不必玩家自己記或猜。
+function realWorldClockStr_() {
+  var tz = Session.getScriptTimeZone() || 'Asia/Taipei';
+  var now = new Date();
+  var mm = parseInt(Utilities.formatDate(now, tz, 'M'), 10);
+  var dd = parseInt(Utilities.formatDate(now, tz, 'd'), 10);
+  var hh = parseInt(Utilities.formatDate(now, tz, 'H'), 10);
+  var isoWd = parseInt(Utilities.formatDate(now, tz, 'u'), 10); // 1=一...7=日
+  var wdName = ['一', '二', '三', '四', '五', '六', '日'][isoWd - 1] || '一';
+  var period = hh < 6 ? '凌晨' : hh < 11 ? '早上' : hh < 13 ? '中午' : hh < 18 ? '下午' : hh < 22 ? '晚上' : '深夜';
+  return mm + '月' + dd + '日・星期' + wdName + '・' + period + '(' + hh + '點左右)';
+}
+
+// 🧭 2026-07：solo 軌跡骨幹——玩家反饋「歷史是散文沒有骨架」，AI 要從敘事文字裡反推現在的精確狀態
+//   (好感多少/血量剩幾成/第幾天)容易猜錯；改成 GAS 直接組一小段「已確定的事實」接在 system 訊息、
+//   緊接在最近1輪歷史之前，讓 AI 有精準錨點可循，不必單靠散文反推。零額外讀表：呼叫端
+//   (narrateWithState_) 已經在讀一次「眾生」表組【當前狀態】，這裡直接吃同一份 pcData，不重讀。
+//   刻意只用「當下快照」(不做累積事件清單)——避免重蹈已砍除的「因果/命運長河」覆轍(存太多筆、
+//   AI 反而抓不到重點)；後續若要加「一天總結」，再另外評估。
+function buildTrajectoryDigest_(pcData, gameId, pcRow) {
+  if (!pcRow || !gameId) return "";
+  var clk = getClock_(gameId, pcData);
+  var seals = getPlayerSeals_(pcRow[COL.PC.MEMORY]);
+  var loc = String(pcRow[COL.PC.LOC] || "");
+  var svRow = (pcData || []).find(function (r) {
+    return r && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_");
+  });
+  var parts = [];
+  if (clk) parts.push('聖杯戰爭第' + clk.day + '日・行動力' + clk.ap + '/' + AP_PER_DAY);
+  if (svRow) {
+    var bond = parseInt(svRow[COL.PC.BOND]) || 0;
+    var bondWord = bond >= 80 ? '深厚信賴' : bond >= 50 ? '漸生信任' : bond >= 20 ? '仍在磨合' : '尚且生疏';
+    parts.push('與從者「' + svRow[COL.PC.NAME] + '」好感' + bond + '(' + bondWord + ')');
+    var svHp = parseInt(svRow[COL.PC.HP]), svMaxHp = parseInt(svRow[COL.PC.MAX_HP]) || 1;
+    if (!isNaN(svHp) && svHp < svMaxHp * 0.3) parts.push('從者剛歷經惡戰、氣血未復');
+  }
+  parts.push('令咒餘' + seals + '道');
+  if (loc) parts.push('目前位於「' + loc + '」');
+  if (!parts.length) return "";
+  return '【軌跡骨幹】：' + parts.join('。') + '。';
+}
+
 // 🎴 FATE HP/MP 推算（無階級倍率）：耐久→HP、魔力→MP。取代已移除的舊階級·屬性上限計算器。
 function fateMaxHpMp_(con, mag) {
   return {
@@ -209,6 +253,12 @@ function clearOvercharge_(memory) { return String(memory || "").replace(/｜?【
 function getOutfit_(memory) { var m = String(memory || "").match(/【換裝】([^｜【】]*)/); return m ? m[1].trim() : ""; }
 function setOutfit_(memory, text) { var s = clearOutfit_(String(memory || "")); text = String(text || "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, 40); if (!text) return s; return s ? s + "｜【換裝】" + text : "【換裝】" + text; }
 function clearOutfit_(memory) { return String(memory || "").replace(/｜?【換裝】[^｜【】]*/g, ""); }
+// ⚔️ 玩家自定武裝（2026-07·「Saber斯卡哈仍拿槍」案）：武器/戰鬥方式存 MEMORY【武裝】<文字>，
+//   servantCard_ 讀後強制 AI 以此為準——蓋過職階慣例(Saber=劍/Lancer=槍…)與該真名的原典武器習慣。
+//   get/set/clear 成套(鏡射換裝)；清空＝恢復依職階/原典自然演出。限 30 字。
+function getWeapon_(memory) { var m = String(memory || "").match(/【武裝】([^｜【】]*)/); return m ? m[1].trim() : ""; }
+function setWeapon_(memory, text) { var s = clearWeapon_(String(memory || "")); text = String(text || "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, 30); if (!text) return s; return s ? s + "｜【武裝】" + text : "【武裝】" + text; }
+function clearWeapon_(memory) { return String(memory || "").replace(/｜?【武裝】[^｜【】]*/g, ""); }
 // 前端「變容」標籤用的 synergy 視圖：非 synergy 從者回 null；恩奇都回 {has,on,master,peak}。
 //   on＝當前御主觸發全盛(亮)；否則暗(提醒需該御主)。玩家不可控——由御主決定。
 function masterSynergyView_(name, memory) {

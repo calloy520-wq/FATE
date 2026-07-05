@@ -1,7 +1,7 @@
 # 命運停駐之夜 — 工具書（全專案地圖）
 
 > 全代碼掃描後彙整（2026-07）。給每次失憶開機的自己：**這個專案在做什麼、代碼長怎樣、能做什麼**，一份看懂。
-> 三本錨檔分工：**`CLAUDE.md`**（紅線＋當前焦點）／**`DESIGN.md`**（設計鐵則·為什麼）／**本檔 `HANDBOOK.md`**（架構＋每個檔案有什麼·怎麼運作）／**`SOLO_REFERENCE.md`**（solo action/函數/schema 速查）。常數會漂，看代碼為準。
+> 錨檔分工：**`CLAUDE.md`**（紅線＋當前焦點）／**`DESIGN.md`**（設計鐵則·為什麼）／**本檔 `HANDBOOK.md`**（架構＋每個檔案有什麼·怎麼運作）／**`SOLO_REFERENCE.md`**（solo action/函數/schema 速查）／**`AI_PROMPT_MAP.md`**（每個 action↔按鈕↔handler↔送 AI 的 prompt 全景）。常數會漂，看代碼為準。
 
 ---
 
@@ -121,16 +121,16 @@ GAL(鑑賞): ACC0 NAME1 CLS2 SEX3 SIX4 TAGS5 NP6 BACK7 PREF8 MOE9 MEMOIR10 WISH1
 **管線順序（改順序＝改平衡）**：
 1. **執行殺早退**：`ea`(認真·自身血≤40%) / `wealth`(黃金律·≤20%) → `rankVal(寶具)*4 + 骰 + 200` 直接必勝（上游 `actionFateBattle` 補魔閘把關）。
 2. **命中 `aHit` vs 迴避 `dEva`**：各 `D20 + rankTier(屬性)*2.5 + 隨機 + 出力修正`。攻方屬性看職階(`combatProfile_`：Caster魔力/Archer敏捷/近戰敏捷)；守方 = 敏捷0.65+耐久0.35。
-3. **命中端 fx**：整備餐 / 直感·心眼(unreadable封先機) / 狂化 / 自我改造 / 主動技 / **禮裝命中(mcCombatFx_)** / 騎乘 / 千里眼·投影 / 避矢(vs Archer) / 氣息遮斷(僅ambush) / 王財+5 / 燕返-5 / **三騎士相剋(Saber>Lancer>Archer>Saber ±3)** / 變化 / 愛之痣 / 石化 / 天之鎖(vs神性)。
-4. **幸運旋鈕**：幸運≤D 8%失手-10、≥A 8%福星+8。
+3. **命中端 fx**：整備餐 / 直感·心眼(unreadable封先機) / 狂化 / 自我改造 / 主動技 / **禮裝命中(mcCombatFx_)** / 騎乘 / 千里眼·投影 / 避矢(vs Archer) / 氣息遮斷(僅ambush) / 王財+5 / 燕返-5(僅每場第1回合) / **三騎士相剋(Saber>Lancer>Archer>Saber ±3)** / 變化 / 愛之痣 / 石化 / 天之鎖(vs神性)。**🎚️ 被動技能 fx 淨加成 clamp ±HIT_FX_CAP(=8·2026-07)**——攻方命中fx/守方迴避fx各自加總後夾上限(出力/整備/主動技/禮裝/職階相剋/幸運骰/奇襲不入帳)，堆疊流無法把差距拉到「永遠打不到」。
+4. **幸運旋鈕**（2026-07 線性化）：以 C 為零點每離 1 階 ±2% 機率——低於 C 失手-10、高於 C 福星+8（E4%/D2%/C0/B2%/A4%/EX6%）。
 5. **gae_bolg 必中**：守方靠幸運(A+0.35/A0.22/B0.10)+直感+變化搏閃避（上限0.6）。
 6. **勝負**：`gaebolg ? !gbEvaded : aHit>=dEva`。
 7. **骰傷 base**：`rankVal(dmg屬性)*0.6 + rankTier d8 + |aHit-dEva|*1.2`。
-8. **傷害端 fx**：出力乘子 / 怪力 / 魔力放出 / 勇猛(clear_mind免疫) / **禮裝(dmgAdd＋np時npMul如寶石劍×1.5)** / 投影連射 / 奇襲要害×1.2 / 高速詠唱 / 王財彈幕(gobVolley 50d3 EV≈83) / 天之鎖(chainVolley 18d3) / 狂化+ / 神代 / 風王鐵鎚 / 道具作成 / 無毀湖光(vs龍×1.5) / **神殺(vs神性×≤2)** / 職階相性×1.12 / 燕返×2.3。
+8. **傷害端 fx**：出力乘子 / 怪力 / 魔力放出 / 勇猛(clear_mind免疫) / **禮裝(dmgAdd＋np時npMul如寶石劍×1.5)** / 投影連射 / 奇襲要害×1.2 / 高速詠唱 / 王財彈幕(gobVolley 50d3 EV≈83) / 天之鎖(chainVolley 18d3) / 狂化+ / 神代 / 風王鐵鎚 / 道具作成 / 無毀湖光(vs龍×1.5) / **神殺(vs神性×≤2)** / 職階相性×1.12 / 燕返×2.3(普攻限定·**僅每場第1回合**·解放時無疊乘只留演出標籤)。
 9. **寶具 NP block**(僅opts.np)：寶具骰(`npBaseDice_` E4d10→EX24d10)＋`rankVal*1.2+35`＋軍略×1.15＋神性×1.1＋簽名效果(ubw×1.25/zabaniya×1.9+70/summon_horror×1.6+骰/ea×1.7+骰)＋**規模相剋矩陣**（見下）。
 10. **令咒** `opts.seal` ×1.5。
 11. **概念壓制 pierce**：`offenseTier(winner) >= conceptTier(defFx)+2` → 該防禦被無視。
-12. **防禦減傷**（依序·多受pierce影響）：耐久/2 → 陣地×0.74 → 七天盾×0.6 → 疫病抗性 → 原初符文 → 神核×0.82(破魔無視) → 對魔力(A≥0.80·神代凌駕殘三成) → 城牆×0.82(僅物理) → **禮裝承受寶具減傷(avalon×0.82/mercury×0.88·不受pierce)**。
+12. **防禦減傷**（依序·多受pierce影響）：耐久/2 → 陣地×0.74 → 七天盾(**僅對寶具解放反應**·×0.6@C·玩家側展開扣御主30魔/次·付不起張不開) → 疫病抗性 → 原初符文 → 神核×0.82(破魔無視) → 對魔力(A≥0.80·神代凌駕殘三成) → 城牆×0.82(僅物理) → **禮裝承受寶具減傷(avalon×0.82/mercury×0.88·不受pierce)**。
 13. **保底 max(1)＋暴擊**(擲20多骰一輪+12)。
 
 ### 寶具規模相剋矩陣 `NP_SCALE_MATRIX`（列=攻·欄=防）
@@ -151,15 +151,12 @@ GAL(鑑賞): ACC0 NAME1 CLS2 SEX3 SIX4 TAGS5 NP6 BACK7 PREF8 MOE9 MEMOIR10 WISH1
 
 ## 7. 禮裝（`Mystic_Code.gs`·2026-06 全面被動化）
 
-持有即戰鬥自動加持我方從者，**無主動發動/充能/迴路門檻**。`injectMysticBuff_` 在 `actionFateBattle` 三處把 `{n,r,fx}` 注入我方從者(atkC開場對轟／每回合sC／fateStrike_ defC守方)，引擎 `mcCombatFx_` 讀 `MC_COMBAT_` 三通道套用。創角依財力機率給(`rollMysticForMaster_`)。
+持有即戰鬥自動加持我方從者，**無主動發動/充能/迴路門檻**。`injectMysticBuff_` 在 `actionFateBattle` 三處把 `{n,r,fx}` 注入我方從者(atkC開場對轟／每回合sC／fateStrike_ defC守方)，引擎 `mcCombatFx_` 讀 `MC_COMBAT_` 三通道套用。**創角玩家自選**(2026-07)，不看財力/迴路——`rollMysticForMaster_`(財力機率版)現無呼叫者，保留給未來「戰中掉落」用途。**2026-07 玩家定案砍3項**：起源彈/月靈髓液/寶石劍已移除。
 
 | id | fx | 效果(MC_COMBAT_) |
 |---|---|---|
 | 黑鍵 | mc_blackkey | 命中+2 |
 | 魔力儲存寶石 | mc_jewel_minor | 命中+1·傷+10 |
-| 起源彈 | mc_origin | 命中+3·傷+8 |
-| 月靈髓液 | mc_mercury | 命中+4·承受寶具×0.88 |
-| 寶石劍 Zelretch | mc_jewel | 解放寶具傷×1.5 |
 | 全世界之鞘 Avalon | avalon | 承受寶具×0.82＋時回×1.6 |
 | 破戒全咒 | rule_break | special·斬契奪僕(不在MC_COMBAT_) |
 
@@ -187,3 +184,13 @@ GAL(鑑賞): ACC0 NAME1 CLS2 SEX3 SIX4 TAGS5 NP6 BACK7 PREF8 MOE9 MEMOIR10 WISH1
 - `actionGetMasters` 對 `fake`/`chaos` 戰爭回傳 5th 名冊；`seedRivalsForGame_` fake 分支不理 `【扮演】`——目前前端觸發不到（latent），未來若開放 fake 扮演須補。
 - `dev_seed_gallery`(Gallery·自標【DEV·待移除】)／`dev_resync_codex`(套最新平衡·可留)：DEV 工具，確認慾海穩定後可清前者。
 - `RESEED_VER`/`CODEX_PERSONA_VER`：一次性遷移旗標，旗標守門下無效能損失，保留無害。
+
+## 11. 平衡測試工具（`tools/battle_sim/`·Node·不進 clasp）
+
+`tools/` 不被 clasp 部署（`.clasp.json` rootDir=`gas`、`.claspignore` 只放行 `gas/`），可常駐 repo。`engine.js` 把真實 `Core_Settings.gs`＋`Engine_Fate.gs`＋`Seed_Codex.gs` 原始碼載進 Node vm sandbox——**不複製任何算式/六圍**，永遠吃當下 repo 的真引擎＋真種子（只 stub 少數 GAS 全域：`PropertiesService`/`SpreadsheetApp`/`mcCombatFx_`）。是改平衡後的迴歸測試利器。
+
+- `node tools/battle_sim/duel.js [場數=20000]`：兩騎對打模擬（範例＝金閃/恩奇都 vs B叔·比較有無招牌被動）。改 `main()` 的 servant id 與 `stripFx` 陣列測別組，或 `require('./engine.js')` 自寫腳本（`ctx.SEED_SERVANTS`/`ctx.resolveFateBattle_`/`ctx.hasFx_` 都是真引擎）。
+- `node tools/battle_sim/roundrobin.js [pool=4th|5th|all] [mode=basic|skill|np] [N=200]`：戰爭池(或全36騎)內全循環賽·輸出對全池勝率排名。三 mode 各自獨立：`basic`＝裸普攻／`skill`＝開主動技全效／`np`＝每手解放寶具(出力強制100%·多寶具挑最強攻擊項·不模擬御主魔力上限)。
+- **`node tools/battle_sim/extremes.js [N=200]`：🏟️ 極端組合回歸測試——平衡改動後必跑**(2026-07·約3分鐘)。收錄歷次退化組合(燕巧盾/以巧變化流…含四技版)＋事件註記：①每組合 vs 全種子池(紅旗=破9成) ②互鬥全循環(紅旗=無天敵)。預算按檔內鏡射價目現算·改價後買不起的自動❌棄測；改 parseForgeBuild_ 價目記得同步鏡射表、新退化組合往 BUILDS 加。場數：tier 榜 N=200 夠(±1.2pp)、單對局結論用 N=1000。
+- **模擬範圍**：預設只跑普攻交鋒至一方陣亡（不解放寶具/補魔/整備/禮裝），量的是「被動 fx 本身」的貢獻、不被寶具巨傷蓋過。God Hand 十二試煉復活公式逐行對照 `Router_Battle.gs` 的 `fateStrike_` 移植。
+- **用途**：改六圍/fx/寶具 NP 尺度後跑一輪，看有沒有把某騎調爆或調廢。改完平衡順手更新 `duel.js` 的範例對戰組合。

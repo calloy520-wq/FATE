@@ -38,6 +38,9 @@ const ActionRouter = {
   "set_mage_realm": actionSetMageRealm,
   "set_rune_mode": actionSetRuneMode,
   "outfit": actionSetOutfit,
+  "weapon": actionSetWeapon,
+  "save_hero": actionSaveHero,
+  "claim_hero": actionClaimHero, // 🖐 認領無主原創英靈(印記功能前鑄的·認領後可修改)
   "bond": actionBond,
   "rule_break_steal": actionRuleBreakSteal,
   "propose_alliance": actionProposeAlliance,
@@ -204,7 +207,8 @@ function handleGameAction(userData) {
 const LOCK_EXEMPT_ACTIONS_ = {
   check_name: 1, get_full_status: 1, get_heroes: 1, get_masters: 1,
   get_tags: 1, get_map_nodes: 1, sync: 1,
-  narrate_only: 1, play: 1, backfill_master_ai: 1
+  narrate_only: 1, play: 1, backfill_master_ai: 1,
+  save_hero: 1 // 🛠️ 工房鑄造/修改：含數秒 AI 呼叫·只寫英靈殿(append/單列)不碰戰場——佔全域鎖會卡死其他玩家
 };
 // ⚡ 會改動 solo 戰場狀態、前端事後會 syncData(整頁刷新) 的動作 → 夾帶 _state 省一趟 round-trip。
 //   不含：sync(本身即 state)／get_tags／純讀取(inspect/get_*)／創角召喚(自走 reload)／kanshou(KPC_)；
@@ -243,13 +247,12 @@ function actionCheckName(userData, pcId, sheets) {
   if (!userData.name) {
     return JSON.stringify({ invalidName: true, message: "名號僅限中文字，不可使用英文、數字或符號。" });
   }
-  const pcRows = sheets.pc.getDataRange().getValues();
-  // 🔵 只有「進行中世界(game_id 非空)」的角色才保留名字；DEAD_ 與 game_id 空的孤兒(舊資料/已清局殘留)不佔名。
-  //   這同時維持多帳號間「同名活躍御主」的隔離，又讓重開遊戲後自己的舊名可重用。
-  const found = pcRows.find(r => r[COL.PC.NAME] === userData.name
-    && !String(r[COL.PC.ID]).startsWith("DEAD_")
-    && String(r[COL.PC.GAME_ID] || "") !== "");
-  return JSON.stringify({ exists: !!found, pcId: found ? found[COL.PC.ID] : null, sex: found ? found[COL.PC.SEX] : "未知" });
+  // 🔵 2026-07 修：與 create(actionManualNpc) 一致——不再擋跨局同名（game_id 實例化·多帳號分流·玩家御主
+  //   靠 pcId 認人，跨局撞名無害；原本全表擋撞名害「分享出去多人玩」時常見/正典名號被別局佔走而創不了角）。
+  //   只擋【正典角色名】(避免與本局被種入的同名正典敵手雙胞胎)；想扮演正典請走「扮演正典御主」入口。省整表讀。
+  const _canonHit = (typeof SEED_MASTERS !== 'undefined' && SEED_MASTERS.some(m => m && m.name === userData.name))
+    || (typeof SEED_SERVANTS !== 'undefined' && SEED_SERVANTS.some(s => s && s.name === userData.name));
+  return JSON.stringify({ exists: _canonHit, canon: _canonHit, message: _canonHit ? `「${userData.name}」是聖杯戰爭中已知的英靈／御主——請另取名號，或用「扮演正典御主」入口。` : "" });
 }
 
 function actionGetFullStatus(userData, pcId, sheets) {
@@ -273,10 +276,20 @@ function actionGetFullStatus(userData, pcId, sheets) {
 function actionUpdateFate(userData, pcId, sheets) {
   const { targetId, fateType, fateValue } = userData;
   let pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] === targetId);
+  // 🔧 2026-07 修：從者狀態(📜 狀態鈕)開的 openStatus 傳的是【名字】非 ID(currentStatusTargetId=名)——
+  //   原本只比對 r.ID===targetId，對從者改命恆「查無此人」。改成【ID 或 同行從者名字】皆可、限本局
+  //   game_id(防跨局撞名／名字誤中敵方非同行者)。御主自己走 ID 分支照舊。
+  const me = pcData.find(r => r[COL.PC.ID] == pcId);
+  const myGameId = me ? String(me[COL.PC.GAME_ID] || "") : "";
+  const pIdx = pcData.findIndex(r => {
+    if (String(r[COL.PC.ID]).startsWith("DEAD_")) return false;
+    if (myGameId && String(r[COL.PC.GAME_ID] || "") !== myGameId) return false;
+    if (r[COL.PC.ID] == targetId) return true; // ID 直配（御主自己／舊路徑）
+    return String(r[COL.PC.NAME]) === String(targetId) && String(r[COL.PC.IS_PARTY] || "") === "同行"; // 名字配·限同行從者
+  });
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
 
-  if (targetId !== pcId) {
+  if (String(pcData[pIdx][COL.PC.ID]) != String(pcId)) {
     // 2026-07：關係併入眾生列，直接看這名角色自己的 IS_PARTY 欄。
     if (String(pcData[pIdx][COL.PC.IS_PARTY] || "") !== "同行") {
       return JSON.stringify({ success: false, message: `僅能對同行的從者逆天改命！` });
@@ -336,6 +349,9 @@ function buildTagsPayload_(sheets, pcId, preData) {
     try { const tg = JSON.parse(s[COL.PC.TAGS] || "{}"); skills = tg.skills || []; traits = tg.traits || []; } catch (e) { }
     servants.push({
       name: s[COL.PC.NAME], cls: s[COL.PC.RANK] || "從者", sex: s[COL.PC.SEX],
+      // ⚡ 預取狀態字串(2026-07 提速)：隨 state 一併帶回，前端「📋資料→切從者」直接秒顯，
+      //   免每次點從者都打一趟 get_full_status(GAS round-trip 正是那 5~6 秒的根因)。與御主自看(localStorage 快照)同款即時。
+      statusString: buildPlayerStatusString(s, String(s[COL.PC.REL_MEM] || "")),
       hp: hpWord(s[COL.PC.HP], s[COL.PC.MAX_HP]),
       hpNum: parseInt(s[COL.PC.HP]) || 0, hpMax: parseInt(s[COL.PC.MAX_HP]) || 0,
       mpNum: parseInt(s[COL.PC.MP]) || 0, mpMax: parseInt(s[COL.PC.MAX_MP]) || 0,
@@ -359,6 +375,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
       // 🐙 戰前召喚鈕：持 summon_horror 且海怪【尚未在場】→ 前端露出「召喚海怪」按鈕(變身態·跨戰鬥 12h)
       canSummonHorror: skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) && !horrorShieldView_(s[COL.PC.MEMORY], gameId),
       outfit: getOutfit_(s[COL.PC.MEMORY]), // 👗 玩家換裝：當前服裝(前端預填/顯示·換衣不換人)
+      weapon: getWeapon_(s[COL.PC.MEMORY]), // ⚔️ 玩家自定武裝：武器/戰鬥方式(前端預填/顯示·敘述以此為準)
       pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體
       stolen: /【破戒奪取】/.test(String(s[COL.PC.MEMORY] || ""))
     });

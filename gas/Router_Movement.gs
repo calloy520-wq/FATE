@@ -93,6 +93,7 @@ function actionMove(userData, pcId, sheets) {
       if (psvIdxM !== -1) {
         var psvC = rowToCombatant_(allPcData[psvIdxM]);
         try { injectMysticBuff_(psvC, allPcData[pIdx][COL.PC.MEMORY]); } catch (e) { } // ✨ 逃跑時也吃御主禮裝(如 Avalon 承受寶具減傷)
+        psvC._shieldMp = parseInt(allPcData[pIdx][COL.PC.MP]) || 0; // 💠 背擊寶具＝七天盾可展開(扣魔)，付不起張不開
         var psvAgi = rankVal(psvC.six['敏捷'] || 'C');
         var psvHp = parseInt(allPcData[psvIdxM][COL.PC.HP]) || 0, psvMax = parseInt(allPcData[psvIdxM][COL.PC.MAX_HP]) || 1;
         // 🔮 預告寶具·背後傾瀉：離場格若有敵人正「寶具預告」蓄勢中 → 朝你退卻的背影傾瀉充能寶具＝NP 級臨別重擊
@@ -114,7 +115,7 @@ function actionMove(userData, pcId, sheets) {
           //   ——原本沿用 np 裁決的 winner 傷害，等於我方沒解放寶具卻免費吃到自己寶具骰的 NP 級反擊。
           var teleIdx = allPcData.findIndex(function (r) { return String(r[COL.PC.ID]) === String(teleFoe[COL.PC.ID]); });
           var foeC2 = rowToCombatant_(teleFoe);
-          var telePrana = npPranaCost_(foeC2.six['寶具'] || '-');
+          var telePrana = npPranaCost_(npEffectiveRank_(foeC2) || '-'); // 🎴 2026-07 六波：吃該敵從者已選定寶具的官方階級
           var teleAfford = (teleIdx !== -1) ? enemyCanAffordNp_(allPcData, teleIdx, moveGameId, telePrana) : { afford: false, masterIdx: -1 };
           if (teleAfford.afford) {
             drainForNp_(sheets, allPcData, teleIdx, teleAfford.masterIdx, telePrana); // 寶具已離弦(中與不中都燒魔)
@@ -122,6 +123,7 @@ function actionMove(userData, pcId, sheets) {
             var teleProb = 0.85 - (hasFx_(psvC, 'ride') ? 0.15 : 0);
             if (Math.random() < teleProb) {
               var prT = resolveFateBattle_(foeC2, psvC, { np: true });
+              settleShieldMana_(sheets, allPcData, pIdx, psvC); // 💠 七天盾展開費結算(引擎已判付得起才展開)
               if (prT.atkWins) {
                 pursuit = { enemyName: teleName, chaserId: String(teleFoe[COL.PC.ID]), dmg: Math.max(1, prT.damage), hitWho: 'us', np: true,
                   note: '「' + teleName + '」蓄勢已久的真名解放朝你退卻的背影轟然傾瀉——這一擊的代價，是逃離強敵的必然。' };
@@ -157,7 +159,14 @@ function actionMove(userData, pcId, sheets) {
             // ⚔️ 真·交手判定(非單方挨打)：追兵 vs 我方從者一次交鋒，誰輸誰扣血——我方夠強可回身反咬逼退追兵。
             //   雙方保 1 不致死(離別小衝突·防玩家來回刷殺/也防被追擊秒殺)。
             var pr = resolveFateBattle_(chC, psvC, {});
-            pursuit = { enemyName: String(chaser[COL.PC.NAME]), chaserId: String(chaser[COL.PC.ID]), dmg: Math.max(1, pr.damage), hitWho: pr.atkWins ? 'us' : 'foe' };
+            var chaserNm = String(chaser[COL.PC.NAME]);
+            // 🐛→✅ 2026-07 修：舊版這支六圍追擊只扣血、沒有 note——worldRumors 只在 pursuit.note 存在時才會
+            //   推播戰報(見下方 pursuit.note 判斷)，導致玩家從者莫名其妙少一截血、完全看不出發生了什麼，
+            //   體感上「撤離判定好像只有寶具預告會發動」(那條有 note、看得到；這條沒有、看不到)。已補上 note。
+            pursuit = { enemyName: chaserNm, chaserId: String(chaser[COL.PC.ID]), dmg: Math.max(1, pr.damage), hitWho: pr.atkWins ? 'us' : 'foe',
+              note: pr.atkWins
+                ? ('「' + chaserNm + '」腳程更快，你才轉身欲走，她已欺身欺至，狠狠螫了你的從者一記——沒能全身而退。')
+                : ('「' + chaserNm + '」欺身追至，卻被你的從者堪堪回身擋開、反手逼退。') };
           }
         }
       }
