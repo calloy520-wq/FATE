@@ -209,12 +209,16 @@ function actionGetMasters(userData, pcId, sheets) {
 //   其餘中階以下(含施放/防禦/對人放大)已開放，讓自訂/AI 從者的天花板貼近種子。
 var ALLOWED_FX_ = {
   nullify_magic: 1, first_strike: 1, analyze: 1, str_up: 1, burst: 1, ride: 1, stealth: 1,
-  evade_ranged: 1, survive: 1, divine_core: 1, mad: 1, morale: 1, divine_age: 1,
+  evade_ranged: 1, survive: 1, mad: 1, morale: 1, divine_age: 1,
   unreadable: 1, wind_strike: 1, tsubame: 1, gae_bolg: 1, god_hand: 1,
   clear_mind: 1, self_mod: 1, tactics: 1, anti_magic_lance: 1, rule_breaker: 1,
   // 🆕 2026-07 放寬(A)：施放技術/命中/防禦/對人放大——中階以下，拉高自訂從者上限、不含頂級概念寶具
   aim: 1, projection: 1, fast_cast: 1, crafting: 1, petrify: 1, shapeshift: 1,
   solo: 1, weapon_steal: 1, rho_aias: 1, territory: 1, wall_def: 1, zabaniya: 1, regen: 1,
+  // ⚠ 2026-07 六波拔除 divine_core(神核)：玩家點破「這是只有真正神靈軀體才有的，是不是有人拿到了」——
+  //   查證種子庫 5 位持有者裡 2 位(美杜莎/伊絲塔)其實查無來源確認、已拔除，剩 3 位(斯卡蒂/阿基里斯/迦爾納)
+  //   皆貨真價實神裔。工房原本零門檻任何自訂角色可買，跟 ea/王之財寶/UBW/海怪/天之鎖/黃金律 等
+  //   種子專屬機制的處理邏輯矛盾——漲價解決不了「凡人不該有」的問題(有預算照樣買得到)，改比照收為種子專屬。
   divine: 1, // 🆕 2026-07：神性(帶階級·比 trait 名判定精準)——引擎中主要是弱點(被神殺/天之鎖/對神剋)，濫用價值低
   agile_striker: 1, // 💨 2026-07：以巧破力——以敏捷為傷害底(敏高於筋/魔時)。敏捷輸出流唯一通道·二元·全能稅×0.85·平價25。⚠顯示名勿用「神速」：理查/斯卡哈-Assassin 正史技能已叫神速(fx=first_strike·先機)，兩機制撞名必混淆
   // 🆕 2026-07 三波開放(玩家定案·互鬥錦標賽揪出剋制缺口後補貨架)：
@@ -222,10 +226,10 @@ var ALLOWED_FX_ = {
   god_slay: 1, // 神殺(斯卡哈同款)：對神性之敵×1.17~2.0(依對方神格·binary→固定25)。counter-pick 剋神核/神裔。
   lovespot: 1  // 愛之痣(迪盧木多同款)：敵命中-1(微量風味·固定5)。
 };
-var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應就填空字串\"\"（頂級概念寶具 乖離劍/王之財寶/無限劍製 等為種子專屬、不在此清單）：" +
+var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應就填空字串\"\"（頂級概念寶具 乖離劍/王之財寶/無限劍製/神核 等為種子專屬、不在此清單）：" +
   "對魔力=nullify_magic、直感=first_strike、心眼=analyze、千里眼=aim、怪力=str_up、魔力放出=burst、投影魔術=projection、" +
   "高速詠唱=fast_cast、道具作成=crafting、騎乘=ride、氣息遮斷=stealth、變化(迴避+)=shapeshift、避矢=evade_ranged、" +
-  "戰鬥續行=survive、單獨行動=solo、神核=divine_core、七天盾(對寶具展開·投影減傷·御主耗魔)=rho_aias、陣地作成(減傷)=territory、城牆防禦(物理減傷)=wall_def、" +
+  "戰鬥續行=survive、單獨行動=solo、七天盾(對寶具展開·投影減傷·御主耗魔)=rho_aias、陣地作成(減傷)=territory、城牆防禦(物理減傷)=wall_def、" +
   "狂化=mad、勇猛/卡里斯瑪=morale、神代魔術=divine_age、無欲(封先機)=unreadable、透化(免威壓)=clear_mind、" +
   "自我改造(命中傷害+)=self_mod、軍略(寶具+)=tactics、風王鐵鎚(傷+)=wind_strike、魔眼(石化)=petrify、必中槍=gae_bolg、" +
   "秘劍燕返(每場首回合強化)=tsubame、妄想心音(暗殺致命)=zabaniya、無毀湖光(對龍+)=weapon_steal、治癒(每回合回血)=regen、不死復活(復活3次·如尼祿三度輝映)=god_hand、" +

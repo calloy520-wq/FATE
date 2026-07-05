@@ -182,16 +182,21 @@ function hasCausalityNp_(c) {
   return (c.skills || []).some(function(s) { return s && s.causality; });
 }
 
-// 🕊️ 目標的「神性階級」單一真實來源(2026-07 統一重構)：divine fx 的階級優先，退 特性/技能名含
-//   神性|神格|神靈 者標的階級，再退 'C'(有神性但沒標階級)。查無神性回 null。
-//   神殺(god_slay)／天之鎖縛神(chain)／對神寶具(Vasavi Shakti)／寶具解放神性加成／對瘟疫神性抗性
-//   全部吃這一個函式——原作精髓「神性越高，剋神效果越重；神性越低，效果越弱」
-//   (美杜莎 E- 的墮落神格幾乎不受天之鎖壓制；伊絲塔 A 的正神核被縛得死死的)。
+// 🕊️ 目標的「神性階級」單一真實來源(2026-07 統一重構；同月再修：納入 divine_core)：
+//   divine fx／divine_core fx／特性技能名含 神性|神格|神靈(無標階退'C') 三者取階級最高者。
+//   查無任一者回 null。神殺(god_slay)／天之鎖縛神(chain)／對神寶具(Vasavi Shakti)／
+//   寶具解放神性加成／對瘟疫神性抗性 全部吃這一個函式——原作精髓「神性越高，剋神效果越重；
+//   神性越低，效果越弱」(美杜莎 E- 的墮落神格幾乎不受天之鎖壓制；伊絲塔 A 的正神核被縛得死死的)。
+//   納入 divine_core 的理由：神核代表「真正神靈軀體」，其階級本就該≥表面神性標籤——
+//   如斯卡蒂神核 A 卻只掛無階神性(退回C)，等於擁有真神之軀反而被神殺當弱神打，取高者修正此矛盾。
 function divineRankOf_(c) {
   var fx = hasFx_(c, 'divine');
-  if (fx) return fx;
+  var core = hasFx_(c, 'divine_core');
   var t = (c.traits || []).concat(c.skills || []).find(function (x) { return x && /神性|神格|神靈/.test(String(x.n)); });
-  return t ? (t.r || 'C') : null;
+  var traitR = t ? (t.r || 'C') : null;
+  var best = null;
+  [fx, core, traitR].forEach(function (r) { if (r && (!best || rankVal(r) > rankVal(best))) best = r; });
+  return best;
 }
 
 // 🌟 寶具對轟·純裁決函式(2026-07 重構)：原本內嵌在 actionFateBattle 的四層特例(雙向因果律/
