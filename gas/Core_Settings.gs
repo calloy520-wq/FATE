@@ -78,6 +78,21 @@ function cleanChineseName(s) {
   return String(s == null ? "" : s).replace(/[^㐀-䶿一-鿿]/g, "").slice(0, 10);
 }
 
+// 🕰️ 2026-07：真實日期/時間字串(鑑賞後日談用)——鑑賞刻意無遊戲內時鐘/AP系統(玩家定案「一個更單純的世界」)，
+//   沒有時間流動感；比起另蓋一套模擬時鐘，直接把「現在真實幾點幾分星期幾」餵給 AI 更划算：零新資料/零新
+//   欄位，只是 prompt 多一行，讓場景自然帶出時段氛圍(深夜的靜謐/週五夜晚的悠閒)，不必玩家自己記或猜。
+function realWorldClockStr_() {
+  var tz = Session.getScriptTimeZone() || 'Asia/Taipei';
+  var now = new Date();
+  var mm = parseInt(Utilities.formatDate(now, tz, 'M'), 10);
+  var dd = parseInt(Utilities.formatDate(now, tz, 'd'), 10);
+  var hh = parseInt(Utilities.formatDate(now, tz, 'H'), 10);
+  var isoWd = parseInt(Utilities.formatDate(now, tz, 'u'), 10); // 1=一...7=日
+  var wdName = ['一', '二', '三', '四', '五', '六', '日'][isoWd - 1] || '一';
+  var period = hh < 6 ? '凌晨' : hh < 11 ? '早上' : hh < 13 ? '中午' : hh < 18 ? '下午' : hh < 22 ? '晚上' : '深夜';
+  return mm + '月' + dd + '日・星期' + wdName + '・' + period + '(' + hh + '點左右)';
+}
+
 // 🎴 FATE HP/MP 推算（無階級倍率）：耐久→HP、魔力→MP。取代已移除的舊階級·屬性上限計算器。
 function fateMaxHpMp_(con, mag) {
   return {
