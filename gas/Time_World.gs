@@ -397,6 +397,9 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
   var data = preData || sheets.pc.getDataRange().getValues();
   var _ck0 = getClock_(gameId, data); if (_ck0) refillMastersDaily_(sheets, gameId, _ck0.day, data);
   var moved = 0;
+  // ⚡ 2026-07 收斂：LOC/HP 整欄批次寫回原本各輪跑一次(rounds 最多4輪·12h休息)，改成跨輪累積髒旗標、
+  //   迴圈跑完後各自只寫一次——data 是同一份陣列全程原地改，跑完才寫不影響任何一輪讀到的中間值。
+  var anyLocDirty = false, anyHpDirty = false;
 
   for (var rd = 0; rd < rounds; rd++) {
     // 1) 敵御主帶著從者隨機移位（機率 35%），移走者重設偵查旗標→地圖再次隱形
@@ -438,16 +441,10 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
       }
       moved++;
     }
-    // ⚡ 整輪敵移位後，LOC 整欄一次寫回（取代迴圈內逐列 setValues 的零散往返；下方 attrition fresh 重讀前已落地）
-    if (locDirty) {
-      var locCol = [];
-      for (var z = 1; z < data.length; z++) locCol.push([data[z][COL.PC.LOC]]);
-      sheets.pc.getRange(2, COL.PC.LOC + 1, locCol.length, 1).setValues(locCol);
-    }
+    if (locDirty) anyLocDirty = true; // 整欄寫回挪到迴圈外一次做，這裡只累積旗標
 
     // 🩹 敵從者小幅自癒(見 ENEMY_REGEN_RATE_ 註解)：不論攻防/是否同地，move/rest 兩種 tick 都跑，
-    //   免額外整表讀寫——沿用同一份 data、跟 LOC 一樣整欄批次寫回。
-    var hpDirty = false;
+    //   免額外整表讀寫——沿用同一份 data，整欄批次寫回同樣挪到迴圈外一次做。
     for (var hi = 1; hi < data.length; hi++) {
       if (String(data[hi][COL.PC.FACTION]) !== "敵從者") continue;
       if (String(data[hi][COL.PC.GAME_ID] || "") !== gameId) continue;
@@ -455,12 +452,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
       var eHpMax = parseInt(data[hi][COL.PC.MAX_HP]) || 0, eHp = parseInt(data[hi][COL.PC.HP]) || 0;
       if (!eHpMax || eHp <= 0 || eHp >= eHpMax) continue;
       var eNHp = Math.min(eHpMax, eHp + Math.round(eHpMax * ENEMY_REGEN_RATE_));
-      if (eNHp !== eHp) { data[hi][COL.PC.HP] = eNHp; hpDirty = true; }
-    }
-    if (hpDirty) {
-      var hpCol = [];
-      for (var z1 = 1; z1 < data.length; z1++) hpCol.push([data[z1][COL.PC.HP]]);
-      sheets.pc.getRange(2, COL.PC.HP + 1, hpCol.length, 1).setValues(hpCol);
+      if (eNHp !== eHp) { data[hi][COL.PC.HP] = eNHp; anyHpDirty = true; }
     }
 
     // 2) 暗處從者廝殺：只在「休息」時可能發生（移動只換位，不死人）；
@@ -499,6 +491,18 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
       markMasterLostServant_(sheets.pc, data, victim.idx, "在冬木暗處的廝殺中、歿於他人之手");
       rumors.push("〔風聞〕昨夜冬木某處傳出靈基崩潰的餘波——「" + victim.name + "」似乎已在他人手中殞落。");
     }
+  }
+  // ⚡ LOC/HP 整欄一次寫回(取代原本每輪各寫一次·最多12h休息=4輪就是4次)——data 全程原地改，
+  //   等所有輪跑完才寫，仍是同一份最終狀態，只是省去中途的重複 Sheets 寫入次數。
+  if (anyLocDirty) {
+    var locColF = [];
+    for (var zl = 1; zl < data.length; zl++) locColF.push([data[zl][COL.PC.LOC]]);
+    sheets.pc.getRange(2, COL.PC.LOC + 1, locColF.length, 1).setValues(locColF);
+  }
+  if (anyHpDirty) {
+    var hpColF = [];
+    for (var zh = 1; zh < data.length; zh++) hpColF.push([data[zh][COL.PC.HP]]);
+    sheets.pc.getRange(2, COL.PC.HP + 1, hpColF.length, 1).setValues(hpColF);
   }
   // 🕯️ 令咒耗盡·靈基透支：時間到 → 無「單獨行動」自持的脫逃敵從者，靈基崩解消滅。
   //   這不是世界隨機清人(那有 WORLD_FLOOR_ 保底)，而是玩家親手把對方打到燃盡令咒後的「延遲結算」，故允許收尾、可觸發勝利。
