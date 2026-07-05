@@ -159,7 +159,14 @@ function actionMove(userData, pcId, sheets) {
             // ⚔️ 真·交手判定(非單方挨打)：追兵 vs 我方從者一次交鋒，誰輸誰扣血——我方夠強可回身反咬逼退追兵。
             //   雙方保 1 不致死(離別小衝突·防玩家來回刷殺/也防被追擊秒殺)。
             var pr = resolveFateBattle_(chC, psvC, {});
-            pursuit = { enemyName: String(chaser[COL.PC.NAME]), chaserId: String(chaser[COL.PC.ID]), dmg: Math.max(1, pr.damage), hitWho: pr.atkWins ? 'us' : 'foe' };
+            var chaserNm = String(chaser[COL.PC.NAME]);
+            // 🐛→✅ 2026-07 修：舊版這支六圍追擊只扣血、沒有 note——worldRumors 只在 pursuit.note 存在時才會
+            //   推播戰報(見下方 pursuit.note 判斷)，導致玩家從者莫名其妙少一截血、完全看不出發生了什麼，
+            //   體感上「撤離判定好像只有寶具預告會發動」(那條有 note、看得到；這條沒有、看不到)。已補上 note。
+            pursuit = { enemyName: chaserNm, chaserId: String(chaser[COL.PC.ID]), dmg: Math.max(1, pr.damage), hitWho: pr.atkWins ? 'us' : 'foe',
+              note: pr.atkWins
+                ? ('「' + chaserNm + '」腳程更快，你才轉身欲走，她已欺身欺至，狠狠螫了你的從者一記——沒能全身而退。')
+                : ('「' + chaserNm + '」欺身追至，卻被你的從者堪堪回身擋開、反手逼退。') };
           }
         }
       }

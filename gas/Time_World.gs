@@ -377,6 +377,12 @@ function refillMastersDaily_(sheets, gameId, day, preData) {
 //   回傳 { rumors:[..文字..], moved:n }
 var WORLD_FLOOR_ = 4; // 世界自走永遠至少保留這麼多名敵從者給玩家親手解決（不會被自走清光）
 var ATTRITION_START_DAY = 3; // ⏳ 開戰前期不減員：第 N 日(含)前，世界不會有從者暗處殞落（給玩家喘息＋貼戰爭初期蟄伏）
+// 🩹 2026-07：敵從者每輪世界自走小幅回血(不看同地/攻防狀態、不吃玩家 rest×2 加成)——
+//   玩家自己(applyRegen_)每次休息都全額回血回魔，敵從者卻永遠沒有對應機制，傷勢會一直停在原地。
+//   撤離又幾乎零成本(見 actionMove 撤離判定)，兩者相加＝「打一下、撤退回血、再打一下」保證磨死任何敵人，
+//   毫無風險。給敵從者一點點自癒(比玩家慢很多、不隨休息倍增)，讓無限次撤退刷血不再穩贏，逼玩家要嘛
+//   加快節奏、要嘛正面找到真正的剋制手段——而不是純靠耐心。
+var ENEMY_REGEN_RATE_ = 0.03;
 function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) {
   var rumors = [];
   if (!gameId) return { rumors: rumors, moved: 0 };
@@ -435,6 +441,24 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
       var locCol = [];
       for (var z = 1; z < data.length; z++) locCol.push([data[z][COL.PC.LOC]]);
       sheets.pc.getRange(2, COL.PC.LOC + 1, locCol.length, 1).setValues(locCol);
+    }
+
+    // 🩹 敵從者小幅自癒(見 ENEMY_REGEN_RATE_ 註解)：不論攻防/是否同地，move/rest 兩種 tick 都跑，
+    //   免額外整表讀寫——沿用同一份 data、跟 LOC 一樣整欄批次寫回。
+    var hpDirty = false;
+    for (var hi = 1; hi < data.length; hi++) {
+      if (String(data[hi][COL.PC.FACTION]) !== "敵從者") continue;
+      if (String(data[hi][COL.PC.GAME_ID] || "") !== gameId) continue;
+      if (String(data[hi][COL.PC.ID]).startsWith("DEAD_")) continue;
+      var eHpMax = parseInt(data[hi][COL.PC.MAX_HP]) || 0, eHp = parseInt(data[hi][COL.PC.HP]) || 0;
+      if (!eHpMax || eHp <= 0 || eHp >= eHpMax) continue;
+      var eNHp = Math.min(eHpMax, eHp + Math.round(eHpMax * ENEMY_REGEN_RATE_));
+      if (eNHp !== eHp) { data[hi][COL.PC.HP] = eNHp; hpDirty = true; }
+    }
+    if (hpDirty) {
+      var hpCol = [];
+      for (var z1 = 1; z1 < data.length; z1++) hpCol.push([data[z1][COL.PC.HP]]);
+      sheets.pc.getRange(2, COL.PC.HP + 1, hpCol.length, 1).setValues(hpCol);
     }
 
     // 2) 暗處從者廝殺：只在「休息」時可能發生（移動只換位，不死人）；
