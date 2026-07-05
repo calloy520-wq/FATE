@@ -418,7 +418,7 @@ function actionFateBattle(userData, pcId, sheets) {
     if (atkOutput < 100) {
       return JSON.stringify({ success: false, message: `寶具乃靈基全力之解放——須先將「${atkC.name}」的出力推到 100%（全開）並支付寶具底費，方能釋放真名。當前出力 ${atkOutput}%。` });
     }
-    const npCostPre = npPranaCost_(atkC.six["寶具"]);
+    const npCostPre = npPranaCost_(npEffectiveRank_(atkC)); // 🎴 2026-07 六波：吃玩家所選寶具的官方階級(多寶具選項各自定價)，非概括六圍表寶具值
     const mMpPre = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
     const mHpPre = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
     const maxPay = mMpPre + Math.floor(Math.max(0, mHpPre - 1) / BATTERY_HP_PER_MP);
@@ -560,7 +560,7 @@ function actionFateBattle(userData, pcId, sheets) {
   // 🔋 寶具魔力 = 依寶具階級的 Prana Cost（E40 D70 C110 B160 A220 EX300）。從者付不起 → 御主電池接力供能。
   let battery = null, backlash = null;
   if (useNp) {
-    const prana = npPranaCost_(atkC.six["寶具"]);
+    const prana = npPranaCost_(npEffectiveRank_(atkC)); // 🎴 2026-07 六波：同上，吃所選寶具官方階級
     // 🔥 灌魔加乘：規格外寶具(＋/EX)於【全開 100%】時，把御主餘裕魔力超載灌入 → 威力線性放大至上限(＋×1.5、＋＋/EX×2)。
     //   auto-pour：達上限需額外「底費×2」的魔力，不足則按比例。補魔過充【過充】額度先行【無償】支付、一次性用完即清。
     //   ⚠ 2026-07 玩家定案(三修·定檔制)：超載＝【固定價格檔位】依寶具階等比(A階＝總耗 220/440/660，即 底費P/2P/3P)，
@@ -568,7 +568,7 @@ function actionFateBattle(userData, pcId, sheets) {
     //     userData.overload：false＝僅底費(不超載)／'p1'＝超載檔(總價2P·灌P)／'p2'＝極限檔(總價3P·灌2P)／
     //     true·'blood'·未帶旗標(舊前端快取/敵方)＝相容(只灌MP餘裕；'blood'含血梭哈)。倍率走引擎線性公式：
     //     灌P→cap2.0時×1.5(cap1.5時×1.25)、灌2P→達上限。過充 token 照舊只無償折抵超載段。
-    const cap = npOverloadCap_(atkC.six["寶具"]);
+    const cap = npOverloadCap_(npEffectiveRank_(atkC)); // 🎴 2026-07 六波：超載上限依所選寶具階級(如迦爾納選A階黃金鎧則無法超載，選EX的Vasavi Shakti才能)
     const ov = userData.overload;
     const wantOverload = !(ov === false || ov === 'false');         // 未帶旗標(舊前端/敵方)＝超載(不焚血)
     let totalDrain = prana, npOverloadMul = 1.0, ocUsed = 0, usedOvercharge = false;
@@ -672,7 +672,7 @@ function actionFateBattle(userData, pcId, sheets) {
     const enemyOffensiveNp = enemyHasNp && (eScaleClash === '對軍' || eScaleClash === '對城' || eScaleClash === '對界' || CLASH_OFF_FX.some(function (f) { return hasFx_(enemyC0, f); }));
     const eHpR = (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[nIdx][COL.PC.HP]) || 0) / (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) : 1;
     const clashUrge = 0.6 + (hasFx_(enemyC0, 'mad') || hasFx_(enemyC0, 'zabaniya') ? 0.25 : 0) - (1 - eHpR) * 0.3;
-    const clashPrana = npPranaCost_(enemyC0.six["寶具"]);
+    const clashPrana = npPranaCost_(npEffectiveRank_(enemyC0)); // 🎴 2026-07 六波：吃已選定(bestNpChoice_)寶具的官方階級
     const clashAfford = enemyOffensiveNp ? enemyCanAffordNp_(pcData, nIdx, myGameId, clashPrana) : { afford: false, masterIdx: -1 };
     if (enemyOffensiveNp && clashAfford.afford && Math.random() < clashUrge) {
       drainForNp_(sheets, pcData, nIdx, clashAfford.masterIdx, clashPrana);
@@ -910,7 +910,7 @@ function actionFateBattle(userData, pcId, sheets) {
             enemyFireNp = true; // ⚡ 已預告→這回合必定發動
           } else if (eWantsNp && !eTelegraphed) {
             // 尚未預告→這次只蓄勢預告、不發動；設旗標＋警告，須付得起 prana 才值得預告
-            const ePranaT = npPranaCost_(enemyNow.six["寶具"]);
+            const ePranaT = npPranaCost_(npEffectiveRank_(enemyNow)); // 🎴 2026-07 六波：吃已選定寶具的官方階級
             if (enemyCanAffordNp_(pcData, nIdx, myGameId, ePranaT).afford) {
               pcData[nIdx][COL.PC.MEMORY] = setNpTelegraph_(pcData[nIdx][COL.PC.MEMORY]);
               sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
@@ -920,7 +920,7 @@ function actionFateBattle(userData, pcId, sheets) {
           }
           // 🔋 敵寶具也要吃魔力：自身 MP＋敵御主電池須付得起 prana，否則放不出（EX/EA 幾乎沒人付得起→極罕見）
           if (enemyFireNp) {
-            const ePrana = npPranaCost_(enemyNow.six["寶具"]);
+            const ePrana = npPranaCost_(npEffectiveRank_(enemyNow)); // 🎴 2026-07 六波：同上
             const eAfford = enemyCanAffordNp_(pcData, nIdx, myGameId, ePrana);
             if (eAfford.afford) {
               drainForNp_(sheets, pcData, nIdx, eAfford.masterIdx, ePrana);

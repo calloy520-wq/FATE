@@ -415,33 +415,38 @@ function servantNpOptions_(name, cls) {
   // ⚠ 【精確比對種子真名】(2026-07 根源修)：原以 indexOf 子字串比對，AI/自訂從者只要真名【含】「無名」「吉爾伽美什」
   //   等字樣就整組繼承乖離劍/Enuma Elish 選單，完全繞過 ALLOWED_FX_ 刻意排除 ea/enuma/gob 的防線。
   //   改為 === 種子 realName(見 Seed_Codex)——頂級概念寶具回歸種子專屬。
+  // 🎴 2026-07 六波(玩家查證原作官方階級·非兩寶具共用六圍表數字)：r 欄＝該寶具真實官方階級，
+  //   缺 r 者(恩奇都/EMIYA)retreat 至六圍表寶具值——恩奇都兩寶具原作階級相近(均封頂A++附近)、
+  //   EMIYA 官方資料多數寶具本就未標定階級(???，含七天盾原型)，不適用「各自固定階級」模型。
+  //   ⚠ 階級可能【高於】六圍表寶具值(如伊斯坎達爾王之軍勢EX＞六圍表A++)——原作本就允許王牌
+  //   單一寶具超越角色頭銜數字，npBaseDice_/npPranaCost_ 對 EX 有獨立字串判定(rankVal同分不混淆)。
   if (name === '斯卡哈' && cls === 'Lancer') return [
-    { n: '貫穿死翔之槍 Gáe Bolg Alternative', scale: '對人', fx: 'gae_bolg', desc: '單體·因果逆轉必中＋投擲斷命' },
-    { n: '死亡滿溢的魔境之門 Gate of Skye', scale: '對軍', fx: '', desc: '對軍範圍·吸入影之國（魔力/幸運判定失敗即死）' }
+    { n: '貫穿死翔之槍 Gáe Bolg Alternative', r: 'B+', scale: '對人', fx: 'gae_bolg', desc: '單體·因果逆轉必中＋投擲斷命' },
+    { n: '死亡滿溢的魔境之門 Gate of Skye', r: 'A+', scale: '對軍', fx: '', desc: '對軍範圍·吸入影之國（魔力/幸運判定失敗即死）' }
   ];
   if (name === '吉爾伽美什') return [
-    { n: '王之財寶 Gate of Babylon', scale: '對人', fx: 'gob', desc: '對人·無盡兵裝的飽和彈幕' },
-    { n: '乖離劍 Ea', scale: '對界', fx: 'ea', desc: '對界·天地乖離開闢之星，斬裂世界的最強一擊' }
+    { n: '王之財寶 Gate of Babylon', r: 'A++', scale: '對人', fx: 'gob', desc: '對人·無盡兵裝的飽和彈幕' },
+    { n: '乖離劍 Ea', r: 'EX', scale: '對界', fx: 'ea', desc: '對界·天地乖離開闢之星，斬裂世界的最強一擊' }
   ];
   if (name === '恩奇都') return [
     { n: '世人啊、冀以鎖繫神明 Enuma Elish', scale: '對界', fx: 'enuma', desc: '對界·天之楔·反星球/人類破壞行為增幅，可匹敵乖離劍的概念級一擊' },
     { n: '民之睿智 Age of Babylon', scale: '對軍', fx: 'gob', desc: '對軍·自大地召出萬千劍槍鎖齊射（用法類王之財寶·可抵銷之）' }
   ];
   if (name === '伊斯坎達爾（征服王）') return [
-    { n: '王之軍勢 Ionioi Hetairoi', scale: '對軍', fx: '', desc: '對軍·固有結界召喚萬軍亂踏' },
-    { n: '神威的車輪 Gordius Wheel', scale: '對人', fx: '', desc: '對人·雷神戰車的單騎衝鋒' }
+    { n: '王之軍勢 Ionioi Hetairoi', r: 'EX', scale: '對軍', fx: '', desc: '對軍·固有結界召喚萬軍亂踏' },
+    { n: '神威的車輪 Gordius Wheel', r: 'A+', scale: '對人', fx: '', desc: '對人·雷神戰車的單騎衝鋒' }
   ];
   if (name === '無名（EMIYA）') return [
     { n: '無限劍製 Unlimited Blade Works', scale: '對城', fx: 'ubw', desc: '對城·固有結界劍雨壓制（不受對魔力）' },
     { n: '偽·螺旋劍 Caladbolg II', scale: '對人', fx: 'projection', desc: '對人·破斷重塑的流星劍狙擊' }
   ];
   if (name === '迦爾納') return [
-    { n: '穿刺死亡之槍 Vasavi Shakti', scale: '對神', fx: '', desc: '對神·梵天弒神之槍：對神性之敵單體特大傷害（弒神）' },
-    { n: '日輪啊化作鎧甲吧 Kavacha and Kundala', scale: '對人', fx: 'divine_core', desc: '對人·不滅黃金鎧·常駐防護' }
+    { n: '穿刺死亡之槍 Vasavi Shakti', r: 'EX', scale: '對神', fx: '', desc: '對神·梵天弒神之槍：對神性之敵單體特大傷害（弒神）' },
+    { n: '日輪啊化作鎧甲吧 Kavacha and Kundala', r: 'A', scale: '對人', fx: 'divine_core', desc: '對人·不滅黃金鎧·常駐防護' }
   ];
   if (name === '蒼白騎兵（Pale Rider）') return [
-    { n: '審判日將至 Doomsday Come', scale: '對界', fx: '', desc: '對界·疫病具現的終末審判（EX）' },
-    { n: '籠中之鳥 Kagome Kagome', scale: '對軍', fx: '', desc: '對軍·封鎖之疫瘴結界（A）' }
+    { n: '審判日將至 Doomsday Come', r: 'EX', scale: '對界', fx: '', desc: '對界·疫病具現的終末審判' },
+    { n: '籠中之鳥 Kagome Kagome', r: 'A', scale: '對軍', fx: '', desc: '對軍·封鎖之疫瘴結界' }
   ];
   // ⚠ 2026-07 修：'貞德' 原本掛在此處的雙寶具選單(La Pucelle攻擊/Luminosité Eternelle防禦盾)是
   //   Ruler版的專屬kit——她已換成泳裝Archer版(單一對軍寶具"豐收之海啊"，見 Seed_Codex.gs)，這裡若
@@ -454,15 +459,19 @@ function firstSignatureFx_(c) {
   for (var i = 0; i < pri.length; i++) { if (hasFx_(c, pri[i])) return pri[i]; }
   return '';
 }
-// 解出「本次寶具解放」的設定檔 {scale, fx, name, multi}。多寶具讀 c.npChoice 選定項；單寶具退回字串尺度＋簽名fx。
+// 解出「本次寶具解放」的設定檔 {scale, fx, name, multi, r}。多寶具讀 c.npChoice 選定項；單寶具退回字串尺度＋簽名fx。
+//   r＝該次解放實際吃的階級——多寶具選項有自己的官方階級(見 servantNpOptions_)才用，沒有就退回六圍表寶具值
+//   (2026-07 六波：拆開「兩寶具共用一個數字」的失真，每個選項各自貼近原作威力)。
 function npProfile_(c) {
   var op = servantNpOptions_(c.name, c.cls);
   if (op && op.length) {
     var idx = Math.max(0, Math.min(op.length - 1, parseInt(c.npChoice) || 0));
-    return { scale: op[idx].scale, fx: op[idx].fx, name: op[idx].n, multi: true };
+    return { scale: op[idx].scale, fx: op[idx].fx, name: op[idx].n, multi: true, r: op[idx].r || c.six['寶具'] };
   }
-  return { scale: npAtkScale_(c), fx: firstSignatureFx_(c), name: String(c.np || ''), multi: false };
+  return { scale: npAtkScale_(c), fx: firstSignatureFx_(c), name: String(c.np || ''), multi: false, r: c.six['寶具'] };
 }
+// 🎯 本次解放實際要吃的寶具階級（給 npBaseDice_/npPranaCost_ 用·單一真實來源，避免各呼叫點各自兜底邏輯分岔）。
+function npEffectiveRank_(c) { return npProfile_(c).r; }
 // 🌟 多寶具英靈的「最強攻擊寶具」索引（敵 AI 解放/預告用·非玩家）：只挑攻擊型(有攻擊 fx 或 對軍以上/對神規模)，
 //   按 概念階×10＋規模 排序取最高；無攻擊型則退 0。純防禦寶具(divine_core 金鎧等)不入選(不會拿來砸人)。
 var OFFENSIVE_NP_FX_ = { ea: 1, enuma: 1, excalibur: 1, ubw: 1, summon_horror: 1, gob: 1, gae_bolg: 1, tsubame: 1, zabaniya: 1, petrify: 1, projection: 1 };
@@ -737,7 +746,9 @@ function resolveFateBattle_(atk, def, opts) {
     // 解放寶具者贏了交手→套用「所選寶具」的簽名乘子；對手反殺(winner=def)則照其自身 fx(不受玩家寶具選擇影響)
     var wRelease = (winner === atk);
     var wSig = function (fx) { return wRelease ? npIs(fx) : !!hasFx_(winner, fx); };
-    var npRank = winner.six["寶具"];
+    // 🎴 2026-07 六波：wRelease(解放者本人)吃「所選寶具」自己的官方階級(atkNp.r，多寶具選項各自定義·
+    //   沒定義則退回六圍表)；對手反殺(!wRelease)維持吃自身六圍表寶具值(不受玩家寶具選擇影響·既有行為不變)。
+    var npRank = wRelease ? atkNp.r : winner.six["寶具"];
     var npDice = npBaseDice_(npRank); base += npDice; fired.push(winner.name + '·寶具骰(' + (rankVal(npRank) >= 60 ? 'EX' : npRank) + ')=' + npDice);
     base += Math.round(rankVal(npRank) * 1.2) + 35; fired.push(winner.name + '·寶具解放' + (wRelease && atkNp && atkNp.name ? ('·' + String(atkNp.name).split(' ')[0]) : '')); // 🎴 寶具威力大幅提升·看得出差別
     // 🔥 灌魔加乘：規格外寶具(＋/EX)超載——威力隨御主灌注的餘裕魔力線性放大(倍率由上游 actionFateBattle 依實灌量算好·已扣魔)。

@@ -115,7 +115,7 @@ function actionMove(userData, pcId, sheets) {
           //   ——原本沿用 np 裁決的 winner 傷害，等於我方沒解放寶具卻免費吃到自己寶具骰的 NP 級反擊。
           var teleIdx = allPcData.findIndex(function (r) { return String(r[COL.PC.ID]) === String(teleFoe[COL.PC.ID]); });
           var foeC2 = rowToCombatant_(teleFoe);
-          var telePrana = npPranaCost_(foeC2.six['寶具'] || '-');
+          var telePrana = npPranaCost_(npEffectiveRank_(foeC2) || '-'); // 🎴 2026-07 六波：吃該敵從者已選定寶具的官方階級
           var teleAfford = (teleIdx !== -1) ? enemyCanAffordNp_(allPcData, teleIdx, moveGameId, telePrana) : { afford: false, masterIdx: -1 };
           if (teleAfford.afford) {
             drainForNp_(sheets, allPcData, teleIdx, teleAfford.masterIdx, telePrana); // 寶具已離弦(中與不中都燒魔)
