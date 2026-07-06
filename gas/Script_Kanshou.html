@@ -96,7 +96,16 @@
   async function kanshouSummonHero(heroId) {
     try {
       const res = await gasRun({ action: 'kanshou_summon_hero', pcId: pc.id, acctName: currentAccount, heroId: heroId });
-      if (res && res.success) { syncData(true); openCompanions(); } else { alert((res && res.message) || '召喚失敗。'); }
+      if (res && res.success) {
+        syncData(true); openCompanions();
+        // 🚀 2026-07 玩家定案「C.只在召喚當下用AI動態補一次」：種子庫個性精簡+無身世，只在首次
+        //   召喚(isNew，非「歡迎回來」)才背景呼叫一次深化，不等待、不擋UI，失敗靜默保留種子原樣。
+        if (res.isNew && res.added) {
+          gasRun({ action: 'backfill_kanshou_servant_ai', pcId: pc.id, servantName: res.added })
+            .then(function () { try { syncData(); } catch (e) {} })
+            .catch(function () {});
+        }
+      } else { alert((res && res.message) || '召喚失敗。'); }
     } catch (e) { alert('召喚失敗。'); }
   }
   async function kanshouRemove(name) {

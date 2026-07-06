@@ -12,6 +12,7 @@ const ActionRouter = {
   "claim_grail": actionClaimGrail,
   "enter_kanshou": actionEnterKanshou,
   "backfill_kanshou_ai": actionBackfillKanshouAi, // 🚀 開局非阻塞：enter_kanshou 首次建檔後背景補御主敘事欄
+  "backfill_kanshou_servant_ai": actionBackfillKanshouServantAi, // 🚀 直接召喚同伴後背景補深化(種子個性精簡+無身世)
   "dev_resync_codex": actionDevResyncCodex,
   "purge_orphans": actionPurgeOrphans,
   "kanshou_companions": actionKanshouCompanions,
@@ -208,7 +209,7 @@ function handleGameAction(userData) {
 const LOCK_EXEMPT_ACTIONS_ = {
   check_name: 1, get_full_status: 1, get_heroes: 1, get_masters: 1,
   get_tags: 1, get_map_nodes: 1, sync: 1,
-  narrate_only: 1, play: 1, backfill_master_ai: 1, backfill_kanshou_ai: 1,
+  narrate_only: 1, play: 1, backfill_master_ai: 1, backfill_kanshou_ai: 1, backfill_kanshou_servant_ai: 1,
   save_hero: 1 // 🛠️ 工房鑄造/修改：含數秒 AI 呼叫·只寫英靈殿(append/單列)不碰戰場——佔全域鎖會卡死其他玩家
 };
 // ⚡ 會改動 solo 戰場狀態、前端事後會 syncData(整頁刷新) 的動作 → 夾帶 _state 省一趟 round-trip。

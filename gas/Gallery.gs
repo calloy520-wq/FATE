@@ -311,7 +311,56 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
     return JSON.stringify({ success: true, added: heroName, message: "「" + heroName + "」回到了你們身邊。" });
   }
   kpc.appendRow(heroToKanshouRow_(hero, gid, loc));
-  return JSON.stringify({ success: true, added: heroName, message: "「" + heroName + "」來到了你們身邊。" });
+  // 🆕 isNew=true：前端據此判斷要不要觸發 actionBackfillKanshouServantAi(只在首次召喚才潤色，
+  //   歡迎回來的既有列不重跑，避免洗掉玩家後續逆天改命的手動調整)。
+  return JSON.stringify({ success: true, added: heroName, isNew: true, message: "「" + heroName + "」來到了你們身邊。" });
+}
+
+// 🚀 鑑賞召喚同伴敘事·非阻塞補生成(2026-07 玩家定案「C.只在召喚當下用AI動態補一次」)：種子庫的
+//   36位英靈 persona.words(個性)普遍只有2-3項精簡標籤(非御主庫的4段格式)、persona本身完全沒有
+//   身世(back)欄位——不動 Seed_Codex.gs 本體(solo戰爭仍吃原始精簡版)，只在直接召喚進鑑賞那一刻，
+//   額外呼叫一次AI把這位「已知正典角色」的個性潤色成4段、補一段貼合原作的身世，寫進鑑賞列自己的
+//   PREF/BACK 欄。失敗＝保留種子原樣(優雅降級)。單格setValue，不整列寫回。
+function actionBackfillKanshouServantAi(userData, pcId, sheets) {
+  var servantName = String(userData.servantName || "").trim();
+  var pcData = sheets.pc.getDataRange().getValues();
+  var meIdx = pcData.findIndex(function (r) { return String(r[COL.PC.ID]) === String(pcId); });
+  if (meIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  var gid = String(pcData[meIdx][COL.PC.GAME_ID] || "");
+  var idx = pcData.findIndex(function (r) {
+    return String(r[COL.PC.NAME]) === servantName && String(r[COL.PC.GAME_ID] || "") === gid &&
+      String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_");
+  });
+  if (idx === -1) return JSON.stringify({ success: false, message: "查無此同伴" });
+  var row = pcData[idx];
+  var cls = String(row[COL.PC.RANK] || "");
+  var seedPref = String(row[COL.PC.PREF] || "");
+  var seedTrait = String(row[COL.PC.TRAIT] || "");
+  var seedMoe = String(row[COL.PC.INTENT] || "");
+
+  var promptStr = `【英靈】：真名『${servantName}』（${cls}職階）\n【既有外貌設定】：${seedTrait || "無"}\n【既有個性關鍵詞(精簡版)】：${seedPref || "無"}\n【既有萌點】：${seedMoe || "無"}`;
+
+  var KANSHOU_SERVANT_GEN_SYS = `你是《命運停駐之夜》後日談(鑑賞)的角色深化核心。這是 Fate／TYPE-MOON 系列中已有原作設定的正典英靈，玩家剛把她直接召喚進鑑賞世界——你的任務不是重新發明角色，而是依你對這位英靈原作的認知，把既有的精簡設定「潤色補完」成更有深度的版本，忠於原作性格與形象。
+
+★【演出而非說明】background 只作為底層依據，不要在字面直述。
+★【四格】personality 剛好4短句、頓號分隔、禁數字標籤：日常表象、真實內裡、喜歡的事物、討厭的事物——須貼合這位英靈原作的真實性格，不可與既有個性關鍵詞矛盾，只是把它具體化。
+★background：限20字，這位英靈原作的身世/來歷精簡摘要，禁出現與原作矛盾的設定。
+★若既有外貌設定已經足夠完整具體，trait_addon 留空字串即可；只有明顯單薄時才補充(≤10字，不可與既有描述矛盾)。
+
+★【輸出】合法 JSON、禁 Markdown：
+{"personality":"四格頓號字串","background":"限20字","trait_addon":"外貌補充(可留空)"}`;
+
+  try {
+    var aiBrief = JSON.parse(callGeminiAPI(promptStr, KANSHOU_SERVANT_GEN_SYS, { temperature: 0.6, ignoreLaw: true }));
+    var wIdx = buildLiveIdIndex_(sheets.pc)[String(row[COL.PC.ID])];
+    if (wIdx === undefined) return JSON.stringify({ success: false, message: "同伴列已不存在（可能剛被請走清理）。" });
+    if (aiBrief.personality) sheets.pc.getRange(wIdx + 1, COL.PC.PREF + 1).setValue(parseTraitsHelper(aiBrief.personality, seedPref));
+    if (aiBrief.background) sheets.pc.getRange(wIdx + 1, COL.PC.BACK + 1).setValue(String(aiBrief.background).slice(0, 40));
+    if (aiBrief.trait_addon) sheets.pc.getRange(wIdx + 1, COL.PC.TRAIT + 1).setValue((seedTrait ? seedTrait + "、" : "") + String(aiBrief.trait_addon).slice(0, 20));
+    return JSON.stringify({ success: true });
+  } catch (e) {
+    return JSON.stringify({ success: false, message: "深化補生成失敗（已保留種子設定）" });
+  }
 }
 
 // 鑑賞名冊查某帳號某真名的紀錄列
