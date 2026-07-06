@@ -87,7 +87,8 @@ function actionSetOutfit(userData, pcId, sheets) {
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  // 🆕 self=true：換的是御主本人(鑑賞御主卡「換裝」鈕)，直接鎖定自己這列，不查從者
+  const svIdx = userData.self ? pIdx : findPlayerServantIdx_(pcData, myGameId, userData.servant);
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無此從者。" });
   pcData[svIdx][COL.PC.MEMORY] = setOutfit_(pcData[svIdx][COL.PC.MEMORY], userData.outfit); // set 內已剝分隔字元＋限 40 字
   sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);

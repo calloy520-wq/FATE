@@ -337,7 +337,8 @@ function buildTagsPayload_(sheets, pcId, preData) {
     hp: hpWord(m[COL.PC.HP], m[COL.PC.MAX_HP]),
     hpNum: parseInt(m[COL.PC.HP]) || 0, hpMax: parseInt(m[COL.PC.MAX_HP]) || 0,
     mpNum: parseInt(m[COL.PC.MP]) || 0, mpMax: parseInt(m[COL.PC.MAX_MP]) || 0,
-    seals: getPlayerSeals_(m[COL.PC.MEMORY]), wish: wish
+    seals: getPlayerSeals_(m[COL.PC.MEMORY]), wish: wish,
+    outfit: getOutfit_(m[COL.PC.MEMORY]) // 👗 慾海御主本人換裝(與從者outfit同款·供卡片「換裝」鈕預填)
   };
 
   // 🗝️ 雙從者：收齊所有在世我方從者（servants 陣列）；servant＝第一個（向後相容）
