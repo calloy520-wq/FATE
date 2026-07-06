@@ -1492,7 +1492,10 @@
         // 🌹 慾海：從者卡只露 名字/裝扮/個性/特徵/關係/肉體——不露血量/魔力/六圍/技能/寶具/動作鈕
         if (pc && pc.mode === 'kanshou') {
           var prefK = String(s.pref || '').split(/[、,，·・]/).filter(Boolean).slice(0, 4).join('、');
-          var traitK = (s.traits || []).map(function (t) { return t && t.n; }).filter(Boolean).join('、'); // 🌹 純文字、不用戰鬥膠囊
+          // 🐛→✅ 特徵原讀TAGS.traits(戰鬥特性標籤，如神性/英雄)，跟全代碼庫「特徵」=COL.PC.TRAIT(外貌描述)
+          //   的定義不一致(2026-07修)——直接召喚路徑TAGS故意留空，此行永遠顯示空白；已改讀s.trait(COL.PC.TRAIT)，
+          //   格式比照個性(prefK)頓號拆解取前4段。
+          var traitK = String(s.trait || '').split(/[、,，·・]/).filter(Boolean).slice(0, 4).join('、');
           var physK = ''; try { var po = JSON.parse(s.physical || '{}'); physK = Object.keys(po).map(function (k) { return k + '：' + po[k]; }).join('　'); } catch (e) { }
           // 🐛→✅ 姿勢/顏面(視覺化外顯狀態)本就每回合被AI寫回COL.PC.STATUS，此前只有肉體(器官狀態)露出、
           //   姿態/神情完全沒顯示——玩家反映只看得到肉體很片段。併成一行「外顯」：姿勢/顏面(+負面若非「無」)+肉體，

@@ -379,6 +379,8 @@ function buildTagsPayload_(sheets, pcId, preData) {
       weapon: getWeapon_(s[COL.PC.MEMORY]), // ⚔️ 玩家自定武裝：武器/戰鬥方式(前端預填/顯示·敘述以此為準)
       pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體
       status: s[COL.PC.STATUS] || "{}", // 🌹 慾海卡用：姿勢/顏面(衣服已由outfit覆蓋顯示、負面另濾)——本就每回合被AI更新，此前只是沒露出給前端
+      trait: s[COL.PC.TRAIT] || "", // 🌹 慾海卡「特徵」用：COL.PC.TRAIT才是全代碼庫「特徵」的真實定義(外貌描述，見Router_Narrative.gs的formatTrait/prompt)——
+                                     // 舊卡片誤讀TAGS.traits(戰鬥特性標籤如神性/英雄)，對直接召喚路徑(TAGS故意留空)永遠是空白
       stolen: /【破戒奪取】/.test(String(s[COL.PC.MEMORY] || ""))
     });
   });

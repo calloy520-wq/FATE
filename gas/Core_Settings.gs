@@ -364,7 +364,10 @@ function maskPhysicalStatus(jsonStr, isNsfwMode) {
   if (isNsfwMode) return jsonStr;
   try {
     let obj = JSON.parse(jsonStr || "{}");
-    const sensitiveKeys = ["胸部", "蜜穴", "肉棒", "口", "舌頭", "菊穴"];
+    // ⚠ 2026-07 修：胸部/口/舌頭是physical_state改數字代碼(1-4)前的舊schema殘留鍵名，現行
+    //   allowedKeys(Router_Narrative.gs sanitizePhysicalState)只剩蜜穴/肉棒/菊穴/雙手四項，
+    //   舊鍵名永遠不會被寫入、遮罩對它們形同虛設；雙手則反而漏列。比照現行真實鍵集合修正。
+    const sensitiveKeys = ["蜜穴", "肉棒", "菊穴", "雙手"];
     sensitiveKeys.forEach(k => { if (obj[k] && obj[k] !== "無") obj[k] = "???"; });
     return JSON.stringify(obj);
   } catch (e) { return "{}"; }
