@@ -113,6 +113,14 @@ function actionPlay(userData, pcId, sheets) {
 
     const majorEventStr = (r[COL.PC.MAJOR_EVENT] && r[COL.PC.MAJOR_EVENT] !== "無")
       ? ` [未完成約定:${r[COL.PC.MAJOR_EVENT]}]` : "";
+    // 🧪 2026-07 玩家提案「先試試看」：REL_MEM(專屬稱呼/親密次數/交談輪數)每回合都有寫入(見本函式
+    //   下方 intimacy_feedback.npcs 處理)，但只有鑑賞的 nsfwMemories 讀回——solo 完全沒有任何管道
+    //   把它塞回提示詞，AI 自己取的暱稱、聊過的痕跡，寫進試算表後對AI等於船過水無痕，下回合只能
+    //   單靠 BOND 數字重新判斷關係。試著把「專屬稱呼」這個具體記憶(不是數字)也提供給AI，兩軌都
+    //   受惠，效果好不好先實測看看，不好可以隨時拔掉這幾行。
+    const nickMatch = String(r[COL.PC.REL_MEM] || "").match(/\[專屬稱呼\](.*?)(?=\| \[|$)/);
+    const nickTrim = nickMatch ? nickMatch[1].trim() : "";
+    const nickStr = (nickTrim && nickTrim !== "無") ? ` [專屬稱呼:${nickTrim}]` : "";
     // ⚠ 2026-07 修：原本 SFW/NSFW 共用的這行完全沒讀 COL.PC.INTENT(萌點)——只有 NSFW 分支的
     //   nsfwMemories 另外補了一次，導致遊戲主體(SFW solo)的日常對話反而拿不到萌點反差錨點
     //   (伊莉雅冷漠案同一類根因)。改成這裡統一補上，NSFW 那份重複的移除，單一真實來源。
@@ -122,7 +130,7 @@ function actionPlay(userData, pcId, sheets) {
     //   從不會有「敵從者/敵御主」等變化值)——陣營資訊對鑑賞是每回合都印同一個死字的廢token，
     //   solo 才需要靠這欄分辨敵我(見上方 COL.PC.FACTION 用途)，故只在 solo 印出。
     const factionSeg = isKanshou ? "" : ` 陣營:${r[COL.PC.FACTION] || "無"} |`;
-    return `${identityTag}名號:${r[COL.PC.NAME]} 【性別:${r[COL.PC.SEX]}】${factionSeg} 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${moeStr ? ` | 萌點(反差·僅供內化):${moeStr}` : ""} | 身世:${String(r[COL.PC.BACK] || "來歷不詳")}(僅供內化演出·show-don't-tell·禁直述、禁預告其原作後續結局) | 關係:${r[COL.PC.REL_TAG] || "萍水相逢"}(好感:${currentFav}${majorEventStr} -> 行為準則:${resistPrompt})`;
+    return `${identityTag}名號:${r[COL.PC.NAME]} 【性別:${r[COL.PC.SEX]}】${factionSeg} 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${moeStr ? ` | 萌點(反差·僅供內化):${moeStr}` : ""} | 身世:${String(r[COL.PC.BACK] || "來歷不詳")}(僅供內化演出·show-don't-tell·禁直述、禁預告其原作後續結局) | 關係:${r[COL.PC.REL_TAG] || "萍水相逢"}(好感:${currentFav}${majorEventStr}${nickStr} -> 行為準則:${resistPrompt})`;
   }).join("\n") : "此地四下無人。";
 
   if (isNsfwMode) {
