@@ -316,7 +316,10 @@ var FORGE_CLS_SKILLS_ = {
 function parseForgeBuild_(build, reqCls) {
   const VALID_CLS = ["Saber", "Archer", "Lancer", "Rider", "Caster", "Assassin", "Berserker"];
   const out = {};
-  out.cls = VALID_CLS.includes(String(build.cls)) ? String(build.cls) : (reqCls || "Saber");
+  // 🌹 2026-07「御主」職階：鑑賞限定純敘事款(比照 Seed_Codex.gs 的3位canon御主)，不參與戰鬥——
+  //   獨立於 VALID_CLS(七大從者職階)之外判斷，不吃 reqCls 的 Saber fallback。
+  const isMasterCls = String(build.cls) === "御主";
+  out.cls = isMasterCls ? "御主" : (VALID_CLS.includes(String(build.cls)) ? String(build.cls) : (reqCls || "Saber"));
   out.name = String(build.name || "").replace(/[<>&"'`]/g, "").trim().slice(0, 20);
   if (!out.name) return { ok: false, message: "請為英靈取一個真名。" };
   if ((typeof SEED_SERVANTS !== "undefined" && SEED_SERVANTS.some(s => s && s.name === out.name)) ||
@@ -329,6 +332,17 @@ function parseForgeBuild_(build, reqCls) {
   out.tic = _fClean(build.tic, 30); out.moe = _fClean(build.moe, 18); out.back = _fClean(build.back, 28);
   const ALIGNS_ = ["秩序・善", "秩序・中庸", "秩序・惡", "中立・善", "中立", "中立・惡", "混沌・善", "混沌・中庸", "混沌・惡"];
   out.align = ALIGNS_.includes(String(build.align)) ? String(build.align) : "中立";
+  out.look = _fClean(build.look, 60); out.pref = _fClean(build.pref, 60);
+  const _segs = v => v ? v.split(/[、,，]/).filter(Boolean).length : 0;
+  out.lookFull = _segs(out.look) >= 3; out.prefFull = _segs(out.pref) >= 3;
+  out.desc = String(build.desc || "").trim().slice(0, 120);
+  if (isMasterCls) {
+    // 🌹 御主：六圍/技能/寶具/武裝全部略過驗證與計費，強制留空(鑑賞用不到、不進戰鬥引擎)。
+    out.six = {}; out.skills = []; out.classSkills = [];
+    out.npScale = "對人"; out.npName = ""; out.npR = ""; out.npDesc = ""; out.weapon = "";
+    out.ok = true;
+    return out;
+  }
   // 💰 2026-07 調升 270→340：技能計價/規模計價後來併入同一錢包，270(原純六圍的 A−設定)實測按
   //   工房價格計價全種子＝排 32/36(咒腕級墊底)。340＝種子中位數——點滿≈尼祿/美杜莎中堅，
   //   強者種子(420~505·且握有 Excalibur/王財等工房買不到的概念 fx)仍明確在上。
@@ -372,10 +386,6 @@ function parseForgeBuild_(build, reqCls) {
   out.npR = out.six["寶具"]; // 顯示階＝六圍寶具階(引擎本就只吃 six.寶具)
   out.npDesc = String(build.npDesc || "").replace(/【常駐寶具】|對城|對界|對神/g, "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, 40);
   out.weapon = _fClean(build.weapon, 30);
-  out.look = _fClean(build.look, 60); out.pref = _fClean(build.pref, 60);
-  const _segs = v => v ? v.split(/[、,，]/).filter(Boolean).length : 0;
-  out.lookFull = _segs(out.look) >= 3; out.prefFull = _segs(out.pref) >= 3;
-  out.desc = String(build.desc || "").trim().slice(0, 120);
   out.ok = true;
   return out;
 }
@@ -429,10 +439,10 @@ function actionSaveHero(userData, pcId, sheets) {
     build.name = String(data[idx][COL.HERO.NAME]); // 真名＝識別鍵，不可改
     const pb = parseForgeBuild_(build, String(data[idx][COL.HERO.CLS] || ""));
     if (!pb.ok) return JSON.stringify({ success: false, message: pb.message });
-    // 寶具英文名沿用舊值（修改不重叫 AI）
+    // 寶具英文名沿用舊值（修改不重叫 AI）；御主職階無寶具，np 恆空字串。
     const oldNp = String(data[idx][COL.HERO.NP] || "");
     const enM = oldNp.match(/\s([A-Za-z][A-Za-z0-9 .'\-:]{2,29})（/);
-    const np = `${pb.npName}${enM ? " " + enM[1] : ""}（${pb.npScale} ${pb.npR}）${pb.npDesc ? "·" + pb.npDesc : ""}`;
+    const np = (pb.cls === "御主") ? "" : `${pb.npName}${enM ? " " + enM[1] : ""}（${pb.npScale} ${pb.npR}）${pb.npDesc ? "·" + pb.npDesc : ""}`;
     const keep = (nv, ov) => nv ? nv : String(ov || "");
     data[idx][COL.HERO.CLS] = pb.cls; data[idx][COL.HERO.SEX] = pb.sex;
     data[idx][COL.HERO.SIX] = JSON.stringify(pb.six);
@@ -459,15 +469,17 @@ function actionSaveHero(userData, pcId, sheets) {
   const dup = getHeroCodexCached().slice(1).find(r => String(r[COL.HERO.NAME]).trim() === pb.name);
   if (dup) return JSON.stringify({ success: false, message: `英靈殿已有「${pb.name}」——請換一個真名，或請其創造者修改。` });
   // 🎭 AI 只補「玩家沒填的」演出欄＋寶具英文真名——失敗不擋鑄造
+  // 🌹 御主職階無寶具/技能，提示詞跳過那兩行、系統prompt也不要求 npEn(反正不會被讀)。
+  const isMasterCls = pb.cls === "御主";
   let flavor = null;
   try {
     flavor = JSON.parse(callGeminiAPI(
-      `【真名】：${pb.name}\n【職階】：${pb.cls}\n【性別】：${pb.sex}\n【玩家描述】：${pb.desc || "無"}${pb.look ? `\n【外貌(${pb.lookFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.look}` : ""}${pb.pref ? `\n【個性(${pb.prefFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.pref}` : ""}${pb.fp ? `\n【自稱(玩家已定)】：${pb.fp}` : ""}${pb.speech ? `\n【口吻(玩家已定)】：${pb.speech}` : ""}${pb.moe ? `\n【萌點(玩家已定·照抄勿改)】：${pb.moe}` : ""}${pb.back ? `\n【身世(玩家已定·照抄勿改)】：${pb.back}` : ""}${pb.weapon ? `\n【武裝(以此為準·勿依職階/原典改寫)】：${pb.weapon}` : ""}\n【技能】：${pb.skills.map(s => s.n).join("、") || "無"}\n【寶具】：${pb.npName}${pb.npDesc ? `（${pb.npDesc}）` : ""}`,
-      `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名原創從者的數值與設定，你【只】負責補完演出側寫與寶具英文真名，【嚴禁】輸出任何數值/階級/技能設定。玩家標「照抄勿改」的欄位原樣沿用；標「核心設定·擴寫」的欄位以玩家給的為靈魂擴寫、【嚴禁】偏離或覆蓋其本意。★輸出合法 JSON、禁 Markdown：{"personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔）","look":"外貌四短句頓號分隔（五官髮色/氣質/身形/衣著印象）","background":"生平一句·限20字","npc_intent":"一句反差萌·限18字·務必寫完整一句話不可斷在句意未完處","npEn":"寶具的英文真名讀法(拉丁字母·如 Excalibur 風格·限4個單字)"}`,
+      `【真名】：${pb.name}\n【職階】：${pb.cls}\n【性別】：${pb.sex}\n【玩家描述】：${pb.desc || "無"}${pb.look ? `\n【外貌(${pb.lookFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.look}` : ""}${pb.pref ? `\n【個性(${pb.prefFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.pref}` : ""}${pb.fp ? `\n【自稱(玩家已定)】：${pb.fp}` : ""}${pb.speech ? `\n【口吻(玩家已定)】：${pb.speech}` : ""}${pb.moe ? `\n【萌點(玩家已定·照抄勿改)】：${pb.moe}` : ""}${pb.back ? `\n【身世(玩家已定·照抄勿改)】：${pb.back}` : ""}${pb.weapon ? `\n【武裝(以此為準·勿依職階/原典改寫)】：${pb.weapon}` : ""}${isMasterCls ? "" : `\n【技能】：${pb.skills.map(s => s.n).join("、") || "無"}\n【寶具】：${pb.npName}${pb.npDesc ? `（${pb.npDesc}）` : ""}`}`,
+      `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名原創${isMasterCls ? "御主(鑑賞限定·不參與戰鬥)" : "從者"}的設定，你【只】負責補完演出側寫${isMasterCls ? "" : "與寶具英文真名"}，【嚴禁】輸出任何數值/階級/技能設定。玩家標「照抄勿改」的欄位原樣沿用；標「核心設定·擴寫」的欄位以玩家給的為靈魂擴寫、【嚴禁】偏離或覆蓋其本意。★輸出合法 JSON、禁 Markdown：{"personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔）","look":"外貌四短句頓號分隔（五官髮色/氣質/身形/衣著印象）","background":"生平一句·限20字","npc_intent":"一句反差萌·限18字·務必寫完整一句話不可斷在句意未完處"${isMasterCls ? "" : `,"npEn":"寶具的英文真名讀法(拉丁字母·如 Excalibur 風格·限4個單字)"`}}`,
       { temperature: 0.85, ignoreLaw: true }));
   } catch (e) { flavor = null; }
   const fNpEn = String((flavor && flavor.npEn) || "").replace(/[^A-Za-z0-9 .'\-:]/g, "").trim().slice(0, 30);
-  const np = `${pb.npName}${fNpEn ? " " + fNpEn : ""}（${pb.npScale} ${pb.npR}）${pb.npDesc ? "·" + pb.npDesc : ""}`;
+  const np = isMasterCls ? "" : `${pb.npName}${fNpEn ? " " + fNpEn : ""}（${pb.npScale} ${pb.npR}）${pb.npDesc ? "·" + pb.npDesc : ""}`;
   const finalLook = pb.lookFull ? pb.look : (String((flavor && flavor.look) || "").trim() || pb.look);
   const finalPref = pb.prefFull ? pb.pref : (String((flavor && flavor.personality) || "").trim() || pb.pref);
   const moe = pb.moe || String((flavor && flavor.npc_intent) || "").slice(0, 30); // 比照 slice(0,18) 腰斬修正，放寬緩衝

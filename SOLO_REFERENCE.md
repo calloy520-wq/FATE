@@ -538,6 +538,22 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
   - `COL.GAL`(`Core_Settings.gs`)與 `FATE_SHEET_DEFS["鑑賞"]`(`Setup_FateWorld.gs`)：常數與工作表定義原樣不刪(死符號不刪，見專案紀律)，現行程式碼已完全不讀寫，舊試算表殘留的「鑑賞」表資料變成無害孤兒資料。
 - **驗證**：`bash check.sh` 全過；`git diff -- gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(本次改動完全沒碰紅線①)。
 
+### 9.2 🌹 工房新增「御主」職階（2026-07 玩家定案）——玩家自建鑑賞限定角色
+
+玩家想法：3位canon女性御主(遠坂凜/伊莉雅絲菲爾/間桐櫻黑化，見 9.1)不打，只需要鑑賞用的演出資料；工房(自訂英靈)也該能捏這種「御主」角色，只填演出欄，六圍/技能/寶具全部不需要。
+
+- **`parseForgeBuild_`(`Router_Creation.gs`)**：`build.cls === "御主"` 時獨立於 `VALID_CLS`(七大從者職階)判斷(`isMasterCls`)，計算完共用的演出欄(name/sex/fp/toM/speech/tic/moe/back/align/look/pref/desc)後【提前return】——六圍/技能/職階技能/寶具規模/寶具名/武裝全部強制留空(`six:{}`／`skills:[]`／`classSkills:[]`／`npScale:"對人"`／`npName/npR/npDesc/weapon:""`)，完全跳過六圍/技能/規模的驗證與計費邏輯(340預算/EX上限/三軌計價都不適用)。
+- **`actionSaveHero`**：製造模式的 AI 補完提示詞在 `isMasterCls` 時跳過【技能】/【寶具】兩行、系統prompt也不要求補寶具英文名(npEn)；`np` 欄位(英靈殿 COL.HERO.NP)恆為空字串(製造/修改模式皆同)。演出欄(personality/look/background/npc_intent)仍照常AI補完，跟一般原創從者相同待遇。
+- **前端 `Script_Onboarding.html`**：
+  - `initForge_()` 的 `#cf-cls` 選單新增「御主」選項(七大職階之外)。
+  - 新增 `applyForgeClsMode_()`：選了「御主」→隱藏「⚔️靈基」／「🌟寶具」兩個分頁按鈕(`cf-tab-2`/`cf-tab-3`)、強制切回「🎭演出」頁(唯一用得到的頁面)；換回戰鬥職階→兩頁復原。由 `refreshClsHint_()` 換職階時呼叫。
+  - `refreshClsHint_()`：cls='御主' 時提示文字改「🌹 鑑賞限定職階：不參與戰鬥，六圍/技能/寶具皆不需要」，不顯示職階技能贈禮那套文字。
+  - `forgeTab()`：存檔鈕原本只在「⚔️靈基」頁(tab2)顯示，御主職階沒有tab2可看——追加「御主職階時 tab1(演出頁)也顯示存檔鈕」的條件。
+  - `forgeBudget_()`：cls='御主' 時直接回傳0、把預算列/預覽列改顯示「🌹 鑑賞限定職階：無需分配點數」，不跑六圍/技能點數加總。
+  - `summonByForge()`：`isMaster` 分支跳過預算/EX數量檢查與六圍/技能欄位讀取，送出的 build 物件 npName/npScale/npDesc/weapon 也直接留空(後端會強制覆蓋，前端一併清爽處理)。
+- **🐛→✅ 順手抓到一個既有 bug(3位canon御主上線時就已存在，這次一併修)**：solo 召喚頁「📜瀏覽全部英靈殿」(`__all__`)與「🌟玩家原創英靈」(`__custom__`)兩份清單原本只濾 `h.src`，沒濾 `h.cls`——`cls==='御主'` 的英靈(不論canon或玩家自建)會被列出來，點下去因為 `actionSummonServant` 的 `hrows` 早已把御主濾掉、`heroId` 查無對應，會誤入「名冊查無→AI隨機生成一位無關的Saber從者」的分支，而非給出清楚的錯誤訊息。已在 `renderHeroList()`(`Script_Onboarding.html`)兩個清單都加上 `h.cls !== '御主'` 過濾，從源頭不讓這類角色出現在 solo 召喚清單。
+- **驗證**：`bash check.sh` 全過；紅線① 0 改動。
+
 ---
 
 ## 10. servantCard_ / persona 注入（show-don't-tell 核心）

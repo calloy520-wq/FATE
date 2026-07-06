@@ -276,8 +276,10 @@ function renderHeroList() {
   var box = document.getElementById('hero-list'); if (!box) return;
   var all = (selectedSummonClass === '__all__');
   var custom = (selectedSummonClass === '__custom__'); // 🌟 玩家原創專區：工房/盲盒創造的英靈(src=ai_gen)全在這
-  var list = all ? heroesData.slice()
-    : custom ? heroesData.filter(function (h) { return h.src === 'ai_gen'; })
+  // 🛡️ 2026-07：cls='御主'(鑑賞限定，不論種子或玩家自建)一律不進 solo 的「🌟玩家原創」清單——
+  //   點了會被後端 hrows 濾掉、heroId 查無對應，反而落入「查無 → AI 隨機生成無關從者」的誤導分支。
+  var list = all ? heroesData.filter(function (h) { return h.cls !== '御主'; })
+    : custom ? heroesData.filter(function (h) { return h.src === 'ai_gen' && h.cls !== '御主'; })
     : heroesData.filter(function (h) { return h.cls === selectedSummonClass; });
   if (!list.length) {
     box.innerHTML = custom
@@ -418,7 +420,9 @@ function forgeTab(n) {
     }
   });
   // 💾 存檔鈕只在中間「⚔️ 靈基」主頁顯示(2026-07 玩家定案)；預算計數保持三頁常駐(寶具頁調規模要看得到)
-  var sv = document.getElementById('cf-save'); if (sv) sv.style.display = (n === 2) ? 'block' : 'none';
+  // 🌹 御主職階沒有靈基/寶具頁可看(藏起，見 applyForgeClsMode_)，存檔鈕改在唯一可見的「🎭 演出」頁顯示。
+  var isMaster = ((document.getElementById('cf-cls') || {}).value === '御主');
+  var sv = document.getElementById('cf-save'); if (sv) sv.style.display = (n === 2 || (isMaster && n === 1)) ? 'block' : 'none';
 }
 // 🧹 工房表單歸零(2026-07 修「修改存檔後創造一直卡在這支角色」)：欄位「只藏不清」是為保留未存檔草稿，
 //   但【存檔成功後】與【編輯中改點創造】必須清乾淨——否則舊角色資料殘留在創造表單=體感卡死。
@@ -539,12 +543,27 @@ function closeForge() {
 var FORGE_CLS_HINT = { Saber: '對魔力B', Lancer: '對魔力C', Archer: '對魔力C・單獨行動C', Rider: '對魔力C・騎乘B', Caster: '陣地作成C・道具作成C', Assassin: '氣息遮斷B', Berserker: '狂化C' };
 function refreshClsHint_() {
   var el = document.getElementById('cf-cls-hint'), cls = (document.getElementById('cf-cls') || {}).value;
-  if (el) el.textContent = '🎁 職階附贈：' + (FORGE_CLS_HINT[cls] || '—') + '（免費・階級固定・不占技能槽）' + (FORGE_CLS_BONUS[cls] ? '＋🐗 狂化補正 預算+' + FORGE_CLS_BONUS[cls] : '');
+  if (el) {
+    el.textContent = (cls === '御主')
+      ? '🌹 鑑賞限定職階：不參與戰鬥，六圍／技能／寶具皆不需要，僅需下方「🎭 演出」欄位'
+      : '🎁 職階附贈：' + (FORGE_CLS_HINT[cls] || '—') + '（免費・階級固定・不占技能槽）' + (FORGE_CLS_BONUS[cls] ? '＋🐗 狂化補正 預算+' + FORGE_CLS_BONUS[cls] : '');
+  }
+  applyForgeClsMode_();
   if (typeof forgeBudget_ === 'function') try { forgeBudget_(); } catch (e) { } // 換職階→預算上限跟著變(Berserker 370)
+}
+// 🌹 2026-07：選「御主」職階→藏起⚔️靈基／🌟寶具兩頁(用不到)，強制留在🎭演出頁；換回戰鬥職階→復原。
+function applyForgeClsMode_() {
+  var cls = (document.getElementById('cf-cls') || {}).value;
+  var isMaster = (cls === '御主');
+  var t2 = document.getElementById('cf-tab-2'), t3 = document.getElementById('cf-tab-3');
+  if (t2) t2.style.display = isMaster ? 'none' : '';
+  if (t3) t3.style.display = isMaster ? 'none' : '';
+  if (isMaster) forgeTab(1);
 }
 function initForge_() {
   var opt = function (v, t) { return '<option value="' + v + '">' + (t || v) + '</option>'; };
-  document.getElementById('cf-cls').innerHTML = ['Saber', 'Archer', 'Lancer', 'Rider', 'Caster', 'Assassin', 'Berserker'].map(function (c) { return opt(c); }).join('');
+  // 🌹 2026-07：新增「御主」職階——鑑賞限定純敘事款，不參與戰鬥(見 applyForgeClsMode_ 隱藏靈基/寶具頁)。
+  document.getElementById('cf-cls').innerHTML = ['Saber', 'Archer', 'Lancer', 'Rider', 'Caster', 'Assassin', 'Berserker', '御主'].map(function (c) { return opt(c); }).join('');
   refreshClsHint_();
   var rankSel = function (id, def, maxA) {
     var ranks = maxA ? ['E', 'D', 'C', 'B', 'A'] : ['E', 'D', 'C', 'B', 'A', 'EX'];
@@ -658,6 +677,13 @@ function pickSkillFx(fx) {
   forgeBudget_();
 }
 function forgeBudget_() {
+  // 🌹 御主職階：不參與戰鬥，六圍/技能/寶具無需分配點數，預算列改顯示提示文字。
+  if ((document.getElementById('cf-cls') || {}).value === '御主') {
+    var mb = document.getElementById('cf-budget'); if (mb) mb.innerHTML = '🌹 鑑賞限定職階：無需分配點數';
+    var mf = document.getElementById('cf-budget-fill'); if (mf) mf.style.width = '0%';
+    var mp = document.getElementById('cf-preview'); if (mp) mp.innerHTML = '🌹 此職階不參與戰鬥，僅供鑑賞召喚使用';
+    return 0;
+  }
   var sum = 0;
   ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].forEach(function (k) {
     var el = document.getElementById('cf-six-' + k); if (el) sum += FORGE_PTS[el.value] || 30;
@@ -709,19 +735,23 @@ function forgeBudget_() {
 async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，不召喚)
   var nm = (document.getElementById('cf-name').value || '').trim();
   if (!nm) { alert('請為英靈取一個真名。'); return; }
-  var sum = forgeBudget_(); // 已含 對軍規模+20
-  var _bgt = forgeClsBudget_();
-  if (sum > _bgt) { alert('總點數 ' + sum + '（含技能階級與寶具規模）超過預算 ' + _bgt + '，請調降六圍/技能階級或改對人規模。'); return; }
-  var exN = ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].filter(function (k) { return document.getElementById('cf-six-' + k).value === 'EX'; }).length;
-  if (exN > 2) { alert('EX 至多 2 項（與種子英靈同規）。'); return; }
+  var cls = document.getElementById('cf-cls').value;
+  var isMaster = (cls === '御主'); // 🌹 鑑賞限定：六圍/技能/寶具全部不需要，略過以下驗證
   var six = {}, skills = [];
-  ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].forEach(function (k) { six[k] = document.getElementById('cf-six-' + k).value; });
-  for (var i = 0; i < 4; i++) {
-    var fx = document.getElementById('cf-sk' + i + '-fx').value;
-    var rn = (document.getElementById('cf-sk' + i + '-n').value || '').trim();
-    if (!fx && !rn) continue; // 空槽跳過
-    var zh = (FORGE_FX.filter(function (o) { return o[0] === fx; })[0] || ['', '技能'])[1].replace(/（.*）/, '');
-    skills.push({ n: rn || zh || '技能', r: document.getElementById('cf-sk' + i + '-r').value, fx: fx });
+  if (!isMaster) {
+    var sum = forgeBudget_(); // 已含 對軍規模+20
+    var _bgt = forgeClsBudget_();
+    if (sum > _bgt) { alert('總點數 ' + sum + '（含技能階級與寶具規模）超過預算 ' + _bgt + '，請調降六圍/技能階級或改對人規模。'); return; }
+    var exN = ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].filter(function (k) { return document.getElementById('cf-six-' + k).value === 'EX'; }).length;
+    if (exN > 2) { alert('EX 至多 2 項（與種子英靈同規）。'); return; }
+    ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].forEach(function (k) { six[k] = document.getElementById('cf-six-' + k).value; });
+    for (var i = 0; i < 4; i++) {
+      var fx = document.getElementById('cf-sk' + i + '-fx').value;
+      var rn = (document.getElementById('cf-sk' + i + '-n').value || '').trim();
+      if (!fx && !rn) continue; // 空槽跳過
+      var zh = (FORGE_FX.filter(function (o) { return o[0] === fx; })[0] || ['', '技能'])[1].replace(/（.*）/, '');
+      skills.push({ n: rn || zh || '技能', r: document.getElementById('cf-sk' + i + '-r').value, fx: fx });
+    }
   }
   var _v = function (id) { var el = document.getElementById(id); return (el && el.value || '').trim(); };
   // 🎨💭 2026-07 拆細：玩家分開填4個小欄位，這裡用頓號組回單一字串——只接非空欄位，
@@ -732,13 +762,13 @@ async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，�
     return parts.join('、');
   };
   var build = {
-    name: nm, cls: document.getElementById('cf-cls').value, sex: document.getElementById('cf-sex').value,
+    name: nm, cls: cls, sex: document.getElementById('cf-sex').value,
     six: six, skills: skills,
-    npName: _v('cf-np-name'), npScale: document.getElementById('cf-np-scale').value, // 階級旋鈕已拆：顯示階＝六圍寶具階(引擎本就只吃 six.寶具)
-    npDesc: _v('cf-np-desc'),   // 寶具威能一句(選填)
+    npName: isMaster ? '' : _v('cf-np-name'), npScale: isMaster ? '對人' : document.getElementById('cf-np-scale').value, // 階級旋鈕已拆：顯示階＝六圍寶具階(引擎本就只吃 six.寶具)
+    npDesc: isMaster ? '' : _v('cf-np-desc'),   // 寶具威能一句(選填)
     look: _joinParts('cf-look'), // 🎨 外貌(選填·4小欄位組回·五官髮色/氣質/身形/衣著印象)
     pref: _joinParts('cf-pref'), // 💭 個性(選填·4小欄位組回·日常表象/真實內裡/喜歡/討厭)
-    weapon: _v('cf-weapon'), desc: _v('cf-desc'),
+    weapon: isMaster ? '' : _v('cf-weapon'), desc: _v('cf-desc'),
     // 🎭 演出細節(選填·零數值)：自稱/陣營/態度/口吻/小動作/萌點/身世——留空＝AI 補
     fp: _v('cf-fp'), align: _v('cf-align'), toMaster: _v('cf-tomaster'),
     speech: _v('cf-speech'), tic: _v('cf-tic'), moe: _v('cf-moe'), back: _v('cf-back')
