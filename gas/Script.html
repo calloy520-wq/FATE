@@ -1514,7 +1514,13 @@
             + (traitK ? '<div style="color:#cbb; font-size:11px; line-height:1.5;">特徵　' + traitK + '</div>' : '')
             + '<div style="color:#cbb; font-size:11px; margin-top:2px;">關係　' + bondWord(s.bond) + '</div>'
             + (exposK ? '<div style="color:#e0a0bc; font-size:11px; margin-top:3px; line-height:1.5;">外顯　' + exposK + '</div>' : '')
-            + '<div style="margin-top:6px;"><button onclick="changeOutfit(\'' + safeN + '\')" title="換裝：自訂她此刻的服裝穿著，AI 會依此描寫（只換衣不換人）。免費即時、留空恢復本相。" style="font-size:11px; padding:4px 11px; background:rgba(150,110,190,0.18); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👗 換裝</button></div>'
+            // 🐛→✅ 只有換裝、沒有詳細狀態鈕(2026-07 修)：玩家反映想自行微調鑑賞同伴的敘事欄(身世/特徵/個性/萌點)，
+            //   反正住在「鑑賞眾生」分頁、不會動到英靈殿種子庫。openStatus 這套面板本就是純敘事(狀態/特徵/地點/性格/
+            //   陣營/身世/萌點/雙修技巧/專屬稱呼——無六圍/技能/寶具，solo戰鬥卡也共用同一套)＋逆天改命微調，直接複用。
+            + '<div style="margin-top:6px; display:flex; gap:6px;">'
+            + '<button onclick="changeOutfit(\'' + safeN + '\')" title="換裝：自訂她此刻的服裝穿著，AI 會依此描寫（只換衣不換人）。免費即時、留空恢復本相。" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(150,110,190,0.18); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👗 換裝</button>'
+            + '<button onclick="openStatus(\'' + safeN + '\',\'' + safeN + '\')" title="查看「' + safeN + '」的完整狀態：個性／特徵／身世／萌點／關係等，並可逆天改命微調敘事欄" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 詳細狀態</button>'
+            + '</div>'
             + '</div>';
         }
         var bcol = isActive ? '#e0574a' : '#7a4040';
