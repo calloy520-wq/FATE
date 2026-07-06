@@ -2846,6 +2846,14 @@ let plainTextContext = cleanText;
       localStorage.setItem('kyushu_story', story.innerHTML);
       setTimeout(() => { story.scrollTop = story.scrollHeight; }, 50);
 
+      // 🐛→✅ 2026-07 修：玩家反映「鑑賞旁邊的狀態頁面有時候不會更新」——查證後端每回合確實有把
+      // physical_state/羈絆等正確寫回試算表(非 AI 沒輸出、也非欄位錯位)，根因在前端：'play' 這個
+      // action 從未列進 STATE_AFTER_ACTIONS(該機制本就明確只服務 solo PC_ 的按鍵動作)，'send()'
+      // 收到回應後也從未呼叫 refreshFateTags()——桌機版三欄並排(Style.html)，狀態欄常駐可見卻沒有
+      // 任何東西觸發它重繪，只有切分頁(手機版)或其他零星動作(換裝等)才會恰好連帶刷新，才會顯得
+      // 「有時候」更新。這裡補一次真實重抓，同一開銷手機/桌機皆修。
+      try { refreshFateTags(); } catch (e) {}
+
       // 🔵 FATE 敗北：御主殞命→播「願望實現的虛假之夢」→老虎道場（與戰鬥敗北同一套收場）
       if (data.defeat) { await handleDefeat(data); }
 
