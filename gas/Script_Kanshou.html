@@ -259,7 +259,7 @@
       document.getElementById('ui-sex').innerText = pc.sex;
       setupHistoryPrevention();
       refreshFateTags();
-      renderMapPane();
+      // 🧹 2026-07：鑑賞拔地圖(applyModeUI 已隱藏 #pane-map)，這裡不必再算圖──renderMapPane 移除。
       // 🚀 首次建檔才需要AI潤色敘事欄：不await，趁玩家看開場白的空檔在背景跑，失敗則保留種子預設。
       if (firstTimeSeed) backfillKanshouAi(firstTimeSeed);
       // 🧵 跟單機一樣：靠 pcId 從「歷史暫存」撈前塵對話，承接上次的後日談，不重開場

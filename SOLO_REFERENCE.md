@@ -487,6 +487,12 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `actionPurgeOrphans`(action `purge_orphans`，主選單 DEV「🧹 清殘列」)：清「眾生」表孤兒——刪①所有 `DEAD_` 列 ②game_id 非任一帳號當前連結(COL.ACC.PC 反推 liveGids)的世界(敗北殘局/棄局/亡靈)。**保留**：活躍戰局、game_id 空白列(創角中)、鑑賞另表。整表 rewrite(setValues+單次 deleteRows tail，非逐列)。連帶清關係表：只刪「被刪御主(PC_)名下、非存活、非鑑賞御主」的 rel(防誤刪鑑賞關係)。回 {removed,kept,relRemoved}。**用途＝縮表加速每次按鍵的整表掃描**(眾生肥大主因＝每局敵御主+敵從者整批殘留)。
 - `findPlayerServant_`、`purgeGameData_`。
 - ⚠ **舊 `actionListGallery/actionEnterGallery/actionGalleryTalk` 已移除**(被 enter_kanshou＋kanshou_* 取代)。
+- **🗺️→🚫 鑑賞拔地圖，改AI自主敘事換場(2026-07 玩家定案)**：鑑賞本就無戰鬥、無AP消耗、同伴永遠靠 `IS_PARTY="同行"` 綁定(不靠 LOC 比對決定「誰在場」)，solo 那套固定地圖節點清單＋移動按鈕(耗AP/戰鬥迷霧/撤離追擊全跳過，`isFateMove` 只認 `g_`局)對鑑賞其實是借用一套為戰鬥設計、幾乎用不到的重機器，還衍生出「陌生人靠LOC相同才判定在場」等額外複雜度。改成：
+  - **Engine_Combat.gs**：NSFW `finalJson` schema 補 `"location"` 欄(緊接在 narration 之後)，AI 每回合自主回報所在地點——不限於冬木既有地名，可自創場景；鐵律「narration 必須先實際敘述移動/抵達過程，location 才能填新地名，沒移動就照抄原地點」，防止無故憑空跳場。
+  - **Router_Narrative.gs**：`actionPlay` 讀 `aiData.location`，若與目前 `curL` 不同，寫回 `pcData[pcIndex][COL.PC.LOC]`＋同步所有 `IS_PARTY="同行"` 同伴的 LOC(仿 solo `actionMove` 移動全隊的既有邏輯，該函式完全沒動，鑑賞只是另開一條路徑)。💕【鑑賞·後日談模式】區塊補一句「換場地」規則呼應這條鐵律。**順手清死碼**：這裡原本有一段處理 `aiData.new_maps`(讓AI在鑑賞自由擴張地圖節點)的邏輯，但 schema 從來沒有要求 AI 輸出這個欄位，AI 從未真的產生過，整段是從未觸發的死碼，一併拔除。
+  - **Script.html**：`applyModeUI()` 補隱藏 `#tab-map`/`#pane-map`(鑑賞不出現，solo 不受影響，仍需地圖管理戰鬥/AP)；`send()` 拔除 `data.allMapNames`→`loc-link`→`travelFromPane`→`actionMove` 這條點地名跳轉的機制(鑑賞地點已不受固定節點限制，點擊跳轉對它已無意義；`send()` 本就只有鑑賞會呼叫，solo 輸入框整條隱藏)；`applyClientState`(每次同步共用)的 `renderMapPane` 呼叫依模式跳過鑑賞，省下每次同步重繪一份沒人看得到的地圖面板。
+  - **Script_Kanshou.html**：`enterKanshou()` 拔除進場時的 `renderMapPane()` 呼叫(面板已隱藏，算了也沒人看)。
+  - 玩家自己的「目前位置」提示詞(`Router_Narrative.gs`【玩家命格】的 `位置:${curL}`)本就是 SFW/NSFW 共用的既有機制，不用另外新增。
 
 ---
 

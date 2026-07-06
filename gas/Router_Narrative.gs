@@ -221,6 +221,7 @@ ${isKanshou ? `
 ★【絕對禁止】任何戰鬥、廝殺、敵人、敵御主、敵從者、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅。世界是安全的。
 ★世界觀＝和平的現代都市日常，沒有戰鬥、沒有敵人、沒有生死威脅——但節奏與親密程度完全依劇情、好感與玩家/同伴當下意圖自然發展，可以是散步閒聊的尋常時光，也可以是更靠近、更熱烈的相處，不強制鎖在「悠閒」基調(尤其🔥主動掌握模式開啟或情慾已自然升溫時)。讓從者貼近其官方性格自然地與御主相處互動。
 ★【演出而非說明】不得直述其願望／萌點／個性字面。嚴禁輸出任何生命變化、戰鬥裁決。可有 rel_changes(好感)。
+★【換場地】地點不受地圖限制，你可自主決定何時、換去哪(不限於冬木既有地名，可自創如「一家安靜的咖啡廳」)——但【絕對禁止】無故憑空跳地點：只有玩家意圖明確或劇情自然推進到需要換場時才移動，且必須先在narration把移動/抵達的過程實際寫出來，location欄位才能填新地名；沒有移動就讓location原樣照抄目前地點。
 ★敘事結束停在「進行中」的當下——留一個未完成的動作、未說完的話、或懸而未決的情緒，而非事後回顧式的收尾；【絕對禁止】使用「那一夜／自此／就這樣／從此」等定調收尾句，讓這回合讀起來像已經翻頁的完結篇章，下一步永遠留給御主接續。
 ` : ""}現在演化玩家動作：『${finalUserMsg}』${npcDialoguePrompt}
 
@@ -251,35 +252,27 @@ ${isKanshou ? `
 
 
     let memoryMapData = getMapDataCached(sheets);
-    // 🎴 solo：地圖只走 GAS 坤圖／玩家移動，不讓 AI 在自由敘事裡新增地點（鑑賞約會大地圖才允許 AI 即興擴張）
-    if (isNsfwMode && aiData.new_maps && Array.isArray(aiData.new_maps) && sheets.map) {
-      let mapsToAppend = [];
-      aiData.new_maps.forEach(m => {
-        let fullName = String(m.name || "").trim();
-        if (fullName && !memoryMapData.some(r => String(r[COL.MAP.NAME] || "").trim() === fullName)) {
-          let parentName = fullName.includes('-') ? fullName.split('-')[0].trim() : "";
-          let parentNode = memoryMapData.find(r => String(r[COL.MAP.NAME] || "").trim() === parentName);
-          let mapType = parentNode ? parentNode[COL.MAP.TYPE] : (m.type || "險地");
-          let coordStrObj = parentNode && parentNode[COL.MAP.COORD] ? String(parentNode[COL.MAP.COORD]) : "0,0";
-          let coordStr, attempts = 0;
-          let baseX = parseInt(coordStrObj.split(',')[0]) || 0;
-          let baseY = parseInt(coordStrObj.split(',')[1]) || 0;
-          do {
-            // 🔴 修正：隨嘗試次數擴大搜尋半徑，避免子節點擠在父座標周圍 9 格而耗盡、導致座標重複堆疊
-            let spread = parentNode ? (1 + Math.floor(attempts / 8)) : 60;
-            let offsetX = Math.floor(Math.random() * (spread * 2 + 1)) - spread;
-            let offsetY = Math.floor(Math.random() * (spread * 2 + 1)) - spread;
-            coordStr = `${baseX + offsetX},${baseY + offsetY}`;
-            attempts++; // 🔴 修正：原本漏了遞增，導致 attempts<200 防呆煞車永遠失效、可能無限迴圈逾時
-          } while (memoryMapData.some(r => String(r[COL.MAP.COORD] || "").trim() === coordStr) && attempts < 200);
-
-          const newMapRow = ["冬木", fullName, mapType, coordStr, m.desc || "未知地界。", parentName];
-          mapsToAppend.push(newMapRow); memoryMapData.push(newMapRow);
-        }
-      });
-      if (mapsToAppend.length > 0) {
-        sheets.map.getRange(sheets.map.getLastRow() + 1, 1, mapsToAppend.length, 6).setValues(mapsToAppend);
-        CacheService.getScriptCache().remove("FATE_MAP_DATA");
+    // 🧹 2026-07 清除死碼：這裡原本有一段處理 aiData.new_maps(讓AI在鑑賞自由擴張地圖節點)的邏輯，
+    //   但 Engine_Combat.gs 的 finalJson schema 從來沒有要求 AI 輸出這個欄位，AI 從未真的產生過
+    //   new_maps，整段是從未觸發的死碼。隨著下方「鑑賞拔地圖」一併清掉，不用先加欄位才發現沒人吃。
+    //
+    // 🗺️ 2026-07 玩家定案：鑑賞拔除地圖按鈕，改AI自主決定地點——每回合讀 aiData.location 直接寫回
+    //   LOC，不再需要固定地圖節點清單。玩家與同行同伴(IS_PARTY="同行")的 LOC 一起同步，跟 solo
+    //   actionMove 移動全隊的既有邏輯一致(該函式完全不動，這裡只是鑑賞另一條路徑)。
+    if (isNsfwMode) {
+      const aiLoc = String(aiData.location || "").trim().slice(0, 20);
+      if (aiLoc && aiLoc !== curL) {
+        pcData[pcIndex][COL.PC.LOC] = aiLoc;
+        dirtyPcRows.add(pcIndex);
+        pcData.forEach((r, nIdx) => {
+          if (nIdx === pcIndex) return;
+          if (String(r[COL.PC.IS_PARTY] || "") !== "同行") return;
+          if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+          if (!sameGame(r)) return;
+          pcData[nIdx][COL.PC.LOC] = aiLoc;
+          dirtyPcRows.add(nIdx);
+        });
+        curL = aiLoc;
       }
     }
 
