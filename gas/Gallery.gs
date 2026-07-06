@@ -132,6 +132,12 @@ function actionClaimGrail(userData, pcId, sheets) {
   // 願望結局摘要（簡短）
   var wishEnd = wish ? wish : "（願望深藏於心）";
 
+  // 🤖 2026-07 玩家定調「轉到鑑賞，AI必須依照種子補充並轉換成都市日常」：封存進「鑑賞」表的
+  //   PREF 是這名從者往後在鑑賞世界會一直沿用的性格資料，戰時語境(如上面 memoir 提示詞用的
+  //   原始 pref，那個是在講戰時回憶、故意不轉)寫進鑑賞會跟外貌轉譯的日常打扮兜不起來——這裡才
+  //   轉，跟 buildGalleryForm_ 轉外貌是同一個原則、分開兩顆函式各轉各的欄位。
+  var dailyPref = translatePersonalityToDaily_(realName, cls, pref);
+
   // 寫入鑑賞表（同帳號同真名則覆蓋最新一筆，避免重複堆積）
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var gal = ss.getSheetByName("鑑賞");
@@ -139,7 +145,7 @@ function actionClaimGrail(userData, pcId, sheets) {
     var row = [
       acctName, realName, cls, String(s[COL.PC.SEX] || ""),
       String(s[COL.PC.SIX] || "{}"), String(s[COL.PC.TAGS] || "{}"),
-      String(s[COL.PC.MARTIAL] || ""), back, pref, moe, memoir, wishEnd, new Date(),
+      String(s[COL.PC.MARTIAL] || ""), back, dailyPref, moe, memoir, wishEnd, new Date(),
       masterName, String(pcData[pIdx][COL.PC.SEX] || ""), buildGalleryForm_(s)
     ];
     var gd = gal.getDataRange().getValues();
@@ -173,7 +179,8 @@ function actionClaimGrail(userData, pcId, sheets) {
           acctName, aName, aCls, String(pcData[ai][COL.PC.SEX] || ""),
           String(pcData[ai][COL.PC.SIX] || "{}"), String(pcData[ai][COL.PC.TAGS] || "{}"),
           String(pcData[ai][COL.PC.MARTIAL] || ""), String(pcData[ai][COL.PC.BACK] || ""),
-          String(pcData[ai][COL.PC.PREF] || ""), String(pcData[ai][COL.PC.INTENT] || ""),
+          // 🤖 2026-07：同盟盟友一樣要轉都市日常，跟上面主從者封存同一個原則。
+          translatePersonalityToDaily_(aName, aCls, String(pcData[ai][COL.PC.PREF] || "")), String(pcData[ai][COL.PC.INTENT] || ""),
           aMemoir, "（並肩走過聖杯戰爭的盟友）", new Date(),
           masterName, String(pcData[pIdx][COL.PC.SEX] || ""), buildGalleryForm_(pcData[ai])
         ];
@@ -297,10 +304,10 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   //   (武人的強悍/冷峻)吃掉大半，AI 拿不到足夠信號自然就照套路寫成普通嬌羞反應。solo 的
   //   actionSummonServant 對同一份種子資料早就有做「・→、」轉換＋parseTraitsHelper 補滿四格，
   //   鑑賞這條直接召喚路徑當初漏做，比照補齊。
-  // 🤖 2026-07：種子 persona.words 幾乎只有2段，parseTraitsHelper 補滿4格時[喜歡]/[討厭]恆為
-  //   「無」——比照 solo 的 actionSummonServant 同步補上AI喜好/討厭延伸，鑑賞直接召喚不該比
-  //   solo 資料還單薄。
-  var svPrefKan = enrichPersonalityLikesDislikes_(name, sRow[COL.PC.RANK], String(p.words || "").replace(/・/g, "、"));
+  // 🤖 2026-07 玩家定調「轉到鑑賞，AI必須依照種子補充並轉換成都市日常」：種子 persona.words
+  //   幾乎只有2段、且是戰時語境——鑑賞這裡改用 translatePersonalityToDaily_(補段數＋轉日常語境
+  //   一次做完)，不是 solo 用的戰時版 enrichPersonalityLikesDislikes_，跟下面外貌轉譯同一個原則。
+  var svPrefKan = translatePersonalityToDaily_(name, sRow[COL.PC.RANK], String(p.words || "").replace(/・/g, "、"));
   sRow[COL.PC.PREF] = parseTraitsHelper(svPrefKan, "沉著表象、堅定內裡、珍視之物、厭惡之事");
   var dailyLook = translateAppearanceToDaily_(name, sRow[COL.PC.RANK], String(p.look || "").replace(/・/g, "、"));
   sRow[COL.PC.TRAIT] = parseTraitsHelper(dailyLook, "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");

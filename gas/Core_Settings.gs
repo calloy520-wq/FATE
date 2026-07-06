@@ -351,6 +351,29 @@ function enrichPersonalityLikesDislikes_(name, cls, rawWords) {
   } catch (e) { return words; }
 }
 
+// 🤖 2026-07 玩家定調「種子就是去戰鬥的，可以少幾項沒問題；轉到鑑賞，AI必須依照種子進行補充
+//   和轉換原本資料變成都市日常」：跟上面 enrichPersonalityLikesDislikes_ 的差異——那個是給「還在
+//   戰場」的 solo 用(只補缺項、維持戰時語境)，這個專給「進入鑑賞和平日常」用，一次AI呼叫做兩件事：
+//   ①段數不足4段就補滿(邏輯同上)；②不論段數夠不夠，若既有短句偏戰場語境(戰意/殺意/勝負等)一律
+//   轉譯成性格本質不變、但適合日常場景展現的等價說法。只用在鑑賞的兩個新增從者入口。
+function translatePersonalityToDaily_(name, cls, rawWords) {
+  var words = String(rawWords || "").trim();
+  if (!words) return words;
+  try {
+    var sys = "你是《命運停駐之夜》的角色側寫顧問。玩家提供一位角色在聖杯戰爭(戰時)既有的性格短句" +
+      "(用「、」分隔，依序對應[日常表象][真實內裡][喜歡的事物][討厭的事物]，段數可能不足4段——" +
+      "這是正常的，種子資料本就只服務戰鬥)。這個角色現在要進入現代都市的和平日常生活，請你：\n" +
+      "①若既有短句偏戰場語境(如「戰意」「殺意」「勝負」「殺戮」等)，轉譯成性格本質不變、但適合" +
+      "日常場景展現的等價說法；純屬個性核心(不涉戰場)的短句原樣保留、不要亂改。\n" +
+      "②段數不足4段時，依既有特質延伸出貼合、具體、適合日常場景的「喜歡的事物」與「討厭的事物」" +
+      "補滿4句。\n" +
+      "★只輸出最終4句、用「、」分隔，不要輸出任何說明、標籤、引號、前後綴。";
+    var prompt = "角色：" + name + "（" + cls + "）\n戰時性格短句：" + words;
+    var out = String(callGeminiAPI(prompt, sys, { temperature: 0.75, ignoreLaw: true, plainText: true }) || "").trim();
+    return out || words;
+  } catch (e) { return words; }
+}
+
 // ==========================================
 // ★ 階段三：狀態融合與資料封裝
 // ==========================================
