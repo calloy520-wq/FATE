@@ -39,7 +39,10 @@ const COL = {
   //   若在第五次局也顯示會是明確的設定錯誤。空字串＝通用地點(全戰爭皆顯示)，'4th'/'5th' 則限定該戰爭。
   MAP: { REGION: 0, NAME: 1, TYPE: 2, COORD: 3, DESC: 4, PARENT: 5, WAR: 6 },
   // 🔵 英靈殿(從者範本)、御主殿（戰鬥 fx 走 hasFx_＋SEED_SERVANTS 的 skills/traits JSON，不需 COL 索引；戰鬥標籤分頁已棄）
-  HERO: { ID: 0, CLS: 1, NAME: 2, SEX: 3, SIX: 4, CLASS_SKILLS: 5, SKILLS: 6, TRAITS: 7, NP: 8, PERSONA: 9, ALIGN: 10, WARS: 11, SOURCE: 12 },
+  // 🆕 DAILY_LOOK/DAILY_WORDS(2026-07)：鑑賞用的都市日常版外貌/性格，跟戰時 PERSONA(look/words)分開存——
+  //   懶惰快取：首次被召喚進鑑賞才由AI轉換寫入(見 heroToKanshouRow_)，之後任何玩家再召喚同一位英靈直接讀
+  //   這裡，不重複呼叫AI。空字串＝尚未轉換過。附加在尾端，不動既有欄位位置(COL 是位置索引，見專案紀律)。
+  HERO: { ID: 0, CLS: 1, NAME: 2, SEX: 3, SIX: 4, CLASS_SKILLS: 5, SKILLS: 6, TRAITS: 7, NP: 8, PERSONA: 9, ALIGN: 10, WARS: 11, SOURCE: 12, DAILY_LOOK: 13, DAILY_WORDS: 14 },
   MASTER: { ID: 0, NAME: 1, SEX: 2, APPEAR: 3, MAGIC: 4, CIRCUITS: 5, MELEE: 6, MAGIC_RANK: 7, HOME: 8, WISH: 9, PERSONA: 10, WAR: 11, SOURCE: 12, BACK: 13, MOE: 14 },
   // 帳號（存檔身分）：帳號名 → 目前御主角色ID。2026-07：勝場/最快奪杯日(排行榜用)已隨排行榜砍除。
   // ⚠ 2026-07 修：新增 KPC(鑑賞角色ID)——原本鑑賞的帳號歸屬是角色自己 MEMORY 裡宣稱的

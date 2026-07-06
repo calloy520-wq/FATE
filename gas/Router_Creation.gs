@@ -291,9 +291,14 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
     words: String(personaWords || ""), firstP: String(px.firstP || "") || "我", toMaster: String(px.toMaster || ""),
     look: String(px.look || ""), moe: String(px.moe || ""), speech: String(px.speech || ""), tic: String(px.tic || ""), back: String(px.back || "")
   });
+  // 🤖 2026-07 玩家定調「工房捏角當下也提前生成日常資料」：跟種子英靈懶惰快取(見
+  // getOrComputeDailyHeroFields_)不同——工房角色創造當下就順手轉好，寫進英靈殿新增的
+  // DAILY_LOOK/DAILY_WORDS 欄，之後第一次被召喚進鑑賞就直接有現成日常版，不必等召喚當下才轉。
+  var dailyLook = translateAppearanceToDaily_(name, cls, String(px.look || ""));
+  var dailyWords = translatePersonalityToDaily_(name, cls, String(personaWords || ""));
   hs.appendRow([name + "-" + cls, cls, name, sex || "異", sixJson || "{}",
     JSON.stringify(classSkills || []), JSON.stringify(skills || []), JSON.stringify(traits || []),
-    np || "", persona, align || "中立", "[]", "ai_gen"]);
+    np || "", persona, align || "中立", "[]", "ai_gen", dailyLook, dailyWords]);
   try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { } // 種子表已變動→清快取，下次讀到新從者
 }
 
@@ -434,11 +439,15 @@ function actionSaveHero(userData, pcId, sheets) {
     data[idx][COL.HERO.CLASS_SKILLS] = JSON.stringify(pb.classSkills);
     data[idx][COL.HERO.SKILLS] = JSON.stringify(pb.skills);
     data[idx][COL.HERO.NP] = np; data[idx][COL.HERO.ALIGN] = pb.align;
+    const newWords = keep(pb.pref, pj.words), newLook = keep(pb.look, pj.look);
     data[idx][COL.HERO.PERSONA] = JSON.stringify({
-      words: keep(pb.pref, pj.words), firstP: keep(pb.fp, pj.firstP) || "我", toMaster: keep(pb.toM, pj.toMaster),
-      look: keep(pb.look, pj.look), moe: keep(pb.moe, pj.moe), speech: keep(pb.speech, pj.speech),
+      words: newWords, firstP: keep(pb.fp, pj.firstP) || "我", toMaster: keep(pb.toM, pj.toMaster),
+      look: newLook, moe: keep(pb.moe, pj.moe), speech: keep(pb.speech, pj.speech),
       tic: keep(pb.tic, pj.tic), back: keep(pb.back, pj.back), weapon: keep(pb.weapon, pj.weapon), creator: pj.creator
     });
+    // 🤖 2026-07：外貌/性格改了，先前快取的日常版本會跟新設定對不上——重新轉一次，不留舊資料。
+    data[idx][COL.HERO.DAILY_LOOK] = translateAppearanceToDaily_(build.name, pb.cls, newLook);
+    data[idx][COL.HERO.DAILY_WORDS] = translatePersonalityToDaily_(build.name, pb.cls, newWords);
     hs.getRange(idx + 1, 1, 1, data[idx].length).setValues([data[idx]]);
     try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { }
     return JSON.stringify({ success: true, edited: true, message: `「${build.name}」的靈基已重鑄——之後召喚皆用新設定（已在場的分身不追改）。` });
@@ -497,7 +506,10 @@ function actionSummonServant(userData, pcId, sheets) {
   // ── 從英靈殿尋找對應英靈（heroId 指定 / 真名比對 / 隨機）──
   let hero = null;
   try {
-    const hrows = getHeroCodexCached().slice(1).filter(r => r[COL.HERO.ID]);
+    // 🛡️ 2026-07 修：英靈殿新增了「鑑賞限定」的正典御主(cls='御主'，如遠坂凜/伊莉雅絲菲爾)，
+    //   只給鑑賞直接召喚用、沒有六圍/技能/寶具——若被 solo 召喚會產出殘缺從者。三條路徑
+    //   (heroId 指定/真名比對/隨機)都共用這份 hrows，統一在源頭濾掉，不逐一補檢查。
+    const hrows = getHeroCodexCached().slice(1).filter(r => r[COL.HERO.ID] && String(r[COL.HERO.CLS]) !== "御主");
     if (hrows.length) {
       if (heroId) {
         hero = hrows.find(r => String(r[COL.HERO.ID]) === heroId);

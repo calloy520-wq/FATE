@@ -180,7 +180,21 @@ var SEED_SERVANTS = [
     classSkills:[{n:'陣地作成',r:'B',fx:'territory'},{n:'道具作成（魔杖・露比）',r:'C',fx:'crafting'}],
     skills:[{n:'高速神言',r:'A',fx:'fast_cast'},{n:'魔力放出',r:'B',fx:'burst'},{n:'純真無垢',r:'A',fx:'clear_mind'}],
     traits:[{n:'人類'}], np:'全彈發射・魔力炮 Quintett Feuer（多重魔力炮擊）',
-    align:'中立・善', persona:{firstP:'我',look:'白髮紅瞳・魔杖在手的魔法少女、元氣',words:'天真・善良',toMaster:'純真信賴，朝氣蓬勃',speech:'活潑直率、元氣滿滿',moe:'愛哭卻在關鍵時刻勇敢',tic:'眼眶泛淚還硬撐'} }
+    align:'中立・善', persona:{firstP:'我',look:'白髮紅瞳・魔杖在手的魔法少女、元氣',words:'天真・善良',toMaster:'純真信賴，朝氣蓬勃',speech:'活潑直率、元氣滿滿',moe:'愛哭卻在關鍵時刻勇敢',tic:'眼眶泛淚還硬撐'} },
+  // 🌹 2026-07 玩家定案「把女性正典御主也做進鑑賞種子」：這3位是聖杯戰爭中的正典御主(非從者)，
+  //   原本只能靠已砍除的「奪杯封存＋鑑賞緣」養好感後才可能收錄——現在直接進英靈殿，可被鑑賞
+  //   「直接召喚」。cls 刻意標'御主'(非七大從者職階)，不會出現在solo召喚頁的職階清單，
+  //   也被 actionSummonServant 的職階白名單擋下(見該函式)，只有鑑賞召喚得到；wars 標'客串'
+  //   同步排除於混亂模式的敵從者亂數池外。six/技能/寶具留空——這幾位在鑑賞只演出、不涉戰鬥。
+  { id:'遠坂凜-Master', cls:'御主', realName:'遠坂凜', wars:['客串'], gender:'女',
+    six:{}, classSkills:[], skills:[], traits:[], np:'',
+    align:'中立・善', persona:{firstP:'我',look:'黑長雙馬尾、紅衣黑裙，傲然',words:'人前完美的優等生・刀子嘴豆腐心・厭惡示弱與失態',toMaster:'口是心非、嘴上嫌棄卻很上心',speech:'毒舌卻藏著關心',moe:'人後迷糊',tic:'甩馬尾別過臉',back:'遠坂家長女（櫻是被送養的妹妹）、父親死於上屆聖杯戰爭'} },
+  { id:'伊莉雅絲菲爾-Master', cls:'御主', realName:'伊莉雅絲菲爾', wars:['客串'], gender:'女',
+    six:{}, classSkills:[], skills:[], traits:[], np:'',
+    align:'中立・善', persona:{firstP:'我',look:'紅眼白髮的幼小少女，毛領大衣',words:'天真爛漫・哀傷的聖杯依代・厭惡孤獨',toMaster:'依賴而黏人，渴望被珍惜',speech:'孩子氣的直率，偶爾早熟的敏銳',moe:'強顏歡笑的寂寞',tic:'踮腳撒嬌',back:'人造人、被當作工具養大卻渴望親情'} },
+  { id:'間桐櫻黑化-Master', cls:'御主', realName:'間桐櫻（黑化）', wars:['客串'], gender:'女',
+    six:{}, classSkills:[], skills:[], traits:[], np:'',
+    align:'混沌・惡', persona:{firstP:'我',look:'黑長髮、黑紅禮服，妖異而空洞的笑',words:'溫順乖巧的假面・被黑泥吞噬的佔有慾・厭惡傷害過自己的一切',toMaster:'表面溫順順從，內裡佔有慾強烈',speech:'輕柔溫順，偶爾滲出陰冷',moe:'可憐又可怖',tic:'低垂眼眸淺笑',back:'遠坂次女、送養間桐受蟲蝕十一年後黑化'} }
 ];
 
 // 御主 persona 為 4 段頓號（日常表象・真實內裡・喜歡・厭惡）供 TRAIT/PREF 解析；
@@ -229,7 +243,11 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v52'; // v52：種子庫大清理(玩家定案「只要第4次第5次+斯卡哈/伊莉雅/美遊/小黑/恩奇都/銀狼，其他客串fake先刪除」)——
+var CODEX_PERSONA_VER = 'v53'; // v53：新增3位女性正典御主(遠坂凜/伊莉雅絲菲爾/間桐櫻黑化)進英靈殿，cls='御主'
+//   (非七大從者職階)+wars=['客串']，只供鑑賞直接召喚(奪杯封存機制已砍除，改用此路徑補上原本靠
+//   「鑑賞緣」才收得到的女性正典御主)；upgradeCodexPersonas_ 的「補入種子有、英靈殿還沒有的新英靈」
+//   邏輯會自動把這3筆加進既有英靈殿，不需要清表。
+// v52：種子庫大清理(玩家定案「只要第4次第5次+斯卡哈/伊莉雅/美遊/小黑/恩奇都/銀狼，其他客串fake先刪除」)——
 //   SEED_SERVANTS 砍掉16騎純客串／偽聖杯專屬從者(赫拉克勒斯-Avenger／斯卡蒂-Caster／理查一世-Saber／阿基里斯-Rider／
 //   開膛手傑克-Berserker／蒼白騎兵-Rider／狂信者哈桑-Assassin／伊絲塔-Archer／莫德雷德-Saber／迦爾納-Lancer／
 //   阿斯托爾福-Rider／賽彌拉米斯-Assassin／尼祿-Saber／玉藻前-Caster／牛若丸-Rider／貞德-Archer)，只留4th/5th正典

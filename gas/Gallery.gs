@@ -277,6 +277,37 @@ function translateAppearanceToDaily_(name, cls, rawLook) {
   } catch (e) { return look; }
 }
 
+// 🤖 2026-07 玩家定調「一次批次轉換、之後直接讀」：懶惰快取版——英靈殿新增的 DAILY_LOOK/
+//   DAILY_WORDS 欄若已有值(不論是這函式先前寫入、或工房 actionSaveHero 創角當下就順便生成)，
+//   直接讀、零AI呼叫；若仍是空(尚未有任何玩家召喚過這位英靈)，才呼叫AI轉換一次並回寫進英靈殿
+//   本體，讓「之後任何玩家」召喚同一位英靈都吃到同一份已轉好的日常版，不必人人各轉一次。
+function getOrComputeDailyHeroFields_(heroRow, p) {
+  var name = String(heroRow[COL.HERO.NAME] || "");
+  var cls = String(heroRow[COL.HERO.CLS] || "");
+  var existingLook = String(heroRow[COL.HERO.DAILY_LOOK] || "").trim();
+  var existingWords = String(heroRow[COL.HERO.DAILY_WORDS] || "").trim();
+  if (existingLook && existingWords) return { look: existingLook, words: existingWords };
+
+  var rawLook = String(p.look || "").replace(/・/g, "、");
+  var rawWords = String(p.words || "").replace(/・/g, "、");
+  var dailyLook = existingLook || translateAppearanceToDaily_(name, cls, rawLook);
+  var dailyWords = existingWords || translatePersonalityToDaily_(name, cls, rawWords);
+
+  try {
+    var hs = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("英靈殿");
+    if (hs) {
+      var hd = hs.getDataRange().getValues();
+      var hIdx = hd.findIndex(function (r) { return String(r[COL.HERO.ID]) === String(heroRow[COL.HERO.ID]); });
+      if (hIdx > 0) {
+        hs.getRange(hIdx + 1, COL.HERO.DAILY_LOOK + 1).setValue(dailyLook);
+        hs.getRange(hIdx + 1, COL.HERO.DAILY_WORDS + 1).setValue(dailyWords);
+        CacheService.getScriptCache().remove("FATE_HERO_CODEX");
+      }
+    }
+  } catch (e) { }
+  return { look: dailyLook, words: dailyWords };
+}
+
 // 🌹 慾海直接從英靈庫挑選(2026-07 玩家定案·與「封存後邀請」並存)：不必先在 solo 打贏一場戰爭
 // 封存，直接從英靈殿挑一位召喚進後日談。刻意【不帶任何戰鬥資料】(SIX/TAGS/MARTIAL 留空)——
 // 慾海本就無戰鬥，養這些資料只白增加 AI 誤讀/亂加戲的風險面，不是漏寫。
@@ -304,14 +335,17 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   //   (武人的強悍/冷峻)吃掉大半，AI 拿不到足夠信號自然就照套路寫成普通嬌羞反應。solo 的
   //   actionSummonServant 對同一份種子資料早就有做「・→、」轉換＋parseTraitsHelper 補滿四格，
   //   鑑賞這條直接召喚路徑當初漏做，比照補齊。
-  // 🤖 2026-07 玩家定調「轉到鑑賞，AI必須依照種子補充並轉換成都市日常」：種子 persona.words
-  //   幾乎只有2段、且是戰時語境——鑑賞這裡改用 translatePersonalityToDaily_(補段數＋轉日常語境
-  //   一次做完)，不是 solo 用的戰時版 enrichPersonalityLikesDislikes_，跟下面外貌轉譯同一個原則。
-  var svPrefKan = translatePersonalityToDaily_(name, sRow[COL.PC.RANK], String(p.words || "").replace(/・/g, "、"));
-  sRow[COL.PC.PREF] = parseTraitsHelper(svPrefKan, "沉著表象、堅定內裡、珍視之物、厭惡之事");
-  var dailyLook = translateAppearanceToDaily_(name, sRow[COL.PC.RANK], String(p.look || "").replace(/・/g, "、"));
-  sRow[COL.PC.TRAIT] = parseTraitsHelper(dailyLook, "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
+  // 🤖 2026-07 玩家定調「轉到鑑賞，AI必須依照種子補充並轉換成都市日常」+「一次批次轉換、之後
+  //   直接讀」：改呼叫 getOrComputeDailyHeroFields_，優先讀英靈殿已快取的日常版，沒有才轉換
+  //   並回寫，不再每次召喚都無條件重新呼叫AI。
+  var daily = getOrComputeDailyHeroFields_(heroRow, p);
+  sRow[COL.PC.PREF] = parseTraitsHelper(daily.words, "沉著表象、堅定內裡、珍視之物、厭惡之事");
+  sRow[COL.PC.TRAIT] = parseTraitsHelper(daily.look, "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
   sRow[COL.PC.INTENT] = p.moe || "";
+  // 🐛→✅ 2026-07 修：這條路徑原本完全沒設定 BACK(身世)，比 solo 召喚(svBack 有 persona.back
+  //   fallback)還空——多數種子沒有 persona.back 沒差，但這次新增的3位女性正典御主特地補了
+  //   身世，若這裡不接就白填了。比照 solo 的 svBack 邏輯：有 persona.back 就用，沒有則職階+真名。
+  sRow[COL.PC.BACK] = p.back ? String(p.back).slice(0, 28) : `${sRow[COL.PC.RANK]}・${name}`;
   // 🆕 直接召喚無快照可帶，先給「日常便服」墊底，卡片才不會裝扮欄空白待換裝
   sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", p.speech, p.tic), "日常便服");
   sRow[COL.PC.PHYSICAL] = (sex === "男") ? JSON.stringify({ "肉棒": "如常" }) : JSON.stringify({ "蜜穴": "未開" });
