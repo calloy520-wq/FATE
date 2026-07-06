@@ -360,24 +360,12 @@ function mergePhysicalStatus(oldJson, newObjOrStr) {
   } catch (e) { return oldJson || "{}"; }
 }
 
-function maskPhysicalStatus(jsonStr, isNsfwMode) {
-  if (isNsfwMode) return jsonStr;
-  try {
-    let obj = JSON.parse(jsonStr || "{}");
-    // ⚠ 2026-07 修：胸部/口/舌頭是physical_state改數字代碼(1-4)前的舊schema殘留鍵名，現行
-    //   allowedKeys(Router_Narrative.gs sanitizePhysicalState)只剩蜜穴/肉棒/菊穴/雙手四項，
-    //   舊鍵名永遠不會被寫入、遮罩對它們形同虛設；雙手則反而漏列。比照現行真實鍵集合修正。
-    const sensitiveKeys = ["蜜穴", "肉棒", "菊穴", "雙手"];
-    sensitiveKeys.forEach(k => { if (obj[k] && obj[k] !== "無") obj[k] = "???"; });
-    return JSON.stringify(obj);
-  } catch (e) { return "{}"; }
-}
-
-function buildPlayerStatusString(selfRow, relMem = "", isNsfwMode = false) {
+function buildPlayerStatusString(selfRow, relMem = "") {
   const safeMemory = String(selfRow[COL.PC.MEMORY] || "").replace(/\|/g, '@@@');
   const safeRelMem = String(relMem || "").replace(/\|/g, '@@@');
-  const maskedPhysical = maskPhysicalStatus(selfRow[COL.PC.PHYSICAL] || "{}", isNsfwMode);
-  const safePhysical = String(maskedPhysical).replace(/§/g, '###');
+  // 🗑️ 2026-07 刪：maskPhysicalStatus/safePhysical(§-string第24格)——查證後確認前端從未讀取這一格
+  // (updateUI 只讀其他索引)，「肉體狀態抵換外顯」改走上面 visibleStatusStr 後這格早已是死值，
+  // 直接砍掉；該格保留空字串佔位以維持其餘欄位的固定索引位置不位移。
   // 🎴 2026-07 玩家定案：外顯狀態自 solo 移除(戰鬥AI/演出卡從不讀取，HUD 恆顯示預設字樣＝死資料)——
   //   位置0 solo 留空(前端空值即隱藏該列)；慾海(K 系 id)以「肉體狀態」抵換此欄位顯示。
   //   慾海的 STATUS 欄本身仍由 NSFW 機制(intimacy_feedback)維護、僅供 AI 場景連續性內化。
@@ -395,7 +383,7 @@ function buildPlayerStatusString(selfRow, relMem = "", isNsfwMode = false) {
     visibleStatusStr, "", selfRow[COL.PC.TRAIT], selfRow[COL.PC.LOC], selfRow[COL.PC.PREF],
     selfRow[COL.PC.HP], selfRow[COL.PC.MP], "", "", "", "", "",
     "", "", "", "", "", safeMemory, safeRelMem, selfRow[COL.PC.FACTION],
-    selfRow[COL.PC.RANK], selfRow[COL.PC.ALIGN], selfRow[COL.PC.CONTRIB], selfRow[COL.PC.BACK], safePhysical,
+    selfRow[COL.PC.RANK], selfRow[COL.PC.ALIGN], selfRow[COL.PC.CONTRIB], selfRow[COL.PC.BACK], "",
     selfRow[COL.PC.INTENT], selfRow[COL.PC.MARTIAL], ""
   ].join('§');
 }
