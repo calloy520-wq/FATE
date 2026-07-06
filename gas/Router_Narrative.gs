@@ -118,7 +118,11 @@ function actionPlay(userData, pcId, sheets) {
     //   (伊莉雅冷漠案同一類根因)。改成這裡統一補上，NSFW 那份重複的移除，單一真實來源。
     const moeStr = String(r[COL.PC.INTENT] || "").trim();
 
-    return `${identityTag}名號:${r[COL.PC.NAME]} 【性別:${r[COL.PC.SEX]}】 陣營:${r[COL.PC.FACTION] || "無"} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${moeStr ? ` | 萌點(反差·僅供內化):${moeStr}` : ""} | 身世:${String(r[COL.PC.BACK] || "來歷不詳")}(僅供內化演出·show-don't-tell·禁直述、禁預告其原作後續結局) | 關係:${r[COL.PC.REL_TAG] || "萍水相逢"}(好感:${currentFav}${majorEventStr} -> 行為準則:${resistPrompt})`;
+    // 🧹 2026-07 修：鑑賞的「同地人物」在 FACTION 欄恆為「從者」(kanshou只會有同伴/自己兩種列，
+    //   從不會有「敵從者/敵御主」等變化值)——陣營資訊對鑑賞是每回合都印同一個死字的廢token，
+    //   solo 才需要靠這欄分辨敵我(見上方 COL.PC.FACTION 用途)，故只在 solo 印出。
+    const factionSeg = isKanshou ? "" : ` 陣營:${r[COL.PC.FACTION] || "無"} |`;
+    return `${identityTag}名號:${r[COL.PC.NAME]} 【性別:${r[COL.PC.SEX]}】${factionSeg} 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${moeStr ? ` | 萌點(反差·僅供內化):${moeStr}` : ""} | 身世:${String(r[COL.PC.BACK] || "來歷不詳")}(僅供內化演出·show-don't-tell·禁直述、禁預告其原作後續結局) | 關係:${r[COL.PC.REL_TAG] || "萍水相逢"}(好感:${currentFav}${majorEventStr} -> 行為準則:${resistPrompt})`;
   }).join("\n") : "此地四下無人。";
 
   if (isNsfwMode) {
