@@ -235,7 +235,10 @@
       <div id="pane-status" class="game-pane">
         <div id="fate-tags" style="display:none; gap:6px; padding:6px 8px 2px;"></div>
         <div style="text-align:center; padding:6px;">
-          <button class="btn" style="font-size:12px; padding:5px 12px; border-color:#9a7b4f; color:#9a7b4f;" onclick="triggerDrawerAction('status')">📋 詳細狀態</button>
+          <!-- 🐛→✅ 2026-07 修：這顆固定在卡片列表下方、恆看「御主自己」的狀態(triggerDrawerAction('status')→
+               openStatus()無參數＝pc自己)，跟上面各卡片(含鑑賞同伴)自己的「📜詳細狀態」鈕視覺上太像、
+               位置又緊鄰最後一張卡，玩家反映「怎麼單獨跑出這個」——加「我的」二字消歧義，不是任何卡片的附屬。 -->
+          <button class="btn" style="font-size:12px; padding:5px 12px; border-color:#9a7b4f; color:#9a7b4f;" onclick="triggerDrawerAction('status')">👤 我的詳細狀態</button>
         </div>
       </div>
       <div id="pane-chat" class="game-pane active">

@@ -93,20 +93,29 @@
       if (res && res.success) { syncData(true); openCompanions(); } else { alert((res && res.message) || '邀請失敗。'); }
     } catch (e) { alert('邀請失敗。'); }
   }
+  // 🐛→✅ 2026-07 修：玩家反映「點召喚沒有等待畫面、不知道有沒有跑、成功也沒提示」——原本兩段
+  //   (召喚本身 + 背景AI深化)都悄悄進行、無感。改用既有 showProcessing/hideProcessing(見
+  //   Script_Onboarding.html)蓋出讀取畫面，兩階段各自更新訊息；深化結束(無論成功/失敗)都跳一句
+  //   明確結果提示，玩家不必自己猜。
   async function kanshouSummonHero(heroId) {
+    showProcessing('正在以令咒召喚英靈…', true);
     try {
       const res = await gasRun({ action: 'kanshou_summon_hero', pcId: pc.id, acctName: currentAccount, heroId: heroId });
       if (res && res.success) {
         syncData(true); openCompanions();
         // 🚀 2026-07 玩家定案「C.只在召喚當下用AI動態補一次」：種子庫個性精簡+無身世，只在首次
-        //   召喚(isNew，非「歡迎回來」)才背景呼叫一次深化，不等待、不擋UI，失敗靜默保留種子原樣。
+        //   召喚(isNew，非「歡迎回來」)才呼叫一次深化。
         if (res.isNew && res.added) {
-          gasRun({ action: 'backfill_kanshou_servant_ai', pcId: pc.id, servantName: res.added })
-            .then(function () { try { syncData(); } catch (e) {} })
-            .catch(function () {});
-        }
-      } else { alert((res && res.message) || '召喚失敗。'); }
-    } catch (e) { alert('召喚失敗。'); }
+          showProcessing('✨ 正在深化「' + res.added + '」的個性與身世…', false);
+          try {
+            const bf = await gasRun({ action: 'backfill_kanshou_servant_ai', pcId: pc.id, servantName: res.added });
+            hideProcessing();
+            syncData(); openCompanions();
+            if (!bf || !bf.success) alert('「' + res.added + '」深化失敗，已保留原始設定（可用📜詳細狀態手動調整）。');
+          } catch (e) { hideProcessing(); alert('「' + res.added + '」深化失敗，已保留原始設定（可用📜詳細狀態手動調整）。'); }
+        } else { hideProcessing(); }
+      } else { hideProcessing(); alert((res && res.message) || '召喚失敗。'); }
+    } catch (e) { hideProcessing(); alert('召喚失敗。'); }
   }
   async function kanshouRemove(name) {
     try {
