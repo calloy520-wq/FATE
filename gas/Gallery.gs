@@ -258,8 +258,15 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   sRow[COL.PC.LOC] = loc;
   sRow[COL.PC.FACTION] = "從者";
   sRow[COL.PC.RANK] = String(heroRow[COL.HERO.CLS] || "從者");
-  sRow[COL.PC.PREF] = p.words || "";
-  sRow[COL.PC.TRAIT] = p.look || "";
+  // 🐛→✅ 2026-07 修(玩家反映「斯卡哈應該自信高冷，怎麼都沒按個性演出」)：原本 p.words/p.look
+  //   直接原樣塞進 PREF/TRAIT，種子資料慣用「・」當片語內部連接號(如「影之國女王・武人」)——但
+  //   Router_Narrative.gs 的 formatPref/formatTrait 是用「、」切成[表象]/[內裡]/[喜歡]/[討厭]四格
+  //   餵給AI，沒有「、」可切時整串會被塞進單一格、其餘三格全變「無」，等於把她的關鍵個性錨點
+  //   (武人的強悍/冷峻)吃掉大半，AI 拿不到足夠信號自然就照套路寫成普通嬌羞反應。solo 的
+  //   actionSummonServant 對同一份種子資料早就有做「・→、」轉換＋parseTraitsHelper 補滿四格，
+  //   鑑賞這條直接召喚路徑當初漏做，比照補齊。
+  sRow[COL.PC.PREF] = parseTraitsHelper(String(p.words || "").replace(/・/g, "、"), "沉著表象、堅定內裡、珍視之物、厭惡之事");
+  sRow[COL.PC.TRAIT] = parseTraitsHelper(String(p.look || "").replace(/・/g, "、"), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
   sRow[COL.PC.INTENT] = p.moe || "";
   // 🆕 直接召喚無快照可帶，先給「日常便服」墊底，卡片才不會裝扮欄空白待換裝
   sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", p.speech, p.tic), "日常便服");
