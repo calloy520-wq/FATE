@@ -328,6 +328,29 @@ function parseTraitsHelper(data, defaultStr) {
   return parts.slice(0, 4).join("、");
 }
 
+// 🤖 2026-07 玩家提案「確定會有喜好？討厭的？跟玩家的資料欄位對齊嗎」：查證屬實——種子庫
+//   persona.words 幾乎全部只有2段(僅阿爾托莉雅3段)，parseTraitsHelper 補滿4格時[喜歡]/[討厭]
+//   恆為「無」佔位，玩家自己建角卻是紮實填滿的4格，兩邊明顯不對齊，慢熱與傾心規則「依個性/氣質
+//   真實反應」對從者這邊可用信號比玩家薄弱很多。召喚當下用AI依既有的表象/內裡短句延伸出貼合、
+//   合理的喜好/討厭，而非留白；既有短句一字不改、只補缺少的部分。只在段數不足4時才呼叫，已經
+//   4段(AI原創從者走的分支本就會給4段)直接跳過、不多打一次API。
+function enrichPersonalityLikesDislikes_(name, cls, rawWords) {
+  var words = String(rawWords || "").trim();
+  if (!words) return words;
+  var segCount = words.split('、').map(function (s) { return s.trim(); }).filter(function (s) { return s !== ""; }).length;
+  if (segCount >= 4) return words;
+  try {
+    var sys = "你是《命運停駐之夜》的角色側寫顧問。玩家提供一位角色既有的性格短句(用「、」分隔，" +
+      "依序對應[日常表象][真實內裡][喜歡的事物][討厭的事物]，但段數不足4段)，請延伸出貼合這些既有" +
+      "特質、合理且具體的「喜歡的事物」與「討厭的事物」，補滿到4句。既有的短句必須一字不改、" +
+      "原樣保留在原本的位置，只需要補上缺少的部分。\n" +
+      "★只輸出最終4句、用「、」分隔，不要輸出任何說明、標籤、引號、前後綴。";
+    var prompt = "角色：" + name + "（" + cls + "）\n既有性格短句：" + words;
+    var out = String(callGeminiAPI(prompt, sys, { temperature: 0.8, ignoreLaw: true, plainText: true }) || "").trim();
+    return out || words;
+  } catch (e) { return words; }
+}
+
 // ==========================================
 // ★ 階段三：狀態融合與資料封裝
 // ==========================================

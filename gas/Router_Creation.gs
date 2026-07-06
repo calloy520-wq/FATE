@@ -540,12 +540,17 @@ function actionSummonServant(userData, pcId, sheets) {
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       // 🎴 特徵(4格敘事：外貌/氣質/自稱與口氣/私密)直接讀寫死的種子 persona.look，穩定一致、不叫 AI 生。
       row[COL.PC.TRAIT] = parseTraitsHelper(String(persona.look || ""), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
-      // 🚀 種子英靈：直接用寫死的種子 persona（萌點/口吻 v3 已補齊），不再叫 AI 重生一次——省一次 API、加速召喚。
+      // 🚀 種子英靈：直接用寫死的種子 persona（萌點/口吻 v3 已補齊），大部分欄位不叫 AI 重生——
+      //    省下多數欄位的 API、加速召喚(僅[喜歡]/[討厭]段數不足時才補呼叫一次，見下)。
       //    個性取 persona.words(四關鍵)、萌點取 persona.moe、生平用種子既有 back 或職階真名模板。
       //    口吻/小動作(persona.speech/tic)已由 stampPersonaFlavor_ 複製進 MEMORY，servantCard_ 平常直接讀列即可，不必查英靈殿。
       let svPref = String(persona.words || "").replace(/・/g, "、");
       let svMoe = String(persona.moe || "").slice(0, 18);
       let svBack = persona.back ? String(persona.back).slice(0, 28) : `${cls}・${realName}`;
+      // 🤖 2026-07：種子 persona.words 幾乎只有2段(見 enrichPersonalityLikesDislikes_ 註解)，
+      //   parseTraitsHelper 補滿4格時[喜歡]/[討厭]恆為「無」——這裡召喚當下補一次AI，讓從者也有
+      //   真正的喜好/討厭可用，不只是玩家自己建角才有。已經4段(罕見)則直接跳過、不多打API。
+      svPref = enrichPersonalityLikesDislikes_(realName, cls, svPref);
       row[COL.PC.PREF] = parseTraitsHelper(svPref, "沉著表象、堅定內裡、珍視之物、厭惡之事");
       row[COL.PC.MEMORY] = stampPersonaFlavor_(`第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || "保持距離"}`, persona.speech, persona.tic);
       if (persona.weapon) row[COL.PC.MEMORY] = setWeapon_(row[COL.PC.MEMORY], persona.weapon); // ⚔️ 工房原創的自定武裝·重召不掉

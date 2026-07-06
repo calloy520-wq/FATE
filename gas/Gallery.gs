@@ -297,7 +297,11 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   //   (武人的強悍/冷峻)吃掉大半，AI 拿不到足夠信號自然就照套路寫成普通嬌羞反應。solo 的
   //   actionSummonServant 對同一份種子資料早就有做「・→、」轉換＋parseTraitsHelper 補滿四格，
   //   鑑賞這條直接召喚路徑當初漏做，比照補齊。
-  sRow[COL.PC.PREF] = parseTraitsHelper(String(p.words || "").replace(/・/g, "、"), "沉著表象、堅定內裡、珍視之物、厭惡之事");
+  // 🤖 2026-07：種子 persona.words 幾乎只有2段，parseTraitsHelper 補滿4格時[喜歡]/[討厭]恆為
+  //   「無」——比照 solo 的 actionSummonServant 同步補上AI喜好/討厭延伸，鑑賞直接召喚不該比
+  //   solo 資料還單薄。
+  var svPrefKan = enrichPersonalityLikesDislikes_(name, sRow[COL.PC.RANK], String(p.words || "").replace(/・/g, "、"));
+  sRow[COL.PC.PREF] = parseTraitsHelper(svPrefKan, "沉著表象、堅定內裡、珍視之物、厭惡之事");
   var dailyLook = translateAppearanceToDaily_(name, sRow[COL.PC.RANK], String(p.look || "").replace(/・/g, "、"));
   sRow[COL.PC.TRAIT] = parseTraitsHelper(dailyLook, "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
   sRow[COL.PC.INTENT] = p.moe || "";
