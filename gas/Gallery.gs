@@ -384,6 +384,16 @@ function actionEnterKanshou(userData, pcId, sheets) {
   // 【帳號】標記保留供人工檢視試算表時辨識(非驗證用途，真正的歸屬判斷已走帳號表 KPC 欄位)。
   mRow[COL.PC.MEMORY] = "【帳號】" + acctName + "｜【鑑賞後日談】聖杯戰爭已結束，這是與封存從者的和平約會時光。";
   mRow[COL.PC.GAME_ID] = gameId;
+  // 🐛→✅ 2026-07 修：原本只建名字＋性別，BACK/TRAIT/PREF/INTENT 全空——玩家自己的鑑賞人物毫無設定，
+  //   同伴卡有身世/外貌/個性/萌點、御主本人卻一片空白。比照 solo 創角(actionManualNpc)：先用玩家填的
+  //   種子片段(或預設)秒寫非阻塞，AI 潤色由 actionBackfillKanshouAi 於進場後背景補上(見下)。
+  var kAppear = String(userData.appearance || "").trim();
+  var kStanding = String(userData.standing || "").trim();
+  var kPersona = String(userData.persona || "").trim();
+  mRow[COL.PC.BACK] = kStanding || "後日談裡的尋常身影，聖杯戰爭已成過去";
+  mRow[COL.PC.TRAIT] = parseTraitsHelper(kAppear, "外貌平凡、舉止從容、自稱「我」、卸下心防的私密一面");
+  mRow[COL.PC.PREF] = parseTraitsHelper(kPersona, "溫婉謙和、內斂堅韌、明哲保身、隨波逐流");
+  mRow[COL.PC.INTENT] = "（待揭曉）";
   kpc.appendRow(mRow);
   linkAccountToKanshouPc_(acctName, mId); // 🔒 權威連結寫進帳號表
 
@@ -391,6 +401,48 @@ function actionEnterKanshou(userData, pcId, sheets) {
     success: true, resumed: false,
     pcId: mId, pcName: mName, pcSex: mSex, loc: loc2
   });
+}
+
+// 🚀 鑑賞御主敘事·非阻塞補生成(2026-07)：比照 actionBackfillMasterAi 的「先種子秒建、AI 背景潤色」
+//   模式——enter_kanshou 首次建檔已用玩家片段(或預設)秒寫，此處於進場後背景補 AI 版 4 個敘事欄，
+//   失敗＝保留種子預設(優雅降級)。數值/位置/MEMORY 一律不碰；只單格 setValue，不整列寫回。
+function actionBackfillKanshouAi(userData, pcId, sheets) {
+  const pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const row = pcData[pIdx];
+  const finalName = String(row[COL.PC.NAME] || ""), finalSex = String(row[COL.PC.SEX] || "異");
+  const appearance = String(userData.appearance || ""), standing = String(userData.standing || "");
+  const persona = String(userData.persona || "");
+
+  const promptStr = `【御主】：名號『${finalName}』，性別『${finalSex}』\n【外貌】：${appearance || "隨機"}\n【身世】：${standing || "隨機"}\n【個性方向】：${persona || "隨機"}`;
+
+  const KANSHOU_GEN_SYS = `你是《命運停駐之夜》後日談(鑑賞)的角色生成核心，為玩家建立一位已結束聖杯戰爭、與封存從者共度和平時光的「御主」本人形象。請依玩家提供的姓名、性別、外貌、身世、個性方向，生成合理且溫暖自然的設定。
+
+★【演出而非說明】設定只作為底層依據，不要在 background 裡直接複述字面。
+★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
+- traits：外貌、氣質舉止、自稱與口氣(第一人稱·如 我/俺/吾＋說話語氣)、卸下心防的私密一面
+- personality：日常表象、真實內裡、喜歡的事物、討厭的事物
+★npc_intent：一句【簡短】萌點（可愛反差，≤15字），結合此人身分性格，要反差、可愛、獨特。
+★background：限20字，呼應其身世，不出現具體物品名，語氣平和(聖杯戰爭已結束)。
+★【勿輸出數值】戰力數值一律不需要，也不要輸出地點。
+
+★【輸出】合法 JSON、禁 Markdown：
+{"background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","npc_intent":"結合此人身分的獨特可愛反差萌，一句話"}`;
+
+  try {
+    const aiBrief = JSON.parse(callGeminiAPI(promptStr, KANSHOU_GEN_SYS, { temperature: 0.6, ignoreLaw: true }));
+    // 🔒 競態修(比照 actionBackfillMasterAi)：backfill 豁免寫入鎖，pIdx 是 AI 呼叫【前】的列索引——寫回前重定位。
+    const wIdx = buildLiveIdIndex_(sheets.pc)[String(pcId)];
+    if (wIdx === undefined) return JSON.stringify({ success: false, message: "御主列已不存在（可能剛被清理）。" });
+    if (aiBrief.background) sheets.pc.getRange(wIdx + 1, COL.PC.BACK + 1).setValue(String(aiBrief.background).slice(0, 40));
+    if (aiBrief.traits) sheets.pc.getRange(wIdx + 1, COL.PC.TRAIT + 1).setValue(parseTraitsHelper(aiBrief.traits, row[COL.PC.TRAIT]));
+    if (aiBrief.personality) sheets.pc.getRange(wIdx + 1, COL.PC.PREF + 1).setValue(parseTraitsHelper(aiBrief.personality, row[COL.PC.PREF]));
+    if (aiBrief.npc_intent) sheets.pc.getRange(wIdx + 1, COL.PC.INTENT + 1).setValue(String(aiBrief.npc_intent).slice(0, 18));
+    return JSON.stringify({ success: true });
+  } catch (e) {
+    return JSON.stringify({ success: false, message: "背景補生成失敗（已保留種子設定）" });
+  }
 }
 
 // 👥 列出後日談現有同伴 ＋ 可邀請名單（上限 3 人）。pcId＝慾海御主 avatar(KPC_)。

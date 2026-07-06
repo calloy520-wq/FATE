@@ -154,27 +154,47 @@
     });
   }
 
-  // 🌹 首次進場設定御主：取名 ＋ 選性別（之後 👥 面板可分別改）。回傳 {name, sex}。
+  // 🌹 首次進場設定御主：取名／選性別／外貌／身世／個性方向（皆可留空由AI決定，比照solo創角）。
+  //   之後 👥 面板可改名/改性別；外貌/身世/個性方向只在首次建檔時餵給AI潤色一次(見backfillKanshouAi)。
+  //   回傳 {name, sex, appearance, standing, persona}。
   function askKanshouSetup(defaultName) {
     return new Promise(function (resolve) {
       var ov = document.createElement('div');
-      ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.74);display:flex;align-items:center;justify-content:center;';
-      ov.innerHTML = '<div style="background:#20141b;border:1px solid rgba(200,120,150,.5);border-radius:14px;padding:22px;width:84%;max-width:320px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6);">'
+      ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.74);display:flex;align-items:center;justify-content:center;padding:16px;';
+      ov.innerHTML = '<div style="background:#20141b;border:1px solid rgba(200,120,150,.5);border-radius:14px;padding:22px;width:100%;max-width:340px;max-height:calc(100vh - 32px);overflow-y:auto;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6);">'
         + '<div style="color:#e0a0bc;font-weight:bold;font-size:15px;margin-bottom:6px;">🌹 後日談 · 設定你（御主）</div>'
-        + '<div style="color:#9a8f70;font-size:11px;line-height:1.7;margin-bottom:14px;">取個名字、選擇現身的性別。之後在 👥 同伴面板可隨時更改。</div>'
+        + '<div style="color:#9a8f70;font-size:11px;line-height:1.7;margin-bottom:14px;">取個名字、選擇現身的性別。下面三格都可留空交給AI決定，之後在 👥 同伴面板仍可改名/改性別。</div>'
         + '<input id="ksu-name" maxlength="16" value="' + escapeHtml(defaultName || '') + '" placeholder="御主名" style="width:100%;box-sizing:border-box;padding:11px;background:#16101a;border:1px solid rgba(200,120,150,.4);border-radius:8px;color:#f0e0e8;font-size:14px;text-align:center;">'
-        + '<div style="display:flex;gap:10px;margin-top:14px;">'
+        + '<div style="display:flex;gap:10px;margin-top:10px;">'
         + '<button id="ksu-f" style="flex:1;padding:13px;background:linear-gradient(90deg,#7a4a6a,#5a3a6a);color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♀ 女</button>'
         + '<button id="ksu-m" style="flex:1;padding:13px;background:linear-gradient(90deg,#3a4a6a,#3a5a6a);color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♂ 男</button>'
-        + '</div></div>';
+        + '</div>'
+        + '<textarea id="ksu-appear" maxlength="60" placeholder="外貌（留空由AI決定）" style="width:100%;box-sizing:border-box;margin-top:10px;padding:9px;background:#16101a;border:1px solid rgba(200,120,150,.3);border-radius:8px;color:#f0e0e8;font-size:13px;resize:none;height:40px;"></textarea>'
+        + '<textarea id="ksu-standing" maxlength="60" placeholder="身世（留空由AI決定）" style="width:100%;box-sizing:border-box;margin-top:8px;padding:9px;background:#16101a;border:1px solid rgba(200,120,150,.3);border-radius:8px;color:#f0e0e8;font-size:13px;resize:none;height:40px;"></textarea>'
+        + '<textarea id="ksu-persona" maxlength="60" placeholder="個性方向（留空由AI決定）" style="width:100%;box-sizing:border-box;margin-top:8px;padding:9px;background:#16101a;border:1px solid rgba(200,120,150,.3);border-radius:8px;color:#f0e0e8;font-size:13px;resize:none;height:40px;"></textarea>'
+        + '</div>';
       document.body.appendChild(ov);
       function done(sex) {
         var nm = (ov.querySelector('#ksu-name').value || '').trim() || (defaultName || '御主');
-        document.body.removeChild(ov); resolve({ name: nm, sex: sex });
+        var appearance = (ov.querySelector('#ksu-appear').value || '').trim();
+        var standing = (ov.querySelector('#ksu-standing').value || '').trim();
+        var persona = (ov.querySelector('#ksu-persona').value || '').trim();
+        document.body.removeChild(ov); resolve({ name: nm, sex: sex, appearance: appearance, standing: standing, persona: persona });
       }
       ov.querySelector('#ksu-f').onclick = function () { done('女'); };
       ov.querySelector('#ksu-m').onclick = function () { done('男'); };
     });
+  }
+
+  // 🚀 非阻塞補生成御主敘事欄(比照solo的backfillMasterAi)：進場後背景呼叫，成功則刷新左側御主卡；
+  //   失敗靜默(保留enter_kanshou寫的種子預設)。
+  async function backfillKanshouAi(seed) {
+    try {
+      if (!pc || !pc.id) return;
+      const res = await gasRun({ action: 'backfill_kanshou_ai', pcId: pc.id,
+        appearance: seed.appearance || "", standing: seed.standing || "", persona: seed.persona || "" });
+      if (res && res.success) { try { syncData(); } catch (e) {} }
+    } catch (e) { /* 靜默：保留種子設定 */ }
   }
 
   async function enterKanshou() {
@@ -183,10 +203,13 @@
     try {
       let res = await gasRun({ action: 'enter_kanshou', acctName: currentAccount });
       if (!res || !res.success) { alert((res && res.message) || '無法進入後日談。'); return; }
-      // 首次進場、尚未建過常駐御主 → 先問一次名字＋性別，帶進來正式建立
+      // 首次進場、尚未建過常駐御主 → 先問一次名字＋性別＋外貌/身世/個性方向，帶進來正式建立
+      let firstTimeSeed = null;
       if (res.needSetup) {
         const setup = await askKanshouSetup(res.defaultName || currentAccount);
-        res = await gasRun({ action: 'enter_kanshou', acctName: currentAccount, pcName: setup.name, pcSex: setup.sex });
+        firstTimeSeed = setup;
+        res = await gasRun({ action: 'enter_kanshou', acctName: currentAccount, pcName: setup.name, pcSex: setup.sex,
+          appearance: setup.appearance, standing: setup.standing, persona: setup.persona });
         if (!res || !res.success) { alert((res && res.message) || '無法進入後日談。'); return; }
       }
       // 建立鑑賞視角的 pc（mode=kanshou：隱藏戰鬥相關 UI、顯示同伴面板）
@@ -202,6 +225,8 @@
       setupHistoryPrevention();
       refreshFateTags();
       renderMapPane();
+      // 🚀 首次建檔才需要AI潤色敘事欄：不await，趁玩家看開場白的空檔在背景跑，失敗則保留種子預設。
+      if (firstTimeSeed) backfillKanshouAi(firstTimeSeed);
       // 🧵 跟單機一樣：靠 pcId 從「歷史暫存」撈前塵對話，承接上次的後日談，不重開場
       const story = document.getElementById('story');
       story.innerHTML = `<div class="loading-text">後日談因果重啟，喚醒前塵記憶…</div>`;
