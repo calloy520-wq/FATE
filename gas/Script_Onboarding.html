@@ -64,13 +64,11 @@ var _mastersPrefetch = {}; // ⚡ 正典御主名單預取(2026-07 玩家反饋�
 function chooseWar(w) {
   currentWar = w;
   playedMaster = '';
-  if (w === 'fake') { showOnly_('step-name'); }   // 偽聖杯無正典御主 → 只能自創
-  else {
-    // ⚡ 進「自創/扮演」選擇畫面就先背景抓名單——玩家在畫面上讀選項的幾秒剛好蓋掉 round-trip，
-    //   點「扮演」時多半已回、幾乎秒開。失敗不管(loadCanonMasters 會 fallback 重抓)。
-    if (!_mastersPrefetch[w]) _mastersPrefetch[w] = gasRun({ action: 'get_masters', war: w });
-    showOnly_('scr-role');
-  }
+  // 🧹 2026-07 大清理：'fake' 開局選項已移除(見 Index.html)，chooseWar 現在只會收到 '4th'/'5th'。
+  // ⚡ 進「自創/扮演」選擇畫面就先背景抓名單——玩家在畫面上讀選項的幾秒剛好蓋掉 round-trip，
+  //   點「扮演」時多半已回、幾乎秒開。失敗不管(loadCanonMasters 會 fallback 重抓)。
+  if (!_mastersPrefetch[w]) _mastersPrefetch[w] = gasRun({ action: 'get_masters', war: w });
+  showOnly_('scr-role');
 }
 function chooseRole(r) {
   if (r === 'original') { playedMaster = ''; showOnly_('step-name'); return; }

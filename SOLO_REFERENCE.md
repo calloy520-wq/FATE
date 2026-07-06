@@ -328,12 +328,31 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 ## 5. 種子庫（英靈殿/御主殿）
 
 - **Seed_Codex.gs**：
-  - `SEED_SERVANTS`(36騎)：每筆 id/cls/realName/wars/gender/six/classSkills/skills/traits/np/align/**persona**。persona 物件={firstP,words,toMaster,**speech,moe,tic**}（全 36 騎已補齊，貼原作）。
+  - `SEED_SERVANTS`(**20騎，2026-07 v52大清理後**：36→20，見下方新條目)：每筆 id/cls/realName/wars/gender/six/classSkills/skills/traits/np/align/**persona**。persona 物件={firstP,words,toMaster,**speech,moe,tic**}（全庫已補齊，貼原作）。
   - `SEED_MASTERS`(15名)：id/name/sex/appearance/magic/circuits/melee/magic_rank/home/wish/**persona**(4段頓號)/**back(身世)**/**moe(萌點)**。
   - `servantToHeroRow_` / `masterToCodexRow_`：物件→分頁列。
   - `seedFateCodex_(ss)`：英靈殿/御主殿為空才灌入(冪等)。版本 `CODEX_PERSONA_VER`(現行版號見 Seed_Codex.gs 頂端註解)，升版觸發 `upgradeCodexPersonas_`(英靈殿·整列覆寫+孤兒清理)＋`upgradeMasterCodex_`(御主殿)，皆不動客製。
     - **🐛→✅ upgradeMasterCodex_ 原本只刷 persona/back/moe 三欄(2026-07 修)**：circuits/home/wish/melee/magic_rank/appearance/magic 等會實際影響玩法的欄位(如迴路→敵御主魔力池 `masterPoolMax_`)完全沒有刷新機制——種子校正的數值永遠進不了已部署試算表的既有列，只有全新建表才吃得到。已改成比照 `upgradeCodexPersonas_` 的整列重寫(`masterToCodexRow_`)+孤兒清理(只刪 `source==='seed'` 者，御主殿本就是純唯讀參考表、不存玩家自創資料，清理安全)。
     - **📜 御主庫首次深度校對(2026-07·v44)**：玩家要求「跟英靈殿同規格」查證15位正史御主，3組研究agent逐一比對原作+我親自複核，原則「描述要準確但精簡、不寫死、留白給AI表演」。修正：遠坂凜 back「次女」→「長女」(她是姊姊)、間桐慎二 back「養子」→「血親獨子」(他才是間桐親生子，妹妹櫻才是被收養頂替魔術後嗣的)、間桐臟硯 wish 改「逃脫死亡+視奪杯為餘生消遣」(原「到達根源」是他早已放棄的舊初衷)、黑化間桐櫻 circuits 90→50(她本人天賦與凜同級·人類頂尖水準，無限魔力來自聖杯泥附體、已在magic欄體現、不該混進她自己的回路數字)、衛宮切嗣 circuits 35→15+magic_rank B→C(原作明寫他回路質量差、真正殺傷力在起源彈與戰術非魔術本身)、肯尼斯 circuits 50→65+home補「海特飯店」、韋伯 circuits 25→15+home補「麥肯基宅」(原作明寫他是時鐘塔墊底資質，與肯尼斯拉開懸殊差距)、雨生龍之介 wish「召喚惡魔」→「見識新奇殺戮」(誤植·他對聖杯本身無興趣)+home補「碼頭倉庫」(未用未經查證的「澪標川」河名，改掛已驗證的既有「碼頭」據點，避免自創地名跟遊戲內唯一河流「未遠川」衝突)。
+    - **🧹 種子庫大清理(2026-07·v52，玩家定案「只要第4次第5次+斯卡哈/伊莉雅/美遊/小黑/恩奇都/銀狼，其他客串fake先刪除」)**：
+      `SEED_SERVANTS` 36騎砍到20騎——只留 4th/5th 正典14騎(`阿爾托莉雅-Saber`/`EMIYA-Archer`/`庫丘林-Lancer`/`美杜莎-Rider`/
+      `美狄亞-Caster`/`佐佐木小次郎-Assassin`/`赫拉克勒斯-Berserker`/`吉爾伽美什-Archer`/`迪盧木多-Lancer`/`伊斯坎達爾-Rider`/
+      `吉爾德萊-Caster`/`百貌哈桑-Assassin`/`咒腕之哈桑-Assassin`/`蘭斯洛特-Berserker`)＋玩家指定保留的6騎客串
+      (`斯卡哈-Lancer`/`斯卡哈-Assassin`/`恩奇都-Lancer`/`美遊-Saber`/`小黑-Archer`/`伊莉雅-Caster`，供慾海鑑賞直接召喚用)。
+      刪除16騎純客串／偽聖杯專屬從者：`赫拉克勒斯-Avenger`/`斯卡蒂-Caster`/`理查一世-Saber`/`阿基里斯-Rider`/
+      `開膛手傑克-Berserker`/`蒼白騎兵-Rider`/`狂信者哈桑-Assassin`/`伊絲塔-Archer`/`莫德雷德-Saber`/`迦爾納-Lancer`/
+      `阿斯托爾福-Rider`/`賽彌拉米斯-Assassin`/`尼祿-Saber`/`玉藻前-Caster`/`牛若丸-Rider`/`貞德-Archer`。
+      `恩奇都-Lancer` wars 從 `['fake']` 改 `['客串']`、`吉爾伽美什-Archer` wars 從 `['4th','fake']` 拔掉 `'fake'` 只留 `['4th']`。
+      **連動清理**：`Seed_Rivals.gs` 的 `FATE_FAKE_ROSTER`(原7組偽聖杯敵對配對)＋`fakeMasterRow_`(合成匿名御主)＋
+      `seedRivalsForGame_` 的 `war==='fake'` 分支整段移除——原本「銀狼×恩奇都」是這份陣容裡唯一沒被砍掉服兵役的配對，
+      但其餘6組敵人全沒了、單留1組不成一場戰爭，玩家拍板讓恩奇都改為純鑑賞召喚角色、不再掛任何開局戰爭
+      (`masterSynergySix_`/`masterSynergyOn_` 的銀狼×恩奇都全盛synergy機制本身沒動，只是失去自動配對觸發點，
+      理論上仍可靠手動 MEMORY『【御主】銀狼』標記觸發，只是遊戲內已無正規管道自動寫入)。「偽聖杯戰爭 Fake」開局
+      選項一併從 `Index.html`(chooseWar按鈕)/`Script_Onboarding.html`(`chooseWar`函式的 fake 特判)/`Router_Creation.gs`
+      (`['4th','5th','fake']`戰爭白名單、`getWarName_`的正則)拔除，三處全部同步只認 `4th`/`5th`。**chaos 亂鬥模式不受影響**
+      (原本就靠 `wars` 含 `'客串'` 排除、非硬編碼名單)。`upgradeCodexPersonas_` 的孤兒自動清除機制(只刪 `source==='seed'`
+      者、不動玩家自創/已在世從者)會在下次版本號比對時自動把這16騎從「英靈殿」分頁清掉，不必手動動試算表；
+      已經在世的舊存檔角色(若曾召喚過這16騎中的任何一位)不受影響，只是之後不能再重新召喚。`CODEX_PERSONA_VER` v51→v52。
     - **📜 全種子庫減贅述(2026-07·v46)**：系統性盤查發現 persona 各欄之間大量逐字重複同一特質——`SEED_SERVANTS` 常見 `look` 尾段(自稱「X」後的語氣描述)直接抄一遍 `speech`(如小次郎 look「古風文雅」＝speech「古風文雅」)，或 `words`/`moe` 互相重述同一萌點；`SEED_MASTERS` 則是 `persona`(4段性格標籤，會被 `masterCard_`/`enemyMasterCard_` 拆解顯示，**結構不可動**)跟 `moe` 逐字重複(如遠坂凜「人前完美」persona/moe各講一遍、言峰綺禮-4th「尚未墮落的空虛」persona/moe幾乎一模一樣)。修法：`SEED_SERVANTS` 挑 look/speech/moe 中較次要的一份砍重複子句；`SEED_MASTERS` 一律只砍 `moe`(因 `persona` 欄位被程式依「・」切開消費、不能動結構)，留下 persona 沒講到的獨特細節(如「叔父般的疼惜·非生父」這種釐清關係、防 AI 誤讀的關鍵資訊絕不砍)。15騎英靈(赫拉克勒斯-Avenger/小次郎-Assassin/蘭斯洛特-Berserker/斯卡哈-Lancer/迦爾納-Lancer/賽彌拉米斯-Assassin/伊絲塔-Archer/阿基里斯-Rider/狂信者哈桑/咒腕之哈桑/伊斯坎達爾-Rider/牛若丸-Rider/玉藻前-Caster/美杜莎-Rider/開膛手傑克-Berserker)+12名御主(除間桐慎二/葛木宗一郎/言峰綺禮-5th外皆有調整)，濃度提高但骨肉不變。
     - **📜 4th/5th/fake 戰爭參戰資料逐一核對(2026-07)**：玩家要求「參戰作品與資料必須相符」，依優先序(4th/5th重點→fake次要→客串暫不動)逐批派研究agent比對原作+我親自複核(如雨生龍之介 home「碼頭倉庫」agent誤判該改成「未遠川」，經比對 `Setup_FateWorld.gs` 地圖節點確認原資料才是對的、未採用該建議)。確認修正：士郎(`SEED_MASTERS`) circuits 30→27(官方常引數字，非30；魔術迴路品質差才是他的真正弱項，此欄僅管數量)；理查一世-Saber 御主(`Seed_Rivals.gs` `FATE_FAKE_ROSTER`) 原「歐蘭多·里夫」實為偽Caster(大仲馬)御主／史諾菲爾德警方魔術師，從未當過Saber御主，已改「沙條綾香」(原召喚者卡休拉儀式中途遭偽Assassin所殺、綾香繼承令咒因果而成真御主)。其餘核對皆確認已正確(神核殺神性、迴路/身世/居所等既有調整、Enkidu御主銀狼非巴茲狄洛特、Gilgamesh(fake版)御主提奈·切爾克)。**擱置未動**(數值有爭議、涉戰鬥平衡風險過高、不同來源互相矛盾，需玩家親自決策而非片面改動)：阿爾托莉雅六圍(NP rank爭議，兩份獨立研究皆質疑現有A++疑似FGO後期強化值混入)、Gilgamesh對魔力/單獨行動方向性、迪盧木多六圍、伊斯坎達爾幸運、百貌哈桑技能與寶具命名(涉及fx機制、非僅敘事)、蘭斯洛特六圍、伊莉雅wish欄措辭、遠坂凜迴路數字、蒼白騎兵幸運C/EX。
 - **Seed_Rivals.gs**：開局鋪敵。

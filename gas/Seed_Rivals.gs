@@ -6,7 +6,7 @@
 
 function safeJson_(s, dflt) { try { return JSON.parse(s || ""); } catch (e) { return dflt; } }
 
-// 讀某英靈殿列的六圍【魔力】階(給 masterToNpcRow_/fakeMasterRow_ 算共用魔力池用)
+// 讀某英靈殿列的六圍【魔力】階(給 masterToNpcRow_ 算共用魔力池用)
 function heroMagicRank_(heroRow) { return String(safeJson_(heroRow[COL.HERO.SIX], {})["魔力"] || "C"); }
 
 // 🔵 戰爭迷霧：玩家當前所在若有未偵查的敵御主/敵從者，標記為「已偵查」(地圖才會點亮)
@@ -60,44 +60,12 @@ var FATE_4TH_ROSTER = [
   { master: '間桐雁夜-4th', hero: '蘭斯洛特-Berserker', loc: '間桐宅' }
 ];
 
-// 偽聖杯戰爭（Fate/strange Fake）：正典從者 ＋ 雪原匿名御主（御主殿無資料，直接合成）
-var FATE_FAKE_ROSTER = [
-  { master: '提奈·切爾克', hero: '吉爾伽美什-Archer', loc: '冬木·新都' },
-  { master: '銀狼', hero: '恩奇都-Lancer', loc: '未遠川河畔' }, // 原作：以銀狼為觸媒召喚，令咒落在狼身上、恩奇都便認狼為主
-  { master: '巴茲狄洛特', hero: '赫拉克勒斯-Avenger', loc: '柳洞寺' }, // 原作：巴茲狄洛特召喚的赫拉克勒斯被令咒歪曲成 Avenger·阿爾喀德斯
-  // ⚠ 2026-07 修：御主原「歐蘭多·里夫」→「沙條綾香」——歐蘭多其實是史諾菲爾德警方魔術師、
-  //   偽Caster(大仲馬)的御主，從未當過Saber御主；理查是原召喚者卡休拉在儀式中途被偽Assassin殺死後，
-  //   在場的沙條綾香繼承令咒／因果連結而成為其真御主(原作她甚至一度否認自己是御主的橋段)。
-  { master: '沙條綾香', hero: '理查一世-Saber', loc: '冬木·深山町' },
-  // ⚠ 2026-07 拔除：阿基里斯(約翰·溫加德的從者)——複查外觀時發現他其實從未在 strange Fake 原作登場過，
-  //   這組配對本身查無出處，wars 已改標'客串'(見 Seed_Codex.gs)，客串角色不進任一戰爭的正典陣容。
-  { master: '哈魯利', hero: '玉藻前-Caster', loc: '遠坂宅' },
-  { master: '繰丘椿', hero: '蒼白騎兵-Rider', loc: '間桐宅' }, // strange Fake 正典：繰丘椿召喚 Pale Rider
-  { master: '傑斯塔·卡爾托雷', hero: '狂信者哈桑-Assassin', loc: '言峰教會' } // strange Fake 正典：偽Assassin＝狂信者哈桑，御主傑斯塔（偽裝的死徒）
-];
-
-// 合成一名匿名御主列（偽聖杯／無正典御主資料時用）
-//   heroMagicRank：與其締結的英靈六圍【魔力】階(如'A')——魔力池跟玩家御主同制(共用魔力池)看雙方魔力決定，
-//   不能只算御主自己那份，否則契約強英靈的御主反而池子明顯偏小、不公正。
-function fakeMasterRow_(name, gameId, loc, heroMagicRank) {
-  var row = Array(Object.keys(COL.PC).length).fill("");
-  row[COL.PC.ID] = "NPC_" + Date.now() + "_f" + Math.floor(Math.random() * 100000);
-  row[COL.PC.NAME] = name;
-  row[COL.PC.SEX] = "異";
-  row[COL.PC.BACK] = "捲入偽聖杯戰爭的魔術師";
-  row[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "平靜" });
-  row[COL.PC.TRAIT] = parseTraitsHelper("", "外貌平凡、舉止從容、通曉魔術、深藏心事");
-  row[COL.PC.LOC] = loc;
-  row[COL.PC.PREF] = parseTraitsHelper("", "沉著表象、堅定內裡、珍視之物、厭惡之事");
-  var mp = 80 + rankVal(heroMagicRank || 'C') * 2;
-  row[COL.PC.HP] = 120; row[COL.PC.MP] = mp;
-  // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，HP/MP 由 calculateMaxStats(SIX) 算。
-  row[COL.PC.MAX_HP] = 120; row[COL.PC.MAX_MP] = mp;
-  row[COL.PC.FACTION] = "敵御主"; row[COL.PC.RANK] = "御主";
-  row[COL.PC.MEMORY] = "【偽聖杯】雪原的參戰魔術師。";
-  row[COL.PC.GAME_ID] = gameId;
-  return row;
-}
+// ⚠ 2026-07 大清理：偽聖杯戰爭(Fate/strange Fake) FATE_FAKE_ROSTER／fakeMasterRow_ 整段移除
+//   (玩家定案「只要第4次第5次+少數客串保留，其他客串fake先刪除」)——原本 7 組配對裡有 6 組的從者
+//   (赫拉克勒斯-Avenger／理查一世-Saber／玉藻前-Caster／蒼白騎兵-Rider／狂信者哈桑-Assassin)已隨
+//   Seed_Codex.gs 清理拿掉，剩銀狼×恩奇都這唯一有效配對不足以撐起一整場「戰爭」，玩家選擇讓恩奇都
+//   單純留在英靈殿供慾海鑑賞直接召喚，不再掛任何一場開局戰爭；「偽聖杯戰爭 Fake」開局選項一併從
+//   Index.html/Script_Onboarding.html/Router_Creation.gs 拔除。
 
 // 英靈殿列 → 眾生(NPC)列
 function heroToNpcRow_(hero, gameId, loc, faction) {
@@ -175,7 +143,7 @@ function shuffle_(a) {
   return a;
 }
 
-// 🔵 開局鋪敵：war ∈ '4th'|'5th'|'fake'|'chaos'；playedMaster=玩家扮演的正典御主id(那組移除)。
+// 🔵 開局鋪敵：war ∈ '4th'|'5th'|'chaos'（'fake' 已隨2026-07大清理移除）；playedMaster=玩家扮演的正典御主id(那組移除)。
 //   被玩家奪取的從者真名(playerServantName)那一組也一律從對手移除——「別人正史，你不太正」。
 function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
   if (!gameId) return;
@@ -199,7 +167,7 @@ function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
 
   if (war === 'chaos') {
     // 🎲 混亂：洗牌湊六組隨機配對；跳過與玩家相同真名的英靈
-    //   ★排除 非參戰職階(Ruler 裁定者) 與 外傳客串(Prisma 美遊/小黑/伊莉雅、賽彌拉米斯等)，別當正規敵從者；
+    //   ★排除 非參戰職階(Ruler 裁定者) 與 外傳客串(Prisma 美遊/小黑/伊莉雅、斯卡哈、恩奇都等)，別當正規敵從者；
     //     並依真名去重(斯卡哈雙職階/同名御主 4th·5th)，避免同場兩個同名被 NAME-based 查找塌縮成一人。
     var seenMaster = {};
     var mPool = masters.slice(1).filter(function (r) {
@@ -223,15 +191,6 @@ function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
       rows.push(masterToNpcRow_(mPool[k], gameId, loc, '敵御主', heroMagicRank_(hPool[k])));
       rows.push(heroToNpcRow_(hPool[k], gameId, loc, '敵從者'));
     }
-  } else if (war === 'fake') {
-    // 🃏 偽聖杯：正典從者 ＋ 合成匿名御主
-    FATE_FAKE_ROSTER.forEach(function (r) {
-      var hero = findHero(r.hero);
-      if (!hero) return;
-      if (playerServantName && String(hero[COL.HERO.NAME]) === playerServantName) return; // 玩家奪取那組移除
-      rows.push(fakeMasterRow_(r.master, gameId, r.loc, heroMagicRank_(hero)));
-      rows.push(heroToNpcRow_(hero, gameId, r.loc, '敵從者'));
-    });
   } else {
     // 📜 正史 4th / 5th：正典組為敵；玩家扮演者那組、玩家奪取從者那組，皆移除
     var roster = (war === '4th') ? FATE_4TH_ROSTER : FATE_5TH_ROSTER;

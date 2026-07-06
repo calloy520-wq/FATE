@@ -56,7 +56,7 @@ function actionManualNpc(userData, pcId, sheets) {
       melee ? `【體術】${melee}` : "",
       "【令咒】3",
       `【模式】${userData.warMode === 'chaos' ? 'chaos' : 'canon'}`,
-      userData.warMode === 'chaos' ? "" : `【戰爭】${['4th', '5th', 'fake'].indexOf(String(userData.war)) >= 0 ? userData.war : '5th'}`,
+      userData.warMode === 'chaos' ? "" : `【戰爭】${['4th', '5th'].indexOf(String(userData.war)) >= 0 ? userData.war : '5th'}`,
       (userData.warMode !== 'chaos' && userData.playedMaster) ? `【扮演】${String(userData.playedMaster).trim()}` : ""
     ].filter(Boolean).join("｜");
     // 🎴 起始禮裝：玩家自選（2026-07 不再隨機）。驗證＝合法的【被動】禮裝 id；空／'none'／破戒(special) 一律不帶。
@@ -149,7 +149,7 @@ function getWarMode_(memory) {
 // 鋪敵用的「戰爭」字串：混亂→chaos；正史→【戰爭】(4th/5th/fake，預設 5th)
 function getWarName_(memory) {
   if (getWarMode_(memory) === "chaos") return "chaos";
-  var m = String(memory || "").match(/【戰爭】(4th|5th|fake)/);
+  var m = String(memory || "").match(/【戰爭】(4th|5th)/);
   return m ? m[1] : "5th";
 }
 // 玩家扮演的正典御主 id（自創則空）
