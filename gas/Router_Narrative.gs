@@ -129,9 +129,12 @@ function actionPlay(userData, pcId, sheets) {
         // applyGalleryForm_ 的肉體起始預設，且與傑克本身「不自覺化身少女模樣」的角色設定一致)。
         const npcSexRaw = r[COL.PC.SEX] || "未知";
         const npcSex = (npcSexRaw === "男" || npcSexRaw === "女") ? npcSexRaw : "女";
+        // 🐛→✅ 2026-07 修：原本女女配對明講「肉棒欄位雙方皆填『無』」，等於教AI每回合主動寫入一個
+        // 不適用的佔位鍵——這鍵一旦寫進physical_state就merge進去、卡片上永久顯示某女角「肉棒：無」，
+        // 玩家明確要求禁止這種臨時填補寫法。改成：不適用的器官代碼【直接不輸出這個代碼】，不寫佔位詞。
         let combo = "";
-        if (playerSex === "女" && npcSex === "女") combo = "女女配對：禁止插入式陽具動作，肉棒欄位雙方皆填「無」，以手指/舌頭/器物替代器官接觸";
-        else combo = `${playerSex}(${pcName}) × ${npcSex}(${r[COL.PC.NAME]})配對：依雙方實際性別器官裁決`;
+        if (playerSex === "女" && npcSex === "女") combo = "女女配對：禁止插入式陽具動作，以手指/舌頭/器物替代器官接觸；雙方皆只有蜜穴，肉棒代碼(4)直接不要輸出、不要寫「無」";
+        else combo = `${playerSex}(${pcName}) × ${npcSex}(${r[COL.PC.NAME]})配對：依各自實際性別只填對應器官代碼(男性4=肉棒／女性5=蜜穴)，不適用那方的代碼直接不輸出、不要寫「無」`;
         return `${r[COL.PC.NAME]}：${combo}`;
       });
       genderHintStr = `\n★【性別配對核對】：${pairHints.join("；")}`;
@@ -350,14 +353,15 @@ ${isKanshou ? `
       // 🔴 防禦機制：過濾掉 AI 偷懶不想更新狀態時的敷衍用語
       const ignoreWords = ["維持現狀", "無變化", "不變", "維持", "同上", "保持現狀", "沒有變化"];
 
-      // 🐛→✅ 2026-07 玩家定案整合：physical_state 從8欄(視覺姿態4+肉體反應4)砍併成單一5鍵結構——
-      //   1=姿勢與動作 2=胸部 3=顏面(表情+汗水) 4=肉棒 5=蜜穴。衣服/負面/菊穴/雙手不再追蹤
-      //   (衣服已由玩家換裝機制掌管)。visible_state/mergeVisibleState 機制隨之整段退役。
+      // 🐛→✅ 2026-07 玩家定案整合：physical_state 從8欄(視覺姿態4+肉體反應4)砍併成單一6鍵結構——
+      //   1=姿勢與動作 2=胸部 3=顏面(表情+汗水) 4=肉棒 5=蜜穴 6=服裝狀態(玩家指定服裝【本身】不變，
+      //   這格只記錄它當下的凌亂/破損程度，如領口散亂/半褪至肩——AI不可换衣服，只能描述現有服裝的狀態)。
+      //   衣服本身(換裝)/負面/菊穴/雙手不再追蹤。visible_state/mergeVisibleState 機制隨之整段退役。
       const sanitizePhysicalState = (rawState, isPlayer = false) => {
         if (!rawState || typeof rawState !== 'object') return {};
         let cleanState = {};
-        const keyMapping = { "1": "姿勢動作", "2": "胸部", "3": "顏面", "4": "肉棒", "5": "蜜穴" };
-        const allowedKeys = ["姿勢動作", "胸部", "顏面", "肉棒", "蜜穴"];
+        const keyMapping = { "1": "姿勢動作", "2": "胸部", "3": "顏面", "4": "肉棒", "5": "蜜穴", "6": "服裝狀態" };
+        const allowedKeys = ["姿勢動作", "胸部", "顏面", "肉棒", "蜜穴", "服裝狀態"];
         Object.keys(rawState).forEach(k => {
           let standardKey = keyMapping[k] || k;
           let val = String(rawState[k]).trim();

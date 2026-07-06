@@ -1430,7 +1430,8 @@
       // 🎴 2026-07：外顯狀態自 solo 移除(死資料·恆顯示預設字樣)；慾海御主卡以「肉體狀態」抵換此列。
       var mPhysLine = '';
       if (pc && pc.mode === 'kanshou') {
-        try { var mpo = JSON.parse(m.physical || '{}'); var mps = Object.keys(mpo).map(function (k) { return k + '：' + mpo[k]; }).join('　'); if (mps) mPhysLine = '<div style="color:#e0a0bc; font-size:11px; line-height:1.5;">肉體　' + mps + '</div>'; } catch (e) { }
+        // 🐛→✅ 2026-07 同步同伴卡的精簡：只列原始描述值、不帶鍵名前綴，label改「當下狀態」對齊。
+        try { var mpo = JSON.parse(m.physical || '{}'); var mps = Object.keys(mpo).map(function (k) { return mpo[k]; }).join('、'); if (mps) mPhysLine = '<div style="color:#e0a0bc; font-size:11px; line-height:1.5;">當下狀態　' + mps + '</div>'; } catch (e) { }
       }
       let mh = '<div style="background:rgba(20,14,28,0.55); border:1px solid #d4af37; border-radius:8px; padding:6px 8px;">'
         + '<div style="color:#d4af37; font-weight:bold; font-size:12px;">⚜️ 御主</div>'
@@ -1489,25 +1490,17 @@
         }).join('');
         var hasActiveSkill = (s.skills || []).some(function (sk) { return sk && ACTIVE_FX_JS[sk.fx]; });
         var traitPills = (s.traits || []).map(function (tr) { return pill(tr.n, tr.r, 'trait', '#c0392b'); }).join('');
-        // 🌹 慾海：從者卡只露 名字/裝扮/個性/特徵/關係/肉體——不露血量/魔力/六圍/技能/寶具/動作鈕
+        // 🌹 慾海：從者卡只露 名字/裝扮/當下狀態——不露血量/魔力/六圍/技能/寶具/動作鈕
+        // 🐛→✅ 2026-07 玩家定案精簡：個性/特徵/關係三行拿掉(改進「📜詳細狀態」按鈕看，見下)，
+        //   physical_state 的顯示改成「當下狀態」單行、只列原始描述值、不帶「姿勢與動作：」這類鍵名前綴——
+        //   玩家要的是像敘述一樣直接讀下去，不是一張表單。
         if (pc && pc.mode === 'kanshou') {
-          var prefK = String(s.pref || '').split(/[、,，·・]/).filter(Boolean).slice(0, 4).join('、');
-          // 🐛→✅ 特徵原讀TAGS.traits(戰鬥特性標籤，如神性/英雄)，跟全代碼庫「特徵」=COL.PC.TRAIT(外貌描述)
-          //   的定義不一致(2026-07修)——直接召喚路徑TAGS故意留空，此行永遠顯示空白；已改讀s.trait(COL.PC.TRAIT)，
-          //   格式比照個性(prefK)頓號拆解取前4段。
-          var traitK = String(s.trait || '').split(/[、,，·・]/).filter(Boolean).slice(0, 4).join('、');
-          // 🐛→✅ 2026-07 玩家定案整合：physical_state 已從8欄(視覺姿態4+肉體反應4)砍併成單一5鍵
-          //   (姿勢與動作/胸部/顏面/肉棒/蜜穴)，COL.PC.STATUS 的視覺化外顯機制隨之退役——這裡只需單純
-          //   列舉 s.physical 全部鍵值，不再需要另外拼 STATUS 進來(此前的 vsK/exposK 雙來源已合一)。
-          var physK = ''; try { var po = JSON.parse(s.physical || '{}'); physK = Object.keys(po).map(function (k) { return k + '：' + po[k]; }).join('　'); } catch (e) { }
+          var physK = ''; try { var po = JSON.parse(s.physical || '{}'); physK = Object.keys(po).map(function (k) { return po[k]; }).join('、'); } catch (e) { }
           return '<div style="background:rgba(40,20,34,0.5); border:1px solid #a04a6a; border-radius:8px; padding:6px 8px;">'
             + '<div style="color:#e0a0bc; font-weight:bold; font-size:12px;">🌹 ' + s.cls + '</div>'
             + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
             + (s.outfit ? '<div style="color:#c9a0e0; font-size:11px; line-height:1.5;">裝扮　' + s.outfit + '</div>' : '')
-            + (prefK ? '<div style="color:#cbb; font-size:11px; line-height:1.5;">個性　' + prefK + '</div>' : '')
-            + (traitK ? '<div style="color:#cbb; font-size:11px; line-height:1.5;">特徵　' + traitK + '</div>' : '')
-            + '<div style="color:#cbb; font-size:11px; margin-top:2px;">關係　' + bondWord(s.bond) + '</div>'
-            + (physK ? '<div style="color:#e0a0bc; font-size:11px; margin-top:3px; line-height:1.5;">外顯　' + physK + '</div>' : '')
+            + (physK ? '<div style="color:#e0a0bc; font-size:11px; margin-top:3px; line-height:1.5;">當下狀態　' + physK + '</div>' : '')
             // 🐛→✅ 只有換裝、沒有詳細狀態鈕(2026-07 修)：玩家反映想自行微調鑑賞同伴的敘事欄(身世/特徵/個性/萌點)，
             //   反正住在「鑑賞眾生」分頁、不會動到英靈殿種子庫。openStatus 這套面板本就是純敘事(狀態/特徵/地點/性格/
             //   陣營/身世/萌點/雙修技巧/專屬稱呼——無六圍/技能/寶具，solo戰鬥卡也共用同一套)＋逆天改命微調，直接複用。
