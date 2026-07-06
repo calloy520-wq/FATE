@@ -455,6 +455,24 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
       if (eNHp !== eHp) { data[hi][COL.PC.HP] = eNHp; anyHpDirty = true; }
     }
 
+    // 🩹 敵從者小幅自癒(見 ENEMY_REGEN_RATE_ 註解)：不論攻防/是否同地，move/rest 兩種 tick 都跑，
+    //   免額外整表讀寫——沿用同一份 data、跟 LOC 一樣整欄批次寫回。
+    var hpDirty = false;
+    for (var hi = 1; hi < data.length; hi++) {
+      if (String(data[hi][COL.PC.FACTION]) !== "敵從者") continue;
+      if (String(data[hi][COL.PC.GAME_ID] || "") !== gameId) continue;
+      if (String(data[hi][COL.PC.ID]).startsWith("DEAD_")) continue;
+      var eHpMax = parseInt(data[hi][COL.PC.MAX_HP]) || 0, eHp = parseInt(data[hi][COL.PC.HP]) || 0;
+      if (!eHpMax || eHp <= 0 || eHp >= eHpMax) continue;
+      var eNHp = Math.min(eHpMax, eHp + Math.round(eHpMax * ENEMY_REGEN_RATE_));
+      if (eNHp !== eHp) { data[hi][COL.PC.HP] = eNHp; hpDirty = true; }
+    }
+    if (hpDirty) {
+      var hpCol = [];
+      for (var z1 = 1; z1 < data.length; z1++) hpCol.push([data[z1][COL.PC.HP]]);
+      sheets.pc.getRange(2, COL.PC.HP + 1, hpCol.length, 1).setValues(hpCol);
+    }
+
     // 2) 暗處從者廝殺：只在「休息」時可能發生（移動只換位，不死人）；
     //    且永遠至少保留 WORLD_FLOOR_ 名敵從者給玩家親手解決——絕不會被世界自走清光。
     if (!allowAttrition) continue;
