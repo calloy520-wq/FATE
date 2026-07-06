@@ -392,6 +392,19 @@ function actionBackfillKanshouServantAi(userData, pcId, sheets) {
   var seedTrait = String(row[COL.PC.TRAIT] || "");
   var seedMoe = String(row[COL.PC.INTENT] || "");
 
+  // 🐛→✅ 2026-07 玩家點出：這顆「深化」不分英靈來源，一律用「你熟知這位英靈原作」的提示詞——
+  //   但工房原創(ai_gen)角色根本沒有真實原作可言，AI被要求「依你對原作的認知潤色」只會亂猜、
+  //   甚至編出不存在的「正典設定」蓋掉玩家自己寫的原創設計。工房角色的都市日常轉換已在
+  //   heroToKanshouRow_(translateAppearanceToDaily_/translatePersonalityToDaily_)做過、且尊重
+  //   玩家原始設計，這裡對 ai_gen 直接略過，不重複用錯誤前提的提示詞覆寫一次。
+  try {
+    var _heroes = getHeroCodexCached();
+    var _heroRec = _heroes.find(function (r) { return String(r[COL.HERO.NAME]) === servantName; });
+    if (_heroRec && String(_heroRec[COL.HERO.SOURCE]) === "ai_gen") {
+      return JSON.stringify({ success: true, skipped: true });
+    }
+  } catch (e) { }
+
   var promptStr = `【英靈】：真名『${servantName}』（${cls}職階）\n【既有外貌設定】：${seedTrait || "無"}\n【既有個性關鍵詞(精簡版)】：${seedPref || "無"}\n【既有萌點】：${seedMoe || "無"}`;
 
   var KANSHOU_SERVANT_GEN_SYS = `你是《命運停駐之夜》後日談(鑑賞)的角色深化核心。這是 Fate／TYPE-MOON 系列中已有原作設定的正典英靈，玩家剛把她直接召喚進鑑賞世界——你的任務不是重新發明角色，而是依你對這位英靈原作的認知，把既有的精簡設定「潤色補完」成更有深度的版本，忠於原作性格與形象。
