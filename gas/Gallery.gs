@@ -77,6 +77,8 @@ function applyGalleryForm_(sRow, formStr, sex, defaultBond) {
   sRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": f.pose || "站立", "負面": "無", "顏面": f.face || "神情柔和" });
   sRow[COL.PC.PHYSICAL] = f.physical || ((String(sex) === "男") ? JSON.stringify({ "肉棒": "如常" }) : JSON.stringify({ "蜜穴": "未開" }));
   sRow[COL.PC.MEMORY] = f.memory || "【鑑賞後日談】聖杯戰爭已結束，安然陪伴在御主身邊。";
+  // 🆕 首次入場若快照沒帶著換裝紀錄，先給個「日常便服」墊底，卡片才不會裝扮欄空白待換裝
+  if (!getOutfit_(sRow[COL.PC.MEMORY])) sRow[COL.PC.MEMORY] = setOutfit_(sRow[COL.PC.MEMORY], "日常便服");
   sRow[COL.PC.REL_MEM] = f.relMem || "聖杯戰爭並肩奪杯的羈絆";
   sRow[COL.PC.BOND] = (f.bond > 0) ? f.bond : defaultBond;
 }
@@ -259,7 +261,8 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   sRow[COL.PC.PREF] = p.words || "";
   sRow[COL.PC.TRAIT] = p.look || "";
   sRow[COL.PC.INTENT] = p.moe || "";
-  sRow[COL.PC.MEMORY] = stampPersonaFlavor_("【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", p.speech, p.tic);
+  // 🆕 直接召喚無快照可帶，先給「日常便服」墊底，卡片才不會裝扮欄空白待換裝
+  sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", p.speech, p.tic), "日常便服");
   sRow[COL.PC.PHYSICAL] = (sex === "男") ? JSON.stringify({ "肉棒": "如常" }) : JSON.stringify({ "蜜穴": "未開" });
   sRow[COL.PC.GAME_ID] = gameId;
   sRow[COL.PC.BOND] = 45; sRow[COL.PC.REL_TAG] = "從者"; sRow[COL.PC.IS_PARTY] = "同行";
@@ -342,9 +345,13 @@ function actionBackfillKanshouServantAi(userData, pcId, sheets) {
 
   var KANSHOU_SERVANT_GEN_SYS = `你是《命運停駐之夜》後日談(鑑賞)的角色深化核心。這是 Fate／TYPE-MOON 系列中已有原作設定的正典英靈，玩家剛把她直接召喚進鑑賞世界——你的任務不是重新發明角色，而是依你對這位英靈原作的認知，把既有的精簡設定「潤色補完」成更有深度的版本，忠於原作性格與形象。
 
+★【日常都市輕小說基調·非常重要】鑑賞後日談＝聖杯戰爭已落幕的和平現代都市生活，不是戰場、不是神話征戰。
+- personality：貼合她原作的真實性格核心(自信/傲氣/溫柔/警戒…等內在特質不變)，但描述場景改成她在這段平和日常裡怎麼過生活、怎麼跟人相處，不要寫戰鬥中的姿態或殺伐口吻。
+- background：【禁止】寫成戰場傳說、神話征戰、對神之戰等英靈傳說本體——那是她的「過去」，不是這篇要的東西。改寫成她原作性格delivered到「現在這段平和日常」會怎麼過的一句生活側寫(如：習慣獨自去哪散步、對什麼小事會認真起來、私底下意外沉迷什麼)，貼合她的核心性格但完全不提戰爭/戰場/征服/神話戰役等詞。
+- trait_addon：純外貌描述，若既有外貌設定已經足夠完整具體則留空。
 ★【演出而非說明】background 只作為底層依據，不要在字面直述。
-★【四格】personality 剛好4短句、頓號分隔、禁數字標籤：日常表象、真實內裡、喜歡的事物、討厭的事物——須貼合這位英靈原作的真實性格，不可與既有個性關鍵詞矛盾，只是把它具體化。
-★background：限20字，這位英靈原作的身世/來歷精簡摘要，禁出現與原作矛盾的設定。
+★【四格】personality 剛好4短句、頓號分隔、禁數字標籤：日常表象、真實內裡、喜歡的事物、討厭的事物——不可與既有個性關鍵詞矛盾，只是把它具體化並放進日常情境。
+★background：限20字。
 ★若既有外貌設定已經足夠完整具體，trait_addon 留空字串即可；只有明顯單薄時才補充(≤10字，不可與既有描述矛盾)。
 
 ★【輸出】合法 JSON、禁 Markdown：
@@ -439,7 +446,8 @@ function actionEnterKanshou(userData, pcId, sheets) {
   mRow[COL.PC.LOC] = loc2;
   mRow[COL.PC.FACTION] = "御主";
   // 【帳號】標記保留供人工檢視試算表時辨識(非驗證用途，真正的歸屬判斷已走帳號表 KPC 欄位)。
-  mRow[COL.PC.MEMORY] = "【帳號】" + acctName + "｜【鑑賞後日談】聖杯戰爭已結束，這是與封存從者的和平約會時光。";
+  // 🆕 玩家本人也先給「日常便服」墊底，卡片才不會裝扮欄空白待換裝
+  mRow[COL.PC.MEMORY] = setOutfit_("【帳號】" + acctName + "｜【鑑賞後日談】聖杯戰爭已結束，這是與封存從者的和平約會時光。", "日常便服");
   mRow[COL.PC.GAME_ID] = gameId;
   // 🐛→✅ 2026-07 修：原本只建名字＋性別，BACK/TRAIT/PREF/INTENT 全空——玩家自己的鑑賞人物毫無設定，
   //   同伴卡有身世/外貌/個性/萌點、御主本人卻一片空白。比照 solo 創角(actionManualNpc)：先用玩家填的
@@ -480,7 +488,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 ★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
 - traits：外貌、氣質舉止、自稱與口氣(第一人稱·如 我/俺/吾＋說話語氣)、卸下心防的私密一面
 - personality：日常表象、真實內裡、喜歡的事物、討厭的事物
-★npc_intent：一句【簡短】萌點（可愛反差，≤15字），結合此人身分性格，要反差、可愛、獨特。
+★npc_intent：一句【簡短】萌點（可愛反差，≤18字），結合此人身分性格，要反差、可愛、獨特。務必寫完整一句話，不可斷在句意未完處。
 ★background：限20字，呼應其身世，不出現具體物品名，語氣平和(聖杯戰爭已結束)。
 ★【勿輸出數值】戰力數值一律不需要，也不要輸出地點。
 
@@ -495,7 +503,9 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
     if (aiBrief.background) sheets.pc.getRange(wIdx + 1, COL.PC.BACK + 1).setValue(String(aiBrief.background).slice(0, 40));
     if (aiBrief.traits) sheets.pc.getRange(wIdx + 1, COL.PC.TRAIT + 1).setValue(parseTraitsHelper(aiBrief.traits, row[COL.PC.TRAIT]));
     if (aiBrief.personality) sheets.pc.getRange(wIdx + 1, COL.PC.PREF + 1).setValue(parseTraitsHelper(aiBrief.personality, row[COL.PC.PREF]));
-    if (aiBrief.npc_intent) sheets.pc.getRange(wIdx + 1, COL.PC.INTENT + 1).setValue(String(aiBrief.npc_intent).slice(0, 18));
+    // 🐛→✅ 玩家反映 N 欄(萌點)被切斷：原 slice(0,18) 對「一句話」來說太緊，AI 稍微超字數就被腰斬成半句。
+    //   放寬緩衝空間，不再卡在句意中間。
+    if (aiBrief.npc_intent) sheets.pc.getRange(wIdx + 1, COL.PC.INTENT + 1).setValue(String(aiBrief.npc_intent).slice(0, 30));
     return JSON.stringify({ success: true });
   } catch (e) {
     return JSON.stringify({ success: false, message: "背景補生成失敗（已保留種子設定）" });

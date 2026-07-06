@@ -154,7 +154,9 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   const modelName = config.model || "google/gemini-3.1-flash-lite";
   const temp = config.temperature !== undefined ? config.temperature : 0.8;
   const topP = config.top_p !== undefined ? config.top_p : 0.95;
-  const maxT = config.max_tokens || (config.isNsfwMode ? 2500 : 2000);
+  // 2026-07：慾海這幾輪新增 inner_monologue＋physical_state 每回合必填欄位變多，結構性佔用 token 略增，
+  //   小幅調高留些餘裕(玩家指定 2600；實際截斷根因在萌點欄 slice 過短，另見 actionBackfillKanshouAi)。
+  const maxT = config.max_tokens || (config.isNsfwMode ? 2600 : 2000);
   const retries = config.retries || 3;
   const plainText = !!config.plainText; // 🆕 純散文模式(如奪杯回憶錄)：不強制 json_object、不抽 {…}、原樣回傳內容
   let lastErrorMessage = "";
