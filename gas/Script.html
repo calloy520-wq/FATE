@@ -2572,9 +2572,12 @@ function showHistoryOverlay(html) {
     ov = document.createElement('div');
     ov.id = 'history-overlay';
     ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;padding:18px;';
-    ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:480px;width:100%;padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);">'
-      + '<div id="history-body"></div>'
-      + '<button onclick="document.getElementById(\'history-overlay\').style.display=\'none\'" style="margin-top:12px;width:100%;padding:10px;background:#4a3a6a;color:#fff;border:none;border-radius:8px;cursor:pointer;">關閉</button>'
+    // 🐛→✅ 內容過長(如36騎清單)原本沒設高度上限/捲動，直接撐爆超出畫面、關閉鈕被推到畫面外按不到。
+    //   改成外層卡片鎖 max-height(留視窗邊距)+flex直列，內容區(history-body)自己 overflow-y:auto 捲動，
+    //   關閉鈕固定不縮(flex-shrink:0)恆可見。
+    ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:480px;width:100%;max-height:calc(100vh - 36px);padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;">'
+      + '<div id="history-body" style="overflow-y:auto;min-height:0;"></div>'
+      + '<button onclick="document.getElementById(\'history-overlay\').style.display=\'none\'" style="margin-top:12px;width:100%;padding:10px;background:#4a3a6a;color:#fff;border:none;border-radius:8px;cursor:pointer;flex-shrink:0;">關閉</button>'
       + '</div>';
     document.body.appendChild(ov);
   }
