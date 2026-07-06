@@ -57,8 +57,14 @@ function purgeGameData_(sheets, gameId, masterName, accountName) {
 //   [專屬稱呼][親密次數][交談輪數]——這些在 solo 正史(SFW)本就不會有(NSFW互動只在慾海發生)，但玩家在
 //   慾海裡累積的這些紀錄，若走「請走→再邀」的流程(見 actionKanshouRemove/Add/SummonHero)會需要延續，
 //   一併收進快照；bond 也一起帶，讓再次封存/延續時能反映真實好感而非固定值。
+// 🤖 2026-07：封存當下就把戰時外貌轉譯成都市日常版本(見 translateAppearanceToDaily_)存進快照——
+//   之後每次「請走→再邀」解開這張快照都是直接讀已轉好的日常版，不必每次邀請都重新呼叫AI。
 function buildGalleryForm_(row) {
-  var trait = String(row[COL.PC.TRAIT] || "");
+  // ⚠ TRAIT 是 parseTraitsHelper 切好的4段(外貌／氣質舉止／自稱／私密一面)、用「、」接在一起，
+  //   但戰甲/武裝這類戰時攻防描述不保證只落在第1段(玩家實例就出現在第2段)——改整段一起交給
+  //   AI，靠 system prompt 明確區分「外貌/攻防裝束(要轉)」vs「舉止/自稱/私密一面等性格向描述
+  //   (不可動)」，而非用固定分段位置猜。
+  var trait = translateAppearanceToDaily_(String(row[COL.PC.NAME] || ""), String(row[COL.PC.RANK] || ""), String(row[COL.PC.TRAIT] || ""));
   var st = {}; try { st = JSON.parse(row[COL.PC.STATUS] || "{}"); } catch (e) { }
   var phys = String(row[COL.PC.PHYSICAL] || "").trim();
   return JSON.stringify({
@@ -238,6 +244,32 @@ function kanshouServantRow_(rec, gameId, loc) {
   return sRow;
 }
 
+// 🤖 2026-07 玩家提案「新增從者時讓AI讀種子後完美轉成都市日常再寫入鑑賞眾生」：戰時外貌
+//   描述(如「貼身黑色戰甲勁裝」)直接照搬進和平日常場景會很突兀，AI 敘事時照樣照抄字面
+//   (玩家反映「為什麼還是直接照抄，沒有都市日常化」)。這裡在【寫入鑑賞眾生前】就用AI把
+//   戰時外貌轉譯成同一人在現代都市日常會有的穿搭/外型：保留髮色/五官/氣質等本相不變，只把
+//   戰甲/武裝/戰鬥姿態換成貼合其性格與傳說核心的日常打扮；TRAIT 欄裡混雜的舉止/自稱/私密一面
+//   等非外貌短語交給 system prompt 辨識、原樣保留，不強行假設戰甲一定落在固定分段位置。
+//   PREF(性格)完全不動——個性核心不該因場合而變，戰甲才是「戰時限定」的部分。呼叫端(召喚/奪杯
+//   封存)僅一次性觸發，非每回合熱路徑，失敗時原樣退回戰時描述(不讓AI呼叫失敗擋住建角流程)。
+function translateAppearanceToDaily_(name, cls, rawLook) {
+  var look = String(rawLook || "").trim();
+  if (!look) return look;
+  try {
+    var sys = "你是《命運停駐之夜》的造型顧問。玩家提供一段用「、」分隔的角色描述短語，內容混合了" +
+      "外貌/戰時攻防裝束(如髮色、瞳色、盔甲、武裝、戰鬥姿態)與舉止/自稱/私密面等性格向描述——" +
+      "請只把【外貌與攻防裝束】的部分轉譯成同一人置身現代都市和平日常時會展現的日常穿搭與外型" +
+      "(保留髮色/瞳色/五官/體態等不隨場合改變的本相特徵，戰甲/武裝/戰鬥姿態等只適合戰場的元素" +
+      "須換成貼合其性格與傳說核心的現代日常服裝與造型)；【舉止/自稱/私密一面等非外貌的性格向短語" +
+      "原樣照抄、一字不改】。\n" +
+      "★輸出格式必須是同樣用「、」分隔的短語，段數與原文完全一致，每段對應原文同一位置的短語(只替換" +
+      "內容、不合併或拆分段落)。只輸出轉換後的描述本體，不要輸出任何說明、標籤、引號、前後綴。";
+    var prompt = "角色：" + name + "（" + cls + "）\n戰時描述：" + look;
+    var out = String(callGeminiAPI(prompt, sys, { temperature: 0.7, ignoreLaw: true, plainText: true }) || "").trim();
+    return out || look;
+  } catch (e) { return look; }
+}
+
 // 🌹 慾海直接從英靈庫挑選(2026-07 玩家定案·與「封存後邀請」並存)：不必先在 solo 打贏一場戰爭
 // 封存，直接從英靈殿挑一位召喚進後日談。刻意【不帶任何戰鬥資料】(SIX/TAGS/MARTIAL 留空)——
 // 慾海本就無戰鬥，養這些資料只白增加 AI 誤讀/亂加戲的風險面，不是漏寫。
@@ -266,7 +298,8 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   //   actionSummonServant 對同一份種子資料早就有做「・→、」轉換＋parseTraitsHelper 補滿四格，
   //   鑑賞這條直接召喚路徑當初漏做，比照補齊。
   sRow[COL.PC.PREF] = parseTraitsHelper(String(p.words || "").replace(/・/g, "、"), "沉著表象、堅定內裡、珍視之物、厭惡之事");
-  sRow[COL.PC.TRAIT] = parseTraitsHelper(String(p.look || "").replace(/・/g, "、"), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
+  var dailyLook = translateAppearanceToDaily_(name, sRow[COL.PC.RANK], String(p.look || "").replace(/・/g, "、"));
+  sRow[COL.PC.TRAIT] = parseTraitsHelper(dailyLook, "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
   sRow[COL.PC.INTENT] = p.moe || "";
   // 🆕 直接召喚無快照可帶，先給「日常便服」墊底，卡片才不會裝扮欄空白待換裝
   sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", p.speech, p.tic), "日常便服");
