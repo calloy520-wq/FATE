@@ -61,6 +61,21 @@ function actionPlay(userData, pcId, sheets) {
   const isKanshou = myGameId.indexOf("k_") === 0; // 鑑賞（後日談·約會）世界
   const sameGame = (r) => !myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId;
 
+  // 🐛→✅ 2026-07 修：「專屬稱呼/已兌現」記憶點原本只加在 localSceneStr(同地路人清單)，但那份
+  //   明確排除「同行隊伍成員」——鑑賞的同伴全部是 IS_PARTY="同行"、只會出現在下面 partyDetailsArr，
+  //   等於唯一真正常互動的對象反而吃不到這兩個標籤(solo友善對話/切磋等免按鍵互動同樣受影響)。
+  //   抽成共用函式，兩份清單一起補上，不重複貼一次解析邏輯。
+  function relMemMemoryStr_(relMem) {
+    const s = String(relMem || "");
+    const nickMatch = s.match(/\[專屬稱呼\](.*?)(?=\| \[|$)/);
+    const nickTrim = nickMatch ? nickMatch[1].trim() : "";
+    const nickStr = (nickTrim && nickTrim !== "無") ? ` [專屬稱呼:${nickTrim}]` : "";
+    const doneMatch = s.match(/\[已兌現\](.*?)(?=\| \[|$)/);
+    const doneTrim = doneMatch ? doneMatch[1].trim() : "";
+    const fulfilledStr = (doneTrim && doneTrim !== "無") ? ` [一起做過:${doneTrim}]` : "";
+    return `${nickStr}${fulfilledStr}`;
+  }
+
   const partyMembers = pcData.filter(r => r !== pc && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r)).map(r => r[COL.PC.NAME]);
   let partyDetailsArr = [];
   partyMembers.forEach(pName => {
@@ -73,9 +88,10 @@ function actionPlay(userData, pcId, sheets) {
       //   鑑賞無戰鬥，HP恆定不變、STATUS(視覺化外顯)也已被physical_state取代——每回合把這兩個
       //   永遠不變的欄位塞進提示詞純屬浪費token；solo那邊HP/STATUS是真的會隨戰鬥/休息即時變動，
       //   維持原樣。
+      const pMemStr = relMemMemoryStr_(r[COL.PC.REL_MEM]);
       partyDetailsArr.push(isKanshou
-        ? `【同行夥伴】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])} | 關係:${r[COL.PC.REL_TAG] || "結伴同行"}(好感:${parseInt(r[COL.PC.BOND]) || 0})`
-        : `【同行夥伴】名號:${pName} | 氣血:${r[COL.PC.HP]}/${getCharacterTotalStats(r[COL.PC.ID], sheets, pcData, []).maxHp} | 身世:${r[COL.PC.BACK] || "無"} | 狀態:${r[COL.PC.STATUS]}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])} | 關係:${r[COL.PC.REL_TAG] || "結伴同行"}(好感:${parseInt(r[COL.PC.BOND]) || 0})`);
+        ? `【同行夥伴】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])} | 關係:${r[COL.PC.REL_TAG] || "結伴同行"}(好感:${parseInt(r[COL.PC.BOND]) || 0}${pMemStr})`
+        : `【同行夥伴】名號:${pName} | 氣血:${r[COL.PC.HP]}/${getCharacterTotalStats(r[COL.PC.ID], sheets, pcData, []).maxHp} | 身世:${r[COL.PC.BACK] || "無"} | 狀態:${r[COL.PC.STATUS]}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])} | 關係:${r[COL.PC.REL_TAG] || "結伴同行"}(好感:${parseInt(r[COL.PC.BOND]) || 0}${pMemStr})`);
     }
   });
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【目前同行隊伍成員命格詳情】:\n${partyDetailsArr.join("\n")}` : "目前沒有同行夥伴，玩家是獨自行動的。";
@@ -113,19 +129,10 @@ function actionPlay(userData, pcId, sheets) {
 
     const majorEventStr = (r[COL.PC.MAJOR_EVENT] && r[COL.PC.MAJOR_EVENT] !== "無")
       ? ` [未完成約定:${r[COL.PC.MAJOR_EVENT]}]` : "";
-    // 🧪 2026-07 玩家提案「先試試看」：REL_MEM(專屬稱呼/親密次數/交談輪數)每回合都有寫入(見本函式
-    //   下方 intimacy_feedback.npcs 處理)，但只有鑑賞的 nsfwMemories 讀回——solo 完全沒有任何管道
-    //   把它塞回提示詞，AI 自己取的暱稱、聊過的痕跡，寫進試算表後對AI等於船過水無痕，下回合只能
-    //   單靠 BOND 數字重新判斷關係。試著把「專屬稱呼」這個具體記憶(不是數字)也提供給AI，兩軌都
-    //   受惠，效果好不好先實測看看，不好可以隨時拔掉這幾行。
-    const nickMatch = String(r[COL.PC.REL_MEM] || "").match(/\[專屬稱呼\](.*?)(?=\| \[|$)/);
-    const nickTrim = nickMatch ? nickMatch[1].trim() : "";
-    const nickStr = (nickTrim && nickTrim !== "無") ? ` [專屬稱呼:${nickTrim}]` : "";
-    // 🧪 2026-07 玩家提案「達成與否也能當記憶點」：已兌現的約定(見下方[達成]處理)存進REL_MEM後，
-    //   同樣拿回prompt——讓角色記得「我們一起做過這件事」，而非只靠好感度數字判斷關係深淺。
-    const doneMatch = String(r[COL.PC.REL_MEM] || "").match(/\[已兌現\](.*?)(?=\| \[|$)/);
-    const doneTrim = doneMatch ? doneMatch[1].trim() : "";
-    const fulfilledStr = (doneTrim && doneTrim !== "無") ? ` [一起做過:${doneTrim}]` : "";
+    // 🧪 2026-07 玩家提案「先試試看」＋「達成與否也能當記憶點」：REL_MEM(專屬稱呼/已兌現)每回合
+    //   都有寫入，讓AI下次還記得「我們有這個暱稱」「一起做過這件事」，不只靠好感度數字判斷關係。
+    //   解析邏輯抽成 relMemMemoryStr_(上方共用函式)，partyDetailsArr(同行夥伴)也共用同一份。
+    const memStr = relMemMemoryStr_(r[COL.PC.REL_MEM]);
     // ⚠ 2026-07 修：原本 SFW/NSFW 共用的這行完全沒讀 COL.PC.INTENT(萌點)——只有 NSFW 分支的
     //   nsfwMemories 另外補了一次，導致遊戲主體(SFW solo)的日常對話反而拿不到萌點反差錨點
     //   (伊莉雅冷漠案同一類根因)。改成這裡統一補上，NSFW 那份重複的移除，單一真實來源。
@@ -135,7 +142,7 @@ function actionPlay(userData, pcId, sheets) {
     //   從不會有「敵從者/敵御主」等變化值)——陣營資訊對鑑賞是每回合都印同一個死字的廢token，
     //   solo 才需要靠這欄分辨敵我(見上方 COL.PC.FACTION 用途)，故只在 solo 印出。
     const factionSeg = isKanshou ? "" : ` 陣營:${r[COL.PC.FACTION] || "無"} |`;
-    return `${identityTag}名號:${r[COL.PC.NAME]} 【性別:${r[COL.PC.SEX]}】${factionSeg} 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${moeStr ? ` | 萌點(反差·僅供內化):${moeStr}` : ""} | 身世:${String(r[COL.PC.BACK] || "來歷不詳")}(僅供內化演出·show-don't-tell·禁直述、禁預告其原作後續結局) | 關係:${r[COL.PC.REL_TAG] || "萍水相逢"}(好感:${currentFav}${majorEventStr}${nickStr}${fulfilledStr} -> 行為準則:${resistPrompt})`;
+    return `${identityTag}名號:${r[COL.PC.NAME]} 【性別:${r[COL.PC.SEX]}】${factionSeg} 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${moeStr ? ` | 萌點(反差·僅供內化):${moeStr}` : ""} | 身世:${String(r[COL.PC.BACK] || "來歷不詳")}(僅供內化演出·show-don't-tell·禁直述、禁預告其原作後續結局) | 關係:${r[COL.PC.REL_TAG] || "萍水相逢"}(好感:${currentFav}${majorEventStr}${memStr} -> 行為準則:${resistPrompt})`;
   }).join("\n") : "此地四下無人。";
 
   if (isNsfwMode) {
