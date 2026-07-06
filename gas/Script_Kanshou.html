@@ -8,9 +8,10 @@
   //   ★新增鑑賞前端功能，往這檔加即可；別再塞回 Script.html。
   // ==========================================
 
-  // 👥 後日談同伴管理（鑑賞限定·最多3人）：邀請/請走已封存從者
+  // 👥 後日談同伴管理（鑑賞限定·最多3人）：直接從英靈殿召喚／請走
+  // ⚠ 2026-07：舊版「奪杯封存→邀請」機制已整個砍除，邀請只剩「英靈殿直接召喚」一途。
   // 🌹 性別/職階篩選狀態：純前端篩選(不重打 gasRun)，換篩選只重繪、資料留在下方快取。
-  var _kcCur = [], _kcAvail = [], _kcHeroes = [], _kcMax = 3;
+  var _kcCur = [], _kcHeroes = [], _kcMax = 3;
   var _kcFilterGender = '', _kcFilterCls = '';
   async function openCompanions() {
     try { var dr = document.getElementById('action-drawer'); if (dr && dr.style.display !== 'none' && typeof toggleActionDrawer === 'function') toggleActionDrawer(); } catch (e) {}
@@ -21,7 +22,7 @@
         gasRun({ action: 'get_heroes', pcId: pc.id })
       ]);
       if (!res || !res.success) { alert((res && res.message) || '讀取同伴失敗。'); return; }
-      _kcCur = res.current || []; _kcAvail = res.available || []; _kcMax = res.max || 3;
+      _kcCur = res.current || []; _kcMax = res.max || 3;
       // 🌹 直接從英靈庫召喚(不需先在solo封存)：濾掉已在場的；種子(正典)英靈人人可召喚，
       //   但玩家原創(src==='ai_gen')只有創造者本人能召喚——不可召喚別人工房/盲盒捏出的角色進自己的後日談。
       //   (solo 那邊的隨機/混亂池刻意共用玩家原創、維持既有設計不動，這條限制僅針對鑑賞直接指名召喚。)
@@ -37,7 +38,7 @@
     renderCompanionsPanel();
   }
   function renderCompanionsPanel() {
-    const cur = _kcCur, avail = _kcAvail, max = _kcMax;
+    const cur = _kcCur, max = _kcMax;
     const canAdd = cur.length < max;
     // 篩選選單選項：從目前召喚清單動態取得(資料驅動，不寫死職階/性別列表)
     const genderOpts = Array.from(new Set(_kcHeroes.map(function (h) { return h.gender || ''; }).filter(Boolean)));
@@ -48,7 +49,7 @@
       return true;
     });
     let html = '<h3 style="margin:0 0 4px;color:#e0a0bc;">👥 後日談同伴 (' + cur.length + '/' + max + ')</h3>'
-      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">最多 ' + max + ' 人同行。邀請已封存的從者，或請走同伴（資料仍封存，隨時再邀）。</div>'
+      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">最多 ' + max + ' 人同行。從英靈殿召喚同伴，或請走同伴（資料原地保留，隨時再邀）。</div>'
       + '<div style="padding:7px 8px;margin-bottom:8px;background:rgba(200,120,150,.08);border-radius:8px;">'
       + '<div style="color:#cbb;font-size:12px;margin-bottom:6px;">你（御主）：<b style="color:#e8b8cc;">' + escapeHtml(pc.name || '—') + '</b> · <b style="color:#e8b8cc;">' + escapeHtml(pc.sex || '—') + '</b></div>'
       + '<div style="display:flex;gap:8px;">'
@@ -61,14 +62,7 @@
             + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(n) + '</span>'
             + '<button onclick="kanshouRemove(\'' + String(n).replace(/'/g, '') + '\')" style="padding:4px 10px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">請走</button></div>';
         }).join('') : '<div style="color:#888;padding:6px;">（暫無同伴）</div>')
-      + '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">可邀請</div>'
-      + (avail.length ? avail.map(function (n) {
-          return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
-            + '<span style="flex:1;color:#dfeaf2;">' + escapeHtml(n) + '</span>'
-            + (canAdd ? '<button onclick="kanshouAdd(\'' + String(n).replace(/'/g, '') + '\')" style="padding:4px 10px;background:#3a4a6a;color:#cfe0ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">邀請</button>'
-                      : '<span style="color:#888;font-size:11px;">已滿(3)</span>') + '</div>';
-        }).join('') : '<div style="color:#888;padding:6px;">（沒有其他可邀的封存從者）</div>')
-      + '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">🌹 直接從英靈庫召喚（不需先在戰爭中封存）</div>'
+      + '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">🌹 從英靈殿召喚</div>'
       + '<div style="display:flex;gap:6px;margin-bottom:6px;">'
         + '<select onchange="kanshouSetFilter(\'gender\', this.value)" style="flex:1;min-width:0;padding:4px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:6px;font-size:12px;">'
           + '<option value="">性別：全部</option>'
@@ -86,12 +80,6 @@
                       : '<span style="color:#888;font-size:11px;">已滿(3)</span>') + '</div>';
         }).join('') : '<div style="color:#888;padding:6px;">（' + (_kcHeroes.length ? '無符合篩選的英靈' : '英靈庫讀取失敗或無可召喚英靈') + '）</div>');
     showHistoryOverlay(html);
-  }
-  async function kanshouAdd(name) {
-    try {
-      const res = await gasRun({ action: 'kanshou_add', pcId: pc.id, acctName: currentAccount, servantName: name });
-      if (res && res.success) { syncData(true); openCompanions(); } else { alert((res && res.message) || '邀請失敗。'); }
-    } catch (e) { alert('邀請失敗。'); }
   }
   // 🐛→✅ 2026-07 修：玩家反映「點召喚沒有等待畫面、不知道有沒有跑、成功也沒提示」——原本兩段
   //   (召喚本身 + 背景AI深化)都悄悄進行、無感。改用既有 showProcessing/hideProcessing(見

@@ -165,7 +165,7 @@ function actionPlay(userData, pcId, sheets) {
       // ⚠ 2026-07 修：原本非「女/女」「男/男」的組合一律落入模糊的「依雙方實際性別器官裁決」，
       // 「異/無」(如開膛手傑克「無固定實體」)這類非二元性別值完全沒被正規化。玩家定案：不開放
       // 男男配對(邀請關卡已擋)，故這裡只會遇到 女/女、男/女、女/男、或某方為異/無 這幾種——
-      // 異/無 一律按女性向器官處理(對齊 applyGalleryForm_ 的肉體起始預設，且與傑克本身
+      // 異/無 一律按女性向器官處理(對齊 heroToKanshouRow_ 的肉體起始預設，且與傑克本身
       // 「不自覺化身少女模樣」的角色設定一致)。
       // ⚠ 只有「女女」是特殊配對(男男邀請關卡已擋、理論不可達，故不比照女女套用同一段措辭，
       //   維持跟改寫前完全相同的分支條件：只有 playerSex==="女" && npcSex==="女" 才進特殊組)。
@@ -198,7 +198,7 @@ function actionPlay(userData, pcId, sheets) {
     allPresentRows.forEach(r => {
       let npcPhysicalObj = JSON.parse(r[COL.PC.PHYSICAL] || "{}");
       // ⚠ 2026-07 修：原本不論性別統一預設女性生理結構起始值(男同伴也被塞這組)——改依實際性別；
-      // 異/無比照 applyGalleryForm_ 的處理方式，一律按女性向。
+      // 異/無比照 heroToKanshouRow_ 的處理方式，一律按女性向。
       if (Object.keys(npcPhysicalObj).length === 0) npcPhysicalObj = (String(r[COL.PC.SEX]) === "男") ? { "肉棒": "如常" } : { "蜜穴": "未開" };
       let npcSkills = (r[COL.PC.MEMORY] || "無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/, (m, p1) => `[雙修技巧]${p1.trim().split('、').slice(0, 5).join('、')}`);
       let relMem = r[COL.PC.REL_MEM] || "無";

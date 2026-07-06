@@ -498,13 +498,13 @@
       const sa = String(a.name).replace(/'/g, '');
       const bond = Math.max(0, Math.min(100, parseInt(a.relVal) || 0));
       const eligible = bond >= 90;
-      const title = '<span style="color:#8fd0a0; font-size:13px; font-weight:bold;">🤝 盟友 ' + a.name + '</span> <small style="color:#8fd0a0; opacity:.6;">' + (a.faction === '盟友御主' ? '御主' : '從者') + '·休兵 ·羈絆' + bond + (eligible ? '·鑑賞緣' : '/90') + '</small>';
+      const title = '<span style="color:#8fd0a0; font-size:13px; font-weight:bold;">🤝 盟友 ' + a.name + '</span> <small style="color:#8fd0a0; opacity:.6;">' + (a.faction === '盟友御主' ? '御主' : '從者') + '·休兵 ·羈絆' + bond + (eligible ? '·情深' : '/90') + '</small>';
       const acts = '<div style="flex:1 0 100%; display:flex; align-items:center; gap:7px; margin-bottom:2px;">'
         +   '<div style="flex:1; height:7px; background:rgba(255,255,255,.08); border-radius:4px; overflow:hidden;"><div style="height:100%; width:' + bond + '%; background:linear-gradient(90deg,#5aaa78,#8fd0a0);"></div></div>'
-        +   '<small style="color:' + (eligible ? '#e8c873' : '#8fa0b0') + '; font-size:10.5px; white-space:nowrap;">羈絆 ' + bond + (eligible ? ' ·鑑賞緣已結' : '/90') + '</small>'
+        +   '<small style="color:' + (eligible ? '#e8c873' : '#8fa0b0') + '; font-size:10.5px; white-space:nowrap;">羈絆 ' + bond + (eligible ? ' ·情誼已臻深處' : '/90') + '</small>'
         + '</div>'
-        + '<div style="flex:1 0 100%; font-size:10px; line-height:1.4; color:' + (eligible ? '#e8c873' : '#7d8a9a') + '; margin-bottom:3px;">' + (eligible ? '🌹 鑑賞緣已結——最終奪杯後，可將此盟友收錄進鑑賞後日談' : '🌹 羈絆養至 90、且最終奪得聖杯，即可將這名盟友收錄進「鑑賞」') + '</div>'
-        + '<button onclick="allyBond(\'' + sa + '\')" title="與盟友共處／共濟魔力：增進羈絆，養至 90 戰後可納入鑑賞" style="flex:2; min-width:120px; font-size:12px; padding:7px; background:rgba(90,170,120,.16); color:#8fd0a0; border:1px solid #4ea56a; border-radius:7px; cursor:pointer; font-weight:bold;">🤝 與盟友共處 <small style="opacity:.7;">耗1AP</small></button>'
+        + '<div style="flex:1 0 100%; font-size:10px; line-height:1.4; color:' + (eligible ? '#e8c873' : '#7d8a9a') + '; margin-bottom:3px;">' + (eligible ? '🌹 這份情誼已臻深處，無需言明的牽絆' : '🌹 羈絆養至 90，情誼將臻至深處') + '</div>'
+        + '<button onclick="allyBond(\'' + sa + '\')" title="與盟友共處／共濟魔力：增進羈絆" style="flex:2; min-width:120px; font-size:12px; padding:7px; background:rgba(90,170,120,.16); color:#8fd0a0; border:1px solid #4ea56a; border-radius:7px; cursor:pointer; font-weight:bold;">🤝 與盟友共處 <small style="opacity:.7;">耗1AP</small></button>'
         + '<button onclick="breakAlliance(\'' + sa + '\')" style="flex:1; min-width:80px; font-size:11.5px; padding:7px; background:rgba(165,42,42,.18); color:#e08a8a; border:1px solid #a05050; border-radius:7px; cursor:pointer; font-weight:bold;">💔 撕毀盟約</button>';
       h += card(String(a.name), 'rgba(90,170,120,.5)', 'rgba(20,45,28,.25)', title, acts);
     });
@@ -2233,7 +2233,7 @@
       const res = await gasRun({ action: 'ally_bond', pcId: pc.id, npcName: npcName, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) {
         updateClock(res.clock, res.ap, res.apMax); await narrate(res.aiPrompt); syncData(true);
-        if (res.unlocked) setTimeout(function () { alert('💞 你與「' + res.ally + '」的羈絆已臻深處——戰後（奪得聖杯時），這名盟友將被納入「鑑賞」名冊。'); }, 400);
+        if (res.unlocked) setTimeout(function () { alert('💞 你與「' + res.ally + '」的羈絆已臻深處——這份情誼，無需言明。'); }, 400);
         if (res.defeat) { await handleDefeat(res); }
       } else { alert((res && res.message) || '交流未成。'); }
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
@@ -2382,26 +2382,21 @@
     var memo = document.getElementById('victory-memoir');
     if (memo) { memo.style.display = 'none'; memo.innerHTML = ''; }
     var cbtn = document.getElementById('victory-claim-btn');
-    if (cbtn) { cbtn.style.display = 'block'; cbtn.disabled = false; cbtn.innerText = '⚜️ 奪得聖杯 · 封存此役羈絆'; }
+    if (cbtn) { cbtn.style.display = 'block'; cbtn.disabled = false; cbtn.innerText = '⚜️ 奪得聖杯'; }
     var mbtn = document.getElementById('victory-menu-btn');
     if (mbtn) mbtn.style.display = 'none';
     const ov = document.getElementById('victory-overlay');
     if (ov) ov.style.display = 'flex';
   }
 
-  // 點「奪得聖杯」：後端 AI 總結這幾日羈絆 → 封存到鑑賞 → 清理本局
+  // ⚠ 2026-07：舊版「封存到鑑賞」機制已整個砍除(慾海同伴改走英靈殿直接召喚)，
+  //   點「奪得聖杯」現在只做清理本局，讓玩家能立刻開新局或去慾海。
   async function claimGrail() {
     var cbtn = document.getElementById('victory-claim-btn');
-    if (cbtn) { cbtn.disabled = true; cbtn.innerText = '⏳ 正在將這段羈絆封入聖杯回憶……'; }
+    if (cbtn) { cbtn.disabled = true; cbtn.innerText = '⏳ 聖杯戰爭落幕中……'; }
     try {
-      const res = await gasRun({ action: 'claim_grail', pcId: pc.id, acctName: (pc && pc.account) || currentAccount });
-      var memo = document.getElementById('victory-memoir');
+      const res = await gasRun({ action: 'end_run', pcId: pc.id, acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) {
-        if (memo) {
-          memo.innerHTML = '<div style="color:#e7c873;font-weight:bold;margin-bottom:6px;">「' + (res.servantName || '從者') + '」· 後日談已封存</div>'
-            + (res.memoir || '').replace(/\n/g, '<br>');
-          memo.style.display = 'block';
-        }
         if (cbtn) cbtn.style.display = 'none';
         var mbtn = document.getElementById('victory-menu-btn');
         if (mbtn) {
@@ -2410,15 +2405,15 @@
           // 🎉 老虎道場·祝賀特輯(死亡那套的小改版)：跟敗北的老虎道場同一個殼，換成祝賀，收尾才回選單。
           mbtn.onclick = function () { closeVictory(); runTigerDojo_(res.servantName || '從者', '', 'victory'); };
         }
-        // 🔵 防呆：奪杯後本局已封存清理，清掉本機續玩快取，避免下次殘留死局
+        // 🔵 防呆：本局已清理，清掉本機續玩快取，避免下次殘留死局
         try { localStorage.removeItem('kyushu_v27'); localStorage.removeItem('kyushu_story'); localStorage.removeItem('kyushu_last_status'); } catch (e) {}
       } else {
-        if (cbtn) { cbtn.disabled = false; cbtn.innerText = '⚜️ 奪得聖杯 · 封存此役羈絆'; }
-        alert((res && res.message) || '封存失敗，請再試一次。');
+        if (cbtn) { cbtn.disabled = false; cbtn.innerText = '⚜️ 奪得聖杯'; }
+        alert((res && res.message) || '結算失敗，請再試一次。');
       }
     } catch (e) {
-      if (cbtn) { cbtn.disabled = false; cbtn.innerText = '⚜️ 奪得聖杯 · 封存此役羈絆'; }
-      alert('連線失敗，封存未果。');
+      if (cbtn) { cbtn.disabled = false; cbtn.innerText = '⚜️ 奪得聖杯'; }
+      alert('連線失敗，結算未果。');
     }
   }
 
@@ -2481,7 +2476,7 @@
   }
   function dojoFallbackHtml_(mode) {
     return mode === 'victory'
-      ? '聖杯戰爭終於落幕，你贏得了這場聖杯戰爭！<br>藤村大河老師與伊莉雅都在為你鼓掌喝彩！<br><span style="color:#9a8fb0; font-size:12px;">（這段羈絆已封存於鑑賞，可隨時呼出回味。）</span>'
+      ? '聖杯戰爭終於落幕，你贏得了這場聖杯戰爭！<br>藤村大河老師與伊莉雅都在為你鼓掌喝彩！<br><span style="color:#9a8fb0; font-size:12px;">（可隨時前往鑑賞，從英靈殿召喚同伴共度和平時光。）</span>'
       : '聖杯戰爭已然落幕，你的靈基化作了星塵。<br>但別氣餒——藤村大河老師的特訓，能讓下一場聖杯戰爭走得更遠！<br><span style="color:#9a8fb0; font-size:12px;">（敗北的存檔已封存於戰史，可重啟新的一局。）</span>';
   }
   // 掀開老虎道場 → 生成 AI 講評/祝賀填入卡片（一次 AI 呼叫·只在 game-over 收場，失敗則退回罐頭文案）
@@ -2499,7 +2494,7 @@
       const res = await gasRun({ action: 'narrate_only', pcId: pc.id, promptText: promptText, isNsfw: false });
       if (res && res.success && res.text && body) {
         var t = String(res.text).replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\n{2,}/g, '<br><br>').replace(/\n/g, '<br>');
-        var tailNote = mode === 'victory' ? '（這段羈絆已封存於鑑賞，可隨時呼出回味。）' : '（敗北的存檔已封存於戰史，可重啟新的一局。）';
+        var tailNote = mode === 'victory' ? '（可隨時前往鑑賞，從英靈殿召喚同伴共度和平時光。）' : '（敗北的存檔已封存於戰史，可重啟新的一局。）';
         body.innerHTML = t + '<div style="color:#9a8fb0; font-size:12px; margin-top:12px;">' + tailNote + '</div>';
       } else if (body) { body.innerHTML = dojoFallbackHtml_(mode); }
     } catch (e) { if (body) body.innerHTML = dojoFallbackHtml_(mode); }

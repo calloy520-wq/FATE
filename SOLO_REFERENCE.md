@@ -123,7 +123,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 | get_map_nodes / get_all_categorized_maps | 地圖 | 地圖節點＋敵蹤(吃 SEEN 迷霧；有盟友→`hasAllyInGame_`全揭露)。**⚡ 2026-07 效能修**：算法抽成 `buildMapNodesPayload_(sheets,pcData,gid,loc)`(吃已讀好的 pcData，零額外整表讀)，`buildClientState_`／`actionMove` 都夾帶 `mapNodes:` 進各自回應；前端 `renderMapPane(preNodes)` 優先吃夾帶值、存進全域快取 `lastMapNodes`，只有兩者皆無才退回獨立 `get_map_nodes` round-trip。**這是修「手機切地圖頁很慢」的根因**——舊版每次顯示地圖頁都強制多打一趟 `google.script.run`(即使資料剛在同一次動作已經算過)。**🆕 2026-07 戰爭分流**：`COL.MAP.WAR`(第7欄，空字串＝通用/'4th'＝第四次限定)——`buildMapNodesPayload_` 用 `findGameMasterIdx_`+`getWarName_` 查本局戰爭，非通用且與本局戰爭不符的節點直接濾掉，不回傳給前端。 |
 | move / rest / sync | — | 移動(2AP)／休息(補AP+夢境)／資料同步 |
 | narrate_only / multi_attack_narrate | actionNarrateOnly等 | **AI 純說書**(solo 不用 actionPlay；GAS 算數值、AI 只演出) |
-| claim_grail / enter_kanshou / kanshou_companions·add·remove | Gallery.gs | 奪杯封存／進鑑賞後日談世界／同伴管理(見 §9)。⚠ 舊 list_gallery/enter_gallery/gallery_talk 已移除 |
+| end_run / enter_kanshou / kanshou_companions·summon_hero·remove | Gallery.gs | 結束本局(單純清理，不再封存)／進鑑賞後日談世界／同伴管理(見 §9)。⚠ 舊 claim_grail(奪杯封存)/kanshou_add 已於 2026-07 整個移除(見 §9.1)；更早的 list_gallery/enter_gallery/gallery_talk 也已移除 |
 | enter_kanshou | actionEnterKanshou (Gallery.gs) | **🌹 進入鑑賞主入口(新版)**：每帳號【單一常駐】後日談世界。御主 avatar(KPC_)以 MEMORY `【帳號】<acct>` 綁定、id 持久→`getGameHistory(pcId)` 跟單機一樣接續歷史。無從者預載、不重講開場；從者由 `kanshou_companions/add/remove`(👥面板) 邀請(上限3)。**御主名字＋性別首次進場由玩家定**(不掛帳號)：沒帶齊 `pcName/pcSex`又還沒建過→回 `needSetup:true`(附 `defaultName`)，前端 `askKanshouSetup()` 問一次(名字＋性別)再帶進來建。前端 `enterKanshou()`(Index.html「進入鑑賞」鈕)→ mode=kanshou、自動開 NSFW、撈歷史 |
 | kanshou_set_sex / kanshou_set_name | actionKanshouSetSex／actionKanshouSetName (Gallery.gs) | ⚧/✏ 隨時改後日談御主 avatar 性別/名字(只動該欄，不影響歷史)。**2026-07**：關係已併入眾生列(存在同伴自己那一列，不記「對誰」的名字)，改名不再需要遷移任何羈絆鍵。👥面板「切換性別」「改名」鈕→`changeKanshouSex()`／`changeKanshouName()` |
 | ~~get_victory_history / get_ranking~~ | (已移除) | 🗑️ 2026-07：個人聖杯戰記／排行榜兩個唯讀視窗連同「戰史」表全數砍除（單人專注，不做跨帳號回顧比拼）。 |
@@ -523,6 +523,20 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
   4. **防呆：`cls:'御主'` 不能被 solo 誤召喚**：`actionSummonServant`(`Router_Creation.gs`) 的 `hrows` 來源在最源頭就濾掉 `CLS === "御主"`，一次擋住 heroId 指定／真名自由輸入／無職階隨機召喚 三條路徑——真名自由輸入尤其危險(自由文字比對、沒有職階限制，玩家打「遠坂凜」原本會被系統當成戰鬥從者召喚出來、產出零六圍的殘缺角色)。solo 前端的「依職階挑選」頁面本就用 `h.cls === selectedSummonClass` 過濾，這3位天然不會出現在那邊，不用額外改前端；鑑賞的 `Script_Kanshou.html` 用 `cls` 動態產生篩選標籤，這3位會自然多出一個「御主」篩選分類，同樣不用改前端。
   5. **順手補身世**：`heroToKanshouRow_` 原本完全沒設定 `BACK`(身世)——比照 solo 的 `svBack` fallback 邏輯(`persona.back` 有值就用、沒有則「職階・真名」)補上，這3位新角色特地寫的身世終於用得上；`servantCard_`(`Router_Persona.gs`)既有的 fallback 過濾邏輯(`if (back === \`${cls}・${name}\`) back = "";`)天然適用，無需另外處理。
   **未做**：批次腳本一次轉換既有~20位種子英靈——改採懶惰快取後不再需要，第一次被召喚時自然觸發，不用手動跑一次性遷移，也不佔額外執行時間風險(GAS 有執行時限，一次轉20位怕超時)。
+
+### 9.1 🗑️ 整個砍除「奪杯封存」機制（2026-07 玩家定案）
+
+玩家理由：角色資料寫入後基本不再變動，「維護兩份(封存快照＋鑑賞眾生列)」是白工；且上面 9.1(懶惰快取) 已經解決了「慾海同伴要靠 solo 打贏才能相見」的體驗問題(改成英靈殿直接召喚)，舊的封存/邀請系統整條路徑變成純技術債，一次砍掉。
+
+- **`Gallery.gs` 刪除的函式**：`buildGalleryForm_`(封存外貌/肉體快照)、`applyGalleryForm_`(解快照寫回)、`actionClaimGrail`(奪杯→AI memoir→寫「鑑賞」表→同盟封存)、`kanshouServantRow_`(由「鑑賞」表紀錄組後日談列)、`actionKanshouAdd`(邀請封存從者)、`galleryRec_`(查「鑑賞」表紀錄)。
+- **新增替代函式 `actionEndRun`**：奪杯/結束本局現在只做「找出玩家與其存活從者(供慶祝彈窗顯示名字)→`purgeGameData_` 清本局」，不再呼叫 AI 寫回憶、不再寫「鑑賞」表。
+- **`Router_Action.gs`**：`claim_grail`→`actionClaimGrail` 換成 `end_run`→`actionEndRun`；移除 `kanshou_add`→`actionKanshouAdd`（慾海邀請只剩 `kanshou_summon_hero`→`actionKanshouSummonHero` 這一條路，直接從英靈殿召喚）。
+- **`actionKanshouCompanions`**：不再讀「鑑賞」表湊 `available` 清單，恆回傳空陣列(欄位保留供前端相容)。
+- **前端**：`Script.html` 的 `claimGrail()` 改打 `end_run`、拿掉 memoir 顯示與「封存」字樣按鈕文字(改「⚜️ 奪得聖杯」)；老虎道場祝賀文案與 `victory-overlay` 靜態文字(`Index.html`)拿掉「將被納入鑑賞名冊」的承諾，改成「可前往鑑賞、從英靈殿召喚同伴」；同盟卡片 UI(約 495-506 行)拿掉「羈絆90+奪杯後可收錄進鑑賞」的失效承諾，改成單純的「情誼已臻深處」慶祝文字。`Script_Kanshou.html` 的「邀請已封存同伴」清單區塊(`_kcAvail`/`kanshouAdd`)整段刪除，同伴面板只剩「在場同伴」＋「從英靈殿召喚」兩區。
+- **刻意保留、沒有動的東西**：
+  - `Router_Bond.gs` 的 `【鑑賞緣】` 標記機制(羈絆首度破90時標記+`unlocked`旗標)：這是「首次破90」的冪等追蹤兼敘事花絮觸發器(`unlocked` 也用於在該次共處的 AI 提示詞裡加一句「情誼首度臻至深處」的演出提示)，跟已刪除的鑑賞封存邏輯是兩件事、可以獨立存在——只拿掉了它原本兼職的「鑑賞收錄資格判定」用途(反正判定它的 `actionClaimGrail` 已不存在)，標記寫入本身無害地保留，未來若要重新設計类似機制還能沿用這個錨點。
+  - `COL.GAL`(`Core_Settings.gs`)與 `FATE_SHEET_DEFS["鑑賞"]`(`Setup_FateWorld.gs`)：常數與工作表定義原樣不刪(死符號不刪，見專案紀律)，現行程式碼已完全不讀寫，舊試算表殘留的「鑑賞」表資料變成無害孤兒資料。
+- **驗證**：`bash check.sh` 全過；`git diff -- gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(本次改動完全沒碰紅線①)。
 
 ---
 

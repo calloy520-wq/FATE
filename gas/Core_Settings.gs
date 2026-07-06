@@ -50,10 +50,9 @@ const COL = {
   // 由伺服器端的 linkAccountToKanshouPc_/getAccountKanshouPcId_ 專責讀寫，比照 solo 的
   // 「連結存在外部表、玩家端無法影響」，結構上就不可能繞過，不必靠每個呼叫端各自記得檢查。
   ACC: { NAME: 0, PC: 1, CREATED: 2, KPC: 3 },
-  // 鑑賞：奪杯後封存的從者（可於鑑賞模式呼出）
-  // ⚠ 2026-07 修：新增 FORM(外貌肉體)——封存前 TRAIT(外貌本相)/STATUS 的姿勢·顏面/PHYSICAL(肉體)
-  // 完全沒被帶進鑑賞表，邀入慾海時外貌變空白、肉體被無視性別統一預設成女性生理結構。合併成一格
-  // JSON(見 buildGalleryForm_/applyGalleryForm_，Gallery.gs)，封存當下的樣貌與姿態才不會憑空消失。
+  // 鑑賞：⚠ 2026-07 玩家定案「整個砍掉奪杯封存機制」後已停用(死符號不刪，見專案紀律)——
+  // 慾海同伴改成直接從「英靈殿」召喚(見 Gallery.gs 檔頭說明)，此常數與「鑑賞」工作表本體
+  // 都不再被任何現行程式碼讀寫，留著只為相容舊試算表既有資料，勿刪。
   GAL: { ACC: 0, NAME: 1, CLS: 2, SEX: 3, SIX: 4, TAGS: 5, NP: 6, BACK: 7, PREF: 8, MOE: 9, MEMOIR: 10, WISH: 11, TIME: 12, MASTER: 13, MSEX: 14, FORM: 15 }
 };
 

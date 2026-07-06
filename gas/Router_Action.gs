@@ -9,15 +9,14 @@ const ActionRouter = {
   "check_name": actionCheckName,
   "account_login": actionAccountLogin,
   "account_new_game": actionAccountNewGame,
-  "claim_grail": actionClaimGrail,
+  "end_run": actionEndRun, // ⚠ 2026-07：舊 claim_grail(奪杯封存) 已整個砍除，改成單純清理讓玩家開新局
   "enter_kanshou": actionEnterKanshou,
   "backfill_kanshou_ai": actionBackfillKanshouAi, // 🚀 開局非阻塞：enter_kanshou 首次建檔後背景補御主敘事欄
   "backfill_kanshou_servant_ai": actionBackfillKanshouServantAi, // 🚀 直接召喚同伴後背景補深化(種子個性精簡+無身世)
   "dev_resync_codex": actionDevResyncCodex,
   "purge_orphans": actionPurgeOrphans,
   "kanshou_companions": actionKanshouCompanions,
-  "kanshou_add": actionKanshouAdd,
-  "kanshou_summon_hero": actionKanshouSummonHero, // 🌹 直接從英靈庫挑選(與封存路徑並存，不需先在solo贏得戰爭)
+  "kanshou_summon_hero": actionKanshouSummonHero, // 🌹 慾海同伴唯一入口：直接從英靈庫召喚，不需先在solo贏得戰爭
   "kanshou_remove": actionKanshouRemove,
   "kanshou_set_sex": actionKanshouSetSex,
   "kanshou_set_name": actionKanshouSetName,
