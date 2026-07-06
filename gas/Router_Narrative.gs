@@ -481,8 +481,12 @@ ${isKanshou ? `
       const row = pcData[idx];
       if (!row) return;
       const id = String(row[COL.PC.ID] || "");
-      // 🌹 含慾海角色前綴 KPC_(御主 avatar)／KSV_(同伴從者)，否則後日談的肉體/衣服/親密狀態寫不回去
-      if (!id.startsWith("PC_") && !id.startsWith("NPC_") && !id.startsWith("DEAD_") && !id.startsWith("KPC_") && !id.startsWith("KSV_")) return;
+      // 🐛→✅ 2026-07 修：漏了 KHV_(直接從英靈庫召喚的同伴，heroToKanshouRow_ 建列)——這類同伴的
+      //   好感/肉體/親密記憶全部在記憶體算完卻在這關被過濾掉、永遠沒真的寫回試算表(AI敘述照樣顯示
+      //   「好感度+X」，因為顯示行直接讀 aiData.rel_changes、不受這個允許清單影響，造成「有輸出但沒寫入」的假象)。
+      //   含慾海角色前綴 KPC_(御主 avatar)／KSV_(封存邀請同伴)／KHV_(直接召喚同伴)，否則後日談的
+      //   好感/肉體/衣服/親密狀態寫不回去。
+      if (!id.startsWith("PC_") && !id.startsWith("NPC_") && !id.startsWith("DEAD_") && !id.startsWith("KPC_") && !id.startsWith("KSV_") && !id.startsWith("KHV_")) return;
       const curIdx = liveIdx[id];
       if (curIdx === undefined) return; // 列在 AI 呼叫期間被刪(競態) → 安全跳過
 

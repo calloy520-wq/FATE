@@ -282,6 +282,14 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
   var hero = heroes.find(function (r) { return String(r[COL.HERO.ID]) === heroId; });
   if (!hero) return JSON.stringify({ success: false, message: "英靈庫查無此英靈。" });
   var heroName = String(hero[COL.HERO.NAME] || "從者");
+  // 🔒 2026-07 加固：玩家原創(ai_gen)只有創造者本人可召喚進鑑賞——前端清單已濾掉，這裡是第二道防線
+  // (防止直打API繞過前端過濾，召喚別人工房/盲盒捏出的角色)。種子(正典)英靈不受限、人人可召喚。
+  if (String(hero[COL.HERO.SOURCE]) === "ai_gen") {
+    var _hp = {}; try { _hp = JSON.parse(hero[COL.HERO.PERSONA] || "{}"); } catch (e) { }
+    if (!_hp.creator || _hp.creator !== acctName) {
+      return JSON.stringify({ success: false, message: "「" + heroName + "」是其他玩家的原創英靈，僅創造者本人可召喚。" });
+    }
+  }
   var heroSex = String(hero[COL.HERO.SEX] || "異") || "異";
   // 🎨 玩家定案·不開放男男配對(與封存路徑同一條規則)
   if (String(me[COL.PC.SEX]) === "男" && heroSex === "男") {

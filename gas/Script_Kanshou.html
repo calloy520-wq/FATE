@@ -22,8 +22,12 @@
       ]);
       if (!res || !res.success) { alert((res && res.message) || '讀取同伴失敗。'); return; }
       _kcCur = res.current || []; _kcAvail = res.available || []; _kcMax = res.max || 3;
-      // 🌹 直接從英靈庫召喚(不需先在solo封存)：濾掉已在場的，其餘全開放挑選
-      _kcHeroes = ((heroRes && heroRes.success) ? (heroRes.heroes || []) : []).filter(function (h) { return _kcCur.indexOf(h.name) === -1; });
+      // 🌹 直接從英靈庫召喚(不需先在solo封存)：濾掉已在場的；種子(正典)英靈人人可召喚，
+      //   但玩家原創(src==='ai_gen')只有創造者本人能召喚——不可召喚別人工房/盲盒捏出的角色進自己的後日談。
+      //   (solo 那邊的隨機/混亂池刻意共用玩家原創、維持既有設計不動，這條限制僅針對鑑賞直接指名召喚。)
+      _kcHeroes = ((heroRes && heroRes.success) ? (heroRes.heroes || []) : [])
+        .filter(function (h) { return _kcCur.indexOf(h.name) === -1; })
+        .filter(function (h) { return h.src !== 'ai_gen' || (h.creator && h.creator === currentAccount); });
       renderCompanionsPanel();
     } catch (e) { alert('讀取同伴失敗。'); }
   }
@@ -157,8 +161,11 @@
   // 🌹 首次進場設定御主：取名／選性別／外貌／身世／個性方向（皆可留空由AI決定，比照solo創角）。
   //   之後 👥 面板可改名/改性別；外貌/身世/個性方向只在首次建檔時餵給AI潤色一次(見backfillKanshouAi)。
   //   回傳 {name, sex, appearance, standing, persona}。
+  // 🐛→✅ 2026-07 修：性別鈕原本一點就直接送出整張表單(等於「選項」變成「登入鈕」，其他欄位來不及填就被提交)——
+  //   改成純選取(點擊只切換高亮、不提交)，另加一顆「進入後日談」鈕才真正送出。
   function askKanshouSetup(defaultName) {
     return new Promise(function (resolve) {
+      var selectedSex = '';
       var ov = document.createElement('div');
       ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.74);display:flex;align-items:center;justify-content:center;padding:16px;';
       ov.innerHTML = '<div style="background:#20141b;border:1px solid rgba(200,120,150,.5);border-radius:14px;padding:22px;width:100%;max-width:340px;max-height:calc(100vh - 32px);overflow-y:auto;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6);">'
@@ -166,23 +173,32 @@
         + '<div style="color:#9a8f70;font-size:11px;line-height:1.7;margin-bottom:14px;">取個名字、選擇現身的性別。下面三格都可留空交給AI決定，之後在 👥 同伴面板仍可改名/改性別。</div>'
         + '<input id="ksu-name" maxlength="16" value="' + escapeHtml(defaultName || '') + '" placeholder="御主名" style="width:100%;box-sizing:border-box;padding:11px;background:#16101a;border:1px solid rgba(200,120,150,.4);border-radius:8px;color:#f0e0e8;font-size:14px;text-align:center;">'
         + '<div style="display:flex;gap:10px;margin-top:10px;">'
-        + '<button id="ksu-f" style="flex:1;padding:13px;background:linear-gradient(90deg,#7a4a6a,#5a3a6a);color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♀ 女</button>'
-        + '<button id="ksu-m" style="flex:1;padding:13px;background:linear-gradient(90deg,#3a4a6a,#3a5a6a);color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♂ 男</button>'
+        + '<button id="ksu-f" style="flex:1;padding:13px;background:rgba(90,50,70,.35);color:#d8a8c0;border:2px solid transparent;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♀ 女</button>'
+        + '<button id="ksu-m" style="flex:1;padding:13px;background:rgba(50,60,90,.35);color:#a8c0e0;border:2px solid transparent;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♂ 男</button>'
         + '</div>'
         + '<textarea id="ksu-appear" maxlength="60" placeholder="外貌（留空由AI決定）" style="width:100%;box-sizing:border-box;margin-top:10px;padding:9px;background:#16101a;border:1px solid rgba(200,120,150,.3);border-radius:8px;color:#f0e0e8;font-size:13px;resize:none;height:40px;"></textarea>'
         + '<textarea id="ksu-standing" maxlength="60" placeholder="身世（留空由AI決定）" style="width:100%;box-sizing:border-box;margin-top:8px;padding:9px;background:#16101a;border:1px solid rgba(200,120,150,.3);border-radius:8px;color:#f0e0e8;font-size:13px;resize:none;height:40px;"></textarea>'
         + '<textarea id="ksu-persona" maxlength="60" placeholder="個性方向（留空由AI決定）" style="width:100%;box-sizing:border-box;margin-top:8px;padding:9px;background:#16101a;border:1px solid rgba(200,120,150,.3);border-radius:8px;color:#f0e0e8;font-size:13px;resize:none;height:40px;"></textarea>'
+        + '<button id="ksu-confirm" style="width:100%;box-sizing:border-box;margin-top:14px;padding:13px;background:linear-gradient(90deg,#7a4a6a,#5a3a6a);color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">✨ 進入後日談</button>'
         + '</div>';
       document.body.appendChild(ov);
-      function done(sex) {
+      var fBtn = ov.querySelector('#ksu-f'), mBtn = ov.querySelector('#ksu-m');
+      function renderSexPick() {
+        fBtn.style.borderColor = selectedSex === '女' ? '#e0a0bc' : 'transparent';
+        fBtn.style.boxShadow = selectedSex === '女' ? '0 0 8px rgba(224,160,188,.6)' : 'none';
+        mBtn.style.borderColor = selectedSex === '男' ? '#7ec8ff' : 'transparent';
+        mBtn.style.boxShadow = selectedSex === '男' ? '0 0 8px rgba(126,200,255,.6)' : 'none';
+      }
+      fBtn.onclick = function () { selectedSex = '女'; renderSexPick(); };
+      mBtn.onclick = function () { selectedSex = '男'; renderSexPick(); };
+      ov.querySelector('#ksu-confirm').onclick = function () {
+        if (selectedSex !== '女' && selectedSex !== '男') { alert('請先選擇性別。'); return; }
         var nm = (ov.querySelector('#ksu-name').value || '').trim() || (defaultName || '御主');
         var appearance = (ov.querySelector('#ksu-appear').value || '').trim();
         var standing = (ov.querySelector('#ksu-standing').value || '').trim();
         var persona = (ov.querySelector('#ksu-persona').value || '').trim();
-        document.body.removeChild(ov); resolve({ name: nm, sex: sex, appearance: appearance, standing: standing, persona: persona });
-      }
-      ov.querySelector('#ksu-f').onclick = function () { done('女'); };
-      ov.querySelector('#ksu-m').onclick = function () { done('男'); };
+        document.body.removeChild(ov); resolve({ name: nm, sex: selectedSex, appearance: appearance, standing: standing, persona: persona });
+      };
     });
   }
 
