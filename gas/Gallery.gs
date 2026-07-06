@@ -75,7 +75,7 @@ function applyGalleryForm_(sRow, formStr, sex, defaultBond) {
   var f = {}; try { f = JSON.parse(formStr || "{}"); } catch (e) { }
   sRow[COL.PC.TRAIT] = f.trait || "";
   sRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": f.pose || "站立", "負面": "無", "顏面": f.face || "神情柔和" });
-  sRow[COL.PC.PHYSICAL] = f.physical || ((String(sex) === "男") ? JSON.stringify({ "肉棒": "如常" }) : JSON.stringify({ "蜜穴": "未開", "菊穴": "緊閉" }));
+  sRow[COL.PC.PHYSICAL] = f.physical || ((String(sex) === "男") ? JSON.stringify({ "肉棒": "如常" }) : JSON.stringify({ "蜜穴": "未開" }));
   sRow[COL.PC.MEMORY] = f.memory || "【鑑賞後日談】聖杯戰爭已結束，安然陪伴在御主身邊。";
   sRow[COL.PC.REL_MEM] = f.relMem || "聖杯戰爭並肩奪杯的羈絆";
   sRow[COL.PC.BOND] = (f.bond > 0) ? f.bond : defaultBond;
@@ -260,7 +260,7 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   sRow[COL.PC.TRAIT] = p.look || "";
   sRow[COL.PC.INTENT] = p.moe || "";
   sRow[COL.PC.MEMORY] = stampPersonaFlavor_("【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", p.speech, p.tic);
-  sRow[COL.PC.PHYSICAL] = (sex === "男") ? JSON.stringify({ "肉棒": "如常" }) : JSON.stringify({ "蜜穴": "未開", "菊穴": "緊閉" });
+  sRow[COL.PC.PHYSICAL] = (sex === "男") ? JSON.stringify({ "肉棒": "如常" }) : JSON.stringify({ "蜜穴": "未開" });
   sRow[COL.PC.GAME_ID] = gameId;
   sRow[COL.PC.BOND] = 45; sRow[COL.PC.REL_TAG] = "從者"; sRow[COL.PC.IS_PARTY] = "同行";
   sRow[COL.PC.REL_MEM] = "初次相遇，緣分才剛開始"; sRow[COL.PC.MAJOR_EVENT] = "";

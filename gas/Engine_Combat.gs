@@ -11,33 +11,27 @@ function buildDefaultSystemPrompt(isNsfwMode, backLocked) {
     "options": ["1. [主動]強勢掌握主導...", "2. [被動]順從委婉試探...", "3. [接續]順劇情延續互動...", "4. [反差]跳脫氛圍的驚人舉動..."],
     // 🗑️ 2026-07：stat_changes(外顯狀態刷新)已自 SFW schema 移除——solo 戰鬥演出卡/戰報從不讀取
     //   STATUS，卡片外顯恆顯示預設字樣＝死資料迴圈(AI寫→無人讀)，玩家定案整段移除省 token。
-    //   慾海(NSFW)本就不用 stat_changes(intimacy_feedback.visible_state 才是其管道·紅線區未動)。
+    //   慾海(NSFW)本就不用 stat_changes(intimacy_feedback.physical_state 才是其管道·紅線區未動)。
     "rel_changes": [{ "target": "NPC名", "fav_change": 3, "tag": "無", "major_event": "無" }],
     "mentioned_names": ["劇情中出現的具名角色名字，不含玩家自己"],
     "log_summary": { "subject": "主動方真名", "object": "被動/承受方真名(三人以上填眾人)", "event": "誰對誰做了什麼+對方反應，須含明確主被動方向，50字內", "tag": "閒聊/承諾/秘密/變故，四選一" }
   };
 
-  // 2. 根據模式動態覆寫或擴充專屬欄位
-  const _visibleState = {
-    "衣服": "裸露/衣著狀態(≤12字)",
-    "姿勢": "體位姿態(≤15字)",
-    "負面": "無/狀態(≤5字)",
-    "顏面": "神情潮紅(≤12字)"
-  };
-
-  // 🔴 key改數字代碼(1=陰道 2=陽具 3=後穴 4=雙手)，避免AI每回合輸出原始器官字。
-  // 雙手原本拆右手/左手兩格過度瑣碎，已合併為單一「雙手」格。
+  // 2. 慾海專屬 physical_state(2026-07 玩家定案整合)：原本 visible_state(衣服/姿勢/負面/顏面)＋
+  //   physical_state(蜜穴/肉棒/菊穴/雙手)兩物件共8欄，玩家要求砍到「當下最需要」的5項、合併成一欄：
+  //   姿勢動作／胸部／顏面(表情+汗水)／肉棒／蜜穴。衣服已由玩家換裝機制(outfit)另外掌管、負面/菊穴/雙手
+  //   不再追蹤。key仍固定用數字代碼(避免AI每回合輸出原始器官字)。
   const _physicalState = {
-    "1": "陰道狀態(≤15字)",
-    "2": "陽具狀態(≤15字)",
-    "3": "後穴狀態(≤15字)",
-    "4": "雙手動作(≤15字)"
+    "1": "姿勢與動作(≤20字)",
+    "2": "胸部狀態(女性適用·男性填無，≤15字)",
+    "3": "顏面狀態(表情與汗水，≤15字)",
+    "4": "肉棒狀態(無陽具填無，≤15字)",
+    "5": "蜜穴狀態(無陰道填無，≤15字)"
   };
 
   // 🔴 npc的範本欄位全填「同上」：Router_Action.gs解析intimacy_feedback時的ignoreWords防呆清單本就含「同上」，
   // 即使AI偷懶照抄範本字面值也會被當成敷衍語忽略、不會寫進玩家看到的狀態欄，省字數不引入新的失敗模式。
-  const _visibleStateRef = { "衣服": "同上", "姿勢": "同上", "負面": "同上", "顏面": "同上" };
-  const _physicalStateRef = { "1": "同上", "2": "同上", "3": "同上", "4": "同上" };
+  const _physicalStateRef = { "1": "同上", "2": "同上", "3": "同上", "4": "同上", "5": "同上" };
 
   // 🔴 NSFW模式：只專注情慾本身，雜務(物品/金錢/陣營/任務/招募/地圖/戰鬥數值)本回合完全不追蹤、
   // 不出現在輸出範本內，大幅縮減 JSON 範本字數；SFW(純淨模式)的 baseJson 維持完整不動。
@@ -47,16 +41,14 @@ function buildDefaultSystemPrompt(isNsfwMode, backLocked) {
       "narration": baseJson.narration,
       "options": baseJson.options,
       "intimacy_feedback": {
-        "_note": "★visible_state與physical_state各欄皆角色「自身」當下肉體狀態，純肢體與感官、禁內心戲，第三人稱填寫，省略=維持原樣，無對應器官/動作填無，絕對禁寫'自己'。npcs每位與player共用此格式，依其實際狀態填寫對應欄位。",
+        "_note": "★physical_state各欄皆角色「自身」當下姿態與肉體狀態，純肢體與感官、禁內心戲，第三人稱填寫，省略=維持原樣，無對應器官/動作填無，絕對禁寫'自己'。npcs每位與player共用此格式，依其實際狀態填寫對應欄位。",
         "player": {
-          "visible_state": _visibleState,
           "physical_state": _physicalState,
           "dynamic_skills": "雙修技巧名(2~5字，無填無)",
           "erogenous_zones": "無"
         },
         "npcs": [{
           "name": "NPC實際名字",
-          "visible_state": _visibleStateRef,
           "physical_state": _physicalStateRef,
           "dynamic_skills": "雙修技巧名(2~5字，無填無)",
           "erogenous_zones": "無",
@@ -128,7 +120,7 @@ function buildDefaultSystemPrompt(isNsfwMode, backLocked) {
 1. 【女女柔軟】(核心)純女女之愛，無論誰主導皆是【纏綿體貼、有來有往】，主動方亦是女子、柔中帶情——❌禁套用任何男性化的強硬支配模板。
 2. 聚焦當下最關鍵的一兩處深入著墨，篇幅靠情感起伏、神態心理、氛圍張力與對話堆疊撐起，而非鋪滿全身；❌絕對禁止逐一點名全身部位、禁止視/觸/嗅/聽四感清單式流水帳、禁止器官逐格交代；台詞被嬌喘打斷，勿一氣呵成。
 3. 器官依配對裁決：無陽具填無「肉棒」、無陰道填無「蜜穴」。絕對禁止插入式陽具，以手指/舌/器物替代，嚴禁憑空生出男性器官。
-4. physical_state欄位key固定用數字代碼(1=陰道 2=陽具 3=後穴 4=雙手)，禁用文字key，其餘進narration。據實填當下肉體狀態，未被碰該代碼不填；脫離接觸改寫「鬆開/餘韻」。★此欄純為系統狀態記錄，narration敘事【絕對禁止】比照逐格謄寫每個部位狀態，敘事仍以第2條為準、聚焦留白。
+4. physical_state欄位key固定用數字代碼(1=姿勢與動作 2=胸部 3=顏面 4=肉棒 5=蜜穴)，禁用文字key，其餘進narration。據實填當下狀態，未被碰的代碼不填；脫離接觸改寫「鬆開/餘韻」。★此欄純為系統狀態記錄，narration敘事【絕對禁止】比照逐格謄寫每個部位狀態，敘事仍以第2條為準、聚焦留白。
 5. log_summary：subject填主導方真名、object填承受方真名(三人以上填眾人)，符合實際方向，禁因身分預設主動方；tag預設「閒聊」，唯有實質承諾/秘密/重大轉折才升級標「承諾」/「秘密」/「變故」。
 6. 粗暴動作轉為紅印/酥麻/強烈快感，禁肉體破損流血。雙修技巧(2~5字)填入dynamic_skills，貼合身分個性，禁動輒填無。`
     : `

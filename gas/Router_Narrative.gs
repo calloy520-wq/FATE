@@ -140,10 +140,12 @@ function actionPlay(userData, pcId, sheets) {
     let pPhysicalObj = JSON.parse(pcData[pcIndex][COL.PC.PHYSICAL] || "{}");
     if (Object.keys(pPhysicalObj).length === 0) {
       // ⚠ 2026-07 修：原本不論性別統一預設女性生理結構起始值，男御主也被塞這組——改依實際性別。
-      pPhysicalObj = (String(pc[COL.PC.SEX]) === "男") ? { "肉棒": "如常" } : { "蜜穴": "未開", "菊穴": "緊閉" };
+      pPhysicalObj = (String(pc[COL.PC.SEX]) === "男") ? { "肉棒": "如常" } : { "蜜穴": "未開" };
     }
     let pSkills = (pcData[pcIndex][COL.PC.MEMORY] || "無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/, (m, p1) => `[雙修技巧]${p1.trim().split('、').slice(0, 5).join('、')}`);
-    let nsfwMemories = `\n[玩家『${pcName}』狀態]：${pcData[pcIndex][COL.PC.STATUS]}\n[玩家『${pcName}』肉體]：${JSON.stringify(pPhysicalObj)}\n[身體記憶]：${pSkills}`;
+    // 🐛→✅ 2026-07 玩家定案整合：STATUS(視覺化外顯，衣服/姿勢/負面/顏面)已退役——姿勢動作/顏面已併進
+    //   physical_state(見下方[肉體])，這裡不再重複注入即將永遠凍結的舊欄位。
+    let nsfwMemories = `\n[玩家『${pcName}』肉體]：${JSON.stringify(pPhysicalObj)}\n[身體記憶]：${pSkills}`;
 
     let allPresentRows = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && r[COL.PC.LOC] === curL && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_"));
     allPresentRows.forEach(r => {
@@ -155,7 +157,7 @@ function actionPlay(userData, pcId, sheets) {
       let relMem = r[COL.PC.REL_MEM] || "無";
       let npcOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 玩家換裝：當前服裝穿著(換衣不換人·五官體態依本相)
       // ⚠ 2026-07 修：萌點併進上面共用的 localSceneStr(SFW/NSFW 皆讀)後，這裡不再重複附一次。
-      nsfwMemories += `\n[${r[COL.PC.NAME]} 狀態]：${buildVisibleStatusString(r[COL.PC.STATUS])}${npcOutfit ? `\n[${r[COL.PC.NAME]} 裝扮]：${npcOutfit}（玩家指定當前服裝·五官/髮色/體態不變）` : ""}\n[${r[COL.PC.NAME]} 肉體]：${JSON.stringify(npcPhysicalObj)}\n[快照]：[技巧]${npcSkills} | [羈絆]${relMem}`;
+      nsfwMemories += `${npcOutfit ? `\n[${r[COL.PC.NAME]} 裝扮]：${npcOutfit}（玩家指定當前服裝·五官/髮色/體態不變）` : ""}\n[${r[COL.PC.NAME]} 肉體]：${JSON.stringify(npcPhysicalObj)}\n[快照]：[技巧]${npcSkills} | [羈絆]${relMem}`;
     });
 
     PROMPT_REL = `【當前同地人物】\n${localSceneStr}\n★【情境延續鐵律】：請繼續往後推演！${nsfwMemories}${genderHintStr}
@@ -272,8 +274,8 @@ ${isKanshou ? `
     // 🗑️ 2026-07：stat_changes(外顯狀態刷新)套用區塊已整組移除(玩家定案)——solo 戰鬥演出卡/戰報
     //   從不讀 STATUS，卡片外顯恆顯示預設「穿戴整齊，站立，氣息平穩」＝AI寫、無人讀的死資料迴圈；
     //   SFW schema 的 stat_changes 欄位與「狀態刷新」指令已同步自 Engine_Combat.gs(SFW區) 拔除。
-    //   慾海不受影響：其外顯/肉體走 intimacy_feedback(visible_state/physical_state·紅線機制·見下方)，
-    //   且已改由「肉體狀態」抵換外顯的顯示位。
+    //   慾海不受影響：其外顯/肉體走 intimacy_feedback(physical_state·紅線機制·見下方，2026-07 已整合
+    //   姿勢/顏面進同一欄，visible_state 機制退役)，且已改由「肉體狀態」抵換外顯的顯示位。
 
 
 
@@ -348,13 +350,14 @@ ${isKanshou ? `
       // 🔴 防禦機制：過濾掉 AI 偷懶不想更新狀態時的敷衍用語
       const ignoreWords = ["維持現狀", "無變化", "不變", "維持", "同上", "保持現狀", "沒有變化"];
 
+      // 🐛→✅ 2026-07 玩家定案整合：physical_state 從8欄(視覺姿態4+肉體反應4)砍併成單一5鍵結構——
+      //   1=姿勢與動作 2=胸部 3=顏面(表情+汗水) 4=肉棒 5=蜜穴。衣服/負面/菊穴/雙手不再追蹤
+      //   (衣服已由玩家換裝機制掌管)。visible_state/mergeVisibleState 機制隨之整段退役。
       const sanitizePhysicalState = (rawState, isPlayer = false) => {
         if (!rawState || typeof rawState !== 'object') return {};
         let cleanState = {};
-        // 🔴 AI現在以數字代碼輸出(1~5)，此處解碼回內部真實詞；保留舊文字key作防呆相容
-        // 🔴 雙手已由右手/左手兩格合併為單一「雙手」；舊代碼5與舊文字key右手/左手一律映射回雙手相容
-        const keyMapping = { "陰道": "蜜穴", "陰莖": "肉棒", "屁眼": "菊穴", "1": "蜜穴", "2": "肉棒", "3": "菊穴", "4": "雙手", "5": "雙手", "右手": "雙手", "左手": "雙手" };
-        const allowedKeys = ["蜜穴", "肉棒", "菊穴", "雙手"];
+        const keyMapping = { "1": "姿勢動作", "2": "胸部", "3": "顏面", "4": "肉棒", "5": "蜜穴" };
+        const allowedKeys = ["姿勢動作", "胸部", "顏面", "肉棒", "蜜穴"];
         Object.keys(rawState).forEach(k => {
           let standardKey = keyMapping[k] || k;
           let val = String(rawState[k]).trim();
@@ -365,19 +368,6 @@ ${isKanshou ? `
         return cleanState;
       };
 
-      const mergeVisibleState = (oldStatusStr, newVsObj) => {
-        let currentVs = parseVisibleStatus(oldStatusStr);
-        if (newVsObj && typeof newVsObj === 'object') {
-          for (let k in newVsObj) {
-            let val = String(newVsObj[k]).trim();
-            // 只有當 AI 給出具體狀態，且不是敷衍用語時才更新
-            if (val && val !== "無" && !ignoreWords.includes(val)) {
-              currentVs[k] = val;
-            }
-          }
-        }
-        return JSON.stringify(currentVs);
-      };
 
       const processSkills = (oldMem, newSkillsStr) => {
         let skillMap = {}; let oldSkills = (oldMem.match(/\[雙修技巧\](.*?)(?=\| \[|$)/) || [])[1]?.trim() || "";
@@ -410,7 +400,6 @@ ${isKanshou ? `
 
       if (isNsfwMode && aiData.intimacy_feedback.player) {
         const pfb = aiData.intimacy_feedback.player;
-        if (pfb.visible_state) pcData[pcIndex][COL.PC.STATUS] = mergeVisibleState(pcData[pcIndex][COL.PC.STATUS], pfb.visible_state);
         if (pfb.physical_state) pcData[pcIndex][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[pcIndex][COL.PC.PHYSICAL], sanitizePhysicalState(pfb.physical_state));
 
         let oldPMem = pcData[pcIndex][COL.PC.MEMORY] || "";
@@ -425,9 +414,6 @@ ${isKanshou ? `
 
           if (isNsfwMode) {
             dirtyPcRows.add(targetIdx); // 🔴 新增
-            if (nfb.visible_state) {
-              pcData[targetIdx][COL.PC.STATUS] = mergeVisibleState(pcData[targetIdx][COL.PC.STATUS], nfb.visible_state);
-            }
             if (nfb.physical_state) {
               pcData[targetIdx][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[targetIdx][COL.PC.PHYSICAL], sanitizePhysicalState(nfb.physical_state));
             }
