@@ -121,6 +121,11 @@ function actionPlay(userData, pcId, sheets) {
     const nickMatch = String(r[COL.PC.REL_MEM] || "").match(/\[專屬稱呼\](.*?)(?=\| \[|$)/);
     const nickTrim = nickMatch ? nickMatch[1].trim() : "";
     const nickStr = (nickTrim && nickTrim !== "無") ? ` [專屬稱呼:${nickTrim}]` : "";
+    // 🧪 2026-07 玩家提案「達成與否也能當記憶點」：已兌現的約定(見下方[達成]處理)存進REL_MEM後，
+    //   同樣拿回prompt——讓角色記得「我們一起做過這件事」，而非只靠好感度數字判斷關係深淺。
+    const doneMatch = String(r[COL.PC.REL_MEM] || "").match(/\[已兌現\](.*?)(?=\| \[|$)/);
+    const doneTrim = doneMatch ? doneMatch[1].trim() : "";
+    const fulfilledStr = (doneTrim && doneTrim !== "無") ? ` [一起做過:${doneTrim}]` : "";
     // ⚠ 2026-07 修：原本 SFW/NSFW 共用的這行完全沒讀 COL.PC.INTENT(萌點)——只有 NSFW 分支的
     //   nsfwMemories 另外補了一次，導致遊戲主體(SFW solo)的日常對話反而拿不到萌點反差錨點
     //   (伊莉雅冷漠案同一類根因)。改成這裡統一補上，NSFW 那份重複的移除，單一真實來源。
@@ -130,7 +135,7 @@ function actionPlay(userData, pcId, sheets) {
     //   從不會有「敵從者/敵御主」等變化值)——陣營資訊對鑑賞是每回合都印同一個死字的廢token，
     //   solo 才需要靠這欄分辨敵我(見上方 COL.PC.FACTION 用途)，故只在 solo 印出。
     const factionSeg = isKanshou ? "" : ` 陣營:${r[COL.PC.FACTION] || "無"} |`;
-    return `${identityTag}名號:${r[COL.PC.NAME]} 【性別:${r[COL.PC.SEX]}】${factionSeg} 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${moeStr ? ` | 萌點(反差·僅供內化):${moeStr}` : ""} | 身世:${String(r[COL.PC.BACK] || "來歷不詳")}(僅供內化演出·show-don't-tell·禁直述、禁預告其原作後續結局) | 關係:${r[COL.PC.REL_TAG] || "萍水相逢"}(好感:${currentFav}${majorEventStr}${nickStr} -> 行為準則:${resistPrompt})`;
+    return `${identityTag}名號:${r[COL.PC.NAME]} 【性別:${r[COL.PC.SEX]}】${factionSeg} 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${moeStr ? ` | 萌點(反差·僅供內化):${moeStr}` : ""} | 身世:${String(r[COL.PC.BACK] || "來歷不詳")}(僅供內化演出·show-don't-tell·禁直述、禁預告其原作後續結局) | 關係:${r[COL.PC.REL_TAG] || "萍水相逢"}(好感:${currentFav}${majorEventStr}${nickStr}${fulfilledStr} -> 行為準則:${resistPrompt})`;
   }).join("\n") : "此地四下無人。";
 
   if (isNsfwMode) {
@@ -371,6 +376,18 @@ ${isKanshou ? `
             if (doneTask) {
               eventArray = eventArray.filter(e => !e.includes(doneTask));
               pcData[nIdx][COL.PC.MAJOR_EVENT] = eventArray.length > 0 ? eventArray.join("、") : "無";
+              // 🧪 2026-07 玩家提案「達成的約定當記憶點」：原本兌現後直接從陣列刪除、船過水無痕
+              //   (跟REL_MEM專屬稱呼原本的問題同款浪費)。改成順手存一筆到REL_MEM的[已兌現]，
+              //   讓角色以後還記得「一起做過」，不只是被動等下一次好感度數字判斷關係。
+              let oldRMemForDone = String(pcData[nIdx][COL.PC.REL_MEM] || "");
+              let doneMatch = oldRMemForDone.match(/\[已兌現\](.*?)(?=\| \[|$)/);
+              let doneArr = doneMatch ? doneMatch[1].trim().split('、').map(x => x.trim()).filter(x => x && x !== "無") : [];
+              if (!doneArr.includes(doneTask)) doneArr.push(doneTask);
+              if (doneArr.length > 3) doneArr.shift();
+              let newDoneSeg = `[已兌現]${doneArr.join('、')}`;
+              pcData[nIdx][COL.PC.REL_MEM] = doneMatch
+                ? oldRMemForDone.replace(/\[已兌現\](.*?)(?=\| \[|$)/, newDoneSeg)
+                : (oldRMemForDone.trim() ? `${oldRMemForDone.trim()} | ${newDoneSeg}` : newDoneSeg);
             }
           } else if (!eventArray.includes(newEvent)) {
             eventArray.push(newEvent); if (eventArray.length > 3) eventArray.shift();
@@ -466,7 +483,12 @@ ${isKanshou ? `
           let count = (oldRMem.match(/\[親密次數\](\d+)/) || [])[1] ? parseInt((oldRMem.match(/\[親密次數\](\d+)/) || [])[1]) : 0;
           if (isNsfwMode) count += 1;
           let talkStr = (oldRMem.match(/\[交談輪數\](\d+)/) || [])[1] ? ` | [交談輪數]${(oldRMem.match(/\[交談輪數\](\d+)/) || [])[1]}` : "";
-          pcData[targetIdx][COL.PC.REL_MEM] = `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/, nfb.mutual_nicknames, 3)} | [親密次數]${count}${talkStr}`;
+          // 🧪 2026-07：已兌現的約定(見上方 major_event 的[達成]處理)也存在同一欄REL_MEM——這裡整串
+          //   重建時要一併帶過去，否則本回合同時觸發[達成]又剛好被寫進intimacy_feedback.npcs時，
+          //   已兌現記憶會被這行蓋掉(跟交談輪數用同一招：extract 舊值、reinject 回新字串)。
+          let doneStr = (oldRMem.match(/\[已兌現\](.*?)(?=\| \[|$)/) || [])[1]?.trim();
+          doneStr = (doneStr && doneStr !== "無") ? ` | [已兌現]${doneStr}` : "";
+          pcData[targetIdx][COL.PC.REL_MEM] = `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/, nfb.mutual_nicknames, 3)} | [親密次數]${count}${talkStr}${doneStr}`;
         });
       }
     }
