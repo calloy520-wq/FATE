@@ -233,6 +233,24 @@ function actionMove(userData, pcId, sheets) {
       worldRumors.unshift('〔撤離·' + (pursuit.np ? '寶具追擊' : '追擊') + '〕' + pursuit.note + (pursuit.dmg ? `（${pursuit.hitWho === 'us' ? '從者受創' : '反咬逼退追兵'} −${pursuit.dmg}）` : ''));
     }
   }
+  // 📊🎭 2026-07 修「追擊戰報從者沒有描述」：舊版只把 pursuit.note 塞進抵達提示詞裡當一句附註，
+  //   既沒有像卸防突襲那樣的數字戰報卡（玩家反映看不到發生了什麼)，也沒附上追兵的 servantCard_
+  //   (性格/口吻卡)——AI 只拿到一句乾巴巴的事實敘述，沒有角色素材可演，難怪從者/敵人都演不出反應。
+  //   比照 enemyAmbushOnServant_ 的 foeCard 模式補上：foeCard 讓 AI 知道追兵是誰、什麼調性；
+  //   report 讓前端秒顯數字戰報卡(renderFateBattleReport 新增 r.pursuit 分支)，不必等 AI。
+  var pursuitReport = null;
+  if (pursuit) {
+    var pFsvIdx = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
+    var pSvName = pFsvIdx !== -1 ? String(allPcData[pFsvIdx][COL.PC.NAME]) : "從者";
+    var pSvHpMax = pFsvIdx !== -1 ? (parseInt(allPcData[pFsvIdx][COL.PC.MAX_HP]) || 0) : 0;
+    var pSvHpAfter = pFsvIdx !== -1 ? (parseInt(allPcData[pFsvIdx][COL.PC.HP]) || 0) : 0;
+    var pChaserRow = allPcData.find(function (r) { return String(r[COL.PC.ID]) === pursuit.chaserId; });
+    pursuit.foeCard = pChaserRow ? servantCard_(pChaserRow) : "";
+    pursuitReport = {
+      pursuit: true, np: !!pursuit.np, enemyName: pursuit.enemyName, dmg: pursuit.dmg, hitWho: pursuit.hitWho,
+      svName: pSvName, svHpMax: pSvHpMax, after: pSvHpAfter
+    };
+  }
 
   // ⏳ 時回：移動的 2 小時間，御主與同行從者隨時間自然回復（HP 固定、MP 看魔術迴路）。
   //   大幅恢復靠「休息」（同一套規則 ×2）。便宜：只改記憶體那幾格，隨移動一起寫回，零額外讀寫，不會變慢。
@@ -285,6 +303,7 @@ function actionMove(userData, pcId, sheets) {
     servantCard: svCardMove,
     foeCards: foeCardsMove,
     pursuit: pursuit,
+    report: pursuitReport, // 📊 撤離追擊數字戰報卡(見上方建構處)——renderFateBattleReport 秒顯，不等 AI
     preFoes: preFoesAtTarget,
     victory: moveVictory,
     dreamPrompt: moveDream,

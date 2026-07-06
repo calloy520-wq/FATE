@@ -352,14 +352,16 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 
 ## 10. 前端自建 prompt 的特例：`actionMove` 的 `arrivePrompt`
 
-`actionMove`（action `move`）後端**不组 aiPrompt**，只回傳素材：`masterCard`／`servantCard`（`servantCard_`）／`foeCards`（在場敵從者的 `servantCard_` 陣列）／`pursuit`（撤離追擊結果）／`preFoes`／`mapDesc`／`people`／`locations`／`clock`/`ap`。
+`actionMove`（action `move`）後端**不组 aiPrompt**，只回傳素材：`masterCard`／`servantCard`（`servantCard_`）／`foeCards`（在場敵從者的 `servantCard_` 陣列）／`pursuit`（撤離追擊結果，2026-07 起額外附 `foeCard`＝追兵的 `servantCard_`）／`report`（2026-07 新增·撤離追擊數字戰報卡，供 `renderFateBattleReport` 秒顯，不等 AI）／`preFoes`／`mapDesc`／`people`／`locations`／`clock`/`ap`。
+
+- **🐛→✅ 2026-07 修「追擊戰報從者沒有描述」**：舊版 `pursuit` 只有 `{enemyName,dmg,hitWho,note}`，前端只把 `note` 塞成一句附註，AI 沒有追兵的性格/口吻素材可演；也沒有像卸防突襲那樣的數字戰報卡，玩家看不到發生了什麼。已比照 `enemyAmbushOnServant_` 的 `foeCard` 模式，在 `actionMove`(`Router_Movement.gs`) 對 `pursuit` 補上 `foeCard: servantCard_(chaserRow)`，並新建 `report`(`pursuit:true` 分支)。前端 `renderFateBattleReport` 新增 `r.pursuit` 分支(取代舊版純文字一行 div)；`arrivePrompt` 多插一段 `【撤離途中的追兵】${data.pursuit.foeCard}`，撤離追擊/反咬的指令句也各自改為「依上方【撤離途中的追兵】的性格演出…」，讓 AI 有真實角色素材可依循。
 
 前端 `travelTo()`（Script.html:735-803）**自己拼出** `arrivePrompt`：
 ```
-(masterCard) + (servantCard) + (foeCards)
+(masterCard) + (servantCard) + (foeCards) + [若有撤離追擊] 【撤離途中的追兵】(pursuit.foeCard)
 + 【抵達場景】御主『${pc.name}』…剛抵達冬木的「${targetName}」，時值${timeStr}。
 + 此地氛圍：${locDesc}\n敵情：${foeStr}。
-+ [若有撤離追擊] ★【撤離追擊】/★【撤離反咬】…
++ [若有撤離追擊] ★【撤離追擊】/★【撤離反咬】…(依上方追兵性格演出)
 + [若多組敵對] ★【在場敵對歸屬·勿張冠李戴】…
 + [若有前情] 【前情·僅供承接劇情連貫，勿原樣複述】方才之事：${lastAiContext.slice(0,280)}…
 + ★以 Fate／TYPE-MOON 筆觸描寫兩人抵達此地的所見所感、環境細節與當下氛圍。若有敵蹤，營造一觸即發的對峙張力（但是否交戰、勝負留待御主下令，禁止自行開打或分勝負）；若無敵蹤，寫一段巡查、警戒或短暫喘息的氛圍…

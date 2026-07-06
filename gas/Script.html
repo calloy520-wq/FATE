@@ -93,7 +93,7 @@
     var c = String(myServantCls || '');
     if (c === 'Caster') return { emo: '🔮', name: '魔砲', hint: '以魔力轟擊', col: '#7e6cff', rgb: '126,108,255' };
     if (c === 'Archer') return { emo: '🏹', name: '狙擊', hint: '遠程精準', col: '#5cb88f', rgb: '92,184,143' };
-    return { emo: '⚔️', name: '出戰', hint: '近身搏殺', col: '#e07a7a', rgb: '165,42,42' };
+    return { emo: '⚔️', name: '攻擊', hint: '近身搏殺', col: '#e07a7a', rgb: '165,42,42' };
   }
   let nearbyLocations = [];
   let historyPushed = false;
@@ -788,7 +788,7 @@
         nearbyLocations = data.locations || [];
         // 1. 地點小標
         story.insertAdjacentHTML('beforeend', `<div class="msg-player" style="align-self:center;color:#9fc0ef;font-size:12.5px;">📍 抵達「${targetName}」</div>`);
-        if (data.pursuit) { const _pu = data.pursuit, _us = _pu.hitWho === 'us'; story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:${_us ? '#e0915c' : '#7fc77f'};font-size:12px;text-align:center;border:1px solid rgba(${_us ? '200,120,70' : '120,180,120'},.35);border-radius:8px;padding:5px 10px;">💨 ${_us ? '撤離追擊：被「' + _pu.enemyName + '」咬了一記——從者' : '撤離反咬：回身將「' + _pu.enemyName + '」逼退——追兵'} <b>−${_pu.dmg}</b></div>`); }
+        if (data.report) renderFateBattleReport(data.report); // 💨 撤離追擊戰報卡（秒顯數字，取代舊版純文字一行）
         updateClock(data.clock, data.ap, data.apMax);
         updateEconomy(data.economy);
         showRumors(data.rumors);
@@ -816,11 +816,12 @@
           + `★御主（我）可依其性格自然開口、有反應與台詞，別當沉默的旁觀者；但【不可】替御主拍板下一步（移動、互動皆由玩家決定），停在決策前的留白讓玩家以按鍵或對話回應。`
         ) : (
         (data.masterCard || '') + (data.servantCard ? '【我方從者】' + data.servantCard : '') + (data.foeCards ? '【敵方從者·非我方】' + data.foeCards : '')
+          + (data.pursuit && data.pursuit.foeCard ? '【撤離途中的追兵】' + data.pursuit.foeCard : '')
           + `【抵達場景】御主『${pc.name}』${pc.servant ? `與從者「${pc.servant}」` : ''}剛抵達冬木的「${targetName}」，時值${timeStr}。\n`
           + `此地氛圍：${locDesc}\n敵情：${foeStr}。\n`
           + (data.pursuit ? (data.pursuit.hitWho === 'us'
-              ? `★【撤離追擊】方才從「${data.pursuit.enemyName}」的勢力範圍抽身時，對方追上來咬了一記（從者受創 −${data.pursuit.dmg}）——抵達時帶著甩脫追兵的餘悸與狼狽，而非從容無事。\n`
-              : `★【撤離反咬】方才「${data.pursuit.enemyName}」追擊而至，從者回身一擊將其逼退（追兵受創 −${data.pursuit.dmg}）方才從容退場——可演出那記漂亮的斷後，但仍是脫離、非纏戰。\n`) : '')
+              ? `★【撤離追擊】方才從「${data.pursuit.enemyName}」的勢力範圍抽身時，對方追上來咬了一記（從者受創 −${data.pursuit.dmg}）——依上方【撤離途中的追兵】的性格與口吻演出這記追擊，也讓從者演出被咬中的反應；抵達時帶著甩脫追兵的餘悸與狼狽，而非從容無事。\n`
+              : `★【撤離反咬】方才「${data.pursuit.enemyName}」追擊而至，從者回身一擊將其逼退（追兵受創 −${data.pursuit.dmg}）——依上方【撤離途中的追兵】的性格演出對方追擊落空/被逼退時的反應，我方從者則演出漂亮斷後的餘裕；抵達時方才從容退場，而非纏戰。\n`) : '')
           + ((foes.filter(f => f.faction === '敵御主' || f.faction === '敵從者').length > 1) ? `★【在場敵對歸屬·勿張冠李戴】${foes.filter(f => f.faction === '敵御主').map(f => `御主「${f.name}」${f.servant ? `↔從者「${f.servant}」` : '（已無從者）'}`).concat(foes.filter(f => f.faction === '敵從者' && !foes.some(m => m.faction === '敵御主' && m.servant === f.name)).map(f => `從者「${f.name}」${f.master ? `↔御主「${f.master}」` : ''}`)).join('；')}。各組從者只聽命於自己的御主，彼此可能也互為敵手。\n` : '')
           + (lastAiContext ? `\n【前情·僅供承接劇情連貫，勿原樣複述】方才之事：${lastAiContext.slice(0, 280)}\n${foes.length ? '若眼前敵人正是方才那場的對手，便是對方一路追上來／再度狹路相逢——承接前情、別當第一次見面（對方可能仍帶著方才的傷或怒）。' : '此番移動承接前情——【依方才的勝負結果與當前血量自行定調，勿臆測】：剛大勝→可帶餘勇或警戒餘悸；浴血慘勝→疲憊卻仍挺立；落敗逃離→狼狽負傷。別硬演成敗走、也別當若無其事。'}\n` : '')
           + `★以 Fate／TYPE-MOON 筆觸描寫兩人抵達此地的所見所感、環境細節與當下氛圍。若有敵蹤，營造一觸即發的對峙張力（但是否交戰、勝負留待御主下令，禁止自行開打或分勝負）；若無敵蹤，寫一段巡查、警戒或短暫喘息的氛圍，並自然暗示「可凝神偵查四周，或轉往他處」。\n`
@@ -1806,6 +1807,26 @@
   function renderFateBattleReport(r) {
     if (!r) return;  // 🔧 修正：斬首/突襲戰報無 rounds 欄，舊版 !r.rounds 會把它們擋掉(戰報不顯示)
     const story = document.getElementById('story');
+    // 💨 撤離追擊戰報卡（移動離場時遭敵從者咬一記／回身反咬逼退追兵，見 actionMove pursuit）
+    if (r.pursuit) {
+      const usHit = r.hitWho === 'us';
+      const hpct = Math.max(0, Math.min(100, r.svHpMax ? Math.round(r.after / r.svHpMax * 100) : 0));
+      const accent = usHit ? '224,120,80' : '127,199,127';
+      let a = '<div style="border:1px solid rgba(' + accent + ',0.5);border-radius:9px;padding:10px 12px;margin:6px 0;background:rgba(' + (usHit ? '40,22,16' : '18,32,18') + ',0.55);font-size:12px;">';
+      a += '<div style="font-weight:bold;margin-bottom:5px;color:rgb(' + accent + ');">💨 撤離' + (r.np ? '·寶具' : '') + (usHit ? '追擊' : '反咬') + '・「' + r.enemyName + '」</div>';
+      a += usHit
+        ? ('<div style="color:#e0a080;font-size:11px;">「' + r.svName + '」轉身欲走時被咬了一記　<b>−' + r.dmg + '</b></div>')
+        : ('<div style="color:#a0e0a0;font-size:11px;">「' + r.svName + '」回身將追兵逼退　<b style="color:#7fc77f;">敵 −' + r.dmg + '</b>，我方無傷</div>');
+      if (usHit) {
+        a += '<div style="color:#9a8bb0;font-size:10px;margin-top:4px;">' + r.svName + '</div>';
+        a += '<div style="position:relative;height:9px;background:linear-gradient(180deg,#16121c,#241d2c);border-radius:6px;overflow:hidden;margin-top:2px;border:1px solid rgba(0,0,0,.4);"><div style="width:' + hpct + '%;height:100%;background:linear-gradient(180deg,#8ee08e,#4caa4c 55%,#2f8f3f);"></div></div>';
+        a += '<div style="font-size:9.5px;color:#8a7f9a;text-align:right;">' + r.after + '/' + r.svHpMax + '</div>';
+      }
+      a += '</div>';
+      story.insertAdjacentHTML('beforeend', a);
+      story.scrollTop = story.scrollHeight;
+      return;
+    }
     // ⚔️ 卸防突襲戰報卡（休息/補魔/搜索/偵查時遭敵從者趁隙重擊）
     if (r.ambush) {
       const hpct = Math.max(0, Math.min(100, r.svHpMax ? Math.round(r.after / r.svHpMax * 100) : 0));
