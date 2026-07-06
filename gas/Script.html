@@ -801,7 +801,20 @@
           ? `此地有敵蹤：${foes.map(f => f.name + '（' + (f.faction === '敵從者' ? '敵從者' : '敵御主') + '）').join('、')}`
           : '此地暫無明顯敵蹤';
         const timeStr = (data.clock || '').split('・').slice(-1)[0] || '此刻';
-        const arrivePrompt = (data.masterCard || '') + (data.servantCard ? '【我方從者】' + data.servantCard : '') + (data.foeCards ? '【敵方從者·非我方】' + data.foeCards : '')
+        // 🐛→✅ 2026-07 修：鑑賞(慾海)移動原本跟solo共用同一份戰爭/巡查風格的抵達提示詞——玩家反映
+        // 「明明沒有敵人，感覺卻像要戰鬥了」。foes 在鑑賞恆為空陣列(無敵從者/敵御主)，但下方固定的
+        // 「若無敵蹤，寫巡查/警戒/喘息」指令完全沒因模式而變，每次移動都硬帶戰爭氛圍。改成鑑賞獨立
+        // 一份溫和的抵達提示詞，不提敵蹤/戰鬥/警戒，改講同行同伴的日常互動。
+        const kanshouCompanionNames = (myServants || []).map(function (s) { return s.name; }).filter(Boolean);
+        const arrivePrompt = (pc.mode === 'kanshou') ? (
+          (data.masterCard || '') + (data.servantCard ? '【同行同伴】' + data.servantCard : '')
+          + `【抵達場景】『${pc.name}』${kanshouCompanionNames.length ? `與「${kanshouCompanionNames.join('、')}」` : ''}來到了「${targetName}」，時值${timeStr}。\n`
+          + `此地氛圍：${locDesc}\n`
+          + `★以細膩溫暖的 Fate／TYPE-MOON 筆觸描寫抵達此地的所見所感、環境細節與當下氛圍——這是後日談的和平時光，沒有敵蹤、沒有戰鬥，不必警戒或巡查，單純換了個地方繼續相處。\n`
+          + (kanshouCompanionNames.length ? `★同行的「${kanshouCompanionNames.join('、')}」依其個性自然開口、有反應（至少一句台詞），別寫成御主獨自一人的自言自語。\n` : `★此刻獨自一人，可寫御主自己此刻的心境與所見所感。\n`)
+          + `★御主（我）可依其性格自然開口、有反應與台詞，別當沉默的旁觀者；但【不可】替御主拍板下一步（移動、互動皆由玩家決定），停在決策前的留白讓玩家以按鍵或對話回應。`
+        ) : (
+        (data.masterCard || '') + (data.servantCard ? '【我方從者】' + data.servantCard : '') + (data.foeCards ? '【敵方從者·非我方】' + data.foeCards : '')
           + `【抵達場景】御主『${pc.name}』${pc.servant ? `與從者「${pc.servant}」` : ''}剛抵達冬木的「${targetName}」，時值${timeStr}。\n`
           + `此地氛圍：${locDesc}\n敵情：${foeStr}。\n`
           + (data.pursuit ? (data.pursuit.hitWho === 'us'
@@ -821,7 +834,8 @@
               `★敵御主『${f.name}』已痛失從者（${f.lostServant}）、形單影隻、再無從者可驅使——是聖杯戰爭中無牙的棋手。讓其神情與心境流露這份失恃（依個性：孤注一擲／惶然欲逃／不甘怨懟），切勿演成仍有從者隨侍在旁。\n`).join('')
           + (pc.servant ? `★從者「${pc.servant}」隨行在側，依其個性開口、有反應（至少一句台詞），別寫成御主獨自一人的自言自語。\n` : '')
           + (foes.length ? '' : stanceLine_()) // 有敵蹤→姿態已折進偶遇/找上門的 stanceNotice_，不重複；無敵蹤→獨行姿態定調
-          + `★御主（我）可依其性格自然開口、有反應與台詞，別當沉默的旁觀者；但【不可】替御主拍板下一步戰略行動（出戰／結盟／移動／補魔由玩家按鍵決定）、不可逼問玩家，停在決策前的留白讓玩家以按鍵回應。`;
+          + `★御主（我）可依其性格自然開口、有反應與台詞，別當沉默的旁觀者；但【不可】替御主拍板下一步戰略行動（出戰／結盟／移動／補魔由玩家按鍵決定）、不可逼問玩家，停在決策前的留白讓玩家以按鍵回應。`
+        );
         if (data.defeat) { await handleDefeat(data); }  // ⏳ 移動跨過第14日時限 → 直接收場(略過抵達敘事)
         else {
           await narrate(arrivePrompt);
@@ -1431,7 +1445,7 @@
       var mPhysLine = '';
       if (pc && pc.mode === 'kanshou') {
         // 🐛→✅ 2026-07 同步同伴卡的精簡：只列原始描述值、不帶鍵名前綴，label改「當下狀態」對齊。
-        try { var mpo = JSON.parse(m.physical || '{}'); var mps = Object.keys(mpo).map(function (k) { return mpo[k]; }).join('、'); if (mps) mPhysLine = '<div style="color:#e0a0bc; font-size:11px; line-height:1.5;">當下狀態　' + mps + '</div>'; } catch (e) { }
+        try { var mpo = JSON.parse(m.physical || '{}'); var mps = Object.keys(mpo).map(function (k) { return mpo[k]; }).filter(function (v) { return v && v !== '無'; }).join('、'); if (mps) mPhysLine = '<div style="color:#e0a0bc; font-size:11px; line-height:1.5;">當下狀態　' + mps + '</div>'; } catch (e) { }
       }
       let mh = '<div style="background:rgba(20,14,28,0.55); border:1px solid #d4af37; border-radius:8px; padding:6px 8px;">'
         + '<div style="color:#d4af37; font-weight:bold; font-size:12px;">⚜️ 御主</div>'
@@ -1495,7 +1509,10 @@
         //   physical_state 的顯示改成「當下狀態」單行、只列原始描述值、不帶「姿勢與動作：」這類鍵名前綴——
         //   玩家要的是像敘述一樣直接讀下去，不是一張表單。
         if (pc && pc.mode === 'kanshou') {
-          var physK = ''; try { var po = JSON.parse(s.physical || '{}'); physK = Object.keys(po).map(function (k) { return po[k]; }).join('、'); } catch (e) { }
+          // 🐛→✅ 2026-07 修：既有存檔可能還留著改「不填無」規則前AI寫入的舊「無」值(如「肉棒：無」)，
+          //   schema/提示詞修正只擋得住新輸出、擋不住已經merge進資料庫的舊值——顯示端加一道濾網，
+          //   值為「無」(或空)的鍵直接跳過不顯示，新舊資料都乾淨。
+          var physK = ''; try { var po = JSON.parse(s.physical || '{}'); physK = Object.keys(po).map(function (k) { return po[k]; }).filter(function (v) { return v && v !== '無'; }).join('、'); } catch (e) { }
           return '<div style="background:rgba(40,20,34,0.5); border:1px solid #a04a6a; border-radius:8px; padding:6px 8px;">'
             + '<div style="color:#e0a0bc; font-weight:bold; font-size:12px;">🌹 ' + s.cls + '</div>'
             + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
