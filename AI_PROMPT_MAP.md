@@ -28,7 +28,7 @@
 ## 1. 系統／敘事引擎共用機制
 
 ### `actionNarrateOnly`（action: `narrate_only`）— Router_Narrative.gs:739
-唯一的「純敘事」出口。前端 `narrate(promptText, isNsfw)` 呼叫。**不自己組事實內容**——`promptText` 是呼叫端（各 handler 的 `aiPrompt`，或前端自組的 `arrivePrompt`/`summonPrompt`）已經組好傳進來的；這裡只負責套上共用系統提示詞 `miniSystem` 並轉呼叫 `narrateWithState_`。
+唯一的「純敘事」出口。前端 `narrate(promptText)` 呼叫（2026-07 拔除死旗標 `isNsfw`——後端早改純看 pcId 前綴 `KPC_` 路由，前端傳了也被無視）。**不自己組事實內容**——`promptText` 是呼叫端（各 handler 的 `aiPrompt`，或前端自組的 `arrivePrompt`/`summonPrompt`）已經組好傳進來的；這裡只負責套上共用系統提示詞 `miniSystem` 並轉呼叫 `narrateWithState_`。
 
 `miniSystem`（逐字，Router_Narrative.gs:746，就地宣告於 `actionNarrateOnly` 內）關鍵鐵則：
 > 你是《命運停駐之夜》的說書人。用 Fate／TYPE-MOON 筆觸、第一人稱「我」（玩家＝御主）、強制台灣繁體中文…【篇幅依指令字數、精煉不灌水；無指定預設 100~160 字】。
@@ -334,7 +334,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 - 玩家自身卡、近期歷史（最近 12 筆，`pickRelevantLogs`）、在場路人近期歷史（10 筆）
 - 場景第三方交叉羈絆（好感≥80 或同行者互相的關係提示）
 - 每位在場 NPC 依好感分級的行為指令（`resistPrompt`，死仇/仇視/厭惡戒備/陌生/相識/友好/摯友七級，各自附一句行為邊界，如「【摯友／傾心】允許依賴與配合，但個性語癖與底線永久保留，禁止人格崩壞！」）
-- **僅 NSFW/kanshou 模式**：同地性別配對提示、肉體狀態 JSON（2026-07 起整合為單一 physical_state 5鍵：姿勢與動作/胸部/顏面/肉棒/蜜穴，原 visible_state+physical_state 8欄機制已退役）、每位 NPC 的「身體記憶」技能標籤、敏感點、親密次數計數器、愛稱
+- **僅 NSFW/kanshou 模式**：同地性別配對提示、肉體狀態 JSON（2026-07 起整合為單一 physical_state 6鍵：姿勢與動作/胸部/顏面/肉棒/蜜穴/服裝狀態，原 visible_state+physical_state 8欄機制已退役；1-5每回合必填、不適用性別的器官代碼直接不輸出）、每位 NPC 的「身體記憶」技能標籤、敏感點、親密次數計數器、愛稱、🔥主動掌握模式段落（前端 `drive` 旗標開啟時注入——同伴依個性主動掌握節奏、攔下玩家的迴避意圖；僅鑑賞生效）
 
 關鍵結構/收尾指令（逐字節錄）：
 > 【敘事法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。

@@ -15,6 +15,10 @@ function actionPlay(userData, pcId, sheets) {
   //   後端才是唯一可信防線(sanitizeUserData_ 同一哲學)，改成純看 pcId 路由，完全不信任何前端旗標：
   //   非 KPC_(kanshou) 一律鎖 SFW，userData.isNsfw 對 solo 不再有任何作用。
   const isNsfwMode = String(pcId || "").indexOf("KPC_") === 0;
+  // 🔥 主動掌握開關(2026-07 玩家定案·原nsfw開關重生)：只在鑑賞生效(isNsfwMode 閘門)——這旗標只
+  //   改變敘事「誰主導節奏」的語氣，不涉 SFW/NSFW 判定(那條仍純看 pcId)，故信前端無安全風險；
+  //   solo 傳了也因閘門直接無視，不可能重演舊 isNsfw 旗標污染 solo 的漏洞。
+  const driveOn = isNsfwMode && (userData.drive === true || String(userData.drive) === "true");
   const finalUserMsg = `【玩家意圖】：${userMsg}`;
 
   const formatPref = (str) => {
@@ -163,7 +167,14 @@ function actionPlay(userData, pcId, sheets) {
       nsfwMemories += `${npcOutfit ? `\n[${r[COL.PC.NAME]} 裝扮]：${npcOutfit}（玩家指定當前服裝·五官/髮色/體態不變）` : ""}\n[${r[COL.PC.NAME]} 肉體]：${JSON.stringify(npcPhysicalObj)}\n[快照]：[技巧]${npcSkills} | [羈絆]${relMem}`;
     });
 
-    PROMPT_REL = `【當前同地人物】\n${localSceneStr}\n★【情境延續鐵律】：請繼續往後推演！${nsfwMemories}${genderHintStr}
+    // 🔥 主動掌握模式(driveOn)：翻轉「誰主導節奏」——平時的矜持限制(慢熱/被動等玩家推進)換成
+    //   同伴主動出擊；玩家的迴避/抽身意圖會被依個性攔下(與「意圖攔截·玩家意圖非結果」鐵律同向，
+    //   不衝突)。主動的【形式】仍依好感與個性：低好感的主動是強勢試探/挑釁/戲弄的攻勢(非傾心倒貼，
+    //   與慢熱鐵律不牴觸)，高好感才是不加掩飾的索求。個性一致性鐵律照常有效。
+    const driveStr = driveOn ? `
+🔥【主動掌握模式·玩家已明確開啟】：本回合由在場同伴【主動掌握節奏、推進互動】，一改平日矜持——依各自個性展現攻勢(高傲者強勢宣告與命令、虔敬者以奉獻為名步步逼近、活潑者笑著纏上不放、深情者溫柔卻不容拒絕)。玩家若試圖迴避、轉移話題、抽身離開，同伴會依個性攔下、堵住退路、追上來，營造「想跑也跑不掉」的壓迫與心跳感。注意：①主動的【形式】仍依好感高低——低好感的主動是強勢試探/挑釁/戲弄的攻勢而非傾心示愛，高好感才是不加掩飾的索求；②【角色一致性鐵律】仍完全有效，主動方式必須貼合其個性與語癖，禁止千篇一律的霸道模板；③壓迫止於情境張力，嚴禁真正傷害玩家。` : '';
+
+    PROMPT_REL = `【當前同地人物】\n${localSceneStr}\n★【情境延續鐵律】：請繼續往後推演！${nsfwMemories}${genderHintStr}${driveStr}
 🛑【角色一致性鐵律】：NPC 的反應必須【死守】其「性格」與目前「好感度」的真實落差——好感未滿 80、或性格屬於冷酷/高傲/剛烈者，依這個設定判斷此刻合理的抗拒/抵觸程度演出，不因劇情推進就無視好感度線性軟化。即便肉體有生理反應，靈魂與對話的態度仍以角色設定為準。真正的沉溺不是放棄人格，而是【用原本的人格去承受快感】——高傲者咬牙不肯示弱、虔敬者於信仰間掙扎、活潑者笑鬧裡藏羞、深情者愈發黏膩——語癖、自稱與個性在最激烈處也不崩壞，【絕對禁止】任何角色在情慾中退化成千篇一律的發情機器。`;
 
   } else {

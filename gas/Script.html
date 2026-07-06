@@ -2637,8 +2637,8 @@ function applyModeUI() {
   var isKanshou = (pc && pc.mode === 'kanshou');
   var uin = document.getElementById('u-in'); if (uin) uin.style.display = isKanshou ? '' : 'none';
   var sbtn = document.getElementById('send-btn'); if (sbtn) sbtn.style.display = isKanshou ? '' : 'none';
-  var nsfw = document.getElementById('nsfw-mode-toggle');
-  if (nsfw) { var lab = nsfw.closest('label'); if (lab) lab.style.display = isKanshou ? '' : 'none'; }
+  var drv = document.getElementById('drive-mode-toggle'); // 🔥 主動掌握開關(原nsfw-mode-toggle重生，見Index.html註解)
+  if (drv) { var lab = drv.closest('label'); if (lab) lab.style.display = isKanshou ? '' : 'none'; }
   // 🎴 2026-07 UI 大改：solo 頂部＝查看/魔力/系統三鍵(取代地點)、底部輸入框整條隱藏(純按鍵)；
   //   慾海維持原本(頂部地點徽章＋底部輸入框打字互動＋NSFW開關)，零改動守紅線②。
   var tSolo = document.getElementById('topbar-solo'); if (tSolo) tSolo.style.display = isKanshou ? 'none' : 'flex';
@@ -2664,8 +2664,8 @@ function applyModeUI() {
     story.scrollTop = story.scrollHeight;
 
     try {
-      const isNsfw = document.getElementById('nsfw-mode-toggle')?.checked || false;
-      const res = await gasRun({ action: "narrate_only", pcId: pc.id, promptText: promptText, isNsfw: isNsfw });
+      // 🧹 2026-07：isNsfw 旗標已拔——actionNarrateOnly 早改為純看 pcId 路由(KPC_=NSFW)，前端傳了也被無視。
+      const res = await gasRun({ action: "narrate_only", pcId: pc.id, promptText: promptText });
       document.getElementById(loadId)?.remove();
 
       if (res.success && res.text) {
@@ -2690,8 +2690,9 @@ function applyModeUI() {
   async function send(customMsg, isSilent = false, combatData = null) {
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
-    const nsfwToggle = document.getElementById('nsfw-mode-toggle');
-    const isNsfw = nsfwToggle ? nsfwToggle.checked : false;
+    // 🔥 主動掌握開關(2026-07)：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
+    const driveToggle = document.getElementById('drive-mode-toggle');
+    const drive = driveToggle ? driveToggle.checked : false;
     let msg = customMsg || input.value.trim();
 
     if (!msg) return;
@@ -2722,7 +2723,7 @@ function applyModeUI() {
     
     try {
       const backLocked = localStorage.getItem('kyushu_back_locked') === 'true';
-const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, isNsfw: isNsfw, lastContext: lastAiContext, backLocked: backLocked });
+const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, drive: drive, lastContext: lastAiContext, backLocked: backLocked });
       
 
       document.getElementById(loadId)?.remove();

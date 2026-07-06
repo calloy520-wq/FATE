@@ -234,8 +234,9 @@
       document.getElementById('setup').style.display = 'none';
       document.getElementById('game').style.display = 'flex';
       applyModeUI();
-      // 🌹 慾海＝NSFW 後日談軌：自動打開 NSFW 開關，否則 isNsfwMode=false、親密/肉體狀態都不會回填。
-      var _nt = document.getElementById('nsfw-mode-toggle'); if (_nt) _nt.checked = true;
+      // 🔥 2026-07：舊「自動勾NSFW開關」已拔——NSFW 早改由 pcId(KPC_)路由決定、與勾選格無關；
+      //   該勾選格已重生為「主動掌握」開關(亮=同伴主動出擊)，預設熄滅=現在的矜持模式(玩家主導)。
+      var _dt = document.getElementById('drive-mode-toggle'); if (_dt) _dt.checked = false;
       document.getElementById('ui-name').innerText = pc.name;
       document.getElementById('ui-sex').innerText = pc.sex;
       setupHistoryPrevention();
