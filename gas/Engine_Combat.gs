@@ -14,7 +14,9 @@ function buildDefaultSystemPrompt(isNsfwMode, backLocked) {
     //   慾海(NSFW)本就不用 stat_changes(intimacy_feedback.physical_state 才是其管道·紅線區未動)。
     "rel_changes": [{ "target": "NPC名", "fav_change": 3, "tag": "無", "major_event": "無" }],
     "mentioned_names": ["劇情中出現的具名角色名字，不含玩家自己"],
-    "log_summary": { "subject": "主動方真名", "object": "被動/承受方真名(三人以上填眾人)", "event": "誰對誰做了什麼+對方反應，須含明確主被動方向，50字內", "tag": "閒聊/承諾/秘密/變故，四選一" }
+    // 🗑️ 2026-07 玩家定案：event/tag 兩欄拔除——因果表刪除後無任何代碼讀取(產了就丟)，
+    //   後端只消費 subject/object(交談輪數計數，見 Router_Narrative.gs)。以後要做回憶錄再加回。
+    "log_summary": { "subject": "主動方真名", "object": "被動/承受方真名(三人以上填眾人)" }
   };
 
   // 2. 慾海專屬 physical_state(2026-07 玩家定案整合)：原本 visible_state(衣服/姿勢/負面/顏面)＋
@@ -70,7 +72,7 @@ function buildDefaultSystemPrompt(isNsfwMode, backLocked) {
       "rel_changes": baseJson.rel_changes,
       "mentioned_names": baseJson.mentioned_names,
       // 🔴 慾海模式event欄位禁止描述肉體細節：實際因果文字改由GAS固定樣式生成(隱晦化)，AI只需給方向與標籤
-      "log_summary": { "subject": "主動方真名", "object": "被動/承受方真名(三人以上填眾人)", "event": "無須填寫實際肉體細節，僅需10字內極簡概括(如'共度春宵')", "tag": baseJson.log_summary.tag }
+      "log_summary": baseJson.log_summary
     };
   } else {
     baseJson.intimacy_feedback = { "npcs": [{ "name": "NPC名", "mutual_nicknames": "無" }] };
@@ -103,7 +105,7 @@ function buildDefaultSystemPrompt(isNsfwMode, backLocked) {
 
 【JSON格式】
 1. 只輸出合法JSON，不含 options 欄位——玩家的下一步一律來自遊戲按鍵，不需要你建議。
-2. log_summary.tag：預設「閒聊」，有承諾/邀約標「承諾」，揭露隱私/陰謀標「秘密」，死亡/背叛/重傷等轉折標「變故」。`;
+2. log_summary：subject填本回合主動方真名、object填被動/承受方真名(三人以上填眾人)，符合實際方向。`;
 
   // 🔴 NSFW(慾海模式)：本回合聚焦當下的近身互動(情慾/調情/鋪陳皆可)，雜務(物品/金錢/陣營/任務/招募/地圖/戰鬥數值/身世)
   // 完全不追蹤、不輸出，鐵律文字大幅精簡，盡量交給AI自行判斷。
@@ -135,7 +137,7 @@ function buildDefaultSystemPrompt(isNsfwMode, backLocked) {
 4. 聚焦當下最關鍵的一兩處深入著墨，篇幅靠情感起伏、神態心理、氛圍張力與對話堆疊撐起，而非鋪滿全身；❌絕對禁止逐一點名全身部位、禁止視/觸/嗅/聽四感清單式流水帳、禁止器官逐格交代；台詞被嬌喘打斷，勿一氣呵成。
 5. 器官依實際性別只填一項：男性只填「肉棒」代碼、女性只填「蜜穴」代碼——不適用的那項【直接不輸出這個代碼】，禁止寫「無」這種佔位敷衍(一旦寫入就會永久留在角色資料上)。【僅女女配對時】絕對禁止插入式陽具，以手指/舌/器物替代，嚴禁憑空生出男性器官；場上有男性時依實際器官自然裁決。
 6. physical_state欄位key固定用數字代碼(1=姿勢與動作 2=胸部 3=顏面 4=肉棒 5=蜜穴 6=服裝狀態)，禁用文字key，其餘進narration。1/2/3/4或5(擇一)每回合都要據實填最新狀態，不可偷懶沿用舊值；只有6(服裝狀態，描述玩家指定服裝【當下的凌亂/破損程度】，非更換服裝本身)可省略=維持原樣，脫離接觸改寫「鬆開/餘韻」。★此欄純為系統狀態記錄，narration敘事【絕對禁止】比照逐格謄寫每個部位狀態，敘事仍以第4條為準、聚焦留白。
-7. log_summary：subject填主導方真名、object填承受方真名(三人以上填眾人)，符合實際方向，禁因身分預設主動方；tag預設「閒聊」，唯有實質承諾/秘密/重大轉折才升級標「承諾」/「秘密」/「變故」。
+7. log_summary：subject填主導方真名、object填承受方真名(三人以上填眾人)，符合實際方向，禁因身分預設主動方。
 8. 粗暴動作轉為紅印/酥麻/強烈快感，禁肉體破損流血。雙修技巧(2~5字)填入dynamic_skills，貼合身分個性，禁動輒填無。`
     : `
 【聖杯戰爭】
