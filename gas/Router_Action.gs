@@ -377,6 +377,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
       outfit: getOutfit_(s[COL.PC.MEMORY]), // 👗 玩家換裝：當前服裝(前端預填/顯示·換衣不換人)
       weapon: getWeapon_(s[COL.PC.MEMORY]), // ⚔️ 玩家自定武裝：武器/戰鬥方式(前端預填/顯示·敘述以此為準)
       pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體
+      status: s[COL.PC.STATUS] || "{}", // 🌹 慾海卡用：姿勢/顏面(衣服已由outfit覆蓋顯示、負面另濾)——本就每回合被AI更新，此前只是沒露出給前端
       stolen: /【破戒奪取】/.test(String(s[COL.PC.MEMORY] || ""))
     });
   });

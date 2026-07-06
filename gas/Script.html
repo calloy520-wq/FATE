@@ -1494,6 +1494,18 @@
           var prefK = String(s.pref || '').split(/[、,，·・]/).filter(Boolean).slice(0, 4).join('、');
           var traitK = (s.traits || []).map(function (t) { return t && t.n; }).filter(Boolean).join('、'); // 🌹 純文字、不用戰鬥膠囊
           var physK = ''; try { var po = JSON.parse(s.physical || '{}'); physK = Object.keys(po).map(function (k) { return k + '：' + po[k]; }).join('　'); } catch (e) { }
+          // 🐛→✅ 姿勢/顏面(視覺化外顯狀態)本就每回合被AI寫回COL.PC.STATUS，此前只有肉體(器官狀態)露出、
+          //   姿態/神情完全沒顯示——玩家反映只看得到肉體很片段。併成一行「外顯」：姿勢/顏面(+負面若非「無」)+肉體，
+          //   衣服已由上面的「裝扮」(outfit覆蓋值)顯示，此處不重複。
+          var vsK = ''; try {
+            var vo = JSON.parse(s.status || '{}');
+            var vsParts = [];
+            if (vo['姿勢']) vsParts.push('姿勢：' + vo['姿勢']);
+            if (vo['顏面']) vsParts.push('顏面：' + vo['顏面']);
+            if (vo['負面'] && vo['負面'] !== '無') vsParts.push('負面：' + vo['負面']);
+            vsK = vsParts.join('　');
+          } catch (e) { }
+          var exposK = [vsK, physK].filter(Boolean).join('　');
           return '<div style="background:rgba(40,20,34,0.5); border:1px solid #a04a6a; border-radius:8px; padding:6px 8px;">'
             + '<div style="color:#e0a0bc; font-weight:bold; font-size:12px;">🌹 ' + s.cls + '</div>'
             + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
@@ -1501,7 +1513,7 @@
             + (prefK ? '<div style="color:#cbb; font-size:11px; line-height:1.5;">個性　' + prefK + '</div>' : '')
             + (traitK ? '<div style="color:#cbb; font-size:11px; line-height:1.5;">特徵　' + traitK + '</div>' : '')
             + '<div style="color:#cbb; font-size:11px; margin-top:2px;">關係　' + bondWord(s.bond) + '</div>'
-            + (physK ? '<div style="color:#e0a0bc; font-size:11px; margin-top:3px; line-height:1.5;">肉體　' + physK + '</div>' : '')
+            + (exposK ? '<div style="color:#e0a0bc; font-size:11px; margin-top:3px; line-height:1.5;">外顯　' + exposK + '</div>' : '')
             + '<div style="margin-top:6px;"><button onclick="changeOutfit(\'' + safeN + '\')" title="換裝：自訂她此刻的服裝穿著，AI 會依此描寫（只換衣不換人）。免費即時、留空恢復本相。" style="font-size:11px; padding:4px 11px; background:rgba(150,110,190,0.18); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👗 換裝</button></div>'
             + '</div>';
         }
