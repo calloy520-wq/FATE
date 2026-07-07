@@ -352,9 +352,10 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 
 ## 10. 前端自建 prompt 的特例：`actionMove` 的 `arrivePrompt`
 
-`actionMove`（action `move`）後端**不组 aiPrompt**，只回傳素材：`masterCard`／`servantCard`（`servantCard_`）／`foeCards`（在場敵從者的 `servantCard_` 陣列）／`pursuit`（撤離追擊結果，2026-07 起額外附 `foeCard`＝追兵的 `servantCard_`）／`report`（2026-07 新增·撤離追擊數字戰報卡，供 `renderFateBattleReport` 秒顯，不等 AI）／`preFoes`／`mapDesc`／`people`／`locations`／`clock`/`ap`。
+`actionMove`（action `move`）後端**不组 aiPrompt**，只回傳素材：`masterCard`／`servantCard`（`servantCard_`）／`foeCards`（在場敵從者的 `servantCard_` 陣列）／`pursuit`（撤離追擊結果，2026-07 起額外附 `foeCard`＝追兵的 `servantCard_`）／`report`（2026-07 新增·撤離追擊數字戰報卡，供 `renderFateBattleReport` 秒顯，不等 AI）／`factionClash`（2026-07 新增·抵達時撞見的敵對互毆，見下）／`preFoes`／`mapDesc`／`people`／`locations`／`clock`/`ap`。
 
 - **🐛→✅ 2026-07 修「追擊戰報從者沒有描述」**：舊版 `pursuit` 只有 `{enemyName,dmg,hitWho,note}`，前端只把 `note` 塞成一句附註，AI 沒有追兵的性格/口吻素材可演；也沒有像卸防突襲那樣的數字戰報卡，玩家看不到發生了什麼。已比照 `enemyAmbushOnServant_` 的 `foeCard` 模式，在 `actionMove`(`Router_Movement.gs`) 對 `pursuit` 補上 `foeCard: servantCard_(chaserRow)`，並新建 `report`(`pursuit:true` 分支)。前端 `renderFateBattleReport` 新增 `r.pursuit` 分支(取代舊版純文字一行 div)；`arrivePrompt` 多插一段 `【撤離途中的追兵】${data.pursuit.foeCard}`，撤離追擊/反咬的指令句也各自改為「依上方【撤離途中的追兵】的性格演出…」，讓 AI 有真實角色素材可依循。
+- **⚔️ 新增「敵對互毆」場景(2026-07 玩家提案)**：玩家反饋「兩組敵對人馬同格站著卻不打架很奇怪」——`actionMove` 抵達判定新增：若抵達地點同時有 ≥2 位不同敵御主(各帶其從者、皆非結盟中)，GAS 用 `resolveFateBattle_` 真實裁決兩位敵從者(取戰敗方傷害的0.4倍，只是「先前已互相消耗」的餘傷、非死鬥全額)扣血，建構 `factionClash:{aMaster,bMaster,loserName,dmg,note}`；`worldRumors` 插一則〔敵對交鋒〕、`arrivePrompt` 多一段「★【撞見敵對互毆】…這不是相安無事同處一地，是你打斷了一場戰鬥」指令，讓 AI 演出雙方戒備停手，而非兩批人相安無事站在原地。GAS 掌傷害裁決、AI 只演出中斷瞬間——符合 `DESIGN.md` 的「GAS掌數值、AI只說書」鐵則。
 
 前端 `travelTo()`（Script.html:735-803）**自己拼出** `arrivePrompt`：
 ```
@@ -363,6 +364,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 + 此地氛圍：${locDesc}\n敵情：${foeStr}。
 + [若有撤離追擊] ★【撤離追擊】/★【撤離反咬】…(依上方追兵性格演出)
 + [若多組敵對] ★【在場敵對歸屬·勿張冠李戴】…
++ [若撞見敵對互毆] ★【撞見敵對互毆】…GAS已裁決傷害，AI只演出中斷瞬間…
 + [若有前情] 【前情·僅供承接劇情連貫，勿原樣複述】方才之事：${lastAiContext.slice(0,280)}…
 + ★以 Fate／TYPE-MOON 筆觸描寫兩人抵達此地的所見所感、環境細節與當下氛圍。若有敵蹤，營造一觸即發的對峙張力（但是否交戰、勝負留待御主下令，禁止自行開打或分勝負）；若無敵蹤，寫一段巡查、警戒或短暫喘息的氛圍…
 + ★各地、各從者依此地氛圍與【角色卡性格＋前情因果】自然發揮，各有其調；忌千篇一律的套語與雷同結構…
