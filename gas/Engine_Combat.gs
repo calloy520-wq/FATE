@@ -139,23 +139,30 @@ function buildDefaultSystemPrompt(isNsfwMode, backLocked) {
   return baseRules + "\n" + specificRules + "\n\n★【輸出範本】\n" + JSON.stringify(finalJson, null, 2);
 }
 
+
 function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   if (!API_KEY) return JSON.stringify({ narration: "未設定 API_KEY", options: ["重試"] });
 
   if (typeof config === "number") config = { retries: config };
-  const modelName = config.model || "google/gemini-3.1-flash-lite";
+  
+  // 🎯 1. 預設模型切換為 Venice: Uncensored (free)
+  const modelName = config.model || "cognitivecomputations/dolphin-mistral-24b-venice-edition:free";
+  
   const temp = config.temperature !== undefined ? config.temperature : 0.8;
   const topP = config.top_p !== undefined ? config.top_p : 0.95;
-  const maxT = config.max_tokens || (config.isNsfwMode ? 2500 : 2000);
+  const maxT = config.max_tokens || (config.isNsfwMode ? 2600 : 2000);
   const retries = config.retries || 3;
-  const plainText = !!config.plainText; // 🆕 純散文模式(如奪杯回憶錄)：不強制 json_object、不抽 {…}、原樣回傳內容
+  const plainText = !!config.plainText; 
   let lastErrorMessage = "";
 
-  // 🗑️ 規矩表(主線時局/異象)已移除：舊提示詞補丁，含「廝殺/謀略」等戰爭設定會漏進慾海。
-  //   雙軌分離後 solo/kanshou 不再共吃此文。(config.ignoreLaw 保留為相容無害鍵)
   let systemContent = systemOverride || buildDefaultSystemPrompt(config.isNsfwMode, config.backLocked);
 
-  // 🔴【替換開始】組裝原生多輪 messages 陣列
+  // 🎯 2. 由於開源模型有時不完全相容 response_format，在此以文字追加 JSON 死命令雙重保險
+  if (!plainText && !systemContent.includes("JSON 物件格式")) {
+    systemContent += `\n\n【系統約束】請嚴格遵循輸出範本的 JSON 物件格式回應，確保包含完整欄位，絕對不要輸出任何 JSON 之外的 markdown 語法或解釋性廢話。`;
+  }
+
+  // 組裝多輪 messages 陣列
   let apiMessages = [
     { role: "system", content: systemContent }
   ];
@@ -173,42 +180,54 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
     top_p: topP,
     max_tokens: maxT
   };
-  if (!plainText) payload.response_format = { type: "json_object" }; // 散文模式不強制 JSON
-  // 🔴【替換結束】
+  if (!plainText) payload.response_format = { type: "json_object" }; 
+
+  // 🎯 3. 將原來的 MODEL_URL 徹底更換為 OpenRouter 官方端點
+  const OPENROUTER_URL = "[https://openrouter.ai/api/v1/chat/completions](https://openrouter.ai/api/v1/chat/completions)";
 
   const options = {
     method: "post", contentType: "application/json",
-    headers: { "Authorization": "Bearer " + API_KEY },
+    headers: { 
+      "Authorization": "Bearer " + API_KEY,
+      "HTTP-Referer": "[https://script.google.com](https://script.google.com)", // OpenRouter 要求識別
+      "X-Title": "命運停駐之夜"
+    },
     payload: JSON.stringify(payload), muteHttpExceptions: true
   };
 
-  // 🔴 降階重試專用：一旦判定為審查攔截，下一次重試改塞更含蓄的筆法指令，
-  // 而非原樣重送(原樣重送對審查攔截毫無意義，只會再被擋一次)。一般網路錯誤則不降階，原樣重試即可。
   const softenSuffix = `\n\n★【降階重試】上一次輸出未通過審查判定，請改用更含蓄典雅的筆法重新演繹本回合：以景喻情、意境留白，避免直白器官名稱與動作描寫，情慾僅以氛圍、情感與感官烘托表現，其餘JSON欄位規則不變。`;
   let softened = false;
 
   for (let i = 0; i < retries; i++) {
     try {
-      const res = UrlFetchApp.fetch(MODEL_URL, options);
+      // 🎯 4. 呼叫 OpenRouter 端點
+      const res = UrlFetchApp.fetch(OPENROUTER_URL, options);
       const result = JSON.parse(res.getContentText());
+      
       if (result.error) {
-        // 🔴 Gemini審查攔截(如PROHIBITED_CONTENT)走error物件回來，格式跟finish_reason那條不同，
-        // 統一改丟"Triggered_NSFW_Filter"才能吃到下面的降階重試與柔和提示，不然會直接洩漏原始錯誤訊息給玩家
         const errMsg = result.error.message || "API 內部錯誤";
-        if (/PROHIBITED_CONTENT|SAFETY/i.test(errMsg)) throw new Error("Triggered_NSFW_Filter");
+        // 擴大攔截字眼，包含 OpenRouter 側可能出現的 censored/moderation 錯誤
+        if (/PROHIBITED_CONTENT|SAFETY|censored|moderation/i.test(errMsg)) throw new Error("Triggered_NSFW_Filter");
         throw new Error(errMsg);
       }
+      
       if (result.choices && result.choices.length > 0) {
         let choice = result.choices[0];
         if (choice.finish_reason === "content_filter" || choice.finish_reason === "SAFETY" || (choice.message && !choice.message.content)) {
           throw new Error("Triggered_NSFW_Filter");
         }
         let text = choice.message.content;
-        if (plainText) return String(text || "").trim(); // 散文模式：原樣回傳，不抽 {…}、不 JSON.parse
+        if (plainText) return String(text || "").trim(); 
+        
+        // 🎯 5. 核心修復：拔除開源模型容易夾帶的 ```json ... ``` 標籤避免 JSON.parse 爆掉
+        if (text.includes("```")) {
+          text = text.replace(/```json/gi, "").replace(/```/gi, "").trim();
+        }
+
         const s = text.indexOf('{');
         const e = text.lastIndexOf('}');
         text = text.substring(s, e + 1);
-        JSON.parse(text);
+        JSON.parse(text); 
         return text;
       } else { throw new Error("無效的選項結構"); }
     } catch (e) {
@@ -225,12 +244,12 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
     }
   }
 
-  const isBlocked = lastErrorMessage.includes("Triggered_NSFW_Filter") || lastErrorMessage.includes("safety");
+  const isBlocked = lastErrorMessage.includes("Triggered_NSFW_Filter") || lastErrorMessage.includes("safety") || lastErrorMessage.includes("censored");
   const fallbackNarration = isBlocked
     ? "🌸【結界觸發】妳的舉動觸動了某種微妙的禁制，此處的景象暫時被屏蔽，請再度嘗試。"
     : `⚡【連線中斷】連線失敗：${lastErrorMessage}`;
 
-  if (plainText) return fallbackNarration; // 散文模式：失敗也回純文字，不污染回憶錄成 JSON
+  if (plainText) return fallbackNarration; 
 
   return JSON.stringify({
     narration: fallbackNarration, options: ["1. 深吸一口氣，平復心緒", "2. 溫柔地退開半步", "3. 輕聲轉移話題", "4. 稍作歇息"],
