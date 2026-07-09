@@ -188,7 +188,11 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   sRow[COL.PC.BACK] = p.back ? String(p.back).slice(0, 28) : `${sRow[COL.PC.RANK]}・${name}`;
   // 🆕 直接召喚無快照可帶，先給「日常便服」墊底，卡片才不會裝扮欄空白待換裝
   sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", p.speech, p.tic), "日常便服");
-  sRow[COL.PC.PHYSICAL] = (sex === "男") ? JSON.stringify({ "肉棒": "如常" }) : JSON.stringify({ "蜜穴": "未開" });
+  // 🧹 2026-07 玩家定案「同伴也可以不先顯示」：拿掉建立當下就預填肉體狀態的做法，改跟御主本人
+  // (actionEnterKanshou)一致——PHYSICAL 留空，「當前狀態」面板顯示「--」，直到真的發生第一次
+  // 互動、AI 回傳 intimacy_feedback 才第一次寫入。Router_Narrative.gs 的懶初始化(pPhysicalObj
+  // 為空物件時依性別現算預設值)本就會在那之前的 prompt 組裝過程臨時補上，AI 不會拿到空物件，
+  // 只是不再「還沒發生任何事就先寫進資料庫」。
   sRow[COL.PC.GAME_ID] = gameId;
   sRow[COL.PC.BOND] = 45; sRow[COL.PC.REL_TAG] = "從者"; sRow[COL.PC.IS_PARTY] = "同行";
   sRow[COL.PC.REL_MEM] = "初次相遇，緣分才剛開始"; sRow[COL.PC.MAJOR_EVENT] = "";
