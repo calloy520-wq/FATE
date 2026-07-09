@@ -175,7 +175,8 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   if (!API_KEY) return JSON.stringify({ narration: "未設定 API_KEY", options: ["重試"] });
 
   if (typeof config === "number") config = { retries: config };
-  const modelName = config.model || "google/gemini-3.1-flash-lite";
+  const modelName = config.model || AI_MODEL;
+  if (!modelName) return JSON.stringify({ narration: "未設定 MODEL 指令碼屬性", options: ["重試"] });
   const temp = config.temperature !== undefined ? config.temperature : 0.8;
   const topP = config.top_p !== undefined ? config.top_p : 0.95;
   // 2026-07：慾海這幾輪新增 inner_monologue＋physical_state 每回合必填欄位變多，結構性佔用 token 略增，

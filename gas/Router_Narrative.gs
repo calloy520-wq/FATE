@@ -233,7 +233,7 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
     : `🚨【敘事終極警告】：結果後必須停在「我」當下進行式的心境與情緒中，留一個未完成的動作、未說完的話或懸而未決的情緒把下一步交還玩家——【絕對禁止】寫出「那一刻／那一夜／自此／就這樣／從此」等總結收尾句，讓這回合讀起來像已經翻頁的完結篇章！`}`;
 
   try {
-    let aiConfig = isNsfwMode ? { temperature: 1.0, top_p: 0.95, retries: 2, model: "google/gemini-3.1-flash-lite", isNsfwMode: true } : {};
+    let aiConfig = isNsfwMode ? { temperature: 1.0, top_p: 0.95, retries: 2, model: AI_MODEL, isNsfwMode: true } : {};
     aiConfig.backLocked = userData.backLocked || false;
 
     // 🔴【新增】抓取近 6 筆原始歷史(3輪)，轉換為 API 格式
@@ -726,7 +726,7 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
     temperature: 0.85,
     ignoreLaw: true,            // 不疊規矩表(節慶/天時)
     max_tokens: opts.maxTokens || 720,
-    model: "google/gemini-3.1-flash-lite",
+    model: AI_MODEL,
     isNsfwMode: !!opts.isNsfw    // NSFW 時讓 fallback 文案合理，但不啟用完整慾海規則
   };
   // 帶最近2筆歷史(miniSystem 已告知 AI：歷史是既定事實、不可重演)
