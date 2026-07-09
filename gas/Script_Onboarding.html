@@ -220,7 +220,6 @@ async function checkName(event) {
       localStorage.removeItem('kyushu_story');
       localStorage.removeItem('kyushu_cult_count');
       localStorage.removeItem('kyushu_cult_date');
-      localStorage.removeItem('kyushu_back_locked');
       pc = { id: data.pcId, name, sex, gameId: data.gameId || "", mode: selectedMode, account: currentAccount };
       localStorage.setItem('kyushu_v27', JSON.stringify(pc));
       // 🚀 御主敘事(背景/特徵/個性/萌點)背景補生成：不 await，趁玩家在召喚頁挑從者的空檔跑，

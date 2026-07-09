@@ -596,10 +596,12 @@ function actionKanshouSetName(userData, pcId, sheets) {
 //   開頭是否為 KPC_，全專案已無任何路徑把 pc.mode 設為 'full'(九州殘留、已停用)——故 isNsfwMode
 //   進到這裡永遠是 true(sfwBaseRules 已刪除，見上一輪修訂)。已拿掉這個死參數與所有 if/else 分支，
 //   直接寫死唯一真的會用到的版本；real runtime 上唯一還會變動的「模式」是 driveOn(🔥主動掌握)，
-//   那是 Router_Narrative.gs actionPlay 自己組的 driveStr，不在這個函式管轄範圍內。
-// 🧹 順手清：舊簽名 (isNsfwMode, backLocked) 的 backLocked 參數，函式體內從未被讀取過(查全專案
-//   這個參數本身也從未真的影響過任何提示詞文字，是傳到這裡就斷頭的死參數)，一併拿掉；呼叫端
-//   (callGeminiAPI)的 config.backLocked 是傳給別的用途(見 aiConfig.backLocked 賦值處)，不受影響。
+//   那是 actionPlay 自己組的 driveStr，不在這個函式管轄範圍內。
+// 🧹 順手清：舊簽名 (isNsfwMode, backLocked) 的 backLocked 參數，函式體內從未被讀取過，一併拿掉。
+//   🗑️ 2026-07 玩家定案「拿掉按鈕」：呼叫端(callGeminiAPI)當時聲稱的「config.backLocked 傳給
+//   別的用途」查證後根本不存在——`aiConfig.backLocked`／前端「🔒身世鎖定」按鈕全鏈路(toggleBackLock/
+//   setBackLockBtnUI/kyushu_back_locked)從沒有任何程式碼真的讀取這個值，鎖了也沒有實際保護效果，
+//   已整條刪除(Script.html/Index.html 的按鈕與函式、actionPlay 的 aiConfig.backLocked 賦值)。
 function buildDefaultSystemPrompt() {
   // 🗑️→✅ 2026-07 玩家定案「肉體那些欄位不需要了，只要狀態就好」：原本 1-6 數字代碼(姿勢/胸部/
   //   肉棒/蜜穴/顏面/服裝)拆得太細，逼AI每回合逐項填滿，跟下方慾海律令「禁止器官逐格交代」互相矛盾
@@ -928,7 +930,6 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
   try {
     let aiConfig = { temperature: 1.0, top_p: 0.95, retries: 2, model: AI_MODEL, isNsfwMode: true };
-    aiConfig.backLocked = userData.backLocked || false;
 
     // 🔴【新增】抓取近 6 筆原始歷史(3輪)，轉換為 API 格式
     const recentHistoryRaw = getGameHistoryBatchRaw(pcId, 6);
