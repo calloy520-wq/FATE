@@ -13,6 +13,13 @@ const API_KEY = (function () {
       || '';
 })();
 const MODEL_URL = "https://openrouter.ai/api/v1/chat/completions";
+// 🔵 玩家 2026-07 明確選擇改回程式碼內直寫預設值(權衡放棄先前「不曝光在公開 repo」的隱私考量，
+//   換取不用每次測試模型都要開 Apps Script 編輯器改指令碼屬性)。指令碼屬性 MODEL 仍優先生效
+//   (留著方便之後想切換測試時不必再改程式碼重新部署)，只有沒設定該屬性時才落回此預設值。
+const AI_MODEL = (function () {
+  var p = PropertiesService.getScriptProperties();
+  return p.getProperty('MODEL') || 'deepseek/deepseek-chat-v3.1';
+})();
 
 // ==========================================
 // ★ 階段一：ORM 資料實體映射 (Data Mapping) 
@@ -39,7 +46,10 @@ const COL = {
   //   若在第五次局也顯示會是明確的設定錯誤。空字串＝通用地點(全戰爭皆顯示)，'4th'/'5th' 則限定該戰爭。
   MAP: { REGION: 0, NAME: 1, TYPE: 2, COORD: 3, DESC: 4, PARENT: 5, WAR: 6 },
   // 🔵 英靈殿(從者範本)、御主殿（戰鬥 fx 走 hasFx_＋SEED_SERVANTS 的 skills/traits JSON，不需 COL 索引；戰鬥標籤分頁已棄）
-  HERO: { ID: 0, CLS: 1, NAME: 2, SEX: 3, SIX: 4, CLASS_SKILLS: 5, SKILLS: 6, TRAITS: 7, NP: 8, PERSONA: 9, ALIGN: 10, WARS: 11, SOURCE: 12 },
+  // 🆕 DAILY_LOOK/DAILY_WORDS(2026-07)：鑑賞用的都市日常版外貌/性格，跟戰時 PERSONA(look/words)分開存——
+  //   懶惰快取：首次被召喚進鑑賞才由AI轉換寫入(見 heroToKanshouRow_)，之後任何玩家再召喚同一位英靈直接讀
+  //   這裡，不重複呼叫AI。空字串＝尚未轉換過。附加在尾端，不動既有欄位位置(COL 是位置索引，見專案紀律)。
+  HERO: { ID: 0, CLS: 1, NAME: 2, SEX: 3, SIX: 4, CLASS_SKILLS: 5, SKILLS: 6, TRAITS: 7, NP: 8, PERSONA: 9, ALIGN: 10, WARS: 11, SOURCE: 12, DAILY_LOOK: 13, DAILY_WORDS: 14 },
   MASTER: { ID: 0, NAME: 1, SEX: 2, APPEAR: 3, MAGIC: 4, CIRCUITS: 5, MELEE: 6, MAGIC_RANK: 7, HOME: 8, WISH: 9, PERSONA: 10, WAR: 11, SOURCE: 12, BACK: 13, MOE: 14 },
   // 帳號（存檔身分）：帳號名 → 目前御主角色ID。2026-07：勝場/最快奪杯日(排行榜用)已隨排行榜砍除。
   // ⚠ 2026-07 修：新增 KPC(鑑賞角色ID)——原本鑑賞的帳號歸屬是角色自己 MEMORY 裡宣稱的
@@ -47,10 +57,9 @@ const COL = {
   // 由伺服器端的 linkAccountToKanshouPc_/getAccountKanshouPcId_ 專責讀寫，比照 solo 的
   // 「連結存在外部表、玩家端無法影響」，結構上就不可能繞過，不必靠每個呼叫端各自記得檢查。
   ACC: { NAME: 0, PC: 1, CREATED: 2, KPC: 3 },
-  // 鑑賞：奪杯後封存的從者（可於鑑賞模式呼出）
-  // ⚠ 2026-07 修：新增 FORM(外貌肉體)——封存前 TRAIT(外貌本相)/STATUS 的姿勢·顏面/PHYSICAL(肉體)
-  // 完全沒被帶進鑑賞表，邀入慾海時外貌變空白、肉體被無視性別統一預設成女性生理結構。合併成一格
-  // JSON(見 buildGalleryForm_/applyGalleryForm_，Gallery.gs)，封存當下的樣貌與姿態才不會憑空消失。
+  // 鑑賞：⚠ 2026-07 玩家定案「整個砍掉奪杯封存機制」後已停用(死符號不刪，見專案紀律)——
+  // 慾海同伴改成直接從「英靈殿」召喚(見 Gallery.gs 檔頭說明)，此常數與「鑑賞」工作表本體
+  // 都不再被任何現行程式碼讀寫，留著只為相容舊試算表既有資料，勿刪。
   GAL: { ACC: 0, NAME: 1, CLS: 2, SEX: 3, SIX: 4, TAGS: 5, NP: 6, BACK: 7, PREF: 8, MOE: 9, MEMOIR: 10, WISH: 11, TIME: 12, MASTER: 13, MSEX: 14, FORM: 15 }
 };
 
@@ -312,8 +321,12 @@ function parseTraitsHelper(data, defaultStr) {
   else if (typeof data === "object") str = Object.values(data).join("、");
   else str = String(data).replace(/[\[\]"{}]/g, "").trim();
 
-  // 🔴 終極防呆：清除 AI 雞婆加上的標籤與數字 (例如 "1.", "表象:", "外貌:" 等)
-  str = str.replace(/(表象|內裡|底線|性癖|外貌|武技|雜學|弱點|牽絆|色色弱點)[:：]/g, "")
+  // 🔴 終極防呆：清除 AI 雞婆加上的標籤與數字 (例如 "1.", "日常表象:", "氣質舉止:" 等)
+  // 🐛→✅ 2026-07 修(玩家點名「這是舊的九州資料」)：底線/性癖/武技/雜學/弱點/牽絆/色色弱點 是
+  //   九州(GAS)舊遊戲的特徵標籤詞彙，FATE 現行的 TRAIT/PREF 四格標籤其實是[外貌]/[氣質舉止]/
+  //   [自稱與口氣]/[卸下心防的私密一面] 與 [日常表象]/[真實內裡]/[喜歡的事物]/[討厭的事物]（見
+  //   Gallery.gs/Router_Creation.gs 系統提示詞），舊詞彙留在這裡完全攔不到 AI 真的會誤加的標籤字。
+  str = str.replace(/(自稱與口氣|卸下心防的私密一面|日常表象|真實內裡|喜歡的事物|討厭的事物|氣質舉止|卸下心防|私密一面|外貌|自稱|表象|內裡|喜歡|討厭)[:：]/g, "")
     .replace(/\d+[\.、]/g, "");
 
   // 切割並過濾空字串
@@ -327,6 +340,46 @@ function parseTraitsHelper(data, defaultStr) {
   // 保證只回傳前 4 格
   return parts.slice(0, 4).join("、");
 }
+
+// 🐛→✅ 2026-07 玩家發現「衣服寫到舉止了」：種子 persona.look 的真實結構是「N段外貌細節(髮色/瞳色/
+//   體態/服裝)・・...、最後一段氣質詞」(如「金髮碧眼・甲冑藍裙的嬌小騎士、王者威儀」)，不是天然的
+//   [外貌]/[氣質舉止]/[台詞自稱]/[私密面]四格——過去直接把這種字串餵給 parseTraitsHelper，會按
+//   「、」出現的位置盲目分配四格，外貌段落數量因人而異(2~4段不等)時，服裝等外貌細節被錯位塞進
+//   [氣質舉止]、真正的氣質詞反而被推擠到[台詞自稱]甚至[私密面]，persona.firstP(真正的自稱)也從未
+//   被讀進來過。這裡把「最後一段」正確認定為氣質、其餘全部合併回單一[外貌]格，[台詞自稱]改吃真正
+//   的 persona.firstP，回傳的字串再交給 parseTraitsHelper 補齊防呆與 4 格截斷。
+function looksToTraitParts_(rawLook, firstP) {
+  const segs = String(rawLook || "").split(/[・、]/).map(s => s.trim()).filter(s => s !== "");
+  if (segs.length === 0) return "";
+  const demeanor = segs.length > 1 ? segs.pop() : "從容";
+  const appearance = segs.join("、");
+  const selfAddr = String(firstP || "").trim() || "我";
+  return `${appearance}、${demeanor}、自稱「${selfAddr}」、卸下心防時的柔軟一面`;
+}
+
+// 🤖 2026-07 玩家提案「確定會有喜好？討厭的？跟玩家的資料欄位對齊嗎」：查證屬實——種子庫
+//   persona.words 幾乎全部只有2段(僅阿爾托莉雅3段)，parseTraitsHelper 補滿4格時[喜歡]/[討厭]
+//   恆為「無」佔位，玩家自己建角卻是紮實填滿的4格，兩邊明顯不對齊，慢熱與傾心規則「依個性/氣質
+//   真實反應」對從者這邊可用信號比玩家薄弱很多。召喚當下用AI依既有的表象/內裡短句延伸出貼合、
+//   合理的喜好/討厭，而非留白；既有短句一字不改、只補缺少的部分。只在段數不足4時才呼叫，已經
+//   4段(AI原創從者走的分支本就會給4段)直接跳過、不多打一次API。
+function enrichPersonalityLikesDislikes_(name, cls, rawWords) {
+  var words = String(rawWords || "").trim();
+  if (!words) return words;
+  var segCount = words.split('、').map(function (s) { return s.trim(); }).filter(function (s) { return s !== ""; }).length;
+  if (segCount >= 4) return words;
+  try {
+    var sys = "你是《命運停駐之夜》的角色側寫顧問。玩家提供一位角色既有的性格短句(用「、」分隔，" +
+      "依序對應[日常表象][真實內裡][喜歡的事物][討厭的事物]，但段數不足4段)，請延伸出貼合這些既有" +
+      "特質、合理且具體的「喜歡的事物」與「討厭的事物」，補滿到4句。既有的短句必須一字不改、" +
+      "原樣保留在原本的位置，只需要補上缺少的部分。\n" +
+      "★只輸出最終4句、用「、」分隔，不要輸出任何說明、標籤、引號、前後綴。";
+    var prompt = "角色：" + name + "（" + cls + "）\n既有性格短句：" + words;
+    var out = String(callGeminiAPI(prompt, sys, { temperature: 0.8, ignoreLaw: true, plainText: true }) || "").trim();
+    return out || words;
+  } catch (e) { return words; }
+}
+
 
 // ==========================================
 // ★ 階段三：狀態融合與資料封裝
@@ -352,29 +405,22 @@ function buildVisibleStatusString(rawStatus) {
   return parts.length > 0 ? parts.join("，") : "氣息平穩";
 }
 
-function mergePhysicalStatus(oldJson, newObjOrStr) {
+// 🗑️→✅ 2026-07：physical_state 簡化成單一「狀態」欄後，器官專屬鍵(肉棒/蜜穴)不再存在，
+//   上一輪的性別矛盾鍵清洗邏輯隨之整段作廢——現在單純覆寫這一個鍵即可，不再有跨鍵合併需求。
+function mergePhysicalStatus(oldJson, newVal) {
   try {
     let oldObj = JSON.parse(oldJson || "{}");
-    let newObj = typeof newObjOrStr === 'string' ? JSON.parse(newObjOrStr || "{}") : (newObjOrStr || {});
-    return JSON.stringify(Object.assign(oldObj, newObj));
+    oldObj["狀態"] = String(newVal || "").trim();
+    return JSON.stringify(oldObj);
   } catch (e) { return oldJson || "{}"; }
 }
 
-function maskPhysicalStatus(jsonStr, isNsfwMode) {
-  if (isNsfwMode) return jsonStr;
-  try {
-    let obj = JSON.parse(jsonStr || "{}");
-    const sensitiveKeys = ["胸部", "蜜穴", "肉棒", "口", "舌頭", "菊穴"];
-    sensitiveKeys.forEach(k => { if (obj[k] && obj[k] !== "無") obj[k] = "???"; });
-    return JSON.stringify(obj);
-  } catch (e) { return "{}"; }
-}
-
-function buildPlayerStatusString(selfRow, relMem = "", isNsfwMode = false) {
+function buildPlayerStatusString(selfRow, relMem = "") {
   const safeMemory = String(selfRow[COL.PC.MEMORY] || "").replace(/\|/g, '@@@');
   const safeRelMem = String(relMem || "").replace(/\|/g, '@@@');
-  const maskedPhysical = maskPhysicalStatus(selfRow[COL.PC.PHYSICAL] || "{}", isNsfwMode);
-  const safePhysical = String(maskedPhysical).replace(/§/g, '###');
+  // 🗑️ 2026-07 刪：maskPhysicalStatus/safePhysical(§-string第24格)——查證後確認前端從未讀取這一格
+  // (updateUI 只讀其他索引)，「肉體狀態抵換外顯」改走上面 visibleStatusStr 後這格早已是死值，
+  // 直接砍掉；該格保留空字串佔位以維持其餘欄位的固定索引位置不位移。
   // 🎴 2026-07 玩家定案：外顯狀態自 solo 移除(戰鬥AI/演出卡從不讀取，HUD 恆顯示預設字樣＝死資料)——
   //   位置0 solo 留空(前端空值即隱藏該列)；慾海(K 系 id)以「肉體狀態」抵換此欄位顯示。
   //   慾海的 STATUS 欄本身仍由 NSFW 機制(intimacy_feedback)維護、僅供 AI 場景連續性內化。
@@ -392,7 +438,7 @@ function buildPlayerStatusString(selfRow, relMem = "", isNsfwMode = false) {
     visibleStatusStr, "", selfRow[COL.PC.TRAIT], selfRow[COL.PC.LOC], selfRow[COL.PC.PREF],
     selfRow[COL.PC.HP], selfRow[COL.PC.MP], "", "", "", "", "",
     "", "", "", "", "", safeMemory, safeRelMem, selfRow[COL.PC.FACTION],
-    selfRow[COL.PC.RANK], selfRow[COL.PC.ALIGN], selfRow[COL.PC.CONTRIB], selfRow[COL.PC.BACK], safePhysical,
+    selfRow[COL.PC.RANK], selfRow[COL.PC.ALIGN], selfRow[COL.PC.CONTRIB], selfRow[COL.PC.BACK], "",
     selfRow[COL.PC.INTENT], selfRow[COL.PC.MARTIAL], ""
   ].join('§');
 }

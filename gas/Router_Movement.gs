@@ -233,6 +233,65 @@ function actionMove(userData, pcId, sheets) {
       worldRumors.unshift('〔撤離·' + (pursuit.np ? '寶具追擊' : '追擊') + '〕' + pursuit.note + (pursuit.dmg ? `（${pursuit.hitWho === 'us' ? '從者受創' : '反咬逼退追兵'} −${pursuit.dmg}）` : ''));
     }
   }
+  // 📊🎭 2026-07 修「追擊戰報從者沒有描述」：舊版只把 pursuit.note 塞進抵達提示詞裡當一句附註，
+  //   既沒有像卸防突襲那樣的數字戰報卡（玩家反映看不到發生了什麼)，也沒附上追兵的 servantCard_
+  //   (性格/口吻卡)——AI 只拿到一句乾巴巴的事實敘述，沒有角色素材可演，難怪從者/敵人都演不出反應。
+  //   比照 enemyAmbushOnServant_ 的 foeCard 模式補上：foeCard 讓 AI 知道追兵是誰、什麼調性；
+  //   report 讓前端秒顯數字戰報卡(renderFateBattleReport 新增 r.pursuit 分支)，不必等 AI。
+  var pursuitReport = null;
+  if (pursuit) {
+    var pFsvIdx = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
+    var pSvName = pFsvIdx !== -1 ? String(allPcData[pFsvIdx][COL.PC.NAME]) : "從者";
+    var pSvHpMax = pFsvIdx !== -1 ? (parseInt(allPcData[pFsvIdx][COL.PC.MAX_HP]) || 0) : 0;
+    var pSvHpAfter = pFsvIdx !== -1 ? (parseInt(allPcData[pFsvIdx][COL.PC.HP]) || 0) : 0;
+    var pChaserRow = allPcData.find(function (r) { return String(r[COL.PC.ID]) === pursuit.chaserId; });
+    pursuit.foeCard = pChaserRow ? servantCard_(pChaserRow) : "";
+    pursuitReport = {
+      pursuit: true, np: !!pursuit.np, enemyName: pursuit.enemyName, dmg: pursuit.dmg, hitWho: pursuit.hitWho,
+      svName: pSvName, svHpMax: pSvHpMax, after: pSvHpAfter
+    };
+  }
+
+  // ⚔️ 2026-07 玩家提案「兩組敵對人馬同格，應該正在互毆，不是相安無事站著」：抵達地點若同時有
+  //   ≥2 位不同敵御主(各帶其從者)在場，判他們早已交手片刻——GAS 先用真實交鋒裁決扣一點血(非全力
+  //   死鬥，只是「先前已互相消耗」的餘傷)，AI 只演出「玩家的到來打斷了這場戰鬥」，不讓多批敵人像
+  //   沒事發生一樣杵在同一格互不理睬。只挑第一組能配對成功的兩位(3+方同格的極少數情況不重複觸發)。
+  var factionClash = null;
+  try {
+    var clashMasters = [];
+    allPcData.forEach(function (r) {
+      if (String(r[COL.PC.GAME_ID] || "") !== moveGameId) return;
+      if (String(r[COL.PC.LOC] || "").trim() !== tgtTrim) return;
+      if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+      if (String(r[COL.PC.FACTION]) !== "敵御主") return;
+      if (isAllied_(r)) return; // 已與玩家結盟者現在算友軍，不參與這場「敵對互毆」演出
+      clashMasters.push(r);
+    });
+    if (clashMasters.length >= 2) {
+      var findClashSv_ = function (masterRow) {
+        var mN = String(masterRow[COL.PC.NAME] || "");
+        return allPcData.find(function (r) {
+          return String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === moveGameId &&
+            String(r[COL.PC.LOC] || "").trim() === tgtTrim && !String(r[COL.PC.ID]).startsWith("DEAD_") &&
+            String(r[COL.PC.MEMORY] || "").indexOf("【御主】" + mN) >= 0;
+        });
+      };
+      var svA = findClashSv_(clashMasters[0]), svB = findClashSv_(clashMasters[1]);
+      if (svA && svB && String(svA[COL.PC.ID]) !== String(svB[COL.PC.ID])) {
+        var crossRes = resolveFateBattle_(rowToCombatant_(svA), rowToCombatant_(svB), {});
+        var loserRow = crossRes.atkWins ? svB : svA;
+        var loserIdx = allPcData.findIndex(function (r) { return String(r[COL.PC.ID]) === String(loserRow[COL.PC.ID]); });
+        var clashDmg = Math.max(1, Math.round((crossRes.damage || 1) * 0.4)); // 🩸 只是先前交手的餘傷，非全力對決
+        if (loserIdx !== -1) allPcData[loserIdx][COL.PC.HP] = Math.max(1, (parseInt(allPcData[loserIdx][COL.PC.HP]) || 0) - clashDmg);
+        factionClash = {
+          aMaster: String(clashMasters[0][COL.PC.NAME]), bMaster: String(clashMasters[1][COL.PC.NAME]),
+          loserName: String(loserRow[COL.PC.NAME]), dmg: clashDmg,
+          note: `你抵達時，「${String(clashMasters[0][COL.PC.NAME])}」與「${String(clashMasters[1][COL.PC.NAME])}」的從者已鏖戰多時——「${String(loserRow[COL.PC.NAME])}」帶著新添的傷勢（−${clashDmg}），雙方在你踏入的瞬間戒備地停手，各自警惕地看向這個不速之客。`
+        };
+      }
+    }
+  } catch (e) { }
+  if (factionClash) worldRumors.unshift('〔敵對交鋒〕' + factionClash.note);
 
   // ⏳ 時回：移動的 2 小時間，御主與同行從者隨時間自然回復（HP 固定、MP 看魔術迴路）。
   //   大幅恢復靠「休息」（同一套規則 ×2）。便宜：只改記憶體那幾格，隨移動一起寫回，零額外讀寫，不會變慢。
@@ -285,6 +344,8 @@ function actionMove(userData, pcId, sheets) {
     servantCard: svCardMove,
     foeCards: foeCardsMove,
     pursuit: pursuit,
+    report: pursuitReport, // 📊 撤離追擊數字戰報卡(見上方建構處)——renderFateBattleReport 秒顯，不等 AI
+    factionClash: factionClash, // ⚔️ 抵達時撞見的敵對互毆(見上方建構處)——供前端插入抵達演出提示詞
     preFoes: preFoesAtTarget,
     victory: moveVictory,
     dreamPrompt: moveDream,

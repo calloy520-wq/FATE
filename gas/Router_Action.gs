@@ -9,13 +9,14 @@ const ActionRouter = {
   "check_name": actionCheckName,
   "account_login": actionAccountLogin,
   "account_new_game": actionAccountNewGame,
-  "claim_grail": actionClaimGrail,
+  "end_run": actionEndRun, // ⚠ 2026-07：舊 claim_grail(奪杯封存) 已整個砍除，改成單純清理讓玩家開新局
   "enter_kanshou": actionEnterKanshou,
+  "backfill_kanshou_ai": actionBackfillKanshouAi, // 🚀 開局非阻塞：enter_kanshou 首次建檔後背景補御主敘事欄
+  "backfill_kanshou_servant_ai": actionBackfillKanshouServantAi, // 🚀 直接召喚同伴後背景補深化(種子個性精簡+無身世)
   "dev_resync_codex": actionDevResyncCodex,
   "purge_orphans": actionPurgeOrphans,
   "kanshou_companions": actionKanshouCompanions,
-  "kanshou_add": actionKanshouAdd,
-  "kanshou_summon_hero": actionKanshouSummonHero, // 🌹 直接從英靈庫挑選(與封存路徑並存，不需先在solo贏得戰爭)
+  "kanshou_summon_hero": actionKanshouSummonHero, // 🌹 慾海同伴唯一入口：直接從英靈庫召喚，不需先在solo贏得戰爭
   "kanshou_remove": actionKanshouRemove,
   "kanshou_set_sex": actionKanshouSetSex,
   "kanshou_set_name": actionKanshouSetName,
@@ -207,7 +208,7 @@ function handleGameAction(userData) {
 const LOCK_EXEMPT_ACTIONS_ = {
   check_name: 1, get_full_status: 1, get_heroes: 1, get_masters: 1,
   get_tags: 1, get_map_nodes: 1, sync: 1,
-  narrate_only: 1, play: 1, backfill_master_ai: 1,
+  narrate_only: 1, play: 1, backfill_master_ai: 1, backfill_kanshou_ai: 1, backfill_kanshou_servant_ai: 1,
   save_hero: 1 // 🛠️ 工房鑄造/修改：含數秒 AI 呼叫·只寫英靈殿(append/單列)不碰戰場——佔全域鎖會卡死其他玩家
 };
 // ⚡ 會改動 solo 戰場狀態、前端事後會 syncData(整頁刷新) 的動作 → 夾帶 _state 省一趟 round-trip。
@@ -335,7 +336,8 @@ function buildTagsPayload_(sheets, pcId, preData) {
     hp: hpWord(m[COL.PC.HP], m[COL.PC.MAX_HP]),
     hpNum: parseInt(m[COL.PC.HP]) || 0, hpMax: parseInt(m[COL.PC.MAX_HP]) || 0,
     mpNum: parseInt(m[COL.PC.MP]) || 0, mpMax: parseInt(m[COL.PC.MAX_MP]) || 0,
-    seals: getPlayerSeals_(m[COL.PC.MEMORY]), wish: wish
+    seals: getPlayerSeals_(m[COL.PC.MEMORY]), wish: wish,
+    outfit: getOutfit_(m[COL.PC.MEMORY]) // 👗 慾海御主本人換裝(與從者outfit同款·供卡片「換裝」鈕預填)
   };
 
   // 🗝️ 雙從者：收齊所有在世我方從者（servants 陣列）；servant＝第一個（向後相容）
@@ -376,7 +378,9 @@ function buildTagsPayload_(sheets, pcId, preData) {
       canSummonHorror: skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) && !horrorShieldView_(s[COL.PC.MEMORY], gameId),
       outfit: getOutfit_(s[COL.PC.MEMORY]), // 👗 玩家換裝：當前服裝(前端預填/顯示·換衣不換人)
       weapon: getWeapon_(s[COL.PC.MEMORY]), // ⚔️ 玩家自定武裝：武器/戰鬥方式(前端預填/顯示·敘述以此為準)
-      pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體
+      pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體(2026-07再簡化為單一「狀態」鍵，STATUS機制已退役)
+      trait: s[COL.PC.TRAIT] || "", // 🌹 慾海卡「特徵」用：COL.PC.TRAIT才是全代碼庫「特徵」的真實定義(外貌描述，見Router_Narrative.gs的formatTrait/prompt)——
+                                     // 舊卡片誤讀TAGS.traits(戰鬥特性標籤如神性/英雄)，對直接召喚路徑(TAGS故意留空)永遠是空白
       stolen: /【破戒奪取】/.test(String(s[COL.PC.MEMORY] || ""))
     });
   });

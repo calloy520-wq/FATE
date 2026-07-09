@@ -35,7 +35,7 @@
         <div style="color:#e0a0bc; font-size:13px; font-weight:bold; letter-spacing:1px; margin-bottom:3px; text-align:center;">🌹 慾海 · 鑑賞後日談</div>
         <p style="color:#9a7f8c; font-size:10.5px; text-align:center; margin:0 0 9px;">直接回到你們的後日談時光，再用 👥 同伴面板邀她入席（贏過的戰爭封存從者，或直接從英靈庫召喚任一英靈）</p>
         <button class="btn" style="width:100%; margin-bottom:7px; padding:12px; border-color:#c87896; color:#e8b8cc;" onclick="enterKanshou()">🌹 進入鑑賞</button>
-        <button class="btn" style="width:100%; padding:7px; border-color:#6a8a5a; color:#9ac08a; font-size:11px;" onclick="devResyncCodex()">🔄 DEV：套用最新平衡到現有從者（寶具/標籤更新）</button>
+        <button class="btn" style="width:100%; padding:7px; border-color:#6a8a5a; color:#9ac08a; font-size:11px;" onclick="devResyncCodex()" title="無視版本旗標，立即把英靈殿與在場從者重刷成最新種子(寶具/六圍/標籤)">🔄 DEV：套用最新平衡到現有從者（寶具/標籤更新）</button>
         <button class="btn" style="width:100%; margin-top:7px; padding:7px; border-color:#8a6a5a; color:#c0a08a; font-size:11px;" onclick="devPurgeOrphans()">🧹 DEV：清殘列（刪孤兒戰局／加速操作）</button>
       </div>
 
@@ -51,7 +51,8 @@
       <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:12px;">參戰哪一場聖杯戰爭？</p>
       <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="chooseWar('4th')">⚔️ <b>第四次聖杯戰爭</b><br><small style="color:#9a7b4f; font-weight:normal;">Fate/Zero・正典七組（切嗣+Saber、時臣+吉爾伽美什…）</small></button>
       <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="chooseWar('5th')">🏆 <b>第五次聖杯戰爭</b><br><small style="color:#9a7b4f; font-weight:normal;">stay night・正典七組（士郎+Saber、凜+EMIYA、臟硯+真Assassin…）</small></button>
-      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left;" onclick="chooseWar('fake')">🃏 <b>偽聖杯戰爭 Fake</b><br><small style="color:#9a7b4f; font-weight:normal;">strange Fake・雪原偽戰（御主由 AI 生成，僅能自創參戰）</small></button>
+      <!-- 🧹 2026-07 大清理：「偽聖杯戰爭 Fake」開局選項已移除(FATE_FAKE_ROSTER 陣容大部分角色一併清空，
+           只剩銀狼×恩奇都不足以撐一場戰爭)——見 Seed_Rivals.gs/Seed_Codex.gs v52 註解。 -->
       <button class="btn" style="width:100%; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="document.getElementById('scr-war').style.display='none';document.getElementById('scr-warmode').style.display='block';">← 返回</button>
     </div>
     <div id="scr-role" style="display:none; width:300px;">
@@ -164,11 +165,11 @@
             <div style="color:#e0a0c9; font-size:12px; margin-bottom:4px;">🎨 外貌（4項全選填·留空＝AI補；填越多AI越不准改）</div>
             <div style="display:flex; gap:5px;">
               <input id="cf-look-1" class="std-in" maxlength="14" placeholder="五官髮色" style="flex:1; min-width:0;">
-              <input id="cf-look-2" class="std-in" maxlength="14" placeholder="氣質" style="flex:1; min-width:0;">
+              <input id="cf-look-2" class="std-in" maxlength="14" placeholder="身形" style="flex:1; min-width:0;">
             </div>
             <div style="display:flex; gap:5px; margin-top:5px;">
-              <input id="cf-look-3" class="std-in" maxlength="14" placeholder="身形" style="flex:1; min-width:0;">
-              <input id="cf-look-4" class="std-in" maxlength="14" placeholder="衣著印象" style="flex:1; min-width:0;">
+              <input id="cf-look-3" class="std-in" maxlength="14" placeholder="衣著印象" style="flex:1; min-width:0;">
+              <input id="cf-look-4" class="std-in" maxlength="14" placeholder="氣質(填在最後一格)" style="flex:1; min-width:0;">
             </div>
             <div style="color:#e0a0c9; font-size:12px; margin:9px 0 4px;">💭 個性（4項全選填·留空＝AI補）</div>
             <div style="display:flex; gap:5px;">
@@ -234,8 +235,11 @@
     <div id="pane-wrap">
       <div id="pane-status" class="game-pane">
         <div id="fate-tags" style="display:none; gap:6px; padding:6px 8px 2px;"></div>
-        <div style="text-align:center; padding:6px;">
-          <button class="btn" style="font-size:12px; padding:5px 12px; border-color:#9a7b4f; color:#9a7b4f;" onclick="triggerDrawerAction('status')">📋 詳細狀態</button>
+        <!-- 🐛→✅ 2026-07 修：這顆固定在卡片列表下方、恆看「御主自己」的狀態(triggerDrawerAction('status')→
+             openStatus()無參數＝pc自己)。鑑賞模式的御主卡已補上同款「換裝＋詳細狀態」按鈕列(applyModeUI 隱藏本顆，
+             免重複外露)；solo 御主卡本身無此按鈕，本顆繼續是 solo 唯一入口。 -->
+        <div id="my-status-fallback" style="text-align:center; padding:6px;">
+          <button class="btn" style="font-size:12px; padding:5px 12px; border-color:#9a7b4f; color:#9a7b4f;" onclick="triggerDrawerAction('status')">👤 我的詳細狀態</button>
         </div>
       </div>
       <div id="pane-chat" class="game-pane active">
@@ -263,8 +267,11 @@
     <div id="input-bar">
       <div class="pill-wrapper">
         <button id="plus-trigger" class="plus-btn" onclick="toggleActionDrawer()">＋</button>
-        <label style="color: #ff6b6b; font-size: 14px; margin-right: 5px; margin-left: 2px; cursor: pointer; display: flex; align-items: center; white-space: nowrap; font-weight: bold;">
-          <input type="checkbox" id="nsfw-mode-toggle" style="accent-color: #ff6b6b; margin-right: 3px;">🔥
+        <!-- 🔥 主動掌握開關(2026-07 重生)：舊 nsfw-mode-toggle 在「後端改由 pcId 路由決定 NSFW」後已成死旗標，
+             玩家定案改成「同伴主動度」開關——滅=現在的矜持模式(靠玩家推進)；亮=同伴依個性主動掌握節奏、
+             玩家想跑也跑不掉。只影響鑑賞敘事語氣，NSFW 與否仍由 pcId 決定、solo 不受任何影響。 -->
+        <label title="🔥 主動掌握：亮起後同伴依個性主動出擊、掌握節奏，你想迴避也會被攔下；熄滅則回到矜持模式，由你主導推進。" style="color: #ff6b6b; font-size: 14px; margin-right: 5px; margin-left: 2px; cursor: pointer; display: flex; align-items: center; white-space: nowrap; font-weight: bold;">
+          <input type="checkbox" id="drive-mode-toggle" style="accent-color: #ff6b6b; margin-right: 3px;">🔥
         </label>
         <input id="u-in" maxlength="300" placeholder="輸入行動..." onkeypress="if(event.key==='Enter')send()">
         <button id="send-btn" class="send-trigger" onclick="send()">傳送</button>
@@ -315,14 +322,6 @@
 
   
 
-  <div id="npc-overlay" class="modal-overlay" onclick="closeNpcList()">
-    <div class="modal-scroll" onclick="event.stopPropagation()">
-      <span class="modal-close-btn" onclick="closeNpcList()">&times;</span>
-      <h2 style="text-align:center; border-bottom:2px solid #332211; padding-bottom:10px; margin-top:0;">—— 在場眾生 ——</h2>
-      <div id="npc-content"></div>
-    </div>
-  </div>
-
   <div id="status-overlay" class="modal-overlay" onclick="closeStatus()">
     <div class="modal-scroll character-sheet" onclick="event.stopPropagation()">
       <span class="modal-close-btn" onclick="closeStatus()">&times;</span>
@@ -372,7 +371,6 @@
   <span style="color: #332211;">—— 身分背景 ——</span>
   <b id="ui-back">--</b>
   <div style="position:absolute; right:8px; top:8px; display:flex; gap:4px;">
-    <button id="back-lock-btn" class="btn" style="padding:3px 9px; font-size:13px; font-weight:bold; border-width:2px; border-color:#555; color:#555; background:#1a1a1a;" onclick="toggleBackLock()">🔓</button>
     <button id="fate-btn-back" class="btn" style="padding: 2px 8px; font-size: 11px; border-color: #d4af37; color: #d4af37;" onclick="openFateEdit('back')">改命</button>
   </div>
 </div>
@@ -434,21 +432,6 @@
   </div>
 
 
-  <div id="interact-modal" class="modal-overlay" onclick="closeInteractMenu()">
-    <div class="modal-scroll" onclick="event.stopPropagation()" style="max-width: 320px; padding: 20px;">
-      <span class="modal-close-btn" onclick="closeInteractMenu()">&times;</span>
-      <h2 id="interact-title"
-        style="text-align:center; color:#332211; border-bottom:2px solid #332211; padding-bottom:10px; margin-top:0;">與
-        ??? 互動</h2>
-
-      <div id="interact-dynamic-buttons"
-        style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top: 15px;">
-      </div>
-
-      <button class="btn" style="margin-top: 20px; width: 100%; background-color: #332211; color: var(--paper-bg);" onclick="closeInteractMenu()">取消</button>
-    </div>
-  </div>
-
   <!-- 🐯 老虎道場（敗北講評／勝利祝賀共用同一個殼，runTigerDojo_ 依 mode 重寫標題與文案）-->
   <div id="tiger-dojo-overlay" style="display:none; position:fixed; inset:0; z-index:10001; background:rgba(10,6,16,0.94); align-items:center; justify-content:center; padding:20px;">
     <div style="background:linear-gradient(160deg,#241a2e,#1a1420); border:1px solid #c66; border-radius:14px; max-width:460px; width:100%; padding:22px; text-align:center; box-shadow:0 10px 50px rgba(0,0,0,0.7);">
@@ -474,9 +457,9 @@
         願望之器，正靜靜等待你的祈願。
       </p>
       <div id="victory-memoir" style="display:none; background:rgba(231,200,115,0.07); border:1px solid rgba(231,200,115,0.3); border-radius:8px; padding:14px; margin:0 0 16px; color:#e8dcc0; font-size:13.5px; line-height:1.85; text-align:left; max-height:34vh; overflow-y:auto;"></div>
-      <button id="victory-claim-btn" onclick="claimGrail()" style="width:100%; padding:13px; background:#7a5a1a; color:#fff; border:none; border-radius:8px; font-size:15px; cursor:pointer; font-weight:bold;">⚜️ 奪得聖杯 · 封存此役羈絆</button>
+      <button id="victory-claim-btn" onclick="claimGrail()" style="width:100%; padding:13px; background:#7a5a1a; color:#fff; border:none; border-radius:8px; font-size:15px; cursor:pointer; font-weight:bold;">⚜️ 奪得聖杯</button>
       <button id="victory-menu-btn" onclick="closeVictory(); dojoBackToMenu()" style="display:none; width:100%; padding:12px; background:#4a3a6a; color:#fff; border:none; border-radius:8px; font-size:15px; cursor:pointer; margin-top:8px;">返回選單</button>
-      <p style="color:#9a8f70; font-size:11.5px; margin:10px 0 0;">※ 封存後此局資料將結束歸檔，她會進入「鑑賞模式」供日後呼出。</p>
+      <p style="color:#9a8f70; font-size:11.5px; margin:10px 0 0;">※ 結算後此局資料將結束歸檔。想與英靈共度和平時光？前往「鑑賞」直接召喚即可。</p>
     </div>
   </div>
 

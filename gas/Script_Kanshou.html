@@ -8,9 +8,10 @@
   //   ★新增鑑賞前端功能，往這檔加即可；別再塞回 Script.html。
   // ==========================================
 
-  // 👥 後日談同伴管理（鑑賞限定·最多3人）：邀請/請走已封存從者
+  // 👥 後日談同伴管理（鑑賞限定·最多3人）：直接從英靈殿召喚／請走
+  // ⚠ 2026-07：舊版「奪杯封存→邀請」機制已整個砍除，邀請只剩「英靈殿直接召喚」一途。
   // 🌹 性別/職階篩選狀態：純前端篩選(不重打 gasRun)，換篩選只重繪、資料留在下方快取。
-  var _kcCur = [], _kcAvail = [], _kcHeroes = [], _kcMax = 3;
+  var _kcCur = [], _kcHeroes = [], _kcMax = 3;
   var _kcFilterGender = '', _kcFilterCls = '';
   async function openCompanions() {
     try { var dr = document.getElementById('action-drawer'); if (dr && dr.style.display !== 'none' && typeof toggleActionDrawer === 'function') toggleActionDrawer(); } catch (e) {}
@@ -21,9 +22,13 @@
         gasRun({ action: 'get_heroes', pcId: pc.id })
       ]);
       if (!res || !res.success) { alert((res && res.message) || '讀取同伴失敗。'); return; }
-      _kcCur = res.current || []; _kcAvail = res.available || []; _kcMax = res.max || 3;
-      // 🌹 直接從英靈庫召喚(不需先在solo封存)：濾掉已在場的，其餘全開放挑選
-      _kcHeroes = ((heroRes && heroRes.success) ? (heroRes.heroes || []) : []).filter(function (h) { return _kcCur.indexOf(h.name) === -1; });
+      _kcCur = res.current || []; _kcMax = res.max || 3;
+      // 🌹 直接從英靈庫召喚(不需先在solo封存)：濾掉已在場的；種子(正典)英靈人人可召喚，
+      //   但玩家原創(src==='ai_gen')只有創造者本人能召喚——不可召喚別人工房/盲盒捏出的角色進自己的後日談。
+      //   (solo 那邊的隨機/混亂池刻意共用玩家原創、維持既有設計不動，這條限制僅針對鑑賞直接指名召喚。)
+      _kcHeroes = ((heroRes && heroRes.success) ? (heroRes.heroes || []) : [])
+        .filter(function (h) { return _kcCur.indexOf(h.name) === -1; })
+        .filter(function (h) { return h.src !== 'ai_gen' || (h.creator && h.creator === currentAccount); });
       renderCompanionsPanel();
     } catch (e) { alert('讀取同伴失敗。'); }
   }
@@ -33,7 +38,7 @@
     renderCompanionsPanel();
   }
   function renderCompanionsPanel() {
-    const cur = _kcCur, avail = _kcAvail, max = _kcMax;
+    const cur = _kcCur, max = _kcMax;
     const canAdd = cur.length < max;
     // 篩選選單選項：從目前召喚清單動態取得(資料驅動，不寫死職階/性別列表)
     const genderOpts = Array.from(new Set(_kcHeroes.map(function (h) { return h.gender || ''; }).filter(Boolean)));
@@ -44,7 +49,7 @@
       return true;
     });
     let html = '<h3 style="margin:0 0 4px;color:#e0a0bc;">👥 後日談同伴 (' + cur.length + '/' + max + ')</h3>'
-      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">最多 ' + max + ' 人同行。邀請已封存的從者，或請走同伴（資料仍封存，隨時再邀）。</div>'
+      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">最多 ' + max + ' 人同行。從英靈殿召喚同伴，或請走同伴（資料原地保留，隨時再邀）。</div>'
       + '<div style="padding:7px 8px;margin-bottom:8px;background:rgba(200,120,150,.08);border-radius:8px;">'
       + '<div style="color:#cbb;font-size:12px;margin-bottom:6px;">你（御主）：<b style="color:#e8b8cc;">' + escapeHtml(pc.name || '—') + '</b> · <b style="color:#e8b8cc;">' + escapeHtml(pc.sex || '—') + '</b></div>'
       + '<div style="display:flex;gap:8px;">'
@@ -57,14 +62,7 @@
             + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(n) + '</span>'
             + '<button onclick="kanshouRemove(\'' + String(n).replace(/'/g, '') + '\')" style="padding:4px 10px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">請走</button></div>';
         }).join('') : '<div style="color:#888;padding:6px;">（暫無同伴）</div>')
-      + '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">可邀請</div>'
-      + (avail.length ? avail.map(function (n) {
-          return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
-            + '<span style="flex:1;color:#dfeaf2;">' + escapeHtml(n) + '</span>'
-            + (canAdd ? '<button onclick="kanshouAdd(\'' + String(n).replace(/'/g, '') + '\')" style="padding:4px 10px;background:#3a4a6a;color:#cfe0ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">邀請</button>'
-                      : '<span style="color:#888;font-size:11px;">已滿(3)</span>') + '</div>';
-        }).join('') : '<div style="color:#888;padding:6px;">（沒有其他可邀的封存從者）</div>')
-      + '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">🌹 直接從英靈庫召喚（不需先在戰爭中封存）</div>'
+      + '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">🌹 從英靈殿召喚</div>'
       + '<div style="display:flex;gap:6px;margin-bottom:6px;">'
         + '<select onchange="kanshouSetFilter(\'gender\', this.value)" style="flex:1;min-width:0;padding:4px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:6px;font-size:12px;">'
           + '<option value="">性別：全部</option>'
@@ -83,17 +81,29 @@
         }).join('') : '<div style="color:#888;padding:6px;">（' + (_kcHeroes.length ? '無符合篩選的英靈' : '英靈庫讀取失敗或無可召喚英靈') + '）</div>');
     showHistoryOverlay(html);
   }
-  async function kanshouAdd(name) {
-    try {
-      const res = await gasRun({ action: 'kanshou_add', pcId: pc.id, acctName: currentAccount, servantName: name });
-      if (res && res.success) { syncData(true); openCompanions(); } else { alert((res && res.message) || '邀請失敗。'); }
-    } catch (e) { alert('邀請失敗。'); }
-  }
+  // 🐛→✅ 2026-07 修：玩家反映「點召喚沒有等待畫面、不知道有沒有跑、成功也沒提示」——原本兩段
+  //   (召喚本身 + 背景AI深化)都悄悄進行、無感。改用既有 showProcessing/hideProcessing(見
+  //   Script_Onboarding.html)蓋出讀取畫面，兩階段各自更新訊息；深化結束(無論成功/失敗)都跳一句
+  //   明確結果提示，玩家不必自己猜。
   async function kanshouSummonHero(heroId) {
+    showProcessing('正在以令咒召喚英靈…', true);
     try {
       const res = await gasRun({ action: 'kanshou_summon_hero', pcId: pc.id, acctName: currentAccount, heroId: heroId });
-      if (res && res.success) { syncData(true); openCompanions(); } else { alert((res && res.message) || '召喚失敗。'); }
-    } catch (e) { alert('召喚失敗。'); }
+      if (res && res.success) {
+        syncData(true); openCompanions();
+        // 🚀 2026-07 玩家定案「C.只在召喚當下用AI動態補一次」：種子庫個性精簡+無身世，只在首次
+        //   召喚(isNew，非「歡迎回來」)才呼叫一次深化。
+        if (res.isNew && res.added) {
+          showProcessing('✨ 正在深化「' + res.added + '」的個性與身世…', false);
+          try {
+            const bf = await gasRun({ action: 'backfill_kanshou_servant_ai', pcId: pc.id, servantName: res.added });
+            hideProcessing();
+            syncData(); openCompanions();
+            if (!bf || !bf.success) alert('「' + res.added + '」深化失敗，已保留原始設定（可用📜詳細狀態手動調整）。');
+          } catch (e) { hideProcessing(); alert('「' + res.added + '」深化失敗，已保留原始設定（可用📜詳細狀態手動調整）。'); }
+        } else { hideProcessing(); }
+      } else { hideProcessing(); alert((res && res.message) || '召喚失敗。'); }
+    } catch (e) { hideProcessing(); alert('召喚失敗。'); }
   }
   async function kanshouRemove(name) {
     try {
@@ -154,27 +164,59 @@
     });
   }
 
-  // 🌹 首次進場設定御主：取名 ＋ 選性別（之後 👥 面板可分別改）。回傳 {name, sex}。
+  // 🌹 首次進場設定御主：取名／選性別／外貌／身世／個性方向（皆可留空由AI決定，比照solo創角）。
+  //   之後 👥 面板可改名/改性別；外貌/身世/個性方向只在首次建檔時餵給AI潤色一次(見backfillKanshouAi)。
+  //   回傳 {name, sex, appearance, standing, persona}。
+  // 🐛→✅ 2026-07 修：性別鈕原本一點就直接送出整張表單(等於「選項」變成「登入鈕」，其他欄位來不及填就被提交)——
+  //   改成純選取(點擊只切換高亮、不提交)，另加一顆「進入後日談」鈕才真正送出。
   function askKanshouSetup(defaultName) {
     return new Promise(function (resolve) {
+      var selectedSex = '';
       var ov = document.createElement('div');
-      ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.74);display:flex;align-items:center;justify-content:center;';
-      ov.innerHTML = '<div style="background:#20141b;border:1px solid rgba(200,120,150,.5);border-radius:14px;padding:22px;width:84%;max-width:320px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6);">'
+      ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.74);display:flex;align-items:center;justify-content:center;padding:16px;';
+      ov.innerHTML = '<div style="background:#20141b;border:1px solid rgba(200,120,150,.5);border-radius:14px;padding:22px;width:100%;max-width:340px;max-height:calc(100vh - 32px);overflow-y:auto;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6);">'
         + '<div style="color:#e0a0bc;font-weight:bold;font-size:15px;margin-bottom:6px;">🌹 後日談 · 設定你（御主）</div>'
-        + '<div style="color:#9a8f70;font-size:11px;line-height:1.7;margin-bottom:14px;">取個名字、選擇現身的性別。之後在 👥 同伴面板可隨時更改。</div>'
+        + '<div style="color:#9a8f70;font-size:11px;line-height:1.7;margin-bottom:14px;">取個名字、選擇現身的性別。下面三格都可留空交給AI決定，之後在 👥 同伴面板仍可改名/改性別。</div>'
         + '<input id="ksu-name" maxlength="16" value="' + escapeHtml(defaultName || '') + '" placeholder="御主名" style="width:100%;box-sizing:border-box;padding:11px;background:#16101a;border:1px solid rgba(200,120,150,.4);border-radius:8px;color:#f0e0e8;font-size:14px;text-align:center;">'
-        + '<div style="display:flex;gap:10px;margin-top:14px;">'
-        + '<button id="ksu-f" style="flex:1;padding:13px;background:linear-gradient(90deg,#7a4a6a,#5a3a6a);color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♀ 女</button>'
-        + '<button id="ksu-m" style="flex:1;padding:13px;background:linear-gradient(90deg,#3a4a6a,#3a5a6a);color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♂ 男</button>'
-        + '</div></div>';
+        + '<div style="display:flex;gap:10px;margin-top:10px;">'
+        + '<button id="ksu-f" style="flex:1;padding:13px;background:rgba(90,50,70,.35);color:#d8a8c0;border:2px solid transparent;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♀ 女</button>'
+        + '<button id="ksu-m" style="flex:1;padding:13px;background:rgba(50,60,90,.35);color:#a8c0e0;border:2px solid transparent;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♂ 男</button>'
+        + '</div>'
+        + '<textarea id="ksu-appear" maxlength="60" placeholder="外貌（留空由AI決定）" style="width:100%;box-sizing:border-box;margin-top:10px;padding:9px;background:#16101a;border:1px solid rgba(200,120,150,.3);border-radius:8px;color:#f0e0e8;font-size:13px;resize:none;height:40px;"></textarea>'
+        + '<textarea id="ksu-standing" maxlength="60" placeholder="身世（留空由AI決定）" style="width:100%;box-sizing:border-box;margin-top:8px;padding:9px;background:#16101a;border:1px solid rgba(200,120,150,.3);border-radius:8px;color:#f0e0e8;font-size:13px;resize:none;height:40px;"></textarea>'
+        + '<textarea id="ksu-persona" maxlength="60" placeholder="個性方向（留空由AI決定）" style="width:100%;box-sizing:border-box;margin-top:8px;padding:9px;background:#16101a;border:1px solid rgba(200,120,150,.3);border-radius:8px;color:#f0e0e8;font-size:13px;resize:none;height:40px;"></textarea>'
+        + '<button id="ksu-confirm" style="width:100%;box-sizing:border-box;margin-top:14px;padding:13px;background:linear-gradient(90deg,#7a4a6a,#5a3a6a);color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">✨ 進入後日談</button>'
+        + '</div>';
       document.body.appendChild(ov);
-      function done(sex) {
-        var nm = (ov.querySelector('#ksu-name').value || '').trim() || (defaultName || '御主');
-        document.body.removeChild(ov); resolve({ name: nm, sex: sex });
+      var fBtn = ov.querySelector('#ksu-f'), mBtn = ov.querySelector('#ksu-m');
+      function renderSexPick() {
+        fBtn.style.borderColor = selectedSex === '女' ? '#e0a0bc' : 'transparent';
+        fBtn.style.boxShadow = selectedSex === '女' ? '0 0 8px rgba(224,160,188,.6)' : 'none';
+        mBtn.style.borderColor = selectedSex === '男' ? '#7ec8ff' : 'transparent';
+        mBtn.style.boxShadow = selectedSex === '男' ? '0 0 8px rgba(126,200,255,.6)' : 'none';
       }
-      ov.querySelector('#ksu-f').onclick = function () { done('女'); };
-      ov.querySelector('#ksu-m').onclick = function () { done('男'); };
+      fBtn.onclick = function () { selectedSex = '女'; renderSexPick(); };
+      mBtn.onclick = function () { selectedSex = '男'; renderSexPick(); };
+      ov.querySelector('#ksu-confirm').onclick = function () {
+        if (selectedSex !== '女' && selectedSex !== '男') { alert('請先選擇性別。'); return; }
+        var nm = (ov.querySelector('#ksu-name').value || '').trim() || (defaultName || '御主');
+        var appearance = (ov.querySelector('#ksu-appear').value || '').trim();
+        var standing = (ov.querySelector('#ksu-standing').value || '').trim();
+        var persona = (ov.querySelector('#ksu-persona').value || '').trim();
+        document.body.removeChild(ov); resolve({ name: nm, sex: selectedSex, appearance: appearance, standing: standing, persona: persona });
+      };
     });
+  }
+
+  // 🚀 非阻塞補生成御主敘事欄(比照solo的backfillMasterAi)：進場後背景呼叫，成功則刷新左側御主卡；
+  //   失敗靜默(保留enter_kanshou寫的種子預設)。
+  async function backfillKanshouAi(seed) {
+    try {
+      if (!pc || !pc.id) return;
+      const res = await gasRun({ action: 'backfill_kanshou_ai', pcId: pc.id,
+        appearance: seed.appearance || "", standing: seed.standing || "", persona: seed.persona || "" });
+      if (res && res.success) { try { syncData(); } catch (e) {} }
+    } catch (e) { /* 靜默：保留種子設定 */ }
   }
 
   async function enterKanshou() {
@@ -183,10 +225,13 @@
     try {
       let res = await gasRun({ action: 'enter_kanshou', acctName: currentAccount });
       if (!res || !res.success) { alert((res && res.message) || '無法進入後日談。'); return; }
-      // 首次進場、尚未建過常駐御主 → 先問一次名字＋性別，帶進來正式建立
+      // 首次進場、尚未建過常駐御主 → 先問一次名字＋性別＋外貌/身世/個性方向，帶進來正式建立
+      let firstTimeSeed = null;
       if (res.needSetup) {
         const setup = await askKanshouSetup(res.defaultName || currentAccount);
-        res = await gasRun({ action: 'enter_kanshou', acctName: currentAccount, pcName: setup.name, pcSex: setup.sex });
+        firstTimeSeed = setup;
+        res = await gasRun({ action: 'enter_kanshou', acctName: currentAccount, pcName: setup.name, pcSex: setup.sex,
+          appearance: setup.appearance, standing: setup.standing, persona: setup.persona });
         if (!res || !res.success) { alert((res && res.message) || '無法進入後日談。'); return; }
       }
       // 建立鑑賞視角的 pc（mode=kanshou：隱藏戰鬥相關 UI、顯示同伴面板）
@@ -195,13 +240,16 @@
       document.getElementById('setup').style.display = 'none';
       document.getElementById('game').style.display = 'flex';
       applyModeUI();
-      // 🌹 慾海＝NSFW 後日談軌：自動打開 NSFW 開關，否則 isNsfwMode=false、親密/肉體狀態都不會回填。
-      var _nt = document.getElementById('nsfw-mode-toggle'); if (_nt) _nt.checked = true;
+      // 🔥 2026-07：舊「自動勾NSFW開關」已拔——NSFW 早改由 pcId(KPC_)路由決定、與勾選格無關；
+      //   該勾選格已重生為「主動掌握」開關(亮=同伴主動出擊)，預設熄滅=現在的矜持模式(玩家主導)。
+      var _dt = document.getElementById('drive-mode-toggle'); if (_dt) _dt.checked = false;
       document.getElementById('ui-name').innerText = pc.name;
       document.getElementById('ui-sex').innerText = pc.sex;
       setupHistoryPrevention();
       refreshFateTags();
-      renderMapPane();
+      // 🧹 2026-07：鑑賞拔地圖(applyModeUI 已隱藏 #pane-map)，這裡不必再算圖──renderMapPane 移除。
+      // 🚀 首次建檔才需要AI潤色敘事欄：不await，趁玩家看開場白的空檔在背景跑，失敗則保留種子預設。
+      if (firstTimeSeed) backfillKanshouAi(firstTimeSeed);
       // 🧵 跟單機一樣：靠 pcId 從「歷史暫存」撈前塵對話，承接上次的後日談，不重開場
       const story = document.getElementById('story');
       story.innerHTML = `<div class="loading-text">後日談因果重啟，喚醒前塵記憶…</div>`;

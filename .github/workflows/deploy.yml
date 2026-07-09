@@ -7,7 +7,7 @@ name: Deploy 命運停駐之夜 to Apps Script
 #   想讓玩家看到新版時，到 Actions 頁手動 Run workflow（或叫我幫你觸發）。
 on:
   push:
-    branches: [ v2, main, claude/fate-error-review-w8q42w ]
+    branches: [ main, claude/fate-error-review-w8q42w ]
   workflow_dispatch:
 
 jobs:

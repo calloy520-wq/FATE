@@ -56,7 +56,7 @@ function actionManualNpc(userData, pcId, sheets) {
       melee ? `【體術】${melee}` : "",
       "【令咒】3",
       `【模式】${userData.warMode === 'chaos' ? 'chaos' : 'canon'}`,
-      userData.warMode === 'chaos' ? "" : `【戰爭】${['4th', '5th', 'fake'].indexOf(String(userData.war)) >= 0 ? userData.war : '5th'}`,
+      userData.warMode === 'chaos' ? "" : `【戰爭】${['4th', '5th'].indexOf(String(userData.war)) >= 0 ? userData.war : '5th'}`,
       (userData.warMode !== 'chaos' && userData.playedMaster) ? `【扮演】${String(userData.playedMaster).trim()}` : ""
     ].filter(Boolean).join("｜");
     // 🎴 起始禮裝：玩家自選（2026-07 不再隨機）。驗證＝合法的【被動】禮裝 id；空／'none'／破戒(special) 一律不帶。
@@ -109,7 +109,7 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
 ★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
 - traits：外貌、氣質舉止、自稱與口氣(第一人稱·如 我/俺/吾＋說話語氣，如 自稱「吾」・睥睨王者腔)、卸下心防的私密一面
 - personality：日常表象、真實內裡、喜歡的事物、討厭的事物
-★npc_intent：一句【簡短】萌點（可愛反差，≤15字），結合此御主身分性格，要反差、可愛、獨特。
+★npc_intent：一句【簡短】萌點（可愛反差，≤18字），結合此御主身分性格，要反差、可愛、獨特。務必寫完整一句話，不可斷在句意未完處。
 ★background：限20字，呼應其身世／財力，禁出現具體物品名。
 ★【勿輸出數值】戰力數值、HP/MP 一律由系統裁定，prompt【不要】輸出任何數值欄位；也不要輸出地點。
 
@@ -127,7 +127,9 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
     if (aiBrief.background) sheets.pc.getRange(wIdx + 1, COL.PC.BACK + 1).setValue(String(aiBrief.background).slice(0, 40));
     if (aiBrief.traits) sheets.pc.getRange(wIdx + 1, COL.PC.TRAIT + 1).setValue(parseTraitsHelper(aiBrief.traits, row[COL.PC.TRAIT]));
     if (aiBrief.personality) sheets.pc.getRange(wIdx + 1, COL.PC.PREF + 1).setValue(parseTraitsHelper(aiBrief.personality, row[COL.PC.PREF]));
-    if (aiBrief.npc_intent) sheets.pc.getRange(wIdx + 1, COL.PC.INTENT + 1).setValue(String(aiBrief.npc_intent).slice(0, 18));
+    // 🐛→✅ 萌點欄同款腰斬修正(比照 Gallery.gs actionBackfillKanshouAi)：slice(0,18) 對一句話太緊，
+    //   AI 稍微超字數就被砍在句意中間，放寬緩衝。
+    if (aiBrief.npc_intent) sheets.pc.getRange(wIdx + 1, COL.PC.INTENT + 1).setValue(String(aiBrief.npc_intent).slice(0, 30));
     return JSON.stringify({ success: true });
   } catch (e) {
     return JSON.stringify({ success: false, message: "背景補生成失敗（已保留種子設定）" });
@@ -149,7 +151,7 @@ function getWarMode_(memory) {
 // 鋪敵用的「戰爭」字串：混亂→chaos；正史→【戰爭】(4th/5th/fake，預設 5th)
 function getWarName_(memory) {
   if (getWarMode_(memory) === "chaos") return "chaos";
-  var m = String(memory || "").match(/【戰爭】(4th|5th|fake)/);
+  var m = String(memory || "").match(/【戰爭】(4th|5th)/);
   return m ? m[1] : "5th";
 }
 // 玩家扮演的正典御主 id（自創則空）
@@ -289,9 +291,14 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
     words: String(personaWords || ""), firstP: String(px.firstP || "") || "我", toMaster: String(px.toMaster || ""),
     look: String(px.look || ""), moe: String(px.moe || ""), speech: String(px.speech || ""), tic: String(px.tic || ""), back: String(px.back || "")
   });
+  // 🤖 2026-07 玩家定調「工房捏角當下也提前生成日常資料」：跟種子英靈懶惰快取(見
+  // getOrComputeDailyHeroFields_)不同——工房角色創造當下就順手轉好，寫進英靈殿新增的
+  // DAILY_LOOK/DAILY_WORDS 欄，之後第一次被召喚進鑑賞就直接有現成日常版，不必等召喚當下才轉。
+  var dailyLook = translateAppearanceToDaily_(name, cls, String(px.look || ""));
+  var dailyWords = translatePersonalityToDaily_(name, cls, String(personaWords || ""));
   hs.appendRow([name + "-" + cls, cls, name, sex || "異", sixJson || "{}",
     JSON.stringify(classSkills || []), JSON.stringify(skills || []), JSON.stringify(traits || []),
-    np || "", persona, align || "中立", "[]", "ai_gen"]);
+    np || "", persona, align || "中立", "[]", "ai_gen", dailyLook, dailyWords]);
   try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { } // 種子表已變動→清快取，下次讀到新從者
 }
 
@@ -309,7 +316,10 @@ var FORGE_CLS_SKILLS_ = {
 function parseForgeBuild_(build, reqCls) {
   const VALID_CLS = ["Saber", "Archer", "Lancer", "Rider", "Caster", "Assassin", "Berserker"];
   const out = {};
-  out.cls = VALID_CLS.includes(String(build.cls)) ? String(build.cls) : (reqCls || "Saber");
+  // 🌹 2026-07「御主」職階：鑑賞限定純敘事款(比照 Seed_Codex.gs 的3位canon御主)，不參與戰鬥——
+  //   獨立於 VALID_CLS(七大從者職階)之外判斷，不吃 reqCls 的 Saber fallback。
+  const isMasterCls = String(build.cls) === "御主";
+  out.cls = isMasterCls ? "御主" : (VALID_CLS.includes(String(build.cls)) ? String(build.cls) : (reqCls || "Saber"));
   out.name = String(build.name || "").replace(/[<>&"'`]/g, "").trim().slice(0, 20);
   if (!out.name) return { ok: false, message: "請為英靈取一個真名。" };
   if ((typeof SEED_SERVANTS !== "undefined" && SEED_SERVANTS.some(s => s && s.name === out.name)) ||
@@ -322,6 +332,17 @@ function parseForgeBuild_(build, reqCls) {
   out.tic = _fClean(build.tic, 30); out.moe = _fClean(build.moe, 18); out.back = _fClean(build.back, 28);
   const ALIGNS_ = ["秩序・善", "秩序・中庸", "秩序・惡", "中立・善", "中立", "中立・惡", "混沌・善", "混沌・中庸", "混沌・惡"];
   out.align = ALIGNS_.includes(String(build.align)) ? String(build.align) : "中立";
+  out.look = _fClean(build.look, 60); out.pref = _fClean(build.pref, 60);
+  const _segs = v => v ? v.split(/[、,，]/).filter(Boolean).length : 0;
+  out.lookFull = _segs(out.look) >= 3; out.prefFull = _segs(out.pref) >= 3;
+  out.desc = String(build.desc || "").trim().slice(0, 120);
+  if (isMasterCls) {
+    // 🌹 御主：六圍/技能/寶具/武裝全部略過驗證與計費，強制留空(鑑賞用不到、不進戰鬥引擎)。
+    out.six = {}; out.skills = []; out.classSkills = [];
+    out.npScale = "對人"; out.npName = ""; out.npR = ""; out.npDesc = ""; out.weapon = "";
+    out.ok = true;
+    return out;
+  }
   // 💰 2026-07 調升 270→340：技能計價/規模計價後來併入同一錢包，270(原純六圍的 A−設定)實測按
   //   工房價格計價全種子＝排 32/36(咒腕級墊底)。340＝種子中位數——點滿≈尼祿/美杜莎中堅，
   //   強者種子(420~505·且握有 Excalibur/王財等工房買不到的概念 fx)仍明確在上。
@@ -365,10 +386,6 @@ function parseForgeBuild_(build, reqCls) {
   out.npR = out.six["寶具"]; // 顯示階＝六圍寶具階(引擎本就只吃 six.寶具)
   out.npDesc = String(build.npDesc || "").replace(/【常駐寶具】|對城|對界|對神/g, "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, 40);
   out.weapon = _fClean(build.weapon, 30);
-  out.look = _fClean(build.look, 60); out.pref = _fClean(build.pref, 60);
-  const _segs = v => v ? v.split(/[、,，]/).filter(Boolean).length : 0;
-  out.lookFull = _segs(out.look) >= 3; out.prefFull = _segs(out.pref) >= 3;
-  out.desc = String(build.desc || "").trim().slice(0, 120);
   out.ok = true;
   return out;
 }
@@ -422,21 +439,25 @@ function actionSaveHero(userData, pcId, sheets) {
     build.name = String(data[idx][COL.HERO.NAME]); // 真名＝識別鍵，不可改
     const pb = parseForgeBuild_(build, String(data[idx][COL.HERO.CLS] || ""));
     if (!pb.ok) return JSON.stringify({ success: false, message: pb.message });
-    // 寶具英文名沿用舊值（修改不重叫 AI）
+    // 寶具英文名沿用舊值（修改不重叫 AI）；御主職階無寶具，np 恆空字串。
     const oldNp = String(data[idx][COL.HERO.NP] || "");
     const enM = oldNp.match(/\s([A-Za-z][A-Za-z0-9 .'\-:]{2,29})（/);
-    const np = `${pb.npName}${enM ? " " + enM[1] : ""}（${pb.npScale} ${pb.npR}）${pb.npDesc ? "·" + pb.npDesc : ""}`;
+    const np = (pb.cls === "御主") ? "" : `${pb.npName}${enM ? " " + enM[1] : ""}（${pb.npScale} ${pb.npR}）${pb.npDesc ? "·" + pb.npDesc : ""}`;
     const keep = (nv, ov) => nv ? nv : String(ov || "");
     data[idx][COL.HERO.CLS] = pb.cls; data[idx][COL.HERO.SEX] = pb.sex;
     data[idx][COL.HERO.SIX] = JSON.stringify(pb.six);
     data[idx][COL.HERO.CLASS_SKILLS] = JSON.stringify(pb.classSkills);
     data[idx][COL.HERO.SKILLS] = JSON.stringify(pb.skills);
     data[idx][COL.HERO.NP] = np; data[idx][COL.HERO.ALIGN] = pb.align;
+    const newWords = keep(pb.pref, pj.words), newLook = keep(pb.look, pj.look);
     data[idx][COL.HERO.PERSONA] = JSON.stringify({
-      words: keep(pb.pref, pj.words), firstP: keep(pb.fp, pj.firstP) || "我", toMaster: keep(pb.toM, pj.toMaster),
-      look: keep(pb.look, pj.look), moe: keep(pb.moe, pj.moe), speech: keep(pb.speech, pj.speech),
+      words: newWords, firstP: keep(pb.fp, pj.firstP) || "我", toMaster: keep(pb.toM, pj.toMaster),
+      look: newLook, moe: keep(pb.moe, pj.moe), speech: keep(pb.speech, pj.speech),
       tic: keep(pb.tic, pj.tic), back: keep(pb.back, pj.back), weapon: keep(pb.weapon, pj.weapon), creator: pj.creator
     });
+    // 🤖 2026-07：外貌/性格改了，先前快取的日常版本會跟新設定對不上——重新轉一次，不留舊資料。
+    data[idx][COL.HERO.DAILY_LOOK] = translateAppearanceToDaily_(build.name, pb.cls, newLook);
+    data[idx][COL.HERO.DAILY_WORDS] = translatePersonalityToDaily_(build.name, pb.cls, newWords);
     hs.getRange(idx + 1, 1, 1, data[idx].length).setValues([data[idx]]);
     try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { }
     return JSON.stringify({ success: true, edited: true, message: `「${build.name}」的靈基已重鑄——之後召喚皆用新設定（已在場的分身不追改）。` });
@@ -448,18 +469,20 @@ function actionSaveHero(userData, pcId, sheets) {
   const dup = getHeroCodexCached().slice(1).find(r => String(r[COL.HERO.NAME]).trim() === pb.name);
   if (dup) return JSON.stringify({ success: false, message: `英靈殿已有「${pb.name}」——請換一個真名，或請其創造者修改。` });
   // 🎭 AI 只補「玩家沒填的」演出欄＋寶具英文真名——失敗不擋鑄造
+  // 🌹 御主職階無寶具/技能，提示詞跳過那兩行、系統prompt也不要求 npEn(反正不會被讀)。
+  const isMasterCls = pb.cls === "御主";
   let flavor = null;
   try {
     flavor = JSON.parse(callGeminiAPI(
-      `【真名】：${pb.name}\n【職階】：${pb.cls}\n【性別】：${pb.sex}\n【玩家描述】：${pb.desc || "無"}${pb.look ? `\n【外貌(${pb.lookFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.look}` : ""}${pb.pref ? `\n【個性(${pb.prefFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.pref}` : ""}${pb.fp ? `\n【自稱(玩家已定)】：${pb.fp}` : ""}${pb.speech ? `\n【口吻(玩家已定)】：${pb.speech}` : ""}${pb.moe ? `\n【萌點(玩家已定·照抄勿改)】：${pb.moe}` : ""}${pb.back ? `\n【身世(玩家已定·照抄勿改)】：${pb.back}` : ""}${pb.weapon ? `\n【武裝(以此為準·勿依職階/原典改寫)】：${pb.weapon}` : ""}\n【技能】：${pb.skills.map(s => s.n).join("、") || "無"}\n【寶具】：${pb.npName}${pb.npDesc ? `（${pb.npDesc}）` : ""}`,
-      `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名原創從者的數值與設定，你【只】負責補完演出側寫與寶具英文真名，【嚴禁】輸出任何數值/階級/技能設定。玩家標「照抄勿改」的欄位原樣沿用；標「核心設定·擴寫」的欄位以玩家給的為靈魂擴寫、【嚴禁】偏離或覆蓋其本意。★輸出合法 JSON、禁 Markdown：{"personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔）","look":"外貌四短句頓號分隔（五官髮色/氣質/身形/衣著印象）","background":"生平一句·限20字","npc_intent":"一句反差萌·限15字","npEn":"寶具的英文真名讀法(拉丁字母·如 Excalibur 風格·限4個單字)"}`,
+      `【真名】：${pb.name}\n【職階】：${pb.cls}\n【性別】：${pb.sex}\n【玩家描述】：${pb.desc || "無"}${pb.look ? `\n【外貌(${pb.lookFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.look}` : ""}${pb.pref ? `\n【個性(${pb.prefFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.pref}` : ""}${pb.fp ? `\n【自稱(玩家已定)】：${pb.fp}` : ""}${pb.speech ? `\n【口吻(玩家已定)】：${pb.speech}` : ""}${pb.moe ? `\n【萌點(玩家已定·照抄勿改)】：${pb.moe}` : ""}${pb.back ? `\n【身世(玩家已定·照抄勿改)】：${pb.back}` : ""}${pb.weapon ? `\n【武裝(以此為準·勿依職階/原典改寫)】：${pb.weapon}` : ""}${isMasterCls ? "" : `\n【技能】：${pb.skills.map(s => s.n).join("、") || "無"}\n【寶具】：${pb.npName}${pb.npDesc ? `（${pb.npDesc}）` : ""}`}`,
+      `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名原創${isMasterCls ? "御主(鑑賞限定·不參與戰鬥)" : "從者"}的設定，你【只】負責補完演出側寫${isMasterCls ? "" : "與寶具英文真名"}，【嚴禁】輸出任何數值/階級/技能設定。玩家標「照抄勿改」的欄位原樣沿用；標「核心設定·擴寫」的欄位以玩家給的為靈魂擴寫、【嚴禁】偏離或覆蓋其本意。★輸出合法 JSON、禁 Markdown：{"personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔）","look":"外貌四短句頓號分隔（五官髮色/身形/衣著印象，最後一句必須是不含服裝字眼的純氣質詞）","background":"生平一句·限20字","npc_intent":"一句反差萌·限18字·務必寫完整一句話不可斷在句意未完處"${isMasterCls ? "" : `,"npEn":"寶具的英文真名讀法(拉丁字母·如 Excalibur 風格·限4個單字)"`}}`,
       { temperature: 0.85, ignoreLaw: true }));
   } catch (e) { flavor = null; }
   const fNpEn = String((flavor && flavor.npEn) || "").replace(/[^A-Za-z0-9 .'\-:]/g, "").trim().slice(0, 30);
-  const np = `${pb.npName}${fNpEn ? " " + fNpEn : ""}（${pb.npScale} ${pb.npR}）${pb.npDesc ? "·" + pb.npDesc : ""}`;
+  const np = isMasterCls ? "" : `${pb.npName}${fNpEn ? " " + fNpEn : ""}（${pb.npScale} ${pb.npR}）${pb.npDesc ? "·" + pb.npDesc : ""}`;
   const finalLook = pb.lookFull ? pb.look : (String((flavor && flavor.look) || "").trim() || pb.look);
   const finalPref = pb.prefFull ? pb.pref : (String((flavor && flavor.personality) || "").trim() || pb.pref);
-  const moe = pb.moe || String((flavor && flavor.npc_intent) || "").slice(0, 18);
+  const moe = pb.moe || String((flavor && flavor.npc_intent) || "").slice(0, 30); // 比照 slice(0,18) 腰斬修正，放寬緩衝
   const back = pb.back || String((flavor && flavor.background) || "").slice(0, 28);
   try {
     recordOriginalHero_(pb.name, pb.cls, pb.sex, JSON.stringify(pb.six), pb.classSkills, pb.skills, [], np, finalPref || "", pb.align,
@@ -495,7 +518,10 @@ function actionSummonServant(userData, pcId, sheets) {
   // ── 從英靈殿尋找對應英靈（heroId 指定 / 真名比對 / 隨機）──
   let hero = null;
   try {
-    const hrows = getHeroCodexCached().slice(1).filter(r => r[COL.HERO.ID]);
+    // 🛡️ 2026-07 修：英靈殿新增了「鑑賞限定」的正典御主(cls='御主'，如遠坂凜/伊莉雅絲菲爾)，
+    //   只給鑑賞直接召喚用、沒有六圍/技能/寶具——若被 solo 召喚會產出殘缺從者。三條路徑
+    //   (heroId 指定/真名比對/隨機)都共用這份 hrows，統一在源頭濾掉，不逐一補檢查。
+    const hrows = getHeroCodexCached().slice(1).filter(r => r[COL.HERO.ID] && String(r[COL.HERO.CLS]) !== "御主");
     if (hrows.length) {
       if (heroId) {
         hero = hrows.find(r => String(r[COL.HERO.ID]) === heroId);
@@ -537,13 +563,20 @@ function actionSummonServant(userData, pcId, sheets) {
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       // 🎴 特徵(4格敘事：外貌/氣質/自稱與口氣/私密)直接讀寫死的種子 persona.look，穩定一致、不叫 AI 生。
-      row[COL.PC.TRAIT] = parseTraitsHelper(String(persona.look || ""), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
-      // 🚀 種子英靈：直接用寫死的種子 persona（萌點/口吻 v3 已補齊），不再叫 AI 重生一次——省一次 API、加速召喚。
+      // 🐛→✅ 2026-07 修「衣服寫到舉止了」：persona.look 是「N段外貌(含服裝)・・...、氣質詞」，
+      //   不是天然四格，改用 looksToTraitParts_ 正確切分＋帶入真正的 persona.firstP 當自稱。
+      row[COL.PC.TRAIT] = parseTraitsHelper(looksToTraitParts_(persona.look, persona.firstP), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
+      // 🚀 種子英靈：直接用寫死的種子 persona（萌點/口吻 v3 已補齊），大部分欄位不叫 AI 重生——
+      //    省下多數欄位的 API、加速召喚(僅[喜歡]/[討厭]段數不足時才補呼叫一次，見下)。
       //    個性取 persona.words(四關鍵)、萌點取 persona.moe、生平用種子既有 back 或職階真名模板。
       //    口吻/小動作(persona.speech/tic)已由 stampPersonaFlavor_ 複製進 MEMORY，servantCard_ 平常直接讀列即可，不必查英靈殿。
       let svPref = String(persona.words || "").replace(/・/g, "、");
       let svMoe = String(persona.moe || "").slice(0, 18);
       let svBack = persona.back ? String(persona.back).slice(0, 28) : `${cls}・${realName}`;
+      // 🤖 2026-07：種子 persona.words 幾乎只有2段(見 enrichPersonalityLikesDislikes_ 註解)，
+      //   parseTraitsHelper 補滿4格時[喜歡]/[討厭]恆為「無」——這裡召喚當下補一次AI，讓從者也有
+      //   真正的喜好/討厭可用，不只是玩家自己建角才有。已經4段(罕見)則直接跳過、不多打API。
+      svPref = enrichPersonalityLikesDislikes_(realName, cls, svPref);
       row[COL.PC.PREF] = parseTraitsHelper(svPref, "沉著表象、堅定內裡、珍視之物、厭惡之事");
       row[COL.PC.MEMORY] = stampPersonaFlavor_(`第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || "保持距離"}`, persona.speech, persona.tic);
       if (persona.weapon) row[COL.PC.MEMORY] = setWeapon_(row[COL.PC.MEMORY], persona.weapon); // ⚔️ 工房原創的自定武裝·重召不掉
@@ -569,7 +602,7 @@ function actionSummonServant(userData, pcId, sheets) {
 ${FX_MENU_}
 ★【特性 traits】1~3 個，{"n":"特性名"}（如 王/龍/人類/神性/巨人/猛獸；有神性者會被神殺剋）。
 ★【演出而非說明】personality 與寶具只作底層，勿直接複述字面。personality 剛好 4 短句頓號分隔：日常表象、真實內裡、喜歡的事物、討厭的事物。
-★np：寶具名＋一句威能簡述；規模上限【對軍】——對城/對界/對神為種子英靈專屬，寫了也會被系統降為對軍，簡述請勿誇稱斬城滅界。★npc_intent：一句【簡短】反差萌（≤15字）。★sex 從 男／女／異 擇一。
+★np：寶具名＋一句威能簡述；規模上限【對軍】——對城/對界/對神為種子英靈專屬，寫了也會被系統降為對軍，簡述請勿誇稱斬城滅界。★npc_intent：一句【簡短】反差萌（≤18字，務必寫完整一句話不可斷在句意未完處）。★sex 從 男／女／異 擇一。
 
 ★【輸出】合法 JSON、禁 Markdown：
 {"realName":"英靈真名","sex":"女","align":"中立・善","background":"限20字","npc_intent":"反差萌一句","personality":"四格頓號","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"classSkills":[{"n":"對魔力","r":"B","fx":"nullify_magic"}],"skills":[{"n":"直感","r":"A","fx":"first_strike"},{"n":"怪力","r":"B","fx":"str_up"}],"traits":[{"n":"人類"}]}`;
@@ -597,7 +630,7 @@ ${FX_MENU_}
       // 🎴 AI 即時生成的原創從者：特徵走通用敘事預設(不再用戰鬥特性污染敘事欄)，玩家可逆天改命微調。
       row[COL.PC.TRAIT] = parseTraitsHelper("", "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
       row[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "沉著表象、堅定內裡、珍視之物、厭惡之事");
-      row[COL.PC.INTENT] = String(aiBrief.npc_intent || "").slice(0, 18);
+      row[COL.PC.INTENT] = String(aiBrief.npc_intent || "").slice(0, 30); // 比照 slice(0,18) 腰斬修正，放寬緩衝
       row[COL.PC.MEMORY] = `第一人稱「我」｜對御主：初締約·尚在觀察`; // 與種子路徑對稱(原漏寫→servantCard_ 演出資訊變薄)
       row[COL.PC.SIX] = JSON.stringify(aiSix);
       row[COL.PC.TAGS] = JSON.stringify({ skills: aiCSkills.concat(aiSkills), traits: aiTraits });
@@ -605,7 +638,7 @@ ${FX_MENU_}
       if (aiCSkills.concat(aiSkills).some(function (s) { return s && s.fx === 'god_hand'; })) {
         row[COL.PC.MEMORY] += '｜【試煉】3';
       }
-      row[COL.PC.BACK] = aiBrief.background || `${cls} 職階的英靈`;
+      row[COL.PC.BACK] = aiBrief.background ? String(aiBrief.background).slice(0, 40) : `${cls} 職階的英靈`; // 補防呆上限，比照其他AI生成路徑
       // 🆕 不重名的原創從者 → 寫回英靈殿（含六圍/技能fx/特性），日後可重用（御主不收）
       try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], aiCSkills, aiSkills, aiTraits, np, aiBrief.personality, align, { creator: String(userData.acctName || "").trim() }); } catch (e) { }
     }

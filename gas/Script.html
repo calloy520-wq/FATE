@@ -67,6 +67,7 @@
   let myServants = [];   // 🗝️ 我方所有在世從者（雙從者）
   let myActiveServant = '';// 🗝️ 目前出戰／操作中的從者名
   let myMasterSeals = 0;  // 令咒餘量
+  let myMasterOutfit = ''; // 👗 御主本人當前換裝（鑑賞：與從者outfit同款機制，供「換裝」按鈕預填）
   // ❖ 令咒·蓄勢開關(2026-07 玩家定案)：按❖發亮＝蓄勢(免費·可再按取消)；之後按 普攻/⚡主動/💥寶具
   //   任一攻擊即自動帶上令咒(必中＋×1.5)並熄滅。按其他任何行動(移動/偵查/互動…)都不消耗、蓄勢保留。
   let sealArmed = false;
@@ -92,12 +93,10 @@
     var c = String(myServantCls || '');
     if (c === 'Caster') return { emo: '🔮', name: '魔砲', hint: '以魔力轟擊', col: '#7e6cff', rgb: '126,108,255' };
     if (c === 'Archer') return { emo: '🏹', name: '狙擊', hint: '遠程精準', col: '#5cb88f', rgb: '92,184,143' };
-    return { emo: '⚔️', name: '出戰', hint: '近身搏殺', col: '#e07a7a', rgb: '165,42,42' };
+    return { emo: '⚔️', name: '攻擊', hint: '近身搏殺', col: '#e07a7a', rgb: '165,42,42' };
   }
   let nearbyLocations = [];
   let historyPushed = false;
-
-  const NPC_ACTIONS = {};
 
  window.onload = () => {
     document.documentElement.style.setProperty('--story-scale', parseFloat(localStorage.getItem('kyushu_story_font_scale')) || 1);
@@ -130,12 +129,6 @@
 
 
     document.getElementById('story').addEventListener('click', function(e) {
-      const interactTarget = e.target.closest('[data-interact]');
-      if (interactTarget) {
-        openInteractMenu(interactTarget.getAttribute('data-interact'));
-        return;
-      }
-      
       const locTarget = e.target.closest('[data-loc]');
       if (locTarget) {
         const locName = locTarget.getAttribute('data-loc');
@@ -183,19 +176,6 @@
     }
   }
   
-  function setBackLockBtnUI(locked) {
-    const btn = document.getElementById('back-lock-btn');
-    if (!btn) return;
-    btn.innerText = locked ? '🔒 已鎖' : '🔓';
-    btn.style.background = locked ? '#660000' : '#1a1a1a';
-    btn.style.borderColor = locked ? '#ff4444' : '#555';
-    btn.style.color = locked ? '#ff6666' : '#555';
-  }
-  function toggleBackLock() {
-  const locked = localStorage.getItem('kyushu_back_locked') === 'true';
-  localStorage.setItem('kyushu_back_locked', String(!locked));
-  setBackLockBtnUI(!locked);
-  }
   function toggleActionDrawer() {
     const drawer = document.getElementById('action-drawer');
     const trigger = document.getElementById('plus-trigger');
@@ -214,7 +194,6 @@
     toggleActionDrawer();
     switch(actionType) {
       case 'sync': syncData(); break;
-      case 'npc': refreshAndOpenNpcList(); break;
       case 'status': openStatus(); break;
       
       // 🔴 修改這行！讓它去呼叫專屬的設定選單函數
@@ -271,19 +250,6 @@
       }
   });
 
-  async function refreshAndOpenNpcList() {
-    toggleActionDrawer();
-    document.getElementById('npc-overlay').style.display = 'flex';
-    document.getElementById('npc-content').innerHTML = "<p style='text-align:center; color:#816e54;'>正在感應天地...同步眾生氣息...</p>";
-
-    try {
-        await syncData(true); 
-        renderNpcList();      
-    } catch (e) {
-        document.getElementById('npc-content').innerHTML = "<p style='text-align:center; color:red;'>感應失敗。</p>";
-    }
-  }
-
   function closeSystemModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) modal.style.display = 'none';
@@ -303,8 +269,6 @@
 
     currentStatusTargetId = targetId || pc.id;
     currentStatusTargetName = targetName || pc.name;
-    const isLocked = localStorage.getItem('kyushu_back_locked') === 'true';
-    setBackLockBtnUI(isLocked);
 
     if (currentStatusTargetId === pc.id) {
       const lastS = localStorage.getItem('kyushu_last_status');
@@ -497,13 +461,13 @@
       const sa = String(a.name).replace(/'/g, '');
       const bond = Math.max(0, Math.min(100, parseInt(a.relVal) || 0));
       const eligible = bond >= 90;
-      const title = '<span style="color:#8fd0a0; font-size:13px; font-weight:bold;">🤝 盟友 ' + a.name + '</span> <small style="color:#8fd0a0; opacity:.6;">' + (a.faction === '盟友御主' ? '御主' : '從者') + '·休兵 ·羈絆' + bond + (eligible ? '·鑑賞緣' : '/90') + '</small>';
+      const title = '<span style="color:#8fd0a0; font-size:13px; font-weight:bold;">🤝 盟友 ' + a.name + '</span> <small style="color:#8fd0a0; opacity:.6;">' + (a.faction === '盟友御主' ? '御主' : '從者') + '·休兵 ·羈絆' + bond + (eligible ? '·情深' : '/90') + '</small>';
       const acts = '<div style="flex:1 0 100%; display:flex; align-items:center; gap:7px; margin-bottom:2px;">'
         +   '<div style="flex:1; height:7px; background:rgba(255,255,255,.08); border-radius:4px; overflow:hidden;"><div style="height:100%; width:' + bond + '%; background:linear-gradient(90deg,#5aaa78,#8fd0a0);"></div></div>'
-        +   '<small style="color:' + (eligible ? '#e8c873' : '#8fa0b0') + '; font-size:10.5px; white-space:nowrap;">羈絆 ' + bond + (eligible ? ' ·鑑賞緣已結' : '/90') + '</small>'
+        +   '<small style="color:' + (eligible ? '#e8c873' : '#8fa0b0') + '; font-size:10.5px; white-space:nowrap;">羈絆 ' + bond + (eligible ? ' ·情誼已臻深處' : '/90') + '</small>'
         + '</div>'
-        + '<div style="flex:1 0 100%; font-size:10px; line-height:1.4; color:' + (eligible ? '#e8c873' : '#7d8a9a') + '; margin-bottom:3px;">' + (eligible ? '🌹 鑑賞緣已結——最終奪杯後，可將此盟友收錄進鑑賞後日談' : '🌹 羈絆養至 90、且最終奪得聖杯，即可將這名盟友收錄進「鑑賞」') + '</div>'
-        + '<button onclick="allyBond(\'' + sa + '\')" title="與盟友共處／共濟魔力：增進羈絆，養至 90 戰後可納入鑑賞" style="flex:2; min-width:120px; font-size:12px; padding:7px; background:rgba(90,170,120,.16); color:#8fd0a0; border:1px solid #4ea56a; border-radius:7px; cursor:pointer; font-weight:bold;">🤝 與盟友共處 <small style="opacity:.7;">耗1AP</small></button>'
+        + '<div style="flex:1 0 100%; font-size:10px; line-height:1.4; color:' + (eligible ? '#e8c873' : '#7d8a9a') + '; margin-bottom:3px;">' + (eligible ? '🌹 這份情誼已臻深處，無需言明的牽絆' : '🌹 羈絆養至 90，情誼將臻至深處') + '</div>'
+        + '<button onclick="allyBond(\'' + sa + '\')" title="與盟友共處／共濟魔力：增進羈絆" style="flex:2; min-width:120px; font-size:12px; padding:7px; background:rgba(90,170,120,.16); color:#8fd0a0; border:1px solid #4ea56a; border-radius:7px; cursor:pointer; font-weight:bold;">🤝 與盟友共處 <small style="opacity:.7;">耗1AP</small></button>'
         + '<button onclick="breakAlliance(\'' + sa + '\')" style="flex:1; min-width:80px; font-size:11.5px; padding:7px; background:rgba(165,42,42,.18); color:#e08a8a; border:1px solid #a05050; border-radius:7px; cursor:pointer; font-weight:bold;">💔 撕毀盟約</button>';
       h += card(String(a.name), 'rgba(90,170,120,.5)', 'rgba(20,45,28,.25)', title, acts);
     });
@@ -787,7 +751,7 @@
         nearbyLocations = data.locations || [];
         // 1. 地點小標
         story.insertAdjacentHTML('beforeend', `<div class="msg-player" style="align-self:center;color:#9fc0ef;font-size:12.5px;">📍 抵達「${targetName}」</div>`);
-        if (data.pursuit) { const _pu = data.pursuit, _us = _pu.hitWho === 'us'; story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:${_us ? '#e0915c' : '#7fc77f'};font-size:12px;text-align:center;border:1px solid rgba(${_us ? '200,120,70' : '120,180,120'},.35);border-radius:8px;padding:5px 10px;">💨 ${_us ? '撤離追擊：被「' + _pu.enemyName + '」咬了一記——從者' : '撤離反咬：回身將「' + _pu.enemyName + '」逼退——追兵'} <b>−${_pu.dmg}</b></div>`); }
+        if (data.report) renderFateBattleReport(data.report); // 💨 撤離追擊戰報卡（秒顯數字，取代舊版純文字一行）
         updateClock(data.clock, data.ap, data.apMax);
         updateEconomy(data.economy);
         showRumors(data.rumors);
@@ -801,13 +765,28 @@
           ? `此地有敵蹤：${foes.map(f => f.name + '（' + (f.faction === '敵從者' ? '敵從者' : '敵御主') + '）').join('、')}`
           : '此地暫無明顯敵蹤';
         const timeStr = (data.clock || '').split('・').slice(-1)[0] || '此刻';
-        const arrivePrompt = (data.masterCard || '') + (data.servantCard ? '【我方從者】' + data.servantCard : '') + (data.foeCards ? '【敵方從者·非我方】' + data.foeCards : '')
+        // 🐛→✅ 2026-07 修：鑑賞(慾海)移動原本跟solo共用同一份戰爭/巡查風格的抵達提示詞——玩家反映
+        // 「明明沒有敵人，感覺卻像要戰鬥了」。foes 在鑑賞恆為空陣列(無敵從者/敵御主)，但下方固定的
+        // 「若無敵蹤，寫巡查/警戒/喘息」指令完全沒因模式而變，每次移動都硬帶戰爭氛圍。改成鑑賞獨立
+        // 一份溫和的抵達提示詞，不提敵蹤/戰鬥/警戒，改講同行同伴的日常互動。
+        const kanshouCompanionNames = (myServants || []).map(function (s) { return s.name; }).filter(Boolean);
+        const arrivePrompt = (pc.mode === 'kanshou') ? (
+          (data.masterCard || '') + (data.servantCard ? '【同行同伴】' + data.servantCard : '')
+          + `【抵達場景】『${pc.name}』${kanshouCompanionNames.length ? `與「${kanshouCompanionNames.join('、')}」` : ''}來到了「${targetName}」，時值${timeStr}。\n`
+          + `此地氛圍：${locDesc}\n`
+          + `★以細膩溫暖的 Fate／TYPE-MOON 筆觸描寫抵達此地的所見所感、環境細節與當下氛圍——這是後日談的和平時光，沒有敵蹤、沒有戰鬥，不必警戒或巡查，單純換了個地方繼續相處。\n`
+          + (kanshouCompanionNames.length ? `★同行的「${kanshouCompanionNames.join('、')}」依其個性自然開口、有反應（至少一句台詞），別寫成御主獨自一人的自言自語。\n` : `★此刻獨自一人，可寫御主自己此刻的心境與所見所感。\n`)
+          + `★御主（我）可依其性格自然開口、有反應與台詞，別當沉默的旁觀者；但【不可】替御主拍板下一步（移動、互動皆由玩家決定），停在決策前的留白讓玩家以按鍵或對話回應。`
+        ) : (
+        (data.masterCard || '') + (data.servantCard ? '【我方從者】' + data.servantCard : '') + (data.foeCards ? '【敵方從者·非我方】' + data.foeCards : '')
+          + (data.pursuit && data.pursuit.foeCard ? '【撤離途中的追兵】' + data.pursuit.foeCard : '')
           + `【抵達場景】御主『${pc.name}』${pc.servant ? `與從者「${pc.servant}」` : ''}剛抵達冬木的「${targetName}」，時值${timeStr}。\n`
           + `此地氛圍：${locDesc}\n敵情：${foeStr}。\n`
           + (data.pursuit ? (data.pursuit.hitWho === 'us'
-              ? `★【撤離追擊】方才從「${data.pursuit.enemyName}」的勢力範圍抽身時，對方追上來咬了一記（從者受創 −${data.pursuit.dmg}）——抵達時帶著甩脫追兵的餘悸與狼狽，而非從容無事。\n`
-              : `★【撤離反咬】方才「${data.pursuit.enemyName}」追擊而至，從者回身一擊將其逼退（追兵受創 −${data.pursuit.dmg}）方才從容退場——可演出那記漂亮的斷後，但仍是脫離、非纏戰。\n`) : '')
+              ? `★【撤離追擊】方才從「${data.pursuit.enemyName}」的勢力範圍抽身時，對方追上來咬了一記（從者受創 −${data.pursuit.dmg}）——依上方【撤離途中的追兵】的性格與口吻演出這記追擊，也讓從者演出被咬中的反應；抵達時帶著甩脫追兵的餘悸與狼狽，而非從容無事。\n`
+              : `★【撤離反咬】方才「${data.pursuit.enemyName}」追擊而至，從者回身一擊將其逼退（追兵受創 −${data.pursuit.dmg}）——依上方【撤離途中的追兵】的性格演出對方追擊落空/被逼退時的反應，我方從者則演出漂亮斷後的餘裕；抵達時方才從容退場，而非纏戰。\n`) : '')
           + ((foes.filter(f => f.faction === '敵御主' || f.faction === '敵從者').length > 1) ? `★【在場敵對歸屬·勿張冠李戴】${foes.filter(f => f.faction === '敵御主').map(f => `御主「${f.name}」${f.servant ? `↔從者「${f.servant}」` : '（已無從者）'}`).concat(foes.filter(f => f.faction === '敵從者' && !foes.some(m => m.faction === '敵御主' && m.servant === f.name)).map(f => `從者「${f.name}」${f.master ? `↔御主「${f.master}」` : ''}`)).join('；')}。各組從者只聽命於自己的御主，彼此可能也互為敵手。\n` : '')
+          + (data.factionClash ? `★【撞見敵對互毆】${data.factionClash.note}——這不是相安無事同處一地，是你打斷了一場戰鬥；讓雙方帶著方才交手的戒備與傷勢演出，別忽略這場衝突，也別自行分出最終勝負。\n` : '')
           + (lastAiContext ? `\n【前情·僅供承接劇情連貫，勿原樣複述】方才之事：${lastAiContext.slice(0, 280)}\n${foes.length ? '若眼前敵人正是方才那場的對手，便是對方一路追上來／再度狹路相逢——承接前情、別當第一次見面（對方可能仍帶著方才的傷或怒）。' : '此番移動承接前情——【依方才的勝負結果與當前血量自行定調，勿臆測】：剛大勝→可帶餘勇或警戒餘悸；浴血慘勝→疲憊卻仍挺立；落敗逃離→狼狽負傷。別硬演成敗走、也別當若無其事。'}\n` : '')
           + `★以 Fate／TYPE-MOON 筆觸描寫兩人抵達此地的所見所感、環境細節與當下氛圍。若有敵蹤，營造一觸即發的對峙張力（但是否交戰、勝負留待御主下令，禁止自行開打或分勝負）；若無敵蹤，寫一段巡查、警戒或短暫喘息的氛圍，並自然暗示「可凝神偵查四周，或轉往他處」。\n`
           + (foes.length ? '' : `★此地此刻並無其他已知角色在場——【禁止】無中生出可對話、有名有姓的人物來湊互動（不是路人、不是熟人偶遇、不是巧遇的敵手）；環境細節與氛圍照寫，但互動對象僅御主與隨行從者。\n`)
@@ -821,7 +800,8 @@
               `★敵御主『${f.name}』已痛失從者（${f.lostServant}）、形單影隻、再無從者可驅使——是聖杯戰爭中無牙的棋手。讓其神情與心境流露這份失恃（依個性：孤注一擲／惶然欲逃／不甘怨懟），切勿演成仍有從者隨侍在旁。\n`).join('')
           + (pc.servant ? `★從者「${pc.servant}」隨行在側，依其個性開口、有反應（至少一句台詞），別寫成御主獨自一人的自言自語。\n` : '')
           + (foes.length ? '' : stanceLine_()) // 有敵蹤→姿態已折進偶遇/找上門的 stanceNotice_，不重複；無敵蹤→獨行姿態定調
-          + `★御主（我）可依其性格自然開口、有反應與台詞，別當沉默的旁觀者；但【不可】替御主拍板下一步戰略行動（出戰／結盟／移動／補魔由玩家按鍵決定）、不可逼問玩家，停在決策前的留白讓玩家以按鍵回應。`;
+          + `★御主（我）可依其性格自然開口、有反應與台詞，別當沉默的旁觀者；但【不可】替御主拍板下一步戰略行動（出戰／結盟／移動／補魔由玩家按鍵決定）、不可逼問玩家，停在決策前的留白讓玩家以按鍵回應。`
+        );
         if (data.defeat) { await handleDefeat(data); }  // ⏳ 移動跨過第14日時限 → 直接收場(略過抵達敘事)
         else {
           await narrate(arrivePrompt);
@@ -837,122 +817,10 @@
     } finally { endAction(); }
   }
 
-  function renderNpcList() {
-  const container = document.getElementById('npc-content');
-  if (!localNPCs || localNPCs.length === 0) {
-      container.innerHTML = `
-        <p style='text-align:center; color:#816e54;'>四下無人，亦無牽掛。</p>
-        <div style="border-top:1px dashed rgba(51,34,17,0.2); margin-top:15px; padding-top:15px; text-align:center;">
-          </div>`;
-      return;
-  }
-    
-    localNPCs.sort((a, b) => {
-        if (a.isParty !== b.isParty) return b.isParty - a.isParty; 
-        if (a.isExact !== b.isExact) return b.isExact - a.isExact;
-        return 0;
-    });
-
-    container.innerHTML = localNPCs.map(n => {
-        const isInParty = n.isParty; 
-        const busyWith = n.busyWith; 
-
-        let locText = n.isExact ? "[📍此地]" : `[📍${n.loc}]`;
-        if (isInParty) {
-            locText += " <span style='font-size:11px; color:#8b5a2b; font-weight:bold;'>[同行中]</span>";
-        } else if (busyWith) {
-            locText += ` <span style='font-size:11px; color:#816e54; font-weight:bold;'>[與 ${busyWith} 同行]</span>`;
-        }
-        
-        let cardStyle = n.isExact ? "border-left: 3px solid var(--gold-accent); padding-left:8px;" : "opacity: 0.8; padding-left:8px; border-left: 3px solid #555;";
-
-        let actionButtonsHtml = "";
-        
-        if (!n.isExact) {
-            // 不在同一地點，只能移動過去
-            actionButtonsHtml = `<button class="btn-act" style="border-color:#1e90ff; color:#1e90ff; padding: 6px 12px;" onclick="closeNpcList(); interactNpc('移動', '${n.name}', '${n.loc}', false)">👣 尋找 (移動)</button>`;
-            if (!n.isPC) {
-                actionButtonsHtml += `<button class="btn-act" style="border-color:#8b008b; color:#8b008b; padding: 6px 12px;" onclick="closeNpcList(); openStatus('${n.id}', '${n.name}')">📜 命格</button>`;
-            }
-        } else {
-            // 📍 在同一地點：顯示互動、命格、以及【快速組隊】！
-            actionButtonsHtml = `<button class="btn-act" style="border-color:#8b5a2b; color:#8b5a2b; font-weight:bold; padding: 6px 12px;" onclick="closeNpcList(); openInteractMenu('${n.name}')">✨ 互動</button>`;
-            if (!n.isPC) {
-                actionButtonsHtml += `<button class="btn-act" style="border-color:#8b008b; color:#8b008b; padding: 6px 12px;" onclick="closeNpcList(); openStatus('${n.id}', '${n.name}')">📜 命格</button>`;
-
-            }
-        }
-
-        const nameColor = n.isPC ? "#9C27B0" : "#800";
-        const roleTag = n.isPC ? "<span style='font-size:10px; color:#9C27B0; border:1px solid #9C27B0; padding:1px 3px; border-radius:3px; margin-right:4px;'>玩家</span>" : "";
-
-        return `
-          <div class="npc-card" style="${cardStyle}">
-            ${roleTag}<b style="color: ${nameColor};">${escapeHtml(n.name)}</b>
-            <span style="font-size:12px; color:#2e8b57; margin-left:8px;">${locText}</span><br>
-            <small style="color:#b22222; font-weight:bold;">生命: ${n.hp} | 魔力: ${n.mp}</small><br>
-            ${pc && pc.mode === 'kanshou' ? `<small style="color:#666;">狀態：${n.status}</small><br>` : ''}
-            <small style="color:#a52a2a; font-weight:bold;">羈絆：${n.relTag || '萍水相逢'} <span style="color:#e91e63;">(好感：${n.relVal || 0})</span></small>
-            <div class="npc-actions">${actionButtonsHtml}</div>
-          </div>`;
-    }).join("");
-     container.innerHTML += `
-      <div style="border-top:1px dashed rgba(51,34,17,0.2); margin-top:15px; padding-top:15px; text-align:center;">
-      </div>`;
-  }
-  
-  
-
-  function closeNpcList() {
-    document.getElementById('npc-overlay').style.display = 'none';
-  }
-
-  async function interactNpc(actName, npcName, targetLoc, isExact) {
-      const currentLoc = document.getElementById('ui-loc').innerText;
-      const currentRoot = currentLoc.split('-')[0];
-      const targetRoot = targetLoc.split('-')[0];
-
-      if (actName === '移動') {
-          // 🧹 2026-07 修(提示詞總盤查)：舊版叫 AI 用 stat_changes 改位置——該欄已整組拆除、後端不再解析，
-          //   等於假移動。改走真移動 travelTo(actionMove·耗AP/世界tick/抵達敘事一應俱全)。
-          closeNpcList();
-          travelTo(targetLoc);
-          return;
-      }
-
-      if (actName === '交談') {
-          closeNpcList();
-          send(`【系統動作：玩家走上前與「${npcName}」進行友好對話。請根據對方的性格與當前好感度，給予生動的劇情回應。】`, true);
-          return;
-      }
-
-      if (actName === '切磋') {
-          if (!isExact) { alert(`必須在同一地點才能與「${npcName}」切磋。`); return; }
-          closeNpcList();
-          const customName = localStorage.getItem("kyushu_skillName");
-          const customDesc = localStorage.getItem("kyushu_skillDesc");
-          send(`【系統動作：玩家向「${npcName}」發起點到為止的切磋邀請。】`, true, { 
-              targetName: npcName, 
-              type: "spar",
-              customSkillName: customName ? customName : null,
-              customSkillDesc: customDesc ? customDesc : null
-          });
-          return;
-      }
-
-      
-      let moveContext = "";
-      if (!isExact) {
-        moveContext = currentRoot === targetRoot ? `玩家『試圖』在城內移動前往「${targetLoc}」尋找「${npcName}」並進行【${actName}】。` : `玩家『試圖』長途跋涉前往「${targetLoc}」尋找「${npcName}」並進行【${actName}】。`;
-      } else {
-        moveContext = `玩家對「${npcName}」進行【${actName}】。`;
-      }
-
-      let combatData = null;
-      const actionGuidance = NPC_ACTIONS[actName] ? NPC_ACTIONS[actName].prompt : "";
-      const finalMsg = `【系統動作：${moveContext} 請嚴格審視玩家當前處境是否能自由行動。若能，${actionGuidance}】`;
-      send(finalMsg, true, combatData);
-  }
+  // 🧹 2026-07 玩家定案「都拿掉吧」：舊九州「同地互動選單」整條呼叫鏈(renderNpcList/closeNpcList/
+  //   interactNpc/openInteractMenu/closeInteractMenu，含 npc-overlay/interact-modal 兩個彈窗)
+  //   已隨姓名超連結一併移除——攻擊/寶具/令咒等按鈕本就跟常駐可見的 renderWarActions(⚔️戰爭行動列)
+  //   完全同一組函式(servantStrike)，是重複入口；solo 收斂為「專注廝殺與自己的從者」。
 
   function updateUI(s) {
     // 🔴 視覺防護鎖解除：讓逆天改命的按鈕永遠顯示！
@@ -1175,6 +1043,15 @@
   function bondWord(b) {
     b = parseInt(b) || 0;
     return b < 20 ? '戒備' : b < 40 ? '疏離' : b < 60 ? '漸信' : b < 80 ? '信賴' : '羈絆深厚';
+  }
+
+  // 🗑️→✅ 2026-07 玩家定案「肉體那些欄位不需要了、只要狀態就好」：physical_state 從6鍵(姿勢/胸部/
+  //   肉棒/蜜穴/顏面/服裝)全部砍掉合併成單一自由文字欄，這裡不再需要逐鍵組行、也不用猜蜜穴/肉棒哪個
+  //   存在——直接印那一句話即可。kanshouClothLine_ 隨之整段移除(服裝凌亂度已併入這一欄)。
+  function kanshouStatusLines_(po) {
+    po = po || {};
+    var v = po['狀態'];
+    return (v && v !== '無') ? '<div style="color:#e0a0bc; font-size:11px; line-height:1.5;">' + v + '</div>' : '';
   }
 
   // 階級→數值（對齊後端 rankVal / rankMul：以 C=1.0 為基準）
@@ -1421,6 +1298,7 @@
       myBondUsed = t.bondUsed || [];
       myMystic = t.mystic || null;
       myMasterSeals = Math.max(0, m.seals || 0);
+      myMasterOutfit = m.outfit || '';
       myCanRB = !!t.canRuleBreak;
       // 出戰中從者：若無或已陣亡 → 預設第一個
       if (!myServants.some(function (x) { return x.name === myActiveServant; })) myActiveServant = (myServants[0] || {}).name || '';
@@ -1430,17 +1308,28 @@
       // 🎴 2026-07：外顯狀態自 solo 移除(死資料·恆顯示預設字樣)；慾海御主卡以「肉體狀態」抵換此列。
       var mPhysLine = '';
       if (pc && pc.mode === 'kanshou') {
-        try { var mpo = JSON.parse(m.physical || '{}'); var mps = Object.keys(mpo).map(function (k) { return k + '：' + mpo[k]; }).join('　'); if (mps) mPhysLine = '<div style="color:#e0a0bc; font-size:11px; line-height:1.5;">肉體　' + mps + '</div>'; } catch (e) { }
+        try { var mpo = JSON.parse(m.physical || '{}'); mPhysLine = kanshouStatusLines_(mpo); } catch (e) { }
       }
+      var mOutfitLine = ((pc && pc.mode === 'kanshou') && m.outfit) ? '<div style="color:#c9a0e0; font-size:11px; line-height:1.5;">裝扮　' + m.outfit + '</div>' : '';
+      // 🐛→✅ 玩家反映「御主也要換裝按鈕、跟從者一樣格式」：鑑賞御主卡補上與從者卡同款的換裝＋詳細狀態按鈕列，
+      //   原本浮在卡片列表下方、獨立一顆的「我的詳細狀態」(Index.html #pane-status)併到這一行、不再重複外露。
+      var mButtonsLine = (pc && pc.mode === 'kanshou')
+        ? ('<div style="margin-top:6px; display:flex; gap:6px;">'
+            + '<button onclick="changeOutfit(\'' + String(m.name).replace(/'/g, '') + '\', true)" title="換裝：自訂你此刻的服裝穿著，AI 會依此描寫（只換衣不換人）。免費即時、留空恢復本相。" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(150,110,190,0.18); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👗 換裝</button>'
+            + '<button onclick="openStatus()" title="查看你自己的完整狀態：個性／特徵／身世／萌點等，並可逆天改命微調敘事欄" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 詳細狀態</button>'
+            + '</div>')
+        : '';
       let mh = '<div style="background:rgba(20,14,28,0.55); border:1px solid #d4af37; border-radius:8px; padding:6px 8px;">'
         + '<div style="color:#d4af37; font-weight:bold; font-size:12px;">⚜️ 御主</div>'
         + '<div style="color:#e8dcc0; font-size:13px; font-weight:bold; margin:1px 0 3px;">' + m.name + '</div>'
+        + mOutfitLine
         + mPhysLine
         + ((pc && pc.mode === 'kanshou') ? '' :  // 🌹 慾海：御主只露名字＋肉體，不露血量/魔力/令咒/禮裝
             bar('體', m.hpNum, m.hpMax, 'hp')
             + bar('魔', m.mpNum, m.mpMax, 'mp', (t.economy && typeof t.economy.net === 'number') ? t.economy.net : null)
             + '<div style="color:#9a8bb0; font-size:11px; margin-top:3px;">令咒 <span style="color:#c79be8;">' + '❖'.repeat(myMasterSeals) + '</span></div>'
             + (myMystic ? ('<div style="color:#9a8bb0; font-size:11px; margin-top:3px;" title="' + (myMystic.desc || '').replace(/"/g, '') + '">禮裝 <span style="color:#7fd0c0;">✨ ' + myMystic.name + '</span> <span style="color:#8aa;">(被動·戰鬥自動加持從者)</span>' + (myMystic.effect ? ' <span style="color:#7ec8a0;">' + myMystic.effect + '</span>' : '') + '</div>') : ''))
+        + mButtonsLine
         + '</div>';
       // 🗝️ 從者卡（支援雙從者）：點卡切換「出戰中」，動作列只出現在出戰中那張
       var buildSvCard = function (s, isActive, dual) {
@@ -1489,20 +1378,24 @@
         }).join('');
         var hasActiveSkill = (s.skills || []).some(function (sk) { return sk && ACTIVE_FX_JS[sk.fx]; });
         var traitPills = (s.traits || []).map(function (tr) { return pill(tr.n, tr.r, 'trait', '#c0392b'); }).join('');
-        // 🌹 慾海：從者卡只露 名字/裝扮/個性/特徵/關係/肉體——不露血量/魔力/六圍/技能/寶具/動作鈕
+        // 🌹 慾海：從者卡只露 名字/裝扮/服裝狀態/當下狀態——不露血量/魔力/六圍/技能/寶具/動作鈕
+        // 🐛→✅ 2026-07 玩家定案精簡：個性/特徵/關係三行拿掉(改進「📜詳細狀態」按鈕看，見下)。
         if (pc && pc.mode === 'kanshou') {
-          var prefK = String(s.pref || '').split(/[、,，·・]/).filter(Boolean).slice(0, 4).join('、');
-          var traitK = (s.traits || []).map(function (t) { return t && t.n; }).filter(Boolean).join('、'); // 🌹 純文字、不用戰鬥膠囊
-          var physK = ''; try { var po = JSON.parse(s.physical || '{}'); physK = Object.keys(po).map(function (k) { return k + '：' + po[k]; }).join('　'); } catch (e) { }
+          var po = {}; try { po = JSON.parse(s.physical || '{}'); } catch (e) { }
           return '<div style="background:rgba(40,20,34,0.5); border:1px solid #a04a6a; border-radius:8px; padding:6px 8px;">'
             + '<div style="color:#e0a0bc; font-weight:bold; font-size:12px;">🌹 ' + s.cls + '</div>'
-            + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
+            // 🆕 2026-07 玩家要求「好感顯示在卡片上，放名字旁」：鑑賞卡片先前只有 solo 戰鬥卡有 bondWord() 文字，
+            //   鑑賞完全沒露出好感——直接秀數值(比文字化的「羈絆」標籤更貼合玩家想看進度的訴求)。
+            + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + ' <span style="font-size:11px; font-weight:normal; color:#e0a0bc;">💗' + (s.bond || 0) + '</span></div>'
             + (s.outfit ? '<div style="color:#c9a0e0; font-size:11px; line-height:1.5;">裝扮　' + s.outfit + '</div>' : '')
-            + (prefK ? '<div style="color:#cbb; font-size:11px; line-height:1.5;">個性　' + prefK + '</div>' : '')
-            + (traitK ? '<div style="color:#cbb; font-size:11px; line-height:1.5;">特徵　' + traitK + '</div>' : '')
-            + '<div style="color:#cbb; font-size:11px; margin-top:2px;">關係　' + bondWord(s.bond) + '</div>'
-            + (physK ? '<div style="color:#e0a0bc; font-size:11px; margin-top:3px; line-height:1.5;">肉體　' + physK + '</div>' : '')
-            + '<div style="margin-top:6px;"><button onclick="changeOutfit(\'' + safeN + '\')" title="換裝：自訂她此刻的服裝穿著，AI 會依此描寫（只換衣不換人）。免費即時、留空恢復本相。" style="font-size:11px; padding:4px 11px; background:rgba(150,110,190,0.18); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👗 換裝</button></div>'
+            + kanshouStatusLines_(po)
+            // 🐛→✅ 只有換裝、沒有詳細狀態鈕(2026-07 修)：玩家反映想自行微調鑑賞同伴的敘事欄(身世/特徵/個性/萌點)，
+            //   反正住在「鑑賞眾生」分頁、不會動到英靈殿種子庫。openStatus 這套面板本就是純敘事(狀態/特徵/地點/性格/
+            //   陣營/身世/萌點/雙修技巧/專屬稱呼——無六圍/技能/寶具，solo戰鬥卡也共用同一套)＋逆天改命微調，直接複用。
+            + '<div style="margin-top:6px; display:flex; gap:6px;">'
+            + '<button onclick="changeOutfit(\'' + safeN + '\')" title="換裝：自訂她此刻的服裝穿著，AI 會依此描寫（只換衣不換人）。免費即時、留空恢復本相。" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(150,110,190,0.18); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👗 換裝</button>'
+            + '<button onclick="openStatus(\'' + safeN + '\',\'' + safeN + '\')" title="查看「' + safeN + '」的完整狀態：個性／特徵／身世／萌點／關係等，並可逆天改命微調敘事欄" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 詳細狀態</button>'
+            + '</div>'
             + '</div>';
         }
         var bcol = isActive ? '#e0574a' : '#7a4040';
@@ -1749,6 +1642,26 @@
   function renderFateBattleReport(r) {
     if (!r) return;  // 🔧 修正：斬首/突襲戰報無 rounds 欄，舊版 !r.rounds 會把它們擋掉(戰報不顯示)
     const story = document.getElementById('story');
+    // 💨 撤離追擊戰報卡（移動離場時遭敵從者咬一記／回身反咬逼退追兵，見 actionMove pursuit）
+    if (r.pursuit) {
+      const usHit = r.hitWho === 'us';
+      const hpct = Math.max(0, Math.min(100, r.svHpMax ? Math.round(r.after / r.svHpMax * 100) : 0));
+      const accent = usHit ? '224,120,80' : '127,199,127';
+      let a = '<div style="border:1px solid rgba(' + accent + ',0.5);border-radius:9px;padding:10px 12px;margin:6px 0;background:rgba(' + (usHit ? '40,22,16' : '18,32,18') + ',0.55);font-size:12px;">';
+      a += '<div style="font-weight:bold;margin-bottom:5px;color:rgb(' + accent + ');">💨 撤離' + (r.np ? '·寶具' : '') + (usHit ? '追擊' : '反咬') + '・「' + r.enemyName + '」</div>';
+      a += usHit
+        ? ('<div style="color:#e0a080;font-size:11px;">「' + r.svName + '」轉身欲走時被咬了一記　<b>−' + r.dmg + '</b></div>')
+        : ('<div style="color:#a0e0a0;font-size:11px;">「' + r.svName + '」回身將追兵逼退　<b style="color:#7fc77f;">敵 −' + r.dmg + '</b>，我方無傷</div>');
+      if (usHit) {
+        a += '<div style="color:#9a8bb0;font-size:10px;margin-top:4px;">' + r.svName + '</div>';
+        a += '<div style="position:relative;height:9px;background:linear-gradient(180deg,#16121c,#241d2c);border-radius:6px;overflow:hidden;margin-top:2px;border:1px solid rgba(0,0,0,.4);"><div style="width:' + hpct + '%;height:100%;background:linear-gradient(180deg,#8ee08e,#4caa4c 55%,#2f8f3f);"></div></div>';
+        a += '<div style="font-size:9.5px;color:#8a7f9a;text-align:right;">' + r.after + '/' + r.svHpMax + '</div>';
+      }
+      a += '</div>';
+      story.insertAdjacentHTML('beforeend', a);
+      story.scrollTop = story.scrollHeight;
+      return;
+    }
     // ⚔️ 卸防突襲戰報卡（休息/補魔/搜索/偵查時遭敵從者趁隙重擊）
     if (r.ambush) {
       const hpct = Math.max(0, Math.min(100, r.svHpMax ? Math.round(r.after / r.svHpMax * 100) : 0));
@@ -2040,12 +1953,11 @@
   }
 
   // 👗 換裝：自訂從者當前服裝穿著（只換衣不換人·五官體態不變）。免費即時、留空恢復本相。兩軌通用。
-  function changeOutfit(name) {
-    var sv = (myServants || []).find(function (x) { return x && x.name === name; });
-    var cur = (sv && sv.outfit) ? sv.outfit : '';
-    var txt = prompt('👗 換裝「' + name + '」\n\n輸入她此刻的服裝／裝扮，AI 敘述會依此描寫。\n只換衣不換人——五官、髮色、體態、氣質不變。\n留空＝恢復原本裝束。（限 40 字）', cur);
+  function changeOutfit(name, isSelf) {
+    var cur = isSelf ? myMasterOutfit : (((myServants || []).find(function (x) { return x && x.name === name; }) || {}).outfit || '');
+    var txt = prompt('👗 換裝「' + name + '」\n\n輸入' + (isSelf ? '你' : '她') + '此刻的服裝／裝扮，AI 敘述會依此描寫。\n只換衣不換人——五官、髮色、體態、氣質不變。\n留空＝恢復原本裝束。（限 40 字）', cur);
     if (txt === null) return; // 取消
-    gasRun({ action: 'outfit', pcId: pc.id, servant: name, outfit: txt, acctName: (pc && pc.account) || currentAccount })
+    gasRun({ action: 'outfit', pcId: pc.id, servant: name, self: !!isSelf, outfit: txt, acctName: (pc && pc.account) || currentAccount })
       .then(function (res) {
         if (res && res.success) { try { refreshFateTags(); } catch (e) {} }
         else if (res && res.message) { alert(res.message); }
@@ -2177,7 +2089,7 @@
       const res = await gasRun({ action: 'ally_bond', pcId: pc.id, npcName: npcName, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) {
         updateClock(res.clock, res.ap, res.apMax); await narrate(res.aiPrompt); syncData(true);
-        if (res.unlocked) setTimeout(function () { alert('💞 你與「' + res.ally + '」的羈絆已臻深處——戰後（奪得聖杯時），這名盟友將被納入「鑑賞」名冊。'); }, 400);
+        if (res.unlocked) setTimeout(function () { alert('💞 你與「' + res.ally + '」的羈絆已臻深處——這份情誼，無需言明。'); }, 400);
         if (res.defeat) { await handleDefeat(res); }
       } else { alert((res && res.message) || '交流未成。'); }
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
@@ -2326,26 +2238,21 @@
     var memo = document.getElementById('victory-memoir');
     if (memo) { memo.style.display = 'none'; memo.innerHTML = ''; }
     var cbtn = document.getElementById('victory-claim-btn');
-    if (cbtn) { cbtn.style.display = 'block'; cbtn.disabled = false; cbtn.innerText = '⚜️ 奪得聖杯 · 封存此役羈絆'; }
+    if (cbtn) { cbtn.style.display = 'block'; cbtn.disabled = false; cbtn.innerText = '⚜️ 奪得聖杯'; }
     var mbtn = document.getElementById('victory-menu-btn');
     if (mbtn) mbtn.style.display = 'none';
     const ov = document.getElementById('victory-overlay');
     if (ov) ov.style.display = 'flex';
   }
 
-  // 點「奪得聖杯」：後端 AI 總結這幾日羈絆 → 封存到鑑賞 → 清理本局
+  // ⚠ 2026-07：舊版「封存到鑑賞」機制已整個砍除(慾海同伴改走英靈殿直接召喚)，
+  //   點「奪得聖杯」現在只做清理本局，讓玩家能立刻開新局或去慾海。
   async function claimGrail() {
     var cbtn = document.getElementById('victory-claim-btn');
-    if (cbtn) { cbtn.disabled = true; cbtn.innerText = '⏳ 正在將這段羈絆封入聖杯回憶……'; }
+    if (cbtn) { cbtn.disabled = true; cbtn.innerText = '⏳ 聖杯戰爭落幕中……'; }
     try {
-      const res = await gasRun({ action: 'claim_grail', pcId: pc.id, acctName: (pc && pc.account) || currentAccount });
-      var memo = document.getElementById('victory-memoir');
+      const res = await gasRun({ action: 'end_run', pcId: pc.id, acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) {
-        if (memo) {
-          memo.innerHTML = '<div style="color:#e7c873;font-weight:bold;margin-bottom:6px;">「' + (res.servantName || '從者') + '」· 後日談已封存</div>'
-            + (res.memoir || '').replace(/\n/g, '<br>');
-          memo.style.display = 'block';
-        }
         if (cbtn) cbtn.style.display = 'none';
         var mbtn = document.getElementById('victory-menu-btn');
         if (mbtn) {
@@ -2354,15 +2261,15 @@
           // 🎉 老虎道場·祝賀特輯(死亡那套的小改版)：跟敗北的老虎道場同一個殼，換成祝賀，收尾才回選單。
           mbtn.onclick = function () { closeVictory(); runTigerDojo_(res.servantName || '從者', '', 'victory'); };
         }
-        // 🔵 防呆：奪杯後本局已封存清理，清掉本機續玩快取，避免下次殘留死局
+        // 🔵 防呆：本局已清理，清掉本機續玩快取，避免下次殘留死局
         try { localStorage.removeItem('kyushu_v27'); localStorage.removeItem('kyushu_story'); localStorage.removeItem('kyushu_last_status'); } catch (e) {}
       } else {
-        if (cbtn) { cbtn.disabled = false; cbtn.innerText = '⚜️ 奪得聖杯 · 封存此役羈絆'; }
-        alert((res && res.message) || '封存失敗，請再試一次。');
+        if (cbtn) { cbtn.disabled = false; cbtn.innerText = '⚜️ 奪得聖杯'; }
+        alert((res && res.message) || '結算失敗，請再試一次。');
       }
     } catch (e) {
-      if (cbtn) { cbtn.disabled = false; cbtn.innerText = '⚜️ 奪得聖杯 · 封存此役羈絆'; }
-      alert('連線失敗，封存未果。');
+      if (cbtn) { cbtn.disabled = false; cbtn.innerText = '⚜️ 奪得聖杯'; }
+      alert('連線失敗，結算未果。');
     }
   }
 
@@ -2425,7 +2332,7 @@
   }
   function dojoFallbackHtml_(mode) {
     return mode === 'victory'
-      ? '聖杯戰爭終於落幕，你贏得了這場聖杯戰爭！<br>藤村大河老師與伊莉雅都在為你鼓掌喝彩！<br><span style="color:#9a8fb0; font-size:12px;">（這段羈絆已封存於鑑賞，可隨時呼出回味。）</span>'
+      ? '聖杯戰爭終於落幕，你贏得了這場聖杯戰爭！<br>藤村大河老師與伊莉雅都在為你鼓掌喝彩！<br><span style="color:#9a8fb0; font-size:12px;">（可隨時前往鑑賞，從英靈殿召喚同伴共度和平時光。）</span>'
       : '聖杯戰爭已然落幕，你的靈基化作了星塵。<br>但別氣餒——藤村大河老師的特訓，能讓下一場聖杯戰爭走得更遠！<br><span style="color:#9a8fb0; font-size:12px;">（敗北的存檔已封存於戰史，可重啟新的一局。）</span>';
   }
   // 掀開老虎道場 → 生成 AI 講評/祝賀填入卡片（一次 AI 呼叫·只在 game-over 收場，失敗則退回罐頭文案）
@@ -2443,7 +2350,7 @@
       const res = await gasRun({ action: 'narrate_only', pcId: pc.id, promptText: promptText, isNsfw: false });
       if (res && res.success && res.text && body) {
         var t = String(res.text).replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\n{2,}/g, '<br><br>').replace(/\n/g, '<br>');
-        var tailNote = mode === 'victory' ? '（這段羈絆已封存於鑑賞，可隨時呼出回味。）' : '（敗北的存檔已封存於戰史，可重啟新的一局。）';
+        var tailNote = mode === 'victory' ? '（可隨時前往鑑賞，從英靈殿召喚同伴共度和平時光。）' : '（敗北的存檔已封存於戰史，可重啟新的一局。）';
         body.innerHTML = t + '<div style="color:#9a8fb0; font-size:12px; margin-top:12px;">' + tailNote + '</div>';
       } else if (body) { body.innerHTML = dojoFallbackHtml_(mode); }
     } catch (e) { if (body) body.innerHTML = dojoFallbackHtml_(mode); }
@@ -2508,7 +2415,8 @@
     updateClock(data.clock, data.ap, data.apMax);
     updateEconomy(data.economy);
     refreshFateTags(data.tags); // ⚡ 用夾帶的 tags，省一趟 get_tags round-trip
-    renderMapPane(data.mapNodes); // ⚡ 用夾帶的 mapNodes，省一趟 get_map_nodes round-trip
+    // 🧹 2026-07：鑑賞拔地圖(#pane-map 已隱藏)，省下每次同步都重繪一份沒人看得到的地圖面板。
+    if (!(pc && pc.mode === 'kanshou')) renderMapPane(data.mapNodes); // ⚡ 用夾帶的 mapNodes，省一趟 get_map_nodes round-trip
     renderWarActions();
     if (!isSilent) {
       const story = document.getElementById('story');
@@ -2536,25 +2444,6 @@
     }
   }
   
-  function handleRelTagClick(npcName, currentTagFull) {
-   const cleanCurrent = String(currentTagFull || "").trim();
-   const newTagText = prompt(`你想將與「${npcName}」的羈絆重新定義為何？`, cleanCurrent);
-
-   if (newTagText === null || !newTagText.trim()) return;
-
-   gasRun({ action: "update_rel_tag", pcId: pc.id, targetName: npcName, newTagText: newTagText.trim() })
-    .then(res => {
-      if (res.success) {
-        alert(res.message);
-        closeInteractMenu();
-        syncData(true);
-      } else {
-        alert(res.message);
-      }
-    })
-    .catch(() => alert("連線受阻，重新定義羈絆失敗。"));
-}
-  
 
 
   // ==========================================
@@ -2572,9 +2461,12 @@ function showHistoryOverlay(html) {
     ov = document.createElement('div');
     ov.id = 'history-overlay';
     ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;padding:18px;';
-    ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:480px;width:100%;padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);">'
-      + '<div id="history-body"></div>'
-      + '<button onclick="document.getElementById(\'history-overlay\').style.display=\'none\'" style="margin-top:12px;width:100%;padding:10px;background:#4a3a6a;color:#fff;border:none;border-radius:8px;cursor:pointer;">關閉</button>'
+    // 🐛→✅ 內容過長(如36騎清單)原本沒設高度上限/捲動，直接撐爆超出畫面、關閉鈕被推到畫面外按不到。
+    //   改成外層卡片鎖 max-height(留視窗邊距)+flex直列，內容區(history-body)自己 overflow-y:auto 捲動，
+    //   關閉鈕固定不縮(flex-shrink:0)恆可見。
+    ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:480px;width:100%;max-height:calc(100vh - 36px);padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;">'
+      + '<div id="history-body" style="overflow-y:auto;min-height:0;"></div>'
+      + '<button onclick="document.getElementById(\'history-overlay\').style.display=\'none\'" style="margin-top:12px;width:100%;padding:10px;background:#4a3a6a;color:#fff;border:none;border-radius:8px;cursor:pointer;flex-shrink:0;">關閉</button>'
       + '</div>';
     document.body.appendChild(ov);
   }
@@ -2590,8 +2482,8 @@ function applyModeUI() {
   var isKanshou = (pc && pc.mode === 'kanshou');
   var uin = document.getElementById('u-in'); if (uin) uin.style.display = isKanshou ? '' : 'none';
   var sbtn = document.getElementById('send-btn'); if (sbtn) sbtn.style.display = isKanshou ? '' : 'none';
-  var nsfw = document.getElementById('nsfw-mode-toggle');
-  if (nsfw) { var lab = nsfw.closest('label'); if (lab) lab.style.display = isKanshou ? '' : 'none'; }
+  var drv = document.getElementById('drive-mode-toggle'); // 🔥 主動掌握開關(原nsfw-mode-toggle重生，見Index.html註解)
+  if (drv) { var lab = drv.closest('label'); if (lab) lab.style.display = isKanshou ? '' : 'none'; }
   // 🎴 2026-07 UI 大改：solo 頂部＝查看/魔力/系統三鍵(取代地點)、底部輸入框整條隱藏(純按鍵)；
   //   慾海維持原本(頂部地點徽章＋底部輸入框打字互動＋NSFW開關)，零改動守紅線②。
   var tSolo = document.getElementById('topbar-solo'); if (tSolo) tSolo.style.display = isKanshou ? 'none' : 'flex';
@@ -2601,6 +2493,12 @@ function applyModeUI() {
   var dcomp = document.getElementById('drawer-companions'); if (dcomp) dcomp.style.display = isKanshou ? '' : 'none';
   // 戰爭行動列：取代輸入框，只在戰爭模式顯示
   var wa = document.getElementById('war-actions'); if (wa) wa.style.display = isKanshou ? 'none' : 'flex';
+  // 🌹 鑑賞御主卡已內建「換裝＋詳細狀態」按鈕列，卡片列表下方這顆獨立按鈕改只在 solo 顯示，避免重複外露
+  var msf = document.getElementById('my-status-fallback'); if (msf) msf.style.display = isKanshou ? 'none' : '';
+  // 🗺️ 2026-07 玩家定案：鑑賞拔地圖(改AI自主敘事換場，見 Router_Narrative.gs 的 aiData.location)——
+  //   地圖分頁/面板只留給 solo(仍需固定節點清單管理戰鬥/AP消耗)。
+  var tMap = document.getElementById('tab-map'); if (tMap) tMap.style.display = isKanshou ? 'none' : '';
+  var pMap = document.getElementById('pane-map'); if (pMap) pMap.style.display = isKanshou ? 'none' : '';
   try { if (!isKanshou) renderWarActions(); } catch (e) {}
 }
 
@@ -2617,8 +2515,8 @@ function applyModeUI() {
     story.scrollTop = story.scrollHeight;
 
     try {
-      const isNsfw = document.getElementById('nsfw-mode-toggle')?.checked || false;
-      const res = await gasRun({ action: "narrate_only", pcId: pc.id, promptText: promptText, isNsfw: isNsfw });
+      // 🧹 2026-07：isNsfw 旗標已拔——actionNarrateOnly 早改為純看 pcId 路由(KPC_=NSFW)，前端傳了也被無視。
+      const res = await gasRun({ action: "narrate_only", pcId: pc.id, promptText: promptText });
       document.getElementById(loadId)?.remove();
 
       if (res.success && res.text) {
@@ -2635,16 +2533,16 @@ function applyModeUI() {
     }
   }
 
-  // ==========================================
-  // 🟢 連擊戰報專用輕量敘事：narrate() 同等成本，但會把同地參戰NPC名字轉成可點擊超連結，
-  // 讓玩家能直接點名字繼續連擊，不需要 AI 額外生成 options
-  // ==========================================
+  // 🧹 2026-07：拿掉這裡原本一段描述「連擊戰報專用輕量敘事」的孤兒註解——它講的是舊九州
+  //   handleMultiAttack/renderCombatReport/narrateCombatResult(已於更早的清理移除)，不是下面
+  //   send()的行為；send() 是鑑賞(action:'play')自由聊天引擎的唯一呼叫點，跟「連擊」無關。
 
   async function send(customMsg, isSilent = false, combatData = null) {
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
-    const nsfwToggle = document.getElementById('nsfw-mode-toggle');
-    const isNsfw = nsfwToggle ? nsfwToggle.checked : false;
+    // 🔥 主動掌握開關(2026-07)：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
+    const driveToggle = document.getElementById('drive-mode-toggle');
+    const drive = driveToggle ? driveToggle.checked : false;
     let msg = customMsg || input.value.trim();
 
     if (!msg) return;
@@ -2674,9 +2572,8 @@ function applyModeUI() {
     story.scrollTop = story.scrollHeight;
     
     try {
-      const backLocked = localStorage.getItem('kyushu_back_locked') === 'true';
-const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, isNsfw: isNsfw, lastContext: lastAiContext, backLocked: backLocked });
-      
+      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, drive: drive, lastContext: lastAiContext });
+
 
       document.getElementById(loadId)?.remove();
       localNPCs = data.people || []; nearbyLocations = data.locations || [];
@@ -2692,12 +2589,6 @@ const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatDat
     send(`【系統動作：玩家從重傷中甦醒，躺在小醫仙藥鋪的病榻上，身旁是忙碌的藥童。請重新描寫甦醒場景並給出符合當下情境的選項。】`, true);
   }, 1500);
 }
-      
-      if (data.recruited && data.recruited.length > 0) {
-        data.recruited.forEach(recruitedNPC => {
-          story.insertAdjacentHTML('beforeend', `<div class="msg-player" style="align-self:center; border-radius:8px; background:rgba(212,175,55,0.1); border:1px solid #d4af37; color:#d4af37; font-size:13px; text-align:center;">（「${recruitedNPC}」正式加入您的隊伍）</div>`);
-        });
-      }
       
       let cleanText = data.text.split('[')[0];
       
@@ -2716,36 +2607,31 @@ const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatDat
         }
       };
 
+      // 🧹 2026-07 玩家定案「名稱不要有超連結了，solo 就專注廝殺還有自己的從者就好」：姓名點擊開的
+      //   「同地互動選單」(openInteractMenu)對 solo 而言全是 renderWarActions(常駐戰爭行動列)已提供
+      //   的重複入口(攻擊敵蹤/與盟友共處)，對非敵非盟的角色更是空選單——鑑賞更早之前就已改純文字。
+      //   兩軌統一：同地角色一律純文字，不再有可點擊的金色連結。
       if (localNPCs && localNPCs.length > 0) {
     localNPCs.forEach(npc => {
       if (npc.name && npc.name.length >= 2) {
         if (npc.isExact) {
-          // 真正同地（含分支）→ 金色，可同地互動
-          pushCandidate(npc.name, `<span class="npc-link" data-interact="${npc.name}">${npc.name}</span>`);
+          pushCandidate(npc.name, npc.name);
         } else {
-          // 在名單但不在同地（高好感牽掛之人）→ 紫色遠方之人
+          // 在名單但不在同地（高好感牽掛之人）→ 紫色遠方之人，純資訊標示、不可點
           pushCandidate(npc.name, `<span style="color:#9C27B0;">${npc.name}</span>`);
         }
       }
     });
   }
 
-      // 🔵 AI 提到但不在現場的角色 → 純色文字標示(不可點、不再自動登入眾生)
-      if (data.mentionedNames && data.mentionedNames.length > 0) {
-        data.mentionedNames.forEach(name => {
-          if (name && name.length >= 2 && !localNPCs.find(n => n.name === name)) {
-            pushCandidate(name, `<span style="color:#9C27B0;">${name}</span>`);
-          }
-        });
-      }
+      // 🧹 2026-07 玩家定案「mentioned_names 這也不用了吧」：查證後這整段是無效操作——`send()`
+      //   全域只服務鑑賞(action:'play' 唯一呼叫點，見下方)，鑑賞的 pushCandidate 一律回傳跟輸入
+      //   一模一樣的純文字(早改無 hyperlink)，等於「把文字換成它自己」，schema 欄位/後端回傳/
+      //   前端消費三處已隨 mentioned_names 一併整段刪除。
 
-      if (data.allMapNames && data.allMapNames.length > 0) {
-        [...new Set(data.allMapNames)].forEach(locName => {
-          if (displayText.includes(locName)) {
-            pushCandidate(locName, `<span class="loc-link" data-loc="${locName}">${locName}</span>`);
-          }
-        });
-      }
+      // 🧹 2026-07：鑑賞拔地圖後，地點不再受限固定節點清單，AI可能敘述地圖上沒有的自創場景——
+      //   點擊地名跳轉(loc-link/travelFromPane→actionMove)這套機制對鑑賞已無意義，一併移除
+      //   (send() 只有鑑賞會呼叫，solo 整條輸入框都是隱藏的，故此段原本就是鑑賞專用)。
 
       if (linkCandidates.length > 0) {
         // 長名優先比對，子字串短名不會搶在前面，徹底杜絕巢狀/截斷 HTML
@@ -2780,6 +2666,14 @@ let plainTextContext = cleanText;
       localStorage.setItem('kyushu_story', story.innerHTML);
       setTimeout(() => { story.scrollTop = story.scrollHeight; }, 50);
 
+      // 🐛→✅ 2026-07 修：玩家反映「鑑賞旁邊的狀態頁面有時候不會更新」——查證後端每回合確實有把
+      // physical_state/羈絆等正確寫回試算表(非 AI 沒輸出、也非欄位錯位)，根因在前端：'play' 這個
+      // action 從未列進 STATE_AFTER_ACTIONS(該機制本就明確只服務 solo PC_ 的按鍵動作)，'send()'
+      // 收到回應後也從未呼叫 refreshFateTags()——桌機版三欄並排(Style.html)，狀態欄常駐可見卻沒有
+      // 任何東西觸發它重繪，只有切分頁(手機版)或其他零星動作(換裝等)才會恰好連帶刷新，才會顯得
+      // 「有時候」更新。這裡補一次真實重抓，同一開銷手機/桌機皆修。
+      try { refreshFateTags(); } catch (e) {}
+
       // 🔵 FATE 敗北：御主殞命→播「願望實現的虛假之夢」→老虎道場（與戰鬥敗北同一套收場）
       if (data.defeat) { await handleDefeat(data); }
 
@@ -2794,76 +2688,6 @@ let plainTextContext = cleanText;
     }
   }
 
-
-  let interactTarget = "";
-  function openInteractMenu(npcName) {
-      interactTarget = npcName;
-      document.getElementById('interact-title').innerText = `與「${npcName}」互動`;
-
-      const npcData = localNPCs.find(n => n.name === npcName);
-      const isPC = npcData ? npcData.isPC : false;
-      const currentLoc = document.getElementById('ui-loc').innerText;
-
-      let html = "";
-
-      // 🔴 新增：頂部橫幅，即時顯化與該 NPC 的因果羈絆與好感
-      if (!isPC) {
-    const relTag = npcData ? (npcData.relTag || '萍水相逢') : '萍水相逢';
-    const relVal = npcData ? (npcData.relVal || 0) : 0;
-    const isSoulBound = !!(npcData && npcData.isParty);
-    const editBtn = isSoulBound 
-      ? `<span onclick="handleRelTagClick('${npcName}', '${relTag.replace(/'/g, "\\'")}')" style="cursor:pointer; display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; background:rgba(233,30,99,0.15); border:1px solid rgba(233,30,99,0.4); border-radius:4px; margin-left:6px; font-size:11px; vertical-align:middle;" title="重新定義稱呼">✏️</span>` 
-      : '';
-    html += `
-      <div style="grid-column: span 2; text-align: center; font-size: 14px; font-weight: bold; color: #a52a2a; margin-top: -5px; margin-bottom: 5px; padding: 6px; background: rgba(165,42,42,0.03); border-radius: 4px; border: 1px dashed rgba(165,42,42,0.2);">
-        📜 羈絆：${relTag} <span style="color:#e91e63; margin-left: 4px;">(好感：${relVal})</span>${editBtn}
-      </div>
-    `;
-}
-
-      // 🕊️ 【和平互動區】
-      //   單人聖杯戰爭(solo)＝純按鈕，移除「交談」這類需 AI 猜意圖的動作。
-      var _aiTalk = !(pc && pc.mode === 'solo');
-      if (_aiTalk) html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); interactNpc('交談', '${npcName}', '${currentLoc}', true)">🗣️ 交談</button>`;
-
-      if (!isPC && pc && pc.mode === 'full') {
-          html += `<button class="btn" style="border-color:#2ca68c; color:#2ca68c;" onclick="closeInteractMenu(); openStatus('${npcData.id}', '${npcName}')">📜 窺探命格</button>`;
-      }
-
-      // ⚠️ 【危險動作區】只對敵人顯示（自己的從者／友方不顯示出戰）
-      var _isFoe = npcData && (npcData.faction === '敵御主' || npcData.faction === '敵從者');
-      if (!isPC && _isFoe && !(pc && pc.mode === 'kanshou')) {
-          html += `<div style="grid-column: span 2; border-top: 1px dashed rgba(77,184,163,0.3); margin-top: 5px; padding-top: 10px; color:#7b9991; font-size:12px; text-align:center; font-weight:bold;">—— 危險舉動 ——</div>`;
-          html += `<div style="grid-column: span 2; display:flex; align-items:center; justify-content:center; gap:6px; margin-bottom:2px; font-size:12px; color:#7b9991;">
-            連續次數：<select id="combo-count-select" style="padding:2px 6px; border-radius:4px; border:1px solid #8fa39b; background:#fff; color:#553311;">
-              <option value="1">x1</option>
-              <option value="2">x2</option>
-              <option value="3">x3</option>
-            </select>
-            <span style="font-size:11px; color:#9a7;">(每回合上限 3)</span>
-          </div>`;
-          if (npcData.faction === '敵御主') {
-            html += `<button class="btn" style="grid-column: span 2; border-color:#a0307a; color:#e0a0d0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, false, true)">🗡️ 刺殺御主（須擲 20 大成功，否則遭護衛反噬 1.5 倍）</button>`;
-          } else {
-            var _st = attackStyle_();
-            html += `<button class="btn" title="${_st.hint}" style="border-color:rgb(${_st.rgb}); color:${_st.col}; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false)">${_st.emo} 令從者${_st.name}</button>`;
-            // ⚡ 主動技(2026-07 改回按鈕制)：出戰從者持施放技術才露出，該次交鋒全效發動＋扣魔一次
-            var _iSk = activeSkillOfActive_();
-            if (_iSk) html += `<button class="btn" style="border-color:#4e92c0; color:#7ec8ff; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, false, false, true)">⚡ 主動技「${String(_iSk.n).replace(/'/g, '')}」全力出擊</button>`;
-            // 🛡️ 常駐寶具(B叔/玉藻)：非攻擊解放→互動選單不給寶具鈕(戰爭行動列有灰化說明鈕)
-            var _iNpPas = /【常駐寶具】/.test(String((((myServants || []).find(function (x) { return x.name === myActiveServant; })) || {}).np || ''));
-            if (!_iNpPas) html += `<button class="btn" style="border-color:#d4af37; color:#d4af37; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', true)">💥 寶具解放</button>`;
-            html += `<button class="btn" style="border-color:#b06cd0; color:#b06cd0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, true)">❖ 令咒・絕對命令（必中普攻；想疊寶具/主動請在戰爭行動列按❖蓄勢）</button>`;
-          }
-      }
-
-      document.getElementById('interact-dynamic-buttons').innerHTML = html;
-      document.getElementById('interact-modal').style.display = 'flex';
-  }
-
-  function closeInteractMenu() {
-      document.getElementById('interact-modal').style.display = 'none';
-  }
 
 
 

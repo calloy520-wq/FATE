@@ -4,9 +4,11 @@
 >
 > ⚠ **行號說明**：本文 `檔.gs:NN` 行號是撰寫當下快照、會隨改碼漂移；**以函數名／按鈕文字 grep 為定位錨點**，行號僅供粗略跳轉。前端小函數的行號已拔除（只留函數名）。
 >
-> 底層架構一句話：GAS 算數值（擲骰/HP/MP/勝負）→ 若該動作需要敘事，handler 組一段 `aiPrompt`（或 `dreamPrompt`/`summonPrompt`/`sealNote`附掛等）隨 JSON 回前端 → 前端 `narrate(text)` 呼叫 `action:'narrate_only'` → `actionNarrateOnly`（`Router_Narrative.gs:739`）套上共用 `miniSystem` 系統提示詞 → `narrateWithState_` 補目前血量/魔力 state brief ＋近期對話歷史 → `callGeminiAPI`（`Engine_Combat.gs`）。**唯一真正打 API 的函式只有 `narrateWithState_`／`actionPlay`**；其餘 handler 都只是「組字串」，不自己叫 AI。
+> 底層架構一句話：GAS 算數值（擲骰/HP/MP/勝負）→ 若該動作需要敘事，handler 組一段 `aiPrompt`（或 `dreamPrompt`/`summonPrompt`/`sealNote`附掛等）隨 JSON 回前端 → 前端 `narrate(text)` 呼叫 `action:'narrate_only'` → `actionNarrateOnly`（`Router_Narrative.gs`，solo 專用）套上共用 `miniSystem` 系統提示詞 → `narrateWithState_` 補目前血量/魔力 state brief ＋近期對話歷史 → `callGeminiAPI`（`Engine_Combat.gs`，solo／鑑賞共用基礎設施）。**唯一真正打 API 的函式只有 `narrateWithState_`／`actionPlay`**；其餘 handler 都只是「組字串」，不自己叫 AI。
 >
-> 例外：`actionPlay`（kanshou 慾海 ／九州 full 遺留的自由聊天引擎）自己組完整 prompt **並直接呼叫** `callGeminiAPI`，不經過 `narrate_only`。另有 `actionBackfillMasterAi`、`actionSummonServant`(自訂英靈分支)、`actionClaimGrail` 三個「建角/建資料」用途的 AI 呼叫，也是直接組 prompt 呼叫 API（走 `callGeminiAPI` 拿 JSON 結構化資料，而非敘事文字）。
+> 例外：`actionPlay`（`Gallery.gs`，kanshou 慾海專用自由聊天引擎）自己組完整 prompt **並直接呼叫** `callGeminiAPI`，不經過 `narrate_only`。另有 `actionBackfillMasterAi`、`actionSummonServant`(自訂英靈分支)、`actionClaimGrail` 三個「建角/建資料」用途的 AI 呼叫，也是直接組 prompt 呼叫 API（走 `callGeminiAPI` 拿 JSON 結構化資料，而非敘事文字）。
+>
+> **🔀 2026-07 玩家定案「兩軌完全拆開，鑑賞集中在一個GS」**：`actionPlay`／`buildDefaultSystemPrompt`（含 `nsfwBaseRules`）已從 `Router_Narrative.gs`／`Engine_Combat.gs` 搬到 `Gallery.gs`，跟其餘鑑賞 action 集中一處；`Router_Narrative.gs` 從此只服務 solo，`Engine_Combat.gs` 只留兩軌共用的 `callGeminiAPI`。純檔案搬遷，函式內容逐字未動。
 
 ---
 
@@ -28,12 +30,12 @@
 ## 1. 系統／敘事引擎共用機制
 
 ### `actionNarrateOnly`（action: `narrate_only`）— Router_Narrative.gs:739
-唯一的「純敘事」出口。前端 `narrate(promptText, isNsfw)` 呼叫。**不自己組事實內容**——`promptText` 是呼叫端（各 handler 的 `aiPrompt`，或前端自組的 `arrivePrompt`/`summonPrompt`）已經組好傳進來的；這裡只負責套上共用系統提示詞 `miniSystem` 並轉呼叫 `narrateWithState_`。
+唯一的「純敘事」出口。前端 `narrate(promptText)` 呼叫（2026-07 拔除死旗標 `isNsfw`——後端早改純看 pcId 前綴 `KPC_` 路由，前端傳了也被無視）。**不自己組事實內容**——`promptText` 是呼叫端（各 handler 的 `aiPrompt`，或前端自組的 `arrivePrompt`/`summonPrompt`）已經組好傳進來的；這裡只負責套上共用系統提示詞 `miniSystem` 並轉呼叫 `narrateWithState_`。
 
 `miniSystem`（逐字，Router_Narrative.gs:746，就地宣告於 `actionNarrateOnly` 內）關鍵鐵則：
 > 你是《命運停駐之夜》的說書人。用 Fate／TYPE-MOON 筆觸、第一人稱「我」（玩家＝御主）、強制台灣繁體中文…【篇幅依指令字數、精煉不灌水；無指定預設 100~160 字】。
 > 1. 旁白第一人稱「我」，禁用「你」與上帝視角。
-> 2. 對話格式（全遊戲統一）：角色名：「（動作/神態）台詞」。「」內開頭放【一個】全形括號（）後接台詞即收尾——動作括號限（）禁【】；禁台詞中途/結尾再插動作、禁動作獨立成段或寫在引號外；引號僅一層「」禁嵌『』；禁「她說道：」引導句、禁角色名再現於「」內。
+> 2. 對話格式（全遊戲統一，2026-07 玩家明確授權重寫）：（角色動作或神情）角色名：「台詞，或（聲音，如低吟／輕笑）」（角色動作或神情，可省略）。同一段落不限制名字出現次數、也不限制括號(動作/聲音)的使用次數與位置；引號僅一層「」禁嵌『』；純背景/環境描述不使用括號、且盡量精簡，把篇幅留給互動本身。
 > 3. 強制分段：每 2~3 句插 `<br><br>`，整段至少 3 個；換行一律 `<br><br>`、禁真實換行、禁任何 HTML 標籤。
 > 4. ★純敘事補完，數值系統已結算完，你只負責寫字。
 > 5. ★歷史內容是「已發生並結束」的既定事實，只供語氣連貫，禁把歷史動作當本回合重演；本回合唯一新事件只有當前指令。
@@ -47,8 +49,10 @@
 幾乎每個「有敘事」的 handler 都會把這兩張卡串進 `aiPrompt` 開頭，作為「演出依據」。
 
 `servantCard_(row)` 組出：
-> 〈${name}·${cls}·演出依據(僅供內化，禁複述設定字面)〉自稱「${fp}」｜對御主：${toM}｜性格：${persona}｜口吻：…｜萌點：…｜小動作：…｜寶具「${np}」。
+> 〈${name}·${cls}·演出依據(僅供內化，禁複述設定字面)〉此角色台詞內自稱「${fp}」(僅限她/他自己的引號台詞，敘事旁白的「我」永遠是玩家本人、與此無關)｜對御主：${toM}｜性格：${persona}｜口吻：…｜萌點：…｜小動作：…｜寶具「${np}」。
 > ★依「${name}」真名與上述性格/口吻演出（show, don't tell）：用言行神態自然流露，【禁】把性格詞/萌點/六圍/技能/寶具名當台詞或由旁白點破。依羈絆高低調親疏：低→保留戒備矜持、高→漸親近，守住性格內核、未深不越界倒貼。
+
+- **🐛→✅ 2026-07 修「AI有時候會把對面角色的『我』當成敘事視角」(鑑賞回報案)**：`fp`(自稱)未特別設定時 fallback 就是「我」——卡片原字面單純寫「自稱「我」」，跟「敘事旁白＝玩家的『我』」是同一個字，長提示詞中段容易讓 flash-lite 小模型混淆兩者。已把標籤改成明確限定「僅此角色自己台詞內用」；`Router_Narrative.gs` 的鑑賞(`isNsfwMode`)`PROMPT_REL` 額外在人物卡片後補一句「★【視角鎖定】」重申通篇「我」只能是玩家本人。**只動 servantCard_ 與 Router_Narrative.gs，`Engine_Combat.gs` 的 nsfwBaseRules 一字未碰**(`git diff -- gas/Engine_Combat.gs` 0改動)。
 
 若偵測狂化（persona.speech/firstP 含「狂化/無法言語/僅咆哮/不語」）另加：
 > ★【狂化·絕對】此從者已狂化、喪失言語：【嚴禁】說出任何完整句子或台詞，只能以低吼、咆哮、肢體與本能反應表達。
@@ -323,44 +327,49 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 
 ---
 
-## 9. 自由聊天引擎 `actionPlay`（action `play`）— Router_Narrative.gs:8
+## 9. 自由聊天引擎 `actionPlay`（action `play`）— Gallery.gs
 
-**用途**：kanshou（慾海後日談，NSFW）＋九州 full 模式（停用中）的自由文字聊天輸入框，走前端 `send()`（Script.html:2600, `action:"play"`）。**solo 聖杯戰爭主軌完全不用這個**——solo 全走按鈕→`narrate_only`。
+**🔀 2026-07 玩家定案「兩軌完全拆開，鑑賞集中在一個GS」**：`actionPlay` 與 `buildDefaultSystemPrompt`（含 `nsfwBaseRules`）已從 `Router_Narrative.gs`／`Engine_Combat.gs` 搬到 `Gallery.gs`（鑑賞的家，跟召喚/進場/請走/AI深化等其餘鑑賞 action 集中一處），純檔案搬遷、函式內容逐字未動。`Router_Narrative.gs` 從此只剩 solo 的敘事 helper（`actionNarrateOnly`／`narrateWithState_`）；`Engine_Combat.gs` 只剩 solo／鑑賞共用的 `callGeminiAPI` 基礎設施。
+
+**用途**：kanshou（慾海後日談，NSFW）自由文字聊天輸入框，走前端 `send()`（Script.html, `action:"play"`）。**solo 聖杯戰爭主軌完全不用這個**——solo 全走按鈕→`narrate_only`。`actionPlay` 100% 只被鑑賞(`KPC_`)呼叫（函式入口強制擋非 `KPC_` 呼叫）；九州 `full` 模式呼叫路徑已不存在。
 
 與 `narrate_only` 的關鍵差異：`actionPlay` **自己從零組完整 prompt**（不假手 caller），且**直接呼叫 `callGeminiAPI(prompt, null, aiConfig)`**（第二參數系統提示詞傳 `null`——所有指令混在 user prompt 內，不像 `narrate_only` 另有獨立 `miniSystem`）。
 
 組裝的事實類別：
-- 同行隊伍成員完整卡（六圍/身世/狀態/性格/特徵/關係與好感，`PROMPT_PARTY_SYSTEM`）
-- 玩家自身卡、近期歷史（最近 12 筆，`pickRelevantLogs`）、在場路人近期歷史（10 筆）
-- 場景第三方交叉羈絆（好感≥80 或同行者互相的關係提示）
-- 每位在場 NPC 依好感分級的行為指令（`resistPrompt`，死仇/仇視/厭惡戒備/陌生/相識/友好/摯友七級，各自附一句行為邊界，如「【摯友／傾心】允許依賴與配合，但個性語癖與底線永久保留，禁止人格崩壞！」）
-- **僅 NSFW/kanshou 模式**：同地性別配對提示、肉體狀態 JSON（蜜穴/肉棒/菊穴等）、每位 NPC 的「身體記憶」技能標籤、敏感點、親密次數計數器、愛稱
+- 同行隊伍成員完整卡（身世/狀態/性格/特徵/萌點/關係與好感，`PROMPT_PARTY_SYSTEM`；solo 另帶六圍/氣血，鑑賞不帶）
+- 玩家自身卡、近期歷史（最近 6 筆原始訊息／3輪，`getGameHistoryBatchRaw`，走 `aiConfig.chatHistory` 而非塞進 prompt 字面）
+- **🧹 2026-07 玩家定案「砍掉同地路人、開放世界無結界」**：舊版「同地路人」清單（`allLocals`/`displayPeople`）＋其好感階梯行為指令（`resistPrompt`，死仇→摯友七級）＋場景第三方交叉羈絆整套刪除。改為單純的 `backgroundCrowdStr`（★【開放世界·背景人煙】：路人可自由描寫增添生活感，但不具名、不可被指名互動、不追蹤好感）。能被指名、有名有姓、好感被記錄延續的對象，收斂為僅有**目前同行隊伍成員**（`partyRows`/`partyMembers`）。
+- **僅 NSFW/kanshou 模式**：同地性別配對提示、肉體狀態 JSON（2026-07 玩家定案「肉體那些欄位不需要了，只要狀態就好」：physical_state 從 6 鍵數字代碼（姿勢與動作/胸部/顏面/肉棒/蜜穴/服裝狀態）全部砍掉，簡化為單一自由文字欄，AI 自行決定每回合要不要提、提多細，不強制逐項列舉，每回合仍需據實反映最新狀態）、每位同行同伴的「身體記憶」技能標籤、敏感點、親密次數計數器、愛稱、🔥主動掌握模式段落（前端 `drive` 旗標開啟時注入——同伴依個性主動掌握節奏、攔下玩家的迴避意圖；僅鑑賞生效）
 
 關鍵結構/收尾指令（逐字節錄）：
 > 【敘事法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。
-> 【前塵因果】：(此為歷史輪廓，僅供背景參考，請勿當作新事件重複描寫！…本回合絕對禁止讓其現身、開口或互動！)
-> ★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可登場、說話、互動的角色，僅限【目前同行隊伍成員】、緊鄰上方【當前同地人物】清單列出之人…
-> （非 kanshou）★【系統底層防呆·戰鬥雙向裁決】：…惟聖杯戰爭的從者廝殺一律由系統按鈕裁決，敘述不得自行宣告死亡或輸出生命數值變化。
-> （kanshou 專屬覆寫）💕【鑑賞·後日談模式·最高優先級覆寫】：聖杯戰爭【早已落幕】…★【絕對禁止】任何戰鬥、廝殺、敵人、敵御主、敵從者、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅。世界是安全的。…★敘事結束停在溫柔的留白，把下一步交還御主。
+> ${backgroundCrowdStr}
+> ★【視角鎖定】：以上「同行夥伴」卡片內「自稱」只限她/他自己的引號台詞——通篇敘事旁白的「我」永遠、只能是玩家本人…（2026-07 更新：`actionPlay` 的 `isNsfwMode` 分支已全數拿掉——函式入口已擋非 `KPC_` 呼叫，這句話現在是唯一版本、不再有 solo 對應的另一分支，見 `SOLO_REFERENCE.md` §「九州經濟/生活層」）
+> ★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛，但一律不具名、不可被指名互動、不追蹤好感…
+> 💕【鑑賞·後日談模式·最高優先級覆寫】：聖杯戰爭【早已落幕】…★【絕對禁止】任何戰鬥、廝殺、敵人、敵御主、敵從者、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅。世界是安全的。…★敘事結束停在溫柔的留白，把下一步交還御主。（**🗑️ 2026-07 清除死碼**：舊版這裡還有一句「非 kanshou」的戰鬥雙向裁決規則，靠 `isKanshou` 三元式切換——查證 `actionPlay` 入口早就強制擋非 `KPC_` 呼叫、且鑑賞唯一建列路徑 `game_id` 永遠是 `"k_"` 開頭，`isKanshou` 在這個函式裡數學上恆為 true，該死分支連同判斷變數已整段刪除，鑑賞覆寫改直接無條件套用）
 > 🚨【敘事終極警告】：1. 敘事必須在給出結果後，停在「我」的心境，將下一步交還玩家選擇！2.（`target`/`npc` JSON 欄位只能填真實在場人名，不可含對白/標點）
 
-回應解析欄位：`stat_changes`／`rel_changes`／`intimacy_feedback`／`recruited`／`events`／`new_maps`／`log_summary`／`narration`／`options`／`mentioned_names`——**solo 早已把 `new_maps`/`recruited`/`rel_changes.fav_change` 三個回寫閘關掉**（只在 `isNsfwMode` 才生效，見 `SOLO_REFERENCE.md` §3），數值權威仍在 GAS。
+回應解析欄位（現行 schema）：`inner_monologue`（範本第一位·強制思維鏈，後端不讀自然丟棄，第三人稱總結不可用「我」自稱避免跟 narration 視角打架）／`narration`／`location`（AI自主決定地點，不受地圖節點限制）／`options`（4類選項範本）／`intimacy_feedback`（`player`/`npcs`，各含 `physical_state`〔單一自由文字〕／`dynamic_skills`／`erogenous_zones`／`mutual_nicknames`〔僅npcs〕）／`rel_changes`（`target`/`fav_change`/`tag`/`major_event`）／`log_summary`（`subject`/`object`，供交談輪數計數）。**已從 schema 移除的死欄位**：`stat_changes`、`recruited`、`events`、`new_maps`、`mentioned_names`（查證皆無對應消費端或從未被賦予 schema 範本，逐項清除，詳見 `SOLO_REFERENCE.md`）——**solo 完全不經過這個函式**（全走 `narrate_only`）。
 
-（`nsfwBaseRules`／`buildDefaultSystemPrompt` 定義在 `Engine_Combat.gs`——紅線①保護區塊，本文不重複貼出，只標註 `actionPlay` 有引用其機制。）
+（`nsfwBaseRules`／`buildDefaultSystemPrompt` 定義在 `Gallery.gs`——紅線①保護區塊，本文不重複貼出，只標註 `actionPlay` 有引用其機制。函式為無參數 `buildDefaultSystemPrompt()`，永遠回傳慾海版本，因為查證後這個函式現在只可能被鑑賞呼叫。詳見 `SOLO_REFERENCE.md` §0。）
 
 ---
 
 ## 10. 前端自建 prompt 的特例：`actionMove` 的 `arrivePrompt`
 
-`actionMove`（action `move`）後端**不组 aiPrompt**，只回傳素材：`masterCard`／`servantCard`（`servantCard_`）／`foeCards`（在場敵從者的 `servantCard_` 陣列）／`pursuit`（撤離追擊結果）／`preFoes`／`mapDesc`／`people`／`locations`／`clock`/`ap`。
+`actionMove`（action `move`）後端**不组 aiPrompt**，只回傳素材：`masterCard`／`servantCard`（`servantCard_`）／`foeCards`（在場敵從者的 `servantCard_` 陣列）／`pursuit`（撤離追擊結果，2026-07 起額外附 `foeCard`＝追兵的 `servantCard_`）／`report`（2026-07 新增·撤離追擊數字戰報卡，供 `renderFateBattleReport` 秒顯，不等 AI）／`factionClash`（2026-07 新增·抵達時撞見的敵對互毆，見下）／`preFoes`／`mapDesc`／`people`／`locations`／`clock`/`ap`。
+
+- **🐛→✅ 2026-07 修「追擊戰報從者沒有描述」**：舊版 `pursuit` 只有 `{enemyName,dmg,hitWho,note}`，前端只把 `note` 塞成一句附註，AI 沒有追兵的性格/口吻素材可演；也沒有像卸防突襲那樣的數字戰報卡，玩家看不到發生了什麼。已比照 `enemyAmbushOnServant_` 的 `foeCard` 模式，在 `actionMove`(`Router_Movement.gs`) 對 `pursuit` 補上 `foeCard: servantCard_(chaserRow)`，並新建 `report`(`pursuit:true` 分支)。前端 `renderFateBattleReport` 新增 `r.pursuit` 分支(取代舊版純文字一行 div)；`arrivePrompt` 多插一段 `【撤離途中的追兵】${data.pursuit.foeCard}`，撤離追擊/反咬的指令句也各自改為「依上方【撤離途中的追兵】的性格演出…」，讓 AI 有真實角色素材可依循。
+- **⚔️ 新增「敵對互毆」場景(2026-07 玩家提案)**：玩家反饋「兩組敵對人馬同格站著卻不打架很奇怪」——`actionMove` 抵達判定新增：若抵達地點同時有 ≥2 位不同敵御主(各帶其從者、皆非結盟中)，GAS 用 `resolveFateBattle_` 真實裁決兩位敵從者(取戰敗方傷害的0.4倍，只是「先前已互相消耗」的餘傷、非死鬥全額)扣血，建構 `factionClash:{aMaster,bMaster,loserName,dmg,note}`；`worldRumors` 插一則〔敵對交鋒〕、`arrivePrompt` 多一段「★【撞見敵對互毆】…這不是相安無事同處一地，是你打斷了一場戰鬥」指令，讓 AI 演出雙方戒備停手，而非兩批人相安無事站在原地。GAS 掌傷害裁決、AI 只演出中斷瞬間——符合 `DESIGN.md` 的「GAS掌數值、AI只說書」鐵則。
 
 前端 `travelTo()`（Script.html:735-803）**自己拼出** `arrivePrompt`：
 ```
-(masterCard) + (servantCard) + (foeCards)
+(masterCard) + (servantCard) + (foeCards) + [若有撤離追擊] 【撤離途中的追兵】(pursuit.foeCard)
 + 【抵達場景】御主『${pc.name}』…剛抵達冬木的「${targetName}」，時值${timeStr}。
 + 此地氛圍：${locDesc}\n敵情：${foeStr}。
-+ [若有撤離追擊] ★【撤離追擊】/★【撤離反咬】…
++ [若有撤離追擊] ★【撤離追擊】/★【撤離反咬】…(依上方追兵性格演出)
 + [若多組敵對] ★【在場敵對歸屬·勿張冠李戴】…
++ [若撞見敵對互毆] ★【撞見敵對互毆】…GAS已裁決傷害，AI只演出中斷瞬間…
 + [若有前情] 【前情·僅供承接劇情連貫，勿原樣複述】方才之事：${lastAiContext.slice(0,280)}…
 + ★以 Fate／TYPE-MOON 筆觸描寫兩人抵達此地的所見所感、環境細節與當下氛圍。若有敵蹤，營造一觸即發的對峙張力（但是否交戰、勝負留待御主下令，禁止自行開打或分勝負）；若無敵蹤，寫一段巡查、警戒或短暫喘息的氛圍…
 + ★各地、各從者依此地氛圍與【角色卡性格＋前情因果】自然發揮，各有其調；忌千篇一律的套語與雷同結構…

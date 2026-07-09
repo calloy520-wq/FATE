@@ -373,11 +373,6 @@
     100% { background-position: -20% 0; }
   }
 
-  .npc-card {
-    border-bottom: 1px solid rgba(51, 34, 17, 0.2);
-    padding: 12px 0;
-  }
-
   .status-line {
     font-size: 16px;
     line-height: 2.2;
@@ -467,14 +462,6 @@
     line-height: 1.4;
   }
 
-  .npc-actions {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    margin-top: 10px;
-    padding-top: 8px;
-    border-top: 1px dashed rgba(51, 34, 17, 0.2);
-  }
 
   .btn-act {
     padding: 4px 8px;
@@ -507,39 +494,8 @@
 
 
 
-  /* 🔴 劇情中 NPC 名字的超連結特效 (PC與手機雙棲優化版) */
-  .npc-link {
-    color: #d4af37;
-    /* 金色 */
-    text-decoration: underline dashed rgba(212, 175, 55, 0.6);
-    text-underline-offset: 4px;
-    cursor: pointer;
-    font-weight: bold;
-    padding: 4px 6px;
-    /* 增加手指觸控的感應範圍 */
-    margin: 0 -2px;
-    /* 抵銷 padding 造成的文字排版間距 */
-    transition: all 0.15s ease;
-
-    /* 核心防呆：防止手機點擊時意外反白選取文字 */
-    -webkit-user-select: none;
-    user-select: none;
-    /* 核心防呆：移除手機點擊自帶的半透明灰色閃爍 */
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  /* 電腦端的滑鼠滑過效果 */
-  .npc-link:hover {
-    color: #ff6b6b;
-    text-decoration-color: #ff6b6b;
-  }
-
-  /* 手機端的真實按壓瞬間效果 */
-  .npc-link:active {
-    background: rgba(255, 107, 107, 0.2);
-    border-radius: 4px;
-    color: #ff6b6b;
-  }
+  /* 🧹 2026-07 玩家定案「名稱不要有超連結了」：.npc-link 已從 Script.html 移除(姓名一律純文字)，
+     這裡曾是它的樣式定義，隨之一併清除(死 CSS)。 */
 
 
   /* 🌌 神識星圖樣式 */
