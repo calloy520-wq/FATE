@@ -527,15 +527,11 @@ function actionKanshouSetSex(userData, pcId, sheets) {
   }
   var oldSex = String(data[i][COL.PC.SEX] || "");
   kpc.getRange(i + 1, COL.PC.SEX + 1).setValue(newSex);
-  // 🐛→✅ 2026-07 修：切換性別只改了 SEX 欄，肉體狀態(PHYSICAL)裡舊性別的器官欄位(如蜜穴)沒清掉——
-  // mergePhysicalStatus(Core_Settings.gs)只會新增/覆蓋欄位、從不刪除，下回合 AI 依新性別補上對應
-  // 器官後，兩性器官欄位會同時留在資料裡，命格面板(buildPlayerStatusString 把 PHYSICAL 全部 key
-  // 印出)因此顯示矛盾的肉體狀態(如「蜜穴：未開　肉棒：如常」同時出現)。真的換了性別時重置為新性別
-  // 的預設值，跟 Router_Narrative.gs(玩家肉體懶初始化)／heroToKanshouRow_(同伴建列)同一套預設值
-  // 看齊，根源解決、不是事後打補丁擋顯示。
+  // 🗑️→✅ 2026-07：physical_state 簡化成單一「狀態」欄後不再有器官專屬鍵，這裡的性別分岔隨之作廢——
+  // 真的切換性別時單純重置回中性預設值，跟 Router_Narrative.gs(玩家肉體懶初始化)／heroToKanshouRow_
+  // (同伴建列)同一套預設值看齊。
   if (oldSex !== newSex) {
-    var newPhysical = (newSex === "男") ? { "肉棒": "如常" } : { "蜜穴": "未開" };
-    kpc.getRange(i + 1, COL.PC.PHYSICAL + 1).setValue(JSON.stringify(newPhysical));
+    kpc.getRange(i + 1, COL.PC.PHYSICAL + 1).setValue(JSON.stringify({ "狀態": "如常" }));
   }
   return JSON.stringify({ success: true, pcSex: newSex, message: "已切換為「" + newSex + "」之身。" });
 }

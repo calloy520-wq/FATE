@@ -131,20 +131,18 @@ function actionPlay(userData, pcId, sheets) {
       const npcSex = (npcSexRaw === "男" || npcSexRaw === "女") ? npcSexRaw : "女";
       (playerSex === "女" && npcSex === "女" ? sameSexF : others).push(r[COL.PC.NAME]);
     });
-    // 🐛→✅ 2026-07 修：原本女女配對明講「肉棒欄位雙方皆填『無』」，等於教AI每回合主動寫入一個
-    // 不適用的佔位鍵——這鍵一旦寫進physical_state就merge進去、卡片上永久顯示某女角「肉棒：無」，
-    // 玩家明確要求禁止這種臨時填補寫法。改成：不適用的器官代碼【直接不輸出這個代碼】，不寫佔位詞。
+    // 🗑️→✅ 2026-07 玩家定案「肉體欄位不需要了、只要狀態就好」：physical_state 已從器官數字代碼
+    // 簡化成單一自由文字欄，這裡不再需要提「肉棒代碼(4)」/「男4=肉棒／女5=蜜穴」這類 schema 層級
+    // 的指示，只留下真正影響敘事內容本身的配對規則(女女之愛的手法限制)。
     const parts = [];
-    if (sameSexF.length) parts.push(`${sameSexF.join("、")}(女女配對)：純女女之愛，禁插入式陽具動作，以手指/舌頭/器物替代，肉棒代碼(4)不輸出`);
-    if (others.length) parts.push(`${others.join("、")}：依各自實際性別只填對應器官代碼(男4=肉棒／女5=蜜穴)`);
-    genderHintStr = `\n★【性別配對】：${parts.join("；")}——不適用的器官代碼一律不輸出，不要寫「無」佔位。`;
+    if (sameSexF.length) parts.push(`${sameSexF.join("、")}(女女配對)：純女女之愛，禁插入式陽具動作，以手指/舌頭/器物替代`);
+    if (others.length) parts.push(`${others.join("、")}：依各自實際性別自然互動`);
+    genderHintStr = parts.length ? `\n★【性別配對】：${parts.join("；")}。` : "";
   }
 
   let pPhysicalObj = JSON.parse(pcData[pcIndex][COL.PC.PHYSICAL] || "{}");
-  if (Object.keys(pPhysicalObj).length === 0) {
-    // ⚠ 2026-07 修：原本不論性別統一預設女性生理結構起始值，男御主也被塞這組——改依實際性別。
-    pPhysicalObj = (String(pc[COL.PC.SEX]) === "男") ? { "肉棒": "如常" } : { "蜜穴": "未開" };
-  }
+  // 🗑️→✅ 2026-07：physical_state 簡化成單一「狀態」欄後，預設值不再需要依性別分岔(器官專屬鍵已不存在)。
+  if (Object.keys(pPhysicalObj).length === 0) pPhysicalObj = { "狀態": "如常" };
   let pSkills = (pcData[pcIndex][COL.PC.MEMORY] || "無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/, (m, p1) => `[雙修技巧]${p1.trim().split('、').slice(0, 5).join('、')}`);
   // 🐛→✅ 2026-07 玩家定案整合：STATUS(視覺化外顯，衣服/姿勢/負面/顏面)已退役——姿勢動作/顏面已併進
   //   physical_state(見下方[肉體])，這裡不再重複注入即將永遠凍結的舊欄位。
@@ -153,9 +151,7 @@ function actionPlay(userData, pcId, sheets) {
   let allPresentRows = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && r[COL.PC.LOC] === curL && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_"));
   allPresentRows.forEach(r => {
     let npcPhysicalObj = JSON.parse(r[COL.PC.PHYSICAL] || "{}");
-    // ⚠ 2026-07 修：原本不論性別統一預設女性生理結構起始值(男同伴也被塞這組)——改依實際性別；
-    // 異/無比照 heroToKanshouRow_ 的處理方式，一律按女性向。
-    if (Object.keys(npcPhysicalObj).length === 0) npcPhysicalObj = (String(r[COL.PC.SEX]) === "男") ? { "肉棒": "如常" } : { "蜜穴": "未開" };
+    if (Object.keys(npcPhysicalObj).length === 0) npcPhysicalObj = { "狀態": "如常" };
     let npcSkills = (r[COL.PC.MEMORY] || "無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/, (m, p1) => `[雙修技巧]${p1.trim().split('、').slice(0, 5).join('、')}`);
     let relMem = r[COL.PC.REL_MEM] || "無";
     let npcOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 玩家換裝：當前服裝穿著(換衣不換人·五官體態依本相)
@@ -360,27 +356,13 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       // 🔴 防禦機制：過濾掉 AI 偷懶不想更新狀態時的敷衍用語
       const ignoreWords = ["維持現狀", "無變化", "不變", "維持", "同上", "保持現狀", "沒有變化"];
 
-      // 🐛→✅ 2026-07 玩家定案整合：physical_state 從8欄(視覺姿態4+肉體反應4)砍併成單一6鍵結構——
-      //   1=姿勢與動作 2=胸部 3=顏面(表情+汗水) 4=肉棒 5=蜜穴 6=服裝狀態(玩家指定服裝【本身】不變，
-      //   這格只記錄它當下的凌亂/破損程度，如領口散亂/半褪至肩——AI不可换衣服，只能描述現有服裝的狀態)。
-      //   衣服本身(換裝)/負面/菊穴/雙手不再追蹤。visible_state/mergeVisibleState 機制隨之整段退役。
-      // 🐛→✅ 2026-07 修：sex 參數過去宣告了(isPlayer)卻從未被呼叫端傳入、也從未真的用來過濾——
-      //   AI 吐錯性別代碼(如男角色寫「5」=蜜穴)照樣被收下，導致命格面板顯示矛盾的肉體狀態。
-      //   現在依實際 SEX 擋掉跟性別矛盾的鍵，從輸入邊界就不信任 AI 輸出。
-      const sanitizePhysicalState = (rawState, sex) => {
-        if (!rawState || typeof rawState !== 'object') return {};
-        let cleanState = {};
-        const keyMapping = { "1": "姿勢動作", "2": "胸部", "3": "顏面", "4": "肉棒", "5": "蜜穴", "6": "服裝狀態" };
-        const allowedKeys = ["姿勢動作", "胸部", "顏面", "肉棒", "蜜穴", "服裝狀態"];
-        Object.keys(rawState).forEach(k => {
-          let standardKey = keyMapping[k] || k;
-          let val = String(rawState[k]).trim();
-          if (!allowedKeys.includes(standardKey) || ignoreWords.includes(val)) return;
-          if (standardKey === "肉棒" && sex !== "男") return;
-          if (standardKey === "蜜穴" && sex !== "女") return;
-          cleanState[standardKey] = val;
-        });
-        return cleanState;
+      // 🗑️→✅ 2026-07 玩家定案「肉體那些欄位不需要了、只要狀態就好」：physical_state 從6鍵數字代碼
+      //   (姿勢/胸部/肉棒/蜜穴/顏面/服裝)全部砍掉，合併成單一自由文字欄——連帶讓上一輪才修的「依性別
+      //   擋掉矛盾器官鍵」邏輯整段作廢(沒有器官專屬鍵了，性別矛盾這個問題不可能再發生)。
+      const sanitizePhysicalState = (rawState) => {
+        if (typeof rawState !== 'string') return "";
+        const val = rawState.trim();
+        return (!val || ignoreWords.includes(val)) ? "" : val;
       };
 
 
@@ -415,10 +397,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
       if (aiData.intimacy_feedback.player) {
         const pfb = aiData.intimacy_feedback.player;
-        if (pfb.physical_state) {
-          const pSex = String(pcData[pcIndex][COL.PC.SEX] || "");
-          pcData[pcIndex][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[pcIndex][COL.PC.PHYSICAL], sanitizePhysicalState(pfb.physical_state, pSex), pSex);
-        }
+        const pCleanState = sanitizePhysicalState(pfb.physical_state);
+        if (pCleanState) pcData[pcIndex][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[pcIndex][COL.PC.PHYSICAL], pCleanState);
 
         let oldPMem = pcData[pcIndex][COL.PC.MEMORY] || "";
         pcData[pcIndex][COL.PC.MEMORY] = `[雙修技巧]${processSkills(oldPMem, pfb.dynamic_skills)} | [性愛時敏感部位]${processTags(oldPMem, /\[性愛時敏感部位\](.*?)(?=\| \[|$)/, pfb.erogenous_zones, 5)}`;
@@ -431,10 +411,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
           if (targetIdx === -1) return;
 
           dirtyPcRows.add(targetIdx);
-          if (nfb.physical_state) {
-            const nSex = String(pcData[targetIdx][COL.PC.SEX] || "");
-            pcData[targetIdx][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[targetIdx][COL.PC.PHYSICAL], sanitizePhysicalState(nfb.physical_state, nSex), nSex);
-          }
+          const nCleanState = sanitizePhysicalState(nfb.physical_state);
+          if (nCleanState) pcData[targetIdx][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[targetIdx][COL.PC.PHYSICAL], nCleanState);
           if (nfb.dynamic_skills || nfb.erogenous_zones) {
             let oldNMem = pcData[targetIdx][COL.PC.MEMORY] || "";
             pcData[targetIdx][COL.PC.MEMORY] = `[雙修技巧]${processSkills(oldNMem, nfb.dynamic_skills)} | [性愛時敏感部位]${processTags(oldNMem, /\[性愛時敏感部位\](.*?)(?=\| \[|$)/, nfb.erogenous_zones, 5)}`;

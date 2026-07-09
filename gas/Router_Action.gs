@@ -378,7 +378,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
       canSummonHorror: skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) && !horrorShieldView_(s[COL.PC.MEMORY], gameId),
       outfit: getOutfit_(s[COL.PC.MEMORY]), // 👗 玩家換裝：當前服裝(前端預填/顯示·換衣不換人)
       weapon: getWeapon_(s[COL.PC.MEMORY]), // ⚔️ 玩家自定武裝：武器/戰鬥方式(前端預填/顯示·敘述以此為準)
-      pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體(2026-07整合後含姿勢動作/胸部/顏面/肉棒/蜜穴全部鍵值，STATUS機制已退役)
+      pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體(2026-07再簡化為單一「狀態」鍵，STATUS機制已退役)
       trait: s[COL.PC.TRAIT] || "", // 🌹 慾海卡「特徵」用：COL.PC.TRAIT才是全代碼庫「特徵」的真實定義(外貌描述，見Router_Narrative.gs的formatTrait/prompt)——
                                      // 舊卡片誤讀TAGS.traits(戰鬥特性標籤如神性/英雄)，對直接召喚路徑(TAGS故意留空)永遠是空白
       stolen: /【破戒奪取】/.test(String(s[COL.PC.MEMORY] || ""))

@@ -1060,27 +1060,13 @@
     return b < 20 ? '戒備' : b < 40 ? '疏離' : b < 60 ? '漸信' : b < 80 ? '信賴' : '羈絆深厚';
   }
 
-  // 🌹 鑑賞卡片的 physical_state 結構化渲染(2026-07 玩家定案)：固定順序 狀態(姿勢動作)→胸部→
-  //   蜜穴/肉棒(擇一，依實際存的鍵決定，不強猜性別)→顏面，各自一行帶短標籤；服裝狀態(6)不算在這4行內，
-  //   由呼叫端另外接在「裝扮」下方、不帶標籤(見 kanshouClothLine_)。回傳 HTML 字串(可能為空字串)。
+  // 🗑️→✅ 2026-07 玩家定案「肉體那些欄位不需要了、只要狀態就好」：physical_state 從6鍵(姿勢/胸部/
+  //   肉棒/蜜穴/顏面/服裝)全部砍掉合併成單一自由文字欄，這裡不再需要逐鍵組行、也不用猜蜜穴/肉棒哪個
+  //   存在——直接印那一句話即可。kanshouClothLine_ 隨之整段移除(服裝凌亂度已併入這一欄)。
   function kanshouStatusLines_(po) {
     po = po || {};
-    var get = function (k) { var v = po[k]; return (v && v !== '無') ? v : ''; };
-    var rows = [
-      ['狀態', get('姿勢動作')],
-      ['胸部', get('胸部')],
-      [get('蜜穴') ? '蜜穴' : '肉棒', get('蜜穴') || get('肉棒')],
-      ['顏面', get('顏面')]
-    ];
-    return rows.filter(function (r) { return r[1]; })
-      .map(function (r) { return '<div style="color:#e0a0bc; font-size:11px; line-height:1.5;">' + r[0] + '：' + r[1] + '</div>'; })
-      .join('');
-  }
-  // 服裝狀態(6)：緊接在「裝扮」下方、不帶標籤的一行(玩家指定服裝本身不變，這行只講當下凌亂/破損程度)。
-  function kanshouClothLine_(po) {
-    po = po || {};
-    var v = po['服裝狀態'];
-    return (v && v !== '無') ? '<div style="color:#c9a0e0; font-size:11px; line-height:1.5;">' + v + '</div>' : '';
+    var v = po['狀態'];
+    return (v && v !== '無') ? '<div style="color:#e0a0bc; font-size:11px; line-height:1.5;">' + v + '</div>' : '';
   }
 
   // 階級→數值（對齊後端 rankVal / rankMul：以 C=1.0 為基準）
@@ -1337,9 +1323,7 @@
       // 🎴 2026-07：外顯狀態自 solo 移除(死資料·恆顯示預設字樣)；慾海御主卡以「肉體狀態」抵換此列。
       var mPhysLine = '';
       if (pc && pc.mode === 'kanshou') {
-        // 🐛→✅ 2026-07 二修：同步同伴卡的結構化排版(狀態→胸部→蜜穴/肉棒→顏面各一行帶短標籤，
-        //   服裝狀態另起一行、不帶標籤)，取代原本擠成一行、無序、無標籤的寫法。
-        try { var mpo = JSON.parse(m.physical || '{}'); mPhysLine = kanshouClothLine_(mpo) + kanshouStatusLines_(mpo); } catch (e) { }
+        try { var mpo = JSON.parse(m.physical || '{}'); mPhysLine = kanshouStatusLines_(mpo); } catch (e) { }
       }
       var mOutfitLine = ((pc && pc.mode === 'kanshou') && m.outfit) ? '<div style="color:#c9a0e0; font-size:11px; line-height:1.5;">裝扮　' + m.outfit + '</div>' : '';
       // 🐛→✅ 玩家反映「御主也要換裝按鈕、跟從者一樣格式」：鑑賞御主卡補上與從者卡同款的換裝＋詳細狀態按鈕列，
@@ -1411,15 +1395,12 @@
         var traitPills = (s.traits || []).map(function (tr) { return pill(tr.n, tr.r, 'trait', '#c0392b'); }).join('');
         // 🌹 慾海：從者卡只露 名字/裝扮/服裝狀態/當下狀態——不露血量/魔力/六圍/技能/寶具/動作鈕
         // 🐛→✅ 2026-07 玩家定案精簡：個性/特徵/關係三行拿掉(改進「📜詳細狀態」按鈕看，見下)。
-        // 🐛→✅ 2026-07 二修：改成固定順序(狀態→胸部→蜜穴/肉棒→顏面)、各自一行帶短標籤，取代原本
-        //   不分順序、不帶標籤、擠成一行的寫法(見 kanshouStatusLines_)；服裝狀態(6)另起一行接在裝扮下方。
         if (pc && pc.mode === 'kanshou') {
           var po = {}; try { po = JSON.parse(s.physical || '{}'); } catch (e) { }
           return '<div style="background:rgba(40,20,34,0.5); border:1px solid #a04a6a; border-radius:8px; padding:6px 8px;">'
             + '<div style="color:#e0a0bc; font-weight:bold; font-size:12px;">🌹 ' + s.cls + '</div>'
             + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + '</div>'
             + (s.outfit ? '<div style="color:#c9a0e0; font-size:11px; line-height:1.5;">裝扮　' + s.outfit + '</div>' : '')
-            + kanshouClothLine_(po)
             + kanshouStatusLines_(po)
             // 🐛→✅ 只有換裝、沒有詳細狀態鈕(2026-07 修)：玩家反映想自行微調鑑賞同伴的敘事欄(身世/特徵/個性/萌點)，
             //   反正住在「鑑賞眾生」分頁、不會動到英靈殿種子庫。openStatus 這套面板本就是純敘事(狀態/特徵/地點/性格/

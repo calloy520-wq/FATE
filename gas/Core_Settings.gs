@@ -423,18 +423,13 @@ function buildVisibleStatusString(rawStatus) {
   return parts.length > 0 ? parts.join("，") : "氣息平穩";
 }
 
-// 🐛→✅ 2026-07 修：肉棒/蜜穴這兩個鍵過去只靠 sanitizePhysicalState 白名單擋鍵名，從不檢查角色實際性別——
-//   AI(尤其換到不穩定的免費模型測試時)偶爾吐錯性別代碼，錯的鍵就會被 Object.assign 永久疊加進去、
-//   從此跟正確的鍵並存(如男角色卻同時存在「蜜穴」)。傳入 sex 時直接刪除跟性別矛盾的鍵，根源解決、
-//   且每次合併都會自我修復既有髒資料(不需額外一次性清洗腳本)。
-function mergePhysicalStatus(oldJson, newObjOrStr, sex) {
+// 🗑️→✅ 2026-07：physical_state 簡化成單一「狀態」欄後，器官專屬鍵(肉棒/蜜穴)不再存在，
+//   上一輪的性別矛盾鍵清洗邏輯隨之整段作廢——現在單純覆寫這一個鍵即可，不再有跨鍵合併需求。
+function mergePhysicalStatus(oldJson, newVal) {
   try {
     let oldObj = JSON.parse(oldJson || "{}");
-    let newObj = typeof newObjOrStr === 'string' ? JSON.parse(newObjOrStr || "{}") : (newObjOrStr || {});
-    let merged = Object.assign(oldObj, newObj);
-    if (sex === "男") delete merged["蜜穴"];
-    else if (sex === "女") delete merged["肉棒"];
-    return JSON.stringify(merged);
+    oldObj["狀態"] = String(newVal || "").trim();
+    return JSON.stringify(oldObj);
   } catch (e) { return oldJson || "{}"; }
 }
 
