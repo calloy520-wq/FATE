@@ -42,7 +42,7 @@ function findPlayerServant_(pcData, gameId) {
 
 // 清理某 game_id 的整局資料（眾生，含關係/時鐘欄位已隨列一起刪），並解除帳號連結
 //   2026-07：關係已併入眾生列自身欄位，刪列即刪關係，不再需要單獨掃關係表。
-function purgeGameData_(sheets, gameId, masterName, accountName) {
+function purgeGameData_(sheets, gameId, accountName) {
   if (gameId) {
     var fresh = sheets.pc.getDataRange().getValues();
     for (var r = fresh.length - 1; r >= 1; r--) {
@@ -66,14 +66,13 @@ function actionEndRun(userData, pcId, sheets) {
   var pcData = sheets.pc.getDataRange().getValues();
   var pIdx = pcData.findIndex(function (r) { return r[COL.PC.ID] == pcId; });
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主。" });
-  var masterName = String(pcData[pIdx][COL.PC.NAME] || "");
   var gameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
 
   var sv = findPlayerServant_(pcData, gameId);
   var realName = sv ? String(sv.row[COL.PC.NAME] || "從者") : "";
   var cls = sv ? String(sv.row[COL.PC.RANK] || "從者") : "";
 
-  purgeGameData_(sheets, gameId, masterName, acctName);
+  purgeGameData_(sheets, gameId, acctName);
 
   return JSON.stringify({ success: true, servantName: realName, cls: cls });
 }
@@ -243,8 +242,9 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
 
 // 👥➕ 直接從英靈庫召喚一位英靈進入當前後日談(不需先在 solo 封存；上限與封存路徑共用同一個 3)
 function actionKanshouSummonHero(userData, pcId, sheets) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var kpc = getKanshouPcSheet_(ss);
+  // 🧹 2026-07：dispatcher(Router_Action.gs)已依 pcId 開頭 KPC_ 把 sheets.pc 指到「鑑賞眾生」，
+  //   這 5 顆 action 全部只吃 KPC_ 呼叫(前端只會這樣打)，不必再自己重查一次同一張表。
+  var kpc = sheets.pc;
   var acctName = String(userData.acctName || "").trim();
   var heroId = String(userData.heroId || "").trim();
   var data = kpc.getDataRange().getValues();
@@ -490,8 +490,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 //   ⚠ 2026-07：邀請只剩「英靈殿直接召喚」一途(見 actionKanshouSummonHero)，不再有「鑑賞」表
 //   可邀名單——available 恆回空陣列，保留欄位只為前端相容(避免舊快取/其他呼叫端讀取炸掉)。
 function actionKanshouCompanions(userData, pcId, sheets) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var kpc = getKanshouPcSheet_(ss);
+  var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」，見 actionKanshouSummonHero 同款註解
   var acctName = String(userData.acctName || "").trim();
   var data = kpc.getDataRange().getValues();
   var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
@@ -514,8 +513,7 @@ function actionKanshouCompanions(userData, pcId, sheets) {
 // 累積的一切都救不回來。改成只退出同行(IS_PARTY 清空)、保留整列，之後 actionKanshouSummonHero
 // 偵測到同名列存在時會直接喚回、不重建。
 function actionKanshouRemove(userData, pcId, sheets) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var kpc = getKanshouPcSheet_(ss);
+  var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」，見 actionKanshouSummonHero 同款註解
   var acctName = String(userData.acctName || "").trim();
   var rmName = String(userData.servantName || "").trim();
   var data = kpc.getDataRange().getValues();
@@ -541,8 +539,7 @@ function actionKanshouRemove(userData, pcId, sheets) {
 function actionKanshouSetSex(userData, pcId, sheets) {
   var newSex = String(userData.pcSex || "").trim();
   if (newSex !== "男" && newSex !== "女") return JSON.stringify({ success: false, message: "性別僅限 男／女。" });
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var kpc = getKanshouPcSheet_(ss);
+  var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」，見 actionKanshouSummonHero 同款註解
   var acctName = String(userData.acctName || "").trim();
   var data = kpc.getDataRange().getValues();
   var i = kanshouOwnedRowIdx_(data, pcId, acctName);
@@ -573,8 +570,7 @@ function actionKanshouSetSex(userData, pcId, sheets) {
 function actionKanshouSetName(userData, pcId, sheets) {
   var newName = String(userData.pcName || "").trim();
   if (!newName) return JSON.stringify({ success: false, message: "名字不能空白。" });
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var kpc = getKanshouPcSheet_(ss);
+  var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」，見 actionKanshouSummonHero 同款註解
   var acctName = String(userData.acctName || "").trim();
   var data = kpc.getDataRange().getValues();
   var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
@@ -761,10 +757,10 @@ function actionPlay(userData, pcId, sheets) {
 
 
 
-  let knockedOutList = [];
-  let justRevived = false;
-  let fatePlayerDefeat = false, fateDreamPrompt = ""; // 🔵 FATE：御主血歸 0＝聖杯戰爭敗北（虛假之夢→老虎道場）
-  let freshlyBoundNpcName = "";
+  // 🧹 2026-07：knockedOutList/justRevived/fatePlayerDefeat/fateDreamPrompt/freshlyBoundNpcName
+  //   清掉——這幾個是 solo 戰鬥引擎的殘留概念(擊倒/復活/戰敗虛假之夢/剛結盟NPC排除)，鑑賞世界觀
+  //   明文禁止任何戰鬥/血量變化/死亡威脅，這幾格在這個函式裡從頭到尾只會是初始值，從未被賦過值，
+  //   下方回傳物件對應欄位跟著一起拿掉。
   const dirtyPcRows = new Set();
   // 玩家本人一定會被處理到，先加進去
   dirtyPcRows.add(pcIndex);
@@ -1009,7 +1005,6 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       relChangesToProcess.forEach(rc => {
         const tNpc = rc.target ? String(rc.target).trim() : String(rc.npc).trim();
         if (tNpc === pcName || tNpc === "自己") return;
-        if (tNpc === freshlyBoundNpcName) return;
 
         // 羈絆已併入該 NPC 自己列（BOND/REL_TAG/IS_PARTY/MAJOR_EVENT）——找不到該人此局的列就無可寫入。
         const nIdx = pcData.findIndex(r => String(r[COL.PC.NAME]) === tNpc && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
@@ -1286,11 +1281,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       people: localPeopleList,
       locations: getNearbyLocations(curL, memoryMapData),
       options: aiData.options,
-      knockedOut: knockedOutList,
       // 經濟層已移除：不再回傳隨身行囊清單
       myItemNames: [],
-      justRevived: justRevived,
-      defeat: fatePlayerDefeat, dreamPrompt: fateDreamPrompt, // 🔵 FATE：御主殞命→前端播虛假之夢→老虎道場
       allMapNames: memoryMapData.slice(1).map(m => String(m[COL.MAP.NAME]).trim()).filter(n => n.length >= 2),
       // 🔴 新增：將全部活著的眾生名單傳給前端，用於三段式判定
       allKnownNames: pcData.filter((r, i) => i !== 0 && !String(r[COL.PC.ID]).startsWith("DEAD_")).map(r => String(r[COL.PC.NAME]).trim())
