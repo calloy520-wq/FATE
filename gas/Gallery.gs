@@ -635,7 +635,16 @@ function buildDefaultSystemPrompt() {
     },
     // 🔠 2026-07：原本「名字提取鐵律」在 Router_Narrative.gs 每回合另開一整段落解釋 target 只能填真名，
     //   改直接寫進欄位描述本身——schema 級約束比事後再說一次更有效，也省掉那一整段重複文字。
-    "rel_changes": [{ "target": "NPC真實姓名或「自己」(禁填台詞/地名/動作等其他內容)", "fav_change": 3, "tag": "無", "major_event": "無" }],
+    // 🐛→✅ 2026-07 玩家問「rel_changes後面幾個沒範例AI能知道怎麼用？」——查證屬實，三個後續欄位
+    //   都缺範例：fav_change 只給一個裸數字3，AI 抓不到合理級距；tag 的四字詞分類寫在 nsfwBaseRules
+    //   別處(不在這張範本旁邊)；major_event 最嚴重——後端(下方 relChangesToProcess.forEach)其實
+    //   認得 [達成]xxx(標記約定兌現)／[清空](清空全部約定)兩種特殊語法，但提示詞從頭到尾沒有任何
+    //   一處講過這兩種語法存在，AI 完全沒有管道知道能這樣填，等於這兩個功能形同虛設。補一個 _note
+    //   (仿 intimacy_feedback 已有的同款寫法，後端只認得名字讀取的欄位、不會誤讀這個輔助說明鍵)。
+    "rel_changes": [{
+      "_note": "fav_change為整數(可正可負)，依互動輕重抓落差：日常閒聊+1~3、明顯心動+5~10、重大突破+15~30，越界冒犯可填負數。tag為【關係定位】四字詞(萍水相逢/點頭之交/漸生情愫/紅顏知己等)，依好感高低填，無變化填「無」。major_event為未完成的約定或重大事件一句話；若某約定本回合兌現，填「[達成]約定原文」；若要清空全部約定，填「[清空]」；無新事件填「無」。",
+      "target": "NPC真實姓名或「自己」(禁填台詞/地名/動作等其他內容)", "fav_change": 3, "tag": "無", "major_event": "無"
+    }],
     // 🧹 2026-07 玩家定案「mentioned_names 這也不用了吧」：查證後這欄對鑑賞(唯一還會呼叫此
     //   schema 的路徑)已是死欄——前端(Script.html send())收到後只會 pushCandidate(name, name)，
     //   把文字換成一模一樣的文字(鑑賞早改純文字、無 hyperlink)，等於整條「算了、送了、解析了、
