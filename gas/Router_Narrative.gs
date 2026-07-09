@@ -27,9 +27,12 @@ function actionPlay(userData, pcId, sheets) {
     return `[表象]${arr[0] || "無"} [內裡]${arr[1] || "無"} [喜歡]${arr[2] || "無"} [討厭]${arr[3] || "無"}`;
   };
 
+  // 🐛→✅ 2026-07(玩家授權·同批修正)：[自稱] 這格內容通常已是「自稱「我」」這類完整片語——
+  //   跟 servantCard_ 同一種collision(見 Router_Persona.gs 同批修正)，「我」字面緊鄰在敘事視角
+  //   說明附近，flash-lite小模型容易混淆。標籤加註明確限定範圍，與 servantCard_ 的修法一致。
   const formatTrait = (str) => {
     let arr = String(str || "").split('、');
-    let base = `[外貌]${arr[0] || "無"} [氣質舉止]${arr[1] || "無"} [自稱]${arr[2] || "無"}`;
+    let base = `[外貌]${arr[0] || "無"} [氣質舉止]${arr[1] || "無"} [台詞自稱(僅其本人引號內用，非旁白視角)]${arr[2] || "無"}`;
     return isNsfwMode ? `${base} [卸下心防的私密一面]${arr[3] || "無"}` : base;
   };
 
