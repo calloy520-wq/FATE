@@ -98,8 +98,6 @@
   let nearbyLocations = [];
   let historyPushed = false;
 
-  const NPC_ACTIONS = {};
-
  window.onload = () => {
     document.documentElement.style.setProperty('--story-scale', parseFloat(localStorage.getItem('kyushu_story_font_scale')) || 1);
     // 🐛→✅ 2026-07 修：撤離攔截(setupHistoryPrevention)過去只在 startGame()/鑑賞進場時才呼叫——
@@ -131,12 +129,6 @@
 
 
     document.getElementById('story').addEventListener('click', function(e) {
-      const interactTarget = e.target.closest('[data-interact]');
-      if (interactTarget) {
-        openInteractMenu(interactTarget.getAttribute('data-interact'));
-        return;
-      }
-      
       const locTarget = e.target.closest('[data-loc]');
       if (locTarget) {
         const locName = locTarget.getAttribute('data-loc');
@@ -215,7 +207,6 @@
     toggleActionDrawer();
     switch(actionType) {
       case 'sync': syncData(); break;
-      case 'npc': refreshAndOpenNpcList(); break;
       case 'status': openStatus(); break;
       
       // 🔴 修改這行！讓它去呼叫專屬的設定選單函數
@@ -271,19 +262,6 @@
           optContainer.style.display = enableAiOptions ? 'flex' : 'none';
       }
   });
-
-  async function refreshAndOpenNpcList() {
-    toggleActionDrawer();
-    document.getElementById('npc-overlay').style.display = 'flex';
-    document.getElementById('npc-content').innerHTML = "<p style='text-align:center; color:#816e54;'>正在感應天地...同步眾生氣息...</p>";
-
-    try {
-        await syncData(true); 
-        renderNpcList();      
-    } catch (e) {
-        document.getElementById('npc-content').innerHTML = "<p style='text-align:center; color:red;'>感應失敗。</p>";
-    }
-  }
 
   function closeSystemModal(modalId) {
     const modal = document.getElementById(modalId);
@@ -854,122 +832,10 @@
     } finally { endAction(); }
   }
 
-  function renderNpcList() {
-  const container = document.getElementById('npc-content');
-  if (!localNPCs || localNPCs.length === 0) {
-      container.innerHTML = `
-        <p style='text-align:center; color:#816e54;'>四下無人，亦無牽掛。</p>
-        <div style="border-top:1px dashed rgba(51,34,17,0.2); margin-top:15px; padding-top:15px; text-align:center;">
-          </div>`;
-      return;
-  }
-    
-    localNPCs.sort((a, b) => {
-        if (a.isParty !== b.isParty) return b.isParty - a.isParty; 
-        if (a.isExact !== b.isExact) return b.isExact - a.isExact;
-        return 0;
-    });
-
-    container.innerHTML = localNPCs.map(n => {
-        const isInParty = n.isParty; 
-        const busyWith = n.busyWith; 
-
-        let locText = n.isExact ? "[📍此地]" : `[📍${n.loc}]`;
-        if (isInParty) {
-            locText += " <span style='font-size:11px; color:#8b5a2b; font-weight:bold;'>[同行中]</span>";
-        } else if (busyWith) {
-            locText += ` <span style='font-size:11px; color:#816e54; font-weight:bold;'>[與 ${busyWith} 同行]</span>`;
-        }
-        
-        let cardStyle = n.isExact ? "border-left: 3px solid var(--gold-accent); padding-left:8px;" : "opacity: 0.8; padding-left:8px; border-left: 3px solid #555;";
-
-        let actionButtonsHtml = "";
-        
-        if (!n.isExact) {
-            // 不在同一地點，只能移動過去
-            actionButtonsHtml = `<button class="btn-act" style="border-color:#1e90ff; color:#1e90ff; padding: 6px 12px;" onclick="closeNpcList(); interactNpc('移動', '${n.name}', '${n.loc}', false)">👣 尋找 (移動)</button>`;
-            if (!n.isPC) {
-                actionButtonsHtml += `<button class="btn-act" style="border-color:#8b008b; color:#8b008b; padding: 6px 12px;" onclick="closeNpcList(); openStatus('${n.id}', '${n.name}')">📜 命格</button>`;
-            }
-        } else {
-            // 📍 在同一地點：顯示互動、命格、以及【快速組隊】！
-            actionButtonsHtml = `<button class="btn-act" style="border-color:#8b5a2b; color:#8b5a2b; font-weight:bold; padding: 6px 12px;" onclick="closeNpcList(); openInteractMenu('${n.name}')">✨ 互動</button>`;
-            if (!n.isPC) {
-                actionButtonsHtml += `<button class="btn-act" style="border-color:#8b008b; color:#8b008b; padding: 6px 12px;" onclick="closeNpcList(); openStatus('${n.id}', '${n.name}')">📜 命格</button>`;
-
-            }
-        }
-
-        const nameColor = n.isPC ? "#9C27B0" : "#800";
-        const roleTag = n.isPC ? "<span style='font-size:10px; color:#9C27B0; border:1px solid #9C27B0; padding:1px 3px; border-radius:3px; margin-right:4px;'>玩家</span>" : "";
-
-        return `
-          <div class="npc-card" style="${cardStyle}">
-            ${roleTag}<b style="color: ${nameColor};">${escapeHtml(n.name)}</b>
-            <span style="font-size:12px; color:#2e8b57; margin-left:8px;">${locText}</span><br>
-            <small style="color:#b22222; font-weight:bold;">生命: ${n.hp} | 魔力: ${n.mp}</small><br>
-            ${pc && pc.mode === 'kanshou' ? `<small style="color:#666;">狀態：${n.status}</small><br>` : ''}
-            <small style="color:#a52a2a; font-weight:bold;">羈絆：${n.relTag || '萍水相逢'}</small>
-            <div class="npc-actions">${actionButtonsHtml}</div>
-          </div>`;
-    }).join("");
-     container.innerHTML += `
-      <div style="border-top:1px dashed rgba(51,34,17,0.2); margin-top:15px; padding-top:15px; text-align:center;">
-      </div>`;
-  }
-  
-  
-
-  function closeNpcList() {
-    document.getElementById('npc-overlay').style.display = 'none';
-  }
-
-  async function interactNpc(actName, npcName, targetLoc, isExact) {
-      const currentLoc = document.getElementById('ui-loc').innerText;
-      const currentRoot = currentLoc.split('-')[0];
-      const targetRoot = targetLoc.split('-')[0];
-
-      if (actName === '移動') {
-          // 🧹 2026-07 修(提示詞總盤查)：舊版叫 AI 用 stat_changes 改位置——該欄已整組拆除、後端不再解析，
-          //   等於假移動。改走真移動 travelTo(actionMove·耗AP/世界tick/抵達敘事一應俱全)。
-          closeNpcList();
-          travelTo(targetLoc);
-          return;
-      }
-
-      if (actName === '交談') {
-          closeNpcList();
-          send(`【系統動作：玩家走上前與「${npcName}」進行友好對話。請根據對方的性格與當前好感度，給予生動的劇情回應。】`, true);
-          return;
-      }
-
-      if (actName === '切磋') {
-          if (!isExact) { alert(`必須在同一地點才能與「${npcName}」切磋。`); return; }
-          closeNpcList();
-          const customName = localStorage.getItem("kyushu_skillName");
-          const customDesc = localStorage.getItem("kyushu_skillDesc");
-          send(`【系統動作：玩家向「${npcName}」發起點到為止的切磋邀請。】`, true, { 
-              targetName: npcName, 
-              type: "spar",
-              customSkillName: customName ? customName : null,
-              customSkillDesc: customDesc ? customDesc : null
-          });
-          return;
-      }
-
-      
-      let moveContext = "";
-      if (!isExact) {
-        moveContext = currentRoot === targetRoot ? `玩家『試圖』在城內移動前往「${targetLoc}」尋找「${npcName}」並進行【${actName}】。` : `玩家『試圖』長途跋涉前往「${targetLoc}」尋找「${npcName}」並進行【${actName}】。`;
-      } else {
-        moveContext = `玩家對「${npcName}」進行【${actName}】。`;
-      }
-
-      let combatData = null;
-      const actionGuidance = NPC_ACTIONS[actName] ? NPC_ACTIONS[actName].prompt : "";
-      const finalMsg = `【系統動作：${moveContext} 請嚴格審視玩家當前處境是否能自由行動。若能，${actionGuidance}】`;
-      send(finalMsg, true, combatData);
-  }
+  // 🧹 2026-07 玩家定案「都拿掉吧」：舊九州「同地互動選單」整條呼叫鏈(renderNpcList/closeNpcList/
+  //   interactNpc/openInteractMenu/closeInteractMenu，含 npc-overlay/interact-modal 兩個彈窗)
+  //   已隨姓名超連結一併移除——攻擊/寶具/令咒等按鈕本就跟常駐可見的 renderWarActions(⚔️戰爭行動列)
+  //   完全同一組函式(servantStrike)，是重複入口；solo 收斂為「專注廝殺與自己的從者」。
 
   function updateUI(s) {
     // 🔴 視覺防護鎖解除：讓逆天改命的按鈕永遠顯示！
@@ -2610,25 +2476,6 @@
     }
   }
   
-  function handleRelTagClick(npcName, currentTagFull) {
-   const cleanCurrent = String(currentTagFull || "").trim();
-   const newTagText = prompt(`你想將與「${npcName}」的羈絆重新定義為何？`, cleanCurrent);
-
-   if (newTagText === null || !newTagText.trim()) return;
-
-   gasRun({ action: "update_rel_tag", pcId: pc.id, targetName: npcName, newTagText: newTagText.trim() })
-    .then(res => {
-      if (res.success) {
-        alert(res.message);
-        closeInteractMenu();
-        syncData(true);
-      } else {
-        alert(res.message);
-      }
-    })
-    .catch(() => alert("連線受阻，重新定義羈絆失敗。"));
-}
-  
 
 
   // ==========================================
@@ -2889,75 +2736,6 @@ let plainTextContext = cleanText;
     }
   }
 
-
-  let interactTarget = "";
-  function openInteractMenu(npcName) {
-      interactTarget = npcName;
-      document.getElementById('interact-title').innerText = `與「${npcName}」互動`;
-
-      const npcData = localNPCs.find(n => n.name === npcName);
-      const isPC = npcData ? npcData.isPC : false;
-      const currentLoc = document.getElementById('ui-loc').innerText;
-
-      let html = "";
-
-      // 🔴 頂部橫幅，顯化與該 NPC 的因果羈絆(好感數值已依玩家定案不顯示，只留關係標籤)
-      if (!isPC) {
-    const relTag = npcData ? (npcData.relTag || '萍水相逢') : '萍水相逢';
-    const isSoulBound = !!(npcData && npcData.isParty);
-    const editBtn = isSoulBound 
-      ? `<span onclick="handleRelTagClick('${npcName}', '${relTag.replace(/'/g, "\\'")}')" style="cursor:pointer; display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; background:rgba(233,30,99,0.15); border:1px solid rgba(233,30,99,0.4); border-radius:4px; margin-left:6px; font-size:11px; vertical-align:middle;" title="重新定義稱呼">✏️</span>` 
-      : '';
-    html += `
-      <div style="grid-column: span 2; text-align: center; font-size: 14px; font-weight: bold; color: #a52a2a; margin-top: -5px; margin-bottom: 5px; padding: 6px; background: rgba(165,42,42,0.03); border-radius: 4px; border: 1px dashed rgba(165,42,42,0.2);">
-        📜 羈絆：${relTag}${editBtn}
-      </div>
-    `;
-}
-
-      // 🕊️ 【和平互動區】
-      //   單人聖杯戰爭(solo)＝純按鈕，移除「交談」這類需 AI 猜意圖的動作。
-      var _aiTalk = !(pc && pc.mode === 'solo');
-      if (_aiTalk) html += `<button class="btn" style="border-color:#4db8a3; color:#4db8a3;" onclick="closeInteractMenu(); interactNpc('交談', '${npcName}', '${currentLoc}', true)">🗣️ 交談</button>`;
-
-      if (!isPC && pc && pc.mode === 'full') {
-          html += `<button class="btn" style="border-color:#2ca68c; color:#2ca68c;" onclick="closeInteractMenu(); openStatus('${npcData.id}', '${npcName}')">📜 窺探命格</button>`;
-      }
-
-      // ⚠️ 【危險動作區】只對敵人顯示（自己的從者／友方不顯示出戰）
-      var _isFoe = npcData && (npcData.faction === '敵御主' || npcData.faction === '敵從者');
-      if (!isPC && _isFoe && !(pc && pc.mode === 'kanshou')) {
-          html += `<div style="grid-column: span 2; border-top: 1px dashed rgba(77,184,163,0.3); margin-top: 5px; padding-top: 10px; color:#7b9991; font-size:12px; text-align:center; font-weight:bold;">—— 危險舉動 ——</div>`;
-          html += `<div style="grid-column: span 2; display:flex; align-items:center; justify-content:center; gap:6px; margin-bottom:2px; font-size:12px; color:#7b9991;">
-            連續次數：<select id="combo-count-select" style="padding:2px 6px; border-radius:4px; border:1px solid #8fa39b; background:#fff; color:#553311;">
-              <option value="1">x1</option>
-              <option value="2">x2</option>
-              <option value="3">x3</option>
-            </select>
-            <span style="font-size:11px; color:#9a7;">(每回合上限 3)</span>
-          </div>`;
-          if (npcData.faction === '敵御主') {
-            html += `<button class="btn" style="grid-column: span 2; border-color:#a0307a; color:#e0a0d0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, false, true)">🗡️ 刺殺御主（須擲 20 大成功，否則遭護衛反噬 1.5 倍）</button>`;
-          } else {
-            var _st = attackStyle_();
-            html += `<button class="btn" title="${_st.hint}" style="border-color:rgb(${_st.rgb}); color:${_st.col}; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false)">${_st.emo} 令從者${_st.name}</button>`;
-            // ⚡ 主動技(2026-07 改回按鈕制)：出戰從者持施放技術才露出，該次交鋒全效發動＋扣魔一次
-            var _iSk = activeSkillOfActive_();
-            if (_iSk) html += `<button class="btn" style="border-color:#4e92c0; color:#7ec8ff; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, false, false, true)">⚡ 主動技「${String(_iSk.n).replace(/'/g, '')}」全力出擊</button>`;
-            // 🛡️ 常駐寶具(B叔/玉藻)：非攻擊解放→互動選單不給寶具鈕(戰爭行動列有灰化說明鈕)
-            var _iNpPas = /【常駐寶具】/.test(String((((myServants || []).find(function (x) { return x.name === myActiveServant; })) || {}).np || ''));
-            if (!_iNpPas) html += `<button class="btn" style="border-color:#d4af37; color:#d4af37; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', true)">💥 寶具解放</button>`;
-            html += `<button class="btn" style="border-color:#b06cd0; color:#b06cd0; font-weight:bold;" onclick="closeInteractMenu(); servantStrike('${npcName}', false, true)">❖ 令咒・絕對命令（必中普攻；想疊寶具/主動請在戰爭行動列按❖蓄勢）</button>`;
-          }
-      }
-
-      document.getElementById('interact-dynamic-buttons').innerHTML = html;
-      document.getElementById('interact-modal').style.display = 'flex';
-  }
-
-  function closeInteractMenu() {
-      document.getElementById('interact-modal').style.display = 'none';
-  }
 
 
 

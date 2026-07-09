@@ -322,14 +322,6 @@
 
   
 
-  <div id="npc-overlay" class="modal-overlay" onclick="closeNpcList()">
-    <div class="modal-scroll" onclick="event.stopPropagation()">
-      <span class="modal-close-btn" onclick="closeNpcList()">&times;</span>
-      <h2 style="text-align:center; border-bottom:2px solid #332211; padding-bottom:10px; margin-top:0;">—— 在場眾生 ——</h2>
-      <div id="npc-content"></div>
-    </div>
-  </div>
-
   <div id="status-overlay" class="modal-overlay" onclick="closeStatus()">
     <div class="modal-scroll character-sheet" onclick="event.stopPropagation()">
       <span class="modal-close-btn" onclick="closeStatus()">&times;</span>
@@ -440,21 +432,6 @@
     </div>
   </div>
 
-
-  <div id="interact-modal" class="modal-overlay" onclick="closeInteractMenu()">
-    <div class="modal-scroll" onclick="event.stopPropagation()" style="max-width: 320px; padding: 20px;">
-      <span class="modal-close-btn" onclick="closeInteractMenu()">&times;</span>
-      <h2 id="interact-title"
-        style="text-align:center; color:#332211; border-bottom:2px solid #332211; padding-bottom:10px; margin-top:0;">與
-        ??? 互動</h2>
-
-      <div id="interact-dynamic-buttons"
-        style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top: 15px;">
-      </div>
-
-      <button class="btn" style="margin-top: 20px; width: 100%; background-color: #332211; color: var(--paper-bg);" onclick="closeInteractMenu()">取消</button>
-    </div>
-  </div>
 
   <!-- 🐯 老虎道場（敗北講評／勝利祝賀共用同一個殼，runTigerDojo_ 依 mode 重寫標題與文案）-->
   <div id="tiger-dojo-overlay" style="display:none; position:fixed; inset:0; z-index:10001; background:rgba(10,6,16,0.94); align-items:center; justify-content:center; padding:20px;">
