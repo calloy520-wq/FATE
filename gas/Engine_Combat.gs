@@ -17,8 +17,9 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   //   的低延遲小模型)，max_tokens 是唯一能直接省生成時間的旋鈕——玩家定案「max_tokens改1500 他現在
   //   不用這麼忙」：2600 這個高值原是為了容納 inner_monologue+physical_state 等結構性欄位，但實測
   //   截斷的根因其實是萌點欄 slice 過短(見 actionBackfillKanshouAi)，不是 narration 本身需要那麼多字；
-  //   降到1500省下要生成的token數、直接縮短單次回應時間，SFW(solo)維持2000不變。
-  const maxT = config.max_tokens || (config.isNsfwMode ? 1500 : 2000);
+  //   降到1500後玩家再試一輪，配合 narration 目標字數(finalJson，Gallery.gs)同步從約600字降到約500字，
+  //   繼續降到1000試看看，SFW(solo)維持2000不變。
+  const maxT = config.max_tokens || (config.isNsfwMode ? 1000 : 2000);
   const retries = config.retries || 3;
   const plainText = !!config.plainText; // 🆕 純散文模式(如奪杯回憶錄)：不強制 json_object、不抽 {…}、原樣回傳內容
   let lastErrorMessage = "";

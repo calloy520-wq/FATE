@@ -95,7 +95,7 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
   var aiConfig = {
     temperature: 0.85,
     ignoreLaw: true,            // 不疊規矩表(節慶/天時)
-    max_tokens: opts.maxTokens || 1000,
+    max_tokens: opts.maxTokens || 720, // 🔵 2026-07 玩家「solo原本720就維持吧」——原值運作良好，撤回上一輪的1000
     model: SOLO_MODEL,          // 🔵 2026-07 玩家定案 solo 獨立換成低延遲小模型，不跟鑑賞共用 AI_MODEL
     isNsfwMode: !!opts.isNsfw    // NSFW 時讓 fallback 文案合理，但不啟用完整慾海規則
   };
@@ -154,7 +154,7 @@ function actionNarrateOnly(userData, pcId, sheets) {
 6b.★【服裝與外貌】角色衣著嚴格依角色卡的「外貌本相／此刻裝扮」描寫——【此刻裝扮】(玩家換裝)為最優先、寫什麼穿什麼；卡上沒寫的，【嚴禁】自行讓角色裸露或增減服裝(戰鬥可寫甲冑碎裂衣袂破損、不得自行升級成裸身)；解除結界/隱匿(如風王結界)只顯現【武器】，與衣著無關。
 7. 只輸出 JSON：{"narration":"你的敘述，內含<br><br>分段"}，禁止任何其他欄位、禁止 Markdown。`;
 
-  const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw, maxTokens: 1000 });
+  const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw, maxTokens: 720 });
   if (narrationText === null) return JSON.stringify({ success: true, text: "（此處因果已定，氣息微微一閃。）" });
   saveGameHistoryBatch(pcId, [
     { speaker: "player", content: cleanNarrateEcho_(promptText) }, // 🧹 存洗淨摘要、非整串提示詞(否則重整歷史會把演出依據/★指令/素材全攤給玩家看)
