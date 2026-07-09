@@ -4,9 +4,11 @@
 >
 > ⚠ **行號說明**：本文 `檔.gs:NN` 行號是撰寫當下快照、會隨改碼漂移；**以函數名／按鈕文字 grep 為定位錨點**，行號僅供粗略跳轉。前端小函數的行號已拔除（只留函數名）。
 >
-> 底層架構一句話：GAS 算數值（擲骰/HP/MP/勝負）→ 若該動作需要敘事，handler 組一段 `aiPrompt`（或 `dreamPrompt`/`summonPrompt`/`sealNote`附掛等）隨 JSON 回前端 → 前端 `narrate(text)` 呼叫 `action:'narrate_only'` → `actionNarrateOnly`（`Router_Narrative.gs:739`）套上共用 `miniSystem` 系統提示詞 → `narrateWithState_` 補目前血量/魔力 state brief ＋近期對話歷史 → `callGeminiAPI`（`Engine_Combat.gs`）。**唯一真正打 API 的函式只有 `narrateWithState_`／`actionPlay`**；其餘 handler 都只是「組字串」，不自己叫 AI。
+> 底層架構一句話：GAS 算數值（擲骰/HP/MP/勝負）→ 若該動作需要敘事，handler 組一段 `aiPrompt`（或 `dreamPrompt`/`summonPrompt`/`sealNote`附掛等）隨 JSON 回前端 → 前端 `narrate(text)` 呼叫 `action:'narrate_only'` → `actionNarrateOnly`（`Router_Narrative.gs`，solo 專用）套上共用 `miniSystem` 系統提示詞 → `narrateWithState_` 補目前血量/魔力 state brief ＋近期對話歷史 → `callGeminiAPI`（`Engine_Combat.gs`，solo／鑑賞共用基礎設施）。**唯一真正打 API 的函式只有 `narrateWithState_`／`actionPlay`**；其餘 handler 都只是「組字串」，不自己叫 AI。
 >
-> 例外：`actionPlay`（kanshou 慾海 ／九州 full 遺留的自由聊天引擎）自己組完整 prompt **並直接呼叫** `callGeminiAPI`，不經過 `narrate_only`。另有 `actionBackfillMasterAi`、`actionSummonServant`(自訂英靈分支)、`actionClaimGrail` 三個「建角/建資料」用途的 AI 呼叫，也是直接組 prompt 呼叫 API（走 `callGeminiAPI` 拿 JSON 結構化資料，而非敘事文字）。
+> 例外：`actionPlay`（`Gallery.gs`，kanshou 慾海專用自由聊天引擎）自己組完整 prompt **並直接呼叫** `callGeminiAPI`，不經過 `narrate_only`。另有 `actionBackfillMasterAi`、`actionSummonServant`(自訂英靈分支)、`actionClaimGrail` 三個「建角/建資料」用途的 AI 呼叫，也是直接組 prompt 呼叫 API（走 `callGeminiAPI` 拿 JSON 結構化資料，而非敘事文字）。
+>
+> **🔀 2026-07 玩家定案「兩軌完全拆開，鑑賞集中在一個GS」**：`actionPlay`／`buildDefaultSystemPrompt`（含 `nsfwBaseRules`）已從 `Router_Narrative.gs`／`Engine_Combat.gs` 搬到 `Gallery.gs`，跟其餘鑑賞 action 集中一處；`Router_Narrative.gs` 從此只服務 solo，`Engine_Combat.gs` 只留兩軌共用的 `callGeminiAPI`。純檔案搬遷，函式內容逐字未動。
 
 ---
 
@@ -325,9 +327,11 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 
 ---
 
-## 9. 自由聊天引擎 `actionPlay`（action `play`）— Router_Narrative.gs:8
+## 9. 自由聊天引擎 `actionPlay`（action `play`）— Gallery.gs
 
-**用途**：kanshou（慾海後日談，NSFW）自由文字聊天輸入框，走前端 `send()`（Script.html:2600, `action:"play"`）。**solo 聖杯戰爭主軌完全不用這個**——solo 全走按鈕→`narrate_only`。**2026-07 查證更新**：文件曾註記「＋九州 full 模式（停用中）」共用此引擎，但全 `gas/` 目錄已 grep 不到任何把 `pc.mode` 設為 `'full'` 的程式碼（只剩 `'solo'`/`'kanshou'` 兩處字面賦值）——`full` 模式的呼叫路徑已不存在，`actionPlay` 現在 100% 只被鑑賞(`KPC_`)呼叫。
+**🔀 2026-07 玩家定案「兩軌完全拆開，鑑賞集中在一個GS」**：`actionPlay` 與 `buildDefaultSystemPrompt`（含 `nsfwBaseRules`）已從 `Router_Narrative.gs`／`Engine_Combat.gs` 搬到 `Gallery.gs`（鑑賞的家，跟召喚/進場/請走/AI深化等其餘鑑賞 action 集中一處），純檔案搬遷、函式內容逐字未動。`Router_Narrative.gs` 從此只剩 solo 的敘事 helper（`actionNarrateOnly`／`narrateWithState_`）；`Engine_Combat.gs` 只剩 solo／鑑賞共用的 `callGeminiAPI` 基礎設施。
+
+**用途**：kanshou（慾海後日談，NSFW）自由文字聊天輸入框，走前端 `send()`（Script.html, `action:"play"`）。**solo 聖杯戰爭主軌完全不用這個**——solo 全走按鈕→`narrate_only`。`actionPlay` 100% 只被鑑賞(`KPC_`)呼叫（函式入口強制擋非 `KPC_` 呼叫）；九州 `full` 模式呼叫路徑已不存在。
 
 與 `narrate_only` 的關鍵差異：`actionPlay` **自己從零組完整 prompt**（不假手 caller），且**直接呼叫 `callGeminiAPI(prompt, null, aiConfig)`**（第二參數系統提示詞傳 `null`——所有指令混在 user prompt 內，不像 `narrate_only` 另有獨立 `miniSystem`）。
 
@@ -342,13 +346,12 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 > ${backgroundCrowdStr}
 > ★【視角鎖定】：以上「同行夥伴」卡片內「自稱」只限她/他自己的引號台詞——通篇敘事旁白的「我」永遠、只能是玩家本人…（2026-07 更新：`actionPlay` 的 `isNsfwMode` 分支已全數拿掉——函式入口已擋非 `KPC_` 呼叫，這句話現在是唯一版本、不再有 solo 對應的另一分支，見 `SOLO_REFERENCE.md` §「九州經濟/生活層」）
 > ★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛，但一律不具名、不可被指名互動、不追蹤好感…
-> （非 kanshou）★【系統底層防呆·戰鬥雙向裁決】：…惟聖杯戰爭的從者廝殺一律由系統按鈕裁決，敘述不得自行宣告死亡或輸出生命數值變化。
-> （kanshou 專屬覆寫）💕【鑑賞·後日談模式·最高優先級覆寫】：聖杯戰爭【早已落幕】…★【絕對禁止】任何戰鬥、廝殺、敵人、敵御主、敵從者、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅。世界是安全的。…★敘事結束停在溫柔的留白，把下一步交還御主。
+> 💕【鑑賞·後日談模式·最高優先級覆寫】：聖杯戰爭【早已落幕】…★【絕對禁止】任何戰鬥、廝殺、敵人、敵御主、敵從者、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅。世界是安全的。…★敘事結束停在溫柔的留白，把下一步交還御主。（**🗑️ 2026-07 清除死碼**：舊版這裡還有一句「非 kanshou」的戰鬥雙向裁決規則，靠 `isKanshou` 三元式切換——查證 `actionPlay` 入口早就強制擋非 `KPC_` 呼叫、且鑑賞唯一建列路徑 `game_id` 永遠是 `"k_"` 開頭，`isKanshou` 在這個函式裡數學上恆為 true，該死分支連同判斷變數已整段刪除，鑑賞覆寫改直接無條件套用）
 > 🚨【敘事終極警告】：1. 敘事必須在給出結果後，停在「我」的心境，將下一步交還玩家選擇！2.（`target`/`npc` JSON 欄位只能填真實在場人名，不可含對白/標點）
 
-回應解析欄位：`stat_changes`／`rel_changes`／`intimacy_feedback`／`recruited`／`events`／`new_maps`／`log_summary`（2026-07 起僅剩 `subject`/`object` 兩欄，供交談輪數計數；`event`/`tag` 已隨因果表刪除而自 schema 拔除）／`narration`／`options`（`mentioned_names` 2026-07 玩家「這也不用了吧」確認後整條刪除——查證後前端唯一消費點是自己換自己的無效操作，schema/AI指令/後端回傳/前端消費四處一併移除，見 `SOLO_REFERENCE.md` §「對話格式規則」四修）——**solo 完全不經過這個函式**（全走 `narrate_only`，見 `SOLO_REFERENCE.md` §「九州經濟/生活層」）；`new_maps`/`recruited`/`rel_changes.fav_change`/好感渲染原本各自包一層 `if(isNsfwMode)` 擋 solo 誤用，2026-07 查證這條路徑已 100% 只可能被鑑賞呼叫後，改成函式入口直接擋非 `KPC_` 呼叫，內部這幾處判斷已拿掉，數值權威仍在 GAS。NSFW 範本另有 `inner_monologue`（範本第一位·強制思維鏈，後端不讀自然丟棄）。**🐛→✅ 2026-07(玩家明確授權)**：原句要求該欄用「第一人稱自省…我原本的性格尊嚴」代入NPC視角，跟 narration 的「我＝玩家」相鄰打架，flash-lite 小模型容易把NPC視角帶進 narration——改第三人稱總結(「該NPC原本的性格尊嚴」)，語意不變只拿掉衝突的「我」字。屬 `finalJson`(非 `nsfwBaseRules` 變數本體)，仍是紅線①保護的 NSFW 核心，經玩家明確授權才改。
+回應解析欄位（現行 schema）：`inner_monologue`（範本第一位·強制思維鏈，後端不讀自然丟棄，第三人稱總結不可用「我」自稱避免跟 narration 視角打架）／`narration`／`location`（AI自主決定地點，不受地圖節點限制）／`options`（4類選項範本）／`intimacy_feedback`（`player`/`npcs`，各含 `physical_state`〔單一自由文字〕／`dynamic_skills`／`erogenous_zones`／`mutual_nicknames`〔僅npcs〕）／`rel_changes`（`target`/`fav_change`/`tag`/`major_event`）／`log_summary`（`subject`/`object`，供交談輪數計數）。**已從 schema 移除的死欄位**：`stat_changes`、`recruited`、`events`、`new_maps`、`mentioned_names`（查證皆無對應消費端或從未被賦予 schema 範本，逐項清除，詳見 `SOLO_REFERENCE.md`）——**solo 完全不經過這個函式**（全走 `narrate_only`）。
 
-（`nsfwBaseRules`／`buildDefaultSystemPrompt` 定義在 `Engine_Combat.gs`——紅線①保護區塊，本文不重複貼出，只標註 `actionPlay` 有引用其機制。**2026-07 更新**：`buildDefaultSystemPrompt` 原本的 `(isNsfwMode, backLocked)` 參數與所有 SFW/`isNsfwMode`-false 分支〔`sfwBaseRules`全文、`baseJson`/`finalJson`的else分支、`specificRules`的else分支〕已玩家定案「統合起來」全數移除，函式簡化為無參數 `buildDefaultSystemPrompt()`，永遠回傳慾海版本——因為查證後這個函式現在只可能被鑑賞呼叫。詳見 `SOLO_REFERENCE.md` §0。）
+（`nsfwBaseRules`／`buildDefaultSystemPrompt` 定義在 `Gallery.gs`——紅線①保護區塊，本文不重複貼出，只標註 `actionPlay` 有引用其機制。函式為無參數 `buildDefaultSystemPrompt()`，永遠回傳慾海版本，因為查證後這個函式現在只可能被鑑賞呼叫。詳見 `SOLO_REFERENCE.md` §0。）
 
 ---
 
