@@ -529,22 +529,10 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
 
 
-    // 🔴 好感度渲染（經濟層物品/金錢渲染已移除）。此區塊直接把好感增減數字接在故事文字後面顯示——
-    //   2026-07 玩家曾定案「好感度不要顯示在敘述介面上」，當時處理的是 npc-card／互動選單banner
-    //   的數字(那兩處後來確認幾乎不可達)，這裡才是唯一還活著、每回合都會實際顯示數字的地方，
-    //   當時漏查。是否要一併拿掉，留待玩家這輪確認(見這次回報)。
-    if (aiData.rel_changes && Array.isArray(aiData.rel_changes)) {
-      aiData.rel_changes.forEach(rc => {
-        const change = parseInt(rc.fav_change) || 0;
-        if (change === 0) return; // 沒變動就跳過
-
-        const icon = change > 0 ? "❤️" : "💔";
-        const color = change > 0 ? "#e91e63" : "#555";
-        const sign = change > 0 ? "+" : "";
-
-        finalResponseText += `<br><br><span style="color:${color}; font-size:13px; font-weight:bold;">${icon} 「${rc.target}」好感度 ${sign}${change}</span>`;
-      });
-    }
+    // 🧹 2026-07 玩家定案「拿掉吧」：好感度渲染(❤️「NPC名」好感度 +N)已整段刪除——這是「好感度
+    //   不要顯示在敘述介面上」要求裡唯一還活著、每回合都會實際顯示數字的地方(先前處理的
+    //   npc-card／互動選單banner後來查證幾乎不可達，真正的來源在這)。純顯示用途、不影響
+    //   rel_changes 本身的好感數值寫入(那段在更上面的 relChangesToProcess.forEach，不受影響)。
 
     // 🔴 全員血量變化（讀系統真實結算值，AI亂寫value也不影響）
     const hpChangeMsgs = [];
