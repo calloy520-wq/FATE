@@ -624,15 +624,15 @@ function buildDefaultSystemPrompt() {
       "_note": "★physical_state是角色「自身」當下整體狀態的一段自由文字，純肢體與感官、禁內心戲，第三人稱填寫，絕對禁寫'自己'。★每回合都要據實反映最新狀態，不可偷懶沿用舊值；具體提及哪些面向、要多細由你依當下情境自行判斷，不強制逐項列舉。npcs每位與player共用此格式，依其實際狀態填寫。",
       "player": {
         "physical_state": _physicalState,
-        "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第7條)",
-        "erogenous_zones": "本回合玩家自身敏感部位反應(規則見下方慾海律令第7條)"
+        "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第6條)",
+        "erogenous_zones": "本回合玩家自身敏感部位反應(規則見下方慾海律令第6條)"
       },
       "npcs": [{
         "name": "NPC實際名字",
         "physical_state": _physicalStateRef,
-        "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第7條)",
-        "erogenous_zones": "本回合該NPC敏感部位反應(規則見下方慾海律令第7條)",
-        "mutual_nicknames": "雙方間已自然發展出的暱稱/愛稱(規則見下方慾海律令第7條)"
+        "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第6條)",
+        "erogenous_zones": "本回合該NPC敏感部位反應(規則見下方慾海律令第6條)",
+        "mutual_nicknames": "雙方間已自然發展出的暱稱/愛稱(規則見下方慾海律令第6條)"
       }]
     },
     // 🔠 2026-07：原本「名字提取鐵律」在 Router_Narrative.gs 每回合另開一整段落解釋 target 只能填真名，
@@ -643,10 +643,10 @@ function buildDefaultSystemPrompt() {
     //   把文字換成一模一樣的文字(鑑賞早改純文字、無 hyperlink)，等於整條「算了、送了、解析了、
     //   替換了」的鏈路最終是自己換自己的無效操作，沒有任何實際效果。schema 欄位、AI 指令、後端回傳、
     //   前端消費四處一併移除。
-    // 🔴 慾海模式event欄位禁止描述肉體細節：實際因果文字改由GAS固定樣式生成(隱晦化)，AI只需給方向與標籤
-    // 🗑️ 2026-07 玩家定案：event/tag 兩欄拔除——因果表刪除後無任何代碼讀取(產了就丟)，
-    //   後端只消費 subject/object(交談輪數計數，見 Router_Narrative.gs)。以後要做回憶錄再加回。
-    "log_summary": { "subject": "主動方真名", "object": "被動/承受方真名(三人以上填眾人)" }
+    // 🗑️ 2026-07 玩家定案：event/tag 兩欄先前已拔除(因果表刪除後無任何代碼讀取)；這輪玩家再問
+    //   「log_summary 有在用嗎」——查證其唯一消費者(交談輪數計數)累加的數字從頭到尾沒有任何地方
+    //   讀回(不顯示、不當門檻、不餵回AI)，是純粹寫入從不讀取的死路，連同 subject/object 整欄一併
+    //   移除，AI 不用再每回合多填這個欄位。
   };
 
   // 🔠 對話格式規則抽成共用函式，杜絕未來改一半、又不一致的風險。
@@ -701,8 +701,7 @@ function buildDefaultSystemPrompt() {
 3. 【依配對裁決】依上方【性別配對】——女女配對：純女女之愛，無論誰主導皆纏綿體貼、有來有往，主動方亦柔中帶情，❌禁男性化強硬支配模板；男女配對：依實際性別器官自然互動，女性側動作仍柔美。
 4. 聚焦當下最關鍵一兩處深入著墨，篇幅靠情感起伏/神態心理/氛圍張力/肢體動作/喘息與聲音/對話堆疊撐起，非鋪滿全身；❌禁逐一點名全身部位、禁四感清單式流水帳、禁器官逐格交代；台詞可被喘息/聲音/斷續語句打斷，不限嬌喘，勿一氣呵成。
 5. physical_state為單一自由文字(第三人稱)，涵蓋姿態/表情/肉體反應/服裝凌亂度等，依情境帶到即可不強制列舉；每回合據實反映最新狀態不可沿用舊值，脫離接觸可帶到「鬆開/餘韻」。★純系統記錄，narration仍以第4條為準、聚焦留白，不逐格謄寫。
-6. log_summary：subject填主導方真名、object填承受方真名(三人以上填眾人)，符合實際方向，禁因身分預設主動方。
-7. 粗暴動作轉紅印/酥麻/強烈快感，禁肉體破損流血。dynamic_skills(2~5字，貼合身分個性)/erogenous_zones(2~6字，實際觸及的敏感部位)/mutual_nicknames(已自然發展且好感足夠的暱稱)：僅本回合確實發生/存在才填，毫無相關內容一律填「無」，不預設空白或提前腦補。`;
+6. 粗暴動作轉紅印/酥麻/強烈快感，禁肉體破損流血。dynamic_skills(2~5字，貼合身分個性)/erogenous_zones(2~6字，實際觸及的敏感部位)/mutual_nicknames(已自然發展且好感足夠的暱稱)：僅本回合確實發生/存在才填，毫無相關內容一律填「無」，不預設空白或提前腦補。`;
 
   return nsfwBaseRules + "\n" + specificRules + "\n\n★【輸出範本】\n" + JSON.stringify(finalJson, null, 2);
 }
@@ -1116,16 +1115,15 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
             pcData[targetIdx][COL.PC.MEMORY] = `[雙修技巧]${processSkills(oldNMem, nfb.dynamic_skills)} | [性愛時敏感部位]${processTags(oldNMem, /\[性愛時敏感部位\](.*?)(?=\| \[|$)/, nfb.erogenous_zones, 5)}`;
           }
 
-          // 羈絆記憶(專屬稱呼/親密次數/交談輪數)已併入該 NPC 自己列的 REL_MEM 欄
+          // 羈絆記憶(專屬稱呼/親密次數)已併入該 NPC 自己列的 REL_MEM 欄(交談輪數已隨log_summary移除)
           let oldRMem = pcData[targetIdx][COL.PC.REL_MEM] || "";
           let count = ((oldRMem.match(/\[親密次數\](\d+)/) || [])[1] ? parseInt((oldRMem.match(/\[親密次數\](\d+)/) || [])[1]) : 0) + 1;
-          let talkStr = (oldRMem.match(/\[交談輪數\](\d+)/) || [])[1] ? ` | [交談輪數]${(oldRMem.match(/\[交談輪數\](\d+)/) || [])[1]}` : "";
           // 🧪 2026-07：已兌現的約定(見上方 major_event 的[達成]處理)也存在同一欄REL_MEM——這裡整串
           //   重建時要一併帶過去，否則本回合同時觸發[達成]又剛好被寫進intimacy_feedback.npcs時，
-          //   已兌現記憶會被這行蓋掉(跟交談輪數用同一招：extract 舊值、reinject 回新字串)。
+          //   已兌現記憶會被這行蓋掉(extract 舊值、reinject 回新字串)。
           let doneStr = (oldRMem.match(/\[已兌現\](.*?)(?=\| \[|$)/) || [])[1]?.trim();
           doneStr = (doneStr && doneStr !== "無") ? ` | [已兌現]${doneStr}` : "";
-          pcData[targetIdx][COL.PC.REL_MEM] = `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/, nfb.mutual_nicknames, 3)} | [親密次數]${count}${talkStr}${doneStr}`;
+          pcData[targetIdx][COL.PC.REL_MEM] = `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/, nfb.mutual_nicknames, 3)} | [親密次數]${count}${doneStr}`;
         });
       }
     }
@@ -1140,27 +1138,9 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       }
     });
 
-    // 📖 交談輪數：本回合有互動意圖提及的在場人物，累計交談輪數於其自己列的 REL_MEM 欄
-    const logSum = aiData.log_summary || {};
-    // ⚠ 2026-07 修：因果表(舊「因果」機制)整組砍除時，這裡漏了同步——log_summary 的 schema
-    // (Engine_Combat.gs)早就從舊格式的 people 改成 subject/object(主被動方向)，這裡卻還在比對
-    // 已不存在的 logSum.people，String(undefined) 恆為 "undefined"，.includes(name) 幾乎不可能
-    // 命中任何真實姓名——交談輪數自那次重構後就悄悄壞掉，一直沒人發現。改用現行的 subject/object。
-    const logNamesStr = `${logSum.subject || ""}${logSum.object || ""}`;
-    const validInteractNames = new Set(partyMembers);
-    // ⚠ 2026-07 修：validInteractNames 是本局的名字集合沒錯，但下面掃「整張表」比對姓名時漏了
-    //   sameGame——若別局剛好有同名角色，會被誤判為「在場」而一併累加交談輪數(跨局寫入)。
-    pcData.forEach((r, nIdx) => {
-      const name = r[COL.PC.NAME];
-      if (!name || name === pcName) return;
-      if (!sameGame(r)) return;
-      if (!logNamesStr.includes(name)) return;
-      if (!validInteractNames.has(name)) return;
-      dirtyPcRows.add(nIdx);
-      let oldMem = String(r[COL.PC.REL_MEM] || "");
-      let countMatch = oldMem.match(/\[交談輪數\](\d+)/);
-      pcData[nIdx][COL.PC.REL_MEM] = countMatch ? oldMem.replace(/\[交談輪數\]\d+/, `[交談輪數]${parseInt(countMatch[1]) + 1}`) : (oldMem ? oldMem + ` | [交談輪數]1` : `[交談輪數]1`);
-    });
+    // 🗑️ 2026-07 玩家定案「log_summary整條砍掉」：交談輪數計數整段移除——查證其累加出的數字
+    //   從頭到尾沒有任何地方讀回(不顯示、不當門檻、不餵回AI)，純粹寫入從不讀取的死路，見 finalJson
+    //   移除 log_summary 欄位處的說明。
 
     const pcColCount = Object.keys(COL.PC).length;
 
