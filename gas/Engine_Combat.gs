@@ -13,9 +13,12 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   if (!modelName) return JSON.stringify({ narration: "未設定 MODEL 指令碼屬性", options: ["重試"] });
   const temp = config.temperature !== undefined ? config.temperature : 0.8;
   const topP = config.top_p !== undefined ? config.top_p : 0.95;
-  // 2026-07：慾海這幾輪新增 inner_monologue＋physical_state 每回合必填欄位變多，結構性佔用 token 略增，
-  //   小幅調高留些餘裕(玩家指定 2600；實際截斷根因在萌點欄 slice 過短，另見 actionBackfillKanshouAi)。
-  const maxT = config.max_tokens || (config.isNsfwMode ? 2600 : 2000);
+  // 🔵 2026-07 玩家反映「鑑賞速度有點慢」，查證換 DeepSeek 後主因是模型生成時間本身(大模型 vs 原本
+  //   的低延遲小模型)，max_tokens 是唯一能直接省生成時間的旋鈕——玩家定案「max_tokens改1500 他現在
+  //   不用這麼忙」：2600 這個高值原是為了容納 inner_monologue+physical_state 等結構性欄位，但實測
+  //   截斷的根因其實是萌點欄 slice 過短(見 actionBackfillKanshouAi)，不是 narration 本身需要那麼多字；
+  //   降到1500省下要生成的token數、直接縮短單次回應時間，SFW(solo)維持2000不變。
+  const maxT = config.max_tokens || (config.isNsfwMode ? 1500 : 2000);
   const retries = config.retries || 3;
   const plainText = !!config.plainText; // 🆕 純散文模式(如奪杯回憶錄)：不強制 json_object、不抽 {…}、原樣回傳內容
   let lastErrorMessage = "";
