@@ -13,13 +13,12 @@ const API_KEY = (function () {
       || '';
 })();
 const MODEL_URL = "https://openrouter.ai/api/v1/chat/completions";
-// 🔵 模型名稱不寫死在原始碼(玩家不想讓外人從公開 repo 的程式碼看到實際用哪個模型，此 repo 為
-//   public)：改讀「指令碼屬性」MODEL，沒設定則留空字串(不在原始碼裡放任何預設模型名稱字面，
-//   否則等於把同一個秘密原樣寫回公開原始碼)——callGeminiAPI 對空值會擋下並回報清楚錯誤訊息，
-//   跟 API_KEY 未設定時的既有防呆一致，不會靜默送出無模型的請求。
+// 🔵 玩家 2026-07 明確選擇改回程式碼內直寫預設值(權衡放棄先前「不曝光在公開 repo」的隱私考量，
+//   換取不用每次測試模型都要開 Apps Script 編輯器改指令碼屬性)。指令碼屬性 MODEL 仍優先生效
+//   (留著方便之後想切換測試時不必再改程式碼重新部署)，只有沒設定該屬性時才落回此預設值。
 const AI_MODEL = (function () {
   var p = PropertiesService.getScriptProperties();
-  return p.getProperty('MODEL') || '';
+  return p.getProperty('MODEL') || 'google/gemini-3.1-flash-lite';
 })();
 
 // ==========================================
