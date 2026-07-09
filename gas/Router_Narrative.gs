@@ -101,9 +101,20 @@ function actionPlay(userData, pcId, sheets) {
       //   localSceneStr，而鑑賞同伴一律是同行隊伍成員、從不會出現在那份清單——同伴的萌點過去
       //   從未真正餵給AI過。這裡補上，跟 servantCard_/localSceneStr(已刪)看齊。
       const pMoeStr = String(r[COL.PC.INTENT] || "").trim();
+      // 🐛→✅ 2026-07 玩家反映「鑑賞敘述看不出來是從者本人，像在跟很像的別個角色相處」：查出根因——
+      //   種子人設裡最能定義「這人講話就是這個味道」的兩項(persona.speech口吻／persona.tic招牌小動作，
+      //   如「毒舌吐槽、嘴硬心軟」／「握劍時氣場驟冷」)，召喚時早就透過 stampPersonaFlavor_ 存進
+      //   MEMORY 的【口吻】【小動作】標記——但 servantCard_(solo戰鬥/羈絆/移動等多處都會讀這兩項)
+      //   從未被 actionPlay 呼叫過，這裡是自己另組一套精簡版命格字串，從頭到尾沒把這兩項餵給AI，
+      //   只剩日常化翻譯過的性格(可能已偏淡)＋外貌——AI 自然演不出這個角色的招牌語癖與小動作。
+      //   getPersonaSpeech_/getPersonaTic_(Router_Persona.gs)已是現成 helper，直接複用讀 MEMORY，
+      //   查無時退回 codexPersona_ 即時查表(跟 servantCard_ 同一套防呆)，補進這裡。
+      const pSpeech = getPersonaSpeech_(r[COL.PC.MEMORY]) || (codexPersona_(pName).speech || "");
+      const pTic = getPersonaTic_(r[COL.PC.MEMORY]) || (codexPersona_(pName).tic || "");
+      const pFlavorStr = `${pSpeech ? ` | 口吻:${pSpeech}` : ""}${pTic ? ` | 招牌小動作:${pTic}` : ""}`;
       partyDetailsArr.push(isKanshou
-        ? `【同行夥伴】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pMoeStr ? ` | 萌點(反差·僅供內化):${pMoeStr}` : ""} | 關係:${r[COL.PC.REL_TAG] || "結伴同行"}(好感:${parseInt(r[COL.PC.BOND]) || 0}${pMemStr})`
-        : `【同行夥伴】名號:${pName} | 氣血:${r[COL.PC.HP]}/${getCharacterTotalStats(r[COL.PC.ID], sheets, pcData, []).maxHp} | 身世:${r[COL.PC.BACK] || "無"} | 狀態:${r[COL.PC.STATUS]}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pMoeStr ? ` | 萌點(反差·僅供內化):${pMoeStr}` : ""} | 關係:${r[COL.PC.REL_TAG] || "結伴同行"}(好感:${parseInt(r[COL.PC.BOND]) || 0}${pMemStr})`);
+        ? `【同行夥伴】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(反差·僅供內化):${pMoeStr}` : ""} | 關係:${r[COL.PC.REL_TAG] || "結伴同行"}(好感:${parseInt(r[COL.PC.BOND]) || 0}${pMemStr})`
+        : `【同行夥伴】名號:${pName} | 氣血:${r[COL.PC.HP]}/${getCharacterTotalStats(r[COL.PC.ID], sheets, pcData, []).maxHp} | 身世:${r[COL.PC.BACK] || "無"} | 狀態:${r[COL.PC.STATUS]}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(反差·僅供內化):${pMoeStr}` : ""} | 關係:${r[COL.PC.REL_TAG] || "結伴同行"}(好感:${parseInt(r[COL.PC.BOND]) || 0}${pMemStr})`);
     }
   });
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【目前同行隊伍成員命格詳情】:\n${partyDetailsArr.join("\n")}` : "目前沒有同行夥伴，玩家是獨自行動的。";
