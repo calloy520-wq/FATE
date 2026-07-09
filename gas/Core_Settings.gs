@@ -338,6 +338,22 @@ function parseTraitsHelper(data, defaultStr) {
   return parts.slice(0, 4).join("、");
 }
 
+// 🐛→✅ 2026-07 玩家發現「衣服寫到舉止了」：種子 persona.look 的真實結構是「N段外貌細節(髮色/瞳色/
+//   體態/服裝)・・...、最後一段氣質詞」(如「金髮碧眼・甲冑藍裙的嬌小騎士、王者威儀」)，不是天然的
+//   [外貌]/[氣質舉止]/[台詞自稱]/[私密面]四格——過去直接把這種字串餵給 parseTraitsHelper，會按
+//   「、」出現的位置盲目分配四格，外貌段落數量因人而異(2~4段不等)時，服裝等外貌細節被錯位塞進
+//   [氣質舉止]、真正的氣質詞反而被推擠到[台詞自稱]甚至[私密面]，persona.firstP(真正的自稱)也從未
+//   被讀進來過。這裡把「最後一段」正確認定為氣質、其餘全部合併回單一[外貌]格，[台詞自稱]改吃真正
+//   的 persona.firstP，回傳的字串再交給 parseTraitsHelper 補齊防呆與 4 格截斷。
+function looksToTraitParts_(rawLook, firstP) {
+  const segs = String(rawLook || "").split(/[・、]/).map(s => s.trim()).filter(s => s !== "");
+  if (segs.length === 0) return "";
+  const demeanor = segs.length > 1 ? segs.pop() : "從容";
+  const appearance = segs.join("、");
+  const selfAddr = String(firstP || "").trim() || "我";
+  return `${appearance}、${demeanor}、自稱「${selfAddr}」、卸下心防時的柔軟一面`;
+}
+
 // 🤖 2026-07 玩家提案「確定會有喜好？討厭的？跟玩家的資料欄位對齊嗎」：查證屬實——種子庫
 //   persona.words 幾乎全部只有2段(僅阿爾托莉雅3段)，parseTraitsHelper 補滿4格時[喜歡]/[討厭]
 //   恆為「無」佔位，玩家自己建角卻是紮實填滿的4格，兩邊明顯不對齊，慢熱與傾心規則「依個性/氣質

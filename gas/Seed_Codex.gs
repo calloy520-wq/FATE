@@ -194,7 +194,9 @@ var SEED_SERVANTS = [
     align:'中立・善', persona:{firstP:'我',look:'紅眼白髮的幼小少女，毛領大衣',words:'天真爛漫・哀傷的聖杯依代・厭惡孤獨',toMaster:'依賴而黏人，渴望被珍惜',speech:'孩子氣的直率，偶爾早熟的敏銳',moe:'強顏歡笑的寂寞',tic:'踮腳撒嬌',back:'人造人、被當作工具養大卻渴望親情'} },
   { id:'間桐櫻黑化-Master', cls:'御主', realName:'間桐櫻（黑化）', wars:['客串'], gender:'女',
     six:{}, classSkills:[], skills:[], traits:[], np:'',
-    align:'混沌・惡', persona:{firstP:'我',look:'黑長髮、黑紅禮服，妖異而空洞的笑',words:'溫順乖巧的假面・被黑泥吞噬的佔有慾・厭惡傷害過自己的一切',toMaster:'表面溫順順從，內裡佔有慾強烈',speech:'輕柔溫順，偶爾滲出陰冷',moe:'可憐又可怖',tic:'低垂眼眸淺笑',back:'遠坂次女、送養間桐受蟲蝕十一年後黑化'} }
+    // ⚠ 2026-07 修(玩家點名「櫻的髮色不是紫色嗎」)：官方設定間桐櫻髮色是深紫色(與遠坂凜同系但更深)，
+    //   原「黑長髮」誤植——黑化版仍是她本人的髮色，不因黑化就變色，已修正。
+    align:'混沌・惡', persona:{firstP:'我',look:'深紫長髮、黑紅禮服，泛著陰冷寒意',words:'溫順乖巧的假面・被黑泥吞噬的佔有慾・厭惡傷害過自己的一切',toMaster:'表面溫順順從，內裡佔有慾強烈',speech:'輕柔溫順，偶爾滲出陰冷',moe:'可憐又可怖',tic:'低垂眼眸淺笑',back:'遠坂次女、送養間桐受蟲蝕十一年後黑化'} }
 ];
 
 // 御主 persona 為 4 段頓號（日常表象・真實內裡・喜歡・厭惡）供 TRAIT/PREF 解析；
@@ -214,7 +216,10 @@ var SEED_MASTERS = [
   {id:'言峰綺禮-5th',  name:'言峰綺禮', gender:'男', appearance:'高大神父、黑色法衣，陰沉',   war:'5th', magic:'代行者・黑鍵',        circuits:25, melee:'A', magic_rank:'C', home:'言峰教會',   wish:'尋得能讓自己喜悅之物',    persona:'虔誠神父的假面・以他人痛苦為樂的空虛・厭惡平庸的善', back:'壓抑天性數十年，已在某位高傲英靈慫恿下坦然墮落', moe:'麻婆豆腐的意外執著'},
   {id:'伊莉雅絲菲爾-5th',name:'伊莉雅絲菲爾', gender:'女', appearance:'紅眼白髮的幼小少女，毛領大衣',war:'5th',magic:'愛因茲貝倫煉金術・聖杯依代',    circuits:80, melee:'D', magic_rank:'A', home:'冬木·新都', wish:'完成聖杯的使命',          persona:'天真爛漫・哀傷的聖杯依代・厭惡孤獨', back:'人造人、被當作工具養大卻渴望親情', moe:'強顏歡笑的寂寞'},
   // ⚠ 2026-07 修：circuits原90→50——她本人的回路質量與凜同級(人類頂尖水準)，那股無限魔力來自聖杯泥附體(已在magic欄體現)，不該混進她自己的天賦數字。
-  {id:'間桐櫻(黑化)-5th',name:'間桐櫻（黑化）', gender:'女', appearance:'黑長髮、黑紅禮服，妖異而空洞的笑',war:'5th',magic:'聖杯之泥・無限魔力・蟲爪', circuits:50, melee:'E', magic_rank:'A', home:'間桐宅', wish:'獨佔所愛、將世界一同拖入黑暗', persona:'溫順乖巧的假面・被黑泥吞噬的佔有慾・厭惡傷害過自己的一切', back:'遠坂次女、送養間桐受蟲蝕十一年後黑化', moe:'可憐又可怖'},
+  // ⚠ 2026-07 修(玩家點名「櫻的髮色不是紫色嗎」)：官方設定間桐櫻髮色深紫色，原「黑長髮」誤植——
+  //   黑化不因此變色，已修正；appearance 末段也順手改成一般氣質描述，不再是只描述表情的「妖異而
+  //   空洞的笑」(玩家反映套進日常場景會顯得突兀)。
+  {id:'間桐櫻(黑化)-5th',name:'間桐櫻（黑化）', gender:'女', appearance:'深紫長髮、黑紅禮服，泛著陰冷寒意',war:'5th',magic:'聖杯之泥・無限魔力・蟲爪', circuits:50, melee:'E', magic_rank:'A', home:'間桐宅', wish:'獨佔所愛、將世界一同拖入黑暗', persona:'溫順乖巧的假面・被黑泥吞噬的佔有慾・厭惡傷害過自己的一切', back:'遠坂次女、送養間桐受蟲蝕十一年後黑化', moe:'可憐又可怖'},
   // 第四次
   // ⚠ 2026-07 修：circuits35→15、magic_rank B→C——他的魔術回路數量少質量也差(原作明寫、故Saber供魔得靠愛麗絲)，
   //   真正的殺傷力來自起源彈與戰術而非魔術本身，「天才殺手·蹩腳魔術師」的反差不該被回路數字掩蓋。
@@ -243,7 +248,17 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v53'; // v53：新增3位女性正典御主(遠坂凜/伊莉雅絲菲爾/間桐櫻黑化)進英靈殿，cls='御主'
+var CODEX_PERSONA_VER = 'v54'; // v54：玩家實機比對種子發現「衣服寫到舉止了」——persona.look 的
+//   真實結構是「N段外貌(含服裝)、最後一段氣質詞」，parseTraitsHelper 若直接按位置切4格會把服裝
+//   誤植進[氣質舉止]、氣質詞誤植進[台詞自稱]，firstP(真自稱)從未被讀進來。新增 looksToTraitParts_
+//   (Core_Settings.gs)正確切分，三個呼叫端(Gallery.gs/Router_Creation.gs/Seed_Rivals.gs)同步改用。
+//   間桐櫻(黑化)髮色「黑長髮」修正為「深紫長髮」(官方設定，黑化不變髮色)；appearance/persona.look
+//   末段「妖異而空洞的笑」(玩家反映套進日常場景很突兀)改一般氣質描述「泛著陰冷寒意」。
+//   translateAppearanceToDaily_(Gallery.gs)的翻譯提示詞同步修正：明確服裝段落要保留原色系/風格
+//   精神只做日常化、不換成完全不同調性；氣質段落改「依日常情境自然轉化」而非硬性照抄戰場神情。
+//   upgradeCodexPersonas_ 版本升級時一併清空 DAILY_LOOK/DAILY_WORDS 快取，逼下次召喚重新生成，
+//   否則已召喚過的角色會繼續沿用召喚當下快取的舊版錯誤翻譯，永遠讀不到這次修正。
+// v53：新增3位女性正典御主(遠坂凜/伊莉雅絲菲爾/間桐櫻黑化)進英靈殿，cls='御主'
 //   (非七大從者職階)+wars=['客串']，只供鑑賞直接召喚(奪杯封存機制已砍除，改用此路徑補上原本靠
 //   「鑑賞緣」才收得到的女性正典御主)；upgradeCodexPersonas_ 的「補入種子有、英靈殿還沒有的新英靈」
 //   邏輯會自動把這3筆加進既有英靈殿，不需要清表。
@@ -315,7 +330,15 @@ function upgradeCodexPersonas_(ss) {
     existing[String(d[i][COL.HERO.ID])] = true;
     var s = byId[String(d[i][COL.HERO.ID])];
     // 整列依種子重寫(六圍/職階技能/固有技能/特性/寶具/人設/陣營)，只刷種子英靈(ID 對應)、不動客製英靈
-    if (s) { var row = servantToHeroRow_(s); hero.getRange(i + 1, 1, 1, row.length).setValues([row]); n++; }
+    if (s) {
+      var row = servantToHeroRow_(s); hero.getRange(i + 1, 1, 1, row.length).setValues([row]); n++;
+      // 🐛→✅ 2026-07 修：DAILY_LOOK/DAILY_WORDS(懶惰快取的鑑賞日常版)只在「欄位還空」時才會生成，
+      //   servantToHeroRow_ 只回傳前13欄(ID~SOURCE)，這兩欄原本會被整列覆寫略過、永遠不會跟著
+      //   種子修正更新——玩家點名「間桐櫻髮色/衣服/表情翻譯都怪怪」查出來的根因之一：即使種子本體
+      //   已修正，已召喚過的角色仍會沿用召喚當下快取的舊版日常翻譯，永遠讀不到修正。版本升級時
+      //   一併清空這兩欄，逼下次召喚時用修正後的種子＋翻譯提示詞重新生成，不留過期快取。
+      hero.getRange(i + 1, COL.HERO.DAILY_LOOK + 1, 1, 2).clearContent();
+    }
   }
   // 🆕 補入「種子有、英靈殿還沒有」的新英靈(新增從者後不必清表即生效；冪等：下次已存在就不重加)
   var toAdd = SEED_SERVANTS.filter(function (s) { return !existing[s.id]; });

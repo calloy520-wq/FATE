@@ -563,7 +563,9 @@ function actionSummonServant(userData, pcId, sheets) {
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       // 🎴 特徵(4格敘事：外貌/氣質/自稱與口氣/私密)直接讀寫死的種子 persona.look，穩定一致、不叫 AI 生。
-      row[COL.PC.TRAIT] = parseTraitsHelper(String(persona.look || ""), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
+      // 🐛→✅ 2026-07 修「衣服寫到舉止了」：persona.look 是「N段外貌(含服裝)・・...、氣質詞」，
+      //   不是天然四格，改用 looksToTraitParts_ 正確切分＋帶入真正的 persona.firstP 當自稱。
+      row[COL.PC.TRAIT] = parseTraitsHelper(looksToTraitParts_(persona.look, persona.firstP), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
       // 🚀 種子英靈：直接用寫死的種子 persona（萌點/口吻 v3 已補齊），大部分欄位不叫 AI 重生——
       //    省下多數欄位的 API、加速召喚(僅[喜歡]/[討厭]段數不足時才補呼叫一次，見下)。
       //    個性取 persona.words(四關鍵)、萌點取 persona.moe、生平用種子既有 back 或職階真名模板。

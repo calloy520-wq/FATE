@@ -84,7 +84,9 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
   row[COL.PC.SEX] = (hero[COL.HERO.SEX] === "無" ? "異" : (hero[COL.HERO.SEX] || "異"));
   row[COL.PC.BACK] = cls + " 職階英靈";
   row[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "佇立", "負面": "無", "顏面": "氣息冷冽" });
-  row[COL.PC.TRAIT] = parseTraitsHelper(String(persona.look || ""), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面"); // 🎴 特徵直接讀種子 persona.look
+  // 🐛→✅ 2026-07 修「衣服寫到舉止了」：persona.look 是「N段外貌(含服裝)・・...、氣質詞」，改用
+  //   looksToTraitParts_ 正確切分＋帶入真正的 persona.firstP 當自稱，不再按位置盲目塞四格。
+  row[COL.PC.TRAIT] = parseTraitsHelper(looksToTraitParts_(persona.look, persona.firstP), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面"); // 🎴 特徵直接讀種子 persona.look
   row[COL.PC.LOC] = loc;
   row[COL.PC.PREF] = parseTraitsHelper(String(persona.words || "").replace(/・/g, "、"), "沉著表象、堅定內裡、珍視之物、厭惡之事");
   row[COL.PC.HP] = hp; row[COL.PC.MP] = mp;
