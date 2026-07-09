@@ -2604,12 +2604,6 @@ const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatDat
   }, 1500);
 }
       
-      if (data.recruited && data.recruited.length > 0) {
-        data.recruited.forEach(recruitedNPC => {
-          story.insertAdjacentHTML('beforeend', `<div class="msg-player" style="align-self:center; border-radius:8px; background:rgba(212,175,55,0.1); border:1px solid #d4af37; color:#d4af37; font-size:13px; text-align:center;">（「${recruitedNPC}」正式加入您的隊伍）</div>`);
-        });
-      }
-      
       let cleanText = data.text.split('[')[0];
       
       // 🔴 絕對安全版換行修復：只抓取 AI 偶爾解析錯誤的字面 "\n" 或 "\r\n"，將其轉為真實換行。

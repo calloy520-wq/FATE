@@ -280,13 +280,10 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
     // 經濟層（物品/金錢/任務）已全數移除：items_gained / items_transferred / money_transferred / items_lost / items_used 不再落地。
 
-    // 🌹 鑑賞允許 AI 在自由敘事裡直接招募人（solo 的招募只走 GAS 按鈕：召喚從者／破戒奪僕／結盟，不受這裡影響）
-    let newlyRecruited = (aiData.recruited && Array.isArray(aiData.recruited)) ? aiData.recruited.map(n => String(n).trim()) : [];
     let dismissedNpc = userMsg.includes("解除了組隊同行關係") ? (userMsg.match(/與「(.*?)」解除/) || [])[1]?.trim() || "" : "";
 
     {
       const relChangesToProcess = aiData.rel_changes || [];
-      newlyRecruited.forEach(npc => { if (!relChangesToProcess.find(r => r.npc === npc)) relChangesToProcess.push({ npc: npc }); });
       if (dismissedNpc && !relChangesToProcess.find(r => r.npc === dismissedNpc)) relChangesToProcess.push({ npc: dismissedNpc });
 
       relChangesToProcess.forEach(rc => {
@@ -302,7 +299,7 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         // 🌹 鑑賞允許 AI 依劇情推進好感（solo 的好感收歸 GAS 按鈕，走不同的 narrate_only 路徑，不受這裡影響）
         let change = parseInt(rc.fav_change) || 0;
         let isPartyStr = String(pcData[nIdx][COL.PC.IS_PARTY] || "");
-        if (newlyRecruited.includes(tNpc)) isPartyStr = "同行"; if (dismissedNpc === tNpc) isPartyStr = "";
+        if (dismissedNpc === tNpc) isPartyStr = "";
 
         let oldFav = parseInt(pcData[nIdx][COL.PC.BOND]) || 0; let oldTag = pcData[nIdx][COL.PC.REL_TAG] || "萍水相逢";
         let newFav = Math.max(-100, Math.min(100, oldFav + change));
@@ -311,9 +308,7 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         {
           let aiProvidedTag = (rc.tag && typeof rc.tag === 'string') ? rc.tag.trim() : "";
           let isValidAiTag = aiProvidedTag !== "" && aiProvidedTag !== "無" && !aiProvidedTag.includes("禁止");
-          if (rc.forceTag) finalTag = rc.tag;
-          else if (isValidAiTag) finalTag = aiProvidedTag;
-          else finalTag = oldTag;
+          finalTag = isValidAiTag ? aiProvidedTag : oldTag;
         }
 
         pcData[nIdx][COL.PC.BOND] = newFav; pcData[nIdx][COL.PC.REL_TAG] = finalTag; pcData[nIdx][COL.PC.IS_PARTY] = isPartyStr;
@@ -570,7 +565,6 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       statusString: buildPlayerStatusString(pcData[pcIndex]),
       people: localPeopleList,
       locations: getNearbyLocations(curL, memoryMapData),
-      recruited: newlyRecruited,
       options: aiData.options,
       knockedOut: knockedOutList,
       // 經濟層已移除：不再回傳隨身行囊清單
