@@ -275,7 +275,12 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   // 為空物件時依性別現算預設值)本就會在那之前的 prompt 組裝過程臨時補上，AI 不會拿到空物件，
   // 只是不再「還沒發生任何事就先寫進資料庫」。
   sRow[COL.PC.GAME_ID] = gameId;
-  sRow[COL.PC.BOND] = 45; sRow[COL.PC.REL_TAG] = "從者"; sRow[COL.PC.IS_PARTY] = "同行";
+  // 🐛→✅ 2026-07 玩家問「召喚的角色跟我說是什麼關係？」查出：REL_TAG 沿用 solo 那邊「從者」的寫法——
+  //   但「從者」是聖杯戰爭裡令咒締結契約的戰爭專屬用語，這行(Gallery.gs:877)會直接把「關係:從者」
+  //   餵給AI，且只有AI明確給新tag才會覆蓋，AI若判斷「無變化」就會一直卡在這個戰爭用語，跟鑑賞
+  //   「沒有聖杯戰爭這回事」的定調衝突。改用既有好感分級詞彙「萍水相逢」(跟 BOND=45「尚淺·剛認識」
+  //   的既有註解意圖一致)，solo 端(Router_Creation.gs)因為真的有令咒契約，「從者」在那邊是對的，不動。
+  sRow[COL.PC.BOND] = 45; sRow[COL.PC.REL_TAG] = "萍水相逢"; sRow[COL.PC.IS_PARTY] = "同行";
   sRow[COL.PC.REL_MEM] = "初次相遇，緣分才剛開始";
   return sRow;
 }
