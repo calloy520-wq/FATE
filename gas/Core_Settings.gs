@@ -20,6 +20,14 @@ const AI_MODEL = (function () {
   var p = PropertiesService.getScriptProperties();
   return p.getProperty('MODEL') || 'deepseek/deepseek-chat-v3.1';
 })();
+// 🔵 2026-07 玩家定案「solo 應該走 google/gemini-3.1-flash-lite」：solo(narrateWithState_)跟鑑賞
+//   (actionPlay)過去共用同一顆 AI_MODEL——但 solo 只需要精簡的按鍵回饋、不像鑑賞需要大型模型的
+//   NSFW 生成能力，換成低延遲小模型可以顧到速度。獨立成自己的指令碼屬性 SOLO_MODEL，同款「屬性
+//   優先、沒設定才落回預設值」的做法，兩軌從此可以各自換模型互不影響。
+const SOLO_MODEL = (function () {
+  var p = PropertiesService.getScriptProperties();
+  return p.getProperty('SOLO_MODEL') || 'google/gemini-3.1-flash-lite';
+})();
 
 // ==========================================
 // ★ 階段一：ORM 資料實體映射 (Data Mapping) 
