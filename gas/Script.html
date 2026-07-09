@@ -2565,10 +2565,9 @@ function applyModeUI() {
     }
   }
 
-  // ==========================================
-  // 🟢 連擊戰報專用輕量敘事：narrate() 同等成本，但會把同地參戰NPC名字轉成可點擊超連結，
-  // 讓玩家能直接點名字繼續連擊，不需要 AI 額外生成 options
-  // ==========================================
+  // 🧹 2026-07：拿掉這裡原本一段描述「連擊戰報專用輕量敘事」的孤兒註解——它講的是舊九州
+  //   handleMultiAttack/renderCombatReport/narrateCombatResult(已於更早的清理移除)，不是下面
+  //   send()的行為；send() 是鑑賞(action:'play')自由聊天引擎的唯一呼叫點，跟「連擊」無關。
 
   async function send(customMsg, isSilent = false, combatData = null) {
     const input = document.getElementById('u-in');
@@ -2664,18 +2663,10 @@ const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatDat
     });
   }
 
-      // 🔵 AI 提到但不在現場的角色 → 純色文字標示(不可點、不再自動登入眾生)
-      // 🧹 2026-07 玩家定案「開放世界背景路人」：鑑賞不再特別標色提及的路人姓名——背景人物本就
-      //   該是不具名、不追蹤、融入敘事的存在，特地標紫色反而給人「這是可被指名互動的固定NPC」
-      //   的錯誤暗示，跟「不可被指名互動」的後端指令自相矛盾。solo(有陣營/敵蹤追擊機制，姓名
-      //   標色是提醒「此人不在場、無法互動」的實用防呆)維持原樣不變。
-      if (data.mentionedNames && data.mentionedNames.length > 0) {
-        data.mentionedNames.forEach(name => {
-          if (name && name.length >= 2 && !localNPCs.find(n => n.name === name)) {
-            pushCandidate(name, (pc && pc.mode === 'kanshou') ? name : `<span style="color:#9C27B0;">${name}</span>`);
-          }
-        });
-      }
+      // 🧹 2026-07 玩家定案「mentioned_names 這也不用了吧」：查證後這整段是無效操作——`send()`
+      //   全域只服務鑑賞(action:'play' 唯一呼叫點，見下方)，鑑賞的 pushCandidate 一律回傳跟輸入
+      //   一模一樣的純文字(早改無 hyperlink)，等於「把文字換成它自己」，schema 欄位/後端回傳/
+      //   前端消費三處已隨 mentioned_names 一併整段刪除。
 
       // 🧹 2026-07：鑑賞拔地圖後，地點不再受限固定節點清單，AI可能敘述地圖上沒有的自創場景——
       //   點擊地名跳轉(loc-link/travelFromPane→actionMove)這套機制對鑑賞已無意義，一併移除

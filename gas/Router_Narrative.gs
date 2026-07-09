@@ -587,7 +587,6 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       recruited: newlyRecruited,
       options: aiData.options,
       knockedOut: knockedOutList,
-      mentionedNames: aiData.mentioned_names || [],
       // 經濟層已移除：不再回傳隨身行囊清單
       myItemNames: [],
       justRevived: justRevived,
