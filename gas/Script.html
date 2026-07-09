@@ -2800,18 +2800,17 @@ const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatDat
         }
       };
 
-      // 🐛→✅ 玩家反映「鑑賞不要姓名的金色超連結」：npc-link 開的是 solo 那套「同地互動選單」(攻擊/交談/招募…)，
-      //   鑑賞同伴本就恆常同行、靠卡片與對話推進，不需要也不該有這顆——鑑賞模式一律退回純文字，不做連結。
+      // 🧹 2026-07 玩家定案「名稱不要有超連結了，solo 就專注廝殺還有自己的從者就好」：姓名點擊開的
+      //   「同地互動選單」(openInteractMenu)對 solo 而言全是 renderWarActions(常駐戰爭行動列)已提供
+      //   的重複入口(攻擊敵蹤/與盟友共處)，對非敵非盟的角色更是空選單——鑑賞更早之前就已改純文字。
+      //   兩軌統一：同地角色一律純文字，不再有可點擊的金色連結。
       if (localNPCs && localNPCs.length > 0) {
     localNPCs.forEach(npc => {
       if (npc.name && npc.name.length >= 2) {
-        if (pc && pc.mode === 'kanshou') {
+        if (npc.isExact) {
           pushCandidate(npc.name, npc.name);
-        } else if (npc.isExact) {
-          // 真正同地（含分支）→ 金色，可同地互動
-          pushCandidate(npc.name, `<span class="npc-link" data-interact="${npc.name}">${npc.name}</span>`);
         } else {
-          // 在名單但不在同地（高好感牽掛之人）→ 紫色遠方之人
+          // 在名單但不在同地（高好感牽掛之人）→ 紫色遠方之人，純資訊標示、不可點
           pushCandidate(npc.name, `<span style="color:#9C27B0;">${npc.name}</span>`);
         }
       }
