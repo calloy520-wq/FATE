@@ -177,7 +177,16 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
     messages: apiMessages,
     temperature: temp,
     top_p: topP,
-    max_tokens: maxT
+    max_tokens: maxT,
+    // 🔵 2026-07 玩家要求：放寬 Gemini 系列 model 透過 OpenRouter 轉發時的內建審查閥門(OpenRouter
+    //   對它 schema 之外、但目標 provider 支援的欄位會直接轉發，非 Gemini model 收到這欄位會靜默忽略，
+    //   不影響其他 model)。調鬆後可減少下面「Triggered_NSFW_Filter」降階重試的觸發次數。
+    safety_settings: [
+      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
+    ]
   };
   if (!plainText) payload.response_format = { type: "json_object" }; // 散文模式不強制 JSON
   // 🔴【替換結束】

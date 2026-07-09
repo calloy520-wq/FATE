@@ -24,6 +24,8 @@
 
 **🔄 2026-07 玩家明確定案「改回：直接寫進程式碼」，推翻上一條的隱私考量**：測了幾個免費模型(dolphin-mistral-venice/qwen3-235b-a22b)後，玩家覺得每次想切換測試都要開 Apps Script 編輯器改指令碼屬性太麻煩，寧可放棄「不曝光在公開 repo」換取方便——已事先明確提示這個取捨(model 名稱會重新出現在公開原始碼)並經玩家確認選擇後才動手。`Core_Settings.gs` 的 `AI_MODEL` fallback 從空字串 `''` 改回字面 `'google/gemini-3.1-flash-lite'`；指令碼屬性 `MODEL` 仍優先生效(留著給之後想測別的模型時不必再改程式碼重新部署)，**只有該屬性未設定(空字串)時才會落回這個新預設值**。⚠️ 若玩家的 Script Properties 目前還留著先前測試用的值(如 dolphin/qwen)，這次改動不會自動生效，需要手動去 Apps Script 編輯器把 `MODEL` 那格清空或整條刪除，程式碼內的新預設值才會真正吃到。
 
+**🔵 2026-07 新增 `safety_settings` 放寬 Gemini 審查閥門(玩家確認「加入」)**：`callGeminiAPI`(`Engine_Combat.gs`)的 payload 新增 `safety_settings: [{category:HARM_CATEGORY_SEXUALLY_EXPLICIT/HARASSMENT/HATE_SPEECH/DANGEROUS_CONTENT, threshold:"BLOCK_ONLY_HIGH"}, ...]`——這是 Google 官方 Gemini API 的安全閥門參數，OpenRouter 對它 schema 之外、但目標 provider 支援的欄位會直接轉發(已查證有 SillyTavern 同款做法先例)，非 Gemini 系列 model(qwen/dolphin等)收到這欄位會靜默忽略，不影響其他 model 的請求。目的：減少 `callGeminiAPI` 既有「偵測 `PROHIBITED_CONTENT`/`SAFETY` → 降階柔和重試」機制的觸發次數(用 Gemini 系列 model 時，很多觸發本來就是這層預設審查造成)。**改動位置屬於 `callGeminiAPI` 的 payload 組裝，非 `nsfwBaseRules` 常數本體**——`git diff -- gas/Engine_Combat.gs | grep -c nsfwBaseRules` 這次確認為 0。
+
 **戰鬥平衡測試**：`tools/battle_sim/`（Node，不進 clasp 部署·常駐工具，別再每次臨時搭）——`node tools/battle_sim/duel.js` 直接載入真實的 `Engine_Fate.gs`/`Seed_Codex.gs` 到 vm sandbox 跑蒙地卡羅對戰模擬(不複製戰鬥算式，永遠吃當下版本)，可秒測任兩個從者對戰、任意 fx 開關的勝率差異。詳見該資料夾 `README.md`。
 
 ⚠ **2026-07 檔案改版**：`Router_Action.gs`(原 3918 行)已拆成 8 檔——`Router_Action.gs`(核心dispatch)/`Router_Creation.gs`(創角召喚)/`Router_Movement.gs`(地圖移動休息)/`Router_Battle.gs`(戰鬥核心)/`Router_Bond.gs`(羈絆令咒結盟破戒奪僕)/`Router_Narrative.gs`(actionPlay敘事)/`Router_Persona.gs`(演出卡)/`Router_Economy.gs`(出力補魔)。下文各節提到「Router ~行號」的**行號已隨拆檔位移**，函數名不變、用函數名 grep 即可找到——全域作用域共用，切到哪個檔不影響行為。檔案對照表看 `HANDBOOK.md` §4。
