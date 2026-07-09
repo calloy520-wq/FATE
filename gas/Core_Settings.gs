@@ -18,7 +18,7 @@ const MODEL_URL = "https://openrouter.ai/api/v1/chat/completions";
 //   (留著方便之後想切換測試時不必再改程式碼重新部署)，只有沒設定該屬性時才落回此預設值。
 const AI_MODEL = (function () {
   var p = PropertiesService.getScriptProperties();
-  return p.getProperty('MODEL') || 'google/gemini-3.1-flash-lite';
+  return p.getProperty('MODEL') || 'deepseek/deepseek-chat-v3.1';
 })();
 
 // ==========================================
