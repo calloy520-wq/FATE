@@ -296,9 +296,12 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
   // DAILY_LOOK/DAILY_WORDS 欄，之後第一次被召喚進鑑賞就直接有現成日常版，不必等召喚當下才轉。
   var dailyLook = translateAppearanceToDaily_(name, cls, String(px.look || ""));
   var dailyWords = translatePersonalityToDaily_(name, cls, String(personaWords || ""));
+  // 🌹 2026-07 玩家定案「餐桌是平行世界、沒有聖杯戰爭這回事」：萌點比照 look/words 同步轉換，
+  //   避免 heroToKanshouRow_ 直接搬戰時反差萌進一個沒打過聖杯戰爭的世界。
+  var dailyMoe = translateMoeToDaily_(name, cls, String(px.moe || ""));
   hs.appendRow([name + "-" + cls, cls, name, sex || "異", sixJson || "{}",
     JSON.stringify(classSkills || []), JSON.stringify(skills || []), JSON.stringify(traits || []),
-    np || "", persona, align || "中立", "[]", "ai_gen", dailyLook, dailyWords]);
+    np || "", persona, align || "中立", "[]", "ai_gen", dailyLook, dailyWords, dailyMoe]);
   try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { } // 種子表已變動→清快取，下次讀到新從者
 }
 
@@ -449,15 +452,16 @@ function actionSaveHero(userData, pcId, sheets) {
     data[idx][COL.HERO.CLASS_SKILLS] = JSON.stringify(pb.classSkills);
     data[idx][COL.HERO.SKILLS] = JSON.stringify(pb.skills);
     data[idx][COL.HERO.NP] = np; data[idx][COL.HERO.ALIGN] = pb.align;
-    const newWords = keep(pb.pref, pj.words), newLook = keep(pb.look, pj.look);
+    const newWords = keep(pb.pref, pj.words), newLook = keep(pb.look, pj.look), newMoe = keep(pb.moe, pj.moe);
     data[idx][COL.HERO.PERSONA] = JSON.stringify({
       words: newWords, firstP: keep(pb.fp, pj.firstP) || "我", toMaster: keep(pb.toM, pj.toMaster),
-      look: newLook, moe: keep(pb.moe, pj.moe), speech: keep(pb.speech, pj.speech),
+      look: newLook, moe: newMoe, speech: keep(pb.speech, pj.speech),
       tic: keep(pb.tic, pj.tic), back: keep(pb.back, pj.back), weapon: keep(pb.weapon, pj.weapon), creator: pj.creator
     });
     // 🤖 2026-07：外貌/性格改了，先前快取的日常版本會跟新設定對不上——重新轉一次，不留舊資料。
     data[idx][COL.HERO.DAILY_LOOK] = translateAppearanceToDaily_(build.name, pb.cls, newLook);
     data[idx][COL.HERO.DAILY_WORDS] = translatePersonalityToDaily_(build.name, pb.cls, newWords);
+    data[idx][COL.HERO.DAILY_MOE] = translateMoeToDaily_(build.name, pb.cls, newMoe);
     hs.getRange(idx + 1, 1, 1, data[idx].length).setValues([data[idx]]);
     try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { }
     return JSON.stringify({ success: true, edited: true, message: `「${build.name}」的靈基已重鑄——之後召喚皆用新設定（已在場的分身不追改）。` });
@@ -640,7 +644,10 @@ ${FX_MENU_}
       }
       row[COL.PC.BACK] = aiBrief.background ? String(aiBrief.background).slice(0, 40) : `${cls} 職階的英靈`; // 補防呆上限，比照其他AI生成路徑
       // 🆕 不重名的原創從者 → 寫回英靈殿（含六圍/技能fx/特性），日後可重用（御主不收）
-      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], aiCSkills, aiSkills, aiTraits, np, aiBrief.personality, align, { creator: String(userData.acctName || "").trim() }); } catch (e) { }
+      // 🐛→✅ 2026-07 修：pExtra 原本沒帶 moe——這名從者當下的 row[COL.PC.INTENT] 確實有拿到
+      //   aiBrief.npc_intent(見上)，但英靈殿的永久記錄(persona.moe)一直是空字串，導致這名從者
+      //   若日後被邀進鑑賞，heroToKanshouRow_/translateMoeToDaily_ 拿到的是空白、無從轉出日常萌點。
+      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], aiCSkills, aiSkills, aiTraits, np, aiBrief.personality, align, { moe: String(aiBrief.npc_intent || "").slice(0, 30), creator: String(userData.acctName || "").trim() }); } catch (e) { }
     }
 
     row[COL.PC.ID] = newId;

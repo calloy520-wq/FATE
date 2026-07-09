@@ -158,6 +158,33 @@ function translatePersonalityToDaily_(name, cls, rawWords) {
   } catch (e) { return words; }
 }
 
+// 🌹 2026-07 玩家定案「餐桌是平行世界、沒有聖杯戰爭這回事(但她們仍是英靈)」：跟上面兩個 XxxToDaily_
+//   不同——look/words 的日常化只是「換場景敘述」，moe(萌點·反差)若直接照搬戰時版本，會把「靠戰爭/詛咒/
+//   創傷撐出的沉重反差」(如「怪力女神卻極度自卑」)硬套進一個根本沒發生過聖杯戰爭的世界，顯得莫名沉重、
+//   沒來由。這裡明確要求改寫成「輕量、溫馨、看了會心一笑」的日常萌點，性格核心不變，但拿掉需要戰爭/
+//   創傷背景才成立的沉重份量——只用在 AI 原創(ai_gen)英靈；canon 種子英靈的日常萌點全部手寫死進
+//   persona.dailyMoe(見 Seed_Codex.gs)，不會走到這個函式。
+function translateMoeToDaily_(name, cls, rawMoe) {
+  var moe = String(rawMoe || "").trim();
+  if (!moe) return moe;
+  try {
+    var sys = "你是《命運停駐之夜》的角色側寫顧問。玩家提供一位角色在聖杯戰爭(戰時)既有的「反差萌」" +
+      "一句話——這種戰時反差萌常常是靠沉重背景撐出來的(創傷/自卑/孤獨/悲劇宿命等)。這個角色現在要" +
+      "進入一個【平行世界的日常線】：這裡從來沒有發生過聖杯戰爭這回事(她依然是同一位英靈，只是活在" +
+      "一個沒有戰爭、不必背負詛咒創傷的和平世界)。想像《衛宮家今天的餐桌風景》那種基調，把這句反差萌" +
+      "改寫成一句「日常向」的可愛萌點：\n" +
+      "①保留角色的性格核心(如高冷/傲氣/寡言/暖心等本相不變)，只是換一個不需要靠悲劇/創傷/戰爭陰影" +
+      "撐出來的呈現方式。\n" +
+      "②必須是單看了會覺得溫馨、正面、會心一笑的小萌點(如生活小習慣、意外的手藝、小小的害羞反應等)，" +
+      "不要保留原句的沉重/悲傷/自卑成分。\n" +
+      "③限18字，務必寫完整一句話，不可斷在句意未完處。\n" +
+      "★只輸出這一句話，不要輸出任何說明、標籤、引號、前後綴。";
+    var prompt = "角色：" + name + "（" + cls + "）\n戰時反差萌：" + moe;
+    var out = String(callGeminiAPI(prompt, sys, { temperature: 0.75, ignoreLaw: true, plainText: true }) || "").trim();
+    return out.slice(0, 30) || moe;
+  } catch (e) { return moe; }
+}
+
 // 🐛→✅ 2026-07 玩家點名「撈進鑑賞時確實零AI呼叫<<<把這個呼叫移除吧?沒有其他來源不會有要補
 //   資料問題」：查證屬實——DAILY_LOOK/DAILY_WORDS 現在只有兩種來源，皆已在「進英靈殿之前」就
 //   保證非空：①種子(SEED_SERVANTS)全數手寫寫死進 persona.dailyLook/dailyWords；②工房(ai_gen)
@@ -167,9 +194,11 @@ function translatePersonalityToDaily_(name, cls, rawWords) {
 function getDailyHeroFields_(heroRow, p) {
   var existingLook = String(heroRow[COL.HERO.DAILY_LOOK] || "").trim();
   var existingWords = String(heroRow[COL.HERO.DAILY_WORDS] || "").trim();
+  var existingMoe = String(heroRow[COL.HERO.DAILY_MOE] || "").trim();
   var rawLook = String(p.look || "").replace(/・/g, "、");
   var rawWords = String(p.words || "").replace(/・/g, "、");
-  return { look: existingLook || rawLook, words: existingWords || rawWords };
+  var rawMoe = String(p.moe || "");
+  return { look: existingLook || rawLook, words: existingWords || rawWords, moe: existingMoe || rawMoe };
 }
 
 // 🌹 慾海直接從英靈庫挑選(2026-07 玩家定案·與「封存後邀請」並存)：不必先在 solo 打贏一場戰爭
@@ -205,7 +234,10 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   var daily = getDailyHeroFields_(heroRow, p);
   sRow[COL.PC.PREF] = parseTraitsHelper(daily.words, "沉著表象、堅定內裡、珍視之物、厭惡之事");
   sRow[COL.PC.TRAIT] = parseTraitsHelper(looksToTraitParts_(daily.look, p.firstP), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
-  sRow[COL.PC.INTENT] = p.moe || "";
+  // 🌹 2026-07 玩家定案「餐桌是平行世界、沒有聖杯戰爭這回事」：萌點跟外貌/性格一樣改讀日常版
+  //   (daily.moe)，不再直接照搬戰時 persona.moe——那種靠戰爭/創傷撐出的沉重反差在這個沒打過
+  //   聖杯戰爭的世界裡沒有來由，詳見 getDailyHeroFields_/translateMoeToDaily_。
+  sRow[COL.PC.INTENT] = daily.moe || "";
   // 🐛→✅ 2026-07 修：這條路徑原本完全沒設定 BACK(身世)，比 solo 召喚(svBack 有 persona.back
   //   fallback)還空——多數種子沒有 persona.back 沒差，但這次新增的3位女性正典御主特地補了
   //   身世，若這裡不接就白填了。比照 solo 的 svBack 邏輯：有 persona.back 就用，沒有則職階+真名。
@@ -445,7 +477,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 ★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
 - traits：外貌、氣質舉止、自稱與口氣(第一人稱·如 我/俺/吾＋說話語氣)、卸下心防的私密一面
 - personality：日常表象、真實內裡、喜歡的事物、討厭的事物
-★npc_intent：一句【簡短】萌點（可愛反差，≤18字，系統會在30字處硬性截斷、務必精簡），結合此人身分性格，要反差、可愛、獨特。務必寫完整一句話，不可斷在句意未完處。【禁】誤用聖杯戰爭機制專有詞(令咒/寶具/魔術迴路/從者/職階等)當裝飾性魔法元素湊萌點——這些詞在本作有精確機制意義(如令咒是對從者下達絕對命令的珍貴道具，不是隨手用來做家事雜活的萬用法寶)，且聖杯戰爭已落幕，情節上真的合理相關才能出現；請改用生活化情境(手作/習慣/小癖好等)。
+★npc_intent：一句【簡短】萌點（可愛反差，≤18字，系統會在30字處硬性截斷、務必精簡），結合此人身分性格，要反差、可愛、獨特。務必寫完整一句話，不可斷在句意未完處。【禁】誤用聖杯戰爭機制專有詞(令咒/寶具/魔術迴路/從者/職階等)當裝飾性魔法元素湊萌點——這些詞在本作有精確機制意義(如令咒是對從者下達絕對命令的珍貴道具，不是隨手用來做家事雜活的萬用法寶)，且聖杯戰爭已落幕，情節上真的合理相關才能出現；請改用生活化情境(手作/習慣/小癖好等)。★這個萌點必須是單看了會覺得溫馨、正面、會心一笑的日常小反差(如生活小習慣、意外的手藝、小小的害羞反應等)，【禁】靠創傷/自卑/孤獨/悲劇宿命撐出反差感——那是戰時角色才需要的沉重寫法，這裡是輕鬆的日常後日談。
 ★background：限20字，呼應其身世，不出現具體物品名，語氣平和(聖杯戰爭已結束)。
 ★【勿輸出數值】戰力數值一律不需要，也不要輸出地點。
 

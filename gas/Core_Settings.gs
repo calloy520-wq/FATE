@@ -60,7 +60,12 @@ const COL = {
   // 🆕 DAILY_LOOK/DAILY_WORDS(2026-07)：鑑賞用的都市日常版外貌/性格，跟戰時 PERSONA(look/words)分開存——
   //   懶惰快取：首次被召喚進鑑賞才由AI轉換寫入(見 heroToKanshouRow_)，之後任何玩家再召喚同一位英靈直接讀
   //   這裡，不重複呼叫AI。空字串＝尚未轉換過。附加在尾端，不動既有欄位位置(COL 是位置索引，見專案紀律)。
-  HERO: { ID: 0, CLS: 1, NAME: 2, SEX: 3, SIX: 4, CLASS_SKILLS: 5, SKILLS: 6, TRAITS: 7, NP: 8, PERSONA: 9, ALIGN: 10, WARS: 11, SOURCE: 12, DAILY_LOOK: 13, DAILY_WORDS: 14 },
+  // 🆕 DAILY_MOE(2026-07 玩家定案「餐桌是平行世界、沒有聖杯戰爭這回事」)：鑑賞用的日常萌點，跟戰時
+  //   PERSONA.moe(反差萌，常靠戰爭/創傷撐出沉重感，如「怪力女神卻極度自卑」)分開存——鑑賞世界沒發生過
+  //   戰爭，直接照搬戰時反差萌會顯得莫名沉重。這欄改放「輕量、溫馨、看了會心一笑」的日常版萌點，
+  //   來源同 DAILY_LOOK/DAILY_WORDS：種子手寫 或 recordOriginalHero_/actionSaveHero 建立當下呼叫
+  //   translateMoeToDaily_(Gallery.gs)轉換寫入。
+  HERO: { ID: 0, CLS: 1, NAME: 2, SEX: 3, SIX: 4, CLASS_SKILLS: 5, SKILLS: 6, TRAITS: 7, NP: 8, PERSONA: 9, ALIGN: 10, WARS: 11, SOURCE: 12, DAILY_LOOK: 13, DAILY_WORDS: 14, DAILY_MOE: 15 },
   MASTER: { ID: 0, NAME: 1, SEX: 2, APPEAR: 3, MAGIC: 4, CIRCUITS: 5, MELEE: 6, MAGIC_RANK: 7, HOME: 8, WISH: 9, PERSONA: 10, WAR: 11, SOURCE: 12, BACK: 13, MOE: 14 },
   // 帳號（存檔身分）：帳號名 → 目前御主角色ID。2026-07：勝場/最快奪杯日(排行榜用)已隨排行榜砍除。
   // ⚠ 2026-07 修：新增 KPC(鑑賞角色ID)——原本鑑賞的帳號歸屬是角色自己 MEMORY 裡宣稱的
