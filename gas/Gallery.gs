@@ -624,14 +624,12 @@ function buildDefaultSystemPrompt() {
       "_note": "★physical_state是角色「自身」當下整體狀態的一段自由文字，純肢體與感官、禁內心戲，第三人稱填寫，絕對禁寫'自己'。★每回合都要據實反映最新狀態，不可偷懶沿用舊值；具體提及哪些面向、要多細由你依當下情境自行判斷，不強制逐項列舉。npcs每位與player共用此格式，依其實際狀態填寫。",
       "player": {
         "physical_state": _physicalState,
-        "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第6條)",
-        "erogenous_zones": "本回合玩家自身敏感部位反應(規則見下方慾海律令第6條)"
+        "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第6條)"
       },
       "npcs": [{
         "name": "NPC實際名字",
         "physical_state": _physicalStateRef,
         "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第6條)",
-        "erogenous_zones": "本回合該NPC敏感部位反應(規則見下方慾海律令第6條)",
         "mutual_nicknames": "雙方間已自然發展出的暱稱/愛稱(規則見下方慾海律令第6條)"
       }]
     },
@@ -701,7 +699,7 @@ function buildDefaultSystemPrompt() {
 3. 【依配對裁決】依上方【性別配對】——女女配對：純女女之愛，無論誰主導皆纏綿體貼、有來有往，主動方亦柔中帶情，❌禁男性化強硬支配模板；男女配對：依實際性別器官自然互動，女性側動作仍柔美。
 4. 聚焦當下最關鍵一兩處深入著墨，篇幅靠情感起伏/神態心理/氛圍張力/肢體動作/喘息與聲音/對話堆疊撐起，非鋪滿全身；❌禁逐一點名全身部位、禁四感清單式流水帳、禁器官逐格交代；台詞可被喘息/聲音/斷續語句打斷，不限嬌喘，勿一氣呵成。
 5. physical_state為單一自由文字(第三人稱)，涵蓋姿態/表情/肉體反應/服裝凌亂度等，依情境帶到即可不強制列舉；每回合據實反映最新狀態不可沿用舊值，脫離接觸可帶到「鬆開/餘韻」。★純系統記錄，narration仍以第4條為準、聚焦留白，不逐格謄寫。
-6. 粗暴動作轉紅印/酥麻/強烈快感，禁肉體破損流血。dynamic_skills(2~5字，貼合身分個性)/erogenous_zones(2~6字，實際觸及的敏感部位)/mutual_nicknames(已自然發展且好感足夠的暱稱)：僅本回合確實發生/存在才填，毫無相關內容一律填「無」，不預設空白或提前腦補。`;
+6. 粗暴動作轉紅印/酥麻/強烈快感，禁肉體破損流血。dynamic_skills(2~5字，貼合身分個性)/mutual_nicknames(已自然發展且好感足夠的暱稱)：僅本回合確實發生/存在才填，毫無相關內容一律填「無」，不預設空白或提前腦補。`;
 
   return nsfwBaseRules + "\n" + specificRules + "\n\n★【輸出範本】\n" + JSON.stringify(finalJson, null, 2);
 }
@@ -1098,7 +1096,7 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         if (pCleanState) pcData[pcIndex][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[pcIndex][COL.PC.PHYSICAL], pCleanState);
 
         let oldPMem = pcData[pcIndex][COL.PC.MEMORY] || "";
-        pcData[pcIndex][COL.PC.MEMORY] = `[雙修技巧]${processSkills(oldPMem, pfb.dynamic_skills)} | [性愛時敏感部位]${processTags(oldPMem, /\[性愛時敏感部位\](.*?)(?=\| \[|$)/, pfb.erogenous_zones, 5)}`;
+        pcData[pcIndex][COL.PC.MEMORY] = `[雙修技巧]${processSkills(oldPMem, pfb.dynamic_skills)}`;
       }
 
       if (aiData.intimacy_feedback.npcs) {
@@ -1110,20 +1108,20 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
           dirtyPcRows.add(targetIdx);
           const nCleanState = sanitizePhysicalState(nfb.physical_state);
           if (nCleanState) pcData[targetIdx][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[targetIdx][COL.PC.PHYSICAL], nCleanState);
-          if (nfb.dynamic_skills || nfb.erogenous_zones) {
+          if (nfb.dynamic_skills) {
             let oldNMem = pcData[targetIdx][COL.PC.MEMORY] || "";
-            pcData[targetIdx][COL.PC.MEMORY] = `[雙修技巧]${processSkills(oldNMem, nfb.dynamic_skills)} | [性愛時敏感部位]${processTags(oldNMem, /\[性愛時敏感部位\](.*?)(?=\| \[|$)/, nfb.erogenous_zones, 5)}`;
+            pcData[targetIdx][COL.PC.MEMORY] = `[雙修技巧]${processSkills(oldNMem, nfb.dynamic_skills)}`;
           }
 
-          // 羈絆記憶(專屬稱呼/親密次數)已併入該 NPC 自己列的 REL_MEM 欄(交談輪數已隨log_summary移除)
+          // 羈絆記憶(專屬稱呼)已併入該 NPC 自己列的 REL_MEM 欄(交談輪數已隨log_summary移除、
+          //   親密次數已隨「窺視神髓」面板一併移除——原本唯一的消費者是該面板的雙修累計顯示)
           let oldRMem = pcData[targetIdx][COL.PC.REL_MEM] || "";
-          let count = ((oldRMem.match(/\[親密次數\](\d+)/) || [])[1] ? parseInt((oldRMem.match(/\[親密次數\](\d+)/) || [])[1]) : 0) + 1;
           // 🧪 2026-07：已兌現的約定(見上方 major_event 的[達成]處理)也存在同一欄REL_MEM——這裡整串
           //   重建時要一併帶過去，否則本回合同時觸發[達成]又剛好被寫進intimacy_feedback.npcs時，
           //   已兌現記憶會被這行蓋掉(extract 舊值、reinject 回新字串)。
           let doneStr = (oldRMem.match(/\[已兌現\](.*?)(?=\| \[|$)/) || [])[1]?.trim();
           doneStr = (doneStr && doneStr !== "無") ? ` | [已兌現]${doneStr}` : "";
-          pcData[targetIdx][COL.PC.REL_MEM] = `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/, nfb.mutual_nicknames, 3)} | [親密次數]${count}${doneStr}`;
+          pcData[targetIdx][COL.PC.REL_MEM] = `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/, nfb.mutual_nicknames, 3)}${doneStr}`;
         });
       }
     }
