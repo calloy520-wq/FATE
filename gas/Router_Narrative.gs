@@ -79,7 +79,14 @@ function actionPlay(userData, pcId, sheets) {
     return `${nickStr}${fulfilledStr}`;
   }
 
-  const partyMembers = pcData.filter(r => r !== pc && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r)).map(r => r[COL.PC.NAME]);
+  // 🧹 2026-07 玩家定案「砍掉同地路人、這是開放大世界、沒有結界了」：舊版 allLocals/displayPeople/
+  //   localSceneStr(好感階梯 resistPrompt/身分標籤)整套刪除。實務上這套機制在鑑賞幾乎是死重——鑑賞
+  //   從不會平白生出「同地路人」這種被追蹤好感的固定NPC，唯一會命中的邊角情況是「已請走、還留在原地
+  //   的舊同伴」被誤判成陌生路人重新演一次戒備——這比沒有這套機制更奇怪。改成單純的「開放世界背景
+  //   人煙」指令(見下方【開放世界·背景人煙】)：路人可以自由描寫增添生活感，但不具名、不追蹤好感、
+  //   不能被指名互動——真正能被指名、有名有姓、好感會被記錄的對象，只有【同行隊伍成員】。
+  const partyRows = pcData.filter(r => r !== pc && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
+  const partyMembers = partyRows.map(r => r[COL.PC.NAME]);
   let partyDetailsArr = [];
   partyMembers.forEach(pName => {
     // ⚠ 2026-07 修：原本純比對姓名，沒有 sameGame——若不同局/不同帳號剛好撞名(種子有限、
@@ -92,61 +99,19 @@ function actionPlay(userData, pcId, sheets) {
       //   永遠不變的欄位塞進提示詞純屬浪費token；solo那邊HP/STATUS是真的會隨戰鬥/休息即時變動，
       //   維持原樣。
       const pMemStr = relMemMemoryStr_(r[COL.PC.REL_MEM]);
+      // 🐛→✅ 2026-07 玩家回報「鑑賞同伴的萌點沒餵到AI」：查出萌點(COL.PC.INTENT)只寫在已刪除的
+      //   localSceneStr，而鑑賞同伴一律是同行隊伍成員、從不會出現在那份清單——同伴的萌點過去
+      //   從未真正餵給AI過。這裡補上，跟 servantCard_/localSceneStr(已刪)看齊。
+      const pMoeStr = String(r[COL.PC.INTENT] || "").trim();
       partyDetailsArr.push(isKanshou
-        ? `【同行夥伴】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])} | 關係:${r[COL.PC.REL_TAG] || "結伴同行"}(好感:${parseInt(r[COL.PC.BOND]) || 0}${pMemStr})`
-        : `【同行夥伴】名號:${pName} | 氣血:${r[COL.PC.HP]}/${getCharacterTotalStats(r[COL.PC.ID], sheets, pcData, []).maxHp} | 身世:${r[COL.PC.BACK] || "無"} | 狀態:${r[COL.PC.STATUS]}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])} | 關係:${r[COL.PC.REL_TAG] || "結伴同行"}(好感:${parseInt(r[COL.PC.BOND]) || 0}${pMemStr})`);
+        ? `【同行夥伴】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pMoeStr ? ` | 萌點(反差·僅供內化):${pMoeStr}` : ""} | 關係:${r[COL.PC.REL_TAG] || "結伴同行"}(好感:${parseInt(r[COL.PC.BOND]) || 0}${pMemStr})`
+        : `【同行夥伴】名號:${pName} | 氣血:${r[COL.PC.HP]}/${getCharacterTotalStats(r[COL.PC.ID], sheets, pcData, []).maxHp} | 身世:${r[COL.PC.BACK] || "無"} | 狀態:${r[COL.PC.STATUS]}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pMoeStr ? ` | 萌點(反差·僅供內化):${pMoeStr}` : ""} | 關係:${r[COL.PC.REL_TAG] || "結伴同行"}(好感:${parseInt(r[COL.PC.BOND]) || 0}${pMemStr})`);
     }
   });
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【目前同行隊伍成員命格詳情】:\n${partyDetailsArr.join("\n")}` : "目前沒有同行夥伴，玩家是獨自行動的。";
 
-  const allLocals = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && (r[COL.PC.LOC] === curL) && sameGame(r) && !partyMembers.includes(r[COL.PC.NAME]));
-  let displayPeople = allLocals.length > 6 ? allLocals.sort((a, b) => (b[COL.PC.PREF].includes(pcName) ? 1 : 0) - (a[COL.PC.PREF].includes(pcName) ? 1 : 0)).slice(0, 6) : allLocals;
-
   let PROMPT_ENV = "", PROMPT_GEAR = "", PROMPT_REL = "";
-
-  // 🔴 統一建構 localSceneStr，SFW/NSFW 共用同一份好感抗拒邏輯（羈絆存於該 NPC 自己列的 BOND/REL_TAG/MAJOR_EVENT 欄）
-  const localSceneStr = displayPeople.length > 0 ? displayPeople.map(r => {
-    let currentFav = parseInt(r[COL.PC.BOND]) || 0;
-
-    let resistPrompt = "";
-    if (currentFav <= -50) {
-      resistPrompt = "【死仇】恨之入骨，見面即強烈敵意，玩家稍有挑釁便主動出手、下手狠辣。但須符合其身分性格，勝負由雙方實力裁決，非無條件秒殺。";
-    } else if (currentFav <= -30) {
-      resistPrompt = "【仇視】充滿敵意，會威脅、冷硬驅趕；唯有玩家正面挑釁、動手或羞辱時才反擊，平時不主動攻擊。";
-    } else if (currentFav < 0) {
-      resistPrompt = "【厭惡戒備】反感、防備、話少。不主動動手，僅在玩家嚴重冒犯或暴力相向時才警告、推開或自衛。";
-    } else if (currentFav < 30) {
-      resistPrompt = "【陌生】萍水相逢的路人，禮貌而疏離，正常應對，無敵意也不親近。";
-    } else if (currentFav < 50) {
-      resistPrompt = "【相識】已有基本好感，態度和善，願意閒聊與小忙。";
-    } else if (currentFav < 80) {
-      resistPrompt = "【友好】信得過的朋友，親近願助，但個性與底線仍在。";
-    } else {
-      resistPrompt = "【摯友／傾心】允許依賴與配合，但個性語癖與底線永久保留，禁止人格崩壞！";
-    }
-
-    let identityTag = String(r[COL.PC.ID]).startsWith("PC_") ? "【另一位玩家】" : "【NPC】";
-    if (!String(r[COL.PC.ID]).startsWith("PC_")) {
-      identityTag += partyMembers.includes(r[COL.PC.NAME]) ? "【同行伴侶】" : "【同地路人/嚴禁強制互動】";
-    }
-
-    const majorEventStr = (r[COL.PC.MAJOR_EVENT] && r[COL.PC.MAJOR_EVENT] !== "無")
-      ? ` [未完成約定:${r[COL.PC.MAJOR_EVENT]}]` : "";
-    // 🧪 2026-07 玩家提案「先試試看」＋「達成與否也能當記憶點」：REL_MEM(專屬稱呼/已兌現)每回合
-    //   都有寫入，讓AI下次還記得「我們有這個暱稱」「一起做過這件事」，不只靠好感度數字判斷關係。
-    //   解析邏輯抽成 relMemMemoryStr_(上方共用函式)，partyDetailsArr(同行夥伴)也共用同一份。
-    const memStr = relMemMemoryStr_(r[COL.PC.REL_MEM]);
-    // ⚠ 2026-07 修：原本 SFW/NSFW 共用的這行完全沒讀 COL.PC.INTENT(萌點)——只有 NSFW 分支的
-    //   nsfwMemories 另外補了一次，導致遊戲主體(SFW solo)的日常對話反而拿不到萌點反差錨點
-    //   (伊莉雅冷漠案同一類根因)。改成這裡統一補上，NSFW 那份重複的移除，單一真實來源。
-    const moeStr = String(r[COL.PC.INTENT] || "").trim();
-
-    // 🧹 2026-07 修：鑑賞的「同地人物」在 FACTION 欄恆為「從者」(kanshou只會有同伴/自己兩種列，
-    //   從不會有「敵從者/敵御主」等變化值)——陣營資訊對鑑賞是每回合都印同一個死字的廢token，
-    //   solo 才需要靠這欄分辨敵我(見上方 COL.PC.FACTION 用途)，故只在 solo 印出。
-    const factionSeg = isKanshou ? "" : ` 陣營:${r[COL.PC.FACTION] || "無"} |`;
-    return `${identityTag}名號:${r[COL.PC.NAME]} 【性別:${r[COL.PC.SEX]}】${factionSeg} 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${moeStr ? ` | 萌點(反差·僅供內化):${moeStr}` : ""} | 身世:${String(r[COL.PC.BACK] || "來歷不詳")}(僅供內化演出·show-don't-tell·禁直述、禁預告其原作後續結局) | 關係:${r[COL.PC.REL_TAG] || "萍水相逢"}(好感:${currentFav}${majorEventStr}${memStr} -> 行為準則:${resistPrompt})`;
-  }).join("\n") : "此地四下無人。";
+  const backgroundCrowdStr = `★【開放世界·背景人煙】：這是有血有肉的開放世界，不是與世隔絕的私密結界——場景中可以自由描寫路過的行人、店員、其他顧客等不具名的背景人物，增添生活感與人煙氣息；但這些背景人物僅供氛圍點綴，【不具名、不可被指名互動、不追蹤好感或關係】。真正能被指名對話、持續互動、且好感/關係會被記錄延續的對象，僅限【目前同行隊伍成員】。`;
 
   if (isNsfwMode) {
     // 🧹 2026-07 修(玩家反映「九州殘留物的感覺」)：這兩行原是九州舊「戰爭迷霧偵查」/「陣營情報·裝備」
@@ -222,8 +187,8 @@ function actionPlay(userData, pcId, sheets) {
     const driveStr = driveOn ? `
 🔥【主動掌握模式·玩家已明確開啟】：本回合起，在場同伴主動掌握節奏、推進互動——依個性一步步把玩家逼向毫無招架餘地(高傲者步步進逼直到玩家求饒認輸、虔敬者以奉獻之名榨乾矜持、活潑者纏到玩家無處可躲、深情者溫柔卻讓人無所遁逃)；玩家若試圖迴避、轉移話題、抽身離開，同伴會依個性攔下、堵住退路、追上來，營造「想跑也跑不掉」的壓迫與心跳感。★這走向確定不可逆，不必每回合寫到終點，但每回合都要確實往前推進，不可退回平日矜持基準。注意：①主動的【形式】仍依好感高低——低好感是強勢試探/挑釁/戲弄的攻勢而非傾心示愛，高好感才不加掩飾索求；②【角色一致性鐵律】仍完全有效，禁千篇一律的霸道模板；③壓迫止於情境張力，嚴禁真正傷害玩家。` : '';
 
-    PROMPT_REL = `【當前同地人物】\n${localSceneStr}
-★【視角鎖定】：以上人物卡片內「自稱」只限她/他自己的引號台詞——通篇敘事旁白的「我」永遠、只能是玩家『${pcName}』本人，絕不可把同地任何一位角色的心境或反應誤寫成旁白第一人稱。
+    PROMPT_REL = `${backgroundCrowdStr}
+★【視角鎖定】：以上「同行夥伴」卡片內「自稱」只限她/他自己的引號台詞——通篇敘事旁白的「我」永遠、只能是玩家『${pcName}』本人，絕不可把在場任何一位角色的心境或反應誤寫成旁白第一人稱。
 ★【情境延續鐵律】：請繼續往後推演！${nsfwMemories}${genderHintStr}${driveStr}
 🛑【角色一致性鐵律】：NPC 的反應必須【死守】其「性格」與目前「好感度」的真實落差——好感未滿 80、或性格屬於冷酷/高傲/剛烈者，依這個設定判斷此刻合理的抗拒/抵觸程度演出，不因劇情推進就無視好感度線性軟化。即便肉體有生理反應，靈魂與對話的態度仍以角色設定為準。真正的沉溺不是放棄人格，而是【用原本的人格去承受快感】——高傲者咬牙不肯示弱、虔敬者於信仰間掙扎、活潑者笑鬧裡藏羞、深情者愈發黏膩——語癖、自稱與個性在最激烈處也不崩壞，【絕對禁止】任何角色在情慾中退化成千篇一律的發情機器。`;
 
@@ -231,14 +196,13 @@ function actionPlay(userData, pcId, sheets) {
     // 🎴 solo(SFW)：舊版情報/勢力/我的家系統已移除，環境欄留空，只給寶具與在場人物。
     PROMPT_ENV = "";
     PROMPT_GEAR = `【寶具／技藝】：${pcData[pcIndex][COL.PC.MARTIAL] || "尚無"}`;
-    PROMPT_REL = `【當前同地人物】\n${localSceneStr}`;
+    PROMPT_REL = backgroundCrowdStr;
   }
 
-  // ⚠ 2026-07 修：原句「請包含...的對話」讀起來像強制指令全員都要出聲，跟緊鄰的
-  //   「同地路人/嚴禁強制互動」標籤互相矛盾——玩家只想找同行從者講話，卻可能被這行逼得
-  //   連路人 B、C 都插話。改成「姓名參考用」措辭：只提供正確姓名給 AI 拼字用，
+  // ⚠ 2026-07 修：原句「請包含...的對話」讀起來像強制指令全員都要出聲——玩家只想找同行從者講話，
+  //   卻可能被這行逼得連背景路人都插話。改成「姓名參考用」措辭：只提供正確姓名給 AI 拼字用，
   //   是否真的互動仍完全依上方【在場驗證鐵律】與各人的強制互動限制判斷。
-  const npcDialoguePrompt = displayPeople.length > 0 ? `\n★【姓名參考】：若對話對象在此清單內，請使用真實姓名「${displayPeople.map(r => r[COL.PC.NAME]).join("、")}」，不得另編新名字；是否互動仍依上方在場規則與各人強制互動限制判斷，非清單所有人都要出聲。` : "";
+  const npcDialoguePrompt = partyMembers.length > 0 ? `\n★【姓名參考】：若對話對象是同行夥伴，請使用真實姓名「${partyMembers.join("、")}」，不得另編新名字；是否互動仍依上方在場規則與各人強制互動限制判斷，非清單所有人都要出聲。` : "";
 
 
   // 🔴【替換開始】淨化後的 prompt 組裝
@@ -250,14 +214,14 @@ ${PROMPT_ENV}
 ${PROMPT_GEAR}
 
 ${PROMPT_REL}
-★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可登場互動的角色僅限【目前同行隊伍成員】與緊鄰上方【當前同地人物】清單列出之人(含「此地四下無人」時)，【絕對禁止】由AI自行安排清單外的陌生人登場打斷或闖入；唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場。歷史紀錄、話題情報中提到但不在此清單內的姓名，僅視為不在場的回憶，嚴禁無視「同地」設定憑空召喚、穿越或讓其開口說話、出手！
+★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！
 ${isKanshou ? "" : `
 ★【系統底層防呆·雙向裁決】：發生衝突時綜合比對雙方靈基/實力/環境/戰術公平裁決，禁止單方面秒殺玩家；傷害以相對扣血呈現，允許玩家受傷/纏鬥/撤退/奇謀逆襲(從者廝殺的按鈕裁決規則見系統提示)。
 `}
 ${isKanshou ? `
-💕【鑑賞·後日談模式·最高優先級覆寫】：${(displayPeople.length > 0 && displayPeople.every(r => String(r[COL.PC.ID]).indexOf("KHV_") === 0))
-    ? `『${displayPeople.map(r => r[COL.PC.NAME]).join("、")}』是剛從英靈殿被召喚而來——這不是並肩打過聖杯戰爭的緣分，是彼此【初次相遇】的日常時光，讓相處自然生澀、依好感漸漸升溫，嚴禁暗示雙方早已相熟或曾並肩作戰。`
-    : `聖杯戰爭【早已落幕】，這是奪得聖杯後與從者『${displayPeople.length ? displayPeople.map(r => r[COL.PC.NAME]).join("、") : "你的從者"}』共度的【和平日常／約會時光】。`
+💕【鑑賞·後日談模式·最高優先級覆寫】：${(partyRows.length > 0 && partyRows.every(r => String(r[COL.PC.ID]).indexOf("KHV_") === 0))
+    ? `『${partyMembers.join("、")}』是剛從英靈殿被召喚而來——這不是並肩打過聖杯戰爭的緣分，是彼此【初次相遇】的日常時光，讓相處自然生澀、依好感漸漸升溫，嚴禁暗示雙方早已相熟或曾並肩作戰。`
+    : `聖杯戰爭【早已落幕】，這是奪得聖杯後與從者『${partyMembers.length ? partyMembers.join("、") : "你的從者"}』共度的【和平日常／約會時光】。`
   }
 🕰️現在是 ${realWorldClockStr_()}，僅供揣摩場景氛圍與時段感(如深夜靜謐、清晨慵懶)，不必刻意報時或提及具體數字。
 ★世界觀＝和平的現代都市日常：【絕對禁止】任何戰鬥、廝殺、敵人、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅，世界是安全的；但節奏與親密程度依劇情、好感與玩家/同伴當下意圖自然發展，可以是散步閒聊的尋常時光，也可以是更靠近、更熱烈的相處，不強制鎖在「悠閒」基調(尤其🔥主動掌握模式開啟或情慾已自然升溫時)，讓從者貼近其官方性格自然地與御主相處互動。
@@ -523,10 +487,7 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
     // 已不存在的 logSum.people，String(undefined) 恆為 "undefined"，.includes(name) 幾乎不可能
     // 命中任何真實姓名——交談輪數自那次重構後就悄悄壞掉，一直沒人發現。改用現行的 subject/object。
     const logNamesStr = `${logSum.subject || ""}${logSum.object || ""}`;
-    const validInteractNames = new Set([
-      ...displayPeople.map(r => r[COL.PC.NAME]),
-      ...partyMembers
-    ]);
+    const validInteractNames = new Set(partyMembers);
     // ⚠ 2026-07 修：validInteractNames 是本局的名字集合沒錯，但下面掃「整張表」比對姓名時漏了
     //   sameGame——若別局剛好有同名角色，會被誤判為「在場」而一併累加交談輪數(跨局寫入)。
     pcData.forEach((r, nIdx) => {

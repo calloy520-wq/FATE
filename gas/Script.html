@@ -909,7 +909,7 @@
             <span style="font-size:12px; color:#2e8b57; margin-left:8px;">${locText}</span><br>
             <small style="color:#b22222; font-weight:bold;">生命: ${n.hp} | 魔力: ${n.mp}</small><br>
             ${pc && pc.mode === 'kanshou' ? `<small style="color:#666;">狀態：${n.status}</small><br>` : ''}
-            <small style="color:#a52a2a; font-weight:bold;">羈絆：${n.relTag || '萍水相逢'} <span style="color:#e91e63;">(好感：${n.relVal || 0})</span></small>
+            <small style="color:#a52a2a; font-weight:bold;">羈絆：${n.relTag || '萍水相逢'}</small>
             <div class="npc-actions">${actionButtonsHtml}</div>
           </div>`;
     }).join("");
@@ -2819,10 +2819,14 @@ const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatDat
   }
 
       // 🔵 AI 提到但不在現場的角色 → 純色文字標示(不可點、不再自動登入眾生)
+      // 🧹 2026-07 玩家定案「開放世界背景路人」：鑑賞不再特別標色提及的路人姓名——背景人物本就
+      //   該是不具名、不追蹤、融入敘事的存在，特地標紫色反而給人「這是可被指名互動的固定NPC」
+      //   的錯誤暗示，跟「不可被指名互動」的後端指令自相矛盾。solo(有陣營/敵蹤追擊機制，姓名
+      //   標色是提醒「此人不在場、無法互動」的實用防呆)維持原樣不變。
       if (data.mentionedNames && data.mentionedNames.length > 0) {
         data.mentionedNames.forEach(name => {
           if (name && name.length >= 2 && !localNPCs.find(n => n.name === name)) {
-            pushCandidate(name, `<span style="color:#9C27B0;">${name}</span>`);
+            pushCandidate(name, (pc && pc.mode === 'kanshou') ? name : `<span style="color:#9C27B0;">${name}</span>`);
           }
         });
       }
@@ -2898,17 +2902,16 @@ let plainTextContext = cleanText;
 
       let html = "";
 
-      // 🔴 新增：頂部橫幅，即時顯化與該 NPC 的因果羈絆與好感
+      // 🔴 頂部橫幅，顯化與該 NPC 的因果羈絆(好感數值已依玩家定案不顯示，只留關係標籤)
       if (!isPC) {
     const relTag = npcData ? (npcData.relTag || '萍水相逢') : '萍水相逢';
-    const relVal = npcData ? (npcData.relVal || 0) : 0;
     const isSoulBound = !!(npcData && npcData.isParty);
     const editBtn = isSoulBound 
       ? `<span onclick="handleRelTagClick('${npcName}', '${relTag.replace(/'/g, "\\'")}')" style="cursor:pointer; display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; background:rgba(233,30,99,0.15); border:1px solid rgba(233,30,99,0.4); border-radius:4px; margin-left:6px; font-size:11px; vertical-align:middle;" title="重新定義稱呼">✏️</span>` 
       : '';
     html += `
       <div style="grid-column: span 2; text-align: center; font-size: 14px; font-weight: bold; color: #a52a2a; margin-top: -5px; margin-bottom: 5px; padding: 6px; background: rgba(165,42,42,0.03); border-radius: 4px; border: 1px dashed rgba(165,42,42,0.2);">
-        📜 羈絆：${relTag} <span style="color:#e91e63; margin-left: 4px;">(好感：${relVal})</span>${editBtn}
+        📜 羈絆：${relTag}${editBtn}
       </div>
     `;
 }
