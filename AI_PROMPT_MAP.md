@@ -339,13 +339,14 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 
 關鍵結構/收尾指令（逐字節錄）：
 > 【敘事法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。
-> ${backgroundCrowdStr}（isNsfwMode 分支另接★【視角鎖定】：以上「同行夥伴」卡片內「自稱」只限她/他自己的引號台詞——通篇敘事旁白的「我」永遠、只能是玩家本人…）
+> ${backgroundCrowdStr}
+> ★【視角鎖定】：以上「同行夥伴」卡片內「自稱」只限她/他自己的引號台詞——通篇敘事旁白的「我」永遠、只能是玩家本人…（2026-07 更新：`actionPlay` 的 `isNsfwMode` 分支已全數拿掉——函式入口已擋非 `KPC_` 呼叫，這句話現在是唯一版本、不再有 solo 對應的另一分支，見 `SOLO_REFERENCE.md` §「九州經濟/生活層」）
 > ★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛，但一律不具名、不可被指名互動、不追蹤好感…
 > （非 kanshou）★【系統底層防呆·戰鬥雙向裁決】：…惟聖杯戰爭的從者廝殺一律由系統按鈕裁決，敘述不得自行宣告死亡或輸出生命數值變化。
 > （kanshou 專屬覆寫）💕【鑑賞·後日談模式·最高優先級覆寫】：聖杯戰爭【早已落幕】…★【絕對禁止】任何戰鬥、廝殺、敵人、敵御主、敵從者、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅。世界是安全的。…★敘事結束停在溫柔的留白，把下一步交還御主。
 > 🚨【敘事終極警告】：1. 敘事必須在給出結果後，停在「我」的心境，將下一步交還玩家選擇！2.（`target`/`npc` JSON 欄位只能填真實在場人名，不可含對白/標點）
 
-回應解析欄位：`stat_changes`／`rel_changes`／`intimacy_feedback`／`recruited`／`events`／`new_maps`／`log_summary`（2026-07 起僅剩 `subject`/`object` 兩欄，供交談輪數計數；`event`/`tag` 已隨因果表刪除而自 schema 拔除）／`narration`／`options`／`mentioned_names`——**solo 早已把 `new_maps`/`recruited`/`rel_changes.fav_change` 三個回寫閘關掉**（只在 `isNsfwMode` 才生效，見 `SOLO_REFERENCE.md` §3），數值權威仍在 GAS。NSFW 範本另有 `inner_monologue`（範本第一位·強制思維鏈，後端不讀自然丟棄）。**🐛→✅ 2026-07(玩家明確授權)**：原句要求該欄用「第一人稱自省…我原本的性格尊嚴」代入NPC視角，跟 narration 的「我＝玩家」相鄰打架，flash-lite 小模型容易把NPC視角帶進 narration——改第三人稱總結(「該NPC原本的性格尊嚴」)，語意不變只拿掉衝突的「我」字。屬 `finalJson`(非 `nsfwBaseRules` 變數本體)，仍是紅線①保護的 NSFW 核心，經玩家明確授權才改。
+回應解析欄位：`stat_changes`／`rel_changes`／`intimacy_feedback`／`recruited`／`events`／`new_maps`／`log_summary`（2026-07 起僅剩 `subject`/`object` 兩欄，供交談輪數計數；`event`/`tag` 已隨因果表刪除而自 schema 拔除）／`narration`／`options`／`mentioned_names`——**solo 完全不經過這個函式**（全走 `narrate_only`，見 `SOLO_REFERENCE.md` §「九州經濟/生活層」）；`new_maps`/`recruited`/`rel_changes.fav_change`/好感渲染原本各自包一層 `if(isNsfwMode)` 擋 solo 誤用，2026-07 查證這條路徑已 100% 只可能被鑑賞呼叫後，改成函式入口直接擋非 `KPC_` 呼叫，內部這幾處判斷已拿掉，數值權威仍在 GAS。NSFW 範本另有 `inner_monologue`（範本第一位·強制思維鏈，後端不讀自然丟棄）。**🐛→✅ 2026-07(玩家明確授權)**：原句要求該欄用「第一人稱自省…我原本的性格尊嚴」代入NPC視角，跟 narration 的「我＝玩家」相鄰打架，flash-lite 小模型容易把NPC視角帶進 narration——改第三人稱總結(「該NPC原本的性格尊嚴」)，語意不變只拿掉衝突的「我」字。屬 `finalJson`(非 `nsfwBaseRules` 變數本體)，仍是紅線①保護的 NSFW 核心，經玩家明確授權才改。
 
 （`nsfwBaseRules`／`buildDefaultSystemPrompt` 定義在 `Engine_Combat.gs`——紅線①保護區塊，本文不重複貼出，只標註 `actionPlay` 有引用其機制。**2026-07 更新**：`buildDefaultSystemPrompt` 原本的 `(isNsfwMode, backLocked)` 參數與所有 SFW/`isNsfwMode`-false 分支〔`sfwBaseRules`全文、`baseJson`/`finalJson`的else分支、`specificRules`的else分支〕已玩家定案「統合起來」全數移除，函式簡化為無參數 `buildDefaultSystemPrompt()`，永遠回傳慾海版本——因為查證後這個函式現在只可能被鑑賞呼叫。詳見 `SOLO_REFERENCE.md` §0。）
 

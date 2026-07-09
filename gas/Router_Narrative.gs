@@ -1,24 +1,23 @@
 // ==========================================
 // 📖 Router_Narrative.gs — AI 敘事引擎（2026-07 從 Router_Action.gs 拆出）
-//   actionPlay(solo/kanshou 共用自由聊天引擎)／史紀／敘事 helper(虛假之夢/輕量敘事共用核心)。
+//   actionPlay(鑑賞專用自由聊天引擎——查證後全專案已無路徑讓非鑑賞角色呼叫，見函式內註解)／
+//   史紀／敘事 helper(虛假之夢/輕量敘事共用核心)。
 // ==========================================
 
 // ★ 主遊戲邏輯 (PLAY) 
 // ==========================================
 function actionPlay(userData, pcId, sheets) {
   const userMsg = userData.message;
-  // 🌹 慾海(KPC_ 御主)＝NSFW 後日談軌，一律當 NSFW：否則 intimacy/肉體/衣服狀態整段不回填。
-  // ⚠ 2026-07 修：原本 solo 仍信 userData.isNsfw——但前端 nsfw-mode-toggle 是整頁共用同一個
-  //   checkbox(Script_Kanshou.html 進鑑賞時強制 .checked=true)，applyModeUI() 離開鑑賞時只隱藏它、
-  //   從不重置回 false，玩家從鑑賞切回 solo 後只要該勾選格還沒被使用者手動點掉，就會把 isNsfw:true
-  //   一路帶進 solo 的 actionPlay，讓「純淨 solo 一律 SFW」這條紅線被一顆殘留的前端旗標繞過——
-  //   後端才是唯一可信防線(sanitizeUserData_ 同一哲學)，改成純看 pcId 路由，完全不信任何前端旗標：
-  //   非 KPC_(kanshou) 一律鎖 SFW，userData.isNsfw 對 solo 不再有任何作用。
-  const isNsfwMode = String(pcId || "").indexOf("KPC_") === 0;
-  // 🔥 主動掌握開關(2026-07 玩家定案·原nsfw開關重生)：只在鑑賞生效(isNsfwMode 閘門)——這旗標只
-  //   改變敘事「誰主導節奏」的語氣，不涉 SFW/NSFW 判定(那條仍純看 pcId)，故信前端無安全風險；
-  //   solo 傳了也因閘門直接無視，不可能重演舊 isNsfw 旗標污染 solo 的漏洞。
-  const driveOn = isNsfwMode && (userData.drive === true || String(userData.drive) === "true");
+  // 🌹 慾海(KPC_ 御主)專用引擎：前端自由聊天輸入框只在 pc.mode==='kanshou' 才顯示(Script.html
+  //   applyModeUI)，且鑑賞玩家自己的 pcId 恆為 KPC_ 前綴——查證全 gas/ 目錄已無任何路徑把
+  //   pc.mode 設為 'full'(九州殘留、已停用)，故這裡不會再有 solo/SFW 呼叫路徑。早期版本曾信
+  //   前端 userData.isNsfw 旗標判斷 SFW/NSFW(埋下「鑑賞切回 solo 忘記取消勾選、殘留 true 污染
+  //   solo」的漏洞)，後端曾改成純看 pcId 前綴路由；2026-07 玩家定案「isNsfwMode 也不用分模式
+  //   了」——既然這條路徑只可能是鑑賞，直接在入口擋下非 KPC_ 呼叫(定位錯誤好過悄悄套錯規則)，
+  //   函式其餘部分不再分支，永遠當作鑑賞/NSFW 情境處理。
+  if (String(pcId || "").indexOf("KPC_") !== 0) return JSON.stringify({ text: "此功能僅限鑑賞使用。", people: [] });
+  // 🔥 主動掌握開關(2026-07 玩家定案·原nsfw開關重生)：現在 real runtime 上唯一還會變動的「模式」。
+  const driveOn = (userData.drive === true || String(userData.drive) === "true");
   const finalUserMsg = `【玩家意圖】：${userMsg}`;
 
   const formatPref = (str) => {
@@ -32,8 +31,7 @@ function actionPlay(userData, pcId, sheets) {
   //   說明附近，flash-lite小模型容易混淆。標籤加註明確限定範圍，與 servantCard_ 的修法一致。
   const formatTrait = (str) => {
     let arr = String(str || "").split('、');
-    let base = `[外貌]${arr[0] || "無"} [氣質舉止]${arr[1] || "無"} [台詞自稱(僅其本人引號內用，非旁白視角)]${arr[2] || "無"}`;
-    return isNsfwMode ? `${base} [卸下心防的私密一面]${arr[3] || "無"}` : base;
+    return `[外貌]${arr[0] || "無"} [氣質舉止]${arr[1] || "無"} [台詞自稱(僅其本人引號內用，非旁白視角)]${arr[2] || "無"} [卸下心防的私密一面]${arr[3] || "無"}`;
   };
 
 
@@ -110,94 +108,81 @@ function actionPlay(userData, pcId, sheets) {
   });
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【目前同行隊伍成員命格詳情】:\n${partyDetailsArr.join("\n")}` : "目前沒有同行夥伴，玩家是獨自行動的。";
 
-  let PROMPT_ENV = "", PROMPT_GEAR = "", PROMPT_REL = "";
   const backgroundCrowdStr = `★【開放世界·背景人煙】：這是有血有肉的開放世界，不是與世隔絕的私密結界——場景中可以自由描寫路過的行人、店員、其他顧客等不具名的背景人物，增添生活感與人煙氣息；但這些背景人物僅供氛圍點綴，【不具名、不可被指名互動、不追蹤好感或關係】。真正能被指名對話、持續互動、且好感/關係會被記錄延續的對象，僅限【目前同行隊伍成員】。`;
 
-  if (isNsfwMode) {
-    // 🧹 2026-07 修(玩家反映「九州殘留物的感覺」)：這兩行原是九州舊「戰爭迷霧偵查」/「陣營情報·裝備」
-    //   系統的殘留框架——鑑賞從未有過武裝/情報/偵查這類機制，「(暫時屏蔽)」字面上還暗示有朝一日會解除，
-    //   但鑑賞根本沒有這個系統可解除，純粹是死文字。「感知已封鎖、專注私密互動」要傳達的「這是安全隱密
-    //   場景」在下方【在場驗證鐵律】＋💕鑑賞覆寫區塊(絕對禁止戰鬥/世界是安全的)都已經講過，這裡留空
-    //   純減token，不損失任何資訊。
-    PROMPT_ENV = "";
-    PROMPT_GEAR = "";
-
-    // 🟢 性別配對提示，直接算好給 AI，不需要它自己推理。
-    // 🔠 2026-07 全面重寫縮字：原本逐一 NPC 各寫一整句配對規則，3人同場(kanshou上限)時
-    //   同款「女女配對：...肉棒代碼(4)不輸出、不寫「無」」的長句會逐字重複3遍——改成先分組
-    //   (與玩家同性/異性)，同組共用一句規則、只在句首列名字，規則邏輯完全不變。
-    let genderHintStr = "";
-    const presentRowsForGender = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && r[COL.PC.LOC] === curL && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-    if (presentRowsForGender.length > 0) {
-      const playerSex = pc[COL.PC.SEX] || "未知";
-      // ⚠ 2026-07 修：原本非「女/女」「男/男」的組合一律落入模糊的「依雙方實際性別器官裁決」，
-      // 「異/無」(如開膛手傑克「無固定實體」)這類非二元性別值完全沒被正規化。玩家定案：不開放
-      // 男男配對(邀請關卡已擋)，故這裡只會遇到 女/女、男/女、女/男、或某方為異/無 這幾種——
-      // 異/無 一律按女性向器官處理(對齊 heroToKanshouRow_ 的肉體起始預設，且與傑克本身
-      // 「不自覺化身少女模樣」的角色設定一致)。
-      // ⚠ 只有「女女」是特殊配對(男男邀請關卡已擋、理論不可達，故不比照女女套用同一段措辭，
-      //   維持跟改寫前完全相同的分支條件：只有 playerSex==="女" && npcSex==="女" 才進特殊組)。
-      const sameSexF = [], others = [];
-      presentRowsForGender.forEach(r => {
-        const npcSexRaw = r[COL.PC.SEX] || "未知";
-        const npcSex = (npcSexRaw === "男" || npcSexRaw === "女") ? npcSexRaw : "女";
-        (playerSex === "女" && npcSex === "女" ? sameSexF : others).push(r[COL.PC.NAME]);
-      });
-      // 🐛→✅ 2026-07 修：原本女女配對明講「肉棒欄位雙方皆填『無』」，等於教AI每回合主動寫入一個
-      // 不適用的佔位鍵——這鍵一旦寫進physical_state就merge進去、卡片上永久顯示某女角「肉棒：無」，
-      // 玩家明確要求禁止這種臨時填補寫法。改成：不適用的器官代碼【直接不輸出這個代碼】，不寫佔位詞。
-      const parts = [];
-      if (sameSexF.length) parts.push(`${sameSexF.join("、")}(女女配對)：純女女之愛，禁插入式陽具動作，以手指/舌頭/器物替代，肉棒代碼(4)不輸出`);
-      if (others.length) parts.push(`${others.join("、")}：依各自實際性別只填對應器官代碼(男4=肉棒／女5=蜜穴)`);
-      genderHintStr = `\n★【性別配對】：${parts.join("；")}——不適用的器官代碼一律不輸出，不要寫「無」佔位。`;
-    }
-
-    let pPhysicalObj = JSON.parse(pcData[pcIndex][COL.PC.PHYSICAL] || "{}");
-    if (Object.keys(pPhysicalObj).length === 0) {
-      // ⚠ 2026-07 修：原本不論性別統一預設女性生理結構起始值，男御主也被塞這組——改依實際性別。
-      pPhysicalObj = (String(pc[COL.PC.SEX]) === "男") ? { "肉棒": "如常" } : { "蜜穴": "未開" };
-    }
-    let pSkills = (pcData[pcIndex][COL.PC.MEMORY] || "無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/, (m, p1) => `[雙修技巧]${p1.trim().split('、').slice(0, 5).join('、')}`);
-    // 🐛→✅ 2026-07 玩家定案整合：STATUS(視覺化外顯，衣服/姿勢/負面/顏面)已退役——姿勢動作/顏面已併進
-    //   physical_state(見下方[肉體])，這裡不再重複注入即將永遠凍結的舊欄位。
-    let nsfwMemories = `\n[玩家『${pcName}』肉體]：${JSON.stringify(pPhysicalObj)}\n[身體記憶]：${pSkills}`;
-
-    let allPresentRows = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && r[COL.PC.LOC] === curL && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-    allPresentRows.forEach(r => {
-      let npcPhysicalObj = JSON.parse(r[COL.PC.PHYSICAL] || "{}");
-      // ⚠ 2026-07 修：原本不論性別統一預設女性生理結構起始值(男同伴也被塞這組)——改依實際性別；
-      // 異/無比照 heroToKanshouRow_ 的處理方式，一律按女性向。
-      if (Object.keys(npcPhysicalObj).length === 0) npcPhysicalObj = (String(r[COL.PC.SEX]) === "男") ? { "肉棒": "如常" } : { "蜜穴": "未開" };
-      let npcSkills = (r[COL.PC.MEMORY] || "無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/, (m, p1) => `[雙修技巧]${p1.trim().split('、').slice(0, 5).join('、')}`);
-      let relMem = r[COL.PC.REL_MEM] || "無";
-      let npcOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 玩家換裝：當前服裝穿著(換衣不換人·五官體態依本相)
-      // ⚠ 2026-07 修：萌點併進上面共用的 localSceneStr(SFW/NSFW 皆讀)後，這裡不再重複附一次。
-      nsfwMemories += `${npcOutfit ? `\n[${r[COL.PC.NAME]} 裝扮]：${npcOutfit}（玩家指定當前服裝·五官/髮色/體態不變）` : ""}\n[${r[COL.PC.NAME]} 肉體]：${JSON.stringify(npcPhysicalObj)}\n[快照]：[技巧]${npcSkills} | [羈絆]${relMem}`;
+  // 🟢 性別配對提示，直接算好給 AI，不需要它自己推理。
+  // 🔠 2026-07 全面重寫縮字：原本逐一 NPC 各寫一整句配對規則，3人同場(kanshou上限)時
+  //   同款「女女配對：...肉棒代碼(4)不輸出、不寫「無」」的長句會逐字重複3遍——改成先分組
+  //   (與玩家同性/異性)，同組共用一句規則、只在句首列名字，規則邏輯完全不變。
+  let genderHintStr = "";
+  const presentRowsForGender = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && r[COL.PC.LOC] === curL && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  if (presentRowsForGender.length > 0) {
+    const playerSex = pc[COL.PC.SEX] || "未知";
+    // ⚠ 2026-07 修：原本非「女/女」「男/男」的組合一律落入模糊的「依雙方實際性別器官裁決」，
+    // 「異/無」(如開膛手傑克「無固定實體」)這類非二元性別值完全沒被正規化。玩家定案：不開放
+    // 男男配對(邀請關卡已擋)，故這裡只會遇到 女/女、男/女、女/男、或某方為異/無 這幾種——
+    // 異/無 一律按女性向器官處理(對齊 heroToKanshouRow_ 的肉體起始預設，且與傑克本身
+    // 「不自覺化身少女模樣」的角色設定一致)。
+    // ⚠ 只有「女女」是特殊配對(男男邀請關卡已擋、理論不可達，故不比照女女套用同一段措辭，
+    //   維持跟改寫前完全相同的分支條件：只有 playerSex==="女" && npcSex==="女" 才進特殊組)。
+    const sameSexF = [], others = [];
+    presentRowsForGender.forEach(r => {
+      const npcSexRaw = r[COL.PC.SEX] || "未知";
+      const npcSex = (npcSexRaw === "男" || npcSexRaw === "女") ? npcSexRaw : "女";
+      (playerSex === "女" && npcSex === "女" ? sameSexF : others).push(r[COL.PC.NAME]);
     });
+    // 🐛→✅ 2026-07 修：原本女女配對明講「肉棒欄位雙方皆填『無』」，等於教AI每回合主動寫入一個
+    // 不適用的佔位鍵——這鍵一旦寫進physical_state就merge進去、卡片上永久顯示某女角「肉棒：無」，
+    // 玩家明確要求禁止這種臨時填補寫法。改成：不適用的器官代碼【直接不輸出這個代碼】，不寫佔位詞。
+    const parts = [];
+    if (sameSexF.length) parts.push(`${sameSexF.join("、")}(女女配對)：純女女之愛，禁插入式陽具動作，以手指/舌頭/器物替代，肉棒代碼(4)不輸出`);
+    if (others.length) parts.push(`${others.join("、")}：依各自實際性別只填對應器官代碼(男4=肉棒／女5=蜜穴)`);
+    genderHintStr = `\n★【性別配對】：${parts.join("；")}——不適用的器官代碼一律不輸出，不要寫「無」佔位。`;
+  }
 
-    // 🔥 主動掌握模式(driveOn)：翻轉「誰主導節奏」——平時的矜持限制(慢熱/被動等玩家推進)換成
-    //   同伴主動出擊；玩家的迴避/抽身意圖會被依個性攔下(與「意圖攔截·玩家意圖非結果」鐵律同向，
-    //   不衝突)。主動的【形式】仍依好感與個性：低好感的主動是強勢試探/挑釁/戲弄的攻勢(非傾心倒貼，
-    //   與慢熱鐵律不牴觸)，高好感才是不加掩飾的索求。個性一致性鐵律照常有效。
-    // 🐛→✅ 2026-07 玩家強化：這開關不是「同伴可能主動一下」，而是玩家會確實被同伴依個性榨乾、
-    //   沒有回頭路；同時要跟「敘事別收尾」鐵律相容(不強迫每回合都寫到終點，但每回合都要往這個
-    //   方向確實前進)。
-    // 🔠 2026-07 全面重寫縮字：原文用兩份幾乎相同的「依個性列出4種類型反應」清單(一份講攻勢起手、
-    //   一份講榨乾方式)重複描述同一件事——合併成一份，走向確定性與招架不住的畫面感都保留。
-    const driveStr = driveOn ? `
+  let pPhysicalObj = JSON.parse(pcData[pcIndex][COL.PC.PHYSICAL] || "{}");
+  if (Object.keys(pPhysicalObj).length === 0) {
+    // ⚠ 2026-07 修：原本不論性別統一預設女性生理結構起始值，男御主也被塞這組——改依實際性別。
+    pPhysicalObj = (String(pc[COL.PC.SEX]) === "男") ? { "肉棒": "如常" } : { "蜜穴": "未開" };
+  }
+  let pSkills = (pcData[pcIndex][COL.PC.MEMORY] || "無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/, (m, p1) => `[雙修技巧]${p1.trim().split('、').slice(0, 5).join('、')}`);
+  // 🐛→✅ 2026-07 玩家定案整合：STATUS(視覺化外顯，衣服/姿勢/負面/顏面)已退役——姿勢動作/顏面已併進
+  //   physical_state(見下方[肉體])，這裡不再重複注入即將永遠凍結的舊欄位。
+  let nsfwMemories = `\n[玩家『${pcName}』肉體]：${JSON.stringify(pPhysicalObj)}\n[身體記憶]：${pSkills}`;
+
+  let allPresentRows = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && r[COL.PC.LOC] === curL && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  allPresentRows.forEach(r => {
+    let npcPhysicalObj = JSON.parse(r[COL.PC.PHYSICAL] || "{}");
+    // ⚠ 2026-07 修：原本不論性別統一預設女性生理結構起始值(男同伴也被塞這組)——改依實際性別；
+    // 異/無比照 heroToKanshouRow_ 的處理方式，一律按女性向。
+    if (Object.keys(npcPhysicalObj).length === 0) npcPhysicalObj = (String(r[COL.PC.SEX]) === "男") ? { "肉棒": "如常" } : { "蜜穴": "未開" };
+    let npcSkills = (r[COL.PC.MEMORY] || "無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/, (m, p1) => `[雙修技巧]${p1.trim().split('、').slice(0, 5).join('、')}`);
+    let relMem = r[COL.PC.REL_MEM] || "無";
+    let npcOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 玩家換裝：當前服裝穿著(換衣不換人·五官體態依本相)
+    // ⚠ 2026-07 修：萌點併進上面共用的 localSceneStr(SFW/NSFW 皆讀)後，這裡不再重複附一次。
+    nsfwMemories += `${npcOutfit ? `\n[${r[COL.PC.NAME]} 裝扮]：${npcOutfit}（玩家指定當前服裝·五官/髮色/體態不變）` : ""}\n[${r[COL.PC.NAME]} 肉體]：${JSON.stringify(npcPhysicalObj)}\n[快照]：[技巧]${npcSkills} | [羈絆]${relMem}`;
+  });
+
+  // 🔥 主動掌握模式(driveOn)：翻轉「誰主導節奏」——平時的矜持限制(慢熱/被動等玩家推進)換成
+  //   同伴主動出擊；玩家的迴避/抽身意圖會被依個性攔下(與「意圖攔截·玩家意圖非結果」鐵律同向，
+  //   不衝突)。主動的【形式】仍依好感與個性：低好感的主動是強勢試探/挑釁/戲弄的攻勢(非傾心倒貼，
+  //   與慢熱鐵律不牴觸)，高好感才是不加掩飾的索求。個性一致性鐵律照常有效。
+  // 🐛→✅ 2026-07 玩家強化：這開關不是「同伴可能主動一下」，而是玩家會確實被同伴依個性榨乾、
+  //   沒有回頭路；同時要跟「敘事別收尾」鐵律相容(不強迫每回合都寫到終點，但每回合都要往這個
+  //   方向確實前進)。
+  // 🔠 2026-07 全面重寫縮字：原文用兩份幾乎相同的「依個性列出4種類型反應」清單(一份講攻勢起手、
+  //   一份講榨乾方式)重複描述同一件事——合併成一份，走向確定性與招架不住的畫面感都保留。
+  const driveStr = driveOn ? `
 🔥【主動掌握模式·玩家已明確開啟】：本回合起，在場同伴主動掌握節奏、推進互動——依個性一步步把玩家逼向毫無招架餘地(高傲者步步進逼直到玩家求饒認輸、虔敬者以奉獻之名榨乾矜持、活潑者纏到玩家無處可躲、深情者溫柔卻讓人無所遁逃)；玩家若試圖迴避、轉移話題、抽身離開，同伴會依個性攔下、堵住退路、追上來，營造「想跑也跑不掉」的壓迫與心跳感。★這走向確定不可逆，不必每回合寫到終點，但每回合都要確實往前推進，不可退回平日矜持基準。注意：①主動的【形式】仍依好感高低——低好感是強勢試探/挑釁/戲弄的攻勢而非傾心示愛，高好感才不加掩飾索求；②【角色一致性鐵律】仍完全有效，禁千篇一律的霸道模板；③壓迫止於情境張力，嚴禁真正傷害玩家。` : '';
 
-    PROMPT_REL = `${backgroundCrowdStr}
+  // 🧹 2026-07 玩家定案「isNsfwMode 也不用分模式了，統合起來」：PROMPT_ENV/PROMPT_GEAR(舊「戰爭
+  //   迷霧偵查」/「陣營情報·裝備」九州殘留框架，鑑賞從未真的用過，恆為空字串)、SFW 分支(PROMPT_GEAR
+  //   曾是寶具/技藝、PROMPT_REL 曾是純背景人煙)已隨這輪整理一併刪除——這條路徑現在只可能是鑑賞，
+  //   只留鑑賞真正會用到的 PROMPT_REL 版本；prompt 模板裡對應的兩個占位行也一併拿掉。
+  const PROMPT_REL = `${backgroundCrowdStr}
 ★【視角鎖定】：以上「同行夥伴」卡片內「自稱」只限她/他自己的引號台詞——通篇敘事旁白的「我」永遠、只能是玩家『${pcName}』本人，絕不可把在場任何一位角色的心境或反應誤寫成旁白第一人稱。
 ★【情境延續鐵律】：請繼續往後推演！${nsfwMemories}${genderHintStr}${driveStr}
 🛑【角色一致性鐵律】：NPC 的反應必須【死守】其「性格」與目前「好感度」的真實落差——好感未滿 80、或性格屬於冷酷/高傲/剛烈者，依這個設定判斷此刻合理的抗拒/抵觸程度演出，不因劇情推進就無視好感度線性軟化。即便肉體有生理反應，靈魂與對話的態度仍以角色設定為準。真正的沉溺不是放棄人格，而是【用原本的人格去承受快感】——高傲者咬牙不肯示弱、虔敬者於信仰間掙扎、活潑者笑鬧裡藏羞、深情者愈發黏膩——語癖、自稱與個性在最激烈處也不崩壞，【絕對禁止】任何角色在情慾中退化成千篇一律的發情機器。`;
-
-  } else {
-    // 🎴 solo(SFW)：舊版情報/勢力/我的家系統已移除，環境欄留空，只給寶具與在場人物。
-    PROMPT_ENV = "";
-    PROMPT_GEAR = `【寶具／技藝】：${pcData[pcIndex][COL.PC.MARTIAL] || "尚無"}`;
-    PROMPT_REL = backgroundCrowdStr;
-  }
 
   // ⚠ 2026-07 修：原句「請包含...的對話」讀起來像強制指令全員都要出聲——玩家只想找同行從者講話，
   //   卻可能被這行逼得連背景路人都插話。改成「姓名參考用」措辭：只提供正確姓名給 AI 拼字用，
@@ -209,9 +194,6 @@ function actionPlay(userData, pcId, sheets) {
   const prompt = `【敘事法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。
 ${PROMPT_PARTY_SYSTEM}
 【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL} | 生命:${pc[COL.PC.HP]}/${pc[COL.PC.MAX_HP]} | 魔力:${pc[COL.PC.MP]}/${pc[COL.PC.MAX_MP]}${((parseInt(pc[COL.PC.HP]) || 0) <= Math.max(1, Math.round((parseInt(pc[COL.PC.MAX_HP]) || 1) * 0.15)) || (parseInt(pc[COL.PC.MP]) || 0) <= Math.round((parseInt(pc[COL.PC.MAX_MP]) || 1) * 0.1)) ? '\n★【瀕死·最高張力】御主氣力放盡、命懸一線(見上方血/魔)——敘述須透出窒迫沉重、孤注一擲的緊繃，連從者氣場都因御主將枯竭而繃緊；嚴禁輕鬆閒適的閒聊感。' : ''}
-
-${PROMPT_ENV}
-${PROMPT_GEAR}
 
 ${PROMPT_REL}
 ★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！
@@ -233,7 +215,7 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
     : `🚨【敘事終極警告】：結果後必須停在「我」當下進行式的心境與情緒中，留一個未完成的動作、未說完的話或懸而未決的情緒把下一步交還玩家——【絕對禁止】寫出「那一刻／那一夜／自此／就這樣／從此」等總結收尾句，讓這回合讀起來像已經翻頁的完結篇章！`}`;
 
   try {
-    let aiConfig = isNsfwMode ? { temperature: 1.0, top_p: 0.95, retries: 2, model: AI_MODEL, isNsfwMode: true } : {};
+    let aiConfig = { temperature: 1.0, top_p: 0.95, retries: 2, model: AI_MODEL, isNsfwMode: true };
     aiConfig.backLocked = userData.backLocked || false;
 
     // 🔴【新增】抓取近 6 筆原始歷史(3輪)，轉換為 API 格式
@@ -262,21 +244,19 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
     // 🗺️ 2026-07 玩家定案：鑑賞拔除地圖按鈕，改AI自主決定地點——每回合讀 aiData.location 直接寫回
     //   LOC，不再需要固定地圖節點清單。玩家與同行同伴(IS_PARTY="同行")的 LOC 一起同步，跟 solo
     //   actionMove 移動全隊的既有邏輯一致(該函式完全不動，這裡只是鑑賞另一條路徑)。
-    if (isNsfwMode) {
-      const aiLoc = String(aiData.location || "").trim().slice(0, 20);
-      if (aiLoc && aiLoc !== curL) {
-        pcData[pcIndex][COL.PC.LOC] = aiLoc;
-        dirtyPcRows.add(pcIndex);
-        pcData.forEach((r, nIdx) => {
-          if (nIdx === pcIndex) return;
-          if (String(r[COL.PC.IS_PARTY] || "") !== "同行") return;
-          if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
-          if (!sameGame(r)) return;
-          pcData[nIdx][COL.PC.LOC] = aiLoc;
-          dirtyPcRows.add(nIdx);
-        });
-        curL = aiLoc;
-      }
+    const aiLoc = String(aiData.location || "").trim().slice(0, 20);
+    if (aiLoc && aiLoc !== curL) {
+      pcData[pcIndex][COL.PC.LOC] = aiLoc;
+      dirtyPcRows.add(pcIndex);
+      pcData.forEach((r, nIdx) => {
+        if (nIdx === pcIndex) return;
+        if (String(r[COL.PC.IS_PARTY] || "") !== "同行") return;
+        if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+        if (!sameGame(r)) return;
+        pcData[nIdx][COL.PC.LOC] = aiLoc;
+        dirtyPcRows.add(nIdx);
+      });
+      curL = aiLoc;
     }
 
     // 🔴 血量快照：記錄所有人變化前的血量，供結尾比對真實扣血
@@ -304,8 +284,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
     // 經濟層（物品/金錢/任務）已全數移除：items_gained / items_transferred / money_transferred / items_lost / items_used 不再落地。
 
-    // 🎴 solo：招募(新角色入隊)只走 GAS（召喚從者／破戒奪僕／結盟），不讓 AI 在自由敘事裡招募人；鑑賞才允許
-    let newlyRecruited = (isNsfwMode && aiData.recruited && Array.isArray(aiData.recruited)) ? aiData.recruited.map(n => String(n).trim()) : [];
+    // 🌹 鑑賞允許 AI 在自由敘事裡直接招募人（solo 的招募只走 GAS 按鈕：召喚從者／破戒奪僕／結盟，不受這裡影響）
+    let newlyRecruited = (aiData.recruited && Array.isArray(aiData.recruited)) ? aiData.recruited.map(n => String(n).trim()) : [];
     let dismissedNpc = userMsg.includes("解除了組隊同行關係") ? (userMsg.match(/與「(.*?)」解除/) || [])[1]?.trim() || "" : "";
 
     {
@@ -323,8 +303,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         if (nIdx === -1) return;
         dirtyPcRows.add(nIdx);
 
-        // 🎴 solo：好感收歸 GAS——只有羈絆/補魔/結盟等按鈕能動好感，AI 自由敘事不得改好感數值（鑑賞才允許 AI 推進好感）
-        let change = isNsfwMode ? (parseInt(rc.fav_change) || 0) : 0;
+        // 🌹 鑑賞允許 AI 依劇情推進好感（solo 的好感收歸 GAS 按鈕，走不同的 narrate_only 路徑，不受這裡影響）
+        let change = parseInt(rc.fav_change) || 0;
         let isPartyStr = String(pcData[nIdx][COL.PC.IS_PARTY] || "");
         if (newlyRecruited.includes(tNpc)) isPartyStr = "同行"; if (dismissedNpc === tNpc) isPartyStr = "";
 
@@ -429,7 +409,7 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         return (arr.length > maxCount ? arr.slice(-maxCount) : arr).join('、');
       };
 
-      if (isNsfwMode && aiData.intimacy_feedback.player) {
+      if (aiData.intimacy_feedback.player) {
         const pfb = aiData.intimacy_feedback.player;
         if (pfb.physical_state) pcData[pcIndex][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[pcIndex][COL.PC.PHYSICAL], sanitizePhysicalState(pfb.physical_state));
 
@@ -443,22 +423,18 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
           const targetIdx = pcData.findIndex(r => r[COL.PC.NAME] === tName && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
           if (targetIdx === -1) return;
 
-          if (isNsfwMode) {
-            dirtyPcRows.add(targetIdx); // 🔴 新增
-            if (nfb.physical_state) {
-              pcData[targetIdx][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[targetIdx][COL.PC.PHYSICAL], sanitizePhysicalState(nfb.physical_state));
-            }
-            if (nfb.dynamic_skills || nfb.erogenous_zones) {
-              let oldNMem = pcData[targetIdx][COL.PC.MEMORY] || "";
-              pcData[targetIdx][COL.PC.MEMORY] = `[雙修技巧]${processSkills(oldNMem, nfb.dynamic_skills)} | [性愛時敏感部位]${processTags(oldNMem, /\[性愛時敏感部位\](.*?)(?=\| \[|$)/, nfb.erogenous_zones, 5)}`;
-            }
+          dirtyPcRows.add(targetIdx);
+          if (nfb.physical_state) {
+            pcData[targetIdx][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[targetIdx][COL.PC.PHYSICAL], sanitizePhysicalState(nfb.physical_state));
+          }
+          if (nfb.dynamic_skills || nfb.erogenous_zones) {
+            let oldNMem = pcData[targetIdx][COL.PC.MEMORY] || "";
+            pcData[targetIdx][COL.PC.MEMORY] = `[雙修技巧]${processSkills(oldNMem, nfb.dynamic_skills)} | [性愛時敏感部位]${processTags(oldNMem, /\[性愛時敏感部位\](.*?)(?=\| \[|$)/, nfb.erogenous_zones, 5)}`;
           }
 
           // 羈絆記憶(專屬稱呼/親密次數/交談輪數)已併入該 NPC 自己列的 REL_MEM 欄
-          dirtyPcRows.add(targetIdx);
           let oldRMem = pcData[targetIdx][COL.PC.REL_MEM] || "";
-          let count = (oldRMem.match(/\[親密次數\](\d+)/) || [])[1] ? parseInt((oldRMem.match(/\[親密次數\](\d+)/) || [])[1]) : 0;
-          if (isNsfwMode) count += 1;
+          let count = ((oldRMem.match(/\[親密次數\](\d+)/) || [])[1] ? parseInt((oldRMem.match(/\[親密次數\](\d+)/) || [])[1]) : 0) + 1;
           let talkStr = (oldRMem.match(/\[交談輪數\](\d+)/) || [])[1] ? ` | [交談輪數]${(oldRMem.match(/\[交談輪數\](\d+)/) || [])[1]}` : "";
           // 🧪 2026-07：已兌現的約定(見上方 major_event 的[達成]處理)也存在同一欄REL_MEM——這裡整串
           //   重建時要一併帶過去，否則本回合同時觸發[達成]又剛好被寫進intimacy_feedback.npcs時，
@@ -553,8 +529,11 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
 
 
-    // 🔴 好感度渲染（經濟層物品/金錢渲染已移除）。🎴 solo 好感已收歸 GAS、AI 不動好感 → 不渲染 AI 的好感數字（鑑賞才顯示）
-    if (isNsfwMode && aiData.rel_changes && Array.isArray(aiData.rel_changes)) {
+    // 🔴 好感度渲染（經濟層物品/金錢渲染已移除）。此區塊直接把好感增減數字接在故事文字後面顯示——
+    //   2026-07 玩家曾定案「好感度不要顯示在敘述介面上」，當時處理的是 npc-card／互動選單banner
+    //   的數字(那兩處後來確認幾乎不可達)，這裡才是唯一還活著、每回合都會實際顯示數字的地方，
+    //   當時漏查。是否要一併拿掉，留待玩家這輪確認(見這次回報)。
+    if (aiData.rel_changes && Array.isArray(aiData.rel_changes)) {
       aiData.rel_changes.forEach(rc => {
         const change = parseInt(rc.fav_change) || 0;
         if (change === 0) return; // 沒變動就跳過
