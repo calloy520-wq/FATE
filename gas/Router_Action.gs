@@ -93,24 +93,15 @@ function sanitizeUserData_(userData) {
   return userData;
 }
 
-// 🔴 AI 輸出防呆：JSON.parse 之後、任何欄位被拿去寫入試算表之前，先在此夾住明顯異常值，
-//   避免 AI 偶發幻覺(天文數字賞金、爆表好感、型別跑掉、結構非物件)默默污染資料表。
-//   只夾「會被寫進表」且「範圍明確」的數值欄位；敘事等自由文字不動。
+// 🔴 AI 輸出防呆：JSON.parse 之後、任何欄位被拿去寫入試算表之前，先在此攔住結構異常，避免
+//   AI 偶發幻覺(型別跑掉、結構非物件)默默污染資料表。
+// 🗑️ 2026-07 玩家定案「AI只給方向旗標，GAS對應數字」：好感變動已改由 GAS 依 rel_changes[].tone
+//   (升/平/降)對應固定幅度(見 Gallery.gs relChangesToProcess.forEach)，AI 不再自己填 fav_change
+//   數字，這裡原本夾數值範圍的 clampInt 防呆已無存在意義(tone 是字串，異常值頂多落回「平」=0，
+//   不會有爆表好感的幻覺風險)，連同該 helper 一併移除。
 function sanitizeAiData_(aiData) {
   if (!aiData || typeof aiData !== "object" || Array.isArray(aiData)) {
     throw new Error("AI 回傳結構異常（非物件），已攔截避免污染資料。");
-  }
-  const clampInt = (v, lo, hi, dflt) => {
-    const n = parseInt(v);
-    if (isNaN(n)) return dflt;
-    return Math.max(lo, Math.min(hi, n));
-  };
-
-  // 好感變動：單回合限 -100 ~ +100
-  if (Array.isArray(aiData.rel_changes)) {
-    aiData.rel_changes.forEach(rc => {
-      if (rc && rc.fav_change !== undefined) rc.fav_change = clampInt(rc.fav_change, -100, 100, 0);
-    });
   }
   return aiData;
 }

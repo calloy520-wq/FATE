@@ -48,6 +48,12 @@
 - `Router_Narrative.gs`：修正檔頭那句過期的「MAJOR_EVENT 仍在用」註解，改記錄這次查證的完整脈絡(含 `actionClearNpcMajorEvent` 已刪、機制本身也已隨這輪整條拆除)。
 - `AI_PROMPT_MAP.md`：§3／§8 兩處「純機制」action 對照表拿掉 `clear_npc_major_event`/`actionClearNpcMajorEvent` 殘留列(該 action 本體早已刪除，這次順手清掉文件殘留引用)；§9 附錄的純機制 action 總表同步拿掉；`rel_changes` schema 說明把 `major_event` 從現行欄位移到「已從schema移除的死欄位」清單。
 **驗證**：`bash check.sh` 全過(含 `check_html.py`)；`git diff -- gas/Gallery.gs | grep -c nsfwBaseRules` 顯示1，逐行核對(`grep -E "^[+-].*nsfwBaseRules"` + `grep -B2 -A2 "const nsfwBaseRules"`)確認又是 `return nsfwBaseRules + ...` 那行未改動的上下文行被帶入 diff、`+`/`-` 兩側皆無該字樣，常數本體逐字未動。
+**🔄 `fav_change` 改成 `tone` 方向旗標(2026-07 玩家追問「應該少很多json了吧？還是好感度直接用GAS加？每次對話+1~3滿100就不輸出？直接再少一個ai輸出？」)**：玩家的提案是索性讓 GAS 全自動加好感、AI 完全不輸出這欄，但這樣會有個副作用——即使玩家越界冒犯或劇情鬧僵，好感照樣往上加，數字會跟劇情內容脫鉤(變成純打卡機)。提供三個選項後玩家選了折衷方案「AI只給方向旗標，GAS對應數字」：既比原本要AI自己抓`fav_change`合理級距(日常+1~2/心動+3~5)輕量(AI不用猜數字，只填一個三選一字串)，又保留了「負面互動可以讓好感下降」的劇情連動，不會變成好感只漲不跌。**動手**：
+- `Gallery.gs`：`finalJson.rel_changes` 範本 `fav_change`欄位換成`tone`(值域「升/平/降」)，`_note`同步改寫說明；`actionPlay`的`relChangesToProcess.forEach`把`let change = parseInt(rc.fav_change)||0`改成讀`rc.tone`字串比對(`.includes("降")`→-2、`.includes("升")`→+2、其餘(含"平"或缺漏)→0)，取代原本直接信任AI回傳的裸數字。
+- `Router_Action.gs`：`sanitizeAiData_`原本專門夾`rel_changes[].fav_change`範圍(-100~100)的`clampInt`防呆連同其唯一呼叫點一併移除——AI不再輸出數值型好感欄位，這道防線的防禦對象已不存在(tone是字串，異常值頂多對不上「升/降」關鍵字、落回0，不會有爆表好感的幻覺風險)；物件結構檢查(非物件即擋)保留不動。
+- `AI_PROMPT_MAP.md`：`rel_changes`欄位說明同步改寫，`fav_change`移入死欄位清單。
+**幅度取值**：升/降固定 ±2(而非原本依情境浮動的+1~5級距)——這是刻意的取捨：拿掉AI對magnitude的裁量後，同一個方向旗標理論上無法再區分「小聊天」跟「重大心動」的差別大小，玩家在選項說明裡已被告知這個 trade-off 並選擇接受，不是遺漏。若之後覺得步調太慢/太快，只需調整 Gallery.gs 這處的 ±2 常數，不涉及 AI 提示詞。
+**驗證**：`bash check.sh` 全過；`git diff -- gas/Gallery.gs | grep -c nsfwBaseRules` 確認為既有的 `return nsfwBaseRules + ...` 上下文行假陽性，常數本體未動。
 
 **🗑️ 2026-07 同輪撤回：玩家實測反映裝上去反而一直撞【結界觸發】**：玩家裝上 `safety_settings` 後回報「一直撞到」，已直接移除整段。**懷疑根因**(未完全驗證，僅記錄假設供之後排查)：`isBlocked` 判斷式是 `lastErrorMessage.includes("Triggered_NSFW_Filter") || lastErrorMessage.includes("safety")`——只要錯誤訊息含 "safety" 字串就會顯示【結界觸發】(審查被擋)這句話；而新加欄位本身就叫 `safety_settings`，如果 OpenRouter/Gemini 判定這個欄位格式不對而回傳類似「invalid parameter safety_settings」的錯誤，也會含有 "safety" 字樣，就會被誤判成「內容被審查擋下」、掩蓋掉真正的參數格式錯誤。若之後想重新嘗試放寬審查閥門，建議先查證 OpenRouter 轉發 Gemini `safety_settings` 的正確格式(可能需要走 `extra_body`/`provider` 包裝而非扁平 top-level 欄位)，並且先讓 `isBlocked` 的字串比對更精準(如改抓 `finish_reason`/`result.error.status` 而非粗略比對 "safety" 子字串)，才不會把「參數錯誤」跟「內容被擋」混在一起誤判。
 

@@ -641,8 +641,8 @@ function buildDefaultSystemPrompt() {
     //   玩家也沒有任何UI能查看或手動清空，玩家定案「整條拆掉」。schema 欄位一併移除，見下方
     //   `relChangesToProcess.forEach` 拿掉的處理邏輯、`COL.PC.MAJOR_EVENT` 定義處註解。
     "rel_changes": [{
-      "_note": "fav_change為整數(可正可負)，關係要慢慢培養、不可躁進：日常閒聊+1~2、明顯心動或重大進展+3~5，單回合上限+5，不可一次跳大段；越界冒犯可填負數。tag為【關係定位】四字詞(萍水相逢/點頭之交/漸生情愫/紅顏知己等)，依好感高低填，無變化填「無」。",
-      "target": "NPC真實姓名或「自己」(禁填台詞/地名/動作等其他內容)", "fav_change": 3, "tag": "無"
+      "_note": "tone只能三選一：「升」(本回合互動讓好感提升，不論日常閒聊或心動時刻皆填此，實際增幅由系統統一計算，不必自己抓數字)／「平」(普通互動、無明顯變化)／「降」(越界冒犯/尷尬/衝突時填)。tag為【關係定位】四字詞(萍水相逢/點頭之交/漸生情愫/紅顏知己等)，依好感高低填，無變化填「無」。",
+      "target": "NPC真實姓名或「自己」(禁填台詞/地名/動作等其他內容)", "tone": "升", "tag": "無"
     }],
     // 🧹 2026-07 玩家定案「mentioned_names 這也不用了吧」：查證後這欄對鑑賞(唯一還會呼叫此
     //   schema 的路徑)已是死欄——前端(Script.html send())收到後只會 pushCandidate(name, name)，
@@ -1004,8 +1004,12 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         if (nIdx === -1) return;
         dirtyPcRows.add(nIdx);
 
-        // 🌹 鑑賞允許 AI 依劇情推進好感（solo 的好感收歸 GAS 按鈕，走不同的 narrate_only 路徑，不受這裡影響）
-        let change = parseInt(rc.fav_change) || 0;
+        // 🌹 鑑賞允許好感依劇情推進（solo 的好感收歸 GAS 按鈕，走不同的 narrate_only 路徑，不受這裡影響）
+        // 🔄 2026-07 玩家定案「AI只給方向旗標，GAS對應數字」：fav_change(AI自己填數字)已改
+        //   tone(AI只填「升/平/降」方向)，實際增減幅度固定由 GAS 決定，不再讓 AI 自己猜合理級距、
+        //   也少一個要 AI 每回合硬算的 JSON 欄位。
+        const toneStr = String(rc.tone || "").trim();
+        let change = toneStr.includes("降") ? -2 : toneStr.includes("升") ? 2 : 0;
         let isPartyStr = String(pcData[nIdx][COL.PC.IS_PARTY] || "");
         if (dismissedNpc === tNpc) isPartyStr = "";
 
