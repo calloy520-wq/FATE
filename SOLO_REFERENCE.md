@@ -83,6 +83,8 @@
 - 迪盧木多：萌點「天生惹人喜愛自己卻渾然不覺」→ 私密一面改「偶爾會對著鏡子皺眉盯著臉上的痣，猜想它究竟帶來多少困擾」
 其餘12位(斯卡哈兩職階/美狄亞/佐佐木小次郎/伊斯坎達爾/咒腕之哈桑/蘭斯洛特/恩奇都/美遊/伊莉雅-Caster/伊莉雅絲菲爾-Master/EMIYA)同一原則逐一重寫，用同一支 node 腳本收斂驗證(子字串重疊+人工複查)確認不再撞句。**`dailyLook`四段結構本身不變**(只換第4段內容)，段數/其餘3段皆未動；`CODEX_PERSONA_VER`升到v59——照專案既定慣例，版本沒升則已召喚過的英靈讀不到這次修正，即使v58可能剛部署不久也照樣升版，不賭「應該還沒人召喚到」。
 **驗證**：`bash check.sh` 全過；node腳本二次掃描確認0筆重複、4段結構全數保持；`git diff -- gas/Gallery.gs` 無改動。
+**🐛→✅ 玩家追問「AI創造能抓到重點吧？」——查證：不能，AI原創路徑有同一個結構性漏洞**：上面那次重複問題的根因是「dailyMoe跟dailyLook四段式分兩輪各自發想、互不知道對方寫了什麼」——`recordOriginalHero_`/`actionSaveHero`(工房建立/修改)呼叫`translateLookToDaily_`跟`translateMoeToDaily_`同樣是**兩次獨立的AI呼叫**，彼此看不到對方輸出，AI原創英靈完全可能重蹈覆轍(私密一面又寫成萌點的換句話說)，只是還沒被人工抓到而已。**修法**：`translateLookToDaily_`新增第6參數`dailyMoeHint`——呼叫端(recordOriginalHero_/actionSaveHero)把呼叫順序**對調**，先算好`dailyMoe`，再把這個值當hint傳給`translateLookToDaily_`，提示詞明講「這個角色的招牌萌點已經是『XXX』，私密一面這格【禁止】重複或換句話說同一件事，必須是完全不同的另一個生活切面」——讓AI下筆當下就看得到另一半，不必等人工事後抓重複。兩個呼叫點(建立/修改模式)皆已對調順序並接上hint。
+**驗證**：`bash check.sh` 全過；`git diff -- gas/Gallery.gs | grep -c nsfwBaseRules` = 0。
 
 **🗑️ 2026-07 同輪撤回：玩家實測反映裝上去反而一直撞【結界觸發】**：玩家裝上 `safety_settings` 後回報「一直撞到」，已直接移除整段。**懷疑根因**(未完全驗證，僅記錄假設供之後排查)：`isBlocked` 判斷式是 `lastErrorMessage.includes("Triggered_NSFW_Filter") || lastErrorMessage.includes("safety")`——只要錯誤訊息含 "safety" 字串就會顯示【結界觸發】(審查被擋)這句話；而新加欄位本身就叫 `safety_settings`，如果 OpenRouter/Gemini 判定這個欄位格式不對而回傳類似「invalid parameter safety_settings」的錯誤，也會含有 "safety" 字樣，就會被誤判成「內容被審查擋下」、掩蓋掉真正的參數格式錯誤。若之後想重新嘗試放寬審查閥門，建議先查證 OpenRouter 轉發 Gemini `safety_settings` 的正確格式(可能需要走 `extra_body`/`provider` 包裝而非扁平 top-level 欄位)，並且先讓 `isBlocked` 的字串比對更精準(如改抓 `finish_reason`/`result.error.status` 而非粗略比對 "safety" 子字串)，才不會把「參數錯誤」跟「內容被擋」混在一起誤判。
 

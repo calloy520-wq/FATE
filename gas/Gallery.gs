@@ -118,7 +118,12 @@ function getKanshouPcSheet_(ss) {
 //   直接輸出兩樣東西——①look：明確四段(外貌本相/氣質舉止/自稱與口氣/卸下心防的私密一面)，跟
 //   PERSONA.traits／PREF 的四格格式完全對齊，不必再靠 looksToTraitParts_ 事後硬拆；②outfit：獨立的
 //   日常穿搭一句話。取代原本的 translateAppearanceToDaily_，呼叫端同步改名。
-function translateLookToDaily_(name, cls, rawLook, firstP, speech) {
+// 🐛→✅ 2026-07 玩家問「AI創造能抓到重點吧？」查證發現：不能——這個函式跟 translateMoeToDaily_ 是
+//   兩次各自獨立的 AI 呼叫，互不知道對方輸出什麼，跟種子手寫23位英靈時「dailyMoe(v57)／dailyLook四段式
+//   (v58)分兩輪各自順著同一角色反差發想、結果私密一面跟萌點撞成同一件事的兩種說法」是同一個結構性
+//   成因。修法：呼叫端(recordOriginalHero_/actionSaveHero)先算好 dailyMoe，再把它當 dailyMoeHint
+//   傳進來，明講「私密一面不可跟這句萌點重複」，讓 AI 當下就看得到另一半、不必事後靠人工抓重複。
+function translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint) {
   var look = String(rawLook || "").trim();
   if (!look) return { look: "", outfit: "" };
   try {
@@ -130,7 +135,7 @@ function translateLookToDaily_(name, cls, rawLook, firstP, speech) {
       "[氣質舉止(依和平日常情境自然轉化，但性格底色不變，不可變成另一個人的氣質)]、" +
       "[自稱與口氣：固定格式「自稱「" + (firstP || "我") + "」，再接一句依她原本說話語氣(" + (speech || "無特別描述") + ")寫成的日常口氣描述」]、" +
       "[卸下心防的私密一面(這個角色只有放下戒備才會流露的一個具體、生活化、忠於其性格的小可愛面向，" +
-      "不可空泛或套用他人)]。\n" +
+      "不可空泛或套用他人" + (dailyMoeHint ? "；這個角色的招牌萌點已經是「" + dailyMoeHint + "」，這一格【禁止】重複或換句話說同一件事，必須是完全不同的另一個生活切面(小動作/小習慣/情緒觸發點)" : "") + ")]。\n" +
       "②outfit：一句她今天的日常穿搭，保留原本服裝的色系/風格精神、換成現代日常款式，盡量貼近原味，" +
       "不要跟look的內容重複。\n" +
       "★輸出合法 JSON、禁 Markdown：{\"look\":\"四短句頓號分隔\",\"outfit\":\"一句日常穿搭\"}";

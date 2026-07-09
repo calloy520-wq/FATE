@@ -294,13 +294,15 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
   // 🤖 2026-07 玩家定調「工房捏角當下也提前生成日常資料」：跟種子英靈懶惰快取(見
   // getOrComputeDailyHeroFields_)不同——工房角色創造當下就順手轉好，寫進英靈殿新增的
   // DAILY_LOOK/DAILY_WORDS 欄，之後第一次被召喚進鑑賞就直接有現成日常版，不必等召喚當下才轉。
-  // 🌹 2026-07 玩家定案「日常衣裝獨立成欄」：translateAppearanceToDaily_ 已升級成 translateLookToDaily_，
-  //   一次呼叫同時產出四段式 look(外貌本相/氣質舉止/自稱與口氣/私密一面) 與獨立的 outfit(日常穿搭)。
-  var dailyLookRes = translateLookToDaily_(name, cls, String(px.look || ""), String(px.firstP || ""), String(px.speech || ""));
-  var dailyWords = translatePersonalityToDaily_(name, cls, String(personaWords || ""));
   // 🌹 2026-07 玩家定案「餐桌是平行世界、沒有聖杯戰爭這回事」：萌點比照 look/words 同步轉換，
   //   避免 heroToKanshouRow_ 直接搬戰時反差萌進一個沒打過聖杯戰爭的世界。
+  // 🐛→✅ 2026-07 玩家問「AI創造能抓到重點吧？」：moe 要先算好，才能當 hint 傳給下面的
+  //   translateLookToDaily_，讓「私密一面」不會跟萌點撞成同一件事的兩種說法(見該函式註解)。
   var dailyMoe = translateMoeToDaily_(name, cls, String(px.moe || ""));
+  // 🌹 2026-07 玩家定案「日常衣裝獨立成欄」：translateAppearanceToDaily_ 已升級成 translateLookToDaily_，
+  //   一次呼叫同時產出四段式 look(外貌本相/氣質舉止/自稱與口氣/私密一面) 與獨立的 outfit(日常穿搭)。
+  var dailyLookRes = translateLookToDaily_(name, cls, String(px.look || ""), String(px.firstP || ""), String(px.speech || ""), dailyMoe);
+  var dailyWords = translatePersonalityToDaily_(name, cls, String(personaWords || ""));
   hs.appendRow([name + "-" + cls, cls, name, sex || "異", sixJson || "{}",
     JSON.stringify(classSkills || []), JSON.stringify(skills || []), JSON.stringify(traits || []),
     np || "", persona, align || "中立", "[]", "ai_gen", dailyLookRes.look, dailyWords, dailyMoe, dailyLookRes.outfit]);
@@ -464,11 +466,14 @@ function actionSaveHero(userData, pcId, sheets) {
     // 🤖 2026-07：外貌/性格改了，先前快取的日常版本會跟新設定對不上——重新轉一次，不留舊資料。
     // 🌹 2026-07 玩家定案「日常衣裝獨立成欄」：translateLookToDaily_ 一次呼叫同時產出四段式 look 與
     //   獨立的 outfit，取代原本的 translateAppearanceToDaily_。
-    const dailyLookRes = translateLookToDaily_(build.name, pb.cls, newLook, newFp, newSpeech);
+    // 🐛→✅ 2026-07 玩家問「AI創造能抓到重點吧？」：moe 要先算好才能當 hint 傳給 translateLookToDaily_，
+    //   避免「私密一面」跟萌點撞成同一件事的兩種說法(見該函式註解)。
+    const dailyMoeVal = translateMoeToDaily_(build.name, pb.cls, newMoe);
+    const dailyLookRes = translateLookToDaily_(build.name, pb.cls, newLook, newFp, newSpeech, dailyMoeVal);
     data[idx][COL.HERO.DAILY_LOOK] = dailyLookRes.look;
     data[idx][COL.HERO.DAILY_OUTFIT] = dailyLookRes.outfit;
     data[idx][COL.HERO.DAILY_WORDS] = translatePersonalityToDaily_(build.name, pb.cls, newWords);
-    data[idx][COL.HERO.DAILY_MOE] = translateMoeToDaily_(build.name, pb.cls, newMoe);
+    data[idx][COL.HERO.DAILY_MOE] = dailyMoeVal;
     hs.getRange(idx + 1, 1, 1, data[idx].length).setValues([data[idx]]);
     try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { }
     return JSON.stringify({ success: true, edited: true, message: `「${build.name}」的靈基已重鑄——之後召喚皆用新設定（已在場的分身不追改）。` });
