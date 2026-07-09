@@ -77,6 +77,12 @@
 **驗證**：`bash check.sh` 全過；`git diff -- gas/Gallery.gs` 這輪無改動(只動 Seed_Codex.gs)。
 **🌹 內容手寫進度②：剩下13位補完，四段式改造全數收尾(2026-07 玩家「沒草稿，你照這方向去填寫吧」)**：迪盧木多、伊斯坎達爾、吉爾德萊、百貌哈桑、咒腕之哈桑、恩奇都、斯卡哈-Lancer、斯卡哈-Assassin、美遊、小黑、伊莉雅-Caster(install)、遠坂凜-Master、伊莉雅絲菲爾-Master——依前10位確立的方向(拆出`dailyOutfit`、`dailyLook`四段式、`dailyWords`補喜歡討厭)全部補完，全種子庫23位正式收工。**順手抓到2處自己這輪新犯的分隔符錯**：斯卡哈-Assassin/伊莉雅-Caster(install)的「自稱與口氣」segment內部誤用「、」(該segment的field分隔符)取代「・」(segment內部連接號)，多切出第5段——用node腳本逐一核對全部23位`dailyLook`/`dailyWords`確實都是4段才發現，已修正。**也順手清了2處v57遺漏的悲劇殘留字眼**：伊莉雅絲菲爾-Master的`dailyWords`原本還留著「藏著哀傷的聖杯依代身世」(人造人被當工具養大的悲劇身世，v57做`dailyMoe`時漏檢查`dailyWords`)，改寫成「渴望被更多人放在心上疼惜」，跟「喜歡：被珍惜疼愛的感覺」呼應但拿掉悲劇背景。**`CODEX_PERSONA_VER`升到v58**，觸發`upgradeCodexPersonas_`整列覆寫——已召喚過的英靈下次登入/重召即可吃到全新四段式資料，`servantToHeroRow_`穩定回傳滿17欄。
 **驗證**：`bash check.sh` 全過；node腳本核對全23位`dailyLook`/`dailyWords`皆為4段、`dailyOutfit`皆非空；`git diff -- gas/Gallery.gs` 這兩輪皆無改動(只動 Seed_Codex.gs)。
+**🐛→✅ 「私密一面」跟「萌點」重複感太高(2026-07 玩家看完全23位dump後點名「私下家事身手意外地好」跟萌點「寡言沉靜，家事身手意外地好」根本一樣)**：查證屬實且範圍不小——寫`dailyMoe`(v57)跟改寫`dailyLook`四段式(v58)是兩輪分開做的，兩邊各自順著同一個角色的核心反差去發想，難怪常常撞成同一件事的兩種說法。寫了個 node 腳本掃全23位(private-side 跟 moe 抓共同子字串)，抓到11位機器可判的重複，另外4位(阿爾托莉雅/EMIYA/伊斯坎達爾/美遊)是換句話說的同義重複、機器抓不到但人眼看得出來，合計**15位**private-side全部重寫，原則：**萌點負責「一句話的招牌反差」，私密一面負責「完全不同的另一個生活切面」**(小動作/小習慣/情緒觸發點)，兩者不再互相複述。例：
+- 美杜莎：萌點「家事身手意外地好」→ 私密一面改「看到別人小小的善意會偷偷紅了眼眶，卻很快若無其事地眨眼帶過」
+- 遠坂凜：萌點「私下有點迷糊」→ 私密一面改「對在意的人特別嘴硬，明明擔心得要命卻只會冷冷丟一句「笨蛋」」
+- 迪盧木多：萌點「天生惹人喜愛自己卻渾然不覺」→ 私密一面改「偶爾會對著鏡子皺眉盯著臉上的痣，猜想它究竟帶來多少困擾」
+其餘12位(斯卡哈兩職階/美狄亞/佐佐木小次郎/伊斯坎達爾/咒腕之哈桑/蘭斯洛特/恩奇都/美遊/伊莉雅-Caster/伊莉雅絲菲爾-Master/EMIYA)同一原則逐一重寫，用同一支 node 腳本收斂驗證(子字串重疊+人工複查)確認不再撞句。**`dailyLook`四段結構本身不變**(只換第4段內容)，段數/其餘3段皆未動；`CODEX_PERSONA_VER`升到v59——照專案既定慣例，版本沒升則已召喚過的英靈讀不到這次修正，即使v58可能剛部署不久也照樣升版，不賭「應該還沒人召喚到」。
+**驗證**：`bash check.sh` 全過；node腳本二次掃描確認0筆重複、4段結構全數保持；`git diff -- gas/Gallery.gs` 無改動。
 
 **🗑️ 2026-07 同輪撤回：玩家實測反映裝上去反而一直撞【結界觸發】**：玩家裝上 `safety_settings` 後回報「一直撞到」，已直接移除整段。**懷疑根因**(未完全驗證，僅記錄假設供之後排查)：`isBlocked` 判斷式是 `lastErrorMessage.includes("Triggered_NSFW_Filter") || lastErrorMessage.includes("safety")`——只要錯誤訊息含 "safety" 字串就會顯示【結界觸發】(審查被擋)這句話；而新加欄位本身就叫 `safety_settings`，如果 OpenRouter/Gemini 判定這個欄位格式不對而回傳類似「invalid parameter safety_settings」的錯誤，也會含有 "safety" 字樣，就會被誤判成「內容被審查擋下」、掩蓋掉真正的參數格式錯誤。若之後想重新嘗試放寬審查閥門，建議先查證 OpenRouter 轉發 Gemini `safety_settings` 的正確格式(可能需要走 `extra_body`/`provider` 包裝而非扁平 top-level 欄位)，並且先讓 `isBlocked` 的字串比對更精準(如改抓 `finish_reason`/`result.error.status` 而非粗略比對 "safety" 子字串)，才不會把「參數錯誤」跟「內容被擋」混在一起誤判。
 
