@@ -364,7 +364,10 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       //   1=姿勢與動作 2=胸部 3=顏面(表情+汗水) 4=肉棒 5=蜜穴 6=服裝狀態(玩家指定服裝【本身】不變，
       //   這格只記錄它當下的凌亂/破損程度，如領口散亂/半褪至肩——AI不可换衣服，只能描述現有服裝的狀態)。
       //   衣服本身(換裝)/負面/菊穴/雙手不再追蹤。visible_state/mergeVisibleState 機制隨之整段退役。
-      const sanitizePhysicalState = (rawState, isPlayer = false) => {
+      // 🐛→✅ 2026-07 修：sex 參數過去宣告了(isPlayer)卻從未被呼叫端傳入、也從未真的用來過濾——
+      //   AI 吐錯性別代碼(如男角色寫「5」=蜜穴)照樣被收下，導致命格面板顯示矛盾的肉體狀態。
+      //   現在依實際 SEX 擋掉跟性別矛盾的鍵，從輸入邊界就不信任 AI 輸出。
+      const sanitizePhysicalState = (rawState, sex) => {
         if (!rawState || typeof rawState !== 'object') return {};
         let cleanState = {};
         const keyMapping = { "1": "姿勢動作", "2": "胸部", "3": "顏面", "4": "肉棒", "5": "蜜穴", "6": "服裝狀態" };
@@ -372,9 +375,10 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         Object.keys(rawState).forEach(k => {
           let standardKey = keyMapping[k] || k;
           let val = String(rawState[k]).trim();
-          if (allowedKeys.includes(standardKey) && !ignoreWords.includes(val)) {
-            cleanState[standardKey] = val;
-          }
+          if (!allowedKeys.includes(standardKey) || ignoreWords.includes(val)) return;
+          if (standardKey === "肉棒" && sex !== "男") return;
+          if (standardKey === "蜜穴" && sex !== "女") return;
+          cleanState[standardKey] = val;
         });
         return cleanState;
       };
@@ -411,7 +415,10 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
       if (aiData.intimacy_feedback.player) {
         const pfb = aiData.intimacy_feedback.player;
-        if (pfb.physical_state) pcData[pcIndex][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[pcIndex][COL.PC.PHYSICAL], sanitizePhysicalState(pfb.physical_state));
+        if (pfb.physical_state) {
+          const pSex = String(pcData[pcIndex][COL.PC.SEX] || "");
+          pcData[pcIndex][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[pcIndex][COL.PC.PHYSICAL], sanitizePhysicalState(pfb.physical_state, pSex), pSex);
+        }
 
         let oldPMem = pcData[pcIndex][COL.PC.MEMORY] || "";
         pcData[pcIndex][COL.PC.MEMORY] = `[雙修技巧]${processSkills(oldPMem, pfb.dynamic_skills)} | [性愛時敏感部位]${processTags(oldPMem, /\[性愛時敏感部位\](.*?)(?=\| \[|$)/, pfb.erogenous_zones, 5)}`;
@@ -425,7 +432,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
           dirtyPcRows.add(targetIdx);
           if (nfb.physical_state) {
-            pcData[targetIdx][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[targetIdx][COL.PC.PHYSICAL], sanitizePhysicalState(nfb.physical_state));
+            const nSex = String(pcData[targetIdx][COL.PC.SEX] || "");
+            pcData[targetIdx][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[targetIdx][COL.PC.PHYSICAL], sanitizePhysicalState(nfb.physical_state, nSex), nSex);
           }
           if (nfb.dynamic_skills || nfb.erogenous_zones) {
             let oldNMem = pcData[targetIdx][COL.PC.MEMORY] || "";
