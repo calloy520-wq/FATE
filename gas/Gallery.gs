@@ -219,7 +219,7 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   // 只是不再「還沒發生任何事就先寫進資料庫」。
   sRow[COL.PC.GAME_ID] = gameId;
   sRow[COL.PC.BOND] = 45; sRow[COL.PC.REL_TAG] = "從者"; sRow[COL.PC.IS_PARTY] = "同行";
-  sRow[COL.PC.REL_MEM] = "初次相遇，緣分才剛開始"; sRow[COL.PC.MAJOR_EVENT] = "";
+  sRow[COL.PC.REL_MEM] = "初次相遇，緣分才剛開始";
   return sRow;
 }
 
@@ -635,15 +635,14 @@ function buildDefaultSystemPrompt() {
     },
     // 🔠 2026-07：原本「名字提取鐵律」在 Router_Narrative.gs 每回合另開一整段落解釋 target 只能填真名，
     //   改直接寫進欄位描述本身——schema 級約束比事後再說一次更有效，也省掉那一整段重複文字。
-    // 🐛→✅ 2026-07 玩家問「rel_changes後面幾個沒範例AI能知道怎麼用？」——查證屬實，三個後續欄位
-    //   都缺範例：fav_change 只給一個裸數字3，AI 抓不到合理級距；tag 的四字詞分類寫在 nsfwBaseRules
-    //   別處(不在這張範本旁邊)；major_event 最嚴重——後端(下方 relChangesToProcess.forEach)其實
-    //   認得 [達成]xxx(標記約定兌現)／[清空](清空全部約定)兩種特殊語法，但提示詞從頭到尾沒有任何
-    //   一處講過這兩種語法存在，AI 完全沒有管道知道能這樣填，等於這兩個功能形同虛設。補一個 _note
-    //   (仿 intimacy_feedback 已有的同款寫法，後端只認得名字讀取的欄位、不會誤讀這個輔助說明鍵)。
+    // 🐛→✅ 2026-07 玩家問「rel_changes後面幾個沒範例AI能知道怎麼用？」補了 _note 範例；追問「約定
+    //   清空還有地方按嗎？達成又要去哪裡看？」才發現 major_event(未完成的約定)整條是頭尾斷開的死路
+    //   ——寫入後從未被讀回餵給AI(AI看不到自己上次許過什麼，[達成]/[清空]語法講清楚也無從觸發)，
+    //   玩家也沒有任何UI能查看或手動清空，玩家定案「整條拆掉」。schema 欄位一併移除，見下方
+    //   `relChangesToProcess.forEach` 拿掉的處理邏輯、`COL.PC.MAJOR_EVENT` 定義處註解。
     "rel_changes": [{
-      "_note": "fav_change為整數(可正可負)，關係要慢慢培養、不可躁進：日常閒聊+1~2、明顯心動或重大進展+3~5，單回合上限+5，不可一次跳大段；越界冒犯可填負數。tag為【關係定位】四字詞(萍水相逢/點頭之交/漸生情愫/紅顏知己等)，依好感高低填，無變化填「無」。major_event為未完成的約定或重大事件一句話；若某約定本回合兌現，填「[達成]約定原文」；若要清空全部約定，填「[清空]」；無新事件填「無」。",
-      "target": "NPC真實姓名或「自己」(禁填台詞/地名/動作等其他內容)", "fav_change": 3, "tag": "無", "major_event": "無"
+      "_note": "fav_change為整數(可正可負)，關係要慢慢培養、不可躁進：日常閒聊+1~2、明顯心動或重大進展+3~5，單回合上限+5，不可一次跳大段；越界冒犯可填負數。tag為【關係定位】四字詞(萍水相逢/點頭之交/漸生情愫/紅顏知己等)，依好感高低填，無變化填「無」。",
+      "target": "NPC真實姓名或「自己」(禁填台詞/地名/動作等其他內容)", "fav_change": 3, "tag": "無"
     }],
     // 🧹 2026-07 玩家定案「mentioned_names 這也不用了吧」：查證後這欄對鑑賞(唯一還會呼叫此
     //   schema 的路徑)已是死欄——前端(Script.html send())收到後只會 pushCandidate(name, name)，
@@ -768,19 +767,19 @@ function actionPlay(userData, pcId, sheets) {
   const myGameId = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
   const sameGame = (r) => !myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId;
 
-  // 🐛→✅ 2026-07 修：「專屬稱呼/已兌現」記憶點原本只加在 localSceneStr(同地路人清單)，但那份
+  // 🐛→✅ 2026-07 修：「專屬稱呼」記憶點原本只加在 localSceneStr(同地路人清單)，但那份
   //   明確排除「同行隊伍成員」——鑑賞的同伴全部是 IS_PARTY="同行"、只會出現在下面 partyDetailsArr，
-  //   等於唯一真正常互動的對象反而吃不到這兩個標籤(solo友善對話/切磋等免按鍵互動同樣受影響)。
+  //   等於唯一真正常互動的對象反而吃不到這個標籤(solo友善對話/切磋等免按鍵互動同樣受影響)。
   //   抽成共用函式，兩份清單一起補上，不重複貼一次解析邏輯。
+  // 🗑️ 2026-07 玩家定案「未完成的約定整條拆掉」：原本這裡也讀 [已兌現] 餵「一起做過」記憶點，
+  //   但它唯一的寫入來源(major_event的[達成]處理)已整段移除，往後不會再有新的[已兌現]資料——
+  //   拿掉這段讀取，只留專屬稱呼。
   function relMemMemoryStr_(relMem) {
     const s = String(relMem || "");
     const nickMatch = s.match(/\[專屬稱呼\](.*?)(?=\| \[|$)/);
     const nickTrim = nickMatch ? nickMatch[1].trim() : "";
     const nickStr = (nickTrim && nickTrim !== "無") ? ` [專屬稱呼:${nickTrim}]` : "";
-    const doneMatch = s.match(/\[已兌現\](.*?)(?=\| \[|$)/);
-    const doneTrim = doneMatch ? doneMatch[1].trim() : "";
-    const fulfilledStr = (doneTrim && doneTrim !== "無") ? ` [一起做過:${doneTrim}]` : "";
-    return `${nickStr}${fulfilledStr}`;
+    return nickStr;
   }
 
   // 🧹 2026-07 玩家定案「砍掉同地路人、這是開放大世界、沒有結界了」：舊版 allLocals/displayPeople/
@@ -1021,36 +1020,10 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         }
 
         pcData[nIdx][COL.PC.BOND] = newFav; pcData[nIdx][COL.PC.REL_TAG] = finalTag; pcData[nIdx][COL.PC.IS_PARTY] = isPartyStr;
-
-        if (rc.major_event && rc.major_event.trim() !== "無") {
-          let oldEventsStr = String(pcData[nIdx][COL.PC.MAJOR_EVENT] || "").trim();
-          let newEvent = String(rc.major_event).trim();
-          let eventArray = (oldEventsStr === "無" || oldEventsStr === "") ? [] : oldEventsStr.split('、').map(e => e.trim());
-
-          if (newEvent === "[清空]") pcData[nIdx][COL.PC.MAJOR_EVENT] = "無";
-          else if (newEvent.includes("[達成]")) {
-            let doneTask = newEvent.replace("[達成]", "").trim();
-            if (doneTask) {
-              eventArray = eventArray.filter(e => !e.includes(doneTask));
-              pcData[nIdx][COL.PC.MAJOR_EVENT] = eventArray.length > 0 ? eventArray.join("、") : "無";
-              // 🧪 2026-07 玩家提案「達成的約定當記憶點」：原本兌現後直接從陣列刪除、船過水無痕
-              //   (跟REL_MEM專屬稱呼原本的問題同款浪費)。改成順手存一筆到REL_MEM的[已兌現]，
-              //   讓角色以後還記得「一起做過」，不只是被動等下一次好感度數字判斷關係。
-              let oldRMemForDone = String(pcData[nIdx][COL.PC.REL_MEM] || "");
-              let doneMatch = oldRMemForDone.match(/\[已兌現\](.*?)(?=\| \[|$)/);
-              let doneArr = doneMatch ? doneMatch[1].trim().split('、').map(x => x.trim()).filter(x => x && x !== "無") : [];
-              if (!doneArr.includes(doneTask)) doneArr.push(doneTask);
-              if (doneArr.length > 3) doneArr.shift();
-              let newDoneSeg = `[已兌現]${doneArr.join('、')}`;
-              pcData[nIdx][COL.PC.REL_MEM] = doneMatch
-                ? oldRMemForDone.replace(/\[已兌現\](.*?)(?=\| \[|$)/, newDoneSeg)
-                : (oldRMemForDone.trim() ? `${oldRMemForDone.trim()} | ${newDoneSeg}` : newDoneSeg);
-            }
-          } else if (!eventArray.includes(newEvent)) {
-            eventArray.push(newEvent); if (eventArray.length > 3) eventArray.shift();
-            pcData[nIdx][COL.PC.MAJOR_EVENT] = eventArray.join("、");
-          }
-        }
+        // 🗑️ 2026-07 玩家定案「整條拆掉」：major_event(未完成的約定)整段處理邏輯移除——查證發現
+        // MAJOR_EVENT 這欄寫入後從未被讀回餵給AI(partyDetailsArr/relMemMemoryStr_都不讀這欄)，
+        // AI 每回合看不到自己上次許過什麼，[達成]/[清空]語法即使講清楚也無從合理觸發；玩家也完全
+        // 沒有UI能查看或手動清空——整條是頭尾斷開的死路，見 COL.PC.MAJOR_EVENT 定義處註解。
       });
     }
 
@@ -1123,14 +1096,10 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
           }
 
           // 羈絆記憶(專屬稱呼)已併入該 NPC 自己列的 REL_MEM 欄(交談輪數已隨log_summary移除、
-          //   親密次數已隨「窺視神髓」面板一併移除——原本唯一的消費者是該面板的雙修累計顯示)
+          //   親密次數已隨「窺視神髓」面板一併移除、已兌現約定已隨「未完成的約定」機制一併移除——
+          //   三者原本唯一的消費者(面板顯示/major_event寫入)都已拆除，這欄現在只剩專屬稱呼)
           let oldRMem = pcData[targetIdx][COL.PC.REL_MEM] || "";
-          // 🧪 2026-07：已兌現的約定(見上方 major_event 的[達成]處理)也存在同一欄REL_MEM——這裡整串
-          //   重建時要一併帶過去，否則本回合同時觸發[達成]又剛好被寫進intimacy_feedback.npcs時，
-          //   已兌現記憶會被這行蓋掉(extract 舊值、reinject 回新字串)。
-          let doneStr = (oldRMem.match(/\[已兌現\](.*?)(?=\| \[|$)/) || [])[1]?.trim();
-          doneStr = (doneStr && doneStr !== "無") ? ` | [已兌現]${doneStr}` : "";
-          pcData[targetIdx][COL.PC.REL_MEM] = `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/, nfb.mutual_nicknames, 3)}${doneStr}`;
+          pcData[targetIdx][COL.PC.REL_MEM] = `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/, nfb.mutual_nicknames, 3)}`;
         });
       }
     }

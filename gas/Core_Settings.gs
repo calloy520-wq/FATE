@@ -43,8 +43,11 @@ const COL = {
     MEMORY: 12, INTENT: 13, FACTION: 14, RANK: 15, CONTRIB: 16, ALIGN: 17,
     PHYSICAL: 18, MARTIAL: 19, GAME_ID: 20, SIX: 21, TAGS: 22, SEEN: 23,
     // 🆕 關係欄(原 REL 表)：這名 NPC 對「本世界御主」的關係。BOND=好感值、REL_TAG=關係標籤(漸生情愫等)、
-    //   IS_PARTY=同行旗標("同行"/"")、MAJOR_EVENT=未完成重大約定、REL_MEM=關係專屬記憶(NSFW專屬稱呼/親密次數等，
-    //   與角色自己的 MEMORY 用途不同、分開存)。御主自己這一列這五欄不使用(留空)。
+    //   IS_PARTY=同行旗標("同行"/"")、REL_MEM=關係專屬記憶(NSFW專屬稱呼等，與角色自己的 MEMORY
+    //   用途不同、分開存)。御主自己這一列這五欄不使用(留空)。
+    // ⚠ MAJOR_EVENT(27)：2026-07 玩家定案「未完成的約定整條拆掉」——查證寫入後從未被讀回餵給AI、
+    //   玩家也無任何UI能查看或清空，是頭尾斷開的死路，已移除所有讀寫端(Gallery.gs)。COL 是位置
+    //   索引、欄位不刪(刪掉會讓 REL_MEM 等後續欄位全部錯位)，此欄保留但恆為空、純孤兒欄。
     BOND: 24, REL_TAG: 25, IS_PARTY: 26, MAJOR_EVENT: 27, REL_MEM: 28,
     // 🆕 世界狀態欄(原 CLK/AUTH 表)：只在【御主自己那一列】有意義，其餘角色列留空。
     //   DAY/HOUR/AP=時鐘(1AP=1小時，每日12AP)；HOME_LOC=居所(工房加成判定用，原權柄表)。

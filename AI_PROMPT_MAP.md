@@ -153,7 +153,6 @@
 | `scout` | 地圖「🔍 偵查」 | `actionScout` | 否，純 message |
 | `scavenge` | 地圖「🔍 搜索物資」 | `actionScavenge` | 否，純 message |
 | `set_workshop` | 地圖「🏕️ 設置陣地」 | `actionSetWorkshop` | 否，純 message |
-| `clear_npc_major_event` | 因果面板「🗑️ 斬斷」 | `actionClearNpcMajorEvent`（其實在 Router_Narrative.gs） | 否 |
 | `prep_meal` | 見 §2 | `actionPrepMeal` | 否 |
 
 ### `actionRest`（action `rest`）— 兩條件式 prompt
@@ -321,7 +320,6 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 | `get_epic_history` | 抽屜「📖 個人史紀」（Index.html） | `actionGetEpicHistory`（Router_Narrative.gs） | 否，唯讀彙整 |
 | `war_chronicle` | 抽屜「📜 本場戰記」（Index.html） | `actionWarChronicle`（Router_Bond.gs） | 否，唯讀戰記列表 |
 | `war_history_list` | 「📜 戰役回顧」（Index.html） | `actionWarHistoryList`（Router_Bond.gs） | 否，唯讀歷史戰役列表 |
-| `clear_npc_major_event` | 因果面板「🗑️ 斬斷」 | `actionClearNpcMajorEvent`（Router_Narrative.gs） | 否 |
 
 **14 天時限中央攔截**（`handleGameAction` 內，Router_Action.gs:165-178）：非獨立 action，是 dispatcher 對所有會推進時間的動作事後檢查——一旦 `clock` 字串顯示天數 >14 且未 victory/defeat，強制補 `defeat:true` 並呼叫共用 `buildDreamPrompt_(...,'timeout')` 填 `dreamPrompt`（見 §1）。
 
@@ -349,7 +347,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 > 💕【鑑賞·後日談模式·最高優先級覆寫】：聖杯戰爭【早已落幕】…★【絕對禁止】任何戰鬥、廝殺、敵人、敵御主、敵從者、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅。世界是安全的。…★敘事結束停在溫柔的留白，把下一步交還御主。（**🗑️ 2026-07 清除死碼**：舊版這裡還有一句「非 kanshou」的戰鬥雙向裁決規則，靠 `isKanshou` 三元式切換——查證 `actionPlay` 入口早就強制擋非 `KPC_` 呼叫、且鑑賞唯一建列路徑 `game_id` 永遠是 `"k_"` 開頭，`isKanshou` 在這個函式裡數學上恆為 true，該死分支連同判斷變數已整段刪除，鑑賞覆寫改直接無條件套用）
 > 🚨【敘事終極警告】：1. 敘事必須在給出結果後，停在「我」的心境，將下一步交還玩家選擇！2.（`target`/`npc` JSON 欄位只能填真實在場人名，不可含對白/標點）
 
-回應解析欄位（現行 schema）：`inner_monologue`（範本第一位·強制思維鏈，後端不讀自然丟棄，第三人稱總結不可用「我」自稱避免跟 narration 視角打架，2026-07 澄清為「本回合開始前」承接自過往互動的狀態、非「本回合發生後」）／`narration`（2026-07 目標字數約600→約500字）／`location`（AI自主決定地點，不受地圖節點限制）／`options`（4類選項範本）／`intimacy_feedback`（`player`/`npcs`，各含 `physical_state`〔單一自由文字〕／`dynamic_skills`／`mutual_nicknames`〔僅npcs〕）／`rel_changes`（`target`/`fav_change`/`tag`/`major_event`，2026-07 補 `_note` 給範例：fav_change級距(日常+1~3/心動+5~10/突破+15~30)、tag四字詞分類、major_event的`[達成]xxx`/`[清空]`特殊語法——這兩種語法後端`relChangesToProcess`早就認得，但先前提示詞完全沒解釋過，AI 沒有管道知道能這樣填）。**已從 schema 移除的死欄位**：`stat_changes`、`recruited`、`events`、`new_maps`、`mentioned_names`、`log_summary`（原供交談輪數計數，查證累加出的數字從未被任何地方讀回，2026-07 整條移除）、`erogenous_zones`（2026-07 隨「窺視神髓」UI面板一併移除——那是這欄唯一的消費者，面板拿掉後即成死欄，詳見 `SOLO_REFERENCE.md`）——**solo 完全不經過這個函式**（全走 `narrate_only`）。
+回應解析欄位（現行 schema）：`inner_monologue`（範本第一位·強制思維鏈，後端不讀自然丟棄，第三人稱總結不可用「我」自稱避免跟 narration 視角打架，2026-07 澄清為「本回合開始前」承接自過往互動的狀態、非「本回合發生後」）／`narration`（2026-07 目標字數約600→約500字）／`location`（AI自主決定地點，不受地圖節點限制）／`options`（4類選項範本）／`intimacy_feedback`（`player`/`npcs`，各含 `physical_state`〔單一自由文字〕／`dynamic_skills`／`mutual_nicknames`〔僅npcs〕）／`rel_changes`（`target`/`fav_change`/`tag`，2026-07 補 `_note` 給範例：fav_change級距(日常+1~2/心動+3~5，單回合上限+5，不可一次跳大段)、tag四字詞分類）。**已從 schema 移除的死欄位**：`stat_changes`、`recruited`、`events`、`new_maps`、`mentioned_names`、`log_summary`（原供交談輪數計數，查證累加出的數字從未被任何地方讀回，2026-07 整條移除）、`erogenous_zones`（2026-07 隨「窺視神髓」UI面板一併移除——那是這欄唯一的消費者，面板拿掉後即成死欄，詳見 `SOLO_REFERENCE.md`）、`major_event`（原供「未完成的約定」`[達成]xxx`/`[清空]`特殊語法，2026-07 查證發現寫入後從未被讀回餵給AI、玩家也無任何UI能查看或清空，是頭尾斷開的死路，整條移除，詳見 `SOLO_REFERENCE.md`）——**solo 完全不經過這個函式**（全走 `narrate_only`）。
 
 （`nsfwBaseRules`／`buildDefaultSystemPrompt` 定義在 `Gallery.gs`——紅線①保護區塊，本文不重複貼出，只標註 `actionPlay` 有引用其機制。函式為無參數 `buildDefaultSystemPrompt()`，永遠回傳慾海版本，因為查證後這個函式現在只可能被鑑賞呼叫。詳見 `SOLO_REFERENCE.md` §0。）
 
@@ -385,7 +383,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 
 ## 附：純機制、完全不叫 AI 的 action 總表（快速核對用）
 
-`check_name`、`get_full_status`、`update_fate`、`get_tags`、`sync`、`update_rel_tag`、`create`、`get_heroes`、`get_masters`、`get_map_nodes`、`set_servant_output`、`set_mage_realm`、`set_rune_mode`、`set_np_choice`、`prep_meal`、`set_workshop`、`scavenge`、`scout`、`clear_npc_major_event`、`account_login`、`account_new_game`、`get_victory_history`、`leaderboard`、`war_chronicle`、`war_history_list`、`get_epic_history`、`purge_orphans`、`dev_seed_gallery`、`dev_resync_codex`、`enter_kanshou`、`kanshou_companions`、`kanshou_add`、`kanshou_remove`、`kanshou_set_name`、`kanshou_set_sex`。
+`check_name`、`get_full_status`、`update_fate`、`get_tags`、`sync`、`update_rel_tag`、`create`、`get_heroes`、`get_masters`、`get_map_nodes`、`set_servant_output`、`set_mage_realm`、`set_rune_mode`、`set_np_choice`、`prep_meal`、`set_workshop`、`scavenge`、`scout`、`account_login`、`account_new_game`、`get_victory_history`、`leaderboard`、`war_chronicle`、`war_history_list`、`get_epic_history`、`purge_orphans`、`dev_seed_gallery`、`dev_resync_codex`、`enter_kanshou`、`kanshou_companions`、`kanshou_add`、`kanshou_remove`、`kanshou_set_name`、`kanshou_set_sex`。
 
 會叫 AI（敘事 `narrate_only` 或結構化 JSON）的 action／路徑：`fate_battle`（5 分支）、`use_seal`、`mana_supply`、`rule_break_steal`、`second_wind`、`rest`（條件式）、`move`（前端組 prompt）、`bond`、`propose_alliance`、`break_alliance`、`ally_bond`、`backfill_master_ai`（結構化）、`summon_servant`（條件式結構化＋一律附敘事）、`claim_grail`（結構化回憶）、`play`（kanshou/full 自由聊天）、`narrate_only`（通用出口，本身無事實，套系統提示詞轉呼叫）。dispatcher 層另有一條隱性路徑：14 天時限中央攔截自動掛 `dreamPrompt`。
 
