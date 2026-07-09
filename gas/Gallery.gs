@@ -131,6 +131,34 @@ function translateAppearanceToDaily_(name, cls, rawLook) {
   } catch (e) { return look; }
 }
 
+// 🔀 2026-07：跟上面 translateAppearanceToDaily_ 同一批「轉去鑑賞都市日常」需求，原本落在
+//   Core_Settings.gs(solo 的 enrichPersonalityLikesDislikes_ 附近)——鑑賞集中到 Gallery.gs 這輪
+//   一併搬過來，兩個「XToDaily_」翻譯函式終於同居一處，不用跨檔找。
+// 🤖 2026-07 玩家定調「種子就是去戰鬥的，可以少幾項沒問題；轉到鑑賞，AI必須依照種子進行補充
+//   和轉換原本資料變成都市日常」：跟 Core_Settings.gs 的 enrichPersonalityLikesDislikes_ 的差異——
+//   那個是給「還在戰場」的 solo 用(只補缺項、維持戰時語境)，這個專給「進入鑑賞和平日常」用，
+//   一次AI呼叫做兩件事：①段數不足4段就補滿(邏輯同上)；②不論段數夠不夠，若既有短句偏戰場語境
+//   (戰意/殺意/勝負等)一律轉譯成性格本質不變、但適合日常場景展現的等價說法。只用在鑑賞的兩個
+//   新增從者入口。
+function translatePersonalityToDaily_(name, cls, rawWords) {
+  var words = String(rawWords || "").trim();
+  if (!words) return words;
+  try {
+    var sys = "你是《命運停駐之夜》的角色側寫顧問。玩家提供一位角色在聖杯戰爭(戰時)既有的性格短句" +
+      "(用「、」分隔，依序對應[日常表象][真實內裡][喜歡的事物][討厭的事物]，段數可能不足4段——" +
+      "這是正常的，種子資料本就只服務戰鬥)。這個角色現在要進入現代都市的和平日常生活，想像" +
+      "《衛宮家今天的餐桌風景》那種基調——性格核心不變，只是活在和平日常裡，請你：\n" +
+      "①若既有短句偏戰場語境(如「戰意」「殺意」「勝負」「殺戮」等)，轉譯成性格本質不變、但適合" +
+      "日常場景展現的等價說法；純屬個性核心(不涉戰場)的短句原樣保留、不要亂改。\n" +
+      "②段數不足4段時，依既有特質延伸出貼合、具體、適合日常場景的「喜歡的事物」與「討厭的事物」" +
+      "補滿4句。\n" +
+      "★只輸出最終4句、用「、」分隔，不要輸出任何說明、標籤、引號、前後綴。";
+    var prompt = "角色：" + name + "（" + cls + "）\n戰時性格短句：" + words;
+    var out = String(callGeminiAPI(prompt, sys, { temperature: 0.75, ignoreLaw: true, plainText: true }) || "").trim();
+    return out || words;
+  } catch (e) { return words; }
+}
+
 // 🤖 2026-07 玩家定調「一次批次轉換、之後直接讀」：懶惰快取版——英靈殿新增的 DAILY_LOOK/
 //   DAILY_WORDS 欄若已有值(不論是這函式先前寫入、或工房 actionSaveHero 創角當下就順便生成)，
 //   直接讀、零AI呼叫；若仍是空(尚未有任何玩家召喚過這位英靈)，才呼叫AI轉換一次並回寫進英靈殿
@@ -428,7 +456,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 
   const promptStr = `【御主】：名號『${finalName}』，性別『${finalSex}』\n【外貌】：${appearance || "隨機"}\n【身世】：${standing || "隨機"}\n【個性方向】：${persona || "隨機"}`;
 
-  const KANSHOU_GEN_SYS = `你是《命運停駐之夜》後日談(鑑賞)的角色生成核心，為玩家建立一位已結束聖杯戰爭、與封存從者共度和平時光的「御主」本人形象。請依玩家提供的姓名、性別、外貌、身世、個性方向，生成合理且溫暖自然的設定。
+  const KANSHOU_MASTER_GEN_SYS = `你是《命運停駐之夜》後日談(鑑賞)的角色生成核心，為玩家建立一位已結束聖杯戰爭、與封存從者共度和平時光的「御主」本人形象。請依玩家提供的姓名、性別、外貌、身世、個性方向，生成合理且溫暖自然的設定。
 
 ★【演出而非說明】設定只作為底層依據，不要在 background 裡直接複述字面。
 ★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
@@ -442,7 +470,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 {"background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","npc_intent":"結合此人身分的獨特可愛反差萌，一句話"}`;
 
   try {
-    const aiBrief = JSON.parse(callGeminiAPI(promptStr, KANSHOU_GEN_SYS, { temperature: 0.6, ignoreLaw: true }));
+    const aiBrief = JSON.parse(callGeminiAPI(promptStr, KANSHOU_MASTER_GEN_SYS, { temperature: 0.6, ignoreLaw: true }));
     // 🔒 競態修(比照 actionBackfillMasterAi)：backfill 豁免寫入鎖，pIdx 是 AI 呼叫【前】的列索引——寫回前重定位。
     const wIdx = buildLiveIdIndex_(sheets.pc)[String(pcId)];
     if (wIdx === undefined) return JSON.stringify({ success: false, message: "御主列已不存在（可能剛被清理）。" });
