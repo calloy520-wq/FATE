@@ -23,6 +23,12 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   // 🗑️ 規矩表(主線時局/異象)已移除：舊提示詞補丁，含「廝殺/謀略」等戰爭設定會漏進慾海。
   //   雙軌分離後 solo/kanshou 不再共吃此文。(config.ignoreLaw 保留為相容無害鍵)
   let systemContent = systemOverride || buildDefaultSystemPrompt();
+  // 🎯 2026-07 玩家反映「鑑賞要台灣繁體中文」：各系統提示詞(nsfwBaseRules/miniSystem等)本身早就寫著
+  //   「強制台灣繁體中文」，但模型換成 deepseek(非 Gemini 系)後，這類以簡體語料為主訓練的模型仍容易
+  //   夾帶大陸慣用詞彙(視頻/質量/軟件/信息等)甚至簡體字，即使被要求輸出繁體也不夠可靠。在這裡(共用
+  //   的 callGeminiAPI 基礎設施，不是 nsfwBaseRules 本體)於提示詞尾端額外補強一句——放在最後，模型
+  //   對提示詞頭尾的指令通常記得更牢；solo/鑑賞兩軌都吃得到，不分軌道特判。
+  systemContent += "\n\n【語言鐵律】全程僅使用台灣繁體中文（正體字），嚴禁簡體字、嚴禁大陸慣用詞彙（如視頻/質量/軟件/信息/內存/屏幕等），一律使用台灣在地慣用語與正體字形。";
 
   // 🔴【替換開始】組裝原生多輪 messages 陣列
   let apiMessages = [
