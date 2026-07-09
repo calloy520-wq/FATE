@@ -248,7 +248,15 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v54'; // v54：玩家實機比對種子發現「衣服寫到舉止了」——persona.look 的
+var CODEX_PERSONA_VER = 'v55'; // v55：玩家問「種子庫現在有預先生成日常資料嗎？如果有請先對齊日常
+//   餐桌」——查證確認種子本體(SEED_SERVANTS)從不預先生成日常版，全靠 getOrComputeDailyHeroFields_
+//   懶惰快取進英靈殿的 DAILY_LOOK/DAILY_WORDS 兩欄；但這輪 session 陸續把 translateAppearanceToDaily_/
+//   translatePersonalityToDaily_/KANSHOU_SERVANT_GEN_SYS 三個日常化提示詞都改成《衛宮家今天的餐桌
+//   風景》基調(且修正了「查無此人」的矯枉過正)，這些改動都發生在 v54 版本號之後，從未觸發版本升級
+//   ——已召喚過的英靈全部還在用 v54(甚至更早)快取下的舊版翻譯，讀不到本輪任何一次改善。單純升版號
+//   本身不改動任何種子資料，只是逼 upgradeCodexPersonas_ 清空 DAILY_LOOK/DAILY_WORDS 快取，讓下次
+//   召喚時用最新提示詞重新生成。
+// v54：玩家實機比對種子發現「衣服寫到舉止了」——persona.look 的
 //   真實結構是「N段外貌(含服裝)、最後一段氣質詞」，parseTraitsHelper 若直接按位置切4格會把服裝
 //   誤植進[氣質舉止]、氣質詞誤植進[台詞自稱]，firstP(真自稱)從未被讀進來。新增 looksToTraitParts_
 //   (Core_Settings.gs)正確切分，三個呼叫端(Gallery.gs/Router_Creation.gs/Seed_Rivals.gs)同步改用。
