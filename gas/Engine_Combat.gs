@@ -2,27 +2,18 @@
 // 🔴【第二部分：LLM 核心調用與網頁進入點】Engine_Combat.gs
 // ==========================================
 
-function buildDefaultSystemPrompt(isNsfwMode, backLocked) {
-  // 1. 萃取共通的 JSON 基礎結構 (Base Template)
-  // 🔵 FATE 精簡範本：聖杯戰爭單人版不含物品/金錢/任務/招募/地圖生成等舊系統，
-  //   故 JSON 只保留 敘述／選項／外顯狀態／好感／提及人名／日誌，大幅縮減每次 API 的輸入字數。
-  const baseJson = {
-    // 🔠 2026-07 全面重寫縮字：narration 描述原本重複一份「篇幅靠情感起伏/神態心理/氛圍張力/對話堆疊
-    //   撐起」的風格指示，跟下方 specificRules NSFW 第4條逐字相同——改成交叉引用，只在一處說清楚。
-    "narration": isNsfwMode ? "劇情描述(約600字，第一人稱，嚴禁替玩家做決定；篇幅分配依下方慾海律令第4條)..." : "劇情描述(約200字，第一人稱，節奏明快不灌水，嚴禁替玩家做決定)...",
-    "options": ["1. [主動]強勢掌握主導...", "2. [被動]順從委婉試探...", "3. [接續]順劇情延續互動...", "4. [反差]跳脫氛圍的驚人舉動..."],
-    // 🗑️ 2026-07：stat_changes(外顯狀態刷新)已自 SFW schema 移除——solo 戰鬥演出卡/戰報從不讀取
-    //   STATUS，卡片外顯恆顯示預設字樣＝死資料迴圈(AI寫→無人讀)，玩家定案整段移除省 token。
-    //   慾海(NSFW)本就不用 stat_changes(intimacy_feedback.physical_state 才是其管道·紅線區未動)。
-    // 🔠 2026-07：原本「名字提取鐵律」在 Router_Narrative.gs 每回合另開一整段落解釋 target 只能填真名，
-    //   改直接寫進欄位描述本身——schema 級約束比事後再說一次更有效，也省掉那一整段重複文字。
-    "rel_changes": [{ "target": "NPC真實姓名或「自己」(禁填台詞/地名/動作等其他內容)", "fav_change": 3, "tag": "無", "major_event": "無" }],
-    "mentioned_names": ["劇情中出現的具名角色名字，不含玩家自己"],
-    // 🗑️ 2026-07 玩家定案：event/tag 兩欄拔除——因果表刪除後無任何代碼讀取(產了就丟)，
-    //   後端只消費 subject/object(交談輪數計數，見 Router_Narrative.gs)。以後要做回憶錄再加回。
-    "log_summary": { "subject": "主動方真名", "object": "被動/承受方真名(三人以上填眾人)" }
-  };
-
+// 🧹 2026-07 玩家定案「isNsfwMode 也不用分模式了，統合起來」：這個函式現在只可能被鑑賞(慾海)呼叫
+//   ——solo(按鍵制)走完全獨立的 miniSystem(Router_Narrative.gs actionNarrateOnly)，從不呼叫這裡；
+//   本函式唯一呼叫來源是 callGeminiAPI 的 systemOverride 為空時的 fallback，唯一會用空
+//   systemOverride 呼叫的是 actionPlay(自由聊天引擎)，而 actionPlay 的 isNsfwMode 恆等於 pcId
+//   開頭是否為 KPC_，全專案已無任何路徑把 pc.mode 設為 'full'(九州殘留、已停用)——故 isNsfwMode
+//   進到這裡永遠是 true(sfwBaseRules 已刪除，見上一輪修訂)。已拿掉這個死參數與所有 if/else 分支，
+//   直接寫死唯一真的會用到的版本；real runtime 上唯一還會變動的「模式」是 driveOn(🔥主動掌握)，
+//   那是 Router_Narrative.gs actionPlay 自己組的 driveStr，不在這個函式管轄範圍內。
+// 🧹 順手清：舊簽名 (isNsfwMode, backLocked) 的 backLocked 參數，函式體內從未被讀取過(查全專案
+//   這個參數本身也從未真的影響過任何提示詞文字，是傳到這裡就斷頭的死參數)，一併拿掉；呼叫端
+//   (callGeminiAPI)的 config.backLocked 是傳給別的用途(見 aiConfig.backLocked 賦值處)，不受影響。
+function buildDefaultSystemPrompt() {
   // 2. 慾海專屬 physical_state(2026-07 玩家定案整合)：原本 visible_state(衣服/姿勢/負面/顏面)＋
   //   physical_state(蜜穴/肉棒/菊穴/雙手)兩物件共8欄，玩家要求砍到「當下最需要」的6項、合併成一欄：
   //   姿勢動作／胸部／顏面(表情+汗水)／肉棒／蜜穴／服裝狀態。負面/菊穴/雙手不再追蹤。key仍固定用
@@ -47,68 +38,54 @@ function buildDefaultSystemPrompt(isNsfwMode, backLocked) {
   // 即使AI偷懶照抄範本字面值也會被當成敷衍語忽略、不會寫進玩家看到的狀態欄，省字數不引入新的失敗模式。
   const _physicalStateRef = { "1": "同上", "2": "同上", "3": "同上", "4": "同上", "5": "同上", "6": "同上" };
 
-  // 🔴 NSFW模式：只專注情慾本身，雜務(物品/金錢/陣營/任務/招募/地圖/戰鬥數值)本回合完全不追蹤、
-  // 不出現在輸出範本內，大幅縮減 JSON 範本字數；SFW(純淨模式)的 baseJson 維持完整不動。
-  let finalJson;
-  if (isNsfwMode) {
-    finalJson = {
-      // 🔥 2026-07 玩家提案(經整合)：強制思維鏈——放範本【第一位】讓模型先自省再寫敘事，
-      //   逼它每回合先定位角色被推進到哪，才動筆。後端 sanitizeAiData_ 不讀此欄→自然丟棄，
-      //   不顯示給玩家、不進歷史，純粹是給 AI 自己看的思考格，零程式面副作用。
-      // 🐛→✅ 2026-07(玩家明確授權)：原句要求「第一人稱自省…我原本的性格尊嚴」，逼AI用「我」寫
-      //   NPC的內心獨白，緊接著卻要narration把「我」切回玩家——兩種「我」在同一份提示詞裡打架，
-      //   flash-lite小模型容易把NPC的視角帶進narration。改第三人稱總結，拿掉會跟敘事視角衝突的「我」。
-      "inner_monologue": "【必填·純思考用·絕不顯示】用第三人稱總結本回合主要互動對象(那名NPC)目前的狀態(約50字，此欄不是該角色的台詞或視角，NPC本人不可用「我」自稱)。公式：[該NPC原本的性格尊嚴] vs [當下情緒與身體的真實狀態]。情緒溫度必須銜接歷史紀錄，禁止歸零重來。",
-      "narration": baseJson.narration,
-      // 🗺️ 2026-07 玩家定案：鑑賞拔除地圖按鈕，改AI自主敘事換場——地點完全由AI自己決定何時、換去哪，
-      //   不再受限於固定地圖節點清單，可以是「一家安靜的咖啡廳」這種地圖上沒有的場景。
-      //   ★鐵律：narration必須先把移動/抵達的過程實際寫出來，這欄才能填新地名；沒有移動就照抄
-      //   目前地點原文，不可無故憑空跳地點(跟目前地點不同=系統認定確實移動了，會寫回存檔)。
-      "location": "本回合結束時御主所在地點——若narration有實際敘述移動/抵達，填新地點名稱(可自創、不限於冬木既有地名)；沒有移動則原樣填目前地點",
-      "options": baseJson.options,
-      "intimacy_feedback": {
-        "_note": "★physical_state各欄皆角色「自身」當下姿態與肉體狀態，純肢體與感官、禁內心戲，第三人稱填寫，絕對禁寫'自己'。★代碼1/2/3/4或5(依實際性別擇一)每回合都要據實填最新狀態，不可省略沿用舊值；只有代碼6(服裝狀態)可省略=維持原樣。★不適用的器官代碼(4肉棒/5蜜穴二選一，依角色實際性別)直接不要輸出這個代碼，禁止填「無」佔位。npcs每位與player共用此格式，依其實際狀態填寫對應欄位。",
-        "player": {
-          "physical_state": _physicalState,
-          "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第8條)",
-          "erogenous_zones": "無"
-        },
-        "npcs": [{
-          "name": "NPC實際名字",
-          "physical_state": _physicalStateRef,
-          "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第8條)",
-          "erogenous_zones": "無",
-          "mutual_nicknames": "無"
-        }]
+  const finalJson = {
+    // 🔥 2026-07 玩家提案(經整合)：強制思維鏈——放範本【第一位】讓模型先自省再寫敘事，
+    //   逼它每回合先定位角色被推進到哪，才動筆。後端 sanitizeAiData_ 不讀此欄→自然丟棄，
+    //   不顯示給玩家、不進歷史，純粹是給 AI 自己看的思考格，零程式面副作用。
+    // 🐛→✅ 2026-07(玩家明確授權)：原句要求「第一人稱自省…我原本的性格尊嚴」，逼AI用「我」寫
+    //   NPC的內心獨白，緊接著卻要narration把「我」切回玩家——兩種「我」在同一份提示詞裡打架，
+    //   flash-lite小模型容易把NPC的視角帶進narration。改第三人稱總結，拿掉會跟敘事視角衝突的「我」。
+    "inner_monologue": "【必填·純思考用·絕不顯示】用第三人稱總結本回合主要互動對象(那名NPC)目前的狀態(約50字，此欄不是該角色的台詞或視角，NPC本人不可用「我」自稱)。公式：[該NPC原本的性格尊嚴] vs [當下情緒與身體的真實狀態]。情緒溫度必須銜接歷史紀錄，禁止歸零重來。",
+    // 🔠 2026-07 全面重寫縮字：narration 描述原本重複一份「篇幅靠情感起伏/神態心理/氛圍張力/對話堆疊
+    //   撐起」的風格指示，跟下方 specificRules 第4條逐字相同——改成交叉引用，只在一處說清楚。
+    "narration": "劇情描述(約600字，第一人稱，嚴禁替玩家做決定；篇幅分配依下方慾海律令第4條)...",
+    // 🗺️ 2026-07 玩家定案：鑑賞拔除地圖按鈕，改AI自主敘事換場——地點完全由AI自己決定何時、換去哪，
+    //   不再受限於固定地圖節點清單，可以是「一家安靜的咖啡廳」這種地圖上沒有的場景。
+    //   ★鐵律：narration必須先把移動/抵達的過程實際寫出來，這欄才能填新地名；沒有移動就照抄
+    //   目前地點原文，不可無故憑空跳地點(跟目前地點不同=系統認定確實移動了，會寫回存檔)。
+    "location": "本回合結束時御主所在地點——若narration有實際敘述移動/抵達，填新地點名稱(可自創、不限於冬木既有地名)；沒有移動則原樣填目前地點",
+    "intimacy_feedback": {
+      "_note": "★physical_state各欄皆角色「自身」當下姿態與肉體狀態，純肢體與感官、禁內心戲，第三人稱填寫，絕對禁寫'自己'。★代碼1/2/3/4或5(依實際性別擇一)每回合都要據實填最新狀態，不可省略沿用舊值；只有代碼6(服裝狀態)可省略=維持原樣。★不適用的器官代碼(4肉棒/5蜜穴二選一，依角色實際性別)直接不要輸出這個代碼，禁止填「無」佔位。npcs每位與player共用此格式，依其實際狀態填寫對應欄位。",
+      "player": {
+        "physical_state": _physicalState,
+        "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第8條)",
+        "erogenous_zones": "無"
       },
-      "rel_changes": baseJson.rel_changes,
-      "mentioned_names": baseJson.mentioned_names,
-      // 🔴 慾海模式event欄位禁止描述肉體細節：實際因果文字改由GAS固定樣式生成(隱晦化)，AI只需給方向與標籤
-      "log_summary": baseJson.log_summary
-    };
-  } else {
-    baseJson.intimacy_feedback = { "npcs": [{ "name": "NPC名", "mutual_nicknames": "無" }] };
-    finalJson = baseJson;
-    delete finalJson.options; // 🎴 solo：純按鍵＋AI敘述，不要AI自己生選項——選項一律來自遊戲按鍵，不靠AI建議
-  }
+      "npcs": [{
+        "name": "NPC實際名字",
+        "physical_state": _physicalStateRef,
+        "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第8條)",
+        "erogenous_zones": "無",
+        "mutual_nicknames": "無"
+      }]
+    },
+    // 🔠 2026-07：原本「名字提取鐵律」在 Router_Narrative.gs 每回合另開一整段落解釋 target 只能填真名，
+    //   改直接寫進欄位描述本身——schema 級約束比事後再說一次更有效，也省掉那一整段重複文字。
+    "rel_changes": [{ "target": "NPC真實姓名或「自己」(禁填台詞/地名/動作等其他內容)", "fav_change": 3, "tag": "無", "major_event": "無" }],
+    "mentioned_names": ["劇情中出現的具名角色名字，不含玩家自己"],
+    // 🔴 慾海模式event欄位禁止描述肉體細節：實際因果文字改由GAS固定樣式生成(隱晦化)，AI只需給方向與標籤
+    // 🗑️ 2026-07 玩家定案：event/tag 兩欄拔除——因果表刪除後無任何代碼讀取(產了就丟)，
+    //   後端只消費 subject/object(交談輪數計數，見 Router_Narrative.gs)。以後要做回憶錄再加回。
+    "log_summary": { "subject": "主動方真名", "object": "被動/承受方真名(三人以上填眾人)" }
+  };
 
-  // 3. 組合共通鐵律 Prompt (極致超壓縮版)
-  // 🔠 對話格式規則兩模式僅例字不同、語意完全一致(曾因各自維護兩份文字，各自漏改導致「動作/神態」
-  //   字面外洩的 bug，須分開修兩處)，抽成共用函式杜絕未來兩處各改一半、又不一致的風險。
+  // 🔠 對話格式規則抽成共用函式，杜絕未來改一半、又不一致的風險。
   // 🐛→✅ 2026-07(玩家明確授權·全面重寫)：舊版嚴格限定「姓名只寫一次、動作只能在引號開頭一段、
   //   引號結束後同段落不可再補動作」——玩家要求改鬆：動作可放名字前/引號內(以聲音呈現)/引號後，
   //   不限次數與位置組合；純背景描述不需要括號、且應盡量精簡，把篇幅讓給互動本身。
   function dialogueFormatRule_(example) {
     return `對話格式：（角色動作或神情，例如：${example}）名字：「台詞，或（聲音，如低吟／輕笑）」（角色動作或神情，可省略）。同一段落【不限制】名字出現次數、也不限制括號(動作/聲音)的使用次數與位置——可依演出彈性重複、交錯多輪對話與動作。引號全文僅用一層「」，【絕對禁止】「」內再嵌『』或再嵌一層「」。純背景／環境描述(非角色動作、非聲音)【不使用括號】，直接以敘事文字呈現，且【盡量精簡】——把篇幅留給互動本身(動作與對話)，少花筆墨鋪陳場景氛圍。`;
   }
-
-  // 🧹 2026-07 玩家定案「刪除吧」：sfwBaseRules(SFW/純淨模式鐵律全文)已刪除——查證後這段是死碼，
-  //   從未被實際送給 AI 過。原因：solo(按鍵制)走完全獨立的 miniSystem(Router_Narrative.gs
-  //   actionNarrateOnly)，從不呼叫 buildDefaultSystemPrompt；本函式唯一的呼叫來源是 callGeminiAPI
-  //   的 systemOverride 為空時的 fallback(見下方)，而唯一會用空 systemOverride 呼叫的是 actionPlay
-  //   (自由聊天引擎)——但 actionPlay 的 isNsfwMode 恆等於 pcId 開頭是否為 KPC_，且全專案已無任何
-  //   路徑把 pc.mode 設為 'full'(九州殘留、已停用)，故 actionPlay 現在只可能被鑑賞(KPC_)呼叫，
-  //   isNsfwMode 進到這裡永遠是 true，sfwBaseRules 分支從未被選中過。
 
   // 🔴 NSFW(慾海模式)：本回合聚焦當下的近身互動(情慾/調情/鋪陳皆可)，雜務(物品/金錢/陣營/任務/招募/地圖/戰鬥數值/身世)
   // 完全不追蹤、不輸出，鐵律文字大幅精簡，盡量交給AI自行判斷。
@@ -128,13 +105,7 @@ function buildDefaultSystemPrompt(isNsfwMode, backLocked) {
 1. 本回合聚焦於當下的近身互動本身(情慾、調情、對話或鋪陳皆可，依劇情自然推進，不必每回合都導向情慾)：肢體/感官/姿勢等狀態一律填入 intimacy_feedback，嚴禁另以 stat_changes 輸出生命/魔力/負面等任何數值或狀態；戰鬥、物品、金錢、陣營、任務等雜務本回合不追蹤、不輸出。位置改由你自主決定並填入 location 欄(見上方換場地規則)，不再受地圖節點限制。
 2. 只輸出合法JSON，options固定4個、順序不可變、每項20字(類別見下方輸出範本)。`;
 
-  const baseRules = nsfwBaseRules;
-
-  // 4. 模式專屬律令 (極致超壓縮版)
-  // 🔠 2026-07 全面重寫：本函式組出的完整提示詞原本有 3 處重複規則(narration 描述/邊界守護/系統底層防呆
-  //   都各自重講一次「從者廝殺按鈕裁決、不得宣告死亡」；器官填寫規則在這裡與 Router_Narrative.gs 的
-  //   【性別配對】每回合提示重疊)——已收斂為單一來源＋交叉引用，減少每次 API 呼叫的重複字數。
-  const specificRules = isNsfwMode ? `
+  const specificRules = `
 【慾海律令】
 你擅長書寫細膩動人的情慾，放手去寫，以下只是少數底線：
 1. 【先思考，後敘事】嚴禁直接開寫narration！必須先在inner_monologue依對話歷史定位「本回合主要互動對象」目前的情緒溫度與親密階段(可能是 抗拒/拉扯/沉溺，也可能是 甜蜜/依偎/主動索求——依角色意願與好感自然判斷，非必經流程)，再依這個定位下筆。這段第三人稱總結遵循【角色一致性鐵律】：呈現該NPC用原本的人格承受當下一切的樣子。
@@ -144,13 +115,9 @@ function buildDefaultSystemPrompt(isNsfwMode, backLocked) {
 5. 器官代碼依實際性別只填一項(男4/女5)，不適用的那項【直接不輸出這個代碼】，禁止寫「無」佔位(一旦寫入會永久留在角色資料上)——實際配對細節依上方【性別配對】提示。
 6. physical_state欄位key固定用數字代碼(1=姿勢與動作 2=胸部 3=顏面 4=肉棒 5=蜜穴 6=服裝狀態)，禁用文字key，其餘進narration。1/2/3/4或5(擇一)每回合都要據實填最新狀態，不可偷懶沿用舊值；只有6(服裝狀態，描述玩家指定服裝【當下的凌亂/破損程度】，非更換服裝本身)可省略=維持原樣，脫離接觸改寫「鬆開/餘韻」。★此欄純為系統狀態記錄，narration敘事【絕對禁止】比照逐格謄寫每個部位狀態，敘事仍以第4條為準、聚焦留白。
 7. log_summary：subject填主導方真名、object填承受方真名(三人以上填眾人)，符合實際方向，禁因身分預設主動方。
-8. 粗暴動作轉為紅印/酥麻/強烈快感，禁肉體破損流血。雙修技巧(2~5字)填入dynamic_skills，貼合身分個性給出當下情境對應的技巧名；只有本回合確實毫無相關技巧發生時才填「無」，不要動輒預設空白。`
-    : `
-【聖杯戰爭】
-1. 戰鬥意境：筆墨集中魔力流轉、魔術交鋒、從者廝殺、寶具威能、靈基的壓迫感，嚴禁任何性暗示或情慾描寫。
-2. 邊界守護：複數從者/御主同場時各自依個性與陣營獨立判斷，禁擅自無腦聯手圍攻(勝負裁決規則見上方【位置與戰鬥】)。`;
+8. 粗暴動作轉為紅印/酥麻/強烈快感，禁肉體破損流血。雙修技巧(2~5字)填入dynamic_skills，貼合身分個性給出當下情境對應的技巧名；只有本回合確實毫無相關技巧發生時才填「無」，不要動輒預設空白。`;
 
-  return baseRules + "\n" + specificRules + "\n\n★【輸出範本】\n" + JSON.stringify(finalJson, null, 2);
+  return nsfwBaseRules + "\n" + specificRules + "\n\n★【輸出範本】\n" + JSON.stringify(finalJson, null, 2);
 }
 
 function callGeminiAPI(prompt, systemOverride = null, config = {}) {
@@ -170,7 +137,7 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
 
   // 🗑️ 規矩表(主線時局/異象)已移除：舊提示詞補丁，含「廝殺/謀略」等戰爭設定會漏進慾海。
   //   雙軌分離後 solo/kanshou 不再共吃此文。(config.ignoreLaw 保留為相容無害鍵)
-  let systemContent = systemOverride || buildDefaultSystemPrompt(config.isNsfwMode, config.backLocked);
+  let systemContent = systemOverride || buildDefaultSystemPrompt();
 
   // 🔴【替換開始】組裝原生多輪 messages 陣列
   let apiMessages = [

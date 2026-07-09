@@ -327,7 +327,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 
 ## 9. 自由聊天引擎 `actionPlay`（action `play`）— Router_Narrative.gs:8
 
-**用途**：kanshou（慾海後日談，NSFW）＋九州 full 模式（停用中）的自由文字聊天輸入框，走前端 `send()`（Script.html:2600, `action:"play"`）。**solo 聖杯戰爭主軌完全不用這個**——solo 全走按鈕→`narrate_only`。
+**用途**：kanshou（慾海後日談，NSFW）自由文字聊天輸入框，走前端 `send()`（Script.html:2600, `action:"play"`）。**solo 聖杯戰爭主軌完全不用這個**——solo 全走按鈕→`narrate_only`。**2026-07 查證更新**：文件曾註記「＋九州 full 模式（停用中）」共用此引擎，但全 `gas/` 目錄已 grep 不到任何把 `pc.mode` 設為 `'full'` 的程式碼（只剩 `'solo'`/`'kanshou'` 兩處字面賦值）——`full` 模式的呼叫路徑已不存在，`actionPlay` 現在 100% 只被鑑賞(`KPC_`)呼叫。
 
 與 `narrate_only` 的關鍵差異：`actionPlay` **自己從零組完整 prompt**（不假手 caller），且**直接呼叫 `callGeminiAPI(prompt, null, aiConfig)`**（第二參數系統提示詞傳 `null`——所有指令混在 user prompt 內，不像 `narrate_only` 另有獨立 `miniSystem`）。
 
@@ -347,7 +347,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 
 回應解析欄位：`stat_changes`／`rel_changes`／`intimacy_feedback`／`recruited`／`events`／`new_maps`／`log_summary`（2026-07 起僅剩 `subject`/`object` 兩欄，供交談輪數計數；`event`/`tag` 已隨因果表刪除而自 schema 拔除）／`narration`／`options`／`mentioned_names`——**solo 早已把 `new_maps`/`recruited`/`rel_changes.fav_change` 三個回寫閘關掉**（只在 `isNsfwMode` 才生效，見 `SOLO_REFERENCE.md` §3），數值權威仍在 GAS。NSFW 範本另有 `inner_monologue`（範本第一位·強制思維鏈，後端不讀自然丟棄）。**🐛→✅ 2026-07(玩家明確授權)**：原句要求該欄用「第一人稱自省…我原本的性格尊嚴」代入NPC視角，跟 narration 的「我＝玩家」相鄰打架，flash-lite 小模型容易把NPC視角帶進 narration——改第三人稱總結(「該NPC原本的性格尊嚴」)，語意不變只拿掉衝突的「我」字。屬 `finalJson`(非 `nsfwBaseRules` 變數本體)，仍是紅線①保護的 NSFW 核心，經玩家明確授權才改。
 
-（`nsfwBaseRules`／`buildDefaultSystemPrompt` 定義在 `Engine_Combat.gs`——紅線①保護區塊，本文不重複貼出，只標註 `actionPlay` 有引用其機制。）
+（`nsfwBaseRules`／`buildDefaultSystemPrompt` 定義在 `Engine_Combat.gs`——紅線①保護區塊，本文不重複貼出，只標註 `actionPlay` 有引用其機制。**2026-07 更新**：`buildDefaultSystemPrompt` 原本的 `(isNsfwMode, backLocked)` 參數與所有 SFW/`isNsfwMode`-false 分支〔`sfwBaseRules`全文、`baseJson`/`finalJson`的else分支、`specificRules`的else分支〕已玩家定案「統合起來」全數移除，函式簡化為無參數 `buildDefaultSystemPrompt()`，永遠回傳慾海版本——因為查證後這個函式現在只可能被鑑賞呼叫。詳見 `SOLO_REFERENCE.md` §0。）
 
 ---
 
