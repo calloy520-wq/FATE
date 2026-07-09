@@ -373,8 +373,8 @@ function upgradeCodexPersonas_(ss) {
     if (s) {
       // ✅ 2026-07 修：36騎日常版(dailyLook/dailyWords)已手寫寫死進每位 persona，servantToHeroRow_
       //   現在回傳完整15欄(含這兩欄)，整列覆寫時就會一併帶最新手寫內容過去——不再需要事後
-      //   clearContent() 逼下次召喚時跑 AI 重新生成(舊機制是留給 AI 即時翻譯的年代用的，見下方
-      //   getOrComputeDailyHeroFields_ 仍是 ai_gen/自創英靈沒有手寫資料時的備援懶惰快取路徑)。
+      //   clearContent() 逼下次召喚時跑 AI 重新生成(舊機制是留給 AI 即時翻譯的年代用的)。
+      //   Gallery.gs 的 getDailyHeroFields_ 現在純讀取、不再呼叫任何AI——見該函式註解。
       var row = servantToHeroRow_(s); hero.getRange(i + 1, 1, 1, row.length).setValues([row]); n++;
     }
   }
@@ -470,36 +470,20 @@ function resyncSummonedServants_(ss) {
 
 // 🔄【手動·強制】無視版本旗標，立刻把英靈殿＋在場從者重刷成最新種子(套用最新寶具/六圍/標籤/平衡)。
 //   給前端 DEV 按鈕用——不靠自動版本閘(怕部署時序/旗標卡住)，按一下立即生效並回報筆數。
-// 🌹 2026-07 玩家問「直接把種子庫新增日常、變成跟自創英靈對齊」：工房自創英靈是「建立當下就呼叫AI
-//   預先轉好」(recordOriginalHero_)，種子庫則是「懶惰快取、第一次被召喚才轉」(getOrComputeDailyHeroFields_)
-//   ——兩者本可以做成一致(種子庫也在版本升級時全部預先轉好)，但 upgradeCodexPersonas_ 是每次任何玩家
-//   request 都可能自動觸發的路徑(見 seedFateCodex_)，若把「36位英靈×2欄=最多72次AI呼叫」塞進那條
-//   自動路徑，會讓某個不知情玩家的一次按鍵操作卡上數分鐘甚至撞 Apps Script 執行時限。改成只加進這顆
-//   「手動」DEV 按鈕：玩家自己決定要不要花這個時間全部預熱，不影響一般玩家的自動版本升級速度。
-//   getOrComputeDailyHeroFields_ 本身冪等(已有值就跳過零AI呼叫)，重複按這顆按鈕只會補缺、不會重轉。
+// 🧹 2026-07 玩家點名「沒有其他來源不會有要補資料問題」拿掉了「日常版預熱」批次迴圈(原十一修
+//   加的)：那顆迴圈是為了服務「懶惰生成」年代的種子庫而寫的，現在種子(SEED_SERVANTS)全數手寫寫死
+//   dailyLook/dailyWords、工房(ai_gen)建立/修改當下就已生成——upgradeCodexPersonas_ 整列覆寫時
+//   這兩欄必然非空，迴圈的「已有快取，冪等跳過」判斷會對每一列恆真，整段掃描變成純粹的空轉，
+//   已整段移除。
 function actionDevResyncCodex(userData, pcId, sheets) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var codexN = 0, svN = 0, dailyN = 0, errs = [];
+  var codexN = 0, svN = 0, errs = [];
   try { codexN = upgradeCodexPersonas_(ss); } catch (e) { errs.push('英靈殿:' + e.message); }
   try { svN = resyncSummonedServants_(ss); } catch (e) { errs.push('從者:' + e.message); }
-  try {
-    var hero = ss.getSheetByName('英靈殿');
-    if (hero && hero.getLastRow() > 1) {
-      var hd = hero.getDataRange().getValues();
-      for (var i = 1; i < hd.length; i++) {
-        var beforeLook = String(hd[i][COL.HERO.DAILY_LOOK] || "").trim();
-        var beforeWords = String(hd[i][COL.HERO.DAILY_WORDS] || "").trim();
-        if (beforeLook && beforeWords) continue; // 已有快取，冪等跳過
-        var p = {}; try { p = JSON.parse(hd[i][COL.HERO.PERSONA] || "{}"); } catch (e2) { }
-        getOrComputeDailyHeroFields_(hd[i], p); // 內部會 setValue 回英靈殿，這裡不必自己寫
-        dailyN++;
-      }
-    }
-  } catch (e) { errs.push('日常快取:' + e.message); }
   try { PropertiesService.getScriptProperties().setProperty('codex_persona_ver', CODEX_PERSONA_VER); } catch (e) { }
   return JSON.stringify({
     success: true,
-    message: '🔄 已強制套用最新種子：英靈殿 ' + codexN + ' 筆、在場從者 ' + svN + ' 筆更新、日常版預熱 ' + dailyN + ' 筆。'
+    message: '🔄 已強制套用最新種子：英靈殿 ' + codexN + ' 筆、在場從者 ' + svN + ' 筆更新。'
       + (errs.length ? '　⚠ ' + errs.join('；') : '　請重整頁面看最新寶具/標籤。')
   });
 }

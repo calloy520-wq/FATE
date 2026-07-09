@@ -765,7 +765,9 @@ async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，�
     six: six, skills: skills,
     npName: isMaster ? '' : _v('cf-np-name'), npScale: isMaster ? '對人' : document.getElementById('cf-np-scale').value, // 階級旋鈕已拆：顯示階＝六圍寶具階(引擎本就只吃 six.寶具)
     npDesc: isMaster ? '' : _v('cf-np-desc'),   // 寶具威能一句(選填)
-    look: _joinParts('cf-look'), // 🎨 外貌(選填·4小欄位組回·五官髮色/氣質/身形/衣著印象)
+    look: _joinParts('cf-look'), // 🎨 外貌(選填·4小欄位組回·五官髮色/身形/衣著印象/氣質——氣質固定填在最後一格，
+    //   對齊 looksToTraitParts_(Core_Settings.gs)「取最後一段當氣質」的解析慣例，跟種子(SEED_SERVANTS)
+    //   的 persona.look 格式(N段外貌、末段氣質)統一，不會再被誤判成衣著)
     pref: _joinParts('cf-pref'), // 💭 個性(選填·4小欄位組回·日常表象/真實內裡/喜歡/討厭)
     weapon: isMaster ? '' : _v('cf-weapon'), desc: _v('cf-desc'),
     // 🎭 演出細節(選填·零數值)：自稱/陣營/態度/口吻/小動作/萌點/身世——留空＝AI 補
