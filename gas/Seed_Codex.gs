@@ -170,7 +170,7 @@ var SEED_SERVANTS = [
             {n:'原初符文',r:'A',fx:'rune'},{n:'魔境的智慧',r:'A+',fx:'mage_realm'},{n:'刺穿死亡之棘',r:'A',fx:'gae_bolg',causality:true}],
     traits:[{n:'人類'}], np:'貫穿死翔之槍 Gáe Bolg Alternative（對人 B+·釘空必中＋投擲斷命）／死亡滿溢的魔境之門 Gate of Skye（對軍 A+·吸入影之國）',
     align:'中立・中庸', persona:{firstP:'我',look:'紫髮紅瞳・緊身戰衣的妖豔女王、冷峻',words:'影之國女王・武人',toMaster:'嚴厲考校、唯認可強者，師者之威',speech:'偶露揶揄的嚴師語氣',moe:'渴望一死卻不得的寂寞',tic:'魔槍杵地',
-    dailyLook:'紫髮紅瞳・貼身紫紅色系穿搭的妖豔女子、冷峻自持',dailyWords:'居高臨下、武人本色與女王氣度不減、真材實料的較量、虛有其表的花拳繡腿'} },
+    dailyLook:'紫髮紅瞳・貼身紫紅色系穿搭的妖豔女子、冷峻自持',dailyWords:'居高臨下、看盡生死後無人能懂的倦怠與孤寂、真材實料的較量、虛有其表的花拳繡腿'} },
   { id:'斯卡哈-Assassin', cls:'Assassin', realName:'斯卡哈', wars:['客串'], gender:'女',
     six:{筋力:'C',耐久:'C',敏捷:'A+',魔力:'C',幸運:'D',寶具:'B+'},
     classSkills:[{n:'氣息遮斷',r:'E',fx:'stealth'}],
@@ -186,7 +186,7 @@ var SEED_SERVANTS = [
     skills:[{n:'直感',r:'B',fx:'first_strike'},{n:'魔力放出',r:'B',fx:'burst'},{n:'沉著冷靜',r:'B',fx:'clear_mind'},{n:'誓約勝利之劍',r:'A',fx:'excalibur'}],
     traits:[{n:'人類'},{n:'騎士'}], np:'誓約勝利之劍 Excalibur（對城 A·聖劍之光收束於劍尖·解放為撕裂大地、直貫蒼穹的金色巨炮）',
     align:'秩序・善', persona:{firstP:'我',look:'黑髮藍裙・Saber install 的內斂少女、沉靜',words:'認真・背負宿命',toMaster:'認真盡責，沉默守護',speech:'寡言低語、不擅表達',moe:'認真過頭的笨拙',tic:'垂眸淺應',
-    dailyLook:'黑髮・藍色系洋裝打扮的內斂少女、沉靜寡言',dailyWords:'寡言認真、背負宿命般的責任感、安穩平靜的日子、辜負他人的期待'} },
+    dailyLook:'黑髮・藍色系洋裝打扮的內斂少女、沉靜寡言',dailyWords:'寡言認真卻手忙腳亂的笨拙、背負宿命般的責任感、安穩平靜的日子、辜負他人的期待'} },
   { id:'小黑-Archer', cls:'Archer', realName:'克洛伊·馮·愛因茲貝倫（Archer install）', wars:['客串'], gender:'女',
     six:{筋力:'C',耐久:'C',敏捷:'A',魔力:'B',幸運:'C',寶具:'B'},
     classSkills:[{n:'對魔力',r:'D',fx:'nullify_magic'},{n:'單獨行動',r:'B',fx:'solo'}],
@@ -200,7 +200,7 @@ var SEED_SERVANTS = [
     skills:[{n:'高速神言',r:'A',fx:'fast_cast'},{n:'魔力放出',r:'B',fx:'burst'},{n:'純真無垢',r:'A',fx:'clear_mind'}],
     traits:[{n:'人類'}], np:'全彈發射・魔力炮 Quintett Feuer（多重魔力炮擊）',
     align:'中立・善', persona:{firstP:'我',look:'白髮紅瞳・魔杖在手的魔法少女、元氣',words:'天真・善良',toMaster:'純真信賴，朝氣蓬勃',speech:'活潑直率、元氣滿滿',moe:'愛哭卻在關鍵時刻勇敢',tic:'眼眶泛淚還硬撐',
-    dailyLook:'白髮紅瞳・可愛打扮配別緻手杖裝飾的少女、元氣滿滿',dailyWords:'天真爛漫、藏不住的善良與正義感、熱鬧開心的事、看到有人受欺負'} },
+    dailyLook:'白髮紅瞳・可愛打扮配別緻手杖裝飾的少女、元氣滿滿',dailyWords:'天真爛漫、淚眼汪汪卻在緊要關頭豁得出去的勇敢、熱鬧開心的事、看到有人受欺負'} },
   // 🌹 2026-07 玩家定案「把女性正典御主也做進鑑賞種子」：這3位是聖杯戰爭中的正典御主(非從者)，
   //   原本只能靠已砍除的「奪杯封存＋鑑賞緣」養好感後才可能收錄——現在直接進英靈殿，可被鑑賞
   //   「直接召喚」。cls 刻意標'御主'(非七大從者職階)，不會出現在solo召喚頁的職階清單，
