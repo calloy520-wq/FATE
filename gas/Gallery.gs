@@ -111,26 +111,36 @@ function getKanshouPcSheet_(ss) {
 //   (如「妖異而空洞的笑」)又被要求「原樣照抄、一字不改」，直接搬進和平日常場景顯得突兀。改成：
 //   ①服裝明確要求保留原本色系/風格精神、只做日常化改造，不换成完全不同調性；②最後一段的氣質/神情
 //   改成「依和平日常情境自然轉化」而非硬性照抄，但仍鎖住角色性格底色不可變成別人。
-function translateAppearanceToDaily_(name, cls, rawLook) {
+// 🌹 2026-07 玩家定案「日常衣裝獨立成欄，不要混在外貌裡」：原本 translateAppearanceToDaily_ 只輸出
+//   一段「N段外貌(含服裝)、最後一段氣質」的鬆散字串，讀取端再靠 looksToTraitParts_ 硬拆——服裝跟
+//   五官體態混在同一段，也沒有真正屬於角色個人的「自稱與口氣」/「卸下心防的私密一面」(那兩格過去
+//   一律是寫死的通用填充句，見 looksToTraitParts_ 註解)。改寫成 translateLookToDaily_：一次 AI 呼叫
+//   直接輸出兩樣東西——①look：明確四段(外貌本相/氣質舉止/自稱與口氣/卸下心防的私密一面)，跟
+//   PERSONA.traits／PREF 的四格格式完全對齊，不必再靠 looksToTraitParts_ 事後硬拆；②outfit：獨立的
+//   日常穿搭一句話。取代原本的 translateAppearanceToDaily_，呼叫端同步改名。
+function translateLookToDaily_(name, cls, rawLook, firstP, speech) {
   var look = String(rawLook || "").trim();
-  if (!look) return look;
+  if (!look) return { look: "", outfit: "" };
   try {
-    var sys = "你是《命運停駐之夜》的造型顧問。玩家提供一段用「、」分隔的角色描述短語：前面數段是" +
-      "外貌與戰時攻防裝束(髮色、瞳色、盔甲、武裝、戰鬥姿態等)，最後一段是整體氣質／神情。" +
-      "這是 Fate／聖杯戰爭的平行世界日常線，想像《衛宮家今天的餐桌風景》那種基調——換上現代日常" +
-      "穿搭，但一看就知道是她本人。\n" +
-      "①外貌與攻防裝束段落：保留髮色/瞳色/五官/體態等本相特徵與原本服裝的色系、風格精神，戰甲/" +
-      "武裝/戰鬥姿態換成同色系、同調性的現代日常服裝與造型，盡量貼近原味。\n" +
-      "②最後一段的氣質／神情：依和平日常情境自然轉化，但保留角色本身的性格底色，不可變成另一個人的氣質。\n" +
-      "★輸出格式必須是同樣用「、」分隔的短語，段數與原文完全一致，每段對應原文同一位置的短語(只替換" +
-      "內容、不合併或拆分段落)。只輸出轉換後的描述本體，不要輸出任何說明、標籤、引號、前後綴。";
-    var prompt = "角色：" + name + "（" + cls + "）\n戰時描述：" + look;
-    var out = String(callGeminiAPI(prompt, sys, { temperature: 0.7, ignoreLaw: true, plainText: true }) || "").trim();
-    return out || look;
-  } catch (e) { return look; }
+    var sys = "你是《命運停駐之夜》的角色側寫顧問。玩家提供一段用「、」或「・」分隔的角色戰時外貌描述" +
+      "(前面數段是外貌本相與戰時攻防裝束，最後一段是整體氣質／神情)，以及她的第一人稱自稱、說話語氣。" +
+      "這是 Fate／聖杯戰爭的平行世界日常線，想像《衛宮家今天的餐桌風景》那種基調——換上現代日常穿搭，" +
+      "但一看就知道是她本人。請輸出兩樣東西：\n" +
+      "①look：日常版「外貌」四短句、頓號分隔，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝)]、" +
+      "[氣質舉止(依和平日常情境自然轉化，但性格底色不變，不可變成另一個人的氣質)]、" +
+      "[自稱與口氣：固定格式「自稱「" + (firstP || "我") + "」，再接一句依她原本說話語氣(" + (speech || "無特別描述") + ")寫成的日常口氣描述」]、" +
+      "[卸下心防的私密一面(這個角色只有放下戒備才會流露的一個具體、生活化、忠於其性格的小可愛面向，" +
+      "不可空泛或套用他人)]。\n" +
+      "②outfit：一句她今天的日常穿搭，保留原本服裝的色系/風格精神、換成現代日常款式，盡量貼近原味，" +
+      "不要跟look的內容重複。\n" +
+      "★輸出合法 JSON、禁 Markdown：{\"look\":\"四短句頓號分隔\",\"outfit\":\"一句日常穿搭\"}";
+    var prompt = "角色：" + name + "（" + cls + "）\n戰時外貌描述：" + look;
+    var out = JSON.parse(callGeminiAPI(prompt, sys, { temperature: 0.7, ignoreLaw: true }) || "{}");
+    return { look: String(out.look || "").trim() || look, outfit: String(out.outfit || "").trim() };
+  } catch (e) { return { look: look, outfit: "" }; }
 }
 
-// 🔀 2026-07：跟上面 translateAppearanceToDaily_ 同一批「轉去鑑賞都市日常」需求，原本落在
+// 🔀 2026-07：跟上面 translateLookToDaily_ 同一批「轉去鑑賞都市日常」需求，原本落在
 //   Core_Settings.gs(solo 的 enrichPersonalityLikesDislikes_ 附近)——鑑賞集中到 Gallery.gs 這輪
 //   一併搬過來，兩個「XToDaily_」翻譯函式終於同居一處，不用跨檔找。
 // 🤖 2026-07 玩家定調「種子就是去戰鬥的，可以少幾項沒問題；轉到鑑賞，AI必須依照種子進行補充
@@ -195,10 +205,13 @@ function getDailyHeroFields_(heroRow, p) {
   var existingLook = String(heroRow[COL.HERO.DAILY_LOOK] || "").trim();
   var existingWords = String(heroRow[COL.HERO.DAILY_WORDS] || "").trim();
   var existingMoe = String(heroRow[COL.HERO.DAILY_MOE] || "").trim();
+  // 🆕 DAILY_OUTFIT(2026-07)：服裝跟外貌本相分開存，戰時 persona 沒有對應的「純服裝」欄可退——
+  //   沒快取到值就交給 heroToKanshouRow_ 自己的「日常便服」保底，這裡純讀取不瞎猜。
+  var existingOutfit = String(heroRow[COL.HERO.DAILY_OUTFIT] || "").trim();
   var rawLook = String(p.look || "").replace(/・/g, "、");
   var rawWords = String(p.words || "").replace(/・/g, "、");
   var rawMoe = String(p.moe || "");
-  return { look: existingLook || rawLook, words: existingWords || rawWords, moe: existingMoe || rawMoe };
+  return { look: existingLook || rawLook, words: existingWords || rawWords, moe: existingMoe || rawMoe, outfit: existingOutfit };
 }
 
 // 🌹 慾海直接從英靈庫挑選(2026-07 玩家定案·與「封存後邀請」並存)：不必先在 solo 打贏一場戰爭
@@ -233,7 +246,13 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   //   任何AI呼叫的可能。
   var daily = getDailyHeroFields_(heroRow, p);
   sRow[COL.PC.PREF] = parseTraitsHelper(daily.words, "沉著表象、堅定內裡、珍視之物、厭惡之事");
-  sRow[COL.PC.TRAIT] = parseTraitsHelper(looksToTraitParts_(daily.look, p.firstP), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
+  // 🌹 2026-07 玩家定案「日常衣裝獨立成欄」：dailyLook 從「N段外貌(含服裝)、最後一段氣質」的鬆散
+  //   格式，改為手寫/AI轉換直接產出的明確四段(外貌本相/氣質舉止/自稱與口氣/私密一面)——已是這個
+  //   格式的話直接讀，不必再靠 looksToTraitParts_ 硬拆；只有還沒補上新格式的舊資料(過渡期)才退回
+  //   舊拆法，兩者相容、零斷層。
+  var dailyLookParts = String(daily.look || "").split('、').map(function (s) { return s.trim(); }).filter(Boolean);
+  var traitSrc = dailyLookParts.length >= 4 ? daily.look : looksToTraitParts_(daily.look, p.firstP);
+  sRow[COL.PC.TRAIT] = parseTraitsHelper(traitSrc, "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
   // 🌹 2026-07 玩家定案「餐桌是平行世界、沒有聖杯戰爭這回事」：萌點跟外貌/性格一樣改讀日常版
   //   (daily.moe)，不再直接照搬戰時 persona.moe——那種靠戰爭/創傷撐出的沉重反差在這個沒打過
   //   聖杯戰爭的世界裡沒有來由，詳見 getDailyHeroFields_/translateMoeToDaily_。
@@ -242,8 +261,9 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   //   fallback)還空——多數種子沒有 persona.back 沒差，但這次新增的3位女性正典御主特地補了
   //   身世，若這裡不接就白填了。比照 solo 的 svBack 邏輯：有 persona.back 就用，沒有則職階+真名。
   sRow[COL.PC.BACK] = p.back ? String(p.back).slice(0, 28) : `${sRow[COL.PC.RANK]}・${name}`;
-  // 🆕 直接召喚無快照可帶，先給「日常便服」墊底，卡片才不會裝扮欄空白待換裝
-  sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", p.speech, p.tic), "日常便服");
+  // 🆕 直接召喚無快照可帶，用該英靈自己的日常衣裝(daily.outfit)墊底，沒有才退回通用「日常便服」；
+  //   卡片才不會裝扮欄空白待換裝——玩家隨時仍可透過既有換裝功能覆寫(getOutfit_/setOutfit_，可清)。
+  sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", p.speech, p.tic), daily.outfit || "日常便服");
   // 🧹 2026-07 玩家定案「同伴也可以不先顯示」：拿掉建立當下就預填肉體狀態的做法，改跟御主本人
   // (actionEnterKanshou)一致——PHYSICAL 留空，「當前狀態」面板顯示「--」，直到真的發生第一次
   // 互動、AI 回傳 intimacy_feedback 才第一次寫入。Router_Narrative.gs 的懶初始化(pPhysicalObj
@@ -330,7 +350,7 @@ function actionBackfillKanshouServantAi(userData, pcId, sheets) {
   // 🐛→✅ 2026-07 玩家點出：這顆「深化」不分英靈來源，一律用「你熟知這位英靈原作」的提示詞——
   //   但工房原創(ai_gen)角色根本沒有真實原作可言，AI被要求「依你對原作的認知潤色」只會亂猜、
   //   甚至編出不存在的「正典設定」蓋掉玩家自己寫的原創設計。工房角色的都市日常轉換已在
-  //   heroToKanshouRow_(translateAppearanceToDaily_/translatePersonalityToDaily_)做過、且尊重
+  //   heroToKanshouRow_(translateLookToDaily_/translatePersonalityToDaily_)做過、且尊重
   //   玩家原始設計，這裡對 ai_gen 直接略過，不重複用錯誤前提的提示詞覆寫一次。
   try {
     var _heroes = getHeroCodexCached();

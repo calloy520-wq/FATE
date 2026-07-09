@@ -294,14 +294,16 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
   // 🤖 2026-07 玩家定調「工房捏角當下也提前生成日常資料」：跟種子英靈懶惰快取(見
   // getOrComputeDailyHeroFields_)不同——工房角色創造當下就順手轉好，寫進英靈殿新增的
   // DAILY_LOOK/DAILY_WORDS 欄，之後第一次被召喚進鑑賞就直接有現成日常版，不必等召喚當下才轉。
-  var dailyLook = translateAppearanceToDaily_(name, cls, String(px.look || ""));
+  // 🌹 2026-07 玩家定案「日常衣裝獨立成欄」：translateAppearanceToDaily_ 已升級成 translateLookToDaily_，
+  //   一次呼叫同時產出四段式 look(外貌本相/氣質舉止/自稱與口氣/私密一面) 與獨立的 outfit(日常穿搭)。
+  var dailyLookRes = translateLookToDaily_(name, cls, String(px.look || ""), String(px.firstP || ""), String(px.speech || ""));
   var dailyWords = translatePersonalityToDaily_(name, cls, String(personaWords || ""));
   // 🌹 2026-07 玩家定案「餐桌是平行世界、沒有聖杯戰爭這回事」：萌點比照 look/words 同步轉換，
   //   避免 heroToKanshouRow_ 直接搬戰時反差萌進一個沒打過聖杯戰爭的世界。
   var dailyMoe = translateMoeToDaily_(name, cls, String(px.moe || ""));
   hs.appendRow([name + "-" + cls, cls, name, sex || "異", sixJson || "{}",
     JSON.stringify(classSkills || []), JSON.stringify(skills || []), JSON.stringify(traits || []),
-    np || "", persona, align || "中立", "[]", "ai_gen", dailyLook, dailyWords, dailyMoe]);
+    np || "", persona, align || "中立", "[]", "ai_gen", dailyLookRes.look, dailyWords, dailyMoe, dailyLookRes.outfit]);
   try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { } // 種子表已變動→清快取，下次讀到新從者
 }
 
@@ -453,13 +455,18 @@ function actionSaveHero(userData, pcId, sheets) {
     data[idx][COL.HERO.SKILLS] = JSON.stringify(pb.skills);
     data[idx][COL.HERO.NP] = np; data[idx][COL.HERO.ALIGN] = pb.align;
     const newWords = keep(pb.pref, pj.words), newLook = keep(pb.look, pj.look), newMoe = keep(pb.moe, pj.moe);
+    const newFp = keep(pb.fp, pj.firstP) || "我", newSpeech = keep(pb.speech, pj.speech);
     data[idx][COL.HERO.PERSONA] = JSON.stringify({
-      words: newWords, firstP: keep(pb.fp, pj.firstP) || "我", toMaster: keep(pb.toM, pj.toMaster),
-      look: newLook, moe: newMoe, speech: keep(pb.speech, pj.speech),
+      words: newWords, firstP: newFp, toMaster: keep(pb.toM, pj.toMaster),
+      look: newLook, moe: newMoe, speech: newSpeech,
       tic: keep(pb.tic, pj.tic), back: keep(pb.back, pj.back), weapon: keep(pb.weapon, pj.weapon), creator: pj.creator
     });
     // 🤖 2026-07：外貌/性格改了，先前快取的日常版本會跟新設定對不上——重新轉一次，不留舊資料。
-    data[idx][COL.HERO.DAILY_LOOK] = translateAppearanceToDaily_(build.name, pb.cls, newLook);
+    // 🌹 2026-07 玩家定案「日常衣裝獨立成欄」：translateLookToDaily_ 一次呼叫同時產出四段式 look 與
+    //   獨立的 outfit，取代原本的 translateAppearanceToDaily_。
+    const dailyLookRes = translateLookToDaily_(build.name, pb.cls, newLook, newFp, newSpeech);
+    data[idx][COL.HERO.DAILY_LOOK] = dailyLookRes.look;
+    data[idx][COL.HERO.DAILY_OUTFIT] = dailyLookRes.outfit;
     data[idx][COL.HERO.DAILY_WORDS] = translatePersonalityToDaily_(build.name, pb.cls, newWords);
     data[idx][COL.HERO.DAILY_MOE] = translateMoeToDaily_(build.name, pb.cls, newMoe);
     hs.getRange(idx + 1, 1, 1, data[idx].length).setValues([data[idx]]);

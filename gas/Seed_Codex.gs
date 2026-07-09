@@ -264,7 +264,7 @@ function servantToHeroRow_(s) {
   return [s.id, s.cls, s.realName, s.gender, JSON.stringify(s.six),
     JSON.stringify(s.classSkills), JSON.stringify(s.skills), JSON.stringify(s.traits),
     s.np, JSON.stringify(s.persona), s.align, JSON.stringify(s.wars), 'seed',
-    p.dailyLook || '', p.dailyWords || '', p.dailyMoe || ''];
+    p.dailyLook || '', p.dailyWords || '', p.dailyMoe || '', p.dailyOutfit || ''];
 }
 // 御主物件 → 御主殿列（順序＝COL.MASTER；末兩欄 身世、萌點 為本版新增）
 function masterToCodexRow_(m) {
