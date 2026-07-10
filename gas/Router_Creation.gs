@@ -47,7 +47,6 @@ function actionManualNpc(userData, pcId, sheets) {
     const _canonMaster = SEED_MASTERS.find(m => m && String(m.id) === String(userData.playedMaster));
     if (_canonMaster) finalName = _canonMaster.name;
   }
-
   // 🔵 實例化：御主創角 → 開一個全新 game_id 世界
   const gameId = "g_" + Date.now();
 
