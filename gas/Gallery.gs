@@ -851,6 +851,19 @@ function addKanshouMet_(memory, name) {
   const cleaned = s.replace(/｜?【邂逅】[^｜【】]*/g, "");
   return (cleaned ? cleaned + "｜" : "") + "【邂逅】" + set.join(',');
 }
+// 🎲 巧遇抽選共用邏輯(70%機率)：「出門走走」按鈕跟下面「原地問還有誰」共用同一套加權隨機，
+//   不重複寫兩次同一段機率/查找程式碼。查無標籤地點退回KANSHOU_MALE_HERO_IDS_全池保底。
+function kanshouRollEncounter_(locName) {
+  const tagPool = KANSHOU_LOCATION_TAGS_[locName] || [];
+  const pool = tagPool.length ? tagPool : KANSHOU_MALE_HERO_IDS_;
+  if (!pool.length || Math.random() >= 0.7) return null;
+  const pickId = pool[Math.floor(Math.random() * pool.length)];
+  return SEED_SERVANTS.find(h => h.id === pickId) || null;
+}
+// 🔍 2026-07 玩家反映「問還有誰在，AI因為在場驗證鐵律不敢生人」：啟發式關鍵字偵測玩家這句話是不是
+//   在問「這裡還有沒有其他人」——非精準語意理解，寧可漏判(退回原本純背景路人描寫，行為不變)也不要
+//   誤判(額外巧遇頂多是意外驚喜，不是壞事)。只在玩家目前所在地是「出門走走」10個地點之一時才會用到。
+const KANSHOU_ASKING_WHO_ELSE_RE_ = /(這裡|這附近|附近|周圍).{0,6}(還有誰|有誰|有人|其他人|別人)|(還有誰|有誰|有人|其他人|別人).{0,6}(這裡|這附近|附近|周圍)|還有(誰|其他人|別人)|有沒有(其他)?人|誰在(這|附近|這裡)/;
 
 function actionPlay(userData, pcId, sheets) {
   const userMsg = userData.message;
@@ -915,7 +928,7 @@ function actionPlay(userData, pcId, sheets) {
 
   // 🌸 鑑賞地點移動 continued：合法地點時才寫入LOC(含同行同伴一起同步，比照AI自由換場的既有
   //   邏輯)＋抽選巧遇＋記錄邂逅名單。抽選只在「按下移動按鈕」這個瞬間跑一次，不會每句對話重算。
-  let kanshouEncounterHero = null, kanshouEncounterMetBefore = false;
+  let kanshouEncounterHero = null, kanshouEncounterMetBefore = false, kanshouEncounterLocName = "";
   if (moveTarget) {
     curL = moveTarget.name;
     pcData[pcIndex][COL.PC.LOC] = curL;
@@ -928,19 +941,24 @@ function actionPlay(userData, pcId, sheets) {
       pcData[nIdx][COL.PC.LOC] = curL;
       dirtyPcRows.add(nIdx);
     });
-    const tagPool = KANSHOU_LOCATION_TAGS_[moveTarget.name] || [];
-    const pool = tagPool.length ? tagPool : KANSHOU_MALE_HERO_IDS_;
-    if (pool.length && Math.random() < 0.7) {
-      const pickId = pool[Math.floor(Math.random() * pool.length)];
-      kanshouEncounterHero = SEED_SERVANTS.find(h => h.id === pickId) || null;
-      if (kanshouEncounterHero) {
-        const nm = kanshouEncounterHero.realName;
-        kanshouEncounterMetBefore = getKanshouMetSet_(pcData[pcIndex][COL.PC.MEMORY]).includes(nm);
-        if (!kanshouEncounterMetBefore) {
-          pcData[pcIndex][COL.PC.MEMORY] = addKanshouMet_(pcData[pcIndex][COL.PC.MEMORY], nm);
-          dirtyPcRows.add(pcIndex);
-        }
-      }
+    kanshouEncounterLocName = moveTarget.name;
+    kanshouEncounterHero = kanshouRollEncounter_(moveTarget.name);
+  } else {
+    // 🔍 2026-07 玩家反映「問還有誰在，AI因為在場驗證鐵律不敢生人」：沒按移動按鈕，但這句話像在問
+    //   「這裡還有誰」，且玩家目前所在地是「出門走走」10個地點之一時，用目前地點重新擲一次巧遇——
+    //   跟按移動按鈕同一套加權隨機，不寫LOC(沒有移動，位置不變)、不同步同伴(沒人移動)。
+    const curLocDef = KANSHOU_LOCATIONS_.find(l => l.name === String(curL || "").trim());
+    if (curLocDef && KANSHOU_ASKING_WHO_ELSE_RE_.test(userMsg)) {
+      kanshouEncounterLocName = curLocDef.name;
+      kanshouEncounterHero = kanshouRollEncounter_(curLocDef.name);
+    }
+  }
+  if (kanshouEncounterHero) {
+    const nm = kanshouEncounterHero.realName;
+    kanshouEncounterMetBefore = getKanshouMetSet_(pcData[pcIndex][COL.PC.MEMORY]).includes(nm);
+    if (!kanshouEncounterMetBefore) {
+      pcData[pcIndex][COL.PC.MEMORY] = addKanshouMet_(pcData[pcIndex][COL.PC.MEMORY], nm);
+      dirtyPcRows.add(pcIndex);
     }
   }
 
@@ -1079,7 +1097,7 @@ function actionPlay(userData, pcId, sheets) {
     const p = kanshouEncounterHero.persona || {};
     const look = p.dailyLook || p.look || "";
     const words = p.dailyWords || p.words || "";
-    return `\n★【本回合系統指定巧遇——僅此一次的例外，不受下方在場驗證鐵律限制】：『${kanshouEncounterHero.realName}』（${kanshouEncounterHero.cls}）此刻恰好也在「${moveTarget.name}」，${kanshouEncounterMetBefore ? "是已經打過照面的熟面孔" : "是初次的邂逅"}——外貌氣質:${look}／日常個性:${words}。允許TA以真實姓名登場、開口互動，但這只是路過的巧遇，不是同行隊伍成員：好感/關係不追蹤記錄，可以自然地聊幾句、道別離開，不必邀請同行、也不必刻意延續到下一輪。`;
+    return `\n★【本回合系統指定巧遇——僅此一次的例外，不受下方在場驗證鐵律限制】：『${kanshouEncounterHero.realName}』（${kanshouEncounterHero.cls}）此刻恰好也在「${kanshouEncounterLocName}」，${kanshouEncounterMetBefore ? "是已經打過照面的熟面孔" : "是初次的邂逅"}——外貌氣質:${look}／日常個性:${words}。允許TA以真實姓名登場、開口互動，但這只是路過的巧遇，不是同行隊伍成員：好感/關係不追蹤記錄，可以自然地聊幾句、道別離開，不必邀請同行、也不必刻意延續到下一輪。`;
   })() : "";
 
   const driveStr = driveOn ? `
