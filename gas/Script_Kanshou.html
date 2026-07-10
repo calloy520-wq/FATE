@@ -27,7 +27,7 @@
       //   但玩家原創(src==='ai_gen')只有創造者本人能召喚——不可召喚別人工房/盲盒捏出的角色進自己的後日談。
       //   (solo 那邊的隨機/混亂池刻意共用玩家原創、維持既有設計不動，這條限制僅針對鑑賞直接指名召喚。)
       _kcHeroes = ((heroRes && heroRes.success) ? (heroRes.heroes || []) : [])
-        .filter(function (h) { return _kcCur.indexOf(h.name) === -1; })
+        .filter(function (h) { return !_kcCur.some(function (c) { return c.name === h.name; }); })
         .filter(function (h) { return h.src !== 'ai_gen' || (h.creator && h.creator === currentAccount); });
       renderCompanionsPanel();
     } catch (e) { alert('讀取同伴失敗。'); }
@@ -57,10 +57,14 @@
       + '<button onclick="changeKanshouSex()" style="flex:1;padding:5px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">⚧ 切換性別</button>'
       + '</div></div>'
       + '<div style="font-size:12px;color:#cbb;margin:6px 0 3px;">在場同伴</div>'
-      + (cur.length ? cur.map(function (n) {
+      // 🆕 2026-07「關係改玩家決定，AI不可以改動但可以不認」：關係標籤從此只能由玩家自己在這裡改，
+      //   AI只能在敘事裡表現認不認同(態度)，不再擅自覆寫這個欄位——加一顆「🏷️關係」鈕呼叫
+      //   update_rel_tag。好感(數字)僅供玩家參考，不可編輯(仍是AI依劇情推進)。
+      + (cur.length ? cur.map(function (c) {
           return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
-            + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(n) + '</span>'
-            + '<button onclick="kanshouRemove(\'' + String(n).replace(/'/g, '') + '\')" style="padding:4px 10px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">請走</button></div>';
+            + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(c.name) + ' <small style="color:#8a7fa0;">(關係:' + escapeHtml(c.tag || '從者') + '・好感' + c.bond + ')</small></span>'
+            + '<button onclick="kanshouEditRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button>'
+            + '<button onclick="kanshouRemove(\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 10px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">請走</button></div>';
         }).join('') : '<div style="color:#888;padding:6px;">（暫無同伴）</div>')
       + '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">🌹 從英靈殿召喚</div>'
       + '<div style="display:flex;gap:6px;margin-bottom:6px;">'
@@ -100,6 +104,19 @@
       const res = await gasRun({ action: 'kanshou_remove', pcId: pc.id, acctName: currentAccount, servantName: name });
       if (res && res.success) { syncData(true); openCompanions(); } else { alert((res && res.message) || '請走失敗。'); }
     } catch (e) { alert('請走失敗。'); }
+  }
+  // 🏷️ 2026-07 新增「關係改玩家決定」：REL_TAG 從此只能由玩家在這裡手動改，AI只能在敘事裡
+  //   表現認不認同(態度)、不再擅自覆寫這個欄位。呼叫既有的 update_rel_tag(後端早就有、只是
+  //   從未接過前端UI)。
+  async function kanshouEditRelTag(name, oldTag) {
+    var nt = prompt('「' + name + '」的關係稱呼(對方不一定會馬上認同，依好感與個性而定)：', oldTag || '從者');
+    if (nt === null) return;
+    nt = String(nt).trim();
+    if (!nt) { alert('關係稱呼不能空白。'); return; }
+    try {
+      const res = await gasRun({ action: 'update_rel_tag', pcId: pc.id, targetName: name, newTagText: nt });
+      if (res && res.success) { syncData(true); openCompanions(); } else { alert((res && res.message) || '更改失敗。'); }
+    } catch (e) { alert('更改失敗。'); }
   }
   // ✏ 隨時更改後日談中「你（御主）」的名字
   async function changeKanshouName() {

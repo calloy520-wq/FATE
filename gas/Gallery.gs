@@ -517,7 +517,11 @@ function actionKanshouCompanions(userData, pcId, sheets) {
   for (var i = 1; i < data.length; i++) {
     // ⚠ 2026-07 修：請走已改成「保留列、只退出同行」(見 actionKanshouRemove)，此處必須加 IS_PARTY
     // 過濾，否則被請走、資料仍在表上的同伴會被誤判成「在場」。
-    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && String(data[i][COL.PC.IS_PARTY] || "") === "同行" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) current.push(String(data[i][COL.PC.NAME]));
+    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && String(data[i][COL.PC.IS_PARTY] || "") === "同行" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) {
+      // 🆕 2026-07「關係改玩家決定」：面板需要顯示當前關係標籤＋好感，玩家才知道要不要改、改成什麼——
+      //   從單純姓名陣列升級成物件陣列(name/tag/bond)。
+      current.push({ name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "從者"), bond: parseInt(data[i][COL.PC.BOND]) || 0 });
+    }
   }
   return JSON.stringify({ success: true, current: current, available: [], max: 3 });
 }
@@ -666,7 +670,8 @@ function buildDefaultSystemPrompt() {
         "name": "NPC實際名字",
         "physical_state": _physicalStateRef,
         "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第6條)",
-        "mutual_nicknames": "雙方間已自然發展出的暱稱/愛稱(規則見下方慾海律令第6條)"
+        "mutual_nicknames": "雙方間已自然發展出的暱稱/愛稱(規則見下方慾海律令第6條)",
+        "attitude": "這名NPC對御主當下的臨場態度(非好感趨勢，第三人稱，≤15字，規則見下方慾海律令第7條)"
       }]
     },
     // 🔠 2026-07：原本「名字提取鐵律」在 Router_Narrative.gs 每回合另開一整段落解釋 target 只能填真名，
@@ -676,9 +681,13 @@ function buildDefaultSystemPrompt() {
     //   ——寫入後從未被讀回餵給AI(AI看不到自己上次許過什麼，[達成]/[清空]語法講清楚也無從觸發)，
     //   玩家也沒有任何UI能查看或手動清空，玩家定案「整條拆掉」。schema 欄位一併移除，見下方
     //   `relChangesToProcess.forEach` 拿掉的處理邏輯、`COL.PC.MAJOR_EVENT` 定義處註解。
+    // 🔄 2026-07 玩家定案「關係改玩家決定，AI不可以改動但可以不認」：tag欄位整條移除——關係標籤
+    //   (COL.PC.REL_TAG)從此只能由御主自己透過UI(update_rel_tag)手動更改，AI不再有任何管道寫入
+    //   這個欄位。AI對這個標籤的影響力只剩「認不認同」，寫在NPC自身當下的attitude欄(見上方
+    //   intimacy_feedback.npcs)，不是靠覆寫關係標籤本身表達。
     "rel_changes": [{
-      "_note": "fav_change為整數(可正可負)，關係要慢慢培養、不可躁進：日常閒聊+1~2、明顯心動或重大進展+3~5，單回合上限+5，不可一次跳大段；越界冒犯可填負數。★fav_change純粹是好感升降的數字，與口吻/語氣描述無關。tag為【關係定位】四字詞(萍水相逢/點頭之交/漸生情愫/紅顏知己等)，依好感高低填，無變化填「無」。",
-      "target": "NPC真實姓名或「自己」(禁填台詞/地名/動作等其他內容)", "fav_change": 3, "tag": "無"
+      "_note": "fav_change為整數(可正可負)，關係要慢慢培養、不可躁進：日常閒聊+1~2、明顯心動或重大進展+3~5，單回合上限+5，不可一次跳大段；越界冒犯可填負數。★fav_change純粹是好感升降的數字，與口吻/語氣描述無關。",
+      "target": "NPC真實姓名或「自己」(禁填台詞/地名/動作等其他內容)", "fav_change": 3
     }],
     // 🧹 2026-07 玩家定案「mentioned_names 這也不用了吧」：查證後這欄對鑑賞(唯一還會呼叫此
     //   schema 的路徑)已是死欄——前端(Script.html send())收到後只會 pushCandidate(name, name)，
@@ -724,7 +733,8 @@ function buildDefaultSystemPrompt() {
 
 【世界與NPC自主】
 1. 意圖攔截(強制檢查)：玩家輸入動作僅為「意圖」非結果。裁定前先比對NPC的[個性]：非高度順從者，本回合【必須】寫出實際抗拒/閃避/拒絕，意圖未完全得逞，禁言出法隨；個性確為順從才可直接成立。
-2. 慢熱與傾心：NPC依[個性][氣質]真實反應，好感未滿80者嚴禁言行表現傾心倒貼；rel_changes的tag填【關係定位】四字詞(萍水相逢/點頭之交/漸生情愫/紅顏知己等)，對應好感高低，禁填當下情緒。
+2. 慢熱與傾心：NPC依[個性][氣質]真實反應，好感未滿80者嚴禁言行表現傾心倒貼。
+2b. 【關係標籤由御主決定，你只能認不認】：上方【同行夥伴】卡片的「關係」是御主自己設定/宣稱的定位，不是既定事實，你不能、也沒有管道去改動這個標籤本身——但NPC可以、也應該依自身[個性]與目前[好感]真實回應是否認同這個定位：好感夠、性格也合適→欣然接受、順著這個稱呼互動；好感不夠或性格上會抗拒→可以困惑、害臊、嘴硬否認、半推半就或直接拒絕，具體怎麼反應演出來，不必說教式解釋「我們關係還沒到那一步」。這份「認不認」寫進attitude欄(見慾海律令第7條)，不寫進rel_changes。
 3. 萌點節制：「萌點」只是反差背景彩蛋，【絕對禁止】每回合或連續多回合刻意觸發、反覆強調成唯一性格；預設略過，僅場景自然涉及時輕輕帶過，同一萌點至少間隔數回合不重複。
 
 【狀態與輸出】
@@ -743,7 +753,8 @@ function buildDefaultSystemPrompt() {
 3. 【依配對裁決】依上方【性別配對】——女女配對：純女女之愛，無論誰主導皆纏綿體貼、有來有往，主動方亦柔中帶情，❌禁男性化強硬支配模板；男女配對：依實際性別器官自然互動，女性側動作仍柔美。
 4. 聚焦當下最關鍵一兩處深入著墨，篇幅靠情感起伏/神態心理/氛圍張力/肢體動作/喘息與聲音/對話堆疊撐起，非鋪滿全身；❌禁逐一點名全身部位、禁四感清單式流水帳、禁器官逐格交代；台詞可被喘息/聲音/斷續語句打斷，不限嬌喘，勿一氣呵成。
 5. physical_state為單一自由文字(第三人稱，≤15字)，只涵蓋顏面神情與衣裝狀態，不含動作姿勢，依情境帶到即可不強制列舉；每回合據實反映最新狀態不可沿用舊值。★純系統記錄，narration仍以第4條為準、聚焦留白，不逐格謄寫。
-6. 粗暴動作轉紅印/酥麻/強烈快感，禁肉體破損流血。dynamic_skills(2~5字，貼合身分個性)/mutual_nicknames(已自然發展且好感足夠的暱稱)：僅本回合確實發生/存在才填，毫無相關內容一律填「無」，不預設空白或提前腦補。`;
+6. 粗暴動作轉紅印/酥麻/強烈快感，禁肉體破損流血。dynamic_skills(2~5字，貼合身分個性)/mutual_nicknames(已自然發展且好感足夠的暱稱)：僅本回合確實發生/存在才填，毫無相關內容一律填「無」，不預設空白或提前腦補。
+7. 【attitude·態度】(2026-07新增)：每位NPC對御主當下的臨場態度(第三人稱，≤15字，如「有點害臊卻嘴硬」「欣然接受這個稱呼」「困惑地歪頭」)，跟好感(慢慢累積的長期趨勢)是不同的兩件事——好感很高不代表這一刻心情就好，好感很低也不妨礙偶爾難得的溫柔瞬間。★每回合都要依當下情境據實反映，不可沿用舊值；這是你表達「認不認同上方關係標籤」的地方(見【世界與NPC自主】第2b條)，也是單純表達當下心情的地方，兩者可以是同一句話。`;
 
   return nsfwBaseRules + "\n" + specificRules + "\n\n★【輸出範本】\n" + JSON.stringify(finalJson, null, 2);
 }
@@ -815,7 +826,12 @@ function actionPlay(userData, pcId, sheets) {
     const nickMatch = s.match(/\[專屬稱呼\](.*?)(?=\| \[|$)/);
     const nickTrim = nickMatch ? nickMatch[1].trim() : "";
     const nickStr = (nickTrim && nickTrim !== "無") ? ` [專屬稱呼:${nickTrim}]` : "";
-    return nickStr;
+    // 🆕 2026-07「態度」：NPC對御主當下的臨場態度(與好感分開追蹤，見慾海律令第7條)，讓AI下筆前
+    //   看得到自己上一輪演的態度，不會忽冷忽熱亂跳、也才有「上次不太甩，這次呢」的延續性。
+    const attMatch = s.match(/\[態度\](.*?)(?=\| \[|$)/);
+    const attTrim = attMatch ? attMatch[1].trim() : "";
+    const attStr = (attTrim && attTrim !== "無") ? ` [態度:${attTrim}]` : "";
+    return nickStr + attStr;
   }
 
   // 🧹 2026-07 玩家定案「砍掉同地路人、這是開放大世界、沒有結界了」：舊版 allLocals/displayPeople/
@@ -1061,17 +1077,13 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         let isPartyStr = String(pcData[nIdx][COL.PC.IS_PARTY] || "");
         if (dismissedNpc === tNpc) isPartyStr = "";
 
-        let oldFav = parseInt(pcData[nIdx][COL.PC.BOND]) || 0; let oldTag = pcData[nIdx][COL.PC.REL_TAG] || "從者";
+        let oldFav = parseInt(pcData[nIdx][COL.PC.BOND]) || 0;
         let newFav = Math.max(-100, Math.min(100, oldFav + change));
 
-        let finalTag;
-        {
-          let aiProvidedTag = (rc.tag && typeof rc.tag === 'string') ? rc.tag.trim() : "";
-          let isValidAiTag = aiProvidedTag !== "" && aiProvidedTag !== "無" && !aiProvidedTag.includes("禁止");
-          finalTag = isValidAiTag ? aiProvidedTag : oldTag;
-        }
-
-        pcData[nIdx][COL.PC.BOND] = newFav; pcData[nIdx][COL.PC.REL_TAG] = finalTag; pcData[nIdx][COL.PC.IS_PARTY] = isPartyStr;
+        // 🔄 2026-07 玩家定案「關係改玩家決定，AI不可以改動但可以不認」：REL_TAG 不再由這裡的AI
+        //   輸出覆寫——只能透過 actionUpdateRelTag(玩家UI操作)更改。AI 對這個標籤唯一的影響力是
+        //   「認不認同」，演在 intimacy_feedback.npcs[].attitude 裡，不是靠覆寫這個欄位表達。
+        pcData[nIdx][COL.PC.BOND] = newFav; pcData[nIdx][COL.PC.IS_PARTY] = isPartyStr;
         // 🗑️ 2026-07 玩家定案「整條拆掉」：major_event(未完成的約定)整段處理邏輯移除——查證發現
         // MAJOR_EVENT 這欄寫入後從未被讀回餵給AI(partyDetailsArr/relMemMemoryStr_都不讀這欄)，
         // AI 每回合看不到自己上次許過什麼，[達成]/[清空]語法即使講清楚也無從合理觸發；玩家也完全
@@ -1153,7 +1165,12 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
           //   親密次數已隨「窺視神髓」面板一併移除、已兌現約定已隨「未完成的約定」機制一併移除——
           //   三者原本唯一的消費者(面板顯示/major_event寫入)都已拆除，這欄現在只剩專屬稱呼)
           let oldRMem = pcData[targetIdx][COL.PC.REL_MEM] || "";
-          pcData[targetIdx][COL.PC.REL_MEM] = `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/, nfb.mutual_nicknames, 3)}`;
+          let nickPart = `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/, nfb.mutual_nicknames, 3)}`;
+          // 🆕 2026-07「態度」：跟專屬稱呼(累積/去重)不同，態度是「當下這一刻」的快照，每回合直接
+          //   覆蓋成AI這次給的最新值，不累積歷史(累積態度沒有意義，只有最新的才重要)。
+          let attRaw = (typeof nfb.attitude === 'string') ? nfb.attitude.trim().slice(0, 15) : "";
+          let attPart = (attRaw && attRaw !== "無") ? `| [態度]${attRaw}` : "";
+          pcData[targetIdx][COL.PC.REL_MEM] = `${nickPart}${attPart}`;
         });
       }
     }
