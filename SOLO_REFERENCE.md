@@ -962,3 +962,14 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **前端**：`Index.html`新增「🗺️出門走走」抽屜按鈕(比照既有`drawer-companions`同款`display:none`預設隱藏)，`Script.html`的`applyModeUI`補上鑑賞模式才顯示的切換；`Script_Kanshou.html`新增地點選單彈窗(比照既有`kc-overlay`同款樣式)+`kanshouMoveTo(name)`——直接呼叫既有`send()`多帶第4個參數`moveTarget`，不另開`gasRun`呼叫。地點清單前端也放一份純供畫按鈕(`KC_LOCATIONS_`)，實際驗證/抽選邏輯只認後端`KANSHOU_LOCATIONS_`這個唯一真實來源，兩邊改地點需要各更新一次(已在程式碼註解標明)。
 
 **驗證**：`bash check.sh` 全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0；額外寫node腳本手動驗證`getKanshouMetSet_`/`addKanshouMet_`的去重、與其他MEMORY標記共存兩種情況皆正確。這是全新的AI提示詞路徑，headless環境無法實機驗證AI是否真的照著新規則演出，強烈建議部署後實機測試：①點「出門走走」任一地點，確認位置確實改變(狀態列/頭部顯示同步更新)；②多按幾次確認會出現「這次沒遇到人」與「巧遇某角色」兩種結果、巧遇對象的個性/穿著跟種子庫設定吻合；③巧遇時AI不會把該角色誤演成同行隊伍成員(不會被要求邀請同行、不會被錯記好感度)；④重複巧遇同一人時語氣有「似曾相識」的差異；⑤同行同伴移動時位置一起同步。
+
+**🏷️ 鑑賞放寬同行夥伴稱呼：讓既有【專屬稱呼】暱稱系統真的派上用場(2026-07 玩家「saber能叫saber嗎...一直全名好怪」→追問「不做也沒差？好像有個暱稱系統？」→定案「敘述放寬吧！json時候ai自己抓緊就好」)**：玩家反映鑑賞敘事裡同行夥伴一直被叫全名(如「阿爾托莉雅」)很奇怪，一開始討論的方向是「能不能改叫職階(Saber)」，深入查證後發現真正根因不是職階，而是**AI每回合本來就會自己生成暱稱**——`intimacy_feedback.npcs[].mutual_nicknames`(AI自主判斷「雙方已自然發展出的暱稱」)寫進該NPC列`REL_MEM`的`【專屬稱呼】`標記，也透過`relMemMemoryStr_`秀給AI自己看(如「關係:戀人(好感:72 [專屬稱呼:小遙])」)——**但緊接著的`npcDialoguePrompt`(【姓名參考】)原句「請使用真實姓名...不得另編新名字」把AI自己剛建立好的暱稱又鎖死不能拿來稱呼**，暱稱系統形同虛設，每次還是乖乖打全名。
+
+**過程中一併查證、確認排除的風險**：曾提議改用「職階(COL.PC.RANK，如Saber)當預設稱呼」，深入討論後發現這個方案有真實風險——`rel_changes[].target`(好感異動目標)與`intimacy_feedback.npcs[].name`(狀態/親密度回寫目標)這兩個AI輸出的JSON欄位，後端都是**精確字串比對**`COL.PC.NAME`(`pcData.findIndex(r => String(r[COL.PC.NAME]) === tNpc)`)才能定位要寫入哪一列——若稱呼放寬滲透進這兩個JSON欄位，AI真的手滑把「Saber」寫進`target`/`name`，比對不到任何列，好感/狀態異動會**悄悄地消失、沒有任何錯誤提示**。也順道查證了solo(正篇聖杯戰爭)那邊：`servantCard_`(Router_Persona.gs)同樣要求「依真名演出」，沒有比鑑賞寬鬆；但solo完全沒有這個風險類別，因為solo的好感/HP異動是**100% GAS按鈕收歸的固定值**(`raiseBond_`/`bumpBond_`直接用GAS早就解析好的索引寫入，如`+10`/`+8`)，AI從來不需要自己輸出一個「target名字」讓後端查找——若之後也想讓solo的稱呼比照放寬，只需改`servantCard_`那一句演出指令，不需要額外的防呆機制。
+
+**動手(玩家明確定案「敘述放寬，JSON讓AI自己抓緊」——不加職階選項、不加後端fallback比對，僅這裡放寬)**：
+- `npcDialoguePrompt`(Gallery.gs)：從「請使用真實姓名，不得另編新名字」放寬成「已有【專屬稱呼】就自然用暱稱取代真名，尚未發展出專屬稱呼、或情境特別鄭重深情時仍用真實姓名，不得自創真名與專屬稱呼以外的第三種稱呼」，並明講「此稱呼慣例僅供narration/對話台詞使用，與下方JSON輸出(rel_changes/intimacy_feedback)的姓名欄位無關，那兩處規則各自獨立、一律固定填真實姓名」——把「怎麼稱呼」跟「JSON要填誰」明確拆成兩件事，AI不會把敘事的稱呼習慣誤帶進資料寫入欄位。
+- `intimacy_feedback.npcs[].name`／`rel_changes[].target`兩個schema欄位描述，各自補上「(不論敘事/對話裡怎麼稱呼TA，此欄固定填真實姓名，不可填暱稱、職階...)」的schema級提醒——比照專案既有做法「schema級約束比事後再說一次更有效」，不加後端比對容錯，完全依玩家指示交給提示詞層面把關。
+- 沒有動`getKanshouMetSet_`/`addKanshouMet_`(上一條「出門走走」功能新增的邂逅記錄)、沒有動`rel_changes`/`intimacy_feedback`的後端解析邏輯——這輪純粹是提示詞文字調整，零資料流/schema變動。
+
+**驗證**：`bash check.sh` 全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。這是純提示詞文字調整，headless環境無法實機驗證AI是否真的減少全名重複、且不會把暱稱滲透進JSON欄位，建議部署後觀察幾輪對話：①好感夠高、已有專屬稱呼的同伴，敘事裡是否開始自然使用暱稱而非每次都全名；②好感異動(`rel_changes`)與狀態回寫(`intimacy_feedback`)是否仍正常生效，沒有因為稱呼放寬而漏寫。

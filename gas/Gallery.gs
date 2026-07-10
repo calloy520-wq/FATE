@@ -690,7 +690,7 @@ function buildDefaultSystemPrompt() {
         "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第6條)"
       },
       "npcs": [{
-        "name": "NPC實際名字",
+        "name": "NPC真實姓名(不論敘事/對話裡怎麼稱呼TA，此欄固定填真實姓名，不可填暱稱或職階)",
         "physical_state": _physicalStateRef,
         "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第6條)",
         "mutual_nicknames": "雙方間已自然發展出的暱稱/愛稱(規則見下方慾海律令第6條)",
@@ -710,7 +710,7 @@ function buildDefaultSystemPrompt() {
     //   intimacy_feedback.npcs)，不是靠覆寫關係標籤本身表達。
     "rel_changes": [{
       "_note": "fav_change為整數(可正可負)，關係要慢慢培養、不可躁進：日常閒聊+1~2、明顯心動或重大進展+3~5，單回合上限+5，不可一次跳大段；越界冒犯可填負數。★fav_change純粹是好感升降的數字，與口吻/語氣描述無關。",
-      "target": "NPC真實姓名或「自己」(禁填台詞/地名/動作等其他內容)", "fav_change": 3
+      "target": "NPC真實姓名或「自己」(不論敘事/對話裡怎麼稱呼TA，此欄固定填真實姓名，不可填暱稱、職階、台詞、地名或動作等其他內容)", "fav_change": 3
     }],
     // 🧹 2026-07 玩家定案「mentioned_names 這也不用了吧」：查證後這欄對鑑賞(唯一還會呼叫此
     //   schema 的路徑)已是死欄——前端(Script.html send())收到後只會 pushCandidate(name, name)，
@@ -1097,7 +1097,13 @@ function actionPlay(userData, pcId, sheets) {
   // ⚠ 2026-07 修：原句「請包含...的對話」讀起來像強制指令全員都要出聲——玩家只想找同行從者講話，
   //   卻可能被這行逼得連背景路人都插話。改成「姓名參考用」措辭：只提供正確姓名給 AI 拼字用，
   //   是否真的互動仍完全依上方【在場驗證鐵律】與各人的強制互動限制判斷。
-  const npcDialoguePrompt = partyMembers.length > 0 ? `\n★【姓名參考】：若對話對象是同行夥伴，請使用真實姓名「${partyMembers.join("、")}」，不得另編新名字；是否互動仍依上方在場規則與各人強制互動限制判斷，非清單所有人都要出聲。` : "";
+  // 🐛→✅ 2026-07 玩家反映「一直喊全名好怪」：查出根因——AI 每回合其實會自己生成【專屬稱呼】
+  //   (寫進 REL_MEM、見上方 relMemMemoryStr_，已秀給AI自己看)，但這條規則原本一句「不得另編
+  //   新名字」把這個AI自己建立好的暱稱又鎖死不能用，等於暱稱系統形同虛設、每次還是打出全名。
+  //   放寬成「已有專屬稱呼就自然用暱稱，沒有才用真名」——不影響下方 rel_changes/intimacy_feedback
+  //   的姓名欄位(那兩處是獨立規則，仍固定要求真實姓名，見對應schema欄位描述，玩家明確要求
+  //   「json時候ai自己抓緊就好」，故此處刻意不加額外的職階/暱稱fallback比對，僅這裡放寬敘事稱呼)。
+  const npcDialoguePrompt = partyMembers.length > 0 ? `\n★【稱呼慣例】：對話/敘事中稱呼同行夥伴時，若該人已有【專屬稱呼】(見上方同行夥伴卡片)，可自然使用該暱稱取代真名，不必每次都字正腔圓喊全名；尚未發展出專屬稱呼、或情境特別鄭重深情時，仍使用真實姓名「${partyMembers.join("、")}」，不得自創真名與專屬稱呼以外的第三種稱呼。★此稱呼慣例僅供narration/對話台詞使用，與下方JSON輸出(rel_changes/intimacy_feedback)的姓名欄位無關，那兩處規則各自獨立、一律固定填真實姓名；是否互動仍依上方在場規則與各人強制互動限制判斷，非清單所有人都要出聲。` : "";
 
 
   // 🐛→✅ 2026-07 稽核抓到真實bug：這行原本還帶著「生命:X/Y | 魔力:X/Y」＋一段「HP/MP低於閾值→
