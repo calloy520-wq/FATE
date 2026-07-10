@@ -70,18 +70,14 @@ var FATE_MAP_SEED = [
 //    戰鬥 fx 實際走 hasFx_＋SEED_SERVANTS 的 skills/traits JSON，不讀此分頁（CLAUDE.md「死符號 CTAG 清」）。
 
 // 🔵 冪等建表主函式：缺則補、含則略。回傳本次新建的分頁名陣列。
-// ⚡ 2026-07 提速(玩家「整個核心該為提升GAS速度」)：seedFateCodex_/reseedIfEmpty_ 內部要整表讀
-//   英靈殿/坤圖判斷是否為空，這兩個呼叫才是真正貴的部分——加CacheService短路：cache key直接
-//   綁進RESEED_VER＋CODEX_PERSONA_VER兩個版本常數，版本一變key就跟著變，保證版本升級後至少
-//   完整跑一次；同版本內6小時只需跑一次，其餘短路跳過這兩個呼叫。
-// 🐛→✅ 2026-07 修(玩家實測「帳號表不存在？！現在不會自動檢查生成了？！」)：上一輪提速最初把
-//   短路蓋住整個函式(含「缺哪個分頁就補哪個」那段迴圈)——但那段只是6個分頁的getSheetByName
-//   metadata查詢，成本本來就低，真正貴的是下面兩個會整表讀取的seedFateCodex_/reseedIfEmpty_；
-//   短路蓋過頭的後果：若某分頁(如「帳號」)在6小時快取窗口內被刪除(手動誤刪/意外)，
-//   ensureFateSheets_ 會直接短路返回，缺分頁的自動補建完全不會被觸發，最長要等快取過期(6小時)
-//   才會恢復——跟函式開頭註解「缺則補、含則略」的承諾自相矛盾，也不是原本提速commit聲稱的
-//   「行為完全一致」。改成短路範圍縮小到只蓋住seedFateCodex_/reseedIfEmpty_這兩個真正昂貴的
-//   呼叫，「檢查缺哪個分頁就補上」這段永遠執行，才是名副其實的「缺哪個就補哪個」。
+// 🔄 2026-07 玩家定案「試算表檢查改成純手動」：先前這裡有一段「6小時CacheService短路」讓這個函式
+//   可以無腦掛在每個action/doGet自動執行——但玩家測試期常直接清空試算表重來，這種自動檢查一來
+//   對已經穩定的正式運作沒必要每次都跑，二來先前那層快取還一度蓋過頭導致「缺分頁不自動補」的bug
+//   (見下方保留的舊註解脈絡，該bug已修過一次)。玩家決定乾脆不要在任何地方自動呼叫這個函式，
+//   改成只在登入畫面放一顆「檢查/建立試算表」按鈕(check_sheets action，Router_Action.gs)手動觸發——
+//   doGet()(Engine_Combat.gs)／handleGameAction()(Router_Action.gs)都已移除自動呼叫。
+//   既然只剩手動觸發、次數本來就稀少，先前那層快取短路已無意義，一併移除，函式恢復成單純的
+//   「每次呼叫都完整檢查＋灌種子」，不再有快取新鮮度的顧慮。
 function ensureFateSheets_(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
   var created = [];
@@ -110,17 +106,10 @@ function ensureFateSheets_(ss) {
     // 新建地圖後清掉舊地圖快取，讓前端讀到新冬木地圖
     try { CacheService.getScriptCache().remove("FATE_MAP_DATA"); } catch (e) {}
   }
-  // 🐛→✅ 短路範圍縮小：只蓋住下面這兩個真正會整表讀取的呼叫，上方「缺分頁就補」的迴圈不受影響。
-  var setupCacheKey_ = "FATE_SETUP_OK_" + RESEED_VER + "_" + CODEX_PERSONA_VER;
-  var skipExpensiveSeed_ = false;
-  try { skipExpensiveSeed_ = !!CacheService.getScriptCache().get(setupCacheKey_); } catch (e) { }
-  if (!skipExpensiveSeed_) {
-    // 英靈殿/御主殿 若為空，自動灌入名冊（Seed_Codex.gs）
-    try { if (typeof seedFateCodex_ === "function") seedFateCodex_(ss); } catch (e) { Logger.log("seedFateCodex_ 失敗(略過): " + e.message); }
-    // 坤圖若為空(早期被空建未灌種子)→補；坤圖舊「冬木」母節點→改頂層
-    try { reseedIfEmpty_(ss); } catch (e) { Logger.log("reseedIfEmpty_ 失敗(略過): " + e.message); }
-    try { CacheService.getScriptCache().put(setupCacheKey_, "1", 21600); } catch (e) { } // 6h，同SEED_CACHE_SECONDS_量級
-  }
+  // 英靈殿/御主殿 若為空，自動灌入名冊（Seed_Codex.gs）
+  try { if (typeof seedFateCodex_ === "function") seedFateCodex_(ss); } catch (e) { Logger.log("seedFateCodex_ 失敗(略過): " + e.message); }
+  // 坤圖若為空(早期被空建未灌種子)→補；坤圖舊「冬木」母節點→改頂層
+  try { reseedIfEmpty_(ss); } catch (e) { Logger.log("reseedIfEmpty_ 失敗(略過): " + e.message); }
   return created;
 }
 
@@ -188,10 +177,22 @@ function reseedIfEmpty_(ss) {
 
 // 🔵 可從編輯器手動執行：回報建了哪些分頁
 function setupFateWorld() {
-  // ⚡ 手動診斷用途：先清掉短路快取，確保這次看到的是即時真實檢查結果，不被cache短路蓋過。
-  try { CacheService.getScriptCache().remove("FATE_SETUP_OK_" + RESEED_VER + "_" + CODEX_PERSONA_VER); } catch (e) { }
   var created = ensureFateSheets_();
   var msg = created.length ? ("已新建分頁：" + created.join("、")) : "全部 13 個分頁皆已存在，無需新建。";
   Logger.log(msg);
   return msg;
+}
+
+// 🔘 2026-07 玩家新增：登入畫面的「檢查/建立試算表」按鈕唯一呼叫點——把 setupFateWorld() 的能力
+//   包成一個可從網頁前端觸發的 action，免開 GAS 編輯器手動執行。刻意不需要 pcId(登入前就可以按)，
+//   也不受 KANSHOU_BLOCKED_ACTIONS_ 影響(該名單只擋「鑑賞context」呼叫solo專屬action，這裡pcId
+//   恆為空，isKanshouCtx 恆為false，不會被攔)。
+function actionCheckSheets(userData, pcId, sheets) {
+  try {
+    var created = ensureFateSheets_();
+    var msg = created.length ? ("✅ 已建立缺少的分頁：" + created.join("、")) : "✅ 所有分頁皆已存在，無需新建。";
+    return JSON.stringify({ success: true, message: msg });
+  } catch (e) {
+    return JSON.stringify({ success: false, message: "檢查失敗：" + e.message });
+  }
 }

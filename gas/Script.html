@@ -2254,6 +2254,17 @@
 
   // 🗑️ dev_seed_gallery(塞測試從者) 已移除(2026-07·慾海已驗穩)。
 
+  // 🔧【DEV】檢查/建立缺少的試算表分頁(2026-07 玩家定案「試算表檢查改成純手動」，登入畫面按鈕)：
+  //   doGet()/handleGameAction() 都已移除自動呼叫 ensureFateSheets_，測試期清空試算表後手動按這顆
+  //   即可補回；登入前也能按(不依賴 pc/帳號 已存在)，故刻意擺在 step-account 畫面而非登入後選單。
+  async function devCheckSheets() {
+    showProcessing('檢查試算表中…', true);
+    try {
+      const res = await gasRun({ action: 'check_sheets' });
+      alert((res && res.message) || '完成。');
+    } catch (e) { alert('檢查失敗，請稍後再試。'); } finally { hideProcessing(); }
+  }
+
   // 🔄【DEV】強制把最新種子(寶具尺度/標籤fx/六圍/平衡)套到英靈殿＋現有在場從者，免等版本閘/部署時序。
   async function devResyncCodex() {
     showProcessing('套用最新平衡中…', true);

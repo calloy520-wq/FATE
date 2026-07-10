@@ -7,6 +7,7 @@
 // ------------------------------------------
 const ActionRouter = {
   "check_name": actionCheckName,
+  "check_sheets": actionCheckSheets, // 🔘 登入畫面手動按鈕：檢查/建立缺少的試算表分頁(Setup_FateWorld.gs)
   "account_login": actionAccountLogin,
   "account_new_game": actionAccountNewGame,
   "end_run": actionEndRun, // ⚠ 2026-07：舊 claim_grail(奪杯封存) 已整個砍除，改成單純清理讓玩家開新局
@@ -132,7 +133,10 @@ function handleGameAction(userData) {
   const pcId = userData.pcId;
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  try { ensureFateSheets_(ss); } catch (e) { Logger.log("ensureFateSheets_ 於 handleGameAction 失敗(略過): " + e.message); }
+  // 🔄 2026-07 玩家定案「試算表檢查改成純手動」：這裡不再自動呼叫 ensureFateSheets_(舊版每個action
+  //   都跑一次，即使配合快取短路仍有「快取蓋過頭導致缺分頁不自動補」的風險，見該函式註解)——改成
+  //   登入畫面一顆「檢查/建立試算表」按鈕(check_sheets action)手動觸發，測試期清空試算表後手動按
+  //   一次即可，正式穩定運作後也不必每個按鍵都白跑一次分頁存在性檢查。
   // 🌹 慾海路由：御主 avatar 以 "KPC_" 開頭 → 整條後日談路徑(actionPlay/sync/move…)改讀「鑑賞眾生」分頁，
   //   與戰爭主表「眾生」完全隔離。solo 御主是 "PC_" 不受影響。
   const isKanshouCtx = String(pcId || "").indexOf("KPC_") === 0;

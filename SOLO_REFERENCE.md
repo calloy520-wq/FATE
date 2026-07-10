@@ -981,3 +981,13 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **附帶發現**：手動診斷用的`setupFateWorld()`(GAS編輯器手動執行用)其實在這次提速當下就已經先清一次快取鍵再呼叫`ensureFateSheets_()`，等於當時的作者已經隱約意識到「快取可能蓋住真實檢查結果」這個風險，卻只在手動診斷入口做了防範，沒有把同樣的顧慮套用到`doGet()`/`handleGameAction`這兩個真正的執行期呼叫點——這正是這次bug的缺口。
 
 **驗證**：`bash check.sh` 全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這輪沒有動 Gallery.gs)。純GAS後端邏輯調整，無法在headless環境模擬「分頁被刪除後下一次按鍵是否重建」，建議部署後測試：手動刪除任一FATE分頁(如「帳號」)，按任何一個按鈕或重新整理頁面，確認分頁被立即補回(不用等6小時)。若玩家真的是被刪掉整張「帳號」分頁(含資料列)，這個修正只保證分頁結構會補回(含表頭)，**不會**復原被刪除分頁裡原本的帳號-角色綁定資料列——那類資料遺失只能靠Google試算表本身的「版本記錄」(檔案 > 版本記錄)手動復原，不是這次修正的範疇。
+
+**🔘 試算表檢查改成純手動，登入畫面加「檢查/建立試算表」按鈕(2026-07 玩家「在登入介面帳號哪裡做個按鈕檢查試算表如何？...你先讓他在那個按鈕執行一次而以後都不要檢查」)**：上一條才把`ensureFateSheets_`的短路快取修到「缺分頁就補」這段永遠會跑——但玩家測試期常常直接把整張試算表清空重來，這種情況下自動檢查(不管有沒有快取)對玩家來說都只是「等下一次按鍵/整理」才會生效，玩家更想要的是「我清空之後自己按一顆鈕、馬上生效」，而不是依賴任何自動時機；且玩家指出**這個自動檢查機制本來就只在他自己測試期間才用得到**，正式穩定運作後理論上分頁不會平白消失，沒必要每個按鍵/每次開網頁都白跑一次檢查。
+
+**動手**：
+- `doGet()`(Engine_Combat.gs)／`handleGameAction()`(Router_Action.gs)都拿掉自動呼叫`ensureFateSheets_`——以後開網頁、按任何遊戲按鍵都**不會**再自動檢查試算表分頁。
+- 新增`check_sheets`action(Setup_FateWorld.gs的`actionCheckSheets`，Router_Action.gs的`ActionRouter`註冊)：內部就是呼叫`ensureFateSheets_()`，回傳「已建立缺少的分頁：XXX」或「所有分頁皆已存在」給前端顯示。這個action刻意不需要`pcId`(登入前就能按)，也不受`KANSHOU_BLOCKED_ACTIONS_`影響(該名單只擋鑑賞context呼叫solo專屬action，這裡`pcId`恆空、`isKanshouCtx`恆false)。
+- 前端：`Index.html`的`step-account`(登入前的帳號輸入畫面)新增一顆「🔧 DEV：檢查／建立試算表分頁」小按鈕，故意放在登入前(而非登入後的DEV選單)，因為情境正是「帳號表都被清空了，玩家根本進不了登入後選單」，按鈕要在登入前就能用才有意義。`Script.html`新增`devCheckSheets()`，比照既有`devResyncCodex`/`devPurgeOrphans`同款寫法(`showProcessing`/`gasRun`/`alert`)。
+- 既然只剩手動觸發，`ensureFateSheets_`內部原本那層「6小時CacheService短路」(上一條bug的根源)已無意義，一併拿掉，函式恢復成單純的「每次呼叫都完整檢查缺分頁+灌種子」，不再需要煩惱快取新鮮度；`setupFateWorld()`(GAS編輯器手動執行版)原本會先清一次快取鍵，這行也跟著拿掉(沒快取可清了)。
+
+**驗證**：`bash check.sh` 全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(Engine_Combat.gs這輪只動`doGet()`拿掉一行呼叫，離`nsfwBaseRules`很遠，逐行核對非誤判)。純GAS後端+前端按鈕，無法在headless環境模擬「登入前點按鈕」的實際互動，建議部署後測試：①手動清空/刪除任一FATE分頁，重新整理到登入畫面，確認能看到帳號輸入框(不會整頁白屏或報錯)；②點「🔧 DEV：檢查／建立試算表分頁」，確認彈出「已建立缺少的分頁：XXX」或「所有分頁皆已存在」；③正常登入/遊玩流程不受影響(不再自動檢查，但也不會因此報錯，只要分頁本來就存在)。

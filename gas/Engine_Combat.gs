@@ -125,7 +125,8 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
 }
 
 function doGet() {
-  try { ensureFateSheets_(); } catch (e) { Logger.log("ensureFateSheets_ 於 doGet 失敗(略過): " + e.message); }
+  // 🔄 2026-07 玩家定案「試算表檢查改成純手動」：doGet 不再自動呼叫 ensureFateSheets_——改成登入
+  //   畫面一顆「檢查/建立試算表」按鈕(check_sheets action)手動觸發，見 Setup_FateWorld.gs。
   return HtmlService.createTemplateFromFile('Index').evaluate()
     .setTitle('命運停駐之夜')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
