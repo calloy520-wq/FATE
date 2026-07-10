@@ -16,6 +16,12 @@
   // 🔴 核心通訊層：封裝 google.script.run 成 Promise，完美替換 fetch
   // ==========================================
   let __pendingState = null; // ⚡ 動作回應夾帶的最新 client state，供緊接的 syncData 直接消費(免再打一趟 sync)
+  // 🐛→✅ 2026-07 稽核抓到(HIGH，整個「3→1 round-trip」機制在多數動作上形同虛設)：這個變數是「新一趟
+  //   伺服器呼叫開始就作廢舊state」——包括narrate()自己內部呼叫的narrate_only這趟。11個動作的handler
+  //   原本寫成「await narrate(res.aiPrompt); syncData(true);」，narrate()一啟動就把剛拿到的_state
+  //   洗掉了，syncData(true)跑到時__pendingState早已是null，只好乖乖真的打一趟sync round-trip——後端
+  //   花成本組出來的_state整包白算。已把全部11處handler改成「syncData(true)在前、narrate()在後」，
+  //   讓_state在被下一趟gasRun清空前先被消費掉。這裡只是記錄根因，行為本身不需要再改。
   function gasRun(payload) {
     __pendingState = null; // 新一趟伺服器呼叫開始 → 作廢任何未消費的舊 state(防過期錯套)
     return new Promise((resolve, reject) => {
@@ -607,7 +613,7 @@
     story.scrollTop = story.scrollHeight;
     try {
       const res = await gasRun({ action: 'second_wind', pcId: pc.id });
-      if (res && res.success) { updateClock(res.clock, res.ap, res.apMax); await narrate(res.aiPrompt); syncData(true); }
+      if (res && res.success) { updateClock(res.clock, res.ap, res.apMax); syncData(true); await narrate(res.aiPrompt); }
       else { alert((res && res.message) || '無法強撐。'); }
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
   }
@@ -687,8 +693,8 @@
         // ⚡ 先刷狀態列(御主被抽走整筆寶具 prana)再跑 AI 敘事——與 補魔/偵查/整備 同模式，數字不等敘事
         if (res.statusString) { localStorage.setItem('kyushu_last_status', res.statusString); updateUI(res.statusString.split('§')); }
         updateClock(res.clock, res.ap, res.apMax);
-        if (res.aiPrompt) await narrate(res.aiPrompt); // 🎬 演出巨獸自書頁湧現
         syncData(true);
+        if (res.aiPrompt) await narrate(res.aiPrompt); // 🎬 演出巨獸自書頁湧現
       } else { alert((res && res.message) || '召喚失敗。'); }
     } catch (e) { alert('連線失敗，召喚未果。'); } finally { endAction(); }
   }
@@ -716,8 +722,8 @@
       if (res && res.success) {
         updateClock(res.clock, res.ap, res.apMax); updateEconomy(res.economy);
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#8fd0a0;font-size:12.5px;text-align:center;border:1px solid rgba(90,150,110,0.3);border-radius:8px;padding:6px 10px;">🏕️ ${res.message}</div>`);
-        if (res.aiPrompt) await narrate(res.aiPrompt); // 🎬 演出布設陣地的勞作
         syncData(true); // applyClientState 已含 renderMapPane()，免重複
+        if (res.aiPrompt) await narrate(res.aiPrompt); // 🎬 演出布設陣地的勞作
       } else { alert((res && res.message) || '設置陣地失敗。'); }
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
   }
@@ -1868,8 +1874,8 @@
           renderFateBattleReport(res.report); // 📊 先攤開骰子/數字戰報(秒顯，不等AI)
           try { hideProcessing(); } catch (e) {} // 🎯 戰報已出→撤全螢幕「聖杯演算中」遮罩，玩家可即刻閱讀戰報；UI 仍由 __actionBusy 鎖住(擋重複動作)，narrate 自帶行內敘述生成提示
         }
-        await narrate(res.aiPrompt); // ⏳ 敘述生成完才 endAction 解鎖按鈕；此時遮罩已撤、玩家邊讀戰報邊等 AI
         syncData(true);
+        await narrate(res.aiPrompt); // ⏳ 敘述生成完才 endAction 解鎖按鈕；此時遮罩已撤、玩家邊讀戰報邊等 AI
         if (res.defeat) { await handleDefeat(res); }
         else if (res.victory) { await handleVictory(res); }
       }
@@ -2027,7 +2033,7 @@
     story.scrollTop = story.scrollHeight;
     try {
       const res = await gasRun({ action: 'rule_break_steal', pcId: pc.id, npcName: npcName, acctName: (pc && pc.account) || currentAccount });
-      if (res && res.success) { await narrate(res.aiPrompt); syncData(true); }
+      if (res && res.success) { syncData(true); await narrate(res.aiPrompt); }
       else { alert((res && res.message) || '破戒奪僕失敗。'); }
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
   }
@@ -2042,7 +2048,7 @@
     try {
       // 🔧 帶 npcId（比照攻擊路徑）：名字含中點（韋伯·維爾維特）走 raw 比對會漏，後端改吃 id/nameLoose_
       const res = await gasRun({ action: 'propose_alliance', pcId: pc.id, npcName: npcName, npcId: npcId || "" });
-      if (res && res.success) { updateClock(res.clock, res.ap, res.apMax); await narrate(res.aiPrompt); syncData(true); }
+      if (res && res.success) { updateClock(res.clock, res.ap, res.apMax); syncData(true); await narrate(res.aiPrompt); }
       else { alert((res && res.message) || '交涉失敗。'); }
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
   }
@@ -2052,7 +2058,7 @@
     if (!beginAction()) return;
     try {
       const res = await gasRun({ action: 'break_alliance', pcId: pc.id, npcName: npcName });
-      if (res && res.success) { await narrate(res.aiPrompt); syncData(true); }
+      if (res && res.success) { syncData(true); await narrate(res.aiPrompt); }
       else { alert((res && res.message) || '操作失敗。'); }
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
   }
@@ -2067,7 +2073,7 @@
     try {
       const res = await gasRun({ action: 'ally_bond', pcId: pc.id, npcName: npcName, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) {
-        updateClock(res.clock, res.ap, res.apMax); await narrate(res.aiPrompt); syncData(true);
+        updateClock(res.clock, res.ap, res.apMax); syncData(true); await narrate(res.aiPrompt);
         if (res.unlocked) setTimeout(function () { alert('💞 你與「' + res.ally + '」的羈絆已臻深處——這份情誼，無需言明。'); }, 400);
         if (res.defeat) { await handleDefeat(res); }
       } else { alert((res && res.message) || '交流未成。'); }
@@ -2089,7 +2095,7 @@
         if (res.report) renderFateBattleReport(res.report); // ⚔️ 補魔遭突襲→戰報卡
         // 💧 即時反饋：補魔代價沉重(血上限↓/迴路↓/回滿魔)——敘述前先把狀態條刷成最新，別等 syncData
         if (res.statusString) { localStorage.setItem('kyushu_last_status', res.statusString); updateUI(res.statusString.split('§')); }
-        updateClock(res.clock, res.ap, res.apMax); await narrate(res.aiPrompt); syncData(true);
+        updateClock(res.clock, res.ap, res.apMax); syncData(true); await narrate(res.aiPrompt);
         if (res.defeat) { await handleDefeat(res); }
       } else { alert((res && res.message) || '補魔失敗。'); }
     } catch (e) { alert('連線失敗，補魔未果。'); } finally { endAction(); }
@@ -2127,7 +2133,7 @@
       if (res && res.success) {
         myBondUsed = res.bondUsed || myBondUsed;
         if (res.report) renderFateBattleReport(res.report); // ⚔️ 相伴遭突襲→戰報卡(跟 rest()/scout() 同一套)
-        await narrate(res.aiPrompt); syncData(true);
+        syncData(true); await narrate(res.aiPrompt);
         if (res.defeat) { await handleDefeat(res); }
       } else { alert((res && res.message) || '今日無法再敘。'); if (res && res.bondUsed) myBondUsed = res.bondUsed; }
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
@@ -2158,7 +2164,7 @@
     story.scrollTop = story.scrollHeight;
     try {
       const res = await gasRun({ action: 'use_seal', pcId: pc.id, sealType: type, servant: myActiveServant });
-      if (res && res.success) { await narrate(res.aiPrompt); syncData(true); }
+      if (res && res.success) { syncData(true); await narrate(res.aiPrompt); }
       else { alert((res && res.message) || '令咒未能發動。'); }
     } catch (e) { alert('連線失敗，令咒未發動。'); } finally { endAction(); }
   }
