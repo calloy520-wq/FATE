@@ -508,7 +508,8 @@ function upgradeMasterCodex_(ss) {
   for (var j = d.length - 1; j >= 1; j--) {
     if (!byId[String(d[j][COL.MASTER.ID])] && String(d[j][COL.MASTER.SOURCE]) === 'seed') { msh.deleteRow(j + 1); n++; }
   }
-  if (n) try { CacheService.getScriptCache().remove("FATE_MASTER_CODEX"); } catch (e) { }
+  // 🗑️ 2026-07 稽核確認並移除：御主殿靜態化後 getMasterCodexCached() 直接讀 SEED_MASTERS 常數，
+  //   從未 put 過 FATE_MASTER_CODEX 這個快取鍵，remove 是無害no-op，移除避免誤導後續讀者。
   return n;
 }
 
@@ -582,7 +583,7 @@ function seedFateCodex_(ss) {
   if (master && master.getLastRow() <= 1) {
     var mrows = SEED_MASTERS.map(masterToCodexRow_);
     master.getRange(2, 1, mrows.length, mrows[0].length).setValues(mrows);
-    try { CacheService.getScriptCache().remove("FATE_MASTER_CODEX"); } catch (e) { }
+    // 🗑️ 2026-07 稽核確認並移除：同上，御主殿靜態化後這個快取鍵從未被寫入，remove 是無害no-op。
   }
   // 人設版本升級（只跑一次）
   try {

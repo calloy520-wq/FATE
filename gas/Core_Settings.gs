@@ -436,11 +436,14 @@ function buildVisibleStatusString(rawStatus) {
 // 🗑️→✅ 2026-07：physical_state 簡化成單一「狀態」欄後，器官專屬鍵(肉棒/蜜穴)不再存在，
 //   上一輪的性別矛盾鍵清洗邏輯隨之整段作廢——現在單純覆寫這一個鍵即可，不再有跨鍵合併需求。
 function mergePhysicalStatus(oldJson, newVal) {
-  try {
-    let oldObj = JSON.parse(oldJson || "{}");
-    oldObj["狀態"] = String(newVal || "").trim();
-    return JSON.stringify(oldObj);
-  } catch (e) { return oldJson || "{}"; }
+  // 🐛→✅ 2026-07 稽核抓到：原本oldJson解析失敗(舊格式殘留/非JSON字串)時，catch直接回傳原始
+  //   oldJson——等於這次的newVal被無聲丟棄，呼叫端以為狀態已更新，實際上完全沒寫進去，且不報錯，
+  //   要等到手動檢查儲存格才會發現。解析失敗時改成當作空物件繼續合併，newVal 一定會被套用。
+  let oldObj;
+  try { oldObj = JSON.parse(oldJson || "{}"); } catch (e) { oldObj = {}; }
+  if (!oldObj || typeof oldObj !== "object") oldObj = {};
+  oldObj["狀態"] = String(newVal || "").trim();
+  return JSON.stringify(oldObj);
 }
 
 function buildPlayerStatusString(selfRow, relMem = "") {
@@ -519,21 +522,9 @@ function getMasterCodexCached() {
     .concat(SEED_MASTERS.map(masterToCodexRow_));
 }
 
-function getCharacterTotalStats(charId, sheets, cachedPcData = null, cachedItemData = null) {
-  const pcData = cachedPcData || sheets.pc.getDataRange().getValues();
-  const row = pcData.find(r => r[COL.PC.ID] === charId);
-  if (!row) return null;
-
-  // 🎴 FATE 六圍制：數值五圍(STR~LUK 欄)已棄用，顯示用值改由六圍 SIX 階級直接推導(svNum_)，無階級倍率。
-  let six = {}; try { six = JSON.parse(row[COL.PC.SIX] || "{}"); } catch (e) { }
-  const fromSix_ = (k) => svNum_(six[k] || "E");
-  let baseSTR = fromSix_("筋力"), baseCON = fromSix_("耐久"), baseAGI = fromSix_("敏捷"), baseINT = fromSix_("魔力"), baseLUK = fromSix_("幸運");
-
-  return {
-    id: charId, name: row[COL.PC.NAME], hp: parseInt(row[COL.PC.HP]) || 100, maxHp: parseInt(row[COL.PC.MAX_HP]) || 100,
-    STR: baseSTR, CON: baseCON, AGI: baseAGI, INT: baseINT, LUK: baseLUK
-  };
-}
+// 🗑️ 2026-07 稽核確認並移除 getCharacterTotalStats：全代碼庫grep零呼叫點(SOLO_REFERENCE.md §551
+//   記載的「省了鑑賞路徑一次不必要的getCharacterTotalStats計算」正是移除了它最後一個呼叫端，
+//   當時漏了順手刪掉函式本體本身，變成純孤兒——連參數cachedItemData都還留著早已砍除的ITEM系統痕跡。
 
 // ==========================================
 // 🔴 狀態掃描器與地理雷達
@@ -551,16 +542,16 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, allPcData) {
 
   // 🤝 情報共享（同盟背景生效）：只要當前世界尚有任一盟友（敵御主/敵從者結盟中），盟友便會通報敵情——
   //   敵從者的「職階」對玩家揭露（原作依據：遠坂凜為士郎判明敵方職階／真名）。無盟友則維持迷霧。
-  // 🤝 順帶找「別人(非我)同行」的 NPC：那名 NPC 正忙著陪誰（busyWith 顯示用）
+  // 🐛→✅ 2026-07 稽核抓到：這裡原本還宣告了`otherPartyByNpc`(準備給busyWith用)，但下面迴圈從未
+  //   寫入這個物件——單人模式只有一位御主，「同行」旗標本就等於「陪的是御主本人」，沒有第三方
+  //   可陪，這個欄位從一開始就沒有意義可填，是半途而廢的殘留(下方localPeopleList.push恆給
+  //   busyWith:null，全代碼庫grep確認前端從未讀取這欄)。宣告的死物件移除，busyWith 維持恆null不變。
   let hasAlly = false;
-  const otherPartyByNpc = {};
   for (let a = 1; a < allPcData.length; a++) {
     const ar = allPcData[a];
     if (myGameId && String(ar[COL.PC.GAME_ID] || "") !== myGameId) continue;
     const af = String(ar[COL.PC.FACTION] || "");
     if ((af === "敵御主" || af === "敵從者") && !String(ar[COL.PC.ID]).startsWith("DEAD_") && /【盟約至】\d+/.test(String(ar[COL.PC.MEMORY] || ""))) { hasAlly = true; }
-    // 這名角色自己這一列標了「同行」，但同行對象不是本世界唯一御主(即另有其人陪伴)——單人模式僅一位御主，
-    // 故「同行」旗標即代表陪的是御主本人，這裡只需標出「已同行中」給 busyWith 用即可，無須記對象名字。
   }
 
   for (let i = 1; i < allPcData.length; i++) {

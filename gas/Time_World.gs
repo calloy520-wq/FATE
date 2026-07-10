@@ -55,7 +55,11 @@ function rollHours_(clk, hours) {
   while (clk.hour >= 24) { clk.hour -= 24; clk.day += 1; }
 }
 // 把時鐘寫回御主列 + 表（僅在 masterIdx 有效時才動作；沒有現成 pcData/sheets 則整表讀一次落地）。
-function writeClockToRow_(clk, pcData, sheets) {
+// ⚡ 2026-07 稽核抓到：actionMove 傳 pcData/sheets 給 spendAp_ 省整表讀是對的，但它結尾自己還有一次
+//   涵蓋全部欄位的整表 setValues(見 Router_Movement.gs)——這裡的單列3欄立即寫入變成完全多餘的一次
+//   Sheets API 呼叫(值一樣，只是提早寫一次又被蓋一次)。新增可選的 skipWrite：呼叫端明確知道自己
+//   隨後必有一次批次整表寫回時傳 true，只改記憶體不觸發這次寫入；預設 false，其餘呼叫端行為不變。
+function writeClockToRow_(clk, pcData, sheets, skipWrite) {
   if (!clk || clk.masterIdx == null || clk.masterIdx < 0) return;
   var data = pcData, sh = sheets && sheets.pc;
   if (!data || !sh) {
@@ -66,7 +70,7 @@ function writeClockToRow_(clk, pcData, sheets) {
   data[clk.masterIdx][COL.PC.DAY] = clk.day;
   data[clk.masterIdx][COL.PC.HOUR] = clk.hour;
   data[clk.masterIdx][COL.PC.AP] = clk.ap;
-  sh.getRange(clk.masterIdx + 1, COL.PC.DAY + 1, 1, 3).setValues([[clk.day, clk.hour, clk.ap]]);
+  if (!skipWrite) sh.getRange(clk.masterIdx + 1, COL.PC.DAY + 1, 1, 3).setValues([[clk.day, clk.hour, clk.ap]]);
 }
 
 // 取目前 AP（無時鐘回滿）。傳 pcData 可省一次整表讀。
@@ -77,13 +81,14 @@ function getAp_(gameId, pcData) {
 
 // 消耗 AP：1 AP = 1 小時。足夠則扣 cost、推進 cost 小時、回 {ok,ap}；不足回 {ok:false,ap}。
 //   傳 pcData+sheets 可全程零額外整表讀寫(只改記憶體+單列3欄寫回)；不傳則自行整表讀一次(相容舊呼叫)。
-function spendAp_(gameId, cost, pcData, sheets) {
+//   skipWrite(選填)：呼叫端保證隨後必有一次涵蓋這3欄的批次整表寫回時傳true，省掉這裡的單列立即寫入。
+function spendAp_(gameId, cost, pcData, sheets, skipWrite) {
   var clk = getClock_(gameId, pcData, sheets);
   if (!clk || clk.masterIdx < 0) return { ok: true, ap: AP_PER_DAY }; // 無御主列(相容)→不擋
   if (clk.ap < cost) return { ok: false, ap: clk.ap };
   clk.ap -= cost;
   rollHours_(clk, cost);
-  writeClockToRow_(clk, pcData, sheets);
+  writeClockToRow_(clk, pcData, sheets, skipWrite);
   return { ok: true, ap: clk.ap, day: clk.day, hour: clk.hour };
 }
 

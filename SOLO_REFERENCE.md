@@ -1105,3 +1105,17 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - 其餘檢查(MEMORY寫入是否merge安全、多次AI呼叫、row-index過期、非批次寫入)：`actionPlay`全函式逐行核對過，皆為clean(這輪稽核抓到的`setSkillTag_`合併寫法/`buildLiveIdIndex_`競態重定位等既有機制都運作正常，沒有新發現)。
 
 **驗證**：`bash check.sh`全過(`Gallery.gs`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這輪對Gallery.gs的改動——刪除死代碼、補一個IS_PARTY即時檢查——逐行核對過都離`nsfwBaseRules`很遠，非誤判)。headless環境無法測出實際延遲差異，建議部署後測試：①鑑賞正常聊天，畫面不應再出現任何「血量/魔力變化」提示(本來就恆為空、拿掉也不該有變化)；②鑑賞請走同伴的當下，確認該同伴不會在離隊瞬間又被瞬移一次位置。
+
+## 16. 第三輪稽核：`Router_Battle.gs`主戰鬥函式抓到真正的玩家體感bug(2026-07 玩家「繼續找問題」)
+
+派4路agent查前兩輪沒正面攻過的範圍：`Router_Battle.gs`主戰鬥處理函式(之前只查過純數學的Engine_Fate/Engine_Combat)、`Core_Settings.gs`(全專案共用基礎函式)、`Time_World.gs`全檔(之前只修過worldTick_一個重複區塊)、`Script.html`前端消費`_state`的邏輯。
+
+**🔥 `actionFateBattle`：灌魔超載/補魔過充，在多數情況下玩家白付代價、傷害完全沒吃到加成(HIGH confidence，本輪最高嚴重度)**：`npOverloadMul`(超載倍率)／`overcharge`(過充旗標)這兩個屬性，寶具解放結算時只設在`atkC`(戰鬥函式開頭建的那個物件)上，從未存進MEMORY。戰鬥的傷害結算實際上分兩條路：①「開場對轟」(雙方都用寶具開場對撞，僅在攻擊敵從者、且敵方也接對轟時才會觸發)直接用`atkC`，吃得到加成；②**每回合迴圈**(其餘所有情況——打敵御主、或敵從者沒有攻擊型寶具/不接對轟，這是多數對局的實際路徑)用`rowToCombatant_(pcData[sidx])`重新現建一個全新物件`sC`，這個新物件天生沒有`npOverloadMul`/`overcharge`這兩個屬性(對比同一批已經處理過的`atkC.horrorUp`——那個有讓MEMORY標記持久化，重建的新物件能自然讀到；超載/過充這兩個沒有比照辦理)。結果：玩家已經照樣扣了超載的魔力/血量代價(`drainForNp_`)，甚至扛了過載反噬的機率性扣血風險，傷害計算卻完全沒吃到`×1.25~×2.0`的超載倍率、過充的命中/傷害加成，UI橫幅(`report.overload`)跟AI敘述提示詞卻還是照樣宣稱「灌魔超載」發動了——玩家花錢買了一個空氣加成，且完全沒有任何提示告知。**動手**：在每回合迴圈裡，本回合輪到攻擊者本人解放NP的那一刻(`isActive && opening && openingNp`，跟原本判斷是否觸發NP的條件完全同一個)，把`atkC`身上已經結算好的`npOverloadMul`/`overcharge`複製到這回合現建的`sC`上，讓超載/過充在這條(較常見的)路徑上真正生效，不必大動整個資料流(不用比照`horrorUp`額外存MEMORY，因為這兩個值本來就只在「這一發NP解放」的瞬間有意義，戰鬥結束就該歸零，存進MEMORY反而多了個要清除的地方)。
+
+**其餘`Router_Battle.gs`發現(記錄不動手)**：①NP費用門檻(出力100%/魔力足夠)在判斷「這次攻擊會不會走向斬首無寶具分支」之前就先擋——目前前端「🗡️刺殺御主」按鈕固定傳`useNp=false`，這個順序問題現階段碰不到，屬於潛在但目前不可達的後端不一致，先記錄；②敵御主死亡時若同時有多名連結從者需要標記，逐一列各自立即寫入(非批次)——同一批只會有極少數情況命中多從者同時陣亡，效能影響可忽略。兩者皆LOW confidence、rare/unreachable，不動手。
+
+**`Time_World.gs`**：確認`worldTick_`舊修正仍然有效(重複回血區塊沒有復發)，AP/時鐘基礎函式(`getClock_`/`spendAp_`/`grantAp_`/`writeClockToRow_`)的「有pcData/sheets走記憶體、沒有則自行整表讀」雙路徑最終狀態一致，MEMORY合併寫入與全形`｜`分隔符全部乾淨。**動手一項效能修正**：`actionMove`(Router_Movement.gs)傳`pcData`/`sheets`給`spendAp_`是對的，但`spendAp_`內部`writeClockToRow_`還會立即單獨寫一次時鐘3欄，而`actionMove`結尾本就有一次涵蓋全表的批次`setValues`，等於同樣的值被寫了兩次——`writeClockToRow_`/`spendAp_`新增可選的`skipWrite`參數(預設`false`，其餘所有呼叫端行為完全不變)，`actionMove`這裡傳`true`，把這3欄的寫入完全交給結尾那次批次寫回。**記錄不動手**：死亡標記(敵御主死亡時清算其從者的doom-timer)沒有比照`worldTick_`的dirty-flag批次寫回模式、逐筆立即寫——同一輪擊殺多個連結從者才會命中，機率低、非資料錯誤，只是沒批次。
+
+**`Core_Settings.gs`**：整體狀態最好的一個檔案(先前已修過的race-guard/快取失效配對/中文名清洗邊界情況，這輪逐一核對都還是對的)。**動手4項小清理**：①`mergePhysicalStatus`——原本舊格式STATUS欄解析失敗時，catch直接回傳原始舊字串，這次要更新的值被無聲丟棄且不報錯；改成解析失敗當空物件繼續合併，新值一定會被套用。②移除完全零呼叫點的死函式`getCharacterTotalStats`(連參數都還留著早已砍除的ITEM系統痕跡)。③`getLocalPeopleList`裡宣告了卻從未被寫入的死物件`otherPartyByNpc`(單人模式本就沒有「陪別人」這件事，`busyWith`欄位本就恆為`null`且前端從未讀取)一併移除。④`Setup_FateWorld.gs`/`Seed_Codex.gs`裡4處`CacheService.remove("FATE_MAP_DATA"/"FATE_MASTER_CODEX")`——坤圖/御主殿靜態化後這兩個快取鍵早就不會被`put`，remove一個從未寫入的鍵雖然無害(try/catch包著)，但會誤導以為還是快取制，清掉。
+
+**驗證**：`bash check.sh`全過(6個修改檔案：`Core_Settings.gs`/`Router_Battle.gs`/`Router_Movement.gs`/`Seed_Codex.gs`/`Setup_FateWorld.gs`/`Time_World.gs`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這輪未動這兩個檔案)。灌魔超載修正是這批最重要的一條，headless環境無法模擬完整戰鬥流程驗證數值，建議部署後測試：①解放寶具攻擊「敵御主」(clash分支結構上不會觸發的情境)並選超載檔位，確認傷害數字明顯高於不開超載的同一發寶具，UI「灌魔超載」橫幅跟實際傷害要對得上；②攻擊沒有攻擊型寶具的敵從者、開超載，同樣確認傷害有吃到加成；③一般同時滿足對轟條件的情境(打有攻擊型寶具的敵從者且對方接對轟)行為不變，仍走原本的對轟結算。
