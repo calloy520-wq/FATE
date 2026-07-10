@@ -140,8 +140,9 @@ function handleGameAction(userData) {
   // 🌹 慾海路由：御主 avatar 以 "KPC_" 開頭 → 整條後日談路徑(actionPlay/sync/move…)改讀「鑑賞眾生」分頁，
   //   與戰爭主表「眾生」完全隔離。solo 御主是 "PC_" 不受影響。
   const isKanshouCtx = String(pcId || "").indexOf("KPC_") === 0;
+  // 🔄 2026-07 玩家定案「坤圖靜態化」：getMapDataCached 已改直接讀FATE_MAP_SEED常數，不再有任何
+  //   呼叫端需要 sheets.map——這裡不再打 getSheetByName("坤圖") 這次Sheets API呼叫(每個action都省一次)。
   const sheets = {
-    map: ss.getSheetByName("坤圖"),
     pc: (isKanshouCtx ? getKanshouPcSheet_(ss) : ss.getSheetByName("眾生"))
   };
 

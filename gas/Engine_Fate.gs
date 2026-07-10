@@ -138,11 +138,12 @@ function npDefScale_(c, pierces) {
   return '對人';
 }
 // 令咒緊急脫離的落點：隨機挑一個非約會型的冬木地點（≠ 當前地）
+// 🔄 2026-07 玩家定案「坤圖靜態化」：改用 getMapDataCached(直接讀FATE_MAP_SEED常數，零I/O)，
+//   不再直接打 getSheetByName("坤圖") 整表讀取——這裡是戰鬥中的熱路徑，原本每次令咒脫離都要
+//   真的讀一次坤圖分頁，現在改讀記憶體常數。
 function enemyRetreatLoc_(currentLoc) {
   try {
-    var km = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("坤圖");
-    if (!km || km.getLastRow() <= 1) return currentLoc;
-    var d = km.getDataRange().getValues();
+    var d = getMapDataCached();
     var pool = [];
     for (var i = 1; i < d.length; i++) {
       var nm = String(d[i][COL.MAP.NAME]).trim();

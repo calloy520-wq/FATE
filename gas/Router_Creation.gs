@@ -28,11 +28,9 @@ function actionManualNpc(userData, pcId, sheets) {
   // 🔵 實例化：御主創角 → 開一個全新 game_id 世界
   const gameId = "g_" + Date.now();
 
-  let validMapNames = ["深山町", "新都", "言峰教會", "未遠川"];
-  if (sheets.map) {
-    const maps = sheets.map.getDataRange().getValues().slice(1).map(r => String(r[COL.MAP.NAME]).trim()).filter(n => n !== "" && !n.includes('-'));
-    if (maps.length > 0) validMapNames = maps;
-  }
+  // 🔄 2026-07 玩家定案「坤圖靜態化」：getMapDataCached 直接讀FATE_MAP_SEED常數(零I/O、恆非空)，
+  //   不必再靠 sheets.map 是否存在來決定要不要退回寫死的4個地名保底。
+  const validMapNames = getMapDataCached(sheets).slice(1).map(r => String(r[COL.MAP.NAME]).trim()).filter(n => n !== "" && !n.includes('-'));
 
   // 🚀 開局非阻塞(2026-07)：create【不叫 AI】，用玩家輸入的種子值秒寫入御主列、立刻進場；
   //   AI 生成的背景/特徵/個性/萌點由 backfill_master_ai 在「召喚從者頁」背景補上(見 actionBackfillMasterAi)。
@@ -95,11 +93,9 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
   const appearance = String(userData.appearance || ""), standing = String(userData.standing || "");
   const wish = String(userData.wish || ""), magic = String(userData.magic || ""), origin = String(userData.origin || "");
 
-  let validMapNames = ["深山町", "新都", "言峰教會", "未遠川"];
-  if (sheets.map) {
-    const maps = sheets.map.getDataRange().getValues().slice(1).map(r => String(r[COL.MAP.NAME]).trim()).filter(n => n !== "" && !n.includes('-'));
-    if (maps.length > 0) validMapNames = maps;
-  }
+  // 🔄 2026-07 玩家定案「坤圖靜態化」：getMapDataCached 直接讀FATE_MAP_SEED常數(零I/O、恆非空)，
+  //   不必再靠 sheets.map 是否存在來決定要不要退回寫死的4個地名保底。
+  const validMapNames = getMapDataCached(sheets).slice(1).map(r => String(r[COL.MAP.NAME]).trim()).filter(n => n !== "" && !n.includes('-'));
 
   const promptStr = `【御主】：名號『${finalName}』，性別『${finalSex}』\n【外貌】：${appearance || "隨機"}\n【身世／財力】：${standing || "隨機"}\n【願望】：${wish || "隨機"}\n【魔術系統】：${magic || "隨機"}\n【出身】：${origin || "隨機"}`;
 

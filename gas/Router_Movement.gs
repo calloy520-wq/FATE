@@ -12,7 +12,8 @@
 //   若在第五次局也顯示是明確的設定錯誤(那幾位御主根本不在那場戰爭)。查玩家自己這局的
 //   【戰爭】標記(getWarName_ 已存在、Router_Creation.gs 定義)，只留通用地點(WAR空白)＋符合本局戰爭者。
 function buildMapNodesPayload_(sheets, pcData, myGameId, myLoc) {
-  if (!sheets.map) return { nodes: [], here: myLoc, allyIntel: false };
+  // 🔄 2026-07 玩家定案「坤圖靜態化」：getMapDataCached 已改直接讀FATE_MAP_SEED常數，不再依賴
+  //   sheets.map 是否存在(該分頁現在純供人工查閱，遊戲邏輯不讀它)，原本的存在性guard拿掉。
   // 🐛→✅ 2026-07 稽核補漏：這整個函式(找戰爭名/盟友情報揭露/敵蹤掃描/坤圖節點)都是solo戰爭
   //   地圖限定概念——鑑賞早就拔了固定地圖節點系統，前端(applyClientState)本就只在非kanshou模式
   //   才會 renderMapPane(data.mapNodes)，鑑賞這裡算出來的結果從頭到尾沒人渲染。比照其餘solo限定
@@ -33,7 +34,7 @@ function buildMapNodesPayload_(sheets, pcData, myGameId, myLoc) {
     const loc = String(r[COL.PC.LOC] || "").trim();
     enemyAt[loc] = (enemyAt[loc] || 0) + 1;
   });
-  const md = getMapDataCached(sheets); // 坤圖靜態→走 1h 快取，免整表讀
+  const md = getMapDataCached(sheets); // 坤圖已靜態化：getMapDataCached 直接讀FATE_MAP_SEED常數，零I/O成本
   const nodes = [];
   for (let i = 1; i < md.length; i++) {
     const name = String(md[i][COL.MAP.NAME] || "").trim();
@@ -53,7 +54,6 @@ function buildMapNodesPayload_(sheets, pcData, myGameId, myLoc) {
 
 function actionGetMapNodes(userData, pcId, sheets) {
   try {
-    if (!sheets.map) return JSON.stringify({ success: false, nodes: [] });
     const pcData = sheets.pc.getDataRange().getValues();
     const me = pcData.find(r => r[COL.PC.ID] == pcId);
     const myGameId = me ? String(me[COL.PC.GAME_ID] || "") : "";
@@ -334,7 +334,7 @@ function actionMove(userData, pcId, sheets) {
 
   // 📜 正典劇情插針已移除（2026-06 玩家定案·沒啥用處）——抵達不再自動塞 Fate 原作橋段／路線引導。
 
-  const freshMapData = moveMapData || getMapDataCached(sheets); // 坤圖靜態→走 1h 快取，免整表讀(上面已抓過就複用)
+  const freshMapData = moveMapData || getMapDataCached(sheets); // 坤圖已靜態化(讀FATE_MAP_SEED常數，零I/O成本)，這裡複用上面已抓過的結果純粹省一次函式呼叫
   const rootTarget = target ? String(target).split('-')[0].trim() : "";
   const parentMapInfo = freshMapData.find(m => String(m[COL.MAP.NAME]).trim() === rootTarget);
   const subMapInfo = (target !== rootTarget) ? freshMapData.find(m => String(m[COL.MAP.NAME]).trim() === target) : null;
@@ -770,7 +770,7 @@ function actionScout(userData, pcId, sheets) {
   }
   const curLoc = String(pcData[pIdx][COL.PC.LOC] || "").trim();
   // 附近地點（含當前）作為偵查範圍
-  const mapData = getMapDataCached(sheets); // 坤圖靜態→走 1h 快取
+  const mapData = getMapDataCached(sheets); // 坤圖已靜態化：getMapDataCached 直接讀FATE_MAP_SEED常數，零I/O成本
   let scope = [curLoc];
   try { getNearbyLocations(curLoc, mapData).forEach(l => { const nm = (l && l.name) ? l.name : l; if (nm) scope.push(String(nm).trim()); }); } catch (e) { }
 

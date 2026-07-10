@@ -477,23 +477,27 @@ function getFreshStatusString(targetId, pIdx, sheets) {
   return buildPlayerStatusString(freshPcData[pIdx]);
 }
 
-// ⚡ 靜態種子表快取共用時數：坤圖/英靈殿/御主殿都幾乎不寫(只在創角/召喚/版本升級時)，
+// ⚡ 靜態種子表快取共用時數：英靈殿(客製從者部分)幾乎不寫(只在召喚/版本升級時)，
 //   卻被戰鬥/移動/羈絆等熱路徑高頻讀取——6 小時內免整表重讀，寫入點各自呼叫對應 remove() 清快取。
 const SEED_CACHE_SECONDS_ = 21600; // 6 小時
 
+// 🔄 2026-07 玩家定案「純靜態資料乾脆別繞道試算表」：坤圖從沒有任何玩家動作會寫入(唯一寫入者是
+//   開發者升級地圖版本時的一次性upsert，見reseedIfEmpty_)，跟FATE_MAP_SEED(Setup_FateWorld.gs)這個
+//   JS常數其實是同一份資料——舊版讀「坤圖」分頁再靠CacheService快取6小時，等於繞一圈才拿到本來就
+//   在記憶體裡的常數，快取本身還要付一次CacheService API呼叫的成本，比直接讀常數還慢。改成直接
+//   回傳FATE_MAP_SEED包一份表頭列，形狀(含表頭列＋COL.MAP欄序)跟原本讀sheet完全一致，所有呼叫端
+//   (buildMapNodesPayload_/getNearbyLocations/actionMove/leylineAt_等)不用改一行。「坤圖」分頁本體
+//   仍保留(FATE_SHEET_DEFS/reseedIfEmpty_不變)，供人工查閱參考，但遊戲邏輯不再讀它、也不再需要它
+//   存在——sheets.map 這個參數留著只是相容既有呼叫簽名，函式內容不再使用。
 function getMapDataCached(sheets) {
-  if (!sheets.map) return [];
-  const cache = CacheService.getScriptCache();
-  const cachedMap = cache.get("FATE_MAP_DATA");
-  if (cachedMap) return JSON.parse(cachedMap);
-
-  const freshData = sheets.map.getDataRange().getValues();
-  cache.put("FATE_MAP_DATA", JSON.stringify(freshData), SEED_CACHE_SECONDS_);
-  return freshData;
+  return [["地域", "地名", "類型", "座標", "描述", "上級", "戰爭"]].concat(FATE_MAP_SEED);
 }
 
 // 英靈殿(種子從者名冊)：codexPersona_/actionGetHeroes/actionSummonServant/seedRivalsForGame_ 共用。
 //   寫入點(recordOriginalHero_/upgradeCodexPersonas_/seedFateCodex_)須各自 remove("FATE_HERO_CODEX")。
+// ⚠ 英靈殿跟坤圖/御主殿不同、沒有跟著靜態化：工房(Workshop)玩家可捏出原創英靈(來源=ai_gen)並
+//   永久寫進這張表，GAS程式碼本身是靜態部署的，跑起來時沒辦法把新角色永久塞回JS常數——這部分
+//   是真正需要試算表持久化的動態資料，故繼續維持「讀表+6小時快取」的既有架構不變。
 function getHeroCodexCached() {
   const cache = CacheService.getScriptCache();
   const cached = cache.get("FATE_HERO_CODEX");
@@ -505,17 +509,14 @@ function getHeroCodexCached() {
   return fresh;
 }
 
-// 御主殿(種子正典御主名冊)：actionGetMasters/seedRivalsForGame_ 共用。
-//   寫入點(upgradeMasterCodex_/seedFateCodex_)須各自 remove("FATE_MASTER_CODEX")。
+// 🔄 2026-07 玩家定案：御主殿比照坤圖靜態化——查證過全代碼庫，唯二的寫入點(upgradeMasterCodex_/
+//   seedFateCodex_)都只在版本升級/首次建表時執行，沒有任何玩家動作(如工房)會新增列進這張表，
+//   跟坤圖同一類「試算表只是JS常數SEED_MASTERS(Seed_Codex.gs)的一份多餘拷貝」。改成直接用既有的
+//   masterToCodexRow_(Seed_Codex.gs，seedFateCodex_本來就在用的同一個轉換函式)即時組出結果，
+//   不必再讀表也不必快取。「御主殿」分頁本體仍保留(供人工查閱參考)，但遊戲邏輯不再讀它。
 function getMasterCodexCached() {
-  const cache = CacheService.getScriptCache();
-  const cached = cache.get("FATE_MASTER_CODEX");
-  if (cached) return JSON.parse(cached);
-  const msh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("御主殿");
-  if (!msh || msh.getLastRow() <= 1) return [];
-  const fresh = msh.getDataRange().getValues();
-  cache.put("FATE_MASTER_CODEX", JSON.stringify(fresh), SEED_CACHE_SECONDS_);
-  return fresh;
+  return [["御主ID", "姓名", "性別", "外貌", "魔術系統", "魔術迴路", "體術", "魔術階位", "居所", "願望", "人格", "戰爭", "來源", "身世", "萌點"]]
+    .concat(SEED_MASTERS.map(masterToCodexRow_));
 }
 
 function getCharacterTotalStats(charId, sheets, cachedPcData = null, cachedItemData = null) {
