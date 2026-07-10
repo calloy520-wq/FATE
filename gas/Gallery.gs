@@ -1324,11 +1324,28 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
 
       const processSkills = (oldMem, newSkillsStr) => {
-        let skillMap = {}; let oldSkills = (oldMem.match(/\[雙修技巧\](.*?)(?=\| \[|$)/) || [])[1]?.trim() || "";
+        // 🐛→✅ 2026-07 稽核抓到真實bug：舊regex `(.*?)(?=\| \[|$)` 只認得「半形｜ [」或字串結尾當
+        //   段落邊界——但MEMORY欄裡跟這個標記共存的其餘標記(【換裝】【邂逅】【邂逅中】【帳號】
+        //   【鑑賞後日談】【口吻】【小動作】等)全部是用全形｜分隔，從來不會產生半形「| [」這個組合，
+        //   導致抓不到正確邊界時直接吃到字串結尾——這不是這裡唯一的問題，見下方setSkillTag_的說明。
+        //   改成用全形｜當統一邊界，跟整個MEMORY生態系一致。
+        let skillMap = {}; let oldSkills = (oldMem.match(/\[雙修技巧\]([^｜]*)/) || [])[1]?.trim() || "";
         if (oldSkills && oldSkills !== "無") oldSkills.replace(/^\.\.\./, "").split('、').forEach(p => { let m = p.match(/(.+?)\(Lv\.(\d+)\)/); if (m) skillMap[m[1].trim()] = parseInt(m[2], 10); else if (p.trim()) skillMap[p.trim()] = 1; });
         if (String(newSkillsStr || "").trim() && String(newSkillsStr || "").trim() !== "無") String(newSkillsStr || "").trim().split('、').forEach(s => { let cn = s.replace(/[\(\[]?Lv\.?\d+[\)\]]?/gi, '').trim(); if (cn) skillMap[cn] = Math.min((skillMap[cn] || 0) + 1, 10); });
         let sorted = Object.keys(skillMap).map(k => ({ n: k, lv: skillMap[k] })).sort((a, b) => b.lv - a.lv);
         return sorted.length > 0 ? sorted.slice(0, 30).map(sk => `${sk.n}(Lv.${sk.lv})`).join('、') : "無";
+      };
+      // 🐛→✅【真實bug，高嚴重度】2026-07稽核抓到：下面兩個呼叫點原本是`pcData[idx][COL.PC.MEMORY] =
+      //   \`[雙修技巧]${...}\``——整格覆寫，不是合併！MEMORY欄是多個標記共用同一顆cell(【換裝】/
+      //   【帳號】/【鑑賞後日談】/【口吻】/【小動作】/【邂逅】/【邂逅中】全部擠在這裡，用全形｜分隔)，
+      //   這個覆寫等於每次AI回傳intimacy_feedback(幾乎每回合都有，schema強制要求)就把除了雙修技巧
+      //   以外的所有標記全部砍光——玩家換裝後聊沒兩句衣服就消失、今天剛做的【邂逅中】(出門走走持續
+      //   互動)在寫進試算表前就先被同一次呼叫裡的這段覆寫抹掉、同伴的【口吻】【小動作】語癖也會在
+      //   第一次親密回饋後就消失。改成用setSkillTag_只更新雙修技巧那一段、不動其餘標記，比照
+      //   getOutfit_/setOutfit_同款「清除舊值再整段append」寫法，用全形｜跟整個MEMORY生態系一致。
+      const setSkillTag_ = (oldMem, newSkillsStr) => {
+        const cleaned = String(oldMem || "").replace(/｜?\[雙修技巧\][^｜]*/g, "");
+        return (cleaned ? cleaned + "｜" : "") + "[雙修技巧]" + newSkillsStr;
       };
 
       const processTags = (oldMem, regex, newTagStr, maxCount) => {
@@ -1358,7 +1375,7 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         if (pCleanState) pcData[pcIndex][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[pcIndex][COL.PC.PHYSICAL], pCleanState);
 
         let oldPMem = pcData[pcIndex][COL.PC.MEMORY] || "";
-        pcData[pcIndex][COL.PC.MEMORY] = `[雙修技巧]${processSkills(oldPMem, pfb.dynamic_skills)}`;
+        pcData[pcIndex][COL.PC.MEMORY] = setSkillTag_(oldPMem, processSkills(oldPMem, pfb.dynamic_skills));
       }
 
       if (aiData.intimacy_feedback.npcs) {
@@ -1372,7 +1389,7 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
           if (nCleanState) pcData[targetIdx][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[targetIdx][COL.PC.PHYSICAL], nCleanState);
           if (nfb.dynamic_skills) {
             let oldNMem = pcData[targetIdx][COL.PC.MEMORY] || "";
-            pcData[targetIdx][COL.PC.MEMORY] = `[雙修技巧]${processSkills(oldNMem, nfb.dynamic_skills)}`;
+            pcData[targetIdx][COL.PC.MEMORY] = setSkillTag_(oldNMem, processSkills(oldNMem, nfb.dynamic_skills));
           }
 
           // 羈絆記憶(專屬稱呼)已併入該 NPC 自己列的 REL_MEM 欄(交談輪數已隨log_summary移除、

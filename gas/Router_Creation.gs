@@ -8,7 +8,7 @@ function actionManualNpc(userData, pcId, sheets) {
   // 🎴 御主創角專用（action="create"）。手動建 NPC(manual_npc) 已移除；從者另由 actionSummonServant 處理，與此無關。
   const newId = "PC_" + Date.now();
   const { name, sex, identity, standing, wish, appearance, magic, circuits, origin, melee } = userData;
-  const finalName = name;
+  let finalName = name;
   const finalSex = sex;
 
   // 🔴 姓名已在 sanitizeUserData_ 清成純中文；若為空代表含非中文字元，直接擋下不寫表
@@ -21,8 +21,12 @@ function actionManualNpc(userData, pcId, sheets) {
   //   玩家御主永遠靠 pcId/ID 認人），跨局撞名無害；卻害「分享出去多人玩」時常見/正典名號被別局佔走而創不了角。
   //   改為只擋【正典角色名】：避免自創御主與被種入本局的同名正典敵手變雙胞胎（同局內按名字查會歧義）；
   //   想當正典角色請走「扮演正典御主」入口。用記憶體種子常數比對·順帶省掉一次整表讀。
-  const _canonHit = (typeof SEED_MASTERS !== 'undefined' && SEED_MASTERS.some(m => m && m.name === finalName))
-    || (typeof SEED_SERVANTS !== 'undefined' && SEED_SERVANTS.some(s => s && s.name === finalName));
+  // 🐛→✅ 2026-07 稽核抓到：finalName 已被 sanitizeUserData_ 的 cleanChineseName 洗成純中文(去標點如間隔號· )，
+  //   但比對對象 SEED_MASTERS/SEED_SERVANTS 的 .name 是原始未洗字串——正典名號若含標點(如「韋伯·維爾維特」)，
+  //   兩邊永遠比不中：_canonHit 恆 false，這名角色的自創撞名保護整個失效(玩家會創出「韋伯維爾維特」這種
+  //   去標點畸形名，而非被正確擋下或走「扮演正典御主」入口)。兩側都套 cleanChineseName 統一正規化再比對。
+  const _canonHit = (typeof SEED_MASTERS !== 'undefined' && SEED_MASTERS.some(m => m && cleanChineseName(m.name) === finalName))
+    || (typeof SEED_SERVANTS !== 'undefined' && SEED_SERVANTS.some(s => s && cleanChineseName(s.name) === finalName));
   // 🐛→✅ 2026-07 玩家實測「扮演正典角色卻被擋，說已經有了」：這條擋名檢查沒有排除「扮演正典御主」
   //   這條合法路徑本身——玩家從 Script_Onboarding.html 的 pickCanonMaster 選了正典御主後，前端會把
   //   該御主的真名帶進 s-name 欄位、連同 playedMaster(該御主id) 一起送進來，但這裡完全沒讀
@@ -34,8 +38,15 @@ function actionManualNpc(userData, pcId, sheets) {
   //   種成本局敵御主(見該函式 `if (playedMaster && String(r.master) === playedMaster) return`)，
   //   所以「扮演正典御主」不會真的產生雙胞胎，這裡放行是安全的。
   const _playingThisCanon = userData.playedMaster && typeof SEED_MASTERS !== 'undefined'
-    && SEED_MASTERS.some(m => m && String(m.id) === String(userData.playedMaster) && m.name === finalName);
+    && SEED_MASTERS.some(m => m && String(m.id) === String(userData.playedMaster) && cleanChineseName(m.name) === finalName);
   if (_canonHit && !_playingThisCanon) return JSON.stringify({ success: false, message: `「${finalName}」是聖杯戰爭中已知的英靈／御主——自創御主請另取名號；若想扮演此角，請用「扮演正典御主」入口。` });
+  // 🐛→✅ 承上：_playingThisCanon 成立時，finalName 仍是被 cleanChineseName 洗掉標點的畸形版本
+  //   (如「韋伯維爾維特」)——比對通過了，但實際寫進表的名字還是錯的。這裡還原成 SEED_MASTERS 的
+  //   原始正典真名(含標點)，確保「扮演正典御主」創出來的角色名字跟原作一字不差。
+  if (_playingThisCanon) {
+    const _canonMaster = SEED_MASTERS.find(m => m && String(m.id) === String(userData.playedMaster));
+    if (_canonMaster) finalName = _canonMaster.name;
+  }
 
   // 🔵 實例化：御主創角 → 開一個全新 game_id 世界
   const gameId = "g_" + Date.now();

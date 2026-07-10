@@ -456,24 +456,13 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
       var eNHp = Math.min(eHpMax, eHp + Math.round(eHpMax * ENEMY_REGEN_RATE_));
       if (eNHp !== eHp) { data[hi][COL.PC.HP] = eNHp; anyHpDirty = true; }
     }
-
-    // 🩹 敵從者小幅自癒(見 ENEMY_REGEN_RATE_ 註解)：不論攻防/是否同地，move/rest 兩種 tick 都跑，
-    //   免額外整表讀寫——沿用同一份 data、跟 LOC 一樣整欄批次寫回。
-    var hpDirty = false;
-    for (var hi = 1; hi < data.length; hi++) {
-      if (String(data[hi][COL.PC.FACTION]) !== "敵從者") continue;
-      if (String(data[hi][COL.PC.GAME_ID] || "") !== gameId) continue;
-      if (String(data[hi][COL.PC.ID]).startsWith("DEAD_")) continue;
-      var eHpMax = parseInt(data[hi][COL.PC.MAX_HP]) || 0, eHp = parseInt(data[hi][COL.PC.HP]) || 0;
-      if (!eHpMax || eHp <= 0 || eHp >= eHpMax) continue;
-      var eNHp = Math.min(eHpMax, eHp + Math.round(eHpMax * ENEMY_REGEN_RATE_));
-      if (eNHp !== eHp) { data[hi][COL.PC.HP] = eNHp; hpDirty = true; }
-    }
-    if (hpDirty) {
-      var hpCol = [];
-      for (var z1 = 1; z1 < data.length; z1++) hpCol.push([data[z1][COL.PC.HP]]);
-      sheets.pc.getRange(2, COL.PC.HP + 1, hpCol.length, 1).setValues(hpCol);
-    }
+    // 🐛→✅ 2026-07 稽核抓到真實bug：這裡原本還有第二段一模一樣的「敵從者小幅自癒」迴圈(重複的
+    //   copy-paste殘留，refactor成上面「跨輪累積髒旗標、跑完才寫」版本時忘了刪掉舊版)——舊版沿用
+    //   同一份`data`，重新讀取「上面那段迴圈剛治療過」的HP再治療一次，等於每輪世界推進都把
+    //   ENEMY_REGEN_RATE_實際套用兩次(0.06→實際約0.12，休息12h變成回48%而非設計的24%)；還在迴圈內
+    //   立刻`sheets.pc.getRange(...).setValues(...)`寫回，跟本函式開頭註解明講的「整欄批次寫回...
+    //   跑完才寫，省去中途重複Sheets寫入次數」自相矛盾(每輪都多寫一次，最多4輪=4次多餘寫入)。
+    //   整段刪除，只留上面那段+函式結尾的anyHpDirty批次寫回，才是名副其實的「只寫一次、只治療一次」。
 
     // 2) 暗處從者廝殺：只在「休息」時可能發生（移動只換位，不死人）；
     //    且永遠至少保留 WORLD_FLOOR_ 名敵從者給玩家親手解決——絕不會被世界自走清光。
