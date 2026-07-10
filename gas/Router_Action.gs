@@ -350,6 +350,7 @@ function actionUpdateFate(userData, pcId, sheets) {
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
 
   const relMem = String(pcData[pIdx][COL.PC.REL_MEM] || "");
+  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：逆天改命的單欄寫入已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({ success: true, statusString: buildPlayerStatusString(pcData[pIdx], relMem) });
 }
 
@@ -537,8 +538,12 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   }
 
   const finalTag = String(newTagText).trim();
+  // 🐛→✅ 2026-07 稽核抓到：原本只寫進sheet、沒同步寫回pcData[tIdx][COL.PC.REL_TAG]——這裡補上
+  //   記憶體鏡射，才能安全交棒STATE_PRE_DATA_(否則dispatcher夾帶的_state.people會顯示改名前的舊稱呼)。
+  pcData[tIdx][COL.PC.REL_TAG] = finalTag;
   sheets.pc.getRange(tIdx + 1, COL.PC.REL_TAG + 1).setValue(finalTag);
 
+  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：REL_TAG改寫已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({ success: true, message: `羈絆已重新定義為「${finalTag}」。`, newTag: finalTag });
 }
 
