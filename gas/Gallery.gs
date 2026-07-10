@@ -1258,15 +1258,12 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       curL = aiLoc;
     }
 
-    // 🔴 血量快照：記錄所有人變化前的血量，供結尾比對真實扣血
-    const hpSnapshot = {};
-    pcData.forEach((row, idx) => {
-      if (idx === 0) return;
-      if (String(row[COL.PC.ID] || "").startsWith("DEAD_")) return;
-      hpSnapshot[idx] = parseInt(row[COL.PC.HP]) || 0;
-    });
-    const mpBefore = parseInt(pcData[pcIndex][COL.PC.MP]) || 0;
-
+    // 🐛→✅ 2026-07 稽核抓到：血量快照(hpSnapshot)＋結尾的hpChangeMsgs/mpBefore/mpAfter/mpDiff
+    //   整組比對邏輯已刪除——本檔上面(見附近「瀕死張力指令」那條同批次修正的註解)已確認鑑賞的
+    //   HP/MP/MAX_HP/MAX_MP這4欄從未被寫入、恆為空字串，全代碼庫grep也確認Gallery.gs沒有任何一處
+    //   COL.PC.HP]=/COL.PC.MP]= 賦值——`parseInt("")||0`兩邊都退回0，before永遠等於after，這段
+    //   比對邏輯注定產生不出任何可見輸出，卻仍在鑑賞這個全代碼庫呼叫最頻繁的函式裡，對整張
+    //   「鑑賞眾生」表做一次完整forEach掃描，每個訊息都白做。整組(快照建立＋結尾diff顯示)一併移除。
 
     // 🗑️ 2026-07：stat_changes(外顯狀態刷新)套用區塊已整組移除(玩家定案)——solo 戰鬥演出卡/戰報
     //   從不讀 STATUS，卡片外顯恆顯示預設「穿戴整齊，站立，氣息平穩」＝AI寫、無人讀的死資料迴圈；
@@ -1424,9 +1421,13 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
     // ⚠ 2026-07 修：原本純比對姓名就直接寫 LOC——若不同局剛好有同名角色(種子有限、AI原創從者
     //   都可能撞名)，會把玩家的新座標寫到別局那位同名角色身上，悄悄把對方傳送到隨機地點。
+    // 🐛→✅ 2026-07 稽核抓到：partyMembers 是本回合開頭(AI呼叫前)就捕捉好的同行名單快照——若玩家
+    //   這回合剛好請走(dismiss)某位同伴，上面的請辭處理已把該列 IS_PARTY 清空，但這裡還是拿舊快照
+    //   跑，會把剛請走的人也順手同步到玩家的新位置(等於送他最後一程才真正離隊)。改成當下即時重查
+    //   IS_PARTY，已離隊者不再跟著同步座標。
     partyMembers.forEach(pName => {
       const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === pName && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
-      if (nIdx !== -1) {
+      if (nIdx !== -1 && String(pcData[nIdx][COL.PC.IS_PARTY] || "") === "同行") {
         pcData[nIdx][COL.PC.LOC] = pcData[pcIndex][COL.PC.LOC];
         dirtyPcRows.add(nIdx); // 🔴 加進去才會寫入
       }
@@ -1485,37 +1486,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
     //   npc-card／互動選單banner後來查證幾乎不可達，真正的來源在這)。純顯示用途、不影響
     //   rel_changes 本身的好感數值寫入(那段在更上面的 relChangesToProcess.forEach，不受影響)。
 
-    // 🔴 全員血量變化（讀系統真實結算值，AI亂寫value也不影響）
-    const hpChangeMsgs = [];
-    dirtyPcRows.forEach(idx => {
-      const row = pcData[idx];
-      if (!row) return;
-      const before = hpSnapshot[idx];
-      if (before === undefined) return; // 新生成的角色沒快照
-      const after = parseInt(row[COL.PC.HP]) || 0;
-      if (after === before) return;
-      const nm = row[COL.PC.NAME];
-      const maxHp = parseInt(row[COL.PC.MAX_HP]) || 100;
-      const diff = after - before;
-      const diffStr = diff > 0 ? `+${diff}` : `${diff}`;
-      const color = diff < 0 ? "#d9534f" : "#2e8b57";
-      const isMe = (idx === pcIndex);
-      hpChangeMsgs.push(`<span style="color:${color};">${isMe ? "🧍" : "⚔️"} ${nm} ${diffStr} (${after}/${maxHp})</span>`);
-    });
-    if (hpChangeMsgs.length > 0) {
-      finalResponseText += `<br><br><span style="font-size:13px; line-height:1.8;">${hpChangeMsgs.join("<br>")}</span>`;
-    }
-
-    // 🔴 玩家魔力變化（生命已由上面清單統一顯示，這裡不重複；金錢經濟層已移除）
-    const mpAfter = parseInt(pcData[pcIndex][COL.PC.MP]) || 0;
-    const extraMsgs = [];
-    const mpDiff = mpAfter - mpBefore;
-    if (mpDiff !== 0) extraMsgs.push(`<span style="color:#4169e1;">${mpDiff < 0 ? "💨" : "🌀"} 魔力 ${mpDiff > 0 ? "+" : ""}${mpDiff}</span>`);
-    if (extraMsgs.length > 0) {
-      finalResponseText += `<br><span style="font-size:13px;">${extraMsgs.join('　')}</span>`;
-    }
-
-
+    // 🐛→✅ 2026-07：對應上面移除的hpSnapshot——全員血量變化/玩家魔力變化的顯示區塊一併刪除，
+    //   理由同上(鑑賞HP/MP恆空字串，這兩段永遠算不出非零差值，純粹白跑)。
 
 
 

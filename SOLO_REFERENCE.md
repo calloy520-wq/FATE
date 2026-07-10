@@ -1095,3 +1095,13 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - 15個handler(`use_seal/mana_supply/bond/rule_break_steal/propose_alliance`(兩個成功分支都補)`/break_alliance/ally_bond`(兩個成功分支都補)`/set_workshop/scavenge/second_wind/scout/summon_horror_beast/dismiss_horror_beast/update_fate/update_rel_tag`)在各自的成功回應前補上`STATE_PRE_DATA_ = pcData;`，逐一核對每個handler直到return前的所有寫入(HP/MP/MEMORY/SEEN/陣營轉換/令咒扣除等)都已經原地反映在`pcData`陣列裡才動手——只對「失敗」的早退分支(success:false)不補，因為dispatcher只在`obj.success`為真時才會用到交棒的陣列。
 
 **驗證**：`bash check.sh`全過(5個修改檔案：`Router_Action.gs`/`Router_Battle.gs`/`Router_Bond.gs`/`Router_Economy.gs`/`Router_Movement.gs`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這輪未動這兩個檔案)。這是純後端I/O優化＋2個記憶體鏡射修正，不改變任何遊戲數值/機率/判定邏輯，headless環境無法測出實際延遲差異，建議部署後測試：①令咒(修復/補魔/脫離)、相處、結盟交涉、撕毀盟約、同盟相處、破戒奪僕、設陣地、搜刮、偵查、絕地反擊、補魔、召喚/解除海怪、逆天改命、重新定義稱呼——這些動作的既有行為(效果/訊息/AP消耗/時鐘推進)應該完全不變，只是每次按鍵少了2~4次不必要的整表讀取，體感上應該更快，尤其是連續按這些按鈕時的間隔。
+
+**追加稽核(玩家「再仔細看看 速度 邏輯 是不是都正常」)：派2路agent查上面沒細看過的範圍**——鑑賞`actionPlay`(最高頻函式)、以及`buildClientState_`內部呼叫的各個helper(現在被17種動作共用，任何沒接住現成陣列的地方都會被放大)。
+
+- **`buildClientState_`內部：5類helper各自重複掃描同一份`allPcData`找同一件事**(如`clockLabel_`跟`getAp_`各自重找一次「這局的御主列」、`playerServantEconomy_`跟`buildTagsPayload_`各自重篩一次「同局從者」)，一次呼叫下來多繞了約5~8次記憶體掃描，2~3次就夠。**判斷：記錄但不動手**——上一批修的是真正的Sheets API整表讀寫(每次上百毫秒)，這批抓到的是純JS陣列迴圈(微幾秒等級)，「眾生」表這種量級下多繞幾次體感上感覺不到；要修乾淨得改`playerServantEconomy_`/`buildTagsPayload_`/`getLocalPeopleList`/`markRivalsSeen_`/`buildMapNodesPayload_`好幾個函式簽名(這些函式在其他地方也有別的呼叫點，動簽名等於要盤點全部呼叫端)，成本跟回報不成比例，先不做。
+
+- **鑑賞`actionPlay`：血量/魔力快照比對整組是死代碼(HIGH confidence，已動手)**：`hpSnapshot`(結尾比對用的血量快照)在函式一開頭對整張「鑑賞眾生」表做一次完整`forEach`掃描，結尾再用`hpChangeMsgs`/`mpBefore`/`mpAfter`/`mpDiff`比對顯示血量/魔力變化——但本檔上面(瀕死張力指令那條同批次舊修正)已經查證確認鑑賞的`HP`/`MP`/`MAX_HP`/`MAX_MP`這4欄從未被寫入、恆為空字串，全代碼庫grep也確認`Gallery.gs`沒有任何一處`COL.PC.HP]=`/`COL.PC.MP]=`賦值——`parseInt("")||0`兩邊永遠是0，這組比對邏輯注定產生不出任何可見輸出，卻在鑑賞這個全代碼庫呼叫最頻繁的函式裡，對整張表白做一次完整掃描，每個訊息都白做。**動手**：整組(快照建立＋結尾diff顯示)刪除，理由與旁邊已修過的瀕死判斷完全同源，只是當初漏了這個伴生的死代碼。
+- **鑑賞`actionPlay`：請走同伴這回合仍被順手同步到新座標(LOW-MEDIUM，已動手)**：`partyMembers`(同行名單)是AI呼叫前捕捉的快照——若玩家這回合剛好請走某位同伴(`IS_PARTY`已被清空)，結尾同步座標的迴圈仍拿舊快照跑，會把剛離隊的人也順手同步到玩家的新位置(送他最後一程才真正離隊，非資料損毀，純多餘的一次LOC寫入)。**動手**：迴圈裡補上即時重查`IS_PARTY === "同行"`，已離隊者不再跟著同步座標。
+- 其餘檢查(MEMORY寫入是否merge安全、多次AI呼叫、row-index過期、非批次寫入)：`actionPlay`全函式逐行核對過，皆為clean(這輪稽核抓到的`setSkillTag_`合併寫法/`buildLiveIdIndex_`競態重定位等既有機制都運作正常，沒有新發現)。
+
+**驗證**：`bash check.sh`全過(`Gallery.gs`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這輪對Gallery.gs的改動——刪除死代碼、補一個IS_PARTY即時檢查——逐行核對過都離`nsfwBaseRules`很遠，非誤判)。headless環境無法測出實際延遲差異，建議部署後測試：①鑑賞正常聊天，畫面不應再出現任何「血量/魔力變化」提示(本來就恆為空、拿掉也不該有變化)；②鑑賞請走同伴的當下，確認該同伴不會在離隊瞬間又被瞬移一次位置。
