@@ -864,6 +864,22 @@ function kanshouRollEncounter_(locName) {
 //   在問「這裡還有沒有其他人」——非精準語意理解，寧可漏判(退回原本純背景路人描寫，行為不變)也不要
 //   誤判(額外巧遇頂多是意外驚喜，不是壞事)。只在玩家目前所在地是「出門走走」10個地點之一時才會用到。
 const KANSHOU_ASKING_WHO_ELSE_RE_ = /(這裡|這附近|附近|周圍).{0,6}(還有誰|有誰|有人|其他人|別人)|(還有誰|有誰|有人|其他人|別人).{0,6}(這裡|這附近|附近|周圍)|還有(誰|其他人|別人)|有沒有(其他)?人|誰在(這|附近|這裡)/;
+// 🏷️ MEMORY標記存取器【邂逅中】：這次到訪、還留在場邊可持續互動的巧遇對象(存hero id，單一值)——
+//   跟永久性的【邂逅】(邂逅過的名單，不會清除)不同，這個是「這次到訪期間」的暫時狀態，玩家移動
+//   離開該地點時清除(換地點＝這段緣分結束，下次到訪重新擲)。比照 getOutfit_/setOutfit_ 同款寫法。
+//   2026-07 玩家反映「巧遇後聊沒兩句就消失，至少讓已經遇到的人能繼續互動」新增。
+function getKanshouActiveEncounter_(memory) {
+  const m = String(memory || "").match(/【邂逅中】([^｜【】]*)/);
+  return m ? m[1].trim() : "";
+}
+function setKanshouActiveEncounter_(memory, heroId) {
+  const s = String(memory || "");
+  if (/【邂逅中】[^｜【】]*/.test(s)) return s.replace(/【邂逅中】[^｜【】]*/, "【邂逅中】" + heroId);
+  return (s ? s + "｜" : "") + "【邂逅中】" + heroId;
+}
+function clearKanshouActiveEncounter_(memory) {
+  return String(memory || "").replace(/｜?【邂逅中】[^｜【】]*/g, "");
+}
 
 function actionPlay(userData, pcId, sheets) {
   const userMsg = userData.message;
@@ -941,16 +957,34 @@ function actionPlay(userData, pcId, sheets) {
       pcData[nIdx][COL.PC.LOC] = curL;
       dirtyPcRows.add(nIdx);
     });
+    // 🐛→✅ 2026-07 玩家反映「巧遇後聊沒兩句就消失，至少讓已經遇到的人能繼續互動」：離開原地
+    //   (換地點)＝上一段巧遇緣分結束，先清掉舊的【邂逅中】，這個新地點才重新擲一次巧遇。
+    pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
     kanshouEncounterLocName = moveTarget.name;
     kanshouEncounterHero = kanshouRollEncounter_(moveTarget.name);
+    if (kanshouEncounterHero) {
+      pcData[pcIndex][COL.PC.MEMORY] = setKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY], kanshouEncounterHero.id);
+    }
   } else {
-    // 🔍 2026-07 玩家反映「問還有誰在，AI因為在場驗證鐵律不敢生人」：沒按移動按鈕，但這句話像在問
-    //   「這裡還有誰」，且玩家目前所在地是「出門走走」10個地點之一時，用目前地點重新擲一次巧遇——
-    //   跟按移動按鈕同一套加權隨機，不寫LOC(沒有移動，位置不變)、不同步同伴(沒人移動)。
     const curLocDef = KANSHOU_LOCATIONS_.find(l => l.name === String(curL || "").trim());
-    if (curLocDef && KANSHOU_ASKING_WHO_ELSE_RE_.test(userMsg)) {
-      kanshouEncounterLocName = curLocDef.name;
-      kanshouEncounterHero = kanshouRollEncounter_(curLocDef.name);
+    if (curLocDef) {
+      // 🐛→✅ 2026-07 玩家反映「不一定要遇到別人，至少歷史人物可以跟我繼續互動吧」：這次到訪還在場
+      //   邊的巧遇對象(【邂逅中】)，不管這句話問什麼，只要人還沒隨著換地點離開，就持續讓AI知道
+      //   可以繼續指名互動——不再只有觸發那一瞬間的單回合permission，同一次到訪期間都有效。
+      const activeId = getKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
+      if (activeId) {
+        kanshouEncounterLocName = curLocDef.name;
+        kanshouEncounterHero = SEED_SERVANTS.find(h => h.id === activeId) || null;
+      } else if (KANSHOU_ASKING_WHO_ELSE_RE_.test(userMsg)) {
+        // 🔍 2026-07 玩家反映「問還有誰在，AI因為在場驗證鐵律不敢生人」：目前還沒有巧遇中的對象、
+        //   但這句話像在問「這裡還有誰」，用目前地點重新擲一次巧遇——跟按移動按鈕同一套加權隨機，
+        //   不寫LOC(沒有移動，位置不變)、不同步同伴(沒人移動)。
+        kanshouEncounterLocName = curLocDef.name;
+        kanshouEncounterHero = kanshouRollEncounter_(curLocDef.name);
+        if (kanshouEncounterHero) {
+          pcData[pcIndex][COL.PC.MEMORY] = setKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY], kanshouEncounterHero.id);
+        }
+      }
     }
   }
   if (kanshouEncounterHero) {
@@ -958,7 +992,6 @@ function actionPlay(userData, pcId, sheets) {
     kanshouEncounterMetBefore = getKanshouMetSet_(pcData[pcIndex][COL.PC.MEMORY]).includes(nm);
     if (!kanshouEncounterMetBefore) {
       pcData[pcIndex][COL.PC.MEMORY] = addKanshouMet_(pcData[pcIndex][COL.PC.MEMORY], nm);
-      dirtyPcRows.add(pcIndex);
     }
   }
 
@@ -1091,13 +1124,17 @@ function actionPlay(userData, pcId, sheets) {
   //   方向確實前進)。
   // 🔠 2026-07 全面重寫縮字：原文用兩份幾乎相同的「依個性列出4種類型反應」清單(一份講攻勢起手、
   //   一份講榨乾方式)重複描述同一件事——合併成一份，走向確定性與招架不住的畫面感都保留。
-  // 🌸 鑑賞地點移動 continued：巧遇者不是同行隊伍成員，明講「僅此一次的系統例外」，避免跟下方
+  // 🌸 鑑賞地點移動 continued：巧遇者不是同行隊伍成員，明講「這次到訪期間的系統例外」，避免跟下方
   //   【在場驗證鐵律】(只有同行隊伍成員能被指名互動)打架——AI才不會因為那條更強的規則直接無視巧遇。
+  // 🐛→✅ 2026-07 玩家反映「巧遇後聊沒兩句就消失，至少讓已經遇到的人能繼續互動」：原句「僅此一次
+  //   的例外...不必刻意延續到下一輪」在【邂逅中】狀態改成跨輪持續有效後已經不準確，改成「這次到訪
+  //   期間持續有效，直到玩家換地點離開」，並保留「AI仍可自然安排道別離開」的彈性(不強迫每次都要
+  //   演到底，只是不再限制只有觸發那一瞬間才能講話)。
   const kanshouEncounterStr = kanshouEncounterHero ? (() => {
     const p = kanshouEncounterHero.persona || {};
     const look = p.dailyLook || p.look || "";
     const words = p.dailyWords || p.words || "";
-    return `\n★【本回合系統指定巧遇——僅此一次的例外，不受下方在場驗證鐵律限制】：『${kanshouEncounterHero.realName}』（${kanshouEncounterHero.cls}）此刻恰好也在「${kanshouEncounterLocName}」，${kanshouEncounterMetBefore ? "是已經打過照面的熟面孔" : "是初次的邂逅"}——外貌氣質:${look}／日常個性:${words}。允許TA以真實姓名登場、開口互動，但這只是路過的巧遇，不是同行隊伍成員：好感/關係不追蹤記錄，可以自然地聊幾句、道別離開，不必邀請同行、也不必刻意延續到下一輪。`;
+    return `\n★【本回合系統指定巧遇——這次到訪期間持續有效的例外，不受下方在場驗證鐵律限制】：『${kanshouEncounterHero.realName}』（${kanshouEncounterHero.cls}）此刻恰好也在「${kanshouEncounterLocName}」，${kanshouEncounterMetBefore ? "是已經打過照面的熟面孔" : "是初次的邂逅"}——外貌氣質:${look}／日常個性:${words}。允許TA以真實姓名登場、持續互動，這段緣分在玩家離開這個地點前都有效，不是同行隊伍成員：好感/關係不追蹤記錄，不必邀請同行；若情境合適，TA也可以自然道別離開，不必勉強撐到玩家換地點。`;
   })() : "";
 
   const driveStr = driveOn ? `
