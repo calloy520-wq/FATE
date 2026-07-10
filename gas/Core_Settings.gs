@@ -354,9 +354,15 @@ function parseTraitsHelper(data, defaultStr) {
   // 切割並過濾空字串
   let parts = str.split('、').map(s => s.trim()).filter(s => s !== "");
 
-  // 強制補滿 4 格，如果 AI 給太少就塞「無」
+  // 🐛→✅ 2026-07 修(玩家實測「鑑賞創角只打2個字，結果變成『O、無、無、無』」)：舊版缺的格數
+  // 一律塞「無」——但呼叫端(如 actionEnterKanshou)明明準備了一句寫得不錯的預設句(defaultStr)當
+  // 墊底，只有在 data 完全沒填(!data)時才會整句套用；只要玩家打了「任何一點東西」(哪怕只有2個字、
+  // 沒用「、」分段)，data 就判定為truthy，defaultStr 整句被晾在一邊，缺的3格全補「無」，
+  // 比空白不填還難看。改成：缺的格數改從 defaultStr 對應的分段裡取，補不到才退回「無」
+  // (現有所有呼叫端傳的 defaultStr 皆為工整4段句，僅為防呆保留「無」這個最後手段)。
+  const defParts = String(defaultStr || "").split('、').map(s => s.trim()).filter(s => s !== "");
   while (parts.length < 4) {
-    parts.push("無");
+    parts.push(defParts[parts.length] || "無");
   }
 
   // 保證只回傳前 4 格
