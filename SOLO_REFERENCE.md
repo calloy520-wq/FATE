@@ -856,7 +856,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `relMemMemoryStr_`：新增`[態度]`標籤的解析(比照既有`[專屬稱呼]`的寫法，用「| [」分隔慣例)，讓AI下筆前看得到自己上一輪的態度，不會忽冷忽熱亂跳。
 - NPC處理區塊：新增`attRaw`(`nfb.attitude`，trim+slice(0,15))寫入`COL.PC.REL_MEM`的`[態度]`標籤——**不用**`processTags`(那是給「累積去重」的專屬稱呼用的)，態度是每回合直接覆蓋成最新值，不保留歷史。
 - `actionKanshouCompanions`：`current`從純姓名字串陣列升級成`{name, tag, bond}`物件陣列，前端才有資料可顯示+編輯。
-- `Script_Kanshou.html`：`openCompanions`/`renderCompanionsPanel`的`_kcCur`消費點同步改用物件屬性；同伴列表每位同伴旁新增「🏷️關係」鈕，呼叫新函式`kanshouEditRelTag(name, oldTag)`(prompt輸入新稱呼→呼叫`update_rel_tag`→刷新面板)——這是`update_rel_tag`這個action第一次真正被前端呼叫到(先前只有後端實作、從未接過任何按鈕)。
+- `Script_Kanshou.html`：`openCompanions`/`renderCompanionsPanel`的`_kcCur`消費點同步改用物件屬性；同伴列表每位同伴旁新增「🏷️關係」鈕，呼叫新函式`kanshouEditRelTag(name, oldTag)`(prompt輸入新稱呼→呼叫`update_rel_tag`→刷新面板)——這是`update_rel_tag`這個action第一次真正被前端呼叫到(先前只有後端實作、從未接過任何按鈕)。（註：`renderCompanionsPanel`這個函式名稱已隨下面「鑑賞同伴UI大修整」那條整個拆掉、不復存在——這裡的函式名只是那次改動當下的快照，之後結構完全變了，別被這句話誤導去找一個已經不在的函式。）
 **驗證**：`bash check.sh` 全過；`git diff -- gas/Gallery.gs | grep -c nsfwBaseRules` = 1，逐行核對確認是既有`return nsfwBaseRules + specificRules...`上下文行，實際變動全在`specificRules`內容(玩家這輪討論即為授權)。
 
 **⚡ 綜合GAS速度優化：實作4組平行審查發現的安全修正(2026-07 玩家「現在整個核心該為提升GAS速度(原本功能不能刪改)(AI處理速度不管)」)**：玩家把範圍從稍早的「鑑賞召喚UI太卡」擴大成全代碼庫，並明確定調兩條硬限制：①**純效能優化，原有功能/行為一律不能刪改**——不是重構、不是順手改邏輯；②**AI處理速度不列入本輪範圍**(那是模型選擇的取捨，非GAS執行效率問題)。派出4組平行只讀Explore審查(Router_Action/Core_Settings/Setup_FateWorld、Gallery、Router_Battle/Router_Movement/Engine_Fate、Script.html/Script_Onboarding)，每組明確被告知「只找『輸出/時序/RNG呼叫序列完全相同』的純效能改善，禁止任何需要改變行為的項目」。GAS效能鐵則(這裡再次確認)：`getDataRange().getValues()`(整表讀)是最慢的單一操作；迴圈內多次`setValue()`單格寫應合併成`setValues()`整列/整段寫；同一份記憶體陣列已查過的索引不要再查一次；`CacheService`短路(比照既有`SEED_CACHE_SECONDS_`/`getHeroCodexCached`模式)是跳過「非必要重複驗證」的既定手法。
@@ -879,3 +879,20 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - 前端批次(Script.html的`renderWarActions`四切換函式改局部patch、`refreshFateTags`加`window._lastTags`快取、鑑賞`send()`消除`get_tags`額外round-trip、`changeOutfit`/`changeWeapon`本地狀態更新)：**尚未實作**。這批全部涉及瀏覽器端DOM/狀態時序，專案規範要求UI改動需實際在瀏覽器操作驗證(此為headless遠端環境，無法互動測試GAS webapp)，貿然上這批風險高於本輪已完成的後端I/O類項目——留待下次有能力做瀏覽器實測時再處理，記錄在案供後續接手。稍早「鑑賞召喚UI大修」的診斷(通用modal重用/每次filter全innerHTML重建/`get_heroes`零快取重複拉取/無debounce)跟這批前端項目高度重疊，之後應一併處理。
 
 **驗證**：`bash check.sh` 全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(本輪未觸碰任何NSFW核心鄰近程式碼)。
+
+**🎨 鑑賞同伴召喚UI大修整＋前端剩餘速度批次(2026-07 玩家「一起處理！ui可以大改動沒關係」)**：上一輪GAS速度優化把前端批次(renderWarActions局部patch/refreshFateTags快取/kanshou send()消除round-trip/changeOutfit·changeWeapon本地更新)跟稍早診斷但未執行的「鑑賞召喚UI大修」都列為待辦——這輪玩家明確授權UI可以大改動(不再受「行為不能變」的嚴格限制)，把兩批合併一次處理。
+
+**1. 鑑賞同伴召喚UI徹底重構(Script_Kanshou.html)**：舊版三大卡點——①`renderCompanionsPanel`共用`#history-overlay`(與史紀/魔力說明等13+功能共用同一顆彈窗)；②在場同伴/篩選下拉/召喚清單(最多~36列)全部擠在同一段字串裡，任何一次篩選切換或召喚/請走都對整段`innerHTML`整包重建，捲動位置歸零、DOM全部摧毀重造；③`get_heroes`(英靈庫全清單，內容幾乎恆定不變)每次開面板都重打一次網路，即使剛剛才打開過。**動手**：
+   - **專屬彈窗**：新增`#kc-overlay`(不與其他功能共用)，`ensureKcOverlay_()`只建一次骨架，`closeKcOverlay()`關閉。
+   - **拆成4個獨立容器局部重繪**：`#kc-master-box`(你御主資訊+改名/切換性別)／`#kc-party-list`(在場同伴)／`#kc-filters`(性別/職階下拉)／`#kc-hero-list`(可召喚清單)，各自有專屬render函式(`renderKcMasterBox_`/`renderKcPartyList_`/`renderKcFilters_`/`renderKcHeroList_`)，只在真的需要時才重建對應那一塊：改名/切換性別只重繪master-box；召喚/請走/改關係只重繪party-list+hero-list(呼叫新的`kcRefreshPartyOnly_`，只重抓`kanshou_companions`這份小資料，不再重打`get_heroes`)；filters只在英靈庫清單真的重抓時才重建。
+   - **`get_heroes`分頁工作階段快取**：新增`_kcHeroesCacheReady`旗標，`openCompanions()`只在旗標未設時才打`get_heroes`，之後同一頁面工作階段內重開面板直接複用`_kcHeroesAll`。新增`invalidateKanshouHeroCache()`(暴露給`Script_Onboarding.html`的`summonByForge()`存檔成功後呼叫)讓工房鑄造/修改新英靈後快取失效，下次開面板才看得到新作品(已驗證`getHeroCodexCached()`本身是account-agnostic的全域快取，回傳所有帳號的英靈，`ai_gen`歸屬過濾是即時算`currentAccount`、不烤進快取，帳號切換靠既有的`logoutAccount()`整頁reload天然清乾淨，無跨帳號髒資料風險)。
+   - **篩選改CSS display切換、不重建DOM**：每列召喚清單標`data-gender`/`data-cls`屬性，`kanshouSetFilter`改呼叫`applyKcHeroFilter_()`只切既有`.kc-hero-row`節點的`style.display`，不再呼叫任何render函式——這是原本「每次篩選變動都整包reinnerHTML」卡頓感的主因，現在徹底消除。
+   - 舊的`renderCompanionsPanel`/`showHistoryOverlay(html)`呼叫整條移除，`_kcHeroes`變數改名拆成`_kcHeroesAll`(全清單快取)+`_kcHeroesAvailable`(排除在場者+ai_gen歸屬過濾後的可召喚清單)。
+
+**2. 鑑賞`send()`消除多餘`get_tags` round-trip(Gallery.gs `actionPlay` + Script.html `send()`)**：`send()`(鑑賞`action:'play'`唯一呼叫點)每次收到AI回應後，過去都會**另外**呼叫一次`refreshFateTags()`(無prefetched參數→內部自己打一趟`get_tags`網路)才能刷新左側狀態卡——即使`actionPlay`這次執行期間早就已經把好感/態度/肉體等異動全部算好且寫回試算表了。**沒有動`STATE_AFTER_ACTIONS`/`buildClientState_`那套solo專用、明確以`PC_`字首把關的機制**(風險較高、牽涉面廣)，改成更輕量的作法：`actionPlay`結尾直接呼叫既有的`buildTagsPayload_(sheets, pcId, pcData)`(`pcData`此刻已是本回合全部異動寫回後的權威陣列)，把結果夾進自己回應的`tags`欄位；`send()`那端改成`refreshFateTags(data.tags)`(比照solo既有的`applyClientState`同款`refreshFateTags(data.tags)`寫法)，有夾帶就直接吃、建構失敗(理論邊角)就維持原樣退回`get_tags`補呼叫。
+
+**3. `changeOutfit`/`changeWeapon`消除多餘`get_tags` round-trip(Script.html)**：這兩個函式呼叫的後端`actionSetOutfit`/`actionSetWeapon`(Router_Economy.gs)其實早就在自己的回應裡直接回傳消毒後的權威值(`res.outfit`/`res.weapon`)，註解甚至寫著「樂觀更新·前端自走輕量syncData」——但前端過去完全沒用這兩個值，成功後一律呼叫`refreshFateTags()`(又一趟`get_tags`網路)。**動手**：`refreshFateTags`內新增`window._lastTags = t;`(快取最後一次成功取得的tags資料)；`changeOutfit`/`changeWeapon`成功時直接把`res.outfit`/`res.weapon`寫進`window._lastTags`對應欄位(從者物件因為`myServants`跟`window._lastTags.servants`本就是同一份物件參照，改`sv.outfit`/`sv.weapon`會自動同步；御主自己則需另外顯式改`window._lastTags.master.outfit`)，再呼叫`refreshFateTags(window._lastTags)`——同一份render邏輯直接重繪，不再打任何網路請求；查無快取(理論邊角)才退回原本的網路重抓。`changeWeapon`原本的「樂觀更新」(`sv.weapon = txt.trim()`，寫入的是玩家原始輸入未消毒版、且從未觸發任何重繪，形同虛設)一併拿掉，改用伺服器回傳的權威值。
+
+**評估後暫不動手**：`renderWarActions()`的4個toggle函式(`toggleWarTarget`/`toggleSealArm`/`toggleNpTier`/`setActiveServant`)局部patch——重新評估後認為這條路徑純粹是本地state切換(不含任何網路呼叫，`AI處理速度不管`的排除範圍原本就不含這條)，且該函式依賴多項互相耦合的動態狀態(展開中的目標/令咒蓄勢/超載檔位/出戰從者)整段重繪、無明顯報告的卡頓，貿然拆解局部patch風險(拆錯一處展開狀態)大於實際收益，優先度讓給玩家實際回報過的鑑賞召喚UI。
+
+**驗證**：`bash check.sh` 全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。UI大改動因headless環境無法實機瀏覽器測試，僅靠程式碼邏輯覆核(逐一追蹤`_kcHeroesAvailable`/`_kcCur`/`window._lastTags`的讀寫時序與物件參照關係)，部署後建議玩家實際操作一輪同伴面板(篩選/召喚/請走/改關係/改名/切性別)驗證。

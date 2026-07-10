@@ -787,6 +787,9 @@ async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，�
       alert(res.message || '已鑄入英靈殿。');
       forgeReset_();               // 🧹 存檔成功→表單歸零(舊資料殘留=「創造卡在這支角色」bug)
       await loadHeroes();          // 重抓名冊(含新作品)
+      // ⚡ 2026-07：鑑賞同伴面板(Script_Kanshou.html)把 get_heroes 結果快取在分頁工作階段內，
+      //   這裡剛鑄造/修改了英靈殿，得讓那份快取失效，下次玩家開同伴面板才看得到新/改過的作品。
+      try { if (typeof invalidateKanshouHeroCache === 'function') invalidateKanshouHeroCache(); } catch (e) { }
       closeForge();
       if (_forgeFrom !== 'menu') selectSummonClass('__custom__'); // 召喚頁起點→直接展示 🌟 清單；主選單起點→回主選單
     } else { alert((res && res.message) || '鑄造失敗，請重試。'); }
