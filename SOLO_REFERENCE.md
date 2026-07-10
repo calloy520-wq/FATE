@@ -876,7 +876,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `Router_Battle.gs`／`actionFateBattle`的`npChoice`/`output`寫入(atkIdx整列寫)與稍後的海怪殘影清除寫入(atkIdx單格MEMORY寫)：兩次寫入之間存在多個會提前`return`的驗證檢查(目標查無/不同地/AP不足/已結盟)——若合併成一次延後寫入，一旦其中任何驗證失敗提前返回，玩家剛設定的`npChoice`/`output`就不會落表，**改變了現有「無論後續驗證成敗都會先落地」的可觀察行為**，故不動。
 - `actionBackfillKanshouAi`的4個條件式單格寫入(BACK/TRAIT/PREF/INTENT)：此函式本身就是「非每回合熱路徑、僅召喚時觸發一次」的AI背景潤色，且函式內註解明確提到`pIdx`與寫入時的`wIdx`可能因競態而不同列——合併成整列寫入前得重新讀一次`wIdx`當下的完整列內容，否則有覆蓋掉AI呼叫延遲期間別處寫入的風險，效益(省3次API呼叫、且僅偶發觸發)不足以承擔這個風險，維持現狀。
 - `rowToCombatant_`(Engine_Fate.gs)的JSON.parse快取：原始審查標記為「較低信心度、收益較小」的項目，未進一步深入評估，暫緩。
-- 前端批次(Script.html的`renderWarActions`四切換函式改局部patch、`refreshFateTags`加`window._lastTags`快取、鑑賞`send()`消除`get_tags`額外round-trip、`changeOutfit`/`changeWeapon`本地狀態更新)：**尚未實作**。這批全部涉及瀏覽器端DOM/狀態時序，專案規範要求UI改動需實際在瀏覽器操作驗證(此為headless遠端環境，無法互動測試GAS webapp)，貿然上這批風險高於本輪已完成的後端I/O類項目——留待下次有能力做瀏覽器實測時再處理，記錄在案供後續接手。稍早「鑑賞召喚UI大修」的診斷(通用modal重用/每次filter全innerHTML重建/`get_heroes`零快取重複拉取/無debounce)跟這批前端項目高度重疊，之後應一併處理。
+- 前端批次(Script.html的`renderWarActions`四切換函式改局部patch、`refreshFateTags`加`window._lastTags`快取、鑑賞`send()`消除`get_tags`額外round-trip、`changeOutfit`/`changeWeapon`本地狀態更新)：**尚未實作**。這批全部涉及瀏覽器端DOM/狀態時序，專案規範要求UI改動需實際在瀏覽器操作驗證(此為headless遠端環境，無法互動測試GAS webapp)，貿然上這批風險高於本輪已完成的後端I/O類項目——留待下次有能力做瀏覽器實測時再處理，記錄在案供後續接手。稍早「鑑賞召喚UI大修」的診斷(通用modal重用/每次filter全innerHTML重建/`get_heroes`零快取重複拉取/無debounce)跟這批前端項目高度重疊，之後應一併處理。（註：這行「尚未實作」是那次批次當下的狀態快照——玩家緊接著就說「一起處理！ui可以大改動沒關係」，`refreshFateTags`快取／`send()`消除round-trip／`changeOutfit`·`changeWeapon`本地更新／鑑賞召喚UI大修都已在下一條「鑑賞同伴召喚UI大修整＋前端剩餘速度批次」實作完成，只有`renderWarActions`四切換函式局部patch評估後判定優先度較低、維持不動——別被這句「尚未實作」誤導成還沒做。）
 
 **驗證**：`bash check.sh` 全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(本輪未觸碰任何NSFW核心鄰近程式碼)。
 
