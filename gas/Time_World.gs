@@ -179,7 +179,9 @@ function playerServantEconomy_(sheets, pcId, preData) {
   if (pIdx < 0) return null;
   var gid = String(data[pIdx][COL.PC.GAME_ID] || "");
   var circuits = masterCircuits_(data[pIdx]);
-  var homeLoc = playerHomeLoc_(sheets, pcId, data);
+  // ⚡ 2026-07 提速：playerHomeLoc_ 本身也是線性掃描找同一個 pcId 的列，但 pIdx 剛剛已經掃過一次
+  //   找到了——data[pIdx] 就是 playerHomeLoc_ 會回傳的那一列，直接讀 HOME_LOC 省掉重複掃描整表。
+  var homeLoc = String(data[pIdx][COL.PC.HOME_LOC] || "").trim();
   var sv = null, svRowsE = [];
   for (var j = 1; j < data.length; j++) {
     if (String(data[j][COL.PC.FACTION]) === "從者" && String(data[j][COL.PC.GAME_ID] || "") === gid && !String(data[j][COL.PC.ID]).startsWith("DEAD_")) { if (!sv) sv = data[j]; svRowsE.push(data[j]); }
@@ -545,7 +547,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
           faded = true;
         }
       }
-      if (faded && aliveEnemyServants_(sheets, gameId) <= 0) {
+      if (faded && aliveEnemyServants_(sheets, gameId, data) <= 0) {
         victory = true;
         // 🏆 這裡是唯二的「非直接戰鬥致勝」路徑(令咒透支延遲結算)，同樣要有願望夢——查玩家自己的
         // 御主/從者列給 buildVictoryDreamPrompt_。

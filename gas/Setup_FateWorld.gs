@@ -70,8 +70,19 @@ var FATE_MAP_SEED = [
 //    戰鬥 fx 實際走 hasFx_＋SEED_SERVANTS 的 skills/traits JSON，不讀此分頁（CLAUDE.md「死符號 CTAG 清」）。
 
 // 🔵 冪等建表主函式：缺則補、含則略。回傳本次新建的分頁名陣列。
+// ⚡ 2026-07 提速(玩家「整個核心該為提升GAS速度」)：這個函式過去無條件跑在每一個action(見
+//   Router_Action.gs handleGameAction)——即使表都已建好、版本也都吃到最新，每次仍要付出6個分頁的
+//   getSheetByName+getLastColumn，加上seedFateCodex_/reseedIfEmpty_內部的getLastRow/
+//   PropertiesService讀取，合計十幾次metadata API呼叫，99.9%情況下都是白工(全部檢查本來就已冪等
+//   且有版本旗標守門)。補一層CacheService短路快取：cache key直接綁進RESEED_VER＋CODEX_PERSONA_VER
+//   兩個版本常數，版本一變key就跟著變，保證版本升級後至少完整跑一次檢查；同版本內6小時只需完整
+//   檢查一次，其餘直接短路回傳空陣列。行為與逐次完整檢查完全一致(這條路徑本來就是純檢查+冪等
+//   寫入，短路只是跳過「檢查後發現什麼都不用做」的過程，不影響任何寫入結果)，只省下重複驗證的
+//   API呼叫。手動診斷用的 setupFateWorld() 會先清掉這個快取鍵，確保開發時看到的是即時真實檢查結果。
 function ensureFateSheets_(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
+  var setupCacheKey_ = "FATE_SETUP_OK_" + RESEED_VER + "_" + CODEX_PERSONA_VER;
+  try { if (CacheService.getScriptCache().get(setupCacheKey_)) return []; } catch (e) { }
   var created = [];
   Object.keys(FATE_SHEET_DEFS).forEach(function (name) {
     var headers = FATE_SHEET_DEFS[name];
@@ -102,6 +113,7 @@ function ensureFateSheets_(ss) {
   try { if (typeof seedFateCodex_ === "function") seedFateCodex_(ss); } catch (e) { Logger.log("seedFateCodex_ 失敗(略過): " + e.message); }
   // 坤圖若為空(早期被空建未灌種子)→補；坤圖舊「冬木」母節點→改頂層
   try { reseedIfEmpty_(ss); } catch (e) { Logger.log("reseedIfEmpty_ 失敗(略過): " + e.message); }
+  try { CacheService.getScriptCache().put(setupCacheKey_, "1", 21600); } catch (e) { } // 6h，同SEED_CACHE_SECONDS_量級
   return created;
 }
 
@@ -169,6 +181,8 @@ function reseedIfEmpty_(ss) {
 
 // 🔵 可從編輯器手動執行：回報建了哪些分頁
 function setupFateWorld() {
+  // ⚡ 手動診斷用途：先清掉短路快取，確保這次看到的是即時真實檢查結果，不被cache短路蓋過。
+  try { CacheService.getScriptCache().remove("FATE_SETUP_OK_" + RESEED_VER + "_" + CODEX_PERSONA_VER); } catch (e) { }
   var created = ensureFateSheets_();
   var msg = created.length ? ("已新建分頁：" + created.join("、")) : "全部 13 個分頁皆已存在，無需新建。";
   Logger.log(msg);
