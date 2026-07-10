@@ -44,65 +44,72 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   }
 
   apiMessages.push({ role: "user", content: prompt || "" });
-
-  const payload = {
-    model: modelName,
-    messages: apiMessages,
-    temperature: temp,
-    top_p: topP,
-    max_tokens: maxT
-  };
-  if (!plainText) payload.response_format = { type: "json_object" }; // 散文模式不強制 JSON
-  // 🔴【替換結束】
-
-  const options = {
-    method: "post", contentType: "application/json",
-    headers: { "Authorization": "Bearer " + API_KEY },
-    payload: JSON.stringify(payload), muteHttpExceptions: true
-  };
+  // 🔴【替換結束】(payload/options 的組裝已移進下方 attemptWithModel_，隨每次嘗試的實際模型重建)
 
   // 🔴 降階重試專用：一旦判定為審查攔截，下一次重試改塞更含蓄的筆法指令，
   // 而非原樣重送(原樣重送對審查攔截毫無意義，只會再被擋一次)。一般網路錯誤則不降階，原樣重試即可。
   const softenSuffix = `\n\n★【降階重試】上一次輸出未通過審查判定，請改用更含蓄典雅的筆法重新演繹本回合：以景喻情、意境留白，避免直白器官名稱與動作描寫，情慾僅以氛圍、情感與感官烘托表現，其餘JSON欄位規則不變。`;
-  let softened = false;
 
-  for (let i = 0; i < retries; i++) {
-    try {
-      const res = UrlFetchApp.fetch(MODEL_URL, options);
-      const result = JSON.parse(res.getContentText());
-      if (result.error) {
-        // 🔴 Gemini審查攔截(如PROHIBITED_CONTENT)走error物件回來，格式跟finish_reason那條不同，
-        // 統一改丟"Triggered_NSFW_Filter"才能吃到下面的降階重試與柔和提示，不然會直接洩漏原始錯誤訊息給玩家
-        const errMsg = result.error.message || "API 內部錯誤";
-        if (/PROHIBITED_CONTENT|SAFETY/i.test(errMsg)) throw new Error("Triggered_NSFW_Filter");
-        throw new Error(errMsg);
-      }
-      if (result.choices && result.choices.length > 0) {
-        let choice = result.choices[0];
-        if (choice.finish_reason === "content_filter" || choice.finish_reason === "SAFETY" || (choice.message && !choice.message.content)) {
-          throw new Error("Triggered_NSFW_Filter");
+  // 🔥 2026-07 玩家定案「沒點火時如果被攔截或對話失敗，改用DeepSeek」：把單一模型的完整重試迴圈包成
+  //   內部函式，讓外層可以「這顆模型全部重試失敗後，換一顆模型再試一輪」。只有呼叫端明確給了
+  //   config.fallbackModel 才會發生第二輪——目前只有鑑賞「沒點火」用 SOLO_MODEL(輕量模型，較容易撞
+  //   審查/不穩定)時會帶這個參數、逃生門是換回鑑賞原本的 AI_MODEL(DeepSeek)；solo 與鑑賞「點火」都
+  //   沒帶這個參數，行為完全不變。回傳成功文字或 null(全部重試失敗)。
+  function attemptWithModel_(model) {
+    const payload = { model: model, messages: apiMessages, temperature: temp, top_p: topP, max_tokens: maxT };
+    if (!plainText) payload.response_format = { type: "json_object" };
+    const options = {
+      method: "post", contentType: "application/json",
+      headers: { "Authorization": "Bearer " + API_KEY },
+      payload: JSON.stringify(payload), muteHttpExceptions: true
+    };
+    let softened = false;
+    for (let i = 0; i < retries; i++) {
+      try {
+        const res = UrlFetchApp.fetch(MODEL_URL, options);
+        const result = JSON.parse(res.getContentText());
+        if (result.error) {
+          // 🔴 Gemini審查攔截(如PROHIBITED_CONTENT)走error物件回來，格式跟finish_reason那條不同，
+          // 統一改丟"Triggered_NSFW_Filter"才能吃到下面的降階重試與柔和提示，不然會直接洩漏原始錯誤訊息給玩家
+          const errMsg = result.error.message || "API 內部錯誤";
+          if (/PROHIBITED_CONTENT|SAFETY/i.test(errMsg)) throw new Error("Triggered_NSFW_Filter");
+          throw new Error(errMsg);
         }
-        let text = choice.message.content;
-        if (plainText) return String(text || "").trim(); // 散文模式：原樣回傳，不抽 {…}、不 JSON.parse
-        const s = text.indexOf('{');
-        const e = text.lastIndexOf('}');
-        text = text.substring(s, e + 1);
-        JSON.parse(text);
-        return text;
-      } else { throw new Error("無效的選項結構"); }
-    } catch (e) {
-      lastErrorMessage = e.message;
-      if (i < retries - 1) {
-        if (e.message === "Triggered_NSFW_Filter" && !softened) {
-          softened = true;
-          apiMessages[0].content = systemContent + softenSuffix;
-          payload.messages = apiMessages;
-          options.payload = JSON.stringify(payload);
+        if (result.choices && result.choices.length > 0) {
+          let choice = result.choices[0];
+          if (choice.finish_reason === "content_filter" || choice.finish_reason === "SAFETY" || (choice.message && !choice.message.content)) {
+            throw new Error("Triggered_NSFW_Filter");
+          }
+          let text = choice.message.content;
+          if (plainText) return String(text || "").trim(); // 散文模式：原樣回傳，不抽 {…}、不 JSON.parse
+          const s = text.indexOf('{');
+          const e = text.lastIndexOf('}');
+          text = text.substring(s, e + 1);
+          JSON.parse(text);
+          return text;
+        } else { throw new Error("無效的選項結構"); }
+      } catch (e) {
+        lastErrorMessage = e.message;
+        if (i < retries - 1) {
+          if (e.message === "Triggered_NSFW_Filter" && !softened) {
+            softened = true;
+            apiMessages[0].content = systemContent + softenSuffix;
+            payload.messages = apiMessages;
+            options.payload = JSON.stringify(payload);
+          }
+          Utilities.sleep(2000);
         }
-        Utilities.sleep(2000);
       }
     }
+    return null; // 這顆模型全部重試都失敗
   }
+
+  let apiResult = attemptWithModel_(modelName);
+  if (apiResult === null && config.fallbackModel && config.fallbackModel !== modelName) {
+    apiMessages[0].content = systemContent; // 換模型前重置降階提示詞，不帶著上一顆模型加的 softenSuffix
+    apiResult = attemptWithModel_(config.fallbackModel);
+  }
+  if (apiResult !== null) return apiResult;
 
   const isBlocked = lastErrorMessage.includes("Triggered_NSFW_Filter") || lastErrorMessage.includes("safety");
   const fallbackNarration = isBlocked
