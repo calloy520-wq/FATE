@@ -427,7 +427,11 @@ function actionEnterKanshou(userData, pcId, sheets) {
   mRow[COL.PC.FACTION] = "御主";
   // 【帳號】標記保留供人工檢視試算表時辨識(非驗證用途，真正的歸屬判斷已走帳號表 KPC 欄位)。
   // 🆕 玩家本人也先給「日常便服」墊底，卡片才不會裝扮欄空白待換裝
-  mRow[COL.PC.MEMORY] = setOutfit_("【帳號】" + acctName + "｜【鑑賞後日談】聖杯戰爭已結束，這是與英靈相伴的和平約會時光。", "日常便服");
+  // 🐛→✅ 2026-07 玩家追問「御主資料也被變動2次？」查出：這行(種子秒寫階段，AI潤色前)跟下面的
+  //   BACK預設值一樣，原文都寫死「聖杯戰爭已結束/已成過去」——跟 KANSHOU_MASTER_GEN_SYS 那次修的
+  //   是同一種洩漏，只是這次落在AI都還沒跑的「種子預設值」本身，比AI生成的內容更早、更根本。
+  //   兩處都改成平行世界框架，不再斷言「曾經打過又結束了一場聖杯戰爭」。
+  mRow[COL.PC.MEMORY] = setOutfit_("【帳號】" + acctName + "｜【鑑賞後日談】這裡是平行世界的和平日常，與英靈相伴度過尋常時光。", "日常便服");
   mRow[COL.PC.GAME_ID] = gameId;
   // 🐛→✅ 2026-07 修：原本只建名字＋性別，BACK/TRAIT/PREF/INTENT 全空——玩家自己的鑑賞人物毫無設定，
   //   同伴卡有身世/外貌/個性/萌點、御主本人卻一片空白。比照 solo 創角(actionManualNpc)：先用玩家填的
@@ -435,7 +439,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
   var kAppear = String(userData.appearance || "").trim();
   var kStanding = String(userData.standing || "").trim();
   var kPersona = String(userData.persona || "").trim();
-  mRow[COL.PC.BACK] = kStanding || "後日談裡的尋常身影，聖杯戰爭已成過去";
+  mRow[COL.PC.BACK] = kStanding || "這個平行世界裡的尋常身影，過著平靜的日常生活";
   mRow[COL.PC.TRAIT] = parseTraitsHelper(kAppear, "外貌平凡、舉止從容、自稱「我」、卸下心防的私密一面");
   mRow[COL.PC.PREF] = parseTraitsHelper(kPersona, "溫婉謙和、內斂堅韌、明哲保身、隨波逐流");
   mRow[COL.PC.INTENT] = "（待揭曉）";
