@@ -174,7 +174,9 @@ function handleGameAction(userData) {
       if (ro && ro.success && !ro.victory && !ro.defeat && ro.clock) {
         var dym = String(ro.clock).match(/第\s*(\d+)\s*日/);
         if (dym && parseInt(dym[1]) > 14) {
-          var pdata = sheets.pc.getDataRange().getValues();
+          // ⚡ 2026-07 提速：優先複用 STATE_PRE_DATA_(handler 交棒、已含本次寫入的權威陣列)，
+          //   沒有才退回整表重讀——跟下面 _state 夾帶區塊同款寫法，避免這條路徑額外白讀一次整表。
+          var pdata = STATE_PRE_DATA_ || sheets.pc.getDataRange().getValues();
           var prow = pdata.find(function (r) { return String(r[COL.PC.ID]) === pcId; });
           if (prow) {
             var gid = String(prow[COL.PC.GAME_ID] || "");
@@ -321,7 +323,9 @@ function actionGetTags(userData, pcId, sheets) {
 //   preData＝呼叫端已讀好的整表，傳入即免重讀(省整表 I/O)。2026-07：關係併入眾生列，不再需要 preRel。
 function buildTagsPayload_(sheets, pcId, preData) {
   const pcData = preData || sheets.pc.getDataRange().getValues();
-  const m = pcData.find(r => r[COL.PC.ID] == pcId);
+  // ⚡ 2026-07 提速：mIdx 順手記下來，下面 canRuleBreak_ 需要索引時直接複用，不必再 findIndex 重掃一次。
+  const mIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  const m = mIdx >= 0 ? pcData[mIdx] : undefined;
   if (!m) return JSON.stringify({ success: false });
   const gameId = String(m[COL.PC.GAME_ID] || "");
   // 🐛→✅ 2026-07 solo/鑑賞完全拆分稽核發現：下方 servants.push 組裝的戰鬥限定欄位(魔境/符文/
@@ -417,7 +421,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
   } catch (e) { }
   // 🗝️ 破戒之力（前端決定是否顯示「破戒奪僕」按鈕）：限正式聖杯戰爭世界
   var canRB = false;
-  try { if (gameId && gameId.indexOf("g_") === 0) { var pIdxRB = pcData.findIndex(r => r[COL.PC.ID] == pcId); if (pIdxRB >= 0) canRB = canRuleBreak_(pcData, pIdxRB, gameId); } } catch (e) { }
+  try { if (gameId && gameId.indexOf("g_") === 0 && mIdx >= 0) canRB = canRuleBreak_(pcData, mIdx, gameId); } catch (e) { }
   return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length };
 }
 

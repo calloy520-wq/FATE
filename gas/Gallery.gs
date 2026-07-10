@@ -45,9 +45,12 @@ function findPlayerServant_(pcData, gameId) {
 
 // 清理某 game_id 的整局資料（眾生，含關係/時鐘欄位已隨列一起刪），並解除帳號連結
 //   2026-07：關係已併入眾生列自身欄位，刪列即刪關係，不再需要單獨掃關係表。
-function purgeGameData_(sheets, gameId, accountName) {
+//   ⚡ 2026-07 提速：preData 可選——所有現有呼叫端(actionEndRun/Account.gs兩處)在呼叫這裡之前
+//   都早已讀過同一張表的最新整表快照，傳進來就不必在這裡再整表讀一次；不傳(理論上的其他呼叫端)
+//   則維持原樣自己讀，行為不變。
+function purgeGameData_(sheets, gameId, accountName, preData) {
   if (gameId) {
-    var fresh = sheets.pc.getDataRange().getValues();
+    var fresh = preData || sheets.pc.getDataRange().getValues();
     for (var r = fresh.length - 1; r >= 1; r--) {
       if (String(fresh[r][COL.PC.GAME_ID] || "") === gameId) sheets.pc.deleteRow(r + 1);
     }
@@ -75,7 +78,7 @@ function actionEndRun(userData, pcId, sheets) {
   var realName = sv ? String(sv.row[COL.PC.NAME] || "從者") : "";
   var cls = sv ? String(sv.row[COL.PC.RANK] || "從者") : "";
 
-  purgeGameData_(sheets, gameId, acctName);
+  purgeGameData_(sheets, gameId, acctName, pcData);
 
   return JSON.stringify({ success: true, servantName: realName, cls: cls });
 }
@@ -227,9 +230,12 @@ function getDailyHeroFields_(heroRow, p) {
 //   heroToKanshouRow_ 已改用 dailyLook 第3段(自稱與口氣)的原則不一致。這裡補一個同源的日常安全
 //   查表，讓 actionPlay 的 fallback 分支(理論上只有極舊、召喚時尚未套用此修正的既有存檔會走到)
 //   也吃得到一樣的日常版口吻，不再有任何路徑把原始戰時 speech 餵給鑑賞AI。
-function dailySpeechByName_(name) {
+function dailySpeechByName_(name, preHeroes) {
   try {
-    var heroes = getHeroCodexCached();
+    // ⚡ 2026-07 提速：preHeroes 可選——同一輪 actionPlay 可能對2~3位同伴各呼叫一次，
+    //   不傳的話每次都各自呼叫 getHeroCodexCached()(整表 JSON.parse)，call site 現在會
+    //   在迴圈外先抓一次共用傳入；沒傳(其他呼叫點)則維持原樣自己抓，行為不變。
+    var heroes = preHeroes || getHeroCodexCached();
     var h = heroes.find(function (r) { return String(r[COL.HERO.NAME]).trim() === String(name).trim(); });
     if (!h) return "";
     var parts = String(h[COL.HERO.DAILY_LOOK] || "").split('、').map(function (s) { return s.trim(); }).filter(Boolean);
@@ -349,8 +355,13 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
   if (existingIdx >= 0 && String(data[existingIdx][COL.PC.IS_PARTY] || "") === "同行") return JSON.stringify({ success: false, message: "「" + heroName + "」已在場。" });
   if (cnt >= 3) return JSON.stringify({ success: false, message: "後日談最多 3 名同伴，請先請走一位再邀。" });
   if (existingIdx >= 0) {
-    kpc.getRange(existingIdx + 1, COL.PC.IS_PARTY + 1).setValue("同行");
-    kpc.getRange(existingIdx + 1, COL.PC.LOC + 1).setValue(loc);
+    // ⚡ 2026-07 提速：IS_PARTY(26)/LOC(6)兩欄位不相鄰，原本各自 getRange().setValue() 各是一次
+    //   獨立 API 呼叫——data[existingIdx] 本來就是這列的完整記憶體副本(整表讀取來的)，直接在記憶體
+    //   改好這兩格再用一次 setValues() 整列寫回，把2次呼叫併成1次，內容完全不變。
+    var exRow = data[existingIdx];
+    exRow[COL.PC.IS_PARTY] = "同行";
+    exRow[COL.PC.LOC] = loc;
+    kpc.getRange(existingIdx + 1, 1, 1, exRow.length).setValues([exRow]);
     return JSON.stringify({ success: true, added: heroName, message: "「" + heroName + "」回到了你們身邊。" });
   }
   kpc.appendRow(heroToKanshouRow_(hero, gid, loc));
@@ -843,6 +854,10 @@ function actionPlay(userData, pcId, sheets) {
   const partyRows = pcData.filter(r => r !== pc && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
   const partyMembers = partyRows.map(r => r[COL.PC.NAME]);
   let partyDetailsArr = [];
+  // ⚡ 2026-07 提速：dailySpeechByName_ 在下面迴圈裡最多對每位同伴各呼叫一次，各自呼叫
+  //   getHeroCodexCached() 等於同一輪重複 JSON.parse 整份英靈殿快取字串好幾次——這裡在迴圈外
+  //   先抓一次共用傳入，2~3位同伴時省掉多餘的重複整表解析(結果完全相同，純省重工)。
+  const _partyHeroCodex = partyMembers.length > 0 ? getHeroCodexCached() : null;
   partyMembers.forEach(pName => {
     // ⚠ 2026-07 修：原本純比對姓名，沒有 sameGame——若不同局/不同帳號剛好撞名(種子有限、
     //   AI原創從者皆可能撞)，會把別局同名者的 HP/身世/狀態塞進本局的敘事提示詞。
@@ -869,7 +884,7 @@ function actionPlay(userData, pcId, sheets) {
       //   言語、僅餘低吼」)，跟「沒有聖杯戰爭這回事」矛盾。speech改退回 dailySpeechByName_(取
       //   dailyLook第3段的日常安全版)；tic(招牌小動作)沒有對應日常版，查無MEMORY標記時直接留空，
       //   不再退回戰時原始值——私密一面(dailyLook第4段)已承擔「角色專屬小習慣」的功能。
-      const pSpeech = getPersonaSpeech_(r[COL.PC.MEMORY]) || dailySpeechByName_(pName);
+      const pSpeech = getPersonaSpeech_(r[COL.PC.MEMORY]) || dailySpeechByName_(pName, _partyHeroCodex);
       const pTic = getPersonaTic_(r[COL.PC.MEMORY]);
       const pFlavorStr = `${pSpeech ? ` | 口吻:${pSpeech}` : ""}${pTic ? ` | 招牌小動作:${pTic}` : ""}`;
       partyDetailsArr.push(`【同行夥伴】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(反差·僅供內化):${pMoeStr}` : ""} | 關係:${r[COL.PC.REL_TAG] || "結伴同行"}(好感:${parseInt(r[COL.PC.BOND]) || 0}${pMemStr})`);
@@ -917,7 +932,9 @@ function actionPlay(userData, pcId, sheets) {
   //   physical_state(見下方[肉體])，這裡不再重複注入即將永遠凍結的舊欄位。
   let nsfwMemories = `\n[玩家『${pcName}』肉體]：${JSON.stringify(pPhysicalObj)}\n[身體記憶]：${pSkills}`;
 
-  let allPresentRows = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && r[COL.PC.LOC] === curL && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  // ⚡ 2026-07 提速：跟上面 presentRowsForGender 是完全相同的 filter 條件(curL 這段期間未被重新賦值)，
+  //   直接複用同一份結果，省掉對 pcData 的第二次整表掃描。
+  let allPresentRows = presentRowsForGender;
   allPresentRows.forEach(r => {
     let npcPhysicalObj = JSON.parse(r[COL.PC.PHYSICAL] || "{}");
     if (Object.keys(npcPhysicalObj).length === 0) npcPhysicalObj = { "狀態": "如常" };

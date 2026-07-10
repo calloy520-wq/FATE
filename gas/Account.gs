@@ -46,7 +46,7 @@ function actionAccountLogin(userData, pcId, sheets) {
         if ((parseInt(pcData[j][COL.PC.HP]) || 0) > 0) { servantAlive = true; break; }
       }
       if (!masterAlive || !servantAlive) {
-        try { purgeGameData_(sheets, gid, name); } catch (e) { }
+        try { purgeGameData_(sheets, gid, name, pcData); } catch (e) { }
         return JSON.stringify({ success: true, name: name, hasGame: false, ended: true });
       }
     }
@@ -63,7 +63,7 @@ function actionAccountLogin(userData, pcId, sheets) {
       if (deadRow) {
         var deadGid = String(deadRow[COL.PC.GAME_ID] || "");
         if (deadGid && deadGid.indexOf("g_") === 0) {
-          purgeGameData_(sheets, deadGid, name);
+          purgeGameData_(sheets, deadGid, name, pcData);
         }
       }
     } catch (e) { }

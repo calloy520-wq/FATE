@@ -78,10 +78,14 @@ function actionMove(userData, pcId, sheets) {
   const tgtTrim = String(target || "").trim();
   // 🗺️ 目的地必須存在於坤圖(母區域或分支名)——擋掉偽造參數傳送到「地圖外」當永久安全屋(敵AI/夜襲永遠碰不到)。
   if (!tgtTrim) return JSON.stringify({ success: false, message: "未指定目的地。" });
+  // ⚡ 2026-07 提速：坤圖本回合不會變動，這裡先抓一次(維持原本的 try/catch 容錯——失敗時跟原本
+  //   一樣悄悄跳過此檢查)，留給下面「抵達場景描述」那段共用，省掉 getMapDataCached 第二次呼叫；
+  //   萬一這裡真的失敗(極端邊角)，moveMapData 留 null，後段沿用原本各自獨立呼叫的舊行為。
+  let moveMapData = null;
   try {
-    const _mapChk = getMapDataCached(sheets);
+    moveMapData = getMapDataCached(sheets);
     const _tgtRoot = tgtTrim.split('-')[0].trim();
-    if (!_mapChk.some(m => { const nm = String(m[COL.MAP.NAME]).trim(); return nm === tgtTrim || nm === _tgtRoot; })) {
+    if (!moveMapData.some(m => { const nm = String(m[COL.MAP.NAME]).trim(); return nm === tgtTrim || nm === _tgtRoot; })) {
       return JSON.stringify({ success: false, message: "輿圖之上查無此地，無路可達。" });
     }
   } catch (e) { }
@@ -314,7 +318,7 @@ function actionMove(userData, pcId, sheets) {
 
   // 📜 正典劇情插針已移除（2026-06 玩家定案·沒啥用處）——抵達不再自動塞 Fate 原作橋段／路線引導。
 
-  const freshMapData = getMapDataCached(sheets); // 坤圖靜態→走 1h 快取，免整表讀
+  const freshMapData = moveMapData || getMapDataCached(sheets); // 坤圖靜態→走 1h 快取，免整表讀(上面已抓過就複用)
   const rootTarget = target ? String(target).split('-')[0].trim() : "";
   const parentMapInfo = freshMapData.find(m => String(m[COL.MAP.NAME]).trim() === rootTarget);
   const subMapInfo = (target !== rootTarget) ? freshMapData.find(m => String(m[COL.MAP.NAME]).trim() === target) : null;

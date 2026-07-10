@@ -157,8 +157,11 @@ function enemyRetreatLoc_(currentLoc) {
 }
 
 // 某 game_id 世界中仍存活的「敵從者」數（DEAD_ 開頭視為已消滅）
-function aliveEnemyServants_(sheets, gameId) {
-  var data = sheets.pc.getDataRange().getValues();
+// ⚡ 2026-07 提速：preData 可選——現有呼叫端在同一次請求裡早已持有一份剛讀出(且已同步套用本回合
+//   異動，如陣亡列的 DEAD_ 前綴)的 pcData 記憶體陣列，傳進來就不必再整表重讀一次；不傳(理論上
+//   其他呼叫端)則維持原樣自己讀，行為不變。
+function aliveEnemyServants_(sheets, gameId, preData) {
+  var data = preData || sheets.pc.getDataRange().getValues();
   var n = 0;
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][COL.PC.FACTION]) !== "敵從者") continue;

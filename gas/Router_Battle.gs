@@ -84,7 +84,11 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
         out.fired.push(defC.name + '·深淵海怪以身擋下 ' + _sAbsorb + '（海怪餘 ' + _sNew + '/' + _shield.max + '）');
       }
       out.shieldCur = Math.max(0, _sNew); out.shieldMax = _shield.max; // 戰報/前端可顯示海怪肉身條
-      sheets.pc.getRange(tgtIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[tgtIdx][COL.PC.MEMORY]);
+      // ⚡ 2026-07 提速：這裡原本會立刻補寫一次 MEMORY 單格——但往下走的4條出路(十二試煉復活/
+      //   令咒脫離/死亡/存活)全都無一例外會在函式結束前對 pcData[tgtIdx] 做一次整列 setValues()
+      //   (且都在這份已更新的 MEMORY 之後才寫)，這裡這格寫入必定被後面那次整列寫入覆蓋，
+      //   純屬多餘的一次 API 呼叫——刪掉、改由記憶體裡的 pcData[tgtIdx][COL.PC.MEMORY] 隨後面
+      //   任一整列寫入一起落表，結果完全不變。
     }
   }
   var after = hp - dmg;
@@ -229,7 +233,7 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
       out.knocked = out.destroyed;
       // 🕯️ 敵從者被擊破 → 在其御主身上記下「如何痛失從者」，供日後遭遇時 AI 演出無牙御主
       if (isFoeSv) markMasterLostServant_(sheets.pc, pcData, tgtIdx, `被『${atkC.name}』當場擊破、靈基崩潰消滅`);
-      if (isFoeSv && aliveEnemyServants_(sheets, ctx.myGameId) <= 0) {
+      if (isFoeSv && aliveEnemyServants_(sheets, ctx.myGameId, pcData) <= 0) {
         out.victory = true;
         // 🏆 勝利同款「願望夢」：與敗北的 buildDreamPrompt_ 對稱，帶玩家自己的從者(atkC，此刻是攻方)入場。
         var vWish = extractWish_(pcData[ctx.pIdx][COL.PC.MEMORY]);
@@ -469,7 +473,7 @@ function actionFateBattle(userData, pcId, sheets) {
       pcData[assassinGuardIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "化作光點", "負面": "御主既亡·魔力斷絕消滅", "顏面": "黯然消散" });
       sheets.pc.getRange(assassinGuardIdx + 1, 1, 1, pcData[assassinGuardIdx].length).setValues([pcData[assassinGuardIdx]]);
       asnKnocked = [masterName, guardName];
-      if (aliveEnemyServants_(sheets, myGameId) <= 0) {
+      if (aliveEnemyServants_(sheets, myGameId, pcData) <= 0) {
         asnVictory = true;
         var asnWish = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
         asnDream = buildVictoryDreamPrompt_(pcData[pIdx][COL.PC.NAME], asnWish, crit.name);

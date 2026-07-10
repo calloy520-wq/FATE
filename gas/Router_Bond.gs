@@ -236,7 +236,7 @@ function actionProposeAlliance(userData, pcId, sheets) {
   const isFate = myGameId.indexOf("g_") === 0;
   if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以交涉——請休息恢復。" });
 
-  const aliveFoes = aliveEnemyServants_(sheets, myGameId);
+  const aliveFoes = aliveEnemyServants_(sheets, myGameId, pcData);
   const w = allianceWillingness_(pcData[mIdx], aliveFoes);
   const ok = Math.random() < w;
   const masterName = String(pcData[mIdx][COL.PC.NAME]);
