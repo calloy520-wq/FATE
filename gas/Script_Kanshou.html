@@ -167,6 +167,43 @@
     } catch (e) { alert('讀取同伴失敗。'); }
   }
 
+  // 🗺️ 出門走走(2026-07 玩家新增)：純氛圍用的10個地點清單，僅供畫按鈕——實際合法地點驗證/
+  //   巧遇抽選都在後端 Gallery.gs 的 KANSHOU_LOCATIONS_(唯一真實來源)，這裡改地點記得同步改一次。
+  var KC_LOCATIONS_ = ['河邊', '市集', '道場', '圖書館', '神社', '公園', '碼頭', '咖啡廳', '後巷', '車站'];
+
+  function ensureKcMapOverlay_() {
+    if (document.getElementById('kc-map-overlay')) return;
+    var ov = document.createElement('div');
+    ov.id = 'kc-map-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.82);display:none;align-items:center;justify-content:center;padding:18px;';
+    ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:420px;width:100%;max-height:calc(100vh - 36px);padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;">'
+      + '<div style="overflow-y:auto;min-height:0;">'
+      + '<h3 style="margin:0 0 4px;color:#e0a0bc;">🗺️ 出門走走</h3>'
+      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">挑個地方走走，路上也許會巧遇誰。</div>'
+      + '<div id="kc-map-list">' + KC_LOCATIONS_.map(function (name) {
+        return '<button onclick="kanshouMoveTo(\'' + name + '\')" style="display:block;width:100%;text-align:left;padding:8px 10px;margin-bottom:6px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">📍 ' + name + '</button>';
+      }).join('') + '</div>'
+      + '</div>'
+      + '<button onclick="closeKcMapOverlay()" style="margin-top:12px;width:100%;padding:10px;background:#4a3a6a;color:#fff;border:none;border-radius:8px;cursor:pointer;flex-shrink:0;">關閉</button>'
+      + '</div>';
+    document.body.appendChild(ov);
+  }
+  function closeKcMapOverlay() { var ov = document.getElementById('kc-map-overlay'); if (ov) ov.style.display = 'none'; }
+
+  function openKanshouMap() {
+    try { var dr = document.getElementById('action-drawer'); if (dr && dr.style.display !== 'none' && typeof toggleActionDrawer === 'function') toggleActionDrawer(); } catch (e) {}
+    if (!pc || !pc.id) { alert('尚未進入後日談。'); return; }
+    ensureKcMapOverlay_();
+    document.getElementById('kc-map-overlay').style.display = 'flex';
+  }
+
+  // 移動走既有 send() 的 action:'play' 同一次round-trip(帶 moveTarget)，不另開一次網路請求；
+  // AI 會依後端算好的巧遇資訊直接把抵達場景/偶遇演出來，故不在此處另外插一句本地假訊息。
+  async function kanshouMoveTo(name) {
+    closeKcMapOverlay();
+    await send('📍 走向了「' + name + '」，四處看看。', false, null, name);
+  }
+
   // 同伴名單變動後的局部刷新：只重抓「鑑賞眾生在場名單」這份小資料，不再重打 get_heroes，
   // 也只重繪 party-list／hero-list 兩塊(master-box/filters 沒變，不動)。
   async function kcRefreshPartyOnly_() {
