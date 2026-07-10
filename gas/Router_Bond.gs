@@ -93,8 +93,15 @@ function actionUseSeal(userData, pcId, sheets) {
 }
 
 // 從英靈殿(種子庫)依真名撈完整 persona（含 speech/moe/tic 萌點細緻設定）
+// 🐛→✅ 2026-07 稽核抓到真實bug：這兩個函式的正規表達式排除字元集寫成`[^|【]`(排除半形｜)，但
+//   MEMORY欄整套標記生態系一律用全形｜分隔(緊鄰的set函式自己`s + "｜"`就是全形)——半形｜從來
+//   不會出現在真實資料裡，這個排除規則形同虛設，導致抓值時會把後面緊接的全形｜也一併吃進來。
+//   具體後果：若當天先做過其他會寫MEMORY的動作(如令咒/補魔/工房)、把新標記接在【羈絆日】後面，
+//   `getBondUsedToday_`抓到的值會變成「together｜」而非「together」，`indexOf("together")`比對
+//   不到，等於「今天已經相處過」這個防重複判斷失效，同一天可以對同一動作類型二次加成好感。
+//   改成`[^｜【]`(排除全形｜)，跟同檔案/同生態系其餘get/set函式(如getOutfit_)的排除字元集一致。
 function getBondUsedToday_(memory, day) {
-  var m = String(memory || "").match(/【羈絆日】(\d+):([^|【]*)/);
+  var m = String(memory || "").match(/【羈絆日】(\d+):([^｜【]*)/);
   if (!m || parseInt(m[1]) !== day) return [];
   return m[2] ? m[2].split(",").filter(Boolean) : [];
 }
@@ -103,7 +110,7 @@ function setBondUsedToday_(memory, day, type) {
   if (used.indexOf(type) < 0) used.push(type);
   var marker = "【羈絆日】" + day + ":" + used.join(",");
   var s = String(memory || "");
-  if (/【羈絆日】\d+:[^|【]*/.test(s)) return s.replace(/【羈絆日】\d+:[^|【]*/, marker);
+  if (/【羈絆日】\d+:[^｜【]*/.test(s)) return s.replace(/【羈絆日】\d+:[^｜【]*/, marker);
   return (s ? s + "｜" : "") + marker;
 }
 
@@ -126,6 +133,15 @@ function actionBond(userData, pcId, sheets) {
   const svName = pcData[svIdx][COL.PC.NAME];
   const masterName = pcData[pIdx][COL.PC.NAME];
 
+  // 🐛→✅ 2026-07 稽核抓到：本函式註解明講「相處耗 1 AP・與令咒/偵查同級」，但沒有像
+  //   actionProposeAlliance/actionAllyBond 那樣在動作前先擋 AP 不足——原本只在最後靜默呼叫
+  //   spendAp_(myGameId,1)，AP 不足時 spendAp_ 內部雖不會讓 AP 變負值，卻也【不吭聲放行】
+  //   (回傳 ok:false 但呼叫端沒理會)：羈絆值/日限標記/突襲風險照樣結算，只是不消耗時間，
+  //   跟其他同級動作「AP 不足直接擋下」的一致行為不符。日限本身已限 1 次/天，實際可乘之機很
+  //   小，但仍補齊此擋以符合「與令咒/偵查同級」的設計初衷、行為一致。
+  const isFate = myGameId.indexOf("g_") === 0;
+  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以從容相處——請『休息』恢復後再來。" });
+
   // 日限檢查
   const clk = getClock_(myGameId);
   const day = clk ? clk.day : 1;
@@ -143,7 +159,7 @@ function actionBond(userData, pcId, sheets) {
 
   // ⏳ 相處耗 1 AP＝推進 1 小時（2026-07 玩家定案·與令咒/偵查同級：相處也要花時間）
   let bondAp = null, bondClock = "";
-  if (myGameId && myGameId.indexOf("g_") === 0) { try { bondAp = spendAp_(myGameId, 1).ap; bondClock = clockLabel_(myGameId); } catch (e) { } }
+  if (isFate) { try { bondAp = spendAp_(myGameId, 1).ap; bondClock = clockLabel_(myGameId); } catch (e) { } }
 
   // 取最新羈絆值供顯示（羈絆存於從者自己列的 BOND 欄，raiseBond_ 已寫回，這裡重讀一次拿最新值）
   let bondNow = 0;

@@ -66,7 +66,11 @@ function servantCard_(row) {
     // 召喚時已複製 speech/tic 到列上 → 平常不必查英靈殿；缺任一項(舊局/鑑賞封存重建)才退回即時查表(已走快取)。
     var p = (rowSpeech && rowTic && rowMoe) ? {} : codexPersona_(name);
     var fp = p.firstP || (mem.match(/第一人稱「([^」]*)」/) || [])[1] || "我";
-    var toM = p.toMaster || (mem.match(/對御主：([^|【]*)/) || [])[1] || "";
+    // 🐛→✅ 2026-07 稽核抓到同一類bug(見Router_Bond.gs的getBondUsedToday_同批修正)：排除字元集
+    //   漏了全形｜(只排除半形|)，導致MEMORY欄若在「對御主：...」後面接了其他全形｜分隔的標記，
+    //   會把那個｜也一併吃進捕獲值——結果是尾巴多一個雜訊字元被塞進servantCard_的AI提示詞裡
+    //   (純文字污染，不影響資料寫入或遊戲邏輯，但改成跟其他get函式一致的`[^｜【]`。
+    var toM = p.toMaster || (mem.match(/對御主：([^｜【]*)/) || [])[1] || "";
     var prefArr = String(row[COL.PC.PREF] || "").split('、').filter(Boolean);
     var persona = p.words || prefArr.slice(0, 4).join('、');
     var np = String(row[COL.PC.MARTIAL] || "");

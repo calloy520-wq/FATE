@@ -277,8 +277,11 @@ function actionCheckName(userData, pcId, sheets) {
   // 🔵 2026-07 修：與 create(actionManualNpc) 一致——不再擋跨局同名（game_id 實例化·多帳號分流·玩家御主
   //   靠 pcId 認人，跨局撞名無害；原本全表擋撞名害「分享出去多人玩」時常見/正典名號被別局佔走而創不了角）。
   //   只擋【正典角色名】(避免與本局被種入的同名正典敵手雙胞胎)；想扮演正典請走「扮演正典御主」入口。省整表讀。
-  const _canonHit = (typeof SEED_MASTERS !== 'undefined' && SEED_MASTERS.some(m => m && m.name === userData.name))
-    || (typeof SEED_SERVANTS !== 'undefined' && SEED_SERVANTS.some(s => s && s.name === userData.name));
+  // 🐛→✅ 2026-07 稽核抓到(同 Router_Creation.gs actionManualNpc 的 _canonHit 同批修正)：userData.name
+  //   已被 cleanChineseName 洗成純中文去標點，但比對對象是原始未洗字串——正典名號含標點(如「韋伯·維爾維特」)
+  //   永遠比不中，此檢查對這類名字形同虛設。兩側都套 cleanChineseName 再比對。
+  const _canonHit = (typeof SEED_MASTERS !== 'undefined' && SEED_MASTERS.some(m => m && cleanChineseName(m.name) === userData.name))
+    || (typeof SEED_SERVANTS !== 'undefined' && SEED_SERVANTS.some(s => s && cleanChineseName(s.name) === userData.name));
   return JSON.stringify({ exists: _canonHit, canon: _canonHit, message: _canonHit ? `「${userData.name}」是聖杯戰爭中已知的英靈／御主——請另取名號，或用「扮演正典御主」入口。` : "" });
 }
 
