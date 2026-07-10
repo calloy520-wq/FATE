@@ -782,6 +782,28 @@ function buildDefaultSystemPrompt() {
   return nsfwBaseRules + "\n" + specificRules + "\n\n★【輸出範本】\n" + JSON.stringify(finalJson, null, 2);
 }
 
+// 🔀 2026-07 玩家定案「鑑賞是鑑賞、solo是solo，兩軌只共用種子庫資料，撈完資料後各自獨立表格」：
+//   actionPlay 原本借用 solo 的 getLocalPeopleList(Core_Settings.gs) 算「同地人物」清單——但那個
+//   函式是為 solo 一整套敵蹤/盟友情報共享/好感牽掛機制設計的，順手多算了 pref/relTag/relVal/
+//   faction/allied/intelCls/lostServant/master/servant/status/hp/mp 共12個欄位；鑑賞前端(send())
+//   卻只用得到 .name/.isExact 兩項，其餘全是白算。鑑賞這裡不再借用共用函式，自己算一份精簡版——
+//   邏輯對齊 getLocalPeopleList 原本 isKanshouCtx 分支的判定條件(僅同game_id、同行隊伍成員)，
+//   行為對前端而言完全等價，只是不再計算/傳輸一堆鑑賞從未讀取的欄位。
+function getKanshouPeopleList_(pcId, curL, allPcData) {
+  const safeCurL = String(curL || "");
+  const meRow = allPcData.find(r => r[COL.PC.ID] == pcId);
+  const myGameId = meRow ? String(meRow[COL.PC.GAME_ID] || "") : "";
+  const list = [];
+  for (let i = 1; i < allPcData.length; i++) {
+    const r = allPcData[i];
+    if (r[COL.PC.ID] == pcId || String(r[COL.PC.ID]).startsWith("DEAD_")) continue;
+    if (myGameId && String(r[COL.PC.GAME_ID] || "") !== myGameId) continue;
+    if (String(r[COL.PC.IS_PARTY] || "") !== "同行") continue;
+    list.push({ id: r[COL.PC.ID], name: r[COL.PC.NAME], isExact: (String(r[COL.PC.LOC] || "") === safeCurL) });
+  }
+  return list;
+}
+
 function actionPlay(userData, pcId, sheets) {
   const userMsg = userData.message;
   // 🌹 慾海(KPC_ 御主)專用引擎：前端自由聊天輸入框只在 pc.mode==='kanshou' 才顯示(Script.html
@@ -1252,7 +1274,7 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
     curL = pcData[pcIndex][COL.PC.LOC];
 
-    const localPeopleList = getLocalPeopleList(sheets, pcName, pcId, curL, pcData);
+    const localPeopleList = getKanshouPeopleList_(pcId, curL, pcData);
 
     let finalResponseText = aiData.narration || "天地混沌，一片寂靜。";
     finalResponseText = finalResponseText.replace(/\n/g, "<br>");
