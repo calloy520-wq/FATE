@@ -259,8 +259,9 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   sRow[COL.PC.NAME] = name;
   sRow[COL.PC.SEX] = sex;
   // 🐛→✅ 2026-07 玩家點名「氣血/真氣跟上限這4個應該不用寫到鑑賞眾生」：鑑賞無戰鬥，同款拿掉——
-  //   理由見 actionEnterKanshou 同批修正的註解。
-  sRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情從容" });
+  //   理由見 actionEnterKanshou 同批修正的註解。STATUS 欄同批一併拔除：查全代碼庫，這欄唯一
+  //   讀取點是 getLocalPeopleList(Core_Settings.gs) 算出 people[].status 塞進 actionPlay 回應，
+  //   但前端 send() 只消費 people[] 的 .name/.isExact，.status 從未被顯示或使用，寫死同樣純屬多餘。
   sRow[COL.PC.LOC] = loc;
   sRow[COL.PC.FACTION] = "從者";
   sRow[COL.PC.RANK] = String(heroRow[COL.HERO.CLS] || "從者");
@@ -436,7 +437,8 @@ function actionEnterKanshou(userData, pcId, sheets) {
   //   詳細狀態面板已同步改成kanshou模式隱藏這兩格，見Script.html updateUI)——原本寫死100/100/100/100
   //   純屬多餘，留空即可，不影響任何顯示或判定。
   // 🎴 五圍已棄欄：戰鬥吃六圍 SIX。
-  mRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情輕鬆" });
+  // 🐛→✅ 2026-07 同批：STATUS 欄也一併拔除，理由見 heroToKanshouRow_ 同批修正的註解——唯一
+  //   讀取點(getLocalPeopleList 算出 people[].status)前端從未消費，寫死同樣純屬多餘。
   mRow[COL.PC.LOC] = loc2;
   mRow[COL.PC.FACTION] = "御主";
   // 【帳號】標記保留供人工檢視試算表時辨識(非驗證用途，真正的歸屬判斷已走帳號表 KPC 欄位)。
