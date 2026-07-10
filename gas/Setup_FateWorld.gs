@@ -70,19 +70,20 @@ var FATE_MAP_SEED = [
 //    戰鬥 fx 實際走 hasFx_＋SEED_SERVANTS 的 skills/traits JSON，不讀此分頁（CLAUDE.md「死符號 CTAG 清」）。
 
 // 🔵 冪等建表主函式：缺則補、含則略。回傳本次新建的分頁名陣列。
-// ⚡ 2026-07 提速(玩家「整個核心該為提升GAS速度」)：這個函式過去無條件跑在每一個action(見
-//   Router_Action.gs handleGameAction)——即使表都已建好、版本也都吃到最新，每次仍要付出6個分頁的
-//   getSheetByName+getLastColumn，加上seedFateCodex_/reseedIfEmpty_內部的getLastRow/
-//   PropertiesService讀取，合計十幾次metadata API呼叫，99.9%情況下都是白工(全部檢查本來就已冪等
-//   且有版本旗標守門)。補一層CacheService短路快取：cache key直接綁進RESEED_VER＋CODEX_PERSONA_VER
-//   兩個版本常數，版本一變key就跟著變，保證版本升級後至少完整跑一次檢查；同版本內6小時只需完整
-//   檢查一次，其餘直接短路回傳空陣列。行為與逐次完整檢查完全一致(這條路徑本來就是純檢查+冪等
-//   寫入，短路只是跳過「檢查後發現什麼都不用做」的過程，不影響任何寫入結果)，只省下重複驗證的
-//   API呼叫。手動診斷用的 setupFateWorld() 會先清掉這個快取鍵，確保開發時看到的是即時真實檢查結果。
+// ⚡ 2026-07 提速(玩家「整個核心該為提升GAS速度」)：seedFateCodex_/reseedIfEmpty_ 內部要整表讀
+//   英靈殿/坤圖判斷是否為空，這兩個呼叫才是真正貴的部分——加CacheService短路：cache key直接
+//   綁進RESEED_VER＋CODEX_PERSONA_VER兩個版本常數，版本一變key就跟著變，保證版本升級後至少
+//   完整跑一次；同版本內6小時只需跑一次，其餘短路跳過這兩個呼叫。
+// 🐛→✅ 2026-07 修(玩家實測「帳號表不存在？！現在不會自動檢查生成了？！」)：上一輪提速最初把
+//   短路蓋住整個函式(含「缺哪個分頁就補哪個」那段迴圈)——但那段只是6個分頁的getSheetByName
+//   metadata查詢，成本本來就低，真正貴的是下面兩個會整表讀取的seedFateCodex_/reseedIfEmpty_；
+//   短路蓋過頭的後果：若某分頁(如「帳號」)在6小時快取窗口內被刪除(手動誤刪/意外)，
+//   ensureFateSheets_ 會直接短路返回，缺分頁的自動補建完全不會被觸發，最長要等快取過期(6小時)
+//   才會恢復——跟函式開頭註解「缺則補、含則略」的承諾自相矛盾，也不是原本提速commit聲稱的
+//   「行為完全一致」。改成短路範圍縮小到只蓋住seedFateCodex_/reseedIfEmpty_這兩個真正昂貴的
+//   呼叫，「檢查缺哪個分頁就補上」這段永遠執行，才是名副其實的「缺哪個就補哪個」。
 function ensureFateSheets_(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
-  var setupCacheKey_ = "FATE_SETUP_OK_" + RESEED_VER + "_" + CODEX_PERSONA_VER;
-  try { if (CacheService.getScriptCache().get(setupCacheKey_)) return []; } catch (e) { }
   var created = [];
   Object.keys(FATE_SHEET_DEFS).forEach(function (name) {
     var headers = FATE_SHEET_DEFS[name];
@@ -109,11 +110,17 @@ function ensureFateSheets_(ss) {
     // 新建地圖後清掉舊地圖快取，讓前端讀到新冬木地圖
     try { CacheService.getScriptCache().remove("FATE_MAP_DATA"); } catch (e) {}
   }
-  // 英靈殿/御主殿 若為空，自動灌入名冊（Seed_Codex.gs）
-  try { if (typeof seedFateCodex_ === "function") seedFateCodex_(ss); } catch (e) { Logger.log("seedFateCodex_ 失敗(略過): " + e.message); }
-  // 坤圖若為空(早期被空建未灌種子)→補；坤圖舊「冬木」母節點→改頂層
-  try { reseedIfEmpty_(ss); } catch (e) { Logger.log("reseedIfEmpty_ 失敗(略過): " + e.message); }
-  try { CacheService.getScriptCache().put(setupCacheKey_, "1", 21600); } catch (e) { } // 6h，同SEED_CACHE_SECONDS_量級
+  // 🐛→✅ 短路範圍縮小：只蓋住下面這兩個真正會整表讀取的呼叫，上方「缺分頁就補」的迴圈不受影響。
+  var setupCacheKey_ = "FATE_SETUP_OK_" + RESEED_VER + "_" + CODEX_PERSONA_VER;
+  var skipExpensiveSeed_ = false;
+  try { skipExpensiveSeed_ = !!CacheService.getScriptCache().get(setupCacheKey_); } catch (e) { }
+  if (!skipExpensiveSeed_) {
+    // 英靈殿/御主殿 若為空，自動灌入名冊（Seed_Codex.gs）
+    try { if (typeof seedFateCodex_ === "function") seedFateCodex_(ss); } catch (e) { Logger.log("seedFateCodex_ 失敗(略過): " + e.message); }
+    // 坤圖若為空(早期被空建未灌種子)→補；坤圖舊「冬木」母節點→改頂層
+    try { reseedIfEmpty_(ss); } catch (e) { Logger.log("reseedIfEmpty_ 失敗(略過): " + e.message); }
+    try { CacheService.getScriptCache().put(setupCacheKey_, "1", 21600); } catch (e) { } // 6h，同SEED_CACHE_SECONDS_量級
+  }
   return created;
 }
 
