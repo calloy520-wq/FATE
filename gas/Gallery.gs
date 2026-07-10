@@ -1306,6 +1306,13 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       { speaker: "ai", content: aiData.narration || "" }  // 用原始 narration 不用 finalResponseText
     ]);
 
+    // ⚡ 2026-07 提速：前端 send() 收到這份回應後，過去還會另外打一趟 get_tags(refreshFateTags())
+    // 才能刷新左側狀態卡——多一趟 round-trip。pcData 這裡已是本回合全部異動(好感/態度/肉體等)
+    // 寫回後的權威陣列，直接複用它建一份跟 get_tags 完全同格式的 payload 夾帶回去，前端改用
+    // refreshFateTags(data.tags) 消費(比照 solo 既有的 applyClientState 同款省一趟寫法)；
+    // 建構失敗就不夾帶，前端會自動退回原本的 get_tags 補呼叫，行為不變。
+    let tagsPayload = null;
+    try { const tp = buildTagsPayload_(sheets, pcId, pcData); if (tp && tp.success) tagsPayload = tp; } catch (e) { }
 
     return JSON.stringify({
       text: finalResponseText,
@@ -1317,7 +1324,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       myItemNames: [],
       allMapNames: memoryMapData.slice(1).map(m => String(m[COL.MAP.NAME]).trim()).filter(n => n.length >= 2),
       // 🔴 新增：將全部活著的眾生名單傳給前端，用於三段式判定
-      allKnownNames: pcData.filter((r, i) => i !== 0 && !String(r[COL.PC.ID]).startsWith("DEAD_")).map(r => String(r[COL.PC.NAME]).trim())
+      allKnownNames: pcData.filter((r, i) => i !== 0 && !String(r[COL.PC.ID]).startsWith("DEAD_")).map(r => String(r[COL.PC.NAME]).trim()),
+      tags: tagsPayload
     });
 
   } catch (e) { return JSON.stringify({ text: "系統錯誤：" + e.message, people: [] }); }

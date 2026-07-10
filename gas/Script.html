@@ -1192,6 +1192,9 @@
       // ⚡ prefetched＝sync 已夾帶的 tags payload，有就直接用、免再打一趟 get_tags
       const t = prefetched || await gasRun({ action: 'get_tags', pcId: pc.id });
       if (!t || !t.success) return;
+      // ⚡ 2026-07：留一份參照供「已知伺服器確認值、只想重繪不想再打網路」的呼叫端(如 changeOutfit/
+      //   changeWeapon)直接改這份快取的欄位、原地把它當 prefetched 傳回這裡重繪，免一趟 get_tags。
+      window._lastTags = t;
       const box = document.getElementById('fate-tags');
       if (!box) return;
       const card = (accent, head, name, lines) =>
@@ -1910,7 +1913,21 @@
     if (txt === null) return; // 取消
     gasRun({ action: 'outfit', pcId: pc.id, servant: name, self: !!isSelf, outfit: txt, acctName: (pc && pc.account) || currentAccount })
       .then(function (res) {
-        if (res && res.success) { try { refreshFateTags(); } catch (e) {} }
+        if (res && res.success) {
+          // ⚡ 2026-07：後端已把消毒過的最終值原樣回傳(res.outfit)，不必再另打一趟 get_tags 網路
+          //   確認——直接把這份權威值蓋進快取的 tags 資料、原地重繪(refreshFateTags 吃 prefetched
+          //   不會再發網路請求)。查無快取(如頁面剛載入、還沒成功抓過一次 tags)才退回原本的網路重抓。
+          try {
+            if (isSelf) {
+              myMasterOutfit = res.outfit || '';
+              if (window._lastTags && window._lastTags.master) window._lastTags.master.outfit = res.outfit || '';
+            } else {
+              var sv = (myServants || []).find(function (x) { return x && x.name === name; });
+              if (sv) sv.outfit = res.outfit || ''; // myServants 與 window._lastTags.servants 同一份物件參照，一併同步
+            }
+            refreshFateTags(window._lastTags || undefined);
+          } catch (e) {}
+        }
         else if (res && res.message) { alert(res.message); }
       })
       .catch(function (e) { /* 靜默：下次同步會校正 */ });
@@ -1923,10 +1940,16 @@
     var cur = (sv && sv.weapon) ? sv.weapon : '';
     var txt = prompt('⚔️ 武裝「' + name + '」\n\n輸入她的武器與戰鬥方式（如：雙持大劍、鎖鏈鐮刀、拳腳體術），\nAI 敘述會嚴格以此為準——不受職階慣例或原典武器習慣綁。\n留空＝清除，恢復自然演出。（限 30 字）', cur);
     if (txt === null) return; // 取消
-    if (sv) sv.weapon = txt.trim(); // 樂觀更新
     gasRun({ action: 'weapon', pcId: pc.id, servant: name, weapon: txt, acctName: (pc && pc.account) || currentAccount })
       .then(function (res) {
-        if (res && res.success) { try { refreshFateTags(); } catch (e) {} }
+        if (res && res.success) {
+          // ⚡ 2026-07：跟 changeOutfit 同款——吃後端回傳的消毒後權威值(res.weapon)直接重繪，
+          //   不再另打一趟 get_tags；查無快取才退回原本網路重抓。
+          try {
+            if (sv) sv.weapon = res.weapon || ''; // myServants 與 window._lastTags.servants 同一份物件參照，一併同步
+            refreshFateTags(window._lastTags || undefined);
+          } catch (e) {}
+        }
         else if (res && res.message) { alert(res.message); }
       })
       .catch(function (e) { /* 靜默：下次同步會校正 */ });
@@ -2623,7 +2646,10 @@ let plainTextContext = cleanText;
       // 收到回應後也從未呼叫 refreshFateTags()——桌機版三欄並排(Style.html)，狀態欄常駐可見卻沒有
       // 任何東西觸發它重繪，只有切分頁(手機版)或其他零星動作(換裝等)才會恰好連帶刷新，才會顯得
       // 「有時候」更新。這裡補一次真實重抓，同一開銷手機/桌機皆修。
-      try { refreshFateTags(); } catch (e) {}
+      // ⚡ 2026-07：actionPlay(Gallery.gs) 現在會在回應裡順手夾帶 data.tags(跟 get_tags 同格式)，
+      //   有夾帶就直接吃、省掉這裡原本每次都要另外打一趟 get_tags 的 round-trip；沒夾帶(理論邊角、
+      //   建構失敗)refreshFateTags 內部會自動退回原本的 get_tags 呼叫，行為不變。
+      try { refreshFateTags(data.tags); } catch (e) {}
 
       // 🔵 FATE 敗北：御主殞命→播「願望實現的虛假之夢」→老虎道場（與戰鬥敗北同一套收場）
       if (data.defeat) { await handleDefeat(data); }

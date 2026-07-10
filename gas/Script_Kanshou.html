@@ -10,81 +10,176 @@
 
   // 👥 後日談同伴管理（鑑賞限定·最多3人）：直接從英靈殿召喚／請走
   // ⚠ 2026-07：舊版「奪杯封存→邀請」機制已整個砍除，邀請只剩「英靈殿直接召喚」一途。
-  // 🌹 性別/職階篩選狀態：純前端篩選(不重打 gasRun)，換篩選只重繪、資料留在下方快取。
-  var _kcCur = [], _kcHeroes = [], _kcMax = 3;
+  // 🎛️ 2026-07 大修整（玩家反映「召喚UI還是太卡」）：舊版共用 #history-overlay(13+功能共用同一顆
+  //   彈窗)，且任何一次篩選/召喚/請走都對整個面板(含召喚清單全部～36列)重打一次 innerHTML——
+  //   每次都整包摧毀重建 DOM、捲動位置歸零、且 get_heroes(英靈庫全清單)每次開面板都重打網路，
+  //   即使內容幾乎從不變。改成：①專屬彈窗 #kc-overlay(不與其他功能共用，互不干擾)；②拆成
+  //   master-box／party-list／filters／hero-list 四個獨立容器，各自局部重繪；③get_heroes 結果
+  //   快取在分頁工作階段內(英靈庫只有工房鑄造/修改會變，見 invalidateKanshouHeroCache)，重開
+  //   面板不再重打網路；④篩選下拉只切換既有列的 CSS display，不重建任何 DOM 節點。
+  var _kcCur = [], _kcHeroesAll = [], _kcHeroesAvailable = [], _kcMax = 3;
   var _kcFilterGender = '', _kcFilterCls = '';
-  async function openCompanions() {
-    try { var dr = document.getElementById('action-drawer'); if (dr && dr.style.display !== 'none' && typeof toggleActionDrawer === 'function') toggleActionDrawer(); } catch (e) {}
-    if (!pc || !pc.id) { alert('尚未進入後日談。'); return; }
-    try {
-      const [res, heroRes] = await Promise.all([
-        gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount }),
-        gasRun({ action: 'get_heroes', pcId: pc.id })
-      ]);
-      if (!res || !res.success) { alert((res && res.message) || '讀取同伴失敗。'); return; }
-      _kcCur = res.current || []; _kcMax = res.max || 3;
-      // 🌹 直接從英靈庫召喚(不需先在solo封存)：濾掉已在場的；種子(正典)英靈人人可召喚，
-      //   但玩家原創(src==='ai_gen')只有創造者本人能召喚——不可召喚別人工房/盲盒捏出的角色進自己的後日談。
-      //   (solo 那邊的隨機/混亂池刻意共用玩家原創、維持既有設計不動，這條限制僅針對鑑賞直接指名召喚。)
-      _kcHeroes = ((heroRes && heroRes.success) ? (heroRes.heroes || []) : [])
-        .filter(function (h) { return !_kcCur.some(function (c) { return c.name === h.name; }); })
-        .filter(function (h) { return h.src !== 'ai_gen' || (h.creator && h.creator === currentAccount); });
-      renderCompanionsPanel();
-    } catch (e) { alert('讀取同伴失敗。'); }
+  var _kcHeroesCacheReady = false; // ⚡ get_heroes 結果快取旗標
+  // 供 Script_Onboarding.html 工房鑄造/修改成功後呼叫：讓下次開面板重新抓一次英靈庫(否則新作品看不到)。
+  function invalidateKanshouHeroCache() { _kcHeroesCacheReady = false; }
+
+  function kcRecomputeAvailable_() {
+    // 🌹 直接從英靈庫召喚(不需先在solo封存)：濾掉已在場的；種子(正典)英靈人人可召喚，
+    //   但玩家原創(src==='ai_gen')只有創造者本人能召喚——不可召喚別人工房/盲盒捏出的角色進自己的後日談。
+    //   (solo 那邊的隨機/混亂池刻意共用玩家原創、維持既有設計不動，這條限制僅針對鑑賞直接指名召喚。)
+    _kcHeroesAvailable = _kcHeroesAll
+      .filter(function (h) { return !_kcCur.some(function (c) { return c.name === h.name; }); })
+      .filter(function (h) { return h.src !== 'ai_gen' || (h.creator && h.creator === currentAccount); });
   }
-  // 換性別/職階篩選：純本地重繪，不重讀伺服器
-  function kanshouSetFilter(kind, val) {
-    if (kind === 'gender') _kcFilterGender = val; else _kcFilterCls = val;
-    renderCompanionsPanel();
+
+  function ensureKcOverlay_() {
+    if (document.getElementById('kc-overlay')) return;
+    var ov = document.createElement('div');
+    ov.id = 'kc-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.82);display:none;align-items:center;justify-content:center;padding:18px;';
+    ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:480px;width:100%;max-height:calc(100vh - 36px);padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;">'
+      + '<div style="overflow-y:auto;min-height:0;">'
+      + '<h3 style="margin:0 0 4px;color:#e0a0bc;">👥 後日談同伴 (<span id="kc-count">0/3</span>)</h3>'
+      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">最多 3 人同行。從英靈殿召喚同伴，或請走同伴（資料原地保留，隨時再邀）。</div>'
+      + '<div id="kc-master-box"></div>'
+      + '<div style="font-size:12px;color:#cbb;margin:6px 0 3px;">在場同伴</div>'
+      + '<div id="kc-party-list"></div>'
+      + '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">🌹 從英靈殿召喚</div>'
+      + '<div id="kc-filters"></div>'
+      + '<div id="kc-hero-list"></div>'
+      + '<div id="kc-hero-empty" style="color:#888;padding:6px;display:none;"></div>'
+      + '</div>'
+      + '<button onclick="closeKcOverlay()" style="margin-top:12px;width:100%;padding:10px;background:#4a3a6a;color:#fff;border:none;border-radius:8px;cursor:pointer;flex-shrink:0;">關閉</button>'
+      + '</div>';
+    document.body.appendChild(ov);
   }
-  function renderCompanionsPanel() {
-    const cur = _kcCur, max = _kcMax;
-    const canAdd = cur.length < max;
-    // 篩選選單選項：從目前召喚清單動態取得(資料驅動，不寫死職階/性別列表)
-    const genderOpts = Array.from(new Set(_kcHeroes.map(function (h) { return h.gender || ''; }).filter(Boolean)));
-    const clsOpts = Array.from(new Set(_kcHeroes.map(function (h) { return h.cls || ''; }).filter(Boolean))).sort();
-    const heroesShown = _kcHeroes.filter(function (h) {
-      if (_kcFilterGender && h.gender !== _kcFilterGender) return false;
-      if (_kcFilterCls && h.cls !== _kcFilterCls) return false;
-      return true;
-    });
-    let html = '<h3 style="margin:0 0 4px;color:#e0a0bc;">👥 後日談同伴 (' + cur.length + '/' + max + ')</h3>'
-      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">最多 ' + max + ' 人同行。從英靈殿召喚同伴，或請走同伴（資料原地保留，隨時再邀）。</div>'
-      + '<div style="padding:7px 8px;margin-bottom:8px;background:rgba(200,120,150,.08);border-radius:8px;">'
+  function closeKcOverlay() { var ov = document.getElementById('kc-overlay'); if (ov) ov.style.display = 'none'; }
+
+  function renderKcMasterBox_() {
+    var box = document.getElementById('kc-master-box');
+    if (!box) return;
+    box.innerHTML = '<div style="padding:7px 8px;margin-bottom:8px;background:rgba(200,120,150,.08);border-radius:8px;">'
       + '<div style="color:#cbb;font-size:12px;margin-bottom:6px;">你（御主）：<b style="color:#e8b8cc;">' + escapeHtml(pc.name || '—') + '</b> · <b style="color:#e8b8cc;">' + escapeHtml(pc.sex || '—') + '</b></div>'
       + '<div style="display:flex;gap:8px;">'
       + '<button onclick="changeKanshouName()" style="flex:1;padding:5px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">✏ 改名</button>'
       + '<button onclick="changeKanshouSex()" style="flex:1;padding:5px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">⚧ 切換性別</button>'
-      + '</div></div>'
-      + '<div style="font-size:12px;color:#cbb;margin:6px 0 3px;">在場同伴</div>'
-      // 🆕 2026-07「關係改玩家決定，AI不可以改動但可以不認」：關係標籤從此只能由玩家自己在這裡改，
-      //   AI只能在敘事裡表現認不認同(態度)，不再擅自覆寫這個欄位——加一顆「🏷️關係」鈕呼叫
-      //   update_rel_tag。好感(數字)僅供玩家參考，不可編輯(仍是AI依劇情推進)。
-      + (cur.length ? cur.map(function (c) {
-          return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
-            + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(c.name) + ' <small style="color:#8a7fa0;">(關係:' + escapeHtml(c.tag || '從者') + '・好感' + c.bond + ')</small></span>'
-            + '<button onclick="kanshouEditRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button>'
-            + '<button onclick="kanshouRemove(\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 10px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">請走</button></div>';
-        }).join('') : '<div style="color:#888;padding:6px;">（暫無同伴）</div>')
-      + '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">🌹 從英靈殿召喚</div>'
-      + '<div style="display:flex;gap:6px;margin-bottom:6px;">'
-        + '<select onchange="kanshouSetFilter(\'gender\', this.value)" style="flex:1;min-width:0;padding:4px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:6px;font-size:12px;">'
-          + '<option value="">性別：全部</option>'
-          + genderOpts.map(function (g) { return '<option value="' + escapeHtml(g) + '"' + (g === _kcFilterGender ? ' selected' : '') + '>' + escapeHtml(g) + '</option>'; }).join('')
-        + '</select>'
-        + '<select onchange="kanshouSetFilter(\'cls\', this.value)" style="flex:1;min-width:0;padding:4px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:6px;font-size:12px;">'
-          + '<option value="">職階：全部</option>'
-          + clsOpts.map(function (c) { return '<option value="' + escapeHtml(c) + '"' + (c === _kcFilterCls ? ' selected' : '') + '>' + escapeHtml(c) + '</option>'; }).join('')
-        + '</select>'
-      + '</div>'
-      + (heroesShown.length ? heroesShown.map(function (h) {
-          return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
-            + '<span style="flex:1;color:#dfeaf2;">' + escapeHtml(h.name) + ' <small style="color:#8a7fa0;">(' + escapeHtml(h.cls || '') + (h.gender ? '・' + escapeHtml(h.gender) : '') + ')</small></span>'
-            + (canAdd ? '<button onclick="kanshouSummonHero(\'' + String(h.id).replace(/'/g, '') + '\')" style="padding:4px 10px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">召喚</button>'
-                      : '<span style="color:#888;font-size:11px;">已滿(3)</span>') + '</div>';
-        }).join('') : '<div style="color:#888;padding:6px;">（' + (_kcHeroes.length ? '無符合篩選的英靈' : '英靈庫讀取失敗或無可召喚英靈') + '）</div>');
-    showHistoryOverlay(html);
+      + '</div></div>';
   }
+
+  // 🆕 2026-07「關係改玩家決定，AI不可以改動但可以不認」：關係標籤從此只能由玩家自己在這裡改，
+  //   AI只能在敘事裡表現認不認同(態度)，不再擅自覆寫這個欄位——加一顆「🏷️關係」鈕呼叫
+  //   update_rel_tag。好感(數字)僅供玩家參考，不可編輯(仍是AI依劇情推進)。
+  function renderKcPartyList_() {
+    var countEl = document.getElementById('kc-count');
+    if (countEl) countEl.textContent = _kcCur.length + '/' + _kcMax;
+    var box = document.getElementById('kc-party-list');
+    if (!box) return;
+    box.innerHTML = _kcCur.length ? _kcCur.map(function (c) {
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
+        + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(c.name) + ' <small style="color:#8a7fa0;">(關係:' + escapeHtml(c.tag || '從者') + '・好感' + c.bond + ')</small></span>'
+        + '<button onclick="kanshouEditRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button>'
+        + '<button onclick="kanshouRemove(\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 10px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">請走</button></div>';
+    }).join('') : '<div style="color:#888;padding:6px;">（暫無同伴）</div>';
+  }
+
+  // 篩選下拉選單本身只跟 _kcHeroesAll(英靈庫全清單)有關，內容跟 get_heroes 一樣少變——只在
+  // 英靈庫清單真的重抓時(見 openCompanions)才重建這裡，換篩選只呼叫 applyKcHeroFilter_ 切 CSS。
+  function renderKcFilters_() {
+    var box = document.getElementById('kc-filters');
+    if (!box) return;
+    var genderOpts = Array.from(new Set(_kcHeroesAll.map(function (h) { return h.gender || ''; }).filter(Boolean)));
+    var clsOpts = Array.from(new Set(_kcHeroesAll.map(function (h) { return h.cls || ''; }).filter(Boolean))).sort();
+    box.innerHTML = '<div style="display:flex;gap:6px;margin-bottom:6px;">'
+      + '<select onchange="kanshouSetFilter(\'gender\', this.value)" style="flex:1;min-width:0;padding:4px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:6px;font-size:12px;">'
+        + '<option value="">性別：全部</option>'
+        + genderOpts.map(function (g) { return '<option value="' + escapeHtml(g) + '"' + (g === _kcFilterGender ? ' selected' : '') + '>' + escapeHtml(g) + '</option>'; }).join('')
+      + '</select>'
+      + '<select onchange="kanshouSetFilter(\'cls\', this.value)" style="flex:1;min-width:0;padding:4px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:6px;font-size:12px;">'
+        + '<option value="">職階：全部</option>'
+        + clsOpts.map(function (c) { return '<option value="' + escapeHtml(c) + '"' + (c === _kcFilterCls ? ' selected' : '') + '>' + escapeHtml(c) + '</option>'; }).join('')
+      + '</select>'
+    + '</div>';
+  }
+
+  // 召喚清單每列只在「可召喚名單本身變了」(開面板/召喚/請走後)才重建——每列標好 data-gender/
+  // data-cls，換篩選(kanshouSetFilter)直接對這些既有節點切 display，不再整包重建。
+  function renderKcHeroList_() {
+    var box = document.getElementById('kc-hero-list');
+    if (!box) return;
+    var canAdd = _kcCur.length < _kcMax;
+    box.innerHTML = _kcHeroesAvailable.map(function (h) {
+      return '<div class="kc-hero-row" data-gender="' + escapeHtml(h.gender || '') + '" data-cls="' + escapeHtml(h.cls || '') + '" style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
+        + '<span style="flex:1;color:#dfeaf2;">' + escapeHtml(h.name) + ' <small style="color:#8a7fa0;">(' + escapeHtml(h.cls || '') + (h.gender ? '・' + escapeHtml(h.gender) : '') + ')</small></span>'
+        + (canAdd ? '<button onclick="kanshouSummonHero(\'' + String(h.id).replace(/'/g, '') + '\')" style="padding:4px 10px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">召喚</button>'
+                  : '<span style="color:#888;font-size:11px;">已滿(3)</span>') + '</div>';
+    }).join('');
+    var empty = document.getElementById('kc-hero-empty');
+    if (empty) {
+      if (!_kcHeroesAvailable.length) { empty.textContent = '（' + (_kcHeroesAll.length ? '無更多可召喚的英靈' : '英靈庫讀取失敗或無可召喚英靈') + '）'; empty.style.display = ''; }
+      else { empty.style.display = 'none'; }
+    }
+    applyKcHeroFilter_();
+  }
+  // 換性別/職階篩選：純本地重繪，不重讀伺服器、不重建召喚清單的 DOM——只切既有列的顯示與否。
+  function kanshouSetFilter(kind, val) {
+    if (kind === 'gender') _kcFilterGender = val; else _kcFilterCls = val;
+    applyKcHeroFilter_();
+  }
+  function applyKcHeroFilter_() {
+    var list = document.getElementById('kc-hero-list');
+    if (!list) return;
+    var anyVisible = false;
+    Array.prototype.forEach.call(list.querySelectorAll('.kc-hero-row'), function (row) {
+      var show = (!_kcFilterGender || row.getAttribute('data-gender') === _kcFilterGender)
+        && (!_kcFilterCls || row.getAttribute('data-cls') === _kcFilterCls);
+      row.style.display = show ? '' : 'none';
+      if (show) anyVisible = true;
+    });
+    var empty = document.getElementById('kc-hero-empty');
+    if (empty && _kcHeroesAvailable.length) { // 全域為空的訊息由 renderKcHeroList_ 自己顧，這裡只管「有清單、但篩選後沒中」
+      if (!anyVisible) { empty.textContent = '（無符合篩選的英靈）'; empty.style.display = ''; }
+      else { empty.style.display = 'none'; }
+    }
+  }
+
+  async function openCompanions() {
+    try { var dr = document.getElementById('action-drawer'); if (dr && dr.style.display !== 'none' && typeof toggleActionDrawer === 'function') toggleActionDrawer(); } catch (e) {}
+    if (!pc || !pc.id) { alert('尚未進入後日談。'); return; }
+    try {
+      var needHeroes = !_kcHeroesCacheReady;
+      const [res, heroRes] = await Promise.all([
+        gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount }),
+        needHeroes ? gasRun({ action: 'get_heroes', pcId: pc.id }) : Promise.resolve(null)
+      ]);
+      if (!res || !res.success) { alert((res && res.message) || '讀取同伴失敗。'); return; }
+      _kcCur = res.current || []; _kcMax = res.max || 3;
+      if (needHeroes) {
+        _kcHeroesAll = (heroRes && heroRes.success) ? (heroRes.heroes || []) : [];
+        _kcHeroesCacheReady = !!(heroRes && heroRes.success); // 讀取失敗不快取「空」，下次開面板會再試一次
+      }
+      kcRecomputeAvailable_();
+      ensureKcOverlay_();
+      renderKcMasterBox_();
+      if (needHeroes) renderKcFilters_(); // 選單選項來源(_kcHeroesAll)沒變就不必重建
+      renderKcHeroList_();
+      renderKcPartyList_();
+      document.getElementById('kc-overlay').style.display = 'flex';
+    } catch (e) { alert('讀取同伴失敗。'); }
+  }
+
+  // 同伴名單變動後的局部刷新：只重抓「鑑賞眾生在場名單」這份小資料，不再重打 get_heroes，
+  // 也只重繪 party-list／hero-list 兩塊(master-box/filters 沒變，不動)。
+  async function kcRefreshPartyOnly_() {
+    try {
+      const res = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount });
+      if (!res || !res.success) return;
+      _kcCur = res.current || []; _kcMax = res.max || 3;
+      kcRecomputeAvailable_();
+      renderKcPartyList_();
+      renderKcHeroList_();
+    } catch (e) { }
+  }
+
   // 🚀 2026-07 移除「召喚後背景AI深化」第二段呼叫(玩家反映「邀請角色速度很慢」)：種子庫23位
   //   英靈已全數手寫完整的日常四段式外貌/性格/萌點/衣裝(見 heroToKanshouRow_/getDailyHeroFields_)，
   //   這顆深化原本存在的理由(種子個性精簡、無身世)已被那輪daily欄位系統整個補完，繼續留著只是
@@ -95,14 +190,14 @@
     try {
       const res = await gasRun({ action: 'kanshou_summon_hero', pcId: pc.id, acctName: currentAccount, heroId: heroId });
       hideProcessing();
-      if (res && res.success) { syncData(true); openCompanions(); }
+      if (res && res.success) { syncData(true); kcRefreshPartyOnly_(); }
       else { alert((res && res.message) || '召喚失敗。'); }
     } catch (e) { hideProcessing(); alert('召喚失敗。'); }
   }
   async function kanshouRemove(name) {
     try {
       const res = await gasRun({ action: 'kanshou_remove', pcId: pc.id, acctName: currentAccount, servantName: name });
-      if (res && res.success) { syncData(true); openCompanions(); } else { alert((res && res.message) || '請走失敗。'); }
+      if (res && res.success) { syncData(true); kcRefreshPartyOnly_(); } else { alert((res && res.message) || '請走失敗。'); }
     } catch (e) { alert('請走失敗。'); }
   }
   // 🏷️ 2026-07 新增「關係改玩家決定」：REL_TAG 從此只能由玩家在這裡手動改，AI只能在敘事裡
@@ -115,7 +210,7 @@
     if (!nt) { alert('關係稱呼不能空白。'); return; }
     try {
       const res = await gasRun({ action: 'update_rel_tag', pcId: pc.id, targetName: name, newTagText: nt });
-      if (res && res.success) { syncData(true); openCompanions(); } else { alert((res && res.message) || '更改失敗。'); }
+      if (res && res.success) { syncData(true); kcRefreshPartyOnly_(); } else { alert((res && res.message) || '更改失敗。'); }
     } catch (e) { alert('更改失敗。'); }
   }
   // ✏ 隨時更改後日談中「你（御主）」的名字
@@ -131,7 +226,7 @@
         pc.name = res.pcName;
         localStorage.setItem('kyushu_v27', JSON.stringify(pc));
         var el = document.getElementById('ui-name'); if (el) el.innerText = pc.name;
-        openCompanions();
+        renderKcMasterBox_(); // 只改名字/性別，只重繪御主資訊框——不必整面板重開
       } else { alert((res && res.message) || '改名失敗。'); }
     } catch (e) { alert('改名失敗。'); }
   }
@@ -145,7 +240,7 @@
         pc.sex = res.pcSex;
         localStorage.setItem('kyushu_v27', JSON.stringify(pc));
         var el = document.getElementById('ui-sex'); if (el) el.innerText = pc.sex;
-        openCompanions();
+        renderKcMasterBox_(); // 只改名字/性別，只重繪御主資訊框——不必整面板重開
       } else { alert((res && res.message) || '切換失敗。'); }
     } catch (e) { alert('切換失敗。'); }
   }
