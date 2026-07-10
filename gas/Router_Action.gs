@@ -243,7 +243,21 @@ const KANSHOU_BLOCKED_ACTIONS_ = {
   //   僥倖無害(weapon=武裝覆寫戰鬥方式文字、get_map_nodes=坤圖戰爭地圖節點、narrate_only=solo
   //   war-narrator的miniSystem)，鑑賞UI也從未呼叫過這三者(grep確認0處call site)。明確擋掉，
   //   不再只靠資料形狀僥倖安全。
-  weapon: 1, get_map_nodes: 1, narrate_only: 1
+  weapon: 1, get_map_nodes: 1, narrate_only: 1,
+  // 🐛→✅ 2026-07「solo是solo，鑑賞是鑑賞」全代碼庫再稽核補強：以下6個同樣是「鑑賞UI從未呼叫過
+  //   (grep確認0處call site)、只靠沒人這樣打API僥倖安全」的solo專屬action，明確擋掉：
+  //   - end_run(actionEndRun)：清整局「眾生」資料＋清COL.ACC.PC，若被KPC_呼叫會清掉鑑賞列、
+  //     卻清錯帳號表欄位(清PC不清KPC)，跟已修過的purge_orphans是同一類風險。
+  //   - create(actionManualNpc)/summon_servant(actionSummonServant)：分別是solo創角/召喚從者，
+  //     若被KPC_呼叫會把完整戰鬥schema的列(SIX/技能/寶具等)寫進「鑑賞眾生」，且
+  //     summon_servant還會連帶呼叫seedRivalsForGame_寫死"眾生"分頁，污染solo資料表。
+  //   - backfill_master_ai(actionBackfillMasterAi)：solo創角背景AI潤色，若被KPC_呼叫會用solo
+  //     戰爭語境的提示詞覆寫鑑賞御主的BACK/TRAIT/PREF/INTENT。
+  //   - account_login/account_new_game：正常前端一律不帶pcId呼叫這兩者(未登入前哪來pcId)，
+  //     但若被夾帶一個過期的KPC_ pcId(如切換帳號瞬間的競態)，會誤查solo的charId連結，
+  //     可能誤判「已死局」而清掉玩家帳號表裡的solo連結(非破壞性，但會讓玩家的solo存檔看似消失)。
+  end_run: 1, create: 1, summon_servant: 1, backfill_master_ai: 1,
+  account_login: 1, account_new_game: 1
 };
 
 // ==========================================
@@ -352,7 +366,11 @@ function buildTagsPayload_(sheets, pcId, preData) {
     hp: hpWord(m[COL.PC.HP], m[COL.PC.MAX_HP]),
     hpNum: parseInt(m[COL.PC.HP]) || 0, hpMax: parseInt(m[COL.PC.MAX_HP]) || 0,
     mpNum: parseInt(m[COL.PC.MP]) || 0, mpMax: parseInt(m[COL.PC.MAX_MP]) || 0,
-    seals: getPlayerSeals_(m[COL.PC.MEMORY]), wish: wish,
+    // 🐛→✅ 2026-07 稽核補漏：seals(令咒)是純solo戰爭概念，前端(refreshFateTags)本就只在
+    //   非kanshou模式才渲染「令咒」那一行——比照同批次的servants combat欄位補上isFateCtx，
+    //   讓鑑賞列這格結構性恆為0，不再只靠「鑑賞從未寫【令咒】標記、getPlayerSeals_退回預設值3」
+    //   這種資料形狀僥倖安全。
+    seals: isFateCtx ? getPlayerSeals_(m[COL.PC.MEMORY]) : 0, wish: wish,
     outfit: getOutfit_(m[COL.PC.MEMORY]) // 👗 慾海御主本人換裝(與從者outfit同款·供卡片「換裝」鈕預填)
   };
 
@@ -409,9 +427,12 @@ function buildTagsPayload_(sheets, pcId, preData) {
     try { var bclk = getClock_(gameId); bondUsed = getBondUsedToday_(m[COL.PC.MEMORY], bclk ? bclk.day : 1); } catch (e) { }
   }
   // ✨ 禮裝（御主裝備槽）
+  // 🐛→✅ 2026-07 稽核補漏：禮裝是純solo戰鬥被動加成概念，前端(refreshFateTags)本就只在非kanshou
+  //   模式才渲染「禮裝」那一行——比照 seals 同批次補上 isFateCtx，結構性擋掉，不再只靠「鑑賞從未
+  //   寫【禮裝】標記」這種資料形狀僥倖安全。
   var mystic = null;
   try {
-    var mid = getMystic_(m[COL.PC.MEMORY]);
+    var mid = isFateCtx ? getMystic_(m[COL.PC.MEMORY]) : "";
     if (mid && MYSTIC_CODES[mid]) {
       var mc = MYSTIC_CODES[mid];
       var mcb = mc.fx && MC_COMBAT_[mc.fx] ? MC_COMBAT_[mc.fx] : null;
@@ -430,7 +451,12 @@ function buildTagsPayload_(sheets, pcId, preData) {
 //   raiseBond_/fateStrike_ 等 helper 皆已支援原地改)。沒給→照舊自己讀(權威 fallback)。
 function buildClientState_(sheets, pcId, preData) {
   const allPcData = preData || sheets.pc.getDataRange().getValues();
-  try { markRivalsSeen_(sheets, pcId, allPcData); } catch (e) { } // 🔵 戰爭迷霧：就地標記 SEEN+批次寫回，免二次整表讀
+  // 🐛→✅ 2026-07 稽核發現：鑑賞的 sync(actionSync 呼叫這裡) 過去無條件跑 markRivalsSeen_——
+  //   這是「戰爭迷霧」機制，找同 game_id/同地的 敵御主/敵從者 標記已見過，但鑑賞眾生從未有這兩種
+  //   陣營的列(鑑賞無戰鬥、無敵蹤)，每次都是白掃一輪從沒中過的迴圈。這裡先判斷是不是鑑賞
+  //   (KPC_/KHV_/KSV_ 前綴)，是的話直接跳過。
+  const isKanshouSync_ = /^(KPC_|KHV_|KSV_)/.test(String(pcId || ""));
+  if (!isKanshouSync_) { try { markRivalsSeen_(sheets, pcId, allPcData); } catch (e) { } } // 🔵 戰爭迷霧：就地標記 SEEN+批次寫回，免二次整表讀
   const pcIndex = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pcIndex === -1) return null;
   const curL = allPcData[pcIndex][COL.PC.LOC];
@@ -441,10 +467,16 @@ function buildClientState_(sheets, pcId, preData) {
   // ⚡ 2026-07：時鐘併入御主列，clockLabel_/getAp_ 傳 allPcData 走記憶體查找，不再另外整表讀時鐘表。
   let clk = "", ap = AP_PER_DAY;
   if (isFate) { try { clk = clockLabel_(gid, allPcData); ap = getAp_(gid, allPcData); } catch (e) { } }
+  // 🐛→✅ 2026-07 稽核發現「solo是solo，鑑賞是鑑賞」：鑑賞的 sync 過去也跟 actionPlay 一樣借用
+  //   solo 的 getLocalPeopleList，算了一堆鑑賞前端從未讀取的欄位(status/pref/relTag/relVal/
+  //   faction/allied/intelCls/lostServant/master/servant/hp/mp)——之前只把 actionPlay 那條路徑
+  //   換成精簡版 getKanshouPeopleList_(Gallery.gs)，漏了 sync 這條(鑑賞的 syncData() 呼叫進來的
+  //   次數其實比 actionPlay 更頻繁：每次召喚/請走/改關係都會呼叫)。這裡補上同一個分流。
+  const isKanshouCtx_ = gid.indexOf("k_") === 0;
   return {
     statusString: buildPlayerStatusString(allPcData[pcIndex]),
     // 2026-07：關係併入眾生列，不再需要關係表 → 少一次整表讀
-    people: getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, allPcData),
+    people: isKanshouCtx_ ? getKanshouPeopleList_(pcId, curL, allPcData) : getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, allPcData),
     locations: getNearbyLocations(curL, freshMapData),
     mapDesc: currentMapInfo ? currentMapInfo[COL.MAP.DESC] : "四下靜謐。",
     clock: clk, ap: ap, apMax: AP_PER_DAY,
