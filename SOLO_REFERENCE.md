@@ -1024,3 +1024,11 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **設計取捨(有記錄但這輪不處理)**：`【邂逅中】`只在玩家「換地點」時清除，若玩家在同一地點持續聊很久、AI自己已經在敘事裡安排該角色道別離開，系統仍會在下一輪繼續注入「TA還在」的permission——這是刻意的簡化(不做精細的「AI主動signal這個人已經離開」狀態機)，因為這只是一個soft permission(允許AI用真名稱呼、不是強迫TA一定要出場)，AI自己接續對話歷史時本就會自然順著剛才的敘事走(已經演離開就不會突然又冒出來)，等於系統層與敘事層各自有一道防線，不需要疊床架屋做更複雜的追蹤。
 
 **驗證**：`bash check.sh` 全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。額外寫node腳本驗證`get/set/clearKanshouActiveEncounter_`三個函式的讀寫、覆寫(換人)、清除、與其他MEMORY標記共存四種情況皆正確。headless環境無法實機驗證AI是否真的維持巧遇對象跨輪互動，建議部署後測試：①巧遇到人後，接下來幾句普通對話(不含「還有誰」關鍵字)確認AI仍會自然稱呼、互動這位巧遇對象，不會突然說他不在場；②移動到別的地點後，確認舊的巧遇對象不會被錯誤延續到新地點；③AI自己敘事安排巧遇對象道別離開後，之後對話是否還算自然(即使系統permission仍在，也應該不會頻繁莫名其妙又冒出來)。
+
+**🐛→✅【真實bug，solo，與今天的GAS修改無關】「扮演正典御主」創角被自己的擋名保護擋死(2026-07 玩家實測「他不讓我確認他說已經有了？！是不是因為gas關係？」)**：玩家選「扮演正典御主」(例如遠坂凜)、確認創角時被擋，訊息說這個名字「已知」。查證後**不是今天的坤圖/御主殿靜態化等修改造成**——`git blame`確認這條擋名檢查是6天前(2026-07-04，commit`14f04b7`)的「創角不再擋跨局同名」修正加入的，早於本次session所有異動，是一個獨立於今天工作的既有bug。
+
+**根因**：`actionManualNpc`(Router_Creation.gs，`create`action的處理函式)的`_canonHit`檢查——「若姓名命中`SEED_MASTERS`/`SEED_SERVANTS`任一正典名字，一律擋下」——**完全沒有讀`userData.playedMaster`**。但玩家從`Script_Onboarding.html`的`pickCanonMaster`選了正典御主後，前端會把該御主的真名帶入`s-name`欄位、連同`playedMaster`(該御主id)一起送進`create`——這正是「扮演正典御主」這個合法入口本身送出的名字，卻被這條保護機制當成「自創御主撞到正典名字」而擋下，等於這個入口自己送出的東西被自己的保護攔在門外，一按確認就100%必中。
+
+**動手**：新增`_playingThisCanon`判斷——驗證`userData.playedMaster`對應的正典御主在`SEED_MASTERS`裡的真名剛好等於這次要建的`finalName`，才放行(不是「有帶`playedMaster`就一律放行」，防止夾帶不相干的`playedMaster` id亂繞過保護)。順帶查證了原本`_canonHit`保護真正要擋的「自創御主與被種入本局的同名正典敵手變雙胞胎」問題：`seedRivalsForGame_`(Seed_Rivals.gs)早就會排除玩家扮演的那位正典御主、不讓TA又被種成本局敵御主(`if (playedMaster && String(r.master) === playedMaster) return`)，所以「扮演正典御主」這個情境本來就不會真的產生雙胞胎，這裡放行是安全的。順帶確認`actionCheckName`(Router_Action.gs，`check_name`action)不需要同樣的修正——前端`pickCanonMaster`本就明講「扮演者名字可能含『·』等符號，跳過checkName，直接進細節步驟」，canon流程從未呼叫這個action，只有自創/自訂名字流程才會，不受影響。
+
+**驗證**：`bash check.sh` 全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(本輪未動這兩個檔案)。額外寫node腳本驗證5種情境：①扮演正典且名字對得上playedMaster→放行；②自創撞到正典名字、沒帶playedMaster→照舊擋下；③自創全新名字→放行；④夾帶不相干的playedMaster id想繞過保護(名字對不上)→照舊擋下；⑤扮演正典但事後把名字改成別的→canonHit本身就是false，自然放行。5種情境結果皆符合預期。這是solo創角流程的真實修復，headless環境無法實機驗證前端完整流程，建議部署後測試：選「扮演正典御主」任一角色，走完創角流程確認能順利進場，不再被「已知」訊息擋下。
