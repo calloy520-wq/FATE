@@ -7,7 +7,9 @@
 // ==========================================
 
 // 🗑️ 2026-07：actionClearNpcMajorEvent 已刪——唯一入口「個人史紀」面板已隨回顧類功能整套砍除，
-//   這個 action 因此不再有任何按鈕能觸發。COL.PC.MAJOR_EVENT 欄位本身仍在用(見 servantCard_/actionPlay)，未動。
+//   這個 action 因此不再有任何按鈕能觸發。玩家後來追問「約定清空還有地方可以按嗎？達成又要去哪裡看？」
+//   查證發現 COL.PC.MAJOR_EVENT 整條讀寫邏輯早已跟這個被刪的入口一起變成死路(寫入後從未被讀回餵給
+//   AI、也沒有其他UI能查看)，並非「仍在用」——已隨這輪一併整條移除(見 Gallery.gs)，此註解原本的說法過期。
 
 
 // ==========================================
@@ -95,8 +97,8 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
   var aiConfig = {
     temperature: 0.85,
     ignoreLaw: true,            // 不疊規矩表(節慶/天時)
-    max_tokens: opts.maxTokens || 720,
-    model: AI_MODEL,
+    max_tokens: opts.maxTokens || 720, // 🔵 2026-07 玩家「solo原本720就維持吧」——原值運作良好，撤回上一輪的1000
+    model: SOLO_MODEL,          // 🔵 2026-07 玩家定案 solo 獨立換成低延遲小模型，不跟鑑賞共用 AI_MODEL
     isNsfwMode: !!opts.isNsfw    // NSFW 時讓 fallback 文案合理，但不啟用完整慾海規則
   };
   // 帶最近2筆歷史(miniSystem 已告知 AI：歷史是既定事實、不可重演)

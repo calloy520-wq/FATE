@@ -109,7 +109,7 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
 ★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
 - traits：外貌、氣質舉止、自稱與口氣(第一人稱·如 我/俺/吾＋說話語氣，如 自稱「吾」・睥睨王者腔)、卸下心防的私密一面
 - personality：日常表象、真實內裡、喜歡的事物、討厭的事物
-★npc_intent：一句【簡短】萌點（可愛反差，≤18字），結合此御主身分性格，要反差、可愛、獨特。務必寫完整一句話，不可斷在句意未完處。
+★npc_intent：一句【簡短】萌點（可愛反差，≤18字，系統會在30字處硬性截斷、務必精簡），結合此御主身分性格，要反差、可愛、獨特。務必寫完整一句話，不可斷在句意未完處。【禁】誤用聖杯戰爭機制專有詞(令咒/寶具/魔術迴路/從者/職階等)當裝飾性魔法元素湊萌點——這些詞在本作有精確機制意義(如令咒是對從者下達絕對命令的珍貴道具，不是隨手用來做家事雜活的萬用法寶)，情節上真的合理相關才能出現；請改用生活化情境(手作/習慣/小癖好等)。
 ★background：限20字，呼應其身世／財力，禁出現具體物品名。
 ★【勿輸出數值】戰力數值、HP/MP 一律由系統裁定，prompt【不要】輸出任何數值欄位；也不要輸出地點。
 
@@ -294,11 +294,18 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
   // 🤖 2026-07 玩家定調「工房捏角當下也提前生成日常資料」：跟種子英靈懶惰快取(見
   // getOrComputeDailyHeroFields_)不同——工房角色創造當下就順手轉好，寫進英靈殿新增的
   // DAILY_LOOK/DAILY_WORDS 欄，之後第一次被召喚進鑑賞就直接有現成日常版，不必等召喚當下才轉。
-  var dailyLook = translateAppearanceToDaily_(name, cls, String(px.look || ""));
+  // 🌹 2026-07 玩家定案「餐桌是平行世界、沒有聖杯戰爭這回事」：萌點比照 look/words 同步轉換，
+  //   避免 heroToKanshouRow_ 直接搬戰時反差萌進一個沒打過聖杯戰爭的世界。
+  // 🐛→✅ 2026-07 玩家問「AI創造能抓到重點吧？」：moe 要先算好，才能當 hint 傳給下面的
+  //   translateLookToDaily_，讓「私密一面」不會跟萌點撞成同一件事的兩種說法(見該函式註解)。
+  var dailyMoe = translateMoeToDaily_(name, cls, String(px.moe || ""));
+  // 🌹 2026-07 玩家定案「日常衣裝獨立成欄」：translateAppearanceToDaily_ 已升級成 translateLookToDaily_，
+  //   一次呼叫同時產出四段式 look(外貌本相/氣質舉止/自稱與口氣/私密一面) 與獨立的 outfit(日常穿搭)。
+  var dailyLookRes = translateLookToDaily_(name, cls, String(px.look || ""), String(px.firstP || ""), String(px.speech || ""), dailyMoe);
   var dailyWords = translatePersonalityToDaily_(name, cls, String(personaWords || ""));
   hs.appendRow([name + "-" + cls, cls, name, sex || "異", sixJson || "{}",
     JSON.stringify(classSkills || []), JSON.stringify(skills || []), JSON.stringify(traits || []),
-    np || "", persona, align || "中立", "[]", "ai_gen", dailyLook, dailyWords]);
+    np || "", persona, align || "中立", "[]", "ai_gen", dailyLookRes.look, dailyWords, dailyMoe, dailyLookRes.outfit]);
   try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { } // 種子表已變動→清快取，下次讀到新從者
 }
 
@@ -449,15 +456,24 @@ function actionSaveHero(userData, pcId, sheets) {
     data[idx][COL.HERO.CLASS_SKILLS] = JSON.stringify(pb.classSkills);
     data[idx][COL.HERO.SKILLS] = JSON.stringify(pb.skills);
     data[idx][COL.HERO.NP] = np; data[idx][COL.HERO.ALIGN] = pb.align;
-    const newWords = keep(pb.pref, pj.words), newLook = keep(pb.look, pj.look);
+    const newWords = keep(pb.pref, pj.words), newLook = keep(pb.look, pj.look), newMoe = keep(pb.moe, pj.moe);
+    const newFp = keep(pb.fp, pj.firstP) || "我", newSpeech = keep(pb.speech, pj.speech);
     data[idx][COL.HERO.PERSONA] = JSON.stringify({
-      words: newWords, firstP: keep(pb.fp, pj.firstP) || "我", toMaster: keep(pb.toM, pj.toMaster),
-      look: newLook, moe: keep(pb.moe, pj.moe), speech: keep(pb.speech, pj.speech),
+      words: newWords, firstP: newFp, toMaster: keep(pb.toM, pj.toMaster),
+      look: newLook, moe: newMoe, speech: newSpeech,
       tic: keep(pb.tic, pj.tic), back: keep(pb.back, pj.back), weapon: keep(pb.weapon, pj.weapon), creator: pj.creator
     });
     // 🤖 2026-07：外貌/性格改了，先前快取的日常版本會跟新設定對不上——重新轉一次，不留舊資料。
-    data[idx][COL.HERO.DAILY_LOOK] = translateAppearanceToDaily_(build.name, pb.cls, newLook);
+    // 🌹 2026-07 玩家定案「日常衣裝獨立成欄」：translateLookToDaily_ 一次呼叫同時產出四段式 look 與
+    //   獨立的 outfit，取代原本的 translateAppearanceToDaily_。
+    // 🐛→✅ 2026-07 玩家問「AI創造能抓到重點吧？」：moe 要先算好才能當 hint 傳給 translateLookToDaily_，
+    //   避免「私密一面」跟萌點撞成同一件事的兩種說法(見該函式註解)。
+    const dailyMoeVal = translateMoeToDaily_(build.name, pb.cls, newMoe);
+    const dailyLookRes = translateLookToDaily_(build.name, pb.cls, newLook, newFp, newSpeech, dailyMoeVal);
+    data[idx][COL.HERO.DAILY_LOOK] = dailyLookRes.look;
+    data[idx][COL.HERO.DAILY_OUTFIT] = dailyLookRes.outfit;
     data[idx][COL.HERO.DAILY_WORDS] = translatePersonalityToDaily_(build.name, pb.cls, newWords);
+    data[idx][COL.HERO.DAILY_MOE] = dailyMoeVal;
     hs.getRange(idx + 1, 1, 1, data[idx].length).setValues([data[idx]]);
     try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { }
     return JSON.stringify({ success: true, edited: true, message: `「${build.name}」的靈基已重鑄——之後召喚皆用新設定（已在場的分身不追改）。` });
@@ -602,7 +618,7 @@ function actionSummonServant(userData, pcId, sheets) {
 ${FX_MENU_}
 ★【特性 traits】1~3 個，{"n":"特性名"}（如 王/龍/人類/神性/巨人/猛獸；有神性者會被神殺剋）。
 ★【演出而非說明】personality 與寶具只作底層，勿直接複述字面。personality 剛好 4 短句頓號分隔：日常表象、真實內裡、喜歡的事物、討厭的事物。
-★np：寶具名＋一句威能簡述；規模上限【對軍】——對城/對界/對神為種子英靈專屬，寫了也會被系統降為對軍，簡述請勿誇稱斬城滅界。★npc_intent：一句【簡短】反差萌（≤18字，務必寫完整一句話不可斷在句意未完處）。★sex 從 男／女／異 擇一。
+★np：寶具名＋一句威能簡述；規模上限【對軍】——對城/對界/對神為種子英靈專屬，寫了也會被系統降為對軍，簡述請勿誇稱斬城滅界。★npc_intent：一句【簡短】反差萌（≤18字，系統會在30字處硬性截斷、務必精簡，務必寫完整一句話不可斷在句意未完處）。【禁】誤用令咒當裝飾性萌點元素——令咒是御主持有、對從者下達絕對命令的機制道具，並非從者自己所有或隨手就能用的萬用法寶；也不要單純重複寶具名稱湊字數，請改用生活化情境(手作/習慣/小癖好等)。★sex 從 男／女／異 擇一。
 
 ★【輸出】合法 JSON、禁 Markdown：
 {"realName":"英靈真名","sex":"女","align":"中立・善","background":"限20字","npc_intent":"反差萌一句","personality":"四格頓號","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"classSkills":[{"n":"對魔力","r":"B","fx":"nullify_magic"}],"skills":[{"n":"直感","r":"A","fx":"first_strike"},{"n":"怪力","r":"B","fx":"str_up"}],"traits":[{"n":"人類"}]}`;
@@ -640,7 +656,10 @@ ${FX_MENU_}
       }
       row[COL.PC.BACK] = aiBrief.background ? String(aiBrief.background).slice(0, 40) : `${cls} 職階的英靈`; // 補防呆上限，比照其他AI生成路徑
       // 🆕 不重名的原創從者 → 寫回英靈殿（含六圍/技能fx/特性），日後可重用（御主不收）
-      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], aiCSkills, aiSkills, aiTraits, np, aiBrief.personality, align, { creator: String(userData.acctName || "").trim() }); } catch (e) { }
+      // 🐛→✅ 2026-07 修：pExtra 原本沒帶 moe——這名從者當下的 row[COL.PC.INTENT] 確實有拿到
+      //   aiBrief.npc_intent(見上)，但英靈殿的永久記錄(persona.moe)一直是空字串，導致這名從者
+      //   若日後被邀進鑑賞，heroToKanshouRow_/translateMoeToDaily_ 拿到的是空白、無從轉出日常萌點。
+      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], aiCSkills, aiSkills, aiTraits, np, aiBrief.personality, align, { moe: String(aiBrief.npc_intent || "").slice(0, 30), creator: String(userData.acctName || "").trim() }); } catch (e) { }
     }
 
     row[COL.PC.ID] = newId;

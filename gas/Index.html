@@ -158,30 +158,17 @@
             <div style="color:#8fb0e8; font-size:12px; margin:9px 0 4px;">技能 2×2（效果＋階級·可改名·帶滿4技+20）</div>
             <div id="cf-skills"></div>
           </div>
-          <!-- 🎭 頁1·演出：外貌/個性/演出七欄/整體描述 -->
+          <!-- 🎭 頁1·演出：外貌/個性各一句＋進階演出細節(選填·預設收合)＋整體描述 -->
+          <!-- 🧹 2026-07 玩家「不想那麼細」精簡：外貌/個性拆4格的版本 UI 太瑣碎，改回各一個自由文字欄——
+               後端 parseForgeBuild_ 本就用「有沒有頓號/逗號分3段以上」判斷玩家填了幾成(lookFull/prefFull)，
+               單句自由描述天然落在「核心設定，交給AI擴寫成四短句」這條路徑，欄位 ID(cf-look/cf-pref)
+               與後端格式完全不變、零後端改動。演出細節(自稱/陣營/態度/萌點/口吻/小動作/身世)7小欄收進
+               預設收合的「進階」區塊，想細調才展開。 -->
           <div id="cf-page-1" style="display:none;">
-            <!-- 🎨💭 2026-07 拆細(玩家反饋「玩家不可能自己打頓號分隔」)：外貌/個性各拆4個小欄位，
-                 玩家分開填、JS 送出前自動用頓號組回單一字串——欄位 ID(cf-look/cf-pref) 與後端格式完全不變。 -->
-            <div style="color:#e0a0c9; font-size:12px; margin-bottom:4px;">🎨 外貌（4項全選填·留空＝AI補；填越多AI越不准改）</div>
-            <div style="display:flex; gap:5px;">
-              <input id="cf-look-1" class="std-in" maxlength="14" placeholder="五官髮色" style="flex:1; min-width:0;">
-              <input id="cf-look-2" class="std-in" maxlength="14" placeholder="身形" style="flex:1; min-width:0;">
-            </div>
-            <div style="display:flex; gap:5px; margin-top:5px;">
-              <input id="cf-look-3" class="std-in" maxlength="14" placeholder="衣著印象" style="flex:1; min-width:0;">
-              <input id="cf-look-4" class="std-in" maxlength="14" placeholder="氣質(填在最後一格)" style="flex:1; min-width:0;">
-            </div>
-            <div style="color:#e0a0c9; font-size:12px; margin:9px 0 4px;">💭 個性（4項全選填·留空＝AI補）</div>
-            <div style="display:flex; gap:5px;">
-              <input id="cf-pref-1" class="std-in" maxlength="14" placeholder="日常表象" style="flex:1; min-width:0;">
-              <input id="cf-pref-2" class="std-in" maxlength="14" placeholder="真實內裡" style="flex:1; min-width:0;">
-            </div>
-            <div style="display:flex; gap:5px; margin-top:5px;">
-              <input id="cf-pref-3" class="std-in" maxlength="14" placeholder="喜歡的事物" style="flex:1; min-width:0;">
-              <input id="cf-pref-4" class="std-in" maxlength="14" placeholder="討厭的事物" style="flex:1; min-width:0;">
-            </div>
-            <div style="color:#c9a0e0; font-size:12px; margin:9px 0 4px;">🎭 演出細節（全選填·留空＝AI 補）</div>
-            <div id="cf-drama">
+            <input id="cf-look" class="std-in" maxlength="40" placeholder="🎨 外貌一句（選填·如：黑長直髮的冷豔劍士；留空＝AI補）" style="width:100%; box-sizing:border-box;">
+            <input id="cf-pref" class="std-in" maxlength="40" placeholder="💭 個性一句（選填·如：外冷內熱，重視承諾；留空＝AI補）" style="width:100%; box-sizing:border-box; margin-top:6px;">
+            <button type="button" class="btn" id="cf-adv-toggle" style="width:100%; margin-top:8px; padding:6px; font-size:12px; border-color:#8a7a9a; color:#b8a8d0;" onclick="toggleForgeAdvanced()">▸ 進階演出細節（選填·自稱/陣營/態度/萌點/口吻/小動作/身世）</button>
+            <div id="cf-drama" style="display:none; margin-top:6px;">
               <div style="display:flex; gap:5px;">
                 <input id="cf-fp" class="std-in" maxlength="4" placeholder="自稱（本王…）" style="flex:1; min-width:0;">
                 <select id="cf-align" class="std-in" style="flex:1; min-width:0;"><option>中立</option><option>秩序・善</option><option>秩序・中庸</option><option>秩序・惡</option><option>中立・善</option><option>中立・惡</option><option>混沌・善</option><option>混沌・中庸</option><option>混沌・惡</option></select>
@@ -229,6 +216,7 @@
         </div>
         <div id="topbar-kanshou" class="player-badge">
           <span id="header-loc">感應中...</span>
+          <span id="header-clock" style="margin-left:8px; opacity:.7; font-size:11px;"></span>
         </div>
       </div>
     </div>
@@ -396,25 +384,6 @@
         </div>
       </div>
 
-      <button id="secret-toggle-btn" class="btn" style="width:100%; margin-top: 5px; border-color: #e91e63; color: #e91e63; background: rgba(233, 30, 99, 0.05); font-weight:bold; letter-spacing: 2px;" onclick="toggleSecretPanel()">🌸 窺視神髓</button>
-
-      <div id="secret-panel"
-        style="display: none; margin-top: 10px; padding: 12px; background: rgba(233, 30, 99, 0.05); border: 1px dashed rgba(233, 30, 99, 0.5); border-radius: 6px; box-shadow: inset 0 0 10px rgba(233,30,99,0.1);">
-        <div
-          style="text-align:center; color: #e91e63; font-size: 14px; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid rgba(233, 30, 99, 0.2); padding-bottom: 6px;">
-          【 雙修秘錄 】</div>
-        <div style="font-size: 12px; color: #d4af37; margin-bottom: 6px;">◆ 核心技巧：</div>
-        <div id="ui-skills" style="font-size: 13px; margin-bottom: 12px; line-height: 1.8;"></div>
-        <div style="font-size: 12px; color: #d4af37; margin-bottom: 6px;">◆ 本能性癖：</div>
-        <div id="ui-kinks" style="font-size: 13px; margin-bottom: 12px; line-height: 1.8;"></div>
-        <div id="ui-rel-section" style="display: none; border-top: 1px dashed rgba(233,30,99,0.2); padding-top: 8px;">
-          <div style="font-size: 12px; color: #d4af37; margin-bottom: 6px;">◆ 專屬羈絆：</div>
-          <div style="font-size: 13px; line-height: 1.8;">
-            <span id="ui-titles"></span>
-            <span id="ui-intimacy-count" style="display:inline-block; background:rgba(212,175,55,0.15); border:1px solid rgba(212,175,55,0.5); padding:2px 8px; border-radius:12px; font-size:12px; color:#d4af37; margin-left:4px;"></span>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 

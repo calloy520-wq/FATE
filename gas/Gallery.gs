@@ -111,26 +111,41 @@ function getKanshouPcSheet_(ss) {
 //   (如「妖異而空洞的笑」)又被要求「原樣照抄、一字不改」，直接搬進和平日常場景顯得突兀。改成：
 //   ①服裝明確要求保留原本色系/風格精神、只做日常化改造，不换成完全不同調性；②最後一段的氣質/神情
 //   改成「依和平日常情境自然轉化」而非硬性照抄，但仍鎖住角色性格底色不可變成別人。
-function translateAppearanceToDaily_(name, cls, rawLook) {
+// 🌹 2026-07 玩家定案「日常衣裝獨立成欄，不要混在外貌裡」：原本 translateAppearanceToDaily_ 只輸出
+//   一段「N段外貌(含服裝)、最後一段氣質」的鬆散字串，讀取端再靠 looksToTraitParts_ 硬拆——服裝跟
+//   五官體態混在同一段，也沒有真正屬於角色個人的「自稱與口氣」/「卸下心防的私密一面」(那兩格過去
+//   一律是寫死的通用填充句，見 looksToTraitParts_ 註解)。改寫成 translateLookToDaily_：一次 AI 呼叫
+//   直接輸出兩樣東西——①look：明確四段(外貌本相/氣質舉止/自稱與口氣/卸下心防的私密一面)，跟
+//   PERSONA.traits／PREF 的四格格式完全對齊，不必再靠 looksToTraitParts_ 事後硬拆；②outfit：獨立的
+//   日常穿搭一句話。取代原本的 translateAppearanceToDaily_，呼叫端同步改名。
+// 🐛→✅ 2026-07 玩家問「AI創造能抓到重點吧？」查證發現：不能——這個函式跟 translateMoeToDaily_ 是
+//   兩次各自獨立的 AI 呼叫，互不知道對方輸出什麼，跟種子手寫23位英靈時「dailyMoe(v57)／dailyLook四段式
+//   (v58)分兩輪各自順著同一角色反差發想、結果私密一面跟萌點撞成同一件事的兩種說法」是同一個結構性
+//   成因。修法：呼叫端(recordOriginalHero_/actionSaveHero)先算好 dailyMoe，再把它當 dailyMoeHint
+//   傳進來，明講「私密一面不可跟這句萌點重複」，讓 AI 當下就看得到另一半、不必事後靠人工抓重複。
+function translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint) {
   var look = String(rawLook || "").trim();
-  if (!look) return look;
+  if (!look) return { look: "", outfit: "" };
   try {
-    var sys = "你是《命運停駐之夜》的造型顧問。玩家提供一段用「、」分隔的角色描述短語：前面數段是" +
-      "外貌與戰時攻防裝束(髮色、瞳色、盔甲、武裝、戰鬥姿態等)，最後一段是整體氣質／神情。" +
-      "這是 Fate／聖杯戰爭的平行世界日常線，想像《衛宮家今天的餐桌風景》那種基調——換上現代日常" +
-      "穿搭，但一看就知道是她本人。\n" +
-      "①外貌與攻防裝束段落：保留髮色/瞳色/五官/體態等本相特徵與原本服裝的色系、風格精神，戰甲/" +
-      "武裝/戰鬥姿態換成同色系、同調性的現代日常服裝與造型，盡量貼近原味。\n" +
-      "②最後一段的氣質／神情：依和平日常情境自然轉化，但保留角色本身的性格底色，不可變成另一個人的氣質。\n" +
-      "★輸出格式必須是同樣用「、」分隔的短語，段數與原文完全一致，每段對應原文同一位置的短語(只替換" +
-      "內容、不合併或拆分段落)。只輸出轉換後的描述本體，不要輸出任何說明、標籤、引號、前後綴。";
-    var prompt = "角色：" + name + "（" + cls + "）\n戰時描述：" + look;
-    var out = String(callGeminiAPI(prompt, sys, { temperature: 0.7, ignoreLaw: true, plainText: true }) || "").trim();
-    return out || look;
-  } catch (e) { return look; }
+    var sys = "你是《命運停駐之夜》的角色側寫顧問。玩家提供一段用「、」或「・」分隔的角色戰時外貌描述" +
+      "(前面數段是外貌本相與戰時攻防裝束，最後一段是整體氣質／神情)，以及她的第一人稱自稱、說話語氣。" +
+      "這是 Fate／聖杯戰爭的平行世界日常線，想像《衛宮家今天的餐桌風景》那種基調——換上現代日常穿搭，" +
+      "但一看就知道是她本人。請輸出兩樣東西：\n" +
+      "①look：日常版「外貌」四短句、頓號分隔，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝)]、" +
+      "[氣質舉止(依和平日常情境自然轉化，但性格底色不變，不可變成另一個人的氣質)]、" +
+      "[自稱與口氣：固定格式「自稱「" + (firstP || "我") + "」，再接一句依她原本說話語氣(" + (speech || "無特別描述") + ")寫成的日常口氣描述」]、" +
+      "[卸下心防的私密一面(這個角色只有放下戒備才會流露的一個具體、生活化、忠於其性格的小可愛面向，" +
+      "不可空泛或套用他人" + (dailyMoeHint ? "；這個角色的招牌萌點已經是「" + dailyMoeHint + "」，這一格【禁止】重複或換句話說同一件事，必須是完全不同的另一個生活切面(小動作/小習慣/情緒觸發點)" : "") + ")]。\n" +
+      "②outfit：一句她今天的日常穿搭，保留原本服裝的色系/風格精神、換成現代日常款式，盡量貼近原味，" +
+      "不要跟look的內容重複。\n" +
+      "★輸出合法 JSON、禁 Markdown：{\"look\":\"四短句頓號分隔\",\"outfit\":\"一句日常穿搭\"}";
+    var prompt = "角色：" + name + "（" + cls + "）\n戰時外貌描述：" + look;
+    var out = JSON.parse(callGeminiAPI(prompt, sys, { temperature: 0.7, ignoreLaw: true }) || "{}");
+    return { look: String(out.look || "").trim() || look, outfit: String(out.outfit || "").trim() };
+  } catch (e) { return { look: look, outfit: "" }; }
 }
 
-// 🔀 2026-07：跟上面 translateAppearanceToDaily_ 同一批「轉去鑑賞都市日常」需求，原本落在
+// 🔀 2026-07：跟上面 translateLookToDaily_ 同一批「轉去鑑賞都市日常」需求，原本落在
 //   Core_Settings.gs(solo 的 enrichPersonalityLikesDislikes_ 附近)——鑑賞集中到 Gallery.gs 這輪
 //   一併搬過來，兩個「XToDaily_」翻譯函式終於同居一處，不用跨檔找。
 // 🤖 2026-07 玩家定調「種子就是去戰鬥的，可以少幾項沒問題；轉到鑑賞，AI必須依照種子進行補充
@@ -158,6 +173,33 @@ function translatePersonalityToDaily_(name, cls, rawWords) {
   } catch (e) { return words; }
 }
 
+// 🌹 2026-07 玩家定案「餐桌是平行世界、沒有聖杯戰爭這回事(但她們仍是英靈)」：跟上面兩個 XxxToDaily_
+//   不同——look/words 的日常化只是「換場景敘述」，moe(萌點·反差)若直接照搬戰時版本，會把「靠戰爭/詛咒/
+//   創傷撐出的沉重反差」(如「怪力女神卻極度自卑」)硬套進一個根本沒發生過聖杯戰爭的世界，顯得莫名沉重、
+//   沒來由。這裡明確要求改寫成「輕量、溫馨、看了會心一笑」的日常萌點，性格核心不變，但拿掉需要戰爭/
+//   創傷背景才成立的沉重份量——只用在 AI 原創(ai_gen)英靈；canon 種子英靈的日常萌點全部手寫死進
+//   persona.dailyMoe(見 Seed_Codex.gs)，不會走到這個函式。
+function translateMoeToDaily_(name, cls, rawMoe) {
+  var moe = String(rawMoe || "").trim();
+  if (!moe) return moe;
+  try {
+    var sys = "你是《命運停駐之夜》的角色側寫顧問。玩家提供一位角色在聖杯戰爭(戰時)既有的「反差萌」" +
+      "一句話——這種戰時反差萌常常是靠沉重背景撐出來的(創傷/自卑/孤獨/悲劇宿命等)。這個角色現在要" +
+      "進入一個【平行世界的日常線】：這裡從來沒有發生過聖杯戰爭這回事(她依然是同一位英靈，只是活在" +
+      "一個沒有戰爭、不必背負詛咒創傷的和平世界)。想像《衛宮家今天的餐桌風景》那種基調，把這句反差萌" +
+      "改寫成一句「日常向」的可愛萌點：\n" +
+      "①保留角色的性格核心(如高冷/傲氣/寡言/暖心等本相不變)，只是換一個不需要靠悲劇/創傷/戰爭陰影" +
+      "撐出來的呈現方式。\n" +
+      "②必須是單看了會覺得溫馨、正面、會心一笑的小萌點(如生活小習慣、意外的手藝、小小的害羞反應等)，" +
+      "不要保留原句的沉重/悲傷/自卑成分。\n" +
+      "③限18字，務必寫完整一句話，不可斷在句意未完處。\n" +
+      "★只輸出這一句話，不要輸出任何說明、標籤、引號、前後綴。";
+    var prompt = "角色：" + name + "（" + cls + "）\n戰時反差萌：" + moe;
+    var out = String(callGeminiAPI(prompt, sys, { temperature: 0.75, ignoreLaw: true, plainText: true }) || "").trim();
+    return out.slice(0, 30) || moe;
+  } catch (e) { return moe; }
+}
+
 // 🐛→✅ 2026-07 玩家點名「撈進鑑賞時確實零AI呼叫<<<把這個呼叫移除吧?沒有其他來源不會有要補
 //   資料問題」：查證屬實——DAILY_LOOK/DAILY_WORDS 現在只有兩種來源，皆已在「進英靈殿之前」就
 //   保證非空：①種子(SEED_SERVANTS)全數手寫寫死進 persona.dailyLook/dailyWords；②工房(ai_gen)
@@ -167,9 +209,14 @@ function translatePersonalityToDaily_(name, cls, rawWords) {
 function getDailyHeroFields_(heroRow, p) {
   var existingLook = String(heroRow[COL.HERO.DAILY_LOOK] || "").trim();
   var existingWords = String(heroRow[COL.HERO.DAILY_WORDS] || "").trim();
+  var existingMoe = String(heroRow[COL.HERO.DAILY_MOE] || "").trim();
+  // 🆕 DAILY_OUTFIT(2026-07)：服裝跟外貌本相分開存，戰時 persona 沒有對應的「純服裝」欄可退——
+  //   沒快取到值就交給 heroToKanshouRow_ 自己的「日常便服」保底，這裡純讀取不瞎猜。
+  var existingOutfit = String(heroRow[COL.HERO.DAILY_OUTFIT] || "").trim();
   var rawLook = String(p.look || "").replace(/・/g, "、");
   var rawWords = String(p.words || "").replace(/・/g, "、");
-  return { look: existingLook || rawLook, words: existingWords || rawWords };
+  var rawMoe = String(p.moe || "");
+  return { look: existingLook || rawLook, words: existingWords || rawWords, moe: existingMoe || rawMoe, outfit: existingOutfit };
 }
 
 // 🌹 慾海直接從英靈庫挑選(2026-07 玩家定案·與「封存後邀請」並存)：不必先在 solo 打贏一場戰爭
@@ -204,22 +251,37 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   //   任何AI呼叫的可能。
   var daily = getDailyHeroFields_(heroRow, p);
   sRow[COL.PC.PREF] = parseTraitsHelper(daily.words, "沉著表象、堅定內裡、珍視之物、厭惡之事");
-  sRow[COL.PC.TRAIT] = parseTraitsHelper(looksToTraitParts_(daily.look, p.firstP), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
-  sRow[COL.PC.INTENT] = p.moe || "";
+  // 🌹 2026-07 玩家定案「日常衣裝獨立成欄」：dailyLook 從「N段外貌(含服裝)、最後一段氣質」的鬆散
+  //   格式，改為手寫/AI轉換直接產出的明確四段(外貌本相/氣質舉止/自稱與口氣/私密一面)——已是這個
+  //   格式的話直接讀，不必再靠 looksToTraitParts_ 硬拆；只有還沒補上新格式的舊資料(過渡期)才退回
+  //   舊拆法，兩者相容、零斷層。
+  var dailyLookParts = String(daily.look || "").split('、').map(function (s) { return s.trim(); }).filter(Boolean);
+  var traitSrc = dailyLookParts.length >= 4 ? daily.look : looksToTraitParts_(daily.look, p.firstP);
+  sRow[COL.PC.TRAIT] = parseTraitsHelper(traitSrc, "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
+  // 🌹 2026-07 玩家定案「餐桌是平行世界、沒有聖杯戰爭這回事」：萌點跟外貌/性格一樣改讀日常版
+  //   (daily.moe)，不再直接照搬戰時 persona.moe——那種靠戰爭/創傷撐出的沉重反差在這個沒打過
+  //   聖杯戰爭的世界裡沒有來由，詳見 getDailyHeroFields_/translateMoeToDaily_。
+  sRow[COL.PC.INTENT] = daily.moe || "";
   // 🐛→✅ 2026-07 修：這條路徑原本完全沒設定 BACK(身世)，比 solo 召喚(svBack 有 persona.back
   //   fallback)還空——多數種子沒有 persona.back 沒差，但這次新增的3位女性正典御主特地補了
   //   身世，若這裡不接就白填了。比照 solo 的 svBack 邏輯：有 persona.back 就用，沒有則職階+真名。
   sRow[COL.PC.BACK] = p.back ? String(p.back).slice(0, 28) : `${sRow[COL.PC.RANK]}・${name}`;
-  // 🆕 直接召喚無快照可帶，先給「日常便服」墊底，卡片才不會裝扮欄空白待換裝
-  sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", p.speech, p.tic), "日常便服");
+  // 🆕 直接召喚無快照可帶，用該英靈自己的日常衣裝(daily.outfit)墊底，沒有才退回通用「日常便服」；
+  //   卡片才不會裝扮欄空白待換裝——玩家隨時仍可透過既有換裝功能覆寫(getOutfit_/setOutfit_，可清)。
+  sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", p.speech, p.tic), daily.outfit || "日常便服");
   // 🧹 2026-07 玩家定案「同伴也可以不先顯示」：拿掉建立當下就預填肉體狀態的做法，改跟御主本人
   // (actionEnterKanshou)一致——PHYSICAL 留空，「當前狀態」面板顯示「--」，直到真的發生第一次
   // 互動、AI 回傳 intimacy_feedback 才第一次寫入。Router_Narrative.gs 的懶初始化(pPhysicalObj
   // 為空物件時依性別現算預設值)本就會在那之前的 prompt 組裝過程臨時補上，AI 不會拿到空物件，
   // 只是不再「還沒發生任何事就先寫進資料庫」。
   sRow[COL.PC.GAME_ID] = gameId;
-  sRow[COL.PC.BOND] = 45; sRow[COL.PC.REL_TAG] = "從者"; sRow[COL.PC.IS_PARTY] = "同行";
-  sRow[COL.PC.REL_MEM] = "初次相遇，緣分才剛開始"; sRow[COL.PC.MAJOR_EVENT] = "";
+  // 🐛→✅ 2026-07 玩家問「召喚的角色跟我說是什麼關係？」查出：REL_TAG 沿用 solo 那邊「從者」的寫法——
+  //   但「從者」是聖杯戰爭裡令咒締結契約的戰爭專屬用語，這行(Gallery.gs:877)會直接把「關係:從者」
+  //   餵給AI，且只有AI明確給新tag才會覆蓋，AI若判斷「無變化」就會一直卡在這個戰爭用語，跟鑑賞
+  //   「沒有聖杯戰爭這回事」的定調衝突。改用既有好感分級詞彙「萍水相逢」(跟 BOND=45「尚淺·剛認識」
+  //   的既有註解意圖一致)，solo 端(Router_Creation.gs)因為真的有令咒契約，「從者」在那邊是對的，不動。
+  sRow[COL.PC.BOND] = 45; sRow[COL.PC.REL_TAG] = "萍水相逢"; sRow[COL.PC.IS_PARTY] = "同行";
+  sRow[COL.PC.REL_MEM] = "初次相遇，緣分才剛開始";
   return sRow;
 }
 
@@ -298,7 +360,7 @@ function actionBackfillKanshouServantAi(userData, pcId, sheets) {
   // 🐛→✅ 2026-07 玩家點出：這顆「深化」不分英靈來源，一律用「你熟知這位英靈原作」的提示詞——
   //   但工房原創(ai_gen)角色根本沒有真實原作可言，AI被要求「依你對原作的認知潤色」只會亂猜、
   //   甚至編出不存在的「正典設定」蓋掉玩家自己寫的原創設計。工房角色的都市日常轉換已在
-  //   heroToKanshouRow_(translateAppearanceToDaily_/translatePersonalityToDaily_)做過、且尊重
+  //   heroToKanshouRow_(translateLookToDaily_/translatePersonalityToDaily_)做過、且尊重
   //   玩家原始設計，這裡對 ai_gen 直接略過，不重複用錯誤前提的提示詞覆寫一次。
   try {
     var _heroes = getHeroCodexCached();
@@ -445,7 +507,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 ★【四格】traits 與 personality 各剛好 4 短句、頓號分隔、禁數字標籤：
 - traits：外貌、氣質舉止、自稱與口氣(第一人稱·如 我/俺/吾＋說話語氣)、卸下心防的私密一面
 - personality：日常表象、真實內裡、喜歡的事物、討厭的事物
-★npc_intent：一句【簡短】萌點（可愛反差，≤18字），結合此人身分性格，要反差、可愛、獨特。務必寫完整一句話，不可斷在句意未完處。
+★npc_intent：一句【簡短】萌點（可愛反差，≤18字，系統會在30字處硬性截斷、務必精簡），結合此人身分性格，要反差、可愛、獨特。務必寫完整一句話，不可斷在句意未完處。【禁】誤用聖杯戰爭機制專有詞(令咒/寶具/魔術迴路/從者/職階等)當裝飾性魔法元素湊萌點——這些詞在本作有精確機制意義(如令咒是對從者下達絕對命令的珍貴道具，不是隨手用來做家事雜活的萬用法寶)，且聖杯戰爭已落幕，情節上真的合理相關才能出現；請改用生活化情境(手作/習慣/小癖好等)。★這個萌點必須是單看了會覺得溫馨、正面、會心一笑的日常小反差(如生活小習慣、意外的手藝、小小的害羞反應等)，【禁】靠創傷/自卑/孤獨/悲劇宿命撐出反差感——那是戰時角色才需要的沉重寫法，這裡是輕鬆的日常後日談。
 ★background：限20字，呼應其身世，不出現具體物品名，語氣平和(聖杯戰爭已結束)。
 ★【勿輸出數值】戰力數值一律不需要，也不要輸出地點。
 
@@ -603,10 +665,14 @@ function buildDefaultSystemPrompt() {
     // 🐛→✅ 2026-07(玩家明確授權)：原句要求「第一人稱自省…我原本的性格尊嚴」，逼AI用「我」寫
     //   NPC的內心獨白，緊接著卻要narration把「我」切回玩家——兩種「我」在同一份提示詞裡打架，
     //   flash-lite小模型容易把NPC的視角帶進narration。改第三人稱總結，拿掉會跟敘事視角衝突的「我」。
-    "inner_monologue": "【必填·純思考用·絕不顯示】用第三人稱總結本回合主要互動對象(那名NPC)目前的狀態(約50字，此欄不是該角色的台詞或視角，NPC本人不可用「我」自稱)。公式：[該NPC原本的性格尊嚴] vs [當下情緒與身體的真實狀態]。情緒溫度必須銜接歷史紀錄，禁止歸零重來。",
+    // 🐛→✅ 2026-07(玩家問「用第三人稱總結本回合？？不是上回合嗎」發現措辭歧義)：「本回合主要
+    //   互動對象」原意是「鎖定這回合焦點是哪個NPC」，「目前的狀態」原意是「承接自過往互動、本回合
+    //   下筆前的起點狀態」——但字面容易被誤讀成「這回合(即將)發生後的狀態」，變成敘事的預寫稿而非
+    //   承接歷史的定錨點，會打折「先思考後敘事」的設計初衷。改成明講「本回合開始前」，去掉歧義。
+    "inner_monologue": "【必填·純思考用·絕不顯示】鎖定本回合主要互動對象(那名NPC)，用第三人稱總結其「本回合開始前」承接自過往互動的狀態(約50字，此欄不是該角色的台詞或視角，NPC本人不可用「我」自稱)。公式：[該NPC原本的性格尊嚴] vs [當下情緒與身體的真實狀態]。情緒溫度必須銜接歷史紀錄，禁止歸零重來。",
     // 🔠 2026-07 全面重寫縮字：narration 描述原本重複一份「篇幅靠情感起伏/神態心理/氛圍張力/對話堆疊
     //   撐起」的風格指示，跟下方 specificRules 第4條逐字相同——改成交叉引用，只在一處說清楚。
-    "narration": "劇情描述(約600字，第一人稱，嚴禁替玩家做決定；篇幅分配依下方慾海律令第4條)...",
+    "narration": "劇情描述(約500字，第一人稱，嚴禁替玩家做決定；篇幅分配依下方慾海律令第4條)...",
     // 🗺️ 2026-07 玩家定案：鑑賞拔除地圖按鈕，改AI自主敘事換場——地點完全由AI自己決定何時、換去哪，
     //   不再受限於固定地圖節點清單，可以是「一家安靜的咖啡廳」這種地圖上沒有的場景。
     //   ★鐵律：narration必須先把移動/抵達的過程實際寫出來，這欄才能填新地名；沒有移動就照抄
@@ -620,29 +686,35 @@ function buildDefaultSystemPrompt() {
       "_note": "★physical_state是角色「自身」當下整體狀態的一段自由文字，純肢體與感官、禁內心戲，第三人稱填寫，絕對禁寫'自己'。★每回合都要據實反映最新狀態，不可偷懶沿用舊值；具體提及哪些面向、要多細由你依當下情境自行判斷，不強制逐項列舉。npcs每位與player共用此格式，依其實際狀態填寫。",
       "player": {
         "physical_state": _physicalState,
-        "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第7條)",
-        "erogenous_zones": "本回合玩家自身敏感部位反應(規則見下方慾海律令第7條)"
+        "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第6條)"
       },
       "npcs": [{
         "name": "NPC實際名字",
         "physical_state": _physicalStateRef,
-        "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第7條)",
-        "erogenous_zones": "本回合該NPC敏感部位反應(規則見下方慾海律令第7條)",
-        "mutual_nicknames": "雙方間已自然發展出的暱稱/愛稱(規則見下方慾海律令第7條)"
+        "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第6條)",
+        "mutual_nicknames": "雙方間已自然發展出的暱稱/愛稱(規則見下方慾海律令第6條)"
       }]
     },
     // 🔠 2026-07：原本「名字提取鐵律」在 Router_Narrative.gs 每回合另開一整段落解釋 target 只能填真名，
     //   改直接寫進欄位描述本身——schema 級約束比事後再說一次更有效，也省掉那一整段重複文字。
-    "rel_changes": [{ "target": "NPC真實姓名或「自己」(禁填台詞/地名/動作等其他內容)", "fav_change": 3, "tag": "無", "major_event": "無" }],
+    // 🐛→✅ 2026-07 玩家問「rel_changes後面幾個沒範例AI能知道怎麼用？」補了 _note 範例；追問「約定
+    //   清空還有地方按嗎？達成又要去哪裡看？」才發現 major_event(未完成的約定)整條是頭尾斷開的死路
+    //   ——寫入後從未被讀回餵給AI(AI看不到自己上次許過什麼，[達成]/[清空]語法講清楚也無從觸發)，
+    //   玩家也沒有任何UI能查看或手動清空，玩家定案「整條拆掉」。schema 欄位一併移除，見下方
+    //   `relChangesToProcess.forEach` 拿掉的處理邏輯、`COL.PC.MAJOR_EVENT` 定義處註解。
+    "rel_changes": [{
+      "_note": "fav_change為整數(可正可負)，關係要慢慢培養、不可躁進：日常閒聊+1~2、明顯心動或重大進展+3~5，單回合上限+5，不可一次跳大段；越界冒犯可填負數。★fav_change純粹是好感升降的數字，與口吻/語氣描述無關。tag為【關係定位】四字詞(萍水相逢/點頭之交/漸生情愫/紅顏知己等)，依好感高低填，無變化填「無」。",
+      "target": "NPC真實姓名或「自己」(禁填台詞/地名/動作等其他內容)", "fav_change": 3, "tag": "無"
+    }],
     // 🧹 2026-07 玩家定案「mentioned_names 這也不用了吧」：查證後這欄對鑑賞(唯一還會呼叫此
     //   schema 的路徑)已是死欄——前端(Script.html send())收到後只會 pushCandidate(name, name)，
     //   把文字換成一模一樣的文字(鑑賞早改純文字、無 hyperlink)，等於整條「算了、送了、解析了、
     //   替換了」的鏈路最終是自己換自己的無效操作，沒有任何實際效果。schema 欄位、AI 指令、後端回傳、
     //   前端消費四處一併移除。
-    // 🔴 慾海模式event欄位禁止描述肉體細節：實際因果文字改由GAS固定樣式生成(隱晦化)，AI只需給方向與標籤
-    // 🗑️ 2026-07 玩家定案：event/tag 兩欄拔除——因果表刪除後無任何代碼讀取(產了就丟)，
-    //   後端只消費 subject/object(交談輪數計數，見 Router_Narrative.gs)。以後要做回憶錄再加回。
-    "log_summary": { "subject": "主動方真名", "object": "被動/承受方真名(三人以上填眾人)" }
+    // 🗑️ 2026-07 玩家定案：event/tag 兩欄先前已拔除(因果表刪除後無任何代碼讀取)；這輪玩家再問
+    //   「log_summary 有在用嗎」——查證其唯一消費者(交談輪數計數)累加的數字從頭到尾沒有任何地方
+    //   讀回(不顯示、不當門檻、不餵回AI)，是純粹寫入從不讀取的死路，連同 subject/object 整欄一併
+    //   移除，AI 不用再每回合多填這個欄位。
   };
 
   // 🔠 對話格式規則抽成共用函式，杜絕未來改一半、又不一致的風險。
@@ -697,8 +769,7 @@ function buildDefaultSystemPrompt() {
 3. 【依配對裁決】依上方【性別配對】——女女配對：純女女之愛，無論誰主導皆纏綿體貼、有來有往，主動方亦柔中帶情，❌禁男性化強硬支配模板；男女配對：依實際性別器官自然互動，女性側動作仍柔美。
 4. 聚焦當下最關鍵一兩處深入著墨，篇幅靠情感起伏/神態心理/氛圍張力/肢體動作/喘息與聲音/對話堆疊撐起，非鋪滿全身；❌禁逐一點名全身部位、禁四感清單式流水帳、禁器官逐格交代；台詞可被喘息/聲音/斷續語句打斷，不限嬌喘，勿一氣呵成。
 5. physical_state為單一自由文字(第三人稱)，涵蓋姿態/表情/肉體反應/服裝凌亂度等，依情境帶到即可不強制列舉；每回合據實反映最新狀態不可沿用舊值，脫離接觸可帶到「鬆開/餘韻」。★純系統記錄，narration仍以第4條為準、聚焦留白，不逐格謄寫。
-6. log_summary：subject填主導方真名、object填承受方真名(三人以上填眾人)，符合實際方向，禁因身分預設主動方。
-7. 粗暴動作轉紅印/酥麻/強烈快感，禁肉體破損流血。dynamic_skills(2~5字，貼合身分個性)/erogenous_zones(2~6字，實際觸及的敏感部位)/mutual_nicknames(已自然發展且好感足夠的暱稱)：僅本回合確實發生/存在才填，毫無相關內容一律填「無」，不預設空白或提前腦補。`;
+6. 粗暴動作轉紅印/酥麻/強烈快感，禁肉體破損流血。dynamic_skills(2~5字，貼合身分個性)/mutual_nicknames(已自然發展且好感足夠的暱稱)：僅本回合確實發生/存在才填，毫無相關內容一律填「無」，不預設空白或提前腦補。`;
 
   return nsfwBaseRules + "\n" + specificRules + "\n\n★【輸出範本】\n" + JSON.stringify(finalJson, null, 2);
 }
@@ -758,19 +829,19 @@ function actionPlay(userData, pcId, sheets) {
   const myGameId = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
   const sameGame = (r) => !myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId;
 
-  // 🐛→✅ 2026-07 修：「專屬稱呼/已兌現」記憶點原本只加在 localSceneStr(同地路人清單)，但那份
+  // 🐛→✅ 2026-07 修：「專屬稱呼」記憶點原本只加在 localSceneStr(同地路人清單)，但那份
   //   明確排除「同行隊伍成員」——鑑賞的同伴全部是 IS_PARTY="同行"、只會出現在下面 partyDetailsArr，
-  //   等於唯一真正常互動的對象反而吃不到這兩個標籤(solo友善對話/切磋等免按鍵互動同樣受影響)。
+  //   等於唯一真正常互動的對象反而吃不到這個標籤(solo友善對話/切磋等免按鍵互動同樣受影響)。
   //   抽成共用函式，兩份清單一起補上，不重複貼一次解析邏輯。
+  // 🗑️ 2026-07 玩家定案「未完成的約定整條拆掉」：原本這裡也讀 [已兌現] 餵「一起做過」記憶點，
+  //   但它唯一的寫入來源(major_event的[達成]處理)已整段移除，往後不會再有新的[已兌現]資料——
+  //   拿掉這段讀取，只留專屬稱呼。
   function relMemMemoryStr_(relMem) {
     const s = String(relMem || "");
     const nickMatch = s.match(/\[專屬稱呼\](.*?)(?=\| \[|$)/);
     const nickTrim = nickMatch ? nickMatch[1].trim() : "";
     const nickStr = (nickTrim && nickTrim !== "無") ? ` [專屬稱呼:${nickTrim}]` : "";
-    const doneMatch = s.match(/\[已兌現\](.*?)(?=\| \[|$)/);
-    const doneTrim = doneMatch ? doneMatch[1].trim() : "";
-    const fulfilledStr = (doneTrim && doneTrim !== "無") ? ` [一起做過:${doneTrim}]` : "";
-    return `${nickStr}${fulfilledStr}`;
+    return nickStr;
   }
 
   // 🧹 2026-07 玩家定案「砍掉同地路人、這是開放大世界、沒有結界了」：舊版 allLocals/displayPeople/
@@ -912,7 +983,14 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
     : `🚨【敘事終極警告】：結果後必須停在「我」當下進行式的心境與情緒中，留一個未完成的動作、未說完的話或懸而未決的情緒把下一步交還玩家——【絕對禁止】寫出「那一刻／那一夜／自此／就這樣／從此」等總結收尾句，讓這回合讀起來像已經翻頁的完結篇章！`}`;
 
   try {
-    let aiConfig = { temperature: 1.0, top_p: 0.95, retries: 2, model: AI_MODEL, isNsfwMode: true };
+    // 🔥 2026-07 玩家定案「沒有點火接gemini3.1(SOLO_MODEL)，點火才接目前鑑賞的(AI_MODEL)」：平時
+    //   矜持模式(driveOn=false)換成跟solo共用的低延遲小模型，只有主動掌握模式(driveOn=true)才切回
+    //   鑑賞原本用的大型模型——大多數回合是輕鬆日常對話，犯不著每次都吃重量級模型的延遲。
+    let aiConfig = { temperature: 1.0, top_p: 0.95, retries: 2, model: driveOn ? AI_MODEL : SOLO_MODEL, isNsfwMode: true };
+    // 🔥 2026-07 玩家追加定案「沒點火時如果被攔截或對話失敗改用DeepSeek」：SOLO_MODEL(輕量模型)全部
+    //   重試失敗後，callGeminiAPI(Engine_Combat.gs)會自動換成 AI_MODEL 再試一輪——點火時已經在用
+    //   AI_MODEL，沒有更重的模型可逃生，不設定 fallbackModel。
+    if (!driveOn) aiConfig.fallbackModel = AI_MODEL;
 
     // 🔴【新增】抓取近 6 筆原始歷史(3輪)，轉換為 API 格式
     const recentHistoryRaw = getGameHistoryBatchRaw(pcId, 6);
@@ -995,7 +1073,11 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         if (nIdx === -1) return;
         dirtyPcRows.add(nIdx);
 
-        // 🌹 鑑賞允許 AI 依劇情推進好感（solo 的好感收歸 GAS 按鈕，走不同的 narrate_only 路徑，不受這裡影響）
+        // 🌹 鑑賞允許好感依劇情推進（solo 的好感收歸 GAS 按鈕，走不同的 narrate_only 路徑，不受這裡影響）
+        // 🔄 2026-07 玩家定案「好感改回數字」：先前試過「AI只給方向旗標(tone/fav_dir)、GAS對應固定
+        //   ±2」，但改名成fav_dir修好「好感不會增加」的語意衝突bug後，玩家仍決定改回讓AI直接填數字——
+        //   換回 fav_change(整數)，實際增減幅度依 _note 的級距指引由AI自行判斷(日常+1~2/心動+3~5，
+        //   單回合上限+5)，不再由GAS對應固定值。sanitizeAiData_ 的數值防呆同步復原(見該函式)。
         let change = parseInt(rc.fav_change) || 0;
         let isPartyStr = String(pcData[nIdx][COL.PC.IS_PARTY] || "");
         if (dismissedNpc === tNpc) isPartyStr = "";
@@ -1011,36 +1093,10 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         }
 
         pcData[nIdx][COL.PC.BOND] = newFav; pcData[nIdx][COL.PC.REL_TAG] = finalTag; pcData[nIdx][COL.PC.IS_PARTY] = isPartyStr;
-
-        if (rc.major_event && rc.major_event.trim() !== "無") {
-          let oldEventsStr = String(pcData[nIdx][COL.PC.MAJOR_EVENT] || "").trim();
-          let newEvent = String(rc.major_event).trim();
-          let eventArray = (oldEventsStr === "無" || oldEventsStr === "") ? [] : oldEventsStr.split('、').map(e => e.trim());
-
-          if (newEvent === "[清空]") pcData[nIdx][COL.PC.MAJOR_EVENT] = "無";
-          else if (newEvent.includes("[達成]")) {
-            let doneTask = newEvent.replace("[達成]", "").trim();
-            if (doneTask) {
-              eventArray = eventArray.filter(e => !e.includes(doneTask));
-              pcData[nIdx][COL.PC.MAJOR_EVENT] = eventArray.length > 0 ? eventArray.join("、") : "無";
-              // 🧪 2026-07 玩家提案「達成的約定當記憶點」：原本兌現後直接從陣列刪除、船過水無痕
-              //   (跟REL_MEM專屬稱呼原本的問題同款浪費)。改成順手存一筆到REL_MEM的[已兌現]，
-              //   讓角色以後還記得「一起做過」，不只是被動等下一次好感度數字判斷關係。
-              let oldRMemForDone = String(pcData[nIdx][COL.PC.REL_MEM] || "");
-              let doneMatch = oldRMemForDone.match(/\[已兌現\](.*?)(?=\| \[|$)/);
-              let doneArr = doneMatch ? doneMatch[1].trim().split('、').map(x => x.trim()).filter(x => x && x !== "無") : [];
-              if (!doneArr.includes(doneTask)) doneArr.push(doneTask);
-              if (doneArr.length > 3) doneArr.shift();
-              let newDoneSeg = `[已兌現]${doneArr.join('、')}`;
-              pcData[nIdx][COL.PC.REL_MEM] = doneMatch
-                ? oldRMemForDone.replace(/\[已兌現\](.*?)(?=\| \[|$)/, newDoneSeg)
-                : (oldRMemForDone.trim() ? `${oldRMemForDone.trim()} | ${newDoneSeg}` : newDoneSeg);
-            }
-          } else if (!eventArray.includes(newEvent)) {
-            eventArray.push(newEvent); if (eventArray.length > 3) eventArray.shift();
-            pcData[nIdx][COL.PC.MAJOR_EVENT] = eventArray.join("、");
-          }
-        }
+        // 🗑️ 2026-07 玩家定案「整條拆掉」：major_event(未完成的約定)整段處理邏輯移除——查證發現
+        // MAJOR_EVENT 這欄寫入後從未被讀回餵給AI(partyDetailsArr/relMemMemoryStr_都不讀這欄)，
+        // AI 每回合看不到自己上次許過什麼，[達成]/[清空]語法即使講清楚也無從合理觸發；玩家也完全
+        // 沒有UI能查看或手動清空——整條是頭尾斷開的死路，見 COL.PC.MAJOR_EVENT 定義處註解。
       });
     }
 
@@ -1095,7 +1151,7 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         if (pCleanState) pcData[pcIndex][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[pcIndex][COL.PC.PHYSICAL], pCleanState);
 
         let oldPMem = pcData[pcIndex][COL.PC.MEMORY] || "";
-        pcData[pcIndex][COL.PC.MEMORY] = `[雙修技巧]${processSkills(oldPMem, pfb.dynamic_skills)} | [性愛時敏感部位]${processTags(oldPMem, /\[性愛時敏感部位\](.*?)(?=\| \[|$)/, pfb.erogenous_zones, 5)}`;
+        pcData[pcIndex][COL.PC.MEMORY] = `[雙修技巧]${processSkills(oldPMem, pfb.dynamic_skills)}`;
       }
 
       if (aiData.intimacy_feedback.npcs) {
@@ -1107,21 +1163,16 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
           dirtyPcRows.add(targetIdx);
           const nCleanState = sanitizePhysicalState(nfb.physical_state);
           if (nCleanState) pcData[targetIdx][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[targetIdx][COL.PC.PHYSICAL], nCleanState);
-          if (nfb.dynamic_skills || nfb.erogenous_zones) {
+          if (nfb.dynamic_skills) {
             let oldNMem = pcData[targetIdx][COL.PC.MEMORY] || "";
-            pcData[targetIdx][COL.PC.MEMORY] = `[雙修技巧]${processSkills(oldNMem, nfb.dynamic_skills)} | [性愛時敏感部位]${processTags(oldNMem, /\[性愛時敏感部位\](.*?)(?=\| \[|$)/, nfb.erogenous_zones, 5)}`;
+            pcData[targetIdx][COL.PC.MEMORY] = `[雙修技巧]${processSkills(oldNMem, nfb.dynamic_skills)}`;
           }
 
-          // 羈絆記憶(專屬稱呼/親密次數/交談輪數)已併入該 NPC 自己列的 REL_MEM 欄
+          // 羈絆記憶(專屬稱呼)已併入該 NPC 自己列的 REL_MEM 欄(交談輪數已隨log_summary移除、
+          //   親密次數已隨「窺視神髓」面板一併移除、已兌現約定已隨「未完成的約定」機制一併移除——
+          //   三者原本唯一的消費者(面板顯示/major_event寫入)都已拆除，這欄現在只剩專屬稱呼)
           let oldRMem = pcData[targetIdx][COL.PC.REL_MEM] || "";
-          let count = ((oldRMem.match(/\[親密次數\](\d+)/) || [])[1] ? parseInt((oldRMem.match(/\[親密次數\](\d+)/) || [])[1]) : 0) + 1;
-          let talkStr = (oldRMem.match(/\[交談輪數\](\d+)/) || [])[1] ? ` | [交談輪數]${(oldRMem.match(/\[交談輪數\](\d+)/) || [])[1]}` : "";
-          // 🧪 2026-07：已兌現的約定(見上方 major_event 的[達成]處理)也存在同一欄REL_MEM——這裡整串
-          //   重建時要一併帶過去，否則本回合同時觸發[達成]又剛好被寫進intimacy_feedback.npcs時，
-          //   已兌現記憶會被這行蓋掉(跟交談輪數用同一招：extract 舊值、reinject 回新字串)。
-          let doneStr = (oldRMem.match(/\[已兌現\](.*?)(?=\| \[|$)/) || [])[1]?.trim();
-          doneStr = (doneStr && doneStr !== "無") ? ` | [已兌現]${doneStr}` : "";
-          pcData[targetIdx][COL.PC.REL_MEM] = `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/, nfb.mutual_nicknames, 3)} | [親密次數]${count}${talkStr}${doneStr}`;
+          pcData[targetIdx][COL.PC.REL_MEM] = `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/, nfb.mutual_nicknames, 3)}`;
         });
       }
     }
@@ -1136,27 +1187,9 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       }
     });
 
-    // 📖 交談輪數：本回合有互動意圖提及的在場人物，累計交談輪數於其自己列的 REL_MEM 欄
-    const logSum = aiData.log_summary || {};
-    // ⚠ 2026-07 修：因果表(舊「因果」機制)整組砍除時，這裡漏了同步——log_summary 的 schema
-    // (Engine_Combat.gs)早就從舊格式的 people 改成 subject/object(主被動方向)，這裡卻還在比對
-    // 已不存在的 logSum.people，String(undefined) 恆為 "undefined"，.includes(name) 幾乎不可能
-    // 命中任何真實姓名——交談輪數自那次重構後就悄悄壞掉，一直沒人發現。改用現行的 subject/object。
-    const logNamesStr = `${logSum.subject || ""}${logSum.object || ""}`;
-    const validInteractNames = new Set(partyMembers);
-    // ⚠ 2026-07 修：validInteractNames 是本局的名字集合沒錯，但下面掃「整張表」比對姓名時漏了
-    //   sameGame——若別局剛好有同名角色，會被誤判為「在場」而一併累加交談輪數(跨局寫入)。
-    pcData.forEach((r, nIdx) => {
-      const name = r[COL.PC.NAME];
-      if (!name || name === pcName) return;
-      if (!sameGame(r)) return;
-      if (!logNamesStr.includes(name)) return;
-      if (!validInteractNames.has(name)) return;
-      dirtyPcRows.add(nIdx);
-      let oldMem = String(r[COL.PC.REL_MEM] || "");
-      let countMatch = oldMem.match(/\[交談輪數\](\d+)/);
-      pcData[nIdx][COL.PC.REL_MEM] = countMatch ? oldMem.replace(/\[交談輪數\]\d+/, `[交談輪數]${parseInt(countMatch[1]) + 1}`) : (oldMem ? oldMem + ` | [交談輪數]1` : `[交談輪數]1`);
-    });
+    // 🗑️ 2026-07 玩家定案「log_summary整條砍掉」：交談輪數計數整段移除——查證其累加出的數字
+    //   從頭到尾沒有任何地方讀回(不顯示、不當門檻、不餵回AI)，純粹寫入從不讀取的死路，見 finalJson
+    //   移除 log_summary 欄位處的說明。
 
     const pcColCount = Object.keys(COL.PC).length;
 

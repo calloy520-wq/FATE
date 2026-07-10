@@ -20,6 +20,14 @@ const AI_MODEL = (function () {
   var p = PropertiesService.getScriptProperties();
   return p.getProperty('MODEL') || 'deepseek/deepseek-chat-v3.1';
 })();
+// 🔵 2026-07 玩家定案「solo 應該走 google/gemini-3.1-flash-lite」：solo(narrateWithState_)跟鑑賞
+//   (actionPlay)過去共用同一顆 AI_MODEL——但 solo 只需要精簡的按鍵回饋、不像鑑賞需要大型模型的
+//   NSFW 生成能力，換成低延遲小模型可以顧到速度。獨立成自己的指令碼屬性 SOLO_MODEL，同款「屬性
+//   優先、沒設定才落回預設值」的做法，兩軌從此可以各自換模型互不影響。
+const SOLO_MODEL = (function () {
+  var p = PropertiesService.getScriptProperties();
+  return p.getProperty('SOLO_MODEL') || 'google/gemini-3.1-flash-lite';
+})();
 
 // ==========================================
 // ★ 階段一：ORM 資料實體映射 (Data Mapping) 
@@ -35,8 +43,11 @@ const COL = {
     MEMORY: 12, INTENT: 13, FACTION: 14, RANK: 15, CONTRIB: 16, ALIGN: 17,
     PHYSICAL: 18, MARTIAL: 19, GAME_ID: 20, SIX: 21, TAGS: 22, SEEN: 23,
     // 🆕 關係欄(原 REL 表)：這名 NPC 對「本世界御主」的關係。BOND=好感值、REL_TAG=關係標籤(漸生情愫等)、
-    //   IS_PARTY=同行旗標("同行"/"")、MAJOR_EVENT=未完成重大約定、REL_MEM=關係專屬記憶(NSFW專屬稱呼/親密次數等，
-    //   與角色自己的 MEMORY 用途不同、分開存)。御主自己這一列這五欄不使用(留空)。
+    //   IS_PARTY=同行旗標("同行"/"")、REL_MEM=關係專屬記憶(NSFW專屬稱呼等，與角色自己的 MEMORY
+    //   用途不同、分開存)。御主自己這一列這五欄不使用(留空)。
+    // ⚠ MAJOR_EVENT(27)：2026-07 玩家定案「未完成的約定整條拆掉」——查證寫入後從未被讀回餵給AI、
+    //   玩家也無任何UI能查看或清空，是頭尾斷開的死路，已移除所有讀寫端(Gallery.gs)。COL 是位置
+    //   索引、欄位不刪(刪掉會讓 REL_MEM 等後續欄位全部錯位)，此欄保留但恆為空、純孤兒欄。
     BOND: 24, REL_TAG: 25, IS_PARTY: 26, MAJOR_EVENT: 27, REL_MEM: 28,
     // 🆕 世界狀態欄(原 CLK/AUTH 表)：只在【御主自己那一列】有意義，其餘角色列留空。
     //   DAY/HOUR/AP=時鐘(1AP=1小時，每日12AP)；HOME_LOC=居所(工房加成判定用，原權柄表)。
@@ -49,7 +60,16 @@ const COL = {
   // 🆕 DAILY_LOOK/DAILY_WORDS(2026-07)：鑑賞用的都市日常版外貌/性格，跟戰時 PERSONA(look/words)分開存——
   //   懶惰快取：首次被召喚進鑑賞才由AI轉換寫入(見 heroToKanshouRow_)，之後任何玩家再召喚同一位英靈直接讀
   //   這裡，不重複呼叫AI。空字串＝尚未轉換過。附加在尾端，不動既有欄位位置(COL 是位置索引，見專案紀律)。
-  HERO: { ID: 0, CLS: 1, NAME: 2, SEX: 3, SIX: 4, CLASS_SKILLS: 5, SKILLS: 6, TRAITS: 7, NP: 8, PERSONA: 9, ALIGN: 10, WARS: 11, SOURCE: 12, DAILY_LOOK: 13, DAILY_WORDS: 14 },
+  // 🆕 DAILY_MOE(2026-07 玩家定案「餐桌是平行世界、沒有聖杯戰爭這回事」)：鑑賞用的日常萌點，跟戰時
+  //   PERSONA.moe(反差萌，常靠戰爭/創傷撐出沉重感，如「怪力女神卻極度自卑」)分開存——鑑賞世界沒發生過
+  //   戰爭，直接照搬戰時反差萌會顯得莫名沉重。這欄改放「輕量、溫馨、看了會心一笑」的日常版萌點，
+  //   來源同 DAILY_LOOK/DAILY_WORDS：種子手寫 或 recordOriginalHero_/actionSaveHero 建立當下呼叫
+  //   translateMoeToDaily_(Gallery.gs)轉換寫入。
+  // 🆕 DAILY_OUTFIT(2026-07 玩家定案「日常衣裝獨立成欄」)：DAILY_LOOK 原本是「N段外貌(含服裝)、
+  //   最後一段氣質詞」混一起——服裝拆成自己的欄位，DAILY_LOOK 從此改為明確四段：[外貌本相(不含服裝)]、
+  //   [氣質舉止]、[自稱與口氣]、[卸下心防的私密一面]，跟 PERSONA.traits/PREF 的四格格式對齊。
+  //   SOLO(戰時 PERSONA.look) 完全不受影響、獨立一套，兩邊各自的資料互不混用、互不覆寫。
+  HERO: { ID: 0, CLS: 1, NAME: 2, SEX: 3, SIX: 4, CLASS_SKILLS: 5, SKILLS: 6, TRAITS: 7, NP: 8, PERSONA: 9, ALIGN: 10, WARS: 11, SOURCE: 12, DAILY_LOOK: 13, DAILY_WORDS: 14, DAILY_MOE: 15, DAILY_OUTFIT: 16 },
   MASTER: { ID: 0, NAME: 1, SEX: 2, APPEAR: 3, MAGIC: 4, CIRCUITS: 5, MELEE: 6, MAGIC_RANK: 7, HOME: 8, WISH: 9, PERSONA: 10, WAR: 11, SOURCE: 12, BACK: 13, MOE: 14 },
   // 帳號（存檔身分）：帳號名 → 目前御主角色ID。2026-07：勝場/最快奪杯日(排行榜用)已隨排行榜砍除。
   // ⚠ 2026-07 修：新增 KPC(鑑賞角色ID)——原本鑑賞的帳號歸屬是角色自己 MEMORY 裡宣稱的

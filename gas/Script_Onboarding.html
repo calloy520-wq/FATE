@@ -423,6 +423,15 @@ function forgeTab(n) {
   var isMaster = ((document.getElementById('cf-cls') || {}).value === '御主');
   var sv = document.getElementById('cf-save'); if (sv) sv.style.display = (n === 2 || (isMaster && n === 1)) ? 'block' : 'none';
 }
+// 🧹 2026-07 玩家「不想那麼細」：演出細節(自稱/陣營/態度/萌點/口吻/小動作/身世)7小欄預設收合，
+//   想細調才展開——留空全部交給AI補，不強迫每次捏角都填滿一輪。
+function toggleForgeAdvanced() {
+  var box = document.getElementById('cf-drama'); if (!box) return;
+  var open = box.style.display !== 'none';
+  box.style.display = open ? 'none' : 'block';
+  var btn = document.getElementById('cf-adv-toggle');
+  if (btn) btn.textContent = (open ? '▸' : '▾') + ' 進階演出細節（選填·自稱/陣營/態度/萌點/口吻/小動作/身世）';
+}
 // 🧹 工房表單歸零(2026-07 修「修改存檔後創造一直卡在這支角色」)：欄位「只藏不清」是為保留未存檔草稿，
 //   但【存檔成功後】與【編輯中改點創造】必須清乾淨——否則舊角色資料殘留在創造表單=體感卡死。
 function forgeReset_() {
@@ -432,7 +441,7 @@ function forgeReset_() {
   V('cf-cls', 'Saber'); refreshClsHint_(); V('cf-sex', '女');
   ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].forEach(function (k) { V('cf-six-' + k, 'E'); });
   for (var i = 0; i < 4; i++) { V('cf-sk' + i + '-fx', ''); V('cf-sk' + i + '-r', 'C'); V('cf-sk' + i + '-n', ''); refreshSkillBtn_(i); }
-  ['cf-np-name', 'cf-np-desc', 'cf-weapon', 'cf-look-1', 'cf-look-2', 'cf-look-3', 'cf-look-4', 'cf-pref-1', 'cf-pref-2', 'cf-pref-3', 'cf-pref-4', 'cf-desc', 'cf-fp', 'cf-tomaster', 'cf-speech', 'cf-tic', 'cf-moe', 'cf-back'].forEach(function (id) { V(id, ''); });
+  ['cf-np-name', 'cf-np-desc', 'cf-weapon', 'cf-look', 'cf-pref', 'cf-desc', 'cf-fp', 'cf-tomaster', 'cf-speech', 'cf-tic', 'cf-moe', 'cf-back'].forEach(function (id) { V(id, ''); });
   V('cf-np-scale', '對人'); V('cf-align', '中立');
   closeSkillPick();
   forgeBudget_();
@@ -508,13 +517,16 @@ function forgeEdit(id) {
   var npFallback = String(h.np || '').split('（')[0].replace(/\s+[A-Za-z][A-Za-z0-9 .'\-:]*$/, '').trim().slice(0, 20);
   V('cf-np-name', m ? m[1].trim() : npFallback); V('cf-np-scale', (m && m[2]) || '對人'); V('cf-np-desc', (m && m[3]) || '');
   V('cf-weapon', d.weapon);
-  // 🎨💭 外貌/個性拆4欄後的反解：已存字串是頓號合併過的，編輯時要拆回4個小欄位個別預填
-  var _lookParts = String(d.look || '').split(/[、,，]/); for (var li = 0; li < 4; li++) V('cf-look-' + (li + 1), (_lookParts[li] || '').trim());
-  var _prefParts = String(d.pref || '').split(/[、,，]/); for (var pi = 0; pi < 4; pi++) V('cf-pref-' + (pi + 1), (_prefParts[pi] || '').trim());
+  V('cf-look', d.look); V('cf-pref', d.pref);
   V('cf-align', d.align || '中立'); V('cf-fp', d.fp); V('cf-tomaster', d.toMaster);
   V('cf-speech', d.speech); V('cf-tic', d.tic); V('cf-moe', d.moe); V('cf-back', d.back);
   for (var j = 0; j < 4; j++) refreshSkillBtn_(j); // 🎨 晶片鈕標籤跟上預填值
   _skPickSlot = -1; renderSkillPick_();
+  // 🧹 進階演出細節區塊只要有任一項既有資料就自動展開，別讓玩家編輯時漏看已存的設定
+  var hasAdvData = d.fp || d.toMaster || d.speech || d.tic || d.back || (d.align && d.align !== '中立');
+  var advBox = document.getElementById('cf-drama'), advBtn = document.getElementById('cf-adv-toggle');
+  if (advBox) advBox.style.display = hasAdvData ? 'block' : 'none';
+  if (advBtn) advBtn.textContent = (hasAdvData ? '▾' : '▸') + ' 進階演出細節（選填·自稱/陣營/態度/萌點/口吻/小動作/身世）';
   forgeMode('create'); // 從作品頁點修改→切回創造表單(已預填)
   forgeTab(2); // 編輯從主頁(靈基)開始看
   forgeBudget_();
@@ -753,24 +765,17 @@ async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，�
     }
   }
   var _v = function (id) { var el = document.getElementById(id); return (el && el.value || '').trim(); };
-  // 🎨💭 2026-07 拆細：玩家分開填4個小欄位，這裡用頓號組回單一字串——只接非空欄位，
-  //   欄位數＝後端 parseForgeBuild_ 用來判斷「玩家填了幾成」的依據(_segs>=3→lookFull/prefFull，AI不准改)。
-  var _joinParts = function (prefix) {
-    var parts = [];
-    for (var k = 1; k <= 4; k++) { var v = _v(prefix + '-' + k); if (v) parts.push(v); }
-    return parts.join('、');
-  };
   var build = {
     name: nm, cls: cls, sex: document.getElementById('cf-sex').value,
     six: six, skills: skills,
     npName: isMaster ? '' : _v('cf-np-name'), npScale: isMaster ? '對人' : document.getElementById('cf-np-scale').value, // 階級旋鈕已拆：顯示階＝六圍寶具階(引擎本就只吃 six.寶具)
     npDesc: isMaster ? '' : _v('cf-np-desc'),   // 寶具威能一句(選填)
-    look: _joinParts('cf-look'), // 🎨 外貌(選填·4小欄位組回·五官髮色/身形/衣著印象/氣質——氣質固定填在最後一格，
-    //   對齊 looksToTraitParts_(Core_Settings.gs)「取最後一段當氣質」的解析慣例，跟種子(SEED_SERVANTS)
-    //   的 persona.look 格式(N段外貌、末段氣質)統一，不會再被誤判成衣著)
-    pref: _joinParts('cf-pref'), // 💭 個性(選填·4小欄位組回·日常表象/真實內裡/喜歡/討厭)
+    // 🧹 2026-07 玩家「不想那麼細」精簡：外貌/個性各收回單一自由文字欄(不再拆4小欄位組回)——
+    //   單句描述天然落在 parseForgeBuild_ 的「核心設定，AI擴寫成四短句」路徑(_segs<3)，
+    //   玩家想更精準控制可以自己打頓號分句，格式與後端解析完全不變。
+    look: _v('cf-look'), pref: _v('cf-pref'),
     weapon: isMaster ? '' : _v('cf-weapon'), desc: _v('cf-desc'),
-    // 🎭 演出細節(選填·零數值)：自稱/陣營/態度/口吻/小動作/萌點/身世——留空＝AI 補
+    // 🎭 進階演出細節(選填·零數值·預設收合)：自稱/陣營/態度/口吻/小動作/萌點/身世——留空＝AI 補
     fp: _v('cf-fp'), align: _v('cf-align'), toMaster: _v('cf-tomaster'),
     speech: _v('cf-speech'), tic: _v('cf-tic'), moe: _v('cf-moe'), back: _v('cf-back')
   };
