@@ -125,12 +125,12 @@ function clockLabel_(gameId, pcData) {
 
 
 // 🔮 靈脈：依坤圖地點「類型」給每小時回魔基值。靈地(柳洞寺/河畔)匯聚最高、據點/祭壇(宅邸/教會)中等、城區野外最低。
-//   沿用既有 TYPE 欄，不動 schema。坤圖是靜態資料→走 getMapDataCached(1h 快取)，
-//   別再整表 sheets.map.getDataRange()：此函式被 applyRegen_(每次移動/休息)＋
-//   playerServantEconomy_(幾乎每個動作都刷 HUD) 呼叫，原本每次都真的整表讀一次坤圖，
-//   跟同一請求內其他地方已在用的快取重複，2026-07 修。
+//   沿用既有 TYPE 欄，不動 schema。坤圖已靜態化(getMapDataCached 直接讀FATE_MAP_SEED常數，零I/O)，
+//   此函式被 applyRegen_(每次移動/休息)＋playerServantEconomy_(幾乎每個動作都刷 HUD) 高頻呼叫，
+//   靜態化後這裡的重複呼叫成本已趨近於零，不必再擔心整表重讀。
+// 🔄 2026-07：sheets.map 這個guard已無意義(getMapDataCached不再依賴分頁是否存在)，拿掉。
 function leylineAt_(sheets, loc) {
-  if (!sheets || !sheets.map || !loc) return 2;
+  if (!sheets || !loc) return 2;
   var root = String(loc).split('-')[0].trim();
   try {
     var data = getMapDataCached(sheets);
