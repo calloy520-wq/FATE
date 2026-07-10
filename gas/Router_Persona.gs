@@ -70,7 +70,10 @@ function servantCard_(row) {
     //   漏了全形｜(只排除半形|)，導致MEMORY欄若在「對御主：...」後面接了其他全形｜分隔的標記，
     //   會把那個｜也一併吃進捕獲值——結果是尾巴多一個雜訊字元被塞進servantCard_的AI提示詞裡
     //   (純文字污染，不影響資料寫入或遊戲邏輯，但改成跟其他get函式一致的`[^｜【]`。
-    var toM = p.toMaster || (mem.match(/對御主：([^｜【]*)/) || [])[1] || "";
+    // 🐛→✅ 2026-07 第四輪稽核再抓到：排除字元集只排了`｜【`，跟同檔`getPersonaSpeech_`/`getPersonaTic_`
+    //   (11-12行)一致用`｜|【`(兩種pipe都排)不一致——目前全代碼庫沒有任何MEMORY寫入者用過半形`|`，
+    //   兩種寫法現況行為相同，純粹補上這道保險，跟同檔慣例對齊。
+    var toM = p.toMaster || (mem.match(/對御主：([^｜|【]*)/) || [])[1] || "";
     var prefArr = String(row[COL.PC.PREF] || "").split('、').filter(Boolean);
     var persona = p.words || prefArr.slice(0, 4).join('、');
     var np = String(row[COL.PC.MARTIAL] || "");

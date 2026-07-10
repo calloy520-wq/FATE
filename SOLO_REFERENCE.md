@@ -1125,3 +1125,20 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **其餘`Script.html`發現(記錄不動手)**：①`buildClientState_`回傳的`mapDesc`欄位在`_state`裡從未被`applyClientState`讀取(唯一消費者是`actionMove`自己回應的同名欄位，跟`_state`無關)——純死欄位，計算成本低(複用已經查過的`currentMapInfo`)，不影響任何行為；②`update_rel_tag`列在`STATE_AFTER_ACTIONS`裡，但唯一呼叫端(`Script_Kanshou.html`)只會用`KPC_`開頭的pcId呼叫，`STATE_AFTER_ACTIONS`的閘門要求`PC_`開頭——這個項目目前永遠不會真的觸發交棒，是清單裡一筆沒有實際效果的設定，不影響任何行為(不是bug，只是清單存在著沒用到)。
 
 **驗證**：`bash check.sh`全過(`Script.html`內嵌JS語法檢查)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這輪只動Script.html)。純前端呼叫順序調整，不改變任何後端邏輯/數值，headless環境無法實機驗證前端行為，建議部署後測試：①相處/令咒/結盟/破戒奪僕/設陣地/絕地反擊/召喚海怪/戰鬥等動作操作起來應該明顯更跟手(連續按下一個動作時，前一個動作的敘事文字跑出來後不應該再看到明顯的「又等一下」的卡頓)，且畫面狀態(HP/MP/位置/羈絆等)更新時機應該不變，只是不再靜默多繞一趟。
+
+## 17. 第四輪稽核：`narrate()`吃`__pendingState`同款bug漏抓3處＋鑑賞面板快取失效缺口(2026-07 玩家「不能一次搞定嗎…再去找！！肯定還有問題」)
+
+上一輪(§16)修完11處`narrate()`先於`syncData()`的呼叫順序bug後，玩家對「修完又冒新問題」明確表達不滿、要求繼續找。這輪不做泛用重新稽核，而是派agent**專門針對同一個bug形狀重新地毯式搜**(而非另開新範圍)，逐一列出`Script.html`裡每一處`narrate(`呼叫並分類確認，結果：§16那輪的11處修對了，但**漏抓3處**同款bug——`rest()`(休息)、`scout()`(偵查)、`scavenge()`(搜索)，這3個handler原本也是「先`narrate()`後`syncData(true)`」的錯誤順序，同樣會讓`narrate()`內部的`gasRun`把還沒被消費的`__pendingState`洗掉，逼前端多繞一趟本可省略的sync round-trip。**動手**：3處都改成`syncData(true)`在前、`narrate(...)`在後(跟§16那11處手法完全一致)。
+
+**這輪的關鍵差異：不只修bug，還做了窮舉式收尾驗證**——重新grep`Script.html`裡**全部**19處`narrate(`出現點(含純註解的3處)，逐一分類確認剩下沒改的都真的安全：①`travelTo()`的`narrate`呼叫——這個函式整個只呼叫一次`gasRun`(移動本身)，從頭到尾沒有呼叫`syncData()`，沒有`__pendingState`消費動作可以被洗掉，天生不受影響；②`handleDefeat`/`handleVictory`裡的`res.dreamPrompt`呼叫——這兩個函式永遠是在呼叫端已經執行完`syncData(true)`之後才被`await`呼叫(檢查了全部呼叫端)，且這兩個函式自己不呼叫`syncData()`，沒有時序反轉的空間。確認這個bug類別到此**沒有第4處**遺漏。
+
+**`Router_Persona.gs`：`servantCard_`的`toM`備援解析分隔符跟同檔姊妹函式不一致(LOW severity，純一致性非行為bug)**：`toM = p.toMaster || (mem.match(/對御主：([^｜【]*)/) || [])[1] || ""`只排除全形`｜`跟`【`，同檔`getPersonaSpeech_`/`getPersonaTic_`(11-12行)排的是`[^｜|【]`(全形+半形pipe都排)。現況全代碼庫沒有任何MEMORY寫入者用過半形`|`，兩種寫法行為完全相同，**動手**只是把`toM`那行也改成`[^｜|【]`跟姊妹函式對齊，避免未來萬一有人手動塞了半形`|`進MEMORY時這行變成唯一漏網的。同檔其餘3個發現(孤兒註解、`quadLabeled_`位置切割脆弱性、`servantCard_`瘋狂偵測正則的理論邊界情況)皆記錄不動手，皆LOW/理論性。
+
+**`Script_Kanshou.html`/`Script_Onboarding.html`深度複查**：
+- **`allKnownNames`死欄位(HIGH confidence)**：`Gallery.gs`的`actionPlay`(鑑賞每則訊息都會走)每次都把**整張「鑑賞眾生」表**過濾+映射成一個名字陣列塞進回應，全代碼庫(`grep -rn "allKnownNames" *.html *.gs`)只有這一處寫入、**沒有任何前端讀取者**——整表掃描+序列化的成本，鑑賞每傳一則訊息就白付一次。**動手**：直接刪掉這個欄位(連同上面過期的中文註解「將全部活著的眾生名單傳給前端，用於三段式判定」一併清，那個「三段式判定」機制顯然已經改掉不再需要這份名單，只是欄位沒有跟著砍)。
+- **`claimHero()`漏做鑑賞英靈庫快取失效(MEDIUM confidence)**：`Script_Kanshou.html`的同伴面板把`get_heroes`結果快取在分頁工作階段內(`_kcHeroesCacheReady`)，明文說好「英靈庫只有工房鑄造/修改會變」才需要呼叫`invalidateKanshouHeroCache()`讓快取失效——`summonByForge()`(鑄造/修改)有正確呼叫，但`claimHero()`(認領無主原創英靈，同樣會寫`COL.HERO.PERSONA`的`creator`欄，而`creator`正是鑑賞面板判斷「這隻ai_gen英靈能不能被目前帳號召喚」的依據)漏了。可達路徑：同一帳號開兩個分頁，分頁A先進鑑賞開過同伴面板(快取已就緒)，分頁B去帳號選單認領一隻原創英靈，回到分頁A(沒重新整理)再開同伴面板，還是看不到剛認領的英靈可以召喚，得整頁重整才會消失。**動手**：`claimHero()`成功分支比照`summonByForge()`補一行`invalidateKanshouHeroCache()`呼叫(帶`typeof`守衛，跟`summonByForge()`那行完全同款寫法)。
+- 其餘發現(busy-guard缺口、`kanshou_*`系列動作本來就吃不到`_state`交棒機制、`enterKanshou()`的`finally{endAction()}`提前釋放忙碌旗標)皆確認有後端`ScriptLock`或既有慣例兜底、LOW severity/純資訊性，記錄不動手。
+
+**`Account.gs`重新複查**：確認§前次已修的`DEAD_`前綴查找漏洞(`rid === charId || rid === "DEAD_" + charId"`)現況仍然生效(`git diff HEAD`該檔為空)，且獨立重新推導後**優先度應該上修**——這不只是防禦性補強，是真的能被合法多分頁情境觸發的資源洩漏(分頁A的角色死亡、分頁B停在較舊的`scr-menu`快取直接發`account_new_game`，沒有這條修正的話該局的孤兒列永遠不會被清)。其餘複查範圍(帳號跨局串接、`purge_orphans`時序、鎖機制)沒有找到新的bug，一項`purge_orphans`時序小瑕疵(死亡到下次登入之間的窄窗口內清孤兒列可能提早清掉，但前端UI唯一按鈕的路徑已被`accountLogin()`的既有清理擋住，摸不到)記錄不動手。
+
+**驗證**：`bash check.sh`全過(4個修改檔案：`Gallery.gs`/`Router_Persona.gs`/`Script.html`/`Script_Onboarding.html`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(`Gallery.gs`這次的改動只刪了`allKnownNames`回傳欄位，離`nsfwBaseRules`很遠，已核實非誤傷)。**這輪的方法論收穫**：對「找到並修好N處同款bug」的稽核結果，不能假設N就是全部——用「專門重新地毯式搜同一個bug形狀」的agent、加上人工窮舉每一處符合該形狀的呼叫點逐一分類確認，才抓到§16遺漏的3處；這個「窮舉式收尾驗證」步驟往後任何pattern-based修正都應該比照做，而不是找到几处就收工。

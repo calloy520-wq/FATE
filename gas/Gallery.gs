@@ -1516,8 +1516,6 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       options: aiData.options,
       // 經濟層已移除：不再回傳隨身行囊清單
       myItemNames: [],
-      // 🔴 新增：將全部活著的眾生名單傳給前端，用於三段式判定
-      allKnownNames: pcData.filter((r, i) => i !== 0 && !String(r[COL.PC.ID]).startsWith("DEAD_")).map(r => String(r[COL.PC.NAME]).trim()),
       tags: tagsPayload
     });
 
