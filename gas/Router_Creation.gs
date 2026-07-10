@@ -23,7 +23,19 @@ function actionManualNpc(userData, pcId, sheets) {
   //   想當正典角色請走「扮演正典御主」入口。用記憶體種子常數比對·順帶省掉一次整表讀。
   const _canonHit = (typeof SEED_MASTERS !== 'undefined' && SEED_MASTERS.some(m => m && m.name === finalName))
     || (typeof SEED_SERVANTS !== 'undefined' && SEED_SERVANTS.some(s => s && s.name === finalName));
-  if (_canonHit) return JSON.stringify({ success: false, message: `「${finalName}」是聖杯戰爭中已知的英靈／御主——自創御主請另取名號；若想扮演此角，請用「扮演正典御主」入口。` });
+  // 🐛→✅ 2026-07 玩家實測「扮演正典角色卻被擋，說已經有了」：這條擋名檢查沒有排除「扮演正典御主」
+  //   這條合法路徑本身——玩家從 Script_Onboarding.html 的 pickCanonMaster 選了正典御主後，前端會把
+  //   該御主的真名帶進 s-name 欄位、連同 playedMaster(該御主id) 一起送進來，但這裡完全沒讀
+  //   userData.playedMaster，只要名字命中canon就一律擋下，等於「扮演正典御主」這個入口自己送出的
+  //   名字，反而被自己的保護機制擋在門外——是這條保護6天前(2026-07-04)新增時漏考慮的情境，
+  //   跟今天做的坤圖/御主殿靜態化等修改無關(git blame確認)。動手：驗證 playedMaster 對應的正典
+  //   御主真名剛好等於這次要建的 finalName 才放行(不只是「有帶 playedMaster 就一律放行」，防止
+  //   夾帶不相干的 playedMaster id 繞過保護)——seedRivalsForGame_ 早就會排除你扮演的那位不再被
+  //   種成本局敵御主(見該函式 `if (playedMaster && String(r.master) === playedMaster) return`)，
+  //   所以「扮演正典御主」不會真的產生雙胞胎，這裡放行是安全的。
+  const _playingThisCanon = userData.playedMaster && typeof SEED_MASTERS !== 'undefined'
+    && SEED_MASTERS.some(m => m && String(m.id) === String(userData.playedMaster) && m.name === finalName);
+  if (_canonHit && !_playingThisCanon) return JSON.stringify({ success: false, message: `「${finalName}」是聖杯戰爭中已知的英靈／御主——自創御主請另取名號；若想扮演此角，請用「扮演正典御主」入口。` });
 
   // 🔵 實例化：御主創角 → 開一個全新 game_id 世界
   const gameId = "g_" + Date.now();
