@@ -34,10 +34,10 @@ GAS Web App (doGet→Index.html·HTML Service)
 
 ## 3. 資料層（試算表 7 分頁＋1 動態分頁，2026-07 精簡自 13 分頁）
 
-`Setup_FateWorld.gs` 冪等建表（缺就補、含則略）。分頁：**坤圖**(地圖)／**眾生**(solo參戰者·一列一人)／**英靈殿**(種子從者範本，2026-07起兼職鑑賞daily欄位快取)／**御主殿**(solo專用·種子敵御主範本)／**帳號**／**鑑賞**(GAL·2026-07確認全面死表，見下)／**歷史暫存**(逐句對話·solo/kanshou共用同一張，靠pcId前綴隔離)。另有 **鑑賞眾生** 分頁（慾海活動角色，`getKanshouPcSheet_` 動態建、schema複製自「眾生」但物理獨立，與戰爭主表完全隔離）。
+`Setup_FateWorld.gs` 冪等建表（缺就補、含則略）。分頁：**坤圖**(地圖)／**眾生**(solo參戰者·一列一人)／**英靈殿**(種子從者範本，2026-07起兼職鑑賞daily欄位快取)／**御主殿**(solo專用·種子敵御主範本)／**帳號**／**歷史暫存**(逐句對話·solo/kanshou共用同一張，靠pcId前綴隔離)。另有 **鑑賞眾生** 分頁（慾海活動角色，`getKanshouPcSheet_` 動態建、schema複製自「眾生」但物理獨立，與戰爭主表完全隔離）。
 
 ⚠ **2026-07 舊分頁移除**：時鐘／權柄／關係 三表**摺進「眾生」自己這一列**（每個 game_id 世界恆只有一位御主，故 NPC 對御主的關係＝那名 NPC 自己這一列的欄位；日/時/AP/居所＝御主自己那一列的欄位，天然 1:1、無需獨立 join 表）。因果(事件log)／戰史／史紀(命運長河) 三表**直接刪除、無替代機制**（單人專注，不留跨局回顧資料，見 §11）。
-⚠ **「鑑賞」(GAL) 分頁現況(2026-07 稽核確認)**：這是舊版「奪杯封存→邀請」流程的封存表，該流程已整套被「英靈殿直接召喚」(`actionKanshouSummonHero`)取代——GAL 表全代碼庫查無任何讀寫者，是徹底的死表，只是還沒物理刪除分頁本身(冪等建表`ensureFateSheets_`仍會建它，但無程式邏輯使用)。§8 的鑑賞管線敘述已依此更新。
+⚠ **「鑑賞」(GAL) 分頁已整條移除(2026-07)**：這是舊版「奪杯封存→邀請」流程的封存表，該流程已整套被「英靈殿直接召喚」(`actionKanshouSummonHero`)取代，稽核確認全代碼庫查無任何讀寫者(是徹底的死表，非仍在使用中的活表)——`COL.GAL`(Core_Settings.gs)與`FATE_SHEET_DEFS["鑑賞"]`(Setup_FateWorld.gs)已直接刪除schema定義，`ensureFateSheets_`從此不再建這張表。若舊試算表本體仍存在這張分頁，程式碼移除不會自動刪除實體分頁，留著空分頁無害，可自行手動刪除。§8 的鑑賞管線敘述已依此更新。
 
 ### COL schema（位置索引·刪欄會位移全表→只可棄用不可刪，定義在 `Core_Settings.gs` 開頭 `const COL`）
 ```
@@ -54,7 +54,7 @@ HERO(英靈殿，2026-07 起17欄): ID0 CLS1 NAME2 SEX3 SIX4 CLASS_SKILLS5 SKILL
                 🌹 DAILY_LOOK13/DAILY_WORDS14/DAILY_MOE15/DAILY_OUTFIT16(2026-07新增·鑑賞專用「日常化」快取，solo戰爭完全不讀這4欄，solo讀的是PERSONA JSON內的戰時look/words/moe)
 MASTER(御主殿·solo專用rival codex，鑑賞companion走英靈殿不走這張): ID0 NAME1 SEX2 APPEAR3 MAGIC4 CIRCUITS5 MELEE6 MAGIC_RANK7 HOME8 WISH9 PERSONA10 WAR11 SOURCE12 BACK13 MOE14
 ACC(帳號·4欄): NAME0 PC1(solo御主連結) CREATED2 KPC3(🌹2026-07新增·鑑賞御主avatar連結，與PC分開兩欄、互不覆寫)
-GAL(鑑賞封存·⚠死表，見上方警示，僅描述歷史schema供辨識舊資料): ACC0 NAME1 CLS2 SEX3 SIX4 TAGS5 NP6 BACK7 PREF8 MOE9 MEMOIR10 WISH11 TIME12 MASTER13 MSEX14
+※ GAL(鑑賞封存·舊版奪杯封存表)：2026-07 已確認全代碼庫無讀寫者並整條移除schema定義，不再是COL的一部分。
 ```
 註：舊九州欄（MONEY/WEP/ARM/ACC1-2/LIFESKILL/CLS/五圍 STR~LUK）與 2026-07 折表前的獨立 REL/CLK/AUTH/HIST 表已**真的刪除**（非保留死欄）；`REALM` 死欄亦於 2026-07 真的移除。`buildPlayerStatusString` 的 `§` 字串仍填 6 個空位保前端定位（協議層佔位）。COL.PC 每欄「solo專用/鑑賞專用/共用」的完整逐欄標註，見 §12。
 
