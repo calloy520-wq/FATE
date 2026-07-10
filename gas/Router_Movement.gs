@@ -536,7 +536,7 @@ function actionPrepMeal(userData, pcId, sheets) {
   pcData[pIdx][COL.PC.MEMORY] = stampMeal_(pcData[pIdx][COL.PC.MEMORY], nowAbs + MEAL_BUFF_HOURS);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   var ap = AP_PER_DAY, clock = "";
-  if (isFate) { try { ap = spendAp_(myGameId, 1).ap; clock = clockLabel_(myGameId); } catch (e) { } }
+  if (isFate) { try { ap = spendAp_(myGameId, 1, pcData, sheets).ap; clock = clockLabel_(myGameId, pcData); } catch (e) { } }
   return JSON.stringify({
     success: true,
     message: `整備完畢——你與從者飽餐一頓、稍事休整。接下來約 ${MEAL_BUFF_HOURS} 小時內，從者出擊命中 +${MEAL_BUFF_BONUS}。`,
@@ -644,11 +644,12 @@ function actionSecondWind(userData, pcId, sheets) {
   if (cur <= cost) return JSON.stringify({ success: false, message: "你的身體太過虛弱，再燃燒生命恐當場斷氣——請改用『休息』恢復，或令咒脫離。" });
   pcData[pIdx][COL.PC.HP] = cur - cost;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-  const ap = grantAp_(myGameId, 4);
+  const ap = grantAp_(myGameId, 4, pcData, sheets);
   const aiPrompt = `【系統·強撐已結算】御主透支魔術迴路與體力、燃燒生命力強行擠出最後的行動之力（HP −${cost}，行動力 +4＝${ap}/${AP_PER_DAY}）。\n` +
     `★以 Fate／TYPE-MOON 筆觸描寫御主咬牙硬撐、迴路過載灼痛、以意志逼出餘力的一幕（一段即可）。已結算。\n` +
     ``;
-  return JSON.stringify({ success: true, aiPrompt: aiPrompt, ap: ap, apMax: AP_PER_DAY, clock: clockLabel_(myGameId), statusString: getFreshStatusString(pcId, pIdx, sheets) });
+  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：HP扣減/AP授予皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
+  return JSON.stringify({ success: true, aiPrompt: aiPrompt, ap: ap, apMax: AP_PER_DAY, clock: clockLabel_(myGameId, pcData), statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
 // ── 🏕️ 陣地（工房）：存於御主 MEMORY【陣地】loc，駐留該地時供魔得工房加成 ──
@@ -707,13 +708,14 @@ function actionSetWorkshop(userData, pcId, sheets) {
   pcData[pIdx][COL.PC.MEMORY] = setWorkshopMemory_(pcData[pIdx][COL.PC.MEMORY], loc);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]); // MP＋MEMORY 一起寫回
   let ap = AP_PER_DAY, clock = "";
-  if (isFate) { try { ap = spendAp_(myGameId, 1).ap; clock = clockLabel_(myGameId); } catch (e) { } }
+  if (isFate) { try { ap = spendAp_(myGameId, 1, pcData, sheets).ap; clock = clockLabel_(myGameId, pcData); } catch (e) { } }
   // 🎬 AI 演出：布設陣地的勞作（有陣地作成 Caster→其親手築結界；否則御主張設簡易營地）。給事實素材、少下指令。
   const casterRow = pcData.find(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && hasFx_(rowToCombatant_(r), 'territory'));
   const csName = casterRow ? String(casterRow[COL.PC.NAME]) : "";
   const wsPrompt = (casterRow ? servantCard_(casterRow) : masterCard_(pcData[pIdx])) +
     `【系統·陣地佈設·已裁定】御主一行於「${loc}」紮下陣地——${csName ? `「${csName}」以陣地作成之能，在此地` : '御主親手在此地'}布設層層魔術結界、暗藏機關與監視術式，御主灌注了 ${WORKSHOP_MANA_COST} 點魔力為根基。自此這裡成為我方的堡壘：駐留可加速供魔回復，於此迎戰享主場結界庇護，敵人潛入亦難越雷池。\n` +
     `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】演出這場「築起陣地」的勞作——${csName ? `「${csName}」施展術式、鋪設結界的專注與魔力流轉，法師將一方土地化為己身堡壘的過程` : '御主費心張設營地與警戒的辛勞'}；show, don't tell，落在完工後那份「這裡是我們的據點了」的踏實與底氣。`;
+  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：MP扣減/陣地標記/spendAp_ 皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({ success: true, message: `已於「${loc}」佈設陣地（工房）——耗 ${WORKSHOP_MANA_COST} 魔築起結界。駐留供魔提升；於此決戰享主場庇護、敵襲反被擊退。`, aiPrompt: wsPrompt, clock: clock, ap: ap, apMax: AP_PER_DAY, economy: isFate ? playerServantEconomy_(sheets, pcId, pcData) : null });
 }
 
@@ -746,14 +748,18 @@ function actionScavenge(userData, pcId, sheets) {
   if (!depleted && curLoc) pcData[pIdx][COL.PC.MEMORY] = setScavengedLoc_(pcData[pIdx][COL.PC.MEMORY], curLoc);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   let ap = AP_PER_DAY, clock = "";
-  if (isFate) { try { ap = spendAp_(myGameId, 1).ap; clock = clockLabel_(myGameId); } catch (e) { } }
+  if (isFate) { try { ap = spendAp_(myGameId, 1, pcData, sheets).ap; clock = clockLabel_(myGameId, pcData); } catch (e) { } }
   // 35% 機率察覺鄰近敵蹤（揭露一名最近的未偵查敵）——搜索的真正價值在情報
   let intel = "";
   if (Math.random() < 0.35) {
     for (var i = 1; i < pcData.length; i++) {
       var fac = String(pcData[i][COL.PC.FACTION]);
       if ((fac === "敵御主" || fac === "敵從者") && String(pcData[i][COL.PC.GAME_ID] || "") === myGameId && !String(pcData[i][COL.PC.ID]).startsWith("DEAD_") && !pcData[i][COL.PC.SEEN]) {
-        sheets.pc.getRange(i + 1, COL.PC.SEEN + 1).setValue(1);
+        // 🐛→✅ 2026-07 稽核抓到：原本只寫進sheet、沒同步寫回pcData[i][COL.PC.SEEN]——若之後
+        //   把pcData交棒給STATE_PRE_DATA_(dispatcher夾_state用)，這裡剛揭露的敵蹤在交棒的陣列裡
+        //   仍是「未偵查」，跟本回合訊息文字「搜索間隱約察覺...」自相矛盾。比照actionScout同款先寫記憶體。
+        pcData[i][COL.PC.SEEN] = "1";
+        sheets.pc.getRange(i + 1, COL.PC.SEEN + 1).setValue("1");
         intel = `搜索間隱約察覺「${pcData[i][COL.PC.LOC]}」一帶有「${pcData[i][COL.PC.NAME]}」的氣息。`;
         break;
       }
@@ -762,6 +768,7 @@ function actionScavenge(userData, pcId, sheets) {
   const haulNote = depleted ? `此地散逸魔力已被你搜刮殆盡，僅再得殘渣——魔力 +${gain}（${pcData[pIdx][COL.PC.MP]}/${mpMax}）。`
     : `搜索此地補給，導入零星散逸魔力——御主魔力 +${gain}（${pcData[pIdx][COL.PC.MP]}/${mpMax}）。`;
   const msg = `${haulNote}${intel || "此地別無敵蹤所獲。"}`;
+  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：MP/MEMORY搜刮枯竭標記/SEEN揭露/spendAp_ 皆已原地改回 pcData
   return JSON.stringify({ success: true, message: msg, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
@@ -797,11 +804,12 @@ function actionScout(userData, pcId, sheets) {
   }
 
   let scoutAp = AP_PER_DAY, scoutClock = "";
-  if (isFateScout) { try { scoutAp = spendAp_(myGameId, 1).ap; scoutClock = clockLabel_(myGameId); } catch (e) { } }
+  if (isFateScout) { try { scoutAp = spendAp_(myGameId, 1, pcData, sheets).ap; scoutClock = clockLabel_(myGameId, pcData); } catch (e) { } }
 
   const msg = revealed.length
     ? `偵查四方，捕捉到氣息：${revealed.join("、")}。`
     : `偵查四方，附近暫無敵蹤現形。`;
+  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：SEEN揭露/spendAp_ 皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({ success: true, message: msg, revealed: revealed, clock: scoutClock, ap: scoutAp, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 

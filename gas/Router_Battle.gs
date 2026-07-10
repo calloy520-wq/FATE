@@ -1135,10 +1135,11 @@ function actionSummonHorror(userData, pcId, sheets) {
   pcData[svIdx][COL.PC.MEMORY] = summonHorror_(pcData[svIdx][COL.PC.MEMORY], gameId);
   sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
   let ap = AP_PER_DAY, clock = "";
-  if (isFate) { try { ap = spendAp_(gameId, 1).ap; clock = clockLabel_(gameId); } catch (e) { } }
+  if (isFate) { try { ap = spendAp_(gameId, 1, pcData, sheets).ap; clock = clockLabel_(gameId, pcData); } catch (e) { } }
   const aiPrompt = servantCard_(pcData[svIdx]) +
     `【系統·螺湮城教本·已解放】御主號令「${svName}」翻開螺湮城教本，自深淵召出觸手巨獸「深淵海怪」（肉身 ${HORROR_SHIELD_HP}）常駐身側——只要魔力供養不絕，海怪便持續以身擋傷、每回合再生、並肩撕咬敵手，本體防禦亦升至對城規模；代價是每小時抽 ${HORROR_HOURLY_UPKEEP} 魔、每個交鋒回合另抽 ${HORROR_UPKEEP} 魔維持，共用魔力見底時海怪將先行沉回深淵。\n` +
     `★以 Fate／TYPE-MOON 筆觸演出深淵巨獸自書頁裂隙湧現、觸手蔽天的壓迫一幕（一段即可）。已結算。`;
+  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：drainForNp_/海怪標記/spendAp_ 皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, clock: clock, ap: ap, apMax: AP_PER_DAY,
     statusString: getFreshStatusString(pcId, pIdx, sheets)
@@ -1164,6 +1165,7 @@ function actionDismissHorror(userData, pcId, sheets) {
   const svName = String(pcData[svIdx][COL.PC.NAME]);
   pcData[svIdx][COL.PC.MEMORY] = clearHorrorShield_(pcData[svIdx][COL.PC.MEMORY]);
   sheets.pc.getRange(svIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[svIdx][COL.PC.MEMORY]);
+  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：海怪標記清除已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({
     success: true, message: `「深淵海怪」已沉回深淵（停止每小時 ${HORROR_HOURLY_UPKEEP} 魔的維持）。要再召喚須重付寶具魔力。`,
     statusString: getFreshStatusString(pcId, pIdx, sheets)

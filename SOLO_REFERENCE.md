@@ -1076,3 +1076,22 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **種子庫日常資料(DAILY_LOOK/DAILY_WORDS/DAILY_MOE/DAILY_OUTFIT)以第五次聖杯戰爭7位(阿爾托莉雅/EMIYA/庫·丘林/美杜莎/美狄亞/赫拉克勒斯/咒腕之哈桑)為基準逐一核對**：寫node腳本實際切段驗證(非目視)——7位`dailyLook`/`dailyWords`皆精準4段(用「、」分隔，對齊`heroToKanshouRow_`實際的split邏輯)；逐一核對「私密一面」段與`dailyMoe`欄有無撞成同一句(v59修過美杜莎的重複，這輪確認7位皆無重蹈覆轍)；戰時`persona.moe`→日常版`dailyMoe`的轉換都符合「拿掉戰爭/創傷份量」原則(如美杜莎「怪力女神卻極度自卑」→「家事身手意外地好」，赫拉克勒斯「偶爾理智回光的瞬間」→「偶爾害羞般的靦腆瞬間」，皆非偷懶照抄)。
 
 **唯一發現並與玩家討論定案的不一致**：赫拉克勒斯的`dailyLook`第3段(自稱與口氣)沒有明確自稱詞——其餘6位第3段都是「自稱「X」・語氣描述」的固定格式，唯獨他只寫「話極少・多以點頭或簡短音節回應偶爾露出憨厚笑容」，沒有引號自稱。根因：他戰時`persona.firstP`寫死是「（狂化・僅咆哮）」，日常版(無聖杯戰爭、理智正常)沒辦法照搬這個值，寫的人當時大概因此乾脆跳過自稱。跟玩家討論後**玩家定案「還是不說話就可以」**——維持現狀不補自稱詞，不是bug，是角色特色的一部分(即使日常也是話極少的類型)，**不動**。
+
+## 15. 速度稽核：`STATE_AFTER_ACTIONS`裡17個動作只有2個真的有交棒優化(2026-07 玩家「檢查是否還可以提升gas速度」)
+
+**背景**：專案的「3→1 round-trip」機制核心是`STATE_AFTER_ACTIONS`(Router_Action.gs)——列在這份名單的動作，dispatcher會在handler跑完後呼叫`buildClientState_`把最新畫面狀態(`_state`)夾進回應，讓前端省一趟額外的`sync` round-trip。`buildClientState_(sheets, pcId, preData)`跟`raiseBond_`/`spendAp_`/`grantAp_`都遵循同一套「有現成的`preData`陣列就直接用、省一次整表讀；沒有才自己讀一次(相容舊呼叫)」的設計——這套機制本身沒問題，問題出在**沒人真的把`preData`傳進去**。
+
+**查證方法**：programmatically列出`STATE_AFTER_ACTIONS`裡全部17個動作(`fate_battle/use_seal/mana_supply/bond/rule_break_steal/propose_alliance/break_alliance/ally_bond/set_workshop/scavenge/second_wind/scout/rest/summon_horror_beast/dismiss_horror_beast/update_fate/update_rel_tag`)，對照全代碼庫`STATE_PRE_DATA_ = `(dispatcher讀取的交棒變數)的賦值位置——**只有`fate_battle`跟`rest`兩個動作有交棒**，其餘15個一律沒有，每次呼叫都讓dispatcher在`buildClientState_`裡對「眾生」整表白讀一次，即使handler自己那份`pcData`早已是完整且最新的權威陣列。
+
+**根因分兩層，往下挖還挖到2個真bug**：
+1. **表面層**：15個handler跑完前少寫一行`STATE_PRE_DATA_ = pcData;`，各自獨立疏漏，沒有共同根因，純粹是這個交棒慣例只在`fate_battle`/`rest`實作時被想到、之後新增的動作沒人跟進補齊。
+2. **深層(更嚴重)**：其中9個handler(`bond`/`propose_alliance`/`ally_bond`/`use_seal`裡的mana分支所在的`raiseBond_`不算、`set_workshop`/`scavenge`/`second_wind`/`scout`/`mana_supply`/`summon_horror_beast`)呼叫`spendAp_`/`grantAp_`時**沒有傳`pcData, sheets`**——這兩個函式沒拿到現成陣列時，內部的`getClock_`會自己整表讀一次，`writeClockToRow_`寫回時又整表讀一次，等於**光是「花1點AP」這件事本身就要白讀兩次整表**，跟handler自己一開始那次讀取、加上dispatcher的`buildClientState_`那次，一個按鍵最多疊到4次整表讀。另外4個`raiseBond_`呼叫點(`Router_Bond.gs`×3／`Router_Economy.gs`×1)也是同款疏漏，之前的稽核批次剛好沒抓到這個。
+3. **順手抓到2個真正的資料不一致(不是效能問題，是交棒安全的前提)**：`actionUpdateRelTag`(Router_Action.gs)改稱呼只寫進sheet、沒同步寫回`pcData[tIdx][COL.PC.REL_TAG]`；`actionScavenge`(Router_Movement.gs)揭露敵蹤只寫sheet的`SEEN`欄、沒同步寫回`pcData[i][COL.PC.SEEN]`——這兩處若直接交棒會讓`_state`裡的畫面資料跟本回合剛發生的事「對不上」(改完稱呼、`_state.people`卻還是舊稱呼；剛揭露敵蹤、`_state`卻還顯示未偵查)，修交棒前先把這兩處記憶體鏡射補齊。
+
+**動手**：
+- 4處`raiseBond_`呼叫(`Router_Bond.gs`3處／`Router_Economy.gs`1處)補上第6個參數`pcData`。
+- 10處`spendAp_`/`grantAp_`呼叫(`Router_Bond.gs`3處／`Router_Economy.gs`1處／`Router_Battle.gs`1處／`Router_Movement.gs`5處，含`actionPrepMeal`——雖然它不在`STATE_AFTER_ACTIONS`裡，但同一顆函式改起來零成本、沒理由漏掉)補上`pcData, sheets`兩個參數，`clockLabel_`/`getClock_`跟著補傳`pcData`。
+- 修`actionUpdateRelTag`/`actionScavenge`的記憶體鏡射缺口。
+- 15個handler(`use_seal/mana_supply/bond/rule_break_steal/propose_alliance`(兩個成功分支都補)`/break_alliance/ally_bond`(兩個成功分支都補)`/set_workshop/scavenge/second_wind/scout/summon_horror_beast/dismiss_horror_beast/update_fate/update_rel_tag`)在各自的成功回應前補上`STATE_PRE_DATA_ = pcData;`，逐一核對每個handler直到return前的所有寫入(HP/MP/MEMORY/SEEN/陣營轉換/令咒扣除等)都已經原地反映在`pcData`陣列裡才動手——只對「失敗」的早退分支(success:false)不補，因為dispatcher只在`obj.success`為真時才會用到交棒的陣列。
+
+**驗證**：`bash check.sh`全過(5個修改檔案：`Router_Action.gs`/`Router_Battle.gs`/`Router_Bond.gs`/`Router_Economy.gs`/`Router_Movement.gs`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這輪未動這兩個檔案)。這是純後端I/O優化＋2個記憶體鏡射修正，不改變任何遊戲數值/機率/判定邏輯，headless環境無法測出實際延遲差異，建議部署後測試：①令咒(修復/補魔/脫離)、相處、結盟交涉、撕毀盟約、同盟相處、破戒奪僕、設陣地、搜刮、偵查、絕地反擊、補魔、召喚/解除海怪、逆天改命、重新定義稱呼——這些動作的既有行為(效果/訊息/AP消耗/時鐘推進)應該完全不變，只是每次按鍵少了2~4次不必要的整表讀取，體感上應該更快，尤其是連續按這些按鈕時的間隔。
