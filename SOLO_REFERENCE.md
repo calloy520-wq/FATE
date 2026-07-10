@@ -899,3 +899,23 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 **🐛→✅ `parseTraitsHelper`(Core_Settings.gs)短輸入補「無」bug(2026-07 玩家實測「鑑賞創角只打2個字，結果變成『O、無、無、無』，過幾秒又變成擴寫的擴寫」)**：玩家回報進鑑賞創角時只在外貌欄打了2個字，快速查看詳細狀態時依序看到「一份還不錯的擴寫」→「無無無」→「有點偏離原意的擴寫」，懷疑AI擴寫了兩次。追查後**AI確實只呼叫一次**(`actionBackfillKanshouAi`全代碼庫僅一個呼叫點，且僅在首次進場`needSetup`時觸發)——但中間那個「無無無」是真實bug：`parseTraitsHelper(data, defaultStr)`只有在`data`完全空白(`!data`)時才會套用呼叫端準備好的漂亮預設句(如「外貌平凡、舉止從容、自稱「我」、卸下心防的私密一面」)；只要玩家打了「任何內容」(哪怕只有2個字、沒用「、」分段)，`data`就判定truthy，整句`defaultStr`直接被晾在一邊，缺的3格全部塞進迴圈裡的字面「無」——`actionEnterKanshou`種子建檔階段(Gallery.gs)把`kAppear`/`kPersona`(玩家原始輸入)當`data`傳進去，短輸入必中這個bug，寫進試算表的種子TRAIT/PREF變成「2個字、無、無、無」，比空白不填還難看，且這是**真實寫進試算表的值**(不是顯示層問題)——若AI背景潤色那次因故失敗(靜默降級保留種子)，這個難看的「無」會永久卡住。玩家最初看到的「還不錯的擴寫」則很可能是`openStatus()`查看自己狀態時，先秒顯`localStorage`裡上一次(舊帳號/舊測試)快取的殘留內容——這條路徑本就不等新資料就先讀本地快取，見`openStatus()`裡`const lastS = localStorage.getItem('kyushu_last_status'); if (lastS) updateUI(...)`那段，不受這次修改影響、也不是bug，只是造成觀感上的「先看到一個、又看到另一個」。**動手**：`parseTraitsHelper`缺格改用`defaultStr`分割後對應位置的段落填補(`defParts[parts.length] || "無"`)，只有在預設句本身也給不出對應段落時才退回字面「無」(純防呆保底，現有全部呼叫端傳的`defaultStr`皆為工整4段句，不會走到這個保底分支)。已逐一稽核`parseTraitsHelper`全部14個呼叫點(Gallery.gs/Router_Creation.gs/Seed_Rivals.gs)，確認全代碼庫沒有任何邏輯依賴「缺格必為字面無」這個假設(唯一會拿字串跟「無」比對的地方全是`[態度]`/`[專屬稱呼]`/物理狀態子欄位等其他不相關欄位)，此修改對其餘13個呼叫點皆為單純改善(AI回應段數不足時，改從舊值/預設句對應段落填補，不再塞無意義的「無」)、非行為破壞。**順手發現但本輪不修的另一個既有小瑕疵**：同函式內「清除AI編號」的正規表達式`\d+[\.、]`會誤刪任何「數字+頓號」組合(如內容剛好含「25、30歲」會被吃掉部分文字)，與本次回報的問題無關，記錄在案。
 **驗證**：`bash check.sh` 全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0；額外寫一支node腳本複製函式邏輯手動測試(`"2個字"`＋預設句→正確補成`"2個字、舉止從容、自稱「我」、卸下心防的私密一面"`；`""`＋預設句→維持整句預設不變；多段輸入`"黑髮、話少"`→正確只補後2格)，確認修法符合預期。
+
+**✅ 稽核「日常8項+萌點+服裝」御主/英靈(種子+新建)全對齊；拔除鑑賞3處不必要的氣血/真氣寫入(2026-07 玩家「不管怎麼樣，日常就是那8項+萌點+服裝，請幫我全部對齊！還有氣血真氣和上限這4個應該不用寫到鑑賞眾生」)**：玩家要求逐一確認TRAIT(4段：外貌/氣質舉止/自稱與口氣/私密一面)+PREF(4段：日常表象/真實內裡/喜歡/討厭)+INTENT(萌點)+outfit(服裝)這套「8+萌點+服裝」結構，在**御主(自己)**跟**英靈(種子+工房新建)**兩邊是否都對齊；並回報氣血(HP)/真氣(MP)/兩者上限這4欄，鑑賞既然無戰鬥就不該寫入「鑑賞眾生」。
+
+**稽核結果——8+萌點+服裝這邊全部已對齊，無需修正**：
+- 種子英靈：寫node腳本抽出`SEED_SERVANTS`(23筆，含3位女性正典御主)逐筆檢查`persona.dailyLook`(≥4段)/`dailyWords`(≥4段)/`dailyMoe`/`dailyOutfit`，**23筆零缺項**。
+- 工房新建/修改：`recordOriginalHero_`(建立)與`actionSaveHero`的修改分支皆呼叫同一套`translateLookToDaily_`/`translatePersonalityToDaily_`/`translateMoeToDaily_`寫入`COL.HERO.DAILY_LOOK/DAILY_WORDS/DAILY_MOE/DAILY_OUTFIT`，與種子同格式。
+- 御主(自己)：種子建檔(`actionEnterKanshou`)靠`parseTraitsHelper`(剛修過短輸入bug)墊底TRAIT/PREF、`setOutfit_`墊底服裝；AI背景潤色(`actionBackfillKanshouAi`)的`KANSHOU_MASTER_GEN_SYS`系統提示詞跟英靈那邊用完全同一套「外貌/氣質舉止/自稱與口氣/私密一面」＋「日常表象/真實內裡/喜歡/討厭」措辭，格式一致。
+
+**氣血/真氣這4個確實有問題，已修正3處**：
+1. `heroToKanshouRow_`(Gallery.gs，同伴召喚建列)：原寫死`HP=480,MAX_HP=480,MP=200,MAX_MP=200`，拔除。
+2. `actionEnterKanshou`(Gallery.gs，御主建檔)：原寫死`HP=100,MAX_HP=100,MP=100,MAX_MP=100`，拔除。
+3. **`actionPlay`(Gallery.gs)的`dirtyPcRows.forEach`寫回迴圈**：這是最有價值的一處——原本每次鑑賞送出訊息，都會對「凡人(御主)」用`maxStatsForRow_`重算一次MAX_HP/MAX_MP、拿它夾住HP/MP再寫回，**每一輪對話都白算白寫一次**，比前兩處的「只在建角當下寫一次」更浪費。`actionPlay`整個函式只服務鑑賞(入口就擋非`KPC_`呼叫)，這4欄在鑑賞從未被讀取，整段recompute直接刪掉。
+
+**逐一排除的風險**：
+- 確認`buildTagsPayload_`(Router_Action.gs)讀`m[COL.PC.HP]`/`m[COL.PC.MP]`時全都包`parseInt(...) || 0`，空字串不會產生NaN或壞資料，前端compact狀態卡(`refreshFateTags`)的kanshou分支本就不渲染血條，不受影響。
+- 確認Router_Movement.gs的`actionRest`裡另一處`maxStatsForRow_`寫入是「非FATE舊版休養」分支(`restGameId`不是`g_`開頭才會走到)——但`rest`這個action本身就在`KANSHOU_BLOCKED_ACTIONS_`黑名單裡，鑑賞(`KPC_`)呼叫端根本無法觸發`actionRest`，那處寫入服務的是舊版solo/full存檔，跟鑑賞無關，不用動。
+- `#status-overlay`(詳細狀態彈窗，`ui-hp`/`ui-mp`)過去不分模式恆顯示——既然鑑賞不再寫入這兩格，改成比照既有`ui-status`(當前狀態)的作法，鑑賞模式下整格隱藏(不顯示「--」看起來像資料缺漏)。修改`updateUI`(Script.html)加入`(pc && pc.mode === 'kanshou') ? 'none' : ''`切換，`openStatus`看自己或看同伴(companion)都共用同一個`updateUI`，一次修好兩種情境。
+- 舊角色(修改前已建立)欄位裡殘留的舊固定值(480/200/100等)不會被追溯清除——只影響往後新建的鑑賞角色與往後的`actionPlay`回合，符合專案「schema/行為變更只動新寫入，不动既有資料」的慣例。
+
+**驗證**：`bash check.sh` 全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。
