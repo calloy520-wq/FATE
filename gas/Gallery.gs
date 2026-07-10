@@ -219,6 +219,21 @@ function getDailyHeroFields_(heroRow, p) {
   return { look: existingLook || rawLook, words: existingWords || rawWords, moe: existingMoe || rawMoe, outfit: existingOutfit };
 }
 
+// 🐛→✅ 2026-07 solo/鑑賞完全拆分稽核發現：actionPlay 組同伴命格時，MEMORY 查無【口吻】標記會
+//   退回 codexPersona_(name).speech 這個戰時原始口吻(如狂化英靈「狂化無法言語、僅餘低吼」)，跟
+//   heroToKanshouRow_ 已改用 dailyLook 第3段(自稱與口氣)的原則不一致。這裡補一個同源的日常安全
+//   查表，讓 actionPlay 的 fallback 分支(理論上只有極舊、召喚時尚未套用此修正的既有存檔會走到)
+//   也吃得到一樣的日常版口吻，不再有任何路徑把原始戰時 speech 餵給鑑賞AI。
+function dailySpeechByName_(name) {
+  try {
+    var heroes = getHeroCodexCached();
+    var h = heroes.find(function (r) { return String(r[COL.HERO.NAME]).trim() === String(name).trim(); });
+    if (!h) return "";
+    var parts = String(h[COL.HERO.DAILY_LOOK] || "").split('、').map(function (s) { return s.trim(); }).filter(Boolean);
+    return parts.length >= 4 ? parts[2] : "";
+  } catch (e) { return ""; }
+}
+
 // 🌹 慾海直接從英靈庫挑選(2026-07 玩家定案·與「封存後邀請」並存)：不必先在 solo 打贏一場戰爭
 // 封存，直接從英靈殿挑一位召喚進後日談。刻意【不帶任何戰鬥資料】(SIX/TAGS/MARTIAL 留空)——
 // 慾海本就無戰鬥，養這些資料只白增加 AI 誤讀/亂加戲的風險面，不是漏寫。
@@ -262,13 +277,20 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   //   (daily.moe)，不再直接照搬戰時 persona.moe——那種靠戰爭/創傷撐出的沉重反差在這個沒打過
   //   聖杯戰爭的世界裡沒有來由，詳見 getDailyHeroFields_/translateMoeToDaily_。
   sRow[COL.PC.INTENT] = daily.moe || "";
-  // 🐛→✅ 2026-07 修：這條路徑原本完全沒設定 BACK(身世)，比 solo 召喚(svBack 有 persona.back
-  //   fallback)還空——多數種子沒有 persona.back 沒差，但這次新增的3位女性正典御主特地補了
-  //   身世，若這裡不接就白填了。比照 solo 的 svBack 邏輯：有 persona.back 就用，沒有則職階+真名。
-  sRow[COL.PC.BACK] = p.back ? String(p.back).slice(0, 28) : `${sRow[COL.PC.RANK]}・${name}`;
+  // 🐛→✅ 2026-07 solo/鑑賞完全拆分稽核發現：這裡曾直接用 p.back(戰時身世)，3位女性正典御主的
+  //   back是「父親死於聖杯戰爭」「被當工具養大」「蟲蝕黑化」等戰時悲劇——跟「餐桌是平行世界、沒有
+  //   聖杯戰爭這回事」矛盾。已比照dailyMoe新增 p.dailyBack(溫馨改寫版)，優先讀它；沒有dailyBack
+  //   的英靈(其餘20位本就沒有back)一律走職階+真名的中性保底，不再退回原始戰時back。
+  sRow[COL.PC.BACK] = p.dailyBack ? String(p.dailyBack).slice(0, 28) : `${sRow[COL.PC.RANK]}・${name}`;
   // 🆕 直接召喚無快照可帶，用該英靈自己的日常衣裝(daily.outfit)墊底，沒有才退回通用「日常便服」；
   //   卡片才不會裝扮欄空白待換裝——玩家隨時仍可透過既有換裝功能覆寫(getOutfit_/setOutfit_，可清)。
-  sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", p.speech, p.tic), daily.outfit || "日常便服");
+  // 🐛→✅ 2026-07 稽核發現：這裡曾直接用 p.speech/p.tic(戰時口吻/招牌小動作)——例如狂化英靈的
+  //   「狂化無法言語、僅餘低吼」，這種戰時設定被原樣塞進【口吻】標記餵給鑑賞AI，等於告訴AI這個
+  //   在平行世界日常裡的同伴根本不能好好講話，跟「沒有聖杯戰爭這回事」矛盾。dailyLook 第3段
+  //   (自稱與口氣)本就是這個角色日常語氣的日常安全版，改用它取代p.speech；p.tic(小動作)沒有
+  //   對應的日常版，直接不帶——私密一面(dailyLook第4段)已經承擔「角色專屬小習慣」的功能，不會少戲。
+  var dailySpeechPart = dailyLookParts.length >= 4 ? dailyLookParts[2] : "";
+  sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", dailySpeechPart, ""), daily.outfit || "日常便服");
   // 🧹 2026-07 玩家定案「同伴也可以不先顯示」：拿掉建立當下就預填肉體狀態的做法，改跟御主本人
   // (actionEnterKanshou)一致——PHYSICAL 留空，「當前狀態」面板顯示「--」，直到真的發生第一次
   // 互動、AI 回傳 intimacy_feedback 才第一次寫入。Router_Narrative.gs 的懶初始化(pPhysicalObj
@@ -810,10 +832,13 @@ function actionPlay(userData, pcId, sheets) {
       //   MEMORY 的【口吻】【小動作】標記——但 servantCard_(solo戰鬥/羈絆/移動等多處都會讀這兩項)
       //   從未被 actionPlay 呼叫過，這裡是自己另組一套精簡版命格字串，從頭到尾沒把這兩項餵給AI，
       //   只剩日常化翻譯過的性格(可能已偏淡)＋外貌——AI 自然演不出這個角色的招牌語癖與小動作。
-      //   getPersonaSpeech_/getPersonaTic_(Router_Persona.gs)已是現成 helper，直接複用讀 MEMORY，
-      //   查無時退回 codexPersona_ 即時查表(跟 servantCard_ 同一套防呆)，補進這裡。
-      const pSpeech = getPersonaSpeech_(r[COL.PC.MEMORY]) || (codexPersona_(pName).speech || "");
-      const pTic = getPersonaTic_(r[COL.PC.MEMORY]) || (codexPersona_(pName).tic || "");
+      //   getPersonaSpeech_/getPersonaTic_(Router_Persona.gs)已是現成 helper，直接複用讀 MEMORY。
+      // 🐛→✅ 2026-07 稽核修正：查無時原本退回 codexPersona_ 的戰時原始 speech/tic(如「狂化無法
+      //   言語、僅餘低吼」)，跟「沒有聖杯戰爭這回事」矛盾。speech改退回 dailySpeechByName_(取
+      //   dailyLook第3段的日常安全版)；tic(招牌小動作)沒有對應日常版，查無MEMORY標記時直接留空，
+      //   不再退回戰時原始值——私密一面(dailyLook第4段)已承擔「角色專屬小習慣」的功能。
+      const pSpeech = getPersonaSpeech_(r[COL.PC.MEMORY]) || dailySpeechByName_(pName);
+      const pTic = getPersonaTic_(r[COL.PC.MEMORY]);
       const pFlavorStr = `${pSpeech ? ` | 口吻:${pSpeech}` : ""}${pTic ? ` | 招牌小動作:${pTic}` : ""}`;
       partyDetailsArr.push(`【同行夥伴】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(反差·僅供內化):${pMoeStr}` : ""} | 關係:${r[COL.PC.REL_TAG] || "結伴同行"}(好感:${parseInt(r[COL.PC.BOND]) || 0}${pMemStr})`);
     }
@@ -905,9 +930,11 @@ ${PROMPT_PARTY_SYSTEM}
 
 ${PROMPT_REL}
 ★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！
-💕【鑑賞·後日談模式·最高優先級覆寫】：${(partyRows.length > 0 && partyRows.every(r => String(r[COL.PC.ID]).indexOf("KHV_") === 0))
-    ? `『${partyMembers.join("、")}』是剛從英靈殿被召喚而來——這不是並肩打過聖杯戰爭的緣分，是彼此【初次相遇】的日常時光，讓相處自然生澀、依好感漸漸升溫，嚴禁暗示雙方早已相熟或曾並肩作戰。`
-    : `聖杯戰爭【早已落幕】，這是奪得聖杯後與從者『${partyMembers.length ? partyMembers.join("、") : "你的從者"}』共度的【和平日常／約會時光】。`
+💕【鑑賞·後日談模式·最高優先級覆寫】：${partyRows.length === 0
+    ? `這裡是平行世界的和平都市日常——聖杯戰爭這回事從未在這個世界發生過，眼下沒有同行的英靈在場，就是御主一人的尋常時光。`
+    : partyRows.every(r => String(r[COL.PC.ID]).indexOf("KHV_") === 0)
+      ? `『${partyMembers.join("、")}』是剛從英靈殿被召喚而來——這不是並肩打過聖杯戰爭的緣分，是彼此【初次相遇】的日常時光，讓相處自然生澀、依好感漸漸升溫，嚴禁暗示雙方早已相熟或曾並肩作戰。`
+      : `這裡是平行世界的和平都市日常，聖杯戰爭這回事從未真正發生過，與『${partyMembers.join("、")}』共度的是尋常相處的時光，嚴禁提及聖杯爭奪或並肩作戰的往事。`
   }
 🕰️現在是 ${realWorldClockStr_()}，僅供揣摩場景氛圍與時段感(如深夜靜謐、清晨慵懶)，不必刻意報時或提及具體數字。
 ★世界觀＝和平的現代都市日常：【絕對禁止】任何戰鬥、廝殺、敵人、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅，世界是安全的；但節奏與親密程度依劇情、好感與玩家/同伴當下意圖自然發展，可以是散步閒聊的尋常時光，也可以是更靠近、更熱烈的相處，不強制鎖在「悠閒」基調(尤其🔥主動掌握模式開啟或情慾已自然升溫時)，讓從者貼近其官方性格自然地與御主相處互動。

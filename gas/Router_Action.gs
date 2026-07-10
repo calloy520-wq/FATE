@@ -236,7 +236,12 @@ const KANSHOU_BLOCKED_ACTIONS_ = {
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
   second_wind: 1, scout: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
   set_servant_output: 1, set_mage_realm: 1, set_rune_mode: 1,
-  prep_meal: 1, purge_orphans: 1
+  prep_meal: 1, purge_orphans: 1,
+  // 🐛→✅ 2026-07 solo/鑑賞完全拆分稽核補強：這3個過去未被擋，靠「鑑賞資料形狀恰好不觸發」
+  //   僥倖無害(weapon=武裝覆寫戰鬥方式文字、get_map_nodes=坤圖戰爭地圖節點、narrate_only=solo
+  //   war-narrator的miniSystem)，鑑賞UI也從未呼叫過這三者(grep確認0處call site)。明確擋掉，
+  //   不再只靠資料形狀僥倖安全。
+  weapon: 1, get_map_nodes: 1, narrate_only: 1
 };
 
 // ==========================================
@@ -319,6 +324,13 @@ function buildTagsPayload_(sheets, pcId, preData) {
   const m = pcData.find(r => r[COL.PC.ID] == pcId);
   if (!m) return JSON.stringify({ success: false });
   const gameId = String(m[COL.PC.GAME_ID] || "");
+  // 🐛→✅ 2026-07 solo/鑑賞完全拆分稽核發現：下方 servants.push 組裝的戰鬥限定欄位(魔境/符文/
+  //   synergy變容/理想鄉/多寶具選單/深淵海怪)過去對每一列「從者」FACTION 無條件計算，沒有比照
+  //   economy/canRuleBreak/bondUsed 一樣做 g_ 前綴防護——鑑賞companion雖然TAGS/SKILLS恆空、
+  //   目前前端也沒有渲染這些欄位，所以尚未造成玩家可見的洩漏，但屬於「只靠資料形狀保護、非顯式
+  //   guard」的脆弱設計。比照 economy 同款寫法補上 isFateCtx，讓鑑賞列這些欄位直接是 null，防止
+  //   日後任何一個新solo action忘了加進KANSHOU_BLOCKED_ACTIONS_時，戰鬥資料透過這裡外洩。
+  const isFateCtx = gameId.indexOf("g_") === 0;
 
   const hpWord = (hp, mx) => {
     hp = parseInt(hp) || 0; mx = parseInt(mx) || 1; const p = hp / mx;
@@ -361,21 +373,21 @@ function buildTagsPayload_(sheets, pcId, preData) {
       np: s[COL.PC.MARTIAL] || "寶具未顯現", bond: bond,
       six: six, skills: skills, traits: traits,
       // 🔮 魔境的智慧（斯卡哈）：前端露出可選被動盤。has＝持 mage_realm；pick＝已選 fx；pool＝可選清單
-      mageRealm: skills.some(function (sk) { return sk && sk.fx === 'mage_realm'; })
+      mageRealm: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'mage_realm'; })
         ? { has: true, pick: mageRealmPick_(s[COL.PC.MEMORY]), pool: mageRealmPool_() } : null,
       // 🔯 原初符文運用方式（持 rune 者才給，前端標籤可點開挑 減傷/增傷/回血）
-      runeMode: skills.some(function (sk) { return sk && sk.fx === 'rune'; }) ? runeMode_(s[COL.PC.MEMORY]) : undefined,
+      runeMode: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'rune'; }) ? runeMode_(s[COL.PC.MEMORY]) : undefined,
       // 🐕 主從synergy（恩奇都·變容）：與銀狼結契時亮起全盛(全能A·寶A++)、否則暗示需該御主。玩家不可控·御主決定
-      synergy: masterSynergyView_(s[COL.PC.NAME], s[COL.PC.MEMORY]),
+      synergy: isFateCtx ? masterSynergyView_(s[COL.PC.NAME], s[COL.PC.MEMORY]) : null,
       // 🗡️ 理想鄉·無敵結界（阿爾托莉雅＋御主持 Avalon 禮裝）：被動自動·敵解放 6 階究極寶具且御主魔力≥100 時自動擋下(耗 100 魔)。此旗標僅供卡片資訊標籤
-      canIdealRealm: (/阿爾托莉雅/.test(String(s[COL.PC.NAME] || "")) && String(s[COL.PC.RANK]) === 'Saber' && getMystic_(m[COL.PC.MEMORY]) === 'avalon'),
+      canIdealRealm: isFateCtx && (/阿爾托莉雅/.test(String(s[COL.PC.NAME] || "")) && String(s[COL.PC.RANK]) === 'Saber' && getMystic_(m[COL.PC.MEMORY]) === 'avalon'),
       // 🌟 多寶具英靈：寶具選單＋當前選定索引（前端點寶具時挑要放哪個）
-      npOptions: servantNpOptions_(s[COL.PC.NAME], s[COL.PC.RANK]) || undefined,
-      npChoice: npChoice_(s[COL.PC.MEMORY]),
+      npOptions: isFateCtx ? (servantNpOptions_(s[COL.PC.NAME], s[COL.PC.RANK]) || undefined) : undefined,
+      npChoice: isFateCtx ? npChoice_(s[COL.PC.MEMORY]) : undefined,
       // 🐙 深淵海怪肉身（持 summon_horror 且現存海怪時 {cur,max}）：前端在體力條下方獨立渲染一條海怪血條
-      horror: skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) ? horrorShieldView_(s[COL.PC.MEMORY], gameId) : undefined,
+      horror: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) ? horrorShieldView_(s[COL.PC.MEMORY], gameId) : undefined,
       // 🐙 戰前召喚鈕：持 summon_horror 且海怪【尚未在場】→ 前端露出「召喚海怪」按鈕(變身態·跨戰鬥 12h)
-      canSummonHorror: skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) && !horrorShieldView_(s[COL.PC.MEMORY], gameId),
+      canSummonHorror: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) && !horrorShieldView_(s[COL.PC.MEMORY], gameId),
       outfit: getOutfit_(s[COL.PC.MEMORY]), // 👗 玩家換裝：當前服裝(前端預填/顯示·換衣不換人)
       weapon: getWeapon_(s[COL.PC.MEMORY]), // ⚔️ 玩家自定武裝：武器/戰鬥方式(前端預填/顯示·敘述以此為準)
       pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體(2026-07再簡化為單一「狀態」鍵，STATUS機制已退役)
