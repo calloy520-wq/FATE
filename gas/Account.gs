@@ -32,27 +32,36 @@ function actionAccountLogin(userData, pcId, sheets) {
     pcRow = pcData.find(function (r) { return String(r[COL.PC.ID]) === charId && !String(r[COL.PC.ID]).startsWith("DEAD_"); });
   }
   if (pcRow) {
-    // 🔵 敗北殘局防呆：御主血歸 0、或該局已無存活從者＝這一局已經結束。
+    // 🔵 敗北殘局防呆：御主血歸 0、或「已召喚過從者、但該從者已不在世」＝這一局已經結束。
     //   即使玩家上次沒按「返回主畫面」就關掉網頁，下次登入也不會卡在死局——直接清理、解除連結、當作沒有存檔。
     var gid = String(pcRow[COL.PC.GAME_ID] || "");
     var masterAlive = (parseInt(pcRow[COL.PC.HP]) || 0) > 0;
-    var servantAlive = false, servantName = "";
+    var servantAlive = false, servantExisted = false, servantName = "";
     if (gid && gid.indexOf("g_") === 0) {
       for (var j = 1; j < pcData.length; j++) {
         if (String(pcData[j][COL.PC.GAME_ID] || "") !== gid) continue;
         if (String(pcData[j][COL.PC.FACTION]) !== "從者") continue;
+        servantExisted = true;
         if (!servantName) servantName = String(pcData[j][COL.PC.NAME] || "").replace(/^DEAD_/, "");
         if (String(pcData[j][COL.PC.ID]).startsWith("DEAD_")) continue;
         if ((parseInt(pcData[j][COL.PC.HP]) || 0) > 0) { servantAlive = true; break; }
       }
-      if (!masterAlive || !servantAlive) {
+      // 🐛→✅ 2026-07 第二輪稽核抓到：締結御主契約(actionManualNpc)到召喚從者(actionSummonServant)
+      //   中間隔著一個真實存在的「召喚從者頁」決策畫面(挑職階/瀏覽名冊/工房)，玩家可能在這個畫面
+      //   停留一段時間才做決定。這段空窗期「從者根本還沒召喚」跟「已經召喚過、但從者已死」原本共用
+      //   同一個 !servantAlive 判斷——尚未召喚時 servantAlive 恆 false，會被誤判成「這局已經結束」
+      //   整局直接被清掉，玩家等於在還沒開始打仗前就被判定戰敗、角色憑空消失。改成只在「從者存在過
+      //   但已不在世(servantExisted && !servantAlive)」才視為殘局；尚未召喚(!servantExisted)則
+      //   視為合法的「還在締結中」存檔，回 needsSummon 讓前端接回召喚頁，而非把整局判死。
+      if (!masterAlive || (servantExisted && !servantAlive)) {
         try { purgeGameData_(sheets, gid, name, pcData); } catch (e) { }
         return JSON.stringify({ success: true, name: name, hasGame: false, ended: true });
       }
     }
     return JSON.stringify({
       success: true, name: name, hasGame: true,
-      pcId: charId, pcName: pcRow[COL.PC.NAME], pcSex: pcRow[COL.PC.SEX]
+      pcId: charId, pcName: pcRow[COL.PC.NAME], pcSex: pcRow[COL.PC.SEX],
+      needsSummon: gid.indexOf("g_") === 0 && !servantExisted
     });
   }
   // charId 指向的御主已被標記 DEAD_（或不存在）→ 殘局：先把整局世界清掉(從源頭防殘列累積)，再解除連結、當作沒有存檔。
@@ -84,14 +93,22 @@ function actionAccountNewGame(userData, pcId, sheets) {
   var charId = String(found.row[COL.ACC.PC] || "");
   if (charId) {
     var pcData = sheets.pc.getDataRange().getValues();
-    var prow = pcData.find(function (r) { return String(r[COL.PC.ID]) === charId; });
+    // 🐛→✅ 2026-07 第二輪稽核抓到：御主敗北時 ID 會被加上 "DEAD_" 前綴(帳號表仍存原 charId)，
+    //   actionAccountLogin 查殘局時有考慮這個前綴(`rid === charId || rid === "DEAD_" + charId`)，
+    //   這裡原本沒有——若 charId 那列已經是 DEAD_ 版本，這裡就查無此列、gid 判斷不到，導致下面的
+    //   刪除迴圈找不到任何列可刪，那局的殘列(DEAD_ 御主本人＋同 game_id 的敵御主/敵從者)全部
+    //   留在「眾生」表沒被清掉，違背這個函式自己的「開新局前清除舊存檔」設計目的。目前這個情境
+    //   在正常前端流程下不會發生(newGameFlow 只在 accountLoginRes.hasGame===true 時呼叫，而
+    //   actionAccountLogin 保證 hasGame:true 時 g_ 開頭的局一定御主/從者皆存活)，只有多分頁/
+    //   快取的 accountLoginRes 過期等邊緣情境才會觸發，屬防禦性補強。
+    var prow = pcData.find(function (r) { var rid = String(r[COL.PC.ID]); return rid === charId || rid === "DEAD_" + charId; });
     var gid = prow ? String(prow[COL.PC.GAME_ID] || "") : "";
-    // 刪舊單人戰場：同 game_id 的整個世界 ＋ 御主本人(按 charId，防 game_id 為空的孤兒殘留佔名)
+    // 刪舊單人戰場：同 game_id 的整個世界 ＋ 御主本人(按 charId 或 DEAD_charId，防 game_id 為空的孤兒殘留佔名)
     //   中間沒有任何寫入，沿用剛讀的 pcData 即可，不必重讀一次整表(2026-07 修：原本重讀的 fresh 純屬多餘)。
     for (var r = pcData.length - 1; r >= 1; r--) {
       var rgid = String(pcData[r][COL.PC.GAME_ID] || "");
       var rid = String(pcData[r][COL.PC.ID]);
-      if ((gid && rgid === gid) || rid === charId) sheets.pc.deleteRow(r + 1);
+      if ((gid && rgid === gid) || rid === charId || rid === "DEAD_" + charId) sheets.pc.deleteRow(r + 1);
     }
   }
   acc.getRange(found.idx + 1, COL.ACC.PC + 1).setValue(""); // 解除連結

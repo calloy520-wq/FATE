@@ -223,17 +223,30 @@ const LOCK_EXEMPT_ACTIONS_ = {
 //   也不含「樂觀更新」的輕量 setter(set_servant_output/set_mage_realm/set_rune_mode)——
 //   它們不 syncData、只吃 res.economy，夾 _state 反而白做整表讀取。
 //   也不含 narrate_only——前端 narrate() 只吃 res.text、不消費 _state，夾它純浪費整表讀。
+// 🐛→✅ 2026-07 第二輪稽核抓到：move 原本也在這份名單裡，但前端唯一呼叫端 travelTo()(Script.html)
+//   從沒呼叫過 syncData()、也不消費 __pendingState/_state——它直接用 actionMove 自己回的
+//   people/locations/mapDesc/mapNodes/statusString 更新畫面，本身就自給自足。夾 _state 對這個
+//   動作等於白做一次完整的 buildClientState_(getLocalPeopleList/buildMapNodesPayload_/
+//   buildTagsPayload_/playerServantEconomy_/markRivalsSeen_ 全套)，算完就被前端原地丟棄——
+//   在「移動」這個全遊戲最高頻的動作上白燒 CPU，正是專案自己鐵則「別把多餘round-trip/整表讀回
+//   加回來」要避免的事。移出這份名單，move 現在不再夾帶用不到的 _state。
 const STATE_AFTER_ACTIONS = {
   fate_battle: 1, use_seal: 1, mana_supply: 1, bond: 1, rule_break_steal: 1,
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
-  second_wind: 1, scout: 1, move: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
+  second_wind: 1, scout: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
   update_fate: 1, update_rel_tag: 1
 };
 // 🛡️ 慾海(KPC_)明確擋下的戰鬥／經濟／結盟類 action(2026-07 加固)——皆為 solo 戰爭專屬，前端在
 //   kanshou 模式下本就全數隱藏對應按鈕(Script.html applyModeUI/renderWarActions)。取自
-//   STATE_AFTER_ACTIONS 扣掉 move(慾海約會地圖也要移動)/update_fate/update_rel_tag(確認為通用
-//   敘事欄編輯、不涉陣營或戰鬥概念，慾海也適用不擋)，另補上 3 個「樂觀更新」輕量 setter(不進
-//   STATE_AFTER_ACTIONS，但同樣是純戰鬥概念、solo 從者卡專屬)。
+//   STATE_AFTER_ACTIONS 扣掉 update_fate/update_rel_tag(確認為通用敘事欄編輯、不涉陣營或戰鬥
+//   概念，慾海也適用不擋)，另補上 3 個「樂觀更新」輕量 setter(不進 STATE_AFTER_ACTIONS，但同樣是
+//   純戰鬥概念、solo 從者卡專屬)。
+//   🐛→✅ 2026-07 第二輪稽核抓到舊註解過期：move 不在這份黑名單裡，舊註解說是因為「慾海約會地圖
+//   也要移動」——但鑑賞移動地圖走的其實是 action:'play'＋moveTarget(見 Script_Kanshou.html)，
+//   從沒真的呼叫過 action:'move'。不列入黑名單目前仍安全，只是原因不同：actionMove 用 pcId 去
+//   「眾生」表(sheets.pc)裡找列，KPC_ 的 id 活在「鑑賞眾生」這張完全不同的表裡，本來就查不到、
+//   會自然落入「查無此人」提前返回，不像 create/summon_servant 等會無條件寫新列——不必額外擋，
+//   純粹修正過期的註解說明，避免下次稽核又被舊理由誤導。
 // ⚠ 2026-07 再修：補上 prep_meal(純戰鬥向 buff，UI 因 war-actions 隱藏而點不到，但未列入黑名單、
 //   直打 API 仍可對「鑑賞眾生」寫入無意義的戰鬥記憶戳)、purge_orphans(嚴重——見 Account.gs
 //   actionPurgeOrphans 註解，若以 KPC_ 呼叫會誤刪整張「鑑賞眾生」表的所有帳號資料；該函式本身
@@ -280,8 +293,10 @@ function actionCheckName(userData, pcId, sheets) {
   // 🐛→✅ 2026-07 稽核抓到(同 Router_Creation.gs actionManualNpc 的 _canonHit 同批修正)：userData.name
   //   已被 cleanChineseName 洗成純中文去標點，但比對對象是原始未洗字串——正典名號含標點(如「韋伯·維爾維特」)
   //   永遠比不中，此檢查對這類名字形同虛設。兩側都套 cleanChineseName 再比對。
+  // 🐛→✅ 2026-07 第二輪稽核抓到：SEED_SERVANTS 的真名欄位叫 `realName`，不是 `name`——`s.name`恆
+  //   undefined，這條分支從一開始就是死的，自創角色撞正典從者真名從沒被真正擋過。改用 `s.realName`。
   const _canonHit = (typeof SEED_MASTERS !== 'undefined' && SEED_MASTERS.some(m => m && cleanChineseName(m.name) === userData.name))
-    || (typeof SEED_SERVANTS !== 'undefined' && SEED_SERVANTS.some(s => s && cleanChineseName(s.name) === userData.name));
+    || (typeof SEED_SERVANTS !== 'undefined' && SEED_SERVANTS.some(s => s && cleanChineseName(s.realName) === userData.name));
   return JSON.stringify({ exists: _canonHit, canon: _canonHit, message: _canonHit ? `「${userData.name}」是聖杯戰爭中已知的英靈／御主——請另取名號，或用「扮演正典御主」入口。` : "" });
 }
 

@@ -25,8 +25,11 @@ function actionManualNpc(userData, pcId, sheets) {
   //   但比對對象 SEED_MASTERS/SEED_SERVANTS 的 .name 是原始未洗字串——正典名號若含標點(如「韋伯·維爾維特」)，
   //   兩邊永遠比不中：_canonHit 恆 false，這名角色的自創撞名保護整個失效(玩家會創出「韋伯維爾維特」這種
   //   去標點畸形名，而非被正確擋下或走「扮演正典御主」入口)。兩側都套 cleanChineseName 統一正規化再比對。
+  // 🐛→✅ 2026-07 第二輪稽核再抓到一個更根本的：SEED_SERVANTS 的角色真名欄位其實叫 `realName`，不是
+  //   `name`(那是 SEED_MASTERS 用的欄名)——`s.name` 對每一個從者物件恆為 undefined，這條 SEED_SERVANTS
+  //   分支從一開始就是死的，等於「自創御主撞到正典從者真名」這個情境從沒被真正擋過。改用 `s.realName`。
   const _canonHit = (typeof SEED_MASTERS !== 'undefined' && SEED_MASTERS.some(m => m && cleanChineseName(m.name) === finalName))
-    || (typeof SEED_SERVANTS !== 'undefined' && SEED_SERVANTS.some(s => s && cleanChineseName(s.name) === finalName));
+    || (typeof SEED_SERVANTS !== 'undefined' && SEED_SERVANTS.some(s => s && cleanChineseName(s.realName) === finalName));
   // 🐛→✅ 2026-07 玩家實測「扮演正典角色卻被擋，說已經有了」：這條擋名檢查沒有排除「扮演正典御主」
   //   這條合法路徑本身——玩家從 Script_Onboarding.html 的 pickCanonMaster 選了正典御主後，前端會把
   //   該御主的真名帶進 s-name 欄位、連同 playedMaster(該御主id) 一起送進來，但這裡完全沒讀
@@ -347,7 +350,10 @@ function parseForgeBuild_(build, reqCls) {
   out.cls = isMasterCls ? "御主" : (VALID_CLS.includes(String(build.cls)) ? String(build.cls) : (reqCls || "Saber"));
   out.name = String(build.name || "").replace(/[<>&"'`]/g, "").trim().slice(0, 20);
   if (!out.name) return { ok: false, message: "請為英靈取一個真名。" };
-  if ((typeof SEED_SERVANTS !== "undefined" && SEED_SERVANTS.some(s => s && s.name === out.name)) ||
+  // 🐛→✅ 2026-07 第二輪稽核抓到：SEED_SERVANTS 的真名欄位叫 `realName`，不是 `name`——這裡原本比對
+  //   `s.name`(恆 undefined)，等於工房捏角的正典撞名擋一直是死的，玩家可以捏出跟正典從者同真名的
+  //   「原創」角色。改用 `s.realName`。
+  if ((typeof SEED_SERVANTS !== "undefined" && SEED_SERVANTS.some(s => s && s.realName === out.name)) ||
       (typeof SEED_MASTERS !== "undefined" && SEED_MASTERS.some(m => m && m.name === out.name))) {
     return { ok: false, message: `「${out.name}」是英靈殿正典角色——請用「✨真名召喚」直接召喚，或另取原創真名。` };
   }
@@ -560,7 +566,13 @@ function actionSummonServant(userData, pcId, sheets) {
       if (heroId) {
         hero = hrows.find(r => String(r[COL.HERO.ID]) === heroId);
       } else if (trueName) {
-        hero = hrows.find(r => String(r[COL.HERO.NAME]).includes(trueName) || trueName.includes(String(r[COL.HERO.NAME])));
+        // 🐛→✅ 2026-07 第二輪稽核抓到：斯卡哈在種子庫裡是兩個職階(Lancer/Assassin)的獨立列、
+        //   同真名靠職階區分——原本這裡不管 reqCls，一律吃陣列裡第一個名字比對到的列，等於
+        //   不管玩家瀏覽哪個職階分頁，真名召喚「斯卡哈」永遠固定召到 Lancer 版(她在 SEED_SERVANTS
+        //   裡排比較前面)。改成優先找「真名比對到 且 職階match reqCls」的列，找不到才退回原本
+        //   「不分職階、比對到第一個」的行為(相容沒選職階/只有單職階版本的一般真名召喚)。
+        const _nameMatches = hrows.filter(r => String(r[COL.HERO.NAME]).includes(trueName) || trueName.includes(String(r[COL.HERO.NAME])));
+        hero = (reqCls && _nameMatches.find(r => String(r[COL.HERO.CLS]) === reqCls)) || _nameMatches[0] || null;
       } else {
         // 🎲 隨機召喚：全英靈殿(含玩家原創 ai_gen)均勻抽(2026-07 玩家定案「原創角色可以進去 確實隨機就好」)
         let pool = reqCls ? hrows.filter(r => r[COL.HERO.CLS] === reqCls) : hrows;

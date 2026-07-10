@@ -174,6 +174,11 @@ function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
     var seenMaster = {};
     var mPool = masters.slice(1).filter(function (r) {
       if (!r[COL.MASTER.ID]) return false;
+      // 🐛→✅ 2026-07 第二輪稽核抓到：正史分支(下方 roster.forEach)有排除 playedMaster(玩家扮演的正典
+      //   御主本人)，避免玩家跟自己扮演的角色雙胞胎——混亂分支原本沒有同款排除。目前 playedMaster 只在
+      //   非chaos模式才會寫入 MEMORY(見 actionManualNpc)，所以這條在現行流程下暫時吃不到，屬防禦性補強，
+      //   避免未來若 playedMaster 語意擴及 chaos 模式時，玩家在此重演一次雙胞胎bug。
+      if (playedMaster && String(r[COL.MASTER.ID]) === playedMaster) return false;
       var nm = String(r[COL.MASTER.NAME]); if (seenMaster[nm]) return false; seenMaster[nm] = true; return true;
     });
     var seenHero = {};

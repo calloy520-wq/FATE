@@ -17,11 +17,17 @@
 // ⚡ 2026-07：可選 preData(呼叫端已讀好的整表陣列)——給了就在同一份陣列上【原地改+寫格】
 //   (比照 worldTick_/spendAp_ 的 preData 模式)，讓呼叫端的 pcData 保持權威、可直接餵 buildClientState_
 //   夾 _state(省一次整表重讀)；沒給(其他呼叫端相容)才自己整表讀一次。
-function raiseBond_(sheets, pcName, svName, delta, preData) {
+// 🐛→✅ 2026-07 第二輪稽核抓到：原本靠「用 pcName 找出御主列、拿它的 game_id 當範圍」來限定從者搜尋，
+//   這條路本身就是漏洞根源——自訂御主名允許跨局撞名(專案既有設計，見 actionManualNpc 的註解)，若剛好
+//   別局有同名御主排在陣列較前面，gid 就綁錯局，後面的從者好感寫入也就寫進錯的局(甚至別的帳號)。
+//   改成 gameId 由呼叫端直接傳入(呼叫當下必然已經知道自己的 game_id，不必再繞一手用名字反查)，
+//   兩邊查找都直接用這個可信的 gameId 範圍，不再依賴任何名字比對來界定「這是哪一局」。
+function raiseBond_(sheets, gameId, pcName, svName, delta, preData) {
   try {
     const pd = preData || sheets.pc.getDataRange().getValues();
-    const mIdx = pd.findIndex(r => String(r[COL.PC.NAME]) === pcName && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-    const gid = mIdx !== -1 ? String(pd[mIdx][COL.PC.GAME_ID] || "") : "";
+    const gid = String(gameId || "");
+    const mIdx = pd.findIndex(r => String(r[COL.PC.NAME]) === pcName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!gid || String(r[COL.PC.GAME_ID] || "") === gid));
+    if (mIdx === -1) return; // 本局查無此御主，不猜測、不誤觸別局資料
     const nIdx = pd.findIndex(r => String(r[COL.PC.NAME]) === svName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!gid || String(r[COL.PC.GAME_ID] || "") === gid));
     if (nIdx === -1) return;
     const v = Math.max(0, Math.min(100, (parseInt(pd[nIdx][COL.PC.BOND]) || 0) + delta)); // 地板 0：負 delta(交手削好感)不破底

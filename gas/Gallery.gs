@@ -51,9 +51,17 @@ function findPlayerServant_(pcData, gameId) {
 function purgeGameData_(sheets, gameId, accountName, preData) {
   if (gameId) {
     var fresh = preData || sheets.pc.getDataRange().getValues();
+    // 🐛→✅ 2026-07 第二輪稽核抓到：這局要刪的每一列，順手收集其 pcId——局結束後「歷史暫存」
+    //   裡屬於這些 pcId 的對話列也一併清掉(見 purgeHistoryForPcIds_ 的完整根因說明)，
+    //   避免已結束對局的歷史列永遠留在表裡、隨全站使用量無上限累積。
+    var purgedPcIds = [];
     for (var r = fresh.length - 1; r >= 1; r--) {
-      if (String(fresh[r][COL.PC.GAME_ID] || "") === gameId) sheets.pc.deleteRow(r + 1);
+      if (String(fresh[r][COL.PC.GAME_ID] || "") === gameId) {
+        purgedPcIds.push(String(fresh[r][COL.PC.ID]).replace(/^DEAD_/, ""));
+        sheets.pc.deleteRow(r + 1);
+      }
     }
+    try { purgeHistoryForPcIds_(purgedPcIds); } catch (e) { }
   }
   if (accountName) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -518,7 +526,15 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
     //   原本恆寫死「日常便服」墊底、AI潤色從未真的碰過這格——比照英靈那邊(daily.outfit)補上，AI
     //   生成失敗/沒給值時，種子那句「日常便服」繼續留著當保底，不會變空。setOutfit_ 已內建清除
     //   舊【換裝】標記再寫入，不會動到 MEMORY 裡其他標記(【帳號】【鑑賞後日談】等)。
-    if (aiBrief.outfit) sheets.pc.getRange(wIdx + 1, COL.PC.MEMORY + 1).setValue(setOutfit_(row[COL.PC.MEMORY], aiBrief.outfit));
+    // 🐛→✅ 2026-07 第二輪稽核抓到：這是非阻塞背景呼叫(進鑑賞當下不await，趁玩家看開場白的空檔跑)，
+    //   `row`是AI呼叫【前】的MEMORY快照——若這幾秒空檔玩家剛好觸發了「出門走走」寫入【邂逅中】、
+    //   或做了其他會動MEMORY的動作，用這份舊快照當合併基底會把那些新寫入蓋掉(跟已修過的
+    //   intimacy_feedback整格覆寫是同一類根因，只是這裡是「合併時基底過期」而非「整格蓋掉」)。
+    //   改成在真正寫入前，用 wIdx 重新讀一次當下最新的 MEMORY 值再合併。
+    if (aiBrief.outfit) {
+      const liveMem = sheets.pc.getRange(wIdx + 1, COL.PC.MEMORY + 1).getValue();
+      sheets.pc.getRange(wIdx + 1, COL.PC.MEMORY + 1).setValue(setOutfit_(liveMem, aiBrief.outfit));
+    }
     return JSON.stringify({ success: true });
   } catch (e) {
     return JSON.stringify({ success: false, message: "背景補生成失敗（已保留種子設定）" });

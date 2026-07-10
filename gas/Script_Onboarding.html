@@ -28,6 +28,14 @@ function continueGame() {
   if (!accountLoginRes || !accountLoginRes.hasGame) { alert('目前沒有可繼續的存檔。'); return; }
   pc = { id: accountLoginRes.pcId, name: accountLoginRes.pcName, sex: accountLoginRes.pcSex, mode: 'solo', account: currentAccount };
   localStorage.setItem('kyushu_v27', JSON.stringify(pc));
+  // 🐛→✅ 2026-07 稽核：後端不再把「締結御主契約後、還沒召喚從者」誤判成殘局清掉，改回
+  //   needsSummon 旗標——接回召喚從者頁，而不是直接進尚無從者的主畫面。
+  if (accountLoginRes.needsSummon) {
+    document.getElementById('scr-menu').style.display = 'none';
+    document.getElementById('step-summon').style.display = 'block';
+    loadHeroes();
+    return;
+  }
   startGame(true);
 }
 
@@ -321,7 +329,10 @@ function summonByHero(id) { return doSummon({ heroId: id }); }
 function summonByName() {
   var tn = (document.getElementById('s-truename') && document.getElementById('s-truename').value.trim()) || '';
   if (!tn) { alert('請輸入真名，或從上方挑選英靈。'); return; }
-  return doSummon({ trueName: tn });
+  // 🐛→✅ 2026-07 稽核抓到：原本沒帶目前瀏覽的職階分頁，同真名跨職階(如斯卡哈 Lancer/Assassin)
+  //   永遠固定召到英靈殿裡排比較前面的那個版本。把 selectedSummonClass 一併帶給後端當同分優先提示。
+  var _cls = (selectedSummonClass && selectedSummonClass !== '__all__' && selectedSummonClass !== '__custom__') ? selectedSummonClass : '';
+  return doSummon({ trueName: tn, cls: _cls });
 }
 function summonRandom() { return doSummon({ cls: (selectedSummonClass && selectedSummonClass !== '__all__') ? selectedSummonClass : '' }); }
 function summonByDesc() {

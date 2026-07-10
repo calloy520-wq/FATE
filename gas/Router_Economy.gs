@@ -165,7 +165,7 @@ function actionManaSupply(userData, pcId, sheets) {
   // 🔥 補魔過充：除回滿池，另存「下一發規格外寶具(＋/EX)可【無償】超載灌入的一池份魔力」(一次性·發動即清)
   pcData[pIdx][COL.PC.MEMORY] = setOvercharge_(pcData[pIdx][COL.PC.MEMORY], newMpMax);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-  raiseBond_(sheets, pcData[pIdx][COL.PC.NAME], svName, 3);
+  raiseBond_(sheets, myGameId, pcData[pIdx][COL.PC.NAME], svName, 3);
   const mpMax = newMpMax; // 給下方敘述沿用
 
   let manaAp = AP_PER_DAY, manaClock = "";
