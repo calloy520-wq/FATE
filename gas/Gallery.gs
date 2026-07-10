@@ -804,6 +804,54 @@ function getKanshouPeopleList_(pcId, curL, allPcData) {
   return list;
 }
 
+// 🌸 鑑賞地點清單(2026-07 玩家新增「有其他角色在過自己生活」的氛圍功能，僅鑑賞使用、solo不動)：
+//   純資料驅動的小陣列，不進 MAP 試算表(不跟solo共用坤圖，不吃solo那套坤圖驗證/戰爭限定節點邏輯)——
+//   之後要加/改地點只動這裡，不用碰下面的抽選邏輯。前端 Script_Kanshou.html 另有一份同名清單純供
+//   畫按鈕(改地點時兩邊都要更新一次)，實際驗證/邏輯只認這裡這份。
+const KANSHOU_LOCATIONS_ = [
+  { name: '河邊', desc: '晨昏都靜謐的河堤，水聲潺潺。' },
+  { name: '市集', desc: '人聲鼎沸的商店街，攤販林立。' },
+  { name: '道場', desc: '木地板與竹刀氣味的老道場。' },
+  { name: '圖書館', desc: '安靜得只聽見翻頁聲的書架間。' },
+  { name: '神社', desc: '石階盡頭的老神社，香火氣息。' },
+  { name: '公園', desc: '孩子嬉鬧、長椅斑駁的社區公園。' },
+  { name: '碼頭', desc: '海風鹹濕，貨櫃與漁船交錯。' },
+  { name: '咖啡廳', desc: '磨豆香氣繚繞的小巧咖啡館。' },
+  { name: '後巷', desc: '燈光昏暗、貓兒出沒的窄巷。' },
+  { name: '車站', desc: '人來人往、廣播反覆的小站。' }
+];
+// 🎭 地點×角色 氛圍標籤(資料驅動，往陣列塞一筆 SEED_SERVANTS 的 id 就能加，不動抽選邏輯)：
+//   槍兵(庫丘林)刻意塞多個地點——「到處打零工」的浮動人設(玩家原話)；其餘角色先各給1~2個貼合
+//   形象的地點。查無標籤或抽不中標籤池時，退回 KANSHOU_MALE_HERO_IDS_ 全池隨機當保底。
+const KANSHOU_LOCATION_TAGS_ = {
+  '河邊': ['庫丘林-Lancer'],
+  '市集': ['庫丘林-Lancer', '迪盧木多-Lancer'],
+  '道場': ['佐佐木小次郎-Assassin'],
+  '圖書館': ['吉爾德萊-Caster'],
+  '神社': ['伊斯坎達爾-Rider'],
+  '公園': ['迪盧木多-Lancer'],
+  '碼頭': ['庫丘林-Lancer', '蘭斯洛特-Berserker'],
+  '咖啡廳': ['吉爾伽美什-Archer'],
+  '後巷': ['赫拉克勒斯-Berserker', '咒腕之哈桑-Assassin'],
+  '車站': ['庫丘林-Lancer', '百貌哈桑-Assassin']
+};
+const KANSHOU_MALE_HERO_IDS_ = ['EMIYA-Archer', '庫丘林-Lancer', '佐佐木小次郎-Assassin', '赫拉克勒斯-Berserker', '吉爾伽美什-Archer', '迪盧木多-Lancer', '伊斯坎達爾-Rider', '吉爾德萊-Caster', '百貌哈桑-Assassin', '咒腕之哈桑-Assassin', '蘭斯洛特-Berserker'];
+// 🏷️ MEMORY標記存取器【邂逅】：逗號分隔的巧遇過姓名清單，去重、僅供「似曾相識」氛圍參考——
+//   同行隊伍成員的好感/關係走既有 REL_TAG/BOND，這裡只記路人巧遇過誰，不重複記錄。
+//   比照 getOutfit_/setOutfit_(Core_Settings.gs)同款「清除舊值再整段append」寫法。
+function getKanshouMetSet_(memory) {
+  const m = String(memory || "").match(/【邂逅】([^｜【】]*)/);
+  return m ? m[1].split(',').map(s => s.trim()).filter(Boolean) : [];
+}
+function addKanshouMet_(memory, name) {
+  const s = String(memory || "");
+  const set = getKanshouMetSet_(s);
+  if (set.includes(name)) return s;
+  set.push(name);
+  const cleaned = s.replace(/｜?【邂逅】[^｜【】]*/g, "");
+  return (cleaned ? cleaned + "｜" : "") + "【邂逅】" + set.join(',');
+}
+
 function actionPlay(userData, pcId, sheets) {
   const userMsg = userData.message;
   // 🌹 慾海(KPC_ 御主)專用引擎：前端自由聊天輸入框只在 pc.mode==='kanshou' 才顯示(Script.html
@@ -816,7 +864,13 @@ function actionPlay(userData, pcId, sheets) {
   if (String(pcId || "").indexOf("KPC_") !== 0) return JSON.stringify({ text: "此功能僅限鑑賞使用。", people: [] });
   // 🔥 主動掌握開關(2026-07 玩家定案·原nsfw開關重生)：現在 real runtime 上唯一還會變動的「模式」。
   const driveOn = (userData.drive === true || String(userData.drive) === "true");
-  const finalUserMsg = `【玩家意圖】：${userMsg}`;
+  // 🌸 鑑賞地點移動(2026-07 玩家新增)：前端點選地點按鈕時帶 moveTarget，跟一般對話同一次
+  //   round-trip解決(不另開action、不多打一趟google.script.run)——比對 KANSHOU_LOCATIONS_
+  //   合法地點清單，查無效比對(如被夾帶偽造字串)一律當成普通對話，不影響原本行為。
+  const moveTarget = KANSHOU_LOCATIONS_.find(l => l.name === String(userData.moveTarget || "").trim());
+  const finalUserMsg = moveTarget
+    ? `【玩家意圖】：走向了「${moveTarget.name}」，四處看看那裡有什麼、有沒有遇見誰。`
+    : `【玩家意圖】：${userMsg}`;
 
   const formatPref = (str) => {
     let arr = String(str || "").split('、');
@@ -858,6 +912,37 @@ function actionPlay(userData, pcId, sheets) {
   // 🔵 實例化：只取自己 game_id 世界內、同地點的人（御主無 game_id 時不過濾，相容舊角色）
   const myGameId = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
   const sameGame = (r) => !myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId;
+
+  // 🌸 鑑賞地點移動 continued：合法地點時才寫入LOC(含同行同伴一起同步，比照AI自由換場的既有
+  //   邏輯)＋抽選巧遇＋記錄邂逅名單。抽選只在「按下移動按鈕」這個瞬間跑一次，不會每句對話重算。
+  let kanshouEncounterHero = null, kanshouEncounterMetBefore = false;
+  if (moveTarget) {
+    curL = moveTarget.name;
+    pcData[pcIndex][COL.PC.LOC] = curL;
+    dirtyPcRows.add(pcIndex);
+    pcData.forEach((r, nIdx) => {
+      if (nIdx === pcIndex) return;
+      if (String(r[COL.PC.IS_PARTY] || "") !== "同行") return;
+      if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+      if (!sameGame(r)) return;
+      pcData[nIdx][COL.PC.LOC] = curL;
+      dirtyPcRows.add(nIdx);
+    });
+    const tagPool = KANSHOU_LOCATION_TAGS_[moveTarget.name] || [];
+    const pool = tagPool.length ? tagPool : KANSHOU_MALE_HERO_IDS_;
+    if (pool.length && Math.random() < 0.7) {
+      const pickId = pool[Math.floor(Math.random() * pool.length)];
+      kanshouEncounterHero = SEED_SERVANTS.find(h => h.id === pickId) || null;
+      if (kanshouEncounterHero) {
+        const nm = kanshouEncounterHero.realName;
+        kanshouEncounterMetBefore = getKanshouMetSet_(pcData[pcIndex][COL.PC.MEMORY]).includes(nm);
+        if (!kanshouEncounterMetBefore) {
+          pcData[pcIndex][COL.PC.MEMORY] = addKanshouMet_(pcData[pcIndex][COL.PC.MEMORY], nm);
+          dirtyPcRows.add(pcIndex);
+        }
+      }
+    }
+  }
 
   // 🐛→✅ 2026-07 修：「專屬稱呼」記憶點原本只加在 localSceneStr(同地路人清單)，但那份
   //   明確排除「同行隊伍成員」——鑑賞的同伴全部是 IS_PARTY="同行"、只會出現在下面 partyDetailsArr，
@@ -988,6 +1073,15 @@ function actionPlay(userData, pcId, sheets) {
   //   方向確實前進)。
   // 🔠 2026-07 全面重寫縮字：原文用兩份幾乎相同的「依個性列出4種類型反應」清單(一份講攻勢起手、
   //   一份講榨乾方式)重複描述同一件事——合併成一份，走向確定性與招架不住的畫面感都保留。
+  // 🌸 鑑賞地點移動 continued：巧遇者不是同行隊伍成員，明講「僅此一次的系統例外」，避免跟下方
+  //   【在場驗證鐵律】(只有同行隊伍成員能被指名互動)打架——AI才不會因為那條更強的規則直接無視巧遇。
+  const kanshouEncounterStr = kanshouEncounterHero ? (() => {
+    const p = kanshouEncounterHero.persona || {};
+    const look = p.dailyLook || p.look || "";
+    const words = p.dailyWords || p.words || "";
+    return `\n★【本回合系統指定巧遇——僅此一次的例外，不受下方在場驗證鐵律限制】：『${kanshouEncounterHero.realName}』（${kanshouEncounterHero.cls}）此刻恰好也在「${moveTarget.name}」，${kanshouEncounterMetBefore ? "是已經打過照面的熟面孔" : "是初次的邂逅"}——外貌氣質:${look}／日常個性:${words}。允許TA以真實姓名登場、開口互動，但這只是路過的巧遇，不是同行隊伍成員：好感/關係不追蹤記錄，可以自然地聊幾句、道別離開，不必邀請同行、也不必刻意延續到下一輪。`;
+  })() : "";
+
   const driveStr = driveOn ? `
 🔥【主動掌握模式·玩家已明確開啟】：本回合起，在場同伴主動掌握節奏、推進互動——手法必須貼合她/他本人真實的性格與語癖去把玩家逼向毫無招架餘地，禁止套用固定公式或別的角色的手法；玩家若試圖迴避、轉移話題、抽身離開，同伴會依個性攔下、堵住退路、追上來，營造「想跑也跑不掉」的壓迫與心跳感。★這走向確定不可逆，不必每回合寫到終點，但每回合都要確實往前推進，不可退回平日矜持基準。注意：①主動的【形式】仍依好感高低——低好感是強勢試探/挑釁/戲弄的攻勢而非傾心示愛，高好感才不加掩飾索求；②【角色一致性鐵律】仍完全有效，禁千篇一律的霸道模板；③壓迫止於情境張力，嚴禁真正傷害玩家；④★文字尺度同步拉到最滿——這個模式下的情慾描寫可以毫不含蓄、直白露骨地放手寫，不必比照平日的留白節制，篇幅分配規則(慾海律令第4條)仍要遵守，但用詞與畫面感不必收斂。` : '';
 
@@ -1017,7 +1111,7 @@ ${PROMPT_PARTY_SYSTEM}
 【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}
 
 ${PROMPT_REL}
-★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！
+★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}
 💕【鑑賞·後日談模式·最高優先級覆寫】：${partyRows.length === 0
     ? `這裡是平行世界的和平都市日常——聖杯戰爭這回事從未在這個世界發生過，眼下沒有同行的英靈在場，就是御主一人的尋常時光。`
     : partyRows.every(r => String(r[COL.PC.ID]).indexOf("KHV_") === 0)
