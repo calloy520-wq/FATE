@@ -258,7 +258,8 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   sRow[COL.PC.ID] = "KHV_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
   sRow[COL.PC.NAME] = name;
   sRow[COL.PC.SEX] = sex;
-  sRow[COL.PC.HP] = 480; sRow[COL.PC.MAX_HP] = 480; sRow[COL.PC.MP] = 200; sRow[COL.PC.MAX_MP] = 200;
+  // 🐛→✅ 2026-07 玩家點名「氣血/真氣跟上限這4個應該不用寫到鑑賞眾生」：鑑賞無戰鬥，同款拿掉——
+  //   理由見 actionEnterKanshou 同批修正的註解。
   sRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情從容" });
   sRow[COL.PC.LOC] = loc;
   sRow[COL.PC.FACTION] = "從者";
@@ -430,7 +431,10 @@ function actionEnterKanshou(userData, pcId, sheets) {
   mRow[COL.PC.ID] = mId;
   mRow[COL.PC.NAME] = mName;
   mRow[COL.PC.SEX] = mSex;
-  mRow[COL.PC.HP] = 100; mRow[COL.PC.MAX_HP] = 100; mRow[COL.PC.MP] = 100; mRow[COL.PC.MAX_MP] = 100;
+  // 🐛→✅ 2026-07 玩家點名「氣血/真氣跟上限這4個應該不用寫到鑑賞眾生」：鑑賞無戰鬥，這4欄從未
+  //   被讀取(compact狀態卡 refreshFateTags 的kanshou分支不顯示血條；唯一還會顯示的#status-overlay
+  //   詳細狀態面板已同步改成kanshou模式隱藏這兩格，見Script.html updateUI)——原本寫死100/100/100/100
+  //   純屬多餘，留空即可，不影響任何顯示或判定。
   // 🎴 五圍已棄欄：戰鬥吃六圍 SIX。
   mRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "便裝", "姿勢": "站立", "負面": "無", "顏面": "神情輕鬆" });
   mRow[COL.PC.LOC] = loc2;
@@ -1229,17 +1233,10 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
       while (row.length < pcColCount) row.push("");
 
-      // ⚔️ 從者/敵從者＝出力電池制：MAX_HP 由召喚公式(150+耐久×6)定、MP 恆 0(無自有魔力池)——
-      //   不可用 maxStatsForRow_(凡人公式 100+耐久×10/50+魔力×10)重算，否則 MAX 被改基準、MP 憑空生池，
-      //   違反單一真實來源(2026-07 修)。凡人(御主/NPC)照舊重算。
-      const _fac = String(row[COL.PC.FACTION] || "");
-      if (_fac !== "從者" && _fac !== "敵從者") {
-        const maxVals = maxStatsForRow_(row);
-        row[COL.PC.MAX_HP] = maxVals.hp;
-        row[COL.PC.MAX_MP] = maxVals.mp;
-        row[COL.PC.HP] = Math.min(parseInt(row[COL.PC.HP]) || 0, maxVals.hp);
-        row[COL.PC.MP] = Math.min(parseInt(row[COL.PC.MP]) || 0, maxVals.mp);
-      }
+      // 🐛→✅ 2026-07 玩家點名「氣血/真氣跟上限這4個應該不用寫到鑑賞眾生」：這裡原本每回合都對
+      //   「凡人(御主)」重算一次 MAX_HP/MAX_MP 並拿它夾住 HP/MP——但 actionPlay 全函式只服務鑑賞
+      //   (見函式入口 KPC_ 檢查)，鑑賞無戰鬥、這4欄從未被讀取或顯示，等於每次送出訊息都白算一次
+      //   maxStatsForRow_ 且白寫4格從沒人看的數字，純屬多餘，整段拿掉。
 
       // 只寫這一行，不寫全表(用重定位後的真實列索引)
       sheets.pc.getRange(curIdx + 1, 1, 1, pcColCount).setValues([row]);

@@ -859,6 +859,11 @@
     setUI('ui-trait', s[2]);
     setUI('ui-loc', s[3]);
     setUI('ui-pref', s[4]);
+    // 🐛→✅ 2026-07 玩家點名「氣血/真氣這4個應該不用寫到鑑賞眾生」：鑑賞無戰鬥，這兩格早已不再
+    // 寫入(見 Gallery.gs actionEnterKanshou/heroToKanshouRow_)，比照 ui-status 同款做法——鑑賞
+    // 模式下整格隱藏，不要顯示「--」看起來像資料缺漏。
+    var hpEl = document.getElementById('ui-hp'); if (hpEl && hpEl.parentElement) hpEl.parentElement.style.display = (pc && pc.mode === 'kanshou') ? 'none' : '';
+    var mpEl = document.getElementById('ui-mp'); if (mpEl && mpEl.parentElement) mpEl.parentElement.style.display = (pc && pc.mode === 'kanshou') ? 'none' : '';
     setUI('ui-hp', s[5]);
     setUI('ui-mp', s[6]);
     // 2. 陣營 (新增欄位，防呆檢查)
