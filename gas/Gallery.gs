@@ -495,10 +495,11 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 - personality：日常表象、真實內裡、喜歡的事物、討厭的事物
 ★npc_intent：一句【簡短】萌點（可愛反差，≤18字，系統會在30字處硬性截斷、務必精簡），結合此人身分性格，要反差、可愛、獨特。務必寫完整一句話，不可斷在句意未完處。【禁】誤用聖杯戰爭機制專有詞(令咒/寶具/魔術迴路/從者/職階等)當裝飾性魔法元素湊萌點——這個平行世界從未發生過聖杯戰爭，這些詞在這裡沒有來由，請改用生活化情境(手作/習慣/小癖好等)。★這個萌點必須是單看了會覺得溫馨、正面、會心一笑的日常小反差(如生活小習慣、意外的手藝、小小的害羞反應等)，【禁】靠創傷/自卑/孤獨/悲劇宿命撐出反差感——那是戰時角色才需要的沉重寫法，這裡是輕鬆的日常後日談。
 ★background：限20字，呼應其身世，不出現具體物品名，語氣平和溫馨，不涉及聖杯戰爭或任何戰爭史。
+★outfit：一句她/他今天的日常穿搭(限20字)，依外貌與個性方向自然搭配(如文靜者素雅、活潑者亮色休閒)，純日常便服/居家/外出風格，不含任何戰甲/武裝/戰鬥裝束字眼。
 ★【勿輸出數值】戰力數值一律不需要，也不要輸出地點。
 
 ★【輸出】合法 JSON、禁 Markdown：
-{"background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","npc_intent":"結合此人身分的獨特可愛反差萌，一句話"}`;
+{"background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","npc_intent":"結合此人身分的獨特可愛反差萌，一句話","outfit":"一句日常穿搭"}`;
 
   try {
     const aiBrief = JSON.parse(callGeminiAPI(promptStr, KANSHOU_MASTER_GEN_SYS, { temperature: 0.6, ignoreLaw: true }));
@@ -511,6 +512,11 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
     // 🐛→✅ 玩家反映 N 欄(萌點)被切斷：原 slice(0,18) 對「一句話」來說太緊，AI 稍微超字數就被腰斬成半句。
     //   放寬緩衝空間，不再卡在句意中間。
     if (aiBrief.npc_intent) sheets.pc.getRange(wIdx + 1, COL.PC.INTENT + 1).setValue(String(aiBrief.npc_intent).slice(0, 30));
+    // 🆕 2026-07 玩家「御主的衣服可以讓AI生成嗎？不要用預設的」：種子建檔階段(actionEnterKanshou)
+    //   原本恆寫死「日常便服」墊底、AI潤色從未真的碰過這格——比照英靈那邊(daily.outfit)補上，AI
+    //   生成失敗/沒給值時，種子那句「日常便服」繼續留著當保底，不會變空。setOutfit_ 已內建清除
+    //   舊【換裝】標記再寫入，不會動到 MEMORY 裡其他標記(【帳號】【鑑賞後日談】等)。
+    if (aiBrief.outfit) sheets.pc.getRange(wIdx + 1, COL.PC.MEMORY + 1).setValue(setOutfit_(row[COL.PC.MEMORY], aiBrief.outfit));
     return JSON.stringify({ success: true });
   } catch (e) {
     return JSON.stringify({ success: false, message: "背景補生成失敗（已保留種子設定）" });
