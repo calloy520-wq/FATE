@@ -1006,10 +1006,15 @@ function actionPlay(userData, pcId, sheets) {
   const npcDialoguePrompt = partyMembers.length > 0 ? `\n★【姓名參考】：若對話對象是同行夥伴，請使用真實姓名「${partyMembers.join("、")}」，不得另編新名字；是否互動仍依上方在場規則與各人強制互動限制判斷，非清單所有人都要出聲。` : "";
 
 
-  // 🔴【替換開始】淨化後的 prompt 組裝
+  // 🐛→✅ 2026-07 稽核抓到真實bug：這行原本還帶著「生命:X/Y | 魔力:X/Y」＋一段「HP/MP低於閾值→
+  //   注入【瀕死·最高張力】禁閒聊指令」的判斷——但御主的HP/MP/MAX_HP/MAX_MP這4欄本輪已確認鑑賞
+  //   從未寫入、恆為空字串，`parseInt("")||0`退回0、閾值退回1，導致「0<=1」恆真，等於**每一回合
+  //   都會誤觸發瀕死張力指令**，直接跟世界觀(鑑賞無戰鬥、無死亡威脅)矛盾，也跟同一份提示詞底下
+  //   specificRules早就明講的「絕對禁止血量/生命變化」自相矛盾。鑑賞本就無戰鬥，血/魔這兩個數字
+  //   對這個引擎從頭到尾沒有意義，連同這段判斷整條拿掉，不只是拿掉判斷式而已。
   const prompt = `【敘事法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。
 ${PROMPT_PARTY_SYSTEM}
-【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL} | 生命:${pc[COL.PC.HP]}/${pc[COL.PC.MAX_HP]} | 魔力:${pc[COL.PC.MP]}/${pc[COL.PC.MAX_MP]}${((parseInt(pc[COL.PC.HP]) || 0) <= Math.max(1, Math.round((parseInt(pc[COL.PC.MAX_HP]) || 1) * 0.15)) || (parseInt(pc[COL.PC.MP]) || 0) <= Math.round((parseInt(pc[COL.PC.MAX_MP]) || 1) * 0.1)) ? '\n★【瀕死·最高張力】御主氣力放盡、命懸一線(見上方血/魔)——敘述須透出窒迫沉重、孤注一擲的緊繃，連從者氣場都因御主將枯竭而繃緊；嚴禁輕鬆閒適的閒聊感。' : ''}
+【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}
 
 ${PROMPT_REL}
 ★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！
@@ -1056,10 +1061,13 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
 
 
-    let memoryMapData = getMapDataCached(sheets);
     // 🧹 2026-07 清除死碼：這裡原本有一段處理 aiData.new_maps(讓AI在鑑賞自由擴張地圖節點)的邏輯，
     //   但 Engine_Combat.gs 的 finalJson schema 從來沒有要求 AI 輸出這個欄位，AI 從未真的產生過
     //   new_maps，整段是從未觸發的死碼。隨著下方「鑑賞拔地圖」一併清掉，不用先加欄位才發現沒人吃。
+    // 🐛→✅ 2026-07 稽核發現：這裡原本還會呼叫 getMapDataCached_ 抓坤圖資料，算出 locations/
+    //   allMapNames 兩個回應欄位——但鑑賞早就拔了固定地圖節點系統(改AI自由敘述場景)，`send()`
+    //   從未讀取 data.locations/data.allMapNames(grep全代碼庫確認)，這整段坤圖快取讀取＋JSON.parse
+    //   ＋ getNearbyLocations 的排序運算是每回合白做工，整段連同下方兩個回應欄位一併拿掉。
     //
     // 🗺️ 2026-07 玩家定案：鑑賞拔除地圖按鈕，改AI自主決定地點——每回合讀 aiData.location 直接寫回
     //   LOC，不再需要固定地圖節點清單。玩家與同行同伴(IS_PARTY="同行")的 LOC 一起同步，跟 solo
@@ -1345,11 +1353,9 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       text: finalResponseText,
       statusString: buildPlayerStatusString(pcData[pcIndex]),
       people: localPeopleList,
-      locations: getNearbyLocations(curL, memoryMapData),
       options: aiData.options,
       // 經濟層已移除：不再回傳隨身行囊清單
       myItemNames: [],
-      allMapNames: memoryMapData.slice(1).map(m => String(m[COL.MAP.NAME]).trim()).filter(n => n.length >= 2),
       // 🔴 新增：將全部活著的眾生名單傳給前端，用於三段式判定
       allKnownNames: pcData.filter((r, i) => i !== 0 && !String(r[COL.PC.ID]).startsWith("DEAD_")).map(r => String(r[COL.PC.NAME]).trim()),
       tags: tagsPayload

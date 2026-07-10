@@ -13,6 +13,11 @@
 //   【戰爭】標記(getWarName_ 已存在、Router_Creation.gs 定義)，只留通用地點(WAR空白)＋符合本局戰爭者。
 function buildMapNodesPayload_(sheets, pcData, myGameId, myLoc) {
   if (!sheets.map) return { nodes: [], here: myLoc, allyIntel: false };
+  // 🐛→✅ 2026-07 稽核補漏：這整個函式(找戰爭名/盟友情報揭露/敵蹤掃描/坤圖節點)都是solo戰爭
+  //   地圖限定概念——鑑賞早就拔了固定地圖節點系統，前端(applyClientState)本就只在非kanshou模式
+  //   才會 renderMapPane(data.mapNodes)，鑑賞這裡算出來的結果從頭到尾沒人渲染。比照其餘solo限定
+  //   計算補上guard，鑑賞(game_id非g_開頭)直接回同一份「空」形狀，不再白算敵蹤掃描＋坤圖比對。
+  if (!myGameId || myGameId.indexOf("g_") !== 0) return { nodes: [], here: myLoc, allyIntel: false };
   const myMasterIdx = findGameMasterIdx_(pcData, myGameId);
   const myWar = myMasterIdx !== -1 ? getWarName_(pcData[myMasterIdx][COL.PC.MEMORY]) : "";
   // 🤝 情報共享：有在世盟友時，盟友通報敵蹤——無視戰爭迷霧，全圖敵人位置揭露
@@ -179,12 +184,15 @@ function actionMove(userData, pcId, sheets) {
 
   // 🎭 抵達態度判定（趁世界尚未 tick，看 target 此刻是否「已有先客」）：
   //   先客在＝玩家主動找上門(對方在自己地盤、會警惕戒備)；無＝偶遇(雙方恰巧撞上、都帶幾分意外)。
-  const preFoesAtTarget = allPcData.filter(r =>
+  // 🐛→✅ 2026-07 稽核補漏：這段掃「敵御主/敵從者」只有solo的travelTo()(Script.html)會消費
+  //   (data.preFoes)，鑑賞從未有這兩種陣營的列——比照其餘solo限定計算補上isFateMove guard，
+  //   不再只靠「鑑賞資料形狀恰好filter不到東西」僥倖安全。
+  const preFoesAtTarget = isFateMove ? allPcData.filter(r =>
     (String(r[COL.PC.FACTION]) === "敵御主" || String(r[COL.PC.FACTION]) === "敵從者")
     && (!moveGameId || String(r[COL.PC.GAME_ID] || "") === moveGameId)
     && !String(r[COL.PC.ID]).startsWith("DEAD_")
     && String(r[COL.PC.LOC] || "").trim() === tgtTrim
-  ).map(r => String(r[COL.PC.NAME]));
+  ).map(r => String(r[COL.PC.NAME])) : [];
 
   // 🌍 世界先動，玩家後到：先讓敵御主／敵從者 tick 到各自的新位置，再把玩家落到 target——
   //   這樣「追到敵人所在地」時，敵人不會在你踏進來的同一瞬間又被傳走（修：撞在一起卻沒對話）。
@@ -261,9 +269,14 @@ function actionMove(userData, pcId, sheets) {
   //   死鬥，只是「先前已互相消耗」的餘傷)，AI 只演出「玩家的到來打斷了這場戰鬥」，不讓多批敵人像
   //   沒事發生一樣杵在同一格互不理睬。只挑第一組能配對成功的兩位(3+方同格的極少數情況不重複觸發)。
   var factionClash = null;
+  // 🐛→✅ 2026-07 稽核補漏(高風險)：這段不只是「白算」，它會真的對敵御主/敵從者列寫HP(下方
+  //   clashDmg扣血)——過去無guard，只是「鑑賞眾生從不存在敵御主列」這個資料形狀讓它永遠掃不到
+  //   東西才安全，屬於「僥倖安全」而非「結構保證」。比照專案一貫做法(別只靠資料形狀，明確guard)，
+  //   補上isFateMove——這整段本就是「兩組敵對人馬同格先前已交手」的solo戰爭限定演出，鑑賞無戰鬥、
+  //   無敵對陣營，結構上不會、也不該跑到這裡。
   try {
     var clashMasters = [];
-    allPcData.forEach(function (r) {
+    if (isFateMove) allPcData.forEach(function (r) {
       if (String(r[COL.PC.GAME_ID] || "") !== moveGameId) return;
       if (String(r[COL.PC.LOC] || "").trim() !== tgtTrim) return;
       if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
@@ -314,7 +327,10 @@ function actionMove(userData, pcId, sheets) {
   sheets.pc.getRange(1, 1, allPcData.length, pcColCount).setValues(allPcData);
   // (拔冗餘 flush：下方 markRivalsSeen_/getDataRange 等讀取本就會 flush pending 寫入)
 
-  try { markRivalsSeen_(sheets, pcId, allPcData); } catch (e) { } // 🔵 抵達即偵查此地敵人；就地標記+批次寫回，免重讀
+  // 🐛→✅ 2026-07 稽核補漏：markRivalsSeen_ 是「戰爭迷霧」機制，找同地敵御主/敵從者標記已見過——
+  //   鑑賞眾生從不存在這兩種陣營的列，過去無guard、每次移動都白掃一輪從沒中過的迴圈，比照本輪
+  //   其餘solo限定計算補上isFateMove guard。
+  if (isFateMove) { try { markRivalsSeen_(sheets, pcId, allPcData); } catch (e) { } } // 🔵 抵達即偵查此地敵人；就地標記+批次寫回，免重讀
 
   // 📜 正典劇情插針已移除（2026-06 玩家定案·沒啥用處）——抵達不再自動塞 Fate 原作橋段／路線引導。
 
@@ -354,7 +370,11 @@ function actionMove(userData, pcId, sheets) {
     victory: moveVictory,
     dreamPrompt: moveDream,
     statusString: buildPlayerStatusString(allPcData[pIdx]),
-    people: getLocalPeopleList(sheets, pcName, pcId, target, allPcData),
+    // 🐛→✅ 2026-07 稽核發現「solo是solo，鑑賞是鑑賞」：move 是刻意讓鑑賞也能用的共用action(慾海
+    //   約會地圖也要移動)，但這裡過去無條件呼叫 solo 的 getLocalPeopleList——跟 actionPlay 那次
+    //   一樣，算了鑑賞前端從未讀取的一堆欄位。改成跟 sync(buildClientState_)同款分流，鑑賞改用
+    //   精簡版 getKanshouPeopleList_(Gallery.gs)。
+    people: isFateMove ? getLocalPeopleList(sheets, pcName, pcId, target, allPcData) : getKanshouPeopleList_(pcId, target, allPcData),
     locations: getNearbyLocations(target, freshMapData).slice(0, 5),
     mapNodes: buildMapNodesPayload_(sheets, allPcData, moveGameId, target), // ⚡ 夾帶地圖節點，免手機抵達後再打一趟 get_map_nodes
     mapDesc: mapDesc,
