@@ -116,27 +116,19 @@
       <div id="hero-list" style="max-height:190px; overflow-y:auto; margin:6px 0; padding:4px; background:rgba(0,0,0,0.18); border:1px solid rgba(212,175,55,0.25); border-radius:6px;">
         <p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">↑ 選一個職階，或按「全部」瀏覽整個英靈殿</p>
       </div>
-      <!-- 🗂️ 2026-07 玩家「能清理吧？」：4種召喚方式功能不同(不是重複)，但版面上看不出差別——
-           玩家自己點破的正確心智模型：隨機＝抽現有英靈庫／輸入姓名＝AI補全／大概敘述＝AI照方向生成(不保證準)／
-           工房＝絕對精準客製化。只加說明文字＋分組，不動任何 id/onclick/後端邏輯。 -->
+      <!-- 🎲 2026-07 玩家看實機截圖再定案：隨機移來這裡跟瀏覽/原創同一群(都是「從現有名冊挑」)，
+           不用再寫落落長的說明；工房底下那顆按鈕整個砍掉——外面選單(Index.html:31 openForge('menu'))
+           本來就有一顆一樣的，砍的是重複入口，不是砍功能。 -->
+      <button class="btn" style="width:100%; margin-bottom:8px; border-color:#9a7b4f; color:#9a7b4f;" onclick="lockBtn(event, summonRandom)">🎲 隨機召喚</button>
       <div style="border-top:1px dashed rgba(212,175,55,0.3); margin-top:6px; padding-top:8px;">
         <div style="text-align:center; color:#816e54; font-size:11px; margin-bottom:8px;">或者，用下面幾種方式召喚——</div>
-        <div style="color:#9a7b4f; font-size:11px; margin-bottom:4px;">🎲 隨機：從英靈殿現有名冊抽一位（含玩家原創）</div>
-        <button class="btn" style="width:100%; border-color:#9a7b4f; color:#9a7b4f;" onclick="lockBtn(event, summonRandom)">🎲 隨機召喚</button>
-
-        <div style="color:#9a7b4f; font-size:11px; margin:12px 0 4px;">✨ 輸入姓名：正典英靈精準召喚；查無此名（含他作角色，如悟空／炭治郎）則交給 AI 全權生成</div>
+        <div style="color:#9a7b4f; font-size:11px; margin-bottom:4px;">✨ 輸入姓名：正典英靈精準召喚；查無此名（含他作角色，如悟空／炭治郎）則交給 AI 全權生成</div>
         <input type="text" id="s-truename" class="std-in" placeholder="輸入真名" maxlength="20" style="width:100%; box-sizing:border-box;">
         <button class="btn" style="width:100%; margin-top:6px; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="lockBtn(event, summonByName)">✨ 真名召喚</button>
 
         <div style="color:#9a7b4f; font-size:11px; margin:12px 0 4px;">🖋️ 大概敘述：AI 會往你描述的方向生成，但不保證精準符合</div>
         <textarea id="s-desc" class="std-in" maxlength="120" placeholder="如：手持巨鎌、沉默寡言的死神少女" style="width:100%; box-sizing:border-box; height:48px; resize:none; font-family:inherit;"></textarea>
         <button class="btn" style="width:100%; margin-top:6px; border-color:#a06cd0; color:#c79be8;" onclick="lockBtn(event, summonByDesc)">🖋️ 自訂生成（AI 快速盲盒）</button>
-
-        <div style="border-top:1px dashed rgba(212,175,55,0.3); margin-top:14px; padding-top:10px;">
-          <div style="color:#8fb0e8; font-size:11px; margin-bottom:4px;">🛠️ 工房：職階／六圍／技能／寶具全部自己定，絕對精準客製化</div>
-          <!-- 🛠️ 自訂英靈工房（2026-07）：玩家親手定 職階/六圍/技能/寶具；AI 只補人格演出、不碰數值 -->
-          <button type="button" class="btn" style="width:100%; border-color:#6a8ac0; color:#8fb0e8; font-size:12.5px;" onclick="openForge()">🛠️ 自訂英靈工房（進階）</button>
-        </div>
       </div>
     </div>
     <!-- 🛠️ 自訂英靈工房：獨立一屏（2026-07 玩家反饋「塞召喚頁太長」）——一步一屏對齊 onboarding 慣例，欄位 ID 全部不變 -->
