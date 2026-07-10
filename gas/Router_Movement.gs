@@ -200,7 +200,11 @@ function actionMove(userData, pcId, sheets) {
   let clockLabel = "", worldRumors = [], apLeft = AP_PER_DAY, moveVictory = false, moveDream = "";
   if (isFateMove) {
     try {
-      const sp = spendAp_(moveGameId, 2, allPcData, sheets);
+      // 🐛→✅ 2026-07 稽核抓到(效能)：這裡傳pcData/sheets給spendAp_省整表讀是對的，但函式結尾
+      //   (下方 sheets.pc.getRange(1,1,...).setValues(allPcData))本就會整表批次寫回，涵蓋這3欄
+      //   在內——spendAp_內部writeClockToRow_原本還會立即單獨寫一次同樣的值，變成完全多餘的一次
+      //   Sheets API呼叫。傳skipWrite=true只改記憶體，交給結尾那次批次寫回一起帶出去。
+      const sp = spendAp_(moveGameId, 2, allPcData, sheets, true);
       apLeft = sp.ap;
       // ⚡ 2026-07：把 allPcData 傳給 worldTick_/breakStaleAlliances_，讓它們在同一份陣列上原地改
       //   (JS 陣列傳參考)，不必像過去那樣事後重讀整表才能拿到 tick 後的最新狀態。

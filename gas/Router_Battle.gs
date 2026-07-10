@@ -788,6 +788,15 @@ function actionFateBattle(userData, pcId, sheets) {
       injectMysticBuff_(sC, pcData[pIdx][COL.PC.MEMORY]);  // ✨ 御主禮裝被動加持我方從者（每回合出擊）
       injectHomeField_(sC, homeField);                     // 🏰 主場·陣地結界
       const isActive = (sidx === atkIdx);
+      // 🐛→✅ 2026-07 稽核抓到(HIGH)：npOverloadMul/overcharge只設在atkC(prana結算當下建的物件)上，
+      //   從沒存進MEMORY——這裡的sC是rowToCombatant_每回合重新建的新物件，天生讀不到atkC身上的這兩個
+      //   屬性。開場對轟分支(targetIsFoeServant且敵方也接對轟)剛好直接用atkC，這條路徑吃得到加成；
+      //   但一般情況(打敵御主、或敵從者沒對轟/不接對轟——多數情況)寶具解放走的正是這條每回合迴圈，
+      //   用sC結算，玩家已經付了超載的魔力/血量代價(甚至扛了反噬風險)，傷害卻完全沒吃到超載倍率、
+      //   過充也沒吃到命中/傷害加成——UI橫幅跟AI敘述卻還是照樣宣稱超載發動了。比照atkC.horrorUp同批
+      //   已有的做法(那個有靠MEMORY讓新物件自然帶到，這兩個沒有)，這裡在本回合就是NP解放者時，
+      //   直接把atkC身上已結算好的這兩個屬性複製到sC，讓超載/過充在這條(較常見的)路徑上真正生效。
+      if (isActive && opening && openingNp) { sC.npOverloadMul = atkC.npOverloadMul; sC.overcharge = atkC.overcharge; }
       const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && openingNp && isActive, seal: opening && openingSeal && isActive, ambush: opening && isActive, skill: isActive ? skillBuff : null, round: rd + 1 }, ctx);
       // 目標為敵御主(非從者)：引擎計算了反傷 fired 但不套用，過濾掉「winner·武器骰」等傷害計算噪音
       const _pFiredClean = isMasterTarget

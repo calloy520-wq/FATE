@@ -102,10 +102,9 @@ function ensureFateSheets_(ss) {
     }
     created.push(name);
   });
-  if (created.length) {
-    // 新建地圖後清掉舊地圖快取，讓前端讀到新冬木地圖
-    try { CacheService.getScriptCache().remove("FATE_MAP_DATA"); } catch (e) {}
-  }
+  // 🗑️ 2026-07 稽核確認並移除：原本這裡有 CacheService.remove("FATE_MAP_DATA")，但坤圖靜態化
+  //   後 getMapDataCached() 直接讀 FATE_MAP_SEED 常數、從未 put 過這個快取鍵，remove 一個從未
+  //   被寫入的鍵是無害的no-op，卻會讓後來讀者誤以為坤圖還是快取制、需要小心無效化——移除。
   // 英靈殿/御主殿 若為空，自動灌入名冊（Seed_Codex.gs）
   try { if (typeof seedFateCodex_ === "function") seedFateCodex_(ss); } catch (e) { Logger.log("seedFateCodex_ 失敗(略過): " + e.message); }
   // 坤圖若為空(早期被空建未灌種子)→補；坤圖舊「冬木」母節點→改頂層
@@ -152,7 +151,7 @@ function reseedIfEmpty_(ss) {
     if (upserted) km.getRange(1, 1, d2.length, d2[0].length).setValues(d2);
     if (toAppend.length) km.getRange(km.getLastRow() + 1, 1, toAppend.length, toAppend[0].length).setValues(toAppend);
   }
-  try { CacheService.getScriptCache().remove("FATE_MAP_DATA"); } catch (e) { }
+  // 🗑️ 2026-07 稽核確認並移除：同上，坤圖靜態化後這個快取鍵從未被寫入，remove 是無害no-op。
 
   // 🔧 既有英靈殿補丁：赫拉克勒斯的「十二試煉」過去只在 np 文字、缺 fx:god_hand → 補上技能
   try {
