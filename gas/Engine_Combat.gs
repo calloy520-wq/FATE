@@ -77,7 +77,13 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
         }
         if (result.choices && result.choices.length > 0) {
           let choice = result.choices[0];
-          if (choice.finish_reason === "content_filter" || choice.finish_reason === "SAFETY" || (choice.message && !choice.message.content)) {
+          // 🐛→✅ 2026-07 稽核抓到：原本 (choice.message && !choice.message.content) 只在 message 物件
+          //   「存在但空」時才判定為審查攔截——若供應商回傳的拒答格式連 message 欄位本身都不給(不是
+          //   給空 message)，這個判斷式整體為 false，會直接落到下一行 choice.message.content 炸出
+          //   TypeError，被下面 catch 當成普通連線錯誤，跳過「降階重試(換更含蓄筆法)」的專屬處理，
+          //   最後還會把技術性錯誤訊息原樣洩漏給玩家(而非「結界觸發」的柔和訊息)。改成「message 不存在
+          //   或存在但空」都算審查攔截同一類，行為更貼近這段程式碼本來的意圖。
+          if (choice.finish_reason === "content_filter" || choice.finish_reason === "SAFETY" || !choice.message || !choice.message.content) {
             throw new Error("Triggered_NSFW_Filter");
           }
           let text = choice.message.content;
