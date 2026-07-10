@@ -550,7 +550,11 @@ async function claimHero(id) {
   try {
     var res = await gasRun({ action: 'claim_hero', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '', heroId: String(id), acctName: (typeof currentAccount !== 'undefined' ? currentAccount : '') });
     alert((res && res.message) || (res && res.success ? '已認領。' : '認領失敗。'));
-    if (res && res.success) { await loadHeroes(); renderHeroList(); renderForgeWorks_(); }
+    if (res && res.success) {
+      await loadHeroes(); renderHeroList(); renderForgeWorks_();
+      // claimHero 也會改英靈殿的 creator 欄，比照 summonByForge：讓鑑賞同伴面板的快取失效
+      try { if (typeof invalidateKanshouHeroCache === 'function') invalidateKanshouHeroCache(); } catch (e) { }
+    }
   } catch (e) { alert('認領失敗，連線受阻。'); }
 }
 function closeForge() {

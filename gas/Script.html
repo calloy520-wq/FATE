@@ -637,9 +637,9 @@
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【休息 ${hours} 小時】</b>${(data.healedNames||['你']).join('與')}恢復了氣力，行動力 ${data.ap}/${data.apMax}。${data.clock ? '（' + data.clock + '）' : ''}</div>`);
         showRumors(data.rumors);
         if (data.report) renderFateBattleReport(data.report); // ⚔️ 夜襲戰報卡（數字先攤）
+        syncData(true);
         if (data.ambushPrompt) await narrate(data.ambushPrompt); // ⚔️ 夜襲演出
         else if (data.servantDream) await narrate(data.servantDream); // 🌙 從者之夢·回想
-        syncData(true);
         if (data.defeat) { await handleDefeat(data); }
         else if (data.victory) { await handleVictory(data); } // 🕯️ 休息推進時間→令咒透支倒數到期、清掉最後敵人→奪杯
       } else { alert((data && data.message) || '休息失敗。'); }
@@ -659,8 +659,8 @@
         updateClock(data.clock, data.ap, data.apMax);
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#7fc7c7;font-size:12.5px;text-align:center;border:1px solid rgba(90,150,150,0.3);border-radius:8px;padding:6px 10px;">🔍 ${data.message || '偵查完成。'}</div>`);
         if (data.report) renderFateBattleReport(data.report); // ⚔️ 偵查遭突襲→戰報卡
-        if (data.ambushPrompt || data.aiPrompt) await narrate(data.ambushPrompt || data.aiPrompt);
         syncData(true); // syncData→applyClientState 已含 renderMapPane()，免重複打 get_map_nodes
+        if (data.ambushPrompt || data.aiPrompt) await narrate(data.ambushPrompt || data.aiPrompt);
         if (data.defeat) { await handleDefeat(data); }
       } else { alert((data && data.message) || '偵查失敗。'); }
     } catch (e) { alert('連線失敗，偵查未果。'); } finally { endAction(); }
@@ -737,8 +737,8 @@
         updateClock(res.clock, res.ap, res.apMax);
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#d0c080;font-size:12.5px;text-align:center;border:1px solid rgba(140,120,70,0.3);border-radius:8px;padding:6px 10px;">🔍 ${res.message}</div>`);
         if (res.report) renderFateBattleReport(res.report); // ⚔️ 搜索遭突襲→戰報卡
-        if (res.aiPrompt) await narrate(res.aiPrompt);
         syncData(true); // applyClientState 已含 renderMapPane()，免重複
+        if (res.aiPrompt) await narrate(res.aiPrompt);
         if (res.defeat) { await handleDefeat(res); }
       } else { alert((res && res.message) || '搜索失敗。'); }
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
