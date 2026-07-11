@@ -550,9 +550,15 @@ function actionPrepMeal(userData, pcId, sheets) {
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   var ap = AP_PER_DAY, clock = "";
   if (isFate) { try { ap = spendAp_(myGameId, 1, pcData, sheets).ap; clock = clockLabel_(myGameId, pcData); } catch (e) { } }
+  // 🎬 2026-07「solo每個按鍵都接上AI敘述」補：整備過去只回罐頭 message，比照偵查/搜索補一段輕量 aiPrompt。
+  var mealSvIdx = findPlayerServantIdx_(pcData, myGameId, "");
+  var mealPrompt = (mealSvIdx !== -1 ? servantCard_(pcData[mealSvIdx]) : masterCard_(pcData[pIdx])) +
+    `【系統·整備已裁定】御主與從者稍作整備、飽餐一頓——接下來約 ${MEAL_BUFF_HOURS} 小時內，從者出擊命中 +${MEAL_BUFF_BONUS}。\n` +
+    `★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】演出這段戰前用餐、稍事休整的日常小品（一段即可），依從者性格自然流露對這頓飯／這位御主的反應；show, don't tell，語氣輕快不冗長。`;
   return JSON.stringify({
     success: true,
     message: `整備完畢——你與從者飽餐一頓、稍事休整。接下來約 ${MEAL_BUFF_HOURS} 小時內，從者出擊命中 +${MEAL_BUFF_BONUS}。`,
+    aiPrompt: mealPrompt,
     clock: clock, ap: ap, apMax: AP_PER_DAY, mealBuff: true,
     statusString: getFreshStatusString(pcId, pIdx, sheets)
   });
@@ -788,8 +794,13 @@ function actionScavenge(userData, pcId, sheets) {
   const haulNote = depleted ? `此地散逸魔力已被你搜刮殆盡，僅再得殘渣——魔力 +${gain}（${pcData[pIdx][COL.PC.MP]}/${mpMax}）。`
     : `搜索此地補給，導入零星散逸魔力——御主魔力 +${gain}（${pcData[pIdx][COL.PC.MP]}/${mpMax}）。`;
   const msg = `${haulNote}${intel || "此地別無敵蹤所獲。"}`;
+  // 🎬 2026-07「solo每個按鍵都接上AI敘述」補：搜索過去只回罐頭 message，比照偵查/工房補一段輕量 aiPrompt。
+  const scavSvIdx = findPlayerServantIdx_(pcData, myGameId, "");
+  const scavPrompt = (scavSvIdx !== -1 ? servantCard_(pcData[scavSvIdx]) : masterCard_(pcData[pIdx])) +
+    `【系統·搜索已裁定】御主一行在此地細細搜索，${depleted ? '此地散逸魔力早被搜刮殆盡、只餘殘渣' : '導入了零星散逸的魔力'}。${intel ? intel : ''}\n` +
+    `★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】演出這段翻找、感應散逸魔力的搜索過程（一段即可）；${intel ? '收尾帶出察覺遠處氣息時的警覺' : '收尾停在暫時平靜的餘韻'}；show, don't tell，是否交戰仍由御主下令。`;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：MP/MEMORY搜刮枯竭標記/SEEN揭露/spendAp_ 皆已原地改回 pcData
-  return JSON.stringify({ success: true, message: msg, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
+  return JSON.stringify({ success: true, message: msg, aiPrompt: scavPrompt, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
 // 🔍 偵查：耗 1 AP，揭露「附近地點」藏匿的敵御主／敵從者（戰爭迷霧；marks SEEN）
@@ -829,7 +840,14 @@ function actionScout(userData, pcId, sheets) {
   const msg = revealed.length
     ? `偵查四方，捕捉到氣息：${revealed.join("、")}。`
     : `偵查四方，附近暫無敵蹤現形。`;
+  // 🎬 2026-07「solo每個按鍵都接上AI敘述」補：偵查過去只回罐頭 message，AI 完全沒吃到——現比照
+  //   actionSetWorkshop 補一段輕量 aiPrompt。有隨行從者→帶 servantCard_ 一起演出；facts 只給
+  //   「有無揭露敵蹤」，不夾帶座標/戰術細節（那些留給地圖UI，AI只負責演出當下的氛圍/警覺）。
+  const scoutSvIdx = findPlayerServantIdx_(pcData, myGameId, "");
+  const scoutPrompt = (scoutSvIdx !== -1 ? servantCard_(pcData[scoutSvIdx]) : masterCard_(pcData[pIdx])) +
+    `【系統·偵查已裁定】${revealed.length ? `御主凝神探查四周氣息，察覺到潛伏的敵蹤：${revealed.join("、")}。` : `御主凝神探查四周氣息，附近暫無敵蹤現形，一時風平浪靜。`}\n` +
+    `★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】演出這段凝神戒備、探查四周的氣息與觀察（一段即可），${revealed.length ? '流露警覺與一絲山雨欲來的張力' : '流露短暫的鬆一口氣或不敢鬆懈的警戒'}；show, don't tell，是否交戰仍由御主下令。`;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：SEEN揭露/spendAp_ 皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
-  return JSON.stringify({ success: true, message: msg, revealed: revealed, clock: scoutClock, ap: scoutAp, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
+  return JSON.stringify({ success: true, message: msg, revealed: revealed, aiPrompt: scoutPrompt, clock: scoutClock, ap: scoutAp, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 

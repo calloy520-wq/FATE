@@ -1467,3 +1467,18 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **改動**：`Engine_Combat.gs`(連線失敗fallback文案+Logger除錯留痕)；`Router_Narrative.gs`(新增`stripLeakedScaffold_`+套用於`narrateWithState_`回傳點)；`Script.html`(`syncData`的F12除錯alert改柔性文案)；`Router_Action.gs`(兩處系統術語alert改柔性文案)。
 
 **驗證**：`bash check.sh`全過；獨立node腳本核對`stripLeakedScaffold_`4種情境(清掉誤echo的★指令行、清掉誤echo的〈演出卡〉、保留fallback文案自己的【標籤】、正常敘事完全不受影響)輸出皆正確。`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(`Engine_Combat.gs`這次的改動只在`callGeminiAPI`連線失敗分支，未觸及`nsfwBaseRules`/`buildDefaultSystemPrompt`——那兩者已搬到`Gallery.gs`，此檔現在只剩共用的`callGeminiAPI`本體)。headless環境無法真正觸發網路逾時來驗證第1項修正的實際顯示效果，部署後若剛好遇到一次連線失敗，留意是否顯示柔性訊息而非英文技術錯誤。
+
+## §41 補齊剩餘按鍵的AI敘述（2026-07·玩家問「solo每個按鍵好像有些沒有接上ai敘述，可以都接上嗎」）
+
+**背景**：核對 `AI_PROMPT_MAP.md` 逐一比對「純機制、完全不叫AI」清單裡的每個 action，區分兩類：①**天生不該敘事**的系統/UI/唯讀/檔位切換類(登入/存讀檔/排行榜/戰記列表/`set_servant_output`等4個戰鬥檔位切換鈕——這些是選單勾選而非敘事時刻，接AI只會拖慢節奏、也沒畫面可演，故意維持原樣)；②**真正遺漏**的地圖/日常類玩法動作——這幾個跟同檔的`rest`/`bond`/`mana_supply`性質相同(都是「在地圖上做一件事」)，卻只回罐頭`message`字串，從未讓AI演出。逐一讀原始碼確認：
+
+1. **`actionScout`（🔍偵查，Router_Movement.gs）**：原本只回`revealed`名單+罐頭訊息，完全沒有`aiPrompt`欄位——`Script.html`的`scout()`前端其實早就寫了`if (data.ambushPrompt || data.aiPrompt) await narrate(...)`，是死碼(從未被觸發，猜測是仿`rest()`複製時順手留下的容錯判斷，`actionScout`從未在偵查時走過`enemyAmbushOnServant_`)。現補上輕量`aiPrompt`(60~100字)：有隨行從者→`servantCard_`，無則`masterCard_`；埋入「是否揭露敵蹤」單一事實。
+2. **`actionScavenge`（🔍搜索物資，Router_Movement.gs）**：同上，原本無`aiPrompt`，前端`if (res.aiPrompt) await narrate(...)`也是等到現在才第一次真正觸發。補上輕量`aiPrompt`：埋入「本地魔力是否已搜刮枯竭」＋「是否順帶察覺敵蹤情報」。
+3. **`actionPrepMeal`（🍱整備，Router_Movement.gs）**：原本連前端`prepMeal()`都**沒有**`narrate`呼叫(比scout/scavenge更徹底，連死碼容錯都沒有)。補上輕量`aiPrompt`(戰前用餐日常小品)＋在`Script.html`的`prepMeal()`補上`if (data.aiPrompt) await narrate(data.aiPrompt);`。
+4. **`actionSetWorkshop`（🏕️設置陣地）**：**稽核中發現這個其實早就有`aiPrompt`**(組了`wsPrompt`、前端也早有`if (res.aiPrompt) await narrate(res.aiPrompt);`)——`AI_PROMPT_MAP.md`原本標「否，純message」是文件本身過期沒跟上，這次順手修正文件，程式碼本身未改動。
+
+**刻意沒動的部分**（避免過度解讀「都接上」＝逐字照辦每一個action）：`set_servant_output`/`set_mage_realm`/`set_rune_mode`/`set_np_choice`(戰鬥前純數值檔位切換，性質等同勾選單，非敘事時刻)；`sync`/`get_tags`/`account_login`/`leaderboard`/`war_chronicle`/`war_history_list`/`get_epic_history`/`get_victory_history`/`purge_orphans`/`dev_seed_gallery`/`dev_resync_codex`/`kanshou_*`系列(唯讀查詢或帳號/存檔工具，敘事化沒有意義)；`create`(2026-07已定案秒寫入不叫AI，AI補完延後到`backfill_master_ai`+`summon_servant`的`summonPrompt`，不重複加)。
+
+**改動**：`gas/Router_Movement.gs`(`actionScout`/`actionScavenge`/`actionPrepMeal`三處補`aiPrompt`)；`gas/Script.html`(`prepMeal()`補`narrate`呼叫)；`AI_PROMPT_MAP.md`(§2/§3表格更新四個action的AI欄位＋新增3段prompt節錄＋修正`set_workshop`舊誤植＋更新文末兩份總表)。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這次完全沒碰這兩個檔案)。三段新`aiPrompt`皆沿用`servantCard_`/`masterCard_`既有卡片機制與「show, don't tell」既定鐵律，未新增任何演出鷹架；字數上限刻意壓在60~100字(比`rest`/`bond`等主要敘事時刻更短)，因這幾個動作只耗1AP、同一天可能連按數次，維持「⚡快速」工程準則、不讓輕量動作也拖成長篇。
