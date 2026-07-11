@@ -208,10 +208,22 @@ function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
     shuffle_(mPool); shuffle_(hPool);
     var locPool = shuffle_(['冬木·深山町', '遠坂宅', '間桐宅', '言峰教會', '柳洞寺', '冬木·新都', '穗群原學園', '冬木·商店街']);
     var n = Math.min(7, mPool.length, hPool.length);
+    // 🎲 隨機登場日(2026-07 玩家「亂鬥呢....可以隨機天數登場嗎？」)：比照正史roster的登場日機制
+    // (hasArrived_/setArriveDay_)，混亂模式的隨機配對也套用——前 CHAOS_GUARANTEED_IMMEDIATE_ 組
+    // 保證第1天就在(呼應 WORLD_FLOOR_ 精神：開局至少有東西可打)，其餘每組獨立擲骰50%機率延後第2~5天
+    // 登場，沒中就跟以前一樣第1天全員到齊。不自訂 arriveHint——worldTick_ 對未設提示的登場預告本就
+    // 有依職階的泛用退回措辭，混亂模式配對是隨機的、也沒有固定人選可預先寫好專屬風聲句。
+    var CHAOS_GUARANTEED_IMMEDIATE_ = 3;
     for (var k = 0; k < n; k++) {
       var loc = locPool[k % locPool.length];
-      rows.push(masterToNpcRow_(mPool[k], gameId, loc, '敵御主', heroMagicRank_(hPool[k])));
-      rows.push(heroToNpcRow_(hPool[k], gameId, loc, '敵從者'));
+      var mRow = masterToNpcRow_(mPool[k], gameId, loc, '敵御主', heroMagicRank_(hPool[k]));
+      var sRow = heroToNpcRow_(hPool[k], gameId, loc, '敵從者');
+      if (k >= CHAOS_GUARANTEED_IMMEDIATE_ && Math.random() < 0.5) {
+        var chaosArriveDay = 2 + Math.floor(Math.random() * 4); // 第2~5天隨機
+        mRow[COL.PC.MEMORY] = setArriveDay_(mRow[COL.PC.MEMORY], chaosArriveDay);
+        sRow[COL.PC.MEMORY] = setArriveDay_(sRow[COL.PC.MEMORY], chaosArriveDay);
+      }
+      rows.push(mRow, sRow);
     }
     // 🔗 硬連結每組敵御主↔敵從者（rows 嚴格交替：master, servant, master, servant…）
     //   互寫【從者】名/【御主】名於 MEMORY，讓多組同場時也分得清誰是誰、誰的從者被誰打掉。
