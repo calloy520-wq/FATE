@@ -1178,3 +1178,5 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **記錄不動手**：`callGeminiAPI`把「真審查攔截」跟「純格式/截斷失敗」都算進同一個retry/fallback邏輯，理論上可以拆成兩種不同處理(只有真攔截才切模型、格式失敗應該原地重試同一顆模型)，但這是更大範圍的重構，這次先用「調高預算讓截斷本身不要發生」的根源解法處理，不動這段共用邏輯的整體設計。
 
 **驗證**：`bash check.sh`全過(1個修改檔案：`Gallery.gs`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這次改動只加一行`max_tokens`設定，不碰`nsfwBaseRules`本體)。純數值調整，不改變任何邏輯分支，headless環境無法實機驗證token數是否真的夠用，建議部署後測試：鑑賞「沒點火」模式下連續進行多輪正常日常對話，觀察是否還會出現「文風突然變得不像原本模型」的情形（AI_MODEL/DeepSeek跟SOLO_MODEL的敘事風格通常有可辨識差異），次數應明顯減少；若仍常發生，代表根因除了token截斷外可能還有SOLO_MODEL本身在鑑賞這種NSFW鄰近語境下更容易觸發真審查，需要再進一步調查。
+
+**追加**：玩家當場追加「那點火也調整到1500！」——上面§20原本只調`!driveOn`(沒點火/SOLO_MODEL)分支，`driveOn=true`(點火/AI_MODEL)維持`isNsfwMode`預設1000沒動，理由是「沒回報過症狀」；但截斷風險的根本算式(narration約500字+inner_monologue+physical_state等)是model-agnostic的，AI_MODEL一樣可能被同一份1000上限卡到，只是還沒被抱怨過不代表沒發生(也可能AI_MODEL失敗後沒有下一顆模型可逃生、直接吐柔性失敗訊息，玩家體感是「偶爾失敗」而非「換模組」，比較不容易被歸因到同一根因)。**動手**：`aiConfig`初始化直接帶`max_tokens:1500`(兩條路徑共用同一個值)，拿掉原本只在`!driveOn`分支才加的寫法，改成`if(!driveOn) aiConfig.fallbackModel = AI_MODEL;`只留設定`fallbackModel`這件事(driveOn=true本就不需要fallback，這點沒變)。
