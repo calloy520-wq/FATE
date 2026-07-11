@@ -469,8 +469,13 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
     //   跑完才寫，省去中途重複Sheets寫入次數」自相矛盾(每輪都多寫一次，最多4輪=4次多餘寫入)。
     //   整段刪除，只留上面那段+函式結尾的anyHpDirty批次寫回，才是名副其實的「只寫一次、只治療一次」。
 
-    // 2) 暗處從者廝殺：只在「休息」時可能發生（移動只換位，不死人）；
+    // 2) 暗處從者互鬥：只在「休息」時可能發生（移動只換位，不受傷）；
     //    且永遠至少保留 WORLD_FLOOR_ 名敵從者給玩家親手解決——絕不會被世界自走清光。
+    // 🐛→✅ 2026-07 玩家要求「敵方npc會隨機互鬥扣血」：原本這裡是「7%機率、直接選一名戰力最低者
+    //   瞬間標記死亡」的硬幣翻面式殺法——沒有真的打過一場，也不會單純掛彩、只有生跟死兩種結果。
+    //   改成真的抽兩名離場敵從者、吃 rowToCombatant_ 建成真實combatant、走跟玩家對戰同一套
+    //   resolveFateBattle_ 結算(GAS本機算，不叫AI)——多數情況只是雙方掛彩(確實扣血、不死)，
+    //   只有真的把某一方打到HP見底時才會死亡，死法從「機率骰子」變成「真打出來的」。
     if (!allowAttrition) continue;
     // ⏳ 開戰前期(第 ATTRITION_START_DAY 日前)世界不減員——給玩家喘息，也貼「戰爭初期各方按兵蟄伏」。
     var _ckR = getClock_(gameId, data);
@@ -480,30 +485,55 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
       if (String(data[k][COL.PC.FACTION]) !== "敵從者") continue;
       if (String(data[k][COL.PC.GAME_ID] || "") !== gameId) continue;
       if (String(data[k][COL.PC.ID]).startsWith("DEAD_")) continue;
-      // 🩸 戰力分＝六圍階總和(給「低能力先死」用)；解析失敗給高分(不優先被清)
-      var pw = 999; try { var _s6 = JSON.parse(data[k][COL.PC.SIX] || '{}'); pw = ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].reduce(function (a, key) { return a + rankVal(_s6[key] || 'E'); }, 0); } catch (e) { }
-      offstage.push({ idx: k, name: String(data[k][COL.PC.NAME]), loc: String(data[k][COL.PC.LOC]).trim(), pow: pw });
+      offstage.push({ idx: k, name: String(data[k][COL.PC.NAME]), loc: String(data[k][COL.PC.LOC]).trim() });
     }
     var aliveTotal = offstage.length;
     if (aliveTotal <= WORLD_FLOOR_) continue; // 已到底線→世界不再清人，剩下的全交給玩家
     var faraway = offstage.filter(function (o) { return o.loc !== String(playerLoc).trim(); });
-    if (!faraway.length) continue;
-    // 🗑️ 養不起爆炸(2026-07 移除)：不管怎麼調門檻，全種子庫能真正撞進危險區的組合幾乎只有士郎配阿爾托莉雅
-    //   (小迴路撐頂級從者)，其餘配對池子夠用、根本進不了候選——結果變成「隨機世界事件」實際上總是同一個目標，
-    //   跟「隨機」的初衷矛盾，玩家體感就是「Saber每次都爆炸」。移除，不留殘骸；masterless 有 SEAL_DOOM_HOURS，
-    //   一般戰損有 fateStrike_，死法夠多，不缺這個。
-    if (Math.random() < 0.07) { // 暗處廝殺：偶爾一名在他人手中殞落
-      // 🩸 低能力先死：挑「戰力(六圍階總和)最低」者殞落——貼「弱者先在混戰中出局」；同分則隨機
-      faraway.sort(function (a, b) { return a.pow - b.pow; });
-      var _weak = faraway[0].pow;
-      var _pool = faraway.filter(function (o) { return o.pow === _weak; });
-      var victim = _pool[Math.floor(Math.random() * _pool.length)];
-      data[victim.idx][COL.PC.ID] = "DEAD_" + String(data[victim.idx][COL.PC.ID]);
-      data[victim.idx][COL.PC.HP] = 0;
-      data[victim.idx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "暗處殞落", "顏面": "已無生息" });
-      sheets.pc.getRange(victim.idx + 1, 1, 1, data[victim.idx].length).setValues([data[victim.idx]]);
-      markMasterLostServant_(sheets.pc, data, victim.idx, "在冬木暗處的廝殺中、歿於他人之手");
-      rumors.push("〔風聞〕昨夜冬木某處傳出靈基崩潰的餘波——「" + victim.name + "」似乎已在他人手中殞落。");
+    if (faraway.length < 2) continue; // 互鬥至少要湊得出兩名離場者
+    if (Math.random() < 0.07) { // 暗處互鬥：偶爾湊兩名離場者真打一場(沿用既有觸發機率，只是結果不再是瞬殺)
+      var _pickA = Math.floor(Math.random() * faraway.length);
+      var _pickB; do { _pickB = Math.floor(Math.random() * faraway.length); } while (_pickB === _pickA);
+      var infoA = faraway[_pickA], infoB = faraway[_pickB];
+      var comA = rowToCombatant_(data[infoA.idx]), comB = rowToCombatant_(data[infoB.idx]);
+      // 一次交鋒＝A出擊、B存活才反擊(跟fateStrike_同款一來一往，不無限回合硬打到死)
+      var strikeAB = resolveFateBattle_(comA, comB, {});
+      var hpBAfter = Math.max(0, comB.hp - (strikeAB.atkWins ? strikeAB.damage : 0));
+      var hpAAfter = comA.hp;
+      if (hpBAfter > 0) {
+        var strikeBA = resolveFateBattle_(comB, comA, {});
+        hpAAfter = Math.max(0, comA.hp - (strikeBA.atkWins ? strikeBA.damage : 0));
+      }
+      data[infoA.idx][COL.PC.HP] = hpAAfter; sheets.pc.getRange(infoA.idx + 1, COL.PC.HP + 1).setValue(hpAAfter);
+      data[infoB.idx][COL.PC.HP] = hpBAfter; sheets.pc.getRange(infoB.idx + 1, COL.PC.HP + 1).setValue(hpBAfter);
+      var aDied = hpAAfter <= 0, bDied = hpBAfter <= 0;
+      [{ died: aDied, info: infoA }, { died: bDied, info: infoB }].forEach(function (o) {
+        if (!o.died) return;
+        data[o.info.idx][COL.PC.ID] = "DEAD_" + String(data[o.info.idx][COL.PC.ID]);
+        data[o.info.idx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "暗處殞落", "顏面": "已無生息" });
+        sheets.pc.getRange(o.info.idx + 1, 1, 1, data[o.info.idx].length).setValues([data[o.info.idx]]);
+        markMasterLostServant_(sheets.pc, data, o.info.idx, "在冬木暗處的互鬥中、歿於他人之手");
+      });
+      // 🎨 風聞措辭多樣化(玩家要求「不用太平凡」)：不洩漏具體交鋒數字/勝方身分，只留下魔力波動／
+      //   寶具氣息等氛圍線索——有死亡才點名罹難者，純掛彩(多數情況)只留下模糊的異狀傳聞。
+      if (aDied || bDied) {
+        var victimName = aDied ? infoA.name : infoB.name;
+        var lethalTpl = [
+          "〔風聞〕昨夜冬木某處傳出靈基崩潰的餘波——「" + victimName + "」似乎已在他人手中殞落。",
+          "〔風聞〕一陣猛烈的寶具氣息劃破夜空後歸於沉寂——「" + victimName + "」的靈基似乎未能撐過那一擊。",
+          "〔風聞〕坊間流傳某場從者交鋒以一方潰散告終，「" + victimName + "」自此音訊全無。"
+        ];
+        rumors.push(lethalTpl[Math.floor(Math.random() * lethalTpl.length)]);
+      } else {
+        var mildTpl = [
+          "〔風聞〕昨夜遠方似有魔力震盪一閃即逝，恐是有從者交手，然勝負未有定論。",
+          "〔風聞〕深夜片刻，隱約感應到寶具解放的氣息劃過夜空——像是某處曾有過一場交鋒。",
+          "〔風聞〕坊間傳言某地曾有靈基波動劇烈起伏，看來昨夜並不平靜，卻無人知曉勝負。",
+          "〔風聞〕魔術協會低調記錄了一場異常的能量殘留，研判是從者間的短暫交手，未見傷亡回報。",
+          "〔風聞〕冬木某處在深夜掀起一陣不尋常的靈氣紊亂，似有兩道身影短兵相接，各自負傷離去。"
+        ];
+        rumors.push(mildTpl[Math.floor(Math.random() * mildTpl.length)]);
+      }
     }
   }
   // ⚡ LOC/HP 整欄一次寫回(取代原本每輪各寫一次·最多12h休息=4輪就是4次)——data 全程原地改，
