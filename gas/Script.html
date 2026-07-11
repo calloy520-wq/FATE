@@ -2203,6 +2203,7 @@
       if (res && res.success) {
         myBondUsed = res.bondUsed || myBondUsed;
         if (res.report) renderFateBattleReport(res.report); // ⚔️ 相伴遭突襲→戰報卡(跟 rest()/scout() 同一套)
+        if (res.milestone) story.insertAdjacentHTML('beforeend', '<div style="text-align:center;margin:10px 0;color:#e8aac0;font-size:13px;letter-spacing:2px;">💞　羈絆邁向新的深度　💞</div>');
         syncData(true); await narrate(res.aiPrompt);
         if (res.defeat) { await handleDefeat(res); }
       } else { alert((res && res.message) || '今日無法再敘。'); if (res && res.bondUsed) myBondUsed = res.bondUsed; }
