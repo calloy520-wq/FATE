@@ -1312,7 +1312,9 @@
         + ((pc && pc.mode === 'kanshou') ? '' :  // 🌹 慾海：御主只露名字＋肉體，不露血量/魔力/令咒/禮裝
             bar('體', m.hpNum, m.hpMax, 'hp')
             + bar('魔', m.mpNum, m.mpMax, 'mp', (t.economy && typeof t.economy.net === 'number') ? t.economy.net : null)
-            + '<div style="color:#9a8bb0; font-size:11px; margin-top:3px;">令咒 <span style="color:#c79be8;">' + '❖'.repeat(myMasterSeals) + '</span></div>'
+            // 🐛→✅ 2026-07 玩家要求「令咒鈕移到御主卡片」：令咒是御主的絕對命令權（非從者專屬），原本卻只在
+            //   從者卡動作列才點得到，御主卡只有靜態計數。改成御主卡直接可點的按鈕，從者卡那顆挪給靈基修復。
+            + '<button onclick="event.stopPropagation();openSealMenu()" style="display:block; width:100%; text-align:left; margin-top:3px; font-size:11px; padding:4px 6px; background:rgba(176,108,208,0.16); color:#c79be8; border:1px solid #8a5fb0; border-radius:6px; cursor:pointer;">❖ 令咒 ' + '❖'.repeat(myMasterSeals) + '</button>'
             + (myMystic ? ('<div style="color:#9a8bb0; font-size:11px; margin-top:3px;" title="' + (myMystic.desc || '').replace(/"/g, '') + '">禮裝 <span style="color:#7fd0c0;">✨ ' + myMystic.name + '</span> <span style="color:#8aa;">(被動·戰鬥自動加持從者)</span>' + (myMystic.effect ? ' <span style="color:#7ec8a0;">' + myMystic.effect + '</span>' : '') + '</div>') : ''))
         + mButtonsLine
         + '</div>';
@@ -1409,7 +1411,9 @@
               + (dual ? '<div style="flex:1 0 100%; color:#9a8fae; font-size:10px;">下列動作對「' + s.name + '」生效：</div>' : '')
               + '<button onclick="event.stopPropagation();manaSupply()" title="補魔：硬擠魔術迴路回滿共用魔力池。⚠永久代價：血上限−15、迴路−3。孤注一擲，過度=慢性自盡。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
               + '<button onclick="event.stopPropagation();openBondMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(224,138,170,0.16); color:#e08aaa; border:1px solid #b06c84; border-radius:6px; cursor:pointer;">💕 羈絆</button>'
-              + '<button onclick="event.stopPropagation();openSealMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(176,108,208,0.16); color:#c79be8; border:1px solid #8a5fb0; border-radius:6px; cursor:pointer;">❖ 令咒 ' + '❖'.repeat(myMasterSeals) + '</button>'
+              // 🐛→✅ 2026-07：令咒鈕挪去御主卡（令咒屬御主的絕對命令權，不該只在從者卡才點得到），
+              //   這裡原本的位置改放「靈基修復」——消費共用魔力池為從者療傷、不燃令咒、可重複使用。
+              + '<button onclick="event.stopPropagation();spiritRepair()" title="靈基修復：引動共用魔力池為從者療傷，回復部分氣血（不燃令咒、可重複使用；魔力池不足則無法發動）。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(70,150,110,0.18); color:#7ee0a8; border:1px solid #3a8a5a; border-radius:6px; cursor:pointer;">🩹 靈基修復</button>'
               + '<button onclick="event.stopPropagation();openRestMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(120,120,160,0.16); color:#a9a9d8; border:1px solid #5a5a8a; border-radius:6px; cursor:pointer;">🛏️ 休息</button>'
               + '<button onclick="event.stopPropagation();changeOutfit(\'' + safeN + '\')" title="換裝：自訂從者當前服裝穿著，AI 敘述依此描寫（只換衣不換人·五官/髮色/體態不變）。免費即時、留空恢復本相。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(150,110,190,0.16); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👗 換裝</button>'
               + '<button onclick="event.stopPropagation();changeWeapon(\'' + safeN + '\')" title="武裝：自訂從者的武器與戰鬥方式（如 雙持大劍、鎖鏈鐮刀），敘述以此為準——不受職階慣例或原典習慣綁。免費即時、留空恢復自然演出。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(190,140,90,0.16); color:#e0b080; border:1px solid #a07a4a; border-radius:6px; cursor:pointer;">⚔️ 武裝</button>'
@@ -2130,6 +2134,26 @@
     } catch (e) { alert('連線失敗，補魔未果。'); } finally { endAction(); }
   }
 
+  // 🩹 靈基修復（2026-07 新增）：消費共用魔力池為從者療傷——不燃令咒、可重複使用（魔力池不足則無法發動）。
+  async function spiritRepair() {
+    if (!confirm('🩹 靈基修復：引動共用魔力池為從者療傷，回復部分氣血。\n\n不燃令咒、可重複使用；若共用魔力池不足則無法發動。\n\n確定發動？')) return;
+    const foe = localFoeServantName();
+    if (foe && !confirm('⚠ 此地有敵從者「' + foe + '」！\n\n療傷時門戶大開，極可能遭其趁隙突襲重擊你的從者（重則靈基崩潰、敗北）。\n建議先擊退敵人或轉往安全處。\n\n仍要在此療傷？')) return;
+    if (!beginAction()) return;
+    const story = document.getElementById('story');
+    story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主引動共用魔力池，為從者療傷……</div>`);
+    story.scrollTop = story.scrollHeight;
+    try {
+      const res = await gasRun({ action: 'spirit_repair', pcId: pc.id, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount });
+      if (res && res.success) {
+        if (res.report) renderFateBattleReport(res.report); // ⚔️ 療傷遭突襲→戰報卡
+        if (res.statusString) { localStorage.setItem('kyushu_last_status', res.statusString); updateUI(res.statusString.split('§')); }
+        updateClock(res.clock, res.ap, res.apMax); syncData(true); await narrate(res.aiPrompt);
+        if (res.defeat) { await handleDefeat(res); }
+      } else { alert((res && res.message) || '靈基修復未能發動。'); }
+    } catch (e) { alert('連線失敗，靈基修復未果。'); } finally { endAction(); }
+  }
+
   // 🩸 燃血已改為【被動】：共用魔力池見底時，applyRegen_ 自動燃【御主】HP 續契約（缺口÷2·從者不扣血）。無主動按鈕。
 
   // 💕 羈絆選單（純按鈕，無對話框）：每種每遊戲日限一次、跨日重置
@@ -2171,7 +2195,9 @@
   // ❖ 令咒選單（絕對命令需在戰鬥中對目標施放，這裡放自身向三招）
   function openSealMenu() {
     const opts = [
-      ['repair', '🩹 靈基修復', '從者氣血回滿＋御主魔力池回滿'],
+      // 🐛→✅ 2026-07：改名「絕對修復」跟從者卡新增的「靈基修復」按鈕（消費魔力·部分回復·可重複）區隔——
+      //   這個是燃令咒的一次性絕對命令，效果更強（雙方全滿），不是同一個東西。
+      ['repair', '❖ 絕對修復', '燃令咒·從者氣血回滿＋御主魔力池回滿（一次性絕對命令，效果強於靈基修復）'],
       ['mana', '⚡ 強制補魔', '魔力瞬間充盈到極限＋羈絆上升'],
       ['escape', '🌀 緊急脫離', '與從者一同強行撤離險境'],
     ];

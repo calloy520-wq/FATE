@@ -35,6 +35,7 @@ const ActionRouter = {
   "dismiss_horror_beast": actionDismissHorror, // 🐙 解除召喚(免費即時·止住每小時維持費)
   "use_seal": actionUseSeal,
   "mana_supply": actionManaSupply,
+  "spirit_repair": actionSpiritRepair, // 🩹 靈基修復：消費共用魔力池為從者療傷（不燃令咒，可重複使用）
   "set_servant_output": actionSetServantOutput,
   "set_mage_realm": actionSetMageRealm,
   "set_rune_mode": actionSetRuneMode,
@@ -231,7 +232,7 @@ const LOCK_EXEMPT_ACTIONS_ = {
 //   在「移動」這個全遊戲最高頻的動作上白燒 CPU，正是專案自己鐵則「別把多餘round-trip/整表讀回
 //   加回來」要避免的事。移出這份名單，move 現在不再夾帶用不到的 _state。
 const STATE_AFTER_ACTIONS = {
-  fate_battle: 1, use_seal: 1, mana_supply: 1, bond: 1, rule_break_steal: 1,
+  fate_battle: 1, use_seal: 1, mana_supply: 1, spirit_repair: 1, bond: 1, rule_break_steal: 1,
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
   second_wind: 1, scout: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
   update_fate: 1, update_rel_tag: 1
@@ -252,7 +253,7 @@ const STATE_AFTER_ACTIONS = {
 //   actionPurgeOrphans 註解，若以 KPC_ 呼叫會誤刪整張「鑑賞眾生」表的所有帳號資料；該函式本身
 //   也已改成直接指名讀「眾生」表當第二道防線，這裡是第一道)。
 const KANSHOU_BLOCKED_ACTIONS_ = {
-  fate_battle: 1, use_seal: 1, mana_supply: 1, bond: 1, rule_break_steal: 1,
+  fate_battle: 1, use_seal: 1, mana_supply: 1, spirit_repair: 1, bond: 1, rule_break_steal: 1,
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
   second_wind: 1, scout: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
   set_servant_output: 1, set_mage_realm: 1, set_rune_mode: 1,
