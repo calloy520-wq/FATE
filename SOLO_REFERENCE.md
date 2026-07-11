@@ -1525,3 +1525,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 4. **令咒mana高好感分支的effectMsg同步補一句機制框架**：「強化了從者的敏感度與御主的性能力」，並保留原本「下一發規格外寶具可無償超載解放」的機制事實(玩家定稿文案本身省略了這句，但這是`setOvercharge_`實際生效的機制事實，補進事實列避免AI敘述跟遊戲內部狀態脫節，非玩家文案的一部分)。
 
 **改動**：`gas/Router_Bond.gs`(令咒mana兩分支的effectMsg/AI指令定稿)；`gas/Router_Economy.gs`(`actionManaSupply`解鎖分支同步改筆觸+字數)；`gas/Router_Narrative.gs`(`max_tokens`720→2000，僅`useDeepseek`分支)；`AI_PROMPT_MAP.md`(三段prompt節錄同步更新為定稿文字)。驗證：`bash check.sh`全過、`nsfwBaseRules`紅線diff每次改動皆為0。
+
+**追加修正（同日，玩家實測抓到真實bug「魔力明明是滿的，按強制補魔卻寫成魔力見底的緊急理由」）**：根因是`actionUseSeal`的`mana`分支從未把「發動當下魔力是否已充盈」這件事寫進餵給AI的事實列——AI只能照劇情慣例(「會用回魔手段大概是快沒魔力了」)自行腦補一個聽起來合理、但跟遊戲實際狀態矛盾的理由，這正是`DESIGN.md`「有理有據：每次敘述前GAS把相關數值餵LLM，避免矛盾亂編」這條鐵律被漏掉的一個實例。**修法**：在覆寫MP之前先讀`oldMpSeal`，比較`oldMpSeal>=mpMaxSeal`判斷`manaWasFull`，組一句`manaFact`(已充盈→「純粹是想要」／見底→「補上了燃眉之急」)塞進兩支`effectMsg`的括號補充事實，讓AI依實際魔力狀態演出理由，不再自己編一個矛盾的藉口。常規補魔(`actionManaSupply`)不受影響——它本就有`curMp<=curMpMax*0.10`的資格檢查，魔力永遠不可能是滿的情況下才走到這個分支，不存在同款矛盾空間。
+
+**改動**：`gas/Router_Bond.gs`(`actionUseSeal`的`mana`分支新增`manaWasFull`/`manaFact`事實)。驗證：`bash check.sh`全過、`nsfwBaseRules`紅線diff=0。

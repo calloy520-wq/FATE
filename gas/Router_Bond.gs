@@ -81,7 +81,16 @@ function actionUseSeal(userData, pcId, sheets) {
     effectMsg = `令咒迸發，重塑「${svName}」的靈基——氣血回滿、傷勢一掃而空，御主魔力儲備亦充盈如初。`;
   } else if (type === "mana") {
     // 🔋 出力電池制：令咒灌頂回充御主魔力儲備(供魔源)，而非從者(從者無池)
+    const oldMpSeal = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
     const mpMaxSeal = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || 240;
+    // 🐛→✅ 2026-07 玩家實測抓到：發動當下魔力其實已滿，AI卻自行腦補「魔力即將見底」當強逼理由——
+    //   因為事實列從沒告知「發動當下魔力是否已充盈」這件事，AI只能照劇情慣例瞎猜一個聽起來合理的動機。
+    //   改成把真實魔力狀態明講進事實列，讓AI照實際情況演出理由(已充盈→純粹是想要、非燃眉之急；
+    //   見底→真的是急用)，不再自己編一個跟遊戲狀態矛盾的藉口。
+    const manaWasFull = oldMpSeal >= mpMaxSeal;
+    const manaFact = manaWasFull
+      ? `御主此刻魔力其實早已充盈滿溢，動用這道令咒與魔力多寡無關、純粹是想要`
+      : `御主此刻魔力確實所剩無幾，這道令咒補上了燃眉之急`;
     pcData[pIdx][COL.PC.MP] = mpMaxSeal;
     sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
     // 🔥 2026-07 玩家定案：絕對命令跳過「同意」，強逼「${svName}」交心——好感是否足夠決定這是幸運還是致命：
@@ -95,10 +104,10 @@ function actionUseSeal(userData, pcId, sheets) {
       pcData[pIdx][COL.PC.MEMORY] = setOvercharge_(pcData[pIdx][COL.PC.MEMORY], mpMaxSeal); // 複用既有「下一發規格外寶具可無償超載」機制
       sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
       sealManaUnlocked = true;
-      effectMsg = `令咒化作一道灌頂的魔力洪流，強化了從者的敏感度與御主的性能力——其實「${svName}」根本不必勞動令咒也會欣然應允，這道絕對命令用得有些太浪費了；但既已發動，如果什麼都不做就太浪費了（魔力依舊洶湧灌注，下一發規格外寶具可無償超載解放）。`;
+      effectMsg = `令咒化作一道灌頂的魔力洪流，強化了從者的敏感度與御主的性能力（${manaFact}）——其實「${svName}」根本不必勞動令咒也會欣然應允，這道絕對命令用得有些太浪費了；但既已發動，如果什麼都不做就太浪費了（魔力依舊洶湧灌注，下一發規格外寶具可無償超載解放）。`;
     } else {
       sealManaKill = true;
-      effectMsg = `令咒的絕對強制壓下了「${svName}」滿心的抗拒，令咒限制了從者反抗並提高敏感度、強化御主性能力——但這份屈從只是暫時的。`;
+      effectMsg = `令咒的絕對強制壓下了「${svName}」滿心的抗拒，令咒限制了從者反抗並提高敏感度、強化御主性能力（${manaFact}）——但這份屈從只是暫時的。`;
     }
   } else if (type === "escape") {
     const oldLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
