@@ -1142,11 +1142,18 @@ function actionPlay(userData, pcId, sheets) {
   //   的例外...不必刻意延續到下一輪」在【邂逅中】狀態改成跨輪持續有效後已經不準確，改成「這次到訪
   //   期間持續有效，直到玩家換地點離開」，並保留「AI仍可自然安排道別離開」的彈性(不強迫每次都要
   //   演到底，只是不再限制只有觸發那一瞬間才能講話)。
+  // 🎨 2026-07 玩家定案「不想看到男男，只要正常友情交流」：KANSHOU_MALE_HERO_IDS_ 巧遇池全員
+  //   皆男性，走的是與 actionKanshouSummonHero/actionKanshouSetSex(僅支援男女／女女配對)完全
+  //   不同的路徑——巧遇不邀入隊伍、不經過那兩處守門，男御主巧遇男性角色時原本毫無限制可自然發展
+  //   親密關係，是既有男男配對防線之外的漏網之魚。這裡補：男御主遇男性巧遇對象時明講僅止於同性
+  //   情誼(換裝/親密內容仍只服務既有同行同伴的異性戀／女女配對，不在此路徑發生)。
   const kanshouEncounterStr = kanshouEncounterHero ? (() => {
     const p = kanshouEncounterHero.persona || {};
     const look = p.dailyLook || p.look || "";
     const words = p.dailyWords || p.words || "";
-    return `\n★【本回合系統指定巧遇——這次到訪期間持續有效的例外，不受下方在場驗證鐵律限制】：『${kanshouEncounterHero.realName}』（${kanshouEncounterHero.cls}）此刻恰好也在「${kanshouEncounterLocName}」，${kanshouEncounterMetBefore ? "是已經打過照面的熟面孔" : "是初次的邂逅"}——外貌氣質:${look}／日常個性:${words}。允許TA以真實姓名登場、持續互動，這段緣分在玩家離開這個地點前都有效，不是同行隊伍成員：好感/關係不追蹤記錄，不必邀請同行；若情境合適，TA也可以自然道別離開，不必勉強撐到玩家換地點。`;
+    const isMaleMale = String(pc[COL.PC.SEX]) === "男" && String(kanshouEncounterHero.gender) === "男";
+    const friendshipOnly = isMaleMale ? "★TA與玩家同為男性，這段交流僅止於同性情誼／夥伴／損友式互動，不發展曖昧、戀愛或情慾內容，不做任何親密肢體接觸。" : "";
+    return `\n★【本回合系統指定巧遇——這次到訪期間持續有效的例外，不受下方在場驗證鐵律限制】：『${kanshouEncounterHero.realName}』（${kanshouEncounterHero.cls}）此刻恰好也在「${kanshouEncounterLocName}」，${kanshouEncounterMetBefore ? "是已經打過照面的熟面孔" : "是初次的邂逅"}——外貌氣質:${look}／日常個性:${words}。允許TA以真實姓名登場、持續互動，這段緣分在玩家離開這個地點前都有效，不是同行隊伍成員：好感/關係不追蹤記錄，不必邀請同行；若情境合適，TA也可以自然道別離開，不必勉強撐到玩家換地點。${friendshipOnly}`;
   })() : "";
 
   const driveStr = driveOn ? `

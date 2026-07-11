@@ -1158,3 +1158,13 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **記錄不動手的重複/重構候選(7組，皆有真實呼叫、非死碼，僅記錄供未來參考，詳見`FUNCTION_MANUAL.md`文末附錄)**：MEMORY get/set/clear手寫正則家族(Router_Battle.gs六組+Router_Movement.gs兩組+Core_Settings.gs五組)、Script.html七個action handler共享同一套confirm→beginAction→gasRun→syncData→narrate→endAction樣板、manaSetOutput與setServantOutput同一action兩個UI入口、sanitizeSix_與parseForgeBuild_內inline六圍驗證兩份平行實作、upgradeCodexPersonas_與upgradeMasterCodex_結構鏡射、getGameHistory與getGameHistoryBatchRaw邏輯幾乎一致只差輸出格式、gobVolley_與chainVolley_彈幕公式邏輯相同僅顆數不同。這些都是「有用但可精簡」，跟真死碼(零呼叫)是兩回事，這輪只處理後者。
 
 **驗證**：`bash check.sh`全過(6個修改檔案：`Gallery.gs`/`Mystic_Code.gs`/`Setup_FateWorld.gs`/`Seed_Codex.gs`＋文件`HANDBOOK.md`/`CLAUDE.md`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(Gallery.gs這次只刪5個死欄位，皆離nsfwBaseRules很遠，已核實非誤傷)；額外`grep -rn "rollMysticForMaster_\|pickByTier_\|\bsetupFateWorld\b\|seedFateCodex()"`確認全repo無殘留呼叫端。純刪除已確認零呼叫的函式/欄位，不改變任何現存行為，headless環境可完全靜態驗證(不需部署後實機測試)。
+
+## 19. 鑑賞「出門走走」巧遇系統的男男配對漏洞(2026-07 玩家「我不想要看到男男...他們只有正常友情交流」)
+
+**根因**：`actionKanshouSummonHero`(Gallery.gs:352-354)跟`actionKanshouSetSex`(606-610)兩處都明確擋了「僅支援男女／女女配對」——但那兩道防線只守**同行同伴**的邀請/性別切換路徑。2026-07任務#40新增的「出門走走」隨機巧遇系統(`kanshouRollEncounter_`/`KANSHOU_MALE_HERO_IDS_`)走的是完全不同的程式路徑：巧遇對象不邀入隊伍(不經過`actionKanshouSummonHero`)、也不受`actionKanshouSetSex`管——`kanshouEncounterStr`(actionPlay內，約1150行)組出的提示詞原本只寫「允許TA以真實姓名登場、持續互動」，沒有任何性別關係限制。`KANSHOU_MALE_HERO_IDS_`池全員皆男性，若玩家御主性別是男，巧遇到的就一定是男性——這正是既有男男配對防線之外的漏網之魚，玩家在「出門走走」/「問還有誰」這兩個巧遇入口都會踩到。
+
+**動手**：`kanshouEncounterStr`組裝時新增判斷`String(pc[COL.PC.SEX])==="男" && String(kanshouEncounterHero.gender)==="男"`，成立則額外附加一句「TA與玩家同為男性，這段交流僅止於同性情誼／夥伴／損友式互動，不發展曖昧、戀愛或情慾內容，不做任何親密肢體接觸」明確指令。因為這段字串是`actionPlay`每回合重新組裝(非持久化狀態)，對已經觸發過的舊巧遇(存在MEMORY【邂逅中】)同樣會在下一句對話立即套用，不需要玩家重新觸發巧遇或换地點。
+
+**未動的部分**：`genderHintStr`(1083行區)的「女女配對」/「其餘依實際性別自然互動」兩桶邏輯本身不用改——它只掃`presentRowsForGender`(真正的同行隊伍pcData列)，巧遇對象走的是`kanshouEncounterHero`這個獨立變數(來自`SEED_SERVANTS`，非pcData列)，兩套機制原本就不交集，不需要合併處理。
+
+**驗證**：`bash check.sh`全過(1個修改檔案：`Gallery.gs`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這次改動只動`actionPlay`內`kanshouEncounterStr`組裝那幾行，離`nsfwBaseRules`本體很遠)。純prompt層級加一句限定指令，不改變資料結構/MEMORY格式，headless環境無法實機驗證AI是否真的遵守這句新指令，建議部署後測試：男御主在「出門走走」任一地點觸發巧遇(或對已有【邂逅中】的舊局說話)，確認巧遇對象的互動維持在朋友向，不出現曖昧/親密走向；女御主巧遇同一批男性角色應維持原本不受影響的正常互動。
