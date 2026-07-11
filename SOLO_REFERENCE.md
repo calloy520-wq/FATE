@@ -1142,3 +1142,19 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **`Account.gs`重新複查**：確認§前次已修的`DEAD_`前綴查找漏洞(`rid === charId || rid === "DEAD_" + charId"`)現況仍然生效(`git diff HEAD`該檔為空)，且獨立重新推導後**優先度應該上修**——這不只是防禦性補強，是真的能被合法多分頁情境觸發的資源洩漏(分頁A的角色死亡、分頁B停在較舊的`scr-menu`快取直接發`account_new_game`，沒有這條修正的話該局的孤兒列永遠不會被清)。其餘複查範圍(帳號跨局串接、`purge_orphans`時序、鎖機制)沒有找到新的bug，一項`purge_orphans`時序小瑕疵(死亡到下次登入之間的窄窗口內清孤兒列可能提早清掉，但前端UI唯一按鈕的路徑已被`accountLogin()`的既有清理擋住，摸不到)記錄不動手。
 
 **驗證**：`bash check.sh`全過(4個修改檔案：`Gallery.gs`/`Router_Persona.gs`/`Script.html`/`Script_Onboarding.html`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(`Gallery.gs`這次的改動只刪了`allKnownNames`回傳欄位，離`nsfwBaseRules`很遠，已核實非誤傷)。**這輪的方法論收穫**：對「找到並修好N處同款bug」的稽核結果，不能假設N就是全部——用「專門重新地毯式搜同一個bug形狀」的agent、加上人工窮舉每一處符合該形狀的呼叫點逐一分類確認，才抓到§16遺漏的3處；這個「窮舉式收尾驗證」步驟往後任何pattern-based修正都應該比照做，而不是找到几处就收工。
+
+## 18. 建立全函式工具書＋清死碼(2026-07 玩家「整理全部說明！沒用到移除！建立工具書！理解每個函數的功能！」)
+
+派13個並行agent逐檔案(全部23個`.gs`/`.html`、14,718行)地毯式讀完每個函式：①實讀函式本體寫一句話用途 ②全repo grep找呼叫點(含onclick字串/ActionRouter dispatch表登記/動態template-literal產生的onclick) ③零呼叫點才標死碼候選。所有死碼候選我本人逐一重新讀源碼獨立驗證(不盲信agent報告)後才動手，成果彙整成新檔`FUNCTION_MANUAL.md`(全專案逐函式清單，含ActionRouter完整51項對照表)，`HANDBOOK.md`§4與`CLAUDE.md`開工必讀清單同步補上這份文件的入口。
+
+**動手移除的真死碼(共4類，皆獨立驗證後確認零呼叫)**：
+1. `Mystic_Code.gs`的`rollMysticForMaster_`+`pickByTier_`——2026-07創角改玩家自選後零呼叫，程式碼自己註解承認「保留給未來掉落用途」，屬於為假設性未來需求寫的死碼(`MYSTIC_CODES`各項殘留的`tier`欄位保留原樣未動，只改註解說明現已無消費端，不影響資料格式)。
+2. `Setup_FateWorld.gs`的`setupFateWorld`(GAS編輯器手動執行包裝)——零呼叫，功能與`actionCheckSheets`(前端按鈕版，2026-07新增)完全重疊，後者已完整取代前者。
+3. `Seed_Codex.gs`的`seedFateCodex()`(無底線版，GAS編輯器手動執行包裝)——零呼叫，其功能(灌種子)已透過`ensureFateSheets_`→`seedFateCodex_`(有底線版)在每次開網頁/每個action呼叫時自動執行，手動包裝完全冗餘。
+4. `Gallery.gs`回應payload死欄位(computed-but-never-consumed，同上一輪`allKnownNames`同類型，共5個)：`actionKanshouSummonHero`的`isNew`、`actionEnterKanshou`的`resumed`(3處賦值)、`actionKanshouCompanions`的`available`(恆空陣列)、`actionEndRun`的`cls`、`actionPlay`的`myItemNames`(恆空陣列)——全部grep確認全repo無任何`.html`消費端，予以移除。
+
+**刻意保留、未移除的零呼叫函式**：`Setup_FateWorld.gs`的`removeAllTriggers()`——這是給人在Apps Script編輯器手動執行一次的專案觸發器清理工具，其存在意義與「被程式碼呼叫」無關(GAS觸發器設定獨立於程式碼本身)，零呼叫點是這類工具的正常型態，不是死碼，不動。
+
+**記錄不動手的重複/重構候選(7組，皆有真實呼叫、非死碼，僅記錄供未來參考，詳見`FUNCTION_MANUAL.md`文末附錄)**：MEMORY get/set/clear手寫正則家族(Router_Battle.gs六組+Router_Movement.gs兩組+Core_Settings.gs五組)、Script.html七個action handler共享同一套confirm→beginAction→gasRun→syncData→narrate→endAction樣板、manaSetOutput與setServantOutput同一action兩個UI入口、sanitizeSix_與parseForgeBuild_內inline六圍驗證兩份平行實作、upgradeCodexPersonas_與upgradeMasterCodex_結構鏡射、getGameHistory與getGameHistoryBatchRaw邏輯幾乎一致只差輸出格式、gobVolley_與chainVolley_彈幕公式邏輯相同僅顆數不同。這些都是「有用但可精簡」，跟真死碼(零呼叫)是兩回事，這輪只處理後者。
+
+**驗證**：`bash check.sh`全過(6個修改檔案：`Gallery.gs`/`Mystic_Code.gs`/`Setup_FateWorld.gs`/`Seed_Codex.gs`＋文件`HANDBOOK.md`/`CLAUDE.md`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(Gallery.gs這次只刪5個死欄位，皆離nsfwBaseRules很遠，已核實非誤傷)；額外`grep -rn "rollMysticForMaster_\|pickByTier_\|\bsetupFateWorld\b\|seedFateCodex()"`確認全repo無殘留呼叫端。純刪除已確認零呼叫的函式/欄位，不改變任何現存行為，headless環境可完全靜態驗證(不需部署後實機測試)。

@@ -174,16 +174,9 @@ function reseedIfEmpty_(ss) {
   try { PropertiesService.getScriptProperties().setProperty('fate_reseed_ver', RESEED_VER); } catch (e) { } // 一次性遷移完成、之後跳過
 }
 
-// 🔵 可從編輯器手動執行：回報建了哪些分頁
-function setupFateWorld() {
-  var created = ensureFateSheets_();
-  var msg = created.length ? ("已新建分頁：" + created.join("、")) : "全部 13 個分頁皆已存在，無需新建。";
-  Logger.log(msg);
-  return msg;
-}
-
-// 🔘 2026-07 玩家新增：登入畫面的「檢查/建立試算表」按鈕唯一呼叫點——把 setupFateWorld() 的能力
-//   包成一個可從網頁前端觸發的 action，免開 GAS 編輯器手動執行。刻意不需要 pcId(登入前就可以按)，
+// 🔘 2026-07 玩家新增：登入畫面的「檢查/建立試算表」按鈕唯一呼叫點——把 ensureFateSheets_() 的能力
+//   包成一個可從網頁前端觸發的 action，免開 GAS 編輯器手動執行(舊版編輯器專用包裝函式 setupFateWorld
+//   已於 2026-07 函式稽核確認完全被本 action 取代、零呼叫點後移除)。刻意不需要 pcId(登入前就可以按)，
 //   也不受 KANSHOU_BLOCKED_ACTIONS_ 影響(該名單只擋「鑑賞context」呼叫solo專屬action，這裡pcId
 //   恆為空，isKanshouCtx 恆為false，不會被攔)。
 function actionCheckSheets(userData, pcId, sheets) {

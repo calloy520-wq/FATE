@@ -84,11 +84,10 @@ function actionEndRun(userData, pcId, sheets) {
 
   var sv = findPlayerServant_(pcData, gameId);
   var realName = sv ? String(sv.row[COL.PC.NAME] || "從者") : "";
-  var cls = sv ? String(sv.row[COL.PC.RANK] || "從者") : "";
 
   purgeGameData_(sheets, gameId, acctName, pcData);
 
-  return JSON.stringify({ success: true, servantName: realName, cls: cls });
+  return JSON.stringify({ success: true, servantName: realName });
 }
 
 // 🌹 鑑賞專屬眾生分頁：慾海角色(御主 avatar＋同伴從者)全部住這、與主「眾生」隔離，
@@ -375,9 +374,7 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
     return JSON.stringify({ success: true, added: heroName, message: "「" + heroName + "」回到了你們身邊。" });
   }
   kpc.appendRow(heroToKanshouRow_(hero, gid, loc));
-  // 🧹 2026-07：isNew 原本供前端判斷要不要觸發已刪除的 actionBackfillKanshouServantAi 深化呼叫，
-  //   該深化本身已隨daily欄位系統整條移除，這個旗標保留輸出無害但目前無消費端。
-  return JSON.stringify({ success: true, added: heroName, isNew: true, message: "「" + heroName + "」來到了你們身邊。" });
+  return JSON.stringify({ success: true, added: heroName, message: "「" + heroName + "」來到了你們身邊。" });
 }
 
 // 🌹 進入慾海·後日談（新版單一持久主畫面）：每個帳號只有【一個】常駐後日談世界。
@@ -400,7 +397,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
       if (String(data[r][COL.PC.ID]) !== linkedKpcId) continue;
       var loc = String(data[r][COL.PC.LOC] || "冬木·深山町");
       return JSON.stringify({
-        success: true, resumed: true,
+        success: true,
         pcId: linkedKpcId, pcName: String(data[r][COL.PC.NAME] || acctName),
         pcSex: String(data[r][COL.PC.SEX] || "異"), loc: loc
       });
@@ -417,7 +414,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
       var migId = String(data[m][COL.PC.ID]);
       linkAccountToKanshouPc_(acctName, migId);
       return JSON.stringify({
-        success: true, resumed: true,
+        success: true,
         pcId: migId, pcName: String(data[m][COL.PC.NAME] || acctName),
         pcSex: String(data[m][COL.PC.SEX] || "異"), loc: String(data[m][COL.PC.LOC] || "冬木·深山町")
       });
@@ -471,7 +468,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
   linkAccountToKanshouPc_(acctName, mId); // 🔒 權威連結寫進帳號表
 
   return JSON.stringify({
-    success: true, resumed: false,
+    success: true,
     pcId: mId, pcName: mName, pcSex: mSex, loc: loc2
   });
 }
@@ -542,8 +539,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 }
 
 // 👥 列出後日談現有同伴（上限 3 人）。pcId＝慾海御主 avatar(KPC_)。
-//   ⚠ 2026-07：邀請只剩「英靈殿直接召喚」一途(見 actionKanshouSummonHero)，不再有「鑑賞」表
-//   可邀名單——available 恆回空陣列，保留欄位只為前端相容(避免舊快取/其他呼叫端讀取炸掉)。
+//   ⚠ 2026-07：邀請只剩「英靈殿直接召喚」一途(見 actionKanshouSummonHero)，不再有「鑑賞」表可邀名單。
 function actionKanshouCompanions(userData, pcId, sheets) {
   var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」，見 actionKanshouSummonHero 同款註解
   var acctName = String(userData.acctName || "").trim();
@@ -562,7 +558,7 @@ function actionKanshouCompanions(userData, pcId, sheets) {
       current.push({ name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "從者"), bond: parseInt(data[i][COL.PC.BOND]) || 0 });
     }
   }
-  return JSON.stringify({ success: true, current: current, available: [], max: 3 });
+  return JSON.stringify({ success: true, current: current, max: 3 });
 }
 
 // 👥➖ 請走一名同伴（退出當前同行；資料原地保留，隨時可再邀回、累積紀錄不歸零）
@@ -1514,8 +1510,6 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       statusString: buildPlayerStatusString(pcData[pcIndex]),
       people: localPeopleList,
       options: aiData.options,
-      // 經濟層已移除：不再回傳隨身行囊清單
-      myItemNames: [],
       tags: tagsPayload
     });
 

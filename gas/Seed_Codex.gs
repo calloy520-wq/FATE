@@ -597,8 +597,3 @@ function seedFateCodex_(ss) {
   } catch (e) { }
 }
 
-// 可從編輯器手動執行
-function seedFateCodex() {
-  seedFateCodex_();
-  return '英靈殿 ' + SEED_SERVANTS.length + ' 騎、御主殿 ' + SEED_MASTERS.length + ' 名（若原本為空才寫入）。';
-}

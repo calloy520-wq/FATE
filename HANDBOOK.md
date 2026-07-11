@@ -63,6 +63,8 @@ ACC(帳號·4欄): NAME0 PC1(solo御主連結) CREATED2 KPC3(🌹2026-07新增·
 
 ## 4. 檔案地圖（11,700 行·22 檔·2026-07 Router_Action.gs 拆成 8 檔＋前端拆出鑑賞/開局兩檔，見 §4.1）
 
+📖 **逐函式清單見 `FUNCTION_MANUAL.md`**（2026-07 全專案 13 組並行稽核建立：每個函式一行用途＋呼叫關係，含 ActionRouter 完整對照表，grep 前先查這份省時間）。下表只列每檔重點函式，完整清單以該檔為準。
+
 | 檔 | 行 | 用途 | 關鍵物 |
 |---|---|---|---|
 | **Router_Action.gs** | ~400 | 後端總分流器·核心(2026-07 拆成 8 檔，見下) | `ActionRouter`(dispatch表)、`handleGameAction`(14天時限攔截＋`_state`夾帶)、`sanitizeUserData_`、`actionGetTags`/`buildTagsPayload_`、`buildClientState_`/`actionSync`、`actionCheckName/GetFullStatus/UpdateFate/UpdateRelTag`(小型通用action) |
@@ -88,7 +90,7 @@ ACC(帳號·4欄): NAME0 PC1(solo御主連結) CREATED2 KPC3(🌹2026-07新增·
 | **Style.html** | 594 | 全站 CSS（暗色·金色主題·三欄RWD） | `:root` 變數、`.msg-*`、`.modal-*`、`fk*` 地圖動畫、`barThrob` |
 | **Index.html** | 414 | HTML 進入殼＋各屏 div | `#setup`/`#game` 兩容器、創角召喚各屏 ID、雙軌入口卡片 |
 | **History_Sync.gs** | 153 | 對話歷史暫存(逐句對話，驅動聊天記錄/敘事連續性) | `saveGameHistoryBatch`、`getGameHistoryBatchRaw`、`getGameHistory`。⚠ 2026-07：「因果」(事件log)機制已整套刪除——`pickRelevantLogs`/`readRecentLogRows`/`formatCausalityEntry`/`pickNsfwCausalityEvent`/`trimLogRowsByOwner`/`IMPORTANT_LOG_TAGS` 全數移除，`actionPlay` 提示詞不再組「前塵因果」段；此與仍保留的「歷史暫存」是兩套不同機制 |
-| **Mystic_Code.gs** | 130 | 禮裝系統（2026-06 全面被動化） | `MYSTIC_CODES`、`MC_COMBAT_`、`injectMysticBuff_`/`mcCombatFx_`、`rollMysticForMaster_` |
+| **Mystic_Code.gs** | ~100 | 禮裝系統（2026-06 全面被動化） | `MYSTIC_CODES`、`MC_COMBAT_`、`injectMysticBuff_`/`mcCombatFx_`。⚠ 2026-07：`rollMysticForMaster_`/`pickByTier_`(創角改玩家自選後零呼叫的死碼)已移除 |
 
 ### 4.1 檔案拆分慣例（2026-07 定案·未來新增檔案照這個模式，別重新發明）
 
