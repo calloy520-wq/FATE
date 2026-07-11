@@ -1037,6 +1037,21 @@ function actionFateBattle(userData, pcId, sheets) {
   //   即興出「冷眼旁觀」的類型套路。
   if (enemyMasterCardStr && !isMasterTarget) {
     enemyMasterCardStr += `★上述敵御主正是「${defC.name}」的契約御主——自己的從者正在眼前搏命交戰，戰局每一刀都切身相關。\n`;
+    // 🎭 戰局實況錨點(2026-07 玩家反映「對面的御主感覺不太會看場合對話」)：光有性格/關係卡沒有
+    //   戰況資訊，AI 容易讓敵御主的反應/台詞跟當下實際打得怎樣脫節(如己方從者已被壓著打卻還一派
+    //   從容、或雙方勢均力敵卻演得像穩操勝券)。這裡把已算好的HP比例/傷害交換即時算成一句白話戰況，
+    //   逼反應對應當下真實場面，不是另開一套判斷——沿用既有的 defeat/destroyedName/totalDealt/
+    //   totalTaken/pcData[nIdx].HP，皆本函式已算好的數字，純敘事層級補一句錨點。
+    const _defHpNow = parseInt(pcData[nIdx][COL.PC.HP]) || 0, _defHpMaxNow = parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1;
+    const _hpRatioNow = _defHpMaxNow > 0 ? _defHpNow / _defHpMaxNow : 1;
+    const _situText = defeat ? '己方從者完全壓制、我方從者早已潰敗'
+      : destroyedName ? '己方從者剛親手終結了對面戰力'
+        : _hpRatioNow <= 0.25 ? '己方從者身陷重創、命懸一線，情勢危急'
+          : _hpRatioNow <= 0.55 ? '己方從者已見劣勢、傷勢漸重'
+            : (totalTaken > totalDealt * 1.3) ? '己方從者正壓著對方打、明顯佔上風'
+              : (totalDealt > totalTaken * 1.3) ? '己方從者略顯吃力、被壓著打'
+                : '雙方勢均力敵、勝負未有定論';
+    enemyMasterCardStr += `★【戰局實況】此刻真實情勢是：${_situText}——敵御主的神態/語氣/台詞必須讀懂這個場面(得意、焦慮、強撐、嘲諷、動搖皆可，由性格決定怎麼反應，但反應內容不可無視當下戰況自說自話)。\n`;
   }
   // 🎭 敵從者演出卡(2026-07 補)：戰鬥提示詞原本只附我方從者卡，敵從者的性格/口吻/狂化禁言
   //   全靠 AI 憑真名即興——移動抵達敘事(Router_Movement.gs)早就附敵從者卡，戰鬥反而沒有。
