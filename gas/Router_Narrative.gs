@@ -187,8 +187,10 @@ function actionNarrateOnly(userData, pcId, sheets) {
 
   // 🔥 2026-07：補魔/強制補魔的高好感解鎖分支會夾帶 deepseek:true，換成 AI_MODEL 承接更露骨的描寫；
   //   前端只在那兩個特定成功分支才會傳這個旗標(見 Router_Economy.gs/Router_Bond.gs)，其餘呼叫一律不傳。
+  //   這個分支的指令要求 500~600 字(遠長於平常120~180字)，720 tokens 會截斷——比照鑑賞NSFW長篇
+  //   幅度(2600 tokens/約500字目標)給足餘裕，一般呼叫不受影響(仍是720)。
   const useDeepseek = !!userData.deepseek;
-  const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw, maxTokens: 720, model: useDeepseek ? AI_MODEL : undefined });
+  const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw, maxTokens: useDeepseek ? 2000 : 720, model: useDeepseek ? AI_MODEL : undefined });
   if (narrationText === null) return JSON.stringify({ success: true, text: "（此處因果已定，氣息微微一閃。）" });
   saveGameHistoryBatch(pcId, [
     { speaker: "player", content: cleanNarrateEcho_(promptText) }, // 🧹 存洗淨摘要、非整串提示詞(否則重整歷史會把演出依據/★指令/素材全攤給玩家看)
