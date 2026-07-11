@@ -1352,3 +1352,20 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **改動**：`Seed_Rivals.gs`的`seedRivalsForGame_`混亂(chaos)分支，7行的隨機配對迴圈補上上述機率判定。正史(4th/5th)分支完全不受影響(它有自己的roster-level `arriveDay`/`arriveHint`欄位，本次未動)。
 
 **驗證**：`bash check.sh`全過(1個修改檔案：`Seed_Rivals.gs`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。headless環境無法真正開混亂模式局驗證，部署後建議測試：開幾局混亂模式，確認每局有3組保底第1天在場、其餘組別偶爾會延後登場且天數隨機、風聲預告文字讀起來自然(職階泛用措辭沒有語意錯誤)。
+
+## §34 羈絆里程碑事件（2026-07·玩家問「新的機制或是系統呢？」→挑「羈絆里程碑事件」深入）
+
+**背景**：玩家問 solo 還缺什麼「新機制/新系統」（而非既有功能的修補）。盤點後提出4個方向（羈絆里程碑事件／多重結局分歧／調查情報系統／令咒新用法），玩家選「羈絆里程碑事件」——BOND(好感)現在只是純數字+一個由玩家手動設定、AI不可寫入的REL_TAG標籤，30/60/90這種門檻從未觸發任何特別演出，跟每日「相處」的泛用小品文字沒有區別。
+
+**設計取捨**：
+- **判定時機刻意放在`actionBond`(相處動作)裡，而非集中寫進`raiseBond_`本身**——`raiseBond_`是被多處呼叫的羈絆數值寫入單一入口(相處+10／令咒強制補魔+8／破戒奪取+10)，若在那裡直接判定並標記「已演出」，會導致里程碑在不適合演出溫馨劇情的情境(如破戒奪取從者，強制奪僕的當下給一段甜蜜里程碑戲碼在調性上矛盾)被默默燒掉、玩家永遠看不到那段本該屬於「相處」的專屬演出。改成：`actionBond`自己讀「目前羈絆值 vs 尚未演出過的最低門檻」，不管羈絆是被哪個管道墊高到門檻之上——只要下次玩家按「相處」時仍未達成過，就會在那次相處演出，不會被其他管道的羈絆加成路徑意外提前消耗掉。
+- **判定與「真正標記已演出」分兩步、以奇襲事件分岔**：`actionBond`裡的卸防突襲(`enemyAmbushOnServant_`)本來就會在相處時有機率打斷、蓋掉原本的溫馨小品換成戰報。里程碑候選值只在**沒被奇襲打斷**的分支才真正寫回MEMORY標記「已演出」——若被奇襲打斷，門檻視為尚未演出，留到下次真的順利相處時再補演，不會因為一次意外奇襲就永久錯過這段劇情。
+- **儲存**：沿用`【羈絆日】`同一套get/set慣例，新增`【羈絆里程碑】30,60`(逗號分隔已達成清單)存在該NPC(從者)自己列的MEMORY，`getBondMilestonesFired_`/`setBondMilestonesFired_`(`Router_Bond.gs`)。
+- **演出內容**：沿用`masterCard_`/`servantCard_`既有演出依據卡，提示詞要求AI寫「屬於這位從者獨有的一個具體舉動或一句話」而非泛用模板，並重申show-don't-tell(不可直白說「羈絆加深了」或直述願望/個性/萌點字面)。純新增prompt文字，未動`nsfwBaseRules`/`buildDefaultSystemPrompt`(那兩者solo完全不會呼叫到)。
+- **前端**：`bond()`(Script.html)在`res.milestone`為真時，於敘事前插入一行淡粉色置中提示「💞　羈絆邁向新的深度　💞」，讓玩家一眼認出這次不是普通的相處小品；不新增任何按鈕/UI面板，門檻自動從既有「相處」按鈕觸發。
+
+**改動**：
+- `Router_Bond.gs`：新增`BOND_MILESTONES_`(=[30,60,90])常數＋`getBondMilestonesFired_`/`setBondMilestonesFired_`兩個helper；`actionBond`新增里程碑候選判定(`firedMilestones`/`milestone`)，`if(ambush)/else if(milestone)/else`三分支重構(原本只有ambush/else兩支)，回應新增`milestone`欄位(僅在非奇襲時回傳真值)。
+- `Script.html`：`bond()`函式在`res.milestone`真值時插入一行過場提示。
+
+**驗證**：`bash check.sh`全過；獨立node腳本沙盒測試`getBondMilestonesFired_`/`setBondMilestonesFired_`跨門檻判定邏輯(30→33觸發、45不重觸發、60→61觸發、標記持久化後重新解析仍正確)全數通過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。headless環境無法真正跑一局驗證AI實際輸出的演出品質，部署後建議測試：找一位從者連續「相處」把羈絆推過30/60/90，確認三次都各自觸發一次專屬演出(而非每次都是泛用小品)、且同一門檻不會重複觸發、旗標在奇襲打斷後下次仍能補演出。

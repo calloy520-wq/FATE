@@ -115,6 +115,23 @@ function setBondUsedToday_(memory, day, type) {
   return (s ? s + "｜" : "") + marker;
 }
 
+// 💞 羈絆里程碑（2026-07 新增）：BOND 跨過門檻時，把當次「相處」從泛用小品升級成專屬一次性劇情
+//   （show-don't-tell：只給 AI 情境，不直述「羈絆加深了」）。門檻只在 30/60/90 各觸發一次，
+//   標記存在該從者（NPC）自己列的 MEMORY，跟 【羈絆日】 同一套 get/set 慣例。
+//   ⚠ 只在 actionBond 這個「相處」動作內判定與消耗——若判定當下同時被奇襲打斷，故意不標記已觸發，
+//   讓這次錯過的里程碑留到下次真正順利相處時再演出，不會因為一次意外的奇襲就永遠錯過這段劇情。
+var BOND_MILESTONES_ = [30, 60, 90];
+function getBondMilestonesFired_(memory) {
+  var m = String(memory || "").match(/【羈絆里程碑】([\d,]*)/);
+  return m && m[1] ? m[1].split(",").map(Number) : [];
+}
+function setBondMilestonesFired_(memory, arr) {
+  var s = String(memory || "");
+  var marker = "【羈絆里程碑】" + arr.join(",");
+  if (/【羈絆里程碑】[\d,]*/.test(s)) return s.replace(/【羈絆里程碑】[\d,]*/, marker);
+  return (s ? s + "｜" : "") + marker;
+}
+
 // 💕 羈絆互動（純按鈕，無對話框）：2026-07 玩家定案——原本閒聊/共餐/特訓/夜談 4 種「每日打卡」
 //   收成單一「相處」（每遊戲日限一次、跨日重置、+10 羈絆）。味道(閒話/共餐/特訓/夜談)交給 AI
 //   依當下時段/羈絆/性格自由即興，不再是假選擇的每日清單。羈絆會餵給路線自然浮現（深羈絆→偏 Fate 線）。
@@ -169,6 +186,16 @@ function actionBond(userData, pcId, sheets) {
     bondNow = parseInt(freshSv) || 0;
   } catch (e) { }
 
+  // 💞 羈絆里程碑候選：取「已達成但尚未演出過」的最低門檻（不論這次相處本身有沒有跨過門檻——
+  //   若羈絆是被令咒充能/破戒奪取等其他管道墊高越過門檻，這裡仍能在下次相處時補演，不會漏掉）。
+  //   只算候選、暫不標記寫回：真正消耗要等下面確認「這次沒被奇襲打斷」才落地。
+  const firedMilestones = getBondMilestonesFired_(pcData[svIdx][COL.PC.MEMORY]);
+  let milestone = null;
+  for (let mi = 0; mi < BOND_MILESTONES_.length; mi++) {
+    const th = BOND_MILESTONES_[mi];
+    if (bondNow >= th && firedMilestones.indexOf(th) < 0) { milestone = th; break; }
+  }
+
   // ⚔️ 卸防突襲：相伴談心時門戶大開，同地若有清醒敵從者→趁隙重擊
   const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, userData, 1.2);
 
@@ -179,6 +206,17 @@ function actionBond(userData, pcId, sheets) {
     aiPrompt = (ambush.foeCard || '') + `【系統·相伴遭突襲·已裁定】御主『${masterName}』與「${svName}」正${act.label}、卸下心防之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自暗處無聲突襲' : '抓準這破綻殺出'}，一擊重創「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n` +
       `★以 Fate／TYPE-MOON 筆觸描寫溫存被突襲撕裂的驚變與兇險，${ambush.destroyed ? '及從者消滅的痛楚（語氣留白）' : '及從者依其性格與羈絆對此突襲的反應（重情者強撐護主、疏離者未必）'}。傷害與勝負已由系統結算。\n` +
       ``;
+  } else if (milestone) {
+    // 里程碑真正落地：標記已演出，之後同一門檻不會再觸發
+    firedMilestones.push(milestone);
+    pcData[svIdx][COL.PC.MEMORY] = setBondMilestonesFired_(pcData[svIdx][COL.PC.MEMORY], firedMilestones);
+    sheets.pc.getRange(svIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[svIdx][COL.PC.MEMORY]);
+    aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
+      `【系統·羈絆里程碑·已裁定】御主『${masterName}』與從者「${svName}」相處之際，兩人的羈絆悄然邁過一道分水嶺（時值${band}）。\n` +
+      `★這不是尋常的${act.label}，而是關係質變的一瞬——依「${svName}」的真名、性格與此刻羈絆的深淺，寫出屬於這位從者獨有的一個具體舉動或一句話（例如：卸下慣有的距離感、罕見地主動靠近、遞出從未給過的東西、換了個從未用過的稱呼——擇其中最貼合這位從者性格的一種，不要套用泛用模板，也不要多選並列）。\n` +
+      `★【精煉100~160字】以 Fate／TYPE-MOON 筆觸，聚焦這一個瞬間，勿流水帳交代前後經過。\n` +
+      `★【show, don't tell】絕不可直白說出「羈絆加深了」「更信任了」等抽象詞，也絕不可直述其「願望／個性／萌點」設定字面，只憑神態與言行流露；停在意猶未盡的留白。\n` +
+      `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。`;
   } else {
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【系統·羈絆已結算】御主『${masterName}』與從者「${svName}」${act.label}、共度約莫一個小時的光景，兩人的羈絆又深了一分（時值${band}）。\n` +
@@ -187,9 +225,10 @@ function actionBond(userData, pcId, sheets) {
       `★【show, don't tell】用言行、神態、停頓去流露情感與性格，絕不可直白說出其「願望／個性／萌點」等設定詞；停在含蓄的留白。\n` +
       `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。`;
   }
-  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：本函式所有寫入(raiseBond_/MEMORY日限/spendAp_/夜襲)皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
+  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：本函式所有寫入(raiseBond_/MEMORY日限/spendAp_/夜襲/里程碑標記)皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, bond: bondNow, bondUsed: usedToday,
+    milestone: (!ambush && milestone) ? milestone : null,
     ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", report: ambush ? ambush.report : null,
     ap: bondAp, clock: bondClock,
     statusString: getFreshStatusString(pcId, pIdx, sheets)
