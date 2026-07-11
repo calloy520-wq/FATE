@@ -285,7 +285,10 @@ var SKILL_FX_ = {
   // 🥋 御主體術參戰（2026-07 新增）：御主本人在戰場上助拳的小額支援傷害，非從者自身技能——
   //   r 取自御主自己的【體術】階級(注入時 injectMasterMeleeSupport_ 帶入)，量級刻意壓在
   //   wind_strike/crafting 同一檔次(凡人體術終究打不過從者本體技能)，不喧賓奪主。
-  master_melee: { passive: true, zh: '御主體術', dmgAdd: function (r) { return Math.round(7 * r); } }
+  master_melee: { passive: true, zh: '御主體術', dmgAdd: function (r) { return Math.round(7 * r); } },
+  // 🔮 御主魔術支援（2026-07 新增）：與 master_melee 同量級，但只在己方出戰從者為 Caster 時才會被
+  //   注入(見 injectMasterMagicSupport_ 的職階判斷)——體術管近戰助拳、魔術管施法支援，對應不同陣容。
+  master_magic: { passive: true, zh: '御主魔術', dmgAdd: function (r) { return Math.round(7 * r); } }
 };
 function skillFxVal_(v, r, c) { return (typeof v === 'function') ? v(r, c) : v; }
 // 🥋 把御主自己的體術階級注入我方從者戰鬥單位 c 的 skills（比照 injectMysticBuff_ 同一套「找 fx
@@ -296,6 +299,18 @@ function injectMasterMeleeSupport_(c, masterMemory) {
   c.skills = (c.skills || []);
   if (!c.skills.some(function (s) { return s && s.fx === 'master_melee'; })) {
     c.skills = c.skills.concat([{ n: '御主體術', r: melee, fx: 'master_melee' }]);
+  }
+  return c;
+}
+// 🔮 把御主自己的魔術階級注入我方從者戰鬥單位 c 的 skills——僅當 c 是 Caster(魔砲型出擊)才注入，
+//   體術(近戰助拳)不限職階、魔術(施法支援)限定 Caster，兩條能力線刻意對應不同陣容、避免無腦疊加。
+function injectMasterMagicSupport_(c, masterMemory) {
+  if (!c || String(c.cls) !== 'Caster') return c;
+  var magicRank = getMasterMagicRank_(masterMemory);
+  if (!magicRank) return c;
+  c.skills = (c.skills || []);
+  if (!c.skills.some(function (s) { return s && s.fx === 'master_magic'; })) {
+    c.skills = c.skills.concat([{ n: '御主魔術', r: magicRank, fx: 'master_magic' }]);
   }
   return c;
 }
@@ -740,6 +755,8 @@ function resolveFateBattle_(atk, def, opts) {
   // 🥋 御主體術參戰（見 injectMasterMeleeSupport_ 注入來源）：目前僅玩家側從者吃得到(呼叫端比照
   //   禮裝 injectMysticBuff_ 同一套 FACTION==="從者" 門檻注入)，敵御主體術暫僅供演出卡陳述、未接戰鬥。
   base = fxDmgApply_(base, winner, loser, 'master_melee', fired);
+  // 🔮 御主魔術支援（見 injectMasterMagicSupport_ 注入來源，僅 Caster 出擊時存在此 fx）。
+  base = fxDmgApply_(base, winner, loser, 'master_magic', fired);
   // 🗡️ 秘劍・燕返(tsubame)：劍術本身——三方位同斬 ×2.3【普攻限定·僅每場第1回合】(2026-07 三修玩家定案：
   //   與寶具骰/超載/規模疊乘會爆炸故普攻限定；再限首回合一閃(opts.round)擋「回回×2.3」普攻流無敵化。
   //   寶具解放段(四修)已無疊乘、僅剩 概念位階3/貫穿＋演出標籤，不受首回合限制)

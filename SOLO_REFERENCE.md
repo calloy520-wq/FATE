@@ -1390,3 +1390,27 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `Router_Battle.gs`：3 個真正用於傷害結算的 `injectMysticBuff_` 呼叫點(開場對轟攻方/每回合出擊/`fateStrike_`守方)各配一行 `injectMasterMeleeSupport_`；第4個(`tgtC0`avalon檢查用即棄物件)不動。
 
 **驗證**：`bash check.sh`全過；`tools/battle_sim/engine.js`載入真引擎跑沙盒測試(阿爾托莉雅 vs 庫·丘林，N=3000)——無體術/E/C/A/EX 五組平均命中傷害依序 78.7/81.2/86.5/92.1/94.6(隨階級線性遞增、量級符合 7×rankMul_ 公式)，勝率僅 88.3%→89.3%(未破壞平衡)；`fired[]` 標籤確認正確顯示「御主體術」；重複注入/無體術標記兩種邊界情況皆驗證正確(不重複注入、無標記則零加成)。`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。headless環境無法驗證 masterCard_/enemyMasterCard_ 演出卡實際餵給AI後的敘述品質，部署後建議測試：開一局戰鬥，確認演出卡讀得到體術/魔術描述、戰報偶爾出現「御主體術」傷害加成標籤。
+
+## §36 御主魔術階位上線：Caster限定的魔術支援傷害（2026-07·玩家追問「御主的魔法類別是不是也要上線？」）
+
+**背景**：§35 上線體術後，玩家追問另一個同樣死掉的欄位——`COL.MASTER.MAGIC_RANK`(魔術階位，E~A rank字母，跟體術是完全平行的存在)是否也要比照上線。問玩家「限Caster生效 vs 不限職階 vs 先不動」三選一，玩家回「[No preference]」(無偏好)——依先前已提出的推薦方案(限Caster生效)實作，理由：體術管近戰助拳(任何職階出擊都合理)，魔術管施法支援(只有靠魔力交鋒的 Caster 用得上，讓兩條能力線各自對應不同陣容，而非疊在一起變成無腦雙倍加成)。
+
+**實作前發現的資料缺口(體術沒有這個問題)**：體術能上線是因為「命運測定」(玩家創角流程)本來就會擲出 melee，玩家自己有這筆資料。但魔術階位**只存在種子御主表**，命運測定的3擲流程(`rollFate()`,Script_Onboarding.html)從未擲過這個值、`actionManualNpc`(create)也沒有對應欄位——若不補上，這個機制會變成「敵方Caster配對的敵御主有魔術階位可以生效、但玩家自己永遠不會有」的系統性不對稱(玩家的Caster從者永遠吃不到這項加成)。查證後決定**補齊玩家側的資料來源**而非做半套：
+- `rollFate()` 新增一次**獨立**擲骰(不沿用melee的`mr`，用新的`magr`)算出`magicRank`，跟melee同一套E/D/C/B四階機率分佈——體術/魔術刻意做成兩條不相干能力線，一位御主可能體術強魔術弱，反之亦然，比「兩者綁同一擲」更有角色深度。
+- `pickCanonMaster`(扮演正典御主流程)幫melee早就墊了`melee:'D'`固定預設(因為`actionGetMasters`回傳給前端的正典御主資料本就沒帶melee/magic_rank，只有給picker顯示用的name/appear/wish/magic文字)——這次比照同一慣例補`magicRank:'C'`固定預設，維持與melee相同的簡化程度，不额外去擴充`actionGetMasters`payload(那是更大範圍的既有設計，非本次範圍)。
+
+**設計取捨**：
+- **注入時直接做職階判斷**：`injectMasterMagicSupport_`(Engine_Fate.gs)內部第一行就檢查`c.cls !== 'Caster'`不符合直接return——判斷邏輯只放一個地方，呼叫端(3個 Router_Battle.gs 呼叫點)不用重複判斷職階，維持跟`injectMasterMeleeSupport_`同款呼叫介面(單純多帶一個master memory參數)。
+- **量級與體術對稱**：`SKILL_FX_.master_magic`同樣`dmgAdd: 7*rankMul_(r)`，跟`master_melee`完全同一公式——兩條能力線只差「生效條件(職階)」，不差「強度」，避免玩家去比較哪個比較划算而只點其中一個。
+- **演出卡合併顯示**：`masterCard_`/`enemyMasterCard_`原本(§35)已有獨立的「魔術系統：X」行，這次沒有另開一行「魔術階位：Y」，而是併成「魔術系統：X(Y階)」——避免卡片出現兩行都以「魔術」開頭讀起來重複，且階級本來就是依附在那套魔術系統之下的能力深淺，語意上合併比分開更自然。
+
+**改動**：
+- `Core_Settings.gs`：新增`getMasterMagicRank_`讀取器。
+- `Engine_Fate.gs`：`SKILL_FX_`新增`master_magic`；新增`injectMasterMagicSupport_(c, masterMemory)`(內部做`cls==='Caster'`門檻)；`resolveFateBattle_`補一行`fxDmgApply_(...,'master_magic',...)`。
+- `Router_Battle.gs`：3個既有`injectMasterMeleeSupport_`呼叫點各配一行`injectMasterMagicSupport_`(同一個master memory來源，函式內部自行判斷是否為Caster)。
+- `Seed_Rivals.gs`：`masterToNpcRow_`的MEMORY組裝補上`【魔術階位】${mr[COL.MASTER.MAGIC_RANK]}`。
+- `Router_Creation.gs`：`actionManualNpc`解構新增`magicRank`，MEMORY陣列補`magicRank ? \`【魔術階位】${magicRank}\` : ""`。
+- `Script_Onboarding.html`：`rollFate()`新增獨立擲骰算`magicRank`；`renderFateRolls()`卡片顯示補一項；`pickCanonMaster()`補固定預設`magicRank:'C'`；`createPC()`的`gasRun`呼叫補傳`magicRank`。
+- `Router_Persona.gs`：`masterCard_`/`enemyMasterCard_`的魔術系統行併入`(${magicRank}階)`後綴。
+
+**驗證**：`bash check.sh`全過；`tools/battle_sim/engine.js`沙盒測試——Caster(美狄亞)搭配 無/C/A 魔術階位平均命中傷害 114.3/121.1/126.8(隨階級遞增、量級符合公式)；非Caster(阿爾托莉雅，Saber)注入魔術階位後`skills`確認完全沒有`master_magic`項(職階門檻正確擋下、零加成)；同一Caster同時具備體術+魔術兩項標記時`master_melee`/`master_magic`兩個fx皆正確共存不互相覆蓋。`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。headless環境無法驗證命運測定UI實際擲骰顯示與createPC完整送出流程，部署後建議測試：創角時「命運測定」按3次，確認每次都秒顯獨立的魔術階位(不是複製體術那個值)；召喚一位Caster出戰，確認演出卡讀得到「魔術系統：X(Y階)」、戰報偶爾出現「御主魔術」傷害加成標籤；召喚非Caster出戰確認不會出現這個標籤。

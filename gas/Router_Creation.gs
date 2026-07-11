@@ -7,7 +7,7 @@
 function actionManualNpc(userData, pcId, sheets) {
   // 🎴 御主創角專用（action="create"）。手動建 NPC(manual_npc) 已移除；從者另由 actionSummonServant 處理，與此無關。
   const newId = "PC_" + Date.now();
-  const { name, sex, identity, standing, wish, appearance, magic, circuits, origin, melee } = userData;
+  const { name, sex, identity, standing, wish, appearance, magic, circuits, origin, melee, magicRank } = userData;
   let finalName = name;
   const finalSex = sex;
 
@@ -77,6 +77,7 @@ function actionManualNpc(userData, pcId, sheets) {
       circuits ? `【迴路】${circuits}` : "",
       origin ? `【出身】${origin}` : "",
       melee ? `【體術】${melee}` : "",
+      magicRank ? `【魔術階位】${magicRank}` : "",
       "【令咒】3",
       `【模式】${userData.warMode === 'chaos' ? 'chaos' : 'canon'}`,
       userData.warMode === 'chaos' ? "" : `【戰爭】${['4th', '5th'].indexOf(String(userData.war)) >= 0 ? userData.war : '5th'}`,
