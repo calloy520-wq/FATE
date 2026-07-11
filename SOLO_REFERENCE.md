@@ -1501,3 +1501,19 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **改動**：`gas/Core_Settings.gs`(新增`makeIntTag_`/`makeTextTag_`工廠＋`過充`三函式改delegate)；`gas/Router_Battle.gs`(試煉/令咒/靈基透支/整備至四組函式改delegate)；`gas/Router_Movement.gs`(陣地/搜刮兩組函式改delegate)；`gas/Script.html`(新增`runSimpleAction_`＋8個handler改用它)；`FUNCTION_MANUAL.md`(更新對應章節與附錄，標記兩項技術債已解決)。
 
 **驗證**：`bash check.sh`全過；`grep -c "function X("`逐一確認全部17個相關函式定義數皆為1(含新工廠/新helper本身)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。Script.html這段是純前端JS改動、`check.sh`只驗語法不驗runtime行為(CLAUDE.md點名的已知坑)——逐一手動核對8個handler改寫前後的執行順序與副作用完全一致，是這次最主要的驗證手段。
+
+## §43 補魔／強制補魔加好感門檻＋高好感解鎖分支換模型（2026-07·玩家問「現在補魔太容易了」＋「強制補魔可以做成陷阱按鈕嗎」）
+
+**背景**：玩家覺得`mana_supply`(💧補魔)沒有任何社交/情境門檻——好感0也能按、魔力還剩九成也能按，跟提示詞裡「私密而沉重的一刻」的敘事份量不成比例。同時想把令咒的「⚡強制補魔」從「純好處(回滿魔+好感+8)」改成依好感有風險的絕對命令，且明確要求**不要在按鈕上警告**——這就是要讓它像陷阱按鈕。經過兩輪`AskUserQuestion`確認：①低好感的強制補魔死亡風險刻意不在confirm()提示(玩家選「不講，就是陷阱」)；②高好感解鎖分支要換一顆更能承接露骨描寫的模型獨立呼叫(玩家選「獨立呼叫DeepSeek，aiPrompt自己寫得更露骨」，**明確排除**直接呼叫鑑賞`actionPlay`/`nsfwBaseRules`——solo/鑑賞兩軌分離的紅線鄰近設計不動)。
+
+**① `actionManaSupply`(Router_Economy.gs)新增資格檢查**：新增共用常數`MANA_TRUST_BOND_=80`(補魔/強制補魔共用同一信任門檻，單一真實來源)。從者`BOND<80`或御主魔力`>10%`上限時，直接回傳`declined:true`＋AI依「好感不夠」/「魔力還沒見底」分別給事實的婉拒敘述——不耗AP、不燒迴路/血上限、不動好感，是純敘事的no-op。條件皆滿足才走原本的回滿魔+永久燒蝕迴路/血上限流程。
+
+**② `actionUseSeal`(Router_Bond.gs)的`mana`分支重寫**：不再無條件安全。依同一顆`bondForSeal`(從者BOND)分流：
+- **≥80(其實不必動用令咒)**：MP回滿＋複用既有`setOvercharge_`機制(下一發規格外寶具可無償超載)當額外好處，**不吃**常規補魔的永久代價——敘述基調是「太浪費了」的無奈笑意。
+- **<80(她根本不情願)**：MP仍回滿(令咒的絕對強制壓下意志)，但敘述收在「令咒解除瞬間、積怨反噬、朝御主出手」——`defeat:true`、`dreamPrompt`(複用既有`buildDreamPrompt_`，非新死亡機制)、`report:{sealBacklash:true}`(供`Script.html`的`handleDefeat`新增一條`causeTag`分支，讓老虎道場的講評對得上死因，不用讓AI瞎猜)。玩家明確定案**不在confirm()對話框預警**，維持陷阱按鈕的體驗。
+
+**③ 高好感解鎖分支的獨立DeepSeek呼叫**：`narrateWithState_`(Router_Narrative.gs)新增`opts.model`覆寫參數(預設仍是`SOLO_MODEL`，行為對其餘呼叫端零影響)；`actionNarrateOnly`讀`userData.deepseek`旗標，為真時傳`model:AI_MODEL`(deepseek，同鑑賞預設模型，比SOLO_MODEL更能承接露骨描寫)。前端`narrate(promptText, opts)`新增第二參數，`runSimpleAction_`新增`opts.narrateExtra(res)`鉤子——`manaSupply()`/`useSeal()`在`res.unlocked`為真時傳`{deepseek:true}`。**刻意不共用**鑑賞的`actionPlay`/`nsfwBaseRules`/`buildDefaultSystemPrompt`——這是玩家第二輪`AskUserQuestion`明確排除的方向，solo資料層(無PHYSICAL肉體狀態欄/無NSFW schema)、`actionPlay`入口守門(擋非`KPC_`)、`game_id`前綴分流(g_/k_)全部原樣不動，只是這兩個特定成功分支的`aiPrompt`文字本身鬆綁「止於唯美曖昧」的節制、換一顆模型呼叫。
+
+**改動**：`gas/Router_Economy.gs`(新增`MANA_TRUST_BOND_`常數＋`actionManaSupply`資格檢查與解鎖敘述)；`gas/Router_Bond.gs`(`actionUseSeal`的`mana`分支重寫)；`gas/Router_Narrative.gs`(`narrateWithState_`/`actionNarrateOnly`新增model覆寫)；`gas/Script.html`(`narrate`/`runSimpleAction_`/`manaSupply`/`useSeal`/`handleDefeat`五處)；`AI_PROMPT_MAP.md`(§2兩處action的prompt節錄全面更新)。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(改動完全不觸及這兩個檔案，符合玩家明確排除的方向)。這是純前端+後端邏輯改動、無法在headless環境真正觸發AI呼叫驗證露骨敘述的實際效果與致死流程的完整UI體驗，部署後留意：①好感<80時補魔按鈕是否正確顯示婉拒敘述而非硬邦邦的alert；②高好感解鎖時敘述是否確實比平常更直接；③強制補魔<80時是否正確走到老虎道場而非卡住。

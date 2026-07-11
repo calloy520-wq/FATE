@@ -70,6 +70,7 @@ function actionUseSeal(userData, pcId, sheets) {
   const svName = pcData[svIdx][COL.PC.NAME];
 
   let effectMsg = "";
+  let sealManaUnlocked = false, sealManaKill = false; // 見下方 'mana' 分支
   if (type === "repair") {
     pcData[svIdx][COL.PC.HP] = parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 480;
     pcData[svIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基重塑", "姿勢": "昂然而立", "負面": "無", "顏面": "神采奕奕" });
@@ -80,10 +81,25 @@ function actionUseSeal(userData, pcId, sheets) {
     effectMsg = `令咒迸發，重塑「${svName}」的靈基——氣血回滿、傷勢一掃而空，御主魔力儲備亦充盈如初。`;
   } else if (type === "mana") {
     // 🔋 出力電池制：令咒灌頂回充御主魔力儲備(供魔源)，而非從者(從者無池)
-    pcData[pIdx][COL.PC.MP] = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || 240;
+    const mpMaxSeal = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || 240;
+    pcData[pIdx][COL.PC.MP] = mpMaxSeal;
     sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-    raiseBond_(sheets, myGameId, pcData[pIdx][COL.PC.NAME], svName, 8, pcData);
-    effectMsg = `令咒化作一道灌頂的魔力洪流，御主魔力儲備瞬間充盈到極限，與「${svName}」的羈絆也更深了一分。`;
+    // 🔥 2026-07 玩家定案：絕對命令跳過「同意」，強逼「${svName}」交心——好感是否足夠決定這是幸運還是致命：
+    //   ≥MANA_TRUST_BOND_(信任本就夠深)→其實不必動用令咒，反而是「太浪費了」的調侃，
+    //   但仍生效且是「絕對命令」特權——回滿魔力＋複用既有「過充」機制當額外好處，不吃常規補魔的
+    //   永久代價(不扣血上限/迴路)；<MANA_TRUST_BOND_(她根本不情願)→令咒的絕對強制壓下她的意志，
+    //   但解除瞬間積怨反噬，直接了結御主——不新增另一套死亡機制，複用既有「假夢→老虎道場」流程
+    //   (buildDreamPrompt_)。兩支敘述都先走一段更露骨的獨立敘述(見下方 sealManaUnlocked/亡的prompt)。
+    const bondForSeal = parseInt(pcData[svIdx][COL.PC.BOND]) || 0;
+    if (bondForSeal >= MANA_TRUST_BOND_) {
+      pcData[pIdx][COL.PC.MEMORY] = setOvercharge_(pcData[pIdx][COL.PC.MEMORY], mpMaxSeal); // 複用既有「下一發規格外寶具可無償超載」機制
+      sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+      sealManaUnlocked = true;
+      effectMsg = `令咒化作一道灌頂的魔力洪流，御主魔力儲備瞬間充盈到極限——其實「${svName}」根本不必勞動令咒也會欣然應允，這道絕對命令用得有些太浪費了；但既已發動，魔力依舊洶湧灌注，蓄勢待發（下一發規格外寶具可無償超載解放）。`;
+    } else {
+      sealManaKill = true;
+      effectMsg = `令咒的絕對強制壓下了「${svName}」滿心的抗拒，魔力依舊被逼出、洶湧灌注御主體內——但這份屈從只是暫時的。`;
+    }
   } else if (type === "escape") {
     const oldLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
     const newLoc = enemyRetreatLoc_(oldLoc);
@@ -101,11 +117,30 @@ function actionUseSeal(userData, pcId, sheets) {
   pcData[pIdx][COL.PC.MEMORY] = setPlayerSeals_(pcData[pIdx][COL.PC.MEMORY], seals);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
 
-  const aiPrompt = `【系統·令咒已發動，已裁定】御主燃燒一道令咒。${effectMsg}（餘 ${seals} 道令咒）\n` +
-    `★以 Fate／TYPE-MOON 筆觸描寫令咒在手背灼亮、絕對命令權貫徹的瞬間（一段即可）。效果已由系統結算。\n` +
-    ``;
+  let aiPrompt, defeat = false, dreamPrompt = "", report = null;
+  if (sealManaKill) {
+    // 🔥 好感不足時被強逼交心的反噬：這一幕先走DeepSeek的露骨敘述(描寫到令咒解除、從者出手為止)，
+    //   死亡本身複用既有「假夢→老虎道場」流程(buildDreamPrompt_)，不新增另一套死亡機制。
+    pcData[pIdx][COL.PC.HP] = 0;
+    sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+    const wishSeal = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
+    aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
+      `【系統·令咒·強制補魔已裁定】${effectMsg}\n` +
+      `★以 Fate／TYPE-MOON 筆觸【精煉 120~180 字】描寫令咒的絕對強制壓下「${svName}」的意志、御主逼出這場親密的瞬間——可以比平常更直接大膽地描寫感官與情動，不必止於曖昧留白。結尾寫令咒的強制力隨效果結算而消散的剎那，「${svName}」積壓的恨意與屈辱轟然引爆，不受控地朝御主出手——收在這記致命一擊揮下的瞬間即可，不必描寫死亡本身的細節。`;
+    defeat = true;
+    dreamPrompt = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wishSeal, svName);
+    report = { sealBacklash: true, svName: svName };
+  } else {
+    aiPrompt = sealManaUnlocked
+      ? (masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
+        `【系統·令咒·強制補魔已裁定】${effectMsg}\n` +
+        `★以 Fate／TYPE-MOON 筆觸【精煉 120~180 字】描寫「${svName}」帶著點無奈笑意迎向這道其實多此一舉的令咒、順勢配合這場親密——可以比平常更直接大膽地描寫感官與情動，不必止於曖昧留白。收在餘韻猶存的溫柔，勿寫成完結收尾句。`)
+      : `【系統·令咒已發動，已裁定】御主燃燒一道令咒。${effectMsg}（餘 ${seals} 道令咒）\n` +
+        `★以 Fate／TYPE-MOON 筆觸描寫令咒在手背灼亮、絕對命令權貫徹的瞬間（一段即可）。效果已由系統結算。\n` +
+        ``;
+  }
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：本函式所有寫入(HP/MP/LOC/MEMORY/raiseBond_)皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
-  return JSON.stringify({ success: true, aiPrompt: aiPrompt, seals: seals, statusString: getFreshStatusString(pcId, pIdx, sheets) });
+  return JSON.stringify({ success: true, aiPrompt: aiPrompt, unlocked: sealManaUnlocked || sealManaKill, seals: seals, defeat: defeat, dreamPrompt: dreamPrompt, report: report, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
 // 從英靈殿(種子庫)依真名撈完整 persona（含 speech/moe/tic 萌點細緻設定）
