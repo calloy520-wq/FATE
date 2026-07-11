@@ -41,17 +41,27 @@ function markRivalsSeen_(sheets, pcId, preData) {
 }
 
 // 第五次聖杯戰爭正典陣容（master_id, hero_id, 冬木落點｜可選 arriveDay：第N天才登場，預設1＝開局即登場；
-//   arriveHint：登場前1~2天的世界風聲自訂提示句，未填則退回依職階的泛用措辭）
-//   2026-07 玩家「有辦法再放人進去嗎？類似第5次金閃閃3天後出現遊蕩？佐佐木自己在柳洞寺？」——
-//   機制已通用化(hasArrived_/getArriveDay_)，實際哪幾位延後登場、登場提示文字，玩家後續自行指定填入。
+//   arriveHint：登場前1~2天的世界風聲自訂提示句，未填則退回依職階的泛用措辭；master 可為 null＝
+//   真正無御主的孤身從者，seedRivalsForGame_ 只鋪從者列、不建對應御主列）
+//   2026-07 玩家定案改動(「有辦法再放人進去嗎？類似第5次金閃閃3天後出現遊蕩？佐佐木自己在柳洞寺？」
+//   →「rider搭配櫻？慎二搭配金閃閃？佐佐木給他地脈標籤 無耗魔？」)：
+//   ① Rider(美杜莎) 改配間桐櫻(黑化)——原作真正的契約者其實是櫻，慎二只是表面上的御主。
+//   ② 間桐慎二 改配吉爾伽美什(金閃閃)——本作跨戰爭客串安排(金閃閃原屬第四次)，慎二失去Rider後
+//      的替代從者；wars 標籤純敘事metadata、非runtime限制(seedRivalsForGame_不吃wars)，可自由跨戰爭指定。
+//   ③ 佐佐木小次郎新增為真正無御主的第8位(master:null)——蟄伏柳洞寺(與美狄亞同地，原作本就如此：
+//      柳洞寺表面是Caster的據點、暗處另蟄伏著真・Assassin)，耗魔靠Seed_Codex.gs補上的單獨行動(solo)
+//      吃現有 enemyCanAffordNp_ 的【殘存】60點靈基儲備，玩家定案「不建新機制、直接用現有solo就好」。
 var FATE_5TH_ROSTER = [
   { master: '衛宮士郎-5th', hero: '阿爾托莉雅-Saber', loc: '冬木·深山町' },
   { master: '遠坂凜-5th', hero: 'EMIYA-Archer', loc: '遠坂宅' },
-  { master: '間桐慎二-5th', hero: '美杜莎-Rider', loc: '間桐宅' },
+  { master: '間桐櫻(黑化)-5th', hero: '美杜莎-Rider', loc: '間桐宅' },
   { master: '言峰綺禮-5th', hero: '庫丘林-Lancer', loc: '言峰教會' },
   { master: '葛木宗一郎-5th', hero: '美狄亞-Caster', loc: '柳洞寺' },
   { master: '伊莉雅絲菲爾-5th', hero: '赫拉克勒斯-Berserker', loc: '冬木·新都' },
-  { master: '間桐臟硯-5th', hero: '咒腕之哈桑-Assassin', loc: '間桐宅' } // 第五次真·Assassin：蟲爺臟硯召喚的咒腕哈桑
+  { master: '間桐臟硯-5th', hero: '咒腕之哈桑-Assassin', loc: '間桐宅' }, // 第五次真·Assassin：蟲爺臟硯召喚的咒腕哈桑
+  { master: '間桐慎二-5th', hero: '吉爾伽美什-Archer', loc: '冬木·新都',
+    arriveDay: 3, arriveHint: '遠方隱約可見一道金色的、睥睨般的威壓氣息，正緩步朝冬木漫遊而來——彷彿全然不將這場戰爭放在眼裡。' },
+  { master: null, hero: '佐佐木小次郎-Assassin', loc: '柳洞寺' } // 真正無御主：孤身蟄伏於柳洞寺暗處
 ];
 
 // 第四次聖杯戰爭正典陣容（Fate/Zero）
@@ -203,34 +213,39 @@ function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
       rows.push(masterToNpcRow_(mPool[k], gameId, loc, '敵御主', heroMagicRank_(hPool[k])));
       rows.push(heroToNpcRow_(hPool[k], gameId, loc, '敵從者'));
     }
+    // 🔗 硬連結每組敵御主↔敵從者（rows 嚴格交替：master, servant, master, servant…）
+    //   互寫【從者】名/【御主】名於 MEMORY，讓多組同場時也分得清誰是誰、誰的從者被誰打掉。
+    //   （只用於這個分支：下方 4th/5th 正史分支改成逐對即時連結，不倚賴這個位置假設。）
+    for (var pi = 0; pi + 1 < rows.length; pi += 2) {
+      var mName = String(rows[pi][COL.PC.NAME] || ""), sName = String(rows[pi + 1][COL.PC.NAME] || "");
+      if (sName) rows[pi][COL.PC.MEMORY] = String(rows[pi][COL.PC.MEMORY] || "") + "｜【從者】" + sName;
+      if (mName) rows[pi + 1][COL.PC.MEMORY] = String(rows[pi + 1][COL.PC.MEMORY] || "") + "｜【御主】" + mName;
+    }
   } else {
     // 📜 正史 4th / 5th：正典組為敵；玩家扮演者那組、玩家奪取從者那組，皆移除
+    // 🐛→✅ 2026-07 為支援「master:null 真正無御主的孤身從者」(玩家「佐佐木自己在柳洞寺」定案)：
+    //   舊版先無腦 push 進 rows、事後靠「rows 嚴格交替 master,servant,master,servant…」的位置假設
+    //   做硬連結——一旦某組是孤身從者(只 push 一列)，後面所有組別的位置就全部錯位、連結全部連錯。
+    //   改成逐組當場配對即時連結(不再倚賴陣列位置)，順便原生支援 master 為 null 的孤身從者。
     var roster = (war === '4th') ? FATE_4TH_ROSTER : FATE_5TH_ROSTER;
     roster.forEach(function (r) {
-      if (playedMaster && String(r.master) === playedMaster) return;        // 你扮演的那組
-      var hero = findHero(r.hero), master = findMaster(r.master);
-      if (!hero || !master) return;
+      if (playedMaster && r.master && String(r.master) === playedMaster) return; // 你扮演的那組
+      var hero = findHero(r.hero);
+      if (!hero) return;
       if (playerServantName && String(hero[COL.HERO.NAME]) === playerServantName) return; // 你奪取的那組
-      var mRow = masterToNpcRow_(master, gameId, r.loc, '敵御主', heroMagicRank_(hero));
       var sRow = heroToNpcRow_(hero, gameId, r.loc, '敵從者');
-      // 🕰️ 登場日/登場提示(可選)：master/servant 一組共用同一個登場日，才不會出現「御主到了、從者卻還沒到」的錯位。
-      if (r.arriveDay) {
-        mRow[COL.PC.MEMORY] = setArriveDay_(mRow[COL.PC.MEMORY], r.arriveDay);
-        sRow[COL.PC.MEMORY] = setArriveDay_(sRow[COL.PC.MEMORY], r.arriveDay);
-      }
-      if (r.arriveHint) {
-        mRow[COL.PC.MEMORY] = setArriveHint_(mRow[COL.PC.MEMORY], r.arriveHint);
-        sRow[COL.PC.MEMORY] = setArriveHint_(sRow[COL.PC.MEMORY], r.arriveHint);
-      }
+      if (r.arriveDay) sRow[COL.PC.MEMORY] = setArriveDay_(sRow[COL.PC.MEMORY], r.arriveDay);
+      if (r.arriveHint) sRow[COL.PC.MEMORY] = setArriveHint_(sRow[COL.PC.MEMORY], r.arriveHint);
+      var master = r.master ? findMaster(r.master) : null;
+      if (!master) { rows.push(sRow); return; } // 🕯️ 真正無御主：只鋪從者列，不建御主列、不做硬連結
+      var mRow = masterToNpcRow_(master, gameId, r.loc, '敵御主', heroMagicRank_(hero));
+      if (r.arriveDay) mRow[COL.PC.MEMORY] = setArriveDay_(mRow[COL.PC.MEMORY], r.arriveDay);
+      if (r.arriveHint) mRow[COL.PC.MEMORY] = setArriveHint_(mRow[COL.PC.MEMORY], r.arriveHint);
+      var mName = String(mRow[COL.PC.NAME] || ""), sName = String(sRow[COL.PC.NAME] || "");
+      if (sName) mRow[COL.PC.MEMORY] += "｜【從者】" + sName;
+      if (mName) sRow[COL.PC.MEMORY] += "｜【御主】" + mName;
       rows.push(mRow, sRow);
     });
-  }
-  // 🔗 硬連結每組敵御主↔敵從者（rows 嚴格交替：master, servant, master, servant…）
-  //   互寫【從者】名/【御主】名於 MEMORY，讓多組同場時也分得清誰是誰、誰的從者被誰打掉。
-  for (var pi = 0; pi + 1 < rows.length; pi += 2) {
-    var mName = String(rows[pi][COL.PC.NAME] || ""), sName = String(rows[pi + 1][COL.PC.NAME] || "");
-    if (sName) rows[pi][COL.PC.MEMORY] = String(rows[pi][COL.PC.MEMORY] || "") + "｜【從者】" + sName;
-    if (mName) rows[pi + 1][COL.PC.MEMORY] = String(rows[pi + 1][COL.PC.MEMORY] || "") + "｜【御主】" + mName;
   }
   if (rows.length) {
     pc.getRange(pc.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
