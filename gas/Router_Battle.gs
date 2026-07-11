@@ -26,6 +26,7 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   //   💠 注入御主純魔作「展開扣魔」防禦(七天盾)的付費額度——引擎付不起就張不開
   if (String(pcData[tgtIdx][COL.PC.FACTION]) === "從者" && ctx && ctx.pIdx >= 0) {
     injectMysticBuff_(defC, pcData[ctx.pIdx][COL.PC.MEMORY]); injectHomeField_(defC, ctx && ctx.homeField);
+    injectMasterMeleeSupport_(defC, pcData[ctx.pIdx][COL.PC.MEMORY]); // 🥋 御主體術參戰（守方時亦生效）
     defC._shieldMp = parseInt(pcData[ctx.pIdx][COL.PC.MP]) || 0;
   }
   // 🍱 整備·進食加成：御主一行戰前整備過、且尚在效期內 → 從者出擊命中 +MEAL_BUFF_BONUS。
@@ -414,6 +415,7 @@ function actionFateBattle(userData, pcId, sheets) {
   const homeField = homeTerritoryRank_(pcData, pIdx, myGameId); // 🏰 於自己陣地決戰＋隊有陣地作成→主場結界階級(否則"")
   const atkC = rowToCombatant_(pcData[atkIdx]);
   injectMysticBuff_(atkC, pcData[pIdx][COL.PC.MEMORY]);  // ✨ 御主禮裝被動加持我方從者（含開場對轟攻防）
+  injectMasterMeleeSupport_(atkC, pcData[pIdx][COL.PC.MEMORY]); // 🥋 御主體術參戰（開場對轟）
   injectHomeField_(atkC, homeField);                    // 🏰 主場·陣地結界（僅玩家於自己陣地決戰）
   const defC = rowToCombatant_(pcData[nIdx]);
 
@@ -788,6 +790,7 @@ function actionFateBattle(userData, pcId, sheets) {
       if (String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) break;
       const sC = rowToCombatant_(pcData[sidx]);
       injectMysticBuff_(sC, pcData[pIdx][COL.PC.MEMORY]);  // ✨ 御主禮裝被動加持我方從者（每回合出擊）
+      injectMasterMeleeSupport_(sC, pcData[pIdx][COL.PC.MEMORY]); // 🥋 御主體術參戰（每回合出擊）
       injectHomeField_(sC, homeField);                     // 🏰 主場·陣地結界
       const isActive = (sidx === atkIdx);
       // 🐛→✅ 2026-07 稽核抓到(HIGH)：npOverloadMul/overcharge只設在atkC(prana結算當下建的物件)上，

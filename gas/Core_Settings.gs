@@ -567,6 +567,19 @@ function hasArrived_(row, currentDay) {
   return (parseInt(currentDay) || 1) >= getArriveDay_(row && row[COL.PC.MEMORY]);
 }
 
+// 🥋 御主自身能力標記（2026-07 新增讀取）：【體術】(rank字母，命運測定/種子皆保證合法)／【魔術】(自由描述文字)——
+//   兩者創角/鋪敵時早就寫進御主自己的 MEMORY，過去只寫不讀、是純擺設。體術現在有二用途：①
+//   masterCard_/enemyMasterCard_ 讀出來當演出依據(能力描述，非願望/個性/萌點字面，不受show-don't-tell限制)；
+//   ②Engine_Fate.gs 的 injectMasterMeleeSupport_ 讀 rank 字母算真實戰鬥加成(見該處 master_melee fx)。
+function getMasterMelee_(memory) {
+  var m = String(memory || "").match(/【體術】([^｜]+)/);
+  return m ? m[1].trim() : "";
+}
+function getMasterMagic_(memory) {
+  var m = String(memory || "").match(/【魔術】([^｜]+)/);
+  return m ? m[1].trim() : "";
+}
+
 // 2026-07：關係已併入眾生表自身欄位(BOND/REL_TAG/IS_PARTY)，不再需要 relData 參數／跨表查找。
 function getLocalPeopleList(sheets, pcName, pcId, curL, allPcData) {
   if (!allPcData) allPcData = sheets.pc.getDataRange().getValues();
