@@ -1196,3 +1196,17 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **動手**：`partyDetailsArr`那行的「關係:${tag}」改成「關係:TA是你的${tag}」，把REL_TAG欄位原本就有的方向性(TA相對於你)明講進提示詞字面，不再讓AI自行猜測「從者」兩字是指身分還是關係方向。**刻意不動**：①面板顯示層(`Script_Kanshou.html`的`renderKcPartyList_`「關係:X」)是純UI文字，玩家自己看得懂方向、不影響AI，不需要改；②`Core_Settings.gs`的`localPeopleList`(`relTag: r[COL.PC.REL_TAG]`，供solo「附近人物」前端顯示)是資料欄位而非直接餵給AI的prompt字串，另一條路徑，這次不動；③`update_rel_tag`本身允許玩家自由填任何字(含「主人」等反轉關係的字)是既有設計，玩家若真的自己改成反轉方向的標籤、AI照著演不算bug，這次只修「標籤沒改、AI卻誤讀方向」這個情境。
 
 **驗證**：`bash check.sh`全過(1個修改檔案：`Gallery.gs`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這次改動只在`partyDetailsArr`那行插入「TA是你的」5個字，離`nsfwBaseRules`本體很遠)。純prompt字面調整，不改變資料結構/REL_TAG欄位定義，headless環境無法實機驗證AI是否真的不再演反，建議部署後測試：關係標籤維持預設「從者」的同伴連續對話數輪，觀察是否還會出現玩家被要求服從/服侍該同伴的反轉演出，次數應明顯減少；若仍偶發，可能還需在慾海律令裡額外補一條「不可翻轉御主/從者主從方向」的明文禁止規則。
+
+## 23. solo側同類根因：`servantCard_`通用卡的「對御主」欄位同樣方向不明確(2026-07 玩家「整個solo在確認一次！！！」)
+
+上一則(§22)修完鑑賞的關係標籤方向bug後，玩家要求把整個solo模式(戰鬥/移動/結盟/羈絆等所有會餵AI的提示詞)比照重新徹查一次同款bug形狀。派一個agent地毯式複查`Router_Battle.gs`/`Router_Movement.gs`/`Router_Bond.gs`/`Router_Economy.gs`/`Router_Creation.gs`/`Router_Persona.gs`/`Engine_Fate.gs`/`Core_Settings.gs`/`Router_Narrative.gs`/`Time_World.gs`/`Seed_Rivals.gs`/`Script.html`，我再對每一項高信度發現親自讀原始碼驗證(不盲信agent報告，直接讀`Router_Persona.gs`/`Router_Narrative.gs`/`Router_Bond.gs`/`Router_Battle.gs`/`Router_Movement.gs`/`Script.html`原文核對)。
+
+**根因**：`Router_Persona.gs`的`servantCard_(row)`是通用「從者演出依據卡」——我方從者/敵從者/盟友從者共用同一份函式與同一套欄位，其中`toM`(對御主的忠誠態度flavor text，如「絕對忠誠，渴望堂堂正正之戰」、「盡忠職守、初期保持距離，逐漸動搖」，種子資料存在`Seed_Codex.gs`/`Seed_Rivals.gs`的`persona.toMaster`)套進卡片字面「對御主：${toM}」——跟鑑賞那次的bug形狀完全一樣：字面沒講清楚「對誰的御主」。而`Router_Narrative.gs`的`miniSystem`(每次narration呼叫最前面都會送)明講「玩家＝御主」，兩相結合，AI在讀到敵方/盟友從者卡片裡的「對御主：絕對忠誠」時，有可能誤讀成「對玩家忠誠」而非「對TA自己那位（敵方）御主忠誠」——尤其`Router_Bond.gs`的`actionProposeAlliance`(結盟提議成功·275行)與`actionAllyBond`(盟友相伴·410行)兩處，servantCard_前完全沒有任何標籤或前置句子鋪陳「這是誰的從者」，是風險最高的零上下文呼叫點(親自讀原始碼確認：275行`aiPrompt = servantCard_(...) + ...`、410行`allyCard = ... : servantCard_(pcData[aIdx])`，兩處後面接的說明句都是在卡片之後才出現)。其餘呼叫點(`Router_Battle.gs`敵方出戰卡/`Router_Movement.gs`追兵·夜襲卡)雖然risk較低，但也都各自靠呼叫端手動加的`〔敵方出戰者〕`/`〔夜襲者〕`括號標籤才勉強擋住，不是從根源解決、且不保證未來新增呼叫點會記得加標籤。
+
+**動手**（根源解，一次修好全部~9處呼叫端，不逐一補標籤）：
+1. `Router_Persona.gs`：`servantCard_`卡片字面「對御主：${toM}」改成「對自己御主的態度：${toM}」——「自己」二字消除方向歧義，不論套在我方/敵方/盟友從者身上語意都正確(「對自己御主的態度」對我方從者=對玩家、對敵方從者=對敵御主，兩種情況原句都成立，不需要依呼叫端分岔處理)。同步把讀回MEMORY舊格式的正則`/對御主：/`放寬成`/對(?:自己)?御主：/`，向下相容尚未觸發此函式重新生成、仍存著舊版「對御主：」字樣的既有存檔資料。
+2. `Router_Bond.gs`：兩處零上下文呼叫點(`actionProposeAlliance`結盟提議、`actionAllyBond`盟友相伴的`!allyIsMaster`分支)補上`〔敵御主之從者〕`/`〔盟友從者〕`括號標籤，跟`Router_Battle.gs`/`Router_Movement.gs`既有慣例一致——這是額外的一致性/防禦性補強，欄位本身已消歧義後其實不是必要，但既然發現這兩處是整批呼叫端裡唯一沒有這層防護的，順手補齊，不留這種「大家都有、只有這兩處沒有」的不一致。
+
+**記錄不動手**（agent同時發現、非本次bug範疇的次要觀察）：`Router_Bond.gs`的`actionRuleBreakSteal`(破戒奪僕)易主後只清了`【御主】`硬連結標記，沒有一併清除/重新生成MEMORY裡舊的「對御主：X」flavor text——這是**內容過期**問題(從者易主後，卡片仍描述其對「原(已失去的)敵御主」的忠誠態度)，跟這次修的**方向歧義**是不同類的bug，且怎麼重新生成新flavor text需要另外設計(找AI重新生成？還是清空退回「依真名」？)，這次先不動，留待之後專門處理。另外`getLocalPeopleList`(`Core_Settings.gs`)的`relTag`欄位經agent追蹤呼叫鏈確認：只進了前端payload(`data.people`)，`Script.html`/`Script_Onboarding.html`全文grep`relTag`零匹配，從未被任何前端邏輯讀取、更沒有機會流進AI提示詞——不是這次bug類別的問題，只是死欄位(不在本次範疇內修，記錄備查)。
+
+**驗證**：`bash check.sh`全過(2個修改檔案：`Router_Persona.gs`/`Router_Bond.gs`，皆與`Gallery.gs`/`Engine_Combat.gs`無關)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這次完全沒碰這兩個檔案)。純prompt字面調整(欄位改名+兩處補標籤)，不改變任何資料結構/戰鬥數值/`FACTION`判定邏輯，headless環境無法實機驗證AI是否真的不再誤讀，建議部署後測試：①敵方出戰時觀察AI敘述有沒有把敵從者演成對玩家忠誠(而非對其敵御主忠誠)；②結盟提議成功、以及與盟友從者相伴時，確認AI沒有把盟友從者誤演成玩家自己的從者。

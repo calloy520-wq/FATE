@@ -73,7 +73,14 @@ function servantCard_(row) {
     // 🐛→✅ 2026-07 第四輪稽核再抓到：排除字元集只排了`｜【`，跟同檔`getPersonaSpeech_`/`getPersonaTic_`
     //   (11-12行)一致用`｜|【`(兩種pipe都排)不一致——目前全代碼庫沒有任何MEMORY寫入者用過半形`|`，
     //   兩種寫法現況行為相同，純粹補上這道保險，跟同檔慣例對齊。
-    var toM = p.toMaster || (mem.match(/對御主：([^｜|【]*)/) || [])[1] || "";
+    // 🐛→✅ 2026-07 玩家反映鑑賞「關係」標籤方向不明確的bug後，要求「整個solo再確認一次」查出的
+    //   同類根因：servantCard_ 是通用卡，我方從者/敵從者/盟友從者共用同一份，toM(對御主的忠誠態度
+    //   flavor text，如「絕對忠誠，渴望堂堂正正之戰」)套在敵/盟友從者身上時，字面「對御主：X」跟
+    //   Router_Narrative.gs miniSystem 每回合開頭明講的「玩家＝御主」放在一起，容易被誤讀成「對玩家
+    //   忠誠」而非「對TA自己的（敵方）御主忠誠」——尤其 Router_Bond.gs 兩處(結盟提議/盟友相伴)完全
+    //   沒有任何前置標籤即直接餵這張卡，risk最高。改法：欄位本身加「自己」二字消歧義，一次修好全部
+    //   呼叫端(戰鬥/移動/結盟/羈絆/補魔/工房等)，不必逐一補標籤。
+    var toM = p.toMaster || (mem.match(/對(?:自己)?御主：([^｜|【]*)/) || [])[1] || "";
     var prefArr = String(row[COL.PC.PREF] || "").split('、').filter(Boolean);
     var persona = p.words || prefArr.slice(0, 4).join('、');
     var np = String(row[COL.PC.MARTIAL] || "");
@@ -97,7 +104,7 @@ function servantCard_(row) {
     //   卡片原字面「自稱「我」」跟「敘事視角＝玩家的『我』」是同一個字，長提示詞中段容易讓小模型
     //   (flash-lite)混淆兩者，寫著寫著就把這名角色的心境當成旁白第一人稱。改成明確限定「僅此角色
     //   自己台詞內」，不再是一個懸空的「自稱」標籤。
-    var card = `〈${name}·${cls}·演出依據(僅供內化，禁複述設定字面)〉此角色台詞內自稱「${fp}」(僅限她/他自己的引號台詞，敘事旁白的「我」永遠是玩家本人、與此無關)｜對御主：${toM || '依真名'}` +
+    var card = `〈${name}·${cls}·演出依據(僅供內化，禁複述設定字面)〉此角色台詞內自稱「${fp}」(僅限她/他自己的引號台詞，敘事旁白的「我」永遠是玩家本人、與此無關)｜對自己御主的態度：${toM || '依真名'}` +
       (persona ? quadLabeled_(persona, PREF_LABELS_, false) : `｜性格：依真名`) +
       (speech ? `｜口吻：${speech}` : "") +
       (moe ? `｜萌點：${moe}` : "") +

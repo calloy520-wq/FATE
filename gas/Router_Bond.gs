@@ -272,7 +272,11 @@ function actionProposeAlliance(userData, pcId, sheets) {
     const gIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc);
     let allyServant = "";
     if (gIdx >= 0) { allyServant = String(pcData[gIdx][COL.PC.NAME]); pcData[gIdx][COL.PC.MEMORY] = setAllyMem_(pcData[gIdx][COL.PC.MEMORY], until); sheets.pc.getRange(gIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[gIdx][COL.PC.MEMORY]); }
-    aiPrompt = servantCard_(gIdx >= 0 ? pcData[gIdx] : null) +
+    // 🐛→✅ 2026-07「整個solo再確認一次」查出：這裡直接餵servantCard_、卡片內容前完全沒有任何
+    //   標籤說明這是誰的從者——跟Router_Battle.gs的〔敵方出戰者〕/Router_Movement.gs的〔夜襲者〕
+    //   等既有慣例(先講清楚身分再上卡)不一致，是同批「servantCard_對御主態度欄位方向不明確」bug
+    //   風險最高的呼叫點(零上下文)。補上同款標籤，跟其餘呼叫端一致。
+    aiPrompt = (gIdx >= 0 ? '〔敵御主之從者〕' : '') + servantCard_(gIdx >= 0 ? pcData[gIdx] : null) +
       `【系統·結盟已達成·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』向敵御主「${masterName}」${allyServant ? `（從者「${allyServant}」）` : ""}提議結盟，對方權衡利害後接受了——雙方暫時休兵、互不侵犯（至第 ${until} 日前後）。\n` +
       `★以 Fate／TYPE-MOON 筆觸【約 120~180 字】演出這場談判：「${masterName}」依其性格回應（務實的權衡、開出條件或冷淡的「暫時」），最後達成不穩固的同盟。對方的算計與保留要演出來，留一絲不信任的伏筆。\n` +
       ``;
@@ -403,7 +407,9 @@ function actionAllyBond(userData, pcId, sheets) {
   // 盟友從者→servantCard_(含狂化禁言等口吻)；盟友御主→enemyMasterCard_(性格/特徵/萌點反差)
   // ⚠ 2026-07 修：原本盟友御主是手刻的「性格：xxx」一行陽春卡(漏特徵/萌點)，跟同一角色在
   //   戰鬥交鋒(Router_Battle.gs)拿到的 enemyMasterCard_ 厚度不一致——結盟橋段反而比戰鬥時更扁平。
-  const allyCard = allyIsMaster ? enemyMasterCard_(pcData[aIdx]) : servantCard_(pcData[aIdx]);
+  // 🐛→✅ 2026-07「整個solo再確認一次」查出：!allyIsMaster 分支的 servantCard_ 前同樣完全沒有
+  //   標籤(跟上面propose_alliance同一批零上下文風險點)，補〔盟友從者〕跟其餘呼叫端一致。
+  const allyCard = allyIsMaster ? enemyMasterCard_(pcData[aIdx]) : ('〔盟友從者〕' + servantCard_(pcData[aIdx]));
   const aiPrompt = masterCard_(pcData[pIdx]) + allyCard +
     `【系統·盟誼】御主『${masterName}』與盟友「${allyName}」${allyIsMaster ? '共處' : '交流'}，當前羈絆 ${after}/100。\n` +
     `★Fate 筆觸【90~140字】寫一段此次共處的小品，自由發揮、勿每次都同一套說辭。語氣親疏【務必嚴格】貼合當前羈絆：${tier}。對方仍是「暫時」盟友，留一絲各自的算計與保留。show, don't tell。` +
