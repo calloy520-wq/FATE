@@ -579,6 +579,13 @@ function getMasterMagic_(memory) {
   var m = String(memory || "").match(/【魔術】([^｜]+)/);
   return m ? m[1].trim() : "";
 }
+// 🔮 御主魔術階位（rank字母，2026-07 追加）：跟體術同款「凡人自身能力」，但只在己方出戰從者為
+//   Caster(魔砲型)時才生效(injectMasterMagicSupport_ 內部判斷)——體術管近戰助拳、魔術階位管施法支援，
+//   兩者對應不同陣容，避免疊在一起變成無腦雙倍加成。
+function getMasterMagicRank_(memory) {
+  var m = String(memory || "").match(/【魔術階位】([^｜]+)/);
+  return m ? m[1].trim() : "";
+}
 
 // 2026-07：關係已併入眾生表自身欄位(BOND/REL_TAG/IS_PARTY)，不再需要 relData 參數／跨表查找。
 function getLocalPeopleList(sheets, pcName, pcId, curL, allPcData) {

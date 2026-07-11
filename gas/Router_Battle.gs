@@ -27,6 +27,7 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   if (String(pcData[tgtIdx][COL.PC.FACTION]) === "從者" && ctx && ctx.pIdx >= 0) {
     injectMysticBuff_(defC, pcData[ctx.pIdx][COL.PC.MEMORY]); injectHomeField_(defC, ctx && ctx.homeField);
     injectMasterMeleeSupport_(defC, pcData[ctx.pIdx][COL.PC.MEMORY]); // 🥋 御主體術參戰（守方時亦生效）
+    injectMasterMagicSupport_(defC, pcData[ctx.pIdx][COL.PC.MEMORY]); // 🔮 御主魔術支援（守方時亦生效·僅Caster）
     defC._shieldMp = parseInt(pcData[ctx.pIdx][COL.PC.MP]) || 0;
   }
   // 🍱 整備·進食加成：御主一行戰前整備過、且尚在效期內 → 從者出擊命中 +MEAL_BUFF_BONUS。
@@ -416,6 +417,7 @@ function actionFateBattle(userData, pcId, sheets) {
   const atkC = rowToCombatant_(pcData[atkIdx]);
   injectMysticBuff_(atkC, pcData[pIdx][COL.PC.MEMORY]);  // ✨ 御主禮裝被動加持我方從者（含開場對轟攻防）
   injectMasterMeleeSupport_(atkC, pcData[pIdx][COL.PC.MEMORY]); // 🥋 御主體術參戰（開場對轟）
+  injectMasterMagicSupport_(atkC, pcData[pIdx][COL.PC.MEMORY]); // 🔮 御主魔術支援（開場對轟·僅Caster）
   injectHomeField_(atkC, homeField);                    // 🏰 主場·陣地結界（僅玩家於自己陣地決戰）
   const defC = rowToCombatant_(pcData[nIdx]);
 
@@ -791,6 +793,7 @@ function actionFateBattle(userData, pcId, sheets) {
       const sC = rowToCombatant_(pcData[sidx]);
       injectMysticBuff_(sC, pcData[pIdx][COL.PC.MEMORY]);  // ✨ 御主禮裝被動加持我方從者（每回合出擊）
       injectMasterMeleeSupport_(sC, pcData[pIdx][COL.PC.MEMORY]); // 🥋 御主體術參戰（每回合出擊）
+      injectMasterMagicSupport_(sC, pcData[pIdx][COL.PC.MEMORY]); // 🔮 御主魔術支援（每回合出擊·僅Caster）
       injectHomeField_(sC, homeField);                     // 🏰 主場·陣地結界
       const isActive = (sidx === atkIdx);
       // 🐛→✅ 2026-07 稽核抓到(HIGH)：npOverloadMul/overcharge只設在atkC(prana結算當下建的物件)上，

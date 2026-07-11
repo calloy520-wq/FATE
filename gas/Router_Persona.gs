@@ -139,15 +139,17 @@ function masterCard_(row) {
     //   過濾掉建角未填的通用預設值(塞了無資訊量)。
     var back = String(row[COL.PC.BACK] || "").trim();
     if (back === "來歷不明的魔術師") back = "";
-    // 🥋 2026-07 補：體術/魔術系統是能力描述(非願望/個性/萌點字面)，不受show-don't-tell限制，可直接陳述。
+    // 🥋 2026-07 補：體術/魔術是能力描述(非願望/個性/萌點字面)，不受show-don't-tell限制，可直接陳述。
+    //   🔮 魔術階位跟魔術系統併成一行(如「寶石魔術(A階)」)，避免兩條都掛「魔術」開頭的行讀起來重複。
     var melee = getMasterMelee_(row[COL.PC.MEMORY]);
     var magic = getMasterMagic_(row[COL.PC.MEMORY]);
+    var magicRank = getMasterMagicRank_(row[COL.PC.MEMORY]);
     return `〈御主「${name}」·演出依據(僅內化、禁複述)〉` + (sex ? `性別${sex}` : "") +
       quadLabeled_(row[COL.PC.PREF], PREF_LABELS_, true) +
       quadLabeled_(row[COL.PC.TRAIT], TRAIT_LABELS_, true) +
       (moe && moe !== "（待揭曉）" ? `｜萌點(反差·僅供內化)：${moe}` : "") +
       (back ? `｜身世：${back}` : "") +
-      (magic ? `｜魔術系統：${magic}` : "") +
+      (magic ? `｜魔術系統：${magic}${magicRank ? `(${magicRank}階)` : ""}` : "") +
       (melee ? `｜體術：${melee}階` : "") +
       (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
       `。御主＝玩家所扮演的角色：【可】依其性格/身世自然開口、有神態反應與台詞，讓角色鮮活有聲(別只當沉默旁觀者，show, don't tell：禁把性格詞/特徵/萌點當台詞或由旁白點破)；從者可開口問御主接下來怎麼辦，御主(我)也可以自問該如何是好——但【不可】替御主拍板下一步戰略抉擇(是否出戰/結盟/移動/補魔由玩家按鍵定奪)，停在問句/思索即可，不可自己接著演出答案，也不可把劇情快轉越過決策點。\n`;
@@ -171,15 +173,16 @@ function enemyMasterCard_(row) {
     var back = String(row[COL.PC.BACK] || "").split("。外貌：")[0].trim();
     if (back === "魔術師") back = ""; // masterToNpcRow_ 的無資料預設值，塞卡無資訊量
     var wish = (String(row[COL.PC.MEMORY] || "").match(/【願望】([^｜|【\n]*)/) || [])[1] || "";
-    // 🥋 2026-07 補：體術/魔術系統是能力描述，不受show-don't-tell限制，可直接陳述。
+    // 🥋 2026-07 補：體術/魔術是能力描述，不受show-don't-tell限制，可直接陳述。
     var melee = getMasterMelee_(row[COL.PC.MEMORY]);
     var magic = getMasterMagic_(row[COL.PC.MEMORY]);
+    var magicRank = getMasterMagicRank_(row[COL.PC.MEMORY]);
     return `〈敵御主「${name}」·演出依據(僅內化、禁複述)〉` +
       quadLabeled_(row[COL.PC.PREF], PREF_LABELS_, true) +
       quadLabeled_(row[COL.PC.TRAIT], TRAIT_LABELS_, true) +
       (moe ? `｜萌點(反差·僅供內化)：${moe}` : "") +
       (back ? `｜身世(僅內化)：${back.slice(0, 60)}` : "") +
-      (magic ? `｜魔術系統：${magic}` : "") +
+      (magic ? `｜魔術系統：${magic}${magicRank ? `(${magicRank}階)` : ""}` : "") +
       (melee ? `｜體術：${melee}階` : "") +
       (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
       `。★若此人為 Fate 正典人物，優先調用你對其原作形象的完整認知來演出——上述設定僅為錨點提醒、並非其全部；非正典的原創人物才嚴格依上述設定。【禁】預告或影射其原作後續結局與未揭露的身分。\n` +

@@ -111,8 +111,8 @@ function pickCanonMaster(i) {
   var sx = document.getElementById('s-sex'); if (sx && ['男', '女', '異'].indexOf(m.sex) >= 0) sx.value = m.sex;
   var ap = document.getElementById('s-appear'); if (ap) ap.value = m.appear || '';
   var wi = document.getElementById('s-wish'); if (wi) wi.value = m.wish || '';
-  // 正典魔術帶進命運（circuits/melee 給合理預設，仍可重新測定覆蓋）
-  masterRolls = [{ circuits: 40, magic: m.magic || '魔術', origin: '正典魔術師', melee: 'D' }];
+  // 正典魔術帶進命運（circuits/melee/magicRank 給合理預設，仍可重新測定覆蓋）
+  masterRolls = [{ circuits: 40, magic: m.magic || '魔術', origin: '正典魔術師', melee: 'D', magicRank: 'C' }];
   masterRoll = masterRolls[0];
   if (typeof renderFateRolls === 'function') renderFateRolls();
   // 扮演者名字可能含「·」等符號，跳過 checkName，直接進細節步驟
@@ -133,7 +133,10 @@ function rollFate() {
   const origin = FATE_ORIGINS_[Math.floor(Math.random() * FATE_ORIGINS_.length)];
   const mr = Math.random();
   const melee = mr < 0.5 ? 'E' : mr < 0.8 ? 'D' : mr < 0.95 ? 'C' : 'B';
-  masterRolls.push({ circuits: circuits, magic: magic, origin: origin, melee: melee });
+  // 🔮 魔術階位獨立擲一次(非沿用melee的mr)——體術/魔術是兩條不相干能力線，一位御主可能體術強魔術弱、反之亦然。
+  const magr = Math.random();
+  const magicRank = magr < 0.5 ? 'E' : magr < 0.8 ? 'D' : magr < 0.95 ? 'C' : 'B';
+  masterRolls.push({ circuits: circuits, magic: magic, origin: origin, melee: melee, magicRank: magicRank });
   masterRoll = masterRolls[masterRolls.length - 1]; // 預設選最新一筆
   renderFateRolls();
 }
@@ -147,7 +150,7 @@ function renderFateRolls() {
   var cards = masterRolls.map(function (roll, i) {
     var sel = (roll === masterRoll);
     return '<div onclick="selectFateRoll(' + i + ')" style="cursor:pointer; border:1px solid ' + (sel ? '#e7c873' : '#5a4a2a') + '; background:' + (sel ? 'rgba(231,200,115,0.12)' : 'transparent') + '; border-radius:6px; padding:6px 8px; margin-bottom:6px; text-align:left;">'
-      + (sel ? '✅ ' : '⚪ ') + '<b style="color:' + (sel ? '#e7c873' : '#bbb') + ';">測定 ' + (i + 1) + '</b>　迴路 <b style="color:#e7c873;">' + roll.circuits + '</b>　體術 <b style="color:#e7c873;">' + roll.melee + '</b>'
+      + (sel ? '✅ ' : '⚪ ') + '<b style="color:' + (sel ? '#e7c873' : '#bbb') + ';">測定 ' + (i + 1) + '</b>　迴路 <b style="color:#e7c873;">' + roll.circuits + '</b>　體術 <b style="color:#e7c873;">' + roll.melee + '</b>　魔術階位 <b style="color:#e7c873;">' + roll.magicRank + '</b>'
       + '<br><span style="font-size:11px; color:#bbb;">' + roll.magic + '｜' + roll.origin + '</span></div>';
   }).join('');
   box.innerHTML = cards + '<div style="font-size:11px; color:#888; text-align:center;">點選一個結果接受（已測 ' + masterRolls.length + '/3）</div>';
@@ -220,7 +223,7 @@ async function checkName(event) {
   try {
     const data = await gasRun({ action: "create", name, sex, appearance, standing, wish, account: currentAccount,
       warMode: warMode, war: currentWar, playedMaster: playedMaster, mystic: mystic,
-      magic: roll.magic || "", circuits: roll.circuits || "", origin: roll.origin || "", melee: roll.melee || "" });
+      magic: roll.magic || "", circuits: roll.circuits || "", origin: roll.origin || "", melee: roll.melee || "", magicRank: roll.magicRank || "" });
     if (data.success) {
       // 🔴 新角色一律清空所有舊暫存
       localStorage.removeItem('kyushu_recent_locs');
