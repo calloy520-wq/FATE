@@ -1134,7 +1134,11 @@ function actionSummonHorror(userData, pcId, sheets) {
   // ⚖️ 刻意不設「出力 100%」閘(與戰鬥內解放的差異)：戰鬥中解放要全開是「臨戰瞬間灌注」的張力；
   //   戰前召喚是不趕時間的儀式詠唱(出力檔本就免費即時可調·設閘只是無意義的點擊摩擦)。prana 全額照付。
   // 🔋 付寶具 prana（御主電池·MP＋焚血）：湊不出則召不動
-  const prana = npPranaCost_(svC.six["寶具"]);
+  // 🐛→✅ 2026-07「戰鬥標籤和戰鬥運算 戰報 檢查」查出：這裡直接讀六圍表寶具值，跟同檔其餘全部
+  //   npPranaCost_呼叫點(425/567/575/679/926/936行)一致改吃npEffectiveRank_(單一真實來源)——
+  //   目前summon_horror唯一持有者(青鬍子)無多寶具分岔、兩者現值相同故無實際影響，但保持一致
+  //   避免未來若summon_horror被掛到某位多寶具英靈身上時，這裡悄悄算錯魔力費。
+  const prana = npPranaCost_(npEffectiveRank_(svC));
   const mMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0, mHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
   if (mMp + Math.floor(Math.max(0, mHp - 1) / BATTERY_HP_PER_MP) < prana) {
     return JSON.stringify({ success: false, message: `御主魔力不足以自深淵召出海怪（需 ${prana}）——須先休整／補魔。` });
