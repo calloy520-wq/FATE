@@ -1212,10 +1212,15 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
     //   矜持模式(driveOn=false)換成跟solo共用的低延遲小模型，只有主動掌握模式(driveOn=true)才切回
     //   鑑賞原本用的大型模型——大多數回合是輕鬆日常對話，犯不著每次都吃重量級模型的延遲。
     let aiConfig = { temperature: 1.0, top_p: 0.95, retries: 2, model: driveOn ? AI_MODEL : SOLO_MODEL, isNsfwMode: true };
-    // 🔥 2026-07 玩家追加定案「沒點火時如果被攔截或對話失敗改用DeepSeek」：SOLO_MODEL(輕量模型)全部
-    //   重試失敗後，callGeminiAPI(Engine_Combat.gs)會自動換成 AI_MODEL 再試一輪——點火時已經在用
-    //   AI_MODEL，沒有更重的模型可逃生，不設定 fallbackModel。
-    if (!driveOn) aiConfig.fallbackModel = AI_MODEL;
+    // 🐛→✅ 2026-07 玩家反映「沒點火時常常正常內容也被切換成另一個模組」：查出根因——isNsfwMode
+    //   預設 max_tokens=1000(Engine_Combat.gs)，但finalJson要求的narration目標約500字(中文)＋
+    //   inner_monologue約50字＋physical_state(每位在場角色一份)＋rel_changes等其餘欄位，光narration
+    //   一項換算成token數就經常逼近甚至超過1000，導致SOLO_MODEL(輕量模型)常態性被截斷、輸出不完整JSON
+    //   →JSON.parse失敗(非真的審查攔截，只是格式不完整)→2次retries都失敗→靜默切到fallbackModel(AI_MODEL)
+    //   ——玩家體感是「正常聊天內容也常常換掉模組」，其實是token預算本身不夠、不是內容審查問題。
+    //   點火(driveOn=true)本就直接用AI_MODEL(較能把500字塞進1000 tokens)，沒回報過這個症狀，維持不動；
+    //   只把「沒點火」這條路徑的預算調回1500(2026-07更早一版「先降到1500」時未回報過這個問題)。
+    if (!driveOn) { aiConfig.fallbackModel = AI_MODEL; aiConfig.max_tokens = 1500; }
 
     // 🔴【新增】抓取近 6 筆原始歷史(3輪)，轉換為 API 格式
     const recentHistoryRaw = getGameHistoryBatchRaw(pcId, 6);

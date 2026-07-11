@@ -1168,3 +1168,13 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **未動的部分**：`genderHintStr`(1083行區)的「女女配對」/「其餘依實際性別自然互動」兩桶邏輯本身不用改——它只掃`presentRowsForGender`(真正的同行隊伍pcData列)，巧遇對象走的是`kanshouEncounterHero`這個獨立變數(來自`SEED_SERVANTS`，非pcData列)，兩套機制原本就不交集，不需要合併處理。
 
 **驗證**：`bash check.sh`全過(1個修改檔案：`Gallery.gs`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這次改動只動`actionPlay`內`kanshouEncounterStr`組裝那幾行，離`nsfwBaseRules`本體很遠)。純prompt層級加一句限定指令，不改變資料結構/MEMORY格式，headless環境無法實機驗證AI是否真的遵守這句新指令，建議部署後測試：男御主在「出門走走」任一地點觸發巧遇(或對已有【邂逅中】的舊局說話)，確認巧遇對象的互動維持在朋友向，不出現曖昧/親密走向；女御主巧遇同一批男性角色應維持原本不受影響的正常互動。
+
+## 20. 鑑賞「沒點火」時常被誤切成另一個模組(2026-07 玩家「沒點火時候模組是不是太容易切換了？？我都是正常內容怎麼回一直換成另外一個」)
+
+**根因**：`actionPlay`(Gallery.gs約1214行)組`aiConfig`時，`driveOn=false`(矜持模式/沒點火)走輕量`SOLO_MODEL`、失敗才靜默`fallbackModel`切`AI_MODEL`(既有設計，見§前次記錄)。但`isNsfwMode:true`讓`callGeminiAPI`(Engine_Combat.gs)套用預設`max_tokens=1000`——這個數字是先前「加快鑑賞速度」那輪從2600逐步砍到1000時定的，卻沒人回頭核對過跟同一份提示詞裡`finalJson`要求的`narration`目標(約500字中文)搭不搭得起來：中文500字換算token數常態逼近甚至超過1000，加上同一份JSON還要塞`inner_monologue`(約50字)、每位在場角色一份`physical_state`、`rel_changes`等其餘欄位，SOLO_MODEL常態性被max_tokens硬切斷、吐出不完整JSON——`callGeminiAPI`裡`JSON.parse(text)`對截斷的JSON會直接拋錯，這個錯誤**不是**"Triggered_NSFW_Filter"(那個只在真的審查攔截/message為空時才觸發)，只是普通例外，走一般重試路徑；`retries:2`兩次都因為同樣的截斷問題失敗後，`attemptWithModel_`回傳`null`，外層就靜默換成`fallbackModel`(AI_MODEL)重打一輪。**玩家體感**：明明打的是完全正常的日常對話，卻常常「換了一個模組」(其實是換了模型)——根本原因是token預算擠壓造成的格式失敗，跟內容有沒有踩審查完全無關，只是恰好被同一套「攔截才切換」的邏輯當成同一類事件處理。
+
+**動手**：`aiConfig`在`!driveOn`分支多設一行`max_tokens: 1500`，把「沒點火」(SOLO_MODEL)這條路徑的預算調回上一版「先降到1500」時的數值(那個版本沒回報過這個症狀)；`driveOn=true`(點火，直接用`AI_MODEL`)維持`isNsfwMode`預設的1000不動，因為點火路徑沒人反映過這個問題(AI_MODEL本身把500字塞進1000 tokens的餘裕顯然比SOLO_MODEL大)。
+
+**記錄不動手**：`callGeminiAPI`把「真審查攔截」跟「純格式/截斷失敗」都算進同一個retry/fallback邏輯，理論上可以拆成兩種不同處理(只有真攔截才切模型、格式失敗應該原地重試同一顆模型)，但這是更大範圍的重構，這次先用「調高預算讓截斷本身不要發生」的根源解法處理，不動這段共用邏輯的整體設計。
+
+**驗證**：`bash check.sh`全過(1個修改檔案：`Gallery.gs`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這次改動只加一行`max_tokens`設定，不碰`nsfwBaseRules`本體)。純數值調整，不改變任何邏輯分支，headless環境無法實機驗證token數是否真的夠用，建議部署後測試：鑑賞「沒點火」模式下連續進行多輪正常日常對話，觀察是否還會出現「文風突然變得不像原本模型」的情形（AI_MODEL/DeepSeek跟SOLO_MODEL的敘事風格通常有可辨識差異），次數應明顯減少；若仍常發生，代表根因除了token截斷外可能還有SOLO_MODEL本身在鑑賞這種NSFW鄰近語境下更容易觸發真審查，需要再進一步調查。
