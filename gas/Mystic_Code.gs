@@ -7,7 +7,7 @@
 
 // 📕 禮裝圖鑑（2026-06 全面被動化·玩家定案）。type:'passive' 持有即生效，戰鬥時自動加持我方從者；
 //   'special'＝破戒奪僕(另套機制)。不再有主動發動／充能／迴路門檻。
-//   fx＝戰鬥效果碼(進 MC_COMBAT_ 表)；tier＝稀有度標記(僅供 rollMysticForMaster_ 保留的未來掉落用途分級，創角自選不吃這欄)。
+//   fx＝戰鬥效果碼(進 MC_COMBAT_ 表)；tier＝稀有度標記(創角自選不吃這欄，目前無消費端，純資料備註)。
 var MYSTIC_CODES = {
   avalon: {
     name: '全世界之鞘 Avalon', type: 'passive', fx: 'avalon', tier: 5,
@@ -94,36 +94,6 @@ function setMystic_(memory, id) {
 }
 // 持有的禮裝是否帶某 fx（給戰鬥/時回查被動用，如 avalon）
 function masterMysticFx_(memory, fx) { var id = getMystic_(memory); return (id && MYSTIC_CODES[id] && MYSTIC_CODES[id].fx === fx) ? id : ""; }
-
-// 🎲 依財力/身世「機率」給禮裝（非 100%）。⚠ 2026-07 創角已改【玩家自選】(Router_Creation 讀 userData.mystic)，
-//   此函式現無呼叫者·保留給「戰中可另獲禮裝」等未來掉落用途。鉅富/名門/鐘塔→高機率好禮裝；窮學徒→多半空手。
-function rollMysticForMaster_(standing, circuits) {
-  var s = String(standing || ""), c = parseInt(circuits) || 30;
-  var rich = /鐘塔|貴族|名門|富|世家|豪|大魔術師|君主|繼承|聖堂|教會|協會菁英/.test(s);
-  var poor = /平民|學徒|孤兒|貧|流浪|無名|散|庶民|養子/.test(s);
-  var roll = Math.random();
-  // 機率帶：富裕高機率拿到強禮裝；一般中等；清貧多半空手或廉價品
-  if (rich || c >= 45) {
-    if (roll < 0.30) return pickByTier_([5]);          // 30% 頂級
-    if (roll < 0.70) return pickByTier_([3, 4]);       // 40% 中高
-    if (roll < 0.90) return pickByTier_([1, 2]);       // 20% 入門
-    return "";                                         // 10% 空手
-  } else if (poor || c < 20) {
-    if (roll < 0.35) return pickByTier_([1]);          // 35% 廉價
-    if (roll < 0.50) return pickByTier_([2]);          // 15% 入門
-    return "";                                         // 50% 空手
-  } else {
-    if (roll < 0.15) return pickByTier_([4, 5]);       // 15% 高階
-    if (roll < 0.55) return pickByTier_([2, 3]);       // 40% 中階
-    if (roll < 0.80) return pickByTier_([1]);          // 25% 入門
-    return "";                                         // 20% 空手
-  }
-}
-function pickByTier_(tiers) {
-  var pool = Object.keys(MYSTIC_CODES).filter(function (k) { return tiers.indexOf(MYSTIC_CODES[k].tier) >= 0; });
-  if (!pool.length) return "";
-  return pool[Math.floor(Math.random() * pool.length)];
-}
 
 // 給御主 MEMORY 裝上禮裝（被動·持有即生效），回傳新 memory
 function equipMysticToMemory_(memory, id) {
