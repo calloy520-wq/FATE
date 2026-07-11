@@ -278,7 +278,7 @@ var SKILL_FX_ = {
   self_mod: { passive: true, zh: '自我改造', hitAdd: 2, dmgAdd: 3, silent: true }, // 傷害段靜默(命中段已列一次)
   morale: { passive: true, zh: '鼓舞', dmgAdd: function (r) { return Math.round(3 * r); }, blockedByLoserFx: 'clear_mind', silent: true },
   fast_cast: { passive: true, zh: '高速詠唱', note: '(連珠疊咒)', dmgAdd: function (r) { return Math.round(12 * r); } },
-  mad: { passive: true, zh: '狂化', dmgAdd: function (r) { return Math.round(14 * r); } },       // 命中/迴避 -penalty 仍明碼(雙向·特殊)
+  mad: { passive: true, zh: '狂化', dmgAdd: function (r) { return Math.round(14 * r); } },       // 2026-07 玩家定案拔命中/迴避懲罰：狂化的代價已由 Time_World.gs servantEconomy_ 的維持費×1.5 承擔，戰鬥層不再疊加第二層懲罰
   divine_age: { passive: true, zh: '神代魔術', dmgAdd: function (r) { return Math.round(12 * r); } }, // 使敵對魔力半效之交互 仍明碼
   wind_strike: { passive: true, zh: '風王鐵鎚', dmgAdd: function (r) { return Math.round(6 * r); } },
   crafting: { passive: true, zh: '道具作成', note: '(備妥之器)', dmgAdd: function (r) { return Math.round(8 * r); } }
@@ -566,9 +566,10 @@ function resolveFateBattle_(atk, def, opts) {
   if (hasFx_(atk, 'unreadable')) { fsD = null; fired.push(atk.name + '·' + fxName_(atk, 'unreadable', '無貌') + '(封先機)'); } // 使對方直感/心眼失效
   if (fsD) { dEvaFx += Math.round(3 * rankMul_(fsD)); fired.push(def.name + '·' + fxName_(def, hasFx_(def, 'analyze') ? 'analyze' : 'first_strike', hasFx_(def, 'analyze') ? '心眼' : '直感')); }
 
-  // 狂化(mad)：六圍暴漲但理智低 → 命中／迴避 -3×階級（傷害加成在下方）
-  var madA = hasFx_(atk, 'mad'); if (madA) aHitFx -= Math.round(3 * rankMul_(madA));
-  var madD = hasFx_(def, 'mad'); if (madD) dEvaFx -= Math.round(3 * rankMul_(madD));
+  // ⚠ 2026-07 玩家定案拔除：狂化(mad)原本在此扣「命中／迴避 -3×階級」，但代價其實已由狂化狀態
+  //   本身的每小時魔力維持費×1.5(見 Time_World.gs servantEconomy_)承擔——戰鬥層再疊一次命中/迴避
+  //   懲罰等於同一項代價收兩次稅，玩家反映「幾乎每次都失手」正是這個雙重懲罰疊出來的體感。
+  //   傷害加成(dmgAdd +14×階，見上方 SKILL_FX_.mad)維持不變，只拔命中/迴避這段。
   // 自我改造(self_mod)：命中 +2（被動·SKILL_FX_ 表驅動）
   aHitFx = fxHitAdd_(aHitFx, atk, 'self_mod', fired);
   // ⚡ 主動技（玩家本戰啟動）：命中加成 + 標記發動

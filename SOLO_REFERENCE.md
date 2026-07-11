@@ -1268,6 +1268,20 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - 掛線：`Router_Action.gs`的`ActionRouter`加`spirit_repair`路由；`STATE_AFTER_ACTIONS`(改動戰場狀態、前端需交棒`_state`)與`KANSHOU_BLOCKED_ACTIONS_`(solo戰鬥/魔力機制，鑑賞UI從未也不該呼叫)都比照`mana_supply`同步補上。
 - 前端：`Script.html`新增`spiritRepair()`(仿`manaSupply()`結構：確認彈窗→敵蹤警告→`gasRun({action:'spirit_repair',...})`→戰報/狀態刷新/`narrate`/`handleDefeat`)。
 
+## 28. 狂化(mad)命中/迴避懲罰與魔力維持費雙重收稅——拔除戰鬥層懲罰(2026-07 玩家「赫拉克勒斯 打不到人 是不是怪怪的」)
+
+**回報**：玩家覺得自己召喚的赫拉克勒斯-Berserker 普攻「幾乎每次都失手」，覺得不對勁。追問後玩家給出明確診斷與決定：「狂化已經增加魔力消耗了，取消[戰鬥層]減少命中迴避的懲罰」。
+
+**查證**：`Engine_Fate.gs`的`resolveFateBattle_`原本對持有`mad`(狂化)者扣「命中／迴避 −3×階級」(赫拉克勒斯狂化B階＝−4)，同時`Time_World.gs`的`servantEconomy_`早就對持`mad`者的每小時魔力維持費疊乘×1.5(狂化狀態更耗魔)——**同一項「狂化的代價」被收了兩次稅**：一次在經濟層(維持費)、一次在戰鬥層(命中/迴避)。用`tools/battle_sim/engine.js`實測赫拉克勒斯 vs 全C標準沙包，修正前命中率only 57.2%(遠低於玩家體感應有的近戰強者表現，疊加對手若剛好帶迴避向技能會更慘，正是「幾乎每次都失手」的根因)。
+
+**動手（拔戰鬥層，經濟層代價維持不變）**：
+1. `Engine_Fate.gs`：拔除`madA`/`madD`對`aHitFx`/`dEvaFx`的扣減(命中/迴避懲罰)，`dmgAdd +14×階`傷害加成不動；`SKILL_FX_.mad`與該處註解同步更新，說明代價已轉記在維持費。
+2. 三處面向玩家/AI的說明文字同步改寫，避免講述與實際機制脫鉤：`Script.html`的`FX_DESC.mad`工具提示、`Script_Onboarding.html`的`FORGE_FX_GROUPS`目錄標籤、`Router_Creation.gs`的 AI 生成從者六圍指引(拔掉「命中懲罰由系統另計」字樣)。
+
+**驗證**：`bash check.sh`全過(4個修改檔案：`Engine_Fate.gs`/`Script.html`/`Script_Onboarding.html`/`Router_Creation.gs`)；`tools/battle_sim`實測赫拉克勒斯 vs 全C標準沙包命中率 57.2%→73.2%(修正後不再異常低)。`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。
+
+**留意（未動·僅記錄供未來參考）**：`mad`在工房`ALLOWED_FX_`裡是任何職階皆可選購的標籤(非 Berserker 專屬)，計價落在「標準」軌(E5~A25)，拔除命中/迴避懲罰後它變成該價位裡**唯一零負面**的被動傷害加成(+14×階，高於同軌`crafting`的8×階，甚至高於定價更貴的「強效」軌`divine_age`的12×階)——理論上工房玩家會傾向優先買它。另外`FORGE_CLS_BONUS_`給 Berserker 職階的「狂化補正 預算+30」，原本是為了補償「狂化＝七職階唯一負資產禮物」，現在負資產那半(命中/迴避懲罰)已拔除，這筆補償的立論基礎也跟著鬆動。這兩點都还没動，需要玩家決定要不要一併處理(調`mad`計價軌／重新評估或拔除+30補正)——已在對話中提出詢問，等玩家回覆。
+
 **命名衝突處理**：既有令咒選單(`openSealMenu`)裡本來就有一個選項叫「🩹 靈基修復」(耗令咒、雙方全滿)，跟新按鈕同名會混淆——把舊選項改名「❖ 絕對修復」並在描述補一句「效果強於靈基修復」，讓玩家看得出兩者的定位差異(強·稀缺·一次性 vs 弱·常態·可重複)。
 
 **驗證**：`bash check.sh`全過(3個修改檔案：`Router_Economy.gs`/`Router_Action.gs`/`Script.html`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。headless環境無法實機驗證按鈕互動與AI演出，部署後建議測試：① 御主卡的令咒鈕能正常開出選單(含改名後的「絕對修復」)；② 從者卡的「靈基修復」在魔力池足夠/不足兩種情況下的訊息與扣血回血是否正確；③ 敵蹤同地時觸發卸防突襲的機率與既有補魔/相伴手感一致。
