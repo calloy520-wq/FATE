@@ -176,7 +176,7 @@
 - `actionScavenge`(737) — 搜索：耗1AP，依枯竭與否給不同回魔比例，35%揭露鄰近敵蹤
 - `actionScout`(780) — 偵查：耗1AP，掃描鄰近揭露敵蹤(SEEN標記)
 
-疑似重複(記錄不建議動手)：`getWorkshop_/setWorkshopMemory_`(陣地)與`getScavengedLoc_/setScavengedLoc_`(搜刮)結構幾乎相同(同一MEMORY get/set模式)，符合CLAUDE.md「helper成套」慣例，非誤植；未來若加第三種標記可考慮抽通用`getMemoryTag_/setMemoryTag_`。
+✅ 2026-07 已重構：`getWorkshop_/setWorkshopMemory_`(陣地)與`getScavengedLoc_/setScavengedLoc_`(搜刮)已收斂進`Core_Settings.gs`的`makeTextTag_`共用工廠(函式名/外部行為不變)。
 
 ---
 
@@ -204,7 +204,7 @@
 - `getHorrorShield_`(1272)/`setHorrorShield_`(1281)/`clearHorrorShield_`(1286) — 海怪護盾狀態get/set/clear
 - `horrorShieldView_`(1290) — 供前端渲染海怪血條視圖
 
-疑似重複(記錄不建議動手)：六組MEMORY標記get/set家族(godHand/seals/soloReserve/doom/meal/horrorShield)結構高度相似，可考慮做成通用`makeMemoryTag_(tagName,default)`工廠函式，但非本次死碼清理範圍，需先確認不影響既有存檔字串相容性。
+✅ 2026-07 已重構：`getGodHandLives_`/`setGodHandLives_`(試煉)、`getDoom_`/`stampDoom_`(靈基透支)、`getMeal_`/`stampMeal_`(整備至) 已收斂進 `Core_Settings.gs` 的 `makeIntTag_` 共用工廠(函式名/外部行為不變，僅內部改delegate)。`getPlayerSeals_`/`setPlayerSeals_`(令咒，見Router_Bond.gs/Router_Battle.gs呼叫) 亦同。`soloReserve`/`horrorShield`(三值複合，含舊格式相容邏輯)刻意維持獨立實作，形狀差異太大不硬套。改動前已寫獨立node相容性測試(比對新舊實作在13+組合成MEMORY字串下的get/set行為)，全過才動手，詳見`SOLO_REFERENCE.md`對應章節。
 
 ---
 
@@ -490,11 +490,12 @@
 - `setServantOutput` — 從者靈基出力檔位(🟡見上方manaSetOutput重疊)
 - `changeOutfit`/`changeWeapon` — 換裝/自訂武裝
 - `openMageRealmPicker`/`openRunePicker`/`pickSelectable` — 魔境/符文選擇popup(資料驅動SELECTABLE_FX表)
-- `ruleBreakSteal`/`proposeAlliance`/`breakAlliance`/`allyBond`/`manaSupply`/`bond`/`useSeal` — 羈絆/結盟/令咒action handler(🟡7個共享幾乎逐字重複的confirm→beginAction→gasRun→syncData→narrate→endAction樣板，可考慮抽runSimpleAction_共用helper)
+- `ruleBreakSteal`/`proposeAlliance`/`breakAlliance`/`allyBond`/`manaSupply`/`spiritRepair`/`bond`/`useSeal` — 羈絆/結盟/令咒/靈基修復action handler(✅2026-07已抽`runSimpleAction_`共用helper，confirm對話框仍各自維護)
 - `handleDefeat`/`handleVictory` — 敗北/勝利流程
 - `claimGrail` — 奪得聖杯結算
 - `devCheckSheets`/`devResyncCodex`/`devPurgeOrphans` — DEV工具按鈕
 - `openTigerDojo`/`buildTigerDojoPrompt_`/`buildTigerDojoVictoryPrompt_`/`runTigerDojo_` — 老虎道場(藤村大河+伊莉雅講評)
+- `runSimpleAction_`(2026-07新增，緊鄰`ruleBreakSteal`前) — 收斂ruleBreakSteal/proposeAlliance/breakAlliance/allyBond/manaSupply/spiritRepair/bond/useSeal這8個handler的beginAction→gasRun→(成功副作用→syncData→narrate→善後)→endAction樣板骨架，confirm對話框仍留各自呼叫端
 - `applyClientState`(2402) — 套用client state blob到UI
 - `syncData`(2424) — 統一同步入口(優先消費__pendingState)，呼叫27+
 - `showHistoryOverlay`(2454) — 通用彈窗殼，呼叫16+
@@ -558,8 +559,8 @@
 
 這些都是「功能正常、有真實呼叫、但存在可精簡空間」的觀察，不是死碼，列出供未來重構參考：
 
-1. **MEMORY get/set/clear 家族的手寫正則模式**（Router_Battle.gs的godHand/seals/soloReserve/doom/meal/horrorShield、Router_Movement.gs的陣地/搜刮、Core_Settings.gs的outfit/weapon/overcharge/npTelegraph/mageRealm）——每組各自手刻幾乎相同的字串處理邏輯，可考慮抽出通用`makeMemoryTag_(tagName, defaultVal)`工廠函式，但改動涉及多個標記格式，需先確認不影響既有存檔字串相容性。
-2. **Script.html的7個action handler樣板重複**（ruleBreakSteal/proposeAlliance/breakAlliance/allyBond/manaSupply/bond/useSeal）——幾乎逐字重複confirm→beginAction→gasRun→syncData→narrate→endAction流程，可考慮抽`runSimpleAction_`共用helper。
+1. ~~MEMORY get/set/clear 家族的手寫正則模式~~ ✅2026-07已重構：試煉/令咒/靈基透支/整備至/過充(數值型)＋陣地/搜刮(文字型)共7組已收斂進`Core_Settings.gs`的`makeIntTag_`/`makeTextTag_`共用工廠。soloReserve/horrorShield(三值複合)/outfit/weapon(需字元過濾+截長度)/npTelegraph(布林旗標)/mageRealm(需白名單驗證)刻意維持獨立實作，形狀差異太大不硬套。
+2. ~~Script.html的7個action handler樣板重複~~ ✅2026-07已重構：ruleBreakSteal/proposeAlliance/breakAlliance/allyBond/manaSupply/spiritRepair/bond/useSeal(共8個，含稽核後新發現的spiritRepair)已抽`runSimpleAction_`共用helper，confirm對話框仍各自維護(措辭/門檻差異大，硬塞進helper反而更難讀)。
 3. **manaSetOutput vs setServantOutput**（Script.html）——同一後端action`set_servant_output`兩個UI入口(魔力面板/從者卡轉盤)，可考慮合併。
 4. **sanitizeSix_ vs parseForgeBuild_內inline六圍驗證**（Router_Creation.gs）——同一驗證邏輯兩份平行實作，差異在是否允許+/-後綴。
 5. **upgradeCodexPersonas_ vs upgradeMasterCodex_**（Seed_Codex.gs）——英靈殿/御主殿升級邏輯結構鏡射。

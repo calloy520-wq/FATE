@@ -273,6 +273,43 @@ function masterSynergyOn_(name, memory) {
   var mName = mm ? mm[1] : "";
   return /恩奇都/.test(String(name)) && /銀狼/.test(mName);
 }
+// 🏭 MEMORY 標記共用工廠（2026-07·稽核發現Router_Battle.gs/Router_Movement.gs七組數值型/文字型
+//   MEMORY get/set 手刻正則邏輯彼此結構完全相同，僅標記名稱與預設值不同，予以收斂）：
+//   只收斂「純數值」與「純文字(無格式白名單)」兩種最常見形狀——海怪護盾(三值複合)/魔境·符文(需
+//   白名單驗證)/換裝·武裝(需字元過濾+截長度)刻意不強塞進來，形狀差異夠大，硬套反而更難讀，
+//   維持各自獨立實作(FUNCTION_MANUAL.md已記錄此判斷)。
+// 數值型：get 回 parseInt 或預設值；set 先移除舊標記(含意外重複)、清理殘留的｜｜或前後｜，再附加新值
+//   於字串尾端——這裡刻意採用「移除更徹底」的寫法(對比舊版試煉/令咒只做單次test+原地replace)，
+//   對「MEMORY 字串意外出現重複標記」這種邊界狀況更穩健，屬於整併時的刻意小幅強化，非行為劣化。
+function makeIntTag_(tagName, defaultVal) {
+  var reGet = new RegExp('【' + tagName + '】(\\d+)');
+  var reStrip = new RegExp('｜?【' + tagName + '】\\d+', 'g');
+  function strip(memory) {
+    var s = String(memory || '').replace(reStrip, '');
+    return s.replace(/｜｜/g, '｜').replace(/^｜|｜$/g, '');
+  }
+  return {
+    get: function (memory) { var m = String(memory || '').match(reGet); return m ? parseInt(m[1]) : defaultVal; },
+    set: function (memory, n) { var s = strip(memory); return (s ? s + '｜' : '') + '【' + tagName + '】' + n; },
+    clear: function (memory) { return strip(memory); }
+  };
+}
+// 文字型（無驗證/截長度，給已受信任的內部字串如地點名用；換裝/武裝需過濾使用者輸入，維持獨立實作）：
+//   get 排除半形｜全形｜與【；set 沿用舊版「單次test+原地replace，找不到才附加」寫法(逐字比對過
+//   getWorkshop_/getScavengedLoc_等既有實作，行為完全一致)。
+function makeTextTag_(tagName) {
+  var reGet = new RegExp('【' + tagName + '】([^｜|【]+)');
+  var reSet = new RegExp('【' + tagName + '】[^｜【]*');
+  return {
+    get: function (memory) { var m = String(memory || '').match(reGet); return m ? m[1].trim() : ''; },
+    set: function (memory, val) {
+      var s = String(memory || '');
+      if (reSet.test(s)) return s.replace(reSet, '【' + tagName + '】' + val);
+      return (s ? s + '｜' : '') + '【' + tagName + '】' + val;
+    }
+  };
+}
+
 // 🔮 敵寶具預告旗標（跨按鍵持久·存敵從者 MEMORY）：達成解放條件時先「預告」蓄勢，下次接觸必定發動——
 //   給玩家一回合準備(開結界/寶具對轟/逃跑)，杜絕「無預警寶具秒殺」。get/set/clear 成套。
 function getNpTelegraph_(memory) { return /【寶具預告】/.test(String(memory || "")); }
@@ -280,9 +317,10 @@ function setNpTelegraph_(memory) { var s = String(memory || ""); return getNpTel
 function clearNpTelegraph_(memory) { return String(memory || "").replace(/｜?【寶具預告】1/g, ""); }
 // 🔥 補魔過充存量（存御主 MEMORY【過充】<額度>）：補魔一儀＝除回滿池外，另存下一發「規格外寶具(＋/EX)」可無償超載灌入的
 //   一池份魔力；發動大砲時優先由此支付，一次性(用完即清)。get/set/clear 成套；額度＝補魔當下的池上限。
-function getOvercharge_(memory) { var m = String(memory || "").match(/【過充】(\d+)/); return m ? (parseInt(m[1]) || 0) : 0; }
-function setOvercharge_(memory, amt) { var s = clearOvercharge_(String(memory || "")); amt = Math.max(0, Math.round(amt)); return s ? s + "｜【過充】" + amt : "【過充】" + amt; }
-function clearOvercharge_(memory) { return String(memory || "").replace(/｜?【過充】\d+/g, ""); }
+var OVERCHARGE_TAG_ = makeIntTag_('過充', 0);
+function getOvercharge_(memory) { return OVERCHARGE_TAG_.get(memory); }
+function setOvercharge_(memory, amt) { return OVERCHARGE_TAG_.set(memory, Math.max(0, Math.round(amt))); }
+function clearOvercharge_(memory) { return OVERCHARGE_TAG_.clear(memory); }
 // 👗 從者換裝（存從者 MEMORY【換裝】<服裝文字>）：玩家自訂當前【服裝穿著】·疊在種子外貌本相之上餵給 AI 敘述——
 //   只換衣不換人(五官/髮色/體態/氣質仍依 persona.look)。純外觀·不碰數值。get/set/clear 成套；清空＝恢復本相。
 //   ｜【】換行皆為 MEMORY/提示分隔字元 → set 時剝除，限 40 字，守住寫表冪等與提示安全。

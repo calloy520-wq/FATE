@@ -1484,3 +1484,20 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這次完全沒碰這兩個檔案)。三段新`aiPrompt`皆沿用`servantCard_`/`masterCard_`既有卡片機制與「show, don't tell」既定鐵律，未新增任何演出鷹架；字數上限刻意壓在60~100字(比`rest`/`bond`等主要敘事時刻更短)，因這幾個動作只耗1AP、同一天可能連按數次，維持「⚡快速」工程準則、不讓輕量動作也拖成長篇。
 
 **追加修正（同日，玩家問「提示詞都ok？」複查揪出）**：上面3段新`aiPrompt`＋既有的`actionSetWorkshop`共4處，原本都寫成「有隨行從者→只給`servantCard_`、否則才給`masterCard_`」的二選一——但這4個場景的埋入事實文字明講是**御主與從者共同行動**（「御主凝神探查」「御主一行在此地搜索」「御主與從者稍作整備」「御主灌注了魔力」），有從者在場時卻完全不給AI御主的性格/口吻卡，AI只能籠統帶過御主這一側的反應。改成一律附`masterCard_`、有從者才追加`servantCard_`（兩卡並列，比照`mana_supply`/`bond`既有的組法，不是新發明）。順手全庫`grep`確認沒有其餘地方也犯同款「二選一漏卡」——`actionMove`的`svCardMove`/`pursuit.foeCard`是唯一目的變數（分別搭配獨立的`masterCard`欄位在前端組裝時一起使用），非同一款bug。
+
+## §42 代碼健康：MEMORY標記工廠函式＋Script.html action handler共用骨架（2026-07·玩家問「代碼健康先整理吧」，落實`FUNCTION_MANUAL.md`附錄記錄的兩項技術債）
+
+**背景**：玩家先讀完`HANDBOOK.md`/`FUNCTION_MANUAL.md`/`DESIGN.md`/`AI_PROMPT_MAP.md`全套架構後，選擇先處理稽核筆記早就記錄、但當時判斷「非本次範圍、需先確認相容性」而暫緩的兩項重構。
+
+**① MEMORY get/set/clear 家族收斂**：`Router_Battle.gs`(試煉/令咒/靈基透支/整備至)＋`Core_Settings.gs`(過充)＋`Router_Movement.gs`(陣地/搜刮)共7組手刻正則邏輯，實際拆解後發現只有兩種真正形狀：
+- **數值型**(`makeIntTag_(tagName, defaultVal)`)：試煉(預設11)/令咒(預設3)/靈基透支(預設0)/整備至(預設0)/過充(預設0)。
+- **文字型**(`makeTextTag_(tagName)`，無驗證/截長度，給已受信任的內部字串如地點名用)：陣地/搜刮。
+兩者皆定義在`Core_Settings.gs`(共用基礎設施)，原本個別檔案的`getXxx_`/`setXxx_`/`stampXxx_`函式名與外部呼叫端完全不變，內部改成呼叫工廠實例的`.get`/`.set`。**刻意不動**：`horrorShield`(三值複合`cur|max|expiry`+舊兩欄相容邏輯，檔內註解本就寫「未來擴充照此複製」而非「合併」)、`換裝`/`武裝`(需字元過濾+截長度，跟陣地/搜刮的「無驗證」性質不同)、`寶具預告`(布林旗標)、`魔境`/`符文`(需白名單驗證，不是純get/set)——形狀差異夠大，硬套工廠反而更難讀。
+**驗證**：改動前先寫獨立node腳本(`/tmp`scratchpad，未進repo)比對「舊版手刻正則」vs「新工廠」在13+組MEMORY字串(空/單獨/夾在中間/角落/刻意構造的重複標記)下的get/set輸出，全部一致才動手；動手後再寫第二支腳本直接用`vm`把**改完的真實`Core_Settings.gs`+`Router_Battle.gs`+`Router_Movement.gs`**載進沙盒跑同一套case(16組字串×7個函式+預設值)，全過。順手抓到一個編輯過程中自己造成的重複定義(`clearOvercharge_`意外留了新舊兩份)，靠`grep -c "function X("`逐函式核對定義數＝1才發現並修掉。
+
+**② Script.html 7個(實際8個)action handler共用骨架**：`ruleBreakSteal`/`proposeAlliance`/`breakAlliance`/`allyBond`/`manaSupply`/`bond`/`useSeal`（`FUNCTION_MANUAL.md`原記錄7個，逐一重讀時發現還有一個結構相同但當時漏記的`spiritRepair`，一併納入)共8個handler，共通骨架「`beginAction`→(可選前置動作)→(可選story系統提示)→`gasRun`→成功: (可選副作用)→`syncData(true)`→`narrate(res.aiPrompt)`→(可選narrate後善後，如milestone/defeat/unlocked提示)／失敗: alert(可選額外處理)→`endAction`」抽成`runSimpleAction_(opts)`共用函式。**刻意不動**：各handler開頭的`confirm()`對話框——措辭與觸發門檻(有無敵蹤警告/代價說明)差異夠大，硬塞進共用函式的參數只會更難讀，維持各自呼叫端獨立寫。
+**設計取捨**：`opts`用`beforeCall`/`preMsg`/`onSuccess`/`onSuccessAfterNarrate`/`onFail`/`failMsg`/`catchMsg`分別對應原本各handler在流程不同階段插入的自訂邏輯(如`bond()`的里程碑banner在`onSuccess`、`defeat`判定在`onSuccessAfterNarrate`、`bondUsed`追蹤同時存在`onSuccess`與`onFail`兩邊)——逐一比對8個原始函式的每一行副作用，確認搬進對應hook後執行順序與原版**完全一致**(尤其`narrate()`必須在`syncData(true)`之後、`defeat`判定必須在`narrate()`之後這兩條本專案的既定鐵則，是這次重構最容易出錯的地方，逐一核對過)。
+
+**改動**：`gas/Core_Settings.gs`(新增`makeIntTag_`/`makeTextTag_`工廠＋`過充`三函式改delegate)；`gas/Router_Battle.gs`(試煉/令咒/靈基透支/整備至四組函式改delegate)；`gas/Router_Movement.gs`(陣地/搜刮兩組函式改delegate)；`gas/Script.html`(新增`runSimpleAction_`＋8個handler改用它)；`FUNCTION_MANUAL.md`(更新對應章節與附錄，標記兩項技術債已解決)。
+
+**驗證**：`bash check.sh`全過；`grep -c "function X("`逐一確認全部17個相關函式定義數皆為1(含新工廠/新helper本身)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。Script.html這段是純前端JS改動、`check.sh`只驗語法不驗runtime行為(CLAUDE.md點名的已知坑)——逐一手動核對8個handler改寫前後的執行順序與副作用完全一致，是這次最主要的驗證手段。
