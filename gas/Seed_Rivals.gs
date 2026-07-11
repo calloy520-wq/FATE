@@ -20,12 +20,14 @@ function markRivalsSeen_(sheets, pcId, preData) {
     const myGameId = String(me[COL.PC.GAME_ID] || "");
     const myLoc = String(me[COL.PC.LOC] || "").trim();
     if (!myLoc) return data;
+    const myDay = parseInt(me[COL.PC.DAY]) || 1; // 🕰️ 尚未登場者不會被標記「已偵查」
     var dirty = false;
     for (var i = 1; i < data.length; i++) {
       var r = data[i], fac = String(r[COL.PC.FACTION]);
       if (fac !== "敵御主" && fac !== "敵從者") continue;
       if (String(r[COL.PC.GAME_ID] || "") !== myGameId) continue;
       if (String(r[COL.PC.LOC] || "").trim() !== myLoc) continue;
+      if (!hasArrived_(r, myDay)) continue;
       if (r[COL.PC.SEEN]) continue;
       r[COL.PC.SEEN] = 1; dirty = true; // 就地標記，下方一次寫回
     }
@@ -38,7 +40,10 @@ function markRivalsSeen_(sheets, pcId, preData) {
   } catch (e) { return preData || null; }
 }
 
-// 第五次聖杯戰爭正典陣容（master_id, hero_id, 冬木落點）
+// 第五次聖杯戰爭正典陣容（master_id, hero_id, 冬木落點｜可選 arriveDay：第N天才登場，預設1＝開局即登場；
+//   arriveHint：登場前1~2天的世界風聲自訂提示句，未填則退回依職階的泛用措辭）
+//   2026-07 玩家「有辦法再放人進去嗎？類似第5次金閃閃3天後出現遊蕩？佐佐木自己在柳洞寺？」——
+//   機制已通用化(hasArrived_/getArriveDay_)，實際哪幾位延後登場、登場提示文字，玩家後續自行指定填入。
 var FATE_5TH_ROSTER = [
   { master: '衛宮士郎-5th', hero: '阿爾托莉雅-Saber', loc: '冬木·深山町' },
   { master: '遠坂凜-5th', hero: 'EMIYA-Archer', loc: '遠坂宅' },
@@ -206,8 +211,18 @@ function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
       var hero = findHero(r.hero), master = findMaster(r.master);
       if (!hero || !master) return;
       if (playerServantName && String(hero[COL.HERO.NAME]) === playerServantName) return; // 你奪取的那組
-      rows.push(masterToNpcRow_(master, gameId, r.loc, '敵御主', heroMagicRank_(hero)));
-      rows.push(heroToNpcRow_(hero, gameId, r.loc, '敵從者'));
+      var mRow = masterToNpcRow_(master, gameId, r.loc, '敵御主', heroMagicRank_(hero));
+      var sRow = heroToNpcRow_(hero, gameId, r.loc, '敵從者');
+      // 🕰️ 登場日/登場提示(可選)：master/servant 一組共用同一個登場日，才不會出現「御主到了、從者卻還沒到」的錯位。
+      if (r.arriveDay) {
+        mRow[COL.PC.MEMORY] = setArriveDay_(mRow[COL.PC.MEMORY], r.arriveDay);
+        sRow[COL.PC.MEMORY] = setArriveDay_(sRow[COL.PC.MEMORY], r.arriveDay);
+      }
+      if (r.arriveHint) {
+        mRow[COL.PC.MEMORY] = setArriveHint_(mRow[COL.PC.MEMORY], r.arriveHint);
+        sRow[COL.PC.MEMORY] = setArriveHint_(sRow[COL.PC.MEMORY], r.arriveHint);
+      }
+      rows.push(mRow, sRow);
     });
   }
   // 🔗 硬連結每組敵御主↔敵從者（rows 嚴格交替：master, servant, master, servant…）

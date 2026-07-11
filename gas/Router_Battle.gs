@@ -357,7 +357,9 @@ function actionFateBattle(userData, pcId, sheets) {
   //   常見「查無此目標」正因名字位元組不一致。ID 為主、名字為退路(相容舊前端/無 id 情況)。
   const npcId = String(userData.npcId || "").trim();
   // 🛡️ 目標必須是敵方陣營(敵從者/敵御主)——擋掉偽造參數打自己御主/自己第二從者(盟友另有 isAllied_ 專屬擋牆)
-  const _notMeAlive = function (r) { var f = String(r[COL.PC.FACTION] || ""); return (f === "敵從者" || f === "敵御主") && r[COL.PC.ID] != pcData[atkIdx][COL.PC.ID] && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId); };
+  // 🕰️ 登場日閘門：尚未登場者不可被鎖定攻擊(前端本就看不到，這裡防直打API繞過)
+  const _battleDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
+  const _notMeAlive = function (r) { var f = String(r[COL.PC.FACTION] || ""); return (f === "敵從者" || f === "敵御主") && r[COL.PC.ID] != pcData[atkIdx][COL.PC.ID] && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId) && hasArrived_(r, _battleDay); };
   let nIdx = npcId ? pcData.findIndex(r => String(r[COL.PC.ID]) === npcId && _notMeAlive(r)) : -1;
   if (nIdx === -1) nIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1 && _notMeAlive(r));
   if (nIdx === -1) return JSON.stringify({ success: false, message: "此世界查無此目標。" });

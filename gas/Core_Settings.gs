@@ -535,6 +535,38 @@ function getMasterCodexCached() {
 // 🔴 狀態掃描器與地理雷達
 // ==========================================
 
+// 🕰️ 登場日(2026-07 新增·玩家「有辦法再放人進去嗎？類似第5次金閃閃3天後出現遊蕩」)：部分敵御主/
+//   敵從者可延後登場，不必開局就全員同時上場。資料驅動：Seed_Rivals.gs 的 roster 項目可選填
+//   arriveDay(第N天才登場)／arriveHint(登場前風聲用的自訂提示句)，未填＝第1天(等同現行「開局即全員
+//   登場」，對既有存檔/種子零影響)。
+//   hasArrived_(row,currentDay) 是「這名敵人現在算不算真的在世界裡」的單一真實來源——凡是同地互動／
+//   鎖定攻擊／卸防突襲／結盟交涉／世界自走(移位/自癒/暗處互鬥/靈基透支倒數/敵御主每日回魔)／地圖敵蹤
+//   標示／戰爭迷霧「已偵查」，全部該吃這道閘門。唯獨「剩餘敵從者總數」(aliveEnemyServants_，勝負判定
+//   用)刻意不吃這道閘門——未登場者仍是活著的敵人，玩家不能靠「趕在對方出現前把其他人都殺光」就提前
+//   奪杯，必須等到 14 天內對方也現身、被真正解決掉才算數。
+function getArriveDay_(memory) {
+  var m = String(memory || "").match(/【登場日】(\d+)/);
+  return m ? parseInt(m[1]) : 1;
+}
+function setArriveDay_(memory, day) {
+  var d = Math.max(1, parseInt(day) || 1);
+  var mem = String(memory || "").replace(/｜?【登場日】\d+/g, "");
+  return d <= 1 ? mem : (mem ? (mem + "｜【登場日】" + d) : ("【登場日】" + d)); // 第1天＝預設值，不必佔字串長度
+}
+// 登場前風聲用的自訂提示句(如「遠方隱約可見金色的威壓身影」)；未填則由呼叫端退回泛用措辭。
+function getArriveHint_(memory) {
+  var m = String(memory || "").match(/【登場提示】([^｜]*)/);
+  return m ? m[1] : "";
+}
+function setArriveHint_(memory, hint) {
+  var h = String(hint || "").trim();
+  var mem = String(memory || "").replace(/｜?【登場提示】[^｜]*/g, "");
+  return h ? (mem ? (mem + "｜【登場提示】" + h) : ("【登場提示】" + h)) : mem;
+}
+function hasArrived_(row, currentDay) {
+  return (parseInt(currentDay) || 1) >= getArriveDay_(row && row[COL.PC.MEMORY]);
+}
+
 // 2026-07：關係已併入眾生表自身欄位(BOND/REL_TAG/IS_PARTY)，不再需要 relData 參數／跨表查找。
 function getLocalPeopleList(sheets, pcName, pcId, curL, allPcData) {
   if (!allPcData) allPcData = sheets.pc.getDataRange().getValues();
@@ -544,6 +576,7 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, allPcData) {
   // 🔵 實例化：只看自己 game_id 世界內的人（御主沒有 game_id 時不過濾，相容舊角色）
   const meRow = allPcData.find(r => r[COL.PC.ID] == pcId);
   const myGameId = meRow ? String(meRow[COL.PC.GAME_ID] || "") : "";
+  const myDay = meRow ? (parseInt(meRow[COL.PC.DAY]) || 1) : 1; // 🕰️ 登場日閘門用：尚未到來的敵人對玩家完全不存在
 
   // 🤝 情報共享（同盟背景生效）：只要當前世界尚有任一盟友（敵御主/敵從者結盟中），盟友便會通報敵情——
   //   敵從者的「職階」對玩家揭露（原作依據：遠坂凜為士郎判明敵方職階／真名）。無盟友則維持迷霧。
@@ -556,13 +589,16 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, allPcData) {
     const ar = allPcData[a];
     if (myGameId && String(ar[COL.PC.GAME_ID] || "") !== myGameId) continue;
     const af = String(ar[COL.PC.FACTION] || "");
-    if ((af === "敵御主" || af === "敵從者") && !String(ar[COL.PC.ID]).startsWith("DEAD_") && /【盟約至】\d+/.test(String(ar[COL.PC.MEMORY] || ""))) { hasAlly = true; }
+    if ((af === "敵御主" || af === "敵從者") && !String(ar[COL.PC.ID]).startsWith("DEAD_") && hasArrived_(ar, myDay) && /【盟約至】\d+/.test(String(ar[COL.PC.MEMORY] || ""))) { hasAlly = true; }
   }
 
   for (let i = 1; i < allPcData.length; i++) {
     const r = allPcData[i];
     if (r[COL.PC.ID] == pcId || String(r[COL.PC.ID]).startsWith("DEAD_")) continue;
     if (myGameId && String(r[COL.PC.GAME_ID] || "") !== myGameId) continue;
+    // 🕰️ 登場日閘門：尚未登場的敵御主/敵從者對玩家完全不存在(不進在場清單、不可被指名互動)
+    const rFac0 = String(r[COL.PC.FACTION] || "");
+    if ((rFac0 === "敵御主" || rFac0 === "敵從者") && !hasArrived_(r, myDay)) continue;
 
     const tLoc = String(r[COL.PC.LOC] || ""); const tName = r[COL.PC.NAME];
     const rVal = parseInt(r[COL.PC.BOND]) || 0;
