@@ -1188,3 +1188,11 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **動手**（玩家選項：放寬到25字）：4處數字同步從15改25——①`_physicalState`提示詞字面(約668行)；②`intimacy_feedback._note`提示詞(約701行)；③慾海律令第5條`specificRules`文字(約792行)；④`sanitizePhysicalState`的硬`slice(0,15)`防呆(約1342行)。**刻意不動**：慾海律令第7條`attitude`(NPC臨場態度欄)同樣寫著`≤15字`，但這是完全獨立的欄位(態度 vs 顏面神情/衣裝狀態)，玩家這次只反映「狀態」被切斷，沒提到`attitude`，不在此次收斂範圍內、原樣保留15字。
 
 **驗證**：`bash check.sh`全過(1個修改檔案：`Gallery.gs`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這次改動只調整`physical_state`欄位的字數上限，4處皆為純數字替換，離`nsfwBaseRules`本體很遠)。純數值調整，不改變任何邏輯分支/資料結構，headless環境無法實機驗證AI輸出長度分布，建議部署後測試：鑑賞連續對話觀察「狀態」欄位是否還會出現明顯斷在句意中間的情形(如「困惑地」這種缺主詞/缺動詞的殘句)，次數應明顯減少；若仍常被切斷，代表AI實際輸出長度可能經常超過25字，需再往上調或考慮改回不設字數硬上限、只靠提示詞自律。
+
+## 22. 慾海同行夥伴「關係」標籤方向不明確，AI偶爾把主從演反(2026-07 玩家「有時候我變成npc的從者？！」)
+
+**根因**：`actionPlay`組`partyDetailsArr`(Gallery.gs約1074行，餵給AI的「目前同行隊伍成員命格詳情」)原本把每位同伴的`COL.PC.REL_TAG`直接接成「關係:${tag}」——例如關係標籤維持預設值「從者」時，這行讀作「關係:從者」。這串文字對AI而言方向不明確：既可能被正確理解為「這份關係定位是『TA是你的從者』」(REL_TAG欄位本身的定義，見`Core_Settings.gs`COL.PC註解「這名NPC對本世界御主的關係」)，也可能被誤讀成單純描述這名角色的身分/職階(Fate裡「從者」本來就是一種存在類別的名稱)，沒有明講「相對於誰」。玩家反映「標籤沒改過仍是預設的『從者』，AI卻偶爾把場景寫成玩家服侍/服從NPC的一方」——經確認排除「玩家自己把關係標籤改成別的字」這個可能性(玩家確認未曾用🏷️關係鈕更動過)，屬於提示詞字面方向歧義導致AI偶發誤讀/演反的bug，非玩家操作或AI審查問題。
+
+**動手**：`partyDetailsArr`那行的「關係:${tag}」改成「關係:TA是你的${tag}」，把REL_TAG欄位原本就有的方向性(TA相對於你)明講進提示詞字面，不再讓AI自行猜測「從者」兩字是指身分還是關係方向。**刻意不動**：①面板顯示層(`Script_Kanshou.html`的`renderKcPartyList_`「關係:X」)是純UI文字，玩家自己看得懂方向、不影響AI，不需要改；②`Core_Settings.gs`的`localPeopleList`(`relTag: r[COL.PC.REL_TAG]`，供solo「附近人物」前端顯示)是資料欄位而非直接餵給AI的prompt字串，另一條路徑，這次不動；③`update_rel_tag`本身允許玩家自由填任何字(含「主人」等反轉關係的字)是既有設計，玩家若真的自己改成反轉方向的標籤、AI照著演不算bug，這次只修「標籤沒改、AI卻誤讀方向」這個情境。
+
+**驗證**：`bash check.sh`全過(1個修改檔案：`Gallery.gs`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這次改動只在`partyDetailsArr`那行插入「TA是你的」5個字，離`nsfwBaseRules`本體很遠)。純prompt字面調整，不改變資料結構/REL_TAG欄位定義，headless環境無法實機驗證AI是否真的不再演反，建議部署後測試：關係標籤維持預設「從者」的同伴連續對話數輪，觀察是否還會出現玩家被要求服從/服侍該同伴的反轉演出，次數應明顯減少；若仍偶發，可能還需在慾海律令裡額外補一條「不可翻轉御主/從者主從方向」的明文禁止規則。
