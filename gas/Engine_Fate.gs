@@ -281,9 +281,24 @@ var SKILL_FX_ = {
   mad: { passive: true, zh: '狂化', dmgAdd: function (r) { return Math.round(14 * r); } },       // 2026-07 玩家定案拔命中/迴避懲罰：狂化的代價已由 Time_World.gs servantEconomy_ 的維持費×1.5 承擔，戰鬥層不再疊加第二層懲罰
   divine_age: { passive: true, zh: '神代魔術', dmgAdd: function (r) { return Math.round(12 * r); } }, // 使敵對魔力半效之交互 仍明碼
   wind_strike: { passive: true, zh: '風王鐵鎚', dmgAdd: function (r) { return Math.round(6 * r); } },
-  crafting: { passive: true, zh: '道具作成', note: '(備妥之器)', dmgAdd: function (r) { return Math.round(8 * r); } }
+  crafting: { passive: true, zh: '道具作成', note: '(備妥之器)', dmgAdd: function (r) { return Math.round(8 * r); } },
+  // 🥋 御主體術參戰（2026-07 新增）：御主本人在戰場上助拳的小額支援傷害，非從者自身技能——
+  //   r 取自御主自己的【體術】階級(注入時 injectMasterMeleeSupport_ 帶入)，量級刻意壓在
+  //   wind_strike/crafting 同一檔次(凡人體術終究打不過從者本體技能)，不喧賓奪主。
+  master_melee: { passive: true, zh: '御主體術', dmgAdd: function (r) { return Math.round(7 * r); } }
 };
 function skillFxVal_(v, r, c) { return (typeof v === 'function') ? v(r, c) : v; }
+// 🥋 把御主自己的體術階級注入我方從者戰鬥單位 c 的 skills（比照 injectMysticBuff_ 同一套「找 fx
+//   已存在則略過」慣例，避免重複注入）。無【體術】記錄(空字串)則不注入——舊資料/未測定者維持零加成。
+function injectMasterMeleeSupport_(c, masterMemory) {
+  var melee = getMasterMelee_(masterMemory);
+  if (!melee || !c) return c;
+  c.skills = (c.skills || []);
+  if (!c.skills.some(function (s) { return s && s.fx === 'master_melee'; })) {
+    c.skills = c.skills.concat([{ n: '御主體術', r: melee, fx: 'master_melee' }]);
+  }
+  return c;
+}
 
 // ⚡ 從者主動技（施放技術·開關制）：掃 SKILL_FX_ 中 active 者依 prio 取第一個持有的。無則 null。
 //   數值隨技能自身階級成長(rank 折入)；tinyActiveSkill_ 產微量版(關閉時)。★只增益我方出擊、不碰防禦端。
@@ -722,6 +737,9 @@ function resolveFateBattle_(atk, def, opts) {
   base = fxDmgApply_(base, winner, loser, 'divine_age', fired);
   base = fxDmgApply_(base, winner, loser, 'wind_strike', fired);
   base = fxDmgApply_(base, winner, loser, 'crafting', fired);
+  // 🥋 御主體術參戰（見 injectMasterMeleeSupport_ 注入來源）：目前僅玩家側從者吃得到(呼叫端比照
+  //   禮裝 injectMysticBuff_ 同一套 FACTION==="從者" 門檻注入)，敵御主體術暫僅供演出卡陳述、未接戰鬥。
+  base = fxDmgApply_(base, winner, loser, 'master_melee', fired);
   // 🗡️ 秘劍・燕返(tsubame)：劍術本身——三方位同斬 ×2.3【普攻限定·僅每場第1回合】(2026-07 三修玩家定案：
   //   與寶具骰/超載/規模疊乘會爆炸故普攻限定；再限首回合一閃(opts.round)擋「回回×2.3」普攻流無敵化。
   //   寶具解放段(四修)已無疊乘、僅剩 概念位階3/貫穿＋演出標籤，不受首回合限制)

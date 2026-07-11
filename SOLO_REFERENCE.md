@@ -1369,3 +1369,24 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `Script.html`：`bond()`函式在`res.milestone`真值時插入一行過場提示。
 
 **驗證**：`bash check.sh`全過；獨立node腳本沙盒測試`getBondMilestonesFired_`/`setBondMilestonesFired_`跨門檻判定邏輯(30→33觸發、45不重觸發、60→61觸發、標記持久化後重新解析仍正確)全數通過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。headless環境無法真正跑一局驗證AI實際輸出的演出品質，部署後建議測試：找一位從者連續「相處」把羈絆推過30/60/90，確認三次都各自觸發一次專屬演出(而非每次都是泛用小品)、且同一門檻不會重複觸發、旗標在奇襲打斷後下次仍能補演出。
+
+## §35 御主體術上線：演出卡輕量對接＋真實戰鬥支援傷害（2026-07·玩家追問死欄位「之前設定的體術啥的都沒有用到」）
+
+**背景**：玩家順著「調查/情報系統」話題延伸問「御主的能力（標籤？）系統也上線」——查證後確認 `【體術】`(從命運測定/種子鋪敵而來的 E~A 階級字母)跟 `【魔術】`(自由描述文字，如「投影／強化」「寶石魔術」)兩個 MEMORY 標記，全代碼庫**只寫不讀**：不影響任何戰鬥數值(御主血魔只看`迴路`)，甚至沒被塞進 `masterCard_`/`enemyMasterCard_` 演出卡餵給 AI——玩家設定了卻從未真正用到。另外還查出敵御主(`masterToNpcRow_`，Seed_Rivals.gs)過去**根本沒寫**體術進 MEMORY，只有玩家自創御主(Router_Creation.gs)才有——不是「有寫沒讀」，是敵方這側連寫都沒寫，兩側資料完整度不對稱。
+
+**玩家決策路徑**：先問「輕量版(讀進演出卡) vs 真數值(御主可被單獨攻擊時的個人防衛判定)」，選了「輕量版，但也想要真的有戰鬥機制、合作作戰的感覺」，追問一句「想要真的能進行傷害」——最終定案＝**兩者都做**：體術/魔術先輕量讀進兩張演出卡當能力描述；體術另外走真實數值路徑，但不是「御主單獨被攻擊時的防衛判定」(那個方向需要先解決御主/從者一定同格同時登場的耦合，工程量大、且會扯到還沒拍板的調查系統)，改成更好落地的「御主在從者出擊時一起助拳、貢獻小額支援傷害」——正是玩家說的「合作作戰的感覺」。
+
+**設計取捨**：
+- **輕量演出對接**：體術/魔術是能力描述(非願望/個性/萌點字面)，不受 show-don't-tell 限制，可以直接陳述——比照這次session稍早「身世輕量對接」的做法，`masterCard_`(Router_Persona.gs，玩家自己)／`enemyMasterCard_`(敵御主)都補讀 `getMasterMelee_`/`getMasterMagic_`(新增於 Core_Settings.gs，緊鄰既有的登場日 get/set 慣例)。
+- **真實戰鬥支援傷害怎麼接進引擎**：沒有另開一套「御主戰鬥」子系統，而是完全複用禮裝(`injectMysticBuff_`)已經驗證過的注入模式——`injectMasterMeleeSupport_`(Engine_Fate.gs)把 `{n:'御主體術', r:melee, fx:'master_melee'}` 注入我方從者戰鬥單位的 `skills`，`SKILL_FX_.master_melee`(passive, `dmgAdd: 7*rankMul_(r)`)走既有的 `fxDmgApply_` 資料驅動管線自動套用、自動進 `fired[]` 供 AI 敘述——單一真實來源，未來要調體術強度只改這一個公式。量級刻意壓在 `wind_strike`/`crafting` 同一檔次(6~8×rank)，凡人體術終究打不過從者本體技能，不喧賓奪主。
+- **只接玩家側，敵御主體術暫不接戰鬥**：`injectMysticBuff_` 的既有 4 個呼叫點裡，只有 3 個真正用於傷害結算(`fateStrike_` 守方/開場對轟攻方/每回合出擊，皆守 `FACTION==="從者"` 門檻＝只buff玩家自己的從者)，第4個(`tgtC0`，avalon理想鄉檢查用)是即用即棄物件、從不進真正結算——`injectMasterMeleeSupport_` 完全比照這3個真正生效的呼叫點插入，第4個不動。敵御主雖然這次也補寫了 `【體術】` MEMORY(見下)，但敵方戰鬥流程沒有對應的注入呼叫點——這是刻意的範圍收斂：把敵方也接上戰鬥效果需要先解決「該從哪個從者反查回其配對敵御主的體術」的跨列查找(不像玩家側`pIdx`唾手可得)，這輪先把玩家能感受到「跟自己御主合作作戰」的核心體驗做完、做穩，敵方對稱留待下次視需要再做。
+- **敵御主體術補寫**：`masterToNpcRow_`(Seed_Rivals.gs)過去只寫【願望】/【魔術】/【迴路】，這次補上【體術】(讀 `COL.MASTER.MELEE`)——即使這輪還沒接戰鬥，至少 `enemyMasterCard_` 的演出卡讀得到，兩側資料完整度先拉平。
+
+**改動**：
+- `Core_Settings.gs`：新增 `getMasterMelee_`/`getMasterMagic_` 兩個 MEMORY 讀取器。
+- `Router_Persona.gs`：`masterCard_`/`enemyMasterCard_` 各補讀體術/魔術兩行。
+- `Seed_Rivals.gs`：`masterToNpcRow_` 的 MEMORY 組裝補上 `【體術】${mr[COL.MASTER.MELEE]}`。
+- `Engine_Fate.gs`：`SKILL_FX_` 新增 `master_melee`(`dmgAdd: 7*r`)；新增 `injectMasterMeleeSupport_(c, masterMemory)`(比照 `injectMysticBuff_` 同一套「找 fx 已存在則略過」慣例)；`resolveFateBattle_` 的被動傷害fx序列補一行 `fxDmgApply_(..., 'master_melee', ...)`。
+- `Router_Battle.gs`：3 個真正用於傷害結算的 `injectMysticBuff_` 呼叫點(開場對轟攻方/每回合出擊/`fateStrike_`守方)各配一行 `injectMasterMeleeSupport_`；第4個(`tgtC0`avalon檢查用即棄物件)不動。
+
+**驗證**：`bash check.sh`全過；`tools/battle_sim/engine.js`載入真引擎跑沙盒測試(阿爾托莉雅 vs 庫·丘林，N=3000)——無體術/E/C/A/EX 五組平均命中傷害依序 78.7/81.2/86.5/92.1/94.6(隨階級線性遞增、量級符合 7×rankMul_ 公式)，勝率僅 88.3%→89.3%(未破壞平衡)；`fired[]` 標籤確認正確顯示「御主體術」；重複注入/無體術標記兩種邊界情況皆驗證正確(不重複注入、無標記則零加成)。`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。headless環境無法驗證 masterCard_/enemyMasterCard_ 演出卡實際餵給AI後的敘述品質，部署後建議測試：開一局戰鬥，確認演出卡讀得到體術/魔術描述、戰報偶爾出現「御主體術」傷害加成標籤。

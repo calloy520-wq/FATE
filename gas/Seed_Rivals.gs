@@ -149,7 +149,10 @@ function masterToNpcRow_(mr, gameId, loc, faction, heroMagicRank) {
   row[COL.PC.MAX_HP] = hp; row[COL.PC.MAX_MP] = mp;
   row[COL.PC.INTENT] = String(mr[COL.MASTER.MOE] || "");
   row[COL.PC.FACTION] = faction; row[COL.PC.RANK] = "御主";
-  row[COL.PC.MEMORY] = `【願望】${mr[COL.MASTER.WISH] || ""}｜【魔術】${mr[COL.MASTER.MAGIC] || ""}｜【迴路】${parseInt(mr[COL.MASTER.CIRCUITS] || 30)}`;
+  // 🥋 2026-07 補：體術過去只存在御主殿種子表(COL.MASTER.MELEE)，從未寫進敵御主的 MEMORY——
+  //   跟玩家自己創角(Router_Creation.gs)寫【體術】的做法對齊，敵御主也該有，masterCard_ 演出卡與
+  //   Engine_Fate.gs 的 injectMasterMeleeSupport_ 才讀得到(目前僅玩家側從者吃得到這項加成，見該處註解)。
+  row[COL.PC.MEMORY] = `【願望】${mr[COL.MASTER.WISH] || ""}｜【魔術】${mr[COL.MASTER.MAGIC] || ""}｜【迴路】${parseInt(mr[COL.MASTER.CIRCUITS] || 30)}｜【體術】${mr[COL.MASTER.MELEE] || ""}`;
   row[COL.PC.GAME_ID] = gameId;
   return row;
 }
