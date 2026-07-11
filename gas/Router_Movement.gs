@@ -552,7 +552,7 @@ function actionPrepMeal(userData, pcId, sheets) {
   if (isFate) { try { ap = spendAp_(myGameId, 1, pcData, sheets).ap; clock = clockLabel_(myGameId, pcData); } catch (e) { } }
   // 🎬 2026-07「solo每個按鍵都接上AI敘述」補：整備過去只回罐頭 message，比照偵查/搜索補一段輕量 aiPrompt。
   var mealSvIdx = findPlayerServantIdx_(pcData, myGameId, "");
-  var mealPrompt = (mealSvIdx !== -1 ? servantCard_(pcData[mealSvIdx]) : masterCard_(pcData[pIdx])) +
+  var mealPrompt = masterCard_(pcData[pIdx]) + (mealSvIdx !== -1 ? servantCard_(pcData[mealSvIdx]) : '') +
     `【系統·整備已裁定】御主與從者稍作整備、飽餐一頓——接下來約 ${MEAL_BUFF_HOURS} 小時內，從者出擊命中 +${MEAL_BUFF_BONUS}。\n` +
     `★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】演出這段戰前用餐、稍事休整的日常小品（一段即可），依從者性格自然流露對這頓飯／這位御主的反應；show, don't tell，語氣輕快不冗長。`;
   return JSON.stringify({
@@ -738,7 +738,7 @@ function actionSetWorkshop(userData, pcId, sheets) {
   // 🎬 AI 演出：布設陣地的勞作（有陣地作成 Caster→其親手築結界；否則御主張設簡易營地）。給事實素材、少下指令。
   const casterRow = pcData.find(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && hasFx_(rowToCombatant_(r), 'territory'));
   const csName = casterRow ? String(casterRow[COL.PC.NAME]) : "";
-  const wsPrompt = (casterRow ? servantCard_(casterRow) : masterCard_(pcData[pIdx])) +
+  const wsPrompt = masterCard_(pcData[pIdx]) + (casterRow ? servantCard_(casterRow) : '') +
     `【系統·陣地佈設·已裁定】御主一行於「${loc}」紮下陣地——${csName ? `「${csName}」以陣地作成之能，在此地` : '御主親手在此地'}布設層層魔術結界、暗藏機關與監視術式，御主灌注了 ${WORKSHOP_MANA_COST} 點魔力為根基。自此這裡成為我方的堡壘：駐留可加速供魔回復，於此迎戰享主場結界庇護，敵人潛入亦難越雷池。\n` +
     `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】演出這場「築起陣地」的勞作——${csName ? `「${csName}」施展術式、鋪設結界的專注與魔力流轉，法師將一方土地化為己身堡壘的過程` : '御主費心張設營地與警戒的辛勞'}；show, don't tell，落在完工後那份「這裡是我們的據點了」的踏實與底氣。`;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：MP扣減/陣地標記/spendAp_ 皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
@@ -796,7 +796,7 @@ function actionScavenge(userData, pcId, sheets) {
   const msg = `${haulNote}${intel || "此地別無敵蹤所獲。"}`;
   // 🎬 2026-07「solo每個按鍵都接上AI敘述」補：搜索過去只回罐頭 message，比照偵查/工房補一段輕量 aiPrompt。
   const scavSvIdx = findPlayerServantIdx_(pcData, myGameId, "");
-  const scavPrompt = (scavSvIdx !== -1 ? servantCard_(pcData[scavSvIdx]) : masterCard_(pcData[pIdx])) +
+  const scavPrompt = masterCard_(pcData[pIdx]) + (scavSvIdx !== -1 ? servantCard_(pcData[scavSvIdx]) : '') +
     `【系統·搜索已裁定】御主一行在此地細細搜索，${depleted ? '此地散逸魔力早被搜刮殆盡、只餘殘渣' : '導入了零星散逸的魔力'}。${intel ? intel : ''}\n` +
     `★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】演出這段翻找、感應散逸魔力的搜索過程（一段即可）；${intel ? '收尾帶出察覺遠處氣息時的警覺' : '收尾停在暫時平靜的餘韻'}；show, don't tell，是否交戰仍由御主下令。`;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：MP/MEMORY搜刮枯竭標記/SEEN揭露/spendAp_ 皆已原地改回 pcData
@@ -844,7 +844,7 @@ function actionScout(userData, pcId, sheets) {
   //   actionSetWorkshop 補一段輕量 aiPrompt。有隨行從者→帶 servantCard_ 一起演出；facts 只給
   //   「有無揭露敵蹤」，不夾帶座標/戰術細節（那些留給地圖UI，AI只負責演出當下的氛圍/警覺）。
   const scoutSvIdx = findPlayerServantIdx_(pcData, myGameId, "");
-  const scoutPrompt = (scoutSvIdx !== -1 ? servantCard_(pcData[scoutSvIdx]) : masterCard_(pcData[pIdx])) +
+  const scoutPrompt = masterCard_(pcData[pIdx]) + (scoutSvIdx !== -1 ? servantCard_(pcData[scoutSvIdx]) : '') +
     `【系統·偵查已裁定】${revealed.length ? `御主凝神探查四周氣息，察覺到潛伏的敵蹤：${revealed.join("、")}。` : `御主凝神探查四周氣息，附近暫無敵蹤現形，一時風平浪靜。`}\n` +
     `★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】演出這段凝神戒備、探查四周的氣息與觀察（一段即可），${revealed.length ? '流露警覺與一絲山雨欲來的張力' : '流露短暫的鬆一口氣或不敢鬆懈的警戒'}；show, don't tell，是否交戰仍由御主下令。`;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：SEEN揭露/spendAp_ 皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀

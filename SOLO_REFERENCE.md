@@ -1482,3 +1482,5 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **改動**：`gas/Router_Movement.gs`(`actionScout`/`actionScavenge`/`actionPrepMeal`三處補`aiPrompt`)；`gas/Script.html`(`prepMeal()`補`narrate`呼叫)；`AI_PROMPT_MAP.md`(§2/§3表格更新四個action的AI欄位＋新增3段prompt節錄＋修正`set_workshop`舊誤植＋更新文末兩份總表)。
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這次完全沒碰這兩個檔案)。三段新`aiPrompt`皆沿用`servantCard_`/`masterCard_`既有卡片機制與「show, don't tell」既定鐵律，未新增任何演出鷹架；字數上限刻意壓在60~100字(比`rest`/`bond`等主要敘事時刻更短)，因這幾個動作只耗1AP、同一天可能連按數次，維持「⚡快速」工程準則、不讓輕量動作也拖成長篇。
+
+**追加修正（同日，玩家問「提示詞都ok？」複查揪出）**：上面3段新`aiPrompt`＋既有的`actionSetWorkshop`共4處，原本都寫成「有隨行從者→只給`servantCard_`、否則才給`masterCard_`」的二選一——但這4個場景的埋入事實文字明講是**御主與從者共同行動**（「御主凝神探查」「御主一行在此地搜索」「御主與從者稍作整備」「御主灌注了魔力」），有從者在場時卻完全不給AI御主的性格/口吻卡，AI只能籠統帶過御主這一側的反應。改成一律附`masterCard_`、有從者才追加`servantCard_`（兩卡並列，比照`mana_supply`/`bond`既有的組法，不是新發明）。順手全庫`grep`確認沒有其餘地方也犯同款「二選一漏卡」——`actionMove`的`svCardMove`/`pursuit.foeCard`是唯一目的變數（分別搭配獨立的`masterCard`欄位在前端組裝時一起使用），非同一款bug。
