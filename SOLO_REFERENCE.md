@@ -1322,3 +1322,19 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **Seed_Rivals.gs資料掛載**：`FATE_5TH_ROSTER`/`FATE_4TH_ROSTER`的roster項目可選填`arriveDay`(數字)/`arriveHint`(字串)，`seedRivalsForGame_`正史分支(4th/5th，非chaos混亂模式)偵測到就蓋章進master+servant兩列的MEMORY。**目前兩份roster尚未真正填入任何延後值**——機制已就緒但預設行為＝現行「開局全員第1天登場」，玩家提到的金閃閃3天後遊蕩/佐佐木柳洞寺等具體人物與天數安排，等玩家後續指定後再實際填入roster資料(純資料編輯，不需要再動引擎邏輯)。
 
 **驗證**：`bash check.sh`全過(6個修改檔案：`Core_Settings.gs`/`Router_Battle.gs`/`Router_Bond.gs`/`Router_Movement.gs`/`Seed_Rivals.gs`/`Time_World.gs`)；另外用Node vm沙盒單獨測試`getArriveDay_`/`setArriveDay_`/`hasArrived_`的round-trip與邊界情況(無標記預設第1天、重複set不疊字串、跨天比較正確)，全部通過。`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。headless環境無法真正開一局驗證分批登場的實際遊玩體感，部署後建議測試：① 在roster填入一組`arriveDay:3`後開局，確認第1~2天完全查無此人(地圖/攻擊/風聲皆無)；② 第2天(登場前1天)收到風聲預告；③ 第3天起同地可正常攻擊/互動；④ 確認不影響現有存檔(未填`arriveDay`的其餘6組維持第1天全部在場的原行為)。
+
+## 31. 5th戰爭roster實際重排：金閃閃/佐佐木補入陣容＋支援真正無御主的孤身從者(2026-07 玩家「佐佐木、金閃閃沒有御主怎麼辦....rider搭配櫻？慎二搭配金閃閃？佐佐木給他地脈標籤 無耗魔？」)
+
+**背景**：延續§30的「登場日」機制，玩家緊接著決定實際填入roster——順便揪出「無御主的孤身從者」這個舊架構完全沒設計過的狀態，並提出一次跨戰爭客串重組。先派Explore agent查證3件事才動手：①間桐櫻是否已有現成御主資料(`SEED_MASTERS`裡`間桐櫻(黑化)-5th`，war:'5th'，早就存在、只是沒被用進roster)；②`wars`標籤是不是硬性限制(查證後確認純敘事metadata、runtime零檢查，金閃閃可自由跨戰爭配對不受阻)；③從者完全無御主是否為既有機制支援的合法狀態(查證`enemyMasterIdx_`回-1、`enemyCanAffordNp_`退回單獨行動(solo)的【殘存】60點儲備、`getServantMaster_`等連結函式對查無配對都優雅退回空字串——全部原生支援，非需要新建的邊角案例)。
+
+**兩輪`AskUserQuestion`定案**：
+1. 陣容重排：`美杜莎-Rider`改配`間桐櫻(黑化)-5th`(原作真正契約者其實是櫻，慎二只是表面御主)；`間桐慎二-5th`改配`吉爾伽美什-Archer`(金閃閃原屬第四次，此為跨戰爭客串安排，填補慎二失去Rider後的位置)；`佐佐木小次郎-Assassin`新增為真正無御主的第8位，蟄伏柳洞寺(與美狄亞同地——原作本就是「柳洞寺表面是Caster據點、暗處另蟄伏真・Assassin」的雙重身分設定)。
+2. 佐佐木「無耗魔」怎麼做：直接用現有單獨行動(solo)機制就好，不建新的「地脈」引擎機制——`Seed_Codex.gs`原本沒給佐佐木`solo`fx，補上(`classSkills`追加`{n:'單獨行動',r:'A',fx:'solo'}`)。
+
+**改動**：
+1. `Seed_Codex.gs`：佐佐木小次郎-Assassin 補單獨行動(solo A階)。
+2. `Seed_Rivals.gs`的`FATE_5TH_ROSTER`：更新Rider/慎二配對，新增金閃閃(`arriveDay:3`+`arriveHint`自訂風聲文字，呼應玩家最初「金閃閃3天後出現遊蕩」的原始例子)、新增佐佐木(`master:null`)。
+3. **根源重構`seedRivalsForGame_`的正史(4th/5th)分支**：舊版邏輯是「先把master/servant無腦push進`rows`陣列，事後靠『rows嚴格交替master,servant,master,servant…』的位置假設」做【御主】/【從者】MEMORY硬連結——這個位置假設一旦出現孤身從者(只push一列)就會讓後面所有組別全部錯位、連結全部連錯，是嚴重的隱性脆弱點。改成逐組當場配對即時連結(不再倚賴陣列位置)，`master`為`null`時單純只鋪從者列、跳過硬連結——這不是為了繞過問題的臨時特判，是把舊架構裡「假設永遠成對」這個從未被驗證過的隱性前提換成真正的顯性判斷。混亂(chaos)模式的隨機配對分支本就永遠嚴格成對，維持原本的位置式連結不動，只在自己的區塊內處理，兩分支互不影響。
+4. `Index.html`：正史模式/5th戰爭選項的說明文字同步更新(拿掉過期的「七組」數字，補上金閃閃/佐佐木)。
+
+**驗證**：`bash check.sh`全過(4個修改檔案：`Seed_Codex.gs`/`Seed_Rivals.gs`/`Index.html`/連同§30的檔案)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。headless環境無法真正開一局驗證，部署後建議測試：①開5th戰爭局，確認美杜莎抵達戰報/AI敘述的御主連結顯示為間桐櫻而非慎二；②第1~2天查無金閃閃(地圖/攻擊/風聲皆無)、第2天收到金色氣息風聲預告、第3天起可在冬木·新都正常遭遇；③佐佐木從開局第1天就在柳洞寺、與美狄亞同地共存不衝突，其令咒/供魔相關戰報應顯示「查無御主·靠殘存靈基硬撐」而非誤判成有主英靈；④確認舊6組(士郎/凜/綺禮/宗一郎/伊莉雅/臟硯)的登場與連結行為完全未受影響。

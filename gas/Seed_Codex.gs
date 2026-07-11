@@ -68,7 +68,9 @@ var SEED_SERVANTS = [
   //   數值行為不變，只是誠實標記「無明確階級」。
   { id:'佐佐木小次郎-Assassin', cls:'Assassin', realName:'佐佐木小次郎', wars:['5th'], gender:'男',
     six:{筋力:'C',耐久:'E',敏捷:'A+',魔力:'E',幸運:'A',寶具:'-'},
-    classSkills:[{n:'氣息遮斷',r:'D',fx:'stealth'}],
+    // ⚠ 2026-07 玩家定案：此版5th戰爭裡他是真正無御主的孤身從者(獨自蟄伏柳洞寺)，補單獨行動(solo)
+    //   讓他吃 enemyCanAffordNp_ 的【殘存】60點靈基儲備硬撐——沿用既有機制，不另建新的耗魔規則。
+    classSkills:[{n:'氣息遮斷',r:'D',fx:'stealth'},{n:'單獨行動',r:'A',fx:'solo'}],
     skills:[{n:'心眼（偽）',r:'A',fx:'analyze'},{n:'透化',r:'B+',fx:'clear_mind'},
             {n:'宗和的心得',r:'B',fx:'unreadable'},{n:'秘劍・燕返',r:'-',fx:'tsubame'}],
     traits:[{n:'人類'}], np:'燕返 Tsubame Gaeshi（對人魔劍・次元摺疊・三段同時斬）',
