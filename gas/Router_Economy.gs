@@ -119,6 +119,10 @@ function actionSetWeapon(userData, pcId, sheets) {
   }); // 樂觀更新·前端自走輕量 syncData
 }
 
+// 🔒 2026-07 玩家定案「補魔太容易了」：從者不是有求必應——這是補魔／強制補魔(令咒)共用的信任門檻，
+//   單一真實來源，兩處都讀這個常數。
+var MANA_TRUST_BOND_ = 80;
+
 // 🔵 補魔（魔力供給）：把御主魔力導入從者，回魔＋羈絆＋fade 演出。耗 1 AP（導入魔力需時）
 function actionManaSupply(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
@@ -134,6 +138,22 @@ function actionManaSupply(userData, pcId, sheets) {
   const curMpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || masterPoolMax_(masterCircuits_(pcData[pIdx]), 0);
   const curMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
   if (curMp >= curMpMax) return JSON.stringify({ success: false, message: `御主的魔力儲備已然充盈，毋須補魔（免付燒蝕之代價）。` });
+
+  // 🔒 從者不是有求必應：這場「燃迴路續契約」的私密儀式須好感≥${MANA_TRUST_BOND_}(信任夠深)且魔力已
+  //   見底(≤10%上限，非隨時想補就補)才會真的同意。不合資格時不執行任何數值變更(不耗AP/不燒迴路/不動
+  //   好感)，改由AI依從者性格生成一段婉拒——理由對應「還不夠信任」或「還不到非做不可的地步」，兩者
+  //   分開給事實，避免AI編出跟實情對不上的拒絕理由。
+  const bondForMana = parseInt(pcData[svIdx][COL.PC.BOND]) || 0;
+  const lowEnoughForMana = curMp <= curMpMax * 0.10;
+  if (bondForMana < MANA_TRUST_BOND_ || !lowEnoughForMana) {
+    const declineReason = bondForMana < MANA_TRUST_BOND_
+      ? `御主提出了補魔的請求，但「${svName}」與御主之間的信任尚淺、羈絆未至可託付如此私密之事的深度，婉拒了這個提議`
+      : `御主提出了補魔的請求，但此刻魔力儲備尚非危急（未曾見底），「${svName}」認為不必以燒蝕迴路的沉重代價換取這一次回魔`;
+    const declinePrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
+      `【系統·補魔遭婉拒】${declineReason}。\n` +
+      `★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】演出「${svName}」依其性格婉拒這個請求的一幕（一段即可）——不必說教講理由，用態度/神情/一句話帶過即可；show, don't tell，不影響雙方氣血/魔力/好感，是否改用其他方式回魔仍由御主自行決定。`;
+    return JSON.stringify({ success: true, declined: true, aiPrompt: declinePrompt, statusString: getFreshStatusString(pcId, pIdx, sheets) });
+  }
 
   const isFateMana = myGameId.indexOf("g_") === 0;
   if (isFateMana && getAp_(myGameId) < 1) {
@@ -183,13 +203,16 @@ function actionManaSupply(userData, pcId, sheets) {
       `★以 Fate／TYPE-MOON 筆觸描寫補魔的私密一刻被突襲打斷的驚變：魔力交融的脆弱、敵襲的兇險、${ambush.destroyed ? '從者消滅的痛楚（語氣留白）' : '從者依其性格與羈絆對此突襲的反應（重情者強撐護主、疏離者未必）'}。傷害與勝負已由系統結算。\n` +
       ``;
   } else {
+    // 🔥 2026-07 玩家定案：這個分支只在好感≥門檻且魔力見底時才會走到(見上方新增的資格檢查)——從者是
+    //   真心信任、主動託付的，敘述不再受「止於唯美曖昧」的節制，改邀AI更直接大膽地描寫這場親密；
+    //   換一顆更能承接露骨描寫的模型(deepseek，見前端manaSupply()傳的unlocked旗標→narrate(...,{deepseek:true})，
+    //   後端narrateWithState_/actionNarrateOnly接手切換，solo其餘呼叫一律不受影響)。
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
-      `【系統·補魔已結算】御主硬擠魔術迴路為「${svName}」回滿共用魔力池（${restored}/${mpMax}），代價沉重——魔術迴路永久燒蝕至 ${newCirc} 條、生命上限永久跌為 ${newMaxHp}。羈絆微升。澎湃魔力於體內鼓盪、蓄勢待發——【下一發規格外寶具可全力超載解放】。\n` +
-      `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】描寫這場「燃迴路續契約」的私密而沉重的一刻——御主強行催動將要燒斷的魔術迴路、魔力沿靈魂聯繫流向從者、體溫與屏息、從者察覺御主迴路受損／面色透支時的反應【一概依其性格與當前羈絆自然演出·不預設溫情(高羈絆或有不忍、冷傲疏離者則淡然受之)】，最後 fade-to-black 留白。\n` +
-      `★【鐵律】止於唯美曖昧、點到為止；【不可】出現性器官、性交或露骨情慾描寫（那是奪杯後鑑賞的事）。演出而非複述設定。`;
+      `【系統·補魔已結算】御主硬擠魔術迴路為「${svName}」回滿共用魔力池（${restored}/${mpMax}），代價沉重——魔術迴路永久燒蝕至 ${newCirc} 條、生命上限永久跌為 ${newMaxHp}。羈絆微升。這是「${svName}」真心信任、主動託付的私密時刻。澎湃魔力於體內鼓盪、蓄勢待發——【下一發規格外寶具可全力超載解放】。\n` +
+      `★以 Fate／TYPE-MOON 筆觸【精煉 120~180 字】描寫這場「燃迴路續契約」的私密而濃烈的一刻——魔力沿靈魂聯繫流向從者、體溫交融的親密細節，可以比平常更直接大膽地描寫感官與情動，不必止於曖昧留白；從者依其性格與當前羈絆自然回應(高羈絆者主動迎合、冷傲者難得動搖)。收在餘韻猶存的溫柔，勿寫成完結收尾句。`;
   }
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：迴路/血量上限燒蝕/MP回滿/raiseBond_/spendAp_/夜襲 皆已原地改回 pcData
-  return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", report: ambush ? ambush.report : null, statusString: getFreshStatusString(pcId, pIdx, sheets) });
+  return JSON.stringify({ success: true, aiPrompt: aiPrompt, unlocked: !ambush, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", report: ambush ? ambush.report : null, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
 // 🩹 靈基修復（2026-07 新增·原從者卡「令咒」鈕挪去御主卡後空出的欄位）：消費共用魔力池為從者療傷，

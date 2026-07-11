@@ -83,8 +83,8 @@
 | Action | 按鈕/觸發 | Handler | AI |
 |---|---|---|---|
 | `fate_battle` | 從者卡「⚔️出戰／💥寶具／❖令咒／⚡主動技／🗡️刺殺御主」等鈕 →`servantStrike(...)`（Script.html:1917） | `actionFateBattle`（Router_Battle.gs） | **是**，最多 5 種 prompt 分支（見下） |
-| `use_seal` | 令咒選單「修復/補魔/緊急脫離」→`useSeal(type)` | `actionUseSeal`（Router_Bond.gs） | 是 |
-| `mana_supply` | 從者卡「💧補魔」→`manaSupply()` | `actionManaSupply`（Router_Economy.gs） | 是（含突襲分支） |
+| `use_seal` | 令咒選單「修復/補魔/緊急脫離」→`useSeal(type)` | `actionUseSeal`（Router_Bond.gs） | 是（`mana`依好感分安全/致死兩支，2026-07新增） |
+| `mana_supply` | 從者卡「💧補魔」→`manaSupply()` | `actionManaSupply`（Router_Economy.gs） | 是（含突襲/婉拒/解鎖三分支，2026-07新增好感門檻） |
 | `set_servant_output` | 從者卡🔋出力轉盤 5 鈕 →`setOutput(npcName,output)` | `actionSetServantOutput`（Router_Economy.gs） | 否，純樂觀更新 setter |
 | `set_mage_realm` | 技能膠囊「✨魔境的智慧」→`openMageRealmPicker`→`pickSelectable('set_mage_realm',...)` | `actionSetMageRealm`（Router_Economy.gs） | 否 |
 | `set_rune_mode` | 技能膠囊「✨原初符文」→`openRunePicker`→`pickSelectable('set_rune_mode',...)` | `actionSetRuneMode`（Router_Economy.gs） | 否 |
@@ -120,17 +120,28 @@
 其餘同檔函式（`drainForNp_`／`enemyMasterIdx_`／`enemyCanAffordNp_`／`getGodHandLives_`/`setGodHandLives_`／`getPlayerSeals_`/`setPlayerSeals_`／`rowHasSolo_`／`stampDoom_`/`getDoom_`／`stampMeal_`/`getMeal_`/`mealBuffActive_`／`getHorrorShield_`系列）皆為純機制 helper，不叫 AI。
 
 ### `actionUseSeal`（action `use_seal`）— Router_Bond.gs
+`repair`/`escape`維持原樣：
 > ★以 Fate／TYPE-MOON 筆觸描寫令咒在手背灼亮、絕對命令權貫徹的瞬間（一段即可）。效果已由系統結算。
+
+`mana`（強制補魔·2026-07 依好感改寫，見下方`actionManaSupply`同批改動的設計脈絡）依`bondForSeal >= MANA_TRUST_BOND_`(80)分兩支，兩支皆換模型呼叫`AI_MODEL`(deepseek，前端`narrateExtra`夾`{deepseek:true}`)：
+- **好感≥80(其實不必動用令咒)**：MP回滿＋複用既有「過充」機制當額外好處(不吃常規補魔永久代價)。
+  > ★以 Fate／TYPE-MOON 筆觸【精煉 120~180 字】描寫「${svName}」帶著點無奈笑意迎向這道其實多此一舉的令咒、順勢配合這場親密——可以比平常更直接大膽地描寫感官與情動，不必止於曖昧留白。收在餘韻猶存的溫柔，勿寫成完結收尾句。
+- **好感<80(她根本不情願)**：MP仍回滿，但令咒解除瞬間從者反殺御主——`defeat:true`＋`dreamPrompt`(複用`buildDreamPrompt_`，非新死亡機制)＋`report:{sealBacklash:true}`(供前端`handleDefeat`的Tiger Dojo敗因判定用)。
+  > ★以 Fate／TYPE-MOON 筆觸【精煉 120~180 字】描寫令咒的絕對強制壓下「${svName}」的意志、御主逼出這場親密的瞬間——可以比平常更直接大膽地描寫感官與情動，不必止於曖昧留白。結尾寫令咒的強制力隨效果結算而消散的剎那，「${svName}」積壓的恨意與屈辱轟然引爆，不受控地朝御主出手——收在這記致命一擊揮下的瞬間即可，不必描寫死亡本身的細節。
+
 埋入事實：令咒類型（修復/補魔/脫離）、效果訊息、剩餘令咒數。
 
 ### `actionManaSupply`（action `mana_supply`）— Router_Economy.gs
-兩分支：
+**2026-07 玩家定案「補魔太容易了」新增資格檢查**：須從者`BOND >= MANA_TRUST_BOND_`(80)且御主當前魔力`<= 10%`上限，才會真的執行。不合資格時完全不寫任何數值(不耗AP/不燒迴路/不動好感)，改用AI依理由分流的婉拒敘述：
+> ★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】演出「${svName}」依其性格婉拒這個請求的一幕（一段即可）——不必說教講理由，用態度/神情/一句話帶過即可；show, don't tell，不影響雙方氣血/魔力/好感，是否改用其他方式回魔仍由御主自行決定。
+
+合資格時三分支：
 - **卸防遭突襲**：
   > ★以 Fate／TYPE-MOON 筆觸描寫補魔的私密一刻被突襲打斷的驚變：魔力交融的脆弱、敵襲的兇險、（消滅則語氣留白／未消滅則依性格與羈絆反應）。傷害與勝負已由系統結算。
-- **正常補魔**（含 `masterCard_`+`servantCard_`）：
-  > ★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】描寫這場「燃迴路續契約」的私密而沉重的一刻…【一概依其性格與當前羈絆自然演出·不預設溫情】…最後 fade-to-black 留白。
-  > ★【鐵律】止於唯美曖昧、點到為止；【不可】出現性器官、性交或露骨情慾描寫（那是奪杯後鑑賞的事）。演出而非複述設定。
+- **正常補魔·解鎖(含 `masterCard_`+`servantCard_`，`unlocked:true`→前端換`AI_MODEL`deepseek呼叫)**：
+  > ★以 Fate／TYPE-MOON 筆觸【精煉 120~180 字】描寫這場「燃迴路續契約」的私密而濃烈的一刻——魔力沿靈魂聯繫流向從者、體溫交融的親密細節，可以比平常更直接大膽地描寫感官與情動，不必止於曖昧留白；從者依其性格與當前羈絆自然回應…收在餘韻猶存的溫柔，勿寫成完結收尾句。
   埋入事實：從者名、回復 MP/上限、迴路永久燒蝕後新值、御主生命上限新值、羈絆微升。
+  ⚠ **2026-07 玩家明確定案**：這是這個分支唯一移除「止於唯美曖昧、不可出現性器官/性交」限制的地方——刻意獨立於`Gallery.gs`的`nsfwBaseRules`/`actionPlay`之外(不共用機制、不呼叫該引擎)，只是換模型+換prompt尺度；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules`每次改動皆為0。
 
 ### `actionRuleBreakSteal`（action `rule_break_steal`）— Router_Bond.gs
 > ★以 Fate／TYPE-MOON 筆觸描寫緣紅短劍刺入、舊契約如琉璃寸寸碎裂、新締約的魔力烙印纏上手背的瞬間，與這名從者被迫易主的複雜神情（一段即可）。已結算。

@@ -2085,6 +2085,7 @@
   //     beforeCall：beginAction() 成功後、story 訊息插入前的同步前置動作(如收合彈窗)
   //     preMsg：成功前先插入 story 的系統提示 HTML(選填，無則不插)
   //     onSuccess(res)：成功時、syncData(true)+narrate(res.aiPrompt) 之前的同步副作用
+  //     narrateExtra(res)：回傳narrate()的第二參數opts(如{deepseek:true})，不填則不傳
   //     onSuccessAfterNarrate(res)：narrate() 結束後才跑的善後(如里程碑/勝敗判定，可為 async)
   //     onFail(res)：res.success 為 false 時的額外處理(如仍要更新 bondUsed)
   //     failMsg／catchMsg：失敗/例外時的預設 alert 文字
@@ -2101,7 +2102,7 @@
       if (res && res.success) {
         if (opts.onSuccess) opts.onSuccess(res);
         syncData(true);
-        await narrate(res.aiPrompt);
+        await narrate(res.aiPrompt, opts.narrateExtra ? opts.narrateExtra(res) : undefined);
         if (opts.onSuccessAfterNarrate) await opts.onSuccessAfterNarrate(res);
       } else {
         alert((res && res.message) || opts.failMsg || '操作失敗。');
@@ -2168,6 +2169,7 @@
         if (res.statusString) { localStorage.setItem('kyushu_last_status', res.statusString); updateUI(res.statusString.split('§')); }
         updateClock(res.clock, res.ap, res.apMax);
       },
+      narrateExtra: res => res.unlocked ? { deepseek: true } : undefined, // 🔥 高好感解鎖分支換模型
       onSuccessAfterNarrate: async res => { if (res.defeat) { await handleDefeat(res); } },
       failMsg: '補魔失敗。', catchMsg: '連線失敗，補魔未果。'
     });
@@ -2250,6 +2252,8 @@
       beforeCall: () => { var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none'; },
       preMsg: `<div class="msg-player"><b>【系統】：</b>御主手背的令咒灼然亮起……</div>`,
       payload: { action: 'use_seal', pcId: pc.id, sealType: type, servant: myActiveServant },
+      narrateExtra: res => res.unlocked ? { deepseek: true } : undefined, // 🔥 強制補魔高/低好感兩分支皆換模型
+      onSuccessAfterNarrate: async res => { if (res.defeat) { await handleDefeat(res); } }, // 🔥 好感不足的強制補魔可致死
       failMsg: '令咒未能發動。', catchMsg: '連線失敗，令咒未發動。'
     });
   }
@@ -2263,6 +2267,7 @@
     try {
       const rp = res.report || {};
       if (res.deadline) causeTag = '【本局敗因】14 日時限已至、未能奪得聖杯——輸給了時間管理。';
+      else if (rp.sealBacklash) causeTag = '【本局敗因】以令咒強逼從者「' + (rp.svName || '') + '」於好感不足時交心，令咒解除瞬間遭其積怨反噬、親手了結——輸在不顧從者意願、濫用絕對命令。';
       else if (rp.ambush) causeTag = '【本局敗因】卸防（休息／補魔／交流）時遭敵從者「' + (rp.enemyName || '') + '」夜襲、從者殞落——輸在卸防時機與敵蹤警覺。';
       else if (rp.assassination) causeTag = '【本局敗因】奇襲斬首失敗、遭護衛從者 1.5 倍反殺痛擊、從者盡滅——輸在對斬首成功率(僅擲20)的豪賭。';
       else if (rp.def) causeTag = '【本局敗因】與「' + rp.def + '」正面交鋒落敗、從者靈基崩潰' + (rp.useNp ? '（本戰已傾盡寶具解放' + (rp.backlash ? '＋吃到過載反噬' : '') + '仍不敵）' : '（未動用寶具）') + '——輸在正面戰力/資源分配。';
@@ -2591,7 +2596,7 @@ function applyModeUI() {
 // ==========================================
   // 🟢 輕量敘事：結算已完成，只請 AI 補一段描寫(不走完整 actionPlay 規則)
   // ==========================================
-  async function narrate(promptText) {
+  async function narrate(promptText, opts) {
     const story = document.getElementById('story');
     const loadId = "L" + Date.now();
     story.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="loading-text">聖杯演算中…</div>`);
@@ -2599,7 +2604,9 @@ function applyModeUI() {
 
     try {
       // 🧹 2026-07：isNsfw 旗標已拔——actionNarrateOnly 早改為純看 pcId 路由(KPC_=NSFW)，前端傳了也被無視。
-      const res = await gasRun({ action: "narrate_only", pcId: pc.id, promptText: promptText });
+      // 🔥 2026-07 新增 opts.deepseek：唯一目前會傳true的呼叫端是manaSupply()/useSeal()的高好感
+      //   解鎖分支(res.unlocked)，其餘呼叫一律不傳、行為不變。
+      const res = await gasRun({ action: "narrate_only", pcId: pc.id, promptText: promptText, deepseek: !!(opts && opts.deepseek) });
       document.getElementById(loadId)?.remove();
 
       if (res.success && res.text) {
