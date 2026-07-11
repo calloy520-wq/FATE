@@ -1452,3 +1452,18 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **改動**：`Router_Persona.gs`不涉及(卡片本體`enemyMasterCard_`未動，這句是戰鬥當下才知道的即時戰況，理應由呼叫端組裝而非塞進靜態演出卡)；`Router_Battle.gs`(`actionFateBattle`)在既有「關係錨」那句之後新增戰局實況錨點；`AI_PROMPT_MAP.md`§`actionFateBattle`分支⑤同步補上這段提示詞摘要。
 
 **驗證**：`bash check.sh`全過；獨立node腳本核對戰況判斷式6種情境(低血/我方陣營輾壓/被輾壓/勢均力敵/擊殺/敗北)輸出語意皆正確，尤其`totalDealt`/`totalTaken`方向對調的部分反覆驗算確認無誤。`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。純prompt層級改動，headless環境無法驗證AI實際輸出品質，部署後建議測試：打一場拖到中後段、雙方互有損傷的戰鬥，觀察敵御主在場時的反應台詞是否讀得出戰況(例如己方從者快輸時應顯焦慮/強撐，佔上風時應顯得意/嘲諷)，而非千篇一律的固定反應。
+
+## §40 solo敘事管線出戲風險稽核＋修正（2026-07·玩家問「solo不想出戲幫我檢查看看」）
+
+**背景**：玩家要求全面檢查 solo 敘事管線有沒有會讓人出戲(跳脫沉浸感)的地方。派 Explore agent 廣泛搜尋 `Script.html`／`Router_Narrative.gs`／`Engine_Combat.gs`／`Router_Action.gs` 後，逐一讀源碼驗證找到的問題，確認以下皆為**真實會在正常遊玩中發生**(非純理論)的漏洞，並排序修正：
+
+1. **【最嚴重·已確認100%會發生】`callGeminiAPI`(Engine_Combat.gs) 連線失敗時把原始技術性錯誤文字(可能是英文HTTP錯誤/JSON解析失敗訊息)直接塞進`narration`欄位當成「說書人講的話」回傳**——這不是拋例外，是包成合法JSON正常回傳，`narrateWithState_`會照單全收當成正常敘事顯示給玩家。任何一次暫時性的OpenRouter網路抖動/逾時，故事裡就會冒出一句英文技術錯誤。**修法**：`Logger.log`留一份原始錯誤給開發者除錯(Apps Script執行紀錄看得到)，玩家看到的改成貼合Fate世界觀的「🌫️【因果紊亂】命運的絲線在此刻忽地紊亂——這段因果暫時無法讀出，請稍後再試一次。」(比照既有NSFW攔截分支「🌸【結界觸發】」的既定風格)。
+2. **【確認可從正常按鈕觸發】`Script.html`的`syncData()`(手動「感應天地」按鈕→`triggerDrawerAction('sync')`→`syncData()`不帶參數→`isSilent`預設`false`)連線失敗時彈出`alert("系統錯誤，請打開 F12 查看 Console 的錯誤紀錄。")`——這是明顯的開發者除錯話術，不是任何遊戲內角色會講的話。改成「感應天地時因果紊亂，請稍後再試一次。」，跟旁邊既有的「感應失敗：」錯誤訊息同一種語氣。
+3. **【防禦性·尚未確認實際發生過，但是已知的LLM失效模式】`narrateWithState_`回傳的AI生成敘事文字，過去完全沒有做「敘事輸出」的洗淨**——`cleanNarrateEcho_`過去只洗「存進歷史的玩家輸入prompt摘要」，AI**自己生成**的敘事文字(`data.narration`)從未被過濾過。`miniSystem`系統提示詞本身塞滿`★指令`/`〈演出卡〉`這類鷹架符號，SOLO_MODEL(輕量低延遲小模型，比大模型更容易「回音」提示詞格式)萬一把提示詞格式誤植進自己的輸出，玩家會讀到一句突兀的系統指令混在故事正文裡。新增`stripLeakedScaffold_(text)`(緊鄰`cleanNarrateEcho_`)：只清`★指令`與`〈演出卡〉`兩種符號，**刻意不清`【標籤】`**——因為`callGeminiAPI`自己設計的柔性fallback文案(如上面新修的「🌫️【因果紊亂】」)本身就是刻意用`【】`當視覺標籤顯示給玩家，若連這個也清掉會清掉自己剛設計的文案標籤，弄巧成拙。套用點：`narrateWithState_`回傳`data.narration`前多包一層。
+4. **【低優先度·觸發條件罕見】`Router_Action.gs`兩處系統術語外洩**：`handleGameAction`的JSON解析失敗訊息「後端偵測：JSON結構解析異常」與未知action訊息「系統異常：未知的動作指令「${action}」」(會外洩內部action key字面，如`fate_battle`)——這兩個分支理論上只有畸形請求或前後端action字典不同步(如舊快取的前端呼叫已刪除的action)才會觸發，但仍比照上述風格改成「連線資料有誤，請重新整理頁面後再試一次。」/「找不到這個指令，請重新整理頁面後再試一次。」，統一走「這句話由誰講出來都合理」的柔性錯誤語氣，而非曝露內部術語。
+
+**刻意不動的部分**：`Engine_Combat.gs`開頭的「未設定 API_KEY」/「未設定 MODEL 指令碼屬性」訊息——這兩句只在部署設定不完整時才會出現(不是正常遊玩會遇到的情境)，且此專案的玩家同時也是開發者，維持清楚的技術診斷字面對排查部署問題更有幫助，故意不改成模糊的世界觀包裝文字。前端`insertAdjacentHTML`未對AI輸出做HTML escape——若貿然加全域escape會連現有故意插入的`<br><br>`分段格式都一併跳脫掉，牽動既有敘事渲染的既定行為，判斷風險/效益不成比例，這次不動。九州殘留的`localStorage`鍵名(`kyushu_v27`等)純內部識別字串、玩家從未看得到，非用字面意義的「出戲」風險，不予處理。
+
+**改動**：`Engine_Combat.gs`(連線失敗fallback文案+Logger除錯留痕)；`Router_Narrative.gs`(新增`stripLeakedScaffold_`+套用於`narrateWithState_`回傳點)；`Script.html`(`syncData`的F12除錯alert改柔性文案)；`Router_Action.gs`(兩處系統術語alert改柔性文案)。
+
+**驗證**：`bash check.sh`全過；獨立node腳本核對`stripLeakedScaffold_`4種情境(清掉誤echo的★指令行、清掉誤echo的〈演出卡〉、保留fallback文案自己的【標籤】、正常敘事完全不受影響)輸出皆正確。`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(`Engine_Combat.gs`這次的改動只在`callGeminiAPI`連線失敗分支，未觸及`nsfwBaseRules`/`buildDefaultSystemPrompt`——那兩者已搬到`Gallery.gs`，此檔現在只剩共用的`callGeminiAPI`本體)。headless環境無法真正觸發網路逾時來驗證第1項修正的實際顯示效果，部署後若剛好遇到一次連線失敗，留意是否顯示柔性訊息而非英文技術錯誤。

@@ -126,7 +126,7 @@ function handleGameAction(userData) {
   STATE_PRE_DATA_ = null; // 每次 dispatch 重置(防同執行環境內殘留)
   if (typeof userData === "string") {
     try { userData = JSON.parse(userData); }
-    catch (err) { return JSON.stringify({ success: false, message: "後端偵測：JSON結構解析異常" }); }
+    catch (err) { return JSON.stringify({ success: false, message: "連線資料有誤，請重新整理頁面後再試一次。" }); }
   }
   userData = sanitizeUserData_(userData);
 
@@ -149,7 +149,7 @@ function handleGameAction(userData) {
 
   const handler = ActionRouter[action];
   if (!handler) {
-    return JSON.stringify({ success: false, message: `系統異常：未知的動作指令「${action}」` });
+    return JSON.stringify({ success: false, message: "找不到這個指令，請重新整理頁面後再試一次。" });
   }
   // 🛡️ 2026-07 加固：慾海(kanshou)無戰鬥／經濟機制(CLAUDE.md「不打工、無經濟、無戰鬥」)，這批戰鬥/
   //   結盟/工房類 action 過去沒有任何明確擋牆——只是前端 UI 全部隱藏(玩家點不到)，後端本身若被直打
