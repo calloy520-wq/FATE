@@ -352,7 +352,9 @@ var FORGE_SK_PTS = { E: 5, D: 10, C: 15, B: 20, A: 25 }; // ⚡ 技能階級定�
 var FORGE_SK_PTS_BIG = { E: 7, D: 13, C: 20, B: 27, A: 33 }, FORGE_SK_PTS_SMALL = { E: 3, D: 7, C: 10, B: 13, A: 17 };
 var FORGE_SK_TRACK = { aim: 1, petrify: 1, fast_cast: 1, divine_age: 1, territory: 1, ride: -1, wind_strike: -1, morale: -1 };
 function forgeSkPts_(fx) { return FORGE_SK_TRACK[fx] === 1 ? FORGE_SK_PTS_BIG : FORGE_SK_TRACK[fx] === -1 ? FORGE_SK_PTS_SMALL : FORGE_SK_PTS; }
-var FORGE_FLAT_FX = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25, weapon_steal: 25, god_slay: 25, lovespot: 5 }; // 🔒 二元 fx 平價(fx→價·引擎不讀其階級·鏡射後端 FLAT_FX_；燕返60=僅每場第1回合一閃後的重校；weapon_steal/god_slay/lovespot 2026-07 三波·引擎皆不讀階)
+// 🐛→✅ 2026-07「戰鬥標籤和戰鬥運算 戰報 檢查」：self_mod/tactics/projection 補進固定價(鏡射後端
+//   FLAT_FX_ 同批修正——這3個fx引擎皆不讀自己的購買階級，原本落到依階級計價是花錢買不到東西的漏洞)。
+var FORGE_FLAT_FX = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25, weapon_steal: 25, god_slay: 25, lovespot: 5, self_mod: 15, tactics: 25, projection: 25 }; // 🔒 二元 fx 平價(fx→價·引擎不讀其階級·鏡射後端 FLAT_FX_；燕返60=僅每場第1回合一閃後的重校；weapon_steal/god_slay/lovespot 2026-07 三波·引擎皆不讀階)
 // 🗂️ 效果目錄·按機制分組(2026-07 玩家點破「很多效果一樣但名字不同」——名字是原作梗·機制就十來種，
 //   名字本可自取→按效果挑、同效者標明擇一即可)。flat FORGE_FX 由 groups 攤平(label 查找/驗證介面不變)。
 // ⚠ 2026-07 四波(命中/常駐傷害收斂成「大中小」)已於六波復原：玩家指出「代碼寫很細，不能這樣合併分類」——

@@ -405,7 +405,13 @@ function parseForgeBuild_(build, reqCls) {
   const SKILL_PTS_SMALL_ = { E: 3, D: 7, C: 10, B: 13, A: 17 };
   const SKILL_TRACK_ = { aim: 1, petrify: 1, fast_cast: 1, divine_age: 1, territory: 1, ride: -1, wind_strike: -1, morale: -1 }; // 1=強效 -1=輕效 其餘標準
   // 二元平價(引擎不讀階級)：weapon_steal 對龍恆×1.5(2026-07 補洞：原階級計價可 E5 白撿)、god_slay 依【對方】神格縮放、lovespot 恆-1(風味價5)
-  const FLAT_FX_ = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25, weapon_steal: 25, god_slay: 25, lovespot: 5 };
+  // 🐛→✅ 2026-07「戰鬥標籤和戰鬥運算 戰報 檢查」查出同款計價漏洞：self_mod(恆命中+2/傷+3)、
+  //   tactics(恆寶具威力×1.15)、projection(命中恆+2·傷害段看角色自身寶具階非此fx購買階級)三個
+  //   引擎皆【不讀這個fx自己的購買階級】，原本沒被收進本表、落到預設依階級計價(E5~A25)——玩家能花
+  //   25點買「A階自我改造」但效果跟花5點的「E階」一模一樣，真正的花錢買不到東西。玩家定案「改固定
+  //   價」：self_mod比照標準單軌C階(15，效果偏輕量雙屬性)；tactics/projection比照其餘標籤(25，
+  //   前者是無條件全場寶具傷害加成、後者是主動技+階級縮放傷害，強度與同價位標籤相當)。
+  const FLAT_FX_ = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25, weapon_steal: 25, god_slay: 25, lovespot: 5, self_mod: 15, tactics: 25, projection: 25 };
   const slotFee = out.skills.length > 3 ? 20 : 0; // 🎰 第4欄啟用費(有第4個技能條目即收·純演出標籤也占欄)
   const skillCost = out.skills.reduce((s, k) => s + (k.fx ? (FLAT_FX_[k.fx] ||
     (SKILL_TRACK_[k.fx] === 1 ? SKILL_PTS_BIG_ : SKILL_TRACK_[k.fx] === -1 ? SKILL_PTS_SMALL_ : SKILL_PTS_)[k.r] || 15) : 0), slotFee);
