@@ -95,7 +95,7 @@ function actionUseSeal(userData, pcId, sheets) {
       pcData[pIdx][COL.PC.MEMORY] = setOvercharge_(pcData[pIdx][COL.PC.MEMORY], mpMaxSeal); // 複用既有「下一發規格外寶具可無償超載」機制
       sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
       sealManaUnlocked = true;
-      effectMsg = `令咒化作一道灌頂的魔力洪流，御主魔力儲備瞬間充盈到極限——其實「${svName}」根本不必勞動令咒也會欣然應允，這道絕對命令用得有些太浪費了；但既已發動，魔力依舊洶湧灌注，蓄勢待發（下一發規格外寶具可無償超載解放）。`;
+      effectMsg = `令咒化作一道灌頂的魔力洪流，強化了從者的敏感度與御主的性能力——其實「${svName}」根本不必勞動令咒也會欣然應允，這道絕對命令用得有些太浪費了；但既已發動，如果什麼都不做就太浪費了（魔力依舊洶湧灌注，下一發規格外寶具可無償超載解放）。`;
     } else {
       sealManaKill = true;
       effectMsg = `令咒的絕對強制壓下了「${svName}」滿心的抗拒，魔力依舊被逼出、洶湧灌注御主體內——但這份屈從只是暫時的。`;
@@ -134,7 +134,7 @@ function actionUseSeal(userData, pcId, sheets) {
     aiPrompt = sealManaUnlocked
       ? (masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
         `【系統·令咒·強制補魔已裁定】${effectMsg}\n` +
-        `★以 Fate／TYPE-MOON 筆觸【精煉 120~180 字】描寫「${svName}」帶著點無奈笑意迎向這道其實多此一舉的令咒、順勢配合這場親密——可以比平常更直接大膽地描寫感官與情動，不必止於曖昧留白。收在餘韻猶存的溫柔，勿寫成完結收尾句。`)
+        `★以 Fate／TYPE-MOON 筆觸【使用 500~600 字】描寫「${svName}」帶著點無奈笑意迎向這道其實多此一舉的令咒、順勢配合這場親密（因為敏感度提高所以高潮多次）——可以比平常更直接大膽地描寫感官與情動，不必止於曖昧留白。收在餘韻猶存的溫柔，勿寫成完結收尾句。`)
       : `【系統·令咒已發動，已裁定】御主燃燒一道令咒。${effectMsg}（餘 ${seals} 道令咒）\n` +
         `★以 Fate／TYPE-MOON 筆觸描寫令咒在手背灼亮、絕對命令權貫徹的瞬間（一段即可）。效果已由系統結算。\n` +
         ``;
