@@ -91,7 +91,7 @@
 | `set_np_choice` | 寶具鈕→多寶具時彈`openNpReleasePicker`→`pickNpAndStrike` | `actionSetNpChoice`（Router_Economy.gs） | 否 |
 | `rule_break_steal` | 從者卡「⛓ 破戒奪僕」鈕 | `actionRuleBreakSteal`（Router_Bond.gs） | 是 |
 | `second_wind` | 休息選單「強撐」鈕 | `actionSecondWind`（Router_Battle.gs 的鄰接檔，見 §3 中一併列） | 是 |
-| `prep_meal` | 「🍱 整備」鈕 | `actionPrepMeal`（Router_Movement.gs） | 否 |
+| `prep_meal` | 「🍱 整備」鈕 | `actionPrepMeal`（Router_Movement.gs） | **是**（2026-07 新增，見 §3） |
 
 ### `actionFateBattle`（action `fate_battle`）— 核心戰鬥，五種 prompt 分支
 
@@ -152,10 +152,10 @@
 | `get_map_nodes` | 地圖分頁載入/`refreshMapPane` | `actionGetMapNodes` | 否 |
 | `move` | 地圖節點/`travelTo(name)` | `actionMove` | **後端否，前端組`arrivePrompt`後叫`narrate_only`**（見 §10） |
 | `rest` | 休息選單各時長鈕/`rest(hours)` | `actionRest` | 是（條件式：夢境／突襲） |
-| `scout` | 地圖「🔍 偵查」 | `actionScout` | 否，純 message |
-| `scavenge` | 地圖「🔍 搜索物資」 | `actionScavenge` | 否，純 message |
-| `set_workshop` | 地圖「🏕️ 設置陣地」 | `actionSetWorkshop` | 否，純 message |
-| `prep_meal` | 見 §2 | `actionPrepMeal` | 否 |
+| `scout` | 地圖「🔍 偵查」 | `actionScout` | **是**（2026-07 新增，輕量演出，見下） |
+| `scavenge` | 地圖「🔍 搜索物資」 | `actionScavenge` | **是**（2026-07 新增，輕量演出，見下） |
+| `set_workshop` | 地圖「🏕️ 設置陣地」 | `actionSetWorkshop` | **是**（一律附 `aiPrompt`；本表過去誤植為「否」，2026-07 稽核時核對程式碼發現已存在，順手修正） |
+| `prep_meal` | 見 §2 | `actionPrepMeal` | **是**（2026-07 新增，見下） |
 
 ### `actionRest`（action `rest`）— 兩條件式 prompt
 - **從者之夢**（`restDreamPrompt`，僅未遭突襲且 `restHours≥3`、55% 機率觸發，含 `servantCard_`）：
@@ -165,6 +165,18 @@
   > ★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。
   埋入事實：地點、突襲敵名、是否隱蔽、從者名、受創量、是否被消滅/敗北。
   若團滅（`out.defeat=true`），另呼叫共用 `buildDreamPrompt_(masterName, wish, servantName)` 填 `out.dreamPrompt`（見 §1）。
+
+### `actionScout`（action `scout`）— 2026-07 新增輕量演出
+> ★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】演出這段凝神戒備、探查四周的氣息與觀察（一段即可），${有揭露敵蹤?'流露警覺與一絲山雨欲來的張力':'流露短暫的鬆一口氣或不敢鬆懈的警戒'}；show, don't tell，是否交戰仍由御主下令。
+埋入事實：本次偵查是否揭露敵蹤（有→列名單；無→暫無敵蹤）。含 `servantCard_`（有隨行從者時）或 `masterCard_`（無從者時）。
+
+### `actionScavenge`（action `scavenge`）— 2026-07 新增輕量演出
+> ★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】演出這段翻找、感應散逸魔力的搜索過程（一段即可）；（有察覺敵蹤情報→收尾帶出警覺／無→停在暫時平靜的餘韻）；show, don't tell，是否交戰仍由御主下令。
+埋入事實：本地魔力是否已被搜刮枯竭、是否順帶察覺敵蹤情報。含 `servantCard_`/`masterCard_`（邏輯同上）。
+
+### `actionPrepMeal`（action `prep_meal`）— 2026-07 新增輕量演出
+> ★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】演出這段戰前用餐、稍事休整的日常小品（一段即可），依從者性格自然流露對這頓飯／這位御主的反應；show, don't tell，語氣輕快不冗長。
+埋入事實：整備 buff 時效與命中加成數值。含 `servantCard_`/`masterCard_`（邏輯同上）。
 
 ### `enemyAmbushOnServant_`（helper，被 `actionRest`／`actionBond`／`actionAllyBond`／`actionManaSupply` 共用）
 本身不直接組「敘事」prompt，只回傳突襲結果物件（供各 caller 自己套入各自的 ambush 分支文案）；團滅時委派 `buildDreamPrompt_` 組 `dreamPrompt`。
@@ -385,9 +397,11 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 
 ## 附：純機制、完全不叫 AI 的 action 總表（快速核對用）
 
-`check_name`、`get_full_status`、`update_fate`、`get_tags`、`sync`、`update_rel_tag`、`create`、`get_heroes`、`get_masters`、`get_map_nodes`、`set_servant_output`、`set_mage_realm`、`set_rune_mode`、`set_np_choice`、`prep_meal`、`set_workshop`、`scavenge`、`scout`、`account_login`、`account_new_game`、`get_victory_history`、`leaderboard`、`war_chronicle`、`war_history_list`、`get_epic_history`、`purge_orphans`、`dev_seed_gallery`、`dev_resync_codex`、`enter_kanshou`、`kanshou_companions`、`kanshou_add`、`kanshou_remove`、`kanshou_set_name`、`kanshou_set_sex`。
+`check_name`、`get_full_status`、`update_fate`、`get_tags`、`sync`、`update_rel_tag`、`create`、`get_heroes`、`get_masters`、`get_map_nodes`、`set_servant_output`、`set_mage_realm`、`set_rune_mode`、`set_np_choice`、`account_login`、`account_new_game`、`get_victory_history`、`leaderboard`、`war_chronicle`、`war_history_list`、`get_epic_history`、`purge_orphans`、`dev_seed_gallery`、`dev_resync_codex`、`enter_kanshou`、`kanshou_companions`、`kanshou_add`、`kanshou_remove`、`kanshou_set_name`、`kanshou_set_sex`。
 
-會叫 AI（敘事 `narrate_only` 或結構化 JSON）的 action／路徑：`fate_battle`（5 分支）、`use_seal`、`mana_supply`、`rule_break_steal`、`second_wind`、`rest`（條件式）、`move`（前端組 prompt）、`bond`、`propose_alliance`、`break_alliance`、`ally_bond`、`backfill_master_ai`（結構化）、`summon_servant`（條件式結構化＋一律附敘事）、`claim_grail`（結構化回憶）、`play`（kanshou/full 自由聊天）、`narrate_only`（通用出口，本身無事實，套系統提示詞轉呼叫）。dispatcher 層另有一條隱性路徑：14 天時限中央攔截自動掛 `dreamPrompt`。
+（`set_servant_output`／`set_mage_realm`／`set_rune_mode`／`set_np_choice` 這 4 個是戰鬥前的**純數值檔位切換**——性質等同選單勾選，不是敘事時刻，刻意不接 AI：接了反而每次調檔位都要多等一次生成、拖慢戰鬥節奏，也沒有畫面可演。)
+
+會叫 AI（敘事 `narrate_only` 或結構化 JSON）的 action／路徑：`fate_battle`（5 分支）、`use_seal`、`mana_supply`、`rule_break_steal`、`second_wind`、`rest`（條件式）、`move`（前端組 prompt）、`bond`、`propose_alliance`、`break_alliance`、`ally_bond`、`scout`、`scavenge`、`set_workshop`、`prep_meal`（**2026-07 新增這 4 個**，見 §3——玩家反映「solo每個按鍵好像有些沒有接上ai敘述」逐一稽核補齊，皆為 60~100 字輕量演出，不拖慢節奏）、`backfill_master_ai`（結構化）、`summon_servant`（條件式結構化＋一律附敘事）、`claim_grail`（結構化回憶）、`play`（kanshou/full 自由聊天）、`narrate_only`（通用出口，本身無事實，套系統提示詞轉呼叫）。dispatcher 層另有一條隱性路徑：14 天時限中央攔截自動掛 `dreamPrompt`。
 
 ---
 

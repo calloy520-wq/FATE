@@ -679,6 +679,7 @@
         updateClock(data.clock, data.ap, data.apMax);
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#d2aa5a;font-size:12.5px;text-align:center;border:1px solid rgba(200,160,80,0.32);border-radius:8px;padding:6px 10px;">🍱 ${data.message || '整備完畢。'}</div>`);
         syncData(true);
+        if (data.aiPrompt) await narrate(data.aiPrompt);
       } else { alert((data && data.message) || '整備失敗。'); }
     } catch (e) { alert('連線失敗，整備未果。'); } finally { endAction(); }
   }
