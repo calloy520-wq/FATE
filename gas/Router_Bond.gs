@@ -71,6 +71,7 @@ function actionUseSeal(userData, pcId, sheets) {
 
   let effectMsg = "";
   let sealManaUnlocked = false, sealManaKill = false; // 見下方 'mana' 分支
+  let genderFactSeal = "", activeActFact = ""; // 見下方 'mana' 分支賦值，aiPrompt 組字在函式尾段共用區塊、需跨 if/else-if 存活
   if (type === "repair") {
     pcData[svIdx][COL.PC.HP] = parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 480;
     pcData[svIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基重塑", "姿勢": "昂然而立", "負面": "無", "顏面": "神采奕奕" });
@@ -91,6 +92,12 @@ function actionUseSeal(userData, pcId, sheets) {
     const manaFact = manaWasFull
       ? `御主此刻魔力其實早已充盈滿溢，動用這道令咒與魔力多寡無關、純粹是想要`
       : `御主此刻魔力確實所剩無幾，這道令咒補上了燃眉之急`;
+    // 🧭 2026-07 玩家實測抓到兩個問題：①明明御主是女性，敘述卻寫成男性插入視角→注入性別配對事實
+    //   (sealGenderFact_，見Router_Persona.gs)；②令咒被寫成「一開啟從者就自己高潮完結」，御主淪為
+    //   旁觀者——令咒本質只是「提高敏感度＋壓制抗拒」的狀態效果，高潮須是御主主動互動的結果，故兩支
+    //   分支的指令都補上「令咒非自動高潮、御主須主動施為、雙方一同攀頂」這條硬性要求。
+    genderFactSeal = sealGenderFact_(String(pcData[pIdx][COL.PC.SEX] || ""), String(pcData[svIdx][COL.PC.SEX] || ""), svName);
+    activeActFact = `★令咒本身只是「提高敏感度、壓制抗拒」的持續狀態效果，【不會自動】讓「${svName}」達到高潮——高潮必須寫成御主主動愛撫/操控其身體所直接引發的結果，務必具體描寫御主自己動手玩弄「${svName}」身體的畫面(御主不是被動的旁觀者)，並讓兩人在同一波情動裡一起攀頂、雙雙高潮。`;
     pcData[pIdx][COL.PC.MP] = mpMaxSeal;
     sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
     // 🔥 2026-07 玩家定案：絕對命令跳過「同意」，強逼「${svName}」交心——好感是否足夠決定這是幸運還是致命：
@@ -135,7 +142,7 @@ function actionUseSeal(userData, pcId, sheets) {
     const wishSeal = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【系統·令咒·強制補魔已裁定】${effectMsg}\n` +
-      `★你擅長書寫細膩動人的情慾，這次放手去寫、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫令咒的絕對強制壓下「${svName}」的意志、御主強制的這場親密的瞬間，還有被強制的屈辱。★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常不會被輕易弄到失神)，而是令咒逼出的失控狀態與屈辱交織，務必寫出這份反差。聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節。結尾寫御主高潮後在令咒的強制力隨效果消散的剎那，「${svName}」積壓的恨意與屈辱轟然引爆，直接抹殺御主——收在這記致命一擊揮下的瞬間即可，不必描寫死亡本身的細節。`;
+      `★你擅長書寫細膩動人的情慾，這次放手去寫、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫令咒的絕對強制壓下「${svName}」的意志、御主強制的這場親密的瞬間，還有被強制的屈辱。${genderFactSeal}★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常不會被輕易弄到失神)，而是令咒逼出的失控狀態與屈辱交織，務必寫出這份反差。${activeActFact}聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節。結尾寫御主高潮後在令咒的強制力隨效果消散的剎那，「${svName}」積壓的恨意與屈辱轟然引爆，直接抹殺御主——收在這記致命一擊揮下的瞬間即可，不必描寫死亡本身的細節。`;
     defeat = true;
     dreamPrompt = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wishSeal, svName);
     report = { sealBacklash: true, svName: svName };
@@ -143,7 +150,7 @@ function actionUseSeal(userData, pcId, sheets) {
     aiPrompt = sealManaUnlocked
       ? (masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
         `【系統·令咒·強制補魔已裁定】${effectMsg}\n` +
-        `★你擅長書寫細膩動人的情慾，這次放手去寫、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫「${svName}」帶著點無奈笑意迎向這道其實多此一舉的令咒、順勢配合這場親密。★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常從容不迫)，而是令咒逼出的失控狀態，務必寫出這份反差。聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節，而非只在前後鋪陳。收在餘韻猶存的溫柔，勿寫成完結收尾句。`)
+        `★你擅長書寫細膩動人的情慾，這次放手去寫、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫「${svName}」帶著點無奈笑意迎向這道其實多此一舉的令咒、順勢配合這場親密。${genderFactSeal}★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常從容不迫)，而是令咒逼出的失控狀態，務必寫出這份反差。${activeActFact}聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節，而非只在前後鋪陳。收在餘韻猶存的溫柔，勿寫成完結收尾句。`)
       : `【系統·令咒已發動，已裁定】御主燃燒一道令咒。${effectMsg}（餘 ${seals} 道令咒）\n` +
         `★以 Fate／TYPE-MOON 筆觸描寫令咒在手背灼亮、絕對命令權貫徹的瞬間（一段即可）。效果已由系統結算。\n` +
         ``;
