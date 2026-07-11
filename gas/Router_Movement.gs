@@ -577,7 +577,10 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, userData, baseMul) 
       pcData[pIdx][COL.PC.MP] = mMp - wardCost;
       sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
       const svR = rowToCombatant_(pcData[svIdx]); injectHomeField_(svR, homeRank);
-      const cr = resolveFateBattle_(svR, rowToCombatant_(pcData[eIdx]), {});
+      const eDefC = rowToCombatant_(pcData[eIdx]);
+      const _eWardMasterMem = enemyMasterMemoryFor_(pcData, gameId, pcData[eIdx]);
+      if (_eWardMasterMem) { injectMasterMeleeSupport_(eDefC, _eWardMasterMem); injectMasterMagicSupport_(eDefC, _eWardMasterMem); }
+      const cr = resolveFateBattle_(svR, eDefC, {});
       const backDmg = Math.max(1, Math.round((cr.atkWins ? (cr.damage || 1) : rankVal(svR.six['筋力'] || 'C')) * 0.6));
       const eHp = parseInt(pcData[eIdx][COL.PC.HP]) || 0, eAfter = Math.max(1, eHp - backDmg); // 驅離·保1不斬殺
       pcData[eIdx][COL.PC.HP] = eAfter;
@@ -593,6 +596,9 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, userData, baseMul) 
   }
   const enemyC = rowToCombatant_(pcData[eIdx]);
   const svC = rowToCombatant_(pcData[svIdx]);
+  // 🥋🔮 突襲主角是 enemyC(攻方)：補上其硬連結敵御主的體術/魔術支援。
+  const _eAmbushMasterMem = enemyMasterMemoryFor_(pcData, gameId, pcData[eIdx]);
+  if (_eAmbushMasterMem) { injectMasterMeleeSupport_(enemyC, _eAmbushMasterMem); injectMasterMagicSupport_(enemyC, _eAmbushMasterMem); }
   // 🎯 敵AI自動施展招牌施放技術(免費·戰鬥本色)：還原單層歸屬前這些是免費被動的敵方偷襲威力。
   const probe = resolveFateBattle_(enemyC, svC, { ambush: true, skill: servantActiveSkill_(enemyC) });
   let mul = baseMul || 1.4;
