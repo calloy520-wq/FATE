@@ -1254,3 +1254,20 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 2. `Core_Settings.gs`的`buildTrajectoryDigest_`：仿照既有「從者剛歷經惡戰、氣血未復」(HP<30%才觸發的條件式警訊)同款手法，補一條「魔力池<20%才觸發」的條件式警訊「共用魔力池告急——這是從者自己的存亡危機、並非只是御主的事」，在真正告急的當下明確提醒AI這件事對從者而言性命攸關，不只是背景數字。
 
 **驗證**：`bash check.sh`全過(2個修改檔案：`Router_Narrative.gs`/`Core_Settings.gs`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這次完全沒碰這兩個檔案，且鑑賞`Gallery.gs`的`actionPlay`本來就沒有MP機制、不受影響，這次修正純solo專屬)。純prompt字面調整，不改變任何資料結構/魔力計算公式，headless環境無法實機驗證AI演出是否真的改善，建議部署後測試：刻意把御主魔力耗到低量(連續解放寶具/補魔不足)，觀察從者對話中是否會開始表現出「這也是我的性命」的關切語氣，而非把魔力見底當成跟自己無關的旁支話題。
+
+## 27. 令咒鈕挪去御主卡＋從者卡新增「靈基修復」常態療傷手段(2026-07 玩家「把令咒移動到御主卡片區域／原本從者令咒改成靈基修復（消費魔力將從者血量回覆比率你決定）」)
+
+**需求拆解**：兩件事。① 從者卡動作列原本的「❖ 令咒」鈕(開`openSealMenu()`)，玩家覺得令咒是御主的絕對命令權，該擺在御主卡而非從者卡——搬過去。② 從者卡騰出來的欄位改放全新的「🩹 靈基修復」：消費共用魔力池、回復從者部分氣血，不燃令咒(有別於既有令咒選單裡那個一次性全滿版)、可重複使用，回復比率由我方決定。
+
+**① 令咒鈕搬家**：`Script.html`的御主卡區塊(非鑑賞分支，鑑賞本就不露血量/魔力/令咒)原本只有一行靜態`<div>令咒 ❖❖❖❖</div>`計數顯示，改成`<button onclick="...openSealMenu()">`——內容/位置(HP/MP條後面)不變，只是從純文字變成可點。從者卡動作列原本那顆`❖ 令咒`按鈕整個移除。
+
+**② 新增靈基修復（`actionSpiritRepair`，`Router_Economy.gs`，緊接在`actionManaSupply`後面）**：
+- 設計理由：跟既有「補魔」(硬擠迴路回滿池、但永久斷血量上限/迴路)、「令咒·絕對修復」(耗令咒、一次性雙方全滿)兩個既有選項區隔——靈基修復要的是「常態、可重複、有取捨但無永久代價」的中間選項，代價是**當下**魔力池(拿去打副本的資源)，不是永久屬性。
+- 公式(`REPAIR_MP_COST_PCT`=0.40／`REPAIR_HEAL_PCT`=0.35，寫在函式頂端當單一真實來源常數)：消費共用魔力池上限的40%(不足則無法發動，回報「共用魔力池不足以支撐靈基修復（需X，僅剩Y）」)，回復從者上限氣血的35%(封頂，不會補過上限；已滿血則擋下「氣血已然充盈，毋須修復」)。
+- 複用既有機制、不開新結算路徑：`enemyAmbushOnServant_`(卸防突襲，倍率1.3——介於`bond`的1.2與`mana_supply`的1.4之間，比照兩者已有的「開放性動作＝門戶大開」設計慣例)、`raiseBond_`(+2)、`spendAp_`(耗1AP，跟補魔/相伴同級)、`masterCard_`/`servantCard_`(演出依據卡)、`getFreshStatusString`。
+- 掛線：`Router_Action.gs`的`ActionRouter`加`spirit_repair`路由；`STATE_AFTER_ACTIONS`(改動戰場狀態、前端需交棒`_state`)與`KANSHOU_BLOCKED_ACTIONS_`(solo戰鬥/魔力機制，鑑賞UI從未也不該呼叫)都比照`mana_supply`同步補上。
+- 前端：`Script.html`新增`spiritRepair()`(仿`manaSupply()`結構：確認彈窗→敵蹤警告→`gasRun({action:'spirit_repair',...})`→戰報/狀態刷新/`narrate`/`handleDefeat`)。
+
+**命名衝突處理**：既有令咒選單(`openSealMenu`)裡本來就有一個選項叫「🩹 靈基修復」(耗令咒、雙方全滿)，跟新按鈕同名會混淆——把舊選項改名「❖ 絕對修復」並在描述補一句「效果強於靈基修復」，讓玩家看得出兩者的定位差異(強·稀缺·一次性 vs 弱·常態·可重複)。
+
+**驗證**：`bash check.sh`全過(3個修改檔案：`Router_Economy.gs`/`Router_Action.gs`/`Script.html`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。headless環境無法實機驗證按鈕互動與AI演出，部署後建議測試：① 御主卡的令咒鈕能正常開出選單(含改名後的「絕對修復」)；② 從者卡的「靈基修復」在魔力池足夠/不足兩種情況下的訊息與扣血回血是否正確；③ 敵蹤同地時觸發卸防突襲的機率與既有補魔/相伴手感一致。

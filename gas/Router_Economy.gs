@@ -192,6 +192,68 @@ function actionManaSupply(userData, pcId, sheets) {
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", report: ambush ? ambush.report : null, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
+// 🩹 靈基修復（2026-07 新增·原從者卡「令咒」鈕挪去御主卡後空出的欄位）：消費共用魔力池為從者療傷，
+//   回復部分氣血——不燃令咒、可重複使用，但吃掉的魔力池本可拿去放寶具/衝高出力，形成「現在回血
+//   還是留著打」的即時取捨。與令咒選單裡那個一次性全滿版(❖ 絕對修復·耗令咒·雙方回滿)刻意區隔：
+//   那個是絕對命令的孤注一擲，這個才是常態、可日常使用的手段。
+function actionSpiritRepair(userData, pcId, sheets) {
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可供修復。" });
+  const svName = pcData[svIdx][COL.PC.NAME];
+
+  const isFateMana = myGameId.indexOf("g_") === 0;
+  if (isFateMana && getAp_(myGameId) < 1) {
+    return JSON.stringify({ success: false, message: "行動力不足以行靈基修復之儀——請『休息』恢復後再來。" });
+  }
+
+  const svMaxHp = parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 450;
+  const svHp = parseInt(pcData[svIdx][COL.PC.HP]) || 0;
+  if (svHp >= svMaxHp) return JSON.stringify({ success: false, message: `「${svName}」氣血已然充盈，毋須修復。` });
+
+  const mpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || masterPoolMax_(masterCircuits_(pcData[pIdx]), 0);
+  const mp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
+  const REPAIR_MP_COST_PCT = 0.40, REPAIR_HEAL_PCT = 0.35; // 消費池4成、回復從者上限3成半——單一真實來源，兩處(前端提示/戰報)皆讀這裡算出的結果，不重複硬編碼
+  const cost = Math.round(mpMax * REPAIR_MP_COST_PCT);
+  if (mp < cost) return JSON.stringify({ success: false, message: `共用魔力池不足以支撐靈基修復（需 ${cost}，僅剩 ${mp}）。` });
+
+  const healed = Math.min(svMaxHp - svHp, Math.round(svMaxHp * REPAIR_HEAL_PCT));
+  pcData[svIdx][COL.PC.HP] = svHp + healed;
+  pcData[pIdx][COL.PC.MP] = mp - cost;
+  sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+  raiseBond_(sheets, myGameId, pcData[pIdx][COL.PC.NAME], svName, 2, pcData);
+
+  let repAp = AP_PER_DAY, repClock = "";
+  if (isFateMana) { try { repAp = spendAp_(myGameId, 1, pcData, sheets).ap; repClock = clockLabel_(myGameId, pcData); } catch (e) { } }
+
+  // ⚔️ 卸防突襲：療傷時同樣門戶大開，同地若有清醒敵從者→趁隙重擊我方從者（可能致敗）
+  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, userData, 1.3);
+
+  let aiPrompt;
+  if (ambush && ambush.homeRepel) {
+    aiPrompt = ambush.repelNote; // 🏰 陣地反擊·優雅擊退
+  } else if (ambush) {
+    aiPrompt = (ambush.foeCard || '') + `【系統·靈基修復遭突襲·已裁定】御主正引共用魔力池為「${svName}」療傷、彼此門戶大開之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
+      `★以 Fate／TYPE-MOON 筆觸描寫療傷的私密一刻被突襲打斷的驚變，${ambush.destroyed ? '及從者消滅的痛楚（語氣留白）' : '及從者依其性格與羈絆對此突襲的反應（重情者強撐護主、疏離者未必）'}。傷害與勝負已由系統結算。\n` +
+      ``;
+  } else {
+    aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
+      `【系統·靈基修復已結算】御主引動共用魔力池（−${cost}）為「${svName}」療傷，氣血回復 ${healed} 點（現 ${pcData[svIdx][COL.PC.HP]}/${svMaxHp}）。羈絆微升。\n` +
+      `★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】描寫這場療傷小品——魔力沿契約流向從者、傷勢緩緩平復的觸感與體溫，依「${svName}」性格與當前羈絆自然反應演出（不預設溫情，冷傲疏離者可淡然受之）。\n` +
+      `★【show, don't tell】用言行、神態去流露反應，不可直白說出其願望／個性／萌點等設定詞。`;
+  }
+  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：HP回復/MP扣減/raiseBond_/spendAp_/夜襲 皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
+  return JSON.stringify({
+    success: true, aiPrompt: aiPrompt, healed: healed, cost: cost, ap: repAp, clock: repClock, apMax: AP_PER_DAY,
+    ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", report: ambush ? ambush.report : null,
+    statusString: getFreshStatusString(pcId, pIdx, sheets)
+  });
+}
+
 // 🩸 燃血補魔已改為【被動機制】(2026-06)：不再是主動 action。
 //   共用魔力池見底、時消耗補不上時，於 applyRegen_(Time_World) 自動「燃命續契約」——
 //   缺口÷2 全額扣【御主】HP(保底1)、從者不扣血(2026-07 玩家定案)。詳見 applyRegen_。舊主動 actionBloodSupply 已移除。
