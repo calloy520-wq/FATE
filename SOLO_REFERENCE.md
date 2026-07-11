@@ -1414,3 +1414,15 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `Router_Persona.gs`：`masterCard_`/`enemyMasterCard_`的魔術系統行併入`(${magicRank}階)`後綴。
 
 **驗證**：`bash check.sh`全過；`tools/battle_sim/engine.js`沙盒測試——Caster(美狄亞)搭配 無/C/A 魔術階位平均命中傷害 114.3/121.1/126.8(隨階級遞增、量級符合公式)；非Caster(阿爾托莉雅，Saber)注入魔術階位後`skills`確認完全沒有`master_magic`項(職階門檻正確擋下、零加成)；同一Caster同時具備體術+魔術兩項標記時`master_melee`/`master_magic`兩個fx皆正確共存不互相覆蓋。`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。headless環境無法驗證命運測定UI實際擲骰顯示與createPC完整送出流程，部署後建議測試：創角時「命運測定」按3次，確認每次都秒顯獨立的魔術階位(不是複製體術那個值)；召喚一位Caster出戰，確認演出卡讀得到「魔術系統：X(Y階)」、戰報偶爾出現「御主魔術」傷害加成標籤；召喚非Caster出戰確認不會出現這個標籤。
+
+## §37 敵御主體術/魔術補接戰鬥（2026-07·玩家實測回饋「對面的凜都拿著寶石沒有攻擊」）
+
+**背景**：§35/§36 把體術/魔術上線時，刻意把戰鬥效果範圍收斂成「僅玩家側從者吃得到」(SOLO_REFERENCE §35「敵御主體術暫僅供演出卡陳述、未接戰鬥」)——當時的理由是敵側需要額外的跨列查找(從敵從者反查其配對敵御主)。玩家實際玩了一場後回報：對面的遠坂凜(手持寶石魔術)在演出卡上讀得到「魔術系統：寶石魔術(A階)」，但因為沒有真實傷害掛鉤，AI 敘述時完全不敢寫她主動攻擊(GAS掌數值、AI只說書的既有鐵律下，AI 沒有數字背書就不會編造戰鬥行為)——這正是上次故意留下的範圍缺口，玩家一眼就看出問題。
+
+**修法**：把上次故意跳過的跨列查找補上，讓敵御主的能力也真的接進戰鬥：
+- `Router_Bond.gs`新增`enemyMasterMemoryFor_(pcData, gameId, servantRow)`：讀敵從者自己`【御主】`硬連結標記查出御主名，在`pcData`裡找同`game_id`、`FACTION==="敵御主"`、未死亡的那一列，回傳其MEMORY(查無回空字串，`inject*Support_`對空字串本就是「不注入」，呼叫端不必另外防呆)。
+- `Router_Battle.gs`的`fateStrike_`新增`else if FACTION==="敵從者"`分支：敵從者防守時比照玩家側同一套邏輯，改讀**敵御主自己的**MEMORY(而非誤讀玩家御主)注入體術/魔術支援——這是**單一choke point**，全部「攻擊敵從者」的呼叫點(一般攻擊/盟友助攻/雙從者/海怪協同…)自動受益，不必逐一補call site。
+- 另外3處「敵從者當攻方」的組合建構點各自補上注入(這些是`atkC`角色，`fateStrike_`內部只重建`defC`不動`atkC`，得在源頭補)：`Router_Battle.gs`的`enemyC0`(寶具對轟)、`enemyNow`(每回合敵方出擊)；`Router_Movement.gs`的`enemyAmbushOnServant_`裡的`enemyC`(卸防突襲攻方)＋陣地反擊分支的`eDefC`(突襲者被反擊時的防守方，同樣該吃自己御主的支援)。
+- **刻意不擴大範圍**：`Router_Movement.gs`裡另外幾處敵對雙方互毆(世界自走的「兩組敵御主同格互毆」`crossRes`、追擊/撤離的`chC`/`foeC2`)未動——這些是背景/事件性交手，不是玩家直接參與的那場戰鬥，且已超出玩家本次回饋的具體場景(對面的凜沒有主動攻擊我)，避免順手擴大成一次大範圍重構。
+
+**驗證**：`bash check.sh`全過；純邏輯沙盒測試`enemyMasterMemoryFor_`——正常連結(遠坂凜↔EMIYA)正確解析出御主MEMORY、無連結從者回空字串、御主列已標記`DEAD_`時正確視為查無(不誤讀陣亡御主的舊資料)；`tools/battle_sim`真引擎沙盒模擬「敵方Caster(美狄亞)攻擊我方(庫·丘林)」，注入敵御主`【魔術階位】`無/C/A後平均傷害114.2/121.3/127.1(與玩家側同款曲線，確認端到端生效)；`node tools/battle_sim/roundrobin.js 5th basic 150`重跑確認純從者對戰(不涉御主注入)排名數字不受影響(此機制只在有御主MEMORY可查時才生效，battle_sim的裸combatant測試本就查不到，故不影響既有回歸基準)。`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。headless環境無法驗證正式戰鬥中「AI真的敢寫敵御主出手」的敘述品質，部署後建議測試：對戰一位魔術/體術階位較高的正典敵御主(如言峰綺禮體術A、遠坂凜魔術階位A)，確認戰報偶爾出現「敵方·御主體術/魔術」傷害加成標籤、AI敘述也願意讓該御主本人動手而非純看戲。

@@ -29,6 +29,15 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
     injectMasterMeleeSupport_(defC, pcData[ctx.pIdx][COL.PC.MEMORY]); // 🥋 御主體術參戰（守方時亦生效）
     injectMasterMagicSupport_(defC, pcData[ctx.pIdx][COL.PC.MEMORY]); // 🔮 御主魔術支援（守方時亦生效·僅Caster）
     defC._shieldMp = parseInt(pcData[ctx.pIdx][COL.PC.MP]) || 0;
+  } else if (String(pcData[tgtIdx][COL.PC.FACTION]) === "敵從者" && ctx && ctx.myGameId) {
+    // 🥋🔮 2026-07 新增：敵從者防守時也吃「自己御主」的體術/魔術支援(讀硬連結敵御主，非玩家御主)——
+    //   過去只有玩家側從者吃得到這兩項加成，敵御主(如手持寶石卻查無傷害掛鉤的遠坂凜)空有演出卡描述、
+    //   AI 沒有數值背書不敢寫她真的出手。這裡補上對稱，敵御主的能力現在也真的會反應在戰報傷害上。
+    var _eMasterMem = enemyMasterMemoryFor_(pcData, ctx.myGameId, pcData[tgtIdx]);
+    if (_eMasterMem) {
+      injectMasterMeleeSupport_(defC, _eMasterMem);
+      injectMasterMagicSupport_(defC, _eMasterMem);
+    }
   }
   // 🍱 整備·進食加成：御主一行戰前整備過、且尚在效期內 → 從者出擊命中 +MEAL_BUFF_BONUS。
   //   ⚠ 只屬於【我方陣營的出擊】——目標是我方從者＝攻擊者是敵人，不吃玩家的餐(2026-07 修「敵人蹭飯」)；
@@ -670,6 +679,9 @@ function actionFateBattle(userData, pcId, sheets) {
   let clash = null;
   if (useNp && targetIsFoeServant && !String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) {
     const enemyC0 = rowToCombatant_(pcData[nIdx]);
+    // 🥋🔮 對轟中 enemyC0 稍後會反過來當攻方(ePow，見下)，補上其硬連結敵御主的體術/魔術支援。
+    const _e0MasterMem = enemyMasterMemoryFor_(pcData, myGameId, pcData[nIdx]);
+    if (_e0MasterMem) { injectMasterMeleeSupport_(enemyC0, _e0MasterMem); injectMasterMagicSupport_(enemyC0, _e0MasterMem); }
     // ⚠ 2026-07 修：多寶具敵人(如吉爾伽美什)npChoice_ 從 MEMORY 讀，但敵方從未被 setNpChoice_ 寫入過
     //   選擇，永遠退回預設索引0——吉爾伽美什索引0是王之財寶(對人·概念階僅1)，並非他最強的乖離劍
     //   Ea(索引1·對界·概念階6)。稍後「敵反擊」段落(下方 enemyNow.npChoice = bestNpChoice_(...))有
@@ -907,6 +919,9 @@ function actionFateBattle(userData, pcId, sheets) {
       }
       if (!String(pcData[ctgt][COL.PC.ID]).startsWith("DEAD_")) {
         const enemyNow = rowToCombatant_(pcData[nIdx]);
+        // 🥋🔮 敵從者本回合出擊(對玩家)：補上其硬連結敵御主的體術/魔術支援，讓敵御主的能力真的算進傷害。
+        const _eNowMasterMem = enemyMasterMemoryFor_(pcData, myGameId, pcData[nIdx]);
+        if (_eNowMasterMem) { injectMasterMeleeSupport_(enemyNow, _eNowMasterMem); injectMasterMagicSupport_(enemyNow, _eNowMasterMem); }
         enemyNow.npChoice = bestNpChoice_(enemyNow.name, enemyNow.cls); // 🌟 敵解放/預告用最強攻擊寶具(如吉爾掏乖離劍·非預設王財)
         // 🔥 敵人也會解放寶具！殘血越急越想拼、暗殺/狂戰系更愛搏命；開寶具則全力(不打折)
         const eHpRatio = (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[nIdx][COL.PC.HP]) || 0) / (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) : 1;

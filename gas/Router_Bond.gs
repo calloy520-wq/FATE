@@ -17,6 +17,21 @@ function getLostServant_(memory) {
 function getServantMaster_(memory) { var m = String(memory || "").match(/【御主】([^｜]+)/); return m ? m[1] : ""; }
 function getMasterServant_(memory) { var m = String(memory || "").match(/【從者】([^｜]+)/); return m ? m[1] : ""; }
 
+// 🥋🔮 給敵從者列反查其硬連結敵御主的 MEMORY(供 injectMasterMeleeSupport_/injectMasterMagicSupport_
+//   讀取敵御主自己的體術/魔術階位，而非誤讀玩家御主的)——查無連結或查無該御主列則回 ""(呼叫端的
+//   inject 函式對空字串已是「不注入」的既有行為，此處不必額外防呆)。
+function enemyMasterMemoryFor_(pcData, gameId, servantRow) {
+  try {
+    var masterName = getServantMaster_(servantRow && servantRow[COL.PC.MEMORY]);
+    if (!masterName) return "";
+    var mi = pcData.findIndex(function (r) {
+      return r && String(r[COL.PC.FACTION]) === "敵御主" && String(r[COL.PC.GAME_ID] || "") === gameId
+        && String(r[COL.PC.NAME]) === masterName && !String(r[COL.PC.ID]).startsWith("DEAD_");
+    });
+    return mi !== -1 ? pcData[mi][COL.PC.MEMORY] : "";
+  } catch (e) { return ""; }
+}
+
 // data：眾生二維陣列；svIdx：剛死亡的敵從者列索引；sheet：sheets.pc。就地改 data 並寫回該御主列。
 //   配對優先用硬連結【御主】名(精準，不怕多組同地)，舊角色無連結則退回同落點比對。
 function markMasterLostServant_(sheet, data, svIdx, cause) {
