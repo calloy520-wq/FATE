@@ -684,12 +684,10 @@ function actionSecondWind(userData, pcId, sheets) {
 //   set這邊漏掉全形｜。若【陣地】後面緊接著全形｜分隔的下一個標記，這裡的replace regex會把那個｜
 //   也吃掉，讓兩個標記黏在一起變成沒有分隔符(雖然各自的get函式仍能靠自己的【tag】字面重新定位、
 //   不會讀錯值，但分隔符結構被破壞終究不乾淨，比照getBondUsedToday_同批修正)。
-function getWorkshop_(memory) { var m = String(memory || "").match(/【陣地】([^｜|【]+)/); return m ? m[1].trim() : ""; }
-function setWorkshopMemory_(memory, loc) {
-  var s = String(memory || "");
-  if (/【陣地】[^｜【]*/.test(s)) return s.replace(/【陣地】[^｜【]*/, "【陣地】" + loc);
-  return (s ? s + "｜" : "") + "【陣地】" + loc;
-}
+// ⚡ 2026-07：實作收斂進 Core_Settings.gs 的 makeTextTag_ 共用工廠(見該檔說明)，函式名/外部行為不變。
+var WORKSHOP_TAG_ = makeTextTag_('陣地');
+function getWorkshop_(memory) { return WORKSHOP_TAG_.get(memory); }
+function setWorkshopMemory_(memory, loc) { return WORKSHOP_TAG_.set(memory, loc); }
 
 // 🏰 主場陣地判定：玩家於【自己佈設的陣地】迎戰、且隊上有【陣地作成】從者 → 回最高陣地作成階(供主場結界減傷)；否則空。
 //   引敵入陣地決戰＝主場優勢的核心。階級越高(EX 空中庭園級)結界越強。
@@ -750,12 +748,9 @@ function actionSetWorkshop(userData, pcId, sheets) {
 //   想真正回滿池要付永久代價(補魔)或靠時間(靈脈/陣地/休息)。標記記於 MEMORY【搜刮】loc。
 // 🐛→✅ 2026-07 稽核抓到同一類bug(見getWorkshop_/setWorkshopMemory_同批修正)：set這邊排除字元集
 //   同樣漏了全形｜，改成跟get版本一致的`[^｜【]`。
-function getScavengedLoc_(memory) { var m = String(memory || "").match(/【搜刮】([^｜|【]+)/); return m ? m[1].trim() : ""; }
-function setScavengedLoc_(memory, loc) {
-  var s = String(memory || "");
-  if (/【搜刮】[^｜【]*/.test(s)) return s.replace(/【搜刮】[^｜【]*/, "【搜刮】" + loc);
-  return (s ? s + "｜" : "") + "【搜刮】" + loc;
-}
+var SCAVENGE_TAG_ = makeTextTag_('搜刮');
+function getScavengedLoc_(memory) { return SCAVENGE_TAG_.get(memory); }
+function setScavengedLoc_(memory, loc) { return SCAVENGE_TAG_.set(memory, loc); }
 function actionScavenge(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);

@@ -1230,27 +1230,16 @@ function actionDismissHorror(userData, pcId, sheets) {
 }
 
 // 十二試煉(God Hand) 剩餘命數（從者 MEMORY【試煉】N；無標記預設 11＝十二命扣除本體，呼應 FSN 設定）
-function getGodHandLives_(memory) {
-  var m = String(memory || "").match(/【試煉】(\d+)/);
-  return m ? parseInt(m[1]) : 11;
-}
-function setGodHandLives_(memory, n) {
-  var s = String(memory || "");
-  if (/【試煉】\d+/.test(s)) return s.replace(/【試煉】\d+/, "【試煉】" + n);
-  return (s ? s + "｜" : "") + "【試煉】" + n;
-}
+// ⚡ 2026-07：實作收斂進 Core_Settings.gs 的 makeIntTag_ 共用工廠(見該檔說明)，函式名/外部行為不變。
+var GOD_HAND_TAG_ = makeIntTag_('試煉', 11);
+function getGodHandLives_(memory) { return GOD_HAND_TAG_.get(memory); }
+function setGodHandLives_(memory, n) { return GOD_HAND_TAG_.set(memory, n); }
 
 // 玩家令咒餘量（存於御主 MEMORY 的【令咒】N 標記；舊角色無標記則視為 3）
-function getPlayerSeals_(memory) {
-  var m = String(memory || "").match(/【令咒】(\d+)/);
-  return m ? parseInt(m[1]) : 3;
-}
+var PLAYER_SEALS_TAG_ = makeIntTag_('令咒', 3);
+function getPlayerSeals_(memory) { return PLAYER_SEALS_TAG_.get(memory); }
 // 寫回令咒餘量（回傳更新後的 MEMORY 字串）
-function setPlayerSeals_(memory, n) {
-  var s = String(memory || "");
-  if (/【令咒】\d+/.test(s)) return s.replace(/【令咒】\d+/, "【令咒】" + n);
-  return (s ? s + "｜" : "") + "【令咒】" + n;
-}
+function setPlayerSeals_(memory, n) { return PLAYER_SEALS_TAG_.set(memory, n); }
 
 // 🕯️ 令咒耗盡·靈基透支倒數：令咒燒到 0 又無「單獨行動」的敵從者，只能再撐 SEAL_DOOM_HOURS 小時。
 var SEAL_DOOM_HOURS = 3; // 失去令咒穩固、無單獨行動自持的靈基存續上限（遊戲內小時）
@@ -1260,15 +1249,9 @@ function rowHasSolo_(row) {
   catch (e) { return false; }
 }
 // 在 MEMORY 標記/讀取靈基透支的「絕對死線」(遊戲內總時數 = day*24+hour)
-function stampDoom_(memory, deadAbsHour) {
-  var s = String(memory || "").replace(/【靈基透支】\d+/, "");
-  s = s.replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
-  return (s ? s + "｜" : "") + "【靈基透支】" + deadAbsHour;
-}
-function getDoom_(memory) {
-  var m = String(memory || "").match(/【靈基透支】(\d+)/);
-  return m ? parseInt(m[1]) : 0;
-}
+var DOOM_TAG_ = makeIntTag_('靈基透支', 0);
+function stampDoom_(memory, deadAbsHour) { return DOOM_TAG_.set(memory, deadAbsHour); }
+function getDoom_(memory) { return DOOM_TAG_.get(memory); }
 
 // 🍱 整備·進食（戰前 buff）：solo 無商城/道具欄，食物由「整備」抽象供給(AI 敘述來源)，
 //   不寫道具列、不花錢。MEMORY 記【整備至】<絕對小時>，過期自動失效。
@@ -1300,15 +1283,9 @@ function clearExpiredHorror_(memory, gameId) {
   if (horrorPresent_(m, gameId)) return { mem: m, cleared: false };
   return { mem: clearHorrorShield_(m), cleared: true };
 }
-function stampMeal_(memory, expiryAbsHour) {
-  var s = String(memory || "").replace(/【整備至】\d+/, "");
-  s = s.replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
-  return (s ? s + "｜" : "") + "【整備至】" + expiryAbsHour;
-}
-function getMeal_(memory) {
-  var m = String(memory || "").match(/【整備至】(\d+)/);
-  return m ? parseInt(m[1]) : 0;
-}
+var MEAL_TAG_ = makeIntTag_('整備至', 0);
+function stampMeal_(memory, expiryAbsHour) { return MEAL_TAG_.set(memory, expiryAbsHour); }
+function getMeal_(memory) { return MEAL_TAG_.get(memory); }
 // 目前是否仍在整備加成效期內（吃 game clock 的絕對小時：day*24+hour）
 function mealBuffActive_(memory, gameId) {
   var exp = getMeal_(memory); if (!exp) return false;
