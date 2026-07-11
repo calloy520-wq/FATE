@@ -147,6 +147,11 @@ function buildTrajectoryDigest_(pcData, gameId, pcRow) {
     var svHp = parseInt(svRow[COL.PC.HP]), svMaxHp = parseInt(svRow[COL.PC.MAX_HP]) || 1;
     if (!isNaN(svHp) && svHp < svMaxHp * 0.3) parts.push('從者剛歷經惡戰、氣血未復');
   }
+  // 🐛→✅ 2026-07 玩家反映「從者都覺得魔力是御主的、跟從者沒關係」：補一條跟上面「從者剛歷經惡戰」
+  //   同款的條件式警訊——魔力池告急時明講這是從者自己的存亡危機(從者無自有魔力池，全靠此池維生，
+  //   見masterPoolMax_/applyRegen_)，不是只跟御主有關的旁支數值，讓AI演出時從者會真的在意。
+  var pMp = parseInt(pcRow[COL.PC.MP]), pMaxMp = parseInt(pcRow[COL.PC.MAX_MP]) || 1;
+  if (!isNaN(pMp) && pMp < pMaxMp * 0.2) parts.push('共用魔力池告急——這是從者自己的存亡危機、並非只是御主的事');
   parts.push('令咒餘' + seals + '道');
   if (loc) parts.push('目前位於「' + loc + '」');
   if (!parts.length) return "";

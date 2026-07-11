@@ -125,7 +125,12 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
     var stIdx = stData.findIndex(function (r) { return r[COL.PC.ID] == pcId; });
     if (stIdx >= 0) {
       var stGid = String(stData[stIdx][COL.PC.GAME_ID] || "");
-      var sParts = ['御主 HP ' + (parseInt(stData[stIdx][COL.PC.HP]) || 0) + '/' + (parseInt(stData[stIdx][COL.PC.MAX_HP]) || 0) + '·魔力 ' + (parseInt(stData[stIdx][COL.PC.MP]) || 0) + '/' + (parseInt(stData[stIdx][COL.PC.MAX_MP]) || 0)];
+      // 🐛→✅ 2026-07 玩家反映「從者都覺得魔力是御主的、跟從者沒關係，說話方式超怪」：查出根因——
+      //   這行字面寫「御主...魔力」，把魔力講成只掛在御主名下的個人數值，隻字未提「從者無自有魔力池、
+      //   共用這池魔力維生」(見Time_World.gs applyRegen_/Core_Settings.gs masterPoolMax_的既有機制)，
+      //   AI 收到的字面就是「這是御主的東西」，難怪演出時從者對魔力見底一副事不關己。改成明講「共用
+      //   魔力池·從者亦賴此維生」，把這份存亡與共的關係寫進每一次餵給AI的狀態行裡。
+      var sParts = ['御主 HP ' + (parseInt(stData[stIdx][COL.PC.HP]) || 0) + '/' + (parseInt(stData[stIdx][COL.PC.MAX_HP]) || 0) + '·共用魔力池(從者無自有魔力、皆賴此維生) ' + (parseInt(stData[stIdx][COL.PC.MP]) || 0) + '/' + (parseInt(stData[stIdx][COL.PC.MAX_MP]) || 0)];
       stData.forEach(function (r) {
         if (String(r[COL.PC.FACTION]) === '從者' && String(r[COL.PC.GAME_ID] || "") === stGid && !String(r[COL.PC.ID]).startsWith('DEAD_')) {
           sParts.push('從者「' + r[COL.PC.NAME] + '」HP ' + (parseInt(r[COL.PC.HP]) || 0) + '/' + (parseInt(r[COL.PC.MAX_HP]) || 0));
