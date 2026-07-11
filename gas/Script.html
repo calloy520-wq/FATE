@@ -1207,6 +1207,23 @@
       + '<div style="color:#cfc3d8; font-size:14px; line-height:1.9;">' + (desc || '此寶具的詳細效果由戰鬥中的寶具解放結算，見「⚔ 解放寶具」。') + '</div>';
     showHistoryOverlay(html);
   }
+  // ❓ solo 頂部常駐「教學」鈕(2026-07 玩家「solo加點新手教學？」)：單一總覽卡，濃縮新手第一局要懂的
+  //   核心機制，隨時可重開(非首次登入強制彈窗)。細節公式仍留給各自的「?」(showManaHelp/showSixHelp等)，
+  //   這裡只給「這是什麼、我為什麼要管」的一句話，避免跟既有教學重複維護兩份文字。
+  function openTutorial() {
+    var html = '<h3 style="margin:0 0 10px; color:#e7c873;">❓ 新手教學・快速上手</h3>'
+      + '<div style="color:#cfc3d8; font-size:13.5px; line-height:1.85;">'
+      + '<b style="color:#e7c873;">🎯 目標</b>　14 天內擊敗其他御主的從者、活到最後即可奪得聖杯。<br><br>'
+      + '<b style="color:#7ec8ff;">🔷 魔力池</b>　你與從者共用同一池魔力，從者出力越高、解放寶具都在燒它——快見底就靠靈脈/休息回魔，別讓它扣到底（會燒血）。點頂部「🔮 魔力」看收支細節。<br><br>'
+      + '<b style="color:#c79be8;">❖ 令咒</b>　御主卡片上 3 道絕對命令，每道限用一次，留給真正危急的時刻（治從者傷／逼魔力全滿／強行脫離險境）。<br><br>'
+      + '<b style="color:#c9b885;">⏳ 行動力（AP）</b>　每天固定額度，移動／戰鬥／休息都要花，額度見底就得休息推進到隔天——別忘了 14 天倒數在跑。<br><br>'
+      + '<b style="color:#7ec8ff;">🔋 靈基出力</b>　從者的供魔強度旋鈕（20%~100%），越高戰力越強但越耗魔池，唯有全開 100% 才能解放寶具。<br><br>'
+      + '<b style="color:#e0574a;">⚔️ 戰鬥</b>　移動到同地敵人身邊即可「攻擊」；血量歸零分勝負。從者卡上還有 💧補魔／🩹靈基修復／💕羈絆／🛏️休息／👗換裝／⚔️武裝 等常用按鈕，各有不同資源代價，點按鈕上的說明文字都會講清楚。<br><br>'
+      + '<b style="color:#4fd0b0;">🤝 結盟</b>　與其他御主可提議結盟、暫免交戰。<br><br>'
+      + '<span style="color:#6a7a90; font-size:12px;">想查更細的公式或某個標籤的效果，直接點畫面上對應的名字/圖示（大多可點開說明）。這份教學隨時能從頂部「❓ 教學」重開。</span>'
+      + '</div>';
+    showHistoryOverlay(html);
+  }
   // 🔷 魔力條旁的「?」：純教學(怎麼用)，不塞公式/設定細節
   function showManaHelp() {
     var html = '<h3 style="margin:0 0 8px; color:#7ec8ff;">🔷 魔力</h3>'
