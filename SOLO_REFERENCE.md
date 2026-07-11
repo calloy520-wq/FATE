@@ -1299,3 +1299,26 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **命名衝突處理**：既有令咒選單(`openSealMenu`)裡本來就有一個選項叫「🩹 靈基修復」(耗令咒、雙方全滿)，跟新按鈕同名會混淆——把舊選項改名「❖ 絕對修復」並在描述補一句「效果強於靈基修復」，讓玩家看得出兩者的定位差異(強·稀缺·一次性 vs 弱·常態·可重複)。
 
 **驗證**：`bash check.sh`全過(3個修改檔案：`Router_Economy.gs`/`Router_Action.gs`/`Script.html`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。headless環境無法實機驗證按鈕互動與AI演出，部署後建議測試：① 御主卡的令咒鈕能正常開出選單(含改名後的「絕對修復」)；② 從者卡的「靈基修復」在魔力池足夠/不足兩種情況下的訊息與扣血回血是否正確；③ 敵蹤同地時觸發卸防突襲的機率與既有補魔/相伴手感一致。
+
+## 30. 敵御主/敵從者「登場日」機制——分批登場，不再開局全員同時上場(2026-07 玩家「現在是一次全部敵人都上場？有辦法再放人進去嗎？類似第5次金閃閃3天後出現遊蕩？佐佐木自己在柳洞寺？」)
+
+**現況查證**(先派 Explore agent 查過)：`Seed_Rivals.gs`的`seedRivalsForGame_`開局把整場戰爭(4th/5th各7組，扣玩家扮演的那組通常剩6組)一次性全部寫進「眾生」表，全員從第1天就有固定`LOC`、可被攻擊/互動——完全沒有分批登場機制。「是否在場」判斷散落在全代碼庫約20處(`FACTION`+`GAME_ID`+`LOC`+`DEAD_`前綴的行內判斷)，並非單一函式。
+
+**玩家決策**(兩輪`AskUserQuestion`)：① 先做通用機制、預設全部第1天登場(現行行為零改變)，玩家之後自己指定哪幾位要延後幾天登場；② 登場前1~2天要有世界風聲預告，不要完全隱藏到當天才憑空出現。
+
+**設計**：
+- **單一真實來源**：`Core_Settings.gs`新增`getArriveDay_`/`setArriveDay_`(讀寫MEMORY【登場日】N，未標記＝預設第1天，對既有存檔零影響)、`getArriveHint_`/`setArriveHint_`(選填的自訂登場提示句，存【登場提示】)、`hasArrived_(row,currentDay)`(=currentDay>=該列登場日，唯一判斷式)。
+- **刻意不拿掉的一處**：`aliveEnemyServants_`(勝負判定用的剩餘敵從者總數)**完全不吃這道閘門**——未登場者仍是活著的敵人，玩家不能靠「趕在對方出現前把其他人都殺光」就提前奪杯，必須等 14 天內對方也現身、被真正解決掉才算數。這是唯一的例外，其餘同地互動/鎖定攻擊/世界自走全部要吃。
+- **派 general-purpose agent 完整盤點**全代碼庫「是否在場」判斷式(~20處，橫跨6個檔案)，逐一補`hasArrived_`閘門，而非只修報告的那幾個明顯處：
+  - `Core_Settings.gs`的`getLocalPeopleList`(在場清單/敘事提示詞用，含盟友情報揭露掃描)
+  - `Router_Battle.gs`的`_notMeAlive`(直接攻擊的目標鎖定，防直打API繞過前端隱藏)
+  - `Router_Movement.gs`：`preFoesAtTarget`(抵達態度判定)、`teleFoe`/`chaser`(撤離追擊)、`factionClash`(抵達撞見敵對互毆)、`foeCardsMove`(抵達敘事人設卡)、`enemyAmbushOnServant_`(卸防突襲共用函式，補魔/羈絆/休息/結盟/靈基修復五處呼叫端一次修好)、`buildMapNodesPayload_`(地圖敵蹤badge)
+  - `Router_Bond.gs`：`actionProposeAlliance`的`_foeMasterHere`(結盟交涉)、`actionRuleBreakSteal`的目標查找(斬契奪僕)
+  - `Seed_Rivals.gs`的`markRivalsSeen_`(戰爭迷霧「已偵查」標記)
+  - `Time_World.gs`的`worldTick_`：敵移位、敵從者小幅自癒、暗處互鬥候選池、`refillMastersDaily_`(敵御主每日回魔)、靈基透支倒數計時——全部補閘門，未登場者不參與任何世界自走。
+  - **判斷依據**：master/servant一組配對永遠共用同一個登場日(`seedRivalsForGame_`同時對兩列蓋章)，所以凡是「已通過閘門的那一方去查自己配對的另一半」的巢狀查找(斬首護衛/協同強襲/已結盟對象等)**不需要**額外補閘門——判過一次即可，這也是選擇「master+servant 共用一個登場日」而非各自獨立的理由。
+- **登場預告(風聲機制)**：`worldTick_`新增一段(跟`refillMastersDaily_`同層級、每次呼叫只跑一次、不隨`rounds`重複)：尚未登場但已進入「登場前1~2天」窗口的敵從者，推播一則`〔風聞〕`——有自訂`【登場提示】`就用玩家寫的句子，沒有就退回依職階的泛用措辭(如「某道屬於『Archer』職階的強大氣息正在冬木邊緣遊蕩」)，不洩漏精確位置/天數。只觸發一次(MEMORY【已預告】旗標)，跟既有LOC/HP整欄批次寫回同一手法。
+
+**Seed_Rivals.gs資料掛載**：`FATE_5TH_ROSTER`/`FATE_4TH_ROSTER`的roster項目可選填`arriveDay`(數字)/`arriveHint`(字串)，`seedRivalsForGame_`正史分支(4th/5th，非chaos混亂模式)偵測到就蓋章進master+servant兩列的MEMORY。**目前兩份roster尚未真正填入任何延後值**——機制已就緒但預設行為＝現行「開局全員第1天登場」，玩家提到的金閃閃3天後遊蕩/佐佐木柳洞寺等具體人物與天數安排，等玩家後續指定後再實際填入roster資料(純資料編輯，不需要再動引擎邏輯)。
+
+**驗證**：`bash check.sh`全過(6個修改檔案：`Core_Settings.gs`/`Router_Battle.gs`/`Router_Bond.gs`/`Router_Movement.gs`/`Seed_Rivals.gs`/`Time_World.gs`)；另外用Node vm沙盒單獨測試`getArriveDay_`/`setArriveDay_`/`hasArrived_`的round-trip與邊界情況(無標記預設第1天、重複set不疊字串、跨天比較正確)，全部通過。`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。headless環境無法真正開一局驗證分批登場的實際遊玩體感，部署後建議測試：① 在roster填入一組`arriveDay:3`後開局，確認第1~2天完全查無此人(地圖/攻擊/風聲皆無)；② 第2天(登場前1天)收到風聲預告；③ 第3天起同地可正常攻擊/互動；④ 確認不影響現有存檔(未填`arriveDay`的其餘6組維持第1天全部在場的原行為)。

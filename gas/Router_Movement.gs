@@ -23,12 +23,14 @@ function buildMapNodesPayload_(sheets, pcData, myGameId, myLoc) {
   const myWar = myMasterIdx !== -1 ? getWarName_(pcData[myMasterIdx][COL.PC.MEMORY]) : "";
   // 🤝 情報共享：有在世盟友時，盟友通報敵蹤——無視戰爭迷霧，全圖敵人位置揭露
   const allyIntel = hasAllyInGame_(pcData, myGameId);
+  const mapDay = myMasterIdx !== -1 ? (parseInt(pcData[myMasterIdx][COL.PC.DAY]) || 1) : 1; // 🕰️ 尚未登場者不上地圖
   const enemyAt = {};
   pcData.slice(1).forEach(r => {
     const fac = String(r[COL.PC.FACTION]);
     if (fac !== "敵御主" && fac !== "敵從者") return;
     if (myGameId && String(r[COL.PC.GAME_ID] || "") !== myGameId) return;
     if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+    if (!hasArrived_(r, mapDay)) return;
     if (!r[COL.PC.SEEN] && !allyIntel) return;
     if (isAllied_(r)) return; // 盟友自身不列為敵蹤
     const loc = String(r[COL.PC.LOC] || "").trim();
@@ -70,6 +72,8 @@ function actionMove(userData, pcId, sheets) {
   let allPcData = sheets.pc.getDataRange().getValues();
   let pIdx = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
+  // 🕰️ 登場日閘門用：讀即時值(而非快取一次)，讓本函式各處判斷都吃到當下(含 worldTick_ 推進後)的日期。
+  const _moveDay = () => parseInt(allPcData[pIdx][COL.PC.DAY]) || 1;
 
   // ⏳ 行動點檢查（移動耗 2 AP＝2 小時；鑑賞 k_ 不耗 AP）
   const moveGameId = String(allPcData[pIdx][COL.PC.GAME_ID] || "");
@@ -115,6 +119,7 @@ function actionMove(userData, pcId, sheets) {
           if (String(r[COL.PC.ID]).startsWith("DEAD_")) return false;
           if (String(r[COL.PC.LOC] || "").trim() !== fromLocM) return false;
           if (isAllied_(r)) return false;
+          if (!hasArrived_(r, _moveDay())) return false; // 🕰️ 尚未登場者不會追擊
           return !!getNpTelegraph_(r[COL.PC.MEMORY]);
         }) || null;
         if (teleFoe) {
@@ -154,6 +159,7 @@ function actionMove(userData, pcId, sheets) {
           if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
           if (String(r[COL.PC.LOC] || "").trim() !== fromLocM) return;
           if (isAllied_(r)) return; // 🤝 盟約/休兵中→不追殺
+          if (!hasArrived_(r, _moveDay())) return; // 🕰️ 尚未登場者不會追擊
           if ((parseInt(r[COL.PC.BOND]) || 0) >= 50) return; // 💗 好感友好(≥50，2026-07 讀該敵從者自己的 BOND 欄)→交情夠·不追殺
           var a = rankVal((rowToCombatant_(r).six['敏捷']) || 'C');
           if (a > chaserAgi) { chaserAgi = a; chaser = r; }
@@ -192,6 +198,7 @@ function actionMove(userData, pcId, sheets) {
     && (!moveGameId || String(r[COL.PC.GAME_ID] || "") === moveGameId)
     && !String(r[COL.PC.ID]).startsWith("DEAD_")
     && String(r[COL.PC.LOC] || "").trim() === tgtTrim
+    && hasArrived_(r, _moveDay()) // 🕰️ 尚未登場者不算「先客」
   ).map(r => String(r[COL.PC.NAME])) : [];
 
   // 🌍 世界先動，玩家後到：先讓敵御主／敵從者 tick 到各自的新位置，再把玩家落到 target——
@@ -286,6 +293,7 @@ function actionMove(userData, pcId, sheets) {
       if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
       if (String(r[COL.PC.FACTION]) !== "敵御主") return;
       if (isAllied_(r)) return; // 已與玩家結盟者現在算友軍，不參與這場「敵對互毆」演出
+      if (!hasArrived_(r, _moveDay())) return; // 🕰️ 尚未登場者不參與這場演出
       clashMasters.push(r);
     });
     if (clashMasters.length >= 2) {
@@ -357,6 +365,7 @@ function actionMove(userData, pcId, sheets) {
       if (String(r[COL.PC.GAME_ID] || "") !== moveGameId) return;
       if (String(r[COL.PC.LOC] || "").trim() !== tgtTrim) return;
       if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+      if (!hasArrived_(r, _moveDay())) return; // 🕰️ 尚未登場者不出現在抵達敘事的人設卡裡
       if (String(r[COL.PC.FACTION]) === "敵從者") foeCardsMove += servantCard_(r);
     });
   } catch (e) { }
@@ -553,7 +562,8 @@ function actionPrepMeal(userData, pcId, sheets) {
 //   供 AI 演出形單影隻、再無從者可驅使的無牙御主。配對採同落點(一master一servant結伴移動)。
 function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, userData, baseMul) {
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
-  const eIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc && !isAllied_(r));
+  const ambushDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1; // 🕰️ 尚未登場者不會夜襲
+  const eIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc && !isAllied_(r) && hasArrived_(r, ambushDay));
   if (eIdx === -1) return null;
   const svIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
   if (svIdx === -1) return null;

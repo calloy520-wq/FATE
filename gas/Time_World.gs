@@ -364,6 +364,7 @@ function refillMastersDaily_(sheets, gameId, day, preData) {
     if (String(data[i][COL.PC.FACTION]) !== "敵御主") continue;
     if (String(data[i][COL.PC.GAME_ID] || "") !== gameId) continue;
     if (String(data[i][COL.PC.ID]).startsWith("DEAD_")) continue;
+    if (!hasArrived_(data[i], day)) continue; // 🕰️ 尚未登場者不參與世界自走(不回魔)
     if (getManaDay_(data[i][COL.PC.MEMORY]) >= day) continue; // 今天已補過
     var maxMp = parseInt(data[i][COL.PC.MAX_MP]) || 0;
     data[i][COL.PC.MP] = maxMp;
@@ -404,6 +405,31 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
   var data = preData || sheets.pc.getDataRange().getValues();
   var _ck0 = getClock_(gameId, data); if (_ck0) refillMastersDaily_(sheets, gameId, _ck0.day, data);
   var moved = 0;
+  var anyMemDirty = false;
+  // 🔮 登場預告(2026-07 新增·玩家「有辦法再放人進去嗎？」→選「登場前有世界風聲預告」)：尚未登場、
+  //   但已進入「登場前1~2天」窗口的敵從者，世界風聲提前透露一絲氣息——只觸發一次(MEMORY【已預告】
+  //   避免每輪重播)，不洩漏精確位置/天數；有自訂提示句(【登場提示】，Seed_Rivals.gs roster 可選填)
+  //   就用，沒有就退回依職階的泛用措辭。只跑一次(不隨 rounds 重複)，跟 refillMastersDaily_ 同一層級。
+  if (_ck0) {
+    for (var hn = 1; hn < data.length; hn++) {
+      if (String(data[hn][COL.PC.FACTION]) !== "敵從者") continue;
+      if (String(data[hn][COL.PC.GAME_ID] || "") !== gameId) continue;
+      if (String(data[hn][COL.PC.ID]).startsWith("DEAD_")) continue;
+      var hnMem = String(data[hn][COL.PC.MEMORY] || "");
+      var hnArrDay = getArriveDay_(hnMem);
+      if (hnArrDay <= 1) continue; // 開局即登場者不需要預告
+      if (_ck0.day >= hnArrDay) continue; // 已登場
+      if (hnArrDay - _ck0.day > 2) continue; // 還不到預告窗口(登場前1~2天內)
+      if (/【已預告】/.test(hnMem)) continue; // 已預告過，不重複
+      var hnHint = getArriveHint_(hnMem);
+      var hnCls = String(data[hn][COL.PC.RANK] || "從者");
+      rumors.push(hnHint
+        ? ('〔風聞〕' + hnHint)
+        : ('〔風聞〕坊間隱約流傳，某道屬於「' + hnCls + '」職階的強大氣息正在冬木邊緣遊蕩、若隱若現——似乎有人尚未正式現身於這場聖杯戰爭。'));
+      data[hn][COL.PC.MEMORY] = hnMem + "｜【已預告】";
+      anyMemDirty = true;
+    }
+  }
   // ⚡ 2026-07 收斂：LOC/HP 整欄批次寫回原本各輪跑一次(rounds 最多4輪·12h休息)，改成跨輪累積髒旗標、
   //   迴圈跑完後各自只寫一次——data 是同一份陣列全程原地改，跑完才寫不影響任何一輪讀到的中間值。
   var anyLocDirty = false, anyHpDirty = false;
@@ -416,6 +442,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
       if (String(data[i][COL.PC.FACTION]) !== "敵御主") continue;
       if (String(data[i][COL.PC.GAME_ID] || "") !== gameId) continue;
       if (String(data[i][COL.PC.ID]).startsWith("DEAD_")) continue;
+      if (_ck0 && !hasArrived_(data[i], _ck0.day)) continue; // 🕰️ 尚未登場者不會移位(仍蟄伏、不參與世界自走)
       var oldLoc = String(data[i][COL.PC.LOC]).trim();
       if (freezeLoc && oldLoc === freezeLoc) continue; // 敵在玩家格上→鎖住，留給玩家正面遭遇
       if (Math.random() >= 0.35) continue;
@@ -456,6 +483,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
       if (String(data[hi][COL.PC.FACTION]) !== "敵從者") continue;
       if (String(data[hi][COL.PC.GAME_ID] || "") !== gameId) continue;
       if (String(data[hi][COL.PC.ID]).startsWith("DEAD_")) continue;
+      if (_ck0 && !hasArrived_(data[hi], _ck0.day)) continue; // 🕰️ 尚未登場者不自癒(仍蟄伏)
       var eHpMax = parseInt(data[hi][COL.PC.MAX_HP]) || 0, eHp = parseInt(data[hi][COL.PC.HP]) || 0;
       if (!eHpMax || eHp <= 0 || eHp >= eHpMax) continue;
       var eNHp = Math.min(eHpMax, eHp + Math.round(eHpMax * ENEMY_REGEN_RATE_));
@@ -485,6 +513,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
       if (String(data[k][COL.PC.FACTION]) !== "敵從者") continue;
       if (String(data[k][COL.PC.GAME_ID] || "") !== gameId) continue;
       if (String(data[k][COL.PC.ID]).startsWith("DEAD_")) continue;
+      if (!hasArrived_(data[k], _ckR ? _ckR.day : 1)) continue; // 🕰️ 尚未登場者不參與暗處互鬥
       offstage.push({ idx: k, name: String(data[k][COL.PC.NAME]), loc: String(data[k][COL.PC.LOC]).trim() });
     }
     var aliveTotal = offstage.length;
@@ -548,6 +577,12 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
     for (var zh = 1; zh < data.length; zh++) hpColF.push([data[zh][COL.PC.HP]]);
     sheets.pc.getRange(2, COL.PC.HP + 1, hpColF.length, 1).setValues(hpColF);
   }
+  // 🔮 登場預告(【已預告】旗標)整欄一次寫回：同一批次寫回慣例，跟 LOC/HP 同時機、只寫一次。
+  if (anyMemDirty) {
+    var memColF = [];
+    for (var zm = 1; zm < data.length; zm++) memColF.push([data[zm][COL.PC.MEMORY]]);
+    sheets.pc.getRange(2, COL.PC.MEMORY + 1, memColF.length, 1).setValues(memColF);
+  }
   // 🕯️ 令咒耗盡·靈基透支：時間到 → 無「單獨行動」自持的脫逃敵從者，靈基崩解消滅。
   //   這不是世界隨機清人(那有 WORLD_FLOOR_ 保底)，而是玩家親手把對方打到燃盡令咒後的「延遲結算」，故允許收尾、可觸發勝利。
   var victory = false, dreamPrompt = "";
@@ -560,6 +595,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
         if (String(data[di][COL.PC.FACTION]) !== "敵從者") continue;
         if (String(data[di][COL.PC.GAME_ID] || "") !== gameId) continue;
         if (String(data[di][COL.PC.ID]).startsWith("DEAD_")) continue;
+        if (!hasArrived_(data[di], ck.day)) continue; // 🕰️ 尚未登場者不會有靈基透支倒數
         var dl = getDoom_(data[di][COL.PC.MEMORY]);
         if (dl > 0 && nowAbs >= dl) {
           data[di][COL.PC.ID] = "DEAD_" + String(data[di][COL.PC.ID]);

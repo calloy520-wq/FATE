@@ -240,7 +240,8 @@ function actionProposeAlliance(userData, pcId, sheets) {
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
   // 🔧 比照攻擊路徑(actionFateBattle)：先 npcId 精準配、再 nameLoose_(去中點/空白)——原本 raw includes
   //   對含中點名字(韋伯·維爾維特·不同 Unicode 中點變體)對不上→「打得到英靈、卻交涉恆沒人」。
-  const _foeMasterHere = (r) => String(r[COL.PC.FACTION]) === "敵御主" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc;
+  const _allianceDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1; // 🕰️ 尚未登場者不可交涉結盟
+  const _foeMasterHere = (r) => String(r[COL.PC.FACTION]) === "敵御主" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc && hasArrived_(r, _allianceDay);
   let mIdx = npcId ? pcData.findIndex(r => String(r[COL.PC.ID]) === npcId && _foeMasterHere(r)) : -1;
   if (mIdx === -1) mIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1 && _foeMasterHere(r));
   if (mIdx === -1) {
@@ -431,7 +432,8 @@ function actionRuleBreakSteal(userData, pcId, sheets) {
   let seals = getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]);
   if (seals <= 0) return JSON.stringify({ success: false, message: "重新締約需燃燒一道令咒，但你的令咒已用盡。" });
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
-  const nIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).includes(npcName) && String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc);
+  const _stealDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1; // 🕰️ 尚未登場者不可被斬契奪取
+  const nIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).includes(npcName) && String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc && hasArrived_(r, _stealDay));
   if (nIdx === -1) return JSON.stringify({ success: false, message: "此地沒有這名敵從者。" });
   // 🤝 盟友不可奪：與 actionFateBattle 同一道閘門(2026-07 修破戒奪僕漏擋盟友)——若要奪，須先撕毀盟約。
   if (isAllied_(pcData[nIdx])) {
