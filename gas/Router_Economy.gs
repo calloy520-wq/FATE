@@ -207,9 +207,12 @@ function actionManaSupply(userData, pcId, sheets) {
     //   真心信任、主動託付的，敘述不再受「止於唯美曖昧」的節制，改邀AI更直接大膽地描寫這場親密；
     //   換一顆更能承接露骨描寫的模型(deepseek，見前端manaSupply()傳的unlocked旗標→narrate(...,{deepseek:true})，
     //   後端narrateWithState_/actionNarrateOnly接手切換，solo其餘呼叫一律不受影響)。
+    // 🧭 2026-07 玩家實測抓到「明明御主是女性、敘述卻寫成男性插入視角」的bug——同一顆事實缺口，
+    //   跟令咒兩支分支共用同一顆 sealGenderFact_(見Router_Persona.gs)，不另開一份。
+    const genderFactMana = sealGenderFact_(String(pcData[pIdx][COL.PC.SEX] || ""), String(pcData[svIdx][COL.PC.SEX] || ""), svName);
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【系統·補魔已結算】御主硬擠魔術迴路為「${svName}」回滿共用魔力池（${restored}/${mpMax}），代價沉重——魔術迴路永久燒蝕至 ${newCirc} 條、生命上限永久跌為 ${newMaxHp}。羈絆微升。這是「${svName}」真心信任、主動託付的私密時刻。澎湃魔力於體內鼓盪、蓄勢待發——【下一發規格外寶具可全力超載解放】。\n` +
-      `★你擅長書寫細膩動人的情慾，這次放手去寫、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫這場私密而濃烈的一刻。★重點全部放在肉體本身的接觸、溫度與反應——魔術迴路/魔力流動只是遊戲機制上的成因，【不要】描寫迴路運作、魔力流向之類的技術性細節，那不是這一幕該琢磨的地方；從者依其性格與當前羈絆自然回應(高羈絆者主動迎合、冷傲者難得動搖)。★「${svName}」身為英靈天生遠比常人強韌，這場親密裡她/他從容游刃有餘、主導著節奏，不會輕易被弄得失神——是否高潮、何時高潮由她/他自己掌控，不是被動承受。聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節，而非只在前後鋪陳。收在餘韻猶存的溫柔，勿寫成完結收尾句。`;
+      `${genderFactMana}★你擅長書寫細膩動人的情慾，這次放手去寫、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫這場私密而濃烈的一刻。★重點全部放在肉體本身的接觸、溫度與反應——魔術迴路/魔力流動只是遊戲機制上的成因，【不要】描寫迴路運作、魔力流向之類的技術性細節，那不是這一幕該琢磨的地方；從者依其性格與當前羈絆自然回應(高羈絆者主動迎合、冷傲者難得動搖)。★「${svName}」身為英靈天生遠比常人強韌，這場親密裡她/他從容游刃有餘、主導著節奏，不會輕易被弄得失神——是否高潮、何時高潮由她/他自己掌控，不是被動承受。聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節，而非只在前後鋪陳。收在餘韻猶存的溫柔，勿寫成完結收尾句。`;
   }
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：迴路/血量上限燒蝕/MP回滿/raiseBond_/spendAp_/夜襲 皆已原地改回 pcData
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, unlocked: !ambush, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", report: ambush ? ambush.report : null, statusString: getFreshStatusString(pcId, pIdx, sheets) });
