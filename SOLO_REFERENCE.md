@@ -1517,3 +1517,11 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **改動**：`gas/Router_Economy.gs`(新增`MANA_TRUST_BOND_`常數＋`actionManaSupply`資格檢查與解鎖敘述)；`gas/Router_Bond.gs`(`actionUseSeal`的`mana`分支重寫)；`gas/Router_Narrative.gs`(`narrateWithState_`/`actionNarrateOnly`新增model覆寫)；`gas/Script.html`(`narrate`/`runSimpleAction_`/`manaSupply`/`useSeal`/`handleDefeat`五處)；`AI_PROMPT_MAP.md`(§2兩處action的prompt節錄全面更新)。
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(改動完全不觸及這兩個檔案，符合玩家明確排除的方向)。這是純前端+後端邏輯改動、無法在headless環境真正觸發AI呼叫驗證露骨敘述的實際效果與致死流程的完整UI體驗，部署後留意：①好感<80時補魔按鈕是否正確顯示婉拒敘述而非硬邦邦的alert；②高好感解鎖時敘述是否確實比平常更直接；③強制補魔<80時是否正確走到老虎道場而非卡住。
+
+**追加修正（同日，玩家逐句核對三個解鎖分支的實際prompt文字後直接給出定稿文案）**：
+1. **筆觸標籤全面改「日本輕小說筆觸」**：玩家反映「Fate的筆觸有點怪」——三個解鎖分支(令咒mana的高/低好感兩支＋`actionManaSupply`的高好感解鎖支)原本沿用全專案通用的「Fate／TYPE-MOON筆觸」標籤，跟「更露骨」的內容要求風格不搭，統一換成「日本輕小說筆觸」；其餘所有敘事(戰鬥/羈絆/移動…)仍是「Fate／TYPE-MOON筆觸」不變，只有這3個deepseek分支換標籤。
+2. **字數全面拉到500~600字**：三個解鎖分支原本是120~180字，玩家直接給出500~600字的定稿文案，逐一比對套用；連動把`actionNarrateOnly`(Router_Narrative.gs)的`useDeepseek`分支`max_tokens`從720拉到2000(比照鑑賞NSFW長篇的2600量級給足餘裕)，避免長篇要求被截斷——一般呼叫(非deepseek)不受影響、仍是720。
+3. **令咒mana低好感(致死)分支的effectMsg/AI指令換成玩家定稿文案**：明確寫出「令咒限制了從者反抗並提高敏感度、強化御主性能力」的機制框架、AI指令新增「還有被強制的屈辱」與「結尾寫御主高潮後…積壓的恨意與屈辱轟然引爆，直接抹殺御主」的明確收尾指示，取代原本較含蓄的版本。
+4. **令咒mana高好感分支的effectMsg同步補一句機制框架**：「強化了從者的敏感度與御主的性能力」，並保留原本「下一發規格外寶具可無償超載解放」的機制事實(玩家定稿文案本身省略了這句，但這是`setOvercharge_`實際生效的機制事實，補進事實列避免AI敘述跟遊戲內部狀態脫節，非玩家文案的一部分)。
+
+**改動**：`gas/Router_Bond.gs`(令咒mana兩分支的effectMsg/AI指令定稿)；`gas/Router_Economy.gs`(`actionManaSupply`解鎖分支同步改筆觸+字數)；`gas/Router_Narrative.gs`(`max_tokens`720→2000，僅`useDeepseek`分支)；`AI_PROMPT_MAP.md`(三段prompt節錄同步更新為定稿文字)。驗證：`bash check.sh`全過、`nsfwBaseRules`紅線diff每次改動皆為0。

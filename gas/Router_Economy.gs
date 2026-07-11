@@ -209,7 +209,7 @@ function actionManaSupply(userData, pcId, sheets) {
     //   後端narrateWithState_/actionNarrateOnly接手切換，solo其餘呼叫一律不受影響)。
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【系統·補魔已結算】御主硬擠魔術迴路為「${svName}」回滿共用魔力池（${restored}/${mpMax}），代價沉重——魔術迴路永久燒蝕至 ${newCirc} 條、生命上限永久跌為 ${newMaxHp}。羈絆微升。這是「${svName}」真心信任、主動託付的私密時刻。澎湃魔力於體內鼓盪、蓄勢待發——【下一發規格外寶具可全力超載解放】。\n` +
-      `★以 Fate／TYPE-MOON 筆觸【精煉 120~180 字】描寫這場「燃迴路續契約」的私密而濃烈的一刻——魔力沿靈魂聯繫流向從者、體溫交融的親密細節，可以比平常更直接大膽地描寫感官與情動，不必止於曖昧留白；從者依其性格與當前羈絆自然回應(高羈絆者主動迎合、冷傲者難得動搖)。收在餘韻猶存的溫柔，勿寫成完結收尾句。`;
+      `★以 日本輕小說筆觸【500~600 字】描寫這場「燃迴路續契約」的私密而濃烈的一刻——魔力沿靈魂聯繫流向從者、體溫交融的親密細節，可以比平常更直接大膽地描寫感官與情動，不必止於曖昧留白；從者依其性格與當前羈絆自然回應(高羈絆者主動迎合、冷傲者難得動搖)。收在餘韻猶存的溫柔，勿寫成完結收尾句。`;
   }
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：迴路/血量上限燒蝕/MP回滿/raiseBond_/spendAp_/夜襲 皆已原地改回 pcData
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, unlocked: !ambush, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", report: ambush ? ambush.report : null, statusString: getFreshStatusString(pcId, pIdx, sheets) });
