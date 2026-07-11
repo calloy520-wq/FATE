@@ -95,6 +95,21 @@ function cleanNarrateEcho_(promptText) {
   return s.slice(0, 80) || '御主有所行動。';
 }
 
+// 🎭 2026-07 玩家反映「solo不想出戲」新增的防禦性過濾：miniSystem 系統提示詞本身充滿 ★指令/
+//   〈演出卡〉這類鷹架符號，小模型(SOLO_MODEL=輕量低延遲款)偶有機率把提示詞格式原樣「回音」進自己的
+//   輸出——若真的發生，玩家會在故事正文裡讀到一句突兀的系統指令。這裡在回傳給玩家前做最後一道防線，
+//   把「AI真正生成的敘事文字」裡任何殘留的這兩種符號整段清掉(narration 本身依規則只會是純散文+<br><br>，
+//   從不會合法地含有這兩種符號，故清除不會誤傷正常敘事內容)。
+//   ⚠ 刻意不清【標籤】：callGeminiAPI 失敗時的柔性 fallback 文案(如「🌫️【因果紊亂】…」)本身就是設計上
+//   刻意帶著【】當作視覺標籤直接顯示給玩家看的一部分，這裡也會經過同一個 data.narration 欄位回傳——
+//   若連【】一併清掉會把自己設計的 fallback 文案的標籤清掉，弄巧成拙。
+function stripLeakedScaffold_(text) {
+  var s = String(text || "");
+  s = s.replace(/★[^<]*/g, "");     // 誤echo的★指令(通常延伸到下一個<br>或字串結尾)
+  s = s.replace(/〈[^〉]*〉/g, "");   // 誤echo的〈演出卡〉
+  return s.replace(/\s{2,}/g, " ").trim();
+}
+
 // 🟢 共用敘事核心：帶最近2筆歷史(chatHistory 維持語氣連貫)＋當前狀態(御主/在場從者 HP/MP)，
 //   呼叫輕量模型生成一段敘述。回 narrationText；JSON 解析失敗回 null(呼叫端給 fallback)。
 //   stateBrief 只給 AI 看、不存歷史。actionNarrateOnly 使用(輕量敘事共用核心)。
@@ -145,7 +160,7 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
   try {
     var start = raw.indexOf('{'), end = raw.lastIndexOf('}');
     var data = JSON.parse(raw.substring(start, end + 1));
-    return data.narration || "天地靜默，一片祥和。";
+    return stripLeakedScaffold_(data.narration) || "天地靜默，一片祥和。";
   } catch (e) { return null; }
 }
 

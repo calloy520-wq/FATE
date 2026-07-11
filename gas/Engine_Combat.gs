@@ -118,9 +118,14 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   if (apiResult !== null) return apiResult;
 
   const isBlocked = lastErrorMessage.includes("Triggered_NSFW_Filter") || lastErrorMessage.includes("safety");
+  // 🎭 2026-07 玩家反映「solo不想出戲」查出：這裡過去直接把 lastErrorMessage(原始連線異常/HTTP錯誤/
+  //   JSON解析失敗等技術性文字，常是英文或包含函式內部術語)嵌進 narration 欄位，當成「說書人講的話」
+  //   原樣顯示給玩家——任何一次暫時性的網路/供應商異常，就會讓故事裡冒出一句英文錯誤訊息。改成：
+  //   只在 Apps Script 執行紀錄(Logger)留一份給開發者除錯，玩家只看到貼合 Fate 世界觀的柔性重試提示。
+  if (!isBlocked) { try { Logger.log("[callGeminiAPI 連線失敗] " + lastErrorMessage); } catch (e) { } }
   const fallbackNarration = isBlocked
     ? "🌸【結界觸發】妳的舉動觸動了某種微妙的禁制，此處的景象暫時被屏蔽，請再度嘗試。"
-    : `⚡【連線中斷】連線失敗：${lastErrorMessage}`;
+    : "🌫️【因果紊亂】命運的絲線在此刻忽地紊亂——這段因果暫時無法讀出，請稍後再試一次。";
 
   if (plainText) return fallbackNarration; // 散文模式：失敗也回純文字，不污染回憶錄成 JSON
 
