@@ -1210,3 +1210,20 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **記錄不動手**（agent同時發現、非本次bug範疇的次要觀察）：`Router_Bond.gs`的`actionRuleBreakSteal`(破戒奪僕)易主後只清了`【御主】`硬連結標記，沒有一併清除/重新生成MEMORY裡舊的「對御主：X」flavor text——這是**內容過期**問題(從者易主後，卡片仍描述其對「原(已失去的)敵御主」的忠誠態度)，跟這次修的**方向歧義**是不同類的bug，且怎麼重新生成新flavor text需要另外設計(找AI重新生成？還是清空退回「依真名」？)，這次先不動，留待之後專門處理。另外`getLocalPeopleList`(`Core_Settings.gs`)的`relTag`欄位經agent追蹤呼叫鏈確認：只進了前端payload(`data.people`)，`Script.html`/`Script_Onboarding.html`全文grep`relTag`零匹配，從未被任何前端邏輯讀取、更沒有機會流進AI提示詞——不是這次bug類別的問題，只是死欄位(不在本次範疇內修，記錄備查)。
 
 **驗證**：`bash check.sh`全過(2個修改檔案：`Router_Persona.gs`/`Router_Bond.gs`，皆與`Gallery.gs`/`Engine_Combat.gs`無關)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這次完全沒碰這兩個檔案)。純prompt字面調整(欄位改名+兩處補標籤)，不改變任何資料結構/戰鬥數值/`FACTION`判定邏輯，headless環境無法實機驗證AI是否真的不再誤讀，建議部署後測試：①敵方出戰時觀察AI敘述有沒有把敵從者演成對玩家忠誠(而非對其敵御主忠誠)；②結盟提議成功、以及與盟友從者相伴時，確認AI沒有把盟友從者誤演成玩家自己的從者。
+
+## 24. 戰鬥標籤／戰鬥運算／戰報三層一致性稽核(2026-07 玩家「戰鬥標籤和戰鬥運算 戰報 檢查！」)
+
+派一個agent對戰鬥引擎(`Engine_Fate.gs`/`Engine_Combat.gs`/`Router_Battle.gs`/`Router_Movement.gs`/`Core_Settings.gs`)＋玩家看得到的fx說明(`Script.html`的`FX_DESC`/工房目錄)＋`tools/battle_sim`做地毯式三層對照(玩家看到的說明 vs 引擎實際算的公式 vs 戰報顯示的文字)，我再對每一項HIGH信度發現親自讀原始碼逐一驗證(直接讀`Engine_Fate.gs`公式本體、`Script.html`對應tooltip、`Router_Battle.gs`戰報組裝，不盲信agent報告)。
+
+**確認並修好的真bug(6項，皆為純顯示修正或零風險一致性修正，不改變任何戰鬥數值/引擎行為)**：
+
+1. **`nullify_magic`(對魔力)tooltip公式跟引擎對不上**：`Script.html`原本是死寫的線性公式「25×m%」，但`Engine_Fate.gs`實際公式是「基礎30%×階級倍率，B階以上下限55%、A階以上下限80%，上限92%」——高階時嚴重低估(A階tooltip顯示約42%，引擎實際套用80%下限)。改成tooltip直接照抄引擎的下限判斷邏輯算出同一個數字。
+2. **`territory`(陣地作成)／`wall_def`(城牆防禦)tooltip是舊版寫死數字，2026-07 rank-scaling那次修正漏改**：`Engine_Fate.gs`的`DEF_FX_.territory`/`.wall_def`本身在該次修正(見`Engine_Fate.gs:342-346`原有註解)已經從寫死數字改成`r=>1-0.26*r`/`r=>1-0.18*r`隨階級縮放的函式，跟同批一起改的`rho_aias`/`home_field`的tooltip都正確更新成吃`m`參數即時算，唯獨`territory`/`wall_def`兩個tooltip還是零參數函式、寫死回傳只在C階才對的舊數值(0.74/0.82)——EX階陣地作成實際×0.48、A階×0.57，tooltip卻恆顯示×0.74，嚴重低估高階持有者的防禦力也高估低階持有者。比照`rho_aias`/`home_field`改成吃階級參數。
+3. **`divine_age`(神代魔術)tooltip「使敵對魔力半效」跟引擎「僅剩三成」對不上**：`Engine_Fate.gs:854`的`red *= 0.3`(自己的行內註解也寫「效果僅剩三成」)，tooltip卻寫「半效」——凌駕幅度比tooltip講的更強，改成「僅剩三成效力」對齊。
+4. **`god_slay`(神殺)tooltip的乘數範圍「×1.3〜1.83」跟引擎自己的註解「E→1.17、C→1.5、B→1.67、A→1.83、EX→2.0」兩端都對不上**：低估了E階最低值(1.17非1.3)跟EX階最高值(2.0非1.83，1.83其實只是A階中段值)。同一份`FX_DESC`裡`divine`那條(神性持有者被神殺剋的說明)也有同款錯誤範圍，一併修正。
+5. **戰報UI對「原初符文回血／海怪肉身再生／海怪魔力枯竭退場」這3種strike無條件套用命中/迴避骰值模板**：`Router_Battle.gs`這3處(約832/848/868行)push進`rl.strikes`的物件只帶`{by,pHit:false,pDmg:0,note}`，沒有`pHitVal`/`pRoll`/`dEvaVal`/`dRoll`，但`Script.html`的戰報渲染(約1758行)無條件對每個strike套「命中 &lt;pHitVal&gt; 🎲&lt;pRoll&gt; vs 迴避 &lt;dEvaVal&gt; 🎲&lt;dRoll&gt;」模板——JS字串插值把`undefined`原樣接進去，玩家實際看到的是「命中 undefined 🎲undefined vs 迴避 undefined 🎲undefined」+「揮空」這種亂碼行，接在後面才是正確的note文字。改成`k.pRoll`有定義才顯示骰值那行，否則只顯示發動者名號，真正資訊交給note顯示(純UI修正，餵給AI narration的`roundsBrief`本就只讀by/pHit/pDmg/note，不受影響)。
+6. **`actionSummonHorror`(戰前召喚深淵海怪)算魔力費繞過了`npEffectiveRank_`單一真實來源**：同檔其餘全部`npPranaCost_`呼叫點(425/567/575/679/926/936行，`Router_Movement.gs:127`同理)在「多寶具六波」那次重構後都改吃`npEffectiveRank_(atkC)`，唯獨這裡還直接讀`svC.six["寶具"]`。目前唯一持有`summon_horror`的青鬍子沒有多寶具分岔，兩者現值相同、無實際影響——但保持一致，避免未來這個fx被掛到某位多寶具英靈身上時這裡悄悄算錯。
+
+**發現但暫不動手、需要玩家決定的真bug(1項，涉及工房計價公平性，非純顯示修正)**：`self_mod`(自我改造)/`tactics`(軍略)/`projection`(投影魔術)這3個fx在工房計價表(`Router_Creation.gs`的`SKILL_TRACK_`/`FLAT_FX_`)沒有被列進去，落到預設的「依階級計價」軌(E5~A25點)——但引擎(`Engine_Fate.gs`)給的實際效果是完全**不看這個fx自己的階級**的固定值(self_mod恆命中+2/傷+3；tactics恆×1.15寶具威力；projection的hit恆+2、dmgAdd只看角色NP階非projection自己的階)。等於玩家可以花25點買「A階自我改造」，但拿到的效果跟花5點買「E階」一模一樣，是真正的花錢買不到東西的計價漏洞。已跟其餘同類「引擎不讀階級」的標籤(weapon_steal/god_slay/lovespot等)對照確認——那些都正確收在`FLAT_FX_`固定價，只有這3個被漏掉。**沒有動手**：修法是把這3個fx加進`FLAT_FX_`改成固定價，但合理的固定價格需要玩家拍板(不是我該自己訂數字的判斷)，且理想上應該像其他平衡改動一樣過一輪`battle_sim`驗證不會意外破壞既有平衡。
+
+**驗證**：`bash check.sh`全過(2個修改檔案：`Script.html`/`Router_Battle.gs`)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(這次完全沒碰這兩個檔案)。第1~5項是純tooltip文字/UI顯示修正，第6項是零風險的呼叫一致性修正(現況數值不變)，全部不改變任何戰鬥公式/傷害輸出/勝率分布，不需要重跑`battle_sim`回歸測試。

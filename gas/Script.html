@@ -1039,7 +1039,17 @@
   }
   // 🏷️ 標籤白話字典（依該技能「實際階級」算出具體數值，看得出分級差別）——點 pill 時顯示
   const FX_DESC = {
-    nullify_magic: m => `對魔力：減免「魔術」傷害約 −${Math.round(25 * m)}%（敵為 Caster／魔力放出／神代時生效）；擋術不擋肉體。`,
+    // 🐛→✅ 2026-07「戰鬥標籤和戰鬥運算 戰報 檢查」查出：這行是死寫的線性公式(25×m%)，跟引擎
+    //   Engine_Fate.gs 的真實公式(基礎30%×階級倍率，B階以上下限55%、A階以上下限80%，上限92%)
+    //   對不上——高階時嚴重低估(A階顯示約42%，實際80%)。改成呼叫真實公式算出同一個數字。
+    nullify_magic: (m, rank) => {
+      var red = 0.30 * m;
+      var rv = rankVal_(rank);
+      if (rv >= 50) red = Math.max(red, 0.80);
+      else if (rv >= 40) red = Math.max(red, 0.55);
+      red = Math.min(0.92, red);
+      return `對魔力：減免「魔術」傷害約 −${Math.round(red * 100)}%（B階以上有加成下限55%、A階以上80%；敵為 Caster／魔力放出／神代時生效）；擋術不擋肉體。`;
+    },
     ride: m => `騎乘：駕馭一切坐騎，命中 +${Math.round(2 * m)}。`,
     first_strike: m => `直感：戰鬥第六感，先機——命中與迴避 +${Math.round(3 * m)}。`,
     analyze: m => `心眼：洞察破綻，命中與迴避 +${Math.round(3 * m)}。`,
@@ -1049,7 +1059,9 @@
     evade_ranged: m => `避矢加護：對 Archer 遠程的迴避 +${Math.round(6 * m)}。`,
     divine_core: m => `神核：女神之軀，受傷 −${Math.round(18 * m)}%（破魔可無視）。`,
     mad: m => `狂化：理智換力量——命中／迴避 −${Math.round(3 * m)}，但傷害 +${Math.round(14 * m)}。`,
-    divine_age: m => `神代魔術：魔力傷 +${Math.round(12 * m)}，且使敵「對魔力」半效。`,
+    // 🐛→✅ 2026-07「戰鬥標籤和戰鬥運算 戰報 檢查」查出：「半效」跟引擎(Engine_Fate.gs `red *= 0.3`，
+    //   自己的註解也寫「效果僅剩三成」)對不上——實際是打到剩三成、不是打到剩五成，凌駕幅度更強。
+    divine_age: m => `神代魔術：魔力傷 +${Math.round(12 * m)}，且使敵「對魔力」僅剩三成效力(凌駕但非無效)。`,
     wind_strike: m => `風王鐵鎚：不可視之風的斬擊，傷害 +${Math.round(6 * m)}。`,
     unreadable: () => '封先機（無欲／無貌之類）：心如止水、殺意無跡可循，使敵方直感／心眼失效（敵無法靠預判加閃避）；千里眼不受此影響（免疫封鎖·物理鎖定非靠先機預判）。',
     stealth: () => '氣息遮斷：抹消氣息，開場奇襲命中依階級提升（A≈+5、A+≈+6），命中要害再重創；一旦交手氣息即破功。',
@@ -1066,7 +1078,7 @@
     aim: m => `千里眼（被動）：附於肉體的卓越目力，恆常鎖定破綻，命中 +${Math.round(4 * m)}（每擊自動生效）。`,
     chain: m => `天之鎖：冥界鎖鏈常駐彈幕(萬鎖貫穿，均傷約30)；對「神性」之敵額外纏縛身法(基準迴避 −${Math.round(6 * m)}，依對方神格增減——神格越高縛得越死、墮落殘神幾乎不受縛)。`,
     crafting: m => `道具作成：戰前備妥的暗器／符具於關鍵一擊派上用場，傷害 +${Math.round(8 * m)}。`,
-    divine: m => `神性：神裔血脈的證明，階級即神格高低——但「神殺」之敵會依此階放大傷害，受傷最高 ×${Math.min(2.0, 1 + 0.5 * m).toFixed(2)}。`,
+    divine: m => `神性：神裔血脈的證明，階級即神格高低——但「神殺」之敵會依此階放大傷害，受傷 ×${Math.min(2.0, 1 + 0.5 * m).toFixed(2)}（E階起約×1.17，EX階最高×2.0）。`,
     fast_cast: m => `高速詠唱：一回合內連珠疊咒，魔砲彈幕傷害 +${Math.round(12 * m)}。`,
     mage_realm: () => '可選借得技能（魔境的智慧／皇帝特權…）：由御主在從者卡挑選一個通用 A 階被動注入此戰——實際威力依所選的那個被動決定，見已選擇的技能。',
     petrify: m => `鎖死身法（魔眼石化／冰封／疫染等）：鎖死獵物身法，令敵迴避 −${Math.round(4 * m)}（剋閃避流）；寶具解放時乘隙致命，傷害 ×1.3。`,
@@ -1076,9 +1088,15 @@
     regen: m => `治癒（回復魔藥／狐之治癒等）：常駐自癒——每回合涓流回復約 ${(2.5 * m).toFixed(1)}% 上限體力（上限30），持久戰越拖越穩。`,
     shapeshift: m => `變化：化形流轉滑開致命一擊，迴避 +${Math.round(3 * m)}。`,
     solo: () => '單獨行動：無須御主供魔亦可獨立行動一段時間——御主陣亡／令咒耗盡時免「靈基透支」倒數消滅，改靠靈基殘存硬撐(魔力極為有限，通常不夠再放一次寶具)。',
-    territory: () => '陣地作成：以魔術防壁／結界自守，受傷 ×0.74（補償低耐久）；遭超位階概念貫穿則失效。',
+    // 🐛→✅ 2026-07「戰鬥標籤和戰鬥運算 戰報 檢查」查出：這是2026-07把territory的mul從寫死數字
+    //   改成隨階級縮放函式(DEF_FX_.territory: r=>1-0.26*r)時漏改的舊版寫死tooltip——EX階實際
+    //   ×0.48、A階×0.57，跟這裡固定顯示的×0.74(僅C階正確)對不上。比照同批已修正的rho_aias/
+    //   home_field，改成吃階級參數即時算。
+    territory: m => `陣地作成：以魔術防壁／結界自守，受傷 ×${(1 - 0.26 * m).toFixed(2)}（依階級·補償低耐久）；遭超位階概念貫穿則失效。`,
     home_field: m => `主場·陣地結界：在【自己佈設的陣地】迎戰、且隊上有陣地作成從者時，全隊額外受傷 ×${(1 - 0.16 * m).toFixed(2)}（依陣地作成階級·EX 空中庭園級最強）。引敵入陣地決戰的主場優勢——法師的堡壘連盟友一併庇護；遭超位階概念(乖離劍等)仍會被碾穿。`,
-    wall_def: () => '城牆防禦：厚重工事抵禦物理強擊，受傷 ×0.82（唯不擋魔術系攻擊；不提供寶具規模防禦）。',
+    // 🐛→✅ 2026-07「戰鬥標籤和戰鬥運算 戰報 檢查」查出：同款territory的問題——DEF_FX_.wall_def
+    //   的mul已是r=>1-0.18*r隨階級縮放，這裡卻還寫死×0.82(僅C階正確)，比照修正。
+    wall_def: m => `城牆防禦：厚重工事抵禦物理強擊，受傷 ×${(1 - 0.18 * m).toFixed(2)}（依階級·唯不擋魔術系攻擊；不提供寶具規模防禦）。`,
     weapon_steal: () => '無毀的湖光：湖之妖精所託的魔劍，對具「龍」屬性之敵解放秘藏威能，傷害 ×1.5。',
     // 寶具名類：實際威力由「寶具解放」統一結算（依寶具階級＋軍略／神性加成）。
     // ⚠ ea/enuma/home_field/avalon_saber 四鍵【不會出現在技能 pill】(fx 只在 npOptions/戰時注入、不進 TAGS)，
@@ -1092,7 +1110,9 @@
     summon_horror: () => '螺湮城教本（變身·深淵海怪）：解放寶具或【戰前召喚】自深淵召出觸手巨獸，進入變身態——魔力供養多久、海怪就在多久（無期限）。① 海怪以肉身(300)在前擋傷、潰散後才傷本體；② 每回合自深淵再生 +10；③ 並肩追擊敵手（每交鋒回合抽御主 10 魔）；④ 本體防禦升至對城規模。維持費＝每小時 8 魔；共用池見底時海怪先沉回深淵（御主不為牠燃血）。可隨時「解除召喚」止耗，重召須再付全額寶具魔力。',
     wealth: () => '黃金律：王之財寶的無盡供能——自身瀕死(HP≤20%)時解放寶具，觸發「絕境取乖離劍」的處決級一擊。',
     golden_fleece: () => '金羊毛 Argon Coin（第二寶具·EX）：科爾基斯的金羊毛皮，擲於地面可召喚昔日看守它的巨龍。然美狄亞身為 Caster，並無召喚幻想種之力——此戰終究未能駕馭。純傳說門面／演出，無戰鬥數值。',
-    god_slay: () => '神殺（神性殺し）：斬盡神明與不死者的死之秘法——對具「神性」之敵，最終傷害依其神格放大 ×1.3〜1.83（神格越高越致命）；對凡人無此加成。',
+    // 🐛→✅ 2026-07「戰鬥標籤和戰鬥運算 戰報 檢查」查出：範圍「×1.3〜1.83」跟引擎(Engine_Fate.gs
+    //   自己的註解「E→1.17、C→1.5、B→1.67、A→1.83、EX→2.0」)兩端都對不上，低估了低神格/高神格的極端值。
+    god_slay: () => '神殺（神性殺し）：斬盡神明與不死者的死之秘法——對具「神性」之敵，最終傷害依其神格放大 ×1.17〜2.0（神格越高越致命）；對凡人無此加成。',
     sense: () => '氣息感知：穿透大地的遠距感知——階級 ≥ 敵方氣息遮斷者，看穿其奇襲，敵開場突襲的命中先機與要害一擊全數失效（貼原作：近距離廢掉同級以下的隱形）。',
     insight: () => '全知全能之星 Sha Naqba Imuru：看穿一切本質的睿智——恆常洞悉破綻（命中 +4），並看破敵方奇襲（階級 ≥ 敵氣息遮斷則突襲失效）。※他嫌麻煩不願全開，僅取中等之效。',
     avalon_saber: () => '全世界遙遠的理想鄉 Avalon：劍鞘回到正主阿爾托莉雅手中。被動自動——① 常駐鞘之基本減傷（承受寶具傷 ×0.82）＋時回自癒；② 面對【6 階究極寶具】(乖離劍 Ea／恩奇都 Enuma Elish 等·會碾穿一切防禦一發秒人)時，御主魔力 ≥100 則自動展開無敵結界（概念 7 階·凌駕一切）完全擋下那一發（耗 100 魔）。普通寶具不勞結界·靠減傷＋六圍扛。不需開關。',
@@ -1735,8 +1755,17 @@
       // 我方出擊（雙從者＝多筆 strikes）
       const strikes = rd.strikes || [{ by: r.atk, pHitVal: rd.pHitVal, pRoll: rd.pRoll, dEvaVal: rd.dEvaVal, dRoll: rd.dRoll, pCrit: rd.pCrit, pHit: rd.pHit, pDmg: rd.pDmg, pFired: rd.pFired, note: rd.note }];
       strikes.forEach(k => {
-        h += '<div style="color:#bcd;font-size:11px;">▸ ' + k.by + '：命中 <b style="color:#fff;">' + k.pHitVal + '</b> <span class="dice-roll">🎲' + k.pRoll + '</span> vs 迴避 <b style="color:#fff;">' + k.dEvaVal + '</b> <span class="dice-roll">🎲' + k.dRoll + '</span> ' + critTxt(k.pCrit)
-          + '<span style="margin-left:6px;color:' + (k.pHit ? '#7ec87e' : '#888') + ';font-weight:bold;">' + (k.pHit ? '命中 −' + k.pDmg : '揮空') + '</span></div>';
+        // 🐛→✅ 2026-07「戰鬥標籤和戰鬥運算 戰報 檢查」查出：原初符文回血/海怪肉身再生/海怪魔力
+        //   枯竭退場這3種strike(Router_Battle.gs)只帶{by,pHit:false,pDmg:0,note}，沒有pHitVal/
+        //   pRoll/dEvaVal/dRoll——這裡卻無條件套模板，字串插值出「命中 undefined 🎲undefined vs
+        //   迴避 undefined 🎲undefined」+「揮空」，玩家戰報上看到一整行亂碼。改成有真實骰值(k.pRoll
+        //   有定義)才顯示命中/迴避那行，否則只顯示發動者名號，真正的資訊交給下面的note顯示。
+        if (k.pRoll !== undefined) {
+          h += '<div style="color:#bcd;font-size:11px;">▸ ' + k.by + '：命中 <b style="color:#fff;">' + k.pHitVal + '</b> <span class="dice-roll">🎲' + k.pRoll + '</span> vs 迴避 <b style="color:#fff;">' + k.dEvaVal + '</b> <span class="dice-roll">🎲' + k.dRoll + '</span> ' + critTxt(k.pCrit)
+            + '<span style="margin-left:6px;color:' + (k.pHit ? '#7ec87e' : '#888') + ';font-weight:bold;">' + (k.pHit ? '命中 −' + k.pDmg : '揮空') + '</span></div>';
+        } else {
+          h += '<div style="color:#bcd;font-size:11px;">▸ ' + k.by + '</div>';
+        }
         if (k.pFired && k.pFired.length) h += '<div style="color:#9a8;font-size:10px;">　〔發動〕' + stripOwnName(k.pFired, k.by).join('・') + '</div>';
         if (k.note) h += '<div style="color:#d4af37;font-size:10px;">　' + String(k.note).replace(/\n/g, ' ') + '</div>';
       });
