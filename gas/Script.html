@@ -2665,7 +2665,10 @@ function applyModeUI() {
     story.scrollTop = story.scrollHeight;
     
     try {
-      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, drive: drive, lastContext: lastAiContext, moveTarget: moveTarget || undefined });
+      // 🚪 巧遇開關：kanshouEncounterOn 定義在 Script_Kanshou.html(該檔恆載入)，此處為 solo(非鑑賞)
+      //   路徑保留防呆——solo 呼叫 actionPlay 會在函式入口即被擋下，這個欄位對 solo 無意義。
+      const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
+      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, drive: drive, lastContext: lastAiContext, moveTarget: moveTarget || undefined, encounter: encounterOn });
 
 
       document.getElementById(loadId)?.remove();
