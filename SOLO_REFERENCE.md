@@ -1565,7 +1565,6 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **追加調整（玩家「solo需要新增好感度在從者卡片上」）**：查證solo從者卡(`Script.html`的`buildSvCard`)原本只顯示`bondWord(s.bond)`文字化的羈絆等級(戒備/疏離/漸信/信賴/羈絆深厚)，沒有實際數值——跟鑑賞從者卡(同一函式內、`pc.mode==='kanshou'`分支)先前已補上的「名字旁💗數字」不一致，鑑賞看得到進度數字、solo看不到。**修法**：solo從者卡的「羈絆」那一行(原本只有`bondWord(s.bond)`)改成同時顯示數值與文字("羈絆 62 · 信賴")，純前端顯示調整，`s.bond`本就已從後端傳到前端(`get_tags`/`buildClientState_`)，不需任何後端改動。這不牴觸先前「好感度不要顯示在敘述介面上」的玩家定案——那條規則管的是AI敘事文字(故事內文)，這裡動的是常駐狀態卡片(`fate-tags`面板)，跟鑑賞卡片先前補數字時判斷的範圍一致。
 
 **改動**：`gas/Script.html`(`buildSvCard`羈絆行新增數值顯示)。驗證：`bash check.sh`全過、`nsfwBaseRules`紅線diff=0。純前端顯示調整，不改變任何資料結構或數值結算，部署後建議測試：solo從者卡的羈絆行是否正確顯示「數字 · 文字等級」兩者皆有。
-
 **追加調整（玩家問「Hermes 4 70B 這好用嗎？grok4.20很棒但是太貴了」）**：查證OpenRouter+社群評價，`nousresearch/hermes-4-70b`——混合推理模式、131k context，官方定位「minimal built-in content filters or refusals」(社群普遍拿來寫小說/角色扮演、刻意降低拒答率的路線)，價格$0.13/$0.40每百萬token(輸入/輸出)，約`grok-4.20`($1.25/$2.5)的1/6~1/10。透過`AskUserQuestion`列出2個選項(換Hermes 4 70B／先維持grok-4.20)，玩家選換Hermes。**修法**：`UNLOCKED_MODEL`(Core_Settings.gs)預設值改成`nousresearch/hermes-4-70b`，其餘架構(指令碼屬性優先/沒設定才落回預設值)不變。這是這3個解鎖分支第五次調整模型(deepseek→Gemini→grok-4.1-fast→grok-4.20→hermes-4-70b)，考量從「找一顆能寫、成本可持續」的角度收斂。
 
 **改動**：`gas/Core_Settings.gs`(`UNLOCKED_MODEL`預設值改`nousresearch/hermes-4-70b`)；`AI_PROMPT_MAP.md`(§`actionUseSeal`模型備註更新為第五輪調整)。驗證：`bash check.sh`全過、`nsfwBaseRules`紅線diff=0。純模型切換，部署後建議測試：令咒/補魔解鎖分支改用Hermes 4 70B後是否能正常呼叫成功、寫作質感、篇幅是否完整不被截斷。
