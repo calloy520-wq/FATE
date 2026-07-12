@@ -16,10 +16,12 @@ const MODEL_URL = "https://openrouter.ai/api/v1/chat/completions";
 // 🔵 玩家 2026-07 明確選擇改回程式碼內直寫預設值(權衡放棄先前「不曝光在公開 repo」的隱私考量，
 //   換取不用每次測試模型都要開 Apps Script 編輯器改指令碼屬性)。指令碼屬性 MODEL 仍優先生效
 //   (留著方便之後想切換測試時不必再改程式碼重新部署)，只有沒設定該屬性時才落回此預設值。
-// 🧪 2026-07 玩家測試鑑賞(actionPlay)換模型寫作質感：deepseek/deepseek-chat-v3.1 → deepseek/deepseek-v3.1-terminus。
+// 🧪 2026-07 玩家測試鑑賞(actionPlay)換模型寫作質感：deepseek/deepseek-chat-v3.1 → deepseek/deepseek-v3.1-terminus →
+//   玩家指定測試 nousresearch/hermes-4-70b 給鑑賞🔥點火(driveOn=true)分支——此常數同時是點火時的
+//   直接呼叫模型、與熄滅(矜持)模式重試失敗時的 fallbackModel，兩處都會吃到新模型。
 const AI_MODEL = (function () {
   var p = PropertiesService.getScriptProperties();
-  return p.getProperty('MODEL') || 'deepseek/deepseek-v3.1-terminus';
+  return p.getProperty('MODEL') || 'nousresearch/hermes-4-70b';
 })();
 // 🔵 2026-07 玩家定案「solo 應該走 google/gemini-3.1-flash-lite」：solo(narrateWithState_)跟鑑賞
 //   (actionPlay)過去共用同一顆 AI_MODEL——但 solo 只需要精簡的按鍵回饋、不像鑑賞需要大型模型的
