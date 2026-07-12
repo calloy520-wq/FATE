@@ -1603,3 +1603,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 兩條都是`nsfwBaseRules`/`specificRules`常數本體字面修改，屬紅線①保護範圍，經過上述來回確認、玩家明確選擇後才動手。同段落其餘規則(關係標籤/萌點節制、慾海律令其餘6條)逐字未動。
 
 **改動**：`gas/Gallery.gs`(`nsfwBaseRules`規則2、`specificRules`慾海律令第3條文字重寫)。驗證：`bash check.sh`全過；`git diff -- gas/Gallery.gs`逐行核對只有這2行變動、無其餘意外改動(這次改動位置離常數宣告行較近，`grep -c nsfwBaseRules`檢查方式沿用同一個已知盲區說明)。部署後建議測試：好感較低但個性天生大方/黏人的NPC是否能提早自然表現親暱、女女配對的NPC是否能依各自個性演出強勢或溫柔(不再統一都是纏綿基調)。
+
+**追加調整（玩家「點火呢..因為拿掉了 所以只是兜底？」→「感覺改回來吧....」）**：玩家詢問先前隱藏🔥開關(見上方「隱藏點火按鈕」條目)後，`AI_MODEL`(deepseek-v3.1-terminus)是不是只剩兜底身分——查證確認屬實：`driveOn`讀取`userData.drive===true`，UI開關隱藏後玩家永遠無法把它勾成`true`，`driveOn`恆為`false`，連鎖導致①`aiConfig.model`固定`SOLO_MODEL`(Gemini)，`AI_MODEL`只在Gemini重試全部失敗時才靜默兜底；②`driveStr`(🔥主動掌握模式的敘事注入段落、尺度拉滿規則)因`driveOn`恆假而永遠不會被組進prompt，敘事終極警告也固定停在矜持版。玩家確認這不是本意，要求「改回來」。**修法**：`Script.html`的`applyModeUI()`把上一輪改的無條件`'none'`改回原本的`isKanshou ? '' : 'none'`——🔥開關恢復依模式正常顯示/隱藏，玩家可重新手動切換點火，`driveOn`/`AI_MODEL`/`driveStr`三者的既有機制完全未動、原樣接回。這是連續兩輪「隱藏→發現連鎖影響非本意→改回」的完整往返，記錄在案供未來查閱。
+
+**改動**：`gas/Script.html`(`applyModeUI()`點火開關可見度改回依`isKanshou`正常切換)。驗證：`bash check.sh`全過、`nsfwBaseRules`紅線diff=0。純前端顯示邏輯復原，不改變任何後端邏輯或prompt文字，部署後建議測試：鑑賞輸入框旁🔥開關確認重新出現、點火/熄滅切換功能正常運作。
