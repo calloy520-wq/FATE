@@ -926,6 +926,19 @@ function setKanshouHomeName_(memory, name) {
   const safe = String(name || "").trim().slice(0, 12) || "家";
   return (cleaned ? cleaned + "｜" : "") + "【住所】" + safe;
 }
+// 🐛→✅ 2026-07 玩家反映「間桐櫻（黑化）好感都沒有提升」：查出根因——部分英靈殿角色的 realName
+//   帶括號附註(如「間桐櫻（黑化）」「無名（EMIYA）」「伊斯坎達爾（征服王）」)，這串連括號的全名
+//   會原封不動寫進 COL.PC.NAME，AI 敘事裡自然只會用括號前後其中一段稱呼TA(如「間桐櫻」或
+//   「EMIYA」)，但 rel_changes[].target 的比對要求逐字完全相符——AI照著自然稱呼填寫時永遠對不上
+//   完整括號全名，好感就悄悄比對失敗、整條被跳過。抽出候選字串(全名/括號前/括號內)供比對，不用
+//   改動任何一位角色的既有 realName 資料。
+function kanshouNameCandidates_(fullName) {
+  const s = String(fullName || "").trim();
+  const m = s.match(/^(.*?)[（(]([^（()）]*)[）)]\s*$/);
+  if (!m) return [s];
+  const before = m[1].trim(), inside = m[2].trim();
+  return [s, before, inside].filter(Boolean);
+}
 
 function actionPlay(userData, pcId, sheets) {
   const userMsg = userData.message;
@@ -1347,7 +1360,9 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         if (tNpc === pcName || tNpc === "自己") return;
 
         // 羈絆已併入該 NPC 自己列（BOND/REL_TAG/IS_PARTY/MAJOR_EVENT）——找不到該人此局的列就無可寫入。
-        const nIdx = pcData.findIndex(r => String(r[COL.PC.NAME]) === tNpc && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
+        // 🐛→✅ 2026-07 修：改用 kanshouNameCandidates_ 比對(見上方註解)，容忍AI只用括號前後其中
+        //   一段稱呼TA(如「間桐櫻」對應「間桐櫻（黑化）」)，不再要求逐字完全相符括號全名。
+        const nIdx = pcData.findIndex(r => kanshouNameCandidates_(r[COL.PC.NAME]).includes(tNpc) && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
         if (nIdx === -1) return;
         dirtyPcRows.add(nIdx);
 
@@ -1452,7 +1467,9 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       if (aiData.intimacy_feedback.npcs) {
         aiData.intimacy_feedback.npcs.forEach(nfb => {
           const tName = String(nfb.name).trim();
-          const targetIdx = pcData.findIndex(r => r[COL.PC.NAME] === tName && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
+          // 🐛→✅ 2026-07 修：同款括號全名比對問題(見上方 kanshouNameCandidates_ 註解)，這裡也會
+          //   影響 physical_state/dynamic_skills/mutual_nicknames/attitude 每回合寫入失敗。
+          const targetIdx = pcData.findIndex(r => kanshouNameCandidates_(r[COL.PC.NAME]).includes(tName) && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
           if (targetIdx === -1) return;
 
           dirtyPcRows.add(targetIdx);

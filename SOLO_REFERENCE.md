@@ -1689,3 +1689,17 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **改動**：`gas/Script_Kanshou.html`(`kanshouMoveTo()`新增`confirm()`確認與`showGamePane('chat')`切分頁)。
 
 **驗證**：`bash check.sh`全過。部署後建議測試：①手機窄螢幕點地點按鈕應先跳出確認對話框，確認後畫面自動切到「📖故事」分頁並看到移動敘事，不必手動切換；②取消確認應該什麼都不會發生(不移動、不切分頁)；③桌機寬螢幕三欄並排下功能不受影響(移動流程照舊，只是多一個確認彈窗)。
+
+## §49 鑑賞括號全名角色好感/狀態悄悄比對失敗的根源bug（2026-07・玩家問「間桐櫻（黑化）是不是因為有()有時候好感都沒有提升？」）
+
+**背景**：玩家精準點出可疑點——英靈殿裡部分角色的`realName`(寫進`COL.PC.NAME`的召喚顯示名)帶括號附註，例如`間桐櫻（黑化）`、`無名（EMIYA）`、`伊斯坎達爾（征服王）`、`哈桑·薩巴赫（百貌）`、`哈桑·薩巴赫（咒腕）`、`蘭斯洛特（湖之騎士）`、`美遊·埃德費爾特（Saber install）`、`克洛伊·馮·愛因茲貝倫（Archer install）`、`伊莉雅絲菲爾·馮·愛因茲貝倫（Caster install）`共9位。
+
+**查證根因**：`actionPlay`裡兩處AI輸出比對(`rel_changes[].target`找對應NPC列寫入好感、`intimacy_feedback.npcs[].name`找對應NPC列寫入physical_state/dynamic_skills/mutual_nicknames/attitude)都用`String(r[COL.PC.NAME]) === tNpc`**逐字完全相符**比對。但AI敘事裡從不會真的把角色寫成「間桐櫻（黑化）」這種帶括號的怪異全名——自然只會用「間桐櫻」或「黑化」其中一段稱呼TA，填進schema的`target`/`name`欄位時也會照著這個自然稱呼填，跟`COL.PC.NAME`裡完整的括號全名逐字比對必然失敗，`findIndex`回傳`-1`、整條AI輸出被靜靜跳過——好感沒有寫入、physical_state/態度/暱稱也都沒有更新，且**沒有任何錯誤訊息**，因為程式邏輯上這是合法的「找不到就略過」防呆分支，不是例外。9位角色只要曾被召喚進鑑賞同行隊伍，都會受影響。
+
+**修法**：新增共用helper `kanshouNameCandidates_(fullName)`——用正則`/^(.*?)[（(]([^（()）]*)[）)]\s*$/`拆出「括號前」與「括號內」兩段，回傳`[全名, 括號前, 括號內]`三個候選字串(無括號的一般名字回傳單一候選`[全名]`，行為不變)。兩處比對從`String(r[COL.PC.NAME]) === tNpc`改成`kanshouNameCandidates_(r[COL.PC.NAME]).includes(tNpc)`——AI不管填「間桐櫻」「黑化」還是完整的「間桐櫻（黑化）」都能命中，不用去改動任何一位角色的既有`realName`資料(那份資料本身沒有錯，括號附註在英靈殿列表/召喚選單顯示時其實是有用的辨識資訊，只是不該拿去跟AI自然稱呼做逐字比對)。用node腳本模擬驗證全部9位角色+2位一般角色(阿爾托莉雅/遠坂凜)的候選字串拆解結果，確認括號前/括號內都正確拆出、一般名字不受影響。
+
+**未動的部分**：`SEED_CODEX.gs`所有角色的`realName`資料本身、英靈殿召喚選單/前端顯示邏輯、`actionKanshouRemove`(前端UI直接送出儲存的全名，非AI輸出，不受此bug影響)完全未動。
+
+**改動**：`gas/Gallery.gs`(新增`kanshouNameCandidates_`共用helper；`rel_changes`與`intimacy_feedback.npcs`兩處比對邏輯改用候選字串比對)。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(純資料比對邏輯，未觸及NSFW提示詞本體)；node腳本模擬9位括號角色+2位一般角色的候選字串拆解結果全數正確。部署後建議測試：召喚「間桐櫻（黑化）」或「無名（EMIYA）」等括號角色進鑑賞同行隊伍，互動幾回合後確認好感(BOND)、當前狀態(physical_state)、態度(attitude)都能正常隨敘事更新，不再卡住不動。
