@@ -369,6 +369,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 - 同行隊伍成員完整卡（身世/狀態/性格/特徵/萌點/關係與好感，`PROMPT_PARTY_SYSTEM`；solo 另帶六圍/氣血，鑑賞不帶）
 - 玩家自身卡、近期歷史（最近 6 筆原始訊息／3輪，`getGameHistoryBatchRaw`，走 `aiConfig.chatHistory` 而非塞進 prompt 字面）
 - **🧹 2026-07 玩家定案「砍掉同地路人、開放世界無結界」**：舊版「同地路人」清單（`allLocals`/`displayPeople`）＋其好感階梯行為指令（`resistPrompt`，死仇→摯友七級）＋場景第三方交叉羈絆整套刪除。改為單純的 `backgroundCrowdStr`（★【開放世界·背景人煙】：路人可自由描寫增添生活感，但不具名、不可被指名互動、不追蹤好感）。能被指名、有名有姓、好感被記錄延續的對象，收斂為僅有**目前同行隊伍成員**（`partyRows`/`partyMembers`）。
+- **🚪🏠 2026-07 新增「巧遇開關」＋可改名的「家」移動選項**：`kanshouEncounterStr`(巧遇系統例外提示詞注入)現受`encounterOn`(讀`userData.encounter`，前端「出門走走」面板一顆checkbox、localStorage持久化)閘門，關閉時移動/原地問「還有誰」兩個擲骰點都不會觸發，但不影響已在場的`【邂逅中】`對象持續互動。`KANSHOU_LOCATIONS_`固定10地點外新增一個不在清單內、顯示名稱可由玩家自訂(MEMORY`【住所】`標記，預設「家」)的私人地點——`isHomeMove`比對成立時恆不擲骰(私人空間永不巧遇陌生人)，其餘寫LOC/同步同伴/清`【邂逅中】`的邏輯與一般地點一致。詳見 `SOLO_REFERENCE.md` §44。
 - **僅 NSFW/kanshou 模式**：同地性別配對提示、肉體狀態 JSON（2026-07 玩家定案「肉體那些欄位不需要了，只要狀態就好」：physical_state 從 6 鍵數字代碼（姿勢與動作/胸部/顏面/肉棒/蜜穴/服裝狀態）全部砍掉，簡化為單一自由文字欄，AI 自行決定每回合要不要提、提多細，不強制逐項列舉，每回合仍需據實反映最新狀態）、每位同行同伴的「身體記憶」技能標籤、敏感點、親密次數計數器、愛稱、🔥主動掌握模式段落（前端 `drive` 旗標開啟時注入——同伴依個性主動掌握節奏、攔下玩家的迴避意圖；僅鑑賞生效。⚠ 2026-07 玩家定案「隱藏點火按鈕」：`Script.html`的`applyModeUI()`已把這顆 UI 開關永久隱藏，`driveOn`現在恆為`false`——機制本身完全未動，只是玩家端已無法從介面切到🔥點火那一側，詳見 `SOLO_REFERENCE.md`）
 
 關鍵結構/收尾指令（逐字節錄）：
@@ -415,7 +416,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 
 ## 附：純機制、完全不叫 AI 的 action 總表（快速核對用）
 
-`check_name`、`get_full_status`、`update_fate`、`get_tags`、`sync`、`update_rel_tag`、`create`、`get_heroes`、`get_masters`、`get_map_nodes`、`set_servant_output`、`set_mage_realm`、`set_rune_mode`、`set_np_choice`、`account_login`、`account_new_game`、`get_victory_history`、`leaderboard`、`war_chronicle`、`war_history_list`、`get_epic_history`、`purge_orphans`、`dev_seed_gallery`、`dev_resync_codex`、`enter_kanshou`、`kanshou_companions`、`kanshou_add`、`kanshou_remove`、`kanshou_set_name`、`kanshou_set_sex`。
+`check_name`、`get_full_status`、`update_fate`、`get_tags`、`sync`、`update_rel_tag`、`create`、`get_heroes`、`get_masters`、`get_map_nodes`、`set_servant_output`、`set_mage_realm`、`set_rune_mode`、`set_np_choice`、`account_login`、`account_new_game`、`get_victory_history`、`leaderboard`、`war_chronicle`、`war_history_list`、`get_epic_history`、`purge_orphans`、`dev_seed_gallery`、`dev_resync_codex`、`enter_kanshou`、`kanshou_companions`、`kanshou_add`、`kanshou_remove`、`kanshou_set_name`、`kanshou_set_sex`、`kanshou_set_home_name`（2026-07新增，「出門走走」面板的「家」選項改名，寫進 MEMORY【住所】標記，見 `SOLO_REFERENCE.md` §44）。
 
 （`set_servant_output`／`set_mage_realm`／`set_rune_mode`／`set_np_choice` 這 4 個是戰鬥前的**純數值檔位切換**——性質等同選單勾選，不是敘事時刻，刻意不接 AI：接了反而每次調檔位都要多等一次生成、拖慢戰鬥節奏，也沒有畫面可演。)
 

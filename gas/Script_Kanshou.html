@@ -171,6 +171,28 @@
   //   巧遇抽選都在後端 Gallery.gs 的 KANSHOU_LOCATIONS_(唯一真實來源)，這裡改地點記得同步改一次。
   var KC_LOCATIONS_ = ['河邊', '市集', '道場', '圖書館', '神社', '公園', '碼頭', '咖啡廳', '後巷', '車站'];
 
+  // 🚪 巧遇開關(2026-07 玩家新增)：純前端偏好，跨裝置不同步(localStorage)，預設開啟(維持原行為)。
+  //   send() 每次都會讀這個值夾進 gasRun 的 encounter 欄位，後端 actionPlay 對應 encounterOn。
+  let kanshouEncounterOn = localStorage.getItem('kyushu_kanshou_encounter') !== 'false';
+  function kanshouToggleEncounter_(checked) {
+    kanshouEncounterOn = !!checked;
+    localStorage.setItem('kyushu_kanshou_encounter', kanshouEncounterOn);
+  }
+
+  // 🏠「家」選項(2026-07 玩家新增)：跟其餘10個固定地點不同，顯示名稱可由玩家自訂(見後端
+  // 【住所】標記/getKanshouHomeName_)，且恆不觸發隨機巧遇(私人空間)。這裡把清單拆成獨立函式，
+  // 改名後才能局部重繪 #kc-map-list，不必整個overlay重建。
+  function kcMapListHtml_() {
+    var home = (pc && pc.homeName) ? pc.homeName : '家';
+    var homeBtn = '<button onclick="kanshouMoveTo(\'' + home.replace(/'/g, "\\'") + '\')" style="display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left;padding:8px 10px;margin-bottom:6px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">'
+      + '<span>🏠 ' + escapeHtml(home) + '</span>'
+      + '<span onclick="event.stopPropagation();kanshouRenameHome()" title="改名" style="opacity:0.75;padding:2px 6px;">✏️</span>'
+      + '</button>';
+    return homeBtn + KC_LOCATIONS_.map(function (name) {
+      return '<button onclick="kanshouMoveTo(\'' + name + '\')" style="display:block;width:100%;text-align:left;padding:8px 10px;margin-bottom:6px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">📍 ' + name + '</button>';
+    }).join('');
+  }
+
   function ensureKcMapOverlay_() {
     if (document.getElementById('kc-map-overlay')) return;
     var ov = document.createElement('div');
@@ -180,9 +202,10 @@
       + '<div style="overflow-y:auto;min-height:0;">'
       + '<h3 style="margin:0 0 4px;color:#e0a0bc;">🗺️ 出門走走</h3>'
       + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">挑個地方走走，路上也許會巧遇誰。</div>'
-      + '<div id="kc-map-list">' + KC_LOCATIONS_.map(function (name) {
-        return '<button onclick="kanshouMoveTo(\'' + name + '\')" style="display:block;width:100%;text-align:left;padding:8px 10px;margin-bottom:6px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">📍 ' + name + '</button>';
-      }).join('') + '</div>'
+      + '<label style="display:flex;align-items:center;gap:6px;margin-bottom:10px;color:#c9b8d8;font-size:12px;cursor:pointer;">'
+      + '<input type="checkbox" id="kc-encounter-toggle" ' + (kanshouEncounterOn ? 'checked' : '') + ' onchange="kanshouToggleEncounter_(this.checked)"> 路上可能巧遇陌生人'
+      + '</label>'
+      + '<div id="kc-map-list">' + kcMapListHtml_() + '</div>'
       + '</div>'
       + '<button onclick="closeKcMapOverlay()" style="margin-top:12px;width:100%;padding:10px;background:#4a3a6a;color:#fff;border:none;border-radius:8px;cursor:pointer;flex-shrink:0;">關閉</button>'
       + '</div>';
@@ -195,6 +218,25 @@
     if (!pc || !pc.id) { alert('尚未進入後日談。'); return; }
     ensureKcMapOverlay_();
     document.getElementById('kc-map-overlay').style.display = 'flex';
+  }
+
+  // 🏠 改名「家」(2026-07 玩家新增)：寫進後端 MEMORY【住所】標記(kanshou_set_home_name)，
+  // 成功後同步更新本地 pc.homeName＋重繪清單，不必整頁重整或重打 sync。
+  async function kanshouRenameHome() {
+    var cur = (pc && pc.homeName) ? pc.homeName : '家';
+    var name = prompt('把「' + cur + '」改成什麼名字？(12字以內)', cur);
+    if (name === null) return;
+    name = name.trim();
+    if (!name) { alert('名稱不能空白。'); return; }
+    if (name.length > 12) { alert('名稱請在12字以內。'); return; }
+    try {
+      const res = await gasRun({ action: 'kanshou_set_home_name', pcId: pc.id, acctName: currentAccount, homeName: name });
+      if (!res || !res.success) { alert((res && res.message) || '改名失敗。'); return; }
+      pc.homeName = res.homeName;
+      localStorage.setItem('kyushu_v27', JSON.stringify(pc));
+      var listEl = document.getElementById('kc-map-list');
+      if (listEl) listEl.innerHTML = kcMapListHtml_();
+    } catch (e) { alert('改名失敗。'); }
   }
 
   // 移動走既有 send() 的 action:'play' 同一次round-trip(帶 moveTarget)，不另開一次網路請求；
@@ -374,7 +416,7 @@
         if (!res || !res.success) { alert((res && res.message) || '無法進入後日談。'); return; }
       }
       // 建立鑑賞視角的 pc（mode=kanshou：隱藏戰鬥相關 UI、顯示同伴面板）
-      pc = { id: res.pcId, name: res.pcName, sex: res.pcSex, mode: 'kanshou', account: currentAccount };
+      pc = { id: res.pcId, name: res.pcName, sex: res.pcSex, mode: 'kanshou', account: currentAccount, homeName: res.homeName || '家' };
       localStorage.setItem('kyushu_v27', JSON.stringify(pc));
       document.getElementById('setup').style.display = 'none';
       document.getElementById('game').style.display = 'flex';

@@ -399,7 +399,8 @@ function actionEnterKanshou(userData, pcId, sheets) {
       return JSON.stringify({
         success: true,
         pcId: linkedKpcId, pcName: String(data[r][COL.PC.NAME] || acctName),
-        pcSex: String(data[r][COL.PC.SEX] || "異"), loc: loc
+        pcSex: String(data[r][COL.PC.SEX] || "異"), loc: loc,
+        homeName: getKanshouHomeName_(data[r][COL.PC.MEMORY])
       });
     }
     // 連結指向的列不存在(手動整理試算表等邊角情況)→ 當作沒有存檔，往下走新建流程。
@@ -416,7 +417,8 @@ function actionEnterKanshou(userData, pcId, sheets) {
       return JSON.stringify({
         success: true,
         pcId: migId, pcName: String(data[m][COL.PC.NAME] || acctName),
-        pcSex: String(data[m][COL.PC.SEX] || "異"), loc: String(data[m][COL.PC.LOC] || "冬木·深山町")
+        pcSex: String(data[m][COL.PC.SEX] || "異"), loc: String(data[m][COL.PC.LOC] || "冬木·深山町"),
+        homeName: getKanshouHomeName_(data[m][COL.PC.MEMORY])
       });
     }
   }
@@ -469,7 +471,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
 
   return JSON.stringify({
     success: true,
-    pcId: mId, pcName: mName, pcSex: mSex, loc: loc2
+    pcId: mId, pcName: mName, pcSex: mSex, loc: loc2, homeName: "家"
   });
 }
 
@@ -632,6 +634,22 @@ function actionKanshouSetName(userData, pcId, sheets) {
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   kpc.getRange(meIdx + 1, COL.PC.NAME + 1).setValue(newName);
   return JSON.stringify({ success: true, pcName: newName, message: "御主已改名為「" + newName + "」。" });
+}
+
+// 🏠 2026-07 玩家新增：「出門走走」面板的「家」選項可自由改名(如「工房」「我的公寓」)，
+//   比照 actionKanshouSetName 同款寫法，只是寫進 MEMORY【住所】標記而非獨立欄位。
+function actionKanshouSetHomeName(userData, pcId, sheets) {
+  var newName = String(userData.homeName || "").trim();
+  if (!newName) return JSON.stringify({ success: false, message: "名稱不能空白。" });
+  if (newName.length > 12) return JSON.stringify({ success: false, message: "名稱請在12字以內。" });
+  var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」，見 actionKanshouSummonHero 同款註解
+  var acctName = String(userData.acctName || "").trim();
+  var data = kpc.getDataRange().getValues();
+  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  var newMemory = setKanshouHomeName_(data[meIdx][COL.PC.MEMORY], newName);
+  kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
+  return JSON.stringify({ success: true, homeName: newName, message: "住所已改名為「" + newName + "」。" });
 }
 
 
@@ -895,6 +913,19 @@ function setKanshouActiveEncounter_(memory, heroId) {
 function clearKanshouActiveEncounter_(memory) {
   return String(memory || "").replace(/｜?【邂逅中】[^｜【】]*/g, "");
 }
+// 🏷️ MEMORY標記存取器【住所】：玩家自訂的「家」顯示名稱(2026-07 玩家新增「家」移動選項＋自由改名)。
+//   查無標記時預設「家」，比照 getOutfit_/setOutfit_ 同款「清除舊值再整段append」寫法。
+function getKanshouHomeName_(memory) {
+  const m = String(memory || "").match(/【住所】([^｜【】]*)/);
+  const nm = m ? m[1].trim() : "";
+  return nm || "家";
+}
+function setKanshouHomeName_(memory, name) {
+  const s = String(memory || "");
+  const cleaned = s.replace(/｜?【住所】[^｜【】]*/g, "");
+  const safe = String(name || "").trim().slice(0, 12) || "家";
+  return (cleaned ? cleaned + "｜" : "") + "【住所】" + safe;
+}
 
 function actionPlay(userData, pcId, sheets) {
   const userMsg = userData.message;
@@ -908,13 +939,10 @@ function actionPlay(userData, pcId, sheets) {
   if (String(pcId || "").indexOf("KPC_") !== 0) return JSON.stringify({ text: "此功能僅限鑑賞使用。", people: [] });
   // 🔥 主動掌握開關(2026-07 玩家定案·原nsfw開關重生)：現在 real runtime 上唯一還會變動的「模式」。
   const driveOn = (userData.drive === true || String(userData.drive) === "true");
-  // 🌸 鑑賞地點移動(2026-07 玩家新增)：前端點選地點按鈕時帶 moveTarget，跟一般對話同一次
-  //   round-trip解決(不另開action、不多打一趟google.script.run)——比對 KANSHOU_LOCATIONS_
-  //   合法地點清單，查無效比對(如被夾帶偽造字串)一律當成普通對話，不影響原本行為。
-  const moveTarget = KANSHOU_LOCATIONS_.find(l => l.name === String(userData.moveTarget || "").trim());
-  const finalUserMsg = moveTarget
-    ? `【玩家意圖】：走向了「${moveTarget.name}」，四處看看那裡有什麼、有沒有遇見誰。`
-    : `【玩家意圖】：${userMsg}`;
+  // 🚪 巧遇開關(2026-07 玩家新增)：前端「出門走走」面板可關閉「路上巧遇陌生人」——只影響下方
+  //   隨機巧遇擲骰(kanshouRollEncounter_ 的兩個呼叫點)，不影響已在場的【邂逅中】對象持續互動，
+  //   也不影響同行隊伍成員。前端沒帶這欄(舊快取版本)時預設仍是開啟，維持原行為。
+  const encounterOn = !(userData.encounter === false || String(userData.encounter) === "false");
 
   const formatPref = (str) => {
     let arr = String(str || "").split('、');
@@ -939,7 +967,18 @@ function actionPlay(userData, pcId, sheets) {
   const pcName = pc[COL.PC.NAME];
   let curL = pc[COL.PC.LOC];
 
-
+  // 🌸 鑑賞地點移動(2026-07 玩家新增)：前端點選地點按鈕時帶 moveTarget，跟一般對話同一次
+  //   round-trip解決(不另開action、不多打一趟google.script.run)——比對 KANSHOU_LOCATIONS_
+  //   合法地點清單，查無效比對(如被夾帶偽造字串)一律當成普通對話，不影響原本行為。
+  // 🏠 2026-07 玩家新增「家」選項：不在 KANSHOU_LOCATIONS_ 固定清單裡(顯示名稱由玩家自訂，見
+  //   getKanshouHomeName_/【住所】標記)，獨立比對——「家」是私人空間，恆不觸發隨機巧遇。
+  const homeName = getKanshouHomeName_(pc[COL.PC.MEMORY]);
+  const moveTarget = KANSHOU_LOCATIONS_.find(l => l.name === String(userData.moveTarget || "").trim());
+  const isHomeMove = !moveTarget && String(userData.moveTarget || "").trim() === homeName;
+  const moveName = moveTarget ? moveTarget.name : (isHomeMove ? homeName : "");
+  const finalUserMsg = (moveTarget || isHomeMove)
+    ? `【玩家意圖】：走向了「${moveName}」，四處看看那裡有什麼、有沒有遇見誰。`
+    : `【玩家意圖】：${userMsg}`;
 
   // 🧹 2026-07：knockedOutList/justRevived/fatePlayerDefeat/fateDreamPrompt/freshlyBoundNpcName
   //   清掉——這幾個是 solo 戰鬥引擎的殘留概念(擊倒/復活/戰敗虛假之夢/剛結盟NPC排除)，鑑賞世界觀
@@ -960,8 +999,8 @@ function actionPlay(userData, pcId, sheets) {
   // 🌸 鑑賞地點移動 continued：合法地點時才寫入LOC(含同行同伴一起同步，比照AI自由換場的既有
   //   邏輯)＋抽選巧遇＋記錄邂逅名單。抽選只在「按下移動按鈕」這個瞬間跑一次，不會每句對話重算。
   let kanshouEncounterHero = null, kanshouEncounterMetBefore = false, kanshouEncounterLocName = "";
-  if (moveTarget) {
-    curL = moveTarget.name;
+  if (moveTarget || isHomeMove) {
+    curL = moveName;
     pcData[pcIndex][COL.PC.LOC] = curL;
     dirtyPcRows.add(pcIndex);
     pcData.forEach((r, nIdx) => {
@@ -975,8 +1014,9 @@ function actionPlay(userData, pcId, sheets) {
     // 🐛→✅ 2026-07 玩家反映「巧遇後聊沒兩句就消失，至少讓已經遇到的人能繼續互動」：離開原地
     //   (換地點)＝上一段巧遇緣分結束，先清掉舊的【邂逅中】，這個新地點才重新擲一次巧遇。
     pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
-    kanshouEncounterLocName = moveTarget.name;
-    kanshouEncounterHero = kanshouRollEncounter_(moveTarget.name);
+    kanshouEncounterLocName = moveName;
+    // 🚪 巧遇開關 + 🏠「家」是私人空間：兩者皆需通過才擲骰——isHomeMove 恆不觸發陌生人巧遇。
+    kanshouEncounterHero = (encounterOn && moveTarget) ? kanshouRollEncounter_(moveTarget.name) : null;
     if (kanshouEncounterHero) {
       pcData[pcIndex][COL.PC.MEMORY] = setKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY], kanshouEncounterHero.id);
     }
@@ -990,7 +1030,7 @@ function actionPlay(userData, pcId, sheets) {
       if (activeId) {
         kanshouEncounterLocName = curLocDef.name;
         kanshouEncounterHero = SEED_SERVANTS.find(h => h.id === activeId) || null;
-      } else if (KANSHOU_ASKING_WHO_ELSE_RE_.test(userMsg)) {
+      } else if (encounterOn && KANSHOU_ASKING_WHO_ELSE_RE_.test(userMsg)) {
         // 🔍 2026-07 玩家反映「問還有誰在，AI因為在場驗證鐵律不敢生人」：目前還沒有巧遇中的對象、
         //   但這句話像在問「這裡還有誰」，用目前地點重新擲一次巧遇——跟按移動按鈕同一套加權隨機，
         //   不寫LOC(沒有移動，位置不變)、不同步同伴(沒人移動)。
