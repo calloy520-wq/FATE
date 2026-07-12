@@ -1562,3 +1562,6 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **追加調整（玩家提出，鑑賞(actionPlay)也換模型測試）**：`AI_MODEL`(Core_Settings.gs，鑑賞預設模型)從`deepseek/deepseek-chat-v3.1`改成`deepseek/deepseek-v3.1-terminus`——同廠商的更新版本(語言一致性/agent能力優化)，架構(指令碼屬性`MODEL`優先、沒設定才落回此預設值)不變，鑑賞的呼叫路徑(`Gallery.gs`的`aiConfig.model`/`fallbackModel`、`Engine_Combat.gs`的`callGeminiAPI`預設值)全部透過這顆常數自動吃到新模型，不必逐一修改呼叫端。順手修正`Router_Narrative.gs`一處過期註解——先前將令咒/補魔解鎖分支的模型覆寫獨立成`UNLOCKED_MODEL`常數時，`narrateWithState_`函式內一段舊註解仍寫著「傳`opts.model=AI_MODEL`」，實際上早已改傳`UNLOCKED_MODEL`，註解與程式碼不同步，一併更正。
 
 **改動**：`gas/Core_Settings.gs`(`AI_MODEL`預設值改`deepseek/deepseek-v3.1-terminus`)；`gas/Router_Narrative.gs`(修正`narrateWithState_`過期註解)。驗證：`bash check.sh`全過、`nsfwBaseRules`紅線diff=0。純模型切換＋註解修正，不改變任何prompt文字或數值結算，部署後建議測試：鑑賞對話的語言一致性(繁體中文/是否混入簡體字)、寫作質感與回應速度。
+**追加調整（玩家「solo需要新增好感度在從者卡片上」）**：查證solo從者卡(`Script.html`的`buildSvCard`)原本只顯示`bondWord(s.bond)`文字化的羈絆等級(戒備/疏離/漸信/信賴/羈絆深厚)，沒有實際數值——跟鑑賞從者卡(同一函式內、`pc.mode==='kanshou'`分支)先前已補上的「名字旁💗數字」不一致，鑑賞看得到進度數字、solo看不到。**修法**：solo從者卡的「羈絆」那一行(原本只有`bondWord(s.bond)`)改成同時顯示數值與文字("羈絆 62 · 信賴")，純前端顯示調整，`s.bond`本就已從後端傳到前端(`get_tags`/`buildClientState_`)，不需任何後端改動。這不牴觸先前「好感度不要顯示在敘述介面上」的玩家定案——那條規則管的是AI敘事文字(故事內文)，這裡動的是常駐狀態卡片(`fate-tags`面板)，跟鑑賞卡片先前補數字時判斷的範圍一致。
+
+**改動**：`gas/Script.html`(`buildSvCard`羈絆行新增數值顯示)。驗證：`bash check.sh`全過、`nsfwBaseRules`紅線diff=0。純前端顯示調整，不改變任何資料結構或數值結算，部署後建議測試：solo從者卡的羈絆行是否正確顯示「數字 · 文字等級」兩者皆有。
