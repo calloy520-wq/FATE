@@ -189,11 +189,11 @@ function actionNarrateOnly(userData, pcId, sheets) {
   //   觸發更長的篇幅預算；前端只在那兩個特定成功分支才會傳這個旗標(見 Router_Economy.gs/Router_Bond.gs)，
   //   其餘呼叫一律不傳。這個分支的指令要求 500~600 字(遠長於平常120~180字)，720 tokens 會截斷——比照
   //   鑑賞NSFW長篇幅度(2600 tokens/約500字目標)給足餘裕，一般呼叫不受影響(仍是720)。
-  // 🧪 2026-07 玩家提議先試 Gemini(SOLO_MODEL)看寫出來的質感——之前這裡曾覆寫成 AI_MODEL(deepseek)，
-  //   現在改回不覆寫、讓它落回 narrateWithState_ 的預設 SOLO_MODEL，維持長篇幅預算不變；如效果不理想
-  //   可再切換，模型選擇跟這個旗標本身是否觸發是兩件獨立的事。
+  // 🧪 2026-07 玩家依序測試不同模型的寫作質感：曾覆寫成 AI_MODEL(deepseek)→改落回 SOLO_MODEL(Gemini)
+  //   →現在覆寫成 UNLOCKED_MODEL(Core_Settings.gs，x-ai/grok-4.1-fast)。長篇幅預算不變；模型選擇
+  //   跟這個旗標本身是否觸發是兩件獨立的事，之後想再換模型只需改 UNLOCKED_MODEL 一處。
   const useDeepseek = !!userData.deepseek;
-  const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw, maxTokens: useDeepseek ? 2000 : 720, model: undefined });
+  const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw, maxTokens: useDeepseek ? 2000 : 720, model: useDeepseek ? UNLOCKED_MODEL : undefined });
   if (narrationText === null) return JSON.stringify({ success: true, text: "（此處因果已定，氣息微微一閃。）" });
   saveGameHistoryBatch(pcId, [
     { speaker: "player", content: cleanNarrateEcho_(promptText) }, // 🧹 存洗淨摘要、非整串提示詞(否則重整歷史會把演出依據/★指令/素材全攤給玩家看)
