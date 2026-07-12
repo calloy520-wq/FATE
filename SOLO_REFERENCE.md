@@ -1631,3 +1631,19 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **改動**：`gas/Gallery.gs`(新增`getKanshouHomeName_`/`setKanshouHomeName_`/`actionKanshouSetHomeName`；`actionPlay`新增`encounterOn`/`homeName`/`isHomeMove`/`moveName`並改寫兩處擲骰守門；`actionEnterKanshou`三分支補`homeName`回傳)；`gas/Router_Action.gs`(註冊`kanshou_set_home_name`)；`gas/Script_Kanshou.html`(巧遇開關checkbox+`kanshouToggleEncounter_`、`kcMapListHtml_`/🏠家按鈕/`kanshouRenameHome`、`enterKanshou()`帶入`homeName`)；`gas/Script.html`(`send()`夾帶`encounter`欄位)。
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(改動完全不觸及`nsfwBaseRules`/`specificRules`，純資料流+UI功能，非NSFW規則文字)。部署後建議測試：①「出門走走」面板巧遇開關關閉時多次移動確認不再冒出陌生人、開啟時機率恢復正常；②🏠家按鈕移動後LOC正確寫入、且不會巧遇任何人；③改名後按鈕文字/存檔即時更新，重新整理頁面後名稱仍保留(下次`enterKanshou()`從後端讀回)；④「家」名稱刻意輸入超過12字/空白測試前後端雙重擋驗證。
+
+## §45 鑑賞UI改回solo同款3分頁，地圖分頁改清單型（2026-07・玩家問「鑑賞我想要改回跟solo很像的ui 3個分頁這樣！但是地圖變成清單類型！（就是把地圖做到右邊這樣！）」）
+
+**背景**：鑑賞先前的地圖/地點功能是掛在☰抽屜裡的一顆「🗺️出門走走」彈窗(`ensureKcMapOverlay_`彈窗、`applyModeUI`把`tab-map`/`pane-map`整個隱藏，只留給solo)。玩家想要的其實是回到 solo 現有的「👤標籤／📖故事／🗺️地圖」3分頁＋`#pane-wrap`版型(寬螢幕(≥601px)三欄並排、地圖固定在最右欄`flex:0 0 360px; border-left`——這正是玩家講的「地圖做到右邊」；手機(≤600px)則是底部3顆分頁鈕切換)，只是鑑賞沒有座標節點，地圖分頁內容不該套用solo的戰場SVG，改成清單型(就是原本彈窗裡的「出門走走」地點清單)。
+
+**修法**：
+1. **`applyModeUI()`(Script.html)**：`tab-map`/`pane-map`不再依`isKanshou`隱藏，兩軌都顯示——solo沿用既有`renderMapPane()`戰場SVG邏輯，鑑賞則在該函式內部新增分支。同時移除已被取代的`drawer-kanshou-map`按鈕顯示/隱藏那行(按鈕本體也一併從`Index.html`刪除)。
+2. **`renderMapPane()`(Script.html)**：`c.offsetParent===null`檢查之後、原本solo戰場SVG邏輯之前，新增`if (pc && pc.mode==='kanshou')`分支——渲染跟原彈窗一模一樣的內容(巧遇開關checkbox+🏠家按鈕+10地點清單，複用`Script_Kanshou.html`的`kcMapListHtml_()`/`kanshouEncounterOn`/`kanshouToggleEncounter_`全域函式，同一份`<script>`全域作用域下可直接跨檔呼叫)，`return`後不會落入solo的戰場SVG/此地經營/偵查按鈕等段落。
+3. **移除整條彈窗機制**(`Script_Kanshou.html`)：`ensureKcMapOverlay_`／`closeKcMapOverlay`／`openKanshouMap`三個函式與`kc-map-overlay`浮層整段刪除——分頁已完全取代彈窗的功能，不留兩套平行進入點(單一真實來源原則)。`kanshouMoveTo()`移除已失效的`closeKcMapOverlay()`呼叫。`kcMapListHtml_`/`kanshouRenameHome`(改名後回寫`#kc-map-list`)本體不動，一樣的`id`現在只是換了個父容器(`#map-pane-content`取代原本的浮層)。
+4. **`enterKanshou()`(Script_Kanshou.html)**：新增進場當下呼叫一次`renderMapPane()`(比照solo登入後`syncData()`觸發的初次填色)——寬螢幕三欄並排時`#pane-map`本來就恆顯示，不像手機分頁那樣需要「點了才算」，若不主動呼叫，桌機玩家進場當下右欄地圖分頁會是空的直到手動觸發某個間接呼叫。
+
+**未動的部分**：`kcMapListHtml_`/`kanshouToggleEncounter_`/`kanshouEncounterOn`/`kanshouRenameHome`/`kanshouMoveTo`(除拿掉`closeKcMapOverlay()`呼叫外)本體邏輯逐字未動——上一輪(§44)新增的巧遇開關與可改名「家」機制完全複用，只是換了個渲染進入點；solo的`renderMapPane()`戰場SVG/`buildMapSvg_`/此地經營/偵查按鈕整段不變。
+
+**改動**：`gas/Script.html`(`applyModeUI()`拿掉`tab-map`/`pane-map`的`isKanshou`隱藏、拿掉`drawer-kanshou-map`那行；`renderMapPane()`新增鑑賞清單型分支)；`gas/Script_Kanshou.html`(移除`ensureKcMapOverlay_`/`closeKcMapOverlay`/`openKanshouMap`三函式；`kanshouMoveTo()`移除`closeKcMapOverlay()`呼叫；`enterKanshou()`新增`renderMapPane()`呼叫)；`gas/Index.html`(移除`drawer-kanshou-map`按鈕)。
+
+**驗證**：`bash check.sh`全過(含`Index.html`標籤配對，先前這個檔案的HTML結構壞過一次、這次改動有此顆驗證把關)；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(兩檔完全未改動，這輪純前端UI)。部署後建議測試：①手機窄螢幕鑑賞底部應出現3顆分頁鈕(標籤/故事/地圖)，點「🗺️地圖」能看到巧遇開關+🏠家+10地點清單，跟solo的分頁切換手感一致；②桌機寬螢幕鑑賞應呈現三欄並排、地圖清單固定在最右欄，一進場就有內容不必先點別的東西才刷新；③☰抽屜裡確認「出門走走」按鈕已消失，不再有兩個入口；④地點按鈕/改名/巧遇開關功能本身(§44的邏輯)在新的分頁位置一切正常運作。

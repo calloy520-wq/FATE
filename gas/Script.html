@@ -1534,6 +1534,18 @@
     //   白算一趟。★用 offsetParent===null 判「實際是否顯示」而非 .active class——寬螢幕(≥601)是三欄
     //   並排、地圖恆顯示但【沒有 .active class】(那是手機分頁機制)，誤用 class 會讓寬螢幕地圖永不刷新(光圈不動)。
     if (c.offsetParent === null) return;
+    // 🌸 鑑賞地圖分頁改清單型(2026-07 玩家「改回跟solo很像的ui 3個分頁！但是地圖變成清單類型」)：
+    //   鑑賞沒有座標/節點，不套用下方 solo 的戰場SVG——改渲染「出門走走」的地點清單(取代原本
+    //   掛在☰抽屜裡的彈窗)，複用 Script_Kanshou.html 的 kcMapListHtml_/kanshouEncounterOn。
+    if (pc && pc.mode === 'kanshou') {
+      c.innerHTML = '<div style="color:#e0a0bc; font-weight:bold; font-size:14px; margin-bottom:4px;">🗺️ 出門走走</div>'
+        + '<div style="color:#9a8f70; font-size:11px; margin-bottom:8px;">挑個地方走走，路上也許會巧遇誰。</div>'
+        + '<label style="display:flex;align-items:center;gap:6px;margin-bottom:10px;color:#c9b8d8;font-size:12px;cursor:pointer;">'
+        + '<input type="checkbox" id="kc-encounter-toggle" ' + (kanshouEncounterOn ? 'checked' : '') + ' onchange="kanshouToggleEncounter_(this.checked)"> 路上可能巧遇陌生人'
+        + '</label>'
+        + '<div id="kc-map-list">' + kcMapListHtml_() + '</div>';
+      return;
+    }
     var nodes = [], here = '', allyIntel = false;
     var cached = preNodes || lastMapNodes;
     if (cached) { nodes = cached.nodes || []; here = cached.here || ''; allyIntel = !!cached.allyIntel; }
@@ -2580,16 +2592,15 @@ function applyModeUI() {
   var ibar = document.getElementById('input-bar'); if (ibar) ibar.style.display = isKanshou ? '' : 'none';
   // 👥 後日談同伴管理：只在鑑賞模式出現
   var dcomp = document.getElementById('drawer-companions'); if (dcomp) dcomp.style.display = isKanshou ? '' : 'none';
-  // 🗺️ 出門走走(2026-07新增)：純鑑賞氛圍功能，只在鑑賞模式出現
-  var dmap = document.getElementById('drawer-kanshou-map'); if (dmap) dmap.style.display = isKanshou ? '' : 'none';
   // 戰爭行動列：取代輸入框，只在戰爭模式顯示
   var wa = document.getElementById('war-actions'); if (wa) wa.style.display = isKanshou ? 'none' : 'flex';
   // 🌹 鑑賞御主卡已內建「換裝＋詳細狀態」按鈕列，卡片列表下方這顆獨立按鈕改只在 solo 顯示，避免重複外露
   var msf = document.getElementById('my-status-fallback'); if (msf) msf.style.display = isKanshou ? 'none' : '';
-  // 🗺️ 2026-07 玩家定案：鑑賞拔地圖(改AI自主敘事換場，見 Router_Narrative.gs 的 aiData.location)——
-  //   地圖分頁/面板只留給 solo(仍需固定節點清單管理戰鬥/AP消耗)。
-  var tMap = document.getElementById('tab-map'); if (tMap) tMap.style.display = isKanshou ? 'none' : '';
-  var pMap = document.getElementById('pane-map'); if (pMap) pMap.style.display = isKanshou ? 'none' : '';
+  // 🗺️ 2026-07 玩家定案「改回跟solo很像的3分頁UI，但地圖分頁在鑑賞改清單型」：地圖分頁/面板
+  //   兩軌都顯示——solo 維持既有戰場SVG圖(renderMapPane內部判斷)，鑑賞則改渲染「出門走走」的
+  //   地點清單(取代原本掛在☰抽屜裡的彈窗)，兩者共用同一顆分頁按鈕與 #pane-wrap 三欄/三分頁版型。
+  var tMap = document.getElementById('tab-map'); if (tMap) tMap.style.display = '';
+  var pMap = document.getElementById('pane-map'); if (pMap) pMap.style.display = '';
   try { if (!isKanshou) renderWarActions(); } catch (e) {}
 }
 
