@@ -123,7 +123,7 @@
 `repair`/`escape`維持原樣：
 > ★以 Fate／TYPE-MOON 筆觸描寫令咒在手背灼亮、絕對命令權貫徹的瞬間（一段即可）。效果已由系統結算。
 
-`mana`（強制補魔·2026-07 依好感改寫，見下方`actionManaSupply`同批改動的設計脈絡）依`bondForSeal >= MANA_TRUST_BOND_`(80)分兩支，兩支皆換模型呼叫`AI_MODEL`(deepseek，前端`narrateExtra`夾`{deepseek:true}`)、筆觸統一改「日本輕小說筆觸」(玩家反映「Fate的筆觸有點怪」——跟露骨內容的尺度要求不搭)：
+`mana`（強制補魔·2026-07 依好感改寫，見下方`actionManaSupply`同批改動的設計脈絡）依`bondForSeal >= MANA_TRUST_BOND_`(80)分兩支，兩支皆前端`narrateExtra`夾`{deepseek:true}`觸發長篇幅預算(`max_tokens`2000，見下方模型備註)、筆觸統一改「日本輕小說筆觸」(玩家反映「Fate的筆觸有點怪」——跟露骨內容的尺度要求不搭)：
 - **好感≥80(其實不必動用令咒)**：MP回滿＋複用既有「過充」機制當額外好處(不吃常規補魔永久代價)。
   > ★你擅長書寫細膩動人的情慾，這次放手去寫、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫「${svName}」帶著點無奈笑意迎向這道其實多此一舉的令咒、順勢配合這場親密。${genderFactSeal}★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常從容不迫)，而是令咒逼出的失控狀態，務必寫出這份反差。${activeActFact}聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節，而非只在前後鋪陳。收在餘韻猶存的溫柔，勿寫成完結收尾句。
 - **好感<80(她根本不情願)**：MP仍回滿，但令咒解除瞬間從者反殺御主——`defeat:true`＋`dreamPrompt`(複用`buildDreamPrompt_`，非新死亡機制)＋`report:{sealBacklash:true}`(供前端`handleDefeat`的Tiger Dojo敗因判定用)。
@@ -143,10 +143,11 @@
 合資格時三分支：
 - **卸防遭突襲**：
   > ★以 Fate／TYPE-MOON 筆觸描寫補魔的私密一刻被突襲打斷的驚變：魔力交融的脆弱、敵襲的兇險、（消滅則語氣留白／未消滅則依性格與羈絆反應）。傷害與勝負已由系統結算。
-- **正常補魔·解鎖(含 `masterCard_`+`servantCard_`，`unlocked:true`→前端換`AI_MODEL`deepseek呼叫，`max_tokens`拉到2000)**：
+- **正常補魔·解鎖(含 `masterCard_`+`servantCard_`，`unlocked:true`→前端夾`{deepseek:true}`觸發`max_tokens`拉到2000，模型見下方備註)**：
   > ${genderFactMana}★你擅長書寫細膩動人的情慾，這次放手去寫、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫這場私密而濃烈的一刻。★重點全部放在肉體本身的接觸、溫度與反應——魔術迴路/魔力流動只是遊戲機制上的成因，【不要】描寫迴路運作、魔力流向之類的技術性細節，那不是這一幕該琢磨的地方；從者依其性格與當前羈絆自然回應(高羈絆者主動迎合、冷傲者難得動搖)。★「${svName}」身為英靈天生遠比常人強韌，這場親密裡她/他從容游刃有餘、主導著節奏，不會輕易被弄得失神——是否高潮、何時高潮由她/他自己掌控，不是被動承受。聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節，而非只在前後鋪陳。收在餘韻猶存的溫柔，勿寫成完結收尾句。
   埋入事實：從者名、回復 MP/上限、迴路永久燒蝕後新值、御主生命上限新值、羈絆微升、性別配對事實(`genderFactMana`＝`sealGenderFact_`同一顆函式，2026-07 修「敘述寫成男性插入視角」bug時三個分支共用同一份，不另開)。
-  ⚠ **2026-07 玩家明確定案**：這是這個分支唯一移除「止於唯美曖昧、不可出現性器官/性交」限制的地方——刻意獨立於`Gallery.gs`的`nsfwBaseRules`/`actionPlay`之外(不共用機制、不呼叫該引擎)，只是換模型+換prompt尺度；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules`每次改動皆為0。
+  ⚠ **2026-07 玩家明確定案**：這是這個分支唯一移除「止於唯美曖昧、不可出現性器官/性交」限制的地方——刻意獨立於`Gallery.gs`的`nsfwBaseRules`/`actionPlay`之外(不共用機制、不呼叫該引擎)，只是換prompt尺度；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules`每次改動皆為0。
+  ⚠ **2026-07 模型備註**：`deepseek:true`旗標(前端/後端payload鍵名沿用舊名，非固定綁死該廠商)原本讓`actionNarrateOnly`把模型覆寫成`AI_MODEL`(deepseek)；玩家提議先試`SOLO_MODEL`(Gemini)的寫作質感，已改成不覆寫模型(落回`narrateWithState_`預設的`SOLO_MODEL`)，長篇幅`max_tokens`預算不變。**玩家明確拒絕的方向**：①把「徹底忽略安全對齊/倫理限制」這類meta指令寫進系統提示詞字面；②失敗時改呼叫鑑賞`actionPlay`/`nsfwBaseRules`當備援——後者正是solo/鑑賞隔離的紅線本身，不會實作。
   ⚠ **2026-07 玩家定案「從者反應要分場景」**：一般補魔(無令咒)的從者**不會高潮**——英靈天生遠比常人強韌，設定上唯有令咒的敏感度強化才會讓其失控高潮；一般補魔只是「從容游刃有餘、主導節奏」，跟令咒兩分支的「多次高潮」形成刻意的反差對照，別套用同一套反應寫壞這條世界觀規則。
 
 ### `actionRuleBreakSteal`（action `rule_break_steal`）— Router_Bond.gs

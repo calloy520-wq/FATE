@@ -185,12 +185,15 @@ function actionNarrateOnly(userData, pcId, sheets) {
 6b.★【服裝與外貌】角色衣著嚴格依角色卡的「外貌本相／此刻裝扮」描寫——【此刻裝扮】(玩家換裝)為最優先、寫什麼穿什麼；卡上沒寫的，【嚴禁】自行讓角色裸露或增減服裝(戰鬥可寫甲冑碎裂衣袂破損、不得自行升級成裸身)；解除結界/隱匿(如風王結界)只顯現【武器】，與衣著無關。
 7. 只輸出 JSON：{"narration":"你的敘述，內含<br><br>分段"}，禁止任何其他欄位、禁止 Markdown。`;
 
-  // 🔥 2026-07：補魔/強制補魔的高好感解鎖分支會夾帶 deepseek:true，換成 AI_MODEL 承接更露骨的描寫；
-  //   前端只在那兩個特定成功分支才會傳這個旗標(見 Router_Economy.gs/Router_Bond.gs)，其餘呼叫一律不傳。
-  //   這個分支的指令要求 500~600 字(遠長於平常120~180字)，720 tokens 會截斷——比照鑑賞NSFW長篇
-  //   幅度(2600 tokens/約500字目標)給足餘裕，一般呼叫不受影響(仍是720)。
+  // 🔥 2026-07：補魔/強制補魔的高好感解鎖分支會夾帶 deepseek:true(旗標名稱沿用、非固定綁死該廠商)，
+  //   觸發更長的篇幅預算；前端只在那兩個特定成功分支才會傳這個旗標(見 Router_Economy.gs/Router_Bond.gs)，
+  //   其餘呼叫一律不傳。這個分支的指令要求 500~600 字(遠長於平常120~180字)，720 tokens 會截斷——比照
+  //   鑑賞NSFW長篇幅度(2600 tokens/約500字目標)給足餘裕，一般呼叫不受影響(仍是720)。
+  // 🧪 2026-07 玩家提議先試 Gemini(SOLO_MODEL)看寫出來的質感——之前這裡曾覆寫成 AI_MODEL(deepseek)，
+  //   現在改回不覆寫、讓它落回 narrateWithState_ 的預設 SOLO_MODEL，維持長篇幅預算不變；如效果不理想
+  //   可再切換，模型選擇跟這個旗標本身是否觸發是兩件獨立的事。
   const useDeepseek = !!userData.deepseek;
-  const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw, maxTokens: useDeepseek ? 2000 : 720, model: useDeepseek ? AI_MODEL : undefined });
+  const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw, maxTokens: useDeepseek ? 2000 : 720, model: undefined });
   if (narrationText === null) return JSON.stringify({ success: true, text: "（此處因果已定，氣息微微一閃。）" });
   saveGameHistoryBatch(pcId, [
     { speaker: "player", content: cleanNarrateEcho_(promptText) }, // 🧹 存洗淨摘要、非整串提示詞(否則重整歷史會把演出依據/★指令/素材全攤給玩家看)
