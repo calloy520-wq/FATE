@@ -1703,3 +1703,17 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **改動**：`gas/Gallery.gs`(新增`kanshouNameCandidates_`共用helper；`rel_changes`與`intimacy_feedback.npcs`兩處比對邏輯改用候選字串比對)。
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(純資料比對邏輯，未觸及NSFW提示詞本體)；node腳本模擬9位括號角色+2位一般角色的候選字串拆解結果全數正確。部署後建議測試：召喚「間桐櫻（黑化）」或「無名（EMIYA）」等括號角色進鑑賞同行隊伍，互動幾回合後確認好感(BOND)、當前狀態(physical_state)、態度(attitude)都能正常隨敘事更新，不再卡住不動。
+
+## §50 鑑賞玩家本人「換裝」從未餵給AI的根源bug（2026-07・玩家問「衣服...換裝有確實讀取嗎」，後貼實測「自己換裝『只有穿褲子』，AI卻寫『遠坂凜的手掌隔著我的衣襟』」）
+
+**背景**：玩家先問換裝機制是否確實被AI讀取，查證後確認**同行夥伴的換裝沒問題**——`partyDetailsArr`每回合都會用`getOutfit_(r[COL.PC.MEMORY])`把NPC的裝扮塞進【同行夥伴】卡片(`裝扮:XXX(當前服裝·五官體態不變)`)。但玩家接著實測貼出反例：把自己(御主本人)的換裝設成「只有穿褲子」，AI敘事卻寫出「遠坂凜的手掌隔著我的衣襟」(衣襟=有領口上衣的前襟，跟「只有穿褲子」正面矛盾)——證明**玩家自己的換裝完全沒被讀取**。
+
+**查證根因**：`actionPlay`組prompt的地方，NPC換裝(`getOutfit_`)有兩處注入點——①`partyDetailsArr`(【同行夥伴】卡片)②`nsfwMemories`迴圈(`[名字 裝扮]`行，情慾場景AI主要參照的[情境延續]區塊)。但**玩家自己(pc本人)的這兩處對應位置都沒有讀`getOutfit_(pc[COL.PC.MEMORY])`**：①【玩家命格】那行只有名號/性別/性格/特徵/軟肋/身世/位置，從未帶上換裝；②`nsfwMemories`開頭只有「[玩家『XX』肉體]」與「[身體記憶]」，同樣沒有裝扮。玩家換裝功能本身(`actionSetOutfit`寫入/`getOutfit_`讀取的MEMORY標記機制)完全正常運作、資料也確實寫進試算表(前端卡片會正確顯示你換的裝)，純粹是這兩處「餵給AI看」的prompt組裝，從一開始就漏掉了玩家自己這一份——AI 從頭到尾看不到你穿什麼，只能憑空腦補(通常預設成有領口的日常上衣)，跟NPC换裝比對失敗(§49)是不同性質的bug(那是「AI寫的名字對不上」，這是「這份資訊從沒被組進提示詞」)，但影響同樣是「换的裝AI不會理」。
+
+**修法**：新增`const myOutfit = getOutfit_(pc[COL.PC.MEMORY]);`(緊接`currentAmbition`之後)，比照NPC的兩個注入點各補一份：①【玩家命格】行尾插入`${myOutfit ? \` | 裝扮:${myOutfit}(當前服裝·五官體態不變)\` : ""}`，跟partyDetailsArr同格式；②`nsfwMemories`開頭補`[玩家『${pcName}』裝扮]：${myOutfit}（玩家指定當前服裝·五官/髮色/體態不變）`，跟NPC的`[名字 裝扮]`行同格式。兩處皆用`myOutfit`真值判斷，沒換裝(空字串)時不輸出這段，維持原樣不佔提示詞篇幅。
+
+**未動的部分**：`actionSetOutfit`/`getOutfit_`/`setOutfit_`底層機制、前端`changeOutfit()`呼叫與卡片顯示、NPC換裝的既有兩處注入點，完全未動——這次純粹是補上玩家自己那份漏掉的注入，資料流跟既有機制完全相容。
+
+**改動**：`gas/Gallery.gs`(新增`myOutfit`常數；【玩家命格】prompt行與`nsfwMemories`開頭各補一處玩家自己的裝扮注入)。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(純prompt資料組裝，未觸及NSFW規則本體)。部署後建議測試：把自己的換裝設成一句明確的服裝描述(如「只有穿褲子」「浴衣」)，跟同行夥伴互動幾回合，確認AI敘事這次會正確反映這身裝扮、不再自行腦補成別的穿著。

@@ -1004,6 +1004,12 @@ function actionPlay(userData, pcId, sheets) {
 
 
   const currentAmbition = pc[COL.PC.INTENT] ? String(pc[COL.PC.INTENT]).trim() : "尚無明確目標，隨遇而安。";
+  // 🐛→✅ 2026-07 玩家反映「換裝有確實讀取嗎」+ 貼實測片段(自己換裝「只有穿褲子」，AI卻寫「衣襟」)：
+  //   查出根因——【同行夥伴】卡片(partyDetailsArr)每回合都會帶上 getOutfit_ 讀到的「裝扮」，但玩家
+  //   自己(pc本人)的【玩家命格】那行只有名號/性別/性格/特徵/軟肋/身世/位置，從頭到尾沒帶上自己的
+  //   換裝——AI 完全看不到玩家本人設定的服裝，只能憑空假設(如預設寫成有領口的上衣)。比照partyDetailsArr
+  //   同款「裝扮:XXX(當前服裝·五官體態不變)」格式補上。
+  const myOutfit = getOutfit_(pc[COL.PC.MEMORY]);
 
   // 🔵 實例化：只取自己 game_id 世界內、同地點的人（御主無 game_id 時不過濾，相容舊角色）
   const myGameId = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
@@ -1173,7 +1179,10 @@ function actionPlay(userData, pcId, sheets) {
   let pSkills = (pcData[pcIndex][COL.PC.MEMORY] || "無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/, (m, p1) => `[雙修技巧]${p1.trim().split('、').slice(0, 5).join('、')}`);
   // 🐛→✅ 2026-07 玩家定案整合：STATUS(視覺化外顯，衣服/姿勢/負面/顏面)已退役——姿勢動作/顏面已併進
   //   physical_state(見下方[肉體])，這裡不再重複注入即將永遠凍結的舊欄位。
-  let nsfwMemories = `\n[玩家『${pcName}』肉體]：${JSON.stringify(pPhysicalObj)}\n[身體記憶]：${pSkills}`;
+  // 🐛→✅ 2026-07 修：NPC 的裝扮(getOutfit_)每回合都會補進下方迴圈的[名字 裝扮]行，但玩家自己的
+  //   換裝(myOutfit，同上方【玩家命格】那行補的值)這裡漏了——情慾場景AI主要參照的正是這個
+  //   [情境延續]區塊，同步補上避免只在【玩家命格】看得到、貼近情慾當下的這段卻讀不到。
+  let nsfwMemories = `\n[玩家『${pcName}』肉體]：${JSON.stringify(pPhysicalObj)}\n[身體記憶]：${pSkills}${myOutfit ? `\n[玩家『${pcName}』裝扮]：${myOutfit}（玩家指定當前服裝·五官/髮色/體態不變）` : ""}`;
 
   // ⚡ 2026-07 提速：跟上面 presentRowsForGender 是完全相同的 filter 條件(curL 這段期間未被重新賦值)，
   //   直接複用同一份結果，省掉對 pcData 的第二次整表掃描。
@@ -1249,7 +1258,7 @@ function actionPlay(userData, pcId, sheets) {
   //   對這個引擎從頭到尾沒有意義，連同這段判斷整條拿掉，不只是拿掉判斷式而已。
   const prompt = `【敘事法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。
 ${PROMPT_PARTY_SYSTEM}
-【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}
+【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}(當前服裝·五官體態不變)` : ""} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}
 
 ${PROMPT_REL}
 ★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}
