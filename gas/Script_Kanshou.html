@@ -220,6 +220,11 @@
   // 移動走既有 send() 的 action:'play' 同一次round-trip(帶 moveTarget)，不另開一次網路請求；
   // AI 會依後端算好的巧遇資訊直接把抵達場景/偶遇演出來，故不在此處另外插一句本地假訊息。
   async function kanshouMoveTo(name) {
+    // 🐛→✅ 2026-07 玩家「想要加個確認鍵，手機需要回去故事分頁」：地點清單改進分頁後，手機一次
+    //   只顯示一個分頁，點地點移動完敘事卻寫進「故事」分頁看不到，得自己切回去；比照 solo 的
+    //   travelFromPane(SVG地圖點擊)同款「先切分頁再送出動作」寫法，讓移動結果直接可見。
+    if (!confirm('確定要前往「' + name + '」嗎？')) return;
+    showGamePane('chat');
     await send('📍 走向了「' + name + '」，四處看看。', false, null, name);
   }
 
