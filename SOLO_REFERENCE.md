@@ -1554,7 +1554,6 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **追加調整（玩家問「x-ai/grok-4.20 可以試試看這個嗎 他有fast嗎」）**：查證OpenRouter確認`x-ai/grok-4.20`確有此模型(推理模型·2M context)，但沒有專屬的「grok-4.20 fast」版本——「fast」是另一條產品線(`x-ai/grok-4-fast`／`x-ai/grok-4.1-fast`)，非4.20的快速版；透過`AskUserQuestion`列出3個選項(grok-4.20本體／grok-4.1-fast／先維持Gemini不變)，玩家選`x-ai/grok-4.1-fast`。**修法**：新增`UNLOCKED_MODEL`常數(Core_Settings.gs，緊接`SOLO_MODEL`之後)，比照`AI_MODEL`/`SOLO_MODEL`同款「指令碼屬性`UNLOCKED_MODEL`優先、沒設定才落回程式碼內預設值`x-ai/grok-4.1-fast`」寫法；`actionNarrateOnly`(Router_Narrative.gs)的模型覆寫從`model:undefined`(落回SOLO_MODEL)改成`model: useDeepseek ? UNLOCKED_MODEL : undefined`。這是這3個解鎖分支第三次調整模型(deepseek→Gemini→grok-4.1-fast)，往後想再換模型只需改`UNLOCKED_MODEL`這一處常數(或直接設指令碼屬性`UNLOCKED_MODEL`，不必重新部署)。
 
 **改動**：`gas/Core_Settings.gs`(新增`UNLOCKED_MODEL`常數)；`gas/Router_Narrative.gs`(`actionNarrateOnly`模型覆寫改用`UNLOCKED_MODEL`)；`AI_PROMPT_MAP.md`(§`actionUseSeal`模型備註更新為第三輪調整)。驗證：`bash check.sh`全過、`nsfwBaseRules`紅線diff=0。純模型切換，部署後建議測試：令咒/補魔解鎖分支改用grok-4.1-fast後的寫作質感與回應速度、篇幅是否仍完整不被截斷。
-
 **追加調整（玩家實測部署後反饋「fast好像沒有 只有4.20 改成這個」）**：`x-ai/grok-4.1-fast`雖然OpenRouter網站上查得到模型卡，但玩家實機呼叫時發現這個slug實際打不通(該廠商/OpenRouter當下未真正提供此slug可用)，只有`x-ai/grok-4.20`本體確認可正常呼叫。**修法**：`UNLOCKED_MODEL`(Core_Settings.gs)預設值改成`x-ai/grok-4.20`，其餘架構(指令碼屬性優先/沒設定才落回預設值)不變。這是這3個解鎖分支第四次調整模型(deepseek→Gemini→grok-4.1-fast→grok-4.20)。
 
 **改動**：`gas/Core_Settings.gs`(`UNLOCKED_MODEL`預設值改`x-ai/grok-4.20`)；`AI_PROMPT_MAP.md`(§`actionUseSeal`模型備註更新為第四輪調整)。驗證：`bash check.sh`全過、`nsfwBaseRules`紅線diff=0。純模型切換，部署後建議測試：令咒/補魔解鎖分支改用grok-4.20後是否能正常呼叫成功、寫作質感與回應速度、篇幅是否完整不被截斷。
