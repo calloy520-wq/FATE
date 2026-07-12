@@ -1580,3 +1580,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **追加調整（玩家實測部署後反饋「會有簡體 格式都不太對 他是不知道我們的格式？？」）**：查證後**不是設定/格式沒接上的問題**——`callGeminiAPI`(Engine_Combat.gs)尾端附加的【語言鐵律】與`nsfwBaseRules`的`dialogueFormatRule_`對話格式規則，不分模型特判、每次呼叫都原樣送給當下的`modelName`，Hermes 4 70B跟先前的DeepSeek/Gemini收到的系統提示詞是完全一樣的文字。根因是**模型本身的中文能力/指令遵循度落差**：Hermes 4 70B以英文語料為主訓練，正體中文訓練數據相對少，即使收到同樣的繁體中文指令，仍容易夾雜簡體字/大陸用詞，對JSON結構化輸出與敘事對話格式規則的遵循也較不穩定——這與先前`UNLOCKED_MODEL`測試Hermes時「寫作品質不佳」是同一種模型能力落差，不是配置或prompt傳遞的bug。**修法**：`AI_MODEL`(Core_Settings.gs)換回先前確認穩定的`deepseek/deepseek-v3.1-terminus`，這是鑑賞`AI_MODEL`測試Hermes後的收斂結論（deepseek-v3.1-terminus→hermes-4-70b→deepseek-v3.1-terminus）。
 
 **改動**：`gas/Core_Settings.gs`(`AI_MODEL`預設值換回`deepseek/deepseek-v3.1-terminus`)。驗證：`bash check.sh`全過、`nsfwBaseRules`紅線diff=0。純模型切換，部署後建議測試：鑑賞點火/熄滅兩分支的繁體中文一致性與寫作質感是否恢復先前水準。
+
+**追加調整（玩家「可以把點火按鈕隱藏嗎？反正後台會切換了」）**：玩家要求隱藏🔥主動掌握開關(`Index.html`的`drive-mode-toggle`)。詢問確認鎖定方向後，玩家選「永遠矜持模式（熄滅，推薦先試）」。**修法**：`Script.html`的`applyModeUI()`原本依`isKanshou`切換這顆開關的可見度(`lab.style.display = isKanshou ? '' : 'none'`)，改成無條件`'none'`——checkbox元素本身保留在DOM(僅隱藏)，`send()`讀`driveToggle.checked`因此恆為`false`，效果等同`driveOn`永遠鎖死在矜持模式：鑑賞固定吃`SOLO_MODEL`(Gemini)、失敗才備援`AI_MODEL`(deepseek-v3.1-terminus)，敘事語氣也固定走矜持版(不套用`driveStr`【主動掌握模式】段落與尺度拉滿規則)。純前端顯示邏輯改動，`Router_Narrative.gs`/`Gallery.gs`的`driveOn`判斷分支完全未動——只是玩家再也無法從UI切換到🔥點火那一側。若日後想恢復，把`applyModeUI()`那行改回`isKanshou ? '' : 'none'`即可，UI元素本身仍在。
+
+**改動**：`gas/Script.html`(`applyModeUI()`點火開關可見度改無條件隱藏)。驗證：`bash check.sh`全過、`nsfwBaseRules`紅線diff=0。純前端顯示調整，不改變任何後端邏輯或prompt文字，部署後建議測試：鑑賞輸入框旁確認🔥開關已消失、對話功能一切正常(送出訊息仍能正常運作，只是永遠走矜持模式)。
