@@ -1568,3 +1568,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **追加調整（玩家問「Hermes 4 70B 這好用嗎？grok4.20很棒但是太貴了」）**：查證OpenRouter+社群評價，`nousresearch/hermes-4-70b`——混合推理模式、131k context，官方定位「minimal built-in content filters or refusals」(社群普遍拿來寫小說/角色扮演、刻意降低拒答率的路線)，價格$0.13/$0.40每百萬token(輸入/輸出)，約`grok-4.20`($1.25/$2.5)的1/6~1/10。透過`AskUserQuestion`列出2個選項(換Hermes 4 70B／先維持grok-4.20)，玩家選換Hermes。**修法**：`UNLOCKED_MODEL`(Core_Settings.gs)預設值改成`nousresearch/hermes-4-70b`，其餘架構(指令碼屬性優先/沒設定才落回預設值)不變。這是這3個解鎖分支第五次調整模型(deepseek→Gemini→grok-4.1-fast→grok-4.20→hermes-4-70b)，考量從「找一顆能寫、成本可持續」的角度收斂。
 
 **改動**：`gas/Core_Settings.gs`(`UNLOCKED_MODEL`預設值改`nousresearch/hermes-4-70b`)；`AI_PROMPT_MAP.md`(§`actionUseSeal`模型備註更新為第五輪調整)。驗證：`bash check.sh`全過、`nsfwBaseRules`紅線diff=0。純模型切換，部署後建議測試：令咒/補魔解鎖分支改用Hermes 4 70B後是否能正常呼叫成功、寫作質感、篇幅是否完整不被截斷。
+
+**追加調整（玩家實測部署後反饋「換回去吧。很差....」）**：Hermes 4 70B雖便宜，但玩家實機測試寫作品質不理想，決定放棄成本優化、換回`grok-4.20`(先前確認寫作效果佳的版本)。**修法**：`UNLOCKED_MODEL`(Core_Settings.gs)預設值改回`x-ai/grok-4.20`，其餘架構不變。這是這3個解鎖分支第六次調整模型(deepseek→Gemini→grok-4.1-fast→grok-4.20→hermes-4-70b→grok-4.20)，最終在「寫作品質優先於成本」的判斷下收斂回grok-4.20。
+
+**改動**：`gas/Core_Settings.gs`(`UNLOCKED_MODEL`預設值改回`x-ai/grok-4.20`)；`AI_PROMPT_MAP.md`(§`actionUseSeal`模型備註更新為第六輪調整)。驗證：`bash check.sh`全過、`nsfwBaseRules`紅線diff=0。純模型切換，部署後建議測試：令咒/補魔解鎖分支改回grok-4.20後的寫作質感是否恢復先前水準。

@@ -32,11 +32,11 @@ const SOLO_MODEL = (function () {
 // 🧪 2026-07 玩家測試補魔/令咒解鎖分支(actionNarrateOnly 的 deepseek:true 旗標)換模型寫作質感——
 //   同款「屬性優先、沒設定才落回預設值」寫法，獨立成自己的指令碼屬性，不影響 AI_MODEL/SOLO_MODEL。
 //   玩家實測 x-ai/grok-4.1-fast 在 OpenRouter 上呼叫不到(該廠商/OpenRouter當下未提供此slug)，
-//   改用確認可用的 x-ai/grok-4.20(效果佳但偏貴)；玩家再改用 nousresearch/hermes-4-70b——
-//   官方定位「minimal built-in content filters or refusals」、價格約grok-4.20的1/6~1/10。
+//   改用確認可用的 x-ai/grok-4.20(效果佳但偏貴)；玩家試過 nousresearch/hermes-4-70b(便宜但
+//   實測寫作品質不佳)後換回 grok-4.20——目前收斂在這顆，價格換品質可接受。
 const UNLOCKED_MODEL = (function () {
   var p = PropertiesService.getScriptProperties();
-  return p.getProperty('UNLOCKED_MODEL') || 'nousresearch/hermes-4-70b';
+  return p.getProperty('UNLOCKED_MODEL') || 'x-ai/grok-4.20';
 })();
 
 // ==========================================
