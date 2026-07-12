@@ -28,6 +28,12 @@ const SOLO_MODEL = (function () {
   var p = PropertiesService.getScriptProperties();
   return p.getProperty('SOLO_MODEL') || 'google/gemini-3.1-flash-lite';
 })();
+// 🧪 2026-07 玩家測試補魔/令咒解鎖分支(actionNarrateOnly 的 deepseek:true 旗標)換模型寫作質感——
+//   同款「屬性優先、沒設定才落回預設值」寫法，獨立成自己的指令碼屬性，不影響 AI_MODEL/SOLO_MODEL。
+const UNLOCKED_MODEL = (function () {
+  var p = PropertiesService.getScriptProperties();
+  return p.getProperty('UNLOCKED_MODEL') || 'x-ai/grok-4.1-fast';
+})();
 
 // ==========================================
 // ★ 階段一：ORM 資料實體映射 (Data Mapping) 
