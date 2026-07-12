@@ -2568,11 +2568,11 @@ function applyModeUI() {
   var isKanshou = (pc && pc.mode === 'kanshou');
   var uin = document.getElementById('u-in'); if (uin) uin.style.display = isKanshou ? '' : 'none';
   var sbtn = document.getElementById('send-btn'); if (sbtn) sbtn.style.display = isKanshou ? '' : 'none';
-  // 🔥 2026-07 玩家定案「隱藏點火按鈕」：UI 開關拿掉，driveOn 永遠鎖在 false(矜持模式，同伴不主動掌握節奏)，
-  //   鑑賞固定吃 SOLO_MODEL(Gemini)、失敗才備援 AI_MODEL——checkbox 元素保留在 DOM(僅隱藏)，send() 讀
-  //   driveToggle.checked 仍恆為 false，行為不變，只是玩家再也看不到、點不到這顆開關。
-  var drv = document.getElementById('drive-mode-toggle');
-  if (drv) { var lab = drv.closest('label'); if (lab) lab.style.display = 'none'; }
+  // 🔥 2026-07 玩家定案「改回來」：上一輪隱藏開關導致 driveOn 永遠鎖在 false，🔥主動掌握模式的
+  //   敘事行為(driveStr注入/尺度拉滿)與 AI_MODEL(deepseek-v3.1-terminus)整個變成永遠用不到的死路，
+  //   只剩 SOLO_MODEL(Gemini)失敗時的兜底角色——玩家確認這不是本意，改回原本依模式顯示/隱藏。
+  var drv = document.getElementById('drive-mode-toggle'); // 🔥 主動掌握開關(原nsfw-mode-toggle重生，見Index.html註解)
+  if (drv) { var lab = drv.closest('label'); if (lab) lab.style.display = isKanshou ? '' : 'none'; }
   // 🎴 2026-07 UI 大改：solo 頂部＝查看/魔力/系統三鍵(取代地點)、底部輸入框整條隱藏(純按鍵)；
   //   慾海維持原本(頂部地點徽章＋底部輸入框打字互動＋NSFW開關)，零改動守紅線②。
   var tSolo = document.getElementById('topbar-solo'); if (tSolo) tSolo.style.display = isKanshou ? 'none' : 'flex';
