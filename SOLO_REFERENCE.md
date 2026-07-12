@@ -1572,3 +1572,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **追加調整（玩家實測部署後反饋「換回去吧。很差....」）**：Hermes 4 70B雖便宜，但玩家實機測試寫作品質不理想，決定放棄成本優化、換回`grok-4.20`(先前確認寫作效果佳的版本)。**修法**：`UNLOCKED_MODEL`(Core_Settings.gs)預設值改回`x-ai/grok-4.20`，其餘架構不變。這是這3個解鎖分支第六次調整模型(deepseek→Gemini→grok-4.1-fast→grok-4.20→hermes-4-70b→grok-4.20)，最終在「寫作品質優先於成本」的判斷下收斂回grok-4.20。
 
 **改動**：`gas/Core_Settings.gs`(`UNLOCKED_MODEL`預設值改回`x-ai/grok-4.20`)；`AI_PROMPT_MAP.md`(§`actionUseSeal`模型備註更新為第六輪調整)。驗證：`bash check.sh`全過、`nsfwBaseRules`紅線diff=0。純模型切換，部署後建議測試：令咒/補魔解鎖分支改回grok-4.20後的寫作質感是否恢復先前水準。
+
+**追加調整（玩家「nousresearch/hermes-4-70b 這個給鑑賞點火試試看」）**：這次是鑑賞(`actionPlay`)的`AI_MODEL`第一次測試Hermes——先前#216/#217的Hermes 4 70B測試對象是`UNLOCKED_MODEL`(solo令咒/補魔解鎖分支)，玩家反饋寫作品質不佳已換回grok-4.20；這次玩家點名要給**鑑賞的🔥點火(driveOn=true)分支**試同一顆模型，是獨立的測試對象，不影響已收斂的`UNLOCKED_MODEL`設定。**修法**：`AI_MODEL`(Core_Settings.gs，鑑賞預設模型)從`deepseek/deepseek-v3.1-terminus`改成`nousresearch/hermes-4-70b`。⚠ **需注意的架構耦合**：查證`Gallery.gs`的`actionPlay`裡`aiConfig.model = driveOn ? AI_MODEL : SOLO_MODEL`，且`if (!driveOn) aiConfig.fallbackModel = AI_MODEL`——這顆常數同時扮演兩個角色：①點火時的直接呼叫模型(玩家這次想測的對象)；②熄滅(矜持)模式下`SOLO_MODEL`(Gemini)重試失敗時的備援模型。這次改動兩者都會受影響，非只影響點火分支；若熄滅模式的備援品質有異狀，需回頭檢查是否為此變動所致。
+
+**改動**：`gas/Core_Settings.gs`(`AI_MODEL`預設值改`nousresearch/hermes-4-70b`)。驗證：`bash check.sh`全過、`nsfwBaseRules`紅線diff=0。純模型切換，不改變任何prompt文字或數值結算，部署後建議測試：鑑賞🔥點火分支用Hermes 4 70B的寫作質感、篇幅完整度、是否混入簡體字/大陸用語（callGeminiAPI尾端的語言鐵律附加對兩軌通用不受影響）。
