@@ -1557,3 +1557,9 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **追加調整（玩家實測部署後反饋「fast好像沒有 只有4.20 改成這個」）**：`x-ai/grok-4.1-fast`雖然OpenRouter網站上查得到模型卡，但玩家實機呼叫時發現這個slug實際打不通(該廠商/OpenRouter當下未真正提供此slug可用)，只有`x-ai/grok-4.20`本體確認可正常呼叫。**修法**：`UNLOCKED_MODEL`(Core_Settings.gs)預設值改成`x-ai/grok-4.20`，其餘架構(指令碼屬性優先/沒設定才落回預設值)不變。這是這3個解鎖分支第四次調整模型(deepseek→Gemini→grok-4.1-fast→grok-4.20)。
 
 **改動**：`gas/Core_Settings.gs`(`UNLOCKED_MODEL`預設值改`x-ai/grok-4.20`)；`AI_PROMPT_MAP.md`(§`actionUseSeal`模型備註更新為第四輪調整)。驗證：`bash check.sh`全過、`nsfwBaseRules`紅線diff=0。純模型切換，部署後建議測試：令咒/補魔解鎖分支改用grok-4.20後是否能正常呼叫成功、寫作質感與回應速度、篇幅是否完整不被截斷。
+
+**✅ 實測驗證（玩家貼出grok-4.20實際生成樣本，反饋「好像成功了！！」）**：樣本顯示前幾輪修正的效果都到位——①性別配對正確(這局御主為男性「僕」自稱，插入視角合理)；②從者從抗拒翻轉成媚藥式主動索求(第三次抽插後纏抱/索吻/催促)有確實演出；③御主自身高潮有實際鋪陳(連續高潮堆疊到最終釋放，非結尾硬塞一句)；④令咒解除→積怨反噬→反殺的情緒轉折銜接順暢。`UNLOCKED_MODEL=x-ai/grok-4.20`確認可用且效果良好，這條調整線(deepseek→Gemini→grok-4.1-fast→grok-4.20)至此收斂。
+
+**追加調整（玩家提出，鑑賞(actionPlay)也換模型測試）**：`AI_MODEL`(Core_Settings.gs，鑑賞預設模型)從`deepseek/deepseek-chat-v3.1`改成`deepseek/deepseek-v3.1-terminus`——同廠商的更新版本(語言一致性/agent能力優化)，架構(指令碼屬性`MODEL`優先、沒設定才落回此預設值)不變，鑑賞的呼叫路徑(`Gallery.gs`的`aiConfig.model`/`fallbackModel`、`Engine_Combat.gs`的`callGeminiAPI`預設值)全部透過這顆常數自動吃到新模型，不必逐一修改呼叫端。順手修正`Router_Narrative.gs`一處過期註解——先前將令咒/補魔解鎖分支的模型覆寫獨立成`UNLOCKED_MODEL`常數時，`narrateWithState_`函式內一段舊註解仍寫著「傳`opts.model=AI_MODEL`」，實際上早已改傳`UNLOCKED_MODEL`，註解與程式碼不同步，一併更正。
+
+**改動**：`gas/Core_Settings.gs`(`AI_MODEL`預設值改`deepseek/deepseek-v3.1-terminus`)；`gas/Router_Narrative.gs`(修正`narrateWithState_`過期註解)。驗證：`bash check.sh`全過、`nsfwBaseRules`紅線diff=0。純模型切換＋註解修正，不改變任何prompt文字或數值結算，部署後建議測試：鑑賞對話的語言一致性(繁體中文/是否混入簡體字)、寫作質感與回應速度。

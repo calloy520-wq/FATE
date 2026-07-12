@@ -120,8 +120,9 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
     ignoreLaw: true,            // 不疊規矩表(節慶/天時)
     max_tokens: opts.maxTokens || 720, // 🔵 2026-07 玩家「solo原本720就維持吧」——原值運作良好，撤回上一輪的1000
     // 🔥 2026-07 玩家定案「補魔條件解鎖時場景更露骨」：唯一允許呼叫端覆寫模型的旗標——僅
-    //   actionManaSupply/actionUseSeal 的高好感解鎖分支會傳 opts.model=AI_MODEL(deepseek，同鑑賞
-    //   預設模型，比SOLO_MODEL更能承接露骨描寫)；其餘所有呼叫端不傳，行為與改動前完全一致。
+    //   actionManaSupply/actionUseSeal 的高好感解鎖分支會傳 opts.model=UNLOCKED_MODEL(見
+    //   Core_Settings.gs，獨立於鑑賞的AI_MODEL，方便兩邊各自換模型測試)；其餘所有呼叫端不傳，
+    //   行為與改動前完全一致。
     model: opts.model || SOLO_MODEL,
     isNsfwMode: !!opts.isNsfw    // NSFW 時讓 fallback 文案合理，但不啟用完整慾海規則
   };
