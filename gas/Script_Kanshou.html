@@ -193,32 +193,10 @@
     }).join('');
   }
 
-  function ensureKcMapOverlay_() {
-    if (document.getElementById('kc-map-overlay')) return;
-    var ov = document.createElement('div');
-    ov.id = 'kc-map-overlay';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.82);display:none;align-items:center;justify-content:center;padding:18px;';
-    ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:420px;width:100%;max-height:calc(100vh - 36px);padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;">'
-      + '<div style="overflow-y:auto;min-height:0;">'
-      + '<h3 style="margin:0 0 4px;color:#e0a0bc;">🗺️ 出門走走</h3>'
-      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">挑個地方走走，路上也許會巧遇誰。</div>'
-      + '<label style="display:flex;align-items:center;gap:6px;margin-bottom:10px;color:#c9b8d8;font-size:12px;cursor:pointer;">'
-      + '<input type="checkbox" id="kc-encounter-toggle" ' + (kanshouEncounterOn ? 'checked' : '') + ' onchange="kanshouToggleEncounter_(this.checked)"> 路上可能巧遇陌生人'
-      + '</label>'
-      + '<div id="kc-map-list">' + kcMapListHtml_() + '</div>'
-      + '</div>'
-      + '<button onclick="closeKcMapOverlay()" style="margin-top:12px;width:100%;padding:10px;background:#4a3a6a;color:#fff;border:none;border-radius:8px;cursor:pointer;flex-shrink:0;">關閉</button>'
-      + '</div>';
-    document.body.appendChild(ov);
-  }
-  function closeKcMapOverlay() { var ov = document.getElementById('kc-map-overlay'); if (ov) ov.style.display = 'none'; }
-
-  function openKanshouMap() {
-    try { var dr = document.getElementById('action-drawer'); if (dr && dr.style.display !== 'none' && typeof toggleActionDrawer === 'function') toggleActionDrawer(); } catch (e) {}
-    if (!pc || !pc.id) { alert('尚未進入後日談。'); return; }
-    ensureKcMapOverlay_();
-    document.getElementById('kc-map-overlay').style.display = 'flex';
-  }
+  // 🧹 2026-07 玩家定案「改回跟solo很像的ui 3個分頁！地圖變成清單類型！」：原本掛在☰抽屜裡的
+  //   彈窗(ensureKcMapOverlay_/closeKcMapOverlay/openKanshouMap)已被「🗺️地圖」分頁取代——
+  //   kcMapListHtml_ 現在直接由 Script.html 的 renderMapPane() 渲染進 #map-pane-content，
+  //   彈窗整條(含 drawer-kanshou-map 按鈕)一併移除，不留兩套平行的進入點。
 
   // 🏠 改名「家」(2026-07 玩家新增)：寫進後端 MEMORY【住所】標記(kanshou_set_home_name)，
   // 成功後同步更新本地 pc.homeName＋重繪清單，不必整頁重整或重打 sync。
@@ -242,7 +220,6 @@
   // 移動走既有 send() 的 action:'play' 同一次round-trip(帶 moveTarget)，不另開一次網路請求；
   // AI 會依後端算好的巧遇資訊直接把抵達場景/偶遇演出來，故不在此處另外插一句本地假訊息。
   async function kanshouMoveTo(name) {
-    closeKcMapOverlay();
     await send('📍 走向了「' + name + '」，四處看看。', false, null, name);
   }
 
@@ -428,7 +405,9 @@
       document.getElementById('ui-sex').innerText = pc.sex;
       setupHistoryPrevention();
       refreshFateTags();
-      // 🧹 2026-07：鑑賞拔地圖(applyModeUI 已隱藏 #pane-map)，這裡不必再算圖──renderMapPane 移除。
+      // 🗺️ 2026-07 玩家定案「地圖分頁改清單型」：寬螢幕三欄並排時 #pane-map 不需要點分頁才顯示，
+      //   進場當下就先算一次(比照 solo 登入後 syncData 觸發的 renderMapPane 初次填色)。
+      renderMapPane();
       // 🚀 首次建檔才需要AI潤色敘事欄：不await，趁玩家看開場白的空檔在背景跑，失敗則保留種子預設。
       if (firstTimeSeed) backfillKanshouAi(firstTimeSeed);
       // 🧵 跟單機一樣：靠 pcId 從「歷史暫存」撈前塵對話，承接上次的後日談，不重開場
