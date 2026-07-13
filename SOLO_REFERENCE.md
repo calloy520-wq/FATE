@@ -1779,3 +1779,18 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **改動**：18個`.gs`檔案（見上表行數變化），皆為純註解刪減/濃縮，無程式碼邏輯變動。
 
 **驗證**：`bash check.sh`全過（含既有5檔）；18檔逐一用python腳本做「去除註解後逐行比對」確認程式碼部分完全一致；`nsfwBaseRules`/`miniSystem`兩處紅線相關內容額外逐字元核對確認未受影響。
+
+## §54 鑑賞新增AI可自主更新的「換裝」欄位outfit_change，physical_state收窄為純顏面神情（2026-07・玩家「我想要讓AI 可以改動服裝呢...會太麻煩嗎?」→「physical_state專注顏面神情就好，outfit_change專注當下的穿著狀態(有衣物要有衣物 如果被脫光或是洗澡 也要如實的變化)」）
+
+**背景**：玩家設定`【換裝】`過去只能由玩家自己透過UI(`actionSetOutfit`)手動更改，AI敘事無論劇情怎麼演(洗澡、更衣、被脫光)，下一回合讀到的`【換裝】`記錄仍是玩家上次手動設定的那句，跟劇情實況脫節。玩家要求讓AI也能依劇情如實更新這份持久記錄。
+
+**設計**：比照鑑賞既有的`rel_changes`(AI回傳好感增減)、`attitude`(AI回傳臨場態度)同一套「AI每回合回報、GAS決定要不要寫回」模式，在`intimacy_feedback`新增`outfit_change`欄位；玩家進一步要求把原本合併的`physical_state`(顏面神情＋衣裝狀態)拆開——`physical_state`只管每回合都可能變的暫時神情，`outfit_change`專責要持久記住的實際穿著（含被脫光/沐浴等非常態），兩者關注點不同，混在一起容易讓AI分不清哪句該持久、哪句該隨風而逝。
+
+**改動**（`gas/Gallery.gs`）：
+1. `buildDefaultSystemPrompt()`：`_physicalState`描述收窄成只講顏面神情(≤15字)；新增`_outfitChange`/`_outfitChangeRef`常數，描述當下實際穿著狀態(≤20字，正常穿著寫身上衣物、全裸/沐浴/更衣等狀態也要如實反映)。`finalJson.intimacy_feedback`的`player`與`npcs[0]`範本各補上`outfit_change`欄位，`_note`同步說明兩欄的差異與各自字數上限。
+2. `actionPlay`：新增`sanitizeOutfitChange`(比照既有`sanitizePhysicalState`的敷衍語過濾，不重複截斷——直接交給`setOutfit_`本身既有的40字硬上限與清洗邏輯)；`sanitizePhysicalState`的後端截斷從25字收緊到20字(對應描述改成純顏面神情、字數需求變小)。玩家(`intimacy_feedback.player`)與每位NPC(`intimacy_feedback.npcs[]`)的回應處理新增一段：篩過的`outfit_change`非空時呼叫既有`setOutfit_(pcData[idx][COL.PC.MEMORY], val)`寫回，跟玩家UI手動換裝共用同一個底層函式、同一套「清除舊值再整段append」寫法，沒有另開特例路徑。
+3. 順手把三處提示詞注入的「（玩家指定當前服裝...）」措辭改成「（當前服裝...）」——換裝來源已不只玩家UI，措辭不該再暗示「一定是玩家設定的」。
+
+**未動的部分**：`getOutfit_`/`setOutfit_`/`clearOutfit_`底層機制、玩家UI手動換裝(`actionSetOutfit`/`changeOutfit()`)完全未動——AI新增的寫入路徑與既有玩家寫入路徑共用同一個函式、同一個MEMORY標記，兩者可以互相覆蓋(誰的回合晚誰生效)，符合「這是當下真實狀態」的設計意圖，不需要額外的優先權/鎖定機制。`nsfwBaseRules`常數本體逐字元核對未受影響。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0；`nsfwBaseRules`常數逐字元比對前後IDENTICAL。部署後建議測試：跟同伴進入親密場景、劇情演到脫衣/沐浴，確認下一回合讀到的「裝扮」欄位有跟著更新，且離開該情境後(如穿回衣服)也能正確反映最新狀態，不會卡在中途的某個狀態不動。
