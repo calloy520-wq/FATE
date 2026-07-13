@@ -31,9 +31,7 @@
     //   (solo 那邊的隨機/混亂池刻意共用玩家原創、維持既有設計不動，這條限制僅針對鑑賞直接指名召喚。)
     _kcHeroesAvailable = _kcHeroesAll
       .filter(function (h) { return !_kcCur.some(function (c) { return c.name === h.name; }); })
-      .filter(function (h) { return h.src !== 'ai_gen' || (h.creator && h.creator === currentAccount); })
-      // 🎨 2026-07 玩家「拿掉衛宮士郎吧...也禁止召喚他？」：玩家本人就是這個位置，濾掉不給選。
-      .filter(function (h) { return h.id !== '衛宮士郎-Master'; });
+      .filter(function (h) { return h.src !== 'ai_gen' || (h.creator && h.creator === currentAccount); });
   }
 
   function ensureKcOverlay_() {
@@ -290,7 +288,10 @@
       if (!res || !res.success) { alert((res && res.message) || '讀取同伴失敗。'); return; }
       _kcCur = res.current || []; _kcMax = res.max || 3;
       if (needHeroes) {
-        _kcHeroesAll = (heroRes && heroRes.success) ? (heroRes.heroes || []) : [];
+        // 🎨 2026-07 玩家「男角都移除掉吧...沒啥用...可以去當背景就好也禁止被召喚吧」：全面濾掉
+        //   男性英靈/御主，在來源就濾乾淨，篩選下拉(genderOpts)/召喚清單都不會再冒出男性選項。
+        //   衛宮士郎-Master也是男性，這條連帶涵蓋掉，不必再另外用id特判。
+        _kcHeroesAll = (heroRes && heroRes.success) ? (heroRes.heroes || []).filter(function (h) { return h.gender !== '男'; }) : [];
         _kcHeroesCacheReady = !!(heroRes && heroRes.success); // 讀取失敗不快取「空」，下次開面板會再試一次
       }
       kcRecomputeAvailable_();

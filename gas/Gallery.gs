@@ -263,10 +263,13 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
   var heroes = getHeroCodexCached();
   var hero = heroes.find(function (r) { return String(r[COL.HERO.ID]) === heroId; });
   if (!hero) return JSON.stringify({ success: false, message: "英靈庫查無此英靈。" });
-  // 🎨 2026-07 玩家「拿掉衛宮士郎吧...也禁止召喚他？」：第二道防線(前端清單已先濾掉，這裡防
-  //   直打API繞過)，玩家本人就是這個位置，不開放召喚。
+  // 🎨 2026-07 玩家「拿掉衛宮士郎吧...也禁止召喚他？」：玩家本人就是這個位置，不開放召喚。
   if (heroId === '衛宮士郎-Master') return JSON.stringify({ success: false, message: "無法召喚——這個位置由你自己擔任。" });
   var heroName = String(hero[COL.HERO.NAME] || "從者");
+  // 🎨 2026-07 玩家「男角都移除掉吧...沒啥用...可以去當背景就好也禁止被召喚吧」：全面禁止男性
+  //   英靈/御主入駐鑑賞(第二道防線，前端 kcRecomputeAvailable_ 已先濾掉，這裡防直打API繞過)。
+  //   種子資料本體(Seed_Codex.gs)不刪，只是全面禁止在鑑賞出場——他們仍可留在敘事/種子庫當背景角色。
+  if (String(hero[COL.HERO.SEX]) === '男') return JSON.stringify({ success: false, message: "「" + heroName + "」暫時無法召喚——鑑賞僅開放女性從者/御主入駐。" });
   // 🔒 玩家原創(ai_gen)只有創造者本人可召喚進鑑賞——前端清單已濾掉，這裡是第二道防線(防直打API
   //   繞過前端過濾)。種子(正典)英靈不受限、人人可召喚。
   if (String(hero[COL.HERO.SOURCE]) === "ai_gen") {
@@ -398,11 +401,10 @@ function actionEnterKanshou(userData, pcId, sheets) {
   //   呼叫)，不逐列appendRow，維持整表批次寫入的效能鐵律，不會拖慢建角速度。
   // 玩家反映「美遊/伊莉雅-Caster/小黑這三個感覺先不要」(較冷門的Illya外傳角色)，改用主線
   // 知名度較高的美狄亞/美杜莎。
-  // 🎨 2026-07 玩家「拿掉衛宮士郎吧...就當成玩家直接取代他吧？」：女性玩家起始陣容移除
-  //   衛宮士郎-Master，不補位(EMIYA/伊斯坎達爾兩位男性同伴維持原樣)。
-  var starterIds = mSex === "女"
-    ? ['阿爾托莉雅-Saber', '遠坂凜-Master', '伊莉雅絲菲爾-Master', 'EMIYA-Archer', '伊斯坎達爾-Rider']
-    : ['阿爾托莉雅-Saber', '遠坂凜-Master', '伊莉雅絲菲爾-Master', '美狄亞-Caster', '美杜莎-Rider'];
+  // 🎨 2026-07 玩家「男角都移除掉吧...沒啥用」：全面禁止男性英靈/御主入駐鑑賞(見下方
+  //   actionKanshouSummonHero同款禁令)，起始陣容不分玩家性別統一給同一份純女性名單，
+  //   EMIYA/伊斯坎達爾兩位男性同伴移出起始陣容(種子資料本體不刪，只是全面禁止在鑑賞出場)。
+  var starterIds = ['阿爾托莉雅-Saber', '遠坂凜-Master', '伊莉雅絲菲爾-Master', '美狄亞-Caster', '美杜莎-Rider'];
   var starterCodex = getHeroCodexCached();
   var starterRows = starterIds.map(function (hid) {
     var hero = starterCodex.find(function (r) { return String(r[COL.HERO.ID]) === hid; });
@@ -835,6 +837,26 @@ const KANSHOU_HOUSEMATE_ROOMS_ = {
   '間桐櫻黑化-Master': '間桐櫻的房間',
   '美杜莎-Rider': '美杜莎的房間'
 };
+// 🎭 橋段庫(2026-07新增，玩家「打完自己都知道會怎麼演了根本不好玩」)：跟前面幾個系統指定情境
+//   (kanshouKnockGuestStr等)同一種精神——GAS先決定「觸發條件」與「這次走向」，AI只負責照著
+//   選中的走向去演出具體細節，玩家不必自己打字下劇本、也不會提前知道結局。之後想加新橋段，
+//   往這裡加一筆(觸發條件另外寫在actionPlay對應的動作分支，找不到共通掛點時)即可，不必另開
+//   一條平行的敘事管線。branches依bond由高到低排列，取第一個bond達標的當作這次走向。
+const KANSHOU_SCENE_EVENTS_ = {
+  夜襲: {
+    branches: [
+      { min: 60, tag: '先是一驚，隨即化為驚喜，帶著歡喜迎接這個不速之客' },
+      { min: 30, tag: '嚇了一跳、又驚又羞，嘴上抵抗、卻沒有真的推拒或喊人' },
+      { min: -100, tag: '被嚇得繃緊神經、下意識帶著防備，需要玩家主動放軟才能卸下戒心' }
+    ]
+  }
+};
+// 依bond從KANSHOU_SCENE_EVENTS_挑出這次橋段該走的分支(資料驅動，橋段本身不寫死走向)。
+function kanshouRollSceneBranch_(eventKey, bond) {
+  const ev = KANSHOU_SCENE_EVENTS_[eventKey];
+  if (!ev) return null;
+  return ev.branches.find(b => bond >= b.min) || ev.branches[ev.branches.length - 1];
+}
 // 🏠 2026-07 玩家發現「不同行的人推進一天時會溜到玩家自己家裡」的錯誤（kanshouRollDailyLocation_
 //   原本深夜/清晨的homeBias直接回傳KANSHOU_LOCATIONS_裡region==='home'的房間——那是玩家自己的家，
 //   不同行的人不該在那裡出現）：改成每位英靈自己的住處(資料驅動，比照KANSHOU_LOCATION_TAGS_同款
@@ -888,6 +910,9 @@ function kanshouHeroIdByName_(heroName) {
   const hero = SEED_SERVANTS.find(h => kanshouNameCandidates_(h.realName).includes(heroName));
   return hero ? hero.id : null;
 }
+// 🌙 2026-07 玩家「晚上也要有人會在外遊蕩（即使是住在家裡的？大概10%？)」：同住人(KANSHOU_
+//   HOUSEMATE_ROOMS_)深夜/清晨睡不著出門走走的機率，獨立於一般英靈的homeBias，資料只存一處。
+const KANSHOU_HOUSEMATE_WANDER_CHANCE_ = 0.1;
 // 🎲 結束一天/推進時間(2026-07「不讓玩家指派，直接GAS判定」定案，hour參數為後續「推進時間」補充)：
 //   幫「不在身邊」的英靈決定當下要去哪——反查KANSHOU_LOCATION_TAGS_裡有沒有哪些地點標到這位
 //   英靈的id(她平常會去的地方)，有就加權隨機挑一個；沒被任何地點標到就從全部地點隨機挑。
@@ -895,17 +920,26 @@ function kanshouHeroIdByName_(heroName) {
 //   Rider是住在衛宮宅的同住人，該有自己的房間」：先查KANSHOU_HOUSEMATE_ROOMS_(住在這個家、有
 //   專屬房間的人)，沒有才退回KANSHOU_HERO_HOME_(還沒搬進來、在外面有自己住處的人)，兩者都沒有
 //   才是通用值；其餘時段沿用原本haunts邏輯不變；不傳(舊呼叫端)則完全比照改動前的行為。
+//   🌙 同住人另外反著骰：預設KANSHOU_HOUSEMATE_WANDER_CHANCE_機率跳過「回房間」、改走下面
+//   haunts/全地點池(在外遊蕩)，讓「晚上敲門找不到人」也可能發生在自家人身上。
 function kanshouRollDailyLocation_(heroName, hour) {
   const heroId = kanshouHeroIdByName_(heroName);
+  const housemateRoom = heroId && KANSHOU_HOUSEMATE_ROOMS_[heroId];
   if (hour !== undefined && hour !== null) {
     const band = timeBand_(hour);
     const homeBias = band === '深夜' ? 0.85 : (band === '清晨' ? 0.5 : 0);
-    if (homeBias > 0 && Math.random() < homeBias) {
-      return (heroId && KANSHOU_HOUSEMATE_ROOMS_[heroId]) || (heroId && KANSHOU_HERO_HOME_[heroId]) || '自己的住處';
+    if (homeBias > 0) {
+      if (housemateRoom) {
+        if (Math.random() >= KANSHOU_HOUSEMATE_WANDER_CHANCE_) return housemateRoom;
+      } else if (Math.random() < homeBias) {
+        return (heroId && KANSHOU_HERO_HOME_[heroId]) || '自己的住處';
+      }
     }
   }
   const haunts = heroId ? Object.keys(KANSHOU_LOCATION_TAGS_).filter(loc => KANSHOU_LOCATION_TAGS_[loc].includes(heroId)) : [];
-  const pool = haunts.length ? haunts : KANSHOU_LOCATIONS_.map(l => l.name);
+  // 🌙 全地點保底池排除'home'分區(玩家自宅私人房間)——不同行的英靈(含在外遊蕩的同住人)不該
+  //   隨機骰進玩家或其他人的臥室，那些只能靠「拜訪」主動走進去，不是隨機亂晃能撞到的地方。
+  const pool = haunts.length ? haunts : KANSHOU_LOCATIONS_.filter(l => l.region !== 'home').map(l => l.name);
   return pool[Math.floor(Math.random() * pool.length)];
 }
 // 🎊 2026-07「跳到節慶」玩法(玩家「還想再做一個日期選擇，想體驗什麼時段的劇情就可以去調整，可能
@@ -1338,6 +1372,7 @@ function actionPlay(userData, pcId, sheets) {
   //   這個瞬間跑一次，不會每句對話重算。
   let kanshouEncounterHero = null, kanshouEncounterMetBefore = false, kanshouEncounterLocName = "";
   let kanshouEventSeed = null;
+  let kanshouNightRaidStr = "";
   if (moveTarget) {
     curL = moveName;
     pcData[pcIndex][COL.PC.LOC] = curL;
@@ -1350,6 +1385,23 @@ function actionPlay(userData, pcId, sheets) {
       pcData[nIdx][COL.PC.LOC] = curL;
       dirtyPcRows.add(nIdx);
     });
+    // 🎭 橋段·夜襲(2026-07新增)：深夜走進「同住人專屬房間」(KANSHOU_HOUSEMATE_ROOMS_)，且她此刻
+    //   是同行隊伍成員——依bond骰出這次的反應走向，寫進提示詞讓AI照走向去演，玩家不必自己下劇本。
+    //   限同住人(有自己房間、算是「住在這個家」)，客房/一般巧遇不吃這套；限同行(此刻確實在場)，
+    //   避免跟kanshouLeftBehindIdxs(非同行故人重逢)的敘事框架互相打架。
+    if (timeBand_(curHour) === '深夜') {
+      const raidHeroId = Object.keys(KANSHOU_HOUSEMATE_ROOMS_).find(hid => KANSHOU_HOUSEMATE_ROOMS_[hid] === moveName);
+      const raidHero = raidHeroId ? SEED_SERVANTS.find(h => h.id === raidHeroId) : null;
+      const raidIdx = raidHero ? pcData.findIndex((r, idx) => idx !== pcIndex && sameGame(r) && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(raidHero.realName).includes(String(r[COL.PC.NAME]))) : -1;
+      if (raidIdx !== -1) {
+        const raidBond = parseInt(pcData[raidIdx][COL.PC.BOND]) || 0;
+        const branch = kanshouRollSceneBranch_('夜襲', raidBond);
+        if (branch) {
+          kanshouNightRaidStr = `\n★【橋段·夜襲(GAS已骰定這次走向，AI只需依此演出，不必徵詢玩家、也不必逐字照抄下方措辭)】：深夜獨自走進了『${raidHero.realName}』的房間，她此刻的反應走向是——${branch.tag}。依她的既有性格詮釋這個走向具體要怎麼表現、講什麼話，細節全由你發揮，但情緒基調不要偏離這個走向。`;
+          if (branch.min >= 60) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], raidHero.realName);
+        }
+      }
+    }
     // 離開原地(換地點)＝上一段巧遇緣分結束，先清掉舊的【邂逅中】，這個新地點才重新擲一次巧遇。
     pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
     kanshouEncounterLocName = moveName;
@@ -1534,7 +1586,7 @@ ${PROMPT_PARTY_SYSTEM}
 【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}(當前服裝·五官體態不變)` : ""} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}${myDecor ? ` | 家中已有的擺設(僅供「家」相關場景參考，非強制每次提及):${myDecor}` : ""}
 
 ${PROMPT_REL}
-★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}${kanshouReunionStr}${kanshouKnockGuestStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${jumpFest ? `\n★【節慶氛圍】：今天是「${jumpFest.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。` : ""}${rentCharged > 0 ? `\n★【房租自動扣款·氛圍提示】：這次時間推進跨過了房租結算日，已自動扣款${rentCharged}円，目前餘額${parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0}円，narration可自然帶一句(如翻看帳單、嘆氣、苦笑)，不必大肆渲染；若餘額為負可自然帶出手頭吃緊的窘迫感，但不必寫成嚴重危機或懲罰劇情。` : ""}${intimateNightNames.length ? `\n★【入夜氛圍·好感門檻已達】：『${intimateNightNames.join('、')}』與你的羈絆已深(好感≥80)，今晚可以自然發展到同床共枕，依其性格自然決定要不要跨出這一步、氛圍濃烈到什麼程度，不強制每次都寫到底；好感未達此門檻的同伴，一律維持各自安睡、不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度了親密的時光(依上一回合實際演出的內容為準，若上次並未真的跨出那一步就當作平常的早晨)，這是新的一天第一個場景，若情境合適可以自然帶出晨間的溫馨/曖昧餘韻(如一起吃早餐、彼此害羞或黏膩的互動)，不強制一定要提及、也不需要複述昨夜細節，一切依角色個性自然發展。` : ""}
+★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}${kanshouReunionStr}${kanshouKnockGuestStr}${kanshouNightRaidStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${jumpFest ? `\n★【節慶氛圍】：今天是「${jumpFest.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。` : ""}${rentCharged > 0 ? `\n★【房租自動扣款·氛圍提示】：這次時間推進跨過了房租結算日，已自動扣款${rentCharged}円，目前餘額${parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0}円，narration可自然帶一句(如翻看帳單、嘆氣、苦笑)，不必大肆渲染；若餘額為負可自然帶出手頭吃緊的窘迫感，但不必寫成嚴重危機或懲罰劇情。` : ""}${intimateNightNames.length ? `\n★【入夜氛圍·好感門檻已達】：『${intimateNightNames.join('、')}』與你的羈絆已深(好感≥80)，今晚可以自然發展到同床共枕，依其性格自然決定要不要跨出這一步、氛圍濃烈到什麼程度，不強制每次都寫到底；好感未達此門檻的同伴，一律維持各自安睡、不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度了親密的時光(依上一回合實際演出的內容為準，若上次並未真的跨出那一步就當作平常的早晨)，這是新的一天第一個場景，若情境合適可以自然帶出晨間的溫馨/曖昧餘韻(如一起吃早餐、彼此害羞或黏膩的互動)，不強制一定要提及、也不需要複述昨夜細節，一切依角色個性自然發展。` : ""}
 💕【鑑賞·後日談模式·最高優先級覆寫】：${partyRows.length === 0
     ? `這裡是平行世界的和平都市日常——聖杯戰爭這回事從未在這個世界發生過，眼下沒有同行的英靈在場，就是御主一人的尋常時光。`
     : partyRows.every(r => String(r[COL.PC.ID]).indexOf("KHV_") === 0)
