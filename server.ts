@@ -170,8 +170,12 @@ class Spreadsheet {
     fs.writeFileSync(this.dbPath, JSON.stringify(this.store, null, 2));
   }
 
+  // 🔴 修復：真實GAS的getSheetByName()在表不存在時回傳null，呼叫端(ensureFateSheets_)靠這個
+  //   判斷「是不是第一次建立」來決定要不要寫表頭/灌種子資料。這裡不能像之前一樣自動補空陣列——
+  //   一旦永遠回傳真值，existing永遠是truthy，insertSheet那個「真正寫表頭+種子資料」的分支就
+  //   永遠執行不到，db.json每張表都會停在空陣列、沒有表頭沒有種子資料。
   getSheetByName(name: string) {
-    return new Sheet(name, this);
+    return Object.prototype.hasOwnProperty.call(this.store, name) ? new Sheet(name, this) : null;
   }
 
   insertSheet(name: string) {
