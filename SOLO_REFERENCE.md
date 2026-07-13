@@ -2187,3 +2187,17 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **未動的部分**：`nsfwBaseRules`不受影響(改動全在`actionPlay`裡結束一天/推進時間分支週邊，未觸及`buildDefaultSystemPrompt`本體)；solo不受影響(`actionPlay`入口本就擋掉非KPC_呼叫)；「一天一次相處/送禮按鈕」(複製solo `actionBond`範本這件事)、家事整潔度、任務系統仍留待後續。
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Engine_Combat.gs gas/Gallery.gs | grep -c nsfwBaseRules` = 0。部署後建議測試：①好感≥80的同行同伴結束一天時，narration有機會演出更親密的過夜橋段，好感未達門檻的同伴維持各自安睡；②多次點「結束一天」，應該有一定機率跳出敲門彈窗，選「開門」後訪客出現在同地點但日期沒推進，選「不予理會」則直接推進到隔天；③推進時間跨過22:00或深夜時段且人不在家，應跳出回家/留在外面過夜提醒，選「留在外面過夜」後同一天內不再重複跳出。
+
+## §79 修正「不同行英靈推進一天時會溜進玩家自己家」的錯誤，改給每位英靈自己的住處（2026-07・玩家「那些人會回家？都回衛宮家？應該要給其他人地點吧？」→選「大修：給每位英靈自己的家/住處資料」）
+
+**背景**：`kanshouRollDailyLocation_`(結束一天/推進時間幫「不在身邊」的英靈決定去向)原本深夜(85%)/清晨(50%)時段的homeBias，直接回傳`KANSHOU_LOCATIONS_`裡`region==='home'`的房間(客廳/廚房/臥室/浴室/陽台)——但那5個房間是**玩家自己的家**，不同行(沒有跟玩家住在一起)的英靈不該憑機率溜進玩家的臥室。玩家發現這個問題後，選擇不做小修(單純不再送回玩家家、退回原本haunts池)，而是選擇大修：讓每位英靈都有自己的住處資料。
+
+**`KANSHOU_HERO_HOME_`**(`Gallery.gs`，緊接在`KANSHOU_ENCOUNTER_FEMALE_IDS_`後)：資料驅動對照表(比照`KANSHOU_LOCATION_TAGS_`同款「id對應值」寫法)，25位種子英靈(`Seed_Codex.gs`全部`SEED_SERVANTS`)各自一個貼合設定的住處字串(如`遠坂凜-Master`→`遠坂邸`、`衛宮士郎-Master`→`衛宮邸`、`小黑-Archer`/`伊莉雅-Caster`/`伊莉雅絲菲爾-Master`同為愛因茲貝倫陣營→`愛因茲貝倫城`)。這些字串**刻意不放進`KANSHOU_LOCATIONS_`**(驗證過25個住處字串與22個玩家可造訪地點完全無重複)——玩家在地圖上看不到、去不了，純粹讓「深夜在家」的人不會被玩家意外撞見，直到她下次被重骰到玩家可造訪的地點才會再度可能巧遇/重逢。玩家原創英靈(無種子資料)退回通用值`自己的住處`。
+
+**`kanshouRollDailyLocation_`改動**：`hero`(依realName查`SEED_SERVANTS`)的查找從原本homeBias分支之後提前到函式最前面(兩個分支都要用)；homeBias命中時回傳`KANSHOU_HERO_HOME_[hero.id]`而非玩家家的房間清單。函式簽名/呼叫端完全不變，改動範圍僅函式內部邏輯。
+
+**設計理由**：資料驅動(加一位英靈＝加一筆對照，不動抽選邏輯)；沒有新增任何試算表欄位(純JS常數物件，跟`KANSHOU_LOCATION_TAGS_`同一層級)；根源修正而非特判繞過(直接讓「深夜在家」這件事回傳正確語意的地點，而不是保留舊行為再加例外判斷擋掉玩家家)。
+
+**未動的部分**：`nsfwBaseRules`不受影響；`KANSHOU_LOCATIONS_`(玩家可造訪地點清單)、`KANSHOU_LOCATION_TAGS_`(白天巧遇地點標籤)完全未變；solo不受影響。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Engine_Combat.gs gas/Gallery.gs | grep -c nsfwBaseRules` = 0；程式化核對25個住處字串與22個KANSHOU_LOCATIONS_地點名稱零重複。部署後建議測試：讓一位非同行英靈經歷結束一天/推進時間跨過深夜時段，確認她的LOC不再變成客廳/廚房/臥室/浴室/陽台這幾個玩家自己家的房間名稱。
