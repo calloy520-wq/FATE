@@ -309,7 +309,8 @@
     { id: 'shinzan', name: '深山町・家附近', desc: '溫馨日常區' },
     { id: 'fuyuki', name: '冬木市中心', desc: '熱鬧生活區' },
     { id: 'harbor', name: '港口・碼頭區', desc: '微涼浪漫區' },
-    { id: 'dojo', name: '山林・道場區', desc: '安靜神秘區' }
+    { id: 'dojo', name: '山林・道場區', desc: '安靜神秘區' },
+    { id: 'visit', name: '拜訪住處', desc: '同伴們各自的家' }
   ];
   // 🎊 2026-07「跳到節慶」：純供按鈕文字用的mirror，真正的節慶對應天數(dayOfYear)/換算邏輯只在
   //   後端Gallery.gs的KANSHOU_FESTIVALS_(唯一真實來源)，這裡改節慶記得同步改一次。
@@ -329,7 +330,19 @@
     { name: '海邊步道', region: 'harbor' }, { name: '燈塔下', region: 'harbor' },
     { name: '港口倉庫區', region: 'harbor' }, { name: '小型漁港', region: 'harbor' },
     { name: '老道場', region: 'dojo' }, { name: '山間小徑', region: 'dojo' },
-    { name: '隱藏溫泉', region: 'dojo' }, { name: '廢棄神社', region: 'dojo' }
+    { name: '隱藏溫泉', region: 'dojo' }, { name: '廢棄神社', region: 'dojo' },
+
+    { name: '騎士團舊宿舍', region: 'visit' }, { name: '老舊公寓', region: 'visit' },
+    { name: '荒野小屋', region: 'visit' }, { name: '靜謐宅邸', region: 'visit' },
+    { name: '隱蔽的工房', region: 'visit' }, { name: '河畔道場', region: 'visit' },
+    { name: '荒地帳篷', region: 'visit' }, { name: '高級公寓頂樓', region: 'visit' },
+    { name: '森林小屋', region: 'visit' }, { name: '軍帳', region: 'visit' },
+    { name: '陰暗地下室', region: 'visit' }, { name: '廢棄倉庫', region: 'visit' },
+    { name: '隱密巷弄', region: 'visit' }, { name: '森林深處', region: 'visit' },
+    { name: '城牆邊', region: 'visit' }, { name: '島嶼道場', region: 'visit' },
+    { name: '埃德費爾特宅邸', region: 'visit' }, { name: '愛因茲貝倫城', region: 'visit' },
+    { name: '遠坂邸', region: 'visit' }, { name: '間桐邸', region: 'visit' },
+    { name: '衛宮邸', region: 'visit' }, { name: '藤村家', region: 'visit' }
   ];
   // 目前選取的分區(純前端UI狀態，跨裝置不同步，比照kanshouEncounterOn用localStorage記住偏好)。
   var kcActiveRegion_ = localStorage.getItem('kyushu_kanshou_region') || 'home';
