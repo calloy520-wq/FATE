@@ -686,6 +686,7 @@ function getKanshouPeopleList_(pcId, curL, allPcData) {
 //   region只是KANSHOU_LOCATIONS_每筆的一個標籤欄位，不影響任何既有比對/抽選邏輯(那些都認
 //   location的name，見kanshouRollEncounter_/actionPlay moveTarget比對)。
 const KANSHOU_REGIONS_ = [
+  { id: 'home', name: '家', desc: '私人空間' },
   { id: 'shinzan', name: '深山町・家附近', desc: '溫馨日常區' },
   { id: 'fuyuki', name: '冬木市中心', desc: '熱鬧生活區' },
   { id: 'harbor', name: '港口・碼頭區', desc: '微涼浪漫區' },
@@ -693,8 +694,15 @@ const KANSHOU_REGIONS_ = [
 ];
 // 🌸 鑑賞地點清單：純資料驅動的小陣列，不進 MAP 試算表(不跟solo共用坤圖)——之後要加/改地點只動
 //   這裡。前端 Script_Kanshou.html 另有一份同名清單純供畫按鈕(改地點時兩邊都要更新)，實際驗證/
-//   邏輯只認這裡這份。region對應KANSHOU_REGIONS_的id，純UI分組用。
+//   邏輯只認這裡這份。region對應KANSHOU_REGIONS_的id，純UI分組用。noEncounter:true代表私人
+//   空間，恆不觸發陌生人巧遇(見kanshouRollEncounter_呼叫端)，目前只有「家」分區的5個房間有此旗標。
 const KANSHOU_LOCATIONS_ = [
+  { name: '客廳', region: 'home', desc: '沙發與電視的日常起居空間。', noEncounter: true },
+  { name: '廚房', region: 'home', desc: '飄著飯菜香、鍋碗交錯的小廚房。', noEncounter: true },
+  { name: '臥室', region: 'home', desc: '安穩靜謐、只屬於彼此的房間。', noEncounter: true },
+  { name: '浴室', region: 'home', desc: '水氣氤氳、放鬆卸下一天疲憊的地方。', noEncounter: true },
+  { name: '陽台', region: 'home', desc: '能曬到太陽、吹到風的小陽台。', noEncounter: true },
+
   { name: '河邊小徑', region: 'shinzan', desc: '晨昏都靜謐的河堤小徑，水聲潺潺。' },
   { name: '古老神社', region: 'shinzan', desc: '石階盡頭的老神社，香火氣息。' },
   { name: '社區公園', region: 'shinzan', desc: '孩子嬉鬧、長椅斑駁的社區公園。' },
@@ -871,13 +879,13 @@ function actionPlay(userData, pcId, sheets) {
 
   // 🌸 鑑賞地點移動：前端點選地點按鈕時帶 moveTarget，跟一般對話同一次 round-trip 解決——比對
   //   KANSHOU_LOCATIONS_ 合法地點清單，查無效比對一律當成普通對話。
-  // 🏠「家」選項不在 KANSHOU_LOCATIONS_ 固定清單裡(顯示名稱由玩家自訂)，獨立比對——
-  //   「家」是私人空間，恆不觸發隨機巧遇。
-  const homeName = getKanshouHomeName_(pc[COL.PC.MEMORY]);
+  // 🏠 2026-07「家」升級成跟其他4區並列的第5個分區(region:'home')：客廳/廚房/臥室/浴室/陽台
+  //   都是KANSHOU_LOCATIONS_裡的普通地點(noEncounter:true代表私人空間、不觸發陌生人巧遇)，
+  //   走一般moveTarget比對即可，不再需要獨立特判。getKanshouHomeName_/setKanshouHomeName_
+  //   只供前端「家」分區分頁標籤的自訂顯示名稱使用，不影響這裡的地點驗證。
   const moveTarget = KANSHOU_LOCATIONS_.find(l => l.name === String(userData.moveTarget || "").trim());
-  const isHomeMove = !moveTarget && String(userData.moveTarget || "").trim() === homeName;
-  const moveName = moveTarget ? moveTarget.name : (isHomeMove ? homeName : "");
-  const finalUserMsg = (moveTarget || isHomeMove)
+  const moveName = moveTarget ? moveTarget.name : "";
+  const finalUserMsg = moveTarget
     ? `【玩家意圖】：走向了「${moveName}」，四處看看那裡有什麼、有沒有遇見誰。`
     : `【玩家意圖】：${userMsg}`;
 
@@ -915,7 +923,7 @@ function actionPlay(userData, pcId, sheets) {
   //   這個瞬間跑一次，不會每句對話重算。
   let kanshouEncounterHero = null, kanshouEncounterMetBefore = false, kanshouEncounterLocName = "";
   let kanshouEventSeed = null;
-  if (moveTarget || isHomeMove) {
+  if (moveTarget) {
     curL = moveName;
     pcData[pcIndex][COL.PC.LOC] = curL;
     dirtyPcRows.add(pcIndex);
@@ -930,14 +938,15 @@ function actionPlay(userData, pcId, sheets) {
     // 離開原地(換地點)＝上一段巧遇緣分結束，先清掉舊的【邂逅中】，這個新地點才重新擲一次巧遇。
     pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
     kanshouEncounterLocName = moveName;
-    // 🚪 巧遇開關 + 🏠「家」是私人空間 + 此地已有留守的故人優先呈現：三者皆需通過才擲陌生人骰。
-    kanshouEncounterHero = (encounterOn && moveTarget && kanshouLeftBehindIdxs.length === 0) ? kanshouRollEncounter_(moveTarget.name, kanshouExcludeIds_) : null;
+    // 🚪 巧遇開關 + 🏠 noEncounter地點(家的5個房間)是私人空間 + 此地已有留守的故人優先呈現：
+    //   三者皆需通過才擲陌生人骰。
+    kanshouEncounterHero = (encounterOn && !moveTarget.noEncounter && kanshouLeftBehindIdxs.length === 0) ? kanshouRollEncounter_(moveTarget.name, kanshouExcludeIds_) : null;
     if (kanshouEncounterHero) {
       pcData[pcIndex][COL.PC.MEMORY] = setKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY], kanshouEncounterHero.id);
     }
-    // 🎲 Phase3 輕量小事件：每次抵達新地點才擲一次(不含「家」這種私人空間)，20%機率抽一顆
-    //   靈感種子注入提示詞，只是給AI參考的引子、非強制劇本。
-    kanshouEventSeed = moveTarget ? kanshouRollEvent_(driveOn) : null;
+    // 🎲 Phase3 輕量小事件：每次抵達新地點才擲一次，20%機率抽一顆靈感種子注入提示詞，只是給
+    //   AI參考的引子、非強制劇本(家也適用——這是同行同伴間的氛圍調味，不是陌生人巧遇)。
+    kanshouEventSeed = kanshouRollEvent_(driveOn);
   } else {
     const curLocDef = KANSHOU_LOCATIONS_.find(l => l.name === String(curL || "").trim());
     if (curLocDef) {
@@ -947,11 +956,11 @@ function actionPlay(userData, pcId, sheets) {
       if (activeId) {
         kanshouEncounterLocName = curLocDef.name;
         kanshouEncounterHero = SEED_SERVANTS.find(h => h.id === activeId) || null;
-      } else if (encounterOn && userData.lookAround === true) {
+      } else if (encounterOn && !curLocDef.noEncounter && userData.lookAround === true) {
         // 🔘 2026-07「這功能直接做成按鈕」玩家定案：原本用關鍵字猜測「是不是在問這裡還有誰」已
         //   改成前端明確的「看看四周」按鈕(lookAround:true)，不再猜文字語意。目前還沒有巧遇中的
         //   對象時，用目前地點重新擲一次巧遇——跟按移動按鈕同一套加權隨機，不寫LOC(沒有移動)、
-        //   不同步同伴(沒人移動)。
+        //   不同步同伴(沒人移動)。noEncounter地點(家)恆不觸發此路徑。
         kanshouEncounterLocName = curLocDef.name;
         kanshouEncounterHero = kanshouRollEncounter_(curLocDef.name, kanshouExcludeIds_);
         if (kanshouEncounterHero) {

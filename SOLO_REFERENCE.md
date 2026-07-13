@@ -1832,3 +1832,32 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **未動的部分**：`actionKanshouRemove`/`actionKanshouSummonHero`/`kanshouEditRelTag`/`update_rel_tag`底層邏輯完全未改，只是新增呼叫入口與修正上游過濾條件；`nsfwBaseRules`常數本體逐字元核對未受影響。
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。部署後建議測試：①同一地點刻意留下2位以上故人(在該地點依序請走多位)，重返時確認narration有提及全部、不只一位；②請走一位同伴後，確認TA立刻從頂部標籤卡片消失(不再賴著顯示)；③在標籤卡片直接點「請走」「🏷️關係」，確認效果與開👥同伴面板操作一致(卡片消失/關係更新)。
+
+## §57 鑑賞標籤卡片下方直接露出空位，不必挖進☰抽屜找同伴面板入口（2026-07・玩家「同伴面板 有辦法 不做在+ 裡面嗎? 類似玩家剛進來 左邊標籤下面就有3個空位 點選後可以挑角色 (先預設女性)?」）
+
+**背景**：👥後日談同伴面板原本只能透過畫面右下「＋」展開的抽屜(`#action-drawer`)裡的「後日談同伴」項目(`openCompanions()`)才能打開，玩家覺得藏太深，希望比照3個同伴名額，直接在左側標籤卡片下方露出空位，點了就能挑角色，且預設先篩女性。
+
+**改動**：
+1. **`gas/Script.html` `refreshFateTags`(鑑賞分支)**：`sh`(從者卡片區塊)組裝完在場同伴卡片後，額外算`kcEmptySlots = 3 - myServants.length`(3是既有硬編的同伴上限，跟`actionKanshouCompanions`回傳的`max:3`一致)，每個空位補一張虛線邊框的「➕ 邀請同伴入席」卡片，`onclick`直接呼叫既有的`openCompanions()`——不新增action、不重寫召喚邏輯，只是多一個更顯眼的入口。原本`myServants.length===0`時鑑賞會誤顯示solo措辭的「（尚未召喚）以令咒召喚你的英靈」文案(§56 IS_PARTY過濾修正後，鑑賞真的可能顯示0在場同伴，這句solo專屬文案第一次會被顯示出來)，順手補上`pc.mode==='kanshou'`分支排除這句不合語境的文案。
+2. **`gas/Script_Kanshou.html`**：`_kcFilterGender`初始值從`''`(全部)改成`'女'`——`openCompanions()`每次開面板沿用這個模組層級變數，玩家仍可隨時用既有的性別下拉選單切換成男/全部，只是預設不用手動篩一次。
+
+**未動的部分**：☰抽屜裡原本的「👥 後日談同伴」項目(`drawer-companions`)完全保留、行為不變，當備用進入點；`openCompanions()`/`ensureKcOverlay_`/召喚與請走的後端邏輯完全未碰，這次純粹是「多一個更順手的入口＋改一個預設值」。`nsfwBaseRules`常數本體逐字元核對未受影響(本輪未動`Engine_Combat.gs`/`Gallery.gs`)。
+
+**驗證**：`bash check.sh`全過。部署後建議測試：①同伴不滿3人時，標籤卡片下方確實看到對應數量的「➕邀請同伴入席」空位卡；②點擊空位卡能正確開啟同伴面板；③面板召喚清單的性別篩選預設已是「女」，切換到「全部」/「男」後仍正常運作；④同伴滿3人時空位卡片數為0，不多出多餘卡片。
+
+## §58「家」升級成跟其他4區並列的第5個分區，內含5個房間（2026-07・玩家「玩家公寓（家） << 這可以直接開個分支嗎?」→「家、深山町、冬木市、港口、山林 這樣的分支」，房間用「客廳 廚房 臥室」+ 補齊到5個）
+
+**背景**：§55上線的「家」原本不是分區系統的一部分——它是釘選在分區分頁上方、永遠可見的獨立按鈕，顯示名稱由玩家自訂(`【住所】`標記)，且是唯一比對邏輯特判的「地點」(`isHomeMove`)。玩家看完分區地圖後回頭問，能不能把「家」也做成跟深山町/冬木市/港口/山林並列的第5個分支，底下給幾個具體房間。
+
+**設計**：把「家」從「特判的單一地點」升級成「跟其他4區完全同構的第5個分區」——底下放5個房間(客廳/廚房/臥室/浴室/陽台)，每個房間都是`KANSHOU_LOCATIONS_`裡普通的一筆資料(只是多一個`noEncounter:true`旗標)，跟其餘17個地點走完全相同的`moveTarget`比對／LOC寫入／留人重逢路徑，不再需要`isHomeMove`這個特判分支——移除後例外處理少一條，資料驅動的一致性提高一階。玩家自訂顯示名稱(`getKanshouHomeName_`/`setKanshouHomeName_`)保留，只是用途從「整個按鈕的文字」限縮成「這個分區分頁的標籤文字」。
+
+**改動（`gas/Gallery.gs`）**：
+1. `KANSHOU_REGIONS_`新增`{id:'home', name:'家', desc:'私人空間'}`(排在最前面)。
+2. `KANSHOU_LOCATIONS_`新增5筆`region:'home'`地點：客廳／廚房／臥室／浴室／陽台，皆帶`noEncounter:true`。
+3. `actionPlay`：移除`homeName`/`isHomeMove`兩個區域變數與其比對邏輯，`moveTarget`比對回歸單純的`KANSHOU_LOCATIONS_.find`；`if (moveTarget || isHomeMove)`簡化成`if (moveTarget)`；巧遇擲骰的判斷條件從「`moveTarget &&`(隱含排除isHomeMove)」改成明講「`!moveTarget.noEncounter`」，改用資料欄位而非地點名單排除法；「看看四周」(`lookAround`)分支同步補上`!curLocDef.noEncounter`。事件靈感種子(Phase 3)不受`noEncounter`限制，家的5個房間一樣會抽——這是同行同伴間的氛圍調味，不是陌生人巧遇，跟「私人空間不觸發陌生人」的初衷不衝突。
+
+**改動（`gas/Script_Kanshou.html`）**：`KC_REGIONS_`/`KC_LOCATIONS_`同步新增`home`分區與5個房間；`kcActiveRegion_`預設值從`'shinzan'`改成`'home'`(玩家進場後預設先看到自己家)；`kcMapListHtml_`拿掉原本釘選在分區列上方的獨立「🏠家」按鈕，改成分區分頁列裡的第一個分頁(標籤文字讀`pc.homeName`，其餘4區讀靜態`rg.name`)；改名功能(`kanshouRenameHome`)保留，改成只在「家」分頁展開時才顯示的一行「✏️幫「XX」改名」小字，不佔用其他分區版面。
+
+**未動的部分**：`getKanshouHomeName_`/`setKanshouHomeName_`/`kanshou_set_home_name` action底層邏輯完全未改；`kanshouLeftBehindIdxs`(留人重逢)/`kanshouRollEvent_`(事件種子)沿用既有邏輯，天然對家的5個房間生效，不需要額外改動；`nsfwBaseRules`常數本體逐字元核對未受影響。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。部署後建議測試：①「家」分頁顯示在分區列最前面、標籤文字正確顯示自訂住所名；②切換到「家」分頁能看到客廳/廚房/臥室/浴室/陽台5個房間按鈕，移動過去不會巧遇陌生人；③在家的房間之間移動/停留仍可能出現氛圍事件種子；④「✏️改名」只在「家」分頁展開時出現，改名後分頁標籤即時更新。

@@ -1450,8 +1450,22 @@
       if (myServants.length) {
         var dual = myServants.length > 1;
         sh = myServants.map(function (s) { return buildSvCard(s, s.name === myActiveServant, dual); }).join('<div style="height:6px;"></div>');
-      } else {
+      } else if (!(pc && pc.mode === 'kanshou')) {
         sh = card('#555', '📿 從者', '（尚未召喚）', ['以令咒召喚你的英靈']);
+      } else {
+        sh = '';
+      }
+      // 🆕 2026-07 玩家「同伴面板有辦法不做在+裡面嗎?類似...標籤下面就有3個空位」：鑑賞標籤卡片
+      //   下方直接露出剩餘空位，點擊就開既有的👥同伴面板(ensureKcOverlay_/openCompanions)，
+      //   不必先挖進☰抽屜才找得到入口；抽屜項目本身保留當備用途徑，不影響其行為。
+      if (pc && pc.mode === 'kanshou') {
+        var kcEmptySlots = Math.max(0, 3 - myServants.length);
+        if (kcEmptySlots > 0) {
+          var slotHtml = Array(kcEmptySlots).fill(0).map(function () {
+            return '<div onclick="openCompanions()" style="background:rgba(40,20,34,0.3); border:1px dashed #6a4a5a; border-radius:8px; padding:14px 8px; text-align:center; cursor:pointer; color:#a07a90; font-size:12px;">➕ 邀請同伴入席</div>';
+          }).join('<div style="height:6px;"></div>');
+          sh = sh ? (sh + '<div style="height:6px;"></div>' + slotHtml) : slotHtml;
+        }
       }
       // 💠 供魔收支（放在左側狀態面板，一眼看光）
       var eco = t.economy, ecoStrip = '';

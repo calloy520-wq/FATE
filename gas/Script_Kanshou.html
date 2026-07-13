@@ -18,7 +18,9 @@
   //   快取在分頁工作階段內(英靈庫只有工房鑄造/修改會變，見 invalidateKanshouHeroCache)，重開
   //   面板不再重打網路；④篩選下拉只切換既有列的 CSS display，不重建任何 DOM 節點。
   var _kcCur = [], _kcHeroesAll = [], _kcHeroesAvailable = [], _kcMax = 3;
-  var _kcFilterGender = '', _kcFilterCls = '';
+  // 🆕 2026-07 玩家「先預設女性」：召喚清單性別篩選預設帶「女」(玩家隨時可自己切換成別的選項，
+  //   只是一開始不必先手動篩掉男性)，職階篩選維持不預設(全部)。
+  var _kcFilterGender = '女', _kcFilterCls = '';
   var _kcHeroesCacheReady = false; // ⚡ get_heroes 結果快取旗標
   // 供 Script_Onboarding.html 工房鑄造/修改成功後呼叫：讓下次開面板重新抓一次英靈庫(否則新作品看不到)。
   function invalidateKanshouHeroCache() { _kcHeroesCacheReady = false; }
@@ -171,12 +173,16 @@
   //   合法地點驗證/巧遇抽選都在後端 Gallery.gs 的 KANSHOU_REGIONS_/KANSHOU_LOCATIONS_(唯一
   //   真實來源)，這裡改地點/分區記得同步改一次。
   var KC_REGIONS_ = [
+    { id: 'home', name: '家', desc: '私人空間' },
     { id: 'shinzan', name: '深山町・家附近', desc: '溫馨日常區' },
     { id: 'fuyuki', name: '冬木市中心', desc: '熱鬧生活區' },
     { id: 'harbor', name: '港口・碼頭區', desc: '微涼浪漫區' },
     { id: 'dojo', name: '山林・道場區', desc: '安靜神秘區' }
   ];
   var KC_LOCATIONS_ = [
+    { name: '客廳', region: 'home' }, { name: '廚房', region: 'home' }, { name: '臥室', region: 'home' },
+    { name: '浴室', region: 'home' }, { name: '陽台', region: 'home' },
+
     { name: '河邊小徑', region: 'shinzan' }, { name: '古老神社', region: 'shinzan' },
     { name: '社區公園', region: 'shinzan' }, { name: '深夜便利店', region: 'shinzan' },
     { name: '咖啡廳', region: 'fuyuki' }, { name: '書店二樓', region: 'fuyuki' },
@@ -187,7 +193,7 @@
     { name: '隱藏溫泉', region: 'dojo' }, { name: '廢棄神社', region: 'dojo' }
   ];
   // 目前選取的分區(純前端UI狀態，跨裝置不同步，比照kanshouEncounterOn用localStorage記住偏好)。
-  var kcActiveRegion_ = localStorage.getItem('kyushu_kanshou_region') || 'shinzan';
+  var kcActiveRegion_ = localStorage.getItem('kyushu_kanshou_region') || 'home';
   function kcSwitchRegion_(id) {
     kcActiveRegion_ = id;
     localStorage.setItem('kyushu_kanshou_region', id);
@@ -203,26 +209,26 @@
     localStorage.setItem('kyushu_kanshou_encounter', kanshouEncounterOn);
   }
 
-  // 🏠「家」選項(2026-07 玩家新增)：跟其餘分區固定地點不同，顯示名稱可由玩家自訂(見後端
-  // 【住所】標記/getKanshouHomeName_)，且恆不觸發隨機巧遇(私人空間)。這裡把清單拆成獨立函式，
-  // 改名後才能局部重繪 #kc-map-list，不必整個overlay重建。
+  // 🏠 2026-07 玩家「這可以直接開個分支嗎?」定案：「家」從獨立釘選按鈕升級成跟其餘4區並列的
+  //   分區分頁(客廳/廚房/臥室/浴室/陽台5個房間，見KC_LOCATIONS_)。分頁標籤沿用玩家自訂顯示名稱
+  //   (後端【住所】標記/getKanshouHomeName_)，改名鈕移到「家」分頁展開時才顯示，不佔用其他分區版面。
   function kcMapListHtml_() {
-    var home = (pc && pc.homeName) ? pc.homeName : '家';
-    var homeBtn = '<button onclick="kanshouMoveTo(\'' + home.replace(/'/g, "\\'") + '\')" style="display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left;padding:8px 10px;margin-bottom:6px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">'
-      + '<span>🏠 ' + escapeHtml(home) + '</span>'
-      + '<span onclick="event.stopPropagation();kanshouRenameHome()" title="改名" style="opacity:0.75;padding:2px 6px;">✏️</span>'
-      + '</button>';
+    var homeLabel = (pc && pc.homeName) ? pc.homeName : '家';
     // 🗾 分區切換列：按鈕群組，當前分區高亮，點擊只切換下方地點清單(不影響已在場敘事)。
     var tabsHtml = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;">' + KC_REGIONS_.map(function (rg) {
       var active = rg.id === kcActiveRegion_;
+      var label = (rg.id === 'home' ? '🏠 ' : '') + escapeHtml(rg.id === 'home' ? homeLabel : rg.name);
       return '<button onclick="kcSwitchRegion_(\'' + rg.id + '\')" style="flex:1;min-width:70px;padding:6px 4px;font-size:11.5px;border-radius:7px;cursor:pointer;'
         + (active ? 'background:#4a2f4a;color:#f0c8e0;border:1px solid #b06aa0;font-weight:bold;' : 'background:#201a28;color:#9a8bb0;border:1px solid #3a2f48;')
-        + '">' + escapeHtml(rg.name) + '</button>';
+        + '">' + label + '</button>';
     }).join('') + '</div>';
+    var renameHtml = (kcActiveRegion_ === 'home')
+      ? '<div style="text-align:right;margin:-4px 0 6px;"><span onclick="kanshouRenameHome()" style="cursor:pointer;font-size:11px;color:#a07a90;">✏️ 幫「' + escapeHtml(homeLabel) + '」改名</span></div>'
+      : '';
     var locBtns = KC_LOCATIONS_.filter(function (l) { return l.region === kcActiveRegion_; }).map(function (l) {
       return '<button onclick="kanshouMoveTo(\'' + l.name + '\')" style="display:block;width:100%;text-align:left;padding:8px 10px;margin-bottom:6px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">📍 ' + l.name + '</button>';
     }).join('');
-    return homeBtn + tabsHtml + locBtns;
+    return tabsHtml + renameHtml + locBtns;
   }
 
   // 🧹 2026-07 玩家定案「改回跟solo很像的ui 3個分頁！地圖變成清單類型！」：原本掛在☰抽屜裡的
