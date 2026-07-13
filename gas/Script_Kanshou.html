@@ -167,9 +167,33 @@
     } catch (e) { alert('讀取同伴失敗。'); }
   }
 
-  // 🗺️ 出門走走(2026-07 玩家新增)：純氛圍用的10個地點清單，僅供畫按鈕——實際合法地點驗證/
-  //   巧遇抽選都在後端 Gallery.gs 的 KANSHOU_LOCATIONS_(唯一真實來源)，這裡改地點記得同步改一次。
-  var KC_LOCATIONS_ = ['河邊', '市集', '道場', '圖書館', '神社', '公園', '碼頭', '咖啡廳', '後巷', '車站'];
+  // 🗾 出門走走·分區地圖(2026-07「可愛地圖」升級)：純氛圍用的分區/地點清單，僅供畫按鈕——實際
+  //   合法地點驗證/巧遇抽選都在後端 Gallery.gs 的 KANSHOU_REGIONS_/KANSHOU_LOCATIONS_(唯一
+  //   真實來源)，這裡改地點/分區記得同步改一次。
+  var KC_REGIONS_ = [
+    { id: 'shinzan', name: '深山町・家附近', desc: '溫馨日常區' },
+    { id: 'fuyuki', name: '冬木市中心', desc: '熱鬧生活區' },
+    { id: 'harbor', name: '港口・碼頭區', desc: '微涼浪漫區' },
+    { id: 'dojo', name: '山林・道場區', desc: '安靜神秘區' }
+  ];
+  var KC_LOCATIONS_ = [
+    { name: '河邊小徑', region: 'shinzan' }, { name: '古老神社', region: 'shinzan' },
+    { name: '社區公園', region: 'shinzan' }, { name: '深夜便利店', region: 'shinzan' },
+    { name: '咖啡廳', region: 'fuyuki' }, { name: '書店二樓', region: 'fuyuki' },
+    { name: '屋頂花園', region: 'fuyuki' }, { name: '商店街', region: 'fuyuki' }, { name: '電影院附近', region: 'fuyuki' },
+    { name: '海邊步道', region: 'harbor' }, { name: '燈塔下', region: 'harbor' },
+    { name: '港口倉庫區', region: 'harbor' }, { name: '小型漁港', region: 'harbor' },
+    { name: '老道場', region: 'dojo' }, { name: '山間小徑', region: 'dojo' },
+    { name: '隱藏溫泉', region: 'dojo' }, { name: '廢棄神社', region: 'dojo' }
+  ];
+  // 目前選取的分區(純前端UI狀態，跨裝置不同步，比照kanshouEncounterOn用localStorage記住偏好)。
+  var kcActiveRegion_ = localStorage.getItem('kyushu_kanshou_region') || 'shinzan';
+  function kcSwitchRegion_(id) {
+    kcActiveRegion_ = id;
+    localStorage.setItem('kyushu_kanshou_region', id);
+    var listEl = document.getElementById('kc-map-list');
+    if (listEl) listEl.innerHTML = kcMapListHtml_();
+  }
 
   // 🚪 巧遇開關(2026-07 玩家新增)：純前端偏好，跨裝置不同步(localStorage)，預設開啟(維持原行為)。
   //   send() 每次都會讀這個值夾進 gasRun 的 encounter 欄位，後端 actionPlay 對應 encounterOn。
@@ -179,7 +203,7 @@
     localStorage.setItem('kyushu_kanshou_encounter', kanshouEncounterOn);
   }
 
-  // 🏠「家」選項(2026-07 玩家新增)：跟其餘10個固定地點不同，顯示名稱可由玩家自訂(見後端
+  // 🏠「家」選項(2026-07 玩家新增)：跟其餘分區固定地點不同，顯示名稱可由玩家自訂(見後端
   // 【住所】標記/getKanshouHomeName_)，且恆不觸發隨機巧遇(私人空間)。這裡把清單拆成獨立函式，
   // 改名後才能局部重繪 #kc-map-list，不必整個overlay重建。
   function kcMapListHtml_() {
@@ -188,9 +212,17 @@
       + '<span>🏠 ' + escapeHtml(home) + '</span>'
       + '<span onclick="event.stopPropagation();kanshouRenameHome()" title="改名" style="opacity:0.75;padding:2px 6px;">✏️</span>'
       + '</button>';
-    return homeBtn + KC_LOCATIONS_.map(function (name) {
-      return '<button onclick="kanshouMoveTo(\'' + name + '\')" style="display:block;width:100%;text-align:left;padding:8px 10px;margin-bottom:6px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">📍 ' + name + '</button>';
+    // 🗾 分區切換列：按鈕群組，當前分區高亮，點擊只切換下方地點清單(不影響已在場敘事)。
+    var tabsHtml = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;">' + KC_REGIONS_.map(function (rg) {
+      var active = rg.id === kcActiveRegion_;
+      return '<button onclick="kcSwitchRegion_(\'' + rg.id + '\')" style="flex:1;min-width:70px;padding:6px 4px;font-size:11.5px;border-radius:7px;cursor:pointer;'
+        + (active ? 'background:#4a2f4a;color:#f0c8e0;border:1px solid #b06aa0;font-weight:bold;' : 'background:#201a28;color:#9a8bb0;border:1px solid #3a2f48;')
+        + '">' + escapeHtml(rg.name) + '</button>';
+    }).join('') + '</div>';
+    var locBtns = KC_LOCATIONS_.filter(function (l) { return l.region === kcActiveRegion_; }).map(function (l) {
+      return '<button onclick="kanshouMoveTo(\'' + l.name + '\')" style="display:block;width:100%;text-align:left;padding:8px 10px;margin-bottom:6px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">📍 ' + l.name + '</button>';
     }).join('');
+    return homeBtn + tabsHtml + locBtns;
   }
 
   // 🧹 2026-07 玩家定案「改回跟solo很像的ui 3個分頁！地圖變成清單類型！」：原本掛在☰抽屜裡的
@@ -226,6 +258,12 @@
     if (!confirm('確定要前往「' + name + '」嗎？')) return;
     showGamePane('chat');
     await send('📍 走向了「' + name + '」，四處看看。', false, null, name);
+  }
+
+  // 🔘 2026-07「這功能直接做成按鈕」玩家定案：原本用關鍵字猜測玩家是不是在問「這裡還有沒有其他
+  //   人」已改成這顆明確按鈕(lookAround:true)，後端不再靠猜文字語意——不移動、不換分頁，原地問。
+  async function kanshouLookAround() {
+    await send('👀 四處張望，看看還有沒有其他人在。', false, null, null, true);
   }
 
   // 同伴名單變動後的局部刷新：只重抓「鑑賞眾生在場名單」這份小資料，不再重打 get_heroes，
