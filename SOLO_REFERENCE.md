@@ -1874,3 +1874,26 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **未動的部分**：`actionKanshouRemove`/`actionKanshouSummonHero`底層邏輯完全未改；`nsfwBaseRules`常數本體逐字元核對未受影響(本輪未動`Engine_Combat.gs`)。
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。部署後建議測試：①請走一位同伴、移動去別的地點後，回頭切換分區能在該同伴被留下的地點按鈕上看到「👤1」徽章；②同一地點留下多位故人時數字疊加正確；③移動/請走後不必手動重整頁面，徽章數字就會即時更新。
+
+## §60 鑑賞新增「今日行動排程＋結束一天」輕量文字經營玩法（2026-07・玩家給的完整參考大綱「FATE kanshou 改成『文字經營類』玩法」）
+
+**背景**：玩家提出一份完整設計大綱，想把鑑賞從純聊天升級成輕量文字經營：每天可以指派同行同伴去某個地點打工/活動，晚上「結束一天」時根據各自的行動生成回家情節。玩家也主動問我的架構意見。
+
+**我的建議與玩家默認採用的兩個關鍵取捨**（因AskUserQuestion工具當次呼叫失敗、依我的建議直接施工，未等玩家逐項確認，設計原則已在對話中先講清楚）：
+1. **結束一天只打一次AI呼叫**，不是每位同伴各自跑一次——把當天所有同伴的地點/氛圍種子一次性餵給同一個prompt，讓AI一次寫出「大家陸續回家」的綜合敘事，避免3位同伴=6次AI呼叫拖慢速度、增加成本。
+2. **打工地點沿用現有全部22個地點**（17個一般地點＋家的5個房間），不另外設計一份「適合打工」的子清單——維護成本最低，之後地圖擴充新地點也自動能拿來打工。
+
+**設計核心：不新增平行敘事管線，`actionEndDay`直接複用`actionPlay`整條既有管線**——這是本次最重要的架構決定。沒有寫`generateWorkEvent`/`generateHomeEvent`這兩個獨立函式，而是讓「結束一天」變成`actionPlay`認得的一個特殊輸入旗標(`userData.endDay===true`)，跟既有的`moveTarget`/`lookAround`同一個等級——系統組一句合成訊息取代玩家打的文字，其餘完全走原本的在場驗證/NSFW規則/rel_changes/intimacy_feedback/driveOn尺度全部照舊，零重複程式碼、零新增的AI呼叫封裝。
+
+**改動**：
+1. **`gas/Core_Settings.gs`既有的`makeTextTag_`共用工廠**：新增`【今日行動】`標記(`kanshouDailyScheduleTag_ = makeTextTag_('今日行動')`)，存在被指派的同伴自己那一列的MEMORY，不是玩家那列——地點是受信任的內部字串(來自`KANSHOU_LOCATIONS_`合法清單)，符合這個工廠原本設計的使用場景，不必手寫新的get/set正則。
+2. **`gas/Gallery.gs` `actionKanshouSetDailySchedule`(新action)**：玩家把在場同伴各自指派一個地點，只能指派「同行」中的同伴、地點需在`KANSHOU_LOCATIONS_`合法清單內，不改動LOC/IS_PARTY——純敘事層排程意圖。
+3. **`gas/Gallery.gs` `actionKanshouCompanions`**：`current[]`每筆補上`schedule`欄位(讀`kanshouDailyScheduleTag_.get`)，供排程面板預填目前選擇。
+4. **`gas/Gallery.gs` `actionPlay`**：`finalUserMsg`從`const`改`let`；`sameGame`定義完畢後新增`userData.endDay===true`分支——收集所有同行同伴，逐位讀取【今日行動】、算一次跟移動抵達同款的`kanshouRollEvent_`氛圍種子當靈感、組成一句「大家陸續回家」的合成訊息覆蓋`finalUserMsg`，並立刻清空排程(直接寫回試算表)準備明天。若沒有任何同行同伴則維持原樣(當作沒有這個旗標，走一般對話)。順手把`const userMsg = userData.message`加上`|| ""`防呆(endDay呼叫不一定會帶message，避免下游`.includes`炸掉)。
+5. **`gas/Router_Action.gs`**：`ActionRouter`新增`"kanshou_set_daily_schedule": actionKanshouSetDailySchedule`；`kanshou_end_day`不需要新entry，直接複用既有的`"play"`(見下)。
+6. **前端(`gas/Script_Kanshou.html`)**：`renderKcPartyList_`每位同伴卡片補一行「📅今日行動」下拉選單(選項=`KC_LOCATIONS_`全部地點)，選了就即刻呼叫`kanshou_set_daily_schedule`存檔(比照既有🏷️關係/請走的「選了就存」慣例，無額外儲存按鈕)；新增`kanshouEndDay()`——不是新增一套回應處理邏輯，而是呼叫既有`send('...', false, null, null, false, true)`(第6參數`endDay`)，完全複用聊天訊息的渲染管線。
+7. **`gas/Script.html`**：`send()`簽名加第6參數`endDay`，透傳進`gasRun`的`endDay`欄位；地圖分頁(鑑賞)的「👀看看四周」按鈕下方新增「🌙結束一天・大家回家」按鈕。
+
+**未動的部分**：`actionPlay`既有的所有分支(移動/巧遇/留人重逢/事件種子/rel_changes/intimacy_feedback)完全未改動邏輯，只多了一個提前覆寫`finalUserMsg`的旗標分支；`nsfwBaseRules`常數本體逐字元核對未受影響。玩家原大綱提到的「早上排程」與「回家」拆兩顆函式的構想改成合併成一次AI呼叫，理由已在上方說明。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。部署後建議測試：①在👥同伴面板幫在場同伴選今日行動地點，確認選了就存、重開面板仍看得到已選值；②點擊「🌙結束一天」，確認AI一次性生成提及所有已排程同伴的回家敘事，且未排程的同伴顯示「留在家」；③結束一天後同伴的今日行動下拉選單應恢復「不指派」(排程已被清空)；④沒有同行同伴時點「結束一天」應優雅地退回一般對話(不報錯)。
