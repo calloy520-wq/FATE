@@ -1526,6 +1526,29 @@ function actionPlay(userData, pcId, sheets) {
   let kanshouEventSeed = null;
   let kanshouRoomEventStr = "";
   if (moveTarget) {
+    // 🎭 橋段·夜襲/賴床叫醒(2026-07)——判斷必須在「同步同行同伴LOC」之前做！同行同伴的LOC本來
+    //   就會在下面那段forEach被強制覆寫成跟玩家一致(不管她原本在哪，跟著玩家到處走是同行同伴的
+    //   常態行為)：如果判斷順序放到同步之後，會變成「只要她同行在場，走進這個房間就一定觸發」，
+    //   即使她剛才其實一路跟著玩家逛遍全家、根本沒有真的獨自待在房裡，也會被誤判成「巧遇獨自在
+    //   房間的她」——玩家發現這個矛盾(「ai會讓npc乖乖睡覺的敘事嗎」)。修法：判斷放在同步「之前」，
+    //   額外要求她「同步前的LOC本來就已經等於這個房間」，這樣才是真正的「本來就在那裡、被找到／
+    //   撞見」，不是「跟著玩家過來、恰好這間是她的房間」。限同住人(有自己房間)；限同行(此刻確實
+    //   在場，避免跟kanshouLeftBehindIdxs非同行故人重逢的敘事框架互相打架)。
+    const roomEventKey = KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_[timeBand_(curHour)];
+    if (roomEventKey) {
+      const raidHeroId = Object.keys(KANSHOU_HOUSEMATE_ROOMS_).find(hid => KANSHOU_HOUSEMATE_ROOMS_[hid] === moveName);
+      const raidHero = raidHeroId ? SEED_SERVANTS.find(h => h.id === raidHeroId) : null;
+      const raidIdx = raidHero ? pcData.findIndex((r, idx) => idx !== pcIndex && sameGame(r) && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(raidHero.realName).includes(String(r[COL.PC.NAME]))) : -1;
+      if (raidIdx !== -1 && String(pcData[raidIdx][COL.PC.LOC] || "").trim() === moveName) {
+        const raidBond = parseInt(pcData[raidIdx][COL.PC.BOND]) || 0;
+        const branch = kanshouRollSceneBranch_(roomEventKey, raidBond);
+        if (branch) {
+          const roomEventVerb = roomEventKey === '夜襲' ? '深夜獨自走進了' : '清晨走進了還在賴床的';
+          kanshouRoomEventStr = `\n★【橋段·${roomEventKey}(GAS已骰定這次走向，AI只需依此演出，不必徵詢玩家、也不必逐字照抄下方措辭)】：${roomEventVerb}『${raidHero.realName}』的房間，她此刻的反應走向是——${branch.tag}。依她的既有性格詮釋這個走向具體要怎麼表現、講什麼話，細節全由你發揮，但情緒基調不要偏離這個走向。`;
+          if (roomEventKey === '夜襲' && branch.min >= 60) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], raidHero.realName);
+        }
+      }
+    }
     curL = moveName;
     pcData[pcIndex][COL.PC.LOC] = curL;
     dirtyPcRows.add(pcIndex);
@@ -1537,26 +1560,6 @@ function actionPlay(userData, pcId, sheets) {
       pcData[nIdx][COL.PC.LOC] = curL;
       dirtyPcRows.add(nIdx);
     });
-    // 🎭 橋段·夜襲/賴床叫醒(2026-07)：走進「同住人專屬房間」(KANSHOU_HOUSEMATE_ROOMS_)，且她此刻
-    //   是同行隊伍成員——依當下時段(KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_)決定要跑哪個橋段、
-    //   再依bond骰出這次的反應走向，寫進提示詞讓AI照走向去演，玩家不必自己下劇本。限同住人(有
-    //   自己房間、算是「住在這個家」)，客房/一般巧遇不吃這套；限同行(此刻確實在場)，避免跟
-    //   kanshouLeftBehindIdxs(非同行故人重逢)的敘事框架互相打架。
-    const roomEventKey = KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_[timeBand_(curHour)];
-    if (roomEventKey) {
-      const raidHeroId = Object.keys(KANSHOU_HOUSEMATE_ROOMS_).find(hid => KANSHOU_HOUSEMATE_ROOMS_[hid] === moveName);
-      const raidHero = raidHeroId ? SEED_SERVANTS.find(h => h.id === raidHeroId) : null;
-      const raidIdx = raidHero ? pcData.findIndex((r, idx) => idx !== pcIndex && sameGame(r) && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(raidHero.realName).includes(String(r[COL.PC.NAME]))) : -1;
-      if (raidIdx !== -1) {
-        const raidBond = parseInt(pcData[raidIdx][COL.PC.BOND]) || 0;
-        const branch = kanshouRollSceneBranch_(roomEventKey, raidBond);
-        if (branch) {
-          const roomEventVerb = roomEventKey === '夜襲' ? '深夜獨自走進了' : '清晨走進了還在賴床的';
-          kanshouRoomEventStr = `\n★【橋段·${roomEventKey}(GAS已骰定這次走向，AI只需依此演出，不必徵詢玩家、也不必逐字照抄下方措辭)】：${roomEventVerb}『${raidHero.realName}』的房間，她此刻的反應走向是——${branch.tag}。依她的既有性格詮釋這個走向具體要怎麼表現、講什麼話，細節全由你發揮，但情緒基調不要偏離這個走向。`;
-          if (roomEventKey === '夜襲' && branch.min >= 60) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], raidHero.realName);
-        }
-      }
-    }
     // 離開原地(換地點)＝上一段巧遇緣分結束，先清掉舊的【邂逅中】，這個新地點才重新擲一次巧遇。
     pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
     kanshouEncounterLocName = moveName;
