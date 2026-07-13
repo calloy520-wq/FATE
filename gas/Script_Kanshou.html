@@ -101,6 +101,14 @@
     await send('⏩ 讓時間悄悄流逝了' + hours + '個小時。', false, null, null, false, false, hours);
   }
 
+  // 🎊 2026-07「跳到節慶」：不帶advanceHours(留0)，帶jumpFestival讓後端自己算「距離該節慶還有
+  //   幾小時」(見Gallery.gs kanshouHoursUntilDate_)，前端不重算日期，單一真實來源在後端。
+  async function kanshouJumpFestival(key, name) {
+    if (!confirm('要讓時間快轉到「' + name + '」嗎？(不在身邊的英靈會依新時刻重新分佈)')) return;
+    showGamePane('chat');
+    await send('🎊 想快轉到「' + name + '」看看。', false, null, null, false, false, 0, key);
+  }
+
   // 篩選下拉選單本身只跟 _kcHeroesAll(英靈庫全清單)有關，內容跟 get_heroes 一樣少變——只在
   // 英靈庫清單真的重抓時(見 openCompanions)才重建這裡，換篩選只呼叫 applyKcHeroFilter_ 切 CSS。
   function renderKcFilters_() {
@@ -195,6 +203,13 @@
     { id: 'fuyuki', name: '冬木市中心', desc: '熱鬧生活區' },
     { id: 'harbor', name: '港口・碼頭區', desc: '微涼浪漫區' },
     { id: 'dojo', name: '山林・道場區', desc: '安靜神秘區' }
+  ];
+  // 🎊 2026-07「跳到節慶」：純供按鈕文字用的mirror，真正的節慶對應天數(dayOfYear)/換算邏輯只在
+  //   後端Gallery.gs的KANSHOU_FESTIVALS_(唯一真實來源)，這裡改節慶記得同步改一次。
+  var KC_FESTIVALS_ = [
+    { key: 'newyear', name: '新年初一' }, { key: 'valentine', name: '情人節' },
+    { key: 'qixi', name: '七夕' }, { key: 'midautumn', name: '中秋節' },
+    { key: 'xmas', name: '聖誕節' }, { key: 'nye', name: '跨年夜' }
   ];
   var KC_LOCATIONS_ = [
     { name: '客廳', region: 'home' }, { name: '廚房', region: 'home' }, { name: '臥室', region: 'home' },
