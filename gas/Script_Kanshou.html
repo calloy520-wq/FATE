@@ -31,7 +31,9 @@
     //   (solo 那邊的隨機/混亂池刻意共用玩家原創、維持既有設計不動，這條限制僅針對鑑賞直接指名召喚。)
     _kcHeroesAvailable = _kcHeroesAll
       .filter(function (h) { return !_kcCur.some(function (c) { return c.name === h.name; }); })
-      .filter(function (h) { return h.src !== 'ai_gen' || (h.creator && h.creator === currentAccount); });
+      .filter(function (h) { return h.src !== 'ai_gen' || (h.creator && h.creator === currentAccount); })
+      // 🎨 2026-07 玩家「拿掉衛宮士郎吧...也禁止召喚他？」：玩家本人就是這個位置，濾掉不給選。
+      .filter(function (h) { return h.id !== '衛宮士郎-Master'; });
   }
 
   function ensureKcOverlay_() {
@@ -320,8 +322,13 @@
     { key: 'xmas', name: '聖誕節' }, { key: 'nye', name: '跨年夜' }
   ];
   var KC_LOCATIONS_ = [
-    { name: '客廳', region: 'home' }, { name: '廚房', region: 'home' }, { name: '臥室', region: 'home' },
+    { name: '我的房間', region: 'home' }, { name: '阿爾托莉雅的房間', region: 'home' },
+    { name: '間桐櫻的房間', region: 'home' }, { name: '美杜莎的房間', region: 'home' },
+    { name: '客房1', region: 'home' }, { name: '客房2', region: 'home' },
+    { name: '客廳', region: 'home' }, { name: '廚房', region: 'home' },
     { name: '浴室', region: 'home' }, { name: '陽台', region: 'home' },
+    { name: '庭院', region: 'home' }, { name: '緣廊', region: 'home' },
+    { name: '道場', region: 'home' }, { name: '玄關', region: 'home' }, { name: '倉庫', region: 'home' },
 
     { name: '河邊小徑', region: 'shinzan' }, { name: '古老神社', region: 'shinzan' },
     { name: '社區公園', region: 'shinzan' }, { name: '深夜便利店', region: 'shinzan' },
@@ -332,8 +339,7 @@
     { name: '老道場', region: 'dojo' }, { name: '山間小徑', region: 'dojo' },
     { name: '隱藏溫泉', region: 'dojo' }, { name: '廢棄神社', region: 'dojo' },
 
-    { name: '騎士團舊宿舍', region: 'visit' }, { name: '老舊公寓', region: 'visit' },
-    { name: '荒野小屋', region: 'visit' }, { name: '靜謐宅邸', region: 'visit' },
+    { name: '老舊公寓', region: 'visit' }, { name: '荒野小屋', region: 'visit' },
     { name: '隱蔽的工房', region: 'visit' }, { name: '河畔道場', region: 'visit' },
     { name: '荒地帳篷', region: 'visit' }, { name: '高級公寓頂樓', region: 'visit' },
     { name: '森林小屋', region: 'visit' }, { name: '軍帳', region: 'visit' },
@@ -341,8 +347,7 @@
     { name: '隱密巷弄', region: 'visit' }, { name: '森林深處', region: 'visit' },
     { name: '城牆邊', region: 'visit' }, { name: '島嶼道場', region: 'visit' },
     { name: '埃德費爾特宅邸', region: 'visit' }, { name: '愛因茲貝倫城', region: 'visit' },
-    { name: '遠坂邸', region: 'visit' }, { name: '間桐邸', region: 'visit' },
-    { name: '衛宮邸', region: 'visit' }, { name: '藤村家', region: 'visit' }
+    { name: '遠坂邸', region: 'visit' }, { name: '藤村家', region: 'visit' }
   ];
   // 目前選取的分區(純前端UI狀態，跨裝置不同步，比照kanshouEncounterOn用localStorage記住偏好)。
   var kcActiveRegion_ = localStorage.getItem('kyushu_kanshou_region') || 'home';
@@ -362,10 +367,11 @@
   }
 
   // 🏠 2026-07 玩家「這可以直接開個分支嗎?」定案：「家」從獨立釘選按鈕升級成跟其餘4區並列的
-  //   分區分頁(客廳/廚房/臥室/浴室/陽台5個房間，見KC_LOCATIONS_)。分頁標籤沿用玩家自訂顯示名稱
-  //   (後端【住所】標記/getKanshouHomeName_)，改名鈕移到「家」分頁展開時才顯示，不佔用其他分區版面。
+  //   分區分頁(2026-07「衛宮宅」定案後改成我的房間/同住人房間/客房+日式空間，見KC_LOCATIONS_)。
+  //   分頁標籤沿用玩家自訂顯示名稱(後端【住所】標記/getKanshouHomeName_，預設「衛宮宅」)，
+  //   改名鈕移到「家」分頁展開時才顯示，不佔用其他分區版面。
   function kcMapListHtml_() {
-    var homeLabel = (pc && pc.homeName) ? pc.homeName : '家';
+    var homeLabel = (pc && pc.homeName) ? pc.homeName : '衛宮宅';
     // 🗾 分區切換列：按鈕群組，當前分區高亮，點擊只切換下方地點清單(不影響已在場敘事)。
     var tabsHtml = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;">' + KC_REGIONS_.map(function (rg) {
       var active = rg.id === kcActiveRegion_;
@@ -405,7 +411,7 @@
   // 🏠 改名「家」(2026-07 玩家新增)：寫進後端 MEMORY【住所】標記(kanshou_set_home_name)，
   // 成功後同步更新本地 pc.homeName＋重繪清單，不必整頁重整或重打 sync。
   async function kanshouRenameHome() {
-    var cur = (pc && pc.homeName) ? pc.homeName : '家';
+    var cur = (pc && pc.homeName) ? pc.homeName : '衛宮宅';
     var name = prompt('把「' + cur + '」改成什麼名字？(12字以內)', cur);
     if (name === null) return;
     name = name.trim();
@@ -467,10 +473,11 @@
   }
 
   // 🌙 2026-07「晚上10點強制回家/也可以在外面過夜」：不真的強制，改成提醒——「回家」重用既有
-  // moveTarget管線走回臥室(跟結束一天同一個房間)；「留在外面過夜」帶dismissCurfew，當天不再提醒。
+  // moveTarget管線走回我的房間(跟結束一天同一個房間，2026-07「衛宮宅」定案後改名)；
+  // 「留在外面過夜」帶dismissCurfew，當天不再提醒。
   async function kanshouGoHomeCurfew() {
     showGamePane('chat');
-    await send('（時候不早了，決定回家去）', false, null, '臥室');
+    await send('（時候不早了，決定回家去）', false, null, '我的房間');
   }
   async function kanshouStayOutCurfew() {
     await send('（決定今晚就在外面過夜了）', false, null, null, false, false, 0, null, false, null, null, null, false, true);
