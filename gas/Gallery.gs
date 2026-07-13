@@ -373,7 +373,10 @@ function actionEnterKanshou(userData, pcId, sheets) {
     return JSON.stringify({ success: true, needSetup: true, defaultName: acctName });
   }
   var gameId = "k_" + Date.now();
-  var loc2 = "冬木·深山町";
+  // 🏠 2026-07「開場是不是不要在火車站了？直接在家中？」玩家定案：開場直接落在衛宮宅自己的房間，
+  //   不再是空泛的「冬木·深山町」城區(那個泛用值容易被AI自由發揮成「剛下車、還在路上」等外地開場，
+  //   跟「房東本來就住在這裡」的房東房客世界觀矛盾)。
+  var loc2 = "我的房間";
   var pcColCount = Object.keys(COL.PC).length;
   var mId = "KPC_" + Date.now();
   var mRow = Array(pcColCount).fill("");
@@ -383,9 +386,13 @@ function actionEnterKanshou(userData, pcId, sheets) {
   // 鑑賞無戰鬥：氣血/真氣/上限/STATUS 皆不寫(見 heroToKanshouRow_ 同款理由)。五圍已棄欄，戰鬥吃六圍 SIX。
   mRow[COL.PC.LOC] = loc2;
   mRow[COL.PC.FACTION] = "御主";
-  // ⏰ 2026-07「推進時間」玩法：借用solo既有的COL.PC.DAY/HOUR欄位存鑑賞自己的時鐘，開局Day1早上8點。
+  // ⏰ 2026-07「推進時間」玩法：借用solo既有的COL.PC.DAY/HOUR欄位存鑑賞自己的時鐘。
+  // 🍳 2026-07「早上6點要開始準備早餐？！」玩家定案：開局(及之後每天「結束一天」醒來，見下方
+  //   endDay分支)改成清晨6點(仍落在timeBand_的「清晨」時段，跟原本8點同一個氛圍標籤，只是更早)，
+  //   貼合「房東要張羅早餐」的作息——這裡刻意不強制加一個「必須先做早餐才能行動」的機關，純粹交給
+  //   時段感提示詞(🕰️現在是...清晨)讓AI自然帶出張羅早餐的晨間氛圍，不強制、不卡關。
   mRow[COL.PC.DAY] = 1;
-  mRow[COL.PC.HOUR] = 8;
+  mRow[COL.PC.HOUR] = 6;
   // 💰 2026-07 經濟層：開局給起始金錢，維護費週數從0起算(進場當下必是第0週，第8天才會跨進第1週被扣款)。
   mRow[COL.PC.MONEY] = KANSHOU_START_MONEY_;
   mRow[COL.PC.UPKEEP_WEEK] = 0;
@@ -1303,10 +1310,11 @@ function actionPlay(userData, pcId, sheets) {
   //   精神——門檻由GAS算好，AI只負責依角色性格自然演繹要不要跨出這一步、演到多深。
   let intimateNightNames = [];
   if (userData.endDay === true) {
-    // ⏰ 2026-07：結束一天固定跳到「隔天早上8點」(不論此刻幾點)，時鐘跟著寫回，往後「推進時間」
-    //   (見下)、鑑賞主敘事的時段感提示才有真實的日/時可讀，不再只是純敘事、沒有實際時鐘的空話。
+    // ⏰ 2026-07：結束一天固定跳到「隔天清晨6點」(不論此刻幾點，2026-07玩家「早上6點要開始準備
+    //   早餐」定案從8點提早)，時鐘跟著寫回，往後「推進時間」(見下)、鑑賞主敘事的時段感提示才有
+    //   真實的日/時可讀，不再只是純敘事、沒有實際時鐘的空話。
     curDay = curDay + 1;
-    curHour = 8;
+    curHour = 6;
     pcData[pcIndex][COL.PC.DAY] = curDay;
     pcData[pcIndex][COL.PC.HOUR] = curHour;
     upkeepCharged = kanshouChargeUpkeep_(pcData, pcIndex, curDay);
