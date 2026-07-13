@@ -924,7 +924,7 @@ function actionPlay(userData, pcId, sheets) {
   //   ①不在身邊的英靈(非同行)：GAS直接幫她們決定隔天去哪(kanshouRollDailyLocation_，依既有的
   //   地點×角色氛圍標籤加權挑常去的地方，查無標籤才隨機)，玩家不用手動指派——她們各自過各自
   //   的生活，下次玩家去哪個地點就可能巧遇當天在那裡的人(見留人重逢/巧遇邏輯)。
-  //   ②同行同伴：位置本就恆等於玩家所在地，不需要另外擲，只在合成訊息裡提一句日夜交替的收尾。
+  //   ②同行同伴：跟玩家一起被強制拉回家過夜(見下)。
   if (userData.endDay === true) {
     const offRosterForRoll = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.IS_PARTY] || "") !== "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
     offRosterForRoll.forEach(r => {
@@ -933,7 +933,20 @@ function actionPlay(userData, pcId, sheets) {
       dirtyPcRows.add(idx);
     });
     const partyForEndDay = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
-    finalUserMsg = `【一天結束】夜幕降臨，今天到此為止${partyForEndDay.length ? `，跟『${partyForEndDay.map(r => r[COL.PC.NAME]).join('、')}』一起` : ""}靜靜地告一段落，明天又是新的一天。`;
+    // 🏠 2026-07 玩家「大家晚上都回到家裡」：不管白天晃到哪(含忽略AI提議、放置不理原地發呆)，
+    //   結束一天一律強制拉回家(臥室過夜)——這是「玩家永遠有路可退」的安全閥，不必特判「玩家
+    //   到底有沒有理某個提議」，同行同伴的位置本就該跟著玩家同步過去，這裡一併寫回。
+    const kanshouHomeLoc_ = '臥室';
+    pcData[pcIndex][COL.PC.LOC] = kanshouHomeLoc_;
+    dirtyPcRows.add(pcIndex);
+    pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
+    curL = kanshouHomeLoc_;
+    partyForEndDay.forEach(r => {
+      const idx = pcData.indexOf(r);
+      pcData[idx][COL.PC.LOC] = kanshouHomeLoc_;
+      dirtyPcRows.add(idx);
+    });
+    finalUserMsg = `【一天結束】夜幕降臨，${partyForEndDay.length ? `跟『${partyForEndDay.map(r => r[COL.PC.NAME]).join('、')}』一起` : ""}回到家中安頓下來，今天到此為止，明天又是新的一天。`;
   }
 
   // 🎨 2026-07「為何偶遇沒有女性」玩家反映：此局已經正式召喚過的英靈(不論是否仍同行)不該又以
