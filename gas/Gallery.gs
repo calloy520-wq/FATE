@@ -262,6 +262,30 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   return sRow;
 }
 
+// 🏷️ 2026-07「需要好感gas調整！」玩家定案：非房客的關係標籤依好感自動走5階梯度，GAS算、不用
+//   玩家自己按按鈕，也不讓AI插手(AI對REL_TAG本就沒有寫入權限，見actionUpdateRelTag)。門檻刻意
+//   借用鑑賞既有的兩個好感節點(60=夜襲橋段「歡喜迎接」分支、80=同床共枕門檻)當切點，數字只有
+//   一處來源，不會兩邊打架。「房客」這個字面不在這份清單裡，故房客的標籤永遠不會被這裡自動改掉，
+//   要改只能靠玩家自己手動編輯(比照「房客就是房客，以後自己改」的定案)。
+const KANSHOU_REL_TIER_ = [
+  { min: 80, label: '戀人' },
+  { min: 60, label: '親近的人' },
+  { min: 40, label: '熟識的朋友' },
+  { min: 20, label: '普通朋友' },
+  { min: -100, label: '點頭之交' }
+];
+// 依當前BOND重算這一列的REL_TAG——但只在「目前這格文字仍等於某個梯度的字面」時才覆寫：玩家
+//   一旦透過actionUpdateRelTag手動改成清單外的自訂稱呼，這格文字就再也不匹配任何梯度，之後好感
+//   繼續變動也不會被自動蓋回去，尊重玩家的手動選擇。呼叫時機：任何讓BOND變動的地方之後都補呼叫
+//   一次(目前有②送禮加好感、③AI rel_changes)，冪等、重複呼叫不出錯。
+function kanshouSyncRelTier_(pcData, idx) {
+  const curTag = String(pcData[idx][COL.PC.REL_TAG] || "");
+  if (!KANSHOU_REL_TIER_.some(t => t.label === curTag)) return;
+  const bond = parseInt(pcData[idx][COL.PC.BOND]) || 0;
+  const tier = KANSHOU_REL_TIER_.find(t => bond >= t.min);
+  if (tier && tier.label !== curTag) pcData[idx][COL.PC.REL_TAG] = tier.label;
+}
+
 // 👥➕ 直接從英靈庫召喚一位英靈進入當前後日談(不需先在 solo 封存；上限與封存路徑共用同一個 3)
 function actionKanshouSummonHero(userData, pcId, sheets) {
   // dispatcher(Router_Action.gs)已依 pcId 開頭 KPC_ 把 sheets.pc 指到「鑑賞眾生」，
@@ -1284,6 +1308,7 @@ function actionPlay(userData, pcId, sheets) {
       pcData[pcIndex][COL.PC.MONEY] = curMoney - shopItem.price;
       const oldBond = parseInt(pcData[giftTargetIdx][COL.PC.BOND]) || 0;
       pcData[giftTargetIdx][COL.PC.BOND] = Math.max(-100, Math.min(100, oldBond + shopItem.bond));
+      kanshouSyncRelTier_(pcData, giftTargetIdx);
       dirtyPcRows.add(giftTargetIdx);
       finalUserMsg = `【玩家意圖】：花費${shopItem.price}円買了「${shopItem.name}」，送給了「${giftTargetName}」。`;
     } else {
@@ -1735,9 +1760,11 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         let oldFav = parseInt(pcData[nIdx][COL.PC.BOND]) || 0;
         let newFav = Math.max(-100, Math.min(100, oldFav + change));
 
-        // REL_TAG 只能透過 actionUpdateRelTag(玩家UI操作)更改，AI不再有任何管道寫入這個欄位；
-        //   AI對標籤的影響力只剩「認不認同」，演在 intimacy_feedback.npcs[].attitude 裡。
+        // REL_TAG 本身仍不允許AI直接指定文字寫入，但好感變動後GAS會依kanshouSyncRelTier_自動
+        //   依門檻升降級(玩家沒手動自訂過的話)；AI對標籤的影響力只剩「認不認同」，演在
+        //   intimacy_feedback.npcs[].attitude 裡。
         pcData[nIdx][COL.PC.BOND] = newFav; pcData[nIdx][COL.PC.IS_PARTY] = isPartyStr;
+        kanshouSyncRelTier_(pcData, nIdx);
       });
     }
 
