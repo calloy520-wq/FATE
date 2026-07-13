@@ -1947,3 +1947,17 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **未動的部分**：`nsfwBaseRules`常數逐字元核對未受影響(808字元不變)；§62的`move_proposal`/同意/拒絕UI管線完全未改，兩條機制並存、互不干擾；`kanshouMoveTo`(強制移動)行為不變。
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0；`nsfwBaseRules`逐字元核對 identical，長度808不變。部署後建議測試：①點地點旁的👋，確認送出邀約訊息而非直接強制移動；②同伴同意時，確認narration有演出移動過程且地點真的換了；③同伴婉拒時，確認地點沒變、敘述自然收在婉拒的當下；④确认原本的📍按鈕(kanshouMoveTo)行為完全不受影響，仍是直接強制移動。
+
+## §64 鑑賞「點火」(driveOn主動掌握模式，AI_MODEL)敘事採樣參數調整＋補齊OpenRouter額外採樣旋鈕的passthrough（2026-07・玩家提供一組完整參數「temperature:1.08, top_p:0.97, top_k:60, repetition_penalty:1.12, presence_penalty:0.25, frequency_penalty:0.25」問「這樣調整可以嗎？」）
+
+**背景**：`Gallery.gs`鑑賞主敘事(`actionPlay`)的`aiConfig`原本只給`temperature:1.0, top_p:0.95`兩顆標準OpenAI式參數；但`callGeminiAPI`(`Engine_Combat.gs`，共用層、非nsfwBaseRules本體)組payload時只轉發`temperature`/`top_p`/`max_tokens`，即便呼叫端在config塞`top_k`/`repetition_penalty`/`presence_penalty`/`frequency_penalty`也會被直接丟棄、完全沒有效果——玩家這組參數在改動前是空轉的。
+
+**改動**：
+1. **`callGeminiAPI`(`Engine_Combat.gs`)payload組裝新增4個條件式欄位**：`config.top_k`/`config.repetition_penalty`/`config.presence_penalty`/`config.frequency_penalty`只在呼叫端有明確帶值(`!== undefined`)時才寫進payload，沒帶的呼叫完全不受影響(向後相容)。這4個是OpenRouter支援、但非OpenAI標準四件組(temperature/top_p/max_tokens/response_format)的額外採樣旋鈕，走到不支援的底層模型時OpenRouter會靜默忽略、不會報錯。
+2. **`Gallery.gs`鑑賞`aiConfig`套用玩家提供的完整6項數值**：`temperature:1.08, top_p:0.97, top_k:60, repetition_penalty:1.12, presence_penalty:0.25, frequency_penalty:0.25`，取代原本的`temperature:1.0, top_p:0.95`。這個`aiConfig`是`driveOn`(主動掌握/「點火」)與矜持模式共用的同一份設定，`model`欄位依`driveOn`切換(見`AI_MODEL`常數註解「同時是點火(driveOn=true)直接呼叫模型」)——`driveOn`時吃到`AI_MODEL`(預設`deepseek/deepseek-v4-flash`，開放權重模型，OpenRouter passthrough對這類模型支援度較完整)，矜持模式吃`SOLO_MODEL`(預設`google/gemini-3.1-flash-lite`)，其中`top_k`/`repetition_penalty`能否實際生效依底層供應商而定，未支援時等同沒設定，不會出錯。
+
+**設計理由**：`repetition_penalty`+`presence_penalty`+`frequency_penalty`三者疊加是為了壓制敘事重複套路句(呼應既有的🚨敘事終極警告規則想避免的「那一夜／自此／就這樣／從此」等收尾陳腔)；`temperature`/`top_p`略升則是增加敘事變化度。玩家自己提供的完整數值組直接套用，不另外調整，因這屬於「跑跑看、之後再依實際輸出微調」的可逆參數，非結構性改動。
+
+**未動的部分**：`nsfwBaseRules`常數逐字元核對未受影響(808字元不變)；`narrateWithState_`(`Router_Narrative.gs`，solo補魔/敘事)、其餘所有`callGeminiAPI`呼叫端(工房捏角/召喚生成等)完全未改，仍只帶`temperature`，新增的4個欄位對它們是no-op。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0；`nsfwBaseRules`逐字元核對 identical，長度808不變。部署後建議測試：①鑑賞主動掌握模式(driveOn)多跑幾回合，觀察敘事收尾語氣是否比之前少重複套路句；②矜持模式(非driveOn)敘事正常運作、無報錯(代表SOLO_MODEL即使不支援部分旋鈕也不會炸)；③如覺得效果太強/太弱，這組數值可再微調(全部集中在`Gallery.gs`這一行`aiConfig`)。
