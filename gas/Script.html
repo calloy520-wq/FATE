@@ -2804,6 +2804,9 @@ let plainTextContext = cleanText;
       //   有夾帶就直接吃、省掉這裡原本每次都要另外打一趟 get_tags 的 round-trip；沒夾帶(理論邊角、
       //   建構失敗)refreshFateTags 內部會自動退回原本的 get_tags 呼叫，行為不變。
       try { refreshFateTags(data.tags); } catch (e) {}
+      // 🆕 2026-07「可以顯示那個地點有幾個人物嗎」：地圖分頁的人數徽章讀的是window._lastTags.
+      //   locationCounts(剛被上面refreshFateTags更新)，這裡只是重繪既有DOM、不另打網路。
+      if (pc && pc.mode === 'kanshou') { try { const _kcml = document.getElementById('kc-map-list'); if (_kcml) _kcml.innerHTML = kcMapListHtml_(); } catch (e) {} }
 
       // 🔵 FATE 敗北：御主殞命→播「願望實現的虛假之夢」→老虎道場（與戰鬥敗北同一套收場）
       if (data.defeat) { await handleDefeat(data); }

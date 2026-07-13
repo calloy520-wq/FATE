@@ -418,7 +418,19 @@ function buildTagsPayload_(sheets, pcId, preData) {
   // 🗝️ 破戒之力（前端決定是否顯示「破戒奪僕」按鈕）：限正式聖杯戰爭世界
   var canRB = false;
   try { if (gameId && gameId.indexOf("g_") === 0 && mIdx >= 0) canRB = canRuleBreak_(pcData, mIdx, gameId); } catch (e) { }
-  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length };
+  // 🗺️ 2026-07 玩家「可以顯示那個地點有幾個人物嗎」：鑑賞地圖分頁按地點顯示人數——同行同伴永遠
+  //   跟玩家同地點(不需要另外看)，真正有意義的是「留人在原地」(請走後凍結在別處)的舊同伴分散在
+  //   哪些地點，供玩家決定要去哪裡巧遇故人。只在鑑賞世界算(gameId以"k_"開頭)，solo無此概念。
+  var locationCounts = {};
+  if (gameId && gameId.indexOf("k_") === 0) {
+    pcData.forEach(function (r) {
+      if (String(r[COL.PC.FACTION]) !== "從者" || String(r[COL.PC.GAME_ID] || "") !== gameId || String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+      var l = String(r[COL.PC.LOC] || "").trim();
+      if (!l) return;
+      locationCounts[l] = (locationCounts[l] || 0) + 1;
+    });
+  }
+  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length, locationCounts: locationCounts };
 }
 
 // ⚡ preData：手上已有最新整表陣列的呼叫端(見 STATE_PRE_DATA_ 交棒機制)傳入複用，省掉整表重讀——

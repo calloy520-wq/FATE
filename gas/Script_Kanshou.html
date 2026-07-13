@@ -225,8 +225,16 @@
     var renameHtml = (kcActiveRegion_ === 'home')
       ? '<div style="text-align:right;margin:-4px 0 6px;"><span onclick="kanshouRenameHome()" style="cursor:pointer;font-size:11px;color:#a07a90;">✏️ 幫「' + escapeHtml(homeLabel) + '」改名</span></div>'
       : '';
+    // 🆕 2026-07 玩家「可以顯示那個地點有幾個人物嗎」：夾帶在tags payload的locationCounts
+    //   (見Router_Action.gs buildTagsPayload_)——同行同伴永遠跟玩家同地點，這裡主要顯示「留人
+    //   在原地」凍結在別處的舊同伴分佈，幫助決定要去哪裡巧遇故人。
+    var locCounts = (window._lastTags && window._lastTags.locationCounts) || {};
     var locBtns = KC_LOCATIONS_.filter(function (l) { return l.region === kcActiveRegion_; }).map(function (l) {
-      return '<button onclick="kanshouMoveTo(\'' + l.name + '\')" style="display:block;width:100%;text-align:left;padding:8px 10px;margin-bottom:6px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">📍 ' + l.name + '</button>';
+      var cnt = locCounts[l.name] || 0;
+      return '<button onclick="kanshouMoveTo(\'' + l.name + '\')" style="display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left;padding:8px 10px;margin-bottom:6px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">'
+        + '<span>📍 ' + l.name + '</span>'
+        + (cnt ? '<span style="color:#e0a0bc;font-size:11px;">👤' + cnt + '</span>' : '')
+        + '</button>';
     }).join('');
     return tabsHtml + renameHtml + locBtns;
   }

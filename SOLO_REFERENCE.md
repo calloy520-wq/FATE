@@ -1861,3 +1861,16 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **未動的部分**：`getKanshouHomeName_`/`setKanshouHomeName_`/`kanshou_set_home_name` action底層邏輯完全未改；`kanshouLeftBehindIdxs`(留人重逢)/`kanshouRollEvent_`(事件種子)沿用既有邏輯，天然對家的5個房間生效，不需要額外改動；`nsfwBaseRules`常數本體逐字元核對未受影響。
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。部署後建議測試：①「家」分頁顯示在分區列最前面、標籤文字正確顯示自訂住所名；②切換到「家」分頁能看到客廳/廚房/臥室/浴室/陽台5個房間按鈕，移動過去不會巧遇陌生人；③在家的房間之間移動/停留仍可能出現氛圍事件種子；④「✏️改名」只在「家」分頁展開時出現，改名後分頁標籤即時更新。
+
+## §59 鑑賞地圖按鈕顯示地點人數徽章（2026-07・玩家「可以顯示 那個地點 有幾個人物嗎? 理論上我可以召喚全部角色 放到地圖上?」）
+
+**背景**：玩家問能否在地點按鈕上看到那裡有幾個人物，並好奇「理論上能不能把全部角色都召喚出來、分散放在地圖上」。後者其實已經成立——同行同伴上限3人，但「請走」不刪列只清`IS_PARTY`、凍結在最後所在地點(§55的留人重逢正是建立在這個機制上)，玩家可以反覆「召喚→移動到某地→請走」把不同英靈分別留在不同地點，理論上23位種子英靈都能各自留一位在地圖各處；只是先前完全沒有介面能讓玩家「看到」這些分散各地的人，才有這次的請求。
+
+**改動**：
+1. **`gas/Router_Action.gs` `buildTagsPayload_`**：新增`locationCounts`(僅鑑賞`gameId`以`"k_"`開頭時才計算，solo無此概念)——掃一次`pcData`，依`LOC`分組計數此局所有存活的`FACTION==="從者"`列(不分是否同行)。同行同伴的LOC恆等於玩家目前所在地，這個數字主要意義在顯示「留人在原地」的舊同伴分佈在哪些地點。
+2. **`gas/Script_Kanshou.html` `kcMapListHtml_`**：地點按鈕讀`window._lastTags.locationCounts`(每次sync/actionPlay回應都會更新，不另打網路)，人數>0就在按鈕右側補一個「👤N」小徽章。
+3. **`gas/Script.html` `send()`**：`refreshFateTags(data.tags)`更新完`window._lastTags`後，鑑賞模式下額外重繪一次`#kc-map-list`(純本地`kcMapListHtml_()`重繪，不打網路)，讓移動/請走後徽章數字即時反映最新分佈，不必等下次手動切分頁才更新。
+
+**未動的部分**：`actionKanshouRemove`/`actionKanshouSummonHero`底層邏輯完全未改；`nsfwBaseRules`常數本體逐字元核對未受影響(本輪未動`Engine_Combat.gs`)。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。部署後建議測試：①請走一位同伴、移動去別的地點後，回頭切換分區能在該同伴被留下的地點按鈕上看到「👤1」徽章；②同一地點留下多位故人時數字疊加正確；③移動/請走後不必手動重整頁面，徽章數字就會即時更新。
