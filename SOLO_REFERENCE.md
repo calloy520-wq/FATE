@@ -1717,3 +1717,27 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **改動**：`gas/Gallery.gs`(新增`myOutfit`常數；【玩家命格】prompt行與`nsfwMemories`開頭各補一處玩家自己的裝扮注入)。
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(純prompt資料組裝，未觸及NSFW規則本體)。部署後建議測試：把自己的換裝設成一句明確的服裝描述(如「只有穿褲子」「浴衣」)，跟同行夥伴互動幾回合，確認AI敘事這次會正確反映這身裝扮、不再自行腦補成別的穿著。
+
+## §51 修正玩家手動編輯Gallery.gs漏刪函式結尾大括號的語法錯誤（2026-07・玩家直接在GitHub網頁編輯器改寫慾海律令，要求「幫我部屬MAIN」）
+
+**背景**：玩家自己在GitHub網頁編輯器直接改寫了`buildDefaultSystemPrompt()`裡`dialogueFormatRule_`/`nsfwBaseRules`/`specificRules`的規則文字內容(重新措辭色度跟隨鐵律、慢熱與傾心等規則，屬於玩家的設計決定，內容本身未受質疑)，commit直接落在main分支(非經過本session的分支流程)。
+
+**查證發現**：`bash check.sh`跑出`FAIL Gallery.gs`，`SyntaxError: Unexpected end of input`——網頁編輯器改寫時，函式結尾`return nsfwBaseRules + ... ;`後緊接的`}`(收掉`buildDefaultSystemPrompt()`的大括號)被連同上一行一起誤刪，導致整個檔案語法錯誤。Apps Script是整包編譯，一個檔案語法錯誤會讓solo+鑑賞**全部**跑不動，不只鑑賞受影響——這種錯誤只要玩家繼續透過本session的`clasp push`/`clasp deploy`流程上線，馬上會炸掉全站。網頁編輯器沒有語法檢查，這類漏刪很容易被忽略。
+
+**修法**：補回遺失的`}`，其餘玩家手動改寫的規則文字內容一字未動(`git diff`確認只新增一行`}`)。
+
+**改動**：`gas/Gallery.gs`(補回`buildDefaultSystemPrompt()`結尾大括號，+1行)。
+
+**驗證**：`bash check.sh`全過(含之前FAIL的Gallery.gs)；`git diff`確認只有這一行新增，無其他變動。PR #233 merge後觸發`workflow_dispatch`部署成功。**教訓**：玩家之後若直接在GitHub網頁編輯器改`.gs`檔，最好貼回本session讓`check.sh`跑過一次再上線——網頁編輯器沒有語法把關，漏刪括號這種小失誤很容易忽略卻會炸全站。
+
+## §52 整理 Gallery.gs 冗長歷史敘事註解（2026-07・玩家反映「現在更新說明比代碼多⋯⋯可以整理一下嗎?」）
+
+**背景**：本session連續多輪修正下來，`Gallery.gs`累積了大量「2026-07 玩家反映/查出根因/改成...」格式的敘事型歷史註解——每次修一個bug都完整記錄「玩家原話→查證過程→根因→修法」，導致同一段程式碼旁邊的註解常常比程式碼本身還長(1622行檔案裡622行是註解，佔比近4成)。這違反CLAUDE.md既有工程準則「Default to writing no comments. Only add one when the WHY is non-obvious...不要referencing當前任務/fix/callers，那些屬於PR描述，會隨代碼庫演進而過時」。
+
+**做法**：逐段將敘事型註解濃縮成精簡的WHY-only單行/短段註解——只留「這段程式碼為什麼要這樣寫」的核心理由，拿掉「玩家哪天用什麼原話反映」「查證的完整過程」「歷史上試過哪些方案又撤回」等會隨時間過期、且已經在git log/PR描述裡有記錄的敘事細節；對已完全刪除、只剩「這裡原本有什麼、後來拿掉了」的死碼歷史類註解，直接整段刪除(這類註解沒有anchor到任何現存程式碼，純粹佔位)。**不動任何程式碼邏輯**——逐行比對確認只有註解文字被改寫/刪除，程式碼本身(含函式簽名/邏輯/字串常數)一律逐字保留。
+
+**特別驗證**：`nsfwBaseRules`常數(慾海禁區紅線①)本體用python腳本逐字元比對修改前後的字串內容，確認`IDENTICAL`——這次只動了它周圍/上方的註解，常數本身的模板字面一字未變。
+
+**改動**：`gas/Gallery.gs`(1622行→1260行，註解行622→約270行；純刪減/濃縮註解，無程式碼邏輯變動，+222/-584)。
+
+**驗證**：`bash check.sh`全過；`nsfwBaseRules`常數內容逐字元比對前後IDENTICAL；`git diff`逐段人工複查確認每處改動只影響註解、未影響任何程式碼行。
