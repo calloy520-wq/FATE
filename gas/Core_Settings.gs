@@ -17,7 +17,7 @@ const MODEL_URL = "https://openrouter.ai/api/v1/chat/completions";
 // 鑑賞用模型：同時是點火(driveOn=true)直接呼叫模型、與矜持模式重試失敗的 fallbackModel，兩處共用同一顆常數。
 const AI_MODEL = (function () {
   var p = PropertiesService.getScriptProperties();
-  return p.getProperty('MODEL') || 'sao10k/l3-lunaris-8b';
+  return p.getProperty('MODEL') || 'deepseek/deepseek-v4-flash';
 })();
 // solo(narrateWithState_) 只需精簡按鍵回饋、不需鑑賞級 NSFW 生成能力，獨立用低延遲小模型換取速度，與 AI_MODEL 互不影響。
 const SOLO_MODEL = (function () {
