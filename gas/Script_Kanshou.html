@@ -491,6 +491,12 @@
     await send('向「' + name + '」提議，這期的房租就用身體來抵……', false, null, null, false, false, 0, null, false, null, null, null, false, false, name);
   }
 
+  // 🎭 2026-07「跳出色色選項詢問是否色色」：夜襲/賴床叫醒改成候選人持續存在期間都能按這顆按鈕，
+  //   不點的話(包括直接輸入文字聊天)就是婉拒，正常敘事完全不受影響——玩家可以先盡情聊天再決定。
+  async function kanshouAcceptRoomEvent(name) {
+    await send('（靠近了「' + name + '」……）', false, null, null, false, false, 0, null, false, null, null, null, false, false, null, name);
+  }
+
   // 同伴名單變動後的局部刷新：只重抓「鑑賞眾生在場名單」這份小資料，不再重打 get_heroes，
   // 也只重繪 party-list／hero-list 兩塊(master-box/filters 沒變，不動)。
   async function kcRefreshPartyOnly_() {

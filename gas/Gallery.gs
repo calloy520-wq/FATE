@@ -1318,6 +1318,37 @@ function actionPlay(userData, pcId, sheets) {
   const myGameId = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
   const sameGame = (r) => !myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId;
 
+  // 🎭 橋段·夜襲/賴床叫醒(2026-07「跳出色色選項詢問是否色色」玩家定案，從「移動進房間就直接演出」
+  //   改成「先問過玩家再演出」)：判定必須在任何LOC寫入(含下面moveTarget處理裡「同行同伴LOC同步」)
+  //   之前做——同行同伴的LOC會被那段強制覆寫成跟玩家一致，晚做這個判定會查到「已經被同步過」的
+  //   假象，誤判成「她本來就在這裡」(玩家抓到的既有bug同一個根因，這次順便從根本上改掉觸發方式：
+  //   不再是移動當下就直接演出，而是先算出「候選人」存著，按鈕(roomEventOffer，見回合末)在候選
+  //   人存在期間持續可用，玩家點下去(userData.roomEventAccept)才真正骰一次走向，不點就只是繼續
+  //   聊天——聊幾句不影響candidate資格，直到玩家真的移動去別處才會重新判定)。
+  const kanshouRoomEventTargetLoc_ = moveTarget ? moveName : curL;
+  const kanshouRoomEventKey_ = KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_[timeBand_(curHour)];
+  let kanshouRoomEventCandidate_ = null;
+  if (kanshouRoomEventKey_) {
+    const _reHeroId = Object.keys(KANSHOU_HOUSEMATE_ROOMS_).find(hid => KANSHOU_HOUSEMATE_ROOMS_[hid] === kanshouRoomEventTargetLoc_);
+    const _reHero = _reHeroId ? SEED_SERVANTS.find(h => h.id === _reHeroId) : null;
+    const _reIdx = _reHero ? pcData.findIndex((r, i) => i !== pcIndex && sameGame(r) && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC] || "").trim() === kanshouRoomEventTargetLoc_ && kanshouNameCandidates_(_reHero.realName).includes(String(r[COL.PC.NAME]))) : -1;
+    if (_reIdx !== -1) kanshouRoomEventCandidate_ = { eventKey: kanshouRoomEventKey_, hero: _reHero, idx: _reIdx };
+  }
+  // 玩家按下按鈕(roomEventAccept帶姓名，第二道防線比對姓名確實吻合candidate，防直打API帶假名字)：
+  //   才真的依bond骰一次走向、寫進提示詞；不點按鈕的話這個字串維持空白，narration完全走一般對話。
+  let kanshouRoomEventStr = "";
+  if (userData.roomEventAccept && kanshouRoomEventCandidate_ && kanshouNameCandidates_(kanshouRoomEventCandidate_.hero.realName).includes(String(userData.roomEventAccept).trim())) {
+    const { eventKey: reEventKey, hero: reHero, idx: reIdx } = kanshouRoomEventCandidate_;
+    const reBond = parseInt(pcData[reIdx][COL.PC.BOND]) || 0;
+    const reBranch = kanshouRollSceneBranch_(reEventKey, reBond);
+    if (reBranch) {
+      const reVerb = reEventKey === '夜襲' ? '深夜靠近了' : '清晨靠近了還在賴床的';
+      kanshouRoomEventStr = `\n★【橋段·${reEventKey}(GAS已骰定這次走向，AI只需依此演出，不必徵詢玩家、也不必逐字照抄下方措辭)】：${reVerb}『${reHero.realName}』，她此刻的反應走向是——${reBranch.tag}。依她的既有性格詮釋這個走向具體要怎麼表現、講什麼話，細節全由你發揮，但情緒基調不要偏離這個走向。`;
+      finalUserMsg = reEventKey === '夜襲' ? `【玩家意圖】：靠近了『${reHero.realName}』，似乎想更進一步。` : `【玩家意圖】：伸手想輕輕叫醒還在賴床的『${reHero.realName}』。`;
+      if (reEventKey === '夜襲' && reBranch.min >= 60) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], reHero.realName);
+    }
+  }
+
   // 🚪 2026-07「睡覺時機率有人來敲門」：結束一天(準備就寢)前先擲一次骰，命中就不執行日期推進，
   //   直接回傳knockEvent讓前端跳出「開門/不予理會」——玩家選「不予理會」會帶skipKnockCheck重送
   //   一次結束一天(跳過這次判定，直接推進日期)；選「開門」則帶knockAccept把訪客接來(見下)。
@@ -1524,31 +1555,7 @@ function actionPlay(userData, pcId, sheets) {
   //   這個瞬間跑一次，不會每句對話重算。
   let kanshouEncounterHero = null, kanshouEncounterMetBefore = false, kanshouEncounterLocName = "";
   let kanshouEventSeed = null;
-  let kanshouRoomEventStr = "";
   if (moveTarget) {
-    // 🎭 橋段·夜襲/賴床叫醒(2026-07)——判斷必須在「同步同行同伴LOC」之前做！同行同伴的LOC本來
-    //   就會在下面那段forEach被強制覆寫成跟玩家一致(不管她原本在哪，跟著玩家到處走是同行同伴的
-    //   常態行為)：如果判斷順序放到同步之後，會變成「只要她同行在場，走進這個房間就一定觸發」，
-    //   即使她剛才其實一路跟著玩家逛遍全家、根本沒有真的獨自待在房裡，也會被誤判成「巧遇獨自在
-    //   房間的她」——玩家發現這個矛盾(「ai會讓npc乖乖睡覺的敘事嗎」)。修法：判斷放在同步「之前」，
-    //   額外要求她「同步前的LOC本來就已經等於這個房間」，這樣才是真正的「本來就在那裡、被找到／
-    //   撞見」，不是「跟著玩家過來、恰好這間是她的房間」。限同住人(有自己房間)；限同行(此刻確實
-    //   在場，避免跟kanshouLeftBehindIdxs非同行故人重逢的敘事框架互相打架)。
-    const roomEventKey = KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_[timeBand_(curHour)];
-    if (roomEventKey) {
-      const raidHeroId = Object.keys(KANSHOU_HOUSEMATE_ROOMS_).find(hid => KANSHOU_HOUSEMATE_ROOMS_[hid] === moveName);
-      const raidHero = raidHeroId ? SEED_SERVANTS.find(h => h.id === raidHeroId) : null;
-      const raidIdx = raidHero ? pcData.findIndex((r, idx) => idx !== pcIndex && sameGame(r) && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(raidHero.realName).includes(String(r[COL.PC.NAME]))) : -1;
-      if (raidIdx !== -1 && String(pcData[raidIdx][COL.PC.LOC] || "").trim() === moveName) {
-        const raidBond = parseInt(pcData[raidIdx][COL.PC.BOND]) || 0;
-        const branch = kanshouRollSceneBranch_(roomEventKey, raidBond);
-        if (branch) {
-          const roomEventVerb = roomEventKey === '夜襲' ? '深夜獨自走進了' : '清晨走進了還在賴床的';
-          kanshouRoomEventStr = `\n★【橋段·${roomEventKey}(GAS已骰定這次走向，AI只需依此演出，不必徵詢玩家、也不必逐字照抄下方措辭)】：${roomEventVerb}『${raidHero.realName}』的房間，她此刻的反應走向是——${branch.tag}。依她的既有性格詮釋這個走向具體要怎麼表現、講什麼話，細節全由你發揮，但情緒基調不要偏離這個走向。`;
-          if (roomEventKey === '夜襲' && branch.min >= 60) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], raidHero.realName);
-        }
-      }
-    }
     curL = moveName;
     pcData[pcIndex][COL.PC.LOC] = curL;
     dirtyPcRows.add(pcIndex);
@@ -2005,6 +2012,11 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
     const debtPartyRows = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
     const debtPaymentOffer = (debtPartyRows.length === 1 && KANSHOU_RENT_DEBT_TAG_.get(debtPartyRows[0][COL.PC.MEMORY])) ? String(debtPartyRows[0][COL.PC.NAME]) : undefined;
 
+    // 🎭 橋段·夜襲/賴床叫醒的按鈕：candidate在回合開頭(任何LOC寫入之前)就算好了，這裡直接沿用，
+    //   不必也不應該重算——重算的話就會撞回「同行同伴LOC已被同步」的舊bug。candidate只認人員
+    //   身分(不含bond)，bond留到玩家真的按下接受時才讀最新值。
+    const roomEventOffer = kanshouRoomEventCandidate_ ? { name: kanshouRoomEventCandidate_.hero.realName, eventKey: kanshouRoomEventCandidate_.eventKey } : undefined;
+
     const localPeopleList = getKanshouPeopleList_(pcId, curL, pcData);
 
     let finalResponseText = aiData.narration || "天地混沌，一片寂靜。";
@@ -2041,7 +2053,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       tags: tagsPayload,
       moveProposal: moveProposal || undefined,
       curfewPrompt: curfewPrompt,
-      debtPaymentOffer: debtPaymentOffer
+      debtPaymentOffer: debtPaymentOffer,
+      roomEventOffer: roomEventOffer
     });
 
   } catch (e) { return JSON.stringify({ text: "系統錯誤：" + e.message, people: [] }); }
