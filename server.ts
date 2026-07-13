@@ -4,6 +4,7 @@ import fs from 'fs';
 import vm from 'vm';
 import os from 'os';
 import cp from 'child_process';
+import { Worker } from 'worker_threads';
 
 const app = express();
 const PORT = 3000;
@@ -14,6 +15,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Setup Database Path
 const dbPath = path.join(process.cwd(), 'db.json');
+const gsDir = path.join(process.cwd(), 'gas');
 
 // Range Class for Google Sheets Range simulation
 class Range {
@@ -142,38 +144,26 @@ class Sheet {
   }
 }
 
-// Spreadsheet Class for Google Sheets Spreadsheet simulation
+// Spreadsheet Class for Google Sheets Spreadsheet simulation.
+// 🧵 2026-07 併發修復：不再自己管dbPath/fs讀寫——store由呼叫端(主執行緒或worker)注入，
+//   save()只透過onSave回呼通知「資料變了」，實際要不要落地寫db.json由呼叫端決定。這樣同一套
+//   class main thread(啟動時初始化用)跟worker thread(每個請求執行用)都能共用，不必寫兩份。
 class Spreadsheet {
-  dbPath: string;
   store: any;
+  onSave: () => void;
 
-  constructor(dbPath: string) {
-    this.dbPath = dbPath;
-    this.store = {};
-    this.load();
-  }
-
-  load() {
-    if (fs.existsSync(this.dbPath)) {
-      try {
-        this.store = JSON.parse(fs.readFileSync(this.dbPath, 'utf-8'));
-      } catch (err) {
-        console.error("Error reading database file, resetting:", err);
-        this.store = {};
-      }
-    } else {
-      this.store = {};
-    }
+  constructor(store: any, onSave?: () => void) {
+    this.store = store || {};
+    this.onSave = onSave || (() => {});
   }
 
   save() {
-    fs.writeFileSync(this.dbPath, JSON.stringify(this.store, null, 2));
+    this.onSave();
   }
 
-  // 🔴 修復：真實GAS的getSheetByName()在表不存在時回傳null，呼叫端(ensureFateSheets_)靠這個
-  //   判斷「是不是第一次建立」來決定要不要寫表頭/灌種子資料。這裡不能像之前一樣自動補空陣列——
-  //   一旦永遠回傳真值，existing永遠是truthy，insertSheet那個「真正寫表頭+種子資料」的分支就
-  //   永遠執行不到，db.json每張表都會停在空陣列、沒有表頭沒有種子資料。
+  //   判斷「是不是第一次建立」來決定要不要寫表頭/灌種子資料。這裡不能自動補空陣列——一旦永遠
+  //   回傳真值，existing永遠是truthy，insertSheet那個「真正寫表頭+種子資料」的分支就永遠執行
+  //   不到，每張表都會停在空陣列、沒有表頭沒有種子資料。
   getSheetByName(name: string) {
     return Object.prototype.hasOwnProperty.call(this.store, name) ? new Sheet(name, this) : null;
   }
@@ -187,165 +177,161 @@ class Spreadsheet {
   }
 }
 
-// Google Apps Script Global Services Mocks
-const SpreadsheetApp = {
-  activeSpreadsheet: null as any,
-  init: (dbPath: string) => {
-    SpreadsheetApp.activeSpreadsheet = new Spreadsheet(dbPath);
-  },
-  getActiveSpreadsheet: () => {
-    return SpreadsheetApp.activeSpreadsheet;
-  }
-};
+// 🧵 2026-07 併發修復：組出一整套GAS全域服務mock，餵給vm sandbox用。抽成獨立函式(而非模組層級
+//   單例)是為了main thread(啟動初始化)跟每個worker thread(執行單一請求)都能各自建一份獨立的
+//   sandbox——避免多個請求共用同一份可變狀態，也讓每個worker的store完全由呼叫端注入/取回，
+//   不必自己碰db.json。UrlFetchApp.fetch/Utilities.sleep仍是同步阻塞寫法(GAS原生語意本來就是
+//   同步呼叫，沒辦法改成async又不碰gas/*.gs)，但因為整段執行都在獨立worker thread裡跑，阻塞
+//   的只有那顆worker，不會凍結主執行緒的Express伺服器讓其他玩家的畫面卡死。
+function buildSandbox(store: any, onSave: () => void) {
+  const ss = new Spreadsheet(store, onSave);
+  const SpreadsheetApp = {
+    activeSpreadsheet: ss as any,
+    getActiveSpreadsheet: () => SpreadsheetApp.activeSpreadsheet
+  };
 
-SpreadsheetApp.init(dbPath);
-
-const PropertiesService = {
-  getScriptProperties: () => {
-    return {
-      getProperty: (key: string) => {
-        if (key === 'API_KEY' || key === 'OPENROUTER_API_KEY' || key === 'OPENROUTER_KEY' || key === 'OPENROUTER') {
-          return process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY || '';
-        }
-        return process.env[key] || '';
-      },
-      setProperty: (key: string, val: string) => {
-        process.env[key] = val;
-      }
-    };
-  }
-};
-
-const CacheService = {
-  getScriptCache: () => {
-    const store = new Map();
-    return {
-      get: (key: string) => store.get(key) || null,
-      put: (key: string, value: string, seconds: number) => store.set(key, value),
-      remove: (key: string) => store.delete(key)
-    };
-  }
-};
-
-const LockService = {
-  getScriptLock: () => {
-    return {
-      tryLock: (timeout: number) => true,
-      releaseLock: () => {}
-    };
-  }
-};
-
-const Utilities = {
-  sleep: (ms: number) => {
-    const start = Date.now();
-    while (Date.now() - start < ms) {
-      // Synchronous blocking sleep for GAS engine execution inside VM
-    }
-  }
-};
-
-const UrlFetchApp = {
-  fetch: (url: string, options: any) => {
-    let targetUrl = url;
-    let targetHeaders = { ...(options.headers || {}) };
-    let payloadObj = JSON.parse(options.payload || '{}');
-
-    console.log(`\n========================================`);
-    console.log(`📡 [GAS Simulator API] REQUEST TRIGGERED`);
-    console.log(`🔗 URL: ${url}`);
-    console.log(`🤖 Requested Model: ${payloadObj.model}`);
-    console.log(`🌡️  Temperature: ${payloadObj.temperature} | Top P: ${payloadObj.top_p}`);
-    if (payloadObj.repetition_penalty) console.log(`🔄 Repetition Penalty: ${payloadObj.repetition_penalty}`);
-    if (payloadObj.top_k) console.log(`🎯 Top K: ${payloadObj.top_k}`);
-
-    // If calling OpenRouter, but no OPENROUTER_API_KEY is found and we have GEMINI_API_KEY
-    if (url.includes('openrouter.ai') && !process.env.OPENROUTER_API_KEY && process.env.GEMINI_API_KEY) {
-      console.log(`⚠️  [AI ROUTING WARNING] OPENROUTER_API_KEY not found.`);
-      console.log(`🔄 Redirecting to Gemini OpenAI compatibility endpoint...`);
-      console.log(`💡 Note: Parameters like repetition_penalty or custom passthrough models may not be natively supported by Gemini compatibility layer.`);
-      
-      targetUrl = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-      targetHeaders['Authorization'] = `Bearer ${process.env.GEMINI_API_KEY}`;
-      
-      // Map requested models to standard Gemini models
-      const originalModel = payloadObj.model || '';
-      if (originalModel.includes('grok') || originalModel.includes('pro') || originalModel.includes('deepseek-r1')) {
-        payloadObj.model = 'gemini-2.5-pro';
-      } else {
-        payloadObj.model = 'gemini-2.5-flash';
-      }
-      console.log(`➡️  Mapped Model: ${payloadObj.model}`);
-    } else if (url.includes('openrouter.ai') && process.env.OPENROUTER_API_KEY) {
-      console.log(`✅ [AI ROUTING] OPENROUTER_API_KEY found! Forwarding directly to OpenRouter.`);
-      targetHeaders['Authorization'] = `Bearer ${process.env.OPENROUTER_API_KEY}`;
-    }
-    console.log(`========================================\n`);
-
-    const headerArgs: string[] = [];
-    for (const [key, value] of Object.entries(targetHeaders)) {
-      headerArgs.push('-H', `${key}: ${value}`);
-    }
-
-    const bodyStr = JSON.stringify(payloadObj);
-    const tempInPath = path.join(os.tmpdir(), `api_req_${Date.now()}_${Math.random().toString(36).slice(2)}.json`);
-    const tempOutPath = path.join(os.tmpdir(), `api_res_${Date.now()}_${Math.random().toString(36).slice(2)}.json`);
-    
-    fs.writeFileSync(tempInPath, bodyStr);
-
-    try {
-      const curlCmd = [
-        'curl',
-        '-s',
-        '-X', options.method ? options.method.toUpperCase() : 'POST',
-        ...headerArgs,
-        '-d', `@${tempInPath}`,
-        `"${targetUrl}"`,
-        '-o', `"${tempOutPath}"`
-      ].join(' ');
-
-      cp.execSync(curlCmd, { stdio: 'ignore' });
-
-      const responseText = fs.readFileSync(tempOutPath, 'utf-8');
-      
-      // Cleanup
-      try { fs.unlinkSync(tempInPath); } catch(_) {}
-      try { fs.unlinkSync(tempOutPath); } catch(_) {}
-
+  const PropertiesService = {
+    getScriptProperties: () => {
       return {
-        getContentText: () => responseText,
-        getResponseCode: () => 200
+        getProperty: (key: string) => {
+          if (key === 'API_KEY' || key === 'OPENROUTER_API_KEY' || key === 'OPENROUTER_KEY' || key === 'OPENROUTER') {
+            return process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY || '';
+          }
+          return process.env[key] || '';
+        },
+        setProperty: (key: string, val: string) => {
+          process.env[key] = val;
+        }
       };
-    } catch (err) {
-      console.error("UrlFetchApp.fetch error:", err);
-      try { fs.unlinkSync(tempInPath); } catch(_) {}
-      try { fs.unlinkSync(tempOutPath); } catch(_) {}
-      throw err;
     }
-  }
-};
+  };
 
-const Logger = {
-  log: (...args: any[]) => console.log('[GAS Logger]', ...args)
-};
+  const CacheService = {
+    getScriptCache: () => {
+      const store2 = new Map();
+      return {
+        get: (key: string) => store2.get(key) || null,
+        put: (key: string, value: string, seconds: number) => store2.set(key, value),
+        remove: (key: string) => store2.delete(key)
+      };
+    }
+  };
 
-// Create VM sandbox context with mock GAS globals
-const sandboxContext = {
-  PropertiesService,
-  CacheService,
-  UrlFetchApp,
-  LockService,
-  SpreadsheetApp,
-  Logger,
-  Utilities,
-  console,
-  setTimeout,
-  clearTimeout,
-  setInterval,
-  clearInterval,
-};
+  const LockService = {
+    getScriptLock: () => {
+      return {
+        tryLock: (timeout: number) => true,
+        releaseLock: () => {}
+      };
+    }
+  };
 
-const sandbox = vm.createContext(sandboxContext);
+  const Utilities = {
+    sleep: (ms: number) => {
+      const start = Date.now();
+      while (Date.now() - start < ms) {
+        // Synchronous blocking sleep — safe here because this only runs inside an isolated
+        // worker thread, never on the main thread that serves other players.
+      }
+    }
+  };
+
+  const UrlFetchApp = {
+    fetch: (url: string, options: any) => {
+      let targetUrl = url;
+      let targetHeaders = { ...(options.headers || {}) };
+      let payloadObj = JSON.parse(options.payload || '{}');
+
+      console.log(`\n========================================`);
+      console.log(`📡 [GAS Simulator API] REQUEST TRIGGERED`);
+      console.log(`🔗 URL: ${url}`);
+      console.log(`🤖 Requested Model: ${payloadObj.model}`);
+      console.log(`🌡️  Temperature: ${payloadObj.temperature} | Top P: ${payloadObj.top_p}`);
+      if (payloadObj.repetition_penalty) console.log(`🔄 Repetition Penalty: ${payloadObj.repetition_penalty}`);
+      if (payloadObj.top_k) console.log(`🎯 Top K: ${payloadObj.top_k}`);
+
+      if (url.includes('openrouter.ai') && !process.env.OPENROUTER_API_KEY && process.env.GEMINI_API_KEY) {
+        console.log(`⚠️  [AI ROUTING WARNING] OPENROUTER_API_KEY not found.`);
+        console.log(`🔄 Redirecting to Gemini OpenAI compatibility endpoint...`);
+        console.log(`💡 Note: Parameters like repetition_penalty or custom passthrough models may not be natively supported by Gemini compatibility layer.`);
+
+        targetUrl = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+        targetHeaders['Authorization'] = `Bearer ${process.env.GEMINI_API_KEY}`;
+
+        const originalModel = payloadObj.model || '';
+        if (originalModel.includes('grok') || originalModel.includes('pro') || originalModel.includes('deepseek-r1')) {
+          payloadObj.model = 'gemini-2.5-pro';
+        } else {
+          payloadObj.model = 'gemini-2.5-flash';
+        }
+        console.log(`➡️  Mapped Model: ${payloadObj.model}`);
+      } else if (url.includes('openrouter.ai') && process.env.OPENROUTER_API_KEY) {
+        console.log(`✅ [AI ROUTING] OPENROUTER_API_KEY found! Forwarding directly to OpenRouter.`);
+        targetHeaders['Authorization'] = `Bearer ${process.env.OPENROUTER_API_KEY}`;
+      }
+      console.log(`========================================\n`);
+
+      const headerArgs: string[] = [];
+      for (const [key, value] of Object.entries(targetHeaders)) {
+        headerArgs.push('-H', `${key}: ${value}`);
+      }
+
+      const bodyStr = JSON.stringify(payloadObj);
+      const tempInPath = path.join(os.tmpdir(), `api_req_${Date.now()}_${Math.random().toString(36).slice(2)}.json`);
+      const tempOutPath = path.join(os.tmpdir(), `api_res_${Date.now()}_${Math.random().toString(36).slice(2)}.json`);
+
+      fs.writeFileSync(tempInPath, bodyStr);
+
+      try {
+        const curlCmd = [
+          'curl',
+          '-s',
+          '-X', options.method ? options.method.toUpperCase() : 'POST',
+          ...headerArgs,
+          '-d', `@${tempInPath}`,
+          `"${targetUrl}"`,
+          '-o', `"${tempOutPath}"`
+        ].join(' ');
+
+        cp.execSync(curlCmd, { stdio: 'ignore' });
+
+        const responseText = fs.readFileSync(tempOutPath, 'utf-8');
+
+        try { fs.unlinkSync(tempInPath); } catch (_) {}
+        try { fs.unlinkSync(tempOutPath); } catch (_) {}
+
+        return {
+          getContentText: () => responseText,
+          getResponseCode: () => 200
+        };
+      } catch (err) {
+        console.error("UrlFetchApp.fetch error:", err);
+        try { fs.unlinkSync(tempInPath); } catch (_) {}
+        try { fs.unlinkSync(tempOutPath); } catch (_) {}
+        throw err;
+      }
+    }
+  };
+
+  const Logger = {
+    log: (...args: any[]) => console.log('[GAS Logger]', ...args)
+  };
+
+  return {
+    PropertiesService,
+    CacheService,
+    UrlFetchApp,
+    LockService,
+    SpreadsheetApp,
+    Logger,
+    Utilities,
+    console,
+    setTimeout,
+    clearTimeout,
+    setInterval,
+    clearInterval,
+  };
+}
 
 // Load and concatenate all .gs files in precise order to preserve const/let scoping and initialization
 const preferredOrder = [
@@ -370,9 +356,7 @@ const preferredOrder = [
   'Router_Persona.gs'
 ];
 
-const gsDir = path.join(process.cwd(), 'gas');
 let combinedGsCode = '';
-
 for (const file of preferredOrder) {
   const filePath = path.join(gsDir, file);
   if (fs.existsSync(filePath)) {
@@ -380,62 +364,154 @@ for (const file of preferredOrder) {
   }
 }
 
-// Evaluate combined GAS codebase inside the VM sandbox
+// ---- Canonical in-memory store (main thread only). Every request is processed one-at-a-time
+// through a Worker (see runInWorker/taskQueue below), so there is never more than one writer
+// mutating `store` at a time — no lost-update races, even though each request's actual GAS
+// execution happens off the main thread.
+let store: any = {};
+if (fs.existsSync(dbPath)) {
+  try {
+    store = JSON.parse(fs.readFileSync(dbPath, 'utf-8'));
+  } catch (err) {
+    console.error("Error reading database file, resetting:", err);
+    store = {};
+  }
+}
+
+function persist() {
+  fs.writeFileSync(dbPath, JSON.stringify(store, null, 2));
+}
+
+// ---- One-time startup initialization (main thread, synchronous — fine, happens once before
+// the server starts accepting connections, no concurrent players yet).
 try {
+  const sandbox = vm.createContext(buildSandbox(store, persist));
   vm.runInContext(combinedGsCode, sandbox, { filename: 'FATE_COMBINED_GAS.js' });
   console.log("Successfully compiled and loaded all Google Apps Script files.");
+  const ss = (sandbox as any).SpreadsheetApp.getActiveSpreadsheet();
+  (sandbox as any).ensureFateSheets_(ss);
+  persist();
+  console.log("FATE database sheets auto-initialized and seeded successfully in db.json.");
 } catch (err) {
-  console.error("FATAL: Failed to evaluate combined GAS codebase:", err);
+  console.error("FATAL: Failed to evaluate combined GAS codebase or initialize sheets:", err);
   process.exit(1);
 }
 
-// Auto-initialize the database with standard FATE sheets and seed values if not already set up
+// ---- Per-request execution: each call to a GAS function runs inside its own isolated Worker
+// thread. UrlFetchApp.fetch/Utilities.sleep inside that worker still block synchronously (GAS's
+// real execution model is synchronous — rewriting to async would mean the .gs files no longer
+// behave the same on the real GAS deploy), but because it's confined to a worker thread, it only
+// blocks THAT worker, never the shared Express process serving everyone else.
+//
+// Requests are still funneled through a strict FIFO queue (taskQueue) rather than run truly in
+// parallel: each worker gets the current canonical `store`, and only one worker's result is ever
+// being merged back at a time. This trades true concurrency for correctness — without per-row
+// merging (a much bigger undertaking), running many workers fully in parallel against snapshots
+// of `store` risks one player's finished write silently clobbering another's still-in-flight
+// change. Queuing means players wait their turn instead of racing, but nobody's screen freezes
+// waiting on someone else's slow AI call — the server itself stays responsive throughout.
+const WORKER_SOURCE = `
+const { workerData, parentPort } = require('worker_threads');
+const vm = require('vm');
+const cp = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+${Range.toString()}
+${Sheet.toString()}
+${Spreadsheet.toString()}
+${buildSandbox.toString()}
+
 try {
-  const ss = (sandbox as any).SpreadsheetApp.getActiveSpreadsheet();
-  (sandbox as any).ensureFateSheets_(ss);
-  console.log("FATE database sheets auto-initialized and seeded successfully in db.json.");
+  const sandbox = vm.createContext(buildSandbox(workerData.store, () => {}));
+  vm.runInContext(workerData.gsCode, sandbox, { filename: 'FATE_COMBINED_GAS.js' });
+  const fn = sandbox[workerData.functionName];
+  if (typeof fn !== 'function') {
+    parentPort.postMessage({ success: false, error: 'Function ' + workerData.functionName + ' not found', store: workerData.store });
+  } else {
+    const result = fn.apply(null, workerData.args || []);
+    parentPort.postMessage({ success: true, result: result, store: workerData.store });
+  }
 } catch (err) {
-  console.error("Error auto-initializing database sheets:", err);
+  parentPort.postMessage({ success: false, error: (err && err.message) || String(err), store: workerData.store });
 }
+`;
+
+function runInWorker(functionName: string, args: any[]): Promise<{ success: boolean; result?: any; error?: string }> {
+  return new Promise((resolve) => {
+    const worker = new Worker(WORKER_SOURCE, {
+      eval: true,
+      workerData: { functionName, args, store, gsCode: combinedGsCode }
+    });
+    let settled = false;
+    const timeoutHandle = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      console.error(`⏱️  Worker timeout executing ${functionName}, terminating.`);
+      worker.terminate();
+      resolve({ success: false, error: 'Worker execution timed out' });
+    }, 60000);
+
+    worker.on('message', (msg: any) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutHandle);
+      if (msg && msg.store) {
+        store = msg.store;
+        try { persist(); } catch (e) { console.error('Failed to persist db.json:', e); }
+      }
+      resolve(msg);
+      worker.terminate();
+    });
+    worker.on('error', (err: any) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutHandle);
+      resolve({ success: false, error: (err && err.message) || String(err) });
+    });
+  });
+}
+
+let taskQueue: Promise<void> = Promise.resolve();
 
 // Route to run GAS server-side functions called by the client
 app.post('/api/run', (req, res) => {
   const { functionName, args } = req.body;
-  try {
-    const fn = (sandbox as any)[functionName];
-    if (typeof fn !== 'function') {
-      console.warn(`Function ${functionName} not found on GAS backend.`);
-      return res.status(404).json({ success: false, error: `Function ${functionName} not found` });
-    }
-
-    const result = fn(...(args || []));
-    res.json({ success: true, result });
-  } catch (err: any) {
-    console.error(`Error executing ${functionName}:`, err);
-    res.status(500).json({ success: false, error: err.message || String(err) });
-  }
+  taskQueue = taskQueue
+    .then(() => runInWorker(functionName, args))
+    .then((msg: any) => {
+      if (msg.success) {
+        res.json({ success: true, result: msg.result });
+      } else {
+        console.error(`Error executing ${functionName}:`, msg.error);
+        res.status(500).json({ success: false, error: msg.error });
+      }
+    })
+    .catch((err: any) => {
+      try { res.status(500).json({ success: false, error: (err && err.message) || String(err) }); } catch (_) {}
+    });
 });
 
 // Serve main Index page with processed script/style templates
 app.get('/', (req, res) => {
   try {
-    const gasDir = path.join(process.cwd(), 'gas');
-    let html = fs.readFileSync(path.join(gasDir, 'Index.html'), 'utf-8');
+    let html = fs.readFileSync(path.join(gsDir, 'Index.html'), 'utf-8');
 
     // Replace Style Template
-    const styleContent = fs.readFileSync(path.join(gasDir, 'Style.html'), 'utf-8');
+    const styleContent = fs.readFileSync(path.join(gsDir, 'Style.html'), 'utf-8');
     html = html.replace(/<\?!=\s*HtmlService\.createHtmlOutputFromFile\(['"]Style['"]\)\.getContent\(\);\s*\?>/gi, styleContent);
 
     // Replace Script Template
-    const scriptContent = fs.readFileSync(path.join(gasDir, 'Script.html'), 'utf-8');
+    const scriptContent = fs.readFileSync(path.join(gsDir, 'Script.html'), 'utf-8');
     html = html.replace(/<\?!=\s*HtmlService\.createHtmlOutputFromFile\(['"]Script['"]\)\.getContent\(\);\s*\?>/gi, scriptContent);
 
     // Replace Script_Onboarding Template
-    const onboardingContent = fs.readFileSync(path.join(gasDir, 'Script_Onboarding.html'), 'utf-8');
+    const onboardingContent = fs.readFileSync(path.join(gsDir, 'Script_Onboarding.html'), 'utf-8');
     html = html.replace(/<\?!=\s*HtmlService\.createHtmlOutputFromFile\(['"]Script_Onboarding['"]\)\.getContent\(\);\s*\?>/gi, onboardingContent);
 
     // Replace Script_Kanshou Template
-    const kanshouContent = fs.readFileSync(path.join(gasDir, 'Script_Kanshou.html'), 'utf-8');
+    const kanshouContent = fs.readFileSync(path.join(gsDir, 'Script_Kanshou.html'), 'utf-8');
     html = html.replace(/<\?!=\s*HtmlService\.createHtmlOutputFromFile\(['"]Script_Kanshou['"]\)\.getContent\(\);\s*\?>/gi, kanshouContent);
 
     // Inject client-side google.script.run Mock at the top of <body>
