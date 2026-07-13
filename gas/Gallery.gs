@@ -556,13 +556,18 @@ function actionKanshouSetHomeName(userData, pcId, sheets) {
 //   分 SFW/NSFW 分支，直接寫死唯一真的會用到的版本。real runtime 上唯一還會變動的「模式」是
 //   driveOn(🔥主動掌握)，由 actionPlay 自己組的 driveStr 處理，不在這個函式管轄範圍內。
 function buildDefaultSystemPrompt() {
-  // physical_state 只留顏面神情＋衣裝狀態兩項(≤25字)：原本涵蓋姿態/表情/肉體反應/服裝凌亂度
-  //   四個面向逼AI逐項填滿，跟慾海律令「禁止器官逐格交代」矛盾，已收斂並放寬字數避免腰斬句意。
-  const _physicalState = "本回合角色當下的顏面神情與衣裝狀態(第三人稱填寫，依情境自然帶到即可，不必逐項列舉，≤25字)";
+  // physical_state 只留顏面神情(≤15字)：只管表情，衣裝狀態拆進獨立的 outfit_change 欄
+  //   (下方)，兩者關注點不同——前者是每回合都可能變的暫時神情，後者是要持久記住的實際穿著。
+  const _physicalState = "本回合角色當下的顏面神情(第三人稱填寫，依情境自然帶到即可，≤15字)";
+
+  // outfit_change：角色當下實際穿著狀態，AI 可依劇情如實更新(正常穿著寫身上衣物，全裸/沐浴/
+  //   更衣等狀態也要如實反映)，會寫回持久的【換裝】記錄，不是每回合就消失的暫時描述。
+  const _outfitChange = "本回合角色實際穿著狀態(第三人稱如實反映，≤20字)";
 
   // 🔴 npc的範本欄位填「同上」：Router_Action.gs解析intimacy_feedback時的ignoreWords防呆清單本就含「同上」，
   // 即使AI偷懶照抄範本字面值也會被當成敷衍語忽略、不會寫進玩家看到的狀態欄，省字數不引入新的失敗模式。
   const _physicalStateRef = "同上";
+  const _outfitChangeRef = "同上";
 
   const finalJson = {
     // 強制思維鏈：放範本第一位讓模型先自省再寫敘事。後端 sanitizeAiData_ 不讀此欄，純粹是給
@@ -575,14 +580,16 @@ function buildDefaultSystemPrompt() {
     "location": "本回合結束時御主所在地點——若narration有實際敘述移動/抵達，填新地點名稱(可自創、不限於冬木既有地名)；沒有移動則原樣填目前地點",
     "options": ["1. [主動]強勢掌握主導...", "2. [被動]順從委婉試探...", "3. [接續]順劇情延續互動...", "4. [反差]跳脫氛圍的驚人舉動..."],
     "intimacy_feedback": {
-      "_note": "★physical_state是角色「自身」當下的顏面神情與衣裝狀態，禁內心戲，第三人稱填寫，絕對禁寫'自己'，≤25字。★每回合都要據實反映最新狀態，不可偷懶沿用舊值；不必逐項列舉，依當下情境自然帶到即可。npcs每位與player共用此格式，依其實際狀態填寫。",
+      "_note": "★physical_state只寫角色「自身」當下的顏面神情，禁內心戲，第三人稱填寫，絕對禁寫'自己'，≤15字。★outfit_change是角色當下實際穿著狀態(第三人稱如實反映，≤20字)：正常穿著就寫身上衣物，若劇情中角色被脫光、沐浴、更衣，也要如實反映當下真實狀態，這欄會持久記住、不是每回合就消失的暫時描述。★兩者每回合都要據實反映最新狀態，不可偷懶沿用舊值。npcs每位與player共用此格式，依其實際狀態填寫。",
       "player": {
         "physical_state": _physicalState,
+        "outfit_change": _outfitChange,
         "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第6條)"
       },
       "npcs": [{
         "name": "NPC真實姓名(不論敘事/對話裡怎麼稱呼TA，此欄固定填真實姓名，不可填暱稱或職階)",
         "physical_state": _physicalStateRef,
+        "outfit_change": _outfitChangeRef,
         "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第6條)",
         "mutual_nicknames": "雙方間已自然發展出的暱稱/愛稱(規則見下方慾海律令第6條)",
         "attitude": "這名NPC對御主當下的臨場態度(非好感趨勢，第三人稱，≤15字，規則見下方慾海律令第7條)"
@@ -824,8 +831,8 @@ function actionPlay(userData, pcId, sheets) {
   dirtyPcRows.add(pcIndex); // 玩家本人一定會被處理到，先加進去
 
   const currentAmbition = pc[COL.PC.INTENT] ? String(pc[COL.PC.INTENT]).trim() : "尚無明確目標，隨遇而安。";
-  // 玩家自己的換裝，比照【同行夥伴】卡片(partyDetailsArr)同款「裝扮:XXX(當前服裝·五官體態不變)」
-  //   格式補上，AI 才能讀到玩家本人設定的服裝，而非憑空假設。
+  // 玩家自己的換裝(玩家UI設定或AI依outfit_change更新)，比照【同行夥伴】卡片(partyDetailsArr)
+  //   同款「裝扮:XXX(當前服裝·五官體態不變)」格式補上，AI 才能讀到當前實際服裝，而非憑空假設。
   const myOutfit = getOutfit_(pc[COL.PC.MEMORY]);
 
   // 🔵 實例化：只取自己 game_id 世界內、同地點的人（御主無 game_id 時不過濾，相容舊角色）
@@ -911,7 +918,7 @@ function actionPlay(userData, pcId, sheets) {
     //   同名者的資料塞進本局的敘事提示詞。
     const r = pcData.find(row => String(row[COL.PC.NAME]).trim() === String(pName).trim() && !String(row[COL.PC.ID]).startsWith("DEAD_") && sameGame(row));
     if (r) {
-      const pOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 玩家換裝：當前服裝穿著(換衣不換人)
+      const pOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 換裝：當前服裝穿著(換衣不換人；玩家UI設定或AI依outfit_change更新)
       // 鑑賞無戰鬥，HP/STATUS 恆定不變(已被 physical_state 取代)，不重複注入。
       const pMemStr = relMemMemoryStr_(r[COL.PC.REL_MEM]);
       const pMoeStr = String(r[COL.PC.INTENT] || "").trim();
@@ -955,7 +962,7 @@ function actionPlay(userData, pcId, sheets) {
   let pSkills = (pcData[pcIndex][COL.PC.MEMORY] || "無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/, (m, p1) => `[雙修技巧]${p1.trim().split('、').slice(0, 5).join('、')}`);
   // 玩家自己的換裝也要補進[情境延續]區塊(比照NPC每回合補進[名字 裝扮]行)，這是情慾場景AI主要
   //   參照的區塊，不能只在【玩家命格】看得到。
-  let nsfwMemories = `\n[玩家『${pcName}』肉體]：${JSON.stringify(pPhysicalObj)}\n[身體記憶]：${pSkills}${myOutfit ? `\n[玩家『${pcName}』裝扮]：${myOutfit}（玩家指定當前服裝·五官/髮色/體態不變）` : ""}`;
+  let nsfwMemories = `\n[玩家『${pcName}』肉體]：${JSON.stringify(pPhysicalObj)}\n[身體記憶]：${pSkills}${myOutfit ? `\n[玩家『${pcName}』裝扮]：${myOutfit}（當前服裝·五官/髮色/體態不變）` : ""}`;
 
   // ⚡ 提速：跟上面 presentRowsForGender 是完全相同的 filter 條件，直接複用，省掉第二次整表掃描。
   let allPresentRows = presentRowsForGender;
@@ -964,8 +971,8 @@ function actionPlay(userData, pcId, sheets) {
     if (Object.keys(npcPhysicalObj).length === 0) npcPhysicalObj = { "狀態": "如常" };
     let npcSkills = (r[COL.PC.MEMORY] || "無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/, (m, p1) => `[雙修技巧]${p1.trim().split('、').slice(0, 5).join('、')}`);
     let relMem = r[COL.PC.REL_MEM] || "無";
-    let npcOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 玩家換裝：當前服裝穿著(換衣不換人·五官體態依本相)
-    nsfwMemories += `${npcOutfit ? `\n[${r[COL.PC.NAME]} 裝扮]：${npcOutfit}（玩家指定當前服裝·五官/髮色/體態不變）` : ""}\n[${r[COL.PC.NAME]} 肉體]：${JSON.stringify(npcPhysicalObj)}\n[快照]：[技巧]${npcSkills} | [羈絆]${relMem}`;
+    let npcOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 換裝：當前服裝穿著(換衣不換人·五官體態依本相；玩家UI設定或AI依outfit_change更新)
+    nsfwMemories += `${npcOutfit ? `\n[${r[COL.PC.NAME]} 裝扮]：${npcOutfit}（當前服裝·五官/髮色/體態不變）` : ""}\n[${r[COL.PC.NAME]} 肉體]：${JSON.stringify(npcPhysicalObj)}\n[快照]：[技巧]${npcSkills} | [羈絆]${relMem}`;
   });
 
   // 🔥 主動掌握模式(driveOn)：翻轉「誰主導節奏」——平時的矜持限制換成同伴主動出擊；玩家的迴避/
@@ -1104,11 +1111,18 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       // 🔴 防禦機制：過濾掉 AI 偷懶不想更新狀態時的敷衍用語
       const ignoreWords = ["維持現狀", "無變化", "不變", "維持", "同上", "保持現狀", "沒有變化"];
 
-      // physical_state 是單一自由文字欄(顏面神情+衣裝狀態)，這裡補上後端強制截斷防呆(25字)，
-      //   不完全依賴AI自律守住上限。
+      // physical_state 只管顏面神情，這裡補上後端強制截斷防呆(15字)，不完全依賴AI自律守住上限。
       const sanitizePhysicalState = (rawState) => {
         if (typeof rawState !== 'string') return "";
-        const val = rawState.trim().slice(0, 25);
+        const val = rawState.trim().slice(0, 20);
+        return (!val || ignoreWords.includes(val)) ? "" : val;
+      };
+
+      // outfit_change：AI 如實回報的當下實際穿著，篩掉敷衍語後直接交給既有 setOutfit_ 寫回
+      //   持久的【換裝】記錄(setOutfit_ 本身已有 40 字硬上限與清洗特殊字元，這裡不重複截斷)。
+      const sanitizeOutfitChange = (rawOutfit) => {
+        if (typeof rawOutfit !== 'string') return "";
+        const val = rawOutfit.trim();
         return (!val || ignoreWords.includes(val)) ? "" : val;
       };
 
@@ -1154,6 +1168,9 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         const pCleanState = sanitizePhysicalState(pfb.physical_state);
         if (pCleanState) pcData[pcIndex][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[pcIndex][COL.PC.PHYSICAL], pCleanState);
 
+        const pOutfitChange = sanitizeOutfitChange(pfb.outfit_change);
+        if (pOutfitChange) pcData[pcIndex][COL.PC.MEMORY] = setOutfit_(pcData[pcIndex][COL.PC.MEMORY], pOutfitChange);
+
         let oldPMem = pcData[pcIndex][COL.PC.MEMORY] || "";
         pcData[pcIndex][COL.PC.MEMORY] = setSkillTag_(oldPMem, processSkills(oldPMem, pfb.dynamic_skills));
       }
@@ -1168,6 +1185,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
           dirtyPcRows.add(targetIdx);
           const nCleanState = sanitizePhysicalState(nfb.physical_state);
           if (nCleanState) pcData[targetIdx][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[targetIdx][COL.PC.PHYSICAL], nCleanState);
+          const nOutfitChange = sanitizeOutfitChange(nfb.outfit_change);
+          if (nOutfitChange) pcData[targetIdx][COL.PC.MEMORY] = setOutfit_(pcData[targetIdx][COL.PC.MEMORY], nOutfitChange);
           if (nfb.dynamic_skills) {
             let oldNMem = pcData[targetIdx][COL.PC.MEMORY] || "";
             pcData[targetIdx][COL.PC.MEMORY] = setSkillTag_(oldNMem, processSkills(oldNMem, nfb.dynamic_skills));
