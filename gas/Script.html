@@ -1394,11 +1394,10 @@
             + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + ' <span style="font-size:11px; font-weight:normal; color:#e0a0bc;">💗' + (s.bond || 0) + ' · ' + escapeHtml(s.tag || '從者') + '</span></div>'
             + (s.outfit ? '<div style="color:#c9a0e0; font-size:11px; line-height:1.5;">裝扮　' + s.outfit + '</div>' : '')
             + kanshouStatusLines_(po)
-            // 🐛→✅ 只有換裝、沒有詳細狀態鈕(2026-07 修)：玩家反映想自行微調鑑賞同伴的敘事欄(身世/特徵/個性/萌點)，
-            //   反正住在「鑑賞眾生」分頁、不會動到英靈殿種子庫。openStatus 這套面板本就是純敘事(狀態/特徵/地點/性格/
-            //   陣營/身世/萌點/雙修技巧/專屬稱呼——無六圍/技能/寶具，solo戰鬥卡也共用同一套)＋逆天改命微調，直接複用。
+            // 🚫 2026-07 玩家定案「換裝改AI專屬」：同伴的服裝改由AI依outfit_change欄位自主更新(見Gallery.gs)，
+            //   玩家不再能手動指定她穿什麼——只保留「📜詳細狀態」鈕；下方changeOutfit()/actionSetOutfit本體
+            //   保留未刪(仍供御主本人換裝與solo從者卡使用)，只是這裡不再露出觸發同伴換裝的入口。
             + '<div style="margin-top:6px; display:flex; gap:6px;">'
-            + '<button onclick="changeOutfit(\'' + safeN + '\')" title="換裝：自訂她此刻的服裝穿著，AI 會依此描寫（只換衣不換人）。免費即時、留空恢復本相。" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(150,110,190,0.18); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👗 換裝</button>'
             + '<button onclick="openStatus(\'' + safeN + '\',\'' + safeN + '\')" title="查看「' + safeN + '」的完整狀態：個性／特徵／身世／萌點／關係等，並可逆天改命微調敘事欄" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 詳細狀態</button>'
             + '</div>'
             // 🆕 2026-07 玩家「請走和關係按鈕做到標籤的卡片上」：原本只在👥同伴面板才能操作，這裡
