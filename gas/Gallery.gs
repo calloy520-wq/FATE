@@ -830,6 +830,7 @@ function buildDefaultSystemPrompt() {
 7. 【attitude·態度】（≤15字）：每回合據實反映NPC當下臨場心情與對關係標籤的認同/抗拒，不可沿用舊值。`;
 
 return nsfwBaseRules + "\n" + specificRules + "\n\n★【輸出範本】\n" + JSON.stringify(finalJson, null, 2);
+}
 
 // 🔀 2026-07 玩家定案「鑑賞是鑑賞、solo是solo，兩軌只共用種子庫資料，撈完資料後各自獨立表格」：
 //   actionPlay 原本借用 solo 的 getLocalPeopleList(Core_Settings.gs) 算「同地人物」清單——但那個
