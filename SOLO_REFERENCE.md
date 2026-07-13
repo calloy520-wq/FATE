@@ -1794,3 +1794,25 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **未動的部分**：`getOutfit_`/`setOutfit_`/`clearOutfit_`底層機制、玩家UI手動換裝(`actionSetOutfit`/`changeOutfit()`)完全未動——AI新增的寫入路徑與既有玩家寫入路徑共用同一個函式、同一個MEMORY標記，兩者可以互相覆蓋(誰的回合晚誰生效)，符合「這是當下真實狀態」的設計意圖，不需要額外的優先權/鎖定機制。`nsfwBaseRules`常數本體逐字元核對未受影響。
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0；`nsfwBaseRules`常數逐字元比對前後IDENTICAL。部署後建議測試：跟同伴進入親密場景、劇情演到脫衣/沐浴，確認下一回合讀到的「裝扮」欄位有跟著更新，且離開該情境後(如穿回衣服)也能正確反映最新狀態，不會卡在中途的某個狀態不動。
+
+## §55 鑑賞「可愛地圖」升級：分區地圖＋留人重逢＋輕量事件種子＋巧遇性別修正＋看看四周按鈕（2026-07・玩家設計文件「FATE kanshou 輕量版『可愛地圖』升級大綱」＋事後追加「為啥偶遇沒有女性?...如果有SABER同行不可能地圖上再出現SABER吧?」＋「這功能直接做成按鈕 不用猜了」）
+
+**背景**：玩家提出三段式升級需求：①原本「出門走走」只是10個地點的扁平清單，想分成4~5張大地圖、每張底下再分子地點；②請走的同伴目前只是「凍結在原地」但沒有任何「下次來這裡可能巧遇」的呈現；③移動/停留時想要一點輕量的隨機小事件調味。做完①②③後，玩家在同一回合內又追加兩個問題：巧遇池(`KANSHOU_MALE_HERO_IDS_`)刻意設計成全男性，導致「明明同行著SABER，出門走走卻可能再巧遇一位不具名的SABER」這種矛盾；以及原本「原地問還有誰在」是靠正則表達式猜測玩家文字語意觸發，玩家要求直接做成按鈕不要用猜的。
+
+**設計與改動**（`gas/Gallery.gs`除非特別註明）：
+
+1. **分區大地圖（Phase 1）**：新增`KANSHOU_REGIONS_`(4個分區：深山町・家附近/冬木市中心/港口・碼頭區/山林・道場區，各含id/name/desc)；`KANSHOU_LOCATIONS_`從10個地點擴充/改名成17個地點，每筆補上`region`欄位對應到分區id——region純粹是UI分組用的標籤，不影響`kanshouRollEncounter_`/`actionPlay`的moveTarget比對(那些都認地點`name`，改名同時已同步更新`KANSHOU_LOCATION_TAGS_`的key)。前端`Script_Kanshou.html`同步建立對應的`KC_REGIONS_`/`KC_LOCATIONS_`(比照後端這份，改地點/分區要兩邊同步改，沿用既有的「前端純畫按鈕、後端才是驗證真實來源」設計)；`kcMapListHtml_()`改為「家」按鈕＋分區切換列(`kcSwitchRegion_`，狀態存`kcActiveRegion_`＋localStorage持久化偏好，比照`kanshouEncounterOn`)＋依當前分區篩選的地點按鈕清單。
+
+2. **留人重逢（Phase 2）**：新增`kanshouLeftBehindIdx`——在`actionPlay`每回合(不限移動)找此局已被「請走」(`IS_PARTY`非同行)、目前`LOC`正巧凍結在玩家所在地點的同伴列。命中時：①優先於這次到訪呈現，跳過陌生人巧遇擲骰(`kanshouEncounterHero`只在`kanshouLeftBehindIdx===-1`時才擲)；②注入`kanshouReunionStr`——不受【在場驗證鐵律】限制的系統例外，讓AI知道這是「有真實姓名/好感/羈絆記錄的正牌故人重逢」而非匿名陌生人巧遇，好感依`rel_changes`正常追蹤(該機制本就不看`IS_PARTY`，不需額外改動)；但明講「同行狀態仍須玩家自行在同伴面板操作」，不讓AI在敘事裡假裝對方已經同行。
+
+3. **輕量事件種子（Phase 3）**：新增`KANSHOU_EVENT_SEEDS_`(daily/ambiguous/spicy三類短句)＋`kanshouRollEvent_(driveOn)`(20%機率，非driveOn時spicy類不會被抽到)。每次抵達新地點(僅`moveTarget`、不含「家」)擲一次，命中則注入`kanshouEventSeed`——標明【非強制】的氛圍引子，AI可自然採用或完全不理會，不是預寫劇本。
+
+4. **修正「為何偶遇沒有女性」**：`KANSHOU_MALE_HERO_IDS_`拆成`KANSHOU_ENCOUNTER_MALE_IDS_`＋新增`KANSHOU_ENCOUNTER_FEMALE_IDS_`(8位女性英靈＋3位女性御主(遠坂凜/伊莉雅絲菲爾/間桐櫻黑化，鑑賞限定角色)＋性別「無」的恩奇都比照既有慣例當女性向處理)；也替原本只有男性標籤的地點各補一位氣質相符的女性/中性角色(如老道場加斯卡哈-Assassin、書店二樓加伊莉雅-Caster)。`kanshouRollEncounter_`保底池從純男性改成男女混合全池；新增`excludeIds`參數——`actionPlay`用`kanshouNameCandidates_`比對此局已正式召喚過(不論是否仍同行)的英靈真名，反查對應的`SEED_SERVANTS.id`清單餵給兩處擲骰呼叫，避免「同行著SABER時，路上又巧遇一位不具名SABER」的矛盾。男女配對規則不變：只有「男御主遇男性巧遇對象」明講僅止於同性情誼，其餘組合(含女女)一律自然發展。玩家事後再定案排除`吉爾德萊-Caster`/`百貌哈桑-Assassin`/`咒腕之哈桑-Assassin`3位不出現在巧遇池——已從`KANSHOU_ENCOUNTER_MALE_IDS_`與其對應的3個地點標籤移除(書店二樓/深夜便利店/廢棄神社)，這3位英靈本身透過👥同伴面板正式召喚仍不受影響，只是不會再以「路上巧遇陌生人」的形式出現。
+
+5. **「看看四周」改按鈕**：移除原本用來猜測玩家是不是在問「這裡還有誰」的`KANSHOU_ASKING_WHO_ELSE_RE_`正則表達式，改成前端明確按鈕：`send()`新增第5個參數`lookAround`(預設false，向後相容既有呼叫點)，夾進`gasRun`的`lookAround`欄位；後端判斷條件從`KANSHOU_ASKING_WHO_ELSE_RE_.test(userMsg)`改成`userData.lookAround === true`。前端新增`kanshouLookAround()`(不移動、不換地點，原地問)，按鈕放在地圖分頁「路上可能巧遇陌生人」勾選框下方。
+
+6. **順手修正**：`buildDefaultSystemPrompt()`的`specificRules`(慾海律令)第5條殘留§54拆分前的舊描述「physical_state只寫顏面神情與衣裝狀態」，跟實際schema(已拆成兩欄)不符，改成分別描述兩欄職責——此為`specificRules`非`nsfwBaseRules`本體，逐字元核對確認未動到紅線常數。
+
+**未動的部分**：`nsfwBaseRules`常數本體逐字元核對未受影響；`actionKanshouSummonHero`(重邀復活舊列的邏輯)/`actionKanshouRemove`(退出同行、保留列凍結LOC的邏輯)完全未動，Phase 2直接複用這兩顆既有函式的既定行為，只是新增「呈現」層讓AI知道可以自然演出重逢；玩家設計文件提到的「直接移動/慢慢走」選項與時間判斷機制，玩家已明確表示「後續再看要不要做」，本輪未實作。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0；`nsfwBaseRules`常數逐字元比對前後IDENTICAL。部署後建議測試：①切換分區按鈕清單正確跟著換；②請走一位同伴後，移動到TA被留下的地點，確認AI有演出重逢而非把TA當陌生人；③多次「出門走走」觀察巧遇對象確實會出現女性英靈，且已同行的英靈不會又以陌生人身分重複出現；④點擊「看看四周還有沒有其他人」按鈕能觸發巧遇重擲、且不移動地點。

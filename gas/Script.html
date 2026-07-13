@@ -1543,6 +1543,7 @@
         + '<label style="display:flex;align-items:center;gap:6px;margin-bottom:10px;color:#c9b8d8;font-size:12px;cursor:pointer;">'
         + '<input type="checkbox" id="kc-encounter-toggle" ' + (kanshouEncounterOn ? 'checked' : '') + ' onchange="kanshouToggleEncounter_(this.checked)"> 路上可能巧遇陌生人'
         + '</label>'
+        + '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:#8a6a9a;color:#d0a8e0;" onclick="kanshouLookAround()">👀 看看四周還有沒有其他人</button>'
         + '<div id="kc-map-list">' + kcMapListHtml_() + '</div>';
       return;
     }
@@ -2641,7 +2642,7 @@ function applyModeUI() {
   //   handleMultiAttack/renderCombatReport/narrateCombatResult(已於更早的清理移除)，不是下面
   //   send()的行為；send() 是鑑賞(action:'play')自由聊天引擎的唯一呼叫點，跟「連擊」無關。
 
-  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null) {
+  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false) {
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
     // 🔥 主動掌握開關(2026-07)：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
@@ -2679,7 +2680,7 @@ function applyModeUI() {
       // 🚪 巧遇開關：kanshouEncounterOn 定義在 Script_Kanshou.html(該檔恆載入)，此處為 solo(非鑑賞)
       //   路徑保留防呆——solo 呼叫 actionPlay 會在函式入口即被擋下，這個欄位對 solo 無意義。
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, drive: drive, lastContext: lastAiContext, moveTarget: moveTarget || undefined, encounter: encounterOn });
+      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, drive: drive, lastContext: lastAiContext, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined });
 
 
       document.getElementById(loadId)?.remove();
