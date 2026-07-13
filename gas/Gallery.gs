@@ -725,7 +725,8 @@ const KANSHOU_REGIONS_ = [
   { id: 'shinzan', name: '深山町・家附近', desc: '溫馨日常區' },
   { id: 'fuyuki', name: '冬木市中心', desc: '熱鬧生活區' },
   { id: 'harbor', name: '港口・碼頭區', desc: '微涼浪漫區' },
-  { id: 'dojo', name: '山林・道場區', desc: '安靜神秘區' }
+  { id: 'dojo', name: '山林・道場區', desc: '安靜神秘區' },
+  { id: 'visit', name: '拜訪住處', desc: '同伴們各自的家' }
 ];
 // 🌸 鑑賞地點清單：純資料驅動的小陣列，不進 MAP 試算表(不跟solo共用坤圖)——之後要加/改地點只動
 //   這裡。前端 Script_Kanshou.html 另有一份同名清單純供畫按鈕(改地點時兩邊都要更新)，實際驗證/
@@ -757,7 +758,34 @@ const KANSHOU_LOCATIONS_ = [
   { name: '老道場', region: 'dojo', desc: '木地板與竹刀氣味的老道場。' },
   { name: '山間小徑', region: 'dojo', desc: '林蔭遮天、只聞鳥鳴的山間小路。' },
   { name: '隱藏溫泉', region: 'dojo', desc: '深藏山林間、鮮少人知的一方溫泉。' },
-  { name: '廢棄神社', region: 'dojo', desc: '荒草蔓生、早已無人祭拜的廢棄神社。' }
+  { name: '廢棄神社', region: 'dojo', desc: '荒草蔓生、早已無人祭拜的廢棄神社。' },
+
+  // 🚪 2026-07 玩家「我也想要晚上去找他們阿」：把KANSHOU_HERO_HOME_(見下方)裡的22個獨立住處
+  //   升格成真正可造訪的地點——noEncounter:true(私人住處，恆不觸發陌生人巧遇，比照「家」分區)，
+  //   完全重用既有moveTarget/留人重逢機制，不新增任何比對邏輯；name務必與KANSHOU_HERO_HOME_
+  //   的值逐字一致，否則kanshouRollDailyLocation_骰到的地點對不上這裡就巧遇不到人。
+  { name: '騎士團舊宿舍', region: 'visit', desc: '曾屬於騎士團的古老宿舍，靜謐而莊重。', noEncounter: true },
+  { name: '老舊公寓', region: 'visit', desc: '巷弄深處的老舊公寓，燈光總是很晚才熄。', noEncounter: true },
+  { name: '荒野小屋', region: 'visit', desc: '荒野邊緣的簡樸小屋，煙囪偶爾冒著炊煙。', noEncounter: true },
+  { name: '靜謐宅邸', region: 'visit', desc: '遠離塵囂、爬滿藤蔓的靜謐宅邸。', noEncounter: true },
+  { name: '隱蔽的工房', region: 'visit', desc: '隱藏在巷尾、飄著藥草氣味的工房。', noEncounter: true },
+  { name: '河畔道場', region: 'visit', desc: '臨河而建的道場，劍聲與水聲交織。', noEncounter: true },
+  { name: '荒地帳篷', region: 'visit', desc: '荒地上搭起的一頂帳篷，篝火終夜未熄。', noEncounter: true },
+  { name: '高級公寓頂樓', region: 'visit', desc: '俯瞰整座城市的高級公寓頂樓。', noEncounter: true },
+  { name: '森林小屋', region: 'visit', desc: '林間深處的木造小屋，掛著獵具與弓箭。', noEncounter: true },
+  { name: '軍帳', region: 'visit', desc: '隨性搭起的軍帳，篝火旁總有笑聲。', noEncounter: true },
+  { name: '陰暗地下室', region: 'visit', desc: '終年不見天日的陰暗地下室。', noEncounter: true },
+  { name: '廢棄倉庫', region: 'visit', desc: '堆滿雜物、鮮少有人涉足的廢棄倉庫。', noEncounter: true },
+  { name: '隱密巷弄', region: 'visit', desc: '曲折難尋的隱密巷弄深處。', noEncounter: true },
+  { name: '森林深處', region: 'visit', desc: '終年幽暗、人跡罕至的森林深處。', noEncounter: true },
+  { name: '城牆邊', region: 'visit', desc: '古老城牆邊的一方空地。', noEncounter: true },
+  { name: '島嶼道場', region: 'visit', desc: '孤懸海上、只有濤聲相伴的道場。', noEncounter: true },
+  { name: '埃德費爾特宅邸', region: 'visit', desc: '歐風古典的埃德費爾特家宅邸。', noEncounter: true },
+  { name: '愛因茲貝倫城', region: 'visit', desc: '終年白雪覆蓋的愛因茲貝倫城堡。', noEncounter: true },
+  { name: '遠坂邸', region: 'visit', desc: '老字號魔術師家系的遠坂邸。', noEncounter: true },
+  { name: '間桐邸', region: 'visit', desc: '終年陰暗潮濕的間桐邸。', noEncounter: true },
+  { name: '衛宮邸', region: 'visit', desc: '古老庭院環繞的衛宮邸。', noEncounter: true },
+  { name: '藤村家', region: 'visit', desc: '熱鬧溫馨、時常傳出笑鬧聲的藤村家。', noEncounter: true }
 ];
 // 🎭 地點×角色 氛圍標籤(資料驅動，往陣列塞一筆 SEED_SERVANTS 的 id 就能加，不動抽選邏輯)：
 //   槍兵(庫丘林)刻意塞多個地點——「到處打零工」的浮動人設；其餘角色先各給1~2個貼合形象的地點。
@@ -783,8 +811,10 @@ const KANSHOU_ENCOUNTER_FEMALE_IDS_ = ['阿爾托莉雅-Saber', '美杜莎-Rider
 // 🏠 2026-07 玩家發現「不同行的人推進一天時會溜到玩家自己家裡」的錯誤（kanshouRollDailyLocation_
 //   原本深夜/清晨的homeBias直接回傳KANSHOU_LOCATIONS_裡region==='home'的房間——那是玩家自己的家，
 //   不同行的人不該在那裡出現）：改成每位英靈自己的住處(資料驅動，比照KANSHOU_LOCATION_TAGS_同款
-//   「往物件加一筆id對應值」寫法)。這些字串刻意不放進KANSHOU_LOCATIONS_(玩家看不到、去不了)，
-//   純粹讓「深夜在家」的人不會被player-visitable地點意外撞見；查無資料(如玩家原創英靈)退回通用值。
+//   「往物件加一筆id對應值」寫法)。這22個獨立住處字串已同步登記進KANSHOU_LOCATIONS_(region:'visit'，
+//   見上方)成為玩家可造訪的真實地點(玩家「我也想要晚上去找他們阿」)，深夜巧遇/主動拜訪共用同一套
+//   moveTarget/留人重逢機制；查無資料(如玩家原創英靈)退回通用值「自己的住處」(這個值刻意不登記
+//   進KANSHOU_LOCATIONS_，多位角色共用同一個泛用字串會混淆是哪一位，故維持不可造訪)。
 const KANSHOU_HERO_HOME_ = {
   '阿爾托莉雅-Saber': '騎士團舊宿舍', 'EMIYA-Archer': '老舊公寓',
   '庫丘林-Lancer': '荒野小屋', '美杜莎-Rider': '靜謐宅邸', '美狄亞-Caster': '隱蔽的工房',

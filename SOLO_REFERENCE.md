@@ -2201,3 +2201,15 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **未動的部分**：`nsfwBaseRules`不受影響；`KANSHOU_LOCATIONS_`(玩家可造訪地點清單)、`KANSHOU_LOCATION_TAGS_`(白天巧遇地點標籤)完全未變；solo不受影響。
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Engine_Combat.gs gas/Gallery.gs | grep -c nsfwBaseRules` = 0；程式化核對25個住處字串與22個KANSHOU_LOCATIONS_地點名稱零重複。部署後建議測試：讓一位非同行英靈經歷結束一天/推進時間跨過深夜時段，確認她的LOC不再變成客廳/廚房/臥室/浴室/陽台這幾個玩家自己家的房間名稱。
+
+## §80 22個英靈住處升格成可造訪地點（2026-07・§79上線後玩家「地圖不同步上更新嗎 我也想要晚上去找他們阿www」）
+
+**背景**：§79把每位英靈的「深夜在家」去向從玩家自己家改成各自獨立的住處字串，但當時刻意不登記進`KANSHOU_LOCATIONS_`(玩家可造訪地點清單)，純粹當成「不會被意外撞見」的內部標記。玩家看完效果後反過來想要主動去拜訪——這次把這22個住處字串登記成真正的地點。
+
+**改動**：`KANSHOU_LOCATIONS_`(`Gallery.gs`)新增`region:'visit'`分區，把`KANSHOU_HERO_HOME_`裡22個不重複的住處字串逐一加成地點條目(`noEncounter:true`，私人住處恆不觸發陌生人巧遇，比照「家」分區5個房間同款旗標)，並手寫貼合各角色設定的一句描述(如「終年白雪覆蓋的愛因茲貝倫城堡」)。`KANSHOU_REGIONS_`新增對應分區`{id:'visit', name:'拜訪住處'}`。前端`Script_Kanshou.html`的`KC_REGIONS_`/`KC_LOCATIONS_`鏡像同步更新。程式化核對過這22個地點名稱與`KANSHOU_HERO_HOME_`的值逐字一致(否則深夜骰到的地點跟這裡登記的對不上，會巧遇不到人)。
+
+**設計理由**：完全重用既有`moveTarget`比對／留人重逢(`kanshouLeftBehindIdxs`)機制——玩家主動走去某人的住處，跟深夜她被骰到那裡，是同一套「LOC比對」邏輯，不需要新增任何比對/驗證程式碼；地圖分區UI(`kcMapListHtml_`/`KC_REGIONS_`.map)本來就是資料驅動迴圈，加一個分區純粹是加資料，不動渲染邏輯。玩家原創英靈(無種子資料)的通用值「自己的住處」維持不登記進地點清單——多人共用同一個泛用字串會讓「拜訪」對象混淆是哪一位，故維持不可造訪，僅原本§79的「不會撞見玩家自己家」效果保留。
+
+**未動的部分**：`nsfwBaseRules`不受影響；`kanshouRollDailyLocation_`函式邏輯不變(§79已改完，這次只是把它回傳的字串登記成合法地點)；solo不受影響。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Engine_Combat.gs gas/Gallery.gs | grep -c nsfwBaseRules` = 0；程式化核對22個住處地點名稱與`KANSHOU_HERO_HOME_`值零缺漏。部署後建議測試：①地圖新增「拜訪住處」分區，能看到22個地點；②某位非同行英靈深夜被分配到她自己的住處後，玩家主動走去那個地點應該能觸發重逢；③這些地點不會觸發陌生人巧遇。
