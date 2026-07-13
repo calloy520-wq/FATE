@@ -289,6 +289,16 @@
     await send('👀 四處張望，看看還有沒有其他人在。', false, null, null, true);
   }
 
+  // 🚶 2026-07「AI提議換地點需玩家同意」：同意時重用既有moveTarget管線(跟kanshouMoveTo同一條路，
+  //   含巧遇/留人重逢等效果)，不另開移動程式碼；拒絕就當作一句普通續寫，原地不動。
+  async function kanshouConfirmMoveProposal(loc) {
+    showGamePane('chat');
+    await send('好，一起去「' + loc + '」吧。', false, null, loc);
+  }
+  async function kanshouDeclineMoveProposal() {
+    await send('這次還是先留在這裡好了。', false, null, null);
+  }
+
   // 同伴名單變動後的局部刷新：只重抓「鑑賞眾生在場名單」這份小資料，不再重打 get_heroes，
   // 也只重繪 party-list／hero-list 兩塊(master-box/filters 沒變，不動)。
   async function kcRefreshPartyOnly_() {
