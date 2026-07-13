@@ -799,6 +799,46 @@ function kanshouRollDailyLocation_(heroName, hour) {
   const pool = haunts.length ? haunts : KANSHOU_LOCATIONS_.map(l => l.name);
   return pool[Math.floor(Math.random() * pool.length)];
 }
+// 🎊 2026-07「跳到節慶」玩法(玩家「還想再做一個日期選擇，想體驗什麼時段的劇情就可以去調整，可能
+//   想跟他們過年或七夕」→再考慮後「我覺得加年月日會比較好...抓個3年的區間就好」)：真正的西曆
+//   年/月/日(每年固定365天、不算閏年，遊戲用途夠精準)，只抓3年區間(見actionPlay的advanceHours
+//   上限)不追求無限年份。Day1固定對應12月28日(玩家「開局是跨年前！可以逛幾天後31準備一起跨年」
+//   ——28/29/30三天日常後，第4天自然就是KANSHOU_FESTIVALS_裡的跨年夜12/31，不必特地跳)。
+const KANSHOU_CAL_START_MONTH_ = 12, KANSHOU_CAL_START_DAY_ = 28;
+const KANSHOU_DAYS_IN_MONTH_ = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const KANSHOU_FESTIVALS_ = [
+  { key: 'newyear', name: '新年初一', month: 1, day: 1 },
+  { key: 'valentine', name: '情人節', month: 2, day: 14 },
+  { key: 'qixi', name: '七夕', month: 7, day: 7 },
+  { key: 'midautumn', name: '中秋節', month: 9, day: 15 },
+  { key: 'xmas', name: '聖誕節', month: 12, day: 25 },
+  { key: 'nye', name: '跨年夜', month: 12, day: 31 }
+];
+// 某月日距離「當年1/1」是第幾天(0-based)，供年/月/日互換共用。
+function kanshouDoyOffset_(month, day) {
+  let off = 0;
+  for (let m = 0; m < month - 1; m++) off += KANSHOU_DAYS_IN_MONTH_[m];
+  return off + (day - 1);
+}
+// absDay(從Day1累積的天數) → {year, month, day}，Day1固定對應KANSHOU_CAL_START_MONTH_/DAY_。
+function kanshouAbsDayToDate_(absDay) {
+  const startOff = kanshouDoyOffset_(KANSHOU_CAL_START_MONTH_, KANSHOU_CAL_START_DAY_);
+  const totalOff = startOff + (Math.max(1, absDay) - 1);
+  const year = Math.floor(totalOff / 365) + 1;
+  let doy = totalOff % 365;
+  let month = 0;
+  while (doy >= KANSHOU_DAYS_IN_MONTH_[month]) { doy -= KANSHOU_DAYS_IN_MONTH_[month]; month++; }
+  return { year: year, month: month + 1, day: doy + 1 };
+}
+// 算「從現在」到「下一次」某月日的小時數——已經錯過今年這天就自動算成明年(deltaDays<=0時+365)。
+function kanshouHoursUntilDate_(curDay, curHour, targetMonth, targetDay) {
+  const startOff = kanshouDoyOffset_(KANSHOU_CAL_START_MONTH_, KANSHOU_CAL_START_DAY_);
+  const curDoy = (startOff + (curDay - 1)) % 365;
+  const targetDoy = kanshouDoyOffset_(targetMonth, targetDay);
+  let deltaDays = targetDoy - curDoy;
+  if (deltaDays <= 0) deltaDays += 365;
+  return deltaDays * 24 - curHour;
+}
 // 🎲 Phase3 輕量小事件(2026-07「可愛地圖」升級)：抵達新地點時20%機率抽一顆短句靈感種子注入
 //   提示詞，純粹給AI參考的引子(非預寫劇本、非強制發生)，AI可完全不理會，也可自然融入敘事。
 //   分三類：日常可愛/曖昧小互動 恆定開放，色氣類僅driveOn(主動掌握模式)開啟時才會抽到。
@@ -908,6 +948,7 @@ function actionPlay(userData, pcId, sheets) {
   //   同一個game_id，欄位互不干擾)，不另開新欄。查無值(舊存檔/尚未跑過這輪改動)時給預設(Day1 08:00)。
   let curDay = parseInt(pc[COL.PC.DAY]) || 1;
   let curHour = (pc[COL.PC.HOUR] === "" || pc[COL.PC.HOUR] == null) ? 8 : (parseInt(pc[COL.PC.HOUR]) || 0);
+  let jumpFest = null; // 🎊 有跳到節慶時記著，餵進下方提示詞當氛圍靈感(見★【氛圍靈感·非強制】)
 
   // 🌸 鑑賞地點移動：前端點選地點按鈕時帶 moveTarget，跟一般對話同一次 round-trip 解決——比對
   //   KANSHOU_LOCATIONS_ 合法地點清單，查無效比對一律當成普通對話。
@@ -974,10 +1015,15 @@ function actionPlay(userData, pcId, sheets) {
     // ⏰ 2026-07「推進時間」玩法(玩家「有一個推進時間按鈕，可以控制NPC所在地點？按下去可能推進
     //   幾小時，NPC會依照時段移動到不同地活動」)：跟結束一天不同——不強制拉玩家回家，只是單純
     //   讓時鐘往前跳N小時；不在身邊的英靈依新時刻重骰去向(深夜/清晨時段kanshouRollDailyLocation_
-    //   會偏向在家，見下)，同行同伴不受影響(位置本就跟玩家同步)。上限400天防呆，不做逐小時模擬
-    //   (跳多久都是O(1)：直接算最終時刻，不必一小時一小時迭代)，之後要做的「跳到節慶」也是算好
-    //   小時數餵進同一個flag，不必另開一條路。
-    const advanceHours = Math.max(0, Math.min(parseInt(userData.advanceHours) || 0, 24 * 400));
+    //   會偏向在家，見下)，同行同伴不受影響(位置本就跟玩家同步)。上限抓3年區間防呆，不做逐小時
+    //   模擬(跳多久都是O(1)：直接算最終時刻，不必一小時一小時迭代)。
+    let advanceHours = Math.max(0, Math.min(parseInt(userData.advanceHours) || 0, 24 * 365 * 3));
+    // 🎊「跳到節慶」：advanceHours未指定時，改由jumpFestival算出「到下一次該節慶還有幾小時」，
+    //   算好就丟進同一套邏輯，不重複寫一次時鐘推進/地點重骰。
+    if (!advanceHours && userData.jumpFestival) {
+      jumpFest = KANSHOU_FESTIVALS_.find(f => f.key === String(userData.jumpFestival)) || null;
+      if (jumpFest) advanceHours = kanshouHoursUntilDate_(curDay, curHour, jumpFest.month, jumpFest.day);
+    }
     if (advanceHours > 0) {
       const clk = { day: curDay, hour: curHour };
       rollHours_(clk, advanceHours);
@@ -990,9 +1036,13 @@ function actionPlay(userData, pcId, sheets) {
         pcData[idx][COL.PC.LOC] = kanshouRollDailyLocation_(r[COL.PC.NAME], curHour);
         dirtyPcRows.add(idx);
       });
-      finalUserMsg = `【時間推進】${advanceHours}個小時悄悄過去，此刻是第${curDay}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`;
+      const newDate = kanshouAbsDayToDate_(curDay);
+      finalUserMsg = jumpFest
+        ? `【時間推進】時間一路快轉，${jumpFest.name}到了——此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`
+        : `【時間推進】${advanceHours}個小時悄悄過去，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`;
     }
   }
+  const curDateObj_ = kanshouAbsDayToDate_(curDay); // 供下方🕰️提示詞用，只算一次不重複呼叫
 
   // 🎨 2026-07「為何偶遇沒有女性」玩家反映：此局已經正式召喚過的英靈(不論是否仍同行)不該又以
   //   「陌生人」身分重複出現(如SABER已同行時，路上不該再巧遇一位不具名的SABER)。用真名候選比對
@@ -1204,14 +1254,14 @@ ${PROMPT_PARTY_SYSTEM}
 【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}(當前服裝·五官體態不變)` : ""} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}
 
 ${PROMPT_REL}
-★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}${kanshouReunionStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}
+★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}${kanshouReunionStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${jumpFest ? `\n★【節慶氛圍】：今天是「${jumpFest.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。` : ""}
 💕【鑑賞·後日談模式·最高優先級覆寫】：${partyRows.length === 0
     ? `這裡是平行世界的和平都市日常——聖杯戰爭這回事從未在這個世界發生過，眼下沒有同行的英靈在場，就是御主一人的尋常時光。`
     : partyRows.every(r => String(r[COL.PC.ID]).indexOf("KHV_") === 0)
       ? `『${partyMembers.join("、")}』是剛從英靈殿被召喚而來——這不是並肩打過聖杯戰爭的緣分，是彼此【初次相遇】的日常時光，讓相處自然生澀、依好感漸漸升溫，嚴禁暗示雙方早已相熟或曾並肩作戰。`
       : `這裡是平行世界的和平都市日常，聖杯戰爭這回事從未真正發生過，與『${partyMembers.join("、")}』共度的是尋常相處的時光，嚴禁提及聖杯爭奪或並肩作戰的往事。`
   }
-🕰️現在是第${curDay}日・${timeBand_(curHour)}，僅供揣摩場景氛圍與時段感(如深夜靜謐、清晨慵懶)，不必刻意報時或提及具體數字。
+🕰️現在是${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${timeBand_(curHour)}，僅供揣摩場景氛圍與時段感(如深夜靜謐、清晨慵懶、應景節氣)，不必刻意報時或提及具體數字。
 ★世界觀＝和平的現代都市日常：【絕對禁止】任何戰鬥、廝殺、敵人、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅，世界是安全的；但節奏與親密程度依劇情、好感與玩家/同伴當下意圖自然發展，可以是散步閒聊的尋常時光，也可以是更靠近、更熱烈的相處，不強制鎖在「悠閒」基調(尤其🔥主動掌握模式開啟或情慾已自然升溫時)，讓從者貼近其官方性格自然地與御主相處互動。
 ★【演出而非說明】不得直述其願望／萌點／個性字面。僅可有 rel_changes(好感)，不輸出任何生命變化或戰鬥裁決。
 ★【換場地】地點不受地圖限制，你可自主決定何時、換去哪(不限於冬木既有地名，可自創如「一家安靜的咖啡廳」)——但【絕對禁止】無故憑空跳地點：須先在narration把移動/抵達的過程實際寫出來，location欄位才能填新地名；沒有移動就讓location原樣照抄目前地點。
