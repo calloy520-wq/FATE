@@ -91,19 +91,6 @@ function cleanChineseName(s) {
   return String(s == null ? "" : s).replace(/[^㐀-䶿一-鿿]/g, "").slice(0, 10);
 }
 
-// 真實日期時間字串(鑑賞用)：鑑賞刻意無遊戲內時鐘/AP系統，改直接把現在真實時間餵給AI帶出時段氛圍，零新資料/零新欄位。
-function realWorldClockStr_() {
-  var tz = Session.getScriptTimeZone() || 'Asia/Taipei';
-  var now = new Date();
-  var mm = parseInt(Utilities.formatDate(now, tz, 'M'), 10);
-  var dd = parseInt(Utilities.formatDate(now, tz, 'd'), 10);
-  var hh = parseInt(Utilities.formatDate(now, tz, 'H'), 10);
-  var isoWd = parseInt(Utilities.formatDate(now, tz, 'u'), 10); // 1=一...7=日
-  var wdName = ['一', '二', '三', '四', '五', '六', '日'][isoWd - 1] || '一';
-  var period = hh < 6 ? '凌晨' : hh < 11 ? '早上' : hh < 13 ? '中午' : hh < 18 ? '下午' : hh < 22 ? '晚上' : '深夜';
-  return mm + '月' + dd + '日・星期' + wdName + '・' + period + '(' + hh + '點左右)';
-}
-
 // solo 軌跡骨幹：AI 從敘事散文反推精確狀態(好感/血量/天數)容易猜錯，改由 GAS 組一段「已確定事實」接在
 //   歷史前當錨點。吃呼叫端(narrateWithState_)已讀的同一份 pcData，不重讀表。刻意只做當下快照、不做累積
 //   事件清單，避免重蹈已砍除的「因果/命運長河」(存太多筆反而抓不到重點)。

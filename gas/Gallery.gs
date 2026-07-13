@@ -363,6 +363,9 @@ function actionEnterKanshou(userData, pcId, sheets) {
   // 鑑賞無戰鬥：氣血/真氣/上限/STATUS 皆不寫(見 heroToKanshouRow_ 同款理由)。五圍已棄欄，戰鬥吃六圍 SIX。
   mRow[COL.PC.LOC] = loc2;
   mRow[COL.PC.FACTION] = "御主";
+  // ⏰ 2026-07「推進時間」玩法：借用solo既有的COL.PC.DAY/HOUR欄位存鑑賞自己的時鐘，開局Day1早上8點。
+  mRow[COL.PC.DAY] = 1;
+  mRow[COL.PC.HOUR] = 8;
   // 【帳號】標記保留供人工檢視試算表時辨識(非驗證用途，真正的歸屬判斷已走帳號表 KPC 欄位)。
   // 🆕 玩家本人也先給「日常便服」墊底，卡片才不會裝扮欄空白待換裝
   // 種子秒寫階段(AI潤色前)的預設值：平行世界框架，不斷言「曾經打過又結束了一場聖杯戰爭」。
@@ -777,10 +780,20 @@ function kanshouRollEncounter_(locName, excludeIds) {
   const pickId = pool[Math.floor(Math.random() * pool.length)];
   return SEED_SERVANTS.find(h => h.id === pickId) || null;
 }
-// 🎲 結束一天(2026-07「不讓玩家指派，直接GAS判定」定案)：幫「不在身邊」的英靈決定隔天要去哪——
-//   反查KANSHOU_LOCATION_TAGS_裡有沒有哪些地點標到這位英靈的id(她平常會去的地方)，有就加權
-//   隨機挑一個；沒被任何地點標到就從全部地點隨機挑，不需要另外設計一套經濟/行程判定。
-function kanshouRollDailyLocation_(heroName) {
+// 🎲 結束一天/推進時間(2026-07「不讓玩家指派，直接GAS判定」定案，hour參數為後續「推進時間」補充)：
+//   幫「不在身邊」的英靈決定當下要去哪——反查KANSHOU_LOCATION_TAGS_裡有沒有哪些地點標到這位
+//   英靈的id(她平常會去的地方)，有就加權隨機挑一個；沒被任何地點標到就從全部地點隨機挑。
+//   hour(選填)：有傳時刻時，深夜/清晨時段大機率改留在家(比照真人作息)，其餘時段沿用原本haunts
+//   邏輯不變；不傳(舊呼叫端)則完全比照改動前的行為，不影響既有呼叫。
+function kanshouRollDailyLocation_(heroName, hour) {
+  if (hour !== undefined && hour !== null) {
+    const band = timeBand_(hour);
+    const homeBias = band === '深夜' ? 0.85 : (band === '清晨' ? 0.5 : 0);
+    if (homeBias > 0 && Math.random() < homeBias) {
+      const homeNames = KANSHOU_LOCATIONS_.filter(l => l.region === 'home').map(l => l.name);
+      return homeNames[Math.floor(Math.random() * homeNames.length)];
+    }
+  }
   const hero = SEED_SERVANTS.find(h => kanshouNameCandidates_(h.realName).includes(heroName));
   const haunts = hero ? Object.keys(KANSHOU_LOCATION_TAGS_).filter(loc => KANSHOU_LOCATION_TAGS_[loc].includes(hero.id)) : [];
   const pool = haunts.length ? haunts : KANSHOU_LOCATIONS_.map(l => l.name);
@@ -891,6 +904,10 @@ function actionPlay(userData, pcId, sheets) {
   const pc = pcData[pcIndex];
   const pcName = pc[COL.PC.NAME];
   let curL = pc[COL.PC.LOC];
+  // ⏰ 2026-07「推進時間」玩法：鑑賞借用solo既有的COL.PC.DAY/HOUR欄位存自己的時鐘(兩軌從不共用
+  //   同一個game_id，欄位互不干擾)，不另開新欄。查無值(舊存檔/尚未跑過這輪改動)時給預設(Day1 08:00)。
+  let curDay = parseInt(pc[COL.PC.DAY]) || 1;
+  let curHour = (pc[COL.PC.HOUR] === "" || pc[COL.PC.HOUR] == null) ? 8 : (parseInt(pc[COL.PC.HOUR]) || 0);
 
   // 🌸 鑑賞地點移動：前端點選地點按鈕時帶 moveTarget，跟一般對話同一次 round-trip 解決——比對
   //   KANSHOU_LOCATIONS_ 合法地點清單，查無效比對一律當成普通對話。
@@ -926,10 +943,16 @@ function actionPlay(userData, pcId, sheets) {
   //   的生活，下次玩家去哪個地點就可能巧遇當天在那裡的人(見留人重逢/巧遇邏輯)。
   //   ②同行同伴：跟玩家一起被強制拉回家過夜(見下)。
   if (userData.endDay === true) {
+    // ⏰ 2026-07：結束一天固定跳到「隔天早上8點」(不論此刻幾點)，時鐘跟著寫回，往後「推進時間」
+    //   (見下)、鑑賞主敘事的時段感提示才有真實的日/時可讀，不再只是純敘事、沒有實際時鐘的空話。
+    curDay = curDay + 1;
+    curHour = 8;
+    pcData[pcIndex][COL.PC.DAY] = curDay;
+    pcData[pcIndex][COL.PC.HOUR] = curHour;
     const offRosterForRoll = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.IS_PARTY] || "") !== "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
     offRosterForRoll.forEach(r => {
       const idx = pcData.indexOf(r);
-      pcData[idx][COL.PC.LOC] = kanshouRollDailyLocation_(r[COL.PC.NAME]);
+      pcData[idx][COL.PC.LOC] = kanshouRollDailyLocation_(r[COL.PC.NAME], curHour);
       dirtyPcRows.add(idx);
     });
     const partyForEndDay = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
@@ -947,6 +970,28 @@ function actionPlay(userData, pcId, sheets) {
       dirtyPcRows.add(idx);
     });
     finalUserMsg = `【一天結束】夜幕降臨，${partyForEndDay.length ? `跟『${partyForEndDay.map(r => r[COL.PC.NAME]).join('、')}』一起` : ""}回到家中安頓下來，今天到此為止，明天又是新的一天。`;
+  } else {
+    // ⏰ 2026-07「推進時間」玩法(玩家「有一個推進時間按鈕，可以控制NPC所在地點？按下去可能推進
+    //   幾小時，NPC會依照時段移動到不同地活動」)：跟結束一天不同——不強制拉玩家回家，只是單純
+    //   讓時鐘往前跳N小時；不在身邊的英靈依新時刻重骰去向(深夜/清晨時段kanshouRollDailyLocation_
+    //   會偏向在家，見下)，同行同伴不受影響(位置本就跟玩家同步)。上限400天防呆，不做逐小時模擬
+    //   (跳多久都是O(1)：直接算最終時刻，不必一小時一小時迭代)，之後要做的「跳到節慶」也是算好
+    //   小時數餵進同一個flag，不必另開一條路。
+    const advanceHours = Math.max(0, Math.min(parseInt(userData.advanceHours) || 0, 24 * 400));
+    if (advanceHours > 0) {
+      const clk = { day: curDay, hour: curHour };
+      rollHours_(clk, advanceHours);
+      curDay = clk.day; curHour = clk.hour;
+      pcData[pcIndex][COL.PC.DAY] = curDay;
+      pcData[pcIndex][COL.PC.HOUR] = curHour;
+      const offRosterForTime = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.IS_PARTY] || "") !== "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
+      offRosterForTime.forEach(r => {
+        const idx = pcData.indexOf(r);
+        pcData[idx][COL.PC.LOC] = kanshouRollDailyLocation_(r[COL.PC.NAME], curHour);
+        dirtyPcRows.add(idx);
+      });
+      finalUserMsg = `【時間推進】${advanceHours}個小時悄悄過去，此刻是第${curDay}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`;
+    }
   }
 
   // 🎨 2026-07「為何偶遇沒有女性」玩家反映：此局已經正式召喚過的英靈(不論是否仍同行)不該又以
@@ -1166,7 +1211,7 @@ ${PROMPT_REL}
       ? `『${partyMembers.join("、")}』是剛從英靈殿被召喚而來——這不是並肩打過聖杯戰爭的緣分，是彼此【初次相遇】的日常時光，讓相處自然生澀、依好感漸漸升溫，嚴禁暗示雙方早已相熟或曾並肩作戰。`
       : `這裡是平行世界的和平都市日常，聖杯戰爭這回事從未真正發生過，與『${partyMembers.join("、")}』共度的是尋常相處的時光，嚴禁提及聖杯爭奪或並肩作戰的往事。`
   }
-🕰️現在是 ${realWorldClockStr_()}，僅供揣摩場景氛圍與時段感(如深夜靜謐、清晨慵懶)，不必刻意報時或提及具體數字。
+🕰️現在是第${curDay}日・${timeBand_(curHour)}，僅供揣摩場景氛圍與時段感(如深夜靜謐、清晨慵懶)，不必刻意報時或提及具體數字。
 ★世界觀＝和平的現代都市日常：【絕對禁止】任何戰鬥、廝殺、敵人、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅，世界是安全的；但節奏與親密程度依劇情、好感與玩家/同伴當下意圖自然發展，可以是散步閒聊的尋常時光，也可以是更靠近、更熱烈的相處，不強制鎖在「悠閒」基調(尤其🔥主動掌握模式開啟或情慾已自然升溫時)，讓從者貼近其官方性格自然地與御主相處互動。
 ★【演出而非說明】不得直述其願望／萌點／個性字面。僅可有 rel_changes(好感)，不輸出任何生命變化或戰鬥裁決。
 ★【換場地】地點不受地圖限制，你可自主決定何時、換去哪(不限於冬木既有地名，可自創如「一家安靜的咖啡廳」)——但【絕對禁止】無故憑空跳地點：須先在narration把移動/抵達的過程實際寫出來，location欄位才能填新地名；沒有移動就讓location原樣照抄目前地點。
