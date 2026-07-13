@@ -203,9 +203,12 @@ function dailySpeechByName_(name, preHeroes) {
 //   (SIX/TAGS/MARTIAL 留空)——慾海無戰鬥，養這些資料只白增加 AI 誤讀風險。
 // 好感給 45(「尚淺·剛認識」)而非封存路徑的 90：剛見面就給滿好感會架空「好感未滿80/性格
 //   冷酷高傲者要演出真實戒備」的一致性鐵律，讓角色自己的性格決定要花多久暖起來。
-function heroToKanshouRow_(heroRow, gameId, loc) {
+function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   var pcColCount = Object.keys(COL.PC).length;
   var name = String(heroRow[COL.HERO.NAME] || "從者");
+  // 🏠 2026-07「房東房客」定案：3位同住人(KANSHOU_HOUSEMATE_ROOMS_)是入住的房客，起跑點刻意
+  //   比一般英靈更生疏(房東房客不會一搬進來就掏心掏肺)，其餘英靈是更淡的泛泛之交起點。
+  var isHousemate = !!KANSHOU_HOUSEMATE_ROOMS_[String(heroRow[COL.HERO.ID] || "")];
   var p = {}; try { p = JSON.parse(heroRow[COL.HERO.PERSONA] || "{}"); } catch (e) { }
   var sex = String(heroRow[COL.HERO.SEX] || "異") || "異";
   var sRow = Array(pcColCount).fill("");
@@ -238,13 +241,21 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   //   dailyLook 第3段(自稱與口氣)的日常安全版；tic 沒有對應日常版，直接不帶(私密一面已承擔
   //   角色專屬小習慣的功能)。
   var dailySpeechPart = dailyLookParts.length >= 4 ? dailyLookParts[2] : "";
-  sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", dailySpeechPart, ""), daily.outfit || "日常便服");
+  sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_(isHousemate
+    ? "【鑑賞後日談·初見】剛搬進衛宮宅的新房客，房東與房客的關係還很生疏，緣分才剛開始。"
+    : "【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", dailySpeechPart, ""), daily.outfit || "日常便服");
   // PHYSICAL 留空，跟御主本人(actionEnterKanshou)一致，直到第一次 intimacy_feedback 才寫入；
   //   Router_Narrative.gs 的懶初始化會在 prompt 組裝時臨時補上，AI 不會拿到空物件。
   sRow[COL.PC.GAME_ID] = gameId;
-  // 「御主／從者」在這裡當成單純稱謂使用，不代表真的有令咒契約，跟平行世界設定不衝突。
-  sRow[COL.PC.BOND] = 45; sRow[COL.PC.REL_TAG] = "從者"; sRow[COL.PC.IS_PARTY] = "同行";
-  sRow[COL.PC.REL_MEM] = "初次相遇，緣分才剛開始";
+  // 「御主／從者」在這裡當成單純稱謂使用，不代表真的有令咒契約，跟平行世界設定不衝突；房客則
+  //   直接反映「房東房客」這層新關係定位，好感/關係標籤之後仍可依rel_changes自然演進。
+  sRow[COL.PC.BOND] = isHousemate ? 30 : 10;
+  sRow[COL.PC.REL_TAG] = isHousemate ? "房客" : "從者";
+  sRow[COL.PC.IS_PARTY] = "同行";
+  sRow[COL.PC.REL_MEM] = isHousemate ? "剛搬進來的房客，房東房客的關係還很生疏" : "初次相遇，緣分才剛開始";
+  // 🏠 房客的房租結算起點對齊「召喚當下的那一週」，而非恆為0——否則召喚時機晚(如第5週才召喚)會在
+  //   下次收租時被kanshouCollectTenantRent_誤判成欠繳好幾週、一次補收一大筆不合理的房租。
+  sRow[COL.PC.UPKEEP_WEEK] = Math.floor(((curDay || 1) - 1) / 7);
   return sRow;
 }
 
@@ -301,7 +312,7 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
     kpc.getRange(existingIdx + 1, 1, 1, exRow.length).setValues([exRow]);
     return JSON.stringify({ success: true, added: heroName, message: "「" + heroName + "」回到了你們身邊。" });
   }
-  kpc.appendRow(heroToKanshouRow_(hero, gid, loc));
+  kpc.appendRow(heroToKanshouRow_(hero, gid, loc, parseInt(me[COL.PC.DAY]) || 1));
   return JSON.stringify({ success: true, added: heroName, message: "「" + heroName + "」來到了你們身邊。" });
 }
 
@@ -989,6 +1000,7 @@ const KANSHOU_START_MONEY_ = 3000; // 開局起始金錢
 const KANSHOU_WAGE_ = 800;         // 打工一次的固定薪資
 const KANSHOU_WORK_HOURS_ = 4;     // 打工一次消耗的時數(比照advanceHours機制推進時鐘，非同行英靈依新時刻重骰去向)
 const KANSHOU_UPKEEP_ = 1500;      // 每週維護及食材費(每7天扣一次，2026-07玩家「這改成維護及食材費用」從房租改名)
+const KANSHOU_TENANT_RENT_ = 800;  // 2026-07「房東房客」定案：每位入住房客每週繳的房租(每7天收一次)
 // 🚪 2026-07「睡覺時機率有人來敲門」玩家定案：結束一天(準備就寢)時的機率事件，命中就先不推進
 //   日期、改讓前端跳出開門/不予理會，跟維護費/薪資一樣是GAS決定觸發與否，不靠AI敘事判斷。
 const KANSHOU_KNOCK_CHANCE_ = 0.2;  // 每次「結束一天」的敲門機率
@@ -1003,6 +1015,31 @@ function kanshouChargeUpkeep_(pcData, pcIndex, newDay) {
   pcData[pcIndex][COL.PC.MONEY] = (parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0) - amount;
   pcData[pcIndex][COL.PC.UPKEEP_WEEK] = newWeek;
   return amount;
+}
+
+// 🏠 2026-07「房東房客」定案(玩家「全套！好感30起跳 其他人都先10？」)：房客(KANSHOU_HOUSEMATE_
+//   ROOMS_登記的3位)每週繳房租給玩家，收支邏輯對稱於kanshouChargeUpkeep_——玩家自己的維護費
+//   扣款存在玩家列的COL.PC.UPKEEP_WEEK，這裡則重複利用「每一位房客自己那一列」的同一個欄位存
+//   「這位房客自己上次繳到第幾週」，不新增欄位(COL是位置索引，能重複利用同一格語意就別加新格)。
+//   房客不論此刻是否同行都算「住在這裡」(跟kanshouRollDailyLocation_房間分配同一套認定)，只要
+//   此局曾經建立過她的資料列就持續收租；只掃同一個game_id(gameId空字串時比照sameGame同款寬鬆
+//   比對，相容沒有game_id的舊角色)，避免收到別的玩家局裡的房客租金。回傳這次實際收到多少錢
+//   (0＝這次沒有任何房客跨過新一週)，供上層組提示詞用的flavor文字。
+function kanshouCollectTenantRent_(pcData, pcIndex, newDay, gameId) {
+  const newWeek = Math.floor((newDay - 1) / 7);
+  let total = 0;
+  Object.keys(KANSHOU_HOUSEMATE_ROOMS_).forEach(heroId => {
+    const hero = SEED_SERVANTS.find(h => h.id === heroId);
+    if (!hero) return;
+    const idx = pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!gameId || String(r[COL.PC.GAME_ID] || "") === gameId) && kanshouNameCandidates_(hero.realName).includes(String(r[COL.PC.NAME])));
+    if (idx === -1) return;
+    const oldWeek = parseInt(pcData[idx][COL.PC.UPKEEP_WEEK]) || 0;
+    if (newWeek <= oldWeek) return;
+    total += (newWeek - oldWeek) * KANSHOU_TENANT_RENT_;
+    pcData[idx][COL.PC.UPKEEP_WEEK] = newWeek;
+  });
+  if (total > 0) pcData[pcIndex][COL.PC.MONEY] = (parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0) + total;
+  return total;
 }
 
 // 🌙 2026-07「晚上10點強制回家/也可以在外面過夜」玩家定案：不真的強制，改成到了宵禁時段(22:00~
@@ -1256,6 +1293,8 @@ function actionPlay(userData, pcId, sheets) {
   // 💰 2026-07 經濟層：這次呼叫若跨過維護費結算週，這裡記下實際扣款金額，供下方提示詞組flavor文字；
   //   兩個分支(結束一天/推進時間)都會推進curDay，故upkeepCharged在if/else外先宣告、各自賦值。
   let upkeepCharged = 0;
+  // 🏠 2026-07「房東房客」定案：房客繳租跟玩家繳維護費同一套週結算節奏，故一併在if/else外先宣告。
+  let tenantRentCollected = 0;
   // 💕 2026-07「好感沒到80不能同行睡覺」玩家定案：只有結束一天(真的要過夜)才判定，推進時間/打工
   //   不觸發(那些不是「睡下去」的動作)。比照既有羈絆里程碑(30/60/90)同款「GAS掌門檻、AI只說書」
   //   精神——門檻由GAS算好，AI只負責依角色性格自然演繹要不要跨出這一步、演到多深。
@@ -1268,6 +1307,7 @@ function actionPlay(userData, pcId, sheets) {
     pcData[pcIndex][COL.PC.DAY] = curDay;
     pcData[pcIndex][COL.PC.HOUR] = curHour;
     upkeepCharged = kanshouChargeUpkeep_(pcData, pcIndex, curDay);
+    tenantRentCollected = kanshouCollectTenantRent_(pcData, pcIndex, curDay, myGameId);
     const offRosterForRoll = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.IS_PARTY] || "") !== "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
     offRosterForRoll.forEach(r => {
       const idx = pcData.indexOf(r);
@@ -1327,6 +1367,7 @@ function actionPlay(userData, pcId, sheets) {
       pcData[pcIndex][COL.PC.DAY] = curDay;
       pcData[pcIndex][COL.PC.HOUR] = curHour;
       upkeepCharged = kanshouChargeUpkeep_(pcData, pcIndex, curDay);
+      tenantRentCollected = kanshouCollectTenantRent_(pcData, pcIndex, curDay, myGameId);
       const offRosterForTime = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.IS_PARTY] || "") !== "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
       offRosterForTime.forEach(r => {
         const idx = pcData.indexOf(r);
@@ -1586,7 +1627,7 @@ ${PROMPT_PARTY_SYSTEM}
 【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}(當前服裝·五官體態不變)` : ""} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}${myDecor ? ` | 家中已有的擺設(僅供「家」相關場景參考，非強制每次提及):${myDecor}` : ""}
 
 ${PROMPT_REL}
-★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}${kanshouReunionStr}${kanshouKnockGuestStr}${kanshouNightRaidStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${jumpFest ? `\n★【節慶氛圍】：今天是「${jumpFest.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。` : ""}${upkeepCharged > 0 ? `\n★【維護費自動扣款·氛圍提示】：這次時間推進跨過了衛宮宅的維護及食材費結算日，已自動扣款${upkeepCharged}円，目前餘額${parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0}円，narration可自然帶一句(如整理帳單、盤算菜錢、嘆氣)，不必大肆渲染；若餘額為負可自然帶出手頭吃緊的窘迫感，但不必寫成嚴重危機或懲罰劇情。` : ""}${intimateNightNames.length ? `\n★【入夜氛圍·好感門檻已達】：『${intimateNightNames.join('、')}』與你的羈絆已深(好感≥80)，今晚可以自然發展到同床共枕，依其性格自然決定要不要跨出這一步、氛圍濃烈到什麼程度，不強制每次都寫到底；好感未達此門檻的同伴，一律維持各自安睡、不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度了親密的時光(依上一回合實際演出的內容為準，若上次並未真的跨出那一步就當作平常的早晨)，這是新的一天第一個場景，若情境合適可以自然帶出晨間的溫馨/曖昧餘韻(如一起吃早餐、彼此害羞或黏膩的互動)，不強制一定要提及、也不需要複述昨夜細節，一切依角色個性自然發展。` : ""}
+★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}${kanshouReunionStr}${kanshouKnockGuestStr}${kanshouNightRaidStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${jumpFest ? `\n★【節慶氛圍】：今天是「${jumpFest.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。` : ""}${upkeepCharged > 0 ? `\n★【維護費自動扣款·氛圍提示】：這次時間推進跨過了衛宮宅的維護及食材費結算日，已自動扣款${upkeepCharged}円，目前餘額${parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0}円，narration可自然帶一句(如整理帳單、盤算菜錢、嘆氣)，不必大肆渲染；若餘額為負可自然帶出手頭吃緊的窘迫感，但不必寫成嚴重危機或懲罰劇情。` : ""}${tenantRentCollected > 0 ? `\n★【房客繳租·氛圍提示】：這次時間推進跨過了收租日，已收到房客繳來的${tenantRentCollected}円房租，目前餘額${parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0}円，narration可自然帶一句房東視角的小細節(如收到房租信封、心裡盤算著這筆錢)，不必大肆渲染。` : ""}${intimateNightNames.length ? `\n★【入夜氛圍·好感門檻已達】：『${intimateNightNames.join('、')}』與你的羈絆已深(好感≥80)，今晚可以自然發展到同床共枕，依其性格自然決定要不要跨出這一步、氛圍濃烈到什麼程度，不強制每次都寫到底；好感未達此門檻的同伴，一律維持各自安睡、不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度了親密的時光(依上一回合實際演出的內容為準，若上次並未真的跨出那一步就當作平常的早晨)，這是新的一天第一個場景，若情境合適可以自然帶出晨間的溫馨/曖昧餘韻(如一起吃早餐、彼此害羞或黏膩的互動)，不強制一定要提及、也不需要複述昨夜細節，一切依角色個性自然發展。` : ""}
 💕【鑑賞·後日談模式·最高優先級覆寫】：${partyRows.length === 0
     ? `這裡是平行世界的和平都市日常——聖杯戰爭這回事從未在這個世界發生過，眼下沒有同行的英靈在場，就是御主一人的尋常時光。`
     : partyRows.every(r => String(r[COL.PC.ID]).indexOf("KHV_") === 0)
