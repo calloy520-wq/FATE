@@ -1,28 +1,14 @@
 // ==========================================
 // 🏆 Gallery.gs — 鑑賞軌道全集中（慾海後日談，與封存從者的和平約會）
-//   ⚠ 2026-07 玩家定案「整個砍掉奪杯封存機制」：舊版靠「奪得聖杯→AI總結→存入鑑賞表」封存
-//   從者，事後才能邀入後日談；改成直接從「英靈殿」召喚(見 heroToKanshouRow_/
-//   actionKanshouSummonHero)，不必先在 solo 打贏才能相見。勝利只做清理(見 actionEndRun)，
-//   不再寫「鑑賞」表——🗑️ 2026-07 玩家二次確認「現在也沒有勝利寫入了，鑑賞分頁好像沒有用處」，
-//   稽核後確認 COL.GAL／FATE_SHEET_DEFS["鑑賞"] 全代碼庫無任何讀寫者，已整條移除(非棄用死欄，
-//   是整張從未被讀寫的死表，跟「COL位置索引不可刪」的情境不同——那條規則管同一張活躍表內的
-//   欄位，這裡是移除一個完全獨立的schema定義，不影響其他任何表)。舊試算表殘留的鑑賞分頁本體
-//   若已存在，程式碼移除後不會自動刪除，留著空分頁無害，玩家可自行手動刪除該工作表分頁。
-//   🔀 2026-07 玩家定案「兩軌完全拆開，鑑賞集中在一個GS，好查找」：solo(按鍵+AI說故事)跟
-//   鑑賞(依角色資料自然演出、只有🔥點不點火這一個變因)徹底分家——本檔現在是**鑑賞唯一的家**：
-//   召喚/進場/請走/AI深化(本檔一直都在) ＋ actionPlay(原Router_Narrative.gs)／
-//   buildDefaultSystemPrompt含nsfwBaseRules(原Engine_Combat.gs)都搬來這裡，檔案最底部。
-//   兩軌唯一共用的基礎設施 callGeminiAPI 留在 Engine_Combat.gs(solo/鑑賞都要打API，不歸屬
-//   任一軌)。找鑑賞相關代碼從此只查這一個檔案即可。
+//   從英靈殿直接召喚同伴進入後日談，不必先在 solo 打贏封存；勝利只做清理(actionEndRun)，
+//   不寫「鑑賞」表(該schema已移除，全代碼庫無讀寫者，留著的空分頁無害可自行刪除)。
+//   actionPlay/buildDefaultSystemPrompt(含nsfwBaseRules)也集中在本檔，鑑賞相關代碼只查
+//   這一個檔案即可；callGeminiAPI 留在 Engine_Combat.gs(solo/鑑賞共用基礎設施)。
 // ==========================================
 
-// 🔒 帳號歸屬驗證：比照 solo 的 linkAccountToPc_/COL.ACC.PC 機制——「帳號」表新增的 KPC 欄位
-//   才是唯一權威來源，由伺服器碼在 actionEnterKanshou 專責寫入，玩家端無法透過任何參數影響它。
-//   ⚠ 2026-07 修：KPC_/g_/k_ 的 ID 只用 Date.now()(無隨機尾碼)，理論上可預測；之前
-//   kanshou_add/remove/set_name/set_sex 只憑 pcId 找列就直接改寫，靠角色自己 MEMORY 裡宣稱的
-//   【帳號】標記做防護(每個呼叫端得自己記得驗證，容易漏)——只要猜中/取得他人 pcId 就能竄改
-//   對方的後日談世界而對方無感。改成跟 solo 同一結構：查「帳號」表這個 acctName 連結的
-//   KPC 是否確實等於呼叫者聲稱的 pcId，不符或查無帳號一律視為找不到列。
+// 🔒 帳號歸屬驗證：比照 solo 的 linkAccountToPc_/COL.ACC.PC 機制——「帳號」表的 KPC 欄位是
+//   唯一權威來源(僅 actionEnterKanshou 寫入)。KPC_ ID 只用 Date.now()、理論上可預測，故不能只憑
+//   pcId 找列就信任是本人；每次都查 acctName 連結的 KPC 是否確實等於呼叫者聲稱的 pcId。
 function kanshouOwnedRowIdx_(data, pcId, acctName) {
   var trueKpc = getAccountKanshouPcId_(acctName);
   if (!trueKpc || trueKpc !== String(pcId || "")) return -1;
@@ -43,17 +29,13 @@ function findPlayerServant_(pcData, gameId) {
   return null;
 }
 
-// 清理某 game_id 的整局資料（眾生，含關係/時鐘欄位已隨列一起刪），並解除帳號連結
-//   2026-07：關係已併入眾生列自身欄位，刪列即刪關係，不再需要單獨掃關係表。
-//   ⚡ 2026-07 提速：preData 可選——所有現有呼叫端(actionEndRun/Account.gs兩處)在呼叫這裡之前
-//   都早已讀過同一張表的最新整表快照，傳進來就不必在這裡再整表讀一次；不傳(理論上的其他呼叫端)
-//   則維持原樣自己讀，行為不變。
+// 清理某 game_id 的整局資料（眾生，關係已併入列自身欄位，刪列即刪關係），並解除帳號連結。
+//   preData 可選：呼叫端若已有整表快照可傳入省一次讀取，不傳則自己讀。
 function purgeGameData_(sheets, gameId, accountName, preData) {
   if (gameId) {
     var fresh = preData || sheets.pc.getDataRange().getValues();
-    // 🐛→✅ 2026-07 第二輪稽核抓到：這局要刪的每一列，順手收集其 pcId——局結束後「歷史暫存」
-    //   裡屬於這些 pcId 的對話列也一併清掉(見 purgeHistoryForPcIds_ 的完整根因說明)，
-    //   避免已結束對局的歷史列永遠留在表裡、隨全站使用量無上限累積。
+    // 順手收集要刪的每一列 pcId，一併清掉「歷史暫存」裡屬於這些 pcId 的對話列，避免結束對局的
+    //   歷史列無上限累積。
     var purgedPcIds = [];
     for (var r = fresh.length - 1; r >= 1; r--) {
       if (String(fresh[r][COL.PC.GAME_ID] || "") === gameId) {
@@ -92,7 +74,7 @@ function actionEndRun(userData, pcId, sheets) {
 
 // 🌹 鑑賞專屬眾生分頁：慾海角色(御主 avatar＋同伴從者)全部住這、與主「眾生」隔離，
 //   後日談頻繁新增/移除角色不污染戰爭主表。schema 與「眾生」同(COL.PC 位置索引一致)。
-//   ⚠ dispatcher 會在 pcId 以 "KPC_" 開頭時自動把 sheets.pc 指到這張表。
+//   dispatcher 會在 pcId 以 "KPC_" 開頭時自動把 sheets.pc 指到這張表。
 function getKanshouPcSheet_(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName("鑑賞眾生");
@@ -109,33 +91,14 @@ function getKanshouPcSheet_(ss) {
   return sh;
 }
 
-// 🤖 2026-07 玩家提案「新增從者時讓AI讀種子後完美轉成都市日常再寫入鑑賞眾生」：戰時外貌
-//   描述(如「貼身黑色戰甲勁裝」)直接照搬進和平日常場景會很突兀，AI 敘事時照樣照抄字面
-//   (玩家反映「為什麼還是直接照抄，沒有都市日常化」)。這裡在【寫入鑑賞眾生前】就用AI把
-//   戰時外貌轉譯成同一人在現代都市日常會有的穿搭/外型：保留髮色/五官/氣質等本相不變，只把
-//   戰甲/武裝/戰鬥姿態換成貼合其性格與傳說核心的日常打扮；TRAIT 欄裡混雜的舉止/自稱/私密一面
-//   等非外貌短語交給 system prompt 辨識、原樣保留，不強行假設戰甲一定落在固定分段位置。
-//   PREF(性格)完全不動——個性核心不該因場合而變，戰甲才是「戰時限定」的部分。呼叫端(召喚/奪杯
-//   封存)僅一次性觸發，非每回合熱路徑，失敗時原樣退回戰時描述(不讓AI呼叫失敗擋住建角流程)。
-// 🐛→✅ 2026-07 修(玩家實例反映「衣服怪怪、盡量保持原本但要日常點」＋「妖異而空洞的笑<有點怪怪」)：
-//   舊版 system prompt 把輸入描述成「外貌/戰時裝束與舉止/自稱/私密面性格向描述隨意混雜」，但實際
-//   資料結構(見 looksToTraitParts_)向來是「N段外貌(含服裝)、最後一段整體氣質/神情」，措辭不夠精準
-//   反而讓AI的翻譯自由度過大：服裝有時被整套換成風格迥異的新造型(玩家覺得「怪怪」)，戰場神情
-//   (如「妖異而空洞的笑」)又被要求「原樣照抄、一字不改」，直接搬進和平日常場景顯得突兀。改成：
-//   ①服裝明確要求保留原本色系/風格精神、只做日常化改造，不换成完全不同調性；②最後一段的氣質/神情
-//   改成「依和平日常情境自然轉化」而非硬性照抄，但仍鎖住角色性格底色不可變成別人。
-// 🌹 2026-07 玩家定案「日常衣裝獨立成欄，不要混在外貌裡」：原本 translateAppearanceToDaily_ 只輸出
-//   一段「N段外貌(含服裝)、最後一段氣質」的鬆散字串，讀取端再靠 looksToTraitParts_ 硬拆——服裝跟
-//   五官體態混在同一段，也沒有真正屬於角色個人的「自稱與口氣」/「卸下心防的私密一面」(那兩格過去
-//   一律是寫死的通用填充句，見 looksToTraitParts_ 註解)。改寫成 translateLookToDaily_：一次 AI 呼叫
-//   直接輸出兩樣東西——①look：明確四段(外貌本相/氣質舉止/自稱與口氣/卸下心防的私密一面)，跟
-//   PERSONA.traits／PREF 的四格格式完全對齊，不必再靠 looksToTraitParts_ 事後硬拆；②outfit：獨立的
-//   日常穿搭一句話。取代原本的 translateAppearanceToDaily_，呼叫端同步改名。
-// 🐛→✅ 2026-07 玩家問「AI創造能抓到重點吧？」查證發現：不能——這個函式跟 translateMoeToDaily_ 是
-//   兩次各自獨立的 AI 呼叫，互不知道對方輸出什麼，跟種子手寫23位英靈時「dailyMoe(v57)／dailyLook四段式
-//   (v58)分兩輪各自順著同一角色反差發想、結果私密一面跟萌點撞成同一件事的兩種說法」是同一個結構性
-//   成因。修法：呼叫端(recordOriginalHero_/actionSaveHero)先算好 dailyMoe，再把它當 dailyMoeHint
-//   傳進來，明講「私密一面不可跟這句萌點重複」，讓 AI 當下就看得到另一半、不必事後靠人工抓重複。
+// 🤖 在【寫入鑑賞眾生前】用 AI 把戰時外貌(如「貼身黑色戰甲勁裝」)轉譯成同一人在現代都市日常會有
+//   的穿搭/外型：保留髮色/五官/氣質等本相不變，戰甲/武裝換成貼合性格的日常打扮；服裝保留原本
+//   色系/風格精神只做日常化，不换成完全不同調性。PREF(性格)完全不動、只有戰甲是「戰時限定」的
+//   部分。呼叫端(召喚/奪杯封存)僅一次性觸發，失敗時原樣退回戰時描述。
+//   輸出兩樣東西：①look 明確四段(外貌本相/氣質舉止/自稱與口氣/卸下心防的私密一面)，跟
+//   PERSONA.traits／PREF 的四格格式對齊；②outfit 獨立的日常穿搭一句話。
+//   dailyMoeHint：私密一面與萌點是兩次獨立 AI 呼叫，容易各自發想撞成同一件事的兩種說法，故把
+//   已算好的 dailyMoe 當提示傳入，明講「私密一面不可跟這句萌點重複」。
 function translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint) {
   var look = String(rawLook || "").trim();
   if (!look) return { look: "", outfit: "" };
@@ -158,15 +121,10 @@ function translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint)
   } catch (e) { return { look: look, outfit: "" }; }
 }
 
-// 🔀 2026-07：跟上面 translateLookToDaily_ 同一批「轉去鑑賞都市日常」需求，原本落在
-//   Core_Settings.gs(solo 的 enrichPersonalityLikesDislikes_ 附近)——鑑賞集中到 Gallery.gs 這輪
-//   一併搬過來，兩個「XToDaily_」翻譯函式終於同居一處，不用跨檔找。
-// 🤖 2026-07 玩家定調「種子就是去戰鬥的，可以少幾項沒問題；轉到鑑賞，AI必須依照種子進行補充
-//   和轉換原本資料變成都市日常」：跟 Core_Settings.gs 的 enrichPersonalityLikesDislikes_ 的差異——
-//   那個是給「還在戰場」的 solo 用(只補缺項、維持戰時語境)，這個專給「進入鑑賞和平日常」用，
-//   一次AI呼叫做兩件事：①段數不足4段就補滿(邏輯同上)；②不論段數夠不夠，若既有短句偏戰場語境
-//   (戰意/殺意/勝負等)一律轉譯成性格本質不變、但適合日常場景展現的等價說法。只用在鑑賞的兩個
-//   新增從者入口。
+// 跟 Core_Settings.gs 的 enrichPersonalityLikesDislikes_ 的差異：那個給「還在戰場」的 solo 用
+//   (只補缺項、維持戰時語境)，這個專給「進入鑑賞和平日常」用——一次AI呼叫做兩件事：①段數不足
+//   4段就補滿；②戰場語境短句(戰意/殺意/勝負等)轉譯成性格本質不變、適合日常展現的等價說法。
+//   只用在鑑賞的兩個新增從者入口。
 function translatePersonalityToDaily_(name, cls, rawWords) {
   var words = String(rawWords || "").trim();
   if (!words) return words;
@@ -186,12 +144,10 @@ function translatePersonalityToDaily_(name, cls, rawWords) {
   } catch (e) { return words; }
 }
 
-// 🌹 2026-07 玩家定案「餐桌是平行世界、沒有聖杯戰爭這回事(但她們仍是英靈)」：跟上面兩個 XxxToDaily_
-//   不同——look/words 的日常化只是「換場景敘述」，moe(萌點·反差)若直接照搬戰時版本，會把「靠戰爭/詛咒/
-//   創傷撐出的沉重反差」(如「怪力女神卻極度自卑」)硬套進一個根本沒發生過聖杯戰爭的世界，顯得莫名沉重、
-//   沒來由。這裡明確要求改寫成「輕量、溫馨、看了會心一笑」的日常萌點，性格核心不變，但拿掉需要戰爭/
-//   創傷背景才成立的沉重份量——只用在 AI 原創(ai_gen)英靈；canon 種子英靈的日常萌點全部手寫死進
-//   persona.dailyMoe(見 Seed_Codex.gs)，不會走到這個函式。
+// 這裡是平行世界，沒有聖杯戰爭這回事(但她們仍是英靈)：跟上面兩個 XxxToDaily_ 不同——moe(萌點·反差)
+//   若直接照搬戰時版本，會把「靠戰爭/詛咒/創傷撐出的沉重反差」硬套進沒發生過戰爭的世界，顯得莫名
+//   沉重。改寫成「輕量、溫馨、看了會心一笑」的日常萌點，性格核心不變但拿掉沉重份量——只用在 AI
+//   原創(ai_gen)英靈；canon 種子英靈的日常萌點全部手寫死進 persona.dailyMoe(見 Seed_Codex.gs)。
 function translateMoeToDaily_(name, cls, rawMoe) {
   var moe = String(rawMoe || "").trim();
   if (!moe) return moe;
@@ -213,18 +169,15 @@ function translateMoeToDaily_(name, cls, rawMoe) {
   } catch (e) { return moe; }
 }
 
-// 🐛→✅ 2026-07 玩家點名「撈進鑑賞時確實零AI呼叫<<<把這個呼叫移除吧?沒有其他來源不會有要補
-//   資料問題」：查證屬實——DAILY_LOOK/DAILY_WORDS 現在只有兩種來源，皆已在「進英靈殿之前」就
-//   保證非空：①種子(SEED_SERVANTS)全數手寫寫死進 persona.dailyLook/dailyWords；②工房(ai_gen)
-//   在 recordOriginalHero_/actionSaveHero 建立/修改當下就呼叫AI預先轉好寫入。不存在第三種「英靈
-//   殿裡有列、但這兩欄還沒人填過」的來源，原本這裡「懶惰呼叫AI補一次並回寫」的分支因此打不到，
-//   已整段拿掉——純讀取，找不到快取值就退回原始戰時 look/words(不轉譯、零成本)當保底，不再呼叫AI。
+// DAILY_LOOK/DAILY_WORDS 只有兩種來源，皆在「進英靈殿之前」保證非空：①種子全數手寫寫死；
+//   ②工房(ai_gen)建立/修改當下就呼叫AI預先轉好寫入。不存在第三種留空來源，故此處純讀取，
+//   找不到快取值就退回原始戰時 look/words 當保底，不呼叫AI。
 function getDailyHeroFields_(heroRow, p) {
   var existingLook = String(heroRow[COL.HERO.DAILY_LOOK] || "").trim();
   var existingWords = String(heroRow[COL.HERO.DAILY_WORDS] || "").trim();
   var existingMoe = String(heroRow[COL.HERO.DAILY_MOE] || "").trim();
-  // 🆕 DAILY_OUTFIT(2026-07)：服裝跟外貌本相分開存，戰時 persona 沒有對應的「純服裝」欄可退——
-  //   沒快取到值就交給 heroToKanshouRow_ 自己的「日常便服」保底，這裡純讀取不瞎猜。
+  // DAILY_OUTFIT：服裝跟外貌本相分開存，戰時 persona 無對應欄可退，沒快取到值就交給
+  //   heroToKanshouRow_ 自己的「日常便服」保底，這裡純讀取不瞎猜。
   var existingOutfit = String(heroRow[COL.HERO.DAILY_OUTFIT] || "").trim();
   var rawLook = String(p.look || "").replace(/・/g, "、");
   var rawWords = String(p.words || "").replace(/・/g, "、");
@@ -232,16 +185,12 @@ function getDailyHeroFields_(heroRow, p) {
   return { look: existingLook || rawLook, words: existingWords || rawWords, moe: existingMoe || rawMoe, outfit: existingOutfit };
 }
 
-// 🐛→✅ 2026-07 solo/鑑賞完全拆分稽核發現：actionPlay 組同伴命格時，MEMORY 查無【口吻】標記會
-//   退回 codexPersona_(name).speech 這個戰時原始口吻(如狂化英靈「狂化無法言語、僅餘低吼」)，跟
-//   heroToKanshouRow_ 已改用 dailyLook 第3段(自稱與口氣)的原則不一致。這裡補一個同源的日常安全
-//   查表，讓 actionPlay 的 fallback 分支(理論上只有極舊、召喚時尚未套用此修正的既有存檔會走到)
-//   也吃得到一樣的日常版口吻，不再有任何路徑把原始戰時 speech 餵給鑑賞AI。
+// actionPlay 組同伴命格時，MEMORY 查無【口吻】標記會退回這裡的日常安全版，而非戰時原始
+//   codexPersona_(name).speech(如狂化英靈「僅餘低吼」)——避免任何路徑把戰時口吻餵給鑑賞AI。
 function dailySpeechByName_(name, preHeroes) {
   try {
-    // ⚡ 2026-07 提速：preHeroes 可選——同一輪 actionPlay 可能對2~3位同伴各呼叫一次，
-    //   不傳的話每次都各自呼叫 getHeroCodexCached()(整表 JSON.parse)，call site 現在會
-    //   在迴圈外先抓一次共用傳入；沒傳(其他呼叫點)則維持原樣自己抓，行為不變。
+    // preHeroes 可選：同一輪 actionPlay 可能對2~3位同伴各呼叫一次，呼叫端可在迴圈外先抓一次
+    //   共用傳入，省重複整表解析；不傳則自己抓，行為不變。
     var heroes = preHeroes || getHeroCodexCached();
     var h = heroes.find(function (r) { return String(r[COL.HERO.NAME]).trim() === String(name).trim(); });
     if (!h) return "";
@@ -250,12 +199,10 @@ function dailySpeechByName_(name, preHeroes) {
   } catch (e) { return ""; }
 }
 
-// 🌹 慾海直接從英靈庫挑選(2026-07 玩家定案·與「封存後邀請」並存)：不必先在 solo 打贏一場戰爭
-// 封存，直接從英靈殿挑一位召喚進後日談。刻意【不帶任何戰鬥資料】(SIX/TAGS/MARTIAL 留空)——
-// 慾海本就無戰鬥，養這些資料只白增加 AI 誤讀/亂加戲的風險面，不是漏寫。
-// 好感給 45(「尚淺·剛認識」門檻，非封存路徑「並肩奪杯」的 90)：剛見面就給滿好感會架空
-// Router_Narrative.gs 那條「好感未滿80/性格冷酷高傲者要演出真實戒備」的一致性鐵律，
-// 冷艷/高傲角色會被迫演出不符設定的毫無防備——45 讓角色自己的性格決定要花多久暖起來。
+// 🌹 慾海直接從英靈庫召喚進後日談，不必先在 solo 打贏封存。刻意【不帶任何戰鬥資料】
+//   (SIX/TAGS/MARTIAL 留空)——慾海無戰鬥，養這些資料只白增加 AI 誤讀風險。
+// 好感給 45(「尚淺·剛認識」)而非封存路徑的 90：剛見面就給滿好感會架空「好感未滿80/性格
+//   冷酷高傲者要演出真實戒備」的一致性鐵律，讓角色自己的性格決定要花多久暖起來。
 function heroToKanshouRow_(heroRow, gameId, loc) {
   var pcColCount = Object.keys(COL.PC).length;
   var name = String(heroRow[COL.HERO.NAME] || "從者");
@@ -265,60 +212,37 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   sRow[COL.PC.ID] = "KHV_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
   sRow[COL.PC.NAME] = name;
   sRow[COL.PC.SEX] = sex;
-  // 🐛→✅ 2026-07 玩家點名「氣血/真氣跟上限這4個應該不用寫到鑑賞眾生」：鑑賞無戰鬥，同款拿掉——
-  //   理由見 actionEnterKanshou 同批修正的註解。STATUS 欄同批一併拔除：查全代碼庫，這欄唯一
-  //   讀取點是 getLocalPeopleList(Core_Settings.gs) 算出 people[].status 塞進 actionPlay 回應，
-  //   但前端 send() 只消費 people[] 的 .name/.isExact，.status 從未被顯示或使用，寫死同樣純屬多餘。
+  // 鑑賞無戰鬥：氣血/真氣/上限/STATUS 皆不寫(唯一可能的讀取點 people[].status 從未被前端消費)。
   sRow[COL.PC.LOC] = loc;
   sRow[COL.PC.FACTION] = "從者";
   sRow[COL.PC.RANK] = String(heroRow[COL.HERO.CLS] || "從者");
-  // 🐛→✅ 2026-07 修(玩家反映「斯卡哈應該自信高冷，怎麼都沒按個性演出」)：原本 p.words/p.look
-  //   直接原樣塞進 PREF/TRAIT，種子資料慣用「・」當片語內部連接號(如「影之國女王・武人」)——但
-  //   Router_Narrative.gs 的 formatPref/formatTrait 是用「、」切成[表象]/[內裡]/[喜歡]/[討厭]四格
-  //   餵給AI，沒有「、」可切時整串會被塞進單一格、其餘三格全變「無」，等於把她的關鍵個性錨點
-  //   (武人的強悍/冷峻)吃掉大半，AI 拿不到足夠信號自然就照套路寫成普通嬌羞反應。solo 的
-  //   actionSummonServant 對同一份種子資料早就有做「・→、」轉換＋parseTraitsHelper 補滿四格，
-  //   鑑賞這條直接召喚路徑當初漏做，比照補齊。
-  // 🤖 2026-07 玩家定調「轉到鑑賞，AI必須依照種子補充並轉換成都市日常」：優先讀英靈殿已快取的
-  //   日常版(種子手寫／工房建立當下生成)，兩者皆非空——見 getDailyHeroFields_ 註解，這裡不再有
-  //   任何AI呼叫的可能。
+  // 種子資料慣用「・」當片語內部連接號(如「影之國女王・武人」)，但 formatPref/formatTrait 是用
+  //   「、」切成四格餵給AI——沒有「、」可切時整串會被塞進單一格、其餘三格變「無」，吃掉關鍵個性
+  //   錨點。比照 solo actionSummonServant 做「・→、」轉換＋parseTraitsHelper 補滿四格。
+  // 優先讀英靈殿已快取的日常版(種子手寫／工房建立當下生成)，兩者皆非空，不再有AI呼叫的可能。
   var daily = getDailyHeroFields_(heroRow, p);
   sRow[COL.PC.PREF] = parseTraitsHelper(daily.words, "沉著表象、堅定內裡、珍視之物、厭惡之事");
-  // 🌹 2026-07 玩家定案「日常衣裝獨立成欄」：dailyLook 從「N段外貌(含服裝)、最後一段氣質」的鬆散
-  //   格式，改為手寫/AI轉換直接產出的明確四段(外貌本相/氣質舉止/自稱與口氣/私密一面)——已是這個
-  //   格式的話直接讀，不必再靠 looksToTraitParts_ 硬拆；只有還沒補上新格式的舊資料(過渡期)才退回
-  //   舊拆法，兩者相容、零斷層。
+  // dailyLook 若已是新格式(外貌本相/氣質舉止/自稱與口氣/私密一面四段)直接讀，過渡期舊資料才退回
+  //   looksToTraitParts_ 舊拆法，兩者相容。
   var dailyLookParts = String(daily.look || "").split('、').map(function (s) { return s.trim(); }).filter(Boolean);
   var traitSrc = dailyLookParts.length >= 4 ? daily.look : looksToTraitParts_(daily.look, p.firstP);
   sRow[COL.PC.TRAIT] = parseTraitsHelper(traitSrc, "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
-  // 🌹 2026-07 玩家定案「餐桌是平行世界、沒有聖杯戰爭這回事」：萌點跟外貌/性格一樣改讀日常版
-  //   (daily.moe)，不再直接照搬戰時 persona.moe——那種靠戰爭/創傷撐出的沉重反差在這個沒打過
-  //   聖杯戰爭的世界裡沒有來由，詳見 getDailyHeroFields_/translateMoeToDaily_。
+  // 萌點跟外貌/性格一樣改讀日常版(daily.moe)：戰時 persona.moe 靠戰爭/創傷撐出的沉重反差，在
+  //   這個沒打過聖杯戰爭的世界裡沒有來由。
   sRow[COL.PC.INTENT] = daily.moe || "";
-  // 🐛→✅ 2026-07 solo/鑑賞完全拆分稽核發現：這裡曾直接用 p.back(戰時身世)，3位女性正典御主的
-  //   back是「父親死於聖杯戰爭」「被當工具養大」「蟲蝕黑化」等戰時悲劇——跟「餐桌是平行世界、沒有
-  //   聖杯戰爭這回事」矛盾。已比照dailyMoe新增 p.dailyBack(溫馨改寫版)，優先讀它；沒有dailyBack
-  //   的英靈(其餘20位本就沒有back)一律走職階+真名的中性保底，不再退回原始戰時back。
+  // 戰時 p.back(3位女性正典御主是「父親死於聖杯戰爭」等悲劇)跟平行世界設定矛盾，優先讀
+  //   p.dailyBack(溫馨改寫版)；沒有的英靈一律走職階+真名的中性保底。
   sRow[COL.PC.BACK] = p.dailyBack ? String(p.dailyBack).slice(0, 28) : `${sRow[COL.PC.RANK]}・${name}`;
-  // 🆕 直接召喚無快照可帶，用該英靈自己的日常衣裝(daily.outfit)墊底，沒有才退回通用「日常便服」；
-  //   卡片才不會裝扮欄空白待換裝——玩家隨時仍可透過既有換裝功能覆寫(getOutfit_/setOutfit_，可清)。
-  // 🐛→✅ 2026-07 稽核發現：這裡曾直接用 p.speech/p.tic(戰時口吻/招牌小動作)——例如狂化英靈的
-  //   「狂化無法言語、僅餘低吼」，這種戰時設定被原樣塞進【口吻】標記餵給鑑賞AI，等於告訴AI這個
-  //   在平行世界日常裡的同伴根本不能好好講話，跟「沒有聖杯戰爭這回事」矛盾。dailyLook 第3段
-  //   (自稱與口氣)本就是這個角色日常語氣的日常安全版，改用它取代p.speech；p.tic(小動作)沒有
-  //   對應的日常版，直接不帶——私密一面(dailyLook第4段)已經承擔「角色專屬小習慣」的功能，不會少戲。
+  // 直接召喚無快照可帶，用該英靈自己的日常衣裝(daily.outfit)墊底，沒有才退回「日常便服」。
+  // p.speech/p.tic 是戰時口吻/小動作(如狂化英靈「僅餘低吼」)，跟平行世界設定矛盾：口吻改用
+  //   dailyLook 第3段(自稱與口氣)的日常安全版；tic 沒有對應日常版，直接不帶(私密一面已承擔
+  //   角色專屬小習慣的功能)。
   var dailySpeechPart = dailyLookParts.length >= 4 ? dailyLookParts[2] : "";
   sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", dailySpeechPart, ""), daily.outfit || "日常便服");
-  // 🧹 2026-07 玩家定案「同伴也可以不先顯示」：拿掉建立當下就預填肉體狀態的做法，改跟御主本人
-  // (actionEnterKanshou)一致——PHYSICAL 留空，「當前狀態」面板顯示「--」，直到真的發生第一次
-  // 互動、AI 回傳 intimacy_feedback 才第一次寫入。Router_Narrative.gs 的懶初始化(pPhysicalObj
-  // 為空物件時依性別現算預設值)本就會在那之前的 prompt 組裝過程臨時補上，AI 不會拿到空物件，
-  // 只是不再「還沒發生任何事就先寫進資料庫」。
+  // PHYSICAL 留空，跟御主本人(actionEnterKanshou)一致，直到第一次 intimacy_feedback 才寫入；
+  //   Router_Narrative.gs 的懶初始化會在 prompt 組裝時臨時補上，AI 不會拿到空物件。
   sRow[COL.PC.GAME_ID] = gameId;
-  // 🔄 2026-07 玩家定案「關係改回御主從者」：REL_TAG 一度改成「萍水相逢」(理由是「從者」是聖杯
-  //   戰爭令咒契約的戰爭專屬用語，跟「沒有聖杯戰爭這回事」矛盾)，但玩家重新考慮後決定改回——
-  //   「御主／從者」在這裡當成單純的稱謂/關係定位使用，不代表真的有令咒契約或曾經打過仗，跟
-  //   dailyMoe/dailyBack 等「沒有聖杯戰爭真的發生過」的世界觀主軸不衝突，純粹是稱呼習慣的取捨。
+  // 「御主／從者」在這裡當成單純稱謂使用，不代表真的有令咒契約，跟平行世界設定不衝突。
   sRow[COL.PC.BOND] = 45; sRow[COL.PC.REL_TAG] = "從者"; sRow[COL.PC.IS_PARTY] = "同行";
   sRow[COL.PC.REL_MEM] = "初次相遇，緣分才剛開始";
   return sRow;
@@ -326,8 +250,8 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
 
 // 👥➕ 直接從英靈庫召喚一位英靈進入當前後日談(不需先在 solo 封存；上限與封存路徑共用同一個 3)
 function actionKanshouSummonHero(userData, pcId, sheets) {
-  // 🧹 2026-07：dispatcher(Router_Action.gs)已依 pcId 開頭 KPC_ 把 sheets.pc 指到「鑑賞眾生」，
-  //   這 5 顆 action 全部只吃 KPC_ 呼叫(前端只會這樣打)，不必再自己重查一次同一張表。
+  // dispatcher(Router_Action.gs)已依 pcId 開頭 KPC_ 把 sheets.pc 指到「鑑賞眾生」，
+  //   這 5 顆 action 全部只吃 KPC_ 呼叫，不必再自己重查。
   var kpc = sheets.pc;
   var acctName = String(userData.acctName || "").trim();
   var heroId = String(userData.heroId || "").trim();
@@ -340,8 +264,8 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
   var hero = heroes.find(function (r) { return String(r[COL.HERO.ID]) === heroId; });
   if (!hero) return JSON.stringify({ success: false, message: "英靈庫查無此英靈。" });
   var heroName = String(hero[COL.HERO.NAME] || "從者");
-  // 🔒 2026-07 加固：玩家原創(ai_gen)只有創造者本人可召喚進鑑賞——前端清單已濾掉，這裡是第二道防線
-  // (防止直打API繞過前端過濾，召喚別人工房/盲盒捏出的角色)。種子(正典)英靈不受限、人人可召喚。
+  // 🔒 玩家原創(ai_gen)只有創造者本人可召喚進鑑賞——前端清單已濾掉，這裡是第二道防線(防直打API
+  //   繞過前端過濾)。種子(正典)英靈不受限、人人可召喚。
   if (String(hero[COL.HERO.SOURCE]) === "ai_gen") {
     var _hp = {}; try { _hp = JSON.parse(hero[COL.HERO.PERSONA] || "{}"); } catch (e) { }
     if (!_hp.creator || _hp.creator !== acctName) {
@@ -353,8 +277,7 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
   if (String(me[COL.PC.SEX]) === "男" && heroSex === "男") {
     return JSON.stringify({ success: false, message: "「" + heroName + "」暫時無法召喚——僅支援 男女／女女 配對。" });
   }
-  // ⚠ 2026-07 修：請走已改成保留列只退出同行，先找「此局是否已有這位
-  // 英靈的列」，有就直接喚回延續累積紀錄，不重建覆蓋掉。
+  // 請走已改成保留列只退出同行，先找「此局是否已有這位英靈的列」，有就直接喚回延續累積紀錄。
   var cnt = 0, existingIdx = -1;
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][COL.PC.GAME_ID] || "") !== gid || String(data[i][COL.PC.FACTION]) !== "從者" || String(data[i][COL.PC.ID]).startsWith("DEAD_")) continue;
@@ -364,9 +287,8 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
   if (existingIdx >= 0 && String(data[existingIdx][COL.PC.IS_PARTY] || "") === "同行") return JSON.stringify({ success: false, message: "「" + heroName + "」已在場。" });
   if (cnt >= 3) return JSON.stringify({ success: false, message: "後日談最多 3 名同伴，請先請走一位再邀。" });
   if (existingIdx >= 0) {
-    // ⚡ 2026-07 提速：IS_PARTY(26)/LOC(6)兩欄位不相鄰，原本各自 getRange().setValue() 各是一次
-    //   獨立 API 呼叫——data[existingIdx] 本來就是這列的完整記憶體副本(整表讀取來的)，直接在記憶體
-    //   改好這兩格再用一次 setValues() 整列寫回，把2次呼叫併成1次，內容完全不變。
+    // ⚡ IS_PARTY/LOC 兩欄位不相鄰，在記憶體改好這兩格再用一次 setValues() 整列寫回，
+    //   省掉兩次獨立 getRange().setValue() API 呼叫。
     var exRow = data[existingIdx];
     exRow[COL.PC.IS_PARTY] = "同行";
     exRow[COL.PC.LOC] = loc;
@@ -380,9 +302,8 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
 // 🌹 進入慾海·後日談（新版單一持久主畫面）：每個帳號只有【一個】常駐後日談世界。
 //   點「進入鑑賞」→ 直接回到這個世界（御主 avatar），不再先挑從者、不再每次重講開場。
 //   從者由 👥 後日談同伴面板自行邀請。歷史紀錄跟單機一樣靠 pcId 從「歷史暫存」撈。
-//   🔒 2026-07 修：御主 avatar 綁定帳號原本靠角色自己 MEMORY 內【帳號】<acct> 標記宣稱，
-//   沒有結構性防護(任何操作忘了驗證就能被冒充/竄改)。改成比照 solo 的 linkAccountToPc_ 機制——
-//   權威連結存在「帳號」表新增的 KPC 欄位，只有伺服器碼(這裡)會寫，玩家端無法影響。
+//   🔒 御主 avatar 綁定帳號比照 solo 的 linkAccountToPc_ 機制：權威連結存在「帳號」表的 KPC
+//   欄位，只有伺服器碼會寫，玩家端無法影響(MEMORY 內【帳號】標記僅供人工檢視辨識)。
 function actionEnterKanshou(userData, pcId, sheets) {
   var acctName = String(userData.acctName || "").trim();
   if (!acctName) return JSON.stringify({ success: false, message: "未登入帳號。" });
@@ -439,26 +360,16 @@ function actionEnterKanshou(userData, pcId, sheets) {
   mRow[COL.PC.ID] = mId;
   mRow[COL.PC.NAME] = mName;
   mRow[COL.PC.SEX] = mSex;
-  // 🐛→✅ 2026-07 玩家點名「氣血/真氣跟上限這4個應該不用寫到鑑賞眾生」：鑑賞無戰鬥，這4欄從未
-  //   被讀取(compact狀態卡 refreshFateTags 的kanshou分支不顯示血條；唯一還會顯示的#status-overlay
-  //   詳細狀態面板已同步改成kanshou模式隱藏這兩格，見Script.html updateUI)——原本寫死100/100/100/100
-  //   純屬多餘，留空即可，不影響任何顯示或判定。
-  // 🎴 五圍已棄欄：戰鬥吃六圍 SIX。
-  // 🐛→✅ 2026-07 同批：STATUS 欄也一併拔除，理由見 heroToKanshouRow_ 同批修正的註解——唯一
-  //   讀取點(getLocalPeopleList 算出 people[].status)前端從未消費，寫死同樣純屬多餘。
+  // 鑑賞無戰鬥：氣血/真氣/上限/STATUS 皆不寫(見 heroToKanshouRow_ 同款理由)。五圍已棄欄，戰鬥吃六圍 SIX。
   mRow[COL.PC.LOC] = loc2;
   mRow[COL.PC.FACTION] = "御主";
   // 【帳號】標記保留供人工檢視試算表時辨識(非驗證用途，真正的歸屬判斷已走帳號表 KPC 欄位)。
   // 🆕 玩家本人也先給「日常便服」墊底，卡片才不會裝扮欄空白待換裝
-  // 🐛→✅ 2026-07 玩家追問「御主資料也被變動2次？」查出：這行(種子秒寫階段，AI潤色前)跟下面的
-  //   BACK預設值一樣，原文都寫死「聖杯戰爭已結束/已成過去」——跟 KANSHOU_MASTER_GEN_SYS 那次修的
-  //   是同一種洩漏，只是這次落在AI都還沒跑的「種子預設值」本身，比AI生成的內容更早、更根本。
-  //   兩處都改成平行世界框架，不再斷言「曾經打過又結束了一場聖杯戰爭」。
+  // 種子秒寫階段(AI潤色前)的預設值：平行世界框架，不斷言「曾經打過又結束了一場聖杯戰爭」。
   mRow[COL.PC.MEMORY] = setOutfit_("【帳號】" + acctName + "｜【鑑賞後日談】這裡是平行世界的和平日常，與英靈相伴度過尋常時光。", "日常便服");
   mRow[COL.PC.GAME_ID] = gameId;
-  // 🐛→✅ 2026-07 修：原本只建名字＋性別，BACK/TRAIT/PREF/INTENT 全空——玩家自己的鑑賞人物毫無設定，
-  //   同伴卡有身世/外貌/個性/萌點、御主本人卻一片空白。比照 solo 創角(actionManualNpc)：先用玩家填的
-  //   種子片段(或預設)秒寫非阻塞，AI 潤色由 actionBackfillKanshouAi 於進場後背景補上(見下)。
+  // 比照 solo 創角(actionManualNpc)：先用玩家填的種子片段(或預設)秒寫非阻塞，AI 潤色由
+  //   actionBackfillKanshouAi 於進場後背景補上(見下)。
   var kAppear = String(userData.appearance || "").trim();
   var kStanding = String(userData.standing || "").trim();
   var kPersona = String(userData.persona || "").trim();
@@ -475,9 +386,8 @@ function actionEnterKanshou(userData, pcId, sheets) {
   });
 }
 
-// 🚀 鑑賞御主敘事·非阻塞補生成(2026-07)：比照 actionBackfillMasterAi 的「先種子秒建、AI 背景潤色」
-//   模式——enter_kanshou 首次建檔已用玩家片段(或預設)秒寫，此處於進場後背景補 AI 版 4 個敘事欄，
-//   失敗＝保留種子預設(優雅降級)。數值/位置/MEMORY 一律不碰；只單格 setValue，不整列寫回。
+// 🚀 鑑賞御主敘事·非阻塞補生成：比照 actionBackfillMasterAi 的「先種子秒建、AI 背景潤色」模式，
+//   於進場後背景補 AI 版 4 個敘事欄，失敗＝保留種子預設。數值/位置/MEMORY 一律不碰，只單格 setValue。
 function actionBackfillKanshouAi(userData, pcId, sheets) {
   const pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
@@ -489,13 +399,8 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 
   const promptStr = `【御主】：名號『${finalName}』，性別『${finalSex}』\n【外貌】：${appearance || "隨機"}\n【身世】：${standing || "隨機"}\n【個性方向】：${persona || "隨機"}`;
 
-  // 🐛→✅ 2026-07 玩家實測發現真實洩漏(阿爾托莉雅開口問「你就是我的御主嗎？」)：這段提示詞原本
-  //   說「為玩家建立一位已結束聖杯戰爭、與封存從者共度和平時光的『御主』本人形象」——直接告訴AI
-  //   玩家「已經打過並結束了一場聖杯戰爭」，跟這整輪反覆確立的「餐桌是平行世界、這裡從來沒有發生
-  //   過聖杯戰爭這回事」原則正面矛盾，一度改寫成拿掉「御主」稱呼的中性版本。
-  // 🔄 2026-07 玩家定案「關係改回御主從者」：重新考慮後決定「御主」當成單純的稱謂使用，不代表
-  //   真的打過仗，跟「這裡從來沒有發生過聖杯戰爭這回事」的世界觀主軸不衝突——只復原稱呼用詞，
-  //   「已結束聖杯戰爭/聖杯戰爭已落幕」這類斷言仍拿掉不放回去。
+  // 「御主」在這裡當成單純稱謂使用，不代表真的打過仗；「已結束聖杯戰爭/已落幕」這類斷言禁止
+  //   出現(跟平行世界設定矛盾)。
   const KANSHOU_MASTER_GEN_SYS = `你是《命運停駐之夜》後日談(鑑賞)的角色生成核心，為玩家建立一位生活在平行世界(這裡從來沒有發生過聖杯戰爭這回事)、與身邊英靈共度和平日常的「御主」本人形象。請依玩家提供的姓名、性別、外貌、身世、個性方向，生成合理且溫暖自然的設定。
 
 ★【演出而非說明】設定只作為底層依據，不要在 background 裡直接複述字面。
@@ -518,18 +423,11 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
     if (aiBrief.background) sheets.pc.getRange(wIdx + 1, COL.PC.BACK + 1).setValue(String(aiBrief.background).slice(0, 40));
     if (aiBrief.traits) sheets.pc.getRange(wIdx + 1, COL.PC.TRAIT + 1).setValue(parseTraitsHelper(aiBrief.traits, row[COL.PC.TRAIT]));
     if (aiBrief.personality) sheets.pc.getRange(wIdx + 1, COL.PC.PREF + 1).setValue(parseTraitsHelper(aiBrief.personality, row[COL.PC.PREF]));
-    // 🐛→✅ 玩家反映 N 欄(萌點)被切斷：原 slice(0,18) 對「一句話」來說太緊，AI 稍微超字數就被腰斬成半句。
-    //   放寬緩衝空間，不再卡在句意中間。
+    // N 欄(萌點)給足緩衝空間(30字)，避免一句話太緊被腰斬成半句。
     if (aiBrief.npc_intent) sheets.pc.getRange(wIdx + 1, COL.PC.INTENT + 1).setValue(String(aiBrief.npc_intent).slice(0, 30));
-    // 🆕 2026-07 玩家「御主的衣服可以讓AI生成嗎？不要用預設的」：種子建檔階段(actionEnterKanshou)
-    //   原本恆寫死「日常便服」墊底、AI潤色從未真的碰過這格——比照英靈那邊(daily.outfit)補上，AI
-    //   生成失敗/沒給值時，種子那句「日常便服」繼續留著當保底，不會變空。setOutfit_ 已內建清除
-    //   舊【換裝】標記再寫入，不會動到 MEMORY 裡其他標記(【帳號】【鑑賞後日談】等)。
-    // 🐛→✅ 2026-07 第二輪稽核抓到：這是非阻塞背景呼叫(進鑑賞當下不await，趁玩家看開場白的空檔跑)，
-    //   `row`是AI呼叫【前】的MEMORY快照——若這幾秒空檔玩家剛好觸發了「出門走走」寫入【邂逅中】、
-    //   或做了其他會動MEMORY的動作，用這份舊快照當合併基底會把那些新寫入蓋掉(跟已修過的
-    //   intimacy_feedback整格覆寫是同一類根因，只是這裡是「合併時基底過期」而非「整格蓋掉」)。
-    //   改成在真正寫入前，用 wIdx 重新讀一次當下最新的 MEMORY 值再合併。
+    // AI 生成的衣裝比照英靈那邊(daily.outfit)補上，生成失敗/沒給值時種子預設「日常便服」繼續
+    //   當保底。這是非阻塞背景呼叫，`row` 是AI呼叫【前】的MEMORY快照——若期間玩家觸發了其他會
+    //   動MEMORY的動作，用舊快照當合併基底會蓋掉新寫入，故在真正寫入前用 wIdx 重讀最新值再合併。
     if (aiBrief.outfit) {
       const liveMem = sheets.pc.getRange(wIdx + 1, COL.PC.MEMORY + 1).getValue();
       sheets.pc.getRange(wIdx + 1, COL.PC.MEMORY + 1).setValue(setOutfit_(liveMem, aiBrief.outfit));
@@ -541,7 +439,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 }
 
 // 👥 列出後日談現有同伴（上限 3 人）。pcId＝慾海御主 avatar(KPC_)。
-//   ⚠ 2026-07：邀請只剩「英靈殿直接召喚」一途(見 actionKanshouSummonHero)，不再有「鑑賞」表可邀名單。
+//   邀請只剩「英靈殿直接召喚」一途(見 actionKanshouSummonHero)，不再有「鑑賞」表可邀名單。
 function actionKanshouCompanions(userData, pcId, sheets) {
   var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」，見 actionKanshouSummonHero 同款註解
   var acctName = String(userData.acctName || "").trim();
@@ -552,11 +450,10 @@ function actionKanshouCompanions(userData, pcId, sheets) {
   var gid = String(me[COL.PC.GAME_ID] || "");
   var current = [];
   for (var i = 1; i < data.length; i++) {
-    // ⚠ 2026-07 修：請走已改成「保留列、只退出同行」(見 actionKanshouRemove)，此處必須加 IS_PARTY
-    // 過濾，否則被請走、資料仍在表上的同伴會被誤判成「在場」。
+    // 請走是「保留列、只退出同行」(見 actionKanshouRemove)，故需加 IS_PARTY 過濾，避免被請走
+    //   但資料仍在表上的同伴被誤判成「在場」。
     if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && String(data[i][COL.PC.IS_PARTY] || "") === "同行" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) {
-      // 🆕 2026-07「關係改玩家決定」：面板需要顯示當前關係標籤＋好感，玩家才知道要不要改、改成什麼——
-      //   從單純姓名陣列升級成物件陣列(name/tag/bond)。
+      // 面板需要顯示當前關係標籤＋好感，供玩家決定要不要改。
       current.push({ name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "從者"), bond: parseInt(data[i][COL.PC.BOND]) || 0 });
     }
   }
@@ -564,11 +461,8 @@ function actionKanshouCompanions(userData, pcId, sheets) {
 }
 
 // 👥➖ 請走一名同伴（退出當前同行；資料原地保留，隨時可再邀回、累積紀錄不歸零）
-// ⚠ 2026-07 修：原本直接 deleteRow，等於把這位同伴在慾海裡累積的雙修技巧/性愛時敏感部位
-// (MEMORY)、專屬稱呼/親密次數/交談輪數(REL_MEM)、當下肉體(PHYSICAL)、好感(BOND)全部銷毀——
-// 舊版「資料仍封存在鑑賞名冊」的說法其實只精確到「原始封存那一刻」的舊快照，請走之後在慾海裡
-// 累積的一切都救不回來。改成只退出同行(IS_PARTY 清空)、保留整列，之後 actionKanshouSummonHero
-// 偵測到同名列存在時會直接喚回、不重建。
+//   只退出同行(IS_PARTY 清空)、保留整列(不 deleteRow，避免銷毀已累積的 MEMORY/BOND 等資料)，
+//   之後 actionKanshouSummonHero 偵測到同名列存在時會直接喚回、不重建。
 function actionKanshouRemove(userData, pcId, sheets) {
   var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」，見 actionKanshouSummonHero 同款註解
   var acctName = String(userData.acctName || "").trim();
@@ -590,9 +484,8 @@ function actionKanshouRemove(userData, pcId, sheets) {
 }
 
 // ⚧ 切換後日談御主 avatar 的性別（隨時可改；只動 SEX 欄，不影響從者/歷史）。pcId＝KPC_。
-// ⚠ 2026-07 修：原本只驗證新性別合法，沒回頭檢查會不會跟現有「同行」同伴組成不合規配對——
-// 御主原本是女、邀了一位男同伴(合法)後改成男，該男同伴會悄悄變成不合規配對卻沒被擋、也沒被
-// 請走，之後的敘事框架仍會用新性別去演出。比照 actionKanshouSummonHero 的規則直接擋下這次改性別。
+// 除驗證新性別合法，也要檢查會不會跟現有「同行」同伴組成不合規配對(比照
+//   actionKanshouSummonHero 的規則)，避免御主切換性別後跟既有同伴悄悄變成不合規配對。
 function actionKanshouSetSex(userData, pcId, sheets) {
   var newSex = String(userData.pcSex || "").trim();
   if (newSex !== "男" && newSex !== "女") return JSON.stringify({ success: false, message: "性別僅限 男／女。" });
@@ -613,9 +506,7 @@ function actionKanshouSetSex(userData, pcId, sheets) {
   }
   var oldSex = String(data[i][COL.PC.SEX] || "");
   kpc.getRange(i + 1, COL.PC.SEX + 1).setValue(newSex);
-  // 🗑️→✅ 2026-07：physical_state 簡化成單一「狀態」欄後不再有器官專屬鍵，這裡的性別分岔隨之作廢——
-  // 真的切換性別時單純重置回中性預設值，跟 Router_Narrative.gs(玩家肉體懶初始化)／heroToKanshouRow_
-  // (同伴建列)同一套預設值看齊。
+  // 真的切換性別時重置回中性預設值，跟玩家肉體懶初始化／heroToKanshouRow_ 同一套預設值看齊。
   if (oldSex !== newSex) {
     kpc.getRange(i + 1, COL.PC.PHYSICAL + 1).setValue(JSON.stringify({ "狀態": "如常" }));
   }
@@ -623,7 +514,7 @@ function actionKanshouSetSex(userData, pcId, sheets) {
 }
 
 // ✏ 更改後日談御主 avatar 的名字（隨時可改）。pcId＝KPC_。
-//   2026-07：關係併入眾生列(存在同伴自己那一列，不記「對誰」的名字)，改名不影響任何同伴的羈絆，無需遷移。
+//   關係併入眾生列(存在同伴自己那一列，不記「對誰」的名字)，改名不影響任何同伴的羈絆，無需遷移。
 function actionKanshouSetName(userData, pcId, sheets) {
   var newName = String(userData.pcName || "").trim();
   if (!newName) return JSON.stringify({ success: false, message: "名字不能空白。" });
@@ -636,8 +527,8 @@ function actionKanshouSetName(userData, pcId, sheets) {
   return JSON.stringify({ success: true, pcName: newName, message: "御主已改名為「" + newName + "」。" });
 }
 
-// 🏠 2026-07 玩家新增：「出門走走」面板的「家」選項可自由改名(如「工房」「我的公寓」)，
-//   比照 actionKanshouSetName 同款寫法，只是寫進 MEMORY【住所】標記而非獨立欄位。
+// 🏠「出門走走」面板的「家」選項可自由改名(如「工房」「我的公寓」)，比照 actionKanshouSetName
+//   同款寫法，只是寫進 MEMORY【住所】標記而非獨立欄位。
 function actionKanshouSetHomeName(userData, pcId, sheets) {
   var newName = String(userData.homeName || "").trim();
   if (!newName) return JSON.stringify({ success: false, message: "名稱不能空白。" });
@@ -655,36 +546,18 @@ function actionKanshouSetHomeName(userData, pcId, sheets) {
 
 // ==========================================
 // 🔴【鑑賞 AI 核心】buildDefaultSystemPrompt／actionPlay
-//   🔀 2026-07 玩家定案「兩軌完全拆開，鑑賞集中在一個GS」：solo 是按鍵+AI說故事，鑑賞是依角色
-//   資料自然演出、只有🔥點不點火這一個變因——兩者共用 callGeminiAPI(留在 Engine_Combat.gs)這個
-//   基礎設施，但各自的系統提示詞組裝／敘事引擎不該混在一起查找。buildDefaultSystemPrompt(原在
-//   Engine_Combat.gs)與 actionPlay(原在 Router_Narrative.gs)搬來這裡，跟本檔其餘鑑賞 action
-//   (召喚/進場/請走/AI深化)集中一處，好查找、好維護。純檔案搬遷，函式內容逐字未動。
+//   solo 是按鍵+AI說故事，鑑賞是依角色資料自然演出(只有🔥點不點火這一個變因)——兩者共用
+//   callGeminiAPI(留在 Engine_Combat.gs)這個基礎設施，但系統提示詞組裝／敘事引擎各自獨立，
+//   跟本檔其餘鑑賞 action(召喚/進場/請走/AI深化)集中一處，好查找。
 // ==========================================
 
-// 🧹 2026-07 玩家定案「isNsfwMode 也不用分模式了，統合起來」：這個函式現在只可能被鑑賞(慾海)呼叫
-//   ——solo(按鍵制)走完全獨立的 miniSystem(Router_Narrative.gs actionNarrateOnly)，從不呼叫這裡；
-//   本函式唯一呼叫來源是 callGeminiAPI 的 systemOverride 為空時的 fallback，唯一會用空
-//   systemOverride 呼叫的是 actionPlay(自由聊天引擎)，而 actionPlay 的 isNsfwMode 恆等於 pcId
-//   開頭是否為 KPC_，全專案已無任何路徑把 pc.mode 設為 'full'(九州殘留、已停用)——故 isNsfwMode
-//   進到這裡永遠是 true(sfwBaseRules 已刪除，見上一輪修訂)。已拿掉這個死參數與所有 if/else 分支，
-//   直接寫死唯一真的會用到的版本；real runtime 上唯一還會變動的「模式」是 driveOn(🔥主動掌握)，
-//   那是 actionPlay 自己組的 driveStr，不在這個函式管轄範圍內。
-// 🧹 順手清：舊簽名 (isNsfwMode, backLocked) 的 backLocked 參數，函式體內從未被讀取過，一併拿掉。
-//   🗑️ 2026-07 玩家定案「拿掉按鈕」：呼叫端(callGeminiAPI)當時聲稱的「config.backLocked 傳給
-//   別的用途」查證後根本不存在——`aiConfig.backLocked`／前端「🔒身世鎖定」按鈕全鏈路(toggleBackLock/
-//   setBackLockBtnUI/kyushu_back_locked)從沒有任何程式碼真的讀取這個值，鎖了也沒有實際保護效果，
-//   已整條刪除(Script.html/Index.html 的按鈕與函式、actionPlay 的 aiConfig.backLocked 賦值)。
+// 這個函式現在只可能被鑑賞(慾海)呼叫——solo(按鍵制)走完全獨立的 miniSystem，從不呼叫這裡；
+//   唯一呼叫來源是 actionPlay，其 isNsfwMode 恆為 true(全專案已無 'full' 模式呼叫路徑)，故不再
+//   分 SFW/NSFW 分支，直接寫死唯一真的會用到的版本。real runtime 上唯一還會變動的「模式」是
+//   driveOn(🔥主動掌握)，由 actionPlay 自己組的 driveStr 處理，不在這個函式管轄範圍內。
 function buildDefaultSystemPrompt() {
-  // 🗑️→✅ 2026-07 玩家定案「肉體那些欄位不需要了，只要狀態就好」：原本 1-6 數字代碼(姿勢/胸部/
-  //   肉棒/蜜穴/顏面/服裝)拆得太細，逼AI每回合逐項填滿，跟下方慾海律令「禁止器官逐格交代」互相矛盾
-  //   (敘事規則禁止這樣寫，schema卻逼著這樣填)。全部砍掉合併成單一自由文字欄，AI自行決定當下要不要
-  //   提、提多細，不強制逐項列舉。
-  // 🔄 2026-07 玩家再簡化「狀態改成顏面神情還有衣裝狀態就好，動作姿勢不要了，15字內」：上面那次
-  //   合併後仍涵蓋姿態/表情/肉體反應/服裝凌亂度四個面向、上限40字，玩家這次進一步收斂只留兩項
-  //   (顏面神情＋衣裝狀態)，拿掉動作姿勢(與肉體反應)，上限收緊到15字。
-  // 🐛→✅ 2026-07 玩家反映「狀態好像一直被切斷」：15字對中文顏面神情+衣裝狀態兩件事來說太緊，
-  //   AI稍微寫長一點就被下方sanitizePhysicalState的硬slice(0,15)腰斬在句意中間，玩家定案放寬到25字。
+  // physical_state 只留顏面神情＋衣裝狀態兩項(≤25字)：原本涵蓋姿態/表情/肉體反應/服裝凌亂度
+  //   四個面向逼AI逐項填滿，跟慾海律令「禁止器官逐格交代」矛盾，已收斂並放寬字數避免腰斬句意。
   const _physicalState = "本回合角色當下的顏面神情與衣裝狀態(第三人稱填寫，依情境自然帶到即可，不必逐項列舉，≤25字)";
 
   // 🔴 npc的範本欄位填「同上」：Router_Action.gs解析intimacy_feedback時的ignoreWords防呆清單本就含「同上」，
@@ -692,28 +565,14 @@ function buildDefaultSystemPrompt() {
   const _physicalStateRef = "同上";
 
   const finalJson = {
-    // 🔥 2026-07 玩家提案(經整合)：強制思維鏈——放範本【第一位】讓模型先自省再寫敘事，
-    //   逼它每回合先定位角色被推進到哪，才動筆。後端 sanitizeAiData_ 不讀此欄→自然丟棄，
-    //   不顯示給玩家、不進歷史，純粹是給 AI 自己看的思考格，零程式面副作用。
-    // 🐛→✅ 2026-07(玩家明確授權)：原句要求「第一人稱自省…我原本的性格尊嚴」，逼AI用「我」寫
-    //   NPC的內心獨白，緊接著卻要narration把「我」切回玩家——兩種「我」在同一份提示詞裡打架，
-    //   flash-lite小模型容易把NPC的視角帶進narration。改第三人稱總結，拿掉會跟敘事視角衝突的「我」。
-    // 🐛→✅ 2026-07(玩家問「用第三人稱總結本回合？？不是上回合嗎」發現措辭歧義)：「本回合主要
-    //   互動對象」原意是「鎖定這回合焦點是哪個NPC」，「目前的狀態」原意是「承接自過往互動、本回合
-    //   下筆前的起點狀態」——但字面容易被誤讀成「這回合(即將)發生後的狀態」，變成敘事的預寫稿而非
-    //   承接歷史的定錨點，會打折「先思考後敘事」的設計初衷。改成明講「本回合開始前」，去掉歧義。
+    // 強制思維鏈：放範本第一位讓模型先自省再寫敘事。後端 sanitizeAiData_ 不讀此欄，純粹是給
+    //   AI 自己看的思考格，零程式面副作用。第三人稱總結(而非第一人稱)是為了不跟 narration 的
+    //   敘事視角(玩家「我」)打架；「本回合開始前」明講時態，避免被誤讀成預寫本回合結果。
     "inner_monologue": "【必填·純思考用·絕不顯示】鎖定本回合主要互動對象(那名NPC)，用第三人稱總結其「本回合開始前」承接自過往互動的狀態(約50字，此欄不是該角色的台詞或視角，NPC本人不可用「我」自稱)。公式：[該NPC原本的性格尊嚴] vs [當下情緒與身體的真實狀態]。情緒溫度必須銜接歷史紀錄，禁止歸零重來。",
-    // 🔠 2026-07 全面重寫縮字：narration 描述原本重複一份「篇幅靠情感起伏/神態心理/氛圍張力/對話堆疊
-    //   撐起」的風格指示，跟下方 specificRules 第4條逐字相同——改成交叉引用，只在一處說清楚。
     "narration": "劇情描述(約500字，第一人稱，嚴禁替玩家做決定；篇幅分配依下方慾海律令第4條)...",
-    // 🗺️ 2026-07 玩家定案：鑑賞拔除地圖按鈕，改AI自主敘事換場——地點完全由AI自己決定何時、換去哪，
-    //   不再受限於固定地圖節點清單，可以是「一家安靜的咖啡廳」這種地圖上沒有的場景。
-    //   ★鐵律：narration必須先把移動/抵達的過程實際寫出來，這欄才能填新地名；沒有移動就照抄
-    //   目前地點原文，不可無故憑空跳地點(跟目前地點不同=系統認定確實移動了，會寫回存檔)。
+    // 🗺️ 鑑賞無固定地圖節點清單，地點完全由AI自主決定何時、換去哪(可自創場景)。
+    //   ★鐵律：narration必須先把移動/抵達的過程實際寫出來，這欄才能填新地名，不可無故憑空跳地點。
     "location": "本回合結束時御主所在地點——若narration有實際敘述移動/抵達，填新地點名稱(可自創、不限於冬木既有地名)；沒有移動則原樣填目前地點",
-    // 🐛→✅ 2026-07(玩家回報「填的欄位都正確嗎」查出)：這個欄位在先前 isNsfwMode 統合重構(合併
-    //   SFW/NSFW分支)時被整個遺漏——nsfwBaseRules規則文字仍講「options固定4個...類別見下方輸出範本」、
-    //   Router_Narrative.gs 仍讀 aiData.options 回傳前端渲染按鈕，範本卻沒有這個欄位可供AI照著填。補回。
     "options": ["1. [主動]強勢掌握主導...", "2. [被動]順從委婉試探...", "3. [接續]順劇情延續互動...", "4. [反差]跳脫氛圍的驚人舉動..."],
     "intimacy_feedback": {
       "_note": "★physical_state是角色「自身」當下的顏面神情與衣裝狀態，禁內心戲，第三人稱填寫，絕對禁寫'自己'，≤25字。★每回合都要據實反映最新狀態，不可偷懶沿用舊值；不必逐項列舉，依當下情境自然帶到即可。npcs每位與player共用此格式，依其實際狀態填寫。",
@@ -729,40 +588,19 @@ function buildDefaultSystemPrompt() {
         "attitude": "這名NPC對御主當下的臨場態度(非好感趨勢，第三人稱，≤15字，規則見下方慾海律令第7條)"
       }]
     },
-    // 🔠 2026-07：原本「名字提取鐵律」在 Router_Narrative.gs 每回合另開一整段落解釋 target 只能填真名，
-    //   改直接寫進欄位描述本身——schema 級約束比事後再說一次更有效，也省掉那一整段重複文字。
-    // 🐛→✅ 2026-07 玩家問「rel_changes後面幾個沒範例AI能知道怎麼用？」補了 _note 範例；追問「約定
-    //   清空還有地方按嗎？達成又要去哪裡看？」才發現 major_event(未完成的約定)整條是頭尾斷開的死路
-    //   ——寫入後從未被讀回餵給AI(AI看不到自己上次許過什麼，[達成]/[清空]語法講清楚也無從觸發)，
-    //   玩家也沒有任何UI能查看或手動清空，玩家定案「整條拆掉」。schema 欄位一併移除，見下方
-    //   `relChangesToProcess.forEach` 拿掉的處理邏輯、`COL.PC.MAJOR_EVENT` 定義處註解。
-    // 🔄 2026-07 玩家定案「關係改玩家決定，AI不可以改動但可以不認」：tag欄位整條移除——關係標籤
-    //   (COL.PC.REL_TAG)從此只能由御主自己透過UI(update_rel_tag)手動更改，AI不再有任何管道寫入
-    //   這個欄位。AI對這個標籤的影響力只剩「認不認同」，寫在NPC自身當下的attitude欄(見上方
-    //   intimacy_feedback.npcs)，不是靠覆寫關係標籤本身表達。
+    // target 只能填真名(schema級約束，比事後再說一次更有效)。tag 欄位不存在：關係標籤
+    //   (COL.PC.REL_TAG)只能由御主透過UI(update_rel_tag)手動更改，AI對標籤的影響力只剩
+    //   「認不認同」，寫在 intimacy_feedback.npcs[].attitude，不是靠覆寫這個欄位表達。
     "rel_changes": [{
       "_note": "fav_change為整數(可正可負)，關係要慢慢培養、不可躁進：日常閒聊+1~2、明顯心動或重大進展+3~5，單回合上限+5，不可一次跳大段；越界冒犯可填負數。★fav_change純粹是好感升降的數字，與口吻/語氣描述無關。",
       "target": "NPC真實姓名或「自己」(不論敘事/對話裡怎麼稱呼TA，此欄固定填真實姓名，不可填暱稱、職階、台詞、地名或動作等其他內容)", "fav_change": 3
     }],
-    // 🧹 2026-07 玩家定案「mentioned_names 這也不用了吧」：查證後這欄對鑑賞(唯一還會呼叫此
-    //   schema 的路徑)已是死欄——前端(Script.html send())收到後只會 pushCandidate(name, name)，
-    //   把文字換成一模一樣的文字(鑑賞早改純文字、無 hyperlink)，等於整條「算了、送了、解析了、
-    //   替換了」的鏈路最終是自己換自己的無效操作，沒有任何實際效果。schema 欄位、AI 指令、後端回傳、
-    //   前端消費四處一併移除。
-    // 🗑️ 2026-07 玩家定案：event/tag 兩欄先前已拔除(因果表刪除後無任何代碼讀取)；這輪玩家再問
-    //   「log_summary 有在用嗎」——查證其唯一消費者(交談輪數計數)累加的數字從頭到尾沒有任何地方
-    //   讀回(不顯示、不當門檻、不餵回AI)，是純粹寫入從不讀取的死路，連同 subject/object 整欄一併
-    //   移除，AI 不用再每回合多填這個欄位。
+    // mentioned_names/event/tag/log_summary 等死欄已移除：皆是寫入後從未被任何地方讀回的
+    //   死路(前端不消費、AI不依此決策)，拿掉後AI不用再每回合多填這些欄位。
   };
 
-  // 🔠 對話格式規則抽成共用函式，杜絕未來改一半、又不一致的風險。
-  // 🐛→✅ 2026-07(玩家明確授權·全面重寫)：舊版嚴格限定「姓名只寫一次、動作只能在引號開頭一段、
-  //   引號結束後同段落不可再補動作」——玩家要求改鬆：動作可放名字前/引號內(以聲音呈現)/引號後，
-  //   不限次數與位置組合；純背景描述不需要括號、且應盡量精簡，把篇幅讓給互動本身。
-  // 🐛→✅ 2026-07 二修(玩家明確授權)：原句只點出「引號內可放(聲音)」，沒講清楚引號內也可以是
-  //   純(動作)、(聲音+動作)合併、甚至整句只有動作聲音沒有台詞文字；也沒強制「邊說邊動作/帶聲音
-  //   時必須寫出來」，導致 AI 有時整段台詞一氣呵成、把同步發生的動作/聲音省略不寫。改成明確列舉
-  //   引號內四種可能內容，並用【必須】鎖死「有邊說邊動作或有聲音就要寫出來夾進台詞裡」，不可省略。
+  // 🔠 對話格式規則抽成共用函式，杜絕未來改一半、又不一致的風險。動作可放名字前/引號內(以聲音
+  //   呈現)/引號後，不限次數與位置組合；邊說邊動作或帶聲音必須寫出來夾進台詞裡，不可省略。
   function dialogueFormatRule_(example) {
     return `對話格式：（角色動作或神情，例如：${example}）名字：「台詞、或（聲音）、或（動作）、或（聲音+動作），可與台詞自由交錯」。★【鐵律】：
 - 角色說話時若有動作或聲音（如低吟、輕笑、喘息、嬌喘），**必須**用（）標記，並夾在對應位置。
@@ -772,17 +610,9 @@ function buildDefaultSystemPrompt() {
 }
 
   // 🔴 NSFW(慾海模式)：本回合聚焦當下的近身互動(情慾/調情/鋪陳皆可)，雜務(物品/金錢/陣營/任務/招募/地圖/戰鬥數值/身世)
-  // 完全不追蹤、不輸出，鐵律文字大幅精簡，盡量交給AI自行判斷。
-  // 🐛→✅ 2026-07(玩家明確授權)三處修正：①【意圖攔截】原本要求裁定前比對NPC的[個性]與[戰力]，
-  //   但鑑賞世界觀明文禁止任何戰鬥/戰力概念(下方💕鑑賞覆寫區塊)，拿「戰力是否遜於玩家」當抗拒
-  //   意圖的門檻條件跟「絕對禁止戰鬥」自相矛盾、且是無意義的假判斷——已拿掉[戰力]，只留[個性]
-  //   作唯一判準。②【慢熱與傾心】原本明講「禁用傾心/道侶等極親密詞」，玩家確認不需要這條詞彙
-  //   黑名單，已拿掉；「好感未滿80者嚴禁言行表現傾心倒貼」的實質行為門檻保留不動。③【狀態與輸出】
-  //   原本逐一列舉「嚴禁另以stat_changes輸出生命/魔力/負面」＋「戰鬥/物品/金錢/陣營/任務不追蹤」，
-  //   但 stat_changes 根本不是 finalJson schema 的欄位(從未存在、AI 沒有對應範本可填)，逐項禁止
-  //   一件AI從未被要求做的事純屬空耗字數；玩家要求「就依照讀取到的資料繼續推進，其他用不到的也
-  //   不要寫出來」——改成直接說明實際會用到的兩個管道(intimacy_feedback／rel_changes好感)，
-  //   其餘一律「不追蹤、不輸出」概括帶過，不再逐項唱名不存在的雜務。
+  // 完全不追蹤、不輸出，鐵律文字大幅精簡，盡量交給AI自行判斷。意圖攔截只依[個性]判斷(鑑賞無戰鬥
+  // 概念，[戰力]門檻與世界觀矛盾)；不設傾心/道侶等詞彙黑名單，只保留「好感未滿80嚴禁傾心倒貼」
+  // 的實質行為門檻。
   const nsfwBaseRules = `你是後日談的敘事演化核心，以細膩動人的輕小說筆觸推演因果，強制台灣繁體中文。第一人稱「我」，禁上帝視角。以下為不可違背之鐵律：
 
 【敘事與對話】
@@ -807,11 +637,7 @@ function buildDefaultSystemPrompt() {
 1. 本回合聚焦當下近身互動，依玩家輸入自然推進（日常就日常，情慾就情慾）。
 2. 只輸出合法JSON，options固定4個、順序不可變、每項20字。`;
 
-  // 🐛→✅ 2026-07(玩家明確授權)：第4條原本只列「情感起伏/神態心理/氛圍張力/對話堆疊」當篇幅來源，
-  //   漏了肢體動作/喘息/聲音這幾種同樣該撐起篇幅的元素；「台詞被嬌喘打斷」也把中斷手法窄化成單一
-  //   詞「嬌喘」，玩家要求擴充成「可斷續、喘息、聲音都可以」。已補上肢體動作/喘息與聲音進篇幅來源
-  //   清單，中斷手法改成「喘息、聲音或斷續語句」三種、不限嬌喘一種寫法。
- const specificRules = `
+const specificRules = `
 【慾海律令】
 你擅長書寫細膩動人的情慾，以下為核心鐵律：
 
@@ -832,13 +658,8 @@ function buildDefaultSystemPrompt() {
 return nsfwBaseRules + "\n" + specificRules + "\n\n★【輸出範本】\n" + JSON.stringify(finalJson, null, 2);
 }
 
-// 🔀 2026-07 玩家定案「鑑賞是鑑賞、solo是solo，兩軌只共用種子庫資料，撈完資料後各自獨立表格」：
-//   actionPlay 原本借用 solo 的 getLocalPeopleList(Core_Settings.gs) 算「同地人物」清單——但那個
-//   函式是為 solo 一整套敵蹤/盟友情報共享/好感牽掛機制設計的，順手多算了 pref/relTag/relVal/
-//   faction/allied/intelCls/lostServant/master/servant/status/hp/mp 共12個欄位；鑑賞前端(send())
-//   卻只用得到 .name/.isExact 兩項，其餘全是白算。鑑賞這裡不再借用共用函式，自己算一份精簡版——
-//   邏輯對齊 getLocalPeopleList 原本 isKanshouCtx 分支的判定條件(僅同game_id、同行隊伍成員)，
-//   行為對前端而言完全等價，只是不再計算/傳輸一堆鑑賞從未讀取的欄位。
+// 鑑賞自己算一份精簡版「同地人物」清單，不借用 solo 的 getLocalPeopleList(那是為敵蹤/盟友情報
+//   共享等一整套機制設計的，多算了12個欄位，鑑賞前端只用得到 .name/.isExact)。
 function getKanshouPeopleList_(pcId, curL, allPcData) {
   const safeCurL = String(curL || "");
   const meRow = allPcData.find(r => r[COL.PC.ID] == pcId);
@@ -854,10 +675,9 @@ function getKanshouPeopleList_(pcId, curL, allPcData) {
   return list;
 }
 
-// 🌸 鑑賞地點清單(2026-07 玩家新增「有其他角色在過自己生活」的氛圍功能，僅鑑賞使用、solo不動)：
-//   純資料驅動的小陣列，不進 MAP 試算表(不跟solo共用坤圖，不吃solo那套坤圖驗證/戰爭限定節點邏輯)——
-//   之後要加/改地點只動這裡，不用碰下面的抽選邏輯。前端 Script_Kanshou.html 另有一份同名清單純供
-//   畫按鈕(改地點時兩邊都要更新一次)，實際驗證/邏輯只認這裡這份。
+// 🌸 鑑賞地點清單：純資料驅動的小陣列，不進 MAP 試算表(不跟solo共用坤圖)——之後要加/改地點只動
+//   這裡。前端 Script_Kanshou.html 另有一份同名清單純供畫按鈕(改地點時兩邊都要更新)，實際驗證/
+//   邏輯只認這裡這份。
 const KANSHOU_LOCATIONS_ = [
   { name: '河邊', desc: '晨昏都靜謐的河堤，水聲潺潺。' },
   { name: '市集', desc: '人聲鼎沸的商店街，攤販林立。' },
@@ -871,8 +691,8 @@ const KANSHOU_LOCATIONS_ = [
   { name: '車站', desc: '人來人往、廣播反覆的小站。' }
 ];
 // 🎭 地點×角色 氛圍標籤(資料驅動，往陣列塞一筆 SEED_SERVANTS 的 id 就能加，不動抽選邏輯)：
-//   槍兵(庫丘林)刻意塞多個地點——「到處打零工」的浮動人設(玩家原話)；其餘角色先各給1~2個貼合
-//   形象的地點。查無標籤或抽不中標籤池時，退回 KANSHOU_MALE_HERO_IDS_ 全池隨機當保底。
+//   槍兵(庫丘林)刻意塞多個地點——「到處打零工」的浮動人設；其餘角色先各給1~2個貼合形象的地點。
+//   查無標籤或抽不中標籤池時，退回 KANSHOU_MALE_HERO_IDS_ 全池隨機當保底。
 const KANSHOU_LOCATION_TAGS_ = {
   '河邊': ['庫丘林-Lancer'],
   '市集': ['庫丘林-Lancer', '迪盧木多-Lancer'],
@@ -910,14 +730,12 @@ function kanshouRollEncounter_(locName) {
   const pickId = pool[Math.floor(Math.random() * pool.length)];
   return SEED_SERVANTS.find(h => h.id === pickId) || null;
 }
-// 🔍 2026-07 玩家反映「問還有誰在，AI因為在場驗證鐵律不敢生人」：啟發式關鍵字偵測玩家這句話是不是
-//   在問「這裡還有沒有其他人」——非精準語意理解，寧可漏判(退回原本純背景路人描寫，行為不變)也不要
-//   誤判(額外巧遇頂多是意外驚喜，不是壞事)。只在玩家目前所在地是「出門走走」10個地點之一時才會用到。
+// 🔍 啟發式關鍵字偵測玩家這句話是不是在問「這裡還有沒有其他人」——非精準語意理解，寧可漏判也
+//   不要誤判(額外巧遇頂多是意外驚喜)。只在玩家目前所在地是「出門走走」10個地點之一時才會用到。
 const KANSHOU_ASKING_WHO_ELSE_RE_ = /(這裡|這附近|附近|周圍).{0,6}(還有誰|有誰|有人|其他人|別人)|(還有誰|有誰|有人|其他人|別人).{0,6}(這裡|這附近|附近|周圍)|還有(誰|其他人|別人)|有沒有(其他)?人|誰在(這|附近|這裡)/;
 // 🏷️ MEMORY標記存取器【邂逅中】：這次到訪、還留在場邊可持續互動的巧遇對象(存hero id，單一值)——
 //   跟永久性的【邂逅】(邂逅過的名單，不會清除)不同，這個是「這次到訪期間」的暫時狀態，玩家移動
 //   離開該地點時清除(換地點＝這段緣分結束，下次到訪重新擲)。比照 getOutfit_/setOutfit_ 同款寫法。
-//   2026-07 玩家反映「巧遇後聊沒兩句就消失，至少讓已經遇到的人能繼續互動」新增。
 function getKanshouActiveEncounter_(memory) {
   const m = String(memory || "").match(/【邂逅中】([^｜【】]*)/);
   return m ? m[1].trim() : "";
@@ -930,8 +748,8 @@ function setKanshouActiveEncounter_(memory, heroId) {
 function clearKanshouActiveEncounter_(memory) {
   return String(memory || "").replace(/｜?【邂逅中】[^｜【】]*/g, "");
 }
-// 🏷️ MEMORY標記存取器【住所】：玩家自訂的「家」顯示名稱(2026-07 玩家新增「家」移動選項＋自由改名)。
-//   查無標記時預設「家」，比照 getOutfit_/setOutfit_ 同款「清除舊值再整段append」寫法。
+// 🏷️ MEMORY標記存取器【住所】：玩家自訂的「家」顯示名稱。查無標記時預設「家」，比照
+//   getOutfit_/setOutfit_ 同款「清除舊值再整段append」寫法。
 function getKanshouHomeName_(memory) {
   const m = String(memory || "").match(/【住所】([^｜【】]*)/);
   const nm = m ? m[1].trim() : "";
@@ -943,12 +761,9 @@ function setKanshouHomeName_(memory, name) {
   const safe = String(name || "").trim().slice(0, 12) || "家";
   return (cleaned ? cleaned + "｜" : "") + "【住所】" + safe;
 }
-// 🐛→✅ 2026-07 玩家反映「間桐櫻（黑化）好感都沒有提升」：查出根因——部分英靈殿角色的 realName
-//   帶括號附註(如「間桐櫻（黑化）」「無名（EMIYA）」「伊斯坎達爾（征服王）」)，這串連括號的全名
-//   會原封不動寫進 COL.PC.NAME，AI 敘事裡自然只會用括號前後其中一段稱呼TA(如「間桐櫻」或
-//   「EMIYA」)，但 rel_changes[].target 的比對要求逐字完全相符——AI照著自然稱呼填寫時永遠對不上
-//   完整括號全名，好感就悄悄比對失敗、整條被跳過。抽出候選字串(全名/括號前/括號內)供比對，不用
-//   改動任何一位角色的既有 realName 資料。
+// 部分英靈殿角色的 realName 帶括號附註(如「間桐櫻（黑化）」)，AI 敘事自然只會用括號前後其中
+//   一段稱呼TA，但 rel_changes[].target 等比對要求逐字完全相符——會悄悄比對失敗、整條被跳過。
+//   抽出候選字串(全名/括號前/括號內)供比對，不用改動任何一位角色的既有 realName 資料。
 function kanshouNameCandidates_(fullName) {
   const s = String(fullName || "").trim();
   const m = s.match(/^(.*?)[（(]([^（()）]*)[）)]\s*$/);
@@ -959,19 +774,14 @@ function kanshouNameCandidates_(fullName) {
 
 function actionPlay(userData, pcId, sheets) {
   const userMsg = userData.message;
-  // 🌹 慾海(KPC_ 御主)專用引擎：前端自由聊天輸入框只在 pc.mode==='kanshou' 才顯示(Script.html
-  //   applyModeUI)，且鑑賞玩家自己的 pcId 恆為 KPC_ 前綴——查證全 gas/ 目錄已無任何路徑把
-  //   pc.mode 設為 'full'(九州殘留、已停用)，故這裡不會再有 solo/SFW 呼叫路徑。早期版本曾信
-  //   前端 userData.isNsfw 旗標判斷 SFW/NSFW(埋下「鑑賞切回 solo 忘記取消勾選、殘留 true 污染
-  //   solo」的漏洞)，後端曾改成純看 pcId 前綴路由；2026-07 玩家定案「isNsfwMode 也不用分模式
-  //   了」——既然這條路徑只可能是鑑賞，直接在入口擋下非 KPC_ 呼叫(定位錯誤好過悄悄套錯規則)，
-  //   函式其餘部分不再分支，永遠當作鑑賞/NSFW 情境處理。
+  // 🌹 慾海(KPC_ 御主)專用引擎：前端自由聊天輸入框只在 pc.mode==='kanshou' 才顯示，鑑賞玩家
+  //   pcId 恆為 KPC_ 前綴，全專案已無路徑把 pc.mode 設為 'full'——這裡不會再有 solo 呼叫路徑，
+  //   入口直接擋下非 KPC_ 呼叫，函式其餘部分永遠當作鑑賞情境處理，不再分支。
   if (String(pcId || "").indexOf("KPC_") !== 0) return JSON.stringify({ text: "此功能僅限鑑賞使用。", people: [] });
-  // 🔥 主動掌握開關(2026-07 玩家定案·原nsfw開關重生)：現在 real runtime 上唯一還會變動的「模式」。
+  // 🔥 主動掌握開關：real runtime 上唯一還會變動的「模式」。
   const driveOn = (userData.drive === true || String(userData.drive) === "true");
-  // 🚪 巧遇開關(2026-07 玩家新增)：前端「出門走走」面板可關閉「路上巧遇陌生人」——只影響下方
-  //   隨機巧遇擲骰(kanshouRollEncounter_ 的兩個呼叫點)，不影響已在場的【邂逅中】對象持續互動，
-  //   也不影響同行隊伍成員。前端沒帶這欄(舊快取版本)時預設仍是開啟，維持原行為。
+  // 🚪 巧遇開關：前端「出門走走」面板可關閉「路上巧遇陌生人」——只影響下方隨機巧遇擲骰，不影響
+  //   已在場的【邂逅中】對象持續互動、也不影響同行隊伍成員。前端沒帶這欄時預設仍是開啟。
   const encounterOn = !(userData.encounter === false || String(userData.encounter) === "false");
 
   const formatPref = (str) => {
@@ -980,9 +790,8 @@ function actionPlay(userData, pcId, sheets) {
     return `[表象]${arr[0] || "無"} [內裡]${arr[1] || "無"} [喜歡]${arr[2] || "無"} [討厭]${arr[3] || "無"}`;
   };
 
-  // 🐛→✅ 2026-07(玩家授權·同批修正)：[自稱] 這格內容通常已是「自稱「我」」這類完整片語——
-  //   跟 servantCard_ 同一種collision(見 Router_Persona.gs 同批修正)，「我」字面緊鄰在敘事視角
-  //   說明附近，flash-lite小模型容易混淆。標籤加註明確限定範圍，與 servantCard_ 的修法一致。
+  // [自稱] 這格內容通常已是「自稱「我」」這類完整片語，跟敘事視角說明的「我」字面相鄰容易混淆
+  //   (小模型尤其)，標籤加註明確限定範圍，比照 servantCard_ 的修法。
   const formatTrait = (str) => {
     let arr = String(str || "").split('、');
     return `[外貌]${arr[0] || "無"} [氣質舉止]${arr[1] || "無"} [台詞自稱(僅其本人引號內用，非旁白視角)]${arr[2] || "無"} [卸下心防的私密一面]${arr[3] || "無"}`;
@@ -997,11 +806,10 @@ function actionPlay(userData, pcId, sheets) {
   const pcName = pc[COL.PC.NAME];
   let curL = pc[COL.PC.LOC];
 
-  // 🌸 鑑賞地點移動(2026-07 玩家新增)：前端點選地點按鈕時帶 moveTarget，跟一般對話同一次
-  //   round-trip解決(不另開action、不多打一趟google.script.run)——比對 KANSHOU_LOCATIONS_
-  //   合法地點清單，查無效比對(如被夾帶偽造字串)一律當成普通對話，不影響原本行為。
-  // 🏠 2026-07 玩家新增「家」選項：不在 KANSHOU_LOCATIONS_ 固定清單裡(顯示名稱由玩家自訂，見
-  //   getKanshouHomeName_/【住所】標記)，獨立比對——「家」是私人空間，恆不觸發隨機巧遇。
+  // 🌸 鑑賞地點移動：前端點選地點按鈕時帶 moveTarget，跟一般對話同一次 round-trip 解決——比對
+  //   KANSHOU_LOCATIONS_ 合法地點清單，查無效比對一律當成普通對話。
+  // 🏠「家」選項不在 KANSHOU_LOCATIONS_ 固定清單裡(顯示名稱由玩家自訂)，獨立比對——
+  //   「家」是私人空間，恆不觸發隨機巧遇。
   const homeName = getKanshouHomeName_(pc[COL.PC.MEMORY]);
   const moveTarget = KANSHOU_LOCATIONS_.find(l => l.name === String(userData.moveTarget || "").trim());
   const isHomeMove = !moveTarget && String(userData.moveTarget || "").trim() === homeName;
@@ -1010,30 +818,22 @@ function actionPlay(userData, pcId, sheets) {
     ? `【玩家意圖】：走向了「${moveName}」，四處看看那裡有什麼、有沒有遇見誰。`
     : `【玩家意圖】：${userMsg}`;
 
-  // 🧹 2026-07：knockedOutList/justRevived/fatePlayerDefeat/fateDreamPrompt/freshlyBoundNpcName
-  //   清掉——這幾個是 solo 戰鬥引擎的殘留概念(擊倒/復活/戰敗虛假之夢/剛結盟NPC排除)，鑑賞世界觀
-  //   明文禁止任何戰鬥/血量變化/死亡威脅，這幾格在這個函式裡從頭到尾只會是初始值，從未被賦過值，
-  //   下方回傳物件對應欄位跟著一起拿掉。
+  // 鑑賞世界觀明文禁止任何戰鬥/血量變化/死亡威脅，故不帶 solo 戰鬥引擎的殘留概念(擊倒/復活/
+  //   戰敗虛假之夢/剛結盟NPC排除等)。
   const dirtyPcRows = new Set();
-  // 玩家本人一定會被處理到，先加進去
-  dirtyPcRows.add(pcIndex);
-
-
+  dirtyPcRows.add(pcIndex); // 玩家本人一定會被處理到，先加進去
 
   const currentAmbition = pc[COL.PC.INTENT] ? String(pc[COL.PC.INTENT]).trim() : "尚無明確目標，隨遇而安。";
-  // 🐛→✅ 2026-07 玩家反映「換裝有確實讀取嗎」+ 貼實測片段(自己換裝「只有穿褲子」，AI卻寫「衣襟」)：
-  //   查出根因——【同行夥伴】卡片(partyDetailsArr)每回合都會帶上 getOutfit_ 讀到的「裝扮」，但玩家
-  //   自己(pc本人)的【玩家命格】那行只有名號/性別/性格/特徵/軟肋/身世/位置，從頭到尾沒帶上自己的
-  //   換裝——AI 完全看不到玩家本人設定的服裝，只能憑空假設(如預設寫成有領口的上衣)。比照partyDetailsArr
-  //   同款「裝扮:XXX(當前服裝·五官體態不變)」格式補上。
+  // 玩家自己的換裝，比照【同行夥伴】卡片(partyDetailsArr)同款「裝扮:XXX(當前服裝·五官體態不變)」
+  //   格式補上，AI 才能讀到玩家本人設定的服裝，而非憑空假設。
   const myOutfit = getOutfit_(pc[COL.PC.MEMORY]);
 
   // 🔵 實例化：只取自己 game_id 世界內、同地點的人（御主無 game_id 時不過濾，相容舊角色）
   const myGameId = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
   const sameGame = (r) => !myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId;
 
-  // 🌸 鑑賞地點移動 continued：合法地點時才寫入LOC(含同行同伴一起同步，比照AI自由換場的既有
-  //   邏輯)＋抽選巧遇＋記錄邂逅名單。抽選只在「按下移動按鈕」這個瞬間跑一次，不會每句對話重算。
+  // 合法地點時才寫入LOC(含同行同伴一起同步)＋抽選巧遇＋記錄邂逅名單。抽選只在「按下移動按鈕」
+  //   這個瞬間跑一次，不會每句對話重算。
   let kanshouEncounterHero = null, kanshouEncounterMetBefore = false, kanshouEncounterLocName = "";
   if (moveTarget || isHomeMove) {
     curL = moveName;
@@ -1047,8 +847,7 @@ function actionPlay(userData, pcId, sheets) {
       pcData[nIdx][COL.PC.LOC] = curL;
       dirtyPcRows.add(nIdx);
     });
-    // 🐛→✅ 2026-07 玩家反映「巧遇後聊沒兩句就消失，至少讓已經遇到的人能繼續互動」：離開原地
-    //   (換地點)＝上一段巧遇緣分結束，先清掉舊的【邂逅中】，這個新地點才重新擲一次巧遇。
+    // 離開原地(換地點)＝上一段巧遇緣分結束，先清掉舊的【邂逅中】，這個新地點才重新擲一次巧遇。
     pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
     kanshouEncounterLocName = moveName;
     // 🚪 巧遇開關 + 🏠「家」是私人空間：兩者皆需通過才擲骰——isHomeMove 恆不觸發陌生人巧遇。
@@ -1059,17 +858,15 @@ function actionPlay(userData, pcId, sheets) {
   } else {
     const curLocDef = KANSHOU_LOCATIONS_.find(l => l.name === String(curL || "").trim());
     if (curLocDef) {
-      // 🐛→✅ 2026-07 玩家反映「不一定要遇到別人，至少歷史人物可以跟我繼續互動吧」：這次到訪還在場
-      //   邊的巧遇對象(【邂逅中】)，不管這句話問什麼，只要人還沒隨著換地點離開，就持續讓AI知道
-      //   可以繼續指名互動——不再只有觸發那一瞬間的單回合permission，同一次到訪期間都有效。
+      // 這次到訪還在場邊的巧遇對象(【邂逅中】)，只要人還沒隨著換地點離開，就持續讓AI知道可以
+      //   繼續指名互動——不只是觸發那一瞬間的單回合permission，同一次到訪期間都有效。
       const activeId = getKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
       if (activeId) {
         kanshouEncounterLocName = curLocDef.name;
         kanshouEncounterHero = SEED_SERVANTS.find(h => h.id === activeId) || null;
       } else if (encounterOn && KANSHOU_ASKING_WHO_ELSE_RE_.test(userMsg)) {
-        // 🔍 2026-07 玩家反映「問還有誰在，AI因為在場驗證鐵律不敢生人」：目前還沒有巧遇中的對象、
-        //   但這句話像在問「這裡還有誰」，用目前地點重新擲一次巧遇——跟按移動按鈕同一套加權隨機，
-        //   不寫LOC(沒有移動，位置不變)、不同步同伴(沒人移動)。
+        // 目前還沒有巧遇中的對象、但這句話像在問「這裡還有誰」，用目前地點重新擲一次巧遇——跟按
+        //   移動按鈕同一套加權隨機，不寫LOC(沒有移動)、不同步同伴(沒人移動)。
         kanshouEncounterLocName = curLocDef.name;
         kanshouEncounterHero = kanshouRollEncounter_(curLocDef.name);
         if (kanshouEncounterHero) {
@@ -1086,73 +883,45 @@ function actionPlay(userData, pcId, sheets) {
     }
   }
 
-  // 🐛→✅ 2026-07 修：「專屬稱呼」記憶點原本只加在 localSceneStr(同地路人清單)，但那份
-  //   明確排除「同行隊伍成員」——鑑賞的同伴全部是 IS_PARTY="同行"、只會出現在下面 partyDetailsArr，
-  //   等於唯一真正常互動的對象反而吃不到這個標籤(solo友善對話/切磋等免按鍵互動同樣受影響)。
-  //   抽成共用函式，兩份清單一起補上，不重複貼一次解析邏輯。
-  // 🗑️ 2026-07 玩家定案「未完成的約定整條拆掉」：原本這裡也讀 [已兌現] 餵「一起做過」記憶點，
-  //   但它唯一的寫入來源(major_event的[達成]處理)已整段移除，往後不會再有新的[已兌現]資料——
-  //   拿掉這段讀取，只留專屬稱呼。
+  // 「專屬稱呼」記憶點：抽成共用函式，鑑賞同伴清單(partyDetailsArr)跟其他清單一起補上，
+  //   不重複貼一次解析邏輯。
   function relMemMemoryStr_(relMem) {
     const s = String(relMem || "");
     const nickMatch = s.match(/\[專屬稱呼\](.*?)(?=\| \[|$)/);
     const nickTrim = nickMatch ? nickMatch[1].trim() : "";
     const nickStr = (nickTrim && nickTrim !== "無") ? ` [專屬稱呼:${nickTrim}]` : "";
-    // 🆕 2026-07「態度」：NPC對御主當下的臨場態度(與好感分開追蹤，見慾海律令第7條)，讓AI下筆前
-    //   看得到自己上一輪演的態度，不會忽冷忽熱亂跳、也才有「上次不太甩，這次呢」的延續性。
+    // 態度：NPC對御主當下的臨場態度(與好感分開追蹤，見慾海律令第7條)，讓AI下筆前看得到自己
+    //   上一輪演的態度，不會忽冷忽熱亂跳。
     const attMatch = s.match(/\[態度\](.*?)(?=\| \[|$)/);
     const attTrim = attMatch ? attMatch[1].trim() : "";
     const attStr = (attTrim && attTrim !== "無") ? ` [態度:${attTrim}]` : "";
     return nickStr + attStr;
   }
 
-  // 🧹 2026-07 玩家定案「砍掉同地路人、這是開放大世界、沒有結界了」：舊版 allLocals/displayPeople/
-  //   localSceneStr(好感階梯 resistPrompt/身分標籤)整套刪除。實務上這套機制在鑑賞幾乎是死重——鑑賞
-  //   從不會平白生出「同地路人」這種被追蹤好感的固定NPC，唯一會命中的邊角情況是「已請走、還留在原地
-  //   的舊同伴」被誤判成陌生路人重新演一次戒備——這比沒有這套機制更奇怪。改成單純的「開放世界背景
-  //   人煙」指令(見下方【開放世界·背景人煙】)：路人可以自由描寫增添生活感，但不具名、不追蹤好感、
-  //   不能被指名互動——真正能被指名、有名有姓、好感會被記錄的對象，只有【同行隊伍成員】。
+  // 「開放世界·背景人煙」設計：路人可自由描寫增添生活感，但不具名、不追蹤好感、不能被指名互動；
+  //   真正能被指名、有名有姓、好感會被記錄的對象，只有【同行隊伍成員】。
   const partyRows = pcData.filter(r => r !== pc && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
   const partyMembers = partyRows.map(r => r[COL.PC.NAME]);
   let partyDetailsArr = [];
-  // ⚡ 2026-07 提速：dailySpeechByName_ 在下面迴圈裡最多對每位同伴各呼叫一次，各自呼叫
-  //   getHeroCodexCached() 等於同一輪重複 JSON.parse 整份英靈殿快取字串好幾次——這裡在迴圈外
-  //   先抓一次共用傳入，2~3位同伴時省掉多餘的重複整表解析(結果完全相同，純省重工)。
+  // ⚡ 提速：dailySpeechByName_ 對每位同伴呼叫都會重新解析英靈殿快取字串，這裡在迴圈外先抓一次
+  //   共用傳入，省掉重複整表解析。
   const _partyHeroCodex = partyMembers.length > 0 ? getHeroCodexCached() : null;
   partyMembers.forEach(pName => {
-    // ⚠ 2026-07 修：原本純比對姓名，沒有 sameGame——若不同局/不同帳號剛好撞名(種子有限、
-    //   AI原創從者皆可能撞)，會把別局同名者的 HP/身世/狀態塞進本局的敘事提示詞。
+    // 需要 sameGame 過濾——若不同局/不同帳號剛好撞名(種子有限、AI原創從者皆可能撞)，會把別局
+    //   同名者的資料塞進本局的敘事提示詞。
     const r = pcData.find(row => String(row[COL.PC.NAME]).trim() === String(pName).trim() && !String(row[COL.PC.ID]).startsWith("DEAD_") && sameGame(row));
     if (r) {
       const pOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 玩家換裝：當前服裝穿著(換衣不換人)
-      // 🐛→✅ 鑑賞同伴的 氣血/狀態 是死資料(2026-07 修，同款「STATUS/HP 建角後從沒更新過」問題)：
-      //   鑑賞無戰鬥，HP恆定不變、STATUS(視覺化外顯)也已被physical_state取代——每回合把這兩個
-      //   永遠不變的欄位塞進提示詞純屬浪費token；solo那邊HP/STATUS是真的會隨戰鬥/休息即時變動，
-      //   維持原樣。
+      // 鑑賞無戰鬥，HP/STATUS 恆定不變(已被 physical_state 取代)，不重複注入。
       const pMemStr = relMemMemoryStr_(r[COL.PC.REL_MEM]);
-      // 🐛→✅ 2026-07 玩家回報「鑑賞同伴的萌點沒餵到AI」：查出萌點(COL.PC.INTENT)只寫在已刪除的
-      //   localSceneStr，而鑑賞同伴一律是同行隊伍成員、從不會出現在那份清單——同伴的萌點過去
-      //   從未真正餵給AI過。這裡補上，跟 servantCard_/localSceneStr(已刪)看齊。
       const pMoeStr = String(r[COL.PC.INTENT] || "").trim();
-      // 🐛→✅ 2026-07 玩家反映「鑑賞敘述看不出來是從者本人，像在跟很像的別個角色相處」：查出根因——
-      //   種子人設裡最能定義「這人講話就是這個味道」的兩項(persona.speech口吻／persona.tic招牌小動作，
-      //   如「毒舌吐槽、嘴硬心軟」／「握劍時氣場驟冷」)，召喚時早就透過 stampPersonaFlavor_ 存進
-      //   MEMORY 的【口吻】【小動作】標記——但 servantCard_(solo戰鬥/羈絆/移動等多處都會讀這兩項)
-      //   從未被 actionPlay 呼叫過，這裡是自己另組一套精簡版命格字串，從頭到尾沒把這兩項餵給AI，
-      //   只剩日常化翻譯過的性格(可能已偏淡)＋外貌——AI 自然演不出這個角色的招牌語癖與小動作。
-      //   getPersonaSpeech_/getPersonaTic_(Router_Persona.gs)已是現成 helper，直接複用讀 MEMORY。
-      // 🐛→✅ 2026-07 稽核修正：查無時原本退回 codexPersona_ 的戰時原始 speech/tic(如「狂化無法
-      //   言語、僅餘低吼」)，跟「沒有聖杯戰爭這回事」矛盾。speech改退回 dailySpeechByName_(取
-      //   dailyLook第3段的日常安全版)；tic(招牌小動作)沒有對應日常版，查無MEMORY標記時直接留空，
-      //   不再退回戰時原始值——私密一面(dailyLook第4段)已承擔「角色專屬小習慣」的功能。
+      // 口吻/招牌小動作(persona.speech/tic)：召喚時已存進 MEMORY 的【口吻】【小動作】標記，直接
+      //   複用 getPersonaSpeech_/getPersonaTic_ 讀取，讓角色演出招牌語癖而非千篇一律。查無時
+      //   speech 退回 dailySpeechByName_(日常安全版)，tic 沒有對應日常版就留空，不退回戰時原始值。
       const pSpeech = getPersonaSpeech_(r[COL.PC.MEMORY]) || dailySpeechByName_(pName, _partyHeroCodex);
       const pTic = getPersonaTic_(r[COL.PC.MEMORY]);
       const pFlavorStr = `${pSpeech ? ` | 口吻:${pSpeech}` : ""}${pTic ? ` | 招牌小動作:${pTic}` : ""}`;
-      // 🐛→✅ 2026-07 玩家反映「有時候我變成npc的從者」：查出根因——這行原寫「關係:${tag}」，對AI來說
-      //   方向不明確(容易被讀成單純描述這名角色的身分/職階，而非「TA相對於你」的關係定位)，
-      //   關係標籤預設值「從者」明明代表「TA是你的從者」，AI偶爾卻演反成玩家服侍TA。改成明講
-      //   方向的「TA是你的${tag}」，消除語意歧義(REL_TAG欄位定義本就是「這名NPC對御主的關係」，
-      //   見Core_Settings.gs COL.PC註解，這裡只是讓提示詞字面跟定義對齊)。
+      // 明講方向的「TA是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍TA。
       partyDetailsArr.push(`【同行夥伴】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(反差·僅供內化):${pMoeStr}` : ""} | 關係:TA是你的${r[COL.PC.REL_TAG] || "結伴同行"}(好感:${parseInt(r[COL.PC.BOND]) || 0}${pMemStr})`);
     }
   });
@@ -1160,30 +929,21 @@ function actionPlay(userData, pcId, sheets) {
 
   const backgroundCrowdStr = `★【開放世界·背景人煙】：這是有血有肉的開放世界，不是與世隔絕的私密結界——場景中可以自由描寫路過的行人、店員、其他顧客等不具名的背景人物，增添生活感與人煙氣息；但這些背景人物僅供氛圍點綴，【不具名、不可被指名互動、不追蹤好感或關係】。真正能被指名對話、持續互動、且好感/關係會被記錄延續的對象，僅限【目前同行隊伍成員】。`;
 
-  // 🟢 性別配對提示，直接算好給 AI，不需要它自己推理。
-  // 🔠 2026-07 全面重寫縮字：原本逐一 NPC 各寫一整句配對規則，3人同場(kanshou上限)時
-  //   同款「女女配對：...肉棒代碼(4)不輸出、不寫「無」」的長句會逐字重複3遍——改成先分組
-  //   (與玩家同性/異性)，同組共用一句規則、只在句首列名字，規則邏輯完全不變。
+  // 🟢 性別配對提示，直接算好給 AI，不需要它自己推理。3人同場時先分組(與玩家同性/異性)，同組
+  //   共用一句規則、只在句首列名字，避免逐一 NPC 各寫一整句規則重複。
   let genderHintStr = "";
   const presentRowsForGender = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && r[COL.PC.LOC] === curL && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_"));
   if (presentRowsForGender.length > 0) {
     const playerSex = pc[COL.PC.SEX] || "未知";
-    // ⚠ 2026-07 修：原本非「女/女」「男/男」的組合一律落入模糊的「依雙方實際性別器官裁決」，
-    // 「異/無」(如開膛手傑克「無固定實體」)這類非二元性別值完全沒被正規化。玩家定案：不開放
-    // 男男配對(邀請關卡已擋)，故這裡只會遇到 女/女、男/女、女/男、或某方為異/無 這幾種——
-    // 異/無 一律按女性向器官處理(對齊 heroToKanshouRow_ 的肉體起始預設，且與傑克本身
-    // 「不自覺化身少女模樣」的角色設定一致)。
-    // ⚠ 只有「女女」是特殊配對(男男邀請關卡已擋、理論不可達，故不比照女女套用同一段措辭，
-    //   維持跟改寫前完全相同的分支條件：只有 playerSex==="女" && npcSex==="女" 才進特殊組)。
+    // 「異/無」(如開膛手傑克「無固定實體」)這類非二元性別值一律按女性向處理(對齊
+    //   heroToKanshouRow_ 的肉體起始預設)。不開放男男配對(邀請關卡已擋)，故只有「女女」是
+    //   特殊配對組，其餘一律走「依各自實際性別自然互動」。
     const sameSexF = [], others = [];
     presentRowsForGender.forEach(r => {
       const npcSexRaw = r[COL.PC.SEX] || "未知";
       const npcSex = (npcSexRaw === "男" || npcSexRaw === "女") ? npcSexRaw : "女";
       (playerSex === "女" && npcSex === "女" ? sameSexF : others).push(r[COL.PC.NAME]);
     });
-    // 🗑️→✅ 2026-07 玩家定案「肉體欄位不需要了、只要狀態就好」：physical_state 已從器官數字代碼
-    // 簡化成單一自由文字欄，這裡不再需要提「肉棒代碼(4)」/「男4=肉棒／女5=蜜穴」這類 schema 層級
-    // 的指示，只留下真正影響敘事內容本身的配對規則(女女之愛的手法限制)。
     const parts = [];
     if (sameSexF.length) parts.push(`${sameSexF.join("、")}(女女配對)：純女女之愛，禁插入式陽具動作，以手指/舌頭/器物替代`);
     if (others.length) parts.push(`${others.join("、")}：依各自實際性別自然互動`);
@@ -1191,18 +951,13 @@ function actionPlay(userData, pcId, sheets) {
   }
 
   let pPhysicalObj = JSON.parse(pcData[pcIndex][COL.PC.PHYSICAL] || "{}");
-  // 🗑️→✅ 2026-07：physical_state 簡化成單一「狀態」欄後，預設值不再需要依性別分岔(器官專屬鍵已不存在)。
   if (Object.keys(pPhysicalObj).length === 0) pPhysicalObj = { "狀態": "如常" };
   let pSkills = (pcData[pcIndex][COL.PC.MEMORY] || "無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/, (m, p1) => `[雙修技巧]${p1.trim().split('、').slice(0, 5).join('、')}`);
-  // 🐛→✅ 2026-07 玩家定案整合：STATUS(視覺化外顯，衣服/姿勢/負面/顏面)已退役——姿勢動作/顏面已併進
-  //   physical_state(見下方[肉體])，這裡不再重複注入即將永遠凍結的舊欄位。
-  // 🐛→✅ 2026-07 修：NPC 的裝扮(getOutfit_)每回合都會補進下方迴圈的[名字 裝扮]行，但玩家自己的
-  //   換裝(myOutfit，同上方【玩家命格】那行補的值)這裡漏了——情慾場景AI主要參照的正是這個
-  //   [情境延續]區塊，同步補上避免只在【玩家命格】看得到、貼近情慾當下的這段卻讀不到。
+  // 玩家自己的換裝也要補進[情境延續]區塊(比照NPC每回合補進[名字 裝扮]行)，這是情慾場景AI主要
+  //   參照的區塊，不能只在【玩家命格】看得到。
   let nsfwMemories = `\n[玩家『${pcName}』肉體]：${JSON.stringify(pPhysicalObj)}\n[身體記憶]：${pSkills}${myOutfit ? `\n[玩家『${pcName}』裝扮]：${myOutfit}（玩家指定當前服裝·五官/髮色/體態不變）` : ""}`;
 
-  // ⚡ 2026-07 提速：跟上面 presentRowsForGender 是完全相同的 filter 條件(curL 這段期間未被重新賦值)，
-  //   直接複用同一份結果，省掉對 pcData 的第二次整表掃描。
+  // ⚡ 提速：跟上面 presentRowsForGender 是完全相同的 filter 條件，直接複用，省掉第二次整表掃描。
   let allPresentRows = presentRowsForGender;
   allPresentRows.forEach(r => {
     let npcPhysicalObj = JSON.parse(r[COL.PC.PHYSICAL] || "{}");
@@ -1210,30 +965,17 @@ function actionPlay(userData, pcId, sheets) {
     let npcSkills = (r[COL.PC.MEMORY] || "無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/, (m, p1) => `[雙修技巧]${p1.trim().split('、').slice(0, 5).join('、')}`);
     let relMem = r[COL.PC.REL_MEM] || "無";
     let npcOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 玩家換裝：當前服裝穿著(換衣不換人·五官體態依本相)
-    // ⚠ 2026-07 修：萌點併進上面共用的 localSceneStr(SFW/NSFW 皆讀)後，這裡不再重複附一次。
     nsfwMemories += `${npcOutfit ? `\n[${r[COL.PC.NAME]} 裝扮]：${npcOutfit}（玩家指定當前服裝·五官/髮色/體態不變）` : ""}\n[${r[COL.PC.NAME]} 肉體]：${JSON.stringify(npcPhysicalObj)}\n[快照]：[技巧]${npcSkills} | [羈絆]${relMem}`;
   });
 
-  // 🔥 主動掌握模式(driveOn)：翻轉「誰主導節奏」——平時的矜持限制(慢熱/被動等玩家推進)換成
-  //   同伴主動出擊；玩家的迴避/抽身意圖會被依個性攔下(與「意圖攔截·玩家意圖非結果」鐵律同向，
-  //   不衝突)。主動的【形式】仍依好感與個性：低好感的主動是強勢試探/挑釁/戲弄的攻勢(非傾心倒貼，
-  //   與慢熱鐵律不牴觸)，高好感才是不加掩飾的索求。個性一致性鐵律照常有效。
-  // 🐛→✅ 2026-07 玩家強化：這開關不是「同伴可能主動一下」，而是玩家會確實被同伴依個性榨乾、
-  //   沒有回頭路；同時要跟「敘事別收尾」鐵律相容(不強迫每回合都寫到終點，但每回合都要往這個
-  //   方向確實前進)。
-  // 🔠 2026-07 全面重寫縮字：原文用兩份幾乎相同的「依個性列出4種類型反應」清單(一份講攻勢起手、
-  //   一份講榨乾方式)重複描述同一件事——合併成一份，走向確定性與招架不住的畫面感都保留。
-  // 🌸 鑑賞地點移動 continued：巧遇者不是同行隊伍成員，明講「這次到訪期間的系統例外」，避免跟下方
-  //   【在場驗證鐵律】(只有同行隊伍成員能被指名互動)打架——AI才不會因為那條更強的規則直接無視巧遇。
-  // 🐛→✅ 2026-07 玩家反映「巧遇後聊沒兩句就消失，至少讓已經遇到的人能繼續互動」：原句「僅此一次
-  //   的例外...不必刻意延續到下一輪」在【邂逅中】狀態改成跨輪持續有效後已經不準確，改成「這次到訪
-  //   期間持續有效，直到玩家換地點離開」，並保留「AI仍可自然安排道別離開」的彈性(不強迫每次都要
-  //   演到底，只是不再限制只有觸發那一瞬間才能講話)。
-  // 🎨 2026-07 玩家定案「不想看到男男，只要正常友情交流」：KANSHOU_MALE_HERO_IDS_ 巧遇池全員
-  //   皆男性，走的是與 actionKanshouSummonHero/actionKanshouSetSex(僅支援男女／女女配對)完全
-  //   不同的路徑——巧遇不邀入隊伍、不經過那兩處守門，男御主巧遇男性角色時原本毫無限制可自然發展
-  //   親密關係，是既有男男配對防線之外的漏網之魚。這裡補：男御主遇男性巧遇對象時明講僅止於同性
-  //   情誼(換裝/親密內容仍只服務既有同行同伴的異性戀／女女配對，不在此路徑發生)。
+  // 🔥 主動掌握模式(driveOn)：翻轉「誰主導節奏」——平時的矜持限制換成同伴主動出擊；玩家的迴避/
+  //   抽身意圖會被依個性攔下。主動的【形式】仍依好感與個性：低好感是強勢試探/挑釁/戲弄的攻勢
+  //   (非傾心倒貼)，高好感才是不加掩飾的索求。個性一致性鐵律照常有效，這走向不可逆但不強迫
+  //   每回合寫到終點。
+  // 🌸 巧遇者不是同行隊伍成員，明講「這次到訪期間的系統例外」，避免跟下方【在場驗證鐵律】(只有
+  //   同行隊伍成員能被指名互動)打架，同時允許同一次到訪期間持續互動、直到玩家換地點離開。
+  // 🎨 KANSHOU_MALE_HERO_IDS_ 巧遇池全員皆男性，走的是跟 actionKanshouSummonHero(僅支援男女／
+  //   女女配對)完全不同的路徑，不經過那兩處守門——男御主遇男性巧遇對象時明講僅止於同性情誼。
   const kanshouEncounterStr = kanshouEncounterHero ? (() => {
     const p = kanshouEncounterHero.persona || {};
     const look = p.dailyLook || p.look || "";
@@ -1246,33 +988,19 @@ function actionPlay(userData, pcId, sheets) {
   const driveStr = driveOn ? `
 🔥【主動掌握模式·玩家已明確開啟】：本回合起，在場同伴主動掌握節奏、推進互動——手法必須貼合她/他本人真實的性格與語癖去把玩家逼向毫無招架餘地，禁止套用固定公式或別的角色的手法；玩家若試圖迴避、轉移話題、抽身離開，同伴會依個性攔下、堵住退路、追上來，營造「想跑也跑不掉」的壓迫與心跳感。★這走向確定不可逆，不必每回合寫到終點，但每回合都要確實往前推進，不可退回平日矜持基準。注意：①主動的【形式】仍依好感高低——低好感是強勢試探/挑釁/戲弄的攻勢而非傾心示愛，高好感才不加掩飾索求；②【角色一致性鐵律】仍完全有效，禁千篇一律的霸道模板；③壓迫止於情境張力，嚴禁真正傷害玩家；④★文字尺度同步拉到最滿——這個模式下的情慾描寫可以毫不含蓄、直白露骨地放手寫，不必比照平日的留白節制，篇幅分配規則(慾海律令第4條)仍要遵守，但用詞與畫面感不必收斂。` : '';
 
-  // 🧹 2026-07 玩家定案「isNsfwMode 也不用分模式了，統合起來」：PROMPT_ENV/PROMPT_GEAR(舊「戰爭
-  //   迷霧偵查」/「陣營情報·裝備」九州殘留框架，鑑賞從未真的用過，恆為空字串)、SFW 分支(PROMPT_GEAR
-  //   曾是寶具/技藝、PROMPT_REL 曾是純背景人煙)已隨這輪整理一併刪除——這條路徑現在只可能是鑑賞，
-  //   只留鑑賞真正會用到的 PROMPT_REL 版本；prompt 模板裡對應的兩個占位行也一併拿掉。
   const PROMPT_REL = `${backgroundCrowdStr}
 ★【視角鎖定】：以上「同行夥伴」卡片內「自稱」只限她/他自己的引號台詞——通篇敘事旁白的「我」永遠、只能是玩家『${pcName}』本人，絕不可把在場任何一位角色的心境或反應誤寫成旁白第一人稱。
 ★【情境延續鐵律】：請繼續往後推演！${nsfwMemories}${genderHintStr}${driveStr}
 🛑【角色一致性鐵律】：NPC 的反應必須【死守】其「性格」與目前「好感度」的真實落差——好感未滿 80、或性格屬於冷酷/高傲/剛烈者，依這個設定判斷此刻合理的抗拒/抵觸程度演出，不因劇情推進就無視好感度線性軟化。即便肉體有生理反應，靈魂與對話的態度仍以角色設定為準。真正的沉溺不是放棄人格，而是【用原本的人格去承受快感】——高傲者咬牙不肯示弱、虔敬者於信仰間掙扎、活潑者笑鬧裡藏羞、深情者愈發黏膩——語癖、自稱與個性在最激烈處也不崩壞，【絕對禁止】任何角色在情慾中退化成千篇一律的發情機器。`;
 
-  // ⚠ 2026-07 修：原句「請包含...的對話」讀起來像強制指令全員都要出聲——玩家只想找同行從者講話，
-  //   卻可能被這行逼得連背景路人都插話。改成「姓名參考用」措辭：只提供正確姓名給 AI 拼字用，
-  //   是否真的互動仍完全依上方【在場驗證鐵律】與各人的強制互動限制判斷。
-  // 🐛→✅ 2026-07 玩家反映「一直喊全名好怪」：查出根因——AI 每回合其實會自己生成【專屬稱呼】
-  //   (寫進 REL_MEM、見上方 relMemMemoryStr_，已秀給AI自己看)，但這條規則原本一句「不得另編
-  //   新名字」把這個AI自己建立好的暱稱又鎖死不能用，等於暱稱系統形同虛設、每次還是打出全名。
-  //   放寬成「已有專屬稱呼就自然用暱稱，沒有才用真名」——不影響下方 rel_changes/intimacy_feedback
-  //   的姓名欄位(那兩處是獨立規則，仍固定要求真實姓名，見對應schema欄位描述，玩家明確要求
-  //   「json時候ai自己抓緊就好」，故此處刻意不加額外的職階/暱稱fallback比對，僅這裡放寬敘事稱呼)。
+  // 這裡只提供正確姓名給 AI 拼字用(「姓名參考用」措辭)，是否真的互動仍完全依上方【在場驗證鐵律】
+  //   判斷，不強制清單所有人都要出聲。已有【專屬稱呼】(AI每回合自己生成、寫進REL_MEM)就自然用
+  //   暱稱取代真名，避免暱稱系統形同虛設；不影響下方 rel_changes/intimacy_feedback 仍固定要求真名。
   const npcDialoguePrompt = partyMembers.length > 0 ? `\n★【稱呼慣例】：對話/敘事中稱呼同行夥伴時，若該人已有【專屬稱呼】(見上方同行夥伴卡片)，可自然使用該暱稱取代真名，不必每次都字正腔圓喊全名；尚未發展出專屬稱呼、或情境特別鄭重深情時，仍使用真實姓名「${partyMembers.join("、")}」，不得自創真名與專屬稱呼以外的第三種稱呼。★此稱呼慣例僅供narration/對話台詞使用，與下方JSON輸出(rel_changes/intimacy_feedback)的姓名欄位無關，那兩處規則各自獨立、一律固定填真實姓名；是否互動仍依上方在場規則與各人強制互動限制判斷，非清單所有人都要出聲。` : "";
 
 
-  // 🐛→✅ 2026-07 稽核抓到真實bug：這行原本還帶著「生命:X/Y | 魔力:X/Y」＋一段「HP/MP低於閾值→
-  //   注入【瀕死·最高張力】禁閒聊指令」的判斷——但御主的HP/MP/MAX_HP/MAX_MP這4欄本輪已確認鑑賞
-  //   從未寫入、恆為空字串，`parseInt("")||0`退回0、閾值退回1，導致「0<=1」恆真，等於**每一回合
-  //   都會誤觸發瀕死張力指令**，直接跟世界觀(鑑賞無戰鬥、無死亡威脅)矛盾，也跟同一份提示詞底下
-  //   specificRules早就明講的「絕對禁止血量/生命變化」自相矛盾。鑑賞本就無戰鬥，血/魔這兩個數字
-  //   對這個引擎從頭到尾沒有意義，連同這段判斷整條拿掉，不只是拿掉判斷式而已。
+  // 鑑賞無戰鬥，御主的 HP/MP/MAX_HP/MAX_MP 這4欄從未寫入，故 prompt 不提血量/魔力數值或瀕死判斷
+  //   (與世界觀、specificRules「絕對禁止血量/生命變化」皆一致)。
   const prompt = `【敘事法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。
 ${PROMPT_PARTY_SYSTEM}
 【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}(當前服裝·五官體態不變)` : ""} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}
@@ -1295,21 +1023,14 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
     : `🚨【敘事終極警告】：結果後必須停在「我」當下進行式的心境與情緒中，留一個未完成的動作、未說完的話或懸而未決的情緒把下一步交還玩家——【絕對禁止】寫出「那一刻／那一夜／自此／就這樣／從此」等總結收尾句，讓這回合讀起來像已經翻頁的完結篇章！`}`;
 
   try {
-    // 🔥 2026-07 玩家定案「沒有點火接gemini3.1(SOLO_MODEL)，點火才接目前鑑賞的(AI_MODEL)」：平時
-    //   矜持模式(driveOn=false)換成跟solo共用的低延遲小模型，只有主動掌握模式(driveOn=true)才切回
-    //   鑑賞原本用的大型模型——大多數回合是輕鬆日常對話，犯不著每次都吃重量級模型的延遲。
+    // 🔥 平時矜持模式(driveOn=false)用跟solo共用的低延遲小模型(SOLO_MODEL)，只有主動掌握模式
+    //   (driveOn=true)才切回鑑賞原本用的大型模型(AI_MODEL)——大多數回合是輕鬆日常對話，犯不著
+    //   每次都吃重量級模型的延遲。max_tokens=1500：narration目標約500字＋其餘欄位，太低容易讓
+    //   模型輸出被截斷成不完整JSON。
     let aiConfig = { temperature: 1.0, top_p: 0.95, retries: 2, model: driveOn ? AI_MODEL : SOLO_MODEL, isNsfwMode: true, max_tokens: 1500 };
-    // 🐛→✅ 2026-07 玩家反映「沒點火時常常正常內容也被切換成另一個模組」：查出根因——isNsfwMode
-    //   預設 max_tokens=1000(Engine_Combat.gs)，但finalJson要求的narration目標約500字(中文)＋
-    //   inner_monologue約50字＋physical_state(每位在場角色一份)＋rel_changes等其餘欄位，光narration
-    //   一項換算成token數就經常逼近甚至超過1000，導致模型常態性被截斷、輸出不完整JSON→JSON.parse失敗
-    //   (非真的審查攔截，只是格式不完整)→retries都失敗→沒點火時靜默切到fallbackModel(AI_MODEL)，
-    //   點火時則直接吃完retries回柔性失敗訊息——玩家體感是「正常聊天內容也常常換掉模組/偶爾失敗」，
-    //   其實是token預算本身不夠、不是內容審查問題。玩家定案兩條路徑都調回1500(2026-07更早一版
-    //   「先降到1500」時未回報過這個問題，點火路徑同樣邏輯應該一併調整，不留只修一半的差別待遇)。
     if (!driveOn) aiConfig.fallbackModel = AI_MODEL;
 
-    // 🔴【新增】抓取近 6 筆原始歷史(3輪)，轉換為 API 格式
+    // 抓取近 6 筆原始歷史(3輪)，轉換為 API 格式
     const recentHistoryRaw = getGameHistoryBatchRaw(pcId, 6);
     if (recentHistoryRaw && recentHistoryRaw.length > 0) {
       aiConfig.chatHistory = recentHistoryRaw.map(msg => ({
@@ -1327,17 +1048,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
 
 
-    // 🧹 2026-07 清除死碼：這裡原本有一段處理 aiData.new_maps(讓AI在鑑賞自由擴張地圖節點)的邏輯，
-    //   但 Engine_Combat.gs 的 finalJson schema 從來沒有要求 AI 輸出這個欄位，AI 從未真的產生過
-    //   new_maps，整段是從未觸發的死碼。隨著下方「鑑賞拔地圖」一併清掉，不用先加欄位才發現沒人吃。
-    // 🐛→✅ 2026-07 稽核發現：這裡原本還會呼叫 getMapDataCached_ 抓坤圖資料，算出 locations/
-    //   allMapNames 兩個回應欄位——但鑑賞早就拔了固定地圖節點系統(改AI自由敘述場景)，`send()`
-    //   從未讀取 data.locations/data.allMapNames(grep全代碼庫確認)，這整段坤圖快取讀取＋JSON.parse
-    //   ＋ getNearbyLocations 的排序運算是每回合白做工，整段連同下方兩個回應欄位一併拿掉。
-    //
-    // 🗺️ 2026-07 玩家定案：鑑賞拔除地圖按鈕，改AI自主決定地點——每回合讀 aiData.location 直接寫回
-    //   LOC，不再需要固定地圖節點清單。玩家與同行同伴(IS_PARTY="同行")的 LOC 一起同步，跟 solo
-    //   actionMove 移動全隊的既有邏輯一致(該函式完全不動，這裡只是鑑賞另一條路徑)。
+    // 🗺️ 鑑賞拔除地圖按鈕，改AI自主決定地點——每回合讀 aiData.location 直接寫回 LOC，不再需要固定
+    //   地圖節點清單。玩家與同行同伴(IS_PARTY="同行")的 LOC 一起同步。
     const aiLoc = String(aiData.location || "").trim().slice(0, 20);
     if (aiLoc && aiLoc !== curL) {
       pcData[pcIndex][COL.PC.LOC] = aiLoc;
@@ -1353,27 +1065,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       curL = aiLoc;
     }
 
-    // 🐛→✅ 2026-07 稽核抓到：血量快照(hpSnapshot)＋結尾的hpChangeMsgs/mpBefore/mpAfter/mpDiff
-    //   整組比對邏輯已刪除——本檔上面(見附近「瀕死張力指令」那條同批次修正的註解)已確認鑑賞的
-    //   HP/MP/MAX_HP/MAX_MP這4欄從未被寫入、恆為空字串，全代碼庫grep也確認Gallery.gs沒有任何一處
-    //   COL.PC.HP]=/COL.PC.MP]= 賦值——`parseInt("")||0`兩邊都退回0，before永遠等於after，這段
-    //   比對邏輯注定產生不出任何可見輸出，卻仍在鑑賞這個全代碼庫呼叫最頻繁的函式裡，對整張
-    //   「鑑賞眾生」表做一次完整forEach掃描，每個訊息都白做。整組(快照建立＋結尾diff顯示)一併移除。
-
-    // 🗑️ 2026-07：stat_changes(外顯狀態刷新)套用區塊已整組移除(玩家定案)——solo 戰鬥演出卡/戰報
-    //   從不讀 STATUS，卡片外顯恆顯示預設「穿戴整齊，站立，氣息平穩」＝AI寫、無人讀的死資料迴圈；
-    //   SFW schema 的 stat_changes 欄位與「狀態刷新」指令已同步自 Engine_Combat.gs(SFW區) 拔除。
-    //   慾海不受影響：其外顯/肉體走 intimacy_feedback(physical_state·紅線機制·見下方，2026-07 已整合
-    //   姿勢/顏面進同一欄，visible_state 機制退役)，且已改由「肉體狀態」抵換外顯的顯示位。
-
-
-
-
-
-
-
-
-    // 經濟層（物品/金錢/任務）已全數移除：items_gained / items_transferred / money_transferred / items_lost / items_used 不再落地。
+    // 鑑賞無戰鬥：血量快照/stat_changes(外顯狀態刷新)/經濟層(物品/金錢/任務)皆不追蹤、不落地。
+    //   肉體/外顯走 intimacy_feedback(physical_state)。
 
     let dismissedNpc = userMsg.includes("解除了組隊同行關係") ? (userMsg.match(/與「(.*?)」解除/) || [])[1]?.trim() || "" : "";
 
@@ -1385,18 +1078,13 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         const tNpc = rc.target ? String(rc.target).trim() : String(rc.npc).trim();
         if (tNpc === pcName || tNpc === "自己") return;
 
-        // 羈絆已併入該 NPC 自己列（BOND/REL_TAG/IS_PARTY/MAJOR_EVENT）——找不到該人此局的列就無可寫入。
-        // 🐛→✅ 2026-07 修：改用 kanshouNameCandidates_ 比對(見上方註解)，容忍AI只用括號前後其中
-        //   一段稱呼TA(如「間桐櫻」對應「間桐櫻（黑化）」)，不再要求逐字完全相符括號全名。
+        // 羈絆已併入該 NPC 自己列（BOND/REL_TAG/IS_PARTY）——找不到該人此局的列就無可寫入。
+        //   用 kanshouNameCandidates_ 比對，容忍AI只用括號前後其中一段稱呼TA。
         const nIdx = pcData.findIndex(r => kanshouNameCandidates_(r[COL.PC.NAME]).includes(tNpc) && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
         if (nIdx === -1) return;
         dirtyPcRows.add(nIdx);
 
         // 🌹 鑑賞允許好感依劇情推進（solo 的好感收歸 GAS 按鈕，走不同的 narrate_only 路徑，不受這裡影響）
-        // 🔄 2026-07 玩家定案「好感改回數字」：先前試過「AI只給方向旗標(tone/fav_dir)、GAS對應固定
-        //   ±2」，但改名成fav_dir修好「好感不會增加」的語意衝突bug後，玩家仍決定改回讓AI直接填數字——
-        //   換回 fav_change(整數)，實際增減幅度依 _note 的級距指引由AI自行判斷(日常+1~2/心動+3~5，
-        //   單回合上限+5)，不再由GAS對應固定值。sanitizeAiData_ 的數值防呆同步復原(見該函式)。
         let change = parseInt(rc.fav_change) || 0;
         let isPartyStr = String(pcData[nIdx][COL.PC.IS_PARTY] || "");
         if (dismissedNpc === tNpc) isPartyStr = "";
@@ -1404,14 +1092,9 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         let oldFav = parseInt(pcData[nIdx][COL.PC.BOND]) || 0;
         let newFav = Math.max(-100, Math.min(100, oldFav + change));
 
-        // 🔄 2026-07 玩家定案「關係改玩家決定，AI不可以改動但可以不認」：REL_TAG 不再由這裡的AI
-        //   輸出覆寫——只能透過 actionUpdateRelTag(玩家UI操作)更改。AI 對這個標籤唯一的影響力是
-        //   「認不認同」，演在 intimacy_feedback.npcs[].attitude 裡，不是靠覆寫這個欄位表達。
+        // REL_TAG 只能透過 actionUpdateRelTag(玩家UI操作)更改，AI不再有任何管道寫入這個欄位；
+        //   AI對標籤的影響力只剩「認不認同」，演在 intimacy_feedback.npcs[].attitude 裡。
         pcData[nIdx][COL.PC.BOND] = newFav; pcData[nIdx][COL.PC.IS_PARTY] = isPartyStr;
-        // 🗑️ 2026-07 玩家定案「整條拆掉」：major_event(未完成的約定)整段處理邏輯移除——查證發現
-        // MAJOR_EVENT 這欄寫入後從未被讀回餵給AI(partyDetailsArr/relMemMemoryStr_都不讀這欄)，
-        // AI 每回合看不到自己上次許過什麼，[達成]/[清空]語法即使講清楚也無從合理觸發；玩家也完全
-        // 沒有UI能查看或手動清空——整條是頭尾斷開的死路，見 COL.PC.MAJOR_EVENT 定義處註解。
       });
     }
 
@@ -1421,13 +1104,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       // 🔴 防禦機制：過濾掉 AI 偷懶不想更新狀態時的敷衍用語
       const ignoreWords = ["維持現狀", "無變化", "不變", "維持", "同上", "保持現狀", "沒有變化"];
 
-      // 🗑️→✅ 2026-07 玩家定案「肉體那些欄位不需要了、只要狀態就好」：physical_state 從6鍵數字代碼
-      //   (姿勢/胸部/肉棒/蜜穴/顏面/服裝)全部砍掉，合併成單一自由文字欄——連帶讓上一輪才修的「依性別
-      //   擋掉矛盾器官鍵」邏輯整段作廢(沒有器官專屬鍵了，性別矛盾這個問題不可能再發生)。
-      // 🔄 2026-07 玩家定案「狀態改成顏面神情還有衣裝狀態就好，動作姿勢不要了，15字內」：提示詞已收斂
-      //   範圍與字數，這裡補上後端強制截斷防呆，不完全依賴AI自律守住上限。
-      // 🐛→✅ 2026-07 玩家反映「狀態好像一直被切斷」：15字對顏面神情+衣裝狀態兩件事而言太緊，AI常寫
-      //   超過就被這裡腰斬在句意中間，放寬防呆上限到25字(跟上方提示詞新上限同步)。
+      // physical_state 是單一自由文字欄(顏面神情+衣裝狀態)，這裡補上後端強制截斷防呆(25字)，
+      //   不完全依賴AI自律守住上限。
       const sanitizePhysicalState = (rawState) => {
         if (typeof rawState !== 'string') return "";
         const val = rawState.trim().slice(0, 25);
@@ -1436,25 +1114,15 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
 
       const processSkills = (oldMem, newSkillsStr) => {
-        // 🐛→✅ 2026-07 稽核抓到真實bug：舊regex `(.*?)(?=\| \[|$)` 只認得「半形｜ [」或字串結尾當
-        //   段落邊界——但MEMORY欄裡跟這個標記共存的其餘標記(【換裝】【邂逅】【邂逅中】【帳號】
-        //   【鑑賞後日談】【口吻】【小動作】等)全部是用全形｜分隔，從來不會產生半形「| [」這個組合，
-        //   導致抓不到正確邊界時直接吃到字串結尾——這不是這裡唯一的問題，見下方setSkillTag_的說明。
-        //   改成用全形｜當統一邊界，跟整個MEMORY生態系一致。
+        // 邊界用全形｜(跟整個MEMORY生態系其餘標記【換裝】【邂逅】等一致)，而非半形「| [」。
         let skillMap = {}; let oldSkills = (oldMem.match(/\[雙修技巧\]([^｜]*)/) || [])[1]?.trim() || "";
         if (oldSkills && oldSkills !== "無") oldSkills.replace(/^\.\.\./, "").split('、').forEach(p => { let m = p.match(/(.+?)\(Lv\.(\d+)\)/); if (m) skillMap[m[1].trim()] = parseInt(m[2], 10); else if (p.trim()) skillMap[p.trim()] = 1; });
         if (String(newSkillsStr || "").trim() && String(newSkillsStr || "").trim() !== "無") String(newSkillsStr || "").trim().split('、').forEach(s => { let cn = s.replace(/[\(\[]?Lv\.?\d+[\)\]]?/gi, '').trim(); if (cn) skillMap[cn] = Math.min((skillMap[cn] || 0) + 1, 10); });
         let sorted = Object.keys(skillMap).map(k => ({ n: k, lv: skillMap[k] })).sort((a, b) => b.lv - a.lv);
         return sorted.length > 0 ? sorted.slice(0, 30).map(sk => `${sk.n}(Lv.${sk.lv})`).join('、') : "無";
       };
-      // 🐛→✅【真實bug，高嚴重度】2026-07稽核抓到：下面兩個呼叫點原本是`pcData[idx][COL.PC.MEMORY] =
-      //   \`[雙修技巧]${...}\``——整格覆寫，不是合併！MEMORY欄是多個標記共用同一顆cell(【換裝】/
-      //   【帳號】/【鑑賞後日談】/【口吻】/【小動作】/【邂逅】/【邂逅中】全部擠在這裡，用全形｜分隔)，
-      //   這個覆寫等於每次AI回傳intimacy_feedback(幾乎每回合都有，schema強制要求)就把除了雙修技巧
-      //   以外的所有標記全部砍光——玩家換裝後聊沒兩句衣服就消失、今天剛做的【邂逅中】(出門走走持續
-      //   互動)在寫進試算表前就先被同一次呼叫裡的這段覆寫抹掉、同伴的【口吻】【小動作】語癖也會在
-      //   第一次親密回饋後就消失。改成用setSkillTag_只更新雙修技巧那一段、不動其餘標記，比照
-      //   getOutfit_/setOutfit_同款「清除舊值再整段append」寫法，用全形｜跟整個MEMORY生態系一致。
+      // MEMORY欄是多個標記共用同一顆cell(【換裝】【帳號】【口吻】【邂逅中】等全擠在這裡，用全形｜
+      //   分隔)，只能用 setSkillTag_ 只更新雙修技巧那一段、不動其餘標記，絕不能整格覆寫MEMORY。
       const setSkillTag_ = (oldMem, newSkillsStr) => {
         const cleaned = String(oldMem || "").replace(/｜?\[雙修技巧\][^｜]*/g, "");
         return (cleaned ? cleaned + "｜" : "") + "[雙修技巧]" + newSkillsStr;
@@ -1493,8 +1161,7 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       if (aiData.intimacy_feedback.npcs) {
         aiData.intimacy_feedback.npcs.forEach(nfb => {
           const tName = String(nfb.name).trim();
-          // 🐛→✅ 2026-07 修：同款括號全名比對問題(見上方 kanshouNameCandidates_ 註解)，這裡也會
-          //   影響 physical_state/dynamic_skills/mutual_nicknames/attitude 每回合寫入失敗。
+          // 同款括號全名比對問題(見上方 kanshouNameCandidates_)，這裡也會影響每回合寫入失敗。
           const targetIdx = pcData.findIndex(r => kanshouNameCandidates_(r[COL.PC.NAME]).includes(tName) && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
           if (targetIdx === -1) return;
 
@@ -1506,13 +1173,10 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
             pcData[targetIdx][COL.PC.MEMORY] = setSkillTag_(oldNMem, processSkills(oldNMem, nfb.dynamic_skills));
           }
 
-          // 羈絆記憶(專屬稱呼)已併入該 NPC 自己列的 REL_MEM 欄(交談輪數已隨log_summary移除、
-          //   親密次數已隨「窺視神髓」面板一併移除、已兌現約定已隨「未完成的約定」機制一併移除——
-          //   三者原本唯一的消費者(面板顯示/major_event寫入)都已拆除，這欄現在只剩專屬稱呼)
+          // 羈絆記憶已併入該 NPC 自己列的 REL_MEM 欄，現在只剩專屬稱呼。
           let oldRMem = pcData[targetIdx][COL.PC.REL_MEM] || "";
           let nickPart = `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/, nfb.mutual_nicknames, 3)}`;
-          // 🆕 2026-07「態度」：跟專屬稱呼(累積/去重)不同，態度是「當下這一刻」的快照，每回合直接
-          //   覆蓋成AI這次給的最新值，不累積歷史(累積態度沒有意義，只有最新的才重要)。
+          // 態度是「當下這一刻」的快照(跟累積/去重的專屬稱呼不同)，每回合直接覆蓋成最新值。
           let attRaw = (typeof nfb.attitude === 'string') ? nfb.attitude.trim().slice(0, 15) : "";
           let attPart = (attRaw && attRaw !== "無") ? `| [態度]${attRaw}` : "";
           pcData[targetIdx][COL.PC.REL_MEM] = `${nickPart}${attPart}`;
@@ -1520,12 +1184,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       }
     }
 
-    // ⚠ 2026-07 修：原本純比對姓名就直接寫 LOC——若不同局剛好有同名角色(種子有限、AI原創從者
-    //   都可能撞名)，會把玩家的新座標寫到別局那位同名角色身上，悄悄把對方傳送到隨機地點。
-    // 🐛→✅ 2026-07 稽核抓到：partyMembers 是本回合開頭(AI呼叫前)就捕捉好的同行名單快照——若玩家
-    //   這回合剛好請走(dismiss)某位同伴，上面的請辭處理已把該列 IS_PARTY 清空，但這裡還是拿舊快照
-    //   跑，會把剛請走的人也順手同步到玩家的新位置(等於送他最後一程才真正離隊)。改成當下即時重查
-    //   IS_PARTY，已離隊者不再跟著同步座標。
+    // partyMembers 是本回合開頭捕捉的同行名單快照，這裡即時重查 IS_PARTY(而非直接信任快照)，
+    //   已離隊者(本回合剛請走)不再跟著同步座標；sameGame 避免同名撞局把座標寫到別局角色身上。
     partyMembers.forEach(pName => {
       const nIdx = pcData.findIndex(r => r[COL.PC.NAME] === pName && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
       if (nIdx !== -1 && String(pcData[nIdx][COL.PC.IS_PARTY] || "") === "同行") {
@@ -1534,15 +1194,11 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       }
     });
 
-    // 🗑️ 2026-07 玩家定案「log_summary整條砍掉」：交談輪數計數整段移除——查證其累加出的數字
-    //   從頭到尾沒有任何地方讀回(不顯示、不當門檻、不餵回AI)，純粹寫入從不讀取的死路，見 finalJson
-    //   移除 log_summary 欄位處的說明。
-
     const pcColCount = Object.keys(COL.PC).length;
 
-    // 🔒 競態修(2026-07)：play 豁免寫入鎖(AI 呼叫佔數秒會卡全域)，但上面的列索引是 AI 呼叫【前】
-    //   讀到的——期間其他上鎖動作若刪列(清殘列/登入自動清)，索引位移、寫入會落錯列。寫回前做一次
-    //   ID 欄窄讀重定位，用「當下的真實列索引」寫；列已被刪→跳過，絕不寫錯人。
+    // 🔒 競態修：play 豁免寫入鎖(AI 呼叫佔數秒會卡全域)，但上面的列索引是 AI 呼叫【前】讀到的——
+    //   期間其他上鎖動作若刪列，索引會位移。寫回前做一次 ID 欄窄讀重定位，用「當下的真實列索引」
+    //   寫；列已被刪→跳過，絕不寫錯人。
     const liveIdx = buildLiveIdIndex_(sheets.pc);
 
     // MAX_HP/MAX_MP 重算只針對有變動的行，不全表掃描
@@ -1550,21 +1206,13 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       const row = pcData[idx];
       if (!row) return;
       const id = String(row[COL.PC.ID] || "");
-      // 🐛→✅ 2026-07 修：漏了 KHV_(直接從英靈庫召喚的同伴，heroToKanshouRow_ 建列)——這類同伴的
-      //   好感/肉體/親密記憶全部在記憶體算完卻在這關被過濾掉、永遠沒真的寫回試算表(AI敘述照樣顯示
-      //   「好感度+X」，因為顯示行直接讀 aiData.rel_changes、不受這個允許清單影響，造成「有輸出但沒寫入」的假象)。
-      //   含慾海角色前綴 KPC_(御主 avatar)／KSV_(封存邀請同伴)／KHV_(直接召喚同伴)，否則後日談的
+      // 含慾海角色前綴 KPC_(御主 avatar)／KSV_(封存邀請同伴)／KHV_(直接召喚同伴)，否則後日談的
       //   好感/肉體/衣服/親密狀態寫不回去。
       if (!id.startsWith("PC_") && !id.startsWith("NPC_") && !id.startsWith("DEAD_") && !id.startsWith("KPC_") && !id.startsWith("KSV_") && !id.startsWith("KHV_")) return;
       const curIdx = liveIdx[id];
       if (curIdx === undefined) return; // 列在 AI 呼叫期間被刪(競態) → 安全跳過
 
       while (row.length < pcColCount) row.push("");
-
-      // 🐛→✅ 2026-07 玩家點名「氣血/真氣跟上限這4個應該不用寫到鑑賞眾生」：這裡原本每回合都對
-      //   「凡人(御主)」重算一次 MAX_HP/MAX_MP 並拿它夾住 HP/MP——但 actionPlay 全函式只服務鑑賞
-      //   (見函式入口 KPC_ 檢查)，鑑賞無戰鬥、這4欄從未被讀取或顯示，等於每次送出訊息都白算一次
-      //   maxStatsForRow_ 且白寫4格從沒人看的數字，純屬多餘，整段拿掉。
 
       // 只寫這一行，不寫全表(用重定位後的真實列索引)
       sheets.pc.getRange(curIdx + 1, 1, 1, pcColCount).setValues([row]);
@@ -1582,31 +1230,21 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
 
 
-    // 🧹 2026-07 玩家定案「拿掉吧」：好感度渲染(❤️「NPC名」好感度 +N)已整段刪除——這是「好感度
-    //   不要顯示在敘述介面上」要求裡唯一還活著、每回合都會實際顯示數字的地方(先前處理的
-    //   npc-card／互動選單banner後來查證幾乎不可達，真正的來源在這)。純顯示用途、不影響
-    //   rel_changes 本身的好感數值寫入(那段在更上面的 relChangesToProcess.forEach，不受影響)。
-
-    // 🐛→✅ 2026-07：對應上面移除的hpSnapshot——全員血量變化/玩家魔力變化的顯示區塊一併刪除，
-    //   理由同上(鑑賞HP/MP恆空字串，這兩段永遠算不出非零差值，純粹白跑)。
+    // 好感度渲染／血量變化顯示區塊皆不輸出：好感度不顯示在敘述介面上，鑑賞無戰鬥不顯示血量變化。
 
 
 
 
 
 
-    // 下面這行不用動，保持原樣：
-    // 改這行
     saveGameHistoryBatch(pcId, [
       { speaker: "player", content: userMsg },
       { speaker: "ai", content: aiData.narration || "" }  // 用原始 narration 不用 finalResponseText
     ]);
 
-    // ⚡ 2026-07 提速：前端 send() 收到這份回應後，過去還會另外打一趟 get_tags(refreshFateTags())
-    // 才能刷新左側狀態卡——多一趟 round-trip。pcData 這裡已是本回合全部異動(好感/態度/肉體等)
-    // 寫回後的權威陣列，直接複用它建一份跟 get_tags 完全同格式的 payload 夾帶回去，前端改用
-    // refreshFateTags(data.tags) 消費(比照 solo 既有的 applyClientState 同款省一趟寫法)；
-    // 建構失敗就不夾帶，前端會自動退回原本的 get_tags 補呼叫，行為不變。
+    // ⚡ 提速：pcData 這裡已是本回合全部異動(好感/態度/肉體等)寫回後的權威陣列，直接複用它建一份
+    //   跟 get_tags 同格式的 payload 夾帶回去，省掉前端另打一趟 get_tags 的 round-trip；建構失敗
+    //   就不夾帶，前端會自動退回原本的 get_tags 補呼叫。
     let tagsPayload = null;
     try { const tp = buildTagsPayload_(sheets, pcId, pcData); if (tp && tp.success) tagsPayload = tp; } catch (e) { }
 
