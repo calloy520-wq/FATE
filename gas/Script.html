@@ -2680,7 +2680,12 @@ function applyModeUI() {
     let msg = customMsg || input.value.trim();
 
     if (!msg) return;
-    if (!customMsg && btn.disabled) return;
+    // 🔒 2026-07 忙碌鎖補齊：地圖/節慶/結束一天/推進時間/邀約等按鈕都帶 customMsg 呼叫 send()，
+    //   原本這條防連點檢查只在「無customMsg(純打字)」時生效，其餘入口能在上一輪還沒回來時就
+    //   並發送出下一輪——actionPlay 刻意豁免全域寫入鎖(見Gallery.gs註解)，兩個並發請求會各自
+    //   讀到舊pcData、後寫回的覆蓋先寫回的，造成同一玩家自己也會踩到的存檔覆蓋。改成不分是否
+    //   帶customMsg，一律以btn.disabled(唯一「上一輪是否還在跑」的實際訊號)把關。
+    if (btn.disabled) return;
 
     // 🧹 舊九州 [攻擊 XXX] 文字裁決路徑已移除（solo 走按鍵 servantStrike、kanshou 無戰鬥）。
     if (/^[1-4]$/.test(msg) && currentOptions.length >= parseInt(msg)) {
