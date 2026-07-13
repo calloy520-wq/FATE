@@ -101,6 +101,14 @@
     await send('⏩ 讓時間悄悄流逝了' + hours + '個小時。', false, null, null, false, false, hours);
   }
 
+  // 💼 2026-07「打工賺錢」玩法(玩家推翻2026-06經濟全砍決定，僅鑑賞恢復)：跟推進時間共用同一套
+  //   時鐘機制(work旗標讓後端固定推進KANSHOU_WORK_HOURS_小時＋發薪水，見Gallery.gs actionPlay)，
+  //   前端只需傳work:true，不必自己算時數/薪水(GAS掌數值，單一真實來源在後端)。
+  async function kanshouWork() {
+    showGamePane('chat');
+    await send('💼 去打工賺錢了。', false, null, null, false, false, 0, null, true);
+  }
+
   // 🎊 2026-07「跳到節慶」：不帶advanceHours(留0)，帶jumpFestival讓後端自己算「距離該節慶還有
   //   幾小時」(見Gallery.gs kanshouHoursUntilDate_)，前端不重算日期，單一真實來源在後端。
   async function kanshouJumpFestival(key, name) {

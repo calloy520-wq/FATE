@@ -42,7 +42,14 @@ const COL = {
     BOND: 24, REL_TAG: 25, IS_PARTY: 26, MAJOR_EVENT: 27, REL_MEM: 28,
     // 世界狀態欄(原 CLK/AUTH 表)：只在御主自己那一列有意義，其餘角色列留空。
     //   DAY/HOUR/AP=時鐘(1AP=1小時，每日12AP)；HOME_LOC=居所(工房加成判定用)。
-    DAY: 29, HOUR: 30, AP: 31, HOME_LOC: 32
+    DAY: 29, HOUR: 30, AP: 31, HOME_LOC: 32,
+    // 🔵 2026-07 玩家推翻2026-06「經濟全砍」決定，明確要求「僅鑑賞(kanshou)」恢復一套有系統記錄的
+    //   經濟層(存錢/房租/打工)——僅KPC_(御主)列讀寫，solo(PC_)/其餘角色列恆空，不影響戰鬥/聖杯戰爭主線。
+    //   附加尾端不動既有欄位位置(COL是位置索引，見專案紀律)。
+    // MONEY：持久化金錢餘額，可為負(代表欠繳房租，軟性設計、無驅逐等懲罰機制)。
+    // RENT_WEEK：最後一次已扣過房租的「週數」(Math.floor((day-1)/7))，避免結束一天/推進時間
+    //   跨過同一週被重複扣款；跨多週(如節慶快轉)一次補扣欠的週數，不逐週迭代。
+    MONEY: 33, RENT_WEEK: 34
   },
   // WAR：地圖地點按戰爭區分，避免第四次限定地點(海特飯店等)也出現在第五次局。空字串＝通用地點，'4th'/'5th' 限定該戰爭。
   MAP: { REGION: 0, NAME: 1, TYPE: 2, COORD: 3, DESC: 4, PARENT: 5, WAR: 6 },
@@ -427,25 +434,28 @@ function mergePhysicalStatus(oldJson, newVal) {
 function buildPlayerStatusString(selfRow, relMem = "") {
   const safeMemory = String(selfRow[COL.PC.MEMORY] || "").replace(/\|/g, '@@@');
   const safeRelMem = String(relMem || "").replace(/\|/g, '@@@');
-  // §-string 第24格恆空字串佔位(維持固定索引位置不位移)——前端從未讀取，肉體狀態抵換外顯已改走
-  // 下方 visibleStatusStr。
   // 外顯狀態(位置0)：solo 留空(戰鬥AI/演出卡不讀取，前端空值即隱藏該列)；慾海(K系id)以「肉體狀態」
   //   抵換顯示。慾海 STATUS 欄仍由 NSFW 機制(intimacy_feedback)維護，供AI場景連續性內化。
   const _sid = String(selfRow[COL.PC.ID] || "");
+  const _isKanshou = _sid.indexOf("KPC_") === 0 || _sid.indexOf("KSV_") === 0 || _sid.indexOf("KHV_") === 0;
   let visibleStatusStr = "";
-  if (_sid.indexOf("KPC_") === 0 || _sid.indexOf("KSV_") === 0 || _sid.indexOf("KHV_") === 0) {
+  if (_isKanshou) {
     try {
       const _po = JSON.parse(selfRow[COL.PC.PHYSICAL] || "{}");
       visibleStatusStr = Object.keys(_po).map(function (k) { return k + "：" + _po[k]; }).join("　");
     } catch (e) { }
   }
+  // 🔵 2026-07 鑑賞經濟層：位置24原是「恆空字串佔位」，前端從未讀取(見下方註解)，比照位置0的
+  //   「solo留空/鑑賞才填值」模式，借這個空位餵鑑賞金錢餘額，不需另外新增§-string欄位、不位移
+  //   任何既有索引。solo(非鑑賞)角色維持空字串。
+  const moneyStr = _isKanshou ? String(parseInt(selfRow[COL.PC.MONEY]) || 0) : "";
 
   // 位置索引固定（§ 協議），s[7-16] 為廢棄的九州五圍/裝備/境界欄，填空保持前端定位不位移。
   return [
     visibleStatusStr, "", selfRow[COL.PC.TRAIT], selfRow[COL.PC.LOC], selfRow[COL.PC.PREF],
     selfRow[COL.PC.HP], selfRow[COL.PC.MP], "", "", "", "", "",
     "", "", "", "", "", safeMemory, safeRelMem, selfRow[COL.PC.FACTION],
-    selfRow[COL.PC.RANK], selfRow[COL.PC.ALIGN], selfRow[COL.PC.CONTRIB], selfRow[COL.PC.BACK], "",
+    selfRow[COL.PC.RANK], selfRow[COL.PC.ALIGN], selfRow[COL.PC.CONTRIB], selfRow[COL.PC.BACK], moneyStr,
     selfRow[COL.PC.INTENT], selfRow[COL.PC.MARTIAL], ""
   ].join('§');
 }
