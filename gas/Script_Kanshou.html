@@ -141,6 +141,81 @@
   }
   function closeKanshouFestivals() { var ov = document.getElementById('kc-festival-overlay'); if (ov) ov.style.display = 'none'; }
 
+  // 🛍️ 2026-07 商店(玩家「都想要呢！」追加開店購物/好感禮物)：品項清單來自後端KANSHOU_SHOP_ITEMS_
+  //   同一份常數(KC_SHOP_ITEMS_鏡像，見下)，禮物項需要知道「目前同行夥伴有誰」才能選送禮對象，
+  //   比照openCompanions同款先打kanshou_companions刷新_kcCur，避免送禮清單顯示過期資料。
+  var KC_SHOP_ITEMS_ = [
+    { id: 'sofa', name: '舒適沙發', price: 1200, type: 'decor', desc: '一張柔軟舒適的沙發' },
+    { id: 'painting', name: '風景畫', price: 800, type: 'decor', desc: '一幅寧靜的風景掛畫' },
+    { id: 'plant', name: '盆栽', price: 400, type: 'decor', desc: '一盆翠綠的小盆栽' },
+    { id: 'lamp', name: '暖光檯燈', price: 600, type: 'decor', desc: '溫暖柔和的檯燈' },
+    { id: 'rug', name: '地毯', price: 900, type: 'decor', desc: '柔軟厚實的地毯' },
+    { id: 'flowers', name: '花束', price: 300, type: 'gift', bond: 3, desc: '一束新鮮的花束' },
+    { id: 'sweets', name: '手工點心', price: 500, type: 'gift', bond: 4, desc: '一盒精緻的手工點心' },
+    { id: 'book', name: '珍藏書籍', price: 700, type: 'gift', bond: 5, desc: '一本值得珍藏的書籍' },
+    { id: 'accessory', name: '髮飾', price: 1000, type: 'gift', bond: 6, desc: '一款雅緻的髮飾' },
+    { id: 'necklace', name: '項鍊', price: 1500, type: 'gift', bond: 8, desc: '一條精緻的項鍊' }
+  ];
+  async function openKanshouShop() {
+    try { var dr = document.getElementById('action-drawer'); if (dr && dr.style.display !== 'none' && typeof toggleActionDrawer === 'function') toggleActionDrawer(); } catch (e) {}
+    try { var res = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount }); if (res && res.success) _kcCur = res.current || []; } catch (e) {}
+    ensureKcShopOverlay_();
+    renderKcShop_();
+    document.getElementById('kc-shop-overlay').style.display = 'flex';
+  }
+  function closeKanshouShop() { var ov = document.getElementById('kc-shop-overlay'); if (ov) ov.style.display = 'none'; }
+  function ensureKcShopOverlay_() {
+    if (document.getElementById('kc-shop-overlay')) return;
+    var ov = document.createElement('div');
+    ov.id = 'kc-shop-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.82);display:none;align-items:center;justify-content:center;padding:18px;';
+    ov.onclick = function (e) { if (e.target === ov) closeKanshouShop(); };
+    ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:420px;width:100%;max-height:calc(100vh - 36px);padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;">'
+      + '<h3 style="margin:0 0 4px;color:#e0c090;">🛍️ 商店</h3>'
+      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">裝飾品買回家佈置，禮物直接送給同行夥伴增加好感。</div>'
+      + '<div id="kc-shop-list" style="overflow-y:auto;min-height:0;"></div>'
+      + '<button onclick="closeKanshouShop()" style="margin-top:12px;width:100%;padding:10px;background:#4a3a6a;color:#fff;border:none;border-radius:8px;cursor:pointer;flex-shrink:0;">關閉</button>'
+      + '</div>';
+    document.body.appendChild(ov);
+  }
+  function renderKcShop_() {
+    var box = document.getElementById('kc-shop-list');
+    if (!box) return;
+    var decorItems = KC_SHOP_ITEMS_.filter(function (it) { return it.type === 'decor'; });
+    var giftItems = KC_SHOP_ITEMS_.filter(function (it) { return it.type === 'gift'; });
+    var h = '<div style="font-size:12px;color:#cbb;margin:6px 0 3px;">🛋️ 裝飾品（買回家佈置）</div>';
+    h += decorItems.map(function (it) {
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
+        + '<span style="flex:1;color:#e8d8e0;">' + escapeHtml(it.name) + ' <small style="color:#8a7fa0;">' + it.price + '円・' + escapeHtml(it.desc) + '</small></span>'
+        + '<button onclick="kanshouBuyDecor(\'' + it.id + '\')" style="padding:4px 10px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">購買</button></div>';
+    }).join('');
+    h += '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">🎁 禮物（送給同行夥伴）</div>';
+    if (!_kcCur.length) {
+      h += '<div style="color:#888;padding:6px;">（目前沒有同行夥伴，無法送禮）</div>';
+    } else {
+      h += giftItems.map(function (it) {
+        return '<div style="padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
+          + '<div style="color:#e8d8e0;margin-bottom:4px;">' + escapeHtml(it.name) + ' <small style="color:#8a7fa0;">' + it.price + '円・好感+' + it.bond + '・' + escapeHtml(it.desc) + '</small></div>'
+          + '<div style="display:flex;flex-wrap:wrap;gap:5px;">'
+          + _kcCur.map(function (c) {
+            return '<button onclick="kanshouGiveGift(\'' + it.id + '\',\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 8px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">送給' + escapeHtml(c.name) + '</button>';
+          }).join('')
+          + '</div></div>';
+      }).join('');
+    }
+    box.innerHTML = h;
+  }
+  async function kanshouBuyDecor(itemId) {
+    closeKanshouShop();
+    showGamePane('chat');
+    await send('🛍️ 買了一件家居擺設。', false, null, null, false, false, 0, null, false, itemId);
+  }
+  async function kanshouGiveGift(itemId, targetName) {
+    closeKanshouShop();
+    showGamePane('chat');
+    await send('（挑了份禮物）', false, null, null, false, false, 0, null, false, itemId, targetName);
+  }
+
   // 篩選下拉選單本身只跟 _kcHeroesAll(英靈庫全清單)有關，內容跟 get_heroes 一樣少變——只在
   // 英靈庫清單真的重抓時(見 openCompanions)才重建這裡，換篩選只呼叫 applyKcHeroFilter_ 切 CSS。
   function renderKcFilters_() {

@@ -2151,3 +2151,21 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **未動的部分**：`nsfwBaseRules`不受影響；solo(`PC_`)角色的`MONEY`/`RENT_WEEK`兩欄恆空、`actionPlay`入口本就擋掉非`KPC_`呼叫，solo完全無感這次改動；Phase 2起(商店/購物/裝飾/好感禮物/家事整潔度/任務系統)尚未實作。
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Engine_Combat.gs gas/Gallery.gs | grep -c nsfwBaseRules` = 0。部署後建議測試：①新開局鑑賞角色，頂列應顯示「💰3000」；②點＋抽屜「💼去打工」，餘額應變成3800、時鐘跳4小時；③連續推進時間跨過7天(或連點結束一天7次)，應在跨過第8天時自動扣1500房租，narration帶出房租相關flavor；④刻意讓餘額變負(狂花/多次房租)，確認不會有任何崩潰或封鎖機制，只是數字變負。
+
+## §77 鑑賞經濟層 Phase 2：商店（裝飾品/好感禮物）（2026-07・玩家「這些都想要呢！」——延續§76經濟層，追加開店購物/家居裝飾/特殊好感物品）
+
+**背景**：§76上線後玩家對Phase 2起的項目(開店/購物/裝飾/好感禮物/家事整潔度/任務系統)全部表態「都想要」。本次先做「商店」——購買裝飾品(佈置家)＋購買禮物(送同行夥伴增加好感)，兩者共用同一張品項表，資料驅動(範本比照`KANSHOU_LOCATIONS_`/`KANSHOU_FESTIVALS_`，加東西＝加一列，不動流程)。家事整潔度／任務系統留待後續Phase。
+
+**`KANSHOU_SHOP_ITEMS_`**(`Gallery.gs`)：`{id, name, price, type:'decor'|'gift', bond(僅gift), desc}`共10項(5裝飾+5禮物)。價格/好感值皆固定，GAS掌數值、不靠AI喊價/喊好感漲多少。前端`Script_Kanshou.html`維護一份鏡像`KC_SHOP_ITEMS_`供UI渲染(純顯示用，實際扣款/效果仍由後端`Gallery.gs`那份驗證，前端資料不可信)。
+
+**裝飾品**：買了呼叫`kanshouAddDecor_`寫進玩家MEMORY【家居裝飾】清單(借用`Core_Settings.gs`的`makeTextTag_`文字型工廠、外面包一層拆分/去重/重組，因為要塞「清單」而非工廠原生的單一值)。這份清單餵進主提示詞的【玩家命格】行(`myDecor`變數)，供AI在「家」相關場景自然帶入(show-don't-tell，非強制每次提及)。
+
+**好感禮物**：買了直接讓GAS決定好感增量(`shopItem.bond`固定值)寫進目標BOND欄，不透過AI的`rel_changes`(那是AI敘事推進才會生效的路徑，禮物是玩家主動的系統性動作，數值該由GAS直接算)。送禮對象限「目前同行隊伍成員」(比對`IS_PARTY==='同行'`，跟【在場驗證鐵律】一致，不能隔空送禮給不在身邊的人)。**未做**：禮物沒有寫進REL_MEM持久標記(如「曾送過項鍊」)——因為`actionPlay`後段`intimacy_feedback.npcs`處理會對該NPC的REL_MEM做`nickPart+attPart`整段覆寫(專屬稱呼/態度)，若同一回合疊加禮物標記會立刻被那段覆寫沖掉，要安全疊加需要把這個新標記也一併塞進那個組裝點——Phase 2 MVP先不動那段已在跑的邏輯，只做「好感值真的漲」這個核心效果，禮物的敘事延續性完全交給`finalUserMsg`這一回合的flavor文字，之後若要做「AI記得你送過什麼禮物」可再議。
+
+**`actionPlay`整合**：新增`userData.buyItem`(品項id)/`userData.giftTarget`(送禮對象名，僅gift類型需要)。驗證失敗(品項不存在/金額不足/送禮對象不在場)直接`return`、不進AI呼叫(GAS已能確定答案、不浪費一次生成)；驗證通過才組`finalUserMsg`走完整敘事管線(比照打工/結束一天，複用既有pipeline)。插入點在`sameGame`定義後、「結束一天」分支前，購物跟結束一天/推進時間/打工互斥(前端只會送一種旗標)。
+
+**前端**：`Script_Kanshou.html`新增`openKanshouShop()`/`closeKanshouShop()`/`kanshouBuyDecor(itemId)`/`kanshouGiveGift(itemId,targetName)`，禮物區塊會先打`kanshou_companions`刷新`_kcCur`(比照`openCompanions`同款寫法)確保送禮對象清單即時。`Index.html`新增`#drawer-shop`抽屜項目(比照`#drawer-job`同款)，`Script.html`的`send()`簽名新增第10/11參數`buyItem`/`giftTarget`。
+
+**未動的部分**：`nsfwBaseRules`不受影響；solo不受影響(`buyItem`/`giftTarget`只在`actionPlay`的KPC_專屬入口內處理)；家事整潔度／任務系統(Phase 3+)尚未實作。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Engine_Combat.gs gas/Gallery.gs | grep -c nsfwBaseRules` = 0。部署後建議測試：①身上錢不夠時點購買，應該直接顯示「還差X円」不觸發AI生成；②裝飾品買成功後，再去「家」的地點對話，narration有機會自然提到新擺設；③有同行夥伴時送禮，好感數字應該立即增加(可從👤詳細狀態或👥同伴面板確認)；④沒有同行夥伴時開商店，禮物區塊應顯示「沒有同行夥伴，無法送禮」而非報錯。

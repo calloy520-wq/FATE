@@ -2628,6 +2628,8 @@ function applyModeUI() {
   var dfest = document.getElementById('drawer-festival'); if (dfest) dfest.style.display = isKanshou ? '' : 'none';
   // 💼 打工賺錢(2026-07 經濟層)：只在鑑賞模式出現
   var djob = document.getElementById('drawer-job'); if (djob) djob.style.display = isKanshou ? '' : 'none';
+  // 🛍️ 商店(2026-07 Phase 2)：只在鑑賞模式出現
+  var dshop = document.getElementById('drawer-shop'); if (dshop) dshop.style.display = isKanshou ? '' : 'none';
   // 戰爭行動列：取代輸入框，只在戰爭模式顯示
   var wa = document.getElementById('war-actions'); if (wa) wa.style.display = isKanshou ? 'none' : 'flex';
   // 🌹 鑑賞御主卡已內建「換裝＋詳細狀態」按鈕列，卡片列表下方這顆獨立按鈕改只在 solo 顯示，避免重複外露
@@ -2677,7 +2679,7 @@ function applyModeUI() {
   //   handleMultiAttack/renderCombatReport/narrateCombatResult(已於更早的清理移除)，不是下面
   //   send()的行為；send() 是鑑賞(action:'play')自由聊天引擎的唯一呼叫點，跟「連擊」無關。
 
-  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, work = false) {
+  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, work = false, buyItem = null, giftTarget = null) {
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
     // 🔥 主動掌握開關(2026-07)：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
@@ -2720,7 +2722,7 @@ function applyModeUI() {
       // 🚪 巧遇開關：kanshouEncounterOn 定義在 Script_Kanshou.html(該檔恆載入)，此處為 solo(非鑑賞)
       //   路徑保留防呆——solo 呼叫 actionPlay 會在函式入口即被擋下，這個欄位對 solo 無意義。
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, drive: drive, lastContext: lastAiContext, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, work: work || undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, drive: drive, lastContext: lastAiContext, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, work: work || undefined, buyItem: buyItem || undefined, giftTarget: giftTarget || undefined });
 
 
       document.getElementById(loadId)?.remove();

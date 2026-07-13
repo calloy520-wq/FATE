@@ -886,6 +886,32 @@ function kanshouChargeRent_(pcData, pcIndex, newDay) {
   pcData[pcIndex][COL.PC.RENT_WEEK] = newWeek;
   return amount;
 }
+
+// 🛍️ 2026-07 商店 Phase 2(玩家「都想要呢！」追加開店購物/好感禮物)：資料驅動品項表(範本比照
+//   KANSHOU_LOCATIONS_/KANSHOU_FESTIVALS_，加東西＝加一列，不動流程)。type:'decor'買了持久佈置
+//   在家(存玩家MEMORY【家居裝飾】清單)；type:'gift'買了直接送給指定同行夥伴，好感依bond固定值
+//   增加(GAS掌數值，不靠AI喊好感漲多少)。價格/好感值皆為玩家可事後調整的平衡數字，非AI決定。
+const KANSHOU_SHOP_ITEMS_ = [
+  { id: 'sofa', name: '舒適沙發', price: 1200, type: 'decor', desc: '一張柔軟舒適的沙發' },
+  { id: 'painting', name: '風景畫', price: 800, type: 'decor', desc: '一幅寧靜的風景掛畫' },
+  { id: 'plant', name: '盆栽', price: 400, type: 'decor', desc: '一盆翠綠的小盆栽' },
+  { id: 'lamp', name: '暖光檯燈', price: 600, type: 'decor', desc: '溫暖柔和的檯燈' },
+  { id: 'rug', name: '地毯', price: 900, type: 'decor', desc: '柔軟厚實的地毯' },
+  { id: 'flowers', name: '花束', price: 300, type: 'gift', bond: 3, desc: '一束新鮮的花束' },
+  { id: 'sweets', name: '手工點心', price: 500, type: 'gift', bond: 4, desc: '一盒精緻的手工點心' },
+  { id: 'book', name: '珍藏書籍', price: 700, type: 'gift', bond: 5, desc: '一本值得珍藏的書籍' },
+  { id: 'accessory', name: '髮飾', price: 1000, type: 'gift', bond: 6, desc: '一款雅緻的髮飾' },
+  { id: 'necklace', name: '項鍊', price: 1500, type: 'gift', bond: 8, desc: '一條精緻的項鍊' }
+];
+// 家居裝飾借用Core_Settings.gs的makeTextTag_文字型工廠(MEMORY【】｜慣例)，但要塞「清單」而非
+//   單一值，故外面包一層拆分/去重/重組，set本身仍是工廠既有的整段覆寫，不需另開新工廠形狀。
+var KANSHOU_DECOR_TAG_ = makeTextTag_('家居裝飾');
+function kanshouAddDecor_(memory, itemName) {
+  const cur = KANSHOU_DECOR_TAG_.get(memory);
+  const arr = cur ? cur.split('、').map(s => s.trim()).filter(Boolean) : [];
+  if (arr.indexOf(itemName) === -1) arr.push(itemName);
+  return KANSHOU_DECOR_TAG_.set(memory, arr.join('、'));
+}
 // 🎲 Phase3 輕量小事件(2026-07「可愛地圖」升級)：抵達新地點時20%機率抽一顆短句靈感種子注入
 //   提示詞，純粹給AI參考的引子(非預寫劇本、非強制發生)，AI可完全不理會，也可自然融入敘事。
 //   分三類：日常可愛/曖昧小互動 恆定開放，色氣類僅driveOn(主動掌握模式)開啟時才會抽到。
@@ -1018,10 +1044,37 @@ function actionPlay(userData, pcId, sheets) {
   // 玩家自己的換裝(玩家UI設定或AI依outfit_change更新)，比照【同行夥伴】卡片(partyDetailsArr)
   //   同款「裝扮:XXX(當前服裝·五官體態不變)」格式補上，AI 才能讀到當前實際服裝，而非憑空假設。
   const myOutfit = getOutfit_(pc[COL.PC.MEMORY]);
+  // 🛋️ 2026-07 商店買的家居裝飾清單，給AI在「家」相關場景自然帶入(show-don't-tell，僅供參考、
+  //   非強制每次都提及)，跟myOutfit同一種「餵事實、不代寫敘事」的做法。
+  const myDecor = KANSHOU_DECOR_TAG_.get(pc[COL.PC.MEMORY]);
 
   // 🔵 實例化：只取自己 game_id 世界內、同地點的人（御主無 game_id 時不過濾，相容舊角色）
   const myGameId = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
   const sameGame = (r) => !myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId;
+
+  // 🛍️ 2026-07 商店：買裝飾品/送禮物給同行夥伴。金額不足/品項不存在/送禮對象不在場——這些是
+  //   GAS已經能確定答案的驗證失敗，直接回傳、不浪費一次AI呼叫；成功則組finalUserMsg照樣走完整
+  //   敘事管線(比照打工/結束一天，複用既有pipeline，不另開一條平行路徑)。
+  if (userData.buyItem) {
+    const shopItem = KANSHOU_SHOP_ITEMS_.find(it => it.id === String(userData.buyItem));
+    if (!shopItem) return JSON.stringify({ text: "這裡沒有這件商品。", people: [] });
+    const curMoney = parseInt(pc[COL.PC.MONEY]) || 0;
+    if (curMoney < shopItem.price) return JSON.stringify({ text: `身上的錢不太夠呢……還差${shopItem.price - curMoney}円才買得起「${shopItem.name}」。`, people: [] });
+    if (shopItem.type === 'gift') {
+      const giftTargetName = String(userData.giftTarget || "").trim();
+      const giftTargetIdx = pcData.findIndex(r => kanshouNameCandidates_(r[COL.PC.NAME]).includes(giftTargetName) && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
+      if (giftTargetIdx === -1) return JSON.stringify({ text: "對方現在不在身邊，沒辦法把禮物送出去。", people: [] });
+      pcData[pcIndex][COL.PC.MONEY] = curMoney - shopItem.price;
+      const oldBond = parseInt(pcData[giftTargetIdx][COL.PC.BOND]) || 0;
+      pcData[giftTargetIdx][COL.PC.BOND] = Math.max(-100, Math.min(100, oldBond + shopItem.bond));
+      dirtyPcRows.add(giftTargetIdx);
+      finalUserMsg = `【玩家意圖】：花費${shopItem.price}円買了「${shopItem.name}」，送給了「${giftTargetName}」。`;
+    } else {
+      pcData[pcIndex][COL.PC.MONEY] = curMoney - shopItem.price;
+      pcData[pcIndex][COL.PC.MEMORY] = kanshouAddDecor_(pcData[pcIndex][COL.PC.MEMORY], shopItem.name);
+      finalUserMsg = `【玩家意圖】：花費${shopItem.price}円買了「${shopItem.name}」，帶回家佈置。`;
+    }
+  }
 
   // 📅 結束一天(userData.endDay===true，2026-07「文字經營」玩法定案「不讓玩家指派，直接GAS判定」)：
   //   忽略玩家打的文字，改用系統組好的合成訊息——複用actionPlay整條既有敘事管線(在場驗證/NSFW
@@ -1313,7 +1366,7 @@ function actionPlay(userData, pcId, sheets) {
   //   (與世界觀、specificRules「絕對禁止血量/生命變化」皆一致)。
   const prompt = `【敘事法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。
 ${PROMPT_PARTY_SYSTEM}
-【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}(當前服裝·五官體態不變)` : ""} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}
+【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}(當前服裝·五官體態不變)` : ""} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}${myDecor ? ` | 家中已有的擺設(僅供「家」相關場景參考，非強制每次提及):${myDecor}` : ""}
 
 ${PROMPT_REL}
 ★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}${kanshouReunionStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${jumpFest ? `\n★【節慶氛圍】：今天是「${jumpFest.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。` : ""}${rentCharged > 0 ? `\n★【房租自動扣款·氛圍提示】：這次時間推進跨過了房租結算日，已自動扣款${rentCharged}円，目前餘額${parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0}円，narration可自然帶一句(如翻看帳單、嘆氣、苦笑)，不必大肆渲染；若餘額為負可自然帶出手頭吃緊的窘迫感，但不必寫成嚴重危機或懲罰劇情。` : ""}
