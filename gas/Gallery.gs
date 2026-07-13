@@ -780,6 +780,22 @@ const KANSHOU_LOCATION_TAGS_ = {
 };
 const KANSHOU_ENCOUNTER_MALE_IDS_ = ['EMIYA-Archer', '庫丘林-Lancer', '佐佐木小次郎-Assassin', '赫拉克勒斯-Berserker', '吉爾伽美什-Archer', '迪盧木多-Lancer', '伊斯坎達爾-Rider', '蘭斯洛特-Berserker', '衛宮士郎-Master'];
 const KANSHOU_ENCOUNTER_FEMALE_IDS_ = ['阿爾托莉雅-Saber', '美杜莎-Rider', '美狄亞-Caster', '斯卡哈-Lancer', '斯卡哈-Assassin', '美遊-Saber', '小黑-Archer', '伊莉雅-Caster', '恩奇都-Lancer', '遠坂凜-Master', '伊莉雅絲菲爾-Master', '間桐櫻黑化-Master', '藤村大河-Master'];
+// 🏠 2026-07 玩家發現「不同行的人推進一天時會溜到玩家自己家裡」的錯誤（kanshouRollDailyLocation_
+//   原本深夜/清晨的homeBias直接回傳KANSHOU_LOCATIONS_裡region==='home'的房間——那是玩家自己的家，
+//   不同行的人不該在那裡出現）：改成每位英靈自己的住處(資料驅動，比照KANSHOU_LOCATION_TAGS_同款
+//   「往物件加一筆id對應值」寫法)。這些字串刻意不放進KANSHOU_LOCATIONS_(玩家看不到、去不了)，
+//   純粹讓「深夜在家」的人不會被player-visitable地點意外撞見；查無資料(如玩家原創英靈)退回通用值。
+const KANSHOU_HERO_HOME_ = {
+  '阿爾托莉雅-Saber': '騎士團舊宿舍', 'EMIYA-Archer': '老舊公寓',
+  '庫丘林-Lancer': '荒野小屋', '美杜莎-Rider': '靜謐宅邸', '美狄亞-Caster': '隱蔽的工房',
+  '佐佐木小次郎-Assassin': '河畔道場', '赫拉克勒斯-Berserker': '荒地帳篷',
+  '吉爾伽美什-Archer': '高級公寓頂樓', '迪盧木多-Lancer': '森林小屋', '伊斯坎達爾-Rider': '軍帳',
+  '吉爾德萊-Caster': '陰暗地下室', '百貌哈桑-Assassin': '廢棄倉庫', '咒腕之哈桑-Assassin': '隱密巷弄',
+  '蘭斯洛特-Berserker': '森林深處', '恩奇都-Lancer': '城牆邊', '斯卡哈-Lancer': '島嶼道場',
+  '斯卡哈-Assassin': '島嶼道場', '美遊-Saber': '埃德費爾特宅邸', '小黑-Archer': '愛因茲貝倫城',
+  '伊莉雅-Caster': '愛因茲貝倫城', '遠坂凜-Master': '遠坂邸', '伊莉雅絲菲爾-Master': '愛因茲貝倫城',
+  '間桐櫻黑化-Master': '間桐邸', '衛宮士郎-Master': '衛宮邸', '藤村大河-Master': '藤村家'
+};
 // 🏷️ MEMORY標記存取器【邂逅】：逗號分隔的巧遇過姓名清單，去重、僅供「似曾相識」氛圍參考——
 //   同行隊伍成員的好感/關係走既有 REL_TAG/BOND，這裡只記路人巧遇過誰，不重複記錄。
 //   比照 getOutfit_/setOutfit_(Core_Settings.gs)同款「清除舊值再整段append」寫法。
@@ -811,18 +827,18 @@ function kanshouRollEncounter_(locName, excludeIds) {
 // 🎲 結束一天/推進時間(2026-07「不讓玩家指派，直接GAS判定」定案，hour參數為後續「推進時間」補充)：
 //   幫「不在身邊」的英靈決定當下要去哪——反查KANSHOU_LOCATION_TAGS_裡有沒有哪些地點標到這位
 //   英靈的id(她平常會去的地方)，有就加權隨機挑一個；沒被任何地點標到就從全部地點隨機挑。
-//   hour(選填)：有傳時刻時，深夜/清晨時段大機率改留在家(比照真人作息)，其餘時段沿用原本haunts
-//   邏輯不變；不傳(舊呼叫端)則完全比照改動前的行為，不影響既有呼叫。
+//   hour(選填)：有傳時刻時，深夜/清晨時段大機率改留在「自己家」(比照真人作息，KANSHOU_HERO_HOME_，
+//   2026-07修正「不該溜進玩家自己家」的錯誤，見上方常數註解)，其餘時段沿用原本haunts邏輯不變；
+//   不傳(舊呼叫端)則完全比照改動前的行為，不影響既有呼叫。
 function kanshouRollDailyLocation_(heroName, hour) {
+  const hero = SEED_SERVANTS.find(h => kanshouNameCandidates_(h.realName).includes(heroName));
   if (hour !== undefined && hour !== null) {
     const band = timeBand_(hour);
     const homeBias = band === '深夜' ? 0.85 : (band === '清晨' ? 0.5 : 0);
     if (homeBias > 0 && Math.random() < homeBias) {
-      const homeNames = KANSHOU_LOCATIONS_.filter(l => l.region === 'home').map(l => l.name);
-      return homeNames[Math.floor(Math.random() * homeNames.length)];
+      return (hero && KANSHOU_HERO_HOME_[hero.id]) || '自己的住處';
     }
   }
-  const hero = SEED_SERVANTS.find(h => kanshouNameCandidates_(h.realName).includes(heroName));
   const haunts = hero ? Object.keys(KANSHOU_LOCATION_TAGS_).filter(loc => KANSHOU_LOCATION_TAGS_[loc].includes(hero.id)) : [];
   const pool = haunts.length ? haunts : KANSHOU_LOCATIONS_.map(l => l.name);
   return pool[Math.floor(Math.random() * pool.length)];
