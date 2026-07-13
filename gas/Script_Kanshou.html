@@ -238,12 +238,18 @@
     //   (見Router_Action.gs buildTagsPayload_)——同行同伴永遠跟玩家同地點，這裡主要顯示「留人
     //   在原地」凍結在別處的舊同伴分佈，幫助決定要去哪裡巧遇故人。
     var locCounts = (window._lastTags && window._lastTags.locationCounts) || {};
+    // 🙋 2026-07「反向提議」玩家定案：跟kanshouMoveTo(玩家自己走，無條件強制移動)不同，這顆👋
+    //   走一般聊天訊息(不帶moveTarget)，交給AI在同一回合內依同伴個性當場決定答應或婉拒——見
+    //   Gallery.gs★【玩家反向邀約】規則，答應才會演出移動並更新location，不需要另外的同意/拒絕UI。
     var locBtns = KC_LOCATIONS_.filter(function (l) { return l.region === kcActiveRegion_; }).map(function (l) {
       var cnt = locCounts[l.name] || 0;
-      return '<button onclick="kanshouMoveTo(\'' + l.name + '\')" style="display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left;padding:8px 10px;margin-bottom:6px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">'
+      return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
+        + '<button onclick="kanshouMoveTo(\'' + l.name + '\')" style="flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">'
         + '<span>📍 ' + l.name + '</span>'
         + (cnt ? '<span style="color:#e0a0bc;font-size:11px;">👤' + cnt + '</span>' : '')
-        + '</button>';
+        + '</button>'
+        + '<button onclick="kanshouProposeMove(\'' + l.name + '\')" title="邀同伴一起去「' + l.name + '」" style="padding:8px 9px;background:#2a2038;color:#e0c090;border:1px solid #5a4a3a;border-radius:8px;cursor:pointer;font-size:13px;">👋</button>'
+        + '</div>';
     }).join('');
     return tabsHtml + renameHtml + locBtns;
   }
@@ -281,6 +287,13 @@
     if (!confirm('確定要前往「' + name + '」嗎？')) return;
     showGamePane('chat');
     await send('📍 走向了「' + name + '」，四處看看。', false, null, name);
+  }
+
+  // 🙋 2026-07「玩家反向提議換地點」：不帶moveTarget，走一般對話訊息，答不答應由AI當場依同伴
+  //   個性決定並直接演完(見Gallery.gs★【玩家反向邀約】)——跟kanshouMoveTo(強制移動)是兩條不同路。
+  async function kanshouProposeMove(name) {
+    showGamePane('chat');
+    await send('（笑著問）要不要一起去「' + name + '」看看？', false, null, null);
   }
 
   // 🔘 2026-07「這功能直接做成按鈕」玩家定案：原本用關鍵字猜測玩家是不是在問「這裡還有沒有其他
