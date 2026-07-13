@@ -2012,7 +2012,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 **改動**：
 1. **`KANSHOU_FESTIVALS_`從`dayOfYear`改回`{month, day}`**：新年初一(1/1)、情人節(2/14)、七夕(7/7，剛好對上日本七夕真實日期，冬木市的設定下不必再挑近似值)、中秋節(9/15)、聖誕節(12/25)、跨年夜(12/31)。
-2. **新增`KANSHOU_CAL_START_MONTH_/DAY_`常數**(4月1日，呼應原作聖杯戰爭開戰季節)當Day1的錨點，`KANSHOU_DAYS_IN_MONTH_`(不算閏年，每年固定365天，遊戲用途夠精準)。
+2. **新增`KANSHOU_CAL_START_MONTH_/DAY_`常數**當Day1的錨點(後於§69改成12/28，見下)，`KANSHOU_DAYS_IN_MONTH_`(不算閏年，每年固定365天，遊戲用途夠精準)。
 3. **`kanshouDoyOffset_(month,day)`**：某月日距離當年1/1是第幾天，年/月/日互換共用的底層换算。
 4. **`kanshouAbsDayToDate_(absDay)`**：從Day1累積天數 → `{year, month, day}`，取代§67的`kanshouDayOfYear_`。
 5. **`kanshouHoursUntilDate_(curDay, curHour, targetMonth, targetDay)`**：取代§67的`kanshouHoursUntilFestival_`，算「距離下一次某月日還有幾小時」(已過今年這天就自動算明年)。
@@ -2025,3 +2025,15 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **未動的部分**：`nsfwBaseRules`常數逐字元核對未受影響。`kanshouRollDailyLocation_`的時段偏好(深夜85%/清晨50%在家)、`結束一天`固定跳隔天8點的行為完全未改，只有「時間顯示成什麼格式」跟「上限用天數還是年數表示」變了。「衛宮家寄宿開場改版」「左側面板改人物定位清單」仍待後續實作。
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0；`nsfwBaseRules`逐字元核對 identical，長度808不變。部署後建議測試：①地圖分頁新增「🎊快轉到節慶」6顆按鈕；②點「七夕」，確認合成訊息顯示正確的年/月/日且narration有應景氛圍(不直白提節日名稱字面解釋)；③連續點同一個節慶兩次，確認第二次會跳到「明年」的那一天(不會卡在同一天不動)；④敘事的🕰️時鐘提示顯示「X年X月X日」而非§67的「第X日」；⑤推進超過3年上限的極端值(理論上前端按鈕不會觸發，但防呆值本身要正確夾住)。
+
+## §69 開局錨點改成12月28日，第4天自然銜接跨年夜（2026-07・玩家「開局的年份是多少?我想要第一天是跨年前！28.29.30號！可以逛幾天後31準備一起跨年的感覺???」）
+
+**背景**：§68實作時把`KANSHOU_CAL_START_MONTH_/DAY_`暫定為4/1(呼應原作聖杯戰爭開戰季節)，純粹是個沒有特別理由的預設值。玩家實際想要的是「開局就在跨年前幾天」，逛個2~3天後自然銜接上除夕跨年的氣氛。
+
+**改動**：只改`KANSHOU_CAL_START_MONTH_/DAY_`兩個常數從`(4,1)`改成`(12,28)`——Day1=12/28、Day2=12/29、Day3=12/30、Day4=12/31，第4天直接對上`KANSHOU_FESTIVALS_`裡已經定義好的跨年夜(12/31)，不需要玩家特地按「🎊跳到節慶」，正常逛個3天、按幾次結束一天/推進時間自然就到了。
+
+**設計理由**：整個年/月/日系統(§68)本來就是為了讓「Day1對應哪個月日」可以自由調整而設計的一個常數，改動範圍精準地只有這兩個數字，不影響任何換算邏輯本身。
+
+**未動的部分**：`nsfwBaseRules`常數逐字元核對未受影響。`KANSHOU_FESTIVALS_`清單、時段偏好、其餘所有時鐘邏輯完全未改。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0；`nsfwBaseRules`逐字元核對 identical，長度808不變。部署後建議測試：新建鑑賞角色，確認開局顯示「1年12月28日」，按3次「🌙結束一天」後應該落在「1年12月31日」(跨年夜)。
