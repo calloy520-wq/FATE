@@ -2103,3 +2103,15 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **未動的部分**：`nsfwBaseRules`常數逐字元核對未受影響(Engine_Combat.gs的改動只在`callGeminiAPI`頂部/headers兩處變數名，不觸及`nsfwBaseRules`本體)。`MODEL`/`SOLO_MODEL`/`UNLOCKED_MODEL`這三個指令碼屬性維持原樣(各自本來就只認一個名稱，沒有相容別名問題)。
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0；`nsfwBaseRules`逐字元核對 identical；`node --experimental-strip-types --check server.ts`語法檢查通過；全專案`grep`確認沒有殘留任何`API_KEY`舊變數名引用。部署前記得確認GAS專案的「指令碼屬性」畫面裡`OPENROUTER_API_KEY`這個名稱本身有正確設定好金鑰值(其餘`MODEL`/`SOLO_MODEL`/`UNLOCKED_MODEL`為選填，沒設定會退回程式碼內建的預設模型)。
+
+## §74 移除AI Studio本地模擬層(server.ts/package.json/tsconfig.json/.gitignore)，專注GAS正式版（2026-07・玩家討論完AI Studio的定位、資料持久性、Firestore級改動的成本後，決定「我不需要過去，專注在GAS就好」）
+
+**背景**：這幾天玩家一度嘗試過在Google AI Studio用Node.js模擬層(§53附近開始的一系列討論：`server.ts`用`vm`模組跑一份`.gs`合併代碼、`db.json`模擬試算表)快速預覽/開發FATE，過程中討論了不少技術細節(§甚至抓到並修過`getSheetByName`永遠回傳真值的bug、worker thread併發修復)。最終玩家釐清了幾個關鍵事實——①AI Studio的容器是暫時性的，`db.json`不保證持久；②真要做到「多人上線＋永久存檔」得接Firestore/Cloud SQL等級的改動，那是要重寫全部讀寫成非同步、且要永遠維護兩套存檔邏輯的大工程；③現有GAS正式版本身就已經是「不特定時間都能玩、資料永久存在試算表」的解法——衡量之後，決定不需要AI Studio這條路，專注維護GAS這一個版本就好。
+
+**改動**：直接砍除4個檔案——`server.ts`(本地GAS模擬伺服器)、`package.json`(Node相依套件設定)、`tsconfig.json`(TypeScript編譯設定)、`.gitignore`(原本只為了排除`node_modules`/`db.json`/`dist`這些Node產物，Node工具鏈整組拿掉後這份檔案也一併沒有存在必要)。`gas/`目錄下所有遊戲邏輯完全未動——這幾個檔案原本就是外掛在專案根目錄、跟`.gs`代碼互不相依的獨立工具，砍除不影響任何既有功能。
+
+**設計理由**：這幾個檔案的存在本來就是「單一入口」設計(server.ts直接讀取`gas/`底下的原生檔案執行，不複製一份改寫)，所以移除它們是乾淨的——沒有任何邏輯散落在這些檔案裡需要先搬回`gas/`才能刪，直接刪就好，不留殭屍代碼。
+
+**未動的部分**：`gas/`目錄下19個`.gs`檔案、5個`.html`檔案完全未受影響；`OPENROUTER_API_KEY`等指令碼屬性命名(§73)維持不變，那是GAS本身的設定，跟這次移除的Node工具鏈無關。
+
+**驗證**：`bash check.sh`全過(不涉及這幾個被刪檔案，本來就不在檢查範圍內)。部署後無需特別測試——這是純粹的檔案清理，`gas/`裡的實際遊戲邏輯一行都沒變。
