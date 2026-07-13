@@ -1,11 +1,11 @@
 // ==========================================
-// 🎴 Router_Creation.gs — 創角／召喚（2026-07 從 Router_Action.gs 拆出）
+// 🎴 Router_Creation.gs — 創角／召喚
 //   御主創角(actionManualNpc)＋敘事非阻塞補生成(actionBackfillMasterAi)＋召喚從者(actionSummonServant)。
 //   共用 GAS 全域作用域，與 Router_Action.gs 等其他檔互叫無礙。見 HANDBOOK.md §4.1 拆分慣例。
 // ==========================================
 
 function actionManualNpc(userData, pcId, sheets) {
-  // 🎴 御主創角專用（action="create"）。手動建 NPC(manual_npc) 已移除；從者另由 actionSummonServant 處理，與此無關。
+  // 御主創角（action="create"）；從者召喚見 actionSummonServant。
   const newId = "PC_" + Date.now();
   const { name, sex, identity, standing, wish, appearance, magic, circuits, origin, melee, magicRank } = userData;
   let finalName = name;
@@ -16,36 +16,19 @@ function actionManualNpc(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: "名號僅限中文字，不可使用英文、數字或符號。" });
   }
 
-  // 🔵 御主名號＝角色名（登入身分是「帳號名」·見 Account.gs）。2026-07 修：原本全表擋撞名——多帳號
-  //   共用一張表、game_id 實例化後，不同局的同名御主由 game_id＋faction 徹底分流（所有查找皆 game_id 內、
-  //   玩家御主永遠靠 pcId/ID 認人），跨局撞名無害；卻害「分享出去多人玩」時常見/正典名號被別局佔走而創不了角。
-  //   改為只擋【正典角色名】：避免自創御主與被種入本局的同名正典敵手變雙胞胎（同局內按名字查會歧義）；
-  //   想當正典角色請走「扮演正典御主」入口。用記憶體種子常數比對·順帶省掉一次整表讀。
-  // 🐛→✅ 2026-07 稽核抓到：finalName 已被 sanitizeUserData_ 的 cleanChineseName 洗成純中文(去標點如間隔號· )，
-  //   但比對對象 SEED_MASTERS/SEED_SERVANTS 的 .name 是原始未洗字串——正典名號若含標點(如「韋伯·維爾維特」)，
-  //   兩邊永遠比不中：_canonHit 恆 false，這名角色的自創撞名保護整個失效(玩家會創出「韋伯維爾維特」這種
-  //   去標點畸形名，而非被正確擋下或走「扮演正典御主」入口)。兩側都套 cleanChineseName 統一正規化再比對。
-  // 🐛→✅ 2026-07 第二輪稽核再抓到一個更根本的：SEED_SERVANTS 的角色真名欄位其實叫 `realName`，不是
-  //   `name`(那是 SEED_MASTERS 用的欄名)——`s.name` 對每一個從者物件恆為 undefined，這條 SEED_SERVANTS
-  //   分支從一開始就是死的，等於「自創御主撞到正典從者真名」這個情境從沒被真正擋過。改用 `s.realName`。
+  // 🔵 御主名號＝角色名。跨局撞名靠 game_id＋faction 分流無害，只需擋【正典角色名】——避免自創御主與
+  //   被種入本局的同名正典敵手變雙胞胎（同局內按名字查會歧義）；想當正典角色請走「扮演正典御主」入口。
+  //   兩側名字都須套 cleanChineseName 正規化再比對（canon 名可能含標點，sanitize 後的 finalName 不含）；
+  //   SEED_SERVANTS 真名欄位是 `realName` 不是 `name`。
   const _canonHit = (typeof SEED_MASTERS !== 'undefined' && SEED_MASTERS.some(m => m && cleanChineseName(m.name) === finalName))
     || (typeof SEED_SERVANTS !== 'undefined' && SEED_SERVANTS.some(s => s && cleanChineseName(s.realName) === finalName));
-  // 🐛→✅ 2026-07 玩家實測「扮演正典角色卻被擋，說已經有了」：這條擋名檢查沒有排除「扮演正典御主」
-  //   這條合法路徑本身——玩家從 Script_Onboarding.html 的 pickCanonMaster 選了正典御主後，前端會把
-  //   該御主的真名帶進 s-name 欄位、連同 playedMaster(該御主id) 一起送進來，但這裡完全沒讀
-  //   userData.playedMaster，只要名字命中canon就一律擋下，等於「扮演正典御主」這個入口自己送出的
-  //   名字，反而被自己的保護機制擋在門外——是這條保護6天前(2026-07-04)新增時漏考慮的情境，
-  //   跟今天做的坤圖/御主殿靜態化等修改無關(git blame確認)。動手：驗證 playedMaster 對應的正典
-  //   御主真名剛好等於這次要建的 finalName 才放行(不只是「有帶 playedMaster 就一律放行」，防止
-  //   夾帶不相干的 playedMaster id 繞過保護)——seedRivalsForGame_ 早就會排除你扮演的那位不再被
-  //   種成本局敵御主(見該函式 `if (playedMaster && String(r.master) === playedMaster) return`)，
-  //   所以「扮演正典御主」不會真的產生雙胞胎，這裡放行是安全的。
+  // 扮演正典御主(playedMaster) 是合法路徑，須排除於撞名擋下之外；驗證 playedMaster 對應真名剛好等於
+  //   finalName 才放行，避免夾帶不相干 playedMaster id 繞過保護。seedRivalsForGame_ 會排除你扮演的
+  //   那位不再種成本局敵御主，故不會真的產生雙胞胎。
   const _playingThisCanon = userData.playedMaster && typeof SEED_MASTERS !== 'undefined'
     && SEED_MASTERS.some(m => m && String(m.id) === String(userData.playedMaster) && cleanChineseName(m.name) === finalName);
   if (_canonHit && !_playingThisCanon) return JSON.stringify({ success: false, message: `「${finalName}」是聖杯戰爭中已知的英靈／御主——自創御主請另取名號；若想扮演此角，請用「扮演正典御主」入口。` });
-  // 🐛→✅ 承上：_playingThisCanon 成立時，finalName 仍是被 cleanChineseName 洗掉標點的畸形版本
-  //   (如「韋伯維爾維特」)——比對通過了，但實際寫進表的名字還是錯的。這裡還原成 SEED_MASTERS 的
-  //   原始正典真名(含標點)，確保「扮演正典御主」創出來的角色名字跟原作一字不差。
+  // finalName 此時仍是 cleanChineseName 洗掉標點的畸形版本——還原成 SEED_MASTERS 原始正典真名(含標點)。
   if (_playingThisCanon) {
     const _canonMaster = SEED_MASTERS.find(m => m && String(m.id) === String(userData.playedMaster));
     if (_canonMaster) finalName = _canonMaster.name;
@@ -53,13 +36,11 @@ function actionManualNpc(userData, pcId, sheets) {
   // 🔵 實例化：御主創角 → 開一個全新 game_id 世界
   const gameId = "g_" + Date.now();
 
-  // 🔄 2026-07 玩家定案「坤圖靜態化」：getMapDataCached 直接讀FATE_MAP_SEED常數(零I/O、恆非空)，
-  //   不必再靠 sheets.map 是否存在來決定要不要退回寫死的4個地名保底。
+  // getMapDataCached 直接讀 FATE_MAP_SEED 常數(零 I/O、恆非空)，不必靠 sheets.map 是否存在來決定要不要退回保底地名。
   const validMapNames = getMapDataCached(sheets).slice(1).map(r => String(r[COL.MAP.NAME]).trim()).filter(n => n !== "" && !n.includes('-'));
 
-  // 🚀 開局非阻塞(2026-07)：create【不叫 AI】，用玩家輸入的種子值秒寫入御主列、立刻進場；
-  //   AI 生成的背景/特徵/個性/萌點由 backfill_master_ai 在「召喚從者頁」背景補上(見 actionBackfillMasterAi)。
-  //   ★數值(HP/MP/game_id/MEMORY 標記)全由 GAS 決定、與 AI 無關，故無 AI 也是結構完整、可直接開打的列。
+  // 開局非阻塞：create 不叫 AI，秒寫種子值進場；AI 生成的背景/特徵/個性/萌點由 actionBackfillMasterAi 背景補上。
+  //   數值(HP/MP/game_id/MEMORY)全由 GAS 決定，故無 AI 也是結構完整、可直接開打的列。
   try {
     // 🎴 御主(凡人魔術師)初始數值：HP/MP 依魔術迴路(財力/身世決定)推算——御主是凡人，遠低於英靈從者。
     const masterStats = masterMaxHpMp_(parseInt(circuits) || 30);
@@ -83,7 +64,7 @@ function actionManualNpc(userData, pcId, sheets) {
       userData.warMode === 'chaos' ? "" : `【戰爭】${['4th', '5th'].indexOf(String(userData.war)) >= 0 ? userData.war : '5th'}`,
       (userData.warMode !== 'chaos' && userData.playedMaster) ? `【扮演】${String(userData.playedMaster).trim()}` : ""
     ].filter(Boolean).join("｜");
-    // 🎴 起始禮裝：玩家自選（2026-07 不再隨機）。驗證＝合法的【被動】禮裝 id；空／'none'／破戒(special) 一律不帶。
+    // 起始禮裝：玩家自選；驗證＝合法的【被動】禮裝 id，空／'none'／破戒(special) 一律不帶。
     try {
       const pick = String(userData.mystic || "").trim();
       if (pick && MYSTIC_CODES[pick] && MYSTIC_CODES[pick].type === 'passive') {
@@ -107,9 +88,8 @@ function actionManualNpc(userData, pcId, sheets) {
   } catch (e) { return JSON.stringify({ success: false, message: "建立失敗:" + e.message }); }
 }
 
-// 🚀 御主敘事·非阻塞補生成(2026-07)：create 已用種子值秒建御主；此處於「召喚從者頁」背景叫 AI 補
-//   背景/特徵/個性/萌點，只以【單格 setValue】更新 4 個敘事欄(不整列 write-back·避免與玩家動作競寫)。
-//   失敗＝保留 create 寫的種子預設(優雅降級·玩家仍可逆天改命自改)。數值欄一律不碰。
+// 御主敘事非阻塞補生成：create 已用種子值秒建御主；此處於「召喚從者頁」背景叫 AI 補背景/特徵/個性/萌點，
+//   只用單格 setValue 更新敘事欄(不整列 write-back，避免與玩家動作競寫)；失敗則保留種子預設。數值欄一律不碰。
 function actionBackfillMasterAi(userData, pcId, sheets) {
   const pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
@@ -119,8 +99,7 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
   const appearance = String(userData.appearance || ""), standing = String(userData.standing || "");
   const wish = String(userData.wish || ""), magic = String(userData.magic || ""), origin = String(userData.origin || "");
 
-  // 🔄 2026-07 玩家定案「坤圖靜態化」：getMapDataCached 直接讀FATE_MAP_SEED常數(零I/O、恆非空)，
-  //   不必再靠 sheets.map 是否存在來決定要不要退回寫死的4個地名保底。
+  // getMapDataCached 直接讀 FATE_MAP_SEED 常數(零 I/O、恆非空)，不必靠 sheets.map 是否存在來決定要不要退回保底地名。
   const validMapNames = getMapDataCached(sheets).slice(1).map(r => String(r[COL.MAP.NAME]).trim()).filter(n => n !== "" && !n.includes('-'));
 
   const promptStr = `【御主】：名號『${finalName}』，性別『${finalSex}』\n【外貌】：${appearance || "隨機"}\n【身世／財力】：${standing || "隨機"}\n【願望】：${wish || "隨機"}\n【魔術系統】：${magic || "隨機"}\n【出身】：${origin || "隨機"}`;
@@ -141,16 +120,14 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
   try {
     // 🔴 ignoreLaw: true，把節慶跟天氣隔絕在創建室外
     const aiBrief = JSON.parse(callGeminiAPI(promptStr, MASTER_GEN_SYS, { temperature: 0.6, ignoreLaw: true }));
-    // 🔒 競態修(2026-07)：backfill 豁免寫入鎖，pIdx 是 AI 呼叫【前】的列索引——期間清殘列若刪列，
-    //   索引位移會把御主敘事寫到別列。寫回前 ID 欄窄讀重定位；列已被刪→放棄寫入。
+    // backfill 豁免寫入鎖，pIdx 是 AI 呼叫前的列索引——期間若清殘列刪列會位移；寫回前重新以 ID 定位，列已被刪則放棄寫入。
     const wIdx = buildLiveIdIndex_(sheets.pc)[String(pcId)];
     if (wIdx === undefined) return JSON.stringify({ success: false, message: "御主列已不存在（可能剛被清理）。" });
     // 單格寫回(不整列)：只覆蓋敘事欄，且僅在 AI 有給值時；數值/MEMORY/位置一律不碰。
     if (aiBrief.background) sheets.pc.getRange(wIdx + 1, COL.PC.BACK + 1).setValue(String(aiBrief.background).slice(0, 40));
     if (aiBrief.traits) sheets.pc.getRange(wIdx + 1, COL.PC.TRAIT + 1).setValue(parseTraitsHelper(aiBrief.traits, row[COL.PC.TRAIT]));
     if (aiBrief.personality) sheets.pc.getRange(wIdx + 1, COL.PC.PREF + 1).setValue(parseTraitsHelper(aiBrief.personality, row[COL.PC.PREF]));
-    // 🐛→✅ 萌點欄同款腰斬修正(比照 Gallery.gs actionBackfillKanshouAi)：slice(0,18) 對一句話太緊，
-    //   AI 稍微超字數就被砍在句意中間，放寬緩衝。
+    // slice(0,18) 對一句話太緊，AI 稍微超字數就被砍在句意中間；放寬緩衝(比照 Gallery.gs actionBackfillKanshouAi)。
     if (aiBrief.npc_intent) sheets.pc.getRange(wIdx + 1, COL.PC.INTENT + 1).setValue(String(aiBrief.npc_intent).slice(0, 30));
     return JSON.stringify({ success: true });
   } catch (e) {
@@ -236,16 +213,14 @@ var ALLOWED_FX_ = {
   evade_ranged: 1, survive: 1, mad: 1, morale: 1, divine_age: 1,
   unreadable: 1, wind_strike: 1, tsubame: 1, gae_bolg: 1, god_hand: 1,
   clear_mind: 1, self_mod: 1, tactics: 1, anti_magic_lance: 1, rule_breaker: 1,
-  // 🆕 2026-07 放寬(A)：施放技術/命中/防禦/對人放大——中階以下，拉高自訂從者上限、不含頂級概念寶具
+  // 施放技術/命中/防禦/對人放大——中階以下，拉高自訂從者上限、不含頂級概念寶具
   aim: 1, projection: 1, fast_cast: 1, crafting: 1, petrify: 1, shapeshift: 1,
   solo: 1, weapon_steal: 1, rho_aias: 1, territory: 1, wall_def: 1, zabaniya: 1, regen: 1,
-  // ⚠ 2026-07 六波拔除 divine_core(神核)：玩家點破「這是只有真正神靈軀體才有的，是不是有人拿到了」——
-  //   查證種子庫 5 位持有者裡 2 位(美杜莎/伊絲塔)其實查無來源確認、已拔除，剩 3 位(斯卡蒂/阿基里斯/迦爾納)
-  //   皆貨真價實神裔。工房原本零門檻任何自訂角色可買，跟 ea/王之財寶/UBW/海怪/天之鎖/黃金律 等
-  //   種子專屬機制的處理邏輯矛盾——漲價解決不了「凡人不該有」的問題(有預算照樣買得到)，改比照收為種子專屬。
-  divine: 1, // 🆕 2026-07：神性(帶階級·比 trait 名判定精準)——引擎中主要是弱點(被神殺/天之鎖/對神剋)，濫用價值低
-  agile_striker: 1, // 💨 2026-07：以巧破力——以敏捷為傷害底(敏高於筋/魔時)。敏捷輸出流唯一通道·二元·全能稅×0.85·平價25。⚠顯示名勿用「神速」：理查/斯卡哈-Assassin 正史技能已叫神速(fx=first_strike·先機)，兩機制撞名必混淆
-  // 🆕 2026-07 三波開放(玩家定案·互鬥錦標賽揪出剋制缺口後補貨架)：
+  // divine_core(神核) 已拔除工房開放——理由與 ea/王之財寶/UBW/海怪/天之鎖/黃金律 等頂級機制相同：
+  //   凡人不該持有的機制，漲價解決不了(有預算照樣買得到)，故收為種子專屬。
+  divine: 1, // 神性(帶階級，比 trait 名判定精準)——引擎中主要是弱點(被神殺/天之鎖剋)，濫用價值低
+  agile_striker: 1, // 以巧破力：以敏捷為傷害底(敏高於筋/魔時)，敏捷輸出流唯一通道。顯示名勿用「神速」——與 first_strike(先機) 正史技能撞名
+  // 三項於互鬥測試中補上以填補剋制缺口：
   sense: 1,    // 氣息感知(恩奇都同款)：階級≥對方氣息遮斷→看穿奇襲。刺客流的天然反制。
   god_slay: 1, // 神殺(斯卡哈同款)：對神性之敵×1.17~2.0(依對方神格·binary→固定25)。counter-pick 剋神核/神裔。
   lovespot: 1  // 愛之痣(迪盧木多同款)：敵命中-1(微量風味·固定5)。
@@ -260,11 +235,9 @@ var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應�
   "破魔(無視神核/續行)=anti_magic_lance、破戒(斬契約救贖)=rule_breaker、神性(神裔·會被神殺剋)=divine、以巧破力(以敏捷為傷害底)=agile_striker、" +
   "氣息感知(看穿奇襲)=sense、神殺(剋神性之敵)=god_slay、愛之痣(魅惑·敵命中-1)=lovespot";
 
-// 清洗 AI 給的技能陣列為 [{n,r,fx}]（fx 不在字典就清空，仍保留為演出用標籤）
-//   r 階級與 sanitizeSix_ 同一套驗證(承認 A++/B−)——原 slice(0,2) 會把 "A++" 截成 "A+"(2026-07 修)。
-//   ⚠ 2026-07 修：maxCount 預設 5，但 prompt 實際只要求 classSkills(1~2個)/skills(2~3個)——
-//   原本不論呼叫端都固定 slice(0,5)，等於允許 AI 吐兩倍於預算的技能數量(每個格式都合法，
-//   只是整體密度失控)。呼叫端各自傳自己的真實預算上限，不再共用同一個寬鬆值。
+// 清洗 AI 給的技能陣列為 [{n,r,fx}]（fx 不在字典就清空，仍保留為演出用標籤）。
+//   r 階級與 sanitizeSix_ 同一套驗證(承認 A++/B−)。maxCount 由呼叫端傳真實預算上限(classSkills 1~2/
+//   skills 2~3)，不共用同一個寬鬆值，避免 AI 吐出兩倍於預算的技能數量。
 function sanitizeSkills_(arr, maxCount) {
   if (!Array.isArray(arr)) return [];
   var okR = function (v) { return /^(E|D|C|B|A|EX)(\+{1,2}|\-)?$/.test(v); };
@@ -278,13 +251,9 @@ function sanitizeSkills_(arr, maxCount) {
     };
   });
 }
-// 清洗六圍：6 鍵齊全、階級合法（E~EX、可帶 +/++/−）；缺或亂給則補 C。
-//   2026-07 放寬：承認 A++/B−——AI 泡在 Fate 語料很常自發吐 A++，原 regex 只認單 + 會把名將靜默打成 C。
-// ⚠ 2026-07 修：格式檢查只驗證「單一階級字串合法」，沒有整體強度上限——AI 可以讓六圍全部合法
-//   但全部給 EX(遠超任何種子英靈)，且 recordOriginalHero_ 會把這個角色永久寫回英靈殿供之後任何
-//   玩家重召，等於一次 prompt 誘導固化成長期破台角色。比照現有種子最強者的分布(EX 級頂格通常只
-//   保留給單一招牌屬性，如吉爾伽美什寶具EX、理查一世敏捷EX，即使赫拉克勒斯五圍逼近頂格也僅
-//   一項真 EX)，EX 級最多保留 2 項，其餘超額者降階為 A(仍是強者、但收斂進種子庫的強度分布)。
+// 清洗六圍：6 鍵齊全、階級合法（E~EX、可帶 +/++/−，承認 A++/B− ——AI 常自發吐 A++）；缺或亂給則補 C。
+//   格式合法不代表強度合理：EX 級最多保留 2 項(比照種子最強者的分布，如吉爾伽美什寶具EX/理查一世敏捷EX)，
+//   其餘超額降階為 A——否則 recordOriginalHero_ 會把全 EX 角色永久寫回英靈殿供重召，固化成長期破台角色。
 function sanitizeSix_(o) {
   var keys = ["筋力", "耐久", "敏捷", "魔力", "幸運", "寶具"], out = {};
   var ok = function (v) { return /^(E|D|C|B|A|EX)(\+{1,2}|\-)?$/.test(String(v || "").toUpperCase()); };
@@ -294,10 +263,8 @@ function sanitizeSix_(o) {
   return out;
 }
 
-// 🆕 把 AI 生成的原創從者寫回英靈殿（重名則不收；御主不適用此機制）
-//   2026-07：加選填 pExtra 物件(工房玩家自定 外貌look/萌點moe/自稱firstP/態度toMaster/口吻speech/小動作tic/身世back)
-//   ——hero 分支重召時讀 persona 同名欄(stampPersonaFlavor_ 等)，不存的話玩家親手寫的設定會在重召時退回預設。
-//   舊呼叫端不傳＝空物件、行為不變。
+// 把 AI 生成的原創從者寫回英靈殿（重名則不收；御主不適用此機制）。
+//   選填 pExtra(工房玩家自定 look/moe/firstP/toMaster/speech/tic/back)——不存的話重召時 persona 欄退回預設。
 function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, traits, np, personaWords, align, pExtra) {
   name = String(name || "").trim();
   if (!name) return;
@@ -313,16 +280,12 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
     words: String(personaWords || ""), firstP: String(px.firstP || "") || "我", toMaster: String(px.toMaster || ""),
     look: String(px.look || ""), moe: String(px.moe || ""), speech: String(px.speech || ""), tic: String(px.tic || ""), back: String(px.back || "")
   });
-  // 🤖 2026-07 玩家定調「工房捏角當下也提前生成日常資料」：跟種子英靈懶惰快取(見
-  // getOrComputeDailyHeroFields_)不同——工房角色創造當下就順手轉好，寫進英靈殿新增的
-  // DAILY_LOOK/DAILY_WORDS 欄，之後第一次被召喚進鑑賞就直接有現成日常版，不必等召喚當下才轉。
-  // 🌹 2026-07 玩家定案「餐桌是平行世界、沒有聖杯戰爭這回事」：萌點比照 look/words 同步轉換，
-  //   避免 heroToKanshouRow_ 直接搬戰時反差萌進一個沒打過聖杯戰爭的世界。
-  // 🐛→✅ 2026-07 玩家問「AI創造能抓到重點吧？」：moe 要先算好，才能當 hint 傳給下面的
-  //   translateLookToDaily_，讓「私密一面」不會跟萌點撞成同一件事的兩種說法(見該函式註解)。
+  // 工房角色創造當下就順手轉好日常版(DAILY_LOOK/DAILY_WORDS)寫進英靈殿，跟種子英靈的懶惰快取
+  //   (getOrComputeDailyHeroFields_)不同——之後第一次被召喚進鑑賞就直接有現成版本，不必等召喚當下才轉。
+  //   萌點也同步轉換，避免 heroToKanshouRow_ 把戰時反差萌搬進沒打過聖杯戰爭的鑑賞世界。
+  //   moe 需先算好才能當 hint 傳給 translateLookToDaily_，避免「私密一面」跟萌點撞成同一件事的兩種說法。
   var dailyMoe = translateMoeToDaily_(name, cls, String(px.moe || ""));
-  // 🌹 2026-07 玩家定案「日常衣裝獨立成欄」：translateAppearanceToDaily_ 已升級成 translateLookToDaily_，
-  //   一次呼叫同時產出四段式 look(外貌本相/氣質舉止/自稱與口氣/私密一面) 與獨立的 outfit(日常穿搭)。
+  // translateLookToDaily_ 一次呼叫同時產出四段式 look(外貌本相/氣質舉止/自稱與口氣/私密一面) 與獨立的 outfit(日常穿搭)。
   var dailyLookRes = translateLookToDaily_(name, cls, String(px.look || ""), String(px.firstP || ""), String(px.speech || ""), dailyMoe);
   var dailyWords = translatePersonalityToDaily_(name, cls, String(personaWords || ""));
   hs.appendRow([name + "-" + cls, cls, name, sex || "異", sixJson || "{}",
@@ -345,15 +308,13 @@ var FORGE_CLS_SKILLS_ = {
 function parseForgeBuild_(build, reqCls) {
   const VALID_CLS = ["Saber", "Archer", "Lancer", "Rider", "Caster", "Assassin", "Berserker"];
   const out = {};
-  // 🌹 2026-07「御主」職階：鑑賞限定純敘事款(比照 Seed_Codex.gs 的3位canon御主)，不參與戰鬥——
+  // 「御主」職階：鑑賞限定純敘事款(比照 Seed_Codex.gs 的3位canon御主)，不參與戰鬥——
   //   獨立於 VALID_CLS(七大從者職階)之外判斷，不吃 reqCls 的 Saber fallback。
   const isMasterCls = String(build.cls) === "御主";
   out.cls = isMasterCls ? "御主" : (VALID_CLS.includes(String(build.cls)) ? String(build.cls) : (reqCls || "Saber"));
   out.name = String(build.name || "").replace(/[<>&"'`]/g, "").trim().slice(0, 20);
   if (!out.name) return { ok: false, message: "請為英靈取一個真名。" };
-  // 🐛→✅ 2026-07 第二輪稽核抓到：SEED_SERVANTS 的真名欄位叫 `realName`，不是 `name`——這裡原本比對
-  //   `s.name`(恆 undefined)，等於工房捏角的正典撞名擋一直是死的，玩家可以捏出跟正典從者同真名的
-  //   「原創」角色。改用 `s.realName`。
+  // SEED_SERVANTS 真名欄位是 `realName` 不是 `name`——用 `s.name` 會恆 undefined，撞名擋失效。
   if ((typeof SEED_SERVANTS !== "undefined" && SEED_SERVANTS.some(s => s && s.realName === out.name)) ||
       (typeof SEED_MASTERS !== "undefined" && SEED_MASTERS.some(m => m && m.name === out.name))) {
     return { ok: false, message: `「${out.name}」是英靈殿正典角色——請用「✨真名召喚」直接召喚，或另取原創真名。` };
@@ -375,13 +336,10 @@ function parseForgeBuild_(build, reqCls) {
     out.ok = true;
     return out;
   }
-  // 💰 2026-07 調升 270→340：技能計價/規模計價後來併入同一錢包，270(原純六圍的 A−設定)實測按
-  //   工房價格計價全種子＝排 32/36(咒腕級墊底)。340＝種子中位數——點滿≈尼祿/美杜莎中堅，
-  //   強者種子(420~505·且握有 Excalibur/王財等工房買不到的概念 fx)仍明確在上。
+  // 預算 340＝種子中位數(點滿≈尼祿/美杜莎中堅)；強者種子(420~505·且握有工房買不到的概念 fx)仍明確在上。
   const FORGE_BUDGET = 340;
-  // 🐗 狂化補正(2026-07 玩家定案+30)：Berserker 職階附贈=狂化C(傷+但命中/迴避−·不可關)是七職階唯一
-  //   「負資產禮物」——同素體實測墊底(普攻3.0%/寶具3.0%·Caster 6.1/13.3)。差距換算 20~45 點(幸運階梯
-  //   匯率 10點≈1.2pp)，取中 30；+50 會反轉成最優職階。370 頂配狂戰實測 70.9%/45.9%=強力中堅·安全。
+  // Berserker 職階附贈狂化C(傷+但命中/迴避−·不可關)是唯一負資產禮物，同素體實測墊底——
+  //   補正+30 拉平(+50 會反轉成最優職階，370 頂配狂戰實測後仍只是強力中堅，安全)。
   const FORGE_CLS_BONUS_ = { Berserker: 30 };
   const okPlain = v => /^(E|D|C|B|A|EX)$/.test(String(v || "").toUpperCase());
   out.six = {};
@@ -391,27 +349,22 @@ function parseForgeBuild_(build, reqCls) {
   const spent = Object.keys(out.six).reduce((s, k) => s + rankVal(out.six[k]), 0);
   out.npScale = (String(build.npScale) === "對軍") ? "對軍" : "對人";
   const scaleCost = (out.npScale === "對軍") ? 20 : 0;
-  // 🎰 第4技能欄(2026-07 玩家定案·欄位費+20)：壓力測試證實安全——預算才是真約束(第4技+20費逼六圍讓位)，
-  //   疊加上限±8 讓多買的命中/迴避冗餘；最壞情況四技組合(83~85%)皆未超過三技頂點(93%)。
+  // 第4技能欄位費+20：預算才是真約束(逼六圍讓位)，疊加上限±8 讓多買的命中/迴避冗餘——
+  //   最壞情況四技組合(83~85%)仍未超過三技頂點(93%)。
   out.skills = (Array.isArray(build.skills) ? build.skills : []).filter(Boolean).slice(0, 4).map(s => {
     const fx = ALLOWED_FX_[String(s && s.fx || "").trim()] ? String(s.fx).trim() : "";
     let r = String(s && s.r || "C").toUpperCase(); if (!/^(E|D|C|B|A)$/.test(r)) r = "C";
     return { n: String(s && s.n || "").replace(/[<>&"'`]/g, "").slice(0, 10) || "技能", r: r, fx: fx };
   });
   const SKILL_PTS_ = { E: 5, D: 10, C: 15, B: 20, A: 25 };
-  // 🎚️ 三軌計價(2026-07 玩家定案「效果不同價錢不能一樣」)：同組同價會讓大係數標籤嚴格支配小係數——
-  //   照引擎真實係數分軌：強效(千里眼/魔眼4×階·高速詠唱/神代12×階＋剋對魔力·陣地26%×階)貴 1/3、
-  //   輕效(騎乘2×階·風王6×階·勇猛3×階且被透化封)便宜 1/3。鏡射前端 FORGE_SK_TRACK/FORGE_SK_PTS_*。
+  // 三軌計價：同組同價會讓大係數標籤嚴格支配小係數，故照引擎真實係數分軌——強效(如千里眼/高速詠唱)貴 1/3、
+  //   輕效(如騎乘/風王)便宜 1/3。鏡射前端 FORGE_SK_TRACK/FORGE_SK_PTS_*。
   const SKILL_PTS_BIG_ = { E: 7, D: 13, C: 20, B: 27, A: 33 };
   const SKILL_PTS_SMALL_ = { E: 3, D: 7, C: 10, B: 13, A: 17 };
   const SKILL_TRACK_ = { aim: 1, petrify: 1, fast_cast: 1, divine_age: 1, territory: 1, ride: -1, wind_strike: -1, morale: -1 }; // 1=強效 -1=輕效 其餘標準
-  // 二元平價(引擎不讀階級)：weapon_steal 對龍恆×1.5(2026-07 補洞：原階級計價可 E5 白撿)、god_slay 依【對方】神格縮放、lovespot 恆-1(風味價5)
-  // 🐛→✅ 2026-07「戰鬥標籤和戰鬥運算 戰報 檢查」查出同款計價漏洞：self_mod(恆命中+2/傷+3)、
-  //   tactics(恆寶具威力×1.15)、projection(命中恆+2·傷害段看角色自身寶具階非此fx購買階級)三個
-  //   引擎皆【不讀這個fx自己的購買階級】，原本沒被收進本表、落到預設依階級計價(E5~A25)——玩家能花
-  //   25點買「A階自我改造」但效果跟花5點的「E階」一模一樣，真正的花錢買不到東西。玩家定案「改固定
-  //   價」：self_mod比照標準單軌C階(15，效果偏輕量雙屬性)；tactics/projection比照其餘標籤(25，
-  //   前者是無條件全場寶具傷害加成、後者是主動技+階級縮放傷害，強度與同價位標籤相當)。
+  // 二元平價(引擎不讀階級)：weapon_steal 對龍恆×1.5(原階級計價可 E5 白撿)、god_slay 依對方神格縮放、lovespot 恆-1(風味價5)
+  // self_mod/tactics/projection 三個 fx 引擎皆不讀購買階級(效果恆固定)——原本落到依階級計價(E5~A25)，
+  //   等於花大錢買不到差異。改固定價：self_mod 比照標準 C 階(15，效果輕量)；tactics/projection 比照 25(強度與同價位標籤相當)。
   const FLAT_FX_ = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25, weapon_steal: 25, god_slay: 25, lovespot: 5, self_mod: 15, tactics: 25, projection: 25 };
   const slotFee = out.skills.length > 3 ? 20 : 0; // 🎰 第4欄啟用費(有第4個技能條目即收·純演出標籤也占欄)
   const skillCost = out.skills.reduce((s, k) => s + (k.fx ? (FLAT_FX_[k.fx] ||
@@ -428,13 +381,12 @@ function parseForgeBuild_(build, reqCls) {
   return out;
 }
 
-// 💾 工房存檔（action="save_hero"·2026-07 玩家定案二版：工房＝純製造/修改，不召喚）：
+// 工房存檔（action="save_hero"：工房＝純製造/修改，不召喚）：
 //   create＝寫英靈殿新列(AI 補 persona/寶具英文名·蓋創造者印記)；edit(帶 heroId)＝僅創造者本人可改、
 //   真名不可改(識別鍵)、演出欄非空覆寫/空保留、寶具英文名沿用舊值。改的是英靈殿【範本】——
 //   之後召喚才生效，已在場的分身不追改(可用 DEV「套用最新平衡」同步)。
-// 🖐 認領無主原創英靈（action="claim_hero"·2026-07）：創造者印記功能上線【前】鑄的 ai_gen 英靈
-//   沒有 persona.creator——「我的作品」不列、✏️ 不亮、誰都不能改。開放認領：無主者先到先得，
-//   認領後即為創造者(可修改)。已有主的不可搶(拒絕)。
+// 認領無主原創英靈（action="claim_hero"）：創造者印記功能上線前鑄的 ai_gen 英靈沒有 persona.creator，
+//   「我的作品」不列、✏️ 不亮、誰都不能改——開放認領：無主者先到先得，已有主的不可搶。
 function actionClaimHero(userData, pcId, sheets) {
   const acct = String(userData.acctName || "").trim();
   const heroId = String(userData.heroId || "").trim();
@@ -494,11 +446,9 @@ function actionSaveHero(userData, pcId, sheets) {
       look: newLook, moe: newMoe, speech: newSpeech,
       tic: keep(pb.tic, pj.tic), back: keep(pb.back, pj.back), weapon: keep(pb.weapon, pj.weapon), creator: pj.creator
     });
-    // 🤖 2026-07：外貌/性格改了，先前快取的日常版本會跟新設定對不上——重新轉一次，不留舊資料。
-    // 🌹 2026-07 玩家定案「日常衣裝獨立成欄」：translateLookToDaily_ 一次呼叫同時產出四段式 look 與
-    //   獨立的 outfit，取代原本的 translateAppearanceToDaily_。
-    // 🐛→✅ 2026-07 玩家問「AI創造能抓到重點吧？」：moe 要先算好才能當 hint 傳給 translateLookToDaily_，
-    //   避免「私密一面」跟萌點撞成同一件事的兩種說法(見該函式註解)。
+    // 外貌/性格改了，先前快取的日常版本會跟新設定對不上——重新轉一次，不留舊資料。
+    //   translateLookToDaily_ 一次呼叫同時產出四段式 look 與獨立的 outfit；moe 需先算好才能當 hint 傳入，
+    //   避免「私密一面」跟萌點撞成同一件事的兩種說法。
     const dailyMoeVal = translateMoeToDaily_(build.name, pb.cls, newMoe);
     const dailyLookRes = translateLookToDaily_(build.name, pb.cls, newLook, newFp, newSpeech, dailyMoeVal);
     data[idx][COL.HERO.DAILY_LOOK] = dailyLookRes.look;
@@ -565,31 +515,27 @@ function actionSummonServant(userData, pcId, sheets) {
   // ── 從英靈殿尋找對應英靈（heroId 指定 / 真名比對 / 隨機）──
   let hero = null;
   try {
-    // 🛡️ 2026-07 修：英靈殿新增了「鑑賞限定」的正典御主(cls='御主'，如遠坂凜/伊莉雅絲菲爾)，
-    //   只給鑑賞直接召喚用、沒有六圍/技能/寶具——若被 solo 召喚會產出殘缺從者。三條路徑
-    //   (heroId 指定/真名比對/隨機)都共用這份 hrows，統一在源頭濾掉，不逐一補檢查。
+    // 英靈殿含「鑑賞限定」的正典御主(cls='御主')，只給鑑賞召喚用、沒有六圍/技能/寶具——若被 solo 召喚
+    //   會產出殘缺從者。三條路徑(heroId 指定/真名比對/隨機)都共用這份 hrows，統一在源頭濾掉，不逐一補檢查。
     const hrows = getHeroCodexCached().slice(1).filter(r => r[COL.HERO.ID] && String(r[COL.HERO.CLS]) !== "御主");
     if (hrows.length) {
       if (heroId) {
         hero = hrows.find(r => String(r[COL.HERO.ID]) === heroId);
       } else if (trueName) {
-        // 🐛→✅ 2026-07 第二輪稽核抓到：斯卡哈在種子庫裡是兩個職階(Lancer/Assassin)的獨立列、
-        //   同真名靠職階區分——原本這裡不管 reqCls，一律吃陣列裡第一個名字比對到的列，等於
-        //   不管玩家瀏覽哪個職階分頁，真名召喚「斯卡哈」永遠固定召到 Lancer 版(她在 SEED_SERVANTS
-        //   裡排比較前面)。改成優先找「真名比對到 且 職階match reqCls」的列，找不到才退回原本
-        //   「不分職階、比對到第一個」的行為(相容沒選職階/只有單職階版本的一般真名召喚)。
+        // 同真名可能有多職階列(如斯卡哈 Lancer/Assassin)——優先找真名比對到且職階match reqCls 的列，
+        //   找不到才退回「不分職階、比對到第一個」(相容沒選職階/單職階版本的一般真名召喚)。
         const _nameMatches = hrows.filter(r => String(r[COL.HERO.NAME]).includes(trueName) || trueName.includes(String(r[COL.HERO.NAME])));
         hero = (reqCls && _nameMatches.find(r => String(r[COL.HERO.CLS]) === reqCls)) || _nameMatches[0] || null;
       } else {
-        // 🎲 隨機召喚：全英靈殿(含玩家原創 ai_gen)均勻抽(2026-07 玩家定案「原創角色可以進去 確實隨機就好」)
+        // 隨機召喚：全英靈殿(含玩家原創 ai_gen)均勻抽。
         let pool = reqCls ? hrows.filter(r => r[COL.HERO.CLS] === reqCls) : hrows;
         if (pool.length) hero = pool[Math.floor(Math.random() * pool.length)];
       }
     }
   } catch (e) { hero = null; }
   if (custDesc) hero = null; // 自訂描述 → 強制走 AI 生成原創，不抓名冊
-  // 🛠️ 工房(2026-07 玩家定案二版)：工房＝純「製造/修改」寫英靈殿(save_hero)，不再直接召喚——
-  //   做好的原創英靈到召喚頁「🌟 玩家原創」專區點選召喚(走下方 hero 分支實體化)。
+  // 工房＝純「製造/修改」寫英靈殿(save_hero)，不再直接召喚——做好的原創英靈到召喚頁「🌟 玩家原創」
+  //   專區點選召喚(走下方 hero 分支實體化)。
 
   const newId = "NPC_" + Date.now();
   const pcColCount = Object.keys(COL.PC).length;
@@ -615,29 +561,24 @@ function actionSummonServant(userData, pcId, sheets) {
 
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
-      // 🎴 特徵(4格敘事：外貌/氣質/自稱與口氣/私密)直接讀寫死的種子 persona.look，穩定一致、不叫 AI 生。
-      // 🐛→✅ 2026-07 修「衣服寫到舉止了」：persona.look 是「N段外貌(含服裝)・・...、氣質詞」，
-      //   不是天然四格，改用 looksToTraitParts_ 正確切分＋帶入真正的 persona.firstP 當自稱。
+      // 特徵(4格敘事)直接讀寫死的種子 persona.look，穩定一致、不叫 AI 生——但 persona.look 是「N段外貌
+      //   (含服裝)・・氣質詞」而非天然四格，用 looksToTraitParts_ 正確切分＋帶入 persona.firstP 當自稱。
       row[COL.PC.TRAIT] = parseTraitsHelper(looksToTraitParts_(persona.look, persona.firstP), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
-      // 🚀 種子英靈：直接用寫死的種子 persona（萌點/口吻 v3 已補齊），大部分欄位不叫 AI 重生——
-      //    省下多數欄位的 API、加速召喚(僅[喜歡]/[討厭]段數不足時才補呼叫一次，見下)。
-      //    個性取 persona.words(四關鍵)、萌點取 persona.moe、生平用種子既有 back 或職階真名模板。
-      //    口吻/小動作(persona.speech/tic)已由 stampPersonaFlavor_ 複製進 MEMORY，servantCard_ 平常直接讀列即可，不必查英靈殿。
+      // 種子英靈：直接用寫死的種子 persona，大部分欄位不叫 AI 重生，省 API、加速召喚(僅[喜歡]/[討厭]段數不足時
+      //   才補呼叫一次)。口吻/小動作(persona.speech/tic)已由 stampPersonaFlavor_ 複製進 MEMORY，servantCard_ 直接讀列即可。
       let svPref = String(persona.words || "").replace(/・/g, "、");
       let svMoe = String(persona.moe || "").slice(0, 18);
       let svBack = persona.back ? String(persona.back).slice(0, 28) : `${cls}・${realName}`;
-      // 🤖 2026-07：種子 persona.words 幾乎只有2段(見 enrichPersonalityLikesDislikes_ 註解)，
-      //   parseTraitsHelper 補滿4格時[喜歡]/[討厭]恆為「無」——這裡召喚當下補一次AI，讓從者也有
-      //   真正的喜好/討厭可用，不只是玩家自己建角才有。已經4段(罕見)則直接跳過、不多打API。
+      // 種子 persona.words 幾乎只有2段，parseTraitsHelper 補滿4格時[喜歡]/[討厭]恆為「無」——召喚當下
+      //   補一次 AI 讓從者也有真正的喜好/討厭。已經4段(罕見)則直接跳過、不多打 API。
       svPref = enrichPersonalityLikesDislikes_(realName, cls, svPref);
       row[COL.PC.PREF] = parseTraitsHelper(svPref, "沉著表象、堅定內裡、珍視之物、厭惡之事");
       row[COL.PC.MEMORY] = stampPersonaFlavor_(`第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || "保持距離"}`, persona.speech, persona.tic);
       if (persona.weapon) row[COL.PC.MEMORY] = setWeapon_(row[COL.PC.MEMORY], persona.weapon); // ⚔️ 工房原創的自定武裝·重召不掉
       row[COL.PC.SIX] = JSON.stringify(six);
       row[COL.PC.TAGS] = JSON.stringify({ skills: classSkills.concat(skills), traits: traits });
-      // 🕯️ 復活命數：god_hand 持有者的起始命數——優先讀該技能物件自己的 lives 屬性(如尼祿 lives:3)，
-      //   種子沒標 lives 時(如赫拉克勒斯)才照舊規則：ai_gen 給3(尼祿「三度輝映」基準)，其餘無標記、
-      //   靠 getGodHandLives_ 預設11(赫拉克勒斯十二試煉專屬)，別讓 AI 產物白拿。
+      // 復活命數：god_hand 持有者優先讀技能物件自己的 lives(如尼祿 lives:3)；種子沒標時，ai_gen 給3(尼祿基準)，
+      //   其餘靠 getGodHandLives_ 預設11(赫拉克勒斯十二試煉專屬)，別讓 AI 產物白拿。
       var ghSkill = classSkills.concat(skills).find(function (s) { return s && s.fx === 'god_hand'; });
       if (ghSkill) {
         var ghLives = (ghSkill.lives != null) ? ghSkill.lives : (String(hero[COL.HERO.SOURCE]) === 'ai_gen' ? 3 : null);
@@ -660,18 +601,15 @@ ${FX_MENU_}
 ★【輸出】合法 JSON、禁 Markdown：
 {"realName":"英靈真名","sex":"女","align":"中立・善","background":"限20字","npc_intent":"反差萌一句","personality":"四格頓號","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"classSkills":[{"n":"對魔力","r":"B","fx":"nullify_magic"}],"skills":[{"n":"直感","r":"A","fx":"first_strike"},{"n":"怪力","r":"B","fx":"str_up"}],"traits":[{"n":"人類"}]}`;
       const aiBrief = JSON.parse(callGeminiAPI(`【職階】：${cls}\n【御主】：${pcName}${trueName ? `\n【指定真名】：${trueName}` : ""}${custDesc ? `\n【玩家自訂描述】：${custDesc}` : ""}`, sysOverride, { temperature: custDesc ? 0.85 : 0.6, ignoreLaw: true }));
-      // 🛡️ API 失敗防線(2026-07 修)：callGeminiAPI 連線失敗不丟例外、而是回「fallback 敘事 JSON」(narration/options)
-      //   ——照收會靜默生出全C六圍/零技能的殘缺從者、寫入眾生＋recordOriginalHero_ 永久污染英靈殿，
-      //   且 already 閘讓該局無法重召。缺 realName 或 six ＝ 生成失敗，中止讓玩家重試。
+      // callGeminiAPI 連線失敗不丟例外，而是回 fallback 敘事 JSON(narration/options)——照收會靜默生出全C
+      //   六圍/零技能的殘缺從者並永久污染英靈殿。缺 realName 或 six 視為生成失敗，中止讓玩家重試。
       if (!aiBrief || !aiBrief.realName || !aiBrief.six) {
         return JSON.stringify({ success: false, message: "英靈之座的迴響中斷——召喚失敗，請稍候再試一次。" });
       }
       realName = String(aiBrief.realName || trueName || (cls + "從者")).trim() || (cls + "從者");
       sex = aiBrief.sex || "異"; align = aiBrief.align || "中立"; np = aiBrief.np || "寶具（未顯現）";
-      // ⚖️ 寶具規模上限(2026-07 修)：npAtkScale_ 讀 np 字串關鍵字算規模——AI 自訂寶具最高「對軍」，
-      //   對城/對界/對神為種子專屬(與 ALLOWED_FX_ 排除頂級概念 fx 同一精神，堵字串後門)。
-      //   同精神再堵一手：【常駐寶具】標記為種子專屬(B叔/玉藻)——AI/玩家自訂描述若混入這五個字，
-      //   生出的從者自己的💥會被鎖死(前端灰化＋後端擋攻擊解放)，故一律剝除。
+      // npAtkScale_ 讀 np 字串關鍵字算規模——AI 自訂寶具最高「對軍」，對城/對界/對神為種子專屬(堵字串後門)。
+      //   【常駐寶具】標記同理為種子專屬(B叔/玉藻)，混入會讓從者自己的💥被鎖死，故一律剝除。
       np = String(np).replace(/對界|對城|對神/g, "對軍").replace(/【常駐寶具】/g, "").slice(0, 80);
       const aiSix = sanitizeSix_(aiBrief.six);
       const aiCSkills = sanitizeSkills_(aiBrief.classSkills, 2); // prompt 要求 1~2 個
@@ -692,10 +630,8 @@ ${FX_MENU_}
         row[COL.PC.MEMORY] += '｜【試煉】3';
       }
       row[COL.PC.BACK] = aiBrief.background ? String(aiBrief.background).slice(0, 40) : `${cls} 職階的英靈`; // 補防呆上限，比照其他AI生成路徑
-      // 🆕 不重名的原創從者 → 寫回英靈殿（含六圍/技能fx/特性），日後可重用（御主不收）
-      // 🐛→✅ 2026-07 修：pExtra 原本沒帶 moe——這名從者當下的 row[COL.PC.INTENT] 確實有拿到
-      //   aiBrief.npc_intent(見上)，但英靈殿的永久記錄(persona.moe)一直是空字串，導致這名從者
-      //   若日後被邀進鑑賞，heroToKanshouRow_/translateMoeToDaily_ 拿到的是空白、無從轉出日常萌點。
+      // 不重名的原創從者寫回英靈殿(含六圍/技能fx/特性)，日後可重用。pExtra 需帶 moe——否則永久記錄
+      //   (persona.moe) 是空字串，若日後被邀進鑑賞會無從轉出日常萌點。
       try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], aiCSkills, aiSkills, aiTraits, np, aiBrief.personality, align, { moe: String(aiBrief.npc_intent || "").slice(0, 30), creator: String(userData.acctName || "").trim() }); } catch (e) { }
     }
 

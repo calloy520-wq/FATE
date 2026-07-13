@@ -1,5 +1,5 @@
 // ==========================================
-// 🔋 Router_Economy.gs — 靈基出力／魔境／符文／寶具選／補魔（2026-07 從 Router_Action.gs 拆出）
+// 🔋 Router_Economy.gs — 靈基出力／魔境／符文／寶具選／補魔
 //   玩家可調的從者旋鈕(樂觀更新 setter)＋actionManaSupply(硬擠迴路回滿共用池)。
 // ==========================================
 
@@ -23,7 +23,7 @@ function actionSetServantOutput(userData, pcId, sheets) {
 }
 
 // 🔮 設定魔境的智慧選定標籤（斯卡哈專屬，玩家點選 1 個通用 A 階被動）：免費、即時、不耗 AP。
-//   只接受 mageRealmPool_ 池內 fx；持 mage_realm 的從者才能設；空字串＝清除選擇。
+//   只接受 mageRealmPool_ 池內 fx；空字串＝清除選擇。
 function actionSetMageRealm(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
@@ -72,22 +72,14 @@ function actionSetRuneMode(userData, pcId, sheets) {
   }); // 樂觀更新·前端自走輕量 syncData，不再算丟棄的 statusString
 }
 
-// 🗑️ 2026-07：actionSetActiveSkill(主動技開關)已刪——主動技改回攻擊時的「⚡主動」按鈕
-//   (fate_battle 夾帶 userData.skill，見 Router_Battle.gs)，玩家定案：開關制手機難按、還多一趟
-//   round-trip；MEMORY【主動技】標記隨之棄用(舊存檔殘留無害·無人再讀)。
-
-// 🗑️ 2026-07：actionSetNpChoice(獨立設定多寶具索引的 action)已刪——前端從未呼叫過(從一開始就沒接線)，
-//   多寶具索引改走 fate_battle 一併夾帶的 userData.npChoice(見 Router_Battle.gs)。setNpChoice_/npChoice_
-//   兩個 helper 仍在用，未動。
-
 // 👗 從者換裝（玩家自訂當前服裝穿著，存從者 MEMORY【換裝】）：純外觀·免費·即時·不耗 AP。
-//   只換衣不換人(五官/髮色/體態依種子 look)；空字串＝恢復本相。餵進 servantCard_／actionPlay 敘述、兩軌通用。
+//   只換衣不換人(五官/髮色/體態依種子 look)；空字串＝恢復本相。
 function actionSetOutfit(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  // 🆕 self=true：換的是御主本人(鑑賞御主卡「換裝」鈕)，直接鎖定自己這列，不查從者
+  // self=true：換的是御主本人(鑑賞御主卡「換裝」鈕)，鎖定自己這列，不查從者
   const svIdx = userData.self ? pIdx : findPlayerServantIdx_(pcData, myGameId, userData.servant);
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無此從者。" });
   pcData[svIdx][COL.PC.MEMORY] = setOutfit_(pcData[svIdx][COL.PC.MEMORY], userData.outfit); // set 內已剝分隔字元＋限 40 字
@@ -100,7 +92,7 @@ function actionSetOutfit(userData, pcId, sheets) {
   }); // 樂觀更新·前端自走輕量 syncData
 }
 
-// ⚔️ 設定從者武裝（存 MEMORY【武裝】·2026-07）：玩家自定武器/戰鬥方式，敘述以此為準(蓋過職階慣例/原典習慣)。
+// ⚔️ 設定從者武裝（存 MEMORY【武裝】）：玩家自定武器/戰鬥方式，敘述以此為準(蓋過職階慣例/原典習慣)。
 //   免費、即時、不耗 AP；留空＝清除、恢復自然演出。鏡射 actionSetOutfit。
 function actionSetWeapon(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
@@ -119,8 +111,7 @@ function actionSetWeapon(userData, pcId, sheets) {
   }); // 樂觀更新·前端自走輕量 syncData
 }
 
-// 🔒 2026-07 玩家定案「補魔太容易了」：從者不是有求必應——這是補魔／強制補魔(令咒)共用的信任門檻，
-//   單一真實來源，兩處都讀這個常數。
+// 🔒 從者不是有求必應：補魔／強制補魔(令咒)共用的信任門檻，單一真實來源，兩處都讀這個常數。
 var MANA_TRUST_BOND_ = 80;
 
 // 🔵 補魔（魔力供給）：把御主魔力導入從者，回魔＋羈絆＋fade 演出。耗 1 AP（導入魔力需時）
@@ -132,17 +123,15 @@ function actionManaSupply(userData, pcId, sheets) {
   const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可供魔。" });
   const svName = pcData[svIdx][COL.PC.NAME];
-  // 🔋 共用魔力池制：補魔＝御主硬擠魔術迴路、回滿共用池——但【永久】燒蝕：血量上限−15、迴路−3(有地板)。
-  //   過度補魔＝慢性自盡(迴路↓→池縮、回魔慢、禮裝弱)。另有「被動燃血」：池見底時 applyRegen_ 自動扣【御主】HP續契約(從者不扣血)。
+  // 補魔＝御主硬擠魔術迴路、回滿共用池——但【永久】燒蝕：血量上限−15、迴路−3(有地板)。
+  //   過度補魔＝慢性自盡(迴路↓→池縮、回魔慢、禮裝弱)。
   const CIRC_FLOOR = 8, HP_FLOOR = 40;
   const curMpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || masterPoolMax_(masterCircuits_(pcData[pIdx]), 0);
   const curMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
   if (curMp >= curMpMax) return JSON.stringify({ success: false, message: `御主的魔力儲備已然充盈，毋須補魔（免付燒蝕之代價）。` });
 
-  // 🔒 從者不是有求必應：這場「燃迴路續契約」的私密儀式須好感≥${MANA_TRUST_BOND_}(信任夠深)且魔力已
-  //   見底(≤10%上限，非隨時想補就補)才會真的同意。不合資格時不執行任何數值變更(不耗AP/不燒迴路/不動
-  //   好感)，改由AI依從者性格生成一段婉拒——理由對應「還不夠信任」或「還不到非做不可的地步」，兩者
-  //   分開給事實，避免AI編出跟實情對不上的拒絕理由。
+  // 從者不是有求必應：須好感≥MANA_TRUST_BOND_且魔力已見底(≤10%上限)才會同意；不合資格時不動任何
+  //   數值，改由AI依從者性格生成婉拒——拒絕理由區分「不夠信任」與「還不到非做不可」兩種事實，避免AI編出對不上實情的理由。
   const bondForMana = parseInt(pcData[svIdx][COL.PC.BOND]) || 0;
   const lowEnoughForMana = curMp <= curMpMax * 0.10;
   if (bondForMana < MANA_TRUST_BOND_ || !lowEnoughForMana) {
@@ -163,7 +152,7 @@ function actionManaSupply(userData, pcId, sheets) {
   if (oldCirc <= CIRC_FLOOR) {
     return JSON.stringify({ success: false, message: `你的魔術迴路已燒蝕至極限（${oldCirc} 條），再以補魔強擠恐徹底斷絕——改以靈脈／陣地／休息回魔吧。` });
   }
-  // 永久代價：迴路−3、血量上限−15（各有地板）。2026-07 加碼——補魔燒身該是「賭上未來換這一發」的重決定，非廉價回魔。
+  // 永久代價：迴路−3、血量上限−15（各有地板）——補魔燒身是「賭上未來換這一發」的重決定，非廉價回魔。
   const circCut = 3;
   const hpCut = 15;
   const newCirc = Math.max(CIRC_FLOOR, oldCirc - circCut);
@@ -203,12 +192,10 @@ function actionManaSupply(userData, pcId, sheets) {
       `★以 Fate／TYPE-MOON 筆觸描寫補魔的私密一刻被突襲打斷的驚變：魔力交融的脆弱、敵襲的兇險、${ambush.destroyed ? '從者消滅的痛楚（語氣留白）' : '從者依其性格與羈絆對此突襲的反應（重情者強撐護主、疏離者未必）'}。傷害與勝負已由系統結算。\n` +
       ``;
   } else {
-    // 🔥 2026-07 玩家定案：這個分支只在好感≥門檻且魔力見底時才會走到(見上方新增的資格檢查)——從者是
-    //   真心信任、主動託付的，敘述不再受「止於唯美曖昧」的節制，改邀AI更直接大膽地描寫這場親密；
-    //   換一顆更能承接露骨描寫的模型(deepseek，見前端manaSupply()傳的unlocked旗標→narrate(...,{deepseek:true})，
-    //   後端narrateWithState_/actionNarrateOnly接手切換，solo其餘呼叫一律不受影響)。
-    // 🧭 2026-07 玩家實測抓到「明明御主是女性、敘述卻寫成男性插入視角」的bug——同一顆事實缺口，
-    //   跟令咒兩支分支共用同一顆 sealGenderFact_(見Router_Persona.gs)，不另開一份。
+    // 此分支只在好感≥門檻且魔力見底時走到——從者是真心信任、主動託付的，敘述可更直接大膽；
+    //   換一顆更能承接露骨描寫的模型(見前端manaSupply()傳的unlocked旗標→narrate(...,{deepseek:true})，
+    //   後端narrateWithState_/actionNarrateOnly切換，solo其餘呼叫不受影響)。
+    // 性別事實與令咒兩支分支共用同一顆 sealGenderFact_(見Router_Persona.gs)，避免AI寫錯視角性別。
     const genderFactMana = sealGenderFact_(String(pcData[pIdx][COL.PC.SEX] || ""), String(pcData[svIdx][COL.PC.SEX] || ""), svName);
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【系統·補魔已結算】御主硬擠魔術迴路為「${svName}」回滿共用魔力池（${restored}/${mpMax}），代價沉重——魔術迴路永久燒蝕至 ${newCirc} 條、生命上限永久跌為 ${newMaxHp}。羈絆微升。這是「${svName}」真心信任、主動託付的私密時刻。澎湃魔力於體內鼓盪、蓄勢待發——【下一發規格外寶具可全力超載解放】。\n` +
@@ -218,10 +205,8 @@ function actionManaSupply(userData, pcId, sheets) {
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, unlocked: !ambush, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", report: ambush ? ambush.report : null, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
-// 🩹 靈基修復（2026-07 新增·原從者卡「令咒」鈕挪去御主卡後空出的欄位）：消費共用魔力池為從者療傷，
-//   回復部分氣血——不燃令咒、可重複使用，但吃掉的魔力池本可拿去放寶具/衝高出力，形成「現在回血
-//   還是留著打」的即時取捨。與令咒選單裡那個一次性全滿版(❖ 絕對修復·耗令咒·雙方回滿)刻意區隔：
-//   那個是絕對命令的孤注一擲，這個才是常態、可日常使用的手段。
+// 🩹 靈基修復：消費共用魔力池為從者療傷，不燃令咒、可重複使用，但吃掉的池本可拿去放寶具/衝高出力，
+//   形成「現在回血還是留著打」的即時取捨。與令咒選單裡一次性全滿版(❖ 絕對修復)刻意區隔，那是孤注一擲，這是常態手段。
 function actionSpiritRepair(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
@@ -280,8 +265,7 @@ function actionSpiritRepair(userData, pcId, sheets) {
   });
 }
 
-// 🩸 燃血補魔已改為【被動機制】(2026-06)：不再是主動 action。
-//   共用魔力池見底、時消耗補不上時，於 applyRegen_(Time_World) 自動「燃命續契約」——
-//   缺口÷2 全額扣【御主】HP(保底1)、從者不扣血(2026-07 玩家定案)。詳見 applyRegen_。舊主動 actionBloodSupply 已移除。
+// 🩸 燃血補魔是【被動機制】，非主動 action：共用魔力池見底時消耗補不上，
+//   applyRegen_(Time_World) 自動「燃命續契約」——缺口÷2 全額扣【御主】HP(保底1)，從者不扣血。
 
 // ── 💕 羈絆日限：記於御主 MEMORY 的【羈絆日】D:type1,type2（跨日自動重置）──

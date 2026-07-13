@@ -1,8 +1,7 @@
 // ==========================================
 // 🔴【第二部分：LLM 核心調用】Engine_Combat.gs
 //   callGeminiAPI：solo／鑑賞共用的 OpenRouter 呼叫核心，不歸屬任何單一軌道。
-//   🔀 2026-07 玩家定案「兩軌完全拆開」：鑑賞專屬的 buildDefaultSystemPrompt(含 nsfwBaseRules)
-//   已搬去 Gallery.gs(鑑賞的家)——這裡只留兩軌都會呼叫的共用基礎設施。
+//   鑑賞專屬的 buildDefaultSystemPrompt(含 nsfwBaseRules)在 Gallery.gs，這裡只留兩軌共用的基礎設施。
 // ==========================================
 
 function callGeminiAPI(prompt, systemOverride = null, config = {}) {
@@ -13,28 +12,19 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   if (!modelName) return JSON.stringify({ narration: "未設定 MODEL 指令碼屬性", options: ["重試"] });
   const temp = config.temperature !== undefined ? config.temperature : 0.8;
   const topP = config.top_p !== undefined ? config.top_p : 0.95;
-  // 🔵 2026-07 玩家反映「鑑賞速度有點慢」，查證換 DeepSeek 後主因是模型生成時間本身(大模型 vs 原本
-  //   的低延遲小模型)，max_tokens 是唯一能直接省生成時間的旋鈕——玩家定案「max_tokens改1500 他現在
-  //   不用這麼忙」：2600 這個高值原是為了容納 inner_monologue+physical_state 等結構性欄位，但實測
-  //   截斷的根因其實是萌點欄 slice 過短(見 actionBackfillKanshouAi)，不是 narration 本身需要那麼多字；
-  //   降到1500後玩家再試一輪，配合 narration 目標字數(finalJson，Gallery.gs)同步從約600字降到約500字，
-  //   繼續降到1000試看看，SFW(solo)維持2000不變。
+  // max_tokens 是能直接省生成時間的旋鈕；鑑賞(kanshou) narration 目標字數較短，上限故比 solo 低。
   const maxT = config.max_tokens || (config.isNsfwMode ? 1000 : 2000);
   const retries = config.retries || 3;
   const plainText = !!config.plainText; // 🆕 純散文模式(如奪杯回憶錄)：不強制 json_object、不抽 {…}、原樣回傳內容
   let lastErrorMessage = "";
 
-  // 🗑️ 規矩表(主線時局/異象)已移除：舊提示詞補丁，含「廝殺/謀略」等戰爭設定會漏進慾海。
-  //   雙軌分離後 solo/kanshou 不再共吃此文。(config.ignoreLaw 保留為相容無害鍵)
+  // 規矩表(戰爭向提示詞)已移除，避免漏進慾海；config.ignoreLaw 保留只是相容鍵，已無實際作用。
   let systemContent = systemOverride || buildDefaultSystemPrompt();
-  // 🎯 2026-07 玩家反映「鑑賞要台灣繁體中文」：各系統提示詞(nsfwBaseRules/miniSystem等)本身早就寫著
-  //   「強制台灣繁體中文」，但模型換成 deepseek(非 Gemini 系)後，這類以簡體語料為主訓練的模型仍容易
-  //   夾帶大陸慣用詞彙(視頻/質量/軟件/信息等)甚至簡體字，即使被要求輸出繁體也不夠可靠。在這裡(共用
-  //   的 callGeminiAPI 基礎設施，不是 nsfwBaseRules 本體)於提示詞尾端額外補強一句——放在最後，模型
-  //   對提示詞頭尾的指令通常記得更牢；solo/鑑賞兩軌都吃得到，不分軌道特判。
+  // deepseek 系模型簡體語料多，即使系統提示詞已要求繁體仍會夾帶大陸用詞；在此(共用層，非 nsfwBaseRules
+  //   本體)於提示詞尾端補強一句，頭尾指令模型記得較牢，solo/鑑賞兩軌都吃得到。
   systemContent += "\n\n【語言鐵律】全程僅使用台灣繁體中文（正體字），嚴禁簡體字、嚴禁大陸慣用詞彙（如視頻/質量/軟件/信息/內存/屏幕等），一律使用台灣在地慣用語與正體字形。";
 
-  // 🔴【替換開始】組裝原生多輪 messages 陣列
+  // 組裝原生多輪 messages 陣列
   let apiMessages = [
     { role: "system", content: systemContent }
   ];
@@ -44,17 +34,13 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   }
 
   apiMessages.push({ role: "user", content: prompt || "" });
-  // 🔴【替換結束】(payload/options 的組裝已移進下方 attemptWithModel_，隨每次嘗試的實際模型重建)
+  // payload/options 的組裝在下方 attemptWithModel_，因每次重試/換模型都要用實際模型重建
 
-  // 🔴 降階重試專用：一旦判定為審查攔截，下一次重試改塞更含蓄的筆法指令，
-  // 而非原樣重送(原樣重送對審查攔截毫無意義，只會再被擋一次)。一般網路錯誤則不降階，原樣重試即可。
+  // 判定為審查攔截時，下一次重試改用更含蓄的筆法指令；原樣重送對攔截無意義，一般網路錯誤則不降階。
   const softenSuffix = `\n\n★【降階重試】上一次輸出未通過審查判定，請改用更含蓄典雅的筆法重新演繹本回合：以景喻情、意境留白，避免直白器官名稱與動作描寫，情慾僅以氛圍、情感與感官烘托表現，其餘JSON欄位規則不變。`;
 
-  // 🔥 2026-07 玩家定案「沒點火時如果被攔截或對話失敗，改用DeepSeek」：把單一模型的完整重試迴圈包成
-  //   內部函式，讓外層可以「這顆模型全部重試失敗後，換一顆模型再試一輪」。只有呼叫端明確給了
-  //   config.fallbackModel 才會發生第二輪——目前只有鑑賞「沒點火」用 SOLO_MODEL(輕量模型，較容易撞
-  //   審查/不穩定)時會帶這個參數、逃生門是換回鑑賞原本的 AI_MODEL(DeepSeek)；solo 與鑑賞「點火」都
-  //   沒帶這個參數，行為完全不變。回傳成功文字或 null(全部重試失敗)。
+  // 單一模型的完整重試迴圈包成內部函式，讓外層能在整組重試失敗後換模型再試一輪；
+  //   只有呼叫端帶 config.fallbackModel 才會觸發第二輪，其餘呼叫行為不變。回傳成功文字或 null。
   function attemptWithModel_(model) {
     const payload = { model: model, messages: apiMessages, temperature: temp, top_p: topP, max_tokens: maxT };
     if (!plainText) payload.response_format = { type: "json_object" };
@@ -69,20 +55,14 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
         const res = UrlFetchApp.fetch(MODEL_URL, options);
         const result = JSON.parse(res.getContentText());
         if (result.error) {
-          // 🔴 Gemini審查攔截(如PROHIBITED_CONTENT)走error物件回來，格式跟finish_reason那條不同，
-          // 統一改丟"Triggered_NSFW_Filter"才能吃到下面的降階重試與柔和提示，不然會直接洩漏原始錯誤訊息給玩家
+          // Gemini 審查攔截走 error 物件、格式跟 finish_reason 那條不同，統一丟同一個錯誤才能共用降階重試與柔和提示
           const errMsg = result.error.message || "API 內部錯誤";
           if (/PROHIBITED_CONTENT|SAFETY/i.test(errMsg)) throw new Error("Triggered_NSFW_Filter");
           throw new Error(errMsg);
         }
         if (result.choices && result.choices.length > 0) {
           let choice = result.choices[0];
-          // 🐛→✅ 2026-07 稽核抓到：原本 (choice.message && !choice.message.content) 只在 message 物件
-          //   「存在但空」時才判定為審查攔截——若供應商回傳的拒答格式連 message 欄位本身都不給(不是
-          //   給空 message)，這個判斷式整體為 false，會直接落到下一行 choice.message.content 炸出
-          //   TypeError，被下面 catch 當成普通連線錯誤，跳過「降階重試(換更含蓄筆法)」的專屬處理，
-          //   最後還會把技術性錯誤訊息原樣洩漏給玩家(而非「結界觸發」的柔和訊息)。改成「message 不存在
-          //   或存在但空」都算審查攔截同一類，行為更貼近這段程式碼本來的意圖。
+          // message 欄位「不存在」與「存在但空」都要判定為審查攔截，否則前者會漏判成普通連線錯誤
           if (choice.finish_reason === "content_filter" || choice.finish_reason === "SAFETY" || !choice.message || !choice.message.content) {
             throw new Error("Triggered_NSFW_Filter");
           }
@@ -118,10 +98,7 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   if (apiResult !== null) return apiResult;
 
   const isBlocked = lastErrorMessage.includes("Triggered_NSFW_Filter") || lastErrorMessage.includes("safety");
-  // 🎭 2026-07 玩家反映「solo不想出戲」查出：這裡過去直接把 lastErrorMessage(原始連線異常/HTTP錯誤/
-  //   JSON解析失敗等技術性文字，常是英文或包含函式內部術語)嵌進 narration 欄位，當成「說書人講的話」
-  //   原樣顯示給玩家——任何一次暫時性的網路/供應商異常，就會讓故事裡冒出一句英文錯誤訊息。改成：
-  //   只在 Apps Script 執行紀錄(Logger)留一份給開發者除錯，玩家只看到貼合 Fate 世界觀的柔性重試提示。
+  // 技術性錯誤訊息只留 Logger 給開發者除錯，玩家一律只看到貼合世界觀的柔性重試提示，避免出戲。
   if (!isBlocked) { try { Logger.log("[callGeminiAPI 連線失敗] " + lastErrorMessage); } catch (e) { } }
   const fallbackNarration = isBlocked
     ? "🌸【結界觸發】妳的舉動觸動了某種微妙的禁制，此處的景象暫時被屏蔽，請再度嘗試。"
@@ -136,8 +113,7 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
 }
 
 function doGet() {
-  // 🔄 2026-07 玩家定案「試算表檢查改成純手動」：doGet 不再自動呼叫 ensureFateSheets_——改成登入
-  //   畫面一顆「檢查/建立試算表」按鈕(check_sheets action)手動觸發，見 Setup_FateWorld.gs。
+  // 不自動呼叫 ensureFateSheets_，改由登入畫面「檢查/建立試算表」按鈕(check_sheets action)手動觸發，見 Setup_FateWorld.gs。
   return HtmlService.createTemplateFromFile('Index').evaluate()
     .setTitle('命運停駐之夜')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
