@@ -21,7 +21,7 @@
 
 ## Router_Action.gs（中樞分派器）
 
-`ActionRouter`(8) 是 action 字串→handler 函式的查找表；`handleGameAction`(124) 解析 `action` 欄位後以 `ActionRouter[action]` 分派。**任何 `actionXxx` 函式只要在這張表登記，就算「被使用」**——即使全 repo 找不到其他直接呼叫（唯一呼叫路徑就是這張表的字串分派）。已逐一驗證 51 項 action 全部對應真實存在的函式，且每個 `actionXxx` 函式都有對應表項，無缺漏。
+`ActionRouter`(8) 是 action 字串→handler 函式的查找表；`handleGameAction`(124) 解析 `action` 欄位後以 `ActionRouter[action]` 分派。**任何 `actionXxx` 函式只要在這張表登記，就算「被使用」**——即使全 repo 找不到其他直接呼叫（唯一呼叫路徑就是這張表的字串分派）。已逐一驗證 53 項 action 全部對應真實存在的函式，且每個 `actionXxx` 函式都有對應表項，無缺漏（2026-07 大整理：補回先前漏列的 `kanshou_set_home_name`、`spirit_repair` 兩項，表項數由 51 修正為 53）。
 
 | action 字串 | handler | 所在檔 |
 |---|---|---|
@@ -38,6 +38,8 @@
 | kanshou_summon_hero | actionKanshouSummonHero | Gallery.gs |
 | kanshou_set_sex | actionKanshouSetSex | Gallery.gs |
 | kanshou_set_name | actionKanshouSetName | Gallery.gs |
+| kanshou_set_home_name | actionKanshouSetHomeName | Gallery.gs |
+| spirit_repair | actionSpiritRepair | Router_Bond.gs |
 | prep_meal | actionPrepMeal | Router_Movement.gs |
 | get_full_status | actionGetFullStatus | Router_Action.gs |
 | update_fate | actionUpdateFate | Router_Action.gs |
@@ -279,49 +281,105 @@
 
 ---
 
-## Gallery.gs（慾海鑑賞後日談引擎，1523行）
+## Gallery.gs（慾海鑑賞後日談引擎，1999行）
+
+2026-07 大整理：本節依 §91 駐留制大改版後全函式重新稽核，補回先前完全沒寫進工具書的經濟/日曆/橋段/商店/關係梯度層（約35項），修正3處過時事實，刪1處死碼引用。
 
 ### 帳號歸屬/資料存取helper
-- `kanshouOwnedRowIdx_`(26) — 驗證pcId是否為該帳號KPC欄連結的權威列
-- `findPlayerServant_`(36) — 找該game_id存活從者列
-- `purgeGameData_`(51) — 依game_id刪整局眾生列+清歷史+清帳號連結欄
-- `getKanshouPcSheet_`(97) — 取得/建立「鑑賞眾生」分頁
+- `kanshouOwnedRowIdx_`(12) — 驗證pcId是否為該帳號KPC欄連結的權威列
+- `findPlayerServant_`(22) — 找該game_id存活從者列
+- `purgeGameData_`(34) — 依game_id刪整局眾生列+清歷史+清帳號連結欄
+- `getKanshouPcSheet_`(78) — 取得/建立「鑑賞眾生」分頁
 
 ### 戰時→日常AI轉譯三兄弟
-- `translateLookToDaily_`(140)/`translatePersonalityToDaily_`(171)/`translateMoeToDaily_`(196) — 外貌/性格/萌點各自獨立AI呼叫轉日常版(職責分工非重複)
+- `translateLookToDaily_`(102)/`translatePersonalityToDaily_`(128)/`translateMoeToDaily_`(151) — 外貌/性格/萌點各自獨立AI呼叫轉日常版(職責分工非重複)
 
 ### 英靈殿→鑑賞眾生轉列
-- `getDailyHeroFields_`(223) — 純讀取快取日常化欄位，查無退回原始值
-- `dailySpeechByName_`(241) — 查英靈殿快取取dailyLook第3段當口吻fallback
-- `heroToKanshouRow_`(260) — 英靈殿列→鑑賞眾生同伴列(初始好感45)
+- `getDailyHeroFields_`(175) — 純讀取快取日常化欄位，查無退回原始值
+- `dailySpeechByName_`(190) — 查英靈殿快取取dailyLook第3段當口吻fallback
+- `heroToKanshouRow_`(206) — 英靈殿列→鑑賞眾生同伴列；**2026-07房東房客改版後初始好感非固定值：房客(housemate)30、其餘10**，REL_TAG對應寫「房客」或「點頭之交」，UPKEEP_WEEK寫當週(非硬編0)避免晚召喚房客被追溯欠租
+
+### 關係梯度(REL_TIER)系統
+- `KANSHOU_REL_TIER_`(272,常數) — 5階好感→REL_TAG標籤門檻表(80/60/40/20/其餘)
+- `kanshouSyncRelTier_`(283) — 若REL_TAG仍等於某階標籤(玩家未手動改過)，依當前好感自動升級到對應階層標籤
+- `kanshouRelChatCeiling_`(295) — 純聊天好感增幅上限=當前階層天花板，送禮不受限(唯一突破階層的手段)
 
 ### action Handler(皆ActionRouter註冊)
-- `actionEndRun`(78) — 結束本局，purgeGameData_，不再封存
-- `actionKanshouSummonHero` — 從英靈殿召喚英靈、讓她第一次存在於這個世界(2026-07拿掉隊伍容量上限，只能召喚一次)
-- `actionEnterKanshou` — 進入/接續後日談世界
-- `actionBackfillKanshouAi` — 背景AI潤色御主敘事欄
-- `actionKanshouCompanions` — 列出這個世界裡所有已存在的英靈(駐留清單，含各自所在地點，2026-07拿掉「同行」篩選)
-- `actionKanshouSetSex` — 切換御主性別(擋世界裡已存在的男性從者)
-- `actionKanshouSetName`(629) — 改御主名字
-- `actionPlay`(900) — 鑑賞唯一自由聊天引擎主函式
+- `actionEndRun`(60) — 結束本局，purgeGameData_，不再封存
+- `actionKanshouSummonHero`(305) — 從英靈殿召喚英靈、讓她第一次存在於這個世界(2026-07拿掉隊伍容量上限，只能召喚一次；擋男性/重複召喚/外部game的ai_gen)
+- `actionEnterKanshou`(355) — 進入/接續後日談世界；首次進入自動起始5位種子同伴(阿爾托莉雅-Saber/遠坂凜-Master/伊莉雅絲菲爾-Master/美狄亞-Caster/美杜莎-Rider)，預設出生點為「我的房間」
+- `actionBackfillKanshouAi`(473) — 背景AI潤色御主敘事欄
+- `actionKanshouCompanions`(526) — 列出這個世界裡所有已存在的英靈+各自所在地點(駐留清單，2026-07拿掉「同行」篩選與容量上限)
+- `actionKanshouSetSex`(551) — 切換御主性別(擋世界裡已存在的男性從者，掃全部已存在角色非僅同行)
+- `actionKanshouSetName`(582) — 改御主名字
+- `actionKanshouSetHomeName`(596) — 改「家」分頁顯示名稱(存MEMORY【住所】，12字上限)
+- `actionPlay`(1221) — 鑑賞唯一自由聊天引擎主函式(巨大，涵蓋以下所有子系統的即時判斷)
 
 ### 鑑賞AI核心組裝
-- `buildDefaultSystemPrompt`(664) — 組系統提示詞(nsfwBaseRules+specificRules+finalJson)
-- `dialogueFormatRule_`(內部函式) — 對話括號格式規則文字
+- `buildDefaultSystemPrompt`(622) — 組系統提示詞(nsfwBaseRules+specificRules+finalJson)
+- `dialogueFormatRule_`(680,內部函式) — 對話括號格式規則文字
 
 ### 鑑賞地點與巧遇系統
-- `KANSHOU_LOCATIONS_`(827,常數) — 10個出門走走地點清單
-- `KANSHOU_LOCATION_TAGS_`/`KANSHOU_MALE_HERO_IDS_`(常數) — 地點→巧遇對照表/保底池
-- `getKanshouMetSet_`/`addKanshouMet_` — MEMORY【邂逅】已巧遇清單get/add
-- `kanshouRollEncounter_` — 70%機率加權抽選巧遇英靈
-- `KANSHOU_ASKING_WHO_ELSE_RE_`(常數regex) — 偵測「這裡還有誰」
-- `getKanshouActiveEncounter_`/`setKanshouActiveEncounter_`/`clearKanshouActiveEncounter_` — MEMORY【邂逅中】get/set/clear
+- `getKanshouPeopleList_`(739) — 鑑賞專用精簡版同地人物清單(id/name/isExact)
+- `KANSHOU_REGIONS_`(758,常數) — 6個地圖分區標籤(家/深山町/冬木/港區/道場/出訪)，供地圖UI分組
+- `KANSHOU_LOCATIONS_`(772,常數) — **50個地點**(含分區/是否禁止巧遇旗標)，橫跨6分區(遠非舊文件寫的10個)
+- `KANSHOU_LOCATION_TAGS_`(841,常數) — 地點→英靈id加權對照表(巧遇/日常去向共用)
+- `KANSHOU_ENCOUNTER_MALE_IDS_`/`KANSHOU_ENCOUNTER_FEMALE_IDS_`(857-858,常數) — 陌生人巧遇保底池，男/女分池(舊文件僅寫錯名的男池，漏了女池)
+- `KANSHOU_HOUSEMATE_ROOMS_`(863,常數) — 3位登記為同住房客的英靈→各自房間名稱對照
+- `KANSHOU_HERO_HOME_`(917,常數) — 非房客英靈→外部住所地點字串對照
+- `getKanshouMetSet_`(931)/`addKanshouMet_`(935) — MEMORY【邂逅】已巧遇清單get/add
+- `kanshouRollEncounter_`(947) — 70%機率加權抽選巧遇英靈，排除已召喚者
+- `kanshouHeroIdByName_`(958) — 依realName候選反查SEED_SERVANTS的id
+- `getKanshouActiveEncounter_`(1184)/`setKanshouActiveEncounter_`(1188)/`clearKanshouActiveEncounter_`(1193,換地點時清) — MEMORY【邂逅中】get/set/clear
 
-### 提示詞組裝
-- `getKanshouPeopleList_`(808) — 鑑賞專用精簡版同地人物清單
+（原文件的 `KANSHOU_ASKING_WHO_ELSE_RE_` 常數已刪除：偵測「這裡還有誰」的關鍵字猜測法已在本季改為前端明確 `lookAround:true` 按鈕旗標，此常數是死引用。）
+
+### 房客日常去向系統(缺席英靈的每日/每小時定位)
+- `KANSHOU_HOUSEMATE_WANDER_CHANCE_`(964,常數) — 房客10%機率當天不待房間、外出閒晃
+- `kanshouRollDailyLocation_`(974) — 決定缺席英靈當天/當時段的位置(房客房間/外部住所/去向表加權)
+
+### 鑑賞曆法/時鐘系統
+- `KANSHOU_CAL_START_MONTH_`/`KANSHOU_CAL_START_DAY_`(999,常數) — 第1天曆法錨點=12月28日
+- `KANSHOU_DAYS_IN_MONTH_`(1000,常數) — 365天(無閏年)各月天數表
+- `KANSHOU_FESTIVALS_`(1001,常數) — 6個節日日期(元旦/情人節/七夕/中秋/聖誕/跨年)
+- `kanshouDoyOffset_`(1010) — 算月/日對應的年度天數偏移
+- `kanshouAbsDayToDate_`(1016) — 絕對天數計數器→{year,month,day}
+- `kanshouHoursUntilDate_`(1026) — 到下一次某月/日(節日跳轉)還剩幾小時
+
+### 經濟系統(2026-07「僅鑑賞恢復真經濟層」)
+- `KANSHOU_START_MONEY_`(1037,常數) — 開局起始金錢3000
+- `KANSHOU_WAGE_`(1038,常數) — 打工固定薪資800
+- `KANSHOU_WORK_HOURS_`(1039,常數) — 打工耗時4小時
+- `KANSHOU_UPKEEP_`(1040,常數，原名KANSHOU_RENT_) — 玩家每週維護/食材費1500
+- `KANSHOU_TENANT_RENT_`(1041,常數) — 每位房客每週租金800
+- `KANSHOU_TENANT_SHORT_CHANCE_`(1045,常數) — 房客20%機率該週繳不出租金
+- `KANSHOU_KNOCK_CHANCE_`(1048,常數) — 過夜結算時20%機率有訪客敲門
+- `kanshouChargeUpkeep_`(1052) — 跨週時向玩家收維護費
+- `kanshouCollectTenantRent_`(1074) — 向房客收週租，roll欠繳，寫`dirtyPcRows`確保持久化
+- `kanshouCurfewDismissed_`(1104)/`kanshouDismissCurfew_`(1108) — 門禁提醒當天是否已忽略/標記忽略
+
+### 商店/裝飾系統
+- `KANSHOU_SHOP_ITEMS_`(1117,常數) — 10項商店品項(裝飾/禮物類)，各帶價格+好感值
+- `KANSHOU_DECOR_TAG_`(1131,標籤工廠) — MEMORY【家居裝飾】存取器
+- `kanshouAddDecor_`(1132) — 把裝飾品名稱加進MEMORY【家居裝飾】清單，去重
+
+### 橋段(劇本化場景)骨架
+- `KANSHOU_SCENE_EVENTS_`(873,常數) — 橋段庫(夜襲/賴床叫醒/肉償)，各帶好感門檻分支標籤
+- `KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_`(902,常數) — 時段→房間橋段key對照(深夜→夜襲，清晨→賴床叫醒)
+- `kanshouRollSceneBranch_`(904) — 依好感門檻為指定橋段key抽出分支標籤
+- `KANSHOU_MORNING_AFTER_TAG_`(1143,標籤工廠) — MEMORY【晨間餘韻】一次性下一幕旗標存取器
+- `KANSHOU_RENT_DEBT_TAG_`(1148,標籤工廠) — MEMORY【欠租】每位房客的布林旗標存取器
+- `KANSHOU_EVENT_SEEDS_`(1152,常數) — 抵達地點時的氛圍種子句庫(日常/曖昧/情色三檔)
+- `kanshouRollEvent_`(1174) — 20%機率抽一句氛圍種子句(情色檔需driveOn開啟才會抽到)
+
+### 住所命名
+- `getKanshouHomeName_`(1199)/`setKanshouHomeName_`(1204) — MEMORY【住所】自訂「家」分頁顯示名稱get/set(預設「衛宮宅」，12字上限)
+
+### 其他共用helper
+- `kanshouNameCandidates_`(1213) — 把帶括號後綴的realName展開成可比對的名稱候選集，rel_changes/intimacy_feedback/送禮/欠租/敲門比對名字時共用
 
 ### actionPlay內部local helper(區域函式,非死碼)
-`relMemMemoryStr_`/`sanitizePhysicalState`/`processSkills`/`setSkillTag_`/`processTags` — 各司其職
+`relMemMemoryStr_`/`sanitizePhysicalState`/`sanitizeOutfitChange`/`processSkills`/`setSkillTag_`/`processTags` — 各司其職
 
 ---
 

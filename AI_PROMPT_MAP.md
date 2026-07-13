@@ -335,8 +335,6 @@ Account.gs 全部函式 **零 AI 呼叫**——單純帳號/存檔/歷史記錄�
 |---|---|---|---|
 | `account_login` | 登入畫面「進　入」（Index:19/Onboarding:15） | `actionAccountLogin` | 否 |
 | `account_new_game` | 「🔥 開啟新的聖杯戰爭」（Index:28/Onboarding:38） | `actionAccountNewGame` | 否 |
-| `leaderboard` | 「🏆 排行榜」（Index.html） | `actionLeaderboard` | 否，唯讀跨帳號排行 |
-| `get_victory_history` | 「📜 勝利歷史」（Index.html） | `actionGetVictoryHistory` | 否，唯讀自己戰績 |
 
 Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.gs 本檔內定義，見檔案開頭已讀內容）：
 
@@ -348,9 +346,8 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 | `get_tags` | （現多由 sync 附帶，獨立呼叫見 1143） | `actionGetTags`→`buildTagsPayload_` | 否，左側狀態面板資料 |
 | `sync` | 主動刷新 | `actionSync`→`buildClientState_` | 否 |
 | `update_rel_tag` | 稱呼編輯「✏️」 | `actionUpdateRelTag` | 否，純寫表 |
-| `get_epic_history` | 抽屜「📖 個人史紀」（Index.html） | `actionGetEpicHistory`（Router_Narrative.gs） | 否，唯讀彙整 |
-| `war_chronicle` | 抽屜「📜 本場戰記」（Index.html） | `actionWarChronicle`（Router_Bond.gs） | 否，唯讀戰記列表 |
-| `war_history_list` | 「📜 戰役回顧」（Index.html） | `actionWarHistoryList`（Router_Bond.gs） | 否，唯讀歷史戰役列表 |
+
+⚠ **2026-07 大整理訂正**：本節先前列出的 `leaderboard`/`get_victory_history`/`get_epic_history`/`war_chronicle`/`war_history_list` 五個 action 及其 handler（`actionLeaderboard`/`actionGetVictoryHistory`/`actionGetEpicHistory`/`actionWarChronicle`/`actionWarHistoryList`）**已於 2026-07 玩家推翻舊方針時整套刪除**（見 `CLAUDE.md`／`HANDBOOK.md` §1：兩個唯讀視窗全砍，單人專注不做跨帳號回顧）——grep 全 `gas/` 確認零殘留，本表格已移除這幾列，避免誤導。
 
 **14 天時限中央攔截**（`handleGameAction` 內，Router_Action.gs:165-178）：非獨立 action，是 dispatcher 對所有會推進時間的動作事後檢查——一旦 `clock` 字串顯示天數 >14 且未 victory/defeat，強制補 `defeat:true` 並呼叫共用 `buildDreamPrompt_(...,'timeout')` 填 `dreamPrompt`（見 §1）。
 
@@ -365,23 +362,36 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 與 `narrate_only` 的關鍵差異：`actionPlay` **自己從零組完整 prompt**（不假手 caller），且**直接呼叫 `callGeminiAPI(prompt, null, aiConfig)`**（第二參數系統提示詞傳 `null`——所有指令混在 user prompt 內，不像 `narrate_only` 另有獨立 `miniSystem`）。
 
 組裝的事實類別：
-- 同行隊伍成員完整卡（身世/狀態/性格/特徵/萌點/關係與好感，`PROMPT_PARTY_SYSTEM`；solo 另帶六圍/氣血，鑑賞不帶）
+- **在場人物完整卡**（身世/狀態/性格/特徵/萌點/關係與好感，`PROMPT_PARTY_SYSTEM`；solo 另帶六圍/氣血，鑑賞不帶）——⚠ **2026-07 §91「駐留制」改版**：`partyRows`/`partyMembers`已不是「同行隊伍」而是**當前地點的所有已存在角色**（`LOC===curL`，按好感排序取前3張詳細卡，超過3人的第4位以後只是不進這回合的詳細卡，人不會消失也不影響劇情觸發判定），卡片標籤字面已從「同行夥伴」改為「在場人物」（`partyDetailsArr`/`PROMPT_PARTY_SYSTEM`），玩家按鍵移動不再強拉任何人同步；只有AI敘事內容講「一起移動」時才會同步當時已在場的人。
 - 玩家自身卡、近期歷史（最近 6 筆原始訊息／3輪，`getGameHistoryBatchRaw`，走 `aiConfig.chatHistory` 而非塞進 prompt 字面）
-- **🧹 2026-07 玩家定案「砍掉同地路人、開放世界無結界」**：舊版「同地路人」清單（`allLocals`/`displayPeople`）＋其好感階梯行為指令（`resistPrompt`，死仇→摯友七級）＋場景第三方交叉羈絆整套刪除。改為單純的 `backgroundCrowdStr`（★【開放世界·背景人煙】：路人可自由描寫增添生活感，但不具名、不可被指名互動、不追蹤好感）。能被指名、有名有姓、好感被記錄延續的對象，收斂為僅有**目前同行隊伍成員**（`partyRows`/`partyMembers`）。
-- **🚪🏠 2026-07 新增「巧遇開關」＋可改名的「家」移動選項**：`kanshouEncounterStr`(巧遇系統例外提示詞注入)現受`encounterOn`(讀`userData.encounter`，前端「出門走走」面板一顆checkbox、localStorage持久化)閘門，關閉時移動/原地問「還有誰」兩個擲骰點都不會觸發，但不影響已在場的`【邂逅中】`對象持續互動。`KANSHOU_LOCATIONS_`固定10地點外新增一個不在清單內、顯示名稱可由玩家自訂(MEMORY`【住所】`標記，預設「家」)的私人地點——`isHomeMove`比對成立時恆不擲骰(私人空間永不巧遇陌生人)，其餘寫LOC/同步同伴/清`【邂逅中】`的邏輯與一般地點一致。詳見 `SOLO_REFERENCE.md` §44。
-- **僅 NSFW/kanshou 模式**：同地性別配對提示、肉體狀態 JSON（2026-07 玩家定案「肉體那些欄位不需要了，只要狀態就好」：physical_state 從 6 鍵數字代碼（姿勢與動作/胸部/顏面/肉棒/蜜穴/服裝狀態）全部砍掉，簡化為單一自由文字欄，AI 自行決定每回合要不要提、提多細，不強制逐項列舉，每回合仍需據實反映最新狀態）、每位同行同伴的「身體記憶」技能標籤、敏感點、親密次數計數器、愛稱、🔥主動掌握模式段落（前端 `drive` 旗標開啟時注入——同伴依個性主動掌握節奏、攔下玩家的迴避意圖；僅鑑賞生效。⚠ 2026-07 玩家定案「隱藏點火按鈕」：`Script.html`的`applyModeUI()`已把這顆 UI 開關永久隱藏，`driveOn`現在恆為`false`——機制本身完全未動，只是玩家端已無法從介面切到🔥點火那一側，詳見 `SOLO_REFERENCE.md`）
+- **🧹 2026-07 玩家定案「砍掉同地路人、開放世界無結界」**：舊版「同地路人」清單（`allLocals`/`displayPeople`）＋其好感階梯行為指令（`resistPrompt`，死仇→摯友七級）＋場景第三方交叉羈絆整套刪除。改為單純的 `backgroundCrowdStr`（★【開放世界·背景人煙】：路人可自由描寫增添生活感，但不具名、不可被指名互動、不追蹤好感）。能被指名、有名有姓、好感被記錄延續的對象，收斂為僅有**目前在場人物**（見上）。
+- **🚪🏠 2026-07 新增「巧遇開關」＋可改名的「家」移動選項**：`kanshouEncounterStr`(巧遇系統例外提示詞注入)現受`encounterOn`(讀`userData.encounter`，前端「出門走走」面板一顆checkbox、localStorage持久化)閘門，關閉時移動/原地問「還有誰」兩個擲骰點都不會觸發，但不影響已在場的`【邂逅中】`對象持續互動。`KANSHOU_LOCATIONS_`（2026-07已擴充到**50個地點**、非10個，見 `FUNCTION_MANUAL.md`）外新增一個不在清單內、顯示名稱可由玩家自訂(MEMORY`【住所】`標記，預設「家」)的私人地點——`isHomeMove`比對成立時恆不擲骰(私人空間永不巧遇陌生人)，其餘寫LOC/清`【邂逅中】`的邏輯與一般地點一致。詳見 `SOLO_REFERENCE.md` §44。
+- **僅 NSFW/kanshou 模式**：同地性別配對提示、肉體狀態 JSON（2026-07 玩家定案「肉體那些欄位不需要了，只要狀態就好」：physical_state 從 6 鍵數字代碼（姿勢與動作/胸部/顏面/肉棒/蜜穴/服裝狀態）全部砍掉，簡化為單一自由文字欄，AI 自行決定每回合要不要提、提多細，不強制逐項列舉，每回合仍需據實反映最新狀態）、每位在場同伴的「身體記憶」技能標籤、敏感點、親密次數計數器、愛稱、🔥主動掌握模式段落（前端 `drive` 旗標開啟時注入——同伴依個性主動掌握節奏、攔下玩家的迴避意圖；僅鑑賞生效。⚠ 2026-07 玩家定案「隱藏點火按鈕」：`Script.html`的`applyModeUI()`已把這顆 UI 開關永久隱藏，`driveOn`現在恆為`false`——機制本身完全未動，只是玩家端已無法從介面切到🔥點火那一側，詳見 `SOLO_REFERENCE.md`）
 
 關鍵結構/收尾指令（逐字節錄）：
 > 【敘事法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。
 > ${backgroundCrowdStr}
-> ★【視角鎖定】：以上「同行夥伴」卡片內「自稱」只限她/他自己的引號台詞——通篇敘事旁白的「我」永遠、只能是玩家本人…（2026-07 更新：`actionPlay` 的 `isNsfwMode` 分支已全數拿掉——函式入口已擋非 `KPC_` 呼叫，這句話現在是唯一版本、不再有 solo 對應的另一分支，見 `SOLO_REFERENCE.md` §「九州經濟/生活層」）
-> ★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛，但一律不具名、不可被指名互動、不追蹤好感…
+> ★【視角鎖定】：以上「在場人物」卡片內「自稱」只限她/他自己的引號台詞——通篇敘事旁白的「我」永遠、只能是玩家本人…（2026-07 更新：`actionPlay` 的 `isNsfwMode` 分支已全數拿掉——函式入口已擋非 `KPC_` 呼叫，這句話現在是唯一版本、不再有 solo 對應的另一分支，見 `SOLO_REFERENCE.md` §「九州經濟/生活層」）
+> ★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前在場人物】；背景路人可自由描寫增添氣氛，但一律不具名、不可被指名互動、不追蹤好感…
 > 💕【鑑賞·後日談模式·最高優先級覆寫】：聖杯戰爭【早已落幕】…★【絕對禁止】任何戰鬥、廝殺、敵人、敵御主、敵從者、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅。世界是安全的。…★敘事結束停在溫柔的留白，把下一步交還御主。（**🗑️ 2026-07 清除死碼**：舊版這裡還有一句「非 kanshou」的戰鬥雙向裁決規則，靠 `isKanshou` 三元式切換——查證 `actionPlay` 入口早就強制擋非 `KPC_` 呼叫、且鑑賞唯一建列路徑 `game_id` 永遠是 `"k_"` 開頭，`isKanshou` 在這個函式裡數學上恆為 true，該死分支連同判斷變數已整段刪除，鑑賞覆寫改直接無條件套用）
 > 🚨【敘事終極警告】：1. 敘事必須在給出結果後，停在「我」的心境，將下一步交還玩家選擇！2.（`target`/`npc` JSON 欄位只能填真實在場人名，不可含對白/標點）
 
 回應解析欄位（現行 schema）：`inner_monologue`（範本第一位·強制思維鏈，後端不讀自然丟棄，第三人稱總結不可用「我」自稱避免跟 narration 視角打架，2026-07 澄清為「本回合開始前」承接自過往互動的狀態、非「本回合發生後」）／`narration`（2026-07 目標字數約600→約500字）／`location`（AI自主決定地點，不受地圖節點限制）／`options`（4類選項範本）／`intimacy_feedback`（`player`/`npcs`，各含 `physical_state`〔單一自由文字，2026-07再簡化為「只涵蓋顏面神情與衣裝狀態，≤15字」〕／`dynamic_skills`／`mutual_nicknames`〔僅npcs〕／**`attitude`〔僅npcs，2026-07新增〕**：NPC對御主當下的臨場態度，≤15字，跟好感(長期趨勢)分開追蹤，寫入`COL.PC.REL_MEM`的`[態度]`標籤，每回合覆蓋不累積，也是AI表達「認不認同」關係標籤的唯一管道）／`rel_changes`（`target`/`fav_change`。2026-07 這欄位經歷一輪來回：先是AI自己填`fav_change`整數→改成AI只填方向旗標(`tone`/`fav_dir`)、GAS對應固定±2/0→玩家「好感改回數字」定案改回`fav_change`整數，`_note`給級距指引(日常+1~2/心動+3~5，單回合上限+5)，`sanitizeAiData_`(Router_Action.gs)同步復原-100~100的clampInt防呆；**`tag`欄位2026-07玩家定案「關係改玩家決定，AI不可以改動但可以不認」整條移除**——`COL.PC.REL_TAG`從此只能由玩家透過`update_rel_tag`(既有action，這輪才第一次接上前端UI)手動更改，AI不再有任何管道寫入這個欄位，只能靠上面的`attitude`表現認不認同）。**已從 schema 移除的死欄位**：`stat_changes`、`recruited`、`events`、`new_maps`、`mentioned_names`、`log_summary`（原供交談輪數計數，查證累加出的數字從未被任何地方讀回，2026-07 整條移除）、`erogenous_zones`（2026-07 隨「窺視神髓」UI面板一併移除——那是這欄唯一的消費者，面板拿掉後即成死欄，詳見 `SOLO_REFERENCE.md`）、`major_event`（原供「未完成的約定」`[達成]xxx`/`[清空]`特殊語法，2026-07 查證發現寫入後從未被讀回餵給AI、玩家也無任何UI能查看或清空，是頭尾斷開的死路，整條移除，詳見 `SOLO_REFERENCE.md`）、`rel_changes.tag`（見上，2026-07關係改玩家決定後移除）——**solo 完全不經過這個函式**（全走 `narrate_only`）。
 
 （`nsfwBaseRules`／`buildDefaultSystemPrompt` 定義在 `Gallery.gs`——紅線①保護區塊，本文不重複貼出，只標註 `actionPlay` 有引用其機制。函式為無參數 `buildDefaultSystemPrompt()`，永遠回傳慾海版本，因為查證後這個函式現在只可能被鑑賞呼叫。詳見 `SOLO_REFERENCE.md` §0。）
+
+### 9.1 橋段(劇本化場景)：offer+accept 按鈕模式（2026-07新增，本節先前完全未記錄）
+
+四個鑑賞專屬機制共用同一形狀：**GAS 每回合重新計算是否符合觸發資格 → 資格成立才在回應 JSON 附一個 `xxxPrompt`/`xxxOffer` 欄位 → 前端只在該欄位存在時渲染按鈕 → 玩家點擊才在下一次 `send()` 帶上對應旗標 → 後端收到旗標後二次驗證資格(防直打API繞過按鈕)才真正 roll 分支、寫入 `kanshouXxxStr` 插入 prompt**。AI 從不自己決定要不要觸發這類場景，只在 GAS 已核准的分支內敘事——`DESIGN.md`「GAS掌數值、AI只說書」鐵則在鑑賞這一側的具體實作範本。
+
+| 機制 | 觸發資格(GAS判斷) | 回應附帶欄位 | 玩家按鈕→下次send()旗標 | 對應橋段/分支 |
+|---|---|---|---|---|
+| 夜襲/賴床叫醒 | 移動到`KANSHOU_HOUSEMATE_ROOMS_`房客房間、當前時段落在`KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_`(深夜/清晨)、且該房客當下確實在該房間(非移動前就已跟玩家同地點——見 `SOLO_REFERENCE.md` §90 的排序bug修正) | `roomEventOffer` | `roomEventAccept:true` | `KANSHOU_SCENE_EVENTS_.夜襲`/`.賴床叫醒`，`kanshouRollSceneBranch_`依好感roll分支；夜襲好感≥60額外設`KANSHOU_MORNING_AFTER_TAG_`供隔天第一回合帶入晨間氛圍(§81) |
+| 肉償 | 該房客`KANSHOU_RENT_DEBT_TAG_`(欠租)成立、且僅她與玩家兩人在場(`partyRows.length===1`) | `debtPaymentOffer` | `debtPayment:true` | `KANSHOU_SCENE_EVENTS_.肉償`；成功後清欠租標籤 |
+| 夜晚敲門 | 結束一天時`KANSHOU_KNOCK_CHANCE_`(20%)擲中 | `knockEvent`(既有機制，非本輪新增) | `knockAccept:true`(同意)／`skipKnockCheck:true`(略過) | 對應訪客建立/移入 |
+| 門禁提醒 | 晚間超過門禁時段且當日尚未忽略過 | `curfewPrompt`(既有機制，非本輪新增) | `dismissCurfew:true` | 純提醒，無劇情分支 |
+
+`Script.html`／`Script_Kanshou.html` 的 `send()` 函式簽名已因這四個機制累積到 16 個位置參數(`customMsg, isSilent, combatData, moveTarget, lookAround, endDay, advanceHours, jumpFestival, work, buyItem, giftTarget, knockAccept, skipKnockCheck, dismissCurfew, debtPayment, roomEventAccept`)——新增第5個此類機制前，應考慮改成單一 options 物件而非繼續疊加位置參數(工程準則「易維護」)。
 
 ---
 
@@ -415,7 +425,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 
 ## 附：純機制、完全不叫 AI 的 action 總表（快速核對用）
 
-`check_name`、`get_full_status`、`update_fate`、`get_tags`、`sync`、`update_rel_tag`、`create`、`get_heroes`、`get_masters`、`get_map_nodes`、`set_servant_output`、`set_mage_realm`、`set_rune_mode`、`set_np_choice`、`account_login`、`account_new_game`、`get_victory_history`、`leaderboard`、`war_chronicle`、`war_history_list`、`get_epic_history`、`purge_orphans`、`dev_seed_gallery`、`dev_resync_codex`、`enter_kanshou`、`kanshou_companions`、`kanshou_summon_hero`、`kanshou_set_name`、`kanshou_set_sex`、`kanshou_set_home_name`（2026-07新增，「出門走走」面板的「家」選項改名，寫進 MEMORY【住所】標記，見 `SOLO_REFERENCE.md` §44）。
+`check_name`、`get_full_status`、`update_fate`、`get_tags`、`sync`、`update_rel_tag`、`create`、`get_heroes`、`get_masters`、`get_map_nodes`、`set_servant_output`、`set_mage_realm`、`set_rune_mode`、`set_np_choice`、`account_login`、`account_new_game`、`purge_orphans`、`dev_seed_gallery`、`dev_resync_codex`、`enter_kanshou`、`kanshou_companions`、`kanshou_summon_hero`、`kanshou_set_name`、`kanshou_set_sex`、`kanshou_set_home_name`（2026-07新增，「出門走走」面板的「家」選項改名，寫進 MEMORY【住所】標記，見 `SOLO_REFERENCE.md` §44）。（`leaderboard`／`get_victory_history`／`get_epic_history`／`war_chronicle`／`war_history_list` 已整套刪除，見 §8 訂正說明，不再列於此。）
 
 （`set_servant_output`／`set_mage_realm`／`set_rune_mode`／`set_np_choice` 這 4 個是戰鬥前的**純數值檔位切換**——性質等同選單勾選，不是敘事時刻，刻意不接 AI：接了反而每次調檔位都要多等一次生成、拖慢戰鬥節奏，也沒有畫面可演。)
 
