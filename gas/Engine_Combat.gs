@@ -5,7 +5,7 @@
 // ==========================================
 
 function callGeminiAPI(prompt, systemOverride = null, config = {}) {
-  if (!API_KEY) return JSON.stringify({ narration: "未設定 API_KEY", options: ["重試"] });
+  if (!OPENROUTER_API_KEY) return JSON.stringify({ narration: "未設定 OPENROUTER_API_KEY", options: ["重試"] });
 
   if (typeof config === "number") config = { retries: config };
   const modelName = config.model || AI_MODEL;
@@ -52,7 +52,7 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
     if (!plainText) payload.response_format = { type: "json_object" };
     const options = {
       method: "post", contentType: "application/json",
-      headers: { "Authorization": "Bearer " + API_KEY },
+      headers: { "Authorization": "Bearer " + OPENROUTER_API_KEY },
       payload: JSON.stringify(payload), muteHttpExceptions: true
     };
     let softened = false;

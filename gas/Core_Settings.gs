@@ -3,14 +3,9 @@
 // 🔴【第一部分：基礎設定、ORM 映射與數值統計核心】Core_Settings.gs
 // ==========================================
 
-// 🔵 金鑰相容：舊版原本叫 API_KEY，FATE Script 存的是 OPENROUTER_API_KEY；兩個名字都吃，免改 Script 屬性
-const API_KEY = (function () {
-  var p = PropertiesService.getScriptProperties();
-  return p.getProperty('API_KEY')
-      || p.getProperty('OPENROUTER_API_KEY')
-      || p.getProperty('OPENROUTER_KEY')
-      || p.getProperty('OPENROUTER')
-      || '';
+// 🔵 2026-07 玩家定案：只認 OPENROUTER_API_KEY 這一個指令碼屬性名稱，舊的相容別名一併砍除。
+const OPENROUTER_API_KEY = (function () {
+  return PropertiesService.getScriptProperties().getProperty('OPENROUTER_API_KEY') || '';
 })();
 const MODEL_URL = "https://openrouter.ai/api/v1/chat/completions";
 // 預設值直寫程式碼(圖方便測試不必進 Apps Script 改屬性)；MODEL 指令碼屬性仍優先生效，未設定才落回此預設值。

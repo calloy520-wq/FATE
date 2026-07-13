@@ -2088,3 +2088,18 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **未動的部分**：`nsfwBaseRules`常數逐字元核對未受影響(本輪未觸及Engine_Combat.gs/Gallery.gs)。`kanshouJumpFestival`/`KC_FESTIVALS_`/後端`kanshouHoursUntilDate_`等節慶功能本體邏輯一行未改，純粹是入口位置搬家。
 
 **驗證**：`bash check.sh`全過。部署後建議測試：①地圖頁不再顯示節慶按鈕，5個分區分頁排版恢復正常(不再因為版面被擠而跑版)；②點＋開啟抽屜，能看到新的「🎊快轉節慶」項目(僅鑑賞模式顯示，solo模式不出現)；③點擊後彈出節慶選擇彈窗、抽屜自動收合；④點任一節慶按鈕仍能正常觸發時間快轉(行為與§68一致)；⑤點「關閉」或彈窗外側能正常關閉彈窗。
+
+## §73 API金鑰指令碼屬性只認`OPENROUTER_API_KEY`，砍除舊相容別名（2026-07・玩家「我們先把專案設定API_KEY名稱改成OPENROUTER_API_KEY」→「只要保留OPENROUTER_API_KEY這個就好，其他的我確定不需要了，可以砍」）
+
+**背景**：`Core_Settings.gs`原本的`API_KEY`常數(JS內部變數名，跟真正配置的指令碼屬性名稱是兩件事)為了相容舊版設定，會依序嘗試4種指令碼屬性名稱(`API_KEY`/`OPENROUTER_API_KEY`/`OPENROUTER_KEY`/`OPENROUTER`)，但實際FATE Script真正配置的屬性名稱只有`OPENROUTER_API_KEY`一種。玩家確認不需要再相容其餘3種舊別名，直接砍掉。
+
+**改動**：
+1. **`Core_Settings.gs`**：JS常數名稱從`API_KEY`改成`OPENROUTER_API_KEY`(跟指令碼屬性名稱一致，減少「同名不同義」的混淆)，屬性查詢從4個候選名稱簡化成只認`OPENROUTER_API_KEY`一個。
+2. **`Engine_Combat.gs`**：`callGeminiAPI`裡兩處使用點(`if (!API_KEY)`判斷、`"Bearer " + API_KEY`組headers)同步改名成`OPENROUTER_API_KEY`；未設定時的錯誤訊息文字也同步更新成「未設定 OPENROUTER_API_KEY」。
+3. **`server.ts`(AI Studio本地模擬層)同步簡化**：`PropertiesService.getScriptProperties().getProperty`原本對4個舊別名都特判轉發到`process.env.OPENROUTER_API_KEY`，現在只保留`OPENROUTER_API_KEY`這一個特判，跟`.gs`代碼實際會查詢的屬性名稱完全對齊——這正是玩家先前關心的「兩邊要維持行為一致」的具體實踐：`.gs`改了，模擬層也要跟著改，不能只改一邊。
+
+**設計理由**：「常數名稱＝實際配置的屬性名稱」這件事本身就是消除混淆的重要一步——改之前光是JS變數`API_KEY`跟同名的舊指令碼屬性`'API_KEY'`容易讓人誤以為兩者永遠等價，但實際上專案真正在用的是`OPENROUTER_API_KEY`這個屬性。玩家確認沒有任何舊部署還依賴那3個別名，直接砍掉降低維護面，不留「可能有人在用、不敢刪」的臆測性相容代碼。
+
+**未動的部分**：`nsfwBaseRules`常數逐字元核對未受影響(Engine_Combat.gs的改動只在`callGeminiAPI`頂部/headers兩處變數名，不觸及`nsfwBaseRules`本體)。`MODEL`/`SOLO_MODEL`/`UNLOCKED_MODEL`這三個指令碼屬性維持原樣(各自本來就只認一個名稱，沒有相容別名問題)。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0；`nsfwBaseRules`逐字元核對 identical；`node --experimental-strip-types --check server.ts`語法檢查通過；全專案`grep`確認沒有殘留任何`API_KEY`舊變數名引用。部署前記得確認GAS專案的「指令碼屬性」畫面裡`OPENROUTER_API_KEY`這個名稱本身有正確設定好金鑰值(其餘`MODEL`/`SOLO_MODEL`/`UNLOCKED_MODEL`為選填，沒設定會退回程式碼內建的預設模型)。

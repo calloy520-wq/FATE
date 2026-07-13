@@ -194,7 +194,9 @@ function buildSandbox(store: any, onSave: () => void) {
     getScriptProperties: () => {
       return {
         getProperty: (key: string) => {
-          if (key === 'API_KEY' || key === 'OPENROUTER_API_KEY' || key === 'OPENROUTER_KEY' || key === 'OPENROUTER') {
+          // 2026-07：gas/Core_Settings.gs 只認 OPENROUTER_API_KEY 這一個指令碼屬性名稱，舊的
+          // 相容別名已砍除，這裡比照只保留這一個特判。
+          if (key === 'OPENROUTER_API_KEY') {
             return process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY || '';
           }
           return process.env[key] || '';
