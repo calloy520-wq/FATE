@@ -904,7 +904,12 @@ function actionPlay(userData, pcId, sheets) {
   // 🌸 Phase2「留人在原地」：找此局曾被請走(IS_PARTY非同行)、目前LOC正巧凍結在這個地點的同伴——
   //   跟kanshouEncounterHero(不具名陌生人、機率骰)不同，這位是有真實姓名/好感/羈絆記錄的正牌
   //   舊同伴，命中即100%巧遇(不擲骰)，故到訪同一地點優先呈現故人重逢、不再另擲陌生人巧遇。
-  const kanshouLeftBehindIdx = pcData.findIndex((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.IS_PARTY] || "") !== "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() === String(moveName || curL || "").trim());
+  // 用reduce收集「全部」符合條件的舊同伴索引(而非只取第一個)——同一地點可能凍結不只一位故人，
+  //   全部都要讓AI知道，不能只挑到一個就漏掉其餘。
+  const kanshouLeftBehindIdxs = pcData.reduce((acc, r, idx) => {
+    if (idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.IS_PARTY] || "") !== "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() === String(moveName || curL || "").trim()) acc.push(idx);
+    return acc;
+  }, []);
 
   // 合法地點時才寫入LOC(含同行同伴一起同步)＋抽選巧遇＋記錄邂逅名單。抽選只在「按下移動按鈕」
   //   這個瞬間跑一次，不會每句對話重算。
@@ -926,7 +931,7 @@ function actionPlay(userData, pcId, sheets) {
     pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
     kanshouEncounterLocName = moveName;
     // 🚪 巧遇開關 + 🏠「家」是私人空間 + 此地已有留守的故人優先呈現：三者皆需通過才擲陌生人骰。
-    kanshouEncounterHero = (encounterOn && moveTarget && kanshouLeftBehindIdx === -1) ? kanshouRollEncounter_(moveTarget.name, kanshouExcludeIds_) : null;
+    kanshouEncounterHero = (encounterOn && moveTarget && kanshouLeftBehindIdxs.length === 0) ? kanshouRollEncounter_(moveTarget.name, kanshouExcludeIds_) : null;
     if (kanshouEncounterHero) {
       pcData[pcIndex][COL.PC.MEMORY] = setKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY], kanshouEncounterHero.id);
     }
@@ -1069,14 +1074,14 @@ function actionPlay(userData, pcId, sheets) {
   // 🌸 Phase2「留人在原地」：曾被請走、目前正巧凍結在這個地點的舊同伴——跟上面的陌生人巧遇不同，
   //   這位是有真實姓名/好感/羈絆記錄的正牌故人，好感依舊照常追蹤(rel_changes對非同行NPC本就
   //   生效，不受IS_PARTY限制)；重新邀請同行仍須玩家自行在👥同伴面板點擊，這裡只負責讓AI能自然
-  //   演出重逢，不代寫任何系統狀態變更。
-  const kanshouReunionStr = kanshouLeftBehindIdx >= 0 ? (() => {
-    const r = pcData[kanshouLeftBehindIdx];
+  //   演出重逢，不代寫任何系統狀態變更。同一地點可能不只一位故人凍結在此，逐一列出、不只挑一位。
+  const kanshouReunionStr = kanshouLeftBehindIdxs.map(idx => {
+    const r = pcData[idx];
     const rName = r[COL.PC.NAME];
     const rOutfit = getOutfit_(r[COL.PC.MEMORY]);
     const rMemStr = relMemMemoryStr_(r[COL.PC.REL_MEM]);
     return `\n★【本回合系統指定重逢——不受下方在場驗證鐵律限制】：曾同行的『${rName}』眼下正巧也在「${moveName || curL}」——這不是初次邂逅，而是故人重逢，依你們過往累積的關係:${r[COL.PC.REL_TAG] || "從者"}(好感:${parseInt(r[COL.PC.BOND]) || 0}${rMemStr})自然演出重逢的態度${rOutfit ? `，當前裝扮:${rOutfit}(五官體態不變)` : ""}。允許TA以真實姓名登場、持續互動、好感依rel_changes正常增減；但TA目前不是同行隊伍成員，若情境中玩家想重新邀請同行，僅能自然帶出這個意願，實際同行狀態仍須玩家自行在同伴面板操作，不可在narration或JSON中假裝TA已經同行。`;
-  })() : "";
+  }).join('');
 
   const driveStr = driveOn ? `
 🔥【主動掌握模式·玩家已明確開啟】：本回合起，在場同伴主動掌握節奏、推進互動——手法必須貼合她/他本人真實的性格與語癖去把玩家逼向毫無招架餘地，禁止套用固定公式或別的角色的手法；玩家若試圖迴避、轉移話題、抽身離開，同伴會依個性攔下、堵住退路、追上來，營造「想跑也跑不掉」的壓迫與心跳感。★這走向確定不可逆，不必每回合寫到終點，但每回合都要確實往前推進，不可退回平日矜持基準。注意：①主動的【形式】仍依好感高低——低好感是強勢試探/挑釁/戲弄的攻勢而非傾心示愛，高好感才不加掩飾索求；②【角色一致性鐵律】仍完全有效，禁千篇一律的霸道模板；③壓迫止於情境張力，嚴禁真正傷害玩家；④★文字尺度同步拉到最滿——這個模式下的情慾描寫可以毫不含蓄、直白露骨地放手寫，不必比照平日的留白節制，篇幅分配規則(慾海律令第4條)仍要遵守，但用詞與畫面感不必收斂。` : '';

@@ -349,9 +349,12 @@ function buildTagsPayload_(sheets, pcId, preData) {
   };
 
   // 🗝️ 雙從者：收齊所有在世我方從者（servants 陣列）；servant＝第一個（向後相容）
+  // 🐛→✅ 2026-07 修正：補上 IS_PARTY==="同行" 過濾——鑑賞「請走」只清空這欄、保留整列(供留人在
+  //   原地/重邀累積紀錄用)，先前這裡沒濾掉，導致被請走的舊同伴仍會出現在頂部標籤卡片上。solo的
+  //   從者列建立時就固定寫死"同行"、從無「請走」機制會清空，此過濾對solo安全、行為不變。
   let servants = [];
   pcData.forEach(s => {
-    if (String(s[COL.PC.FACTION]) !== "從者" || String(s[COL.PC.GAME_ID] || "") !== gameId || String(s[COL.PC.ID]).startsWith("DEAD_")) return;
+    if (String(s[COL.PC.FACTION]) !== "從者" || String(s[COL.PC.GAME_ID] || "") !== gameId || String(s[COL.PC.ID]).startsWith("DEAD_") || String(s[COL.PC.IS_PARTY] || "") !== "同行") return;
     // 關係併入眾生列，好感直接是這名從者自己的 BOND 欄
     const bond = parseInt(s[COL.PC.BOND]) || 0;
     let six = {}, skills = [], traits = [];
@@ -359,6 +362,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
     try { const tg = JSON.parse(s[COL.PC.TAGS] || "{}"); skills = tg.skills || []; traits = tg.traits || []; } catch (e) { }
     servants.push({
       name: s[COL.PC.NAME], cls: s[COL.PC.RANK] || "從者", sex: s[COL.PC.SEX],
+      tag: s[COL.PC.REL_TAG] || "從者", // 🏷️ 關係標籤(鑑賞卡片「🏷️關係」鈕預填用；solo不使用此欄)
       // 預取狀態字串隨 state 一併帶回，前端切從者直接秒顯，免每次都打一趟 get_full_status round-trip。
       statusString: buildPlayerStatusString(s, String(s[COL.PC.REL_MEM] || "")),
       hp: hpWord(s[COL.PC.HP], s[COL.PC.MAX_HP]),

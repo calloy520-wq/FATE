@@ -1816,3 +1816,19 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **未動的部分**：`nsfwBaseRules`常數本體逐字元核對未受影響；`actionKanshouSummonHero`(重邀復活舊列的邏輯)/`actionKanshouRemove`(退出同行、保留列凍結LOC的邏輯)完全未動，Phase 2直接複用這兩顆既有函式的既定行為，只是新增「呈現」層讓AI知道可以自然演出重逢；玩家設計文件提到的「直接移動/慢慢走」選項與時間判斷機制，玩家已明確表示「後續再看要不要做」，本輪未實作。
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0；`nsfwBaseRules`常數逐字元比對前後IDENTICAL。部署後建議測試：①切換分區按鈕清單正確跟著換；②請走一位同伴後，移動到TA被留下的地點，確認AI有演出重逢而非把TA當陌生人；③多次「出門走走」觀察巧遇對象確實會出現女性英靈，且已同行的英靈不會又以陌生人身分重複出現；④點擊「看看四周還有沒有其他人」按鈕能觸發巧遇重擲、且不移動地點。
+
+## §56 留人重逢支援多人同地點＋修正被請走的同伴仍賴在頂部標籤卡片的bug＋請走/關係按鈕搬上卡片（2026-07・玩家「如果不同行但同地點 AI能知道這地點還有誰嗎?!」＋「請走和關係按鈕 做到 標籤的卡片上?」）
+
+**背景**：§55上線後玩家追問兩件事：①留人重逢(`kanshouLeftBehindIdx`)當初用`findIndex`只抓「第一位」符合條件的舊同伴，若同一地點凍結不只一位故人，只有一位會被AI知道，其餘形同不存在；②想把原本只在👥同伴面板才有的「請走」「🏷️關係」按鈕，直接做到頂部常駐的「標籤」卡片(從者卡)上，不必開面板才能操作。
+
+**改動**：
+
+1. **多位留人重逢（`gas/Gallery.gs`）**：`kanshouLeftBehindIdx`(單一index，`findIndex`)改成`kanshouLeftBehindIdxs`(陣列，`reduce`收集全部符合條件的索引)。`kanshouEncounterHero`擲骰的跳過條件從`=== -1`改成`.length === 0`；`kanshouReunionStr`從單一物件的立即函式改成`.map(idx => ...).join('')`，同一地點有幾位故人就注入幾段重逢提示，不再只挑一位。
+
+2. **修正「請走」後仍賴在頂部卡片的bug（`gas/Router_Action.gs` `buildTagsPayload_`）**：查證後發現這是既有bug——`servants.push`的收集條件原本只濾`FACTION==="從者"`＋同game_id＋非`DEAD_`，完全沒濾`IS_PARTY`。鑑賞「請走」(`actionKanshouRemove`)只清空`IS_PARTY`、保留整列(供留人在原地/重邀用)，導致被請走的同伴其實仍會被這個過濾條件收進`servants`陣列、繼續顯示在遊戲頂部常駐的「標籤」卡片上，不會真的消失。補上`IS_PARTY==="同行"`過濾修正；solo的從者列建立當下就寫死"同行"且從無任何路徑清空這欄(全代碼庫查證只有kanshou的`actionKanshouRemove`會清空)，此過濾對solo安全、行為不變。順手在`servants.push`補上`tag: s[COL.PC.REL_TAG] || "從者"`欄位，供下一步的卡片按鈕使用。
+
+3. **請走／關係按鈕搬上卡片（`gas/Script.html` `buildSvCard`鑑賞分支）**：在既有「👗換裝／📜詳細狀態」按鈕列下方，新增第二列「🏷️關係／請走」按鈕，直接呼叫既有的`kanshouEditRelTag`/`kanshouRemove`(定義在`Script_Kanshou.html`，同頁全域作用域，兩檔本就恆同時載入、互叫無礙)——不重寫任何後端邏輯或新增action，純粹讓玩家不必開👥同伴面板也能操作。名字旁的好感數值也順手補上關係標籤文字(`💗32 · 戀人`)，方便玩家不開詳細狀態就能看到目前關係。👥同伴面板(`kc-overlay`/`renderKcPartyList_`)本身完全未動，兩處按鈕呼叫同一個後端action、行為一致。
+
+**未動的部分**：`actionKanshouRemove`/`actionKanshouSummonHero`/`kanshouEditRelTag`/`update_rel_tag`底層邏輯完全未改，只是新增呼叫入口與修正上游過濾條件；`nsfwBaseRules`常數本體逐字元核對未受影響。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。部署後建議測試：①同一地點刻意留下2位以上故人(在該地點依序請走多位)，重返時確認narration有提及全部、不只一位；②請走一位同伴後，確認TA立刻從頂部標籤卡片消失(不再賴著顯示)；③在標籤卡片直接點「請走」「🏷️關係」，確認效果與開👥同伴面板操作一致(卡片消失/關係更新)。

@@ -1391,7 +1391,7 @@
             + '<div style="color:#e0a0bc; font-weight:bold; font-size:12px;">🌹 ' + s.cls + '</div>'
             // 🆕 2026-07 玩家要求「好感顯示在卡片上，放名字旁」：鑑賞卡片先前只有 solo 戰鬥卡有 bondWord() 文字，
             //   鑑賞完全沒露出好感——直接秀數值(比文字化的「羈絆」標籤更貼合玩家想看進度的訴求)。
-            + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + ' <span style="font-size:11px; font-weight:normal; color:#e0a0bc;">💗' + (s.bond || 0) + '</span></div>'
+            + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + ' <span style="font-size:11px; font-weight:normal; color:#e0a0bc;">💗' + (s.bond || 0) + ' · ' + escapeHtml(s.tag || '從者') + '</span></div>'
             + (s.outfit ? '<div style="color:#c9a0e0; font-size:11px; line-height:1.5;">裝扮　' + s.outfit + '</div>' : '')
             + kanshouStatusLines_(po)
             // 🐛→✅ 只有換裝、沒有詳細狀態鈕(2026-07 修)：玩家反映想自行微調鑑賞同伴的敘事欄(身世/特徵/個性/萌點)，
@@ -1400,6 +1400,12 @@
             + '<div style="margin-top:6px; display:flex; gap:6px;">'
             + '<button onclick="changeOutfit(\'' + safeN + '\')" title="換裝：自訂她此刻的服裝穿著，AI 會依此描寫（只換衣不換人）。免費即時、留空恢復本相。" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(150,110,190,0.18); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👗 換裝</button>'
             + '<button onclick="openStatus(\'' + safeN + '\',\'' + safeN + '\')" title="查看「' + safeN + '」的完整狀態：個性／特徵／身世／萌點／關係等，並可逆天改命微調敘事欄" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 詳細狀態</button>'
+            + '</div>'
+            // 🆕 2026-07 玩家「請走和關係按鈕做到標籤的卡片上」：原本只在👥同伴面板才能操作，這裡
+            //   直接複用既有 kanshouEditRelTag/kanshouRemove(Script_Kanshou.html)，不重寫新邏輯。
+            + '<div style="margin-top:6px; display:flex; gap:6px;">'
+            + '<button onclick="kanshouEditRelTag(\'' + safeN + '\',\'' + String(s.tag || '').replace(/'/g, '') + '\')" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(120,90,180,0.18); color:#dcc8ff; border:1px solid #6a4a9a; border-radius:6px; cursor:pointer;">🏷️ 關係</button>'
+            + '<button onclick="kanshouRemove(\'' + safeN + '\')" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(160,74,106,0.18); color:#e8b8cc; border:1px solid #8a4a5a; border-radius:6px; cursor:pointer;">請走</button>'
             + '</div>'
             + '</div>';
         }
