@@ -442,6 +442,27 @@
     await send('這次還是先留在這裡好了。', false, null, null);
   }
 
+  // 🚪 2026-07「睡覺時機率有人來敲門」：跟move proposal同款「選了才真的觸發」寫法，只是這個
+  //   是GAS機率事件(見Gallery.gs actionPlay結束一天前的擲骰)。開門帶knockAccept(把訪客接來、
+  //   不推進日期)；不予理會帶skipKnockCheck重送一次結束一天(跳過這次判定，直接推進日期)。
+  async function kanshouAnswerKnock(name) {
+    showGamePane('chat');
+    await send('打開了門，是「' + name + '」……', false, null, null, false, false, 0, null, false, null, null, name);
+  }
+  async function kanshouIgnoreKnock() {
+    await send('（決定不去開門，逕自準備歇下了）', false, null, null, false, true, 0, null, false, null, null, null, true);
+  }
+
+  // 🌙 2026-07「晚上10點強制回家/也可以在外面過夜」：不真的強制，改成提醒——「回家」重用既有
+  // moveTarget管線走回臥室(跟結束一天同一個房間)；「留在外面過夜」帶dismissCurfew，當天不再提醒。
+  async function kanshouGoHomeCurfew() {
+    showGamePane('chat');
+    await send('（時候不早了，決定回家去）', false, null, '臥室');
+  }
+  async function kanshouStayOutCurfew() {
+    await send('（決定今晚就在外面過夜了）', false, null, null, false, false, 0, null, false, null, null, null, false, true);
+  }
+
   // 同伴名單變動後的局部刷新：只重抓「鑑賞眾生在場名單」這份小資料，不再重打 get_heroes，
   // 也只重繪 party-list／hero-list 兩塊(master-box/filters 沒變，不動)。
   async function kcRefreshPartyOnly_() {

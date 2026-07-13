@@ -874,6 +874,9 @@ const KANSHOU_START_MONEY_ = 3000; // 開局起始金錢
 const KANSHOU_WAGE_ = 800;         // 打工一次的固定薪資
 const KANSHOU_WORK_HOURS_ = 4;     // 打工一次消耗的時數(比照advanceHours機制推進時鐘，非同行英靈依新時刻重骰去向)
 const KANSHOU_RENT_ = 1500;        // 每週房租(每7天扣一次)
+// 🚪 2026-07「睡覺時機率有人來敲門」玩家定案：結束一天(準備就寢)時的機率事件，命中就先不推進
+//   日期、改讓前端跳出開門/不予理會，跟房租/薪資一樣是GAS決定觸發與否，不靠AI敘事判斷。
+const KANSHOU_KNOCK_CHANCE_ = 0.2;  // 每次「結束一天」的敲門機率
 
 // 房租結算：依「新的一天」的絕對天數換算週數，跨過新一週才扣款；一次可補扣欠的多週(節慶快轉等大跳躍
 //   場景)，不逐週迭代。回傳這次實際扣了多少錢(0＝這次沒跨週、不扣)，供上層組提示詞用的flavor文字。
@@ -885,6 +888,19 @@ function kanshouChargeRent_(pcData, pcIndex, newDay) {
   pcData[pcIndex][COL.PC.MONEY] = (parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0) - amount;
   pcData[pcIndex][COL.PC.RENT_WEEK] = newWeek;
   return amount;
+}
+
+// 🌙 2026-07「晚上10點強制回家/也可以在外面過夜」玩家定案：不真的強制，改成到了宵禁時段(22:00~
+//   06:00)、人又不在家時，回應夾curfewPrompt讓前端跳出「回家/留在外面過夜」提醒(比照knockEvent
+//   同款「GAS決定觸發，前端渲染選擇」，不是AI敘事判斷)。選「留在外面過夜」當天不再重複提醒
+//   (存這遊戲日已知會過，跨日靠curDay變動自然重置，不必額外清除邏輯)。
+function kanshouCurfewDismissed_(memory, day) {
+  const m = String(memory || "").match(/【宵禁已知會】(\d+)/);
+  return !!(m && parseInt(m[1]) === day);
+}
+function kanshouDismissCurfew_(memory, day) {
+  const s = String(memory || "").replace(/｜?【宵禁已知會】\d+/, "");
+  return (s ? s + "｜" : "") + "【宵禁已知會】" + day;
 }
 
 // 🛍️ 2026-07 商店 Phase 2(玩家「都想要呢！」追加開店購物/好感禮物)：資料驅動品項表(範本比照
@@ -1052,6 +1068,34 @@ function actionPlay(userData, pcId, sheets) {
   const myGameId = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
   const sameGame = (r) => !myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId;
 
+  // 🚪 2026-07「睡覺時機率有人來敲門」：結束一天(準備就寢)前先擲一次骰，命中就不執行日期推進，
+  //   直接回傳knockEvent讓前端跳出「開門/不予理會」——玩家選「不予理會」會帶skipKnockCheck重送
+  //   一次結束一天(跳過這次判定，直接推進日期)；選「開門」則帶knockAccept把訪客接來(見下)。
+  //   候選池限「此局已建立資料列、目前不同行」的舊識，跟留人重逢共用同一種「有名有姓的熟人」精神，
+  //   不會憑空生出一個從未召喚過的陌生人半夜敲門。
+  if (userData.endDay === true && !userData.skipKnockCheck) {
+    const knockPool = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.IS_PARTY] || "") !== "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
+    if (knockPool.length && Math.random() < KANSHOU_KNOCK_CHANCE_) {
+      const visitor = knockPool[Math.floor(Math.random() * knockPool.length)];
+      return JSON.stringify({ text: "正準備歇下的時候，忽然聽見一陣輕輕的敲門聲……", knockEvent: String(visitor[COL.PC.NAME]), people: [] });
+    }
+  }
+
+  // 🚪 開門迎接深夜訪客(knockEvent選擇「開門」)：把訪客接來玩家現在的位置，本回合可指名互動
+  //   (例外，比照下方kanshouReunionStr同款寫法)，不推進日期——訪客只是這回合出現，玩家想睡
+  //   再自己重新點一次「結束一天」即可(會再擲一次骰，是否又敲門純機率、不特別排除)。
+  let kanshouKnockGuestName = "";
+  if (userData.knockAccept) {
+    const guestName = String(userData.knockAccept).trim();
+    const guestIdx = pcData.findIndex(r => kanshouNameCandidates_(r[COL.PC.NAME]).includes(guestName) && String(r[COL.PC.IS_PARTY] || "") !== "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
+    if (guestIdx !== -1) {
+      pcData[guestIdx][COL.PC.LOC] = curL;
+      dirtyPcRows.add(guestIdx);
+      kanshouKnockGuestName = String(pcData[guestIdx][COL.PC.NAME]);
+      finalUserMsg = `【玩家意圖】：打開了門，是「${kanshouKnockGuestName}」深夜來訪。`;
+    }
+  }
+
   // 🛍️ 2026-07 商店：買裝飾品/送禮物給同行夥伴。金額不足/品項不存在/送禮對象不在場——這些是
   //   GAS已經能確定答案的驗證失敗，直接回傳、不浪費一次AI呼叫；成功則組finalUserMsg照樣走完整
   //   敘事管線(比照打工/結束一天，複用既有pipeline，不另開一條平行路徑)。
@@ -1086,6 +1130,10 @@ function actionPlay(userData, pcId, sheets) {
   // 💰 2026-07 經濟層：這次呼叫若跨過房租結算週，這裡記下實際扣款金額，供下方提示詞組flavor文字；
   //   兩個分支(結束一天/推進時間)都會推進curDay，故rentCharged在if/else外先宣告、各自賦值。
   let rentCharged = 0;
+  // 💕 2026-07「好感沒到80不能同行睡覺」玩家定案：只有結束一天(真的要過夜)才判定，推進時間/打工
+  //   不觸發(那些不是「睡下去」的動作)。比照既有羈絆里程碑(30/60/90)同款「GAS掌門檻、AI只說書」
+  //   精神——門檻由GAS算好，AI只負責依角色性格自然演繹要不要跨出這一步、演到多深。
+  let intimateNightNames = [];
   if (userData.endDay === true) {
     // ⏰ 2026-07：結束一天固定跳到「隔天早上8點」(不論此刻幾點)，時鐘跟著寫回，往後「推進時間」
     //   (見下)、鑑賞主敘事的時段感提示才有真實的日/時可讀，不再只是純敘事、沒有實際時鐘的空話。
@@ -1101,6 +1149,7 @@ function actionPlay(userData, pcId, sheets) {
       dirtyPcRows.add(idx);
     });
     const partyForEndDay = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
+    intimateNightNames = partyForEndDay.filter(r => (parseInt(r[COL.PC.BOND]) || 0) >= 80).map(r => r[COL.PC.NAME]);
     // 🏠 2026-07 玩家「大家晚上都回到家裡」：不管白天晃到哪(含忽略AI提議、放置不理原地發呆)，
     //   結束一天一律強制拉回家(臥室過夜)——這是「玩家永遠有路可退」的安全閥，不必特判「玩家
     //   到底有沒有理某個提議」，同行同伴的位置本就該跟著玩家同步過去，這裡一併寫回。
@@ -1158,6 +1207,11 @@ function actionPlay(userData, pcId, sheets) {
     }
   }
   const curDateObj_ = kanshouAbsDayToDate_(curDay); // 供下方🕰️提示詞用，只算一次不重複呼叫
+
+  // 🌙 宵禁提醒「留在外面過夜」：純GAS旗標寫入，不需要等AI回應，這裡先處理掉，跟AI narration無關。
+  if (userData.dismissCurfew === true) {
+    pcData[pcIndex][COL.PC.MEMORY] = kanshouDismissCurfew_(pcData[pcIndex][COL.PC.MEMORY], curDay);
+  }
 
   // 🎨 2026-07「為何偶遇沒有女性」玩家反映：此局已經正式召喚過的英靈(不論是否仍同行)不該又以
   //   「陌生人」身分重複出現(如SABER已同行時，路上不該再巧遇一位不具名的SABER)。用真名候選比對
@@ -1348,6 +1402,12 @@ function actionPlay(userData, pcId, sheets) {
     return `\n★【本回合系統指定重逢——不受下方在場驗證鐵律限制】：曾同行的『${rName}』眼下正巧也在「${moveName || curL}」——這不是初次邂逅，而是故人重逢，依你們過往累積的關係:${r[COL.PC.REL_TAG] || "從者"}(好感:${parseInt(r[COL.PC.BOND]) || 0}${rMemStr})自然演出重逢的態度${rOutfit ? `，當前裝扮:${rOutfit}(五官體態不變)` : ""}。允許TA以真實姓名登場、持續互動、好感依rel_changes正常增減；但TA目前不是同行隊伍成員，若情境中玩家想重新邀請同行，僅能自然帶出這個意願，實際同行狀態仍須玩家自行在同伴面板操作，不可在narration或JSON中假裝TA已經同行。`;
   }).join('');
 
+  // 🚪 深夜訪客(knockAccept選擇「開門」)：跟kanshouReunionStr同款寫法，只是起因是玩家主動開門
+  //   迎接半夜敲門的訪客，而非路過巧遇。
+  const kanshouKnockGuestStr = kanshouKnockGuestName
+    ? `\n★【本回合系統指定訪客——不受下方在場驗證鐵律限制】：『${kanshouKnockGuestName}』深夜敲了門，玩家開門讓TA進來——允許TA以真實姓名登場、持續互動、好感依rel_changes正常增減；但TA目前不是同行隊伍成員，若情境中玩家想邀請同行，僅能自然帶出這個意願，實際同行狀態仍須玩家自行在同伴面板操作。`
+    : "";
+
   const driveStr = driveOn ? `
 🔥【主動掌握模式·玩家已明確開啟】：本回合起，在場同伴主動掌握節奏、推進互動——手法必須貼合她/他本人真實的性格與語癖去把玩家逼向毫無招架餘地，禁止套用固定公式或別的角色的手法；玩家若試圖迴避、轉移話題、抽身離開，同伴會依個性攔下、堵住退路、追上來，營造「想跑也跑不掉」的壓迫與心跳感。★這走向確定不可逆，不必每回合寫到終點，但每回合都要確實往前推進，不可退回平日矜持基準。注意：①主動的【形式】仍依好感高低——低好感是強勢試探/挑釁/戲弄的攻勢而非傾心示愛，高好感才不加掩飾索求；②【角色一致性鐵律】仍完全有效，禁千篇一律的霸道模板；③壓迫止於情境張力，嚴禁真正傷害玩家；④★文字尺度同步拉到最滿——這個模式下的情慾描寫可以毫不含蓄、直白露骨地放手寫，不必比照平日的留白節制，篇幅分配規則(慾海律令第4條)仍要遵守，但用詞與畫面感不必收斂。` : '';
 
@@ -1369,7 +1429,7 @@ ${PROMPT_PARTY_SYSTEM}
 【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}(當前服裝·五官體態不變)` : ""} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}${myDecor ? ` | 家中已有的擺設(僅供「家」相關場景參考，非強制每次提及):${myDecor}` : ""}
 
 ${PROMPT_REL}
-★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}${kanshouReunionStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${jumpFest ? `\n★【節慶氛圍】：今天是「${jumpFest.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。` : ""}${rentCharged > 0 ? `\n★【房租自動扣款·氛圍提示】：這次時間推進跨過了房租結算日，已自動扣款${rentCharged}円，目前餘額${parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0}円，narration可自然帶一句(如翻看帳單、嘆氣、苦笑)，不必大肆渲染；若餘額為負可自然帶出手頭吃緊的窘迫感，但不必寫成嚴重危機或懲罰劇情。` : ""}
+★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}${kanshouReunionStr}${kanshouKnockGuestStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${jumpFest ? `\n★【節慶氛圍】：今天是「${jumpFest.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。` : ""}${rentCharged > 0 ? `\n★【房租自動扣款·氛圍提示】：這次時間推進跨過了房租結算日，已自動扣款${rentCharged}円，目前餘額${parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0}円，narration可自然帶一句(如翻看帳單、嘆氣、苦笑)，不必大肆渲染；若餘額為負可自然帶出手頭吃緊的窘迫感，但不必寫成嚴重危機或懲罰劇情。` : ""}${intimateNightNames.length ? `\n★【入夜氛圍·好感門檻已達】：『${intimateNightNames.join('、')}』與你的羈絆已深(好感≥80)，今晚可以自然發展到同床共枕，依其性格自然決定要不要跨出這一步、氛圍濃烈到什麼程度，不強制每次都寫到底；好感未達此門檻的同伴，一律維持各自安睡、不越界。` : ""}
 💕【鑑賞·後日談模式·最高優先級覆寫】：${partyRows.length === 0
     ? `這裡是平行世界的和平都市日常——聖杯戰爭這回事從未在這個世界發生過，眼下沒有同行的英靈在場，就是御主一人的尋常時光。`
     : partyRows.every(r => String(r[COL.PC.ID]).indexOf("KHV_") === 0)
@@ -1606,6 +1666,13 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
     curL = pcData[pcIndex][COL.PC.LOC];
 
+    // 🌙 宵禁提醒：用最終位置(可能已被moveTarget/AI決定的location更新過)判斷，人在家(region==='home')
+    //   或今天已經知會過(留在外面過夜)就不再跳提醒。
+    const curfewLocDef = KANSHOU_LOCATIONS_.find(l => l.name === curL);
+    const isCurfewHome = !!(curfewLocDef && curfewLocDef.region === 'home');
+    const curfewDismissedNow = kanshouCurfewDismissed_(pcData[pcIndex][COL.PC.MEMORY], curDay);
+    const curfewPrompt = (!isCurfewHome && !curfewDismissedNow && (curHour >= 22 || curHour < 6)) ? true : undefined;
+
     const localPeopleList = getKanshouPeopleList_(pcId, curL, pcData);
 
     let finalResponseText = aiData.narration || "天地混沌，一片寂靜。";
@@ -1640,7 +1707,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       people: localPeopleList,
       options: aiData.options,
       tags: tagsPayload,
-      moveProposal: moveProposal || undefined
+      moveProposal: moveProposal || undefined,
+      curfewPrompt: curfewPrompt
     });
 
   } catch (e) { return JSON.stringify({ text: "系統錯誤：" + e.message, people: [] }); }
