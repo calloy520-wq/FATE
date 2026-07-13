@@ -2127,3 +2127,27 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **未動的部分**：`gas/*.gs`完全未觸及，純前端`Script.html`一處條件修正；`nsfwBaseRules`不受影響(這次改動離`Engine_Combat.gs`/`Gallery.gs`都很遠)。
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Engine_Combat.gs gas/Gallery.gs | grep -c nsfwBaseRules` = 0。部署後建議測試：①正常對話/移動/結束一天/推進時間各自單獨操作仍正常送出且能再次操作；②刻意手快連點兩個不同按鈕(如剛按完地點又馬上點推進時間)，第二次點擊應該被忽略(按鈕仍是`disabled`狀態)、不會發出第二個請求，等第一輪回應完成、按鈕解鎖後再點才會生效。
+
+## §76 鑑賞經濟層 Phase 1：金錢/打工/房租（2026-07・玩家推翻2026-06「經濟全砍」決定「真的要賺錢 然後要付住宿費用?每個禮拜要付錢?我要去打工賺錢?!」→AskUserQuestion確認「真的要有系統記錄的經濟機制」＋「僅鑑賞(kanshou)」）
+
+**背景**：CLAUDE.md 2026-06明文決定「經濟/生活層全砍」，money/shop/quest/job等一律AI即興、不寫試算表。玩家本次明確要求推翻——不是要AI敘事層面的即興演出(那本來就已支援)，是要「真的會被扣款/賺取、系統記錄」的機制，且明確限定僅套用在kanshou，不影響solo(CLAUDE.md「solo全程無花錢入口」維持不變)。CLAUDE.md本節已同步更新記錄此推翻，避免下次失憶session誤判成違反舊紅線。
+
+**Phase 1改動範圍**：金錢核心迴圈——起始金錢／打工賺錢／每週房租，其餘(開店/購物/裝飾/好感禮物/家事整潔度/任務系統)留待後續Phase。
+
+**Schema**：`Core_Settings.gs` `COL.PC`尾端新增`MONEY:33, RENT_WEEK:34`(附加尾端不動既有欄位位置，COL是位置索引)。solo(PC_)角色這兩欄恆空，只有kanshou(KPC_)御主自己這一列讀寫。
+
+**新常數**(`Gallery.gs`，緊接在`kanshouHoursUntilDate_`後)：`KANSHOU_START_MONEY_=3000`(開局起始金錢)、`KANSHOU_WAGE_=800`(打工一次固定薪資)、`KANSHOU_WORK_HOURS_=4`(打工一次消耗時數)、`KANSHOU_RENT_=1500`(每週房租)。全部固定金額、GAS掌數值(DESIGN.md「GAS掌數值、AI只說書」鐵律)，不靠AI亂喊數字。
+
+**`kanshouChargeRent_(pcData, pcIndex, newDay)`**(`Gallery.gs`)：依絕對天數換算週數(`Math.floor((day-1)/7)`)，跨過新一週才扣款(比對`RENT_WEEK`)，一次可補扣欠的多週(節慶快轉等大跳躍場景不會漏繳也不會逐週迭代)，允許餘額為負(欠繳，軟性設計、無驅逐等懲罰機制)。`actionEnterKanshou`初始化`mRow[COL.PC.MONEY]=KANSHOU_START_MONEY_, mRow[COL.PC.RENT_WEEK]=0`。
+
+**`actionPlay`整合**：房租結算呼叫點插在「結束一天」與「推進時間」兩分支各自算完`curDay`之後(兩分支都會推進日期，故都要檢查)，回傳值存進`rentCharged`供prompt組flavor文字用。💼打工是新的`userData.work===true`旗標，複用「推進時間」既有的`advanceHours`/`rollHours_`/離隊英靈重骰去向機制(視為固定`KANSHOU_WORK_HOURS_`小時的一次時間推進，不另開時鐘平行路徑)，額外執行「發薪水」(`MONEY += KANSHOU_WAGE_`)。`work`與`advanceHours`/`jumpFestival`互斥(打工優先判斷)。
+
+**prompt新增**：房租扣款時注入`★【房租自動扣款·氛圍提示】`(含扣款金額/目前餘額，容許AI帶出手頭吃緊但不寫成嚴重危機)，跟既有`jumpFest`/`kanshouEventSeed`同款「只在相關時刻才注入、非always-on」寫法。打工的敘事走`finalUserMsg`(比照結束一天/推進時間的系統合成訊息模式，AI自由發揮打工場景，只有薪資數字是GAS算好的既定事實)。
+
+**§-string顯示**：`buildPlayerStatusString`(`Core_Settings.gs`)借用位置24(原「恆空字串佔位」、前端從未讀取)塞kanshou金錢餘額，比照位置0(肉體外顯)「solo恆空/kanshou才填值」的既有模式，不新增欄位、不位移任何既有索引。前端`updateUI`(`Script.html`)新增讀取`s[24]`，顯示在`Index.html`新增的`#header-money`徽章(掛在`#topbar-kanshou`內，本來就只在鑑賞模式可見，不需額外顯示切換邏輯)。
+
+**打工按鈕**：`Index.html`新增`#drawer-job`抽屜項目(比照`#drawer-festival`同款寫法，`applyModeUI`裡加一行`isKanshou`切換)，`Script_Kanshou.html`新增`kanshouWork()`呼叫`send(..., work=true)`(`send()`簽名新增第9個參數`work`，`gasRun`payload新增`work: work || undefined`)。
+
+**未動的部分**：`nsfwBaseRules`不受影響；solo(`PC_`)角色的`MONEY`/`RENT_WEEK`兩欄恆空、`actionPlay`入口本就擋掉非`KPC_`呼叫，solo完全無感這次改動；Phase 2起(商店/購物/裝飾/好感禮物/家事整潔度/任務系統)尚未實作。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Engine_Combat.gs gas/Gallery.gs | grep -c nsfwBaseRules` = 0。部署後建議測試：①新開局鑑賞角色，頂列應顯示「💰3000」；②點＋抽屜「💼去打工」，餘額應變成3800、時鐘跳4小時；③連續推進時間跨過7天(或連點結束一天7次)，應在跨過第8天時自動扣1500房租，narration帶出房租相關flavor；④刻意讓餘額變負(狂花/多次房租)，確認不會有任何崩潰或封鎖機制，只是數字變負。

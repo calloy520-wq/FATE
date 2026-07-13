@@ -366,6 +366,9 @@ function actionEnterKanshou(userData, pcId, sheets) {
   // ⏰ 2026-07「推進時間」玩法：借用solo既有的COL.PC.DAY/HOUR欄位存鑑賞自己的時鐘，開局Day1早上8點。
   mRow[COL.PC.DAY] = 1;
   mRow[COL.PC.HOUR] = 8;
+  // 💰 2026-07 經濟層：開局給起始金錢，房租週數從0起算(進場當下必是第0週，第8天才會跨進第1週被扣款)。
+  mRow[COL.PC.MONEY] = KANSHOU_START_MONEY_;
+  mRow[COL.PC.RENT_WEEK] = 0;
   // 【帳號】標記保留供人工檢視試算表時辨識(非驗證用途，真正的歸屬判斷已走帳號表 KPC 欄位)。
   // 🆕 玩家本人也先給「日常便服」墊底，卡片才不會裝扮欄空白待換裝
   // 種子秒寫階段(AI潤色前)的預設值：平行世界框架，不斷言「曾經打過又結束了一場聖杯戰爭」。
@@ -864,6 +867,25 @@ function kanshouHoursUntilDate_(curDay, curHour, targetMonth, targetDay) {
   if (deltaDays <= 0) deltaDays += 365;
   return deltaDays * 24 - curHour;
 }
+
+// 💰 2026-07「真的要賺錢、要付住宿費」玩家定案：推翻2026-06經濟全砍決定，僅鑑賞(kanshou)恢復一套
+//   GAS掌數值(DESIGN.md鐵律：GAS掌數值、AI只說書)的極簡經濟層——固定金額，不靠AI亂喊數字。
+const KANSHOU_START_MONEY_ = 3000; // 開局起始金錢
+const KANSHOU_WAGE_ = 800;         // 打工一次的固定薪資
+const KANSHOU_WORK_HOURS_ = 4;     // 打工一次消耗的時數(比照advanceHours機制推進時鐘，非同行英靈依新時刻重骰去向)
+const KANSHOU_RENT_ = 1500;        // 每週房租(每7天扣一次)
+
+// 房租結算：依「新的一天」的絕對天數換算週數，跨過新一週才扣款；一次可補扣欠的多週(節慶快轉等大跳躍
+//   場景)，不逐週迭代。回傳這次實際扣了多少錢(0＝這次沒跨週、不扣)，供上層組提示詞用的flavor文字。
+function kanshouChargeRent_(pcData, pcIndex, newDay) {
+  const newWeek = Math.floor((newDay - 1) / 7);
+  const oldWeek = parseInt(pcData[pcIndex][COL.PC.RENT_WEEK]) || 0;
+  if (newWeek <= oldWeek) return 0;
+  const amount = (newWeek - oldWeek) * KANSHOU_RENT_;
+  pcData[pcIndex][COL.PC.MONEY] = (parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0) - amount;
+  pcData[pcIndex][COL.PC.RENT_WEEK] = newWeek;
+  return amount;
+}
 // 🎲 Phase3 輕量小事件(2026-07「可愛地圖」升級)：抵達新地點時20%機率抽一顆短句靈感種子注入
 //   提示詞，純粹給AI參考的引子(非預寫劇本、非強制發生)，AI可完全不理會，也可自然融入敘事。
 //   分三類：日常可愛/曖昧小互動 恆定開放，色氣類僅driveOn(主動掌握模式)開啟時才會抽到。
@@ -1008,6 +1030,9 @@ function actionPlay(userData, pcId, sheets) {
   //   地點×角色氛圍標籤加權挑常去的地方，查無標籤才隨機)，玩家不用手動指派——她們各自過各自
   //   的生活，下次玩家去哪個地點就可能巧遇當天在那裡的人(見留人重逢/巧遇邏輯)。
   //   ②同行同伴：跟玩家一起被強制拉回家過夜(見下)。
+  // 💰 2026-07 經濟層：這次呼叫若跨過房租結算週，這裡記下實際扣款金額，供下方提示詞組flavor文字；
+  //   兩個分支(結束一天/推進時間)都會推進curDay，故rentCharged在if/else外先宣告、各自賦值。
+  let rentCharged = 0;
   if (userData.endDay === true) {
     // ⏰ 2026-07：結束一天固定跳到「隔天早上8點」(不論此刻幾點)，時鐘跟著寫回，往後「推進時間」
     //   (見下)、鑑賞主敘事的時段感提示才有真實的日/時可讀，不再只是純敘事、沒有實際時鐘的空話。
@@ -1015,6 +1040,7 @@ function actionPlay(userData, pcId, sheets) {
     curHour = 8;
     pcData[pcIndex][COL.PC.DAY] = curDay;
     pcData[pcIndex][COL.PC.HOUR] = curHour;
+    rentCharged = kanshouChargeRent_(pcData, pcIndex, curDay);
     const offRosterForRoll = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.IS_PARTY] || "") !== "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
     offRosterForRoll.forEach(r => {
       const idx = pcData.indexOf(r);
@@ -1042,10 +1068,14 @@ function actionPlay(userData, pcId, sheets) {
     //   讓時鐘往前跳N小時；不在身邊的英靈依新時刻重骰去向(深夜/清晨時段kanshouRollDailyLocation_
     //   會偏向在家，見下)，同行同伴不受影響(位置本就跟玩家同步)。上限抓3年區間防呆，不做逐小時
     //   模擬(跳多久都是O(1)：直接算最終時刻，不必一小時一小時迭代)。
-    let advanceHours = Math.max(0, Math.min(parseInt(userData.advanceHours) || 0, 24 * 365 * 3));
+    // 💼 2026-07「打工賺錢」玩法：跟結束一天/推進時間共用同一套時鐘推進機制(work視為固定4小時的
+    //   一次時間推進，非同行英靈依新時刻重骰去向)，只是額外多做「發薪水」這一步，不另開一條時鐘
+    //   平行路徑；work旗標與advanceHours/jumpFestival互斥(打工優先，同一次呼叫不會疊加判斷)。
+    const isWork = userData.work === true;
+    let advanceHours = isWork ? KANSHOU_WORK_HOURS_ : Math.max(0, Math.min(parseInt(userData.advanceHours) || 0, 24 * 365 * 3));
     // 🎊「跳到節慶」：advanceHours未指定時，改由jumpFestival算出「到下一次該節慶還有幾小時」，
     //   算好就丟進同一套邏輯，不重複寫一次時鐘推進/地點重骰。
-    if (!advanceHours && userData.jumpFestival) {
+    if (!isWork && !advanceHours && userData.jumpFestival) {
       jumpFest = KANSHOU_FESTIVALS_.find(f => f.key === String(userData.jumpFestival)) || null;
       if (jumpFest) advanceHours = kanshouHoursUntilDate_(curDay, curHour, jumpFest.month, jumpFest.day);
     }
@@ -1055,6 +1085,7 @@ function actionPlay(userData, pcId, sheets) {
       curDay = clk.day; curHour = clk.hour;
       pcData[pcIndex][COL.PC.DAY] = curDay;
       pcData[pcIndex][COL.PC.HOUR] = curHour;
+      rentCharged = kanshouChargeRent_(pcData, pcIndex, curDay);
       const offRosterForTime = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.IS_PARTY] || "") !== "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
       offRosterForTime.forEach(r => {
         const idx = pcData.indexOf(r);
@@ -1062,9 +1093,15 @@ function actionPlay(userData, pcId, sheets) {
         dirtyPcRows.add(idx);
       });
       const newDate = kanshouAbsDayToDate_(curDay);
-      finalUserMsg = jumpFest
-        ? `【時間推進】時間一路快轉，${jumpFest.name}到了——此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`
-        : `【時間推進】${advanceHours}個小時悄悄過去，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`;
+      if (isWork) {
+        // 薪水固定金額入帳(GAS掌數值)，narration由AI依角色/地點自由發揮打工場景(AI只說書)。
+        pcData[pcIndex][COL.PC.MONEY] = (parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0) + KANSHOU_WAGE_;
+        finalUserMsg = `【玩家意圖】：去打工賺錢，忙碌了${KANSHOU_WORK_HOURS_}個小時，領到了${KANSHOU_WAGE_}円的薪水，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`;
+      } else {
+        finalUserMsg = jumpFest
+          ? `【時間推進】時間一路快轉，${jumpFest.name}到了——此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`
+          : `【時間推進】${advanceHours}個小時悄悄過去，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`;
+      }
     }
   }
   const curDateObj_ = kanshouAbsDayToDate_(curDay); // 供下方🕰️提示詞用，只算一次不重複呼叫
@@ -1279,7 +1316,7 @@ ${PROMPT_PARTY_SYSTEM}
 【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}(當前服裝·五官體態不變)` : ""} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}
 
 ${PROMPT_REL}
-★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}${kanshouReunionStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${jumpFest ? `\n★【節慶氛圍】：今天是「${jumpFest.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。` : ""}
+★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}${kanshouReunionStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${jumpFest ? `\n★【節慶氛圍】：今天是「${jumpFest.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。` : ""}${rentCharged > 0 ? `\n★【房租自動扣款·氛圍提示】：這次時間推進跨過了房租結算日，已自動扣款${rentCharged}円，目前餘額${parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0}円，narration可自然帶一句(如翻看帳單、嘆氣、苦笑)，不必大肆渲染；若餘額為負可自然帶出手頭吃緊的窘迫感，但不必寫成嚴重危機或懲罰劇情。` : ""}
 💕【鑑賞·後日談模式·最高優先級覆寫】：${partyRows.length === 0
     ? `這裡是平行世界的和平都市日常——聖杯戰爭這回事從未在這個世界發生過，眼下沒有同行的英靈在場，就是御主一人的尋常時光。`
     : partyRows.every(r => String(r[COL.PC.ID]).indexOf("KHV_") === 0)
