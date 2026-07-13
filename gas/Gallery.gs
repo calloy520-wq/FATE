@@ -247,10 +247,13 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   // PHYSICAL 留空，跟御主本人(actionEnterKanshou)一致，直到第一次 intimacy_feedback 才寫入；
   //   Router_Narrative.gs 的懶初始化會在 prompt 組裝時臨時補上，AI 不會拿到空物件。
   sRow[COL.PC.GAME_ID] = gameId;
-  // 「御主／從者」在這裡當成單純稱謂使用，不代表真的有令咒契約，跟平行世界設定不衝突；房客則
-  //   直接反映「房東房客」這層新關係定位，好感/關係標籤之後仍可依rel_changes自然演進。
+  // 🏷️ 2026-07「從者標籤？！改成點頭之交」玩家定案：非房客的初始關係標籤改成「點頭之交」，貼合
+  //   好感10的陌生程度，「從者」這個詞留給房客以外真的更熟識之後也不合適(且容易跟solo「主從」誤讀)。
+  //   關係標籤(REL_TAG)只是這裡設的起始值，之後全程只能透過actionUpdateRelTag(玩家UI手動操作)
+  //   更改——AI對這欄位完全沒有寫入權限(見下方rel_changes處理迴圈的固定行為)，GAS/玩家掌控，
+  //   不會被AI敘事悄悄帶偏。
   sRow[COL.PC.BOND] = isHousemate ? 30 : 10;
-  sRow[COL.PC.REL_TAG] = isHousemate ? "房客" : "從者";
+  sRow[COL.PC.REL_TAG] = isHousemate ? "房客" : "點頭之交";
   sRow[COL.PC.IS_PARTY] = "同行";
   sRow[COL.PC.REL_MEM] = isHousemate ? "剛搬進來的房客，房東房客的關係還很生疏" : "初次相遇，緣分才剛開始";
   // 🏠 房客的房租結算起點對齊「召喚當下的那一週」，而非恆為0——否則召喚時機晚(如第5週才召喚)會在
