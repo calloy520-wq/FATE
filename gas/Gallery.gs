@@ -453,8 +453,8 @@ function actionKanshouCompanions(userData, pcId, sheets) {
     // 請走是「保留列、只退出同行」(見 actionKanshouRemove)，故需加 IS_PARTY 過濾，避免被請走
     //   但資料仍在表上的同伴被誤判成「在場」。
     if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && String(data[i][COL.PC.IS_PARTY] || "") === "同行" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) {
-      // 面板需要顯示當前關係標籤＋好感，供玩家決定要不要改；schedule供「今日行動」排程面板預填。
-      current.push({ name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "從者"), bond: parseInt(data[i][COL.PC.BOND]) || 0, schedule: kanshouDailyScheduleTag_.get(data[i][COL.PC.MEMORY]) });
+      // 面板需要顯示當前關係標籤＋好感，供玩家決定要不要改。
+      current.push({ name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "從者"), bond: parseInt(data[i][COL.PC.BOND]) || 0 });
     }
   }
   return JSON.stringify({ success: true, current: current, max: 3 });
@@ -481,36 +481,6 @@ function actionKanshouRemove(userData, pcId, sheets) {
   }
   if (!found) return JSON.stringify({ success: false, message: "「" + rmName + "」不在場。" });
   return JSON.stringify({ success: true, removed: rmName, message: "「" + rmName + "」暫別了，隨時可再邀回（過往點滴都還在）。" });
-}
-
-// 📅 設定今天的行動排程(2026-07「文字經營」玩法)：玩家把在場同伴各自指派去一個地點(打工/活動)，
-//   寫進各自MEMORY的【今日行動】標記——只能指派「同行」中的同伴，地點需為KANSHOU_LOCATIONS_
-//   合法清單(含「家」分區的5個房間)。不改動LOC/IS_PARTY，純敘事層排程意圖，等玩家按「結束一天」
-//   (actionPlay的endDay分支)才會被讀取來生成回家事件，讀取後即清空。
-function actionKanshouSetDailySchedule(userData, pcId, sheets) {
-  var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」，見 actionKanshouSummonHero 同款註解
-  var acctName = String(userData.acctName || "").trim();
-  var assignments = userData.assignments || [];
-  var data = kpc.getDataRange().getValues();
-  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
-  var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  var applied = [];
-  assignments.forEach(function (a) {
-    var nm = String((a && a.name) || "").trim();
-    if (!nm) return;
-    var loc = String((a && a.location) || "").trim();
-    var idx = data.findIndex(function (r) {
-      return String(r[COL.PC.GAME_ID] || "") === gid && String(r[COL.PC.FACTION]) === "從者" &&
-        String(r[COL.PC.NAME]) === nm && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_");
-    });
-    if (idx < 0) return;
-    var validLoc = loc && KANSHOU_LOCATIONS_.some(function (l) { return l.name === loc; });
-    var newMem = kanshouDailyScheduleTag_.set(data[idx][COL.PC.MEMORY], validLoc ? loc : '');
-    kpc.getRange(idx + 1, COL.PC.MEMORY + 1).setValue(newMem);
-    applied.push({ name: nm, location: validLoc ? loc : "" });
-  });
-  return JSON.stringify({ success: true, assignments: applied });
 }
 
 // ⚧ 切換後日談御主 avatar 的性別（隨時可改；只動 SEX 欄，不影響從者/歷史）。pcId＝KPC_。
@@ -802,6 +772,15 @@ function kanshouRollEncounter_(locName, excludeIds) {
   const pickId = pool[Math.floor(Math.random() * pool.length)];
   return SEED_SERVANTS.find(h => h.id === pickId) || null;
 }
+// 🎲 結束一天(2026-07「不讓玩家指派，直接GAS判定」定案)：幫「不在身邊」的英靈決定隔天要去哪——
+//   反查KANSHOU_LOCATION_TAGS_裡有沒有哪些地點標到這位英靈的id(她平常會去的地方)，有就加權
+//   隨機挑一個；沒被任何地點標到就從全部地點隨機挑，不需要另外設計一套經濟/行程判定。
+function kanshouRollDailyLocation_(heroName) {
+  const hero = SEED_SERVANTS.find(h => kanshouNameCandidates_(h.realName).includes(heroName));
+  const haunts = hero ? Object.keys(KANSHOU_LOCATION_TAGS_).filter(loc => KANSHOU_LOCATION_TAGS_[loc].includes(hero.id)) : [];
+  const pool = haunts.length ? haunts : KANSHOU_LOCATIONS_.map(l => l.name);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
 // 🎲 Phase3 輕量小事件(2026-07「可愛地圖」升級)：抵達新地點時20%機率抽一顆短句靈感種子注入
 //   提示詞，純粹給AI參考的引子(非預寫劇本、非強制發生)，AI可完全不理會，也可自然融入敘事。
 //   分三類：日常可愛/曖昧小互動 恆定開放，色氣類僅driveOn(主動掌握模式)開啟時才會抽到。
@@ -862,11 +841,6 @@ function setKanshouHomeName_(memory, name) {
   const safe = String(name || "").trim().slice(0, 12) || "家";
   return (cleaned ? cleaned + "｜" : "") + "【住所】" + safe;
 }
-// 📅 MEMORY標記【今日行動】(2026-07「文字經營」玩法)：今天被玩家指派去打工/活動的地點名稱，
-//   存在該同伴自己那一列(不是玩家)——地點來自KANSHOU_LOCATIONS_合法清單(受信任的內部字串，
-//   非玩家自由輸入)，套用Core_Settings.gs既有的makeTextTag_共用工廠，不重寫一組新的get/set正則。
-//   清空排程用.set(memory, '')(makeTextTag_無clear方法，空字串等同無排程，get會讀回'')。
-const kanshouDailyScheduleTag_ = makeTextTag_('今日行動');
 // 部分英靈殿角色的 realName 帶括號附註(如「間桐櫻（黑化）」)，AI 敘事自然只會用括號前後其中
 //   一段稱呼TA，但 rel_changes[].target 等比對要求逐字完全相符——會悄悄比對失敗、整條被跳過。
 //   抽出候選字串(全名/括號前/括號內)供比對，不用改動任何一位角色的既有 realName 資料。
@@ -939,26 +913,22 @@ function actionPlay(userData, pcId, sheets) {
   const myGameId = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
   const sameGame = (r) => !myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId;
 
-  // 📅 結束一天(userData.endDay===true，2026-07「文字經營」玩法)：忽略玩家打的文字，改用系統
-  //   組好的「大家陸續回家」合成訊息，內容來自每位同行同伴今天的【今日行動】排程，各擲一次跟
-  //   移動抵達同款的氛圍種子(kanshouRollEvent_)當靈感——複用actionPlay整條既有敘事管線(在場
-  //   驗證/NSFW規則/rel_changes/intimacy_feedback全部照常跑)，不另開一條平行路徑。讀取後立刻
-  //   清空排程(直接寫回試算表)，準備明天重新安排。
+  // 📅 結束一天(userData.endDay===true，2026-07「文字經營」玩法定案「不讓玩家指派，直接GAS判定」)：
+  //   忽略玩家打的文字，改用系統組好的合成訊息——複用actionPlay整條既有敘事管線(在場驗證/NSFW
+  //   規則/rel_changes/intimacy_feedback全部照常跑)，不另開一條平行路徑。
+  //   ①不在身邊的英靈(非同行)：GAS直接幫她們決定隔天去哪(kanshouRollDailyLocation_，依既有的
+  //   地點×角色氛圍標籤加權挑常去的地方，查無標籤才隨機)，玩家不用手動指派——她們各自過各自
+  //   的生活，下次玩家去哪個地點就可能巧遇當天在那裡的人(見留人重逢/巧遇邏輯)。
+  //   ②同行同伴：位置本就恆等於玩家所在地，不需要另外擲，只在合成訊息裡提一句日夜交替的收尾。
   if (userData.endDay === true) {
+    const offRosterForRoll = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.IS_PARTY] || "") !== "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
+    offRosterForRoll.forEach(r => {
+      const idx = pcData.indexOf(r);
+      pcData[idx][COL.PC.LOC] = kanshouRollDailyLocation_(r[COL.PC.NAME]);
+      dirtyPcRows.add(idx);
+    });
     const partyForEndDay = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
-    if (partyForEndDay.length) {
-      const descLines = partyForEndDay.map(r => {
-        const loc = kanshouDailyScheduleTag_.get(r[COL.PC.MEMORY]);
-        const locDef = KANSHOU_LOCATIONS_.find(l => l.name === loc);
-        const seed = loc ? kanshouRollEvent_(driveOn) : null;
-        const part = loc ? `去了「${loc}」（${locDef ? locDef.desc : ""}）` : "留在家、沒有特別外出";
-        const idx = pcData.indexOf(r);
-        pcData[idx][COL.PC.MEMORY] = kanshouDailyScheduleTag_.set(r[COL.PC.MEMORY], '');
-        dirtyPcRows.add(idx);
-        return `『${r[COL.PC.NAME]}』今天${part}${seed ? `——氛圍靈感：${seed}` : ""}`;
-      });
-      finalUserMsg = `【一天結束・晚上回家】${descLines.join('；')}。天色已晚，大家陸續回到了家。`;
-    }
+    finalUserMsg = `【一天結束】夜幕降臨，今天到此為止${partyForEndDay.length ? `，跟『${partyForEndDay.map(r => r[COL.PC.NAME]).join('、')}』一起` : ""}靜靜地告一段落，明天又是新的一天。`;
   }
 
   // 🎨 2026-07「為何偶遇沒有女性」玩家反映：此局已經正式召喚過的英靈(不論是否仍同行)不該又以
