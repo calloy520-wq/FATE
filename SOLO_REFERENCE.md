@@ -1741,3 +1741,41 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **改動**：`gas/Gallery.gs`(1622行→1260行，註解行622→約270行；純刪減/濃縮註解，無程式碼邏輯變動，+222/-584)。
 
 **驗證**：`bash check.sh`全過；`nsfwBaseRules`常數內容逐字元比對前後IDENTICAL；`git diff`逐段人工複查確認每處改動只影響註解、未影響任何程式碼行。
+
+## §53 全代碼庫（18個剩餘.gs檔）冗長歷史敘事註解整理（2026-07・玩家「其他的檔案也比照辦理!!」）
+
+**背景**：§52 只處理了`Gallery.gs`一個檔案，玩家要求對整個代碼庫比照辦理。剩餘18個`.gs`檔（`Account.gs`/`Core_Settings.gs`/`Engine_Combat.gs`/`Engine_Fate.gs`/`History_Sync.gs`/`Mystic_Code.gs`/`Router_Action.gs`/`Router_Battle.gs`/`Router_Bond.gs`/`Router_Creation.gs`/`Router_Economy.gs`/`Router_Movement.gs`/`Router_Narrative.gs`/`Router_Persona.gs`/`Seed_Codex.gs`/`Seed_Rivals.gs`/`Setup_FateWorld.gs`/`Time_World.gs`）同樣累積了大量「2026-07 玩家反映/查出根因/改成...」格式的敘事型歷史註解。
+
+**做法**：並行派出18個獨立子代理（每個負責1~2個檔案），套用跟§52相同的WHY-only濃縮原則，並嚴格要求：①絕不觸碰任何可執行程式碼行或字串/樣板字面內容（AI提示詞、角色persona資料等）；②只刪減/改寫`//`註解；③純敘述已刪除死碼、無任何現存程式碼可錨定的註解區塊直接整段刪除；④不得commit/push、不得動`SOLO_REFERENCE.md`。特別交代的高風險檔案：`Engine_Combat.gs`(先grep確認`nsfwBaseRules`不在此檔——已搬到`Gallery.gs`，此檔只有提及該名稱的普通註解)、`Router_Narrative.gs`(內含solo的`miniSystem`系統提示詞，視同紅線保護)、`Seed_Codex.gs`/`Seed_Rivals.gs`/`Setup_FateWorld.gs`(內含大量手寫角色/世界種子資料，只能動註解不能動資料)。
+
+**集中驗證**（全部完成後統一執行，不只信任各子代理自報）：
+1. `bash check.sh`全部18檔+既有5檔（含`Gallery.gs`）全過。
+2. 逐檔用python腳本抽出「非註解、非空白行」並去除行尾`//`註解後比對修改前後——18個檔案全數回報**逐行完全一致**（`OK`），證明沒有任何程式碼、數值常數、字串或AI提示詞內容被改動，純粹是註解文字被刪減/改寫。
+3. `git diff -- gas/*.gs | grep nsfwBaseRules`顯示的5筆全部人工核對，確認皆為`Engine_Combat.gs`裡「提及這個名稱」的普通註解（說明常數已搬到`Gallery.gs`），非常數本體——`Gallery.gs`本身完全未被這輪改動觸及。
+4. `Router_Narrative.gs`的`miniSystem`常數用python逐字元比對前後版本，確認`IDENTICAL`。
+
+**結果**（行數→行數，註解行→註解行）：
+- `Account.gs`：225→203，51→30
+- `Core_Settings.gs`：725→647，240→164
+- `Engine_Combat.gs`：144→120，42→18
+- `Engine_Fate.gs`：913→868，315→270
+- `History_Sync.gs`：105→96，15→6
+- `Mystic_Code.gs`：102→96，26→20
+- `Router_Action.gs`：551→486，173→108
+- `Router_Battle.gs`：1320→1283，252→215
+- `Router_Bond.gs`：584→551，104→71
+- `Router_Creation.gs`：744→680，194→130
+- `Router_Economy.gs`：287→271，48→34
+- `Router_Movement.gs`：848→784，150→87
+- `Router_Narrative.gs`：208→166，73→35
+- `Router_Persona.gs`：218→186，72→40
+- `Seed_Codex.gs`：601→445，237→81（最大幅減少：`CODEX_PERSONA_VER`一段107行的v23~v60逐版變更史濃縮成2行、指向本筆記查歷史）
+- `Seed_Rivals.gs`：269→237，72→41
+- `Setup_FateWorld.gs`：190→165，59→35
+- `Time_World.gs`：627→599，132→104
+
+**未動的部分**：所有可執行程式碼、數值常數/公式（戰鬥平衡、AP/時鐘機制等）、所有字串/樣板字面內容（AI系統提示詞、角色persona資料、玩家可見訊息文字）——這次改動範圍嚴格限定在`//`行內註解與已死註解區塊的刪除。
+
+**改動**：18個`.gs`檔案（見上表行數變化），皆為純註解刪減/濃縮，無程式碼邏輯變動。
+
+**驗證**：`bash check.sh`全過（含既有5檔）；18檔逐一用python腳本做「去除註解後逐行比對」確認程式碼部分完全一致；`nsfwBaseRules`/`miniSystem`兩處紅線相關內容額外逐字元核對確認未受影響。

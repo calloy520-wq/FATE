@@ -1,13 +1,10 @@
 // ==========================================
 // ✨ Mystic_Code.gs — 禮裝（御主裝備）系統（Block ③-2）
-//   1 個專屬槽，存於御主 MEMORY：【禮裝】id。不佔道具欄。
-//   ▸ 取得：創角玩家自選(2026-07)。⚠ 2026-07 玩家定案：迴路/財力門檻沒意義，已取消——
-//     不論身世/迴路多少，皆可自由挑選任一款被動禮裝，不設限制。
+//   1 個專屬槽，存於御主 MEMORY：【禮裝】id。不佔道具欄，創角自選，不設迴路/財力門檻。
 // ==========================================
 
-// 📕 禮裝圖鑑（2026-06 全面被動化·玩家定案）。type:'passive' 持有即生效，戰鬥時自動加持我方從者；
-//   'special'＝破戒奪僕(另套機制)。不再有主動發動／充能／迴路門檻。
-//   fx＝戰鬥效果碼(進 MC_COMBAT_ 表)；tier＝稀有度標記(創角自選不吃這欄，目前無消費端，純資料備註)。
+// 📕 禮裝圖鑑。type:'passive' 持有即生效，自動加持我方從者；'special'＝破戒奪僕(另套機制)。
+//   fx＝戰鬥效果碼(進 MC_COMBAT_ 表)；tier 目前無消費端，純資料備註。
 var MYSTIC_CODES = {
   avalon: {
     name: '全世界之鞘 Avalon', type: 'passive', fx: 'avalon', tier: 5,
@@ -24,8 +21,7 @@ var MYSTIC_CODES = {
     desc: '聖堂教會代行者的擲擊聖鍵。輕巧的牽制掩護，讓從者出手時的命中略為提升。',
     flavor: '數柄黑色聖鍵不時自暗處激射牽制，為從者撕開一線可乘之機。'
   },
-  // ⚠ 2026-07 修(玩家要求全改官方)：查證 Rule Breaker 官方描述是「妖しく七色に輝く歪な形の短剣」
-  //   (妖異七彩流光的歪異短劍)，非紅色——全專案「緣紅短劍」的既定命名一併正名為「七彩短劍」。
+  // 官方設定 Rule Breaker 是七彩流光短劍非紅色，故正名（原「緣紅短劍」）。
   rule_breaker: {
     name: '破戒全咒 Rule Breaker（七彩短劍）', type: 'special', fx: 'rule_break', tier: 5,
     desc: '美狄亞之寶具凝成的妖異七彩短劍。能斬斷一切締約——可對「打殘(HP<35%)的敵從者」斬契奪僕，化為你的第二從者（需燃一道令咒重締）。在地圖頁／敵卡操作。',
@@ -39,9 +35,8 @@ var MC_COMBAT_ = {
   mc_blackkey:    { hit: 2, dmgAdd: 0,  npMul: 1.0,  npDefMul: 1.0,  label: '黑鍵·牽制' },
   mc_jewel_minor: { hit: 1, dmgAdd: 10, npMul: 1.0,  npDefMul: 1.0,  label: '魔力儲存寶石' },
   avalon:         { hit: 0, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.82, label: '全世界之鞘' },
-  // 🗡️ Avalon 回到正主阿爾托莉雅手中：被動＝鞘之基本減傷(×0.82·同一般 Avalon)＋時回；
-  //    「理想鄉·無敵結界」的【完全擋寶具】＝被動自動(無開關)：敵解放 6 階究極寶具(ea/enuma)且御主魔力≥100
-  //    → Router_Battle 敵擊前攔截完全擋下＋扣 100 魔（見 idealRealm 邏輯），不在此表永久生效。
+  // Avalon 回到阿爾托莉雅手中時減傷/時回同一般 avalon；理想鄉全擋 6 階究極寶具是 Router_Battle
+  // 的攔截判定(idealRealm，耗 100 魔)，不在此表常駐生效。
   avalon_saber:   { hit: 0, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.82, label: '全世界遙遠的理想鄉' }
 };
 // 取某戰鬥單位身上的禮裝戰鬥效果（找第一個命中 MC_COMBAT_ 的 fx）。回 null＝無。
@@ -58,9 +53,8 @@ function masterMysticBuffSkill_(memory) {
 }
 // 把御主禮裝被動加持注入「我方從者」戰鬥單位 c（c 由 servantRow 建；masterMemory＝其御主 MEMORY）。已注入則略過。
 function injectMysticBuff_(c, masterMemory) {
-  // 🗡️ Avalon（全世界之鞘）回到正主阿爾托莉雅手中 → 注入 avalon_saber(鞘之基本減傷 ×0.82·同一般 avalon)＋常駐時回(regen)；
-  //   「完全擋 6 階究極寶具」由 Router_Battle 理想鄉攔截(耗 100 魔)以 avalon_saber 旗標觸發，非此處乘子。
-  //   非阿爾托莉雅持 Avalon → 走下方一般 avalon(鞘之基本減傷 ×0.82·無理想鄉攔截)。
+  // 持 Avalon 的阿爾托莉雅額外標記 avalon_saber + 時回，供 Router_Battle 理想鄉攔截判定用；
+  // 非阿爾托莉雅持 Avalon 走下方一般被動(僅減傷，無理想鄉攔截)。
   if (getMystic_(masterMemory) === 'avalon' && c && /阿爾托莉雅/.test(String(c.name || '')) && String(c.cls) === 'Saber') {
     c.skills = (c.skills || []);
     if (!c.skills.some(function (s) { return s && s.fx === 'avalon_saber'; })) c.skills = c.skills.concat([{ n: '理想鄉 Avalon', r: 'A', fx: 'avalon_saber' }]);

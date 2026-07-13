@@ -9,8 +9,8 @@
 // ⚔️ 單次出擊裁決：atkC 攻擊 pcData[tgtIdx]。命中才扣血（未中＝撲空、不自傷）。
 //   處理破戒/戰鬥續行/令咒緊急脫離/十二試煉復活/死亡(敵→勝利判定；我→敗北)。
 //   opts:{np,seal,counterMul}　ctx:{myGameId,pIdx,userData}
-// 💠 「展開扣魔」防禦(七天盾)的帳單結算：引擎(fxDefApply_)只在呼叫端注入 c._shieldMp(御主純魔)時
-//   才收費並記帳於 c._shieldSpent，此處統一從御主純魔扣款落表。冪等：結算後清 _shieldSpent，重呼不重扣。
+// 💠 「展開扣魔」防禦(七天盾)的帳單結算：引擎只在呼叫端注入 c._shieldMp(御主純魔)時才收費、記帳於
+//   c._shieldSpent，此處統一從御主純魔扣款落表。冪等：結算後清 _shieldSpent，重呼不重扣。
 function settleShieldMana_(sheets, pcData, masterIdx, c) {
   var spent = c && c._shieldSpent;
   if (!spent || masterIdx == null || masterIdx < 0) return;
@@ -30,9 +30,7 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
     injectMasterMagicSupport_(defC, pcData[ctx.pIdx][COL.PC.MEMORY]); // 🔮 御主魔術支援（守方時亦生效·僅Caster）
     defC._shieldMp = parseInt(pcData[ctx.pIdx][COL.PC.MP]) || 0;
   } else if (String(pcData[tgtIdx][COL.PC.FACTION]) === "敵從者" && ctx && ctx.myGameId) {
-    // 🥋🔮 2026-07 新增：敵從者防守時也吃「自己御主」的體術/魔術支援(讀硬連結敵御主，非玩家御主)——
-    //   過去只有玩家側從者吃得到這兩項加成，敵御主(如手持寶石卻查無傷害掛鉤的遠坂凜)空有演出卡描述、
-    //   AI 沒有數值背書不敢寫她真的出手。這裡補上對稱，敵御主的能力現在也真的會反應在戰報傷害上。
+    // 🥋🔮 敵從者防守時同樣吃「自己御主」的體術/魔術支援(讀硬連結敵御主)，讓敵御主的能力也反應在戰報傷害上。
     var _eMasterMem = enemyMasterMemoryFor_(pcData, ctx.myGameId, pcData[tgtIdx]);
     if (_eMasterMem) {
       injectMasterMeleeSupport_(defC, _eMasterMem);
@@ -40,13 +38,13 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
     }
   }
   // 🍱 整備·進食加成：御主一行戰前整備過、且尚在效期內 → 從者出擊命中 +MEAL_BUFF_BONUS。
-  //   ⚠ 只屬於【我方陣營的出擊】——目標是我方從者＝攻擊者是敵人，不吃玩家的餐(2026-07 修「敵人蹭飯」)；
-  //   盟友助攻亦非御主一行，呼叫端以 opts.noMeal 排除。
+  //   ⚠ 只屬於【我方陣營的出擊】——目標是我方從者＝攻擊者是敵人，不吃玩家的餐；盟友助攻亦非御主一行，
+  //   呼叫端以 opts.noMeal 排除。
   var mealOn = false;
   if (String(pcData[tgtIdx][COL.PC.FACTION]) !== "從者" && !opts.noMeal) {
     try { mealOn = mealBuffActive_(pcData[ctx.pIdx][COL.PC.MEMORY], ctx.myGameId); } catch (e) { }
   }
-  // ❖ 令咒必中(opts.seal)已改在 resolveFateBattle_ 內部定生死(damage 屬於攻方)——勿在此事後翻 atkWins(2026-07 根源修)。
+  // ❖ 令咒必中(opts.seal)已在 resolveFateBattle_ 內部定生死(damage 屬於攻方)——勿在此事後翻 atkWins。
   var r = resolveFateBattle_(atkC, defC, { np: !!opts.np, seal: !!opts.seal, skill: opts.skill || null, ambush: !!opts.ambush, mealBuff: mealOn ? MEAL_BUFF_BONUS : 0, round: opts.round || 1 });
   // 💠 七天盾展開費結算（引擎已判付得起才展開；僅玩家側從者有 _shieldMp 會產生帳單）
   settleShieldMana_(sheets, pcData, ctx ? ctx.pIdx : -1, defC);
@@ -71,10 +69,9 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   var severed = hasFx_(atkC, 'rule_breaker') || hasFx_(atkC, 'anti_magic_lance');
   var hp = parseInt(pcData[tgtIdx][COL.PC.HP]) || 0;
   // 🐙 海怪掩護：持 summon_horror 者寶具解放後，深淵海怪在前以身擋傷——傷害先扣海怪肉身，潰散後才傷及本體。
-  //   faction 無關（玩家青鬍子／敵方青鬍子皆適用）；無「現存海怪」(未解放/已退場)時此段空轉。
-  //   ⚖️ 貫穿判定(2026-07 修)：summon_horror 在 CONCEPT_TIER 登記與 rho_aias 同 4 階(唯 6 階 ea/enuma 可貫穿 rho_aias)，
-  //   但海怪護盾原本是獨立扣血、完全不查 pierces()——沒有任何攻擊能貫穿，跟 rho_aias 走的同一套框架不一致；
-  //   改用同一份 offenseTier_/conceptTier_/PIERCE_GAP 算貫穿，高階概念寶具可比照 rho_aias 直接無視護盾。
+  //   faction 無關；無「現存海怪」(未解放/已退場)時此段空轉。
+  //   ⚖️ 貫穿判定：summon_horror 在 CONCEPT_TIER 與 rho_aias 同 4 階(唯 6 階 ea/enuma 可貫穿)，沿用同一份
+  //   offenseTier_/conceptTier_/PIERCE_GAP 算貫穿，與 rho_aias 同框架，高階概念寶具可直接無視護盾。
   if (hasFx_(defC, 'summon_horror') && dmg > 0) {
     var _hClk = getClock_(ctx.myGameId);
     var _hAbs = _hClk ? _hClk.day * 24 + _hClk.hour : null;
@@ -95,21 +92,16 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
         out.fired.push(defC.name + '·深淵海怪以身擋下 ' + _sAbsorb + '（海怪餘 ' + _sNew + '/' + _shield.max + '）');
       }
       out.shieldCur = Math.max(0, _sNew); out.shieldMax = _shield.max; // 戰報/前端可顯示海怪肉身條
-      // ⚡ 2026-07 提速：這裡原本會立刻補寫一次 MEMORY 單格——但往下走的4條出路(十二試煉復活/
-      //   令咒脫離/死亡/存活)全都無一例外會在函式結束前對 pcData[tgtIdx] 做一次整列 setValues()
-      //   (且都在這份已更新的 MEMORY 之後才寫)，這裡這格寫入必定被後面那次整列寫入覆蓋，
-      //   純屬多餘的一次 API 呼叫——刪掉、改由記憶體裡的 pcData[tgtIdx][COL.PC.MEMORY] 隨後面
-      //   任一整列寫入一起落表，結果完全不變。
+      // 不在此立刻補寫 MEMORY 單格：下方 4 條出路都會對 pcData[tgtIdx] 做一次整列 setValues()，
+      //   此格寫入必被覆蓋——省一次多餘 API 呼叫，隨後面任一整列寫入一起落表。
     }
   }
   var after = hp - dmg;
   if (severed && after <= 0) out.fired.push(atkC.name + '·斬斷救贖(契約已破)');
-  // 🛡️ 戰鬥續行＝受【致命傷】(after<=0)才觸發硬撐留 1——非「殘血 2~5 也被拖到 1」(2026-07 修倒扣血)。
+  // 🛡️ 戰鬥續行＝受【致命傷】(after<=0)才觸發硬撐留 1——非「殘血 2~5 也被拖到 1」。
   //   「僅一次」由 hp>1 天然保證：撐過後站在 1 血，下一記致死擊不再觸發。
-  // ⚠ 2026-07 修：加 !hasFx_(defC,'god_hand') 結構性互斥——兩者原本只靠「種子資料別同時掛」自律，
-  //   赫拉克勒斯-Berserker 曾誤兩者皆掛，survive 判定順序在前就會免費接住幾乎所有致命傷、god_hand 的
-  //   燒命判定永遠輪不到(下方 82 行)。當時只刪了那筆種子資料，沒把互斥做進引擎——只要日後任何角色
-  //   (種子或 AI 自訂)又同時持有兩者，同一顆地雷會再炸一次。持有 god_hand 者一律優先吃 god_hand。
+  // survive 與 god_hand 結構性互斥（別靠「種子資料別同時掛」自律）：兩者若同掛，survive 判定順序在前
+  //   會免費接住致命傷、god_hand 燒命判定永遠輪不到。持有 god_hand 者一律優先吃 god_hand。
   if (after <= 0 && hasFx_(defC, 'survive') && !hasFx_(defC, 'god_hand') && hp > 1 && !severed) { after = 1; out.fired.push(defC.name + '·戰鬥續行'); }
 
   // 十二試煉（God Hand）：自死亡歸來、不花御主任何資源——優先於令咒脫離判定，別讓有 God Hand 的從者(如赫拉克勒斯)
@@ -133,7 +125,6 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
       //   (同海怪護盾的溢出原則)。故一記壓倒性寶具可一口氣燒去多條命，而非每擊固定一條。與概念下限取較狠者。
       lossN = Math.max(lossN, 1 + Math.floor(Math.max(0, dmg - hp) / ghReviveHp));
       // 【試煉】N＝剩餘可復活次數：lossN 恰等於 lives 時＝最後的命也用上、以餘 0 站起(下一擊必死)。
-      //   原寫 lossN < lives 令「餘 1 命」永遠用不到＝死命(2026-07 修)。
       if (lossN <= lives) {
         var ghRemain = lives - lossN;
         out.godRevived = true;
@@ -207,7 +198,7 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
       : JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "靈基崩潰·消滅", "顏面": "已無生息" });
     sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
     // 🕯️ 御主(非護衛斬首場)戰死 → 失去供魔的敵從者與令咒燒盡同一套下場：無「單獨行動」者掛 SEAL_DOOM_HOURS 倒數消滅，
-    //   有「單獨行動」者靠靈基殘存苟活(見 enemyCanAffordNp_ 的 INDEPENDENT_ACTION_RESERVE，不設倒數)。
+    //   有「單獨行動」者靠靈基殘存苟活(見 enemyCanAffordNp_ 的 INDEPENDENT_ACTION_RESERVE)。
     //   斬首·護衛在場的即死已在上方 assassinGuardIdx 分支處理，此處只補「無護衛」的一般陣亡路徑。
     if (killedIsMaster) {
       var oClk = getClock_(ctx.myGameId);
@@ -277,7 +268,7 @@ function drainForNp_(sheets, pcData, svIdx, masterIdx, mpCost) {
   var hpForMp = Math.min(need, Math.floor(hpAvail / BATTERY_HP_PER_MP));
   var fromMHp = hpForMp * BATTERY_HP_PER_MP;
   need -= hpForMp;                                          // 仍未付清的缺口（油盡燈枯，寶具勉力強放）
-  // 🕯️ 無主「單獨行動」者：以殘存靈基【殘存】N 支付——確實扣減、用光即啞火(不再是永遠吸不完的儲備)。
+  // 🕯️ 無主「單獨行動」者：以殘存靈基【殘存】N 支付——確實扣減、用光即啞火。
   if (masterIdx < 0 && need > 0 && svIdx >= 0 && rowHasSolo_(pcData[svIdx])) {
     var _solo = getSoloReserve_(pcData[svIdx][COL.PC.MEMORY]);
     var _fromSolo = Math.min(_solo, need);
@@ -320,7 +311,7 @@ function enemyMasterIdx_(pcData, svIdx, gameId) {
 //   是「殘存的最後一口氣」不是「獨立供魔」，固定小額、不隨階級放大，通常不夠再放一次寶具(見 npPranaCost_)。
 var INDEPENDENT_ACTION_RESERVE = 60;
 // 🕯️ 殘存靈基(無主單獨行動者的「最後一口氣」)：MEMORY【殘存】N，無標記＝滿額 INDEPENDENT_ACTION_RESERVE。
-//   用掉就少、【不回復】——原版永不扣減，E 階寶具(40)的無主從者可無限免費解放(2026-07 修)。
+//   用掉就少、【不回復】。
 function getSoloReserve_(memory) { var m = String(memory || "").match(/【殘存】(\d+)/); return m ? parseInt(m[1]) : INDEPENDENT_ACTION_RESERVE; }
 function setSoloReserve_(memory, n) { n = Math.max(0, Math.round(n)); var mem = String(memory || "").replace(/｜?【殘存】\d+/g, ""); return mem ? (mem + "｜【殘存】" + n) : ("【殘存】" + n); }
 // 🔋 敵方寶具買單：（同陣敵御主）電池是否付得起 prana(從者無自有魔力池，跟玩家從者同制)；
@@ -348,8 +339,8 @@ function actionFateBattle(userData, pcId, sheets) {
   const wantSv = String(userData.servant || "").trim();
   let atkIdx = wantSv ? pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.NAME]).includes(wantSv)) : -1;
   if (atkIdx === -1) atkIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-  // 🛡️ 常駐寶具閘(2026-07·B叔案)：God Hand/治癒結界等【常駐寶具】自動生效、不是攻擊——擋下攻擊解放
-  //   (前端💥鈕已灰化，此為舊快取前端的後端保險)。標記存 np 字串(種子→MARTIAL·v49 resync 傳播)。
+  // 🛡️ 常駐寶具閘：God Hand/治癒結界等【常駐寶具】自動生效、不是攻擊——擋下攻擊解放
+  //   (前端💥鈕已灰化，此為舊快取前端的後端保險)。
   if (useNp && atkIdx !== -1 && /【常駐寶具】/.test(String(pcData[atkIdx][COL.PC.MARTIAL] || ""))) {
     return JSON.stringify({ success: false, message: "此從者的寶具為【常駐型】（已自動生效），並非可解放的攻擊寶具——請以普攻／主動技／令咒作戰。" });
   }
@@ -405,8 +396,7 @@ function actionFateBattle(userData, pcId, sheets) {
   }
 
   // ⏳ 戰鬥耗 1 AP（＝推進 1 小時，1 AP＝1 小時）；行動點不足則無法出戰
-  //   ⚡ 2026-07：getAp_/spendAp_ 傳入手上這份 pcData(記憶體查找+原地改)——免各自透過 getClock_ 重讀整表，
-  //   也讓 pcData 的 AP/時鐘欄保持權威，結尾可直接餵 buildClientState_ 夾 _state(省一次整表重讀)。
+  //   getAp_/spendAp_ 傳入手上這份 pcData(記憶體查找+原地改)，免整表重讀，結尾可直接餵 buildClientState_。
   const isFateBattle = myGameId.indexOf("g_") === 0;
   if (isFateBattle && getAp_(myGameId, pcData) < 1) {
     return JSON.stringify({ success: false, message: "行動點已耗盡，從者也需喘息——請『歇息』恢復後再戰。" });
@@ -437,7 +427,7 @@ function actionFateBattle(userData, pcId, sheets) {
     if (atkOutput < 100) {
       return JSON.stringify({ success: false, message: `寶具乃靈基全力之解放——須先將「${atkC.name}」的出力推到 100%（全開）並支付寶具底費，方能釋放真名。當前出力 ${atkOutput}%。` });
     }
-    const npCostPre = npPranaCost_(npEffectiveRank_(atkC)); // 🎴 2026-07 六波：吃玩家所選寶具的官方階級(多寶具選項各自定價)，非概括六圍表寶具值
+    const npCostPre = npPranaCost_(npEffectiveRank_(atkC)); // 🎴 吃玩家所選寶具的官方階級(多寶具選項各自定價)，非概括六圍表寶具值
     const mMpPre = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
     const mHpPre = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
     const maxPay = mMpPre + Math.floor(Math.max(0, mHpPre - 1) / BATTERY_HP_PER_MP);
@@ -579,15 +569,12 @@ function actionFateBattle(userData, pcId, sheets) {
   // 🔋 寶具魔力 = 依寶具階級的 Prana Cost（E40 D70 C110 B160 A220 EX300）。從者付不起 → 御主電池接力供能。
   let battery = null, backlash = null;
   if (useNp) {
-    const prana = npPranaCost_(npEffectiveRank_(atkC)); // 🎴 2026-07 六波：同上，吃所選寶具官方階級
+    const prana = npPranaCost_(npEffectiveRank_(atkC)); // 🎴 吃所選寶具官方階級
     // 🔥 灌魔加乘：規格外寶具(＋/EX)於【全開 100%】時，把御主餘裕魔力超載灌入 → 威力線性放大至上限(＋×1.5、＋＋/EX×2)。
-    //   auto-pour：達上限需額外「底費×2」的魔力，不足則按比例。補魔過充【過充】額度先行【無償】支付、一次性用完即清。
-    //   ⚠ 2026-07 玩家定案(三修·定檔制)：超載＝【固定價格檔位】依寶具階等比(A階＝總耗 220/440/660，即 底費P/2P/3P)，
-    //     魔力優先支付、【不足的缺口才焚血】(drainForNp_ 2HP=1MP)——不再「把身上全部梭進去」的浮動池。
-    //     userData.overload：false＝僅底費(不超載)／'p1'＝超載檔(總價2P·灌P)／'p2'＝極限檔(總價3P·灌2P)／
-    //     true·'blood'·未帶旗標(舊前端快取/敵方)＝相容(只灌MP餘裕；'blood'含血梭哈)。倍率走引擎線性公式：
-    //     灌P→cap2.0時×1.5(cap1.5時×1.25)、灌2P→達上限。過充 token 照舊只無償折抵超載段。
-    const cap = npOverloadCap_(npEffectiveRank_(atkC)); // 🎴 2026-07 六波：超載上限依所選寶具階級(如迦爾納選A階黃金鎧則無法超載，選EX的Vasavi Shakti才能)
+    //   超載＝固定價格檔位、依寶具階等比(A階＝總耗 220/440/660，即底費P/2P/3P)，魔力優先支付、不足才焚血
+    //   (drainForNp_ 2HP=1MP)。userData.overload：false＝僅底費／'p1'＝超載檔(總價2P·灌P)／'p2'＝極限檔
+    //   (總價3P·灌2P)／true·'blood'·未帶旗標(舊前端/敵方)＝相容檔。過充 token 只無償折抵超載段。
+    const cap = npOverloadCap_(npEffectiveRank_(atkC)); // 🎴 超載上限依所選寶具階級(如迦爾納選A階黃金鎧則無法超載，選EX的Vasavi Shakti才能)
     const ov = userData.overload;
     const wantOverload = !(ov === false || ov === 'false');         // 未帶旗標(舊前端/敵方)＝超載(不焚血)
     let totalDrain = prana, npOverloadMul = 1.0, ocUsed = 0, usedOvercharge = false;
@@ -623,10 +610,8 @@ function actionFateBattle(userData, pcId, sheets) {
     atkC.npOverloadMul = npOverloadMul;    // → resolveFateBattle_ 放大寶具威力
     atkC.overcharge = usedOvercharge;      // → resolveFateBattle_ 全能力微揚
     atkC.mp = parseInt(pcData[atkIdx][COL.PC.MP]) || 0; // 反映耗魔後的出力
-    // ⚡🩸 過載反噬(2026-07·二修「純資源傷害」)：凡人之軀強行導引倍額魔力，解放後機率性迴路暴走隨機扣血。
-    //   ⚠ 玩家實測「太容易死」——極限檔定價已把血燒到見底(drainForNp_)，反噬再補刀＝第一發就 65% 出局的
-    //   雙重懲罰。改【不致死·保底1】：反噬是資源壓力(血魔雙空＝接下來放不了寶具/主動、燃血回魔也見底)，
-    //   不是即死輪盤。只掛玩家【明選】的超載檔位(p1/p2/舊blood比照p2)；不超載/相容MP檔不反噬。
+    // ⚡🩸 過載反噬：凡人之軀強行導引倍額魔力，解放後機率性迴路暴走隨機扣血。不致死·保底1——反噬是資源壓力
+    //   (血魔雙空＝接下來放不了寶具/主動)，不是即死輪盤。只掛玩家【明選】的超載檔位(p1/p2/舊blood比照p2)。
     var OVERLOAD_BACKLASH_ = { p1: { chance: 0.30, min: 0.04, max: 0.12 }, p2: { chance: 0.65, min: 0.08, max: 0.24 } };
     var _blKey = (ov === 'p2' || ov === 'blood') ? 'p2' : (ov === 'p1' ? 'p1' : null);
     if (_blKey && npOverloadMul > 1.0 && Math.random() < OVERLOAD_BACKLASH_[_blKey].chance) {
@@ -642,10 +627,8 @@ function actionFateBattle(userData, pcId, sheets) {
     }
   }
 
-  // ⚡ 從者主動技（2026-07 改回按鈕制·玩家定案）：開關制得先去從者卡點⚡切換(多一趟round-trip)、
-  //   手機上左側切換難按——改成攻擊列第4顆「⚡主動」按鈕，userData.skill=true 才全效發動＋扣魔一次，
-  //   跟 💥寶具/❖令咒 同一套「按下當次生效」的資源決策模式。未按＝微量被動(免費·每擊自動)。
-  //   與寶具互斥由前端按鈕天然保證(一次只按得了一顆)；同趟 fate_battle 夾帶、零額外 round-trip。
+  // ⚡ 從者主動技：攻擊列第4顆「⚡主動」按鈕，userData.skill=true 才全效發動＋扣魔一次，跟 💥寶具/❖令咒
+  //   同一套「按下當次生效」的資源決策模式。未按＝微量被動(免費·每擊自動)。與寶具互斥由前端按鈕天然保證。
   let skillBuff = null, skillBattery = null, skillActivated = false;
   const _fullSkill = servantActiveSkill_(atkC);  // 完整效果表(或 null＝無真·施放技術)
   if (_fullSkill) {
@@ -668,8 +651,8 @@ function actionFateBattle(userData, pcId, sheets) {
   const rounds = [];
   const ctx = { myGameId: myGameId, pIdx: pIdx, userData: userData, homeField: homeField };
   const targetIsFoeServant = String(pcData[nIdx][COL.PC.FACTION]) === "敵從者";
-  // 🕯️ 十二試煉·燒命總帳(2026-07 玩家指出「接連倒下三次?」)：godNote 只留最後一回合那句，AI 只能
-  //   自己數「倒下了」出現幾次——把整戰燒命數(戰前後 lives 差)算好餵給它，並明講兩個數是兩回事。
+  // 🕯️ 十二試煉·燒命總帳：godNote 只留最後一回合那句，AI 無法自己數「倒下了」出現幾次——
+  //   把整戰燒命數(戰前後 lives 差)算好餵給它，並明講「燒命數」與「倒地次數」是兩回事。
   const ghLivesStart = getGodHandLives_(pcData[nIdx][COL.PC.MEMORY]);
 
   // 🌟 寶具對轟（光與光的對撞）：玩家開場解放寶具、目標為敵從者時，值得一戰的對手以寶具相迎。
@@ -682,10 +665,8 @@ function actionFateBattle(userData, pcId, sheets) {
     // 🥋🔮 對轟中 enemyC0 稍後會反過來當攻方(ePow，見下)，補上其硬連結敵御主的體術/魔術支援。
     const _e0MasterMem = enemyMasterMemoryFor_(pcData, myGameId, pcData[nIdx]);
     if (_e0MasterMem) { injectMasterMeleeSupport_(enemyC0, _e0MasterMem); injectMasterMagicSupport_(enemyC0, _e0MasterMem); }
-    // ⚠ 2026-07 修：多寶具敵人(如吉爾伽美什)npChoice_ 從 MEMORY 讀，但敵方從未被 setNpChoice_ 寫入過
-    //   選擇，永遠退回預設索引0——吉爾伽美什索引0是王之財寶(對人·概念階僅1)，並非他最強的乖離劍
-    //   Ea(索引1·對界·概念階6)。稍後「敵反擊」段落(下方 enemyNow.npChoice = bestNpChoice_(...))有
-    //   正確選最強寶具，但這裡的「開場對轟」漏了同一步，導致同一場戰鬥前後不一致地低估敵方火力。
+    // 敵方從未被 setNpChoice_ 寫入選擇，npChoice_ 會退回預設索引0——多寶具敵人(如吉爾伽美什索引0是
+    //   對人的王之財寶)須改選最強寶具，與下方「敵反擊」段落同步，避免同場戰鬥前後不一致地低估敵方火力。
     enemyC0.npChoice = bestNpChoice_(enemyC0.name, enemyC0.cls);
     const enemyHasNp = !!String(pcData[nIdx][COL.PC.MARTIAL] || "").trim() && rankVal(enemyC0.six["寶具"] || "-") >= 10;
     // 只有「攻擊型寶具」才對轟；防禦/生存/召喚型(God Hand、summon_horror…)不去抵銷玩家寶具。
@@ -694,7 +675,7 @@ function actionFateBattle(userData, pcId, sheets) {
     const enemyOffensiveNp = enemyHasNp && (eScaleClash === '對軍' || eScaleClash === '對城' || eScaleClash === '對界' || CLASH_OFF_FX.some(function (f) { return hasFx_(enemyC0, f); }));
     const eHpR = (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[nIdx][COL.PC.HP]) || 0) / (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) : 1;
     const clashUrge = 0.6 + (hasFx_(enemyC0, 'mad') || hasFx_(enemyC0, 'zabaniya') ? 0.25 : 0) - (1 - eHpR) * 0.3;
-    const clashPrana = npPranaCost_(npEffectiveRank_(enemyC0)); // 🎴 2026-07 六波：吃已選定(bestNpChoice_)寶具的官方階級
+    const clashPrana = npPranaCost_(npEffectiveRank_(enemyC0)); // 🎴 吃已選定(bestNpChoice_)寶具的官方階級
     const clashAfford = enemyOffensiveNp ? enemyCanAffordNp_(pcData, nIdx, myGameId, clashPrana) : { afford: false, masterIdx: -1 };
     if (enemyOffensiveNp && clashAfford.afford && Math.random() < clashUrge) {
       drainForNp_(sheets, pcData, nIdx, clashAfford.masterIdx, clashPrana);
@@ -705,19 +686,17 @@ function actionFateBattle(userData, pcId, sheets) {
       sheets.pc.getRange(nIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[nIdx][COL.PC.MEMORY]);
       openingNp = false; openingSeal = false;
       enemyC0.output = 100;
-      // 🎯 火力取樣用 forceHit：damage 恆屬「攻方」——原本擲輸時取到的是對面的反殺傷害(含對面寶具骰)，
-      //   把與雙方寶具威能無關的噪音帶進對轟比大小(2026-07 根源修)。
+      // 🎯 火力取樣用 forceHit：damage 恆屬「攻方」——擲輸時取到的是對面的反殺傷害，會把與寶具威能
+      //   無關的噪音帶進對轟比大小，故強制取攻方 damage。
       const pPow = resolveFateBattle_(atkC, enemyC0, { np: true, seal: useSeal, skill: skillBuff, forceHit: true }).damage;
-      // ⚠ 2026-07 修：敵方火力取樣原本漏帶 skill——單層歸屬後 burst/str_up/projection 已是主動 only，
-      //   敵反擊(:918)/夜襲(Router_Movement)都有補 servantActiveSkill_(敵AI恆全效免費·戰鬥本色)，
-      //   唯獨這裡漏掉，導致持這三技的敵從者在開場對轟火力系統性偏低、天秤偏向玩家。
+      // 敵方火力取樣須補 servantActiveSkill_(敵AI恆全效免費)：burst/str_up/projection 是主動 only 技能，
+      //   漏帶會讓持這三技的敵從者開場對轟火力系統性偏低。
       // 💠 對轟中敵寶具轟向我方從者＝七天盾的正戲：注入御主純魔供其展開(削 ePow)，取樣後立即結算費用
       atkC._shieldMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
       const ePow = resolveFateBattle_(enemyC0, atkC, { np: true, skill: servantActiveSkill_(enemyC0), forceHit: true }).damage;
       settleShieldMana_(sheets, pcData, pIdx, atkC);
-      // ⚡ 對轟裁決(2026-07 重構)：四層特例(雙向因果律/輸方保1/pLethal)收進 Engine_Fate.gs 的
-      //   純函式 resolveNpClash_(單一優先序階梯·battle_sim 可單元測試)，這裡只做 I/O：
-      //   取樣火力→拿決策→落傷。優先序/數值與重構前完全一致。
+      // ⚡ 對轟裁決：四層特例(雙向因果律/輸方保1/pLethal)收進 Engine_Fate.gs 的純函式 resolveNpClash_
+      //   (單一優先序階梯·可單元測試)，這裡只做 I/O：取樣火力→拿決策→落傷。
       const clashRes = resolveNpClash_(
         pPow, ePow,
         parseInt(pcData[atkIdx][COL.PC.HP]) || 0,
@@ -733,11 +712,9 @@ function actionFateBattle(userData, pcId, sheets) {
       if (eHit.godRevived) { godRevived = true; godNote = eHit.godNote; }
       if (eHit.victory) { victory = true; dreamPrompt = eHit.dreamPrompt; }
       if (!sealEscaped) {
-        // ★ 對轟【回震】不致死(勝方/僵持方吃的是餘波)：夾到至多打到 1 HP——原本回震可打死殘血從者，
-        //   造成「同一場先記勝又記敗」的勝敗雙記(2026-07 修)。輸方(outcome='enemy')在上方已同樣保 1；
-        //   唯獨敵方因果律截斷(pLethalOk)是刻意的例外——那本就該真的打死，不能被這道通用保命線攔下。
-        // ⚠ 2026-07 修：敵方因果律截斷(pLethalOk)不吃「敵滅→回震腰斬」——因果律的死在投擲前已確定，
-        //   不因持槍者自己被殘波擊殺而減半；否則玩家會在極罕見的互殺情境「意外不死」，架空必死分支。
+        // ★ 對轟【回震】不致死(勝方/僵持方吃的是餘波)：夾到至多打到 1 HP，避免「同一場先記勝又記敗」的
+        //   勝敗雙記。輸方(outcome='enemy')在上方已同樣保 1；唯獨敵方因果律截斷(pLethalOk)是刻意例外
+        //   ——那本就該真的打死(死亡在投擲前已確定)，不能被這道通用保命線攔下，否則會架空必死分支。
         const spill0 = (destroyedName && !pLethalOk) ? Math.round(pDmgTaken * 0.5) : pDmgTaken;
         const spill = pLethalOk ? spill0 : Math.min(spill0, Math.max(0, (parseInt(pcData[atkIdx][COL.PC.HP]) || 1) - 1));
         const pHit = fateStrike_(sheets, pcData, enemyC0, atkIdx, { forceDamage: spill }, ctx);
@@ -808,14 +785,9 @@ function actionFateBattle(userData, pcId, sheets) {
       injectMasterMagicSupport_(sC, pcData[pIdx][COL.PC.MEMORY]); // 🔮 御主魔術支援（每回合出擊·僅Caster）
       injectHomeField_(sC, homeField);                     // 🏰 主場·陣地結界
       const isActive = (sidx === atkIdx);
-      // 🐛→✅ 2026-07 稽核抓到(HIGH)：npOverloadMul/overcharge只設在atkC(prana結算當下建的物件)上，
-      //   從沒存進MEMORY——這裡的sC是rowToCombatant_每回合重新建的新物件，天生讀不到atkC身上的這兩個
-      //   屬性。開場對轟分支(targetIsFoeServant且敵方也接對轟)剛好直接用atkC，這條路徑吃得到加成；
-      //   但一般情況(打敵御主、或敵從者沒對轟/不接對轟——多數情況)寶具解放走的正是這條每回合迴圈，
-      //   用sC結算，玩家已經付了超載的魔力/血量代價(甚至扛了反噬風險)，傷害卻完全沒吃到超載倍率、
-      //   過充也沒吃到命中/傷害加成——UI橫幅跟AI敘述卻還是照樣宣稱超載發動了。比照atkC.horrorUp同批
-      //   已有的做法(那個有靠MEMORY讓新物件自然帶到，這兩個沒有)，這裡在本回合就是NP解放者時，
-      //   直接把atkC身上已結算好的這兩個屬性複製到sC，讓超載/過充在這條(較常見的)路徑上真正生效。
+      // npOverloadMul/overcharge 只設在 atkC 上、不存進 MEMORY，而 sC 是每回合重新建的新物件讀不到——
+      //   除了對轟分支直接用 atkC 外，一般路徑(多數情況)都走這條每回合迴圈用 sC 結算，需手動複製過去，
+      //   否則玩家已付超載代價卻吃不到超載倍率/過充加成。
       if (isActive && opening && openingNp) { sC.npOverloadMul = atkC.npOverloadMul; sC.overcharge = atkC.overcharge; }
       const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && openingNp && isActive, seal: opening && openingSeal && isActive, ambush: opening && isActive, skill: isActive ? skillBuff : null, round: rd + 1 }, ctx);
       // 目標為敵御主(非從者)：引擎計算了反傷 fired 但不套用，過濾掉「winner·武器骰」等傷害計算噪音
@@ -946,7 +918,7 @@ function actionFateBattle(userData, pcId, sheets) {
             enemyFireNp = true; // ⚡ 已預告→這回合必定發動
           } else if (eWantsNp && !eTelegraphed) {
             // 尚未預告→這次只蓄勢預告、不發動；設旗標＋警告，須付得起 prana 才值得預告
-            const ePranaT = npPranaCost_(npEffectiveRank_(enemyNow)); // 🎴 2026-07 六波：吃已選定寶具的官方階級
+            const ePranaT = npPranaCost_(npEffectiveRank_(enemyNow)); // 🎴 吃已選定寶具的官方階級
             if (enemyCanAffordNp_(pcData, nIdx, myGameId, ePranaT).afford) {
               pcData[nIdx][COL.PC.MEMORY] = setNpTelegraph_(pcData[nIdx][COL.PC.MEMORY]);
               sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
@@ -956,7 +928,7 @@ function actionFateBattle(userData, pcId, sheets) {
           }
           // 🔋 敵寶具也要吃魔力：自身 MP＋敵御主電池須付得起 prana，否則放不出（EX/EA 幾乎沒人付得起→極罕見）
           if (enemyFireNp) {
-            const ePrana = npPranaCost_(npEffectiveRank_(enemyNow)); // 🎴 2026-07 六波：同上
+            const ePrana = npPranaCost_(npEffectiveRank_(enemyNow)); // 🎴 同上
             const eAfford = enemyCanAffordNp_(pcData, nIdx, myGameId, ePrana);
             if (eAfford.afford) {
               drainForNp_(sheets, pcData, nIdx, eAfford.masterIdx, ePrana);
@@ -1032,16 +1004,12 @@ function actionFateBattle(userData, pcId, sheets) {
     }
   }
   let enemyMasterCardStr = enemyMasterRow ? enemyMasterCard_(enemyMasterRow) : "";
-  // 🎭 關係錨(2026-07 伊莉雅沉默案根因)：明說在場敵御主與「defC」的契約關係——否則提示詞裡
-  //   兩人只是不相干的名詞，AI 演不出「自己的從者在眼前交戰/被消滅」的切身衝擊，只會照性格詞
-  //   即興出「冷眼旁觀」的類型套路。
+  // 🎭 關係錨：明說在場敵御主與「defC」的契約關係——否則兩人在提示詞裡只是不相干的名詞，AI 演不出
+  //   「自己的從者在眼前交戰/被消滅」的切身衝擊，只會照性格詞即興出「冷眼旁觀」的類型套路。
   if (enemyMasterCardStr && !isMasterTarget) {
     enemyMasterCardStr += `★上述敵御主正是「${defC.name}」的契約御主——自己的從者正在眼前搏命交戰，戰局每一刀都切身相關。\n`;
-    // 🎭 戰局實況錨點(2026-07 玩家反映「對面的御主感覺不太會看場合對話」)：光有性格/關係卡沒有
-    //   戰況資訊，AI 容易讓敵御主的反應/台詞跟當下實際打得怎樣脫節(如己方從者已被壓著打卻還一派
-    //   從容、或雙方勢均力敵卻演得像穩操勝券)。這裡把已算好的HP比例/傷害交換即時算成一句白話戰況，
-    //   逼反應對應當下真實場面，不是另開一套判斷——沿用既有的 defeat/destroyedName/totalDealt/
-    //   totalTaken/pcData[nIdx].HP，皆本函式已算好的數字，純敘事層級補一句錨點。
+    // 🎭 戰局實況錨點：光有性格/關係卡沒有戰況資訊，AI 容易讓敵御主反應跟當下實際戰況脫節。把已算好的
+    //   HP比例/傷害交換即時算成一句白話戰況，逼反應對應當下真實場面。
     const _defHpNow = parseInt(pcData[nIdx][COL.PC.HP]) || 0, _defHpMaxNow = parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1;
     const _hpRatioNow = _defHpMaxNow > 0 ? _defHpNow / _defHpMaxNow : 1;
     const _situText = defeat ? '己方從者完全壓制、我方從者早已潰敗'
@@ -1053,8 +1021,7 @@ function actionFateBattle(userData, pcId, sheets) {
                 : '雙方勢均力敵、勝負未有定論';
     enemyMasterCardStr += `★【戰局實況】此刻真實情勢是：${_situText}——敵御主的神態/語氣/台詞必須讀懂這個場面(得意、焦慮、強撐、嘲諷、動搖皆可，由性格決定怎麼反應，但反應內容不可無視當下戰況自說自話)。\n`;
   }
-  // 🎭 敵從者演出卡(2026-07 補)：戰鬥提示詞原本只附我方從者卡，敵從者的性格/口吻/狂化禁言
-  //   全靠 AI 憑真名即興——移動抵達敘事(Router_Movement.gs)早就附敵從者卡，戰鬥反而沒有。
+  // 🎭 敵從者演出卡：附上敵從者卡，讓性格/口吻/狂化禁言有依據，而非全靠 AI 憑真名即興；
   //   同一張 servantCard_，狂化「嚴禁台詞」鐵則對敵方一併生效。
   const foeServantCardStr = targetIsFoeServant ? '〔敵方出戰者〕' + servantCard_(pcData[nIdx]) : "";
 
@@ -1100,9 +1067,8 @@ function actionFateBattle(userData, pcId, sheets) {
       ((destroyedName && targetIsFoeServant && enemyMasterRow && !isMasterTarget) ? `· 在場敵御主「${String(enemyMasterRow[COL.PC.NAME])}」親眼目睹自己契約的從者靈基崩潰、化作光點消散——失去從者＝失去依靠與這場戰爭的資格。★依其性格與身世演出這一刻的衝擊與反應(崩潰/嘶喊/怔忡/強撐皆可，由性格定)，非沉默背景板。\n` : "") +
       ((!destroyedName && !sealEscaped && !godRevived) ? `· 敗方尚有餘力(見上方 HP)，勿描寫死亡／消滅／屍體。此乃御主下令出擊、雙方仍在交鋒中，下回合是否再戰仍由御主決定。\n` : "") +
       (atkC.cls === 'Caster' ? `· 出戰從者為 Caster（魔術師）職階：此戰以魔術轟擊為主、非肉搏，演出時勿讓其上前近戰。\n` : "") +
-      // 🗡️ 2026-07 新增(玩家提議「戰報加入讓從者判斷給建議」)：戰鬥未分生死時，讓從者依其性格對這回交手
-      //   給出主觀判斷/建議——純角色觀察與口吻，不是戰略指令(下一步仍由御主按鍵定奪，呼應上一句「仍由御主決定」)；
-      //   狂化角色改用肢體/低吼傳達，服從 servantCard_ 已內建的「嚴禁完整台詞」鐵則，不互相打架。
+      // 🗡️ 戰鬥未分生死時，讓從者依性格對這回交手給出主觀判斷/建議——純角色觀察與口吻，不是戰略指令；
+      //   狂化角色改用肢體/低吼傳達，服從 servantCard_ 已內建的「嚴禁完整台詞」鐵則。
       ((!destroyedName && !sealEscaped && !godRevived) ? (hasFx_(atkC, 'mad')
         ? `★戰後讓「${atkC.name}」以其已狂化的方式(低吼／肢體動作／神情)透出對這場交手的直覺判斷，不成篇整句台詞。\n`
         : `★戰後讓「${atkC.name}」依其性格與口吻，對這場交鋒給出簡短的主觀判斷或建議(如看出的破綻、對方寶具是否已現底牌、值得乘勝追擊還是該見好就收)——是角色的觀察與建議，不是戰略指令，下一步仍由御主按鍵定奪。\n`) : "") +
@@ -1115,7 +1081,7 @@ function actionFateBattle(userData, pcId, sheets) {
     useNp: useNp, npName: npName, useSeal: useSeal, totalDealt: totalDealt, totalTaken: totalTaken,
     overload: (useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.01) ? +atkC.npOverloadMul.toFixed(2) : 0, // 🔥 灌魔超載倍率→前端橫幅
     overcharge: !!(useNp && atkC.overcharge), // 🔥 本發吃到補魔過充
-    backlash: backlash, // ⚡🩸 過載反噬 {dmg,hp,hpMax}→前端紅幅(2026-07 二修：不致死·純資源傷害)
+    backlash: backlash, // ⚡🩸 過載反噬 {dmg,hp,hpMax}→前端紅幅(不致死·純資源傷害)
 
     destroyed: destroyedName || "", godRevived: godRevived, sealEscaped: sealEscaped, victory: victory, defeat: defeat,
     telegraph: npTelegraphed ? String(defC.name) : "", // 🔮 敵寶具預告→前端彈紅框警告
@@ -1177,11 +1143,8 @@ function actionSummonHorror(userData, pcId, sheets) {
   if (isFate && getAp_(gameId) < 1) return JSON.stringify({ success: false, message: "行動點不足——召喚深淵海怪需 1 AP。" });
   // ⚖️ 刻意不設「出力 100%」閘(與戰鬥內解放的差異)：戰鬥中解放要全開是「臨戰瞬間灌注」的張力；
   //   戰前召喚是不趕時間的儀式詠唱(出力檔本就免費即時可調·設閘只是無意義的點擊摩擦)。prana 全額照付。
-  // 🔋 付寶具 prana（御主電池·MP＋焚血）：湊不出則召不動
-  // 🐛→✅ 2026-07「戰鬥標籤和戰鬥運算 戰報 檢查」查出：這裡直接讀六圍表寶具值，跟同檔其餘全部
-  //   npPranaCost_呼叫點(425/567/575/679/926/936行)一致改吃npEffectiveRank_(單一真實來源)——
-  //   目前summon_horror唯一持有者(青鬍子)無多寶具分岔、兩者現值相同故無實際影響，但保持一致
-  //   避免未來若summon_horror被掛到某位多寶具英靈身上時，這裡悄悄算錯魔力費。
+  // 🔋 付寶具 prana（御主電池·MP＋焚血）：湊不出則召不動。用 npEffectiveRank_ 與同檔其餘呼叫點一致
+  //   (單一真實來源)，避免未來 summon_horror 若掛到多寶具英靈身上時算錯魔力費。
   const prana = npPranaCost_(npEffectiveRank_(svC));
   const mMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0, mHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
   if (mMp + Math.floor(Math.max(0, mHp - 1) / BATTERY_HP_PER_MP) < prana) {
@@ -1230,7 +1193,7 @@ function actionDismissHorror(userData, pcId, sheets) {
 }
 
 // 十二試煉(God Hand) 剩餘命數（從者 MEMORY【試煉】N；無標記預設 11＝十二命扣除本體，呼應 FSN 設定）
-// ⚡ 2026-07：實作收斂進 Core_Settings.gs 的 makeIntTag_ 共用工廠(見該檔說明)，函式名/外部行為不變。
+// 實作收斂進 Core_Settings.gs 的 makeIntTag_ 共用工廠。
 var GOD_HAND_TAG_ = makeIntTag_('試煉', 11);
 function getGodHandLives_(memory) { return GOD_HAND_TAG_.get(memory); }
 function setGodHandLives_(memory, n) { return GOD_HAND_TAG_.set(memory, n); }
@@ -1263,9 +1226,9 @@ var MEAL_BUFF_BONUS = 2;   // 從者出擊命中加值
 //   要擴充「召喚物掩護」類技能：照此 get/set/clear + view 模式複製即可。
 var HORROR_SHIELD_HP = 300;   // 海怪肉身上限（召喚時的滿值）
 var HORROR_REGEN = 10;        // 每回合肉身再生量（不超過上限）
-var HORROR_UPKEEP = 10;       // 海怪在場·每交鋒回合抽御主魔力維持（撐不住則潰散）※2026-07 30→10
-var HORROR_HOURLY_UPKEEP = 8; // 🐙 時間維持費(2026-07 玩家定案·取代碼表)：海怪在場＝共用池每小時另一張嘴；
-//                                池赤字時【海怪先沉回深淵、才輪到御主燃血】(見 applyRegen_)。無期限、玩家可隨時解除。
+var HORROR_UPKEEP = 10;       // 海怪在場·每交鋒回合抽御主魔力維持（撐不住則潰散）
+var HORROR_HOURLY_UPKEEP = 8; // 🐙 時間維持費：海怪在場＝共用池每小時另一張嘴；池赤字時【海怪先沉回深淵、
+//                                才輪到御主燃血】(見 applyRegen_)。無期限、玩家可隨時解除。
 // 🐙 變身框架·單一狀態源：海怪是否在場＝現存肉身(cur>0)且(若帶舊制碼表)未逾時。擋傷/回血/追擊/城防 全讀它。
 //   ★這是「MEMORY 狀態旗標→引擎讀旗標調整攻防」的通用變身範本；日後靈基二階段/化身切換照此複製。
 function horrorPresent_(memory, gameId) {
@@ -1292,7 +1255,7 @@ function mealBuffActive_(memory, gameId) {
   var clk = getClock_(gameId); if (!clk) return false;
   return (clk.day * 24 + clk.hour) < exp;
 }
-// 讀海怪肉身：回 {active, remaining, max, expiry}。expiry 0＝【無期限】(2026-07 魔力維持制·時耗見 applyRegen_)；
+// 讀海怪肉身：回 {active, remaining, max, expiry}。expiry 0＝【無期限】(魔力維持制·時耗見 applyRegen_)；
 //   非 0＝舊制碼表存檔·逾時 active:false。相容舊兩欄(cur|expiry，max 退回 cur)。
 function getHorrorShield_(memory, absHour) {
   var m = String(memory || "").match(/【海怪護盾】(\d+)\|(\d+)(?:\|(\d+))?/);

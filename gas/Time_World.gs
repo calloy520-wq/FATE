@@ -7,11 +7,9 @@
 
 var AP_PER_DAY = 12; // 體力池上限（1 AP = 1 小時的行動）
 
-// ⏳ 時鐘 2026-07 重構：不再是獨立「時鐘」表——日/時/AP 直接存在【御主自己那一列】(COL.PC.DAY/HOUR/AP)，
-//   因為每個世界(game_id)恆只有一位御主，時鐘就是這個世界的狀態、天然 1:1 對應御主列，無需獨立 join 表。
-//   函式簽名刻意維持「傳 gameId」不變(呼叫端多達 20+ 處)，只在內部找御主列；效能鍵在於：
-//   凡是呼叫端手上已有整表 pcData 時，一律走「_withData」變體直接吃記憶體，不重新整表掃描；
-//   只有極少數「手上沒有 pcData」的呼叫點才退回「自己整表掃一次找御主列」的 fallback。
+// ⏳ 時鐘不用獨立表：每個世界(game_id)恆只有一位御主，日/時/AP 直接存在【御主自己那一列】
+//   (COL.PC.DAY/HOUR/AP)，天然 1:1 對應、無需獨立 join 表。函式簽名維持「傳 gameId」不變，
+//   只在內部找御主列；呼叫端手上已有整表 pcData 時直接吃記憶體，沒有才整表掃一次找御主列(fallback)。
 
 // 內部：在(已載入的) pcData 中找某 game_id 的御主列索引。
 function findGameMasterIdx_(pcData, gameId) {
@@ -55,10 +53,7 @@ function rollHours_(clk, hours) {
   while (clk.hour >= 24) { clk.hour -= 24; clk.day += 1; }
 }
 // 把時鐘寫回御主列 + 表（僅在 masterIdx 有效時才動作；沒有現成 pcData/sheets 則整表讀一次落地）。
-// ⚡ 2026-07 稽核抓到：actionMove 傳 pcData/sheets 給 spendAp_ 省整表讀是對的，但它結尾自己還有一次
-//   涵蓋全部欄位的整表 setValues(見 Router_Movement.gs)——這裡的單列3欄立即寫入變成完全多餘的一次
-//   Sheets API 呼叫(值一樣，只是提早寫一次又被蓋一次)。新增可選的 skipWrite：呼叫端明確知道自己
-//   隨後必有一次批次整表寫回時傳 true，只改記憶體不觸發這次寫入；預設 false，其餘呼叫端行為不變。
+// skipWrite：呼叫端明確知道自己隨後必有一次涵蓋這3欄的批次整表寫回時傳 true，省掉這裡多餘的單列立即寫入。
 function writeClockToRow_(clk, pcData, sheets, skipWrite) {
   if (!clk || clk.masterIdx == null || clk.masterIdx < 0) return;
   var data = pcData, sh = sheets && sheets.pc;
@@ -130,10 +125,8 @@ function clockLabel_(gameId, pcData) {
 
 
 // 🔮 靈脈：依坤圖地點「類型」給每小時回魔基值。靈地(柳洞寺/河畔)匯聚最高、據點/祭壇(宅邸/教會)中等、城區野外最低。
-//   沿用既有 TYPE 欄，不動 schema。坤圖已靜態化(getMapDataCached 直接讀FATE_MAP_SEED常數，零I/O)，
-//   此函式被 applyRegen_(每次移動/休息)＋playerServantEconomy_(幾乎每個動作都刷 HUD) 高頻呼叫，
-//   靜態化後這裡的重複呼叫成本已趨近於零，不必再擔心整表重讀。
-// 🔄 2026-07：sheets.map 這個guard已無意義(getMapDataCached不再依賴分頁是否存在)，拿掉。
+//   坤圖已靜態化(getMapDataCached 直接讀 FATE_MAP_SEED 常數，零 I/O)，此函式被 applyRegen_／
+//   playerServantEconomy_ 高頻呼叫也不必擔心整表重讀成本。
 function leylineAt_(sheets, loc) {
   if (!sheets || !loc) return 2;
   var root = String(loc).split('-')[0].trim();
@@ -164,7 +157,7 @@ function servantEconomy_(circuits, six, isMad, leyline, hasWorkshop) {
   return { supply: supply, ley: leyline || 0, workshop: ws, income: income, drain: drain, net: income - drain };
 }
 
-// 取玩家家園(居所)所在地；無則 ""。2026-07：權柄表已刪，居所併入御主自己那一列(COL.PC.HOME_LOC)。
+// 取玩家家園(居所)所在地；無則 ""。居所併入御主自己那一列(COL.PC.HOME_LOC)，不用獨立表。
 //   傳 pcData 可省一次整表讀(呼叫端手上通常已有)；沒傳才自行整表讀一次(相容)。
 function playerHomeLoc_(sheets, pcId, pcData) {
   if (!sheets || !sheets.pc) return "";
@@ -184,8 +177,7 @@ function playerServantEconomy_(sheets, pcId, preData) {
   if (pIdx < 0) return null;
   var gid = String(data[pIdx][COL.PC.GAME_ID] || "");
   var circuits = masterCircuits_(data[pIdx]);
-  // ⚡ 2026-07 提速：playerHomeLoc_ 本身也是線性掃描找同一個 pcId 的列，但 pIdx 剛剛已經掃過一次
-  //   找到了——data[pIdx] 就是 playerHomeLoc_ 會回傳的那一列，直接讀 HOME_LOC 省掉重複掃描整表。
+  // pIdx 剛掃過整表找到自己，直接讀 HOME_LOC 省掉再呼叫 playerHomeLoc_ 重複掃描一次。
   var homeLoc = String(data[pIdx][COL.PC.HOME_LOC] || "").trim();
   var sv = null, svRowsE = [];
   for (var j = 1; j < data.length; j++) {
@@ -197,12 +189,10 @@ function playerServantEconomy_(sheets, pcId, preData) {
   var rootLoc = loc.split('-')[0].trim();
   var atHome = !!(homeLoc && rootLoc && String(homeLoc).split('-')[0].trim() === rootLoc);
   // 🏕️ 陣地(工房)：玩家以 setWorkshop 設定的【陣地】marker，駐留該地→供魔工房加成。
-  //   與 applyRegen_(實際時回) 對齊，否則 HUD 顯示不出陣地收益（「陣地效果沒有時回」）。
   var workshopLoc = ""; try { workshopLoc = getWorkshop_(data[pIdx][COL.PC.MEMORY]); } catch (e) { }
   var atWorkshop = !!(workshopLoc && rootLoc && String(workshopLoc).split('-')[0].trim() === rootLoc);
-  // 🧮 2026-07 修：HUD 與 applyRegen_(實際時回) 完全同一套算式——原本 ①收入漏算「從者魔力×0.15」
-  //   回魔貢獻 ②雙從者時只算第一位的維持費 ③工房判定漏看第二從者的 territory，玩家看到的
-  //   「淨 X/時」對不上實際魔力增量。日後改收支公式，兩函式務必一起動。
+  // 🧮 HUD 顯示的收支必須跟 applyRegen_(實際時回) 用同一套算式，否則玩家看到的「淨 X/時」對不上
+  //   實際魔力增量；要涵蓋全隊(從者魔力貢獻/維持費/territory)，日後改公式兩函式務必一起動。
   var combatantsE = svRowsE.map(function (r) { return rowToCombatant_(r); });
   var partyMagicVal = 0, anyTerritory = false;
   combatantsE.forEach(function (c0) { partyMagicVal += rankVal(c0.six['魔力'] || 'E'); if (hasFx_(c0, 'territory')) anyTerritory = true; });
@@ -261,7 +251,7 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
   var hpRate = 0.05 * (avalon ? 1.6 : 1);
   var did = false;
 
-  // 🔋 出力電池制(2026-06)：從者【沒有自有魔力池】——御主MP 是唯一且持續的魔力資源，被同隊從者按「出力檔位」持續抽取。
+  // 🔋 出力電池制：從者【沒有自有魔力池】——御主MP 是唯一且持續的魔力資源，被同隊從者按「出力檔位」持續抽取。
   //   先蒐集御主列＋在世同隊從者，再算御主魔力收支：收入(迴路供給+靈脈+工房) − Σ 從者維持費×出力 drainMul。
   var masterI = -1, svRows = [];
   for (var i = 1; i < data.length; i++) {
@@ -288,8 +278,8 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
     var d = servantEconomy_(circuits, cs.six, !!hasFx_(cs, 'mad'), ley, hasWs).drain;
     totalDrain += d * outputTier_(cs.output).drainMul;
   });
-  // 🐙 深淵海怪·時間維持費(2026-07 玩家定案·取代 12h 碼表)：海怪在場＝共用池的另一張嘴，
-  //   每小時另抽 HORROR_HOURLY_UPKEEP。池赤字時【海怪先沉回深淵、才輪到御主燃血】(見下方 deficit 分支)。
+  // 🐙 深淵海怪·時間維持費：海怪在場＝共用池的另一張嘴，每小時另抽 HORROR_HOURLY_UPKEEP。
+  //   池赤字時【海怪先沉回深淵、才輪到御主燃血】(見下方 deficit 分支)。
   var horrorIdx = -1;
   svRows.forEach(function (ri) {
     if (horrorIdx !== -1) return;
@@ -298,9 +288,8 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
   if (horrorIdx !== -1) totalDrain += HORROR_HOURLY_UPKEEP;
 
   // 御主魔力淨收支（休息把收入加倍、維持不變）→ 寫回御主 MP。
-  //   🩸 被動燃血(2026-07 玩家定案：只扣御主)：池見底、時消耗補不上的缺口 → 御主自動燃命續契約——
-  //   缺口÷2 全額由御主血肉支付、【從者一律不扣血】(從者無自有魔力池，代價全在電池=御主身上)。
-  //   不再強制降出力(玩家想少流血就自己節流)；保底 1 HP(被動 tick 不直接秒死，但會磨成殘血任人宰)。
+  //   🩸 被動燃血(只扣御主)：池見底、時消耗補不上的缺口 → 御主自動燃命續契約，缺口÷2 由血肉支付，
+  //   從者一律不扣血(從者無自有魔力池，代價全在電池=御主身上)；保底 1 HP，不直接秒死但會磨成殘血。
   var masterBurn = 0;
   if (masterI >= 0) {
     // 重算共用池上限(把同隊從者魔力併進來)；夾住當前 MP
@@ -320,7 +309,7 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
     }
     var nMMp = mMpMax ? Math.max(0, Math.min(mMpMax, Math.round(rawNew))) : mMp;
     var unfunded = (mMpMax && rawNew < 0) ? Math.round(-rawNew) : 0;     // 缺口(mana)，改由血肉支付
-    // 🩸 被動燃血(玩家定 2026-07)：缺口/2 全額由御主承擔——從者不扣血(電池代價歸電池)。
+    // 🩸 被動燃血：缺口/2 全額由御主承擔——從者不扣血(電池代價歸電池)。
     masterBurn = Math.round(unfunded / 2);
     var mHpMax = parseInt(data[masterI][COL.PC.MAX_HP]) || 0, mHp = parseInt(data[masterI][COL.PC.HP]) || 0;
     // 缺口時御主被動燃血扣血(保底1)；否則自我修復
@@ -329,7 +318,7 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
     if (nMMp !== mMp || nMHp !== mHp) { data[masterI][COL.PC.MP] = nMMp; data[masterI][COL.PC.HP] = nMHp; did = true; }
   }
 
-  // 從者：【不參與燃血】(2026-07 玩家定案)。缺口時魔力短缺、靈基自我修復停擺(HP 不動)；無缺口則正常自我修復。
+  // 從者：【不參與燃血】。缺口時魔力短缺、靈基自我修復停擺(HP 不動)；無缺口則正常自我修復。
   //   出力檔＝玩家旋鈕，不在時回變動；無自有魔力池。
   var deficitNow = masterBurn > 0;
   svRows.forEach(function (ri) {
@@ -385,31 +374,24 @@ function refillMastersDaily_(sheets, gameId, day, preData) {
 //   回傳 { rumors:[..文字..], moved:n }
 var WORLD_FLOOR_ = 4; // 世界自走永遠至少保留這麼多名敵從者給玩家親手解決（不會被自走清光）
 var ATTRITION_START_DAY = 3; // ⏳ 開戰前期不減員：第 N 日(含)前，世界不會有從者暗處殞落（給玩家喘息＋貼戰爭初期蟄伏）
-// 🩹 2026-07：敵從者每輪世界自走小幅回血(不看同地/攻防狀態、不吃玩家 rest×2 加成)——
-//   玩家自己(applyRegen_)每次休息都全額回血回魔，敵從者卻永遠沒有對應機制，傷勢會一直停在原地。
-//   撤離又幾乎零成本(見 actionMove 撤離判定)，兩者相加＝「打一下、撤退回血、再打一下」保證磨死任何敵人，
-//   毫無風險。給敵從者一點點自癒(比玩家慢很多、不隨休息倍增)，讓無限次撤退刷血不再穩贏，逼玩家要嘛
-//   加快節奏、要嘛正面找到真正的剋制手段——而不是純靠耐心。
-//   ⚠ 2026-07 二修(玩家反饋 0.03 太少、6h 只回 6% 沒感覺)：0.03→0.06，休息 6h(2輪)回 12%、
-//   12h上限(4輪)回 24%；對比玩家自己休息 6h 回 60% HP(0.05×6×2)，敵人仍慢得多，但磨血刀不再幾乎無感。
+// 🩹 敵從者每輪世界自走小幅回血(不看同地/攻防狀態、不吃玩家 rest×2 加成)：撤離幾乎零成本，若敵人
+//   完全沒有回血機制，「打一下、撤退、再打一下」就能零風險磨死任何對手。回血速度遠低於玩家(不隨休息倍增)，
+//   逼玩家加快節奏或正面找到剋制手段，而不是純靠耐心刷。
 var ENEMY_REGEN_RATE_ = 0.06;
 function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) {
   var rumors = [];
   if (!gameId) return { rumors: rumors, moved: 0 };
   rounds = rounds || 1;
-  // ⚡ 2026-07 收斂：全函式只整表讀一次，往後各階段(移位/廝殺/透支判定)共用同一份記憶體 data、
-  //   只做局部批次寫回(LOC欄/單列)——原本每輪重讀一次+廝殺前後各再讀一次，一次 worldTick_ 呼叫最多整表讀 3+ 次。
-  // ⚡ 2026-07 再收斂：呼叫端(actionMove/actionRest)手上通常已有剛讀好的整表 → 傳 preData 直接在
-  //   同一份陣列上原地改(JS 陣列傳參考)，呼叫端事後不必為了「拿到 tick 後最新狀態」而重讀一次整表；
-  //   沒傳(其餘呼叫點)才自己整表讀一次(相容)。
+  // 全函式只整表讀一次，各階段(移位/廝殺/透支判定)共用同一份記憶體 data、只做局部批次寫回。
+  // 呼叫端(actionMove/actionRest)手上通常已有剛讀好的整表 → 傳 preData 直接在同一份陣列上原地改
+  // (JS 陣列傳參考)，事後不必重讀一次整表拿最新狀態；沒傳才自己整表讀一次(相容)。
   var data = preData || sheets.pc.getDataRange().getValues();
   var _ck0 = getClock_(gameId, data); if (_ck0) refillMastersDaily_(sheets, gameId, _ck0.day, data);
   var moved = 0;
   var anyMemDirty = false;
-  // 🔮 登場預告(2026-07 新增·玩家「有辦法再放人進去嗎？」→選「登場前有世界風聲預告」)：尚未登場、
-  //   但已進入「登場前1~2天」窗口的敵從者，世界風聲提前透露一絲氣息——只觸發一次(MEMORY【已預告】
-  //   避免每輪重播)，不洩漏精確位置/天數；有自訂提示句(【登場提示】，Seed_Rivals.gs roster 可選填)
-  //   就用，沒有就退回依職階的泛用措辭。只跑一次(不隨 rounds 重複)，跟 refillMastersDaily_ 同一層級。
+  // 🔮 登場預告：尚未登場、但已進入「登場前1~2天」窗口的敵從者，世界風聲提前透露一絲氣息——只觸發
+  //   一次(MEMORY【已預告】避免每輪重播)，不洩漏精確位置/天數；有自訂提示句(【登場提示】)就用，
+  //   沒有就退回依職階的泛用措辭。
   if (_ck0) {
     for (var hn = 1; hn < data.length; hn++) {
       if (String(data[hn][COL.PC.FACTION]) !== "敵從者") continue;
@@ -430,8 +412,8 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
       anyMemDirty = true;
     }
   }
-  // ⚡ 2026-07 收斂：LOC/HP 整欄批次寫回原本各輪跑一次(rounds 最多4輪·12h休息)，改成跨輪累積髒旗標、
-  //   迴圈跑完後各自只寫一次——data 是同一份陣列全程原地改，跑完才寫不影響任何一輪讀到的中間值。
+  // LOC/HP 整欄批次寫回跨輪累積髒旗標、迴圈跑完後才各寫一次(rounds 最多4輪)，
+  // data 全程原地改，跑完才寫不影響任何一輪讀到的中間值。
   var anyLocDirty = false, anyHpDirty = false;
 
   for (var rd = 0; rd < rounds; rd++) {
@@ -449,8 +431,8 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
       var newLoc = enemyRetreatLoc_(oldLoc);
       if (newLoc === oldLoc) continue;
       data[i][COL.PC.LOC] = newLoc; locDirty = true;
-      // 🔭 已偵查到的敵人移位後【保持可見】(不再清 SEEN)：一旦感應到對手氣息就持續追蹤其當前位置，否則敵人每動一次就
-      //   重新隱形、玩家永遠追不到人。未偵查者 SEEN 仍為空、維持迷霧。LOC 改記憶體、整輪後整欄批寫(取代逐列 setValues)。
+      // 🔭 已偵查到的敵人移位後【保持可見】(不清 SEEN)：一旦感應到對手氣息就持續追蹤其當前位置，
+      //   否則敵人每動一次就重新隱形、玩家永遠追不到人。未偵查者 SEEN 仍為空、維持迷霧。
       // 同地敵從者隨行：優先比對 MEMORY 裡的【御主】tag，避免同格多組互搶從者
       var mName = String(data[i][COL.PC.NAME] || "");
       var foundServant = false;
@@ -489,21 +471,11 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
       var eNHp = Math.min(eHpMax, eHp + Math.round(eHpMax * ENEMY_REGEN_RATE_));
       if (eNHp !== eHp) { data[hi][COL.PC.HP] = eNHp; anyHpDirty = true; }
     }
-    // 🐛→✅ 2026-07 稽核抓到真實bug：這裡原本還有第二段一模一樣的「敵從者小幅自癒」迴圈(重複的
-    //   copy-paste殘留，refactor成上面「跨輪累積髒旗標、跑完才寫」版本時忘了刪掉舊版)——舊版沿用
-    //   同一份`data`，重新讀取「上面那段迴圈剛治療過」的HP再治療一次，等於每輪世界推進都把
-    //   ENEMY_REGEN_RATE_實際套用兩次(0.06→實際約0.12，休息12h變成回48%而非設計的24%)；還在迴圈內
-    //   立刻`sheets.pc.getRange(...).setValues(...)`寫回，跟本函式開頭註解明講的「整欄批次寫回...
-    //   跑完才寫，省去中途重複Sheets寫入次數」自相矛盾(每輪都多寫一次，最多4輪=4次多餘寫入)。
-    //   整段刪除，只留上面那段+函式結尾的anyHpDirty批次寫回，才是名副其實的「只寫一次、只治療一次」。
 
     // 2) 暗處從者互鬥：只在「休息」時可能發生（移動只換位，不受傷）；
     //    且永遠至少保留 WORLD_FLOOR_ 名敵從者給玩家親手解決——絕不會被世界自走清光。
-    // 🐛→✅ 2026-07 玩家要求「敵方npc會隨機互鬥扣血」：原本這裡是「7%機率、直接選一名戰力最低者
-    //   瞬間標記死亡」的硬幣翻面式殺法——沒有真的打過一場，也不會單純掛彩、只有生跟死兩種結果。
-    //   改成真的抽兩名離場敵從者、吃 rowToCombatant_ 建成真實combatant、走跟玩家對戰同一套
-    //   resolveFateBattle_ 結算(GAS本機算，不叫AI)——多數情況只是雙方掛彩(確實扣血、不死)，
-    //   只有真的把某一方打到HP見底時才會死亡，死法從「機率骰子」變成「真打出來的」。
+    // 抽兩名離場敵從者、建成真實 combatant，走跟玩家對戰同一套 resolveFateBattle_ 結算(GAS本機算，
+    //   不叫AI)——多數情況只是雙方掛彩(確實扣血、不死)，只有真的打到HP見底才會死亡。
     if (!allowAttrition) continue;
     // ⏳ 開戰前期(第 ATTRITION_START_DAY 日前)世界不減員——給玩家喘息，也貼「戰爭初期各方按兵蟄伏」。
     var _ckR = getClock_(gameId, data);
@@ -543,8 +515,8 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
         sheets.pc.getRange(o.info.idx + 1, 1, 1, data[o.info.idx].length).setValues([data[o.info.idx]]);
         markMasterLostServant_(sheets.pc, data, o.info.idx, "在冬木暗處的互鬥中、歿於他人之手");
       });
-      // 🎨 風聞措辭多樣化(玩家要求「不用太平凡」)：不洩漏具體交鋒數字/勝方身分，只留下魔力波動／
-      //   寶具氣息等氛圍線索——有死亡才點名罹難者，純掛彩(多數情況)只留下模糊的異狀傳聞。
+      // 🎨 風聞措辭多樣化：不洩漏具體交鋒數字/勝方身分，只留下魔力波動／寶具氣息等氛圍線索——
+      //   有死亡才點名罹難者，純掛彩(多數情況)只留下模糊的異狀傳聞。
       if (aDied || bDied) {
         var victimName = aDied ? infoA.name : infoB.name;
         var lethalTpl = [

@@ -6,27 +6,22 @@
 // ==========================================
 
 // 7 張分頁的表頭定義（欄位順序＝COL 對照表，引擎以索引讀取，表頭僅供人看）
-// 🆕 2026-07 重構：關係(REL)/時鐘(CLK)/權柄(AUTH)/因果(LOG)/史紀(EPIC)/戰史(HIST) 六表全數砍除或併入眾生列尾端
-//   (BOND/REL_TAG/IS_PARTY/MAJOR_EVENT/REL_MEM/DAY/HOUR/AP/HOME_LOC，欄序需與 COL.PC 完全對齊)。
+// 關係/時鐘/權柄/因果/史紀/戰史 六表已併入眾生列尾端(BOND/REL_TAG/IS_PARTY/MAJOR_EVENT/REL_MEM/DAY/HOUR/AP/HOME_LOC)，欄序需與 COL.PC 對齊。
 var FATE_SHEET_DEFS = {
   "坤圖":   ["地域", "地名", "類型", "座標", "描述", "上級", "戰爭"],
   "眾生":   ["角色ID","姓名","性別","身世","外顯狀態","特徵","所在","喜好","氣血","真元","氣血上限","真元上限","記憶","意圖","歸屬","位階","貢獻","陣營","體徵","寶具","局號","六圍","標籤","已偵查","好感","關係標籤","同行","重大事件","關係記憶","日","時","行動點","居所"],
-  // 🆕 尾端新增「日常外貌／日常性格／日常萌點／日常衣裝」(2026-07)：鑑賞用都市日常版，懶惰快取
-  //   (見 COL.HERO 註解/heroToKanshouRow_)。🐛→✅ 稽核發現「日常萌點」「日常衣裝」兩欄標籤過去
-  //   漏補(COL.HERO 早已是17欄，這裡卻只列15個表頭標籤)，既有試算表這2欄表頭一直是空白——已補上，
-  //   下次任何 action 觸發 ensureFateSheets_ 時會自動補上這2個缺的尾端表頭標籤(不覆蓋既有資料)。
+  // 尾端「日常外貌／日常性格／日常萌點／日常衣裝」：鑑賞用都市日常版懶惰快取(見 COL.HERO 註解/heroToKanshouRow_)。
+  //   ensureFateSheets_ 只補尾端缺少的表頭標籤，不覆蓋既有資料。
   "英靈殿": ["英靈ID","職階","真名","性別","六圍","職階技能","固有技能","特性","寶具","人格","陣營","出沒戰爭","來源","日常外貌","日常性格","日常萌點","日常衣裝"],
   "御主殿": ["御主ID","姓名","性別","外貌","魔術系統","魔術迴路","體術","魔術階位","居所","願望","人格","戰爭","來源","身世","萌點"],
   "帳號": ["帳號名","角色ID","建立時間","鑑賞角色ID"],
-  // 🗑️ 2026-07 稽核確認並整條移除「鑑賞」(GAL)：奪杯封存機制已整套砍掉，全代碼庫grep確認這張表
-  //   無任何讀寫者(COL.GAL同步移除，見Core_Settings.gs)。若試算表本體已存在這張分頁，移除定義後
-  //   不會自動刪除實體分頁，留著空分頁無害，玩家可自行手動刪除。
+  // 「鑑賞」(GAL)已整套移除(COL.GAL同步移除，見Core_Settings.gs)：若試算表已有此分頁，移除定義後
+  //   不會自動刪除實體分頁，留著無害，可手動刪除。
   "歷史暫存": ["時間", "角色ID", "發話者", "內容"]
 };
 
-// 🧹 一鍵清除專案所有觸發器（舊版「自動移動／自動發信／自動彙整」的殘留時間觸發器，
-//   函式本體早已隨經濟/飛書清理移除，但 Apps Script 專案裡可能還掛著指向它們的時間觸發器）。
-//   在 GAS 編輯器選此函式手動執行一次即可全清。FATE 世界推進靠玩家按鍵時的 worldTick_，不需任何觸發器。
+// 🧹 一鍵清除專案所有觸發器（舊版經濟/飛書機制的殘留時間觸發器，函式本體已移除但觸發器可能還掛著）。
+//   FATE 世界推進靠玩家按鍵時的 worldTick_，不需任何觸發器，於 GAS 編輯器手動執行一次即可全清。
 function removeAllTriggers() {
   var ts = ScriptApp.getProjectTriggers();
   ts.forEach(function (t) { ScriptApp.deleteTrigger(t); });
@@ -34,9 +29,7 @@ function removeAllTriggers() {
   return "已清除 " + ts.length + " 個觸發器。";
 }
 
-// 冬木地圖種子：地域,地名,類型,座標,描述,上級
-// ⚠ 2026-07 新增第7欄「戰爭」：空字串＝通用地點(任何戰爭/鑑賞皆顯示)；'4th'＝僅第四次聖杯戰爭顯示。
-//   既有17個地點皆為冬木的通用地理/建築，兩次戰爭都存在，維持空字串；只有新補的3個第四次限定地點才標記。
+// 冬木地圖種子：地域,地名,類型,座標,描述,上級,戰爭（戰爭欄：空字串＝通用地點；'4th'＝僅第四次聖杯戰爭限定）
 var FATE_MAP_SEED = [
   // 新都（未遠川西岸·現代都心）
   ["冬木", "冬木·新都",   "城區", "30,44", "未遠川西岸的現代都心，高樓林立、霓虹徹夜未熄，最易隱身於人潮的所在。", "", ""],
@@ -66,18 +59,9 @@ var FATE_MAP_SEED = [
   ["冬木", "冬木·遊樂園",   "約會", "-1,-3", "燈火璀璨的遊樂園，摩天輪緩緩轉動，旋轉木馬與攤販笑語不絕。", "", ""]
 ];
 
-// 🗑️ FATE_CTAG_SEED（戰鬥標籤分頁種子）已移除：全庫零讀取的 write-only 死資料——
-//    戰鬥 fx 實際走 hasFx_＋SEED_SERVANTS 的 skills/traits JSON，不讀此分頁（CLAUDE.md「死符號 CTAG 清」）。
-
 // 🔵 冪等建表主函式：缺則補、含則略。回傳本次新建的分頁名陣列。
-// 🔄 2026-07 玩家定案「試算表檢查改成純手動」：先前這裡有一段「6小時CacheService短路」讓這個函式
-//   可以無腦掛在每個action/doGet自動執行——但玩家測試期常直接清空試算表重來，這種自動檢查一來
-//   對已經穩定的正式運作沒必要每次都跑，二來先前那層快取還一度蓋過頭導致「缺分頁不自動補」的bug
-//   (見下方保留的舊註解脈絡，該bug已修過一次)。玩家決定乾脆不要在任何地方自動呼叫這個函式，
-//   改成只在登入畫面放一顆「檢查/建立試算表」按鈕(check_sheets action，Router_Action.gs)手動觸發——
-//   doGet()(Engine_Combat.gs)／handleGameAction()(Router_Action.gs)都已移除自動呼叫。
-//   既然只剩手動觸發、次數本來就稀少，先前那層快取短路已無意義，一併移除，函式恢復成單純的
-//   「每次呼叫都完整檢查＋灌種子」，不再有快取新鮮度的顧慮。
+//   只在登入畫面「檢查/建立試算表」按鈕(check_sheets action)手動觸發，doGet()/handleGameAction() 皆不自動呼叫——
+//   玩家測試期常直接清空試算表重來，自動檢查沒必要且曾因快取蓋過頭導致「缺分頁不自動補」的bug，故改純手動、不再快取。
 function ensureFateSheets_(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
   var created = [];
@@ -102,9 +86,6 @@ function ensureFateSheets_(ss) {
     }
     created.push(name);
   });
-  // 🗑️ 2026-07 稽核確認並移除：原本這裡有 CacheService.remove("FATE_MAP_DATA")，但坤圖靜態化
-  //   後 getMapDataCached() 直接讀 FATE_MAP_SEED 常數、從未 put 過這個快取鍵，remove 一個從未
-  //   被寫入的鍵是無害的no-op，卻會讓後來讀者誤以為坤圖還是快取制、需要小心無效化——移除。
   // 英靈殿/御主殿 若為空，自動灌入名冊（Seed_Codex.gs）
   try { if (typeof seedFateCodex_ === "function") seedFateCodex_(ss); } catch (e) { Logger.log("seedFateCodex_ 失敗(略過): " + e.message); }
   // 坤圖若為空(早期被空建未灌種子)→補；坤圖舊「冬木」母節點→改頂層
@@ -124,8 +105,7 @@ function reseedIfEmpty_(ss) {
       sh.getRange(2, 1, seed.length, seed[0].length).setValues(seed);
     }
   });
-  // ⚡ 以下坤圖升級＋赫拉克勒斯補丁＝一次性遷移(過去每按鍵都重跑：坤圖整表讀×2＋英靈殿整表讀×1＋清掉地圖快取)。
-  //   版本旗標守門：套用過即 return；如此 getMapDataCached 的 1h 快取才不會每按鍵被 line 清掉而失效。
+  // ⚡ 坤圖升級＋赫拉克勒斯補丁＝一次性遷移，版本旗標守門避免每按鍵重跑(否則整表讀＋清快取拖慢速度)。
   try { if (PropertiesService.getScriptProperties().getProperty('fate_reseed_ver') === RESEED_VER) return; } catch (e) { }
   var km = ss.getSheetByName("坤圖");
   if (km && km.getLastRow() > 1) {
@@ -135,8 +115,7 @@ function reseedIfEmpty_(ss) {
       if (String(data[i][COL.MAP.PARENT]).trim() === "冬木") { data[i][COL.MAP.PARENT] = ""; changed = true; }
     }
     if (changed) km.getRange(1, 1, data.length, data[0].length).setValues(data);
-    // 🗺️ 地圖升級：依種子(以地名為鍵)更新既有地點的 類型/座標/描述，並補入缺少的地點。
-    //   坤圖是純地理表(無 per-game 資料)，故安全。修正舊資料的錯誤(如遠坂宅誤標新都)＋補新地點。
+    // 🗺️ 依種子(以地名為鍵)更新既有地點的類型/座標/描述並補入缺少的地點；坤圖是純地理表(無 per-game 資料)，故安全覆寫。
     var d2 = km.getDataRange().getValues();
     var nameToIdx = {};
     for (var j = 1; j < d2.length; j++) nameToIdx[String(d2[j][COL.MAP.NAME]).trim()] = j;
@@ -151,7 +130,6 @@ function reseedIfEmpty_(ss) {
     if (upserted) km.getRange(1, 1, d2.length, d2[0].length).setValues(d2);
     if (toAppend.length) km.getRange(km.getLastRow() + 1, 1, toAppend.length, toAppend[0].length).setValues(toAppend);
   }
-  // 🗑️ 2026-07 稽核確認並移除：同上，坤圖靜態化後這個快取鍵從未被寫入，remove 是無害no-op。
 
   // 🔧 既有英靈殿補丁：赫拉克勒斯的「十二試煉」過去只在 np 文字、缺 fx:god_hand → 補上技能
   try {
@@ -174,11 +152,8 @@ function reseedIfEmpty_(ss) {
   try { PropertiesService.getScriptProperties().setProperty('fate_reseed_ver', RESEED_VER); } catch (e) { } // 一次性遷移完成、之後跳過
 }
 
-// 🔘 2026-07 玩家新增：登入畫面的「檢查/建立試算表」按鈕唯一呼叫點——把 ensureFateSheets_() 的能力
-//   包成一個可從網頁前端觸發的 action，免開 GAS 編輯器手動執行(舊版編輯器專用包裝函式 setupFateWorld
-//   已於 2026-07 函式稽核確認完全被本 action 取代、零呼叫點後移除)。刻意不需要 pcId(登入前就可以按)，
-//   也不受 KANSHOU_BLOCKED_ACTIONS_ 影響(該名單只擋「鑑賞context」呼叫solo專屬action，這裡pcId
-//   恆為空，isKanshouCtx 恆為false，不會被攔)。
+// 🔘 登入畫面「檢查/建立試算表」按鈕的唯一呼叫點，包成前端可觸發的 action。刻意不需要 pcId(登入前就能按)，
+//   也不受 KANSHOU_BLOCKED_ACTIONS_ 影響(該名單只擋鑑賞context呼叫solo專屬action，這裡 pcId 恆為空不會被攔)。
 function actionCheckSheets(userData, pcId, sheets) {
   try {
     var created = ensureFateSheets_();
