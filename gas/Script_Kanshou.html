@@ -109,6 +109,30 @@
     await send('🎊 想快轉到「' + name + '」看看。', false, null, null, false, false, 0, key);
   }
 
+  // 🎊 2026-07 玩家「不常用，不要擺出來」：從地圖頁常駐區塊搬進＋抽屜，比照kc-overlay同款
+  // 「專屬彈窗，不與其他功能共用」寫法，用完即關、不佔地圖頁版面。
+  function openKanshouFestivals() {
+    try { var dr = document.getElementById('action-drawer'); if (dr && dr.style.display !== 'none' && typeof toggleActionDrawer === 'function') toggleActionDrawer(); } catch (e) {}
+    var ov = document.getElementById('kc-festival-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'kc-festival-overlay';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.82);display:none;align-items:center;justify-content:center;padding:18px;';
+      ov.onclick = function (e) { if (e.target === ov) closeKanshouFestivals(); };
+      ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:360px;width:100%;padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);">'
+        + '<h3 style="margin:0 0 4px;color:#e0b080;">🎊 快轉到節慶</h3>'
+        + '<div style="color:#9a8f70;font-size:11px;margin-bottom:10px;">直接跳到下一次的這個節日，不在身邊的英靈會依新時刻重新分佈。</div>'
+        + '<div style="display:flex; flex-wrap:wrap; gap:6px;">'
+        + KC_FESTIVALS_.map(function (f) { return '<button class="btn" style="flex:1 0 30%;padding:8px 2px;font-size:12px;border-color:#8a6a4a;color:#e0b080;" onclick="closeKanshouFestivals();kanshouJumpFestival(\'' + f.key + '\',\'' + f.name + '\')">' + f.name + '</button>'; }).join('')
+        + '</div>'
+        + '<button onclick="closeKanshouFestivals()" style="margin-top:14px;width:100%;padding:10px;background:#4a3a6a;color:#fff;border:none;border-radius:8px;cursor:pointer;">關閉</button>'
+        + '</div>';
+      document.body.appendChild(ov);
+    }
+    ov.style.display = 'flex';
+  }
+  function closeKanshouFestivals() { var ov = document.getElementById('kc-festival-overlay'); if (ov) ov.style.display = 'none'; }
+
   // 篩選下拉選單本身只跟 _kcHeroesAll(英靈庫全清單)有關，內容跟 get_heroes 一樣少變——只在
   // 英靈庫清單真的重抓時(見 openCompanions)才重建這裡，換篩選只呼叫 applyKcHeroFilter_ 切 CSS。
   function renderKcFilters_() {

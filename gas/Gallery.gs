@@ -383,6 +383,30 @@ function actionEnterKanshou(userData, pcId, sheets) {
   kpc.appendRow(mRow);
   linkAccountToKanshouPc_(acctName, mId); // 🔒 權威連結寫進帳號表
 
+  // 🌹 2026-07 玩家「開場就放置她們，不用每次都靠隨機巧遇/手動召喚」定案：預先建好起始英靈的
+  //   資料列——依玩家性別挑一組不違反「不開放男男配對」的陣容(女性主力皆通用；男性同伴只給
+  //   女性玩家)，讓她們一開局就「活在這個世界裡」。IS_PARTY故意留空、不自動同行(同行名額仍由
+  //   玩家自己在同伴面板邀請決定)——只是有了位置，走到那個地點就會被既有的「留人重逢」機制
+  //   (§56 kanshouLeftBehindIdxs，判斷式只看「有資料列＋不同行＋同地點」，不管是不是本來就有召喚
+  //   過)保底判定成重逢，不必經過機率巧遇。整批一次用getRange().setValues()寫入(單一Sheets API
+  //   呼叫)，不逐列appendRow，維持整表批次寫入的效能鐵律，不會拖慢建角速度。
+  // 玩家反映「美遊/伊莉雅-Caster/小黑這三個感覺先不要」(較冷門的Illya外傳角色)，改用主線
+  // 知名度較高的美狄亞/美杜莎。
+  var starterIds = mSex === "女"
+    ? ['阿爾托莉雅-Saber', '遠坂凜-Master', '伊莉雅絲菲爾-Master', '衛宮士郎-Master', 'EMIYA-Archer', '伊斯坎達爾-Rider']
+    : ['阿爾托莉雅-Saber', '遠坂凜-Master', '伊莉雅絲菲爾-Master', '美狄亞-Caster', '美杜莎-Rider'];
+  var starterCodex = getHeroCodexCached();
+  var starterRows = starterIds.map(function (hid) {
+    var hero = starterCodex.find(function (r) { return String(r[COL.HERO.ID]) === hid; });
+    if (!hero) return null;
+    var row = heroToKanshouRow_(hero, gameId, kanshouRollDailyLocation_(String(hero[COL.HERO.NAME])));
+    row[COL.PC.IS_PARTY] = ""; // 先放在世界裡，不自動同行
+    return row;
+  }).filter(Boolean);
+  if (starterRows.length) {
+    kpc.getRange(kpc.getLastRow() + 1, 1, starterRows.length, pcColCount).setValues(starterRows);
+  }
+
   return JSON.stringify({
     success: true,
     pcId: mId, pcName: mName, pcSex: mSex, loc: loc2, homeName: "家"

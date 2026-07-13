@@ -1569,12 +1569,8 @@
         + [2, 6, 12].map(function (h) { return '<button class="btn" style="flex:1;padding:6px 2px;font-size:11.5px;border-color:#4a6a8a;color:#8ac0e0;" onclick="kanshouAdvanceHours(' + h + ')" title="時間推進' + h + '小時，不在身邊的英靈依新時刻重新分佈去向">⏩' + h + 'h</button>'; }).join('')
         + '</div>'
         + '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:#7a6a4a;color:#e0c090;" onclick="kanshouEndDay()" title="不在身邊的英靈由GAS自動決定隔天去哪，時間推進到明天">🌙 結束一天</button>'
-        // 🎊 2026-07「跳到節慶」：不做真正的西曆年月日(玩家「沒有年月日，比較自由不複雜」)，純粹
-        //   算「距離該節慶還有幾小時」直接餵進跟⏩推進時間同一套邏輯(見Gallery.gs KANSHOU_FESTIVALS_)。
-        + '<div style="color:#9a8f70; font-size:11px; margin:2px 0 4px;">🎊 快轉到節慶</div>'
-        + '<div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:10px;">'
-        + KC_FESTIVALS_.map(function (f) { return '<button class="btn" style="flex:1 0 30%;padding:5px 2px;font-size:11px;border-color:#8a6a4a;color:#e0b080;" onclick="kanshouJumpFestival(\'' + f.key + '\',\'' + f.name + '\')" title="快轉到' + f.name + '，不在身邊的英靈依新時刻重新分佈去向">' + f.name + '</button>'; }).join('')
-        + '</div>'
+        // 🎊 2026-07「跳到節慶」玩家反映「不常用，不要擺出來」：改收進＋抽屜(見Index.html
+        //   drawer-festival／Script_Kanshou.html openKanshouFestivals)，地圖頁不再常駐佔版面。
         + '<div id="kc-map-list">' + kcMapListHtml_() + '</div>';
       return;
     }
@@ -2624,6 +2620,8 @@ function applyModeUI() {
   var ibar = document.getElementById('input-bar'); if (ibar) ibar.style.display = isKanshou ? '' : 'none';
   // 👥 後日談同伴管理：只在鑑賞模式出現
   var dcomp = document.getElementById('drawer-companions'); if (dcomp) dcomp.style.display = isKanshou ? '' : 'none';
+  // 🎊 快轉節慶(2026-07 從地圖頁移進＋抽屜，玩家「不常用，不要擺出來看」)：只在鑑賞模式出現
+  var dfest = document.getElementById('drawer-festival'); if (dfest) dfest.style.display = isKanshou ? '' : 'none';
   // 戰爭行動列：取代輸入框，只在戰爭模式顯示
   var wa = document.getElementById('war-actions'); if (wa) wa.style.display = isKanshou ? 'none' : 'flex';
   // 🌹 鑑賞御主卡已內建「換裝＋詳細狀態」按鈕列，卡片列表下方這顆獨立按鈕改只在 solo 顯示，避免重複外露
