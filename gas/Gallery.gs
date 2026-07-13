@@ -740,7 +740,7 @@ const KANSHOU_LOCATIONS_ = [
 //   全池隨機當保底(隱藏溫泉/屋頂花園等6個地點刻意不建標籤，全靠保底池)。
 const KANSHOU_LOCATION_TAGS_ = {
   '河邊小徑': ['庫丘林-Lancer', '斯卡哈-Lancer'],
-  '商店街': ['庫丘林-Lancer', '迪盧木多-Lancer', '美遊-Saber'],
+  '商店街': ['庫丘林-Lancer', '迪盧木多-Lancer', '美遊-Saber', '衛宮士郎-Master'],
   '老道場': ['佐佐木小次郎-Assassin', '斯卡哈-Assassin'],
   '書店二樓': ['伊莉雅-Caster'],
   '古老神社': ['伊斯坎達爾-Rider', '美狄亞-Caster'],
@@ -748,10 +748,11 @@ const KANSHOU_LOCATION_TAGS_ = {
   '港口倉庫區': ['庫丘林-Lancer', '蘭斯洛特-Berserker', '美杜莎-Rider'],
   '咖啡廳': ['吉爾伽美什-Archer', '阿爾托莉雅-Saber'],
   '廢棄神社': ['赫拉克勒斯-Berserker', '恩奇都-Lancer'],
-  '深夜便利店': ['庫丘林-Lancer', '遠坂凜-Master']
+  '深夜便利店': ['庫丘林-Lancer', '遠坂凜-Master'],
+  '電影院附近': ['藤村大河-Master']
 };
-const KANSHOU_ENCOUNTER_MALE_IDS_ = ['EMIYA-Archer', '庫丘林-Lancer', '佐佐木小次郎-Assassin', '赫拉克勒斯-Berserker', '吉爾伽美什-Archer', '迪盧木多-Lancer', '伊斯坎達爾-Rider', '蘭斯洛特-Berserker'];
-const KANSHOU_ENCOUNTER_FEMALE_IDS_ = ['阿爾托莉雅-Saber', '美杜莎-Rider', '美狄亞-Caster', '斯卡哈-Lancer', '斯卡哈-Assassin', '美遊-Saber', '小黑-Archer', '伊莉雅-Caster', '恩奇都-Lancer', '遠坂凜-Master', '伊莉雅絲菲爾-Master', '間桐櫻黑化-Master'];
+const KANSHOU_ENCOUNTER_MALE_IDS_ = ['EMIYA-Archer', '庫丘林-Lancer', '佐佐木小次郎-Assassin', '赫拉克勒斯-Berserker', '吉爾伽美什-Archer', '迪盧木多-Lancer', '伊斯坎達爾-Rider', '蘭斯洛特-Berserker', '衛宮士郎-Master'];
+const KANSHOU_ENCOUNTER_FEMALE_IDS_ = ['阿爾托莉雅-Saber', '美杜莎-Rider', '美狄亞-Caster', '斯卡哈-Lancer', '斯卡哈-Assassin', '美遊-Saber', '小黑-Archer', '伊莉雅-Caster', '恩奇都-Lancer', '遠坂凜-Master', '伊莉雅絲菲爾-Master', '間桐櫻黑化-Master', '藤村大河-Master'];
 // 🏷️ MEMORY標記存取器【邂逅】：逗號分隔的巧遇過姓名清單，去重、僅供「似曾相識」氛圍參考——
 //   同行隊伍成員的好感/關係走既有 REL_TAG/BOND，這裡只記路人巧遇過誰，不重複記錄。
 //   比照 getOutfit_/setOutfit_(Core_Settings.gs)同款「清除舊值再整段append」寫法。
