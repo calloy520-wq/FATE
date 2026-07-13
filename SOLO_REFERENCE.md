@@ -1961,3 +1961,17 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **未動的部分**：`nsfwBaseRules`常數逐字元核對未受影響(808字元不變)；`narrateWithState_`(`Router_Narrative.gs`，solo補魔/敘事)、其餘所有`callGeminiAPI`呼叫端(工房捏角/召喚生成等)完全未改，仍只帶`temperature`，新增的4個欄位對它們是no-op。
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0；`nsfwBaseRules`逐字元核對 identical，長度808不變。部署後建議測試：①鑑賞主動掌握模式(driveOn)多跑幾回合，觀察敘事收尾語氣是否比之前少重複套路句；②矜持模式(非driveOn)敘事正常運作、無報錯(代表SOLO_MODEL即使不支援部分旋鈕也不會炸)；③如覺得效果太強/太弱，這組數值可再微調(全部集中在`Gallery.gs`這一行`aiConfig`)。
+
+## §65 鑑賞「換裝改AI專屬」：移除同伴卡片上的手動換裝按鈕（2026-07・玩家「換裝是不是也只能用文字讓ai自己換才有感覺玩家只能決定自己的衣服？」→「換裝改AI專屬。這應該很快，拿掉按鈕而已？(需要保留嗎？萬一以後經濟系統有買服裝可以送她呢？)」）
+
+**背景**：鑑賞同伴的服裝其實已經有兩條路徑並存——玩家手動按「👗換裝」鈕自訂＋AI依`outfit_change`欄位每回合如實更新(§49)。玩家覺得同伴的穿著該完全交給AI/劇情演出決定，不該由玩家用選單指定，更有代入感；但玩家本人的服裝仍保留手動控制(這點在稍早的討論已定案不變)。
+
+**改動**：只刪`Script.html`鑑賞同伴卡片(`pc.mode === 'kanshou'`分支)裡觸發`changeOutfit(name)`的那顆「👗換裝」按鈕(原本跟「📜詳細狀態」並排，現在只剩詳細狀態一顆)。**沒有動**：
+1. `changeOutfit()`函式本體、`actionSetOutfit`(`Router_Economy.gs`)、`getOutfit_`/`setOutfit_`/`clearOutfit_`(`Core_Settings.gs`)全部保留未刪——御主本人的「換裝」鈕(`changeOutfit(name, true)`，Script.html:1321)、solo從者卡的「換裝」鈕(Script.html:1442，非kanshou分支)都還在用同一套函式，不受影響。
+2. AI驅動的`outfit_change`欄位/`sanitizeOutfitChange`/`setOutfit_`寫回邏輯(Gallery.gs)完全未改，同伴穿著依然持續被AI每回合更新、卡片上的「裝扮」顯示行也照樣讀取現值。
+
+**設計理由(呼應玩家的「需要保留嗎」提問)**：只拔前端「觸發同伴換裝」的那顆按鈕，底層`actionSetOutfit`/`getOutfit_`/`setOutfit_`資料模型完整保留——這不是刪除功能，是收回玩家手動觸發同伴換裝的入口。若以後想做「買衣服送同伴」這類經濟功能(目前仍受CLAUDE.md經濟紅線約束、未拿到明確解禁前不會動工)，屆時只需要新增一個呼叫`actionSetOutfit`的入口(如「贈送」流程完成後呼叫，等同代替玩家按下原本那顆鈕)，不需要重建整套換裝資料層——原地保留最大彈性、不用两邊都猜。
+
+**未動的部分**：`nsfwBaseRules`常數逐字元核對未受影響(未觸及Engine_Combat.gs/Gallery.gs)。「衛宮家寄宿開場改版」「左側面板改人物定位清單」兩塊仍待後續實作，本輪只完成「換裝改AI專屬」這一步。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(本輪未改這兩檔，形式上仍跑一次確認)。部署後建議測試：①鑑賞同伴卡片只剩「📜詳細狀態」一顆按鈕，沒有「👗換裝」；②御主本人卡片的「👗換裝」鈕正常運作(不受影響)；③solo模式從者卡的「👗換裝」鈕正常運作(不受影響)；④跟同伴互動幾回合，確認AI仍會依劇情自然更新她的穿著(裝扮顯示行有變化)。
