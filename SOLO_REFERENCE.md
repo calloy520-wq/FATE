@@ -2115,3 +2115,15 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **未動的部分**：`gas/`目錄下19個`.gs`檔案、5個`.html`檔案完全未受影響；`OPENROUTER_API_KEY`等指令碼屬性命名(§73)維持不變，那是GAS本身的設定，跟這次移除的Node工具鏈無關。
 
 **驗證**：`bash check.sh`全過(不涉及這幾個被刪檔案，本來就不在檢查範圍內)。部署後無需特別測試——這是純粹的檔案清理，`gas/`裡的實際遊戲邏輯一行都沒變。
+
+## §75 補齊send()忙碌鎖到全部入口（2026-07・玩家「除錯模式」死磕AI Studio夥伴的「絕對無存檔衝突」自陳，逐行讀`actionPlay`/`Script.html`發現真實漏洞後，玩家追加「忙碌鎖補齊到全部send()入口！」）
+
+**背景**：稽核`Gallery.gs`的`actionPlay`發現一段既有註解——「🔒 競態修：play 呼叫豁免寫入鎖(AI 呼叫佔數秒會卡全域)」，代表這個函式本來就刻意不上`LockService`全域鎖(否則AI那幾秒會卡死其他所有玩家)，只用「寫回前重查即時列索引」防止寫到已被刪除的列，這防的是「列被刪」，不是防「同一玩家連續兩次請求互相覆蓋」。往前端`Script.html`的`send()`一查，唯一的忙碌檢查`if (!customMsg && btn.disabled) return;`只在「無customMsg(純打字對話)」這條路徑生效——`Script_Kanshou.html`裡「走向○○」/「看看四周」/「結束一天」/「推進時間」/「快轉節慶」/「邀約同伴」等按鈕全部帶customMsg呼叫`send()`，一律跳過這個檢查，且過程中沒有任何全螢幕遮罩擋點擊(只在story插一行「聖杯演算中…」文字)。玩家手快連點兩個不同地圖按鈕(如按了「結束一天」又立刻點「走向咖啡廳」)，會真的並發送出兩個`actionPlay`請求，兩者都在對方寫回前各自讀了`pcData`，後寫回的會把先寫回的整段好感/肉體狀態改動蓋掉——這是可重現的lost-update，不是理論風險。
+
+**改動**：`Script.html`的`send()`裡，`if (!customMsg && btn.disabled) return;`改成`if (btn.disabled) return;`(單行條件修正)。`btn.disabled`本來就是`send()`唯一、可靠的「上一輪是否還在跑」訊號——函式開頭`btn.disabled = true`，`finally`區塊`btn.disabled = false`(L2836-2837)，不論成功/失敗都會重置，涵蓋所有既有呼叫路徑。改成不分是否帶customMsg都檢查這個旗標，等於讓地圖/節慶/結束一天/推進時間/邀約等7個入口，統一跟純打字對話共用同一道防連點閘門。
+
+**設計理由**：根源修法，不是貼OK繃——不新增任何忙碌狀態變數、不改`actionPlay`後端邏輯(GAS豁免全域鎖的設計本身合理，代價是前端要自己把關並發)，只把既有的、本就正確的訊號(`btn.disabled`)套用到所有入口，一行條件改動涵蓋全部7個按鈕，不必逐一按鈕加`disabled`判斷。驗證過所有既有`send()`呼叫點(含`justRevived`的1.5秒後自動接續、選項按鈕`onclick="send(...)"`)都是在前一輪`finally`重置`btn.disabled=false`之後才會被觸發，不會被這次改動誤擋。
+
+**未動的部分**：`gas/*.gs`完全未觸及，純前端`Script.html`一處條件修正；`nsfwBaseRules`不受影響(這次改動離`Engine_Combat.gs`/`Gallery.gs`都很遠)。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Engine_Combat.gs gas/Gallery.gs | grep -c nsfwBaseRules` = 0。部署後建議測試：①正常對話/移動/結束一天/推進時間各自單獨操作仍正常送出且能再次操作；②刻意手快連點兩個不同按鈕(如剛按完地點又馬上點推進時間)，第二次點擊應該被忽略(按鈕仍是`disabled`狀態)、不會發出第二個請求，等第一輪回應完成、按鈕解鎖後再點才會生效。
