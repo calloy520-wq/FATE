@@ -1563,6 +1563,11 @@
         + '<input type="checkbox" id="kc-encounter-toggle" ' + (kanshouEncounterOn ? 'checked' : '') + ' onchange="kanshouToggleEncounter_(this.checked)"> 路上可能巧遇陌生人'
         + '</label>'
         + '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:#8a6a9a;color:#d0a8e0;" onclick="kanshouLookAround()">👀 看看四周還有沒有其他人</button>'
+        // ⏰ 2026-07「推進時間」玩法：不強制拉玩家回家(跟🌙結束一天不同)，純粹跳過幾小時，不在
+        //   身邊的英靈依新時刻重新分佈(深夜/清晨傾向回家)——見kanshouAdvanceHours(Script_Kanshou.html)。
+        + '<div style="display:flex; gap:4px; margin-bottom:10px;">'
+        + [2, 6, 12].map(function (h) { return '<button class="btn" style="flex:1;padding:6px 2px;font-size:11.5px;border-color:#4a6a8a;color:#8ac0e0;" onclick="kanshouAdvanceHours(' + h + ')" title="時間推進' + h + '小時，不在身邊的英靈依新時刻重新分佈去向">⏩' + h + 'h</button>'; }).join('')
+        + '</div>'
         + '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:#7a6a4a;color:#e0c090;" onclick="kanshouEndDay()" title="不在身邊的英靈由GAS自動決定隔天去哪，時間推進到明天">🌙 結束一天</button>'
         + '<div id="kc-map-list">' + kcMapListHtml_() + '</div>';
       return;
@@ -2662,7 +2667,7 @@ function applyModeUI() {
   //   handleMultiAttack/renderCombatReport/narrateCombatResult(已於更早的清理移除)，不是下面
   //   send()的行為；send() 是鑑賞(action:'play')自由聊天引擎的唯一呼叫點，跟「連擊」無關。
 
-  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false) {
+  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0) {
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
     // 🔥 主動掌握開關(2026-07)：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
@@ -2700,7 +2705,7 @@ function applyModeUI() {
       // 🚪 巧遇開關：kanshouEncounterOn 定義在 Script_Kanshou.html(該檔恆載入)，此處為 solo(非鑑賞)
       //   路徑保留防呆——solo 呼叫 actionPlay 會在函式入口即被擋下，這個欄位對 solo 無意義。
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, drive: drive, lastContext: lastAiContext, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, drive: drive, lastContext: lastAiContext, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined });
 
 
       document.getElementById(loadId)?.remove();
