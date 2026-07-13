@@ -802,8 +802,9 @@ function kanshouRollDailyLocation_(heroName, hour) {
 // 🎊 2026-07「跳到節慶」玩法(玩家「還想再做一個日期選擇，想體驗什麼時段的劇情就可以去調整，可能
 //   想跟他們過年或七夕」→再考慮後「我覺得加年月日會比較好...抓個3年的區間就好」)：真正的西曆
 //   年/月/日(每年固定365天、不算閏年，遊戲用途夠精準)，只抓3年區間(見actionPlay的advanceHours
-//   上限)不追求無限年份；Day1固定對應4月1日(呼應原作聖杯戰爭開戰季節)。
-const KANSHOU_CAL_START_MONTH_ = 4, KANSHOU_CAL_START_DAY_ = 1;
+//   上限)不追求無限年份。Day1固定對應12月28日(玩家「開局是跨年前！可以逛幾天後31準備一起跨年」
+//   ——28/29/30三天日常後，第4天自然就是KANSHOU_FESTIVALS_裡的跨年夜12/31，不必特地跳)。
+const KANSHOU_CAL_START_MONTH_ = 12, KANSHOU_CAL_START_DAY_ = 28;
 const KANSHOU_DAYS_IN_MONTH_ = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 const KANSHOU_FESTIVALS_ = [
   { key: 'newyear', name: '新年初一', month: 1, day: 1 },
