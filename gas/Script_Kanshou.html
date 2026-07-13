@@ -76,12 +76,43 @@
     if (countEl) countEl.textContent = _kcCur.length + '/' + _kcMax;
     var box = document.getElementById('kc-party-list');
     if (!box) return;
+    // 🆕 2026-07「文字經營」玩法：每位同伴補一列「📅今日行動」下拉選單，指派去KC_LOCATIONS_
+    //   任一地點打工/活動(含家的5個房間)，選擇即刻呼叫kanshou_set_daily_schedule存檔——
+    //   跟關係/請走一樣「選了就存」，不另設「儲存」按鈕。
     box.innerHTML = _kcCur.length ? _kcCur.map(function (c) {
-      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
+      var opts = '<option value="">（不指派・留在家）</option>' + KC_LOCATIONS_.map(function (l) {
+        return '<option value="' + escapeHtml(l.name) + '"' + (c.schedule === l.name ? ' selected' : '') + '>' + escapeHtml(l.name) + '</option>';
+      }).join('');
+      return '<div style="padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
+        + '<div style="display:flex;align-items:center;gap:8px;">'
         + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(c.name) + ' <small style="color:#8a7fa0;">(關係:' + escapeHtml(c.tag || '從者') + '・好感' + c.bond + ')</small></span>'
         + '<button onclick="kanshouEditRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button>'
-        + '<button onclick="kanshouRemove(\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 10px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">請走</button></div>';
+        + '<button onclick="kanshouRemove(\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 10px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">請走</button>'
+        + '</div>'
+        + '<div style="margin-top:4px;display:flex;align-items:center;gap:6px;">'
+        + '<span style="font-size:11px;color:#9a8f70;white-space:nowrap;">📅 今日行動</span>'
+        + '<select onchange="kanshouSetDailySchedule(\'' + String(c.name).replace(/'/g, '') + '\', this.value)" style="flex:1;min-width:0;padding:3px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:6px;font-size:12px;">' + opts + '</select>'
+        + '</div>'
+        + '</div>';
     }).join('') : '<div style="color:#888;padding:6px;">（暫無同伴）</div>';
+  }
+
+  // 選了地點即刻存檔(比照🏷️關係/請走的「選了就存」慣例)，本地_kcCur同步更新避免下次重繪跳回舊值。
+  async function kanshouSetDailySchedule(name, location) {
+    try {
+      const res = await gasRun({ action: 'kanshou_set_daily_schedule', pcId: pc.id, acctName: currentAccount, assignments: [{ name: name, location: location }] });
+      if (!res || !res.success) { alert((res && res.message) || '排程失敗。'); return; }
+      var found = _kcCur.find(function (c) { return c.name === name; });
+      if (found) found.schedule = location;
+    } catch (e) { alert('排程失敗。'); }
+  }
+
+  // 🌙 結束一天：讀取所有同伴今天的排程，一次生成「陸續回家」的合成敘事(見Gallery.gs actionPlay
+  //   的endDay分支)，跟一般聊天走同一個send()、同一套渲染，不必另寫一套回應處理邏輯。
+  async function kanshouEndDay() {
+    if (!confirm('結束今天，讓大家陸續回家嗎？')) return;
+    showGamePane('chat');
+    await send('🌙 結束了這一天，大家陸續回家。', false, null, null, false, true);
   }
 
   // 篩選下拉選單本身只跟 _kcHeroesAll(英靈庫全清單)有關，內容跟 get_heroes 一樣少變——只在
