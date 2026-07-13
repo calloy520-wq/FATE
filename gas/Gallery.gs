@@ -904,8 +904,29 @@ const KANSHOU_SCENE_EVENTS_ = {
       { min: 30, tag: '嚇了一跳、又驚又羞，嘴上抵抗、卻沒有真的推拒或喊人' },
       { min: -100, tag: '被嚇得繃緊神經、下意識帶著防備，需要玩家主動放軟才能卸下戒心' }
     ]
+  },
+  // 🌅 2026-07「早餐睡懶覺也上線！！...好感80以上可以色色叫醒」玩家定案：跟夜襲同一套「走進
+  //   同住人房間」觸發框架，只是時段換成清晨——她此刻還在賴床，好感夠高才會演成黏人不想起床。
+  賴床叫醒: {
+    branches: [
+      { min: 80, tag: '睡眼惺忪卻格外黏人，緊抓著不放，一副也想拉你一起賴床、捨不得起身的樣子' },
+      { min: 40, tag: '被看見還沒睡醒的樣子有些不好意思，睡意未消卻嘴硬要趕人起床' },
+      { min: -100, tag: '被突然喚醒嚇了一跳，睡意瞬間清醒、有點防備地拉起被子撐住距離' }
+    ]
+  },
+  // 💰 2026-07「先把肉償機制上線！！」玩家定案：跟房客欠租(KANSHOU_RENT_DEBT_TAG_)配對——玩家
+  //   主動提議以此抵租，依bond決定她這次接受的心情走向，不強制往任何具體方向發展。
+  肉償: {
+    branches: [
+      { min: 60, tag: '雖然害臊，卻帶著幾分主動與甘願，用這種方式扛下這筆帳' },
+      { min: 30, tag: '滿臉通紅、彆扭又不情願，勉強讓自己配合，嘴上還嫌你壞心眼' },
+      { min: -100, tag: '既尷尬又委屈，帶著被逼到牆角的不甘願，卻也知道自己理虧說不出反駁' }
+    ]
   }
 };
+// 🌙🌅 2026-07「同住人房間橋段」依時段對應不同事件(資料驅動，之後想加新時段的房間橋段，往這裡
+//   加一組band:eventKey即可，不必再另開一套觸發判斷)：深夜=夜襲、清晨=賴床叫醒。
+const KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_ = { '深夜': '夜襲', '清晨': '賴床叫醒' };
 // 依bond從KANSHOU_SCENE_EVENTS_挑出這次橋段該走的分支(資料驅動，橋段本身不寫死走向)。
 function kanshouRollSceneBranch_(eventKey, bond) {
   const ev = KANSHOU_SCENE_EVENTS_[eventKey];
@@ -1073,7 +1094,11 @@ function kanshouChargeUpkeep_(pcData, pcIndex, newDay) {
 //   此局曾經建立過她的資料列就持續收租；只掃同一個game_id(gameId空字串時比照sameGame同款寬鬆
 //   比對，相容沒有game_id的舊角色)，避免收到別的玩家局裡的房客租金。回傳這次實際收到多少錢
 //   (0＝這次沒有任何房客跨過新一週)＋這次交不出房租的房客姓名清單，供上層組提示詞用的flavor文字。
-function kanshouCollectTenantRent_(pcData, pcIndex, newDay, gameId) {
+//   dirtyPcRows(呼叫端的Set)：這裡會改到「房客自己那一列」的UPKEEP_WEEK/MEMORY，該列若剛好是
+//   同行同伴、又剛好是走「推進時間」(不像結束一天/離隊重骰兩處那樣本來就會把同行同伴的列加進
+//   dirty)，就不會有任何其他地方順手加過——必須自己補，否則這裡的修改只停在記憶體、從未真正
+//   寫回試算表(2026-07新增肉償欠租旗標時發現這個既有缺口一併修掉)。
+function kanshouCollectTenantRent_(pcData, pcIndex, newDay, gameId, dirtyPcRows) {
   const newWeek = Math.floor((newDay - 1) / 7);
   let total = 0;
   const shortNames = [];
@@ -1085,8 +1110,15 @@ function kanshouCollectTenantRent_(pcData, pcIndex, newDay, gameId) {
     const oldWeek = parseInt(pcData[idx][COL.PC.UPKEEP_WEEK]) || 0;
     if (newWeek <= oldWeek) return;
     pcData[idx][COL.PC.UPKEEP_WEEK] = newWeek; // 不論繳不繳得出，這次結算都算過關，不累積欠款複利
-    if (Math.random() < KANSHOU_TENANT_SHORT_CHANCE_) { shortNames.push(String(pcData[idx][COL.PC.NAME])); return; }
+    dirtyPcRows.add(idx);
+    if (Math.random() < KANSHOU_TENANT_SHORT_CHANCE_) {
+      shortNames.push(String(pcData[idx][COL.PC.NAME]));
+      pcData[idx][COL.PC.MEMORY] = KANSHOU_RENT_DEBT_TAG_.set(pcData[idx][COL.PC.MEMORY], '是');
+      return;
+    }
     total += (newWeek - oldWeek) * KANSHOU_TENANT_RENT_;
+    // 💰 這次準時繳清了，清掉可能殘留的舊欠租旗標(不論是自然繳清、還是玩家先前已用肉償橋段抵過)。
+    if (KANSHOU_RENT_DEBT_TAG_.get(pcData[idx][COL.PC.MEMORY])) pcData[idx][COL.PC.MEMORY] = KANSHOU_RENT_DEBT_TAG_.set(pcData[idx][COL.PC.MEMORY], '');
   });
   if (total > 0) pcData[pcIndex][COL.PC.MONEY] = (parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0) + total;
   return { total, shortNames };
@@ -1136,6 +1168,11 @@ function kanshouAddDecor_(memory, itemName) {
 //   刻意不斷言「一定發生了」，交給AI依上一回合實際演出內容判斷要不要接續，避免跟角色一致性/
 //   慾海律令(不強制每次都寫到底)打架。
 var KANSHOU_MORNING_AFTER_TAG_ = makeTextTag_('晨間餘韻');
+// 💰 2026-07「先把肉償機制上線！！」玩家定案：存在房客自己那一列的MEMORY(不是玩家列)，標記「這位
+//   房客目前欠著這期房租」——由kanshouCollectTenantRent_短繳時設值，下次她準時繳清或玩家發起
+//   肉償橋段後清空(見actionPlay的debtPayment處理)。純粹是/否旗標，不記金額(欠多少已經不重要，
+//   房租本就不逐週累積複利，見§88)。
+var KANSHOU_RENT_DEBT_TAG_ = makeTextTag_('欠租');
 // 🎲 Phase3 輕量小事件(2026-07「可愛地圖」升級)：抵達新地點時20%機率抽一顆短句靈感種子注入
 //   提示詞，純粹給AI參考的引子(非預寫劇本、非強制發生)，AI可完全不理會，也可自然融入敘事。
 //   分三類：日常可愛/曖昧小互動 恆定開放，色氣類僅driveOn(主動掌握模式)開啟時才會抽到。
@@ -1360,7 +1397,7 @@ function actionPlay(userData, pcId, sheets) {
     pcData[pcIndex][COL.PC.DAY] = curDay;
     pcData[pcIndex][COL.PC.HOUR] = curHour;
     upkeepCharged = kanshouChargeUpkeep_(pcData, pcIndex, curDay);
-    { const tr_ = kanshouCollectTenantRent_(pcData, pcIndex, curDay, myGameId); tenantRentCollected = tr_.total; tenantShortNames = tr_.shortNames; }
+    { const tr_ = kanshouCollectTenantRent_(pcData, pcIndex, curDay, myGameId, dirtyPcRows); tenantRentCollected = tr_.total; tenantShortNames = tr_.shortNames; }
     const offRosterForRoll = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.IS_PARTY] || "") !== "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
     offRosterForRoll.forEach(r => {
       const idx = pcData.indexOf(r);
@@ -1420,7 +1457,7 @@ function actionPlay(userData, pcId, sheets) {
       pcData[pcIndex][COL.PC.DAY] = curDay;
       pcData[pcIndex][COL.PC.HOUR] = curHour;
       upkeepCharged = kanshouChargeUpkeep_(pcData, pcIndex, curDay);
-      { const tr_ = kanshouCollectTenantRent_(pcData, pcIndex, curDay, myGameId); tenantRentCollected = tr_.total; tenantShortNames = tr_.shortNames; }
+      { const tr_ = kanshouCollectTenantRent_(pcData, pcIndex, curDay, myGameId, dirtyPcRows); tenantRentCollected = tr_.total; tenantShortNames = tr_.shortNames; }
       const offRosterForTime = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.IS_PARTY] || "") !== "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
       offRosterForTime.forEach(r => {
         const idx = pcData.indexOf(r);
@@ -1446,6 +1483,27 @@ function actionPlay(userData, pcId, sheets) {
     pcData[pcIndex][COL.PC.MEMORY] = kanshouDismissCurfew_(pcData[pcIndex][COL.PC.MEMORY], curDay);
   }
 
+  // 💰 2026-07「先把肉償機制上線！！」玩家定案：橋段觸發來源是玩家主動點下方的debtPaymentOffer
+  //   按鈕(見回傳值計算處)，不是移動進房間——目標必須此刻確實同行在場、且確實掛著欠租旗標(第二道
+  //   防線，防直打API繞過前端按鈕判斷)，命中就依bond骰一次「肉償」走向、清掉欠租旗標，跟夜襲/
+  //   賴床叫醒共用同一套kanshouRollSceneBranch_骰法，不另開一條平行的橋段判定邏輯。
+  let kanshouDebtPaymentStr = "";
+  if (userData.debtPayment) {
+    const debtName = String(userData.debtPayment).trim();
+    const debtIdx = pcData.findIndex(r => kanshouNameCandidates_(r[COL.PC.NAME]).includes(debtName) && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
+    if (debtIdx !== -1 && KANSHOU_RENT_DEBT_TAG_.get(pcData[debtIdx][COL.PC.MEMORY])) {
+      const debtBond = parseInt(pcData[debtIdx][COL.PC.BOND]) || 0;
+      const branch = kanshouRollSceneBranch_('肉償', debtBond);
+      if (branch) {
+        const debtRealName = String(pcData[debtIdx][COL.PC.NAME]);
+        pcData[debtIdx][COL.PC.MEMORY] = KANSHOU_RENT_DEBT_TAG_.set(pcData[debtIdx][COL.PC.MEMORY], '');
+        dirtyPcRows.add(debtIdx);
+        finalUserMsg = `【玩家意圖】：向「${debtRealName}」提議，這期繳不出的房租就用身體來抵。`;
+        kanshouDebtPaymentStr = `\n★【橋段·肉償(GAS已骰定這次走向，AI只需依此演出，不必徵詢玩家、也不必逐字照抄下方措辭)】：她此刻的反應走向是——${branch.tag}。依她的既有性格詮釋這個走向具體要怎麼表現、講什麼話，細節全由你發揮，但情緒基調不要偏離這個走向。`;
+      }
+    }
+  }
+
   // 🎨 2026-07「為何偶遇沒有女性」玩家反映：此局已經正式召喚過的英靈(不論是否仍同行)不該又以
   //   「陌生人」身分重複出現(如SABER已同行時，路上不該再巧遇一位不具名的SABER)。用真名候選比對
   //   (kanshouNameCandidates_，容忍括號附註差異)反查對應的SEED_SERVANTS id 清單餵給抽選函式排除。
@@ -1466,7 +1524,7 @@ function actionPlay(userData, pcId, sheets) {
   //   這個瞬間跑一次，不會每句對話重算。
   let kanshouEncounterHero = null, kanshouEncounterMetBefore = false, kanshouEncounterLocName = "";
   let kanshouEventSeed = null;
-  let kanshouNightRaidStr = "";
+  let kanshouRoomEventStr = "";
   if (moveTarget) {
     curL = moveName;
     pcData[pcIndex][COL.PC.LOC] = curL;
@@ -1479,20 +1537,23 @@ function actionPlay(userData, pcId, sheets) {
       pcData[nIdx][COL.PC.LOC] = curL;
       dirtyPcRows.add(nIdx);
     });
-    // 🎭 橋段·夜襲(2026-07新增)：深夜走進「同住人專屬房間」(KANSHOU_HOUSEMATE_ROOMS_)，且她此刻
-    //   是同行隊伍成員——依bond骰出這次的反應走向，寫進提示詞讓AI照走向去演，玩家不必自己下劇本。
-    //   限同住人(有自己房間、算是「住在這個家」)，客房/一般巧遇不吃這套；限同行(此刻確實在場)，
-    //   避免跟kanshouLeftBehindIdxs(非同行故人重逢)的敘事框架互相打架。
-    if (timeBand_(curHour) === '深夜') {
+    // 🎭 橋段·夜襲/賴床叫醒(2026-07)：走進「同住人專屬房間」(KANSHOU_HOUSEMATE_ROOMS_)，且她此刻
+    //   是同行隊伍成員——依當下時段(KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_)決定要跑哪個橋段、
+    //   再依bond骰出這次的反應走向，寫進提示詞讓AI照走向去演，玩家不必自己下劇本。限同住人(有
+    //   自己房間、算是「住在這個家」)，客房/一般巧遇不吃這套；限同行(此刻確實在場)，避免跟
+    //   kanshouLeftBehindIdxs(非同行故人重逢)的敘事框架互相打架。
+    const roomEventKey = KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_[timeBand_(curHour)];
+    if (roomEventKey) {
       const raidHeroId = Object.keys(KANSHOU_HOUSEMATE_ROOMS_).find(hid => KANSHOU_HOUSEMATE_ROOMS_[hid] === moveName);
       const raidHero = raidHeroId ? SEED_SERVANTS.find(h => h.id === raidHeroId) : null;
       const raidIdx = raidHero ? pcData.findIndex((r, idx) => idx !== pcIndex && sameGame(r) && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(raidHero.realName).includes(String(r[COL.PC.NAME]))) : -1;
       if (raidIdx !== -1) {
         const raidBond = parseInt(pcData[raidIdx][COL.PC.BOND]) || 0;
-        const branch = kanshouRollSceneBranch_('夜襲', raidBond);
+        const branch = kanshouRollSceneBranch_(roomEventKey, raidBond);
         if (branch) {
-          kanshouNightRaidStr = `\n★【橋段·夜襲(GAS已骰定這次走向，AI只需依此演出，不必徵詢玩家、也不必逐字照抄下方措辭)】：深夜獨自走進了『${raidHero.realName}』的房間，她此刻的反應走向是——${branch.tag}。依她的既有性格詮釋這個走向具體要怎麼表現、講什麼話，細節全由你發揮，但情緒基調不要偏離這個走向。`;
-          if (branch.min >= 60) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], raidHero.realName);
+          const roomEventVerb = roomEventKey === '夜襲' ? '深夜獨自走進了' : '清晨走進了還在賴床的';
+          kanshouRoomEventStr = `\n★【橋段·${roomEventKey}(GAS已骰定這次走向，AI只需依此演出，不必徵詢玩家、也不必逐字照抄下方措辭)】：${roomEventVerb}『${raidHero.realName}』的房間，她此刻的反應走向是——${branch.tag}。依她的既有性格詮釋這個走向具體要怎麼表現、講什麼話，細節全由你發揮，但情緒基調不要偏離這個走向。`;
+          if (roomEventKey === '夜襲' && branch.min >= 60) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], raidHero.realName);
         }
       }
     }
@@ -1686,7 +1747,7 @@ ${PROMPT_PARTY_SYSTEM}
 【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}(當前服裝·五官體態不變)` : ""} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}${myDecor ? ` | 家中已有的擺設(僅供「家」相關場景參考，非強制每次提及):${myDecor}` : ""}
 
 ${PROMPT_REL}
-★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}${kanshouReunionStr}${kanshouKnockGuestStr}${kanshouNightRaidStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${jumpFest ? `\n★【節慶氛圍】：今天是「${jumpFest.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。` : ""}${upkeepCharged > 0 ? `\n★【維護費自動扣款·氛圍提示】：這次時間推進跨過了衛宮宅的維護及食材費結算日，已自動扣款${upkeepCharged}円，目前餘額${parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0}円，narration可自然帶一句(如整理帳單、盤算菜錢、嘆氣)，不必大肆渲染；若餘額為負可自然帶出手頭吃緊的窘迫感，但不必寫成嚴重危機或懲罰劇情。` : ""}${tenantRentCollected > 0 ? `\n★【房客繳租·氛圍提示】：這次時間推進跨過了收租日，已收到房客繳來的${tenantRentCollected}円房租，目前餘額${parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0}円，narration可自然帶一句房東視角的小細節(如收到房租信封、心裡盤算著這筆錢)，不必大肆渲染。` : ""}${tenantShortNames.length ? `\n★【房客手頭吃緊·氛圍提示】：『${tenantShortNames.join('、')}』這次繳不出房租，narration可以自然帶出TA不好意思、想辦法解釋或提議如何補償的樣子(依角色個性詮釋，可以是道歉、幫忙做家事、或其他你覺得貼合她個性的方式)，不必大肆渲染成嚴重危機，也不強制一定要往哪個方向發展——這只是提供一個可能的互動契機，非強制。` : ""}${intimateNightNames.length ? `\n★【入夜氛圍·好感門檻已達】：『${intimateNightNames.join('、')}』與你的羈絆已深(好感≥80)，今晚可以自然發展到同床共枕，依其性格自然決定要不要跨出這一步、氛圍濃烈到什麼程度，不強制每次都寫到底；好感未達此門檻的同伴，一律維持各自安睡、不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度了親密的時光(依上一回合實際演出的內容為準，若上次並未真的跨出那一步就當作平常的早晨)，這是新的一天第一個場景，若情境合適可以自然帶出晨間的溫馨/曖昧餘韻(如一起吃早餐、彼此害羞或黏膩的互動)，不強制一定要提及、也不需要複述昨夜細節，一切依角色個性自然發展。` : ""}
+★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前同行隊伍成員】；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【同行隊伍成員】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}${kanshouReunionStr}${kanshouKnockGuestStr}${kanshouRoomEventStr}${kanshouDebtPaymentStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${jumpFest ? `\n★【節慶氛圍】：今天是「${jumpFest.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。` : ""}${upkeepCharged > 0 ? `\n★【維護費自動扣款·氛圍提示】：這次時間推進跨過了衛宮宅的維護及食材費結算日，已自動扣款${upkeepCharged}円，目前餘額${parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0}円，narration可自然帶一句(如整理帳單、盤算菜錢、嘆氣)，不必大肆渲染；若餘額為負可自然帶出手頭吃緊的窘迫感，但不必寫成嚴重危機或懲罰劇情。` : ""}${tenantRentCollected > 0 ? `\n★【房客繳租·氛圍提示】：這次時間推進跨過了收租日，已收到房客繳來的${tenantRentCollected}円房租，目前餘額${parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0}円，narration可自然帶一句房東視角的小細節(如收到房租信封、心裡盤算著這筆錢)，不必大肆渲染。` : ""}${tenantShortNames.length ? `\n★【房客手頭吃緊·氛圍提示】：『${tenantShortNames.join('、')}』這次繳不出房租，narration可以自然帶出TA不好意思、想辦法解釋或提議如何補償的樣子(依角色個性詮釋，可以是道歉、幫忙做家事、或其他你覺得貼合她個性的方式)，不必大肆渲染成嚴重危機，也不強制一定要往哪個方向發展——這只是提供一個可能的互動契機，非強制。` : ""}${intimateNightNames.length ? `\n★【入夜氛圍·好感門檻已達】：『${intimateNightNames.join('、')}』與你的羈絆已深(好感≥80)，今晚可以自然發展到同床共枕，依其性格自然決定要不要跨出這一步、氛圍濃烈到什麼程度，不強制每次都寫到底；好感未達此門檻的同伴，一律維持各自安睡、不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度了親密的時光(依上一回合實際演出的內容為準，若上次並未真的跨出那一步就當作平常的早晨)，這是新的一天第一個場景，若情境合適可以自然帶出晨間的溫馨/曖昧餘韻(如一起吃早餐、彼此害羞或黏膩的互動)，不強制一定要提及、也不需要複述昨夜細節，一切依角色個性自然發展。` : ""}
 💕【鑑賞·後日談模式·最高優先級覆寫】：${partyRows.length === 0
     ? `這裡是平行世界的和平都市日常——聖杯戰爭這回事從未在這個世界發生過，眼下沒有同行的英靈在場，就是御主一人的尋常時光。`
     : partyRows.every(r => String(r[COL.PC.ID]).indexOf("KHV_") === 0)
@@ -1935,6 +1996,12 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
     const curfewDismissedNow = kanshouCurfewDismissed_(pcData[pcIndex][COL.PC.MEMORY], curDay);
     const curfewPrompt = (!isCurfewHome && !curfewDismissedNow && (curHour >= 22 || curHour < 6)) ? true : undefined;
 
+    // 💰 2026-07「以後跟她獨處可以跳出這個按鈕」玩家定案：只有同行隊伍剛好只有一位(獨處)、且那位
+    //   剛好掛著欠租旗標時，才給前端一個「提議肉償」的按鈕；不像knockEvent那樣擋下整回合強制二選一，
+    //   只是額外夾一個可用的選項，玩家不理會也能正常繼續聊天。
+    const debtPartyRows = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
+    const debtPaymentOffer = (debtPartyRows.length === 1 && KANSHOU_RENT_DEBT_TAG_.get(debtPartyRows[0][COL.PC.MEMORY])) ? String(debtPartyRows[0][COL.PC.NAME]) : undefined;
+
     const localPeopleList = getKanshouPeopleList_(pcId, curL, pcData);
 
     let finalResponseText = aiData.narration || "天地混沌，一片寂靜。";
@@ -1970,7 +2037,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       options: aiData.options,
       tags: tagsPayload,
       moveProposal: moveProposal || undefined,
-      curfewPrompt: curfewPrompt
+      curfewPrompt: curfewPrompt,
+      debtPaymentOffer: debtPaymentOffer
     });
 
   } catch (e) { return JSON.stringify({ text: "系統錯誤：" + e.message, people: [] }); }

@@ -484,6 +484,13 @@
     await send('（決定今晚就在外面過夜了）', false, null, null, false, false, 0, null, false, null, null, null, false, true);
   }
 
+  // 💰 2026-07「先把肉償機制上線！！...以後跟她獨處可以跳出這個按鈕」：只有跟同行隊伍裡唯一
+  //   一位、且她此刻掛著欠租旗標時，後端才會夾debtPaymentOffer；這裡點下去才真的觸發橋段，不點
+  //   就只是繼續正常聊天(不像敲門那樣強制二選一)。
+  async function kanshouOfferDebtPayment(name) {
+    await send('向「' + name + '」提議，這期的房租就用身體來抵……', false, null, null, false, false, 0, null, false, null, null, null, false, false, name);
+  }
+
   // 同伴名單變動後的局部刷新：只重抓「鑑賞眾生在場名單」這份小資料，不再重打 get_heroes，
   // 也只重繪 party-list／hero-list 兩塊(master-box/filters 沒變，不動)。
   async function kcRefreshPartyOnly_() {

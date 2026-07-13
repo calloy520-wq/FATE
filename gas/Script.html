@@ -2679,7 +2679,7 @@ function applyModeUI() {
   //   handleMultiAttack/renderCombatReport/narrateCombatResult(已於更早的清理移除)，不是下面
   //   send()的行為；send() 是鑑賞(action:'play')自由聊天引擎的唯一呼叫點，跟「連擊」無關。
 
-  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, work = false, buyItem = null, giftTarget = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false) {
+  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, work = false, buyItem = null, giftTarget = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false, debtPayment = null) {
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
     // 🔥 主動掌握開關(2026-07)：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
@@ -2722,7 +2722,7 @@ function applyModeUI() {
       // 🚪 巧遇開關：kanshouEncounterOn 定義在 Script_Kanshou.html(該檔恆載入)，此處為 solo(非鑑賞)
       //   路徑保留防呆——solo 呼叫 actionPlay 會在函式入口即被擋下，這個欄位對 solo 無意義。
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, drive: drive, lastContext: lastAiContext, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, work: work || undefined, buyItem: buyItem || undefined, giftTarget: giftTarget || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, dismissCurfew: dismissCurfew || undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, drive: drive, lastContext: lastAiContext, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, work: work || undefined, buyItem: buyItem || undefined, giftTarget: giftTarget || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, dismissCurfew: dismissCurfew || undefined, debtPayment: debtPayment || undefined });
 
 
       document.getElementById(loadId)?.remove();
@@ -2828,6 +2828,16 @@ let plainTextContext = cleanText;
           + `<button class="btn-option" style="flex:1;" onclick="kanshouGoHomeCurfew()">回家</button>`
           + `<button class="btn-option" style="flex:1;" onclick="kanshouStayOutCurfew()">留在外面過夜</button>`
           + `</div></div>`;
+      }
+      // 💰 2026-07「先把肉償機制上線！！」：跟knockEvent/curfewPrompt不同，這個不強制二選一——
+      //   不點按鈕就只是繼續正常聊天，按鈕本身只在「獨處+對方欠租」這個條件成立時才會出現。
+      if (data.debtPaymentOffer) {
+        const debtName = String(data.debtPaymentOffer);
+        const debtNameEsc = escapeHtml(debtName);
+        optionsHtml += `<div style="background:rgba(160,60,90,0.14); border:1px solid #8a3a5a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
+          + `<div style="color:#e0a0bc; font-size:12.5px; margin-bottom:6px;">💰 這期的房租，「${debtNameEsc}」似乎繳不出來……</div>`
+          + `<button class="btn-option" style="width:100%;" onclick="kanshouOfferDebtPayment('${debtName.replace(/'/g, "\\'")}')">提議以身抵租</button>`
+          + `</div>`;
       }
       if (data.options && Array.isArray(data.options) && data.options.length > 0) {
         currentOptions = data.options;
