@@ -1914,3 +1914,21 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **未動的部分**：`kanshouLeftBehindIdxs`/`locationCounts`/`kanshouRollEncounter_`底層邏輯完全未改，天然吃到新的`LOC`滾動結果；`nsfwBaseRules`常數本體逐字元核對未受影響。「左側面板改人物定位清單」「開場車站接人/衛宮家預設家」「AI提議移動需玩家同意」三塊大改版留待後續階段實作，本輪只完成「拿掉手動排程」這一步。
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0。部署後建議測試：①👥同伴面板不再顯示「今日行動」下拉選單；②點擊「🌙結束一天」，確認不在身邊的英靈LOC有依機率重新分佈(可用地點人數徽章觀察變化)；③同行同伴不受影響，位置仍跟玩家同步；④多按幾次「結束一天」，確認同一位英靈的地點會變動(不會卡死在同一處)。
+
+## §62 鑑賞新增「AI提議換地點需玩家同意」機制（2026-07・玩家「我在別的遊戲有做過一個讓ai邀請我移動位置的渲染...就是ai想換地點要經過玩家同意（敘述停留在訊問會跳出同意和拒絕，玩家同意後才可以進行移動敘述並將npc與玩家位置進行移動！）」——衛宮家大改版三塊後續階段之一，本輪只做這塊）
+
+**背景**：現有`location`欄位只能事後回報「這回合已經移動到哪」，AI若想主動邀玩家換地方(如同伴說「要不要去圖書館？」)，敘述會一路寫到抵達，玩家完全沒有選擇權。玩家指定要做成「敘述停留在邀請的當下、跳出同意/拒絕UI，玩家同意後才真的觸發移動」的兩段式流程。
+
+**改動**：
+1. **`buildDefaultSystemPrompt()`的`finalJson`新增`move_proposal`欄位**：與既有`location`(已發生的移動)區分開來，是「同伴這回合自然而然想邀你換地方」時才填的目標地點名稱，沒有這意圖就留空字串。
+2. **`actionPlay`每回合提示新增`★【提議換地點需玩家同意】`規則**：明列`KANSHOU_LOCATIONS_`全部地點名當合法選項，並嚴令「narration只寫到邀請/提議的當下、絕對禁止接著寫出移動或抵達的過程」，是否成行留給玩家事後決定；也提醒AI不要每回合都提議。
+3. **後端驗證**：在既有`aiLoc`(已發生移動)LOC同步區塊之後，新增`moveProposalRaw`/`moveProposal`檢查——只有落在`KANSHOU_LOCATIONS_`名單內的字串才會被當成合法提議往前端送，不合法(含AI亂填)一律當作沒有提議。這裡**只驗證合法性，不寫LOC**——真正的移動要等玩家按「同意」、前端帶著`moveTarget`再送一次，走既有`moveTarget`管線(含巧遇/留人重逢等既有效果)，不另開一條移動路徑。
+4. **`actionPlay`回傳值新增`moveProposal`欄位**(合法才帶值，否則`undefined`不佔欄位)。
+5. **前端`Script.html`**：`send()`回應處理區塊原本只渲染`data.options`，現在合併渲染——若有`data.moveProposal`，在選項上方插入一張「💭 提議前往「X」」卡片＋「同意/拒絕」兩顆按鈕，兩者都併入同一個`optionsHtml`字串、一次寫進`optContainer.innerHTML`。
+6. **`Script_Kanshou.html`新增`kanshouConfirmMoveProposal(loc)`/`kanshouDeclineMoveProposal()`**：同意就呼叫`send(...,loc)`帶著既有`moveTarget`參數(跟玩家點地圖按鈕`kanshouMoveTo`同一條路，含巧遇/留人重逢等效果，並比照`kanshouMoveTo`先`showGamePane('chat')`切回故事分頁)；拒絕就送一句「這次還是先留在這裡好了」的普通續寫訊息，原地不動、不換分頁。
+
+**設計理由**：全程遵守「重用既有引擎、不加平行路徑」——`move_proposal`只是暫存「AI想不想邀」這個意圖，實際移動的執行(含地點合法性檢查、巧遇/重逢判定、LOC寫入)完全交給既有的`moveTarget`管線，同意鍵按下去等同於玩家自己點了地圖上的那個地點按鈕，沒有新寫任何移動邏輯。
+
+**未動的部分**：`nsfwBaseRules`常數逐字元核對未受影響(808字元不變)；既有`location`欄位(已發生移動的回報)、`moveTarget`管線、`kanshouRollEncounter_`/留人重逢等下游邏輯完全未改。「左側面板改人物定位清單」「開場車站接人/衛宮家預設家/任務面板」兩塊仍留待後續階段，本輪只完成「AI提議換地點需玩家同意」這一塊。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Gallery.gs gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0（`buildDefaultSystemPrompt()`本體有改動，另外逐字元核對`nsfwBaseRules`區塊 identical，長度808不變）。部署後建議測試：①跟同伴聊天到AI自然帶出「要不要去OO」的邀約，確認敘述真的停在邀請、沒有偷跑寫抵達過程；②畫面跳出「同意/拒絕」卡片；③按「同意」，確認真的移動(含可能觸發的巧遇/重逢)且分頁自動切回故事；④按「拒絕」，確認原地不動、正常收到一句續寫；⑤確認一般`data.options`(命運的抉擇)選項在無提議時仍正常顯示、有提議時兩者同時出現不互相覆蓋。

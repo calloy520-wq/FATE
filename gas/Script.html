@@ -2774,20 +2774,31 @@ function applyModeUI() {
 
 let plainTextContext = cleanText;
       
+      let optionsHtml = '';
+      // 🚶 2026-07「AI提議換地點需玩家同意」：跟一般選項不同——同意/拒絕不是敘事選項文字，
+      //   而是直接決定要不要真的觸發移動(重用既有moveTarget管線，含巧遇/留人重逢等效果)。
+      if (data.moveProposal) {
+        const propLoc = String(data.moveProposal);
+        const propLocEsc = escapeHtml(propLoc);
+        optionsHtml += `<div style="background:rgba(160,110,60,0.14); border:1px solid #8a6a3a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
+          + `<div style="color:#e0c090; font-size:12.5px; margin-bottom:6px;">💭 提議前往「${propLocEsc}」</div>`
+          + `<div style="display:flex; gap:8px;">`
+          + `<button class="btn-option" style="flex:1;" onclick="kanshouConfirmMoveProposal('${propLoc.replace(/'/g, "\\'")}')">同意</button>`
+          + `<button class="btn-option" style="flex:1;" onclick="kanshouDeclineMoveProposal()">拒絕</button>`
+          + `</div></div>`;
+      }
       if (data.options && Array.isArray(data.options) && data.options.length > 0) {
         currentOptions = data.options;
-        let optionsHtml = `<div style="color: var(--gold-accent); font-weight: bold; border-bottom: 1px dashed rgba(212, 175, 55, 0.3); padding-bottom: 6px; margin-bottom: 8px;">【命運的抉擇】</div>`;
+        optionsHtml += `<div style="color: var(--gold-accent); font-weight: bold; border-bottom: 1px dashed rgba(212, 175, 55, 0.3); padding-bottom: 6px; margin-bottom: 8px;">【命運的抉擇】</div>`;
         optionsHtml += `<div class="options-grid">`;
-        plainTextContext += `\n\n【命運的抉擇】\n`; 
+        plainTextContext += `\n\n【命運的抉擇】\n`;
         data.options.forEach(optText => {
           optionsHtml += `<button class="btn-option" onclick="send('${optText.replace(/'/g, "\\'")}', true)">${optText}</button>`;
-          plainTextContext += optText + `\n`; 
+          plainTextContext += optText + `\n`;
         });
         optionsHtml += `</div>`;
-        if (optContainer) optContainer.innerHTML = optionsHtml;
-      } else {
-        if (optContainer) optContainer.innerHTML = '';
       }
+      if (optContainer) optContainer.innerHTML = optionsHtml;
       
       lastAiContext = plainTextContext;
       // 🔴 效能優化：改用 insertAdjacentHTML
