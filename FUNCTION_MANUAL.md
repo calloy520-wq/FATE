@@ -36,7 +36,6 @@
 | purge_orphans | actionPurgeOrphans | Account.gs |
 | kanshou_companions | actionKanshouCompanions | Gallery.gs |
 | kanshou_summon_hero | actionKanshouSummonHero | Gallery.gs |
-| kanshou_remove | actionKanshouRemove | Gallery.gs |
 | kanshou_set_sex | actionKanshouSetSex | Gallery.gs |
 | kanshou_set_name | actionKanshouSetName | Gallery.gs |
 | prep_meal | actionPrepMeal | Router_Movement.gs |
@@ -298,12 +297,11 @@
 
 ### action Handler(皆ActionRouter註冊)
 - `actionEndRun`(78) — 結束本局，purgeGameData_，不再封存
-- `actionKanshouSummonHero`(329) — 從英靈殿召喚英靈進後日談(上限3人)
-- `actionEnterKanshou`(389) — 進入/接續後日談世界
-- `actionBackfillKanshouAi`(482) — 背景AI潤色御主敘事欄
-- `actionKanshouCompanions`(547) — 列出同行同伴
-- `actionKanshouRemove`(574) — 請走同伴(僅清IS_PARTY)
-- `actionKanshouSetSex`(598) — 切換御主性別(擋男性同伴同行)
+- `actionKanshouSummonHero` — 從英靈殿召喚英靈、讓她第一次存在於這個世界(2026-07拿掉隊伍容量上限，只能召喚一次)
+- `actionEnterKanshou` — 進入/接續後日談世界
+- `actionBackfillKanshouAi` — 背景AI潤色御主敘事欄
+- `actionKanshouCompanions` — 列出這個世界裡所有已存在的英靈(駐留清單，含各自所在地點，2026-07拿掉「同行」篩選)
+- `actionKanshouSetSex` — 切換御主性別(擋世界裡已存在的男性從者)
 - `actionKanshouSetName`(629) — 改御主名字
 - `actionPlay`(900) — 鑑賞唯一自由聊天引擎主函式
 
@@ -535,7 +533,8 @@
 - `openCompanions` — 「後日談同伴」面板入口
 - `ensureKcMapOverlay_`/`closeKcMapOverlay`/`openKanshouMap`/`kanshouMoveTo` — 「出門走走」地圖彈窗
 - `kcRefreshPartyOnly_` — 局部刷新(不重打get_heroes)
-- `kanshouSummonHero`/`kanshouRemove`/`kanshouEditRelTag` — 召喚/請走/改關係標籤
+- `kanshouSummonHero`/`kanshouEditRelTag` — 召喚(2026-07拿掉「請走」，沒有隊伍容量需要騰位置)/改關係標籤
+- `kanshouAcceptRoomEvent`/`kanshouOfferDebtPayment` — 夜襲/賴床叫醒/肉償橋段按鈕(2026-07新增)
 - `changeKanshouName`/`changeKanshouSex`/`askKanshouSex` — 改名/切換性別
 - `askKanshouSetup` — 首次進場設定彈窗
 - `backfillKanshouAi` — 背景AI潤色御主敘事

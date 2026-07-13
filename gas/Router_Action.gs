@@ -17,7 +17,6 @@ const ActionRouter = {
   "purge_orphans": actionPurgeOrphans,
   "kanshou_companions": actionKanshouCompanions,
   "kanshou_summon_hero": actionKanshouSummonHero, // 🌹 慾海同伴唯一入口：直接從英靈庫召喚，不需先在solo贏得戰爭
-  "kanshou_remove": actionKanshouRemove,
   "kanshou_set_sex": actionKanshouSetSex,
   "kanshou_set_name": actionKanshouSetName,
   "kanshou_set_home_name": actionKanshouSetHomeName,
@@ -349,12 +348,13 @@ function buildTagsPayload_(sheets, pcId, preData) {
   };
 
   // 🗝️ 雙從者：收齊所有在世我方從者（servants 陣列）；servant＝第一個（向後相容）
-  // 🐛→✅ 2026-07 修正：補上 IS_PARTY==="同行" 過濾——鑑賞「請走」只清空這欄、保留整列(供留人在
-  //   原地/重邀累積紀錄用)，先前這裡沒濾掉，導致被請走的舊同伴仍會出現在頂部標籤卡片上。solo的
-  //   從者列建立時就固定寫死"同行"、從無「請走」機制會清空，此過濾對solo安全、行為不變。
+  // 🌍 2026-07「加入這個世界的感覺」定案：solo仍是真正的隊伍概念，過濾條件維持IS_PARTY==="同行"
+  //   不變；鑑賞已經拿掉「隊伍」這個概念，改成「LOC是否跟玩家目前位置一致」——頂部標籤卡片只顯示
+  //   跟玩家同地點的已建立英靈，不是每個人都塞進來(不同地點的人本來就見不到面，不該出現在卡片上)。
   let servants = [];
   pcData.forEach(s => {
-    if (String(s[COL.PC.FACTION]) !== "從者" || String(s[COL.PC.GAME_ID] || "") !== gameId || String(s[COL.PC.ID]).startsWith("DEAD_") || String(s[COL.PC.IS_PARTY] || "") !== "同行") return;
+    if (String(s[COL.PC.FACTION]) !== "從者" || String(s[COL.PC.GAME_ID] || "") !== gameId || String(s[COL.PC.ID]).startsWith("DEAD_")) return;
+    if (isFateCtx ? (String(s[COL.PC.IS_PARTY] || "") !== "同行") : (String(s[COL.PC.LOC] || "").trim() !== String(m[COL.PC.LOC] || "").trim())) return;
     // 關係併入眾生列，好感直接是這名從者自己的 BOND 欄
     const bond = parseInt(s[COL.PC.BOND]) || 0;
     let six = {}, skills = [], traits = [];
@@ -418,9 +418,9 @@ function buildTagsPayload_(sheets, pcId, preData) {
   // 🗝️ 破戒之力（前端決定是否顯示「破戒奪僕」按鈕）：限正式聖杯戰爭世界
   var canRB = false;
   try { if (gameId && gameId.indexOf("g_") === 0 && mIdx >= 0) canRB = canRuleBreak_(pcData, mIdx, gameId); } catch (e) { }
-  // 🗺️ 2026-07 玩家「可以顯示那個地點有幾個人物嗎」：鑑賞地圖分頁按地點顯示人數——同行同伴永遠
-  //   跟玩家同地點(不需要另外看)，真正有意義的是「留人在原地」(請走後凍結在別處)的舊同伴分散在
-  //   哪些地點，供玩家決定要去哪裡巧遇故人。只在鑑賞世界算(gameId以"k_"開頭)，solo無此概念。
+  // 🗺️ 2026-07 玩家「可以顯示那個地點有幾個人物嗎」：鑑賞地圖分頁按地點顯示人數——2026-07「加入
+  //   這個世界的感覺」定案後，每個已建立的英靈都各自散布在不同地點過自己的生活，這裡統計每個
+  //   地點各有幾人，供玩家決定要去哪裡找誰。只在鑑賞世界算(gameId以"k_"開頭)，solo無此概念。
   var locationCounts = {};
   if (gameId && gameId.indexOf("k_") === 0) {
     pcData.forEach(function (r) {
@@ -486,8 +486,10 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   const tIdx = pcData.findIndex(r => r[COL.PC.NAME] === targetName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
   if (tIdx === -1) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
 
-  // 🔵 門檻：同行的從者才能重新定義稱呼
-  if (String(pcData[tIdx][COL.PC.IS_PARTY] || "") !== "同行") {
+  // 🔵 門檻：solo仍是真正的隊伍概念，維持「同行的從者才能重新定義稱呼」不變；鑑賞2026-07「加入
+  //   這個世界的感覺」定案拿掉IS_PARTY後，這個欄位對鑑賞永遠是空字串——改成只要是這個世界裡已經
+  //   存在的英靈就能改，不要求同地點/同行，改稱呼是低風險的個人設定，不需要人在場。
+  if (myGameId.indexOf("k_") !== 0 && String(pcData[tIdx][COL.PC.IS_PARTY] || "") !== "同行") {
     return JSON.stringify({ success: false, message: "僅能為同行的從者重新定義這段關係。" });
   }
 

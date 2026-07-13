@@ -8,16 +8,19 @@
   //   ★新增鑑賞前端功能，往這檔加即可；別再塞回 Script.html。
   // ==========================================
 
-  // 👥 後日談同伴管理（鑑賞限定·最多3人）：直接從英靈殿召喚／請走
-  // ⚠ 2026-07：舊版「奪杯封存→邀請」機制已整個砍除，邀請只剩「英靈殿直接召喚」一途。
+  // 🌍 後日談駐留清單管理（鑑賞限定）：直接從英靈殿召喚，讓她「存在」於這個世界。
+  // ⚠ 2026-07「加入這個世界的感覺」定案：拿掉「隊伍」概念——召喚是一次性的、沒有人數上限，
+  //   之後每個人各自過各自的生活(依LOC)，玩家想找誰互動就去她所在的地點，不必先邀入隊伍。
+  //   舊版「奪杯封存→邀請」機制已整個砍除，邀請只剩「英靈殿直接召喚」一途；「請走」功能也已
+  //   拿掉(沒有隊伍容量需要騰位置)。
   // 🎛️ 2026-07 大修整（玩家反映「召喚UI還是太卡」）：舊版共用 #history-overlay(13+功能共用同一顆
-  //   彈窗)，且任何一次篩選/召喚/請走都對整個面板(含召喚清單全部～36列)重打一次 innerHTML——
+  //   彈窗)，且任何一次篩選/召喚都對整個面板(含召喚清單全部～36列)重打一次 innerHTML——
   //   每次都整包摧毀重建 DOM、捲動位置歸零、且 get_heroes(英靈庫全清單)每次開面板都重打網路，
   //   即使內容幾乎從不變。改成：①專屬彈窗 #kc-overlay(不與其他功能共用，互不干擾)；②拆成
   //   master-box／party-list／filters／hero-list 四個獨立容器，各自局部重繪；③get_heroes 結果
   //   快取在分頁工作階段內(英靈庫只有工房鑄造/修改會變，見 invalidateKanshouHeroCache)，重開
   //   面板不再重打網路；④篩選下拉只切換既有列的 CSS display，不重建任何 DOM 節點。
-  var _kcCur = [], _kcHeroesAll = [], _kcHeroesAvailable = [], _kcMax = 3;
+  var _kcCur = [], _kcHeroesAll = [], _kcHeroesAvailable = [];
   // 🆕 2026-07 玩家「先預設女性」：召喚清單性別篩選預設帶「女」(玩家隨時可自己切換成別的選項，
   //   只是一開始不必先手動篩掉男性)，職階篩選維持不預設(全部)。
   var _kcFilterGender = '女', _kcFilterCls = '';
@@ -41,10 +44,10 @@
     ov.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.82);display:none;align-items:center;justify-content:center;padding:18px;';
     ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:480px;width:100%;max-height:calc(100vh - 36px);padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;">'
       + '<div style="overflow-y:auto;min-height:0;">'
-      + '<h3 style="margin:0 0 4px;color:#e0a0bc;">👥 後日談同伴 (<span id="kc-count">0/3</span>)</h3>'
-      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">最多 3 人同行。從英靈殿召喚同伴，或請走同伴（資料原地保留，隨時再邀）。</div>'
+      + '<h3 style="margin:0 0 4px;color:#e0a0bc;">👥 這個世界裡的人 (<span id="kc-count">0</span>)</h3>'
+      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">從英靈殿召喚，讓她加入這個世界——之後她會過自己的生活，去她所在的地點就能找到她。</div>'
       + '<div id="kc-master-box"></div>'
-      + '<div style="font-size:12px;color:#cbb;margin:6px 0 3px;">在場同伴</div>'
+      + '<div style="font-size:12px;color:#cbb;margin:6px 0 3px;">駐留清單</div>'
       + '<div id="kc-party-list"></div>'
       + '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">🌹 從英靈殿召喚</div>'
       + '<div id="kc-filters"></div>'
@@ -71,17 +74,18 @@
   // 🆕 2026-07「關係改玩家決定，AI不可以改動但可以不認」：關係標籤從此只能由玩家自己在這裡改，
   //   AI只能在敘事裡表現認不認同(態度)，不再擅自覆寫這個欄位——加一顆「🏷️關係」鈕呼叫
   //   update_rel_tag。好感(數字)僅供玩家參考，不可編輯(仍是AI依劇情推進)。
+  // 🌍 2026-07「加入這個世界的感覺」定案：每一列多顯示她目前所在地點(loc)，玩家想找誰就去那裡；
+  //   拿掉「請走」按鈕(沒有隊伍容量需要騰位置，召喚是一次性的)。
   function renderKcPartyList_() {
     var countEl = document.getElementById('kc-count');
-    if (countEl) countEl.textContent = _kcCur.length + '/' + _kcMax;
+    if (countEl) countEl.textContent = _kcCur.length;
     var box = document.getElementById('kc-party-list');
     if (!box) return;
     box.innerHTML = _kcCur.length ? _kcCur.map(function (c) {
       return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
-        + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(c.name) + ' <small style="color:#8a7fa0;">(關係:' + escapeHtml(c.tag || '從者') + '・好感' + c.bond + ')</small></span>'
-        + '<button onclick="kanshouEditRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button>'
-        + '<button onclick="kanshouRemove(\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 10px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">請走</button></div>';
-    }).join('') : '<div style="color:#888;padding:6px;">（暫無同伴）</div>';
+        + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(c.name) + ' <small style="color:#8a7fa0;">(關係:' + escapeHtml(c.tag || '點頭之交') + '・好感' + c.bond + ')</small><br><small style="color:#7a9fa0;">📍 ' + escapeHtml(c.loc || '不明') + '</small></span>'
+        + '<button onclick="kanshouEditRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button></div>';
+    }).join('') : '<div style="color:#888;padding:6px;">（這個世界裡還沒有其他人，從下方召喚一位吧）</div>';
   }
 
   // 🌙 結束一天(2026-07「不讓玩家指派，直接GAS判定」定案)：不在身邊的英靈由GAS自動決定隔天
@@ -142,7 +146,7 @@
   function closeKanshouFestivals() { var ov = document.getElementById('kc-festival-overlay'); if (ov) ov.style.display = 'none'; }
 
   // 🛍️ 2026-07 商店(玩家「都想要呢！」追加開店購物/好感禮物)：品項清單來自後端KANSHOU_SHOP_ITEMS_
-  //   同一份常數(KC_SHOP_ITEMS_鏡像，見下)，禮物項需要知道「目前同行夥伴有誰」才能選送禮對象，
+  //   同一份常數(KC_SHOP_ITEMS_鏡像，見下)，禮物項需要知道「此刻在場的人有誰」才能選送禮對象，
   //   比照openCompanions同款先打kanshou_companions刷新_kcCur，避免送禮清單顯示過期資料。
   var KC_SHOP_ITEMS_ = [
     { id: 'sofa', name: '舒適沙發', price: 1200, type: 'decor', desc: '一張柔軟舒適的沙發' },
@@ -172,7 +176,7 @@
     ov.onclick = function (e) { if (e.target === ov) closeKanshouShop(); };
     ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:420px;width:100%;max-height:calc(100vh - 36px);padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;">'
       + '<h3 style="margin:0 0 4px;color:#e0c090;">🛍️ 商店</h3>'
-      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">裝飾品買回家佈置，禮物直接送給同行夥伴增加好感。</div>'
+      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">裝飾品買回家佈置，禮物直接送給在場的人增加好感。</div>'
       + '<div id="kc-shop-list" style="overflow-y:auto;min-height:0;"></div>'
       + '<button onclick="closeKanshouShop()" style="margin-top:12px;width:100%;padding:10px;background:#4a3a6a;color:#fff;border:none;border-radius:8px;cursor:pointer;flex-shrink:0;">關閉</button>'
       + '</div>';
@@ -189,15 +193,18 @@
         + '<span style="flex:1;color:#e8d8e0;">' + escapeHtml(it.name) + ' <small style="color:#8a7fa0;">' + it.price + '円・' + escapeHtml(it.desc) + '</small></span>'
         + '<button onclick="kanshouBuyDecor(\'' + it.id + '\')" style="padding:4px 10px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">購買</button></div>';
     }).join('');
-    h += '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">🎁 禮物（送給同行夥伴）</div>';
-    if (!_kcCur.length) {
-      h += '<div style="color:#888;padding:6px;">（目前沒有同行夥伴，無法送禮）</div>';
+    // 🌍 2026-07「加入這個世界的感覺」定案：送禮對象只能是「此刻跟玩家同地點」的人(isHere)，不是
+    //   _kcCur全部——她要在場才收得到禮物，跟後端giftTargetIdx的判斷標準一致。
+    var giftablePeople = _kcCur.filter(function (c) { return c.isHere; });
+    h += '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">🎁 禮物（送給在場的人）</div>';
+    if (!giftablePeople.length) {
+      h += '<div style="color:#888;padding:6px;">（目前身邊沒有人，無法送禮）</div>';
     } else {
       h += giftItems.map(function (it) {
         return '<div style="padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
           + '<div style="color:#e8d8e0;margin-bottom:4px;">' + escapeHtml(it.name) + ' <small style="color:#8a7fa0;">' + it.price + '円・好感+' + it.bond + '・' + escapeHtml(it.desc) + '</small></div>'
           + '<div style="display:flex;flex-wrap:wrap;gap:5px;">'
-          + _kcCur.map(function (c) {
+          + giftablePeople.map(function (c) {
             return '<button onclick="kanshouGiveGift(\'' + it.id + '\',\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 8px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">送給' + escapeHtml(c.name) + '</button>';
           }).join('')
           + '</div></div>';
@@ -235,17 +242,17 @@
     + '</div>';
   }
 
-  // 召喚清單每列只在「可召喚名單本身變了」(開面板/召喚/請走後)才重建——每列標好 data-gender/
+  // 召喚清單每列只在「可召喚名單本身變了」(開面板/召喚後)才重建——每列標好 data-gender/
   // data-cls，換篩選(kanshouSetFilter)直接對這些既有節點切 display，不再整包重建。
+  // 🌍 2026-07「加入這個世界的感覺」定案：召喚沒有人數上限了(不再是隊伍容量)，這裡不用再判斷
+  //   canAdd，只要出現在_kcHeroesAvailable(尚未召喚過)就一定能按。
   function renderKcHeroList_() {
     var box = document.getElementById('kc-hero-list');
     if (!box) return;
-    var canAdd = _kcCur.length < _kcMax;
     box.innerHTML = _kcHeroesAvailable.map(function (h) {
       return '<div class="kc-hero-row" data-gender="' + escapeHtml(h.gender || '') + '" data-cls="' + escapeHtml(h.cls || '') + '" style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
         + '<span style="flex:1;color:#dfeaf2;">' + escapeHtml(h.name) + ' <small style="color:#8a7fa0;">(' + escapeHtml(h.cls || '') + (h.gender ? '・' + escapeHtml(h.gender) : '') + ')</small></span>'
-        + (canAdd ? '<button onclick="kanshouSummonHero(\'' + String(h.id).replace(/'/g, '') + '\')" style="padding:4px 10px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">召喚</button>'
-                  : '<span style="color:#888;font-size:11px;">已滿(3)</span>') + '</div>';
+        + '<button onclick="kanshouSummonHero(\'' + String(h.id).replace(/'/g, '') + '\')" style="padding:4px 10px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">召喚</button></div>';
     }).join('');
     var empty = document.getElementById('kc-hero-empty');
     if (empty) {
@@ -286,7 +293,7 @@
         needHeroes ? gasRun({ action: 'get_heroes', pcId: pc.id }) : Promise.resolve(null)
       ]);
       if (!res || !res.success) { alert((res && res.message) || '讀取同伴失敗。'); return; }
-      _kcCur = res.current || []; _kcMax = res.max || 3;
+      _kcCur = res.current || [];
       if (needHeroes) {
         // 🎨 2026-07 玩家「男角都移除掉吧...沒啥用...可以去當背景就好也禁止被召喚吧」：全面濾掉
         //   男性英靈/御主，在來源就濾乾淨，篩選下拉(genderOpts)/召喚清單都不會再冒出男性選項。
@@ -385,8 +392,8 @@
       ? '<div style="text-align:right;margin:-4px 0 6px;"><span onclick="kanshouRenameHome()" style="cursor:pointer;font-size:11px;color:#a07a90;">✏️ 幫「' + escapeHtml(homeLabel) + '」改名</span></div>'
       : '';
     // 🆕 2026-07 玩家「可以顯示那個地點有幾個人物嗎」：夾帶在tags payload的locationCounts
-    //   (見Router_Action.gs buildTagsPayload_)——同行同伴永遠跟玩家同地點，這裡主要顯示「留人
-    //   在原地」凍結在別處的舊同伴分佈，幫助決定要去哪裡巧遇故人。
+    //   (見Router_Action.gs buildTagsPayload_)——每個已建立的英靈都各自散布在不同地點過自己的
+    //   生活(2026-07「加入這個世界的感覺」定案)，這裡顯示各地點人數，幫助決定要去哪裡找誰。
     var locCounts = (window._lastTags && window._lastTags.locationCounts) || {};
     // 🙋 2026-07「反向提議」玩家定案：跟kanshouMoveTo(玩家自己走，無條件強制移動)不同，這顆👋
     //   走一般聊天訊息(不帶moveTarget)，交給AI在同一回合內依同伴個性當場決定答應或婉拒——見
@@ -484,9 +491,9 @@
     await send('（決定今晚就在外面過夜了）', false, null, null, false, false, 0, null, false, null, null, null, false, true);
   }
 
-  // 💰 2026-07「先把肉償機制上線！！...以後跟她獨處可以跳出這個按鈕」：只有跟同行隊伍裡唯一
-  //   一位、且她此刻掛著欠租旗標時，後端才會夾debtPaymentOffer；這裡點下去才真的觸發橋段，不點
-  //   就只是繼續正常聊天(不像敲門那樣強制二選一)。
+  // 💰 2026-07「先把肉償機制上線！！...以後跟她獨處可以跳出這個按鈕」：只有這個地點剛好只有
+  //   她一人在場(獨處)、且她此刻掛著欠租旗標時，後端才會夾debtPaymentOffer；這裡點下去才真的
+  //   觸發橋段，不點就只是繼續正常聊天(不像敲門那樣強制二選一)。
   async function kanshouOfferDebtPayment(name) {
     await send('向「' + name + '」提議，這期的房租就用身體來抵……', false, null, null, false, false, 0, null, false, null, null, null, false, false, name);
   }
@@ -503,7 +510,7 @@
     try {
       const res = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount });
       if (!res || !res.success) return;
-      _kcCur = res.current || []; _kcMax = res.max || 3;
+      _kcCur = res.current || [];
       kcRecomputeAvailable_();
       renderKcPartyList_();
       renderKcHeroList_();
@@ -523,12 +530,6 @@
       if (res && res.success) { syncData(true); kcRefreshPartyOnly_(); }
       else { alert((res && res.message) || '召喚失敗。'); }
     } catch (e) { hideProcessing(); alert('召喚失敗。'); }
-  }
-  async function kanshouRemove(name) {
-    try {
-      const res = await gasRun({ action: 'kanshou_remove', pcId: pc.id, acctName: currentAccount, servantName: name });
-      if (res && res.success) { syncData(true); kcRefreshPartyOnly_(); } else { alert((res && res.message) || '請走失敗。'); }
-    } catch (e) { alert('請走失敗。'); }
   }
   // 🏷️ 2026-07 新增「關係改玩家決定」：REL_TAG 從此只能由玩家在這裡手動改，AI只能在敘事裡
   //   表現認不認同(態度)、不再擅自覆寫這個欄位。呼叫既有的 update_rel_tag(後端早就有、只是

@@ -308,8 +308,7 @@
 | `claim_grail` | 勝利畫面「⚜️ 奪得聖杯」 | `actionClaimGrail` | **是**（回憶散文，結構化+散文混合） |
 | `enter_kanshou` | 主選單「🌹 進入鑑賞」→`enterKanshou()`（Script_Kanshou.html:150） | `actionEnterKanshou` | 否 |
 | `kanshou_companions` | 抽屜「👥 後日談同伴」→`openCompanions()`（Kanshou:16） | `actionKanshouCompanions` | 否 |
-| `kanshou_add` | 同伴面板「邀請」→`kanshouAdd(name)`（Kanshou:46） | `actionKanshouAdd` | 否 |
-| `kanshou_remove` | 同伴面板「移除」→`kanshouRemove(name)`（Kanshou:52） | `actionKanshouRemove` | 否 |
+| `kanshou_summon_hero` | 駐留清單「召喚」→`kanshouSummonHero(heroId)`（Kanshou） | `actionKanshouSummonHero` | 否（2026-07「加入這個世界的感覺」定案後只能召喚一次，沒有「請走」/隊伍容量概念了） |
 | `kanshou_set_name` | 「✏改名」→`changeKanshouName()`（Kanshou:64） | `actionKanshouSetName` | 否 |
 | `kanshou_set_sex` | 「⚧切換性別」→`changeKanshouSex()`（Kanshou:78） | `actionKanshouSetSex` | 否 |
 | `dev_seed_gallery` | 主選單 DEV「🧪 產生測試從者」（Index.html） | `actionDevSeedGallery` | 否（罐頭測試文案） |
@@ -324,7 +323,7 @@
 埋入事實：御主名、從者真名+職階、羈絆深度（bond）、性格參考(pref)、御主願望(若有，明確 gated)、固定結局事實「御主斬盡所有敵對從者，奪得聖杯」。AI 失敗有硬編碼備援回憶字串（優雅降級）。同盟封存（好感≥90或【鑑賞緣】的盟友）另用**純模板字串**（非 AI）產生回憶。
 
 ### 其餘 Gallery.gs handler
-`actionEnterKanshou`／`actionKanshouCompanions`／`actionKanshouAdd`／`actionKanshouRemove`／`actionKanshouSetSex`／`actionKanshouSetName`／`actionDevSeedGallery` 皆純機制寫表/讀表，不叫 AI（`kanshou_add` 用固定文字「聖杯戰爭並肩奪杯的羈絆」與固定羈絆值 90，非 AI 生成）。之後的 kanshou 內對話走 `actionPlay`（§9），不在這幾個 action 內。
+`actionEnterKanshou`／`actionKanshouCompanions`／`actionKanshouSummonHero`／`actionKanshouSetSex`／`actionKanshouSetName`／`actionDevSeedGallery` 皆純機制寫表/讀表，不叫 AI。之後的 kanshou 內對話走 `actionPlay`（§9），不在這幾個 action 內。
 
 ---
 
@@ -416,7 +415,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 
 ## 附：純機制、完全不叫 AI 的 action 總表（快速核對用）
 
-`check_name`、`get_full_status`、`update_fate`、`get_tags`、`sync`、`update_rel_tag`、`create`、`get_heroes`、`get_masters`、`get_map_nodes`、`set_servant_output`、`set_mage_realm`、`set_rune_mode`、`set_np_choice`、`account_login`、`account_new_game`、`get_victory_history`、`leaderboard`、`war_chronicle`、`war_history_list`、`get_epic_history`、`purge_orphans`、`dev_seed_gallery`、`dev_resync_codex`、`enter_kanshou`、`kanshou_companions`、`kanshou_add`、`kanshou_remove`、`kanshou_set_name`、`kanshou_set_sex`、`kanshou_set_home_name`（2026-07新增，「出門走走」面板的「家」選項改名，寫進 MEMORY【住所】標記，見 `SOLO_REFERENCE.md` §44）。
+`check_name`、`get_full_status`、`update_fate`、`get_tags`、`sync`、`update_rel_tag`、`create`、`get_heroes`、`get_masters`、`get_map_nodes`、`set_servant_output`、`set_mage_realm`、`set_rune_mode`、`set_np_choice`、`account_login`、`account_new_game`、`get_victory_history`、`leaderboard`、`war_chronicle`、`war_history_list`、`get_epic_history`、`purge_orphans`、`dev_seed_gallery`、`dev_resync_codex`、`enter_kanshou`、`kanshou_companions`、`kanshou_summon_hero`、`kanshou_set_name`、`kanshou_set_sex`、`kanshou_set_home_name`（2026-07新增，「出門走走」面板的「家」選項改名，寫進 MEMORY【住所】標記，見 `SOLO_REFERENCE.md` §44）。
 
 （`set_servant_output`／`set_mage_realm`／`set_rune_mode`／`set_np_choice` 這 4 個是戰鬥前的**純數值檔位切換**——性質等同選單勾選，不是敘事時刻，刻意不接 AI：接了反而每次調檔位都要多等一次生成、拖慢戰鬥節奏，也沒有畫面可演。)
 
