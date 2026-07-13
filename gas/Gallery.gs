@@ -1169,7 +1169,10 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
     //   (driveOn=true)才切回鑑賞原本用的大型模型(AI_MODEL)——大多數回合是輕鬆日常對話，犯不著
     //   每次都吃重量級模型的延遲。max_tokens=1500：narration目標約500字＋其餘欄位，太低容易讓
     //   模型輸出被截斷成不完整JSON。
-    let aiConfig = { temperature: 1.0, top_p: 0.95, retries: 2, model: driveOn ? AI_MODEL : SOLO_MODEL, isNsfwMode: true, max_tokens: 1500 };
+    // 🎛️ 2026-07 玩家調整採樣參數：temperature/top_p 略升、加top_k/repetition_penalty/presence_penalty/
+    //   frequency_penalty 抑制重複套路句(如老是收在同一種收尾語氣)，僅driveOn吃到大模型(AI_MODEL)時
+    //   這幾顆額外旋鈕才會實際生效，矜持模式(SOLO_MODEL)不支援的部分由OpenRouter靜默忽略。
+    let aiConfig = { temperature: 1.08, top_p: 0.97, top_k: 60, repetition_penalty: 1.12, presence_penalty: 0.25, frequency_penalty: 0.25, retries: 2, model: driveOn ? AI_MODEL : SOLO_MODEL, isNsfwMode: true, max_tokens: 1500 };
     if (!driveOn) aiConfig.fallbackModel = AI_MODEL;
 
     // 抓取近 6 筆原始歷史(3輪)，轉換為 API 格式

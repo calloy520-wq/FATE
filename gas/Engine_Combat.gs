@@ -12,6 +12,8 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   if (!modelName) return JSON.stringify({ narration: "未設定 MODEL 指令碼屬性", options: ["重試"] });
   const temp = config.temperature !== undefined ? config.temperature : 0.8;
   const topP = config.top_p !== undefined ? config.top_p : 0.95;
+  // OpenRouter 額外採樣旋鈕(非OpenAI標準四件組)：不同底層模型支援程度不一，未設定的呼叫端完全不受影響，
+  //   有帶的模型會吃到、不支援的模型OpenRouter會直接忽略(不會報錯)，故用undefined判斷、不給預設值。
   // max_tokens 是能直接省生成時間的旋鈕；鑑賞(kanshou) narration 目標字數較短，上限故比 solo 低。
   const maxT = config.max_tokens || (config.isNsfwMode ? 1000 : 2000);
   const retries = config.retries || 3;
@@ -43,6 +45,10 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   //   只有呼叫端帶 config.fallbackModel 才會觸發第二輪，其餘呼叫行為不變。回傳成功文字或 null。
   function attemptWithModel_(model) {
     const payload = { model: model, messages: apiMessages, temperature: temp, top_p: topP, max_tokens: maxT };
+    if (config.top_k !== undefined) payload.top_k = config.top_k;
+    if (config.repetition_penalty !== undefined) payload.repetition_penalty = config.repetition_penalty;
+    if (config.presence_penalty !== undefined) payload.presence_penalty = config.presence_penalty;
+    if (config.frequency_penalty !== undefined) payload.frequency_penalty = config.frequency_penalty;
     if (!plainText) payload.response_format = { type: "json_object" };
     const options = {
       method: "post", contentType: "application/json",
