@@ -249,9 +249,9 @@
       <button class="drawer-item" onclick="triggerDrawerAction('status')"><i>👤</i><span>查看狀態</span></button>
       <button class="drawer-item" id="drawer-companions" onclick="openCompanions()" style="display:none;"><i>👥</i><span>後日談同伴</span></button>
       <button class="drawer-item" id="drawer-festival" onclick="openKanshouFestivals()" style="display:none;"><i>🎊</i><span>快轉節慶</span></button>
-      <!-- 💼 2026-07 經濟層：打工賺錢，比照drawer-festival同款(僅applyModeUI在鑑賞模式顯示)。 -->
+      <!-- 💼 打工賺錢，比照drawer-festival同款(僅applyModeUI在鑑賞模式顯示)。 -->
       <button class="drawer-item" id="drawer-job" onclick="kanshouWork()" style="display:none;"><i>💼</i><span>去打工</span></button>
-      <!-- 🛍️ 2026-07 商店 Phase 2：買裝飾品/送禮物，比照drawer-job同款。 -->
+      <!-- 🛍️ 商店：買裝飾品/送禮物，比照drawer-job同款。 -->
       <button class="drawer-item" id="drawer-shop" onclick="openKanshouShop()" style="display:none;"><i>🛍️</i><span>商店</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('settings')"><i>⚙️</i><span>系統設定</span></button>
     </div>
@@ -259,9 +259,7 @@
     <div id="input-bar">
       <div class="pill-wrapper">
         <button id="plus-trigger" class="plus-btn" onclick="toggleActionDrawer()">＋</button>
-        <!-- 🔥 主動掌握開關(2026-07 重生)：舊 nsfw-mode-toggle 在「後端改由 pcId 路由決定 NSFW」後已成死旗標，
-             玩家定案改成「同伴主動度」開關——滅=現在的矜持模式(靠玩家推進)；亮=同伴依個性主動掌握節奏、
-             玩家想跑也跑不掉。只影響鑑賞敘事語氣，NSFW 與否仍由 pcId 決定、solo 不受任何影響。 -->
+        <!-- 🔥 主動掌握開關：舊 nsfw-mode-toggle 在「後端改由 pcId 路由決定 NSFW」後已成死旗標，重生為「同伴主動度」開關——滅=矜持模式(靠玩家推進)；亮=同伴依個性主動掌握節奏。只影響鑑賞敘事語氣，NSFW 與否仍由 pcId 決定、solo 不受影響。 -->
         <label title="🔥 主動掌握：亮起後同伴依個性主動出擊、掌握節奏，你想迴避也會被攔下；熄滅則回到矜持模式，由你主導推進。" style="color: #ff6b6b; font-size: 14px; margin-right: 5px; margin-left: 2px; cursor: pointer; display: flex; align-items: center; white-space: nowrap; font-weight: bold;">
           <input type="checkbox" id="drive-mode-toggle" style="accent-color: #ff6b6b; margin-right: 3px;">🔥
         </label>

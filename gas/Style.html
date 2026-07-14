@@ -104,8 +104,7 @@
     #pane-map { flex: 0 0 360px; border-left: 1px solid var(--border-color); }
   }
 
-  /* 🛠️ 英靈工房：手機窄版 320px；桌機放大(2026-07 玩家反饋「電腦上太小」)——
-     其餘 onboarding 窄屏(登入/選單/召喚)維持一致的手機感，僅工房內容密度高、值得放大 */
+  /* 🛠️ 英靈工房：手機窄版 320px；桌機放大——其餘 onboarding 窄屏(登入/選單/召喚)維持一致的手機感，僅工房內容密度高、值得放大 */
   #step-forge { width: 320px; }
   @media (min-width: 700px) {
     #step-forge { width: 560px; }
@@ -473,7 +472,7 @@
 
 
   /* 🧹 裝備欄樣式 .equip-slot/.eq-filled/.eq-empty 已移除（裝備層 WEP/ARM/ACC 已砍，零引用） */
-  /* 🧹 2026-07「SOLO鑑賞完全拆分」稽核：.btn-act 全代碼庫零引用，已移除 */
+  /* 🧹 .btn-act 全代碼庫零引用，已移除 */
 
   .btn-option {
     padding: 12px;
@@ -495,13 +494,10 @@
 
 
 
-  /* 🧹 2026-07 玩家定案「名稱不要有超連結了」：.npc-link 已從 Script.html 移除(姓名一律純文字)，
-     這裡曾是它的樣式定義，隨之一併清除(死 CSS)。 */
+  /* 🧹 .npc-link 已從 Script.html 移除(姓名一律純文字)，這裡曾是它的樣式定義，隨之一併清除(死 CSS)。 */
 
 
-  /* 🧹 2026-07「SOLO鑑賞完全拆分」稽核：舊「神識星圖」浮層系統(#map-visual-overlay/#map-canvas/
-     .map-node-parent/.player-here)已被 buildMapSvg_ 的 SVG 地圖(.fk-* 動畫，見下方)取代，
-     全代碼庫零引用，連同 @keyframes ripple 一併移除。 */
+  /* 🧹 舊「神識星圖」浮層系統(#map-visual-overlay/#map-canvas/.map-node-parent/.player-here)已被 buildMapSvg_ 的 SVG 地圖(.fk-* 動畫，見下方)取代，全代碼庫零引用，連同 @keyframes ripple 一併移除。 */
   /* 💓 血條/魔力條脈動：血越低跳越快、魔力依量多寡/收支呼吸。亮度起伏=心跳感 */
   @keyframes barThrob { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.7); } }
   /* 🔮 可選能力標籤：發亮脈動，提醒玩家此標籤可點選/可換 */
@@ -511,8 +507,7 @@
   }
   .tag-selectable { animation: tagGlow 1.6s ease-in-out infinite; }
 
-  /* 🌈 技能膠囊·階級流光分級(2026-07)：EX彩虹流光／A系紅流光／B系黃微光／C與無階級=基準金褐(原inline樣式)／
-     D·E灰暗。純CSS零後端成本；特性(trait)不吃分級。搭配 Script.html pill() 的 pillRankCls_()。 */
+  /* 🌈 技能膠囊·階級流光分級：EX彩虹流光／A系紅流光／B系黃微光／C與無階級=基準金褐(原inline樣式)／D·E灰暗。純CSS零後端成本；特性(trait)不吃分級。搭配 Script.html pill() 的 pillRankCls_()。 */
   @keyframes rankExFlow { from { background-position: 0% 50%; } to { background-position: 300% 50%; } }
   .pill-rank-ex {
     display: inline-block; padding: 1px; border-radius: 10px; margin: 2px 3px 0 0;
