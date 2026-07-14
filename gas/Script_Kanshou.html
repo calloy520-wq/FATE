@@ -732,9 +732,7 @@ let plainTextContext = cleanText;
       else { alert((res && res.message) || '召喚失敗。'); }
     } catch (e) { hideProcessing(); alert('召喚失敗。'); }
   }
-  // 🏷️ 2026-07 新增「關係改玩家決定」：REL_TAG 從此只能由玩家在這裡手動改，AI只能在敘事裡
-  //   表現認不認同(態度)、不再擅自覆寫這個欄位。呼叫既有的 update_rel_tag(後端早就有、只是
-  //   從未接過前端UI)。
+  // 🏷️ REL_TAG 從此只能由玩家在這裡手動改，AI只能在敘事裡表現認不認同(態度)、不再擅自覆寫。呼叫既有的 update_rel_tag(後端早就有，只是從未接過前端UI)。
   async function kanshouEditRelTag(name, oldTag) {
     var nt = prompt('「' + name + '」的關係稱呼(對方不一定會馬上認同，依好感與個性而定)：', oldTag || '從者');
     if (nt === null) return;
@@ -873,15 +871,13 @@ let plainTextContext = cleanText;
       document.getElementById('setup').style.display = 'none';
       document.getElementById('game').style.display = 'flex';
       applyModeUI();
-      // 🔥 2026-07：舊「自動勾NSFW開關」已拔——NSFW 早改由 pcId(KPC_)路由決定、與勾選格無關；
-      //   該勾選格已重生為「主動掌握」開關(亮=同伴主動出擊)，預設熄滅=現在的矜持模式(玩家主導)。
+      // 🔥 舊「自動勾NSFW開關」已拔——NSFW 早改由 pcId(KPC_)路由決定、與勾選格無關；該勾選格已重生為「主動掌握」開關(亮=同伴主動出擊)，預設熄滅=矜持模式(玩家主導)。
       var _dt = document.getElementById('drive-mode-toggle'); if (_dt) _dt.checked = false;
       document.getElementById('ui-name').innerText = pc.name;
       document.getElementById('ui-sex').innerText = pc.sex;
       setupHistoryPrevention();
       refreshFateTags();
-      // 🗺️ 2026-07 玩家定案「地圖分頁改清單型」：寬螢幕三欄並排時 #pane-map 不需要點分頁才顯示，
-      //   進場當下就先算一次(比照 solo 登入後 syncData 觸發的 renderMapPane 初次填色)。
+      // 🗺️ 寬螢幕三欄並排時 #pane-map 不需要點分頁才顯示，進場當下就先算一次(比照 solo 登入後 syncData 觸發的 renderMapPane 初次填色)。
       renderMapPane();
       // 🚀 首次建檔才需要AI潤色敘事欄：不await，趁玩家看開場白的空檔在背景跑，失敗則保留種子預設。
       if (firstTimeSeed) backfillKanshouAi(firstTimeSeed);
