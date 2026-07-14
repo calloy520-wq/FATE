@@ -67,6 +67,7 @@
   let currentStatusTargetName = pc ? pc.name : "";
   let localNPCs = [];
   let lastMapNodes = null; // 🗺️ 最近一次動作夾帶的地圖節點快取(手機切到地圖頁直接吃這份，免再打一趟 round-trip)
+  let kcClock = null; // 🕰️ 2026-07 鑑賞時鐘(day/hour/band/label)，供地圖頁「跳到時段」/「時段行動」按鈕判斷現在幾點
   let myServantCls = ''; // 🗡️ 我方從者職階（決定攻擊類別的按鈕顯示：近戰/魔砲/狙擊）
   let myBondUsed = [];   // 💕 今日已用過的羈絆互動（灰掉按鈕）
   let myMystic = null;   // ✨ 御主禮裝（{id,name,type,charges,req,target}）
@@ -338,14 +339,18 @@
     currentStatusTargetName = pc.name;
   }
 
-  // ⏳ 時鐘 HUD（鑑賞模式不顯示戰爭時鐘）：第N日·時刻·時段 ⚡AP/12
+  // ⏳ 時鐘 HUD：第N日·時刻·時段 ⚡AP/12(僅solo，鑑賞無AP系統)
+  // 🧹 2026-07「跳到時段」定案：鑑賞先前完全隱藏這顆HUD(clock恆空字串)，現在鑑賞也有day/hour可
+  //   顯示(見buildClientState_/actionPlay的kanshouClock)，改成鑑賞也顯示時段圖示+文字，只是不
+  //   顯示AP格(鑑賞沒有這個資源)。
   function updateClock(label, ap, apMax) {
     const hud = document.getElementById('clock-hud');
     if (!hud) return;
-    if (label && !(pc && pc.mode === 'kanshou')) {
+    const isKanshou = pc && pc.mode === 'kanshou';
+    if (label) {
       const icon = /深夜/.test(label) ? '🌌' : /夜/.test(label) ? '🌙' : /清晨/.test(label) ? '🌅' : /黃昏/.test(label) ? '🌆' : '☀️';
       let apStr = '';
-      if (typeof ap === 'number' && apMax) {
+      if (!isKanshou && typeof ap === 'number' && apMax) {
         const lit = '⚡'.repeat(Math.max(0, Math.min(apMax, ap)));
         const dim = '·'.repeat(Math.max(0, apMax - ap));
         apStr = `　行動 ${ap}/${apMax} <span style="letter-spacing:-1px;color:#caa44a;">${lit}</span><span style="letter-spacing:-1px;color:#5a4a2a;">${dim}</span>`;
@@ -1567,11 +1572,17 @@
         + '<input type="checkbox" id="kc-encounter-toggle" ' + (kanshouEncounterOn ? 'checked' : '') + ' onchange="kanshouToggleEncounter_(this.checked)"> 路上可能巧遇陌生人'
         + '</label>'
         + '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:#8a6a9a;color:#d0a8e0;" onclick="kanshouLookAround()">👀 看看四周還有沒有其他人</button>'
-        // ⏰ 2026-07「推進時間」玩法：不強制拉玩家回家(跟🌙結束一天不同)，純粹跳過幾小時，不在
-        //   身邊的英靈依新時刻重新分佈(深夜/清晨傾向回家)——見kanshouAdvanceHours(Script_Kanshou.html)。
-        + '<div style="display:flex; gap:4px; margin-bottom:10px;">'
-        + [2, 6, 12].map(function (h) { return '<button class="btn" style="flex:1;padding:6px 2px;font-size:11.5px;border-color:#4a6a8a;color:#8ac0e0;" onclick="kanshouAdvanceHours(' + h + ')" title="時間推進' + h + '小時，不在身邊的英靈依新時刻重新分佈去向">⏩' + h + 'h</button>'; }).join('')
+        // ⏰ 2026-07「跳到時段感覺比較好」玩家定案：取代舊版「推進N小時」(玩家得自己心算會落在
+        //   哪個時段)——直接選目標時段，GAS算好差幾小時(kanshouJumpBand，見Script_Kanshou.html)。
+        + '<div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:10px;">'
+        + KC_TIME_BANDS_.map(function (b) { return '<button class="btn" style="flex:1 0 30%;padding:6px 2px;font-size:11.5px;border-color:#4a6a8a;color:#8ac0e0;" onclick="kanshouJumpBand(\'' + b.key + '\',\'' + b.name + '\')" title="跳到' + b.key + '，不在身邊的英靈依新時刻重新分佈去向">' + b.label + '</button>'; }).join('')
         + '</div>'
+        // 🍳 2026-07「時段行動」骨架：只在對應時段才顯示的按鈕，第一個動作是清晨限定的「準備早餐」
+        //   (kcClock由send()/syncData()回應夾帶的kanshouClock更新，見Script.html)。之後想加其他
+        //   時段的專屬行動，往這個if/陣列加即可，不必另開一條平行的按鈕渲染邏輯。
+        + (kcClock && kcClock.band === '清晨'
+          ? '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:#8a9a4a;color:#c0e08a;" onclick="kanshouPrepBreakfast()" title="移動到廚房，房客們各自骰一次今早去向">🍳 準備早餐</button>'
+          : '')
         + '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:#7a6a4a;color:#e0c090;" onclick="kanshouEndDay()" title="不在身邊的英靈由GAS自動決定隔天去哪，時間推進到明天">🌙 結束一天</button>'
         // 🎊 2026-07「跳到節慶」玩家反映「不常用，不要擺出來」：改收進＋抽屜(見Index.html
         //   drawer-festival／Script_Kanshou.html openKanshouFestivals)，地圖頁不再常駐佔版面。
@@ -2543,10 +2554,14 @@
     localNPCs = data.people || [];
     nearbyLocations = data.locations || [];
     updateClock(data.clock, data.ap, data.apMax);
+    // 🕰️ 2026-07：kanshouClock 跟著整份 state 一起夾帶，sync() 也要記下來(不是只有 send() 才更新)。
+    if (data.kanshouClock) kcClock = data.kanshouClock;
     updateEconomy(data.economy);
     refreshFateTags(data.tags); // ⚡ 用夾帶的 tags，省一趟 get_tags round-trip
-    // 🧹 2026-07：鑑賞拔地圖(#pane-map 已隱藏)，省下每次同步都重繪一份沒人看得到的地圖面板。
-    if (!(pc && pc.mode === 'kanshou')) renderMapPane(data.mapNodes); // ⚡ 用夾帶的 mapNodes，省一趟 get_map_nodes round-trip
+    // 🧹 2026-07 訂正：先前「鑑賞拔地圖，沒人看得到」的假設對桌機三欄並排版面不成立(地圖頁恆
+    //   顯示，不必切分頁)——renderMapPane 本身已有 offsetParent===null 的隱藏判斷，交給它自己
+    //   決定要不要畫，這裡不再用 kanshou 身分另外攔一次(避免時段按鈕在桌機上不會即時刷新)。
+    renderMapPane(data.mapNodes); // ⚡ 用夾帶的 mapNodes，省一趟 get_map_nodes round-trip
     renderWarActions();
     if (!isSilent) {
       const story = document.getElementById('story');
@@ -2679,7 +2694,7 @@ function applyModeUI() {
   //   handleMultiAttack/renderCombatReport/narrateCombatResult(已於更早的清理移除)，不是下面
   //   send()的行為；send() 是鑑賞(action:'play')自由聊天引擎的唯一呼叫點，跟「連擊」無關。
 
-  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, work = false, buyItem = null, giftTarget = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false, debtPayment = null, roomEventAccept = null) {
+  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, work = false, buyItem = null, giftTarget = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false, debtPayment = null, roomEventAccept = null, jumpBand = null, prepBreakfast = false) {
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
     // 🔥 主動掌握開關(2026-07)：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
@@ -2722,11 +2737,15 @@ function applyModeUI() {
       // 🚪 巧遇開關：kanshouEncounterOn 定義在 Script_Kanshou.html(該檔恆載入)，此處為 solo(非鑑賞)
       //   路徑保留防呆——solo 呼叫 actionPlay 會在函式入口即被擋下，這個欄位對 solo 無意義。
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, drive: drive, lastContext: lastAiContext, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, work: work || undefined, buyItem: buyItem || undefined, giftTarget: giftTarget || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, dismissCurfew: dismissCurfew || undefined, debtPayment: debtPayment || undefined, roomEventAccept: roomEventAccept || undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, drive: drive, lastContext: lastAiContext, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, work: work || undefined, buyItem: buyItem || undefined, giftTarget: giftTarget || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, dismissCurfew: dismissCurfew || undefined, debtPayment: debtPayment || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, prepBreakfast: prepBreakfast || undefined });
 
 
       document.getElementById(loadId)?.remove();
       localNPCs = data.people || []; nearbyLocations = data.locations || [];
+      // 🕰️ 2026-07「跳到時段」＋「時段行動」按鈕：每次actionPlay回應都可能改動時鐘(結束一天/推進
+      //   時間/打工/跳節慶/跳時段/準備早餐皆會)，記下最新kanshouClock供地圖頁的時段按鈕判斷現在
+      //   是不是清晨，並重繪地圖頁(桌機三欄並排恆顯示，不能只靠切分頁才刷新)。
+      if (data.kanshouClock) { kcClock = data.kanshouClock; try { renderMapPane(); } catch (e) { } }
       // 🔴 直接接收後端傳來的狀態字串，不再依賴 AI 的文字解析
       if (data.statusString) {
           localStorage.setItem('kyushu_last_status', data.statusString);

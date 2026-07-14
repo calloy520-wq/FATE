@@ -337,6 +337,9 @@
 ### 房客日常去向系統(缺席英靈的每日/每小時定位)
 - `KANSHOU_HOUSEMATE_WANDER_CHANCE_`(964,常數) — 房客10%機率當天不待房間、外出閒晃
 - `kanshouRollDailyLocation_`(974) — 決定缺席英靈當天/當時段的位置(房客房間/外部住所/去向表加權)
+- `KANSHOU_BREAKFAST_KITCHEN_CHANCE_`/`KANSHOU_BREAKFAST_OWNROOM_CHANCE_`(2026-07新增,常數) — 「準備早餐」時段行動的房客去向機率(85%下樓/10%賴床/剩餘5%已出門)
+- `kanshouRollBreakfastSpot_`(2026-07新增) — 依上述機率骰單一房客的今早去向('kitchen'/'ownRoom'/'out')
+- `KANSHOU_PARTY_DETAIL_CAP_`(2026-07新增,常數，原3→5) — 同地點AI詳細卡片上限(prompt篇幅上限,非玩法容量)，`actionPlay`的`partyRows`用它取代寫死的`slice(0,3)`
 
 ### 鑑賞曆法/時鐘系統
 - `KANSHOU_CAL_START_MONTH_`/`KANSHOU_CAL_START_DAY_`(999,常數) — 第1天曆法錨點=12月28日
@@ -345,6 +348,9 @@
 - `kanshouDoyOffset_`(1010) — 算月/日對應的年度天數偏移
 - `kanshouAbsDayToDate_`(1016) — 絕對天數計數器→{year,month,day}
 - `kanshouHoursUntilDate_`(1026) — 到下一次某月/日(節日跳轉)還剩幾小時
+- `KANSHOU_TIME_BANDS_`(2026-07新增,常數) — 5段時段對應起始小時(清晨5/午後11/黃昏17/夜20/深夜0)，「跳到時段」按鈕用
+- `kanshouHoursUntilBand_`(2026-07新增) — 到下一次某時段還剩幾小時(已在該時段內也算下一次)
+- `kanshouClockInfo_`(2026-07新增) — 讀御主列DAY/HOUR格式化成`{day,hour,band,label}`，`buildClientState_`(Router_Action.gs)/`actionPlay`回應共用，鑑賞時鐘曝光給前端的單一真實來源(先前鑑賞`clock`欄位恆空字串，2026-07才補上)
 
 ### 經濟系統(2026-07「僅鑑賞恢復真經濟層」)
 - `KANSHOU_START_MONEY_`(1037,常數) — 開局起始金錢3000

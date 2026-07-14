@@ -865,6 +865,9 @@ const KANSHOU_HOUSEMATE_ROOMS_ = {
   '間桐櫻黑化-Master': '間桐櫻的房間',
   '美杜莎-Rider': '美杜莎的房間'
 };
+// 🌍 同地點AI詳細卡片上限(見actionPlay的partyRows)——3位房客+來訪的人湊在一起時5人夠用，
+//   2026-07玩家「吃飯不能5人嗎」定案從3調到5。
+const KANSHOU_PARTY_DETAIL_CAP_ = 5;
 // 🎭 橋段庫(2026-07新增，玩家「打完自己都知道會怎麼演了根本不好玩」)：跟前面幾個系統指定情境
 //   (kanshouKnockGuestStr等)同一種精神——GAS先決定「觸發條件」與「這次走向」，AI只負責照著
 //   選中的走向去演出具體細節，玩家不必自己打字下劇本、也不會提前知道結局。之後想加新橋段，
@@ -991,6 +994,18 @@ function kanshouRollDailyLocation_(heroName, hour) {
   const pool = haunts.length ? haunts : KANSHOU_LOCATIONS_.filter(l => l.region !== 'home').map(l => l.name);
   return pool[Math.floor(Math.random() * pool.length)];
 }
+// 🍳 2026-07「時段行動」骨架的第一個動作：清晨限定的「準備早餐」，幫3位房客各自骰一次今早
+//   去向——GAS掌機率(DESIGN.md鐵律)，AI只依骰出的結果演出，不自己決定誰起床誰賴床。跟一般
+//   kanshouRollDailyLocation_不同：這裡「出門」是確定結果(不套用該函式的清晨homeBias，否則
+//   5%出門會被homeBias蓋回房間，機率名不符實)。
+const KANSHOU_BREAKFAST_KITCHEN_CHANCE_ = 0.85; // 下樓吃早餐
+const KANSHOU_BREAKFAST_OWNROOM_CHANCE_ = 0.10; // 還在賴床(剩餘0.05＝已經自己出門了)
+function kanshouRollBreakfastSpot_() {
+  const r = Math.random();
+  if (r < KANSHOU_BREAKFAST_KITCHEN_CHANCE_) return 'kitchen';
+  if (r < KANSHOU_BREAKFAST_KITCHEN_CHANCE_ + KANSHOU_BREAKFAST_OWNROOM_CHANCE_) return 'ownRoom';
+  return 'out';
+}
 // 🎊 2026-07「跳到節慶」玩法(玩家「還想再做一個日期選擇，想體驗什麼時段的劇情就可以去調整，可能
 //   想跟他們過年或七夕」→再考慮後「我覺得加年月日會比較好...抓個3年的區間就好」)：真正的西曆
 //   年/月/日(每年固定365天、不算閏年，遊戲用途夠精準)，只抓3年區間(見actionPlay的advanceHours
@@ -1030,6 +1045,33 @@ function kanshouHoursUntilDate_(curDay, curHour, targetMonth, targetDay) {
   let deltaDays = targetDoy - curDoy;
   if (deltaDays <= 0) deltaDays += 365;
   return deltaDays * 24 - curHour;
+}
+
+// ⏰ 2026-07「跳到時段感覺比較好」玩家定案：比起「推進N小時」(玩家得自己心算會落在哪個時段)，
+//   改成直接選「跳到清晨/午後/黃昏/夜/深夜」，GAS算好差幾小時再丟進既有advanceHours管線——跟
+//   跳到節慶(kanshouHoursUntilDate_)同一種「單一真實來源在後端」寫法。已在目標時段時一律跳「下
+//   一次」(比照節慶邏輯，不會出現按了沒反應的按鈕)。startHour對應timeBand_(Time_World.gs)的
+//   5段分界，兩處改動要保持同步。
+const KANSHOU_TIME_BANDS_ = [
+  { key: '清晨', label: '清晨', startHour: 5 },
+  { key: '午後', label: '午後', startHour: 11 },
+  { key: '黃昏', label: '黃昏', startHour: 17 },
+  { key: '夜', label: '夜晚', startHour: 20 },
+  { key: '深夜', label: '深夜', startHour: 0 }
+];
+function kanshouHoursUntilBand_(curHour, targetStartHour) {
+  let diff = targetStartHour - curHour;
+  if (diff <= 0) diff += 24; // 已在該時段內也跳下一次，不回傳0
+  return diff;
+}
+// 🕰️ 2026-07「跳到時段」＋「時段行動」按鈕都需要前端知道現在幾點——鑑賞借用solo既有的COL.PC.
+//   DAY/HOUR欄位存自己的時鐘(見actionPlay同款預設值)，這裡統一格式化成單一真實來源，buildClientState_
+//   /actionPlay的回應都呼叫這支，不各自重複拼字串。
+function kanshouClockInfo_(pcRow) {
+  const day = parseInt(pcRow[COL.PC.DAY]) || 1;
+  const hour = (pcRow[COL.PC.HOUR] === "" || pcRow[COL.PC.HOUR] == null) ? 8 : (parseInt(pcRow[COL.PC.HOUR]) || 0);
+  const band = timeBand_(hour);
+  return { day: day, hour: hour, band: band, label: "第 " + day + " 日・" + ("0" + hour).slice(-2) + ":00・" + band };
 }
 
 // 💰 2026-07「真的要賺錢、要付住宿費」玩家定案：推翻2026-06經濟全砍決定，僅鑑賞(kanshou)恢復一套
@@ -1264,7 +1306,10 @@ function actionPlay(userData, pcId, sheets) {
   //   客廳/廚房/浴室/陽台/庭院等都是KANSHOU_LOCATIONS_裡的普通地點(noEncounter:true代表私人
   //   空間、不觸發陌生人巧遇)，走一般moveTarget比對即可，不再需要獨立特判。getKanshouHomeName_/
   //   setKanshouHomeName_只供前端「家」分區分頁標籤的自訂顯示名稱使用，不影響這裡的地點驗證。
-  const moveTarget = KANSHOU_LOCATIONS_.find(l => l.name === String(userData.moveTarget || "").trim());
+  // 🍳「準備早餐」＝移動到廚房，複用moveTarget整套既有管線(清巧遇/寫LOC/事件種子)，不另開一條
+  //   平行的地點切換路徑——只是這次的目的地由GAS直接指定，不聽前端傳的userData.moveTarget。
+  const isBreakfast_ = userData.prepBreakfast === true;
+  const moveTarget = isBreakfast_ ? KANSHOU_LOCATIONS_.find(l => l.name === '廚房') : KANSHOU_LOCATIONS_.find(l => l.name === String(userData.moveTarget || "").trim());
   const moveName = moveTarget ? moveTarget.name : "";
   let finalUserMsg = moveTarget
     ? `【玩家意圖】：走向了「${moveName}」，四處看看那裡有什麼、有沒有遇見誰。`
@@ -1440,6 +1485,12 @@ function actionPlay(userData, pcId, sheets) {
       jumpFest = KANSHOU_FESTIVALS_.find(f => f.key === String(userData.jumpFestival)) || null;
       if (jumpFest) advanceHours = kanshouHoursUntilDate_(curDay, curHour, jumpFest.month, jumpFest.day);
     }
+    // ⏰「跳到時段」：跟跳到節慶互斥判斷同一順位，advanceHours/jumpFestival都沒指定時才輪到它。
+    let jumpBand = null;
+    if (!isWork && !advanceHours && !jumpFest && userData.jumpBand) {
+      jumpBand = KANSHOU_TIME_BANDS_.find(b => b.key === String(userData.jumpBand)) || null;
+      if (jumpBand) advanceHours = kanshouHoursUntilBand_(curHour, jumpBand.startHour);
+    }
     if (advanceHours > 0) {
       const clk = { day: curDay, hour: curHour };
       rollHours_(clk, advanceHours);
@@ -1464,7 +1515,9 @@ function actionPlay(userData, pcId, sheets) {
       } else {
         finalUserMsg = jumpFest
           ? `【時間推進】時間一路快轉，${jumpFest.name}到了——此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`
-          : `【時間推進】${advanceHours}個小時悄悄過去，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`;
+          : jumpBand
+            ? `【時間推進】時間悄悄流轉到了${jumpBand.label}，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`
+            : `【時間推進】${advanceHours}個小時悄悄過去，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`;
       }
     }
   }
@@ -1560,6 +1613,34 @@ function actionPlay(userData, pcId, sheets) {
     }
   }
 
+  // 🍳「準備早餐」：moveTarget已把玩家帶去廚房(見上)，這裡幫3位房客各自骰一次今早去向。放在
+  //   partyRows計算之前，讓骰進廚房的房客能正常透過既有【在場人物】機制被AI看到，不必另開一條
+  //   平行的「早餐在場名單」。
+  let kanshouBreakfastStr = "";
+  if (isBreakfast_) {
+    const absentBreakfastNames_ = [];
+    Object.keys(KANSHOU_HOUSEMATE_ROOMS_).forEach(hid => {
+      const hero = SEED_SERVANTS.find(h => h.id === hid);
+      if (!hero) return;
+      const hmIdx = pcData.findIndex((r, i) => i !== pcIndex && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(hero.realName).includes(String(r[COL.PC.NAME])));
+      if (hmIdx === -1) return; // 尚未召喚，不參與這次早餐
+      const spot = kanshouRollBreakfastSpot_();
+      const hmName = pcData[hmIdx][COL.PC.NAME];
+      if (spot === 'kitchen') {
+        pcData[hmIdx][COL.PC.LOC] = '廚房';
+      } else if (spot === 'ownRoom') {
+        pcData[hmIdx][COL.PC.LOC] = KANSHOU_HOUSEMATE_ROOMS_[hid];
+        absentBreakfastNames_.push(`${hmName}(還在賴床)`);
+      } else {
+        pcData[hmIdx][COL.PC.LOC] = kanshouRollDailyLocation_(hmName); // 不傳hour，避免清晨homeBias把「出門」蓋回房間
+        absentBreakfastNames_.push(`${hmName}(似乎已經先出門了)`);
+      }
+      dirtyPcRows.add(hmIdx);
+    });
+    finalUserMsg = `【玩家意圖】：走進廚房，開始張羅今天的早餐。`;
+    if (absentBreakfastNames_.length) kanshouBreakfastStr = `\n★【早餐現況(GAS已骰定，供敘事參考)】：${absentBreakfastNames_.join('、')}——沒下樓的人不必特別解釋原因，正常反映沒出現在早餐桌上即可。`;
+  }
+
   // 「專屬稱呼」記憶點：抽成共用函式，鑑賞同伴清單(partyDetailsArr)跟其他清單一起補上，
   //   不重複貼一次解析邏輯。
   function relMemMemoryStr_(relMem) {
@@ -1579,10 +1660,12 @@ function actionPlay(userData, pcId, sheets) {
   //   真正能被指名、有名有姓、好感會被記錄的對象，只有【在場人物】——2026-07「加入這個世界的
   //   感覺」定案：拿掉「隊伍」概念，這個世界裡所有已存在的英靈各自過各自的生活，判準改成「LOC是
   //   否跟玩家目前位置(curL)一致」，不再看IS_PARTY。
-  // 🌍 同地點最多給3位詳細卡片(敘事複雜度上限，不是隊伍容量)——理論上不太會有4人以上剛好同時
-  //   撞在同一個地點，但萬一發生，依好感高低取前3位，避免單回合塞太多人卡片讓提示詞爆量。
+  // 🌍 同地點最多給KANSHOU_PARTY_DETAIL_CAP_位詳細卡片(敘事複雜度/prompt篇幅上限，不是隊伍
+  //   容量)——3位房客+來訪的人湊在一起吃早餐等場合會摸到這個上限，依好感高低取前幾位，避免單
+  //   回合塞太多人卡片讓提示詞爆量；超過上限的人依然存在、依然可被特定劇情點名，只是這回合沒有
+  //   詳細卡(2026-07玩家「吃飯不能5人嗎」定案，3→5)。
   const partyRows = pcData.filter(r => r !== pc && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim())
-    .sort((a, b) => (parseInt(b[COL.PC.BOND]) || 0) - (parseInt(a[COL.PC.BOND]) || 0)).slice(0, 3);
+    .sort((a, b) => (parseInt(b[COL.PC.BOND]) || 0) - (parseInt(a[COL.PC.BOND]) || 0)).slice(0, KANSHOU_PARTY_DETAIL_CAP_);
   const partyMembers = partyRows.map(r => r[COL.PC.NAME]);
   let partyDetailsArr = [];
   // ⚡ 提速：dailySpeechByName_ 對每位同伴呼叫都會重新解析英靈殿快取字串，這裡在迴圈外先抓一次
@@ -1706,7 +1789,7 @@ ${PROMPT_PARTY_SYSTEM}
 【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}(當前服裝·五官體態不變)` : ""} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}${myDecor ? ` | 家中已有的擺設(僅供「家」相關場景參考，非強制每次提及):${myDecor}` : ""}
 
 ${PROMPT_REL}
-★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前在場人物】(與玩家同地點的已建立英靈)；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【目前在場人物】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouRoomEventStr}${kanshouDebtPaymentStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${jumpFest ? `\n★【節慶氛圍】：今天是「${jumpFest.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。` : ""}${upkeepCharged > 0 ? `\n★【維護費自動扣款·氛圍提示】：這次時間推進跨過了衛宮宅的維護及食材費結算日，已自動扣款${upkeepCharged}円，目前餘額${parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0}円，narration可自然帶一句(如整理帳單、盤算菜錢、嘆氣)，不必大肆渲染；若餘額為負可自然帶出手頭吃緊的窘迫感，但不必寫成嚴重危機或懲罰劇情。` : ""}${tenantRentCollected > 0 ? `\n★【房客繳租·氛圍提示】：這次時間推進跨過了收租日，已收到房客繳來的${tenantRentCollected}円房租，目前餘額${parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0}円，narration可自然帶一句房東視角的小細節(如收到房租信封、心裡盤算著這筆錢)，不必大肆渲染。` : ""}${tenantShortNames.length ? `\n★【房客手頭吃緊·氛圍提示】：『${tenantShortNames.join('、')}』這次繳不出房租，narration可以自然帶出TA不好意思、想辦法解釋或提議如何補償的樣子(依角色個性詮釋，可以是道歉、幫忙做家事、或其他你覺得貼合她個性的方式)，不必大肆渲染成嚴重危機，也不強制一定要往哪個方向發展——這只是提供一個可能的互動契機，非強制。` : ""}${intimateNightNames.length ? `\n★【入夜氛圍·好感門檻已達】：『${intimateNightNames.join('、')}』與你的羈絆已深(好感≥80)，今晚可以自然發展到同床共枕，依其性格自然決定要不要跨出這一步、氛圍濃烈到什麼程度，不強制每次都寫到底；好感未達此門檻的同伴，一律維持各自安睡、不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度了親密的時光(依上一回合實際演出的內容為準，若上次並未真的跨出那一步就當作平常的早晨)，這是新的一天第一個場景，若情境合適可以自然帶出晨間的溫馨/曖昧餘韻(如一起吃早餐、彼此害羞或黏膩的互動)，不強制一定要提及、也不需要複述昨夜細節，一切依角色個性自然發展。` : ""}
+★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前在場人物】(與玩家同地點的已建立英靈)；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【目前在場人物】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouRoomEventStr}${kanshouDebtPaymentStr}${kanshouBreakfastStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${jumpFest ? `\n★【節慶氛圍】：今天是「${jumpFest.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。` : ""}${upkeepCharged > 0 ? `\n★【維護費自動扣款·氛圍提示】：這次時間推進跨過了衛宮宅的維護及食材費結算日，已自動扣款${upkeepCharged}円，目前餘額${parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0}円，narration可自然帶一句(如整理帳單、盤算菜錢、嘆氣)，不必大肆渲染；若餘額為負可自然帶出手頭吃緊的窘迫感，但不必寫成嚴重危機或懲罰劇情。` : ""}${tenantRentCollected > 0 ? `\n★【房客繳租·氛圍提示】：這次時間推進跨過了收租日，已收到房客繳來的${tenantRentCollected}円房租，目前餘額${parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0}円，narration可自然帶一句房東視角的小細節(如收到房租信封、心裡盤算著這筆錢)，不必大肆渲染。` : ""}${tenantShortNames.length ? `\n★【房客手頭吃緊·氛圍提示】：『${tenantShortNames.join('、')}』這次繳不出房租，narration可以自然帶出TA不好意思、想辦法解釋或提議如何補償的樣子(依角色個性詮釋，可以是道歉、幫忙做家事、或其他你覺得貼合她個性的方式)，不必大肆渲染成嚴重危機，也不強制一定要往哪個方向發展——這只是提供一個可能的互動契機，非強制。` : ""}${intimateNightNames.length ? `\n★【入夜氛圍·好感門檻已達】：『${intimateNightNames.join('、')}』與你的羈絆已深(好感≥80)，今晚可以自然發展到同床共枕，依其性格自然決定要不要跨出這一步、氛圍濃烈到什麼程度，不強制每次都寫到底；好感未達此門檻的同伴，一律維持各自安睡、不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度了親密的時光(依上一回合實際演出的內容為準，若上次並未真的跨出那一步就當作平常的早晨)，這是新的一天第一個場景，若情境合適可以自然帶出晨間的溫馨/曖昧餘韻(如一起吃早餐、彼此害羞或黏膩的互動)，不強制一定要提及、也不需要複述昨夜細節，一切依角色個性自然發展。` : ""}
 💕【鑑賞·後日談模式·最高優先級覆寫】：${partyRows.length === 0
     ? `這裡是平行世界的和平都市日常——聖杯戰爭這回事從未在這個世界發生過，眼下沒有同行的英靈在場，就是御主一人的尋常時光。`
     : partyRows.every(r => String(r[COL.PC.ID]).indexOf("KHV_") === 0)
@@ -1983,6 +2066,11 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
     let tagsPayload = null;
     try { const tp = buildTagsPayload_(sheets, pcId, pcData); if (tp && tp.success) tagsPayload = tp; } catch (e) { }
 
+    // 🕰️ 時段按鈕/時段行動需要每回合都拿到最新時鐘(結束一天/推進時間/打工/跳節慶/跳時段都可能
+    //   改動curDay/curHour)，跟buildClientState_同一份kanshouClockInfo_，不重複拼字串。
+    let kanshouClock = null;
+    try { kanshouClock = kanshouClockInfo_(pcData[pcIndex]); } catch (e) { }
+
     return JSON.stringify({
       text: finalResponseText,
       statusString: buildPlayerStatusString(pcData[pcIndex]),
@@ -1992,7 +2080,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       moveProposal: moveProposal || undefined,
       curfewPrompt: curfewPrompt,
       debtPaymentOffer: debtPaymentOffer,
-      roomEventOffer: roomEventOffer
+      roomEventOffer: roomEventOffer,
+      kanshouClock: kanshouClock
     });
 
   } catch (e) { return JSON.stringify({ text: "系統錯誤：" + e.message, people: [] }); }

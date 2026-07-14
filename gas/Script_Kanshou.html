@@ -105,6 +105,22 @@
     await send('⏩ 讓時間悄悄流逝了' + hours + '個小時。', false, null, null, false, false, hours);
   }
 
+  // ⏰ 2026-07「跳到時段感覺比較好」玩家定案：取代上面「推進N小時」需要玩家自己心算會落在哪個
+  //   時段的問題——直接選目標時段，GAS算好差幾小時(見Gallery.gs kanshouHoursUntilBand_)，跟
+  //   kanshouAdvanceHours共用同一條advanceHours管線，只是這裡傳的是jumpBand而非固定小時數。
+  async function kanshouJumpBand(key, label) {
+    showGamePane('chat');
+    await send('⏩ 讓時間悄悄流轉到了' + label + '。', false, null, null, false, false, 0, null, false, null, null, null, false, false, null, null, key);
+  }
+
+  // 🍳 2026-07「時段行動」骨架的第一個動作：清晨限定的「準備早餐」，等同移動到廚房＋幫3位房客
+  //   各自骰一次今早去向(見Gallery.gs actionPlay的isBreakfast_分支，85%下樓/10%賴床/5%已出門，
+  //   GAS掌機率)。只在renderMapPane判斷現在是清晨時段才會顯示這顆按鈕。
+  async function kanshouPrepBreakfast() {
+    showGamePane('chat');
+    await send('🍳 走進廚房，準備今天的早餐。', false, null, null, false, false, 0, null, false, null, null, null, false, false, null, null, null, true);
+  }
+
   // 💼 2026-07「打工賺錢」玩法(玩家推翻2026-06經濟全砍決定，僅鑑賞恢復)：跟推進時間共用同一套
   //   時鐘機制(work旗標讓後端固定推進KANSHOU_WORK_HOURS_小時＋發薪水，見Gallery.gs actionPlay)，
   //   前端只需傳work:true，不必自己算時數/薪水(GAS掌數值，單一真實來源在後端)。
@@ -328,6 +344,13 @@
     { key: 'newyear', name: '新年初一' }, { key: 'valentine', name: '情人節' },
     { key: 'qixi', name: '七夕' }, { key: 'midautumn', name: '中秋節' },
     { key: 'xmas', name: '聖誕節' }, { key: 'nye', name: '跨年夜' }
+  ];
+  // ⏰ 2026-07「跳到時段感覺比較好」玩家定案：比起「推進N小時」(玩家得自己心算會落在哪個時段)，
+  //   改成直接選目標時段，GAS算差幾小時(kanshouHoursUntilBand_，唯一真實來源在後端)。純顯示用
+  //   mirror，跟KC_FESTIVALS_同一種寫法——改時段記得同步後端KANSHOU_TIME_BANDS_。
+  var KC_TIME_BANDS_ = [
+    { key: '清晨', name: '清晨', label: '☀️清晨' }, { key: '午後', name: '午後', label: '🌤️午後' },
+    { key: '黃昏', name: '黃昏', label: '🌆黃昏' }, { key: '夜', name: '夜晚', label: '🌙夜晚' }, { key: '深夜', name: '深夜', label: '🌌深夜' }
   ];
   var KC_LOCATIONS_ = [
     { name: '我的房間', region: 'home' }, { name: '阿爾托莉雅的房間', region: 'home' },

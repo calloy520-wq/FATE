@@ -2372,7 +2372,23 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Engine_Combat.gs gas/Gallery.gs | grep -c nsfwBaseRules` = 0。部署後建議測試：①召喚一位新英靈，應該直接「存在」、沒有隊伍人數限制，同名英靈不能召喚第二次；②👥面板應顯示每個人的所在地點，沒有「請走」按鈕；③移動到別的地點，原本在場的人應該留在原地(不會被拖走)，除非是AI敘事內主動邀約帶她一起走；④送禮清單應該只列出「此刻跟玩家同地點」的人；⑤solo模式的隊伍/逆天改命/地圖移動應該完全不受影響(回歸測試)；⑥🏷️關係按鈕在鑑賞應該對任何已建立的英靈都能正常編輯，不再要求「同行」。
 
+## §92 鑑賞曝光時鐘給前端＋「跳到時段」取代「推進N小時」＋「時段行動」骨架(首個動作:準備早餐)＋同地點詳細卡3→5（2026-07・玩家「需要變成時段嗎？好像比較好？」→「可以 但我還想要這個時段可以做什麼事情的按鈕！清晨就要有 準備早餐這個選項 點下去後住在這裡的訪客85%到餐廳（廚房？）10%自己房間5%外面隨機」）
 
+**背景**：前一輪問「現在有什麼機制會移動時間」時發現一個真相：鑑賞的`clock`欄位(`buildClientState_`)其實從頭到尾都是空字串——`clockLabel_`只服務solo(`isFate`判斷)，鑑賞的day/hour雖然`actionPlay`內部一直有在讀寫(§67「推進時間」上線時借用了solo的`COL.PC.DAY/HOUR`)，卻從未真正傳回前端，`updateClock`還特地寫死「鑑賞模式不顯示」。玩家先問「推進N小時的按鈕能不能改成跳到時段」，緊接著追加「時段限定的行動按鈕(清晨→準備早餐)」——這兩個需求都需要前端**真的知道現在幾點**，於是這輪先把時鐘曝光這個地基補上，才能做時段判斷。
+
+**①新增`kanshouClockInfo_(pcRow)`(Gallery.gs)**：單一真實來源格式化函式，讀`COL.PC.DAY/HOUR`(同`actionPlay`既有的預設值邏輯：查無值時Day1/08:00)，回傳`{day, hour, band, label}`(`band`用既有的`timeBand_`，`label`是"第X日・HH:00・band"顯示字串，跟solo的`clockLabel_`同格式)。`buildClientState_`(Router_Action.gs)跟`actionPlay`回應都呼叫這支，不各自重複拼字串——`buildClientState_`原本鑑賞context下`clk`恆空字串，現在也算出`kanshouClockInfo_`塞回`clock`欄位(顯示字串)＋新增`kanshouClock`欄位(結構化物件，供前端邏輯判斷用，顯示字串不好拿來字串比對)。
+
+**②前端`updateClock`不再對鑑賞特殊隱藏**：改成不論solo/鑑賞，有`label`就顯示時段圖示+文字，只是AP行動力格只在solo顯示(鑑賞沒有這個資源，`ap`/`apMax`對鑑賞context本來就是無意義的預設值)。同時修正`applyClientState`一處過時的效能優化假設——原本寫「鑑賞拔地圖，沒人看得到，省下重繪」而完全跳過`renderMapPane`，但這個假設對桌機三欄並排版面(地圖頁本就常駐可見、不需切分頁)不成立，會讓桌機版的時段按鈕在點擊/收到訊息後不會即時刷新；`renderMapPane`本身早就有`offsetParent===null`的隱藏判斷，交給它自己決定要不要畫即可，不必在外面再攔一次。`send()`收到`actionPlay`回應時同樣記下`data.kanshouClock`並重繪地圖頁(桌機恆顯示，手機下次切分頁自然吃到最新值)。
+
+**③「跳到時段」取代「推進N小時」按鈕**：新增`KANSHOU_TIME_BANDS_`常數(清晨5點/午後11點/黃昏17點/夜20點/深夜0點，對應`timeBand_`既有的5段分界，兩處要保持同步)＋`kanshouHoursUntilBand_(curHour, targetStartHour)`(算法跟既有的跳節慶`kanshouHoursUntilDate_`同款「算到下一次還差幾小時」，已在目標時段內也算下一次，不會出現按了沒反應的按鈕)。`actionPlay`的advanceHours分支新增`userData.jumpBand`判斷，跟`jumpFestival`同一順位(advanceHours/jumpFestival都沒指定時才輪到它)。前端原本的`[2,6,12]`小時按鈕全部拿掉，改成`KANSHOU_TIME_BANDS_`鏡射(`KC_TIME_BANDS_`，`Script_Kanshou.html`)渲染5顆「跳到○○」按鈕，呼叫新的`kanshouJumpBand(key,label)`。
+
+**④「時段行動」骨架＋首個動作「準備早餐」**：`renderMapPane`鑑賞分支新增一段「只在特定時段才顯示」的按鈕區塊(目前只有清晨的🍳準備早餐一項，之後想加其他時段的專屬行動，往這個if/陣列加即可)，靠新曝光的`kcClock.band`判斷。點下去呼叫`kanshouPrepBreakfast()`→`send(...,prepBreakfast:true)`。後端`actionPlay`把這個動作實作成「移動到廚房(複用既有moveTarget整套管線——清巧遇/寫LOC/事件種子，不開一條平行的地點切換路徑，`moveTarget`常數依`isBreakfast_`旗標直接指定成廚房地點物件，不聽前端傳的地點字串)＋幫3位房客(`KANSHOU_HOUSEMATE_ROOMS_`)各自骰一次今早去向」：新增`KANSHOU_BREAKFAST_KITCHEN_CHANCE_=0.85`(下樓吃早餐，LOC設成廚房)／`KANSHOU_BREAKFAST_OWNROOM_CHANCE_=0.10`(還在賴床，LOC留在自己房間)／剩餘0.05機率視為「已經自己出門了」(呼叫`kanshouRollDailyLocation_(hmName)`**不傳hour參數**，避免該函式清晨時段的homeBias又把「出門」蓋回房間，導致5%出門的機率名不符實)、`kanshouRollBreakfastSpot_()`(骰哪一種)。骰完的結果直接寫進各房客的LOC，讓下樓吃早餐的人自然透過既有`partyRows`(【在場人物】)機制被AI看到，賴床/出門的人則額外組一句★【早餐現況】提示詞讓AI知道「這幾位沒出現在早餐桌上，不必特別解釋原因」。這是回答上一輪玩家問題「如果有第4個房客會賴床還是出門」的實際落地——GAS直接骰定，不必AI猜。
+
+**⑤同地點AI詳細卡上限3→5**：延續前一輪玩家問「吃飯不能5人嗎」的討論，`partyRows`的`slice(0,3)`改成`slice(0, KANSHOU_PARTY_DETAIL_CAP_)`(新常數＝5，跟`KANSHOU_HOUSEMATE_ROOMS_`放在一起)——3位房客+來訪的人湊在一起吃早餐等場合終於不會被截斷成只剩3人詳細卡。仍是敘事複雜度/prompt篇幅上限，不是玩法容量上限，超過上限的人依然存在、依然可被特定劇情點名。
+
+**⑥未動的部分**：solo完全不吃這輪任何改動(`jumpBand`/`prepBreakfast`/`kanshouClock`皆是`actionPlay`內部欄位，函式入口早已擋非`KPC_`呼叫；`send()`新增的第17/18個參數對solo的呼叫路徑不存在，因為solo整條輸入框本來就隱藏)。玩家另外問到「房客房間是不是要獨立成一個地圖分支」——查證後這件事在§82(衛宮宅定案)就已經做了：`阿爾托莉雅的房間`/`間桐櫻的房間`/`美杜莎的房間`本來就是`KANSHOU_LOCATIONS_`裡各自獨立、跟客廳/廚房平行的地點，不是共用同一個「房客房間」籠統地點，這次沒有額外工作要做。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Engine_Combat.gs gas/Gallery.gs | grep -c nsfwBaseRules` = 0。部署後建議測試：①鑑賞頂部應該出現時鐘HUD(先前完全沒有)；②地圖頁應該看到5顆「跳到○○」按鈕取代舊的2h/6h/12h；③跳到清晨後應該出現🍳準備早餐按鈕，點下去玩家應該移動到廚房、部分房客出現在廚房(視骰值而定)；④同一地點湊到4~5人時應該都能看到詳細卡片，不再只顯示3位；⑤solo模式完全不受影響(回歸測試)。
 
 
 

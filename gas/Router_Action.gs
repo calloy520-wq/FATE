@@ -449,10 +449,15 @@ function buildClientState_(sheets, pcId, preData) {
   const gid = String(allPcData[pcIndex][COL.PC.GAME_ID] || "");
   const isFate = gid && gid.indexOf("g_") === 0;
   // 時鐘併入御主列，clockLabel_/getAp_ 傳 allPcData 走記憶體查找，不再另外整表讀時鐘表。
-  let clk = "", ap = AP_PER_DAY;
+  let clk = "", ap = AP_PER_DAY, kanshouClock = null;
   if (isFate) { try { clk = clockLabel_(gid, allPcData); ap = getAp_(gid, allPcData); } catch (e) { } }
   // 鑑賞用精簡版 getKanshouPeopleList_，避免借用 solo 版算出一堆鑑賞前端從不讀取的欄位。
   const isKanshouCtx_ = gid.indexOf("k_") === 0;
+  // 🕰️ 2026-07「跳到時段」＋「時段行動」按鈕定案：鑑賞先前完全不把day/hour餵給前端(clock恆空
+  //   字串)，導致前端無從得知現在幾點——這裡補上，前端才能判斷現在是不是清晨、要不要顯示「準備
+  //   早餐」這類時段限定按鈕。沿用既有`clock`欄位放顯示字串(HUD比照solo同款渲染)，band另開一個
+  //   結構化欄位供前端邏輯判斷用(顯示字串不好拿來字串比對)。
+  if (isKanshouCtx_) { try { const ci = kanshouClockInfo_(allPcData[pcIndex]); clk = ci.label; kanshouClock = ci; } catch (e) { } }
   return {
     statusString: buildPlayerStatusString(allPcData[pcIndex]),
     // 關係併入眾生列，不再需要關係表 → 少一次整表讀
@@ -460,6 +465,7 @@ function buildClientState_(sheets, pcId, preData) {
     locations: getNearbyLocations(curL, freshMapData),
     mapDesc: currentMapInfo ? currentMapInfo[COL.MAP.DESC] : "四下靜謐。",
     clock: clk, ap: ap, apMax: AP_PER_DAY,
+    kanshouClock: kanshouClock,
     economy: isFate ? playerServantEconomy_(sheets, pcId, allPcData) : null,
     tags: buildTagsPayload_(sheets, pcId, allPcData),
     // 地圖節點夾帶進共用 state blob(allPcData 已在手，零額外整表讀)，免每次切地圖頁另打一趟 round-trip。
