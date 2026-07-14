@@ -2448,6 +2448,22 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 **驗證**：`bash check.sh`全過；`git diff --stat gas/Engine_Combat.gs`空(未觸碰)；grep確認`雙修技巧`/`kanshouSkillTagStr_`/`KANSHOU_SUMMON_BLOCKED_IDS_`/`KANSHOU_LOCATION_ACTIVITY_`皆只出現在`Gallery.gs`/`Script_Kanshou.html`，solo程式碼路徑(`Engine_Fate.gs`/`Router_Battle.gs`等)完全沒有引用，切割乾淨。部署後建議測試：①推進時間/跳時段時，正在對話的同伴應該留在原地不會消失；②角色列表應該看得到「🏠邀請入住」按鈕，點下去應自動找空房；③低好感(點頭之交/普通朋友)的NPC對話語氣應該偏保守生疏，不再像老朋友，身世也不會自稱房客；④英靈殿召喚清單看不到伊莉雅(Caster版)、恩奇都，但看得到男性選項(開局仍不會自動出現在世界裡)；⑤巧遇沒有標籤的地點(如「山林」深處)不應該再crash；⑥敘述文字裡提到不在場的人名應該是純白/預設色，不是紫色；⑦在咖啡廳/商店街等地找到的同伴，AI敘述應該自然帶到她在打工/購物，且整段對話不會忘記這件事。
 
+## §96 SOLO/鑑賞「完全拆分」稽核＋全代碼庫冗長註解清理（2026-07・玩家「現在進行SOLO 鑑賞的 完全拆分!!! 除了共用的種子庫......檢查函數代碼 理解功能 更新所有說明書用不到的刪除 移除過多的註解!!! 建立工具書方便妳作業!」）
+
+**背景與結論**：派5個並行agent稽核全部23個.gs/.html檔，摸清solo/鑑賞的實際耦合狀況。**關鍵結論**：資料層(Google Sheets分頁/game_id前綴)本來就分得很乾淨——solo用「眾生」表、鑑賞用「鑑賞眾生」表，`handleGameAction`依`pcId`開頭(`PC_`/`KPC_`)決定讀哪張表，兩軌的`pcData`陣列物理上不可能混到對方的活局資料；共用的只有「英靈殿」種子庫(唯讀範本)跟「歷史暫存」(共用表但每列標`pcId`、兩軌id namespace不重疊，查詢天生不會撈到對方)。真正不乾淨的是**函式放錯檔案**——GAS沒有模組系統，全代碼庫共用一個全域作用域，「拆分」實際上做不到技術隔離，只能是「函式歸屬清楚＋拔掉不必要的跨軌呼叫」。任何一次按鍵(不管哪一軌)都一定先過`handleGameAction`這個共用調度中樞(解析/洗資料/選表/上鎖)，這是刻意共用、不在拆分範圍內。
+
+**①拔掉跨軌呼叫**：`Router_Movement.gs`的`actionMove`原本靠`isFateMove`分流呼叫`getKanshouPeopleList_`(Gallery.gs)，但鑑賞地圖早已改走`kanshouMoveTo`(送`action:'play'`)，前端沒有任何路徑還會送`action:'move'`——`Router_Action.gs`的`KANSHOU_BLOCKED_ACTIONS_`加上`move:1`明確擋死，`actionMove`回應也拔掉那段死分流。
+
+**②函式搬回正確檔案**：`sanitizeAiData_`(鑑賞唯一呼叫點在`actionPlay`)從`Router_Action.gs`搬進`Gallery.gs`；`actionEndRun`/`purgeGameData_`/`findPlayerServant_`(其實是solo結束一局的清理邏輯，只是歷史上放錯在Gallery.gs)搬進`Account.gs`；`linkAccountToKanshouPc_`/`getAccountKanshouPcId_`(鑑賞帳號連結，COL.ACC.KPC)從`Account.gs`搬進`Gallery.gs`。
+
+**③順手抓到並清掉的死碼**：`Style.html`整組舊「神識星圖」浮層CSS(`#map-visual-overlay`/`#map-canvas`/`.map-node-parent`/`.player-here`/`.map-label`/`.map-node-sub`/`.npc-badge`/`#map-info-card`，早被`buildMapSvg_`的SVG地圖取代、全代碼庫零引用)＋`.btn-act`(零引用)。**注意**：稽核agent一開始誤判`getGameHistory`(History_Sync.gs)是死碼，查證後發現它其實透過`google.script.run.withSuccessHandler(...).getGameHistory(...)`這種RPC直呼叫模式被`Script_Onboarding.html`/`Script_Kanshou.html`實際使用(不是走`ActionRouter`那套，才會被單純grep函式呼叫的方式漏掉)——**沒有刪**，這是agent報告要交叉驗證、不能照單全收的活教材。
+
+**④全代碼庫冗長開發日記式註解清理**：CLAUDE.md「預設不寫註解，只在WHY不明顯時才加一句」的原則，這個session前段自己也違反了不少(每個修正都寫一大段「2026-07 玩家「逐字引用」定案：...」)。派3個並行agent分檔案清理(Gallery.gs／Script.html+Script_Kanshou.html+Script_Onboarding.html+Index.html+Style.html／其餘17個.gs檔，**Engine_Combat.gs全程排除不碰**)，原則：保留真正的技術WHY(隱藏限制/不變量/bug workaround)壓縮成1行，砍掉逐字引用玩家聊天記錄的多段式歷史敘事。事後我自己又補了一輪：刪掉3處「已經沒有任何上下文可對照、純粹浮在空白處」的墓碑式「已移除」註解(Script.html的舊九州多目標攻擊裁決/`dev_seed_gallery`、Script_Kanshou.html的`openGallery`/`enterGallery`)——這種跟仍在說明「為什麼現在長這樣」的「已移除」註解(如`chooseWar現在只會收到'4th'/'5th'`)不同，純歷史紀錄沒有指導價值，直接砍；後者則保留。
+
+**⑤說明書修正**：`FUNCTION_MANUAL.md`/`AI_PROMPT_MAP.md`修正多處早已過期的內容(`KANSHOU_HOUSEMATE_ROOMS_`/`KANSHOU_ENCOUNTER_MALE_IDS_`早就不存在、地點/分區數量對不上)；`DESIGN.md`(這批之前唯一沒被2026-07更新波及的文件)修正：已砍的兩個唯讀視窗、`masterPoolMax_`公式(×6→×10)、被動燃血公式(缺口÷4→÷2)、鑑賞經濟層2026-07-13回復的事實。
+
+**驗證**：每一批分別跑`bash check.sh`全過；每次`git diff --stat gas/Engine_Combat.gs`皆空。全程分批commit+push(共約10個commit)，每批都先驗證再commit，避免agent尚未完工時的半成品被誤判成最終態。
+
 
 
 
