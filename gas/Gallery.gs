@@ -717,13 +717,8 @@ function getKanshouPeopleList_(pcId, curL, allPcData) {
   return list;
 }
 
-// 🗾 鑑賞大地圖分區(2026-07 玩家「可愛地圖」升級)：純資料驅動的分區清單，只供UI分組/顯示用，
-//   region只是KANSHOU_LOCATIONS_每筆的一個標籤欄位，不影響任何既有比對/抽選邏輯(那些都認
-//   location的name，見kanshouRollEncounter_/actionPlay moveTarget比對)。
-// 🗺️ 2026-07 玩家「地圖大重做」定案：6大分區——房間(我的房間+3個自由客房，動態命名見下)、
-//   家的共用空間、深山町、冬木市中心、山林、拜訪住處(僅保留女性角色的住處)。港口分區整個移除
-//   (玩家新版圖沒有這一區)；家的共用房間從9間精簡到4間，冬木市中心從5個精簡到4個(小分支統一
-//   先給4個，之後真要擴充再加)。
+// 鑑賞大地圖分區：純資料驅動的分區清單，只供UI分組/顯示用，region只是KANSHOU_LOCATIONS_
+//   每筆的一個標籤欄位，不影響任何既有比對/抽選邏輯(那些都認location的name)。
 const KANSHOU_REGIONS_ = [
   { id: 'room', name: '房間', desc: '私人房間' },
   { id: 'home', name: '家的共用空間', desc: '共用生活空間' },
@@ -766,9 +761,8 @@ const KANSHOU_LOCATIONS_ = [
   { name: '隱藏溫泉', region: 'dojo', desc: '深藏山林間、鮮少人知的一方溫泉。' },
   { name: '廢棄神社', region: 'dojo', desc: '荒草蔓生、早已無人祭拜的廢棄神社。' },
 
-  // 🚪 拜訪住處：只保留女性角色的住處(2026-07玩家「保留只要女性的住處就好」定案，男性角色的
-  //   住處條目全數移除)，noEncounter:true(私人住處，恆不觸發陌生人巧遇)，name務必與下方
-  //   KANSHOU_HERO_HOME_的值逐字一致，否則kanshouRollDailyLocation_骰到的地點對不上這裡。
+  // 拜訪住處：只保留女性角色的住處，noEncounter:true(私人住處，恆不觸發陌生人巧遇)，name
+  //   務必與下方KANSHOU_HERO_HOME_的值逐字一致，否則kanshouRollDailyLocation_骰到的地點對不上這裡。
   { name: '隱蔽的工房', region: 'visit', desc: '隱藏在巷尾、飄著藥草氣味的工房。', noEncounter: true },
   { name: '島嶼道場', region: 'visit', desc: '孤懸海上、只有濤聲相伴的道場。', noEncounter: true },
   { name: '埃德費爾特宅邸', region: 'visit', desc: '歐風古典的埃德費爾特家宅邸。', noEncounter: true },
@@ -815,14 +809,11 @@ function actionKanshouAssignRoom(userData, pcId, sheets) {
   kpc.getRange(idx + 1, COL.PC.LOC + 1).setValue(roomKey);
   return JSON.stringify({ success: true, roomKey: roomKey, name: String(data[idx][COL.PC.NAME]) });
 }
-// 🚫 2026-07「斯卡哈只先加入Lance版本」「伊莉雅Caster不想要太多同名角色重複」「恩奇都也不要
-//   進來吧」玩家定案：暫時移出鑑賞的英靈id清單，單一來源，召喚/巧遇/地點標籤/住處全部共用同一份，
-//   之後想放行或再排除誰只需改這裡。
+// 暫時移出鑑賞的英靈id清單(單一來源)，召喚/巧遇/地點標籤/住處全部共用同一份。
 const KANSHOU_SUMMON_BLOCKED_IDS_ = ['斯卡哈-Assassin', '伊莉雅-Caster', '恩奇都-Lancer'];
-// 🎭 地點×角色 氛圍標籤(資料驅動，往陣列塞一筆 SEED_SERVANTS 的 id 就能加，不動抽選邏輯)：
-//   2026-07「男性全部踢出」玩家定案：全部男性id移除(此表跟保底池KANSHOU_ENCOUNTER_FEMALE_IDS_
-//   皆不再含任何男性)，查無標籤或抽不中標籤池時退回全女性保底池；同時不含KANSHOU_SUMMON_
-//   BLOCKED_IDS_裡暫時移出的id，避免巧遇到根本無法被正式召喚入駐的人。
+// 地點×角色 氛圍標籤(資料驅動，往陣列塞一筆 SEED_SERVANTS 的 id 就能加，不動抽選邏輯)：
+//   查無標籤或抽不中標籤池時退回全女性保底池KANSHOU_ENCOUNTER_FEMALE_IDS_；不含
+//   KANSHOU_SUMMON_BLOCKED_IDS_裡暫時移出的id，避免巧遇到根本無法被正式召喚入駐的人。
 const KANSHOU_LOCATION_TAGS_ = {
   '河邊小徑': ['斯卡哈-Lancer'],
   '商店街': ['美遊-Saber', '藤村大河-Master'],
@@ -841,18 +832,14 @@ const KANSHOU_LOCATION_ACTIVITY_ = {
   '商店街': '正在這裡逛街購物，挑揀著攤位上的東西',
   '書店二樓': '正在這裡挑書、翻閱架上的書籍'
 };
-// 🎨 2026-07 玩家「男角都移除掉吧...禁止召喚、也不會偶遇他們」：KANSHOU_ENCOUNTER_MALE_IDS_
-//   整個刪除，kanshouRollEncounter_的保底池只剩這份純女性名單(衛宮士郎-Master仍整個移出巧遇/
-//   召喚相關名單，玩家本人就是這個位置)。不含KANSHOU_SUMMON_BLOCKED_IDS_暫時移出的id。
+// kanshouRollEncounter_的保底池：純女性名單(衛宮士郎-Master仍整個移出巧遇/召喚相關名單)。
+//   不含KANSHOU_SUMMON_BLOCKED_IDS_暫時移出的id。
 const KANSHOU_ENCOUNTER_FEMALE_IDS_ = ['阿爾托莉雅-Saber', '美杜莎-Rider', '美狄亞-Caster', '斯卡哈-Lancer', '美遊-Saber', '小黑-Archer', '遠坂凜-Master', '伊莉雅絲菲爾-Master', '間桐櫻黑化-Master', '藤村大河-Master'];
-// 🌍 同地點AI詳細卡片上限(見actionPlay的partyRows)——3位房客+來訪的人湊在一起時5人夠用，
-//   2026-07玩家「吃飯不能5人嗎」定案從3調到5。
+// 同地點AI詳細卡片上限(見actionPlay的partyRows)——房客+來訪的人湊在一起時的prompt篇幅上限。
 const KANSHOU_PARTY_DETAIL_CAP_ = 5;
-// 🎭 橋段庫(2026-07新增，玩家「打完自己都知道會怎麼演了根本不好玩」)：跟前面幾個系統指定情境
-//   (kanshouKnockGuestStr等)同一種精神——GAS先決定「觸發條件」與「這次走向」，AI只負責照著
-//   選中的走向去演出具體細節，玩家不必自己打字下劇本、也不會提前知道結局。之後想加新橋段，
-//   往這裡加一筆(觸發條件另外寫在actionPlay對應的動作分支，找不到共通掛點時)即可，不必另開
-//   一條平行的敘事管線。branches依bond由高到低排列，取第一個bond達標的當作這次走向。
+// 橋段庫：GAS先決定「觸發條件」與「這次走向」，AI只負責照著選中的走向演出具體細節，玩家不必
+//   自己打字下劇本。之後想加新橋段，往這裡加一筆即可，不必另開一條平行的敘事管線。branches
+//   依bond由高到低排列，取第一個bond達標的當作這次走向。
 const KANSHOU_SCENE_EVENTS_ = {
   夜襲: {
     branches: [
@@ -861,8 +848,8 @@ const KANSHOU_SCENE_EVENTS_ = {
       { min: -100, tag: '被嚇得繃緊神經、下意識帶著防備，需要玩家主動放軟才能卸下戒心' }
     ]
   },
-  // 🌅 2026-07「早餐睡懶覺也上線！！...好感80以上可以色色叫醒」玩家定案：跟夜襲同一套「走進
-  //   同住人房間」觸發框架，只是時段換成清晨——她此刻還在賴床，好感夠高才會演成黏人不想起床。
+  // 跟夜襲同一套「走進同住人房間」觸發框架，只是時段換成清晨——她此刻還在賴床，好感夠高才會
+  //   演成黏人不想起床。
   賴床叫醒: {
     branches: [
       { min: 80, tag: '睡眼惺忪卻格外黏人，緊抓著不放，一副也想拉你一起賴床、捨不得起身的樣子' },
@@ -870,8 +857,8 @@ const KANSHOU_SCENE_EVENTS_ = {
       { min: -100, tag: '被突然喚醒嚇了一跳，睡意瞬間清醒、有點防備地拉起被子撐住距離' }
     ]
   },
-  // 💰 2026-07「先把肉償機制上線！！」玩家定案：跟房客欠租(KANSHOU_RENT_DEBT_TAG_)配對——玩家
-  //   主動提議以此抵租，依bond決定她這次接受的心情走向，不強制往任何具體方向發展。
+  // 跟房客欠租(KANSHOU_RENT_DEBT_TAG_)配對——玩家主動提議以此抵租，依bond決定她這次接受的
+  //   心情走向，不強制往任何具體方向發展。
   肉償: {
     branches: [
       { min: 60, tag: '雖然害臊，卻帶著幾分主動與甘願，用這種方式扛下這筆帳' },
@@ -880,8 +867,8 @@ const KANSHOU_SCENE_EVENTS_ = {
     ]
   }
 };
-// 🌙🌅 2026-07「同住人房間橋段」依時段對應不同事件(資料驅動，之後想加新時段的房間橋段，往這裡
-//   加一組band:eventKey即可，不必再另開一套觸發判斷)：深夜=夜襲、清晨=賴床叫醒。
+// 「同住人房間橋段」依時段對應不同事件(資料驅動，加新時段往這裡加一組band:eventKey即可)：
+//   深夜=夜襲、清晨=賴床叫醒。
 const KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_ = { '深夜': '夜襲', '清晨': '賴床叫醒' };
 // 依bond從KANSHOU_SCENE_EVENTS_挑出這次橋段該走的分支(資料驅動，橋段本身不寫死走向)。
 function kanshouRollSceneBranch_(eventKey, bond) {
@@ -889,17 +876,12 @@ function kanshouRollSceneBranch_(eventKey, bond) {
   if (!ev) return null;
   return ev.branches.find(b => bond >= b.min) || ev.branches[ev.branches.length - 1];
 }
-// 🏠 2026-07 玩家發現「不同行的人推進一天時會溜到玩家自己家裡」的錯誤（kanshouRollDailyLocation_
-//   原本深夜/清晨的homeBias直接回傳KANSHOU_LOCATIONS_裡region==='home'的房間——那是玩家自己的家，
-//   不同行的人不該在那裡出現）：改成每位英靈自己的住處(資料驅動，比照KANSHOU_LOCATION_TAGS_同款
-//   「往物件加一筆id對應值」寫法)。這些獨立住處字串已同步登記進KANSHOU_LOCATIONS_(region:'visit'，
-//   見上方)成為玩家可造訪的真實地點(玩家「我也想要晚上去找他們阿」)，深夜巧遇/主動拜訪共用同一套
-//   moveTarget/留人重逢機制；查無資料(如玩家原創英靈)退回通用值「自己的住處」(這個值刻意不登記
-//   進KANSHOU_LOCATIONS_，多位角色共用同一個泛用字串會混淆是哪一位，故維持不可造訪)。阿爾托莉雅/
-//   衛宮士郎已整個移出可召喚名單，故不再登記。2026-07玩家「保留只要女性的住處就好」定案：
-//   全部男性id移除；已入住客房(見COL.PC.ROOM/kanshouRoomDisplayName_)的房客不再走這份「外部
-//   住處」名單(kanshouRollDailyLocation_優先查自己的ROOM欄位、查無才退回這裡)；查無資料(未登記
-//   或未入住任何客房)退回通用值「自己的住處」。
+// 修過的bug：kanshouRollDailyLocation_原本深夜/清晨的homeBias會直接回傳玩家自己家的房間，
+//   讓不同行的人溜進玩家家裡——改成每位英靈自己的住處(資料驅動，同KANSHOU_LOCATION_TAGS_
+//   寫法)，已同步登記進KANSHOU_LOCATIONS_(region:'visit')成為可造訪的真實地點。查無資料
+//   (未登記或未入住任何客房，如玩家原創英靈)退回通用值「自己的住處」——這個值刻意不登記進
+//   KANSHOU_LOCATIONS_，多位角色共用同一泛用字串會混淆是哪一位，故維持不可造訪。已入住客房
+//   的房客不走這份名單(kanshouRollDailyLocation_優先查自己的ROOM欄位)。
 const KANSHOU_HERO_HOME_ = {
   '美狄亞-Caster': '隱蔽的工房', '斯卡哈-Lancer': '島嶼道場',
   '美遊-Saber': '埃德費爾特宅邸', '小黑-Archer': '愛因茲貝倫城',
@@ -920,10 +902,9 @@ function addKanshouMet_(memory, name) {
   const cleaned = s.replace(/｜?【邂逅】[^｜【】]*/g, "");
   return (cleaned ? cleaned + "｜" : "") + "【邂逅】" + set.join(',');
 }
-// 🎲 巧遇抽選共用邏輯(70%機率)：「出門走走」按鈕跟下面「原地問還有誰」共用同一套加權隨機，
-//   不重複寫兩次同一段機率/查找程式碼。查無標籤地點退回男女混合全池保底。excludeIds(hero.id
-//   清單)：此局已經正式召喚過(不論是否仍同行)的英靈——已有真實好感/羈絆記錄，不該又以「陌生人」
-//   身分重複出現(如：SABER已同行時，路上不該再巧遇一位不具名的SABER)，故排除在骰池外。
+// 巧遇抽選共用邏輯(70%機率)：「出門走走」按鈕跟「原地問還有誰」共用同一套加權隨機。查無
+//   標籤地點退回全池保底。excludeIds：已正式召喚過的英靈已有真實好感記錄，不該又以「陌生人」
+//   身分重複出現，故排除在骰池外。
 function kanshouRollEncounter_(locName, excludeIds) {
   const excl = excludeIds || [];
   const tagPool = KANSHOU_LOCATION_TAGS_[locName] || [];
@@ -939,18 +920,13 @@ function kanshouHeroIdByName_(heroName) {
   const hero = SEED_SERVANTS.find(h => kanshouNameCandidates_(h.realName).includes(heroName));
   return hero ? hero.id : null;
 }
-// 🌙 2026-07 玩家「晚上也要有人會在外遊蕩（即使是住在家裡的？大概10%？)」：同住人(KANSHOU_
-//   HOUSEMATE_ROOMS_)深夜/清晨睡不著出門走走的機率，獨立於一般英靈的homeBias，資料只存一處。
+// 同住人深夜/清晨睡不著出門走走的機率，獨立於一般英靈的homeBias，資料只存一處。
 const KANSHOU_HOUSEMATE_WANDER_CHANCE_ = 0.1;
-// 🎲 結束一天/推進時間(2026-07「不讓玩家指派，直接GAS判定」定案，hour參數為後續「推進時間」補充)：
-//   幫「不在身邊」的英靈決定當下要去哪——反查KANSHOU_LOCATION_TAGS_裡有沒有哪些地點標到這位
-//   英靈的id(她平常會去的地方)，有就加權隨機挑一個；沒被任何地點標到就從全部地點隨機挑。
-//   hour(選填)：有傳時刻時，深夜/清晨時段大機率改留在「自己房間」。room(選填，2026-07「地圖大
-//   重做」定案)：呼叫端直接傳這一列自己的COL.PC.ROOM值(room1~3或我的房間)——有房間就優先回房間，
-//   沒有(未入住任何客房)才退回KANSHOU_HERO_HOME_(在外面有自己住處的人)，兩者都沒有才是通用值；
-//   其餘時段沿用原本haunts邏輯不變；不傳room(舊呼叫端/無房)則完全比照沒房間時的行為。
-//   🌙 已入住房客另外反著骰：預設KANSHOU_HOUSEMATE_WANDER_CHANCE_機率跳過「回房間」、改走下面
-//   haunts/全地點池(在外遊蕩)，讓「晚上敲門找不到人」也可能發生在自家人身上。
+// 幫「不在身邊」的英靈決定當下要去哪——反查KANSHOU_LOCATION_TAGS_有沒有標到這位英靈，有就
+//   加權隨機挑一個常去地點，沒標到就全地點隨機挑。hour：深夜/清晨時段大機率改留在「自己房間」。
+//   room：呼叫端傳這一列自己的COL.PC.ROOM值——有房間優先回房間，沒有才退回KANSHOU_HERO_HOME_
+//   (在外有自己住處的人)，兩者都沒有才是通用值。已入住房客反著骰：預設機率跳過「回房間」、
+//   改走haunts/全地點池，讓「晚上敲門找不到人」也可能發生在自家人身上。
 function kanshouRollDailyLocation_(heroName, hour, room) {
   const heroId = kanshouHeroIdByName_(heroName);
   if (hour !== undefined && hour !== null) {
@@ -971,10 +947,9 @@ function kanshouRollDailyLocation_(heroName, hour, room) {
   const pool = haunts.length ? haunts : KANSHOU_LOCATIONS_.filter(l => l.region !== 'room').map(l => l.name);
   return pool[Math.floor(Math.random() * pool.length)];
 }
-// 🍳 2026-07「時段行動」骨架的第一個動作：清晨限定的「準備早餐」，幫3位房客各自骰一次今早
-//   去向——GAS掌機率(DESIGN.md鐵律)，AI只依骰出的結果演出，不自己決定誰起床誰賴床。跟一般
-//   kanshouRollDailyLocation_不同：這裡「出門」是確定結果(不套用該函式的清晨homeBias，否則
-//   5%出門會被homeBias蓋回房間，機率名不符實)。
+// 清晨限定「準備早餐」：幫各房客各自骰一次今早去向——GAS掌機率(DESIGN.md鐵律)，AI只依骰出
+//   的結果演出。跟kanshouRollDailyLocation_不同：這裡「出門」是確定結果，不套用該函式的清晨
+//   homeBias，否則機率名不符實。
 const KANSHOU_BREAKFAST_KITCHEN_CHANCE_ = 0.85; // 下樓吃早餐
 const KANSHOU_BREAKFAST_OWNROOM_CHANCE_ = 0.10; // 還在賴床(剩餘0.05＝已經自己出門了)
 function kanshouRollBreakfastSpot_() {
@@ -983,11 +958,9 @@ function kanshouRollBreakfastSpot_() {
   if (r < KANSHOU_BREAKFAST_KITCHEN_CHANCE_ + KANSHOU_BREAKFAST_OWNROOM_CHANCE_) return 'ownRoom';
   return 'out';
 }
-// 🎊 2026-07「跳到節慶」玩法(玩家「還想再做一個日期選擇，想體驗什麼時段的劇情就可以去調整，可能
-//   想跟他們過年或七夕」→再考慮後「我覺得加年月日會比較好...抓個3年的區間就好」)：真正的西曆
-//   年/月/日(每年固定365天、不算閏年，遊戲用途夠精準)，只抓3年區間(見actionPlay的advanceHours
-//   上限)不追求無限年份。Day1固定對應12月28日(玩家「開局是跨年前！可以逛幾天後31準備一起跨年」
-//   ——28/29/30三天日常後，第4天自然就是KANSHOU_FESTIVALS_裡的跨年夜12/31，不必特地跳)。
+// 真正的西曆年/月/日(每年固定365天、不算閏年，遊戲用途夠精準)，只抓3年區間(見actionPlay的
+//   advanceHours上限)不追求無限年份。Day1固定對應12月28日——28/29/30三天日常後，第4天自然
+//   就是KANSHOU_FESTIVALS_裡的跨年夜12/31，不必特地跳。
 const KANSHOU_CAL_START_MONTH_ = 12, KANSHOU_CAL_START_DAY_ = 28;
 const KANSHOU_DAYS_IN_MONTH_ = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 const KANSHOU_FESTIVALS_ = [
@@ -1024,11 +997,9 @@ function kanshouHoursUntilDate_(curDay, curHour, targetMonth, targetDay) {
   return deltaDays * 24 - curHour;
 }
 
-// ⏰ 2026-07「跳到時段感覺比較好」玩家定案：比起「推進N小時」(玩家得自己心算會落在哪個時段)，
-//   改成直接選「跳到清晨/午後/黃昏/夜/深夜」，GAS算好差幾小時再丟進既有advanceHours管線——跟
-//   跳到節慶(kanshouHoursUntilDate_)同一種「單一真實來源在後端」寫法。已在目標時段時一律跳「下
-//   一次」(比照節慶邏輯，不會出現按了沒反應的按鈕)。startHour對應timeBand_(Time_World.gs)的
-//   5段分界，兩處改動要保持同步。
+// 「跳到時段」：GAS算好差幾小時再丟進既有advanceHours管線，跟跳到節慶(kanshouHoursUntilDate_)
+//   同一種「單一真實來源在後端」寫法。已在目標時段時一律跳「下一次」。startHour對應
+//   timeBand_(Time_World.gs)的5段分界，兩處改動要保持同步。
 const KANSHOU_TIME_BANDS_ = [
   { key: '清晨', label: '清晨', startHour: 5 },
   { key: '午後', label: '午後', startHour: 11 },
@@ -1041,9 +1012,8 @@ function kanshouHoursUntilBand_(curHour, targetStartHour) {
   if (diff <= 0) diff += 24; // 已在該時段內也跳下一次，不回傳0
   return diff;
 }
-// 🕰️ 2026-07「跳到時段」＋「時段行動」按鈕都需要前端知道現在幾點——鑑賞借用solo既有的COL.PC.
-//   DAY/HOUR欄位存自己的時鐘(見actionPlay同款預設值)，這裡統一格式化成單一真實來源，buildClientState_
-//   /actionPlay的回應都呼叫這支，不各自重複拼字串。
+// 「跳到時段」＋「時段行動」按鈕都需要前端知道現在幾點——這裡統一格式化成單一真實來源，
+//   buildClientState_/actionPlay的回應都呼叫這支，不各自重複拼字串。
 function kanshouClockInfo_(pcRow) {
   const day = parseInt(pcRow[COL.PC.DAY]) || 1;
   const hour = (pcRow[COL.PC.HOUR] === "" || pcRow[COL.PC.HOUR] == null) ? 8 : (parseInt(pcRow[COL.PC.HOUR]) || 0);
@@ -1051,19 +1021,17 @@ function kanshouClockInfo_(pcRow) {
   return { day: day, hour: hour, band: band, label: "第 " + day + " 日・" + ("0" + hour).slice(-2) + ":00・" + band };
 }
 
-// 💰 2026-07「真的要賺錢、要付住宿費」玩家定案：推翻2026-06經濟全砍決定，僅鑑賞(kanshou)恢復一套
-//   GAS掌數值(DESIGN.md鐵律：GAS掌數值、AI只說書)的極簡經濟層——固定金額，不靠AI亂喊數字。
+// 僅鑑賞(kanshou)有經濟層(DESIGN.md鐵律：GAS掌數值、AI只說書)——固定金額，不靠AI亂喊數字。
 const KANSHOU_START_MONEY_ = 3000; // 開局起始金錢
 const KANSHOU_WAGE_ = 800;         // 打工一次的固定薪資
 const KANSHOU_WORK_HOURS_ = 4;     // 打工一次消耗的時數(比照advanceHours機制推進時鐘，非同行英靈依新時刻重骰去向)
-const KANSHOU_UPKEEP_ = 1500;      // 每週維護及食材費(每7天扣一次，2026-07玩家「這改成維護及食材費用」從房租改名)
-const KANSHOU_TENANT_RENT_ = 800;  // 2026-07「房東房客」定案：每位入住房客每週繳的房租(每7天收一次)
-// 2026-07「如果都一直有錢要怎麼肉償」玩家提案：房客每次結算有機率這週繳不出房租(GAS骰、非玩家
-//   能操控)，先只做「這次交不出」的判定跟氛圍提示，不寫死後續一定要走「肉償」——之後真的要做
-//   肉償橋段時，直接檢查這次的shortNames清單當觸發條件即可，不必回頭改這裡。
+const KANSHOU_UPKEEP_ = 1500;      // 每週維護及食材費(每7天扣一次)
+const KANSHOU_TENANT_RENT_ = 800;  // 每位入住房客每週繳的房租(每7天收一次)
+// 房客每次結算有機率這週繳不出房租(GAS骰、非玩家能操控)，只做「這次交不出」的判定跟氛圍提示，
+//   不寫死後續一定要走「肉償」——之後檢查這次的shortNames清單當觸發條件即可，不必回頭改這裡。
 const KANSHOU_TENANT_SHORT_CHANCE_ = 0.2;
-// 🚪 2026-07「睡覺時機率有人來敲門」玩家定案：結束一天(準備就寢)時的機率事件，命中就先不推進
-//   日期、改讓前端跳出開門/不予理會，跟維護費/薪資一樣是GAS決定觸發與否，不靠AI敘事判斷。
+// 結束一天(準備就寢)時的機率事件，命中就先不推進日期、改讓前端跳出開門/不予理會，跟維護費/
+//   薪資一樣是GAS決定觸發與否，不靠AI敘事判斷。
 const KANSHOU_KNOCK_CHANCE_ = 0.2;  // 每次「結束一天」的敲門機率
 
 // 維護費結算：依「新的一天」的絕對天數換算週數，跨過新一週才扣款；一次可補扣欠的多週(節慶快轉等大跳躍
@@ -1078,17 +1046,10 @@ function kanshouChargeUpkeep_(pcData, pcIndex, newDay) {
   return amount;
 }
 
-// 🏠 2026-07「房東房客」定案，2026-07「地圖大重做」改為看COL.PC.ROOM(誰真的入住客房，不再是
-//   寫死3個特定英靈id)：任何被玩家指派入住room1~3的房客都要繳房租，收支邏輯對稱於
-//   kanshouChargeUpkeep_——玩家自己的維護費扣款存在玩家列的COL.PC.UPKEEP_WEEK，這裡則重複
-//   利用「每一位房客自己那一列」的同一個欄位存「這位房客自己上次繳到第幾週」，不新增欄位。
-//   只掃同一個game_id(gameId空字串時比照sameGame同款寬鬆比對，相容沒有game_id的舊角色)，避免
-//   收到別的玩家局裡的房客租金。回傳這次實際收到多少錢(0＝這次沒有任何房客跨過新一週)＋這次
-//   交不出房租的房客姓名清單，供上層組提示詞用的flavor文字。
-//   dirtyPcRows(呼叫端的Set)：這裡會改到「房客自己那一列」的UPKEEP_WEEK/MEMORY，該列若剛好是
-//   同行同伴、又剛好是走「推進時間」(不像結束一天/離隊重骰兩處那樣本來就會把同行同伴的列加進
-//   dirty)，就不會有任何其他地方順手加過——必須自己補，否則這裡的修改只停在記憶體、從未真正
-//   寫回試算表。
+// 依COL.PC.ROOM(誰真的入住客房)判斷房客：收支邏輯對稱於kanshouChargeUpkeep_，重複利用「每
+//   一位房客自己那一列」的UPKEEP_WEEK欄位存繳到第幾週，不新增欄位。只掃同一個game_id，避免
+//   收到別的玩家局裡的房客租金。dirtyPcRows：呼叫端必須自己把改動的房客列加進去(不像結束
+//   一天/離隊重骰那樣本來就會加)，否則這裡的修改只停在記憶體、從未真正寫回試算表。
 function kanshouCollectTenantRent_(pcData, pcIndex, newDay, gameId, dirtyPcRows) {
   const newWeek = Math.floor((newDay - 1) / 7);
   let total = 0;
@@ -1129,10 +1090,9 @@ function kanshouDismissCurfew_(memory, day) {
   return (s ? s + "｜" : "") + "【宵禁已知會】" + day;
 }
 
-// 🛍️ 2026-07 商店 Phase 2(玩家「都想要呢！」追加開店購物/好感禮物)：資料驅動品項表(範本比照
-//   KANSHOU_LOCATIONS_/KANSHOU_FESTIVALS_，加東西＝加一列，不動流程)。type:'decor'買了持久佈置
-//   在家(存玩家MEMORY【家居裝飾】清單)；type:'gift'買了直接送給指定同行夥伴，好感依bond固定值
-//   增加(GAS掌數值，不靠AI喊好感漲多少)。價格/好感值皆為玩家可事後調整的平衡數字，非AI決定。
+// 商店：資料驅動品項表(範本比照KANSHOU_LOCATIONS_，加東西＝加一列，不動流程)。type:'decor'
+//   買了持久佈置在家(存玩家MEMORY【家居裝飾】清單)；type:'gift'買了直接送給指定同行夥伴，
+//   好感依bond固定值增加(GAS掌數值，不靠AI喊好感漲多少)。
 const KANSHOU_SHOP_ITEMS_ = [
   { id: 'sofa', name: '舒適沙發', price: 1200, type: 'decor', desc: '一張柔軟舒適的沙發' },
   { id: 'painting', name: '風景畫', price: 800, type: 'decor', desc: '一幅寧靜的風景掛畫' },
@@ -1154,20 +1114,16 @@ function kanshouAddDecor_(memory, itemName) {
   if (arr.indexOf(itemName) === -1) arr.push(itemName);
   return KANSHOU_DECOR_TAG_.set(memory, arr.join('、'));
 }
-// 🌅 2026-07「隔天早上吃飯劇情就很好看」玩家定案：好感≥80觸發同床共枕的那次結束一天，順手記一筆
-//   「今晚共度良宵的對象」，下一回合(不論玩家做什麼)讀一次就清掉(一次性旗標，比照makeTextTag_
-//   .set('')清空)，餵進提示詞當★【晨間餘韻】引子——只在「緊接著的下一回合」出現，不會每天糾纏。
-//   刻意不斷言「一定發生了」，交給AI依上一回合實際演出內容判斷要不要接續，避免跟角色一致性/
-//   慾海律令(不強制每次都寫到底)打架。
+// 好感≥80觸發同床共枕的那次結束一天，順手記一筆「今晚共度良宵的對象」，下一回合(不論玩家做
+//   什麼)讀一次就清掉(一次性旗標)，餵進提示詞當【晨間餘韻】引子。刻意不斷言「一定發生了」，
+//   交給AI依上一回合實際演出內容判斷要不要接續。
 var KANSHOU_MORNING_AFTER_TAG_ = makeTextTag_('晨間餘韻');
-// 💰 2026-07「先把肉償機制上線！！」玩家定案：存在房客自己那一列的MEMORY(不是玩家列)，標記「這位
-//   房客目前欠著這期房租」——由kanshouCollectTenantRent_短繳時設值，下次她準時繳清或玩家發起
-//   肉償橋段後清空(見actionPlay的debtPayment處理)。純粹是/否旗標，不記金額(欠多少已經不重要，
-//   房租本就不逐週累積複利，見§88)。
+// 存在房客自己那一列的MEMORY(不是玩家列)，標記「這位房客目前欠著這期房租」——由
+//   kanshouCollectTenantRent_短繳時設值，下次她準時繳清或玩家發起肉償橋段後清空。純粹是/否
+//   旗標，不記金額(房租本就不逐週累積複利)。
 var KANSHOU_RENT_DEBT_TAG_ = makeTextTag_('欠租');
-// 🎲 Phase3 輕量小事件(2026-07「可愛地圖」升級)：抵達新地點時20%機率抽一顆短句靈感種子注入
-//   提示詞，純粹給AI參考的引子(非預寫劇本、非強制發生)，AI可完全不理會，也可自然融入敘事。
-//   分三類：日常可愛/曖昧小互動 恆定開放，色氣類僅driveOn(主動掌握模式)開啟時才會抽到。
+// Phase3 輕量小事件：抵達新地點時20%機率抽一顆短句靈感種子注入提示詞，純粹給AI參考的引子
+//   (非預寫劇本、非強制發生)。分三類：日常可愛/曖昧小互動恆定開放，色氣類僅driveOn開啟時抽到。
 const KANSHOU_EVENT_SEEDS_ = {
   daily: [
     '風吹起了一片落葉，剛好飄落在兩人之間',
@@ -1212,9 +1168,8 @@ function setKanshouActiveEncounter_(memory, heroId) {
 function clearKanshouActiveEncounter_(memory) {
   return String(memory || "").replace(/｜?【邂逅中】[^｜【】]*/g, "");
 }
-// 🏷️ MEMORY標記存取器【住所】：玩家自訂的「家」顯示名稱。查無標記時預設「衛宮宅」(2026-07
-//   玩家「我想要住在衛宮家」定案，鎖定世界觀預設值；玩家仍可隨時改名，只是不再預設空泛的「家」)，
-//   比照 getOutfit_/setOutfit_ 同款「清除舊值再整段append」寫法。
+// MEMORY標記存取器【住所】：玩家自訂的「家」顯示名稱，查無標記時預設「衛宮宅」(鎖定世界觀
+//   預設值，玩家仍可隨時改名)，比照 getOutfit_/setOutfit_ 同款「清除舊值再整段append」寫法。
 function getKanshouHomeName_(memory) {
   const m = String(memory || "").match(/【住所】([^｜【】]*)/);
   const nm = m ? m[1].trim() : "";
@@ -1240,14 +1195,12 @@ function kanshouNameCandidates_(fullName) {
 function actionPlay(userData, pcId, sheets) {
   const userMsg = userData.message || ""; // 📅 endDay 呼叫不一定會帶 message，防呆避免下方 .includes 炸掉
 
-  // 🌹 慾海(KPC_ 御主)專用引擎：前端自由聊天輸入框只在 pc.mode==='kanshou' 才顯示，鑑賞玩家
-  //   pcId 恆為 KPC_ 前綴，全專案已無路徑把 pc.mode 設為 'full'——這裡不會再有 solo 呼叫路徑，
+  // 慾海(KPC_ 御主)專用引擎：鑑賞玩家 pcId 恆為 KPC_ 前綴，全專案已無路徑呼叫這裡走solo——
   //   入口直接擋下非 KPC_ 呼叫，函式其餘部分永遠當作鑑賞情境處理，不再分支。
   if (String(pcId || "").indexOf("KPC_") !== 0) return JSON.stringify({ text: "此功能僅限鑑賞使用。", people: [] });
-  // 🔥 主動掌握開關：real runtime 上唯一還會變動的「模式」。
   const driveOn = (userData.drive === true || String(userData.drive) === "true");
-  // 🚪 巧遇開關：前端「出門走走」面板可關閉「路上巧遇陌生人」——只影響下方隨機巧遇擲骰，不影響
-  //   已在場的【邂逅中】對象持續互動、也不影響同行隊伍成員。前端沒帶這欄時預設仍是開啟。
+  // 巧遇開關：前端「出門走走」面板可關閉「路上巧遇陌生人」——只影響下方隨機巧遇擲骰，不影響
+  //   已在場的【邂逅中】對象持續互動、也不影響同行隊伍成員。
   const encounterOn = !(userData.encounter === false || String(userData.encounter) === "false");
 
   const formatPref = (str) => {
@@ -1277,13 +1230,9 @@ function actionPlay(userData, pcId, sheets) {
   let curHour = (pc[COL.PC.HOUR] === "" || pc[COL.PC.HOUR] == null) ? 8 : (parseInt(pc[COL.PC.HOUR]) || 0);
   let jumpFest = null; // 🎊 有跳到節慶時記著，餵進下方提示詞當氛圍靈感(見★【氛圍靈感·非強制】)
 
-  // 🌸 鑑賞地點移動：前端點選地點按鈕時帶 moveTarget，跟一般對話同一次 round-trip 解決——比對
+  // 鑑賞地點移動：前端點選地點按鈕時帶 moveTarget，跟一般對話同一次 round-trip 解決——比對
   //   KANSHOU_LOCATIONS_ 合法地點清單，查無效比對一律當成普通對話。
-  // 🏠 2026-07「家」升級成跟其他分區並列的一個分區(region:'home')：我的房間/同住人房間/客房/
-  //   客廳/廚房/浴室/陽台/庭院等都是KANSHOU_LOCATIONS_裡的普通地點(noEncounter:true代表私人
-  //   空間、不觸發陌生人巧遇)，走一般moveTarget比對即可，不再需要獨立特判。getKanshouHomeName_/
-  //   setKanshouHomeName_只供前端「家」分區分頁標籤的自訂顯示名稱使用，不影響這裡的地點驗證。
-  // 🍳「準備早餐」＝移動到廚房，複用moveTarget整套既有管線(清巧遇/寫LOC/事件種子)，不另開一條
+  // 「準備早餐」＝移動到廚房，複用moveTarget整套既有管線(清巧遇/寫LOC/事件種子)，不另開一條
   //   平行的地點切換路徑——只是這次的目的地由GAS直接指定，不聽前端傳的userData.moveTarget。
   const isBreakfast_ = userData.prepBreakfast === true;
   const moveTarget = isBreakfast_ ? KANSHOU_LOCATIONS_.find(l => l.name === '廚房') : KANSHOU_LOCATIONS_.find(l => l.name === String(userData.moveTarget || "").trim());
@@ -1301,30 +1250,25 @@ function actionPlay(userData, pcId, sheets) {
   // 玩家自己的換裝(玩家UI設定或AI依outfit_change更新)，比照【同行夥伴】卡片(partyDetailsArr)
   //   同款「裝扮:XXX(當前服裝·五官體態不變)」格式補上，AI 才能讀到當前實際服裝，而非憑空假設。
   const myOutfit = getOutfit_(pc[COL.PC.MEMORY]);
-  // 🛋️ 2026-07 商店買的家居裝飾清單，給AI在「家」相關場景自然帶入(show-don't-tell，僅供參考、
-  //   非強制每次都提及)，跟myOutfit同一種「餵事實、不代寫敘事」的做法。
+  // 商店買的家居裝飾清單，給AI在「家」相關場景自然帶入(show-don't-tell，僅供參考、非強制)，
+  //   跟myOutfit同一種「餵事實、不代寫敘事」的做法。
   const myDecor = KANSHOU_DECOR_TAG_.get(pc[COL.PC.MEMORY]);
-  // 🌅 晨間餘韻：讀一次(上一回合結束一天留下的旗標，若有)就立刻清掉，只讓「緊接著的下一回合」
+  // 晨間餘韻：讀一次(上一回合結束一天留下的旗標，若有)就立刻清掉，只讓「緊接著的下一回合」
   //   吃到這個提示詞引子，不論這回合玩家做什麼(聊天/移動/購物皆可)。
   const morningAfterNames = KANSHOU_MORNING_AFTER_TAG_.get(pc[COL.PC.MEMORY]);
   if (morningAfterNames) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], '');
 
-  // 🔵 實例化：只取自己 game_id 世界內、同地點的人（御主無 game_id 時不過濾，相容舊角色）
+  // 實例化：只取自己 game_id 世界內、同地點的人（御主無 game_id 時不過濾，相容舊角色）
   const myGameId = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
   const sameGame = (r) => !myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId;
 
-  // 🎭 橋段·夜襲/賴床叫醒(2026-07「跳出色色選項詢問是否色色」玩家定案，從「移動進房間就直接演出」
-  //   改成「先問過玩家再演出」)：候選人只認「這位房客的LOC是否真的等於這次要去的地點」，不看
-  //   任何「隊伍」狀態(2026-07「加入這個世界的感覺」定案後，每個人的LOC都是獨立的，不會被玩家
-  //   移動強制拖走，故這裡不必再擔心LOC被悄悄同步過的問題)。按鈕(roomEventOffer，見回合末)在
-  //   候選人存在期間持續可用，玩家點下去(userData.roomEventAccept)才真正骰一次走向，不點就只是
-  //   繼續聊天——聊幾句不影響candidate資格，直到她的LOC真的變動(自己的生活骰到別處/玩家移動
-  //   去別的地方)才會消失。
+  // 橋段·夜襲/賴床叫醒：候選人只認「這位房客的LOC是否真的等於這次要去的地點」，不看任何
+  //   「隊伍」狀態(每個人的LOC都是獨立的，不會被玩家移動強制拖走)。按鈕(roomEventOffer)在
+  //   候選人存在期間持續可用，玩家點下去(userData.roomEventAccept)才真正骰一次走向。
   const kanshouRoomEventTargetLoc_ = moveTarget ? moveName : curL;
   const kanshouRoomEventKey_ = KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_[timeBand_(curHour)];
   let kanshouRoomEventCandidate_ = null;
-  // 🏠 2026-07「地圖大重做」：候選資格改直接查是不是客房(room1~3)、有沒有人LOC剛好等於這裡，
-  //   不再反查KANSHOU_HOUSEMATE_ROOMS_那份寫死的hero-id對照表(任何入住客房的女性都適用)。
+  // 候選資格直接查是不是客房(room1~3)、有沒有人LOC剛好等於這裡(任何入住客房的女性都適用)。
   if (kanshouRoomEventKey_ && /^room[1-3]$/.test(kanshouRoomEventTargetLoc_)) {
     const _reIdx = pcData.findIndex((r, i) => i !== pcIndex && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC] || "").trim() === kanshouRoomEventTargetLoc_);
     if (_reIdx !== -1) kanshouRoomEventCandidate_ = { eventKey: kanshouRoomEventKey_, hero: { realName: String(pcData[_reIdx][COL.PC.NAME]) }, idx: _reIdx };
@@ -1344,11 +1288,10 @@ function actionPlay(userData, pcId, sheets) {
     }
   }
 
-  // 🚪 2026-07「睡覺時機率有人來敲門」：結束一天(準備就寢)前先擲一次骰，命中就不執行日期推進，
-  //   直接回傳knockEvent讓前端跳出「開門/不予理會」——玩家選「不予理會」會帶skipKnockCheck重送
-  //   一次結束一天(跳過這次判定，直接推進日期)；選「開門」則帶knockAccept把訪客接來(見下)。
-  //   候選池限「此局已建立資料列、此刻不在玩家所在地」的舊識，跟留人重逢共用同一種「有名有姓的
-  //   熟人」精神，不會憑空生出一個從未召喚過的陌生人半夜敲門。
+  // 結束一天(準備就寢)前先擲一次骰，命中就不執行日期推進，直接回傳knockEvent讓前端跳出
+  //   「開門/不予理會」——選「不予理會」帶skipKnockCheck重送一次(跳過判定，直接推進日期)；
+  //   選「開門」則帶knockAccept把訪客接來(見下)。候選池限「已建立資料列、不在玩家所在地」的
+  //   舊識，不會憑空生出一個從未召喚過的陌生人半夜敲門。
   if (userData.endDay === true && !userData.skipKnockCheck) {
     const knockPool = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.LOC] || "").trim() !== curL && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
     if (knockPool.length && Math.random() < KANSHOU_KNOCK_CHANCE_) {
@@ -1357,9 +1300,8 @@ function actionPlay(userData, pcId, sheets) {
     }
   }
 
-  // 🚪 開門迎接深夜訪客(knockEvent選擇「開門」)：把訪客接來玩家現在的位置，本回合可指名互動
-  //   (例外，比照下方kanshouReunionStr同款寫法)，不推進日期——訪客只是這回合出現，玩家想睡
-  //   再自己重新點一次「結束一天」即可(會再擲一次骰，是否又敲門純機率、不特別排除)。
+  // 開門迎接深夜訪客(knockEvent選擇「開門」)：把訪客接來玩家現在的位置，本回合可指名互動，
+  //   不推進日期——訪客只是這回合出現，玩家想睡再自己重新點一次「結束一天」即可。
   let kanshouKnockGuestName = "";
   if (userData.knockAccept) {
     const guestName = String(userData.knockAccept).trim();
@@ -1372,9 +1314,8 @@ function actionPlay(userData, pcId, sheets) {
     }
   }
 
-  // 🛍️ 2026-07 商店：買裝飾品/送禮物給同行夥伴。金額不足/品項不存在/送禮對象不在場——這些是
-  //   GAS已經能確定答案的驗證失敗，直接回傳、不浪費一次AI呼叫；成功則組finalUserMsg照樣走完整
-  //   敘事管線(比照打工/結束一天，複用既有pipeline，不另開一條平行路徑)。
+  // 商店：買裝飾品/送禮物給同行夥伴。金額不足/品項不存在/送禮對象不在場是GAS已能確定答案的
+  //   驗證失敗，直接回傳、不浪費一次AI呼叫；成功則組finalUserMsg走完整敘事管線(複用既有pipeline)。
   if (userData.buyItem) {
     const shopItem = KANSHOU_SHOP_ITEMS_.find(it => it.id === String(userData.buyItem));
     if (!shopItem) return JSON.stringify({ text: "這裡沒有這件商品。", people: [] });
@@ -1397,43 +1338,33 @@ function actionPlay(userData, pcId, sheets) {
     }
   }
 
-  // 📅 結束一天(userData.endDay===true，2026-07「文字經營」玩法定案「不讓玩家指派，直接GAS判定」)：
-  //   忽略玩家打的文字，改用系統組好的合成訊息——複用actionPlay整條既有敘事管線(在場驗證/NSFW
-  //   規則/rel_changes/intimacy_feedback全部照常跑)，不另開一條平行路徑。
-  //   ①不在身邊的英靈(非同行)：GAS直接幫她們決定隔天去哪(kanshouRollDailyLocation_，依既有的
-  //   地點×角色氛圍標籤加權挑常去的地方，查無標籤才隨機)，玩家不用手動指派——她們各自過各自
-  //   的生活，下次玩家去哪個地點就可能巧遇當天在那裡的人(見留人重逢/巧遇邏輯)。
-  //   ②同行同伴：跟玩家一起被強制拉回家過夜(見下)。
-  // 💰 2026-07 經濟層：這次呼叫若跨過維護費結算週，這裡記下實際扣款金額，供下方提示詞組flavor文字；
-  //   兩個分支(結束一天/推進時間)都會推進curDay，故upkeepCharged在if/else外先宣告、各自賦值。
+  // 結束一天：忽略玩家打的文字，改用系統組好的合成訊息——複用actionPlay整條既有敘事管線
+  //   (在場驗證/NSFW規則/rel_changes/intimacy_feedback全部照常跑)，不另開一條平行路徑。
+  //   不在身邊的英靈：GAS直接幫她們決定隔天去哪(kanshouRollDailyLocation_)，玩家不用手動指派。
+  // 兩個分支(結束一天/推進時間)都會推進curDay，故upkeepCharged/tenantRentCollected在if/else
+  //   外先宣告、各自賦值。
   let upkeepCharged = 0;
-  // 🏠 2026-07「房東房客」定案：房客繳租跟玩家繳維護費同一套週結算節奏，故一併在if/else外先宣告。
   let tenantRentCollected = 0;
   let tenantShortNames = [];
-  // 💕 2026-07「好感沒到80不能同行睡覺」玩家定案：只有結束一天(真的要過夜)才判定，推進時間/打工
-  //   不觸發(那些不是「睡下去」的動作)。比照既有羈絆里程碑(30/60/90)同款「GAS掌門檻、AI只說書」
-  //   精神——門檻由GAS算好，AI只負責依角色性格自然演繹要不要跨出這一步、演到多深。
+  // 只有結束一天(真的要過夜)才判定好感≥80能否同行睡覺，推進時間/打工不觸發(那些不是
+  //   「睡下去」的動作)。門檻由GAS算好，AI只負責依角色性格自然演繹要不要跨出這一步。
   let intimateNightNames = [];
   if (userData.endDay === true) {
-    // ⏰ 2026-07：結束一天固定跳到「隔天清晨6點」(不論此刻幾點，2026-07玩家「早上6點要開始準備
-    //   早餐」定案從8點提早)，時鐘跟著寫回，往後「推進時間」(見下)、鑑賞主敘事的時段感提示才有
-    //   真實的日/時可讀，不再只是純敘事、沒有實際時鐘的空話。
+    // 結束一天固定跳到「隔天清晨6點」(不論此刻幾點)，時鐘跟著寫回，往後「推進時間」、鑑賞
+    //   主敘事的時段感提示才有真實的日/時可讀。
     curDay = curDay + 1;
     curHour = 6;
     pcData[pcIndex][COL.PC.DAY] = curDay;
     pcData[pcIndex][COL.PC.HOUR] = curHour;
     upkeepCharged = kanshouChargeUpkeep_(pcData, pcIndex, curDay);
     { const tr_ = kanshouCollectTenantRent_(pcData, pcIndex, curDay, myGameId, dirtyPcRows); tenantRentCollected = tr_.total; tenantShortNames = tr_.shortNames; }
-    // 🌍 2026-07「加入這個世界的感覺」玩家定案：不再分「同行/不同行」，這個世界裡所有已存在的
-    //   英靈結束一天都一律依自己的生活重新決定要去哪(kanshouRollDailyLocation_，住人回自己房間／
-    //   外人回自己家)——唯一例外是好感≥80且此刻確實跟玩家同地點的人，直接留在玩家房間過夜(同床
-    //   共枕)。不再有「玩家帶著誰過夜、誰輪流分配客房」這種隊伍式的房間分配，room1~3仍是
+    // 不分「同行/不同行」，所有已存在的英靈結束一天都依自己的生活重新決定要去哪——唯一例外
+    //   是好感≥80且此刻確實跟玩家同地點的人，直接留在玩家房間過夜(同床共枕)。room1~3仍是
     //   合法地點，只是不再靠這裡自動塞人進去(入住靠actionKanshouAssignRoom玩家手動指派)。
     const allEstablished = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
     intimateNightNames = allEstablished.filter(r => (parseInt(r[COL.PC.BOND]) || 0) >= 80 && String(r[COL.PC.LOC] || "").trim() === curL).map(r => r[COL.PC.NAME]);
     if (intimateNightNames.length) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], intimateNightNames.join('、'));
-    // 🏠 玩家自己不管白天晃到哪(含忽略AI提議、放置不理原地發呆)，結束一天一律強制拉回自己房間——
-    //   這是「玩家永遠有路可退」的安全閥，不必特判「玩家到底有沒有理某個提議」。
+    // 玩家自己不管白天晃到哪，結束一天一律強制拉回自己房間——「玩家永遠有路可退」的安全閥。
     const kanshouMyRoomLoc_ = '我的房間';
     pcData[pcIndex][COL.PC.LOC] = kanshouMyRoomLoc_;
     dirtyPcRows.add(pcIndex);
@@ -1446,14 +1377,10 @@ function actionPlay(userData, pcId, sheets) {
     });
     finalUserMsg = `【一天結束】夜幕降臨，${intimateNightNames.length ? `跟『${intimateNightNames.join('、')}』一起` : ""}回到房間安頓下來，今天到此為止，明天又是新的一天。`;
   } else {
-    // ⏰ 2026-07「推進時間」玩法(玩家「有一個推進時間按鈕，可以控制NPC所在地點？按下去可能推進
-    //   幾小時，NPC會依照時段移動到不同地活動」)：跟結束一天不同——不強制拉玩家回家，只是單純
-    //   讓時鐘往前跳N小時；不在身邊的英靈依新時刻重骰去向(深夜/清晨時段kanshouRollDailyLocation_
-    //   會偏向在家，見下)，同行同伴不受影響(位置本就跟玩家同步)。上限抓3年區間防呆，不做逐小時
-    //   模擬(跳多久都是O(1)：直接算最終時刻，不必一小時一小時迭代)。
-    // 💼 2026-07「打工賺錢」玩法：跟結束一天/推進時間共用同一套時鐘推進機制(work視為固定4小時的
-    //   一次時間推進，非同行英靈依新時刻重骰去向)，只是額外多做「發薪水」這一步，不另開一條時鐘
-    //   平行路徑；work旗標與advanceHours/jumpFestival互斥(打工優先，同一次呼叫不會疊加判斷)。
+    // 推進時間：跟結束一天不同——不強制拉玩家回家，只是讓時鐘往前跳N小時；不在身邊的英靈依
+    //   新時刻重骰去向，同行同伴不受影響。上限抓3年區間防呆，不做逐小時模擬(跳多久都是O(1))。
+    // 打工：跟結束一天/推進時間共用同一套時鐘推進機制(固定4小時)，只是額外多做「發薪水」這
+    //   一步；work旗標與advanceHours/jumpFestival互斥(打工優先，同一次呼叫不會疊加判斷)。
     const isWork = userData.work === true;
     let advanceHours = isWork ? KANSHOU_WORK_HOURS_ : Math.max(0, Math.min(parseInt(userData.advanceHours) || 0, 24 * 365 * 3));
     // 🎊「跳到節慶」：advanceHours未指定時，改由jumpFestival算出「到下一次該節慶還有幾小時」，
@@ -1476,12 +1403,9 @@ function actionPlay(userData, pcId, sheets) {
       pcData[pcIndex][COL.PC.HOUR] = curHour;
       upkeepCharged = kanshouChargeUpkeep_(pcData, pcIndex, curDay);
       { const tr_ = kanshouCollectTenantRent_(pcData, pcIndex, curDay, myGameId, dirtyPcRows); tenantRentCollected = tr_.total; tenantShortNames = tr_.shortNames; }
-      // 🌍 2026-07「加入這個世界的感覺」：推進時間一樣不分「同行/不同行」，世界裡所有已存在的
-      //   英靈都依新時刻重骰去向(深夜/清晨時段kanshouRollDailyLocation_會偏向在家)。
-      // 🩹 2026-07「我原本在他家 調整時間 對面答應要出去走走 就自己走了 我還在他家」玩家回報：
-      //   原本沒排除「當下正跟玩家同地點」的人，導致正在互動中的同伴被時間推進的重骰隨機傳送
-      //   走，玩家本人位置卻沒變。改成：LOC此刻等於curL(正在場)的人不重骰、原地不動，只有「不在
-      //   玩家身邊」的人才照舊依時刻重新決定去向。
+      // 修過的bug：原本沒排除「當下正跟玩家同地點」的人，導致正在互動中的同伴被時間推進的
+      //   重骰隨機傳送走、玩家本人位置卻沒變。改成LOC此刻等於curL(正在場)的人不重骰、原地
+      //   不動，只有「不在玩家身邊」的人才依時刻重新決定去向。
       const allEstablishedForTime = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() !== String(curL || "").trim());
       allEstablishedForTime.forEach(r => {
         const idx = pcData.indexOf(r);
@@ -1504,15 +1428,14 @@ function actionPlay(userData, pcId, sheets) {
   }
   const curDateObj_ = kanshouAbsDayToDate_(curDay); // 供下方🕰️提示詞用，只算一次不重複呼叫
 
-  // 🌙 宵禁提醒「留在外面過夜」：純GAS旗標寫入，不需要等AI回應，這裡先處理掉，跟AI narration無關。
+  // 宵禁提醒「留在外面過夜」：純GAS旗標寫入，不需要等AI回應，這裡先處理掉，跟AI narration無關。
   if (userData.dismissCurfew === true) {
     pcData[pcIndex][COL.PC.MEMORY] = kanshouDismissCurfew_(pcData[pcIndex][COL.PC.MEMORY], curDay);
   }
 
-  // 💰 2026-07「先把肉償機制上線！！」玩家定案：橋段觸發來源是玩家主動點下方的debtPaymentOffer
-  //   按鈕(見回傳值計算處)，不是移動進房間——目標必須此刻確實同行在場、且確實掛著欠租旗標(第二道
-  //   防線，防直打API繞過前端按鈕判斷)，命中就依bond骰一次「肉償」走向、清掉欠租旗標，跟夜襲/
-  //   賴床叫醒共用同一套kanshouRollSceneBranch_骰法，不另開一條平行的橋段判定邏輯。
+  // 肉償橋段觸發來源是玩家主動點debtPaymentOffer按鈕，不是移動進房間——目標必須此刻確實同行
+  //   在場、且確實掛著欠租旗標(第二道防線，防直打API繞過前端按鈕判斷)，命中就依bond骰一次
+  //   「肉償」走向、清掉欠租旗標，共用kanshouRollSceneBranch_骰法。
   let kanshouDebtPaymentStr = "";
   if (userData.debtPayment) {
     const debtName = String(userData.debtPayment).trim();
@@ -1536,16 +1459,12 @@ function actionPlay(userData, pcId, sheets) {
   const kanshouEstablishedNames_ = new Set(pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r)).map(r => String(r[COL.PC.NAME]).trim()));
   const kanshouExcludeIds_ = SEED_SERVANTS.filter(h => kanshouNameCandidates_(h.realName).some(c => kanshouEstablishedNames_.has(c))).map(h => h.id);
 
-  // 🌍 2026-07「加入這個世界的感覺」定案：拿掉「留人重逢」這個獨立機制——它跟「同地點就在場」
-  //   現在是同一件事，已併入下方partyRows/partyDetailsArr(在場人物卡片)統一處理，不再需要另外
-  //   算一份「凍結故人」清單。這裡只留原本的用意：移動時若目的地已經有established的人在，就不再
-  //   另外擲一次陌生人巧遇(優先呈現熟人在場，而不是又冒出一個不相干的陌生人)。
+  // 移動時若目的地已經有established的人在，就不再另外擲一次陌生人巧遇(優先呈現熟人在場)。
   const kanshouSomeoneAlreadyHere_ = pcData.some((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() === String(moveName || curL || "").trim());
 
   // 合法地點時才寫入LOC＋抽選巧遇＋記錄邂逅名單。抽選只在「按下移動按鈕」這個瞬間跑一次，不會
-  //   每句對話重算。2026-07「加入這個世界的感覺」定案：移動不再強制拖走任何已存在的英靈(每個人
-  //   都是獨立的，玩家移動只代表玩家自己走去哪，不代表帶著誰一起走)——想帶誰同行，交給AI敘事
-  //   自然演出(比照下方「玩家反向邀約」規則)，機制上不再靠這裡的forEach同步。
+  //   每句對話重算。移動不再強制拖走任何已存在的英靈(每個人都是獨立的)——想帶誰同行，交給AI
+  //   敘事自然演出(見下方「玩家反向邀約」規則)。
   let kanshouEncounterHero = null, kanshouEncounterMetBefore = false, kanshouEncounterLocName = "";
   let kanshouEventSeed = null;
   if (moveTarget) {
@@ -1555,8 +1474,8 @@ function actionPlay(userData, pcId, sheets) {
     // 離開原地(換地點)＝上一段巧遇緣分結束，先清掉舊的【邂逅中】，這個新地點才重新擲一次巧遇。
     pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
     kanshouEncounterLocName = moveName;
-    // 🚪 巧遇開關 + 🏠 noEncounter地點(家的5個房間)是私人空間 + 此地已有established的人在場：
-    //   三者皆需通過才擲陌生人骰。
+    // 巧遇開關 + noEncounter地點(家的房間)是私人空間 + 此地已有established的人在場：三者皆需
+    //   通過才擲陌生人骰。
     kanshouEncounterHero = (encounterOn && !moveTarget.noEncounter && !kanshouSomeoneAlreadyHere_) ? kanshouRollEncounter_(moveTarget.name, kanshouExcludeIds_) : null;
     if (kanshouEncounterHero) {
       pcData[pcIndex][COL.PC.MEMORY] = setKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY], kanshouEncounterHero.id);
@@ -1574,10 +1493,9 @@ function actionPlay(userData, pcId, sheets) {
         kanshouEncounterLocName = curLocDef.name;
         kanshouEncounterHero = SEED_SERVANTS.find(h => h.id === activeId) || null;
       } else if (encounterOn && !curLocDef.noEncounter && userData.lookAround === true) {
-        // 🔘 2026-07「這功能直接做成按鈕」玩家定案：原本用關鍵字猜測「是不是在問這裡還有誰」已
-        //   改成前端明確的「看看四周」按鈕(lookAround:true)，不再猜文字語意。目前還沒有巧遇中的
-        //   對象時，用目前地點重新擲一次巧遇——跟按移動按鈕同一套加權隨機，不寫LOC(沒有移動)、
-        //   不同步同伴(沒人移動)。noEncounter地點(家)恆不觸發此路徑。
+        // 前端明確的「看看四周」按鈕(lookAround:true)。目前還沒有巧遇中的對象時，用目前地點
+        //   重新擲一次巧遇——跟按移動按鈕同一套加權隨機，不寫LOC(沒有移動)。noEncounter地點
+        //   (家)恆不觸發此路徑。
         kanshouEncounterLocName = curLocDef.name;
         kanshouEncounterHero = kanshouRollEncounter_(curLocDef.name, kanshouExcludeIds_);
         if (kanshouEncounterHero) {
@@ -1600,8 +1518,7 @@ function actionPlay(userData, pcId, sheets) {
   let kanshouBreakfastStr = "";
   if (isBreakfast_) {
     const absentBreakfastNames_ = [];
-    // 🏠 2026-07「地圖大重做」：改掃COL.PC.ROOM(誰真的入住客房)，不再反查KANSHOU_HOUSEMATE_ROOMS_
-    //   那份寫死的hero-id對照表——任何入住room1~3的女性都會參與早餐骰。
+    // 掃COL.PC.ROOM(誰真的入住客房)——任何入住room1~3的女性都會參與早餐骰。
     pcData.forEach((r, hmIdx) => {
       if (hmIdx === pcIndex) return;
       if (String(r[COL.PC.FACTION]) !== "從者") return;
@@ -1624,9 +1541,8 @@ function actionPlay(userData, pcId, sheets) {
       dirtyPcRows.add(hmIdx);
     });
     finalUserMsg = `【玩家意圖】：走進廚房，開始張羅今天的早餐。`;
-    // 🍳 2026-07玩家「還要讓ai知道誰沒有來 在房間還是去哪裡 讓他自然敘述！」定案：GAS給的是
-    //   實際去向事實(房間名/地點名)，AI依此自然帶一筆(路過房門聽見動靜、提一句人不見了等)，程度
-    //   自行拿捏——不是照抄這裡的措辭，也不是完全不提(show-don't-tell：給事實，AI決定怎麼演)。
+    // GAS給的是實際去向事實(房間名/地點名)，AI依此自然帶一筆，程度自行拿捏(show-don't-tell：
+    //   給事實，AI決定怎麼演)。
     if (absentBreakfastNames_.length) kanshouBreakfastStr = `\n★【早餐現況(GAS已骰定，供敘事參考)】：這次沒出現在餐桌上的人——${absentBreakfastNames_.join('；')}。narration可以自然帶出她們此刻的狀態(依角色性格決定要不要特地去看一眼、喊一聲、還是隨口提及)，不必每次都詳細描寫，但內容不能跟這裡的事實矛盾。`;
   }
 
@@ -1646,13 +1562,10 @@ function actionPlay(userData, pcId, sheets) {
   }
 
   // 「開放世界·背景人煙」設計：路人可自由描寫增添生活感，但不具名、不追蹤好感、不能被指名互動；
-  //   真正能被指名、有名有姓、好感會被記錄的對象，只有【在場人物】——2026-07「加入這個世界的
-  //   感覺」定案：拿掉「隊伍」概念，這個世界裡所有已存在的英靈各自過各自的生活，判準改成「LOC是
-  //   否跟玩家目前位置(curL)一致」，不再看IS_PARTY。
-  // 🌍 同地點最多給KANSHOU_PARTY_DETAIL_CAP_位詳細卡片(敘事複雜度/prompt篇幅上限，不是隊伍
-  //   容量)——3位房客+來訪的人湊在一起吃早餐等場合會摸到這個上限，依好感高低取前幾位，避免單
-  //   回合塞太多人卡片讓提示詞爆量；超過上限的人依然存在、依然可被特定劇情點名，只是這回合沒有
-  //   詳細卡(2026-07玩家「吃飯不能5人嗎」定案，3→5)。
+  //   真正能被指名、好感會被記錄的對象只有【在場人物】，判準是「LOC是否跟玩家目前位置一致」，
+  //   不看IS_PARTY。
+  // 同地點最多給KANSHOU_PARTY_DETAIL_CAP_位詳細卡片(敘事複雜度/prompt篇幅上限，不是隊伍容量)，
+  //   依好感高低取前幾位；超過上限的人依然存在、依然可被特定劇情點名，只是這回合沒有詳細卡。
   const partyRows = pcData.filter(r => r !== pc && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim())
     .sort((a, b) => (parseInt(b[COL.PC.BOND]) || 0) - (parseInt(a[COL.PC.BOND]) || 0)).slice(0, KANSHOU_PARTY_DETAIL_CAP_);
   const partyMembers = partyRows.map(r => r[COL.PC.NAME]);
@@ -1675,25 +1588,22 @@ function actionPlay(userData, pcId, sheets) {
       const pSpeech = getPersonaSpeech_(r[COL.PC.MEMORY]) || dailySpeechByName_(pName, _partyHeroCodex);
       const pTic = getPersonaTic_(r[COL.PC.MEMORY]);
       const pFlavorStr = `${pSpeech ? ` | 口吻:${pSpeech}` : ""}${pTic ? ` | 招牌小動作:${pTic}` : ""}`;
-      // 💝 純聊天好感卡在梯度上限(kanshouRelChatCeiling_)這件事本身不會反映在數字上——GAS會默默
-      //   夾住漲幅，若不順便告訴AI，narration可能寫出「這次對話後感情大幅推進」這種跟機制矛盾的
-      //   橋段(數字其實卡住沒動)。在卡住的當下才加這句提示，沒卡住時完全不提，不干擾平常敘事。
+      // 純聊天好感卡在梯度上限這件事本身不會反映在數字上——GAS默默夾住漲幅，若不順便告訴AI，
+      //   narration可能寫出「感情大幅推進」這種跟機制矛盾的橋段。只在卡住時才加這句提示。
       const pBond = parseInt(r[COL.PC.BOND]) || 0;
       const pChatCeiling = kanshouRelChatCeiling_(pBond);
       const pAtCeilingStr = (pChatCeiling < 100 && pBond >= pChatCeiling) ? "・單靠對話目前已到這個階段的上限，需要收到禮物才能繼續加深，這回合維持細水長流的相處基調，不要寫成關係大幅推進" : "";
-      // 🌡️ 2026-07「好感度10 大家還是很認識我的感覺」玩家定案：REL_TAG的梯度字面(點頭之交/普通朋友
-      //   等)本身沒告訴AI「這個字面該演出什麼熟悉程度」，AI容易預設熱絡口吻，跟數字矛盾。只在低
-      //   梯度(尚不熟識)才加一句態度提示，中高梯度(熟識的朋友起)不需要、也不該畫蛇添足限制發揮。
+      // REL_TAG的梯度字面本身沒告訴AI「該演出什麼熟悉程度」，AI容易預設熱絡口吻跟數字矛盾。
+      //   只在低梯度(尚不熟識)才加一句態度提示，中高梯度不需要、也不該畫蛇添足限制發揮。
       const pRelTagStr = r[COL.PC.REL_TAG] || "點頭之交";
       const pTierToneStr = (pRelTagStr === "點頭之交") ? "，彼此才剛認識不久，口吻應保持禮貌卻略帶生疏保留，不該表現得像已相識多年的熟人或表現得過分熱絡親密"
         : (pRelTagStr === "普通朋友") ? "，交情仍屬普通朋友，可自然閒聊但仍保留一定分寸與距離感，不宜過度親密"
         : "";
-      // 🏠 「TA是不是住在你家的房客」是會隨玩家操作(actionKanshouAssignRoom)變動的動態狀態，不該
-      //   烤進召喚當下就定案的靜態身世欄位——只在真的有ROOM登記時才即時告訴AI，沒有就完全不提，
-      //   由AI依關係梯度自然發揮，不預設「陌生人＝房客」。
+      // 「是否為房客」是會隨玩家操作(actionKanshouAssignRoom)變動的動態狀態，不烤進召喚當下
+      //   就定案的靜態身世欄位——只在真的有ROOM登記時才即時告訴AI，不預設「陌生人＝房客」。
       const pHousemateStr = /^room[1-3]$/.test(String(r[COL.PC.ROOM] || "")) ? "，TA是入住在你家、與你同住一個屋簷下的房客" : "";
-      // 🏷️ 商業地點的「當下在做什麼」輕量引子(見上方KANSHOU_LOCATION_ACTIVITY_)，沒對照到的
-      //   地點(家/房間/自然景點/私人住處等)不加這句，AI自然發揮即可。
+      // 商業地點的「當下在做什麼」輕量引子(見上方KANSHOU_LOCATION_ACTIVITY_)，沒對照到的地點
+      //   不加這句，AI自然發揮即可。
       const pActivityStr = KANSHOU_LOCATION_ACTIVITY_[curL] ? ` | 現況:${KANSHOU_LOCATION_ACTIVITY_[curL]}` : "";
       // 明講方向的「TA是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍TA。
       partyDetailsArr.push(`【在場人物】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(反差·僅供內化):${pMoeStr}` : ""}${pActivityStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr}${pHousemateStr})`);
@@ -1743,16 +1653,10 @@ function actionPlay(userData, pcId, sheets) {
     nsfwMemories += `${npcOutfit ? `\n[${r[COL.PC.NAME]} 裝扮]：${npcOutfit}（當前服裝·五官/髮色/體態不變）` : ""}\n[${r[COL.PC.NAME]} 肉體]：${JSON.stringify(npcPhysicalObj)}\n[快照]：[技巧]${npcSkills} | [羈絆]${relMem}`;
   });
 
-  // 🔥 主動掌握模式(driveOn)：翻轉「誰主導節奏」——平時的矜持限制換成同伴主動出擊；玩家的迴避/
-  //   抽身意圖會被依個性攔下。主動的【形式】仍依好感與個性：低好感是強勢試探/挑釁/戲弄的攻勢
-  //   (非傾心倒貼)，高好感才是不加掩飾的索求。個性一致性鐵律照常有效，這走向不可逆但不強迫
-  //   每回合寫到終點。
-  // 🌸 巧遇者是還沒被召喚、沒有資料列的陌生人，明講「這次到訪期間的系統例外」，避免跟下方
-  //   【在場驗證鐵律】(只有在場人物能被指名互動)打架，同時允許同一次到訪期間持續互動、直到
-  //   玩家換地點離開。
-  // 🎨 巧遇池男女皆有(2026-07新增女性)，走的是跟 actionKanshouSummonHero(僅支援男女／女女配對)
-  //   完全不同的路徑，不經過那兩處守門——僅「男御主遇男性巧遇對象」這組明講僅止於同性情誼，
-  //   其餘組合(含女女)一律自然發展，不特別限制。
+  // 巧遇者是還沒被召喚、沒有資料列的陌生人，明講「這次到訪期間的系統例外」，避免跟下方
+  //   【在場驗證鐵律】(只有在場人物能被指名互動)打架，同時允許同一次到訪期間持續互動。
+  // 巧遇池走的是跟 actionKanshouSummonHero(僅支援男女／女女配對)完全不同的路徑，不經過那
+  //   兩處守門——僅「男御主遇男性巧遇對象」這組明講僅止於同性情誼，其餘組合一律自然發展。
   const kanshouEncounterStr = kanshouEncounterHero ? (() => {
     const p = kanshouEncounterHero.persona || {};
     const look = p.dailyLook || p.look || "";
@@ -1762,11 +1666,7 @@ function actionPlay(userData, pcId, sheets) {
     return `\n★【本回合系統指定巧遇——這次到訪期間持續有效的例外，不受下方在場驗證鐵律限制】：『${kanshouEncounterHero.realName}』（${kanshouEncounterHero.cls}）此刻恰好也在「${kanshouEncounterLocName}」，${kanshouEncounterMetBefore ? "是已經打過照面的熟面孔" : "是初次的邂逅"}——外貌氣質:${look}／日常個性:${words}。允許TA以真實姓名登場、持續互動，這段緣分在玩家離開這個地點前都有效，TA還不是這個世界裡已經召喚存在的人物：好感/關係不追蹤記錄；若情境合適，TA也可以自然道別離開，不必勉強撐到玩家換地點。${friendshipOnly}`;
   })() : "";
 
-  // 🌍 2026-07「加入這個世界的感覺」定案：拿掉「留人重逢」——它跟partyRows/partyDetailsArr(在場
-  //   人物卡片，依LOC===curL判斷)現在是同一件事，重逢的人一樣會自動出現在那份卡片裡，不需要另外
-  //   組一段重複的提示詞。
-
-  // 🚪 深夜訪客(knockAccept選擇「開門」)：她的LOC已在前面被設成curL，之後會自動出現在partyRows
+  // 深夜訪客(knockAccept選擇「開門」)：她的LOC已在前面被設成curL，之後會自動出現在partyRows
   //   裡拿到完整卡片，這裡只補一句「剛敲門進來」的情境描述(卡片本身不會講這件事的來龍去脈)。
   const kanshouKnockGuestStr = kanshouKnockGuestName
     ? `\n★【情境提示】：『${kanshouKnockGuestName}』是深夜敲了門、玩家剛讓TA進來的，可以自然帶出「剛開門迎接」的情境細節，不必假裝TA本來就一直在場。`
@@ -1780,9 +1680,8 @@ function actionPlay(userData, pcId, sheets) {
 ★【情境延續鐵律】：請繼續往後推演！${nsfwMemories}${genderHintStr}${driveStr}
 🛑【角色一致性鐵律】：NPC 的反應必須【死守】其「性格」與目前「好感度」的真實落差——好感未滿 80、或性格屬於冷酷/高傲/剛烈者，依這個設定判斷此刻合理的抗拒/抵觸程度演出，不因劇情推進就無視好感度線性軟化。即便肉體有生理反應，靈魂與對話的態度仍以角色設定為準。真正的沉溺不是放棄人格，而是【用原本的人格去承受快感】——高傲者咬牙不肯示弱、虔敬者於信仰間掙扎、活潑者笑鬧裡藏羞、深情者愈發黏膩——語癖、自稱與個性在最激烈處也不崩壞，【絕對禁止】任何角色在情慾中退化成千篇一律的發情機器。`;
 
-  // 這裡只提供正確姓名給 AI 拼字用(「姓名參考用」措辭)，是否真的互動仍完全依上方【在場驗證鐵律】
-  //   判斷，不強制清單所有人都要出聲。已有【專屬稱呼】(AI每回合自己生成、寫進REL_MEM)就自然用
-  //   暱稱取代真名，避免暱稱系統形同虛設；不影響下方 rel_changes/intimacy_feedback 仍固定要求真名。
+  // 這裡只提供正確姓名給 AI 拼字用，是否真的互動仍完全依上方【在場驗證鐵律】判斷。已有
+  //   【專屬稱呼】就自然用暱稱取代真名；不影響下方 rel_changes/intimacy_feedback 仍固定要求真名。
   const npcDialoguePrompt = partyMembers.length > 0 ? `\n★【稱呼慣例】：對話/敘事中稱呼在場人物時，若該人已有【專屬稱呼】(見上方在場人物卡片)，可自然使用該暱稱取代真名，不必每次都字正腔圓喊全名；尚未發展出專屬稱呼、或情境特別鄭重深情時，仍使用真實姓名「${partyMembers.join("、")}」，不得自創真名與專屬稱呼以外的第三種稱呼。★此稱呼慣例僅供narration/對話台詞使用，與下方JSON輸出(rel_changes/intimacy_feedback)的姓名欄位無關，那兩處規則各自獨立、一律固定填真實姓名；是否互動仍依上方在場規則與各人強制互動限制判斷，非清單所有人都要出聲。` : "";
 
 
@@ -1841,14 +1740,10 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
 
 
-    // 🗺️ 鑑賞拔除地圖按鈕，改AI自主決定地點——每回合讀 aiData.location 直接寫回 LOC，不再需要固定
-    //   地圖節點清單。2026-07「加入這個世界的感覺」定案：不再靠IS_PARTY同步任何人——只有這回合
-    //   一開始就跟玩家「同地點在場」的人(partyRows，這是這一幕真的跟玩家在一起的人)，才會跟著
-    //   AI敘事移動到新地點；不在場的人各自過各自的生活，不會憑空被拖著走。
-    // 🔒 2026-07玩家「感覺亂亂的...加入橋段就不能那麼自由了」定案：location不再接受AI自創地名——
-    //   跟move_proposal同一份KANSHOU_LOCATIONS_清單、同一套驗證(sanitizeAiData_同精神：AI輸出
-    //   不合法就當沒這回事)，避免同伴LOC被寫成玩家點不到、後續橋段/宵禁/巧遇等機制也對不上的
-    //   幽靈地點。清單本來就已經為了move_proposal塞進提示詞，這裡沒有額外token成本。
+    // 鑑賞拔除地圖按鈕，改AI自主決定地點——每回合讀 aiData.location 直接寫回 LOC。不靠IS_PARTY
+    //   同步任何人：只有這回合一開始就跟玩家同地點在場的人(partyRows)才會跟著移動到新地點。
+    // location不接受AI自創地名——跟move_proposal同一份KANSHOU_LOCATIONS_清單驗證(不合法就當
+    //   沒這回事)，避免同伴LOC被寫成玩家點不到、後續橋段/宵禁/巧遇等機制也對不上的幽靈地點。
     const aiLocRaw = String(aiData.location || "").trim().slice(0, 20);
     const aiLoc = aiLocRaw && KANSHOU_LOCATIONS_.some(l => l.name === aiLocRaw) ? aiLocRaw : "";
     if (aiLoc && aiLoc !== curL) {
@@ -1863,9 +1758,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       curL = aiLoc;
     }
 
-    // 🚶 2026-07「AI提議換地點需玩家同意」：只轉發給前端顯示同意/拒絕UI，不在這裡寫LOC——
-    //   真正的移動要等玩家按下「同意」、前端帶著moveTarget再送一次，走既有moveTarget管線
-    //   (含巧遇/留人重逢等既有效果)，這裡只驗證地點合法，不合法就當作沒有提議。
+    // AI提議換地點需玩家同意：只轉發給前端顯示同意/拒絕UI，不在這裡寫LOC——真正的移動要等
+    //   玩家按下「同意」、前端帶著moveTarget再送一次，走既有moveTarget管線。
     const moveProposalRaw = String(aiData.move_proposal || "").trim();
     const moveProposal = moveProposalRaw && KANSHOU_LOCATIONS_.some(l => l.name === moveProposalRaw) ? moveProposalRaw : "";
 

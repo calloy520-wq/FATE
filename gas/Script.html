@@ -1167,9 +1167,7 @@
       + '<div style="color:#cfc3d8; font-size:14px; line-height:1.9;">' + (desc || '此寶具的詳細效果由戰鬥中的寶具解放結算，見「⚔ 解放寶具」。') + '</div>';
     showHistoryOverlay(html);
   }
-  // ❓ solo 頂部常駐「教學」鈕(2026-07 玩家「solo加點新手教學？」)：單一總覽卡，濃縮新手第一局要懂的
-  //   核心機制，隨時可重開(非首次登入強制彈窗)。細節公式仍留給各自的「?」(showManaHelp/showSixHelp等)，
-  //   這裡只給「這是什麼、我為什麼要管」的一句話，避免跟既有教學重複維護兩份文字。
+  // ❓ solo 頂部常駐「教學」鈕：單一總覽卡，隨時可重開(非首次登入強制彈窗)。細節公式留給各自的「?」(showManaHelp/showSixHelp)，避免重複維護兩份文字。
   function openTutorial() {
     var html = '<h3 style="margin:0 0 10px; color:#e7c873;">❓ 新手教學・快速上手</h3>'
       + '<div style="color:#cfc3d8; font-size:13.5px; line-height:1.85;">'
@@ -1272,8 +1270,7 @@
         try { var mpo = JSON.parse(m.physical || '{}'); mPhysLine = kanshouStatusLines_(mpo); } catch (e) { }
       }
       var mOutfitLine = ((pc && pc.mode === 'kanshou') && m.outfit) ? '<div style="color:#c9a0e0; font-size:11px; line-height:1.5;">裝扮　' + m.outfit + '</div>' : '';
-      // 🐛→✅ 玩家反映「御主也要換裝按鈕、跟從者一樣格式」：鑑賞御主卡補上與從者卡同款的換裝＋詳細狀態按鈕列，
-      //   原本浮在卡片列表下方、獨立一顆的「我的詳細狀態」(Index.html #pane-status)併到這一行、不再重複外露。
+      // 🐛→✅ 鑑賞御主卡補上與從者卡同款的換裝＋詳細狀態按鈕列，原本獨立浮在卡片列表下方的「我的詳細狀態」(Index.html #pane-status)併到這一行，不再重複外露。
       var mButtonsLine = (pc && pc.mode === 'kanshou')
         ? ('<div style="margin-top:6px; display:flex; gap:6px;">'
             + '<button onclick="changeOutfit(\'' + String(m.name).replace(/'/g, '') + '\', true)" title="換裝：自訂你此刻的服裝穿著，AI 會依此描寫（只換衣不換人）。免費即時、留空恢復本相。" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(150,110,190,0.18); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👗 換裝</button>'
@@ -1288,8 +1285,7 @@
         + ((pc && pc.mode === 'kanshou') ? '' :  // 🌹 慾海：御主只露名字＋肉體，不露血量/魔力/令咒/禮裝
             bar('體', m.hpNum, m.hpMax, 'hp')
             + bar('魔', m.mpNum, m.mpMax, 'mp', (t.economy && typeof t.economy.net === 'number') ? t.economy.net : null)
-            // 🐛→✅ 2026-07 玩家要求「令咒鈕移到御主卡片」：令咒是御主的絕對命令權（非從者專屬），原本卻只在
-            //   從者卡動作列才點得到，御主卡只有靜態計數。改成御主卡直接可點的按鈕，從者卡那顆挪給靈基修復。
+            // 🐛→✅ 令咒是御主的絕對命令權(非從者專屬)，改成御主卡直接可點的按鈕；從者卡原本那顆位置挪給靈基修復。
             + '<button onclick="event.stopPropagation();openSealMenu()" style="display:block; width:100%; text-align:left; margin-top:3px; font-size:11px; padding:4px 6px; background:rgba(176,108,208,0.16); color:#c79be8; border:1px solid #8a5fb0; border-radius:6px; cursor:pointer;">❖ 令咒 ' + '❖'.repeat(myMasterSeals) + '</button>'
             + (myMystic ? ('<div style="color:#9a8bb0; font-size:11px; margin-top:3px;" title="' + (myMystic.desc || '').replace(/"/g, '') + '">禮裝 <span style="color:#7fd0c0;">✨ ' + myMystic.name + '</span> <span style="color:#8aa;">(被動·戰鬥自動加持從者)</span>' + (myMystic.effect ? ' <span style="color:#7ec8a0;">' + myMystic.effect + '</span>' : '') + '</div>') : ''))
         + mButtonsLine
@@ -1303,8 +1299,7 @@
           var label = n + (r && r !== '-' ? (' ' + r) : '');
           var arg = "'" + String(n).replace(/'/g, '') + "','" + String(fx || '').replace(/'/g, '') + "','" + String(r || '').replace(/'/g, '') + "'";
           var click = 'onclick="event.stopPropagation();showSkillDesc(' + arg + ')"';
-          // 🌈 階級流光分級(2026-07·CSS 見 Style.html .pill-rank-*)：僅技能吃分級，特性(trait)維持暗紅框。
-          //   EX＝雙層結構(外殼彩虹邊框＋內層文字彩虹漸層)；A/B/D·E＝單層 class 全樣式；C/無階級落回原基準。
+          // 🌈 階級流光分級(CSS 見 Style.html .pill-rank-*)：僅技能吃分級，特性(trait)維持暗紅框；EX 為雙層彩虹結構，A/B/D·E 單層 class，C/無階級落回原基準。
           if (fx !== 'trait') {
             var rc = pillRankCls_(r);
             if (rc === 'ex') return '<span class="pill-rank-ex" ' + click + '><i><b>' + (pre || '') + label + '</b></i></span>';
@@ -1329,8 +1324,7 @@
             var _syarg = (_syon ? 'true' : 'false') + ",'" + String(s.synergy.master).replace(/'/g, '') + "','" + String(s.synergy.peak).replace(/'/g, '') + "'";
             return '<span onclick="event.stopPropagation();showSynergyInfo(' + _syarg + ')" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid ' + _sycol + '; color:' + _sycol + '; background:' + _sybg + '; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;' + (_syon ? ' box-shadow:0 0 6px rgba(110,180,220,.55);' : ' opacity:.7;') + '">' + _sytxt + '</span>';
           }
-          // ⚡ 主動技標籤(2026-07 改回按鈕制)：純資訊標籤——實際發動改在攻擊列按「⚡主動」，點標籤看說明。
-          //   🌈 階級分級：青字青框不動(保住「主動技」識別)，只疊對應階級的光暈色(EX紫暈/A紅暈/B黃暈/其餘無)。
+          // ⚡ 主動技標籤：純資訊——實際發動在攻擊列按「⚡主動」，點標籤看說明。青字青框不動(保住識別)，只疊對應階級光暈色(EX紫/A紅/B黃)。
           if (ACTIVE_FX_JS[sk.fx]) {
             var _arg = "'" + String(sk.n).replace(/'/g, '') + "','" + sk.fx + "','" + String(sk.r || '').replace(/'/g, '') + "'";
             var _rc = pillRankCls_(sk.r);
@@ -1341,25 +1335,20 @@
         }).join('');
         var hasActiveSkill = (s.skills || []).some(function (sk) { return sk && ACTIVE_FX_JS[sk.fx]; });
         var traitPills = (s.traits || []).map(function (tr) { return pill(tr.n, tr.r, 'trait', '#c0392b'); }).join('');
-        // 🌹 慾海：從者卡只露 名字/裝扮/服裝狀態/當下狀態——不露血量/魔力/六圍/技能/寶具/動作鈕
-        // 🐛→✅ 2026-07 玩家定案精簡：個性/特徵/關係三行拿掉(改進「📜詳細狀態」按鈕看，見下)。
+        // 🌹 慾海：從者卡只露 名字/裝扮/服裝狀態/當下狀態——不露血量/魔力/六圍/技能/寶具/動作鈕；個性/特徵/關係改進「📜詳細狀態」按鈕看。
         if (pc && pc.mode === 'kanshou') {
           var po = {}; try { po = JSON.parse(s.physical || '{}'); } catch (e) { }
           return '<div style="background:rgba(40,20,34,0.5); border:1px solid #a04a6a; border-radius:8px; padding:6px 8px;">'
             + '<div style="color:#e0a0bc; font-weight:bold; font-size:12px;">🌹 ' + s.cls + '</div>'
-            // 🆕 2026-07 玩家要求「好感顯示在卡片上，放名字旁」：鑑賞卡片先前只有 solo 戰鬥卡有 bondWord() 文字，
-            //   鑑賞完全沒露出好感——直接秀數值(比文字化的「羈絆」標籤更貼合玩家想看進度的訴求)。
+            // 🆕 好感直接秀數值於名字旁(比文字化的 bondWord() 標籤更貼合鑑賞想看進度的需求)。
             + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + ' <span style="font-size:11px; font-weight:normal; color:#e0a0bc;">💗' + (s.bond || 0) + ' · ' + escapeHtml(s.tag || '從者') + '</span></div>'
             + (s.outfit ? '<div style="color:#c9a0e0; font-size:11px; line-height:1.5;">裝扮　' + s.outfit + '</div>' : '')
             + kanshouStatusLines_(po)
-            // 🚫 2026-07 玩家定案「換裝改AI專屬」：同伴的服裝改由AI依outfit_change欄位自主更新(見Gallery.gs)，
-            //   玩家不再能手動指定她穿什麼——只保留「📜詳細狀態」鈕；下方changeOutfit()/actionSetOutfit本體
-            //   保留未刪(仍供御主本人換裝與solo從者卡使用)，只是這裡不再露出觸發同伴換裝的入口。
+            // 🚫 同伴的服裝改由AI依outfit_change欄位自主更新(見Gallery.gs)，不再手動指定——changeOutfit()/actionSetOutfit本體保留未刪(仍供御主本人換裝與solo從者卡使用)，這裡只是不露出觸發同伴換裝的入口。
             + '<div style="margin-top:6px; display:flex; gap:6px;">'
             + '<button onclick="openStatus(\'' + safeN + '\',\'' + safeN + '\')" title="查看「' + safeN + '」的完整狀態：個性／特徵／身世／萌點／關係等，並可逆天改命微調敘事欄" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 詳細狀態</button>'
             + '</div>'
-            // 🆕 2026-07 玩家「請走和關係按鈕做到標籤的卡片上」：原本只在👥同伴面板才能操作，這裡
-            //   直接複用既有 kanshouEditRelTag/kanshouRemove(Script_Kanshou.html)，不重寫新邏輯。
+            // 🆕 直接複用既有 kanshouEditRelTag/kanshouRemove(Script_Kanshou.html)，不重寫新邏輯。
             + '<div style="margin-top:6px; display:flex; gap:6px;">'
             + '<button onclick="kanshouEditRelTag(\'' + safeN + '\',\'' + String(s.tag || '').replace(/'/g, '') + '\')" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(120,90,180,0.18); color:#dcc8ff; border:1px solid #6a4a9a; border-radius:6px; cursor:pointer;">🏷️ 關係</button>'
             + '<button onclick="kanshouRemove(\'' + safeN + '\')" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(160,74,106,0.18); color:#e8b8cc; border:1px solid #8a4a5a; border-radius:6px; cursor:pointer;">請走</button>'
@@ -1369,7 +1358,7 @@
         var bcol = isActive ? '#e0574a' : '#7a4040';
         return '<div ' + (dual ? 'onclick="setActiveServant(\'' + safeN + '\')" ' : '') + 'style="background:rgba(20,14,28,0.55); border:1px solid ' + bcol + '; border-radius:8px; padding:6px 8px; ' + (dual ? 'cursor:pointer; ' + (isActive ? 'box-shadow:0 0 8px rgba(224,87,74,.4);' : 'opacity:.82;') : '') + '">'
           + '<div style="color:#c0392b; font-weight:bold; font-size:12px;">📿 從者・' + s.cls + (s.stolen ? ' <small style="color:#b06cd0;">⛓奪取</small>' : '') + (dual ? (isActive ? ' <small style="color:#e0574a;">⚔出戰中</small>' : ' <small style="color:#8a7;">待命·點擊出戰</small>') : '') + '</div>'
-          // 📜 詳細狀態(2026-07 玩家定案「做個按鈕也能看自己從者」)：呼叫既有 openStatus→完整命盤視窗(個性/特徵/身世/六圍/羈絆…)＋逆天改命(同行從者 canEditFate=true)。event.stopPropagation 防 dual 卡點名觸發切換出戰。
+          // 📜 詳細狀態：呼叫既有 openStatus→完整命盤視窗＋逆天改命(同行從者 canEditFate=true)。event.stopPropagation 防 dual 卡點名觸發切換出戰。
           + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + ' <button onclick="event.stopPropagation();openStatus(\'' + safeN + '\',\'' + safeN + '\')" title="查看「' + safeN + '」的完整狀態：個性／特徵／身世／六圍／技能／羈絆等，並可逆天改命微調敘事欄" style="font-size:10px; font-weight:normal; padding:1px 7px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer; vertical-align:middle;">📜 狀態</button></div>'
           + (s.outfit ? '<div style="color:#c9a0e0; font-size:10.5px; margin-top:1px;">👗 ' + s.outfit + '</div>' : '')
           + bar('體', s.hpNum, s.hpMax, 'hp')
@@ -1392,8 +1381,7 @@
               + (dual ? '<div style="flex:1 0 100%; color:#9a8fae; font-size:10px;">下列動作對「' + s.name + '」生效：</div>' : '')
               + '<button onclick="event.stopPropagation();manaSupply()" title="補魔：硬擠魔術迴路回滿共用魔力池。⚠永久代價：血上限−15、迴路−3。孤注一擲，過度=慢性自盡。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
               + '<button onclick="event.stopPropagation();openBondMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(224,138,170,0.16); color:#e08aaa; border:1px solid #b06c84; border-radius:6px; cursor:pointer;">💕 羈絆</button>'
-              // 🐛→✅ 2026-07：令咒鈕挪去御主卡（令咒屬御主的絕對命令權，不該只在從者卡才點得到），
-              //   這裡原本的位置改放「靈基修復」——消費共用魔力池為從者療傷、不燃令咒、可重複使用。
+              // 🐛→✅ 令咒鈕挪去御主卡，這裡原本的位置改放「靈基修復」——消費共用魔力池為從者療傷、不燃令咒、可重複使用。
               + '<button onclick="event.stopPropagation();spiritRepair()" title="靈基修復：引動共用魔力池為從者療傷，回復部分氣血（不燃令咒、可重複使用；魔力池不足則無法發動）。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(70,150,110,0.18); color:#7ee0a8; border:1px solid #3a8a5a; border-radius:6px; cursor:pointer;">🩹 靈基修復</button>'
               + '<button onclick="event.stopPropagation();openRestMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(120,120,160,0.16); color:#a9a9d8; border:1px solid #5a5a8a; border-radius:6px; cursor:pointer;">🛏️ 休息</button>'
               + '<button onclick="event.stopPropagation();changeOutfit(\'' + safeN + '\')" title="換裝：自訂從者當前服裝穿著，AI 敘述依此描寫（只換衣不換人·五官/髮色/體態不變）。免費即時、留空恢復本相。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(150,110,190,0.16); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👗 換裝</button>'
@@ -1412,9 +1400,7 @@
       } else {
         sh = '';
       }
-      // 🆕 2026-07 玩家「同伴面板有辦法不做在+裡面嗎?類似...標籤下面就有3個空位」：鑑賞標籤卡片
-      //   下方直接露出剩餘空位，點擊就開既有的👥同伴面板(ensureKcOverlay_/openCompanions)，
-      //   不必先挖進☰抽屜才找得到入口；抽屜項目本身保留當備用途徑，不影響其行為。
+      // 🆕 鑑賞標籤卡片下方直接露出剩餘空位，點擊開既有的👥同伴面板(ensureKcOverlay_/openCompanions)，不必先挖進☰抽屜；抽屜項目保留當備用途徑。
       if (pc && pc.mode === 'kanshou') {
         var kcEmptySlots = Math.max(0, 3 - myServants.length);
         if (kcEmptySlots > 0) {
@@ -1502,18 +1488,12 @@
   }
 
   async function renderMapPane(preNodes) {
-    // ⚡ 2026-07：每個動作(buildClientState_/actionMove)都已夾帶 mapNodes 進共用 state blob——
-    //   優先吃 preNodes(或前一次快取 lastMapNodes)，只有真的兩者皆無時才退回獨立 get_map_nodes round-trip。
-    //   這是手機切到「地圖」分頁時明顯延遲的根因：舊版每次顯示地圖都強制多打一趟 google.script.run。
+    // ⚡ 優先吃 preNodes(或前一次快取 lastMapNodes)，只有兩者皆無時才退回獨立 get_map_nodes round-trip——避免手機切到「地圖」分頁時每次都多打一趟 google.script.run。
     if (preNodes) lastMapNodes = preNodes;
     var c = document.getElementById('map-pane-content'); if (!c) return;
-    // ⚡ 地圖真正隱藏時才跳過渲染：applyClientState 每動作都呼此函式，手機在「故事」頁時地圖隱藏、
-    //   白算一趟。★用 offsetParent===null 判「實際是否顯示」而非 .active class——寬螢幕(≥601)是三欄
-    //   並排、地圖恆顯示但【沒有 .active class】(那是手機分頁機制)，誤用 class 會讓寬螢幕地圖永不刷新(光圈不動)。
+    // ⚡ 用 offsetParent===null 判「實際是否顯示」而非 .active class——寬螢幕(≥601)三欄並排、地圖恆顯示但沒有 .active class(那是手機分頁機制)，誤用 class 會讓寬螢幕地圖永不刷新。
     if (c.offsetParent === null) return;
-    // 🌸 鑑賞地圖分頁改清單型(2026-07 玩家「改回跟solo很像的ui 3個分頁！但是地圖變成清單類型」)：
-    //   鑑賞沒有座標/節點，不套用下方 solo 的戰場SVG——改渲染「出門走走」的地點清單(取代原本
-    //   掛在☰抽屜裡的彈窗)，複用 Script_Kanshou.html 的 kcMapListHtml_/kanshouEncounterOn。
+    // 🌸 鑑賞沒有座標/節點，不套用下方 solo 的戰場SVG——改渲染「出門走走」地點清單，複用 Script_Kanshou.html 的 kcMapListHtml_/kanshouEncounterOn。
     if (pc && pc.mode === 'kanshou') {
       c.innerHTML = '<div style="color:#e0a0bc; font-weight:bold; font-size:14px; margin-bottom:4px;">🗺️ 出門走走</div>'
         + '<div style="color:#9a8f70; font-size:11px; margin-bottom:8px;">挑個地方走走，路上也許會巧遇誰。</div>'
@@ -1521,20 +1501,16 @@
         + '<input type="checkbox" id="kc-encounter-toggle" ' + (kanshouEncounterOn ? 'checked' : '') + ' onchange="kanshouToggleEncounter_(this.checked)"> 路上可能巧遇陌生人'
         + '</label>'
         + '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:#8a6a9a;color:#d0a8e0;" onclick="kanshouLookAround()">👀 看看四周還有沒有其他人</button>'
-        // ⏰ 2026-07「跳到時段感覺比較好」玩家定案：取代舊版「推進N小時」(玩家得自己心算會落在
-        //   哪個時段)——直接選目標時段，GAS算好差幾小時(kanshouJumpBand，見Script_Kanshou.html)。
+        // ⏰ 直接選目標時段，GAS 算好差幾小時(kanshouJumpBand，見 Script_Kanshou.html)，取代舊版「推進N小時」要自己心算。
         + '<div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:10px;">'
         + KC_TIME_BANDS_.map(function (b) { return '<button class="btn" style="flex:1 0 30%;padding:6px 2px;font-size:11.5px;border-color:#4a6a8a;color:#8ac0e0;" onclick="kanshouJumpBand(\'' + b.key + '\',\'' + b.name + '\')" title="跳到' + b.key + '，不在身邊的英靈依新時刻重新分佈去向">' + b.label + '</button>'; }).join('')
         + '</div>'
-        // 🍳 2026-07「時段行動」骨架：只在對應時段才顯示的按鈕，第一個動作是清晨限定的「準備早餐」
-        //   (kcClock由send()/syncData()回應夾帶的kanshouClock更新，見Script.html)。之後想加其他
-        //   時段的專屬行動，往這個if/陣列加即可，不必另開一條平行的按鈕渲染邏輯。
+        // 🍳「時段行動」骨架：只在對應時段才顯示的按鈕(kcClock 由 send()/syncData() 夾帶更新)。想加其他時段行動，往這個if/陣列加即可。
         + (kcClock && kcClock.band === '清晨'
           ? '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:#8a9a4a;color:#c0e08a;" onclick="kanshouPrepBreakfast()" title="移動到廚房，房客們各自骰一次今早去向">🍳 準備早餐</button>'
           : '')
         + '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:#7a6a4a;color:#e0c090;" onclick="kanshouEndDay()" title="不在身邊的英靈由GAS自動決定隔天去哪，時間推進到明天">🌙 結束一天</button>'
-        // 🎊 2026-07「跳到節慶」玩家反映「不常用，不要擺出來」：改收進＋抽屜(見Index.html
-        //   drawer-festival／Script_Kanshou.html openKanshouFestivals)，地圖頁不再常駐佔版面。
+        // 🎊「跳到節慶」不常用，已收進＋抽屜(見 Index.html drawer-festival／Script_Kanshou.html openKanshouFestivals)，地圖頁不再常駐佔版面。
         + '<div id="kc-map-list">' + kcMapListHtml_() + '</div>';
       return;
     }
@@ -1643,7 +1619,7 @@
       s += '<text x="' + cx + '" y="' + (cy + 5.3) + '" font-size="3.1" fill="#ede7fb" text-anchor="middle" paint-order="stroke" stroke="#0a0810" stroke-width="0.9" style="cursor:pointer; font-weight:bold;" onclick="travelFromPane(\'' + nm + '\')">' + short(n.name) + (n.enemy ? ' ⚔' : '') + (n.here ? ' ◈' : '') + '</text>';
     });
     var legend = '<div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding:5px 6px 2px; font-size:10px; color:#9a8fae;">'
-      // 🎨 圖例務必對齊上方 typeColor 實色：靈地綠/城區藍/祭壇金/據點橙/約會粉(2026-07 修：原 🔵靈地、據點併祭壇 皆與實色不符)
+      // 🎨 圖例務必對齊上方 typeColor 實色：靈地綠/城區藍/祭壇金/據點橙/約會粉
       + ['🟢靈地', '🔵城區', '🟡祭壇', '🟠據點', '💗約會'].map(function (x) { return '<span>' + x + '</span>'; }).join('')
       + '<span style="color:#ffd86a;">◈所在</span><span style="color:#ff6a6a;">⚔敵蹤</span></div>';
     return '<div style="border:1px solid rgba(212,175,55,0.3); border-radius:10px; overflow:hidden; box-shadow:inset 0 0 24px rgba(0,0,0,.5);"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" style="width:100%; height:auto; display:block;">' + s + '</svg>' + legend + '</div>';
@@ -1781,11 +1757,7 @@
       // 我方出擊（雙從者＝多筆 strikes）
       const strikes = rd.strikes || [{ by: r.atk, pHitVal: rd.pHitVal, pRoll: rd.pRoll, dEvaVal: rd.dEvaVal, dRoll: rd.dRoll, pCrit: rd.pCrit, pHit: rd.pHit, pDmg: rd.pDmg, pFired: rd.pFired, note: rd.note }];
       strikes.forEach(k => {
-        // 🐛→✅ 2026-07「戰鬥標籤和戰鬥運算 戰報 檢查」查出：原初符文回血/海怪肉身再生/海怪魔力
-        //   枯竭退場這3種strike(Router_Battle.gs)只帶{by,pHit:false,pDmg:0,note}，沒有pHitVal/
-        //   pRoll/dEvaVal/dRoll——這裡卻無條件套模板，字串插值出「命中 undefined 🎲undefined vs
-        //   迴避 undefined 🎲undefined」+「揮空」，玩家戰報上看到一整行亂碼。改成有真實骰值(k.pRoll
-        //   有定義)才顯示命中/迴避那行，否則只顯示發動者名號，真正的資訊交給下面的note顯示。
+        // 🐛→✅ 原初符文回血/海怪肉身再生/海怪魔力枯竭退場這3種strike只帶{by,pHit:false,pDmg:0,note}，沒有pRoll——只在k.pRoll有定義才顯示命中/迴避那行，否則只顯示發動者名號，避免印出「undefined」亂碼。
         if (k.pRoll !== undefined) {
           h += '<div style="color:#bcd;font-size:11px;">▸ ' + k.by + '：命中 <b style="color:#fff;">' + k.pHitVal + '</b> <span class="dice-roll">🎲' + k.pRoll + '</span> vs 迴避 <b style="color:#fff;">' + k.dEvaVal + '</b> <span class="dice-roll">🎲' + k.dRoll + '</span> ' + critTxt(k.pCrit)
             + '<span style="margin-left:6px;color:' + (k.pHit ? '#7ec87e' : '#888') + ';font-weight:bold;">' + (k.pHit ? '命中 −' + k.pDmg : '揮空') + '</span></div>';
@@ -1894,8 +1866,7 @@
     if (isMaster) {
       if (!confirm('🗡️ 刺殺敵御主「' + npcName + '」？\n\n唯有擲出 20（大成功，1/20）能突破護衛從者、斬殺御主奪勝；\n否則必被護衛捨身擋下，並反噬 1.5 倍傷害給你的從者——重則靈基崩潰、聖杯戰爭落敗。\n\n確定發動奇襲斬首？')) return;
     } else if (useNp) {
-      // 💥 寶具零確認(2026-07 玩家定案「不用一直確定·開錯就開錯不要擋」)：檔位由攻擊列 ＋/＋＋ 蓄勢鈕
-      //   預選(未亮＝僅付底費·overload:false)，按💥直接開火。價格/倍率/反噬%資訊在按鈕 tooltip。
+      // 💥 寶具零確認：檔位由攻擊列 ＋/＋＋ 蓄勢鈕預選(未亮＝僅付底費)，按💥直接開火，價格/倍率/反噬%資訊在按鈕 tooltip。
       var _oSv = (myServants || []).find(function (x) { return x.name === myActiveServant; });
       var _oNpr = String((_oSv && _oSv.six && _oSv.six['寶具']) || '');
       _npOverload = /\+|EX/i.test(_oNpr) ? (npTierArmed || false) : undefined;
@@ -1966,8 +1937,7 @@
     try {
       const res = await gasRun({ action: 'set_servant_output', pcId: pc.id, servant: npcName, output: output, acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) { try { updateEconomy(res.economy); } catch (e) {} }
-      // ⚠ 2026-07 修：失敗(如從者剛陣亡/換人的競態)時，樂觀畫的轉盤外觀原本不會復原，會停在玩家點的
-      // 檔位一路卡到下個動作才被悄悄糾正——比照 servantStrike 失敗路徑，強制 syncData(true) 立即校正。
+      // ⚠ 失敗(如從者剛陣亡/換人的競態)時，樂觀畫的轉盤外觀不會自動復原——比照 servantStrike 失敗路徑，強制 syncData(true) 立即校正。
       else { alert((res && res.message) || '出力設定失敗。'); try { syncData(true); } catch (e) {} }
     } catch (e) { alert('連線失敗，出力設定未果。'); try { syncData(true); } catch (e2) {} }
   }
@@ -1980,9 +1950,7 @@
     gasRun({ action: 'outfit', pcId: pc.id, servant: name, self: !!isSelf, outfit: txt, acctName: (pc && pc.account) || currentAccount })
       .then(function (res) {
         if (res && res.success) {
-          // ⚡ 2026-07：後端已把消毒過的最終值原樣回傳(res.outfit)，不必再另打一趟 get_tags 網路
-          //   確認——直接把這份權威值蓋進快取的 tags 資料、原地重繪(refreshFateTags 吃 prefetched
-          //   不會再發網路請求)。查無快取(如頁面剛載入、還沒成功抓過一次 tags)才退回原本的網路重抓。
+          // ⚡ 後端已把消毒過的最終值原樣回傳(res.outfit)，直接蓋進快取的 tags 資料、原地重繪(refreshFateTags 吃 prefetched 不再發網路請求)，免再打一趟 get_tags；查無快取才退回網路重抓。
           try {
             if (isSelf) {
               myMasterOutfit = res.outfit || '';
@@ -1999,8 +1967,7 @@
       .catch(function (e) { /* 靜默：下次同步會校正 */ });
   }
 
-  // ⚔️ 自訂武裝（2026-07·「Saber斯卡哈仍拿槍」案）：玩家自定武器/戰鬥方式，敘述強制以此為準——
-  //   蓋過職階慣例(Saber=劍…)與該真名的原典武器習慣。鏡射 changeOutfit；留空＝清除、恢復自然演出。
+  // ⚔️ 自訂武裝：自定武器/戰鬥方式，敘述強制以此為準，蓋過職階慣例(Saber=劍…)與原典武器習慣。鏡射 changeOutfit；留空＝清除、恢復自然演出。
   function changeWeapon(name) {
     var sv = (myServants || []).find(function (x) { return x && x.name === name; });
     var cur = (sv && sv.weapon) ? sv.weapon : '';
@@ -2009,8 +1976,7 @@
     gasRun({ action: 'weapon', pcId: pc.id, servant: name, weapon: txt, acctName: (pc && pc.account) || currentAccount })
       .then(function (res) {
         if (res && res.success) {
-          // ⚡ 2026-07：跟 changeOutfit 同款——吃後端回傳的消毒後權威值(res.weapon)直接重繪，
-          //   不再另打一趟 get_tags；查無快取才退回原本網路重抓。
+          // ⚡ 跟 changeOutfit 同款：吃後端回傳的消毒後權威值(res.weapon)直接重繪，免再打一趟 get_tags。
           try {
             if (sv) sv.weapon = res.weapon || ''; // myServants 與 window._lastTags.servants 同一份物件參照，一併同步
             refreshFateTags(window._lastTags || undefined);
@@ -2080,11 +2046,8 @@
     return f ? f.name : '';
   }
   // ⛓ 破戒奪僕：對打殘的敵從者斬契奪為第二從者
-  // 🧰 共用小動作執行器（2026-07·收斂 ruleBreakSteal/proposeAlliance/breakAlliance/allyBond/
-  //   manaSupply/spiritRepair/bond/useSeal 這8個handler幾乎逐字重複的「beginAction→gasRun→
-  //   (成功: 自訂副作用→syncData→narrate→自訂善後)→(失敗: alert)→endAction」樣板骨架。
-  //   confirm() 對話框刻意留在各自呼叫端(措辭/門檻差異太大，硬塞進來反而更難讀)，這裡只收斂
-  //   「confirm 通過之後」那段完全一致的流程。opts：
+  // 🧰 共用小動作執行器：收斂 ruleBreakSteal/proposeAlliance/breakAlliance/allyBond/manaSupply/spiritRepair/bond/useSeal 這8個handler重複的「beginAction→gasRun→(成功: 副作用→syncData→narrate→善後)→(失敗: alert)→endAction」骨架。
+  //   confirm() 對話框留在各自呼叫端(措辭/門檻差異大)，這裡只收斂「confirm 通過之後」的流程。opts：
   //     payload(必)：gasRun 的 payload 物件
   //     beforeCall：beginAction() 成功後、story 訊息插入前的同步前置動作(如收合彈窗)
   //     preMsg：成功前先插入 story 的系統提示 HTML(選填，無則不插)
@@ -2179,7 +2142,7 @@
     });
   }
 
-  // 🩹 靈基修復（2026-07 新增）：消費共用魔力池為從者療傷——不燃令咒、可重複使用（魔力池不足則無法發動）。
+  // 🩹 靈基修復：消費共用魔力池為從者療傷——不燃令咒、可重複使用（魔力池不足則無法發動）。
   async function spiritRepair() {
     if (!confirm('🩹 靈基修復：引動共用魔力池為從者療傷，回復部分氣血。\n\n不燃令咒、可重複使用；若共用魔力池不足則無法發動。\n\n確定發動？')) return;
     const foe = localFoeServantName();
@@ -2236,8 +2199,7 @@
   // ❖ 令咒選單（絕對命令需在戰鬥中對目標施放，這裡放自身向三招）
   function openSealMenu() {
     const opts = [
-      // 🐛→✅ 2026-07：改名「絕對修復」跟從者卡新增的「靈基修復」按鈕（消費魔力·部分回復·可重複）區隔——
-      //   這個是燃令咒的一次性絕對命令，效果更強（雙方全滿），不是同一個東西。
+      // 🐛→✅ 「絕對修復」跟從者卡的「靈基修復」是不同東西：這個燃令咒、一次性、效果更強(雙方全滿)。
       ['repair', '❖ 絕對修復', '燃令咒·從者氣血回滿＋御主魔力池回滿（一次性絕對命令，效果強於靈基修復）'],
       ['mana', '⚡ 強制補魔', '魔力瞬間充盈到極限＋羈絆上升'],
       ['escape', '🌀 緊急脫離', '與從者一同強行撤離險境'],
@@ -2265,8 +2227,7 @@
   // 敗北：先播「願望實現的虛假之夢」，再【由玩家自己按鈕】進老虎道場（敗北後不能輸入，故用按鈕控節奏，不靠死板 timer 搶播）
   async function handleDefeat(res) {
     const story = document.getElementById('story');
-    // 🐯 結構化敗因(2026-07 玩家反饋「伊莉雅每次都亂建議」)：從戰報推導本局實際敗因餵給道場，
-    //   讓講評對症下藥，而非讓 AI 從敘事散文瞎猜、每次都掉回泛用套路。
+    // 🐯 結構化敗因：從戰報推導本局實際敗因餵給道場，讓講評對症下藥，而非讓 AI 從敘事散文瞎猜。
     let causeTag = '';
     try {
       const rp = res.report || {};
@@ -2324,8 +2285,7 @@
     if (ov) ov.style.display = 'flex';
   }
 
-  // ⚠ 2026-07：舊版「封存到鑑賞」機制已整個砍除(慾海同伴改走英靈殿直接召喚)，
-  //   點「奪得聖杯」現在只做清理本局，讓玩家能立刻開新局或去慾海。
+  // ⚠ 舊版「封存到鑑賞」機制已砍除(慾海同伴改走英靈殿直接召喚)，點「奪得聖杯」現在只做清理本局。
   async function claimGrail() {
     var cbtn = document.getElementById('victory-claim-btn');
     if (cbtn) { cbtn.disabled = true; cbtn.innerText = '⏳ 聖杯戰爭落幕中……'; }
@@ -2352,11 +2312,9 @@
     }
   }
 
-  // 🗑️ dev_seed_gallery(塞測試從者) 已移除(2026-07·慾海已驗穩)。
+  // 🗑️ dev_seed_gallery(塞測試從者) 已移除(慾海已驗穩)。
 
-  // 🔧【DEV】檢查/建立缺少的試算表分頁(2026-07 玩家定案「試算表檢查改成純手動」，登入畫面按鈕)：
-  //   doGet()/handleGameAction() 都已移除自動呼叫 ensureFateSheets_，測試期清空試算表後手動按這顆
-  //   即可補回；登入前也能按(不依賴 pc/帳號 已存在)，故刻意擺在 step-account 畫面而非登入後選單。
+  // 🔧【DEV】檢查/建立缺少的試算表分頁：doGet()/handleGameAction() 已移除自動呼叫 ensureFateSheets_，改純手動按這顆補回；登入前也能按(不依賴 pc/帳號已存在)，故擺在 step-account 畫面。
   async function devCheckSheets() {
     showProcessing('檢查試算表中…', true);
     try {
@@ -2386,9 +2344,7 @@
     } catch (e) { alert('清理失敗，請稍後再試。'); } finally { hideProcessing(); }
   }
 
-  // 🌹 鑑賞(慾海)模式的前端函數已搬到 gas/Script_Kanshou.html(2026-07)：
-  //   openCompanions/kanshouAdd/kanshouRemove/changeKanshouName/changeKanshouSex/
-  //   askKanshouSex/askKanshouSetup/enterKanshou。共用同一頁面全域作用域，此檔可直接呼叫它們。
+  // 🌹 鑑賞(慾海)模式的前端函數已搬到 gas/Script_Kanshou.html：openCompanions/kanshouAdd/kanshouRemove 等。共用同一頁面全域作用域，此檔可直接呼叫它們。
 
   // mode: 'defeat'(預設，藤村大河+伊莉雅講評敗因) ｜ 'victory'(同兩人祝賀，換皮不換殼)
   function openTigerDojo(mode) {
@@ -2503,13 +2459,11 @@
     localNPCs = data.people || [];
     nearbyLocations = data.locations || [];
     updateClock(data.clock, data.ap, data.apMax);
-    // 🕰️ 2026-07：kanshouClock 跟著整份 state 一起夾帶，sync() 也要記下來(不是只有 send() 才更新)。
+    // 🕰️ kanshouClock 跟著整份 state 一起夾帶，sync() 也要記下來(不是只有 send() 才更新)。
     if (data.kanshouClock) kcClock = data.kanshouClock;
     updateEconomy(data.economy);
     refreshFateTags(data.tags); // ⚡ 用夾帶的 tags，省一趟 get_tags round-trip
-    // 🧹 2026-07 訂正：先前「鑑賞拔地圖，沒人看得到」的假設對桌機三欄並排版面不成立(地圖頁恆
-    //   顯示，不必切分頁)——renderMapPane 本身已有 offsetParent===null 的隱藏判斷，交給它自己
-    //   決定要不要畫，這裡不再用 kanshou 身分另外攔一次(避免時段按鈕在桌機上不會即時刷新)。
+    // 🧹 renderMapPane 本身已有 offsetParent===null 的隱藏判斷，交給它自己決定要不要畫——不在這裡用 kanshou 身分另外攔一次(桌機三欄並排、地圖頁恆顯示，另攔會讓時段按鈕不即時刷新)。
     renderMapPane(data.mapNodes); // ⚡ 用夾帶的 mapNodes，省一趟 get_map_nodes round-trip
     renderWarActions();
     if (!isSilent) {
@@ -2555,9 +2509,7 @@ function showHistoryOverlay(html) {
     ov = document.createElement('div');
     ov.id = 'history-overlay';
     ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;padding:18px;';
-    // 🐛→✅ 內容過長(如36騎清單)原本沒設高度上限/捲動，直接撐爆超出畫面、關閉鈕被推到畫面外按不到。
-    //   改成外層卡片鎖 max-height(留視窗邊距)+flex直列，內容區(history-body)自己 overflow-y:auto 捲動，
-    //   關閉鈕固定不縮(flex-shrink:0)恆可見。
+    // 🐛→✅ 內容過長(如36騎清單)原本沒設高度上限/捲動，會撐爆畫面、關閉鈕按不到——外層卡片鎖 max-height+flex直列，內容區自己捲動，關閉鈕 flex-shrink:0 恆可見。
     ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:480px;width:100%;max-height:calc(100vh - 36px);padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;">'
       + '<div id="history-body" style="overflow-y:auto;min-height:0;"></div>'
       + '<button onclick="document.getElementById(\'history-overlay\').style.display=\'none\'" style="margin-top:12px;width:100%;padding:10px;background:#4a3a6a;color:#fff;border:none;border-radius:8px;cursor:pointer;flex-shrink:0;">關閉</button>'
@@ -2570,25 +2522,20 @@ function showHistoryOverlay(html) {
 
 // 🔵 依模式開關功能：solo 隱藏輸入框；kanshou 全開
 function applyModeUI() {
-  // 🔵 對話輸入窗只在「鑑賞」(後日談約會)模式出現。
-  //   單人聖杯戰爭＝純按鈕：GAS 算數值、AI 只說書，不再猜玩家想幹嘛(actionPlay 演化)。
-  //   保留「＋」工具抽屜(狀態/史紀/設定)，只收掉文字輸入框、傳送鈕與慾海開關。
+  // 🔵 對話輸入窗只在「鑑賞」(後日談約會)模式出現——單人聖杯戰爭＝純按鈕，GAS 算數值、AI 只說書；保留「＋」工具抽屜，只收掉文字輸入框、傳送鈕與慾海開關。
   var isKanshou = (pc && pc.mode === 'kanshou');
   var uin = document.getElementById('u-in'); if (uin) uin.style.display = isKanshou ? '' : 'none';
   var sbtn = document.getElementById('send-btn'); if (sbtn) sbtn.style.display = isKanshou ? '' : 'none';
-  // 🔥 2026-07 玩家定案「改回來」：上一輪隱藏開關導致 driveOn 永遠鎖在 false，🔥主動掌握模式的
-  //   敘事行為(driveStr注入/尺度拉滿)與 AI_MODEL(deepseek-v3.1-terminus)整個變成永遠用不到的死路，
-  //   只剩 SOLO_MODEL(Gemini)失敗時的兜底角色——玩家確認這不是本意，改回原本依模式顯示/隱藏。
+  // 🔥 曾經隱藏過這顆開關，導致 driveOn 永遠鎖在 false、🔥主動掌握模式(driveStr注入/deepseek-v3.1-terminus)整個變成用不到的死路——改回依模式顯示/隱藏。
   var drv = document.getElementById('drive-mode-toggle'); // 🔥 主動掌握開關(原nsfw-mode-toggle重生，見Index.html註解)
   if (drv) { var lab = drv.closest('label'); if (lab) lab.style.display = isKanshou ? '' : 'none'; }
-  // 🎴 2026-07 UI 大改：solo 頂部＝查看/魔力/系統三鍵(取代地點)、底部輸入框整條隱藏(純按鍵)；
-  //   慾海維持原本(頂部地點徽章＋底部輸入框打字互動＋NSFW開關)，零改動守紅線②。
+  // 🎴 solo 頂部＝查看/魔力/系統三鍵(取代地點)、底部輸入框整條隱藏(純按鍵)；慾海維持原本(頂部地點徽章＋底部輸入框＋NSFW開關)，零改動守紅線②。
   var tSolo = document.getElementById('topbar-solo'); if (tSolo) tSolo.style.display = isKanshou ? 'none' : 'flex';
   var tKan = document.getElementById('topbar-kanshou'); if (tKan) tKan.style.display = isKanshou ? '' : 'none';
   var ibar = document.getElementById('input-bar'); if (ibar) ibar.style.display = isKanshou ? '' : 'none';
   // 👥 後日談同伴管理：只在鑑賞模式出現
   var dcomp = document.getElementById('drawer-companions'); if (dcomp) dcomp.style.display = isKanshou ? '' : 'none';
-  // 🎊 快轉節慶(2026-07 從地圖頁移進＋抽屜，玩家「不常用，不要擺出來看」)：只在鑑賞模式出現
+  // 🎊 快轉節慶(從地圖頁移進＋抽屜，不常用)：只在鑑賞模式出現
   var dfest = document.getElementById('drawer-festival'); if (dfest) dfest.style.display = isKanshou ? '' : 'none';
   // 💼 打工賺錢(2026-07 經濟層)：只在鑑賞模式出現
   var djob = document.getElementById('drawer-job'); if (djob) djob.style.display = isKanshou ? '' : 'none';
@@ -2598,9 +2545,7 @@ function applyModeUI() {
   var wa = document.getElementById('war-actions'); if (wa) wa.style.display = isKanshou ? 'none' : 'flex';
   // 🌹 鑑賞御主卡已內建「換裝＋詳細狀態」按鈕列，卡片列表下方這顆獨立按鈕改只在 solo 顯示，避免重複外露
   var msf = document.getElementById('my-status-fallback'); if (msf) msf.style.display = isKanshou ? 'none' : '';
-  // 🗺️ 2026-07 玩家定案「改回跟solo很像的3分頁UI，但地圖分頁在鑑賞改清單型」：地圖分頁/面板
-  //   兩軌都顯示——solo 維持既有戰場SVG圖(renderMapPane內部判斷)，鑑賞則改渲染「出門走走」的
-  //   地點清單(取代原本掛在☰抽屜裡的彈窗)，兩者共用同一顆分頁按鈕與 #pane-wrap 三欄/三分頁版型。
+  // 🗺️ 地圖分頁/面板兩軌都顯示——solo 維持既有戰場SVG圖(renderMapPane內部判斷)，鑑賞改渲染「出門走走」地點清單，兩者共用同一顆分頁按鈕與 #pane-wrap 三欄/三分頁版型。
   var tMap = document.getElementById('tab-map'); if (tMap) tMap.style.display = '';
   var pMap = document.getElementById('pane-map'); if (pMap) pMap.style.display = '';
   try { if (!isKanshou) renderWarActions(); } catch (e) {}
@@ -2619,9 +2564,8 @@ function applyModeUI() {
     story.scrollTop = story.scrollHeight;
 
     try {
-      // 🧹 2026-07：isNsfw 旗標已拔——actionNarrateOnly 早改為純看 pcId 路由(KPC_=NSFW)，前端傳了也被無視。
-      // 🔥 2026-07 新增 opts.deepseek：唯一目前會傳true的呼叫端是manaSupply()/useSeal()的高好感
-      //   解鎖分支(res.unlocked)，其餘呼叫一律不傳、行為不變。
+      // 🧹 isNsfw 旗標已拔——actionNarrateOnly 純看 pcId 路由(KPC_=NSFW)，前端傳了也被無視。
+      // 🔥 opts.deepseek：唯一會傳true的呼叫端是manaSupply()/useSeal()的高好感解鎖分支(res.unlocked)，其餘呼叫不傳。
       const res = await gasRun({ action: "narrate_only", pcId: pc.id, promptText: promptText, deepseek: !!(opts && opts.deepseek) });
       document.getElementById(loadId)?.remove();
 
@@ -2639,15 +2583,8 @@ function applyModeUI() {
     }
   }
 
-  // 🧹 2026-07：拿掉這裡原本一段描述「連擊戰報專用輕量敘事」的孤兒註解——它講的是舊九州
-  //   handleMultiAttack/renderCombatReport/narrateCombatResult(已於更早的清理移除)，不是下面
-  //   send()的行為；send() 是鑑賞(action:'play')自由聊天引擎的唯一呼叫點，跟「連擊」無關。
-
-  // 🧹 2026-07「SOLO鑑賞完全拆分」稽核：send()(鑑賞聊天引擎，action:'play' 唯一呼叫點)＋跑條
-  //   showProgressLoader_/hideProgressLoader_/progressTimer 已搬進 Script_Kanshou.html——這些是
-  //   鑑賞專屬邏輯，solo 整條輸入框都是隱藏的，本來就不該住在共用檔案。兩檔共享同一頁面全域
-  //   作用域(Index.html先載入本檔、後載入Script_Kanshou.html)，send()對currentOptions/
-  //   lastAiContext/localNPCs/nearbyLocations/kcClock(皆宣告於本檔)的引用不受影響。
+  // 🧹 send()(鑑賞聊天引擎，action:'play' 唯一呼叫點)＋跑條 showProgressLoader_/hideProgressLoader_/progressTimer 已搬進 Script_Kanshou.html(鑑賞專屬，solo 輸入框整條隱藏)。
+  //   兩檔共享同一頁面全域作用域(Index.html 先載入本檔、後載入 Script_Kanshou.html)，send() 對本檔宣告的 currentOptions/lastAiContext/localNPCs/nearbyLocations/kcClock 引用不受影響。
 
 
 
