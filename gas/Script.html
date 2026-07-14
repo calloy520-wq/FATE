@@ -2807,13 +2807,10 @@ function applyModeUI() {
       //   兩軌統一：同地角色一律純文字，不再有可點擊的金色連結。
       if (localNPCs && localNPCs.length > 0) {
     localNPCs.forEach(npc => {
+      // 2026-07 玩家「非本地的角色 名子不要再用紫色渲染了」：不論在場與否一律純文字，
+      //   不再用顏色標示「不在場」這件事本身。
       if (npc.name && npc.name.length >= 2) {
-        if (npc.isExact) {
-          pushCandidate(npc.name, npc.name);
-        } else {
-          // 在名單但不在同地（高好感牽掛之人）→ 紫色遠方之人，純資訊標示、不可點
-          pushCandidate(npc.name, `<span style="color:#9C27B0;">${npc.name}</span>`);
-        }
+        pushCandidate(npc.name, npc.name);
       }
     });
   }

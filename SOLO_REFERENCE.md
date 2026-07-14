@@ -2422,6 +2422,32 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(Engine_Combat.gs這批完全沒有被觸碰)。部署後建議測試：①開場應該零房客；②早餐/推進時間/打工/跳時段/跳節慶應該看到跑條輪播文字而非純聊天式的瞬間loading；③地圖「房間」分頁應該顯示「(玩家名)的房間」+3間客房(空的顯示「空房間N」)，客房旁的🏠按鈕應該能指派已召喚的同伴入住、入住後房間顯示名稱應該變成她的名字；④英靈殿召喚清單應該只看得到女性(含恩奇都)，看不到斯卡哈-Assassin版本；⑤巧遇/推進時間重新分佈去向應該只會撞見女性；⑥solo模式完全不受影響(回歸測試)。
 
+## §95 §94上線後玩家實測回報的一批修正：時鐘HUD／推進時間亂傳送同伴／入住UI改位置／低好感過度熟稔／MEMORY技巧欄污染／恩奇都與伊莉雅Caster移出／巧遇崩潰／紫色渲染（2026-07・玩家實際上線玩§94那批後陸續回報一串問題）
+
+**①時鐘HUD不會動的假象(`d53956c`，已單獨commit)**：玩家「時間怪怪的 我在深夜按清晨 結果還是在第一天」——查證`rollHours_`本身day/hour運算完全正確，真正的根因是`actionPlay`的回傳JSON只塞了`kanshouClock`(地圖分頁邏輯用)，漏了共用前端`updateClock(data.clock,...)`實際拿來刷新`#clock-hud`文字的通用`clock`欄位——每次鑑賞動作後HUD其實被隱藏，造成「時間卡住」的錯覺。修法：`actionPlay`回傳補上`clock: kanshouClock ? kanshouClock.label : ""`。
+
+**②推進時間/跳時段會把正在互動的同伴隨機傳送走**：玩家實例「我原本在他家 然後我調整時間 我敘述說要不要出去走走 對面答應就自己走了 我還在他家」——`actionPlay`的`allEstablishedForTime.forEach`(推進時間/跳時段分支)重骰**所有**已建立同伴的去向，沒有排除「此刻`LOC`跟玩家`curL`相同(正在同一場景)」的人，導致正在互動中的同伴被時間推進的重骰隨機傳走，玩家本人位置卻沒變。修法：filter加上`String(r[COL.PC.LOC]||"").trim() !== String(curL||"").trim()`，在場的人不重骰、原地不動，只有真正不在玩家身邊的人才照舊依時刻決定去向。`endDay`(結束一天)分支的`intimateNightNames`部分邏輯不同(那是刻意「一天結束大家各自回家睡」的語意)，這次沒有動它。
+
+**③入住UI搬家**：玩家「按鈕指派她入住這好怪 改成在畫面左邊角色標籤那裡新增邀請入住」——原本掛在地圖「房間」分頁空房格上的入住按鈕(`prompt()`問要哪個名字)拿掉，改成`renderKcPartyList_`(角色列表)每一位還沒入住(`!/^room[1-3]$/.test(c.room)`)的同伴自己一顆「🏠邀請入住」，新函式`kanshouInviteMoveIn(name)`自動挑第一個空著的客房呼叫既有的`actionKanshouAssignRoom`(不必問玩家要哪一間，房號本身對玩家沒有意義)，客房滿了才跳alert提醒。房間分頁的地點列表恢復成跟其他地點一樣純瀏覽(📍走過去/👋提議同行)。
+
+**④好感低卻演得很熟稔**：玩家「歸屬和位階會給AI看嗎...為啥好感度10大家還是很認識我的感覺???要當陌生人不是嗎」——查證`COL.PC.RANK`(職階)/`COL.PC.FACTION`(歸屬)本身不會進`partyDetailsArr`提示詞(只有`BACK`會，且早在§94就已把保底`BACK`改成中性描述，不含職階字樣)；真正缺的是`REL_TAG`5階梯度(點頭之交/普通朋友/熟識的朋友/親近的人/戀人)雖然數字正確，但字面本身沒告訴AI「這個階段該演出什麼熟悉程度」，AI容易自行預設熱絡口吻跟數字矛盾。修法：`partyDetailsArr`push那行新增`pTierToneStr`，只在低梯度(點頭之交/普通朋友)才加一句態度提示("彼此才剛認識不久，口吻應保持禮貌卻略帶生疏保留，不該表現得像已相識多年的熟人")，熟識的朋友以上不加、不畫蛇添足限制發揮。
+
+**⑤MEMORY欄「雙修技巧」擷取regex是壞的，每回合外洩過期關係介紹句進提示詞**：玩家追問「【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。這是每次都會給AI嗎?會隨關係進度更新嗎?」——查證`nsfwMemories`組裝時`pSkills`/`npcSkills`舊寫法`(MEMORY||"無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/,...)`用半形「| [」當邊界，但MEMORY欄實際的標記分隔符是全形「｜」，導致：(a)只要這個人還沒觸發過`dynamic_skills`(沒有`[雙修技巧]`標記)，regex完全不匹配、`.replace()`原樣傳回，等於把**整格MEMORY**(含召喚時塞的關係介紹句、口吻、換裝、家居裝飾等所有其他標記)當成「技巧」字面塞進`[身體記憶]`/`[技巧]`欄餵給AI，且這段介紹句永遠不會更新(除非其他函式清掉它，但沒有函式會這麼做)；(b)即使已有`[雙修技巧]`標記，因為邊界抓錯，也會把該標記之後的所有內容一併吞入。修法：新增共用函式`kanshouSkillTagStr_(memory)`(跟`processSkills`一致的全形｜邊界擷取)，`pSkills`/`npcSkills`兩處呼叫點改用它(取前5個供提示詞用，完整清單仍存最多30個在MEMORY不受影響)。
+
+**⑥伊莉雅(Caster)/恩奇都移出鑑賞**：玩家「伊莉雅絲菲爾·馮·愛因茲貝倫（Caster install）這也可以先移出 我不想要太多同名角色重複」＋「恩奇都...也不要進來吧?」——新增單一清單`KANSHOU_SUMMON_BLOCKED_IDS_ = ['斯卡哈-Assassin','伊莉雅-Caster','恩奇都-Lancer']`取代原本只擋斯卡哈-Assassin一個id的寫法，`actionKanshouSummonHero`召喚擋、`actionEnterKanshou`起始鋪墊過濾、前端`_kcHeroesAll`過濾(手動同步同一份id清單)三處都改吃這份清單；`KANSHOU_LOCATION_TAGS_`拔掉`書店二樓`(伊莉雅)/`廢棄神社`(恩奇都)兩個條目、`KANSHOU_ENCOUNTER_FEMALE_IDS_`跟`KANSHOU_HERO_HOME_`(伊莉雅那筆)一併拔除。種子資料本體(`Seed_Codex.gs`)不動，兩人仍存在種子庫，只是鑑賞全面關閉入口(跟斯卡哈-Assassin同等待遇)。§94原先寫「恩奇都繼續歸在可召喚一側」的結論已被這次玩家新決定推翻，此為更新後的現狀。
+
+**⑦順手抓到的既有crash：`kanshouRollEncounter_`引用已刪除的`KANSHOU_ENCOUNTER_MALE_IDS_`**：§94「男性全部踢出」那批已經把`KANSHOU_ENCOUNTER_MALE_IDS_`整個刪除，但`kanshouRollEncounter_`的`basePool`保底邏輯忘了同步改，還在`.concat(KANSHOU_ENCOUNTER_FEMALE_IDS_)`前面接一個不存在的常數——只要巧遇擲骰查到「查無地點標籤」的位置(`tagPool.length`為0)就會丟`ReferenceError`直接炸掉整個巧遇流程。修法：`basePool`改成單純`tagPool.length ? tagPool : KANSHOU_ENCOUNTER_FEMALE_IDS_`。
+
+**⑧非在場角色名字不再用紫色渲染**：玩家「非本地的角色 名子不要再用紫色渲染敘述了」——`Script.html`的`send()`原本對`localNPCs`裡`!isExact`(高好感牽掛、但目前不同地點)的人名包一層`<span style="color:#9C27B0;">`(紫色)，`isExact`(同地點)才是純文字；玩家反饋這樣「顯示不在場」的視覺標示很奇怪，改成不論在場與否一律純文字，不再用顏色區分這件事本身。
+
+**⑨真正的根因：BACK保底字面本身就烤死「借住在這裡的房客」**：玩家看到身世欄位「借住在這裡的房客，過著平靜的日常生活」後追問「這個身世太怪了吧 難怪他們這麼熱情?」——查證`heroToKanshouRow_`召喚(=batch鋪墊)當下就把這句話寫死進`BACK`，但此時`ROOM`根本還是空的(不是房客，要玩家之後另外呼叫`actionKanshouAssignRoom`才算入住)，等於每個剛加入世界、玩家還沒認識、更沒邀請入住的陌生人，身世都被講成「已經同住的房客」，AI讀到自然演得像老相識——這比④的REL_TAG語氣提示更早、更直接命中問題根源。修法：靜態`BACK`保底字串改成不帶任何居住關係字面的中性描述(「生活在這座平行世界城鎮裡的英靈，與你尚無深交」)；「TA是不是房客」這個會隨玩家操作(`actionKanshouAssignRoom`)即時變動的狀態，改成在`partyDetailsArr`依當下`COL.PC.ROOM`動態判斷才補上(`pHousemateStr`，符合`/^room[1-3]$/`才講「TA是入住在你家、與你同住一個屋簷下的房客」，沒入住完全不提)。
+
+**⑩男性召喚入口重新開放**：玩家釐清「邀請加入到世界可以開放所有角色不管性別」，經確認範圍是「整個召喚入口都重新對男性開放」(推翻§94「男性全部踢出、禁止召喚」的決定)——`actionKanshouSummonHero`拔掉`SEX==='男'`那道全面封鎖，前端`_kcHeroesAll`過濾條件同步拔掉`gender!=='男'`，改成明講擋`衛宮士郎-Master`(玩家自己的位置，繼續id特判)+`KANSHOU_SUMMON_BLOCKED_IDS_`(斯卡哈-Assassin/伊莉雅-Caster/恩奇都-Lancer，跟⑥同一份)。男性依然**不會**被`actionEnterKanshou`自動鋪墊進世界(那段過濾條件沒動，維持`SEX!=='男'`)——女性開局就活在世界裡，男性要玩家自己主動用召喚清單邀請。玩家原創(ai_gen)只有創造者本人可召喚的既有防線沒變、不需要額外修改。
+
+**⑪商業地點的「當下在做什麼」輕量引子**：玩家「如果玩家移動過去 他們必須是要在打工或是消費活動這樣子...不然聊一聊會不會忘記他是在工作?」——確認要「只是敘事用的輕量標記」(而非完整的排班/工時系統)後，新增`KANSHOU_LOCATION_ACTIVITY_`(咖啡廳/深夜便利店=打工、商店街/書店二樓=購物/挑書)，`partyDetailsArr`依在場人物當下`curL`直接查表，有對到才加一句「現況:...」，沒對到(家/房間/自然景點/私人住處等)完全不加、AI自然發揮。刻意不做成持久MEMORY標記——每回合都直接依她當下真實LOC現查現算，本來就不會有「忘記」的問題，維持「單一真實來源」(LOC本身)不重複另存一份會跟LOC失去同步的狀態。
+
+**驗證**：`bash check.sh`全過；`git diff --stat gas/Engine_Combat.gs`空(未觸碰)；grep確認`雙修技巧`/`kanshouSkillTagStr_`/`KANSHOU_SUMMON_BLOCKED_IDS_`/`KANSHOU_LOCATION_ACTIVITY_`皆只出現在`Gallery.gs`/`Script_Kanshou.html`，solo程式碼路徑(`Engine_Fate.gs`/`Router_Battle.gs`等)完全沒有引用，切割乾淨。部署後建議測試：①推進時間/跳時段時，正在對話的同伴應該留在原地不會消失；②角色列表應該看得到「🏠邀請入住」按鈕，點下去應自動找空房；③低好感(點頭之交/普通朋友)的NPC對話語氣應該偏保守生疏，不再像老朋友，身世也不會自稱房客；④英靈殿召喚清單看不到伊莉雅(Caster版)、恩奇都，但看得到男性選項(開局仍不會自動出現在世界裡)；⑤巧遇沒有標籤的地點(如「山林」深處)不應該再crash；⑥敘述文字裡提到不在場的人名應該是純白/預設色，不是紫色；⑦在咖啡廳/商店街等地找到的同伴，AI敘述應該自然帶到她在打工/購物，且整段對話不會忘記這件事。
+
 
 
 

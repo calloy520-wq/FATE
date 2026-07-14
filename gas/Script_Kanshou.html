@@ -76,16 +76,35 @@
   //   update_rel_tag。好感(數字)僅供玩家參考，不可編輯(仍是AI依劇情推進)。
   // 🌍 2026-07「加入這個世界的感覺」定案：每一列多顯示她目前所在地點(loc)，玩家想找誰就去那裡；
   //   拿掉「請走」按鈕(沒有隊伍容量需要騰位置，召喚是一次性的)。
+  // 🏠 2026-07 玩家「按鈕指派她入住這好怪 改成在畫面左邊角色標籤那裡新增邀請入住」定案：
+  //   從地圖「房間」分頁的空房按鈕改成這裡(角色列表)每一位還沒入住的同伴自己一顆「邀請入住」，
+  //   直接自動挑第一個空著的客房(不必額外問玩家要哪一間，房號本身對玩家沒有意義)。
   function renderKcPartyList_() {
     var countEl = document.getElementById('kc-count');
     if (countEl) countEl.textContent = _kcCur.length;
     var box = document.getElementById('kc-party-list');
     if (!box) return;
     box.innerHTML = _kcCur.length ? _kcCur.map(function (c) {
+      var inRoom = /^room[1-3]$/.test(c.room || '');
       return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
-        + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(c.name) + ' <small style="color:#8a7fa0;">(關係:' + escapeHtml(c.tag || '點頭之交') + '・好感' + c.bond + ')</small><br><small style="color:#7a9fa0;">📍 ' + escapeHtml(c.loc || '不明') + '</small></span>'
+        + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(c.name) + ' <small style="color:#8a7fa0;">(關係:' + escapeHtml(c.tag || '點頭之交') + '・好感' + c.bond + ')</small><br><small style="color:#7a9fa0;">📍 ' + escapeHtml(c.locLabel || c.loc || '不明') + '</small></span>'
+        + (inRoom ? '' : '<button onclick="kanshouInviteMoveIn(\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 8px;background:#2a382a;color:#a0e0a0;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏠邀請入住</button>')
         + '<button onclick="kanshouEditRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button></div>';
     }).join('') : '<div style="color:#888;padding:6px;">（這個世界裡還沒有其他人，從下方召喚一位吧）</div>';
+  }
+  // 🏠 邀請入住：自動挑第一個空著的客房(room1~3)，找不到空房才提醒玩家客房滿了。
+  async function kanshouInviteMoveIn(name) {
+    var used = {};
+    _kcCur.forEach(function (c) { if (/^room[1-3]$/.test(c.room || '')) used[c.room] = true; });
+    var freeKey = ['room1', 'room2', 'room3'].find(function (k) { return !used[k]; });
+    if (!freeKey) { alert('客房都住滿了！'); return; }
+    try {
+      var res = await gasRun({ action: 'kanshou_assign_room', pcId: pc.id, acctName: currentAccount, targetName: name, roomKey: freeKey });
+      if (!res || !res.success) { alert((res && res.message) || '邀請失敗。'); return; }
+      var cres = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount });
+      if (cres && cres.success) _kcCur = cres.current || [];
+      renderKcPartyList_();
+    } catch (e) { alert('邀請失敗。'); }
   }
 
   // 🌙 結束一天(2026-07「不讓玩家指派，直接GAS判定」定案)：不在身邊的英靈由GAS自動決定隔天
@@ -311,11 +330,13 @@
       if (!res || !res.success) { alert((res && res.message) || '讀取同伴失敗。'); return; }
       _kcCur = res.current || [];
       if (needHeroes) {
-        // 🎨 2026-07 玩家「男角都移除掉吧...沒啥用...可以去當背景就好也禁止被召喚吧」：全面濾掉
-        //   男性英靈/御主，在來源就濾乾淨，篩選下拉(genderOpts)/召喚清單都不會再冒出男性選項。
-        //   衛宮士郎-Master也是男性，這條連帶涵蓋掉，不必再另外用id特判。斯卡哈-Assassin額外濾掉
-        //   (玩家「斯卡哈只先加入Lance版本」定案，同一位英靈暫不開放兩種職階分身同時存在)。
-        _kcHeroesAll = (heroRes && heroRes.success) ? (heroRes.heroes || []).filter(function (h) { return h.gender !== '男' && h.id !== '斯卡哈-Assassin'; }) : [];
+        // 🎨 2026-07 玩家二次翻案「邀請加入到世界可以開放所有角色不管性別」：重新對男性開放召喚
+        //   清單(推翻上一批「男角都移除掉...禁止召喚」的全面性別封鎖)。衛宮士郎-Master仍是玩家
+        //   自己的位置，繼續用id特判擋掉；斯卡哈-Assassin/伊莉雅-Caster/恩奇都-Lancer額外濾掉
+        //   (「斯卡哈只先加入Lance版本」「不想要太多同名角色重複」「恩奇都也不要進來」定案，跟
+        //   後端KANSHOU_SUMMON_BLOCKED_IDS_同一份名單，手動同步)。
+        var KC_SUMMON_BLOCKED_IDS_ = ['衛宮士郎-Master', '斯卡哈-Assassin', '伊莉雅-Caster', '恩奇都-Lancer'];
+        _kcHeroesAll = (heroRes && heroRes.success) ? (heroRes.heroes || []).filter(function (h) { return KC_SUMMON_BLOCKED_IDS_.indexOf(h.id) === -1; }) : [];
         _kcHeroesCacheReady = !!(heroRes && heroRes.success); // 讀取失敗不快取「空」，下次開面板會再試一次
       }
       kcRecomputeAvailable_();
@@ -428,39 +449,21 @@
     // 🙋 2026-07「反向提議」玩家定案：跟kanshouMoveTo(玩家自己走，無條件強制移動)不同，這顆👋
     //   走一般聊天訊息(不帶moveTarget)，交給AI在同一回合內依同伴個性當場決定答應或婉拒——見
     //   Gallery.gs★【玩家反向邀約】規則，答應才會演出移動並更新location，不需要另外的同意/拒絕UI。
+    // 🏠 2026-07 玩家「按鈕指派她入住這好怪 改成在畫面左邊角色標籤那裡新增邀請入住」定案：
+    //   客房不再有專屬的入住按鈕，純粹當一般地點瀏覽(📍走過去/👋邀同伴一起去)，「邀請入住」
+    //   改到角色列表(kc-party-list/kanshouInviteMoveIn，見上方renderKcPartyList_)辦理。
     var locBtns = KC_LOCATIONS_.filter(function (l) { return l.region === kcActiveRegion_; }).map(function (l) {
       var label = l.isRoom ? kcRoomLabel_(l.name) : l.name;
       var cnt = locCounts[l.name] || 0;
-      // 🏠 客房分區(room1~3)且目前空著：另外加一顆入住按鈕，挑一位已建立的同伴搬進來。
-      var isEmptyGuestRoom = l.isRoom && l.name !== '我的房間' && !_kcCur.some(function (c) { return c.room === l.name; });
       return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
         + '<button onclick="kanshouMoveTo(\'' + l.name + '\')" style="flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">'
         + '<span>📍 ' + escapeHtml(label) + '</span>'
         + (cnt ? '<span style="color:#e0a0bc;font-size:11px;">👤' + cnt + '</span>' : '')
         + '</button>'
-        + (isEmptyGuestRoom
-          ? '<button onclick="kanshouAssignRoom(\'' + l.name + '\')" title="安排同伴入住這間客房" style="padding:8px 9px;background:#2a382a;color:#a0e0a0;border:1px solid #4a5a4a;border-radius:8px;cursor:pointer;font-size:13px;">🏠</button>'
-          : '<button onclick="kanshouProposeMove(\'' + l.name + '\')" title="邀同伴一起去「' + escapeHtml(label) + '」" style="padding:8px 9px;background:#2a2038;color:#e0c090;border:1px solid #5a4a3a;border-radius:8px;cursor:pointer;font-size:13px;">👋</button>')
+        + '<button onclick="kanshouProposeMove(\'' + l.name + '\')" title="邀同伴一起去「' + escapeHtml(label) + '」" style="padding:8px 9px;background:#2a2038;color:#e0c090;border:1px solid #5a4a3a;border-radius:8px;cursor:pointer;font-size:13px;">👋</button>'
         + '</div>';
     }).join('');
     return tabsHtml + renameHtml + locBtns;
-  }
-  // 🏠 入住客房：挑一位已建立的同伴搬進指定的空客房(roomKey如'room1')，取代舊版召喚當下就寫死
-  //   3位特定英靈的做法，任何女性都能被指派。候選清單來自_kcCur(排除已經住在其他客房的人)。
-  async function kanshouAssignRoom(roomKey) {
-    var candidates = _kcCur.filter(function (c) { return !c.room; });
-    if (!candidates.length) { alert('現在沒有還沒入住的同伴可以安排。'); return; }
-    var listStr = candidates.map(function (c) { return c.name; }).join('、');
-    var name = prompt('要安排誰搬進這間客房？(輸入名字：' + listStr + ')', candidates[0].name);
-    if (!name || !name.trim()) return;
-    try {
-      var res = await gasRun({ action: 'kanshou_assign_room', pcId: pc.id, acctName: currentAccount, targetName: name.trim(), roomKey: roomKey });
-      if (!res || !res.success) { alert((res && res.message) || '安排失敗。'); return; }
-      var cres = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount });
-      if (cres && cres.success) _kcCur = cres.current || [];
-      var listEl = document.getElementById('kc-map-list');
-      if (listEl) listEl.innerHTML = kcMapListHtml_();
-    } catch (e) { alert('安排失敗。'); }
   }
 
   // 🧹 2026-07 玩家定案「改回跟solo很像的ui 3個分頁！地圖變成清單類型！」：原本掛在☰抽屜裡的

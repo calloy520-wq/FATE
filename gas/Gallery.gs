@@ -237,9 +237,15 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   //   p.dailyBack(溫馨改寫版)。🏠 2026-07 玩家發現「為啥大家對我很恭敬？我要當普通的民宿老闆」
   //   查出根因：沒有dailyBack的英靈舊版保底是`${RANK}・${name}`(如「Saber・阿爾托莉雅」)，這段
   //   字串會透過COL.PC.BACK直接餵進AI提示詞(見partyDetailsArr的「身世:」欄位)，AI讀到「Saber」
-  //   這種職階字眼自然會演出從者對御主的恭敬——跟房東房客的民宿世界觀矛盾。保底改成跟玩家自己
-  //   的預設身世(見上方actionEnterKanshou)同一種中性、不帶任何聖杯戰爭/職階字眼的日常描述。
-  sRow[COL.PC.BACK] = p.dailyBack ? String(p.dailyBack).slice(0, 28) : "借住在這裡的房客，過著平靜的日常生活";
+  //   這種職階字眼自然會演出從者對御主的恭敬——跟房東房客的民宿世界觀矛盾。
+  // 🩹 2026-07「借住在這裡的房客...這個身世太怪了吧 難怪他們這麼熱情」玩家二次糾正：召喚當下
+  //   (heroToKanshouRow_)只代表「這位英靈存在於這個世界」，此時ROOM還是空的、根本還不是房客
+  //   (要玩家之後另外呼叫actionKanshouAssignRoom才會真的入住)——保底身世卻寫死「借住在這裡的
+  //   房客」，等於每個剛認識、還沒被邀請入住的陌生人都被講成已經同住的房客，AI自然演得像老相識。
+  //   改成不帶任何居住關係字面的中性描述；「TA其實是你的房客」這件事改成動態判斷(見下方
+  //   partyDetailsArr依當下COL.PC.ROOM即時補上)，靜態欄位只負責身世、不該代管「目前住哪」這種
+  //   會隨玩家操作變動的狀態。
+  sRow[COL.PC.BACK] = p.dailyBack ? String(p.dailyBack).slice(0, 28) : "生活在這座平行世界城鎮裡的英靈，與你尚無深交";
   // 直接召喚無快照可帶，用該英靈自己的日常衣裝(daily.outfit)墊底，沒有才退回「日常便服」。
   // p.speech/p.tic 是戰時口吻/小動作(如狂化英靈「僅餘低吼」)，跟平行世界設定矛盾：口吻改用
   //   dailyLook 第3段(自稱與口氣)的日常安全版；tic 沒有對應日常版，直接不帶(私密一面已承擔
@@ -300,6 +306,16 @@ function kanshouRelChatCeiling_(bond) {
   return 100;
 }
 
+// 🩹 [雙修技巧]標記專用讀取(半形方括號、全形｜分隔，跟下方processSkills/setSkillTag_寫入格式
+//   一致)：舊寫法直接把整格MEMORY(含召喚時塞的關係介紹句、口吻、換裝等其他標記)當「技巧」字面
+//   餵給AI，查無標記時甚至把「緣分才剛開始」這種永不更新的初見文案原封不動外洩進[身體記憶]欄，
+//   讓AI每回合都讀到過期又不相干的內容。只該讀這個標記本身的值。
+function kanshouSkillTagStr_(memory) {
+  const m = String(memory || "").match(/\[雙修技巧\]([^｜]*)/);
+  const raw = m ? m[1].trim() : "";
+  return raw || "無";
+}
+
 // 🌍 直接從英靈庫召喚一位英靈、讓她「存在」於這個後日談世界(不需先在 solo 封存)。2026-07「加入
 //   這個世界的感覺」玩家定案：召喚是一次性的「讓她出現在這個世界」，不是「加入隊伍」——世界裡沒有
 //   隊伍容量上限這回事，之後她會依kanshouRollDailyLocation_自己過自己的生活，玩家想找誰互動就
@@ -321,13 +337,14 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
   // 🎨 2026-07 玩家「拿掉衛宮士郎吧...也禁止召喚他？」：玩家本人就是這個位置，不開放召喚。
   if (heroId === '衛宮士郎-Master') return JSON.stringify({ success: false, message: "無法召喚——這個位置由你自己擔任。" });
   // 🎨 2026-07「地圖大重做」玩家「斯卡哈只先加入Lance版本」：Assassin版本暫不開放召喚，避免
-  //   同一位英靈用兩種職階分身重複存在於這個世界。
-  if (heroId === '斯卡哈-Assassin') return JSON.stringify({ success: false, message: "暫時只開放召喚 Lancer 版本的斯卡哈。" });
+  //   同一位英靈用兩種職階分身重複存在於這個世界；「伊莉雅Caster版不想要太多同名角色重複」、
+  //   「恩奇都也不要進來吧」：三者皆暫時移出鑑賞可召喚名單(資料驅動，日後想加回/再排除其他id
+  //   只需改這份清單，不必動下面的邏輯)。
+  if (KANSHOU_SUMMON_BLOCKED_IDS_.indexOf(heroId) !== -1) return JSON.stringify({ success: false, message: "這位英靈暫時不開放召喚。" });
   var heroName = String(hero[COL.HERO.NAME] || "從者");
-  // 🎨 2026-07 玩家「男角都移除掉吧...沒啥用...可以去當背景就好也禁止被召喚吧」：全面禁止男性
-  //   英靈/御主入駐鑑賞(第二道防線，前端 kcRecomputeAvailable_ 已先濾掉，這裡防直打API繞過)。
-  //   種子資料本體(Seed_Codex.gs)不刪，只是全面禁止在鑑賞出場——他們仍可留在敘事/種子庫當背景角色。
-  if (String(hero[COL.HERO.SEX]) === '男') return JSON.stringify({ success: false, message: "「" + heroName + "」暫時無法召喚——鑑賞僅開放女性從者/御主入駐。" });
+  // 🎨 2026-07 玩家二次翻案「邀請加入到世界可以開放所有角色不管性別」：重新對男性開放召喚入口
+  //   (推翻上一批「男角都移除掉...禁止召喚」的全面封鎖)。跟女性不同的是男性依然不會被
+  //   actionEnterKanshou自動預先鋪墊進世界(見該函式SEX!=='男'過濾)，只能靠玩家在這裡主動召喚。
   // 🔒 玩家原創(ai_gen)只有創造者本人可召喚進鑑賞——前端清單已濾掉，這裡是第二道防線(防直打API
   //   繞過前端過濾)。種子(正典)英靈不受限、人人可召喚。
   if (String(hero[COL.HERO.SOURCE]) === "ai_gen") {
@@ -452,7 +469,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
   //   關係標籤走一般泛泛之交)，純粹讓她們已經「活在這個世界裡」，玩家走到她所在地點就能撞見、
   //   認識，想邀她入住客房再自己另外呼叫actionKanshouAssignRoom指派。
   var starterHeroes = getHeroCodexCached().slice(1).filter(function (r) {
-    return r[COL.HERO.ID] && String(r[COL.HERO.SEX]) !== '男' && String(r[COL.HERO.ID]) !== '斯卡哈-Assassin' && String(r[COL.HERO.SOURCE]) !== 'ai_gen';
+    return r[COL.HERO.ID] && String(r[COL.HERO.SEX]) !== '男' && KANSHOU_SUMMON_BLOCKED_IDS_.indexOf(String(r[COL.HERO.ID])) === -1 && String(r[COL.HERO.SOURCE]) !== 'ai_gen';
   });
   var starterRows = starterHeroes.map(function (hero) {
     return heroToKanshouRow_(hero, gameId, kanshouRollDailyLocation_(String(hero[COL.HERO.NAME])), 1);
@@ -851,23 +868,36 @@ function actionKanshouAssignRoom(userData, pcId, sheets) {
   kpc.getRange(idx + 1, COL.PC.LOC + 1).setValue(roomKey);
   return JSON.stringify({ success: true, roomKey: roomKey, name: String(data[idx][COL.PC.NAME]) });
 }
+// 🚫 2026-07「斯卡哈只先加入Lance版本」「伊莉雅Caster不想要太多同名角色重複」「恩奇都也不要
+//   進來吧」玩家定案：暫時移出鑑賞的英靈id清單，單一來源，召喚/巧遇/地點標籤/住處全部共用同一份，
+//   之後想放行或再排除誰只需改這裡。
+const KANSHOU_SUMMON_BLOCKED_IDS_ = ['斯卡哈-Assassin', '伊莉雅-Caster', '恩奇都-Lancer'];
 // 🎭 地點×角色 氛圍標籤(資料驅動，往陣列塞一筆 SEED_SERVANTS 的 id 就能加，不動抽選邏輯)：
 //   2026-07「男性全部踢出」玩家定案：全部男性id移除(此表跟保底池KANSHOU_ENCOUNTER_FEMALE_IDS_
-//   皆不再含任何男性/斯卡哈-Assassin，見下)，查無標籤或抽不中標籤池時退回全女性保底池。
+//   皆不再含任何男性)，查無標籤或抽不中標籤池時退回全女性保底池；同時不含KANSHOU_SUMMON_
+//   BLOCKED_IDS_裡暫時移出的id，避免巧遇到根本無法被正式召喚入駐的人。
 const KANSHOU_LOCATION_TAGS_ = {
   '河邊小徑': ['斯卡哈-Lancer'],
   '商店街': ['美遊-Saber', '藤村大河-Master'],
-  '書店二樓': ['伊莉雅-Caster'],
   '古老神社': ['美狄亞-Caster'],
   '社區公園': ['小黑-Archer'],
   '咖啡廳': ['阿爾托莉雅-Saber'],
-  '廢棄神社': ['恩奇都-Lancer'],
   '深夜便利店': ['遠坂凜-Master']
+};
+// 🏷️ 2026-07「移動過去 他們必須是要在打工或是消費活動...不然聊一聊會不會忘記他是在工作」玩家
+//   定案：商業性質地點給一句「當下在做什麼」的輕量敘事引子，讓AI對「為什麼她在這個店裡」有個
+//   合理交代、且整回合對話都能維持一致(不需要持久狀態——每回合都直接依她當下真實LOC現查現算，
+//   本來就不會忘記；純寫死的地點→活動對照表，沒有寫死的地點沒有這句提示，AI自然發揮，不受限)。
+const KANSHOU_LOCATION_ACTIVITY_ = {
+  '咖啡廳': '正在這裡打工，忙著沖泡咖啡、招呼客人',
+  '深夜便利店': '正在這裡打工值班，忙著上架與結帳',
+  '商店街': '正在這裡逛街購物，挑揀著攤位上的東西',
+  '書店二樓': '正在這裡挑書、翻閱架上的書籍'
 };
 // 🎨 2026-07 玩家「男角都移除掉吧...禁止召喚、也不會偶遇他們」：KANSHOU_ENCOUNTER_MALE_IDS_
 //   整個刪除，kanshouRollEncounter_的保底池只剩這份純女性名單(衛宮士郎-Master仍整個移出巧遇/
-//   召喚相關名單，玩家本人就是這個位置)。斯卡哈只保留Lancer版本(移除-Assassin重複條目)。
-const KANSHOU_ENCOUNTER_FEMALE_IDS_ = ['阿爾托莉雅-Saber', '美杜莎-Rider', '美狄亞-Caster', '斯卡哈-Lancer', '美遊-Saber', '小黑-Archer', '伊莉雅-Caster', '恩奇都-Lancer', '遠坂凜-Master', '伊莉雅絲菲爾-Master', '間桐櫻黑化-Master', '藤村大河-Master'];
+//   召喚相關名單，玩家本人就是這個位置)。不含KANSHOU_SUMMON_BLOCKED_IDS_暫時移出的id。
+const KANSHOU_ENCOUNTER_FEMALE_IDS_ = ['阿爾托莉雅-Saber', '美杜莎-Rider', '美狄亞-Caster', '斯卡哈-Lancer', '美遊-Saber', '小黑-Archer', '遠坂凜-Master', '伊莉雅絲菲爾-Master', '間桐櫻黑化-Master', '藤村大河-Master'];
 // 🌍 同地點AI詳細卡片上限(見actionPlay的partyRows)——3位房客+來訪的人湊在一起時5人夠用，
 //   2026-07玩家「吃飯不能5人嗎」定案從3調到5。
 const KANSHOU_PARTY_DETAIL_CAP_ = 5;
@@ -925,7 +955,7 @@ function kanshouRollSceneBranch_(eventKey, bond) {
 //   或未入住任何客房)退回通用值「自己的住處」。
 const KANSHOU_HERO_HOME_ = {
   '美狄亞-Caster': '隱蔽的工房', '斯卡哈-Lancer': '島嶼道場',
-  '美遊-Saber': '埃德費爾特宅邸', '小黑-Archer': '愛因茲貝倫城', '伊莉雅-Caster': '愛因茲貝倫城',
+  '美遊-Saber': '埃德費爾特宅邸', '小黑-Archer': '愛因茲貝倫城',
   '遠坂凜-Master': '遠坂邸', '伊莉雅絲菲爾-Master': '愛因茲貝倫城', '藤村大河-Master': '藤村家'
 };
 // 🏷️ MEMORY標記存取器【邂逅】：逗號分隔的巧遇過姓名清單，去重、僅供「似曾相識」氛圍參考——
@@ -950,7 +980,7 @@ function addKanshouMet_(memory, name) {
 function kanshouRollEncounter_(locName, excludeIds) {
   const excl = excludeIds || [];
   const tagPool = KANSHOU_LOCATION_TAGS_[locName] || [];
-  const basePool = tagPool.length ? tagPool : KANSHOU_ENCOUNTER_MALE_IDS_.concat(KANSHOU_ENCOUNTER_FEMALE_IDS_);
+  const basePool = tagPool.length ? tagPool : KANSHOU_ENCOUNTER_FEMALE_IDS_;
   const pool = basePool.filter(id => !excl.includes(id));
   if (!pool.length || Math.random() >= 0.7) return null;
   const pickId = pool[Math.floor(Math.random() * pool.length)];
@@ -1501,7 +1531,11 @@ function actionPlay(userData, pcId, sheets) {
       { const tr_ = kanshouCollectTenantRent_(pcData, pcIndex, curDay, myGameId, dirtyPcRows); tenantRentCollected = tr_.total; tenantShortNames = tr_.shortNames; }
       // 🌍 2026-07「加入這個世界的感覺」：推進時間一樣不分「同行/不同行」，世界裡所有已存在的
       //   英靈都依新時刻重骰去向(深夜/清晨時段kanshouRollDailyLocation_會偏向在家)。
-      const allEstablishedForTime = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
+      // 🩹 2026-07「我原本在他家 調整時間 對面答應要出去走走 就自己走了 我還在他家」玩家回報：
+      //   原本沒排除「當下正跟玩家同地點」的人，導致正在互動中的同伴被時間推進的重骰隨機傳送
+      //   走，玩家本人位置卻沒變。改成：LOC此刻等於curL(正在場)的人不重骰、原地不動，只有「不在
+      //   玩家身邊」的人才照舊依時刻重新決定去向。
+      const allEstablishedForTime = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() !== String(curL || "").trim());
       allEstablishedForTime.forEach(r => {
         const idx = pcData.indexOf(r);
         pcData[idx][COL.PC.LOC] = kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, r[COL.PC.ROOM]);
@@ -1700,8 +1734,22 @@ function actionPlay(userData, pcId, sheets) {
       const pBond = parseInt(r[COL.PC.BOND]) || 0;
       const pChatCeiling = kanshouRelChatCeiling_(pBond);
       const pAtCeilingStr = (pChatCeiling < 100 && pBond >= pChatCeiling) ? "・單靠對話目前已到這個階段的上限，需要收到禮物才能繼續加深，這回合維持細水長流的相處基調，不要寫成關係大幅推進" : "";
+      // 🌡️ 2026-07「好感度10 大家還是很認識我的感覺」玩家定案：REL_TAG的梯度字面(點頭之交/普通朋友
+      //   等)本身沒告訴AI「這個字面該演出什麼熟悉程度」，AI容易預設熱絡口吻，跟數字矛盾。只在低
+      //   梯度(尚不熟識)才加一句態度提示，中高梯度(熟識的朋友起)不需要、也不該畫蛇添足限制發揮。
+      const pRelTagStr = r[COL.PC.REL_TAG] || "點頭之交";
+      const pTierToneStr = (pRelTagStr === "點頭之交") ? "，彼此才剛認識不久，口吻應保持禮貌卻略帶生疏保留，不該表現得像已相識多年的熟人或表現得過分熱絡親密"
+        : (pRelTagStr === "普通朋友") ? "，交情仍屬普通朋友，可自然閒聊但仍保留一定分寸與距離感，不宜過度親密"
+        : "";
+      // 🏠 「TA是不是住在你家的房客」是會隨玩家操作(actionKanshouAssignRoom)變動的動態狀態，不該
+      //   烤進召喚當下就定案的靜態身世欄位——只在真的有ROOM登記時才即時告訴AI，沒有就完全不提，
+      //   由AI依關係梯度自然發揮，不預設「陌生人＝房客」。
+      const pHousemateStr = /^room[1-3]$/.test(String(r[COL.PC.ROOM] || "")) ? "，TA是入住在你家、與你同住一個屋簷下的房客" : "";
+      // 🏷️ 商業地點的「當下在做什麼」輕量引子(見上方KANSHOU_LOCATION_ACTIVITY_)，沒對照到的
+      //   地點(家/房間/自然景點/私人住處等)不加這句，AI自然發揮即可。
+      const pActivityStr = KANSHOU_LOCATION_ACTIVITY_[curL] ? ` | 現況:${KANSHOU_LOCATION_ACTIVITY_[curL]}` : "";
       // 明講方向的「TA是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍TA。
-      partyDetailsArr.push(`【在場人物】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(反差·僅供內化):${pMoeStr}` : ""} | 關係:TA是你的${r[COL.PC.REL_TAG] || "點頭之交"}(好感:${pBond}${pMemStr}${pAtCeilingStr})`);
+      partyDetailsArr.push(`【在場人物】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(反差·僅供內化):${pMoeStr}` : ""}${pActivityStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr}${pHousemateStr})`);
     }
   });
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【目前在場人物命格詳情】:\n${partyDetailsArr.join("\n")}` : "目前這個地點沒有其他人，玩家是獨自行動的。";
@@ -1731,7 +1779,8 @@ function actionPlay(userData, pcId, sheets) {
 
   let pPhysicalObj = JSON.parse(pcData[pcIndex][COL.PC.PHYSICAL] || "{}");
   if (Object.keys(pPhysicalObj).length === 0) pPhysicalObj = { "狀態": "如常" };
-  let pSkills = (pcData[pcIndex][COL.PC.MEMORY] || "無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/, (m, p1) => `[雙修技巧]${p1.trim().split('、').slice(0, 5).join('、')}`);
+  // 提示詞只給前5個(即使實際存到30個)，省字數；真正的技巧清單仍完整存在MEMORY裡不受影響。
+  let pSkills = kanshouSkillTagStr_(pcData[pcIndex][COL.PC.MEMORY]).split('、').slice(0, 5).join('、');
   // 玩家自己的換裝也要補進[情境延續]區塊(比照NPC每回合補進[名字 裝扮]行)，這是情慾場景AI主要
   //   參照的區塊，不能只在【玩家命格】看得到。
   let nsfwMemories = `\n[玩家『${pcName}』肉體]：${JSON.stringify(pPhysicalObj)}\n[身體記憶]：${pSkills}${myOutfit ? `\n[玩家『${pcName}』裝扮]：${myOutfit}（當前服裝·五官/髮色/體態不變）` : ""}`;
@@ -1741,7 +1790,7 @@ function actionPlay(userData, pcId, sheets) {
   allPresentRows.forEach(r => {
     let npcPhysicalObj = JSON.parse(r[COL.PC.PHYSICAL] || "{}");
     if (Object.keys(npcPhysicalObj).length === 0) npcPhysicalObj = { "狀態": "如常" };
-    let npcSkills = (r[COL.PC.MEMORY] || "無").replace(/\[雙修技巧\](.*?)(?=\| \[|$)/, (m, p1) => `[雙修技巧]${p1.trim().split('、').slice(0, 5).join('、')}`);
+    let npcSkills = kanshouSkillTagStr_(r[COL.PC.MEMORY]).split('、').slice(0, 5).join('、');
     let relMem = r[COL.PC.REL_MEM] || "無";
     let npcOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 換裝：當前服裝穿著(換衣不換人·五官體態依本相；玩家UI設定或AI依outfit_change更新)
     nsfwMemories += `${npcOutfit ? `\n[${r[COL.PC.NAME]} 裝扮]：${npcOutfit}（當前服裝·五官/髮色/體態不變）` : ""}\n[${r[COL.PC.NAME]} 肉體]：${JSON.stringify(npcPhysicalObj)}\n[快照]：[技巧]${npcSkills} | [羈絆]${relMem}`;
