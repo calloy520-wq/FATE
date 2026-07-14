@@ -215,8 +215,6 @@
         </div>
         <div id="topbar-kanshou" class="player-badge">
           <span id="header-loc">感應中...</span>
-          <!-- 💰 金錢徽章：updateUI()依§-string s[24]刷新，display由那裡的isKanshou判斷控管。 -->
-          <span id="header-money" style="margin-left:8px; font-size:11px; color:#e0c090; display:none;">💰0</span>
         </div>
       </div>
     </div>
@@ -248,10 +246,6 @@
       <button class="drawer-item" onclick="triggerDrawerAction('status')"><i>👤</i><span>查看狀態</span></button>
       <button class="drawer-item" id="drawer-companions" onclick="openCompanions()" style="display:none;"><i>👥</i><span>後日談同伴</span></button>
       <button class="drawer-item" id="drawer-festival" onclick="openKanshouFestivals()" style="display:none;"><i>🎊</i><span>快轉節慶</span></button>
-      <!-- 💼 打工賺錢，比照drawer-festival同款(僅applyModeUI在鑑賞模式顯示)。 -->
-      <button class="drawer-item" id="drawer-job" onclick="kanshouWork()" style="display:none;"><i>💼</i><span>去打工</span></button>
-      <!-- 🛍️ 商店：買裝飾品/送禮物，比照drawer-job同款。 -->
-      <button class="drawer-item" id="drawer-shop" onclick="openKanshouShop()" style="display:none;"><i>🛍️</i><span>商店</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('settings')"><i>⚙️</i><span>系統設定</span></button>
     </div>
 

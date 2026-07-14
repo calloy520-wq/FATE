@@ -10,7 +10,7 @@
 
   // 🌐 send()：鑑賞聊天引擎，action:'play' 唯一呼叫點，本檔/Script.html所有互動最終都經這裡送出。鑑賞專屬邏輯，solo 整條輸入框隱藏，不該住在共用檔案。
 
-  // 🎞️ 跑條：早餐/推進時間/打工這類「需要花時間」的動作用，取代純聊天那種瞬間感的loading-text。
+  // 🎞️ 跑條：推進時間這類「需要花時間」的動作用，取代純聊天那種瞬間感的loading-text。
   // 文字會一直輪播，直到AI真的回應才移除(不綁定固定秒數，AI實際耗時本來就不固定)。
   let progressTimer = null;
   function showProgressLoader_(loadId, captions) {
@@ -32,7 +32,7 @@
     document.getElementById(loadId)?.remove();
   }
 
-  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, work = false, buyItem = null, giftTarget = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false, debtPayment = null, roomEventAccept = null, jumpBand = null, prepBreakfast = false, loaderCaptions = null) {
+  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false, roomEventAccept = null, jumpBand = null, loaderCaptions = null) {
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
     // 🔥 主動掌握開關：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
@@ -71,14 +71,14 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, drive: drive, lastContext: lastAiContext, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, work: work || undefined, buyItem: buyItem || undefined, giftTarget: giftTarget || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, dismissCurfew: dismissCurfew || undefined, debtPayment: debtPayment || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, prepBreakfast: prepBreakfast || undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, drive: drive, lastContext: lastAiContext, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, dismissCurfew: dismissCurfew || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
       localNPCs = data.people || []; nearbyLocations = data.locations || [];
-      // 🕰️ 「跳到時段」＋「時段行動」按鈕：每次actionPlay回應都可能改動時鐘(結束一天/推進
-      //   時間/打工/跳節慶/跳時段/準備早餐皆會)，記下最新kanshouClock供地圖頁的時段按鈕判斷現在
-      //   是不是清晨，並重繪地圖頁(桌機三欄並排恆顯示，不能只靠切分頁才刷新)。
+      // 🕰️ 「下一階段」按鈕：每次actionPlay回應都可能改動時鐘(結束一天/推進時間/跳節慶/跳時段皆會)，
+      //   記下最新kanshouClock供地圖頁的時段按鈕判斷現在是不是深夜，並重繪地圖頁(桌機三欄並排恆
+      //   顯示，不能只靠切分頁才刷新)。
       // 🩹 玩家「跳到節慶後時間看起來沒動靜」查出根因：這裡本來只更新kcClock/renderMapPane，
       //   從未呼叫updateClock(data.clock,...)刷新頂部常駐的#clock-hud——後端其實有正確推進、
       //   也有把label塞進data.clock，只是前端這裡漏了消費它，導致HUD停在進場當下那一次的值。
@@ -157,16 +157,6 @@ let plainTextContext = cleanText;
           + `<button class="btn-option" style="flex:1;" onclick="kanshouAnswerKnock('${knockName.replace(/'/g, "\\'")}')">開門</button>`
           + `<button class="btn-option" style="flex:1;" onclick="kanshouIgnoreKnock()">不予理會</button>`
           + `</div></div>`;
-      }
-      // 💰 「肉償機制」：跟knockEvent不同，這個不強制二選一——
-      //   不點按鈕就只是繼續正常聊天，按鈕本身只在「獨處+對方欠租」這個條件成立時才會出現。
-      if (data.debtPaymentOffer) {
-        const debtName = String(data.debtPaymentOffer);
-        const debtNameEsc = escapeHtml(debtName);
-        optionsHtml += `<div style="background:rgba(160,60,90,0.14); border:1px solid #8a3a5a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#e0a0bc; font-size:12.5px; margin-bottom:6px;">💰 這期的房租，「${debtNameEsc}」似乎繳不出來……</div>`
-          + `<button class="btn-option" style="width:100%;" onclick="kanshouOfferDebtPayment('${debtName.replace(/'/g, "\\'")}')">提議以身抵租</button>`
-          + `</div>`;
       }
       // 🎭 夜襲/賴床叫醒不再移動進房間就直接演出，改成先跳出這個按鈕；不點按鈕就視為婉拒，正常敘事不受影響。
       if (data.roomEventOffer && data.roomEventOffer.name) {
@@ -273,52 +263,34 @@ let plainTextContext = cleanText;
 
   // 🆕 關係標籤從此只能由玩家自己在這裡改，AI只能在敘事裡表現認不認同(態度)，不再擅自覆寫——加一顆「🏷️關係」鈕呼叫 update_rel_tag。好感(數字)僅供參考，不可編輯(仍是AI依劇情推進)。
   // 🌍 每一列多顯示她目前所在地點(loc)，方便找人；拿掉「請走」按鈕(召喚是一次性的，不需要騰隊伍容量)。
-  // 🏠 邀請入住從地圖「房間」分頁的空房按鈕改成這裡(角色列表)每位還沒入住的同伴自己一顆「邀請入住」，
-  //   直接自動挑第一個空著的客房(不必額外問玩家要哪一間，房號本身對玩家沒有意義)。
   function renderKcPartyList_() {
     var countEl = document.getElementById('kc-count');
     if (countEl) countEl.textContent = _kcCur.length;
     var box = document.getElementById('kc-party-list');
     if (!box) return;
     box.innerHTML = _kcCur.length ? _kcCur.map(function (c) {
-      var inRoom = /^room[1-3]$/.test(c.room || '');
       return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
         + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(c.name) + ' <small style="color:#8a7fa0;">(關係:' + escapeHtml(c.tag || '點頭之交') + '・好感' + c.bond + ')</small><br><small style="color:#7a9fa0;">📍 ' + escapeHtml(c.locLabel || c.loc || '不明') + '</small></span>'
-        + (inRoom ? '' : '<button onclick="kanshouInviteMoveIn(\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 8px;background:#2a382a;color:#a0e0a0;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏠邀請入住</button>')
         + '<button onclick="kanshouEditRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button></div>';
     }).join('') : '<div style="color:#888;padding:6px;">（這個世界裡還沒有其他人，從下方召喚一位吧）</div>';
-  }
-  // 🏠 邀請入住：自動挑第一個空著的客房(room1~3)，找不到空房才提醒玩家客房滿了。
-  async function kanshouInviteMoveIn(name) {
-    var used = {};
-    _kcCur.forEach(function (c) { if (/^room[1-3]$/.test(c.room || '')) used[c.room] = true; });
-    var freeKey = ['room1', 'room2', 'room3'].find(function (k) { return !used[k]; });
-    if (!freeKey) { alert('客房都住滿了！'); return; }
-    try {
-      var res = await gasRun({ action: 'kanshou_assign_room', pcId: pc.id, acctName: currentAccount, targetName: name, roomKey: freeKey });
-      if (!res || !res.success) { alert((res && res.message) || '邀請失敗。'); return; }
-      var cres = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount });
-      if (cres && cres.success) _kcCur = cres.current || [];
-      renderKcPartyList_();
-    } catch (e) { alert('邀請失敗。'); }
   }
 
   // 🌙 結束一天：不在身邊的英靈由GAS自動決定隔天去哪(見Gallery.gs kanshouRollDailyLocation_)，不用手動排程；跟一般聊天走同一個send()、同一套渲染。
   async function kanshouEndDay() {
     if (!confirm('結束今天，讓時間流動到明天嗎？')) return;
     showGamePane('chat');
-    await send('🌙 結束了這一天。', false, null, null, false, true, 0, null, false, null, null, null, false, false, null, null, null, false, ['夜色漸漸深了…', '一天的塵埃緩緩落定…', '悄悄迎向嶄新的一天…']);
+    await send('🌙 結束了這一天。', false, null, null, false, true, 0, null, null, false, false, null, null, ['夜色漸漸深了…', '一天的塵埃緩緩落定…', '悄悄迎向嶄新的一天…']);
   }
 
   // ⏰ 直接選目標時段，GAS算好差幾小時(見Gallery.gs kanshouHoursUntilBand_)，走advanceHours管線。
   async function kanshouJumpBand(key, label) {
     showGamePane('chat');
-    await send('⏩ 讓時間悄悄流轉到了' + label + '。', false, null, null, false, false, 0, null, false, null, null, null, false, false, null, null, key, false, ['時光靜靜流轉…', '天色漸漸改變…']);
+    await send('⏩ 讓時間悄悄流轉到了' + label + '。', false, null, null, false, false, 0, null, null, false, false, null, key, ['時光靜靜流轉…', '天色漸漸改變…']);
   }
 
   // ⏰ 精簡合併：原本「跳到時段(5選1)」＋「結束一天」兩顆按鈕合併成一顆「下一階段」，固定照
   //   清晨→午後→黃昏→夜→深夜→(隔天)清晨的順序前進——深夜按下去自然就是睡過夜，直接重用
-  //   kanshouEndDay()整套邏輯(房租/回房間/同床判定/敲門)，不必另外維護一套。
+  //   kanshouEndDay()整套邏輯(回房間/同床判定/敲門)，不必另外維護一套。
   async function kanshouNextStage() {
     var curBand = kcClock ? kcClock.band : '清晨';
     if (curBand === '深夜') { await kanshouEndDay(); return; }
@@ -327,23 +299,11 @@ let plainTextContext = cleanText;
     await kanshouJumpBand(next.key, next.name);
   }
 
-  // 🍳「時段行動」的第一個動作：清晨限定的「準備早餐」，等同移動到廚房＋幫3位房客各自骰一次今早去向(見Gallery.gs isBreakfast_分支，GAS掌機率)。只在清晨時段才顯示這顆按鈕。
-  async function kanshouPrepBreakfast() {
-    showGamePane('chat');
-    await send('🍳 走進廚房，準備今天的早餐。', false, null, null, false, false, 0, null, false, null, null, null, false, false, null, null, null, true, ['清點食材…', '料理準備…', '精心製作…', '準備開飯！']);
-  }
-
-  // 💼 打工賺錢：跟推進時間共用同一套時鐘機制(work旗標讓後端固定推進KANSHOU_WORK_HOURS_小時＋發薪水，見Gallery.gs actionPlay)，前端只需傳work:true，不必自己算時數/薪水(單一真實來源在後端)。
-  async function kanshouWork() {
-    showGamePane('chat');
-    await send('💼 去打工賺錢了。', false, null, null, false, false, 0, null, true, null, null, null, false, false, null, null, null, false, ['整理儀容出門…', '認真工作中…', '結算今日薪水…']);
-  }
-
   // 🎊「跳到節慶」：不帶advanceHours(留0)，帶jumpFestival讓後端自己算「距離該節慶還有幾小時」(見Gallery.gs kanshouHoursUntilDate_)，前端不重算日期，單一真實來源在後端。
   async function kanshouJumpFestival(key, name) {
     if (!confirm('要讓時間快轉到「' + name + '」嗎？(不在身邊的英靈會依新時刻重新分佈)')) return;
     showGamePane('chat');
-    await send('🎊 想快轉到「' + name + '」看看。', false, null, null, false, false, 0, key, false, null, null, null, false, false, null, null, null, false, ['翻閱著行事曆…', '想著當天的種種安排…']);
+    await send('🎊 想快轉到「' + name + '」看看。', false, null, null, false, false, 0, key, null, false, false, null, null, ['翻閱著行事曆…', '想著當天的種種安排…']);
   }
 
   // 🎊 從地圖頁常駐區塊搬進＋抽屜(比照kc-overlay同款專屬彈窗寫法)，用完即關、不佔地圖頁版面。
@@ -368,81 +328,6 @@ let plainTextContext = cleanText;
     ov.style.display = 'flex';
   }
   function closeKanshouFestivals() { var ov = document.getElementById('kc-festival-overlay'); if (ov) ov.style.display = 'none'; }
-
-  // 🛍️ 商店：品項清單是後端KANSHOU_SHOP_ITEMS_的鏡像(KC_SHOP_ITEMS_，見下，改品項記得同步後端)；禮物項需要知道在場的人，先打 kanshou_companions 刷新 _kcCur 避免顯示過期資料。
-  var KC_SHOP_ITEMS_ = [
-    { id: 'sofa', name: '舒適沙發', price: 1200, type: 'decor', desc: '一張柔軟舒適的沙發' },
-    { id: 'painting', name: '風景畫', price: 800, type: 'decor', desc: '一幅寧靜的風景掛畫' },
-    { id: 'plant', name: '盆栽', price: 400, type: 'decor', desc: '一盆翠綠的小盆栽' },
-    { id: 'lamp', name: '暖光檯燈', price: 600, type: 'decor', desc: '溫暖柔和的檯燈' },
-    { id: 'rug', name: '地毯', price: 900, type: 'decor', desc: '柔軟厚實的地毯' },
-    { id: 'flowers', name: '花束', price: 300, type: 'gift', bond: 3, desc: '一束新鮮的花束' },
-    { id: 'sweets', name: '手工點心', price: 500, type: 'gift', bond: 4, desc: '一盒精緻的手工點心' },
-    { id: 'book', name: '珍藏書籍', price: 700, type: 'gift', bond: 5, desc: '一本值得珍藏的書籍' },
-    { id: 'accessory', name: '髮飾', price: 1000, type: 'gift', bond: 6, desc: '一款雅緻的髮飾' },
-    { id: 'necklace', name: '項鍊', price: 1500, type: 'gift', bond: 8, desc: '一條精緻的項鍊' }
-  ];
-  async function openKanshouShop() {
-    try { var dr = document.getElementById('action-drawer'); if (dr && dr.style.display !== 'none' && typeof toggleActionDrawer === 'function') toggleActionDrawer(); } catch (e) {}
-    try { var res = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount }); if (res && res.success) _kcCur = res.current || []; } catch (e) {}
-    ensureKcShopOverlay_();
-    renderKcShop_();
-    document.getElementById('kc-shop-overlay').style.display = 'flex';
-  }
-  function closeKanshouShop() { var ov = document.getElementById('kc-shop-overlay'); if (ov) ov.style.display = 'none'; }
-  function ensureKcShopOverlay_() {
-    if (document.getElementById('kc-shop-overlay')) return;
-    var ov = document.createElement('div');
-    ov.id = 'kc-shop-overlay';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.82);display:none;align-items:center;justify-content:center;padding:18px;';
-    ov.onclick = function (e) { if (e.target === ov) closeKanshouShop(); };
-    ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:420px;width:100%;max-height:calc(100vh - 36px);padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;">'
-      + '<h3 style="margin:0 0 4px;color:#e0c090;">🛍️ 商店</h3>'
-      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">裝飾品買回家佈置，禮物直接送給在場的人增加好感。</div>'
-      + '<div id="kc-shop-list" style="overflow-y:auto;min-height:0;"></div>'
-      + '<button onclick="closeKanshouShop()" style="margin-top:12px;width:100%;padding:10px;background:#4a3a6a;color:#fff;border:none;border-radius:8px;cursor:pointer;flex-shrink:0;">關閉</button>'
-      + '</div>';
-    document.body.appendChild(ov);
-  }
-  function renderKcShop_() {
-    var box = document.getElementById('kc-shop-list');
-    if (!box) return;
-    var decorItems = KC_SHOP_ITEMS_.filter(function (it) { return it.type === 'decor'; });
-    var giftItems = KC_SHOP_ITEMS_.filter(function (it) { return it.type === 'gift'; });
-    var h = '<div style="font-size:12px;color:#cbb;margin:6px 0 3px;">🛋️ 裝飾品（買回家佈置）</div>';
-    h += decorItems.map(function (it) {
-      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
-        + '<span style="flex:1;color:#e8d8e0;">' + escapeHtml(it.name) + ' <small style="color:#8a7fa0;">' + it.price + '円・' + escapeHtml(it.desc) + '</small></span>'
-        + '<button onclick="kanshouBuyDecor(\'' + it.id + '\')" style="padding:4px 10px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">購買</button></div>';
-    }).join('');
-    // 🌍 送禮對象只能是「此刻同地點」的人(isHere)，不是 _kcCur 全部——跟後端 giftTargetIdx 的判斷標準一致。
-    var giftablePeople = _kcCur.filter(function (c) { return c.isHere; });
-    h += '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">🎁 禮物（送給在場的人）</div>';
-    if (!giftablePeople.length) {
-      h += '<div style="color:#888;padding:6px;">（目前身邊沒有人，無法送禮）</div>';
-    } else {
-      h += giftItems.map(function (it) {
-        return '<div style="padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
-          + '<div style="color:#e8d8e0;margin-bottom:4px;">' + escapeHtml(it.name) + ' <small style="color:#8a7fa0;">' + it.price + '円・好感+' + it.bond + '・' + escapeHtml(it.desc) + '</small></div>'
-          + '<div style="display:flex;flex-wrap:wrap;gap:5px;">'
-          + giftablePeople.map(function (c) {
-            return '<button onclick="kanshouGiveGift(\'' + it.id + '\',\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 8px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">送給' + escapeHtml(c.name) + '</button>';
-          }).join('')
-          + '</div></div>';
-      }).join('');
-    }
-    box.innerHTML = h;
-  }
-  async function kanshouBuyDecor(itemId) {
-    closeKanshouShop();
-    showGamePane('chat');
-    await send('🛍️ 買了一件家居擺設。', false, null, null, false, false, 0, null, false, itemId);
-  }
-  async function kanshouGiveGift(itemId, targetName) {
-    closeKanshouShop();
-    showGamePane('chat');
-    await send('（挑了份禮物）', false, null, null, false, false, 0, null, false, itemId, targetName);
-  }
 
   // 篩選下拉選單本身只跟 _kcHeroesAll(英靈庫全清單)有關，內容跟 get_heroes 一樣少變——只在
   // 英靈庫清單真的重抓時(見 openCompanions)才重建這裡，換篩選只呼叫 applyKcHeroFilter_ 切 CSS。
@@ -550,11 +435,11 @@ let plainTextContext = cleanText;
     { key: '清晨', name: '清晨', label: '☀️清晨' }, { key: '午後', name: '午後', label: '🌤️午後' },
     { key: '黃昏', name: '黃昏', label: '🌆黃昏' }, { key: '夜', name: '夜晚', label: '🌙夜晚' }, { key: '深夜', name: '深夜', label: '🌌深夜' }
   ];
-  // 🏠 房間分區(room)的name是穩定內部key，顯示名稱是動態算的(kcRoomLabel_，讀_kcCur的room欄位)，
-  // 不是這裡的靜態文字——跟後端kanshouRoomDisplayName_同一套邏輯，見下方kcMapListHtml_。
+  // 🏠 房間分區(room)的name是穩定內部key，顯示名稱是動態算的(kcRoomLabel_)——跟後端
+  // kanshouRoomDisplayName_同一套邏輯，見下方kcMapListHtml_。2026-07經濟/房東房客世界觀
+  // 砍除後不再有可指派的客房，只剩玩家自己的房間。
   var KC_LOCATIONS_ = [
-    { name: '我的房間', region: 'room', isRoom: true }, { name: 'room1', region: 'room', isRoom: true },
-    { name: 'room2', region: 'room', isRoom: true }, { name: 'room3', region: 'room', isRoom: true },
+    { name: '我的房間', region: 'room', isRoom: true },
 
     { name: '客廳', region: 'home' }, { name: '廚房', region: 'home' },
     { name: '浴室', region: 'home' }, { name: '庭院', region: 'home' },
@@ -572,14 +457,9 @@ let plainTextContext = cleanText;
   ];
   // 目前選取的分區(純前端UI狀態，跨裝置不同步，比照kanshouEncounterOn用localStorage記住偏好)。
   var kcActiveRegion_ = localStorage.getItem('kyushu_kanshou_region') || 'home';
-  async function kcSwitchRegion_(id) {
+  function kcSwitchRegion_(id) {
     kcActiveRegion_ = id;
     localStorage.setItem('kyushu_kanshou_region', id);
-    // 🏠 房間分區的顯示名稱依賴_kcCur.room——切進這個分區時先重fetch一次，避免顯示過期的入住狀態
-    //   (比如剛剛才在別的分頁完成入住/早餐把人挪動過，_kcCur還沒更新過)。
-    if (id === 'room') {
-      try { var res = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount }); if (res && res.success) _kcCur = res.current || []; } catch (e) {}
-    }
     var listEl = document.getElementById('kc-map-list');
     if (listEl) listEl.innerHTML = kcMapListHtml_();
   }
@@ -592,14 +472,11 @@ let plainTextContext = cleanText;
     localStorage.setItem('kyushu_kanshou_encounter', kanshouEncounterOn);
   }
 
-  // 🏠「家」從獨立釘選按鈕升級成跟其餘4區並列的分區分頁(我的房間/同住人房間/客房+日式空間，見KC_LOCATIONS_)。分頁標籤沿用玩家自訂顯示名稱(後端【住所】標記/getKanshouHomeName_，預設「衛宮宅」)，改名鈕移到「家」分頁展開時才顯示。
-  // 🏠 房間分區動態顯示名稱：跟後端kanshouRoomDisplayName_同一套邏輯，查_kcCur(每次開companions/shop/地圖前都會重fetch)的room欄位決定誰住這裡——純顯示用，實際合法性由後端驗證。
+  // 🏠「家」從獨立釘選按鈕升級成跟其餘4區並列的分區分頁(我的房間+日式空間，見KC_LOCATIONS_)。分頁標籤沿用玩家自訂顯示名稱(後端【住所】標記/getKanshouHomeName_，預設「衛宮宅」)，改名鈕移到「家」分頁展開時才顯示。
+  // 🏠 房間分區動態顯示名稱：跟後端kanshouRoomDisplayName_同一套邏輯，純顯示用。
   function kcRoomLabel_(key) {
     if (key === '我的房間') return (pc && pc.name ? pc.name : '御主') + '的房間';
-    var m = /^room([1-3])$/.exec(key);
-    if (!m) return key;
-    var occ = _kcCur.find(function (c) { return c.room === key; });
-    return occ ? (occ.name + '的房間') : ('空房間' + m[1]);
+    return key;
   }
   function kcMapListHtml_() {
     var homeLabel = (pc && pc.homeName) ? pc.homeName : '衛宮宅';
@@ -617,7 +494,6 @@ let plainTextContext = cleanText;
     // 🆕 locCounts 夾帶在tags payload裡(見Router_Action.gs buildTagsPayload_)——每個英靈都各自散布在不同地點過自己的生活，這裡顯示各地點人數，幫助決定去哪裡找誰。
     var locCounts = (window._lastTags && window._lastTags.locationCounts) || {};
     // 🙋 跟kanshouMoveTo(自己走，無條件強制移動)不同，這顆👋走一般聊天訊息(不帶moveTarget)，交給AI依同伴個性當場決定答應或婉拒(見Gallery.gs★【玩家反向邀約】)。
-    // 🏠 客房不再有專屬的入住按鈕，純粹當一般地點瀏覽(📍走過去/👋邀同伴一起去)，「邀請入住」改到角色列表(kc-party-list/kanshouInviteMoveIn)辦理。
     var locBtns = KC_LOCATIONS_.filter(function (l) { return l.region === kcActiveRegion_; }).map(function (l) {
       var label = l.isRoom ? kcRoomLabel_(l.name) : l.name;
       var cnt = locCounts[l.name] || 0;
@@ -684,20 +560,15 @@ let plainTextContext = cleanText;
   // 🚪 跟move proposal同款「選了才真的觸發」寫法，只是這個是GAS機率事件(見Gallery.gs結束一天前的擲骰)。開門帶knockAccept(把訪客接來、不推進日期)；不予理會帶skipKnockCheck重送結束一天(跳過判定、直接推進日期)。
   async function kanshouAnswerKnock(name) {
     showGamePane('chat');
-    await send('打開了門，是「' + name + '」……', false, null, null, false, false, 0, null, false, null, null, name);
+    await send('打開了門，是「' + name + '」……', false, null, null, false, false, 0, null, name);
   }
   async function kanshouIgnoreKnock() {
-    await send('（決定不去開門，逕自準備歇下了）', false, null, null, false, true, 0, null, false, null, null, null, true);
-  }
-
-  // 💰 只有此地只有她一人在場(獨處)、且掛著欠租旗標時，後端才會夾debtPaymentOffer；點下去才真的觸發橋段，不點就只是繼續正常聊天(不像敲門那樣強制二選一)。
-  async function kanshouOfferDebtPayment(name) {
-    await send('向「' + name + '」提議，這期的房租就用身體來抵……', false, null, null, false, false, 0, null, false, null, null, null, false, false, name);
+    await send('（決定不去開門，逕自準備歇下了）', false, null, null, false, true, 0, null, null, true);
   }
 
   // 🎭 夜襲/賴床叫醒改成候選人持續存在期間都能按這顆按鈕，不點的話(含直接聊天)就是婉拒，正常敘事完全不受影響。
   async function kanshouAcceptRoomEvent(name) {
-    await send('（靠近了「' + name + '」……）', false, null, null, false, false, 0, null, false, null, null, null, false, false, null, name);
+    await send('（靠近了「' + name + '」……）', false, null, null, false, false, 0, null, null, false, false, name);
   }
 
   // 同伴名單變動後的局部刷新：只重抓「鑑賞眾生在場名單」這份小資料，不再重打 get_heroes，

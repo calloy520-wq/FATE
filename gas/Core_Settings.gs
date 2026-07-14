@@ -43,12 +43,9 @@ const COL = {
     // 世界狀態欄(原 CLK/AUTH 表)：只在御主自己那一列有意義，其餘角色列留空。
     //   DAY/HOUR/AP=時鐘(1AP=1小時，每日12AP)；HOME_LOC=居所(工房加成判定用)。
     DAY: 29, HOUR: 30, AP: 31, HOME_LOC: 32,
-    // 經濟層(存錢/維護費/打工)僅KPC_(御主)列讀寫，solo(PC_)/其餘角色列恆空；附加尾端不動既有欄位位置(COL是位置索引)。
-    // MONEY：持久化金錢餘額，可為負(欠繳維護費，軟性設計、無懲罰機制)。
-    // UPKEEP_WEEK：最後一次已扣過維護費的「週數」(Math.floor((day-1)/7))，避免同週重複扣款；跨多週一次補扣、不逐週迭代。
+    // MONEY/UPKEEP_WEEK/ROOM(33-35)：2026-07 鑑賞經濟層＋房東房客世界觀砍除後的死欄，恆空。
+    //   COL 是位置索引不能刪(會讓後續欄位錯位)，保留占位即可，讀寫端均已移除。
     MONEY: 33, UPKEEP_WEEK: 34,
-    // ROOM＝入住客房(room1~room3/空字串)，與LOC(當下所在位置，會因敘事暫時變動)是獨立概念、不隨LOC變動而清空。
-    //   取代舊版寫死3位特定英靈的做法，任何女性都能被指派入住。只有KPC_(御主)與召喚的從者列有意義，solo恆空。
     ROOM: 35
   },
   // WAR：地圖地點按戰爭區分，避免第四次限定地點(海特飯店等)也出現在第五次局。空字串＝通用地點，'4th'/'5th' 限定該戰爭。
@@ -445,17 +442,13 @@ function buildPlayerStatusString(selfRow, relMem = "") {
       visibleStatusStr = Object.keys(_po).map(function (k) { return k + "：" + _po[k]; }).join("　");
     } catch (e) { }
   }
-  // 🔵 2026-07 鑑賞經濟層：位置24原是「恆空字串佔位」，前端從未讀取(見下方註解)，比照位置0的
-  //   「solo留空/鑑賞才填值」模式，借這個空位餵鑑賞金錢餘額，不需另外新增§-string欄位、不位移
-  //   任何既有索引。solo(非鑑賞)角色維持空字串。
-  const moneyStr = _isKanshou ? String(parseInt(selfRow[COL.PC.MONEY]) || 0) : "";
-
-  // 位置索引固定（§ 協議），s[7-16] 為廢棄的九州五圍/裝備/境界欄，填空保持前端定位不位移。
+  // 位置索引固定（§ 協議），s[7-16] 為廢棄的九州五圍/裝備/境界欄，位置24(原鑑賞金錢餘額，
+  //   2026-07 經濟層砍除後恆空)一併填空保持前端定位不位移。
   return [
     visibleStatusStr, "", selfRow[COL.PC.TRAIT], selfRow[COL.PC.LOC], selfRow[COL.PC.PREF],
     selfRow[COL.PC.HP], selfRow[COL.PC.MP], "", "", "", "", "",
     "", "", "", "", "", safeMemory, safeRelMem, selfRow[COL.PC.FACTION],
-    selfRow[COL.PC.RANK], selfRow[COL.PC.ALIGN], selfRow[COL.PC.CONTRIB], selfRow[COL.PC.BACK], moneyStr,
+    selfRow[COL.PC.RANK], selfRow[COL.PC.ALIGN], selfRow[COL.PC.CONTRIB], selfRow[COL.PC.BACK], "",
     selfRow[COL.PC.INTENT], selfRow[COL.PC.MARTIAL], ""
   ].join('§');
 }

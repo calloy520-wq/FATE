@@ -845,10 +845,6 @@
     // 地點標題
     const headerEl = document.getElementById('header-loc');
     if (headerEl) headerEl.innerText = s[3] ? "📍 " + s[3] : "未知區域";
-
-    // 💰 s[24] 借用原本「恆空字串佔位」的位置(solo恆空、鑑賞才有值)，只在鑑賞模式顯示頂列金錢徽章。
-    const moneyEl = document.getElementById('header-money');
-    if (moneyEl) { if (pc && pc.mode === 'kanshou') { moneyEl.style.display = ''; moneyEl.textContent = '💰' + (parseInt(s[24]) || 0); } else { moneyEl.style.display = 'none'; } }
   }
 
 
@@ -1494,10 +1490,6 @@
         // ⏰ 精簡：「跳到時段(5選1)」＋「結束一天」合併成一顆「下一階段」，固定往下一個時段推進，
         //   深夜按下去自然就是睡過夜(見 kanshouNextStage，Script_Kanshou.html)。
         + '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:#4a6a8a;color:#8ac0e0;" onclick="kanshouNextStage()" title="推進到下一個時段；深夜按下去就是睡一晚，迎向明天">⏰ 下一階段' + (kcClock && kcClock.band === '深夜' ? '(睡一晚)' : '') + '</button>'
-        // 🍳「時段行動」骨架：只在對應時段才顯示的按鈕(kcClock 由 send()/syncData() 夾帶更新)。想加其他時段行動，往這個if/陣列加即可。
-        + (kcClock && kcClock.band === '清晨'
-          ? '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:#8a9a4a;color:#c0e08a;" onclick="kanshouPrepBreakfast()" title="移動到廚房，房客們各自骰一次今早去向">🍳 準備早餐</button>'
-          : '')
         // 🎊「跳到節慶」不常用，已收進＋抽屜(見 Index.html drawer-festival／Script_Kanshou.html openKanshouFestivals)，地圖頁不再常駐佔版面。
         + '<div id="kc-map-list">' + kcMapListHtml_() + '</div>';
       return;
@@ -2523,10 +2515,6 @@ function applyModeUI() {
   var dcomp = document.getElementById('drawer-companions'); if (dcomp) dcomp.style.display = isKanshou ? '' : 'none';
   // 🎊 快轉節慶(從地圖頁移進＋抽屜，不常用)：只在鑑賞模式出現
   var dfest = document.getElementById('drawer-festival'); if (dfest) dfest.style.display = isKanshou ? '' : 'none';
-  // 💼 打工賺錢(2026-07 經濟層)：只在鑑賞模式出現
-  var djob = document.getElementById('drawer-job'); if (djob) djob.style.display = isKanshou ? '' : 'none';
-  // 🛍️ 商店(2026-07 Phase 2)：只在鑑賞模式出現
-  var dshop = document.getElementById('drawer-shop'); if (dshop) dshop.style.display = isKanshou ? '' : 'none';
   // 戰爭行動列：取代輸入框，只在戰爭模式顯示
   var wa = document.getElementById('war-actions'); if (wa) wa.style.display = isKanshou ? 'none' : 'flex';
   // 🌹 鑑賞御主卡已內建「換裝＋詳細狀態」按鈕列，卡片列表下方這顆獨立按鈕改只在 solo 顯示，避免重複外露

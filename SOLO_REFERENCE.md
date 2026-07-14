@@ -2496,7 +2496,23 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 **驗證**：`bash check.sh`全過；`git diff --stat gas/Engine_Combat.gs`空；grep確認`header-clock`/`tickRealClock_`全代碼庫零殘留引用。部署後建議測試：①任何會推進時間的鑑賞動作(跳時段/跳節慶/打工/下一階段)後，頂部`#clock-hud`應該即時顯示新的「X年X月X日・HH:00・時段」，不再停留在進場當下的舊值；②頂列不再出現跟遊戲無關的真實日期時間。
 
+## §100 鑑賞經濟層＋房東房客世界觀砍除，夜襲/賴床叫醒改用「她自己原本就有的住處」觸發（2026-07・§99之後玩家連續回報一次-73500元的破產經驗，然後直接「我覺得取消民宿這垃圾想法吧!!!!!」→釐清範圍後定案「經濟層(錢/打工/房租/商店)—你說要砍　民宿房東房客的世界觀包裝—你說要砍　這兩個先砍吧」）
 
+**背景**：§99處理完顯示問題後，玩家對「跳到節慶」一次扣49週維護費(73500元)的真實體驗感到崩潰，進而重新檢討整個「房東房客」世界觀是否值得保留。玩家情緒化地提出「取消民宿」，經釐清範圍(拆成①經濟層本身②房東房客世界觀包裝③日期曆法④邀請入住流程⑤地圖系統，並確認「還在想」的部分先不動)，最終明確拍板只砍①②兩項，③④⑤(日期/節慶/地圖/召喚)維持不動。
 
+**發現的衝突與解法**：拆解房間系統前發現夜襲/賴床叫醒/肉償三個橋段全部靠「玩家LOC是不是等於某個客房(room1~3)」判斷候選人，不是只有肉償——直接砍掉客房會連帶打掉玩家之前明確要求保留的橋段。提出3個方案後，玩家選定「先改成用『她自己原本就有的住處』觸發」：候選人判定改成「這個地點是不是`KANSHOU_HERO_HOME_`裡登記的某位英靈的家、且真的有人LOC剛好在這裡」，`kanshouRollDailyLocation_`深夜/清晨的homeBias機率本來就會讓她回自己家(這行為早就存在，只是之前沒被夜襲/賴床叫醒的候選人判定利用)，不需要新寫任何內容即可讓橋段繼續觸發。肉償依存在「租金繳不出來」的前提，經濟層砍除後直接跟著整個移除。
 
+**Gallery.gs 移除清單**：`KANSHOU_START_MONEY_`/`KANSHOU_WAGE_`/`KANSHOU_WORK_HOURS_`/`KANSHOU_UPKEEP_`/`KANSHOU_TENANT_RENT_`/`KANSHOU_TENANT_SHORT_CHANCE_`常數；`kanshouChargeUpkeep_`/`kanshouCollectTenantRent_`(維護費/房租扣款)；`KANSHOU_SHOP_ITEMS_`＋商店購買(`userData.buyItem`)分支；`KANSHOU_DECOR_TAG_`/`kanshouAddDecor_`(家居擺設)＋`myDecor`在【玩家命格】prompt裡的用法；`KANSHOU_RENT_DEBT_TAG_`(欠租旗標)；`actionKanshouAssignRoom`(入住客房)；`KANSHOU_HOUSEMATE_WANDER_CHANCE_`；早餐功能(`kanshouRollBreakfastSpot_`/`isBreakfast_`分支/`prepBreakfast`)；打工分支(`isWork`／`userData.work`＋`KANSHOU_WAGE_`發薪)；`userData.debtPayment`(肉償金流觸發)＋`KANSHOU_SCENE_EVENTS_`裡的`肉償`分支本身。`KANSHOU_LOCATIONS_`拿掉`room1`~`room3`，只留`我的房間`。`kanshouRoomDisplayName_`簡化成只認「我的房間」。`kanshouRollDailyLocation_`拿掉`room`參數(反正客房已不存在)。夜襲/賴床叫醒候選判定改查`Object.values(KANSHOU_HERO_HOME_).includes(curL或moveTarget)`。`actionKanshouCompanions`回傳不再帶`room`欄位。**保留不動**：`KANSHOU_KNOCK_CHANCE_`(敲門橋段，跟經濟無關)；`KANSHOU_LOCATION_ACTIVITY_`(咖啡廳/深夜便利店「正在打工」的NPC活動flavor文字——這是角色自己的日常，不是玩家的錢，跟房東房客世界觀無關，維持不變)。
+
+**Core_Settings.gs**：`COL.PC.MONEY`/`UPKEEP_WEEK`/`ROOM`(33-35)三個欄位索引維持不刪(COL是位置索引，刪掉會讓後續欄位全部錯位)，但註解改標記為「死欄，恆空」；`buildPlayerStatusString`的§-string位置24(原本借給鑑賞金錢餘額用)恢復成solo/鑑賞都固定填空字串。
+
+**前端(Script_Kanshou.html)**：`send()`函式簽名拿掉`work`/`buyItem`/`giftTarget`/`debtPayment`/`prepBreakfast`五個參數(連帶更新所有呼叫端的位置參數)；移除`kanshouInviteMoveIn`(邀請入住)、`kanshouWork`、`openKanshouShop`整組商店函式與`KC_SHOP_ITEMS_`鏡像、`kanshouOfferDebtPayment`、`kanshouPrepBreakfast`；`renderKcPartyList_`拿掉「🏠邀請入住」按鈕；`KC_LOCATIONS_`鏡像拿掉room1~3；`kcRoomLabel_`簡化成只認「我的房間」；`kcSwitchRegion_`拿掉切進房間分區時重fetch`_kcCur`的邏輯(房間顯示名稱已不依賴`_kcCur`)。
+
+**前端(Script.html)**：`updateUI`拿掉`#header-money`金錢徽章的刷新邏輯；`renderMapPane`拿掉「🍳準備早餐」按鈕；`applyModeUI`拿掉`#drawer-job`/`#drawer-shop`的顯示切換。
+
+**前端(Index.html)**：拿掉`#header-money`徽章span；拿掉`#drawer-job`(去打工)/`#drawer-shop`(商店)兩顆抽屜按鈕。
+
+**驗證**：`bash check.sh`全過；`git diff --stat gas/Engine_Combat.gs`空；全代碼庫grep確認`KANSHOU_SHOP_ITEMS_`/`KANSHOU_DECOR_TAG_`/`KANSHOU_RENT_DEBT_TAG_`/`kanshouChargeUpkeep_`/`kanshouCollectTenantRent_`/`actionKanshouAssignRoom`/`debtPaymentOffer`/`room1~3`(當地點名稱用)等舊識別字零殘留(僅剩少數歷史說明性註解，已同步改寫成過去式或移除)。部署後建議測試：①夜襲(深夜走進某位在場英靈的`KANSHOU_HERO_HOME_`住處)、②賴床叫醒(清晨同樣走進)兩個橋段依然能正常觸發＋按鈕正常跳出；③地圖「家」分頁只剩「我的房間」，沒有殘留的空房間按鈕；④「+」抽屜不再有「去打工」「商店」；⑤頂列不再顯示金錢徽章。
+
+**尚未處理(玩家明確擱置)**：日期/曆法/節慶系統、邀請入住(召喚)流程、地圖/地點系統——這三項玩家在討論中提過「也都先不要」但屬「還在想」狀態，本批次刻意不動，之後有進一步指示才處理。
 
