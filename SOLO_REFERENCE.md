@@ -2464,6 +2464,16 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 **驗證**：每一批分別跑`bash check.sh`全過；每次`git diff --stat gas/Engine_Combat.gs`皆空。全程分批commit+push(共約10個commit)，每批都先驗證再commit，避免agent尚未完工時的半成品被誤判成最終態。
 
+## §97 鑑賞輕量化：砍掉「推進N小時」死碼＋「宵禁提醒」機制（2026-07・玩家「鑑賞是不是還可以輕量化一點...我想要的橋段要保留!」→確認範圍後「這2個都砍!」）
+
+**①`kanshouAdvanceHours`(推進N小時)**：查證後發現這顆函式在前端**已經沒有任何按鈕呼叫**——`kanshouJumpBand`(跳到時段)上線後取代了它的UX(玩家不必自己心算會落在哪個時段)，但舊函式忘了一起清掉。純刪除孤兒函式，後端共用的`advanceHours`管線(`isWork`/`jumpBand`/`jumpFestival`都走這條)完全不受影響——這幾條路線本來就是各自算好小時數後才餵進同一條管線，不是靠這顆函式才能運作。
+
+**②宵禁提醒(晚上10點提醒回家/留在外面過夜)**：整組砍除——`Gallery.gs`的`kanshouCurfewDismissed_`/`kanshouDismissCurfew_`(MEMORY【宵禁已知會】標記get/set)、`actionPlay`裡的`curfewLocDef`/`isCurfewHome`/`curfewDismissedNow`/`curfewPrompt`計算、`dismissCurfew`旗標寫入分支、回應物件的`curfewPrompt`欄位；`Script_Kanshou.html`的`send()`裡渲染`curfewPrompt`按鈕的區塊、`kanshouGoHomeCurfew`/`kanshouStayOutCurfew`兩個函式。**沒動**：`send()`簽名跟`gasRun`payload裡的`dismissCurfew`參數位置刻意保留不刪——這是長串位置參數(18個)，砍掉中間一個要重新核對每個呼叫點的參數順序，風險遠大於留一個現在永遠不會被賦值為true的閒置參數，純函式殼留著無害。
+
+**明確沒動的部分(玩家要求保留)**：`KANSHOU_SCENE_EVENTS_`(夜襲/賴床叫醒/肉償橋段庫)、`kanshouRollSceneBranch_`、`roomEventOffer`/`debtPaymentOffer`機制完全沒有touch，這是玩家特別點名要保留的核心橋段系統。
+
+**驗證**：`bash check.sh`全過；`git diff --stat gas/Engine_Combat.gs`空；grep確認`KANSHOU_SCENE_EVENTS_`/夜襲/賴床叫醒/肉償相關字串在Gallery.gs跟Script_Kanshou.html都還在，橋段系統未受影響。部署後建議測試：①地圖分頁應該只看得到「跳到時段」，看不到自由選小時數的推進時間介面(本來就沒有按鈕，純後端死碼清除，UI應無變化)；②晚上10點不會再跳出「回家/留在外面過夜」提醒；③夜襲/賴床叫醒/肉償橋段應該完全正常運作不受影響。
+
 
 
 

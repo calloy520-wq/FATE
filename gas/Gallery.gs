@@ -1077,19 +1077,6 @@ function kanshouCollectTenantRent_(pcData, pcIndex, newDay, gameId, dirtyPcRows)
   return { total, shortNames };
 }
 
-// 🌙 2026-07「晚上10點強制回家/也可以在外面過夜」玩家定案：不真的強制，改成到了宵禁時段(22:00~
-//   06:00)、人又不在家時，回應夾curfewPrompt讓前端跳出「回家/留在外面過夜」提醒(比照knockEvent
-//   同款「GAS決定觸發，前端渲染選擇」，不是AI敘事判斷)。選「留在外面過夜」當天不再重複提醒
-//   (存這遊戲日已知會過，跨日靠curDay變動自然重置，不必額外清除邏輯)。
-function kanshouCurfewDismissed_(memory, day) {
-  const m = String(memory || "").match(/【宵禁已知會】(\d+)/);
-  return !!(m && parseInt(m[1]) === day);
-}
-function kanshouDismissCurfew_(memory, day) {
-  const s = String(memory || "").replace(/｜?【宵禁已知會】\d+/, "");
-  return (s ? s + "｜" : "") + "【宵禁已知會】" + day;
-}
-
 // 商店：資料驅動品項表(範本比照KANSHOU_LOCATIONS_，加東西＝加一列，不動流程)。type:'decor'
 //   買了持久佈置在家(存玩家MEMORY【家居裝飾】清單)；type:'gift'買了直接送給指定同行夥伴，
 //   好感依bond固定值增加(GAS掌數值，不靠AI喊好感漲多少)。
@@ -1428,11 +1415,6 @@ function actionPlay(userData, pcId, sheets) {
   }
   const curDateObj_ = kanshouAbsDayToDate_(curDay); // 供下方🕰️提示詞用，只算一次不重複呼叫
 
-  // 宵禁提醒「留在外面過夜」：純GAS旗標寫入，不需要等AI回應，這裡先處理掉，跟AI narration無關。
-  if (userData.dismissCurfew === true) {
-    pcData[pcIndex][COL.PC.MEMORY] = kanshouDismissCurfew_(pcData[pcIndex][COL.PC.MEMORY], curDay);
-  }
-
   // 肉償橋段觸發來源是玩家主動點debtPaymentOffer按鈕，不是移動進房間——目標必須此刻確實同行
   //   在場、且確實掛著欠租旗標(第二道防線，防直打API繞過前端按鈕判斷)，命中就依bond骰一次
   //   「肉償」走向、清掉欠租旗標，共用kanshouRollSceneBranch_骰法。
@@ -1743,7 +1725,7 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
     // 鑑賞拔除地圖按鈕，改AI自主決定地點——每回合讀 aiData.location 直接寫回 LOC。不靠IS_PARTY
     //   同步任何人：只有這回合一開始就跟玩家同地點在場的人(partyRows)才會跟著移動到新地點。
     // location不接受AI自創地名——跟move_proposal同一份KANSHOU_LOCATIONS_清單驗證(不合法就當
-    //   沒這回事)，避免同伴LOC被寫成玩家點不到、後續橋段/宵禁/巧遇等機制也對不上的幽靈地點。
+    //   沒這回事)，避免同伴LOC被寫成玩家點不到、後續橋段/巧遇等機制也對不上的幽靈地點。
     const aiLocRaw = String(aiData.location || "").trim().slice(0, 20);
     const aiLoc = aiLocRaw && KANSHOU_LOCATIONS_.some(l => l.name === aiLocRaw) ? aiLocRaw : "";
     if (aiLoc && aiLoc !== curL) {
@@ -1918,13 +1900,6 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
     curL = pcData[pcIndex][COL.PC.LOC];
 
-    // 宵禁提醒：用最終位置(可能已被moveTarget/AI決定的location更新過)判斷，人在家或今天已經
-    //   知會過(留在外面過夜)就不再跳提醒。
-    const curfewLocDef = KANSHOU_LOCATIONS_.find(l => l.name === curL);
-    const isCurfewHome = !!(curfewLocDef && curfewLocDef.region === 'home');
-    const curfewDismissedNow = kanshouCurfewDismissed_(pcData[pcIndex][COL.PC.MEMORY], curDay);
-    const curfewPrompt = (!isCurfewHome && !curfewDismissedNow && (curHour >= 22 || curHour < 6)) ? true : undefined;
-
     // 只有這個地點剛好只有一位在場(獨處)、且那位剛好掛著欠租旗標時，才給前端一個「提議肉償」
     //   的按鈕；不像knockEvent那樣擋下整回合強制二選一，玩家不理會也能正常繼續聊天。
     const debtPaymentOffer = (partyRows.length === 1 && KANSHOU_RENT_DEBT_TAG_.get(partyRows[0][COL.PC.MEMORY])) ? String(partyRows[0][COL.PC.NAME]) : undefined;
@@ -1973,7 +1948,6 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       options: aiData.options,
       tags: tagsPayload,
       moveProposal: moveProposal || undefined,
-      curfewPrompt: curfewPrompt,
       debtPaymentOffer: debtPaymentOffer,
       roomEventOffer: roomEventOffer,
       kanshouClock: kanshouClock,

@@ -154,16 +154,7 @@ let plainTextContext = cleanText;
           + `<button class="btn-option" style="flex:1;" onclick="kanshouIgnoreKnock()">不予理會</button>`
           + `</div></div>`;
       }
-      // 🌙 「晚上10點提醒回家/也可以在外面過夜」：跟knockEvent同款GAS觸發、前端渲染選擇。
-      if (data.curfewPrompt) {
-        optionsHtml += `<div style="background:rgba(160,110,60,0.14); border:1px solid #8a6a3a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#e0c090; font-size:12.5px; margin-bottom:6px;">🌙 已經很晚了，要回家嗎？</div>`
-          + `<div style="display:flex; gap:8px;">`
-          + `<button class="btn-option" style="flex:1;" onclick="kanshouGoHomeCurfew()">回家</button>`
-          + `<button class="btn-option" style="flex:1;" onclick="kanshouStayOutCurfew()">留在外面過夜</button>`
-          + `</div></div>`;
-      }
-      // 💰 「肉償機制」：跟knockEvent/curfewPrompt不同，這個不強制二選一——
+      // 💰 「肉償機制」：跟knockEvent不同，這個不強制二選一——
       //   不點按鈕就只是繼續正常聊天，按鈕本身只在「獨處+對方欠租」這個條件成立時才會出現。
       if (data.debtPaymentOffer) {
         const debtName = String(data.debtPaymentOffer);
@@ -315,13 +306,7 @@ let plainTextContext = cleanText;
     await send('🌙 結束了這一天。', false, null, null, false, true, 0, null, false, null, null, null, false, false, null, null, null, false, ['夜色漸漸深了…', '一天的塵埃緩緩落定…', '悄悄迎向嶄新的一天…']);
   }
 
-  // ⏰「推進時間」跟🌙結束一天不同——不強制拉回家，純粹讓時鐘跳過N小時，不在身邊的英靈依新時刻重新分佈去向(見Gallery.gs advanceHours分支)。走一般send()同一套渲染。
-  async function kanshouAdvanceHours(hours) {
-    showGamePane('chat');
-    await send('⏩ 讓時間悄悄流逝了' + hours + '個小時。', false, null, null, false, false, hours, null, false, null, null, null, false, false, null, null, null, false, ['時光靜靜流轉…', '天色漸漸改變…']);
-  }
-
-  // ⏰ 直接選目標時段，GAS算好差幾小時(見Gallery.gs kanshouHoursUntilBand_)，跟 kanshouAdvanceHours 共用同一條 advanceHours 管線，只是這裡傳的是jumpBand而非固定小時數。
+  // ⏰ 直接選目標時段，GAS算好差幾小時(見Gallery.gs kanshouHoursUntilBand_)，走advanceHours管線。
   async function kanshouJumpBand(key, label) {
     showGamePane('chat');
     await send('⏩ 讓時間悄悄流轉到了' + label + '。', false, null, null, false, false, 0, null, false, null, null, null, false, false, null, null, key, false, ['時光靜靜流轉…', '天色漸漸改變…']);
@@ -688,15 +673,6 @@ let plainTextContext = cleanText;
   }
   async function kanshouIgnoreKnock() {
     await send('（決定不去開門，逕自準備歇下了）', false, null, null, false, true, 0, null, false, null, null, null, true);
-  }
-
-  // 🌙 晚上10點不真的強制回家，改成提醒——「回家」重用既有moveTarget管線走回我的房間；「留在外面過夜」帶dismissCurfew，當天不再提醒。
-  async function kanshouGoHomeCurfew() {
-    showGamePane('chat');
-    await send('（時候不早了，決定回家去）', false, null, '我的房間');
-  }
-  async function kanshouStayOutCurfew() {
-    await send('（決定今晚就在外面過夜了）', false, null, null, false, false, 0, null, false, null, null, null, false, true);
   }
 
   // 💰 只有此地只有她一人在場(獨處)、且掛著欠租旗標時，後端才會夾debtPaymentOffer；點下去才真的觸發橋段，不點就只是繼續正常聊天(不像敲門那樣強制二選一)。
