@@ -52,8 +52,7 @@
       <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:12px;">參戰哪一場聖杯戰爭？</p>
       <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="chooseWar('4th')">⚔️ <b>第四次聖杯戰爭</b><br><small style="color:#9a7b4f; font-weight:normal;">Fate/Zero・正典七組（切嗣+Saber、時臣+吉爾伽美什…）</small></button>
       <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="chooseWar('5th')">🏆 <b>第五次聖杯戰爭</b><br><small style="color:#9a7b4f; font-weight:normal;">stay night・八組為敵（士郎+Saber、凜+EMIYA、臟硯+真Assassin、慎二+金閃閃、佐佐木孤身蟄伏柳洞寺…）</small></button>
-      <!-- 🧹 2026-07 大清理：「偽聖杯戰爭 Fake」開局選項已移除(FATE_FAKE_ROSTER 陣容大部分角色一併清空，
-           只剩銀狼×恩奇都不足以撐一場戰爭)——見 Seed_Rivals.gs/Seed_Codex.gs v52 註解。 -->
+      <!-- 🧹 「偽聖杯戰爭 Fake」開局選項已移除(FATE_FAKE_ROSTER 陣容大部分角色一併清空，只剩銀狼×恩奇都不足以撐一場戰爭)——見 Seed_Rivals.gs/Seed_Codex.gs v52 註解。 -->
       <button class="btn" style="width:100%; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="document.getElementById('scr-war').style.display='none';document.getElementById('scr-warmode').style.display='block';">← 返回</button>
     </div>
     <div id="scr-role" style="display:none; width:300px;">
@@ -83,7 +82,7 @@
       <input type="text" id="s-appear" class="std-in" placeholder="外貌（如：紅褐短髮的高中生／黑長雙馬尾）" maxlength="30" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
       <input type="text" id="s-standing" class="std-in" placeholder="身世／財力（如：沒落魔術名門末裔／揮金如土的醫科生）" maxlength="40" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
       <input type="text" id="s-wish" class="std-in" placeholder="你對聖杯的願望（如：拯救某個人／證明自己的價值）" maxlength="40" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
-      <!-- 🎴 起始禮裝（玩家自選·2026-07 不再隨機）。id 需對應後端 MYSTIC_CODES（成對維護·同 ALLOWED_FX_/FX_MENU_）；破戒(rule_breaker·戰中奪僕)不列。 -->
+      <!-- 🎴 起始禮裝（玩家自選，非隨機）。id 需對應後端 MYSTIC_CODES（成對維護·同 ALLOWED_FX_/FX_MENU_）；破戒(rule_breaker·戰中奪僕)不列。 -->
       <div style="color:#cdbbe6; font-size:12px; margin-bottom:4px;">🎴 起始禮裝（御主裝備·戰鬥被動加持）</div>
       <select id="s-mystic" class="std-select" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
         <option value="">（不帶禮裝）</option>
@@ -116,9 +115,7 @@
       <div id="hero-list" style="max-height:190px; overflow-y:auto; margin:6px 0; padding:4px; background:rgba(0,0,0,0.18); border:1px solid rgba(212,175,55,0.25); border-radius:6px;">
         <p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">↑ 選一個職階，或按「全部」瀏覽整個英靈殿</p>
       </div>
-      <!-- 🎲 2026-07 玩家看實機截圖再定案：隨機移來這裡跟瀏覽/原創同一群(都是「從現有名冊挑」)，
-           不用再寫落落長的說明；工房底下那顆按鈕整個砍掉——外面選單(Index.html:31 openForge('menu'))
-           本來就有一顆一樣的，砍的是重複入口，不是砍功能。 -->
+      <!-- 🎲 隨機移來這裡跟瀏覽/原創同一群(都是「從現有名冊挑」)；工房底下那顆按鈕已砍掉——外面選單(Index.html:31 openForge('menu'))本來就有一顆一樣的，砍的是重複入口，不是砍功能。 -->
       <button class="btn" style="width:100%; margin-bottom:8px; border-color:#9a7b4f; color:#9a7b4f;" onclick="lockBtn(event, summonRandom)">🎲 隨機召喚</button>
       <div style="border-top:1px dashed rgba(212,175,55,0.3); margin-top:6px; padding-top:8px;">
         <div style="text-align:center; color:#816e54; font-size:11px; margin-bottom:8px;">或者，用下面幾種方式召喚——</div>
@@ -131,18 +128,18 @@
         <button class="btn" style="width:100%; margin-top:6px; border-color:#a06cd0; color:#c79be8;" onclick="lockBtn(event, summonByDesc)">🖋️ 自訂生成（AI 快速盲盒）</button>
       </div>
     </div>
-    <!-- 🛠️ 自訂英靈工房：獨立一屏（2026-07 玩家反饋「塞召喚頁太長」）——一步一屏對齊 onboarding 慣例，欄位 ID 全部不變 -->
+    <!-- 🛠️ 自訂英靈工房：獨立一屏——一步一屏對齊 onboarding 慣例，欄位 ID 全部不變 -->
     <div id="step-forge" style="display:none;">
       <p style="text-align:center; color:#8fb0e8; font-size:16px; font-weight:bold; margin-bottom:2px;">🛠️ 自訂英靈工房</p>
       <p style="text-align:center; color:#816e54; font-size:11.5px; margin:0 0 10px;">數值全由你定（340 點預算）·AI 只補人格與寶具英文名<br>工房＝製造與修改；召喚請回「🌟 玩家原創」專區</p>
-      <!-- 🛠️/📚 工房雙模式(2026-07 玩家定案)：創造＝三分頁表單；作品＝本帳號英靈清單(點修改) -->
+      <!-- 🛠️/📚 工房雙模式：創造＝三分頁表單；作品＝本帳號英靈清單(點修改) -->
       <div style="display:flex; gap:5px; margin-bottom:8px;">
         <button type="button" id="cf-mode-create" class="btn" style="flex:1; padding:8px 2px; font-size:13px;" onclick="forgeModeCreate()">🛠️ 創造</button>
         <button type="button" id="cf-mode-works" class="btn" style="flex:1; padding:8px 2px; font-size:13px;" onclick="forgeMode('works')">📚 作品</button>
       </div>
       <div id="cf-works" style="display:none; padding:10px; background:rgba(20,18,34,.45); border:1px solid rgba(120,140,200,.35); border-radius:8px; text-align:left;"></div>
       <div id="cust-forge" style="padding:10px; background:rgba(20,18,34,.45); border:1px solid rgba(120,140,200,.35); border-radius:8px; text-align:left;">
-          <!-- 📑 三分頁(2026-07 玩家反饋「手機的極限」)：🎭演出｜⚔️靈基(主·預設)｜🌟寶具——欄位 ID 全不變·純版面分裝 -->
+          <!-- 📑 三分頁：🎭演出｜⚔️靈基(主·預設)｜🌟寶具——欄位 ID 全不變·純版面分裝 -->
           <div style="display:flex; gap:5px; margin-bottom:9px;">
             <button type="button" id="cf-tab-1" class="btn" style="flex:1; padding:7px 2px; font-size:12px;" onclick="forgeTab(1)">🎭 演出</button>
             <button type="button" id="cf-tab-2" class="btn" style="flex:1; padding:7px 2px; font-size:12px;" onclick="forgeTab(2)">⚔️ 靈基</button>
@@ -163,11 +160,7 @@
             <div id="cf-skills"></div>
           </div>
           <!-- 🎭 頁1·演出：外貌/個性各一句＋進階演出細節(選填·預設收合)＋整體描述 -->
-          <!-- 🧹 2026-07 玩家「不想那麼細」精簡：外貌/個性拆4格的版本 UI 太瑣碎，改回各一個自由文字欄——
-               後端 parseForgeBuild_ 本就用「有沒有頓號/逗號分3段以上」判斷玩家填了幾成(lookFull/prefFull)，
-               單句自由描述天然落在「核心設定，交給AI擴寫成四短句」這條路徑，欄位 ID(cf-look/cf-pref)
-               與後端格式完全不變、零後端改動。演出細節(自稱/陣營/態度/萌點/口吻/小動作/身世)7小欄收進
-               預設收合的「進階」區塊，想細調才展開。 -->
+          <!-- 🧹 外貌/個性拆4格的版本 UI 太瑣碎，改回各一個自由文字欄——後端 parseForgeBuild_ 本就用「有沒有頓號/逗號分3段以上」判斷填了幾成(lookFull/prefFull)，單句描述天然落在「核心設定，交給AI擴寫成四短句」路徑，欄位 ID 與後端格式完全不變。演出細節7小欄收進預設收合的「進階」區塊。 -->
           <div id="cf-page-1" style="display:none;">
             <input id="cf-look" class="std-in" maxlength="40" placeholder="🎨 外貌一句（選填·如：黑長直髮的冷豔劍士；留空＝AI補）" style="width:100%; box-sizing:border-box;">
             <input id="cf-pref" class="std-in" maxlength="40" placeholder="💭 個性一句（選填·如：外冷內熱，重視承諾；留空＝AI補）" style="width:100%; box-sizing:border-box; margin-top:6px;">
@@ -212,18 +205,18 @@
   <div id="game">
     <div class="top-navbar">
       <div class="top-navbar-content" style="display: flex; gap: 8px; align-items: center; width:100%;">
-        <!-- 🎴 solo 頂部三鍵(2026-07 UI 大改)：資料／魔力／設定，取代地點顯示。純按鍵、手機單手可操作；詳細再切左右分頁。 -->
+        <!-- 🎴 solo 頂部三鍵：資料／魔力／設定，取代地點顯示。純按鍵、手機單手可操作；詳細再切左右分頁。 -->
         <div id="topbar-solo" style="display:none; gap:6px; width:100%;">
           <button class="btn" style="flex:1; padding:6px 4px; font-size:12px; border-color:#2ca68c; color:#4fd0b0;" onclick="openViewMenu()">📋 資料</button>
           <button class="btn" style="flex:1; padding:6px 4px; font-size:12px; border-color:#4a6fa0; color:#7fb0e8;" onclick="openManaPanel()">🔮 魔力</button>
           <button class="btn" style="flex:1; padding:6px 4px; font-size:12px; border-color:#8a7a4a; color:#c9b885;" onclick="openSettingsMenu()">⚙️ 設定</button>
-          <!-- ❓ 常駐新手教學鈕(2026-07 玩家「solo加點新手教學？」)：單一總覽卡，隨時可查，不強制彈窗。 -->
+          <!-- ❓ 常駐新手教學鈕：單一總覽卡，隨時可查，不強制彈窗。 -->
           <button class="btn" style="flex:1; padding:6px 4px; font-size:12px; border-color:#d9a93a; color:#e7c873;" onclick="openTutorial()">❓ 教學</button>
         </div>
         <div id="topbar-kanshou" class="player-badge">
           <span id="header-loc">感應中...</span>
           <span id="header-clock" style="margin-left:8px; opacity:.7; font-size:11px;"></span>
-          <!-- 💰 2026-07 經濟層：金錢徽章，updateUI()依§-string s[24]刷新，display由那裡的isKanshou判斷控管。 -->
+          <!-- 💰 金錢徽章：updateUI()依§-string s[24]刷新，display由那裡的isKanshou判斷控管。 -->
           <span id="header-money" style="margin-left:8px; font-size:11px; color:#e0c090; display:none;">💰0</span>
         </div>
       </div>
@@ -231,9 +224,7 @@
     <div id="pane-wrap">
       <div id="pane-status" class="game-pane">
         <div id="fate-tags" style="display:none; gap:6px; padding:6px 8px 2px;"></div>
-        <!-- 🐛→✅ 2026-07 修：這顆固定在卡片列表下方、恆看「御主自己」的狀態(triggerDrawerAction('status')→
-             openStatus()無參數＝pc自己)。鑑賞模式的御主卡已補上同款「換裝＋詳細狀態」按鈕列(applyModeUI 隱藏本顆，
-             免重複外露)；solo 御主卡本身無此按鈕，本顆繼續是 solo 唯一入口。 -->
+        <!-- 🐛→✅ 這顆固定在卡片列表下方、恆看「御主自己」的狀態(triggerDrawerAction('status')→openStatus()無參數＝pc自己)。鑑賞模式的御主卡已補上同款按鈕列(applyModeUI 隱藏本顆，免重複外露)；solo 御主卡無此按鈕，本顆繼續是 solo 唯一入口。 -->
         <div id="my-status-fallback" style="text-align:center; padding:6px;">
           <button class="btn" style="font-size:12px; padding:5px 12px; border-color:#9a7b4f; color:#9a7b4f;" onclick="triggerDrawerAction('status')">👤 我的詳細狀態</button>
         </div>

@@ -28,8 +28,7 @@ function continueGame() {
   if (!accountLoginRes || !accountLoginRes.hasGame) { alert('目前沒有可繼續的存檔。'); return; }
   pc = { id: accountLoginRes.pcId, name: accountLoginRes.pcName, sex: accountLoginRes.pcSex, mode: 'solo', account: currentAccount };
   localStorage.setItem('kyushu_v27', JSON.stringify(pc));
-  // 🐛→✅ 2026-07 稽核：後端不再把「締結御主契約後、還沒召喚從者」誤判成殘局清掉，改回
-  //   needsSummon 旗標——接回召喚從者頁，而不是直接進尚無從者的主畫面。
+  // 🐛→✅ 後端不再把「締結御主契約後、還沒召喚從者」誤判成殘局清掉，改回 needsSummon 旗標——接回召喚從者頁，而不是直接進尚無從者的主畫面。
   if (accountLoginRes.needsSummon) {
     document.getElementById('scr-menu').style.display = 'none';
     document.getElementById('step-summon').style.display = 'block';
@@ -68,13 +67,12 @@ function chooseWarMode(m) {
   if (warMode === 'chaos') { currentWar = 'chaos'; showOnly_('step-name'); }
   else { showOnly_('scr-war'); }
 }
-var _mastersPrefetch = {}; // ⚡ 正典御主名單預取(2026-07 玩家反饋「扮演正典御主讀取好久」)：war → Promise
+var _mastersPrefetch = {}; // ⚡ 正典御主名單預取：war → Promise
 function chooseWar(w) {
   currentWar = w;
   playedMaster = '';
-  // 🧹 2026-07 大清理：'fake' 開局選項已移除(見 Index.html)，chooseWar 現在只會收到 '4th'/'5th'。
-  // ⚡ 進「自創/扮演」選擇畫面就先背景抓名單——玩家在畫面上讀選項的幾秒剛好蓋掉 round-trip，
-  //   點「扮演」時多半已回、幾乎秒開。失敗不管(loadCanonMasters 會 fallback 重抓)。
+  // 🧹 'fake' 開局選項已移除(見 Index.html)，chooseWar 現在只會收到 '4th'/'5th'。
+  // ⚡ 進「自創/扮演」選擇畫面就先背景抓名單——讀選項的幾秒剛好蓋掉 round-trip，點「扮演」時多半已回。失敗不管(loadCanonMasters 會 fallback 重抓)。
   if (!_mastersPrefetch[w]) _mastersPrefetch[w] = gasRun({ action: 'get_masters', war: w });
   showOnly_('scr-role');
 }
@@ -286,8 +284,7 @@ function renderHeroList() {
   var box = document.getElementById('hero-list'); if (!box) return;
   var all = (selectedSummonClass === '__all__');
   var custom = (selectedSummonClass === '__custom__'); // 🌟 玩家原創專區：工房/盲盒創造的英靈(src=ai_gen)全在這
-  // 🛡️ 2026-07：cls='御主'(鑑賞限定，不論種子或玩家自建)一律不進 solo 的「🌟玩家原創」清單——
-  //   點了會被後端 hrows 濾掉、heroId 查無對應，反而落入「查無 → AI 隨機生成無關從者」的誤導分支。
+  // 🛡️ cls='御主'(鑑賞限定)一律不進 solo 的「🌟玩家原創」清單——點了會被後端 hrows 濾掉、heroId 查無對應，反而落入「查無 → AI 隨機生成無關從者」的誤導分支。
   var list = all ? heroesData.filter(function (h) { return h.cls !== '御主'; })
     : custom ? heroesData.filter(function (h) { return h.src === 'ai_gen' && h.cls !== '御主'; })
     : heroesData.filter(function (h) { return h.cls === selectedSummonClass; });
@@ -332,8 +329,7 @@ function summonByHero(id) { return doSummon({ heroId: id }); }
 function summonByName() {
   var tn = (document.getElementById('s-truename') && document.getElementById('s-truename').value.trim()) || '';
   if (!tn) { alert('請輸入真名，或從上方挑選英靈。'); return; }
-  // 🐛→✅ 2026-07 稽核抓到：原本沒帶目前瀏覽的職階分頁，同真名跨職階(如斯卡哈 Lancer/Assassin)
-  //   永遠固定召到英靈殿裡排比較前面的那個版本。把 selectedSummonClass 一併帶給後端當同分優先提示。
+  // 🐛→✅ 原本沒帶目前瀏覽的職階分頁，同真名跨職階(如斯卡哈 Lancer/Assassin)永遠固定召到英靈殿裡排比較前面的版本——把 selectedSummonClass 一併帶給後端當同分優先提示。
   var _cls = (selectedSummonClass && selectedSummonClass !== '__all__' && selectedSummonClass !== '__custom__') ? selectedSummonClass : '';
   return doSummon({ trueName: tn, cls: _cls });
 }
@@ -344,10 +340,10 @@ function summonByDesc() {
   return doSummon({ desc: d, cls: (selectedSummonClass && selectedSummonClass !== '__all__') ? selectedSummonClass : '' });
 }
 
-// ══ 🛠️ 自訂英靈工房（2026-07 玩家定案）══
+// ══ 🛠️ 自訂英靈工房 ══
 //   規格：預算 340·六圍+技能+規模同一錢包（E10/D20/C30/B40/A50/EX60·EX≤2）／技能 3 槽·上限 A·可改名效果吃 fx／寶具名自定·上限 A·規模 對人/對軍。
 //   後端 actionSummonServant build 分支為權威驗證，這裡的預算/清單只是即時 UX 鏡射（改後端 ALLOWED_FX_ 記得同步 FORGE_FX）。
-var FORGE_PTS = { E: 10, D: 20, C: 30, B: 40, A: 50, EX: 60 }, FORGE_BUDGET = 340; // 💰 270→340(2026-07·種子中位數·技能/規模併入錢包後的重校·鏡射後端)
+var FORGE_PTS = { E: 10, D: 20, C: 30, B: 40, A: 50, EX: 60 }, FORGE_BUDGET = 340; // 💰 種子中位數·技能/規模併入錢包後的重校(鏡射後端)
 var FORGE_CLS_BONUS = { Berserker: 30 }; // 🐗 狂化補正(鏡射後端 FORGE_CLS_BONUS_)：狂化C是唯一負資產職階附贈·實測墊底→補30
 function forgeClsBudget_() { var c = (document.getElementById('cf-cls') || {}).value; return FORGE_BUDGET + (FORGE_CLS_BONUS[c] || 0); }
 var FORGE_SK_PTS = { E: 5, D: 10, C: 15, B: 20, A: 25 }; // ⚡ 技能階級定價(六圍半價·無 fx 純演出免費·鏡射後端 SKILL_PTS_)
@@ -355,15 +351,10 @@ var FORGE_SK_PTS = { E: 5, D: 10, C: 15, B: 20, A: 25 }; // ⚡ 技能階級定�
 var FORGE_SK_PTS_BIG = { E: 7, D: 13, C: 20, B: 27, A: 33 }, FORGE_SK_PTS_SMALL = { E: 3, D: 7, C: 10, B: 13, A: 17 };
 var FORGE_SK_TRACK = { aim: 1, petrify: 1, fast_cast: 1, divine_age: 1, territory: 1, ride: -1, wind_strike: -1, morale: -1 };
 function forgeSkPts_(fx) { return FORGE_SK_TRACK[fx] === 1 ? FORGE_SK_PTS_BIG : FORGE_SK_TRACK[fx] === -1 ? FORGE_SK_PTS_SMALL : FORGE_SK_PTS; }
-// 🐛→✅ 2026-07「戰鬥標籤和戰鬥運算 戰報 檢查」：self_mod/tactics/projection 補進固定價(鏡射後端
-//   FLAT_FX_ 同批修正——這3個fx引擎皆不讀自己的購買階級，原本落到依階級計價是花錢買不到東西的漏洞)。
-var FORGE_FLAT_FX = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25, weapon_steal: 25, god_slay: 25, lovespot: 5, self_mod: 15, tactics: 25, projection: 25 }; // 🔒 二元 fx 平價(fx→價·引擎不讀其階級·鏡射後端 FLAT_FX_；燕返60=僅每場第1回合一閃後的重校；weapon_steal/god_slay/lovespot 2026-07 三波·引擎皆不讀階)
-// 🗂️ 效果目錄·按機制分組(2026-07 玩家點破「很多效果一樣但名字不同」——名字是原作梗·機制就十來種，
-//   名字本可自取→按效果挑、同效者標明擇一即可)。flat FORGE_FX 由 groups 攤平(label 查找/驗證介面不變)。
-// ⚠ 2026-07 四波(命中/常駐傷害收斂成「大中小」)已於六波復原：玩家指出「代碼寫很細，不能這樣合併分類」——
-//   四波當時只看到「同公式不同係數」的表象，漏了 first_strike/analyze 是【攻守雙修的先機】(命中+迴避皆加、
-//   會被無欲封)而 aim/ride 是【純進攻】(不加迴避、免疫無欲封鎖)，硬套大中小會把這條機制線抹掉、變假分類。
-//   拆回各自獨立命名，機制差異寫進各自 label 裡(比純「大中小」更準確)，不再嘗試把不同機制塞進同一把尺。
+// 🐛→✅ self_mod/tactics/projection 補進固定價(鏡射後端 FLAT_FX_)——這3個fx引擎皆不讀自己的購買階級，原本依階級計價是花錢買不到東西的漏洞。
+var FORGE_FLAT_FX = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25, weapon_steal: 25, god_slay: 25, lovespot: 5, self_mod: 15, tactics: 25, projection: 25 }; // 🔒 二元 fx 平價(fx→價·引擎不讀其階級·鏡射後端 FLAT_FX_；燕返60=僅每場第1回合一閃後的重校)
+// 🗂️ 效果目錄按機制分組：很多效果名字不同但機制相同(十來種)，名字可自取→按效果挑、同效者標明擇一。flat FORGE_FX 由 groups 攤平(label 查找/驗證介面不變)。
+// ⚠ 曾把命中/常駐傷害收斂成「大中小」分類，後來復原：first_strike/analyze 是【攻守雙修的先機】(命中+迴避皆加、會被無欲封)而 aim/ride 是【純進攻】(不加迴避、免疫無欲封鎖)，硬套大中小會把這條機制線抹掉。拆回各自獨立命名，機制差異寫進各自 label 裡。
 var FORGE_FX_GROUPS = [
   { t: '⚔️ 命中系', items: [
     ['first_strike', '直感（先機·命中+迴避+·會被無欲封）'], ['analyze', '心眼（＝直感同效·擇一）'],
@@ -400,7 +391,7 @@ var FORGE_FX_GROUPS = [
 ];
 var FORGE_FX = [['', '（無效果·純演出標籤）']].concat(FORGE_FX_GROUPS.reduce(function (a, g) { return a.concat(g.items); }, []));
 var _forgeInit = false;
-// 🛠️ 工房獨立一屏(2026-07 玩家反饋「塞召喚頁太長」)：召喚屏 ↔ 工房屏 換頁，欄位狀態保留(只藏不清)。
+// 🛠️ 工房獨立一屏：召喚屏 ↔ 工房屏 換頁，欄位狀態保留(只藏不清)。
 var _forgeEditId = null; // ✏️ 編輯模式：正在修改的英靈殿 ID(null=製造新英靈)
 var _forgeFrom = 'summon'; // 🛠️ 工房起點：'menu'(主選單)或'summon'(召喚頁)——返回鍵回對地方
 function openForge(from) {
@@ -415,15 +406,14 @@ function openForge(from) {
   if (sumEl) sumEl.style.display = 'none';
   var f = document.getElementById('step-forge');
   if (f) { f.style.display = 'block'; window.scrollTo(0, 0); }
-  var gt = document.getElementById('game-title'); if (gt) gt.style.display = 'none'; // 🏷️ 工房屏藏大標題省高度(2026-07 玩家定案)
+  var gt = document.getElementById('game-title'); if (gt) gt.style.display = 'none'; // 🏷️ 工房屏藏大標題省高度
   if (!_forgeInit) { initForge_(); _forgeInit = true; }
   forgeTab(2); // 📑 預設開在中間「⚔️ 靈基」主頁
   // 主選單直入時名冊可能還沒載(loadHeroes 原本在進召喚頁才跑)→補載後刷「我的作品」列
   if (!heroesData || !heroesData.length) { loadHeroes().then(function () { renderForgeWorks_(); }).catch(function () { }); }
-  forgeMode('create'); // 預設創造模式(玩家定案)
+  forgeMode('create'); // 預設創造模式
 }
-// 📑 工房三分頁(2026-07 玩家反饋「手機的極限」)：🎭演出(1)｜⚔️靈基(2·主)｜🌟寶具(3)。
-//   純版面切換·欄位常駐 DOM(值不丟)；預算/存檔鈕常駐底欄三頁共用。
+// 📑 工房三分頁：🎭演出(1)｜⚔️靈基(2·主)｜🌟寶具(3)。純版面切換·欄位常駐 DOM(值不丟)；預算/存檔鈕常駐底欄三頁共用。
 function forgeTab(n) {
   [1, 2, 3].forEach(function (i) {
     var pg = document.getElementById('cf-page-' + i); if (pg) pg.style.display = (i === n) ? 'block' : 'none';
@@ -434,13 +424,12 @@ function forgeTab(n) {
       tb.style.fontWeight = (i === n) ? 'bold' : 'normal';
     }
   });
-  // 💾 存檔鈕只在中間「⚔️ 靈基」主頁顯示(2026-07 玩家定案)；預算計數保持三頁常駐(寶具頁調規模要看得到)
+  // 💾 存檔鈕只在中間「⚔️ 靈基」主頁顯示；預算計數保持三頁常駐(寶具頁調規模要看得到)
   // 🌹 御主職階沒有靈基/寶具頁可看(藏起，見 applyForgeClsMode_)，存檔鈕改在唯一可見的「🎭 演出」頁顯示。
   var isMaster = ((document.getElementById('cf-cls') || {}).value === '御主');
   var sv = document.getElementById('cf-save'); if (sv) sv.style.display = (n === 2 || (isMaster && n === 1)) ? 'block' : 'none';
 }
-// 🧹 2026-07 玩家「不想那麼細」：演出細節(自稱/陣營/態度/萌點/口吻/小動作/身世)7小欄預設收合，
-//   想細調才展開——留空全部交給AI補，不強迫每次捏角都填滿一輪。
+// 🧹 演出細節(自稱/陣營/態度/萌點/口吻/小動作/身世)7小欄預設收合，想細調才展開——留空全部交給AI補，不強迫每次捏角都填滿一輪。
 function toggleForgeAdvanced() {
   var box = document.getElementById('cf-drama'); if (!box) return;
   var open = box.style.display !== 'none';
@@ -448,8 +437,7 @@ function toggleForgeAdvanced() {
   var btn = document.getElementById('cf-adv-toggle');
   if (btn) btn.textContent = (open ? '▸' : '▾') + ' 進階演出細節（選填·自稱/陣營/態度/萌點/口吻/小動作/身世）';
 }
-// 🧹 工房表單歸零(2026-07 修「修改存檔後創造一直卡在這支角色」)：欄位「只藏不清」是為保留未存檔草稿，
-//   但【存檔成功後】與【編輯中改點創造】必須清乾淨——否則舊角色資料殘留在創造表單=體感卡死。
+// 🧹 工房表單歸零：欄位「只藏不清」是為保留未存檔草稿，但【存檔成功後】與【編輯中改點創造】必須清乾淨——否則舊角色資料殘留在創造表單=體感卡死。
 function forgeReset_() {
   _forgeEditId = null;
   var V = function (eid, v) { var el = document.getElementById(eid); if (el) el.value = v; };
@@ -468,7 +456,7 @@ function forgeModeCreate() {
   if (_forgeEditId) forgeReset_();
   forgeMode('create');
 }
-// 📚 工房「作品」頁(2026-07 玩家定案)：本帳號創造的英靈完整清單(點 ✏️修改)＋無主舊作認領區。
+// 📚 工房「作品」頁：本帳號創造的英靈完整清單(點 ✏️修改)＋無主舊作認領區。
 function forgeMode(m) {
   var isWorks = (m === 'works');
   var wk = document.getElementById('cf-works'), cr = document.getElementById('cust-forge');
@@ -582,7 +570,7 @@ function refreshClsHint_() {
   applyForgeClsMode_();
   if (typeof forgeBudget_ === 'function') try { forgeBudget_(); } catch (e) { } // 換職階→預算上限跟著變(Berserker 370)
 }
-// 🌹 2026-07：選「御主」職階→藏起⚔️靈基／🌟寶具兩頁(用不到)，強制留在🎭演出頁；換回戰鬥職階→復原。
+// 🌹 選「御主」職階→藏起⚔️靈基／🌟寶具兩頁(用不到)，強制留在🎭演出頁；換回戰鬥職階→復原。
 function applyForgeClsMode_() {
   var cls = (document.getElementById('cf-cls') || {}).value;
   var isMaster = (cls === '御主');
@@ -593,24 +581,22 @@ function applyForgeClsMode_() {
 }
 function initForge_() {
   var opt = function (v, t) { return '<option value="' + v + '">' + (t || v) + '</option>'; };
-  // 🌹 2026-07：新增「御主」職階——鑑賞限定純敘事款，不參與戰鬥(見 applyForgeClsMode_ 隱藏靈基/寶具頁)。
+  // 🌹「御主」職階——鑑賞限定純敘事款，不參與戰鬥(見 applyForgeClsMode_ 隱藏靈基/寶具頁)。
   document.getElementById('cf-cls').innerHTML = ['Saber', 'Archer', 'Lancer', 'Rider', 'Caster', 'Assassin', 'Berserker', '御主'].map(function (c) { return opt(c); }).join('');
   refreshClsHint_();
   var rankSel = function (id, def, maxA) {
     var ranks = maxA ? ['E', 'D', 'C', 'B', 'A'] : ['E', 'D', 'C', 'B', 'A', 'EX'];
     return '<select id="' + id + '" class="std-in" style="flex:1; min-width:0;" onchange="forgeBudget_()">' + ranks.map(function (r) { return '<option' + (r === def ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>';
   };
-  // 📏 六圍一行(2026-07 玩家反饋)：6 欄橫排·標籤在上選單在下，省 5 行高度
-  // 🎚️ 預設全 E(2026-07 玩家定案)：C 起步會默默吃掉 180 點預算——E 起步(60 點)讓玩家把每一點都
-  //   有意識地親手分配，「捏角色」的分配感更強；後端 parseForgeBuild_ 的 fallback 'C' 只防缺欄、不受影響。
+  // 📏 六圍一行：6 欄橫排·標籤在上選單在下，省 5 行高度
+  // 🎚️ 預設全 E：C 起步會默默吃掉 180 點預算——E 起步(60 點)讓每一點都是有意識分配，「捏角色」的分配感更強；後端 parseForgeBuild_ 的 fallback 'C' 只防缺欄、不受影響。
   document.getElementById('cf-six').innerHTML = '<div style="display:flex; gap:4px;">'
     + ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].map(function (k) {
         return '<div style="flex:1; min-width:0; text-align:center;"><div style="color:#c8d4e0; font-size:10.5px; margin-bottom:2px;">' + k + '</div>'
           + rankSel('cf-six-' + k, 'E', false).replace('style="flex:1; min-width:0;"', 'style="width:100%; box-sizing:border-box; padding:6px 2px; text-align:center;"') + '</div>';
       }).join('')
     + '</div>';
-  // 🎨 技能槽 2×2 卡片格(2026-07 玩家反饋「手機的極限太長」)：每槽=小卡(效果鈕在上·階級+改名在下)，
-  //   四槽兩欄兩列·高度砍半。🎰 第4欄+20 費照「已用技能數>3」計(與後端 parseForgeBuild_ 同規則)。
+  // 🎨 技能槽 2×2 卡片格：每槽=小卡(效果鈕在上·階級+改名在下)，四槽兩欄兩列·高度砍半。🎰 第4欄+20 費照「已用技能數>3」計(與後端 parseForgeBuild_ 同規則)。
   var h = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:5px;">';
   for (var i = 0; i < 4; i++) {
     h += '<div style="border:1px solid #2e3a4e; border-radius:8px; padding:5px; min-width:0;">'
@@ -622,8 +608,7 @@ function initForge_() {
       + '</div></div>';
   }
   h += '</div>';
-  // 📌 效果目錄=釘在螢幕底部的浮層(2026-07 玩家反饋「展開又把頁面撐爆」)：fixed 定位不佔頁面高度，
-  //   內部照舊 48vh 內捲·手風琴分組；選晶片/按✕即收。
+  // 📌 效果目錄=釘在螢幕底部的浮層：fixed 定位不佔頁面高度(避免展開撐爆頁面)，內部 48vh 內捲·手風琴分組；選晶片/按✕即收。
   h += '<div id="cf-skpick" style="display:none; position:fixed; left:10px; right:10px; bottom:10px; z-index:80; padding:8px; background:rgba(14,18,30,.97); border:1px solid rgba(110,140,200,.45); border-radius:10px; max-height:48vh; overflow-y:auto; -webkit-overflow-scrolling:touch; box-shadow:0 -6px 24px rgba(0,0,0,.5);"></div>';
   document.getElementById('cf-skills').innerHTML = h;
   forgeBudget_();
@@ -686,7 +671,7 @@ function renderSkillPick_() {
       + '<b style="font-size:11.5px;">' + name + '</b><br><small style="font-size:9.5px; color:#8a96b0;">' + hint + '｜' + price + '</small></button>';
   };
   box.style.display = 'block';
-  // 🪗 手風琴(2026-07 玩家反饋「太長」)：無效果晶片＋七組標題列，點組才展開晶片、一次只開一組
+  // 🪗 手風琴：無效果晶片＋七組標題列，點組才展開晶片、一次只開一組
   var hx = '<div style="display:flex; align-items:center; margin:1px 0 5px;"><span style="flex:1; color:#8fb0e8; font-size:11px;">技能 ' + (_skPickSlot + 1) + '：先挑分類再挑效果（名字可自取·同效者擇一）</span>'
     + '<button type="button" onclick="closeSkillPick()" style="border:1px solid #3a4a5a; background:none; color:#8a96b0; border-radius:6px; padding:2px 9px; font-size:12px; cursor:pointer;">✕</button></div>'
     + '<div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-bottom:5px;">' + chip(FORGE_FX[0]) + '</div>';
@@ -719,7 +704,7 @@ function forgeBudget_() {
   ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].forEach(function (k) {
     var el = document.getElementById('cf-six-' + k); if (el) sum += FORGE_PTS[el.value] || 30;
   });
-  // ⚡ 技能階級也用預算買(2026-07)：有 fx 效果的才計費(六圍半價)、純演出標籤免費；二元 fx 平價25
+  // ⚡ 技能階級也用預算買：有 fx 效果的才計費(六圍半價)、純演出標籤免費；二元 fx 平價25
   var skSum = 0, usedSlots = 0;
   for (var i = 0; i < 4; i++) {
     var fxEl = document.getElementById('cf-sk' + i + '-fx'), rEl = document.getElementById('cf-sk' + i + '-r');
@@ -729,7 +714,7 @@ function forgeBudget_() {
   }
   var slotFee = usedSlots > 3 ? 20 : 0; // 🎰 帶滿4個技能才收欄位費(與後端 skills.length>3 同規則)
   sum += skSum + slotFee;
-  // 🌟 寶具規模也用預算買(2026-07)：對軍在規模矩陣對絕大多數對局×1.25、免費必人人選→標價 +20
+  // 🌟 寶具規模也用預算買：對軍在規模矩陣對絕大多數對局×1.25、免費必人人選→標價 +20
   var scEl = document.getElementById('cf-np-scale');
   var scOn = scEl && scEl.value === '對軍';
   if (scOn) sum += 20;
@@ -740,7 +725,7 @@ function forgeBudget_() {
   var BGT = forgeClsBudget_(); // 🐗 職階別預算(Berserker=370 狂化補正)
   var b = document.getElementById('cf-budget');
   if (b) { b.innerHTML = '已用 <b style="color:' + (sum > BGT ? '#e06a6a' : '#8fd0a0') + ';">' + sum + '</b> / ' + BGT + (parts.length ? ' <small style="color:#9a8bb0;">(含' + parts.join('·') + ')</small>' : ''); }
-  // 📊 預算進度條(2026-07 玩家定案 UI 三件套②)：綠→黃(≥85%)→紅(超支)
+  // 📊 預算進度條：綠→黃(≥85%)→紅(超支)
   var fill = document.getElementById('cf-budget-fill');
   if (fill) { fill.style.width = Math.min(100, sum / BGT * 100) + '%'; fill.style.background = sum > BGT ? '#e06a6a' : (sum >= BGT * 0.85 ? '#d4af37' : '#8fd0a0'); }
   // 🎨 階級染色(③)：六圍＋技能階 select 依當前值上色(E/D 灰暗→C 白→B 藍→A 金→EX 鎏金粗體)
@@ -790,16 +775,14 @@ async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，�
     six: six, skills: skills,
     npName: isMaster ? '' : _v('cf-np-name'), npScale: isMaster ? '對人' : document.getElementById('cf-np-scale').value, // 階級旋鈕已拆：顯示階＝六圍寶具階(引擎本就只吃 six.寶具)
     npDesc: isMaster ? '' : _v('cf-np-desc'),   // 寶具威能一句(選填)
-    // 🧹 2026-07 玩家「不想那麼細」精簡：外貌/個性各收回單一自由文字欄(不再拆4小欄位組回)——
-    //   單句描述天然落在 parseForgeBuild_ 的「核心設定，AI擴寫成四短句」路徑(_segs<3)，
-    //   玩家想更精準控制可以自己打頓號分句，格式與後端解析完全不變。
+    // 🧹 外貌/個性各收回單一自由文字欄(不再拆4小欄位組回)——單句描述落在 parseForgeBuild_ 的「核心設定，AI擴寫成四短句」路徑(_segs<3)，想精準控制可以自己打頓號分句，格式與後端解析完全不變。
     look: _v('cf-look'), pref: _v('cf-pref'),
     weapon: isMaster ? '' : _v('cf-weapon'), desc: _v('cf-desc'),
     // 🎭 進階演出細節(選填·零數值·預設收合)：自稱/陣營/態度/口吻/小動作/萌點/身世——留空＝AI 補
     fp: _v('cf-fp'), align: _v('cf-align'), toMaster: _v('cf-tomaster'),
     speech: _v('cf-speech'), tic: _v('cf-tic'), moe: _v('cf-moe'), back: _v('cf-back')
   };
-  // 💾 工房＝純製造/修改(2026-07 玩家定案二版)：存英靈殿(save_hero)，召喚一律走「🌟 玩家原創」專區
+  // 💾 工房＝純製造/修改：存英靈殿(save_hero)，召喚一律走「🌟 玩家原創」專區
   showProcessing(_forgeEditId ? '正在重鑄靈基…' : '正在鑄造靈基…');
   try {
     var res = await gasRun({ action: 'save_hero', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '', build: JSON.stringify(build), heroId: _forgeEditId || '', acctName: (typeof currentAccount !== 'undefined' ? currentAccount : '') });
@@ -807,8 +790,7 @@ async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，�
       alert(res.message || '已鑄入英靈殿。');
       forgeReset_();               // 🧹 存檔成功→表單歸零(舊資料殘留=「創造卡在這支角色」bug)
       await loadHeroes();          // 重抓名冊(含新作品)
-      // ⚡ 2026-07：鑑賞同伴面板(Script_Kanshou.html)把 get_heroes 結果快取在分頁工作階段內，
-      //   這裡剛鑄造/修改了英靈殿，得讓那份快取失效，下次玩家開同伴面板才看得到新/改過的作品。
+      // ⚡ 鑑賞同伴面板(Script_Kanshou.html)把 get_heroes 結果快取在分頁工作階段內，這裡剛鑄造/修改了英靈殿，得讓那份快取失效，下次開同伴面板才看得到新/改過的作品。
       try { if (typeof invalidateKanshouHeroCache === 'function') invalidateKanshouHeroCache(); } catch (e) { }
       closeForge();
       if (_forgeFrom !== 'menu') selectSummonClass('__custom__'); // 召喚頁起點→直接展示 🌟 清單；主選單起點→回主選單
