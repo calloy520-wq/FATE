@@ -419,7 +419,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
 
   return JSON.stringify({
     success: true,
-    pcId: mId, pcName: mName, pcSex: mSex, loc: loc2, homeName: "家"
+    pcId: mId, pcName: mName, pcSex: mSex, loc: loc2, homeName: getKanshouHomeName_(mRow[COL.PC.MEMORY])
   });
 }
 
@@ -567,7 +567,7 @@ function actionKanshouSetHomeName(userData, pcId, sheets) {
 // 🔴【鑑賞 AI 核心】buildDefaultSystemPrompt／actionPlay
 //   solo 是按鍵+AI說故事，鑑賞是依角色資料自然演出(只有🔥點不點火這一個變因)——兩者共用
 //   callGeminiAPI(留在 Engine_Combat.gs)這個基礎設施，但系統提示詞組裝／敘事引擎各自獨立，
-//   跟本檔其餘鑑賞 action(召喚/進場/請走/AI深化)集中一處，好查找。
+//   跟本檔其餘鑑賞 action(召喚/進場/AI深化)集中一處，好查找。
 // ==========================================
 
 // 只被鑑賞(慾海)呼叫——solo走完全獨立的 miniSystem。唯一呼叫來源 actionPlay 的 isNsfwMode
