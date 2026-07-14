@@ -441,26 +441,9 @@ function actionEnterKanshou(userData, pcId, sheets) {
   kpc.appendRow(mRow);
   linkAccountToKanshouPc_(acctName, mId); // 🔒 權威連結寫進帳號表
 
-  // 🌹 2026-07 玩家「開場就放置她們，不用每次都靠隨機巧遇/手動召喚」定案：預先建好起始英靈的
-  //   資料列——依玩家性別挑一組不違反「不開放男男配對」的陣容，讓她們一開局就「活在這個世界裡」，
-  //   各自有自己的位置(kanshouRollDailyLocation_)，玩家走到那個地點就會自然遇到她(見partyRows/
-  //   LOC===curL的統一在場判定)。整批一次用getRange().setValues()寫入(單一Sheets API呼叫)，
-  //   不逐列appendRow，維持整表批次寫入的效能鐵律，不會拖慢建角速度。
-  // 玩家反映「美遊/伊莉雅-Caster/小黑這三個感覺先不要」(較冷門的Illya外傳角色)，改用主線
-  // 知名度較高的美狄亞/美杜莎。
-  // 🎨 2026-07 玩家「男角都移除掉吧...沒啥用」：全面禁止男性英靈/御主入駐鑑賞(見下方
-  //   actionKanshouSummonHero同款禁令)，起始陣容不分玩家性別統一給同一份純女性名單，
-  //   EMIYA/伊斯坎達爾兩位男性同伴移出起始陣容(種子資料本體不刪，只是全面禁止在鑑賞出場)。
-  var starterIds = ['阿爾托莉雅-Saber', '遠坂凜-Master', '伊莉雅絲菲爾-Master', '美狄亞-Caster', '美杜莎-Rider'];
-  var starterCodex = getHeroCodexCached();
-  var starterRows = starterIds.map(function (hid) {
-    var hero = starterCodex.find(function (r) { return String(r[COL.HERO.ID]) === hid; });
-    if (!hero) return null;
-    return heroToKanshouRow_(hero, gameId, kanshouRollDailyLocation_(String(hero[COL.HERO.NAME])));
-  }).filter(Boolean);
-  if (starterRows.length) {
-    kpc.getRange(kpc.getLastRow() + 1, 1, starterRows.length, pcColCount).setValues(starterRows);
-  }
+  // 🏠 2026-07 玩家推翻先前「開場就放置她們」的定案，改回「開場先不要有房客」：不再預先建好
+  //   任何起始英靈——這個世界一開局是真正空的，房客全部要玩家自己去英靈殿召喚或巧遇認識，
+  //   不會有任何人「一開局就活在這個世界裡」等著被撞見。
 
   return JSON.stringify({
     success: true,
