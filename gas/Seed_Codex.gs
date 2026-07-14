@@ -402,7 +402,10 @@ function resyncSummonedServants_(ss) {
     if (fac !== '從者' && fac !== '敵從者') continue;   // 玩家從者＋敵從者都刷(都讀種子戰鬥數據)
     if (String(data[i][COL.PC.ID]).indexOf('DEAD_') === 0) continue;
     var k = key(data[i][COL.PC.NAME], data[i][COL.PC.RANK]);
-    if (!byKey[k] && SEED_RECLASSED_[k]) {
+    // 🐛→✅ 舊碼查無新 key 就直接改 RANK，若遷移表的「新 key」本身也是懸空值(如已從種子庫整個
+    //   移除的英靈)，會把玩家實例的職階欄改成一個查無數據的職階、卻因下面 !s continue 而拿不到
+    //   新六圍/技能同步——職階跟戰鬥數據對不上。改成先確認新 key 真的解得到種子才動 RANK。
+    if (!byKey[k] && SEED_RECLASSED_[k] && byKey[SEED_RECLASSED_[k]]) {
       k = SEED_RECLASSED_[k];
       data[i][COL.PC.RANK] = k.split('｜')[1]; // 職階欄跟著換新(戰鬥 profile/演出都吃這欄)
     }

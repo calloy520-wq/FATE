@@ -181,7 +181,7 @@ function actionManaSupply(userData, pcId, sheets) {
   if (isFateMana) { try { manaAp = spendAp_(myGameId, 1, pcData, sheets).ap; manaClock = clockLabel_(myGameId, pcData); } catch (e) { } }
 
   // ⚔️ 卸防突襲：補魔時門戶大開，同地若有清醒敵從者→趁隙重擊我方從者（可能致敗）
-  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, userData, 1.4);
+  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.4);
 
   // 戰場補魔：甜而克制的曖昧 fade（給點甜頭、不開慾海引擎）——真・慾海留給鑑賞
   let aiPrompt;
@@ -242,7 +242,7 @@ function actionSpiritRepair(userData, pcId, sheets) {
   if (isFateMana) { try { repAp = spendAp_(myGameId, 1, pcData, sheets).ap; repClock = clockLabel_(myGameId, pcData); } catch (e) { } }
 
   // ⚔️ 卸防突襲：療傷時同樣門戶大開，同地若有清醒敵從者→趁隙重擊我方從者（可能致敗）
-  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, userData, 1.3);
+  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.3);
 
   let aiPrompt;
   if (ambush && ambush.homeRepel) {

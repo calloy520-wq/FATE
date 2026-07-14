@@ -229,7 +229,6 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
         out.defeat = true;
         var wish = extractWish_(pcData[ctx.pIdx][COL.PC.MEMORY]);
         out.dreamPrompt = buildDreamPrompt_(pcData[ctx.pIdx][COL.PC.NAME], wish, svName);
-      } else {
       }
     } else {
       out.knocked = out.destroyed;
@@ -312,8 +311,9 @@ function enemyMasterIdx_(pcData, svIdx, gameId) {
 var INDEPENDENT_ACTION_RESERVE = 60;
 // 🕯️ 殘存靈基(無主單獨行動者的「最後一口氣」)：MEMORY【殘存】N，無標記＝滿額 INDEPENDENT_ACTION_RESERVE。
 //   用掉就少、【不回復】。
-function getSoloReserve_(memory) { var m = String(memory || "").match(/【殘存】(\d+)/); return m ? parseInt(m[1]) : INDEPENDENT_ACTION_RESERVE; }
-function setSoloReserve_(memory, n) { n = Math.max(0, Math.round(n)); var mem = String(memory || "").replace(/｜?【殘存】\d+/g, ""); return mem ? (mem + "｜【殘存】" + n) : ("【殘存】" + n); }
+var SOLO_RESERVE_TAG_ = makeIntTag_('殘存', INDEPENDENT_ACTION_RESERVE);
+function getSoloReserve_(memory) { return SOLO_RESERVE_TAG_.get(memory); }
+function setSoloReserve_(memory, n) { return SOLO_RESERVE_TAG_.set(memory, Math.max(0, Math.round(n))); }
 // 🔋 敵方寶具買單：（同陣敵御主）電池是否付得起 prana(從者無自有魔力池，跟玩家從者同制)；
 //   無主時僅「單獨行動」者靠殘存靈基硬撐（讀【殘存】餘額·drainForNp_ 實扣），其餘無主即啞火。回 {afford, masterIdx}。
 function enemyCanAffordNp_(pcData, svIdx, gameId, prana) {
@@ -468,16 +468,28 @@ function actionFateBattle(userData, pcId, sheets) {
     let asnReport, asnPrompt, asnVictory = false, asnDefeat = false, asnDream = "", asnKnocked = [];
 
     if (crit) {
-      // 大成功：斬殺御主；御主既亡，護衛從者失去魔力供給隨之消滅
+      // 大成功：斬殺御主；御主既亡，護衛從者失去魔力供給隨之消滅（十二試煉等 god_hand 免死特效仍可救回護衛）
       pcData[nIdx][COL.PC.ID] = "DEAD_" + String(pcData[nIdx][COL.PC.ID]);
       pcData[nIdx][COL.PC.HP] = 0;
       pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "凌亂", "姿勢": "倒地不起", "負面": "重傷不治·身亡", "顏面": "生機已絕" });
       sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
-      pcData[assassinGuardIdx][COL.PC.ID] = "DEAD_" + String(pcData[assassinGuardIdx][COL.PC.ID]);
-      pcData[assassinGuardIdx][COL.PC.HP] = 0;
-      pcData[assassinGuardIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "化作光點", "負面": "御主既亡·魔力斷絕消滅", "顏面": "黯然消散" });
+      const guardC = rowToCombatant_(pcData[assassinGuardIdx]);
+      let guardSurvived = false;
+      if (hasFx_(guardC, 'god_hand')) {
+        const ghLives = getGodHandLives_(pcData[assassinGuardIdx][COL.PC.MEMORY]);
+        if (ghLives > 0) {
+          guardSurvived = true;
+          pcData[assassinGuardIdx][COL.PC.HP] = Math.max(1, Math.round((parseInt(pcData[assassinGuardIdx][COL.PC.MAX_HP]) || 300) * 0.2));
+          pcData[assassinGuardIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[assassinGuardIdx][COL.PC.MEMORY], ghLives - 1);
+        }
+      }
+      if (!guardSurvived) {
+        pcData[assassinGuardIdx][COL.PC.ID] = "DEAD_" + String(pcData[assassinGuardIdx][COL.PC.ID]);
+        pcData[assassinGuardIdx][COL.PC.HP] = 0;
+        pcData[assassinGuardIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "化作光點", "負面": "御主既亡·魔力斷絕消滅", "顏面": "黯然消散" });
+      }
       sheets.pc.getRange(assassinGuardIdx + 1, 1, 1, pcData[assassinGuardIdx].length).setValues([pcData[assassinGuardIdx]]);
-      asnKnocked = [masterName, guardName];
+      asnKnocked = guardSurvived ? [masterName] : [masterName, guardName];
       if (aliveEnemyServants_(sheets, myGameId, pcData) <= 0) {
         asnVictory = true;
         var asnWish = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
@@ -486,13 +498,17 @@ function actionFateBattle(userData, pcId, sheets) {
       asnReport = {
         assassination: true, success: true, aRoll: 20, rolls: rolls.map(r => ({ name: r.name, roll: r.roll })), dual: dualAsn,
         atk: crit.name, master: masterName, guard: guardName,
-        note: `${crit.name} 擲出 20 — 大成功！撕開「${guardName}」的守備、一擊取御主「${masterName}」性命。御主既亡，「${guardName}」隨之消散。`,
+        note: guardSurvived
+          ? `${crit.name} 擲出 20 — 大成功！撕開「${guardName}」的守備、一擊取御主「${masterName}」性命。御主既亡，然「${guardName}」以異於常理之神秘力量強行維繫靈基、未隨之消散。`
+          : `${crit.name} 擲出 20 — 大成功！撕開「${guardName}」的守備、一擊取御主「${masterName}」性命。御主既亡，「${guardName}」隨之消散。`,
         selfDmg: 0, victory: asnVictory, defeat: false,
         atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0
       };
-      asnPrompt = `【系統·斬首戰報·已裁定】御主號令${dualAsn ? '兩名從者齊撲' : `從者『${crit.name}』`}奇襲敵御主「${masterName}」。命運的骰子由『${crit.name}』擲出 20 — 大成功！撕開護衛從者「${guardName}」的防線、取下御主性命。御主既亡（凡人之軀·斃命，非靈基消滅）、魔力供給斷絕，從者「${guardName}」失去供魔當場化作光點消散。${asnVictory ? '此為最後的敵對陣營——聖杯已然在握！' : ''}\n` +
+      asnPrompt = `【系統·斬首戰報·已裁定】御主號令${dualAsn ? '兩名從者齊撲' : `從者『${crit.name}』`}奇襲敵御主「${masterName}」。命運的骰子由『${crit.name}』擲出 20 — 大成功！撕開護衛從者「${guardName}」的防線、取下御主性命。御主既亡（凡人之軀·斃命，非靈基消滅）、魔力供給斷絕，` +
+        (guardSurvived ? `然「${guardName}」憑一己神秘之力強行維繫靈基、瀕死重創卻未消散。` : `從者「${guardName}」失去供魔當場化作光點消散。`) +
+        `${asnVictory ? '此為最後的敵對陣營——聖杯已然在握！' : ''}\n` +
         `★以 Fate／TYPE-MOON 筆觸描寫這萬中選一、石破天驚的斬首瞬間（一段即可）。【致命的手段由你依『${crit.name}』的職階與真名自行演出——法師為魔術一擊、近戰為兵刃、弓兵為遠程，勿假設特定方式】${dualAsn ? '，兩名從者夾擊、其中一人覷得破綻收尾' : ''}。勝負已由系統結算。\n` +
-        ``;
+        (guardSurvived ? `★「${guardName}」雖重創瀕死，【絕對禁止】描寫其消散或死亡。\n` : ``);
     } else {
       // 全部失手：護衛捨身格擋，反手 1.5 倍痛擊「每一名」參與斬首的從者
       const guardC = rowToCombatant_(pcData[assassinGuardIdx]);
@@ -507,6 +523,13 @@ function actionFateBattle(userData, pcId, sheets) {
         const ahp = parseInt(pcData[r.idx][COL.PC.HP]) || 0;
         let after = ahp - selfDmg;
         if (after <= 0 && hasFx_(sC, 'survive') && ahp > 1) after = 1; // 戰鬥續行(致命傷才硬撐留1·2026-07 修)
+        if (after <= 0 && hasFx_(sC, 'god_hand')) {
+          const ghLives = getGodHandLives_(pcData[r.idx][COL.PC.MEMORY]);
+          if (ghLives > 0) {
+            after = Math.max(1, Math.round((parseInt(pcData[r.idx][COL.PC.MAX_HP]) || 300) * 0.2));
+            pcData[r.idx][COL.PC.MEMORY] = setGodHandLives_(pcData[r.idx][COL.PC.MEMORY], ghLives - 1);
+          }
+        }
         let knocked = false;
         if (after <= 0) {
           knocked = true;
@@ -623,8 +646,6 @@ function actionFateBattle(userData, pcId, sheets) {
       sheets.pc.getRange(pIdx + 1, COL.PC.HP + 1).setValue(pcData[pIdx][COL.PC.HP]);
       backlash = { dmg: _blDmg, hp: parseInt(pcData[pIdx][COL.PC.HP]) || 1, hpMax: _mMaxHp };
     }
-    if (battery.usedBattery) {
-    }
   }
 
   // ⚡ 從者主動技：攻擊列第4顆「⚡主動」按鈕，userData.skill=true 才全效發動＋扣魔一次，跟 💥寶具/❖令咒
@@ -637,8 +658,6 @@ function actionFateBattle(userData, pcId, sheets) {
       const skCost = Math.round(200 * skillBuff.mpPct);   // 🔋 本戰扣一次(此區塊只跑一次·非回合迴圈內)，付不起走御主電池
       skillBattery = drainForNp_(sheets, pcData, atkIdx, pIdx, skCost);
       atkC.mp = parseInt(pcData[atkIdx][COL.PC.MP]) || 0;
-      if (skillBattery.usedBattery) {
-      }
     } else {
       skillBuff = tinyActiveSkill_(_fullSkill);   // 未按→微量被動、免費(無 drain)
     }
@@ -1039,6 +1058,15 @@ function actionFateBattle(userData, pcId, sheets) {
   let aiPrompt;
   // 🎬 敘述：給 AI【事實素材】，少下指令——讓它自己演。只保留必要紅線(show-don't-tell／勿擅自寫死)。
   const horrorFired = rounds.some(r => (r.strikes || []).some(k => k.horror));
+  // 🎴 每擊 pFired 陣列存了戰鬥中觸發的特殊機制旗標；十二試煉／令咒脫離已各自走專屬素材行
+  //   (godNote/sealNote)，但「戰鬥續行」(致命傷卻硬撐留1)／「斬斷救贖」(此類護命效果被破戒/反魔力
+  //   兵裝之類的手段強行突破)這兩種只進了 pFired、從沒進過 aiPrompt——AI 看不出「這下明明該死卻沒死」
+  //   或「原本免死的招式這次被打穿了」的關鍵轉折，收攏成一句素材補上。
+  const extraFired = [];
+  rounds.forEach(r => (r.strikes || []).forEach(k => (k.pFired || []).forEach(t => {
+    const s = String(t || "");
+    if (/·戰鬥續行|·斬斷救贖/.test(s) && extraFired.indexOf(s) < 0) extraFired.push(s);
+  })));
   if (defeat) {
     aiPrompt = servantCard_(pcData[atkIdx]) + foeServantCardStr + enemyMasterCardStr +
       `【戰報·已裁定】御主號令『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合。\n${roundsBrief}\n結局：『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。\n` +
@@ -1067,6 +1095,7 @@ function actionFateBattle(userData, pcId, sheets) {
       ((destroyedName && targetIsFoeServant && enemyMasterRow && !isMasterTarget) ? `· 在場敵御主「${String(enemyMasterRow[COL.PC.NAME])}」親眼目睹自己契約的從者靈基崩潰、化作光點消散——失去從者＝失去依靠與這場戰爭的資格。★依其性格與身世演出這一刻的衝擊與反應(崩潰/嘶喊/怔忡/強撐皆可，由性格定)，非沉默背景板。\n` : "") +
       ((!destroyedName && !sealEscaped && !godRevived) ? `· 敗方尚有餘力(見上方 HP)，勿描寫死亡／消滅／屍體。此乃御主下令出擊、雙方仍在交鋒中，下回合是否再戰仍由御主決定。\n` : "") +
       (atkC.cls === 'Caster' ? `· 出戰從者為 Caster（魔術師）職階：此戰以魔術轟擊為主、非肉搏，演出時勿讓其上前近戰。\n` : "") +
+      (extraFired.length ? `· 戰局關鍵轉折：${extraFired.join('；')}。\n` : "") +
       // 🗡️ 戰鬥未分生死時，讓從者依性格對這回交手給出主觀判斷/建議——純角色觀察與口吻，不是戰略指令；
       //   狂化角色改用肢體/低吼傳達，服從 servantCard_ 已內建的「嚴禁完整台詞」鐵則。
       ((!destroyedName && !sealEscaped && !godRevived) ? (hasFx_(atkC, 'mad')

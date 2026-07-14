@@ -407,7 +407,7 @@ function actionRest(userData, pcId, sheets) {
     } catch (e) { }
     // 世界已在同一份 pcData 上 tick 完，直接沿用即可判夜襲，不必重讀整表。
     // ⚔️ 卸防突襲：當敵蹤同地時休息＝酣睡門戶大開，最為兇險（mul 1.5）
-    const restAmbush = enemyAmbushOnServant_(sheets, pcData, pIdx, restGameId, userData, 1.5);
+    const restAmbush = enemyAmbushOnServant_(sheets, pcData, pIdx, restGameId, 1.5);
     // 🌙 從者之夢（回想）：安睡(≥3h)且未遭突襲時，有機會順著聯繫夢見從者生前傳說的片段，加深羈絆
     let restDreamPrompt = "";
     if ((!restAmbush || restAmbush.homeRepel) && restHours >= 3) { // 🏰 陣地反擊＝安睡無虞·仍可做夢
@@ -517,7 +517,7 @@ function actionPrepMeal(userData, pcId, sheets) {
 
 // 🕯️ 喪失從者紀錄：敵從者死亡時，在「同地同 game_id 的敵御主」MEMORY 標記如何失去從者，
 //   供 AI 演出形單影隻、再無從者可驅使的無牙御主。配對採同落點(一master一servant結伴移動)。
-function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, userData, baseMul) {
+function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul) {
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
   const ambushDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1; // 🕰️ 尚未登場者不會夜襲
   const eIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc && !isAllied_(r) && hasArrived_(r, ambushDay));

@@ -340,12 +340,9 @@ function masterCircuits_(masterRow) {
 //   放過一次寶具後就永久魔力見底，往後所有遭遇都啞火(反而喪失「寶具是孤注一擲」的張力)。
 //   不用玩家那套逐時供需經濟(NPC 不必算到那麼細)，改用最簡單的「新的一天回滿」：MEMORY 記
 //   最後回魔的絕對日；worldTick_ 每次執行，見到記錄的日 < 當前日 → 補滿並蓋新日期戳。
-function getManaDay_(memory) { var m = String(memory || "").match(/【回魔日】(\d+)/); return m ? parseInt(m[1]) : -1; }
-function stampManaDay_(memory, day) {
-  var s = String(memory || "").replace(/【回魔日】\d+/, "");
-  s = s.replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
-  return (s ? s + "｜" : "") + "【回魔日】" + day;
-}
+var MANA_DAY_TAG_ = makeIntTag_('回魔日', -1);
+function getManaDay_(memory) { return MANA_DAY_TAG_.get(memory); }
+function stampManaDay_(memory, day) { return MANA_DAY_TAG_.set(memory, day); }
 function refillMastersDaily_(sheets, gameId, day, preData) {
   var data = preData || sheets.pc.getDataRange().getValues();
   var dirty = false;

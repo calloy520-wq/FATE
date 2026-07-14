@@ -2601,3 +2601,26 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 **驗證**：`bash check.sh`全過；`git diff --stat gas/Engine_Combat.gs`空。
 
+## §106 全代碼庫最終複查：戰鬥核心引擎檔＋剩餘支援檔＋種子資料（2026-07・玩家「嗯....再全部確認一次 solo種子庫 鑑賞 新角色 ui 所有代碼是否有用到 是否有給ai 是否有死碼 請全部確認 如果問題 全部修正後 再查看其他沒看到過地方」）
+
+**背景**：§103~§105三輪各自聚焦鑑賞／solo創角三部曲，這輪玩家要求對「還沒被前幾輪點名覆蓋到」的檔案做最後一次全面複查，且明確要求三件事都要查：死碼／是否真的有用到／是否有餵給AI。開了2路子agent分別覆蓋：①`Router_Battle.gs`等戰鬥核心引擎檔的死碼與機制一致性、②`Router_Narrative.gs`/`Router_Persona.gs`/`Time_World.gs`/`Mystic_Code.gs`/`Account.gs`/`Setup_FateWorld.gs`/`Seed_Rivals.gs`/`Seed_Codex.gs`等這學期還沒點名查過的剩餘檔案。逐一驗證後修正：
+
+1. **【真bug，較嚴重】斬首戰術(暗殺御主)整條路徑完全繞過「十二試煉(God Hand)」免死機制**：`Router_Battle.gs`的斬首奇襲有大成功(直接斬殺護衛從者)跟失手反噬(護衛1.5倍反擊參與斬首的每名從者)兩支路徑，都是各自獨立寫的「HP≤0→直接標記DEAD」，唯獨沒有像`fateStrike_`／`enemyAmbushOnServant_`那樣先檢查`hasFx_(...,'god_hand')`——赫拉克勒斯這類擁有十二試煉的從者，只要被選中當護衛或參與斬首，一旦倒下就是真的死透，跟正規戰鬥/夜襲裡「倒下了卻又緩緩站起」的角色設定完全矛盾。比照`Router_Movement.gs:573-576`(`enemyAmbushOnServant_`)已驗證過的簡化版寫法，在兩條分支各自補上「HP≤0時先查god_hand剩餘次數，有→復活到20%血並扣一次，沒有才真的判死」，並同步調整戰報文字(大成功分支：護衛靠god_hand生還時改寫成「憑異於常理之力強行維繫靈基、未隨之消散」，而非照舊寫「隨之消散」)。
+2. **【真bug】從者「演出依據卡」(`servantCard_`)的英靈殿(codex)備援路徑沒套用跟召喚寫列同一套的分隔符正規化**：`persona.words`(種子原始個性短句)用「・」分隔多段，但`quadLabeled_`只切「、」——備援路徑(`codexPersona_`查到值)直接把`p.words`原樣丟給`quadLabeled_`，多段個性會擠成一格、後面格數看起來像「無」；`persona.look`同理，還漏了`looksToTraitParts_`的4格轉換(自稱/私密一面兩格整個消失)。跟§105修的`looksToTraitParts_`本體bug是同一類「合併用的分隔符跟切分用的分隔符互相打架」，只是這次是消費端(`servantCard_`)沒套用轉換，不是轉換函式本身錯。這條路徑平常不會走到(召喚時已把speech/tic/moe複製進列上，只有舊局/AI原創從者/鑑賞封存重建缺任一項時才會查codex退回這支)，但一旦走到就是錯的。已修：`persona`比照`Router_Creation.gs`召喚時的寫法先把「・」轉「、」；`look`先過`looksToTraitParts_`轉成4格慣例格式再交給`quadLabeled_`。
+3. **【真bug】`codexPersona_`真名比對不分職階，同真名跨職階的英靈會互相撞卡**：種子庫裡「斯卡哈」同時有Lancer跟Assassin兩版(不同人設/口吻/萌點)，`codexPersona_`原本只用真名子字串比對、找到第一個符合的就回傳——若兩版都在同一局被召喚出來，其中一版永遠拿到另一版的人設。改成`codexPersona_(name, cls)`可選帶職階，優先找「真名＋職階」都吻合的列，找不到才退回舊的純真名比對(不影響其他沒有跨職階撞名問題的呼叫情境)。`servantCard_`呼叫端補上原本就有讀出來的`cls`變數。
+4. **【真bug】種子改版的職階遷移表(`SEED_RECLASSED_`)有一條懸空映射會悄悄打壞既有存檔的職階欄**：`貞德｜Ruler`→`貞德｜Archer`這條遷移規則，但目前種子庫裡「貞德」這個真名已經整個不存在了(來源跟去向都查無)——舊碼只檢查「查無舊key」就直接把RANK欄位改成新key，沒檢查「新key其實也查無種子資料」，導致任何舊存檔裡殘留的貞德(Ruler)英靈，職階欄會被悄悄改成「Archer」，卻因為新key一樣查無資料而跳過六圍/技能同步——職階講的是Archer、戰鬥數值卻還是原本Ruler那組，兩者對不上。改成先確認新key真的在種子庫裡解得到才動RANK欄。
+5. **【真bug，資訊未傳達給AI】戰鬥中「戰鬥續行」(致命傷硬撐留1血)／「斬斷救贖」(此類護命效果被特殊寶具強行突破)這兩個機制旗標只寫進內部的`pFired`陣列，從沒進到餵給AI的`aiPrompt`文字**——十二試煉復活／令咒緊急脫離都各自有專屬素材行(`godNote`/`sealNote`)，唯獨這兩個一直是「有記錄但AI看不到」的資訊落差，AI敘述時完全不知道「這下明明該死卻沒死」或「原本免死的招式這次被打穿了」這種關鍵轉折，容易寫出跟系統結算矛盾的劇情(比如把撐住1血的角色寫死，或把真的死透的角色寫成又撐住了)。收攏這兩類旗標成一句「戰局關鍵轉折」素材行補進`aiPrompt`。
+6. **代碼品質／死碼清理(非功能bug，符合CLAUDE.md「代碼查重」既定目標)**：
+   - `Router_Battle.gs`三處空的`if(){}`/`else{}`區塊(`battery.usedBattery`／`skillBattery.usedBattery`／連續攻擊分支的`else`)——早年重構後留下的空殼，直接移除。
+   - `Router_Movement.gs`的`enemyAmbushOnServant_`函式簽名裡的`userData`參數整個函式內從未被讀取——是名符其實的死參數，5個呼叫端(`Router_Bond.gs`×2／`Router_Economy.gs`×2／`Router_Movement.gs`×1)全部同步移除該位置參數。
+   - `Account.gs`檔頭註解還提著「勝利歷史」——這個功能在更早的§(奪杯封存/排行榜清除那輪)就已經整個砍除，註解沒跟著更新，順手修正。
+   - `Router_Battle.gs`(`getSoloReserve_`/`setSoloReserve_`)、`Time_World.gs`(`getManaDay_`/`stampManaDay_`)、`Router_Bond.gs`(`allyUntil_`/`setAllyMem_`/`clearAllyMem_`)三處各自手刻了一份跟`makeIntTag_`(Core_Settings.gs，MEMORY整數型標記的共用工廠)邏輯完全相同的get/set/clear——違反CLAUDE.md「助手成套、複用引擎機制不加特例」的既定工程準則，改成呼叫共用工廠的薄包裝(對外函式名/簽名完全不變，呼叫端零改動)。改前用Node.js單獨驗證過`makeIntTag_`在這三組情境下的get/set/clear行為跟原手刻版一致(含空值預設、多段MEMORY字串保留、標記已存在時的覆蓋)。
+
+**確認沒問題、判斷不修的項目**(附理由，逐項評估過)：
+- `actionAllyBond`(結盟共處)沒有像`actionBond`(從者相處)那樣的「今日已做過」冷卻標記——但`actionAllyBond`只有單一種互動類型(不像`actionBond`有多種`bondType`需要分別限流)，且跟`actionBond`一樣每次呼叫都要耗1點AP，AP本身就是每日有限資源、已提供天然節流，不像`actionBond`的冷卻是為了「同一天不要同類型互動被打好幾次」的敘事步調考量。判斷維持現狀不加冷卻，避免引入跟現有機制不對稱的額外限制。
+- `actionMove`目的地驗證(`getMapDataCached`讀取失敗)包在`try{}catch(e){}`裡，若地圖資料讀取本身失敗(而非查無此地)，會整段跳過驗證直接放行——但這只在Sheets API本身出錯的極端情況才會觸發，機率遠低於一般查無此地的情境，且就算放行、後續也不会真的把玩家傳到一個地圖上不存在的座標(其餘依賴地圖資料的邏輯一樣會查無對應項)，維持現狀。
+- 敵/客串英靈的`heroToNpcRow_`身世佔位字串(`"${cls} 職階英靈"`)沒被`servantCard_`的「無資訊量」過濾規則排除(該規則只認得玩家召喚時的另一種佔位格式)——純粹讓AI提示詞多看到一句沒有實質內容的身世描述，不影響正確性，優先度低，先不動。
+- `actionRest`裡一段疑似「非FATE舊版」的休養分支，兩輪各自獨立的稽核(死碼掃描／核心引擎複查)都各自標記為「疑似死碼但無法排除仍有舊存檔資料在依賴」——沒有即時試算表存取權限可驗證是否真的零命中，維持現狀不動，等有機會核對實際試算表資料再處理。
+
+**驗證**：`bash check.sh`全過；`git diff --stat gas/Engine_Combat.gs`空。
+

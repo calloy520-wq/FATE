@@ -241,7 +241,7 @@ function actionBond(userData, pcId, sheets) {
   }
 
   // ⚔️ 卸防突襲：相伴談心時門戶大開，同地若有清醒敵從者→趁隙重擊
-  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, userData, 1.2);
+  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.2);
 
   let aiPrompt;
   if (ambush && ambush.homeRepel) {
@@ -293,13 +293,10 @@ function hasAllyInGame_(pcData, gameId) {
   }
   return false;
 }
-function allyUntil_(row) { var m = String(row && row[COL.PC.MEMORY] || "").match(/【盟約至】(\d+)/); return m ? parseInt(m[1]) : 0; }
-function setAllyMem_(memory, untilDay) {
-  var s = String(memory || "");
-  if (/【盟約至】\d+/.test(s)) return s.replace(/【盟約至】\d+/, "【盟約至】" + untilDay);
-  return (s ? s + "｜" : "") + "【盟約至】" + untilDay;
-}
-function clearAllyMem_(memory) { return String(memory || "").replace(/｜?【盟約至】\d+/, ""); }
+var ALLY_UNTIL_TAG_ = makeIntTag_('盟約至', 0);
+function allyUntil_(row) { return ALLY_UNTIL_TAG_.get(row && row[COL.PC.MEMORY]); }
+function setAllyMem_(memory, untilDay) { return ALLY_UNTIL_TAG_.set(memory, untilDay); }
+function clearAllyMem_(memory) { return ALLY_UNTIL_TAG_.clear(memory); }
 
 // 結盟意願（GAS 判定，不靠 AI）：依對方御主性格/陣營 ＋ 戰局階段 ＋ 共同強敵
 function allianceWillingness_(masterRow, aliveFoes) {
@@ -464,7 +461,7 @@ function actionAllyBond(userData, pcId, sheets) {
   if (isFate) { try { ap = spendAp_(myGameId, 1, pcData, sheets).ap; clock = clockLabel_(myGameId, pcData); } catch (e) { } }
 
   // ⚔️ 卸防突襲：與盟友交流時門戶大開，同地若有「未結盟」敵從者→趁隙重擊我方從者
-  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, userData, 1.3);
+  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.3);
   if (ambush) {
     const aiPromptA = ambush.homeRepel ? ambush.repelNote : ((ambush.foeCard || '') + `【系統·盟誼遭突襲·已裁定】御主『${masterName}』正與盟友「${allyName}」交心共處、卸下戒備之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中我方從者（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
       `★以 Fate／TYPE-MOON 筆觸描寫盟誼的私密一刻被突襲撕裂的驚變${ambush.destroyed ? '、從者消滅的痛楚（語氣留白）' : '、從者強撐重傷護主的瞬間'}。傷害與勝負已由系統結算。\n`);
