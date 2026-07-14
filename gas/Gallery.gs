@@ -1630,15 +1630,19 @@ function actionPlay(userData, pcId, sheets) {
         pcData[hmIdx][COL.PC.LOC] = '廚房';
       } else if (spot === 'ownRoom') {
         pcData[hmIdx][COL.PC.LOC] = KANSHOU_HOUSEMATE_ROOMS_[hid];
-        absentBreakfastNames_.push(`${hmName}(還在賴床)`);
+        absentBreakfastNames_.push(`${hmName}——還窩在${KANSHOU_HOUSEMATE_ROOMS_[hid]}裡賴床`);
       } else {
-        pcData[hmIdx][COL.PC.LOC] = kanshouRollDailyLocation_(hmName); // 不傳hour，避免清晨homeBias把「出門」蓋回房間
-        absentBreakfastNames_.push(`${hmName}(似乎已經先出門了)`);
+        const outLoc = kanshouRollDailyLocation_(hmName); // 不傳hour，避免清晨homeBias把「出門」蓋回房間
+        pcData[hmIdx][COL.PC.LOC] = outLoc;
+        absentBreakfastNames_.push(`${hmName}——似乎一早就出門去了「${outLoc}」`);
       }
       dirtyPcRows.add(hmIdx);
     });
     finalUserMsg = `【玩家意圖】：走進廚房，開始張羅今天的早餐。`;
-    if (absentBreakfastNames_.length) kanshouBreakfastStr = `\n★【早餐現況(GAS已骰定，供敘事參考)】：${absentBreakfastNames_.join('、')}——沒下樓的人不必特別解釋原因，正常反映沒出現在早餐桌上即可。`;
+    // 🍳 2026-07玩家「還要讓ai知道誰沒有來 在房間還是去哪裡 讓他自然敘述！」定案：GAS給的是
+    //   實際去向事實(房間名/地點名)，AI依此自然帶一筆(路過房門聽見動靜、提一句人不見了等)，程度
+    //   自行拿捏——不是照抄這裡的措辭，也不是完全不提(show-don't-tell：給事實，AI決定怎麼演)。
+    if (absentBreakfastNames_.length) kanshouBreakfastStr = `\n★【早餐現況(GAS已骰定，供敘事參考)】：這次沒出現在餐桌上的人——${absentBreakfastNames_.join('；')}。narration可以自然帶出她們此刻的狀態(依角色性格決定要不要特地去看一眼、喊一聲、還是隨口提及)，不必每次都詳細描寫，但內容不能跟這裡的事實矛盾。`;
   }
 
   // 「專屬稱呼」記憶點：抽成共用函式，鑑賞同伴清單(partyDetailsArr)跟其他清單一起補上，
