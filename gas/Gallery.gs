@@ -234,8 +234,12 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   //   這個沒打過聖杯戰爭的世界裡沒有來由。
   sRow[COL.PC.INTENT] = daily.moe || "";
   // 戰時 p.back(3位女性正典御主是「父親死於聖杯戰爭」等悲劇)跟平行世界設定矛盾，優先讀
-  //   p.dailyBack(溫馨改寫版)；沒有的英靈一律走職階+真名的中性保底。
-  sRow[COL.PC.BACK] = p.dailyBack ? String(p.dailyBack).slice(0, 28) : `${sRow[COL.PC.RANK]}・${name}`;
+  //   p.dailyBack(溫馨改寫版)。🏠 2026-07 玩家發現「為啥大家對我很恭敬？我要當普通的民宿老闆」
+  //   查出根因：沒有dailyBack的英靈舊版保底是`${RANK}・${name}`(如「Saber・阿爾托莉雅」)，這段
+  //   字串會透過COL.PC.BACK直接餵進AI提示詞(見partyDetailsArr的「身世:」欄位)，AI讀到「Saber」
+  //   這種職階字眼自然會演出從者對御主的恭敬——跟房東房客的民宿世界觀矛盾。保底改成跟玩家自己
+  //   的預設身世(見上方actionEnterKanshou)同一種中性、不帶任何聖杯戰爭/職階字眼的日常描述。
+  sRow[COL.PC.BACK] = p.dailyBack ? String(p.dailyBack).slice(0, 28) : "借住在這裡的房客，過著平靜的日常生活";
   // 直接召喚無快照可帶，用該英靈自己的日常衣裝(daily.outfit)墊底，沒有才退回「日常便服」。
   // p.speech/p.tic 是戰時口吻/小動作(如狂化英靈「僅餘低吼」)，跟平行世界設定矛盾：口吻改用
   //   dailyLook 第3段(自稱與口氣)的日常安全版；tic 沒有對應日常版，直接不帶(私密一面已承擔
@@ -442,9 +446,20 @@ function actionEnterKanshou(userData, pcId, sheets) {
   kpc.appendRow(mRow);
   linkAccountToKanshouPc_(acctName, mId); // 🔒 權威連結寫進帳號表
 
-  // 🏠 2026-07 玩家推翻先前「開場就放置她們」的定案，改回「開場先不要有房客」：不再預先建好
-  //   任何起始英靈——這個世界一開局是真正空的，房客全部要玩家自己去英靈殿召喚或巧遇認識，
-  //   不會有任何人「一開局就活在這個世界裡」等著被撞見。
+  // 🌹 2026-07 玩家「不放房客(不預先指派房間) 但要幫我把這些女性角色先召喚到這個世界上阿...
+  //   讓玩家自己去邀請房客」定案：跟更早之前「開場就放置3~5位」的差別——①涵蓋全部女性英靈(不是
+  //   挑幾位、種子/來源皆算，ai_gen玩家原創除外)；②不預先指派客房(ROOM留空，不是房客，起始好感/
+  //   關係標籤走一般泛泛之交)，純粹讓她們已經「活在這個世界裡」，玩家走到她所在地點就能撞見、
+  //   認識，想邀她入住客房再自己另外呼叫actionKanshouAssignRoom指派。
+  var starterHeroes = getHeroCodexCached().slice(1).filter(function (r) {
+    return r[COL.HERO.ID] && String(r[COL.HERO.SEX]) !== '男' && String(r[COL.HERO.ID]) !== '斯卡哈-Assassin' && String(r[COL.HERO.SOURCE]) !== 'ai_gen';
+  });
+  var starterRows = starterHeroes.map(function (hero) {
+    return heroToKanshouRow_(hero, gameId, kanshouRollDailyLocation_(String(hero[COL.HERO.NAME])), 1);
+  });
+  if (starterRows.length) {
+    kpc.getRange(kpc.getLastRow() + 1, 1, starterRows.length, pcColCount).setValues(starterRows);
+  }
 
   return JSON.stringify({
     success: true,
