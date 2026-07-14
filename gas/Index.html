@@ -215,6 +215,8 @@
         </div>
         <div id="topbar-kanshou" class="player-badge">
           <span id="header-loc">感應中...</span>
+          <!-- 👥 召喚/管理同伴的唯一常駐入口：直接開既有的openCompanions()面板，不必再挖進「+」抽屜。 -->
+          <button class="btn" style="margin-left:8px; padding:3px 8px; font-size:11px; border-color:#5a3a6a; color:#dcc8ff;" onclick="openCompanions()">👥</button>
         </div>
       </div>
     </div>
@@ -244,7 +246,6 @@
     </div>
     <div id="action-drawer">
       <button class="drawer-item" onclick="triggerDrawerAction('status')"><i>👤</i><span>查看狀態</span></button>
-      <button class="drawer-item" id="drawer-companions" onclick="openCompanions()" style="display:none;"><i>👥</i><span>後日談同伴</span></button>
       <button class="drawer-item" id="drawer-festival" onclick="openKanshouFestivals()" style="display:none;"><i>🎊</i><span>快轉節慶</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('settings')"><i>⚙️</i><span>系統設定</span></button>
     </div>

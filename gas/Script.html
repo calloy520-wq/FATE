@@ -1386,12 +1386,13 @@
       } else {
         sh = '';
       }
-      // 🆕 鑑賞標籤卡片下方直接露出剩餘空位，點擊開既有的👥同伴面板(ensureKcOverlay_/openCompanions)，不必先挖進☰抽屜；抽屜項目保留當備用途徑。
+      // 🆕 鑑賞標籤卡片下方露出剩餘空位，純顯示用(有人跟你同地點才會出現卡片，沒有就是空位)——
+      //   不可點擊，召喚/管理同伴改走頂部標題列的👥鈕(見Index.html #topbar-kanshou/openCompanions)。
       if (pc && pc.mode === 'kanshou') {
         var kcEmptySlots = Math.max(0, 3 - myServants.length);
         if (kcEmptySlots > 0) {
           var slotHtml = Array(kcEmptySlots).fill(0).map(function () {
-            return '<div onclick="openCompanions()" style="background:rgba(40,20,34,0.3); border:1px dashed #6a4a5a; border-radius:8px; padding:14px 8px; text-align:center; cursor:pointer; color:#a07a90; font-size:12px;">➕ 邀請同伴入席</div>';
+            return '<div style="background:rgba(40,20,34,0.3); border:1px dashed #4a3a44; border-radius:8px; padding:14px 8px; text-align:center; color:#6a5560; font-size:12px;">（空位）</div>';
           }).join('<div style="height:6px;"></div>');
           sh = sh ? (sh + '<div style="height:6px;"></div>' + slotHtml) : slotHtml;
         }
@@ -2511,8 +2512,6 @@ function applyModeUI() {
   var tSolo = document.getElementById('topbar-solo'); if (tSolo) tSolo.style.display = isKanshou ? 'none' : 'flex';
   var tKan = document.getElementById('topbar-kanshou'); if (tKan) tKan.style.display = isKanshou ? '' : 'none';
   var ibar = document.getElementById('input-bar'); if (ibar) ibar.style.display = isKanshou ? '' : 'none';
-  // 👥 後日談同伴管理：只在鑑賞模式出現
-  var dcomp = document.getElementById('drawer-companions'); if (dcomp) dcomp.style.display = isKanshou ? '' : 'none';
   // 🎊 快轉節慶(從地圖頁移進＋抽屜，不常用)：只在鑑賞模式出現
   var dfest = document.getElementById('drawer-festival'); if (dfest) dfest.style.display = isKanshou ? '' : 'none';
   // 戰爭行動列：取代輸入框，只在戰爭模式顯示
