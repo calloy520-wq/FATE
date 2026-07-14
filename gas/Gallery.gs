@@ -873,10 +873,12 @@ function kanshouRollDailyLocation_(heroName, hour) {
     }
   }
   const haunts = heroId ? Object.keys(KANSHOU_LOCATION_TAGS_).filter(loc => KANSHOU_LOCATION_TAGS_[loc].includes(heroId)) : [];
-  // 🌙 全地點保底池排除'room'分區(玩家自己的房間)——不同行的英靈不該隨機骰進玩家臥室，那裡
-  //   只能靠「拜訪」主動走進去，不是隨機亂晃能撞到的地方；'home'分區(共用生活空間，客廳/廚房
-  //   等)不算私人，維持可被隨機骰中。
-  const pool = haunts.length ? haunts : KANSHOU_LOCATIONS_.filter(l => l.region !== 'room').map(l => l.name);
+  // 🌙 全地點保底池排除'room'(玩家自己的房間)跟'visit'(別人登記的住處，見KANSHOU_HERO_HOME_)
+  //   兩個分區——不同行的英靈不該隨機骰進玩家臥室或別人家裡，那裡只能靠「拜訪」主動走進去，
+  //   不是隨機亂晃能撞到的地方；否則沒有haunts標籤/沒有登記住處的英靈可能隨機骰進遠坂邸這種
+  //   別人的家，跟夜襲/賴床叫醒橋段「LOC剛好等於某人家」的判定衝突，觸發在錯的人身上。
+  //   'home'分區(共用生活空間，客廳/廚房等)不算私人，維持可被隨機骰中。
+  const pool = haunts.length ? haunts : KANSHOU_LOCATIONS_.filter(l => l.region !== 'room' && l.region !== 'visit').map(l => l.name);
   return pool[Math.floor(Math.random() * pool.length)];
 }
 // 真正的西曆年/月/日(每年固定365天、不算閏年，遊戲用途夠精準)，只抓3年區間(見actionPlay的
