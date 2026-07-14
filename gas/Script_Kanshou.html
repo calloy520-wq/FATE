@@ -79,7 +79,11 @@
       // 🕰️ 「跳到時段」＋「時段行動」按鈕：每次actionPlay回應都可能改動時鐘(結束一天/推進
       //   時間/打工/跳節慶/跳時段/準備早餐皆會)，記下最新kanshouClock供地圖頁的時段按鈕判斷現在
       //   是不是清晨，並重繪地圖頁(桌機三欄並排恆顯示，不能只靠切分頁才刷新)。
+      // 🩹 玩家「跳到節慶後時間看起來沒動靜」查出根因：這裡本來只更新kcClock/renderMapPane，
+      //   從未呼叫updateClock(data.clock,...)刷新頂部常駐的#clock-hud——後端其實有正確推進、
+      //   也有把label塞進data.clock，只是前端這裡漏了消費它，導致HUD停在進場當下那一次的值。
       if (data.kanshouClock) { kcClock = data.kanshouClock; try { renderMapPane(); } catch (e) { } }
+      if (data.clock) updateClock(data.clock, null, null);
       // 🔴 直接接收後端傳來的狀態字串，不再依賴 AI 的文字解析
       if (data.statusString) {
           localStorage.setItem('kyushu_last_status', data.statusString);

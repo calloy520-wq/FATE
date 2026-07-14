@@ -101,16 +101,6 @@
     document.documentElement.style.setProperty('--story-scale', parseFloat(localStorage.getItem('kyushu_story_font_scale')) || 1);
     // 🐛→✅ 撤離攔截需從頁面一載入就掛上，不能只在 startGame()/鑑賞進場才呼叫——主選單階段手滑上一頁會丟失創角進度(historyPushed 旗標擋重複註冊，重複呼叫無妨)。
     setupHistoryPrevention();
-    // 🕐 真實世界時間：純前端 setInterval，零後端呼叫；只在鑑賞頂列顯示，applyModeUI 切 solo 時隨 topbar-kanshou 一起隱藏。
-    (function tickRealClock_() {
-      var el = document.getElementById('header-clock');
-      if (el) {
-        var d = new Date();
-        var pad = function (n) { return String(n).padStart(2, '0'); };
-        el.textContent = d.getFullYear() + '/' + pad(d.getMonth() + 1) + '/' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-      }
-      setTimeout(tickRealClock_, 1000);
-    })();
     // 預填上次登入的帳號名稱，省去再次輸入
     var _savedAcct = localStorage.getItem('fate_account');
     if (_savedAcct) { var _acctIn = document.getElementById('in-account'); if (_acctIn) _acctIn.value = _savedAcct; }

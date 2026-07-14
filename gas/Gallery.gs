@@ -1018,11 +1018,15 @@ function kanshouHoursUntilBand_(curHour, targetStartHour) {
 }
 // 「跳到時段」＋「時段行動」按鈕都需要前端知道現在幾點——這裡統一格式化成單一真實來源，
 //   buildClientState_/actionPlay的回應都呼叫這支，不各自重複拼字串。
+// 🩹 2026-07玩家「這要顯示幾年幾月幾號」定案：label從抽象的「第X日」改成實際年月日(跟敘述
+//   文字${newDate.year}年${newDate.month}月${newDate.day}日同一種格式)，跳節慶/大跳躍後玩家
+//   能親眼確認日期真的有推進，不會看起來像卡住不動。
 function kanshouClockInfo_(pcRow) {
   const day = parseInt(pcRow[COL.PC.DAY]) || 1;
   const hour = (pcRow[COL.PC.HOUR] === "" || pcRow[COL.PC.HOUR] == null) ? 8 : (parseInt(pcRow[COL.PC.HOUR]) || 0);
   const band = timeBand_(hour);
-  return { day: day, hour: hour, band: band, label: "第 " + day + " 日・" + ("0" + hour).slice(-2) + ":00・" + band };
+  const d = kanshouAbsDayToDate_(day);
+  return { day: day, hour: hour, band: band, label: d.year + "年" + d.month + "月" + d.day + "日・" + ("0" + hour).slice(-2) + ":00・" + band };
 }
 
 // 僅鑑賞(kanshou)有經濟層(DESIGN.md鐵律：GAS掌數值、AI只說書)——固定金額，不靠AI亂喊數字。
