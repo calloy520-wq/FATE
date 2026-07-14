@@ -71,8 +71,10 @@ const RANK_VALUE = { "E": 10, "D": 20, "C": 30, "B": 40, "A": 50, "EX": 60 };
 function rankVal(r) {
   r = String(r || "E").trim();
   let base = RANK_VALUE[r.replace(/[+\-]/g, "").toUpperCase()] || 10;
-  const plus = (r.match(/\+/g) || []).length;
-  const minus = (r.match(/\-/g) || []).length;
+  // 🛡️ +/-修飾字元理論上只會是UI骰出的1~2個(如"A+"/"A++")，但這欄位來源包含玩家自由輸入
+  // (見actionManualNpc的melee/magicRank)，沒上限的話可以打"A+++++++"無限灌傷害，封頂3個。
+  const plus = Math.min((r.match(/\+/g) || []).length, 3);
+  const minus = Math.min((r.match(/\-/g) || []).length, 3);
   return base + plus * 5 - minus * 3;
 }
 
@@ -132,7 +134,9 @@ function fateMaxHpMp_(con, mag) {
 //   與御主共用一池(存御主MP)，池上限＝御主迴路×10＋同隊從者魔力×2(見masterPoolMax_)。
 //   masterMaxHpMp_ 只給「尚無從者」基底(迴路×10)；血由迴路×2。
 function masterMaxHpMp_(circuits) {
-  var c = parseInt(circuits) || 30;
+  // 🛡️ parseInt(x)||30 只擋得住NaN/0，擋不住負數——前端骰子UI本就夾在12~50，但這裡是唯一
+  //   信任邊界(直打API可繞過前端)，補上下限，避免負迴路生出0血/負魔力的御主。
+  var c = Math.max(1, parseInt(circuits) || 30);
   return {
     hp: 100 + c * 2,
     mp: c * 10   // 迴路係數：A階寶具付完底費仍有超載餘裕

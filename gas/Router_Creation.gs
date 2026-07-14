@@ -20,14 +20,17 @@ function actionManualNpc(userData, pcId, sheets) {
   //   被種入本局的同名正典敵手變雙胞胎（同局內按名字查會歧義）；想當正典角色請走「扮演正典御主」入口。
   //   兩側名字都須套 cleanChineseName 正規化再比對（canon 名可能含標點，sanitize 後的 finalName 不含）；
   //   SEED_SERVANTS 真名欄位是 `realName` 不是 `name`。
-  const _canonHit = (typeof SEED_MASTERS !== 'undefined' && SEED_MASTERS.some(m => m && cleanChineseName(m.name) === finalName))
-    || (typeof SEED_SERVANTS !== 'undefined' && SEED_SERVANTS.some(s => s && cleanChineseName(s.realName) === finalName));
+  const _canonMasterHit = typeof SEED_MASTERS !== 'undefined' && SEED_MASTERS.some(m => m && cleanChineseName(m.name) === finalName);
+  const _canonServantHit = typeof SEED_SERVANTS !== 'undefined' && SEED_SERVANTS.some(s => s && cleanChineseName(s.realName) === finalName);
   // 扮演正典御主(playedMaster) 是合法路徑，須排除於撞名擋下之外；驗證 playedMaster 對應真名剛好等於
   //   finalName 才放行，避免夾帶不相干 playedMaster id 繞過保護。seedRivalsForGame_ 會排除你扮演的
   //   那位不再種成本局敵御主，故不會真的產生雙胞胎。
   const _playingThisCanon = userData.playedMaster && typeof SEED_MASTERS !== 'undefined'
     && SEED_MASTERS.some(m => m && String(m.id) === String(userData.playedMaster) && cleanChineseName(m.name) === finalName);
-  if (_canonHit && !_playingThisCanon) return JSON.stringify({ success: false, message: `「${finalName}」是聖杯戰爭中已知的英靈／御主——自創御主請另取名號；若想扮演此角，請用「扮演正典御主」入口。` });
+  if (_canonMasterHit && !_playingThisCanon) return JSON.stringify({ success: false, message: `「${finalName}」是聖杯戰爭中已知的御主——自創御主請另取名號；若想扮演此角，請用「扮演正典御主」入口。` });
+  // 🐛→✅ 撞正典從者真名沒有「扮演」這條路(那個入口只列SEED_MASTERS)，訊息不該誤導去點一個
+  //   死路——改成單純告知另取名號。
+  if (_canonServantHit) return JSON.stringify({ success: false, message: `「${finalName}」是聖杯戰爭中已知的英靈真名——自創御主請另取名號。` });
   // finalName 此時仍是 cleanChineseName 洗掉標點的畸形版本——還原成 SEED_MASTERS 原始正典真名(含標點)。
   if (_playingThisCanon) {
     const _canonMaster = SEED_MASTERS.find(m => m && String(m.id) === String(userData.playedMaster));
@@ -47,22 +50,26 @@ function actionManualNpc(userData, pcId, sheets) {
     // 起始落點：確定性選一個有效冬木居所(偏好新都)，不需 AI；backfill 不動落點以免與移動競寫。
     const spawnName = validMapNames.find(n => /新都/.test(n)) || validMapNames[0];
 
+    // 🛡️ 這幾格是玩家自由填寫的文字(sanitizeUserData_只截長度、不擋｜【】——那道清洗只鎖
+    //   name/npcName等嚴格姓名欄位)，MEMORY是全欄位共用｜分隔的標記格式，比照setOutfit_/setWeapon_
+    //   同款清洗，避免玩家文字裡剛好帶的｜【】把後面的【模式】【戰爭】【扮演】等系統標記截斷或偽造。
+    const cleanTagText_ = (s) => String(s || "").replace(/[｜【】\n\r\t]/g, "");
     const pcColCount = Object.keys(COL.PC).length;
     const newRow = Array(pcColCount).fill("");
     newRow[COL.PC.ID] = newId; newRow[COL.PC.NAME] = finalName; newRow[COL.PC.SEX] = finalSex;
     newRow[COL.PC.BACK] = standing || identity || "來歷不明的魔術師"; // 種子＝玩家輸入身世；backfill 會用 AI 潤成 20 字背景
     newRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
     newRow[COL.PC.MEMORY] = [
-      wish ? `【願望】${wish}` : "",
-      magic ? `【魔術】${magic}` : "",
-      circuits ? `【迴路】${circuits}` : "",
-      origin ? `【出身】${origin}` : "",
-      melee ? `【體術】${melee}` : "",
-      magicRank ? `【魔術階位】${magicRank}` : "",
+      wish ? `【願望】${cleanTagText_(wish)}` : "",
+      magic ? `【魔術】${cleanTagText_(magic)}` : "",
+      circuits ? `【迴路】${cleanTagText_(circuits)}` : "",
+      origin ? `【出身】${cleanTagText_(origin)}` : "",
+      melee ? `【體術】${cleanTagText_(melee)}` : "",
+      magicRank ? `【魔術階位】${cleanTagText_(magicRank)}` : "",
       "【令咒】3",
       `【模式】${userData.warMode === 'chaos' ? 'chaos' : 'canon'}`,
       userData.warMode === 'chaos' ? "" : `【戰爭】${['4th', '5th'].indexOf(String(userData.war)) >= 0 ? userData.war : '5th'}`,
-      (userData.warMode !== 'chaos' && userData.playedMaster) ? `【扮演】${String(userData.playedMaster).trim()}` : ""
+      (userData.warMode !== 'chaos' && userData.playedMaster) ? `【扮演】${cleanTagText_(userData.playedMaster)}` : ""
     ].filter(Boolean).join("｜");
     // 起始禮裝：玩家自選；驗證＝合法的【被動】禮裝 id，空／'none'／破戒(special) 一律不帶。
     try {
