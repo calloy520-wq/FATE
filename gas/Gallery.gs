@@ -1779,18 +1779,17 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         if (nIdx === -1) return;
         dirtyPcRows.add(nIdx);
 
-        // 🌹 鑑賞允許好感依劇情推進（solo 的好感收歸 GAS 按鈕，走不同的 narrate_only 路徑，不受這裡影響）
+        // 鑑賞允許好感依劇情推進（solo 的好感收歸 GAS 按鈕，走不同的 narrate_only 路徑，不受這裡影響）
         let change = parseInt(rc.fav_change) || 0;
 
         let oldFav = parseInt(pcData[nIdx][COL.PC.BOND]) || 0;
         let newFav = Math.max(-100, Math.min(100, oldFav + change));
-        // 💝 純聊天加好感卡在目前梯度上限，送禮才能突破(見kanshouRelChatCeiling_)——只夾正向漲幅，
-        //   好感下滑(change<0)不受影響，該掉就掉。
+        // 純聊天加好感卡在目前梯度上限，送禮才能突破(見kanshouRelChatCeiling_)——只夾正向漲幅，
+        //   好感下滑(change<0)不受影響。
         if (change > 0) newFav = Math.min(newFav, kanshouRelChatCeiling_(oldFav));
 
-        // REL_TAG 本身仍不允許AI直接指定文字寫入，但好感變動後GAS會依kanshouSyncRelTier_自動
-        //   依門檻升降級(玩家沒手動自訂過的話)；AI對標籤的影響力只剩「認不認同」，演在
-        //   intimacy_feedback.npcs[].attitude 裡。
+        // REL_TAG 不允許AI直接指定文字寫入，好感變動後GAS依kanshouSyncRelTier_自動升降級；
+        //   AI對標籤的影響力只剩「認不認同」，演在 intimacy_feedback.npcs[].attitude 裡。
         pcData[nIdx][COL.PC.BOND] = newFav;
         kanshouSyncRelTier_(pcData, nIdx);
       });
@@ -1894,15 +1893,10 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       }
     }
 
-    // 🌍 2026-07「加入這個世界的感覺」定案：這裡原本還有一段「把partyMembers再同步一次LOC」的
-    //   邏輯，跟前面aiLoc那段其實是重複的兩套同步(算出來的結果必然一致)——拿掉IS_PARTY後這段變成
-    //   純粹的死重複，直接刪掉，同步只留aiLoc那唯一一處。
-
     const pcColCount = Object.keys(COL.PC).length;
 
-    // 🔒 競態修：play 豁免寫入鎖(AI 呼叫佔數秒會卡全域)，但上面的列索引是 AI 呼叫【前】讀到的——
-    //   期間其他上鎖動作若刪列，索引會位移。寫回前做一次 ID 欄窄讀重定位，用「當下的真實列索引」
-    //   寫；列已被刪→跳過，絕不寫錯人。
+    // 競態修：play 豁免寫入鎖(AI 呼叫佔數秒會卡全域)，但上面的列索引是 AI 呼叫【前】讀到的——
+    //   期間其他上鎖動作若刪列，索引會位移。寫回前做一次 ID 欄窄讀重定位，列已被刪就跳過。
     const liveIdx = buildLiveIdIndex_(sheets.pc);
 
     // MAX_HP/MAX_MP 重算只針對有變動的行，不全表掃描
@@ -1924,22 +1918,19 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
     curL = pcData[pcIndex][COL.PC.LOC];
 
-    // 🌙 宵禁提醒：用最終位置(可能已被moveTarget/AI決定的location更新過)判斷，人在家(region==='home')
-    //   或今天已經知會過(留在外面過夜)就不再跳提醒。
+    // 宵禁提醒：用最終位置(可能已被moveTarget/AI決定的location更新過)判斷，人在家或今天已經
+    //   知會過(留在外面過夜)就不再跳提醒。
     const curfewLocDef = KANSHOU_LOCATIONS_.find(l => l.name === curL);
     const isCurfewHome = !!(curfewLocDef && curfewLocDef.region === 'home');
     const curfewDismissedNow = kanshouCurfewDismissed_(pcData[pcIndex][COL.PC.MEMORY], curDay);
     const curfewPrompt = (!isCurfewHome && !curfewDismissedNow && (curHour >= 22 || curHour < 6)) ? true : undefined;
 
-    // 💰 2026-07「以後跟她獨處可以跳出這個按鈕」玩家定案：只有這個地點剛好只有一位在場(獨處，
-    //   直接沿用上面已經算好的partyRows，不重算)、且那位剛好掛著欠租旗標時，才給前端一個「提議
-    //   肉償」的按鈕；不像knockEvent那樣擋下整回合強制二選一，只是額外夾一個可用的選項，玩家不
-    //   理會也能正常繼續聊天。
+    // 只有這個地點剛好只有一位在場(獨處)、且那位剛好掛著欠租旗標時，才給前端一個「提議肉償」
+    //   的按鈕；不像knockEvent那樣擋下整回合強制二選一，玩家不理會也能正常繼續聊天。
     const debtPaymentOffer = (partyRows.length === 1 && KANSHOU_RENT_DEBT_TAG_.get(partyRows[0][COL.PC.MEMORY])) ? String(partyRows[0][COL.PC.NAME]) : undefined;
 
-    // 🎭 橋段·夜襲/賴床叫醒的按鈕：candidate在回合開頭(任何LOC寫入之前)就算好了，這裡直接沿用，
-    //   不必也不應該重算——重算的話就會撞回「同行同伴LOC已被同步」的舊bug。candidate只認人員
-    //   身分(不含bond)，bond留到玩家真的按下接受時才讀最新值。
+    // 橋段·夜襲/賴床叫醒的按鈕：candidate在回合開頭(任何LOC寫入之前)就算好了，這裡直接沿用，
+    //   不應該重算——重算會撞回「同行同伴LOC已被同步」的舊bug。
     const roomEventOffer = kanshouRoomEventCandidate_ ? { name: kanshouRoomEventCandidate_.hero.realName, eventKey: kanshouRoomEventCandidate_.eventKey } : undefined;
 
     const localPeopleList = getKanshouPeopleList_(pcId, curL, pcData);
@@ -1964,14 +1955,14 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       { speaker: "ai", content: aiData.narration || "" }  // 用原始 narration 不用 finalResponseText
     ]);
 
-    // ⚡ 提速：pcData 這裡已是本回合全部異動(好感/態度/肉體等)寫回後的權威陣列，直接複用它建一份
-    //   跟 get_tags 同格式的 payload 夾帶回去，省掉前端另打一趟 get_tags 的 round-trip；建構失敗
-    //   就不夾帶，前端會自動退回原本的 get_tags 補呼叫。
+    // 提速：pcData 這裡已是本回合全部異動寫回後的權威陣列，直接複用它建一份跟 get_tags 同格式
+    //   的 payload 夾帶回去，省掉前端另打一趟 get_tags 的 round-trip；建構失敗就不夾帶，前端會
+    //   自動退回原本的 get_tags 補呼叫。
     let tagsPayload = null;
     try { const tp = buildTagsPayload_(sheets, pcId, pcData); if (tp && tp.success) tagsPayload = tp; } catch (e) { }
 
-    // 🕰️ 時段按鈕/時段行動需要每回合都拿到最新時鐘(結束一天/推進時間/打工/跳節慶/跳時段都可能
-    //   改動curDay/curHour)，跟buildClientState_同一份kanshouClockInfo_，不重複拼字串。
+    // 時段按鈕/時段行動需要每回合都拿到最新時鐘，跟buildClientState_同一份kanshouClockInfo_，
+    //   不重複拼字串。
     let kanshouClock = null;
     try { kanshouClock = kanshouClockInfo_(pcData[pcIndex]); } catch (e) { }
 
@@ -1986,12 +1977,9 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       debtPaymentOffer: debtPaymentOffer,
       roomEventOffer: roomEventOffer,
       kanshouClock: kanshouClock,
-      // 🐛→✅ 2026-07 玩家「時間怪怪的...應該要一直往下走才對」查出根因：這裡本來只回傳
-      //   kanshouClock(供地圖頁時段按鈕判斷用)，但畫面上唯一真的會顯示文字的#clock-hud
-      //   讀的是共用的updateClock(data.clock,...)——data.clock在鑑賞這條路徑上從來沒被設過，
-      //   每次收到回應都被updateClock當成「沒有clock」把HUD直接隱藏，玩家等於完全看不到
-      //   日期/時刻真的有沒有在走，只能靠印象猜。這裡補上同一份kanshouClock.label，
-      //   不是另開一條時鐘、不是重算，單純把已經算好的同一個值也餵給共用HUD。
+      // 修過的bug：#clock-hud讀共用的updateClock(data.clock,...)，但data.clock在鑑賞這條路徑
+      //   上從來沒被設過，導致HUD一直被當成「沒有clock」隱藏。這裡補上同一份kanshouClock.label
+      //   餵給共用HUD，不是另開一條時鐘。
       clock: kanshouClock ? kanshouClock.label : ""
     });
 

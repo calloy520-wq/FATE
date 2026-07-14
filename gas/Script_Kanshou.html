@@ -276,13 +276,9 @@ let plainTextContext = cleanText;
       + '</div></div>';
   }
 
-  // 🆕 2026-07「關係改玩家決定，AI不可以改動但可以不認」：關係標籤從此只能由玩家自己在這裡改，
-  //   AI只能在敘事裡表現認不認同(態度)，不再擅自覆寫這個欄位——加一顆「🏷️關係」鈕呼叫
-  //   update_rel_tag。好感(數字)僅供玩家參考，不可編輯(仍是AI依劇情推進)。
-  // 🌍 2026-07「加入這個世界的感覺」定案：每一列多顯示她目前所在地點(loc)，玩家想找誰就去那裡；
-  //   拿掉「請走」按鈕(沒有隊伍容量需要騰位置，召喚是一次性的)。
-  // 🏠 2026-07 玩家「按鈕指派她入住這好怪 改成在畫面左邊角色標籤那裡新增邀請入住」定案：
-  //   從地圖「房間」分頁的空房按鈕改成這裡(角色列表)每一位還沒入住的同伴自己一顆「邀請入住」，
+  // 🆕 關係標籤從此只能由玩家自己在這裡改，AI只能在敘事裡表現認不認同(態度)，不再擅自覆寫——加一顆「🏷️關係」鈕呼叫 update_rel_tag。好感(數字)僅供參考，不可編輯(仍是AI依劇情推進)。
+  // 🌍 每一列多顯示她目前所在地點(loc)，方便找人；拿掉「請走」按鈕(召喚是一次性的，不需要騰隊伍容量)。
+  // 🏠 邀請入住從地圖「房間」分頁的空房按鈕改成這裡(角色列表)每位還沒入住的同伴自己一顆「邀請入住」，
   //   直接自動挑第一個空著的客房(不必額外問玩家要哪一間，房號本身對玩家沒有意義)。
   function renderKcPartyList_() {
     var countEl = document.getElementById('kc-count');
@@ -312,57 +308,45 @@ let plainTextContext = cleanText;
     } catch (e) { alert('邀請失敗。'); }
   }
 
-  // 🌙 結束一天(2026-07「不讓玩家指派，直接GAS判定」定案)：不在身邊的英靈由GAS自動決定隔天
-  //   去哪(見Gallery.gs actionPlay的endDay分支/kanshouRollDailyLocation_)，玩家不用手動排程；
-  //   跟一般聊天走同一個send()、同一套渲染，不必另寫一套回應處理邏輯。
+  // 🌙 結束一天：不在身邊的英靈由GAS自動決定隔天去哪(見Gallery.gs kanshouRollDailyLocation_)，不用手動排程；跟一般聊天走同一個send()、同一套渲染。
   async function kanshouEndDay() {
     if (!confirm('結束今天，讓時間流動到明天嗎？')) return;
     showGamePane('chat');
     await send('🌙 結束了這一天。', false, null, null, false, true, 0, null, false, null, null, null, false, false, null, null, null, false, ['夜色漸漸深了…', '一天的塵埃緩緩落定…', '悄悄迎向嶄新的一天…']);
   }
 
-  // ⏰ 2026-07「推進時間」玩法(玩家「有一個推進時間按鈕，可以控制NPC所在地點？按下去可能推進
-  //   幾小時」)：跟🌙結束一天不同——不強制拉玩家回家，純粹讓時鐘跳過N小時，不在身邊的英靈依新
-  //   時刻重新分佈去向(見Gallery.gs actionPlay的advanceHours分支)。走一般send()同一套渲染。
+  // ⏰「推進時間」跟🌙結束一天不同——不強制拉回家，純粹讓時鐘跳過N小時，不在身邊的英靈依新時刻重新分佈去向(見Gallery.gs advanceHours分支)。走一般send()同一套渲染。
   async function kanshouAdvanceHours(hours) {
     showGamePane('chat');
     await send('⏩ 讓時間悄悄流逝了' + hours + '個小時。', false, null, null, false, false, hours, null, false, null, null, null, false, false, null, null, null, false, ['時光靜靜流轉…', '天色漸漸改變…']);
   }
 
-  // ⏰ 2026-07「跳到時段感覺比較好」玩家定案：取代上面「推進N小時」需要玩家自己心算會落在哪個
-  //   時段的問題——直接選目標時段，GAS算好差幾小時(見Gallery.gs kanshouHoursUntilBand_)，跟
-  //   kanshouAdvanceHours共用同一條advanceHours管線，只是這裡傳的是jumpBand而非固定小時數。
+  // ⏰ 直接選目標時段，GAS算好差幾小時(見Gallery.gs kanshouHoursUntilBand_)，跟 kanshouAdvanceHours 共用同一條 advanceHours 管線，只是這裡傳的是jumpBand而非固定小時數。
   async function kanshouJumpBand(key, label) {
     showGamePane('chat');
     await send('⏩ 讓時間悄悄流轉到了' + label + '。', false, null, null, false, false, 0, null, false, null, null, null, false, false, null, null, key, false, ['時光靜靜流轉…', '天色漸漸改變…']);
   }
 
-  // 🍳 2026-07「時段行動」骨架的第一個動作：清晨限定的「準備早餐」，等同移動到廚房＋幫3位房客
-  //   各自骰一次今早去向(見Gallery.gs actionPlay的isBreakfast_分支，85%下樓/10%賴床/5%已出門，
-  //   GAS掌機率)。只在renderMapPane判斷現在是清晨時段才會顯示這顆按鈕。
+  // 🍳「時段行動」的第一個動作：清晨限定的「準備早餐」，等同移動到廚房＋幫3位房客各自骰一次今早去向(見Gallery.gs isBreakfast_分支，GAS掌機率)。只在清晨時段才顯示這顆按鈕。
   async function kanshouPrepBreakfast() {
     showGamePane('chat');
     await send('🍳 走進廚房，準備今天的早餐。', false, null, null, false, false, 0, null, false, null, null, null, false, false, null, null, null, true, ['清點食材…', '料理準備…', '精心製作…', '準備開飯！']);
   }
 
-  // 💼 2026-07「打工賺錢」玩法(玩家推翻2026-06經濟全砍決定，僅鑑賞恢復)：跟推進時間共用同一套
-  //   時鐘機制(work旗標讓後端固定推進KANSHOU_WORK_HOURS_小時＋發薪水，見Gallery.gs actionPlay)，
-  //   前端只需傳work:true，不必自己算時數/薪水(GAS掌數值，單一真實來源在後端)。
+  // 💼 打工賺錢：跟推進時間共用同一套時鐘機制(work旗標讓後端固定推進KANSHOU_WORK_HOURS_小時＋發薪水，見Gallery.gs actionPlay)，前端只需傳work:true，不必自己算時數/薪水(單一真實來源在後端)。
   async function kanshouWork() {
     showGamePane('chat');
     await send('💼 去打工賺錢了。', false, null, null, false, false, 0, null, true, null, null, null, false, false, null, null, null, false, ['整理儀容出門…', '認真工作中…', '結算今日薪水…']);
   }
 
-  // 🎊 2026-07「跳到節慶」：不帶advanceHours(留0)，帶jumpFestival讓後端自己算「距離該節慶還有
-  //   幾小時」(見Gallery.gs kanshouHoursUntilDate_)，前端不重算日期，單一真實來源在後端。
+  // 🎊「跳到節慶」：不帶advanceHours(留0)，帶jumpFestival讓後端自己算「距離該節慶還有幾小時」(見Gallery.gs kanshouHoursUntilDate_)，前端不重算日期，單一真實來源在後端。
   async function kanshouJumpFestival(key, name) {
     if (!confirm('要讓時間快轉到「' + name + '」嗎？(不在身邊的英靈會依新時刻重新分佈)')) return;
     showGamePane('chat');
     await send('🎊 想快轉到「' + name + '」看看。', false, null, null, false, false, 0, key, false, null, null, null, false, false, null, null, null, false, ['翻閱著行事曆…', '想著當天的種種安排…']);
   }
 
-  // 🎊 2026-07 玩家「不常用，不要擺出來」：從地圖頁常駐區塊搬進＋抽屜，比照kc-overlay同款
-  // 「專屬彈窗，不與其他功能共用」寫法，用完即關、不佔地圖頁版面。
+  // 🎊 從地圖頁常駐區塊搬進＋抽屜(比照kc-overlay同款專屬彈窗寫法)，用完即關、不佔地圖頁版面。
   function openKanshouFestivals() {
     try { var dr = document.getElementById('action-drawer'); if (dr && dr.style.display !== 'none' && typeof toggleActionDrawer === 'function') toggleActionDrawer(); } catch (e) {}
     var ov = document.getElementById('kc-festival-overlay');
@@ -385,9 +369,7 @@ let plainTextContext = cleanText;
   }
   function closeKanshouFestivals() { var ov = document.getElementById('kc-festival-overlay'); if (ov) ov.style.display = 'none'; }
 
-  // 🛍️ 2026-07 商店(玩家「都想要呢！」追加開店購物/好感禮物)：品項清單來自後端KANSHOU_SHOP_ITEMS_
-  //   同一份常數(KC_SHOP_ITEMS_鏡像，見下)，禮物項需要知道「此刻在場的人有誰」才能選送禮對象，
-  //   比照openCompanions同款先打kanshou_companions刷新_kcCur，避免送禮清單顯示過期資料。
+  // 🛍️ 商店：品項清單是後端KANSHOU_SHOP_ITEMS_的鏡像(KC_SHOP_ITEMS_，見下，改品項記得同步後端)；禮物項需要知道在場的人，先打 kanshou_companions 刷新 _kcCur 避免顯示過期資料。
   var KC_SHOP_ITEMS_ = [
     { id: 'sofa', name: '舒適沙發', price: 1200, type: 'decor', desc: '一張柔軟舒適的沙發' },
     { id: 'painting', name: '風景畫', price: 800, type: 'decor', desc: '一幅寧靜的風景掛畫' },
@@ -433,8 +415,7 @@ let plainTextContext = cleanText;
         + '<span style="flex:1;color:#e8d8e0;">' + escapeHtml(it.name) + ' <small style="color:#8a7fa0;">' + it.price + '円・' + escapeHtml(it.desc) + '</small></span>'
         + '<button onclick="kanshouBuyDecor(\'' + it.id + '\')" style="padding:4px 10px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">購買</button></div>';
     }).join('');
-    // 🌍 2026-07「加入這個世界的感覺」定案：送禮對象只能是「此刻跟玩家同地點」的人(isHere)，不是
-    //   _kcCur全部——她要在場才收得到禮物，跟後端giftTargetIdx的判斷標準一致。
+    // 🌍 送禮對象只能是「此刻同地點」的人(isHere)，不是 _kcCur 全部——跟後端 giftTargetIdx 的判斷標準一致。
     var giftablePeople = _kcCur.filter(function (c) { return c.isHere; });
     h += '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">🎁 禮物（送給在場的人）</div>';
     if (!giftablePeople.length) {
@@ -484,8 +465,7 @@ let plainTextContext = cleanText;
 
   // 召喚清單每列只在「可召喚名單本身變了」(開面板/召喚後)才重建——每列標好 data-gender/
   // data-cls，換篩選(kanshouSetFilter)直接對這些既有節點切 display，不再整包重建。
-  // 🌍 2026-07「加入這個世界的感覺」定案：召喚沒有人數上限了(不再是隊伍容量)，這裡不用再判斷
-  //   canAdd，只要出現在_kcHeroesAvailable(尚未召喚過)就一定能按。
+  // 🌍 召喚沒有人數上限了(不再是隊伍容量)，不用判斷 canAdd，只要出現在 _kcHeroesAvailable(尚未召喚過)就能按。
   function renderKcHeroList_() {
     var box = document.getElementById('kc-hero-list');
     if (!box) return;
@@ -535,11 +515,7 @@ let plainTextContext = cleanText;
       if (!res || !res.success) { alert((res && res.message) || '讀取同伴失敗。'); return; }
       _kcCur = res.current || [];
       if (needHeroes) {
-        // 🎨 2026-07 玩家二次翻案「邀請加入到世界可以開放所有角色不管性別」：重新對男性開放召喚
-        //   清單(推翻上一批「男角都移除掉...禁止召喚」的全面性別封鎖)。衛宮士郎-Master仍是玩家
-        //   自己的位置，繼續用id特判擋掉；斯卡哈-Assassin/伊莉雅-Caster/恩奇都-Lancer額外濾掉
-        //   (「斯卡哈只先加入Lance版本」「不想要太多同名角色重複」「恩奇都也不要進來」定案，跟
-        //   後端KANSHOU_SUMMON_BLOCKED_IDS_同一份名單，手動同步)。
+        // 🎨 召喚清單重新對男性開放(不再全面性別封鎖)。衛宮士郎-Master仍用id特判擋掉(玩家自己的位置)；斯卡哈-Assassin/伊莉雅-Caster/恩奇都-Lancer額外濾掉——跟後端KANSHOU_SUMMON_BLOCKED_IDS_同一份名單，手動同步。
         var KC_SUMMON_BLOCKED_IDS_ = ['衛宮士郎-Master', '斯卡哈-Assassin', '伊莉雅-Caster', '恩奇都-Lancer'];
         _kcHeroesAll = (heroRes && heroRes.success) ? (heroRes.heroes || []).filter(function (h) { return KC_SUMMON_BLOCKED_IDS_.indexOf(h.id) === -1; }) : [];
         _kcHeroesCacheReady = !!(heroRes && heroRes.success); // 讀取失敗不快取「空」，下次開面板會再試一次
@@ -554,9 +530,7 @@ let plainTextContext = cleanText;
     } catch (e) { alert('讀取同伴失敗。'); }
   }
 
-  // 🗾 出門走走·分區地圖(2026-07「可愛地圖」升級)：純氛圍用的分區/地點清單，僅供畫按鈕——實際
-  //   合法地點驗證/巧遇抽選都在後端 Gallery.gs 的 KANSHOU_REGIONS_/KANSHOU_LOCATIONS_(唯一
-  //   真實來源)，這裡改地點/分區記得同步改一次。
+  // 🗾 出門走走·分區地圖：純氛圍用的分區/地點清單，僅供畫按鈕——實際合法地點驗證/巧遇抽選都在後端 Gallery.gs 的 KANSHOU_REGIONS_/KANSHOU_LOCATIONS_(唯一真實來源)，改地點記得同步。
   var KC_REGIONS_ = [
     { id: 'room', name: '房間', desc: '私人房間' },
     { id: 'home', name: '家的共用空間', desc: '共用生活空間' },
@@ -565,16 +539,13 @@ let plainTextContext = cleanText;
     { id: 'dojo', name: '山林', desc: '安靜神秘區' },
     { id: 'visit', name: '拜訪住處', desc: '同伴們各自的家' }
   ];
-  // 🎊 2026-07「跳到節慶」：純供按鈕文字用的mirror，真正的節慶對應天數(dayOfYear)/換算邏輯只在
-  //   後端Gallery.gs的KANSHOU_FESTIVALS_(唯一真實來源)，這裡改節慶記得同步改一次。
+  // 🎊「跳到節慶」：純供按鈕文字用的mirror，真正的節慶天數/換算邏輯只在後端 KANSHOU_FESTIVALS_(唯一真實來源)，改節慶記得同步。
   var KC_FESTIVALS_ = [
     { key: 'newyear', name: '新年初一' }, { key: 'valentine', name: '情人節' },
     { key: 'qixi', name: '七夕' }, { key: 'midautumn', name: '中秋節' },
     { key: 'xmas', name: '聖誕節' }, { key: 'nye', name: '跨年夜' }
   ];
-  // ⏰ 2026-07「跳到時段感覺比較好」玩家定案：比起「推進N小時」(玩家得自己心算會落在哪個時段)，
-  //   改成直接選目標時段，GAS算差幾小時(kanshouHoursUntilBand_，唯一真實來源在後端)。純顯示用
-  //   mirror，跟KC_FESTIVALS_同一種寫法——改時段記得同步後端KANSHOU_TIME_BANDS_。
+  // ⏰ 跳到時段(GAS算差幾小時，kanshouHoursUntilBand_ 唯一真實來源)。純顯示用 mirror，跟 KC_FESTIVALS_ 同一種寫法——改時段記得同步後端 KANSHOU_TIME_BANDS_。
   var KC_TIME_BANDS_ = [
     { key: '清晨', name: '清晨', label: '☀️清晨' }, { key: '午後', name: '午後', label: '🌤️午後' },
     { key: '黃昏', name: '黃昏', label: '🌆黃昏' }, { key: '夜', name: '夜晚', label: '🌙夜晚' }, { key: '深夜', name: '深夜', label: '🌌深夜' }
@@ -613,7 +584,7 @@ let plainTextContext = cleanText;
     if (listEl) listEl.innerHTML = kcMapListHtml_();
   }
 
-  // 🚪 巧遇開關(2026-07 玩家新增)：純前端偏好，跨裝置不同步(localStorage)，預設開啟(維持原行為)。
+  // 🚪 巧遇開關：純前端偏好，跨裝置不同步(localStorage)，預設開啟(維持原行為)。
   //   send() 每次都會讀這個值夾進 gasRun 的 encounter 欄位，後端 actionPlay 對應 encounterOn。
   let kanshouEncounterOn = localStorage.getItem('kyushu_kanshou_encounter') !== 'false';
   function kanshouToggleEncounter_(checked) {
@@ -621,12 +592,8 @@ let plainTextContext = cleanText;
     localStorage.setItem('kyushu_kanshou_encounter', kanshouEncounterOn);
   }
 
-  // 🏠 2026-07 玩家「這可以直接開個分支嗎?」定案：「家」從獨立釘選按鈕升級成跟其餘4區並列的
-  //   分區分頁(2026-07「衛宮宅」定案後改成我的房間/同住人房間/客房+日式空間，見KC_LOCATIONS_)。
-  //   分頁標籤沿用玩家自訂顯示名稱(後端【住所】標記/getKanshouHomeName_，預設「衛宮宅」)，
-  //   改名鈕移到「家」分頁展開時才顯示，不佔用其他分區版面。
-  // 🏠 房間分區動態顯示名稱：跟後端kanshouRoomDisplayName_同一套邏輯，查_kcCur(每次開companions/
-  //   shop/地圖前都會重fetch一次)的room欄位決定誰住這裡——純顯示用，實際合法性由後端驗證。
+  // 🏠「家」從獨立釘選按鈕升級成跟其餘4區並列的分區分頁(我的房間/同住人房間/客房+日式空間，見KC_LOCATIONS_)。分頁標籤沿用玩家自訂顯示名稱(後端【住所】標記/getKanshouHomeName_，預設「衛宮宅」)，改名鈕移到「家」分頁展開時才顯示。
+  // 🏠 房間分區動態顯示名稱：跟後端kanshouRoomDisplayName_同一套邏輯，查_kcCur(每次開companions/shop/地圖前都會重fetch)的room欄位決定誰住這裡——純顯示用，實際合法性由後端驗證。
   function kcRoomLabel_(key) {
     if (key === '我的房間') return (pc && pc.name ? pc.name : '御主') + '的房間';
     var m = /^room([1-3])$/.exec(key);
@@ -647,16 +614,10 @@ let plainTextContext = cleanText;
     var renameHtml = (kcActiveRegion_ === 'home')
       ? '<div style="text-align:right;margin:-4px 0 6px;"><span onclick="kanshouRenameHome()" style="cursor:pointer;font-size:11px;color:#a07a90;">✏️ 幫「' + escapeHtml(homeLabel) + '」改名</span></div>'
       : '';
-    // 🆕 2026-07 玩家「可以顯示那個地點有幾個人物嗎」：夾帶在tags payload的locationCounts
-    //   (見Router_Action.gs buildTagsPayload_)——每個已建立的英靈都各自散布在不同地點過自己的
-    //   生活(2026-07「加入這個世界的感覺」定案)，這裡顯示各地點人數，幫助決定要去哪裡找誰。
+    // 🆕 locCounts 夾帶在tags payload裡(見Router_Action.gs buildTagsPayload_)——每個英靈都各自散布在不同地點過自己的生活，這裡顯示各地點人數，幫助決定去哪裡找誰。
     var locCounts = (window._lastTags && window._lastTags.locationCounts) || {};
-    // 🙋 2026-07「反向提議」玩家定案：跟kanshouMoveTo(玩家自己走，無條件強制移動)不同，這顆👋
-    //   走一般聊天訊息(不帶moveTarget)，交給AI在同一回合內依同伴個性當場決定答應或婉拒——見
-    //   Gallery.gs★【玩家反向邀約】規則，答應才會演出移動並更新location，不需要另外的同意/拒絕UI。
-    // 🏠 2026-07 玩家「按鈕指派她入住這好怪 改成在畫面左邊角色標籤那裡新增邀請入住」定案：
-    //   客房不再有專屬的入住按鈕，純粹當一般地點瀏覽(📍走過去/👋邀同伴一起去)，「邀請入住」
-    //   改到角色列表(kc-party-list/kanshouInviteMoveIn，見上方renderKcPartyList_)辦理。
+    // 🙋 跟kanshouMoveTo(自己走，無條件強制移動)不同，這顆👋走一般聊天訊息(不帶moveTarget)，交給AI依同伴個性當場決定答應或婉拒(見Gallery.gs★【玩家反向邀約】)。
+    // 🏠 客房不再有專屬的入住按鈕，純粹當一般地點瀏覽(📍走過去/👋邀同伴一起去)，「邀請入住」改到角色列表(kc-party-list/kanshouInviteMoveIn)辦理。
     var locBtns = KC_LOCATIONS_.filter(function (l) { return l.region === kcActiveRegion_; }).map(function (l) {
       var label = l.isRoom ? kcRoomLabel_(l.name) : l.name;
       var cnt = locCounts[l.name] || 0;
@@ -671,13 +632,9 @@ let plainTextContext = cleanText;
     return tabsHtml + renameHtml + locBtns;
   }
 
-  // 🧹 2026-07 玩家定案「改回跟solo很像的ui 3個分頁！地圖變成清單類型！」：原本掛在☰抽屜裡的
-  //   彈窗(ensureKcMapOverlay_/closeKcMapOverlay/openKanshouMap)已被「🗺️地圖」分頁取代——
-  //   kcMapListHtml_ 現在直接由 Script.html 的 renderMapPane() 渲染進 #map-pane-content，
-  //   彈窗整條(含 drawer-kanshou-map 按鈕)一併移除，不留兩套平行的進入點。
+  // 🧹 原本掛在☰抽屜裡的彈窗(ensureKcMapOverlay_/closeKcMapOverlay/openKanshouMap)已被「🗺️地圖」分頁取代——kcMapListHtml_ 現在直接由 Script.html 的 renderMapPane() 渲染進 #map-pane-content，彈窗整條一併移除，不留兩套平行入口。
 
-  // 🏠 改名「家」(2026-07 玩家新增)：寫進後端 MEMORY【住所】標記(kanshou_set_home_name)，
-  // 成功後同步更新本地 pc.homeName＋重繪清單，不必整頁重整或重打 sync。
+  // 🏠 改名「家」：寫進後端 MEMORY【住所】標記(kanshou_set_home_name)，成功後同步更新本地 pc.homeName＋重繪清單，不必整頁重整或重打 sync。
   async function kanshouRenameHome() {
     var cur = (pc && pc.homeName) ? pc.homeName : '衛宮宅';
     var name = prompt('把「' + cur + '」改成什麼名字？(12字以內)', cur);
@@ -698,29 +655,24 @@ let plainTextContext = cleanText;
   // 移動走既有 send() 的 action:'play' 同一次round-trip(帶 moveTarget)，不另開一次網路請求；
   // AI 會依後端算好的巧遇資訊直接把抵達場景/偶遇演出來，故不在此處另外插一句本地假訊息。
   async function kanshouMoveTo(name) {
-    // 🐛→✅ 2026-07 玩家「想要加個確認鍵，手機需要回去故事分頁」：地點清單改進分頁後，手機一次
-    //   只顯示一個分頁，點地點移動完敘事卻寫進「故事」分頁看不到，得自己切回去；比照 solo 的
-    //   travelFromPane(SVG地圖點擊)同款「先切分頁再送出動作」寫法，讓移動結果直接可見。
+    // 🐛→✅ 地圖改分頁後，手機一次只顯示一個分頁，移動完敘事寫進「故事」分頁看不到——比照 solo 的 travelFromPane「先切分頁再送出動作」寫法，讓移動結果直接可見。
     if (!confirm('確定要前往「' + name + '」嗎？')) return;
     showGamePane('chat');
     await send('📍 走向了「' + name + '」，四處看看。', false, null, name);
   }
 
-  // 🙋 2026-07「玩家反向提議換地點」：不帶moveTarget，走一般對話訊息，答不答應由AI當場依同伴
-  //   個性決定並直接演完(見Gallery.gs★【玩家反向邀約】)——跟kanshouMoveTo(強制移動)是兩條不同路。
+  // 🙋 反向提議換地點：不帶moveTarget，走一般對話訊息，答不答應由AI當場依同伴個性決定並直接演完(見Gallery.gs★【玩家反向邀約】)——跟kanshouMoveTo(強制移動)是兩條不同路。
   async function kanshouProposeMove(name) {
     showGamePane('chat');
     await send('（笑著問）要不要一起去「' + name + '」看看？', false, null, null);
   }
 
-  // 🔘 2026-07「這功能直接做成按鈕」玩家定案：原本用關鍵字猜測玩家是不是在問「這裡還有沒有其他
-  //   人」已改成這顆明確按鈕(lookAround:true)，後端不再靠猜文字語意——不移動、不換分頁，原地問。
+  // 🔘 原本用關鍵字猜測是不是在問「這裡還有沒有其他人」，已改成這顆明確按鈕(lookAround:true)，後端不再靠猜文字語意——不移動、不換分頁，原地問。
   async function kanshouLookAround() {
     await send('👀 四處張望，看看還有沒有其他人在。', false, null, null, true);
   }
 
-  // 🚶 2026-07「AI提議換地點需玩家同意」：同意時重用既有moveTarget管線(跟kanshouMoveTo同一條路，
-  //   含巧遇/留人重逢等效果)，不另開移動程式碼；拒絕就當作一句普通續寫，原地不動。
+  // 🚶 同意時重用既有moveTarget管線(跟kanshouMoveTo同一條路，含巧遇/留人重逢等效果)，不另開移動程式碼；拒絕就當作一句普通續寫，原地不動。
   async function kanshouConfirmMoveProposal(loc) {
     showGamePane('chat');
     await send('好，一起去「' + loc + '」吧。', false, null, loc);
@@ -729,9 +681,7 @@ let plainTextContext = cleanText;
     await send('這次還是先留在這裡好了。', false, null, null);
   }
 
-  // 🚪 2026-07「睡覺時機率有人來敲門」：跟move proposal同款「選了才真的觸發」寫法，只是這個
-  //   是GAS機率事件(見Gallery.gs actionPlay結束一天前的擲骰)。開門帶knockAccept(把訪客接來、
-  //   不推進日期)；不予理會帶skipKnockCheck重送一次結束一天(跳過這次判定，直接推進日期)。
+  // 🚪 跟move proposal同款「選了才真的觸發」寫法，只是這個是GAS機率事件(見Gallery.gs結束一天前的擲骰)。開門帶knockAccept(把訪客接來、不推進日期)；不予理會帶skipKnockCheck重送結束一天(跳過判定、直接推進日期)。
   async function kanshouAnswerKnock(name) {
     showGamePane('chat');
     await send('打開了門，是「' + name + '」……', false, null, null, false, false, 0, null, false, null, null, name);
@@ -740,9 +690,7 @@ let plainTextContext = cleanText;
     await send('（決定不去開門，逕自準備歇下了）', false, null, null, false, true, 0, null, false, null, null, null, true);
   }
 
-  // 🌙 2026-07「晚上10點強制回家/也可以在外面過夜」：不真的強制，改成提醒——「回家」重用既有
-  // moveTarget管線走回我的房間(跟結束一天同一個房間，2026-07「衛宮宅」定案後改名)；
-  // 「留在外面過夜」帶dismissCurfew，當天不再提醒。
+  // 🌙 晚上10點不真的強制回家，改成提醒——「回家」重用既有moveTarget管線走回我的房間；「留在外面過夜」帶dismissCurfew，當天不再提醒。
   async function kanshouGoHomeCurfew() {
     showGamePane('chat');
     await send('（時候不早了，決定回家去）', false, null, '我的房間');
@@ -751,15 +699,12 @@ let plainTextContext = cleanText;
     await send('（決定今晚就在外面過夜了）', false, null, null, false, false, 0, null, false, null, null, null, false, true);
   }
 
-  // 💰 2026-07「先把肉償機制上線！！...以後跟她獨處可以跳出這個按鈕」：只有這個地點剛好只有
-  //   她一人在場(獨處)、且她此刻掛著欠租旗標時，後端才會夾debtPaymentOffer；這裡點下去才真的
-  //   觸發橋段，不點就只是繼續正常聊天(不像敲門那樣強制二選一)。
+  // 💰 只有此地只有她一人在場(獨處)、且掛著欠租旗標時，後端才會夾debtPaymentOffer；點下去才真的觸發橋段，不點就只是繼續正常聊天(不像敲門那樣強制二選一)。
   async function kanshouOfferDebtPayment(name) {
     await send('向「' + name + '」提議，這期的房租就用身體來抵……', false, null, null, false, false, 0, null, false, null, null, null, false, false, name);
   }
 
-  // 🎭 2026-07「跳出色色選項詢問是否色色」：夜襲/賴床叫醒改成候選人持續存在期間都能按這顆按鈕，
-  //   不點的話(包括直接輸入文字聊天)就是婉拒，正常敘事完全不受影響——玩家可以先盡情聊天再決定。
+  // 🎭 夜襲/賴床叫醒改成候選人持續存在期間都能按這顆按鈕，不點的話(含直接聊天)就是婉拒，正常敘事完全不受影響。
   async function kanshouAcceptRoomEvent(name) {
     await send('（靠近了「' + name + '」……）', false, null, null, false, false, 0, null, false, null, null, null, false, false, null, name);
   }
@@ -777,11 +722,7 @@ let plainTextContext = cleanText;
     } catch (e) { }
   }
 
-  // 🚀 2026-07 移除「召喚後背景AI深化」第二段呼叫(玩家反映「邀請角色速度很慢」)：種子庫23位
-  //   英靈已全數手寫完整的日常四段式外貌/性格/萌點/衣裝(見 heroToKanshouRow_/getDailyHeroFields_)，
-  //   這顆深化原本存在的理由(種子個性精簡、無身世)已被那輪daily欄位系統整個補完，繼續留著只是
-  //   每次邀請都多等一輪同步AI呼叫、卻拿一份可能還不如現有daily資料的內容去覆蓋——純粹拖速度、
-  //   無實質增益，整條移除(actionBackfillKanshouServantAi 已刪，見 SOLO_REFERENCE.md)。
+  // 🚀 已移除「召喚後背景AI深化」第二段呼叫：種子庫23位英靈已全數手寫完整的日常四段式外貌/性格/萌點/衣裝(見 heroToKanshouRow_/getDailyHeroFields_)，那顆深化只會多等一輪AI呼叫、拿可能更差的內容覆蓋，純粹拖速度——整條移除(actionBackfillKanshouServantAi 已刪)。
   async function kanshouSummonHero(heroId) {
     showProcessing('正在以令咒召喚英靈…', true);
     try {
@@ -860,8 +801,7 @@ let plainTextContext = cleanText;
   // 🌹 首次進場設定御主：取名／選性別／外貌／身世／個性方向（皆可留空由AI決定，比照solo創角）。
   //   之後 👥 面板可改名/改性別；外貌/身世/個性方向只在首次建檔時餵給AI潤色一次(見backfillKanshouAi)。
   //   回傳 {name, sex, appearance, standing, persona}。
-  // 🐛→✅ 2026-07 修：性別鈕原本一點就直接送出整張表單(等於「選項」變成「登入鈕」，其他欄位來不及填就被提交)——
-  //   改成純選取(點擊只切換高亮、不提交)，另加一顆「進入後日談」鈕才真正送出。
+  // 🐛→✅ 性別鈕原本一點就直接送出整張表單(其他欄位來不及填就被提交)——改成純選取(點擊只切換高亮)，另加一顆「進入後日談」鈕才真正送出。
   function askKanshouSetup(defaultName) {
     return new Promise(function (resolve) {
       var selectedSex = '';
