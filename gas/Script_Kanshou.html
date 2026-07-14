@@ -313,8 +313,9 @@
       if (needHeroes) {
         // 🎨 2026-07 玩家「男角都移除掉吧...沒啥用...可以去當背景就好也禁止被召喚吧」：全面濾掉
         //   男性英靈/御主，在來源就濾乾淨，篩選下拉(genderOpts)/召喚清單都不會再冒出男性選項。
-        //   衛宮士郎-Master也是男性，這條連帶涵蓋掉，不必再另外用id特判。
-        _kcHeroesAll = (heroRes && heroRes.success) ? (heroRes.heroes || []).filter(function (h) { return h.gender !== '男'; }) : [];
+        //   衛宮士郎-Master也是男性，這條連帶涵蓋掉，不必再另外用id特判。斯卡哈-Assassin額外濾掉
+        //   (玩家「斯卡哈只先加入Lance版本」定案，同一位英靈暫不開放兩種職階分身同時存在)。
+        _kcHeroesAll = (heroRes && heroRes.success) ? (heroRes.heroes || []).filter(function (h) { return h.gender !== '男' && h.id !== '斯卡哈-Assassin'; }) : [];
         _kcHeroesCacheReady = !!(heroRes && heroRes.success); // 讀取失敗不快取「空」，下次開面板會再試一次
       }
       kcRecomputeAvailable_();
@@ -331,11 +332,11 @@
   //   合法地點驗證/巧遇抽選都在後端 Gallery.gs 的 KANSHOU_REGIONS_/KANSHOU_LOCATIONS_(唯一
   //   真實來源)，這裡改地點/分區記得同步改一次。
   var KC_REGIONS_ = [
-    { id: 'home', name: '家', desc: '私人空間' },
-    { id: 'shinzan', name: '深山町・家附近', desc: '溫馨日常區' },
+    { id: 'room', name: '房間', desc: '私人房間' },
+    { id: 'home', name: '家的共用空間', desc: '共用生活空間' },
+    { id: 'shinzan', name: '深山町', desc: '溫馨日常區' },
     { id: 'fuyuki', name: '冬木市中心', desc: '熱鬧生活區' },
-    { id: 'harbor', name: '港口・碼頭區', desc: '微涼浪漫區' },
-    { id: 'dojo', name: '山林・道場區', desc: '安靜神秘區' },
+    { id: 'dojo', name: '山林', desc: '安靜神秘區' },
     { id: 'visit', name: '拜訪住處', desc: '同伴們各自的家' }
   ];
   // 🎊 2026-07「跳到節慶」：純供按鈕文字用的mirror，真正的節慶對應天數(dayOfYear)/換算邏輯只在
@@ -352,39 +353,36 @@
     { key: '清晨', name: '清晨', label: '☀️清晨' }, { key: '午後', name: '午後', label: '🌤️午後' },
     { key: '黃昏', name: '黃昏', label: '🌆黃昏' }, { key: '夜', name: '夜晚', label: '🌙夜晚' }, { key: '深夜', name: '深夜', label: '🌌深夜' }
   ];
+  // 🏠 房間分區(room)的name是穩定內部key，顯示名稱是動態算的(kcRoomLabel_，讀_kcCur的room欄位)，
+  // 不是這裡的靜態文字——跟後端kanshouRoomDisplayName_同一套邏輯，見下方kcMapListHtml_。
   var KC_LOCATIONS_ = [
-    { name: '我的房間', region: 'home' }, { name: '阿爾托莉雅的房間', region: 'home' },
-    { name: '間桐櫻的房間', region: 'home' }, { name: '美杜莎的房間', region: 'home' },
-    { name: '客房1', region: 'home' }, { name: '客房2', region: 'home' },
+    { name: '我的房間', region: 'room', isRoom: true }, { name: 'room1', region: 'room', isRoom: true },
+    { name: 'room2', region: 'room', isRoom: true }, { name: 'room3', region: 'room', isRoom: true },
+
     { name: '客廳', region: 'home' }, { name: '廚房', region: 'home' },
-    { name: '浴室', region: 'home' }, { name: '陽台', region: 'home' },
-    { name: '庭院', region: 'home' }, { name: '緣廊', region: 'home' },
-    { name: '道場', region: 'home' }, { name: '玄關', region: 'home' }, { name: '倉庫', region: 'home' },
+    { name: '浴室', region: 'home' }, { name: '庭院', region: 'home' },
 
     { name: '河邊小徑', region: 'shinzan' }, { name: '古老神社', region: 'shinzan' },
     { name: '社區公園', region: 'shinzan' }, { name: '深夜便利店', region: 'shinzan' },
     { name: '咖啡廳', region: 'fuyuki' }, { name: '書店二樓', region: 'fuyuki' },
-    { name: '屋頂花園', region: 'fuyuki' }, { name: '商店街', region: 'fuyuki' }, { name: '電影院附近', region: 'fuyuki' },
-    { name: '海邊步道', region: 'harbor' }, { name: '燈塔下', region: 'harbor' },
-    { name: '港口倉庫區', region: 'harbor' }, { name: '小型漁港', region: 'harbor' },
+    { name: '屋頂花園', region: 'fuyuki' }, { name: '商店街', region: 'fuyuki' },
     { name: '老道場', region: 'dojo' }, { name: '山間小徑', region: 'dojo' },
     { name: '隱藏溫泉', region: 'dojo' }, { name: '廢棄神社', region: 'dojo' },
 
-    { name: '老舊公寓', region: 'visit' }, { name: '荒野小屋', region: 'visit' },
-    { name: '隱蔽的工房', region: 'visit' }, { name: '河畔道場', region: 'visit' },
-    { name: '荒地帳篷', region: 'visit' }, { name: '高級公寓頂樓', region: 'visit' },
-    { name: '森林小屋', region: 'visit' }, { name: '軍帳', region: 'visit' },
-    { name: '陰暗地下室', region: 'visit' }, { name: '廢棄倉庫', region: 'visit' },
-    { name: '隱密巷弄', region: 'visit' }, { name: '森林深處', region: 'visit' },
-    { name: '城牆邊', region: 'visit' }, { name: '島嶼道場', region: 'visit' },
+    { name: '隱蔽的工房', region: 'visit' }, { name: '島嶼道場', region: 'visit' },
     { name: '埃德費爾特宅邸', region: 'visit' }, { name: '愛因茲貝倫城', region: 'visit' },
     { name: '遠坂邸', region: 'visit' }, { name: '藤村家', region: 'visit' }
   ];
   // 目前選取的分區(純前端UI狀態，跨裝置不同步，比照kanshouEncounterOn用localStorage記住偏好)。
   var kcActiveRegion_ = localStorage.getItem('kyushu_kanshou_region') || 'home';
-  function kcSwitchRegion_(id) {
+  async function kcSwitchRegion_(id) {
     kcActiveRegion_ = id;
     localStorage.setItem('kyushu_kanshou_region', id);
+    // 🏠 房間分區的顯示名稱依賴_kcCur.room——切進這個分區時先重fetch一次，避免顯示過期的入住狀態
+    //   (比如剛剛才在別的分頁完成入住/早餐把人挪動過，_kcCur還沒更新過)。
+    if (id === 'room') {
+      try { var res = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount }); if (res && res.success) _kcCur = res.current || []; } catch (e) {}
+    }
     var listEl = document.getElementById('kc-map-list');
     if (listEl) listEl.innerHTML = kcMapListHtml_();
   }
@@ -401,6 +399,15 @@
   //   分區分頁(2026-07「衛宮宅」定案後改成我的房間/同住人房間/客房+日式空間，見KC_LOCATIONS_)。
   //   分頁標籤沿用玩家自訂顯示名稱(後端【住所】標記/getKanshouHomeName_，預設「衛宮宅」)，
   //   改名鈕移到「家」分頁展開時才顯示，不佔用其他分區版面。
+  // 🏠 房間分區動態顯示名稱：跟後端kanshouRoomDisplayName_同一套邏輯，查_kcCur(每次開companions/
+  //   shop/地圖前都會重fetch一次)的room欄位決定誰住這裡——純顯示用，實際合法性由後端驗證。
+  function kcRoomLabel_(key) {
+    if (key === '我的房間') return (pc && pc.name ? pc.name : '御主') + '的房間';
+    var m = /^room([1-3])$/.exec(key);
+    if (!m) return key;
+    var occ = _kcCur.find(function (c) { return c.room === key; });
+    return occ ? (occ.name + '的房間') : ('空房間' + m[1]);
+  }
   function kcMapListHtml_() {
     var homeLabel = (pc && pc.homeName) ? pc.homeName : '衛宮宅';
     // 🗾 分區切換列：按鈕群組，當前分區高亮，點擊只切換下方地點清單(不影響已在場敘事)。
@@ -422,16 +429,38 @@
     //   走一般聊天訊息(不帶moveTarget)，交給AI在同一回合內依同伴個性當場決定答應或婉拒——見
     //   Gallery.gs★【玩家反向邀約】規則，答應才會演出移動並更新location，不需要另外的同意/拒絕UI。
     var locBtns = KC_LOCATIONS_.filter(function (l) { return l.region === kcActiveRegion_; }).map(function (l) {
+      var label = l.isRoom ? kcRoomLabel_(l.name) : l.name;
       var cnt = locCounts[l.name] || 0;
+      // 🏠 客房分區(room1~3)且目前空著：另外加一顆入住按鈕，挑一位已建立的同伴搬進來。
+      var isEmptyGuestRoom = l.isRoom && l.name !== '我的房間' && !_kcCur.some(function (c) { return c.room === l.name; });
       return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
         + '<button onclick="kanshouMoveTo(\'' + l.name + '\')" style="flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">'
-        + '<span>📍 ' + l.name + '</span>'
+        + '<span>📍 ' + escapeHtml(label) + '</span>'
         + (cnt ? '<span style="color:#e0a0bc;font-size:11px;">👤' + cnt + '</span>' : '')
         + '</button>'
-        + '<button onclick="kanshouProposeMove(\'' + l.name + '\')" title="邀同伴一起去「' + l.name + '」" style="padding:8px 9px;background:#2a2038;color:#e0c090;border:1px solid #5a4a3a;border-radius:8px;cursor:pointer;font-size:13px;">👋</button>'
+        + (isEmptyGuestRoom
+          ? '<button onclick="kanshouAssignRoom(\'' + l.name + '\')" title="安排同伴入住這間客房" style="padding:8px 9px;background:#2a382a;color:#a0e0a0;border:1px solid #4a5a4a;border-radius:8px;cursor:pointer;font-size:13px;">🏠</button>'
+          : '<button onclick="kanshouProposeMove(\'' + l.name + '\')" title="邀同伴一起去「' + escapeHtml(label) + '」" style="padding:8px 9px;background:#2a2038;color:#e0c090;border:1px solid #5a4a3a;border-radius:8px;cursor:pointer;font-size:13px;">👋</button>')
         + '</div>';
     }).join('');
     return tabsHtml + renameHtml + locBtns;
+  }
+  // 🏠 入住客房：挑一位已建立的同伴搬進指定的空客房(roomKey如'room1')，取代舊版召喚當下就寫死
+  //   3位特定英靈的做法，任何女性都能被指派。候選清單來自_kcCur(排除已經住在其他客房的人)。
+  async function kanshouAssignRoom(roomKey) {
+    var candidates = _kcCur.filter(function (c) { return !c.room; });
+    if (!candidates.length) { alert('現在沒有還沒入住的同伴可以安排。'); return; }
+    var listStr = candidates.map(function (c) { return c.name; }).join('、');
+    var name = prompt('要安排誰搬進這間客房？(輸入名字：' + listStr + ')', candidates[0].name);
+    if (!name || !name.trim()) return;
+    try {
+      var res = await gasRun({ action: 'kanshou_assign_room', pcId: pc.id, acctName: currentAccount, targetName: name.trim(), roomKey: roomKey });
+      if (!res || !res.success) { alert((res && res.message) || '安排失敗。'); return; }
+      var cres = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount });
+      if (cres && cres.success) _kcCur = cres.current || [];
+      var listEl = document.getElementById('kc-map-list');
+      if (listEl) listEl.innerHTML = kcMapListHtml_();
+    } catch (e) { alert('安排失敗。'); }
   }
 
   // 🧹 2026-07 玩家定案「改回跟solo很像的ui 3個分頁！地圖變成清單類型！」：原本掛在☰抽屜裡的

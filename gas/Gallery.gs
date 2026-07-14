@@ -206,9 +206,9 @@ function dailySpeechByName_(name, preHeroes) {
 function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   var pcColCount = Object.keys(COL.PC).length;
   var name = String(heroRow[COL.HERO.NAME] || "從者");
-  // 🏠 2026-07「房東房客」定案：3位同住人(KANSHOU_HOUSEMATE_ROOMS_)是入住的房客，起跑點刻意
-  //   比一般英靈更生疏(房東房客不會一搬進來就掏心掏肺)，其餘英靈是更淡的泛泛之交起點。
-  var isHousemate = !!KANSHOU_HOUSEMATE_ROOMS_[String(heroRow[COL.HERO.ID] || "")];
+  // 🏠 2026-07「地圖大重做」定案：房客身分不再是召喚當下就寫死的3位特定英靈——任何女性英靈都
+  //   可能之後被玩家指派入住客房(見actionKanshouAssignRoom)，故召喚當下一律用同一套泛泛之交
+  //   起點，不再有isHousemate這種提前預判。
   var p = {}; try { p = JSON.parse(heroRow[COL.HERO.PERSONA] || "{}"); } catch (e) { }
   var sex = String(heroRow[COL.HERO.SEX] || "異") || "異";
   var sRow = Array(pcColCount).fill("");
@@ -241,9 +241,7 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   //   dailyLook 第3段(自稱與口氣)的日常安全版；tic 沒有對應日常版，直接不帶(私密一面已承擔
   //   角色專屬小習慣的功能)。
   var dailySpeechPart = dailyLookParts.length >= 4 ? dailyLookParts[2] : "";
-  sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_(isHousemate
-    ? "【鑑賞後日談·初見】剛搬進衛宮宅的新房客，房東與房客的關係還很生疏，緣分才剛開始。"
-    : "【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", dailySpeechPart, ""), daily.outfit || "日常便服");
+  sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", dailySpeechPart, ""), daily.outfit || "日常便服");
   // PHYSICAL 留空，跟御主本人(actionEnterKanshou)一致，直到第一次 intimacy_feedback 才寫入；
   //   Router_Narrative.gs 的懶初始化會在 prompt 組裝時臨時補上，AI 不會拿到空物件。
   sRow[COL.PC.GAME_ID] = gameId;
@@ -252,12 +250,12 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   //   關係標籤(REL_TAG)只是這裡設的起始值，之後全程只能透過actionUpdateRelTag(玩家UI手動操作)
   //   更改——AI對這欄位完全沒有寫入權限(見下方rel_changes處理迴圈的固定行為)，GAS/玩家掌控，
   //   不會被AI敘事悄悄帶偏。
-  sRow[COL.PC.BOND] = isHousemate ? 30 : 10;
-  sRow[COL.PC.REL_TAG] = isHousemate ? "房客" : "點頭之交";
+  sRow[COL.PC.BOND] = 10;
+  sRow[COL.PC.REL_TAG] = "點頭之交";
   // 🌍 2026-07「加入這個世界的感覺」玩家定案：召喚＝讓這位英靈存在於這個世界裡，不是「加入隊伍」，
   //   故不再寫IS_PARTY——鑑賞已全面改用「LOC是否跟玩家目前位置一致」判斷是否同地點在場，不看這欄
   //   (solo自己的隊伍系統仍讀寫IS_PARTY，兩軌互不干擾，這裡只是鑑賞這條路徑不再使用這個概念)。
-  sRow[COL.PC.REL_MEM] = isHousemate ? "剛搬進來的房客，房東房客的關係還很生疏" : "初次相遇，緣分才剛開始";
+  sRow[COL.PC.REL_MEM] = "初次相遇，緣分才剛開始";
   // 🏠 房客的房租結算起點對齊「召喚當下的那一週」，而非恆為0——否則召喚時機晚(如第5週才召喚)會在
   //   下次收租時被kanshouCollectTenantRent_誤判成欠繳好幾週、一次補收一大筆不合理的房租。
   sRow[COL.PC.UPKEEP_WEEK] = Math.floor(((curDay || 1) - 1) / 7);
@@ -318,6 +316,9 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
   if (!hero) return JSON.stringify({ success: false, message: "英靈庫查無此英靈。" });
   // 🎨 2026-07 玩家「拿掉衛宮士郎吧...也禁止召喚他？」：玩家本人就是這個位置，不開放召喚。
   if (heroId === '衛宮士郎-Master') return JSON.stringify({ success: false, message: "無法召喚——這個位置由你自己擔任。" });
+  // 🎨 2026-07「地圖大重做」玩家「斯卡哈只先加入Lance版本」：Assassin版本暫不開放召喚，避免
+  //   同一位英靈用兩種職階分身重複存在於這個世界。
+  if (heroId === '斯卡哈-Assassin') return JSON.stringify({ success: false, message: "暫時只開放召喚 Lancer 版本的斯卡哈。" });
   var heroName = String(hero[COL.HERO.NAME] || "從者");
   // 🎨 2026-07 玩家「男角都移除掉吧...沒啥用...可以去當背景就好也禁止被召喚吧」：全面禁止男性
   //   英靈/御主入駐鑑賞(第二道防線，前端 kcRecomputeAvailable_ 已先濾掉，這裡防直打API繞過)。
@@ -515,14 +516,16 @@ function actionKanshouCompanions(userData, pcId, sheets) {
   var me = data[meIdx];
   var gid = String(me[COL.PC.GAME_ID] || "");
   var myLoc = String(me[COL.PC.LOC] || "");
+  var myName = String(me[COL.PC.NAME] || "");
   var current = [];
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) {
       var loc = String(data[i][COL.PC.LOC] || "");
       // 面板需要顯示目前所在地點(玩家要精準知道去哪找她)、關係標籤＋好感(供玩家決定要不要改標籤)；
       // isHere(是否跟玩家同地點)供商店送禮清單篩選——不在場的人收不到禮物(見Gallery.gs actionPlay
-      // 的giftTargetIdx判斷，兩處標準必須一致)。
-      current.push({ name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, isHere: loc === myLoc });
+      // 的giftTargetIdx判斷，兩處標準必須一致)。room：入住的客房(見COL.PC.ROOM)，供前端判斷是
+      // 否已入住(顯示「入住」按鈕與否)；locLabel：房間類地點的動態顯示名稱，見kanshouRoomDisplayName_。
+      current.push({ name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), room: String(data[i][COL.PC.ROOM] || ""), isHere: loc === myLoc });
     }
   }
   return JSON.stringify({ success: true, current: current });
@@ -738,36 +741,36 @@ function getKanshouPeopleList_(pcId, curL, allPcData) {
 // 🗾 鑑賞大地圖分區(2026-07 玩家「可愛地圖」升級)：純資料驅動的分區清單，只供UI分組/顯示用，
 //   region只是KANSHOU_LOCATIONS_每筆的一個標籤欄位，不影響任何既有比對/抽選邏輯(那些都認
 //   location的name，見kanshouRollEncounter_/actionPlay moveTarget比對)。
+// 🗺️ 2026-07 玩家「地圖大重做」定案：6大分區——房間(我的房間+3個自由客房，動態命名見下)、
+//   家的共用空間、深山町、冬木市中心、山林、拜訪住處(僅保留女性角色的住處)。港口分區整個移除
+//   (玩家新版圖沒有這一區)；家的共用房間從9間精簡到4間，冬木市中心從5個精簡到4個(小分支統一
+//   先給4個，之後真要擴充再加)。
 const KANSHOU_REGIONS_ = [
-  { id: 'home', name: '家', desc: '私人空間' },
-  { id: 'shinzan', name: '深山町・家附近', desc: '溫馨日常區' },
+  { id: 'room', name: '房間', desc: '私人房間' },
+  { id: 'home', name: '家的共用空間', desc: '共用生活空間' },
+  { id: 'shinzan', name: '深山町', desc: '溫馨日常區' },
   { id: 'fuyuki', name: '冬木市中心', desc: '熱鬧生活區' },
-  { id: 'harbor', name: '港口・碼頭區', desc: '微涼浪漫區' },
-  { id: 'dojo', name: '山林・道場區', desc: '安靜神秘區' },
+  { id: 'dojo', name: '山林', desc: '安靜神秘區' },
   { id: 'visit', name: '拜訪住處', desc: '同伴們各自的家' }
 ];
 // 🌸 鑑賞地點清單：純資料驅動的小陣列，不進 MAP 試算表(不跟solo共用坤圖)——之後要加/改地點只動
 //   這裡。前端 Script_Kanshou.html 另有一份同名清單純供畫按鈕(改地點時兩邊都要更新)，實際驗證/
 //   邏輯只認這裡這份。region對應KANSHOU_REGIONS_的id，純UI分組用。noEncounter:true代表私人
-//   空間，恆不觸發陌生人巧遇(見kanshouRollEncounter_呼叫端)，目前「家」分區全部房間皆有此旗標。
-//   🏠 2026-07 玩家「衛宮宅」定案：家從5個通用房間擴充成「我的房間＋同住人各自的房間＋客房＋
-//   日式庭院空間」，貼合衛宮邸的意象；同住人房間對照見下方KANSHOU_HOUSEMATE_ROOMS_。
+//   空間，恆不觸發陌生人巧遇(見kanshouRollEncounter_呼叫端)。
+//   🏠 2026-07「房間動態命名」定案：房間分區的name是穩定不變的內部key(給LOC比對用)，但顯示給
+//   玩家/AI看的名稱是動態算的(kanshouRoomDisplayName_)——「我的房間」永遠顯示「(玩家名)的房間」，
+//   room1~room3三個自由客房沒人住顯示「空房間N」、有人住顯示「(住戶名)的房間」，取代舊版
+//   KANSHOU_HOUSEMATE_ROOMS_那種寫死3位特定英靈才有房間的做法，任何召喚來的女性都能被指派入住。
 const KANSHOU_LOCATIONS_ = [
-  { name: '我的房間', region: 'home', desc: '安穩靜謐、只屬於自己的房間。', noEncounter: true },
-  { name: '阿爾托莉雅的房間', region: 'home', desc: '整潔到近乎樸素的房間，一絲不苟。', noEncounter: true },
-  { name: '間桐櫻的房間', region: 'home', desc: '柔和溫馨、帶著一點靦腆氣息的房間。', noEncounter: true },
-  { name: '美杜莎的房間', region: 'home', desc: '安靜低調、鮮少被打擾的房間。', noEncounter: true },
-  { name: '客房1', region: 'home', desc: '收拾整齊、隨時能招待客人的空房。', noEncounter: true },
-  { name: '客房2', region: 'home', desc: '另一間素雅的空房，堆著幾箱雜物。', noEncounter: true },
+  { name: '我的房間', region: 'room', desc: '安穩靜謐、只屬於自己的房間。', noEncounter: true, isRoom: true },
+  { name: 'room1', region: 'room', desc: '一間空著的客房。', noEncounter: true, isRoom: true },
+  { name: 'room2', region: 'room', desc: '另一間空著的客房。', noEncounter: true, isRoom: true },
+  { name: 'room3', region: 'room', desc: '還有一間空著的客房。', noEncounter: true, isRoom: true },
+
   { name: '客廳', region: 'home', desc: '沙發與電視的日常起居空間。', noEncounter: true },
   { name: '廚房', region: 'home', desc: '飄著飯菜香、鍋碗交錯的小廚房。', noEncounter: true },
   { name: '浴室', region: 'home', desc: '水氣氤氳、放鬆卸下一天疲憊的地方。', noEncounter: true },
-  { name: '陽台', region: 'home', desc: '能曬到太陽、吹到風的小陽台。', noEncounter: true },
   { name: '庭院', region: 'home', desc: '老日式庭院，草木扶疏、四季各有風景。', noEncounter: true },
-  { name: '緣廊', region: 'home', desc: '面向庭院的木質緣廊，適合曬太陽發呆。', noEncounter: true },
-  { name: '道場', region: 'home', desc: '鋪著木地板的小道場，牆邊靠著竹刀。', noEncounter: true },
-  { name: '玄關', region: 'home', desc: '進出家門的玄關，鞋櫃總是擺得整整齊齊。', noEncounter: true },
-  { name: '倉庫', region: 'home', desc: '堆滿雜物與工具的老倉庫，光線昏暗。', noEncounter: true },
 
   { name: '河邊小徑', region: 'shinzan', desc: '晨昏都靜謐的河堤小徑，水聲潺潺。' },
   { name: '古老神社', region: 'shinzan', desc: '石階盡頭的老神社，香火氣息。' },
@@ -778,76 +781,78 @@ const KANSHOU_LOCATIONS_ = [
   { name: '書店二樓', region: 'fuyuki', desc: '安靜得只聽見翻頁聲的二樓書架間。' },
   { name: '屋頂花園', region: 'fuyuki', desc: '高樓頂上的一方綠意，能望見整座城市。' },
   { name: '商店街', region: 'fuyuki', desc: '人聲鼎沸的商店街，攤販林立。' },
-  { name: '電影院附近', region: 'fuyuki', desc: '散場人潮與霓虹招牌交錯的街角。' },
-
-  { name: '海邊步道', region: 'harbor', desc: '海風輕拂，沿岸而行的靜謐步道。' },
-  { name: '燈塔下', region: 'harbor', desc: '孤立海岬上的白色燈塔，浪聲不絕。' },
-  { name: '港口倉庫區', region: 'harbor', desc: '夜晚燈光昏暗、貨櫃林立的倉庫區。' },
-  { name: '小型漁港', region: 'harbor', desc: '漁船進出、鹹濕海風撲面的小漁港。' },
 
   { name: '老道場', region: 'dojo', desc: '木地板與竹刀氣味的老道場。' },
   { name: '山間小徑', region: 'dojo', desc: '林蔭遮天、只聞鳥鳴的山間小路。' },
   { name: '隱藏溫泉', region: 'dojo', desc: '深藏山林間、鮮少人知的一方溫泉。' },
   { name: '廢棄神社', region: 'dojo', desc: '荒草蔓生、早已無人祭拜的廢棄神社。' },
 
-  // 🚪 2026-07 玩家「我也想要晚上去找他們阿」：把KANSHOU_HERO_HOME_(見下方)裡的獨立住處升格成
-  //   真正可造訪的地點——noEncounter:true(私人住處，恆不觸發陌生人巧遇，比照「家」分區)，完全
-  //   重用既有moveTarget/留人重逢機制，不新增任何比對邏輯；name務必與KANSHOU_HERO_HOME_的值
-  //   逐字一致，否則kanshouRollDailyLocation_骰到的地點對不上這裡就巧遇不到人。阿爾托莉雅/間桐櫻
-  //   /美杜莎3位已改用KANSHOU_HOUSEMATE_ROOMS_(住在「我的房間」所在的家)，故這裡不再登記她們
-  //   原本的外部住處(騎士團舊宿舍/靜謐宅邸/間桐邸)，衛宮士郎(衛宮邸)已整個移出可召喚名單。
-  { name: '老舊公寓', region: 'visit', desc: '巷弄深處的老舊公寓，燈光總是很晚才熄。', noEncounter: true },
-  { name: '荒野小屋', region: 'visit', desc: '荒野邊緣的簡樸小屋，煙囪偶爾冒著炊煙。', noEncounter: true },
+  // 🚪 拜訪住處：只保留女性角色的住處(2026-07玩家「保留只要女性的住處就好」定案，男性角色的
+  //   住處條目全數移除)，noEncounter:true(私人住處，恆不觸發陌生人巧遇)，name務必與下方
+  //   KANSHOU_HERO_HOME_的值逐字一致，否則kanshouRollDailyLocation_骰到的地點對不上這裡。
   { name: '隱蔽的工房', region: 'visit', desc: '隱藏在巷尾、飄著藥草氣味的工房。', noEncounter: true },
-  { name: '河畔道場', region: 'visit', desc: '臨河而建的道場，劍聲與水聲交織。', noEncounter: true },
-  { name: '荒地帳篷', region: 'visit', desc: '荒地上搭起的一頂帳篷，篝火終夜未熄。', noEncounter: true },
-  { name: '高級公寓頂樓', region: 'visit', desc: '俯瞰整座城市的高級公寓頂樓。', noEncounter: true },
-  { name: '森林小屋', region: 'visit', desc: '林間深處的木造小屋，掛著獵具與弓箭。', noEncounter: true },
-  { name: '軍帳', region: 'visit', desc: '隨性搭起的軍帳，篝火旁總有笑聲。', noEncounter: true },
-  { name: '陰暗地下室', region: 'visit', desc: '終年不見天日的陰暗地下室。', noEncounter: true },
-  { name: '廢棄倉庫', region: 'visit', desc: '堆滿雜物、鮮少有人涉足的廢棄倉庫。', noEncounter: true },
-  { name: '隱密巷弄', region: 'visit', desc: '曲折難尋的隱密巷弄深處。', noEncounter: true },
-  { name: '森林深處', region: 'visit', desc: '終年幽暗、人跡罕至的森林深處。', noEncounter: true },
-  { name: '城牆邊', region: 'visit', desc: '古老城牆邊的一方空地。', noEncounter: true },
   { name: '島嶼道場', region: 'visit', desc: '孤懸海上、只有濤聲相伴的道場。', noEncounter: true },
   { name: '埃德費爾特宅邸', region: 'visit', desc: '歐風古典的埃德費爾特家宅邸。', noEncounter: true },
   { name: '愛因茲貝倫城', region: 'visit', desc: '終年白雪覆蓋的愛因茲貝倫城堡。', noEncounter: true },
   { name: '遠坂邸', region: 'visit', desc: '老字號魔術師家系的遠坂邸。', noEncounter: true },
   { name: '藤村家', region: 'visit', desc: '熱鬧溫馨、時常傳出笑鬧聲的藤村家。', noEncounter: true }
 ];
+// 🏠 客房顯示名稱：空的顯示「空房間N」，入住了就顯示「XX的房間」——查ROOM(持久的入住登記)不是
+//   LOC(她此刻人在哪)，這樣即使她準備早餐時人在廚房，房間顯示名稱依然是「XX的房間」不會變回空房。
+//   「我的房間」則永遠顯示「(玩家名)的房間」。純顯示用，實際合法性/寫入永遠由actionPlay/
+//   actionKanshouAssignRoom驗證，LOC/ROOM存的都是這裡回傳的內部key(如'room1')，不是顯示名稱。
+function kanshouRoomDisplayName_(locKey, pcData, gameId, myName, myIdx) {
+  if (locKey === '我的房間') return String(myName || "御主") + '的房間';
+  const m = /^room([1-3])$/.exec(locKey);
+  if (!m) return locKey;
+  const occupant = pcData.find((r, i) => i !== myIdx && String(r[COL.PC.GAME_ID] || "") === gameId && String(r[COL.PC.ROOM] || "") === locKey);
+  return occupant ? (String(occupant[COL.PC.NAME]) + '的房間') : ('空房間' + m[1]);
+}
+// 🏠 入住客房：玩家手動指派任一位已建立的女性同伴入住room1~3其中之一，取代舊版召喚當下就寫死
+//   3位特定英靈的做法。只能選目前是空房的客房(依ROOM入住登記判斷，不是LOC)；入住時同步把她
+//   目前的LOC也移到這間房(合理的「搬進來」畫面)，ROOM是持久登記、之後LOC暫時離開房間(早餐/
+//   敘事)都不會影響這裡的入住狀態。
+function actionKanshouAssignRoom(userData, pcId, sheets) {
+  var kpc = sheets.pc;
+  var acctName = String(userData.acctName || "").trim();
+  var targetName = String(userData.targetName || "").trim();
+  var roomKey = String(userData.roomKey || "").trim();
+  if (!/^room[1-3]$/.test(roomKey)) return JSON.stringify({ success: false, message: "這不是客房。" });
+  var data = kpc.getDataRange().getValues();
+  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
+  var occupied = data.some((r, i) => i !== meIdx && String(r[COL.PC.GAME_ID] || "") === gid && String(r[COL.PC.ROOM] || "") === roomKey);
+  if (occupied) return JSON.stringify({ success: false, message: "這間客房已經有人住了。" });
+  var idx = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.GAME_ID] || "") !== gid) continue;
+    if (String(data[i][COL.PC.FACTION]) !== "從者") continue;
+    if (String(data[i][COL.PC.ID]).startsWith("DEAD_")) continue;
+    if (String(data[i][COL.PC.NAME]) === targetName) { idx = i; break; }
+  }
+  if (idx === -1) return JSON.stringify({ success: false, message: "查無此人。" });
+  kpc.getRange(idx + 1, COL.PC.ROOM + 1).setValue(roomKey);
+  kpc.getRange(idx + 1, COL.PC.LOC + 1).setValue(roomKey);
+  return JSON.stringify({ success: true, roomKey: roomKey, name: String(data[idx][COL.PC.NAME]) });
+}
 // 🎭 地點×角色 氛圍標籤(資料驅動，往陣列塞一筆 SEED_SERVANTS 的 id 就能加，不動抽選邏輯)：
-//   槍兵(庫丘林)刻意塞多個地點——「到處打零工」的浮動人設；其餘角色先各給1~2個貼合形象的地點。
-//   2026-07「為何偶遇沒有女性」玩家反映：每個地點額外補一位女性/中性角色，不再是清一色男性。
-//   2026-07 玩家再定案：吉爾德萊/百貌哈桑/咒腕之哈桑 3位不用出現在巧遇池(標籤與保底池皆移除)。
-//   查無標籤或抽不中標籤池時，退回 KANSHOU_ENCOUNTER_MALE_IDS_+KANSHOU_ENCOUNTER_FEMALE_IDS_
-//   全池隨機當保底(隱藏溫泉/屋頂花園等6個地點刻意不建標籤，全靠保底池)。
+//   2026-07「男性全部踢出」玩家定案：全部男性id移除(此表跟保底池KANSHOU_ENCOUNTER_FEMALE_IDS_
+//   皆不再含任何男性/斯卡哈-Assassin，見下)，查無標籤或抽不中標籤池時退回全女性保底池。
 const KANSHOU_LOCATION_TAGS_ = {
-  '河邊小徑': ['庫丘林-Lancer', '斯卡哈-Lancer'],
-  '商店街': ['庫丘林-Lancer', '迪盧木多-Lancer', '美遊-Saber'],
-  '老道場': ['佐佐木小次郎-Assassin', '斯卡哈-Assassin'],
+  '河邊小徑': ['斯卡哈-Lancer'],
+  '商店街': ['美遊-Saber', '藤村大河-Master'],
   '書店二樓': ['伊莉雅-Caster'],
-  '古老神社': ['伊斯坎達爾-Rider', '美狄亞-Caster'],
-  '社區公園': ['迪盧木多-Lancer', '小黑-Archer'],
-  '港口倉庫區': ['庫丘林-Lancer', '蘭斯洛特-Berserker', '美杜莎-Rider'],
-  '咖啡廳': ['吉爾伽美什-Archer', '阿爾托莉雅-Saber'],
-  '廢棄神社': ['赫拉克勒斯-Berserker', '恩奇都-Lancer'],
-  '深夜便利店': ['庫丘林-Lancer', '遠坂凜-Master'],
-  '電影院附近': ['藤村大河-Master']
+  '古老神社': ['美狄亞-Caster'],
+  '社區公園': ['小黑-Archer'],
+  '咖啡廳': ['阿爾托莉雅-Saber'],
+  '廢棄神社': ['恩奇都-Lancer'],
+  '深夜便利店': ['遠坂凜-Master']
 };
-// 🎨 2026-07 玩家「拿掉衛宮士郎吧...也禁止召喚他？就當成玩家直接取代他吧？」：衛宮士郎-Master
-//   整個移出巧遇/召喚相關名單(KANSHOU_LOCATION_TAGS_/這裡/summon驗證，見actionKanshouSummonHero)，
-//   種子資料本體(Seed_Codex.gs)不刪，只是全面禁止在鑑賞出場——玩家本人就是這個位置。
-const KANSHOU_ENCOUNTER_MALE_IDS_ = ['EMIYA-Archer', '庫丘林-Lancer', '佐佐木小次郎-Assassin', '赫拉克勒斯-Berserker', '吉爾伽美什-Archer', '迪盧木多-Lancer', '伊斯坎達爾-Rider', '蘭斯洛特-Berserker'];
-const KANSHOU_ENCOUNTER_FEMALE_IDS_ = ['阿爾托莉雅-Saber', '美杜莎-Rider', '美狄亞-Caster', '斯卡哈-Lancer', '斯卡哈-Assassin', '美遊-Saber', '小黑-Archer', '伊莉雅-Caster', '恩奇都-Lancer', '遠坂凜-Master', '伊莉雅絲菲爾-Master', '間桐櫻黑化-Master', '藤村大河-Master'];
-// 🏠 2026-07 玩家「衛宮宅」定案：阿爾托莉雅/間桐櫻/美杜莎(Rider)3位視為「已經住在這個家」的
-//   同住人，深夜/清晨直接回自己在家裡的房間(見上方KANSHOU_LOCATIONS_的'我的房間'/'○○的房間')，
-//   不再走這份「外部住處」名單——對照見下方KANSHOU_HOUSEMATE_ROOMS_，兩份表彼此互斥(kanshouRoll
-//   DailyLocation_優先查housemate、查無才退回這裡)。
-const KANSHOU_HOUSEMATE_ROOMS_ = {
-  '阿爾托莉雅-Saber': '阿爾托莉雅的房間',
-  '間桐櫻黑化-Master': '間桐櫻的房間',
-  '美杜莎-Rider': '美杜莎的房間'
-};
+// 🎨 2026-07 玩家「男角都移除掉吧...禁止召喚、也不會偶遇他們」：KANSHOU_ENCOUNTER_MALE_IDS_
+//   整個刪除，kanshouRollEncounter_的保底池只剩這份純女性名單(衛宮士郎-Master仍整個移出巧遇/
+//   召喚相關名單，玩家本人就是這個位置)。斯卡哈只保留Lancer版本(移除-Assassin重複條目)。
+const KANSHOU_ENCOUNTER_FEMALE_IDS_ = ['阿爾托莉雅-Saber', '美杜莎-Rider', '美狄亞-Caster', '斯卡哈-Lancer', '美遊-Saber', '小黑-Archer', '伊莉雅-Caster', '恩奇都-Lancer', '遠坂凜-Master', '伊莉雅絲菲爾-Master', '間桐櫻黑化-Master', '藤村大河-Master'];
 // 🌍 同地點AI詳細卡片上限(見actionPlay的partyRows)——3位房客+來訪的人湊在一起時5人夠用，
 //   2026-07玩家「吃飯不能5人嗎」定案從3調到5。
 const KANSHOU_PARTY_DETAIL_CAP_ = 5;
@@ -899,17 +904,14 @@ function kanshouRollSceneBranch_(eventKey, bond) {
 //   見上方)成為玩家可造訪的真實地點(玩家「我也想要晚上去找他們阿」)，深夜巧遇/主動拜訪共用同一套
 //   moveTarget/留人重逢機制；查無資料(如玩家原創英靈)退回通用值「自己的住處」(這個值刻意不登記
 //   進KANSHOU_LOCATIONS_，多位角色共用同一個泛用字串會混淆是哪一位，故維持不可造訪)。阿爾托莉雅/
-//   間桐櫻/美杜莎已改用KANSHOU_HOUSEMATE_ROOMS_，衛宮士郎已整個移出可召喚名單，故這裡皆不再登記。
+//   衛宮士郎已整個移出可召喚名單，故不再登記。2026-07玩家「保留只要女性的住處就好」定案：
+//   全部男性id移除；已入住客房(見COL.PC.ROOM/kanshouRoomDisplayName_)的房客不再走這份「外部
+//   住處」名單(kanshouRollDailyLocation_優先查自己的ROOM欄位、查無才退回這裡)；查無資料(未登記
+//   或未入住任何客房)退回通用值「自己的住處」。
 const KANSHOU_HERO_HOME_ = {
-  'EMIYA-Archer': '老舊公寓',
-  '庫丘林-Lancer': '荒野小屋', '美狄亞-Caster': '隱蔽的工房',
-  '佐佐木小次郎-Assassin': '河畔道場', '赫拉克勒斯-Berserker': '荒地帳篷',
-  '吉爾伽美什-Archer': '高級公寓頂樓', '迪盧木多-Lancer': '森林小屋', '伊斯坎達爾-Rider': '軍帳',
-  '吉爾德萊-Caster': '陰暗地下室', '百貌哈桑-Assassin': '廢棄倉庫', '咒腕之哈桑-Assassin': '隱密巷弄',
-  '蘭斯洛特-Berserker': '森林深處', '恩奇都-Lancer': '城牆邊', '斯卡哈-Lancer': '島嶼道場',
-  '斯卡哈-Assassin': '島嶼道場', '美遊-Saber': '埃德費爾特宅邸', '小黑-Archer': '愛因茲貝倫城',
-  '伊莉雅-Caster': '愛因茲貝倫城', '遠坂凜-Master': '遠坂邸', '伊莉雅絲菲爾-Master': '愛因茲貝倫城',
-  '藤村大河-Master': '藤村家'
+  '美狄亞-Caster': '隱蔽的工房', '斯卡哈-Lancer': '島嶼道場',
+  '美遊-Saber': '埃德費爾特宅邸', '小黑-Archer': '愛因茲貝倫城', '伊莉雅-Caster': '愛因茲貝倫城',
+  '遠坂凜-Master': '遠坂邸', '伊莉雅絲菲爾-Master': '愛因茲貝倫城', '藤村大河-Master': '藤村家'
 };
 // 🏷️ MEMORY標記存取器【邂逅】：逗號分隔的巧遇過姓名清單，去重、僅供「似曾相識」氛圍參考——
 //   同行隊伍成員的好感/關係走既有 REL_TAG/BOND，這裡只記路人巧遇過誰，不重複記錄。
@@ -951,30 +953,30 @@ const KANSHOU_HOUSEMATE_WANDER_CHANCE_ = 0.1;
 // 🎲 結束一天/推進時間(2026-07「不讓玩家指派，直接GAS判定」定案，hour參數為後續「推進時間」補充)：
 //   幫「不在身邊」的英靈決定當下要去哪——反查KANSHOU_LOCATION_TAGS_裡有沒有哪些地點標到這位
 //   英靈的id(她平常會去的地方)，有就加權隨機挑一個；沒被任何地點標到就從全部地點隨機挑。
-//   hour(選填)：有傳時刻時，深夜/清晨時段大機率改留在「自己房間」——2026-07玩家定案「Saber/櫻/
-//   Rider是住在衛宮宅的同住人，該有自己的房間」：先查KANSHOU_HOUSEMATE_ROOMS_(住在這個家、有
-//   專屬房間的人)，沒有才退回KANSHOU_HERO_HOME_(還沒搬進來、在外面有自己住處的人)，兩者都沒有
-//   才是通用值；其餘時段沿用原本haunts邏輯不變；不傳(舊呼叫端)則完全比照改動前的行為。
-//   🌙 同住人另外反著骰：預設KANSHOU_HOUSEMATE_WANDER_CHANCE_機率跳過「回房間」、改走下面
+//   hour(選填)：有傳時刻時，深夜/清晨時段大機率改留在「自己房間」。room(選填，2026-07「地圖大
+//   重做」定案)：呼叫端直接傳這一列自己的COL.PC.ROOM值(room1~3或我的房間)——有房間就優先回房間，
+//   沒有(未入住任何客房)才退回KANSHOU_HERO_HOME_(在外面有自己住處的人)，兩者都沒有才是通用值；
+//   其餘時段沿用原本haunts邏輯不變；不傳room(舊呼叫端/無房)則完全比照沒房間時的行為。
+//   🌙 已入住房客另外反著骰：預設KANSHOU_HOUSEMATE_WANDER_CHANCE_機率跳過「回房間」、改走下面
 //   haunts/全地點池(在外遊蕩)，讓「晚上敲門找不到人」也可能發生在自家人身上。
-function kanshouRollDailyLocation_(heroName, hour) {
+function kanshouRollDailyLocation_(heroName, hour, room) {
   const heroId = kanshouHeroIdByName_(heroName);
-  const housemateRoom = heroId && KANSHOU_HOUSEMATE_ROOMS_[heroId];
   if (hour !== undefined && hour !== null) {
     const band = timeBand_(hour);
     const homeBias = band === '深夜' ? 0.85 : (band === '清晨' ? 0.5 : 0);
     if (homeBias > 0) {
-      if (housemateRoom) {
-        if (Math.random() >= KANSHOU_HOUSEMATE_WANDER_CHANCE_) return housemateRoom;
+      if (room) {
+        if (Math.random() >= KANSHOU_HOUSEMATE_WANDER_CHANCE_) return room;
       } else if (Math.random() < homeBias) {
         return (heroId && KANSHOU_HERO_HOME_[heroId]) || '自己的住處';
       }
     }
   }
   const haunts = heroId ? Object.keys(KANSHOU_LOCATION_TAGS_).filter(loc => KANSHOU_LOCATION_TAGS_[loc].includes(heroId)) : [];
-  // 🌙 全地點保底池排除'home'分區(玩家自宅私人房間)——不同行的英靈(含在外遊蕩的同住人)不該
-  //   隨機骰進玩家或其他人的臥室，那些只能靠「拜訪」主動走進去，不是隨機亂晃能撞到的地方。
-  const pool = haunts.length ? haunts : KANSHOU_LOCATIONS_.filter(l => l.region !== 'home').map(l => l.name);
+  // 🌙 全地點保底池排除'room'分區(私人房間，含玩家自己跟所有房客的房間)——不同行的英靈(含在外
+  //   遊蕩的房客)不該隨機骰進任何人的臥室，那些只能靠「拜訪」主動走進去，不是隨機亂晃能撞到的地方；
+  //   'home'分區(共用生活空間，客廳/廚房等)不算私人，維持可被隨機骰中。
+  const pool = haunts.length ? haunts : KANSHOU_LOCATIONS_.filter(l => l.region !== 'room').map(l => l.name);
   return pool[Math.floor(Math.random() * pool.length)];
 }
 // 🍳 2026-07「時段行動」骨架的第一個動作：清晨限定的「準備早餐」，幫3位房客各自骰一次今早
@@ -1084,39 +1086,39 @@ function kanshouChargeUpkeep_(pcData, pcIndex, newDay) {
   return amount;
 }
 
-// 🏠 2026-07「房東房客」定案(玩家「全套！好感30起跳 其他人都先10？」)：房客(KANSHOU_HOUSEMATE_
-//   ROOMS_登記的3位)每週繳房租給玩家，收支邏輯對稱於kanshouChargeUpkeep_——玩家自己的維護費
-//   扣款存在玩家列的COL.PC.UPKEEP_WEEK，這裡則重複利用「每一位房客自己那一列」的同一個欄位存
-//   「這位房客自己上次繳到第幾週」，不新增欄位(COL是位置索引，能重複利用同一格語意就別加新格)。
-//   房客不論此刻是否同行都算「住在這裡」(跟kanshouRollDailyLocation_房間分配同一套認定)，只要
-//   此局曾經建立過她的資料列就持續收租；只掃同一個game_id(gameId空字串時比照sameGame同款寬鬆
-//   比對，相容沒有game_id的舊角色)，避免收到別的玩家局裡的房客租金。回傳這次實際收到多少錢
-//   (0＝這次沒有任何房客跨過新一週)＋這次交不出房租的房客姓名清單，供上層組提示詞用的flavor文字。
+// 🏠 2026-07「房東房客」定案，2026-07「地圖大重做」改為看COL.PC.ROOM(誰真的入住客房，不再是
+//   寫死3個特定英靈id)：任何被玩家指派入住room1~3的房客都要繳房租，收支邏輯對稱於
+//   kanshouChargeUpkeep_——玩家自己的維護費扣款存在玩家列的COL.PC.UPKEEP_WEEK，這裡則重複
+//   利用「每一位房客自己那一列」的同一個欄位存「這位房客自己上次繳到第幾週」，不新增欄位。
+//   只掃同一個game_id(gameId空字串時比照sameGame同款寬鬆比對，相容沒有game_id的舊角色)，避免
+//   收到別的玩家局裡的房客租金。回傳這次實際收到多少錢(0＝這次沒有任何房客跨過新一週)＋這次
+//   交不出房租的房客姓名清單，供上層組提示詞用的flavor文字。
 //   dirtyPcRows(呼叫端的Set)：這裡會改到「房客自己那一列」的UPKEEP_WEEK/MEMORY，該列若剛好是
 //   同行同伴、又剛好是走「推進時間」(不像結束一天/離隊重骰兩處那樣本來就會把同行同伴的列加進
 //   dirty)，就不會有任何其他地方順手加過——必須自己補，否則這裡的修改只停在記憶體、從未真正
-//   寫回試算表(2026-07新增肉償欠租旗標時發現這個既有缺口一併修掉)。
+//   寫回試算表。
 function kanshouCollectTenantRent_(pcData, pcIndex, newDay, gameId, dirtyPcRows) {
   const newWeek = Math.floor((newDay - 1) / 7);
   let total = 0;
   const shortNames = [];
-  Object.keys(KANSHOU_HOUSEMATE_ROOMS_).forEach(heroId => {
-    const hero = SEED_SERVANTS.find(h => h.id === heroId);
-    if (!hero) return;
-    const idx = pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!gameId || String(r[COL.PC.GAME_ID] || "") === gameId) && kanshouNameCandidates_(hero.realName).includes(String(r[COL.PC.NAME])));
-    if (idx === -1) return;
-    const oldWeek = parseInt(pcData[idx][COL.PC.UPKEEP_WEEK]) || 0;
+  pcData.forEach((r, idx) => {
+    if (idx === pcIndex) return;
+    if (String(r[COL.PC.FACTION]) !== "從者") return;
+    if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+    if (gameId && String(r[COL.PC.GAME_ID] || "") !== gameId) return;
+    if (!/^room[1-3]$/.test(String(r[COL.PC.ROOM] || ""))) return; // 只有真正入住客房的人才是房客
+    const oldWeek = parseInt(r[COL.PC.UPKEEP_WEEK]) || 0;
     if (newWeek <= oldWeek) return;
     pcData[idx][COL.PC.UPKEEP_WEEK] = newWeek; // 不論繳不繳得出，這次結算都算過關，不累積欠款複利
     dirtyPcRows.add(idx);
     if (Math.random() < KANSHOU_TENANT_SHORT_CHANCE_) {
-      shortNames.push(String(pcData[idx][COL.PC.NAME]));
-      pcData[idx][COL.PC.MEMORY] = KANSHOU_RENT_DEBT_TAG_.set(pcData[idx][COL.PC.MEMORY], '是');
+      shortNames.push(String(r[COL.PC.NAME]));
+      pcData[idx][COL.PC.MEMORY] = KANSHOU_RENT_DEBT_TAG_.set(r[COL.PC.MEMORY], '是');
       return;
     }
     total += (newWeek - oldWeek) * KANSHOU_TENANT_RENT_;
     // 💰 這次準時繳清了，清掉可能殘留的舊欠租旗標(不論是自然繳清、還是玩家先前已用肉償橋段抵過)。
-    if (KANSHOU_RENT_DEBT_TAG_.get(pcData[idx][COL.PC.MEMORY])) pcData[idx][COL.PC.MEMORY] = KANSHOU_RENT_DEBT_TAG_.set(pcData[idx][COL.PC.MEMORY], '');
+    if (KANSHOU_RENT_DEBT_TAG_.get(r[COL.PC.MEMORY])) pcData[idx][COL.PC.MEMORY] = KANSHOU_RENT_DEBT_TAG_.set(r[COL.PC.MEMORY], '');
   });
   if (total > 0) pcData[pcIndex][COL.PC.MONEY] = (parseInt(pcData[pcIndex][COL.PC.MONEY]) || 0) + total;
   return { total, shortNames };
@@ -1329,11 +1331,11 @@ function actionPlay(userData, pcId, sheets) {
   const kanshouRoomEventTargetLoc_ = moveTarget ? moveName : curL;
   const kanshouRoomEventKey_ = KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_[timeBand_(curHour)];
   let kanshouRoomEventCandidate_ = null;
-  if (kanshouRoomEventKey_) {
-    const _reHeroId = Object.keys(KANSHOU_HOUSEMATE_ROOMS_).find(hid => KANSHOU_HOUSEMATE_ROOMS_[hid] === kanshouRoomEventTargetLoc_);
-    const _reHero = _reHeroId ? SEED_SERVANTS.find(h => h.id === _reHeroId) : null;
-    const _reIdx = _reHero ? pcData.findIndex((r, i) => i !== pcIndex && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC] || "").trim() === kanshouRoomEventTargetLoc_ && kanshouNameCandidates_(_reHero.realName).includes(String(r[COL.PC.NAME]))) : -1;
-    if (_reIdx !== -1) kanshouRoomEventCandidate_ = { eventKey: kanshouRoomEventKey_, hero: _reHero, idx: _reIdx };
+  // 🏠 2026-07「地圖大重做」：候選資格改直接查是不是客房(room1~3)、有沒有人LOC剛好等於這裡，
+  //   不再反查KANSHOU_HOUSEMATE_ROOMS_那份寫死的hero-id對照表(任何入住客房的女性都適用)。
+  if (kanshouRoomEventKey_ && /^room[1-3]$/.test(kanshouRoomEventTargetLoc_)) {
+    const _reIdx = pcData.findIndex((r, i) => i !== pcIndex && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC] || "").trim() === kanshouRoomEventTargetLoc_);
+    if (_reIdx !== -1) kanshouRoomEventCandidate_ = { eventKey: kanshouRoomEventKey_, hero: { realName: String(pcData[_reIdx][COL.PC.NAME]) }, idx: _reIdx };
   }
   // 玩家按下按鈕(roomEventAccept帶姓名，第二道防線比對姓名確實吻合candidate，防直打API帶假名字)：
   //   才真的依bond骰一次走向、寫進提示詞；不點按鈕的話這個字串維持空白，narration完全走一般對話。
@@ -1433,8 +1435,8 @@ function actionPlay(userData, pcId, sheets) {
     // 🌍 2026-07「加入這個世界的感覺」玩家定案：不再分「同行/不同行」，這個世界裡所有已存在的
     //   英靈結束一天都一律依自己的生活重新決定要去哪(kanshouRollDailyLocation_，住人回自己房間／
     //   外人回自己家)——唯一例外是好感≥80且此刻確實跟玩家同地點的人，直接留在玩家房間過夜(同床
-    //   共枕)。不再有「玩家帶著誰過夜、誰輪流分配客房」這種隊伍式的房間分配，客房1/客房2仍是
-    //   合法地點，只是不再靠這裡自動塞人進去。
+    //   共枕)。不再有「玩家帶著誰過夜、誰輪流分配客房」這種隊伍式的房間分配，room1~3仍是
+    //   合法地點，只是不再靠這裡自動塞人進去(入住靠actionKanshouAssignRoom玩家手動指派)。
     const allEstablished = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
     intimateNightNames = allEstablished.filter(r => (parseInt(r[COL.PC.BOND]) || 0) >= 80 && String(r[COL.PC.LOC] || "").trim() === curL).map(r => r[COL.PC.NAME]);
     if (intimateNightNames.length) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], intimateNightNames.join('、'));
@@ -1447,7 +1449,7 @@ function actionPlay(userData, pcId, sheets) {
     curL = kanshouMyRoomLoc_;
     allEstablished.forEach(r => {
       const idx = pcData.indexOf(r);
-      pcData[idx][COL.PC.LOC] = intimateNightNames.includes(r[COL.PC.NAME]) ? kanshouMyRoomLoc_ : kanshouRollDailyLocation_(r[COL.PC.NAME], curHour);
+      pcData[idx][COL.PC.LOC] = intimateNightNames.includes(r[COL.PC.NAME]) ? kanshouMyRoomLoc_ : kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, r[COL.PC.ROOM]);
       dirtyPcRows.add(idx);
     });
     finalUserMsg = `【一天結束】夜幕降臨，${intimateNightNames.length ? `跟『${intimateNightNames.join('、')}』一起` : ""}回到房間安頓下來，今天到此為止，明天又是新的一天。`;
@@ -1487,7 +1489,7 @@ function actionPlay(userData, pcId, sheets) {
       const allEstablishedForTime = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
       allEstablishedForTime.forEach(r => {
         const idx = pcData.indexOf(r);
-        pcData[idx][COL.PC.LOC] = kanshouRollDailyLocation_(r[COL.PC.NAME], curHour);
+        pcData[idx][COL.PC.LOC] = kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, r[COL.PC.ROOM]);
         dirtyPcRows.add(idx);
       });
       const newDate = kanshouAbsDayToDate_(curDay);
@@ -1602,18 +1604,22 @@ function actionPlay(userData, pcId, sheets) {
   let kanshouBreakfastStr = "";
   if (isBreakfast_) {
     const absentBreakfastNames_ = [];
-    Object.keys(KANSHOU_HOUSEMATE_ROOMS_).forEach(hid => {
-      const hero = SEED_SERVANTS.find(h => h.id === hid);
-      if (!hero) return;
-      const hmIdx = pcData.findIndex((r, i) => i !== pcIndex && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(hero.realName).includes(String(r[COL.PC.NAME])));
-      if (hmIdx === -1) return; // 尚未召喚，不參與這次早餐
+    // 🏠 2026-07「地圖大重做」：改掃COL.PC.ROOM(誰真的入住客房)，不再反查KANSHOU_HOUSEMATE_ROOMS_
+    //   那份寫死的hero-id對照表——任何入住room1~3的女性都會參與早餐骰。
+    pcData.forEach((r, hmIdx) => {
+      if (hmIdx === pcIndex) return;
+      if (String(r[COL.PC.FACTION]) !== "從者") return;
+      if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+      if (!sameGame(r)) return;
+      const myRoom = String(r[COL.PC.ROOM] || "");
+      if (!/^room[1-3]$/.test(myRoom)) return; // 沒入住客房的人不受早餐影響
       const spot = kanshouRollBreakfastSpot_();
-      const hmName = pcData[hmIdx][COL.PC.NAME];
+      const hmName = r[COL.PC.NAME];
       if (spot === 'kitchen') {
         pcData[hmIdx][COL.PC.LOC] = '廚房';
       } else if (spot === 'ownRoom') {
-        pcData[hmIdx][COL.PC.LOC] = KANSHOU_HOUSEMATE_ROOMS_[hid];
-        absentBreakfastNames_.push(`${hmName}——還窩在${KANSHOU_HOUSEMATE_ROOMS_[hid]}裡賴床`);
+        pcData[hmIdx][COL.PC.LOC] = myRoom;
+        absentBreakfastNames_.push(`${hmName}——還窩在自己房裡賴床`);
       } else {
         const outLoc = kanshouRollDailyLocation_(hmName); // 不傳hour，避免清晨homeBias把「出門」蓋回房間
         pcData[hmIdx][COL.PC.LOC] = outLoc;

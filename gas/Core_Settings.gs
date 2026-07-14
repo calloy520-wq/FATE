@@ -50,7 +50,14 @@ const COL = {
     // UPKEEP_WEEK(2026-07從RENT_WEEK改名，房租→維護及食材費)：最後一次已扣過維護費的「週數」
     //   (Math.floor((day-1)/7))，避免結束一天/推進時間跨過同一週被重複扣款；跨多週(如節慶快轉)
     //   一次補扣欠的週數，不逐週迭代。
-    MONEY: 33, UPKEEP_WEEK: 34
+    MONEY: 33, UPKEEP_WEEK: 34,
+    // 🏠 2026-07「地圖大重做」定案：ROOM＝這個人「入住的客房」(room1~room3，未入住則空字串)，
+    //   跟LOC(她此刻人在哪)是兩個獨立概念——LOC會因為敘事/準備早餐等原因暫時改變(她可能人在
+    //   廚房)，但ROOM是持久的入住登記，不會因為她暫時不在房間裡就變回空房。取代舊版
+    //   KANSHOU_HOUSEMATE_ROOMS_那種寫死3位特定英靈才有房間的做法，任何女性都能被指派入住
+    //   (見actionKanshouAssignRoom/kanshouRoomDisplayName_，Gallery.gs)。只有KPC_(御主)自己
+    //   跟召喚的從者列有意義，solo無關列恆空。
+    ROOM: 35
   },
   // WAR：地圖地點按戰爭區分，避免第四次限定地點(海特飯店等)也出現在第五次局。空字串＝通用地點，'4th'/'5th' 限定該戰爭。
   MAP: { REGION: 0, NAME: 1, TYPE: 2, COORD: 3, DESC: 4, PARENT: 5, WAR: 6 },

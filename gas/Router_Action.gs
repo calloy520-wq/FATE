@@ -17,6 +17,7 @@ const ActionRouter = {
   "purge_orphans": actionPurgeOrphans,
   "kanshou_companions": actionKanshouCompanions,
   "kanshou_summon_hero": actionKanshouSummonHero, // 🌹 慾海同伴唯一入口：直接從英靈庫召喚，不需先在solo贏得戰爭
+  "kanshou_assign_room": actionKanshouAssignRoom, // 🏠 2026-07「地圖大重做」：入住客房(room1~3)
   "kanshou_set_sex": actionKanshouSetSex,
   "kanshou_set_name": actionKanshouSetName,
   "kanshou_set_home_name": actionKanshouSetHomeName,

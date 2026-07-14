@@ -2404,6 +2404,24 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 **驗證**：`bash check.sh`全過；`git diff -- gas/Engine_Combat.gs gas/Gallery.gs | grep -c nsfwBaseRules` = 0。部署後建議測試：①敘事中換地點應該只會落在真實地點名稱上，不再出現自創地名；②即使AI偶爾吐出清單外的地名，同伴LOC應該維持原地不受影響(可觀察是否曾經「消失」變得找不到人)；③既有的move_proposal/玩家反向邀約流程應維持正常運作。
 
+## §94 大改版試做期間短暫回滾又回頭：跑條動畫＋鑑賞地圖大重做＋房間動態命名＋女性名冊全開（2026-07・玩家先請Claude把整個gas/清空、依民宿主題從零重寫成8檔精簡版kanshou v1，玩過後說「挖靠 你UI沒有依照原本的啊?...我要的是舊版那種」，最終定案「妳先合併 佈署吧」→發現main也已推進到大改版之前最新一版(`ece3328`)→玩家選「整個專案回到大改版之前的舊系統」，`git reset --hard`回到`8b337f1`(大改版前最後一版)、force-push覆蓋main與開發分支→接著在**這份舊系統**上追加這批新功能）
+
+**背景**：這個session前段一度整個`gas/`清空重寫成獨立的8檔kanshou-only v1(民宿主題/ROOM-LOC分離/三分頁UI等，詳見那段時期新增的`CLAUDE.md`重寫記錄，該版CLAUDE.md內容已隨reset一併復原成舊版、不再代表現狀)，玩家實際上線體驗後認為UI跟原本熟悉的不一樣、要求整個復原成`8b337f1`。復原後，玩家把v1那批試做過、覺得不錯的幾個點子，逐一在**這份舊系統**上重新實作(不是搬移程式碼，是在舊架構基礎上重新設計，因為舊系統的地圖/房間/經濟層架構跟v1完全不同)。
+
+**①跑條(進度條+輪播文字)動畫**：`Style.html`新增`.progress-wrap`/`.progress-bar`/`.fill`/`@keyframes progressSlide`/`.progress-caption`；`Script.html`的`send()`新增第19個參數`loaderCaptions`(沿用既有「一路加在最後」的呼叫慣例)，新增`showProgressLoader_`/`hideProgressLoader_`取代原本純聊天用的靜態`.loading-text`。套用在6個「時間會流逝」的動作：`kanshouEndDay`/`kanshouAdvanceHours`/`kanshouJumpBand`/`kanshouPrepBreakfast`/`kanshouWork`/`kanshouJumpFestival`(Script_Kanshou.html)，各自輪播符合情境的文字(如準備早餐："清點食材…／料理準備…／精心製作…／準備開飯！")，其餘即時互動動作(移動/聊天/巧遇)維持原本的靜態loading-text不變。
+
+**②鑑賞開場不再預先放置房客**：`actionEnterKanshou`(Gallery.gs)移除`starterIds`/`starterRows`那段預先建5位起始英靈的邏輯(阿爾托莉雅/遠坂凜/伊莉雅絲菲爾/美狄亞/美杜莎)，玩家進場時世界真正是空的，房客全靠自己去英靈殿召喚或巧遇認識。
+
+**③地圖大重做**：`KANSHOU_REGIONS_`從6區(家/深山町/冬木市中心/港口/山林/拜訪住處)改成`房間`(獨立分區，取代原本混在「家」裡的房間)/`家的共用空間`/`深山町`/`冬木市中心`/`山林`/`拜訪住處`，港口整區移除；家的共用房間從9間精簡到4間(客廳/廚房/浴室/庭院)，冬木市中心從5個精簡到4個(咖啡廳/書店二樓/屋頂花園/商店街，拿掉電影院附近)；拜訪住處只保留女性角色的住處(隱蔽的工房/島嶼道場/埃德費爾特宅邸/愛因茲貝倫城/遠坂邸/藤村家，男性住處條目全刪)。前端`Script_Kanshou.html`的`KC_REGIONS_`/`KC_LOCATIONS_`同步鏡射更新(唯一真實來源仍是`Gallery.gs`的`KANSHOU_REGIONS_`/`KANSHOU_LOCATIONS_`)。
+
+**④房間動態命名(取代`KANSHOU_HOUSEMATE_ROOMS_`那套寫死3位特定英靈才有房間的舊設計)**：`COL.PC`尾端新增`ROOM`欄(35)，跟`LOC`分離——`LOC`是此刻位置(會因早餐/敘事暫時改變)，`ROOM`是持久的入住登記。房間分區改成`我的房間`(顯示名動態＝玩家名+「的房間」)＋`room1`~`room3`(3個自由客房，內部key固定不變，顯示名動態算：沒人住顯示「空房間N」、有人住顯示「入住者名+的房間」)。新增`kanshouRoomDisplayName_(locKey,pcData,gameId,myName,myIdx)`共用顯示邏輯、`actionKanshouAssignRoom`(新action，玩家指派任一位已建立的女性同伴入住空客房，同步寫`ROOM`+`LOC`，已被佔用的客房會擋掉)，`Router_Action.gs`掛上`kanshou_assign_room`。**連鎖修正**(所有原本依賴`KANSHOU_HOUSEMATE_ROOMS_`的地方全部改查`COL.PC.ROOM`)：`heroToKanshouRow_`拿掉`isHousemate`提前預判(房客身分不再是召喚當下就決定，統一用泛泛之交起點，等玩家之後真的指派房間才算入住)；`kanshouRollDailyLocation_`新增第3參數`room`(呼叫端直接傳該列自己的`COL.PC.ROOM`值，不再反查寫死表)；`kanshouCollectTenantRent_`(房租收繳)改成直接掃`pcData`找`ROOM`符合`room[1-3]`的列，不再靠`Object.keys(KANSHOU_HOUSEMATE_ROOMS_)`；夜襲/賴床叫醒橋段候選判定改成直接查`LOC`是否等於客房key(不必反查是誰的房間，任何入住者都適用)；準備早餐的房客骰去向迴圈同樣改成直接掃`ROOM`。前端新增`kcRoomLabel_`(跟後端同一套顯示邏輯，讀`_kcCur`的`room`欄位)＋房間分區的入住按鈕(`kanshouAssignRoom`)，`kcSwitchRegion_`切進房間分區時會先重新fetch一次`kanshou_companions`避免顯示過期的入住狀態。`actionKanshouCompanions`回傳的每筆companion新增`room`/`locLabel`欄位供前端使用。
+
+**⑤女性名冊全開＋男性徹底清空**：`actionGetHeroes`(Router_Creation.gs)本來就回傳全部英靈庫、無戰爭/來源篩選，所以「把所有女性加入這個世界」不需要額外資料異動，只需要把召喚閘門開乾淨。`KANSHOU_LOCATION_TAGS_`(巧遇氛圍標籤)/`KANSHOU_ENCOUNTER_FEMALE_IDS_`(巧遇保底池)全面移除男性id，`KANSHOU_ENCOUNTER_MALE_IDS_`整個刪除(不再存在任何入口能巧遇到男性)；`actionKanshouSummonHero`新增`斯卡哈-Assassin`專屬擋下("暫時只開放召喚 Lancer 版本的斯卡哈")，同位英靈不會有兩種職階分身同時存在；前端`_kcHeroesAll`過濾條件同步補上`h.id !== '斯卡哈-Assassin'`。恩奇都(gender:'無')沿用舊系統既有precedent繼續歸在可召喚/可巧遇的一側(既有`KANSHOU_ENCOUNTER_FEMALE_IDS_`就已經這樣分類，這次不變動)。
+
+**待玩家決定的開放項**：玩家提過一個問句「看看附近有沒有其他人這個按鈕可以召喚現存在世界的角色移動過來?」——查證後現有`kanshouLookAround()`/`kanshouRollEncounter_`的巧遇機制**只會**生出全新的陌生人巧遇、`excludeIds`明確排除掉此局已經召喚過的英靈(不會讓已建立好感記錄的角色又以陌生人身分重複登場)，目前沒有任何入口能把「已存在但目前不在身邊」的既有同伴直接呼叫過來(跟現有的`kanshouProposeMove`👋反向邀約方向相反，那個是玩家邀同伴一起去某地，不是把某人叫來玩家所在地)。這是一個新機制的提案，尚未實作，等玩家確認要不要做、要做成什麼形式(隨機挑一位/玩家指名/機率接受)再排入下一批。
+
+**驗證**：`bash check.sh`全過；`git diff -- gas/Engine_Combat.gs | grep -c nsfwBaseRules` = 0(Engine_Combat.gs這批完全沒有被觸碰)。部署後建議測試：①開場應該零房客；②早餐/推進時間/打工/跳時段/跳節慶應該看到跑條輪播文字而非純聊天式的瞬間loading；③地圖「房間」分頁應該顯示「(玩家名)的房間」+3間客房(空的顯示「空房間N」)，客房旁的🏠按鈕應該能指派已召喚的同伴入住、入住後房間顯示名稱應該變成她的名字；④英靈殿召喚清單應該只看得到女性(含恩奇都)，看不到斯卡哈-Assassin版本；⑤巧遇/推進時間重新分佈去向應該只會撞見女性；⑥solo模式完全不受影響(回歸測試)。
+
 
 
 
