@@ -312,6 +312,17 @@ let plainTextContext = cleanText;
     await send('⏩ 讓時間悄悄流轉到了' + label + '。', false, null, null, false, false, 0, null, false, null, null, null, false, false, null, null, key, false, ['時光靜靜流轉…', '天色漸漸改變…']);
   }
 
+  // ⏰ 精簡合併：原本「跳到時段(5選1)」＋「結束一天」兩顆按鈕合併成一顆「下一階段」，固定照
+  //   清晨→午後→黃昏→夜→深夜→(隔天)清晨的順序前進——深夜按下去自然就是睡過夜，直接重用
+  //   kanshouEndDay()整套邏輯(房租/回房間/同床判定/敲門)，不必另外維護一套。
+  async function kanshouNextStage() {
+    var curBand = kcClock ? kcClock.band : '清晨';
+    if (curBand === '深夜') { await kanshouEndDay(); return; }
+    var idx = KC_TIME_BANDS_.findIndex(function (b) { return b.key === curBand; });
+    var next = KC_TIME_BANDS_[(idx + 1 + KC_TIME_BANDS_.length) % KC_TIME_BANDS_.length];
+    await kanshouJumpBand(next.key, next.name);
+  }
+
   // 🍳「時段行動」的第一個動作：清晨限定的「準備早餐」，等同移動到廚房＋幫3位房客各自骰一次今早去向(見Gallery.gs isBreakfast_分支，GAS掌機率)。只在清晨時段才顯示這顆按鈕。
   async function kanshouPrepBreakfast() {
     showGamePane('chat');

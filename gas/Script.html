@@ -1501,15 +1501,13 @@
         + '<input type="checkbox" id="kc-encounter-toggle" ' + (kanshouEncounterOn ? 'checked' : '') + ' onchange="kanshouToggleEncounter_(this.checked)"> 路上可能巧遇陌生人'
         + '</label>'
         + '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:#8a6a9a;color:#d0a8e0;" onclick="kanshouLookAround()">👀 看看四周還有沒有其他人</button>'
-        // ⏰ 直接選目標時段，GAS 算好差幾小時(kanshouJumpBand，見 Script_Kanshou.html)，取代舊版「推進N小時」要自己心算。
-        + '<div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:10px;">'
-        + KC_TIME_BANDS_.map(function (b) { return '<button class="btn" style="flex:1 0 30%;padding:6px 2px;font-size:11.5px;border-color:#4a6a8a;color:#8ac0e0;" onclick="kanshouJumpBand(\'' + b.key + '\',\'' + b.name + '\')" title="跳到' + b.key + '，不在身邊的英靈依新時刻重新分佈去向">' + b.label + '</button>'; }).join('')
-        + '</div>'
+        // ⏰ 精簡：「跳到時段(5選1)」＋「結束一天」合併成一顆「下一階段」，固定往下一個時段推進，
+        //   深夜按下去自然就是睡過夜(見 kanshouNextStage，Script_Kanshou.html)。
+        + '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:#4a6a8a;color:#8ac0e0;" onclick="kanshouNextStage()" title="推進到下一個時段；深夜按下去就是睡一晚，迎向明天">⏰ 下一階段' + (kcClock && kcClock.band === '深夜' ? '(睡一晚)' : '') + '</button>'
         // 🍳「時段行動」骨架：只在對應時段才顯示的按鈕(kcClock 由 send()/syncData() 夾帶更新)。想加其他時段行動，往這個if/陣列加即可。
         + (kcClock && kcClock.band === '清晨'
           ? '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:#8a9a4a;color:#c0e08a;" onclick="kanshouPrepBreakfast()" title="移動到廚房，房客們各自骰一次今早去向">🍳 準備早餐</button>'
           : '')
-        + '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:#7a6a4a;color:#e0c090;" onclick="kanshouEndDay()" title="不在身邊的英靈由GAS自動決定隔天去哪，時間推進到明天">🌙 結束一天</button>'
         // 🎊「跳到節慶」不常用，已收進＋抽屜(見 Index.html drawer-festival／Script_Kanshou.html openKanshouFestivals)，地圖頁不再常駐佔版面。
         + '<div id="kc-map-list">' + kcMapListHtml_() + '</div>';
       return;

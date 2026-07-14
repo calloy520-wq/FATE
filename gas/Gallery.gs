@@ -987,14 +987,18 @@ function kanshouAbsDayToDate_(absDay) {
   while (doy >= KANSHOU_DAYS_IN_MONTH_[month]) { doy -= KANSHOU_DAYS_IN_MONTH_[month]; month++; }
   return { year: year, month: month + 1, day: doy + 1 };
 }
-// 算「從現在」到「下一次」某月日的小時數——已經錯過今年這天就自動算成明年(deltaDays<=0時+365)。
+// 算「從現在」到「下一次」某月日前一天早上6點的小時數(2026-07玩家定案：提前一天抵達，讓
+//   敘事能帶出「明天才是節慶」的期待感，而非直接落在節慶當天)。已經錯過這次(節慶前一天6點已過)
+//   就自動算成明年(hours<=0時+365天)。
 function kanshouHoursUntilDate_(curDay, curHour, targetMonth, targetDay) {
   const startOff = kanshouDoyOffset_(KANSHOU_CAL_START_MONTH_, KANSHOU_CAL_START_DAY_);
   const curDoy = (startOff + (curDay - 1)) % 365;
-  const targetDoy = kanshouDoyOffset_(targetMonth, targetDay);
+  const targetDoy = kanshouDoyOffset_(targetMonth, targetDay) - 1; // 節慶前一天
   let deltaDays = targetDoy - curDoy;
-  if (deltaDays <= 0) deltaDays += 365;
-  return deltaDays * 24 - curHour;
+  if (deltaDays < 0) deltaDays += 365;
+  let hours = deltaDays * 24 + 6 - curHour;
+  if (hours <= 0) hours += 365 * 24;
+  return hours;
 }
 
 // 「跳到時段」：GAS算好差幾小時再丟進既有advanceHours管線，跟跳到節慶(kanshouHoursUntilDate_)
@@ -1406,7 +1410,7 @@ function actionPlay(userData, pcId, sheets) {
         finalUserMsg = `【玩家意圖】：去打工賺錢，忙碌了${KANSHOU_WORK_HOURS_}個小時，領到了${KANSHOU_WAGE_}円的薪水，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`;
       } else {
         finalUserMsg = jumpFest
-          ? `【時間推進】時間一路快轉，${jumpFest.name}到了——此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`
+          ? `【時間推進】時間一路快轉，明天就是${jumpFest.name}了——此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`
           : jumpBand
             ? `【時間推進】時間悄悄流轉到了${jumpBand.label}，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`
             : `【時間推進】${advanceHours}個小時悄悄過去，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`;
