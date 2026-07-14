@@ -410,8 +410,11 @@ function rowToCombatant_(row) {
   return {
     name: row[COL.PC.NAME], cls: row[COL.PC.RANK] || '',
     six: six, skills: skills, traits: traits, np: row[COL.PC.MARTIAL] || '',
-    hp: parseInt(row[COL.PC.HP]) || 100, hpMax: parseInt(row[COL.PC.MAX_HP]) || 100,
-    mp: parseInt(row[COL.PC.MP]) || 50, mpMax: parseInt(row[COL.PC.MAX_MP]) || 50,
+    // 🐛→✅ 跟全代碼庫其餘HP/MP讀取的｜｜0慣例不一致(這裡原本是｜｜100/｜｜50)——0是合法值(致命傷/魔力
+    //   枯竭)，｜｜對0視同假值會誤把它腦補回滿血/半魔，讓下方resolveFateBattle_內用hp/hpMax算自身血量
+    //   百分比(見_selfHpPct/_whp)在HP恰好=0時失真判成滿血，改成跟其餘讀取一致的｜｜0。
+    hp: parseInt(row[COL.PC.HP]) || 0, hpMax: parseInt(row[COL.PC.MAX_HP]) || 0,
+    mp: parseInt(row[COL.PC.MP]) || 0, mpMax: parseInt(row[COL.PC.MAX_MP]) || 0,
     // 🔋 出力電池制：從者靈基出力檔位(20~100)，決定本戰命中/傷害＋御主每小時維持費；御主預設凡人巡航 60。
     output: servantOutput_(row[COL.PC.MEMORY]),
     runeMode: runeMode_(row[COL.PC.MEMORY]), // 🔯 原初符文運用方式(def 減傷／dmg 增傷／regen 回血)

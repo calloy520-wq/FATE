@@ -2624,3 +2624,22 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 **驗證**：`bash check.sh`全過；`git diff --stat gas/Engine_Combat.gs`空。
 
+## §107 玩家追問「為啥那麼多漏洞」→核對兩個至今唯一還沒被點名查過的核心檔（2026-07）
+
+**背景**：§106結束後玩家問「繼續檢查....為啥那麼多漏洞呢」。盤點整個gas/(23個.gs/.html檔)發現還有2個檔案這整晚從沒被任何一輪audit明確點名當主要對象：`Engine_Fate.gs`(真正的戰鬥數值引擎本體——`resolveFateBattle_`/`rowToCombatant_`/NP縮放/fx傷害防禦，跟被紅線鎖住的`Engine_Combat.gs`是完全不同的兩個檔案)、`Router_Economy.gs`(靈基出力/魔境/符文/換裝/補魔/靈基修復)。開2路子agent分別深挖，這次結果相對令人安心：
+
+**`Engine_Fate.gs`(868行，全代碼庫實際上呼叫最頻繁的核心引擎)**：agent系統性檢查了這整晚抓到過的每一類漏洞模式(delimiter collision／prototype pollution／god_hand繞過／rank無上限／死碼)，結果**幾乎全部乾淨**——`rankVal`的+/-封頂在更早的稽核就已經修好(§105)、god_hand的實際判定邏輯根本不在這支檔案裡(正確地全部收斂在`Router_Battle.gs`的`fateStrike_`)、物件白名單查詢全部用`===`比對而非truthy查詢、沒有任何MEMORY字串的join操作、也沒有死碼。唯一挖到的一個真bug：
+
+- **【真bug，防禦性修正】`rowToCombatant_`把HP/MP轉成combatant物件時，`hp: parseInt(...)||100`／`mp: parseInt(...)||50`跟全代碼庫其餘HP/MP讀取的`||0`慣例不一致**——0是合法值(重傷瀕死/魔力枯竭)，`||`對0視同假值的話，一個HP剛好=0的角色會被這裡誤讀回滿血100。目前追過所有呼叫點都會先濾掉`DEAD_`列或在HP被歸零前就轉換，沒有抓到真的會被玩家實際觸發的情境；但`resolveFateBattle_`內部確實直接拿`atk.hp/atk.hpMax`算自身血量百分比(供某些寶具/因果律分支判斷用)，一旦真的踩到HP=0這個邊界，會把「瀕死」誤判成「滿血」，判斷方向恰好可能讓某些本該觸發的效果不觸發。改成跟其餘讀取一致的`||0`(除法處已有`hpMax>0`防呆，不會產生除零)。
+
+**`Router_Economy.gs`**：agent確認7支handler(出力/魔境/符文/換裝/自定武裝/補魔/靈基修復)的MEMORY分隔符處理、數值上下界、補魔的資源代價與防重入、鎖機制全部正確，**沒有抓到任何正確性/安全漏洞**。挖到的是4個效能問題，其中3個直接違反CLAUDE.md明訂的最高優先工程準則(「鐵則：別把多餘round-trip或重複整表讀回加回來」)：
+
+1. **`actionManaSupply`/`actionSpiritRepair`收尾都呼叫`getFreshStatusString`強制整表重讀**，但呼叫當下`pcData[pIdx]`早就是本次寫入後的最新資料——這個優化(`buildPlayerStatusString(pcData[pIdx])`直接用記憶體現成資料)在`Router_Battle.gs`/`Router_Movement.gs`部分呼叫點其實已經做過(帶著`⚡ pcData 即權威，免 getFreshStatusString 的整表重讀`的註解)，只是沒有推廣到這兩支函式。兩處3個收尾點都改用現成的`pcData[pIdx]`。
+2. **`actionManaSupply`的婉拒分支回`success:true`卻沒交棒`STATE_PRE_DATA_`**——`mana_supply`是`STATE_AFTER_ACTIONS`名單內的動作，dispatcher會在拿到`success:true`回應後嘗試夾帶`_state`，若`STATE_PRE_DATA_`是null就會整表重讀當備援；婉拒分支(好感不夠或魔力還沒見底時，大概率是常態觸發)每次都白繳一次整表讀取。補上`STATE_PRE_DATA_ = pcData`交棒(婉拒分支沒寫表，pcData本來就等於表上現況，交棒安全)。
+3. **兩支函式都是「先整列寫入、再呼叫`spendAp_`」，導致同一列被寫兩次**——`spendAp_`預設會自己對AP/day/hour欄位做一次窄寫入，若呼叫順序反過來(先用`skipWrite=true`跑`spendAp_`只改記憶體、再一次過整列寫入)，兩處各自的整列寫入就能一併帶上最新的AP/day/hour，省掉`spendAp_`原本那道獨立窄寫入。兩支函式都已重排。
+
+**確認沒問題、判斷不修的項目**：
+- `actionSpiritRepair`「先查AP不足才查已經滿血」的檢查順序偶爾會讓已經滿血但AP恰好用完的情境顯示「行動力不足」而非「氣血已然充盈」——純訊息文字誤導、無任何狀態影響，優先度低，先不動。
+
+**驗證**：`bash check.sh`全過；`git diff --stat gas/Engine_Combat.gs`空。至此全部23個.gs/.html檔皆已至少被一輪明確的adversarial audit覆蓋過。
+

@@ -141,7 +141,8 @@ function actionManaSupply(userData, pcId, sheets) {
     const declinePrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【系統·補魔遭婉拒】${declineReason}。\n` +
       `★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】演出「${svName}」依其性格婉拒這個請求的一幕（一段即可）——不必說教講理由，用態度/神情/一句話帶過即可；show, don't tell，不影響雙方氣血/魔力/好感，是否改用其他方式回魔仍由御主自行決定。`;
-    return JSON.stringify({ success: true, declined: true, aiPrompt: declinePrompt, statusString: getFreshStatusString(pcId, pIdx, sheets) });
+    STATE_PRE_DATA_ = pcData; // ⚡ 沒寫入也要交棒，否則 dispatcher 的 STATE_AFTER_ACTIONS 夾帶會退回整表重讀
+    return JSON.stringify({ success: true, declined: true, aiPrompt: declinePrompt, statusString: buildPlayerStatusString(pcData[pIdx]) }); // ⚡ pcData 即權威，免 getFreshStatusString 的整表重讀
   }
 
   const isFateMana = myGameId.indexOf("g_") === 0;
@@ -173,12 +174,14 @@ function actionManaSupply(userData, pcId, sheets) {
   pcData[pIdx][COL.PC.MP] = restored;
   // 🔥 補魔過充：除回滿池，另存「下一發規格外寶具(＋/EX)可【無償】超載灌入的一池份魔力」(一次性·發動即清)
   pcData[pIdx][COL.PC.MEMORY] = setOvercharge_(pcData[pIdx][COL.PC.MEMORY], newMpMax);
-  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-  raiseBond_(sheets, myGameId, pcData[pIdx][COL.PC.NAME], svName, 3, pcData);
   const mpMax = newMpMax; // 給下方敘述沿用
 
+  // ⚡ spendAp_ 先跑(skipWrite=true，只改 pcData 記憶體、不單獨寫表)，讓下面的整列寫入一次過帶上
+  //   最新 day/hour/ap，省掉 spendAp_ 自己那道窄寫入(原本迴路/血量寫一次、spendAp_ 又寫一次)。
   let manaAp = AP_PER_DAY, manaClock = "";
-  if (isFateMana) { try { manaAp = spendAp_(myGameId, 1, pcData, sheets).ap; manaClock = clockLabel_(myGameId, pcData); } catch (e) { } }
+  if (isFateMana) { try { manaAp = spendAp_(myGameId, 1, pcData, sheets, true).ap; manaClock = clockLabel_(myGameId, pcData); } catch (e) { } }
+  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+  raiseBond_(sheets, myGameId, pcData[pIdx][COL.PC.NAME], svName, 3, pcData);
 
   // ⚔️ 卸防突襲：補魔時門戶大開，同地若有清醒敵從者→趁隙重擊我方從者（可能致敗）
   const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.4);
@@ -202,7 +205,7 @@ function actionManaSupply(userData, pcId, sheets) {
       `${genderFactMana}★你擅長書寫細膩動人的情慾，這次放手去寫、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫這場私密而濃烈的一刻。★重點全部放在肉體本身的接觸、溫度與反應——魔術迴路/魔力流動只是遊戲機制上的成因，【不要】描寫迴路運作、魔力流向之類的技術性細節，那不是這一幕該琢磨的地方；從者依其性格與當前羈絆自然回應(高羈絆者主動迎合、冷傲者難得動搖)。★「${svName}」身為英靈天生遠比常人強韌，這場親密裡她/他從容游刃有餘、主導著節奏，不會輕易被弄得失神——是否高潮、何時高潮由她/他自己掌控，不是被動承受。聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節，而非只在前後鋪陳。收在餘韻猶存的溫柔，勿寫成完結收尾句。`;
   }
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：迴路/血量上限燒蝕/MP回滿/raiseBond_/spendAp_/夜襲 皆已原地改回 pcData
-  return JSON.stringify({ success: true, aiPrompt: aiPrompt, unlocked: !ambush, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", report: ambush ? ambush.report : null, statusString: getFreshStatusString(pcId, pIdx, sheets) });
+  return JSON.stringify({ success: true, aiPrompt: aiPrompt, unlocked: !ambush, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", report: ambush ? ambush.report : null, statusString: buildPlayerStatusString(pcData[pIdx]) }); // ⚡ pcData 即權威，免 getFreshStatusString 的整表重讀
 }
 
 // 🩹 靈基修復：消費共用魔力池為從者療傷，不燃令咒、可重複使用，但吃掉的池本可拿去放寶具/衝高出力，
@@ -234,12 +237,14 @@ function actionSpiritRepair(userData, pcId, sheets) {
   const healed = Math.min(svMaxHp - svHp, Math.round(svMaxHp * REPAIR_HEAL_PCT));
   pcData[svIdx][COL.PC.HP] = svHp + healed;
   pcData[pIdx][COL.PC.MP] = mp - cost;
+
+  // ⚡ spendAp_ 先跑(skipWrite=true，只改 pcData 記憶體)，讓下面御主列的寫入一次過帶上最新day/hour/ap，
+  //   省掉 spendAp_ 自己那道窄寫入(原本MP扣減寫一次、spendAp_ 又寫一次)。
+  let repAp = AP_PER_DAY, repClock = "";
+  if (isFateMana) { try { repAp = spendAp_(myGameId, 1, pcData, sheets, true).ap; repClock = clockLabel_(myGameId, pcData); } catch (e) { } }
   sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   raiseBond_(sheets, myGameId, pcData[pIdx][COL.PC.NAME], svName, 2, pcData);
-
-  let repAp = AP_PER_DAY, repClock = "";
-  if (isFateMana) { try { repAp = spendAp_(myGameId, 1, pcData, sheets).ap; repClock = clockLabel_(myGameId, pcData); } catch (e) { } }
 
   // ⚔️ 卸防突襲：療傷時同樣門戶大開，同地若有清醒敵從者→趁隙重擊我方從者（可能致敗）
   const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.3);
@@ -261,7 +266,7 @@ function actionSpiritRepair(userData, pcId, sheets) {
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, healed: healed, cost: cost, ap: repAp, clock: repClock, apMax: AP_PER_DAY,
     ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", report: ambush ? ambush.report : null,
-    statusString: getFreshStatusString(pcId, pIdx, sheets)
+    statusString: buildPlayerStatusString(pcData[pIdx]) // ⚡ pcData 即權威，免 getFreshStatusString 的整表重讀
   });
 }
 
