@@ -537,6 +537,7 @@ function actionKanshouSetSex(userData, pcId, sheets) {
 function actionKanshouSetName(userData, pcId, sheets) {
   var newName = String(userData.pcName || "").trim();
   if (!newName) return JSON.stringify({ success: false, message: "名字不能空白。" });
+  if (newName.length > 16) return JSON.stringify({ success: false, message: "名字請在16字以內。" });
   var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」，見 actionKanshouSummonHero 同款註解
   var acctName = String(userData.acctName || "").trim();
   var data = kpc.getDataRange().getValues();
@@ -1238,12 +1239,24 @@ function actionPlay(userData, pcId, sheets) {
   // 合法地點時才寫入LOC＋抽選巧遇＋記錄邂逅名單。抽選只在「按下移動按鈕」這個瞬間跑一次，不會
   //   每句對話重算。移動不再強制拖走任何已存在的英靈(每個人都是獨立的)——想帶誰同行，交給AI
   //   敘事自然演出(見下方「玩家反向邀約」規則)。
+  // 🐛→✅ 例外：玩家按下的是「同意」AI剛提議的move_proposal(userData.moveWithCompanion)時，
+  //   UI已經明確告訴玩家「好，一起去」，若不真的把提議者也帶過去，她會被留在舊地點、卻在敘事
+  //   跟人物列表裡憑空消失——這裡先在curL變動【前】記下當時同地點的人，帶她們一起走。
+  const kanshouPreMoveCompanions_ = (userData.moveWithCompanion && moveTarget)
+    ? pcData.filter(r => r !== pc && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim())
+    : [];
   let kanshouEncounterHero = null, kanshouEncounterMetBefore = false, kanshouEncounterLocName = "";
   let kanshouEventSeed = null;
   if (moveTarget) {
     curL = moveName;
     pcData[pcIndex][COL.PC.LOC] = curL;
     dirtyPcRows.add(pcIndex);
+    kanshouPreMoveCompanions_.forEach(r => {
+      const nIdx = pcData.indexOf(r);
+      if (nIdx === -1) return;
+      pcData[nIdx][COL.PC.LOC] = curL;
+      dirtyPcRows.add(nIdx);
+    });
     // 離開原地(換地點)＝上一段巧遇緣分結束，先清掉舊的【邂逅中】，這個新地點才重新擲一次巧遇。
     pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
     kanshouEncounterLocName = moveName;
@@ -1371,7 +1384,10 @@ function actionPlay(userData, pcId, sheets) {
     genderHintStr = parts.length ? `\n★【性別配對】：${parts.join("；")}。` : "";
   }
 
-  let pPhysicalObj = JSON.parse(pcData[pcIndex][COL.PC.PHYSICAL] || "{}");
+  // 🛡️ 比照Core_Settings.gs讀同一欄位(mergePhysicalStatus/parseVisibleStatus)的try/catch防呆——
+  //   PHYSICAL理論上只會被JSON.stringify寫入，但COL是位置索引，欄位一旦錯位/被手動改壞，這裡
+  //   若沒擋，該角色從此每回合都會拋錯、永遠好不了(見CLAUDE.md「邊界先擋」)。
+  let pPhysicalObj = {}; try { pPhysicalObj = JSON.parse(pcData[pcIndex][COL.PC.PHYSICAL] || "{}"); } catch (e) { }
   if (Object.keys(pPhysicalObj).length === 0) pPhysicalObj = { "狀態": "如常" };
   // 提示詞只給前5個(即使實際存到30個)，省字數；真正的技巧清單仍完整存在MEMORY裡不受影響。
   let pSkills = kanshouSkillTagStr_(pcData[pcIndex][COL.PC.MEMORY]).split('、').slice(0, 5).join('、');
@@ -1382,7 +1398,7 @@ function actionPlay(userData, pcId, sheets) {
   // ⚡ 提速：跟上面 presentRowsForGender 是完全相同的 filter 條件，直接複用，省掉第二次整表掃描。
   let allPresentRows = presentRowsForGender;
   allPresentRows.forEach(r => {
-    let npcPhysicalObj = JSON.parse(r[COL.PC.PHYSICAL] || "{}");
+    let npcPhysicalObj = {}; try { npcPhysicalObj = JSON.parse(r[COL.PC.PHYSICAL] || "{}"); } catch (e) { }
     if (Object.keys(npcPhysicalObj).length === 0) npcPhysicalObj = { "狀態": "如常" };
     let npcSkills = kanshouSkillTagStr_(r[COL.PC.MEMORY]).split('、').slice(0, 5).join('、');
     let relMem = r[COL.PC.REL_MEM] || "無";
@@ -1504,11 +1520,14 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
     //   肉體/外顯走 intimacy_feedback(physical_state)。
 
     {
-      const relChangesToProcess = aiData.rel_changes || [];
+      // 🛡️ AI偶爾會漏包陣列包裝或塞null元素，forEach前先擋形狀，避免整回合(含narration)被
+      //   一個TypeError整段吞掉——防呆原則跟本檔其餘AI輸入處理一致(sanitizeAiData_同款精神)。
+      const relChangesToProcess = Array.isArray(aiData.rel_changes) ? aiData.rel_changes : [];
 
       relChangesToProcess.forEach(rc => {
-        const tNpc = rc.target ? String(rc.target).trim() : String(rc.npc).trim();
-        if (tNpc === pcName || tNpc === "自己") return;
+        if (!rc || typeof rc !== 'object') return;
+        const tNpc = rc.target ? String(rc.target).trim() : String(rc.npc || "").trim();
+        if (!tNpc || tNpc === pcName || tNpc === "自己") return;
 
         // 羈絆已併入該 NPC 自己列（BOND/REL_TAG）——找不到該人此局的列就無可寫入。
         //   用 kanshouNameCandidates_ 比對，容忍AI只用括號前後其中一段稱呼TA。
@@ -1604,9 +1623,13 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         pcData[pcIndex][COL.PC.MEMORY] = setSkillTag_(oldPMem, processSkills(oldPMem, pfb.dynamic_skills));
       }
 
-      if (aiData.intimacy_feedback.npcs) {
+      if (Array.isArray(aiData.intimacy_feedback.npcs)) {
         aiData.intimacy_feedback.npcs.forEach(nfb => {
-          const tName = String(nfb.name).trim();
+          if (!nfb || typeof nfb !== 'object') return;
+          const tName = String(nfb.name || "").trim();
+          // 🛡️ 跟上面rel_changes同款自己排除——AI若在npcs清單誤寫玩家本名(NSFW雙向情境確實
+          //   可能誤觸發)，這裡沒擋會找到pcIndex、把「NPC視角」的欄位寫進玩家自己列。
+          if (!tName || tName === pcName || tName === "自己") return;
           // 同款括號全名比對問題(見上方 kanshouNameCandidates_)，這裡也會影響每回合寫入失敗。
           const targetIdx = pcData.findIndex(r => kanshouNameCandidates_(r[COL.PC.NAME]).includes(tName) && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
           if (targetIdx === -1) return;

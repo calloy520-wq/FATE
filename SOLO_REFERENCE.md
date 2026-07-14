@@ -2561,3 +2561,24 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 **驗證**：`bash check.sh`全過；`git diff --stat gas/Engine_Combat.gs`空。
 
+## §104 鑑賞全系統第二輪擴大複查（2026-07・玩家「不光這些 要全體檢查」）
+
+**背景**：§103做完橋段/時間/前後端契約三路稽核後，玩家要求擴大範圍，別只看那三塊。再開4路子agent覆蓋前一輪沒查到的範圍：AI回應解析/淨化管線、召喚/同伴/關係標籤5階進程/巧遇系統、反向邀約移動/敲門/歷史紀錄/日常人設快取、帳號設定類handler+CSS一致性。逐一驗證後修正：
+
+1. **【真bug】儲存型XSS**：`History_Sync.gs`的`getGameHistory`把玩家自己打的訊息(`message`)跟鑑賞御主名(`pcName`)從「歷史暫存」表撈出來時，只做了`\n`→`<br>`轉換(取名「🛡️內容洗滌器」但其實完全沒洗HTML)，就直接塞回前端`story.innerHTML`——玩家在對話輸入框打`<img src=x onerror=...>`這類內容會被存下來，下次重新整理/重進遊戲時原樣執行。是自我XSS(只影響自己帳號/瀏覽器)，但確實可重現、會持續到被歷史列表trim掉為止，且違反專案「sanitizeUserData_是唯一真線」的自述原則(該函式沒把`message`/`pcName`列進清洗清單)。新增`escapeHtml_()`(GAS端)，`pcName`跟`content`輸出前都先跳脫；順手把`pcName`也補進`sanitizeUserData_`的`STRICT_NAME_FIELDS`(輸入端也擋)，並幫`actionKanshouSetName`補上跟`actionKanshouSetHomeName`一致的16字長度上限(原本只擋空字串)。
+2. **【真bug】AI提議移動、玩家同意後，提議的同伴其實沒有真的一起走**：`move_proposal`(AI主動邀約，跟「玩家反向邀約」是兩條不同路徑)只記了地點字串，沒記是誰提議的；玩家按「同意」時前端只送`moveTarget`，跟一般點地圖移動完全無法區分——backend的moveTarget分支故意設計成「不強制拖走任何人」(獨立生活世界觀)，導致UI明明說「好，一起去」，提議者卻被留在舊地點、下一句就從敘事跟人物列表裡憑空消失。修法：新增`send()`最後一個參數`moveWithCompanion`(安全地加在簽名最尾端，不影響既有13個呼叫點的位置參數)，`kanshouConfirmMoveProposal`專屬傳`true`；backend在`moveTarget`分支【變動curL前】先記下當時同地點的人，`moveWithCompanion`為真時才把她們一起搬到新地點。
+3. **【真bug】`rel_changes`/`intimacy_feedback.npcs`沒擋AI漏包陣列或塞null元素**：直接對可能不是陣列的值呼叫`.forEach`、或對`null`元素取屬性，會拋`TypeError`並被外層catch整段吞掉，導致那個回合的好感變化/敘事全部消失(玩家只看到「系統錯誤」)。補上`Array.isArray`檢查跟逐元素的`null`/型別防呆。
+4. **【真bug】`intimacy_feedback.npcs`沒有自己排除**：`rel_changes`早就擋了「AI誤把玩家本名寫進清單」(`tNpc===pcName`)，但`npcs`那份清單沒有這道防線——NSFW雙向情境下AI偶爾真的會誤寫玩家本名，沒擋會把「NPC視角」的口吻/肉體狀態欄位寫進玩家自己那一列。補齊跟`rel_changes`一致的自己排除。
+5. **【真bug】前端召喚清單沒濾性別**：`kcRecomputeAvailable_`只濾掉「已在場」跟「別人的原創英靈」，沒比照後端`actionKanshouSummonHero`的「僅支援男女／女女(不支援男男)」規則——男性御主會在清單看到一堆點下去必定被後端拒絕的男性英靈，白跑一趟召喚跑條動畫才收到失敗alert。補上前端鏡像過濾。
+6. **【真bug】`aiData.options`是唯一沒經過`escapeHtml`就塞進`innerHTML`的AI自由文字欄位**：本檔其餘AI字串(`moveProposal`/`knockEvent`/`roomEventOffer.name`等)都有跳脫，只有選項按鈕文字沒有——AI輸出偶爾夾帶的引號/角括號有機率破壞按鈕屬性或注入標籤。補上`escapeHtml`(顯示用)+跳脫反斜線(onclick JS字串用)。
+7. **【防呆強化，非AI可觸發但符合「邊界先擋」原則】** `COL.PC.PHYSICAL`欄位的`JSON.parse`在`actionPlay`裡有兩處完全沒有try/catch(同檔案讀同一欄位的`Core_Settings.gs`版本都有)，補齊防呆——目前這欄只會被`JSON.stringify`寫入所以理論上不會壞，但COL是位置索引，欄位一旦錯位這裡會讓該角色從此每回合都拋錯、永遠好不了。
+
+**確認沒問題、判斷不修的項目**(附理由)：
+- `move_proposal`場景之外，同名不同人(如兩位共用括號拆解後同名候選)的rel_changes/npcs寫入可能誤中前排的人——機率極低，且會需要更複雜的排歧義邏輯，先不動。
+- 好感單回合變化：正向漲幅有梯度天花板(`kanshouRelChatCeiling_`)，負向沒有對應上限——可能是刻意設計(信任難建立、容易失去)，屬於遊戲平衡判斷而非明確bug，不擅自改。
+- `actionBackfillKanshouAi`寫入序列中途若真的拋錯，已寫入的欄位不會回滾——機率極低(只有Sheets API瞬斷才會觸發)，效益/風險比不划算，先不動。
+- REL_TAG手動自訂剛好撞名5個內建階級字串時會被自動進程覆蓋——這是`kanshouSyncRelTier_`自己註解明講的設計取捨(「清單外的自訂稱呼才受保護」)，不是bug。
+- `makeTextTag_`括號排除不完整、`data.locations`死欄、`play` action鎖豁免的並發風險——前一輪(§103)已評估過，維持不動的理由不變。
+
+**驗證**：`bash check.sh`全過；`git diff --stat gas/Engine_Combat.gs`空。
+

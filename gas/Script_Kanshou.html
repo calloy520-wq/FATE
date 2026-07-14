@@ -32,7 +32,7 @@
     document.getElementById(loadId)?.remove();
   }
 
-  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false, roomEventAccept = null, jumpBand = null, loaderCaptions = null) {
+  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false, roomEventAccept = null, jumpBand = null, loaderCaptions = null, moveWithCompanion = false) {
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
     // 🔥 主動掌握開關：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
@@ -71,7 +71,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -170,7 +170,9 @@ let plainTextContext = cleanText;
         optionsHtml += `<div class="options-grid">`;
         plainTextContext += `\n\n【命運的抉擇】\n`;
         data.options.forEach(optText => {
-          optionsHtml += `<button class="btn-option" onclick="send('${optText.replace(/'/g, "\\'")}', true)">${optText}</button>`;
+          // 🛡️ options是AI自由文字，唯一沒經過escapeHtml就塞進innerHTML的欄位——補上跟本檔
+          //   其餘AI字串(moveProposal/knockEvent/roomEventOffer.name等)一致的跳脫。
+          optionsHtml += `<button class="btn-option" onclick="send('${optText.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}', true)">${escapeHtml(optText)}</button>`;
           plainTextContext += optText + `\n`;
         });
         optionsHtml += `</div>`;
@@ -213,9 +215,12 @@ let plainTextContext = cleanText;
 
   function kcRecomputeAvailable_() {
     // 🌹 直接從英靈庫召喚(不需先在solo封存)：濾掉已在場的；種子(正典)英靈人人可召喚，但玩家原創(src==='ai_gen')只有創造者本人能召喚——不可召喚別人工房捏出的角色進自己的後日談。
+    // 🐛→✅ 補上後端actionKanshouSummonHero同款的「僅支援男女／女女配對(不支援男男)」過濾——
+    //   原本清單沒濾性別，男性玩家會看到一堆點下去必定被後端拒絕的男性英靈，白跑一趟召喚動畫。
     _kcHeroesAvailable = _kcHeroesAll
       .filter(function (h) { return !_kcCur.some(function (c) { return c.name === h.name; }); })
-      .filter(function (h) { return h.src !== 'ai_gen' || (h.creator && h.creator === currentAccount); });
+      .filter(function (h) { return h.src !== 'ai_gen' || (h.creator && h.creator === currentAccount); })
+      .filter(function (h) { return !(pc && pc.sex === '男' && h.gender === '男'); });
   }
 
   function ensureKcOverlay_() {
@@ -542,7 +547,9 @@ let plainTextContext = cleanText;
   // 🚶 同意時重用既有moveTarget管線(跟kanshouMoveTo同一條路，含巧遇/留人重逢等效果)，不另開移動程式碼；拒絕就當作一句普通續寫，原地不動。
   async function kanshouConfirmMoveProposal(loc) {
     showGamePane('chat');
-    await send('好，一起去「' + loc + '」吧。', false, null, loc);
+    // 🐛→✅ moveWithCompanion=true：告訴後端這是「同意AI提議、要帶著提議者一起走」，
+    //   不是玩家自己單獨點地圖移動(那種不強制拖走任何人，見Gallery.gs同款註解)。
+    await send('好，一起去「' + loc + '」吧。', false, null, loc, false, false, 0, null, null, false, false, null, null, null, true);
   }
   async function kanshouDeclineMoveProposal() {
     await send('這次還是先留在這裡好了。', false, null, null);

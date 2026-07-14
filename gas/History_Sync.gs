@@ -26,36 +26,45 @@ function saveGameHistoryBatch(pcId, entries) {
   trimRowsByOwner(sheet, pcId, 40, 1);
 }
 
+// 🛡️ 儲存型XSS修復：玩家自己打的訊息(message)/鑑賞御主名(pcName)存進「歷史暫存」時未經
+//   HTML跳脫，這裡重新載入歷史時又用innerHTML直接塞回頁面——等於玩家自己輸入的文字被當成
+//   HTML執行。真正該修的是輸入端(sanitizeUserData_)，但輸出端(這裡)也要有跳脫，雙重防護。
+function escapeHtml_(str) {
+  return String(str == null ? "" : str)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
 function getGameHistory(pcId, pcName) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("歷史暫存");
   if (!sheet) return "";
-  
+
   // 只讀最後 1000 列，避免整表掃描
   const lastRow = sheet.getLastRow();
-  if (lastRow <= 1) return ""; 
-  
+  if (lastRow <= 1) return "";
+
   const startRow = Math.max(2, lastRow - 1000);
   const numRows = lastRow - startRow + 1;
   const data = sheet.getRange(startRow, 1, numRows, 4).getValues();
   const playerHistory = data.filter(row => String(row[1]) === String(pcId));
-  
+
   const lastTen = playerHistory.slice(-10);
-  
+  const safePcName = escapeHtml_(pcName);
+
   let html = "";
   lastTen.forEach(row => {
-    const role = row[2]; 
+    const role = row[2];
     const content = row[3];
-    
-    // 🛡️ 內容洗滌器
-    const safeContent = content ? content.toString().replace(/\n/g, "<br>") : "靜默無言。";
-    
+
+    // 🛡️ 先HTML跳脫、再轉換換行(順序不能反過來，否則會把自己插入的<br>也跳脫掉)
+    const safeContent = content ? escapeHtml_(content.toString()).replace(/\n/g, "<br>") : "靜默無言。";
+
     if (role === "player") {
-      html += `<div class="msg-player"><span class="msg-name">${pcName}</span><span class="msg-text">${safeContent}</span></div>`;
+      html += `<div class="msg-player"><span class="msg-name">${safePcName}</span><span class="msg-text">${safeContent}</span></div>`;
     } else {
       html += `<div class="msg-ai"><b>【敘事】</b>${safeContent}</div>`;
     }
   });
-  
+
   return html;
 }
 // trimRowsByOwner 只擋單一 pcId 超量，整張表從不清；結束局在此清掉該局所有 pcId 的歷史列，
