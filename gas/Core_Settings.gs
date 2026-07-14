@@ -371,7 +371,11 @@ function looksToTraitParts_(rawLook, firstP) {
   const segs = String(rawLook || "").split(/[・、]/).map(s => s.trim()).filter(s => s !== "");
   if (segs.length === 0) return "";
   const demeanor = segs.length > 1 ? segs.pop() : "從容";
-  const appearance = segs.join("、");
+  // 🐛→✅ 這裡曾經用「、」把多段外貌合併回單一[外貌]格，但「、」正是parseTraitsHelper切分四格
+  //   的分隔符——合併回去的外貌格內部一有「、」，下面parseTraitsHelper就會把它當成多出來的頂層
+  //   格數，導致[氣質舉止]/[自稱]/[私密一面]全部錯位、第4格(私密一面)被截斷擠掉。改用「・」合併
+  //   (parseTraitsHelper只切「、」，不會再把這段拆開)，20位種子從者實測全數命中(見SOLO_REFERENCE.md)。
+  const appearance = segs.join("・");
   const selfAddr = String(firstP || "").trim() || "我";
   return `${appearance}、${demeanor}、自稱「${selfAddr}」、卸下心防時的柔軟一面`;
 }

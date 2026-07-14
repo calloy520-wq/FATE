@@ -786,6 +786,14 @@ async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，�
   showProcessing(_forgeEditId ? '正在重鑄靈基…' : '正在鑄造靈基…');
   try {
     var res = await gasRun({ action: 'save_hero', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '', build: JSON.stringify(build), heroId: _forgeEditId || '', acctName: (typeof currentAccount !== 'undefined' ? currentAccount : '') });
+    // 🐛→✅ 職階切成「御主」會清空原本的戰鬥數值(不可逆)，後端擋下第一次沒帶確認旗標的請求；
+    //   這裡接住那個特殊回應，跳確認框，玩家按確定才帶著confirmMasterConvert重送一次。
+    if (res && !res.success && res.needConfirmMasterConvert) {
+      hideProcessing();
+      if (!confirm(res.message || '確定要把這名英靈切換成「御主」嗎？(會清空六圍/技能/寶具，不可逆)')) return;
+      showProcessing('正在重鑄靈基…');
+      res = await gasRun({ action: 'save_hero', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '', build: JSON.stringify(build), heroId: _forgeEditId || '', acctName: (typeof currentAccount !== 'undefined' ? currentAccount : ''), confirmMasterConvert: true });
+    }
     if (res && res.success) {
       alert(res.message || '已鑄入英靈殿。');
       forgeReset_();               // 🧹 存檔成功→表單歸零(舊資料殘留=「創造卡在這支角色」bug)

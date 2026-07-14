@@ -2582,3 +2582,22 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 **驗證**：`bash check.sh`全過；`git diff --stat gas/Engine_Combat.gs`空。
 
+## §105 稽核範圍擴大到solo：創立御主／種子部署／工房捏新英靈（2026-07・玩家「從創立御主 拉去種子部署 還有新英靈建立 全部都確認一次 如果有問題 就再確認一次」）
+
+**背景**：前兩輪(§103/§104)都聚焦鑑賞，玩家這次明確要求把solo的三個核心流程也查一遍：①`actionManualNpc`(御主創角)、②`actionSummonServant`(種子英靈拉進實際對局)＋`heroToKanshouRow_`(鑑賞版對照)、③`Router_Creation.gs`的工房捏新英靈(`parseForgeBuild_`/`recordOriginalHero_`/`actionSaveHero`)。3路子agent逐一深挖，找到並修正6個真bug：
+
+1. **【真bug，影響全部20位種子從者】`looksToTraitParts_`把多段外貌合併回單一格時用「、」當連接符，但「、」正是`parseTraitsHelper`用來切分四格的分隔符**——合併後的外貌格內部只要有超過1段(如阿爾托莉雅的「金髮碧眼・甲冑藍裙的嬌小騎士、王者威儀」)，下游就會被多切出一格，導致[氣質舉止]/[自稱]/[私密一面]全部錯位一格、真正的第4格(私密一面)被截斷擠掉。實測20位種子從者100%中招，且`Seed_Rivals.gs`種敵御主從者也共用這支函式，等於solo幾乎每個角色的性格卡呈現都有位移。改用「・」重新合併(下游只切「、」，不會再拆開)。鑑賞沒中招是因為`heroToKanshouRow_`優先吃手寫的`DAILY_LOOK`欄位，只有查無時才會退回這支函式。
+2. **【真bug，可被直打API利用】工房捏角的技能fx白名單用「truthy物件查詢」判斷合法性，但`ALLOWED_FX_`是純物件字面量，繼承自`Object.prototype`的鍵(`constructor`/`toString`/`valueOf`等)一樣會查到truthy**——送`fx:"constructor"`能通過白名單檢查，接著`FLAT_FX_["constructor"]`會查到`Object`建構子函式(非數字)，跟數字相加會被JS強制轉成字串，把整個`skillCost`/`total`污染成字串；`total > clsBudget`比較時字串轉數字變`NaN`，`NaN > 任何值`恆`false`——預算超支的擋檢查形同虛設。兩處(`sanitizeSkills_`／`parseForgeBuild_`)都改用`Object.prototype.hasOwnProperty.call`才是真的白名單命中。
+3. **【真bug】`recordOriginalHero_`(寫入共用英靈殿的唯一入口)只查NAME查重、沒查ID查重**：部分種子英靈的id用去標點短名(如「庫丘林-Lancer」)跟自己的`realName`(「庫·丘林」)不同，玩家若指定那個短名當`trueName`，NAME比對不會撞，但組出的新id會跟種子id完全相同——下次`upgradeCodexPersonas_`版本升級時會依id覆寫，把玩家原創英靈整列蓋成種子資料。補上id層級的查重。
+4. **【真bug】`trueName`(AI輔助召喚新從者時玩家指定的真名)沒被`sanitizeUserData_`的嚴格清洗清單納入**，只截長度不擋HTML斷字字元；AI可能把它原樣回填進`realName`，寫進共用英靈殿後在多處(`Script_Onboarding.html`原創英靈清單、`Script.html`從者卡片等)未跳脫就塞進`innerHTML`。補進`STRICT_NAME_FIELDS`(輸入端)，並在`recordOriginalHero_`(寫入端、唯一真實來源)也補一道字元清洗雙重防護。
+5. **【真bug】`actionManualNpc`(solo御主創角)的願望/魔術/出身/體術/魔術階位等自由文字欄位，沒清洗MEMORY標記分隔字元(｜【】)就直接塞進標記字串**——跟鑑賞`processSkills`那次修的是同一類問題(這次是solo)。輕則玩家文字裡剛好帶的標點截斷自己的內容，重則可偽造後面的系統標記(如`【模式】`/`【戰爭】`/`【扮演】`，进而影響`seedRivalsForGame_`要不要排除某位正典御主)。補上跟`setOutfit_`同款的清洗。
+6. **【真bug/防呆】`masterMaxHpMp_(circuits)`跟`rankVal`的+/-修飾字元都沒有下限/上限防呆**：負迴路可以生出0血/負魔力的御主；體術/魔術階位若被灌入"A+++++++"這類輸入，`rankVal`的+/-字元計數沒有上限，可以無限堆高戰鬥倍率。分別補上迴路下限跟+/-字元封頂3個。
+
+**額外一個真但影響有限的資料安全問題，也一併修了**：工房編輯既有原創英靈時，若把職階切成「御主」(鑑賞限定純敘事款)，`parseForgeBuild_`會直接清空六圍/技能/寶具且不可逆，但原本存檔沒有任何警告——玩家不小心選錯職階存檔就會無聲蓋掉整套戰鬥數值。後端補上二次確認機制(`needConfirmMasterConvert`旗標)，前端接住後跳`confirm()`，玩家確認才會真的送出破壞性存檔。
+
+**確認沒問題、判斷不修的項目**(附理由)：
+- `save_hero`是lock豁免action(AI呼叫要秒)，兩個幾乎同時的重名建立請求理論上都能通過查重、都寫進表——機率極低(需要兩個請求剛好在同一個極短窗口用同一個真名)，不動架構。
+- 未知`heroId`召喚時solo會靜默退回AI即時生成一個全新從者(跟鑑賞版明確回錯誤訊息不同)——這是既有行為差異，非崩潰/資料錯亂，且回應本身有`fromCodex`旗標(只是前端沒讀)，優先度低，先不動。
+
+**驗證**：`bash check.sh`全過；`git diff --stat gas/Engine_Combat.gs`空。
+

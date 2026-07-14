@@ -254,7 +254,9 @@ function sanitizeSkills_(arr, maxCount) {
     return {
       n: String((s && (s.n || s.名稱 || s.name)) || "技能").slice(0, 10),
       r: okR(r) ? r : "C",
-      fx: ALLOWED_FX_[fx] ? fx : ""
+      // 🛡️ ALLOWED_FX_是純物件字面量，truthy查詢會被Object.prototype繼承的鍵(constructor/
+      //   toString/valueOf等)污染成false positive——改用hasOwnProperty才是真的「在白名單裡」。
+      fx: Object.prototype.hasOwnProperty.call(ALLOWED_FX_, fx) ? fx : ""
     };
   });
 }
@@ -273,14 +275,23 @@ function sanitizeSix_(o) {
 // 把 AI 生成的原創從者寫回英靈殿（重名則不收；御主不適用此機制）。
 //   選填 pExtra(工房玩家自定 look/moe/firstP/toMaster/speech/tic/back)——不存的話重召時 persona 欄退回預設。
 function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, traits, np, personaWords, align, pExtra) {
-  name = String(name || "").trim();
+  // 🛡️ 這是唯一寫進共用英靈殿的入口(手動工房已在parseForgeBuild_清過build.name，但AI輔助召喚
+  //   path的realName可能只清過userData.trueName、AI自己回傳的aiBrief.realName未經任何清洗)——
+  //   在單一真實來源補一道，兩條路徑都保證進表的名字不含HTML斷字字元。
+  name = String(name || "").replace(/[<>&"'`]/g, "").trim();
   if (!name) return;
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hs = ss.getSheetByName("英靈殿");
   if (!hs) return;
   var data = getHeroCodexCached();
+  // 🐛→✅ 只查NAME不夠：部分種子英靈的id用去標點短名(如「庫丘林-Lancer」)、跟自己的realName
+  //   (「庫·丘林」)不同——玩家指定的trueName若剛好是那個短名，NAME比對不會撞、但這裡組出的
+  //   newId(name+"-"+cls)會跟種子id完全相同，下次CODEX_PERSONA_VER升級時upgradeCodexPersonas_
+  //   會依id覆寫，把玩家原創英靈整列蓋成種子資料。補上id層級的查重。
+  var newIdCandidate = name + "-" + String(cls || "").trim();
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][COL.HERO.NAME]).trim() === name) return; // 已有同名 → 不重複收錄
+    if (String(data[i][COL.HERO.ID]).trim() === newIdCandidate) return; // id層級也擋(短名撞種子id)
   }
   var px = pExtra || {};
   var persona = JSON.stringify({
@@ -359,7 +370,10 @@ function parseForgeBuild_(build, reqCls) {
   // 第4技能欄位費+20：預算才是真約束(逼六圍讓位)，疊加上限±8 讓多買的命中/迴避冗餘——
   //   最壞情況四技組合(83~85%)仍未超過三技頂點(93%)。
   out.skills = (Array.isArray(build.skills) ? build.skills : []).filter(Boolean).slice(0, 4).map(s => {
-    const fx = ALLOWED_FX_[String(s && s.fx || "").trim()] ? String(s.fx).trim() : "";
+    // 🛡️ 同上：hasOwnProperty才是真的白名單命中，避免"constructor"這類繼承鍵讓後面的
+    //   FLAT_FX_[fx]查到Object建構子函式，把skillCost污染成字串，讓total>clsBudget的
+    //   超預算擋失效(number>string比較會把字串轉NaN，NaN>x恆false)。
+    const fx = Object.prototype.hasOwnProperty.call(ALLOWED_FX_, String(s && s.fx || "").trim()) ? String(s.fx).trim() : "";
     let r = String(s && s.r || "C").toUpperCase(); if (!/^(E|D|C|B|A)$/.test(r)) r = "C";
     return { n: String(s && s.n || "").replace(/[<>&"'`]/g, "").slice(0, 10) || "技能", r: r, fx: fx };
   });
@@ -434,8 +448,15 @@ function actionSaveHero(userData, pcId, sheets) {
     let pj = {}; try { pj = JSON.parse(data[idx][COL.HERO.PERSONA] || "{}"); } catch (e) { }
     if (!pj.creator || pj.creator !== acct) return JSON.stringify({ success: false, message: "僅創造者本人可修改這名英靈。" });
     build.name = String(data[idx][COL.HERO.NAME]); // 真名＝識別鍵，不可改
-    const pb = parseForgeBuild_(build, String(data[idx][COL.HERO.CLS] || ""));
+    const oldCls = String(data[idx][COL.HERO.CLS] || "");
+    const pb = parseForgeBuild_(build, oldCls);
     if (!pb.ok) return JSON.stringify({ success: false, message: pb.message });
+    // 🐛→✅ 職階切成「御主」是破壞性動作(parseForgeBuild_對isMasterCls會直接清空六圍/技能/寶具，
+    //   見上方註解)——原本改職階誤選到御主、直接存檔會無聲蓋掉戰鬥數值，且成功訊息完全沒提示這件事。
+    //   非「御主→御主」的職階切換才需要二次確認，避免正常編輯(職階本來就沒變/本來就是御主)被多問一次。
+    if (pb.cls === "御主" && oldCls !== "御主" && !userData.confirmMasterConvert) {
+      return JSON.stringify({ success: false, needConfirmMasterConvert: true, message: `「${build.name}」目前是戰鬥職階「${oldCls}」——切換成「御主」會清空六圍／技能／寶具(不可逆，之後召喚都是純敘事款)，確定要這麼做嗎？` });
+    }
     // 寶具英文名沿用舊值（修改不重叫 AI）；御主職階無寶具，np 恆空字串。
     const oldNp = String(data[idx][COL.HERO.NP] || "");
     const enM = oldNp.match(/\s([A-Za-z][A-Za-z0-9 .'\-:]{2,29})（/);
