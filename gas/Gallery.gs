@@ -2095,7 +2095,14 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       curfewPrompt: curfewPrompt,
       debtPaymentOffer: debtPaymentOffer,
       roomEventOffer: roomEventOffer,
-      kanshouClock: kanshouClock
+      kanshouClock: kanshouClock,
+      // 🐛→✅ 2026-07 玩家「時間怪怪的...應該要一直往下走才對」查出根因：這裡本來只回傳
+      //   kanshouClock(供地圖頁時段按鈕判斷用)，但畫面上唯一真的會顯示文字的#clock-hud
+      //   讀的是共用的updateClock(data.clock,...)——data.clock在鑑賞這條路徑上從來沒被設過，
+      //   每次收到回應都被updateClock當成「沒有clock」把HUD直接隱藏，玩家等於完全看不到
+      //   日期/時刻真的有沒有在走，只能靠印象猜。這裡補上同一份kanshouClock.label，
+      //   不是另開一條時鐘、不是重算，單純把已經算好的同一個值也餵給共用HUD。
+      clock: kanshouClock ? kanshouClock.label : ""
     });
 
   } catch (e) { return JSON.stringify({ text: "系統錯誤：" + e.message, people: [] }); }
