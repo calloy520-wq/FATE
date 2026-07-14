@@ -1334,10 +1334,10 @@
             + '<div style="margin-top:6px; display:flex; gap:6px;">'
             + '<button onclick="openStatus(\'' + safeN + '\',\'' + safeN + '\')" title="查看「' + safeN + '」的完整狀態：個性／特徵／身世／萌點／關係等，並可逆天改命微調敘事欄" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 詳細狀態</button>'
             + '</div>'
-            // 🆕 直接複用既有 kanshouEditRelTag/kanshouRemove(Script_Kanshou.html)，不重寫新邏輯。
+            // 🆕 直接複用既有 kanshouEditRelTag(Script_Kanshou.html)，不重寫新邏輯。召喚是一次性的、
+            //   沒有隊伍容量要騰，不需要「請走」這種按鈕。
             + '<div style="margin-top:6px; display:flex; gap:6px;">'
             + '<button onclick="kanshouEditRelTag(\'' + safeN + '\',\'' + String(s.tag || '').replace(/'/g, '') + '\')" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(120,90,180,0.18); color:#dcc8ff; border:1px solid #6a4a9a; border-radius:6px; cursor:pointer;">🏷️ 關係</button>'
-            + '<button onclick="kanshouRemove(\'' + safeN + '\')" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(160,74,106,0.18); color:#e8b8cc; border:1px solid #8a4a5a; border-radius:6px; cursor:pointer;">請走</button>'
             + '</div>'
             + '</div>';
         }
