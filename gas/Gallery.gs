@@ -411,7 +411,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
     return r[COL.HERO.ID] && String(r[COL.HERO.SEX]) !== '男' && KANSHOU_SUMMON_BLOCKED_IDS_.indexOf(String(r[COL.HERO.ID])) === -1 && String(r[COL.HERO.SOURCE]) !== 'ai_gen';
   });
   var starterRows = starterHeroes.map(function (hero) {
-    return heroToKanshouRow_(hero, gameId, kanshouRollDailyLocation_(String(hero[COL.HERO.NAME])), 1);
+    return heroToKanshouRow_(hero, gameId, kanshouRollDailyLocation_(String(hero[COL.HERO.NAME]), 6), 1);
   });
   if (starterRows.length) {
     kpc.getRange(kpc.getLastRow() + 1, 1, starterRows.length, pcColCount).setValues(starterRows);
@@ -1057,7 +1057,7 @@ function actionPlay(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
 
   const pcIndex = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pcIndex === -1) return "查無此人";
+  if (pcIndex === -1) return JSON.stringify({ text: "查無此人", people: [] });
   const pc = pcData[pcIndex];
   const pcName = pc[COL.PC.NAME];
   let curL = pc[COL.PC.LOC];
@@ -1102,8 +1102,17 @@ function actionPlay(userData, pcId, sheets) {
   let kanshouRoomEventCandidate_ = null;
   const kanshouHomeLocs_ = Object.values(KANSHOU_HERO_HOME_);
   if (kanshouRoomEventKey_ && kanshouHomeLocs_.includes(kanshouRoomEventTargetLoc_)) {
-    const _reIdx = pcData.findIndex((r, i) => i !== pcIndex && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC] || "").trim() === kanshouRoomEventTargetLoc_);
-    if (_reIdx !== -1) kanshouRoomEventCandidate_ = { eventKey: kanshouRoomEventKey_, hero: { realName: String(pcData[_reIdx][COL.PC.NAME]) }, idx: _reIdx };
+    // 🐛→✅ 兩位英靈共用同一住處(如小黑-Archer／伊莉雅絲菲爾-Master都住愛因茲貝倫城)時，原本
+    //   findIndex只挑「陣列裡排在前面」的那位，另一位永遠沒機會觸發——改成蒐集所有候選人再隨機
+    //   選一位，兩人都有公平機會被玩家撞見。
+    const _reMatches = [];
+    pcData.forEach((r, i) => {
+      if (i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC] || "").trim() === kanshouRoomEventTargetLoc_) _reMatches.push(i);
+    });
+    if (_reMatches.length) {
+      const _reIdx = _reMatches[Math.floor(Math.random() * _reMatches.length)];
+      kanshouRoomEventCandidate_ = { eventKey: kanshouRoomEventKey_, hero: { realName: String(pcData[_reIdx][COL.PC.NAME]) }, idx: _reIdx };
+    }
   }
   // 玩家按下按鈕(roomEventAccept帶姓名，第二道防線比對姓名確實吻合candidate，防直打API帶假名字)：
   //   才真的依bond骰一次走向、寫進提示詞；不點按鈕的話這個字串維持空白，narration完全走一般對話。
@@ -1549,7 +1558,9 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         // 邊界用全形｜(跟整個MEMORY生態系其餘標記【換裝】【邂逅】等一致)，而非半形「| [」。
         let skillMap = {}; let oldSkills = (oldMem.match(/\[雙修技巧\]([^｜]*)/) || [])[1]?.trim() || "";
         if (oldSkills && oldSkills !== "無") oldSkills.replace(/^\.\.\./, "").split('、').forEach(p => { let m = p.match(/(.+?)\(Lv\.(\d+)\)/); if (m) skillMap[m[1].trim()] = parseInt(m[2], 10); else if (p.trim()) skillMap[p.trim()] = 1; });
-        if (String(newSkillsStr || "").trim() && String(newSkillsStr || "").trim() !== "無") String(newSkillsStr || "").trim().split('、').forEach(s => { let cn = s.replace(/[\(\[]?Lv\.?\d+[\)\]]?/gi, '').trim(); if (cn) skillMap[cn] = Math.min((skillMap[cn] || 0) + 1, 10); });
+        // 🛡️ AI可能幻覺出帶｜【】的技巧名(這串本身就充滿這類格式範例)，比照setOutfit_/setWeapon_
+        //   同款清洗，避免污染到MEMORY其餘標記的邊界。
+        if (String(newSkillsStr || "").trim() && String(newSkillsStr || "").trim() !== "無") String(newSkillsStr || "").trim().split('、').forEach(s => { let cn = s.replace(/[\(\[]?Lv\.?\d+[\)\]]?/gi, '').replace(/[｜【】\[\]]/g, '').trim(); if (cn) skillMap[cn] = Math.min((skillMap[cn] || 0) + 1, 10); });
         let sorted = Object.keys(skillMap).map(k => ({ n: k, lv: skillMap[k] })).sort((a, b) => b.lv - a.lv);
         return sorted.length > 0 ? sorted.slice(0, 30).map(sk => `${sk.n}(Lv.${sk.lv})`).join('、') : "無";
       };

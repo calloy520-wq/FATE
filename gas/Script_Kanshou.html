@@ -71,7 +71,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, drive: drive, lastContext: lastAiContext, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, dismissCurfew: dismissCurfew || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -90,12 +90,6 @@
           updateUI(data.statusString.split('§'));
       }
 
-
-      if (data.justRevived) {
-  setTimeout(() => {
-    send(`【系統動作：玩家從重傷中甦醒，躺在小醫仙藥鋪的病榻上，身旁是忙碌的藥童。請重新描寫甦醒場景並給出符合當下情境的選項。】`, true);
-  }, 1500);
-}
 
       let cleanText = data.text.split('[')[0];
 
@@ -195,9 +189,6 @@ let plainTextContext = cleanText;
       // 🆕 地圖分頁的人數徽章讀的是window._lastTags.locationCounts(剛被上面refreshFateTags更新)，
       //   這裡只是重繪既有DOM、不另打網路。
       if (pc && pc.mode === 'kanshou') { try { const _kcml = document.getElementById('kc-map-list'); if (_kcml) _kcml.innerHTML = kcMapListHtml_(); } catch (e) {} }
-
-      // 🔵 敗北：御主殞命→播「願望實現的虛假之夢」→老虎道場（與戰鬥敗北同一套收場）
-      if (data.defeat) { await handleDefeat(data); }
 
     } catch(e) {
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();

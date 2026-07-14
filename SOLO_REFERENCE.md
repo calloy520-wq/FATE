@@ -2524,3 +2524,40 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 **驗證**：`bash check.sh`全過；`git diff --stat gas/Engine_Combat.gs`空。部署後建議測試：①鑑賞頂列出現📍地點旁邊的👥鈕，點下去正常開召喚/管理面板；②左側卡片空位不再可點；③「+」抽屜不再有「後日談同伴」項目。
 
+## §102 三顆小修補記（2026-07・玩家陸續回報：地點名帶時段字樣／請走鈕不禮貌／夜襲賴床邏輯確認）
+
+三顆各自獨立的小修正，補記漏掉的文件：
+
+**①地點「深夜便利店」改名「便利商店」**（玩家「還有這種類似的地點嗎...」問完後確認只有這一個）：地名不該綁死時段(玩家任何時候都可能走進來)，`KANSHOU_LOCATIONS_`/`KANSHOU_LOCATION_TAGS_`/`KANSHOU_LOCATION_ACTIVITY_`(皆Gallery.gs)＋前端`KC_LOCATIONS_`鏡像(Script_Kanshou.html)四處識別字同步改名。掃過其餘19個地點名，確認沒有其他地名把時段字樣寫死。
+
+**②清掉失效的「請走」按鈕**（玩家「還有把請走放在左邊的卡片太不禮貌了吧XD」）：`Script.html`的`buildSvCard`鑑賞分支裡有顆呼叫`kanshouRemove(name)`的「請走」鈕——這支函式在§91拿掉隊伍概念時就已經被刪掉，殘留成一顆點下去必定報錯(`kanshouRemove is not defined`)的死鈕，不只不禮貌、根本是活的bug。整顆移除，只留「🏷️關係」。
+
+**③修正鑑賞新建御主homeName預設值不一致**：新建御主存檔(`actionEnterKanshou`)回傳`homeName`寫死`"家"`，但之後每次讀取都經過`getKanshouHomeName_()`(預設值`"衛宮宅"`)——同一個「家」的預設值，第一次進場跟之後重整看到的不一樣，改成新建時也呼叫`getKanshouHomeName_(mRow[COL.PC.MEMORY])`統一成一個真實來源。順手清掉2處還提著已刪函式(`kanshouAdd`/`kanshouRemove`)/已砍動作(請走)的舊註解。
+
+**④修正夜襲/賴床叫醒可能誤觸發在無關英靈身上**（玩家「再檢查邏輯 夜襲和起床 能成立嗎？是用甚麼方式觸發？」逐條追問後發現）：`kanshouRollDailyLocation_`幫沒有專屬住處/常去地點標籤的英靈隨機骰地點時，保底池只排除了`room`(玩家房間)，沒排除`visit`(別人登記的家)——結果像美杜莎、間桐櫻黑化這類角色有機率被隨機骰進「遠坂邸」「藤村家」，若玩家剛好在場，橋段候選人會變成不相干的人。保底池比照`room`的排除邏輯一併排除`visit`。
+
+三顆都已個別`bash check.sh`全過、`git diff --stat gas/Engine_Combat.gs`空。
+
+## §103 全鑑賞系統整體複查（2026-07・玩家「再確定一次吧....連續兩次沒問題才停止」→「我是說整體！檢查確認！直到毫無問題！」）
+
+**背景**：連續修完好幾輪小bug後，玩家要求對整個鑑賞系統做一次徹底複查，不只是部署狀態，要「整體」都查到沒問題為止。
+
+**部署狀態複查(2次獨立確認)**：`git log`確認local HEAD＝origin/main＝origin/分支，三者一致；`bash check.sh`全過；`git diff --stat gas/Engine_Combat.gs`空；GitHub Actions `get_job_logs`直接讀了deploy job的逐行log，確認`clasp push`真的推了25個檔(含這次改的Gallery.gs)、`clasp deploy`真的印出新版本號(不是空跑)，deployment id沒變(符合紅線④)，版本描述帶著這次commit的完整SHA；隔一段時間重新單獨查一次workflow run狀態，結果一致。
+
+**三路子agent深度稽核**(橋段觸發邏輯／時間與狀態寫回流程／前端後端契約)，逐一驗證後修正的真bug：
+
+1. **`Gallery.gs`：`actionPlay`查無御主列時回傳裸字串(`"查無此人"`)不是合法JSON**——前端`gasRun()`對回應無條件`JSON.parse`，裸字串會拋`SyntaxError`，被catch住變成通用的「連結斷絕，連線無回應」提示，蓋掉真正的錯誤原因。改成`JSON.stringify({text:"查無此人", people:[]})`，比照同函式其餘早返回的慣例格式。
+2. **`Gallery.gs`：新世界開局的23位女性英靈`kanshouRollDailyLocation_`呼叫漏帶`hour`參數**，導致homeBias分支(唯一能讓英靈落在自己家的邏輯)整個被跳過，7位有登記住處的英靈第一天必定不在家(要等第一次結束一天/推進時間才有機會)，跟旁邊註解「各自落在自己原本的住處」的意圖不符。補上`hour: 6`(對齊御主自己Day1 06:00的開局時刻)。
+3. **`Gallery.gs`：兩位英靈共用同一住處時，橋段候選人永遠只挑陣列裡排前面那位**——`KANSHOU_HERO_HOME_`裡小黑-Archer／伊莉雅絲菲爾-Master都登記「愛因茲貝倫城」，原本`findIndex`只回傳第一個符合的列索引，另一位就算真的在家也永遠沒機會被選中，等於某個角色配對被靜默剝奪了整整一種橋段內容。改成蒐集所有符合的候選人再隨機挑一位。
+4. **`Gallery.gs`：`processSkills`(雙修技巧AI回填)沒有清洗`｜【】`等MEMORY標記邊界字元**，跟同檔案`setOutfit_`/`setWeapon_`已有的清洗邏輯不一致——AI提示詞裡滿是`【】｜`格式範例，理論上有機率被小模型幻覺帶進`dynamic_skills`欄位，汙染到MEMORY相鄰標記的邊界。補上跟既有寫法一致的字元清洗。
+5. **`Script_Kanshou.html`：`send()`裡`data.justRevived`/`data.defeat`兩塊(含`handleDefeat`呼叫)是從solo那邊複製過來、鑑賞後端從未設定過的死碼**(鑑賞無戰鬥/無死亡機制)，整塊移除。連帶清掉`gasRun`payload裡後端從未讀取的3個死鍵：`combatData`(鑑賞恆傳null)、`lastContext`(鑑賞後端自己用`getGameHistoryBatchRaw`抓歷史，不吃這個)、`dismissCurfew`(§97砍宵禁機制後就沒人讀了)——**只動了payload物件內容，`send()`函式簽名/13個呼叫點的位置參數完全沒動**，避免重新數一次位置參數引入新的對位錯誤。
+
+**確認沒問題、判斷不修的項目**(附風險評估，供之後參考)：
+- `play` action豁免寫入鎖(`LOCK_EXEMPT_ACTIONS_`)＋AI呼叫前快照寫回，理論上兩個並發的`play`請求會互相覆蓋——但這是刻意的效能取捨(避免每次互動都卡在AI慢回應上，符合CLAUDE.md「3→1 round-trip」鐵則)，觸發需要同一帳號同時開兩個分頁/裝置操作，範圍窄，不動架構。
+- `makeTextTag_`的正則字元排除класс沒排除`】`(其餘手寫的tag accessor都有排除)，目前無法建構出真的會出事的情境(所有實際塞進去的值都是純中文短字串)，且這是3個標記共用的通用工廠(含solo共用的`WORKSHOP_TAG_`/`SCAVENGE_TAG_`)，動它風險大於效益，先不動。
+- `data.locations`欄位後端從未回傳，前端`nearbyLocations`恆為空陣列——但這個變數本身在全代碼庫都沒被拿去渲染任何東西，是遠早於這波鑑賞改動就存在的通案死變數，不屬於這次鑑賞churn範圍，先不動。
+
+**CLAUDE.md同步更新**：核心訴求段落原本還寫著2026-07「Phase 1/Phase 2已實作」的商店/打工/房租描述，但這些在§100已經被玩家推翻整個砍除——CLAUDE.md沒跟著更新，會誤導下一個失憶的我以為經濟層還在。已改寫成反映「先恢復又推翻」的完整脈絡，指向SOLO_REFERENCE.md§100。
+
+**驗證**：`bash check.sh`全過；`git diff --stat gas/Engine_Combat.gs`空。
+
