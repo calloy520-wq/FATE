@@ -2694,7 +2694,29 @@ function applyModeUI() {
   //   handleMultiAttack/renderCombatReport/narrateCombatResult(已於更早的清理移除)，不是下面
   //   send()的行為；send() 是鑑賞(action:'play')自由聊天引擎的唯一呼叫點，跟「連擊」無關。
 
-  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, work = false, buyItem = null, giftTarget = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false, debtPayment = null, roomEventAccept = null, jumpBand = null, prepBreakfast = false) {
+  // 🎞️ 跑條：早餐/推進時間/打工這類「需要花時間」的動作用，取代純聊天那種瞬間感的loading-text。
+  // 文字會一直輪播，直到AI真的回應才移除(不綁定固定秒數，AI實際耗時本來就不固定)。
+  let progressTimer = null;
+  function showProgressLoader_(loadId, captions) {
+    document.getElementById('story').insertAdjacentHTML('beforeend',
+      `<div id="${loadId}" class="progress-wrap">
+        <div class="progress-bar"><div class="fill"></div></div>
+        <div class="progress-caption" id="${loadId}-cap">${escapeHtml(captions[0])}</div>
+      </div>`);
+    document.getElementById('story').scrollTop = document.getElementById('story').scrollHeight;
+    let i = 0;
+    progressTimer = setInterval(() => {
+      i = (i + 1) % captions.length;
+      const capEl = document.getElementById(loadId + '-cap');
+      if (capEl) capEl.textContent = captions[i];
+    }, 1100);
+  }
+  function hideProgressLoader_(loadId) {
+    if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
+    document.getElementById(loadId)?.remove();
+  }
+
+  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, work = false, buyItem = null, giftTarget = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false, debtPayment = null, roomEventAccept = null, jumpBand = null, prepBreakfast = false, loaderCaptions = null) {
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
     // 🔥 主動掌握開關(2026-07)：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
@@ -2730,9 +2752,12 @@ function applyModeUI() {
     }
     
     const loadId = "L" + Date.now();
-    story.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="loading-text">聖杯演算中…</div>`);
-    story.scrollTop = story.scrollHeight;
-    
+    if (loaderCaptions) showProgressLoader_(loadId, loaderCaptions);
+    else {
+      story.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="loading-text">聖杯演算中…</div>`);
+      story.scrollTop = story.scrollHeight;
+    }
+
     try {
       // 🚪 巧遇開關：kanshouEncounterOn 定義在 Script_Kanshou.html(該檔恆載入)，此處為 solo(非鑑賞)
       //   路徑保留防呆——solo 呼叫 actionPlay 會在函式入口即被擋下，這個欄位對 solo 無意義。
@@ -2740,7 +2765,7 @@ function applyModeUI() {
       const data = await gasRun({ action: "play", pcId: pc.id, message: msg, combatData: combatData, drive: drive, lastContext: lastAiContext, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, work: work || undefined, buyItem: buyItem || undefined, giftTarget: giftTarget || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, dismissCurfew: dismissCurfew || undefined, debtPayment: debtPayment || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, prepBreakfast: prepBreakfast || undefined });
 
 
-      document.getElementById(loadId)?.remove();
+      if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
       localNPCs = data.people || []; nearbyLocations = data.locations || [];
       // 🕰️ 2026-07「跳到時段」＋「時段行動」按鈕：每次actionPlay回應都可能改動時鐘(結束一天/推進
       //   時間/打工/跳節慶/跳時段/準備早餐皆會)，記下最新kanshouClock供地圖頁的時段按鈕判斷現在
@@ -2908,8 +2933,9 @@ let plainTextContext = cleanText;
       if (data.defeat) { await handleDefeat(data); }
 
     } catch(e) {
-      document.getElementById(loadId)?.remove(); alert("連結斷絕，連線無回應。");
-    } finally { 
+      if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
+      alert("連結斷絕，連線無回應。");
+    } finally {
       input.disabled = false; btn.disabled = false; story.scrollTop = story.scrollHeight;
       // 🔴 PC 端專屬優化：發送完畢後自動對焦輸入框
       if (!/Mobi|Android|iPhone/i.test(navigator.userAgent)) {

@@ -94,7 +94,7 @@
   async function kanshouEndDay() {
     if (!confirm('結束今天，讓時間流動到明天嗎？')) return;
     showGamePane('chat');
-    await send('🌙 結束了這一天。', false, null, null, false, true);
+    await send('🌙 結束了這一天。', false, null, null, false, true, 0, null, false, null, null, null, false, false, null, null, null, false, ['夜色漸漸深了…', '一天的塵埃緩緩落定…', '悄悄迎向嶄新的一天…']);
   }
 
   // ⏰ 2026-07「推進時間」玩法(玩家「有一個推進時間按鈕，可以控制NPC所在地點？按下去可能推進
@@ -102,7 +102,7 @@
   //   時刻重新分佈去向(見Gallery.gs actionPlay的advanceHours分支)。走一般send()同一套渲染。
   async function kanshouAdvanceHours(hours) {
     showGamePane('chat');
-    await send('⏩ 讓時間悄悄流逝了' + hours + '個小時。', false, null, null, false, false, hours);
+    await send('⏩ 讓時間悄悄流逝了' + hours + '個小時。', false, null, null, false, false, hours, null, false, null, null, null, false, false, null, null, null, false, ['時光靜靜流轉…', '天色漸漸改變…']);
   }
 
   // ⏰ 2026-07「跳到時段感覺比較好」玩家定案：取代上面「推進N小時」需要玩家自己心算會落在哪個
@@ -110,7 +110,7 @@
   //   kanshouAdvanceHours共用同一條advanceHours管線，只是這裡傳的是jumpBand而非固定小時數。
   async function kanshouJumpBand(key, label) {
     showGamePane('chat');
-    await send('⏩ 讓時間悄悄流轉到了' + label + '。', false, null, null, false, false, 0, null, false, null, null, null, false, false, null, null, key);
+    await send('⏩ 讓時間悄悄流轉到了' + label + '。', false, null, null, false, false, 0, null, false, null, null, null, false, false, null, null, key, false, ['時光靜靜流轉…', '天色漸漸改變…']);
   }
 
   // 🍳 2026-07「時段行動」骨架的第一個動作：清晨限定的「準備早餐」，等同移動到廚房＋幫3位房客
@@ -118,7 +118,7 @@
   //   GAS掌機率)。只在renderMapPane判斷現在是清晨時段才會顯示這顆按鈕。
   async function kanshouPrepBreakfast() {
     showGamePane('chat');
-    await send('🍳 走進廚房，準備今天的早餐。', false, null, null, false, false, 0, null, false, null, null, null, false, false, null, null, null, true);
+    await send('🍳 走進廚房，準備今天的早餐。', false, null, null, false, false, 0, null, false, null, null, null, false, false, null, null, null, true, ['清點食材…', '料理準備…', '精心製作…', '準備開飯！']);
   }
 
   // 💼 2026-07「打工賺錢」玩法(玩家推翻2026-06經濟全砍決定，僅鑑賞恢復)：跟推進時間共用同一套
@@ -126,7 +126,7 @@
   //   前端只需傳work:true，不必自己算時數/薪水(GAS掌數值，單一真實來源在後端)。
   async function kanshouWork() {
     showGamePane('chat');
-    await send('💼 去打工賺錢了。', false, null, null, false, false, 0, null, true);
+    await send('💼 去打工賺錢了。', false, null, null, false, false, 0, null, true, null, null, null, false, false, null, null, null, false, ['整理儀容出門…', '認真工作中…', '結算今日薪水…']);
   }
 
   // 🎊 2026-07「跳到節慶」：不帶advanceHours(留0)，帶jumpFestival讓後端自己算「距離該節慶還有
@@ -134,7 +134,7 @@
   async function kanshouJumpFestival(key, name) {
     if (!confirm('要讓時間快轉到「' + name + '」嗎？(不在身邊的英靈會依新時刻重新分佈)')) return;
     showGamePane('chat');
-    await send('🎊 想快轉到「' + name + '」看看。', false, null, null, false, false, 0, key);
+    await send('🎊 想快轉到「' + name + '」看看。', false, null, null, false, false, 0, key, false, null, null, null, false, false, null, null, null, false, ['翻閱著行事曆…', '想著當天的種種安排…']);
   }
 
   // 🎊 2026-07 玩家「不常用，不要擺出來」：從地圖頁常駐區塊搬進＋抽屜，比照kc-overlay同款

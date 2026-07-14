@@ -338,6 +338,15 @@
     50% { opacity: 1; }
   }
 
+  /* 🎞️ 跑條：給「早餐/推進時間/打工」這類需要花時間的動作用，跟純聊天的瞬間感做區別——
+     進度條本身只是不斷來回滑動的填色動畫(不綁定固定秒數，因為AI實際耗時本來就不固定)，
+     文字才是重點，會依showProgressLoader_傳入的captions輪播，直到AI真的回應才移除。 */
+  .progress-wrap { padding: 12px 8px; }
+  .progress-bar { height: 8px; border-radius: 999px; background: #2a2a2a; overflow: hidden; position: relative; margin-bottom: 8px; }
+  .progress-bar .fill { position: absolute; top: 0; left: -40%; width: 40%; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--gold-accent), #f0d878); animation: progressSlide 1.1s ease-in-out infinite; }
+  @keyframes progressSlide { 0% { left: -40%; } 100% { left: 100%; } }
+  .progress-caption { font-size: 13px; color: var(--gold-accent); text-align: center; font-style: italic; letter-spacing: 1px; }
+
   /* 🎲 戰報骰子：落地時小小一彈，別的都不動，只讓骰子本身有「剛擲出來」的感覺 */
   .dice-roll {
     display: inline-block;
