@@ -13,8 +13,7 @@ function findAccountRow_(accSheet, name) {
 }
 
 // 找玩家目前世界仍存活的從者列（回傳 row 與 index）。
-// 🧹 2026-07「SOLO鑑賞完全拆分」稽核：跟下面兩個函式一起從Gallery.gs搬過來——這三個是solo
-//   game-lifecycle(結束一局/清檔)的邏輯，只是歷史上放錯檔，鑑賞完全不會呼叫。
+// 🧹 跟下面兩個函式同屬 solo game-lifecycle(結束一局/清檔)邏輯，鑑賞不會呼叫。
 function findPlayerServant_(pcData, gameId) {
   for (var i = 1; i < pcData.length; i++) {
     if (String(pcData[i][COL.PC.FACTION]) !== "從者") continue;
@@ -158,15 +157,12 @@ function actionAccountNewGame(userData, pcId, sheets) {
   return JSON.stringify({ success: true });
 }
 
-// 🧹 清殘列：清掉已無任何帳號連結的 game_id 世界(敗北殘局/棄局/亡靈) ＋ 所有 DEAD_ 列，
-//   避免每局的敵御主＋敵從者整批殘留把「眾生」表養肥、拖慢每次按鍵的整表掃描。
-//   安全準則：① 不碰任一帳號當前連結中的活躍戰局；② 不碰 game_id 空白列(可能創角中/舊資料)；
-//             ③ 鑑賞(KPC_)在另表「鑑賞眾生」不受影響。
+// 🧹 清殘列：清掉無帳號連結的 game_id 世界(敗北殘局/棄局/亡靈)＋DEAD_列，避免眾生表養肥拖慢整表掃描。
+//   安全準則：不碰帳號當前連結的活躍戰局／game_id空白列；鑑賞(KPC_)在另表「鑑賞眾生」不受影響。
 //   一次性整表 rewrite(setValues + 單次 deleteRows tail)，遠快於逐列 deleteRow。
-// ⚠ 孤兒判定只讀「帳號」表的 COL.ACC.PC(solo 連結)，不讀 COL.ACC.KPC(慾海連結)；若此 action 被以
-// KPC_ 呼叫，dispatcher 會把 sheets.pc 路由到「鑑賞眾生」，liveGids 永遠對不上 k_ 開頭的 game_id，
-// 會把整張鑑賞眾生表誤判孤兒清空。Router_Action.gs 的 KANSHOU_BLOCKED_ACTIONS_ 已擋下 KPC_ 呼叫，
-// 這裡再加一道結構性防線：直接指名讀「眾生」表，不理會 sheets.pc 實際被路由到哪。
+// ⚠ 孤兒判定只讀「帳號」表的 COL.ACC.PC(solo 連結)、不讀 COL.ACC.KPC(慾海連結)——若此 action 被以
+// KPC_ 呼叫，dispatcher 會把 sheets.pc 路由到「鑑賞眾生」，liveGids 對不上 k_ 開頭的 game_id 而誤清整張表。
+// KANSHOU_BLOCKED_ACTIONS_ 已擋下 KPC_ 呼叫，這裡再加一道結構性防線：直接指名讀「眾生」表。
 function actionPurgeOrphans(userData, pcId, sheets) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var pc = ss.getSheetByName("眾生");

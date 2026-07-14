@@ -8,11 +8,8 @@
 //   稽核搬過去——這三個其實是solo game-lifecycle清理，不是鑑賞邏輯，只是historically放錯檔)。
 // ==========================================
 
-// 🔴 AI 輸出防呆：JSON.parse 之後、任何欄位被拿去寫入試算表之前，先在此夾住明顯異常值，
-//   避免 AI 偶發幻覺(天文數字好感、型別跑掉、結構非物件)默默污染資料表。
-//   只夾「會被寫進表」且「範圍明確」的數值欄位；敘事等自由文字不動，單回合好感限 -100~+100。
-// 🧹 2026-07「SOLO鑑賞完全拆分」稽核：從Router_Action.gs搬過來——全代碼庫唯一呼叫點就在本檔
-//   (actionPlay)，solo沒有任何地方用到，本來就是鑑賞專屬的防呆函式。
+// 防呆：AI 輸出寫入試算表前夾住異常值(幻覺型別跑掉)，只動範圍明確的數值欄位，單回合好感限 -100~+100。
+// 唯一呼叫點是本檔 actionPlay，solo 不用此函式。
 function sanitizeAiData_(aiData) {
   if (!aiData || typeof aiData !== "object" || Array.isArray(aiData)) {
     throw new Error("AI 回傳結構異常（非物件），已攔截避免污染資料。");
@@ -30,9 +27,8 @@ function sanitizeAiData_(aiData) {
   return aiData;
 }
 
-// 🌹 把鑑賞(後日談)avatar 連結到帳號——外部表存連結而非角色自稱，確保只有伺服器碼能寫。
-// 🧹 2026-07「SOLO鑑賞完全拆分」稽核：跟下面的getAccountKanshouPcId_一起從Account.gs搬過來，
-//   兩者都只服務鑑賞(COL.ACC.KPC欄位)，solo用的是同檔的linkAccountToPc_/COL.ACC.PC，互不相通。
+// 把鑑賞(後日談)avatar 連結到帳號——外部表存連結而非角色自稱，確保只有伺服器碼能寫。
+// 只服務鑑賞(COL.ACC.KPC欄位)；solo用同檔的linkAccountToPc_/COL.ACC.PC，互不相通。
 function linkAccountToKanshouPc_(accountName, kpcId) {
   if (!accountName || !kpcId) return;
   var name = String(accountName).trim();
@@ -60,9 +56,8 @@ function getAccountKanshouPcId_(accountName) {
   return found ? String(found.row[COL.ACC.KPC] || "") : "";
 }
 
-// 🔒 帳號歸屬驗證：比照 solo 的 linkAccountToPc_/COL.ACC.PC 機制——「帳號」表的 KPC 欄位是
-//   唯一權威來源(僅 actionEnterKanshou 寫入)。KPC_ ID 只用 Date.now()、理論上可預測，故不能只憑
-//   pcId 找列就信任是本人；每次都查 acctName 連結的 KPC 是否確實等於呼叫者聲稱的 pcId。
+// 帳號歸屬驗證：KPC_ ID 只用 Date.now()、理論上可預測，故不能只憑 pcId 找列就信任是本人——
+//   每次都查「帳號」表的 KPC 欄位(唯一權威來源)是否確實等於呼叫者聲稱的 pcId。
 function kanshouOwnedRowIdx_(data, pcId, acctName) {
   var trueKpc = getAccountKanshouPcId_(acctName);
   if (!trueKpc || trueKpc !== String(pcId || "")) return -1;
@@ -72,9 +67,8 @@ function kanshouOwnedRowIdx_(data, pcId, acctName) {
   return -1;
 }
 
-// 🌹 鑑賞專屬眾生分頁：慾海角色(御主 avatar＋同伴從者)全部住這、與主「眾生」隔離，
-//   後日談頻繁新增/移除角色不污染戰爭主表。schema 與「眾生」同(COL.PC 位置索引一致)。
-//   dispatcher 會在 pcId 以 "KPC_" 開頭時自動把 sheets.pc 指到這張表。
+// 鑑賞專屬眾生分頁：與主「眾生」隔離，頻繁新增/移除角色不污染戰爭主表。schema 與「眾生」同
+//   (COL.PC 位置索引一致)。dispatcher 會在 pcId 以 "KPC_" 開頭時自動把 sheets.pc 指到這張表。
 function getKanshouPcSheet_(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName("鑑賞眾生");
@@ -91,14 +85,10 @@ function getKanshouPcSheet_(ss) {
   return sh;
 }
 
-// 🤖 在【寫入鑑賞眾生前】用 AI 把戰時外貌(如「貼身黑色戰甲勁裝」)轉譯成同一人在現代都市日常會有
-//   的穿搭/外型：保留髮色/五官/氣質等本相不變，戰甲/武裝換成貼合性格的日常打扮；服裝保留原本
-//   色系/風格精神只做日常化，不换成完全不同調性。PREF(性格)完全不動、只有戰甲是「戰時限定」的
-//   部分。呼叫端(召喚/奪杯封存)僅一次性觸發，失敗時原樣退回戰時描述。
-//   輸出兩樣東西：①look 明確四段(外貌本相/氣質舉止/自稱與口氣/卸下心防的私密一面)，跟
-//   PERSONA.traits／PREF 的四格格式對齊；②outfit 獨立的日常穿搭一句話。
-//   dailyMoeHint：私密一面與萌點是兩次獨立 AI 呼叫，容易各自發想撞成同一件事的兩種說法，故把
-//   已算好的 dailyMoe 當提示傳入，明講「私密一面不可跟這句萌點重複」。
+// 把戰時外貌(如「貼身黑色戰甲勁裝」)轉譯成現代日常穿搭/外型：本相不變、戰甲換成日常打扮；
+//   呼叫端(召喚/奪杯封存)僅一次性觸發，失敗時原樣退回戰時描述。
+// dailyMoeHint：私密一面與萌點是兩次獨立 AI 呼叫，容易各自發想撞成同一件事，故傳入已算好的
+//   dailyMoe 明講「私密一面不可跟這句萌點重複」。
 function translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint) {
   var look = String(rawLook || "").trim();
   if (!look) return { look: "", outfit: "" };
@@ -121,10 +111,8 @@ function translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint)
   } catch (e) { return { look: look, outfit: "" }; }
 }
 
-// 跟 Core_Settings.gs 的 enrichPersonalityLikesDislikes_ 的差異：那個給「還在戰場」的 solo 用
-//   (只補缺項、維持戰時語境)，這個專給「進入鑑賞和平日常」用——一次AI呼叫做兩件事：①段數不足
-//   4段就補滿；②戰場語境短句(戰意/殺意/勝負等)轉譯成性格本質不變、適合日常展現的等價說法。
-//   只用在鑑賞的兩個新增從者入口。
+// 跟 Core_Settings.gs 的 enrichPersonalityLikesDislikes_ 不同：那個只補缺項、維持戰時語境給
+//   solo 用；這個額外把戰場語境短句(戰意/殺意等)轉譯成適合日常展現的等價說法，只用於鑑賞。
 function translatePersonalityToDaily_(name, cls, rawWords) {
   var words = String(rawWords || "").trim();
   if (!words) return words;
@@ -144,10 +132,9 @@ function translatePersonalityToDaily_(name, cls, rawWords) {
   } catch (e) { return words; }
 }
 
-// 這裡是平行世界，沒有聖杯戰爭這回事(但她們仍是英靈)：跟上面兩個 XxxToDaily_ 不同——moe(萌點·反差)
-//   若直接照搬戰時版本，會把「靠戰爭/詛咒/創傷撐出的沉重反差」硬套進沒發生過戰爭的世界，顯得莫名
-//   沉重。改寫成「輕量、溫馨、看了會心一笑」的日常萌點，性格核心不變但拿掉沉重份量——只用在 AI
-//   原創(ai_gen)英靈；canon 種子英靈的日常萌點全部手寫死進 persona.dailyMoe(見 Seed_Codex.gs)。
+// 戰時萌點常靠戰爭/創傷撐出沉重反差，直接照搬到沒發生過聖杯戰爭的平行世界會顯得莫名沉重——
+//   改寫成輕量、會心一笑的日常萌點。只用在 AI 原創(ai_gen)英靈；canon 種子英靈已手寫死進
+//   persona.dailyMoe(見 Seed_Codex.gs)。
 function translateMoeToDaily_(name, cls, rawMoe) {
   var moe = String(rawMoe || "").trim();
   if (!moe) return moe;
@@ -169,8 +156,7 @@ function translateMoeToDaily_(name, cls, rawMoe) {
   } catch (e) { return moe; }
 }
 
-// DAILY_LOOK/DAILY_WORDS 只有兩種來源，皆在「進英靈殿之前」保證非空：①種子全數手寫寫死；
-//   ②工房(ai_gen)建立/修改當下就呼叫AI預先轉好寫入。不存在第三種留空來源，故此處純讀取，
+// DAILY_LOOK/DAILY_WORDS 皆在進英靈殿前就保證非空(種子手寫或工房建立時AI預轉)，故此處純讀取，
 //   找不到快取值就退回原始戰時 look/words 當保底，不呼叫AI。
 function getDailyHeroFields_(heroRow, p) {
   var existingLook = String(heroRow[COL.HERO.DAILY_LOOK] || "").trim();
@@ -199,16 +185,13 @@ function dailySpeechByName_(name, preHeroes) {
   } catch (e) { return ""; }
 }
 
-// 🌹 慾海直接從英靈庫召喚進後日談，不必先在 solo 打贏封存。刻意【不帶任何戰鬥資料】
-//   (SIX/TAGS/MARTIAL 留空)——慾海無戰鬥，養這些資料只白增加 AI 誤讀風險。
-// 好感給 45(「尚淺·剛認識」)而非封存路徑的 90：剛見面就給滿好感會架空「好感未滿80/性格
-//   冷酷高傲者要演出真實戒備」的一致性鐵律，讓角色自己的性格決定要花多久暖起來。
+// 直接從英靈庫召喚進後日談，不必先在 solo 打贏封存。不帶戰鬥資料(SIX/TAGS/MARTIAL 留空，慾海無戰鬥)。
+// 起始好感刻意給低值(遠低於封存路徑)，讓角色個性決定要花多久暖起來，避免架空「好感未滿80需真實戒備」的一致性鐵律。
 function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   var pcColCount = Object.keys(COL.PC).length;
   var name = String(heroRow[COL.HERO.NAME] || "從者");
-  // 🏠 2026-07「地圖大重做」定案：房客身分不再是召喚當下就寫死的3位特定英靈——任何女性英靈都
-  //   可能之後被玩家指派入住客房(見actionKanshouAssignRoom)，故召喚當下一律用同一套泛泛之交
-  //   起點，不再有isHousemate這種提前預判。
+  // 房客身分非召喚當下寫死——任何女性英靈都可能之後被指派入住客房(見actionKanshouAssignRoom)，
+  //   召喚當下一律用同一套泛泛之交起點。
   var p = {}; try { p = JSON.parse(heroRow[COL.HERO.PERSONA] || "{}"); } catch (e) { }
   var sex = String(heroRow[COL.HERO.SEX] || "異") || "異";
   var sRow = Array(pcColCount).fill("");
@@ -233,50 +216,35 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   // 萌點跟外貌/性格一樣改讀日常版(daily.moe)：戰時 persona.moe 靠戰爭/創傷撐出的沉重反差，在
   //   這個沒打過聖杯戰爭的世界裡沒有來由。
   sRow[COL.PC.INTENT] = daily.moe || "";
-  // 戰時 p.back(3位女性正典御主是「父親死於聖杯戰爭」等悲劇)跟平行世界設定矛盾，優先讀
-  //   p.dailyBack(溫馨改寫版)。🏠 2026-07 玩家發現「為啥大家對我很恭敬？我要當普通的民宿老闆」
-  //   查出根因：沒有dailyBack的英靈舊版保底是`${RANK}・${name}`(如「Saber・阿爾托莉雅」)，這段
-  //   字串會透過COL.PC.BACK直接餵進AI提示詞(見partyDetailsArr的「身世:」欄位)，AI讀到「Saber」
-  //   這種職階字眼自然會演出從者對御主的恭敬——跟房東房客的民宿世界觀矛盾。
-  // 🩹 2026-07「借住在這裡的房客...這個身世太怪了吧 難怪他們這麼熱情」玩家二次糾正：召喚當下
-  //   (heroToKanshouRow_)只代表「這位英靈存在於這個世界」，此時ROOM還是空的、根本還不是房客
-  //   (要玩家之後另外呼叫actionKanshouAssignRoom才會真的入住)——保底身世卻寫死「借住在這裡的
-  //   房客」，等於每個剛認識、還沒被邀請入住的陌生人都被講成已經同住的房客，AI自然演得像老相識。
-  //   改成不帶任何居住關係字面的中性描述；「TA其實是你的房客」這件事改成動態判斷(見下方
-  //   partyDetailsArr依當下COL.PC.ROOM即時補上)，靜態欄位只負責身世、不該代管「目前住哪」這種
-  //   會隨玩家操作變動的狀態。
+  // 戰時 p.back 跟平行世界矛盾，優先讀 p.dailyBack。舊版保底寫死`${RANK}・${name}`(如「Saber・
+  //   阿爾托莉雅」)會把職階字眼餵進AI提示詞、演成從者對御主的恭敬，跟房東房客世界觀矛盾——
+  //   改成中性描述；「是否為房客」改成動態判斷(依COL.PC.ROOM，見下方partyDetailsArr)，這個靜態
+  //   欄位不代管會隨玩家操作(actionKanshouAssignRoom)變動的居住狀態。
   sRow[COL.PC.BACK] = p.dailyBack ? String(p.dailyBack).slice(0, 28) : "生活在這座平行世界城鎮裡的英靈，與你尚無深交";
   // 直接召喚無快照可帶，用該英靈自己的日常衣裝(daily.outfit)墊底，沒有才退回「日常便服」。
-  // p.speech/p.tic 是戰時口吻/小動作(如狂化英靈「僅餘低吼」)，跟平行世界設定矛盾：口吻改用
-  //   dailyLook 第3段(自稱與口氣)的日常安全版；tic 沒有對應日常版，直接不帶(私密一面已承擔
-  //   角色專屬小習慣的功能)。
+  // p.speech/p.tic 是戰時口吻/小動作，跟平行世界矛盾：口吻改用 dailyLook 第3段(自稱與口氣)的
+  //   日常安全版；tic 沒有對應日常版，直接不帶。
   var dailySpeechPart = dailyLookParts.length >= 4 ? dailyLookParts[2] : "";
   sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", dailySpeechPart, ""), daily.outfit || "日常便服");
   // PHYSICAL 留空，跟御主本人(actionEnterKanshou)一致，直到第一次 intimacy_feedback 才寫入；
   //   Router_Narrative.gs 的懶初始化會在 prompt 組裝時臨時補上，AI 不會拿到空物件。
   sRow[COL.PC.GAME_ID] = gameId;
-  // 🏷️ 2026-07「從者標籤？！改成點頭之交」玩家定案：非房客的初始關係標籤改成「點頭之交」，貼合
-  //   好感10的陌生程度，「從者」這個詞留給房客以外真的更熟識之後也不合適(且容易跟solo「主從」誤讀)。
-  //   關係標籤(REL_TAG)只是這裡設的起始值，之後全程只能透過actionUpdateRelTag(玩家UI手動操作)
-  //   更改——AI對這欄位完全沒有寫入權限(見下方rel_changes處理迴圈的固定行為)，GAS/玩家掌控，
-  //   不會被AI敘事悄悄帶偏。
+  // REL_TAG(關係標籤)只是這裡設的起始值，之後全程只能透過actionUpdateRelTag(玩家UI手動操作)
+  //   更改——AI對這欄位完全沒有寫入權限，不會被AI敘事悄悄帶偏。
   sRow[COL.PC.BOND] = 10;
   sRow[COL.PC.REL_TAG] = "點頭之交";
-  // 🌍 2026-07「加入這個世界的感覺」玩家定案：召喚＝讓這位英靈存在於這個世界裡，不是「加入隊伍」，
-  //   故不再寫IS_PARTY——鑑賞已全面改用「LOC是否跟玩家目前位置一致」判斷是否同地點在場，不看這欄
-  //   (solo自己的隊伍系統仍讀寫IS_PARTY，兩軌互不干擾，這裡只是鑑賞這條路徑不再使用這個概念)。
+  // 鑑賞不寫IS_PARTY——已全面改用「LOC是否跟玩家目前位置一致」判斷是否同地點在場(solo自己的
+  //   隊伍系統仍讀寫IS_PARTY，兩軌互不干擾)。
   sRow[COL.PC.REL_MEM] = "初次相遇，緣分才剛開始";
-  // 🏠 房客的房租結算起點對齊「召喚當下的那一週」，而非恆為0——否則召喚時機晚(如第5週才召喚)會在
-  //   下次收租時被kanshouCollectTenantRent_誤判成欠繳好幾週、一次補收一大筆不合理的房租。
+  // 房客的房租結算起點對齊「召喚當下的那一週」，而非恆為0——否則召喚時機晚(如第5週才召喚)會在
+  //   下次收租時被kanshouCollectTenantRent_誤判成欠繳好幾週、一次補收不合理的房租。
   sRow[COL.PC.UPKEEP_WEEK] = Math.floor(((curDay || 1) - 1) / 7);
   return sRow;
 }
 
-// 🏷️ 2026-07「需要好感gas調整！」玩家定案：非房客的關係標籤依好感自動走5階梯度，GAS算、不用
-//   玩家自己按按鈕，也不讓AI插手(AI對REL_TAG本就沒有寫入權限，見actionUpdateRelTag)。門檻刻意
-//   借用鑑賞既有的兩個好感節點(60=夜襲橋段「歡喜迎接」分支、80=同床共枕門檻)當切點，數字只有
-//   一處來源，不會兩邊打架。「房客」這個字面不在這份清單裡，故房客的標籤永遠不會被這裡自動改掉，
-//   要改只能靠玩家自己手動編輯(比照「房客就是房客，以後自己改」的定案)。
+// 非房客的關係標籤依好感自動走5階梯度，GAS算、不讓AI插手(AI對REL_TAG本就沒有寫入權限)。
+//   門檻借用鑑賞既有的兩個好感節點(60=夜襲橋段門檻、80=同床共枕門檻)當切點，數字只有一處
+//   來源。「房客」不在這份清單裡，故房客標籤永遠不會被這裡自動改掉，只能靠玩家手動編輯。
 const KANSHOU_REL_TIER_ = [
   { min: 80, label: '戀人' },
   { min: 60, label: '親近的人' },
@@ -295,31 +263,25 @@ function kanshouSyncRelTier_(pcData, idx) {
   const tier = KANSHOU_REL_TIER_.find(t => bond >= t.min);
   if (tier && tier.label !== curTag) pcData[idx][COL.PC.REL_TAG] = tier.label;
 }
-// 💝 2026-07「只是聊天就加好感可以推倒是不是怪怪的？應該要卡在某個地方 進行送禮突破後才可以繼續
-//   增加」玩家定案：純聊天(AI rel_changes)加好感只能推到「目前所在梯度的上限」就卡住不再往上，
-//   要送禮(shopItem gift分支，走完全不同的程式碼路徑、天生不吃這個上限)才能真的突破到下一梯度。
-//   上限沿用KANSHOU_REL_TIER_同一份門檻(20/40/60/80)，不重複開一份新數字——傳入「目前的bond」，
-//   回傳「聊天不靠送禮最多只能到幾」(已經在最高梯度80+時回傳100，代表沒有更高的梯度可卡)。
+// 純聊天(AI rel_changes)加好感只能推到「目前所在梯度的上限」就卡住，要送禮(shopItem gift分支，
+//   不吃這個上限)才能突破到下一梯度。上限沿用KANSHOU_REL_TIER_同一份門檻，不重複開新數字。
 function kanshouRelChatCeiling_(bond) {
   const thresholds = KANSHOU_REL_TIER_.map(t => t.min).filter(m => m > -100).sort((a, b) => a - b);
   for (const t of thresholds) { if (bond < t) return t - 1; }
   return 100;
 }
 
-// 🩹 [雙修技巧]標記專用讀取(半形方括號、全形｜分隔，跟下方processSkills/setSkillTag_寫入格式
-//   一致)：舊寫法直接把整格MEMORY(含召喚時塞的關係介紹句、口吻、換裝等其他標記)當「技巧」字面
-//   餵給AI，查無標記時甚至把「緣分才剛開始」這種永不更新的初見文案原封不動外洩進[身體記憶]欄，
-//   讓AI每回合都讀到過期又不相干的內容。只該讀這個標記本身的值。
+// [雙修技巧]標記專用讀取——舊寫法曾把整格MEMORY(含關係介紹句、口吻、換裝等其他標記)當「技巧」
+//   字面餵給AI，讓AI讀到過期又不相干的內容。只該讀這個標記本身的值。
 function kanshouSkillTagStr_(memory) {
   const m = String(memory || "").match(/\[雙修技巧\]([^｜]*)/);
   const raw = m ? m[1].trim() : "";
   return raw || "無";
 }
 
-// 🌍 直接從英靈庫召喚一位英靈、讓她「存在」於這個後日談世界(不需先在 solo 封存)。2026-07「加入
-//   這個世界的感覺」玩家定案：召喚是一次性的「讓她出現在這個世界」，不是「加入隊伍」——世界裡沒有
-//   隊伍容量上限這回事，之後她會依kanshouRollDailyLocation_自己過自己的生活，玩家想找誰互動就
-//   去她所在的地點，不必先「邀入隊伍」才能對話。同一位只能被召喚一次(已存在就不重複建列)。
+// 直接從英靈庫召喚一位英靈、讓她「存在」於這個後日談世界(不需先在 solo 封存)。召喚是一次性的
+//   「讓她出現」，不是「加入隊伍」——沒有隊伍容量上限，之後她依kanshouRollDailyLocation_自己
+//   過自己的生活。同一位只能被召喚一次(已存在就不重複建列)。
 function actionKanshouSummonHero(userData, pcId, sheets) {
   // dispatcher(Router_Action.gs)已依 pcId 開頭 KPC_ 把 sheets.pc 指到「鑑賞眾生」，
   //   這 5 顆 action 全部只吃 KPC_ 呼叫，不必再自己重查。
@@ -334,18 +296,15 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
   var heroes = getHeroCodexCached();
   var hero = heroes.find(function (r) { return String(r[COL.HERO.ID]) === heroId; });
   if (!hero) return JSON.stringify({ success: false, message: "英靈庫查無此英靈。" });
-  // 🎨 2026-07 玩家「拿掉衛宮士郎吧...也禁止召喚他？」：玩家本人就是這個位置，不開放召喚。
+  // 衛宮士郎-Master：玩家本人就是這個位置，不開放召喚。
   if (heroId === '衛宮士郎-Master') return JSON.stringify({ success: false, message: "無法召喚——這個位置由你自己擔任。" });
-  // 🎨 2026-07「地圖大重做」玩家「斯卡哈只先加入Lance版本」：Assassin版本暫不開放召喚，避免
-  //   同一位英靈用兩種職階分身重複存在於這個世界；「伊莉雅Caster版不想要太多同名角色重複」、
-  //   「恩奇都也不要進來吧」：三者皆暫時移出鑑賞可召喚名單(資料驅動，日後想加回/再排除其他id
-  //   只需改這份清單，不必動下面的邏輯)。
+  // 避免同一位英靈用兩種職階分身重複存在於這個世界，暫時移出鑑賞可召喚名單(資料驅動，見
+  //   KANSHOU_SUMMON_BLOCKED_IDS_，日後想調整只改那份清單)。
   if (KANSHOU_SUMMON_BLOCKED_IDS_.indexOf(heroId) !== -1) return JSON.stringify({ success: false, message: "這位英靈暫時不開放召喚。" });
   var heroName = String(hero[COL.HERO.NAME] || "從者");
-  // 🎨 2026-07 玩家二次翻案「邀請加入到世界可以開放所有角色不管性別」：重新對男性開放召喚入口
-  //   (推翻上一批「男角都移除掉...禁止召喚」的全面封鎖)。跟女性不同的是男性依然不會被
-  //   actionEnterKanshou自動預先鋪墊進世界(見該函式SEX!=='男'過濾)，只能靠玩家在這裡主動召喚。
-  // 🔒 玩家原創(ai_gen)只有創造者本人可召喚進鑑賞——前端清單已濾掉，這裡是第二道防線(防直打API
+  // 男性可被召喚，但不會被actionEnterKanshou自動預先鋪墊進世界(見該函式SEX!=='男'過濾)，只能
+  //   靠玩家在這裡主動召喚。
+  // 玩家原創(ai_gen)只有創造者本人可召喚進鑑賞——前端清單已濾掉，這裡是第二道防線(防直打API
   //   繞過前端過濾)。種子(正典)英靈不受限、人人可召喚。
   if (String(hero[COL.HERO.SOURCE]) === "ai_gen") {
     var _hp = {}; try { _hp = JSON.parse(hero[COL.HERO.PERSONA] || "{}"); } catch (e) { }
@@ -369,11 +328,9 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
   return JSON.stringify({ success: true, added: heroName, message: "「" + heroName + "」來到了你們身邊。" });
 }
 
-// 🌹 進入慾海·後日談（新版單一持久主畫面）：每個帳號只有【一個】常駐後日談世界。
-//   點「進入鑑賞」→ 直接回到這個世界（御主 avatar），不再先挑從者、不再每次重講開場。
-//   從者由 👥 後日談同伴面板自行邀請。歷史紀錄跟單機一樣靠 pcId 從「歷史暫存」撈。
-//   🔒 御主 avatar 綁定帳號比照 solo 的 linkAccountToPc_ 機制：權威連結存在「帳號」表的 KPC
-//   欄位，只有伺服器碼會寫，玩家端無法影響(MEMORY 內【帳號】標記僅供人工檢視辨識)。
+// 進入慾海·後日談：每個帳號只有【一個】常駐後日談世界，點「進入鑑賞」直接回到這個世界。
+//   御主 avatar 綁定帳號比照 solo 的 linkAccountToPc_ 機制：權威連結存在「帳號」表的 KPC
+//   欄位，只有伺服器碼會寫(MEMORY 內【帳號】標記僅供人工檢視辨識)。
 function actionEnterKanshou(userData, pcId, sheets) {
   var acctName = String(userData.acctName || "").trim();
   if (!acctName) return JSON.stringify({ success: false, message: "未登入帳號。" });
@@ -423,9 +380,8 @@ function actionEnterKanshou(userData, pcId, sheets) {
     return JSON.stringify({ success: true, needSetup: true, defaultName: acctName });
   }
   var gameId = "k_" + Date.now();
-  // 🏠 2026-07「開場是不是不要在火車站了？直接在家中？」玩家定案：開場直接落在衛宮宅自己的房間，
-  //   不再是空泛的「冬木·深山町」城區(那個泛用值容易被AI自由發揮成「剛下車、還在路上」等外地開場，
-  //   跟「房東本來就住在這裡」的房東房客世界觀矛盾)。
+  // 開場落在衛宮宅自己的房間，不用泛泛的「冬木·深山町」城區——那個值容易被AI演成「剛下車、
+  //   還在路上」的外地開場，跟「房東本來就住在這裡」的世界觀矛盾。
   var loc2 = "我的房間";
   var pcColCount = Object.keys(COL.PC).length;
   var mId = "KPC_" + Date.now();
@@ -436,18 +392,15 @@ function actionEnterKanshou(userData, pcId, sheets) {
   // 鑑賞無戰鬥：氣血/真氣/上限/STATUS 皆不寫(見 heroToKanshouRow_ 同款理由)。五圍已棄欄，戰鬥吃六圍 SIX。
   mRow[COL.PC.LOC] = loc2;
   mRow[COL.PC.FACTION] = "御主";
-  // ⏰ 2026-07「推進時間」玩法：借用solo既有的COL.PC.DAY/HOUR欄位存鑑賞自己的時鐘。
-  // 🍳 2026-07「早上6點要開始準備早餐？！」玩家定案：開局(及之後每天「結束一天」醒來，見下方
-  //   endDay分支)改成清晨6點(仍落在timeBand_的「清晨」時段，跟原本8點同一個氛圍標籤，只是更早)，
-  //   貼合「房東要張羅早餐」的作息——這裡刻意不強制加一個「必須先做早餐才能行動」的機關，純粹交給
-  //   時段感提示詞(🕰️現在是...清晨)讓AI自然帶出張羅早餐的晨間氛圍，不強制、不卡關。
+  // 借用solo既有的COL.PC.DAY/HOUR欄位存鑑賞自己的時鐘。開局(及結束一天醒來)固定清晨6點——
+  //   仍落在timeBand_的「清晨」時段，不強制加「必須先做早餐才能行動」的機關，交給時段感提示詞
+  //   讓AI自然帶出晨間氛圍。
   mRow[COL.PC.DAY] = 1;
   mRow[COL.PC.HOUR] = 6;
-  // 💰 2026-07 經濟層：開局給起始金錢，維護費週數從0起算(進場當下必是第0週，第8天才會跨進第1週被扣款)。
+  // 開局給起始金錢，維護費週數從0起算(進場當下必是第0週，第8天才會跨進第1週被扣款)。
   mRow[COL.PC.MONEY] = KANSHOU_START_MONEY_;
   mRow[COL.PC.UPKEEP_WEEK] = 0;
   // 【帳號】標記保留供人工檢視試算表時辨識(非驗證用途，真正的歸屬判斷已走帳號表 KPC 欄位)。
-  // 🆕 玩家本人也先給「日常便服」墊底，卡片才不會裝扮欄空白待換裝
   // 種子秒寫階段(AI潤色前)的預設值：平行世界框架，不斷言「曾經打過又結束了一場聖杯戰爭」。
   mRow[COL.PC.MEMORY] = setOutfit_("【帳號】" + acctName + "｜【鑑賞後日談】這裡是平行世界的和平日常，與英靈相伴度過尋常時光。", "日常便服");
   mRow[COL.PC.GAME_ID] = gameId;
@@ -463,11 +416,9 @@ function actionEnterKanshou(userData, pcId, sheets) {
   kpc.appendRow(mRow);
   linkAccountToKanshouPc_(acctName, mId); // 🔒 權威連結寫進帳號表
 
-  // 🌹 2026-07 玩家「不放房客(不預先指派房間) 但要幫我把這些女性角色先召喚到這個世界上阿...
-  //   讓玩家自己去邀請房客」定案：跟更早之前「開場就放置3~5位」的差別——①涵蓋全部女性英靈(不是
-  //   挑幾位、種子/來源皆算，ai_gen玩家原創除外)；②不預先指派客房(ROOM留空，不是房客，起始好感/
-  //   關係標籤走一般泛泛之交)，純粹讓她們已經「活在這個世界裡」，玩家走到她所在地點就能撞見、
-  //   認識，想邀她入住客房再自己另外呼叫actionKanshouAssignRoom指派。
+  // 開場涵蓋全部女性英靈(種子/來源皆算，ai_gen玩家原創除外)、不預先指派客房(ROOM留空，起始
+  //   好感/關係標籤走一般泛泛之交)，純粹讓她們已經「活在這個世界裡」，玩家撞見後想邀入住客房
+  //   再自己另外呼叫actionKanshouAssignRoom指派。
   var starterHeroes = getHeroCodexCached().slice(1).filter(function (r) {
     return r[COL.HERO.ID] && String(r[COL.HERO.SEX]) !== '男' && KANSHOU_SUMMON_BLOCKED_IDS_.indexOf(String(r[COL.HERO.ID])) === -1 && String(r[COL.HERO.SOURCE]) !== 'ai_gen';
   });
@@ -576,8 +527,8 @@ function actionKanshouSetSex(userData, pcId, sheets) {
   if (i < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   if (newSex === "男") {
     var gid = String(data[i][COL.PC.GAME_ID] || "");
-    // 🌍 2026-07「隊伍」概念已拿掉，這裡不再看IS_PARTY——只要這個世界裡「存在」男性從者(多半是
-    //   男角全面禁召[§83]之前留下的舊存檔)，就不開放切換成男性玩家，避免悄悄變成不合規的男男配對。
+    // 不看IS_PARTY——只要這個世界裡「存在」男性從者(多半是禁召前留下的舊存檔)，就不開放切換
+    //   成男性玩家，避免悄悄變成不合規的男男配對。
     var hasMaleCompanion = data.some(function (r, ri) {
       return ri !== i && String(r[COL.PC.GAME_ID] || "") === gid && String(r[COL.PC.FACTION]) === "從者" &&
         String(r[COL.PC.SEX]) === "男" && !String(r[COL.PC.ID]).startsWith("DEAD_");
@@ -633,10 +584,9 @@ function actionKanshouSetHomeName(userData, pcId, sheets) {
 //   跟本檔其餘鑑賞 action(召喚/進場/請走/AI深化)集中一處，好查找。
 // ==========================================
 
-// 這個函式現在只可能被鑑賞(慾海)呼叫——solo(按鍵制)走完全獨立的 miniSystem，從不呼叫這裡；
-//   唯一呼叫來源是 actionPlay，其 isNsfwMode 恆為 true(全專案已無 'full' 模式呼叫路徑)，故不再
-//   分 SFW/NSFW 分支，直接寫死唯一真的會用到的版本。real runtime 上唯一還會變動的「模式」是
-//   driveOn(🔥主動掌握)，由 actionPlay 自己組的 driveStr 處理，不在這個函式管轄範圍內。
+// 只被鑑賞(慾海)呼叫——solo走完全獨立的 miniSystem。唯一呼叫來源 actionPlay 的 isNsfwMode
+//   恆為 true，故不再分 SFW/NSFW 分支，直接寫死唯一會用到的版本。driveOn(主動掌握)由
+//   actionPlay 自己組的 driveStr 處理，不在這裡管轄。
 function buildDefaultSystemPrompt() {
   // physical_state 只留顏面神情(≤15字)：只管表情，衣裝狀態拆進獨立的 outfit_change 欄
   //   (下方)，兩者關注點不同——前者是每回合都可能變的暫時神情，後者是要持久記住的實際穿著。
@@ -660,10 +610,8 @@ function buildDefaultSystemPrompt() {
     // 🗺️ 鑑賞無固定地圖節點清單，地點完全由AI自主決定何時、換去哪(可自創場景)。
     //   ★鐵律：narration必須先把移動/抵達的過程實際寫出來，這欄才能填新地名，不可無故憑空跳地點。
     "location": "本回合結束時御主所在地點——若narration有實際敘述移動/抵達，填新地點名稱(可自創、不限於冬木既有地名)；沒有移動則原樣填目前地點",
-    // 🚶 2026-07「AI提議換地點需玩家同意」定案：這是「提議」不是「已發生」，跟上面location欄
-    //   (已經抵達)完全不同時態——填了這欄，narration必須停在邀請/提議的當下，不可先把移動或
-    //   抵達寫出來，真正是否移動由玩家事後回應決定。非必填，沒有提議意圖就填空字串，不要每回合
-    //   都提議。地點需為下方提供的既有地點名稱之一，避免玩家同意後對不到任何地方。
+    // move_proposal是「提議」不是「已發生」，跟上面location欄(已經抵達)完全不同時態——填了
+    //   這欄，narration必須停在邀請當下、不可先寫出移動或抵達，真正是否移動由玩家事後回應決定。
     "move_proposal": "若同伴這回合自然而然想邀你換個地方(如「要不要去圖書館?」)，填目標地點名稱(需為既有地點清單裡的名字)；沒有這個意圖就填空字串",
     "options": ["1. [主動]強勢掌握主導...", "2. [被動]順從委婉試探...", "3. [接續]順劇情延續互動...", "4. [反差]跳脫氛圍的驚人舉動..."],
     "intimacy_feedback": {
@@ -763,8 +711,7 @@ function getKanshouPeopleList_(pcId, curL, allPcData) {
     const r = allPcData[i];
     if (r[COL.PC.ID] == pcId || String(r[COL.PC.ID]).startsWith("DEAD_")) continue;
     if (myGameId && String(r[COL.PC.GAME_ID] || "") !== myGameId) continue;
-    // 🌍 2026-07「隊伍」概念拿掉：這個世界裡已存在的每個人都各自有自己的位置，不再靠IS_PARTY篩選——
-    //   isExact(是否跟玩家同地點)才是「在場」的唯一判準。
+    // 不靠IS_PARTY篩選——isExact(是否跟玩家同地點)才是「在場」的唯一判準。
     list.push({ id: r[COL.PC.ID], name: r[COL.PC.NAME], isExact: (String(r[COL.PC.LOC] || "") === safeCurL) });
   }
   return list;

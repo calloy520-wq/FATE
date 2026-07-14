@@ -1,7 +1,6 @@
 <script>
   // ==========================================
-  // 🔴 前端 XSS 防護：任何「可能來自其他玩家輸入」的文字，渲染進 innerHTML 前都要過這層轉義
-  //   (自己打的字後端也會清過，但跨玩家可見的內容——訊息內容、排行榜暱稱等——多一層保險)
+  // 🔴 XSS 防護：跨玩家可見文字(訊息內容等)渲染進 innerHTML 前都要過這層轉義，即使後端已清過也多一層保險
   // ==========================================
   function escapeHtml(str) {
     if (str === null || str === undefined) return "";
@@ -16,12 +15,7 @@
   // 🔴 核心通訊層：封裝 google.script.run 成 Promise，完美替換 fetch
   // ==========================================
   let __pendingState = null; // ⚡ 動作回應夾帶的最新 client state，供緊接的 syncData 直接消費(免再打一趟 sync)
-  // 🐛→✅ 2026-07 稽核抓到(HIGH，整個「3→1 round-trip」機制在多數動作上形同虛設)：這個變數是「新一趟
-  //   伺服器呼叫開始就作廢舊state」——包括narrate()自己內部呼叫的narrate_only這趟。11個動作的handler
-  //   原本寫成「await narrate(res.aiPrompt); syncData(true);」，narrate()一啟動就把剛拿到的_state
-  //   洗掉了，syncData(true)跑到時__pendingState早已是null，只好乖乖真的打一趟sync round-trip——後端
-  //   花成本組出來的_state整包白算。已把全部11處handler改成「syncData(true)在前、narrate()在後」，
-  //   讓_state在被下一趟gasRun清空前先被消費掉。這裡只是記錄根因，行為本身不需要再改。
+  // 🐛→✅ __pendingState 在每趟新的 gasRun() 呼叫時就被清空(含 narrate() 內部呼叫的 narrate_only)——handler 必須先 syncData(true) 再 narrate()，順序反了 state 會被提前洗掉、白算一趟。
   function gasRun(payload) {
     __pendingState = null; // 新一趟伺服器呼叫開始 → 作廢任何未消費的舊 state(防過期錯套)
     return new Promise((resolve, reject) => {
@@ -75,16 +69,14 @@
   let myActiveServant = '';// 🗝️ 目前出戰／操作中的從者名
   let myMasterSeals = 0;  // 令咒餘量
   let myMasterOutfit = ''; // 👗 御主本人當前換裝（鑑賞：與從者outfit同款機制，供「換裝」按鈕預填）
-  // ❖ 令咒·蓄勢開關(2026-07 玩家定案)：按❖發亮＝蓄勢(免費·可再按取消)；之後按 普攻/⚡主動/💥寶具
-  //   任一攻擊即自動帶上令咒(必中＋×1.5)並熄滅。按其他任何行動(移動/偵查/互動…)都不消耗、蓄勢保留。
+  // ❖ 令咒·蓄勢開關：按❖發亮＝蓄勢(免費·可取消)，下一次攻擊自動帶上令咒(必中×1.5)並熄滅；非攻擊動作不消耗，蓄勢保留。
   let sealArmed = false;
   function toggleSealArm() {
     if (!sealArmed && myMasterSeals <= 0) { alert('❖ 令咒已用盡，無法再施加絕對命令。'); return; }
     sealArmed = !sealArmed;
     try { renderWarActions(); } catch (e) { }
   }
-  // 🔥 超載檔位·蓄勢鈕(2026-07 玩家定案「不用一直確定·開錯就開錯不要擋」)：💥寶具旁的 ＋/＋＋ 小鈕，
-  //   亮哪個＝開哪檔(p1/p2)、按💥直接開火【零確認】；沒亮＝僅付底費。發射後自動歸零(下一發重選)。
+  // 🔥 超載檔位蓄勢鈕：亮哪個＝開哪檔(p1/p2)，按💥零確認直接開火；沒亮＝僅付底費。發射後自動歸零。
   let npTierArmed = false; // false=僅底費 / 'p1'=超載檔 / 'p2'=極限檔
   function toggleNpTier(t) { npTierArmed = (npTierArmed === t) ? false : t; try { renderWarActions(); } catch (e) { } }
   let myCanRB = false;    // 是否具破戒之力
@@ -107,16 +99,9 @@
 
  window.onload = () => {
     document.documentElement.style.setProperty('--story-scale', parseFloat(localStorage.getItem('kyushu_story_font_scale')) || 1);
-    // 🐛→✅ 2026-07 修：撤離攔截(setupHistoryPrevention)過去只在 startGame()/鑑賞進場時才呼叫——
-    //   主選單(帳號登入/新局續玩/戰爭模式/創角/召喚)全程沒有這層防護，手滑按上一頁會直接離開、
-    //   創角進度全丟。從頁面一載入就掛上，之後 startGame()/鑑賞進場再呼叫一次也無妨(historyPushed
-    //   旗標擋重複註冊)，讓整個流程從第一畫面開始就防手滑。
+    // 🐛→✅ 撤離攔截需從頁面一載入就掛上，不能只在 startGame()/鑑賞進場才呼叫——主選單階段手滑上一頁會丟失創角進度(historyPushed 旗標擋重複註冊，重複呼叫無妨)。
     setupHistoryPrevention();
-    // 🕐 真實世界時間(2026-07 新增，玩家要求「地址旁邊」顯示現實時鐘，與遊戲內第N日/AP時鐘是兩回事)：
-    //   純前端 setInterval，零後端呼叫、零 round-trip；只在鑑賞頂列(#topbar-kanshou，跟 header-loc
-    //   同一顆徽章)顯示，applyModeUI 切 solo 時整個 topbar-kanshou 隱藏、這顆自然一起消失。
-    //   格式年/月/日 時:分——秒級對回合制文字遊戲沒有實際用途，且每次更新 textContent 成本趨近於零，
-    //   純粹是格式選擇而非效能考量，之後想加秒也只是字串多拼兩碼。
+    // 🕐 真實世界時間：純前端 setInterval，零後端呼叫；只在鑑賞頂列顯示，applyModeUI 切 solo 時隨 topbar-kanshou 一起隱藏。
     (function tickRealClock_() {
       var el = document.getElementById('header-clock');
       if (el) {
@@ -208,17 +193,13 @@
   }
   
 
-  // 🧹 捷徑列(recent-loc-bar)＋頂部休息鈕已移除(2026-07 玩家定案「用不到」)——底部動作列有休息、地圖分頁可移動，兩者重複。
-  // 🔴 替換調用 openStatus
-  // 找到這段並替換 case 'settings' 的內容：
+  // 🧹 捷徑列(recent-loc-bar)＋頂部休息鈕已移除：底部動作列有休息、地圖分頁可移動，功能重複。
   function triggerDrawerAction(actionType) {
     toggleActionDrawer();
     switch(actionType) {
       case 'sync': syncData(); break;
       case 'status': openStatus(); break;
-      
-      // 🔴 修改這行！讓它去呼叫專屬的設定選單函數
-      case 'settings': openSettingsMenu(); break; 
+      case 'settings': openSettingsMenu(); break;
     }
   }
   
@@ -283,9 +264,7 @@
 
 
   // 🔴 統一狀態讀取入口 (支援玩家與 NPC)
-  // 🔴 統一狀態讀取入口 (支援玩家與 NPC)
   async function openStatus(targetId, targetName) {
-    // 👇 救命關鍵：宣告 el，告訴系統面板在哪裡！
     const el = document.getElementById('status-overlay');
 
     currentStatusTargetId = targetId || pc.id;
@@ -299,8 +278,7 @@
       if (el) el.style.display = 'flex'; // 顯示面板
     } else {
       if (el) el.style.display = 'flex'; // 顯示面板
-      // ⚡ 從者狀態預取(2026-07 提速)：myServants 已隨 state 帶回 statusString → 直接秒顯，
-      //   免 get_full_status 往返(那 5~6 秒的根因)。NPC 或無預取才走後端(權威 fallback)。
+      // ⚡ myServants 已隨 state 帶回 statusString → 直接秒顯，免 get_full_status 往返；NPC 或無預取才走後端 fallback。
       var _localSv = (myServants || []).find(function (x) { return x && x.name === targetName && x.statusString; });
       if (_localSv) {
         updateUI(_localSv.statusString.split('§'));
@@ -340,9 +318,7 @@
   }
 
   // ⏳ 時鐘 HUD：第N日·時刻·時段 ⚡AP/12(僅solo，鑑賞無AP系統)
-  // 🧹 2026-07「跳到時段」定案：鑑賞先前完全隱藏這顆HUD(clock恆空字串)，現在鑑賞也有day/hour可
-  //   顯示(見buildClientState_/actionPlay的kanshouClock)，改成鑑賞也顯示時段圖示+文字，只是不
-  //   顯示AP格(鑑賞沒有這個資源)。
+  // 🧹 鑑賞也顯示時段圖示+文字(kanshouClock，見 buildClientState_/actionPlay)，只是不顯示 AP 格。
   function updateClock(label, ap, apMax) {
     const hud = document.getElementById('clock-hud');
     if (!hud) return;
@@ -362,15 +338,14 @@
     }
   }
   // 💠 御主魔力收支 HUD：供給(迴路)＋靈脈＋工房 − 從者維持(依出力檔)＝淨值/時。赤字標紅，提醒搶靈脈/設陣地/降出力/補魔。
-  // 🎴 2026-07 UI 大改：供魔收支明細移到頂部「🔮 魔力」按鈕彈窗——updateEconomy 只存最新資料＋
-  //   隱藏故事頁常駐條(不再佔版面)。資料由 openManaPanel 消費。
+  // 🎴 供魔收支明細移到頂部「🔮 魔力」彈窗(openManaPanel 消費)——這裡只存最新資料，故事頁常駐條隱藏。
   function updateEconomy(eco) {
     if (eco) window._lastEco = eco;
     const hud = document.getElementById('economy-hud');
     if (hud) hud.style.display = 'none';
   }
   function closeHistoryOverlay() { var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none'; }
-  // 👁 查看：御主／從者狀態切換(2026-07 UI 大改·玩家「看自己還可切換看從者」)。單一角色直接開、多角色列選單。
+  // 👁 查看：御主／從者狀態切換。單一角色直接開、多角色列選單。
   function openViewMenu() {
     var svs = myServants || [];
     if (!svs.length) { openStatus(); return; } // 尚無從者→直接看御主
@@ -382,7 +357,7 @@
     });
     showHistoryOverlay(h);
   }
-  // 🔮 魔力：供魔收支明細＋各從者出力調整＋補魔捷徑(2026-07 UI 大改·彈窗制)。
+  // 🔮 魔力：供魔收支明細＋各從者出力調整＋補魔捷徑(彈窗制)。
   function openManaPanel() {
     var eco = window._lastEco;
     var h = '<h3 style="margin:0 0 10px;color:#7fb0e8;">🔮 御主魔力・供魔收支（每小時）</h3>';
@@ -524,10 +499,9 @@
         acts = '<button onclick="servantStrike(\'' + safe + '\', false, false, true)" style="flex:1 0 100%; font-size:13px; padding:9px; background:linear-gradient(90deg,rgba(120,30,90,.32),rgba(80,20,60,.18)); color:#e8b0d8; border:1px solid #a0307a; border-radius:8px; cursor:pointer; font-weight:bold;">🗡️ 刺殺御主 <small style="opacity:.65;">須護衛盡除或擲20</small></button>'
           + '<button onclick="proposeAlliance(\'' + safe + '\',\'' + String(f.id).replace(/'/g, '') + '\')" title="交涉結盟：暫時休兵互不侵犯（成敗由對方性格與戰局而定）" style="flex:1 0 100%; font-size:12.5px; padding:8px; background:rgba(90,170,120,.14); color:#8fd0a0; border:1px solid #4ea56a; border-radius:8px; cursor:pointer; font-weight:bold;">🤝 交涉結盟</button>';
       } else {
-        // ⚡ 主動技按鈕(2026-07 改回按鈕制)：出戰從者持施放技術(魔力放出/怪力/投影)才露出——
-        //   按下＝該次交鋒全力發動＋扣魔一次，跟 💥寶具/❖令咒 同一套「按下當次生效」模式。
+        // ⚡ 主動技按鈕：出戰從者持施放技術(魔力放出/怪力/投影)才露出，按下＝該次交鋒全力發動＋扣魔一次，跟 💥寶具/❖令咒 同一套「按下當次生效」模式。
         var _ask = activeSkillOfActive_();
-        // 🛡️ 常駐寶具(2026-07·B叔案)：God Hand/治癒結界等【常駐寶具】自動生效、非攻擊解放→💥灰化不可按
+        // 🛡️ 常駐寶具：God Hand/治癒結界等【常駐寶具】自動生效、非攻擊解放→💥灰化不可按
         var _aSv = (myServants || []).find(function (x) { return x.name === myActiveServant; }) || {};
         var _npPas = /【常駐寶具】/.test(String(_aSv.np || ''));
         // 🔥 超載檔位蓄勢鈕資料：規格外寶具(＋/EX)才有；價格/倍率/反噬%全進 tooltip(零確認制)
@@ -753,7 +727,7 @@
   async function travelTo(targetName, distance) {
     if (!beginAction()) return;
 
-    // 🔴 優化：清理選項，防止玩家在移動中點擊過期選項
+    // 清理選項，防止在移動中點擊過期選項
     const optContainer = document.getElementById('options-container');
     if (optContainer) optContainer.innerHTML = '<span style="color:#666; font-size:12px;">正在穿梭天地...</span>';
     const story = document.getElementById('story');
@@ -791,10 +765,7 @@
           ? `此地有敵蹤：${foes.map(f => f.name + '（' + (f.faction === '敵從者' ? '敵從者' : '敵御主') + '）').join('、')}`
           : '此地暫無明顯敵蹤';
         const timeStr = (data.clock || '').split('・').slice(-1)[0] || '此刻';
-        // 🐛→✅ 2026-07 修：鑑賞(慾海)移動原本跟solo共用同一份戰爭/巡查風格的抵達提示詞——玩家反映
-        // 「明明沒有敵人，感覺卻像要戰鬥了」。foes 在鑑賞恆為空陣列(無敵從者/敵御主)，但下方固定的
-        // 「若無敵蹤，寫巡查/警戒/喘息」指令完全沒因模式而變，每次移動都硬帶戰爭氛圍。改成鑑賞獨立
-        // 一份溫和的抵達提示詞，不提敵蹤/戰鬥/警戒，改講同行同伴的日常互動。
+        // 🐛→✅ 鑑賞(慾海)foes 恆為空陣列，但共用 solo 的抵達提示詞仍硬帶「巡查/警戒」戰爭氛圍——改成鑑賞獨立一份溫和提示詞，講同行同伴的日常互動。
         const kanshouCompanionNames = (myServants || []).map(function (s) { return s.name; }).filter(Boolean);
         const arrivePrompt = (pc.mode === 'kanshou') ? (
           (data.masterCard || '') + (data.servantCard ? '【同行同伴】' + data.servantCard : '')
@@ -843,20 +814,15 @@
     } finally { endAction(); }
   }
 
-  // 🧹 2026-07 玩家定案「都拿掉吧」：舊九州「同地互動選單」整條呼叫鏈(renderNpcList/closeNpcList/
-  //   interactNpc/openInteractMenu/closeInteractMenu，含 npc-overlay/interact-modal 兩個彈窗)
-  //   已隨姓名超連結一併移除——攻擊/寶具/令咒等按鈕本就跟常駐可見的 renderWarActions(⚔️戰爭行動列)
-  //   完全同一組函式(servantStrike)，是重複入口；solo 收斂為「專注廝殺與自己的從者」。
+  // 🧹 舊九州「同地互動選單」整條呼叫鏈(renderNpcList/interactNpc/openInteractMenu…)已移除——攻擊/寶具/令咒按鈕跟常駐的 renderWarActions 是同一組函式(servantStrike)，原本是重複入口。
 
   function updateUI(s) {
-    // 🔴 視覺防護鎖解除：讓逆天改命的按鈕永遠顯示！
-    // 點擊後，後端 GAS 會審查是否為同行的從者
+    // 🔴 逆天改命按鈕前端永遠顯示，實際權限由後端 GAS 審查是否為同行從者
     ['fate-btn-pref', 'fate-btn-trait', 'fate-btn-back', 'fate-btn-intent'].forEach(id => {
         const btn = document.getElementById(id);
-        if (btn) btn.style.display = 'block'; // 永遠打開！
+        if (btn) btn.style.display = 'block';
     });
 
-    // 🔴 防呆助手... 
     const setUI = (id, val, def = "--") => {
         const el = document.getElementById(id);
         if (el) el.innerText = val || def;
@@ -871,9 +837,7 @@
     setUI('ui-trait', s[2]);
     setUI('ui-loc', s[3]);
     setUI('ui-pref', s[4]);
-    // 🐛→✅ 2026-07 玩家點名「氣血/真氣這4個應該不用寫到鑑賞眾生」：鑑賞無戰鬥，這兩格早已不再
-    // 寫入(見 Gallery.gs actionEnterKanshou/heroToKanshouRow_)，比照 ui-status 同款做法——鑑賞
-    // 模式下整格隱藏，不要顯示「--」看起來像資料缺漏。
+    // 🐛→✅ 鑑賞無戰鬥，氣血/真氣早已不再寫入(見 Gallery.gs heroToKanshouRow_)——比照 ui-status 整格隱藏，避免顯示「--」看起來像資料缺漏。
     var hpEl = document.getElementById('ui-hp'); if (hpEl && hpEl.parentElement) hpEl.parentElement.style.display = (pc && pc.mode === 'kanshou') ? 'none' : '';
     var mpEl = document.getElementById('ui-mp'); if (mpEl && mpEl.parentElement) mpEl.parentElement.style.display = (pc && pc.mode === 'kanshou') ? 'none' : '';
     setUI('ui-hp', s[5]);
@@ -892,8 +856,7 @@
     const headerEl = document.getElementById('header-loc');
     if (headerEl) headerEl.innerText = s[3] ? "📍 " + s[3] : "未知區域";
 
-    // 💰 2026-07 鑑賞經濟層：s[24]借用原本「恆空字串佔位」的位置(solo恆空、鑑賞才有值，比照s[0]
-    //   的作法)，只在鑑賞模式顯示這顆頂列金錢徽章(topbar-kanshou本身就只在鑑賞模式可見)。
+    // 💰 s[24] 借用原本「恆空字串佔位」的位置(solo恆空、鑑賞才有值)，只在鑑賞模式顯示頂列金錢徽章。
     const moneyEl = document.getElementById('header-money');
     if (moneyEl) { if (pc && pc.mode === 'kanshou') { moneyEl.style.display = ''; moneyEl.textContent = '💰' + (parseInt(s[24]) || 0); } else { moneyEl.style.display = 'none'; } }
   }
@@ -1017,9 +980,7 @@
     return b < 20 ? '戒備' : b < 40 ? '疏離' : b < 60 ? '漸信' : b < 80 ? '信賴' : '羈絆深厚';
   }
 
-  // 🗑️→✅ 2026-07 玩家定案「肉體那些欄位不需要了、只要狀態就好」：physical_state 從6鍵(姿勢/胸部/
-  //   肉棒/蜜穴/顏面/服裝)全部砍掉合併成單一自由文字欄，這裡不再需要逐鍵組行、也不用猜蜜穴/肉棒哪個
-  //   存在——直接印那一句話即可。kanshouClothLine_ 隨之整段移除(服裝凌亂度已併入這一欄)。
+  // 🗑️→✅ physical_state 從6鍵(姿勢/胸部/肉棒/蜜穴/顏面/服裝)合併成單一自由文字欄，直接印那句話即可，不必逐鍵組行。
   function kanshouStatusLines_(po) {
     po = po || {};
     var v = po['狀態'];
@@ -1034,9 +995,7 @@
     if (r.indexOf('+') >= 0) v += 5;
     return v;
   }
-  // 🌈 技能膠囊·階級流光分級(2026-07 玩家定案)：回 Style.html 的 .pill-rank-* 後綴。
-  //   EX='ex'彩虹流光／A系='a'紅流光／B系='b'黃微光／D·E='de'灰暗／C與無階級=''(基準金褐·沿用原樣式，
-  //   引擎 hasFx_ 對無階級技能本就 fallback C 計算，視覺與機制對齊；燕返/妄想心音等無階級簽名招不灰化)。
+  // 🌈 技能膠囊·階級流光分級：回 Style.html 的 .pill-rank-* 後綴。C 與無階級=''(基準金褐)——引擎 hasFx_ 對無階級技能本就 fallback C 計算，視覺與機制對齊。
   function pillRankCls_(r) {
     var s = String(r || '').trim();
     if (!s || s === '-') return '';
@@ -1049,9 +1008,7 @@
   }
   // 🏷️ 標籤白話字典（依該技能「實際階級」算出具體數值，看得出分級差別）——點 pill 時顯示
   const FX_DESC = {
-    // 🐛→✅ 2026-07「戰鬥標籤和戰鬥運算 戰報 檢查」查出：這行是死寫的線性公式(25×m%)，跟引擎
-    //   Engine_Fate.gs 的真實公式(基礎30%×階級倍率，B階以上下限55%、A階以上下限80%，上限92%)
-    //   對不上——高階時嚴重低估(A階顯示約42%，實際80%)。改成呼叫真實公式算出同一個數字。
+    // 🐛→✅ 這裡曾是死寫的線性公式(25×m%)，跟引擎 Engine_Fate.gs 的真實公式(基礎30%×階級倍率，B階以上下限55%、A階以上80%，上限92%)對不上，高階時嚴重低估——改成呼叫真實公式算同一個數字。
     nullify_magic: (m, rank) => {
       var red = 0.30 * m;
       var rv = rankVal_(rank);
@@ -1069,8 +1026,7 @@
     evade_ranged: m => `避矢加護：對 Archer 遠程的迴避 +${Math.round(6 * m)}。`,
     divine_core: m => `神核：女神之軀，受傷 −${Math.round(18 * m)}%（破魔可無視）。`,
     mad: m => `狂化：理智換力量——傷害 +${Math.round(14 * m)}，代價是每小時魔力維持費 ×1.5（不佔戰鬥命中／迴避，代價全記在供魔負擔上）。`,
-    // 🐛→✅ 2026-07「戰鬥標籤和戰鬥運算 戰報 檢查」查出：「半效」跟引擎(Engine_Fate.gs `red *= 0.3`，
-    //   自己的註解也寫「效果僅剩三成」)對不上——實際是打到剩三成、不是打到剩五成，凌駕幅度更強。
+    // 🐛→✅ 「半效」跟引擎(Engine_Fate.gs `red *= 0.3`)對不上——實際打到剩三成、不是五成，凌駕幅度更強。
     divine_age: m => `神代魔術：魔力傷 +${Math.round(12 * m)}，且使敵「對魔力」僅剩三成效力(凌駕但非無效)。`,
     wind_strike: m => `風王鐵鎚：不可視之風的斬擊，傷害 +${Math.round(6 * m)}。`,
     unreadable: () => '封先機（無欲／無貌之類）：心如止水、殺意無跡可循，使敵方直感／心眼失效（敵無法靠預判加閃避）；千里眼不受此影響（免疫封鎖·物理鎖定非靠先機預判）。',
@@ -1098,14 +1054,10 @@
     regen: m => `治癒（回復魔藥／狐之治癒等）：常駐自癒——每回合涓流回復約 ${(2.5 * m).toFixed(1)}% 上限體力（上限30），持久戰越拖越穩。`,
     shapeshift: m => `變化：化形流轉滑開致命一擊，迴避 +${Math.round(3 * m)}。`,
     solo: () => '單獨行動：無須御主供魔亦可獨立行動一段時間——御主陣亡／令咒耗盡時免「靈基透支」倒數消滅，改靠靈基殘存硬撐(魔力極為有限，通常不夠再放一次寶具)。',
-    // 🐛→✅ 2026-07「戰鬥標籤和戰鬥運算 戰報 檢查」查出：這是2026-07把territory的mul從寫死數字
-    //   改成隨階級縮放函式(DEF_FX_.territory: r=>1-0.26*r)時漏改的舊版寫死tooltip——EX階實際
-    //   ×0.48、A階×0.57，跟這裡固定顯示的×0.74(僅C階正確)對不上。比照同批已修正的rho_aias/
-    //   home_field，改成吃階級參數即時算。
+    // 🐛→✅ 舊版寫死顯示 ×0.74(僅C階正確)，跟引擎 DEF_FX_.territory 已隨階級縮放(r=>1-0.26*r，EX實際×0.48)對不上——改成吃階級參數即時算。
     territory: m => `陣地作成：以魔術防壁／結界自守，受傷 ×${(1 - 0.26 * m).toFixed(2)}（依階級·補償低耐久）；遭超位階概念貫穿則失效。`,
     home_field: m => `主場·陣地結界：在【自己佈設的陣地】迎戰、且隊上有陣地作成從者時，全隊額外受傷 ×${(1 - 0.16 * m).toFixed(2)}（依陣地作成階級·EX 空中庭園級最強）。引敵入陣地決戰的主場優勢——法師的堡壘連盟友一併庇護；遭超位階概念(乖離劍等)仍會被碾穿。`,
-    // 🐛→✅ 2026-07「戰鬥標籤和戰鬥運算 戰報 檢查」查出：同款territory的問題——DEF_FX_.wall_def
-    //   的mul已是r=>1-0.18*r隨階級縮放，這裡卻還寫死×0.82(僅C階正確)，比照修正。
+    // 🐛→✅ 同款territory問題：DEF_FX_.wall_def 已隨階級縮放(r=>1-0.18*r)，這裡卻寫死×0.82(僅C階正確)，比照修正。
     wall_def: m => `城牆防禦：厚重工事抵禦物理強擊，受傷 ×${(1 - 0.18 * m).toFixed(2)}（依階級·唯不擋魔術系攻擊；不提供寶具規模防禦）。`,
     weapon_steal: () => '無毀的湖光：湖之妖精所託的魔劍，對具「龍」屬性之敵解放秘藏威能，傷害 ×1.5。',
     // 寶具名類：實際威力由「寶具解放」統一結算（依寶具階級＋軍略／神性加成）。
@@ -1120,8 +1072,7 @@
     summon_horror: () => '螺湮城教本（變身·深淵海怪）：解放寶具或【戰前召喚】自深淵召出觸手巨獸，進入變身態——魔力供養多久、海怪就在多久（無期限）。① 海怪以肉身(300)在前擋傷、潰散後才傷本體；② 每回合自深淵再生 +10；③ 並肩追擊敵手（每交鋒回合抽御主 10 魔）；④ 本體防禦升至對城規模。維持費＝每小時 8 魔；共用池見底時海怪先沉回深淵（御主不為牠燃血）。可隨時「解除召喚」止耗，重召須再付全額寶具魔力。',
     wealth: () => '黃金律：王之財寶的無盡供能——自身瀕死(HP≤20%)時解放寶具，觸發「絕境取乖離劍」的處決級一擊。',
     golden_fleece: () => '金羊毛 Argon Coin（第二寶具·EX）：科爾基斯的金羊毛皮，擲於地面可召喚昔日看守它的巨龍。然美狄亞身為 Caster，並無召喚幻想種之力——此戰終究未能駕馭。純傳說門面／演出，無戰鬥數值。',
-    // 🐛→✅ 2026-07「戰鬥標籤和戰鬥運算 戰報 檢查」查出：範圍「×1.3〜1.83」跟引擎(Engine_Fate.gs
-    //   自己的註解「E→1.17、C→1.5、B→1.67、A→1.83、EX→2.0」)兩端都對不上，低估了低神格/高神格的極端值。
+    // 🐛→✅ 舊版顯示範圍「×1.3〜1.83」跟引擎(Engine_Fate.gs「E→1.17、C→1.5、B→1.67、A→1.83、EX→2.0」)兩端都對不上，低估了極端值。
     god_slay: () => '神殺（神性殺し）：斬盡神明與不死者的死之秘法——對具「神性」之敵，最終傷害依其神格放大 ×1.17〜2.0（神格越高越致命）；對凡人無此加成。',
     sense: () => '氣息感知：穿透大地的遠距感知——階級 ≥ 敵方氣息遮斷者，看穿其奇襲，敵開場突襲的命中先機與要害一擊全數失效（貼原作：近距離廢掉同級以下的隱形）。',
     insight: () => '全知全能之星 Sha Naqba Imuru：看穿一切本質的睿智——恆常洞悉破綻（命中 +4），並看破敵方奇襲（階級 ≥ 敵氣息遮斷則突襲失效）。※他嫌麻煩不願全開，僅取中等之效。',
@@ -1154,8 +1105,7 @@
     showHistoryOverlay(html);
   }
 
-  // ⚡ 主動技說明 popup(2026-07 改回按鈕制)：純資訊——實際發動在攻擊列按「⚡主動」(當次交鋒生效·扣魔一次)，
-  //   未按時自動享約 3.5 成的微量被動(免費)。不再有持久開關、不打任何 API。
+  // ⚡ 主動技說明 popup：純資訊——實際發動在攻擊列按「⚡主動」(當次交鋒生效·扣魔一次)，未按時自動享約3.5成微量被動(免費)。
   function showActiveSkillInfo(name, fx, rank) {
     var mul = rankVal_(rank || 'C') / 30;
     var desc = FX_DESC[fx] ? FX_DESC[fx](mul, rank) : '';
@@ -1250,8 +1200,7 @@
       // ⚡ prefetched＝sync 已夾帶的 tags payload，有就直接用、免再打一趟 get_tags
       const t = prefetched || await gasRun({ action: 'get_tags', pcId: pc.id });
       if (!t || !t.success) return;
-      // ⚡ 2026-07：留一份參照供「已知伺服器確認值、只想重繪不想再打網路」的呼叫端(如 changeOutfit/
-      //   changeWeapon)直接改這份快取的欄位、原地把它當 prefetched 傳回這裡重繪，免一趟 get_tags。
+      // ⚡ 留一份參照供已知伺服器確認值、只想重繪的呼叫端(如 changeOutfit/changeWeapon)直接改欄位、當 prefetched 傳回重繪，免一趟 get_tags。
       window._lastTags = t;
       const box = document.getElementById('fate-tags');
       if (!box) return;
@@ -1317,7 +1266,7 @@
       var activeSv = myServants.find(function (x) { return x.name === myActiveServant; }) || myServants[0] || null;
       myServantCls = (activeSv && activeSv.cls) || '';
       try { renderWarActions(); } catch (e) {}
-      // 🎴 2026-07：外顯狀態自 solo 移除(死資料·恆顯示預設字樣)；慾海御主卡以「肉體狀態」抵換此列。
+      // 🎴 外顯狀態自 solo 移除(死資料·恆顯示預設字樣)；慾海御主卡以「肉體狀態」抵換此列。
       var mPhysLine = '';
       if (pc && pc.mode === 'kanshou') {
         try { var mpo = JSON.parse(m.physical || '{}'); mPhysLine = kanshouStatusLines_(mpo); } catch (e) { }

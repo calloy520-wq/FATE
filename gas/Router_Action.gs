@@ -219,9 +219,8 @@ const KANSHOU_BLOCKED_ACTIONS_ = {
   weapon: 1, get_map_nodes: 1, narrate_only: 1,
   end_run: 1, create: 1, summon_servant: 1, backfill_master_ai: 1,
   account_login: 1, account_new_game: 1,
-  // 🧹 2026-07「SOLO鑑賞完全拆分」稽核：move已不是共用action——鑑賞地圖改走kanshouMoveTo/
-  //   kanshouProposeMove(送action:'play')，前端沒有任何路徑再送action:'move'。這裡明確擋掉，
-  //   讓Router_Movement.gs的actionMove保證只服務solo，不必再靠isFateMove猜測context。
+  // 🧹 move 已非共用action——鑑賞地圖改走kanshouMoveTo/kanshouProposeMove，前端不再送action:'move'，
+  //   讓 Router_Movement.gs 的 actionMove 保證只服務 solo。
   move: 1
 };
 
@@ -333,9 +332,8 @@ function buildTagsPayload_(sheets, pcId, preData) {
   };
 
   // 🗝️ 雙從者：收齊所有在世我方從者（servants 陣列）；servant＝第一個（向後相容）
-  // 🌍 2026-07「加入這個世界的感覺」定案：solo仍是真正的隊伍概念，過濾條件維持IS_PARTY==="同行"
-  //   不變；鑑賞已經拿掉「隊伍」這個概念，改成「LOC是否跟玩家目前位置一致」——頂部標籤卡片只顯示
-  //   跟玩家同地點的已建立英靈，不是每個人都塞進來(不同地點的人本來就見不到面，不該出現在卡片上)。
+  // 🌍 solo 靠 IS_PARTY==="同行" 過濾隊伍；鑑賞無「隊伍」概念，改用 LOC 是否與玩家目前位置一致，
+  //   卡片只顯示同地點的英靈。
   let servants = [];
   pcData.forEach(s => {
     if (String(s[COL.PC.FACTION]) !== "從者" || String(s[COL.PC.GAME_ID] || "") !== gameId || String(s[COL.PC.ID]).startsWith("DEAD_")) return;
@@ -403,9 +401,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
   // 🗝️ 破戒之力（前端決定是否顯示「破戒奪僕」按鈕）：限正式聖杯戰爭世界
   var canRB = false;
   try { if (gameId && gameId.indexOf("g_") === 0 && mIdx >= 0) canRB = canRuleBreak_(pcData, mIdx, gameId); } catch (e) { }
-  // 🗺️ 2026-07 玩家「可以顯示那個地點有幾個人物嗎」：鑑賞地圖分頁按地點顯示人數——2026-07「加入
-  //   這個世界的感覺」定案後，每個已建立的英靈都各自散布在不同地點過自己的生活，這裡統計每個
-  //   地點各有幾人，供玩家決定要去哪裡找誰。只在鑑賞世界算(gameId以"k_"開頭)，solo無此概念。
+  // 🗺️ 鑑賞地圖分頁按地點顯示人數，供玩家決定去哪找誰；只在鑑賞世界算(gameId以"k_"開頭)，solo無此概念。
   var locationCounts = {};
   if (gameId && gameId.indexOf("k_") === 0) {
     pcData.forEach(function (r) {
@@ -438,10 +434,8 @@ function buildClientState_(sheets, pcId, preData) {
   if (isFate) { try { clk = clockLabel_(gid, allPcData); ap = getAp_(gid, allPcData); } catch (e) { } }
   // 鑑賞用精簡版 getKanshouPeopleList_，避免借用 solo 版算出一堆鑑賞前端從不讀取的欄位。
   const isKanshouCtx_ = gid.indexOf("k_") === 0;
-  // 🕰️ 2026-07「跳到時段」＋「時段行動」按鈕定案：鑑賞先前完全不把day/hour餵給前端(clock恆空
-  //   字串)，導致前端無從得知現在幾點——這裡補上，前端才能判斷現在是不是清晨、要不要顯示「準備
-  //   早餐」這類時段限定按鈕。沿用既有`clock`欄位放顯示字串(HUD比照solo同款渲染)，band另開一個
-  //   結構化欄位供前端邏輯判斷用(顯示字串不好拿來字串比對)。
+  // 🕰️ 鑑賞需把day/hour餵給前端才能判斷時段(如是否顯示「準備早餐」)；沿用`clock`放顯示字串(HUD同solo)，
+  //   kanshouClock 另給結構化欄位供前端邏輯判斷(顯示字串不好拿來比對)。
   if (isKanshouCtx_) { try { const ci = kanshouClockInfo_(allPcData[pcIndex]); clk = ci.label; kanshouClock = ci; } catch (e) { } }
   return {
     statusString: buildPlayerStatusString(allPcData[pcIndex]),
@@ -477,9 +471,7 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   const tIdx = pcData.findIndex(r => r[COL.PC.NAME] === targetName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
   if (tIdx === -1) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
 
-  // 🔵 門檻：solo仍是真正的隊伍概念，維持「同行的從者才能重新定義稱呼」不變；鑑賞2026-07「加入
-  //   這個世界的感覺」定案拿掉IS_PARTY後，這個欄位對鑑賞永遠是空字串——改成只要是這個世界裡已經
-  //   存在的英靈就能改，不要求同地點/同行，改稱呼是低風險的個人設定，不需要人在場。
+  // 🔵 solo 仍要求「同行的從者才能重新定義稱呼」；鑑賞無 IS_PARTY 概念，改稱呼是低風險設定、不要求同行。
   if (myGameId.indexOf("k_") !== 0 && String(pcData[tIdx][COL.PC.IS_PARTY] || "") !== "同行") {
     return JSON.stringify({ success: false, message: "僅能為同行的從者重新定義這段關係。" });
   }
