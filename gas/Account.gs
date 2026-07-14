@@ -12,6 +12,62 @@ function findAccountRow_(accSheet, name) {
   return null;
 }
 
+// 找玩家目前世界仍存活的從者列（回傳 row 與 index）。
+// 🧹 2026-07「SOLO鑑賞完全拆分」稽核：跟下面兩個函式一起從Gallery.gs搬過來——這三個是solo
+//   game-lifecycle(結束一局/清檔)的邏輯，只是歷史上放錯檔，鑑賞完全不會呼叫。
+function findPlayerServant_(pcData, gameId) {
+  for (var i = 1; i < pcData.length; i++) {
+    if (String(pcData[i][COL.PC.FACTION]) !== "從者") continue;
+    if (gameId && String(pcData[i][COL.PC.GAME_ID] || "") !== gameId) continue;
+    if (String(pcData[i][COL.PC.ID]).startsWith("DEAD_")) continue;
+    return { idx: i, row: pcData[i] };
+  }
+  return null;
+}
+
+// 清理某 game_id 的整局資料（眾生，關係已併入列自身欄位，刪列即刪關係），並解除帳號連結。
+//   preData 可選：呼叫端若已有整表快照可傳入省一次讀取，不傳則自己讀。
+function purgeGameData_(sheets, gameId, accountName, preData) {
+  if (gameId) {
+    var fresh = preData || sheets.pc.getDataRange().getValues();
+    // 順手收集要刪的每一列 pcId，一併清掉「歷史暫存」裡屬於這些 pcId 的對話列，避免結束對局的
+    //   歷史列無上限累積。
+    var purgedPcIds = [];
+    for (var r = fresh.length - 1; r >= 1; r--) {
+      if (String(fresh[r][COL.PC.GAME_ID] || "") === gameId) {
+        purgedPcIds.push(String(fresh[r][COL.PC.ID]).replace(/^DEAD_/, ""));
+        sheets.pc.deleteRow(r + 1);
+      }
+    }
+    try { purgeHistoryForPcIds_(purgedPcIds); } catch (e) { }
+  }
+  if (accountName) {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var acc = ss.getSheetByName("帳號");
+    if (acc) {
+      var found = findAccountRow_(acc, accountName);
+      if (found) acc.getRange(found.idx + 1, COL.ACC.PC + 1).setValue("");
+    }
+  }
+}
+
+// 🏆 奪得聖杯／結束本局：不再封存，只做清理，讓玩家能立刻開新局。
+//   從者/盟友要在慾海重逢，改用「英靈殿直接召喚」(見 actionKanshouSummonHero)。
+function actionEndRun(userData, pcId, sheets) {
+  var acctName = String(userData.acctName || "").trim();
+  var pcData = sheets.pc.getDataRange().getValues();
+  var pIdx = pcData.findIndex(function (r) { return r[COL.PC.ID] == pcId; });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主。" });
+  var gameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+
+  var sv = findPlayerServant_(pcData, gameId);
+  var realName = sv ? String(sv.row[COL.PC.NAME] || "從者") : "";
+
+  purgeGameData_(sheets, gameId, acctName, pcData);
+
+  return JSON.stringify({ success: true, servantName: realName });
+}
+
 // 登入：找不到就建立。回傳是否有可繼續的存檔。
 function actionAccountLogin(userData, pcId, sheets) {
   var name = String(userData.acctName || "").trim().slice(0, 20);
@@ -174,30 +230,3 @@ function linkAccountToPc_(accountName, pcCharId) {
   }
 }
 
-// 🌹 把鑑賞(後日談)avatar 連結到帳號——外部表存連結而非角色自稱，確保只有伺服器碼能寫。
-function linkAccountToKanshouPc_(accountName, kpcId) {
-  if (!accountName || !kpcId) return;
-  var name = String(accountName).trim();
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var acc = ss.getSheetByName("帳號");
-  if (!acc) return;
-  var found = findAccountRow_(acc, name);
-  if (found) {
-    acc.getRange(found.idx + 1, COL.ACC.KPC + 1).setValue(kpcId);
-  } else {
-    var row = Array(Object.keys(COL.ACC).length).fill("");
-    row[COL.ACC.NAME] = name; row[COL.ACC.KPC] = kpcId; row[COL.ACC.CREATED] = new Date();
-    acc.appendRow(row);
-  }
-}
-
-// 🌹 查某帳號目前連結的鑑賞 avatar pcId（查無回 ""）。
-function getAccountKanshouPcId_(accountName) {
-  var name = String(accountName || "").trim();
-  if (!name) return "";
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var acc = ss.getSheetByName("帳號");
-  if (!acc) return "";
-  var found = findAccountRow_(acc, name);
-  return found ? String(found.row[COL.ACC.KPC] || "") : "";
-}

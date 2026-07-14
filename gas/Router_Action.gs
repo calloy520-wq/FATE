@@ -95,26 +95,6 @@ function sanitizeUserData_(userData) {
   return userData;
 }
 
-// 🔴 AI 輸出防呆：JSON.parse 之後、任何欄位被拿去寫入試算表之前，先在此夾住明顯異常值，
-//   避免 AI 偶發幻覺(天文數字好感、型別跑掉、結構非物件)默默污染資料表。
-//   只夾「會被寫進表」且「範圍明確」的數值欄位；敘事等自由文字不動，單回合好感限 -100~+100。
-function sanitizeAiData_(aiData) {
-  if (!aiData || typeof aiData !== "object" || Array.isArray(aiData)) {
-    throw new Error("AI 回傳結構異常（非物件），已攔截避免污染資料。");
-  }
-  const clampInt = (v, lo, hi, dflt) => {
-    const n = parseInt(v);
-    if (isNaN(n)) return dflt;
-    return Math.max(lo, Math.min(hi, n));
-  };
-  if (Array.isArray(aiData.rel_changes)) {
-    aiData.rel_changes.forEach(rc => {
-      if (rc && rc.fav_change !== undefined) rc.fav_change = clampInt(rc.fav_change, -100, 100, 0);
-    });
-  }
-  return aiData;
-}
-
 // ⚡ handler → dispatcher 的整表陣列交棒：寫入完整性已驗證的 handler(其所有寫入 helper 皆原地改回
 //   同一份 pcData)在成功返回前設此全域，dispatcher 夾 _state 時直接複用、省一次整表重讀。
 //   GAS 每個請求執行環境獨立，全域不跨請求；dispatcher 開頭重置防呆。
@@ -238,7 +218,11 @@ const KANSHOU_BLOCKED_ACTIONS_ = {
   prep_meal: 1, purge_orphans: 1,
   weapon: 1, get_map_nodes: 1, narrate_only: 1,
   end_run: 1, create: 1, summon_servant: 1, backfill_master_ai: 1,
-  account_login: 1, account_new_game: 1
+  account_login: 1, account_new_game: 1,
+  // 🧹 2026-07「SOLO鑑賞完全拆分」稽核：move已不是共用action——鑑賞地圖改走kanshouMoveTo/
+  //   kanshouProposeMove(送action:'play')，前端沒有任何路徑再送action:'move'。這裡明確擋掉，
+  //   讓Router_Movement.gs的actionMove保證只服務solo，不必再靠isFateMove猜測context。
+  move: 1
 };
 
 // ==========================================

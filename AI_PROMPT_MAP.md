@@ -386,7 +386,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 
 | 機制 | 觸發資格(GAS判斷) | 回應附帶欄位 | 玩家按鈕→下次send()旗標 | 對應橋段/分支 |
 |---|---|---|---|---|
-| 夜襲/賴床叫醒 | 移動到`KANSHOU_HOUSEMATE_ROOMS_`房客房間、當前時段落在`KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_`(深夜/清晨)、且該房客當下確實在該房間(非移動前就已跟玩家同地點——見 `SOLO_REFERENCE.md` §90 的排序bug修正) | `roomEventOffer` | `roomEventAccept:true` | `KANSHOU_SCENE_EVENTS_.夜襲`/`.賴床叫醒`，`kanshouRollSceneBranch_`依好感roll分支；夜襲好感≥60額外設`KANSHOU_MORNING_AFTER_TAG_`供隔天第一回合帶入晨間氛圍(§81) |
+| 夜襲/賴床叫醒 | 移動到`COL.PC.ROOM`登記為`room1`~`room3`的房客所在房間(2026-07地圖大重做後取代舊`KANSHOU_HOUSEMATE_ROOMS_`寫死表)、當前時段落在`KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_`(深夜/清晨)、且該房客當下確實在該房間(非移動前就已跟玩家同地點——見 `SOLO_REFERENCE.md` §90 的排序bug修正) | `roomEventOffer` | `roomEventAccept:true` | `KANSHOU_SCENE_EVENTS_.夜襲`/`.賴床叫醒`，`kanshouRollSceneBranch_`依好感roll分支；夜襲好感≥60額外設`KANSHOU_MORNING_AFTER_TAG_`供隔天第一回合帶入晨間氛圍(§81) |
 | 肉償 | 該房客`KANSHOU_RENT_DEBT_TAG_`(欠租)成立、且僅她與玩家兩人在場(`partyRows.length===1`) | `debtPaymentOffer` | `debtPayment:true` | `KANSHOU_SCENE_EVENTS_.肉償`；成功後清欠租標籤 |
 | 夜晚敲門 | 結束一天時`KANSHOU_KNOCK_CHANCE_`(20%)擲中 | `knockEvent`(既有機制，非本輪新增) | `knockAccept:true`(同意)／`skipKnockCheck:true`(略過) | 對應訪客建立/移入 |
 | 門禁提醒 | 晚間超過門禁時段且當日尚未忽略過 | `curfewPrompt`(既有機制，非本輪新增) | `dismissCurfew:true` | 純提醒，無劇情分支 |

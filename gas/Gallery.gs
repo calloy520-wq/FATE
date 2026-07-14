@@ -1,10 +1,64 @@
 // ==========================================
 // 🏆 Gallery.gs — 鑑賞軌道全集中（慾海後日談，與封存從者的和平約會）
-//   從英靈殿直接召喚同伴進入後日談，不必先在 solo 打贏封存；勝利只做清理(actionEndRun)，
-//   不寫「鑑賞」表(該schema已移除，全代碼庫無讀寫者，留著的空分頁無害可自行刪除)。
+//   從英靈殿直接召喚同伴進入後日談，不必先在 solo 打贏封存；不寫「鑑賞」表(該schema已移除，
+//   全代碼庫無讀寫者，留著的空分頁無害可自行刪除)。
 //   actionPlay/buildDefaultSystemPrompt(含nsfwBaseRules)也集中在本檔，鑑賞相關代碼只查
-//   這一個檔案即可；callGeminiAPI 留在 Engine_Combat.gs(solo/鑑賞共用基礎設施)。
+//   這一個檔案即可；callGeminiAPI 留在 Engine_Combat.gs(solo/鑑賞共用基礎設施)。solo結束一局的
+//   清理(actionEndRun/purgeGameData_/findPlayerServant_)住在Account.gs(2026-07「完全拆分」
+//   稽核搬過去——這三個其實是solo game-lifecycle清理，不是鑑賞邏輯，只是historically放錯檔)。
 // ==========================================
+
+// 🔴 AI 輸出防呆：JSON.parse 之後、任何欄位被拿去寫入試算表之前，先在此夾住明顯異常值，
+//   避免 AI 偶發幻覺(天文數字好感、型別跑掉、結構非物件)默默污染資料表。
+//   只夾「會被寫進表」且「範圍明確」的數值欄位；敘事等自由文字不動，單回合好感限 -100~+100。
+// 🧹 2026-07「SOLO鑑賞完全拆分」稽核：從Router_Action.gs搬過來——全代碼庫唯一呼叫點就在本檔
+//   (actionPlay)，solo沒有任何地方用到，本來就是鑑賞專屬的防呆函式。
+function sanitizeAiData_(aiData) {
+  if (!aiData || typeof aiData !== "object" || Array.isArray(aiData)) {
+    throw new Error("AI 回傳結構異常（非物件），已攔截避免污染資料。");
+  }
+  const clampInt = (v, lo, hi, dflt) => {
+    const n = parseInt(v);
+    if (isNaN(n)) return dflt;
+    return Math.max(lo, Math.min(hi, n));
+  };
+  if (Array.isArray(aiData.rel_changes)) {
+    aiData.rel_changes.forEach(rc => {
+      if (rc && rc.fav_change !== undefined) rc.fav_change = clampInt(rc.fav_change, -100, 100, 0);
+    });
+  }
+  return aiData;
+}
+
+// 🌹 把鑑賞(後日談)avatar 連結到帳號——外部表存連結而非角色自稱，確保只有伺服器碼能寫。
+// 🧹 2026-07「SOLO鑑賞完全拆分」稽核：跟下面的getAccountKanshouPcId_一起從Account.gs搬過來，
+//   兩者都只服務鑑賞(COL.ACC.KPC欄位)，solo用的是同檔的linkAccountToPc_/COL.ACC.PC，互不相通。
+function linkAccountToKanshouPc_(accountName, kpcId) {
+  if (!accountName || !kpcId) return;
+  var name = String(accountName).trim();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var acc = ss.getSheetByName("帳號");
+  if (!acc) return;
+  var found = findAccountRow_(acc, name);
+  if (found) {
+    acc.getRange(found.idx + 1, COL.ACC.KPC + 1).setValue(kpcId);
+  } else {
+    var row = Array(Object.keys(COL.ACC).length).fill("");
+    row[COL.ACC.NAME] = name; row[COL.ACC.KPC] = kpcId; row[COL.ACC.CREATED] = new Date();
+    acc.appendRow(row);
+  }
+}
+
+// 🌹 查某帳號目前連結的鑑賞 avatar pcId（查無回 ""）。
+function getAccountKanshouPcId_(accountName) {
+  var name = String(accountName || "").trim();
+  if (!name) return "";
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var acc = ss.getSheetByName("帳號");
+  if (!acc) return "";
+  var found = findAccountRow_(acc, name);
+  return found ? String(found.row[COL.ACC.KPC] || "") : "";
+}
 
 // 🔒 帳號歸屬驗證：比照 solo 的 linkAccountToPc_/COL.ACC.PC 機制——「帳號」表的 KPC 欄位是
 //   唯一權威來源(僅 actionEnterKanshou 寫入)。KPC_ ID 只用 Date.now()、理論上可預測，故不能只憑
@@ -16,60 +70,6 @@ function kanshouOwnedRowIdx_(data, pcId, acctName) {
     if (String(data[i][COL.PC.ID]) === String(pcId)) return i;
   }
   return -1;
-}
-
-// 找玩家目前世界仍存活的從者列（回傳 row 與 index）
-function findPlayerServant_(pcData, gameId) {
-  for (var i = 1; i < pcData.length; i++) {
-    if (String(pcData[i][COL.PC.FACTION]) !== "從者") continue;
-    if (gameId && String(pcData[i][COL.PC.GAME_ID] || "") !== gameId) continue;
-    if (String(pcData[i][COL.PC.ID]).startsWith("DEAD_")) continue;
-    return { idx: i, row: pcData[i] };
-  }
-  return null;
-}
-
-// 清理某 game_id 的整局資料（眾生，關係已併入列自身欄位，刪列即刪關係），並解除帳號連結。
-//   preData 可選：呼叫端若已有整表快照可傳入省一次讀取，不傳則自己讀。
-function purgeGameData_(sheets, gameId, accountName, preData) {
-  if (gameId) {
-    var fresh = preData || sheets.pc.getDataRange().getValues();
-    // 順手收集要刪的每一列 pcId，一併清掉「歷史暫存」裡屬於這些 pcId 的對話列，避免結束對局的
-    //   歷史列無上限累積。
-    var purgedPcIds = [];
-    for (var r = fresh.length - 1; r >= 1; r--) {
-      if (String(fresh[r][COL.PC.GAME_ID] || "") === gameId) {
-        purgedPcIds.push(String(fresh[r][COL.PC.ID]).replace(/^DEAD_/, ""));
-        sheets.pc.deleteRow(r + 1);
-      }
-    }
-    try { purgeHistoryForPcIds_(purgedPcIds); } catch (e) { }
-  }
-  if (accountName) {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var acc = ss.getSheetByName("帳號");
-    if (acc) {
-      var found = findAccountRow_(acc, accountName);
-      if (found) acc.getRange(found.idx + 1, COL.ACC.PC + 1).setValue("");
-    }
-  }
-}
-
-// 🏆 奪得聖杯／結束本局：不再封存(見上方檔頭說明)，只做清理，讓玩家能立刻開新局。
-//   從者/盟友要在慾海重逢，改用「英靈殿直接召喚」(見 actionKanshouSummonHero)。
-function actionEndRun(userData, pcId, sheets) {
-  var acctName = String(userData.acctName || "").trim();
-  var pcData = sheets.pc.getDataRange().getValues();
-  var pIdx = pcData.findIndex(function (r) { return r[COL.PC.ID] == pcId; });
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主。" });
-  var gameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-
-  var sv = findPlayerServant_(pcData, gameId);
-  var realName = sv ? String(sv.row[COL.PC.NAME] || "從者") : "";
-
-  purgeGameData_(sheets, gameId, acctName, pcData);
-
-  return JSON.stringify({ success: true, servantName: realName });
 }
 
 // 🌹 鑑賞專屬眾生分頁：慾海角色(御主 avatar＋同伴從者)全部住這、與主「眾生」隔離，

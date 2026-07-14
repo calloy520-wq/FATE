@@ -320,13 +320,15 @@
 - `dialogueFormatRule_`(680,內部函式) — 對話括號格式規則文字
 
 ### 鑑賞地點與巧遇系統
-- `getKanshouPeopleList_`(739) — 鑑賞專用精簡版同地人物清單(id/name/isExact)
-- `KANSHOU_REGIONS_`(758,常數) — 6個地圖分區標籤(家/深山町/冬木/港區/道場/出訪)，供地圖UI分組
-- `KANSHOU_LOCATIONS_`(772,常數) — **50個地點**(含分區/是否禁止巧遇旗標)，橫跨6分區(遠非舊文件寫的10個)
-- `KANSHOU_LOCATION_TAGS_`(841,常數) — 地點→英靈id加權對照表(巧遇/日常去向共用)
-- `KANSHOU_ENCOUNTER_MALE_IDS_`/`KANSHOU_ENCOUNTER_FEMALE_IDS_`(857-858,常數) — 陌生人巧遇保底池，男/女分池(舊文件僅寫錯名的男池，漏了女池)
-- `KANSHOU_HOUSEMATE_ROOMS_`(863,常數) — 3位登記為同住房客的英靈→各自房間名稱對照
-- `KANSHOU_HERO_HOME_`(917,常數) — 非房客英靈→外部住所地點字串對照
+- `getKanshouPeopleList_`(757) — 鑑賞專用精簡版同地人物清單(id/name/isExact)
+- `KANSHOU_REGIONS_`(780,常數) — 2026-07「地圖大重做」後的6個分區：房間/家的共用空間/深山町/冬木市中心/山林/拜訪住處
+- `KANSHOU_LOCATIONS_`(796,常數) — **26個地點**(含分區/是否禁止巧遇旗標/isRoom旗標)，橫跨6分區
+- `KANSHOU_SUMMON_BLOCKED_IDS_`(874,常數) — 暫時移出鑑賞的英靈id清單(斯卡哈-Assassin/伊莉雅-Caster/恩奇都-Lancer)，召喚/巧遇/地點標籤/住處四處共用同一份
+- `KANSHOU_LOCATION_TAGS_`(879,常數) — 地點→英靈id加權對照表(巧遇/日常去向共用)，不含KANSHOU_SUMMON_BLOCKED_IDS_
+- `KANSHOU_LOCATION_ACTIVITY_`(887,常數) — 商業地點→「當下在做什麼」輕量敘事引子(咖啡廳/深夜便利店=打工、商店街/書店二樓=購物)
+- `KANSHOU_ENCOUNTER_FEMALE_IDS_`(900,常數) — 陌生人巧遇保底池，純女性(KANSHOU_ENCOUNTER_MALE_IDS_已刪除——2026-07「男性全部踢出」，2026-07-14又「重新開放男性召喚」但巧遇保底池未變動，男性目前僅能靠玩家主動召喚加入)
+- ~~`KANSHOU_HOUSEMATE_ROOMS_`~~ 已整個刪除，改用`COL.PC.ROOM`欄位(每列自己登記room1~3/我的房間)+`kanshouRoomDisplayName_`動態算顯示名稱，取代寫死3位特定英靈的舊設計
+- `KANSHOU_HERO_HOME_`(常數) — 非房客英靈→外部住所地點字串對照
 - `getKanshouMetSet_`(931)/`addKanshouMet_`(935) — MEMORY【邂逅】已巧遇清單get/add
 - `kanshouRollEncounter_`(947) — 70%機率加權抽選巧遇英靈，排除已召喚者
 - `kanshouHeroIdByName_`(958) — 依realName候選反查SEED_SERVANTS的id

@@ -343,8 +343,10 @@ function actionMove(userData, pcId, sheets) {
     victory: moveVictory,
     dreamPrompt: moveDream,
     statusString: buildPlayerStatusString(allPcData[pIdx]),
-    // move 是 solo/鑑賞共用 action(約會地圖也要移動)，分流避免對鑑賞算一堆它前端從不讀取的欄位。
-    people: isFateMove ? getLocalPeopleList(sheets, pcName, pcId, target, allPcData) : getKanshouPeopleList_(pcId, target, allPcData),
+    // 🧹 2026-07「SOLO鑑賞完全拆分」稽核：move現在是solo專屬action(見Router_Action.gs的
+    //   KANSHOU_BLOCKED_ACTIONS_擋move)，鑑賞地圖已改走kanshouMoveTo(送action:'play')，這裡
+    //   不再需要分流呼叫Gallery.gs的getKanshouPeopleList_(移除跨檔耦合)。
+    people: getLocalPeopleList(sheets, pcName, pcId, target, allPcData),
     locations: getNearbyLocations(target, freshMapData).slice(0, 5),
     mapNodes: buildMapNodesPayload_(sheets, allPcData, moveGameId, target), // ⚡ 夾帶地圖節點，免手機抵達後再打一趟 get_map_nodes
     mapDesc: mapDesc,
@@ -353,7 +355,7 @@ function actionMove(userData, pcId, sheets) {
     ap: apLeft,
     apMax: AP_PER_DAY,
     rumors: worldRumors,
-    economy: isFateMove ? playerServantEconomy_(sheets, pcId, allPcData) : null
+    economy: playerServantEconomy_(sheets, pcId, allPcData)
   });
 }
 
