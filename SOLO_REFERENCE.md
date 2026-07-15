@@ -3034,3 +3034,30 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **§135 續(同日玩家追加)**：
 - **視角鎖死**：memory 欄明文=玩家第一人稱「我」記述(「和她在頂樓看了跨年煙火」)，【禁止】她的視角/她對我的想法/第三人稱旁觀——10 條疊起來像一本玩家的日記，AI 承接語氣穩；她對玩家的想法另有去處([態度]/好感)不混流。
 - **💞回憶面板(卡片可看/釘選/刪除·LunaTalk Remember 落地)**：同伴面板每列加「💞回憶(N)」鈕→`kanshouOpenMemoir` overlay 列出 27 欄各條——☆釘選(→★前綴·永不被淘汰·上限8，留2格給新回憶)／🗑刪除(confirm)。新 action `kanshou_memoir_op`(Router_Action 註冊·取寫入鎖·`kanshouOwnedRowIdx_` 帳號綁定驗證後才動同 gid 列，比照 update_rel_tag「玩家UI手動管理、AI無權」)，回傳更新後 memoir[]、前端原地重繪＋卡片徽章同步。`kanshou_companions` 回應每人多帶 `memoir[]`(原樣含★)。`processMemoir_` 淘汰邏輯改「★永不驅逐、只淘汰未釘選最舊的」，去重比對忽略★；餵 AI 的在場卡把★去掉(不外洩機制符號)。
+
+## §136 提示詞去重瘦身 Batch 1+2：修 location 正面矛盾＋色度跟隨/人格不崩/欄位規則歸一（2026-07·玩家看 GPT-5.6 提示指南問「可以改進我全部的提示詞嗎」→稽核→玩家選 B=授權含 nsfwBaseRules 的完整去重）
+
+依 OpenAI GPT-5.6 指南原則(重複指令與規則衝突是不穩定主因；修剪重複可提分並省 token)做全提示詞稽核後分批執行。玩家明確選「B」＝Batch 1(零風險)＋Batch 2(授權動 nsfwBaseRules 去重，語義原封、只刪重複)。
+
+**修正的矛盾**：
+- **(B1·正面互撞) location schema 欄**：§134 泡泡改版漏同步——schema 還寫「可自創地名/自行填新地點」vs USER 側「絕對禁止自創/一律照抄」，AI 每回合同時收到兩句會隨機選邊。改為「一律照抄目前地點、場景轉換走 move_proposal」。
+- **(B2) solo miniSystem 字面自我矛盾**：「換行一律用 <br><br>」+「禁止輸出任何 HTML 標籤」(<br>本身就是HTML)→「禁止 <br> 以外的任何 HTML 標籤」。
+- **(B4) 4 個過期方向詞**「見下方慾海律令第6/7條」→實際在上方＋配合刪條重編號。
+
+**去重(canonical 化)**：
+- **色度跟隨整段(nsfwBaseRules·授權)**：刪【色度跟隨鐵律】整節(含 word-for-word ×2 的生理特寫清單＋人格反差 bullet)——canonical＝慾海律令第0條(色度跟隨·caveat 最完整)＋第4條(極致感官)。nsfwBaseRules 913→561 字。
+- **「用原本人格承受快感」5→1**：canonical＝USER 角色一致性鐵律(最完整·有具體人格範例)；刪律令第1條尾句、第4條尾句、天花板 header 括號句(改指向)、色度段 bullet(隨整節)。
+- **慾海律令第5條(physical_state/outfit_change)整條刪**：canonical＝schema `_note`(離填寫點最近·內容全覆蓋)；第6/7條重編號為5/6、全部交叉引用(schema×4＋註解×1)同步改。specificRules 976→839 字。
+- **narration 欄**砍數字重抄只留 pointer(數字本體在★篇幅隨關係濃淡)。
+- **稱呼慣例尾段**縮短(真名規則 schema 兩欄已各講一次)。
+- **背景人煙**砍與在場驗證鐵律逐字重複的三聯句，只留「可以寫路人」正面許可＋pointer。
+- **相約/牽手 fragment**砍「好感高→低」階梯句(五階表＋好感數字已在場)，只留「依個性與好感真實演出、不預設結果」。
+- **時間尺度**兩個絕對句合併成單一決策規則(語義原封：禁跳時段＋禁時間長度字眼＋系統宣告推進才承接)。
+- **敘事終極警告**雙版本(driveOn 三元)抽出共同尾句，只留 drive 差異前綴。
+- (B5)過期註解「specificRules 絕對禁止血量」更正(該禁令現在 USER 側)。
+
+**收益**：SYSTEM 端 -489 字(nsfwBaseRules -352＋specificRules -137)＋USER 常駐約 -600 字＋條件式 fragment 約 -140，合計常駐約 **-1,100 字(~13%)**；矛盾 2 個消除、三講以上的重複規則 5 組歸一。**PROTECTED 未動**：親密尺度五階本體、篇幅數字、對話格式、driveStr 行為設計。**Batch 3 未做**(三個「最高優先級」收斂／SYSTEM 雙列表合併)——等本批實測無退化再議。
+
+⚠ **紅線註記**：本批依玩家明確選「B」授權刪改 nsfwBaseRules 重複段(kanshou-only，語義原封搬移至慾海律令 canonical)。Engine_Combat.gs 全程未動。
+
+**驗證**：`bash check.sh` 全過、Engine_Combat.gs diff 空、慾海律令新編號 0-6 與全部交叉引用一致、無「見下方/第7條」殘留。
