@@ -2840,3 +2840,12 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **蘭斯洛特**：look[3]「像想起放不下的往事」直說內心→刪、留「對著遠方出神」的可見動作
 
 ⚠ 只動 `dailyLook`(鑑賞讀)，SOLO 讀的 `persona.look/words/speech`(戰鬥用)完全沒碰。`CODEX_PERSONA_VER` v61→v62 觸發已入駐角色的日常快取重刷。`bash check.sh`全過、`Engine_Combat.gs`紅線空、6位改後仍 4 段。
+
+## §121 工房捏角日常欄生成也套「別自我重複／別直說內心」準則（2026-07・玩家「工房捏角新生成也修正，注意 日常外貌/日常性格/日常萌點/日常衣裝」）
+
+承 §120——把手改種子的準則同步進工房 AI 生成端(`ai_gen` 原創英靈，生成流程在 Router_Creation.gs·順序 moe→look(帶moe hint)→words)：
+- **日常外貌 `translateLookToDaily_`(Gallery.gs)**：①每短句精簡收束、避免堆疊多重子句；②氣質段【不可與口氣段用相同字眼】(擋型①自我重複，如兩段都寫「溫柔/謙恭」)；③私密一面【必須 show-don't-tell·看得到的具體小動作/情境】，禁止直說內心(「心裡一直惦記著…」「其實很在意…」)，也不要只是把性格/喜好換句話說(擋型②)。原有「私密一面不可跟 dailyMoe 重複」的 hint 保留。
+- **日常性格 `translatePersonalityToDaily_`**：新增第4參 `lookPrivateHint`，兩處呼叫端(Router_Creation.gs 建檔/改設定)把已生成的 dailyLook 第4段(私密一面)傳入，明令這4句性格不要跟私密一面重複；另加「每句精簡收束」。
+- **日常衣裝 `outfit`**：原本就有「不要跟 look 重複」，未動。**日常萌點 `translateMoeToDaily_`**：原本已限輕量/正面/18字、且最先生成當 hint 餵給 look，未動。
+
+⚠ 純提示詞/接線調整，只影響【日後】新捏的原創角色；已存在的角色資料不動(要更新可重存一次設定觸發 Router_Creation 重轉)。SEED canon 角色走 §120 手改那條、不經此路徑。`bash check.sh`全過、`Engine_Combat.gs`紅線空。

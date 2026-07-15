@@ -305,7 +305,8 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
   var dailyMoe = translateMoeToDaily_(name, cls, String(px.moe || ""));
   // translateLookToDaily_ 一次呼叫同時產出四段式 look(外貌本相/氣質舉止/自稱與口氣/私密一面) 與獨立的 outfit(日常穿搭)。
   var dailyLookRes = translateLookToDaily_(name, cls, String(px.look || ""), String(px.firstP || ""), String(px.speech || ""), dailyMoe);
-  var dailyWords = translatePersonalityToDaily_(name, cls, String(personaWords || ""));
+  // 私密一面(dailyLook 第4段)先算好、當 hint 傳給性格生成，避免日常性格跟私密一面又講一次。
+  var dailyWords = translatePersonalityToDaily_(name, cls, String(personaWords || ""), (String(dailyLookRes.look || "").split("、")[3] || ""));
   hs.appendRow([name + "-" + cls, cls, name, sex || "異", sixJson || "{}",
     JSON.stringify(classSkills || []), JSON.stringify(skills || []), JSON.stringify(traits || []),
     np || "", persona, align || "中立", "[]", "ai_gen", dailyLookRes.look, dailyWords, dailyMoe, dailyLookRes.outfit]);
@@ -481,7 +482,7 @@ function actionSaveHero(userData, pcId, sheets) {
     const dailyLookRes = translateLookToDaily_(build.name, pb.cls, newLook, newFp, newSpeech, dailyMoeVal);
     data[idx][COL.HERO.DAILY_LOOK] = dailyLookRes.look;
     data[idx][COL.HERO.DAILY_OUTFIT] = dailyLookRes.outfit;
-    data[idx][COL.HERO.DAILY_WORDS] = translatePersonalityToDaily_(build.name, pb.cls, newWords);
+    data[idx][COL.HERO.DAILY_WORDS] = translatePersonalityToDaily_(build.name, pb.cls, newWords, (String(dailyLookRes.look || "").split("、")[3] || ""));
     data[idx][COL.HERO.DAILY_MOE] = dailyMoeVal;
     hs.getRange(idx + 1, 1, 1, data[idx].length).setValues([data[idx]]);
     try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { }

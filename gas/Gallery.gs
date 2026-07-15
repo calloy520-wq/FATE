@@ -97,10 +97,11 @@ function translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint)
       "(前面數段是外貌本相與戰時攻防裝束，最後一段是整體氣質／神情)，以及她的第一人稱自稱、說話語氣。" +
       "這是 Fate／聖杯戰爭的平行世界日常線，想像《衛宮家今天的餐桌風景》那種基調——換上現代日常穿搭，" +
       "但一看就知道是她本人。請輸出兩樣東西：\n" +
-      "①look：日常版「外貌」四短句、頓號分隔，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝)]、" +
-      "[氣質舉止(依和平日常情境自然轉化，但性格底色不變，不可變成另一個人的氣質)]、" +
+      "①look：日常版「外貌」四短句、頓號分隔，每句精簡收束、避免堆疊多重子句，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝)]、" +
+      "[氣質舉止(依和平日常情境自然轉化，但性格底色不變，不可變成另一個人的氣質；【不可與下方口氣段用相同字眼重複描述】，例如兩段都寫「溫柔」「謙恭」)]、" +
       "[自稱與口氣：固定格式「自稱「" + (firstP || "我") + "」，再接一句依她原本說話語氣(" + (speech || "無特別描述") + ")寫成的日常口氣描述」]、" +
       "[卸下心防的私密一面(這個角色只有放下戒備才會流露的一個具體、生活化、忠於其性格的小可愛面向，" +
+      "【必須用看得到的具體小動作或情境呈現(show-don't-tell)，禁止直接說出她的內心想法/動機/情感獨白——如「心裡一直惦記著…」「其實很在意…」這類直述寫法一律不允許】，也不要只是把她的性格或喜好換句話說(那屬於性格欄)，" +
       "不可空泛或套用他人" + (dailyMoeHint ? "；這個角色的招牌萌點已經是「" + dailyMoeHint + "」，這一格【禁止】重複或換句話說同一件事，必須是完全不同的另一個生活切面(小動作/小習慣/情緒觸發點)" : "") + ")]。\n" +
       "②outfit：一句她今天的日常穿搭，保留原本服裝的色系/風格精神、換成現代日常款式，盡量貼近原味，" +
       "不要跟look的內容重複。\n" +
@@ -113,7 +114,7 @@ function translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint)
 
 // 跟 Core_Settings.gs 的 enrichPersonalityLikesDislikes_ 不同：那個只補缺項、維持戰時語境給
 //   solo 用；這個額外把戰場語境短句(戰意/殺意等)轉譯成適合日常展現的等價說法，只用於鑑賞。
-function translatePersonalityToDaily_(name, cls, rawWords) {
+function translatePersonalityToDaily_(name, cls, rawWords, lookPrivateHint) {
   var words = String(rawWords || "").trim();
   if (!words) return words;
   try {
@@ -125,6 +126,8 @@ function translatePersonalityToDaily_(name, cls, rawWords) {
       "日常場景展現的等價說法；純屬個性核心(不涉戰場)的短句原樣保留、不要亂改。\n" +
       "②段數不足4段時，依既有特質延伸出貼合、具體、適合日常場景的「喜歡的事物」與「討厭的事物」" +
       "補滿4句。\n" +
+      "③每句精簡收束、避免堆疊多重子句。\n" +
+      (lookPrivateHint ? "④她的日常外貌欄已寫好一句「私密一面」：「" + lookPrivateHint + "」——你這4句性格【不要】跟它重複或換句話說同一件事，各自要是獨立的面向。\n" : "") +
       "★只輸出最終4句、用「、」分隔，不要輸出任何說明、標籤、引號、前後綴。";
     var prompt = "角色：" + name + "（" + cls + "）\n戰時性格短句：" + words;
     var out = String(callGeminiAPI(prompt, sys, { temperature: 0.75, ignoreLaw: true, plainText: true }) || "").trim();
