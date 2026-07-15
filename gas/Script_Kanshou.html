@@ -298,16 +298,21 @@ let plainTextContext = cleanText;
 
   // 💞 共同回憶面板：看她跟你一路走來的回憶；★釘選=永不被新回憶擠掉(上限8)；🗑=刪掉不想留的。
   //   回憶本身由 AI 在劇情里程碑時自動記下(每人保留最近10條，釘選的不佔淘汰名額)。
+  var _kmBusy = false; // 💞讀條保護：面板開啟中/釘選刪除中的旗標，擋連點與競態(見 kanshouMemoirOp)。
+  function kmSpinner_(msg) { return '<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:22px;color:#e8b8cc;font-size:13px;"><span class="km-spin" style="width:15px;height:15px;border:2px solid rgba(232,184,204,.3);border-top-color:#e8b8cc;border-radius:50%;display:inline-block;animation:kmspin .7s linear infinite;"></span>' + (msg || '處理中…') + '</div><style>@keyframes kmspin{to{transform:rotate(360deg)}}</style>'; }
   async function kanshouOpenMemoir(name) {
+    if (_kmBusy) return;
     var c = _kcCur.find(function (x) { return x.name === name; });
     // 聊天側同伴卡也有💞回憶入口(Script.html)——沒先開過同伴面板時 _kcCur 是空的，這裡自己抓一次。
     if (!c) {
+      _kmBusy = true;
+      _kmShowLoading_(name);   // 先秀讀條，避免抓資料時黑屏無回饋
       try {
         const res = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount });
         if (res && res.success) _kcCur = res.current || [];
-      } catch (e) { }
+      } catch (e) { } finally { _kmBusy = false; }
       c = _kcCur.find(function (x) { return x.name === name; });
-      if (!c) { alert('讀取回憶失敗，稍後再試。'); return; }
+      if (!c) { var _ov = document.getElementById('km-overlay'); if (_ov) _ov.style.display = 'none'; alert('讀取回憶失敗，稍後再試。'); return; }
     }
     var ov = document.getElementById('km-overlay');
     if (!ov) {
@@ -335,16 +340,36 @@ let plainTextContext = cleanText;
     ov.style.display = 'flex';
   }
 
+  // 面板讀條：把 overlay 內容換成 spinner(overlay 不存在就先建一個空的)。
+  function _kmShowLoading_(name) {
+    var ov = document.getElementById('km-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'km-overlay';
+      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
+      ov.onclick = function (e) { if (e.target === ov && !_kmBusy) ov.style.display = 'none'; };
+      document.body.appendChild(ov);
+    }
+    ov.innerHTML = '<div style="width:min(440px,92vw);background:#1d1722;border:1px solid rgba(232,184,204,.25);border-radius:12px;padding:14px;">'
+      + '<b style="color:#e8b8cc;">💞 與「' + escapeHtml(name || '') + '」的共同回憶</b>' + kmSpinner_('讀取中…') + '</div>';
+    ov.style.display = 'flex';
+  }
   async function kanshouMemoirOp(name, op, item) {
+    if (_kmBusy) return;   // 💞讀條保護：上一個釘選/刪除還在跑就忽略連點，防重複送出/競態
     if (op === 'del' && !confirm('確定刪掉這條回憶嗎？刪了她就真的忘了。')) return;
+    _kmBusy = true;
+    _kmShowLoading_(name);  // 面板換成讀條，處理中不可再點
     try {
       const res = await gasRun({ action: 'kanshou_memoir_op', pcId: pc.id, acctName: currentAccount, targetName: name, op: op, item: item });
       if (!res || !res.success) { alert((res && res.message) || '操作失敗。'); return; }
       var c = _kcCur.find(function (x) { return x.name === name; });
       if (c) c.memoir = res.memoir || [];
       renderKcPartyList_();   // 卡片上的數量徽章同步
-      kanshouOpenMemoir(name); // 面板原地重繪
     } catch (e) { alert('操作失敗。'); }
+    finally {
+      _kmBusy = false;
+      kanshouOpenMemoir(name); // 面板原地重繪(讀條收掉、顯示最新清單)
+    }
   }
 
   // 🌙 結束一天：不在身邊的英靈由GAS自動決定隔天去哪(見Gallery.gs kanshouRollDailyLocation_)，不用手動排程；跟一般聊天走同一個send()、同一套渲染。

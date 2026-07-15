@@ -3089,3 +3089,10 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **提示詞時間尺度同步**：明告 AI「一個動作約【十分鐘左右】的短暫片刻(聊天問句更是眨眼之間)、絕對不要把一次對話演成過了很久」，但仍禁把「十分鐘/半小時」等時間長度字眼寫進敘述(內部校準用、不報時)。
 
 **驗證**：`bash check.sh` 全過、Engine_Combat.gs diff 空、時鐘 10 分刻度無漂移。
+
+## §141 橋段不再重複詢問＋回憶面板讀條保護（2026-07·玩家「橋段會一直重複詢問嗎」＋「點回憶要有讀條保護」）
+
+- **橋段重複詢問(Gallery.gs:1590)**：roomEventOffer 只要地點×時段對得上就每回合冒。§132 的 `KANSHOU_SCENE_DAY_TAG_` 只擋重複加好感、按鈕仍跳。→ 候選人蒐集(_reMatches)加濾條「`KANSHOU_SCENE_DAY_TAG_.get(她MEMORY) !== curDay`」——今天已跟她經歷過橋段就連 offer 都收掉、按鈕消失，一天一位一次特別相處，結束這天(curDay+1)後自然重開。多人同居時只濾掉「今天已經歷的那位」，其餘照常可邀。
+- **回憶面板讀條保護(Script_Kanshou.html)**：新增 `_kmBusy` 旗標＋`kmSpinner_`/`_kmShowLoading_`。①`kanshouOpenMemoir` 聊天卡版要抓 kanshou_companions 時先秀 spinner「讀取中…」避免黑屏、且 _kmBusy 擋連點；②`kanshouMemoirOp`(釘選/刪除)開頭 `if(_kmBusy)return` 擋連點、送出前把面板換 spinner、finally 收 busy＋原地重繪。競態/重複送出雙防。
+
+**驗證**：`bash check.sh` 全過、Engine_Combat.gs diff 空。
