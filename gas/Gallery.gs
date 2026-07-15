@@ -1113,6 +1113,10 @@ function kanshouHoursUntilBand_(curHour, targetStartHour) {
   if (diff <= 0) diff += 24; // 已在該時段內也跳下一次，不回傳0
   return diff;
 }
+// ⏰ 時間隨玩家動作自然流動：一般 AI 敘事回合每次推進幾小時(讓「到處跑卻永遠停在6點」的凍結感消失)。
+//   刻意夾在當日 KANSHOU_DAY_LAST_HOUR_(23:00)不跨日——跨日(睡覺)只由「結束一天」儀式負責。
+const KANSHOU_HOUR_PER_ACTION_ = 1;
+const KANSHOU_DAY_LAST_HOUR_ = 23;
 // 「跳到時段」＋「時段行動」按鈕都需要前端知道現在幾點——這裡統一格式化成單一真實來源，
 //   buildClientState_/actionPlay的回應都呼叫這支，不各自重複拼字串。
 // 🩹 2026-07玩家「這要顯示幾年幾月幾號」定案：label從抽象的「第X日」改成實際年月日(跟敘述
@@ -1557,11 +1561,13 @@ function actionPlay(userData, pcId, sheets) {
   // 只有結束一天(真的要過夜)才判定好感≥80能否同行睡覺，推進時間不觸發(那不是「睡下去」的
   //   動作)。門檻由GAS算好，AI只負責依角色性格自然演繹要不要跨出這一步。
   let intimateNightNames = [];
+  let kanshouClockMoved_ = false; // 結束一天/時段跳躍已自行設時鐘→標記，避免下方每回合流動又加一次
   if (userData.endDay === true) {
     // 結束一天固定跳到「隔天清晨6點」(不論此刻幾點)，時鐘跟著寫回，往後「推進時間」、鑑賞
     //   主敘事的時段感提示才有真實的日/時可讀。
     curDay = curDay + 1;
     curHour = 6;
+    kanshouClockMoved_ = true;
     pcData[pcIndex][COL.PC.DAY] = curDay;
     pcData[pcIndex][COL.PC.HOUR] = curHour;
     // 不分「同行/不同行」，所有已存在的英靈結束一天都依自己的生活重新決定要去哪——唯一例外
@@ -1602,6 +1608,7 @@ function actionPlay(userData, pcId, sheets) {
       const clk = { day: curDay, hour: curHour };
       rollHours_(clk, advanceHours);
       curDay = clk.day; curHour = clk.hour;
+      kanshouClockMoved_ = true;
       pcData[pcIndex][COL.PC.DAY] = curDay;
       pcData[pcIndex][COL.PC.HOUR] = curHour;
       // 修過的bug：原本沒排除「當下正跟玩家同地點」的人，導致正在互動中的同伴被時間推進的
@@ -1621,6 +1628,15 @@ function actionPlay(userData, pcId, sheets) {
           ? `【時間推進】時間悄悄流轉到了${jumpBand.label}，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`
           : `【時間推進】${advanceHours}個小時悄悄過去，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`;
     }
+  }
+  // ⏰ 時間隨動作流動：一般 AI 敘事回合(非結束一天/非時段跳躍)每次推進 KANSHOU_HOUR_PER_ACTION_ 小時，
+  //   讓聊天/移動/拍照/橋段等按鍵都會讓時鐘往前走，消除「到處跑卻永遠6點」的凍結感。夾在當日23:00不
+  //   跨日——跨午夜(睡覺)由「結束一天」儀式負責(回家/同床/晨間餘韻/隔天6點重置)，不讓時間偷偷滾過午夜。
+  //   只動時鐘、不重骰不在場同伴的位置(那由結束一天/時段跳躍負責)，免得每句對話有人被傳送走。
+  if (!kanshouClockMoved_ && curHour < KANSHOU_DAY_LAST_HOUR_) {
+    curHour = Math.min(KANSHOU_DAY_LAST_HOUR_, curHour + KANSHOU_HOUR_PER_ACTION_);
+    pcData[pcIndex][COL.PC.HOUR] = curHour;
+    dirtyPcRows.add(pcIndex);
   }
   const curDateObj_ = kanshouAbsDayToDate_(curDay); // 供下方🕰️提示詞用，只算一次不重複呼叫
 

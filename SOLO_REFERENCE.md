@@ -2849,3 +2849,17 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **日常衣裝 `outfit`**：原本就有「不要跟 look 重複」，未動。**日常萌點 `translateMoeToDaily_`**：原本已限輕量/正面/18字、且最先生成當 hint 餵給 look，未動。
 
 ⚠ 純提示詞/接線調整，只影響【日後】新捏的原創角色；已存在的角色資料不動(要更新可重存一次設定觸發 Router_Creation 重轉)。SEED canon 角色走 §120 手改那條、不經此路徑。`bash check.sh`全過、`Engine_Combat.gs`紅線空。
+
+## §122 鑑賞時間隨玩家動作自然流動（2026-07・玩家「最嚴重痛點：時間不流動，6點到處跑都一直6點，想要對話/按鍵(走AI)都讓時間流動」）
+
+**背景**：鑑賞時鐘(借 COL.PC.DAY/HOUR)原本只在「結束一天」「推進時段/跳節慶」按鈕才動，一般聊天/移動完全不推進→開局6:00怎麼玩都卡在6點，很出戲。
+
+**做法(actionPlay·時間區塊收尾後、curDateObj_之前)**：
+- 常數 `KANSHOU_HOUR_PER_ACTION_=1`、`KANSHOU_DAY_LAST_HOUR_=23`(Gallery.gs·KANSHOU_TIME_BANDS_ 旁)。
+- 旗標 `kanshouClockMoved_`：結束一天(設隔天6點)與時段跳躍(rollHours_)兩條各自 set true，避免它們的回合又被下面加一次。
+- 一般 AI 敘事回合(聊天/移動/拍照/橋段/牽手…凡走AI且非結束一天/非跳躍)：`curHour = min(23, curHour+1)`＋寫回 pcData[pcIndex].HOUR＋dirtyPcRows。**夾在當日23:00不跨日**——跨午夜(睡覺)只由「結束一天」儀式負責(回家/同床/晨間餘韻/隔天6點重置)，不讓被動流動偷偷滾過午夜沒睡覺。
+- **只動時鐘、不重骰不在場同伴位置**(那由結束一天/時段跳躍負責)，免得每句對話有人被傳送走(承 §84 精神)。
+- 時鐘會被 AI 讀到：提示詞 line🕰️「現在是…${timeBand_(curHour)}」＋前端 HUD(`kanshouClockInfo_(pcData[pcIndex])` 回應時建，承 §102 修好的刷新)都吃 curHour，故 narration 的時段感與 HUD 同步往前走。
+- **一天長度**＝(23−6)/1 = 約17個一般動作到23:00封頂；封頂後續回合維持23:00直到玩家結束一天。深夜(0-4)仍走「跳到時段·深夜」。速度嫌快/慢改 `KANSHOU_HOUR_PER_ACTION_` 一個數即可。
+
+**驗證**：`bash check.sh`全過、`Engine_Combat.gs`紅線空；Node模擬(6點連按20次爬到23封頂/結束一天回合不重加/跳躍回合不重加/23點維持)全對。
