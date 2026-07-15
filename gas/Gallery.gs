@@ -219,7 +219,11 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   sRow[COL.PC.INTENT] = daily.moe || "";
   // 戰時 p.back 跟平行世界矛盾，優先讀 p.dailyBack。舊版保底寫死`${RANK}・${name}`(如「Saber・
   //   阿爾托莉雅」)會把職階字眼餵進AI提示詞、演成從者對御主的恭敬——改成中性描述。
-  sRow[COL.PC.BACK] = p.dailyBack ? String(p.dailyBack).slice(0, 28) : "生活在這座城鎮裡的普通身影，與你尚無深交";
+  // 身世優先序：①種子手寫的 dailyBack(canon英靈)②工房原創英靈沒 dailyBack→退回 forge 的 back(原創角色
+  //   身世本就非戰時悲劇、可直接用)③兩者皆空才給通用預設。避免工房捏的角色也掉進「普通身影」預設。
+  sRow[COL.PC.BACK] = p.dailyBack ? String(p.dailyBack).slice(0, 28)
+    : p.back ? String(p.back).slice(0, 28)
+    : "生活在這座城鎮裡的普通身影，與你尚無深交";
   // 直接召喚無快照可帶，用該英靈自己的日常衣裝(daily.outfit)墊底，沒有才退回「日常便服」。
   // p.speech/p.tic 是戰時口吻/小動作，跟平行世界矛盾：口吻改用 dailyLook 第3段(自稱與口氣)的
   //   日常安全版；tic 沒有對應日常版，直接不帶。
