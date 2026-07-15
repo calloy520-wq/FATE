@@ -2814,3 +2814,17 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 
 **追加·拍照UX+選人**：①`kanshouTakePhoto`改用`prompt()`彈框問想拍什麼(留空=拍眼前/打一句=指定主角)，不用先在對話框打字(玩家「還要先打字阿~?」)；取消(null)不送出。②多人在場選人(玩家「如果有很多人在場呢?」)：intent點名了哪些在場同伴(`_phNamedMembers`·可多位)就**只拍那(幾)位**(最多3)——修掉原本「就算點名也還是拍前3位」的瑕疵；空手按=在場好感最高前3位合照；沒被拍到的人AI演旁觀/起鬨。Node驗證5情境(空手多人/點名單人/點名雙人/風景/空手無人)全對。
 
+
+## §119 鑑賞拜訪私人住處要「夠熟才登門」(好感≥40) ＋ AI 別亂掰玩家帶禮物（2026-07・玩家「能直接拜訪住處也太怪了…AI很能掰直接幫我準備小禮物登門拜訪，但對面還是很熟悉我的樣子」→選丙案，門檻40）
+
+**背景**：`拜訪住處`分頁的6處私人住處(region:'visit')原本**零門檻**、任何好感都能直接 `kanshouMoveTo` 闖進去。低好感登門→AI為了合理化就憑空掰「玩家準備了小禮物」，NPC 也演得過分熟絡(低好感語氣提示 line 1826-1828 只到普通朋友<40，但你人已在人家家裡了)。玩家選**丙案**：住處鎖到熟識(好感40)＋修「別演太熟/別亂掰禮物」通用毛病。
+
+**Part A·住處好感門檻(單一真實來源 `KANSHOU_VISIT_BOND_=40`，位置在 KANSHOU_COHABIT_BOND_ 旁)**：
+- **判定** `kanshouResidenceUnlocked_(pcData, 住處名, gameId)`(Gallery.gs·kanshouHeroIdByName_ 旁)：該住處主人(`KANSHOU_HERO_HOME_` 反查 heroId→住處名)在本局已入駐且好感≥40才解鎖。game_id 隔離(別局的同角色不算)。
+- **後端攔截**(actionPlay·moveTarget 解析處)：`moveTarget0_` 若 region==='visit' 且未解鎖→`moveTarget=null`(不進門、留原地)＋`kanshouVisitBlockedStr`(★【登門未果·私人住處】門外卻步、不讓屋主出現)注入提示詞、`finalUserMsg` 改「想直接登門造訪」。直打 API 也擋得住。
+- **前端**(Script_Kanshou.html·locBtns)：未解鎖的 visit 住處灰掉(🔒+「尚未熟識」·`cursor:not-allowed`)，點了跳 alert 提示、不移動。解鎖清單走 `buildTagsPayload_` 新增的 `unlockedResidences`(k_ 局才算，跟 locationCounts 同一迴圈)。
+- **門檻可達性**：純聊天卡在梯度上限(chat ceiling 39)，但**赴約**(kanshouPromiseMetStr +5·直接寫BOND不吃ceiling)可推過40，故門檻不會 soft-lock。
+
+**Part B·別亂掰(Gallery.gs 提示詞·★【玩家反向邀約】下方新增★)**：明令無金錢/物品/背包系統，禁止 AI 自作主張讓玩家「早就準備好禮物/掏錢包/變道具」等玩家沒說要做的事——送禮一律由玩家輸入決定；日常順手分享的小零食/路邊自然之物可輕描淡寫，但不可寫成有備而來、彷彿關係已很親近。⚠ `nsfwBaseRules`(紅線①)未動，規則加在鑑賞專屬組裝段。
+
+**驗證**：`bash check.sh`全過；`git diff --stat gas/Engine_Combat.gs`空；Node模擬 `kanshouResidenceUnlocked_` 5例(好感39鎖/55開/40邊界開`>=`/無屋主入駐鎖/別局同角色不解鎖本局)全對。

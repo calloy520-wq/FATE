@@ -518,9 +518,19 @@ let plainTextContext = cleanText;
     // 🆕 locCounts 夾帶在tags payload裡(見Router_Action.gs buildTagsPayload_)——每個英靈都各自散布在不同地點過自己的生活，這裡顯示各地點人數，幫助決定去哪裡找誰。
     var locCounts = (window._lastTags && window._lastTags.locationCounts) || {};
     // 🙋 跟kanshouMoveTo(自己走，無條件強制移動)不同，這顆👋走一般聊天訊息(不帶moveTarget)，交給AI依同伴個性當場決定答應或婉拒(見Gallery.gs★【玩家反向邀約】)。
+    // 🔒 拜訪住處門檻：私人住處(region:'visit')要跟屋主好感≥熟識(40)才解鎖，未解鎖的灰掉、點了給提示不移動。
+    var unlockedRes = (window._lastTags && window._lastTags.unlockedResidences) || [];
     var locBtns = KC_LOCATIONS_.filter(function (l) { return l.region === kcActiveRegion_; }).map(function (l) {
       var label = l.isRoom ? kcRoomLabel_(l.name) : l.name;
       var cnt = locCounts[l.name] || 0;
+      if (l.region === 'visit' && unlockedRes.indexOf(l.name) === -1) {
+        return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
+          + '<button onclick="alert(\'跟這裡的主人還不夠熟，不好貿然登門。多在外頭相處、熟識(好感40)之後才好造訪。\')" '
+          + 'style="flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;background:#1b1822;color:#6a6478;border:1px dashed #3a3348;border-radius:8px;cursor:not-allowed;font-size:13px;">'
+          + '<span>🔒 ' + escapeHtml(label) + '</span>'
+          + '<span style="font-size:10.5px;color:#7a7488;">尚未熟識</span>'
+          + '</button></div>';
+      }
       return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
         + '<button onclick="kanshouMoveTo(\'' + l.name + '\')" style="flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">'
         + '<span>📍 ' + escapeHtml(label) + '</span>'

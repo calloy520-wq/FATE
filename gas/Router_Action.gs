@@ -407,15 +407,19 @@ function buildTagsPayload_(sheets, pcId, preData) {
   try { if (gameId && gameId.indexOf("g_") === 0 && mIdx >= 0) canRB = canRuleBreak_(pcData, mIdx, gameId); } catch (e) { }
   // 🗺️ 鑑賞地圖分頁按地點顯示人數，供玩家決定去哪找誰；只在鑑賞世界算(gameId以"k_"開頭)，solo無此概念。
   var locationCounts = {};
+  // 🔒 拜訪住處解鎖清單：跟屋主好感≥熟識(40)才能登門，前端據此把鎖住的住處灰掉(同一判定後端 actionPlay 也擋)。
+  var unlockedResidences = {};
   if (gameId && gameId.indexOf("k_") === 0) {
     pcData.forEach(function (r) {
       if (String(r[COL.PC.FACTION]) !== "從者" || String(r[COL.PC.GAME_ID] || "") !== gameId || String(r[COL.PC.ID]).startsWith("DEAD_")) return;
       var l = String(r[COL.PC.LOC] || "").trim();
-      if (!l) return;
-      locationCounts[l] = (locationCounts[l] || 0) + 1;
+      if (l) locationCounts[l] = (locationCounts[l] || 0) + 1;
+      var hid = kanshouHeroIdByName_(String(r[COL.PC.NAME]));
+      var home = hid && KANSHOU_HERO_HOME_[hid];
+      if (home && (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_VISIT_BOND_) unlockedResidences[home] = true;
     });
   }
-  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length, locationCounts: locationCounts };
+  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length, locationCounts: locationCounts, unlockedResidences: Object.keys(unlockedResidences) };
 }
 
 // ⚡ preData：手上已有最新整表陣列的呼叫端(見 STATE_PRE_DATA_ 交棒機制)傳入複用，省掉整表重讀——

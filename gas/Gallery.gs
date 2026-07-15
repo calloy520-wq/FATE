@@ -1006,6 +1006,19 @@ function kanshouHeroIdByName_(heroName) {
   const hero = SEED_SERVANTS.find(h => kanshouNameCandidates_(h.realName).includes(heroName));
   return hero ? hero.id : null;
 }
+// 🔒 拜訪私人住處門檻：跟屋主(KANSHOU_HERO_HOME_反查)在本局已入駐、且好感≥KANSHOU_VISIT_BOND_(熟識40)
+//   才解鎖登門——沒熟到一定程度不好貿然闖進人家家裡。單一真實來源，前端(buildTagsPayload_ unlockedResidences)
+//   跟後端移動攔截(actionPlay)共用這個判定。可跨聊天上限：靠赴約(kanshouPromiseMetStr +5·不吃chat ceiling)推過40。
+function kanshouResidenceUnlocked_(pcData, residenceName, gameId) {
+  if (!residenceName) return false;
+  return pcData.some(function (r) {
+    if (String(r[COL.PC.FACTION]) !== "從者" || String(r[COL.PC.ID]).startsWith("DEAD_")) return false;
+    if (gameId && String(r[COL.PC.GAME_ID] || "") !== gameId) return false;
+    const hid = kanshouHeroIdByName_(String(r[COL.PC.NAME]));
+    const home = hid && KANSHOU_HERO_HOME_[hid];
+    return home === residenceName && (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_VISIT_BOND_;
+  });
+}
 // 同住人深夜/清晨睡不著出門走走的機率，獨立於一般英靈的homeBias，資料只存一處。
 // 幫「不在身邊」的英靈決定當下要去哪——反查KANSHOU_LOCATION_TAGS_有沒有標到這位英靈，有就
 //   加權隨機挑一個常去地點，沒標到就全地點隨機挑。hour：深夜/清晨時段大機率改回「她自己原本
@@ -1146,6 +1159,8 @@ var KANSHOU_COHABIT_TAG_ = makeIntTag_('同居', 0);
 //   仍看好感80+全部，見結束一天邏輯)。放手=清空。她只是「優先帶走」的標記，不影響她的獨立生活。
 var KANSHOU_HANDHOLD_TAG_ = makeTextTag_('牽手');
 const KANSHOU_COHABIT_BOND_ = 90;
+// 🔒 登門拜訪私人住處(region:'visit')的好感門檻＝熟識的朋友(見 KANSHOU_REL_TIER_ 的40切點)。
+const KANSHOU_VISIT_BOND_ = 40;
 const KANSHOU_COHABIT_ROOM_ = '和室';
 function kanshouIsCohabit_(row) { return KANSHOU_COHABIT_TAG_.get(row[COL.PC.MEMORY]) > 0; }
 // 📷 相簿(拍照收集·2026-07玩家定案)：A案色卡寶麗來(不畫人·時段色調×天氣×髮色標記)、每日底片
@@ -1310,11 +1325,22 @@ function actionPlay(userData, pcId, sheets) {
 
   // 鑑賞地點移動：前端點選地點按鈕時帶 moveTarget，跟一般對話同一次 round-trip 解決——比對
   //   KANSHOU_LOCATIONS_ 合法地點清單，查無效比對一律當成普通對話。
-  const moveTarget = KANSHOU_LOCATIONS_.find(l => l.name === String(userData.moveTarget || "").trim());
+  const moveTarget0_ = KANSHOU_LOCATIONS_.find(l => l.name === String(userData.moveTarget || "").trim());
+  // 🔒 拜訪私人住處門檻：跟屋主好感未達熟識(40)前不好貿然登門——擋在移動前，當作沒真的進門(留原地)，
+  //   給AI一句在門外卻步的情境，維持她家的私人邊界(前端已把鎖住的住處灰掉，這裡是直打API的後端保底)。
+  const _myGid_ = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
+  let kanshouVisitBlockedStr = "";
+  let moveTarget = moveTarget0_;
+  if (moveTarget0_ && moveTarget0_.region === 'visit' && !kanshouResidenceUnlocked_(pcData, moveTarget0_.name, _myGid_)) {
+    kanshouVisitBlockedStr = `\n★【登門未果·私人住處】：你來到「${moveTarget0_.name}」門前，卻想起跟這裡的主人還沒熟到能這樣直接登門造訪——演出你在門外停步、終究沒敲門就轉身離開的猶豫即可(不要進屋、不要讓屋主出現、不必解釋機制或提到數值)。`;
+    moveTarget = null;
+  }
   const moveName = moveTarget ? moveTarget.name : "";
-  let finalUserMsg = moveTarget
-    ? `【玩家意圖】：走向了「${moveName}」，四處看看那裡有什麼、有沒有遇見誰。`
-    : `【玩家意圖】：${userMsg}`;
+  let finalUserMsg = kanshouVisitBlockedStr
+    ? `【玩家意圖】：想直接登門造訪「${moveTarget0_.name}」。`
+    : moveTarget
+      ? `【玩家意圖】：走向了「${moveName}」，四處看看那裡有什麼、有沒有遇見誰。`
+      : `【玩家意圖】：${userMsg}`;
 
   // 鑑賞世界觀明文禁止任何戰鬥/血量變化/死亡威脅，故不帶 solo 戰鬥引擎的殘留概念(擊倒/復活/
   //   戰敗虛假之夢/剛結盟NPC排除等)。
@@ -1921,7 +1947,7 @@ ${PROMPT_PARTY_SYSTEM}
 【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}(當前服裝·五官體態不變)` : ""} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}
 
 ${PROMPT_REL}
-★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前在場人物】(與玩家同地點的已認識人物)；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【目前在場人物】內的姓名，僅視為不在場的回憶，嚴禁無視此規則讓其憑空登場、穿越或開口說話、出手！${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouRoomEventStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouJealousStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶氛圍】：今天是「${_f.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。`; if (jumpFest) return `\n★【節慶氛圍】：明天就是「${jumpFest.name}」，街頭已有節慶前夕的準備與期待感，narration可自然帶入，不必特別報幕。`; return ""; })()}
+★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前在場人物】(與玩家同地點的已認識人物)；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【目前在場人物】內的姓名，僅視為不在場的回憶，嚴禁無視此規則讓其憑空登場、穿越或開口說話、出手！${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouRoomEventStr}${kanshouVisitBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouJealousStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶氛圍】：今天是「${_f.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。`; if (jumpFest) return `\n★【節慶氛圍】：明天就是「${jumpFest.name}」，街頭已有節慶前夕的準備與期待感，narration可自然帶入，不必特別報幕。`; return ""; })()}
 ★【今日天氣】：${kanshouWeather_(curDay)}——讓天氣自然滲入場景與人物(衣著/髮絲/街景/話題皆可)，不必每句都提、也不必報幕。${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜氛圍·好感門檻已達】：『${intimateNightNames.join('、')}』與你的羈絆已深(好感≥80)，今晚可以自然發展到同床共枕，依其性格自然決定要不要跨出這一步、氛圍濃烈到什麼程度，不強制每次都寫到底；好感未達此門檻的同伴，一律維持各自安睡、不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度了親密的時光(依上一回合實際演出的內容為準，若上次並未真的跨出那一步就當作平常的早晨)，這是新的一天第一個場景，若情境合適可以自然帶出晨間的溫馨/曖昧餘韻(如一起吃早餐、彼此害羞或黏膩的互動)，不強制一定要提及、也不需要複述昨夜細節，一切依角色個性自然發展。` : ""}
 💕【鑑賞·後日談模式·最高優先級覆寫】：${partyRows.length === 0
     ? `眼下沒有相識的人在場，就是玩家一個人的尋常時光。`
@@ -1936,6 +1962,7 @@ ${PROMPT_REL}
 ★【換場地】你可自主決定何時、換去上方清單裡的哪個地點——但【絕對禁止】無故憑空跳地點：須先在narration把移動/抵達的過程實際寫出來，location欄位才能填新地名(且必須是上方清單之一)；沒有移動就讓location原樣照抄目前地點。
 ★【提議換地點需玩家同意】：若這回合你判斷同伴自然而然想邀玩家換個地方，填move_proposal(地點需為上方清單之一)，narration只寫到「邀請/提議」的當下、【絕對禁止】接著寫出移動或抵達的過程，是否成行交由玩家事後決定；沒有這類意圖時move_proposal留空，不要每回合都提議。
 ★【玩家反向邀約】：這跟上面「AI提議」方向相反——若這回合是玩家本人主動邀同伴一起換地方，同伴的反應由你當場依其個性決定，答應就直接在這句narration裡把邀約、移動、抵達的過程一次演完並更新location(必須是上方清單之一)；不想去就自然演出委婉推辭或提出想法，location維持原樣。這種情況【不需要】走move_proposal欄位，一回合內就地判斷完畢，不必分兩段等玩家再次確認。
+★【不替玩家憑空生出東西】：這個世界沒有金錢/物品/背包系統，【絕對禁止】自作主張讓玩家「早就準備好禮物」「掏出錢包」「變出道具」等他沒說要做的事——玩家要送禮或拿出什麼，一律由玩家自己的輸入決定，你不得代勞或無中生有。日常場景裡順手分享的小零食、路邊隨手可得的自然之物(花草、貝殼等)可輕描淡寫，但不可寫成有備而來、彷彿關係已很親近的鋪陳。
 現在演化玩家動作：『${finalUserMsg}』${npcDialoguePrompt}
 
 ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推進，本回合可以確實大幅向前推展——不必像平日矜持模式那樣每次都停在剛起步的瞬間，讓「步步進逼」的壓迫感真的往前走、玩家打少少字也能推進不少。但仍【絕對禁止】把這整段相處寫成「那一夜／自此／就這樣／從此」等總結收尾句，不可讓這回合讀起來像已經翻頁的完結篇章——停在「我」當下進行式的心境與情緒中，留一點空間給玩家插入反應、喊停或喘息，而非停在原地一動也不動。`
