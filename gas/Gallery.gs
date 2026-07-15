@@ -604,6 +604,9 @@ function buildDefaultSystemPrompt() {
     // proposal_accept：僅當敘事鐵律區出現【提議·相約】或【提議·牽手】標記(玩家向她提出、需她回應)時才有意義，
     //   由AI依該角色個性與當前好感決定接不接受，GAS只在填「接受」時才把約定/牽手落地成持久狀態(意圖非結果)。
     "proposal_accept": "僅當本回合敘事鐵律區有【提議·相約】或【提議·牽手】標記時填寫：她若接受填「接受」、婉拒填「婉拒」(依其個性與好感真實決定，好感低或性格矜持可婉拒)；沒有這類提議就留空字串",
+    // npc_exit：同伴自主權——她可自然告辭離場，GAS真的把她移出場景(不再是嘴上說走卻還在)。只認此刻
+    //   在場同伴，去向由系統依作息決定；被牽的人離場→牽手自動鬆開。不必每回合遣散，只在情境自然時。
+    "npc_exit": "若某在場同伴這回合自然而然告辭離開(有事要辦/作息/心情等)，把她的真實姓名填進此陣列(可多位)；她會真的離場、下回合不在你身邊，去向由系統依她作息決定。沒有人離開就填空陣列[]。這是『她自己走』、與玩家移動無關，narration要把她離開的過程演出來；被你牽著手的她若在此離開，牽手也一併鬆開。不必每回合都讓人離開，只在情境自然時才用。",
     "options": ["1. [主動]強勢掌握主導...", "2. [被動]順從委婉試探...", "3. [接續]順劇情延續互動...", "4. [反差]跳脫氛圍的驚人舉動..."],
     "intimacy_feedback": {
       "_note": "★physical_state只寫角色「自身」當下的顏面神情，禁內心戲，第三人稱填寫，絕對禁寫'自己'，≤15字。★outfit_change是角色當下實際穿著狀態(第三人稱如實反映，≤20字)：正常穿著就寫身上衣物，若劇情中角色被脫光、沐浴、更衣，也要如實反映當下真實狀態，這欄會持久記住、不是每回合就消失的暫時描述。★兩者每回合都要據實反映最新狀態，不可偷懶沿用舊值。npcs每位與player共用此格式，依其實際狀態填寫。",
@@ -2022,6 +2025,36 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
           pcData[_pendingProposal.idx][COL.PC.MEMORY] = KANSHOU_HANDHOLD_TAG_.set(pcData[_pendingProposal.idx][COL.PC.MEMORY], _pendingProposal.name);
         }
         dirtyPcRows.add(_pendingProposal.idx);
+      }
+    }
+
+    // 🚶‍♀️ 同伴自主離場(npc_exit)：AI判斷某在場同伴這回合自然告辭時，GAS真的把她移出場景——依當前
+    //   時刻骰她的日常去向(獨立住民作息)，下回合就不在你身邊，解掉舊「嘴上說走卻還在場」的違和。
+    //   只認此刻同地在場的同伴(防AI點名不在場者)；骰回原地就改去登記住處/任一非原地公開地點，確保
+    //   她真的離開。被牽著手的她若在此離場→牽手一併鬆開(不能牽著已離場的人)。
+    {
+      const exitList = Array.isArray(aiData.npc_exit) ? aiData.npc_exit : [];
+      if (exitList.length) {
+        const _heldNow = KANSHOU_HANDHOLD_TAG_.get(pcData[pcIndex][COL.PC.MEMORY]);
+        exitList.forEach(nm => {
+          const exitName = String(nm || "").trim();
+          if (!exitName) return;
+          const eIdx = pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(exitName) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim());
+          if (eIdx === -1) return;
+          let dest = kanshouRollDailyLocation_(pcData[eIdx][COL.PC.NAME], curHour, kanshouIsCohabit_(pcData[eIdx]));
+          if (String(dest || "").trim() === String(curL || "").trim()) {
+            const eHeroId = kanshouHeroIdByName_(pcData[eIdx][COL.PC.NAME]);
+            const eHome = eHeroId && KANSHOU_HERO_HOME_[eHeroId];
+            dest = (eHome && eHome !== curL) ? eHome
+              : ((KANSHOU_LOCATIONS_.filter(l => l.region !== 'room' && l.region !== 'visit' && l.name !== curL)[0] || {}).name || dest);
+          }
+          pcData[eIdx][COL.PC.LOC] = dest;
+          dirtyPcRows.add(eIdx);
+          if (_heldNow && kanshouNameCandidates_(String(pcData[eIdx][COL.PC.NAME])).includes(_heldNow)) {
+            pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_HANDHOLD_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], '');
+            dirtyPcRows.add(pcIndex);
+          }
+        });
       }
     }
 
