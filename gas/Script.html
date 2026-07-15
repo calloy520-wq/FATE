@@ -1339,6 +1339,9 @@
             + '<div style="margin-top:6px; display:flex; gap:6px;">'
             + '<button onclick="kanshouEditRelTag(\'' + safeN + '\',\'' + String(s.tag || '').replace(/'/g, '') + '\')" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(120,90,180,0.18); color:#dcc8ff; border:1px solid #6a4a9a; border-radius:6px; cursor:pointer;">🏷️ 關係</button>'
             + '<button onclick="kanshouPromiseMeet(\'' + safeN + '\')" title="跟她約明天在某地見面——她明天會在那裡等你；赴約好感↑、放鴿子好感↓(須本人在場才約得成)" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(90,140,180,0.18); color:#a8d0f0; border:1px solid #4a7a9a; border-radius:6px; cursor:pointer;">📅 相約</button>'
+            + (s.held
+              ? '<button onclick="kanshouReleaseHand()" title="放開她的手" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(200,120,150,0.28); color:#f0c0d4; border:1px solid #b06888; border-radius:6px; cursor:pointer;">✋ 放手</button>'
+              : '<button onclick="kanshouHoldHand(\'' + safeN + '\')" title="牽起她的手一起行動——之後你移動到哪她都相伴同行(她本人要在場才牽得成)" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(200,120,150,0.16); color:#e8b0c8; border:1px solid #a06080; border-radius:6px; cursor:pointer;">🤝 牽手</button>')
             + '<button onclick="kanshouInviteCohabit(\'' + safeN + '\')" title="邀她搬來同住(需關係足夠深厚、她本人在場)——同居後深夜大多回家就寢、清晨可能賴床、晚間常在家中活動，白天照常出門" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(180,140,90,0.18); color:#e8c8a0; border:1px solid #9a7a4a; border-radius:6px; cursor:pointer;">🏠 同居</button>'
             + '</div>'
             + '</div>';

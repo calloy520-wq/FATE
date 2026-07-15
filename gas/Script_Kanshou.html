@@ -32,7 +32,7 @@
     document.getElementById(loadId)?.remove();
   }
 
-  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false, roomEventAccept = null, jumpBand = null, loaderCaptions = null, moveWithCompanion = false, promiseMeet = null, cohabitInvite = null, inviteResident = null, takePhoto = false, showPhoto = null, photoIntent = null) {
+  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false, roomEventAccept = null, jumpBand = null, loaderCaptions = null, moveWithCompanion = false, promiseMeet = null, cohabitInvite = null, inviteResident = null, takePhoto = false, showPhoto = null, photoIntent = null, handHold = null) {
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
     // 🔥 主動掌握開關：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
@@ -71,7 +71,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined, handHold: handHold || undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -731,6 +731,15 @@ let plainTextContext = cleanText;
       if (res && res.success) { kcAlbumData_ = res; kcAlbumFilter_ = ''; kcAlbumRender_(); }
       else { var b = document.getElementById('kc-album-body'); if (b) b.textContent = '讀取失敗。'; }
     } catch (e) { var b2 = document.getElementById('kc-album-body'); if (b2) b2.textContent = '讀取失敗。'; }
+  }
+  // 🤝 牽手/放手：牽了誰，移動就帶她一起走(她本人要在場才牽得成)。睡覺仍看好感80+全部(不獨佔)。
+  async function kanshouHoldHand(name) {
+    showGamePane('chat');
+    await send('（自然地牽起「' + name + '」的手。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, null, null, null, false, null, null, name);
+  }
+  async function kanshouReleaseHand() {
+    showGamePane('chat');
+    await send('（輕輕鬆開了牽著的手。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, null, null, null, false, null, null, '__release__');
   }
   // 🤝 結識巧遇對象：後端驗證她確實是【邂逅中】的那位才建列入駐(從此活在這座城裡·有行程有好感)。
   async function kanshouAcceptInvite(name) {

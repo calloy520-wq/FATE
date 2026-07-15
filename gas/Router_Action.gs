@@ -336,6 +336,8 @@ function buildTagsPayload_(sheets, pcId, preData) {
   // 🌍 solo 靠 IS_PARTY==="同行" 過濾隊伍；鑑賞無「隊伍」概念，改用 LOC 是否與玩家目前位置一致，
   //   卡片只顯示同地點的英靈。
   let servants = [];
+  // 🤝 牽手中對象(鑑賞限定)：供同伴卡顯示「牽手/放手」狀態。solo 恆空。
+  const heldName = !isFateCtx && typeof KANSHOU_HANDHOLD_TAG_ !== 'undefined' ? KANSHOU_HANDHOLD_TAG_.get(m[COL.PC.MEMORY]) : "";
   pcData.forEach(s => {
     if (String(s[COL.PC.FACTION]) !== "從者" || String(s[COL.PC.GAME_ID] || "") !== gameId || String(s[COL.PC.ID]).startsWith("DEAD_")) return;
     if (isFateCtx ? (String(s[COL.PC.IS_PARTY] || "") !== "同行") : (String(s[COL.PC.LOC] || "").trim() !== String(m[COL.PC.LOC] || "").trim())) return;
@@ -377,6 +379,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
       // 🌹 慾海卡「特徵」用：COL.PC.TRAIT 才是全代碼庫「特徵」的真實定義(外貌描述)，
       //   TAGS.traits 是戰鬥特性標籤(神性/英雄)，兩者不可混用。
       trait: s[COL.PC.TRAIT] || "",
+      held: !!(heldName && kanshouNameCandidates_(String(s[COL.PC.NAME])).includes(heldName)), // 🤝 是否正被牽手
       stolen: /【破戒奪取】/.test(String(s[COL.PC.MEMORY] || ""))
     });
   });
