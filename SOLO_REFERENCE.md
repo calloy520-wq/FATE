@@ -3096,3 +3096,11 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **回憶面板讀條保護(Script_Kanshou.html)**：新增 `_kmBusy` 旗標＋`kmSpinner_`/`_kmShowLoading_`。①`kanshouOpenMemoir` 聊天卡版要抓 kanshou_companions 時先秀 spinner「讀取中…」避免黑屏、且 _kmBusy 擋連點；②`kanshouMemoirOp`(釘選/刪除)開頭 `if(_kmBusy)return` 擋連點、送出前把面板換 spinner、finally 收 busy＋原地重繪。競態/重複送出雙防。
 
 **驗證**：`bash check.sh` 全過、Engine_Combat.gs diff 空。
+
+## §142 解好感死結：聊天封頂從第一階(19)移到熟識(40)（2026-07·玩家「卡在19要怎麼突破，邀約也失敗 笑死」）
+
+`kanshouRelChatCeiling_` 原本每階都封頂(19/39/59/79)，導致**第一道牆就卡在 19**：聊天到頂、突破得靠約定/橋段，但低好感又矜持的角色(如 Saber@19)——①聊天卡19 ②約定被 AI 依個性婉拒 ③咖啡廳無橋段/住處夜襲@19 骰到防備分支不給好感——三路全堵＝死結。病根：「點頭之交→普通朋友」本該靠日常閒聊自然發生，不該用「特殊相處才突破」把關(那該留給親密階段)。
+- 修：`kanshouRelChatCeiling_` 門檻 filter `m > -100` → `m >= 40`。聊天可自由爬到 39(普通朋友)；40/60/80 三道親密門檻維持要約定赴約(+5)/橋段(+3)突破。實測 好感0~39→聊天可到39、40→59、60→79、80→100。
+- `pAtCeilingStr` 提示不動：新天花板下 bond<40 時 ceiling=39、19>=39 為 false→不再誤報「已到上限」，只在真卡39/59/79 才提示，行為自洽。
+
+**驗證**：`bash check.sh` 全過、Engine_Combat.gs diff 空、天花板函式實測正確。

@@ -266,8 +266,11 @@ function kanshouSyncRelTier_(pcData, idx) {
 //   或一起經歷橋段(+KANSHOU_SCENE_BOND_·下方roomEventAccept)這類真實相處才能突破到下一梯度(經濟/送禮已砍)。
 //   上限沿用KANSHOU_REL_TIER_同一份門檻，不重複開新數字。
 const KANSHOU_SCENE_BOND_ = 3; // 接受親密橋段(夜襲/共浴/膝枕…非拒絕分支)給的好感，直接寫、不吃聊天上限。
+// 純聊天封頂只從「熟識(40)」這道門檻起算——第一階「點頭之交→普通朋友」本就該靠日常閒聊自然發生
+//   (陌生變朋友天經地義)，不該逼玩家在還沒熟時就得約會/夜襲(2026-07 玩家實測卡在19爬不出、矜持角色
+//   約定又被婉拒的死結)。聊天可自由爬到39；40/60/80 三道親密門檻維持要約定赴約/橋段才能突破(slow burn)。
 function kanshouRelChatCeiling_(bond) {
-  const thresholds = KANSHOU_REL_TIER_.map(t => t.min).filter(m => m > -100).sort((a, b) => a - b);
+  const thresholds = KANSHOU_REL_TIER_.map(t => t.min).filter(m => m >= 40).sort((a, b) => a - b);
   for (const t of thresholds) { if (bond < t) return t - 1; }
   return 100;
 }
