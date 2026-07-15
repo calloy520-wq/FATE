@@ -3016,3 +3016,17 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 ⚠ 玩家更正記錄:實測那次 AI 把玩家移到商店街、當場出現藤村大河——經玩家確認**大河確實在商店街(合法同地/巧遇)、非憑空生人**,問題純粹是「移動未經同意」而非「捏造角色」。
 
 **驗證**：`bash check.sh`全過、`Engine_Combat.gs` diff 空、`aiLoc` 舊變數已無殘留程式引用(只剩註解)、`moveProposal` 回傳欄同時吃 AI 明填的 move_proposal 與轉提議的 location。
+
+## §135 鑑賞「共同回憶」：復用 27 號死欄＋暱稱那套 append 引擎(不做每日濃縮·LunaTalk 啟發的簡化版)（2026-07·玩家問「lunatalk.ai 怎麼整理事件、我也想要」→逐步收斂）
+
+玩家看到 LunaTalk 的「事件摘要(時間軸/角色/關係)」想要類似的。討論後**大幅簡化定案**:
+- **只做「共同回憶」一份**:關係進展(BOND/五階)、約定(【約定】標籤)、暱稱(REL_MEM 的 [專屬稱呼])都**已存在且即時更新**,摘要若重存反而慢又破壞單一真實來源。唯一真缺的是「一份連貫的我們的往事」——故聚焦這個。
+- **綁每個同伴、非玩家**:kanshou 一對多,綁玩家會混成一坨(重蹈已砍的「命運長河·存太多抓不到重點」);綁同伴才是「她記得你倆的故事」,且順著 BOND/REL_MEM 都在她那列的資料模型。
+- **放 27 號死欄**:原 `MAJOR_EVENT`(兩軌皆死·恆空)復用改名 `COL.PC.MEMOIR`,位在關係群組正中(24 BOND/25 REL_TAG/26 IS_PARTY/**27 MEMOIR**/28 REL_MEM)。COL 是位置索引→沿用 27 槽、不新增欄不位移。`MAJOR_EVENT` 全庫無程式引用(只註解),改名零風險。
+- **不做每日濃縮(避開所有難點)**:原構想「結束這天呼叫 AI 讀當天歷史批次濃縮」太重。改**完全複用暱稱機制**——AI 每回合 `intimacy_feedback.npcs[].memory` 吐【一句里程碑回憶或「無」】,GAS 用新 `processMemoir_`(同 processTags 精神:append 去重保留最近 10 條;差別=獨立 cell 且句中可能含「、」故改用全形｜分隔、寫入前清 ｜【】[])寫進 27 欄。**零新 AI 呼叫、零歷史挖掘、零 endDay 批次**;「今天沒見到的人不更新」也自動成立(AI 只對在場者吐 npcs)。
+- **餵回**:她在場時 `partyDetailsArr` 把 27 欄(｜→；)接進在場卡「你們的共同回憶」,AI 自然承接你倆過往。
+- **升級路線(未做)**:哪天回憶太多想壓成連貫故事,再加每日濃縮;現版最舊自動掉(slice(-10))即可。編輯/釘選面板(LunaTalk Remember)亦列為後續選配。
+
+改動點:`Core_Settings.gs`(COL 27 改名 MEMOIR)、`Setup_FateWorld.gs`(欄序註解)、`Gallery.gs`(schema npcs 加 `memory` 欄／`processMemoir_` 引擎＋npcs 迴圈寫 27 欄／partyDetailsArr 讀回餵卡)。`sanitizeAiData_` 是 pass-through(只 clamp fav_change)、memory 欄原樣通過。
+
+**驗證**：`bash check.sh`全過、`Engine_Combat.gs` diff 空、`MAJOR_EVENT` 全庫僅剩註解、`COL.PC.MEMOIR` 讀(partyDetailsArr)寫(npcs 迴圈)各一處已接。

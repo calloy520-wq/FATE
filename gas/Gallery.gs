@@ -642,7 +642,8 @@ function buildDefaultSystemPrompt() {
         "outfit_change": _outfitChangeRef,
         "dynamic_skills": "雙修技巧名(2~5字，規則見下方慾海律令第6條)",
         "mutual_nicknames": "雙方間已自然發展出的暱稱/愛稱(規則見下方慾海律令第6條)",
-        "attitude": "這名NPC對御主當下的臨場態度(非好感趨勢，第三人稱，≤15字，規則見下方慾海律令第7條)"
+        "attitude": "這名NPC對御主當下的臨場態度(非好感趨勢，第三人稱，≤15字，規則見下方慾海律令第7條)",
+        "memory": "本回合若與這位發生了【值得長期記住的里程碑】(告白/初次牽手/難忘的約會或橋段/重要約定達成/第一次一起做某事等)，用玩家第一人稱寫【一句】≤30字的回憶(例:「和她在頂樓一起看了跨年煙火」)；只是尋常閒聊、無特別進展就填「無」——【只記真正的里程碑】、不要每回合都記流水帳"
       }]
     },
     // target 只能填真名(schema級約束，比事後再說一次更有效)。tag 欄位不存在：關係標籤
@@ -1951,8 +1952,12 @@ function actionPlay(userData, pcId, sheets) {
       //   同伴(kanshouPreMoveCompanions_)不套，否則被你帶來咖啡廳的人會被誤標成「正在打工」。
       const _pCameWithMe = kanshouPreMoveCompanions_.some(cr => String(cr[COL.PC.NAME]).trim() === String(pName).trim());
       const pActivityStr = (!_pCameWithMe && KANSHOU_LOCATION_ACTIVITY_[curL]) ? ` | 現況:${KANSHOU_LOCATION_ACTIVITY_[curL]}` : "";
+      // 💞 共同回憶(27欄 MEMOIR)：你們一路走來累積的里程碑，讓 AI 自然承接你倆的專屬過往(儲存用全形｜
+      //   分隔，餵給 AI 時換成「；」較好讀)。空的就不加這行。
+      const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
+      const pMemoirStr = pMemoirRaw ? ` | 你們的共同回憶(你倆一路走來的點滴，敘事可自然承接呼應、但別生硬複述):${pMemoirRaw.replace(/｜/g, '；')}` : "";
       // 明講方向的「TA是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍TA。
-      partyDetailsArr.push(`【在場人物】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(反差·僅供內化):${pMoeStr}` : ""}${pActivityStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr})`);
+      partyDetailsArr.push(`【在場人物】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(反差·僅供內化):${pMoeStr}` : ""}${pActivityStr}${pMemoirStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr})`);
     }
   });
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【目前在場人物命格詳情】:\n${partyDetailsArr.join("\n")}` : "目前這個地點沒有其他人，玩家是獨自行動的。";
@@ -2279,6 +2284,16 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
         return (arr.length > maxCount ? arr.slice(-maxCount) : arr).join('、');
       };
 
+      // 💞 共同回憶(27欄 MEMOIR)：同 processTags 精神——append 去重、保留最近 maxCount 條。差別是這格是
+      //   獨立 cell(非 REL_MEM 裡的標籤)，且一條回憶句子本身可能含「、」，故【改用全形｜當條目分隔】、
+      //   寫入前先清掉句中的 ｜【】[] 避免污染分隔(比照 setOutfit_/processSkills 的清洗)。
+      const processMemoir_ = (oldMemoir, newLine, maxCount) => {
+        let arr = String(oldMemoir || "").split('｜').map(x => x.trim()).filter(x => x !== "" && x !== "無");
+        let clean = String(newLine || "").replace(/[｜【】\[\]]/g, "").trim().slice(0, 40);
+        if (clean && clean !== "無" && !arr.includes(clean)) arr.push(clean);
+        return (arr.length > maxCount ? arr.slice(-maxCount) : arr).join('｜');
+      };
+
       if (aiData.intimacy_feedback.player) {
         const pfb = aiData.intimacy_feedback.player;
         const pCleanState = sanitizePhysicalState(pfb.physical_state);
@@ -2319,6 +2334,12 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
           let attRaw = (typeof nfb.attitude === 'string') ? nfb.attitude.trim().slice(0, 15) : "";
           let attPart = (attRaw && attRaw !== "無") ? `| [態度]${attRaw}` : "";
           pcData[targetIdx][COL.PC.REL_MEM] = `${nickPart}${attPart}`;
+
+          // 💞 共同回憶：AI 這回合若吐了里程碑 memory，append 進她自己列的 27 欄(最近 10 條、去重)。
+          //   只記里程碑、日常填「無」不動；她在場時會被讀回在場卡(見 partyDetailsArr)餵給 AI 承接。
+          if (nfb.memory && String(nfb.memory).trim() && String(nfb.memory).trim() !== "無") {
+            pcData[targetIdx][COL.PC.MEMOIR] = processMemoir_(pcData[targetIdx][COL.PC.MEMOIR], nfb.memory, 10);
+          }
         });
       }
     }

@@ -38,8 +38,10 @@ const COL = {
     PHYSICAL: 18, MARTIAL: 19, GAME_ID: 20, SIX: 21, TAGS: 22, SEEN: 23,
     // 關係欄(原 REL 表)：NPC 對本世界御主的關係。BOND=好感值、REL_TAG=關係標籤、IS_PARTY=同行旗標、
     //   REL_MEM=關係專屬記憶(與角色 MEMORY 分開存)。御主自己這一列不使用(留空)。
-    // MAJOR_EVENT(27)：讀寫端已移除(死欄)，但 COL 是位置索引不能刪(會讓後續欄位錯位)，保留恆空。
-    BOND: 24, REL_TAG: 25, IS_PARTY: 26, MAJOR_EVENT: 27, REL_MEM: 28,
+    // MEMOIR(27)：鑑賞「共同回憶」——原 MAJOR_EVENT 死欄(讀寫端早移除、恆空)於 2026-07 復用為每個同伴
+    //   一格的共同回憶敘事(AI 每回合吐 memory 一句、GAS append 去重存最近 N 條，機制同專屬稱呼)。COL 是
+    //   位置索引，沿用 27 槽、不新增欄、不位移。solo 不使用(留空)。
+    BOND: 24, REL_TAG: 25, IS_PARTY: 26, MEMOIR: 27, REL_MEM: 28,
     // 世界狀態欄(原 CLK/AUTH 表)：只在御主自己那一列有意義，其餘角色列留空。
     //   DAY/HOUR/AP=時鐘(1AP=1小時，每日12AP)；HOME_LOC=居所(工房加成判定用)。
     DAY: 29, HOUR: 30, AP: 31, HOME_LOC: 32,
