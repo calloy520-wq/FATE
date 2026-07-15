@@ -2881,3 +2881,12 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **深夜敲門候選加門檻**(Gallery.gs·endDay knockPool)：新增 `KANSHOU_KNOCK_MIN_BOND_=60`，knockPool 過濾條件加 `(kanshouIsCohabit_(r) || bond>=60)`——只有同居或親近的人(好感≥60)才會半夜登門，泛泛之交不再半夜亂敲(貼合陌生人世界觀)。機率仍 20%(KANSHOU_KNOCK_CHANCE_)。要更容易撞見改小門檻、要只限同住改大即可。
 
 **備忘(未改·回答玩家)**：①開門(knockAccept)把訪客接到玩家位置、當回合可續聊、不推進日期；再按睡覺是全新一次20%擲骰(剛接進來的人已同地→被 LOC!==curL 排除，故頂多換別人來)；不予理會(skipKnockCheck)跳過擲骰直接睡。②夜間色色本就有：結束一天當回合，好感≥80且此刻同地的同伴列入 intimateNightNames→留玩家房間同床(提示詞★【入夜氛圍】允許自然發展到同床共枕)；晨間餘韻是隔天早上的餘韻回callback、非唯一NSFW路徑。
+
+## §124 地點進時鐘HUD＋大分區脈絡餵AI＋家改「玩家名的家」＋👥正名「邀請」（2026-07・玩家「地址加進時間那行、大地點要給AI否則以為在他家、我家改XX的家、👥沒說明改叫邀請」）
+
+- **地點進時鐘HUD**(`kanshouClockInfo_`)：label 前綴 `📍{LOC}　`，時鐘列同時看得到現在人在哪。時段icon regex靠label裡band先命中、地名不含夜/清晨等字不誤判。
+- **大分區脈絡餵AI**(新 `kanshouLocContextForAI_(loc,homeName)`)：光地名AI分不出自家/別人家→依 region(KANSHOU_LOCATIONS_ 的欄位)補一句：room/home→「御主自己的家『{homeName}』的私人房間/共用空間」、visit→「別人的住處、御主是造訪的客人」、shinzan/fuyuki/dojo→深山町/冬木市中心/山林。找不到(AI自創地點)回空字串不硬套。接進【玩家命格】的 `位置:${curL}（脈絡）`，解掉AI「以為在他家中」。
+- **家預設改「{玩家名}的家」**(`getKanshouHomeName_(memory, playerName)`)：未自訂時預設從中性「我家」改成 `{playerName}的家`(無名字才退我家)；3處呼叫端(linkAccount/migrate/enter)傳入 pcName。前端 Script_Kanshou.html 兩處 stale fallback「衛宮宅」→「我家」。玩家仍可✏️改名。
+- **👥鈕正名**(Index.html #topbar-kanshou)：純icon「👥」→「👥 邀請」+title「邀請/管理後日談同伴、召喚英靈入席」，新玩家一眼懂那顆在幹嘛。
+
+**驗證**：`bash check.sh`全過、`Engine_Combat.gs`紅線空；Node模擬 kanshouLocContextForAI_ 6例(自家房間/自家共用/市中心/別人住處/深山町/AI自創地點無脈絡)全對。

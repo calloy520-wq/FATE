@@ -503,7 +503,7 @@ let plainTextContext = cleanText;
     return key;
   }
   function kcMapListHtml_() {
-    var homeLabel = (pc && pc.homeName) ? pc.homeName : '衛宮宅';
+    var homeLabel = (pc && pc.homeName) ? pc.homeName : '我家';
     // 🗾 分區切換列：按鈕群組，當前分區高亮，點擊只切換下方地點清單(不影響已在場敘事)。
     var tabsHtml = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;">' + KC_REGIONS_.map(function (rg) {
       var active = rg.id === kcActiveRegion_;
@@ -546,7 +546,7 @@ let plainTextContext = cleanText;
 
   // 🏠 改名「家」：寫進後端 MEMORY【住所】標記(kanshou_set_home_name)，成功後同步更新本地 pc.homeName＋重繪清單，不必整頁重整或重打 sync。
   async function kanshouRenameHome() {
-    var cur = (pc && pc.homeName) ? pc.homeName : '衛宮宅';
+    var cur = (pc && pc.homeName) ? pc.homeName : '我家';
     var name = prompt('把「' + cur + '」改成什麼名字？(12字以內)', cur);
     if (name === null) return;
     name = name.trim();
