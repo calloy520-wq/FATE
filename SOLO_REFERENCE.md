@@ -2890,3 +2890,14 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **👥鈕正名**(Index.html #topbar-kanshou)：純icon「👥」→「👥 邀請」+title「邀請/管理後日談同伴、召喚英靈入席」，新玩家一眼懂那顆在幹嘛。
 
 **驗證**：`bash check.sh`全過、`Engine_Combat.gs`紅線空；Node模擬 kanshouLocContextForAI_ 6例(自家房間/自家共用/市中心/別人住處/深山町/AI自創地點無脈絡)全對。
+
+## §125 補齊17位戰鬥從者的鑑賞身世 dailyBack（＋既有同伴趁版本升級一起刷新）（2026-07・玩家「為啥SABER身世是那句通用預設?」）
+
+**根因**：`heroToKanshouRow_` 身世讀 `persona.dailyBack`(戰時 back 全是聖杯戰爭悲劇、不搬進和平世界)，查無就給通用預設「生活在這座城鎮裡的普通身影，與你尚無深交」。但**只有5位鑑賞Master(凜/伊莉雅絲菲爾/櫻/士郎/大河)寫過 dailyBack**，17位戰鬥從者(SABER/EMIYA/庫丘林…)全缺→召進鑑賞通通變那句。
+
+**修法**：
+- **手寫17位 dailyBack**(Seed_Codex.gs·插在各 persona 的 dailyMoe 前)：和平日常向、≤28字(heroToKanshouRow_ slice上限)、無戰爭/悲劇、貼合角色本質(如SABER「正直守序、在小鎮過著規律自持的日子，格外貪吃」)。
+- **既有同伴也刷新**：原 `resyncSummonedServants_` 只刷戰鬥數據(寶具/六圍/技能)、不碰身世→已在場的舊SABER不會自己好。新增：k_(鑑賞)列且種子有 dailyBack 時，`data[i][COL.PC.BACK]=s.persona.dailyBack.slice(0,28)`(只動鑑賞列、不碰solo戰時back)。
+- `CODEX_PERSONA_VER` v62→**v63** 觸發 upgradeCodexPersonas_(刷英靈殿persona→新召喚讀到 dailyBack)＋resyncSummonedServants_(刷既有鑑賞同伴身世)。
+
+**驗證**：`bash check.sh`全過、`Engine_Combat.gs`紅線空；Node確認17位 dailyBack 皆≤28字且插進各自 persona、SABER身世已非預設；`s.persona.dailyBack` 存取路徑核對有效。
