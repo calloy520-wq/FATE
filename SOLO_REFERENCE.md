@@ -3113,3 +3113,14 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **同伴列待赴約定**：`actionKanshouCompanions` 每人多帶 `promise{loc,date:M/D}`(讀 kanshouGetPromise_)，`renderKcPartyList_` 顯示「📅 M/D 在「X」有約」，玩家不必自己記約在哪天哪裡。
 
 **驗證**：`bash check.sh` 全過、Engine_Combat.gs diff 空。
+
+## §144 約定 2.0：選時段＋時間×地點結算＋早到「都早到」一鍵跳＋三處提示（2026-07·玩家「可以挑時段嗎現在根本亂掰／不可能6點約會／時間到會移動她嗎會等多久會知道遲到／地圖也要提示」）
+
+舊約定只有「明天+地點」、她整天釘在那、當天到場即赴約——無時段、AI 亂掰時間。改成完整時間機制：
+- **存 day:band:loc**(kanshouGetPromise_/Set/Clear 支援時段；舊格式 day:loc 無時段→整天有效·向後相容)。`KANSHOU_APPT_BANDS_`：午後14:00/黃昏18:00/夜20:00(排除清晨6點/深夜)，`kanshouApptHour_` 查時刻。
+- **時間感知 pin**(kanshouPromisePin_ 加 curHour)：她約定時刻前10分到場、待到時刻+2h；無時段/沒傳 curHour→整天釘(相容)。endDay(curHour=6)不會把她釘在早上6點的約定地。呼叫端(endDay 1714、time-advance 1729)都傳 curHour。
+- **結算 2.0(時間×地點驅動)**：玩家在約定地點時比對到場時刻——太早(<時刻-10分,−1e-6 epsilon)→回 `kanshouPromiseWait_` 給前端等待框；準時窗[時刻-10,時刻+30]→+5(curHour<時刻→「都早到」味道 narration)；窗後當天→遲到+3；日期已過→爽約-5。命中就把她 pin 到玩家所在地確保登場(她可能還沒被作息骰過來)。`advanceHours` parseInt→parseFloat 支援「跳到13:50」小數時數。
+- **前端**：相約選地點後多一步 `kanshouPickBand_` 選時段；`data.promiseWait`→inline 等待框「⏳在這等到約定前10分」→`kanshouWaitForPromise` 用 advanceHours=時刻-目前時刻推進(她也剛到、後端演「都早到」)；proposalResult 通知條加時段；同伴列 promise 加時刻；地圖地點按鈕標「📅 M/D HH:MM」(promiseByLoc from _kcCur，約定成立後背景 refresh 即時亮)。
+- **多約**：每人各存各的、獨立結算——同地同時=一次全赴約(團體約會)；30分準時窗吸收「不同地點同時段」的接力(跑得夠快都準時)，故不做撞期警告。
+
+**驗證**：`bash check.sh` 全過、Engine_Combat.gs diff 空、時刻窗邏輯 node 實測(13:50都早到/14:00準時/14:36遲到)、rollHours_ 吃小數。

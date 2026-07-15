@@ -511,7 +511,8 @@ function actionKanshouCompanions(userData, pcId, sheets) {
       var _pm = kanshouGetPromise_(data[i][COL.PC.MEMORY]);
       var _pmDate = _pm ? kanshouAbsDayToDate_(_pm.day) : null;
       // memoir：共同回憶(27欄)原樣下傳(★前綴=玩家釘選)，供面板顯示/釘選/刪除。
-      current.push({ name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, promise: _pm ? { loc: _pm.loc, date: _pmDate.month + '/' + _pmDate.day } : null, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean) });
+      var _pmTime = _pm ? (KANSHOU_APPT_BANDS_.find(function (b) { return b.band === _pm.band; }) || {}).label : "";
+      current.push({ name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, promise: _pm ? { loc: _pm.loc, date: _pmDate.month + '/' + _pmDate.day, time: _pmTime || '' } : null, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean) });
     }
   }
   return JSON.stringify({ success: true, current: current });
@@ -1229,23 +1230,43 @@ var KANSHOU_SCENE_DAY_TAG_ = makeIntTag_('橋段日', 0);
 // 📅 初見日(存該同伴列MEMORY·absDay)：首次跟玩家同地當下蓋戳，之後相識滿7/30/100/365天且人
 //   在場時餵一行紀念日提示。0=尚未記錄(舊存檔首次相遇當天補戳，從那天起算)。
 var KANSHOU_FIRST_MET_DAY_TAG_ = makeIntTag_('初見日', 0);
-// 📅 約定(存該同伴列MEMORY)：【約定】absDay:地點＝「那天在X見」。同時只存一筆(新約蓋舊約)；
-//   約定日她的行程骰被釘在該地點(kanshouPromisePin_)，赴約/爽約由actionPlay每回合結算。
+// 📅 約定 2.0(存該同伴列MEMORY)：【約定】absDay:時段:地點＝「那天午後在X見」。同時只存一筆(新約蓋舊約)。
+//   band 為 KANSHOU_APPT_BANDS_ 之一(午後/黃昏/夜)；舊格式【約定】day:loc(無時段)向後相容＝整天有效。
+// 約定時刻表：她提前10分到場、準時窗=[時刻-10分, 時刻+30分]、之後~2h算遲到、整天沒去=爽約。排除
+//   清晨/深夜(約會不約6點或半夜)。UI 用 band key、顯示名見 label。
+var KANSHOU_APPT_BANDS_ = [
+  { band: '午後', hour: 14, label: '午後 14:00' },
+  { band: '黃昏', hour: 18, label: '黃昏 18:00' },
+  { band: '夜',   hour: 20, label: '夜晚 20:00' }
+];
+function kanshouApptHour_(band) {
+  var b = KANSHOU_APPT_BANDS_.find(function (x) { return x.band === band; });
+  return b ? b.hour : null; // null=舊格式無時段(整天有效·向後相容)
+}
 function kanshouGetPromise_(memory) {
   const m = String(memory || "").match(/【約定】(\d+):([^｜【】]+)/);
-  return m ? { day: parseInt(m[1]), loc: String(m[2]).trim() } : null;
+  if (!m) return null;
+  const parts = String(m[2]).split(':'); // 新:band:loc(2段) 舊:loc(1段)。band/loc 皆不含冒號
+  const band = parts.length >= 2 ? parts[0].trim() : "";
+  const loc = (parts.length >= 2 ? parts[1] : parts[0]).trim();
+  return { day: parseInt(m[1]), band: band, loc: loc };
 }
 function kanshouClearPromise_(memory) {
   return String(memory || "").replace(/｜?【約定】\d+:[^｜【】]*/g, "").replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
 }
-function kanshouSetPromise_(memory, absDay, loc) {
+function kanshouSetPromise_(memory, absDay, loc, band) {
   const s = kanshouClearPromise_(memory);
-  return (s ? s + "｜" : "") + "【約定】" + absDay + ":" + loc;
+  const mid = (band ? band + ":" : "") + loc; // 有時段才寫 band:，無則沿用舊格式
+  return (s ? s + "｜" : "") + "【約定】" + absDay + ":" + mid;
 }
-// 她今天有約→回約定地點(行程骰被約定釘住、整天守在那裡等)；沒約→null照常骰。
-function kanshouPromisePin_(row, absDay) {
+// 有時段的約定：她約定時刻前10分到場、待到時刻+2h(碰面窗過了自然離開，不整天空等)；無時段(舊)=整天釘。
+//   curHour 供時段判定；沒傳(舊呼叫)則退回整天釘、不破壞既有行為。
+function kanshouPromisePin_(row, absDay, curHour) {
   const p = kanshouGetPromise_(row[COL.PC.MEMORY]);
-  return (p && p.day === absDay) ? p.loc : null;
+  if (!p || p.day !== absDay) return null;
+  const ah = kanshouApptHour_(p.band);
+  if (ah === null || typeof curHour !== 'number') return p.loc; // 無時段或沒傳時→整天釘(相容)
+  return (curHour >= ah - 1 / 6 && curHour < ah + 2) ? p.loc : null;
 }
 // 🏠 同居(存該同伴列MEMORY·【同居】1)：好感≥KANSHOU_COHABIT_BOND_且本人在場才邀得成。
 //   同居後行程骰改走同居版(見kanshouRollDailyLocation_)：深夜85%回「和室」就寢(15%在外遊蕩)、
@@ -1474,9 +1495,12 @@ function actionPlay(userData, pcId, sheets) {
     if (_pmLocOk && _pmIdx !== -1) {
       const _pmBond = parseInt(pcData[_pmIdx][COL.PC.BOND]) || 0;
       const _pmHer = String(pcData[_pmIdx][COL.PC.NAME]);
-      _pendingProposal = { type: 'promise', idx: _pmIdx, loc: _pmLoc };
-      kanshouPromiseStr = `\n★【提議·相約】：你向『${_pmHer}』提議【明天在「${_pmLoc}」見面】。依她既有個性與目前好感(${_pmBond}/100)真實演出答不答應——不預設結果，並在 proposal_accept 欄如實填「接受」或「婉拒」。她接受，系統明天才記得這個約；婉拒則此約不成立、不必替玩家找補。`;
-      finalUserMsg = `【玩家意圖】：向『${_pmHer}』提出「明天在${_pmLoc}見面」的約定。`;
+      // 時段：前端帶 band(午後/黃昏/夜)；不合法或沒帶→退回無時段(舊「整天有效」·向後相容)。
+      const _pmBand = kanshouApptHour_(String(userData.promiseMeet.band || "").trim()) !== null ? String(userData.promiseMeet.band).trim() : "";
+      const _pmBandLabel = _pmBand ? (KANSHOU_APPT_BANDS_.find(b => b.band === _pmBand) || {}).label : "";
+      _pendingProposal = { type: 'promise', idx: _pmIdx, loc: _pmLoc, band: _pmBand };
+      kanshouPromiseStr = `\n★【提議·相約】：你向『${_pmHer}』提議【明天${_pmBandLabel ? _pmBandLabel + '於' : '在'}「${_pmLoc}」見面】。依她既有個性與目前好感(${_pmBond}/100)真實演出答不答應——不預設結果，並在 proposal_accept 欄如實填「接受」或「婉拒」。她接受，系統明天才記得這個約；婉拒則此約不成立、不必替玩家找補。`;
+      finalUserMsg = `【玩家意圖】：向『${_pmHer}』提出「明天${_pmBandLabel || ''}在${_pmLoc}見面」的約定。`;
     } else if (_pmName) {
       kanshouPromiseStr = `\n★【相約撲空】：你想找『${_pmName}』相約見面，但她此刻並不在這裡——演出這份撲空的悵然即可，約定沒有成立。`;
       finalUserMsg = `【玩家意圖】：想找『${_pmName}』相約，卻發現她不在身邊。`;
@@ -1691,14 +1715,14 @@ function actionPlay(userData, pcId, sheets) {
     allEstablished.forEach(r => {
       const idx = pcData.indexOf(r);
       // 優先序：同床過夜(留玩家房間) > 今天有約(釘約定地點守著) > 照常骰行程(同居者走同居版)。curDay已是隔天。
-      pcData[idx][COL.PC.LOC] = intimateNightNames.includes(r[COL.PC.NAME]) ? kanshouMyRoomLoc_ : (kanshouPromisePin_(r, curDay) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, kanshouIsCohabit_(r)));
+      pcData[idx][COL.PC.LOC] = intimateNightNames.includes(r[COL.PC.NAME]) ? kanshouMyRoomLoc_ : (kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, kanshouIsCohabit_(r)));
       dirtyPcRows.add(idx);
     });
     finalUserMsg = `【一天結束】夜幕降臨，${intimateNightNames.length ? `跟『${intimateNightNames.join('、')}』一起` : ""}回到房間安頓下來，今天到此為止，明天又是新的一天。`;
   } else {
     // 推進時間：跟結束一天不同——不強制拉玩家回家，只是讓時鐘往前跳N小時；不在身邊的英靈依
     //   新時刻重骰去向，同行同伴不受影響。上限抓3年區間防呆，不做逐小時模擬(跳多久都是O(1))。
-    let advanceHours = Math.max(0, Math.min(parseInt(userData.advanceHours) || 0, 24 * 365 * 3));
+    let advanceHours = Math.max(0, Math.min(parseFloat(userData.advanceHours) || 0, 24 * 365 * 3)); // parseFloat：支援「跳到約定前10分」的小數時數
     // 🎊「跳到節慶」：advanceHours未指定時，改由jumpFestival算出「到下一次該節慶還有幾小時」，
     //   算好就丟進同一套邏輯，不重複寫一次時鐘推進/地點重骰。
     if (!advanceHours && userData.jumpFestival) {
@@ -1726,7 +1750,7 @@ function actionPlay(userData, pcId, sheets) {
       allEstablishedForTime.forEach(r => {
         const idx = pcData.indexOf(r);
         // 今天有約→釘在約定地點守著；沒約→照常骰(同居者走同居版)。curDay已是推進後的日期。
-        pcData[idx][COL.PC.LOC] = kanshouPromisePin_(r, curDay) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, kanshouIsCohabit_(r));
+        pcData[idx][COL.PC.LOC] = kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, kanshouIsCohabit_(r));
         dirtyPcRows.add(idx);
       });
       const newDate = kanshouAbsDayToDate_(curDay);
@@ -1931,27 +1955,48 @@ function actionPlay(userData, pcId, sheets) {
       }
     } catch (e) { }
   }
-  // 📅 赴約/爽約結算：約定日當天真的同地相會＝赴約(好感+5·清約·餵欣喜提示)；日期已過約還掛著＝
-  //   爽約(好感−5·清約，她剛好在場才餵「被放鴿子」提示，不在場就靜默結算)。同回合剛成立的約
-  //   (day=明天)兩個條件都不會命中，不會自我觸發。
+  // 📅 赴約/爽約結算 2.0(時間×地點驅動)：約定日、玩家在約定地點時，比對到場時刻——
+  //   準時窗[時刻-10分,時刻+30分]赴約+5(早到→「都早到」味道)／窗後~當天結束遲到+3／太早(她還沒到)
+  //   回 kanshouPromiseWait_ 給前端「等到約定前10分」框／日期已過爽約-5。碰面由「玩家在約定地點×時間」
+  //   決定，她此刻pin在哪不影響——命中就把她pin到此地確保登場(她可能還沒被作息骰過來)。舊格式無時段
+  //   (ah=null)沿用「當天到場即赴約」。同回合剛成立的約(day=明天)不會自我觸發。
   let kanshouPromiseMetStr = "";
+  let kanshouPromiseWait_ = null; // {name,loc,apptLabel,targetHour}：太早到→前端等待框
   pcData.forEach((r, i) => {
     if (i === pcIndex || String(r[COL.PC.FACTION]) !== "從者" || !sameGame(r) || String(r[COL.PC.ID]).startsWith("DEAD_")) return;
     const _pr = kanshouGetPromise_(r[COL.PC.MEMORY]);
     if (!_pr) return;
-    const _here = String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim();
-    if (_pr.day === curDay && _here) {
+    const _her = String(r[COL.PC.NAME]);
+    const _atApptLoc = String(curL || "").trim() === String(_pr.loc).trim();
+    const _ah = kanshouApptHour_(_pr.band);
+    const _settle = (delta, note) => { // delta 好感、note 敘事
+      pcData[i][COL.PC.LOC] = curL; // 命中→她登場(確保在場，即使作息還沒把她骰過來)
       pcData[i][COL.PC.MEMORY] = kanshouClearPromise_(pcData[i][COL.PC.MEMORY]);
-      pcData[i][COL.PC.BOND] = Math.min(100, (parseInt(r[COL.PC.BOND]) || 0) + 5);
-      kanshouSyncRelTier_(pcData, i); // 赴約的+5可能跨梯度(40/60/80)，同步REL_TAG免標籤落後
+      pcData[i][COL.PC.BOND] = Math.max(0, Math.min(100, (parseInt(r[COL.PC.BOND]) || 0) + delta));
+      kanshouSyncRelTier_(pcData, i); // 跨/跌梯度同步REL_TAG
       dirtyPcRows.add(i);
-      kanshouPromiseMetStr += `\n★【依約相會】：今天正是你與『${String(r[COL.PC.NAME])}』約好在「${_pr.loc}」見面的日子，而你們此刻真的相會了——自然演出這份「約定被守住」的欣喜與意義(好感已由系統上調，敘事勿再另計)。`;
-    } else if (_pr.day < curDay) {
+      kanshouPromiseMetStr += note;
+    };
+    if (_pr.day === curDay) {
+      if (!_atApptLoc) return; // 今天但不在約定地點→還沒到、也還沒過，等你去，不結算
+      if (_ah === null) { // 舊格式無時段：當天到場即赴約
+        _settle(5, `\n★【依約相會】：今天正是你與『${_her}』約好在「${_pr.loc}」見面的日子，你們此刻真的相會了——演出「約定被守住」的欣喜(好感已上調，勿另計)。`);
+      } else if (curHour < _ah - 1 / 6 - 1e-6) { // 太早：她還沒到→回等待框(−1e-6 epsilon：跳到13:50後浮點誤差不會又被判太早卡死)
+        if (!kanshouPromiseWait_) kanshouPromiseWait_ = { name: _her, loc: _pr.loc, apptLabel: kanshouFmtHM_(_ah), targetHour: _ah - 1 / 6 };
+      } else if (curHour <= _ah + 0.5) { // 準時窗[時刻-10,時刻+30]
+        const _early = curHour < _ah;
+        _settle(5, _early
+          ? `\n★【依約相會·都早到了】：你與『${_her}』約在${kanshouFmtHM_(_ah)}於「${_pr.loc}」見面，而你倆此刻(${kanshouFmtHM_(curHour)})都提早到了——演出兩人都早到、剛好碰上的甜蜜當下與那份心照不宣的默契(好感已上調，勿另計)。`
+          : `\n★【依約相會】：約定的${kanshouFmtHM_(_ah)}，你準時到「${_pr.loc}」與『${_her}』相會——演出約定被守住的欣喜(好感已上調，勿另計)。`);
+      } else { // 遲到(當天、過了準時窗)
+        _settle(3, `\n★【遲到赴約】：你與『${_her}』約在${kanshouFmtHM_(_ah)}，卻拖到${kanshouFmtHM_(curHour)}才到「${_pr.loc}」——她等了你好一會，依個性流露嗔怪/委屈/嘴硬說沒關係(好感仍上調但你遲到了，勿另計)。`);
+      }
+    } else if (_pr.day < curDay) { // 過了約定日還沒赴約=爽約
       pcData[i][COL.PC.MEMORY] = kanshouClearPromise_(pcData[i][COL.PC.MEMORY]);
       pcData[i][COL.PC.BOND] = Math.max(0, (parseInt(r[COL.PC.BOND]) || 0) - 5);
-      kanshouSyncRelTier_(pcData, i); // 爽約的-5可能跌破梯度，同步REL_TAG免標籤落後
+      kanshouSyncRelTier_(pcData, i);
       dirtyPcRows.add(i);
-      if (_here) kanshouPromiseMetStr += `\n★【爽約之後】：你先前與『${String(r[COL.PC.NAME])}』約好在「${_pr.loc}」見面卻沒有赴約——讓她依性格流露對被放鴿子的在意(慍怒/落寞/嘴硬說沒關係皆可，好感已由系統下調，敘事勿再另計)。`;
+      if (String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) kanshouPromiseMetStr += `\n★【爽約之後】：你先前與『${_her}』約好在「${_pr.loc}」見面卻沒赴約——讓她依性格流露被放鴿子的在意(慍怒/落寞/嘴硬說沒關係，好感已下調，勿另計)。`;
     }
   });
   let partyDetailsArr = [];
@@ -2191,9 +2236,10 @@ ${PROMPT_REL}
       const _ppHer = String(pcData[_pendingProposal.idx][COL.PC.NAME] || "");
       if (_accepted) {
         if (_pendingProposal.type === 'promise') {
-          pcData[_pendingProposal.idx][COL.PC.MEMORY] = kanshouSetPromise_(pcData[_pendingProposal.idx][COL.PC.MEMORY], curDay + 1, _pendingProposal.loc);
+          pcData[_pendingProposal.idx][COL.PC.MEMORY] = kanshouSetPromise_(pcData[_pendingProposal.idx][COL.PC.MEMORY], curDay + 1, _pendingProposal.loc, _pendingProposal.band);
           // 📅 明確回饋：後端默默寫 tag、玩家不知成沒成(實測黑洞)——回傳 proposalResult 讓前端跳通知條。
-          kanshouProposalResult_ = { ok: true, type: 'promise', name: _ppHer, loc: _pendingProposal.loc };
+          const _prBandLabel = _pendingProposal.band ? (KANSHOU_APPT_BANDS_.find(b => b.band === _pendingProposal.band) || {}).label : "";
+          kanshouProposalResult_ = { ok: true, type: 'promise', name: _ppHer, loc: _pendingProposal.loc, bandLabel: _prBandLabel };
         } else if (_pendingProposal.type === 'hold') {
           pcData[_pendingProposal.idx][COL.PC.MEMORY] = KANSHOU_HANDHOLD_TAG_.set(pcData[_pendingProposal.idx][COL.PC.MEMORY], _pendingProposal.name);
           kanshouProposalResult_ = { ok: true, type: 'hold', name: _ppHer };
@@ -2476,6 +2522,7 @@ ${PROMPT_REL}
       roomEventOffer: roomEventOffer,
       encounterOffer: encounterOffer,
       proposalResult: kanshouProposalResult_ || undefined,
+      promiseWait: kanshouPromiseWait_ || undefined,
       photoResult: kanshouPhotoResult_ || undefined,
       kanshouClock: kanshouClock,
       // 修過的bug：#clock-hud讀共用的updateClock(data.clock,...)，但data.clock在鑑賞這條路徑

@@ -140,6 +140,13 @@ let plainTextContext = cleanText;
           + `<button class="btn-option" style="flex:1;" onclick="kanshouDeclineMoveProposal()">拒絕</button>`
           + `</div></div>`;
       }
+      // 📅 到約定地點但太早(她還沒到)：跳「等到約定前10分」框——一鍵把時鐘推到她抵達的時刻(她也剛到)。
+      if (data.promiseWait) {
+        const _pw = data.promiseWait, _pwn = escapeHtml(String(_pw.name || '她'));
+        optionsHtml += `<div style="background:rgba(90,140,180,0.14); border:1px solid #4a7a9a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
+          + `<div style="color:#a8d0f0; font-size:12.5px; margin-bottom:6px;">📅 離跟「${_pwn}」的約定還有一段時間（約定 ${escapeHtml(String(_pw.apptLabel || ''))}，她還沒到）</div>`
+          + `<button class="btn-option" style="width:100%;" onclick="kanshouWaitForPromise(${Number(_pw.targetHour) || 0})">⏳ 在這等到約定前 10 分鐘</button></div>`;
+      }
       // 🚪 「睡覺時機率敲門」：跟moveProposal同款「不是敘事選項、是決定要不要真的觸發」
       //   寫法，但這個是GAS機率觸發(結束一天前擲骰)，不是AI敘事判斷。
       if (data.knockEvent) {
@@ -207,11 +214,13 @@ let plainTextContext = cleanText;
       if (data.proposalResult) {
         const _pr = data.proposalResult, _nm = escapeHtml(String(_pr.name || '她'));
         let _msg;
-        if (_pr.ok && _pr.type === 'promise') _msg = '📅 <b>約定成立！</b>明天在「' + escapeHtml(String(_pr.loc || '')) + '」與「' + _nm + '」見面——當天到場好感↑，放鴿子好感↓。';
+        if (_pr.ok && _pr.type === 'promise') _msg = '📅 <b>約定成立！</b>明天' + escapeHtml(String(_pr.bandLabel || '')) + '在「' + escapeHtml(String(_pr.loc || '')) + '」與「' + _nm + '」見面——準時/早到好感↑、遲到打折、放鴿子↓。';
         else if (_pr.ok && _pr.type === 'hold') _msg = '🤝 <b>牽手成功！</b>之後你移動到哪，「' + _nm + '」都會相伴同行(直到放手)。';
         else _msg = (_pr.type === 'promise' ? '📅 「' : '🤝 「') + _nm + '」' + (_pr.type === 'promise' ? '婉拒了這次約定。' : '沒有讓你牽手。') + '——關係再深一點、或換個時機再試試。';
         const _col = _pr.ok ? 'rgba(90,160,110,.14);border:1px solid #4a8a5a;color:#a8e0b8' : 'rgba(150,110,120,.14);border:1px solid #8a5a6a;color:#e0b0bc';
         story.insertAdjacentHTML('beforeend', `<div style="background:${_col};border-radius:8px;padding:7px 10px;margin:4px 0;font-size:12.5px;">${_msg}</div>`);
+        // 約定成立/清除→刷新同伴清單(_kcCur)，讓地圖📅徽章與同伴列即時反映(背景抓、抓完重繪地圖)。
+        if (_pr.type === 'promise') { (async function () { try { const r = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount }); if (r && r.success) { _kcCur = r.current || []; try { renderMapPane(); } catch (e) {} try { renderKcPartyList_(); } catch (e) {} } } catch (e) {} })(); }
       }
       localStorage.setItem('kyushu_story', story.innerHTML);
       setTimeout(() => { story.scrollTop = story.scrollHeight; }, 50);
@@ -300,7 +309,7 @@ let plainTextContext = cleanText;
       // 💞 回憶鈕：有回憶亮粉色並帶數量，還沒有就灰階(仍可點開看空狀態說明)。
       var memCount = (c.memoir || []).length;
       return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
-        + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(c.name) + ' <small style="color:#8a7fa0;">(關係:' + escapeHtml(c.tag || '點頭之交') + '・好感' + c.bond + ')</small><br><small style="color:#7a9fa0;">📍 ' + escapeHtml(c.locLabel || c.loc || '不明') + '</small>' + (c.promise ? '<br><small style="color:#a8d0f0;">📅 ' + escapeHtml(c.promise.date) + ' 在「' + escapeHtml(c.promise.loc) + '」有約</small>' : '') + '</span>'
+        + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(c.name) + ' <small style="color:#8a7fa0;">(關係:' + escapeHtml(c.tag || '點頭之交') + '・好感' + c.bond + ')</small><br><small style="color:#7a9fa0;">📍 ' + escapeHtml(c.locLabel || c.loc || '不明') + '</small>' + (c.promise ? '<br><small style="color:#a8d0f0;">📅 ' + escapeHtml(c.promise.date) + (c.promise.time ? ' ' + escapeHtml(c.promise.time) : '') + ' 在「' + escapeHtml(c.promise.loc) + '」有約</small>' : '') + '</span>'
         + '<button onclick="kanshouOpenMemoir(\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 8px;background:' + (memCount ? '#5a3a4a' : '#3a3a44') + ';color:' + (memCount ? '#e8b8cc' : '#999') + ';border:none;border-radius:6px;cursor:pointer;font-size:12px;">💞回憶' + (memCount ? '(' + memCount + ')' : '') + '</button>'
         + '<button onclick="kanshouEditRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button></div>';
     }).join('') : '<div style="color:#888;padding:6px;">（這座城裡你還誰都不認識，從下方邀一個人來吧）</div>';
@@ -609,9 +618,14 @@ let plainTextContext = cleanText;
     // 🙋 跟kanshouMoveTo(自己走，無條件強制移動)不同，這顆👋走一般聊天訊息(不帶moveTarget)，交給AI依同伴個性當場決定答應或婉拒(見Gallery.gs★【玩家反向邀約】)。
     // 🔒 拜訪住處門檻：私人住處(region:'visit')要跟屋主好感≥熟識(40)才解鎖，未解鎖的灰掉、點了給提示不移動。
     var unlockedRes = (window._lastTags && window._lastTags.unlockedResidences) || [];
+    // 📅 約定地點標記：從同伴清單(_kcCur)蒐集有約的地點→地圖那顆按鈕標「📅 M/D 時段」，一眼看到約在哪。
+    var promiseByLoc = {};
+    (_kcCur || []).forEach(function (c) { if (c.promise && c.promise.loc) { promiseByLoc[c.promise.loc] = promiseByLoc[c.promise.loc] || []; promiseByLoc[c.promise.loc].push(c); } });
     var locBtns = KC_LOCATIONS_.filter(function (l) { return l.region === kcActiveRegion_; }).map(function (l) {
       var label = l.isRoom ? kcRoomLabel_(l.name) : l.name;
       var cnt = locCounts[l.name] || 0;
+      var _pmHere = promiseByLoc[l.name];
+      var _pmBadge = _pmHere ? '<span style="color:#a8d0f0;font-size:10px;">📅 ' + escapeHtml(_pmHere[0].promise.date + (_pmHere[0].promise.time ? ' ' + _pmHere[0].promise.time.replace(/^\S+\s/, '') : '')) + (_pmHere.length > 1 ? ' +' + (_pmHere.length - 1) : '') + '</span>' : '';
       if (l.region === 'visit' && unlockedRes.indexOf(l.name) === -1) {
         return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
           + '<button onclick="alert(\'跟這裡的主人還不夠熟，不好貿然登門。多在外頭相處、熟識(好感40)之後才好造訪。\')" '
@@ -622,7 +636,7 @@ let plainTextContext = cleanText;
       }
       return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
         + '<button onclick="kanshouMoveTo(\'' + l.name + '\')" style="flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">'
-        + '<span>📍 ' + escapeHtml(label) + '</span>'
+        + '<span>📍 ' + escapeHtml(label) + (_pmBadge ? ' ' + _pmBadge : '') + '</span>'
         + (cnt ? '<span style="color:#e0a0bc;font-size:11px;">👤' + cnt + '</span>' : '')
         + '</button>'
         + '<button onclick="kanshouProposeMove(\'' + l.name + '\')" title="邀同伴一起去「' + escapeHtml(label) + '」" style="padding:8px 9px;background:#2a2038;color:#e0c090;border:1px solid #5a4a3a;border-radius:8px;cursor:pointer;font-size:13px;">👋</button>'
@@ -722,12 +736,56 @@ let plainTextContext = cleanText;
   // 🏷️ REL_TAG 從此只能由玩家在這裡手動改，AI只能在敘事裡表現認不認同(態度)、不再擅自覆寫。呼叫既有的 update_rel_tag(後端早就有，只是從未接過前端UI)。
   // 📅 相約：跟「此刻在場」的同伴約明天在某地見面(她明天會被行程釘在那裡等；赴約好感+、爽約好感−)。
   //   2026-07 玩家「打編號超怪」→ prompt() 編號改成分區地點按鈕面板(kanshouPickLocation_)，點一下即選定。
+  // 約會時段(對齊後端 KANSHOU_APPT_BANDS_)：排除清晨6點/深夜——約會不約那時候。band 是後端 key、label 顯示。
+  var KC_APPT_BANDS_ = [
+    { band: '午後', label: '🌤️ 午後 14:00' },
+    { band: '黃昏', label: '🌆 黃昏 18:00' },
+    { band: '夜', label: '🌙 夜晚 20:00' }
+  ];
   async function kanshouPromiseMeet(name) {
     var pool = KC_LOCATIONS_.filter(function (l) { return !l.isRoom; }); // 相約排除玩家私室(我的房間·現掛home分頁但仍isRoom)
-    kanshouPickLocation_('📅 和「' + name + '」約明天在哪見面？', '她明天會在那裡等你；赴約好感↑、放鴿子好感↓', pool, async function (loc) {
-      showGamePane('chat');
-      await send('（向「' + name + '」提出明天在「' + loc + '」見面的約定。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, { name: name, loc: loc });
+    // 先選地點 → 再選時段 → 才送出(她約定時刻前10分到場；早到有「都早到」開場、遲到會唸你)
+    kanshouPickLocation_('📅 和「' + name + '」約明天在哪見面？', '她明天會在那個時段到場等你；準時/早到赴約好感↑、遲到打折、放鴿子好感↓', pool, function (loc) {
+      kanshouPickBand_('📅 約在「' + loc + '」的什麼時候？', name, function (band) {
+        showGamePane('chat');
+        send('（向「' + name + '」提出明天在「' + loc + '」見面的約定。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, { name: name, loc: loc, band: band });
+      });
     });
+  }
+  // 📅 時段選擇框(相約用)：三顆按鈕，點了回呼 band key。
+  var _kbCb = null;
+  function kanshouPickBand_(title, name, cb) {
+    _kbCb = cb;
+    var ov = document.getElementById('kb-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'kb-overlay';
+      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10002;align-items:center;justify-content:center;';
+      ov.onclick = function (e) { if (e.target === ov) { ov.style.display = 'none'; _kbCb = null; } };
+      document.body.appendChild(ov);
+    }
+    ov.innerHTML = '<div style="width:min(360px,92vw);background:#1d1722;border:1px solid rgba(168,208,240,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
+      + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#a8d0f0;">' + escapeHtml(title) + '</b>'
+      + '<button onclick="document.getElementById(\'kb-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
+      + '<div style="display:flex;flex-direction:column;gap:8px;">'
+      + KC_APPT_BANDS_.map(function (b) { return '<button onclick="kanshouPickBand2_(\'' + b.band + '\')" style="padding:9px;background:rgba(90,140,180,0.18);color:#a8d0f0;border:1px solid #4a7a9a;border-radius:8px;cursor:pointer;font-size:13px;">' + b.label + '</button>'; }).join('')
+      + '</div></div>';
+    ov.style.display = 'flex';
+  }
+  function kanshouPickBand2_(band) {
+    var ov = document.getElementById('kb-overlay');
+    if (ov) ov.style.display = 'none';
+    var cb = _kbCb; _kbCb = null;
+    if (cb) cb(band);
+  }
+  // 📅 「等到約定前10分」：把時鐘推到 targetHour(她抵達的時刻)——用 advanceHours 走既有時間推進管線，
+  //   後端到站時結算會判定「準時·都早到」、把她pin登場。adv 由「目標時刻 − 目前時刻」算(支援小數)。
+  async function kanshouWaitForPromise(targetHour) {
+    var cur = (kcClock && typeof kcClock.hour === 'number') ? kcClock.hour : null;
+    if (cur === null || targetHour <= cur) { await send('（在約定的地點靜靜等候……）', false); return; }
+    var adv = targetHour - cur;
+    showGamePane('chat');
+    await send('（在約定的地點靜靜等候，直到約定的時刻將近……）', false, null, null, false, false, adv, null, null, false, false, null, null, ['時光一點一點靠近約定的時刻…']);
   }
   // 🗺️ 共用地點點選面板：分區標題＋地點按鈕，點了就回呼——之後任何「選個地點」的需求都用這支，別再用 prompt() 編號。
   var _kpCb = null;
