@@ -1091,6 +1091,24 @@ var KANSHOU_MORNING_AFTER_TAG_ = makeTextTag_('晨間餘韻');
 // 📅 初見日(存該同伴列MEMORY·absDay)：首次跟玩家同地當下蓋戳，之後相識滿7/30/100/365天且人
 //   在場時餵一行紀念日提示。0=尚未記錄(舊存檔首次相遇當天補戳，從那天起算)。
 var KANSHOU_FIRST_MET_DAY_TAG_ = makeIntTag_('初見日', 0);
+// 📅 約定(存該同伴列MEMORY)：【約定】absDay:地點＝「那天在X見」。同時只存一筆(新約蓋舊約)；
+//   約定日她的行程骰被釘在該地點(kanshouPromisePin_)，赴約/爽約由actionPlay每回合結算。
+function kanshouGetPromise_(memory) {
+  const m = String(memory || "").match(/【約定】(\d+):([^｜【】]+)/);
+  return m ? { day: parseInt(m[1]), loc: String(m[2]).trim() } : null;
+}
+function kanshouClearPromise_(memory) {
+  return String(memory || "").replace(/｜?【約定】\d+:[^｜【】]*/g, "").replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
+}
+function kanshouSetPromise_(memory, absDay, loc) {
+  const s = kanshouClearPromise_(memory);
+  return (s ? s + "｜" : "") + "【約定】" + absDay + ":" + loc;
+}
+// 她今天有約→回約定地點(行程骰被約定釘住、整天守在那裡等)；沒約→null照常骰。
+function kanshouPromisePin_(row, absDay) {
+  const p = kanshouGetPromise_(row[COL.PC.MEMORY]);
+  return (p && p.day === absDay) ? p.loc : null;
+}
 const KANSHOU_ANNIV_MILESTONES_ = [7, 30, 100, 365];
 // ☁️ 今日天氣(純敘事·不存表)：依月份查季節池、依日數確定性雜湊挑一項——同一天永遠同一個天氣、
 //   跨日自然換，零round-trip零寫入。
@@ -1240,6 +1258,26 @@ function actionPlay(userData, pcId, sheets) {
   const myGameId = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
   const sameGame = (r) => !myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId;
 
+  // 📅 相約(玩家在同伴卡點「相約」→前端帶promiseMeet{name,loc})：只能跟「此刻在場」的同伴約、
+  //   地點限公開清單(不含玩家私室)；成立→她列MEMORY蓋【約定】明日:地點(新約蓋舊約)，約定日她的
+  //   行程骰被釘在該地點(見kanshouPromisePin_呼叫端)，赴約/爽約每回合結算(見下方【依約相會】)。
+  let kanshouPromiseStr = "";
+  if (userData.promiseMeet && typeof userData.promiseMeet === 'object') {
+    const _pmName = String(userData.promiseMeet.name || "").trim();
+    const _pmLoc = String(userData.promiseMeet.loc || "").trim();
+    const _pmLocOk = KANSHOU_LOCATIONS_.some(l => l.name === _pmLoc && l.region !== 'room');
+    const _pmIdx = _pmName ? pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_pmName) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) : -1;
+    if (_pmLocOk && _pmIdx !== -1) {
+      pcData[_pmIdx][COL.PC.MEMORY] = kanshouSetPromise_(pcData[_pmIdx][COL.PC.MEMORY], curDay + 1, _pmLoc);
+      dirtyPcRows.add(_pmIdx);
+      kanshouPromiseStr = `\n★【約定成立】：你與『${String(pcData[_pmIdx][COL.PC.NAME])}』約好【明天在「${_pmLoc}」見面】——演出她依性格答應這個約定的反應(爽快/彆扭/故作矜持皆可)，這個約已由系統記下、明天她會赴約，不必再徵詢或重複確認。`;
+      finalUserMsg = `【玩家意圖】：向『${String(pcData[_pmIdx][COL.PC.NAME])}』提出「明天在${_pmLoc}見面」的約定。`;
+    } else if (_pmName) {
+      kanshouPromiseStr = `\n★【相約撲空】：你想找『${_pmName}』相約見面，但她此刻並不在這裡——演出這份撲空的悵然即可，約定沒有成立。`;
+      finalUserMsg = `【玩家意圖】：想找『${_pmName}』相約，卻發現她不在身邊。`;
+    }
+  }
+
   // 🎭 橋段觸發：按鈕(roomEventOffer)在候選人存在期間持續可用，玩家點下去(userData.
   //   roomEventAccept)才真正骰一次走向；候選人＝目標地點上的同世界同伴，隨機挑一位。
   const kanshouRoomEventTargetLoc_ = moveTarget ? moveName : curL;
@@ -1343,7 +1381,8 @@ function actionPlay(userData, pcId, sheets) {
     curL = kanshouMyRoomLoc_;
     allEstablished.forEach(r => {
       const idx = pcData.indexOf(r);
-      pcData[idx][COL.PC.LOC] = intimateNightNames.includes(r[COL.PC.NAME]) ? kanshouMyRoomLoc_ : kanshouRollDailyLocation_(r[COL.PC.NAME], curHour);
+      // 優先序：同床過夜(留玩家房間) > 今天有約(釘約定地點守著) > 照常骰行程。curDay已是隔天。
+      pcData[idx][COL.PC.LOC] = intimateNightNames.includes(r[COL.PC.NAME]) ? kanshouMyRoomLoc_ : (kanshouPromisePin_(r, curDay) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour));
       dirtyPcRows.add(idx);
     });
     finalUserMsg = `【一天結束】夜幕降臨，${intimateNightNames.length ? `跟『${intimateNightNames.join('、')}』一起` : ""}回到房間安頓下來，今天到此為止，明天又是新的一天。`;
@@ -1375,7 +1414,8 @@ function actionPlay(userData, pcId, sheets) {
       const allEstablishedForTime = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() !== String(curL || "").trim());
       allEstablishedForTime.forEach(r => {
         const idx = pcData.indexOf(r);
-        pcData[idx][COL.PC.LOC] = kanshouRollDailyLocation_(r[COL.PC.NAME], curHour);
+        // 今天有約→釘在約定地點守著；沒約→照常骰。curDay已是推進後的日期。
+        pcData[idx][COL.PC.LOC] = kanshouPromisePin_(r, curDay) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour);
         dirtyPcRows.add(idx);
       });
       const newDate = kanshouAbsDayToDate_(curDay);
@@ -1499,6 +1539,27 @@ function actionPlay(userData, pcId, sheets) {
     }
   });
   const kanshouAnnivStr = kanshouAnnivLines_.length ? `\n★【紀念日·非強制】：今天是${kanshouAnnivLines_.join('、')}的日子——若氣氛合適可自然帶出這份紀念的溫度(她記得、或你記得皆可)，不必強行慶祝或報幕。` : "";
+  // 📅 赴約/爽約結算：約定日當天真的同地相會＝赴約(好感+5·清約·餵欣喜提示)；日期已過約還掛著＝
+  //   爽約(好感−5·清約，她剛好在場才餵「被放鴿子」提示，不在場就靜默結算)。同回合剛成立的約
+  //   (day=明天)兩個條件都不會命中，不會自我觸發。
+  let kanshouPromiseMetStr = "";
+  pcData.forEach((r, i) => {
+    if (i === pcIndex || String(r[COL.PC.FACTION]) !== "從者" || !sameGame(r) || String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+    const _pr = kanshouGetPromise_(r[COL.PC.MEMORY]);
+    if (!_pr) return;
+    const _here = String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim();
+    if (_pr.day === curDay && _here) {
+      pcData[i][COL.PC.MEMORY] = kanshouClearPromise_(pcData[i][COL.PC.MEMORY]);
+      pcData[i][COL.PC.BOND] = Math.min(100, (parseInt(r[COL.PC.BOND]) || 0) + 5);
+      dirtyPcRows.add(i);
+      kanshouPromiseMetStr += `\n★【依約相會】：今天正是你與『${String(r[COL.PC.NAME])}』約好在「${_pr.loc}」見面的日子，而你們此刻真的相會了——自然演出這份「約定被守住」的欣喜與意義(好感已由系統上調，敘事勿再另計)。`;
+    } else if (_pr.day < curDay) {
+      pcData[i][COL.PC.MEMORY] = kanshouClearPromise_(pcData[i][COL.PC.MEMORY]);
+      pcData[i][COL.PC.BOND] = Math.max(0, (parseInt(r[COL.PC.BOND]) || 0) - 5);
+      dirtyPcRows.add(i);
+      if (_here) kanshouPromiseMetStr += `\n★【爽約之後】：你先前與『${String(r[COL.PC.NAME])}』約好在「${_pr.loc}」見面卻沒有赴約——讓她依性格流露對被放鴿子的在意(慍怒/落寞/嘴硬說沒關係皆可，好感已由系統下調，敘事勿再另計)。`;
+    }
+  });
   let partyDetailsArr = [];
   // ⚡ 提速：dailySpeechByName_ 對每位同伴呼叫都會重新解析英靈殿快取字串，這裡在迴圈外先抓一次
   //   共用傳入，省掉重複整表解析。
@@ -1622,7 +1683,7 @@ ${PROMPT_PARTY_SYSTEM}
 【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}(當前服裝·五官體態不變)` : ""} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}
 
 ${PROMPT_REL}
-★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前在場人物】(與玩家同地點的已建立英靈)；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【目前在場人物】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouRoomEventStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶氛圍】：今天是「${_f.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。`; if (jumpFest) return `\n★【節慶氛圍】：明天就是「${jumpFest.name}」，街頭已有節慶前夕的準備與期待感，narration可自然帶入，不必特別報幕。`; return ""; })()}
+★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前在場人物】(與玩家同地點的已建立英靈)；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【目前在場人物】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouRoomEventStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶氛圍】：今天是「${_f.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。`; if (jumpFest) return `\n★【節慶氛圍】：明天就是「${jumpFest.name}」，街頭已有節慶前夕的準備與期待感，narration可自然帶入，不必特別報幕。`; return ""; })()}
 ★【今日天氣】：${kanshouWeather_(curDay)}——讓天氣自然滲入場景與人物(衣著/髮絲/街景/話題皆可)，不必每句都提、也不必報幕。${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜氛圍·好感門檻已達】：『${intimateNightNames.join('、')}』與你的羈絆已深(好感≥80)，今晚可以自然發展到同床共枕，依其性格自然決定要不要跨出這一步、氛圍濃烈到什麼程度，不強制每次都寫到底；好感未達此門檻的同伴，一律維持各自安睡、不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度了親密的時光(依上一回合實際演出的內容為準，若上次並未真的跨出那一步就當作平常的早晨)，這是新的一天第一個場景，若情境合適可以自然帶出晨間的溫馨/曖昧餘韻(如一起吃早餐、彼此害羞或黏膩的互動)，不強制一定要提及、也不需要複述昨夜細節，一切依角色個性自然發展。` : ""}
 💕【鑑賞·後日談模式·最高優先級覆寫】：${partyRows.length === 0
     ? `這裡是平行世界的和平都市日常——聖杯戰爭這回事從未在這個世界發生過，眼下沒有同行的英靈在場，就是御主一人的尋常時光。`

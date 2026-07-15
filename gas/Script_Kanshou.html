@@ -32,7 +32,7 @@
     document.getElementById(loadId)?.remove();
   }
 
-  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false, roomEventAccept = null, jumpBand = null, loaderCaptions = null, moveWithCompanion = false) {
+  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false, roomEventAccept = null, jumpBand = null, loaderCaptions = null, moveWithCompanion = false, promiseMeet = null) {
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
     // 🔥 主動掌握開關：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
@@ -71,7 +71,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -592,6 +592,19 @@ let plainTextContext = cleanText;
     } catch (e) { hideProcessing(); alert('召喚失敗。'); }
   }
   // 🏷️ REL_TAG 從此只能由玩家在這裡手動改，AI只能在敘事裡表現認不認同(態度)、不再擅自覆寫。呼叫既有的 update_rel_tag(後端早就有，只是從未接過前端UI)。
+  // 📅 相約：跟「此刻在場」的同伴約明天在某地見面(她明天會被行程釘在那裡等；赴約好感+、爽約好感−)。
+  //   地點清單複用KC_LOCATIONS_(排除玩家私室)，比照kanshouEditRelTag同款prompt()輕量對話框。
+  async function kanshouPromiseMeet(name) {
+    var pool = KC_LOCATIONS_.filter(function (l) { return l.region !== 'room'; });
+    var listTxt = pool.map(function (l, i) { return (i + 1) + '. ' + l.name; }).join('\n');
+    var pick = prompt('和「' + name + '」約【明天】在哪裡見面？輸入編號(她明天會在那裡等你；赴約好感↑、放鴿子好感↓)：\n' + listTxt);
+    if (pick === null) return;
+    var pi = parseInt(String(pick).trim(), 10) - 1;
+    if (!(pi >= 0 && pi < pool.length)) { alert('請輸入清單中的編號。'); return; }
+    var loc = pool[pi].name;
+    showGamePane('chat');
+    await send('（向「' + name + '」提出明天在「' + loc + '」見面的約定。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, { name: name, loc: loc });
+  }
   async function kanshouEditRelTag(name, oldTag) {
     var nt = prompt('「' + name + '」的關係稱呼(對方不一定會馬上認同，依好感與個性而定)：', oldTag || '從者');
     if (nt === null) return;
