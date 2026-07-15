@@ -247,11 +247,11 @@ let plainTextContext = cleanText;
     ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:480px;width:100%;max-height:calc(100vh - 36px);padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;">'
       + '<div style="overflow-y:auto;min-height:0;">'
       + '<h3 style="margin:0 0 4px;color:#e0a0bc;">👥 這個世界裡的人 (<span id="kc-count">0</span>)</h3>'
-      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">從英靈殿召喚，讓她加入這個世界——之後她會過自己的生活，去她所在的地點就能找到她。</div>'
+      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">直接邀一個人來這座城生活——之後她會過自己的日子，去她所在的地方就能找到她。</div>'
       + '<div id="kc-master-box"></div>'
       + '<div style="font-size:12px;color:#cbb;margin:6px 0 3px;">駐留清單</div>'
       + '<div id="kc-party-list"></div>'
-      + '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">🌹 從英靈殿召喚</div>'
+      + '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">🌹 邀人加入</div>'
       + '<div id="kc-filters"></div>'
       + '<div id="kc-hero-list"></div>'
       + '<div id="kc-hero-empty" style="color:#888;padding:6px;display:none;"></div>'
@@ -284,7 +284,7 @@ let plainTextContext = cleanText;
       return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
         + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(c.name) + ' <small style="color:#8a7fa0;">(關係:' + escapeHtml(c.tag || '點頭之交') + '・好感' + c.bond + ')</small><br><small style="color:#7a9fa0;">📍 ' + escapeHtml(c.locLabel || c.loc || '不明') + '</small></span>'
         + '<button onclick="kanshouEditRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button></div>';
-    }).join('') : '<div style="color:#888;padding:6px;">（這個世界裡還沒有其他人，從下方召喚一位吧）</div>';
+    }).join('') : '<div style="color:#888;padding:6px;">（這座城裡你還誰都不認識，從下方邀一個人來吧）</div>';
   }
 
   // 🌙 結束一天：不在身邊的英靈由GAS自動決定隔天去哪(見Gallery.gs kanshouRollDailyLocation_)，不用手動排程；跟一般聊天走同一個send()、同一套渲染。
@@ -373,7 +373,7 @@ let plainTextContext = cleanText;
     }).join('');
     var empty = document.getElementById('kc-hero-empty');
     if (empty) {
-      if (!_kcHeroesAvailable.length) { empty.textContent = '（' + (_kcHeroesAll.length ? '無更多可召喚的英靈' : '英靈庫讀取失敗或無可召喚英靈') + '）'; empty.style.display = ''; }
+      if (!_kcHeroesAvailable.length) { empty.textContent = '（' + (_kcHeroesAll.length ? '沒有更多人可邀' : '名單讀取失敗') + '）'; empty.style.display = ''; }
       else { empty.style.display = 'none'; }
     }
     applyKcHeroFilter_();
@@ -601,7 +601,7 @@ let plainTextContext = cleanText;
 
   // 🚀 已移除「召喚後背景AI深化」第二段呼叫：種子庫23位英靈已全數手寫完整的日常四段式外貌/性格/萌點/衣裝(見 heroToKanshouRow_/getDailyHeroFields_)，那顆深化只會多等一輪AI呼叫、拿可能更差的內容覆蓋，純粹拖速度——整條移除(actionBackfillKanshouServantAi 已刪)。
   async function kanshouSummonHero(heroId) {
-    showProcessing('正在以令咒召喚英靈…', true);
+    showProcessing('正在聯繫……', true);
     try {
       const res = await gasRun({ action: 'kanshou_summon_hero', pcId: pc.id, acctName: currentAccount, heroId: heroId });
       hideProcessing();
@@ -888,7 +888,7 @@ let plainTextContext = cleanText;
         if (htmlContent && htmlContent.trim() !== "") {
           story.innerHTML = htmlContent;
         } else {
-          story.innerHTML = `<div class="msg-ai"><b>【後日談】</b>這是屬於你的和平時光。點下方 👥 後日談同伴，邀請曾與你並肩奪杯的她入席，或直接從英靈庫召喚一位英靈相伴吧。</div>`;
+          story.innerHTML = `<div class="msg-ai"><b>【日常】</b>這是屬於你在這座城裡的一段平靜時光。出門走走、逛逛四周，也許會在某個街角遇見誰；想找個伴，也能點下方 👥 邀人同行。慢慢來，日子還長。</div>`;
         }
         story.scrollTop = story.scrollHeight;
         syncData(true);
