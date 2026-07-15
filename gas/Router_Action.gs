@@ -57,7 +57,9 @@ const ActionRouter = {
   "sync": actionSync,
   "rest": actionRest,
   "play": actionPlay,
-  "narrate_only": actionNarrateOnly
+  "narrate_only": actionNarrateOnly,
+  "get_album": actionGetAlbum,   // 📷 鑑賞相簿：讀本局全部照片＋剩餘底片(拍照本體在 play 的 takePhoto 分支)
+  "album_delete": actionAlbumDelete // 📷 刪照片(相簿滿了騰位子)
 };
 
 // ------------------------------------------
@@ -182,7 +184,7 @@ function handleGameAction(userData) {
 //   ⚠ sync 雖會 markRivalsSeen_ 標記 SEEN，但該寫入冪等(重標無害)，不值得為它鎖每一次同步。
 const LOCK_EXEMPT_ACTIONS_ = {
   check_name: 1, get_full_status: 1, get_heroes: 1, get_masters: 1,
-  get_tags: 1, get_map_nodes: 1, sync: 1,
+  get_tags: 1, get_map_nodes: 1, sync: 1, get_album: 1,
   narrate_only: 1, play: 1, backfill_master_ai: 1, backfill_kanshou_ai: 1,
   save_hero: 1 // 🛠️ 工房鑄造/修改：含數秒 AI 呼叫·只寫英靈殿(append/單列)不碰戰場——佔全域鎖會卡死其他玩家
 };

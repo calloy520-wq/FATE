@@ -434,3 +434,25 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 ---
 
 *本文件由程式碼直接逐一核對（非憑印象），對照時間點：2026-07。若之後改了對應 handler 的 prompt 組裝方式，記得回來更新本表——尤其 `actionFateBattle`／`actionPlay` 這兩個 prompt 最複雜也最常改的地方。*
+
+---
+
+## 附二：2026-07 中 鑑賞 actionPlay 提示詞大擴充（本表新增段·詳見 SOLO_REFERENCE.md §109~§114）
+
+`actionPlay`(Gallery.gs) 的鑑賞提示詞在這一輪新增了大量條件式片段，全部集中插在【在場驗證鐵律】那一大段之後(變數名即錨點)，各自只在對應機制觸發時出現：
+
+| 片段變數 | 觸發 | 內容 |
+|---|---|---|
+| `kanshouRoomEventStr` | 橋段accept(夜襲/賴床/共浴/溫泉/膝枕/下廚/觀星/6節慶橋段·13筆) | ★【橋段·key】GAS已骰定走向(依好感3檔)，AI照走向演出 |
+| `kanshouPromiseStr`/`kanshouPromiseMetStr` | 📅相約成立/撲空·赴約/爽約結算 | ★【約定成立】/【相約撲空】/【依約相會】/【爽約之後】 |
+| `kanshouCohabitStr` | 🏠邀請同居(成立/婉拒/已同居/撲空) | ★【同居開始】等4款 |
+| `kanshouInviteStr` | 🤝結識巧遇對象(入駐/緣分沒接上) | ★【正式結識】/【結識未成】 |
+| `kanshouJealousStr` | 兩位好感≥60同場·20%機率 | ★【醋意暗流·非強制】 |
+| `kanshouPhotoStr` | 📷拍照(4款:正常/沒人/底片盡/相簿滿)·正常款會要求AI回應JSON多吐`photo_caption` | ★【拍照】等 |
+| `kanshouShowPhotoStr` | 📷看照片(洗好/沒洗好) | ★【看照片】/【照片還沒洗好】 |
+| 節慶氛圍(IIFE) | 日曆=節慶當天 或 剛按跳轉(前夕) | ★【節慶氛圍】今天是X／明天就是X |
+| ★【今日天氣】 | 恆帶 | `kanshouWeather_(curDay)`確定性天氣 |
+| `kanshouAnnivStr` | 相識滿7/30/100/365天且人在場 | ★【紀念日·非強制】 |
+| `pActivityStr`(每位在場者卡) | 12個地點的「現況」活動(打工/散步/泡湯…)·剛跟玩家一起移動來的人不套 | 現況:正在這裡… |
+
+世界觀行同輪全面改寫(§112 詞彙清洗)：AI不再看到 從者/御主/英靈殿被召喚/職階，統一「這座城的普通居民」框架＋一句集中壓制句。新增純機制action：`get_album`(讀相簿+剩餘底片)/`album_delete`(刪照片)——皆不叫AI。

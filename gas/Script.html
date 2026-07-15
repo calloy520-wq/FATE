@@ -2516,6 +2516,9 @@ function applyModeUI() {
   var ibar = document.getElementById('input-bar'); if (ibar) ibar.style.display = isKanshou ? '' : 'none';
   // 🎊 快轉節慶(從地圖頁移進＋抽屜，不常用)：只在鑑賞模式出現
   var dfest = document.getElementById('drawer-festival'); if (dfest) dfest.style.display = isKanshou ? '' : 'none';
+  // 📷 拍照鈕(輸入列)＋相簿(＋抽屜)：鑑賞限定
+  var pbtn = document.getElementById('photo-btn'); if (pbtn) pbtn.style.display = isKanshou ? '' : 'none';
+  var dalb = document.getElementById('drawer-album'); if (dalb) dalb.style.display = isKanshou ? '' : 'none';
   // 戰爭行動列：取代輸入框，只在戰爭模式顯示
   var wa = document.getElementById('war-actions'); if (wa) wa.style.display = isKanshou ? 'none' : 'flex';
   // 🌹 鑑賞御主卡已內建「換裝＋詳細狀態」按鈕列，卡片列表下方這顆獨立按鈕改只在 solo 顯示，避免重複外露

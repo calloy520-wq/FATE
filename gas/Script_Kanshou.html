@@ -32,7 +32,7 @@
     document.getElementById(loadId)?.remove();
   }
 
-  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false, roomEventAccept = null, jumpBand = null, loaderCaptions = null, moveWithCompanion = false, promiseMeet = null, cohabitInvite = null, inviteResident = null) {
+  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false, roomEventAccept = null, jumpBand = null, loaderCaptions = null, moveWithCompanion = false, promiseMeet = null, cohabitInvite = null, inviteResident = null, takePhoto = false, showPhoto = null) {
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
     // 🔥 主動掌握開關：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
@@ -71,7 +71,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -162,6 +162,15 @@ let plainTextContext = cleanText;
           + `<div style="color:#e0a0bc; font-size:12.5px; margin-bottom:6px;">${reLabel}</div>`
           + `<button class="btn-option" style="width:100%;" onclick="kanshouAcceptRoomEvent('${reName.replace(/'/g, "\\'")}')">${reBtn}</button>`
           + `</div>`;
+      }
+      // 📷 拍照結果小字回饋(敘事本身由AI演，這行只補機制數字：剩幾張底片/為何沒拍成)。
+      if (data.photoResult) {
+        const pr = data.photoResult;
+        const prTxt = pr.ok ? `📷 咔嚓——拍下了。今日底片剩 ${pr.filmLeft} 張，照片明天洗好(＋抽屜→相簿)。`
+          : pr.reason === 'film' ? '📷 今天的底片用完了，明天會補充。'
+          : pr.reason === 'cap' ? '📷 相簿已滿(100張)——去相簿刪幾張舊照片才能再拍。'
+          : pr.reason === 'nobody' ? '📷 身邊沒有可拍的人。' : '📷 這一張沒拍成。';
+        optionsHtml += `<div style="color:#9a917f; font-size:11px; padding:4px 2px 8px;">${prTxt}</div>`;
       }
       // 🤝 巧遇對象的「結識」邀請框：她此刻只是路人(不記好感·離開即散)，點了才正式入駐這座城。
       if (data.encounterOffer && data.encounterOffer.name) {
@@ -613,6 +622,101 @@ let plainTextContext = cleanText;
     var loc = pool[pi].name;
     showGamePane('chat');
     await send('（向「' + name + '」提出明天在「' + loc + '」見面的約定。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, { name: name, loc: loc });
+  }
+  // 📷 拍照：拍下此刻在場的人(每天3張底片·隔天洗好)。她的反應由AI演，小敘述由同一次回應的
+  //   photo_caption 生成，前端只負責按下快門。
+  async function kanshouTakePhoto() {
+    showGamePane('chat');
+    await send('（舉起相機，拍下此刻的光景。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, null, null, null, true);
+  }
+  // 📷 拿照片給在場的人看(相簿卡片上的按鈕)：洗好的才有內容，沒洗好後端會演「明天才看得到」。
+  async function kanshouShowPhoto(photoId) {
+    kanshouCloseAlbum_();
+    showGamePane('chat');
+    await send('（從口袋拿出一張照片，遞給身邊的人看。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, null, null, null, false, photoId);
+  }
+  async function kanshouDeletePhoto(photoId) {
+    if (!confirm('確定撕掉這張照片？(不可復原)')) return;
+    try {
+      const res = await gasRun({ action: 'album_delete', pcId: pc.id, photoId: photoId });
+      if (res && res.success) openKanshouAlbum(); else alert((res && res.message) || '刪除失敗。');
+    } catch (e) { alert('刪除失敗。'); }
+  }
+  // 📚 相簿牆(A案色卡寶麗來)：時段色調×天氣覆疊×右上角髮色緞帶，人物篩選分頁。
+  var KC_ALBUM_BAND_BG_ = {
+    '清晨': ['#f4ecd0', '#d8c8a0'], '午後': ['#eae2cc', '#b8ac8c'], '黃昏': ['#f4d9a8', '#c8763e'],
+    '夜': ['#3a3856', '#232136'], '深夜': ['#2e2a44', '#141020']
+  };
+  function kcAlbumCardSvg_(p) {
+    var bg = KC_ALBUM_BAND_BG_[p.band] || ['#d8d0c0', '#a89880'];
+    var darkBand = (p.band === '夜' || p.band === '深夜');
+    var wx = '';
+    if (/雪/.test(p.weather)) {
+      var dots = [[26, 20, 1.3], [70, 10, 1], [120, 26, 1.2], [160, 14, 0.9], [45, 44, 1.1], [140, 52, 1.2], [95, 36, 0.9]];
+      wx = '<g fill="#fff" opacity="0.8">' + dots.map(function (d) { return '<circle cx="' + d[0] + '" cy="' + d[1] + '" r="' + d[2] + '"/>'; }).join('') + '</g>';
+    } else if (/雨/.test(p.weather)) {
+      var ln = [[30, 10], [70, 26], [110, 8], [150, 30], [50, 48], [130, 56]];
+      wx = '<g stroke="#cdd8e8" stroke-width="1" opacity="0.6">' + ln.map(function (d) { return '<line x1="' + d[0] + '" y1="' + d[1] + '" x2="' + (d[0] - 5) + '" y2="' + (d[1] + 14) + '"/>'; }).join('') + '</g>';
+    }
+    var gid = 'g' + String(p.id).replace(/[^A-Za-z0-9]/g, '');
+    return '<svg viewBox="0 0 180 110" width="100%" style="display:block;">'
+      + '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + bg[0] + '"/><stop offset="100%" stop-color="' + bg[1] + '"/></linearGradient></defs>'
+      + '<rect width="180" height="110" fill="url(#' + gid + ')"/>'
+      + wx
+      + '<path d="M150 0 L180 0 L180 30 Z" fill="' + (p.hair || '#5a4a3e') + '"/>'
+      + '<text x="8" y="100" font-size="10" fill="' + (darkBand ? '#c8c4dc' : '#6a5a44') + '">📍 ' + escapeHtml(p.loc) + '・' + escapeHtml(p.band) + '</text>'
+      + '</svg>';
+  }
+  function kcAlbumCardHtml_(p) {
+    var body = p.developed
+      ? '<div style="font-size:11px; color:#5a5248; padding:7px 3px 6px; line-height:1.5;">' + escapeHtml(p.caption) + '</div>'
+        + '<div style="font-size:9px; color:#9a917f; padding:0 3px 6px;">📷 ' + escapeHtml(p.dateLabel) + '・' + escapeHtml(p.weather) + '｜' + escapeHtml(p.names) + (p.flag ? '・' + escapeHtml(p.flag) : '') + '</div>'
+        + '<div style="display:flex; gap:5px; padding:0 2px 7px;">'
+        + '<button onclick="kanshouShowPhoto(\'' + p.id + '\')" style="flex:1; font-size:10px; padding:3px 4px; background:rgba(90,140,100,0.14); color:#3a6a48; border:1px solid #6a9a7a; border-radius:5px; cursor:pointer;">👀 給在場的人看</button>'
+        + '<button onclick="kanshouDeletePhoto(\'' + p.id + '\')" style="font-size:10px; padding:3px 7px; background:rgba(160,60,60,0.1); color:#a04a4a; border:1px solid #b07a7a; border-radius:5px; cursor:pointer;">🗑️</button>'
+        + '</div>'
+      : '<div style="font-size:11px; color:#8a8278; padding:9px 3px 12px;">🎞️ 沖洗中……明天就能看了。<br><span style="font-size:9px; color:#a89f8f;">📷 ' + escapeHtml(p.dateLabel) + '・' + escapeHtml(p.loc) + '｜' + escapeHtml(p.names) + '</span></div>';
+    return '<div style="background:#f5f2ea; padding:8px 8px 2px; border-radius:3px; box-shadow:0 4px 10px rgba(0,0,0,.45); width:186px;">'
+      + (p.developed ? kcAlbumCardSvg_(p) : '<div style="height:110px; background:repeating-linear-gradient(45deg,#3a3630,#3a3630 8px,#2e2a26 8px,#2e2a26 16px); display:flex; align-items:center; justify-content:center; color:#8a8070; font-size:22px;">🎞️</div>')
+      + body + '</div>';
+  }
+  var kcAlbumData_ = null, kcAlbumFilter_ = '';
+  function kcAlbumRender_() {
+    var box = document.getElementById('kc-album-body'); if (!box || !kcAlbumData_) return;
+    var photos = kcAlbumData_.photos.filter(function (p) { return !kcAlbumFilter_ || String(p.names).indexOf(kcAlbumFilter_) >= 0; });
+    var names = {};
+    kcAlbumData_.photos.forEach(function (p) { String(p.names).split('、').forEach(function (n) { n = n.trim(); if (n && !names[n]) names[n] = p.hair || '#5a4a3e'; }); });
+    var chips = '<button onclick="kcAlbumSetFilter_(\'\')" style="font-size:11px; padding:3px 9px; border-radius:10px; cursor:pointer; border:1px solid ' + (!kcAlbumFilter_ ? '#d4af37' : '#5a5470') + '; background:' + (!kcAlbumFilter_ ? 'rgba(212,175,55,.18)' : 'transparent') + '; color:#d8d0e0;">全部</button>';
+    Object.keys(names).forEach(function (n) {
+      var on = kcAlbumFilter_ === n;
+      chips += '<button onclick="kcAlbumSetFilter_(\'' + n.replace(/'/g, "\\'") + '\')" style="font-size:11px; padding:3px 9px; border-radius:10px; cursor:pointer; border:1px solid ' + (on ? '#d4af37' : '#5a5470') + '; background:' + (on ? 'rgba(212,175,55,.18)' : 'transparent') + '; color:#d8d0e0;"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:' + names[n] + '; margin-right:4px; vertical-align:middle;"></span>' + escapeHtml(n) + '</button>';
+    });
+    box.innerHTML = '<div style="color:#c9b8d8; font-size:11.5px; margin-bottom:8px;">🎞️ 今日底片剩 <b>' + kcAlbumData_.filmLeft + '</b>/' + kcAlbumData_.filmPerDay + ' 張・相簿 ' + kcAlbumData_.photos.length + '/' + kcAlbumData_.cap + ' 張</div>'
+      + '<div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:12px;">' + chips + '</div>'
+      + (photos.length
+        ? '<div style="display:flex; gap:14px; flex-wrap:wrap; justify-content:center;">' + photos.map(kcAlbumCardHtml_).join('') + '</div>'
+        : '<div style="color:#8a8298; font-size:12px; text-align:center; padding:30px 0;">還沒有照片——輸入列的 📷 按鈕可以拍下此刻。</div>');
+  }
+  function kcAlbumSetFilter_(n) { kcAlbumFilter_ = n; kcAlbumRender_(); }
+  function kanshouCloseAlbum_() { var ov = document.getElementById('kc-album-overlay'); if (ov) ov.remove(); }
+  async function openKanshouAlbum() {
+    if (!pc || !pc.id) { alert('尚未進入後日談。'); return; }
+    var drawer = document.getElementById('action-drawer'); if (drawer) drawer.classList.remove('open');
+    kanshouCloseAlbum_();
+    var ov = document.createElement('div');
+    ov.id = 'kc-album-overlay';
+    ov.style.cssText = 'position:fixed; inset:0; z-index:9000; background:rgba(16,12,24,.92); overflow-y:auto; padding:18px 14px 40px;';
+    ov.innerHTML = '<div style="max-width:900px; margin:0 auto;">'
+      + '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">'
+      + '<div style="color:#e0a0bc; font-weight:bold; font-size:16px;">📚 相簿</div>'
+      + '<button onclick="kanshouCloseAlbum_()" style="background:none; border:1px solid #6a5a7a; border-radius:8px; color:#c9b8d8; font-size:13px; padding:4px 12px; cursor:pointer;">✕ 關閉</button>'
+      + '</div><div id="kc-album-body" style="color:#8a8298; font-size:12px;">讀取中……</div></div>';
+    document.body.appendChild(ov);
+    try {
+      var res = await gasRun({ action: 'get_album', pcId: pc.id });
+      if (res && res.success) { kcAlbumData_ = res; kcAlbumFilter_ = ''; kcAlbumRender_(); }
+      else { var b = document.getElementById('kc-album-body'); if (b) b.textContent = '讀取失敗。'; }
+    } catch (e) { var b2 = document.getElementById('kc-album-body'); if (b2) b2.textContent = '讀取失敗。'; }
   }
   // 🤝 結識巧遇對象：後端驗證她確實是【邂逅中】的那位才建列入駐(從此活在這座城裡·有行程有好感)。
   async function kanshouAcceptInvite(name) {
