@@ -1067,6 +1067,14 @@ function actionFateBattle(userData, pcId, sheets) {
     const s = String(t || "");
     if (/·戰鬥續行|·斬斷救贖/.test(s) && extraFired.indexOf(s) < 0) extraFired.push(s);
   })));
+  // 🥋🔮 御主體術/魔術參戰：跟上面同一種「有記錄沒講給AI聽」的落差——這兩個 fx 每擊都可能悄悄加傷害，
+  //   卻從沒被塞進 aiPrompt，AI 完全不知道御主動手了，只能憑空演出御主在旁乾看/捏著寶石不出手的空氣戲。
+  //   我方出擊的 fired 進 strikes[].pFired；敵方反擊的 fired 是獨立存在 rl.eFired(不在 strikes[] 裡)，
+  //   兩邊各自查，才不會漏掉敵御主(如凜的魔術)明明在戰報數字裡出力、敘述卻對此隻字不提。
+  const ourMeleeFired = rounds.some(r => (r.strikes || []).some(k => (k.pFired || []).some(t => /·御主體術/.test(String(t)))));
+  const ourMagicFired = rounds.some(r => (r.strikes || []).some(k => (k.pFired || []).some(t => /·御主魔術/.test(String(t)))));
+  const foeMeleeFired = rounds.some(r => (r.eFired || []).some(t => /·御主體術/.test(String(t))));
+  const foeMagicFired = rounds.some(r => (r.eFired || []).some(t => /·御主魔術/.test(String(t))));
   if (defeat) {
     aiPrompt = servantCard_(pcData[atkIdx]) + foeServantCardStr + enemyMasterCardStr +
       `【戰報·已裁定】御主號令『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合。\n${roundsBrief}\n結局：『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。\n` +
@@ -1096,6 +1104,10 @@ function actionFateBattle(userData, pcId, sheets) {
       ((!destroyedName && !sealEscaped && !godRevived) ? `· 敗方尚有餘力(見上方 HP)，勿描寫死亡／消滅／屍體。此乃御主下令出擊、雙方仍在交鋒中，下回合是否再戰仍由御主決定。\n` : "") +
       (atkC.cls === 'Caster' ? `· 出戰從者為 Caster（魔術師）職階：此戰以魔術轟擊為主、非肉搏，演出時勿讓其上前近戰。\n` : "") +
       (extraFired.length ? `· 戰局關鍵轉折：${extraFired.join('；')}。\n` : "") +
+      (ourMeleeFired ? `· 我方御主親自出手體術助拳，這場交鋒的攻勢不全是『${atkC.name}』一人之力。\n` : "") +
+      (ourMagicFired ? `· 我方御主暗中引動自身魔術支援這一擊，攻勢裡混著御主自己的魔力。\n` : "") +
+      (foeMeleeFired ? `· 對面御主同樣親自體術助陣，敵方這回合的攻勢摻著御主自己的招式，並非「${defC.name}」隻身出手。\n` : "") +
+      (foeMagicFired ? `· 對面御主也在暗中以魔術支援，敵方這回合的攻勢不全是「${defC.name}」一人所為。\n` : "") +
       // 🗡️ 戰鬥未分生死時，讓從者依性格對這回交手給出主觀判斷/建議——純角色觀察與口吻，不是戰略指令；
       //   狂化角色改用肢體/低吼傳達，服從 servantCard_ 已內建的「嚴禁完整台詞」鐵則。
       ((!destroyedName && !sealEscaped && !godRevived) ? (hasFx_(atkC, 'mad')
