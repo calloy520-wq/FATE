@@ -842,9 +842,14 @@
     if (s.length >= 26) {
         setUI('ui-intent', s[25], "尚未暴露的可愛弱點");
     }
-    // 地點標題
+    // 地點標題：鑑賞的地點已顯示在時鐘HUD那行(📍地點·日期·時段·天氣)，這顆左上角小徽章就不重複、隱藏掉；
+    //   solo 沒有時鐘地點行，照常顯示。
     const headerEl = document.getElementById('header-loc');
-    if (headerEl) headerEl.innerText = s[3] ? "📍 " + s[3] : "未知區域";
+    if (headerEl) {
+      const _isKan = pc && pc.mode === 'kanshou';
+      headerEl.style.display = _isKan ? 'none' : '';
+      headerEl.innerText = s[3] ? "📍 " + s[3] : "未知區域";
+    }
   }
 
 
@@ -1262,8 +1267,8 @@
       // 🐛→✅ 鑑賞御主卡補上與從者卡同款的換裝＋詳細狀態按鈕列，原本獨立浮在卡片列表下方的「我的詳細狀態」(Index.html #pane-status)併到這一行，不再重複外露。
       var mButtonsLine = (pc && pc.mode === 'kanshou')
         ? ('<div style="margin-top:6px; display:flex; gap:6px;">'
-            + '<button onclick="changeOutfit(\'' + String(m.name).replace(/'/g, '') + '\', true)" title="換裝：自訂你此刻的服裝穿著，AI 會依此描寫（只換衣不換人）。免費即時、留空恢復本相。" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(150,110,190,0.18); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👗 換裝</button>'
-            + '<button onclick="openStatus()" title="查看你自己的完整狀態：個性／特徵／身世／萌點等，並可逆天改命微調敘事欄" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 詳細狀態</button>'
+            + '<button onclick="changeOutfit(\'' + String(m.name).replace(/'/g, '') + '\', true)" title="換裝：自訂你此刻的服裝穿著，AI 會依此描寫（只換衣不換人）。免費即時、留空恢復本相。" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(150,110,190,0.18); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👗 換裝</button>'
+            + '<button onclick="openStatus()" title="查看你自己的完整狀態：個性／特徵／身世／萌點等，並可逆天改命微調敘事欄" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 詳細狀態</button>'
             + '</div>')
         : '';
       let mh = '<div style="background:rgba(20,14,28,0.55); border:1px solid #d4af37; border-radius:8px; padding:6px 8px;">'
@@ -1335,17 +1340,17 @@
             + kanshouStatusLines_(po)
             // 🚫 同伴的服裝改由AI依outfit_change欄位自主更新(見Gallery.gs)，不再手動指定——changeOutfit()/actionSetOutfit本體保留未刪(仍供御主本人換裝與solo從者卡使用)，這裡只是不露出觸發同伴換裝的入口。
             + '<div style="margin-top:6px; display:flex; gap:6px;">'
-            + '<button onclick="openStatus(\'' + safeN + '\',\'' + safeN + '\')" title="查看「' + safeN + '」的完整狀態：個性／特徵／身世／萌點／關係等，並可逆天改命微調敘事欄" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 詳細狀態</button>'
+            + '<button onclick="openStatus(\'' + safeN + '\',\'' + safeN + '\')" title="查看「' + safeN + '」的完整狀態：個性／特徵／身世／萌點／關係等，並可逆天改命微調敘事欄" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 詳細狀態</button>'
             + '</div>'
             // 🆕 直接複用既有 kanshouEditRelTag(Script_Kanshou.html)，不重寫新邏輯。召喚是一次性的、
             //   沒有隊伍容量要騰，不需要「請走」這種按鈕。
             + '<div style="margin-top:6px; display:flex; gap:6px;">'
-            + '<button onclick="kanshouEditRelTag(\'' + safeN + '\',\'' + String(s.tag || '').replace(/'/g, '') + '\')" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(120,90,180,0.18); color:#dcc8ff; border:1px solid #6a4a9a; border-radius:6px; cursor:pointer;">🏷️ 關係</button>'
-            + '<button onclick="kanshouPromiseMeet(\'' + safeN + '\')" title="跟她約明天在某地見面——她明天會在那裡等你；赴約好感↑、放鴿子好感↓(須本人在場才約得成)" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(90,140,180,0.18); color:#a8d0f0; border:1px solid #4a7a9a; border-radius:6px; cursor:pointer;">📅 相約</button>'
+            + '<button onclick="kanshouEditRelTag(\'' + safeN + '\',\'' + String(s.tag || '').replace(/'/g, '') + '\')" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(120,90,180,0.18); color:#dcc8ff; border:1px solid #6a4a9a; border-radius:6px; cursor:pointer;">🏷️ 關係</button>'
+            + '<button onclick="kanshouPromiseMeet(\'' + safeN + '\')" title="跟她約明天在某地見面——她明天會在那裡等你；赴約好感↑、放鴿子好感↓(須本人在場才約得成)" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(90,140,180,0.18); color:#a8d0f0; border:1px solid #4a7a9a; border-radius:6px; cursor:pointer;">📅 相約</button>'
             + (s.held
-              ? '<button onclick="kanshouReleaseHand()" title="放開她的手" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(200,120,150,0.28); color:#f0c0d4; border:1px solid #b06888; border-radius:6px; cursor:pointer;">✋ 放手</button>'
-              : '<button onclick="kanshouHoldHand(\'' + safeN + '\')" title="牽起她的手一起行動——之後你移動到哪她都相伴同行(她本人要在場才牽得成)" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(200,120,150,0.16); color:#e8b0c8; border:1px solid #a06080; border-radius:6px; cursor:pointer;">🤝 牽手</button>')
-            + '<button onclick="kanshouInviteCohabit(\'' + safeN + '\')" title="邀她搬來同住(需關係足夠深厚、她本人在場)——同居後深夜大多回家就寢、清晨可能賴床、晚間常在家中活動，白天照常出門" style="flex:1; font-size:11px; padding:4px 6px; background:rgba(180,140,90,0.18); color:#e8c8a0; border:1px solid #9a7a4a; border-radius:6px; cursor:pointer;">🏠 同居</button>'
+              ? '<button onclick="kanshouReleaseHand()" title="放開她的手" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(200,120,150,0.28); color:#f0c0d4; border:1px solid #b06888; border-radius:6px; cursor:pointer;">✋ 放手</button>'
+              : '<button onclick="kanshouHoldHand(\'' + safeN + '\')" title="牽起她的手一起行動——之後你移動到哪她都相伴同行(她本人要在場才牽得成)" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(200,120,150,0.16); color:#e8b0c8; border:1px solid #a06080; border-radius:6px; cursor:pointer;">🤝 牽手</button>')
+            + '<button onclick="kanshouInviteCohabit(\'' + safeN + '\')" title="邀她搬來同住(需關係足夠深厚、她本人在場)——同居後深夜大多回家就寢、清晨可能賴床、晚間常在家中活動，白天照常出門" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(180,140,90,0.18); color:#e8c8a0; border:1px solid #9a7a4a; border-radius:6px; cursor:pointer;">🏠 同居</button>'
             + '</div>'
             + '</div>';
         }

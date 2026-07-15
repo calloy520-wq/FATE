@@ -2936,3 +2936,12 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 ⚠ **既有角色(如風音已建檔)資料已baked**、不會自動回溯——請按該欄的「改命」鈕重擲一次，即走新提示詞+新解析生成乾淨值；新捏的角色一開始就乾淨。
 
 **驗證**：`bash check.sh`全過、`Engine_Combat.gs`紅線空；Node以風音實際壞資料模擬 parseTraitsHelper→「給人文靜內向的印象、其實內心充滿溫柔的想像力、喜歡照顧小動物與植物、討厭大聲喧嘩與浪費食物」乾淨4段、無「隨波逐流」殘料。
+
+## §129 鑑賞UI/敘事微修：卡片4鈕不歪＋地點去重＋節慶標前一天＋低好感篇幅收斂（2026-07·玩家實測回饋）
+
+- **同伴卡4鈕排版**(Script.html)：關係/相約/牽手/同居 四鈕(＋詳細狀態)樣式補 `min-width:0; white-space:nowrap;`、padding 6px→3px，四格一排不再換行歪掉。
+- **地點去重**(Script.html·updateHeaderLoc)：地點已在時鐘HUD那行(📍地點·日期·時段·天氣·§124)顯示，左上角 `#header-loc` 小徽章在**鑑賞模式隱藏**(`pc.mode==='kanshou'→display:none`)、solo 照常顯示。
+- **快轉節慶文案**(Script_Kanshou.html·openKanshouFestivals)：「直接跳到下一次的這個節日」→「快轉到下一次這個節日的【前一天】，讓你迎接節慶當天」，說明實際落點是前一天(對齊 finalUserMsg「明天就是X了」)。
+- **篇幅隨關係濃淡**(Gallery.gs·鑑賞組裝提示詞·親密尺度那條之後·不碰 nsfwBaseRules)：初識/低好感(點頭之交/普通朋友)narration 精簡收斂(約200~300字)、別把陌生互動寫成大段內心戲；關係越深才逐漸放長。
+
+**驗證**：`bash check.sh`全過、`git diff|grep nsfwBaseRules`=0、`Engine_Combat.gs`紅線空。

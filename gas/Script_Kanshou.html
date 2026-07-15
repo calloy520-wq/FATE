@@ -335,7 +335,7 @@ let plainTextContext = cleanText;
       ov.onclick = function (e) { if (e.target === ov) closeKanshouFestivals(); };
       ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:360px;width:100%;padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);">'
         + '<h3 style="margin:0 0 4px;color:#e0b080;">🎊 快轉到節慶</h3>'
-        + '<div style="color:#9a8f70;font-size:11px;margin-bottom:10px;">直接跳到下一次的這個節日，不在身邊的英靈會依新時刻重新分佈。</div>'
+        + '<div style="color:#9a8f70;font-size:11px;margin-bottom:10px;">快轉到下一次這個節日的【前一天】，讓你迎接節慶當天的到來；不在身邊的英靈會依新時刻重新分佈。</div>'
         + '<div style="display:flex; flex-wrap:wrap; gap:6px;">'
         + KC_FESTIVALS_.map(function (f) { return '<button class="btn" style="flex:1 0 30%;padding:8px 2px;font-size:12px;border-color:#8a6a4a;color:#e0b080;" onclick="closeKanshouFestivals();kanshouJumpFestival(\'' + f.key + '\',\'' + f.name + '\')">' + f.name + '</button>'; }).join('')
         + '</div>'
