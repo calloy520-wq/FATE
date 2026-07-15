@@ -3004,3 +3004,15 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 ⚠ **紅線註記**：本次依玩家明確授權「改 solo＋鑑賞共用」重寫對話格式，`dialogueFormatRule_()` 經 nsfwBaseRules 第3條 interpolate、屬鑑賞側改動(kanshou-only)＋solo miniSystem，範圍如玩家指定。`Engine_Combat.gs` 全程未動。
 
 **驗證**：`bash check.sh`全過、`Engine_Combat.gs` diff 空、`grep dialogueFormatRule_` = 1 定義＋2 呼叫端(Gallery nsfwBaseRules／Router_Narrative miniSystem)。
+
+## §134 AI 不得自行搬動玩家→改走「同意泡泡」＋敘事禁替玩家腦補心境/收在期待（2026-07·玩家實測「他會幫我換位置也不是不行就是有點怪；如果他要單純移動我也給我泡泡我同意再動」＋「敘述結尾也怪怪的」）
+
+實測回饋兩點,同一病根＝**AI 太越俎代庖替玩家作主**。先派 agent 把移動系統現況整個 trace(我的舊認知過時——地圖按鈕被拔過又加回來,`Gallery.gs:2123` 舊註解誤導)。釐清玩家 LOC 有 4 條寫入路徑,只有「AI 自寫 `location`」無同意:
+
+- **移動 consent(root 修·Gallery.gs:2127/2143)**:關鍵洞察=能走到 `aiData.location` 直寫塊的**一定是 AI 自作主張**(玩家用地圖按鈕移動時 moveTarget 管線[1739]早已寫好 curL、AI 只是照抄、`aiLoc===curL` 不進此塊)。故把整塊直寫**廢除**,改把 AI 寫的新地名轉成 `aiAutoMoveProposal`、合併進既有 `moveProposal` 回傳欄→**共用同伴邀約那個現成的「同意/拒絕」泡泡**(前端 `data.moveProposal`→`kanshouConfirmMoveProposal` 帶 moveTarget+moveWithCompanion 重送→走既有移動管線含巧遇/同伴跟隨)。**零前端改動、零新 state 欄**——純接線到現成 consent 機制。玩家自己點地圖/👋邀同伴維持即時(那是玩家選的地點)。
+- **提示詞(Gallery.gs 換場地規則)**:原本三條(換場地自主移動/提議換地點/玩家反向邀約)consolidate 成一條「**換地點一律走提議泡泡、你絕不自行搬動玩家**」——narration 只寫到「提議/正要起身」就停、禁寫移動過程與抵達、location 照抄目前地點。唯一例外=玩家用地圖按鈕(系統已寫好位置、AI 照抄敘述抵達)。這樣泡泡與敘述一致、不會「敘述已抵達卻又跳提議」。
+- **敘事禁替玩家作主(Gallery.gs·新增★規則)**:玩家實測敘述把一句「嗚嗚孤零零的」擴寫成大段替他決定的內心戲、還收在「玩家的期待/渴望」上(「希望…擦出火花」)。新增鐵律:narration 只演玩家**實際輸入的動作＋當下五感**,嚴禁腦補大段內心戲/情緒/願望/替他做決定,**尤其禁止把段落收在玩家的期待/渴望上**,結尾一律停在【外部當下】(對方反應/場景/未完成的動作),把「下一步怎樣、心裡怎麼想」還給玩家。
+
+⚠ 玩家更正記錄:實測那次 AI 把玩家移到商店街、當場出現藤村大河——經玩家確認**大河確實在商店街(合法同地/巧遇)、非憑空生人**,問題純粹是「移動未經同意」而非「捏造角色」。
+
+**驗證**：`bash check.sh`全過、`Engine_Combat.gs` diff 空、`aiLoc` 舊變數已無殘留程式引用(只剩註解)、`moveProposal` 回傳欄同時吃 AI 明填的 move_proposal 與轉提議的 location。

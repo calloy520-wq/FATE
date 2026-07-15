@@ -2063,10 +2063,9 @@ ${PROMPT_REL}
 ★【篇幅隨關係濃淡】：narration 長度依當前關係調整——初識/低好感(點頭之交、普通朋友)只是點到為止的日常片段，請【精簡收斂】(約200~300字即可、不必寫滿)，別把才剛認識的陌生互動寫成大段內心戲與環境鋪陳；關係越深、情感越濃或情慾展開時，才逐漸放長、寫得更豐富細膩。
 ★【演出而非說明】不得直述其願望／萌點／個性字面。僅可有 rel_changes(好感)，不輸出任何生命變化或戰鬥裁決。
 ★【地點清單】：這個世界目前只有以下這些地點存在：${KANSHOU_LOCATIONS_.map(l => l.name).join('、')}——下方location／move_proposal兩個欄位只能填這份清單裡的名字，【絕對禁止】自創或憑空發明清單以外的地名(如「一家安靜的咖啡廳」這類寫法不再允許)。
-★【換場地】你可自主決定何時、換去上方清單裡的哪個地點——但【絕對禁止】無故憑空跳地點：須先在narration把移動/抵達的過程實際寫出來，location欄位才能填新地名(且必須是上方清單之一)；沒有移動就讓location原樣照抄目前地點。
-★【提議換地點需玩家同意】：若這回合你判斷同伴自然而然想邀玩家換個地方，填move_proposal(地點需為上方清單之一)，narration只寫到「邀請/提議」的當下、【絕對禁止】接著寫出移動或抵達的過程，是否成行交由玩家事後決定；沒有這類意圖時move_proposal留空，不要每回合都提議。
-★【玩家反向邀約】：這跟上面「AI提議」方向相反——若這回合是玩家本人主動邀同伴一起換地方，同伴的反應由你當場依其個性決定，答應就直接在這句narration裡把邀約、移動、抵達的過程一次演完並更新location(必須是上方清單之一)；不想去就自然演出委婉推辭或提出想法，location維持原樣。這種情況【不需要】走move_proposal欄位，一回合內就地判斷完畢，不必分兩段等玩家再次確認。
+★【換地點一律走「提議泡泡」、你絕不自行搬動玩家】：任何場景轉換——不論是你覺得該換個地方、同伴想邀玩家去別處、或玩家順口表達想去某處——都【只能】填 move_proposal(填地點清單內的目標地名)，且 narration 只寫到「提議／邀約／正要起身」的當下就打住，【絕對禁止】接著寫出移動過程、寫抵達新地點、或自行更動 location 欄；location 一律照抄目前地點。要不要真的過去，交給玩家在跳出的泡泡按「同意」決定(同伴會不會答應這趟，你仍可在 narration 依其個性演出)；沒有換地點的意圖時 move_proposal 留空，不要每回合都提議。（唯一例外：玩家自己用地圖按鈕移動時系統已把位置寫好，這時你只要如實敘述抵達過程即可、location 照抄系統給的目前地點。）
 ★【不替玩家憑空生出東西】：這個世界沒有金錢/物品/背包系統，【絕對禁止】自作主張讓玩家「早就準備好禮物」「掏出錢包」「變出道具」等他沒說要做的事——玩家要送禮或拿出什麼，一律由玩家自己的輸入決定，你不得代勞或無中生有。日常場景裡順手分享的小零食、路邊隨手可得的自然之物(花草、貝殼等)可輕描淡寫，但不可寫成有備而來、彷彿關係已很親近的鋪陳。
+★【不替玩家腦補心境與決定·結尾停在外部當下】：narration 以第一人稱『我』寫玩家，但【只演】玩家實際輸入的動作＋當下五感所見所感，【嚴禁】替玩家腦補大段內心戲、情緒、願望或替他做決定(玩家打「有點孤單」就只帶當下那一點情緒、不要擴寫成他有多渴望被理解、多想找誰陪)。尤其【禁止把段落收在玩家的期待／渴望／盼望上】(如「希望能…擦出火花」「帶著一絲渴望往…走去」)——結尾一律停在【外部當下】(對方的反應、眼前場景、一個未完成的動作或未說完的話)，把「我下一步想怎樣、心裡怎麼想」留給玩家自己決定。
 現在演化玩家動作：『${finalUserMsg}』${npcDialoguePrompt}
 
 ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推進，本回合可以確實大幅向前推展——不必像平日矜持模式那樣每次都停在剛起步的瞬間，讓「步步進逼」的壓迫感真的往前走、玩家打少少字也能推進不少。但仍【絕對禁止】把這整段相處寫成「那一夜／自此／就這樣／從此」等總結收尾句，不可讓這回合讀起來像已經翻頁的完結篇章——停在「我」當下進行式的心境與情緒中，留一點空間給玩家插入反應、喊停或喘息，而非停在原地一動也不動。`
@@ -2124,24 +2123,20 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
     //   同步任何人：只有這回合一開始就跟玩家同地點在場的人(partyRows)才會跟著移動到新地點。
     // location不接受AI自創地名——跟move_proposal同一份KANSHOU_LOCATIONS_清單驗證(不合法就當
     //   沒這回事)，避免同伴LOC被寫成玩家點不到、後續橋段/巧遇等機制也對不上的幽靈地點。
+    // 🚫→💭 AI 不得自行搬動玩家：能走到這裡的 aiData.location 一定是「AI 自作主張要換地點」的情況——
+    //   玩家用地圖按鈕移動時，上游 moveTarget 管線(見1739)早已把 curL 寫好，AI 只是照抄、aiLoc===curL
+    //   不會進這塊。故一律【不直接寫 LOC】，改把目標地名轉成 move_proposal 提議、跟同伴邀約共用同一個
+    //   「同意/拒絕」泡泡(見下方 moveProposal 合併)，玩家按同意才走既有 moveTarget 管線真的移動(含巧遇/
+    //   同伴跟隨)。這樣「AI 想移動玩家」也必須玩家點頭，不再無聲搬人。
     const aiLocRaw = String(aiData.location || "").trim().slice(0, 20);
-    const aiLoc = aiLocRaw && KANSHOU_LOCATIONS_.some(l => l.name === aiLocRaw) ? aiLocRaw : "";
-    if (aiLoc && aiLoc !== curL) {
-      pcData[pcIndex][COL.PC.LOC] = aiLoc;
-      dirtyPcRows.add(pcIndex);
-      partyRows.forEach(r => {
-        const nIdx = pcData.indexOf(r);
-        if (nIdx === -1 || String(r[COL.PC.ID]).startsWith("DEAD_") || !sameGame(r)) return;
-        pcData[nIdx][COL.PC.LOC] = aiLoc;
-        dirtyPcRows.add(nIdx);
-      });
-      curL = aiLoc;
-    }
+    const aiAutoMoveProposal = (aiLocRaw && KANSHOU_LOCATIONS_.some(l => l.name === aiLocRaw) && aiLocRaw !== curL) ? aiLocRaw : "";
 
     // AI提議換地點需玩家同意：只轉發給前端顯示同意/拒絕UI，不在這裡寫LOC——真正的移動要等
     //   玩家按下「同意」、前端帶著moveTarget再送一次，走既有moveTarget管線。
     const moveProposalRaw = String(aiData.move_proposal || "").trim();
-    const moveProposal = moveProposalRaw && KANSHOU_LOCATIONS_.some(l => l.name === moveProposalRaw) ? moveProposalRaw : "";
+    // AI 明確填的 move_proposal 優先；沒填但它自作主張寫了 location(aiAutoMoveProposal)也一併轉成提議，
+    //   兩條路最後都走同一個「同意」泡泡。
+    const moveProposal = (moveProposalRaw && KANSHOU_LOCATIONS_.some(l => l.name === moveProposalRaw) ? moveProposalRaw : "") || aiAutoMoveProposal;
 
     // 📅🤝 相約/牽手的成立判定：pre-AI只記了待判定(_pendingProposal)、沒動MEMORY，這裡讀AI依角色
     //   個性與好感給出的 proposal_accept 才決定要不要落地。fail-closed：只有明確「接受」且無「拒」字
