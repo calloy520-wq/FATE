@@ -152,13 +152,12 @@ let plainTextContext = cleanText;
           + `<button class="btn-option" style="flex:1;" onclick="kanshouIgnoreKnock()">不予理會</button>`
           + `</div></div>`;
       }
-      // 🎭 夜襲/賴床叫醒不再移動進房間就直接演出，改成先跳出這個按鈕；不點按鈕就視為婉拒，正常敘事不受影響。
+      // 🎭 橋段(夜襲/賴床/共浴/節慶…)不直接演出，先跳出這個邀請按鈕；不點就視為婉拒，正常敘事不受影響。
+      //   按鈕文字/邀請語由後端KANSHOU_SCENE_EVENTS_資料驅動(label/btn)，前端不再硬編各事件的字。
       if (data.roomEventOffer && data.roomEventOffer.name) {
         const reName = String(data.roomEventOffer.name);
-        const reNameEsc = escapeHtml(reName);
-        const reIsNight = data.roomEventOffer.eventKey === '夜襲';
-        const reLabel = reIsNight ? `🌙 「${reNameEsc}」似乎還醒著，要不要更靠近一點？` : `☀️ 「${reNameEsc}」還在賴床……要叫醒她嗎？`;
-        const reBtn = reIsNight ? '靠近她' : '叫醒她';
+        const reLabel = escapeHtml(String(data.roomEventOffer.label || ('「' + reName + '」似乎還醒著，要不要更靠近一點？')));
+        const reBtn = escapeHtml(String(data.roomEventOffer.btn || '靠近她'));
         optionsHtml += `<div style="background:rgba(160,60,90,0.14); border:1px solid #8a3a5a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
           + `<div style="color:#e0a0bc; font-size:12.5px; margin-bottom:6px;">${reLabel}</div>`
           + `<button class="btn-option" style="width:100%;" onclick="kanshouAcceptRoomEvent('${reName.replace(/'/g, "\\'")}')">${reBtn}</button>`
