@@ -1667,10 +1667,11 @@ function actionPlay(userData, pcId, sheets) {
       kanshouClockMoved_ = true;
       pcData[pcIndex][COL.PC.DAY] = curDay;
       pcData[pcIndex][COL.PC.HOUR] = curHour;
-      // 修過的bug：原本沒排除「當下正跟玩家同地點」的人，導致正在互動中的同伴被時間推進的
-      //   重骰隨機傳送走、玩家本人位置卻沒變。改成LOC此刻等於curL(正在場)的人不重骰、原地
-      //   不動，只有「不在玩家身邊」的人才依時刻重新決定去向。
-      const allEstablishedForTime = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() !== String(curL || "").trim());
+      // ⏩ 這是玩家【主動按鈕跳時段/節慶】的刻意時間快轉——跟「每回合被動+0.5h流動」(§122，那條根本
+      //   不重骰任何人)不同：既然玩家選擇快轉數小時，全世界(含此刻正跟你在一起的那位)都該依新時刻回到
+      //   各自的作息去向，所以【不再排除同地在場者】。原§84排除是為了擋「被動流動把互動中的人傳走」的
+      //   突兀，那個場景現在由被動流動不重骰負責，主動快轉反而應該讓世界真的動起來。
+      const allEstablishedForTime = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
       allEstablishedForTime.forEach(r => {
         const idx = pcData.indexOf(r);
         // 今天有約→釘在約定地點守著；沒約→照常骰(同居者走同居版)。curDay已是推進後的日期。
@@ -1678,11 +1679,14 @@ function actionPlay(userData, pcId, sheets) {
         dirtyPcRows.add(idx);
       });
       const newDate = kanshouAbsDayToDate_(curDay);
-      finalUserMsg = jumpFest
+      // ★換幕鐵律：時間快轉後是全新場景——AI 最容易犯的錯是接著把上一段(如剛才的牽手/對話)再演一次，
+      //   這裡明講禁止複述、直接寫新時段的當下。
+      const _jumpSceneBreak = `（★這是時間快轉後的【全新場景·換幕】：直接寫此刻新時段的當下光景，【絕對禁止】接續、複述或重演上一段已經發生的動作與對話——那些都已經過去了。若剛才在一起的人此刻已依作息離開，就自然演出你獨自或身邊換了人的當下。）`;
+      finalUserMsg = (jumpFest
         ? `【時間推進】時間一路快轉，明天就是${jumpFest.name}了——此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}。`
         : jumpBand
           ? `【時間推進】時間悄悄流轉到了${jumpBand.label}，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}。`
-          : `【時間推進】${advanceHours}個小時悄悄過去，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}。`;
+          : `【時間推進】${advanceHours}個小時悄悄過去，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}。`) + _jumpSceneBreak;
     }
   }
   // ⏰ 時間隨動作流動：一般 AI 敘事回合(非結束一天/非時段跳躍)每次推進 KANSHOU_HOUR_PER_ACTION_ 小時，
