@@ -3104,3 +3104,12 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `pAtCeilingStr` 提示不動：新天花板下 bond<40 時 ceiling=39、19>=39 為 false→不再誤報「已到上限」，只在真卡39/59/79 才提示，行為自洽。
 
 **驗證**：`bash check.sh` 全過、Engine_Combat.gs diff 空、天花板函式實測正確。
+
+## §143 相約/牽手明確回饋＋同伴列顯示待赴約定（2026-07·玩家「19有約成功但我怎麼知道有沒有成功？」）
+
+相約/牽手的成立由 post-AI `proposal_accept` 判定後默默寫 tag、【零前端回饋】，玩家只能從敘述猜。補：
+- **後端**：post-AI 判定區產出 `kanshouProposalResult_`({ok,type:'promise'|'hold',name,loc})，成立/婉拒都回傳，塞進 actionPlay 回應 `proposalResult` 欄。
+- **前端通知條(send)**：narration 之後依 `data.proposalResult` 插一條系統條——成立綠底「📅 約定成立！明天在X見面(到場好感↑放鴿子↓)」/「🤝 牽手成功！移動相伴同行」；婉拒粉底「她婉拒了這次約定／沒讓你牽手——關係再深或換時機再試」。
+- **同伴列待赴約定**：`actionKanshouCompanions` 每人多帶 `promise{loc,date:M/D}`(讀 kanshouGetPromise_)，`renderKcPartyList_` 顯示「📅 M/D 在「X」有約」，玩家不必自己記約在哪天哪裡。
+
+**驗證**：`bash check.sh` 全過、Engine_Combat.gs diff 空。

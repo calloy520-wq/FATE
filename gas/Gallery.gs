@@ -507,8 +507,11 @@ function actionKanshouCompanions(userData, pcId, sheets) {
       var loc = String(data[i][COL.PC.LOC] || "");
       // 面板需要顯示目前所在地點(玩家要精準知道去哪找她)、關係標籤＋好感(供玩家決定要不要改標籤)；
       // isHere(是否跟玩家同地點)；locLabel：房間類地點的動態顯示名稱，見kanshouRoomDisplayName_。
+      // 📅 待赴約定：讓同伴列顯示「M/D 在X有約」，玩家不必自己記(見 kanshouGetPromise_)。
+      var _pm = kanshouGetPromise_(data[i][COL.PC.MEMORY]);
+      var _pmDate = _pm ? kanshouAbsDayToDate_(_pm.day) : null;
       // memoir：共同回憶(27欄)原樣下傳(★前綴=玩家釘選)，供面板顯示/釘選/刪除。
-      current.push({ name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean) });
+      current.push({ name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, promise: _pm ? { loc: _pm.loc, date: _pmDate.month + '/' + _pmDate.day } : null, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean) });
     }
   }
   return JSON.stringify({ success: true, current: current });
@@ -2181,16 +2184,23 @@ ${PROMPT_REL}
     // 📅🤝 相約/牽手的成立判定：pre-AI只記了待判定(_pendingProposal)、沒動MEMORY，這裡讀AI依角色
     //   個性與好感給出的 proposal_accept 才決定要不要落地。fail-closed：只有明確「接受」且無「拒」字
     //   才算成立，空字串/模稜兩可一律視為未答應(寧可不成立，不讓提議太容易通過)。
+    let kanshouProposalResult_ = null; // 📅🤝 相約/牽手成不成立的明確回饋(回傳前端跳通知條)
     if (_pendingProposal) {
       const _paTxt = String(aiData.proposal_accept || "");
       const _accepted = /接受|答應|同意|願意/.test(_paTxt) && !/拒|不接受|不肯|不願|沒(有)?接受|未接受/.test(_paTxt);
+      const _ppHer = String(pcData[_pendingProposal.idx][COL.PC.NAME] || "");
       if (_accepted) {
         if (_pendingProposal.type === 'promise') {
           pcData[_pendingProposal.idx][COL.PC.MEMORY] = kanshouSetPromise_(pcData[_pendingProposal.idx][COL.PC.MEMORY], curDay + 1, _pendingProposal.loc);
+          // 📅 明確回饋：後端默默寫 tag、玩家不知成沒成(實測黑洞)——回傳 proposalResult 讓前端跳通知條。
+          kanshouProposalResult_ = { ok: true, type: 'promise', name: _ppHer, loc: _pendingProposal.loc };
         } else if (_pendingProposal.type === 'hold') {
           pcData[_pendingProposal.idx][COL.PC.MEMORY] = KANSHOU_HANDHOLD_TAG_.set(pcData[_pendingProposal.idx][COL.PC.MEMORY], _pendingProposal.name);
+          kanshouProposalResult_ = { ok: true, type: 'hold', name: _ppHer };
         }
         dirtyPcRows.add(_pendingProposal.idx);
+      } else {
+        kanshouProposalResult_ = { ok: false, type: _pendingProposal.type, name: _ppHer };
       }
     }
 
@@ -2465,6 +2475,7 @@ ${PROMPT_REL}
       moveProposal: moveProposal || undefined,
       roomEventOffer: roomEventOffer,
       encounterOffer: encounterOffer,
+      proposalResult: kanshouProposalResult_ || undefined,
       photoResult: kanshouPhotoResult_ || undefined,
       kanshouClock: kanshouClock,
       // 修過的bug：#clock-hud讀共用的updateClock(data.clock,...)，但data.clock在鑑賞這條路徑
