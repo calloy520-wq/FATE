@@ -601,6 +601,9 @@ function buildDefaultSystemPrompt() {
     // move_proposal是「提議」不是「已發生」，跟上面location欄(已經抵達)完全不同時態——填了
     //   這欄，narration必須停在邀請當下、不可先寫出移動或抵達，真正是否移動由玩家事後回應決定。
     "move_proposal": "若同伴這回合自然而然想邀你換個地方(如「要不要去圖書館?」)，填目標地點名稱(需為既有地點清單裡的名字)；沒有這個意圖就填空字串",
+    // proposal_accept：僅當敘事鐵律區出現【提議·相約】或【提議·牽手】標記(玩家向她提出、需她回應)時才有意義，
+    //   由AI依該角色個性與當前好感決定接不接受，GAS只在填「接受」時才把約定/牽手落地成持久狀態(意圖非結果)。
+    "proposal_accept": "僅當本回合敘事鐵律區有【提議·相約】或【提議·牽手】標記時填寫：她若接受填「接受」、婉拒填「婉拒」(依其個性與好感真實決定，好感低或性格矜持可婉拒)；沒有這類提議就留空字串",
     "options": ["1. [主動]強勢掌握主導...", "2. [被動]順從委婉試探...", "3. [接續]順劇情延續互動...", "4. [反差]跳脫氛圍的驚人舉動..."],
     "intimacy_feedback": {
       "_note": "★physical_state只寫角色「自身」當下的顏面神情，禁內心戲，第三人稱填寫，絕對禁寫'自己'，≤15字。★outfit_change是角色當下實際穿著狀態(第三人稱如實反映，≤20字)：正常穿著就寫身上衣物，若劇情中角色被脫光、沐浴、更衣，也要如實反映當下真實狀態，這欄會持久記住、不是每回合就消失的暫時描述。★兩者每回合都要據實反映最新狀態，不可偷懶沿用舊值。npcs每位與player共用此格式，依其實際狀態填寫。",
@@ -1331,6 +1334,10 @@ function actionPlay(userData, pcId, sheets) {
   // 📅 相約(玩家在同伴卡點「相約」→前端帶promiseMeet{name,loc})：只能跟「此刻在場」的同伴約、
   //   地點限公開清單(不含玩家私室)；成立→她列MEMORY蓋【約定】明日:地點(新約蓋舊約)，約定日她的
   //   行程骰被釘在該地點(見kanshouPromisePin_呼叫端)，赴約/爽約每回合結算(見下方【依約相會】)。
+  // 📅🤝 待玩家提議、需她回應的相約/牽手：不在此刻落地狀態，先記下待判定，交由AI依個性與好感決定
+  //   接不接受(proposal_accept)，回應後(見下方post-AI區)才真正寫MEMORY——貫徹「意圖非結果」，避免
+  //   低好感/矜持角色被系統強制答應(舊做法在按下當回合就寫死tag、提示詞還逼AI演成功)。
+  let _pendingProposal = null; // {type:'promise'|'hold', idx, loc?, name?}
   let kanshouPromiseStr = "";
   if (userData.promiseMeet && typeof userData.promiseMeet === 'object') {
     const _pmName = String(userData.promiseMeet.name || "").trim();
@@ -1338,10 +1345,11 @@ function actionPlay(userData, pcId, sheets) {
     const _pmLocOk = KANSHOU_LOCATIONS_.some(l => l.name === _pmLoc && l.region !== 'room');
     const _pmIdx = _pmName ? pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_pmName) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) : -1;
     if (_pmLocOk && _pmIdx !== -1) {
-      pcData[_pmIdx][COL.PC.MEMORY] = kanshouSetPromise_(pcData[_pmIdx][COL.PC.MEMORY], curDay + 1, _pmLoc);
-      dirtyPcRows.add(_pmIdx);
-      kanshouPromiseStr = `\n★【約定成立】：你與『${String(pcData[_pmIdx][COL.PC.NAME])}』約好【明天在「${_pmLoc}」見面】——演出她依性格答應這個約定的反應(爽快/彆扭/故作矜持皆可)，這個約已由系統記下、明天她會赴約，不必再徵詢或重複確認。`;
-      finalUserMsg = `【玩家意圖】：向『${String(pcData[_pmIdx][COL.PC.NAME])}』提出「明天在${_pmLoc}見面」的約定。`;
+      const _pmBond = parseInt(pcData[_pmIdx][COL.PC.BOND]) || 0;
+      const _pmHer = String(pcData[_pmIdx][COL.PC.NAME]);
+      _pendingProposal = { type: 'promise', idx: _pmIdx, loc: _pmLoc };
+      kanshouPromiseStr = `\n★【提議·相約(成不成立由你依她個性與好感決定，不預設結果)】：你向『${_pmHer}』提議【明天在「${_pmLoc}」見面】。她目前對你的好感為 ${_pmBond}(滿分100)——好感高→傾向爽快或含蓄地答應；不上不下→彆扭猶豫、半推半就；好感偏低或性格矜持→可婉拒或找藉口推託。依她既有個性與這份好感真實演出她的反應，並在 proposal_accept 欄如實填「接受」或「婉拒」。她接受，系統明天才記得這個約；婉拒則此約不成立、什麼都不必替玩家找補。`;
+      finalUserMsg = `【玩家意圖】：向『${_pmHer}』提出「明天在${_pmLoc}見面」的約定。`;
     } else if (_pmName) {
       kanshouPromiseStr = `\n★【相約撲空】：你想找『${_pmName}』相約見面，但她此刻並不在這裡——演出這份撲空的悵然即可，約定沒有成立。`;
       finalUserMsg = `【玩家意圖】：想找『${_pmName}』相約，卻發現她不在身邊。`;
@@ -1392,10 +1400,11 @@ function actionPlay(userData, pcId, sheets) {
         finalUserMsg = `【玩家意圖】：想牽『${_hhArg}』的手，卻發現她不在身邊。`;
       } else {
         const _hhName = String(pcData[_hhIdx][COL.PC.NAME]);
-        pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_HANDHOLD_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], _hhName);
-        dirtyPcRows.add(pcIndex);
-        kanshouHandHoldStr = `\n★【牽手】：你牽起了『${_hhName}』的手——從現在起你們一起行動，你移動到哪她都會相伴同行(直到放手)。演出她依性格與好感被牽起手的反應(自然回握/害羞僵住/心跳加速/嗔怪皆可)。`;
-        finalUserMsg = `【玩家意圖】：牽起了『${_hhName}』的手。`;
+        const _hhBond = parseInt(pcData[_hhIdx][COL.PC.BOND]) || 0;
+        // 牽手tag存在玩家自己列(pcIndex)、值=她的名字；接受與否由AI判定，接受後才在post-AI區寫回。
+        _pendingProposal = { type: 'hold', idx: pcIndex, name: _hhName };
+        kanshouHandHoldStr = `\n★【提議·牽手(她讓不讓你牽由你依她個性與好感決定，不預設結果)】：你伸手想牽起『${_hhName}』的手。她目前對你的好感為 ${_hhBond}(滿分100)——好感高→自然回握或害羞地讓你牽；不上不下→猶豫、半推半就；好感偏低或性格矜持→可能不著痕跡地抽回手、不讓牽。依她既有個性與這份好感真實演出，並在 proposal_accept 欄如實填「接受」或「婉拒」。她接受，之後你移動她會相伴同行(直到放手)；婉拒則沒牽成、不必替玩家找補。`;
+        finalUserMsg = `【玩家意圖】：伸手想牽起『${_hhName}』的手。`;
       }
     }
   }
@@ -1999,6 +2008,22 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
     //   玩家按下「同意」、前端帶著moveTarget再送一次，走既有moveTarget管線。
     const moveProposalRaw = String(aiData.move_proposal || "").trim();
     const moveProposal = moveProposalRaw && KANSHOU_LOCATIONS_.some(l => l.name === moveProposalRaw) ? moveProposalRaw : "";
+
+    // 📅🤝 相約/牽手的成立判定：pre-AI只記了待判定(_pendingProposal)、沒動MEMORY，這裡讀AI依角色
+    //   個性與好感給出的 proposal_accept 才決定要不要落地。fail-closed：只有明確「接受」且無「拒」字
+    //   才算成立，空字串/模稜兩可一律視為未答應(寧可不成立，不讓提議太容易通過)。
+    if (_pendingProposal) {
+      const _paTxt = String(aiData.proposal_accept || "");
+      const _accepted = /接受|答應|同意|願意/.test(_paTxt) && !/拒|不接受|不肯|不願|沒(有)?接受|未接受/.test(_paTxt);
+      if (_accepted) {
+        if (_pendingProposal.type === 'promise') {
+          pcData[_pendingProposal.idx][COL.PC.MEMORY] = kanshouSetPromise_(pcData[_pendingProposal.idx][COL.PC.MEMORY], curDay + 1, _pendingProposal.loc);
+        } else if (_pendingProposal.type === 'hold') {
+          pcData[_pendingProposal.idx][COL.PC.MEMORY] = KANSHOU_HANDHOLD_TAG_.set(pcData[_pendingProposal.idx][COL.PC.MEMORY], _pendingProposal.name);
+        }
+        dirtyPcRows.add(_pendingProposal.idx);
+      }
+    }
 
     // 鑑賞無戰鬥：血量快照/stat_changes(外顯狀態刷新)/經濟層(物品/金錢/任務)皆不追蹤、不落地。
     //   肉體/外顯走 intimacy_feedback(physical_state)。
