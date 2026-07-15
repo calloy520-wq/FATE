@@ -152,16 +152,22 @@ let plainTextContext = cleanText;
           + `<button class="btn-option" style="flex:1;" onclick="kanshouIgnoreKnock()">不予理會</button>`
           + `</div></div>`;
       }
-      // 🎭 橋段(夜襲/賴床/共浴/節慶…)不直接演出，先跳出這個邀請按鈕；不點就視為婉拒，正常敘事不受影響。
-      //   按鈕文字/邀請語由後端KANSHOU_SCENE_EVENTS_資料驅動(label/btn)，前端不再硬編各事件的字。
-      if (data.roomEventOffer && data.roomEventOffer.name) {
-        const reName = String(data.roomEventOffer.name);
-        const reLabel = escapeHtml(String(data.roomEventOffer.label || ('「' + reName + '」似乎還醒著，要不要更靠近一點？')));
+      // 🎭 橋段(夜襲/賴床/共浴/節慶…)不直接演出，先跳出這個邀請框；不點就視為婉拒，正常敘事不受影響。
+      //   按鈕文字/邀請語由後端KANSHOU_SCENE_EVENTS_資料驅動(labelTpl/btn)。多人同場(如多人同居擠和室)
+      //   →列出每一位讓玩家【點名要靠近誰】；單人→跟以前一樣一顆按鈕。
+      if (data.roomEventOffer && data.roomEventOffer.candidates && data.roomEventOffer.candidates.length) {
+        const reCands = data.roomEventOffer.candidates;
         const reBtn = escapeHtml(String(data.roomEventOffer.btn || '靠近她'));
-        optionsHtml += `<div style="background:rgba(160,60,90,0.14); border:1px solid #8a3a5a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#e0a0bc; font-size:12.5px; margin-bottom:6px;">${reLabel}</div>`
-          + `<button class="btn-option" style="width:100%;" onclick="kanshouAcceptRoomEvent('${reName.replace(/'/g, "\\'")}')">${reBtn}</button>`
-          + `</div>`;
+        const reTpl = String(data.roomEventOffer.labelTpl || '「{n}」似乎還醒著，要不要更靠近一點？');
+        let reInner;
+        if (reCands.length === 1) {
+          reInner = `<div style="color:#e0a0bc; font-size:12.5px; margin-bottom:6px;">${escapeHtml(reTpl.replace('{n}', String(reCands[0])))}</div>`
+            + `<button class="btn-option" style="width:100%;" onclick="kanshouAcceptRoomEvent('${String(reCands[0]).replace(/'/g, "\\'")}')">${reBtn}</button>`;
+        } else {
+          reInner = `<div style="color:#e0a0bc; font-size:12.5px; margin-bottom:6px;">此刻這裡不只一個人——想靠近誰？</div>`
+            + reCands.map(function (n) { return `<button class="btn-option" style="width:100%; margin-bottom:4px;" onclick="kanshouAcceptRoomEvent('${String(n).replace(/'/g, "\\'")}')">${reBtn}「${escapeHtml(String(n))}」</button>`; }).join('');
+        }
+        optionsHtml += `<div style="background:rgba(160,60,90,0.14); border:1px solid #8a3a5a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">${reInner}</div>`;
       }
       // 📷 拍照結果小字回饋(敘事本身由AI演，這行只補機制數字：剩幾張底片/為何沒拍成)。
       if (data.photoResult) {
@@ -428,9 +434,12 @@ let plainTextContext = cleanText;
   }
 
   // 🗾 出門走走·分區地圖：純氛圍用的分區/地點清單，僅供畫按鈕——實際合法地點驗證/巧遇抽選都在後端 Gallery.gs 的 KANSHOU_REGIONS_/KANSHOU_LOCATIONS_(唯一真實來源)，改地點記得同步。
+  // 🏠 2026-07：「房間」獨立分頁併進「家」——夜襲不再靠玩家自家房間細分(改看她住處/同居和室)，
+  //   房間沒必要單獨一頁。「我的房間」的 region 在前端顯示層改掛 home(見 KC_LOCATIONS_)，但仍以
+  //   isRoom:true 保留其特殊性(別人不會骰進來、相約不能約這裡)；後端 KANSHOU_LOCATIONS_ 的 region
+  //   維持 'room'(純語意)，前後端各司其職、地點名一致即可。
   var KC_REGIONS_ = [
-    { id: 'room', name: '房間', desc: '私人房間' },
-    { id: 'home', name: '家的共用空間', desc: '共用生活空間' },
+    { id: 'home', name: '家', desc: '你的家與共用生活空間' },
     { id: 'shinzan', name: '深山町', desc: '溫馨日常區' },
     { id: 'fuyuki', name: '冬木市中心', desc: '熱鬧生活區' },
     { id: 'dojo', name: '山林', desc: '安靜神秘區' },
@@ -451,7 +460,7 @@ let plainTextContext = cleanText;
   // kanshouRoomDisplayName_同一套邏輯，見下方kcMapListHtml_。2026-07經濟/房東房客世界觀
   // 砍除後不再有可指派的客房，只剩玩家自己的房間。
   var KC_LOCATIONS_ = [
-    { name: '我的房間', region: 'room', isRoom: true },
+    { name: '我的房間', region: 'home', isRoom: true }, // 顯示層併進「家」分頁·isRoom保留特殊性
 
     { name: '客廳', region: 'home' }, { name: '廚房', region: 'home' },
     { name: '浴室', region: 'home' }, { name: '庭院', region: 'home' },
@@ -470,6 +479,8 @@ let plainTextContext = cleanText;
   ];
   // 目前選取的分區(純前端UI狀態，跨裝置不同步，比照kanshouEncounterOn用localStorage記住偏好)。
   var kcActiveRegion_ = localStorage.getItem('kyushu_kanshou_region') || 'home';
+  // 🛡️ 舊 localStorage 可能存著已移除的 'room' 分頁 → 退回 'home'，免分頁空白。
+  if (!KC_REGIONS_.some(function (r) { return r.id === kcActiveRegion_; })) kcActiveRegion_ = 'home';
   function kcSwitchRegion_(id) {
     kcActiveRegion_ = id;
     localStorage.setItem('kyushu_kanshou_region', id);
@@ -613,7 +624,7 @@ let plainTextContext = cleanText;
   // 📅 相約：跟「此刻在場」的同伴約明天在某地見面(她明天會被行程釘在那裡等；赴約好感+、爽約好感−)。
   //   地點清單複用KC_LOCATIONS_(排除玩家私室)，比照kanshouEditRelTag同款prompt()輕量對話框。
   async function kanshouPromiseMeet(name) {
-    var pool = KC_LOCATIONS_.filter(function (l) { return l.region !== 'room'; });
+    var pool = KC_LOCATIONS_.filter(function (l) { return !l.isRoom; }); // 相約排除玩家私室(我的房間·現掛home分頁但仍isRoom)
     var listTxt = pool.map(function (l, i) { return (i + 1) + '. ' + l.name; }).join('\n');
     var pick = prompt('和「' + name + '」約【明天】在哪裡見面？輸入編號(她明天會在那裡等你；赴約好感↑、放鴿子好感↓)：\n' + listTxt);
     if (pick === null) return;

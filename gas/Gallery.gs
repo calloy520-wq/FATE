@@ -1237,17 +1237,17 @@ function setKanshouActiveEncounter_(memory, heroId) {
 function clearKanshouActiveEncounter_(memory) {
   return String(memory || "").replace(/｜?【邂逅中】[^｜【】]*/g, "");
 }
-// MEMORY標記存取器【住所】：玩家自訂的「家」顯示名稱，查無標記時預設「衛宮宅」(鎖定世界觀
-//   預設值，玩家仍可隨時改名)，比照 getOutfit_/setOutfit_ 同款「清除舊值再整段append」寫法。
+// MEMORY標記存取器【住所】：玩家自訂的「家」顯示名稱，查無標記時預設「我家」(中性·自創御主
+//   通用；玩家仍可隨時改名)，比照 getOutfit_/setOutfit_ 同款「清除舊值再整段append」寫法。
 function getKanshouHomeName_(memory) {
   const m = String(memory || "").match(/【住所】([^｜【】]*)/);
   const nm = m ? m[1].trim() : "";
-  return nm || "衛宮宅";
+  return nm || "我家";
 }
 function setKanshouHomeName_(memory, name) {
   const s = String(memory || "");
   const cleaned = s.replace(/｜?【住所】[^｜【】]*/g, "");
-  const safe = String(name || "").trim().slice(0, 12) || "衛宮宅";
+  const safe = String(name || "").trim().slice(0, 12) || "我家";
   return (cleaned ? cleaned + "｜" : "") + "【住所】" + safe;
 }
 // 部分英靈殿角色的 realName 帶括號附註(如「克洛伊·馮·愛因茲貝倫（Archer install）」)，AI 敘事自然只會用括號前後其中
@@ -1423,31 +1423,33 @@ function actionPlay(userData, pcId, sheets) {
   }
   let kanshouRoomEventCandidate_ = null;
   if (kanshouRoomEventKey_) {
-    // 🐛→✅ 兩位英靈共用同一住處(如小黑-Archer／伊莉雅絲菲爾-Master都住愛因茲貝倫城)時，原本
-    //   findIndex只挑「陣列裡排在前面」的那位，另一位永遠沒機會觸發——改成蒐集所有候選人再隨機
-    //   選一位，兩人都有公平機會被玩家撞見。
+    // 蒐集此地(和室/她住處)所有在場的同伴——多人同居擠一間時，全部列出讓玩家【點名要靠近誰】，
+    //   不再隨機挑(玩家「我可以挑選夜襲誰？！」→可以)。單人時前端就一顆按鈕、體驗跟以前一樣。
     const _reMatches = [];
     pcData.forEach((r, i) => {
       if (i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC] || "").trim() === kanshouRoomEventTargetLoc_) _reMatches.push(i);
     });
     if (_reMatches.length) {
-      const _reIdx = _reMatches[Math.floor(Math.random() * _reMatches.length)];
-      kanshouRoomEventCandidate_ = { eventKey: kanshouRoomEventKey_, hero: { realName: String(pcData[_reIdx][COL.PC.NAME]) }, idx: _reIdx };
+      kanshouRoomEventCandidate_ = { eventKey: kanshouRoomEventKey_, matches: _reMatches.map(i => ({ name: String(pcData[i][COL.PC.NAME]), idx: i })) };
     }
   }
-  // 玩家按下按鈕(roomEventAccept帶姓名，第二道防線比對姓名確實吻合candidate，防直打API帶假名字)：
+  // 玩家按下按鈕(roomEventAccept帶姓名，第二道防線比對姓名確實在候選清單裡，防直打API帶假名字)：
   //   才真的依bond骰一次走向、寫進提示詞；不點按鈕的話這個字串維持空白，narration完全走一般對話。
   let kanshouRoomEventStr = "";
-  if (userData.roomEventAccept && kanshouRoomEventCandidate_ && kanshouNameCandidates_(kanshouRoomEventCandidate_.hero.realName).includes(String(userData.roomEventAccept).trim())) {
-    const { eventKey: reEventKey, hero: reHero, idx: reIdx } = kanshouRoomEventCandidate_;
-    const reEv = KANSHOU_SCENE_EVENTS_[reEventKey] || {};
-    const reBond = parseInt(pcData[reIdx][COL.PC.BOND]) || 0;
-    const reBranch = kanshouRollSceneBranch_(reEventKey, reBond);
-    if (reBranch) {
-      const reVerb = String(reEv.verb || '靠近了');
-      kanshouRoomEventStr = `\n★【橋段·${reEventKey}(GAS已骰定這次走向，AI只需依此演出，不必徵詢玩家、也不必逐字照抄下方措辭)】：${reVerb}『${reHero.realName}』，她此刻的反應走向是——${reBranch.tag}。依她的既有性格詮釋這個走向具體要怎麼表現、講什麼話，細節全由你發揮，但情緒基調不要偏離這個走向。`;
-      finalUserMsg = `【玩家意圖】：${String(reEv.intent || '靠近了『{n}』。').replace('{n}', String(reHero.realName))}`;
-      if (reEventKey === '夜襲' && reBranch.min >= 60) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], reHero.realName);
+  if (userData.roomEventAccept && kanshouRoomEventCandidate_) {
+    const _reAcc = String(userData.roomEventAccept).trim();
+    const _reHit = kanshouRoomEventCandidate_.matches.find(m => kanshouNameCandidates_(m.name).includes(_reAcc));
+    if (_reHit) {
+      const reEventKey = kanshouRoomEventCandidate_.eventKey, reIdx = _reHit.idx, reHeroName = _reHit.name;
+      const reEv = KANSHOU_SCENE_EVENTS_[reEventKey] || {};
+      const reBond = parseInt(pcData[reIdx][COL.PC.BOND]) || 0;
+      const reBranch = kanshouRollSceneBranch_(reEventKey, reBond);
+      if (reBranch) {
+        const reVerb = String(reEv.verb || '靠近了');
+        kanshouRoomEventStr = `\n★【橋段·${reEventKey}(GAS已骰定這次走向，AI只需依此演出，不必徵詢玩家、也不必逐字照抄下方措辭)】：${reVerb}『${reHeroName}』，她此刻的反應走向是——${reBranch.tag}。依她的既有性格詮釋這個走向具體要怎麼表現、講什麼話，細節全由你發揮，但情緒基調不要偏離這個走向。`;
+        finalUserMsg = `【玩家意圖】：${String(reEv.intent || '靠近了『{n}』。').replace('{n}', reHeroName)}`;
+        if (reEventKey === '夜襲' && reBranch.min >= 60) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], reHeroName);
+      }
     }
   }
 
@@ -2130,8 +2132,9 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
     const encounterOffer = kanshouEncounterHero ? { name: String(kanshouEncounterHero.realName) } : undefined;
     const roomEventOffer = kanshouRoomEventCandidate_ ? (() => {
       const _ev = KANSHOU_SCENE_EVENTS_[kanshouRoomEventCandidate_.eventKey] || {};
-      const _n = String(kanshouRoomEventCandidate_.hero.realName);
-      return { name: _n, eventKey: kanshouRoomEventCandidate_.eventKey, label: String(_ev.label || '').replace('{n}', _n), btn: String(_ev.btn || '靠近她') };
+      const _names = kanshouRoomEventCandidate_.matches.map(m => m.name);
+      // candidates=在場全部；labelTpl帶{n}讓前端各自替換(單人)，多人時前端列每人一顆按鈕。
+      return { eventKey: kanshouRoomEventCandidate_.eventKey, candidates: _names, name: _names[0], labelTpl: String(_ev.label || ''), btn: String(_ev.btn || '靠近她') };
     })() : undefined;
 
     const localPeopleList = getKanshouPeopleList_(pcId, curL, pcData);
