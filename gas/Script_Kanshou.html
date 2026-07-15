@@ -32,7 +32,7 @@
     document.getElementById(loadId)?.remove();
   }
 
-  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false, roomEventAccept = null, jumpBand = null, loaderCaptions = null, moveWithCompanion = false, promiseMeet = null) {
+  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false, roomEventAccept = null, jumpBand = null, loaderCaptions = null, moveWithCompanion = false, promiseMeet = null, cohabitInvite = null) {
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
     // 🔥 主動掌握開關：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
@@ -71,7 +71,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -438,6 +438,7 @@ let plainTextContext = cleanText;
 
     { name: '客廳', region: 'home' }, { name: '廚房', region: 'home' },
     { name: '浴室', region: 'home' }, { name: '庭院', region: 'home' },
+    { name: '和室', region: 'home' },
 
     { name: '河邊小徑', region: 'shinzan' }, { name: '古老神社', region: 'shinzan' },
     { name: '社區公園', region: 'shinzan' }, { name: '便利商店', region: 'shinzan' },
@@ -604,6 +605,13 @@ let plainTextContext = cleanText;
     var loc = pool[pi].name;
     showGamePane('chat');
     await send('（向「' + name + '」提出明天在「' + loc + '」見面的約定。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, { name: name, loc: loc });
+  }
+  // 🏠 邀請同居：她在場+關係夠深(後端把關)→搬進「和室」——深夜大多回家就寢、清晨可能賴床、
+  //   晚間常在家中活動，白天照常出門過自己的生活。
+  async function kanshouInviteCohabit(name) {
+    if (!confirm('邀「' + name + '」搬來同住？\n(需要彼此關係足夠深厚，她也可能婉拒；她本人要在場才問得出口)')) return;
+    showGamePane('chat');
+    await send('（鼓起勇氣，邀「' + name + '」搬來一起住。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, null, name);
   }
   async function kanshouEditRelTag(name, oldTag) {
     var nt = prompt('「' + name + '」的關係稱呼(對方不一定會馬上認同，依好感與個性而定)：', oldTag || '從者');
