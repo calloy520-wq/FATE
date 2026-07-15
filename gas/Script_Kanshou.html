@@ -623,12 +623,12 @@ let plainTextContext = cleanText;
     showGamePane('chat');
     await send('（向「' + name + '」提出明天在「' + loc + '」見面的約定。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, { name: name, loc: loc });
   }
-  // 📷 拍照：拍下此刻(每天3張底片·隔天洗好)。輸入框先打字再按快門＝指定這張要拍什麼(如「拍那隻
-  //   橘貓」→風景/生活照；打同伴名字→拍她)；空著按＝有同伴拍同伴、沒同伴拍風景。
+  // 📷 拍照：拍下此刻(每天3張底片·隔天洗好)。按下直接彈框問想拍什麼——留空＝拍眼前(有同伴拍
+  //   同伴、沒同伴拍風景)；打一句(如「那隻橘貓」「神社的夕陽」)＝指定主角拍風景/生活照。
   async function kanshouTakePhoto() {
-    var inp = document.getElementById('u-in');
-    var intent = inp ? String(inp.value || '').trim() : '';
-    if (inp) inp.value = '';
+    var intent = prompt('📷 想拍什麼？\n(留空＝拍眼前的人或景；也可指定，例如「那隻橘貓」「窗邊的夕陽」)', '');
+    if (intent === null) return; // 取消
+    intent = String(intent).trim();
     showGamePane('chat');
     await send(intent ? ('（舉起相機——這張想拍的是「' + intent + '」。）') : '（舉起相機，拍下此刻的光景。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, null, null, null, true, null, intent || null);
   }
