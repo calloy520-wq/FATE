@@ -1153,6 +1153,9 @@ function kanshouClockInfo_(pcRow) {
 
 // 結束一天(準備就寢)時的機率事件，命中就先不推進日期、改讓前端跳出開門/不予理會。
 const KANSHOU_KNOCK_CHANCE_ = 0.2;  // 每次「結束一天」的敲門機率
+// 🚪 深夜敲門的候選門檻：只有同居、或好感≥此值(親近的人)的同伴才會半夜登你家門——泛泛之交
+//   半夜跑來敲門跟「陌生人世界」設定矛盾。要更容易撞見改小、要只限同住改大即可。
+const KANSHOU_KNOCK_MIN_BOND_ = 60;
 
 // 好感≥80觸發同床共枕的那次結束一天，順手記一筆「今晚共度良宵的對象」，下一回合(不論玩家做
 //   什麼)讀一次就清掉(一次性旗標)，餵進提示詞當【晨間餘韻】引子。刻意不斷言「一定發生了」，
@@ -1555,7 +1558,7 @@ function actionPlay(userData, pcId, sheets) {
   //   選「開門」則帶knockAccept把訪客接來(見下)。候選池限「已建立資料列、不在玩家所在地」的
   //   舊識，不會憑空生出一個從未召喚過的陌生人半夜敲門。
   if (userData.endDay === true && !userData.skipKnockCheck) {
-    const knockPool = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.LOC] || "").trim() !== curL && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
+    const knockPool = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.LOC] || "").trim() !== curL && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && (kanshouIsCohabit_(r) || (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_KNOCK_MIN_BOND_));
     if (knockPool.length && Math.random() < KANSHOU_KNOCK_CHANCE_) {
       const visitor = knockPool[Math.floor(Math.random() * knockPool.length)];
       return JSON.stringify({ text: "正準備歇下的時候，忽然聽見一陣輕輕的敲門聲……", knockEvent: String(visitor[COL.PC.NAME]), people: [] });

@@ -1495,7 +1495,7 @@
         + '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:#8a6a9a;color:#d0a8e0;" onclick="kanshouLookAround()">👀 看看四周還有沒有其他人</button>'
         // ⏰ 精簡：「跳到時段(5選1)」＋「結束一天」合併成一顆「下一階段」，固定往下一個時段推進，
         //   深夜按下去自然就是睡過夜(見 kanshouNextStage，Script_Kanshou.html)。
-        + '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:#4a6a8a;color:#8ac0e0;" onclick="kanshouNextStage()" title="推進到下一個時段；深夜按下去就是睡一晚，迎向明天">⏰ 下一階段' + (kcClock && kcClock.band === '深夜' ? '(睡一晚)' : '') + '</button>'
+        + '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:' + (kcClock && kcClock.band === '深夜' ? '#7a5a9a' : '#4a6a8a') + ';color:' + (kcClock && kcClock.band === '深夜' ? '#c9a0e0' : '#8ac0e0') + ';" onclick="kanshouNextStage()" title="' + (kcClock && kcClock.band === '深夜' ? '睡一晚、迎向明天(回房間·同床/敲門判定)' : '推進到下一個時段') + '">' + (kcClock && kcClock.band === '深夜' ? '🌙 睡覺・結束這天' : '⏰ 下一階段') + '</button>'
         // 🎊「跳到節慶」不常用，已收進＋抽屜(見 Index.html drawer-festival／Script_Kanshou.html openKanshouFestivals)，地圖頁不再常駐佔版面。
         + '<div id="kc-map-list">' + kcMapListHtml_() + '</div>';
       return;
