@@ -1115,8 +1115,28 @@ function kanshouHoursUntilBand_(curHour, targetStartHour) {
 }
 // ⏰ 時間隨玩家動作自然流動：一般 AI 敘事回合每次推進幾小時(讓「到處跑卻永遠停在6點」的凍結感消失)。
 //   刻意夾在當日 KANSHOU_DAY_LAST_HOUR_(23:00)不跨日——跨日(睡覺)只由「結束一天」儀式負責。
-const KANSHOU_HOUR_PER_ACTION_ = 1;
+//   0.5＝每個動作約半小時(玩家定案：一小時太久)；時鐘因此支援 X:30，格式化走 kanshouFmtHM_。
+const KANSHOU_HOUR_PER_ACTION_ = 0.5;
 const KANSHOU_DAY_LAST_HOUR_ = 23;
+// 小時(可含 .5)→「HH:MM」，支援半小時刻度。
+function kanshouFmtHM_(h) {
+  var hh = Math.floor(h);
+  var mm = Math.round((h - hh) * 60);
+  if (mm >= 60) { hh += 1; mm -= 60; }
+  return ("0" + hh).slice(-2) + ":" + ("0" + mm).slice(-2);
+}
+// 天氣文字→小圖示(HUD時鐘旁顯示用)。降水優先判定，再晴，再陰，再風。
+function kanshouWeatherEmoji_(w) {
+  w = String(w || "");
+  if (/雪/.test(w)) return '❄️';
+  if (/雷/.test(w)) return '⛈️';
+  if (/雨/.test(w)) return '🌧️';
+  if (/霧/.test(w)) return '🌫️';
+  if (/晴|日|爽|和/.test(w)) return '☀️';
+  if (/陰|雲/.test(w)) return '☁️';
+  if (/風/.test(w)) return '🌬️';
+  return '☀️';
+}
 // 「跳到時段」＋「時段行動」按鈕都需要前端知道現在幾點——這裡統一格式化成單一真實來源，
 //   buildClientState_/actionPlay的回應都呼叫這支，不各自重複拼字串。
 // 🩹 2026-07玩家「這要顯示幾年幾月幾號」定案：label從抽象的「第X日」改成實際年月日(跟敘述
@@ -1124,10 +1144,11 @@ const KANSHOU_DAY_LAST_HOUR_ = 23;
 //   能親眼確認日期真的有推進，不會看起來像卡住不動。
 function kanshouClockInfo_(pcRow) {
   const day = parseInt(pcRow[COL.PC.DAY]) || 1;
-  const hour = (pcRow[COL.PC.HOUR] === "" || pcRow[COL.PC.HOUR] == null) ? 8 : (parseInt(pcRow[COL.PC.HOUR]) || 0);
+  const hour = (pcRow[COL.PC.HOUR] === "" || pcRow[COL.PC.HOUR] == null) ? 8 : (parseFloat(pcRow[COL.PC.HOUR]) || 0);
   const band = timeBand_(hour);
   const d = kanshouAbsDayToDate_(day);
-  return { day: day, hour: hour, band: band, label: d.year + "年" + d.month + "月" + d.day + "日・" + ("0" + hour).slice(-2) + ":00・" + band };
+  const wx = kanshouWeather_(day);
+  return { day: day, hour: hour, band: band, weather: wx, label: d.year + "年" + d.month + "月" + d.day + "日・" + kanshouFmtHM_(hour) + "・" + band + "・" + kanshouWeatherEmoji_(wx) + wx };
 }
 
 // 結束一天(準備就寢)時的機率事件，命中就先不推進日期、改讓前端跳出開門/不予理會。
@@ -1327,7 +1348,7 @@ function actionPlay(userData, pcId, sheets) {
   // ⏰ 2026-07「推進時間」玩法：鑑賞借用solo既有的COL.PC.DAY/HOUR欄位存自己的時鐘(兩軌從不共用
   //   同一個game_id，欄位互不干擾)，不另開新欄。查無值(舊存檔/尚未跑過這輪改動)時給預設(Day1 08:00)。
   let curDay = parseInt(pc[COL.PC.DAY]) || 1;
-  let curHour = (pc[COL.PC.HOUR] === "" || pc[COL.PC.HOUR] == null) ? 8 : (parseInt(pc[COL.PC.HOUR]) || 0);
+  let curHour = (pc[COL.PC.HOUR] === "" || pc[COL.PC.HOUR] == null) ? 8 : (parseFloat(pc[COL.PC.HOUR]) || 0);
   let jumpFest = null; // 🎊 有跳到節慶時記著，餵進下方提示詞當氛圍靈感(見★【氛圍靈感·非強制】)
 
   // 鑑賞地點移動：前端點選地點按鈕時帶 moveTarget，跟一般對話同一次 round-trip 解決——比對
@@ -1623,10 +1644,10 @@ function actionPlay(userData, pcId, sheets) {
       });
       const newDate = kanshouAbsDayToDate_(curDay);
       finalUserMsg = jumpFest
-        ? `【時間推進】時間一路快轉，明天就是${jumpFest.name}了——此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`
+        ? `【時間推進】時間一路快轉，明天就是${jumpFest.name}了——此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}。`
         : jumpBand
-          ? `【時間推進】時間悄悄流轉到了${jumpBand.label}，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`
-          : `【時間推進】${advanceHours}個小時悄悄過去，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${("0" + curHour).slice(-2)}:00・${timeBand_(curHour)}。`;
+          ? `【時間推進】時間悄悄流轉到了${jumpBand.label}，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}。`
+          : `【時間推進】${advanceHours}個小時悄悄過去，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}。`;
     }
   }
   // ⏰ 時間隨動作流動：一般 AI 敘事回合(非結束一天/非時段跳躍)每次推進 KANSHOU_HOUR_PER_ACTION_ 小時，
@@ -1974,7 +1995,7 @@ ${PROMPT_REL}
       ? `『${partyMembers.join("、")}』才剛在這座城鎮與玩家認識不久——這不是舊識重逢，是彼此【初次相遇】後的日常，讓相處自然生澀、依好感漸漸升溫，嚴禁暗示雙方早已相熟或有共同的過往。`
       : `與『${partyMembers.join("、")}』共度的是這座和平城鎮的尋常相處時光。`
   }
-🕰️現在是${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${timeBand_(curHour)}，僅供揣摩場景氛圍與時段感(如深夜靜謐、清晨慵懶、應景節氣)，不必刻意報時或提及具體數字。
+🕰️現在是${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}，僅供揣摩場景氛圍與時段感(如深夜靜謐、清晨慵懶、應景節氣)，不必刻意報時或提及具體數字。★【時間尺度·僅供你內部拿捏節奏】：玩家這一個動作大約只經過短短一段時間，narration 就寫此刻這個當下的片段、順著目前時段的光線氛圍即可；【絕對禁止】自行宣稱「過了好幾個鐘頭」「天色暗了」「到了傍晚/深夜」等憑空跳時段(真正的時間推進由系統時鐘負責)。同時【絕對不要】把「半小時」「三十分鐘」「過了一段時間」這類講時間長度的字眼寫進敘述——時間感靠光線、氣氛、動作的節奏自然流露，不用嘴巴報出來。
 ★世界觀＝和平的現代城鎮日常，這裡的每個人都只是這座城的普通居民：【絕對禁止】任何戰鬥、廝殺、敵人、血量／生命變化、死亡或威脅，世界是安全的。即使你認得某個名字在其他作品裡的背景，也【嚴禁】提及聖杯戰爭、從者、御主、令咒、寶具、英靈、召喚等概念——那些事在這個世界從未存在，只可沿用其性格、外貌與人際氣質。節奏與親密程度依劇情、好感與玩家/同伴當下意圖自然發展，可以是散步閒聊的尋常時光，也可以是更靠近、更熱烈的相處，不強制鎖在「悠閒」基調(尤其🔥主動掌握模式開啟或情慾已自然升溫時)，讓每個角色貼近其原有性格自然地與玩家相處互動。
 ★【演出而非說明】不得直述其願望／萌點／個性字面。僅可有 rel_changes(好感)，不輸出任何生命變化或戰鬥裁決。
 ★【地點清單】：這個世界目前只有以下這些地點存在：${KANSHOU_LOCATIONS_.map(l => l.name).join('、')}——下方location／move_proposal兩個欄位只能填這份清單裡的名字，【絕對禁止】自創或憑空發明清單以外的地名(如「一家安靜的咖啡廳」這類寫法不再允許)。

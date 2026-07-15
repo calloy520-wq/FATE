@@ -109,11 +109,13 @@ function restHours_(gameId, hours, pcData, sheets) {
 
 // 時段名（依小時）
 function timeBand_(hour) {
-  if (hour >= 5 && hour <= 10) return "清晨";
-  if (hour >= 11 && hour <= 16) return "午後";
-  if (hour >= 17 && hour <= 19) return "黃昏";
-  if (hour >= 20 && hour <= 23) return "夜";
-  return "深夜";
+  // 半開區間([下界,上界))：既相容整數(結果與舊版逐一相同)，又讓鑑賞的半小時刻度(如10.5)不會
+  //   掉進邊界縫隙被誤判成深夜。分界對齊 KANSHOU_TIME_BANDS_ 的 startHour。
+  if (hour >= 5 && hour < 11) return "清晨";
+  if (hour >= 11 && hour < 17) return "午後";
+  if (hour >= 17 && hour < 20) return "黃昏";
+  if (hour >= 20 && hour < 24) return "夜";
+  return "深夜"; // 0-5
 }
 
 // 時鐘文字標籤
