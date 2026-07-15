@@ -405,10 +405,11 @@ function actionEnterKanshou(userData, pcId, sheets) {
   kpc.appendRow(mRow);
   linkAccountToKanshouPc_(acctName, mId); // 🔒 權威連結寫進帳號表
 
-  // 開場涵蓋全部女性英靈(種子/來源皆算，ai_gen玩家原創除外)，起始好感/關係標籤走一般泛泛之
-  //   交，純粹讓她們已經「活在這個世界裡」，各自落在自己原本的住處/日常地點，等玩家撞見。
+  // 開場只入駐4位起始住民(2026-07玩家定案：大河/凜/櫻/SABER——「本來就住在這座城」感最強的
+  //   幾位)，其餘女角不建列、不存在於世界，之後靠「出門走走」巧遇→玩家點「結識」才正式入駐
+  //   (見kanshouEncounterStr/inviteResident)。起始好感/關係走一般泛泛之交，各自落在住處/日常地點。
   var starterHeroes = getHeroCodexCached().slice(1).filter(function (r) {
-    return r[COL.HERO.ID] && String(r[COL.HERO.SEX]) !== '男' && KANSHOU_SUMMON_BLOCKED_IDS_.indexOf(String(r[COL.HERO.ID])) === -1 && String(r[COL.HERO.SOURCE]) !== 'ai_gen';
+    return KANSHOU_STARTER_IDS_.indexOf(String(r[COL.HERO.ID])) !== -1;
   });
   var starterRows = starterHeroes.map(function (hero) {
     return heroToKanshouRow_(hero, gameId, kanshouRollDailyLocation_(String(hero[COL.HERO.NAME]), 6), 1);
@@ -761,6 +762,8 @@ function kanshouRoomDisplayName_(locKey, pcData, gameId, myName, myIdx) {
 }
 // 暫時移出鑑賞的英靈id清單(單一來源)，召喚/巧遇/地點標籤/住處全部共用同一份。
 const KANSHOU_SUMMON_BLOCKED_IDS_ = ['斯卡哈-Assassin', '伊莉雅-Caster', '恩奇都-Lancer'];
+// 🏘️ 開局起始住民(2026-07玩家定案)：只有這4位一開始就「活在這座城裡」，其餘靠巧遇結識後才入駐。
+const KANSHOU_STARTER_IDS_ = ['藤村大河-Master', '遠坂凜-Master', '間桐櫻黑化-Master', '阿爾托莉雅-Saber'];
 // 地點×角色 氛圍標籤(資料驅動，往陣列塞一筆 SEED_SERVANTS 的 id 就能加，不動抽選邏輯)：
 //   查無標籤或抽不中標籤池時退回全女性保底池KANSHOU_ENCOUNTER_FEMALE_IDS_；不含
 //   KANSHOU_SUMMON_BLOCKED_IDS_裡暫時移出的id，避免巧遇到根本無法被正式召喚入駐的人。
@@ -1202,7 +1205,7 @@ function setKanshouHomeName_(memory, name) {
   const safe = String(name || "").trim().slice(0, 12) || "衛宮宅";
   return (cleaned ? cleaned + "｜" : "") + "【住所】" + safe;
 }
-// 部分英靈殿角色的 realName 帶括號附註(如「間桐櫻（黑化）」)，AI 敘事自然只會用括號前後其中
+// 部分英靈殿角色的 realName 帶括號附註(如「克洛伊·馮·愛因茲貝倫（Archer install）」)，AI 敘事自然只會用括號前後其中
 //   一段稱呼TA，但 rel_changes[].target 等比對要求逐字完全相符——會悄悄比對失敗、整條被跳過。
 //   抽出候選字串(全名/括號前/括號內)供比對，不用改動任何一位角色的既有 realName 資料。
 function kanshouNameCandidates_(fullName) {
@@ -1319,6 +1322,34 @@ function actionPlay(userData, pcId, sheets) {
         dirtyPcRows.add(_chIdx);
         kanshouCohabitStr = `\n★【同居開始】：『${_chRealName}』答應搬來與你同住了！從今以後她深夜會回這個家的「和室」就寢、清晨可能還賴在被窩、晚間常在家中活動，白天依然過她自己的生活——演出她答應這一刻依性格的反應(欣喜/彆扭/故作平靜皆可)，這是關係的一大步。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣邀『${_chRealName}』搬來一起住。`;
+      }
+    }
+  }
+
+  // 🤝 結識(巧遇→入駐)：巧遇對象只是路人(不記好感·離開即散)，玩家點「結識」(inviteResident=name)
+  //   才正式建列入駐——驗證對象必須真的是【邂逅中】的那位(防直打API憑空加人)、且尚未入駐。
+  //   入駐後她從此活在這座城裡(有行程/好感/可堵可約)，本回合就地拿到完整在場卡片。
+  let kanshouInviteStr = "";
+  if (userData.inviteResident) {
+    const _ivName = String(userData.inviteResident).trim();
+    const _ivActiveId = getKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
+    const _ivHero = _ivActiveId ? SEED_SERVANTS.find(h => h.id === _ivActiveId) : null;
+    const _ivMatch = _ivHero && kanshouNameCandidates_(_ivHero.realName).includes(_ivName);
+    const _ivAlready = _ivMatch && pcData.some((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_ivHero.realName));
+    const _ivMaleMale = _ivMatch && String(pc[COL.PC.SEX]) === "男" && String(_ivHero.gender) === "男";
+    if (!_ivMatch || _ivAlready || _ivMaleMale) {
+      kanshouInviteStr = `\n★【結識未成】：你想跟『${_ivName}』深交下去，但這段緣分此刻不成立(對方已離開、或早已相識)——演出這份悵然即可。`;
+      finalUserMsg = `【玩家意圖】：想跟『${_ivName}』深交，卻發現緣分沒有接上。`;
+    } else {
+      const _ivCodexRow = getHeroCodexCached().slice(1).find(r => String(r[COL.HERO.ID]) === String(_ivHero.id));
+      if (_ivCodexRow) {
+        const _ivNewRow = heroToKanshouRow_(_ivCodexRow, myGameId, String(curL || "").trim(), curDay);
+        sheets.pc.appendRow(_ivNewRow);
+        pcData.push(_ivNewRow); // 本回合就地生效：partyRows/在場卡片馬上抓得到她
+        pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]); // 她不再是「路人例外」，改走正式在場人物
+        dirtyPcRows.add(pcIndex);
+        kanshouInviteStr = `\n★【正式結識】：你與『${_ivHero.realName}』交換了聯絡方式，這段萍水相逢的緣分正式接上了——從今以後她也是這座城裡你認識的人，會有自己的生活與去處。演出這一刻依她性格的反應(大方/靦腆/意外皆可)，關係才剛起步、保持剛認識的分寸。`;
+        finalUserMsg = `【玩家意圖】：鼓起勇氣向『${_ivHero.realName}』提出想繼續深交、交換聯絡方式。`;
       }
     }
   }
@@ -1735,7 +1766,7 @@ ${PROMPT_PARTY_SYSTEM}
 【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}(當前服裝·五官體態不變)` : ""} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}
 
 ${PROMPT_REL}
-★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前在場人物】(與玩家同地點的已認識人物)；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【目前在場人物】內的姓名，僅視為不在場的回憶，嚴禁無視此規則讓其憑空登場、穿越或開口說話、出手！${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouRoomEventStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouJealousStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶氛圍】：今天是「${_f.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。`; if (jumpFest) return `\n★【節慶氛圍】：明天就是「${jumpFest.name}」，街頭已有節慶前夕的準備與期待感，narration可自然帶入，不必特別報幕。`; return ""; })()}
+★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前在場人物】(與玩家同地點的已認識人物)；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【目前在場人物】內的姓名，僅視為不在場的回憶，嚴禁無視此規則讓其憑空登場、穿越或開口說話、出手！${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouRoomEventStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouJealousStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶氛圍】：今天是「${_f.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。`; if (jumpFest) return `\n★【節慶氛圍】：明天就是「${jumpFest.name}」，街頭已有節慶前夕的準備與期待感，narration可自然帶入，不必特別報幕。`; return ""; })()}
 ★【今日天氣】：${kanshouWeather_(curDay)}——讓天氣自然滲入場景與人物(衣著/髮絲/街景/話題皆可)，不必每句都提、也不必報幕。${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜氛圍·好感門檻已達】：『${intimateNightNames.join('、')}』與你的羈絆已深(好感≥80)，今晚可以自然發展到同床共枕，依其性格自然決定要不要跨出這一步、氛圍濃烈到什麼程度，不強制每次都寫到底；好感未達此門檻的同伴，一律維持各自安睡、不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度了親密的時光(依上一回合實際演出的內容為準，若上次並未真的跨出那一步就當作平常的早晨)，這是新的一天第一個場景，若情境合適可以自然帶出晨間的溫馨/曖昧餘韻(如一起吃早餐、彼此害羞或黏膩的互動)，不強制一定要提及、也不需要複述昨夜細節，一切依角色個性自然發展。` : ""}
 💕【鑑賞·後日談模式·最高優先級覆寫】：${partyRows.length === 0
     ? `眼下沒有相識的人在場，就是玩家一個人的尋常時光。`
@@ -1974,6 +2005,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
     // 橋段邀請按鈕(夜襲/賴床/地點/節慶共用)：candidate在回合開頭(任何LOC寫入之前)就算好了，
     //   這裡直接沿用，不應該重算——重算會撞回「同行同伴LOC已被同步」的舊bug。label/btn由
     //   KANSHOU_SCENE_EVENTS_資料驅動，前端照顯示、不再硬編各事件文字。
+    // 🤝 巧遇中對象→前端「結識」邀請框(encounterOffer)：她只是路人，玩家點了才正式入駐。
+    const encounterOffer = kanshouEncounterHero ? { name: String(kanshouEncounterHero.realName) } : undefined;
     const roomEventOffer = kanshouRoomEventCandidate_ ? (() => {
       const _ev = KANSHOU_SCENE_EVENTS_[kanshouRoomEventCandidate_.eventKey] || {};
       const _n = String(kanshouRoomEventCandidate_.hero.realName);
@@ -2021,6 +2054,7 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       tags: tagsPayload,
       moveProposal: moveProposal || undefined,
       roomEventOffer: roomEventOffer,
+      encounterOffer: encounterOffer,
       kanshouClock: kanshouClock,
       // 修過的bug：#clock-hud讀共用的updateClock(data.clock,...)，但data.clock在鑑賞這條路徑
       //   上從來沒被設過，導致HUD一直被當成「沒有clock」隱藏。這裡補上同一份kanshouClock.label

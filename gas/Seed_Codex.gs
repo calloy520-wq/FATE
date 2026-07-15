@@ -237,7 +237,7 @@ var SEED_SERVANTS = [
     dailyWords:'天真爛漫黏人、渴望被更多人放在心上疼惜、被珍惜疼愛的感覺、獨自一人',dailyMoe:'黏人小跟班，撒嬌功力一流',
     // dailyBack：拿掉「人造人、被當工具養大」的沉重意涵，改寫成單純的家庭背景描述。
     dailyBack:'愛因茲貝倫家的小女兒，從小被家人捧在手心上疼愛'} },
-  { id:'間桐櫻黑化-Master', cls:'御主', realName:'間桐櫻（黑化）', wars:['客串'], gender:'女',
+  { id:'間桐櫻黑化-Master', cls:'御主', realName:'間桐櫻', wars:['客串'], gender:'女',
     six:{}, classSkills:[], skills:[], traits:[], np:'',
     // 官方設定間桐櫻髮色為深紫色(與遠坂凜同系但更深)，黑化不因此變色。
     align:'混沌・惡', persona:{firstP:'我',look:'深紫長髮・黑紅禮服、泛著陰冷寒意',words:'溫順乖巧的假面・被黑泥吞噬的佔有慾・厭惡傷害過自己的一切',toMaster:'表面溫順順從，內裡佔有慾強烈',speech:'輕柔溫順，偶爾滲出陰冷',moe:'可憐又可怖',tic:'低垂眼眸淺笑',back:'遠坂次女、送養間桐受蟲蝕十一年後黑化',
@@ -281,7 +281,7 @@ var SEED_MASTERS = [
   {id:'伊莉雅絲菲爾-5th',name:'伊莉雅絲菲爾', gender:'女', appearance:'紅眼白髮的幼小少女，毛領大衣',war:'5th',magic:'愛因茲貝倫煉金術・聖杯依代',    circuits:80, melee:'D', magic_rank:'A', home:'冬木·新都', wish:'完成聖杯的使命',          persona:'天真爛漫・哀傷的聖杯依代・厭惡孤獨', back:'人造人、被當作工具養大卻渴望親情', moe:'強顏歡笑的寂寞'},
   // circuits=50：她本人的回路質量與凜同級(人類頂尖水準)，無限魔力來自聖杯泥附體(已在magic欄體現)，
   // 不該混進她自己的天賦數字。官方設定髮色為深紫色，黑化不因此變色。
-  {id:'間桐櫻(黑化)-5th',name:'間桐櫻（黑化）', gender:'女', appearance:'深紫長髮、黑紅禮服，泛著陰冷寒意',war:'5th',magic:'聖杯之泥・無限魔力・蟲爪', circuits:50, melee:'E', magic_rank:'A', home:'間桐宅', wish:'獨佔所愛、將世界一同拖入黑暗', persona:'溫順乖巧的假面・被黑泥吞噬的佔有慾・厭惡傷害過自己的一切', back:'遠坂次女、送養間桐受蟲蝕十一年後黑化', moe:'可憐又可怖'},
+  {id:'間桐櫻(黑化)-5th',name:'間桐櫻', gender:'女', appearance:'深紫長髮、黑紅禮服，泛著陰冷寒意',war:'5th',magic:'聖杯之泥・無限魔力・蟲爪', circuits:50, melee:'E', magic_rank:'A', home:'間桐宅', wish:'獨佔所愛、將世界一同拖入黑暗', persona:'溫順乖巧的假面・被黑泥吞噬的佔有慾・厭惡傷害過自己的一切', back:'遠坂次女、送養間桐受蟲蝕十一年後黑化', moe:'可憐又可怖'},
   // 第四次
   // circuits=15/magic_rank=C：他的魔術回路數量少質量也差(原作明寫、故Saber供魔得靠愛麗絲)，
   // 真正殺傷力來自起源彈與戰術，「天才殺手·蹩腳魔術師」的反差不該被回路數字掩蓋。
@@ -312,7 +312,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v60'; // 每次精緻化種子 persona(萌點/口吻/日常欄)就升一版，觸發
+var CODEX_PERSONA_VER = 'v61'; // 每次精緻化種子 persona(萌點/口吻/日常欄)就升一版，觸發
 //   upgradeCodexPersonas_ 整列覆寫既有英靈殿/御主殿(已召喚過的英靈才讀得到新內容)。
 //   逐版校對細節與查證來源見 SOLO_REFERENCE.md，不在此堆積歷史留言。
 
