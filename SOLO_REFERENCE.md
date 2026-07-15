@@ -2901,3 +2901,14 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - `CODEX_PERSONA_VER` v62→**v63** 觸發 upgradeCodexPersonas_(刷英靈殿persona→新召喚讀到 dailyBack)＋resyncSummonedServants_(刷既有鑑賞同伴身世)。
 
 **驗證**：`bash check.sh`全過、`Engine_Combat.gs`紅線空；Node確認17位 dailyBack 皆≤28字且插進各自 persona、SABER身世已非預設；`s.persona.dailyBack` 存取路徑核對有效。
+
+## §126 好感上限突破改「約會路徑」：橋段給不吃上限的好感＋修掉「需要送禮」殘留（2026-07・玩家「沒經濟不能買禮物，只能靠約會突破鎖住好感?」→選B保留上限但改約會突破、不找回禮物）
+
+**背景**：`kanshouRelChatCeiling_` 讓純聊天好感卡在梯度上限(19/39/59/79)，原設計靠「送禮」突破——但經濟/商城早砍了，提示詞卻還寫「需要收到禮物才能繼續加深」，玩家無禮物可買、一頭霧水。實際唯一突破路是約定赴約(+5·kanshouPromiseMetStr·不吃上限)。玩家選B：保留慢熱上限，但把突破方式正名成「約會」、並多給橋段一條路，不找回禮物。
+
+**做法**：
+- **新增 `KANSHOU_SCENE_BOND_=3`**：接受親密橋段(roomEventAccept)且**非拒絕分支(reBranch.min>=0)**時，`pcData[reIdx].BOND=min(100,reBond+3)`＋`kanshouSyncRelTier_`＋dirtyPcRows——**直接寫、不吃聊天上限**，等於「一起經歷特別時刻→關係跨過梯度」。拒絕/警戒分支(min:-100)不給。橋段提示詞尾append「好感已由系統上調，敘事勿再另計」防AI重複計。
+- **ceiling提示詞正名**(pAtCeilingStr)：「需要收到禮物才能繼續加深」→「需要透過約定赴約、或一起經歷特別的橋段(夜襲/共浴/膝枕…)這類真實相處才能再加深」。
+- 順手更新 kanshouRelChatCeiling_ 上方註解＋rel_changes clamp 註解＋kanshouSyncRelTier_ 呼叫者註解裡的「送禮」殘留→「約定赴約/橋段」。`收到禮物` 全清 0。禮物系統不找回(經濟已砍)。
+
+**驗證**：`bash check.sh`全過、`Engine_Combat.gs`紅線空；Node模擬(好感39純聊天卡39/接受橋段+3→42跨40→熟識/之後聊天上限升59/拒絕分支不加/約定+5跨40)全對。

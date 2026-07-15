@@ -250,7 +250,7 @@ const KANSHOU_REL_TIER_ = [
 // 依當前BOND重算這一列的REL_TAG——但只在「目前這格文字仍等於某個梯度的字面」時才覆寫：玩家
 //   一旦透過actionUpdateRelTag手動改成清單外的自訂稱呼，這格文字就再也不匹配任何梯度，之後好感
 //   繼續變動也不會被自動蓋回去，尊重玩家的手動選擇。呼叫時機：任何讓BOND變動的地方之後都補呼叫
-//   一次(目前有②送禮加好感、③AI rel_changes)，冪等、重複呼叫不出錯。
+//   一次(目前有②約定赴約/橋段加好感、③AI rel_changes)，冪等、重複呼叫不出錯。
 function kanshouSyncRelTier_(pcData, idx) {
   const curTag = String(pcData[idx][COL.PC.REL_TAG] || "");
   if (!KANSHOU_REL_TIER_.some(t => t.label === curTag)) return;
@@ -258,8 +258,10 @@ function kanshouSyncRelTier_(pcData, idx) {
   const tier = KANSHOU_REL_TIER_.find(t => bond >= t.min);
   if (tier && tier.label !== curTag) pcData[idx][COL.PC.REL_TAG] = tier.label;
 }
-// 純聊天(AI rel_changes)加好感只能推到「目前所在梯度的上限」就卡住，要送禮(shopItem gift分支，
-//   不吃這個上限)才能突破到下一梯度。上限沿用KANSHOU_REL_TIER_同一份門檻，不重複開新數字。
+// 純聊天(AI rel_changes)加好感只能推到「目前所在梯度的上限」就卡住，要靠約定赴約(+5·kanshouPromiseMetStr)
+//   或一起經歷橋段(+KANSHOU_SCENE_BOND_·下方roomEventAccept)這類真實相處才能突破到下一梯度(經濟/送禮已砍)。
+//   上限沿用KANSHOU_REL_TIER_同一份門檻，不重複開新數字。
+const KANSHOU_SCENE_BOND_ = 3; // 接受親密橋段(夜襲/共浴/膝枕…非拒絕分支)給的好感，直接寫、不吃聊天上限。
 function kanshouRelChatCeiling_(bond) {
   const thresholds = KANSHOU_REL_TIER_.map(t => t.min).filter(m => m > -100).sort((a, b) => a - b);
   for (const t of thresholds) { if (bond < t) return t - 1; }
@@ -1566,6 +1568,14 @@ function actionPlay(userData, pcId, sheets) {
         const reVerb = String(reEv.verb || '靠近了');
         kanshouRoomEventStr = `\n★【橋段·${reEventKey}(GAS已骰定這次走向，AI只需依此演出，不必徵詢玩家、也不必逐字照抄下方措辭)】：${reVerb}『${reHeroName}』，她此刻的反應走向是——${reBranch.tag}。依她的既有性格詮釋這個走向具體要怎麼表現、講什麼話，細節全由你發揮，但情緒基調不要偏離這個走向。`;
         finalUserMsg = `【玩家意圖】：${String(reEv.intent || '靠近了『{n}』。').replace('{n}', reHeroName)}`;
+        // 💞 一起經歷橋段(非拒絕分支·min>=0)給一份【不吃聊天上限】的好感——這就是取代「送禮突破」的
+        //   約會路徑：真實相處過的特別時刻能推著關係跨過梯度。拒絕/警戒分支(min:-100)不給。
+        if (reBranch.min >= 0) {
+          pcData[reIdx][COL.PC.BOND] = Math.min(100, reBond + KANSHOU_SCENE_BOND_);
+          kanshouSyncRelTier_(pcData, reIdx);
+          dirtyPcRows.add(reIdx);
+          kanshouRoomEventStr += `（這樣一段特別的相處，讓你們的關係又近了一些——好感已由系統上調，敘事勿再另計。）`;
+        }
         if (reEventKey === '夜襲' && reBranch.min >= 60) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], reHeroName);
       }
     }
@@ -1906,7 +1916,7 @@ function actionPlay(userData, pcId, sheets) {
       //   narration可能寫出「感情大幅推進」這種跟機制矛盾的橋段。只在卡住時才加這句提示。
       const pBond = parseInt(r[COL.PC.BOND]) || 0;
       const pChatCeiling = kanshouRelChatCeiling_(pBond);
-      const pAtCeilingStr = (pChatCeiling < 100 && pBond >= pChatCeiling) ? "・單靠對話目前已到這個階段的上限，需要收到禮物才能繼續加深，這回合維持細水長流的相處基調，不要寫成關係大幅推進" : "";
+      const pAtCeilingStr = (pChatCeiling < 100 && pBond >= pChatCeiling) ? "・單靠對話目前已到這個階段的上限，需要透過約定赴約、或一起經歷特別的橋段(夜襲/共浴/膝枕…)這類真實相處才能再加深，這回合維持細水長流的相處基調，不要寫成關係大幅推進" : "";
       // REL_TAG的梯度字面本身沒告訴AI「該演出什麼熟悉程度」，AI容易預設熱絡口吻跟數字矛盾。
       //   只在低梯度(尚不熟識)才加一句態度提示，中高梯度不需要、也不該畫蛇添足限制發揮。
       const pRelTagStr = r[COL.PC.REL_TAG] || "點頭之交";
@@ -2172,7 +2182,7 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
 
         let oldFav = parseInt(pcData[nIdx][COL.PC.BOND]) || 0;
         let newFav = Math.max(-100, Math.min(100, oldFav + change));
-        // 純聊天加好感卡在目前梯度上限，送禮才能突破(見kanshouRelChatCeiling_)——只夾正向漲幅，
+        // 純聊天加好感卡在目前梯度上限，約定赴約/橋段才能突破(見kanshouRelChatCeiling_)——只夾正向漲幅，
         //   好感下滑(change<0)不受影響。
         if (change > 0) newFav = Math.min(newFav, kanshouRelChatCeiling_(oldFav));
 
