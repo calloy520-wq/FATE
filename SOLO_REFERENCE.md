@@ -3030,3 +3030,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 改動點:`Core_Settings.gs`(COL 27 改名 MEMOIR)、`Setup_FateWorld.gs`(欄序註解)、`Gallery.gs`(schema npcs 加 `memory` 欄／`processMemoir_` 引擎＋npcs 迴圈寫 27 欄／partyDetailsArr 讀回餵卡)。`sanitizeAiData_` 是 pass-through(只 clamp fav_change)、memory 欄原樣通過。
 
 **驗證**：`bash check.sh`全過、`Engine_Combat.gs` diff 空、`MAJOR_EVENT` 全庫僅剩註解、`COL.PC.MEMOIR` 讀(partyDetailsArr)寫(npcs 迴圈)各一處已接。
+
+**§135 續(同日玩家追加)**：
+- **視角鎖死**：memory 欄明文=玩家第一人稱「我」記述(「和她在頂樓看了跨年煙火」)，【禁止】她的視角/她對我的想法/第三人稱旁觀——10 條疊起來像一本玩家的日記，AI 承接語氣穩；她對玩家的想法另有去處([態度]/好感)不混流。
+- **💞回憶面板(卡片可看/釘選/刪除·LunaTalk Remember 落地)**：同伴面板每列加「💞回憶(N)」鈕→`kanshouOpenMemoir` overlay 列出 27 欄各條——☆釘選(→★前綴·永不被淘汰·上限8，留2格給新回憶)／🗑刪除(confirm)。新 action `kanshou_memoir_op`(Router_Action 註冊·取寫入鎖·`kanshouOwnedRowIdx_` 帳號綁定驗證後才動同 gid 列，比照 update_rel_tag「玩家UI手動管理、AI無權」)，回傳更新後 memoir[]、前端原地重繪＋卡片徽章同步。`kanshou_companions` 回應每人多帶 `memoir[]`(原樣含★)。`processMemoir_` 淘汰邏輯改「★永不驅逐、只淘汰未釘選最舊的」，去重比對忽略★；餵 AI 的在場卡把★去掉(不外洩機制符號)。

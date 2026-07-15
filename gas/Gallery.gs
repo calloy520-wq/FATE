@@ -504,10 +504,45 @@ function actionKanshouCompanions(userData, pcId, sheets) {
       var loc = String(data[i][COL.PC.LOC] || "");
       // 面板需要顯示目前所在地點(玩家要精準知道去哪找她)、關係標籤＋好感(供玩家決定要不要改標籤)；
       // isHere(是否跟玩家同地點)；locLabel：房間類地點的動態顯示名稱，見kanshouRoomDisplayName_。
-      current.push({ name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc });
+      // memoir：共同回憶(27欄)原樣下傳(★前綴=玩家釘選)，供面板顯示/釘選/刪除。
+      current.push({ name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean) });
     }
   }
   return JSON.stringify({ success: true, current: current });
+}
+
+// 💞 共同回憶面板操作(釘選/取消釘選/刪除)——比照 update_rel_tag「玩家 UI 手動管理、AI 無權」精神。
+//   釘選=條目加 ★ 前綴(processMemoir_ 淘汰舊條目時永不驅逐★)；刪除=整條移除。
+//   op: 'pin'|'unpin'|'del'；item=條目原文(不含★)。帳號綁定：kanshouOwnedRowIdx_ 驗過才動同 gid 的列。
+function actionKanshouMemoirOp(userData, pcId, sheets) {
+  var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」
+  var acctName = String(userData.acctName || "").trim();
+  var op = String(userData.op || "").trim();
+  var item = String(userData.item || "").replace(/[｜【】\[\]★]/g, "").trim();
+  var targetName = String(userData.targetName || "").trim();
+  if (!item || !targetName || ['pin', 'unpin', 'del'].indexOf(op) === -1) return JSON.stringify({ success: false, message: "參數不完整。" });
+  var data = kpc.getDataRange().getValues();
+  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
+  var tIdx = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(data[i][COL.PC.NAME])).includes(targetName)) { tIdx = i; break; }
+  }
+  if (tIdx < 0) return JSON.stringify({ success: false, message: "找不到這位同伴。" });
+  var entries = String(data[tIdx][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean);
+  var hit = entries.findIndex(function (e) { return e.replace(/^★/, "") === item; });
+  if (hit === -1) return JSON.stringify({ success: false, message: "找不到這條回憶(可能已被更新)。" });
+  if (op === 'del') entries.splice(hit, 1);
+  else if (op === 'pin') {
+    // 釘選上限8：釘滿10會讓新回憶永遠擠不進(總量上限10)，留2格給新的。
+    if (entries.filter(function (e) { return e.charAt(0) === '★'; }).length >= 8) return JSON.stringify({ success: false, message: "釘選已達上限(8條)，先取消一些吧。" });
+    entries[hit] = '★' + entries[hit].replace(/^★/, "");
+  }
+  else entries[hit] = entries[hit].replace(/^★/, "");
+  var joined = entries.join('｜');
+  kpc.getRange(tIdx + 1, COL.PC.MEMOIR + 1).setValue(joined);
+  return JSON.stringify({ success: true, memoir: entries });
 }
 
 // ⚧ 切換後日談御主 avatar 的性別（隨時可改；只動 SEX 欄，不影響從者/歷史）。pcId＝KPC_。
@@ -1955,7 +1990,8 @@ function actionPlay(userData, pcId, sheets) {
       // 💞 共同回憶(27欄 MEMOIR)：你們一路走來累積的里程碑，讓 AI 自然承接你倆的專屬過往(儲存用全形｜
       //   分隔，餵給 AI 時換成「；」較好讀)。空的就不加這行。
       const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
-      const pMemoirStr = pMemoirRaw ? ` | 你們的共同回憶(你倆一路走來的點滴，敘事可自然承接呼應、但別生硬複述):${pMemoirRaw.replace(/｜/g, '；')}` : "";
+      // ★是玩家釘選標記(面板用)，餵AI時去掉、不外洩機制符號。
+      const pMemoirStr = pMemoirRaw ? ` | 你們的共同回憶(你倆一路走來的點滴，敘事可自然承接呼應、但別生硬複述):${pMemoirRaw.replace(/★/g, '').replace(/｜/g, '；')}` : "";
       // 明講方向的「TA是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍TA。
       partyDetailsArr.push(`【在場人物】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(反差·僅供內化):${pMoeStr}` : ""}${pActivityStr}${pMemoirStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr})`);
     }
@@ -2289,9 +2325,14 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       //   寫入前先清掉句中的 ｜【】[] 避免污染分隔(比照 setOutfit_/processSkills 的清洗)。
       const processMemoir_ = (oldMemoir, newLine, maxCount) => {
         let arr = String(oldMemoir || "").split('｜').map(x => x.trim()).filter(x => x !== "" && x !== "無");
-        let clean = String(newLine || "").replace(/[｜【】\[\]]/g, "").trim().slice(0, 40);
-        if (clean && clean !== "無" && !arr.includes(clean)) arr.push(clean);
-        return (arr.length > maxCount ? arr.slice(-maxCount) : arr).join('｜');
+        let clean = String(newLine || "").replace(/[｜【】\[\]★]/g, "").trim().slice(0, 40);
+        // 去重比對忽略★前綴(玩家釘選標記，見actionKanshouMemoirOp)，避免同一條被釘選後又重複收錄。
+        if (clean && clean !== "無" && !arr.some(x => x.replace(/^★/, "") === clean)) arr.push(clean);
+        if (arr.length <= maxCount) return arr.join('｜');
+        // 超量淘汰：★釘選的永不驅逐，只淘汰未釘選裡最舊的；輸出保持原本時序。
+        const pinnedCount = arr.filter(x => x.charAt(0) === '★').length;
+        let dropLeft = Math.max(0, arr.length - Math.max(maxCount, pinnedCount));
+        return arr.filter(x => { if (x.charAt(0) === '★' || dropLeft === 0) return true; dropLeft--; return false; }).join('｜');
       };
 
       if (aiData.intimacy_feedback.player) {

@@ -287,10 +287,56 @@ let plainTextContext = cleanText;
     var box = document.getElementById('kc-party-list');
     if (!box) return;
     box.innerHTML = _kcCur.length ? _kcCur.map(function (c) {
+      // 💞 回憶鈕：有回憶亮粉色並帶數量，還沒有就灰階(仍可點開看空狀態說明)。
+      var memCount = (c.memoir || []).length;
       return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
         + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(c.name) + ' <small style="color:#8a7fa0;">(關係:' + escapeHtml(c.tag || '點頭之交') + '・好感' + c.bond + ')</small><br><small style="color:#7a9fa0;">📍 ' + escapeHtml(c.locLabel || c.loc || '不明') + '</small></span>'
+        + '<button onclick="kanshouOpenMemoir(\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 8px;background:' + (memCount ? '#5a3a4a' : '#3a3a44') + ';color:' + (memCount ? '#e8b8cc' : '#999') + ';border:none;border-radius:6px;cursor:pointer;font-size:12px;">💞回憶' + (memCount ? '(' + memCount + ')' : '') + '</button>'
         + '<button onclick="kanshouEditRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button></div>';
     }).join('') : '<div style="color:#888;padding:6px;">（這座城裡你還誰都不認識，從下方邀一個人來吧）</div>';
+  }
+
+  // 💞 共同回憶面板：看她跟你一路走來的回憶；★釘選=永不被新回憶擠掉(上限8)；🗑=刪掉不想留的。
+  //   回憶本身由 AI 在劇情里程碑時自動記下(每人保留最近10條，釘選的不佔淘汰名額)。
+  function kanshouOpenMemoir(name) {
+    var c = _kcCur.find(function (x) { return x.name === name; });
+    if (!c) return;
+    var ov = document.getElementById('km-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'km-overlay';
+      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
+      ov.onclick = function (e) { if (e.target === ov) ov.style.display = 'none'; };
+      document.body.appendChild(ov);
+    }
+    var entries = c.memoir || [];
+    var rows = entries.length ? entries.map(function (e) {
+      var pinned = e.charAt(0) === '★';
+      var text = e.replace(/^★/, '');
+      var tEsc = String(text).replace(/'/g, '');
+      return '<div style="display:flex;align-items:center;gap:6px;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
+        + '<span style="flex:1;color:' + (pinned ? '#ffd9a0' : '#e8d8e0') + ';font-size:13px;line-height:1.5;">' + (pinned ? '★ ' : '') + escapeHtml(text) + '</span>'
+        + '<button onclick="kanshouMemoirOp(\'' + String(name).replace(/'/g, '') + '\',\'' + (pinned ? 'unpin' : 'pin') + '\',\'' + tEsc + '\')" title="' + (pinned ? '取消釘選' : '釘選·永不遺忘') + '" style="padding:4px 7px;background:' + (pinned ? '#6a5a3a' : '#3a3a44') + ';color:#ffd9a0;border:none;border-radius:6px;cursor:pointer;font-size:12px;">' + (pinned ? '📌' : '☆') + '</button>'
+        + '<button onclick="kanshouMemoirOp(\'' + String(name).replace(/'/g, '') + '\',\'del\',\'' + tEsc + '\')" title="刪除這條回憶" style="padding:4px 7px;background:#4a3038;color:#e09999;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🗑</button></div>';
+    }).join('') : '<div style="color:#888;padding:12px 6px;font-size:13px;">（還沒有值得銘記的回憶——去一起經歷些什麼吧，重要的瞬間她都會記得。）</div>';
+    ov.innerHTML = '<div style="width:min(440px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(232,184,204,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
+      + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#e8b8cc;">💞 與「' + escapeHtml(name) + '」的共同回憶</b>'
+      + '<button onclick="document.getElementById(\'km-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
+      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:6px;">重要瞬間由她自動記下(最多10條、舊的會淡忘)；★釘選的永不遺忘(上限8)。</div>'
+      + rows + '</div>';
+    ov.style.display = 'flex';
+  }
+
+  async function kanshouMemoirOp(name, op, item) {
+    if (op === 'del' && !confirm('確定刪掉這條回憶嗎？刪了她就真的忘了。')) return;
+    try {
+      const res = await gasRun({ action: 'kanshou_memoir_op', pcId: pc.id, acctName: currentAccount, targetName: name, op: op, item: item });
+      if (!res || !res.success) { alert((res && res.message) || '操作失敗。'); return; }
+      var c = _kcCur.find(function (x) { return x.name === name; });
+      if (c) c.memoir = res.memoir || [];
+      renderKcPartyList_();   // 卡片上的數量徽章同步
+      kanshouOpenMemoir(name); // 面板原地重繪
+    } catch (e) { alert('操作失敗。'); }
   }
 
   // 🌙 結束一天：不在身邊的英靈由GAS自動決定隔天去哪(見Gallery.gs kanshouRollDailyLocation_)，不用手動排程；跟一般聊天走同一個send()、同一套渲染。
