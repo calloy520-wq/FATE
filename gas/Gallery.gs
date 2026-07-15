@@ -1034,9 +1034,9 @@ function kanshouRollDailyLocation_(heroName, hour, cohabit) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 // 真正的西曆年/月/日(每年固定365天、不算閏年，遊戲用途夠精準)，只抓3年區間(見actionPlay的
-//   advanceHours上限)不追求無限年份。Day1固定對應12月28日——28/29/30三天日常後，第4天自然
-//   就是KANSHOU_FESTIVALS_裡的跨年夜12/31，不必特地跳。
-const KANSHOU_CAL_START_MONTH_ = 12, KANSHOU_CAL_START_DAY_ = 28;
+//   advanceHours上限)不追求無限年份。Day1固定對應12月20日——過幾天日常後 12/25 聖誕、12/31
+//   跨年接連到來，新玩家開局就撞得到節慶橋段(見 KANSHOU_FESTIVAL_EVENTS_)。
+const KANSHOU_CAL_START_MONTH_ = 12, KANSHOU_CAL_START_DAY_ = 20;
 const KANSHOU_DAYS_IN_MONTH_ = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 const KANSHOU_FESTIVALS_ = [
   { key: 'newyear', name: '新年初一', month: 1, day: 1 },
