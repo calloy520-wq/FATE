@@ -382,16 +382,14 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 
 ### 9.1 橋段(劇本化場景)：offer+accept 按鈕模式（2026-07新增，本節先前完全未記錄）
 
-四個鑑賞專屬機制共用同一形狀：**GAS 每回合重新計算是否符合觸發資格 → 資格成立才在回應 JSON 附一個 `xxxPrompt`/`xxxOffer` 欄位 → 前端只在該欄位存在時渲染按鈕 → 玩家點擊才在下一次 `send()` 帶上對應旗標 → 後端收到旗標後二次驗證資格(防直打API繞過按鈕)才真正 roll 分支、寫入 `kanshouXxxStr` 插入 prompt**。AI 從不自己決定要不要觸發這類場景，只在 GAS 已核准的分支內敘事——`DESIGN.md`「GAS掌數值、AI只說書」鐵則在鑑賞這一側的具體實作範本。
+這幾個鑑賞專屬機制共用同一形狀：**GAS 每回合重新計算是否符合觸發資格 → 資格成立才在回應 JSON 附一個 `xxxPrompt`/`xxxOffer` 欄位 → 前端只在該欄位存在時渲染按鈕 → 玩家點擊才在下一次 `send()` 帶上對應旗標 → 後端收到旗標後二次驗證資格(防直打API繞過按鈕)才真正 roll 分支、寫入 `kanshouXxxStr` 插入 prompt**。AI 從不自己決定要不要觸發這類場景，只在 GAS 已核准的分支內敘事——`DESIGN.md`「GAS掌數值、AI只說書」鐵則在鑑賞這一側的具體實作範本。
 
 | 機制 | 觸發資格(GAS判斷) | 回應附帶欄位 | 玩家按鈕→下次send()旗標 | 對應橋段/分支 |
 |---|---|---|---|---|
-| 夜襲/賴床叫醒 | 移動到`COL.PC.ROOM`登記為`room1`~`room3`的房客所在房間(2026-07地圖大重做後取代舊`KANSHOU_HOUSEMATE_ROOMS_`寫死表)、當前時段落在`KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_`(深夜/清晨)、且該房客當下確實在該房間(非移動前就已跟玩家同地點——見 `SOLO_REFERENCE.md` §90 的排序bug修正) | `roomEventOffer` | `roomEventAccept:true` | `KANSHOU_SCENE_EVENTS_.夜襲`/`.賴床叫醒`，`kanshouRollSceneBranch_`依好感roll分支；夜襲好感≥60額外設`KANSHOU_MORNING_AFTER_TAG_`供隔天第一回合帶入晨間氛圍(§81) |
-| 肉償 | 該房客`KANSHOU_RENT_DEBT_TAG_`(欠租)成立、且僅她與玩家兩人在場(`partyRows.length===1`) | `debtPaymentOffer` | `debtPayment:true` | `KANSHOU_SCENE_EVENTS_.肉償`；成功後清欠租標籤 |
-| 夜晚敲門 | 結束一天時`KANSHOU_KNOCK_CHANCE_`(20%)擲中 | `knockEvent`(既有機制，非本輪新增) | `knockAccept:true`(同意)／`skipKnockCheck:true`(略過) | 對應訪客建立/移入 |
-| 門禁提醒 | 晚間超過門禁時段且當日尚未忽略過 | `curfewPrompt`(既有機制，非本輪新增) | `dismissCurfew:true` | 純提醒，無劇情分支 |
+| 夜襲/賴床叫醒 | 移動到某同伴自己的住處(`KANSHOU_HERO_HOME_`)或同居者的`和室`寢間、當前時段落在深夜/清晨、且該同伴當下確實在該處(非移動前就已跟玩家同地點——見 `SOLO_REFERENCE.md` §90 的排序bug修正) | `roomEventOffer` | `roomEventAccept:true` | `KANSHOU_SCENE_EVENTS_.夜襲`/`.賴床叫醒`，`kanshouRollSceneBranch_`依好感roll分支；接受的非拒絕分支給`KANSHOU_SCENE_BOND_`(同伴同日只給一次·`KANSHOU_SCENE_DAY_TAG_`)；夜襲對象好感≥80額外設`KANSHOU_MORNING_AFTER_TAG_`供隔天第一回合帶入晨間氛圍(§81·§131) |
+| 夜晚敲門 | 結束一天時`KANSHOU_KNOCK_CHANCE_`(20%)擲中、且候選同伴同居或好感≥`KANSHOU_KNOCK_MIN_BOND_`(60) | `knockEvent`(既有機制，非本輪新增) | `knockAccept:true`(同意)／`skipKnockCheck:true`(略過) | 對應訪客建立/移入 |
 
-`Script.html`／`Script_Kanshou.html` 的 `send()` 函式簽名已因這四個機制累積到 16 個位置參數(`customMsg, isSilent, combatData, moveTarget, lookAround, endDay, advanceHours, jumpFestival, work, buyItem, giftTarget, knockAccept, skipKnockCheck, dismissCurfew, debtPayment, roomEventAccept`)——新增第5個此類機制前，應考慮改成單一 options 物件而非繼續疊加位置參數(工程準則「易維護」)。
+`Script_Kanshou.html` 的 `send()` 函式簽名已累積到 22 個位置參數(`customMsg, isSilent, combatData, moveTarget, lookAround, endDay, advanceHours, jumpFestival, knockAccept, skipKnockCheck, dismissCurfew, roomEventAccept, jumpBand, loaderCaptions, moveWithCompanion, promiseMeet, cohabitInvite, inviteResident, takePhoto, showPhoto, photoIntent, handHold`)——其中 `dismissCurfew` 是門禁機制移除後留下的空位佔位(移掉會位移後面全部實參，故保留)。新增此類機制前，應認真考慮改成單一 options 物件而非繼續疊加位置參數(工程準則「易維護」)。
 
 ---
 

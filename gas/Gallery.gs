@@ -638,7 +638,7 @@ function buildDefaultSystemPrompt() {
     //   「認不認同」，寫在 intimacy_feedback.npcs[].attitude，不是靠覆寫這個欄位表達。
     "rel_changes": [{
       "_note": "fav_change為整數(可正可負)，關係要慢慢培養、不可躁進：日常閒聊+1~2、明顯心動或重大進展+3~5，單回合上限+5，不可一次跳大段；越界冒犯可填負數。★fav_change純粹是好感升降的數字，與口吻/語氣描述無關。",
-      "target": "NPC真實姓名或「自己」(不論敘事/對話裡怎麼稱呼TA，此欄固定填真實姓名，不可填暱稱、職階、台詞、地名或動作等其他內容)", "fav_change": 3
+      "target": "NPC真實姓名(不論敘事/對話裡怎麼稱呼TA，此欄固定填真實姓名，不可填暱稱、職階、台詞、地名或動作等其他內容)", "fav_change": 3
     }],
     // mentioned_names/event/tag/log_summary 等死欄已移除：皆是寫入後從未被任何地方讀回的
     //   死路(前端不消費、AI不依此決策)，拿掉後AI不用再每回合多填這些欄位。
@@ -1183,6 +1183,10 @@ const KANSHOU_KNOCK_MIN_BOND_ = 60;
 //   什麼)讀一次就清掉(一次性旗標)，餵進提示詞當【晨間餘韻】引子。刻意不斷言「一定發生了」，
 //   交給AI依上一回合實際演出內容判斷要不要接續。
 var KANSHOU_MORNING_AFTER_TAG_ = makeTextTag_('晨間餘韻');
+// 🎭 橋段當日戳(存該同伴列MEMORY·absDay)：同一位同伴、同一天，只有第一次接受橋段才給
+//   KANSHOU_SCENE_BOND_ 好感——防「靠近她/叫醒她」按鈕在同地×時段吻合時每 0.5h 重覆刷 +3、
+//   繞過細水長流節奏。0=今天尚未經歷橋段。橋段敘事本身照演，只擋重覆加好感。
+var KANSHOU_SCENE_DAY_TAG_ = makeIntTag_('橋段日', 0);
 // 📅 初見日(存該同伴列MEMORY·absDay)：首次跟玩家同地當下蓋戳，之後相識滿7/30/100/365天且人
 //   在場時餵一行紀念日提示。0=尚未記錄(舊存檔首次相遇當天補戳，從那天起算)。
 var KANSHOU_FIRST_MET_DAY_TAG_ = makeIntTag_('初見日', 0);
@@ -1574,9 +1578,12 @@ function actionPlay(userData, pcId, sheets) {
         finalUserMsg = `【玩家意圖】：${String(reEv.intent || '靠近了『{n}』。').replace('{n}', reHeroName)}`;
         // 💞 一起經歷橋段(非拒絕分支·min>=0)給一份【不吃聊天上限】的好感——這就是取代「送禮突破」的
         //   約會路徑：真實相處過的特別時刻能推著關係跨過梯度。拒絕/警戒分支(min:-100)不給。
-        if (reBranch.min >= 0) {
+        // 非拒絕分支給好感，但同一同伴同一天只給一次——擋按鈕重覆刷分(見 KANSHOU_SCENE_DAY_TAG_)。
+        //   橋段敘事(kanshouRoomEventStr)照演，只有「又近了一些」的加分＋提示語限首次。
+        if (reBranch.min >= 0 && KANSHOU_SCENE_DAY_TAG_.get(pcData[reIdx][COL.PC.MEMORY]) !== curDay) {
           pcData[reIdx][COL.PC.BOND] = Math.min(100, reBond + KANSHOU_SCENE_BOND_);
           kanshouSyncRelTier_(pcData, reIdx);
+          pcData[reIdx][COL.PC.MEMORY] = KANSHOU_SCENE_DAY_TAG_.set(pcData[reIdx][COL.PC.MEMORY], curDay);
           dirtyPcRows.add(reIdx);
           kanshouRoomEventStr += `（這樣一段特別的相處，讓你們的關係又近了一些——好感已由系統上調，敘事勿再另計。）`;
         }
@@ -1894,11 +1901,13 @@ function actionPlay(userData, pcId, sheets) {
     if (_pr.day === curDay && _here) {
       pcData[i][COL.PC.MEMORY] = kanshouClearPromise_(pcData[i][COL.PC.MEMORY]);
       pcData[i][COL.PC.BOND] = Math.min(100, (parseInt(r[COL.PC.BOND]) || 0) + 5);
+      kanshouSyncRelTier_(pcData, i); // 赴約的+5可能跨梯度(40/60/80)，同步REL_TAG免標籤落後
       dirtyPcRows.add(i);
       kanshouPromiseMetStr += `\n★【依約相會】：今天正是你與『${String(r[COL.PC.NAME])}』約好在「${_pr.loc}」見面的日子，而你們此刻真的相會了——自然演出這份「約定被守住」的欣喜與意義(好感已由系統上調，敘事勿再另計)。`;
     } else if (_pr.day < curDay) {
       pcData[i][COL.PC.MEMORY] = kanshouClearPromise_(pcData[i][COL.PC.MEMORY]);
       pcData[i][COL.PC.BOND] = Math.max(0, (parseInt(r[COL.PC.BOND]) || 0) - 5);
+      kanshouSyncRelTier_(pcData, i); // 爽約的-5可能跌破梯度，同步REL_TAG免標籤落後
       dirtyPcRows.add(i);
       if (_here) kanshouPromiseMetStr += `\n★【爽約之後】：你先前與『${String(r[COL.PC.NAME])}』約好在「${_pr.loc}」見面卻沒有赴約——讓她依性格流露對被放鴿子的在意(慍怒/落寞/嘴硬說沒關係皆可，好感已由系統下調，敘事勿再另計)。`;
     }
@@ -1949,7 +1958,7 @@ function actionPlay(userData, pcId, sheets) {
   // 🟢 性別配對提示，直接算好給 AI，不需要它自己推理。3人同場時先分組(與玩家同性/異性)，同組
   //   共用一句規則、只在句首列名字，避免逐一 NPC 各寫一整句規則重複。
   let genderHintStr = "";
-  const presentRowsForGender = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && r[COL.PC.LOC] === curL && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  const presentRowsForGender = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim() && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_"));
   if (presentRowsForGender.length > 0) {
     const playerSex = pc[COL.PC.SEX] || "未知";
     // 「異/無」(如開膛手傑克「無固定實體」)這類非二元性別值一律按女性向處理(對齊
@@ -2038,7 +2047,7 @@ ${PROMPT_REL}
         ? `你與『${partyMembers.join("、")}』是在這座城裡從陌生人相識、一路相處到現在的關係——【沒有】戰前的舊識或任何共同的過往，但這段日子累積的感情是真實的，請【依各自目前的好感與關係標籤】演出現在該有的熟悉與親近程度，不要退回「才剛認識」的生澀。`
         : `與『${partyMembers.join("、")}』共度的是這座和平城鎮的尋常相處時光。`
   }
-🕰️現在是${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}，僅供揣摩場景氛圍與時段感(如深夜靜謐、清晨慵懶、應景節氣)，不必刻意報時或提及具體數字。★【時間尺度·僅供你內部拿捏節奏】：玩家這一個動作大約只經過短短一段時間，narration 就寫此刻這個當下的片段、順著目前時段的光線氛圍即可；【絕對禁止】自行宣稱「過了好幾個鐘頭」「天色暗了」「到了傍晚/深夜」等憑空跳時段(真正的時間推進由系統時鐘負責)。同時【絕對不要】把「半小時」「三十分鐘」「過了一段時間」這類講時間長度的字眼寫進敘述——時間感靠光線、氣氛、動作的節奏自然流露，不用嘴巴報出來。
+🕰️現在是${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}，僅供揣摩場景氛圍與時段感(如深夜靜謐、清晨慵懶、應景節氣)，不必刻意報時或提及具體數字。★【時間尺度·僅供你內部拿捏節奏】：玩家這一個動作大約只經過短短一段時間，narration 就寫此刻這個當下的片段、順著目前時段的光線氛圍即可；【絕對禁止】自行宣稱「過了好幾個鐘頭」「天色暗了」「到了傍晚/深夜」等憑空跳時段(真正的時間推進由系統時鐘負責)。同時，除非系統本回合訊息【已明確宣告】時間推進(例如「過了N個小時」的換幕/跳時段)、此時你才據實承接那次跳轉，其餘一切情況一律【絕對不要】自行把「半小時」「三十分鐘」「過了一段時間」這類講時間長度的字眼寫進敘述——時間感靠光線、氣氛、動作的節奏自然流露，不用嘴巴報出來。
 ★世界觀＝和平的現代城鎮日常，這裡的每個人都只是這座城的普通居民：【絕對禁止】任何戰鬥、廝殺、敵人、血量／生命變化、死亡或威脅，世界是安全的。即使你認得某個名字在其他作品裡的背景，也【嚴禁】提及聖杯戰爭、從者、御主、令咒、寶具、英靈、召喚等概念——那些事在這個世界從未存在，只可沿用其性格、外貌與人際氣質。節奏與親密程度依劇情、好感與玩家/同伴當下意圖自然發展，可以是散步閒聊的尋常時光，也可以是更靠近、更熱烈的相處，不強制鎖在「悠閒」基調(尤其🔥主動掌握模式開啟或情慾已自然升溫時)，讓每個角色貼近其原有性格自然地與玩家相處互動。
 ★【親密尺度·依好感分五階——最高優先·此上限【凌駕】系統側的「色度跟隨鐵律」、「慾海律令」與「🔥主動掌握模式」，凡與之衝突時一律以此天花板為準】：每位在場同伴能接受的肢體親密程度【以她當前好感為天花板】，玩家再怎麼主動、再怎麼露骨，都【絕不得越過】她這一階的上限；未達門檻就是跨不過去，她依個性擋下(即使身體有反應，人格與態度也不崩、不變發情機器)——【這不算違反色度跟隨】：色度跟隨只在她這一階【容許的範圍內】生效，不得拿它當作突破天花板的理由。
 ・好感<20(點頭之交)：形同陌生人。玩家一有動手動腳，她【直接依個性拒絕或反擊、根本碰不到她】——不是「被摸了才推開」，是【連碰都碰不到】(閃身避開／擋手／拉開距離／冷聲喝止／直接還手皆可，依個性)。
@@ -2220,7 +2229,7 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
       // physical_state 只管顏面神情，這裡補上後端強制截斷防呆(15字)，不完全依賴AI自律守住上限。
       const sanitizePhysicalState = (rawState) => {
         if (typeof rawState !== 'string') return "";
-        const val = rawState.trim().slice(0, 20);
+        const val = rawState.trim().slice(0, 15);
         return (!val || ignoreWords.includes(val)) ? "" : val;
       };
 
