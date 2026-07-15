@@ -1668,18 +1668,18 @@ function actionPlay(userData, pcId, sheets) {
     ? `\n★【醋意暗流·非強制】：『${_jealousPool.map(r => String(r[COL.PC.NAME])).join('、')}』跟你的羈絆都不淺、此刻又同在一處——可讓她們之間自然流露一絲互相較勁或暗暗吃味的醋意火花(依各自性格，明爭暗鬥/故作大方/悄悄觀察皆可)，點到為止、不喧賓奪主。`
     : "";
 
-  // 📷 拍照(takePhoto)：先驗底片/容量/在場有人——通過才餵拍照提示＋要求AI多吐photo_caption；
+  // 📷 拍照(takePhoto)：先驗底片/容量——通過才餵拍照提示＋要求AI多吐photo_caption；
   //   實際落地(耗底片＋寫相簿)在AI成功回應後(見下方)，AI失敗不浪費底片。
+  //   拍攝對象：photoIntent(輸入框先打字再按快門·如「拍那隻橘貓」)有指定且沒點名同伴→風景/生活照
+  //   (AI自由入鏡街貓/狗兒/光影)；沒指定→有同伴拍同伴、沒同伴拍風景。風景照人物欄記「風景」，
+  //   相簿自動長出「風景」篩選分頁。
   let kanshouPhotoStr = "", kanshouPhotoPending_ = null, kanshouPhotoDenied_ = "";
   if (userData.takePhoto === true) {
     const _phUsed = kanshouFilmUsed_(pcData[pcIndex][COL.PC.MEMORY], curDay);
+    const _phIntent = String(userData.photoIntent || "").replace(/[<>&"'`｜【】]/g, "").slice(0, 60);
     let _phCount = 0;
     try { const _ar = kanshouAlbumSheet_().getDataRange().getValues(); for (let i = 1; i < _ar.length; i++) { if (String(_ar[i][0]) === myGameId) _phCount++; } } catch (e) { }
-    if (!partyMembers.length) {
-      kanshouPhotoDenied_ = 'nobody';
-      kanshouPhotoStr = `\n★【拍照落空】：玩家舉起相機，卻發現此刻身邊沒有想拍的人——演出這份對著空景發呆的小小悵然即可。`;
-      finalUserMsg = `【玩家意圖】：舉起相機，卻發現身邊沒有人。`;
-    } else if (_phUsed >= KANSHOU_FILM_PER_DAY_) {
+    if (_phUsed >= KANSHOU_FILM_PER_DAY_) {
       kanshouPhotoDenied_ = 'film';
       kanshouPhotoStr = `\n★【底片用盡】：玩家舉起相機才想起今天的底片已經用完了——演出這份「想拍卻拍不了」的小小扼腕即可(明天底片自然會補上，不必解釋機制)。`;
       finalUserMsg = `【玩家意圖】：舉起相機，才發現今天的底片用完了。`;
@@ -1688,9 +1688,17 @@ function actionPlay(userData, pcId, sheets) {
       kanshouPhotoStr = `\n★【相簿已滿】：玩家舉起相機，卻想起相簿已經放不下更多照片了——演出這份「回憶太滿」的感嘆即可。`;
       finalUserMsg = `【玩家意圖】：舉起相機，卻想起相簿已經滿了。`;
     } else {
-      kanshouPhotoPending_ = { names: partyMembers.slice(0, 3), used: _phUsed };
-      kanshouPhotoStr = `\n★【拍照】：玩家舉起相機，拍下『${kanshouPhotoPending_.names.join('、')}』此刻的身影——讓被拍的人依各自性格與好感演出被拍瞬間的反應(大方擺姿勢/害羞遮臉/嗔怪/渾然未覺皆可)。並【務必】在回應JSON中額外加一個欄位 "photo_caption"：以玩家第一人稱寫一句30~60字的照片小敘述(這張照片定格了什麼瞬間、她當下的動作神態，禁HTML與引號)。`;
-      finalUserMsg = `【玩家意圖】：舉起相機，拍下『${kanshouPhotoPending_.names.join('、')}』此刻的樣子。`;
+      const _phIntentNamesHit = _phIntent && partyMembers.some(n => _phIntent.indexOf(String(n)) >= 0);
+      const _phScenery = !partyMembers.length || (_phIntent && !_phIntentNamesHit);
+      if (_phScenery) {
+        kanshouPhotoPending_ = { names: ['風景'], used: _phUsed, scenery: true };
+        kanshouPhotoStr = `\n★【拍照·風景】：玩家舉起相機${_phIntent ? `，想拍的是「${_phIntent}」，` : "，"}拍下此刻「${String(curL || "")}」的一隅——鏡頭裡可以是街貓、狗兒、鳥雀、光影、不具名路人的背影等生活細節(依地點/時段/天氣自然想像${_phIntent ? "，以玩家想拍的東西為主角" : ""})；若有同伴在場，她們可以自然反應或亂入鏡頭邊角。並【務必】在回應JSON中額外加一個欄位 "photo_caption"：以玩家第一人稱寫一句30~60字的照片小敘述(這張拍到了什麼，禁HTML與引號)。`;
+        finalUserMsg = `【玩家意圖】：舉起相機，${_phIntent ? `拍下「${_phIntent}」` : "拍下眼前的光景"}。`;
+      } else {
+        kanshouPhotoPending_ = { names: partyMembers.slice(0, 3), used: _phUsed };
+        kanshouPhotoStr = `\n★【拍照】：玩家舉起相機${_phIntent ? `(想拍的是「${_phIntent}」)` : ""}，拍下『${kanshouPhotoPending_.names.join('、')}』此刻的身影——讓被拍的人依各自性格與好感演出被拍瞬間的反應(大方擺姿勢/害羞遮臉/嗔怪/渾然未覺皆可)。並【務必】在回應JSON中額外加一個欄位 "photo_caption"：以玩家第一人稱寫一句30~60字的照片小敘述(這張照片定格了什麼瞬間、她當下的動作神態，禁HTML與引號)。`;
+        finalUserMsg = `【玩家意圖】：舉起相機，拍下${_phIntent ? `「${_phIntent}」` : `『${kanshouPhotoPending_.names.join('、')}』此刻的樣子`}。`;
+      }
     }
   }
   // 📷 看照片(showPhoto=照片ID)：把「洗好的」照片拿給在場的人看——拍到自己→害羞/得意，
@@ -1908,8 +1916,8 @@ ${driveOn ? `🚨【敘事終極警告·主動掌握模式】：同伴主導推�
     if (kanshouPhotoPending_) {
       try {
         const _phCap = String(aiData.photo_caption || `${timeBand_(curHour)}的${String(curL || "")}，${kanshouPhotoPending_.names.join('、')}的身影。`).replace(/[<>&"'`｜【】]/g, "").slice(0, 90);
-        const _phSubj = pcData.find(r => String(r[COL.PC.NAME]).trim() === String(kanshouPhotoPending_.names[0]).trim() && String(r[COL.PC.FACTION]) === "從者" && sameGame(r));
-        const _phHair = kanshouHairHex_(_phSubj ? String(_phSubj[COL.PC.TRAIT] || "") : "");
+        const _phSubj = kanshouPhotoPending_.scenery ? null : pcData.find(r => String(r[COL.PC.NAME]).trim() === String(kanshouPhotoPending_.names[0]).trim() && String(r[COL.PC.FACTION]) === "從者" && sameGame(r));
+        const _phHair = kanshouPhotoPending_.scenery ? '#7a9a6a' : kanshouHairHex_(_phSubj ? String(_phSubj[COL.PC.TRAIT] || "") : ""); // 風景照緞帶固定草綠
         const _phFlag = (driveOn || userData.roomEventAccept) ? '親密' : (kanshouReFest_ ? kanshouReFest_.name : '');
         const _phId = 'PH_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
         kanshouAlbumSheet_().appendRow([myGameId, _phId, curDay, timeBand_(curHour), String(curL || ""), kanshouWeather_(curDay), kanshouPhotoPending_.names.join('、'), (KANSHOU_LOCATION_ACTIVITY_[curL] || ""), _phCap, _phFlag, _phHair]);

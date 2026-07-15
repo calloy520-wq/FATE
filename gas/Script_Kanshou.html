@@ -32,7 +32,7 @@
     document.getElementById(loadId)?.remove();
   }
 
-  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false, roomEventAccept = null, jumpBand = null, loaderCaptions = null, moveWithCompanion = false, promiseMeet = null, cohabitInvite = null, inviteResident = null, takePhoto = false, showPhoto = null) {
+  async function send(customMsg, isSilent = false, combatData = null, moveTarget = null, lookAround = false, endDay = false, advanceHours = 0, jumpFestival = null, knockAccept = null, skipKnockCheck = false, dismissCurfew = false, roomEventAccept = null, jumpBand = null, loaderCaptions = null, moveWithCompanion = false, promiseMeet = null, cohabitInvite = null, inviteResident = null, takePhoto = false, showPhoto = null, photoIntent = null) {
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
     // 🔥 主動掌握開關：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
@@ -71,7 +71,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -623,11 +623,14 @@ let plainTextContext = cleanText;
     showGamePane('chat');
     await send('（向「' + name + '」提出明天在「' + loc + '」見面的約定。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, { name: name, loc: loc });
   }
-  // 📷 拍照：拍下此刻在場的人(每天3張底片·隔天洗好)。她的反應由AI演，小敘述由同一次回應的
-  //   photo_caption 生成，前端只負責按下快門。
+  // 📷 拍照：拍下此刻(每天3張底片·隔天洗好)。輸入框先打字再按快門＝指定這張要拍什麼(如「拍那隻
+  //   橘貓」→風景/生活照；打同伴名字→拍她)；空著按＝有同伴拍同伴、沒同伴拍風景。
   async function kanshouTakePhoto() {
+    var inp = document.getElementById('u-in');
+    var intent = inp ? String(inp.value || '').trim() : '';
+    if (inp) inp.value = '';
     showGamePane('chat');
-    await send('（舉起相機，拍下此刻的光景。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, null, null, null, true);
+    await send(intent ? ('（舉起相機——這張想拍的是「' + intent + '」。）') : '（舉起相機，拍下此刻的光景。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, null, null, null, true, null, intent || null);
   }
   // 📷 拿照片給在場的人看(相簿卡片上的按鈕)：洗好的才有內容，沒洗好後端會演「明天才看得到」。
   async function kanshouShowPhoto(photoId) {
