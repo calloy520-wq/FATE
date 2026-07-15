@@ -298,9 +298,17 @@ let plainTextContext = cleanText;
 
   // 💞 共同回憶面板：看她跟你一路走來的回憶；★釘選=永不被新回憶擠掉(上限8)；🗑=刪掉不想留的。
   //   回憶本身由 AI 在劇情里程碑時自動記下(每人保留最近10條，釘選的不佔淘汰名額)。
-  function kanshouOpenMemoir(name) {
+  async function kanshouOpenMemoir(name) {
     var c = _kcCur.find(function (x) { return x.name === name; });
-    if (!c) return;
+    // 聊天側同伴卡也有💞回憶入口(Script.html)——沒先開過同伴面板時 _kcCur 是空的，這裡自己抓一次。
+    if (!c) {
+      try {
+        const res = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount });
+        if (res && res.success) _kcCur = res.current || [];
+      } catch (e) { }
+      c = _kcCur.find(function (x) { return x.name === name; });
+      if (!c) { alert('讀取回憶失敗，稍後再試。'); return; }
+    }
     var ov = document.getElementById('km-overlay');
     if (!ov) {
       ov = document.createElement('div');
@@ -678,17 +686,47 @@ let plainTextContext = cleanText;
   }
   // 🏷️ REL_TAG 從此只能由玩家在這裡手動改，AI只能在敘事裡表現認不認同(態度)、不再擅自覆寫。呼叫既有的 update_rel_tag(後端早就有，只是從未接過前端UI)。
   // 📅 相約：跟「此刻在場」的同伴約明天在某地見面(她明天會被行程釘在那裡等；赴約好感+、爽約好感−)。
-  //   地點清單複用KC_LOCATIONS_(排除玩家私室)，比照kanshouEditRelTag同款prompt()輕量對話框。
+  //   2026-07 玩家「打編號超怪」→ prompt() 編號改成分區地點按鈕面板(kanshouPickLocation_)，點一下即選定。
   async function kanshouPromiseMeet(name) {
     var pool = KC_LOCATIONS_.filter(function (l) { return !l.isRoom; }); // 相約排除玩家私室(我的房間·現掛home分頁但仍isRoom)
-    var listTxt = pool.map(function (l, i) { return (i + 1) + '. ' + l.name; }).join('\n');
-    var pick = prompt('和「' + name + '」約【明天】在哪裡見面？輸入編號(她明天會在那裡等你；赴約好感↑、放鴿子好感↓)：\n' + listTxt);
-    if (pick === null) return;
-    var pi = parseInt(String(pick).trim(), 10) - 1;
-    if (!(pi >= 0 && pi < pool.length)) { alert('請輸入清單中的編號。'); return; }
-    var loc = pool[pi].name;
-    showGamePane('chat');
-    await send('（向「' + name + '」提出明天在「' + loc + '」見面的約定。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, { name: name, loc: loc });
+    kanshouPickLocation_('📅 和「' + name + '」約明天在哪見面？', '她明天會在那裡等你；赴約好感↑、放鴿子好感↓', pool, async function (loc) {
+      showGamePane('chat');
+      await send('（向「' + name + '」提出明天在「' + loc + '」見面的約定。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, { name: name, loc: loc });
+    });
+  }
+  // 🗺️ 共用地點點選面板：分區標題＋地點按鈕，點了就回呼——之後任何「選個地點」的需求都用這支，別再用 prompt() 編號。
+  var _kpCb = null;
+  function kanshouPickLocation_(title, hint, pool, cb) {
+    _kpCb = cb;
+    var ov = document.getElementById('kp-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'kp-overlay';
+      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
+      ov.onclick = function (e) { if (e.target === ov) { ov.style.display = 'none'; _kpCb = null; } };
+      document.body.appendChild(ov);
+    }
+    var body = KC_REGIONS_.map(function (r) {
+      var locs = pool.filter(function (l) { return l.region === r.id; });
+      if (!locs.length) return '';
+      return '<div style="color:#8a7fa0;font-size:11.5px;margin:8px 0 4px;">' + escapeHtml(r.name) + '</div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:6px;">'
+        + locs.map(function (l) {
+          return '<button onclick="kanshouPickLoc_(\'' + String(l.name).replace(/'/g, '') + '\')" style="padding:6px 10px;background:rgba(90,140,180,0.18);color:#a8d0f0;border:1px solid #4a7a9a;border-radius:8px;cursor:pointer;font-size:12.5px;">📍 ' + escapeHtml(l.name) + '</button>';
+        }).join('') + '</div>';
+    }).join('');
+    ov.innerHTML = '<div style="width:min(440px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(168,208,240,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
+      + '<div style="display:flex;align-items:center;margin-bottom:4px;"><b style="flex:1;color:#a8d0f0;">' + escapeHtml(title) + '</b>'
+      + '<button onclick="document.getElementById(\'kp-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
+      + (hint ? '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:4px;">' + escapeHtml(hint) + '</div>' : '')
+      + body + '</div>';
+    ov.style.display = 'flex';
+  }
+  function kanshouPickLoc_(name) {
+    var ov = document.getElementById('kp-overlay');
+    if (ov) ov.style.display = 'none';
+    var cb = _kpCb; _kpCb = null;
+    if (cb) cb(name);
   }
   // 📷 拍照：拍下此刻(每天3張底片·隔天洗好)。按下直接彈框問想拍什麼——留空＝拍眼前(有同伴拍
   //   同伴、沒同伴拍風景)；打一句(如「那隻橘貓」「神社的夕陽」)＝指定主角拍風景/生活照。

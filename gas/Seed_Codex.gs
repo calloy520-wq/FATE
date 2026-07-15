@@ -257,8 +257,8 @@ var SEED_SERVANTS = [
     dailyBack:'在深山町一帶經營小小的工房兼做木工修繕，閒暇常幫鄰里修東修西'} },
   { id:'藤村大河-Master', cls:'御主', realName:'藤村大河', wars:['客串'], gender:'女',
     six:{}, classSkills:[], skills:[], traits:[], np:'',
-    align:'中立・善', persona:{firstP:'我',look:'栗色雙馬尾的活力少女身影・元氣直率，自封「大河大人」',words:'大姊頭般罩著大家的女王大人・其實怕寂寞想要人陪・厭惡被當小孩子看待',toMaster:'嘴上兇巴巴地念，其實把人當自己家人疼',speech:'中氣十足、動不動自稱「藤村家的大河大人」',moe:'嘴上兇巴巴罩著大家，其實廚藝差得嚇人還硬要下廚',tic:'得意地插腰大笑',back:'地方上的老師，也是這一帶地主家的大小姐',
-    dailyLook:'栗色雙馬尾的活力少女身影、氣質元氣直率、自稱「我」・說話中氣十足，自封「藤村家的大河大人」、私下一看到好吃的東西眼睛就發亮',
+    align:'中立・善', persona:{firstP:'我',look:'栗色雙馬尾的活力少女身影・元氣直率，自封「大河大人」',words:'大姊頭般罩著大家的女王大人・其實怕寂寞想要人陪・厭惡被當小孩子看待',toMaster:'嘴上兇巴巴地念，其實把人當自己家人疼',speech:'中氣十足、得意時自稱「藤村家的大河大人」',moe:'嘴上兇巴巴罩著大家，其實廚藝差得嚇人還硬要下廚',tic:'得意地插腰大笑',back:'地方上的老師，也是這一帶地主家的大小姐',
+    dailyLook:'栗色雙馬尾的活力少女身影、氣質元氣直率、自稱「我」・說話中氣十足，得意時會自封「藤村家的大河大人」、私下一看到好吃的東西眼睛就發亮',
     dailyOutfit:'休閒的成套運動服，或教師風格的簡便套裝',
     dailyWords:'大姊頭般罩著身邊的人、其實怕寂寞想要人陪、稱王稱霸的玩笑話、被說像小孩子鬧脾氣',dailyMoe:'嘴上兇巴巴罩著大家，其實廚藝差得嚇人還硬要下廚',
     dailyBack:'在地方上教書，也是這一帶地主家的大小姐，閒不下來愛管鄰里的事'} }
@@ -312,7 +312,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v63'; // 每次精緻化種子 persona(萌點/口吻/日常欄)就升一版，觸發
+var CODEX_PERSONA_VER = 'v64'; // 每次精緻化種子 persona(萌點/口吻/日常欄)就升一版，觸發
 //   upgradeCodexPersonas_ 整列覆寫既有英靈殿/御主殿(已召喚過的英靈才讀得到新內容)。
 //   逐版校對細節與查證來源見 SOLO_REFERENCE.md，不在此堆積歷史留言。
 
@@ -422,6 +422,36 @@ function resyncSummonedServants_(ss) {
     n++;
   }
   if (n) pc.getRange(1, 1, data.length, data[0].length).setValues(data);
+  // 🌸 鑑賞眾生(獨立分頁)補刷：上面 k_ 分支掃的是「眾生」，但鑑賞同伴其實住「鑑賞眾生」分頁，
+  //   原分支永遠掃不到(§125 死分支)。這裡對鑑賞列刷三樣會被寫進在場卡的種子衍生欄：
+  //   BACK(dailyBack)、TRAIT(最新 dailyLook 四段)、MEMORY 的【口吻】(最新 dailyLook 第3段)——
+  //   種子措辭修正(如大河「動不動自稱」→「得意時自稱」)已召喚的同伴才吃得到。工房/AI原創查無種子不動。
+  var kpc = ss.getSheetByName('鑑賞眾生');
+  if (kpc && kpc.getLastRow() > 1) {
+    var kdata = kpc.getDataRange().getValues();
+    var kn = 0;
+    for (var j = 1; j < kdata.length; j++) {
+      if (String(kdata[j][COL.PC.FACTION]) !== '從者') continue;
+      if (String(kdata[j][COL.PC.ID]).indexOf('DEAD_') === 0) continue;
+      var kk = key(kdata[j][COL.PC.NAME], kdata[j][COL.PC.RANK]);
+      if (!byKey[kk] && SEED_RECLASSED_[kk] && byKey[SEED_RECLASSED_[kk]]) kk = SEED_RECLASSED_[kk];
+      var ks = byKey[kk];
+      if (!ks || !ks.persona) continue;
+      if (ks.persona.dailyBack) kdata[j][COL.PC.BACK] = String(ks.persona.dailyBack).slice(0, 28);
+      var kparts = String(ks.persona.dailyLook || '').split('、').map(function (x) { return x.trim(); }).filter(Boolean);
+      if (kparts.length >= 4) {
+        kdata[j][COL.PC.TRAIT] = parseTraitsHelper(ks.persona.dailyLook, '外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面');
+        var kmem = String(kdata[j][COL.PC.MEMORY] || '');
+        var ksp = kparts[2].slice(0, 40);
+        kdata[j][COL.PC.MEMORY] = /【口吻】/.test(kmem)
+          ? kmem.replace(/【口吻】[^｜|【]*/, '【口吻】' + ksp)
+          : (kmem ? kmem + '｜' : '') + '【口吻】' + ksp;
+      }
+      kn++;
+    }
+    if (kn) kpc.getRange(1, 1, kdata.length, kdata[0].length).setValues(kdata);
+    n += kn;
+  }
   return n;
 }
 

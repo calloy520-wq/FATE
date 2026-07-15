@@ -3061,3 +3061,12 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 ⚠ **紅線註記**：本批依玩家明確選「B」授權刪改 nsfwBaseRules 重複段(kanshou-only，語義原封搬移至慾海律令 canonical)。Engine_Combat.gs 全程未動。
 
 **驗證**：`bash check.sh` 全過、Engine_Combat.gs diff 空、慾海律令新編號 0-6 與全部交叉引用一致、無「見下方/第7條」殘留。
+
+## §137 口癖轟炸修正＋回憶鈕補進聊天卡＋相約改點選面板（2026-07·玩家「AI每句都要說一次自封大河大人，整理種子庫?」＋「沒看到卡片的回憶按鈕」＋「約會打編號超怪」）
+
+- **口癖轟炸(雙層病根)**：①大河種子的 speech/dailyLook 寫著「**動不動**自稱藤村家的大河大人」——AI 字面服從頻率放大詞就真的每句來。掃全種子庫後確認只有大河有此類指令詞(其餘「總是」都在無害的私密面描述)。→ speech/dailyLook 第3段改「**得意時**自稱/會自封」。②系統性缺口：只有「萌點節制」沒有口吻版煞車→ nsfwBaseRules 第3條擴為「**風味節制**」：萌點/口吻語癖/自封名號/招牌小動作是底色、自然滲入偶爾點到，禁止每句重複同一語癖名號(管住所有角色含工房捏的)。
+- **(附帶真 bug·§125 死分支)**：`resyncSummonedServants_` 只掃「眾生」，但鑑賞同伴住獨立「鑑賞眾生」分頁——§125 加的 k_ 刷新分支**永遠掃不到人**。補一輪鑑賞列掃描：依種子刷 BACK(dailyBack)＋TRAIT(最新 dailyLook 四段)＋MEMORY【口吻】(最新第3段 regex 替換或補蓋)，工房/AI原創查無種子不動。`CODEX_PERSONA_VER` v63→v64 觸發。已召喚的大河下次登入就吃到新口吻。
+- **💞回憶鈕沒看到**：上次只加在「同伴面板」(👥overlay)，玩家找的是**聊天側同伴卡**(Script.html·📜詳細狀態那排)→ 補一顆「💞 回憶」在詳細狀態旁；`kanshouOpenMemoir` 改 async **自抓資料版**(_kcCur 空時自打一次 kanshou_companions)，不必先開過同伴面板。
+- **相約打編號超怪**：`kanshouPromiseMeet` 的 prompt() 編號清單 → 新共用 `kanshouPickLocation_` 點選面板(分區標題＋📍地點按鈕，點一下即選定，backdrop 可關)。之後任何「選地點」需求都用這支，別再 prompt() 編號。
+
+**驗證**：`bash check.sh` 全過、Engine_Combat.gs diff 空。
