@@ -785,7 +785,15 @@ const KANSHOU_LOCATION_ACTIVITY_ = {
   '咖啡廳': '正在這裡打工，忙著沖泡咖啡、招呼客人',
   '便利商店': '正在這裡打工值班，忙著上架與結帳',
   '商店街': '正在這裡逛街購物，挑揀著攤位上的東西',
-  '書店二樓': '正在這裡挑書、翻閱架上的書籍'
+  '書店二樓': '正在這裡挑書、翻閱架上的書籍',
+  '河邊小徑': '正沿著河堤散步或慢跑，吹著河風',
+  '古老神社': '正在參拜或幫忙打掃境內，神色安寧',
+  '社區公園': '正在公園裡消磨時光，看孩子嬉鬧或餵著鴿子',
+  '屋頂花園': '正倚著欄杆眺望城市風景，放空發呆',
+  '老道場': '正在道場裡晨練或擦拭木地板，一身汗水',
+  '山間小徑': '正在山道上健行，享受林蔭與鳥鳴',
+  '隱藏溫泉': '正泡在溫泉裡放鬆，神情舒暢',
+  '廢棄神社': '正獨自待在荒草間，靜靜出神'
 };
 // kanshouRollEncounter_的保底池：純女性名單(衛宮士郎-Master仍整個移出巧遇/召喚相關名單)。
 //   不含KANSHOU_SUMMON_BLOCKED_IDS_暫時移出的id。
@@ -1673,9 +1681,11 @@ function actionPlay(userData, pcId, sheets) {
       const pTierToneStr = (pRelTagStr === "點頭之交") ? "，彼此才剛認識不久，口吻應保持禮貌卻略帶生疏保留，不該表現得像已相識多年的熟人或表現得過分熱絡親密"
         : (pRelTagStr === "普通朋友") ? "，交情仍屬普通朋友，可自然閒聊但仍保留一定分寸與距離感，不宜過度親密"
         : "";
-      // 商業地點的「當下在做什麼」輕量引子(見上方KANSHOU_LOCATION_ACTIVITY_)，沒對照到的地點
-      //   不加這句，AI自然發揮即可。
-      const pActivityStr = KANSHOU_LOCATION_ACTIVITY_[curL] ? ` | 現況:${KANSHOU_LOCATION_ACTIVITY_[curL]}` : "";
+      // 地點的「當下在做什麼」輕量引子(見上方KANSHOU_LOCATION_ACTIVITY_)，沒對照到的地點
+      //   不加這句，AI自然發揮即可。⚠ 只給「原本就在這裡」的人——這回合剛跟玩家一起移動過來的
+      //   同伴(kanshouPreMoveCompanions_)不套，否則被你帶來咖啡廳的人會被誤標成「正在打工」。
+      const _pCameWithMe = kanshouPreMoveCompanions_.some(cr => String(cr[COL.PC.NAME]).trim() === String(pName).trim());
+      const pActivityStr = (!_pCameWithMe && KANSHOU_LOCATION_ACTIVITY_[curL]) ? ` | 現況:${KANSHOU_LOCATION_ACTIVITY_[curL]}` : "";
       // 明講方向的「TA是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍TA。
       partyDetailsArr.push(`【在場人物】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}(當前服裝·五官體態不變)` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(反差·僅供內化):${pMoeStr}` : ""}${pActivityStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr})`);
     }
