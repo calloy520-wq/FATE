@@ -880,7 +880,9 @@
         `;
     }
     else if (type === 'trait') {
-        const parts = currentVal.split('、');
+        // 🩹 舊資料若是句號分隔(AI誤把四格頓號寫成四句句號)，先正規化成頓號再切4格，
+        //   讓改命視窗預填的是角色真正內容、而非整串黏在第1格+預設殘料黏在後面。
+        const parts = currentVal.replace(/[。\.]+/g, '、').replace(/、+/g, '、').replace(/^、|、$/g, '').split('、');
         for(let i=0; i<4; i++) { if(!parts[i] || parts[i].trim() === "") parts[i] = "無"; }
         titleEl.innerText = "逆天改命 - 修改特徵";
         fieldsEl.innerHTML = `
@@ -894,7 +896,8 @@
             <input id="fate-f4" class="std-in" maxlength="20" value="${escapeHtml(parts[3])}">
         `;
     } else {
-        const parts = currentVal.split('、');
+        // 🩹 同上：句號分隔的舊資料先正規化成頓號再切4格(個性欄同款毛病)。
+        const parts = currentVal.replace(/[。\.]+/g, '、').replace(/、+/g, '、').replace(/^、|、$/g, '').split('、');
         for(let i=0; i<4; i++) { if(!parts[i] || parts[i].trim() === "") parts[i] = "無"; }
         titleEl.innerText = "逆天改命 - 修改個性";
         fieldsEl.innerHTML = `
