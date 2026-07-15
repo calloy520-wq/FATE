@@ -221,7 +221,7 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   // p.speech/p.tic 是戰時口吻/小動作，跟平行世界矛盾：口吻改用 dailyLook 第3段(自稱與口氣)的
   //   日常安全版；tic 沒有對應日常版，直接不帶。
   var dailySpeechPart = dailyLookParts.length >= 4 ? dailyLookParts[2] : "";
-  sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】從英靈殿被召喚而來的相遇，緣分才剛開始。", dailySpeechPart, ""), daily.outfit || "日常便服");
+  sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】在這座城裡剛結識的緣分，才剛開始。", dailySpeechPart, ""), daily.outfit || "日常便服");
   // PHYSICAL 留空，跟御主本人(actionEnterKanshou)一致，直到第一次 intimacy_feedback 才寫入；
   //   Router_Narrative.gs 的懶初始化會在 prompt 組裝時臨時補上，AI 不會拿到空物件。
   sRow[COL.PC.GAME_ID] = gameId;
