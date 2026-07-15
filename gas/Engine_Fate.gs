@@ -714,10 +714,13 @@ function resolveFateBattle_(atk, def, opts) {
   base = fxDmgApply_(base, winner, loser, 'divine_age', fired);
   base = fxDmgApply_(base, winner, loser, 'wind_strike', fired);
   base = fxDmgApply_(base, winner, loser, 'crafting', fired);
-  // 🥋 御主體術參戰（見 injectMasterMeleeSupport_ 注入來源）：目前僅玩家側從者吃得到(呼叫端比照
-  //   禮裝 injectMysticBuff_ 同一套 FACTION==="從者" 門檻注入)，敵御主體術暫僅供演出卡陳述、未接戰鬥。
+  // 🥋 御主體術參戰（見 injectMasterMeleeSupport_ 注入來源）：玩家/敵方兩側皆會注入——玩家側走
+  //   FACTION==="從者" 門檻(比照禮裝 injectMysticBuff_)，敵從者則由 Router_Battle.gs 用
+  //   enemyMasterMemoryFor_ 反查其硬連結敵御主的 MEMORY 後注入(守方/開場對轟/敵反擊三處呼叫點)，
+  //   雙方對稱、皆真實影響傷害結算(2026-07 補：發動時的 fired[] 標籤也已餵進 aiPrompt，見 §108)。
   base = fxDmgApply_(base, winner, loser, 'master_melee', fired);
-  // 🔮 御主魔術支援（見 injectMasterMagicSupport_ 注入來源，僅 Caster 出擊時存在此 fx）。
+  // 🔮 御主魔術支援（見 injectMasterMagicSupport_ 注入來源，僅 Caster 出擊時存在此 fx）：同上，玩家/
+  //   敵方兩側對稱注入，不限玩家側。
   base = fxDmgApply_(base, winner, loser, 'master_magic', fired);
   // 🗡️ 秘劍・燕返(tsubame)：三方位同斬 ×2.3【普攻限定·僅每場第1回合】——與寶具骰/超載/規模疊乘會爆炸
   //   故限普攻；限首回合避免每回合都吃到 ×2.3。寶具解放段已無疊乘，僅剩概念位階/貫穿＋演出標籤。

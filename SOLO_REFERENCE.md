@@ -1379,7 +1379,7 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 **設計取捨**：
 - **輕量演出對接**：體術/魔術是能力描述(非願望/個性/萌點字面)，不受 show-don't-tell 限制，可以直接陳述——比照這次session稍早「身世輕量對接」的做法，`masterCard_`(Router_Persona.gs，玩家自己)／`enemyMasterCard_`(敵御主)都補讀 `getMasterMelee_`/`getMasterMagic_`(新增於 Core_Settings.gs，緊鄰既有的登場日 get/set 慣例)。
 - **真實戰鬥支援傷害怎麼接進引擎**：沒有另開一套「御主戰鬥」子系統，而是完全複用禮裝(`injectMysticBuff_`)已經驗證過的注入模式——`injectMasterMeleeSupport_`(Engine_Fate.gs)把 `{n:'御主體術', r:melee, fx:'master_melee'}` 注入我方從者戰鬥單位的 `skills`，`SKILL_FX_.master_melee`(passive, `dmgAdd: 7*rankMul_(r)`)走既有的 `fxDmgApply_` 資料驅動管線自動套用、自動進 `fired[]` 供 AI 敘述——單一真實來源，未來要調體術強度只改這一個公式。量級刻意壓在 `wind_strike`/`crafting` 同一檔次(6~8×rank)，凡人體術終究打不過從者本體技能，不喧賓奪主。
-- **只接玩家側，敵御主體術暫不接戰鬥**：`injectMysticBuff_` 的既有 4 個呼叫點裡，只有 3 個真正用於傷害結算(`fateStrike_` 守方/開場對轟攻方/每回合出擊，皆守 `FACTION==="從者"` 門檻＝只buff玩家自己的從者)，第4個(`tgtC0`，avalon理想鄉檢查用)是即用即棄物件、從不進真正結算——`injectMasterMeleeSupport_` 完全比照這3個真正生效的呼叫點插入，第4個不動。敵御主雖然這次也補寫了 `【體術】` MEMORY(見下)，但敵方戰鬥流程沒有對應的注入呼叫點——這是刻意的範圍收斂：把敵方也接上戰鬥效果需要先解決「該從哪個從者反查回其配對敵御主的體術」的跨列查找(不像玩家側`pIdx`唾手可得)，這輪先把玩家能感受到「跟自己御主合作作戰」的核心體驗做完、做穩，敵方對稱留待下次視需要再做。
+- **敵御主體術/魔術已對稱接上戰鬥(2026-07 §108 訂正)**：`Router_Battle.gs` 的 `fateStrike_` 守方分支、開場對轟、敵反擊三處皆已用 `enemyMasterMemoryFor_` 反查敵御主 MEMORY 並注入 `injectMasterMeleeSupport_`/`injectMasterMagicSupport_`，敵御主體術/魔術跟玩家側一樣真實影響傷害結算，不是只供演出卡陳述。
 - **敵御主體術補寫**：`masterToNpcRow_`(Seed_Rivals.gs)過去只寫【願望】/【魔術】/【迴路】，這次補上【體術】(讀 `COL.MASTER.MELEE`)——即使這輪還沒接戰鬥，至少 `enemyMasterCard_` 的演出卡讀得到，兩側資料完整度先拉平。
 
 **改動**：
