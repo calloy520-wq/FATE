@@ -1088,6 +1088,24 @@ const KANSHOU_KNOCK_CHANCE_ = 0.2;  // 每次「結束一天」的敲門機率
 //   什麼)讀一次就清掉(一次性旗標)，餵進提示詞當【晨間餘韻】引子。刻意不斷言「一定發生了」，
 //   交給AI依上一回合實際演出內容判斷要不要接續。
 var KANSHOU_MORNING_AFTER_TAG_ = makeTextTag_('晨間餘韻');
+// 📅 初見日(存該同伴列MEMORY·absDay)：首次跟玩家同地當下蓋戳，之後相識滿7/30/100/365天且人
+//   在場時餵一行紀念日提示。0=尚未記錄(舊存檔首次相遇當天補戳，從那天起算)。
+var KANSHOU_FIRST_MET_DAY_TAG_ = makeIntTag_('初見日', 0);
+const KANSHOU_ANNIV_MILESTONES_ = [7, 30, 100, 365];
+// ☁️ 今日天氣(純敘事·不存表)：依月份查季節池、依日數確定性雜湊挑一項——同一天永遠同一個天氣、
+//   跨日自然換，零round-trip零寫入。
+const KANSHOU_WEATHER_BY_SEASON_ = {
+  winter: ['晴朗清冷', '陰天', '小雪紛飛', '大雪初霽', '寒風凜冽'],
+  spring: ['風和日麗', '花瓣隨風', '細雨綿綿', '多雲舒爽'],
+  summer: ['烈日當空', '晴朗悶熱', '午後雷陣雨', '蟬鳴燥熱'],
+  autumn: ['秋高氣爽', '涼風習習', '陰天微涼', '細雨薄霧']
+};
+function kanshouWeather_(absDay) {
+  const d = kanshouAbsDayToDate_(absDay);
+  const season = (d.month === 12 || d.month <= 2) ? 'winter' : d.month <= 5 ? 'spring' : d.month <= 8 ? 'summer' : 'autumn';
+  const pool = KANSHOU_WEATHER_BY_SEASON_[season];
+  return pool[((absDay * 1103515245 + 12345) >>> 16) % pool.length];
+}
 // Phase3 輕量小事件：抵達新地點時20%機率抽一顆短句靈感種子注入提示詞，純粹給AI參考的引子
 //   (非預寫劇本、非強制發生)。分三類：日常可愛/曖昧小互動恆定開放，色氣類僅driveOn開啟時抽到。
 const KANSHOU_EVENT_SEEDS_ = {
@@ -1465,6 +1483,22 @@ function actionPlay(userData, pcId, sheets) {
   const partyRows = pcData.filter(r => r !== pc && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim())
     .sort((a, b) => (parseInt(b[COL.PC.BOND]) || 0) - (parseInt(a[COL.PC.BOND]) || 0)).slice(0, KANSHOU_PARTY_DETAIL_CAP_);
   const partyMembers = partyRows.map(r => r[COL.PC.NAME]);
+  // 📅 初見日戳＋相識紀念日：同地即相識——沒戳過的在場同伴當下蓋【初見日】(冪等，之後只讀不改)；
+  //   已有戳的算相識天數，命中里程碑(7/30/100/365天)就收進紀念日提示(當天內重複對話會重複提及，
+  //   跟節慶氛圍同一種「全天有效的氛圍線」設計，AI自然不會每句都講)。
+  const kanshouAnnivLines_ = [];
+  partyRows.forEach(r => {
+    const _ri = pcData.indexOf(r);
+    if (_ri < 0) return;
+    const _met = KANSHOU_FIRST_MET_DAY_TAG_.get(r[COL.PC.MEMORY]);
+    if (!_met) {
+      pcData[_ri][COL.PC.MEMORY] = KANSHOU_FIRST_MET_DAY_TAG_.set(pcData[_ri][COL.PC.MEMORY], curDay);
+      dirtyPcRows.add(_ri);
+    } else if (KANSHOU_ANNIV_MILESTONES_.indexOf(curDay - _met) >= 0) {
+      kanshouAnnivLines_.push(`與『${String(r[COL.PC.NAME])}』相識恰好滿${curDay - _met}天`);
+    }
+  });
+  const kanshouAnnivStr = kanshouAnnivLines_.length ? `\n★【紀念日·非強制】：今天是${kanshouAnnivLines_.join('、')}的日子——若氣氛合適可自然帶出這份紀念的溫度(她記得、或你記得皆可)，不必強行慶祝或報幕。` : "";
   let partyDetailsArr = [];
   // ⚡ 提速：dailySpeechByName_ 對每位同伴呼叫都會重新解析英靈殿快取字串，這裡在迴圈外先抓一次
   //   共用傳入，省掉重複整表解析。
@@ -1588,7 +1622,8 @@ ${PROMPT_PARTY_SYSTEM}
 【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}(當前服裝·五官體態不變)` : ""} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}
 
 ${PROMPT_REL}
-★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前在場人物】(與玩家同地點的已建立英靈)；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【目前在場人物】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouRoomEventStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶氛圍】：今天是「${_f.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。`; if (jumpFest) return `\n★【節慶氛圍】：明天就是「${jumpFest.name}」，街頭已有節慶前夕的準備與期待感，narration可自然帶入，不必特別報幕。`; return ""; })()}${intimateNightNames.length ? `\n★【入夜氛圍·好感門檻已達】：『${intimateNightNames.join('、')}』與你的羈絆已深(好感≥80)，今晚可以自然發展到同床共枕，依其性格自然決定要不要跨出這一步、氛圍濃烈到什麼程度，不強制每次都寫到底；好感未達此門檻的同伴，一律維持各自安睡、不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度了親密的時光(依上一回合實際演出的內容為準，若上次並未真的跨出那一步就當作平常的早晨)，這是新的一天第一個場景，若情境合適可以自然帶出晨間的溫馨/曖昧餘韻(如一起吃早餐、彼此害羞或黏膩的互動)，不強制一定要提及、也不需要複述昨夜細節，一切依角色個性自然發展。` : ""}
+★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前在場人物】(與玩家同地點的已建立英靈)；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【目前在場人物】內的姓名，僅視為不在場的回憶，嚴禁無視此規則憑空召喚、穿越或讓其開口說話、出手！${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouRoomEventStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶氛圍】：今天是「${_f.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。`; if (jumpFest) return `\n★【節慶氛圍】：明天就是「${jumpFest.name}」，街頭已有節慶前夕的準備與期待感，narration可自然帶入，不必特別報幕。`; return ""; })()}
+★【今日天氣】：${kanshouWeather_(curDay)}——讓天氣自然滲入場景與人物(衣著/髮絲/街景/話題皆可)，不必每句都提、也不必報幕。${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜氛圍·好感門檻已達】：『${intimateNightNames.join('、')}』與你的羈絆已深(好感≥80)，今晚可以自然發展到同床共枕，依其性格自然決定要不要跨出這一步、氛圍濃烈到什麼程度，不強制每次都寫到底；好感未達此門檻的同伴，一律維持各自安睡、不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度了親密的時光(依上一回合實際演出的內容為準，若上次並未真的跨出那一步就當作平常的早晨)，這是新的一天第一個場景，若情境合適可以自然帶出晨間的溫馨/曖昧餘韻(如一起吃早餐、彼此害羞或黏膩的互動)，不強制一定要提及、也不需要複述昨夜細節，一切依角色個性自然發展。` : ""}
 💕【鑑賞·後日談模式·最高優先級覆寫】：${partyRows.length === 0
     ? `這裡是平行世界的和平都市日常——聖杯戰爭這回事從未在這個世界發生過，眼下沒有同行的英靈在場，就是御主一人的尋常時光。`
     : partyRows.every(r => String(r[COL.PC.ID]).indexOf("KHV_") === 0)
