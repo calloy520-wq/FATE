@@ -2990,3 +2990,17 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **判定【不改】**：Script_Kanshou.html:94 `data.text.split('[')[0]`(solo 繼承的狀態列剝除)——鑑賞敘事用「」（）不用中括號、風險極低，且動它恐影響 solo 對稱行為，故留。schema↔parser 全對得上(每個宣告欄位都有讀、每個讀的欄位都有宣告；`inner_monologue` 是刻意的 CoT 草稿不入歷史)、慾海律令 5/6/7 條與各交叉引用皆解析正確、KANSHOU 常數(80/60/40/20 梯度、chat ceiling、VISIT 40/KNOCK 60/COHABIT 90)全一致——agent 覆核為 clean。
 
 **驗證**：`bash check.sh`全過、`Engine_Combat.gs` diff 空、`kanshouSyncRelTier_` 確在 Gallery.gs 定義。
+
+## §133 對話格式重寫「聲音即台詞」＋consolidate 成全遊戲單一真實來源（2026-07·玩家「對話格式不是我想要的、好難規定→聲音也變成台詞那種感覺；改 solo＋鑑賞共用」）
+
+玩家不滿舊劇本體 `（動作）名字：「台詞（聲音）」`——每句名字開頭、每個動作/聲音強制塞（），像聊天室 RP 不像小說。逐步釐清後定案「**聲音即台詞**」的自然散文格式，分界=**「這聲是不是她的『嘴／喉』發出的」**：
+- **進「」(當台詞)**：話語＋一切她口/喉發出的聲——喘息/輕吟/悶哼/笑，**＋嘴部動作的聲音(吸吮/舔啜/咀嚼/吞嚥的啾/啧)**。擬聲直接寫進單層「」當「親耳聽見的她」，不再用（輕哼）（嬌喘）括號描述、不改第三人稱。
+  - ⚠ 邊界案例(玩家實測追問)：吃冰棒的「啾」進「」(她嘴發出)；但**撞擊聲/交合處水聲不進**(那是身體撞出來的、不是她嘴)——玩家一度質疑「但也是嘴發出的」，最終定線在「**她的嘴 vs 身體/環境**」，嘴部聲(含吸吮)一律進「」、身體/環境聲走敘事。
+- **走敘事**：①看得見但不出聲的動作/身體反應(蹙眉/掐被褥/腰肢繃緊)；②**不是她嘴發出的**聲響(肉體相撞啪啪/兵刃鏗鏘/交合處水聲/環境聲)用擬聲寫進行文。兩者不套括號、不必每句名字開頭。
+- 濃淡(日常↔激烈/情慾)不由格式管、由各軌既有規則(色度跟隨/親密尺度天花板/戰況)決定——**格式只管「怎麼寫」、不管「寫多濃」**，這正是玩家要的「日常很日常、色色很色色的共用模式」。
+
+**工程**：舊有兩份格式文字(Gallery.gs `dialogueFormatRule_` 巢狀於 buildDefaultSystemPrompt、Router_Narrative.gs miniSystem 第2條)靠手動同步、正是 CLAUDE.md 警告的「改一半又不一致」。這次 consolidate 成**頂層單一函式 `dialogueFormatRule_()`**(Gallery.gs·移出巢狀)，鑑賞 nsfwBaseRules 第3條與 solo miniSystem 第2條都 `${dialogueFormatRule_()}` 共用同一支(GAS 全域可跨 .gs 呼叫)。以後改格式只動一處。solo＋鑑賞真正統一。
+
+⚠ **紅線註記**：本次依玩家明確授權「改 solo＋鑑賞共用」重寫對話格式，`dialogueFormatRule_()` 經 nsfwBaseRules 第3條 interpolate、屬鑑賞側改動(kanshou-only)＋solo miniSystem，範圍如玩家指定。`Engine_Combat.gs` 全程未動。
+
+**驗證**：`bash check.sh`全過、`Engine_Combat.gs` diff 空、`grep dialogueFormatRule_` = 1 定義＋2 呼叫端(Gallery nsfwBaseRules／Router_Narrative miniSystem)。
