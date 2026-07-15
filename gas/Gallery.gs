@@ -1865,6 +1865,51 @@ function actionPlay(userData, pcId, sheets) {
     return nickStr + attStr;
   }
 
+  // 📅 赴約/爽約結算 2.0(時間×地點驅動)：【必須在 partyRows 之前】——命中赴約會把她 pin 到 curL 讓她
+  //   登場，這一步要先於在場名單計算，AI 才拿得到「她來了」的在場卡(否則純聊天/拍照這種不重骰位置的路徑，
+  //   partyRows 會在她被拉來之前就定案、AI 完全不知道她到了)。準時窗[時刻-10,時刻+30]赴約+5(早到→「都早到」
+  //   味道)／窗後~當天結束遲到+3／太早(她還沒到)回 kanshouPromiseWait_ 給前端「等到約定前10分」框／日期已過
+  //   爽約-5。舊格式無時段(ah=null)沿用「當天到場即赴約」。同回合剛成立的約(day=明天)不會自我觸發。
+  let kanshouPromiseMetStr = "";
+  let kanshouPromiseWait_ = null; // {name,loc,apptLabel,targetHour}：太早到→前端等待框
+  pcData.forEach((r, i) => {
+    if (i === pcIndex || String(r[COL.PC.FACTION]) !== "從者" || !sameGame(r) || String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+    const _pr = kanshouGetPromise_(r[COL.PC.MEMORY]);
+    if (!_pr) return;
+    const _her = String(r[COL.PC.NAME]);
+    const _atApptLoc = String(curL || "").trim() === String(_pr.loc).trim();
+    const _ah = kanshouApptHour_(_pr.band);
+    const _settle = (delta, note) => { // delta 好感、note 敘事
+      pcData[i][COL.PC.LOC] = curL; // 命中→她登場(確保在場，即使作息還沒把她骰過來)
+      pcData[i][COL.PC.MEMORY] = kanshouClearPromise_(pcData[i][COL.PC.MEMORY]);
+      pcData[i][COL.PC.BOND] = Math.max(0, Math.min(100, (parseInt(r[COL.PC.BOND]) || 0) + delta));
+      kanshouSyncRelTier_(pcData, i); // 跨/跌梯度同步REL_TAG
+      dirtyPcRows.add(i);
+      kanshouPromiseMetStr += note;
+    };
+    if (_pr.day === curDay) {
+      if (!_atApptLoc) return; // 今天但不在約定地點→還沒到、也還沒過，等你去，不結算
+      if (_ah === null) { // 舊格式無時段：當天到場即赴約
+        _settle(5, `\n★【依約相會】：今天正是你與『${_her}』約好在「${_pr.loc}」見面的日子，你們此刻真的相會了——演出「約定被守住」的欣喜(好感已上調，勿另計)。`);
+      } else if (curHour < _ah - 1 / 6 - 1e-6) { // 太早：她還沒到→回等待框(−1e-6 epsilon：跳到13:50後浮點誤差不會又被判太早卡死)
+        if (!kanshouPromiseWait_) kanshouPromiseWait_ = { name: _her, loc: _pr.loc, apptLabel: kanshouFmtHM_(_ah), targetHour: _ah - 1 / 6 };
+      } else if (curHour <= _ah + 0.5) { // 準時窗[時刻-10,時刻+30]
+        const _early = curHour < _ah;
+        _settle(5, _early
+          ? `\n★【依約相會·都早到了】：你與『${_her}』約在${kanshouFmtHM_(_ah)}於「${_pr.loc}」見面，而你倆此刻(${kanshouFmtHM_(curHour)})都提早到了——演出兩人都早到、剛好碰上的甜蜜當下與那份心照不宣的默契(好感已上調，勿另計)。`
+          : `\n★【依約相會】：約定的${kanshouFmtHM_(_ah)}，你準時到「${_pr.loc}」與『${_her}』相會——演出約定被守住的欣喜(好感已上調，勿另計)。`);
+      } else { // 遲到(當天、過了準時窗)
+        _settle(3, `\n★【遲到赴約】：你與『${_her}』約在${kanshouFmtHM_(_ah)}，卻拖到${kanshouFmtHM_(curHour)}才到「${_pr.loc}」——她等了你好一會，依個性流露嗔怪/委屈/嘴硬說沒關係(好感仍上調但你遲到了，勿另計)。`);
+      }
+    } else if (_pr.day < curDay) { // 過了約定日還沒赴約=爽約
+      pcData[i][COL.PC.MEMORY] = kanshouClearPromise_(pcData[i][COL.PC.MEMORY]);
+      pcData[i][COL.PC.BOND] = Math.max(0, (parseInt(r[COL.PC.BOND]) || 0) - 5);
+      kanshouSyncRelTier_(pcData, i);
+      dirtyPcRows.add(i);
+      if (String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) kanshouPromiseMetStr += `\n★【爽約之後】：你先前與『${_her}』約好在「${_pr.loc}」見面卻沒赴約——讓她依性格流露被放鴿子的在意(慍怒/落寞/嘴硬說沒關係，好感已下調，勿另計)。`;
+    }
+  });
+
   // 「開放世界·背景人煙」設計：路人可自由描寫增添生活感，但不具名、不追蹤好感、不能被指名互動；
   //   真正能被指名、好感會被記錄的對象只有【在場人物】，判準是「LOC是否跟玩家目前位置一致」，
   //   不看IS_PARTY。
@@ -1955,50 +2000,8 @@ function actionPlay(userData, pcId, sheets) {
       }
     } catch (e) { }
   }
-  // 📅 赴約/爽約結算 2.0(時間×地點驅動)：約定日、玩家在約定地點時，比對到場時刻——
-  //   準時窗[時刻-10分,時刻+30分]赴約+5(早到→「都早到」味道)／窗後~當天結束遲到+3／太早(她還沒到)
-  //   回 kanshouPromiseWait_ 給前端「等到約定前10分」框／日期已過爽約-5。碰面由「玩家在約定地點×時間」
-  //   決定，她此刻pin在哪不影響——命中就把她pin到此地確保登場(她可能還沒被作息骰過來)。舊格式無時段
-  //   (ah=null)沿用「當天到場即赴約」。同回合剛成立的約(day=明天)不會自我觸發。
-  let kanshouPromiseMetStr = "";
-  let kanshouPromiseWait_ = null; // {name,loc,apptLabel,targetHour}：太早到→前端等待框
-  pcData.forEach((r, i) => {
-    if (i === pcIndex || String(r[COL.PC.FACTION]) !== "從者" || !sameGame(r) || String(r[COL.PC.ID]).startsWith("DEAD_")) return;
-    const _pr = kanshouGetPromise_(r[COL.PC.MEMORY]);
-    if (!_pr) return;
-    const _her = String(r[COL.PC.NAME]);
-    const _atApptLoc = String(curL || "").trim() === String(_pr.loc).trim();
-    const _ah = kanshouApptHour_(_pr.band);
-    const _settle = (delta, note) => { // delta 好感、note 敘事
-      pcData[i][COL.PC.LOC] = curL; // 命中→她登場(確保在場，即使作息還沒把她骰過來)
-      pcData[i][COL.PC.MEMORY] = kanshouClearPromise_(pcData[i][COL.PC.MEMORY]);
-      pcData[i][COL.PC.BOND] = Math.max(0, Math.min(100, (parseInt(r[COL.PC.BOND]) || 0) + delta));
-      kanshouSyncRelTier_(pcData, i); // 跨/跌梯度同步REL_TAG
-      dirtyPcRows.add(i);
-      kanshouPromiseMetStr += note;
-    };
-    if (_pr.day === curDay) {
-      if (!_atApptLoc) return; // 今天但不在約定地點→還沒到、也還沒過，等你去，不結算
-      if (_ah === null) { // 舊格式無時段：當天到場即赴約
-        _settle(5, `\n★【依約相會】：今天正是你與『${_her}』約好在「${_pr.loc}」見面的日子，你們此刻真的相會了——演出「約定被守住」的欣喜(好感已上調，勿另計)。`);
-      } else if (curHour < _ah - 1 / 6 - 1e-6) { // 太早：她還沒到→回等待框(−1e-6 epsilon：跳到13:50後浮點誤差不會又被判太早卡死)
-        if (!kanshouPromiseWait_) kanshouPromiseWait_ = { name: _her, loc: _pr.loc, apptLabel: kanshouFmtHM_(_ah), targetHour: _ah - 1 / 6 };
-      } else if (curHour <= _ah + 0.5) { // 準時窗[時刻-10,時刻+30]
-        const _early = curHour < _ah;
-        _settle(5, _early
-          ? `\n★【依約相會·都早到了】：你與『${_her}』約在${kanshouFmtHM_(_ah)}於「${_pr.loc}」見面，而你倆此刻(${kanshouFmtHM_(curHour)})都提早到了——演出兩人都早到、剛好碰上的甜蜜當下與那份心照不宣的默契(好感已上調，勿另計)。`
-          : `\n★【依約相會】：約定的${kanshouFmtHM_(_ah)}，你準時到「${_pr.loc}」與『${_her}』相會——演出約定被守住的欣喜(好感已上調，勿另計)。`);
-      } else { // 遲到(當天、過了準時窗)
-        _settle(3, `\n★【遲到赴約】：你與『${_her}』約在${kanshouFmtHM_(_ah)}，卻拖到${kanshouFmtHM_(curHour)}才到「${_pr.loc}」——她等了你好一會，依個性流露嗔怪/委屈/嘴硬說沒關係(好感仍上調但你遲到了，勿另計)。`);
-      }
-    } else if (_pr.day < curDay) { // 過了約定日還沒赴約=爽約
-      pcData[i][COL.PC.MEMORY] = kanshouClearPromise_(pcData[i][COL.PC.MEMORY]);
-      pcData[i][COL.PC.BOND] = Math.max(0, (parseInt(r[COL.PC.BOND]) || 0) - 5);
-      kanshouSyncRelTier_(pcData, i);
-      dirtyPcRows.add(i);
-      if (String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) kanshouPromiseMetStr += `\n★【爽約之後】：你先前與『${_her}』約好在「${_pr.loc}」見面卻沒赴約——讓她依性格流露被放鴿子的在意(慍怒/落寞/嘴硬說沒關係，好感已下調，勿另計)。`;
-    }
-  });
+  // 📅 赴約/爽約結算已上移到 partyRows 之前(見上方)——她登場(pin到curL)必須先於在場名單計算，
+  //   否則「純聊天/拍照」路徑(不重骰位置)會讓 AI 拿到沒有她的在場卡。此處不再重複。
   let partyDetailsArr = [];
   // ⚡ 提速：dailySpeechByName_ 對每位同伴呼叫都會重新解析英靈殿快取字串，這裡在迴圈外先抓一次
   //   共用傳入，省掉重複整表解析。
