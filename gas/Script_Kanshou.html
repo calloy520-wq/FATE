@@ -728,12 +728,41 @@ let plainTextContext = cleanText;
     var cb = _kpCb; _kpCb = null;
     if (cb) cb(name);
   }
-  // 📷 拍照：拍下此刻(每天3張底片·隔天洗好)。按下直接彈框問想拍什麼——留空＝拍眼前(有同伴拍
-  //   同伴、沒同伴拍風景)；打一句(如「那隻橘貓」「神社的夕陽」)＝指定主角拍風景/生活照。
+  // 📷 拍照：拍下此刻(每天3張底片·隔天洗好)。2026-07 玩家要求比照相約改選單——prompt() 改成面板：
+  //   在場同伴一人一顆「拍她」、≥2人多一顆合照、風景一顆，另保留自由輸入(拍橘貓/夕陽等創意主題)。
+  //   intent 語義沿用後端既有判定：點名同伴→拍那位；''＝預設(有同伴合照前3、沒同伴風景)；
+  //   沒點名到任何人的文字→以該主題拍風景/生活照。
   async function kanshouTakePhoto() {
-    var intent = prompt('📷 想拍什麼？\n(留空＝拍眼前的人或景；也可指定，例如「那隻橘貓」「窗邊的夕陽」)', '');
-    if (intent === null) return; // 取消
-    intent = String(intent).trim();
+    var present = (localNPCs || []).filter(function (p) { return p.isExact; }).map(function (p) { return String(p.name); });
+    var ov = document.getElementById('kf-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'kf-overlay';
+      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
+      ov.onclick = function (e) { if (e.target === ov) ov.style.display = 'none'; };
+      document.body.appendChild(ov);
+    }
+    var b = function (label, intentVal) {
+      return '<button onclick="kanshouShoot_(\'' + String(intentVal).replace(/'/g, '') + '\')" style="padding:6px 10px;background:rgba(200,120,150,0.16);color:#e8b0c8;border:1px solid #a06080;border-radius:8px;cursor:pointer;font-size:12.5px;">' + label + '</button>';
+    };
+    var rows = '<div style="display:flex;flex-wrap:wrap;gap:6px;">'
+      + present.map(function (n) { return b('📷 拍「' + escapeHtml(n) + '」', n); }).join('')
+      + (present.length >= 2 ? b('👥 大家的合照', '') : '')
+      + b('🏞️ 眼前的風景', present.length ? '眼前的風景' : '')
+      + '</div>'
+      + '<div style="display:flex;gap:6px;margin-top:10px;">'
+      + '<input id="kf-input" placeholder="或指定想拍的：那隻橘貓、窗邊的夕陽…" style="flex:1;padding:6px 8px;background:#141019;color:#e8d8e0;border:1px solid rgba(232,184,204,.25);border-radius:8px;font-size:12.5px;">'
+      + '<button onclick="kanshouShoot_(document.getElementById(\'kf-input\').value)" style="padding:6px 12px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:8px;cursor:pointer;font-size:12.5px;">📷 拍</button></div>';
+    ov.innerHTML = '<div style="width:min(420px,92vw);background:#1d1722;border:1px solid rgba(232,184,204,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
+      + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#e8b8cc;">📷 想拍什麼？</b>'
+      + '<button onclick="document.getElementById(\'kf-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
+      + rows + '</div>';
+    ov.style.display = 'flex';
+  }
+  async function kanshouShoot_(intent) {
+    var ov = document.getElementById('kf-overlay');
+    if (ov) ov.style.display = 'none';
+    intent = String(intent || '').trim();
     showGamePane('chat');
     await send(intent ? ('（舉起相機——這張想拍的是「' + intent + '」。）') : '（舉起相機，拍下此刻的光景。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, null, null, null, true, null, intent || null);
   }

@@ -3069,4 +3069,6 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **💞回憶鈕沒看到**：上次只加在「同伴面板」(👥overlay)，玩家找的是**聊天側同伴卡**(Script.html·📜詳細狀態那排)→ 補一顆「💞 回憶」在詳細狀態旁；`kanshouOpenMemoir` 改 async **自抓資料版**(_kcCur 空時自打一次 kanshou_companions)，不必先開過同伴面板。
 - **相約打編號超怪**：`kanshouPromiseMeet` 的 prompt() 編號清單 → 新共用 `kanshouPickLocation_` 點選面板(分區標題＋📍地點按鈕，點一下即選定，backdrop 可關)。之後任何「選地點」需求都用這支，別再 prompt() 編號。
 
+- **拍照也改選單(同輪追加)**：`kanshouTakePhoto` 的 prompt() → `kf-overlay` 面板：在場同伴(localNPCs.isExact)一人一顆「📷拍她」、≥2人多一顆「👥大家的合照」(intent=''走後端預設合照前3)、「🏞️眼前的風景」(有同伴在場時 intent='眼前的風景' 避開合照預設)、保留自由輸入框(橘貓/夕陽等創意主題)。intent 語義完全沿用後端既有判定、零後端改動。
+
 **驗證**：`bash check.sh` 全過、Engine_Combat.gs diff 空。
