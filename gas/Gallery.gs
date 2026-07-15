@@ -1688,16 +1688,20 @@ function actionPlay(userData, pcId, sheets) {
       kanshouPhotoStr = `\n★【相簿已滿】：玩家舉起相機，卻想起相簿已經放不下更多照片了——演出這份「回憶太滿」的感嘆即可。`;
       finalUserMsg = `【玩家意圖】：舉起相機，卻想起相簿已經滿了。`;
     } else {
-      const _phIntentNamesHit = _phIntent && partyMembers.some(n => _phIntent.indexOf(String(n)) >= 0);
-      const _phScenery = !partyMembers.length || (_phIntent && !_phIntentNamesHit);
+      // 指定拍誰：intent點名了哪些在場同伴(可多位)——只拍被點名的那些人；沒點名到任何人才算風景。
+      const _phNamedMembers = _phIntent ? partyMembers.filter(n => _phIntent.indexOf(String(n)) >= 0) : [];
+      const _phScenery = !partyMembers.length || (_phIntent && !_phNamedMembers.length);
       if (_phScenery) {
         kanshouPhotoPending_ = { names: ['風景'], used: _phUsed, scenery: true };
         kanshouPhotoStr = `\n★【拍照·風景】：玩家舉起相機${_phIntent ? `，想拍的是「${_phIntent}」，` : "，"}拍下此刻「${String(curL || "")}」的一隅——鏡頭裡可以是街貓、狗兒、鳥雀、光影、不具名路人的背影等生活細節(依地點/時段/天氣自然想像${_phIntent ? "，以玩家想拍的東西為主角" : ""})；若有同伴在場，她們可以自然反應或亂入鏡頭邊角。並【務必】在回應JSON中額外加一個欄位 "photo_caption"：以玩家第一人稱寫一句30~60字的照片小敘述(這張拍到了什麼，禁HTML與引號)。`;
         finalUserMsg = `【玩家意圖】：舉起相機，${_phIntent ? `拍下「${_phIntent}」` : "拍下眼前的光景"}。`;
       } else {
-        kanshouPhotoPending_ = { names: partyMembers.slice(0, 3), used: _phUsed };
-        kanshouPhotoStr = `\n★【拍照】：玩家舉起相機${_phIntent ? `(想拍的是「${_phIntent}」)` : ""}，拍下『${kanshouPhotoPending_.names.join('、')}』此刻的身影——讓被拍的人依各自性格與好感演出被拍瞬間的反應(大方擺姿勢/害羞遮臉/嗔怪/渾然未覺皆可)。並【務必】在回應JSON中額外加一個欄位 "photo_caption"：以玩家第一人稱寫一句30~60字的照片小敘述(這張照片定格了什麼瞬間、她當下的動作神態，禁HTML與引號)。`;
-        finalUserMsg = `【玩家意圖】：舉起相機，拍下${_phIntent ? `「${_phIntent}」` : `『${kanshouPhotoPending_.names.join('、')}』此刻的樣子`}。`;
+        // 點名了誰就只拍那(幾)位；沒點名(空手按)＝在場好感最高的前3位一起入鏡合照。
+        const _phTargets = _phNamedMembers.length ? _phNamedMembers.slice(0, 3) : partyMembers.slice(0, 3);
+        const _phSolo = _phTargets.length === 1;
+        kanshouPhotoPending_ = { names: _phTargets, used: _phUsed };
+        kanshouPhotoStr = `\n★【拍照】：玩家舉起相機，${_phSolo ? `單獨` : ``}拍下『${_phTargets.join('、')}』此刻的身影${_phTargets.length > 1 ? `(這是一張把她們一起框進來的合照)` : ``}——讓被拍的人依各自性格與好感演出被拍瞬間的反應(大方擺姿勢/害羞遮臉/嗔怪/渾然未覺皆可)${partyMembers.length > _phTargets.length ? `；在場其他沒被拍到的人可以自然旁觀或起鬨` : ``}。並【務必】在回應JSON中額外加一個欄位 "photo_caption"：以玩家第一人稱寫一句30~60字的照片小敘述(這張照片定格了什麼瞬間、她們當下的動作神態，禁HTML與引號)。`;
+        finalUserMsg = `【玩家意圖】：舉起相機，拍下『${_phTargets.join('、')}』此刻的樣子。`;
       }
     }
   }
