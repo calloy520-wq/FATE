@@ -815,7 +815,7 @@
   }
   // 🌱 鑑賞：把「處事個性/命格特徵」四格拆成帶標籤小行，空格顯示待補/—；
   //    處事個性看自己卡片時鎖住的格帶 🔒。原始值存 dataset.raw 供改命視窗讀回。
-  function renderSegField_(id, raw, labels, lockKeys, activeLocks, isSelf) {
+  function renderSegField_(id, raw, labels, lockKeys, activeLocks, isSelf, emptyLabel) {
     var el = document.getElementById(id);
     if (!el) return;
     el.dataset.raw = (raw == null ? '' : String(raw));
@@ -826,7 +826,7 @@
       var locked = !!(lockKeys && activeLocks && activeLocks.indexOf(lockKeys[i]) !== -1);
       var valHtml = v
         ? '<span style="color:#332211;font-weight:bold;">' + escapeHtml(v) + '</span>'
-        : '<span style="color:#c3b898;font-weight:normal;">' + (isSelf ? '（AI 待補）' : '—') + '</span>';
+        : '<span style="color:#c3b898;font-weight:normal;">' + (isSelf ? (emptyLabel || '（AI 待補）') : '—') + '</span>';
       html += '<div style="display:flex;gap:8px;align-items:center;font-size:13px;line-height:1.5;">'
         + '<span style="color:#9a8f70;font-weight:normal;flex:0 0 3.4em;">' + labels[i] + '</span>'
         + '<span style="flex:1;">' + valHtml + '</span>'
@@ -858,10 +858,10 @@
     var _isKan = (pc && pc.mode === 'kanshou');
     var _selfCard = (currentStatusTargetId === (pc ? pc.id : ''));
     if (_isKan) {
-      renderSegField_('ui-trait', s[2], ['外貌', '氣質', '自稱', '私密'], null, null, _selfCard);
+      renderSegField_('ui-trait', s[2], ['外貌', '氣質', '自稱', '私密'], null, null, _selfCard, '（待你改命填寫）');
       var _prefLockKeys = ['對外性格', '獨處性格', '喜歡', '討厭'];
       var _prefActive = (_selfCard && Array.isArray(window._kcPrefLocks)) ? window._kcPrefLocks : [];
-      renderSegField_('ui-pref', s[4], ['對外', '獨處', '喜歡', '討厭'], _prefLockKeys, _prefActive, _selfCard);
+      renderSegField_('ui-pref', s[4], ['對外', '獨處', '喜歡', '討厭'], _prefLockKeys, _prefActive, _selfCard, '（AI 待補）');
     } else {
       setUI('ui-trait', s[2]);
       setUI('ui-pref', s[4]);
