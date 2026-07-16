@@ -2406,7 +2406,9 @@ ${PROMPT_REL}
     if (_pendingProposal) {
       const _paTxt = String(aiData.proposal_accept || "");
       const _accepted = /接受|答應|同意|願意/.test(_paTxt) && !/拒|不接受|不肯|不願|沒(有)?接受|未接受/.test(_paTxt);
-      const _ppHer = String(pcData[_pendingProposal.idx][COL.PC.NAME] || "");
+      // 🐛→✅ 牽手(hold)的 idx 是【玩家自己列】(標記存玩家MEMORY)，拿 idx 的名字會變成玩家自己
+      //   (「風音沒有讓你牽手」)——她的名字存在 _pendingProposal.name，優先用它。
+      const _ppHer = String(_pendingProposal.name || pcData[_pendingProposal.idx][COL.PC.NAME] || "");
       if (_accepted) {
         if (_pendingProposal.type === 'promise') {
           pcData[_pendingProposal.idx][COL.PC.MEMORY] = kanshouSetPromise_(pcData[_pendingProposal.idx][COL.PC.MEMORY], curDay + 1, _pendingProposal.loc, _pendingProposal.band);
