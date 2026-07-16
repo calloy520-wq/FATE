@@ -407,13 +407,18 @@ function actionEnterKanshou(userData, pcId, sheets) {
   mRow[COL.PC.GAME_ID] = gameId;
   // 比照 solo 創角(actionManualNpc)：先用玩家填的種子片段(或預設)秒寫非阻塞，AI 潤色由
   //   actionBackfillKanshouAi 於進場後背景補上(見下)。
+  // 🌱 2026-07 玩家御主改「留白＋滾動成長」：不再開局 AI 擴寫玩家內心——玩家的性格/經歷靠玩出來，
+  //   AI 於 actionPlay 用 master_note 慢慢補【仍空的】欄(玩家自己填過的不動)、經歷隨劇情滾動更新。
+  //   這裡只秒寫最小預設：TRAIT 四格=外貌(玩家填·留空則空)/氣質(空)/自稱「我」/私密一面「無」；
+  //   PREF 四格=對外性格(玩家填「個性方向」·留空則空)/獨處性格/喜歡/討厭(後三格全留空待 AI 慢慢長)。
   var kAppear = String(userData.appearance || "").trim();
-  var kStanding = String(userData.standing || "").trim();
   var kPersona = String(userData.persona || "").trim();
-  mRow[COL.PC.BACK] = kStanding || "這個平行世界裡的尋常身影，過著平靜的日常生活";
-  mRow[COL.PC.TRAIT] = parseTraitsHelper(kAppear, "外貌平凡、舉止從容、自稱「我」、卸下心防的私密一面");
-  mRow[COL.PC.PREF] = parseTraitsHelper(kPersona, "溫婉謙和、內斂堅韌、明哲保身、隨波逐流");
-  mRow[COL.PC.INTENT] = "（待揭曉）";
+  var _apPart = kAppear.replace(/、/g, "·").trim();   // 外貌塞第1格(內部頓號換·，免溢位其他格)
+  var _psPart = kPersona.replace(/、/g, "·").trim();  // 個性方向塞「對外性格」第1格
+  mRow[COL.PC.BACK] = "剛搬來冬木市";                  // 經歷開局(原「身世」正名；之後 AI 滾動＋玩家可改命)
+  mRow[COL.PC.TRAIT] = _apPart + "、、我、無";
+  mRow[COL.PC.PREF] = _psPart + "、、、";
+  mRow[COL.PC.INTENT] = "";                            // 萌點留空(AI 遊玩時觀察補寫)
   kpc.appendRow(mRow);
   linkAccountToKanshouPc_(acctName, mId); // 🔒 權威連結寫進帳號表
 
@@ -702,6 +707,16 @@ function buildDefaultSystemPrompt() {
       "_note": "fav_change為整數(可正可負)，關係要慢慢培養、不可躁進：日常閒聊+1~2、明顯心動或重大進展+3~5，單回合上限+5，不可一次跳大段；越界冒犯可填負數。★fav_change純粹是好感升降的數字，與口吻/語氣描述無關。",
       "target": "NPC真實姓名(不論敘事/對話裡怎麼稱呼TA，此欄固定填真實姓名，不可填暱稱、職階、台詞、地名或動作等其他內容)", "fav_change": 3
     }],
+    // 🌱 玩家御主「滾動側寫」：AI 每回合觀察玩家、慢慢認識他(像對話 AI 記住使用者習慣)。GAS 只採用
+    //   【玩家仍留白】的欄位(玩家自己填過的一律鎖住、不覆寫)；經歷則每回合承接舊值滾動更新。詳見 §玩家側寫。
+    "master_note": {
+      "_note": "本欄是【觀察玩家本人】、慢慢認識他/她——不是敘事、不顯示。只在有把握時填，沒觀察到就留空字串。",
+      "經歷": "承接【玩家命格·經歷】舊值，只【增補】這回合對玩家有意義的新遭遇(認識了誰/關係變化/去了哪/發生的事)，回傳更新後的滾動摘要(≤50字·敘事口吻·別抹掉重要的過去、別無中生有)；沒有值得記的新事就【原樣回傳舊經歷】",
+      "對外性格": "僅當【玩家命格】裡玩家的『對外性格』仍空白、且你已從他的言行明確觀察到傾向時，填一個簡短詞組；否則一律填空字串(玩家已自訂就別碰)",
+      "獨處性格": "同上規則：玩家該欄仍空白且你有把握才填一個詞組，否則空字串",
+      "喜歡": "同上規則：觀察到玩家明確喜歡的事物才填一個詞組，否則空字串",
+      "討厭": "同上規則：觀察到玩家明確討厭的事物才填一個詞組，否則空字串"
+    },
     // mentioned_names/event/tag/log_summary 等死欄已移除：皆是寫入後從未被任何地方讀回的
     //   死路(前端不消費、AI不依此決策)，拿掉後AI不用再每回合多填這些欄位。
   };
@@ -2206,7 +2221,7 @@ function actionPlay(userData, pcId, sheets) {
   //   (與世界觀規則「禁止血量/生命變化」一致——該禁令在下方 USER 世界觀＋演出而非說明兩行)。
   const prompt = `【敘事法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。
 ${PROMPT_PARTY_SYSTEM}
-【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}(當前服裝·五官體態不變)` : ""} | 軟肋:【 ${currentAmbition} 】 | 身世:${pc[COL.PC.BACK] || "來歷不明"} | 位置:${curL}${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName)); return _c ? `（${_c}）` : ""; })()}
+【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}(當前服裝·五官體態不變)` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}(這是玩家一路走來的軌跡·你可透過 master_note.經歷 滾動增補) | 位置:${curL}${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName)); return _c ? `（${_c}）` : ""; })()}
 
 ${PROMPT_REL}
 ★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前在場人物】(與玩家同地點的已認識人物)；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【目前在場人物】內的姓名，僅視為不在場的回憶，嚴禁無視此規則讓其憑空登場、穿越或開口說話、出手！${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouRoomEventStr}${kanshouVisitBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouJealousStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶氛圍】：今天是「${_f.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。`; if (jumpFest) return `\n★【節慶氛圍】：明天就是「${jumpFest.name}」，街頭已有節慶前夕的準備與期待感，narration可自然帶入，不必特別報幕。`; return ""; })()}
@@ -2551,6 +2566,26 @@ ${PROMPT_REL}
           }
         });
       }
+    }
+
+    // 🌱 玩家御主「滾動側寫」(master_note)：AI 慢慢認識玩家。經歷每回合承接舊值滾動更新(bounded)；
+    //   性格四格【只回填玩家仍留白的欄】(玩家自己改命填過的＝鎖，AI 絕不覆寫，判準：該格非空)。
+    if (aiData.master_note && typeof aiData.master_note === 'object') {
+      const mn = aiData.master_note;
+      // 經歷：AI 承接舊值增補後回傳整段，這裡直接採用(≤80字保底截斷)；空/未給則保留原經歷不動。
+      const _newExp = String(mn["經歷"] || "").replace(/[<>【】｜]/g, "").trim().slice(0, 80);
+      if (_newExp) { pcData[pcIndex][COL.PC.BACK] = _newExp; dirtyPcRows.add(pcIndex); }
+      // 性格四格(對外/獨處/喜歡/討厭)：拆玩家現值，逐格【僅在該格為空時】用 AI 觀察值回填。
+      const _prefSlots = String(pcData[pcIndex][COL.PC.PREF] || "").split("、");
+      while (_prefSlots.length < 4) _prefSlots.push("");
+      const _mnKeys = ["對外性格", "獨處性格", "喜歡", "討厭"];
+      let _prefChanged = false;
+      _mnKeys.forEach((k, i) => {
+        if (String(_prefSlots[i] || "").trim()) return; // 玩家/先前已填→鎖，不覆寫
+        const v = String(mn[k] || "").replace(/[<>【】、｜]/g, "").trim().slice(0, 12);
+        if (v) { _prefSlots[i] = v; _prefChanged = true; }
+      });
+      if (_prefChanged) { pcData[pcIndex][COL.PC.PREF] = _prefSlots.slice(0, 4).join("、"); dirtyPcRows.add(pcIndex); }
     }
 
     const pcColCount = Object.keys(COL.PC).length;

@@ -135,6 +135,15 @@
 
 ---
 
+## 🌱 玩家御主：留白＋滾動側寫（2026-07）
+
+- **兩種創角**（`askKanshouSetup`）：**超簡易**（`aiExpand:true`→`backfill_kanshou_ai` 一次 AI 擴寫，原配方）／**詳細**（留白，之後改命自己填＋AI 側寫慢慢補）。
+- **開局欄位**（`actionEnterKanshou` 秒寫）：TRAIT＝外貌(玩家填)、氣質空、自稱「我」、私密「無」；PREF＝對外性格(玩家填「個性方向」)、獨處/喜歡/討厭全空；**經歷(BACK)＝「剛搬來冬木市」**；萌點(INTENT)空。
+- **經歷（原「身世」正名）**：AI 每回合經 `master_note.經歷` **滾動更新**（承接舊值增補新遭遇、≤80字·bounded overwrite），玩家可經**改命**自己改（back 型·mode 判斷 kanshou 才叫「經歷」、cap 80）。
+- **空性格欄 AI 側寫回填**：`master_note.{對外性格/獨處性格/喜歡/討厭}` **只回填仍空的格**——玩家改命填過的＝鎖（判準：該 PREF slot 非空），AI 絕不覆寫。像對話 AI 慢慢認識使用者。
+- **鎖的機制**：沿用 REL_TAG 那招——不設 lock 旗標，靠「內容是否為空/預設」判定玩家有沒有動過。
+- ⚠ `master_note` 是 KANSHOU-only（buildDefaultSystemPrompt）；solo BACK 仍是固定身世（改命 UI 依 `pc.mode` 分標籤/字數）。
+
 ## 🤖 AI 管線
 
 ### `actionPlay` 執行階段順序（**順序鐵則·勿亂動**）

@@ -287,7 +287,7 @@ function actionUpdateFate(userData, pcId, sheets) {
   let targetCol = fateType === 'trait' ? COL.PC.TRAIT : fateType === 'pref' ? COL.PC.PREF : fateType === 'back' ? COL.PC.BACK : fateType === 'intent' ? COL.PC.INTENT : -1;
   if (targetCol === -1) return JSON.stringify({ success: false, message: "此欄位不可修改（只能改個性／特徵／身世／萌點，數值與寶具一律鎖死）。" });
   // 🔴 命格欄位直寫入表格，需自行把關長度：身世/萌點 單格 30；個性/特徵 為 4 格頓號拼接、給較寬上限
-  var cap = (fateType === 'back' || fateType === 'intent') ? 30 : 130;
+  var cap = fateType === 'back' ? 80 : fateType === 'intent' ? 30 : 130; // 經歷(back)放寬到80配合AI滾動
   pcData[pIdx][targetCol] = String(fateValue || "").slice(0, cap);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
 
