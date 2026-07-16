@@ -1539,6 +1539,12 @@ function actionPlay(userData, pcId, sheets) {
       kanshouProposalResult_ = { ok: true, type: 'promise', name: _paHer, loc: _paLoc, bandLabel: _paBandLabel };
       kanshouPromiseStr = `\n★【約定·敲定】：你答應了『${_paHer}』的邀約——你們約好【明天${_paBandLabel ? _paBandLabel + '於' : '在'}「${_paLoc}」見面】。演出你點頭答應這一刻、她聽到後依性格的反應(雀躍/靦腆/故作淡定皆可)。`;
       finalUserMsg = `【玩家意圖】：答應了『${_paHer}』改天在「${_paLoc}」見面的邀約。`;
+    } else if (_paName) {
+      // 🕳️ 縫隙保險：她開口邀約後、玩家按同意前，她可能已離場(同回合 npc_exit/畫面過期)——若靜默跳過，
+      //   AI 仍會把「點頭答應」演出來、但系統沒記＝敘事機制脫鉤。改成明確演「來不及回應」＋撲空回饋。
+      kanshouPromiseStr = `\n★【邀約·來不及回應】：你正想答應『${_paName}』的邀約，她卻已經先離開了——這個約【沒有成立】，演出這份錯過的悵然即可，【禁止】演成約定已敲定。`;
+      finalUserMsg = `【玩家意圖】：想答應『${_paName}』的邀約，她卻已不在身邊。`;
+      kanshouProposalResult_ = { ok: false, miss: true, type: 'promise', name: _paName, where: _whereIsHer(_paName) };
     }
   }
 
