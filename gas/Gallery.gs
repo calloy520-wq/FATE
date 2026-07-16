@@ -1524,27 +1524,28 @@ function actionPlay(userData, pcId, sheets) {
   }
 
   // 📅 玩家同意她主動提的約(她 promise_proposal→泡泡→玩家按同意→帶 promiseAccept 回來)：她已開口、
-  //   玩家點頭，直接落地【約定】，不再走 proposal_accept 二次判定(她不會婉拒自己提的約)。她需仍在場。
+  //   玩家點頭，直接落地【約定】，不走 proposal_accept 二次判定(她不會婉拒自己提的約)。
+  //   🔵 2026-07 玩家定案「她約完就走也沒問題」：約是她提的、意思已表達完，契約只差玩家點頭——她還在
+  //   不在場【不影響成立】(舊版錯把「玩家發起需對方在場」的規則套過來、擋成撲空，已改)。差別只在敘事：
+  //   在場演她聽到答覆的反應；已離場演玩家記下這個約(目送背影/寫進心裡)。
   if (userData.promiseAccept && typeof userData.promiseAccept === 'object') {
     const _paName = String(userData.promiseAccept.name || "").trim();
     const _paLoc = String(userData.promiseAccept.loc || "").trim();
     const _paLocOk = KANSHOU_LOCATIONS_.some(l => l.name === _paLoc && l.region !== 'room');
     const _paBand = kanshouApptHour_(String(userData.promiseAccept.band || "").trim()) !== null ? String(userData.promiseAccept.band).trim() : "";
-    const _paIdx = _paName ? pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_paName) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) : -1;
+    const _paIdx = _paName ? pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_paName)) : -1;
     if (_paLocOk && _paIdx !== -1) {
       const _paHer = String(pcData[_paIdx][COL.PC.NAME]);
       const _paBandLabel = _paBand ? (KANSHOU_APPT_BANDS_.find(b => b.band === _paBand) || {}).label : "";
+      const _paInScene = String(pcData[_paIdx][COL.PC.LOC] || "").trim() === String(curL || "").trim();
       pcData[_paIdx][COL.PC.MEMORY] = kanshouSetPromise_(pcData[_paIdx][COL.PC.MEMORY], curDay + 1, _paLoc, _paBand);
       dirtyPcRows.add(_paIdx);
       kanshouProposalResult_ = { ok: true, type: 'promise', name: _paHer, loc: _paLoc, bandLabel: _paBandLabel };
-      kanshouPromiseStr = `\n★【約定·敲定】：你答應了『${_paHer}』的邀約——你們約好【明天${_paBandLabel ? _paBandLabel + '於' : '在'}「${_paLoc}」見面】。演出你點頭答應這一刻、她聽到後依性格的反應(雀躍/靦腆/故作淡定皆可)。`;
+      const _paWhen = `【明天${_paBandLabel ? _paBandLabel + '於' : '在'}「${_paLoc}」見面】`;
+      kanshouPromiseStr = _paInScene
+        ? `\n★【約定·敲定】：你答應了『${_paHer}』的邀約——你們約好${_paWhen}。演出你點頭答應這一刻、她聽到後依性格的反應(雀躍/靦腆/故作淡定皆可)。`
+        : `\n★【約定·敲定】：你答應了『${_paHer}』的邀約——你們約好${_paWhen}。她此刻已先離開了，演出你把這個約放進心裡的樣子(目送過的背影/默默記下/一點期待)，約定已確實成立、不必演她在場回應。`;
       finalUserMsg = `【玩家意圖】：答應了『${_paHer}』改天在「${_paLoc}」見面的邀約。`;
-    } else if (_paName) {
-      // 🕳️ 縫隙保險：她開口邀約後、玩家按同意前，她可能已離場(同回合 npc_exit/畫面過期)——若靜默跳過，
-      //   AI 仍會把「點頭答應」演出來、但系統沒記＝敘事機制脫鉤。改成明確演「來不及回應」＋撲空回饋。
-      kanshouPromiseStr = `\n★【邀約·來不及回應】：你正想答應『${_paName}』的邀約，她卻已經先離開了——這個約【沒有成立】，演出這份錯過的悵然即可，【禁止】演成約定已敲定。`;
-      finalUserMsg = `【玩家意圖】：想答應『${_paName}』的邀約，她卻已不在身邊。`;
-      kanshouProposalResult_ = { ok: false, miss: true, type: 'promise', name: _paName, where: _whereIsHer(_paName) };
     }
   }
 
