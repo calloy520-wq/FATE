@@ -243,6 +243,10 @@ let plainTextContext = cleanText;
       }
       if (data.options && Array.isArray(data.options) && data.options.length > 0) {
         currentOptions = data.options;
+        // 🧱 【命運的抉擇】包進自己的 #ai-options-grid：「AI 選項顯示開關」只藏這個盒子。
+        //   舊版開關直接 display:none 整個 options-container，把住在同一容器的所有「必點泡泡」
+        //   (前往/邀約/同居/敲門/橋段/結識)全部陪葬——玩家關了選項＝從此看不到任何泡泡(實測真兇)。
+        optionsHtml += `<div id="ai-options-grid"${(typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? ' style="display:none"' : ''}>`;
         optionsHtml += `<div style="color: var(--gold-accent); font-weight: bold; border-bottom: 1px dashed rgba(212, 175, 55, 0.3); padding-bottom: 6px; margin-bottom: 8px;">【命運的抉擇】</div>`;
         optionsHtml += `<div class="options-grid">`;
         plainTextContext += `\n\n【命運的抉擇】\n`;
@@ -252,7 +256,7 @@ let plainTextContext = cleanText;
           optionsHtml += `<button class="btn-option" onclick="send('${optText.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}', true)">${escapeHtml(optText)}</button>`;
           plainTextContext += optText + `\n`;
         });
-        optionsHtml += `</div>`;
+        optionsHtml += `</div></div>`;
       }
       if (optContainer) optContainer.innerHTML = optionsHtml;
       // 📣 有「必須點的泡泡」(前往/邀約/同居/敲門/橋段/結識)時自動把它捲進視野——回應完只捲故事框、

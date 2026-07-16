@@ -223,23 +223,24 @@
   }
 
   // 3. 玩家切換開關時，立刻記憶並隱藏/顯示選項
+  //   ⚠ 只藏【命運的抉擇】的 #ai-options-grid，絕不藏整個 options-container——泡泡(前往/邀約/
+  //   同居/敲門/橋段/結識)也住在該容器，舊版整容器 display:none 讓關掉選項的玩家永遠看不到任何泡泡。
   function toggleAiOptions(el) {
       enableAiOptions = el.checked;
       localStorage.setItem('kyushu_options_toggle', enableAiOptions);
-      
-      // 立刻對畫面上的選項區塊施加隱形術
+      const grid = document.getElementById('ai-options-grid');
+      if (grid) grid.style.display = enableAiOptions ? '' : 'none';
+      // 修復舊版害到的玩家：容器本身永遠保持可見(舊代碼可能已把它設成 none)。
       const optContainer = document.getElementById('options-container');
-      if (optContainer) {
-          optContainer.style.display = enableAiOptions ? 'flex' : 'none';
-      }
+      if (optContainer) optContainer.style.display = 'flex';
   }
 
-  // 4. 網頁剛載入時 (保險起見)，也檢查一次要不要隱藏
+  // 4. 網頁剛載入時 (保險起見)：容器一律恢復可見(舊版可能殘留 none)，只藏選項小盒。
   document.addEventListener('DOMContentLoaded', () => {
       const optContainer = document.getElementById('options-container');
-      if (optContainer) {
-          optContainer.style.display = enableAiOptions ? 'flex' : 'none';
-      }
+      if (optContainer) optContainer.style.display = 'flex';
+      const grid = document.getElementById('ai-options-grid');
+      if (grid) grid.style.display = enableAiOptions ? '' : 'none';
   });
 
   function closeSystemModal(modalId) {
