@@ -1579,6 +1579,25 @@ function actionPlay(userData, pcId, sheets) {
     }
   }
 
+  // 🏠 玩家同意「她主動邀的同居」(cohabit_proposal→泡泡→cohabitAccept)：玩家總原則「AI給明確答覆、
+  //   GAS就寫入——她邀完就走也沒差」。跟上面 cohabitInvite(玩家發起、需她在場被問)是兩條路：這條
+  //   是她已開口、只差玩家點頭，找她【不要求同地】、點頭即蓋【同居】。好感門檻仍複驗(防直打API繞過)。
+  if (userData.cohabitAccept) {
+    const _caName = String(userData.cohabitAccept).trim();
+    const _caIdx = _caName ? pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_caName)) : -1;
+    if (_caIdx !== -1 && !kanshouIsCohabit_(pcData[_caIdx]) && (parseInt(pcData[_caIdx][COL.PC.BOND]) || 0) >= KANSHOU_COHABIT_BOND_) {
+      const _caHer = String(pcData[_caIdx][COL.PC.NAME]);
+      const _caInScene = String(pcData[_caIdx][COL.PC.LOC] || "").trim() === String(curL || "").trim();
+      pcData[_caIdx][COL.PC.MEMORY] = KANSHOU_COHABIT_TAG_.set(pcData[_caIdx][COL.PC.MEMORY], 1);
+      dirtyPcRows.add(_caIdx);
+      kanshouProposalResult_ = { ok: true, type: 'cohabit', name: _caHer };
+      kanshouCohabitStr = _caInScene
+        ? `\n★【同居開始】：你答應了『${_caHer}』的心意——她要搬來與你同住了！深夜她會回這個家的「和室」就寢、清晨可能賴在被窩、晚間常在家中。演出你點頭這一刻、她聽到後依性格的反應(欣喜/彆扭/故作平靜皆可)，這是關係的一大步。`
+        : `\n★【同居開始】：你答應了『${_caHer}』想搬來同住的心意。她此刻已先離開了，演出你把這個決定放進心裡的樣子——同居已確實成立，她今晚就會回這個家的「和室」就寢，不必演她在場回應。`;
+      finalUserMsg = `【玩家意圖】：答應了『${_caHer}』想搬來一起住的心意。`;
+    }
+  }
+
   // 🤝 牽手/放手(同伴卡「牽手」鈕→handHold=name；放手→handHold='__release__')：牽的對象存玩家
   //   MEMORY，移動時她若同地就一定跟著走(見 kanshouPreMoveCompanions_)。牽手要她此刻在場才牽得成。
   let kanshouHandHoldStr = "";
