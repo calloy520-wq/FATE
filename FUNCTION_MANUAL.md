@@ -35,6 +35,7 @@
 | dev_resync_codex | actionDevResyncCodex | Seed_Codex.gs |
 | purge_orphans | actionPurgeOrphans | Account.gs |
 | kanshou_companions | actionKanshouCompanions | Gallery.gs |
+| kanshou_memoir_op | actionKanshouMemoirOp | Gallery.gs |
 | kanshou_summon_hero | actionKanshouSummonHero | Gallery.gs |
 | kanshou_set_sex | actionKanshouSetSex | Gallery.gs |
 | kanshou_set_name | actionKanshouSetName | Gallery.gs |
@@ -309,7 +310,8 @@
 - `actionKanshouSummonHero`(305) — 從英靈殿召喚英靈、讓她第一次存在於這個世界(2026-07拿掉隊伍容量上限，只能召喚一次；擋男性/重複召喚/外部game的ai_gen)
 - `actionEnterKanshou`(355) — 進入/接續後日談世界；首次進入自動起始5位種子同伴(阿爾托莉雅-Saber/遠坂凜-Master/伊莉雅絲菲爾-Master/美狄亞-Caster/美杜莎-Rider)，預設出生點為「我的房間」
 - `actionBackfillKanshouAi`(473) — 背景AI潤色御主敘事欄
-- `actionKanshouCompanions`(526) — 列出這個世界裡所有已存在的英靈+各自所在地點(駐留清單，2026-07拿掉「同行」篩選與容量上限)
+- `actionKanshouCompanions`(526) — 列出這個世界裡所有已存在的英靈+各自所在地點(駐留清單，2026-07拿掉「同行」篩選與容量上限)；2026-07 起回傳每人 `memoir[]`(27欄共同回憶，★前綴=釘選)供面板顯示
+- `actionKanshouMemoirOp` — 💞共同回憶面板操作(pin/unpin/del)：帳號綁定驗證後改寫該同伴 27 欄(MEMOIR)，釘選=★前綴(processMemoir_ 淘汰時永不驅逐，上限8)，回傳更新後 memoir[]。前端 `kanshouOpenMemoir`/`kanshouMemoirOp`(Script_Kanshou.html)呼叫
 - `actionKanshouSetSex`(551) — 切換御主性別(擋世界裡已存在的男性從者，掃全部已存在角色非僅同行)
 - `actionKanshouSetName`(582) — 改御主名字
 - `actionKanshouSetHomeName`(596) — 改「家」分頁顯示名稱(存MEMORY【住所】，12字上限)

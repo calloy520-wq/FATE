@@ -1341,6 +1341,8 @@
             // 🚫 同伴的服裝改由AI依outfit_change欄位自主更新(見Gallery.gs)，不再手動指定——changeOutfit()/actionSetOutfit本體保留未刪(仍供御主本人換裝與solo從者卡使用)，這裡只是不露出觸發同伴換裝的入口。
             + '<div style="margin-top:6px; display:flex; gap:6px;">'
             + '<button onclick="openStatus(\'' + safeN + '\',\'' + safeN + '\')" title="查看「' + safeN + '」的完整狀態：個性／特徵／身世／萌點／關係等，並可逆天改命微調敘事欄" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 詳細狀態</button>'
+            // 💞 共同回憶：與同伴面板同一個 kanshouOpenMemoir(Script_Kanshou.html·自抓資料版)，卡片這裡也給入口。
+            + '<button onclick="kanshouOpenMemoir(\'' + safeN + '\')" title="看你們的共同回憶——重要瞬間她都會記著；★釘選永不遺忘、🗑刪掉不想留的" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(200,120,150,0.16); color:#e8b0c8; border:1px solid #a06080; border-radius:6px; cursor:pointer;">💞 回憶</button>'
             + '</div>'
             // 🆕 直接複用既有 kanshouEditRelTag(Script_Kanshou.html)，不重寫新邏輯。召喚是一次性的、
             //   沒有隊伍容量要騰，不需要「請走」這種按鈕。

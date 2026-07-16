@@ -140,6 +140,13 @@ let plainTextContext = cleanText;
           + `<button class="btn-option" style="flex:1;" onclick="kanshouDeclineMoveProposal()">拒絕</button>`
           + `</div></div>`;
       }
+      // 📅 到約定地點但太早(她還沒到)：跳「等到約定前10分」框——一鍵把時鐘推到她抵達的時刻(她也剛到)。
+      if (data.promiseWait) {
+        const _pw = data.promiseWait, _pwn = escapeHtml(String(_pw.name || '她'));
+        optionsHtml += `<div style="background:rgba(90,140,180,0.14); border:1px solid #4a7a9a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
+          + `<div style="color:#a8d0f0; font-size:12.5px; margin-bottom:6px;">📅 離跟「${_pwn}」的約定還有一段時間（約定 ${escapeHtml(String(_pw.apptLabel || ''))}，她還沒到）</div>`
+          + `<button class="btn-option" style="width:100%;" onclick="kanshouWaitForPromise(${Number(_pw.targetHour) || 0})">⏳ 在這等到約定前 10 分鐘</button></div>`;
+      }
       // 🚪 「睡覺時機率敲門」：跟moveProposal同款「不是敘事選項、是決定要不要真的觸發」
       //   寫法，但這個是GAS機率觸發(結束一天前擲骰)，不是AI敘事判斷。
       if (data.knockEvent) {
@@ -203,6 +210,18 @@ let plainTextContext = cleanText;
 
       lastAiContext = plainTextContext;
       story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【說書人】</b>${displayText.trim().replace(/\n{2,}/g, "<br><br>").replace(/\n/g, "<br><br>")}</div>`);
+      // 📅🤝 相約/牽手成不成立的明確回饋(後端 proposalResult)——插一條系統通知條，玩家不必再從敘述猜。
+      if (data.proposalResult) {
+        const _pr = data.proposalResult, _nm = escapeHtml(String(_pr.name || '她'));
+        let _msg;
+        if (_pr.ok && _pr.type === 'promise') _msg = '📅 <b>約定成立！</b>明天' + escapeHtml(String(_pr.bandLabel || '')) + '在「' + escapeHtml(String(_pr.loc || '')) + '」與「' + _nm + '」見面——準時/早到好感↑、遲到打折、放鴿子↓。';
+        else if (_pr.ok && _pr.type === 'hold') _msg = '🤝 <b>牽手成功！</b>之後你移動到哪，「' + _nm + '」都會相伴同行(直到放手)。';
+        else _msg = (_pr.type === 'promise' ? '📅 「' : '🤝 「') + _nm + '」' + (_pr.type === 'promise' ? '婉拒了這次約定。' : '沒有讓你牽手。') + '——關係再深一點、或換個時機再試試。';
+        const _col = _pr.ok ? 'rgba(90,160,110,.14);border:1px solid #4a8a5a;color:#a8e0b8' : 'rgba(150,110,120,.14);border:1px solid #8a5a6a;color:#e0b0bc';
+        story.insertAdjacentHTML('beforeend', `<div style="background:${_col};border-radius:8px;padding:7px 10px;margin:4px 0;font-size:12.5px;">${_msg}</div>`);
+        // 約定成立/清除→刷新同伴清單(_kcCur)，讓地圖📅徽章與同伴列即時反映(背景抓、抓完重繪地圖)。
+        if (_pr.type === 'promise') { (async function () { try { const r = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount }); if (r && r.success) { _kcCur = r.current || []; try { renderMapPane(); } catch (e) {} try { renderKcPartyList_(); } catch (e) {} } } catch (e) {} })(); }
+      }
       localStorage.setItem('kyushu_story', story.innerHTML);
       setTimeout(() => { story.scrollTop = story.scrollHeight; }, 50);
 
@@ -287,10 +306,89 @@ let plainTextContext = cleanText;
     var box = document.getElementById('kc-party-list');
     if (!box) return;
     box.innerHTML = _kcCur.length ? _kcCur.map(function (c) {
+      // 💞 回憶鈕：有回憶亮粉色並帶數量，還沒有就灰階(仍可點開看空狀態說明)。
+      var memCount = (c.memoir || []).length;
       return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
-        + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(c.name) + ' <small style="color:#8a7fa0;">(關係:' + escapeHtml(c.tag || '點頭之交') + '・好感' + c.bond + ')</small><br><small style="color:#7a9fa0;">📍 ' + escapeHtml(c.locLabel || c.loc || '不明') + '</small></span>'
+        + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(c.name) + ' <small style="color:#8a7fa0;">(關係:' + escapeHtml(c.tag || '點頭之交') + '・好感' + c.bond + ')</small><br><small style="color:#7a9fa0;">📍 ' + escapeHtml(c.locLabel || c.loc || '不明') + '</small>' + (c.promise ? '<br><small style="color:#a8d0f0;">📅 ' + escapeHtml(c.promise.date) + (c.promise.time ? ' ' + escapeHtml(c.promise.time) : '') + ' 在「' + escapeHtml(c.promise.loc) + '」有約</small>' : '') + '</span>'
+        + '<button onclick="kanshouOpenMemoir(\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 8px;background:' + (memCount ? '#5a3a4a' : '#3a3a44') + ';color:' + (memCount ? '#e8b8cc' : '#999') + ';border:none;border-radius:6px;cursor:pointer;font-size:12px;">💞回憶' + (memCount ? '(' + memCount + ')' : '') + '</button>'
         + '<button onclick="kanshouEditRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button></div>';
     }).join('') : '<div style="color:#888;padding:6px;">（這座城裡你還誰都不認識，從下方邀一個人來吧）</div>';
+  }
+
+  // 💞 共同回憶面板：看她跟你一路走來的回憶；★釘選=永不被新回憶擠掉(上限8)；🗑=刪掉不想留的。
+  //   回憶本身由 AI 在劇情里程碑時自動記下(每人保留最近10條，釘選的不佔淘汰名額)。
+  var _kmBusy = false; // 💞讀條保護：面板開啟中/釘選刪除中的旗標，擋連點與競態(見 kanshouMemoirOp)。
+  function kmSpinner_(msg) { return '<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:22px;color:#e8b8cc;font-size:13px;"><span class="km-spin" style="width:15px;height:15px;border:2px solid rgba(232,184,204,.3);border-top-color:#e8b8cc;border-radius:50%;display:inline-block;animation:kmspin .7s linear infinite;"></span>' + (msg || '處理中…') + '</div><style>@keyframes kmspin{to{transform:rotate(360deg)}}</style>'; }
+  async function kanshouOpenMemoir(name) {
+    if (_kmBusy) return;
+    var c = _kcCur.find(function (x) { return x.name === name; });
+    // 聊天側同伴卡也有💞回憶入口(Script.html)——沒先開過同伴面板時 _kcCur 是空的，這裡自己抓一次。
+    if (!c) {
+      _kmBusy = true;
+      _kmShowLoading_(name);   // 先秀讀條，避免抓資料時黑屏無回饋
+      try {
+        const res = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount });
+        if (res && res.success) _kcCur = res.current || [];
+      } catch (e) { } finally { _kmBusy = false; }
+      c = _kcCur.find(function (x) { return x.name === name; });
+      if (!c) { var _ov = document.getElementById('km-overlay'); if (_ov) _ov.style.display = 'none'; alert('讀取回憶失敗，稍後再試。'); return; }
+    }
+    var ov = document.getElementById('km-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'km-overlay';
+      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
+      ov.onclick = function (e) { if (e.target === ov) ov.style.display = 'none'; };
+      document.body.appendChild(ov);
+    }
+    var entries = c.memoir || [];
+    var rows = entries.length ? entries.map(function (e) {
+      var pinned = e.charAt(0) === '★';
+      var text = e.replace(/^★/, '');
+      var tEsc = String(text).replace(/'/g, '');
+      return '<div style="display:flex;align-items:center;gap:6px;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
+        + '<span style="flex:1;color:' + (pinned ? '#ffd9a0' : '#e8d8e0') + ';font-size:13px;line-height:1.5;">' + (pinned ? '★ ' : '') + escapeHtml(text) + '</span>'
+        + '<button onclick="kanshouMemoirOp(\'' + String(name).replace(/'/g, '') + '\',\'' + (pinned ? 'unpin' : 'pin') + '\',\'' + tEsc + '\')" title="' + (pinned ? '取消釘選' : '釘選·永不遺忘') + '" style="padding:4px 7px;background:' + (pinned ? '#6a5a3a' : '#3a3a44') + ';color:#ffd9a0;border:none;border-radius:6px;cursor:pointer;font-size:12px;">' + (pinned ? '📌' : '☆') + '</button>'
+        + '<button onclick="kanshouMemoirOp(\'' + String(name).replace(/'/g, '') + '\',\'del\',\'' + tEsc + '\')" title="刪除這條回憶" style="padding:4px 7px;background:#4a3038;color:#e09999;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🗑</button></div>';
+    }).join('') : '<div style="color:#888;padding:12px 6px;font-size:13px;">（還沒有值得銘記的回憶——去一起經歷些什麼吧，重要的瞬間她都會記得。）</div>';
+    ov.innerHTML = '<div style="width:min(440px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(232,184,204,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
+      + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#e8b8cc;">💞 與「' + escapeHtml(name) + '」的共同回憶</b>'
+      + '<button onclick="document.getElementById(\'km-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
+      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:6px;">重要瞬間由她自動記下(最多10條、舊的會淡忘)；★釘選的永不遺忘(上限8)。</div>'
+      + rows + '</div>';
+    ov.style.display = 'flex';
+  }
+
+  // 面板讀條：把 overlay 內容換成 spinner(overlay 不存在就先建一個空的)。
+  function _kmShowLoading_(name) {
+    var ov = document.getElementById('km-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'km-overlay';
+      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
+      ov.onclick = function (e) { if (e.target === ov && !_kmBusy) ov.style.display = 'none'; };
+      document.body.appendChild(ov);
+    }
+    ov.innerHTML = '<div style="width:min(440px,92vw);background:#1d1722;border:1px solid rgba(232,184,204,.25);border-radius:12px;padding:14px;">'
+      + '<b style="color:#e8b8cc;">💞 與「' + escapeHtml(name || '') + '」的共同回憶</b>' + kmSpinner_('讀取中…') + '</div>';
+    ov.style.display = 'flex';
+  }
+  async function kanshouMemoirOp(name, op, item) {
+    if (_kmBusy) return;   // 💞讀條保護：上一個釘選/刪除還在跑就忽略連點，防重複送出/競態
+    if (op === 'del' && !confirm('確定刪掉這條回憶嗎？刪了她就真的忘了。')) return;
+    _kmBusy = true;
+    _kmShowLoading_(name);  // 面板換成讀條，處理中不可再點
+    try {
+      const res = await gasRun({ action: 'kanshou_memoir_op', pcId: pc.id, acctName: currentAccount, targetName: name, op: op, item: item });
+      if (!res || !res.success) { alert((res && res.message) || '操作失敗。'); return; }
+      var c = _kcCur.find(function (x) { return x.name === name; });
+      if (c) c.memoir = res.memoir || [];
+      renderKcPartyList_();   // 卡片上的數量徽章同步
+    } catch (e) { alert('操作失敗。'); }
+    finally {
+      _kmBusy = false;
+      kanshouOpenMemoir(name); // 面板原地重繪(讀條收掉、顯示最新清單)
+    }
   }
 
   // 🌙 結束一天：不在身邊的英靈由GAS自動決定隔天去哪(見Gallery.gs kanshouRollDailyLocation_)，不用手動排程；跟一般聊天走同一個send()、同一套渲染。
@@ -520,9 +618,14 @@ let plainTextContext = cleanText;
     // 🙋 跟kanshouMoveTo(自己走，無條件強制移動)不同，這顆👋走一般聊天訊息(不帶moveTarget)，交給AI依同伴個性當場決定答應或婉拒(見Gallery.gs★【玩家反向邀約】)。
     // 🔒 拜訪住處門檻：私人住處(region:'visit')要跟屋主好感≥熟識(40)才解鎖，未解鎖的灰掉、點了給提示不移動。
     var unlockedRes = (window._lastTags && window._lastTags.unlockedResidences) || [];
+    // 📅 約定地點標記：從同伴清單(_kcCur)蒐集有約的地點→地圖那顆按鈕標「📅 M/D 時段」，一眼看到約在哪。
+    var promiseByLoc = {};
+    (_kcCur || []).forEach(function (c) { if (c.promise && c.promise.loc) { promiseByLoc[c.promise.loc] = promiseByLoc[c.promise.loc] || []; promiseByLoc[c.promise.loc].push(c); } });
     var locBtns = KC_LOCATIONS_.filter(function (l) { return l.region === kcActiveRegion_; }).map(function (l) {
       var label = l.isRoom ? kcRoomLabel_(l.name) : l.name;
       var cnt = locCounts[l.name] || 0;
+      var _pmHere = promiseByLoc[l.name];
+      var _pmBadge = _pmHere ? '<span style="color:#a8d0f0;font-size:10px;">📅 ' + escapeHtml(_pmHere[0].promise.date + (_pmHere[0].promise.time ? ' ' + _pmHere[0].promise.time.replace(/^\S+\s/, '') : '')) + (_pmHere.length > 1 ? ' +' + (_pmHere.length - 1) : '') + '</span>' : '';
       if (l.region === 'visit' && unlockedRes.indexOf(l.name) === -1) {
         return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
           + '<button onclick="alert(\'跟這裡的主人還不夠熟，不好貿然登門。多在外頭相處、熟識(好感40)之後才好造訪。\')" '
@@ -533,7 +636,7 @@ let plainTextContext = cleanText;
       }
       return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
         + '<button onclick="kanshouMoveTo(\'' + l.name + '\')" style="flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">'
-        + '<span>📍 ' + escapeHtml(label) + '</span>'
+        + '<span>📍 ' + escapeHtml(label) + (_pmBadge ? ' ' + _pmBadge : '') + '</span>'
         + (cnt ? '<span style="color:#e0a0bc;font-size:11px;">👤' + cnt + '</span>' : '')
         + '</button>'
         + '<button onclick="kanshouProposeMove(\'' + l.name + '\')" title="邀同伴一起去「' + escapeHtml(label) + '」" style="padding:8px 9px;background:#2a2038;color:#e0c090;border:1px solid #5a4a3a;border-radius:8px;cursor:pointer;font-size:13px;">👋</button>'
@@ -632,24 +735,127 @@ let plainTextContext = cleanText;
   }
   // 🏷️ REL_TAG 從此只能由玩家在這裡手動改，AI只能在敘事裡表現認不認同(態度)、不再擅自覆寫。呼叫既有的 update_rel_tag(後端早就有，只是從未接過前端UI)。
   // 📅 相約：跟「此刻在場」的同伴約明天在某地見面(她明天會被行程釘在那裡等；赴約好感+、爽約好感−)。
-  //   地點清單複用KC_LOCATIONS_(排除玩家私室)，比照kanshouEditRelTag同款prompt()輕量對話框。
+  //   2026-07 玩家「打編號超怪」→ prompt() 編號改成分區地點按鈕面板(kanshouPickLocation_)，點一下即選定。
+  // 約會時段(對齊後端 KANSHOU_APPT_BANDS_)：排除清晨6點/深夜——約會不約那時候。band 是後端 key、label 顯示。
+  var KC_APPT_BANDS_ = [
+    { band: '午後', label: '🌤️ 午後 14:00' },
+    { band: '黃昏', label: '🌆 黃昏 18:00' },
+    { band: '夜', label: '🌙 夜晚 20:00' }
+  ];
   async function kanshouPromiseMeet(name) {
     var pool = KC_LOCATIONS_.filter(function (l) { return !l.isRoom; }); // 相約排除玩家私室(我的房間·現掛home分頁但仍isRoom)
-    var listTxt = pool.map(function (l, i) { return (i + 1) + '. ' + l.name; }).join('\n');
-    var pick = prompt('和「' + name + '」約【明天】在哪裡見面？輸入編號(她明天會在那裡等你；赴約好感↑、放鴿子好感↓)：\n' + listTxt);
-    if (pick === null) return;
-    var pi = parseInt(String(pick).trim(), 10) - 1;
-    if (!(pi >= 0 && pi < pool.length)) { alert('請輸入清單中的編號。'); return; }
-    var loc = pool[pi].name;
-    showGamePane('chat');
-    await send('（向「' + name + '」提出明天在「' + loc + '」見面的約定。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, { name: name, loc: loc });
+    // 先選地點 → 再選時段 → 才送出(她約定時刻前10分到場；早到有「都早到」開場、遲到會唸你)
+    kanshouPickLocation_('📅 和「' + name + '」約明天在哪見面？', '她明天會在那個時段到場等你；準時/早到赴約好感↑、遲到打折、放鴿子好感↓', pool, function (loc) {
+      kanshouPickBand_('📅 約在「' + loc + '」的什麼時候？', name, function (band) {
+        showGamePane('chat');
+        send('（向「' + name + '」提出明天在「' + loc + '」見面的約定。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, { name: name, loc: loc, band: band });
+      });
+    });
   }
-  // 📷 拍照：拍下此刻(每天3張底片·隔天洗好)。按下直接彈框問想拍什麼——留空＝拍眼前(有同伴拍
-  //   同伴、沒同伴拍風景)；打一句(如「那隻橘貓」「神社的夕陽」)＝指定主角拍風景/生活照。
+  // 📅 時段選擇框(相約用)：三顆按鈕，點了回呼 band key。
+  var _kbCb = null;
+  function kanshouPickBand_(title, name, cb) {
+    _kbCb = cb;
+    var ov = document.getElementById('kb-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'kb-overlay';
+      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10002;align-items:center;justify-content:center;';
+      ov.onclick = function (e) { if (e.target === ov) { ov.style.display = 'none'; _kbCb = null; } };
+      document.body.appendChild(ov);
+    }
+    ov.innerHTML = '<div style="width:min(360px,92vw);background:#1d1722;border:1px solid rgba(168,208,240,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
+      + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#a8d0f0;">' + escapeHtml(title) + '</b>'
+      + '<button onclick="document.getElementById(\'kb-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
+      + '<div style="display:flex;flex-direction:column;gap:8px;">'
+      + KC_APPT_BANDS_.map(function (b) { return '<button onclick="kanshouPickBand2_(\'' + b.band + '\')" style="padding:9px;background:rgba(90,140,180,0.18);color:#a8d0f0;border:1px solid #4a7a9a;border-radius:8px;cursor:pointer;font-size:13px;">' + b.label + '</button>'; }).join('')
+      + '</div></div>';
+    ov.style.display = 'flex';
+  }
+  function kanshouPickBand2_(band) {
+    var ov = document.getElementById('kb-overlay');
+    if (ov) ov.style.display = 'none';
+    var cb = _kbCb; _kbCb = null;
+    if (cb) cb(band);
+  }
+  // 📅 「等到約定前10分」：把時鐘推到 targetHour(她抵達的時刻)——用 advanceHours 走既有時間推進管線，
+  //   後端到站時結算會判定「準時·都早到」、把她pin登場。adv 由「目標時刻 − 目前時刻」算(支援小數)。
+  async function kanshouWaitForPromise(targetHour) {
+    var cur = (kcClock && typeof kcClock.hour === 'number') ? kcClock.hour : null;
+    if (cur === null || targetHour <= cur) { await send('（在約定的地點靜靜等候……）', false); return; }
+    var adv = targetHour - cur;
+    showGamePane('chat');
+    await send('（在約定的地點靜靜等候，直到約定的時刻將近……）', false, null, null, false, false, adv, null, null, false, false, null, null, ['時光一點一點靠近約定的時刻…']);
+  }
+  // 🗺️ 共用地點點選面板：分區標題＋地點按鈕，點了就回呼——之後任何「選個地點」的需求都用這支，別再用 prompt() 編號。
+  var _kpCb = null;
+  function kanshouPickLocation_(title, hint, pool, cb) {
+    _kpCb = cb;
+    var ov = document.getElementById('kp-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'kp-overlay';
+      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
+      ov.onclick = function (e) { if (e.target === ov) { ov.style.display = 'none'; _kpCb = null; } };
+      document.body.appendChild(ov);
+    }
+    var body = KC_REGIONS_.map(function (r) {
+      var locs = pool.filter(function (l) { return l.region === r.id; });
+      if (!locs.length) return '';
+      return '<div style="color:#8a7fa0;font-size:11.5px;margin:8px 0 4px;">' + escapeHtml(r.name) + '</div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:6px;">'
+        + locs.map(function (l) {
+          return '<button onclick="kanshouPickLoc_(\'' + String(l.name).replace(/'/g, '') + '\')" style="padding:6px 10px;background:rgba(90,140,180,0.18);color:#a8d0f0;border:1px solid #4a7a9a;border-radius:8px;cursor:pointer;font-size:12.5px;">📍 ' + escapeHtml(l.name) + '</button>';
+        }).join('') + '</div>';
+    }).join('');
+    ov.innerHTML = '<div style="width:min(440px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(168,208,240,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
+      + '<div style="display:flex;align-items:center;margin-bottom:4px;"><b style="flex:1;color:#a8d0f0;">' + escapeHtml(title) + '</b>'
+      + '<button onclick="document.getElementById(\'kp-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
+      + (hint ? '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:4px;">' + escapeHtml(hint) + '</div>' : '')
+      + body + '</div>';
+    ov.style.display = 'flex';
+  }
+  function kanshouPickLoc_(name) {
+    var ov = document.getElementById('kp-overlay');
+    if (ov) ov.style.display = 'none';
+    var cb = _kpCb; _kpCb = null;
+    if (cb) cb(name);
+  }
+  // 📷 拍照：拍下此刻(每天3張底片·隔天洗好)。2026-07 玩家要求比照相約改選單——prompt() 改成面板：
+  //   在場同伴一人一顆「拍她」、≥2人多一顆合照、風景一顆，另保留自由輸入(拍橘貓/夕陽等創意主題)。
+  //   intent 語義沿用後端既有判定：點名同伴→拍那位；''＝預設(有同伴合照前3、沒同伴風景)；
+  //   沒點名到任何人的文字→以該主題拍風景/生活照。
   async function kanshouTakePhoto() {
-    var intent = prompt('📷 想拍什麼？\n(留空＝拍眼前的人或景；也可指定，例如「那隻橘貓」「窗邊的夕陽」)', '');
-    if (intent === null) return; // 取消
-    intent = String(intent).trim();
+    var present = (localNPCs || []).filter(function (p) { return p.isExact; }).map(function (p) { return String(p.name); });
+    var ov = document.getElementById('kf-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'kf-overlay';
+      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
+      ov.onclick = function (e) { if (e.target === ov) ov.style.display = 'none'; };
+      document.body.appendChild(ov);
+    }
+    var b = function (label, intentVal) {
+      return '<button onclick="kanshouShoot_(\'' + String(intentVal).replace(/'/g, '') + '\')" style="padding:6px 10px;background:rgba(200,120,150,0.16);color:#e8b0c8;border:1px solid #a06080;border-radius:8px;cursor:pointer;font-size:12.5px;">' + label + '</button>';
+    };
+    var rows = '<div style="display:flex;flex-wrap:wrap;gap:6px;">'
+      + present.map(function (n) { return b('📷 拍「' + escapeHtml(n) + '」', n); }).join('')
+      + (present.length >= 2 ? b('👥 大家的合照', '') : '')
+      + b('🏞️ 眼前的風景', present.length ? '眼前的風景' : '')
+      + '</div>'
+      + '<div style="display:flex;gap:6px;margin-top:10px;">'
+      + '<input id="kf-input" placeholder="或指定想拍的：那隻橘貓、窗邊的夕陽…" style="flex:1;padding:6px 8px;background:#141019;color:#e8d8e0;border:1px solid rgba(232,184,204,.25);border-radius:8px;font-size:12.5px;">'
+      + '<button onclick="kanshouShoot_(document.getElementById(\'kf-input\').value)" style="padding:6px 12px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:8px;cursor:pointer;font-size:12.5px;">📷 拍</button></div>';
+    ov.innerHTML = '<div style="width:min(420px,92vw);background:#1d1722;border:1px solid rgba(232,184,204,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
+      + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#e8b8cc;">📷 想拍什麼？</b>'
+      + '<button onclick="document.getElementById(\'kf-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
+      + rows + '</div>';
+    ov.style.display = 'flex';
+  }
+  async function kanshouShoot_(intent) {
+    var ov = document.getElementById('kf-overlay');
+    if (ov) ov.style.display = 'none';
+    intent = String(intent || '').trim();
     showGamePane('chat');
     await send(intent ? ('（舉起相機——這張想拍的是「' + intent + '」。）') : '（舉起相機，拍下此刻的光景。）', false, null, null, false, false, 0, null, null, false, false, null, null, null, false, null, null, null, true, null, intent || null);
   }

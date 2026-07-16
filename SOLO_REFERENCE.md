@@ -95,6 +95,8 @@
 **🔄 玩家定案「好感改回數字」，撤回方向旗標方案**：改名`fav_dir`修好語意衝突後，玩家仍決定整條撤回、換回讓AI自己填`fav_change`整數——`finalJson.rel_changes`範本改回`"fav_change": 3`，`_note`恢復原本的級距指引(日常閒聊+1~2、明顯心動或重大進展+3~5、單回合上限+5)並補一句「與口吻/語氣描述無關」；`relChangesToProcess.forEach`改回`let change = parseInt(rc.fav_change) || 0`；`sanitizeAiData_`(Router_Action.gs)的`clampInt`數值防呆(-100~100)同步復原——AI又開始自己填裸數字，這道防線重新有存在意義。`AI_PROMPT_MAP.md`同步更新，記錄這欄位這輪「數字→方向旗標→改名→改回數字」的完整來回。
 **驗證**：`bash check.sh` 全過；`git diff -- gas/Gallery.gs | grep -c nsfwBaseRules` = 0。
 **🔥 沒點火時被攔截/失敗自動換DeepSeek重試(2026-07 玩家「沒點火時如果被攔截或對話失敗時候改用DeepSeek」)**：延續上面「沒點火用SOLO_MODEL(輕量、較容易撞審查/不穩定)」的設計，玩家追加要求：這顆輕量模型如果被審查攔截(NSFW filter)或連線失敗，不要直接放棄顯示【結界觸發】/【連線中斷】，改逃生到鑑賞原本的AI_MODEL(DeepSeek)再試一輪。**動手**：`callGeminiAPI`(Engine_Combat.gs)把單一模型的完整重試迴圈(含降階柔和重試)包成內部函式`attemptWithModel_(model)`，外層先用`config.model`跑一輪，若全部重試都失敗且呼叫端有給`config.fallbackModel`(且與原模型不同)，才換那顆模型再跑一輪(重置降階提示詞、不帶著上一顆模型疊加的softenSuffix)；兩輪都失敗才顯示原本的失敗訊息。`actionPlay`(Gallery.gs)只在`!driveOn`(沒點火，用SOLO_MODEL)時設定`aiConfig.fallbackModel = AI_MODEL`——點火時已經在用AI_MODEL，沒有更重的模型可逃生，不設定。**solo不受影響**：`fallbackModel`只有這一個呼叫點會用到，`narrateWithState_`(solo)沒帶這個參數，行為完全不變。
+
+**🚀→✅ 2026-07 【推翻上面 §92/§97 的模型分流】點火也改用 Gemini：探針實測 DeepSeek 又慢又會被擋、Gemini 才是又快又猛的那個**：玩家想「讓色色也變快」，原以為是要新接 Gemini，實際排查 `actionPlay` 才發現架構**早就在用 Gemini**——只是限「矜持(driveOn=false)」，點火(driveOn=true)仍硬吃 AI_MODEL(deepseek)。為驗證「Gemini 到底能不能扛露骨」，做了拋棄式 DEV 探針(登入畫面按鈕→`dev_probe_gemini`/`dev_probe_gemini_raw`→`gas/_ProbeTemp.gs`，用**真** `buildDefaultSystemPrompt()` 律令跑六階色度梯度＋GRAPHIC 字眼偵測＋秀實際內文)。**實測結果(玩家手機實跑)**：`gemini-3.1-flash-lite` 從日常到「階6極致特寫」**全過、真🔥露骨(命中13個器官/水聲/動作字眼)、每次僅~4-5秒**，玩家親眼讀原文確認文筆對味(「這小色胚」)；反觀 `deepseek-v4-flash` 同樣的階6極致**被審查擋下(結界觸發)、還卡49秒**。**定案動手**：`actionPlay`(Gallery.gs)的 `aiConfig` 從 `model: driveOn ? AI_MODEL : SOLO_MODEL` 改成**兩模式一律 `model: SOLO_MODEL`**、`fallbackModel: AI_MODEL` 恆設(不再只在 `!driveOn` 時設)、`retries: 1`(Gemini 腿試一次、真被擋才交棒 DeepSeek，不浪費柔化重試+2秒sleep)。**`driveOn` 從此只控敘事推進幅度的提示詞強度(driveStr)、不再切模型**——§92「點火切 AI_MODEL」正式作廢。DeepSeek(AI_MODEL) 降為極少觸發的最後備援。⚠️ **已知副作用待觀察**：原本壓重複的採樣旋鈕(top_k/repetition_penalty/presence_penalty/frequency_penalty)只對 deepseek 生效、gemini-flash-lite 被 OpenRouter 靜默忽略——若實玩發現 Gemini 開始跳針/套路化(同一種喘息、同一種收尾)，需另想「防重複」提示詞手段。探針(按鈕/action/`_ProbeTemp.gs`)已於定案後整批移除。`git diff -- gas/Gallery.gs | grep -c nsfwBaseRules` = 0。
 **驗證**：`bash check.sh` 全過；`git diff -- gas/Gallery.gs | grep -c nsfwBaseRules` = 0。
 **🐛→✅ 整條移除「召喚後AI深化」第二段呼叫，根治「邀請角色速度很慢」(2026-07 玩家「鑑賞邀請角色的速度...為啥這麼慢......不是有暫存資料嗎...然後日常資料也有先做好了 還是有點慢」)**：查證發現 `kanshouSummonHero`(Script_Kanshou.html)每次首次召喚都是**兩段完整同步呼叫**：①`kanshou_summon_hero`(寫入 `heroToKanshouRow_`) ②緊接著 `await` `backfill_kanshou_servant_ai`(`actionBackfillKanshouServantAi`，Gallery.gs)——後者是一次**完整的 `callGeminiAPI` 呼叫**，把種子既有的 PREF/TRAIT/INTENT 當上下文重新生成4段個性＋身世摘要，蓋回同一列。這顆深化在 dailyMoe/dailyOutfit/dailyLook四段式(v57~v59)系統出現**之前**就存在(見本文件更早的「五修/八修/十修」等條目)，當初存在的理由是「種子庫`persona.words`全庫普遍只有2-3項精簡標籤、且無`back`身世欄」——但這個問題**已經被這輪daily欄位系統整個解決**：全23位種子英靈現在都有手寫完整的四段式`dailyLook`/`dailyWords`(含喜歡/討厭)＋`dailyMoe`＋`dailyOutfit`，`heroToKanshouRow_`寫入的PREF/TRAIT已是高品質手稿內容，這顆深化卻還在拿這份已經很完整的資料去問AI「潤色」，等於**每次邀請都白等一輪完整AI生成的延遲**，換回的內容品質不見得比現有daily資料更好(甚至有風險覆蓋掉剛修好的「私密一面 vs 萌點」防重複成果)。**動手**：`actionBackfillKanshouServantAi`(Gallery.gs)、其在 `ActionRouter`/`LOCK_EXEMPT_ACTIONS_` 的註冊(Router_Action.gs)、`Script_Kanshou.html` 的第二段 `await gasRun({action:'backfill_kanshou_servant_ai',...})` 呼叫與對應 `showProcessing` 文案，全數整條移除——`kanshouSummonHero` 現在只有 `kanshou_summon_hero` 一次呼叫就 `hideProcessing`，召喚同伴的體感速度回到跟其他單一 round-trip 動作一致。**唯一殘留的功能落差**：23位種子裡只有3位女性正典御主(遠坂凜/伊莉雅絲菲爾/間桐櫻黑化)的 `persona.back`(身世)有手寫內容，其餘20位沒有，`heroToKanshouRow_` 對此的既有 fallback(`${RANK}・${name}`，如「Saber・阿爾托莉雅·潘德拉貢」)會繼續當身世顯示，比AI深化生成的一句話更陽春——但這是純外顯文字差異、不影響AI能否演出角色個性(PREF/TRAIT才是AI讀取的主要依據)，若之後想補齊可仿照dailyMoe/dailyLook的手寫模式直接補`persona.back`，不必復活這個拖速度的即時AI呼叫。
 **驗證**：`bash check.sh` 全過；`git diff -- gas/Gallery.gs | grep -c nsfwBaseRules` = 0。
@@ -2954,3 +2956,176 @@ GAL CLS="御主" = 盟友御主搭檔（凡人之軀，鑑賞重建走 master �
 - **換幕鐵律**(快轉的 finalUserMsg 尾綴 `_jumpSceneBreak`)：時間快轉後是【全新場景】，明令 AI【直接寫新時段當下】、【絕對禁止接續/複述/重演上一段已發生的動作與對話】；剛才在一起的人若已依作息離開，就自然演出你獨自或身邊換人的當下。解掉「跳時段卻把舊場景再演一次」。
 
 **驗證**：`bash check.sh`全過、`git diff|grep nsfwBaseRules`=0、`Engine_Combat.gs`紅線空。
+
+## §131 鑑賞提示詞整體稽核：親密尺度五階(＜20完全碰不到)＋色度跟隨受天花板約束＋篇幅交叉引用修正（2026-07·玩家「太多細小問題，提示詞要真的跑才知道；好感不到20動手動腳直接依個性拒絕/反擊，不是摸了才拒絕是完全碰不到；紅線 nsfwBaseRules 你要修正也可以」）
+
+實測跑出的核心矛盾：`色度跟隨鐵律`(玩家一色就「絕對禁止迴避/害羞」)直接牴觸`親密尺度`(未達門檻就該婉拒)。因玩家明確授權可修 `nsfwBaseRules`，且已確認 `buildDefaultSystemPrompt`(含 nsfwBaseRules/specificRules) **僅鑑賞用**(solo 自帶 systemOverride，Engine_Combat.gs:4 註解為證)，故從根源把「色度跟隨」全面改成**受親密尺度天花板約束**，solo 完全不受影響。
+
+- **親密尺度改五階(Gallery.gs:2041-2047，玩家提示詞側)**：新增最底層 `好感<20(點頭之交)＝形同陌生人，玩家一動手動腳【直接依個性拒絕或反擊、根本碰不到】(不是摸了才推開，是連碰都碰不到)`；20~39 婉拒情慾、40~59 勉強輕度接觸、60~79 親吻擁抱可但止於性事、80+ 無上限。標題強化為「最高優先·凌駕色度跟隨鐵律與慾海律令，衝突時一律以此天花板為準」，並言明「這不算違反色度跟隨——色度跟隨只在該階容許範圍內生效」，解掉兩條規則對撞。
+- **nsfwBaseRules 色度跟隨(Gallery.gs:674-676，SYSTEM 側·紅線·玩家授權)**：標題改「受親密尺度天花板約束」；情慾模式加前提「該同伴好感已達分五階允許進入情慾的階段；尚未達到就不進入此模式，改依個性婉拒/迴避」。
+- **specificRules 慾海律令第0條(Gallery.gs:689)**：色度跟隨改「在她當前好感允許的親密尺度階段之內」跟隨，刪掉舊「相同**或更高**色度」；尚未到該階一律依個性真實反應、不得強行跟到底或逾越天花板；唯有已達該階容許範圍才禁止無故迴避。
+- **主動掌握模式 driveStr 第④條(Gallery.gs:2010)**：舊「文字尺度拉到最滿＋篇幅依慾海律令第4條」→ 改「文字尺度可拉滿【但仍受親密尺度天花板約束】：僅在好感已容許進入情慾的前提下才放手寫；未達階則只在容許範圍內施展；篇幅仍依★【篇幅隨關係濃淡】」。修掉已刪除的「慾海律令第4條」死引用。
+- **narration schema 欄位(Gallery.gs:606)**：舊「約500字·篇幅依慾海律令第4條」→ 改「篇幅依關係濃淡縮放·見★【篇幅隨關係濃淡】：初識/低好感約200~300字、關係越深或情慾展開才放長到500字上下」，與 §129 篇幅收斂對齊、修掉死引用。
+
+⚠ **紅線註記**：本次依玩家 2026-07 明確授權(「紅線 nsfwBaseRules 你要修正也可以」)動了 `nsfwBaseRules`，範圍限鑑賞(kanshou-only)、solo 不受影響。`Engine_Combat.gs` 全程未動(該檔 nsfwBaseRules 只是註解指路，實體在 Gallery.gs:661)。
+
+**驗證**：`bash check.sh`全過、`Engine_Combat.gs` diff 空、solo systemOverride 路徑不共用此 prompt。
+
+**§131 續（深度 agent 稽核補漏）**：第一批修完後又派 agent 全檔掃一遍，再抓到 1 個真 bug＋4 處一致性殘留，一併修掉：
+- **(真 bug·晨間餘韻誤觸發) Gallery.gs:1583**：夜襲橋段命中頂分支(`branch.min>=60`，即好感 60~79)就蓋【晨間餘韻】旗標(`KANSHOU_MORNING_AFTER_TAG_`＝暗示昨夜共度春宵)，但五階天花板下 60~79(親近)止於性事之前、不算共度。且與另一條同語意路徑(`intimateNightNames` 用 `>=80`)門檻不一致。改判準從「分支 min」換成「該英靈實際好感 `reBond>=80`」，與同床門檻同一切點。
+- **(M1) Gallery.gs:2015 角色一致性鐵律**：舊硬編「好感未滿 80」二分門檻→改指【親密尺度·分五階】當前所處階段判斷接受/抗拒程度，不再把 60~79 的正當親近誤壓成抗拒。
+- **(M2) Gallery.gs:670 nsfwBaseRules 慢熱與傾心**：舊「不套用固定門檻」會被讀成可無視階段→改「情感升溫快慢依個性自然，但【肢體親密程度】仍受五階好感門檻硬性約束」。
+- **(M3) Gallery.gs:2041＋2010 主動掌握模式**：①天花板【凌駕】清單補列「🔥主動掌握模式」；②driveStr ①改成嚴格分階「好感<40 的『主動』只表現為言語試探/防備，【絕不】升級成堵路/逼近/肢體糾纏(陌生人不會把你逼到牆角)，好感越高才解鎖肢體壓迫、唯 80+ 才不加掩飾索求」——堵住「近乎陌生人卻把玩家逼到毫無招架」與 <20/<40 天花板對撞。
+- **(L1) Gallery.gs:659 註解**：更新已過期的「只保留好感未滿80門檻」設計註解，改指五階天花板，免誤導下一個失憶的我。
+- **判定【不改】**：M4(慾海律令編號)——第4條是原地改寫、保留編號槽，第6/7條交叉引用仍正確；M5(共浴/溫泉 min:70 分支涉裸浴)——好感 70~79(親近)貼合天花板「性事之前的親密」、裸浴是橋段前提非玩家推進的越界升級，且主提示詞天花板全程仍兜著禁性事，若把門檻拉到 80 反而比玩家自訂的五階更嚴、over-restrict，故維持原分支；補魔/強制補魔(令咒)全在 solo 戰鬥檔、不餵鑑賞提示詞，天花板管不到也不需管。
+
+## §132 鑑賞流程廣掃：修好感梯度標籤落後＋橋段刷分＋時間矛盾＋schema/註解殘料（2026-07·玩家「再繼續看一次」，天花板已穩後轉查其他類別 bug）
+
+天花板對齊後再派 agent 做「廣掃」(死引用/狀態寫入/流程矛盾/schema對不對得上/常數一致性)，抓到 2 個真行為 bug＋若干一致性殘料：
+- **(真 bug·標籤落後·Gallery.gs:1896/1901 赴約·爽約)**：`赴約(+5)`／`爽約(−5)` 兩處寫 BOND 後【漏呼叫 `kanshouSyncRelTier_`】——而 +5 正是設計上「突破到下一梯度」的手段(見 §116/§126)，跨過 40/60/80 時 `REL_TAG` 卻停在舊梯度，提示詞的 `TA是你的${pRelTag}` 與 UI 會顯示落後一格直到下次 rel_changes 剛好觸發同步。其他寫 BOND 處(橋段 1578、rel_changes 2210)都有同步、只這兩處漏。→ 兩處各補一行 `kanshouSyncRelTier_(pcData, i)`。
+- **(真 bug·橋段按鈕刷好感·Gallery.gs:1577-1586)**：橋段接受(非拒絕分支)給 `KANSHOU_SCENE_BOND_(+3)`，但【無當日冪等】——`roomEventOffer` 在同地×時段吻合時每回合都重發，玩家可每 0.5h 重按「靠近她/叫醒她」狂刷 +3、繞過細水長流。→ 新增 `KANSHOU_SCENE_DAY_TAG_`(makeIntTag·存該同伴列·absDay)，同一同伴同一天只給一次橋段好感(橋段敘事照演、只擋重覆加分)。
+- **(流程矛盾·Gallery.gs:2050 時間尺度)**：時鐘鐵律「【絕對不要】把『半小時/三十分鐘/過了一段時間』寫進敘述」對撞「跳時段/推進時間」回合——那時 `finalUserMsg` 本身就寫「過了 N 個小時」、且 nsfwBaseRules 令 AI 重現玩家最新動作。→ 加例外「除非系統本回合已明確宣告時間推進(換幕)、才據實承接該跳轉」，其餘照禁。
+- **(schema·Gallery.gs:641 token 省)**：`rel_changes[].target` 範本寫「NPC真實姓名或『自己』」，但 parser(2190)直接丟棄 `自己`(鑑賞無玩家自我好感)——刪「或『自己』」免 AI 白填被丟。
+- **(一致性·Gallery.gs:2223)**：`physical_state` 後端截斷 `slice(0,20)` 與範本/律令/註解四處「≤15字」不一致→改 15。
+- **(防呆·Gallery.gs:1961)**：`presentRowsForGender`(餵性別提示＋NSFW肉體快照)用未 trim 的嚴格 `LOC===curL`，與 `partyRows`(已 trim)判準不一→改成同樣 trim 比對，免空白差造成「有卡片沒肉體快照」或反之。
+- **(doc rot·AI_PROMPT_MAP.md)**：刪已移除機制的殘留列——`肉償`(隨經濟層砍·§105)、`門禁提醒`(§101 已刪)整列刪除；夜襲晨間餘韻 `≥60`→`≥80`(對齊 §131)；房間橋段觸發描述由舊 `COL.PC.ROOM room1~room3` 更新為現行 `KANSHOU_HERO_HOME_`/和室；`send()` 簽名由過期的「16參數(含已刪 work/buyItem/giftTarget/debtPayment)」更正為真實 22 參數(註明 `dismissCurfew` 是門禁移除後的佔位空位)。
+- **判定【不改】**：Script_Kanshou.html:94 `data.text.split('[')[0]`(solo 繼承的狀態列剝除)——鑑賞敘事用「」（）不用中括號、風險極低，且動它恐影響 solo 對稱行為，故留。schema↔parser 全對得上(每個宣告欄位都有讀、每個讀的欄位都有宣告；`inner_monologue` 是刻意的 CoT 草稿不入歷史)、慾海律令 5/6/7 條與各交叉引用皆解析正確、KANSHOU 常數(80/60/40/20 梯度、chat ceiling、VISIT 40/KNOCK 60/COHABIT 90)全一致——agent 覆核為 clean。
+
+**驗證**：`bash check.sh`全過、`Engine_Combat.gs` diff 空、`kanshouSyncRelTier_` 確在 Gallery.gs 定義。
+
+## §133 對話格式重寫「聲音即台詞」＋consolidate 成全遊戲單一真實來源（2026-07·玩家「對話格式不是我想要的、好難規定→聲音也變成台詞那種感覺；改 solo＋鑑賞共用」）
+
+玩家不滿舊劇本體 `（動作）名字：「台詞（聲音）」`——每句名字開頭、每個動作/聲音強制塞（），像聊天室 RP 不像小說。逐步釐清後定案「**聲音即台詞**」的自然散文格式，分界=**「這聲是不是她的『嘴／喉』發出的」**：
+- **進「」(當台詞)**：話語＋一切她口/喉發出的聲——喘息/輕吟/悶哼/笑，**＋嘴部動作的聲音(吸吮/舔啜/咀嚼/吞嚥的啾/啧)**。擬聲直接寫進單層「」當「親耳聽見的她」，不再用（輕哼）（嬌喘）括號描述、不改第三人稱。
+  - ⚠ 邊界案例(玩家實測追問)：吃冰棒的「啾」進「」(她嘴發出)；但**撞擊聲/交合處水聲不進**(那是身體撞出來的、不是她嘴)——玩家一度質疑「但也是嘴發出的」，最終定線在「**她的嘴 vs 身體/環境**」，嘴部聲(含吸吮)一律進「」、身體/環境聲走敘事。
+- **走敘事**：①看得見但不出聲的動作/身體反應(蹙眉/掐被褥/腰肢繃緊)；②**不是她嘴發出的**聲響(肉體相撞啪啪/兵刃鏗鏘/交合處水聲/環境聲)用擬聲寫進行文。兩者不套括號、不必每句名字開頭。
+- 濃淡(日常↔激烈/情慾)不由格式管、由各軌既有規則(色度跟隨/親密尺度天花板/戰況)決定——**格式只管「怎麼寫」、不管「寫多濃」**，這正是玩家要的「日常很日常、色色很色色的共用模式」。
+
+**工程**：舊有兩份格式文字(Gallery.gs `dialogueFormatRule_` 巢狀於 buildDefaultSystemPrompt、Router_Narrative.gs miniSystem 第2條)靠手動同步、正是 CLAUDE.md 警告的「改一半又不一致」。這次 consolidate 成**頂層單一函式 `dialogueFormatRule_()`**(Gallery.gs·移出巢狀)，鑑賞 nsfwBaseRules 第3條與 solo miniSystem 第2條都 `${dialogueFormatRule_()}` 共用同一支(GAS 全域可跨 .gs 呼叫)。以後改格式只動一處。solo＋鑑賞真正統一。
+
+⚠ **紅線註記**：本次依玩家明確授權「改 solo＋鑑賞共用」重寫對話格式，`dialogueFormatRule_()` 經 nsfwBaseRules 第3條 interpolate、屬鑑賞側改動(kanshou-only)＋solo miniSystem，範圍如玩家指定。`Engine_Combat.gs` 全程未動。
+
+**驗證**：`bash check.sh`全過、`Engine_Combat.gs` diff 空、`grep dialogueFormatRule_` = 1 定義＋2 呼叫端(Gallery nsfwBaseRules／Router_Narrative miniSystem)。
+
+## §134 AI 不得自行搬動玩家→改走「同意泡泡」＋敘事禁替玩家腦補心境/收在期待（2026-07·玩家實測「他會幫我換位置也不是不行就是有點怪；如果他要單純移動我也給我泡泡我同意再動」＋「敘述結尾也怪怪的」）
+
+實測回饋兩點,同一病根＝**AI 太越俎代庖替玩家作主**。先派 agent 把移動系統現況整個 trace(我的舊認知過時——地圖按鈕被拔過又加回來,`Gallery.gs:2123` 舊註解誤導)。釐清玩家 LOC 有 4 條寫入路徑,只有「AI 自寫 `location`」無同意:
+
+- **移動 consent(root 修·Gallery.gs:2127/2143)**:關鍵洞察=能走到 `aiData.location` 直寫塊的**一定是 AI 自作主張**(玩家用地圖按鈕移動時 moveTarget 管線[1739]早已寫好 curL、AI 只是照抄、`aiLoc===curL` 不進此塊)。故把整塊直寫**廢除**,改把 AI 寫的新地名轉成 `aiAutoMoveProposal`、合併進既有 `moveProposal` 回傳欄→**共用同伴邀約那個現成的「同意/拒絕」泡泡**(前端 `data.moveProposal`→`kanshouConfirmMoveProposal` 帶 moveTarget+moveWithCompanion 重送→走既有移動管線含巧遇/同伴跟隨)。**零前端改動、零新 state 欄**——純接線到現成 consent 機制。玩家自己點地圖/👋邀同伴維持即時(那是玩家選的地點)。
+- **提示詞(Gallery.gs 換場地規則)**:原本三條(換場地自主移動/提議換地點/玩家反向邀約)consolidate 成一條「**換地點一律走提議泡泡、你絕不自行搬動玩家**」——narration 只寫到「提議/正要起身」就停、禁寫移動過程與抵達、location 照抄目前地點。唯一例外=玩家用地圖按鈕(系統已寫好位置、AI 照抄敘述抵達)。這樣泡泡與敘述一致、不會「敘述已抵達卻又跳提議」。
+- **敘事禁替玩家作主(Gallery.gs·新增★規則)**:玩家實測敘述把一句「嗚嗚孤零零的」擴寫成大段替他決定的內心戲、還收在「玩家的期待/渴望」上(「希望…擦出火花」)。新增鐵律:narration 只演玩家**實際輸入的動作＋當下五感**,嚴禁腦補大段內心戲/情緒/願望/替他做決定,**尤其禁止把段落收在玩家的期待/渴望上**,結尾一律停在【外部當下】(對方反應/場景/未完成的動作),把「下一步怎樣、心裡怎麼想」還給玩家。
+
+⚠ 玩家更正記錄:實測那次 AI 把玩家移到商店街、當場出現藤村大河——經玩家確認**大河確實在商店街(合法同地/巧遇)、非憑空生人**,問題純粹是「移動未經同意」而非「捏造角色」。
+
+**驗證**：`bash check.sh`全過、`Engine_Combat.gs` diff 空、`aiLoc` 舊變數已無殘留程式引用(只剩註解)、`moveProposal` 回傳欄同時吃 AI 明填的 move_proposal 與轉提議的 location。
+
+## §135 鑑賞「共同回憶」：復用 27 號死欄＋暱稱那套 append 引擎(不做每日濃縮·LunaTalk 啟發的簡化版)（2026-07·玩家問「lunatalk.ai 怎麼整理事件、我也想要」→逐步收斂）
+
+玩家看到 LunaTalk 的「事件摘要(時間軸/角色/關係)」想要類似的。討論後**大幅簡化定案**:
+- **只做「共同回憶」一份**:關係進展(BOND/五階)、約定(【約定】標籤)、暱稱(REL_MEM 的 [專屬稱呼])都**已存在且即時更新**,摘要若重存反而慢又破壞單一真實來源。唯一真缺的是「一份連貫的我們的往事」——故聚焦這個。
+- **綁每個同伴、非玩家**:kanshou 一對多,綁玩家會混成一坨(重蹈已砍的「命運長河·存太多抓不到重點」);綁同伴才是「她記得你倆的故事」,且順著 BOND/REL_MEM 都在她那列的資料模型。
+- **放 27 號死欄**:原 `MAJOR_EVENT`(兩軌皆死·恆空)復用改名 `COL.PC.MEMOIR`,位在關係群組正中(24 BOND/25 REL_TAG/26 IS_PARTY/**27 MEMOIR**/28 REL_MEM)。COL 是位置索引→沿用 27 槽、不新增欄不位移。`MAJOR_EVENT` 全庫無程式引用(只註解),改名零風險。
+- **不做每日濃縮(避開所有難點)**:原構想「結束這天呼叫 AI 讀當天歷史批次濃縮」太重。改**完全複用暱稱機制**——AI 每回合 `intimacy_feedback.npcs[].memory` 吐【一句里程碑回憶或「無」】,GAS 用新 `processMemoir_`(同 processTags 精神:append 去重保留最近 10 條;差別=獨立 cell 且句中可能含「、」故改用全形｜分隔、寫入前清 ｜【】[])寫進 27 欄。**零新 AI 呼叫、零歷史挖掘、零 endDay 批次**;「今天沒見到的人不更新」也自動成立(AI 只對在場者吐 npcs)。
+- **餵回**:她在場時 `partyDetailsArr` 把 27 欄(｜→；)接進在場卡「你們的共同回憶」,AI 自然承接你倆過往。
+- **升級路線(未做)**:哪天回憶太多想壓成連貫故事,再加每日濃縮;現版最舊自動掉(slice(-10))即可。編輯/釘選面板(LunaTalk Remember)亦列為後續選配。
+
+改動點:`Core_Settings.gs`(COL 27 改名 MEMOIR)、`Setup_FateWorld.gs`(欄序註解)、`Gallery.gs`(schema npcs 加 `memory` 欄／`processMemoir_` 引擎＋npcs 迴圈寫 27 欄／partyDetailsArr 讀回餵卡)。`sanitizeAiData_` 是 pass-through(只 clamp fav_change)、memory 欄原樣通過。
+
+**驗證**：`bash check.sh`全過、`Engine_Combat.gs` diff 空、`MAJOR_EVENT` 全庫僅剩註解、`COL.PC.MEMOIR` 讀(partyDetailsArr)寫(npcs 迴圈)各一處已接。
+
+**§135 續(同日玩家追加)**：
+- **視角鎖死**：memory 欄明文=玩家第一人稱「我」記述(「和她在頂樓看了跨年煙火」)，【禁止】她的視角/她對我的想法/第三人稱旁觀——10 條疊起來像一本玩家的日記，AI 承接語氣穩；她對玩家的想法另有去處([態度]/好感)不混流。
+- **💞回憶面板(卡片可看/釘選/刪除·LunaTalk Remember 落地)**：同伴面板每列加「💞回憶(N)」鈕→`kanshouOpenMemoir` overlay 列出 27 欄各條——☆釘選(→★前綴·永不被淘汰·上限8，留2格給新回憶)／🗑刪除(confirm)。新 action `kanshou_memoir_op`(Router_Action 註冊·取寫入鎖·`kanshouOwnedRowIdx_` 帳號綁定驗證後才動同 gid 列，比照 update_rel_tag「玩家UI手動管理、AI無權」)，回傳更新後 memoir[]、前端原地重繪＋卡片徽章同步。`kanshou_companions` 回應每人多帶 `memoir[]`(原樣含★)。`processMemoir_` 淘汰邏輯改「★永不驅逐、只淘汰未釘選最舊的」，去重比對忽略★；餵 AI 的在場卡把★去掉(不外洩機制符號)。
+
+## §136 提示詞去重瘦身 Batch 1+2：修 location 正面矛盾＋色度跟隨/人格不崩/欄位規則歸一（2026-07·玩家看 GPT-5.6 提示指南問「可以改進我全部的提示詞嗎」→稽核→玩家選 B=授權含 nsfwBaseRules 的完整去重）
+
+依 OpenAI GPT-5.6 指南原則(重複指令與規則衝突是不穩定主因；修剪重複可提分並省 token)做全提示詞稽核後分批執行。玩家明確選「B」＝Batch 1(零風險)＋Batch 2(授權動 nsfwBaseRules 去重，語義原封、只刪重複)。
+
+**修正的矛盾**：
+- **(B1·正面互撞) location schema 欄**：§134 泡泡改版漏同步——schema 還寫「可自創地名/自行填新地點」vs USER 側「絕對禁止自創/一律照抄」，AI 每回合同時收到兩句會隨機選邊。改為「一律照抄目前地點、場景轉換走 move_proposal」。
+- **(B2) solo miniSystem 字面自我矛盾**：「換行一律用 <br><br>」+「禁止輸出任何 HTML 標籤」(<br>本身就是HTML)→「禁止 <br> 以外的任何 HTML 標籤」。
+- **(B4) 4 個過期方向詞**「見下方慾海律令第6/7條」→實際在上方＋配合刪條重編號。
+
+**去重(canonical 化)**：
+- **色度跟隨整段(nsfwBaseRules·授權)**：刪【色度跟隨鐵律】整節(含 word-for-word ×2 的生理特寫清單＋人格反差 bullet)——canonical＝慾海律令第0條(色度跟隨·caveat 最完整)＋第4條(極致感官)。nsfwBaseRules 913→561 字。
+- **「用原本人格承受快感」5→1**：canonical＝USER 角色一致性鐵律(最完整·有具體人格範例)；刪律令第1條尾句、第4條尾句、天花板 header 括號句(改指向)、色度段 bullet(隨整節)。
+- **慾海律令第5條(physical_state/outfit_change)整條刪**：canonical＝schema `_note`(離填寫點最近·內容全覆蓋)；第6/7條重編號為5/6、全部交叉引用(schema×4＋註解×1)同步改。specificRules 976→839 字。
+- **narration 欄**砍數字重抄只留 pointer(數字本體在★篇幅隨關係濃淡)。
+- **稱呼慣例尾段**縮短(真名規則 schema 兩欄已各講一次)。
+- **背景人煙**砍與在場驗證鐵律逐字重複的三聯句，只留「可以寫路人」正面許可＋pointer。
+- **相約/牽手 fragment**砍「好感高→低」階梯句(五階表＋好感數字已在場)，只留「依個性與好感真實演出、不預設結果」。
+- **時間尺度**兩個絕對句合併成單一決策規則(語義原封：禁跳時段＋禁時間長度字眼＋系統宣告推進才承接)。
+- **敘事終極警告**雙版本(driveOn 三元)抽出共同尾句，只留 drive 差異前綴。
+- (B5)過期註解「specificRules 絕對禁止血量」更正(該禁令現在 USER 側)。
+
+**收益**：SYSTEM 端 -489 字(nsfwBaseRules -352＋specificRules -137)＋USER 常駐約 -600 字＋條件式 fragment 約 -140，合計常駐約 **-1,100 字(~13%)**；矛盾 2 個消除、三講以上的重複規則 5 組歸一。**PROTECTED 未動**：親密尺度五階本體、篇幅數字、對話格式、driveStr 行為設計。**Batch 3 未做**(三個「最高優先級」收斂／SYSTEM 雙列表合併)——等本批實測無退化再議。
+
+⚠ **紅線註記**：本批依玩家明確選「B」授權刪改 nsfwBaseRules 重複段(kanshou-only，語義原封搬移至慾海律令 canonical)。Engine_Combat.gs 全程未動。
+
+**驗證**：`bash check.sh` 全過、Engine_Combat.gs diff 空、慾海律令新編號 0-6 與全部交叉引用一致、無「見下方/第7條」殘留。
+
+## §137 口癖轟炸修正＋回憶鈕補進聊天卡＋相約改點選面板（2026-07·玩家「AI每句都要說一次自封大河大人，整理種子庫?」＋「沒看到卡片的回憶按鈕」＋「約會打編號超怪」）
+
+- **口癖轟炸(雙層病根)**：①大河種子的 speech/dailyLook 寫著「**動不動**自稱藤村家的大河大人」——AI 字面服從頻率放大詞就真的每句來。掃全種子庫後確認只有大河有此類指令詞(其餘「總是」都在無害的私密面描述)。→ speech/dailyLook 第3段改「**得意時**自稱/會自封」。②系統性缺口：只有「萌點節制」沒有口吻版煞車→ nsfwBaseRules 第3條擴為「**風味節制**」：萌點/口吻語癖/自封名號/招牌小動作是底色、自然滲入偶爾點到，禁止每句重複同一語癖名號(管住所有角色含工房捏的)。
+- **(附帶真 bug·§125 死分支)**：`resyncSummonedServants_` 只掃「眾生」，但鑑賞同伴住獨立「鑑賞眾生」分頁——§125 加的 k_ 刷新分支**永遠掃不到人**。補一輪鑑賞列掃描：依種子刷 BACK(dailyBack)＋TRAIT(最新 dailyLook 四段)＋MEMORY【口吻】(最新第3段 regex 替換或補蓋)，工房/AI原創查無種子不動。`CODEX_PERSONA_VER` v63→v64 觸發。已召喚的大河下次登入就吃到新口吻。
+- **💞回憶鈕沒看到**：上次只加在「同伴面板」(👥overlay)，玩家找的是**聊天側同伴卡**(Script.html·📜詳細狀態那排)→ 補一顆「💞 回憶」在詳細狀態旁；`kanshouOpenMemoir` 改 async **自抓資料版**(_kcCur 空時自打一次 kanshou_companions)，不必先開過同伴面板。
+- **相約打編號超怪**：`kanshouPromiseMeet` 的 prompt() 編號清單 → 新共用 `kanshouPickLocation_` 點選面板(分區標題＋📍地點按鈕，點一下即選定，backdrop 可關)。之後任何「選地點」需求都用這支，別再 prompt() 編號。
+
+- **拍照也改選單(同輪追加)**：`kanshouTakePhoto` 的 prompt() → `kf-overlay` 面板：在場同伴(localNPCs.isExact)一人一顆「📷拍她」、≥2人多一顆「👥大家的合照」(intent=''走後端預設合照前3)、「🏞️眼前的風景」(有同伴在場時 intent='眼前的風景' 避開合照預設)、保留自由輸入框(橘貓/夕陽等創意主題)。intent 語義完全沿用後端既有判定、零後端改動。
+
+**驗證**：`bash check.sh` 全過、Engine_Combat.gs diff 空。
+
+## §138 修§132誤改的狀態欄斷尾＋絕對響應「語氣照原樣」（2026-07·玩家實測貼「狀態:…因尷尬而生的」斷句＋「？？又沒有要分妳」被演成得意台詞）
+
+- **(regression·我改壞的) physical_state 斷尾**：§132 把後端截斷 20→15「對齊文件」，但 20 本是【容錯緩衝】——AI 常超寫兩三字(「…因尷尬而生的紅暈」17字)，硬剪 15 產出斷尾殘句(「…因尷尬而生的」)。修回 slice(0,20)，註解明寫「別再對齊文件改回15，差距是刻意的」。教訓：文件-代碼不一致時，先問哪邊才是對的，不是無腦向文件對齊。
+- **絕對響應加「語氣照原樣」(nsfwBaseRules 第1條·授權範圍)**：玩家打錯愕的「？？又沒有要分妳...」被 AI 演成「露出微笑、語氣輕柔的從容挑釁」——絕對響應的「完整重現」被解讀成可改寫語氣。改為「如實承接、語氣照原樣：疑問就是疑問、吐槽就是吐槽，不擴寫不代玩家加戲(錯愕的？？不可演成從容挑釁)」。即稽核 B3 張力的落地修正。
+- **「大河大人」實測仍刷的釐清(非 bug)**：①版本刷新(v64 resync)掛在登入表檢查，玩家該場**未重登**、她列上的舊【口吻】標記還沒刷到；②該場歷史已充滿「大河大人」例句，AI 會模仿歷史——重登＋幾輪新對話稀釋後才會消退。DEV 🔄 按鈕可立即強制刷。
+
+## §139 修「她不理我」：交還玩家≠讓對話懸空（2026-07·玩家實測「是妳製作的...?」Saber零回應就收尾）
+
+§134「不替玩家腦補·結尾停在外部當下」＋敘事終極警告「留未說完的話交還玩家」組合被 AI 過度解讀——把玩家的提問本身當「未說完的話」直接停筆，被搭話的 Saber 彷彿沒聽見。終極警告補明：「交還」不是把互動晾著——玩家本回合搭話/互動的在場人物【必須先給出她此刻的回應】(答話或至少神情/動作反應)才停筆，絕不可只寫完玩家自己的動作提問就收尾。「停在外部當下」的本意=停在【她的反應之後】。
+
+## §140 每動作時間 30→10分鐘＋跟AI講清顆粒度（2026-07·玩家「對話一次半小時，問個菜色都中午了 笑死」→改固定10分）
+
+- `KANSHOU_HOUR_PER_ACTION_` 0.5→`1/6`(10分鐘)。不分聊天/移動一律 10 分(玩家選「固定10分鐘」而非「聊天不推進」)；真要快轉用「⏩下一階段」。`kanshouFmtHM_` 吃小數 round 成分鐘、實測 08:00→08:10→…09:00 無浮點漂移。
+- **提示詞時間尺度同步**：明告 AI「一個動作約【十分鐘左右】的短暫片刻(聊天問句更是眨眼之間)、絕對不要把一次對話演成過了很久」，但仍禁把「十分鐘/半小時」等時間長度字眼寫進敘述(內部校準用、不報時)。
+
+**驗證**：`bash check.sh` 全過、Engine_Combat.gs diff 空、時鐘 10 分刻度無漂移。
+
+## §141 橋段不再重複詢問＋回憶面板讀條保護（2026-07·玩家「橋段會一直重複詢問嗎」＋「點回憶要有讀條保護」）
+
+- **橋段重複詢問(Gallery.gs:1590)**：roomEventOffer 只要地點×時段對得上就每回合冒。§132 的 `KANSHOU_SCENE_DAY_TAG_` 只擋重複加好感、按鈕仍跳。→ 候選人蒐集(_reMatches)加濾條「`KANSHOU_SCENE_DAY_TAG_.get(她MEMORY) !== curDay`」——今天已跟她經歷過橋段就連 offer 都收掉、按鈕消失，一天一位一次特別相處，結束這天(curDay+1)後自然重開。多人同居時只濾掉「今天已經歷的那位」，其餘照常可邀。
+- **回憶面板讀條保護(Script_Kanshou.html)**：新增 `_kmBusy` 旗標＋`kmSpinner_`/`_kmShowLoading_`。①`kanshouOpenMemoir` 聊天卡版要抓 kanshou_companions 時先秀 spinner「讀取中…」避免黑屏、且 _kmBusy 擋連點；②`kanshouMemoirOp`(釘選/刪除)開頭 `if(_kmBusy)return` 擋連點、送出前把面板換 spinner、finally 收 busy＋原地重繪。競態/重複送出雙防。
+
+**驗證**：`bash check.sh` 全過、Engine_Combat.gs diff 空。
+
+## §142 解好感死結：聊天封頂從第一階(19)移到熟識(40)（2026-07·玩家「卡在19要怎麼突破，邀約也失敗 笑死」）
+
+`kanshouRelChatCeiling_` 原本每階都封頂(19/39/59/79)，導致**第一道牆就卡在 19**：聊天到頂、突破得靠約定/橋段，但低好感又矜持的角色(如 Saber@19)——①聊天卡19 ②約定被 AI 依個性婉拒 ③咖啡廳無橋段/住處夜襲@19 骰到防備分支不給好感——三路全堵＝死結。病根：「點頭之交→普通朋友」本該靠日常閒聊自然發生，不該用「特殊相處才突破」把關(那該留給親密階段)。
+- 修：`kanshouRelChatCeiling_` 門檻 filter `m > -100` → `m >= 40`。聊天可自由爬到 39(普通朋友)；40/60/80 三道親密門檻維持要約定赴約(+5)/橋段(+3)突破。實測 好感0~39→聊天可到39、40→59、60→79、80→100。
+- `pAtCeilingStr` 提示不動：新天花板下 bond<40 時 ceiling=39、19>=39 為 false→不再誤報「已到上限」，只在真卡39/59/79 才提示，行為自洽。
+
+**驗證**：`bash check.sh` 全過、Engine_Combat.gs diff 空、天花板函式實測正確。
+
+## §143 相約/牽手明確回饋＋同伴列顯示待赴約定（2026-07·玩家「19有約成功但我怎麼知道有沒有成功？」）
+
+相約/牽手的成立由 post-AI `proposal_accept` 判定後默默寫 tag、【零前端回饋】，玩家只能從敘述猜。補：
+- **後端**：post-AI 判定區產出 `kanshouProposalResult_`({ok,type:'promise'|'hold',name,loc})，成立/婉拒都回傳，塞進 actionPlay 回應 `proposalResult` 欄。
+- **前端通知條(send)**：narration 之後依 `data.proposalResult` 插一條系統條——成立綠底「📅 約定成立！明天在X見面(到場好感↑放鴿子↓)」/「🤝 牽手成功！移動相伴同行」；婉拒粉底「她婉拒了這次約定／沒讓你牽手——關係再深或換時機再試」。
+- **同伴列待赴約定**：`actionKanshouCompanions` 每人多帶 `promise{loc,date:M/D}`(讀 kanshouGetPromise_)，`renderKcPartyList_` 顯示「📅 M/D 在「X」有約」，玩家不必自己記約在哪天哪裡。
+
+**驗證**：`bash check.sh` 全過、Engine_Combat.gs diff 空。
+
+## §144 約定 2.0：選時段＋時間×地點結算＋早到「都早到」一鍵跳＋三處提示（2026-07·玩家「可以挑時段嗎現在根本亂掰／不可能6點約會／時間到會移動她嗎會等多久會知道遲到／地圖也要提示」）
+
+舊約定只有「明天+地點」、她整天釘在那、當天到場即赴約——無時段、AI 亂掰時間。改成完整時間機制：
+- **存 day:band:loc**(kanshouGetPromise_/Set/Clear 支援時段；舊格式 day:loc 無時段→整天有效·向後相容)。`KANSHOU_APPT_BANDS_`：午後14:00/黃昏18:00/夜20:00(排除清晨6點/深夜)，`kanshouApptHour_` 查時刻。
+- **時間感知 pin**(kanshouPromisePin_ 加 curHour)：她約定時刻前10分到場、待到時刻+2h；無時段/沒傳 curHour→整天釘(相容)。endDay(curHour=6)不會把她釘在早上6點的約定地。呼叫端(endDay 1714、time-advance 1729)都傳 curHour。
+- **結算 2.0(時間×地點驅動)**：玩家在約定地點時比對到場時刻——太早(<時刻-10分,−1e-6 epsilon)→回 `kanshouPromiseWait_` 給前端等待框；準時窗[時刻-10,時刻+30]→+5(curHour<時刻→「都早到」味道 narration)；窗後當天→遲到+3；日期已過→爽約-5。命中就把她 pin 到玩家所在地確保登場(她可能還沒被作息骰過來)。`advanceHours` parseInt→parseFloat 支援「跳到13:50」小數時數。
+- **前端**：相約選地點後多一步 `kanshouPickBand_` 選時段；`data.promiseWait`→inline 等待框「⏳在這等到約定前10分」→`kanshouWaitForPromise` 用 advanceHours=時刻-目前時刻推進(她也剛到、後端演「都早到」)；proposalResult 通知條加時段；同伴列 promise 加時刻；地圖地點按鈕標「📅 M/D HH:MM」(promiseByLoc from _kcCur，約定成立後背景 refresh 即時亮)。
+- **多約**：每人各存各的、獨立結算——同地同時=一次全赴約(團體約會)；30分準時窗吸收「不同地點同時段」的接力(跑得夠快都準時)，故不做撞期警告。
+
+**驗證**：`bash check.sh` 全過、Engine_Combat.gs diff 空、時刻窗邏輯 node 實測(13:50都早到/14:00準時/14:36遲到)、rollHours_ 吃小數。
+
+## §144 續(順序 bug·玩家設計審查抓到)：赴約結算必須在 partyRows 之前
+玩家問「時間跳到13:50把Saber拉來 vs 給AI資料，誰先？」——trace 出真 bug：原赴約結算(pin她到curL登場)在 partyRows(在場名單)【之後】。跳泡泡/⏩路徑因快轉區(advance block)已用 kanshouPromisePin_ 把她拉來、剛好無事；但【純聊天/拍照】路徑(§122 被動流動只動時鐘、不重骰位置)→ partyRows 在她被拉來前就定案 → AI 拿到「她沒來」的在場卡(雖然機制上+5、pin 都對，但敘事資料缺她)。修：整塊結算上移到 partyRows 前(now 1873 < partyRows 1918 < takePhoto 1955)，三路(泡泡/原地消磨/拍照)一致——她登場先於在場名單計算，AI 必看得到。
