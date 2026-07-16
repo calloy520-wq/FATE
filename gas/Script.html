@@ -2338,27 +2338,6 @@
     } catch (e) { alert('清理失敗，請稍後再試。'); } finally { hideProcessing(); }
   }
 
-  // 🧪【DEV·拋棄式測完即刪】測快 Gemini(SOLO_MODEL) 在慾海各色度階的容忍度與延遲，跑約30~60秒(7次AI呼叫)。
-  //   結果用 alert 顯示(手機可截圖)，供判斷矜持 fallback 是否天天燒雙重延遲、driveOn 門檻要不要調。
-  async function devProbeGemini() {
-    if (!confirm('🧪 測 Gemini 色度上限？\n\n會連打 7 次 AI(五階色度 + DeepSeek對照)，約 30~60 秒，結果會跳出來給妳截圖。\n\n(這只是測速實驗，不影響任何存檔。)\n\n開始？')) return;
-    showProcessing('測速中…連打7次AI約1分鐘', true);
-    try {
-      const res = await gasRun({ action: 'dev_probe_gemini' });
-      alert((res && res.message) || '完成，但沒收到結果。');
-    } catch (e) { alert('測試失敗，請稍後再試。'); } finally { hideProcessing(); }
-  }
-
-  // 🔍【DEV·拋棄式測完即刪】跑一發階6極致、直接秀 Gemini 實際寫的完整內文，親眼判斷有沒有打出敏感詞、騷不騷。
-  async function devProbeGeminiRaw() {
-    if (!confirm('🔍 看 Gemini 階6極致實際內文？\n\n會跑一發最露骨的生成，把原文吐出來給妳親眼看。')) return;
-    showProcessing('生成中…約5秒', true);
-    try {
-      const res = await gasRun({ action: 'dev_probe_gemini_raw' });
-      alert((res && res.message) || '完成，但沒收到結果。');
-    } catch (e) { alert('測試失敗，請稍後再試。'); } finally { hideProcessing(); }
-  }
-
   // 🌹 鑑賞(慾海)模式的前端函數已搬到 gas/Script_Kanshou.html：openCompanions/kanshouSummonHero/kanshouEditRelTag 等。共用同一頁面全域作用域，此檔可直接呼叫它們。
 
   // mode: 'defeat'(預設，藤村大河+伊莉雅講評敗因) ｜ 'victory'(同兩人祝賀，換皮不換殼)
