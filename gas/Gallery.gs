@@ -887,20 +887,32 @@ const KANSHOU_LOCATION_TAGS_ = {
 //   定案：商業性質地點給一句「當下在做什麼」的輕量敘事引子，讓AI對「為什麼她在這個店裡」有個
 //   合理交代、且整回合對話都能維持一致(不需要持久狀態——每回合都直接依她當下真實LOC現查現算，
 //   本來就不會忘記；純寫死的地點→活動對照表，沒有寫死的地點沒有這句提示，AI自然發揮，不受限)。
+// 🎲 2026-07 玩家「有時打工有時當客人」：每地點改成多個活動變體(店員側/客人側/自然變化)，
+//   用「名字+日期+地點」決定性挑選(kanshouLocActivity_)——同一人同一天同地點恆同一個(聊到一半
+//   不會店員忽然變客人)，跨日/換人/換地自然輪替。零持久化、每回合現算。
 const KANSHOU_LOCATION_ACTIVITY_ = {
-  '咖啡廳': '正在這裡打工，忙著沖泡咖啡、招呼客人',
-  '便利商店': '正在這裡打工值班，忙著上架與結帳',
-  '商店街': '正在這裡逛街購物，挑揀著攤位上的東西',
-  '書店二樓': '正在這裡挑書、翻閱架上的書籍',
-  '河邊小徑': '正沿著河堤散步或慢跑，吹著河風',
-  '古老神社': '正在參拜或幫忙打掃境內，神色安寧',
-  '社區公園': '正在公園裡消磨時光，看孩子嬉鬧或餵著鴿子',
-  '屋頂花園': '正倚著欄杆眺望城市風景，放空發呆',
-  '老道場': '正在道場裡晨練或擦拭木地板，一身汗水',
-  '山間小徑': '正在山道上健行，享受林蔭與鳥鳴',
-  '隱藏溫泉': '正泡在溫泉裡放鬆，神情舒暢',
-  '廢棄神社': '正獨自待在荒草間，靜靜出神'
+  '咖啡廳': ['正在這裡打工，忙著沖泡咖啡、招呼客人', '今天是客人，正坐在窗邊慢慢啜著熱咖啡', '正在櫃檯前排隊點單，琢磨要喝什麼'],
+  '便利商店': ['正在這裡打工值班，忙著上架與結帳', '今天是客人，正在店裡挑著零食與飲料', '正站在雜誌架前隨手翻閱'],
+  '商店街': ['正在這裡逛街購物，挑揀著攤位上的東西', '正幫熟識的店家顧攤，招呼過路客人', '正提著剛買的東西，邊走邊吃小點心'],
+  '書店二樓': ['正在這裡挑書、翻閱架上的書籍', '正幫店裡整理書架，把書一一歸位', '正窩在角落的椅子上安靜讀書'],
+  '河邊小徑': ['正沿著河堤散步或慢跑，吹著河風', '正坐在河堤邊發呆，看著水面波光'],
+  '古老神社': ['正在參拜或幫忙打掃境內，神色安寧', '正坐在石階上休息，望著鳥居出神'],
+  '社區公園': ['正在公園裡消磨時光，看孩子嬉鬧或餵著鴿子', '正坐在鞦韆上輕輕晃著，神情放鬆'],
+  '屋頂花園': ['正倚著欄杆眺望城市風景，放空發呆', '正給花圃澆水、撥弄葉片'],
+  '老道場': ['正在道場裡晨練或擦拭木地板，一身汗水', '正坐在道場邊緣休息，擦著汗喝水'],
+  '山間小徑': ['正在山道上健行，享受林蔭與鳥鳴', '正停在展望點，眺望山下的街景'],
+  '隱藏溫泉': ['正泡在溫泉裡放鬆，神情舒暢', '正坐在池邊泡腳，臉頰微微發紅'],
+  '廢棄神社': ['正獨自待在荒草間，靜靜出神', '正蹲在殘破的石燈籠旁，若有所思']
 };
+// 決定性挑活動：hash(名字+日+地點) % 變體數——不存狀態、重跑同回合結果不變(冪等)。
+function kanshouLocActivity_(loc, name, day) {
+  const opts = KANSHOU_LOCATION_ACTIVITY_[loc];
+  if (!opts || !opts.length) return "";
+  const key = String(name || "") + "#" + (parseInt(day, 10) || 0) + "#" + String(loc || "");
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return opts[h % opts.length];
+}
 // kanshouRollEncounter_的保底池：純女性名單(衛宮士郎-Master仍整個移出巧遇/召喚相關名單)。
 //   不含KANSHOU_SUMMON_BLOCKED_IDS_暫時移出的id。
 const KANSHOU_ENCOUNTER_FEMALE_IDS_ = ['阿爾托莉雅-Saber', '美杜莎-Rider', '美狄亞-Caster', '斯卡哈-Lancer', '美遊-Saber', '小黑-Archer', '遠坂凜-Master', '伊莉雅絲菲爾-Master', '間桐櫻黑化-Master', '藤村大河-Master'];
@@ -1701,8 +1713,8 @@ function actionPlay(userData, pcId, sheets) {
       }
     }
   }
-  // 牽手中的對象名(供移動帶人＋提示詞氛圍)——每回合讀一次現值。
-  const kanshouHeldName_ = KANSHOU_HANDHOLD_TAG_.get(pcData[pcIndex][COL.PC.MEMORY]);
+  // 牽手中的對象名(供移動帶人＋提示詞氛圍)——每回合讀一次現值。let：結束一天會自然放手(下方 endDay)。
+  let kanshouHeldName_ = KANSHOU_HANDHOLD_TAG_.get(pcData[pcIndex][COL.PC.MEMORY]);
 
   // 🤝 結識(巧遇→入駐)：巧遇對象只是路人(不記好感·離開即散)，玩家點「結識」(inviteResident=name)
   //   才正式建列入駐——驗證對象必須真的是【邂逅中】的那位(防直打API憑空加人)、且尚未入駐。
@@ -1853,6 +1865,9 @@ function actionPlay(userData, pcId, sheets) {
     pcData[pcIndex][COL.PC.LOC] = kanshouMyRoomLoc_;
     dirtyPcRows.add(pcIndex);
     pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
+    // 🤝 睡覺自然放手：牽手不跨夜(同床是同床、不是牽著手到天亮)，結束一天一律鬆開，
+    //   避免隔天還掛著昨天的牽手標記。
+    if (kanshouHeldName_) { pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_HANDHOLD_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], ''); kanshouHeldName_ = ''; }
     curL = kanshouMyRoomLoc_;
     allEstablished.forEach(r => {
       const idx = pcData.indexOf(r);
@@ -1891,6 +1906,9 @@ function actionPlay(userData, pcId, sheets) {
       const allEstablishedForTime = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
       allEstablishedForTime.forEach(r => {
         const idx = pcData.indexOf(r);
+        // 🤝 牽手例外(玩家實測「牽手後推進時間她就不見了」)：正被你牽著、且此刻同地的她，
+        //   陪你一起跳過這段時間——牽手＝她選擇跟著你，不被作息骰走(直到放手/結束一天)。
+        if (kanshouHeldName_ && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim() && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(kanshouHeldName_)) return;
         // 今天有約→釘在約定地點守著；沒約→照常骰(同居者走同居版)。curDay已是推進後的日期。
         pcData[idx][COL.PC.LOC] = kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, kanshouIsCohabit_(r));
         dirtyPcRows.add(idx);
@@ -2178,7 +2196,7 @@ function actionPlay(userData, pcId, sheets) {
       //   不加這句，AI自然發揮即可。⚠ 只給「原本就在這裡」的人——這回合剛跟玩家一起移動過來的
       //   同伴(kanshouPreMoveCompanions_)不套，否則被你帶來咖啡廳的人會被誤標成「正在打工」。
       const _pCameWithMe = kanshouPreMoveCompanions_.some(cr => String(cr[COL.PC.NAME]).trim() === String(pName).trim());
-      const pActivityStr = (!_pCameWithMe && KANSHOU_LOCATION_ACTIVITY_[curL]) ? ` | 現況:${KANSHOU_LOCATION_ACTIVITY_[curL]}` : "";
+      const pActivityStr = (() => { const _a = !_pCameWithMe ? kanshouLocActivity_(curL, pName, curDay) : ""; return _a ? ` | 現況:${_a}` : ""; })();
       // 💞 共同回憶(27欄 MEMOIR)：你們一路走來累積的里程碑，讓 AI 自然承接你倆的專屬過往(儲存用全形｜
       //   分隔，餵給 AI 時換成「；」較好讀)。空的就不加這行。
       const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
@@ -2367,7 +2385,7 @@ ${PROMPT_REL}
         const _phHair = kanshouPhotoPending_.scenery ? '#7a9a6a' : kanshouHairHex_(_phSubj ? String(_phSubj[COL.PC.TRAIT] || "") : ""); // 風景照緞帶固定草綠
         const _phFlag = (driveOn || userData.roomEventAccept) ? '親密' : (kanshouReFest_ ? kanshouReFest_.name : '');
         const _phId = 'PH_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
-        kanshouAlbumSheet_().appendRow([myGameId, _phId, curDay, timeBand_(curHour), String(curL || ""), kanshouWeather_(curDay), kanshouPhotoPending_.names.join('、'), (KANSHOU_LOCATION_ACTIVITY_[curL] || ""), _phCap, _phFlag, _phHair]);
+        kanshouAlbumSheet_().appendRow([myGameId, _phId, curDay, timeBand_(curHour), String(curL || ""), kanshouWeather_(curDay), kanshouPhotoPending_.names.join('、'), kanshouLocActivity_(curL, (kanshouPhotoPending_.names[0] || ""), curDay), _phCap, _phFlag, _phHair]);
         pcData[pcIndex][COL.PC.MEMORY] = kanshouFilmStamp_(pcData[pcIndex][COL.PC.MEMORY], curDay, kanshouPhotoPending_.used + 1);
         dirtyPcRows.add(pcIndex);
         kanshouPhotoResult_ = { ok: true, filmLeft: KANSHOU_FILM_PER_DAY_ - kanshouPhotoPending_.used - 1 };
