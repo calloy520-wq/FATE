@@ -181,6 +181,12 @@
 - **每回合**：`physical_state`/`outfit_change`→PHYSICAL·【換裝】；`dynamic_skills`→MEMORY 技巧；`mutual_nicknames`+`attitude`→REL_MEM；`memory` 里程碑→MEMOIR(cap10·★釘選不驅逐)；`rel_changes`→BOND；proposals→前端泡泡(意圖非結果)；`npc_exit`→LOC。
 - **每 3 回合**（側寫節流·【側寫計數】）：`master_note`→經歷滾動／沒鎖的性格格／萌點(僅 INTENT 空時補首個發現)。
 
+**🩺 AI 負擔瘦身（2026-07 玩家診斷「滾動式+衣服外觀神情太要他老命」·小模型注意力有限，能省則省）**：
+- **狀態差分**：`physical_state`/`outfit_change`/`attitude` 沒實質變化留空＝系統沿用舊值（GAS 空值本就跳過寫入；attitude 配套修掉「空值洗白態度」舊 bug——空→從 oldRMem 撈回舊態度）。有變化（脫/穿/沐浴/情事/神情轉變）必須更新，NSFW 場景照記。
+- **options 連動開關**：前端帶 `optionsOn`（玩家關【命運的抉擇】＝false）→ `buildDefaultSystemPrompt` 第3參數 `includeOptions=false` 把 options 欄整個 delete——沒人看的東西不叫 AI 生。
+- **🎬 換幕縮窗**：移動/跳時段/跳節慶/推進時間/結束一天的回合，歷史窗 6筆→2筆（1輪）——舊場景對話物理上不進 AI 眼睛，根治「換地點/時段被舊場景帶著跑」（「此地是唯一真實」「此刻時段是唯一真實」兩條鐵律是文字輔助線，縮窗才是確定性主力）。
+- 原則：**AI 只管演戲，記帳全給 GAS**——別再往每回合 schema 加欄位，要加先想「能不能差分/節流/事件驅動」。
+
 **⚠「今日情景」查證結論（2026-07·勿重複造輪）**：曾考慮加「今日情景」滾動摘要接住 3 輪窗外的當日細節——查證後**不做**：**經歷(BACK) 的滾動摘要實質已涵蓋今日進展**（實測會寫入「正在逛街、計畫一同前往咖啡廳」等當日動態），另設欄位＝跟經歷重複。若長場景實測出現「忘記前段」，優先調經歷的提示詞（讓它多保留今日細節）而非加新欄。舊 `log_summary` 是因果表的主/被動方向記錄、非情景摘要，已隨因果表一起砍除。
 
 ### 模型配置（`Core_Settings.gs` + `actionPlay` aiConfig）— 🚀2026-07定案
