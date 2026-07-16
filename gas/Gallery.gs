@@ -1849,9 +1849,10 @@ function actionPlay(userData, pcId, sheets) {
   let intimateNightNames = [];
   let kanshouClockMoved_ = false; // 結束一天/時段跳躍已自行設時鐘→標記，避免下方每回合流動又加一次
   if (userData.endDay === true) {
-    // 結束一天固定跳到「隔天清晨6點」(不論此刻幾點)，時鐘跟著寫回，往後「推進時間」、鑑賞
-    //   主敘事的時段感提示才有真實的日/時可讀。
-    curDay = curDay + 1;
+    // 🛏️ 結束一天＝睡到「即將到來的清晨6點」：凌晨(深夜0~5點)睡下→【同一天】的6點——跨日已在
+    //   「夜→深夜(00:00)」那一步發生過了；晚上睡下才是隔天6點。修玩家實測「一晚被收兩天」
+    //   (夜→深夜已+1天、結束一天又+1天)。
+    if (curHour >= 6) curDay = curDay + 1;
     curHour = 6;
     kanshouClockMoved_ = true;
     pcData[pcIndex][COL.PC.DAY] = curDay;

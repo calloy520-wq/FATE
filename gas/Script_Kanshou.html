@@ -466,7 +466,8 @@ let plainTextContext = cleanText;
     //   通知條仍是保底)。深夜按「下一階段」也走這裡，同樣被擋到。
     var _edWarn = '';
     try {
-      if (kcClock && kcClock.month && Array.isArray(_kcCur) && _kcCur.length) {
+      // hour>=6 才警告：凌晨(深夜)睡下醒來是【同一天】6點、今天的約還在，不跨日不會爽約。
+      if (kcClock && kcClock.month && kcClock.hour >= 6 && Array.isArray(_kcCur) && _kcCur.length) {
         var _today = kcClock.month + '/' + kcClock.dayOfMonth;
         var _due = _kcCur.filter(function (c) { return c.promise && c.promise.date === _today; });
         if (_due.length) _edWarn = '\n\n⚠ 今天還有沒赴的約：' + _due.map(function (c) { return '「' + c.name + '」' + (c.promise.time || '') + '在「' + c.promise.loc + '」'; }).join('、') + '\n現在睡下去就是爽約，她會在意的(好感下降)！';
