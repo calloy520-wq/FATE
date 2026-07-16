@@ -282,9 +282,9 @@
 
 ---
 
-## Gallery.gs（慾海鑑賞後日談引擎，1999行）
+## Gallery.gs（慾海鑑賞後日談引擎）
 
-2026-07 大整理：本節依 §91 駐留制大改版後全函式重新稽核，補回先前完全沒寫進工具書的經濟/日曆/橋段/商店/關係梯度層（約35項），修正3處過時事實，刪1處死碼引用。
+> 🌹 **鑑賞現況一律以 `KANSHOU_REFERENCE.md` 為準**——那本是唯一真相（世界觀/資料層/各系統/AI管線/前端全景）。本節僅為函式索引速查，且**以下若干鑑賞段落已過時**（經濟/商店/房東房客已全刪、driveOn 不再切模型、模型改 Gemini 優先），過時死節已於 2026-07 大掃除移除，殘留描述以 `KANSHOU_REFERENCE.md` 覆蓋為準。
 
 ### 帳號歸屬/資料存取helper
 - `kanshouOwnedRowIdx_`(12) — 驗證pcId是否為該帳號KPC欄連結的權威列
@@ -356,30 +356,16 @@
 - `kanshouHoursUntilBand_`(2026-07新增) — 到下一次某時段還剩幾小時(已在該時段內也算下一次)
 - `kanshouClockInfo_`(2026-07新增) — 讀御主列DAY/HOUR格式化成`{day,hour,band,label}`，`buildClientState_`(Router_Action.gs)/`actionPlay`回應共用，鑑賞時鐘曝光給前端的單一真實來源(先前鑑賞`clock`欄位恆空字串，2026-07才補上)
 
-### 經濟系統(2026-07「僅鑑賞恢復真經濟層」)
-- `KANSHOU_START_MONEY_`(1037,常數) — 開局起始金錢3000
-- `KANSHOU_WAGE_`(1038,常數) — 打工固定薪資800
-- `KANSHOU_WORK_HOURS_`(1039,常數) — 打工耗時4小時
-- `KANSHOU_UPKEEP_`(1040,常數，原名KANSHOU_RENT_) — 玩家每週維護/食材費1500
-- `KANSHOU_TENANT_RENT_`(1041,常數) — 每位房客每週租金800
-- `KANSHOU_TENANT_SHORT_CHANCE_`(1045,常數) — 房客20%機率該週繳不出租金
-- `KANSHOU_KNOCK_CHANCE_`(1048,常數) — 過夜結算時20%機率有訪客敲門
-- `kanshouChargeUpkeep_`(1052) — 跨週時向玩家收維護費
-- `kanshouCollectTenantRent_`(1074) — 向房客收週租，roll欠繳，寫`dirtyPcRows`確保持久化
-- `kanshouCurfewDismissed_`(1104)/`kanshouDismissCurfew_`(1108) — 門禁提醒當天是否已忽略/標記忽略
+### 💰 經濟系統／🛒 商店裝飾系統 — 【已全刪·2026-07】
+整套經濟層（金錢/打工/房租/店鋪/裝飾）＋房東房客世界觀已於 2026-07 移除，相關常數/函式（`KANSHOU_START_MONEY_`/`WAGE_`/`UPKEEP_`/`TENANT_RENT_`/`SHOP_ITEMS_`/`kanshouChargeUpkeep_`/`kanshouCollectTenantRent_`/`kanshouDismissCurfew_` 等）皆已刪。`COL.PC.MONEY/UPKEEP_WEEK/ROOM` 為恆空死欄（COL 位置索引不刪）。詳見 `KANSHOU_REFERENCE.md`。
 
-### 商店/裝飾系統
-- `KANSHOU_SHOP_ITEMS_`(1117,常數) — 10項商店品項(裝飾/禮物類)，各帶價格+好感值
-- `KANSHOU_DECOR_TAG_`(1131,標籤工廠) — MEMORY【家居裝飾】存取器
-- `kanshouAddDecor_`(1132) — 把裝飾品名稱加進MEMORY【家居裝飾】清單，去重
-
-### 橋段(劇本化場景)骨架
-- `KANSHOU_SCENE_EVENTS_`(873,常數) — 橋段庫(夜襲/賴床叫醒/肉償)，各帶好感門檻分支標籤
-- `KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_`(902,常數) — 時段→房間橋段key對照(深夜→夜襲，清晨→賴床叫醒)
-- `kanshouRollSceneBranch_`(904) — 依好感門檻為指定橋段key抽出分支標籤
-- `KANSHOU_MORNING_AFTER_TAG_`(1143,標籤工廠) — MEMORY【晨間餘韻】一次性下一幕旗標存取器
-- `KANSHOU_RENT_DEBT_TAG_`(1148,標籤工廠) — MEMORY【欠租】每位房客的布林旗標存取器
-- `KANSHOU_EVENT_SEEDS_`(1152,常數) — 抵達地點時的氛圍種子句庫(日常/曖昧/情色三檔)
+### 橋段(劇本化場景)
+- `KANSHOU_SCENE_EVENTS_`(常數) — 橋段庫（夜襲/賴床叫醒/共浴/溫泉同浴/膝枕/下廚/觀星＋6 節慶，約13筆；肉償已隨經濟層刪除），各帶好感門檻分支
+- `KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_`(常數) — 時段→橋段key(深夜→夜襲，清晨→賴床叫醒)
+- `kanshouRollSceneBranch_` — 依好感門檻為指定橋段key抽出分支標籤
+- `KANSHOU_MORNING_AFTER_TAG_`(標籤工廠) — MEMORY【晨間餘韻】一次性下一幕旗標
+- `KANSHOU_EVENT_SEEDS_`(常數) — 抵達地點的氛圍種子句庫(日常/曖昧/情色三檔)
+- 約定2.0：`kanshouGetPromise_`/`SetPromise_`/`ClearPromise_`/`PromisePin_`＋`KANSHOU_APPT_BANDS_`(午後14/黃昏18/夜20)；共同回憶：`actionKanshouMemoirOp`/`processMemoir_`(MEMOIR 27欄·cap10·★釘選)；相簿：`actionGetAlbum`/`actionAlbumDelete`/`KANSHOU_FILM_PER_DAY_`(3)/`ALBUM_CAP_`(100)。詳見 `KANSHOU_REFERENCE.md`。
 - `kanshouRollEvent_`(1174) — 20%機率抽一句氛圍種子句(情色檔需driveOn開啟才會抽到)
 
 ### 住所命名

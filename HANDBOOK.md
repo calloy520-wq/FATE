@@ -1,7 +1,9 @@
 # 命運停駐之夜 — 工具書（全專案地圖）
 
 > 全代碼掃描後彙整（2026-07）。給每次失憶開機的自己：**這個專案在做什麼、代碼長怎樣、能做什麼**，一份看懂。
-> 錨檔分工：**`CLAUDE.md`**（紅線＋當前焦點）／**`DESIGN.md`**（設計鐵則·為什麼）／**本檔 `HANDBOOK.md`**（架構＋每個檔案有什麼·怎麼運作）／**`SOLO_REFERENCE.md`**（solo action/函數/schema 速查）／**`AI_PROMPT_MAP.md`**（每個 action↔按鈕↔handler↔送 AI 的 prompt 全景）。常數會漂，看代碼為準。
+> 錨檔分工：**`CLAUDE.md`**（紅線＋當前焦點）／**`DESIGN.md`**（設計鐵則·為什麼）／**本檔 `HANDBOOK.md`**（架構＋每個檔案有什麼·怎麼運作）／🌹**`KANSHOU_REFERENCE.md`**（鑑賞唯一現況真相·動鑑賞先看這本）／**`SOLO_REFERENCE.md`**（solo action/函數/schema 速查）／**`AI_PROMPT_MAP.md`**（每個 action↔按鈕↔handler↔送 AI 的 prompt 全景）。常數會漂，看代碼為準。
+>
+> 🌹 **鑑賞現況一律以 `KANSHOU_REFERENCE.md` 為準**——本檔的鑑賞段落若與該本衝突，以該本為真（本檔部分鑑賞描述可能過時）。
 
 ---
 
@@ -13,7 +15,7 @@
 
 **雙軌設計（玩家定案，別偏離）**：
 - **🎴 純淨 solo（主體·SFW）**：單人聖杯戰爭，只有「按鍵＋AI 敘述」。多帳號可玩、`game_id` 實例化＋帳號綁定分流。盡量貼近原作。
-- **🌹 慾海 kanshou（鑑賞後日談·NSFW）**：奪杯後與封存從者約會。一張約會大地圖，只持久化 個性/特徵/關係/外顯/肉體＋歷史紀錄（「歷史暫存」逐句對話，驅動敘事連續性）；無戰鬥。共用 `actionPlay` 引擎與 `nsfwBaseRules`（🔴紅線①不可改）。⚠ 「因果」(事件log) 機制已於 2026-07 整套刪除，與此處持久化的「歷史紀錄」是不同機制。⚠ 2026-07-13 玩家推翻「無經濟」決定，**僅鑑賞恢復真經濟層**（金錢/打工/房租/商店，見 §8、`CLAUDE.md`「現在焦點」；solo 依然全程無花錢入口不變）。⚠ 2026-07 §91「駐留制」大改版：kanshou 已無「同行」概念，改純 `LOC`(所在地點)判定「誰在場」，見 §8。
+- **🌹 慾海 kanshou（鑑賞後日談·NSFW）**：奪杯後與封存從者約會。一張約會大地圖，只持久化 個性/特徵/關係/外顯/肉體＋歷史紀錄（「歷史暫存」逐句對話，驅動敘事連續性）；無戰鬥。共用 `actionPlay` 引擎與 `nsfwBaseRules`（🔴紅線①不可改）。⚠ 「因果」(事件log) 機制已於 2026-07 整套刪除，與此處持久化的「歷史紀錄」是不同機制。⚠ 經濟層（金錢/打工/房租/商店）＋房東房客世界觀**已於 2026-07 再度全刪**（曾短暫恢復又推翻，見 `CLAUDE.md`）——kanshou 現與 solo 一樣全程無花錢入口。⚠ 2026-07 §91「駐留制」大改版：kanshou 已無「同行」概念，改純 `LOC`(所在地點)判定「誰在場」。詳見 `KANSHOU_REFERENCE.md`。
 - ⚠ **2026-07 玩家定案(推翻舊方針)**：原本的兩個唯讀視窗（📜 個人聖杯戰記／🏆 排行榜）已全數砍除——單人專注，不做跨帳號回顧比拼。連帶「戰史」表、`incrementWin_`/`recordHistory_`/`recordWinSpeed_`/`actionLeaderboard`/`actionGetVictoryHistory` 一併刪除，帳號表 WON/BEST_DAYS 欄砍除。
 
 **三鐵則**：① GAS 掌所有數值（先算→寫表→再敘述）；② AI 只把已裁定結果說書、把玩家自由發揮摘成事實列，**永不決定勝負/寫數字**（LLM 輸出的硬數值一律被夾值/忽略）；③ show-don't-tell（禁直述 願望/個性/萌點 字面）。
@@ -46,7 +48,7 @@ PC(眾生·33欄，2026-07 折表後·鑑賞眾生同一份schema):
                 MAX_MP11 MEMORY12 INTENT13 FACTION14 RANK15
                 CONTRIB16(敵令咒餘量·solo專用) ALIGN17 PHYSICAL18(慾海肉體外顯) MARTIAL19(寶具字串·solo專用) GAME_ID20 SIX21(solo專用) TAGS22(solo專用) SEEN23(solo專用)
                 🆕 關係欄(原 REL 表·這名 NPC 對本世界御主的關係，御主自己這列留空)：
-                  BOND24(好感0-100) REL_TAG25 IS_PARTY26("同行"/"") MAJOR_EVENT27(死欄·整條機制已拆) REL_MEM28(關係專屬記憶，與角色自己MEMORY分開存)
+                  BOND24(好感0-100) REL_TAG25 IS_PARTY26(solo同行旗標·鑑賞不用改判LOC) MEMOIR27(🌹鑑賞共同回憶·原MAJOR_EVENT死欄復用·AI每回合memory·cap10·★釘選) REL_MEM28(關係專屬記憶/態度/專屬稱呼)
                 🆕 世界狀態欄(原 CLK/AUTH 表·只在solo御主自己那一列有意義，鑑賞恆不用)：
                   DAY29 HOUR30 AP31 HOME_LOC32(居所·工房加成)
 MAP:  REGION0 NAME1 TYPE2 COORD3 DESC4 PARENT5 WAR6(4th/5th戰爭限定節點過濾用·solo專用)
