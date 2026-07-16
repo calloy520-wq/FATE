@@ -716,7 +716,7 @@ function buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote) {
         "dynamic_skills": "雙修技巧名(2~5字，規則見上方慾海律令第5條)",
         "mutual_nicknames": "雙方間已自然發展出的暱稱/愛稱(規則見上方慾海律令第5條)",
         "attitude": "這名NPC對御主當下的臨場態度(非好感趨勢，第三人稱，≤15字，規則見上方慾海律令第6條)",
-        "memory": "本回合若與這位發生了【值得長期記住的里程碑】(告白/初次牽手/難忘的約會或橋段/重要約定達成/第一次一起做某事等)，寫【一句】≤30字的回憶；【視角鎖死】＝玩家第一人稱的「我」記述我們做過的事(如「和她在頂樓一起看了跨年煙火」)，【禁止】寫成她對我的想法、她的視角、或第三人稱旁觀(「她很開心」「兩人共度…」都不行)；只是尋常閒聊、無特別進展就填「無」——【只記真正的里程碑】、不要每回合都記流水帳"
+        "memory": "本回合若與這位發生了【值得長期記住的里程碑】(告白/初次牽手/難忘的約會或橋段/重要約定達成/第一次一起做某事等)，寫【一句】≤30字的回憶；【視角鎖死】＝玩家第一人稱的「我」記述我們做過的事(如「和她在頂樓一起看了跨年煙火」)，【禁止】寫成她對我的想法、她的視角、或第三人稱旁觀(「她很開心」「兩人共度…」都不行)；只是尋常閒聊、無特別進展就填「無」——【只記真正的里程碑】、不要每回合都記流水帳。★【一個里程碑只記一次】：若這件事與她資料中【共同回憶】清單的既有條目是同一件事(換句話說重述也算)，一律填「無」——同一個約定/同一次初見不要每回合反覆記"
       }]
     },
     // target 只能填真名(schema級約束，比事後再說一次更有效)。tag 欄位不存在：關係標籤
@@ -2588,8 +2588,21 @@ ${PROMPT_REL}
       const processMemoir_ = (oldMemoir, newLine, maxCount) => {
         let arr = String(oldMemoir || "").split('｜').map(x => x.trim()).filter(x => x !== "" && x !== "無");
         let clean = String(newLine || "").replace(/[｜【】\[\]★]/g, "").trim().slice(0, 40);
+        // 🛡️ 相似度去重(玩家實測「超級洗畫面」)：同一事件在3輪歷史窗裡迴盪，Gemini每回合換句話說
+        //   重記一條(「約定去社區公園」記了四種說法)。精確比對擋不住換句話說→加「字元雙字組
+        //   containment」：與【最近3條】任一條重疊率≥0.6視為同一件事、不收(只比近期＝針對迴盪
+        //   窗，久遠條目不誤殺真正的新里程碑)。
+        const _bi = s => { const t = String(s).replace(/^★/, "").replace(/[，。、！？…\s]/g, ""); const o = new Set(); for (let i = 0; i < t.length - 1; i++) o.add(t.substr(i, 2)); return o; };
+        const _echoDup = (cand) => {
+          const cb = _bi(cand); if (cb.size < 4) return false;
+          return arr.slice(-3).some(x => {
+            const xb = _bi(x); if (xb.size < 4) return false;
+            let hit = 0; cb.forEach(g => { if (xb.has(g)) hit++; });
+            return hit / Math.min(cb.size, xb.size) >= 0.6;
+          });
+        };
         // 去重比對忽略★前綴(玩家釘選標記，見actionKanshouMemoirOp)，避免同一條被釘選後又重複收錄。
-        if (clean && clean !== "無" && !arr.some(x => x.replace(/^★/, "") === clean)) arr.push(clean);
+        if (clean && clean !== "無" && !arr.some(x => x.replace(/^★/, "") === clean) && !_echoDup(clean)) arr.push(clean);
         if (arr.length <= maxCount) return arr.join('｜');
         // 超量淘汰：★釘選的永不驅逐，只淘汰未釘選裡最舊的；輸出保持原本時序。
         const pinnedCount = arr.filter(x => x.charAt(0) === '★').length;
