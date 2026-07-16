@@ -1492,6 +1492,15 @@ function actionPlay(userData, pcId, sheets) {
   //   接不接受(proposal_accept)，回應後(見下方post-AI區)才真正寫MEMORY——貫徹「意圖非結果」，避免
   //   低好感/矜持角色被系統強制答應(舊做法在按下當回合就寫死tag、提示詞還逼AI演成功)。
   let _pendingProposal = null; // {type:'promise'|'hold', idx, loc?, name?}
+  // 📣 成立/婉拒/撲空的明確回饋(相約/牽手/同居/她主動邀約 共用)——pre-AI 撲空婉拒與 post-AI 判定
+  //   都可能寫它，一回合只走一條路。宣告須在相約區塊「之前」，撲空案例才寫得進去。
+  let kanshouProposalResult_ = null;
+  // 🔍 她在哪(撲空提示用)：不限同地找她的列、回報 LOC——玩家本就能從同伴面板看到位置，非洩密。
+  const _whereIsHer = (nm) => {
+    const _n = String(nm || "").trim();
+    const _r = _n ? pcData.find((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_n)) : null;
+    return _r ? String(_r[COL.PC.LOC] || "").trim() : "";
+  };
   let kanshouPromiseStr = "";
   if (userData.promiseMeet && typeof userData.promiseMeet === 'object') {
     const _pmName = String(userData.promiseMeet.name || "").trim();
@@ -1510,12 +1519,10 @@ function actionPlay(userData, pcId, sheets) {
     } else if (_pmName) {
       kanshouPromiseStr = `\n★【相約撲空】：你想找『${_pmName}』相約見面，但她此刻並不在這裡——演出這份撲空的悵然即可，約定沒有成立。`;
       finalUserMsg = `【玩家意圖】：想找『${_pmName}』相約，卻發現她不在身邊。`;
+      kanshouProposalResult_ = { ok: false, miss: true, type: 'promise', name: _pmName, where: _whereIsHer(_pmName) };
     }
   }
 
-  // 📅 成立回饋(相約/牽手/她主動邀約敲定 共用)——pre-AI 先宣告，post-AI 的 proposal_accept 與此處
-  //   的 promiseAccept 兩條路都可能寫它，一回合只會走一條，故不重置。回傳前端跳通知條。
-  let kanshouProposalResult_ = null;
   // 📅 玩家同意她主動提的約(她 promise_proposal→泡泡→玩家按同意→帶 promiseAccept 回來)：她已開口、
   //   玩家點頭，直接落地【約定】，不再走 proposal_accept 二次判定(她不會婉拒自己提的約)。她需仍在場。
   if (userData.promiseAccept && typeof userData.promiseAccept === 'object') {
@@ -1544,6 +1551,7 @@ function actionPlay(userData, pcId, sheets) {
     if (_chIdx === -1) {
       kanshouCohabitStr = `\n★【邀請撲空】：你想邀『${_chName}』搬來同住，但她此刻並不在這裡——演出這份撲空的悵然即可。`;
       finalUserMsg = `【玩家意圖】：想邀『${_chName}』搬來一起住，卻發現她不在身邊。`;
+      kanshouProposalResult_ = { ok: false, miss: true, type: 'cohabit', name: _chName, where: _whereIsHer(_chName) };
     } else {
       const _chRealName = String(pcData[_chIdx][COL.PC.NAME]);
       if (kanshouIsCohabit_(pcData[_chIdx])) {
@@ -1552,9 +1560,12 @@ function actionPlay(userData, pcId, sheets) {
       } else if ((parseInt(pcData[_chIdx][COL.PC.BOND]) || 0) < KANSHOU_COHABIT_BOND_) {
         kanshouCohabitStr = `\n★【同居·婉拒】：你邀『${_chRealName}』搬來同住，但你們的關係還沒深到能同住一個屋簷下——演出她依性格婉拒的反應(害羞岔開/認真說還太早/打趣帶過皆可)，這件事沒有成立、也沒有任何數值變動。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣邀『${_chRealName}』搬來一起住。`;
+        // 📣 走查抓到的資訊黑洞：舊版婉拒只有敘事、無機制回饋，玩家不知道是好感不足還是演出婉拒。
+        kanshouProposalResult_ = { ok: false, type: 'cohabit', name: _chRealName };
       } else {
         pcData[_chIdx][COL.PC.MEMORY] = KANSHOU_COHABIT_TAG_.set(pcData[_chIdx][COL.PC.MEMORY], 1);
         dirtyPcRows.add(_chIdx);
+        kanshouProposalResult_ = { ok: true, type: 'cohabit', name: _chRealName };
         kanshouCohabitStr = `\n★【同居開始】：『${_chRealName}』答應搬來與你同住了！從今以後她深夜會回這個家的「和室」就寢、清晨可能還賴在被窩、晚間常在家中活動，白天依然過她自己的生活——演出她答應這一刻依性格的反應(欣喜/彆扭/故作平靜皆可)，這是關係的一大步。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣邀『${_chRealName}』搬來一起住。`;
       }
@@ -1577,6 +1588,7 @@ function actionPlay(userData, pcId, sheets) {
       if (_hhIdx === -1) {
         kanshouHandHoldStr = `\n★【牽手落空】：你想牽『${_hhArg}』的手，但她此刻並不在你身邊——演出這份撲空即可。`;
         finalUserMsg = `【玩家意圖】：想牽『${_hhArg}』的手，卻發現她不在身邊。`;
+        kanshouProposalResult_ = { ok: false, miss: true, type: 'hold', name: _hhArg, where: _whereIsHer(_hhArg) };
       } else {
         const _hhName = String(pcData[_hhIdx][COL.PC.NAME]);
         const _hhBond = parseInt(pcData[_hhIdx][COL.PC.BOND]) || 0;

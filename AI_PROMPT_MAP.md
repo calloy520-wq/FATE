@@ -389,7 +389,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 | 夜襲/賴床叫醒 | 移動到某同伴自己的住處(`KANSHOU_HERO_HOME_`)或同居者的`和室`寢間、當前時段落在深夜/清晨、且該同伴當下確實在該處(非移動前就已跟玩家同地點——見 `SOLO_REFERENCE.md` §90 的排序bug修正) | `roomEventOffer` | `roomEventAccept:true` | `KANSHOU_SCENE_EVENTS_.夜襲`/`.賴床叫醒`，`kanshouRollSceneBranch_`依好感roll分支；接受的非拒絕分支給`KANSHOU_SCENE_BOND_`(同伴同日只給一次·`KANSHOU_SCENE_DAY_TAG_`)；夜襲對象好感≥80額外設`KANSHOU_MORNING_AFTER_TAG_`供隔天第一回合帶入晨間氛圍(§81·§131) |
 | 夜晚敲門 | 結束一天時`KANSHOU_KNOCK_CHANCE_`(20%)擲中、且候選同伴同居或好感≥`KANSHOU_KNOCK_MIN_BOND_`(60) | `knockEvent`(既有機制，非本輪新增) | `knockAccept:true`(同意)／`skipKnockCheck:true`(略過) | 對應訪客建立/移入 |
 
-`Script_Kanshou.html` 的 `send()` 函式簽名已累積到 22 個位置參數(`customMsg, isSilent, combatData, moveTarget, lookAround, endDay, advanceHours, jumpFestival, knockAccept, skipKnockCheck, dismissCurfew, roomEventAccept, jumpBand, loaderCaptions, moveWithCompanion, promiseMeet, cohabitInvite, inviteResident, takePhoto, showPhoto, photoIntent, handHold`)——其中 `dismissCurfew` 是門禁機制移除後留下的空位佔位(移掉會位移後面全部實參，故保留)。新增此類機制前，應認真考慮改成單一 options 物件而非繼續疊加位置參數(工程準則「易維護」)。
+`Script_Kanshou.html` 的 `send()` 已於 2026-07 重構成 **`send(customMsg, isSilent, opts)`**：原 22+ 個位置參數(呼叫端一長串 null 極易錯位)全數收進單一 opts 物件(`moveTarget/lookAround/endDay/advanceHours/jumpFestival/knockAccept/skipKnockCheck/roomEventAccept/jumpBand/loaderCaptions/moveWithCompanion/promiseMeet/cohabitInvite/inviteResident/takePhoto/showPhoto/photoIntent/handHold/promiseAccept`)；死參數 combatData/門禁佔位一併移除。前兩個位置參數保留(選項按鈕 `send(text, true)` 用法不變)。純前端組參方式改變、payload 不變、零速度影響。新增機制＝往 opts 加一鍵，不再位移任何呼叫端。
 
 ---
 

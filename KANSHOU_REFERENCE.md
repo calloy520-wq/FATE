@@ -174,7 +174,8 @@ UNLOCKED_MODEL = x-ai/grok-4.20              (屬性 UNLOCKED_MODEL)
 
 ## 🖥️ 前端地圖（`gas/Script_Kanshou.html` 為主）
 
-- **唯一引擎入口 `send()`＝`action:'play'`**。移動/相約/拍照/牽手/同居/敲門/橋段**沒有各自的 action**，全靠 `send()` 夾旗標欄位：`moveTarget`/`moveWithCompanion`/`promiseMeet`/`takePhoto`+`photoIntent`/`showPhoto`/`handHold`/`cohabitInvite`/`roomEventAccept`/`knockAccept`/`skipKnockCheck`/`lookAround`/`inviteResident`。
+- **唯一引擎入口 `send(customMsg, isSilent, opts)`＝`action:'play'`**（2026-07 重構：原 22+ 位置參數收進單一 opts 物件，payload 不變零速度影響）。移動/相約/拍照/牽手/同居/敲門/橋段**沒有各自的 action**，全靠 opts 夾旗標：`moveTarget`/`moveWithCompanion`/`promiseMeet`/`promiseAccept`/`takePhoto`+`photoIntent`/`showPhoto`/`handHold`/`cohabitInvite`/`roomEventAccept`/`knockAccept`/`skipKnockCheck`/`lookAround`/`inviteResident`/`endDay`/`advanceHours`/`jumpBand`/`jumpFestival`/`loaderCaptions`。
+- **回饋條 `proposalResult`** 涵蓋 相約/牽手/同居 三型＋**撲空含「她似乎在○○」位置提示**；底片用完/相簿滿的 `photoResult` 附直達鈕（🌙睡到明天/📚開相簿）——「撲空/婉拒/卡住」一律要有下一步，別讓玩家對著空氣猜。
 - **獨立 action**：`kanshou_companions`／`get_heroes`／`kanshou_summon_hero`／`get_album`／`album_delete`／`update_rel_tag`／`kanshou_memoir_op`／`kanshou_set_home_name`／`kanshou_set_name`／`kanshou_set_sex`／`enter_kanshou`／`backfill_kanshou_ai`。
 - **函式分組**：地圖移動(`kcMapListHtml_`/`kanshouMoveTo`/`kanshouProposeMove`/`kanshouLookAround`)、同伴面板(`openCompanions`/`renderKcHeroList_`/`kanshouEditRelTag`)、召喚(`kanshouSummonHero`)、回憶(`kanshouOpenMemoir`/`kanshouMemoirOp`)、約定(`kanshouPromiseMeet`/`kanshouWaitForPromise`)、拍照相簿(`kanshouTakePhoto`/`openKanshouAlbum`)、時鐘(`kanshouEndDay`/`kanshouNextStage`/`kanshouJumpBand`/`kanshouJumpFestival`)。
 - **泡泡 UI**（`send()` 內依回傳欄位組）：移動同意(`moveProposal`)、敲門(`knockEvent`)、橋段邀請(`roomEventOffer`)、巧遇(`encounterOffer`)、拍照結果(`photoResult`)、地圖人數徽章(`_lastTags.locationCounts`)。
