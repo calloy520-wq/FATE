@@ -291,9 +291,11 @@ function actionUpdateFate(userData, pcId, sheets) {
   pcData[pIdx][targetCol] = String(fateValue || "").slice(0, cap);
   // 🔒 鑑賞御主改命『個性』→依 UI 送來的【明確鎖選】登記【性格鎖】(預設不鎖，玩家勾了才鎖)。
   //   鎖的格 AI 的 master_note 側寫連欄位都看不到、也絕不覆寫；沒鎖的格 AI 可持續 refine。
-  if (fateType === 'pref' && String(pcId).indexOf('KPC_') === 0 && String(pcData[pIdx][COL.PC.ID]) === String(pcId)) {
+  // 🛡️ 只在前端明確帶了 prefLocks 陣列時才動鎖——沒帶(舊前端/例外路徑)＝保持原狀，
+  //   絕不把 undefined 當成「全解鎖」無聲抹掉玩家設定。
+  if (fateType === 'pref' && String(pcId).indexOf('KPC_') === 0 && String(pcData[pIdx][COL.PC.ID]) === String(pcId) && Array.isArray(userData.prefLocks)) {
     var _validKeys = ["對外性格", "獨處性格", "喜歡", "討厭"];
-    var _reqLocks = Array.isArray(userData.prefLocks) ? userData.prefLocks.filter(function (k) { return _validKeys.indexOf(k) !== -1; }) : [];
+    var _reqLocks = userData.prefLocks.filter(function (k) { return _validKeys.indexOf(k) !== -1; });
     pcData[pIdx][COL.PC.MEMORY] = kanshouSetPrefLocks_(pcData[pIdx][COL.PC.MEMORY], _reqLocks);
   }
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);

@@ -181,7 +181,8 @@ function dailySpeechByName_(name, preHeroes) {
     // preHeroes 可選：同一輪 actionPlay 可能對2~3位同伴各呼叫一次，呼叫端可在迴圈外先抓一次
     //   共用傳入，省重複整表解析；不傳則自己抓，行為不變。
     var heroes = preHeroes || getHeroCodexCached();
-    var h = heroes.find(function (r) { return String(r[COL.HERO.NAME]).trim() === String(name).trim(); });
+    // 🏷️ 候選橋比對：列可能是短名(SABER/櫻)、英靈殿是全名——精確比對會讓遺留列口吻靜默變空。
+    var h = heroes.find(function (r) { return kanshouNameCandidates_(String(r[COL.HERO.NAME]).trim()).includes(String(name).trim()) || kanshouNameCandidates_(String(name).trim()).includes(String(r[COL.HERO.NAME]).trim()); });
     if (!h) return "";
     var parts = String(h[COL.HERO.DAILY_LOOK] || "").split('、').map(function (s) { return s.trim(); }).filter(Boolean);
     return parts.length >= 4 ? parts[2] : "";
@@ -361,6 +362,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
         var _myGid = String(data[r][COL.PC.GAME_ID] || "");
         for (var _cw = 1; _cw < data.length; _cw++) {
           if (String(data[_cw][COL.PC.GAME_ID] || "") !== _myGid) continue;
+          if (String(data[_cw][COL.PC.FACTION]) !== "從者") continue; // 🛡️ 只正名 NPC——玩家 avatar 若自取名「遠坂凜」不得被強改
           var _cwNm = String(data[_cw][COL.PC.NAME] || "");
           if (_cnMap[_cwNm]) { data[_cw][COL.PC.NAME] = _cnMap[_cwNm]; kpc.getRange(_cw + 1, COL.PC.NAME + 1).setValue(_cnMap[_cwNm]); }
         }
@@ -375,7 +377,8 @@ function actionEnterKanshou(userData, pcId, sheets) {
         success: true,
         pcId: linkedKpcId, pcName: String(data[r][COL.PC.NAME] || acctName),
         pcSex: String(data[r][COL.PC.SEX] || "異"), loc: loc,
-        homeName: getKanshouHomeName_(data[r][COL.PC.MEMORY], String(data[r][COL.PC.NAME] || acctName))
+        homeName: getKanshouHomeName_(data[r][COL.PC.MEMORY], String(data[r][COL.PC.NAME] || acctName)),
+        prefLocks: kanshouGetPrefLocks_(data[r][COL.PC.MEMORY]) // 🔒 進場即下傳，重載後改命視窗開關狀態才正確(不再無聲清鎖)
       });
     }
     // 連結指向的列不存在(手動整理試算表等邊角情況)→ 當作沒有存檔，往下走新建流程。
@@ -393,7 +396,8 @@ function actionEnterKanshou(userData, pcId, sheets) {
         success: true,
         pcId: migId, pcName: String(data[m][COL.PC.NAME] || acctName),
         pcSex: String(data[m][COL.PC.SEX] || "異"), loc: String(data[m][COL.PC.LOC] || "冬木·深山町"),
-        homeName: getKanshouHomeName_(data[m][COL.PC.MEMORY], String(data[m][COL.PC.NAME] || acctName))
+        homeName: getKanshouHomeName_(data[m][COL.PC.MEMORY], String(data[m][COL.PC.NAME] || acctName)),
+        prefLocks: kanshouGetPrefLocks_(data[m][COL.PC.MEMORY])
       });
     }
   }
@@ -722,7 +726,7 @@ function buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote, include
     "cohabit_proposal": "僅當某位在場同伴對你好感極深、且尚未與你同住時，她若自然而然想【邀你一起住/想搬來同住】，填她的真名字串；narration 停在她開口的當下、由玩家決定。沒有這個意圖就留空字串。",
     // proposal_accept：僅當敘事鐵律區出現【提議·相約】或【提議·牽手】標記(玩家向她提出、需她回應)時才有意義，
     //   由AI依該角色個性與當前好感決定接不接受，GAS只在填「接受」時才把約定/牽手落地成持久狀態(意圖非結果)。
-    "proposal_accept": "僅當本回合敘事鐵律區有【提議·相約】或【提議·牽手】標記時填寫：她若接受填「接受」、婉拒填「婉拒」(依其個性與好感真實決定，好感低或性格矜持可婉拒)；沒有這類提議就留空字串",
+    "proposal_accept": "僅當本回合敘事鐵律區有【提議·相約】、【提議·牽手】或【提議·同去】標記時填寫：她若接受填「接受」、婉拒填「婉拒」(依其個性與好感真實決定，好感低或性格矜持可婉拒)；沒有這類提議就留空字串",
     // npc_exit：同伴自主權——她可自然告辭離場，GAS真的把她移出場景(不再是嘴上說走卻還在)。只認此刻
     //   在場同伴，去向由系統依作息決定；被牽的人離場→牽手自動鬆開。不必每回合遣散，只在情境自然時。
     "npc_exit": "若某在場同伴這回合自然而然告辭離開(有事要辦/作息/心情等)，把她的真實姓名填進此陣列(可多位)；她會真的離場、下回合不在你身邊，去向由系統依她作息決定。沒有人離開就填空陣列[]。這是『她自己走』、與玩家移動無關，narration要把她離開的過程演出來；被你牽著手的她若在此離開，牽手也一併鬆開。不必每回合都讓人離開，只在情境自然時才用。",
@@ -783,7 +787,7 @@ function buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote, include
 
 【狀態與輸出】
 1. 本回合聚焦當下近身互動，依玩家輸入自然推進（日常就日常，情慾就情慾）。
-2. 只輸出合法JSON，options固定4個、順序不可變、每項20字。`;
+2. 只輸出合法JSON${includeOptions === false ? '' : '，options固定4個、順序不可變、每項20字'}。`;
 
 const specificRules = `
 【慾海律令】
@@ -1530,6 +1534,13 @@ function kanshouNameCandidates_(fullName) {
   // 疊上日常稱呼別名(全名↔短名)，任何一種寫法都算同一個人。
   const out = base.slice();
   base.forEach(n => (KANSHOU_NAME_ALIAS_[n] || []).forEach(a => { if (out.indexOf(a) === -1) out.push(a); }));
+  // 🛡️ 拉丁字母大小寫寬容(SABER/Saber/saber)：AI 對英文名很常自行正規化大小寫，精確比對會
+  //   讓 rel_changes/intimacy_feedback/npc_exit 整條靜默失效——含英文的候選補上三種寫法。
+  out.slice().forEach(n => {
+    if (/[A-Za-z]/.test(n)) {
+      [n.toUpperCase(), n.toLowerCase(), n.charAt(0).toUpperCase() + n.slice(1).toLowerCase()].forEach(v => { if (out.indexOf(v) === -1) out.push(v); });
+    }
+  });
   return out;
 }
 
@@ -1821,7 +1832,8 @@ function actionPlay(userData, pcId, sheets) {
   if (userData.endDay === true) _reHourAfter = 6;
   else if (userData.jumpBand) { const _rb = KANSHOU_TIME_BANDS_.find(b => b.key === String(userData.jumpBand)); if (_rb) _reHourAfter = _rb.startHour; }
   else if (parseFloat(userData.advanceHours) > 0) _reHourAfter = ((curHour + parseFloat(userData.advanceHours)) % 24 + 24) % 24;
-  else if (!userData.jumpFestival && curHour < KANSHOU_DAY_LAST_HOUR_) _reHourAfter = Math.min(KANSHOU_DAY_LAST_HOUR_, curHour + KANSHOU_HOUR_PER_ACTION_);
+  else if (userData.jumpFestival) _reHourAfter = 6; // 跳節慶恆落在前一天清晨6點(kanshouHoursUntilDate_ 的落點)
+  else if (curHour < KANSHOU_DAY_LAST_HOUR_) _reHourAfter = Math.min(KANSHOU_DAY_LAST_HOUR_, curHour + KANSHOU_HOUR_PER_ACTION_);
   const kanshouReBand_ = timeBand_(_reHourAfter);
   const kanshouHomeLocs_ = Object.values(KANSHOU_HERO_HOME_);
   // 橋段觸發三層(擇一，優先序由稀至常)：①節慶(一年一天)→②同住人房間(她家×深夜/清晨)→③地點×時段。
@@ -2131,7 +2143,7 @@ function actionPlay(userData, pcId, sheets) {
         _lvNames.push(_nm);
       }
     });
-    if (_lvNames.length) kanshouNpcLeaveStr_ = `\n★【自然告辭·作息】：時段來到${timeBand_(curHour)}，『${_lvNames.join('、')}』到了該走的時間——這回合請讓她(們)依各自個性自然向你道別離開(有事要辦/該回去了皆可，去向不必交代)，narration 要把道別演出來、不可無聲消失；道別後她(們)就不在場了。`;
+    if (_lvNames.length) kanshouNpcLeaveStr_ = `\n★【自然告辭·作息——本回合特別豁免，不受下方在場驗證鐵律限制】：時段來到${timeBand_(curHour)}，『${_lvNames.join('、')}』到了該走的時間——她(們)雖已不在【目前在場人物】名單，本回合【唯獨允許】她(們)開口說這最後一句道別(依你記憶中她的個性，有事要辦/該回去了皆可，去向不必交代)，narration 要把道別演出來、不可無聲消失；道別之後她(們)就真的不在場了。`;
   }
 
   // 📅 赴約/爽約結算 2.0(時間×地點驅動)：【必須在 partyRows 之前】——命中赴約會把她 pin 到 curL 讓她
@@ -2155,6 +2167,9 @@ function actionPlay(userData, pcId, sheets) {
       kanshouSyncRelTier_(pcData, i); // 跨/跌梯度同步REL_TAG
       dirtyPcRows.add(i);
       kanshouPromiseMetStr += note;
+      // 📣 赴約成功也發明確回饋——前端靠它跳綠條＋重抓同伴清單(_kcCur)，睡前爽約警示才不會
+      //   拿過期資料誤報「今天還有沒赴的約」(稽核抓到的假警報)。
+      if (!kanshouProposalResult_) kanshouProposalResult_ = { ok: true, type: 'promise_met', name: _her, loc: _pr.loc };
     };
     if (_pr.day === curDay) {
       if (!_atApptLoc) return; // 今天但不在約定地點→還沒到、也還沒過，等你去，不結算
@@ -2246,7 +2261,8 @@ function actionPlay(userData, pcId, sheets) {
       finalUserMsg = `【玩家意圖】：舉起相機，卻想起相簿已經滿了。`;
     } else {
       // 指定拍誰：intent點名了哪些在場同伴(可多位)——只拍被點名的那些人；沒點名到任何人才算風景。
-      const _phNamedMembers = _phIntent ? partyMembers.filter(n => _phIntent.indexOf(String(n)) >= 0) : [];
+      // 🏷️ 點名比對走候選橋：列是短名(SABER/櫻)，玩家打全名「拍阿爾托莉雅」也要命中，免得人像被誤判風景。
+      const _phNamedMembers = _phIntent ? partyMembers.filter(n => kanshouNameCandidates_(String(n)).some(c => _phIntent.indexOf(c) >= 0)) : [];
       const _phScenery = !partyMembers.length || (_phIntent && !_phNamedMembers.length);
       if (_phScenery) {
         kanshouPhotoPending_ = { names: ['風景'], used: _phUsed, scenery: true };
@@ -2444,10 +2460,9 @@ ${PROMPT_REL}
 ★多人在場時各自依各自好感套用、不共用同一階。
 ★【篇幅隨關係濃淡】：narration 長度依當前關係調整——初識/低好感(點頭之交、普通朋友)只是點到為止的日常片段，請【精簡收斂】(約200~300字即可、不必寫滿)，別把才剛認識的陌生互動寫成大段內心戲與環境鋪陳；關係越深、情感越濃或情慾展開時，才逐漸放長、寫得更豐富細膩。
 ★【演出而非說明】不得直述其願望／萌點／個性字面。僅可有 rel_changes(好感)，不輸出任何生命變化或戰鬥裁決。
-★【地點清單】：這個世界目前只有以下這些地點存在：${KANSHOU_LOCATIONS_.map(l => l.name).join('、')}——下方location／move_proposal兩個欄位只能填這份清單裡的名字，【絕對禁止】自創或憑空發明清單以外的地名(如「一家安靜的咖啡廳」這類寫法不再允許)。
-★【換地點一律走「提議泡泡」、你絕不自行搬動玩家】：任何場景轉換——不論是你覺得該換個地方、同伴想邀玩家去別處、或玩家順口表達想去某處——都【只能】填 move_proposal(填地點清單內的目標地名)，且 narration 只寫到「提議／邀約／正要起身」的當下就打住，【絕對禁止】接著寫出移動過程、寫抵達新地點、或自行更動 location 欄；location 一律照抄目前地點。要不要真的過去，交給玩家在跳出的泡泡按「同意」決定(同伴會不會答應這趟，你仍可在 narration 依其個性演出)；沒有換地點的意圖時 move_proposal 留空，不要每回合都提議。（唯一例外：玩家自己用地圖按鈕移動時系統已把位置寫好，這時你只要如實敘述抵達過程即可、location 照抄系統給的目前地點。）
-★【此地是唯一真實】：本回合的場景環境、氛圍、對話對象一律以「${curL}」與上方【目前在場人物】名單為準——若近期對話歷史發生在【別的地點】或有【別的人】，那些已是過去：禁止沿用舊地點的環境描寫、禁止讓已不在場的人繼續接話搭腔(被想起可以、開口不行)。玩家剛換了地點＝換幕，直接寫此地當下的新場景，別把上一幕拖過來。
-★★【嚴禁敘事脫鉤·移動篇——最容易犯，務必守住】：你和玩家【此刻就在「${curL}」、哪也沒去】。【絕對禁止】用敘事演出「正走在路上／快到了／已經抵達某地」——那會造成「嘴上說到了、系統其實還在原地」的脫鉤(玩家會發現「他說到了、其實還在${curL}」)。想帶玩家去某地、或【玩家開口邀而她答應了】：都【必須填 move_proposal】(她點頭的那回合就填，這是移動唯一的成立管道)、narration 停在達成共識的當下，【不要】自己接著把人「走過去」。玩家若一直問「到了沒」，答案永遠是「還沒真的動、還在${curL}」——請引導他點「同意」泡泡或用地圖移動，而不是繼續演走路。跨越好幾個回合的「一直走路」是錯的：沒填 move_proposal＝根本沒出發。
+★【地點清單】：這個世界目前只有以下這些地點存在：${KANSHOU_LOCATIONS_.map(l => l.name).join('、')}——move_proposal 欄位只能填這份清單裡的名字，【絕對禁止】自創或憑空發明清單以外的地名(如「一家安靜的咖啡廳」這類寫法不再允許)。
+★★【移動鐵律——你絕不自行搬動玩家】：你和玩家【此刻就在「${curL}」】。任何場景轉換——你想換地方、同伴邀玩家去別處、或玩家開口邀而她答應了——都【只能】填 move_proposal(她點頭的那回合就填，這是移動唯一的成立管道)，narration 停在「提議／達成共識／正要起身」的當下就打住，【絕對禁止】接著演移動過程、快到了、或已抵達——沒填 move_proposal＝根本沒出發，玩家若一直問「到了沒」，答案永遠是「還在${curL}」(引導他按泡泡「同意」或用地圖移動)。要不要真的過去由玩家按泡泡決定；沒有換地點的意圖時 move_proposal 留空、不要每回合都提議。（唯一例外：玩家已用地圖按鈕移動＝系統已把位置寫好、這回合本來就在新地點——直接寫此地展開的當下、可用一句帶過剛到的餘韻，不必也不可再演路程。）
+★【此地是唯一真實】：本回合的場景環境、氛圍、對話對象一律以「${curL}」與上方【目前在場人物】名單為準——若近期對話歷史發生在【別的地點】或有【別的人】，那些已是過去：禁止沿用舊地點的環境描寫、禁止讓已不在場的人繼續接話搭腔(被想起可以、開口不行；系統另有【自然告辭】豁免時除外)。換幕就寫新場景，別把上一幕拖過來。
 ★【不替玩家憑空生出東西】：這個世界沒有金錢/物品/背包系統，【絕對禁止】自作主張讓玩家「早就準備好禮物」「掏出錢包」「變出道具」等他沒說要做的事——玩家要送禮或拿出什麼，一律由玩家自己的輸入決定，你不得代勞或無中生有。日常場景裡順手分享的小零食、路邊隨手可得的自然之物(花草、貝殼等)可輕描淡寫，但不可寫成有備而來、彷彿關係已很親近的鋪陳。
 ★【不替玩家腦補心境與決定·結尾停在外部當下】：narration 以第一人稱『我』寫玩家，但【只演】玩家實際輸入的動作＋當下五感所見所感，【嚴禁】替玩家腦補大段內心戲、情緒、願望或替他做決定(玩家打「有點孤單」就只帶當下那一點情緒、不要擴寫成他有多渴望被理解、多想找誰陪)。尤其【禁止把段落收在玩家的期待／渴望／盼望上】(如「希望能…擦出火花」「帶著一絲渴望往…走去」)——結尾一律停在【外部當下】(對方的反應、眼前場景、一個未完成的動作或未說完的話)，把「我下一步想怎樣、心裡怎麼想」留給玩家自己決定。
 現在演化玩家動作：『${finalUserMsg}』${npcDialoguePrompt}
@@ -2569,7 +2584,8 @@ ${PROMPT_REL}
         }
         dirtyPcRows.add(_pendingProposal.idx);
       } else {
-        kanshouProposalResult_ = { ok: false, type: _pendingProposal.type, name: _ppHer };
+        // loc：move 婉拒的通知條要顯示地名(稽核抓到「不想去「」」空字串)；其他型別不讀此欄、帶著無害。
+        kanshouProposalResult_ = { ok: false, type: _pendingProposal.type, name: _ppHer, loc: _pendingProposal.loc || "" };
       }
     }
 
@@ -2797,8 +2813,9 @@ ${PROMPT_REL}
           let nickPart = `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/, nfb.mutual_nicknames, 3)}`;
           // 態度是「當下這一刻」的快照(跟累積/去重的專屬稱呼不同)，每回合直接覆蓋成最新值。
           let attRaw = (typeof nfb.attitude === 'string') ? nfb.attitude.trim().slice(0, 15) : "";
-          // 🩹 差分模式配套：AI 留空(無變化)→沿用舊態度，不再整欄洗掉(舊版空值會把態度抹白)。
-          if (!attRaw || attRaw === "無") attRaw = ((String(oldRMem).match(/\| \[態度\](.*)$/) || [])[1] || "").trim();
+          // 🩹 差分模式配套：AI 留空(無變化)/「無」/敷衍語(同上、維持現狀…)→沿用舊態度，
+          //   不再整欄洗掉、也不讓「同上」被當真值寫進 REL_MEM 持久污染。
+          if (!attRaw || attRaw === "無" || ignoreWords.includes(attRaw)) attRaw = ((String(oldRMem).match(/\| \[態度\](.*)$/) || [])[1] || "").trim();
           let attPart = (attRaw && attRaw !== "無") ? `| [態度]${attRaw}` : "";
           pcData[targetIdx][COL.PC.REL_MEM] = `${nickPart}${attPart}`;
 
@@ -2873,6 +2890,9 @@ ${PROMPT_REL}
     const encounterOffer = kanshouEncounterHero ? { name: String(kanshouCasualOf_(kanshouEncounterHero)) } : undefined;
     const roomEventOffer = kanshouRoomEventCandidate_ ? (() => {
       const _ev = KANSHOU_SCENE_EVENTS_[kanshouRoomEventCandidate_.eventKey] || {};
+      // 候選快照建於告辭/快轉重骰之前——回傳前用當下 LOC 重驗一次，別把已離場者的幽靈按鈕發出去。
+      kanshouRoomEventCandidate_.matches = kanshouRoomEventCandidate_.matches.filter(m => String(pcData[m.idx][COL.PC.LOC] || "").trim() === String(curL || "").trim());
+      if (!kanshouRoomEventCandidate_.matches.length) return undefined;
       const _names = kanshouRoomEventCandidate_.matches.map(m => m.name);
       // candidates=在場全部；labelTpl帶{n}讓前端各自替換(單人)，多人時前端列每人一顆按鈕。
       return { eventKey: kanshouRoomEventCandidate_.eventKey, candidates: _names, name: _names[0], labelTpl: String(_ev.label || ''), btn: String(_ev.btn || '靠近她') };

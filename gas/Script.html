@@ -957,14 +957,16 @@
         // 🌱 鑑賞御主：每格加 🔒 開關(預設不鎖)——鎖了 AI 連這欄都看不到、絕不更動；沒鎖 AI 慢慢幫你寫。
         //   標籤也改成新命名(對外/獨處性格)。solo 維持原樣、無開關。
         const _isK = (pc && pc.mode === 'kanshou');
+        // 🔒 鎖開關只屬於【玩家自己的卡】——從者卡改個性不該長出勾選框(勾了也無效、預勾的還是玩家自己的鎖，純誤導)。
+        const _isKSelf = _isK && currentStatusTargetId === pc.id;
         const _pkKeys = ['對外性格','獨處性格','喜歡','討厭'];
         const _pkLabels = _isK ? ['對外性格','獨處(卸下心防)性格','喜歡的事物','討厭的事物'] : ['日常表象','真實內裡','喜歡的事物','討厭的事物'];
-        const _pkLocks = (_isK && Array.isArray(window._kcPrefLocks)) ? window._kcPrefLocks : [];
+        const _pkLocks = (_isKSelf && Array.isArray(window._kcPrefLocks)) ? window._kcPrefLocks : [];
         let _pkHtml = '';
         for (let i = 0; i < 4; i++) {
           _pkHtml += `<label style="font-size:13px; color:#2e8b57; font-weight:bold;">${i+1}. ${_pkLabels[i]}</label>`
             + `<input id="fate-f${i+1}" class="std-in" maxlength="20" value="${escapeHtml(parts[i])}">`;
-          if (_isK) {
+          if (_isKSelf) {
             const _ck = _pkLocks.indexOf(_pkKeys[i]) !== -1 ? 'checked' : '';
             _pkHtml += `<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#9a8f70;margin:2px 0 8px;cursor:pointer;"><input type="checkbox" class="fate-lock" data-key="${_pkKeys[i]}" ${_ck} style="width:14px;height:14px;"> 🔒 鎖定（AI 不再更動這格、連提都不提；不鎖＝AI 邊玩邊幫你寫）</label>`;
           }

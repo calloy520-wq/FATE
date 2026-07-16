@@ -261,7 +261,7 @@ let plainTextContext = cleanText;
       if (optContainer) optContainer.innerHTML = optionsHtml;
       // 📣 有「必須點的泡泡」(前往/邀約/同居/敲門/橋段/結識)時自動把它捲進視野——回應完只捲故事框、
       //   泡泡藏在頁面下方看不到＝玩家實測「哪裡有同意按鈕??」的真兇。一般選項不強制捲(維持閱讀位置)。
-      if (optContainer && (data.moveProposal || data.promiseProposal || data.cohabitProposal || data.knockEvent || data.roomEventOffer || data.encounterOffer)) {
+      if (optContainer && (data.moveProposal || data.promiseProposal || data.cohabitProposal || data.knockEvent || data.roomEventOffer || data.encounterOffer || data.promiseWait)) {
         try { optContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { }
       }
 
@@ -278,6 +278,7 @@ let plainTextContext = cleanText;
         }
         else if (_pr.ok && _pr.type === 'promise') _msg = '📅 <b>約定成立！</b>明天' + escapeHtml(String(_pr.bandLabel || '')) + '在「' + escapeHtml(String(_pr.loc || '')) + '」與「' + _nm + '」見面——準時/早到好感↑、遲到打折、放鴿子↓。';
         else if (_pr.ok && _pr.type === 'hold') _msg = '🤝 <b>牽手成功！</b>之後你移動到哪，「' + _nm + '」都會相伴同行(直到放手)。';
+        else if (_pr.ok && _pr.type === 'promise_met') _msg = '📅 <b>依約相會！</b>你守住了與「' + _nm + '」在「' + escapeHtml(String(_pr.loc || '')) + '」的約定(好感↑)。';
         else if (_pr.ok && _pr.type === 'move') _msg = '🚶 <b>「' + _nm + '」答應一起去「' + escapeHtml(String(_pr.loc || '')) + '」！</b>點下方的「同意」，你們就一起動身。';
         else if (_pr.type === 'move') _msg = '🚶 「' + _nm + '」這次不想去「' + escapeHtml(String(_pr.loc || '')) + '」——心情或時機不對，待會再邀、或自己先過去也行。';
         else if (_pr.ok && _pr.type === 'cohabit') _msg = '🏠 <b>同居開始！</b>「' + _nm + '」搬來與你同住了——深夜她會回家的和室就寢、清晨可能賴床、晚間常在家中。';
@@ -287,7 +288,9 @@ let plainTextContext = cleanText;
         const _col = _pr.ok ? 'rgba(90,160,110,.14);border:1px solid #4a8a5a;color:#a8e0b8' : 'rgba(150,110,120,.14);border:1px solid #8a5a6a;color:#e0b0bc';
         story.insertAdjacentHTML('beforeend', `<div style="background:${_col};border-radius:8px;padding:7px 10px;margin:4px 0;font-size:12.5px;">${_msg}</div>`);
         // 約定成立/清除→刷新同伴清單(_kcCur)，讓地圖📅徽章與同伴列即時反映(背景抓、抓完重繪地圖)。
-        if (_pr.type === 'promise') { (async function () { try { const r = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount }); if (r && r.success) { _kcCur = r.current || []; try { renderMapPane(); } catch (e) {} try { renderKcPartyList_(); } catch (e) {} } } catch (e) {} })(); }
+        // 約定「任何」變動(成立/赴約成功/爽約過期)都重抓同伴清單——睡前爽約警示靠 _kcCur 判斷，
+        //   過期資料會誤報「今天還有沒赴的約」(稽核抓到的假警報)。
+        if (String(_pr.type).indexOf('promise') === 0) { (async function () { try { const r = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount }); if (r && r.success) { _kcCur = r.current || []; try { renderMapPane(); } catch (e) {} try { renderKcPartyList_(); } catch (e) {} } } catch (e) {} })(); }
       }
       localStorage.setItem('kyushu_story', story.innerHTML);
       setTimeout(() => { story.scrollTop = story.scrollHeight; }, 50);
@@ -1218,6 +1221,8 @@ let plainTextContext = cleanText;
       }
       // 建立鑑賞視角的 pc（mode=kanshou：隱藏戰鬥相關 UI、顯示同伴面板）
       pc = { id: res.pcId, name: res.pcName, sex: res.pcSex, mode: 'kanshou', account: currentAccount, homeName: res.homeName || '家' };
+      // 🔒 性格鎖進場即播種——重載後直接開改命也拿得到正確開關狀態(修「重載即存檔會無聲清鎖」)。
+      window._kcPrefLocks = Array.isArray(res.prefLocks) ? res.prefLocks : [];
       localStorage.setItem('kyushu_v27', JSON.stringify(pc));
       document.getElementById('setup').style.display = 'none';
       document.getElementById('game').style.display = 'flex';
