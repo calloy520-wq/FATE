@@ -145,6 +145,7 @@
 - **🔒 性格鎖（玩家 UI 控制·預設不鎖）**：改命-個性視窗每格一個 🔒 開關 → 寫 `【性格鎖】`（`kanshouGetPrefLocks_`/`SetPrefLocks_`）。**鎖了 = AI 連那欄都看不到**（`actionPlay` 依鎖狀態算「沒鎖的格」→ `buildDefaultSystemPrompt(unlockedKeys)` **動態組 master_note、鎖的格不出現在 schema**）＋GAS 落地再過濾一次（雙保底）。沒鎖 = AI 可持續 refine（不是一次寫死）。鎖狀態經 play 回應 `prefLocks` 快取到前端 `window._kcPrefLocks`（改命視窗顯示開關）。經歷不鎖（改命=修正、AI 續滾）。⚠ `buildDefaultSystemPrompt(masterNoteUnlocked)` 只有 `actionPlay` 一個呼叫者，故在 actionPlay 組好當 systemOverride 傳入。
 - **🪪 角色卡分行顯示（前端 `renderSegField_`·Script.html）**：鑑賞卡把「處事個性(對外/獨處/喜歡/討厭)」「命格特徵(外貌/氣質/自稱/私密)」從一串頓號拆成帶標籤小行，空格提示分欄位：處事個性→「（AI 待補）」(AI 會側寫)、命格特徵→「（待你改命填寫）」(AI 不寫 TRAIT)；從者卡一律「—」。鎖住的處事個性格右側掛 🔒（只看自己卡片時·`currentStatusTargetId===pc.id`）。原始頓號字串存 `dataset.raw`，改命視窗改讀它（分行 HTML 的 innerText 會亂）。solo 維持原樣純文字。
 - **⚠ 拆格 bug 根治**：`fateSegSplit_`(顯示與改命共用)只做 `。→、` 正規化＋`split('、')` 補滿4格，**不再壓縮連續頓號**——舊版 `.replace(/、+/g,'、')` 會把「、、我、無」壓成「我、無」導致值位移(我被推到第1格)，改命預填/存回全錯，現已修正。
+- **🌀 側寫節流（每 N 回合才問·`KANSHOU_SIDEWRITE_EVERY_`=3）**：master_note 每回合都問會分散 AI 對敘事的注意力，改成計數節流——`【側寫計數】` 標記存玩家列 MEMORY（`kanshouGet/SetSideWriteCount_`，該列恆寫回·零額外 round-trip），`actionPlay` 每回合 +1，只在第 1、N+1、2N+1… 回合（`_swCount % N === 1`·首回合必寫抓初印象）把 `includeMasterNote=true` 傳給 `buildDefaultSystemPrompt`；非側寫回合整塊 master_note 從 schema `delete` 掉、AI 連這欄都看不到。落地端 `if(aiData.master_note)` 守衛自動跳過缺席回合、經歷/性格/萌點保留舊值不動。N=3 剛好貼齊 6筆/3輪 歷史窗。要調頻率＝改常數。
 - ⚠ `master_note` 是 KANSHOU-only（buildDefaultSystemPrompt）；solo BACK 仍是固定身世（改命 UI 依 `pc.mode` 分標籤/字數）。
 
 ## 🤖 AI 管線

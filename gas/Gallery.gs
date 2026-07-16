@@ -646,7 +646,9 @@ function dialogueFormatRule_() {
 // 🌱 master_note(玩家御主滾動側寫)動態 schema：actionPlay 傳入「玩家沒鎖的性格欄」清單，這裡只把
 //   沒鎖的格放進範本——鎖了的格【連欄位都不出現】，AI 根本不知道有這欄(玩家定案，比「叫他別寫」更乾淨)。
 //   經歷永遠在(不鎖)。未傳(undefined)＝四格全開(相容 solo/舊呼叫)。
-function buildDefaultSystemPrompt(masterNoteUnlocked) {
+// 🌀 includeMasterNote=false(側寫節流·非側寫回合)＝整塊 master_note 從 schema 拿掉，AI 專心敘事；
+//   undefined/true＝照常帶(相容舊呼叫)。
+function buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote) {
   // physical_state 只留顏面神情(≤15字)：只管表情，衣裝狀態拆進獨立的 outfit_change 欄
   //   (下方)，兩者關注點不同——前者是每回合都可能變的暫時神情，後者是要持久記住的實際穿著。
   const _physicalState = "本回合角色當下的顏面神情(第三人稱填寫，依情境自然帶到即可，≤15字)";
@@ -730,6 +732,9 @@ function buildDefaultSystemPrompt(masterNoteUnlocked) {
     // mentioned_names/event/tag/log_summary 等死欄已移除：皆是寫入後從未被任何地方讀回的
     //   死路(前端不消費、AI不依此決策)，拿掉後AI不用再每回合多填這些欄位。
   };
+  // 🌀 側寫節流：非側寫回合把整塊 master_note 拿掉(AI 連這欄都看不到、專心敘事)。落地端 if(aiData.master_note)
+  //   守衛自動跳過缺席回合，經歷/性格/萌點保留舊值不動。
+  if (includeMasterNote === false) { delete finalJson.master_note; }
 
   // 🔠 對話格式規則已上移為頂層 dialogueFormatRule_()(單一真實來源，solo miniSystem 與此處共用)，見本檔上方。
 
@@ -1282,6 +1287,18 @@ function kanshouSetPrefLocks_(memory, keysArr) {
   const cleared = String(memory || "").replace(/｜?【性格鎖】[^｜【】]*/g, "").replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
   if (!keysArr || !keysArr.length) return cleared;
   return (cleared ? cleared + "｜" : "") + "【性格鎖】" + keysArr.join(",");
+}
+// 🌀 側寫節流：master_note(經歷/性格/萌點)每回合都問會分散 AI 對敘事的注意力。改成每 N 回合才把
+//   master_note 放進 schema，其餘回合 AI 完全不知道有這回事、專心寫敘事。計數存玩家列 MEMORY——該列
+//   每回合本就必寫回(pcIndex 恆在 dirtyPcRows)，故零額外 round-trip。N=3 剛好貼齊 6筆/3輪 的歷史窗。
+const KANSHOU_SIDEWRITE_EVERY_ = 3;
+function kanshouGetSideWriteCount_(memory) {
+  const m = String(memory || "").match(/【側寫計數】(\d+)/);
+  return m ? (parseInt(m[1], 10) || 0) : 0;
+}
+function kanshouSetSideWriteCount_(memory, n) {
+  const cleared = String(memory || "").replace(/｜?【側寫計數】\d*/g, "").replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
+  return (cleared ? cleared + "｜" : "") + "【側寫計數】" + (parseInt(n, 10) || 0);
 }
 function kanshouApptHour_(band) {
   var b = KANSHOU_APPT_BANDS_.find(function (x) { return x.band === band; });
@@ -2307,7 +2324,12 @@ ${PROMPT_REL}
     const _allPrefKeys = ["對外性格", "獨處性格", "喜歡", "討厭"];
     const _prefLocks = kanshouGetPrefLocks_(pc[COL.PC.MEMORY]);
     const _unlockedPrefKeys = _allPrefKeys.filter(function (k) { return _prefLocks.indexOf(k) === -1; });
-    const _sysPrompt = buildDefaultSystemPrompt(_unlockedPrefKeys);
+    // 🌀 側寫節流：計數 +1 存回 MEMORY(玩家列恆寫回·零額外 round-trip)，只在第 1、N+1、2N+1… 回合帶
+    //   master_note(首回合必寫·抓初印象)。非側寫回合整塊拿掉、AI 專心敘事，落地端守衛自動跳過、舊值不動。
+    const _swCount = kanshouGetSideWriteCount_(pc[COL.PC.MEMORY]) + 1;
+    pc[COL.PC.MEMORY] = kanshouSetSideWriteCount_(pc[COL.PC.MEMORY], _swCount);
+    const _doSideWrite = (_swCount % KANSHOU_SIDEWRITE_EVERY_ === 1);
+    const _sysPrompt = buildDefaultSystemPrompt(_unlockedPrefKeys, _doSideWrite);
     const aiResponseRaw = callGeminiAPI(prompt, _sysPrompt, aiConfig);
     const start = aiResponseRaw.indexOf('{');
     const end = aiResponseRaw.lastIndexOf('}');
