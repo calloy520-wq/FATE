@@ -166,7 +166,7 @@
 
 ### 系統提示詞 `buildDefaultSystemPrompt()`（**鑑賞專屬**，solo 走 `miniSystem`）
 `nsfwBaseRules`（🔴紅線）＋`specificRules`(慾海律令 第0~7條)＋`★【輸出範本】`(finalJson)。
-- **finalJson 欄位**：`inner_monologue`(純思考不顯示)／`narration`(約500字第一人稱)／`move_proposal`(她提議換地·意圖非結果)／`promise_proposal`(她提議約定{name,loc,band})／`cohabit_proposal`(她提議同居·真名)／`proposal_accept`(僅有【提議·相約/牽手】標記時填接受/婉拒)／`npc_exit`(自然告辭離場真名陣列)／`options`(固定4)／`intimacy_feedback`{player,npcs[]:physical_state≤15/outfit_change≤20/dynamic_skills/mutual_nicknames/attitude≤15/memory}／`rel_changes`[]{target真名,fav_change整數±·單回合上限+5}。⚠ **刻意無 `location` 欄**（玩家所在地一律 GAS 掌握、AI 抄它無意義；後端仍留 `aiData.location` 攔截層當保險→硬吐也轉 move_proposal）。
+- **finalJson 欄位**：`inner_monologue`(純思考不顯示)／`narration`(約500字第一人稱)／`move_proposal`(**雙向**換地共識·她邀你 or 你邀她而她答應皆填·意圖非結果——2026-07 修：原只寫「她邀你」，玩家開口邀她答應了 AI 沒授權可填→沒泡泡、移動永遠落不了地)／`promise_proposal`(她提議約定{name,loc,band})／`cohabit_proposal`(她提議同居·真名)／`proposal_accept`(僅有【提議·相約/牽手】標記時填接受/婉拒)／`npc_exit`(自然告辭離場真名陣列)／`options`(固定4)／`intimacy_feedback`{player,npcs[]:physical_state≤15/outfit_change≤20/dynamic_skills/mutual_nicknames/attitude≤15/memory}／`rel_changes`[]{target真名,fav_change整數±·單回合上限+5}。⚠ **刻意無 `location` 欄**（玩家所在地一律 GAS 掌握、AI 抄它無意義；後端仍留 `aiData.location` 攔截層當保險→硬吐也轉 move_proposal）。
 - **對話格式** `dialogueFormatRule_()`：**頂層函式·單一真實來源**，`nsfwBaseRules` 第3條與 solo `miniSystem` 第2條**共用**。規則＝話語/喘息/吸吮進「」，動作/撞擊/水聲走敘事。
 
 ### 🧠 記憶全景（AI 每回合看得到什麼·寫回什麼·多久一次）— 2026-07 整理
