@@ -671,7 +671,9 @@ function dialogueFormatRule_() {
 //   經歷永遠在(不鎖)。未傳(undefined)＝四格全開(相容 solo/舊呼叫)。
 // 🌀 includeMasterNote=false(側寫節流·非側寫回合)＝整塊 master_note 從 schema 拿掉，AI 專心敘事；
 //   undefined/true＝照常帶(相容舊呼叫)。
-function buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote) {
+// 🎛️ includeOptions=false(玩家關掉【命運的抉擇】開關)＝options 欄整個拿掉——玩家看不到的東西
+//   不必叫 AI 每回合生 4 條(省 token 省注意力)。undefined/true＝照常帶。
+function buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote, includeOptions) {
   // physical_state 只留顏面神情(≤15字)：只管表情，衣裝狀態拆進獨立的 outfit_change 欄
   //   (下方)，兩者關注點不同——前者是每回合都可能變的暫時神情，後者是要持久記住的實際穿著。
   const _physicalState = "本回合角色當下的顏面神情(第三人稱填寫，依情境自然帶到即可，≤15字)";
@@ -726,7 +728,7 @@ function buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote) {
     "npc_exit": "若某在場同伴這回合自然而然告辭離開(有事要辦/作息/心情等)，把她的真實姓名填進此陣列(可多位)；她會真的離場、下回合不在你身邊，去向由系統依她作息決定。沒有人離開就填空陣列[]。這是『她自己走』、與玩家移動無關，narration要把她離開的過程演出來；被你牽著手的她若在此離開，牽手也一併鬆開。不必每回合都讓人離開，只在情境自然時才用。",
     "options": ["1. [主動]強勢掌握主導...", "2. [被動]順從委婉試探...", "3. [接續]順劇情延續互動...", "4. [反差]跳脫氛圍的驚人舉動..."],
     "intimacy_feedback": {
-      "_note": "★physical_state只寫角色「自身」當下的顏面神情，禁內心戲，第三人稱填寫，絕對禁寫'自己'，≤15字。★outfit_change是角色當下實際穿著狀態(第三人稱如實反映，≤20字)：正常穿著就寫身上衣物，若劇情中角色被脫光、沐浴、更衣，也要如實反映當下真實狀態，這欄會持久記住、不是每回合就消失的暫時描述。★兩者每回合都要據實反映最新狀態，不可偷懶沿用舊值。npcs每位與player共用此格式，依其實際狀態填寫。",
+      "_note": "★physical_state只寫角色「自身」當下的顏面神情，禁內心戲，第三人稱填寫，絕對禁寫'自己'，≤15字。★outfit_change是角色當下實際穿著狀態(名詞短語≤20字)：這欄持久記住、不是每回合就消失的暫時描述。★【差分填寫·省力】：兩欄跟上一回合【沒有實質變化】就填空字串(系統自動沿用舊值)；【有變化】才更新——神情明顯轉變、衣物被脫/穿/沐浴/更衣/情事進展【必須】據實更新，親密場景中狀態常常每回合都在變、該更新時不可偷懶。npcs每位與player共用此格式。",
       "player": {
         "physical_state": _physicalState,
         "outfit_change": _outfitChange,
@@ -758,6 +760,7 @@ function buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote) {
   // 🌀 側寫節流：非側寫回合把整塊 master_note 拿掉(AI 連這欄都看不到、專心敘事)。落地端 if(aiData.master_note)
   //   守衛自動跳過缺席回合，經歷/性格/萌點保留舊值不動。
   if (includeMasterNote === false) { delete finalJson.master_note; }
+  if (includeOptions === false) { delete finalJson.options; }
 
   // 🔠 對話格式規則已上移為頂層 dialogueFormatRule_()(單一真實來源，solo miniSystem 與此處共用)，見本檔上方。
 
@@ -797,7 +800,7 @@ const specificRules = `
 4. 【極致感官·受親密尺度天花板約束】情慾場面時（前提：該同伴好感已達可進入情慾的階段），大量使用具體生理特寫（肉壁蠕動絞緊、滾燙吸吮、痙攣抽搐、蜜液噴濺、拉絲、咕啾水聲、啪啪撞擊等），搭配角色個性化的斷續喘息與破碎台詞（啊……哈……更深……唔嗯……）。★在她好感已容許的階段內，玩家輸入越色描寫越露骨；但若尚未達到可進入情慾的階段，一律以親密尺度天花板為準、依個性婉拒或止步，不得因「越色越露骨」而突破天花板。
 
 5. dynamic_skills / mutual_nicknames：僅本回合確實發生才填，否則填「無」。
-6. 【attitude·態度】（≤15字）：每回合據實反映NPC當下臨場心情與對關係標籤的認同/抗拒，不可沿用舊值。`;
+6. 【attitude·態度】（≤15字）：態度有【明顯轉變】才填新值(空字串＝沿用之前的態度，系統自動保留)；親密進展/情緒波動的回合要據實更新。`;
 
 return nsfwBaseRules + "\n" + specificRules + "\n\n★【輸出範本】\n" + JSON.stringify(finalJson, null, 2);
 }
@@ -2467,8 +2470,12 @@ ${PROMPT_REL}
     let aiConfig = { temperature: 1.08, top_p: 0.97, top_k: 60, repetition_penalty: 1.12, presence_penalty: 0.25, frequency_penalty: 0.25, retries: 1, model: SOLO_MODEL, isNsfwMode: true, max_tokens: 1500 };
     aiConfig.fallbackModel = AI_MODEL;
 
-    // 抓取近 6 筆原始歷史(3輪)，轉換為 API 格式
-    const recentHistoryRaw = getGameHistoryBatchRaw(pcId, 6);
+    // 抓取近 6 筆原始歷史(3輪)，轉換為 API 格式。
+    // 🎬 換幕縮窗(確定性根治「換地點/換時段後被舊場景帶著跑」)：移動/跳時段/結束一天的回合只餵
+    //   最近 1 輪——舊場景的對話根本不進 AI 眼睛、物理上不可能沿用；保留最近 1 輪讓「決定要來
+    //   這裡」的話題接得上(帶同伴同行時對話不斷裂)。
+    const _sceneCut = !!(moveTarget || userData.endDay === true || userData.jumpBand || userData.jumpFestival || (parseFloat(userData.advanceHours) || 0) > 0);
+    const recentHistoryRaw = getGameHistoryBatchRaw(pcId, _sceneCut ? 2 : 6);
     if (recentHistoryRaw && recentHistoryRaw.length > 0) {
       aiConfig.chatHistory = recentHistoryRaw.map(msg => ({
         role: msg.speaker === "player" ? "user" : "assistant",
@@ -2486,7 +2493,8 @@ ${PROMPT_REL}
     const _swCount = kanshouGetSideWriteCount_(pc[COL.PC.MEMORY]) + 1;
     pc[COL.PC.MEMORY] = kanshouSetSideWriteCount_(pc[COL.PC.MEMORY], _swCount);
     const _doSideWrite = (_swCount % KANSHOU_SIDEWRITE_EVERY_ === 1);
-    const _sysPrompt = buildDefaultSystemPrompt(_unlockedPrefKeys, _doSideWrite);
+    // 🎛️ 玩家關掉【命運的抉擇】→ options 欄整個不進 schema(前端帶 optionsOn；沒帶=舊前端，照常給)。
+    const _sysPrompt = buildDefaultSystemPrompt(_unlockedPrefKeys, _doSideWrite, userData.optionsOn !== false);
     const aiResponseRaw = callGeminiAPI(prompt, _sysPrompt, aiConfig);
     const start = aiResponseRaw.indexOf('{');
     const end = aiResponseRaw.lastIndexOf('}');
@@ -2789,6 +2797,8 @@ ${PROMPT_REL}
           let nickPart = `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/, nfb.mutual_nicknames, 3)}`;
           // 態度是「當下這一刻」的快照(跟累積/去重的專屬稱呼不同)，每回合直接覆蓋成最新值。
           let attRaw = (typeof nfb.attitude === 'string') ? nfb.attitude.trim().slice(0, 15) : "";
+          // 🩹 差分模式配套：AI 留空(無變化)→沿用舊態度，不再整欄洗掉(舊版空值會把態度抹白)。
+          if (!attRaw || attRaw === "無") attRaw = ((String(oldRMem).match(/\| \[態度\](.*)$/) || [])[1] || "").trim();
           let attPart = (attRaw && attRaw !== "無") ? `| [態度]${attRaw}` : "";
           pcData[targetIdx][COL.PC.REL_MEM] = `${nickPart}${attPart}`;
 
