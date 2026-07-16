@@ -806,6 +806,36 @@
 
   // 🧹 舊九州「同地互動選單」整條呼叫鏈(renderNpcList/interactNpc/openInteractMenu…)已移除——攻擊/寶具/令咒按鈕跟常駐的 renderWarActions 是同一組函式(servantStrike)，原本是重複入口。
 
+  // 🌱 四格頓號字串拆成陣列(補滿4格)。⚠ 不壓縮連續頓號——空格必須保位，
+  //    否則「、、我、無」會位移(我被推到第1格)。顯示與改命共用同一拆法。
+  function fateSegSplit_(raw) {
+    var p = String(raw == null ? '' : raw).replace(/[。\.]+/g, '、').split('、');
+    for (var i = 0; i < 4; i++) { if (p[i] == null) p[i] = ''; }
+    return p;
+  }
+  // 🌱 鑑賞：把「處事個性/命格特徵」四格拆成帶標籤小行，空格顯示待補/—；
+  //    處事個性看自己卡片時鎖住的格帶 🔒。原始值存 dataset.raw 供改命視窗讀回。
+  function renderSegField_(id, raw, labels, lockKeys, activeLocks, isSelf) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.dataset.raw = (raw == null ? '' : String(raw));
+    var parts = fateSegSplit_(raw);
+    var html = '<div style="display:flex;flex-direction:column;gap:3px;margin-top:6px;font-weight:normal;">';
+    for (var i = 0; i < 4; i++) {
+      var v = (parts[i] || '').trim();
+      var locked = !!(lockKeys && activeLocks && activeLocks.indexOf(lockKeys[i]) !== -1);
+      var valHtml = v
+        ? '<span style="color:#332211;font-weight:bold;">' + escapeHtml(v) + '</span>'
+        : '<span style="color:#c3b898;font-weight:normal;">' + (isSelf ? '（AI 待補）' : '—') + '</span>';
+      html += '<div style="display:flex;gap:8px;align-items:center;font-size:13px;line-height:1.5;">'
+        + '<span style="color:#9a8f70;font-weight:normal;flex:0 0 3.4em;">' + labels[i] + '</span>'
+        + '<span style="flex:1;">' + valHtml + '</span>'
+        + (locked ? '<span title="已鎖定·AI 不更動這格" style="flex:0 0 auto;font-size:12px;">🔒</span>' : '')
+        + '</div>';
+    }
+    el.innerHTML = html + '</div>';
+  }
+
   function updateUI(s) {
     // 🔴 逆天改命按鈕前端永遠顯示，實際權限由後端 GAS 審查是否為同行從者
     ['fate-btn-pref', 'fate-btn-trait', 'fate-btn-back', 'fate-btn-intent'].forEach(id => {
@@ -824,9 +854,19 @@
     if (stEl && stEl.parentElement) stEl.parentElement.style.display = s[0] ? '' : 'none';
     setUI('ui-status', s[0]);
 
-    setUI('ui-trait', s[2]);
+    // 🌱 鑑賞：處事個性/命格特徵改「分行＋標籤」顯示(空格待補)；🔒 只在看自己卡片時掛在鎖住的處事個性格。solo 維持原樣。
+    var _isKan = (pc && pc.mode === 'kanshou');
+    var _selfCard = (currentStatusTargetId === (pc ? pc.id : ''));
+    if (_isKan) {
+      renderSegField_('ui-trait', s[2], ['外貌', '氣質', '自稱', '私密'], null, null, _selfCard);
+      var _prefLockKeys = ['對外性格', '獨處性格', '喜歡', '討厭'];
+      var _prefActive = (_selfCard && Array.isArray(window._kcPrefLocks)) ? window._kcPrefLocks : [];
+      renderSegField_('ui-pref', s[4], ['對外', '獨處', '喜歡', '討厭'], _prefLockKeys, _prefActive, _selfCard);
+    } else {
+      setUI('ui-trait', s[2]);
+      setUI('ui-pref', s[4]);
+    }
     setUI('ui-loc', s[3]);
-    setUI('ui-pref', s[4]);
     // 🐛→✅ 鑑賞無戰鬥，氣血/真氣早已不再寫入(見 Gallery.gs heroToKanshouRow_)——比照 ui-status 整格隱藏，避免顯示「--」看起來像資料缺漏。
     var hpEl = document.getElementById('ui-hp'); if (hpEl && hpEl.parentElement) hpEl.parentElement.style.display = (pc && pc.mode === 'kanshou') ? 'none' : '';
     var mpEl = document.getElementById('ui-mp'); if (mpEl && mpEl.parentElement) mpEl.parentElement.style.display = (pc && pc.mode === 'kanshou') ? 'none' : '';
@@ -865,8 +905,10 @@
     const titleEl = document.getElementById('fate-edit-title');
     const fieldsEl = document.getElementById('fate-edit-fields');
 
-    // 處理背後的文字獲取
-    let currentVal = document.getElementById(type === 'pref' ? 'ui-pref' : (type === 'trait' ? 'ui-trait' : (type === 'back' ? 'ui-back' : 'ui-intent'))).innerText;
+    // 處理背後的文字獲取。⚠ 鑑賞的 pref/trait 已改分行 HTML 顯示，innerText 會是拼接後的亂碼；
+    //   改讀 dataset.raw(渲染時存的原始頓號字串)，沒有才退回 innerText(solo/back/intent)。
+    const _fe = document.getElementById(type === 'pref' ? 'ui-pref' : (type === 'trait' ? 'ui-trait' : (type === 'back' ? 'ui-back' : 'ui-intent')));
+    let currentVal = (_fe && _fe.dataset && typeof _fe.dataset.raw === 'string') ? _fe.dataset.raw : (_fe ? _fe.innerText : '');
     if (currentVal === "--") currentVal = "";
 
     if (type === 'back') {
@@ -887,9 +929,9 @@
         `;
     }
     else if (type === 'trait') {
-        // 🩹 舊資料若是句號分隔(AI誤把四格頓號寫成四句句號)，先正規化成頓號再切4格，
-        //   讓改命視窗預填的是角色真正內容、而非整串黏在第1格+預設殘料黏在後面。
-        const parts = currentVal.replace(/[。\.]+/g, '、').replace(/、+/g, '、').replace(/^、|、$/g, '').split('、');
+        // 🩹 句號分隔的舊資料先正規化成頓號再切4格(fateSegSplit_ 不壓縮連續頓號→空格保位)，
+        //   讓改命視窗預填的是角色真正內容、不會位移。
+        const parts = fateSegSplit_(currentVal);
         for(let i=0; i<4; i++) { if(!parts[i] || parts[i].trim() === "") parts[i] = "無"; }
         titleEl.innerText = "逆天改命 - 修改特徵";
         fieldsEl.innerHTML = `
@@ -903,8 +945,8 @@
             <input id="fate-f4" class="std-in" maxlength="20" value="${escapeHtml(parts[3])}">
         `;
     } else {
-        // 🩹 同上：句號分隔的舊資料先正規化成頓號再切4格(個性欄同款毛病)。
-        const parts = currentVal.replace(/[。\.]+/g, '、').replace(/、+/g, '、').replace(/^、|、$/g, '').split('、');
+        // 🩹 同上：句號分隔的舊資料先正規化成頓號再切4格(個性欄同款毛病·不壓縮空格保位)。
+        const parts = fateSegSplit_(currentVal);
         for(let i=0; i<4; i++) { if(!parts[i] || parts[i].trim() === "") parts[i] = "無"; }
         titleEl.innerText = "逆天改命 - 修改個性";
         // 🌱 鑑賞御主：每格加 🔒 開關(預設不鎖)——鎖了 AI 連這欄都看不到、絕不更動；沒鎖 AI 慢慢幫你寫。
