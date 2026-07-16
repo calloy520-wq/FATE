@@ -200,7 +200,7 @@ SOLO_MODEL   = google/gemini-3.1-flash-lite  (屬性 SOLO_MODEL)   ← 主力(�
 UNLOCKED_MODEL = x-ai/grok-4.20              (屬性 UNLOCKED_MODEL)
 ```
 - **兩模式一律先打 `SOLO_MODEL`、`fallbackModel = AI_MODEL`、`retries = 1`**（探針實測 Gemini 六階全過真露骨~4-5秒；DeepSeek 極致被擋還卡49秒）。
-- **`driveOn`(點火/主動掌握) 只控敘事推進幅度的 `driveStr`、不再切模型**。
+- **`driveOn`(點火/主動掌握) 只控敘事推進幅度的 `driveStr`、不再切模型**。⚠ **2026-07 玩家「一直步步逼近都不做」重寫**：`driveStr`＋敘事終極警告的點火分支原本框架是「把玩家逼向毫無招架餘地／堵退路／想跑也跑不掉」＋「不必每回合寫到終點」——這等於授權 AI 永遠停在「快要、就差一步」空轉。改成**「主動且明確地推進到真的發生」**取向（該親就親、該進一步就進一步、嚴禁在曖昧邊緣反覆空轉），保留全部好感天花板/角色一致性/不真正傷害護欄，只把「逼近但不做」的空轉框架換掉。點火≠壓迫鋪陳，點火＝她主導、實際往前推到位。
 - 採樣：`temperature 1.08, top_p 0.97, top_k 60, repetition_penalty 1.12, presence/frequency_penalty 0.25, max_tokens 1500`。⚠ 後四顆旋鈕 gemini-lite 被 OpenRouter 靜默忽略（原壓重複用）——若 Gemini 跳針/套路化，需另想防重複提示詞手段。
 - 歷史：`getGameHistoryBatchRaw(pcId, 6)`（6筆＝3輪）。
 
