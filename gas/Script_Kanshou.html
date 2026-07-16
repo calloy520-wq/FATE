@@ -736,6 +736,9 @@ let plainTextContext = cleanText;
   //   答接受/婉拒→接受出「前往」泡泡、按同意才真的移動)。2026-07 根因修復：舊版只送一句閒聊、全押在
   //   AI 自發填 move_proposal 上，Gemini 從不填→玩家從沒見過移動泡泡。跟 kanshouMoveTo(自己走)是兩條路。
   async function kanshouProposeMove(name) {
+    // 🧱 身邊沒人直接在前端擋掉——不白跑一輪 AI 演撲空(省 round-trip)。localNPCs＝開頁 sync/每回合
+    //   都會更新的在場名單；萬一有時差漏網，後端★【提議撲空】仍是保底。
+    if (!localNPCs || !localNPCs.length) { alert('身邊沒有同伴可以邀。先去找她——或自己用地圖移動過去。'); return; }
     showGamePane('chat');
     await send('（笑著問）要不要一起去「' + name + '」看看？', false, { proposeMove: name });
   }
