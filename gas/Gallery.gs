@@ -1823,10 +1823,12 @@ function actionPlay(userData, pcId, sheets) {
         if (reBranch.min >= 0 && KANSHOU_SCENE_DAY_TAG_.get(pcData[reIdx][COL.PC.MEMORY]) !== curDay) {
           pcData[reIdx][COL.PC.BOND] = Math.min(100, reBond + KANSHOU_SCENE_BOND_);
           kanshouSyncRelTier_(pcData, reIdx);
-          pcData[reIdx][COL.PC.MEMORY] = KANSHOU_SCENE_DAY_TAG_.set(pcData[reIdx][COL.PC.MEMORY], curDay);
-          dirtyPcRows.add(reIdx);
           kanshouRoomEventStr += `（這樣一段特別的相處，讓你們的關係又近了一些——好感已由系統上調，敘事勿再另計。）`;
         }
+        // 🚫 當日鎖不分分支(玩家實測：低好感走「防備拒絕」分支不落鎖→按鈕永遠重生、可無限重試)：
+        //   一天一人一次「特別橋段」，被拒也算試過了——明天再來(+3 仍限非拒絕分支)。
+        pcData[reIdx][COL.PC.MEMORY] = KANSHOU_SCENE_DAY_TAG_.set(pcData[reIdx][COL.PC.MEMORY], curDay);
+        dirtyPcRows.add(reIdx);
         // 晨間餘韻(暗示昨夜共度)只在好感已達同床門檻(≥80·與 intimateNightNames 同一切點)才蓋——
         //   夜襲頂分支雖 min:60，但 60~79(親近)依親密尺度天花板尚止於性事之前，不算共度春宵。
         if (reEventKey === '夜襲' && reBond >= 80) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], reHeroName);
