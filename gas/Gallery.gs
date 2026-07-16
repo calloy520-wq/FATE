@@ -418,7 +418,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
   mRow[COL.PC.BACK] = "剛搬來冬木市";                  // 經歷開局(原「身世」正名；之後 AI 滾動＋玩家可改命)
   mRow[COL.PC.TRAIT] = _apPart + "、、我、無";
   mRow[COL.PC.PREF] = _psPart + "、、、";
-  mRow[COL.PC.INTENT] = "";                            // 萌點留空(AI 遊玩時觀察補寫)
+  mRow[COL.PC.INTENT] = "";                            // 萌點留空→AI 遊玩時盲寫觀察補上第一個發現(master_note.萌點)、之後不覆寫；玩家改命可覆蓋
   kpc.appendRow(mRow);
   linkAccountToKanshouPc_(acctName, mId); // 🔒 權威連結寫進帳號表
 
@@ -660,7 +660,8 @@ function buildDefaultSystemPrompt(masterNoteUnlocked) {
   const _mnKeysOpen = Array.isArray(masterNoteUnlocked) ? masterNoteUnlocked : ["對外性格", "獨處性格", "喜歡", "討厭"];
   const _masterNote = {
     "_note": "本欄是【觀察玩家本人、慢慢認識他/她】——不是敘事、不顯示。像對話AI逐漸摸清使用者：有明確新觀察才更新，沒把握或跟原本一樣就留空字串保持原樣(別每回合亂變)。",
-    "經歷": "承接【玩家命格·經歷】舊值，只【增補】這回合對玩家有意義的新遭遇(認識了誰/關係變化/去了哪/發生的事)，回傳更新後的滾動摘要(≤50字·敘事口吻·別抹掉重要的過去、別無中生有)；沒有值得記的新事就【原樣回傳舊經歷】"
+    "經歷": "承接【玩家命格·經歷】舊值，只【增補】這回合對玩家有意義的新遭遇(認識了誰/關係變化/去了哪/發生的事)，回傳更新後的滾動摘要(≤50字·敘事口吻·別抹掉重要的過去、別無中生有)；沒有值得記的新事就【原樣回傳舊經歷】",
+    "萌點": "若你這回合從玩家的【言行】暗中觀察到一個明確的反差/可愛弱點/隱藏萌點(如：傲嬌、怕鬼、路痴、意外的少女心、嘴硬心軟)，寫下一個簡短詞組；平常沒看出明確的就留空字串。★這是你的私下觀察·絕不顯示也【絕不在敘述裡點破】(show-don't-tell)；你看不到玩家目前的萌點設定，照你這回合的真實觀察寫即可"
   };
   _mnKeysOpen.forEach(function (k) { if (_mnDescs[k]) _masterNote[k] = _mnDescs[k]; });
 
@@ -2618,6 +2619,13 @@ ${PROMPT_REL}
         if (v && v !== String(_prefSlots[i] || "").trim()) { _prefSlots[i] = v; _prefChanged = true; } // AI 給值且有變→更新(可refine)
       });
       if (_prefChanged) { pcData[pcIndex][COL.PC.PREF] = _prefSlots.slice(0, 4).join("、"); dirtyPcRows.add(pcIndex); }
+      // 萌點：AI 盲寫(看不到現值·紅線③不餵)，故【只補第一個發現、之後不覆寫】——INTENT 空才寫，
+      //   非空(AI 補過 or 玩家改命填過)＝鎖死不動。玩家改命隨時可覆蓋。
+      const _curMoe = String(pcData[pcIndex][COL.PC.INTENT] || "").trim();
+      if (!_curMoe) {
+        const _newMoe = String(mn["萌點"] || "").replace(/[<>【】、｜]/g, "").trim().slice(0, 20);
+        if (_newMoe) { pcData[pcIndex][COL.PC.INTENT] = _newMoe; dirtyPcRows.add(pcIndex); }
+      }
     }
 
     const pcColCount = Object.keys(COL.PC).length;
