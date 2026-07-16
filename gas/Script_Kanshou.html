@@ -255,6 +255,11 @@ let plainTextContext = cleanText;
         optionsHtml += `</div>`;
       }
       if (optContainer) optContainer.innerHTML = optionsHtml;
+      // 📣 有「必須點的泡泡」(前往/邀約/同居/敲門/橋段/結識)時自動把它捲進視野——回應完只捲故事框、
+      //   泡泡藏在頁面下方看不到＝玩家實測「哪裡有同意按鈕??」的真兇。一般選項不強制捲(維持閱讀位置)。
+      if (optContainer && (data.moveProposal || data.promiseProposal || data.cohabitProposal || data.knockEvent || data.roomEventOffer || data.encounterOffer)) {
+        try { optContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { }
+      }
 
       lastAiContext = plainTextContext;
       story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【說書人】</b>${displayText.trim().replace(/\n{2,}/g, "<br><br>").replace(/\n/g, "<br><br>")}</div>`);
