@@ -1759,7 +1759,15 @@ function actionPlay(userData, pcId, sheets) {
   // 🎭 橋段觸發：按鈕(roomEventOffer)在候選人存在期間持續可用，玩家點下去(userData.
   //   roomEventAccept)才真正骰一次走向；候選人＝目標地點上的同世界同伴，隨機挑一位。
   const kanshouRoomEventTargetLoc_ = moveTarget ? moveName : curL;
-  const kanshouReBand_ = timeBand_(curHour);
+  // ⏱️ offer 用「本回合結束時」的時刻算時段——按鈕是給回應後的玩家看的，用回合開始的舊時刻會
+  //   慢半拍(玩家實測：10:5x走進客廳沒跳膝枕、原地再點(已11:2x午後)才跳)。各推進型回合各自預測：
+  //   結束一天→6點；跳時段→目標時段起點；推進N小時→+N；一般回合→+0.5(夾23)。
+  let _reHourAfter = curHour;
+  if (userData.endDay === true) _reHourAfter = 6;
+  else if (userData.jumpBand) { const _rb = KANSHOU_TIME_BANDS_.find(b => b.key === String(userData.jumpBand)); if (_rb) _reHourAfter = _rb.startHour; }
+  else if (parseFloat(userData.advanceHours) > 0) _reHourAfter = ((curHour + parseFloat(userData.advanceHours)) % 24 + 24) % 24;
+  else if (!userData.jumpFestival && curHour < KANSHOU_DAY_LAST_HOUR_) _reHourAfter = Math.min(KANSHOU_DAY_LAST_HOUR_, curHour + KANSHOU_HOUR_PER_ACTION_);
+  const kanshouReBand_ = timeBand_(_reHourAfter);
   const kanshouHomeLocs_ = Object.values(KANSHOU_HERO_HOME_);
   // 橋段觸發三層(擇一，優先序由稀至常)：①節慶(一年一天)→②同住人房間(她家×深夜/清晨)→③地點×時段。
   //   三層共用同一套候選人蒐集＋offer按鈕＋accept骰走向流程，只是決定eventKey的來源不同。
@@ -1823,6 +1831,11 @@ function actionPlay(userData, pcId, sheets) {
         //   夜襲頂分支雖 min:60，但 60~79(親近)依親密尺度天花板尚止於性事之前，不算共度春宵。
         if (reEventKey === '夜襲' && reBond >= 80) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], reHeroName);
       }
+      // 🧱 鬼按鈕修復(玩家實測「居然可以連續膝枕??」)：offer 候選清單在 accept 處理【前】就建好、
+      //   還含著剛經歷完橋段的她——事後把她移出，按鈕不再原地重生(同日防重刷靠 SCENE_DAY_TAG，
+      //   這裡只是讓本回合回應的按鈕清單跟事實同步)。
+      kanshouRoomEventCandidate_.matches = kanshouRoomEventCandidate_.matches.filter(m => m.idx !== reIdx);
+      if (!kanshouRoomEventCandidate_.matches.length) kanshouRoomEventCandidate_ = null;
     }
   }
 
