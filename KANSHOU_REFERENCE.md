@@ -169,6 +169,18 @@
 - **finalJson 欄位**：`inner_monologue`(純思考不顯示)／`narration`(約500字第一人稱)／`move_proposal`(她提議換地·意圖非結果)／`promise_proposal`(她提議約定{name,loc,band})／`cohabit_proposal`(她提議同居·真名)／`proposal_accept`(僅有【提議·相約/牽手】標記時填接受/婉拒)／`npc_exit`(自然告辭離場真名陣列)／`options`(固定4)／`intimacy_feedback`{player,npcs[]:physical_state≤15/outfit_change≤20/dynamic_skills/mutual_nicknames/attitude≤15/memory}／`rel_changes`[]{target真名,fav_change整數±·單回合上限+5}。⚠ **刻意無 `location` 欄**（玩家所在地一律 GAS 掌握、AI 抄它無意義；後端仍留 `aiData.location` 攔截層當保險→硬吐也轉 move_proposal）。
 - **對話格式** `dialogueFormatRule_()`：**頂層函式·單一真實來源**，`nsfwBaseRules` 第3條與 solo `miniSystem` 第2條**共用**。規則＝話語/喘息/吸吮進「」，動作/撞擊/水聲走敘事。
 
+### 🧠 記憶全景（AI 每回合看得到什麼·寫回什麼·多久一次）— 2026-07 整理
+**AI 每回合看得到（組進 prompt）**：
+- **近期對話**：`getGameHistoryBatchRaw(pcId, 6)` 滑動窗（6筆＝3輪，更早的靠下面的持久欄接力）。
+- **玩家**：性格(PREF)／特徵(TRAIT)／裝扮／**經歷(BACK·滾動≤80字)**／位置＋地點活動 context（`kanshouLocContextForAI_`）／肉體(PHYSICAL)／身體記憶(技巧前5)。⚠ **玩家萌點(INTENT)絕不餵**（紅線③）——AI 只能盲寫。
+- **每位在場 NPC**（`partyDetailsArr` 一行一人）：身世(BACK)／裝扮／性格／特徵／日常風味／**萌點(有餵·標「僅供內化」，與玩家不同)**／當前活動／共同回憶(MEMOIR)／與玩家的約定／關係 tag＋好感＋相處記憶＋聊天天花板＋階調；NSFW 區另帶 肉體＋技巧前5＋羈絆(REL_MEM：專屬稱呼＋態度)。
+
+**AI 寫回（GAS 落地）**：
+- **每回合**：`physical_state`/`outfit_change`→PHYSICAL·【換裝】；`dynamic_skills`→MEMORY 技巧；`mutual_nicknames`+`attitude`→REL_MEM；`memory` 里程碑→MEMOIR(cap10·★釘選不驅逐)；`rel_changes`→BOND；proposals→前端泡泡(意圖非結果)；`npc_exit`→LOC。
+- **每 3 回合**（側寫節流·【側寫計數】）：`master_note`→經歷滾動／沒鎖的性格格／萌點(僅 INTENT 空時補首個發現)。
+
+**⚠「今日情景」查證結論（2026-07·勿重複造輪）**：曾考慮加「今日情景」滾動摘要接住 3 輪窗外的當日細節——查證後**不做**：**經歷(BACK) 的滾動摘要實質已涵蓋今日進展**（實測會寫入「正在逛街、計畫一同前往咖啡廳」等當日動態），另設欄位＝跟經歷重複。若長場景實測出現「忘記前段」，優先調經歷的提示詞（讓它多保留今日細節）而非加新欄。舊 `log_summary` 是因果表的主/被動方向記錄、非情景摘要，已隨因果表一起砍除。
+
 ### 模型配置（`Core_Settings.gs` + `actionPlay` aiConfig）— 🚀2026-07定案
 ```
 AI_MODEL     = deepseek/deepseek-v4-flash    (屬性 MODEL)        ← 只當備援
