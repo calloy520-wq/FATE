@@ -2067,6 +2067,9 @@ function actionPlay(userData, pcId, sheets) {
       kanshouSyncRelTier_(pcData, i);
       dirtyPcRows.add(i);
       if (String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) kanshouPromiseMetStr += `\n★【爽約之後】：你先前與『${_her}』約好在「${_pr.loc}」見面卻沒赴約——讓她依性格流露被放鴿子的在意(慍怒/落寞/嘴硬說沒關係，好感已下調，勿另計)。`;
+      // 📣 爽約明確回饋(玩家實測「約定標示無聲消失、以為是bug」)：她不在場時結算完全無聲——
+      //   補通知條讓玩家知道約過期了、好感掉了。不蓋掉本回合已有的提議回饋(罕見同回合並發)。
+      if (!kanshouProposalResult_) kanshouProposalResult_ = { ok: false, type: 'promise_missed', name: _her, loc: _pr.loc };
     }
   });
 

@@ -282,6 +282,7 @@ let plainTextContext = cleanText;
         else if (_pr.type === 'move') _msg = '🚶 「' + _nm + '」這次不想去「' + escapeHtml(String(_pr.loc || '')) + '」——心情或時機不對，待會再邀、或自己先過去也行。';
         else if (_pr.ok && _pr.type === 'cohabit') _msg = '🏠 <b>同居開始！</b>「' + _nm + '」搬來與你同住了——深夜她會回家的和室就寢、清晨可能賴床、晚間常在家中。';
         else if (_pr.type === 'cohabit') _msg = '🏠 「' + _nm + '」婉拒了同居——你們的關係還不夠深(需要非常深厚的信賴)，再一起多累積些回憶吧。';
+        else if (_pr.type === 'promise_missed') _msg = '📅 與「' + _nm + '」在「' + escapeHtml(String(_pr.loc || '')) + '」見面的約定<b>過期了</b>——你沒有赴約，她有些在意(好感↓)。約定是一次性的，想再見就再約一次吧。';
         else _msg = (_pr.type === 'promise' ? '📅 「' : '🤝 「') + _nm + '」' + (_pr.type === 'promise' ? '婉拒了這次約定。' : '沒有讓你牽手。') + '——關係再深一點、或換個時機再試試。';
         const _col = _pr.ok ? 'rgba(90,160,110,.14);border:1px solid #4a8a5a;color:#a8e0b8' : 'rgba(150,110,120,.14);border:1px solid #8a5a6a;color:#e0b0bc';
         story.insertAdjacentHTML('beforeend', `<div style="background:${_col};border-radius:8px;padding:7px 10px;margin:4px 0;font-size:12.5px;">${_msg}</div>`);
