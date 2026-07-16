@@ -710,12 +710,12 @@ function buildDefaultSystemPrompt() {
     // 🌱 玩家御主「滾動側寫」：AI 每回合觀察玩家、慢慢認識他(像對話 AI 記住使用者習慣)。GAS 只採用
     //   【玩家仍留白】的欄位(玩家自己填過的一律鎖住、不覆寫)；經歷則每回合承接舊值滾動更新。詳見 §玩家側寫。
     "master_note": {
-      "_note": "本欄是【觀察玩家本人】、慢慢認識他/她——不是敘事、不顯示。只在有把握時填，沒觀察到就留空字串。",
+      "_note": "本欄是【觀察玩家本人、慢慢認識他/她】——不是敘事、不顯示。像對話AI逐漸摸清使用者：有明確新觀察才更新，沒把握或跟原本一樣就留空字串保持原樣(別每回合亂變)。玩家自己用『改命』設定的欄位會自動鎖定、你寫了也不會生效，不必顧慮。",
       "經歷": "承接【玩家命格·經歷】舊值，只【增補】這回合對玩家有意義的新遭遇(認識了誰/關係變化/去了哪/發生的事)，回傳更新後的滾動摘要(≤50字·敘事口吻·別抹掉重要的過去、別無中生有)；沒有值得記的新事就【原樣回傳舊經歷】",
-      "對外性格": "僅當【玩家命格】裡玩家的『對外性格』仍空白、且你已從他的言行明確觀察到傾向時，填一個簡短詞組；否則一律填空字串(玩家已自訂就別碰)",
-      "獨處性格": "同上規則：玩家該欄仍空白且你有把握才填一個詞組，否則空字串",
-      "喜歡": "同上規則：觀察到玩家明確喜歡的事物才填一個詞組，否則空字串",
-      "討厭": "同上規則：觀察到玩家明確討厭的事物才填一個詞組，否則空字串"
+      "對外性格": "你目前對『玩家在人前展現的性格』的判斷(一個簡短詞組)——有更準的觀察就更新，無變化/沒把握留空字串",
+      "獨處性格": "你目前對『玩家獨處/卸下心防時的真實一面』的判斷(一詞組)——同上，有更準才更新、否則空字串",
+      "喜歡": "你觀察到『玩家明確喜歡的事物』(一詞組)——同上，有新發現才更新、否則空字串",
+      "討厭": "你觀察到『玩家明確討厭的事物』(一詞組)——同上，有新發現才更新、否則空字串"
     },
     // mentioned_names/event/tag/log_summary 等死欄已移除：皆是寫入後從未被任何地方讀回的
     //   死路(前端不消費、AI不依此決策)，拿掉後AI不用再每回合多填這些欄位。
@@ -1260,6 +1260,19 @@ var KANSHOU_APPT_BANDS_ = [
   { band: '黃昏', hour: 18, label: '黃昏 18:00' },
   { band: '夜',   hour: 20, label: '夜晚 20:00' }
 ];
+// 🔒 性格鎖(存玩家御主列 MEMORY·【性格鎖】對外性格,喜歡)：玩家用改命【自訂】的性格格會登記在此，
+//   AI 的 master_note 側寫【只更新沒被鎖的格】、絕不覆寫玩家自訂的——區分「玩家設的(鎖死)」vs
+//   「AI 自己設的(可持續 refine)」，解決「AI 第一次寫完就再也不改」的問題。經歷不鎖(玩家改命=修正，
+//   AI 之後照樣滾動)、只鎖離散的性格四格。
+function kanshouGetPrefLocks_(memory) {
+  const m = String(memory || "").match(/【性格鎖】([^｜【】]*)/);
+  return m ? m[1].split(",").map(function (s) { return s.trim(); }).filter(Boolean) : [];
+}
+function kanshouSetPrefLocks_(memory, keysArr) {
+  const cleared = String(memory || "").replace(/｜?【性格鎖】[^｜【】]*/g, "").replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
+  if (!keysArr || !keysArr.length) return cleared;
+  return (cleared ? cleared + "｜" : "") + "【性格鎖】" + keysArr.join(",");
+}
 function kanshouApptHour_(band) {
   var b = KANSHOU_APPT_BANDS_.find(function (x) { return x.band === band; });
   return b ? b.hour : null; // null=舊格式無時段(整天有效·向後相容)
@@ -2247,6 +2260,7 @@ ${PROMPT_REL}
 ★【演出而非說明】不得直述其願望／萌點／個性字面。僅可有 rel_changes(好感)，不輸出任何生命變化或戰鬥裁決。
 ★【地點清單】：這個世界目前只有以下這些地點存在：${KANSHOU_LOCATIONS_.map(l => l.name).join('、')}——下方location／move_proposal兩個欄位只能填這份清單裡的名字，【絕對禁止】自創或憑空發明清單以外的地名(如「一家安靜的咖啡廳」這類寫法不再允許)。
 ★【換地點一律走「提議泡泡」、你絕不自行搬動玩家】：任何場景轉換——不論是你覺得該換個地方、同伴想邀玩家去別處、或玩家順口表達想去某處——都【只能】填 move_proposal(填地點清單內的目標地名)，且 narration 只寫到「提議／邀約／正要起身」的當下就打住，【絕對禁止】接著寫出移動過程、寫抵達新地點、或自行更動 location 欄；location 一律照抄目前地點。要不要真的過去，交給玩家在跳出的泡泡按「同意」決定(同伴會不會答應這趟，你仍可在 narration 依其個性演出)；沒有換地點的意圖時 move_proposal 留空，不要每回合都提議。（唯一例外：玩家自己用地圖按鈕移動時系統已把位置寫好，這時你只要如實敘述抵達過程即可、location 照抄系統給的目前地點。）
+★★【嚴禁敘事脫鉤·移動篇——最容易犯，務必守住】：你和玩家【此刻就在「${curL}」、哪也沒去】。【絕對禁止】用敘事演出「正走在路上／快到了／已經抵達某地」——那會造成「嘴上說到了、系統其實還在原地」的脫鉤(玩家會發現「他說到了、其實還在${curL}」)。想帶玩家去某地：就【填 move_proposal】、narration 停在邀約當下，【不要】自己接著把人「走過去」。玩家若一直問「到了沒」，答案永遠是「還沒真的動、還在${curL}」——請引導他點「同意」泡泡或用地圖移動，而不是繼續演走路。跨越好幾個回合的「一直走路」是錯的：沒填 move_proposal＝根本沒出發。
 ★【不替玩家憑空生出東西】：這個世界沒有金錢/物品/背包系統，【絕對禁止】自作主張讓玩家「早就準備好禮物」「掏出錢包」「變出道具」等他沒說要做的事——玩家要送禮或拿出什麼，一律由玩家自己的輸入決定，你不得代勞或無中生有。日常場景裡順手分享的小零食、路邊隨手可得的自然之物(花草、貝殼等)可輕描淡寫，但不可寫成有備而來、彷彿關係已很親近的鋪陳。
 ★【不替玩家腦補心境與決定·結尾停在外部當下】：narration 以第一人稱『我』寫玩家，但【只演】玩家實際輸入的動作＋當下五感所見所感，【嚴禁】替玩家腦補大段內心戲、情緒、願望或替他做決定(玩家打「有點孤單」就只帶當下那一點情緒、不要擴寫成他有多渴望被理解、多想找誰陪)。尤其【禁止把段落收在玩家的期待／渴望／盼望上】(如「希望能…擦出火花」「帶著一絲渴望往…走去」)——結尾一律停在【外部當下】(對方的反應、眼前場景、一個未完成的動作或未說完的話)，把「我下一步想怎樣、心裡怎麼想」留給玩家自己決定。
 現在演化玩家動作：『${finalUserMsg}』${npcDialoguePrompt}
@@ -2573,17 +2587,20 @@ ${PROMPT_REL}
     if (aiData.master_note && typeof aiData.master_note === 'object') {
       const mn = aiData.master_note;
       // 經歷：AI 承接舊值增補後回傳整段，這裡直接採用(≤80字保底截斷)；空/未給則保留原經歷不動。
+      //   不鎖——玩家改命=修正，AI 之後照樣繼續滾動更新。
       const _newExp = String(mn["經歷"] || "").replace(/[<>【】｜]/g, "").trim().slice(0, 80);
       if (_newExp) { pcData[pcIndex][COL.PC.BACK] = _newExp; dirtyPcRows.add(pcIndex); }
-      // 性格四格(對外/獨處/喜歡/討厭)：拆玩家現值，逐格【僅在該格為空時】用 AI 觀察值回填。
+      // 性格四格(對外/獨處/喜歡/討厭)：【玩家改命自訂的鎖死不碰、AI 自己寫的可持續 refine】。
+      //   判準改用【性格鎖】標記(非「格子是否空」)——AI 給了新值就更新(允許修正自己先前的判斷)。
+      const _locks = kanshouGetPrefLocks_(pcData[pcIndex][COL.PC.MEMORY]);
       const _prefSlots = String(pcData[pcIndex][COL.PC.PREF] || "").split("、");
       while (_prefSlots.length < 4) _prefSlots.push("");
       const _mnKeys = ["對外性格", "獨處性格", "喜歡", "討厭"];
       let _prefChanged = false;
       _mnKeys.forEach((k, i) => {
-        if (String(_prefSlots[i] || "").trim()) return; // 玩家/先前已填→鎖，不覆寫
+        if (_locks.indexOf(k) !== -1) return; // 玩家改命自訂→鎖死，AI 絕不覆寫
         const v = String(mn[k] || "").replace(/[<>【】、｜]/g, "").trim().slice(0, 12);
-        if (v) { _prefSlots[i] = v; _prefChanged = true; }
+        if (v && v !== String(_prefSlots[i] || "").trim()) { _prefSlots[i] = v; _prefChanged = true; } // AI 給值且有變→更新(可refine)
       });
       if (_prefChanged) { pcData[pcIndex][COL.PC.PREF] = _prefSlots.slice(0, 4).join("、"); dirtyPcRows.add(pcIndex); }
     }
