@@ -50,9 +50,11 @@ GAS 在 `gas/`。⚠ **push 只自動同步代碼，不會自動上線**——�
 
 ## 📌 開工前先讀
 
+- **`PLAYBOOK.md`** 🧭 — 工作手冊（**怎麼把事做好**：心法四條＋標準節奏 checklist＋玩家協作模式＋部署細節＋Git 陷阱實錄＋接手五問）。**不論哪個模型接手，第一份先讀這個**——效能差距不在型號，在有沒有照這套做。
 - **`HANDBOOK.md`** — 全專案工具書（理念＋架構＋資料層＋每個檔案在做什麼＋戰鬥引擎管線＋三軌）。**想「這專案在幹嘛/某檔做什麼」先看這份。**
 - **`FUNCTION_MANUAL.md`** — 全專案逐函式清單（2026-07 建立：23 個 .gs/.html 檔每個函式一行用途＋呼叫關係＋ActionRouter 完整對照表）。**要 grep 前先查這份**，比 SOLO_REFERENCE.md 更完整(涵蓋 kanshou/共用檔案)。新增/搬移/刪除函式時記得回來補。
-- **`SOLO_REFERENCE.md`** — 單人模式完整代碼地圖（函數名＋作用＋schema＋ActionRouter＋MEMORY 標記，帶日期的稽核筆記）。**要 grep 前先查這份**，省時間。
+- **`KANSHOU_REFERENCE.md`** 🌹 — 鑑賞（慾海後日談）唯一現況真相（世界觀鐵則＋資料層＋MEMORY 標記全表＋各系統現況＋AI 管線＋前端地圖＋教訓區）。**要動鑑賞任何一塊先看這份**，只寫「現在是什麼」不含編年史。（2026-07 建立：鑑賞已從 SOLO_REFERENCE 遷出獨立成書。）
+- **`SOLO_REFERENCE.md`** — 單人(solo)模式代碼地圖（函數名＋作用＋schema＋ActionRouter＋MEMORY 標記，帶日期的稽核筆記）。**要 grep solo 前先查這份**。⚠ 2026-07 已瘦身：鑑賞內容全遷去 `KANSHOU_REFERENCE.md`，本檔專注 solo。
 - **`AI_PROMPT_MAP.md`** — 每個 action ↔ 觸發按鈕 ↔ handler ↔ 送 AI 的 prompt 全景圖（含 `miniSystem`／各卡片逐字引文）。**改提示詞／動 narrate 管線前先查這份、改完順手更新**（行號會漂·以函數名為錨）。
 - `DESIGN.md` — 設計鐵則（GAS 掌數值、AI 只說書）。
 

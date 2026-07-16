@@ -870,10 +870,12 @@
     if (currentVal === "--") currentVal = "";
 
     if (type === 'back') {
-        titleEl.innerText = "逆天改命 - 修改身世背景";
+        // 🌱 鑑賞：BACK 欄已正名為「經歷」(AI 滾動補寫+玩家可改)；solo 仍是固定的身世背景。依模式分標籤/字數。
+        const _isK = (pc && pc.mode === 'kanshou');
+        titleEl.innerText = _isK ? "逆天改命 - 修改經歷" : "逆天改命 - 修改身世背景";
         fieldsEl.innerHTML = `
-            <label style="font-size:13px; color:#332211; font-weight:bold;">身世背景 (限 30 字)</label>
-            <input id="fate-f1" class="std-in" maxlength="30" value="${escapeHtml(currentVal)}">
+            <label style="font-size:13px; color:#332211; font-weight:bold;">${_isK ? '經歷 (你一路走來的軌跡·AI 會隨遊玩慢慢補寫，你也能自己改·限 80 字)' : '身世背景 (限 30 字)'}</label>
+            <input id="fate-f1" class="std-in" maxlength="${_isK ? 80 : 30}" value="${escapeHtml(currentVal)}">
         `;
     }
     // 🔴 萌點（反差/可愛弱點）

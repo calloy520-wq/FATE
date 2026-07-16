@@ -366,7 +366,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 - 玩家自身卡、近期歷史（最近 6 筆原始訊息／3輪，`getGameHistoryBatchRaw`，走 `aiConfig.chatHistory` 而非塞進 prompt 字面）
 - **🧹 2026-07 玩家定案「砍掉同地路人、開放世界無結界」**：舊版「同地路人」清單（`allLocals`/`displayPeople`）＋其好感階梯行為指令（`resistPrompt`，死仇→摯友七級）＋場景第三方交叉羈絆整套刪除。改為單純的 `backgroundCrowdStr`（★【開放世界·背景人煙】：路人可自由描寫增添生活感，但不具名、不可被指名互動、不追蹤好感）。能被指名、有名有姓、好感被記錄延續的對象，收斂為僅有**目前在場人物**（見上）。
 - **🚪🏠 2026-07 新增「巧遇開關」＋可改名的「家」移動選項**：`kanshouEncounterStr`(巧遇系統例外提示詞注入)現受`encounterOn`(讀`userData.encounter`，前端「出門走走」面板一顆checkbox、localStorage持久化)閘門，關閉時移動/原地問「還有誰」兩個擲骰點都不會觸發，但不影響已在場的`【邂逅中】`對象持續互動。`KANSHOU_LOCATIONS_`（2026-07已擴充到**50個地點**、非10個，見 `FUNCTION_MANUAL.md`）外新增一個不在清單內、顯示名稱可由玩家自訂(MEMORY`【住所】`標記，預設「家」)的私人地點——`isHomeMove`比對成立時恆不擲骰(私人空間永不巧遇陌生人)，其餘寫LOC/清`【邂逅中】`的邏輯與一般地點一致。詳見 `SOLO_REFERENCE.md` §44。
-- **僅 NSFW/kanshou 模式**：同地性別配對提示、肉體狀態 JSON（2026-07 玩家定案「肉體那些欄位不需要了，只要狀態就好」：physical_state 從 6 鍵數字代碼（姿勢與動作/胸部/顏面/肉棒/蜜穴/服裝狀態）全部砍掉，簡化為單一自由文字欄，AI 自行決定每回合要不要提、提多細，不強制逐項列舉，每回合仍需據實反映最新狀態）、每位在場同伴的「身體記憶」技能標籤、敏感點、親密次數計數器、愛稱、🔥主動掌握模式段落（前端 `drive` 旗標開啟時注入——同伴依個性主動掌握節奏、攔下玩家的迴避意圖；僅鑑賞生效。⚠ 2026-07 玩家定案「隱藏點火按鈕」：`Script.html`的`applyModeUI()`已把這顆 UI 開關永久隱藏，`driveOn`現在恆為`false`——機制本身完全未動，只是玩家端已無法從介面切到🔥點火那一側，詳見 `SOLO_REFERENCE.md`）
+- **僅 NSFW/kanshou 模式**：同地性別配對提示、肉體狀態 JSON（2026-07 玩家定案「肉體那些欄位不需要了，只要狀態就好」：physical_state 從 6 鍵數字代碼（姿勢與動作/胸部/顏面/肉棒/蜜穴/服裝狀態）全部砍掉，簡化為單一自由文字欄，AI 自行決定每回合要不要提、提多細，不強制逐項列舉，每回合仍需據實反映最新狀態）、每位在場同伴的「身體記憶」技能標籤、敏感點、親密次數計數器、愛稱、🔥主動掌握模式(點火 driveOn)段落（前端 `drive` 旗標開啟時注入——同伴依個性主動掌握節奏、推進更猛；僅鑑賞生效。⚠ 2026-07 更正：點火按鈕為**現行有效** toggle，`driveOn` **只控敘事推進幅度(driveStr)、不再切模型**——模型改由兩模式一律先打 `SOLO_MODEL`(gemini-3.1-flash-lite)、`AI_MODEL`(deepseek)僅備援、`retries=1`。鑑賞現況一律以 `KANSHOU_REFERENCE.md` 為準）
 
 關鍵結構/收尾指令（逐字節錄）：
 > 【敘事法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。
@@ -389,7 +389,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 | 夜襲/賴床叫醒 | 移動到某同伴自己的住處(`KANSHOU_HERO_HOME_`)或同居者的`和室`寢間、當前時段落在深夜/清晨、且該同伴當下確實在該處(非移動前就已跟玩家同地點——見 `SOLO_REFERENCE.md` §90 的排序bug修正) | `roomEventOffer` | `roomEventAccept:true` | `KANSHOU_SCENE_EVENTS_.夜襲`/`.賴床叫醒`，`kanshouRollSceneBranch_`依好感roll分支；接受的非拒絕分支給`KANSHOU_SCENE_BOND_`(同伴同日只給一次·`KANSHOU_SCENE_DAY_TAG_`)；夜襲對象好感≥80額外設`KANSHOU_MORNING_AFTER_TAG_`供隔天第一回合帶入晨間氛圍(§81·§131) |
 | 夜晚敲門 | 結束一天時`KANSHOU_KNOCK_CHANCE_`(20%)擲中、且候選同伴同居或好感≥`KANSHOU_KNOCK_MIN_BOND_`(60) | `knockEvent`(既有機制，非本輪新增) | `knockAccept:true`(同意)／`skipKnockCheck:true`(略過) | 對應訪客建立/移入 |
 
-`Script_Kanshou.html` 的 `send()` 函式簽名已累積到 22 個位置參數(`customMsg, isSilent, combatData, moveTarget, lookAround, endDay, advanceHours, jumpFestival, knockAccept, skipKnockCheck, dismissCurfew, roomEventAccept, jumpBand, loaderCaptions, moveWithCompanion, promiseMeet, cohabitInvite, inviteResident, takePhoto, showPhoto, photoIntent, handHold`)——其中 `dismissCurfew` 是門禁機制移除後留下的空位佔位(移掉會位移後面全部實參，故保留)。新增此類機制前，應認真考慮改成單一 options 物件而非繼續疊加位置參數(工程準則「易維護」)。
+`Script_Kanshou.html` 的 `send()` 已於 2026-07 重構成 **`send(customMsg, isSilent, opts)`**：原 22+ 個位置參數(呼叫端一長串 null 極易錯位)全數收進單一 opts 物件(`moveTarget/lookAround/endDay/advanceHours/jumpFestival/knockAccept/skipKnockCheck/roomEventAccept/jumpBand/loaderCaptions/moveWithCompanion/promiseMeet/cohabitInvite/inviteResident/takePhoto/showPhoto/photoIntent/handHold/promiseAccept`)；死參數 combatData/門禁佔位一併移除。前兩個位置參數保留(選項按鈕 `send(text, true)` 用法不變)。純前端組參方式改變、payload 不變、零速度影響。新增機制＝往 opts 加一鍵，不再位移任何呼叫端。
 
 ---
 
