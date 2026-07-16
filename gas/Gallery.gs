@@ -1258,7 +1258,8 @@ function kanshouClockInfo_(pcRow) {
   const d = kanshouAbsDayToDate_(day);
   const wx = kanshouWeather_(day);
   const loc = String(pcRow[COL.PC.LOC] || "").trim();
-  return { day: day, hour: hour, band: band, weather: wx, label: (loc ? "📍" + loc + "　" : "") + d.year + "年" + d.month + "月" + d.day + "日・" + kanshouFmtHM_(hour) + "・" + band + "・" + kanshouWeatherEmoji_(wx) + wx };
+  // month/dayOfMonth：前端「睡前爽約警示」要跟同伴 promise.date('M/D') 比對今天日期用。
+  return { day: day, hour: hour, band: band, weather: wx, month: d.month, dayOfMonth: d.day, label: (loc ? "📍" + loc + "　" : "") + d.year + "年" + d.month + "月" + d.day + "日・" + kanshouFmtHM_(hour) + "・" + band + "・" + kanshouWeatherEmoji_(wx) + wx };
 }
 
 // 結束一天(準備就寢)時的機率事件，命中就先不推進日期、改讓前端跳出開門/不予理會。

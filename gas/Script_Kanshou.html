@@ -461,7 +461,18 @@ let plainTextContext = cleanText;
 
   // 🌙 結束一天：不在身邊的英靈由GAS自動決定隔天去哪(見Gallery.gs kanshouRollDailyLocation_)，不用手動排程；跟一般聊天走同一個send()、同一套渲染。
   async function kanshouEndDay() {
-    if (!confirm('結束今天，讓時間流動到明天嗎？')) return;
+    // 📅 睡前爽約警示(玩家實測「不知不覺跨了兩天、約定無聲過期」)：今天還沒赴的約，一過夜就會
+    //   結算成爽約(好感↓)——確認框先講明。_kcCur/kcClock 沒載到就退回一般確認(盡力而為，後端結算
+    //   通知條仍是保底)。深夜按「下一階段」也走這裡，同樣被擋到。
+    var _edWarn = '';
+    try {
+      if (kcClock && kcClock.month && Array.isArray(_kcCur) && _kcCur.length) {
+        var _today = kcClock.month + '/' + kcClock.dayOfMonth;
+        var _due = _kcCur.filter(function (c) { return c.promise && c.promise.date === _today; });
+        if (_due.length) _edWarn = '\n\n⚠ 今天還有沒赴的約：' + _due.map(function (c) { return '「' + c.name + '」' + (c.promise.time || '') + '在「' + c.promise.loc + '」'; }).join('、') + '\n現在睡下去就是爽約，她會在意的(好感下降)！';
+      }
+    } catch (e) { }
+    if (!confirm('結束今天，讓時間流動到明天嗎？' + _edWarn)) return;
     showGamePane('chat');
     await send('🌙 結束了這一天。', false, { endDay: true, loaderCaptions: ['夜色漸漸深了…', '一天的塵埃緩緩落定…', '悄悄迎向嶄新的一天…'] });
   }
