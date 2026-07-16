@@ -220,6 +220,9 @@ UNLOCKED_MODEL = x-ai/grok-4.20              (屬性 UNLOCKED_MODEL)
 - **平行世界原則**：`persona.back/speech/tic` 的**戰時值別照搬進鑑賞**（後日談無聖杯戰爭）。
 - **onclick 字串內的呼叫不算死碼**；`removeAllTriggers()` 零呼叫是 GAS 工具正常型態、非死碼。
 - **HTML 刪除先手算 div 開合平衡**再刪，避免刪頭忘刪尾崩整頁。
+- **泡泡(必點UI)別跟可關閉的東西同住一個容器**：「AI選項開關」曾整個 `options-container` display:none，所有泡泡(前往/邀約/同居/敲門/橋段/結識)陪葬——關掉選項的玩家**從沒見過任何泡泡**。現制：【命運的抉擇】包在 `#ai-options-grid` 小盒、開關只藏它；容器本身恆 flex(載入時強制恢復)。新泡泡一律放容器直下、別放進 grid。
+- **別依賴小模型「自發」填選填欄位**：Gemini-lite 從不自發填 move_proposal——玩家發起的機制動作一律走「明確 payload → pre-AI 記提議 → AI 只答 proposal_accept」的確定性管線(👋proposeMove/相約/牽手同款)，提示詞授權只當補網。
+- **通用錯誤文案是查案毒藥**：send()/saveFate 的 catch 已帶出 e.message(【原因】行)；後端 success:false 的 message 會演進故事流。別再寫吞掉真因的 alert。
 
 ---
 
