@@ -139,7 +139,7 @@
 
 - **兩種創角**（`askKanshouSetup`）：**超簡易**（`aiExpand:true`→`backfill_kanshou_ai` 一次 AI 擴寫，原配方）／**詳細**（留白，之後改命自己填＋AI 側寫慢慢補）。
 - **開局欄位**（`actionEnterKanshou` 秒寫）：TRAIT＝外貌(玩家填)、氣質空、自稱「我」、私密「無」；PREF＝對外性格(玩家填「個性方向」)、獨處/喜歡/討厭全空；**經歷(BACK)＝「剛搬來冬木市」**；萌點(INTENT)空。
-- **經歷（原「身世」正名）**：AI 每回合經 `master_note.經歷` **滾動更新**（承接舊值增補新遭遇、≤80字·bounded overwrite），玩家可經**改命**自己改（back 型·mode 判斷 kanshou 才叫「經歷」、cap 80）。
+- **經歷（原「身世」正名）**：AI 每回合經 `master_note.經歷` **滾動更新**（承接舊值增補新遭遇、≤80字·bounded overwrite），玩家可經**改命**自己改（back 型·mode 判斷 kanshou 才叫「經歷」、cap 80）。卡面標題 `#ui-back-title` 也依模式正名：**鑑賞看自己卡＝「經歷」**、從者卡/solo＝「身分背景」（updateUI 切換·從者的 BACK 是真背景不是滾動經歷）。
 - **空性格欄 AI 側寫回填**：`master_note.{對外性格/獨處性格/喜歡/討厭}` **只回填仍空的格**——玩家改命填過的＝鎖（判準：該 PREF slot 非空），AI 絕不覆寫。像對話 AI 慢慢認識使用者。
 - **萌點(INTENT) AI 盲寫**：`master_note.萌點`——⚠ 萌點是紅線③ show-don't-tell、**絕不餵給 AI**，故 AI 看不到現值只能「盲寫」(依這回合言行暗中觀察一個反差/可愛弱點)。因盲寫不能 refine(會 churn)，落地採**「只補第一個發現、之後不覆寫」**：`COL.PC.INTENT` 空才寫、非空(AI 補過 or 玩家改命填過)＝鎖死不動(Gallery.gs post-processing)。跟性格不同款(性格餵給 AI 可持續 refine·萌點盲寫只補一次)——差異源於能不能餵給 AI。玩家改命隨時可覆蓋。
 - **🔒 性格鎖（玩家 UI 控制·預設不鎖）**：改命-個性視窗每格一個 🔒 開關 → 寫 `【性格鎖】`（`kanshouGetPrefLocks_`/`SetPrefLocks_`）。**鎖了 = AI 連那欄都看不到**（`actionPlay` 依鎖狀態算「沒鎖的格」→ `buildDefaultSystemPrompt(unlockedKeys)` **動態組 master_note、鎖的格不出現在 schema**）＋GAS 落地再過濾一次（雙保底）。沒鎖 = AI 可持續 refine（不是一次寫死）。鎖狀態經 play 回應 `prefLocks` 快取到前端 `window._kcPrefLocks`（改命視窗顯示開關）。經歷不鎖（改命=修正、AI 續滾）。⚠ `buildDefaultSystemPrompt(masterNoteUnlocked)` 只有 `actionPlay` 一個呼叫者，故在 actionPlay 組好當 systemOverride 傳入。

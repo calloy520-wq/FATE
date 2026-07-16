@@ -857,6 +857,10 @@
     // 🌱 鑑賞：處事個性/命格特徵改「分行＋標籤」顯示(空格待補)；🔒 只在看自己卡片時掛在鎖住的處事個性格。solo 維持原樣。
     var _isKan = (pc && pc.mode === 'kanshou');
     var _selfCard = (currentStatusTargetId === (pc ? pc.id : ''));
+    // 🌱 正名：鑑賞玩家自己的 BACK 是 AI 滾動的「經歷」(妳的故事至此)，卡面標題跟著換；
+    //   從者卡/solo 仍是固定的「身分背景」。
+    var _backTitleEl = document.getElementById('ui-back-title');
+    if (_backTitleEl) _backTitleEl.innerText = (_isKan && _selfCard) ? '—— 經歷 ——' : '—— 身分背景 ——';
     if (_isKan) {
       renderSegField_('ui-trait', s[2], ['外貌', '氣質', '自稱', '私密'], null, null, _selfCard, '（待你改命填寫）');
       var _prefLockKeys = ['對外性格', '獨處性格', '喜歡', '討厭'];
