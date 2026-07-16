@@ -1696,7 +1696,7 @@ function actionPlay(userData, pcId, sheets) {
         const _hhBond = parseInt(pcData[_hhIdx][COL.PC.BOND]) || 0;
         // 牽手tag存在玩家自己列(pcIndex)、值=她的名字；接受與否由AI判定，接受後才在post-AI區寫回。
         _pendingProposal = { type: 'hold', idx: pcIndex, name: _hhName };
-        kanshouHandHoldStr = `\n★【提議·牽手】：你伸手想牽起『${_hhName}』的手。依她既有個性與目前好感(${_hhBond}/100)真實演出讓不讓你牽——不預設結果，並在 proposal_accept 欄如實填「接受」或「婉拒」。她接受，之後你移動她會相伴同行(直到放手)；婉拒則沒牽成、不必替玩家找補。`;
+        kanshouHandHoldStr = `\n★【提議·牽手】：你伸手想牽起『${_hhName}』的手。依她既有個性與目前好感(${_hhBond}/100)真實演出讓不讓你牽——不預設結果，並在 proposal_accept 欄如實填「接受」或「婉拒」。★敘事必須與你的決定一致：填「接受」＝narration 要真實演出【她的手交到你手中／你們牽起手】的那一刻(不可只碰衣角、拉衣袖之類含糊帶過——那不算牽手)；填「婉拒」＝演她收手/避開，沒牽成、不必替玩家找補。她接受後，之後你移動她會相伴同行(直到放手)。`;
         finalUserMsg = `【玩家意圖】：伸手想牽起『${_hhName}』的手。`;
       }
     }
