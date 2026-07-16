@@ -671,6 +671,33 @@ let plainTextContext = cleanText;
     { name: '埃德費爾特宅邸', region: 'visit' }, { name: '愛因茲貝倫城', region: 'visit' },
     { name: '遠坂邸', region: 'visit' }, { name: '藤村家', region: 'visit' }
   ];
+  // 🎭 橋段觸發鏡像(顯示用·唯一真實來源在後端 KANSHOU_LOCATION_EVENTS_／KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_)：
+  //   地點×時段對得上、她又在場，就會跳橋段邀請框。玩家最常卡「不知道去哪、幾點」，把它標在地圖地點鈕旁邊當提醒。
+  //   改後端觸發表記得同步這裡。bands 用後端時段 key(清晨/午後/黃昏/夜/深夜)。needCohabit＝限同居的和室橋段。
+  var KC_LOCATION_EVENTS_ = {
+    '客廳': { icon: '💤', name: '膝枕', bands: ['午後'] },
+    '廚房': { icon: '🍳', name: '下廚', bands: ['黃昏'] },
+    '浴室': { icon: '🛁', name: '共浴', bands: ['夜', '深夜'] },
+    '屋頂花園': { icon: '🌌', name: '觀星', bands: ['夜', '深夜'] },
+    '隱藏溫泉': { icon: '♨️', name: '溫泉同浴', bands: ['午後', '黃昏', '夜'] },
+    '和室': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], needCohabit: true }
+  };
+  // 時段 key→精簡顯示(徽章用·免整串 emoji)。
+  var KC_BAND_SHORT_ = { '清晨': '清晨', '午後': '午後', '黃昏': '黃昏', '夜': '夜', '深夜': '深夜' };
+  // 組單一地點的橋段徽章 HTML(當前時段命中就高亮)；沒有橋段的地點回空字串。
+  function kcSceneBadge_(locName, curBand) {
+    var ev = KC_LOCATION_EVENTS_[locName];
+    if (!ev) return '';
+    var hitNow = ev.bands.indexOf(curBand) !== -1;
+    var bandsTxt = ev.bands.map(function (b) { return KC_BAND_SHORT_[b] || b; }).join('/');
+    var tip = ev.icon + ev.name + '·' + bandsTxt + (ev.needCohabit ? '(需同居)' : '') + '——她在場時會跳邀請';
+    var style = hitNow
+      ? 'background:rgba(224,160,188,.22);border:1px solid #c07090;color:#f0c0d4;'
+      : 'background:rgba(120,110,90,.14);border:1px solid #4a4438;color:#9a8f78;';
+    return '<span title="' + escapeHtml(tip) + '" style="' + style + 'font-size:9.5px;padding:1px 5px;border-radius:6px;white-space:nowrap;">'
+      + ev.icon + (hitNow ? '<b>' + escapeHtml(bandsTxt) + '</b>' : escapeHtml(bandsTxt)) + '</span>';
+  }
+
   // 目前選取的分區(純前端UI狀態，跨裝置不同步，比照kanshouEncounterOn用localStorage記住偏好)。
   var kcActiveRegion_ = localStorage.getItem('kyushu_kanshou_region') || 'home';
   // 🛡️ 舊 localStorage 可能存著已移除的 'room' 分頁 → 退回 'home'，免分頁空白。
@@ -698,6 +725,7 @@ let plainTextContext = cleanText;
   }
   function kcMapListHtml_() {
     var homeLabel = (pc && pc.homeName) ? pc.homeName : '我家';
+    var _curBand = (kcClock && kcClock.band) ? kcClock.band : '清晨'; // 🎭 橋段徽章判「現在正好是這時段」高亮用
     // 🗾 分區切換列：按鈕群組，當前分區高亮，點擊只切換下方地點清單(不影響已在場敘事)。
     var tabsHtml = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;">' + KC_REGIONS_.map(function (rg) {
       var active = rg.id === kcActiveRegion_;
@@ -720,6 +748,7 @@ let plainTextContext = cleanText;
     var locBtns = KC_LOCATIONS_.filter(function (l) { return l.region === kcActiveRegion_; }).map(function (l) {
       var label = l.isRoom ? kcRoomLabel_(l.name) : l.name;
       var cnt = locCounts[l.name] || 0;
+      var _scBadge = kcSceneBadge_(l.name, _curBand); // 🎭 此地有橋段→標時段提醒(當前時段命中高亮)
       var _pmHere = promiseByLoc[l.name];
       var _pmBadge = _pmHere ? '<span style="color:#a8d0f0;font-size:10px;">📅 ' + escapeHtml(_pmHere[0].promise.date + (_pmHere[0].promise.time ? ' ' + _pmHere[0].promise.time.replace(/^\S+\s/, '') : '')) + (_pmHere.length > 1 ? ' +' + (_pmHere.length - 1) : '') + '</span>' : '';
       if (l.region === 'visit' && unlockedRes.indexOf(l.name) === -1) {
@@ -732,7 +761,7 @@ let plainTextContext = cleanText;
       }
       return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
         + '<button onclick="kanshouMoveTo(\'' + l.name + '\')" style="flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">'
-        + '<span>📍 ' + escapeHtml(label) + (_pmBadge ? ' ' + _pmBadge : '') + '</span>'
+        + '<span style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">📍 ' + escapeHtml(label) + _scBadge + (_pmBadge ? ' ' + _pmBadge : '') + '</span>'
         + (cnt ? '<span style="color:#e0a0bc;font-size:11px;">👤' + cnt + '</span>' : '')
         + '</button>'
         + '<button onclick="kanshouProposeMove(\'' + l.name + '\')" title="邀同伴一起去「' + escapeHtml(label) + '」" style="padding:8px 9px;background:#2a2038;color:#e0c090;border:1px solid #5a4a3a;border-radius:8px;cursor:pointer;font-size:13px;">👋</button>'
