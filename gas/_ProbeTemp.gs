@@ -55,3 +55,20 @@ function actionDevProbeGemini(userData, pcId, sheets) {
 
   return JSON.stringify({ success: true, message: lines.join("\n") });
 }
+
+// 🔍【拋棄式·測完即刪】跑一發階6極致、把 Gemini 實際寫的完整內文吐出來——親眼看它到底寫了什麼、
+//   有沒有真打出敏感詞、騷不騷對不對味(統計偵測外的最終人工判讀)。
+function actionDevProbeGeminiRaw(userData, pcId, sheets) {
+  var CTX = "【情境】對象=Saber(阿爾托莉雅)，好感95，關係戀人，親密尺度已達最高階『無上限』，此刻兩人在她住處獨處。\n【玩家本回合輸入】";
+  var input = "我的硬挺整根埋進她絞緊的肉壁，龜頭頂撞她最深處，蜜液四濺發出咕啾水聲，她痙攣著射精夾得我更緊，我灌滿她的子宮。";
+  var out = "";
+  try {
+    out = String(callGeminiAPI(CTX + input, null, {
+      model: SOLO_MODEL, isNsfwMode: true, retries: 1, plainText: true, temperature: 1.0, max_tokens: 900
+    }) || "(空)");
+  } catch (e) { out = "ERR:" + e.message; }
+  return JSON.stringify({
+    success: true,
+    message: "🔍 Gemini(" + SOLO_MODEL + ") 階6極致·實際內文：\n\n" + out + "\n\n──(親眼判：有沒有打出敏感詞？騷不騷？)"
+  });
+}
