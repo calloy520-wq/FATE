@@ -669,7 +669,7 @@ function buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote) {
 
   // outfit_change：角色當下實際穿著狀態，AI 可依劇情如實更新(正常穿著寫身上衣物，全裸/沐浴/
   //   更衣等狀態也要如實反映)，會寫回持久的【換裝】記錄，不是每回合就消失的暫時描述。
-  const _outfitChange = "本回合角色實際穿著狀態(第三人稱如實反映，≤20字)";
+  const _outfitChange = "本回合角色實際穿著狀態(第三人稱如實反映，≤20字)——填【穿著本身】的名詞短語(如「質地優雅的絲綢襯衫」)，不是動作句(「換上了一件…」這種寫法禁止)";
 
   // 🔴 npc的範本欄位填「同上」：Router_Action.gs解析intimacy_feedback時的ignoreWords防呆清單本就含「同上」，
   // 即使AI偷懶照抄範本字面值也會被當成敷衍語忽略、不會寫進玩家看到的狀態欄，省字數不引入新的失敗模式。
@@ -2557,7 +2557,12 @@ ${PROMPT_REL}
       //   持久的【換裝】記錄(setOutfit_ 本身已有 40 字硬上限與清洗特殊字元，這裡不重複截斷)。
       const sanitizeOutfitChange = (rawOutfit) => {
         if (typeof rawOutfit !== 'string') return "";
-        const val = rawOutfit.trim();
+        // 🩹 這欄要的是【穿著本身】(如「質地優雅的絲綢襯衫」)，AI 偶爾寫成動作句(「換上了一件…。」)，
+        //   卡片顯示「裝扮 換上了一件…」變病句(玩家實測)——剝掉動作前綴/量詞/句尾標點，留衣物描述。
+        const val = rawOutfit.trim()
+          .replace(/^(剛?(換|穿|披|套|繫|着|著)上了?|換回了?|改穿了?)\s*/, "")
+          .replace(/^(一件|一身|一套|一襲)\s*/, "")
+          .replace(/[。！!，,]+$/, "").trim();
         return (!val || ignoreWords.includes(val)) ? "" : val;
       };
 
