@@ -1023,7 +1023,8 @@
             alert("改命失敗：" + res.message);
         }
     } catch(e) {
-        alert("連線受阻，改命失敗。");
+        // 帶出真實錯誤(後端例外或前端渲染出錯都會進到這)，不再吞成無線索的通用文案。
+        alert("連線受阻，改命失敗。" + (e && e.message ? "\n\n【原因】" + e.message : ""));
     } finally {
         document.getElementById('fate-edit-title').innerText = "逆天改命";
     }

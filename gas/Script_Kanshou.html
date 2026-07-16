@@ -90,6 +90,13 @@
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
+      // 🧱 後端明確失敗(success:false)或缺敘事文字時：把真實 message 演進故事流，不再拿不存在的
+      //   data.text 去 split 炸進 catch、被通用「連結斷絕」吃掉真因(失敗不炸整局)。
+      if (!data || data.success === false || typeof data.text !== 'string') {
+        story.insertAdjacentHTML('beforeend', '<div class="loading-text">⚠ ' + escapeHtml(String((data && data.message) || '系統暫時沒有回應，請再試一次。')) + '</div>');
+        story.scrollTop = story.scrollHeight;
+        return;
+      }
       localNPCs = data.people || []; nearbyLocations = data.locations || [];
       // 🕰️ 「下一階段」按鈕：每次actionPlay回應都可能改動時鐘(結束一天/推進時間/跳節慶/跳時段皆會)，
       //   記下最新kanshouClock供地圖頁的時段按鈕判斷現在是不是深夜，並重繪地圖頁(桌機三欄並排恆
@@ -283,7 +290,8 @@ let plainTextContext = cleanText;
 
     } catch(e) {
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
-      alert("連結斷絕，連線無回應。");
+      // 帶出真實錯誤(GAS 例外的 err.message 會進到這)，不再吞成無線索的通用文案。
+      alert("連結斷絕，連線無回應。" + (e && e.message ? "\n\n【原因】" + e.message : ""));
     } finally {
       input.disabled = false; btn.disabled = false; story.scrollTop = story.scrollHeight;
       if (!/Mobi|Android|iPhone/i.test(navigator.userAgent)) {
