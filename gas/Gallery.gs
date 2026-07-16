@@ -1578,6 +1578,27 @@ function actionPlay(userData, pcId, sheets) {
     }
   }
 
+  // 🚶👋 玩家提議同去(地圖 👋 鈕→proposeMove=地點)：走跟相約/牽手同一條「確定性提議」管線——
+  //   pre-AI 記待判定、AI 只需在 proposal_accept 答「接受/婉拒」、接受才出「前往」泡泡(玩家按同意
+  //   才真的移動)。2026-07 根因修復：舊版 👋 只送一句閒聊、全押在 AI 自發填 move_proposal 上，
+  //   Gemini 從不自發填→玩家從沒見過移動泡泡；改成明確標記後 AI 只做「答不答應」一件事。
+  if (userData.proposeMove) {
+    const _pvLoc = String(userData.proposeMove).trim();
+    const _pvLocOk = KANSHOU_LOCATIONS_.some(l => l.name === _pvLoc && l.region !== 'room') && _pvLoc !== String(curL || "").trim();
+    // 提議對象＝此刻在場的同伴(多人在場＝一起邀，以第一位的個性判定；接受後 moveWithCompanion 本就帶同地全部人)。
+    const _pvIdx = pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim());
+    if (_pvLocOk && _pvIdx !== -1) {
+      const _pvHer = String(pcData[_pvIdx][COL.PC.NAME]);
+      const _pvBond = parseInt(pcData[_pvIdx][COL.PC.BOND]) || 0;
+      _pendingProposal = { type: 'move', idx: _pvIdx, loc: _pvLoc };
+      kanshouPromiseStr += `\n★【提議·同去】：你向『${_pvHer}』提議【現在一起去「${_pvLoc}」】。依她既有個性與目前好感(${_pvBond}/100)真實演出答不答應——不預設結果，並在 proposal_accept 欄如實填「接受」或「婉拒」。narration 停在她給出回應的當下，【不可】演出發、走路或抵達(是否真的動身由系統處理)。`;
+      finalUserMsg = `【玩家意圖】：邀身旁的『${_pvHer}』現在一起去「${_pvLoc}」。`;
+    } else if (_pvIdx === -1) {
+      kanshouPromiseStr += `\n★【提議撲空】：你想邀人一起去「${_pvLoc}」，但此刻身邊沒有同伴——演出這份獨自的悵然即可(玩家可自己用地圖移動)。`;
+      finalUserMsg = `【玩家意圖】：想邀同伴一起去「${_pvLoc}」，卻發現身邊沒有人。`;
+    }
+  }
+
   // 📅 玩家同意她主動提的約(她 promise_proposal→泡泡→玩家按同意→帶 promiseAccept 回來)：她已開口、
   //   玩家點頭，直接落地【約定】，不走 proposal_accept 二次判定(她不會婉拒自己提的約)。
   //   🔵 2026-07 玩家定案「她約完就走也沒問題」：約是她提的、意思已表達完，契約只差玩家點頭——她還在
@@ -1906,8 +1927,8 @@ function actionPlay(userData, pcId, sheets) {
   const kanshouSomeoneAlreadyHere_ = pcData.some((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() === String(moveName || curL || "").trim());
 
   // 合法地點時才寫入LOC＋抽選巧遇＋記錄邂逅名單。抽選只在「按下移動按鈕」這個瞬間跑一次，不會
-  //   每句對話重算。移動不再強制拖走任何已存在的英靈(每個人都是獨立的)——想帶誰同行，交給AI
-  //   敘事自然演出(見下方「玩家反向邀約」規則)。
+  //   每句對話重算。移動不再強制拖走任何已存在的英靈(每個人都是獨立的)——想帶誰同行：地圖 👋
+  //   提議同去(proposeMove 確定性提議管線，見上方★【提議·同去】)或牽手跟隨。
   // 🐛→✅ 例外：玩家按下的是「同意」AI剛提議的move_proposal(userData.moveWithCompanion)時，
   //   UI已經明確告訴玩家「好，一起去」，若不真的把提議者也帶過去，她會被留在舊地點、卻在敘事
   //   跟人物列表裡憑空消失——這裡先在curL變動【前】記下當時同地點的人，帶她們一起走。
@@ -2375,7 +2396,7 @@ ${PROMPT_REL}
     const moveProposalRaw = String(aiData.move_proposal || "").trim();
     // AI 明確填的 move_proposal 優先；沒填但它自作主張寫了 location(aiAutoMoveProposal)也一併轉成提議，
     //   兩條路最後都走同一個「同意」泡泡。
-    const moveProposal = (moveProposalRaw && KANSHOU_LOCATIONS_.some(l => l.name === moveProposalRaw) ? moveProposalRaw : "") || aiAutoMoveProposal;
+    let moveProposal = (moveProposalRaw && KANSHOU_LOCATIONS_.some(l => l.name === moveProposalRaw) ? moveProposalRaw : "") || aiAutoMoveProposal; // let：下方玩家提議同去(type:'move')她接受時會回填
 
     // 📅🤝 相約/牽手的成立判定：pre-AI只記了待判定(_pendingProposal)、沒動MEMORY，這裡讀AI依角色
     //   個性與好感給出的 proposal_accept 才決定要不要落地。fail-closed：只有明確「接受」且無「拒」字
@@ -2395,6 +2416,10 @@ ${PROMPT_REL}
         } else if (_pendingProposal.type === 'hold') {
           pcData[_pendingProposal.idx][COL.PC.MEMORY] = KANSHOU_HANDHOLD_TAG_.set(pcData[_pendingProposal.idx][COL.PC.MEMORY], _pendingProposal.name);
           kanshouProposalResult_ = { ok: true, type: 'hold', name: _ppHer };
+        } else if (_pendingProposal.type === 'move') {
+          // 🚶 她答應同去→轉成既有「前往」泡泡(玩家按同意才真的移動，走 moveTarget 管線、帶同地眾人)
+          moveProposal = _pendingProposal.loc;
+          kanshouProposalResult_ = { ok: true, type: 'move', name: _ppHer, loc: _pendingProposal.loc };
         }
         dirtyPcRows.add(_pendingProposal.idx);
       } else {

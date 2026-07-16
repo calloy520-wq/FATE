@@ -44,7 +44,7 @@
       roomEventAccept = opts.roomEventAccept || null, jumpBand = opts.jumpBand || null,
       loaderCaptions = opts.loaderCaptions || null, moveWithCompanion = !!opts.moveWithCompanion,
       promiseMeet = opts.promiseMeet || null, cohabitInvite = opts.cohabitInvite || null,
-      inviteResident = opts.inviteResident || null, takePhoto = !!opts.takePhoto,
+      inviteResident = opts.inviteResident || null, proposeMove = opts.proposeMove || null, takePhoto = !!opts.takePhoto,
       showPhoto = opts.showPhoto || null, photoIntent = opts.photoIntent || null,
       handHold = opts.handHold || null, promiseAccept = opts.promiseAccept || null,
       cohabitAccept = opts.cohabitAccept || null;
@@ -86,7 +86,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined, handHold: handHold || undefined, promiseAccept: promiseAccept || undefined, cohabitAccept: cohabitAccept || undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined, handHold: handHold || undefined, promiseAccept: promiseAccept || undefined, cohabitAccept: cohabitAccept || undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -261,7 +261,7 @@ let plainTextContext = cleanText;
       // 📅🤝 相約/牽手成不成立的明確回饋(後端 proposalResult)——插一條系統通知條，玩家不必再從敘述猜。
       if (data.proposalResult) {
         const _pr = data.proposalResult, _nm = escapeHtml(String(_pr.name || '她'));
-        const _prIco = _pr.type === 'promise' ? '📅' : _pr.type === 'cohabit' ? '🏠' : '🤝';
+        const _prIco = _pr.type === 'promise' ? '📅' : _pr.type === 'cohabit' ? '🏠' : _pr.type === 'move' ? '🚶' : '🤝';
         let _msg;
         if (_pr.miss) {
           // 撲空(她不在場)：附上她此刻在哪，玩家不必回地圖亂找(走查抓到的軟死路)。
@@ -269,6 +269,8 @@ let plainTextContext = cleanText;
         }
         else if (_pr.ok && _pr.type === 'promise') _msg = '📅 <b>約定成立！</b>明天' + escapeHtml(String(_pr.bandLabel || '')) + '在「' + escapeHtml(String(_pr.loc || '')) + '」與「' + _nm + '」見面——準時/早到好感↑、遲到打折、放鴿子↓。';
         else if (_pr.ok && _pr.type === 'hold') _msg = '🤝 <b>牽手成功！</b>之後你移動到哪，「' + _nm + '」都會相伴同行(直到放手)。';
+        else if (_pr.ok && _pr.type === 'move') _msg = '🚶 <b>「' + _nm + '」答應一起去「' + escapeHtml(String(_pr.loc || '')) + '」！</b>點下方的「同意」，你們就一起動身。';
+        else if (_pr.type === 'move') _msg = '🚶 「' + _nm + '」這次不想去「' + escapeHtml(String(_pr.loc || '')) + '」——心情或時機不對，待會再邀、或自己先過去也行。';
         else if (_pr.ok && _pr.type === 'cohabit') _msg = '🏠 <b>同居開始！</b>「' + _nm + '」搬來與你同住了——深夜她會回家的和室就寢、清晨可能賴床、晚間常在家中。';
         else if (_pr.type === 'cohabit') _msg = '🏠 「' + _nm + '」婉拒了同居——你們的關係還不夠深(需要非常深厚的信賴)，再一起多累積些回憶吧。';
         else _msg = (_pr.type === 'promise' ? '📅 「' : '🤝 「') + _nm + '」' + (_pr.type === 'promise' ? '婉拒了這次約定。' : '沒有讓你牽手。') + '——關係再深一點、或換個時機再試試。';
@@ -730,10 +732,12 @@ let plainTextContext = cleanText;
     await send('📍 走向了「' + name + '」，四處看看。', false, { moveTarget: name });
   }
 
-  // 🙋 反向提議換地點：不帶moveTarget，走一般對話訊息，答不答應由AI當場依同伴個性決定並直接演完(見Gallery.gs★【玩家反向邀約】)——跟kanshouMoveTo(強制移動)是兩條不同路。
+  // 🙋👋 玩家提議同去：帶 proposeMove 機制標記，走「確定性提議」管線(後端記待判定→AI 在 proposal_accept
+  //   答接受/婉拒→接受出「前往」泡泡、按同意才真的移動)。2026-07 根因修復：舊版只送一句閒聊、全押在
+  //   AI 自發填 move_proposal 上，Gemini 從不填→玩家從沒見過移動泡泡。跟 kanshouMoveTo(自己走)是兩條路。
   async function kanshouProposeMove(name) {
     showGamePane('chat');
-    await send('（笑著問）要不要一起去「' + name + '」看看？', false);
+    await send('（笑著問）要不要一起去「' + name + '」看看？', false, { proposeMove: name });
   }
 
   // 🔘 原本用關鍵字猜測是不是在問「這裡還有沒有其他人」，已改成這顆明確按鈕(lookAround:true)，後端不再靠猜文字語意——不移動、不換分頁，原地問。
