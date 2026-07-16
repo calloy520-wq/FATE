@@ -98,6 +98,7 @@
       //   從未呼叫updateClock(data.clock,...)刷新頂部常駐的#clock-hud——後端其實有正確推進、
       //   也有把label塞進data.clock，只是前端這裡漏了消費它，導致HUD停在進場當下那一次的值。
       if (data.kanshouClock) { kcClock = data.kanshouClock; try { renderMapPane(); } catch (e) { } }
+      if (Array.isArray(data.prefLocks)) window._kcPrefLocks = data.prefLocks; // 🔒 快取性格鎖狀態(改命視窗顯示開關用)
       if (data.clock) updateClock(data.clock, null, null);
       // 🔴 直接接收後端傳來的狀態字串，不再依賴 AI 的文字解析
       if (data.statusString) {

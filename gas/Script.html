@@ -907,16 +907,22 @@
         const parts = currentVal.replace(/[。\.]+/g, '、').replace(/、+/g, '、').replace(/^、|、$/g, '').split('、');
         for(let i=0; i<4; i++) { if(!parts[i] || parts[i].trim() === "") parts[i] = "無"; }
         titleEl.innerText = "逆天改命 - 修改個性";
-        fieldsEl.innerHTML = `
-            <label style="font-size:13px; color:#2e8b57; font-weight:bold;">1. 日常表象</label>
-            <input id="fate-f1" class="std-in" maxlength="20" value="${escapeHtml(parts[0])}">
-            <label style="font-size:13px; color:#2e8b57; font-weight:bold;">2. 真實內裡</label>
-            <input id="fate-f2" class="std-in" maxlength="20" value="${escapeHtml(parts[1])}">
-            <label style="font-size:13px; color:#2e8b57; font-weight:bold;">3. 喜歡的事物</label>
-            <input id="fate-f3" class="std-in" maxlength="20" value="${escapeHtml(parts[2])}">
-            <label style="font-size:13px; color:#2e8b57; font-weight:bold;">4. 討厭的事物</label>
-            <input id="fate-f4" class="std-in" maxlength="20" value="${escapeHtml(parts[3])}">
-        `;
+        // 🌱 鑑賞御主：每格加 🔒 開關(預設不鎖)——鎖了 AI 連這欄都看不到、絕不更動；沒鎖 AI 慢慢幫你寫。
+        //   標籤也改成新命名(對外/獨處性格)。solo 維持原樣、無開關。
+        const _isK = (pc && pc.mode === 'kanshou');
+        const _pkKeys = ['對外性格','獨處性格','喜歡','討厭'];
+        const _pkLabels = _isK ? ['對外性格','獨處(卸下心防)性格','喜歡的事物','討厭的事物'] : ['日常表象','真實內裡','喜歡的事物','討厭的事物'];
+        const _pkLocks = (_isK && Array.isArray(window._kcPrefLocks)) ? window._kcPrefLocks : [];
+        let _pkHtml = '';
+        for (let i = 0; i < 4; i++) {
+          _pkHtml += `<label style="font-size:13px; color:#2e8b57; font-weight:bold;">${i+1}. ${_pkLabels[i]}</label>`
+            + `<input id="fate-f${i+1}" class="std-in" maxlength="20" value="${escapeHtml(parts[i])}">`;
+          if (_isK) {
+            const _ck = _pkLocks.indexOf(_pkKeys[i]) !== -1 ? 'checked' : '';
+            _pkHtml += `<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#9a8f70;margin:2px 0 8px;cursor:pointer;"><input type="checkbox" class="fate-lock" data-key="${_pkKeys[i]}" ${_ck} style="width:14px;height:14px;"> 🔒 鎖定（AI 不再更動這格、連提都不提；不鎖＝AI 邊玩邊幫你寫）</label>`;
+          }
+        }
+        fieldsEl.innerHTML = _pkHtml;
     }
   }
 
@@ -938,15 +944,24 @@
     }
     
     document.getElementById('fate-edit-title').innerText = "重塑中...";
-    
+
+    // 🔒 鑑賞御主改個性：收集勾選的 🔒 → prefLocks(哪幾格鎖定)。solo/其他欄不帶。
+    let prefLocks = undefined;
+    if (currentFateType === 'pref' && pc && pc.mode === 'kanshou' && currentStatusTargetId === pc.id) {
+      prefLocks = Array.prototype.slice.call(document.querySelectorAll('.fate-lock'))
+        .filter(function (c) { return c.checked; }).map(function (c) { return c.getAttribute('data-key'); });
+    }
+
     try {
         const res = await gasRun({
             action: "update_fate",
             pcId: pc.id,  // 🔴 關鍵修復：必須把自己的身分證傳過去！
             targetId: currentStatusTargetId,
-            fateType: currentFateType, 
-            fateValue: newValue
+            fateType: currentFateType,
+            fateValue: newValue,
+            prefLocks: prefLocks
         });
+        if (prefLocks) { try { window._kcPrefLocks = prefLocks; } catch (e) {} } // 即時更新快取，下次開視窗開關狀態正確
         
         if (res.success) {
             document.getElementById('fate-edit-modal').style.display = 'none';

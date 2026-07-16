@@ -643,10 +643,26 @@ function dialogueFormatRule_() {
 // 只被鑑賞(慾海)呼叫——solo走完全獨立的 miniSystem。唯一呼叫來源 actionPlay 的 isNsfwMode
 //   恆為 true，故不再分 SFW/NSFW 分支，直接寫死唯一會用到的版本。driveOn(主動掌握)由
 //   actionPlay 自己組的 driveStr 處理，不在這裡管轄。
-function buildDefaultSystemPrompt() {
+// 🌱 master_note(玩家御主滾動側寫)動態 schema：actionPlay 傳入「玩家沒鎖的性格欄」清單，這裡只把
+//   沒鎖的格放進範本——鎖了的格【連欄位都不出現】，AI 根本不知道有這欄(玩家定案，比「叫他別寫」更乾淨)。
+//   經歷永遠在(不鎖)。未傳(undefined)＝四格全開(相容 solo/舊呼叫)。
+function buildDefaultSystemPrompt(masterNoteUnlocked) {
   // physical_state 只留顏面神情(≤15字)：只管表情，衣裝狀態拆進獨立的 outfit_change 欄
   //   (下方)，兩者關注點不同——前者是每回合都可能變的暫時神情，後者是要持久記住的實際穿著。
   const _physicalState = "本回合角色當下的顏面神情(第三人稱填寫，依情境自然帶到即可，≤15字)";
+  // 🌱 依鎖狀態動態組 master_note：只納入沒鎖的性格欄(鎖的連提都不提)。
+  const _mnDescs = {
+    "對外性格": "你目前對『玩家在人前展現的性格』的判斷(一個簡短詞組)——有更準的觀察就更新，無變化/沒把握留空字串",
+    "獨處性格": "你目前對『玩家獨處/卸下心防時的真實一面』的判斷(一詞組)——同上，有更準才更新、否則空字串",
+    "喜歡": "你觀察到『玩家明確喜歡的事物』(一詞組)——同上，有新發現才更新、否則空字串",
+    "討厭": "你觀察到『玩家明確討厭的事物』(一詞組)——同上，有新發現才更新、否則空字串"
+  };
+  const _mnKeysOpen = Array.isArray(masterNoteUnlocked) ? masterNoteUnlocked : ["對外性格", "獨處性格", "喜歡", "討厭"];
+  const _masterNote = {
+    "_note": "本欄是【觀察玩家本人、慢慢認識他/她】——不是敘事、不顯示。像對話AI逐漸摸清使用者：有明確新觀察才更新，沒把握或跟原本一樣就留空字串保持原樣(別每回合亂變)。",
+    "經歷": "承接【玩家命格·經歷】舊值，只【增補】這回合對玩家有意義的新遭遇(認識了誰/關係變化/去了哪/發生的事)，回傳更新後的滾動摘要(≤50字·敘事口吻·別抹掉重要的過去、別無中生有)；沒有值得記的新事就【原樣回傳舊經歷】"
+  };
+  _mnKeysOpen.forEach(function (k) { if (_mnDescs[k]) _masterNote[k] = _mnDescs[k]; });
 
   // outfit_change：角色當下實際穿著狀態，AI 可依劇情如實更新(正常穿著寫身上衣物，全裸/沐浴/
   //   更衣等狀態也要如實反映)，會寫回持久的【換裝】記錄，不是每回合就消失的暫時描述。
@@ -709,14 +725,7 @@ function buildDefaultSystemPrompt() {
     }],
     // 🌱 玩家御主「滾動側寫」：AI 每回合觀察玩家、慢慢認識他(像對話 AI 記住使用者習慣)。GAS 只採用
     //   【玩家仍留白】的欄位(玩家自己填過的一律鎖住、不覆寫)；經歷則每回合承接舊值滾動更新。詳見 §玩家側寫。
-    "master_note": {
-      "_note": "本欄是【觀察玩家本人、慢慢認識他/她】——不是敘事、不顯示。像對話AI逐漸摸清使用者：有明確新觀察才更新，沒把握或跟原本一樣就留空字串保持原樣(別每回合亂變)。玩家自己用『改命』設定的欄位會自動鎖定、你寫了也不會生效，不必顧慮。",
-      "經歷": "承接【玩家命格·經歷】舊值，只【增補】這回合對玩家有意義的新遭遇(認識了誰/關係變化/去了哪/發生的事)，回傳更新後的滾動摘要(≤50字·敘事口吻·別抹掉重要的過去、別無中生有)；沒有值得記的新事就【原樣回傳舊經歷】",
-      "對外性格": "你目前對『玩家在人前展現的性格』的判斷(一個簡短詞組)——有更準的觀察就更新，無變化/沒把握留空字串",
-      "獨處性格": "你目前對『玩家獨處/卸下心防時的真實一面』的判斷(一詞組)——同上，有更準才更新、否則空字串",
-      "喜歡": "你觀察到『玩家明確喜歡的事物』(一詞組)——同上，有新發現才更新、否則空字串",
-      "討厭": "你觀察到『玩家明確討厭的事物』(一詞組)——同上，有新發現才更新、否則空字串"
-    },
+    "master_note": _masterNote,
     // mentioned_names/event/tag/log_summary 等死欄已移除：皆是寫入後從未被任何地方讀回的
     //   死路(前端不消費、AI不依此決策)，拿掉後AI不用再每回合多填這些欄位。
   };
@@ -2292,7 +2301,13 @@ ${PROMPT_REL}
       }));
     }
 
-    const aiResponseRaw = callGeminiAPI(prompt, null, aiConfig);
+    // 🌱 動態 master_note：只把玩家【沒鎖】的性格欄交給 AI(鎖的連欄位都不出現在 schema)。buildDefaultSystemPrompt
+    //   只有此處呼叫，故把系統提示詞在這裡組好、當 systemOverride 傳入(取代 callGeminiAPI 內的無參數 fallback)。
+    const _allPrefKeys = ["對外性格", "獨處性格", "喜歡", "討厭"];
+    const _prefLocks = kanshouGetPrefLocks_(pc[COL.PC.MEMORY]);
+    const _unlockedPrefKeys = _allPrefKeys.filter(function (k) { return _prefLocks.indexOf(k) === -1; });
+    const _sysPrompt = buildDefaultSystemPrompt(_unlockedPrefKeys);
+    const aiResponseRaw = callGeminiAPI(prompt, _sysPrompt, aiConfig);
     const start = aiResponseRaw.indexOf('{');
     const end = aiResponseRaw.lastIndexOf('}');
     const cleanJson = aiResponseRaw.substring(start, end + 1);
@@ -2688,6 +2703,7 @@ ${PROMPT_REL}
       promiseWait: kanshouPromiseWait_ || undefined,
       promiseProposal: kanshouAiPromise_ || undefined, // 📅 她主動邀約→前端跳同意泡泡
       cohabitProposal: kanshouAiCohabit_ || undefined, // 🏠 她主動邀同居→前端跳同意泡泡
+      prefLocks: _prefLocks, // 🔒 玩家已鎖的性格欄→前端快取，改命視窗顯示開關狀態
       photoResult: kanshouPhotoResult_ || undefined,
       kanshouClock: kanshouClock,
       // 修過的bug：#clock-hud讀共用的updateClock(data.clock,...)，但data.clock在鑑賞這條路徑

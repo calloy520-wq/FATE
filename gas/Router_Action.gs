@@ -289,13 +289,12 @@ function actionUpdateFate(userData, pcId, sheets) {
   // 🔴 命格欄位直寫入表格，需自行把關長度：身世/萌點 單格 30；個性/特徵 為 4 格頓號拼接、給較寬上限
   var cap = fateType === 'back' ? 80 : fateType === 'intent' ? 30 : 130; // 經歷(back)放寬到80配合AI滾動
   pcData[pIdx][targetCol] = String(fateValue || "").slice(0, cap);
-  // 🔒 鑑賞御主改命『個性』→登記【性格鎖】：玩家自訂的性格格鎖死，AI 的 master_note 側寫不再覆寫它們。
-  //   只鎖「非空且非『無』」的格——留「無」佔位＝仍交給 AI 慢慢認識(見 kanshouGetPrefLocks_/master_note)。
+  // 🔒 鑑賞御主改命『個性』→依 UI 送來的【明確鎖選】登記【性格鎖】(預設不鎖，玩家勾了才鎖)。
+  //   鎖的格 AI 的 master_note 側寫連欄位都看不到、也絕不覆寫；沒鎖的格 AI 可持續 refine。
   if (fateType === 'pref' && String(pcId).indexOf('KPC_') === 0 && String(pcData[pIdx][COL.PC.ID]) === String(pcId)) {
-    var _psl = String(pcData[pIdx][COL.PC.PREF] || "").split("、");
-    var _pkeys = ["對外性格", "獨處性格", "喜歡", "討厭"], _plocked = [];
-    _pkeys.forEach(function (k, i) { var v = String(_psl[i] || "").trim(); if (v && v !== "無") _plocked.push(k); });
-    pcData[pIdx][COL.PC.MEMORY] = kanshouSetPrefLocks_(pcData[pIdx][COL.PC.MEMORY], _plocked);
+    var _validKeys = ["對外性格", "獨處性格", "喜歡", "討厭"];
+    var _reqLocks = Array.isArray(userData.prefLocks) ? userData.prefLocks.filter(function (k) { return _validKeys.indexOf(k) !== -1; }) : [];
+    pcData[pIdx][COL.PC.MEMORY] = kanshouSetPrefLocks_(pcData[pIdx][COL.PC.MEMORY], _reqLocks);
   }
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
 
