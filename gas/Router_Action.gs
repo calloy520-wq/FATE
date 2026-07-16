@@ -14,6 +14,7 @@ const ActionRouter = {
   "enter_kanshou": actionEnterKanshou,
   "backfill_kanshou_ai": actionBackfillKanshouAi, // 🚀 開局非阻塞：enter_kanshou 首次建檔後背景補御主敘事欄
   "dev_resync_codex": actionDevResyncCodex,
+  "dev_probe_gemini": actionDevProbeGemini, // ⚠️拋棄式·測完即刪：Gemini 色度上限探針(gas/_ProbeTemp.gs)
   "purge_orphans": actionPurgeOrphans,
   "kanshou_companions": actionKanshouCompanions,
   "kanshou_memoir_op": actionKanshouMemoirOp, // 💞 共同回憶面板：釘選/取消釘選/刪除(玩家UI手動管理)
