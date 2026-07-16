@@ -55,8 +55,9 @@ function getGameHistory(pcId, pcName) {
     const role = row[2];
     const content = row[3];
 
-    // 🛡️ 先HTML跳脫、再轉換換行(順序不能反過來，否則會把自己插入的<br>也跳脫掉)
-    const safeContent = content ? escapeHtml_(content.toString()).replace(/\n/g, "<br>") : "靜默無言。";
+    // 🛡️ 先HTML跳脫、再轉換換行(順序不能反過來，否則會把自己插入的<br>也跳脫掉)。
+    //   歷史遺留：舊紀錄可能存了字面 <br>(Gemini 直接輸出標籤)，跳脫後變裸字——一併轉回換行。
+    const safeContent = content ? escapeHtml_(content.toString()).replace(/&lt;br\s*\/?&gt;/gi, "<br>").replace(/\n/g, "<br>") : "靜默無言。";
 
     if (role === "player") {
       html += `<div class="msg-player"><span class="msg-name">${safePcName}</span><span class="msg-text">${safeContent}</span></div>`;

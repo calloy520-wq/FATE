@@ -2083,6 +2083,13 @@ function actionPlay(userData, pcId, sheets) {
       // 📣 爽約明確回饋(玩家實測「約定標示無聲消失、以為是bug」)：她不在場時結算完全無聲——
       //   補通知條讓玩家知道約過期了、好感掉了。不蓋掉本回合已有的提議回饋(罕見同回合並發)。
       if (!kanshouProposalResult_) kanshouProposalResult_ = { ok: false, type: 'promise_missed', name: _her, loc: _pr.loc };
+      // 💔 她要「記得」被放鴿子(玩家實測：系統扣了好感、她卻渾然不知還演「我照約來了」)：爽約寫進
+      //   共同回憶(玩家第一人稱視角·比照 memoir 鐵則)，之後每回合經 partyDetailsArr 餵給 AI，
+      //   她才演得出在意/彆扭，也給玩家道歉挽回的戲肉。cap 交給下次 processMemoir_ 自然淘汰。
+      const _missBandL = _pr.band ? ((KANSHOU_APPT_BANDS_.find(b => b.band === _pr.band) || {}).label || "") : "";
+      const _missLine = `我爽約了——說好${_missBandL}在「${_pr.loc}」見面卻沒去，讓她空等了一場`;
+      const _oldMemoir2 = String(pcData[i][COL.PC.MEMOIR] || "").trim();
+      if (_oldMemoir2.indexOf(_missLine) === -1) pcData[i][COL.PC.MEMOIR] = _oldMemoir2 ? (_oldMemoir2 + "｜" + _missLine) : _missLine;
     }
   });
 
@@ -2785,7 +2792,9 @@ ${PROMPT_REL}
 
     saveGameHistoryBatch(pcId, [
       { speaker: "player", content: userMsg },
-      { speaker: "ai", content: aiData.narration || "" }  // 用原始 narration 不用 finalResponseText
+      // 🩹 <br> 正規化：Gemini 偶爾直接輸出 <br> 標籤——即時顯示走 innerHTML 看不出來，但存進
+      //   歷史表後重載會被 escapeHtml 跳脫成裸字「<br><br>」(玩家實測)。存檔前一律轉回換行。
+      { speaker: "ai", content: String(aiData.narration || "").replace(/<br\s*\/?>/gi, "\n") }  // 用原始 narration 不用 finalResponseText
     ]);
 
     // 提速：pcData 這裡已是本回合全部異動寫回後的權威陣列，直接複用它建一份跟 get_tags 同格式
