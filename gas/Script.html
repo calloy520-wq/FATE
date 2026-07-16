@@ -1010,9 +1010,9 @@
             fateValue: newValue,
             prefLocks: prefLocks
         });
-        if (prefLocks) { try { window._kcPrefLocks = prefLocks; } catch (e) {} } // 即時更新快取，下次開視窗開關狀態正確
-        
         if (res.success) {
+            // 只在後端真的存成功才更新鎖快取——失敗也寫＝前端顯示的鎖狀態跟後端脫鉤(假象)。
+            if (prefLocks) { try { window._kcPrefLocks = prefLocks; } catch (e) {} }
             document.getElementById('fate-edit-modal').style.display = 'none';
             // 如果後端傳回的 statusString 包含新的背景，這裡會自動更新 UI
             updateUI(res.statusString.split('§'));

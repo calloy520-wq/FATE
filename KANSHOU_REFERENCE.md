@@ -67,7 +67,7 @@
 - **曆法**：Day1 = 12/20（`KANSHOU_CAL_START_MONTH_/DAY_`），`KANSHOU_FESTIVALS_` 節慶表，前端顯示西曆年月日。
 - **主動跳時間**：`kanshouNextStage`(下一時段·深夜則睡過夜)／`kanshouJumpBand`(跳指定時段)／`kanshouJumpFestival`(快轉節慶)／`kanshouEndDay`(結束一天)。跳時間會**全世界重骰去向**（`kanshouRollDailyLocation_`），讓在場人物重新分佈——**牽手中的她豁免重骰**（跟著玩家）。
 - **`endDay` 語義＝「睡到即將到來的 6:00」**（2026-07 玩家實測跨2天根修）：`curHour >= 6` 才 `+1 day`；深夜 00:00~05:59 按結束一天＝睡到**當天** 6:00、不再多跳一天（夜→深夜本身已 +1 day，endDay 再 +1 就是雙倍扣）。前端 `_reHourAfter` 樂觀預測同步這套規則（endDay→6／jumpBand→時段起點／jumpFestival→6／advanceHours→mod24）。
-- **⏰ 跨時段自然告辭**（2026-07·玩家「NPC 不會自己離開?」）：被動 +10 分鐘若跨越時段界線（`kanshouBandCrossed_`），非牽手/非跟隨(`kanshouPreMoveCompanions_`)/非約定釘住的在場者會被重骰去向；離場者名單餵 AI（`kanshouNpcLeaveStr_`）演「自然道別後離開」，並帶**豁免句**——告辭這一句不受「在場驗證鐵律」限制（否則 AI 因她已不在名單而不敢讓她開口道別）。
+- **⏰ 跨時段自然告辭**（2026-07·玩家「NPC 不會自己離開?」）：被動 +10 分鐘若跨越時段界線（`kanshouBandCrossed_`），非牽手/非跟隨(`kanshouPreMoveCompanions_`)/非約定釘住/**非本回合提議對象(`_pendingProposal`·第二輪稽核補：她被骰走＝AI 同回合收到「向她提議」＋「她已告辭」矛盾指令、接受還把牽手落到已離場者)**的在場者會被重骰去向；離場者名單餵 AI（`kanshouNpcLeaveStr_`）演「自然道別後離開」，並帶**豁免句**——告辭這一句不受「在場驗證鐵律」限制（鐵律本文也明示「系統注入段明示豁免者除外」，兩端閉環）。
 - 相識紀念日里程碑 `KANSHOU_ANNIV_MILESTONES_ = [7,30,100,365]`。
 
 ---
@@ -90,9 +90,10 @@
 - **存儲**：`【約定】absDay:band:loc`（存**該同伴列**），同時只存一筆（新約蓋舊約）。舊格式 `【約定】day:loc`（無時段）**向後相容＝整天有效**。
 - **時段** `KANSHOU_APPT_BANDS_`：午後(14:00)／黃昏(18:00)／夜晚(20:00)；`kanshouApptHour_(band)` 回具體小時（null＝舊格式整天有效）。
 - **赴約結算**（`actionPlay` 內，**必須在 `partyRows` 組裝之前**——聊天/拍照/原地消磨三路才吃得到剛移過來的從者）：
-  - **赴約**（`_pr.day === curDay` 且同地）→ 清約＋`BOND+5`（夾100）＋餵「依約相會」提示＋回 `proposalResult{type:'promise_met'}` 前端亮「依約相會💕」通知條（2026-07 稽核補：原本赴約成功玩家零回饋）。
-  - **爽約**（`_pr.day < curDay`）→ 清約＋`BOND-5`（夾0）＋寫一筆 memoir「我爽約了…讓她空等一場」＋回 `proposalResult{type:'promise_missed'}` 通知條；在場才餵「爽約之後」提示（讓她流露被放鴿子的在意）。前端 `kanshouEndDay` 睡前若有今日之約會先跳警告。
-  - 累加進 `kanshouPromiseMetStr` 餵 AI。前端收到任何 `promise*` 型 proposalResult 會重抓 `kanshou_companions` 刷新 `_kcCur`（否則舊快取殘留已結算的約→假爽約警告）。
+  - **赴約**（`_pr.day === curDay` 且同地）→ 清約＋`BOND+5`（夾100）＋餵「依約相會」提示＋回 **`promiseSettle{type:'promise_met'}`** 前端亮「依約相會💕」通知條（2026-07 稽核補：原本赴約成功玩家零回饋）。
+  - **爽約**（`_pr.day < curDay`）→ 清約＋`BOND-5`（夾0）＋寫一筆 memoir「我爽約了…讓她空等一場」＋回 **`promiseSettle{type:'promise_missed'}`** 通知條；在場才餵「爽約之後」提示（讓她流露被放鴿子的在意）。前端 `kanshouEndDay` 睡前若有今日之約會先跳警告。
+  - 累加進 `kanshouPromiseMetStr` 餵 AI。⚠ **結算回饋走獨立通道 `promiseSettle`、不借用 `proposalResult` 單槽**（第二輪稽核三路同時撞到：post-AI 提議結果無條件覆寫單槽，同回合「爽約結算＋新提議成功」時結算通知被吞）——前端收到 `promiseSettle` 或 `proposalResult.type==='promise'` 任一都重抓 `kanshou_companions` 刷新 `_kcCur`（否則舊快取殘留已結算的約→假爽約警告）。
+  - **⚠ 未解鎖私宅不可當約定地**（2026-07 第二輪稽核·必爽約陷阱）：鎖住的 visit 住處物理上進不去（地圖灰鎖＋後端擋移動）→ 約在那裡＝到期必 -5。三層擋：前端 `kanshouPromiseMeet` 地點面板不列、後端 `_pmLocOk`、AI `promise_proposal` 驗證，皆走 `kanshouResidenceUnlocked_`。
 - **前端**：`kanshouPromiseMeet(name)` 發起（選地點+時段）；`kanshouWaitForPromise(targetHour)` 撲空等待框（跳到約定前10分鐘）；地圖 `promiseByLoc` 徽章顯示哪個地點有約。
 - **移動接人**：時間快轉在「給 AI 資料之前」先把該去的人拉到約定地點（順序鐵則同上）。
 - **🆕 她也能主動邀約**（`promise_proposal`）：AI 讓在場同伴開口約你改天見面 → 後端驗證（在場＋合法地點＋合法時段）→ 回傳 `promiseProposal` → 前端跳同意泡泡（`kanshouAcceptPromise`）→ 玩家按同意帶 `opts.promiseAccept` **直接落地【約定】**（她自己提的、不走 proposal_accept 二次判定）。婉拒＝`kanshouDeclinePromise`。與玩家發起共用同一套赴約結算。**⚖️ 玩家裁定：她約完就走也照樣成立**——約是她提的、契約只差玩家點頭，她在不在場不影響寫入；差別只在敘事（在場演她的反應／已離場演玩家記下這個約）。別把「玩家發起需對方在場」的規則錯套到這裡。
@@ -170,7 +171,7 @@
 
 ### 系統提示詞 `buildDefaultSystemPrompt()`（**鑑賞專屬**，solo 走 `miniSystem`）
 `nsfwBaseRules`（🔴紅線）＋`specificRules`(慾海律令 第0~7條)＋`★【輸出範本】`(finalJson)。
-- **finalJson 欄位**：`inner_monologue`(純思考不顯示)／`narration`(約500字第一人稱)／`move_proposal`(**雙向**換地共識·她邀你 or 你邀她而她答應皆填·意圖非結果——2026-07 修：原只寫「她邀你」，玩家開口邀她答應了 AI 沒授權可填→沒泡泡、移動永遠落不了地。⚠ 但別依賴 Gemini 自發填此欄——實測它從不填，見下)。**🚶👋 玩家提議同去已改確定性管線（2026-07 根因修復）**：地圖 👋 鈕舊版只送一句閒聊、全押在 AI 自發填 move_proposal 上→Gemini 從不填→玩家從沒見過移動泡泡。現改 `proposeMove` 機制標記：pre-AI 記 `_pendingProposal{type:'move'}`＋注入★【提議·同去】鐵律 → AI 只需在 `proposal_accept` 答「接受/婉拒」（跟相約/牽手同一條路）→ 接受＝post-AI 回填 `moveProposal` 出既有「前往」泡泡＋`proposalResult` 通知條，玩家按同意才真的移動（moveWithCompanion 帶同地眾人）。多人在場＝一起邀（以第一位個性判定）。／`promise_proposal`(她提議約定{name,loc,band})／`cohabit_proposal`(她提議同居·真名)／`proposal_accept`(僅有【提議·相約/牽手/同去】標記時填接受/婉拒——⚠ schema 描述須列全三種，2026-07 稽核修：漏列「同去」＝AI 看到同去鐵律卻以為此欄不歸它填)／`npc_exit`(自然告辭離場真名陣列)／`options`(固定4)／`intimacy_feedback`{player,npcs[]:physical_state≤15/outfit_change≤20/dynamic_skills/mutual_nicknames/attitude≤15/memory}／`rel_changes`[]{target真名,fav_change整數±·單回合上限+5}。⚠ **刻意無 `location` 欄**（玩家所在地一律 GAS 掌握、AI 抄它無意義；後端仍留 `aiData.location` 攔截層當保險→硬吐也轉 move_proposal）。**移動規則三條版**（2026-07 稽核重寫，原4條有死引用+互相重複）：★【地點清單】(只提 move_proposal)／★★【移動鐵律——你絕不自行搬動玩家】(合併版·含地圖移動例外與換幕一致)／★【此地是唯一真實】(註明自然告辭豁免)。
+- **finalJson 欄位**：`inner_monologue`(純思考不顯示)／`narration`(約500字第一人稱)／`move_proposal`(**雙向**換地共識·她邀你 or 你邀她而她答應皆填·意圖非結果——2026-07 修：原只寫「她邀你」，玩家開口邀她答應了 AI 沒授權可填→沒泡泡、移動永遠落不了地。⚠ 但別依賴 Gemini 自發填此欄——實測它從不填，見下)。**🚶👋 玩家提議同去已改確定性管線（2026-07 根因修復）**：地圖 👋 鈕舊版只送一句閒聊、全押在 AI 自發填 move_proposal 上→Gemini 從不填→玩家從沒見過移動泡泡。現改 `proposeMove` 機制標記：pre-AI 記 `_pendingProposal{type:'move'}`＋注入★【提議·同去】鐵律 → AI 只需在 `proposal_accept` 答「接受/婉拒」（跟相約/牽手同一條路）→ 接受＝post-AI 回填 `moveProposal` 出既有「前往」泡泡＋`proposalResult` 通知條，玩家按同意才真的移動（moveWithCompanion 帶同地眾人）。多人在場＝一起邀（以第一位個性判定）。／`promise_proposal`(她提議約定{name,loc,band})／`cohabit_proposal`(她提議同居·真名)／`proposal_accept`(僅有【提議·相約/牽手/同去】標記時填接受/婉拒——⚠ schema 描述須列全三種，2026-07 稽核修：漏列「同去」＝AI 看到同去鐵律卻以為此欄不歸它填。⚠ 判定 regex 否定組須蓋「不/沒/未＋肯定詞」全型：「不同意」「不答應」含肯定字眼、漏列＝fail-open 被判成接受·第二輪稽核修。⚠ 同去婉拒時 post-AI 會**清掉 moveProposal**——AI 偶爾順手把 move_proposal 也填了，不清＝「她婉拒了」通知＋「前往」泡泡同框自打臉；同去鐵律亦明講「不要另填 move_proposal」)／`npc_exit`(自然告辭離場真名陣列)／`options`(固定4)／`intimacy_feedback`{player,npcs[]:physical_state≤15/outfit_change≤20/dynamic_skills/mutual_nicknames/attitude≤15/memory}／`rel_changes`[]{target真名,fav_change整數±·單回合上限+5}。⚠ **刻意無 `location` 欄**（玩家所在地一律 GAS 掌握、AI 抄它無意義；後端仍留 `aiData.location` 攔截層當保險→硬吐也轉 move_proposal）。**移動規則三條版**（2026-07 稽核重寫，原4條有死引用+互相重複）：★【地點清單】(只提 move_proposal)／★★【移動鐵律——你絕不自行搬動玩家】(合併版·含地圖移動例外與換幕一致)／★【此地是唯一真實】(註明自然告辭豁免)。
 - **對話格式** `dialogueFormatRule_()`：**頂層函式·單一真實來源**，`nsfwBaseRules` 第3條與 solo `miniSystem` 第2條**共用**。規則＝話語/喘息/吸吮進「」，動作/撞擊/水聲走敘事。
 
 ### 🧠 記憶全景（AI 每回合看得到什麼·寫回什麼·多久一次）— 2026-07 整理
@@ -181,7 +182,7 @@
 
 **AI 寫回（GAS 落地）**：
 - **每回合**：`physical_state`/`outfit_change`→PHYSICAL·【換裝】；`dynamic_skills`→MEMORY 技巧；`mutual_nicknames`+`attitude`→REL_MEM；`memory` 里程碑→MEMOIR(cap10·★釘選不驅逐)；`rel_changes`→BOND；proposals→前端泡泡(意圖非結果)；`npc_exit`→LOC。
-- **每 3 回合**（側寫節流·【側寫計數】）：`master_note`→經歷滾動／沒鎖的性格格／萌點(僅 INTENT 空時補首個發現)。
+- **每 3 回合**（側寫節流·【側寫計數】）：`master_note`→經歷滾動／沒鎖的性格格／萌點(僅 INTENT 空時補首個發現)。⚠ **節流三件套缺一不可**（第二輪稽核抓到擊穿）：① schema delete（非側寫回合）② USER prompt 的「你可透過 master_note.經歷 滾動增補」提及跟著 `_doSideWrite` 條件化（`_doSideWrite` 為此**提前到 prompt 組裝前計算**）③ 落地端 `if (_doSideWrite && aiData.master_note…)` 守衛（AI 無視 schema 自發吐也不落地）。
 
 **🩺 AI 負擔瘦身（2026-07 玩家診斷「滾動式+衣服外觀神情太要他老命」·小模型注意力有限，能省則省）**：
 - **狀態差分**：`physical_state`/`outfit_change`/`attitude` 沒實質變化留空＝系統沿用舊值（GAS 空值本就跳過寫入；attitude 配套修掉「空值洗白態度」舊 bug——空→從 oldRMem 撈回舊態度；**「無/同上/不變/沿用/維持原樣/如前」等敷衍值也視同空**，否則差分模式下 AI 真的會把「同上」二字寫進態度欄）。有變化（脫/穿/沐浴/情事/神情轉變）必須更新，NSFW 場景照記。
@@ -210,7 +211,8 @@ UNLOCKED_MODEL = x-ai/grok-4.20              (屬性 UNLOCKED_MODEL)
 ## 🖥️ 前端地圖（`gas/Script_Kanshou.html` 為主）
 
 - **唯一引擎入口 `send(customMsg, isSilent, opts)`＝`action:'play'`**（2026-07 重構：原 22+ 位置參數收進單一 opts 物件，payload 不變零速度影響）。移動/相約/拍照/牽手/同居/敲門/橋段**沒有各自的 action**，全靠 opts 夾旗標：`moveTarget`/`moveWithCompanion`/`promiseMeet`/`promiseAccept`/`takePhoto`+`photoIntent`/`showPhoto`/`handHold`/`cohabitInvite`/`roomEventAccept`/`knockAccept`/`skipKnockCheck`/`lookAround`/`inviteResident`/`endDay`/`advanceHours`/`jumpBand`/`jumpFestival`/`loaderCaptions`。
-- **回饋條 `proposalResult`** 涵蓋 相約/牽手/同居 三型＋**撲空含「她似乎在○○」位置提示**；底片用完/相簿滿的 `photoResult` 附直達鈕（🌙睡到明天/📚開相簿）——「撲空/婉拒/卡住」一律要有下一步，別讓玩家對著空氣猜。
+- **回饋條 `proposalResult`** 涵蓋 相約/牽手/同去/同居 四型＋**撲空含「她似乎在○○」位置提示**；**`promiseSettle`（獨立通道）** 涵蓋 赴約成功/爽約過期 結算通知（與提議結果並發時各自顯示·見教訓區「單一回饋槽」）；底片用完/相簿滿的 `photoResult` 附直達鈕（🌙睡到明天/📚開相簿）——「撲空/婉拒/卡住」一律要有下一步，別讓玩家對著空氣猜。
+- **改命同伴卡**（2026-07 第二輪稽核修）：`update_fate` 名字比對原硬性要求 `IS_PARTY==='同行'`，但鑑賞列從不寫該欄→同伴卡改命鈕恆「查無此人」；現比照 `update_rel_tag` 給 `k_` 世界豁免（同世界名字直配），改同伴的 個性/特徵/身世/萌點 是合法自訂。玩家自己卡的性格鎖快取 `_kcPrefLocks` 只在 `res.success` 才更新（失敗也寫＝前端假象）。
 - **獨立 action**：`kanshou_companions`／`get_heroes`／`kanshou_summon_hero`／`get_album`／`album_delete`／`update_rel_tag`／`kanshou_memoir_op`／`kanshou_set_home_name`／`kanshou_set_name`／`kanshou_set_sex`／`enter_kanshou`／`backfill_kanshou_ai`。
 - **函式分組**：地圖移動(`kcMapListHtml_`/`kanshouMoveTo`/`kanshouProposeMove`/`kanshouLookAround`)、同伴面板(`openCompanions`/`renderKcHeroList_`/`kanshouEditRelTag`)、召喚(`kanshouSummonHero`)、回憶(`kanshouOpenMemoir`/`kanshouMemoirOp`)、約定(`kanshouPromiseMeet`/`kanshouWaitForPromise`)、拍照相簿(`kanshouTakePhoto`/`openKanshouAlbum`)、時鐘(`kanshouEndDay`/`kanshouNextStage`/`kanshouJumpBand`/`kanshouJumpFestival`)。
 - **泡泡 UI**（`send()` 內依回傳欄位組）：移動同意(`moveProposal`)、敲門(`knockEvent`)、橋段邀請(`roomEventOffer`)、巧遇(`encounterOffer`)、拍照結果(`photoResult`)、地圖人數徽章(`_lastTags.locationCounts`)。
@@ -233,6 +235,9 @@ UNLOCKED_MODEL = x-ai/grok-4.20              (屬性 UNLOCKED_MODEL)
 - **泡泡(必點UI)別跟可關閉的東西同住一個容器**：「AI選項開關」曾整個 `options-container` display:none，所有泡泡(前往/邀約/同居/敲門/橋段/結識)陪葬——關掉選項的玩家**從沒見過任何泡泡**。現制：【命運的抉擇】包在 `#ai-options-grid` 小盒、開關只藏它；容器本身恆 flex(載入時強制恢復)。新泡泡一律放容器直下、別放進 grid。
 - **別依賴小模型「自發」填選填欄位**：Gemini-lite 從不自發填 move_proposal——玩家發起的機制動作一律走「明確 payload → pre-AI 記提議 → AI 只答 proposal_accept」的確定性管線(👋proposeMove/相約/牽手同款)，提示詞授權只當補網。
 - **通用錯誤文案是查案毒藥**：send()/saveFate 的 catch 已帶出 e.message(【原因】行)；後端 success:false 的 message 會演進故事流。別再寫吞掉真因的 alert。
+- **獨立事件別共用單一回饋槽**：赴約/爽約「結算」與相約/牽手/同去「提議結果」是兩條獨立事件流，舊版共用 `proposalResult` 單槽＝並發時後寫的吞掉先寫的(爽約通知無聲消失2.0)。現制：結算走 `promiseSettle`、提議走 `proposalResult`，前端各自出通知條。新回饋事件進來時先問「跟既有槽是同一條事件流嗎」，不是就開新欄位。
+- **後端早退回應別夾空集合**：敲門早退曾夾 `people: []` 把前端 `localNPCs` 快取洗空(泡泡期間拍照面板變無人)。早退＝沒人移動＝不帶 people；前端也只在 `Array.isArray(data.people)` 才更新快取(雙保險)。
+- **「下方/上方」方位詞會過期**：prompt 注入段引用其他規則時**用【規則名】不用方位**——注入點會搬家，方位詞跟著說謊(告辭/巧遇豁免句曾指「下方」而鐵律實在上方)。
 
 ---
 

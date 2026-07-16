@@ -700,8 +700,8 @@ function buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote, include
   //   更衣等狀態也要如實反映)，會寫回持久的【換裝】記錄，不是每回合就消失的暫時描述。
   const _outfitChange = "本回合角色實際穿著狀態(第三人稱如實反映，≤20字)——填【穿著本身】的名詞短語(如「質地優雅的絲綢襯衫」)，不是動作句(「換上了一件…」這種寫法禁止)";
 
-  // 🔴 npc的範本欄位填「同上」：Router_Action.gs解析intimacy_feedback時的ignoreWords防呆清單本就含「同上」，
-  // 即使AI偷懶照抄範本字面值也會被當成敷衍語忽略、不會寫進玩家看到的狀態欄，省字數不引入新的失敗模式。
+  // 🔴 npc的範本欄位填「同上」：actionPlay 落地端(本檔·intimacy_feedback 解析)的 ignoreWords 防呆清單本就
+  // 含「同上」，即使AI偷懶照抄範本字面值也會被當成敷衍語忽略、不會寫進玩家看到的狀態欄，省字數不引入新的失敗模式。
   const _physicalStateRef = "同上";
   const _outfitChangeRef = "同上";
 
@@ -1639,7 +1639,8 @@ function actionPlay(userData, pcId, sheets) {
   if (userData.promiseMeet && typeof userData.promiseMeet === 'object') {
     const _pmName = String(userData.promiseMeet.name || "").trim();
     const _pmLoc = String(userData.promiseMeet.loc || "").trim();
-    const _pmLocOk = KANSHOU_LOCATIONS_.some(l => l.name === _pmLoc && l.region !== 'room');
+    // 私人住處(visit)未解鎖不可當約定地——約成立後玩家根本進不去(前端灰鎖＋後端擋移動)＝必然爽約陷阱。
+    const _pmLocOk = KANSHOU_LOCATIONS_.some(l => l.name === _pmLoc && l.region !== 'room' && (l.region !== 'visit' || kanshouResidenceUnlocked_(pcData, _pmLoc, _myGid_)));
     const _pmIdx = _pmName ? pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_pmName) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) : -1;
     if (_pmLocOk && _pmIdx !== -1) {
       const _pmBond = parseInt(pcData[_pmIdx][COL.PC.BOND]) || 0;
@@ -1670,7 +1671,7 @@ function actionPlay(userData, pcId, sheets) {
       const _pvHer = String(pcData[_pvIdx][COL.PC.NAME]);
       const _pvBond = parseInt(pcData[_pvIdx][COL.PC.BOND]) || 0;
       _pendingProposal = { type: 'move', idx: _pvIdx, loc: _pvLoc };
-      kanshouPromiseStr += `\n★【提議·同去】：你向『${_pvHer}』提議【現在一起去「${_pvLoc}」】。依她既有個性與目前好感(${_pvBond}/100)真實演出答不答應——不預設結果，並在 proposal_accept 欄如實填「接受」或「婉拒」。narration 停在她給出回應的當下，【不可】演出發、走路或抵達(是否真的動身由系統處理)。`;
+      kanshouPromiseStr += `\n★【提議·同去】：你向『${_pvHer}』提議【現在一起去「${_pvLoc}」】。依她既有個性與目前好感(${_pvBond}/100)真實演出答不答應——不預設結果，並在 proposal_accept 欄如實填「接受」或「婉拒」——本回合【不要】另填 move_proposal，是否動身由系統依你的答覆處理。narration 停在她給出回應的當下，【不可】演出發、走路或抵達。`;
       finalUserMsg = `【玩家意圖】：邀身旁的『${_pvHer}』現在一起去「${_pvLoc}」。`;
     } else if (_pvIdx === -1) {
       kanshouPromiseStr += `\n★【提議撲空】：你想邀人一起去「${_pvLoc}」，但此刻身邊沒有同伴——演出這份獨自的悵然即可(玩家可自己用地圖移動)。`;
@@ -1916,7 +1917,9 @@ function actionPlay(userData, pcId, sheets) {
     const knockPool = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.LOC] || "").trim() !== curL && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && (kanshouIsCohabit_(r) || (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_KNOCK_MIN_BOND_));
     if (knockPool.length && Math.random() < KANSHOU_KNOCK_CHANCE_) {
       const visitor = knockPool[Math.floor(Math.random() * knockPool.length)];
-      return JSON.stringify({ text: "正準備歇下的時候，忽然聽見一陣輕輕的敲門聲……", knockEvent: String(visitor[COL.PC.NAME]), people: [] });
+      // ⚠ 不帶 people——這條早退沒人移動，夾 people:[] 會把前端 localNPCs 快取洗成空(泡泡期間開拍照
+      //   面板變「沒有可拍的人」)；前端只在 data.people 是陣列時才更新快取。
+      return JSON.stringify({ text: "正準備歇下的時候，忽然聽見一陣輕輕的敲門聲……", knockEvent: String(visitor[COL.PC.NAME]) });
     }
   }
 
@@ -2136,6 +2139,12 @@ function actionPlay(userData, pcId, sheets) {
       const _nm = String(r[COL.PC.NAME]);
       if (kanshouHeldName_ && kanshouNameCandidates_(_nm).includes(kanshouHeldName_)) return; // 牽手中＝她選擇留下
       if (kanshouPreMoveCompanions_.some(cr => String(cr[COL.PC.NAME]).trim() === _nm.trim())) return; // 剛跟你一起走來
+      // 玩家本回合正對她提議(相約/牽手/同去·_pendingProposal)——她留下聽完回應：否則被動+10分恰跨時段時，
+      //   AI 同回合收到「向她提議」＋「她已告辭」兩條矛盾指令，接受還會把牽手/同去落到已離場的人身上。
+      if (_pendingProposal) {
+        const _ppN = String(_pendingProposal.name || pcData[_pendingProposal.idx][COL.PC.NAME] || "");
+        if (_ppN && kanshouNameCandidates_(_nm).includes(_ppN)) return;
+      }
       const _newLoc = String(kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(_nm, curHour, kanshouIsCohabit_(r)) || "").trim();
       if (_newLoc && _newLoc !== String(curL || "").trim()) {
         pcData[i][COL.PC.LOC] = _newLoc;
@@ -2143,7 +2152,7 @@ function actionPlay(userData, pcId, sheets) {
         _lvNames.push(_nm);
       }
     });
-    if (_lvNames.length) kanshouNpcLeaveStr_ = `\n★【自然告辭·作息——本回合特別豁免，不受下方在場驗證鐵律限制】：時段來到${timeBand_(curHour)}，『${_lvNames.join('、')}』到了該走的時間——她(們)雖已不在【目前在場人物】名單，本回合【唯獨允許】她(們)開口說這最後一句道別(依你記憶中她的個性，有事要辦/該回去了皆可，去向不必交代)，narration 要把道別演出來、不可無聲消失；道別之後她(們)就真的不在場了。`;
+    if (_lvNames.length) kanshouNpcLeaveStr_ = `\n★【自然告辭·作息——本回合特別豁免，不受【在場驗證鐵律】限制】：時段來到${timeBand_(curHour)}，『${_lvNames.join('、')}』到了該走的時間——她(們)雖已不在【目前在場人物】名單，本回合【唯獨允許】她(們)開口說這最後一句道別(依你記憶中她的個性，有事要辦/該回去了皆可，去向不必交代)，narration 要把道別演出來、不可無聲消失；道別之後她(們)就真的不在場了。`;
   }
 
   // 📅 赴約/爽約結算 2.0(時間×地點驅動)：【必須在 partyRows 之前】——命中赴約會把她 pin 到 curL 讓她
@@ -2153,6 +2162,10 @@ function actionPlay(userData, pcId, sheets) {
   //   爽約-5。舊格式無時段(ah=null)沿用「當天到場即赴約」。同回合剛成立的約(day=明天)不會自我觸發。
   let kanshouPromiseMetStr = "";
   let kanshouPromiseWait_ = null; // {name,loc,apptLabel,targetHour}：太早到→前端等待框
+  // 📣 赴約/爽約結算回饋走【獨立通道】(promiseSettle)，不再借用 kanshouProposalResult_ 單槽——
+  //   同回合「結算＋另一個提議被接受」時 post-AI 的提議結果會無條件覆寫單槽(稽核三路都撞到)，
+  //   結算通知被吞、前端也漏掉重抓 _kcCur 的觸發。兩事件本就獨立，各走各的通知條。
+  let kanshouPromiseSettle_ = null; // {ok,type:'promise_met'|'promise_missed',name,loc}
   pcData.forEach((r, i) => {
     if (i === pcIndex || String(r[COL.PC.FACTION]) !== "從者" || !sameGame(r) || String(r[COL.PC.ID]).startsWith("DEAD_")) return;
     const _pr = kanshouGetPromise_(r[COL.PC.MEMORY]);
@@ -2167,9 +2180,9 @@ function actionPlay(userData, pcId, sheets) {
       kanshouSyncRelTier_(pcData, i); // 跨/跌梯度同步REL_TAG
       dirtyPcRows.add(i);
       kanshouPromiseMetStr += note;
-      // 📣 赴約成功也發明確回饋——前端靠它跳綠條＋重抓同伴清單(_kcCur)，睡前爽約警示才不會
+      // 📣 赴約成功發明確回饋——前端靠它跳綠條＋重抓同伴清單(_kcCur)，睡前爽約警示才不會
       //   拿過期資料誤報「今天還有沒赴的約」(稽核抓到的假警報)。
-      if (!kanshouProposalResult_) kanshouProposalResult_ = { ok: true, type: 'promise_met', name: _her, loc: _pr.loc };
+      kanshouPromiseSettle_ = { ok: true, type: 'promise_met', name: _her, loc: _pr.loc };
     };
     if (_pr.day === curDay) {
       if (!_atApptLoc) return; // 今天但不在約定地點→還沒到、也還沒過，等你去，不結算
@@ -2192,8 +2205,8 @@ function actionPlay(userData, pcId, sheets) {
       dirtyPcRows.add(i);
       if (String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) kanshouPromiseMetStr += `\n★【爽約之後】：你先前與『${_her}』約好在「${_pr.loc}」見面卻沒赴約——讓她依性格流露被放鴿子的在意(慍怒/落寞/嘴硬說沒關係，好感已下調，勿另計)。`;
       // 📣 爽約明確回饋(玩家實測「約定標示無聲消失、以為是bug」)：她不在場時結算完全無聲——
-      //   補通知條讓玩家知道約過期了、好感掉了。不蓋掉本回合已有的提議回饋(罕見同回合並發)。
-      if (!kanshouProposalResult_) kanshouProposalResult_ = { ok: false, type: 'promise_missed', name: _her, loc: _pr.loc };
+      //   補通知條讓玩家知道約過期了、好感掉了。
+      kanshouPromiseSettle_ = { ok: false, type: 'promise_missed', name: _her, loc: _pr.loc };
       // 💔 她要「記得」被放鴿子(玩家實測：系統扣了好感、她卻渾然不知還演「我照約來了」)：爽約寫進
       //   共同回憶(玩家第一人稱視角·比照 memoir 鐵則)，之後每回合經 partyDetailsArr 餵給 AI，
       //   她才演得出在意/彆扭，也給玩家道歉挽回的戲肉。cap 交給下次 processMemoir_ 自然淘汰。
@@ -2409,7 +2422,7 @@ function actionPlay(userData, pcId, sheets) {
     const words = p.dailyWords || p.words || "";
     const isMaleMale = String(pc[COL.PC.SEX]) === "男" && String(kanshouEncounterHero.gender) === "男";
     const friendshipOnly = isMaleMale ? "★TA與玩家同為男性，這段交流僅止於同性情誼／夥伴／損友式互動，不發展曖昧、戀愛或情慾內容，不做任何親密肢體接觸。" : "";
-    return `\n★【本回合系統指定巧遇——這次到訪期間持續有效的例外，不受下方在場驗證鐵律限制】：『${kanshouCasualOf_(kanshouEncounterHero)}』此刻恰好也在「${kanshouEncounterLocName}」，${kanshouEncounterMetBefore ? "是已經打過照面的熟面孔" : "是初次的邂逅"}——外貌氣質:${look}／日常個性:${words}。允許TA以真實姓名登場、持續互動，這段緣分在玩家離開這個地點前都有效，TA目前只是萍水相逢的路人：好感/關係不追蹤記錄；若情境合適，TA也可以自然道別離開，不必勉強撐到玩家換地點。${friendshipOnly}`;
+    return `\n★【本回合系統指定巧遇——這次到訪期間持續有效的例外，不受【在場驗證鐵律】限制】：『${kanshouCasualOf_(kanshouEncounterHero)}』此刻恰好也在「${kanshouEncounterLocName}」，${kanshouEncounterMetBefore ? "是已經打過照面的熟面孔" : "是初次的邂逅"}——外貌氣質:${look}／日常個性:${words}。允許TA以真實姓名登場、持續互動，這段緣分在玩家離開這個地點前都有效，TA目前只是萍水相逢的路人：好感/關係不追蹤記錄；若情境合適，TA也可以自然道別離開，不必勉強撐到玩家換地點。${friendshipOnly}`;
   })() : "";
 
   // 深夜訪客(knockAccept選擇「開門」)：她的LOC已在前面被設成curL，之後會自動出現在partyRows
@@ -2424,21 +2437,33 @@ function actionPlay(userData, pcId, sheets) {
   const PROMPT_REL = `${backgroundCrowdStr}
 ★【視角鎖定】：以上「在場人物」卡片內「自稱」只限她/他自己的引號台詞——通篇敘事旁白的「我」永遠、只能是玩家『${pcName}』本人，絕不可把在場任何一位角色的心境或反應誤寫成旁白第一人稱。
 ★【情境延續鐵律】：請繼續往後推演！${nsfwMemories}${genderHintStr}${driveStr}
-🛑【角色一致性鐵律】：NPC 的反應必須【死守】其「性格」與目前「好感度」的真實落差——依她在上方【親密尺度·分五階】當前所處的階段(好感越低越保留、未達戀人階不進情慾)、或性格屬於冷酷/高傲/剛烈者，判斷此刻合理的接受/抗拒/抵觸程度演出，不因劇情推進就無視好感度線性軟化。即便肉體有生理反應，靈魂與對話的態度仍以角色設定為準。真正的沉溺不是放棄人格，而是【用原本的人格去承受快感】——高傲者咬牙不肯示弱、虔敬者於信仰間掙扎、活潑者笑鬧裡藏羞、深情者愈發黏膩——語癖、自稱與個性在最激烈處也不崩壞，【絕對禁止】任何角色在情慾中退化成千篇一律的發情機器。`;
+🛑【角色一致性鐵律】：NPC 的反應必須【死守】其「性格」與目前「好感度」的真實落差——依她在下方【親密尺度·依好感分五階】當前所處的階段(好感越低越保留、未達戀人階不進情慾)、或性格屬於冷酷/高傲/剛烈者，判斷此刻合理的接受/抗拒/抵觸程度演出，不因劇情推進就無視好感度線性軟化。即便肉體有生理反應，靈魂與對話的態度仍以角色設定為準。真正的沉溺不是放棄人格，而是【用原本的人格去承受快感】——高傲者咬牙不肯示弱、虔敬者於信仰間掙扎、活潑者笑鬧裡藏羞、深情者愈發黏膩——語癖、自稱與個性在最激烈處也不崩壞，【絕對禁止】任何角色在情慾中退化成千篇一律的發情機器。`;
 
   // 這裡只提供正確姓名給 AI 拼字用，是否真的互動仍完全依上方【在場驗證鐵律】判斷。已有
   //   【專屬稱呼】就自然用暱稱取代真名；不影響下方 rel_changes/intimacy_feedback 仍固定要求真名。
   const npcDialoguePrompt = partyMembers.length > 0 ? `\n★【稱呼慣例】：對話/敘事中稱呼在場人物時，若該人已有【專屬稱呼】(見上方在場人物卡片)，可自然使用該暱稱取代真名，不必每次都字正腔圓喊全名；尚未發展出專屬稱呼、或情境特別鄭重深情時，仍使用真實姓名「${partyMembers.join("、")}」，不得自創真名與專屬稱呼以外的第三種稱呼。★此慣例僅供narration/台詞；JSON姓名欄位不受影響、依各欄自身規則填真名。是否互動仍依在場規則判斷，非清單所有人都要出聲。` : "";
 
 
+  // 🌱 動態 master_note 的前置計算(要在 USER prompt 組裝【之前】算好——下面【玩家命格】那行的
+  //   「你可透過 master_note.經歷 滾動增補」提及必須跟著 _doSideWrite 條件化，否則非側寫回合
+  //   schema 已刪掉 master_note、USER prompt 卻還在催，AI 會自發吐出 schema 外的欄位擊穿節流)。
+  const _allPrefKeys = ["對外性格", "獨處性格", "喜歡", "討厭"];
+  const _prefLocks = kanshouGetPrefLocks_(pc[COL.PC.MEMORY]);
+  const _unlockedPrefKeys = _allPrefKeys.filter(function (k) { return _prefLocks.indexOf(k) === -1; });
+  // 🌀 側寫節流：計數 +1 存回 MEMORY(玩家列恆寫回·零額外 round-trip)，只在第 1、N+1、2N+1… 回合帶
+  //   master_note(首回合必寫·抓初印象)。非側寫回合整塊拿掉、AI 專心敘事，落地端守衛同步擋掉自發輸出。
+  const _swCount = kanshouGetSideWriteCount_(pc[COL.PC.MEMORY]) + 1;
+  pc[COL.PC.MEMORY] = kanshouSetSideWriteCount_(pc[COL.PC.MEMORY], _swCount);
+  const _doSideWrite = (_swCount % KANSHOU_SIDEWRITE_EVERY_ === 1);
+
   // 鑑賞無戰鬥，御主的 HP/MP/MAX_HP/MAX_MP 這4欄從未寫入，故 prompt 不提血量/魔力數值或瀕死判斷
   //   (與世界觀規則「禁止血量/生命變化」一致——該禁令在下方 USER 世界觀＋演出而非說明兩行)。
   const prompt = `【敘事法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。
 ${PROMPT_PARTY_SYSTEM}
-【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}(當前服裝·五官體態不變)` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}(這是玩家一路走來的軌跡·你可透過 master_note.經歷 滾動增補) | 位置:${curL}${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName)); return _c ? `（${_c}）` : ""; })()}
+【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}(當前服裝·五官體態不變)` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}(這是玩家一路走來的軌跡${_doSideWrite ? '·你可透過 master_note.經歷 滾動增補' : ''}) | 位置:${curL}${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName)); return _c ? `（${_c}）` : ""; })()}
 
 ${PROMPT_REL}
-★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前在場人物】(與玩家同地點的已認識人物)；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動。歷史紀錄、話題情報中提到但不在【目前在場人物】內的姓名，僅視為不在場的回憶，嚴禁無視此規則讓其憑空登場、穿越或開口說話、出手！
+★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前在場人物】(與玩家同地點的已認識人物)；背景路人可自由描寫增添氣氛(見上方【開放世界·背景人煙】)，但一律不具名、不可被指名互動、不追蹤好感，【絕對禁止】把某個背景路人寫成有名有姓、持續登場的固定角色。唯獨玩家本回合輸入內容【明確主動】表達邀請、招呼、引入第三人等意圖時(如呼喚他人加入、開門讓人進來等)，才可讓該玩家指定或暗示的新角色登場並開始被指名互動；另一例外：系統注入段【明示豁免】者(如【自然告辭】的最後道別、【系統指定巧遇】)依該段指示辦理，不受本鐵律噤聲。歷史紀錄、話題情報中提到但不在【目前在場人物】內的姓名，僅視為不在場的回憶，嚴禁無視此規則讓其憑空登場、穿越或開口說話、出手！
 ★【焦點禮讓】：玩家明確只對某一位互動(親暱/私語/凝視)時，敘事焦點留給那一位；其他在場者維持背景存在感——輕描一筆神情或小動作即可，【不可】搶話打斷、出言批評或介入玩家的親密舉動(除非系統另有醋意/橋段提示，或她與玩家羈絆深厚到吃味合理)。交情尚淺的旁觀者對別人的親暱頂多尷尬地移開視線，輪不到出言指教。${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouRoomEventStr}${kanshouNpcLeaveStr_}${kanshouVisitBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouJealousStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入本回合場景的一個小細節——${kanshouEventSeed}。這只是引子，若跟劇情不合可完全不採用，不必刻意提及或解釋。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶氛圍】：今天是「${_f.name}」，narration可自然帶入應景的裝飾/活動/氣氛，不必特別報幕或解釋這個詞彙本身。`; if (jumpFest) return `\n★【節慶氛圍】：明天就是「${jumpFest.name}」，街頭已有節慶前夕的準備與期待感，narration可自然帶入，不必特別報幕。`; return ""; })()}
 ★【今日天氣】：${kanshouWeather_(curDay)}——讓天氣自然滲入場景與人物(衣著/髮絲/街景/話題皆可)，不必每句都提、也不必報幕。${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜氛圍·好感門檻已達】：『${intimateNightNames.join('、')}』與你的羈絆已深(好感≥80)，今晚可以自然發展到同床共枕，依其性格自然決定要不要跨出這一步、氛圍濃烈到什麼程度，不強制每次都寫到底；好感未達此門檻的同伴，一律維持各自安睡、不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度了親密的時光(依上一回合實際演出的內容為準，若上次並未真的跨出那一步就當作平常的早晨)，這是新的一天第一個場景，若情境合適可以自然帶出晨間的溫馨/曖昧餘韻(如一起吃早餐、彼此害羞或黏膩的互動)，不強制一定要提及、也不需要複述昨夜細節，一切依角色個性自然發展。` : ""}
 💕【鑑賞·後日談模式·最高優先級覆寫】：${partyRows.length === 0
@@ -2461,7 +2486,7 @@ ${PROMPT_REL}
 ★【篇幅隨關係濃淡】：narration 長度依當前關係調整——初識/低好感(點頭之交、普通朋友)只是點到為止的日常片段，請【精簡收斂】(約200~300字即可、不必寫滿)，別把才剛認識的陌生互動寫成大段內心戲與環境鋪陳；關係越深、情感越濃或情慾展開時，才逐漸放長、寫得更豐富細膩。
 ★【演出而非說明】不得直述其願望／萌點／個性字面。僅可有 rel_changes(好感)，不輸出任何生命變化或戰鬥裁決。
 ★【地點清單】：這個世界目前只有以下這些地點存在：${KANSHOU_LOCATIONS_.map(l => l.name).join('、')}——move_proposal 欄位只能填這份清單裡的名字，【絕對禁止】自創或憑空發明清單以外的地名(如「一家安靜的咖啡廳」這類寫法不再允許)。
-★★【移動鐵律——你絕不自行搬動玩家】：你和玩家【此刻就在「${curL}」】。任何場景轉換——你想換地方、同伴邀玩家去別處、或玩家開口邀而她答應了——都【只能】填 move_proposal(她點頭的那回合就填，這是移動唯一的成立管道)，narration 停在「提議／達成共識／正要起身」的當下就打住，【絕對禁止】接著演移動過程、快到了、或已抵達——沒填 move_proposal＝根本沒出發，玩家若一直問「到了沒」，答案永遠是「還在${curL}」(引導他按泡泡「同意」或用地圖移動)。要不要真的過去由玩家按泡泡決定；沒有換地點的意圖時 move_proposal 留空、不要每回合都提議。（唯一例外：玩家已用地圖按鈕移動＝系統已把位置寫好、這回合本來就在新地點——直接寫此地展開的當下、可用一句帶過剛到的餘韻，不必也不可再演路程。）
+★★【移動鐵律——你絕不自行搬動玩家】：你和玩家【此刻就在「${curL}」】。任何場景轉換——你想換地方、同伴邀玩家去別處、或玩家開口邀而她答應了——都【只能】填 move_proposal(她點頭的那回合就填，這是移動唯一的成立管道；唯本回合系統若注入【提議·同去】標記，改答 proposal_accept 即可、不必填此欄)，narration 停在「提議／達成共識／正要起身」的當下就打住，【絕對禁止】接著演移動過程、快到了、或已抵達——沒填 move_proposal＝根本沒出發，玩家若一直問「到了沒」，答案永遠是「還在${curL}」(narration 引導時用劇情語言如「等你點頭我們再動身」，【不可】把「泡泡」「按鈕」「地圖」等介面詞寫進敘事)。要不要真的過去由玩家按泡泡決定；沒有換地點的意圖時 move_proposal 留空、不要每回合都提議。（唯一例外：玩家已用地圖按鈕移動＝系統已把位置寫好、這回合本來就在新地點——直接寫此地展開的當下、可用一句帶過剛到的餘韻，不必也不可再演路程。）
 ★【此地是唯一真實】：本回合的場景環境、氛圍、對話對象一律以「${curL}」與上方【目前在場人物】名單為準——若近期對話歷史發生在【別的地點】或有【別的人】，那些已是過去：禁止沿用舊地點的環境描寫、禁止讓已不在場的人繼續接話搭腔(被想起可以、開口不行；系統另有【自然告辭】豁免時除外)。換幕就寫新場景，別把上一幕拖過來。
 ★【不替玩家憑空生出東西】：這個世界沒有金錢/物品/背包系統，【絕對禁止】自作主張讓玩家「早就準備好禮物」「掏出錢包」「變出道具」等他沒說要做的事——玩家要送禮或拿出什麼，一律由玩家自己的輸入決定，你不得代勞或無中生有。日常場景裡順手分享的小零食、路邊隨手可得的自然之物(花草、貝殼等)可輕描淡寫，但不可寫成有備而來、彷彿關係已很親近的鋪陳。
 ★【不替玩家腦補心境與決定·結尾停在外部當下】：narration 以第一人稱『我』寫玩家，但【只演】玩家實際輸入的動作＋當下五感所見所感，【嚴禁】替玩家腦補大段內心戲、情緒、願望或替他做決定(玩家打「有點孤單」就只帶當下那一點情緒、不要擴寫成他有多渴望被理解、多想找誰陪)。尤其【禁止把段落收在玩家的期待／渴望／盼望上】(如「希望能…擦出火花」「帶著一絲渴望往…走去」)——結尾一律停在【外部當下】(對方的反應、眼前場景、一個未完成的動作或未說完的話)，把「我下一步想怎樣、心裡怎麼想」留給玩家自己決定。
@@ -2500,14 +2525,7 @@ ${PROMPT_REL}
 
     // 🌱 動態 master_note：只把玩家【沒鎖】的性格欄交給 AI(鎖的連欄位都不出現在 schema)。buildDefaultSystemPrompt
     //   只有此處呼叫，故把系統提示詞在這裡組好、當 systemOverride 傳入(取代 callGeminiAPI 內的無參數 fallback)。
-    const _allPrefKeys = ["對外性格", "獨處性格", "喜歡", "討厭"];
-    const _prefLocks = kanshouGetPrefLocks_(pc[COL.PC.MEMORY]);
-    const _unlockedPrefKeys = _allPrefKeys.filter(function (k) { return _prefLocks.indexOf(k) === -1; });
-    // 🌀 側寫節流：計數 +1 存回 MEMORY(玩家列恆寫回·零額外 round-trip)，只在第 1、N+1、2N+1… 回合帶
-    //   master_note(首回合必寫·抓初印象)。非側寫回合整塊拿掉、AI 專心敘事，落地端守衛自動跳過、舊值不動。
-    const _swCount = kanshouGetSideWriteCount_(pc[COL.PC.MEMORY]) + 1;
-    pc[COL.PC.MEMORY] = kanshouSetSideWriteCount_(pc[COL.PC.MEMORY], _swCount);
-    const _doSideWrite = (_swCount % KANSHOU_SIDEWRITE_EVERY_ === 1);
+    //   _unlockedPrefKeys/_doSideWrite 已在 USER prompt 組裝前算好(見上方·prompt 內的經歷提及要跟著條件化)。
     // 🎛️ 玩家關掉【命運的抉擇】→ options 欄整個不進 schema(前端帶 optionsOn；沒帶=舊前端，照常給)。
     const _sysPrompt = buildDefaultSystemPrompt(_unlockedPrefKeys, _doSideWrite, userData.optionsOn !== false);
     const aiResponseRaw = callGeminiAPI(prompt, _sysPrompt, aiConfig);
@@ -2564,7 +2582,8 @@ ${PROMPT_REL}
     //   變數(否則回傳時讀到的是外層那個、拿不到這裡寫的值)。一回合只走 promiseAccept 或 proposal_accept 一條。
     if (_pendingProposal) {
       const _paTxt = String(aiData.proposal_accept || "");
-      const _accepted = /接受|答應|同意|願意/.test(_paTxt) && !/拒|不接受|不肯|不願|沒(有)?接受|未接受/.test(_paTxt);
+      // 否定組要蓋住「不/沒/未＋肯定詞」全型——「不同意」「不答應」「沒答應」都含肯定字眼，漏列＝被判成接受(fail-open)。
+      const _accepted = /接受|答應|同意|願意/.test(_paTxt) && !/拒|不接受|不肯|不願|不答應|不同意|沒(有)?接受|沒(有)?答應|未接受|未答應|未同意/.test(_paTxt);
       // 🐛→✅ 牽手(hold)的 idx 是【玩家自己列】(標記存玩家MEMORY)，拿 idx 的名字會變成玩家自己
       //   (「風音沒有讓你牽手」)——她的名字存在 _pendingProposal.name，優先用它。
       const _ppHer = String(_pendingProposal.name || pcData[_pendingProposal.idx][COL.PC.NAME] || "");
@@ -2584,6 +2603,9 @@ ${PROMPT_REL}
         }
         dirtyPcRows.add(_pendingProposal.idx);
       } else {
+        // 她婉拒同去時清掉 moveProposal——AI 偶爾會順手把 move_proposal 也填了(移動鐵律的「不填＝不會發生」
+        //   讓它緊張)，不清＝玩家同時收到「她婉拒了」通知＋「前往」泡泡，自相矛盾。
+        if (_pendingProposal.type === 'move') moveProposal = "";
         // loc：move 婉拒的通知條要顯示地名(稽核抓到「不想去「」」空字串)；其他型別不讀此欄、帶著無害。
         kanshouProposalResult_ = { ok: false, type: _pendingProposal.type, name: _ppHer, loc: _pendingProposal.loc || "" };
       }
@@ -2601,7 +2623,8 @@ ${PROMPT_REL}
     if (!moveProposal && aiData.promise_proposal && typeof aiData.promise_proposal === 'object') {
       const _apLoc = String(aiData.promise_proposal.loc || "").trim();
       const _apIdx = _inSceneIdxByName(aiData.promise_proposal.name);
-      if (_apIdx !== -1 && KANSHOU_LOCATIONS_.some(l => l.name === _apLoc && l.region !== 'room')) {
+      // 同 promiseMeet：未解鎖私宅不可當約定地(必爽約陷阱)，AI 約在那裡＝當她隨口說說、不跳泡泡。
+      if (_apIdx !== -1 && KANSHOU_LOCATIONS_.some(l => l.name === _apLoc && l.region !== 'room' && (l.region !== 'visit' || kanshouResidenceUnlocked_(pcData, _apLoc, _myGid_)))) {
         const _apBand = kanshouApptHour_(String(aiData.promise_proposal.band || "").trim()) !== null ? String(aiData.promise_proposal.band).trim() : "";
         const _apLabel = _apBand ? (KANSHOU_APPT_BANDS_.find(b => b.band === _apBand) || {}).label : "";
         kanshouAiPromise_ = { name: String(pcData[_apIdx][COL.PC.NAME]), loc: _apLoc, band: _apBand, bandLabel: _apLabel };
@@ -2830,10 +2853,13 @@ ${PROMPT_REL}
 
     // 🌱 玩家御主「滾動側寫」(master_note)：AI 慢慢認識玩家。經歷每回合承接舊值滾動更新(bounded)；
     //   性格四格【只回填玩家仍留白的欄】(玩家自己改命填過的＝鎖，AI 絕不覆寫，判準：該格非空)。
-    if (aiData.master_note && typeof aiData.master_note === 'object') {
+    //   _doSideWrite 守衛：非側寫回合 AI 若無視 schema 自發吐 master_note 也不落地(節流不可被擊穿)。
+    if (_doSideWrite && aiData.master_note && typeof aiData.master_note === 'object') {
       const mn = aiData.master_note;
-      // 經歷：AI 承接舊值增補後回傳整段，這裡直接採用(≤80字保底截斷)；空/未給則保留原經歷不動。
+      // 經歷：AI 承接舊值增補後回傳整段，這裡直接採用；空/未給則保留原經歷不動。
       //   不鎖——玩家改命=修正，AI 之後照樣繼續滾動更新。
+      //   ⚠ slice(0,80)：schema 跟 AI 說 ≤50，這 30 字是刻意的容錯緩衝(比照 physical_state 15/20)，
+      //   AI 略超時不半句腰斬——別「對齊文件」改回 50。
       const _newExp = String(mn["經歷"] || "").replace(/[<>【】｜]/g, "").trim().slice(0, 80);
       if (_newExp) { pcData[pcIndex][COL.PC.BACK] = _newExp; dirtyPcRows.add(pcIndex); }
       // 性格四格(對外/獨處/喜歡/討厭)：【玩家改命自訂的鎖死不碰、AI 自己寫的可持續 refine】。
@@ -2943,6 +2969,7 @@ ${PROMPT_REL}
       roomEventOffer: roomEventOffer,
       encounterOffer: encounterOffer,
       proposalResult: kanshouProposalResult_ || undefined,
+      promiseSettle: kanshouPromiseSettle_ || undefined, // 📅 赴約/爽約結算通知(獨立通道·不與提議結果搶單槽)
       promiseWait: kanshouPromiseWait_ || undefined,
       promiseProposal: kanshouAiPromise_ || undefined, // 📅 她主動邀約→前端跳同意泡泡
       cohabitProposal: kanshouAiCohabit_ || undefined, // 🏠 她主動邀同居→前端跳同意泡泡

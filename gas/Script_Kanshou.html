@@ -97,7 +97,10 @@
         story.scrollTop = story.scrollHeight;
         return;
       }
-      localNPCs = data.people || []; nearbyLocations = data.locations || [];
+      // people 只在後端真的給了陣列才更新——敲門早退這類「沒人移動」的回應不帶 people，
+      //   舊寫法 `data.people || []` 會把在場快取洗成空(泡泡期間開拍照面板變「沒有可拍的人」)。
+      if (Array.isArray(data.people)) localNPCs = data.people;
+      nearbyLocations = data.locations || [];
       // 🕰️ 「下一階段」按鈕：每次actionPlay回應都可能改動時鐘(結束一天/推進時間/跳節慶/跳時段皆會)，
       //   記下最新kanshouClock供地圖頁的時段按鈕判斷現在是不是深夜，並重繪地圖頁(桌機三欄並排恆
       //   顯示，不能只靠切分頁才刷新)。
@@ -278,19 +281,29 @@ let plainTextContext = cleanText;
         }
         else if (_pr.ok && _pr.type === 'promise') _msg = '📅 <b>約定成立！</b>明天' + escapeHtml(String(_pr.bandLabel || '')) + '在「' + escapeHtml(String(_pr.loc || '')) + '」與「' + _nm + '」見面——準時/早到好感↑、遲到打折、放鴿子↓。';
         else if (_pr.ok && _pr.type === 'hold') _msg = '🤝 <b>牽手成功！</b>之後你移動到哪，「' + _nm + '」都會相伴同行(直到放手)。';
-        else if (_pr.ok && _pr.type === 'promise_met') _msg = '📅 <b>依約相會！</b>你守住了與「' + _nm + '」在「' + escapeHtml(String(_pr.loc || '')) + '」的約定(好感↑)。';
         else if (_pr.ok && _pr.type === 'move') _msg = '🚶 <b>「' + _nm + '」答應一起去「' + escapeHtml(String(_pr.loc || '')) + '」！</b>點下方的「同意」，你們就一起動身。';
         else if (_pr.type === 'move') _msg = '🚶 「' + _nm + '」這次不想去「' + escapeHtml(String(_pr.loc || '')) + '」——心情或時機不對，待會再邀、或自己先過去也行。';
         else if (_pr.ok && _pr.type === 'cohabit') _msg = '🏠 <b>同居開始！</b>「' + _nm + '」搬來與你同住了——深夜她會回家的和室就寢、清晨可能賴床、晚間常在家中。';
         else if (_pr.type === 'cohabit') _msg = '🏠 「' + _nm + '」婉拒了同居——你們的關係還不夠深(需要非常深厚的信賴)，再一起多累積些回憶吧。';
-        else if (_pr.type === 'promise_missed') _msg = '📅 與「' + _nm + '」在「' + escapeHtml(String(_pr.loc || '')) + '」見面的約定<b>過期了</b>——你沒有赴約，她有些在意(好感↓)。約定是一次性的，想再見就再約一次吧。';
         else _msg = (_pr.type === 'promise' ? '📅 「' : '🤝 「') + _nm + '」' + (_pr.type === 'promise' ? '婉拒了這次約定。' : '沒有讓你牽手。') + '——關係再深一點、或換個時機再試試。';
         const _col = _pr.ok ? 'rgba(90,160,110,.14);border:1px solid #4a8a5a;color:#a8e0b8' : 'rgba(150,110,120,.14);border:1px solid #8a5a6a;color:#e0b0bc';
         story.insertAdjacentHTML('beforeend', `<div style="background:${_col};border-radius:8px;padding:7px 10px;margin:4px 0;font-size:12.5px;">${_msg}</div>`);
-        // 約定成立/清除→刷新同伴清單(_kcCur)，讓地圖📅徽章與同伴列即時反映(背景抓、抓完重繪地圖)。
-        // 約定「任何」變動(成立/赴約成功/爽約過期)都重抓同伴清單——睡前爽約警示靠 _kcCur 判斷，
-        //   過期資料會誤報「今天還有沒赴的約」(稽核抓到的假警報)。
-        if (String(_pr.type).indexOf('promise') === 0) { (async function () { try { const r = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount }); if (r && r.success) { _kcCur = r.current || []; try { renderMapPane(); } catch (e) {} try { renderKcPartyList_(); } catch (e) {} } } catch (e) {} })(); }
+      }
+      // 📅 赴約/爽約結算通知(promiseSettle·獨立通道)：跟提議結果(proposalResult)是兩個獨立事件，
+      //   同回合並發時各自顯示、互不覆蓋(舊版共用單槽，post-AI 提議結果會把結算通知吞掉)。
+      if (data.promiseSettle) {
+        const _ps = data.promiseSettle, _psNm = escapeHtml(String(_ps.name || '她')), _psLoc = escapeHtml(String(_ps.loc || ''));
+        const _psMsg = _ps.type === 'promise_met'
+          ? '📅 <b>依約相會！</b>你守住了與「' + _psNm + '」在「' + _psLoc + '」的約定(好感↑)。'
+          : '📅 與「' + _psNm + '」在「' + _psLoc + '」見面的約定<b>過期了</b>——你沒有赴約，她有些在意(好感↓)。約定是一次性的，想再見就再約一次吧。';
+        const _psCol = _ps.ok ? 'rgba(90,160,110,.14);border:1px solid #4a8a5a;color:#a8e0b8' : 'rgba(150,110,120,.14);border:1px solid #8a5a6a;color:#e0b0bc';
+        story.insertAdjacentHTML('beforeend', `<div style="background:${_psCol};border-radius:8px;padding:7px 10px;margin:4px 0;font-size:12.5px;">${_psMsg}</div>`);
+      }
+      // 約定「任何」變動(成立/赴約成功/爽約過期)都重抓同伴清單(_kcCur)——地圖📅徽章與睡前爽約警示
+      //   靠它判斷，過期資料會誤報「今天還有沒赴的約」(稽核抓到的假警報)。成立走 proposalResult、
+      //   結算走 promiseSettle，兩邊任一命中都刷新(只刷一次)。
+      if (data.promiseSettle || (data.proposalResult && String(data.proposalResult.type) === 'promise')) {
+        (async function () { try { const r = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount }); if (r && r.success) { _kcCur = r.current || []; try { renderMapPane(); } catch (e) {} try { renderKcPartyList_(); } catch (e) {} } } catch (e) {} })();
       }
       localStorage.setItem('kyushu_story', story.innerHTML);
       setTimeout(() => { story.scrollTop = story.scrollHeight; }, 50);
@@ -761,9 +774,11 @@ let plainTextContext = cleanText;
   //   答接受/婉拒→接受出「前往」泡泡、按同意才真的移動)。2026-07 根因修復：舊版只送一句閒聊、全押在
   //   AI 自發填 move_proposal 上，Gemini 從不填→玩家從沒見過移動泡泡。跟 kanshouMoveTo(自己走)是兩條路。
   async function kanshouProposeMove(name) {
-    // 🧱 身邊沒人直接在前端擋掉——不白跑一輪 AI 演撲空(省 round-trip)。localNPCs＝開頁 sync/每回合
-    //   都會更新的在場名單；萬一有時差漏網，後端★【提議撲空】仍是保底。
-    if (!localNPCs || !localNPCs.length) { alert('身邊沒有同伴可以邀。先去找她——或自己用地圖移動過去。'); return; }
+    // 🧱 身邊沒人直接在前端擋掉——不白跑一輪 AI 演撲空(省 round-trip)。localNPCs 是【全世界】同局
+    //   名單(getKanshouPeopleList_ 以 isExact 標在不在場)，要濾 isExact 才是真「在場」——舊版只看
+    //   length，世界裡永遠有人＝這道門形同虛設(比照拍照面板的寫法)。後端★【提議撲空】仍是保底。
+    var _pvHere = (localNPCs || []).filter(function (p) { return p && p.isExact; });
+    if (!_pvHere.length) { alert('身邊沒有同伴可以邀。先去找她——或自己用地圖移動過去。'); return; }
     showGamePane('chat');
     await send('（笑著問）要不要一起去「' + name + '」看看？', false, { proposeMove: name });
   }
@@ -848,7 +863,10 @@ let plainTextContext = cleanText;
     { band: '夜', label: '🌙 夜晚 20:00' }
   ];
   async function kanshouPromiseMeet(name) {
-    var pool = KC_LOCATIONS_.filter(function (l) { return !l.isRoom; }); // 相約排除玩家私室(我的房間·現掛home分頁但仍isRoom)
+    // 相約排除：玩家私室(isRoom)＋【未解鎖的私人住處】——鎖住的住處物理上進不去(地圖灰鎖＋後端擋移動)，
+    //   約在那裡＝必然爽約陷阱(後端 _pmLocOk 也擋，這裡先不給選)。
+    var _pmUnlocked = (window._lastTags && window._lastTags.unlockedResidences) || [];
+    var pool = KC_LOCATIONS_.filter(function (l) { return !l.isRoom && (l.region !== 'visit' || _pmUnlocked.indexOf(l.name) !== -1); });
     // 先選地點 → 再選時段 → 才送出(她約定時刻前10分到場；早到有「都早到」開場、遲到會唸你)
     kanshouPickLocation_('📅 和「' + name + '」約明天在哪見面？', '她明天會在那個時段到場等你；準時/早到赴約好感↑、遲到打折、放鴿子好感↓', pool, function (loc) {
       kanshouPickBand_('📅 約在「' + loc + '」的什麼時候？', name, function (band) {

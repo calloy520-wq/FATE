@@ -272,13 +272,15 @@ function actionUpdateFate(userData, pcId, sheets) {
     if (String(r[COL.PC.ID]).startsWith("DEAD_")) return false;
     if (myGameId && String(r[COL.PC.GAME_ID] || "") !== myGameId) return false;
     if (r[COL.PC.ID] == targetId) return true; // ID 直配（御主自己／舊路徑）
-    return String(r[COL.PC.NAME]) === String(targetId) && String(r[COL.PC.IS_PARTY] || "") === "同行"; // 名字配·限同行從者
+    // 名字配：solo 限同行從者；鑑賞(k_)無 IS_PARTY 概念(列從不寫此欄·卡片的改命鈕原本恆「查無此人」)，
+    //   同世界名字直配——改同伴的敘事欄(個性/特徵/身世/萌點)是合法自訂操作(比照 update_rel_tag 豁免)。
+    return String(r[COL.PC.NAME]) === String(targetId) && (myGameId.indexOf("k_") === 0 || String(r[COL.PC.IS_PARTY] || "") === "同行");
   });
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
 
   if (String(pcData[pIdx][COL.PC.ID]) != String(pcId)) {
-    // 關係併入眾生列，直接看這名角色自己的 IS_PARTY 欄。
-    if (String(pcData[pIdx][COL.PC.IS_PARTY] || "") !== "同行") {
+    // 關係併入眾生列，直接看這名角色自己的 IS_PARTY 欄(鑑賞豁免·同上)。
+    if (myGameId.indexOf("k_") !== 0 && String(pcData[pIdx][COL.PC.IS_PARTY] || "") !== "同行") {
       return JSON.stringify({ success: false, message: `僅能對同行的從者逆天改命！` });
     }
   }
