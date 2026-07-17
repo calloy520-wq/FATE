@@ -14,15 +14,14 @@
     .card { background:#1b1826; border:1px solid #2f2940; border-radius:12px; padding:12px; margin-bottom:12px; }
     .card h2 { font-size:13px; color:#c0a8d8; margin:0 0 8px; letter-spacing:1px; }
     label { font-size:12px; color:#a89ac0; display:block; margin:6px 0 3px; }
-    textarea, input[type=text] { width:100%; background:#0f0d16; color:#e8e0f0; border:1px solid #3a3348;
-      border-radius:8px; padding:9px; font-size:14px; resize:vertical; }
-    textarea.small { min-height:44px; } textarea.big { min-height:72px; }
-    .chips { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0; }
-    .chip { padding:6px 11px; border-radius:16px; background:#2a2338; color:#d8c8e8; border:1px solid #4a3f5a;
-      font-size:13px; cursor:pointer; }
+    textarea, input[type=text], select { width:100%; background:#0f0d16; color:#e8e0f0; border:1px solid #3a3348;
+      border-radius:8px; padding:9px; font-size:14px; }
+    textarea { resize:vertical; min-height:44px; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px 10px; }
+    .chips { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0; }
+    .chip { padding:6px 11px; border-radius:16px; background:#2a2338; color:#d8c8e8; border:1px solid #4a3f5a; font-size:13px; cursor:pointer; }
     .row { display:flex; gap:8px; align-items:center; margin:10px 0; flex-wrap:wrap; }
-    button.go { flex:1; min-width:130px; padding:13px; border:none; border-radius:10px; cursor:pointer;
-      background:#6a4a80; color:#f2e2fa; font-size:15px; font-weight:bold; }
+    button.go { flex:1; min-width:130px; padding:13px; border:none; border-radius:10px; cursor:pointer; background:#6a4a80; color:#f2e2fa; font-size:15px; font-weight:bold; }
     button.go:disabled { opacity:.5; }
     button.mini { padding:7px 12px; border:none; border-radius:8px; cursor:pointer; background:#3a3050; color:#d8c8e8; font-size:12.5px; }
     #status { font-size:13px; color:#a89ac0; margin:8px 0; min-height:16px; white-space:pre-wrap; }
@@ -39,15 +38,12 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>🎨 立繪工坊 · 母圖＋差分</h1>
-    <div class="sub">先磨一張母圖 → 「設為母圖」→ 之後照母圖生表情差分（鎖臉）。畫風/角色欄會自動記住。</div>
+    <h1>🎨 立繪工坊</h1>
+    <div class="sub">下拉留在「🎲隨機」＝每按一次都換人（找靈感）；想鎖某項就選固定值。滿意就設母圖，之後生表情差分。</div>
 
     <div class="card">
-      <h2>🔒 固定設定（每次自動套用·會記住）</h2>
-      <label>畫風詞尾</label>
-      <textarea id="style" class="small" placeholder="動畫風格立繪、賽璐璐上色、乾淨線條、柔和光線、輕小說插畫">動畫風格立繪、賽璐璐上色、乾淨線條、柔和光線、輕小說插畫、半身胸像、簡單背景</textarea>
-      <label>角色描述（同一個人的特徵）</label>
-      <textarea id="char" class="small" placeholder="黑長髮、齊瀏海、灰色眼眸、鵝蛋臉、清冷疏離的氣質">黑長髮、齊瀏海、灰色眼眸、清冷疏離的少女</textarea>
+      <h2>🔒 畫風（自動記住·套在每張）</h2>
+      <textarea id="style" placeholder="動畫風格立繪、賽璐璐上色、乾淨線條、柔和光線、輕小說插畫">動畫風格立繪、賽璐璐上色、乾淨線條、柔和光線、輕小說插畫</textarea>
     </div>
 
     <div class="card">
@@ -55,106 +51,132 @@
       <div class="masterbox">
         <img id="masterThumb" alt="母圖">
         <div style="flex:1;">
-          <div id="masterState" class="muted">尚未設定母圖 → 現在是「全新生成」模式。</div>
-          <div class="row" style="margin:6px 0 0;">
-            <button class="mini" id="clearMaster" onclick="clearMaster()" style="display:none;">清除母圖</button>
-          </div>
+          <div id="masterState" class="muted">尚未設定母圖 → 現在是「捏新角色」模式。</div>
+          <div class="row" style="margin:6px 0 0;"><button class="mini" id="clearMaster" onclick="clearMaster()" style="display:none;">清除母圖</button></div>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <h2>✏️ 這次要生什麼 <span id="modeTag" class="mode fresh">全新生成</span></h2>
-      <div class="chips" id="exprChips">
-        <span class="chip" onclick="setExpr('中性平靜的表情')">😐 中性</span>
-        <span class="chip" onclick="setExpr('溫柔的微笑')">🙂 微笑</span>
-        <span class="chip" onclick="setExpr('臉頰泛紅、害羞的神情')">😳 害羞</span>
-        <span class="chip" onclick="setExpr('生氣、慍怒的表情')">😠 生氣</span>
-        <span class="chip" onclick="setExpr('眼眶泛淚、快哭的表情')">🥲 哭</span>
-        <span class="chip" onclick="setExpr('驚訝睜大眼睛')">😲 驚訝</span>
+      <h2>✏️ 捏角色 <span id="modeTag" class="mode fresh">全新生成</span></h2>
+
+      <div id="freshOpts">
+        <div class="grid2">
+          <div><label>年齡感</label><select id="s_age"></select></div>
+          <div><label>氣質</label><select id="s_vibe"></select></div>
+          <div><label>髮色</label><select id="s_haircolor"></select></div>
+          <div><label>髮型</label><select id="s_hairstyle"></select></div>
+          <div><label>眼睛</label><select id="s_eye"></select></div>
+          <div><label>衣著</label><select id="s_wear"></select></div>
+        </div>
+        <label>構圖（直式聚焦人物）</label><select id="s_size"></select>
       </div>
-      <textarea id="prompt" class="big" placeholder="描述這張要生什麼（母圖模式下＝要改成的表情/情境）">半身胸像，中性平靜的表情</textarea>
-      <label><input type="checkbox" id="full"> 用完整版（較貴較慢·品質更好）</label>
-      <div class="row">
-        <button class="go" id="go" onclick="gen()">生圖</button>
-        <button class="go" id="dice" onclick="randomChar()" style="background:#4a5a80;">🎲 隨機角色</button>
+
+      <div id="editOpts" style="display:none;">
+        <label>表情差分（點一下即填）</label>
+        <div class="chips">
+          <span class="chip" onclick="setExpr('中性平靜的表情')">😐 中性</span>
+          <span class="chip" onclick="setExpr('溫柔的微笑')">🙂 微笑</span>
+          <span class="chip" onclick="setExpr('臉頰泛紅、害羞的神情')">😳 害羞</span>
+          <span class="chip" onclick="setExpr('生氣、慍怒的表情')">😠 生氣</span>
+          <span class="chip" onclick="setExpr('眼眶泛淚、快哭的表情')">🥲 哭</span>
+          <span class="chip" onclick="setExpr('驚訝睜大眼睛')">😲 驚訝</span>
+        </div>
       </div>
-      <div class="muted" id="rolled" style="margin-top:2px;"></div>
+
+      <label>額外描述（可留空）</label>
+      <textarea id="prompt" placeholder="想補的細節，例如：戴著耳機／抱著一本書／窗邊逆光"></textarea>
+      <label style="margin-top:8px;"><input type="checkbox" id="full"> 用完整版（較貴較慢·品質更好）</label>
+      <div class="row"><button class="go" id="go" onclick="gen()">生圖</button></div>
+      <div class="muted" id="rolled"></div>
     </div>
 
     <div id="status"></div>
     <img id="img" alt="生成結果">
-    <div class="row" id="afterGen" style="display:none;">
-      <button class="mini" onclick="setAsMaster()">📌 把這張設為母圖</button>
-    </div>
+    <div class="row" id="afterGen" style="display:none;"><button class="mini" onclick="setAsMaster()">📌 把這張設為母圖</button></div>
     <div class="links" id="links"></div>
   </div>
 
   <script>
-    var masterDataUri = "";     // 記憶體中的母圖（不進 localStorage·太大）
-    var lastDataUri = "";       // 最近生成的一張
-    // 記住畫風/角色（小·可存 localStorage）
-    ['style','char'].forEach(function(id){
-      var el=document.getElementById(id);
-      var v=localStorage.getItem('imgtool_'+id); if(v!==null) el.value=v;
-      el.addEventListener('input',function(){ localStorage.setItem('imgtool_'+id, el.value); });
+    var masterDataUri = "", lastDataUri = "";
+    var RND = '🎲隨機';
+    // 每個下拉的選項（第一項固定是隨機）
+    var OPTS = {
+      s_age:      [RND,'高中少女感','大學生感','二十出頭青年','成熟輕熟女'],
+      s_vibe:     [RND,'清冷疏離','元氣開朗','文靜內向','慵懶隨性','溫柔沉靜','桀驁不馴','神秘難懂','冷豔成熟','天然呆','嬌小倔強'],
+      s_haircolor:[RND,'黑色','深棕','亞麻金','銀白','暗紅','淺紫','湛藍','霧灰','蜜茶','墨綠'],
+      s_hairstyle:[RND,'長直髮','大波浪長捲','雙馬尾','及肩短髮','單邊編髮','丸子頭','鮑伯頭','高馬尾','中長微捲'],
+      s_eye:      [RND,'灰','琥珀金','翠綠','深紫','酒紅','湛藍','淡粉','琥珀棕'],
+      s_wear:     [RND,'水手服','針織開衫配襯衫','素色連身洋裝','連帽外套','和服','西裝外套','蕾絲洋裝','大學T','襯衫配吊帶裙','毛衣圍巾']
+    };
+    // 構圖：值＝送進 prompt 的構圖句
+    var SIZES = [
+      ['直式 3:4・半身（推薦）','直式構圖 3:4、半身胸像、人物置中'],
+      ['直式 2:3・胸上特寫','直式構圖 2:3、胸上半身、人物置中'],
+      ['直式 9:16・全身','直式構圖 9:16、全身站姿、人物置中'],
+      ['方形 1:1','方形構圖 1:1、半身、人物置中']
+    ];
+    // 建下拉
+    Object.keys(OPTS).forEach(function(id){
+      var sel=document.getElementById(id);
+      OPTS[id].forEach(function(v){ var o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
     });
-    function setExpr(t){ document.getElementById('prompt').value = (masterDataUri? '' : '半身胸像，') + t; }
+    (function(){ var sel=document.getElementById('s_size');
+      SIZES.forEach(function(p){ var o=document.createElement('option'); o.value=p[1]; o.textContent=p[0]; sel.appendChild(o); }); })();
+
+    // 記住畫風
+    (function(){ var el=document.getElementById('style'); var v=localStorage.getItem('imgtool_style'); if(v!==null) el.value=v;
+      el.addEventListener('input',function(){ localStorage.setItem('imgtool_style', el.value); }); })();
+
+    function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
+    function val(id){ var v=document.getElementById(id).value; if(v===RND){ var pool=OPTS[id].slice(1); return pick(pool); } return v; }
+    function setExpr(t){ document.getElementById('prompt').value = t; }
+
     function refreshMode(){
-      var edit = !!masterDataUri;
+      var edit=!!masterDataUri;
       var tag=document.getElementById('modeTag');
-      tag.textContent = edit ? '照母圖生差分（鎖臉）' : '全新生成';
-      tag.className = 'mode ' + (edit?'edit':'fresh');
+      tag.textContent = edit?'照母圖生差分（鎖臉）':'全新生成';
+      tag.className='mode '+(edit?'edit':'fresh');
+      document.getElementById('freshOpts').style.display = edit?'none':'block';
+      document.getElementById('editOpts').style.display = edit?'block':'none';
       document.getElementById('masterState').textContent = edit
-        ? '✅ 已設母圖 → 現在會照它生差分（保持同一張臉，只改表情/情境）。'
-        : '尚未設定母圖 → 現在是「全新生成」模式。';
-      document.getElementById('clearMaster').style.display = edit ? 'inline-block' : 'none';
+        ? '✅ 已設母圖 → 現在生表情差分（保持同一張臉，只改表情/情境）。'
+        : '尚未設定母圖 → 現在是「捏新角色」模式。';
+      document.getElementById('clearMaster').style.display = edit?'inline-block':'none';
       var mt=document.getElementById('masterThumb');
       if(edit){ mt.src=masterDataUri; mt.style.display='block'; } else mt.style.display='none';
     }
-    function setAsMaster(){ if(lastDataUri){ masterDataUri=lastDataUri; refreshMode(); setStatus('已設為母圖 ✅ 之後生圖會鎖這張臉。'); } }
-    function clearMaster(){ masterDataUri=''; refreshMode(); setStatus('已清除母圖 → 回到全新生成。'); }
+    function setAsMaster(){ if(lastDataUri){ masterDataUri=lastDataUri; refreshMode(); setStatus('已設為母圖 ✅ 之後生圖鎖這張臉。'); } }
+    function clearMaster(){ masterDataUri=''; refreshMode(); setStatus('已清除母圖 → 回到捏新角色。'); }
 
-    function gen() {
-      var userP = document.getElementById('prompt').value.trim();
-      if(!userP){ setStatus('請先描述要生什麼。', true); return; }
+    function gen(){
       var style=document.getElementById('style').value.trim();
-      var chr=document.getElementById('char').value.trim();
+      var extra=document.getElementById('prompt').value.trim();
       var finalP, ref;
       if(masterDataUri){
-        finalP = '【保持參考圖裡同一個角色，臉孔、髮型、五官特徵完全不變】，只改變為：' + userP + (style? '，' + style : '');
-        ref = masterDataUri;
+        if(!extra){ setStatus('母圖模式：點一個表情、或打要改成什麼。', true); return; }
+        finalP='【保持參考圖裡同一個角色，臉孔、髮型、五官特徵完全不變】，只改變為：'+extra+(style?'，'+style:'');
+        ref=masterDataUri;
+        document.getElementById('rolled').textContent='';
       } else {
-        finalP = (chr? chr + '，' : '') + userP + (style? '，' + style : '');
-        ref = '';
+        var age=val('s_age'), vibe=val('s_vibe'), hc=val('s_haircolor'), hs=val('s_hairstyle'), eye=val('s_eye'), wear=val('s_wear');
+        var size=document.getElementById('s_size').value;
+        var desc=age+'、'+hc+hs+'、'+eye+'色眼眸、'+vibe+'氣質的少女，穿'+wear+(extra?'，'+extra:'')+'，'+size+'、聚焦人物、簡單乾淨背景';
+        document.getElementById('rolled').textContent='🎲 '+desc;
+        finalP=desc+(style?'，'+style:''); ref='';
       }
       runGen(finalP, ref);
     }
 
-    // 🎲 隨機角色：骰一個全新女孩找靈感（不吃母圖、不吃角色鎖·純新臉）。
-    var R_HAIR = ['黑長直髮','深棕大波浪','亞麻金雙馬尾','銀白及肩短髮','暗紅色單邊編髮','淺紫色丸子頭','湛藍色鮑伯頭','霧灰色長捲髮','蜜茶色微捲中長髮','墨綠色高馬尾'];
-    var R_EYE  = ['灰','琥珀金','翠綠','深紫','酒紅','湛藍','淡粉','琥珀棕'];
-    var R_VIBE = ['清冷疏離','元氣開朗','文靜內向','慵懶隨性','溫柔沉靜','桀驁不馴','神秘難懂','冷豔成熟','天然呆','嬌小倔強'];
-    var R_WEAR = ['水手服','針織開衫配襯衫','素色連身洋裝','連帽外套','和服','西裝外套','蕾絲洋裝','大學T','襯衫配吊帶裙','毛衣圍巾'];
-    function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
-    function randomChar(){
-      var style=document.getElementById('style').value.trim();
-      var hair=pick(R_HAIR), eye=pick(R_EYE), vibe=pick(R_VIBE), wear=pick(R_WEAR);
-      var desc = hair+'、'+eye+'色眼眸、'+vibe+'氣質的少女，穿'+wear+'，半身胸像';
-      document.getElementById('rolled').textContent = '🎲 ' + desc;
-      var finalP = desc + (style? '，'+style : '');
-      runGen(finalP, ''); // 隨機一律全新生成
-    }
-
     function runGen(finalP, ref){
-      document.getElementById('go').disabled=true; document.getElementById('dice').disabled=true;
+      document.getElementById('go').disabled=true;
       document.getElementById('img').style.display='none';
       document.getElementById('afterGen').style.display='none';
       document.getElementById('links').innerHTML='';
       setStatus('生成中…（5~15 秒，別關頁面）');
       google.script.run
         .withSuccessHandler(function(r){
-          document.getElementById('go').disabled=false; document.getElementById('dice').disabled=false;
+          document.getElementById('go').disabled=false;
           if(!r||!r.ok){ setStatus('失敗：'+((r&&r.err)||'未知')+(r&&r.raw?'\n\n【回應片段】'+r.raw:''), true); return; }
           lastDataUri=r.dataUri;
           var img=document.getElementById('img'); img.src=r.dataUri; img.style.display='block';
@@ -165,8 +187,8 @@
           if(r.sheetUrl) links.push('<a href="'+r.sheetUrl+'" target="_blank">📊 試算表</a>');
           document.getElementById('links').innerHTML=links.join(' ｜ ');
         })
-        .withFailureHandler(function(e){ document.getElementById('go').disabled=false; document.getElementById('dice').disabled=false; setStatus('連線失敗：'+(e&&e.message?e.message:e), true); })
-        .imageTestGenerate(finalP, document.getElementById('full').checked, ref || "");
+        .withFailureHandler(function(e){ document.getElementById('go').disabled=false; setStatus('連線失敗：'+(e&&e.message?e.message:e), true); })
+        .imageTestGenerate(finalP, document.getElementById('full').checked, ref||"");
     }
     function setStatus(t,isErr){ var s=document.getElementById('status'); s.textContent=t; s.className=isErr?'err':''; }
     refreshMode();
