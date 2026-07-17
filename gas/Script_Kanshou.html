@@ -690,7 +690,7 @@ let plainTextContext = cleanText;
     if (!ev) return '';
     var hitNow = ev.bands.indexOf(curBand) !== -1;
     var bandsTxt = ev.bands.map(function (b) { return KC_BAND_SHORT_[b] || b; }).join('/');
-    var tip = ev.icon + ev.name + '·' + bandsTxt + (ev.needCohabit ? '(需同居)' : '') + '——她在場時會跳邀請';
+    var tip = ev.icon + ev.name + '·' + bandsTxt + (ev.needCohabit ? '(需同居)' : '') + '——她在場時會跳邀請(每位同伴每天限一次特別橋段，今天已跟她玩過別的橋段就要等明天)';
     var style = hitNow
       ? 'background:rgba(224,160,188,.22);border:1px solid #c07090;color:#f0c0d4;'
       : 'background:rgba(120,110,90,.14);border:1px solid #4a4438;color:#9a8f78;';

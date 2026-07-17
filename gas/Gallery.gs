@@ -2250,7 +2250,7 @@ function actionPlay(userData, pcId, sheets) {
   // 🤝 牽手中·常駐氛圍：牽的對象此刻真的同地在場才提示(被時間推進骰走就不提)。這回合剛牽/放手
   //   的當下演出走 kanshouHandHoldStr，這條是「牽著手的後續回合」持續帶出親密感。
   const kanshouHoldingStr = (kanshouHeldName_ && partyMembers.some(n => kanshouNameCandidates_(String(n)).includes(kanshouHeldName_)) && !(userData.handHold))
-    ? `\n★【牽手中】：你此刻正牽著『${kanshouHeldName_}』的手一起行動——敘事自然帶出這份肢體相連的親密感(交握的溫度、並肩的距離)，她的神態舉止也反映著被你牽著手，其他在場的人也看得見你倆牽著手。`
+    ? `\n★【牽手中·背景資訊·別過度著墨】：你和『${kanshouHeldName_}』正牽著手一起行動——她【此刻就在你身邊、和你同處一地】，是牽著你的手一起走過來/一起待在這裡的，【絕不是】在別處等你、也【不會】說「你怎麼跑進來了」「說好在○○等你」這種把你倆講成分處兩地的話。★這份牽手只是【低調的背景親密】，【不必每回合都描寫交握的手】——偶爾在情境合適時輕輕帶一筆即可，別讓每一段敘事都圍著「握著的手／指尖的溫度」打轉，重心放在當下真正在發生的互動與對話。`
     : "";
 
   // 📷 拍照(takePhoto)：先驗底片/容量——通過才餵拍照提示＋要求AI多吐photo_caption；

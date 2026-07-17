@@ -135,7 +135,7 @@
 - 🎛️ **AI 主動提議通則**（move/promise/cohabit_proposal 共用）：都是「意圖非結果」，narration 停在她開口的當下、由玩家按泡泡決定；三種提議同回合互斥（有 moveProposal 就不浮 promise/cohabit，避免泡泡打架）。
 - **拜訪私宅**：好感≥`KANSHOU_VISIT_BOND_ = 40`（熟識朋友切點）才解鎖登門（`kanshouResidenceUnlocked_`）。
 - **巧遇**：`kanshouToggleEncounter_` 開關；女性保底池 `KANSHOU_ENCOUNTER_FEMALE_IDS_`；結識 `kanshouAcceptInvite`（`inviteResident`）。
-- **牽手**：`kanshouHoldHand`/`kanshouReleaseHand`（單獨約會氛圍，`【牽手】` 存玩家列·值＝她的短名）。**生命週期不變式**（2026-07 玩家實測補齊）：① 跳時間重骰**豁免**牽手對象（不會憑空消失）；② 每回合算 `kanshouHeldName_` 時驗「她真的在場」——不同地點自動放手清標記（根治「隔空牽手/重逢自動牽手」）；③ `endDay` 睡覺一律放手；④ 對象名一律走 `kanshouNameCandidates_` 比對（別名/大小寫都認得）。
+- **牽手**：`kanshouHoldHand`/`kanshouReleaseHand`（單獨約會氛圍，`【牽手】` 存玩家列·值＝她的短名）。⚠ **2026-07 玩家「牽手太用力·每次都提·地理錯亂」重寫 `kanshouHoldingStr`**：舊版每回合強推「交握的溫度／並肩距離／別人也看得見」＝AI 每回合死抓著手講；且沒斷言「她此刻與你同處」＝AI 腦補成「她在○○等你、你跑進來」（明明牽著手寸步不離）。新版＝**背景資訊·別過度著墨**（偶爾輕帶一筆、重心放當下互動）＋明確斷言「她就在你身邊、和你同處一地、絕非在別處等你」。**生命週期不變式**（2026-07 玩家實測補齊）：① 跳時間重骰**豁免**牽手對象（不會憑空消失）；② 每回合算 `kanshouHeldName_` 時驗「她真的在場」——不同地點自動放手清標記（根治「隔空牽手/重逢自動牽手」）；③ `endDay` 睡覺一律放手；④ 對象名一律走 `kanshouNameCandidates_` 比對（別名/大小寫都認得）。
 
 ---
 
