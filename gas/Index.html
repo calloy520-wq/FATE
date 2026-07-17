@@ -5,216 +5,192 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <style>
-    * { box-sizing: border-box; }
-    body { margin:0; min-height:100vh; background:#14121a; color:#e8e0f0;
-      font-family:system-ui,'Noto Sans TC',sans-serif; padding:16px; }
-    .wrap { max-width:560px; margin:0 auto; }
-    h1 { font-size:18px; letter-spacing:1px; margin:2px 0; }
-    .sub { font-size:12px; color:#8a80a0; margin-bottom:14px; }
-    .card { background:#1b1826; border:1px solid #2f2940; border-radius:12px; padding:12px; margin-bottom:12px; }
-    .card h2 { font-size:13px; color:#c0a8d8; margin:0 0 8px; letter-spacing:1px; }
-    label { font-size:12px; color:#a89ac0; display:block; margin:6px 0 3px; }
-    textarea, input[type=text], select { width:100%; background:#0f0d16; color:#e8e0f0; border:1px solid #3a3348;
-      border-radius:8px; padding:9px; font-size:14px; }
-    textarea { resize:vertical; min-height:44px; }
-    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px 10px; }
-    .chips { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0; }
-    .chip { padding:6px 11px; border-radius:16px; background:#2a2338; color:#d8c8e8; border:1px solid #4a3f5a; font-size:13px; cursor:pointer; }
-    .row { display:flex; gap:8px; align-items:center; margin:10px 0; flex-wrap:wrap; }
-    button.go { flex:1; min-width:130px; padding:13px; border:none; border-radius:10px; cursor:pointer; background:#6a4a80; color:#f2e2fa; font-size:15px; font-weight:bold; }
-    button.go:disabled { opacity:.5; }
-    button.mini { padding:7px 12px; border:none; border-radius:8px; cursor:pointer; background:#3a3050; color:#d8c8e8; font-size:12.5px; }
-    #status { font-size:13px; color:#a89ac0; margin:8px 0; min-height:16px; white-space:pre-wrap; }
-    #img { width:100%; border-radius:12px; margin-top:6px; display:none; }
-    .masterbox { display:flex; gap:10px; align-items:center; }
-    #masterThumb { width:64px; height:64px; object-fit:cover; border-radius:8px; border:1px solid #5a4a6a; display:none; }
-    .muted { font-size:11.5px; color:#7a7488; }
-    .links { font-size:12px; margin-top:8px; } .links a { color:#a8c8f0; }
-    .err { color:#e0a0b0; }
-    .mode { font-size:12px; padding:3px 9px; border-radius:12px; display:inline-block; }
-    .mode.edit { background:rgba(120,200,140,.15); color:#a8e0b8; border:1px solid #4a8a5a; }
-    .mode.fresh { background:rgba(160,160,200,.12); color:#b0b0d0; border:1px solid #4a4a6a; }
+    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    body { margin:0; background:#12131a; color:#e8e6f0; font-family:system-ui,'Noto Sans TC',sans-serif; padding:10px; }
+    .wrap { max-width:480px; margin:0 auto; }
+    h1 { font-size:16px; margin:2px 0 6px; letter-spacing:1px; }
+    #bar { display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-bottom:6px; }
+    #phase { font-weight:bold; }
+    #board { display:grid; gap:2px; background:#0c0d12; padding:2px; border-radius:6px; touch-action:manipulation; }
+    .cell { position:relative; aspect-ratio:1/1; background:#20222e; border-radius:3px; display:flex; align-items:center; justify-content:center; font-size:min(5vw,22px); cursor:pointer; user-select:none; }
+    .cell.forest { background:#1e3226; }
+    .cell.rock { background:#2c2c34; cursor:default; }
+    .cell.mv { box-shadow:inset 0 0 0 2px #4a7ad0; background:#243046; }
+    .cell.atk { box-shadow:inset 0 0 0 2px #d05a5a; background:#3a2430; }
+    .cell.sel { box-shadow:inset 0 0 0 2px #e0c060; }
+    .hp { position:absolute; left:2px; right:2px; bottom:2px; height:3px; background:#511; border-radius:2px; overflow:hidden; }
+    .hp > i { display:block; height:100%; background:#4ad06a; }
+    .hp.enemy > i { background:#d05a5a; }
+    #log { font-size:12.5px; color:#b8b0c8; min-height:34px; margin:8px 0; line-height:1.5; }
+    .btns { display:flex; gap:8px; }
+    button { flex:1; padding:11px; border:none; border-radius:9px; background:#3a3450; color:#e8e0f5; font-size:14px; font-weight:bold; cursor:pointer; }
+    button.primary { background:#5a4a80; }
+    button:disabled { opacity:.45; }
+    #over { position:fixed; inset:0; background:rgba(0,0,0,.7); display:none; align-items:center; justify-content:center; }
+    #over .box { background:#1c1a28; border:1px solid #4a3f6a; border-radius:14px; padding:22px 26px; text-align:center; }
+    #over h2 { margin:0 0 12px; font-size:22px; }
+    .tip { font-size:11.5px; color:#7d7893; margin-top:6px; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>🎨 立繪工坊</h1>
-    <div class="sub">下拉留在「🎲隨機」＝每按一次都換人（找靈感）；想鎖某項就選固定值。滿意就設母圖，之後生表情差分。</div>
-
-    <div class="card">
-      <h2>🔒 畫風（自動記住·套在每張）</h2>
-      <textarea id="style" placeholder="動畫風格立繪、賽璐璐上色、乾淨線條、柔和光線、輕小說插畫">動畫風格立繪、賽璐璐上色、乾淨線條、柔和光線、輕小說插畫</textarea>
+    <h1>⚔️ 戰術戰棋 <span style="font-size:11px;color:#7d7893;">— 原型 v0.1</span></h1>
+    <div id="bar">
+      <span id="phase"></span>
+      <span id="counts"></span>
     </div>
-
-    <div class="card">
-      <h2>👤 母圖</h2>
-      <div class="masterbox">
-        <img id="masterThumb" alt="母圖">
-        <div style="flex:1;">
-          <div id="masterState" class="muted">尚未設定母圖 → 現在是「捏新角色」模式。</div>
-          <div class="row" style="margin:6px 0 0;"><button class="mini" id="clearMaster" onclick="clearMaster()" style="display:none;">清除母圖</button></div>
-        </div>
-      </div>
+    <div id="board"></div>
+    <div id="log">點自己的單位 → 藍格移動 → 紅框敵人攻擊。</div>
+    <div class="btns">
+      <button id="endBtn" class="primary" onclick="endTurn()">結束我方回合</button>
+      <button onclick="resetGame()">重來</button>
     </div>
-
-    <div class="card">
-      <h2>✏️ 捏角色 <span id="modeTag" class="mode fresh">全新生成</span></h2>
-
-      <div id="freshOpts">
-        <div class="grid2">
-          <div><label>年齡感</label><select id="s_age"></select></div>
-          <div><label>氣質</label><select id="s_vibe"></select></div>
-          <div><label>髮色</label><select id="s_haircolor"></select></div>
-          <div><label>髮型</label><select id="s_hairstyle"></select></div>
-          <div><label>眼睛</label><select id="s_eye"></select></div>
-          <div><label>衣著</label><select id="s_wear"></select></div>
-        </div>
-        <label>構圖（直式聚焦人物）</label><select id="s_size"></select>
-      </div>
-
-      <div id="editOpts" style="display:none;">
-        <label>表情差分（點一下即填）</label>
-        <div class="chips" id="exprChips"></div>
-      </div>
-
-      <label>額外描述（可留空）</label>
-      <textarea id="prompt" placeholder="想補的細節，例如：戴著耳機／抱著一本書／窗邊逆光"></textarea>
-      <label style="margin-top:8px;"><input type="checkbox" id="full"> 用完整版（較貴較慢·品質更好）</label>
-      <div class="row"><button class="go" id="go" onclick="gen()">生圖</button></div>
-      <div class="muted" id="rolled"></div>
-    </div>
-
-    <div id="status"></div>
-    <img id="img" alt="生成結果">
-    <div class="row" id="afterGen" style="display:none;"><button class="mini" onclick="setAsMaster()">📌 把這張設為母圖</button></div>
-    <div class="links" id="links"></div>
+    <div class="tip">綠=我方 ⚔️劍士 🏹弓兵　紅=敵 👹　🌲森林+2防　⬛岩石擋路。弓兵射程2、近身不會被反擊。</div>
   </div>
 
+  <div id="over"><div class="box"><h2 id="overT"></h2><button class="primary" onclick="resetGame()">再玩一場</button></div></div>
+
   <script>
-    var masterDataUri = "", lastDataUri = "";
-    var RND = '🎲隨機';
-    // 每個下拉的選項（第一項固定是隨機）
-    var OPTS = {
-      s_age:      [RND,'高中少女感','大學生感','二十出頭青年','成熟輕熟女'],
-      s_vibe:     [RND,'清冷疏離','元氣開朗','文靜內向','慵懶隨性','溫柔沉靜','桀驁不馴','神秘難懂','冷豔成熟','天然呆','嬌小倔強'],
-      s_haircolor:[RND,'黑色','深棕','亞麻金','銀白','暗紅','淺紫','湛藍','霧灰','蜜茶','墨綠'],
-      s_hairstyle:[RND,'長直髮','大波浪長捲','雙馬尾','及肩短髮','單邊編髮','丸子頭','鮑伯頭','高馬尾','中長微捲'],
-      s_eye:      [RND,'灰','琥珀金','翠綠','深紫','酒紅','湛藍','淡粉','琥珀棕'],
-      s_wear:     [RND,'水手服','針織開衫配襯衫','素色連身洋裝','連帽外套','和服','西裝外套','蕾絲洋裝','大學T','襯衫配吊帶裙','毛衣圍巾']
-    };
-    // 構圖：值＝送進 prompt 的構圖句
-    var SIZES = [
-      ['直式 3:4・半身（推薦）','直式構圖 3:4、半身胸像、人物置中'],
-      ['直式 2:3・胸上特寫','直式構圖 2:3、胸上半身、人物置中'],
-      ['直式 9:16・全身','直式構圖 9:16、全身站姿、人物置中'],
-      ['方形 1:1','方形構圖 1:1、半身、人物置中']
-    ];
-    // 建下拉
-    Object.keys(OPTS).forEach(function(id){
-      var sel=document.getElementById(id);
-      OPTS[id].forEach(function(v){ var o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
-    });
-    (function(){ var sel=document.getElementById('s_size');
-      SIZES.forEach(function(p){ var o=document.createElement('option'); o.value=p[1]; o.textContent=p[0]; sel.appendChild(o); }); })();
+    var W=8, H=8;
+    var terrain=[], units=[], phase='player', turn=1;
+    var sel=null, moveTiles=[], atkTiles=[], stage='pick'; // pick→(選單位) move→(已選單位待移) act→(已移動待攻擊)
 
-    // 表情差分快選（約會 VN 情緒光譜·點一下填進描述框）
-    var EXPRS = [
-      ['😐','中性','中性平靜的表情'],
-      ['🙂','微笑','溫柔的微笑'],
-      ['😊','燦笑','開心燦爛的笑容'],
-      ['😆','大笑','開懷大笑、瞇起眼'],
-      ['😏','壞笑','得意揶揄的壞笑'],
-      ['😌','溫柔','溫柔放鬆、半垂眼'],
-      ['🥰','心動','含情脈脈、心動的眼神'],
-      ['😍','迷戀','迷戀陶醉的深情凝視'],
-      ['😳','害羞','臉頰泛紅、害羞的神情'],
-      ['🫣','遮臉','害臊得抬手半遮臉'],
-      ['😤','傲嬌','別過臉、賭氣鼓臉頰的傲嬌'],
-      ['🥺','撒嬌','撒嬌、可憐兮兮的請求眼神'],
-      ['😠','生氣','生氣、慍怒的表情'],
-      ['😖','委屈','委屈嘟嘴、眼眶泛紅'],
-      ['🥲','強忍','強忍淚水的微笑'],
-      ['😢','落寞','落寞難過、垂眸'],
-      ['😭','大哭','崩潰大哭、淚流滿面'],
-      ['😲','驚訝','驚訝睜大眼睛'],
-      ['🤨','疑惑','疑惑挑眉、歪頭'],
-      ['😴','想睡','睡眼惺忪、慵懶想睡'],
-      ['😪','睡顏','閉眼、安詳的睡顏'],
-      ['😳','情動','情動嬌羞、呼吸微亂、眼神迷濛'],
-      ['😌','陶醉','陶醉微醺、雙頰潮紅']
-    ];
-    (function(){ var box=document.getElementById('exprChips');
-      EXPRS.forEach(function(e){ var s=document.createElement('span'); s.className='chip'; s.textContent=e[0]+' '+e[1];
-        s.onclick=function(){ setExpr(e[2]); }; box.appendChild(s); }); })();
-
-    // 記住畫風
-    (function(){ var el=document.getElementById('style'); var v=localStorage.getItem('imgtool_style'); if(v!==null) el.value=v;
-      el.addEventListener('input',function(){ localStorage.setItem('imgtool_style', el.value); }); })();
-
-    function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
-    function val(id){ var v=document.getElementById(id).value; if(v===RND){ var pool=OPTS[id].slice(1); return pick(pool); } return v; }
-    function setExpr(t){ document.getElementById('prompt').value = t; }
-
-    function refreshMode(){
-      var edit=!!masterDataUri;
-      var tag=document.getElementById('modeTag');
-      tag.textContent = edit?'照母圖生差分（鎖臉）':'全新生成';
-      tag.className='mode '+(edit?'edit':'fresh');
-      document.getElementById('freshOpts').style.display = edit?'none':'block';
-      document.getElementById('editOpts').style.display = edit?'block':'none';
-      document.getElementById('masterState').textContent = edit
-        ? '✅ 已設母圖 → 現在生表情差分（保持同一張臉，只改表情/情境）。'
-        : '尚未設定母圖 → 現在是「捏新角色」模式。';
-      document.getElementById('clearMaster').style.display = edit?'inline-block':'none';
-      var mt=document.getElementById('masterThumb');
-      if(edit){ mt.src=masterDataUri; mt.style.display='block'; } else mt.style.display='none';
+    function baseUnit(o){ o.maxhp=o.hp; o.acted=false; o.alive=true; return o; }
+    function freshState(){
+      terrain=[]; for(var y=0;y<H;y++){ var r=[]; for(var x=0;x<W;x++) r.push(0); terrain.push(r); }
+      // 地形：森林(1·+2防)、岩石(2·擋路)
+      [[3,3],[4,3],[3,4],[5,5]].forEach(function(p){ terrain[p[1]][p[0]]=1; });
+      [[2,4],[5,3],[4,5]].forEach(function(p){ terrain[p[1]][p[0]]=2; });
+      units=[
+        baseUnit({id:'a1',name:'劍士',emoji:'⚔️',side:'ally', x:1,y:6, hp:22,atk:9,def:5,mov:4,rng:1}),
+        baseUnit({id:'a2',name:'弓兵',emoji:'🏹',side:'ally', x:2,y:7, hp:16,atk:8,def:2,mov:4,rng:2}),
+        baseUnit({id:'e1',name:'兵',emoji:'👹',side:'enemy', x:6,y:1, hp:18,atk:7,def:3,mov:3,rng:1}),
+        baseUnit({id:'e2',name:'兵',emoji:'👹',side:'enemy', x:7,y:2, hp:18,atk:7,def:3,mov:3,rng:1}),
+        baseUnit({id:'e3',name:'弓',emoji:'🏹',side:'enemy', x:6,y:3, hp:14,atk:8,def:2,mov:3,rng:2})
+      ];
+      phase='player'; turn=1; sel=null; moveTiles=[]; atkTiles=[]; stage='pick';
     }
-    function setAsMaster(){ if(lastDataUri){ masterDataUri=lastDataUri; refreshMode(); setStatus('已設為母圖 ✅ 之後生圖鎖這張臉。'); } }
-    function clearMaster(){ masterDataUri=''; refreshMode(); setStatus('已清除母圖 → 回到捏新角色。'); }
 
-    function gen(){
-      var style=document.getElementById('style').value.trim();
-      var extra=document.getElementById('prompt').value.trim();
-      var finalP, ref;
-      if(masterDataUri){
-        if(!extra){ setStatus('母圖模式：點一個表情、或打要改成什麼。', true); return; }
-        finalP='【保持參考圖裡同一個角色，臉孔、髮型、五官特徵完全不變】，只改變為：'+extra+(style?'，'+style:'');
-        ref=masterDataUri;
-        document.getElementById('rolled').textContent='';
-      } else {
-        var age=val('s_age'), vibe=val('s_vibe'), hc=val('s_haircolor'), hs=val('s_hairstyle'), eye=val('s_eye'), wear=val('s_wear');
-        var size=document.getElementById('s_size').value;
-        var desc=age+'、'+hc+hs+'、'+eye+'色眼眸、'+vibe+'氣質的少女，穿'+wear+(extra?'，'+extra:'')+'，'+size+'、聚焦人物、簡單乾淨背景';
-        document.getElementById('rolled').textContent='🎲 '+desc;
-        finalP=desc+(style?'，'+style:''); ref='';
+    function unitAt(x,y){ for(var i=0;i<units.length;i++){ var u=units[i]; if(u.alive&&u.x===x&&u.y===y) return u; } return null; }
+    function inB(x,y){ return x>=0&&x<W&&y>=0&&y<H; }
+    function dist(a,b){ return Math.abs(a.x-b.x)+Math.abs(a.y-b.y); }
+    function defBonus(x,y){ return terrain[y][x]===1?2:0; }
+
+    // BFS 可移動格（不能穿人、岩石·不能停在有人格）
+    function reachable(u){
+      var cost={}, key=function(x,y){return x+','+y;};
+      cost[key(u.x,u.y)]=0; var q=[[u.x,u.y]], res=[];
+      while(q.length){ var c=q.shift(), cx=c[0], cy=c[1], cc=cost[key(cx,cy)];
+        [[0,1],[0,-1],[1,0],[-1,0]].forEach(function(d){
+          var nx=cx+d[0], ny=cy+d[1]; if(!inB(nx,ny)) return;
+          if(terrain[ny][nx]===2) return;                // 岩石擋
+          var oc=unitAt(nx,ny); if(oc && oc.side!==u.side) return; // 敵擋路
+          var nc=cc+1; if(nc>u.mov) return;
+          if(cost[key(nx,ny)]===undefined || nc<cost[key(nx,ny)]){ cost[key(nx,ny)]=nc; q.push([nx,ny]); }
+        });
       }
-      runGen(finalP, ref);
+      for(var k in cost){ var p=k.split(',').map(Number); if(k===key(u.x,u.y)) continue; if(unitAt(p[0],p[1])) continue; res.push({x:p[0],y:p[1]}); }
+      res.push({x:u.x,y:u.y}); // 原地不動也算可選
+      return res;
+    }
+    // 從 (x,y) 能攻擊的敵人
+    function targetsFrom(u,x,y){ var t=[]; units.forEach(function(o){ if(o.alive&&o.side!==u.side){ var d=Math.abs(o.x-x)+Math.abs(o.y-y); if(d>=1&&d<=u.rng) t.push(o); } }); return t; }
+
+    function attack(att,def){
+      var dmg=Math.max(1, att.atk-(def.def+defBonus(def.x,def.y)));
+      def.hp-=dmg; var msg=att.emoji+att.name+' → '+def.emoji+def.name+' 造成 '+dmg+' 傷害。';
+      if(def.hp<=0){ def.hp=0; def.alive=false; msg+=' '+def.emoji+'倒下！'; }
+      else { // 反擊：被攻者存活且攻擊者在其射程內
+        var d=dist(att,def); if(d>=1&&d<=def.rng){ var c=Math.max(1, def.def>=0?(def.atk-(att.def+defBonus(att.x,att.y))):1); att.hp-=c; msg+=' 反擊 '+c+'。'; if(att.hp<=0){ att.hp=0; att.alive=false; msg+=' '+att.emoji+'倒下！'; } }
+      }
+      log(msg);
     }
 
-    function runGen(finalP, ref){
-      document.getElementById('go').disabled=true;
-      document.getElementById('img').style.display='none';
-      document.getElementById('afterGen').style.display='none';
-      document.getElementById('links').innerHTML='';
-      setStatus('生成中…（5~15 秒，別關頁面）');
-      google.script.run
-        .withSuccessHandler(function(r){
-          document.getElementById('go').disabled=false;
-          if(!r||!r.ok){ setStatus('失敗：'+((r&&r.err)||'未知')+(r&&r.raw?'\n\n【回應片段】'+r.raw:''), true); return; }
-          lastDataUri=r.dataUri;
-          var img=document.getElementById('img'); img.src=r.dataUri; img.style.display='block';
-          document.getElementById('afterGen').style.display='flex';
-          var msg='✅ 生成成功。'; if(r.storeErr) msg+='（圖已顯示，存檔小問題：'+r.storeErr+'）';
-          setStatus(msg);
-          var links=[]; if(r.driveUrl) links.push('<a href="'+r.driveUrl+'" target="_blank">📁 Drive</a>');
-          if(r.sheetUrl) links.push('<a href="'+r.sheetUrl+'" target="_blank">📊 試算表</a>');
-          document.getElementById('links').innerHTML=links.join(' ｜ ');
-        })
-        .withFailureHandler(function(e){ document.getElementById('go').disabled=false; setStatus('連線失敗：'+(e&&e.message?e.message:e), true); })
-        .imageTestGenerate(finalP, document.getElementById('full').checked, ref||"");
+    function render(){
+      var b=document.getElementById('board'); b.style.gridTemplateColumns='repeat('+W+',1fr)';
+      var mv={}, at={}; moveTiles.forEach(function(t){mv[t.x+','+t.y]=1;}); atkTiles.forEach(function(t){at[t.x+','+t.y]=1;});
+      var html='';
+      for(var y=0;y<H;y++) for(var x=0;x<W;x++){
+        var cls='cell'; if(terrain[y][x]===1) cls+=' forest'; if(terrain[y][x]===2) cls+=' rock';
+        if(mv[x+','+y]) cls+=' mv'; if(at[x+','+y]) cls+=' atk';
+        if(sel&&sel.x===x&&sel.y===y) cls+=' sel';
+        var u=unitAt(x,y), inner='';
+        if(u){ inner=u.emoji+'<div class="hp'+(u.side==='enemy'?' enemy':'')+'"><i style="width:'+Math.round(u.hp/u.maxhp*100)+'%"></i></div>'; }
+        else if(terrain[y][x]===1) inner='🌲'; else if(terrain[y][x]===2) inner='⬛';
+        html+='<div class="'+cls+'" onclick="tap('+x+','+y+')">'+inner+'</div>';
+      }
+      b.innerHTML=html;
+      document.getElementById('phase').textContent=(phase==='player'?'🟢 我方回合':'🔴 敵方回合')+'　第 '+turn+' 回';
+      var al=units.filter(function(u){return u.alive&&u.side==='ally';}).length;
+      var en=units.filter(function(u){return u.alive&&u.side==='enemy';}).length;
+      document.getElementById('counts').textContent='我 '+al+' / 敵 '+en;
+      document.getElementById('endBtn').disabled=(phase!=='player');
     }
-    function setStatus(t,isErr){ var s=document.getElementById('status'); s.textContent=t; s.className=isErr?'err':''; }
-    refreshMode();
+    function log(t){ document.getElementById('log').textContent=t; }
+
+    function tap(x,y){
+      if(phase!=='player') return;
+      var u=unitAt(x,y);
+      if(stage==='pick'){
+        if(u&&u.side==='ally'&&!u.acted){ sel=u; moveTiles=reachable(u); atkTiles=[]; stage='move'; log(u.name+'：選藍格移動（或點自己原地不動）。'); render(); }
+        else if(u&&u.side==='ally'&&u.acted) log(u.name+' 這回合已行動過了。');
+        return;
+      }
+      if(stage==='move'){
+        var ok=moveTiles.some(function(t){return t.x===x&&t.y===y;});
+        if(ok && !unitAt(x,y)){ sel.x=x; sel.y=y; }           // 移動
+        else if(!(x===sel.x&&y===sel.y)){                     // 點別處＝取消
+          if(!(u&&u.side==='ally'&&!u.acted)){ sel=null; moveTiles=[]; stage='pick'; log('取消。'); render(); return; }
+          else { sel=u; moveTiles=reachable(u); stage='move'; render(); return; }
+        }
+        // 抵達後：算可攻擊目標
+        var tg=targetsFrom(sel,sel.x,sel.y);
+        moveTiles=[]; atkTiles=tg.map(function(o){return {x:o.x,y:o.y};}); stage='act';
+        if(tg.length) log('點紅框敵人攻擊，或點自己原地待命。');
+        else { sel.acted=true; sel=null; atkTiles=[]; stage='pick'; log('待命。'); checkEnd(); }
+        render(); return;
+      }
+      if(stage==='act'){
+        var tgt=unitAt(x,y);
+        if(tgt&&tgt.side==='enemy'&&atkTiles.some(function(t){return t.x===x&&t.y===y;})){ attack(sel,tgt); sel.acted=true; sel=null; atkTiles=[]; stage='pick'; render(); checkEnd(); return; }
+        if(sel&&x===sel.x&&y===sel.y){ sel.acted=true; sel=null; atkTiles=[]; stage='pick'; log('待命。'); render(); checkEnd(); return; }
+      }
+    }
+
+    function endTurn(){
+      if(phase!=='player') return;
+      phase='enemy'; sel=null; moveTiles=[]; atkTiles=[]; stage='pick'; render();
+      setTimeout(enemyStep, 500);
+    }
+    function enemyStep(){
+      var e=units.find(function(u){return u.alive&&u.side==='enemy'&&!u.acted;});
+      if(!e){ // 敵方結束→我方
+        units.forEach(function(u){u.acted=false;}); phase='player'; turn++; stage='pick'; render(); return;
+      }
+      // 找最近我方
+      var allies=units.filter(function(u){return u.alive&&u.side==='ally';});
+      if(!allies.length){ e.acted=true; return enemyStep(); }
+      var reach=reachable(e);
+      // 能攻擊的落點：任一落點的射程內有我方
+      var best=null;
+      reach.forEach(function(t){ var tg=targetsFrom(e,t.x,t.y); if(tg.length){ var near=tg.reduce(function(a,b){return dist({x:t.x,y:t.y},a)<=dist({x:t.x,y:t.y},b)?a:b;}); var d=dist({x:t.x,y:t.y},near); if(!best||d<best.d) best={t:t,tg:near,d:d}; } });
+      if(best){ e.x=best.t.x; e.y=best.t.y; render(); setTimeout(function(){ attack(e,best.tg); e.acted=true; render(); checkEnd(); setTimeout(enemyStep,600); }, 350); return; }
+      // 打不到→往最近我方靠近（挑離我方最近的落點）
+      var target=allies.reduce(function(a,b){return dist(e,a)<=dist(e,b)?a:b;});
+      var step=reach.reduce(function(a,b){return dist(a,target)<=dist(b,target)?a:b;}, {x:e.x,y:e.y});
+      e.x=step.x; e.y=step.y; e.acted=true; render(); setTimeout(enemyStep,350);
+    }
+
+    function checkEnd(){
+      var al=units.some(function(u){return u.alive&&u.side==='ally';});
+      var en=units.some(function(u){return u.alive&&u.side==='enemy';});
+      if(!en) return showOver('🏆 勝利！');
+      if(!al) return showOver('💀 全滅…');
+    }
+    function showOver(t){ document.getElementById('overT').textContent=t; document.getElementById('over').style.display='flex'; }
+    function resetGame(){ document.getElementById('over').style.display='none'; freshState(); render(); log('點自己的單位 → 藍格移動 → 紅框敵人攻擊。'); }
+
+    freshState(); render();
   </script>
 </body>
 </html>

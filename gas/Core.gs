@@ -106,9 +106,11 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   return JSON.stringify({ text: fallback });
 }
 
-// --- Web App 入口 ---
-function doGet() {
-  return HtmlService.createTemplateFromFile('Index').evaluate()
-    .setTitle('新專案')
+// --- Web App 入口（?p=studio → 立繪工坊·否則 → 遊戲）---
+function doGet(e) {
+  var p = (e && e.parameter && e.parameter.p) || '';
+  var file = (p === 'studio') ? 'Studio' : 'Index';
+  return HtmlService.createTemplateFromFile(file).evaluate()
+    .setTitle(p === 'studio' ? '立繪工坊' : '戰術戰棋')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
 }
