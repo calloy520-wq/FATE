@@ -71,6 +71,9 @@ function imageTestGenerate(prompt, useFullModel) {
     const folder = imgGetOrCreateFolder_("命運圖庫測試");
     const file = folder.createFile(blob);
     out.driveUrl = file.getUrl();
+    const fileId = file.getId();
+    // 縮圖要能在 =IMAGE 顯示需可公開讀取（連結持有者可看）；失敗無妨，Drive 原檔仍在。
+    try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) { }
 
     const ss = imgGetOrCreateSheet_("命運圖庫測試", folder);
     const sh = ss.getSheets()[0];
@@ -78,7 +81,11 @@ function imageTestGenerate(prompt, useFullModel) {
     sh.getRange(row, 1).setValue(stamp);
     sh.getRange(row, 2).setValue(prompt);
     sh.setRowHeight(row, 200);
-    sh.insertImage(blob, 3, row); // 直接用 blob 插圖·不需公開 URL（避開 Drive 熱連結雷）
+    // ⚠ insertImage 有 1MP/2MB 上限、立繪都超過——改用 Drive【縮圖】網址嵌 =IMAGE（縮圖端點較可靠），
+    //   另附原圖超連結當保底。縮圖網址天生小（<1MP），不觸上限。
+    sh.getRange(row, 3).setFormula('=IMAGE("https://drive.google.com/thumbnail?id=' + fileId + '&sz=w480")');
+    sh.getRange(row, 4).setFormula('=HYPERLINK("' + file.getUrl() + '","原圖")');
+    sh.setColumnWidth(3, 300);
     out.sheetUrl = ss.getUrl();
   } catch (e) {
     out.storeErr = String((e && e.message) || e);
