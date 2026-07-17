@@ -46,33 +46,37 @@
 
   <script>
     // ===== 一小幕·照沈的骨架寫（台灣·收工日常·不餵食·別打光·驗歪不歪）=====
-    var shift = '';
+    var mark = '';         // 玩家對「撞見」的反應（問/讓）·存進狀態·不上畫面
+    var wanted = '菜脯蛋'; // 這一晚她難得說出口的想要·已記進狀態·玩家永遠看不到
     var NODES = {
-      s1: { who:'narr', text:'巷口那盞紅綠燈壞了不知道多久，只剩一顆黃燈，慢慢地閃。', next:'s2' },
-      s2: { who:'narr', text:'最後一組客人走了。你把爐火轉小，招牌燈熄掉。店裡剩你，和她。', next:'s3' },
-      s3: { who:'narr', text:'她繞著桌子收，動作很輕。收到吧台前，把幾瓶醬油一瓶一瓶轉正、標籤朝外，排得整整齊齊。', next:'s4' },
-      s4: { who:'you', text:'「差不多了，剩下我來就好。妳先回吧。」', next:'s5' },
-      s5: { who:'her', text:'她沒去拿包包。「……那我把明天要用的料，先醃一下？」', next:'s6' },
-      s6: { who:'you', text:'「明天再弄就好。」', next:'s7' },
-      s7: { who:'you', text:'「對了——明天早班、晚班，妳想顧哪個？」', next:'s8' },
-      s8: { who:'narr', text:'她的手停了半秒。像被問了一個超出範圍的問題。', next:'s9' },
-      s9: { who:'her', text:'「……都可以。」她把抹布摺好。「老闆排就好。」', next:'s10' },
-      s10:{ who:'you', text:'「我是問妳——想顧哪個。」', next:'s11' },
-      s11:{ who:'narr', text:'她真的想了。比「挑一個喜歡的」還久。', next:'s12' },
-      s12:{ who:'her', text:'「……哪個都行。真的。」', next:'s13' },
-      s13:{ who:'narr', text:'於是這個，也落回你手上。', next:'pick' },
+      s1: { who:'narr', text:'十一點多，店裡還剩兩桌。收音機放著不知道哪年的老歌，爐上的湯咕嘟咕嘟。', next:'s2' },
+      s2: { who:'narr', text:'她端著兩碗麵穿過去，跟熟客應了兩句，順手撿起人家掉在地上的筷子、換了雙新的。俐落，客人都愛找她。', next:'s3' },
+      s3: { who:'her', text:'「陳伯，今天海帶滷得剛好透，要不要來一份？」', next:'s4' },
+      s4: { who:'narr', text:'陳伯笑呵呵說好。她轉身回吧台下單，腳步很輕快。', next:'s5' },
+      s5: { who:'narr', text:'快十二點，最後兩桌前後腳走了。你進廚房，想拿那鍋滷味的蓋子。', next:'s6' },
+      s6: { who:'narr', text:'——回頭的時候，你看見她。', next:'s7' },
+      s7: { who:'narr', text:'她一個人站在剛擦乾淨的桌邊，手還按在抹布上，沒在動。臉朝著門口那盞壞掉的黃燈。什麼表情也沒有。', next:'s8' },
+      s8: { who:'narr', text:'你不知道，她那樣站了多久。', next:'pick' },
 
-      pick:{ who:'narr', text:'（你替她排——）', choices:[
-        { t:'排她早班', set:'早', next:'p_e' },
-        { t:'排她晚班', set:'晚', next:'p_l' }
+      pick:{ who:'narr', text:'你握著鍋蓋，站在廚房門口。', choices:[
+        { t:'「阿沈？」出聲叫她', set:'問', next:'c_call' },
+        { t:'拿了蓋子，靜靜退回吧台', set:'讓', next:'c_quiet' }
       ]},
-      p_e:{ who:'her', text:'「早班……好。」她點頭，像收下一個交到手上的東西。', next:'lg' },
-      p_l:{ who:'her', text:'「晚班……好。」她點頭，像收下一個交到手上的東西。', next:'lg' },
+      c_call: { who:'narr', text:'她回過神。臉上的光「唰」地回來了，快得像從來沒斷過。', next:'c_call2' },
+      c_call2:{ who:'her', text:'「欸——老闆你嚇我一跳。」她笑，擰了擰抹布。「都收得差不多囉。」', next:'s10' },
+      c_quiet:{ who:'narr', text:'你拿了蓋子，輕輕退回吧台。過幾秒，才聽見她像沒事一樣，把椅子一張一張翻上桌。\n她不知道你看見了。', next:'s10' },
 
-      lg: { who:'narr', text:'她拎起包包，走到半拉的鐵門前——停住了。', next:'by' },
-      by: { who:'her', text:'「老闆。」她沒回頭。「……明天見。」', next:'yl' },
-      yl: { who:'narr', text:'她彎身鑽出鐵門。窗外那盞黃燈，還在閃。', next:'end' },
-      end:{ who:'narr', text:'—— 第一晚 ——', next:null }
+      s10:{ who:'you', text:'「爐還沒收，要不要吃點什麼？我順便弄。」', next:'s11' },
+      s11:{ who:'her', text:'「不用啦，老闆你忙你的。」', next:'s12' },
+      s12:{ who:'you', text:'「就問妳想吃什麼。難得問一次。」', next:'s13' },
+      s13:{ who:'narr', text:'她愣了一下。難得地，真的在想。', next:'s14' },
+      s14:{ who:'her', text:'「……那，還有沒有，菜脯蛋？」她問得很小聲，像在跟人借東西。', next:'s15' },
+      s15:{ who:'narr', text:'你拉開冰箱。菜脯上一桌客人點煎蛋、剛好用完了，一小撮都不剩。', next:'s16' },
+      s16:{ who:'you', text:'「……啊，菜脯剛好用完。」', next:'s17' },
+      s17:{ who:'her', text:'她笑了一下，很快。「沒關係沒關係，我真的隨便。」她已經接著說：「你方便煮什麼都好。」', next:'s18' },
+      s18:{ who:'narr', text:'你重新開火。她把最後幾個碗疊好，在吧台前的高腳椅坐下——難得地，沒再站起來找事做。', next:'s19' },
+      s19:{ who:'narr', text:'收音機還在唱。窗外那盞黃燈，一閃，一閃。', next:'end' },
+      end:{ who:'narr', text:'—— 這一晚 ——', next:null }
     };
 
     // ===== 打字機引擎（均速）=====
@@ -102,7 +106,7 @@
     function afterType(){
       if(cur.choices){ cueEl.classList.add('hide');
         cur.choices.forEach(function(c){ var b=document.createElement('button'); b.innerHTML=esc(c.t);
-          b.onclick=function(ev){ ev.stopPropagation(); if(c.set) shift=c.set; renderNode(c.next); };
+          b.onclick=function(ev){ ev.stopPropagation(); if(c.set) mark=c.set; renderNode(c.next); };
           chEl.appendChild(b); });
       } else if(cur.next){ cueEl.classList.remove('hide'); }
       else { cueEl.classList.add('hide'); }
@@ -112,7 +116,7 @@
       if(cur && cur.choices) return;
       if(cur && cur.next) renderNode(cur.next);
     }
-    function restart(){ shift=''; renderNode('s1'); }
+    function restart(){ mark=''; renderNode('s1'); }
 
     window.onload = function(){
       whoEl=document.getElementById('who'); txtEl=document.getElementById('txt');
