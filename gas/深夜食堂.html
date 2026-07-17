@@ -16,6 +16,7 @@
     .box { min-height:112px; }
     .who { font-size:12px; color:#c8a24a; font-weight:bold; letter-spacing:2px; margin-bottom:6px; height:16px; }
     .who.you { color:#7fa8c8; }
+    .who.guest { color:#8a8262; }
     .txt { font-size:16.5px; line-height:1.95; min-height:60px; }
     .txt.narr { color:#a49c86; font-style:italic; }
     .cue { text-align:right; color:#6a6350; font-size:20px; height:22px; padding-right:4px; animation:blink 1.1s infinite; }
@@ -46,36 +47,38 @@
 
   <script>
     // ===== 一小幕·照沈的骨架寫（台灣·收工日常·不餵食·別打光·驗歪不歪）=====
-    var mark = '';         // 玩家對「撞見」的反應（問/讓）·存進狀態·不上畫面
-    var wanted = '菜脯蛋'; // 這一晚她難得說出口的想要·已記進狀態·玩家永遠看不到
+    var mark = '';          // 玩家對「後巷撞見」的反應·存進狀態·不上畫面
+    var wanted = '蚵仔煎';  // 這一晚她難得說出口的想要·已記進狀態·玩家永遠看不到
     var NODES = {
-      s1: { who:'narr', text:'十一點多，店裡還剩兩桌。收音機放著不知道哪年的老歌，爐上的湯咕嘟咕嘟。', next:'s2' },
-      s2: { who:'narr', text:'她端著兩碗麵穿過去，跟熟客應了兩句，順手撿起人家掉在地上的筷子、換了雙新的。俐落，客人都愛找她。', next:'s3' },
-      s3: { who:'her', text:'「陳伯，今天海帶滷得剛好透，要不要來一份？」', next:'s4' },
-      s4: { who:'narr', text:'陳伯笑呵呵說好。她轉身回吧台下單，腳步很輕快。', next:'s5' },
-      s5: { who:'narr', text:'快十二點，最後兩桌前後腳走了。你進廚房，想拿那鍋滷味的蓋子。', next:'s6' },
-      s6: { who:'narr', text:'——回頭的時候，你看見她。', next:'s7' },
-      s7: { who:'narr', text:'她一個人站在剛擦乾淨的桌邊，手還按在抹布上，沒在動。臉朝著門口那盞壞掉的黃燈。什麼表情也沒有。', next:'s8' },
-      s8: { who:'narr', text:'你不知道，她那樣站了多久。', next:'pick' },
+      s1: { who:'narr', text:'快十二點。店不大，剩一桌客人扒著最後幾口。你在後面顧爐子。', next:'s2' },
+      s2: { who:'narr', text:'那桌吃完，起身到櫃檯結帳。沈放下手邊的事過去。', next:'s3' },
+      s3: { who:'guest', text:'「小姐，多少？」', next:'s4' },
+      s4: { who:'her', text:'「一百三，謝謝～」她接過錢。「找你七十。」', next:'s5' },
+      s5: { who:'guest', text:'「你們開多久了？第一次來欸。」', next:'s6' },
+      s6: { who:'her', text:'「才剛開一個多月而已，謝謝捧場～」她把發票遞過去。「慢走喔，下次再來。」', next:'s7' },
+      s7: { who:'narr', text:'客人走了。店裡剩你跟她。', next:'s8' },
+      s8: { who:'narr', text:'你關了爐火，提著一袋廚餘往後巷走。', next:'s9' },
+      s9: { who:'narr', text:'後巷的燈很暗。她蹲在牆邊。', next:'s10' },
+      s10:{ who:'narr', text:'一個鐵盤擱在地上，一隻三隻腳的貓埋頭在吃。她就蹲在旁邊看著，沒出聲，臉上什麼也沒有。', next:'pick' },
 
-      pick:{ who:'narr', text:'你握著鍋蓋，站在廚房門口。', choices:[
-        { t:'「阿沈？」出聲叫她', set:'問', next:'c_call' },
-        { t:'拿了蓋子，靜靜退回吧台', set:'讓', next:'c_quiet' }
+      pick:{ who:'narr', text:'你站在後門口，手裡還提著那袋廚餘。', choices:[
+        { t:'叫她一聲', set:'問', next:'c_call' },
+        { t:'不出聲，退回店裡', set:'讓', next:'c_quiet' }
       ]},
-      c_call: { who:'narr', text:'她回過神。臉上的光「唰」地回來了，快得像從來沒斷過。', next:'c_call2' },
-      c_call2:{ who:'her', text:'「欸——老闆你嚇我一跳。」她笑，擰了擰抹布。「都收得差不多囉。」', next:'s10' },
-      c_quiet:{ who:'narr', text:'你拿了蓋子，輕輕退回吧台。過幾秒，才聽見她像沒事一樣，把椅子一張一張翻上桌。\n她不知道你看見了。', next:'s10' },
+      c_call: { who:'narr', text:'你叫了一聲。她回頭，站起來，臉上一下子就正常了。', next:'c_call2' },
+      c_call2:{ who:'her', text:'「啊，老闆。」她拍拍手上的灰。「這隻貓每天都來，順便餵一下。」', next:'s_of' },
+      c_quiet:{ who:'narr', text:'你沒出聲，退回店裡。過一會她也進來了，跟平常一樣。她不知道你看到了。', next:'s_of' },
 
-      s10:{ who:'you', text:'「爐還沒收，要不要吃點什麼？我順便弄。」', next:'s11' },
-      s11:{ who:'her', text:'「不用啦，老闆你忙你的。」', next:'s12' },
-      s12:{ who:'you', text:'「就問妳想吃什麼。難得問一次。」', next:'s13' },
-      s13:{ who:'narr', text:'她愣了一下。難得地，真的在想。', next:'s14' },
-      s14:{ who:'her', text:'「……那，還有沒有，菜脯蛋？」她問得很小聲，像在跟人借東西。', next:'s15' },
-      s15:{ who:'narr', text:'你拉開冰箱。菜脯上一桌客人點煎蛋、剛好用完了，一小撮都不剩。', next:'s16' },
-      s16:{ who:'you', text:'「……啊，菜脯剛好用完。」', next:'s17' },
-      s17:{ who:'her', text:'她笑了一下，很快。「沒關係沒關係，我真的隨便。」她已經接著說：「你方便煮什麼都好。」', next:'s18' },
-      s18:{ who:'narr', text:'你重新開火。她把最後幾個碗疊好，在吧台前的高腳椅坐下——難得地，沒再站起來找事做。', next:'s19' },
-      s19:{ who:'narr', text:'收音機還在唱。窗外那盞黃燈，一閃，一閃。', next:'end' },
+      s_of:{ who:'you', text:'「還沒收爐，妳餓不餓？我弄點東西。」', next:'s_o2' },
+      s_o2:{ who:'her', text:'「不用啦——」她頓了一下。', next:'s_o3' },
+      s_o3:{ who:'you', text:'「就問妳想吃什麼。」', next:'s_o4' },
+      s_o4:{ who:'narr', text:'她難得地想了一下。', next:'s_o5' },
+      s_o5:{ who:'her', text:'「……那，蚵仔煎可以嗎？」', next:'s_o6' },
+      s_o6:{ who:'narr', text:'你看了下料。蚵仔中午就用完了。', next:'s_o7' },
+      s_o7:{ who:'you', text:'「蚵仔沒了餒。」', next:'s_o8' },
+      s_o8:{ who:'her', text:'「喔，」她很快接上，「那蛋煎就好，蛋煎就好。」', next:'e1' },
+      e1: { who:'narr', text:'你打了兩顆蛋下鍋。她在旁邊的塑膠椅坐下，難得沒再起來找事做。', next:'e2' },
+      e2: { who:'narr', text:'後巷那隻貓吃完了，鐵盤空著。外面很安靜。', next:'end' },
       end:{ who:'narr', text:'—— 這一晚 ——', next:null }
     };
 
@@ -98,8 +101,8 @@
 
     function renderNode(id){
       cur=NODES[id]; if(!cur) return;
-      var who = cur.who==='her' ? '沈' : (cur.who==='you' ? '你' : '');
-      whoEl.textContent = who; whoEl.className = 'who' + (cur.who==='you'?' you':'');
+      var who = cur.who==='her' ? '沈' : (cur.who==='you' ? '你' : (cur.who==='guest' ? '客人' : ''));
+      whoEl.textContent = who; whoEl.className = 'who' + (cur.who==='you'?' you':'') + (cur.who==='guest'?' guest':'');
       txtEl.className = 'txt' + (cur.who==='narr'?' narr':'');
       startType(cur.text, afterType);
     }
