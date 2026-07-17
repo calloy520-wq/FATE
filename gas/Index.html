@@ -74,14 +74,7 @@
 
       <div id="editOpts" style="display:none;">
         <label>表情差分（點一下即填）</label>
-        <div class="chips">
-          <span class="chip" onclick="setExpr('中性平靜的表情')">😐 中性</span>
-          <span class="chip" onclick="setExpr('溫柔的微笑')">🙂 微笑</span>
-          <span class="chip" onclick="setExpr('臉頰泛紅、害羞的神情')">😳 害羞</span>
-          <span class="chip" onclick="setExpr('生氣、慍怒的表情')">😠 生氣</span>
-          <span class="chip" onclick="setExpr('眼眶泛淚、快哭的表情')">🥲 哭</span>
-          <span class="chip" onclick="setExpr('驚訝睜大眼睛')">😲 驚訝</span>
-        </div>
+        <div class="chips" id="exprChips"></div>
       </div>
 
       <label>額外描述（可留空）</label>
@@ -123,6 +116,36 @@
     });
     (function(){ var sel=document.getElementById('s_size');
       SIZES.forEach(function(p){ var o=document.createElement('option'); o.value=p[1]; o.textContent=p[0]; sel.appendChild(o); }); })();
+
+    // 表情差分快選（約會 VN 情緒光譜·點一下填進描述框）
+    var EXPRS = [
+      ['😐','中性','中性平靜的表情'],
+      ['🙂','微笑','溫柔的微笑'],
+      ['😊','燦笑','開心燦爛的笑容'],
+      ['😆','大笑','開懷大笑、瞇起眼'],
+      ['😏','壞笑','得意揶揄的壞笑'],
+      ['😌','溫柔','溫柔放鬆、半垂眼'],
+      ['🥰','心動','含情脈脈、心動的眼神'],
+      ['😍','迷戀','迷戀陶醉的深情凝視'],
+      ['😳','害羞','臉頰泛紅、害羞的神情'],
+      ['🫣','遮臉','害臊得抬手半遮臉'],
+      ['😤','傲嬌','別過臉、賭氣鼓臉頰的傲嬌'],
+      ['🥺','撒嬌','撒嬌、可憐兮兮的請求眼神'],
+      ['😠','生氣','生氣、慍怒的表情'],
+      ['😖','委屈','委屈嘟嘴、眼眶泛紅'],
+      ['🥲','強忍','強忍淚水的微笑'],
+      ['😢','落寞','落寞難過、垂眸'],
+      ['😭','大哭','崩潰大哭、淚流滿面'],
+      ['😲','驚訝','驚訝睜大眼睛'],
+      ['🤨','疑惑','疑惑挑眉、歪頭'],
+      ['😴','想睡','睡眼惺忪、慵懶想睡'],
+      ['😪','睡顏','閉眼、安詳的睡顏'],
+      ['😳','情動','情動嬌羞、呼吸微亂、眼神迷濛'],
+      ['😌','陶醉','陶醉微醺、雙頰潮紅']
+    ];
+    (function(){ var box=document.getElementById('exprChips');
+      EXPRS.forEach(function(e){ var s=document.createElement('span'); s.className='chip'; s.textContent=e[0]+' '+e[1];
+        s.onclick=function(){ setExpr(e[2]); }; box.appendChild(s); }); })();
 
     // 記住畫風
     (function(){ var el=document.getElementById('style'); var v=localStorage.getItem('imgtool_style'); if(v!==null) el.value=v;
