@@ -115,7 +115,7 @@
 - **offer+accept 制**：先跳邀請框（`roomEventOffer`），玩家按 `kanshouAcceptRoomEvent` 才演。非拒絕分支 `BOND+3`。⚠ offer 組裝時**現場過濾候選人 LOC＝當前地點**（2026-07 稽核修：舊版沿用回合初快取，人已離場還發邀請＝幽靈橋段），過濾後無人＝不發 offer。
 - **觸發表**：`KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_ = {深夜:夜襲, 清晨:賴床叫醒}`（同居和室）／`KANSHOU_LOCATION_EVENTS_`（地點×時段）／`KANSHOU_FESTIVAL_EVENTS_`（節慶）。
 - **深夜敲門**：每次「結束一天」擲 `KANSHOU_KNOCK_CHANCE_ = 0.2`，候選需好感≥`KANSHOU_KNOCK_MIN_BOND_ = 60`；跳敲門泡泡（`kanshouAnswerKnock`/`kanshouIgnoreKnock`）。
-- **🎭 橋段提醒徽章（前端·2026-07·玩家「不知道去哪、幾點」）**：地圖每個地點按鈕旁標該地橋段＋時段（客廳💤午後、浴室🛁夜/深夜、屋頂花園🌌夜/深夜、廚房🍳黃昏、隱藏溫泉♨️、和室🌙深夜/清晨·需同居）；**當前時段命中就高亮**。前端鏡像 `KC_LOCATION_EVENTS_`＋`kcSceneBadge_`（唯一真實來源仍是後端 `KANSHOU_LOCATION_EVENTS_`／`KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_`，改後端觸發表記得同步鏡像）。⚠ 橋段 offer **無好感門檻**（好感只軟硬化她的反應·分支），徽章不標好感。
+- **🎭 橋段提醒徽章（前端·2026-07·玩家「不知道去哪、幾點」）**：地圖每個地點按鈕旁標該地橋段＋時段（客廳💤午後、浴室🛁夜/深夜、屋頂花園🌌夜/深夜、廚房🍳黃昏、隱藏溫泉♨️、和室🌙深夜/清晨、她們各自私宅🌙深夜/清晨）；**當前時段命中就高亮**。⚠ 夜襲/賴床**不必同居**——她們各自的家（`KANSHOU_HERO_HOME_`：遠坂邸/藤村家/愛因茲貝倫城…·好感40解鎖登門）深夜/清晨登門即觸發；同居(90)只是「她搬來睡和室」的另一條路。徽章對齊後端所有住處值，鎖住的私宅走🔒分支不顯示徽章。前端鏡像 `KC_LOCATION_EVENTS_`＋`kcSceneBadge_`（唯一真實來源仍是後端 `KANSHOU_LOCATION_EVENTS_`／`KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_`，改後端觸發表記得同步鏡像）。⚠ 橋段 offer **無好感門檻**（好感只軟硬化她的反應·分支），徽章不標好感。
 
 ---
 
