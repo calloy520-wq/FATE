@@ -9,12 +9,17 @@ const IMG_MODEL_LITE_ = 'google/gemini-3.1-flash-lite-image';
 const IMG_MODEL_FULL_ = 'google/gemini-3.1-flash-image';
 
 // 呼叫 OpenRouter 生圖，回 { ok, dataUri } 或 { ok:false, err, raw }。
-function callImageAPI_(prompt, model) {
+// refDataUri：給了＝圖生圖（餵母圖鎖臉·改表情/情境）；沒給＝純文字全新生成。
+function callImageAPI_(prompt, model, refDataUri) {
   if (!OPENROUTER_API_KEY) return { ok: false, err: "未設定 OPENROUTER_API_KEY 指令碼屬性" };
   model = model || IMG_MODEL_LITE_;
+  // 有母圖 → 多模態 content 陣列（文字＋參考圖）；沒母圖 → 純文字字串。
+  const userContent = refDataUri
+    ? [{ type: "text", text: prompt }, { type: "image_url", image_url: { url: refDataUri } }]
+    : prompt;
   const payload = {
     model: model,
-    messages: [{ role: "user", content: prompt }],
+    messages: [{ role: "user", content: userContent }],
     modalities: ["image", "text"]
   };
   const options = {
@@ -47,12 +52,13 @@ function callImageAPI_(prompt, model) {
 }
 
 // 前端呼叫入口：生圖 → 存 Drive 資料夾 ＋ 插進試算表 ＋ 回內嵌 dataUri 讓網頁當場顯示。
-function imageTestGenerate(prompt, useFullModel) {
+// refDataUri：有值＝照母圖生差分（鎖臉）；空＝全新生成。
+function imageTestGenerate(prompt, useFullModel, refDataUri) {
   prompt = String(prompt || "").trim();
   if (!prompt) return { ok: false, err: "請先輸入描述（prompt）" };
   const model = useFullModel ? IMG_MODEL_FULL_ : IMG_MODEL_LITE_;
 
-  const r = callImageAPI_(prompt, model);
+  const r = callImageAPI_(prompt, model, refDataUri || "");
   if (!r.ok) return { ok: false, err: r.err, raw: r.raw || "", model: model };
 
   const out = { ok: true, dataUri: r.dataUri, model: model };

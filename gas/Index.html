@@ -7,84 +7,147 @@
   <style>
     * { box-sizing: border-box; }
     body { margin:0; min-height:100vh; background:#14121a; color:#e8e0f0;
-      font-family:system-ui,'Noto Sans TC',sans-serif; padding:18px; }
-    .wrap { max-width:520px; margin:0 auto; }
-    h1 { font-size:18px; letter-spacing:1px; margin:4px 0 2px; }
-    .sub { font-size:12px; color:#8a80a0; margin-bottom:16px; }
-    textarea { width:100%; min-height:80px; background:#1d1a26; color:#e8e0f0;
-      border:1px solid #3a3348; border-radius:10px; padding:10px; font-size:14px; resize:vertical; }
+      font-family:system-ui,'Noto Sans TC',sans-serif; padding:16px; }
+    .wrap { max-width:560px; margin:0 auto; }
+    h1 { font-size:18px; letter-spacing:1px; margin:2px 0; }
+    .sub { font-size:12px; color:#8a80a0; margin-bottom:14px; }
+    .card { background:#1b1826; border:1px solid #2f2940; border-radius:12px; padding:12px; margin-bottom:12px; }
+    .card h2 { font-size:13px; color:#c0a8d8; margin:0 0 8px; letter-spacing:1px; }
+    label { font-size:12px; color:#a89ac0; display:block; margin:6px 0 3px; }
+    textarea, input[type=text] { width:100%; background:#0f0d16; color:#e8e0f0; border:1px solid #3a3348;
+      border-radius:8px; padding:9px; font-size:14px; resize:vertical; }
+    textarea.small { min-height:44px; } textarea.big { min-height:72px; }
+    .chips { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0; }
+    .chip { padding:6px 11px; border-radius:16px; background:#2a2338; color:#d8c8e8; border:1px solid #4a3f5a;
+      font-size:13px; cursor:pointer; }
     .row { display:flex; gap:8px; align-items:center; margin:10px 0; flex-wrap:wrap; }
-    label { font-size:13px; color:#b0a8c0; }
-    button { flex:1; min-width:120px; padding:12px; border:none; border-radius:10px; cursor:pointer;
-      background:#5a3f6a; color:#f0d8ea; font-size:15px; font-weight:bold; }
-    button:disabled { opacity:.5; cursor:not-allowed; }
-    #status { font-size:13px; color:#a89ac0; margin:10px 0; min-height:18px; white-space:pre-wrap; }
-    #img { width:100%; border-radius:12px; margin-top:8px; display:none; }
-    .links { font-size:12px; margin-top:10px; }
-    .links a { color:#a8c8f0; }
+    button.go { flex:1; min-width:130px; padding:13px; border:none; border-radius:10px; cursor:pointer;
+      background:#6a4a80; color:#f2e2fa; font-size:15px; font-weight:bold; }
+    button.go:disabled { opacity:.5; }
+    button.mini { padding:7px 12px; border:none; border-radius:8px; cursor:pointer; background:#3a3050; color:#d8c8e8; font-size:12.5px; }
+    #status { font-size:13px; color:#a89ac0; margin:8px 0; min-height:16px; white-space:pre-wrap; }
+    #img { width:100%; border-radius:12px; margin-top:6px; display:none; }
+    .masterbox { display:flex; gap:10px; align-items:center; }
+    #masterThumb { width:64px; height:64px; object-fit:cover; border-radius:8px; border:1px solid #5a4a6a; display:none; }
+    .muted { font-size:11.5px; color:#7a7488; }
+    .links { font-size:12px; margin-top:8px; } .links a { color:#a8c8f0; }
     .err { color:#e0a0b0; }
-    .chip { font-size:11px; color:#7a7488; }
+    .mode { font-size:12px; padding:3px 9px; border-radius:12px; display:inline-block; }
+    .mode.edit { background:rgba(120,200,140,.15); color:#a8e0b8; border:1px solid #4a8a5a; }
+    .mode.fresh { background:rgba(160,160,200,.12); color:#b0b0d0; border:1px solid #4a4a6a; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>🎨 生圖測試</h1>
-    <div class="sub">OpenRouter · Nano Banana（Gemini Flash Image）→ 存 Drive「命運圖庫測試」＋塞進同名試算表</div>
+    <h1>🎨 立繪工坊 · 母圖＋差分</h1>
+    <div class="sub">先磨一張母圖 → 「設為母圖」→ 之後照母圖生表情差分（鎖臉）。畫風/角色欄會自動記住。</div>
 
-    <textarea id="prompt" placeholder="描述你想要的圖，例如：一位黑長髮、神情有點疏離的少女半身像，柔和光線，動畫風格立繪，透明背景">一位黑長髮、神情有點疏離的少女半身像，柔和光線，動畫風格立繪</textarea>
-
-    <div class="row">
-      <label><input type="checkbox" id="full"> 用完整版（較貴較慢·品質更好）</label>
+    <div class="card">
+      <h2>🔒 固定設定（每次自動套用·會記住）</h2>
+      <label>畫風詞尾</label>
+      <textarea id="style" class="small" placeholder="動畫風格立繪、賽璐璐上色、乾淨線條、柔和光線、輕小說插畫">動畫風格立繪、賽璐璐上色、乾淨線條、柔和光線、輕小說插畫、半身胸像、簡單背景</textarea>
+      <label>角色描述（同一個人的特徵）</label>
+      <textarea id="char" class="small" placeholder="黑長髮、齊瀏海、灰色眼眸、鵝蛋臉、清冷疏離的氣質">黑長髮、齊瀏海、灰色眼眸、清冷疏離的少女</textarea>
     </div>
-    <div class="row">
-      <button id="go" onclick="gen()">生圖</button>
+
+    <div class="card">
+      <h2>👤 母圖</h2>
+      <div class="masterbox">
+        <img id="masterThumb" alt="母圖">
+        <div style="flex:1;">
+          <div id="masterState" class="muted">尚未設定母圖 → 現在是「全新生成」模式。</div>
+          <div class="row" style="margin:6px 0 0;">
+            <button class="mini" id="clearMaster" onclick="clearMaster()" style="display:none;">清除母圖</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>✏️ 這次要生什麼 <span id="modeTag" class="mode fresh">全新生成</span></h2>
+      <div class="chips" id="exprChips">
+        <span class="chip" onclick="setExpr('中性平靜的表情')">😐 中性</span>
+        <span class="chip" onclick="setExpr('溫柔的微笑')">🙂 微笑</span>
+        <span class="chip" onclick="setExpr('臉頰泛紅、害羞的神情')">😳 害羞</span>
+        <span class="chip" onclick="setExpr('生氣、慍怒的表情')">😠 生氣</span>
+        <span class="chip" onclick="setExpr('眼眶泛淚、快哭的表情')">🥲 哭</span>
+        <span class="chip" onclick="setExpr('驚訝睜大眼睛')">😲 驚訝</span>
+      </div>
+      <textarea id="prompt" class="big" placeholder="描述這張要生什麼（母圖模式下＝要改成的表情/情境）">半身胸像，中性平靜的表情</textarea>
+      <label><input type="checkbox" id="full"> 用完整版（較貴較慢·品質更好）</label>
+      <div class="row"><button class="go" id="go" onclick="gen()">生圖</button></div>
     </div>
 
     <div id="status"></div>
     <img id="img" alt="生成結果">
+    <div class="row" id="afterGen" style="display:none;">
+      <button class="mini" onclick="setAsMaster()">📌 把這張設為母圖</button>
+    </div>
     <div class="links" id="links"></div>
-    <div class="chip" id="model"></div>
   </div>
 
   <script>
+    var masterDataUri = "";     // 記憶體中的母圖（不進 localStorage·太大）
+    var lastDataUri = "";       // 最近生成的一張
+    // 記住畫風/角色（小·可存 localStorage）
+    ['style','char'].forEach(function(id){
+      var el=document.getElementById(id);
+      var v=localStorage.getItem('imgtool_'+id); if(v!==null) el.value=v;
+      el.addEventListener('input',function(){ localStorage.setItem('imgtool_'+id, el.value); });
+    });
+    function setExpr(t){ document.getElementById('prompt').value = (masterDataUri? '' : '半身胸像，') + t; }
+    function refreshMode(){
+      var edit = !!masterDataUri;
+      var tag=document.getElementById('modeTag');
+      tag.textContent = edit ? '照母圖生差分（鎖臉）' : '全新生成';
+      tag.className = 'mode ' + (edit?'edit':'fresh');
+      document.getElementById('masterState').textContent = edit
+        ? '✅ 已設母圖 → 現在會照它生差分（保持同一張臉，只改表情/情境）。'
+        : '尚未設定母圖 → 現在是「全新生成」模式。';
+      document.getElementById('clearMaster').style.display = edit ? 'inline-block' : 'none';
+      var mt=document.getElementById('masterThumb');
+      if(edit){ mt.src=masterDataUri; mt.style.display='block'; } else mt.style.display='none';
+    }
+    function setAsMaster(){ if(lastDataUri){ masterDataUri=lastDataUri; refreshMode(); setStatus('已設為母圖 ✅ 之後生圖會鎖這張臉。'); } }
+    function clearMaster(){ masterDataUri=''; refreshMode(); setStatus('已清除母圖 → 回到全新生成。'); }
+
     function gen() {
-      var p = document.getElementById('prompt').value.trim();
-      if (!p) { setStatus('請先輸入描述。', true); return; }
-      var full = document.getElementById('full').checked;
-      var btn = document.getElementById('go');
-      btn.disabled = true;
-      document.getElementById('img').style.display = 'none';
-      document.getElementById('links').innerHTML = '';
-      document.getElementById('model').textContent = '';
-      setStatus('生成中…（生圖約 5~15 秒，別關頁面）');
+      var userP = document.getElementById('prompt').value.trim();
+      if(!userP){ setStatus('請先描述要生什麼。', true); return; }
+      var style=document.getElementById('style').value.trim();
+      var chr=document.getElementById('char').value.trim();
+      var full=document.getElementById('full').checked;
+      // 組最終 prompt
+      var finalP;
+      if(masterDataUri){
+        finalP = '【保持參考圖裡同一個角色，臉孔、髮型、五官特徵完全不變】，只改變為：' + userP
+               + (style? '，' + style : '');
+      } else {
+        finalP = (chr? chr + '，' : '') + userP + (style? '，' + style : '');
+      }
+      var btn=document.getElementById('go'); btn.disabled=true;
+      document.getElementById('img').style.display='none';
+      document.getElementById('afterGen').style.display='none';
+      document.getElementById('links').innerHTML='';
+      setStatus('生成中…（5~15 秒，別關頁面）');
       google.script.run
-        .withSuccessHandler(function (r) {
-          btn.disabled = false;
-          if (!r || !r.ok) {
-            setStatus('失敗：' + ((r && r.err) || '未知錯誤') + (r && r.raw ? '\n\n【回應片段】' + r.raw : ''), true);
-            return;
-          }
-          var img = document.getElementById('img');
-          img.src = r.dataUri; img.style.display = 'block';
-          var msg = '✅ 生成成功。';
-          if (r.storeErr) msg += '（圖已顯示，但存 Drive/試算表出錯：' + r.storeErr + '）';
+        .withSuccessHandler(function(r){
+          btn.disabled=false;
+          if(!r||!r.ok){ setStatus('失敗：'+((r&&r.err)||'未知')+(r&&r.raw?'\n\n【回應片段】'+r.raw:''), true); return; }
+          lastDataUri=r.dataUri;
+          var img=document.getElementById('img'); img.src=r.dataUri; img.style.display='block';
+          document.getElementById('afterGen').style.display='flex';
+          var msg='✅ 生成成功。'; if(r.storeErr) msg+='（圖已顯示，存檔小問題：'+r.storeErr+'）';
           setStatus(msg);
-          var links = [];
-          if (r.driveUrl) links.push('<a href="' + r.driveUrl + '" target="_blank">📁 Drive 檔案</a>');
-          if (r.sheetUrl) links.push('<a href="' + r.sheetUrl + '" target="_blank">📊 圖庫試算表</a>');
-          document.getElementById('links').innerHTML = links.join(' ｜ ');
-          document.getElementById('model').textContent = '模型：' + (r.model || '');
+          var links=[]; if(r.driveUrl) links.push('<a href="'+r.driveUrl+'" target="_blank">📁 Drive</a>');
+          if(r.sheetUrl) links.push('<a href="'+r.sheetUrl+'" target="_blank">📊 試算表</a>');
+          document.getElementById('links').innerHTML=links.join(' ｜ ');
         })
-        .withFailureHandler(function (e) {
-          btn.disabled = false;
-          setStatus('連線失敗：' + (e && e.message ? e.message : e), true);
-        })
-        .imageTestGenerate(p, full);
+        .withFailureHandler(function(e){ btn.disabled=false; setStatus('連線失敗：'+(e&&e.message?e.message:e), true); })
+        .imageTestGenerate(finalP, full, masterDataUri || "");
     }
-    function setStatus(t, isErr) {
-      var s = document.getElementById('status');
-      s.textContent = t; s.className = isErr ? 'err' : '';
-    }
+    function setStatus(t,isErr){ var s=document.getElementById('status'); s.textContent=t; s.className=isErr?'err':''; }
+    refreshMode();
   </script>
 </body>
 </html>
