@@ -86,6 +86,14 @@ function imageTestGenerate(prompt, useFullModel) {
   return out;
 }
 
+// 🔑 一次性授權用：從編輯器選這個執行 → 立刻碰 Drive → 觸發 Google「需要授權」同意畫面。
+//   授權過一次後，網頁 /exec 生圖就能同時存進 Drive/試算表（授權是綁帳號、不綁部署版本）。
+function grantPermissions() {
+  const name = DriveApp.getRootFolder().getName(); // 碰 Drive → 逼出授權
+  Logger.log("Drive 根目錄：" + name);
+  return "若沒跳授權畫面＝代表已經授權過了 ✅";
+}
+
 function imgGetOrCreateFolder_(name) {
   const it = DriveApp.getFoldersByName(name);
   return it.hasNext() ? it.next() : DriveApp.createFolder(name);
