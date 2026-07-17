@@ -75,7 +75,11 @@
       </div>
       <textarea id="prompt" class="big" placeholder="描述這張要生什麼（母圖模式下＝要改成的表情/情境）">半身胸像，中性平靜的表情</textarea>
       <label><input type="checkbox" id="full"> 用完整版（較貴較慢·品質更好）</label>
-      <div class="row"><button class="go" id="go" onclick="gen()">生圖</button></div>
+      <div class="row">
+        <button class="go" id="go" onclick="gen()">生圖</button>
+        <button class="go" id="dice" onclick="randomChar()" style="background:#4a5a80;">🎲 隨機角色</button>
+      </div>
+      <div class="muted" id="rolled" style="margin-top:2px;"></div>
     </div>
 
     <div id="status"></div>
@@ -116,23 +120,41 @@
       if(!userP){ setStatus('請先描述要生什麼。', true); return; }
       var style=document.getElementById('style').value.trim();
       var chr=document.getElementById('char').value.trim();
-      var full=document.getElementById('full').checked;
-      // 組最終 prompt
-      var finalP;
+      var finalP, ref;
       if(masterDataUri){
-        finalP = '【保持參考圖裡同一個角色，臉孔、髮型、五官特徵完全不變】，只改變為：' + userP
-               + (style? '，' + style : '');
+        finalP = '【保持參考圖裡同一個角色，臉孔、髮型、五官特徵完全不變】，只改變為：' + userP + (style? '，' + style : '');
+        ref = masterDataUri;
       } else {
         finalP = (chr? chr + '，' : '') + userP + (style? '，' + style : '');
+        ref = '';
       }
-      var btn=document.getElementById('go'); btn.disabled=true;
+      runGen(finalP, ref);
+    }
+
+    // 🎲 隨機角色：骰一個全新女孩找靈感（不吃母圖、不吃角色鎖·純新臉）。
+    var R_HAIR = ['黑長直髮','深棕大波浪','亞麻金雙馬尾','銀白及肩短髮','暗紅色單邊編髮','淺紫色丸子頭','湛藍色鮑伯頭','霧灰色長捲髮','蜜茶色微捲中長髮','墨綠色高馬尾'];
+    var R_EYE  = ['灰','琥珀金','翠綠','深紫','酒紅','湛藍','淡粉','琥珀棕'];
+    var R_VIBE = ['清冷疏離','元氣開朗','文靜內向','慵懶隨性','溫柔沉靜','桀驁不馴','神秘難懂','冷豔成熟','天然呆','嬌小倔強'];
+    var R_WEAR = ['水手服','針織開衫配襯衫','素色連身洋裝','連帽外套','和服','西裝外套','蕾絲洋裝','大學T','襯衫配吊帶裙','毛衣圍巾'];
+    function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
+    function randomChar(){
+      var style=document.getElementById('style').value.trim();
+      var hair=pick(R_HAIR), eye=pick(R_EYE), vibe=pick(R_VIBE), wear=pick(R_WEAR);
+      var desc = hair+'、'+eye+'色眼眸、'+vibe+'氣質的少女，穿'+wear+'，半身胸像';
+      document.getElementById('rolled').textContent = '🎲 ' + desc;
+      var finalP = desc + (style? '，'+style : '');
+      runGen(finalP, ''); // 隨機一律全新生成
+    }
+
+    function runGen(finalP, ref){
+      document.getElementById('go').disabled=true; document.getElementById('dice').disabled=true;
       document.getElementById('img').style.display='none';
       document.getElementById('afterGen').style.display='none';
       document.getElementById('links').innerHTML='';
       setStatus('生成中…（5~15 秒，別關頁面）');
       google.script.run
         .withSuccessHandler(function(r){
-          btn.disabled=false;
+          document.getElementById('go').disabled=false; document.getElementById('dice').disabled=false;
           if(!r||!r.ok){ setStatus('失敗：'+((r&&r.err)||'未知')+(r&&r.raw?'\n\n【回應片段】'+r.raw:''), true); return; }
           lastDataUri=r.dataUri;
           var img=document.getElementById('img'); img.src=r.dataUri; img.style.display='block';
@@ -143,8 +165,8 @@
           if(r.sheetUrl) links.push('<a href="'+r.sheetUrl+'" target="_blank">📊 試算表</a>');
           document.getElementById('links').innerHTML=links.join(' ｜ ');
         })
-        .withFailureHandler(function(e){ btn.disabled=false; setStatus('連線失敗：'+(e&&e.message?e.message:e), true); })
-        .imageTestGenerate(finalP, full, masterDataUri || "");
+        .withFailureHandler(function(e){ document.getElementById('go').disabled=false; document.getElementById('dice').disabled=false; setStatus('連線失敗：'+(e&&e.message?e.message:e), true); })
+        .imageTestGenerate(finalP, document.getElementById('full').checked, ref || "");
     }
     function setStatus(t,isErr){ var s=document.getElementById('status'); s.textContent=t; s.className=isErr?'err':''; }
     refreshMode();
