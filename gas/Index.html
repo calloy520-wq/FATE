@@ -3,12 +3,88 @@
 <head>
   <base target="_top">
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; background:#14121a; color:#e8e0f0;
+      font-family:system-ui,'Noto Sans TC',sans-serif; padding:18px; }
+    .wrap { max-width:520px; margin:0 auto; }
+    h1 { font-size:18px; letter-spacing:1px; margin:4px 0 2px; }
+    .sub { font-size:12px; color:#8a80a0; margin-bottom:16px; }
+    textarea { width:100%; min-height:80px; background:#1d1a26; color:#e8e0f0;
+      border:1px solid #3a3348; border-radius:10px; padding:10px; font-size:14px; resize:vertical; }
+    .row { display:flex; gap:8px; align-items:center; margin:10px 0; flex-wrap:wrap; }
+    label { font-size:13px; color:#b0a8c0; }
+    button { flex:1; min-width:120px; padding:12px; border:none; border-radius:10px; cursor:pointer;
+      background:#5a3f6a; color:#f0d8ea; font-size:15px; font-weight:bold; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    #status { font-size:13px; color:#a89ac0; margin:10px 0; min-height:18px; white-space:pre-wrap; }
+    #img { width:100%; border-radius:12px; margin-top:8px; display:none; }
+    .links { font-size:12px; margin-top:10px; }
+    .links a { color:#a8c8f0; }
+    .err { color:#e0a0b0; }
+    .chip { font-size:11px; color:#7a7488; }
+  </style>
 </head>
-<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#14121a;color:#e8e0f0;font-family:system-ui,'Noto Sans TC',sans-serif;text-align:center;">
-  <div>
-    <div style="font-size:22px;letter-spacing:2px;margin-bottom:10px;">🌱 白紙一張</div>
-    <div style="font-size:14px;color:#9a90b0;">新專案・建置中</div>
-    <div style="font-size:12px;color:#6a6478;margin-top:14px;">創作方向討論中，敬請期待。</div>
+<body>
+  <div class="wrap">
+    <h1>🎨 生圖測試</h1>
+    <div class="sub">OpenRouter · Nano Banana（Gemini Flash Image）→ 存 Drive「命運圖庫測試」＋塞進同名試算表</div>
+
+    <textarea id="prompt" placeholder="描述你想要的圖，例如：一位黑長髮、神情有點疏離的少女半身像，柔和光線，動畫風格立繪，透明背景">一位黑長髮、神情有點疏離的少女半身像，柔和光線，動畫風格立繪</textarea>
+
+    <div class="row">
+      <label><input type="checkbox" id="full"> 用完整版（較貴較慢·品質更好）</label>
+    </div>
+    <div class="row">
+      <button id="go" onclick="gen()">生圖</button>
+    </div>
+
+    <div id="status"></div>
+    <img id="img" alt="生成結果">
+    <div class="links" id="links"></div>
+    <div class="chip" id="model"></div>
   </div>
+
+  <script>
+    function gen() {
+      var p = document.getElementById('prompt').value.trim();
+      if (!p) { setStatus('請先輸入描述。', true); return; }
+      var full = document.getElementById('full').checked;
+      var btn = document.getElementById('go');
+      btn.disabled = true;
+      document.getElementById('img').style.display = 'none';
+      document.getElementById('links').innerHTML = '';
+      document.getElementById('model').textContent = '';
+      setStatus('生成中…（生圖約 5~15 秒，別關頁面）');
+      google.script.run
+        .withSuccessHandler(function (r) {
+          btn.disabled = false;
+          if (!r || !r.ok) {
+            setStatus('失敗：' + ((r && r.err) || '未知錯誤') + (r && r.raw ? '\n\n【回應片段】' + r.raw : ''), true);
+            return;
+          }
+          var img = document.getElementById('img');
+          img.src = r.dataUri; img.style.display = 'block';
+          var msg = '✅ 生成成功。';
+          if (r.storeErr) msg += '（圖已顯示，但存 Drive/試算表出錯：' + r.storeErr + '）';
+          setStatus(msg);
+          var links = [];
+          if (r.driveUrl) links.push('<a href="' + r.driveUrl + '" target="_blank">📁 Drive 檔案</a>');
+          if (r.sheetUrl) links.push('<a href="' + r.sheetUrl + '" target="_blank">📊 圖庫試算表</a>');
+          document.getElementById('links').innerHTML = links.join(' ｜ ');
+          document.getElementById('model').textContent = '模型：' + (r.model || '');
+        })
+        .withFailureHandler(function (e) {
+          btn.disabled = false;
+          setStatus('連線失敗：' + (e && e.message ? e.message : e), true);
+        })
+        .imageTestGenerate(p, full);
+    }
+    function setStatus(t, isErr) {
+      var s = document.getElementById('status');
+      s.textContent = t; s.className = isErr ? 'err' : '';
+    }
+  </script>
 </body>
 </html>
