@@ -18,8 +18,7 @@
     .who.you { color:#7fa8c8; }
     .txt { font-size:16.5px; line-height:1.95; min-height:60px; }
     .txt.narr { color:#a49c86; font-style:italic; }
-    .cue { text-align:right; color:#6a6350; font-size:20px; height:22px; padding-right:4px;
-      animation:blink 1.1s infinite; }
+    .cue { text-align:right; color:#6a6350; font-size:20px; height:22px; padding-right:4px; animation:blink 1.1s infinite; }
     .cue.hide { visibility:hidden; }
     @keyframes blink { 0%,60%{opacity:.9;} 61%,100%{opacity:0;} }
     .choices { padding:6px 0 20px; display:flex; flex-direction:column; gap:9px; }
@@ -46,40 +45,40 @@
   </div>
 
   <script>
-    // ===== 一小幕·照沈的骨架寫（台灣·別打光·驗歪不歪）=====
-    // who: narr/her/you　text　→ next 或 choices[{t,set,next}]
-    var dish = '';
+    // ===== 一小幕·照沈的骨架寫（台灣·收工日常·不餵食·別打光·驗歪不歪）=====
+    var shift = '';
     var NODES = {
-      s1: { who:'narr', text:'巷口那盞紅綠燈不知道壞多久了，只剩一顆黃燈，慢慢地閃。', next:'s2' },
-      s2: { who:'narr', text:'最後一桌客人也走了。鐵捲門拉下一半，店裡剩你，和她。', next:'s3' },
-      s3: { who:'narr', text:'她繞著桌子收，動作很輕。收到吧台前，把幾瓶醬油一瓶一瓶轉正、標籤朝外，排得整整齊齊——像等一下有人要來檢查似的。', next:'s4' },
-      s4: { who:'her', text:'「老闆，前面那桌我擦過了。」她頓了一下。「……還有什麼要做的嗎？」', next:'s5' },
-      s5: { who:'narr', text:'你看了眼牆上的鐘。也差不多了。\n你也發現——她今天，又沒吃。', next:'s6' },
-      s6: { who:'you', text:'「先別忙了。妳還沒吃吧？想吃什麼，我煮。」', next:'s7' },
-      s7: { who:'narr', text:'她的手停在半空，像被問了一個超出範圍的問題。', next:'s8' },
-      s8: { who:'her', text:'「……都可以。」她把抹布摺好。「老闆決定就好。」', next:'s9' },
-      s9: { who:'you', text:'「我是問妳——想吃什麼。」', next:'s10' },
-      s10:{ who:'narr', text:'她真的想了。你看得出她在想——不是在挑喜歡的，是在找一個「不會錯」的答案。', next:'s11' },
-      s11:{ who:'her', text:'「……什麼都好。真的。」', next:'s12' },
-      s12:{ who:'narr', text:'於是這個選擇，又落回你手上。\n冰箱裡還剩點東西。', next:'pick' },
+      s1: { who:'narr', text:'巷口那盞紅綠燈壞了不知道多久，只剩一顆黃燈，慢慢地閃。', next:'s2' },
+      s2: { who:'narr', text:'最後一組客人走了。你把爐火轉小，招牌燈熄掉。店裡剩你，和她。', next:'s3' },
+      s3: { who:'narr', text:'她繞著桌子收，動作很輕。收到吧台前，把幾瓶醬油一瓶一瓶轉正、標籤朝外，排得整整齊齊。', next:'s4' },
+      s4: { who:'you', text:'「差不多了，剩下我來就好。妳先回吧。」', next:'s5' },
+      s5: { who:'her', text:'她沒去拿包包。「……那我把明天要用的料，先醃一下？」', next:'s6' },
+      s6: { who:'you', text:'「明天再弄就好。」', next:'s7' },
+      s7: { who:'you', text:'「對了——明天早班、晚班，妳想顧哪個？」', next:'s8' },
+      s8: { who:'narr', text:'她的手停了半秒。像被問了一個超出範圍的問題。', next:'s9' },
+      s9: { who:'her', text:'「……都可以。」她把抹布摺好。「老闆排就好。」', next:'s10' },
+      s10:{ who:'you', text:'「我是問妳——想顧哪個。」', next:'s11' },
+      s11:{ who:'narr', text:'她真的想了。比「挑一個喜歡的」還久。', next:'s12' },
+      s12:{ who:'her', text:'「……哪個都行。真的。」', next:'s13' },
+      s13:{ who:'narr', text:'於是這個，也落回你手上。', next:'pick' },
 
-      pick:{ who:'narr', text:'（你替她煮——）', choices:[
-        { t:'🍚 一碗白飯，淋上今天多滷的滷肉', set:'滷肉飯', next:'d_a' },
-        { t:'🥟 一碗餛飩湯，撒一點芹菜珠',       set:'餛飩湯', next:'d_b' },
-        { t:'🍥 煎得兩面脆的蘿蔔糕，配醬油膏',   set:'蘿蔔糕', next:'d_c' }
+      pick:{ who:'narr', text:'（你替她排——）', choices:[
+        { t:'排她早班', set:'早', next:'p_e' },
+        { t:'排她晚班', set:'晚', next:'p_l' }
       ]},
-      d_a:{ who:'narr', text:'你把滷肉飯端過去。她說了謝謝，聲音很輕。\n她扒了兩口，才低聲說：「……這滷肉，滷很久齁。」', next:'lg' },
-      d_b:{ who:'narr', text:'你把餛飩湯端過去。她說了謝謝，聲音很輕。\n她先捧著碗，讓熱氣過了一下臉，才喝湯。', next:'lg' },
-      d_c:{ who:'narr', text:'你把蘿蔔糕端過去。她說了謝謝，聲音很輕。\n她夾起一塊，邊角是脆的。「……煎得剛好。」', next:'lg' },
+      p_e:{ who:'her', text:'「早班……好。」她點頭，像收下一個交到手上的東西。', next:'lg' },
+      p_l:{ who:'her', text:'「晚班……好。」她點頭，像收下一個交到手上的東西。', next:'lg' },
 
-      lg: { who:'narr', text:'她吃得很規矩，筷子每次都放回原來的位置。\n吃完了，她把碗筷疊好、擺到一邊——卻沒有起身。', next:'yl' },
-      yl: { who:'narr', text:'你收拾的時候，她還坐在那裡，手放在膝上。\n窗外那盞黃燈還在閃。她像在等一個，連她自己也說不清楚的東西。', next:'end' },
+      lg: { who:'narr', text:'她拎起包包，走到半拉的鐵門前——停住了。', next:'by' },
+      by: { who:'her', text:'「老闆。」她沒回頭。「……明天見。」', next:'yl' },
+      yl: { who:'narr', text:'她彎身鑽出鐵門。窗外那盞黃燈，還在閃。', next:'end' },
       end:{ who:'narr', text:'—— 第一晚 ——', next:null }
     };
 
-    // ===== 打字機引擎 =====
-    var whoEl, txtEl, cueEl, chEl, artEl, stageEl;
-    var typing=false, timer=null, curText='', curEl=null, curDone=null, cur=null;
+    // ===== 打字機引擎（均速）=====
+    var whoEl, txtEl, cueEl, chEl;
+    var typing=false, timer=null, curText='', curDone=null, cur=null;
+    var SPEED = 42; // ms/字·均速（要更快/慢改這個數字）
     function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>'); }
 
     function startType(text, done){
@@ -88,40 +87,36 @@
       (function tick(){
         txtEl.innerHTML = esc(text.slice(0,i));
         if(i>=text.length){ typing=false; done&&done(); return; }
-        var ch=text.charAt(i); i++;
-        var d=30; if('，、'.indexOf(ch)>=0) d=170; else if('。！？…—\n'.indexOf(ch)>=0) d=300; else if('「」'.indexOf(ch)>=0) d=60;
-        timer=setTimeout(tick, d);
+        i++; timer=setTimeout(tick, SPEED);
       })();
     }
     function completeType(){ if(!typing) return false; clearTimeout(timer); txtEl.innerHTML=esc(curText); typing=false; curDone&&curDone(); return true; }
 
     function renderNode(id){
       cur=NODES[id]; if(!cur) return;
-      if(cur.set!==undefined){} // (choice-only)
       var who = cur.who==='her' ? '沈' : (cur.who==='you' ? '你' : '');
       whoEl.textContent = who; whoEl.className = 'who' + (cur.who==='you'?' you':'');
       txtEl.className = 'txt' + (cur.who==='narr'?' narr':'');
-      startType(cur.text, function(){ afterType(); });
+      startType(cur.text, afterType);
     }
     function afterType(){
-      if(cur.choices){
-        cueEl.classList.add('hide');
+      if(cur.choices){ cueEl.classList.add('hide');
         cur.choices.forEach(function(c){ var b=document.createElement('button'); b.innerHTML=esc(c.t);
-          b.onclick=function(ev){ ev.stopPropagation(); if(c.set) dish=c.set; renderNode(c.next); };
+          b.onclick=function(ev){ ev.stopPropagation(); if(c.set) shift=c.set; renderNode(c.next); };
           chEl.appendChild(b); });
       } else if(cur.next){ cueEl.classList.remove('hide'); }
-      else { cueEl.classList.add('hide'); } // 結尾
+      else { cueEl.classList.add('hide'); }
     }
     function stageTap(){
-      if(completeType()) return;          // 打字中 → 先跑完整段
-      if(cur && cur.choices) return;       // 等選項
+      if(completeType()) return;
+      if(cur && cur.choices) return;
       if(cur && cur.next) renderNode(cur.next);
     }
-    function restart(){ dish=''; renderNode('s1'); }
+    function restart(){ shift=''; renderNode('s1'); }
 
     window.onload = function(){
-      whoEl=document.getElementById('who'); txtEl=document.getElementById('txt'); cueEl=document.getElementById('cue');
-      chEl=document.getElementById('choices'); artEl=document.getElementById('art'); stageEl=document.getElementById('stage');
+      whoEl=document.getElementById('who'); txtEl=document.getElementById('txt');
+      cueEl=document.getElementById('cue'); chEl=document.getElementById('choices');
       renderNode('s1');
     };
   </script>
