@@ -64,13 +64,13 @@
       cash0:6000, rep0:20, cook0:3, sta0:10, staMax:10, fav0:0,
       wageShen:500, misc:200,            // 沈日薪 + 每晚雜費
       stayBase:8,                         // 每晚基本備料（來客上限）
-      milestone:50, goalDay:30
+      milestone:45, goalDay:30
     };
     // 白天行動（每個吃 1 時段）
     var ACTS = [
       { id:'cook', n:'練菜',  d:'磨廚藝，客單價變高', sta:3, cash:-300, do:function(s){ s.cook+=1; } , cost:'體力3・-$300' },
       { id:'buy',  n:'採買備料', d:'今晚能多接客人', sta:2, cash:-1000, do:function(s){ s.stay+=8; }, cost:'體力2・-$1000' },
-      { id:'clean',n:'打掃招攬', d:'店的名聲慢慢起來', sta:2, cash:0, do:function(s){ s.rep+=5; }, cost:'體力2・名聲+5' },
+      { id:'clean',n:'打掃招攬', d:'店的名聲慢慢起來（越有名越難拉）', sta:2, cash:0, do:function(s){ s.rep += Math.max(1, Math.round(6*(1 - s.rep/110))); }, cost:'體力2・名聲↑' },
       { id:'rest', n:'休息',  d:'補體力（顧店是體力活）', sta:-3, cash:0, do:function(s){}, cost:'體力+3' }
     ];
 
@@ -127,7 +127,7 @@
     }
 
     // ===== 收工（好感·純機制·文字先從簡）=====
-    function close(kind){
+    function closeShop(kind){
       if(s.phase!=='close') return;
       if(kind==='bonus'){ if(s.cash<300) return; s.cash-=300; s.fav+=3; }
       else if(kind==='care'){ s.fav+=1; }
@@ -198,9 +198,9 @@
         var h='<div class="phase">🌃 收工</div>';
         h+='<div class="note">沈在收拾最後幾張桌子。</div>';
         h+='<div class="acts" style="margin-top:12px;">';
-        h+='<div class="act" onclick="close(\'bonus\')"><div><div class="n">多發她一點獎金</div><div class="d">好感 +3</div></div><div class="cost neg">-$300</div></div>';
-        h+='<div class="act" onclick="close(\'care\')"><div><div class="n">道聲辛苦</div><div class="d">好感 +1</div></div><div class="cost">免費</div></div>';
-        h+='<div class="act" onclick="close(\'quiet\')"><div><div class="n">各自打烊</div><div class="d">—</div></div><div class="cost">—</div></div>';
+        h+='<div class="act" onclick="closeShop(\'bonus\')"><div><div class="n">多發她一點獎金</div><div class="d">好感 +3</div></div><div class="cost neg">-$300</div></div>';
+        h+='<div class="act" onclick="closeShop(\'care\')"><div><div class="n">道聲辛苦</div><div class="d">好感 +1</div></div><div class="cost">免費</div></div>';
+        h+='<div class="act" onclick="closeShop(\'quiet\')"><div><div class="n">各自打烊</div><div class="d">—</div></div><div class="cost">—</div></div>';
         h+='</div>';
         return h;
       }
