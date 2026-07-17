@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <style>
+    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    body { margin:0; background:#12110d; color:#eae4d6; font-family:system-ui,'Noto Sans TC',sans-serif; padding:10px; }
+    .wrap { max-width:520px; margin:0 auto; }
+    h1 { font-size:15px; margin:2px 0 8px; letter-spacing:1px; color:#d8caa6; }
+    h1 small { color:#8a8262; font-size:11px; letter-spacing:0; }
+    /* HUD */
+    .hud { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:10px; }
+    .stat { background:#1c1a12; border:1px solid #34301f; border-radius:8px; padding:7px 9px; }
+    .stat .k { font-size:10.5px; color:#8a8262; letter-spacing:1px; }
+    .stat .v { font-size:16px; font-weight:bold; margin-top:2px; }
+    .stat .v small { font-size:11px; color:#8a8262; font-weight:normal; }
+    .bar { height:4px; background:#2a2618; border-radius:2px; margin-top:5px; overflow:hidden; }
+    .bar > i { display:block; height:100%; }
+    .b-sta > i { background:#5aa0d0; } .b-rep > i { background:#e0b040; } .b-fav > i { background:#e07098; }
+    /* panel */
+    .panel { background:#17150f; border:1px solid #34301f; border-radius:10px; padding:13px; margin-bottom:10px; }
+    .phase { font-size:12px; color:#c8a24a; letter-spacing:2px; margin-bottom:10px; }
+    .phase b { color:#eae4d6; }
+    .acts { display:flex; flex-direction:column; gap:8px; }
+    .act { display:flex; justify-content:space-between; align-items:center; gap:10px; background:#221f16; border:1px solid #38311f;
+      border-radius:9px; padding:11px 13px; cursor:pointer; }
+    .act:active { background:#2e2a1c; }
+    .act[disabled], .act.off { opacity:.4; pointer-events:none; }
+    .act .n { font-size:15px; font-weight:bold; }
+    .act .d { font-size:11.5px; color:#9a9078; margin-top:2px; }
+    .act .cost { font-size:11.5px; color:#c8a24a; white-space:nowrap; text-align:right; }
+    .slots { font-size:12px; color:#b9b08c; margin-bottom:10px; }
+    .slots b { color:#e0c060; }
+    /* result table */
+    .res { font-size:14px; line-height:2; }
+    .res .row { display:flex; justify-content:space-between; border-bottom:1px dashed #2e2a1c; }
+    .res .row .r { font-variant-numeric:tabular-nums; }
+    .pos { color:#7fc26a; } .neg { color:#e0705a; }
+    .big { font-size:16px; }
+    button.go { width:100%; padding:13px; border:none; border-radius:10px; background:#7a6a3a; color:#efe6cf; font-size:15px; font-weight:bold; cursor:pointer; margin-top:10px; }
+    button.go.sub { background:#3a3628; }
+    .foot { text-align:center; margin-top:4px; }
+    .foot button { background:#1b1913; color:#8a8262; border:1px solid #2a2418; border-radius:8px; padding:7px 16px; font-size:12px; cursor:pointer; }
+    .note { font-size:12px; color:#9a9078; line-height:1.7; }
+    #over { position:fixed; inset:0; background:rgba(0,0,0,.75); display:none; align-items:center; justify-content:center; }
+    #over .box { background:#211d12; border:1px solid #5a4f2a; border-radius:14px; padding:22px 24px; text-align:center; max-width:300px; }
+    #over h2 { margin:0 0 8px; font-size:20px; } #over p { font-size:13px; color:#b9b08c; line-height:1.7; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>深夜食堂 · 經營 <small>養成原型 v0.1</small></h1>
+    <div class="hud" id="hud"></div>
+    <div class="panel" id="panel"></div>
+    <div class="foot"><button onclick="hardReset()">↺ 重新開店</button></div>
+  </div>
+  <div id="over"><div class="box"><h2 id="ovT"></h2><p id="ovP"></p><button class="go" onclick="hardReset()">再開一次</button></div></div>
+
+  <script>
+    // ===== 參數（好調）=====
+    var C = {
+      cash0:6000, rep0:20, cook0:3, sta0:10, staMax:10, fav0:0,
+      wageShen:500, misc:200,            // 沈日薪 + 每晚雜費
+      stayBase:8,                         // 每晚基本備料（來客上限）
+      milestone:50, goalDay:30
+    };
+    // 白天行動（每個吃 1 時段）
+    var ACTS = [
+      { id:'cook', n:'練菜',  d:'磨廚藝，客單價變高', sta:3, cash:-300, do:function(s){ s.cook+=1; } , cost:'體力3・-$300' },
+      { id:'buy',  n:'採買備料', d:'今晚能多接客人', sta:2, cash:-1000, do:function(s){ s.stay+=8; }, cost:'體力2・-$1000' },
+      { id:'clean',n:'打掃招攬', d:'店的名聲慢慢起來', sta:2, cash:0, do:function(s){ s.rep+=5; }, cost:'體力2・名聲+5' },
+      { id:'rest', n:'休息',  d:'補體力（顧店是體力活）', sta:-3, cash:0, do:function(s){}, cost:'體力+3' }
+    ];
+
+    var SAVE='diner_biz_v1', s=null;
+    function fresh(){ return { day:1, cash:C.cash0, rep:C.rep0, cook:C.cook0, sta:C.sta0, fav:C.fav0,
+      stay:C.stayBase, slots:3, phase:'plan', last:null, done:false }; }
+    function load(){ try{ var o=JSON.parse(localStorage.getItem(SAVE)); if(o&&o.day) return o; }catch(e){} return null; }
+    function save(){ try{ localStorage.setItem(SAVE, JSON.stringify(s)); }catch(e){} }
+
+    function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+    function rnd(a,b){ return a + Math.random()*(b-a); }
+    function money(n){ return (n<0?'-$':'$')+Math.abs(Math.round(n)); }
+
+    // ===== 白天行動 =====
+    function doAct(id){
+      if(s.phase!=='plan'||s.slots<=0) return;
+      var a=null; for(var i=0;i<ACTS.length;i++) if(ACTS[i].id===id) a=ACTS[i];
+      if(!a) return;
+      if(a.sta>0 && s.sta < a.sta) return;          // 體力不夠做不了
+      if(a.cash<0 && s.cash + a.cash < 0) return;    // 錢不夠
+      s.sta = clamp(s.sta - a.sta, 0, C.staMax);
+      s.cash += a.cash;
+      a.do(s);
+      s.slots--;
+      if(s.slots<=0) s.phase='ready';                // 時段用完 → 待營業
+      save(); render();
+    }
+    function skipToOpen(){ if(s.phase==='plan'){ s.phase='ready'; save(); render(); } }
+
+    // ===== 晚上營業結算 =====
+    function openShop(){
+      if(s.phase!=='ready'&&s.phase!=='plan') return;
+      var potential = Math.round(s.rep * 0.4 * rnd(0.85,1.15));   // 名聲帶來的潛在客
+      var tired = s.sta < 3;                                       // 太累→服務差
+      var capacity = Math.min(s.stay, tired ? Math.round(s.stay*0.6) : s.stay);
+      var served = Math.min(potential, capacity);
+      var turnedAway = Math.max(0, potential - served);
+      var price = 100 + s.cook*20;
+      var revenue = served * price;
+      var cost = C.wageShen + C.misc;
+      var profit = revenue - cost;
+      // 名聲變動
+      var dRep = 0;
+      if(tired){ dRep -= 2; }
+      if(turnedAway>4){ dRep -= (turnedAway>10?2:1); }                    // 撲空太多才傷名聲（小缺貨無妨）
+      if(served>0 && turnedAway<=4){ dRep += 2; }                         // 招呼得過來、口碑+
+      s.rep = clamp(s.rep + dRep, 0, 100);
+      s.cash += profit;
+      s.sta = clamp(s.sta - 3, 0, C.staMax);
+      s.last = { potential:potential, served:served, turnedAway:turnedAway, price:price,
+                 revenue:revenue, cost:cost, profit:profit, dRep:dRep, tired:tired };
+      s.phase='result'; save(); render();
+      if(s.cash < 0){ over('💸 週轉不靈', '現金見底，店撐不下去了。\n（試著別在名聲還低時就大手筆採買。）'); }
+    }
+
+    // ===== 收工（好感·純機制·文字先從簡）=====
+    function close(kind){
+      if(s.phase!=='close') return;
+      if(kind==='bonus'){ if(s.cash<300) return; s.cash-=300; s.fav+=3; }
+      else if(kind==='care'){ s.fav+=1; }
+      // 'quiet' → +0
+      s.fav = clamp(s.fav,0,100);
+      nextDay();
+    }
+    function toClose(){ if(s.phase==='result'){ s.phase='close'; save(); render(); } }
+
+    function nextDay(){
+      s.day++;
+      s.sta = clamp(s.sta + 4, 0, C.staMax);   // 睡一覺回一點體力
+      s.stay = C.stayBase;                      // 備料每天歸零（要重新採買）
+      s.slots = 3; s.phase='plan'; s.last=null;
+      if(s.rep>=C.milestone && !s.done){ s.done=true; save(); render();
+        return over('🏮 站穩了', '名聲做到 '+C.milestone+'，這間店在巷子裡有人記得了。\n（原型里程碑——之後接關卡/劇情/沈的線。）', true); }
+      if(s.day>C.goalDay){ save(); return over('📅 撐過一個月', '現金 '+money(s.cash)+'・名聲 '+s.rep+'。\n第一個月活下來了。', true); }
+      save(); render();
+    }
+
+    // ===== 畫面 =====
+    function hud(){
+      var wk=['日','一','二','三','四','五','六'][ (s.day)%7 ];
+      return ''+
+      stat('第 '+s.day+' 天','（週'+wk+'）','') +
+      stat('現金', money(s.cash), '') +
+      stat('店的名聲', s.rep, 'bar b-rep '+pct(s.rep,100)) +
+      stat('廚藝', 'Lv.'+s.cook, '') +
+      stat('體力', s.sta+' <small>/'+C.staMax+'</small>', 'bar b-sta '+pct(s.sta,C.staMax)) +
+      stat('沈的好感', s.fav, 'bar b-fav '+pct(s.fav,100));
+    }
+    function stat(k,v,barCls){
+      var bar=''; if(barCls){ var parts=barCls.split(' '); var w=parts.pop(); bar='<div class="'+parts.join(' ')+'"><i style="width:'+w+'%"></i></div>'; }
+      return '<div class="stat"><div class="k">'+k+'</div><div class="v">'+v+'</div>'+bar+'</div>';
+    }
+    function pct(v,m){ return Math.round(clamp(v,0,m)/m*100); }
+
+    function panel(){
+      if(s.phase==='plan'||s.phase==='ready'){
+        var h='<div class="phase">白天 · 備戰</div>';
+        h+='<div class="slots">剩下時段：<b>'+s.slots+'</b> / 3　　今晚備料上限：<b>'+s.stay+'</b> 位</div>';
+        h+='<div class="acts">';
+        ACTS.forEach(function(a){
+          var can = s.phase==='plan' && s.slots>0 && !(a.sta>0&&s.sta<a.sta) && !(a.cash<0&&s.cash+a.cash<0);
+          h+='<div class="act'+(can?'':' off')+'" onclick="doAct(\''+a.id+'\')">'+
+             '<div><div class="n">'+a.n+'</div><div class="d">'+a.d+'</div></div>'+
+             '<div class="cost">'+a.cost+'</div></div>';
+        });
+        h+='</div>';
+        h+='<button class="go" onclick="openShop()">🌙 開始今晚營業</button>';
+        if(s.phase==='plan' && s.slots>0) h+='<div class="note" style="text-align:center;margin-top:8px;">（時段沒用完也能直接開店）</div>';
+        return h;
+      }
+      if(s.phase==='result'){
+        var L=s.last;
+        var h='<div class="phase">🌙 今晚 · 結算</div><div class="res">';
+        h+=row('上門客人', L.potential+' 位'+(L.turnedAway>0?'（'+L.turnedAway+' 位撲空）':''));
+        h+=row('接待', L.served+' 位'+(L.tired?'（太累·服務打折）':''));
+        h+=row('客單價', money(L.price));
+        h+=row('營業額', money(L.revenue));
+        h+=row('沈的日薪＋雜費', money(-L.cost),'neg');
+        h+=row('<b>今晚淨利</b>', '<b>'+money(L.profit)+'</b>', L.profit>=0?'pos':'neg','big');
+        h+=row('店的名聲', (L.dRep>=0?'+':'')+L.dRep, L.dRep>=0?'pos':'neg');
+        h+='</div><button class="go" onclick="toClose()">打烊、收工</button>';
+        return h;
+      }
+      if(s.phase==='close'){
+        var h='<div class="phase">🌃 收工</div>';
+        h+='<div class="note">沈在收拾最後幾張桌子。</div>';
+        h+='<div class="acts" style="margin-top:12px;">';
+        h+='<div class="act" onclick="close(\'bonus\')"><div><div class="n">多發她一點獎金</div><div class="d">好感 +3</div></div><div class="cost neg">-$300</div></div>';
+        h+='<div class="act" onclick="close(\'care\')"><div><div class="n">道聲辛苦</div><div class="d">好感 +1</div></div><div class="cost">免費</div></div>';
+        h+='<div class="act" onclick="close(\'quiet\')"><div><div class="n">各自打烊</div><div class="d">—</div></div><div class="cost">—</div></div>';
+        h+='</div>';
+        return h;
+      }
+      return '';
+    }
+    function row(k,v,cls,big){ return '<div class="row'+(big?' big':'')+'"><span>'+k+'</span><span class="r '+(cls||'')+'">'+v+'</span></div>'; }
+
+    function render(){ document.getElementById('hud').innerHTML=hud(); document.getElementById('panel').innerHTML=panel(); }
+
+    function over(t,p,win){ document.getElementById('ovT').textContent=t; document.getElementById('ovP').textContent=p;
+      document.getElementById('over').style.display='flex'; }
+    function hardReset(){ document.getElementById('over').style.display='none'; s=fresh(); save(); render(); }
+
+    s = load() || fresh(); render();
+  </script>
+</body>
+</html>
