@@ -86,12 +86,14 @@ function imageTestGenerate(prompt, useFullModel) {
   return out;
 }
 
-// 🔑 一次性授權用：從編輯器選這個執行 → 立刻碰 Drive → 觸發 Google「需要授權」同意畫面。
-//   授權過一次後，網頁 /exec 生圖就能同時存進 Drive/試算表（授權是綁帳號、不綁部署版本）。
+// 🔑 一次性授權用：從編輯器選這個執行 → 實際【寫入】Drive（建資料夾＋試算表）→ 逼出【完整】
+//   Drive 寫入權限的同意畫面（前版只 getRootFolder 是唯讀·Google 只給唯讀·createFolder 仍缺權限）。
+//   授權過一次後，網頁 /exec 生圖就能同時存進 Drive/試算表（授權綁帳號、不綁部署版本）。
 function grantPermissions() {
-  const name = DriveApp.getRootFolder().getName(); // 碰 Drive → 逼出授權
-  Logger.log("Drive 根目錄：" + name);
-  return "若沒跳授權畫面＝代表已經授權過了 ✅";
+  const folder = imgGetOrCreateFolder_("命運圖庫測試");    // createFolder → 需要寫入權限
+  const ss = imgGetOrCreateSheet_("命運圖庫測試", folder); // SpreadsheetApp.create → 需要寫入權限
+  Logger.log("資料夾 OK：" + folder.getName() + "／試算表 OK：" + ss.getName());
+  return "Drive／試算表 寫入權限已完成 ✅（資料夾與試算表已就緒）";
 }
 
 function imgGetOrCreateFolder_(name) {
