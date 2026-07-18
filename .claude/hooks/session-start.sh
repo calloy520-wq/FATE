@@ -6,14 +6,14 @@ set -uo pipefail
 
 cat <<'BRIEF'
 🚨 FATE《命運停駐之夜》紅線（違反＝不可逆災難）：
-  1. 慾海禁區：gas/Engine_Combat.gs 的 nsfwBaseRules 與 NSFW 機制一律不可改；改鄰近處事後 git diff | grep nsfwBaseRules 須 0 改動。
-  2. 九州 GAS 不可動（只能複製過來）。
-  3. show-don't-tell：禁直述 願望／個性／萌點 字面。
-  4. branch：只在 claude/fate-error-review-w8q42w 開發；push→clasp 自動部署。
-  5. model id claude-opus-4-8 不可進 repo（commit/PR/code）。
+  1. 慾海禁區：gas/Gallery.gs 的 nsfwBaseRules 與整套 NSFW 機制一律不可改；改鄰近處事後 git diff -- gas/Gallery.gs | grep nsfwBaseRules 須逐行核對常數本體 0 改動。
+  2. 原始九州 GAS repo（/home/user/GAS）不可動，只能複製；FATE 內部九州衍生碼可放手清理改造。
+  3. show-don't-tell：敘事禁直述 願望／個性／萌點 字面。
+  4. branch：只在 claude/traditional-chinese-chat-q8ptho 開發。push→GitHub Action 只跑 clasp push（不上線）；要玩家看到新版須另手動觸發 workflow_dispatch 跑 clasp deploy。
+  5. 本模型 exact 型號 id（此處刻意不寫出）不可進 repo（commit／PR／code／任何 push 進 repo 的東西）。
 
-📌 開工前先讀：FATE/CLAUDE.md（紅線＋流程）、FATE/SOLO_REFERENCE.md（單人代碼地圖，先查再 grep）。
-✅ 改完代碼必跑：bash FATE/check.sh（驗證所有 .gs ＋ Script.html 內嵌 JS；CI 不檢查 .html JS）。
+📌 開工前先讀：FATE/CLAUDE.md（紅線＋流程）、FATE/PLAYBOOK.md（工作手冊）、FATE/SOLO_REFERENCE.md（solo 代碼地圖）、FATE/KANSHOU_REFERENCE.md（鑑賞現況）。
+✅ 改完代碼必跑：bash FATE/check.sh（驗所有 .gs ＋ Script*.html 內嵌 JS；CI 不檢查 .html JS）。
 BRIEF
 
 # node 健檢（check.sh 需要）：缺了就提醒，但不阻斷 session

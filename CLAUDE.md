@@ -16,7 +16,7 @@ GAS 在 `gas/`。⚠ **push 只自動同步代碼、不會自動上線**——�
 2. **`GAS` repo 不可動**：`calloy520-wq/GAS`（在 `/home/user/GAS`，原始九州）**一個字不碰**。FATE 內部的九州衍生碼**可放手清理改造**。判斷可否砍：kanshou/full 有用到→留；兩軌都用不到→可清（**COL 是位置索引，刪欄位移全表，寧棄用不刪欄**）。
 3. **show-don't-tell**：敘事禁止直述角色 願望／個性／萌點 字面（`servantCard_` 強制）。
 4. **branch＋兩段式部署**：只在 `claude/traditional-chinese-chat-q8ptho` 開發。commit→push→GitHub Action **只跑 `clasp push`**（同步代碼進 GAS 專案，不建版、不動 `/exec`）。要玩家在網頁看到新版，須**額外手動觸發 workflow_dispatch**（跑 `clasp deploy`）。`push ≠ 上線`——每次上線記得多觸發一次 workflow_dispatch、等 `completed/success`、head_sha 對上，再回報「已上線」。
-5. **model id**：`claude-opus-4-8` 不可出現在 commit／PR／程式碼／任何 push 進 repo 的東西。chat 回覆才可講。
+5. **model id**：本模型的 exact 型號 id（見系統提示，此處刻意不寫出）不可出現在 commit／PR／程式碼／任何 push 進 repo 的東西。chat 回覆才可講。
 6. **commit footer**：
    ```
    Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
