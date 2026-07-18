@@ -289,6 +289,7 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 【羈絆日】D:type1,type2(跨日重置) 【羈絆里程碑】30,60,90(已演出清單·get/setBondMilestonesFired_)
 【陣地】loc(setWorkshop·供魔工房+8·getWorkshop_) 【搜刮】loc(scavenge·魔力枯竭標記) 【禮裝】id
 【盟約至】day 【鑑賞緣】 【破戒奪取】 【黑化Alter】 【敵盟】對方御主名:到期day(敵敵結盟·resolveFactionEncounter_·get/setEnemyPact_)
+【趁隙】loc@type(撞見敵人的可反應窗口·決定抵達該格開放哪些情境選擇·get/set/clearEncounterWindow_·移動或用掉即清)
 【魔境】fx(玩家選的通用A階被動·set_mage_realm·rowToCombatant_ 注入) 【符文】def/dmg/regen(set_rune_mode)
 【御主】名/【從者】名(敵御主↔敵從者硬連結) 【喪失從者】名·死因 【靈基透支】絕對時數(令咒燒盡倒數·stampDoom_)
 【海怪護盾】cur|max|expiry(summon_horror 變身態) 【出力】等
@@ -311,6 +312,11 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 - **移動敘事 `actionMove`**：先 `worldTick_`（敵換位）→重讀眾生→落玩家到 target→讀同地人物。回傳 `servantCard`（我方·前綴【我方從者】）＋`foeCards`（敵·前綴【敵方從者·非我方】）＋`masterCard`。前端 `travelTo` 抵達提示前置。無人在場禁生具名角色；遭遇分「找上門/偶遇」（讀 `preFoes`）。**接敵姿態**（純敘述·存 localStorage `fate_stance`·免 round-trip）：🥷隱蔽/🚶泰然/🔥光明，只輕觸 `actionMove` 追擊機率。
 - **撤離追擊**（`actionMove`·用移動前資料判定）：離開有活敵從者的格子時，敏≥我方且 BOND<50 的敵從者依機率咬一記（base30%·帶傷+20%/騎乘-15%/姿態±10%·夾0~0.55）。命中則 `resolveFateBattle_` 真·雙向判定（我輸/我贏回身逼退·保1不致死）。回 `pursuit`（含 `foeCard`）＋數字戰報卡。無預告時退回六圍追擊。
 - **抵達時撞見兩方敵人**（`resolveFactionEncounter_`·Router_Movement）：≥2 位不同敵御主（皆非結盟）同格→**不再永遠「互毆→見你停手」**，改**資料驅動權重表擲一種局面**：clash(交手餘傷·停手)／frenzy(殺紅眼·沒理你繼續打)／standoff(對峙未發)／hunt(一方追殺殘方)／unite(暫時聯手戒你)／pact(敵敵結盟·設【敵盟】)／truce(各自休整)／parley(談判被打斷)／allied_pair(已締盟續演)。權重依雙方 `masterPersonaLean_`（性格投契度·與 `allianceWillingness_` 共用單一真實來源）＋從者傷勢差＋殘敵數動態調整。HP 餘傷／`setEnemyPact_` 敵盟標記等後果 GAS 落地寫 allPcData，`factionClash.note`（純場面事實）給 AI 演出。加局面＝往權重表 W 加一項＋switch 補一段 note。前端 arrivePrompt 用中性 steer（不再假設「你打斷了戰鬥」）。⚠ v1：worldTick 未讀【敵盟】（敵盟只影響再次抵達的演出＋不重擲火併），敵盟未給敵方協同增益。
+- **撞見敵人的配套「後續選擇」**（局面決定開放哪些按鈕·`FACTION_ENCOUNTER_CHOICES_` 資料表）：抵達時 `resolveFactionEncounter_` 回 `choices:{ambush,incite,slip}`，actionMove 寫【趁隙】loc@type 窗口進御主 MEMORY，`buildTagsPayload_` 回 `encounterWindow` → 前端 `renderWarActions` 顯示情境按鈕。
+  - 🥷 **趁隙偷襲**（`faction_ambush`→`actionFactionAmbush`→`playerAmbushOnEnemy_`）：敵分心（frenzy/standoff/parley/pact）時搶一記奇襲，複用 `resolveFateBattle_` 的 `ambush` 先機（鏡射 `enemyAmbushOnServant_` 反向），×1.5 加乘、處理敵死亡(DEAD_/`markMasterLostServant_`/`aliveEnemyServants_` 勝利)。耗 1AP、用掉清窗口。
+  - 🎭 **挑撥離間**（`incite`→`actionIncite`）：standoff/parley 時煽動兩敵。成敗由 `masterPersonaLean_` 擲（base .5＋孤狼.2−雙務實.25，夾[.1,.85]）；成功→兩敵真打(雙方扣血·保1)，失敗→兩敵合流戒你(無數值罰)。耗 1AP。
+  - 💨 **悄悄離開**（slip）：frenzy/parley/pact 時，`actionMove` 讀【趁隙】窗口→跳過撤離追擊判定。
+  - 兩 action 皆進 `STATE_AFTER_ACTIONS`＋`KANSHOU_BLOCKED_ACTIONS_`。
 - **令咒透支倒數**：敵從者燃最後令咒脫離（無 `fx:'solo'`）→`stampDoom_` 寫【靈基透支】死線（day*24+hour+`SEAL_DOOM_HOURS`=3）。`worldTick_` 到期 `DEAD_`＋風聞。收掉最後敵從者→`victory:true`。御主戰死也連坐同款倒數（masterless 敵從者）。單獨行動者免倒數。
 - **喪失從者的敵御主**：敵從者死亡時 `markMasterLostServant_` 在同地敵御主 MEMORY 寫【喪失從者】。前端演出形單影隻。
 - **敘事連續記憶 `lastAiContext`**（模組級·最近 AI 文≤300字）：`narrate`/play 更新；`travelTo` 在 foe 時當「前情」塞進抵達提示（承接逃跑後再遇）。

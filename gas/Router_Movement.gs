@@ -88,10 +88,13 @@ function actionMove(userData, pcId, sheets) {
       return JSON.stringify({ success: false, message: "輿圖之上查無此地，無路可達。" });
     }
   } catch (e) { }
+  // 🥷 悄悄離開：若正從一個「敵人分心」的局面格（趁隙窗口·slip）抽身，此刻離開不會被追擊。
+  var _slipWin = isFateMove ? getEncounterWindow_(allPcData[pIdx][COL.PC.MEMORY]) : null;
+  var _slipAway = !!(_slipWin && _slipWin.loc === String(allPcData[pIdx][COL.PC.LOC] || "").trim() && encounterChoices_(_slipWin.type).slip);
   var pursuit = null;
   try {
     var fromLocM = String(allPcData[pIdx][COL.PC.LOC] || "").trim();
-    if (isFateMove && fromLocM && tgtTrim && tgtTrim !== fromLocM) {
+    if (isFateMove && !_slipAway && fromLocM && tgtTrim && tgtTrim !== fromLocM) {
       var psvIdxM = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
       if (psvIdxM !== -1) {
         var psvC = rowToCombatant_(allPcData[psvIdxM]);
@@ -277,6 +280,16 @@ function actionMove(userData, pcId, sheets) {
     }
   } catch (e) { }
   if (factionClash) worldRumors.unshift('〔敵營動向〕' + factionClash.note);
+  // 🎯 撞見敵人的可反應窗口：把局面 type 寫進御主 MEMORY，決定抵達這格開放哪些情境選擇（趁隙/挑撥/溜走）。
+  //   無可反應局面則清掉舊窗口。隨下方整表 setValues 一併寫回。
+  if (isFateMove) {
+    var _ch = factionClash && factionClash.choices;
+    if (_ch && (_ch.ambush || _ch.incite || _ch.slip)) {
+      allPcData[pIdx][COL.PC.MEMORY] = setEncounterWindow_(allPcData[pIdx][COL.PC.MEMORY], tgtTrim, factionClash.type);
+    } else {
+      allPcData[pIdx][COL.PC.MEMORY] = clearEncounterWindow_(allPcData[pIdx][COL.PC.MEMORY]);
+    }
+  }
 
   // ⏳ 時回：移動的 2 小時間，御主與同行從者隨時間自然回復（HP 固定、MP 看魔術迴路）。
   //   大幅恢復靠「休息」（同一套規則 ×2）。便宜：只改記憶體那幾格，隨移動一起寫回，零額外讀寫，不會變慢。
@@ -600,7 +613,170 @@ function resolveFactionEncounter_(allPcData, mA, mB, svA, svB, gameId, day) {
       note = `你抵達時，「${mAName}」與「${mBName}」的從者已鏖戰多時——「${loserName}」帶著新添的傷勢（−${chip(loserIdx, 1.0)}），雙方在你踏入的瞬間戒備地停手，各自警惕地看向這個不速之客。`;
       break;
   }
-  return { type: type, aMaster: mAName, bMaster: mBName, loserName: loserName, note: note };
+  return { type: type, aMaster: mAName, bMaster: mBName, loserName: loserName, note: note, choices: encounterChoices_(type) };
+}
+
+// 局面 type → 開放的情境選擇（前端據此顯示按鈕）。ambush＝趁隙偷襲／incite＝挑撥離間／slip＝悄悄離開不被追擊。
+var FACTION_ENCOUNTER_CHOICES_ = {
+  frenzy:      { ambush: true,  incite: false, slip: true },  // 殺紅眼死鬥·忙著彼此→可趁隙、可溜走
+  standoff:    { ambush: true,  incite: true,  slip: false }, // 對峙·可趁隙、可煽動開打
+  parley:      { ambush: true,  incite: true,  slip: true },  // 談判中·可趁隙、可攪局、可溜走
+  pact:        { ambush: true,  incite: false, slip: true },  // 剛結盟·注意力在彼此→可趁隙、可溜走
+  hunt:        { ambush: false, incite: false, slip: false },
+  unite:       { ambush: false, incite: false, slip: false }, // 已一起盯著你→無隙可趁
+  clash:       { ambush: false, incite: false, slip: false },
+  truce:       { ambush: false, incite: false, slip: false },
+  allied_pair: { ambush: false, incite: false, slip: false }
+};
+function encounterChoices_(type) { return FACTION_ENCOUNTER_CHOICES_[type] || { ambush: false, incite: false, slip: false }; }
+
+// 🎯 撞見敵人後的「可反應窗口」：御主 MEMORY【趁隙】<loc>@<type>。決定抵達這格開放哪些情境選擇。
+//   窗口在「再次移動」時清掉（悄悄離開）或被下一次抵達覆寫；趁隙/挑撥用掉即清。
+function setEncounterWindow_(memory, loc, type) {
+  var mem = clearEncounterWindow_(memory);
+  var tag = "【趁隙】" + String(loc || "").replace(/[｜@【】]/g, "") + "@" + String(type || "");
+  return mem ? mem + "｜" + tag : tag;
+}
+function getEncounterWindow_(memory) {
+  var m = String(memory || "").match(/【趁隙】([^｜@]+)@([a-z_]+)/);
+  return m ? { loc: m[1], type: m[2] } : null;
+}
+function clearEncounterWindow_(memory) {
+  return String(memory || "").replace(/【趁隙】[^｜]*/g, "").replace(/｜｜+/g, "｜").replace(/^｜|｜$/g, "");
+}
+
+// 🥷 趁隙偷襲：撞見敵人分心（殺紅眼/對峙/談判/剛結盟）時，我方從者搶一記奇襲。複用 resolveFateBattle_ 的 ambush 先機，
+//   鏡射 enemyAmbushOnServant_ 反向版：命中才傷、奇襲加乘、處理敵死亡(DEAD_/無牙御主/勝利)。回 out 物件（err＝不合法）。
+function playerAmbushOnEnemy_(sheets, pcData, pIdx, gameId, targetName) {
+  var myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
+  var day = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
+  var svIdx = pcData.findIndex(function (r) { return String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_"); });
+  if (svIdx === -1) return { err: "你沒有可出擊的從者。" };
+  var want = nameLoose_(targetName);
+  var eIdx = pcData.findIndex(function (r) {
+    return String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_") &&
+      String(r[COL.PC.LOC]).trim() === myLoc && !isAllied_(r) && hasArrived_(r, day) && (!want || nameLoose_(r[COL.PC.NAME]) === want);
+  });
+  if (eIdx === -1) return { err: "當前沒有那名可趁隙偷襲的敵從者。" };
+  var atkC = rowToCombatant_(pcData[svIdx]);
+  injectMysticBuff_(atkC, pcData[pIdx][COL.PC.MEMORY]);
+  injectMasterMeleeSupport_(atkC, pcData[pIdx][COL.PC.MEMORY]);
+  injectMasterMagicSupport_(atkC, pcData[pIdx][COL.PC.MEMORY]);
+  var defC = rowToCombatant_(pcData[eIdx]);
+  var probe = resolveFateBattle_(atkC, defC, { ambush: true, skill: servantActiveSkill_(atkC) });
+  var baseDmg = probe.atkWins ? (probe.damage || 1) : Math.max(1, Math.round(rankVal(atkC.six['筋力'] || 'C') * 0.5));
+  var dmg = Math.max(1, Math.round(baseDmg * 1.5)); // 🗡️ 趁隙奇襲加乘（敵分心、來不及反應）
+  var out = { enemyName: String(pcData[eIdx][COL.PC.NAME]), svName: String(pcData[svIdx][COL.PC.NAME]), dmg: dmg, hit: !!probe.atkWins, destroyed: false, victory: false, dreamPrompt: "", foeCard: '〔趁隙偷襲的目標〕' + servantCard_(pcData[eIdx]) };
+  var severed = hasFx_(atkC, 'rule_breaker') || hasFx_(atkC, 'anti_magic_lance');
+  var eHp = parseInt(pcData[eIdx][COL.PC.HP]) || 0, after = eHp - dmg;
+  if (after <= 0 && hasFx_(defC, 'survive') && eHp > 1 && !severed) after = 1;
+  if (after <= 0 && !severed && hasFx_(defC, 'god_hand')) {
+    var lives = getGodHandLives_(pcData[eIdx][COL.PC.MEMORY]);
+    if (lives > 0) { after = Math.max(1, Math.round((parseInt(pcData[eIdx][COL.PC.MAX_HP]) || 300) * 0.2)); pcData[eIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[eIdx][COL.PC.MEMORY], lives - 1); out.godRevived = true; }
+  }
+  if (after <= 0) {
+    out.destroyed = true;
+    markMasterLostServant_(sheets.pc, pcData, eIdx, `被『${atkC.name}』趁隙偷襲當場擊破`);
+    pcData[eIdx][COL.PC.ID] = "DEAD_" + String(pcData[eIdx][COL.PC.ID]); pcData[eIdx][COL.PC.HP] = 0;
+    pcData[eIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "遭趁隙奇襲·靈基崩潰", "顏面": "已無生息" });
+    if (aliveEnemyServants_(sheets, gameId, pcData) <= 0) {
+      out.victory = true;
+      out.dreamPrompt = buildVictoryDreamPrompt_(pcData[pIdx][COL.PC.NAME], extractWish_(pcData[pIdx][COL.PC.MEMORY]), atkC.name);
+    }
+  } else {
+    pcData[eIdx][COL.PC.HP] = after;
+  }
+  sheets.pc.getRange(eIdx + 1, 1, 1, pcData[eIdx].length).setValues([pcData[eIdx]]);
+  out.after = Math.max(0, after);
+  out.eHpMax = parseInt(pcData[eIdx][COL.PC.MAX_HP]) || 0;
+  out.report = { ambush: true, player: true, enemyName: out.enemyName, svName: out.svName, dmg: dmg, after: out.after, eHpMax: out.eHpMax, destroyed: out.destroyed, victory: out.victory, hit: out.hit };
+  return out;
+}
+
+// 🥷 趁隙偷襲 action：只在有效趁隙窗口＋窗口 loc＝當前地＋type 允許 ambush 時可用。耗 1 AP、用掉即清窗口。
+function actionFactionAmbush(userData, pcId, sheets) {
+  var pcData = sheets.pc.getDataRange().getValues();
+  var pIdx = pcData.findIndex(function (r) { return r[COL.PC.ID] == pcId; });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  var gameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  if (gameId.indexOf("g_") !== 0) return JSON.stringify({ success: false, message: "此刻無法行動。" });
+  var win = getEncounterWindow_(pcData[pIdx][COL.PC.MEMORY]);
+  if (!win || win.loc !== String(pcData[pIdx][COL.PC.LOC]).trim() || !encounterChoices_(win.type).ambush)
+    return JSON.stringify({ success: false, message: "眼下已沒有可趁的空隙了。" });
+  if (getAp_(gameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以搶這一手。" });
+  var res = playerAmbushOnEnemy_(sheets, pcData, pIdx, gameId, String(userData.targetName || ""));
+  if (res.err) return JSON.stringify({ success: false, message: res.err });
+  pcData[pIdx][COL.PC.MEMORY] = clearEncounterWindow_(pcData[pIdx][COL.PC.MEMORY]); // 用掉即清窗口
+  var ap = AP_PER_DAY, clock = "";
+  try { ap = spendAp_(gameId, 1, pcData, sheets).ap; clock = clockLabel_(gameId, pcData); } catch (e) { }
+  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]); // 寫回御主列(窗口清除＋AP)
+  var hitTxt = res.hit ? `一擊得手，重創「${res.enemyName}」（−${res.dmg}）` : `倉促搶攻只擦過「${res.enemyName}」（−${res.dmg}）`;
+  var _mySvIdx = findPlayerServantIdx_(pcData, gameId, "");
+  var aiPrompt = servantCard_(pcData[_mySvIdx !== -1 ? _mySvIdx : pIdx]) + res.foeCard +
+    `【系統·趁隙偷襲·已裁定】趁「${res.enemyName}」分心之際，你的從者搶先發難——${hitTxt}${res.destroyed ? '，將其當場擊破！' : '，對方旋即警覺、不再有隙可趁。'}\n` +
+    `★以 Fate／TYPE-MOON 筆觸【約 80~140 字】演出這記趁隙奇襲：把握、突發、對方由鬆懈轉為戒備的瞬間；依雙方性格演，別自行加碼改寫勝負（傷害已由 GAS 結算）。`;
+  STATE_PRE_DATA_ = pcData;
+  return JSON.stringify({
+    success: true, aiPrompt: aiPrompt, report: res.report,
+    victory: res.victory || false, dreamPrompt: res.dreamPrompt || "",
+    clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets)
+  });
+}
+
+// 🎭 挑撥離間 action：對峙/談判局面時煽風點火。GAS 依雙方御主性格擲成敗——成功→兩敵真打起來(雙方扣血·保1)；
+//   反效果→他們看穿、一起轉頭戒你(無數值懲罰、白費 1 AP)。耗 1 AP、用掉即清窗口。
+function actionIncite(userData, pcId, sheets) {
+  var pcData = sheets.pc.getDataRange().getValues();
+  var pIdx = pcData.findIndex(function (r) { return r[COL.PC.ID] == pcId; });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  var gameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  if (gameId.indexOf("g_") !== 0) return JSON.stringify({ success: false, message: "此刻無法行動。" });
+  var myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
+  var day = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
+  var win = getEncounterWindow_(pcData[pIdx][COL.PC.MEMORY]);
+  if (!win || win.loc !== myLoc || !encounterChoices_(win.type).incite)
+    return JSON.stringify({ success: false, message: "此刻沒有可挑撥的對立局面。" });
+  if (getAp_(gameId) < 1) return JSON.stringify({ success: false, message: "行動力不足。" });
+  // 找同地兩名不同陣營敵從者（各自御主判性格）
+  var foeSvs = [];
+  pcData.forEach(function (r, i) {
+    if (String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_") &&
+      String(r[COL.PC.LOC]).trim() === myLoc && !isAllied_(r) && hasArrived_(r, day)) foeSvs.push(i);
+  });
+  if (foeSvs.length < 2) return JSON.stringify({ success: false, message: "這裡沒有兩方可供挑撥的敵人。" });
+  var iA = foeSvs[0], iB = foeSvs[1];
+  var mIdxA = enemyMasterIdx_(pcData, iA, gameId), mIdxB = enemyMasterIdx_(pcData, iB, gameId);
+  var leanA = mIdxA >= 0 ? masterPersonaLean_(pcData[mIdxA]) : { pragmatic: false, loner: true };
+  var leanB = mIdxB >= 0 ? masterPersonaLean_(pcData[mIdxB]) : { pragmatic: false, loner: true };
+  var prob = 0.5 + ((leanA.loner || leanB.loner) ? 0.2 : 0) - ((leanA.pragmatic && leanB.pragmatic) ? 0.25 : 0);
+  prob = Math.max(0.1, Math.min(0.85, prob));
+  var success = Math.random() < prob;
+  var svAName = String(pcData[iA][COL.PC.NAME]), svBName = String(pcData[iB][COL.PC.NAME]);
+  var aiPrompt, report;
+  if (success) {
+    var cross = resolveFateBattle_(rowToCombatant_(pcData[iA]), rowToCombatant_(pcData[iB]), {});
+    var loIdx = cross.atkWins ? iB : iA, wiIdx = cross.atkWins ? iA : iB;
+    var loName = cross.atkWins ? svBName : svAName;
+    var loDmg = Math.max(1, Math.round((cross.damage || 1) * 0.6));
+    var wiDmg = Math.max(1, Math.round((cross.damage || 1) * 0.25));
+    pcData[loIdx][COL.PC.HP] = Math.max(1, (parseInt(pcData[loIdx][COL.PC.HP]) || 0) - loDmg);
+    pcData[wiIdx][COL.PC.HP] = Math.max(1, (parseInt(pcData[wiIdx][COL.PC.HP]) || 0) - wiDmg);
+    sheets.pc.getRange(loIdx + 1, 1, 1, pcData[loIdx].length).setValues([pcData[loIdx]]);
+    sheets.pc.getRange(wiIdx + 1, 1, 1, pcData[wiIdx].length).setValues([pcData[wiIdx]]);
+    aiPrompt = `【系統·挑撥離間·得逞】你三言兩語點燃了「${svAName}」與「${svBName}」之間的火——兩人當真打了起來，「${loName}」吃了較重的一擊（−${loDmg}），另一方亦掛彩（−${wiDmg}）。\n` +
+      `★以 Fate／TYPE-MOON 筆觸【約 80~140 字】演出你如何煽風點火、兩方如何被激得反目相向；你則在一旁坐收其亂。傷害已由 GAS 結算。`;
+    report = { incite: true, success: true, aName: svAName, bName: svBName, loName: loName, loDmg: loDmg, wiDmg: wiDmg };
+  } else {
+    aiPrompt = `【系統·挑撥離間·被看穿】你試圖挑撥「${svAName}」與「${svBName}」反目，卻被兩人一眼看穿——他們非但沒中計，反而不約而同地轉過頭，戒備地一同盯向你這攪局的外人。\n` +
+      `★以 Fate／TYPE-MOON 筆觸【約 70~120 字】演出這記挑撥落空、兩方合流戒你的尷尬瞬間；語氣別替玩家決定接下來怎麼辦。`;
+    report = { incite: true, success: false, aName: svAName, bName: svBName };
+  }
+  pcData[pIdx][COL.PC.MEMORY] = clearEncounterWindow_(pcData[pIdx][COL.PC.MEMORY]);
+  var ap = AP_PER_DAY, clock = "";
+  try { ap = spendAp_(gameId, 1, pcData, sheets).ap; clock = clockLabel_(gameId, pcData); } catch (e) { }
+  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+  STATE_PRE_DATA_ = pcData;
+  return JSON.stringify({ success: true, aiPrompt: aiPrompt, report: report, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
 // ⚔️ 卸防突襲：在同地有清醒敵從者時做「補魔／羈絆／休息」等卸下防備之舉，會招致敵從者趁隙重擊我方從者

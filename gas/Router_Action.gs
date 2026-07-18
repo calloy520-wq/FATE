@@ -54,6 +54,8 @@ const ActionRouter = {
   "second_wind": actionSecondWind,
   "scout": actionScout,
   "get_map_nodes": actionGetMapNodes,
+  "faction_ambush": actionFactionAmbush, // 🥷 撞見敵人分心時趁隙偷襲
+  "incite": actionIncite,                // 🎭 挑撥離間敵對兩方
   "move": actionMove,
   "sync": actionSync,
   "rest": actionRest,
@@ -201,6 +203,7 @@ const STATE_AFTER_ACTIONS = {
   fate_battle: 1, use_seal: 1, mana_supply: 1, spirit_repair: 1, bond: 1, rule_break_steal: 1,
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
   second_wind: 1, scout: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
+  faction_ambush: 1, incite: 1,
   update_fate: 1, update_rel_tag: 1
 };
 // 🛡️ 慾海(KPC_)明確擋下的戰鬥／經濟／結盟類 action——皆為 solo 戰爭專屬，前端在 kanshou 模式下
@@ -217,7 +220,7 @@ const KANSHOU_BLOCKED_ACTIONS_ = {
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
   second_wind: 1, scout: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
   set_servant_output: 1, set_mage_realm: 1, set_rune_mode: 1,
-  prep_meal: 1, purge_orphans: 1,
+  prep_meal: 1, purge_orphans: 1, faction_ambush: 1, incite: 1,
   weapon: 1, get_map_nodes: 1, narrate_only: 1,
   end_run: 1, create: 1, summon_servant: 1, backfill_master_ai: 1,
   account_login: 1, account_new_game: 1,
@@ -431,7 +434,13 @@ function buildTagsPayload_(sheets, pcId, preData) {
       if (home && (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_VISIT_BOND_) unlockedResidences[home] = true;
     });
   }
-  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length, locationCounts: locationCounts, unlockedResidences: Object.keys(unlockedResidences) };
+  // 🎯 撞見敵人的可反應窗口（趁隙/挑撥/溜走）：僅 solo 且窗口 loc＝目前所在地時給前端，供顯示情境按鈕。
+  var encWin = null;
+  if (isFateCtx) {
+    var _w = getEncounterWindow_(m[COL.PC.MEMORY]);
+    if (_w && _w.loc === String(m[COL.PC.LOC] || "").trim()) encWin = { type: _w.type, choices: encounterChoices_(_w.type) };
+  }
+  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length, locationCounts: locationCounts, unlockedResidences: Object.keys(unlockedResidences), encounterWindow: encWin };
 }
 
 // ⚡ preData：手上已有最新整表陣列的呼叫端(見 STATE_PRE_DATA_ 交棒機制)傳入複用，省掉整表重讀——
