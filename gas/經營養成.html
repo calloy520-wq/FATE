@@ -6,60 +6,60 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <style>
     * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-    body { margin:0; background:#12110d; color:#eae4d6; font-family:system-ui,'Noto Sans TC',sans-serif; padding:10px; }
-    .wrap { max-width:520px; margin:0 auto; }
-    h1 { font-size:15px; margin:2px 0 8px; letter-spacing:1px; color:#d8caa6; }
-    h1 small { color:#8a8262; font-size:11px; letter-spacing:0; }
-    .hud { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:10px; }
-    .stat { background:#1c1a12; border:1px solid #34301f; border-radius:8px; padding:7px 9px; }
-    .stat .k { font-size:10.5px; color:#8a8262; letter-spacing:1px; }
-    .stat .v { font-size:15px; font-weight:bold; margin-top:2px; }
-    .stat .v small { font-size:11px; color:#8a8262; font-weight:normal; }
-    .bar { height:4px; background:#2a2618; border-radius:2px; margin-top:5px; overflow:hidden; }
-    .bar > i { display:block; height:100%; }
-    .b-sta > i { background:#5aa0d0; } .b-rep > i { background:#e0b040; } .b-fav > i { background:#e07098; }
-    .panel { background:#17150f; border:1px solid #34301f; border-radius:10px; padding:13px; margin-bottom:10px; }
-    .phase { font-size:12px; color:#c8a24a; letter-spacing:2px; margin-bottom:10px; }
-    .sec { font-size:11.5px; color:#8a8262; letter-spacing:2px; margin:14px 0 7px; border-top:1px solid #2a2618; padding-top:11px; }
-    .sec:first-child { border-top:none; padding-top:0; margin-top:0; }
-    .acts { display:flex; flex-direction:column; gap:8px; }
-    .act { display:flex; justify-content:space-between; align-items:center; gap:10px; background:#221f16; border:1px solid #38311f;
-      border-radius:9px; padding:11px 13px; cursor:pointer; }
-    .act:active { background:#2e2a1c; }
-    .act.off { opacity:.4; pointer-events:none; }
-    .act .n { font-size:15px; font-weight:bold; }
-    .act .d { font-size:11.5px; color:#9a9078; margin-top:2px; }
-    .act .cost { font-size:11.5px; color:#c8a24a; white-space:nowrap; text-align:right; }
-    /* 通告卡 */
-    .task { background:#1e1c22; border:1px solid #3a3550; border-radius:9px; padding:11px 13px; }
-    .task.can { border-color:#5a6a3a; }
-    .task .tn { font-size:14.5px; font-weight:bold; }
-    .task .td { font-size:11.5px; color:#9a9078; margin:3px 0; }
-    .task .meta { font-size:11.5px; display:flex; justify-content:space-between; gap:8px; margin-top:5px; }
-    .task .req { color:#c88a8a; } .task .req.ok { color:#8ac88a; }
-    .task .rew { color:#e0c060; text-align:right; }
-    .task .take { margin-top:9px; width:100%; padding:9px; border:none; border-radius:7px; font-size:14px; font-weight:bold; cursor:pointer;
-      background:#5a6a3a; color:#eef3e0; }
-    .task .take[disabled] { background:#2a2820; color:#7d7458; cursor:default; }
-    .slots { font-size:12px; color:#b9b08c; margin-bottom:4px; }
+    body { margin:0; background:#12110d; color:#eae4d6; font-family:system-ui,'Noto Sans TC',sans-serif; padding:8px; }
+    .wrap { max-width:480px; margin:0 auto; }
+    h1 { font-size:13px; margin:0 0 6px; letter-spacing:1px; color:#d8caa6; }
+    h1 small { color:#8a8262; font-size:10px; letter-spacing:0; }
+    /* HUD 小條 */
+    .hud { display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
+    .hrow { display:flex; gap:5px; flex-wrap:wrap; }
+    .chip { background:#1c1a12; border:1px solid #34301f; border-radius:6px; padding:4px 8px; font-size:12px; display:flex; gap:5px; align-items:baseline; flex:1; }
+    .chip .k { color:#8a8262; font-size:10px; }
+    .chip .v { font-weight:bold; font-variant-numeric:tabular-nums; }
+    .chip.rep .v{ color:#e0b040; } .chip.fav .v{ color:#e07098; } .chip.sta .v{ color:#5aa0d0; }
+    /* panel */
+    .panel { background:#17150f; border:1px solid #34301f; border-radius:9px; padding:10px; }
+    .phase { font-size:11px; color:#c8a24a; letter-spacing:2px; margin-bottom:8px; }
+    .sec { font-size:10.5px; color:#8a8262; letter-spacing:1px; margin:11px 0 6px; }
+    .slots { font-size:11.5px; color:#b9b08c; }
     .slots b { color:#e0c060; }
-    .res { font-size:14px; line-height:2; }
+    /* 通告卡·精簡 */
+    .task { background:#1e1c22; border:1px solid #3a3550; border-radius:8px; padding:8px 10px; margin-bottom:6px; }
+    .task.can { border-color:#5a6a3a; }
+    .trow { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .trow .tn { font-size:14px; font-weight:bold; }
+    .take { padding:6px 12px; border:none; border-radius:6px; font-size:13px; font-weight:bold; cursor:pointer; white-space:nowrap;
+      background:#5a6a3a; color:#eef3e0; }
+    .take[disabled] { background:#2a2820; color:#7d7458; cursor:default; }
+    .tmeta { font-size:11px; margin-top:4px; color:#9a9078; }
+    .tmeta .ok { color:#8ac88a; } .tmeta .no { color:#c88a8a; } .tmeta .rew { color:#e0c060; }
+    /* 練功 2 欄 */
+    .acts2 { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+    .act2 { text-align:left; background:#221f16; border:1px solid #38311f; border-radius:8px; padding:8px 10px; cursor:pointer; color:#eae4d6; }
+    .act2:active { background:#2e2a1c; }
+    .act2.off { opacity:.4; pointer-events:none; }
+    .act2 .n { font-size:13.5px; font-weight:bold; display:block; }
+    .act2 .c { font-size:10.5px; color:#c8a24a; display:block; margin-top:2px; }
+    .go { width:100%; padding:12px; border:none; border-radius:9px; background:#7a6a3a; color:#efe6cf; font-size:15px; font-weight:bold; cursor:pointer; margin-top:10px; }
+    /* 結算 */
+    .res { font-size:13.5px; line-height:1.85; }
     .res .row { display:flex; justify-content:space-between; border-bottom:1px dashed #2e2a1c; }
     .res .row .r { font-variant-numeric:tabular-nums; }
-    .pos { color:#7fc26a; } .neg { color:#e0705a; }
-    .big { font-size:16px; }
-    button.go { width:100%; padding:13px; border:none; border-radius:10px; background:#7a6a3a; color:#efe6cf; font-size:15px; font-weight:bold; cursor:pointer; margin-top:12px; }
-    .foot { text-align:center; margin-top:4px; }
-    .foot button { background:#1b1913; color:#8a8262; border:1px solid #2a2418; border-radius:8px; padding:7px 16px; font-size:12px; cursor:pointer; }
-    .note { font-size:12px; color:#9a9078; line-height:1.7; }
-    #over { position:fixed; inset:0; background:rgba(0,0,0,.75); display:none; align-items:center; justify-content:center; }
-    #over .box { background:#211d12; border:1px solid #5a4f2a; border-radius:14px; padding:22px 24px; text-align:center; max-width:300px; }
-    #over h2 { margin:0 0 8px; font-size:20px; } #over p { font-size:13px; color:#b9b08c; line-height:1.7; white-space:pre-line; }
+    .pos { color:#7fc26a; } .neg { color:#e0705a; } .big{ font-size:15px; }
+    .cacts { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+    .cbtn { display:flex; justify-content:space-between; align-items:center; background:#221f16; border:1px solid #38311f; border-radius:8px; padding:10px 12px; cursor:pointer; }
+    .cbtn:active{ background:#2e2a1c; } .cbtn .n{ font-size:14px; } .cbtn .c{ font-size:11px; color:#c8a24a; }
+    .foot { text-align:center; margin-top:8px; }
+    .foot button { background:#1b1913; color:#8a8262; border:1px solid #2a2418; border-radius:8px; padding:6px 14px; font-size:11px; cursor:pointer; }
+    .note { font-size:11.5px; color:#9a9078; }
+    #over { position:fixed; inset:0; background:rgba(0,0,0,.75); display:none; align-items:center; justify-content:center; padding:20px; }
+    #over .box { background:#211d12; border:1px solid #5a4f2a; border-radius:14px; padding:20px 22px; text-align:center; max-width:300px; }
+    #over h2 { margin:0 0 8px; font-size:19px; } #over p { font-size:13px; color:#b9b08c; line-height:1.7; white-space:pre-line; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>深夜食堂 · 經營 <small>養成原型 v0.2</small></h1>
+    <h1>深夜食堂 · 經營 <small>v0.2</small></h1>
     <div class="hud" id="hud"></div>
     <div class="panel" id="panel"></div>
     <div class="foot"><button onclick="hardReset()">↺ 重新開店</button></div>
@@ -67,193 +67,108 @@
   <div id="over"><div class="box"><h2 id="ovT"></h2><p id="ovP"></p><button class="go" onclick="hardReset()">再開一次</button></div></div>
 
   <script>
-    // ===== 參數 =====
     var C = { cash0:6000, rep0:20, cook0:3, serve0:3, staMax:10, milestone:70, goalDay:30, offersPerDay:2 };
-
-    // 白天行動（每個吃 1 時段）
     var ACTS = [
-      { id:'cook',  n:'練刀工火候', d:'廚藝↑（客單價變高）', sta:3, cash:-300, cost:'體力3・-$300', do:function(){ s.cook++; } },
-      { id:'serve', n:'練外場招呼', d:'服務↑（客人更滿意、名聲更好拉）', sta:2, cash:0, cost:'體力2', do:function(){ s.serve++; } },
-      { id:'buy',   n:'採買備料', d:'今晚能多接客人', sta:2, cash:-1000, cost:'體力2・-$1000', do:function(){ s.stay+=8; } },
-      { id:'clean', n:'打掃招攬', d:'名聲↑（越有名越難拉）', sta:2, cash:0, cost:'體力2', do:function(){ s.rep += Math.max(1, Math.round(6*(1 - s.rep/110))); } },
-      { id:'rest',  n:'休息', d:'補體力（顧店是體力活）', sta:-3, cash:0, cost:'體力+3', do:function(){} }
+      { id:'cook',  n:'練刀工火候', sta:3, cash:-300, c:'體力3·-$300', do:function(){ s.cook++; } },
+      { id:'serve', n:'練外場招呼', sta:2, cash:0, c:'體力2', do:function(){ s.serve++; } },
+      { id:'buy',   n:'採買備料', sta:2, cash:-1000, c:'體力2·-$1000', do:function(){ s.stay+=8; } },
+      { id:'clean', n:'打掃招攬', sta:2, cash:0, c:'體力2·名聲↑', do:function(){ s.rep += Math.max(1, Math.round(6*(1 - s.rep/110))); } },
+      { id:'rest',  n:'休息', sta:-3, cash:0, c:'體力+3', do:function(){} }
     ];
-
-    // 通告池（明星志願式：門檻＋報酬＋吃體力＋佔一個時段）
     var TASKS = [
-      { id:'blog',   n:'美食部落客探店', d:'寫一篇就爆一波名聲', req:{cook:6,rep:25}, sta:3, rew:{rep:8,cash:600} },
-      { id:'banquet',n:'里長辦桌訂單',   d:'量大、超累、但超好賺', req:{serve:5},      sta:5, rew:{cash:4000,rep:3} },
-      { id:'tv',     n:'電視台深夜街訪', d:'上鏡頭，人氣直接跳',   req:{rep:40},       sta:2, rew:{rep:7} },
-      { id:'bday',   n:'熟客生日加菜',   d:'記得他愛吃的，加分',   req:{cook:4},       sta:2, rew:{cash:400,rep:2,fav:2} },
-      { id:'contest',n:'巷弄廚藝比賽',   d:'贏了名震整條街',       req:{cook:8},       sta:4, rew:{rep:12,cash:2000} },
-      { id:'market', n:'菜市場擺攤',     d:'白天多一份收入',       req:{serve:3},      sta:3, rew:{cash:1500,rep:2} }
+      { id:'blog',   n:'美食部落客探店', req:{cook:6,rep:25}, sta:3, rew:{rep:8,cash:600} },
+      { id:'banquet',n:'里長辦桌訂單',   req:{serve:5},      sta:5, rew:{cash:4000,rep:3} },
+      { id:'tv',     n:'電視台深夜街訪', req:{rep:40},       sta:2, rew:{rep:7} },
+      { id:'bday',   n:'熟客生日加菜',   req:{cook:4},       sta:2, rew:{cash:400,rep:2,fav:2} },
+      { id:'contest',n:'巷弄廚藝比賽',   req:{cook:8},       sta:4, rew:{rep:12,cash:2000} },
+      { id:'market', n:'菜市場擺攤',     req:{serve:3},      sta:3, rew:{cash:1500,rep:2} }
     ];
     function taskDef(id){ for(var i=0;i<TASKS.length;i++) if(TASKS[i].id===id) return TASKS[i]; return null; }
 
     var SAVE='diner_biz_v2', s=null;
-    function fresh(){
-      var st = { day:1, cash:C.cash0, rep:C.rep0, cook:C.cook0, serve:C.serve0, sta:C.staMax,
-        stay:8, slots:3, phase:'plan', last:null, done:false,
-        crew:[ { id:'shen', name:'沈', fav:0, wage:500 } ],   // ★員工陣列·最多3·各自好感（未來應徵/多角色接口）
-        offers:[] };
-      st.offers = rollOffers(st);
-      return st;
-    }
-    function rollOffers(st){
-      var pool = TASKS.map(function(t){return t.id;});
-      for(var i=pool.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=pool[i]; pool[i]=pool[j]; pool[j]=t; }
-      return pool.slice(0, C.offersPerDay);
-    }
+    function fresh(){ var st={ day:1, cash:C.cash0, rep:C.rep0, cook:C.cook0, serve:C.serve0, sta:C.staMax,
+      stay:8, slots:3, phase:'plan', last:null, done:false, crew:[{id:'shen',name:'沈',fav:0,wage:500}], offers:[] };
+      st.offers=rollOffers(); return st; }
+    function rollOffers(){ var p=TASKS.map(function(t){return t.id;});
+      for(var i=p.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=p[i];p[i]=p[j];p[j]=t; } return p.slice(0,C.offersPerDay); }
     function load(){ try{ var o=JSON.parse(localStorage.getItem(SAVE)); if(o&&o.day&&o.crew) return o; }catch(e){} return null; }
     function save(){ try{ localStorage.setItem(SAVE, JSON.stringify(s)); }catch(e){} }
-
     function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
-    function rnd(a,b){ return a + Math.random()*(b-a); }
+    function rnd(a,b){ return a+Math.random()*(b-a); }
     function money(n){ return (n<0?'-$':'$')+Math.abs(Math.round(n)); }
-    function wageSum(){ var w=0; s.crew.forEach(function(c){ w+=c.wage; }); return w; }
+    function wageSum(){ var w=0; s.crew.forEach(function(c){w+=c.wage;}); return w; }
 
-    // ===== 白天行動 =====
-    function doAct(id){
-      if(s.phase!=='plan'||s.slots<=0) return;
-      var a=null; for(var i=0;i<ACTS.length;i++) if(ACTS[i].id===id) a=ACTS[i];
-      if(!a) return;
-      if(a.sta>0 && s.sta<a.sta) return;
-      if(a.cash<0 && s.cash+a.cash<0) return;
-      s.sta = clamp(s.sta - a.sta, 0, C.staMax);
-      s.cash += a.cash; a.do(); s.slots--;
-      save(); render();
-    }
-    // ===== 接通告 =====
-    function reqMet(t){ var r=t.req; return (!r.cook||s.cook>=r.cook) && (!r.serve||s.serve>=r.serve) && (!r.rep||s.rep>=r.rep); }
-    function takeTask(id){
-      if(s.phase!=='plan'||s.slots<=0) return;
-      var t=taskDef(id); if(!t) return;
-      if(s.offers.indexOf(id)<0) return;
-      if(!reqMet(t) || s.sta<t.sta) return;
-      s.sta = clamp(s.sta - t.sta, 0, C.staMax);
-      if(t.rew.cash) s.cash += t.rew.cash;
-      if(t.rew.rep)  s.rep = clamp(s.rep + t.rew.rep, 0, 100);
-      if(t.rew.fav)  s.crew[0].fav = clamp(s.crew[0].fav + t.rew.fav, 0, 100);
-      s.offers = s.offers.filter(function(x){ return x!==id; });
-      s.slots--;
-      save(); render();
-    }
+    function doAct(id){ if(s.phase!=='plan'||s.slots<=0) return;
+      var a=null; for(var i=0;i<ACTS.length;i++) if(ACTS[i].id===id)a=ACTS[i]; if(!a)return;
+      if(a.sta>0&&s.sta<a.sta)return; if(a.cash<0&&s.cash+a.cash<0)return;
+      s.sta=clamp(s.sta-a.sta,0,C.staMax); s.cash+=a.cash; a.do(); s.slots--; save(); render(); }
+    function reqMet(t){ var r=t.req; return (!r.cook||s.cook>=r.cook)&&(!r.serve||s.serve>=r.serve)&&(!r.rep||s.rep>=r.rep); }
+    function takeTask(id){ if(s.phase!=='plan'||s.slots<=0) return; var t=taskDef(id); if(!t)return;
+      if(s.offers.indexOf(id)<0)return; if(!reqMet(t)||s.sta<t.sta)return;
+      s.sta=clamp(s.sta-t.sta,0,C.staMax);
+      if(t.rew.cash)s.cash+=t.rew.cash; if(t.rew.rep)s.rep=clamp(s.rep+t.rew.rep,0,100); if(t.rew.fav)s.crew[0].fav=clamp(s.crew[0].fav+t.rew.fav,0,100);
+      s.offers=s.offers.filter(function(x){return x!==id;}); s.slots--; save(); render(); }
 
-    // ===== 晚上營業 =====
-    function openShop(){
-      if(s.phase!=='plan') return;
-      var potential = Math.round(s.rep * 0.4 * rnd(0.85,1.15));
-      var tired = s.sta < 3;
-      var capacity = tired ? Math.round(s.stay*0.6) : s.stay;
-      var served = Math.min(potential, capacity);
-      var turnedAway = Math.max(0, potential - served);
-      var price = 100 + s.cook*20;
-      var revenue = served * price;
-      var cost = wageSum() + 200;
-      var profit = revenue - cost;
-      var dRep = 0;
-      if(tired) dRep -= 2;
-      if(turnedAway>4) dRep -= (turnedAway>10?2:1);
-      if(served>0 && turnedAway<=4) dRep += 2 + Math.floor(s.serve/3);   // 服務好→口碑更旺
-      s.rep = clamp(s.rep + dRep, 0, 100);
-      s.cash += profit;
-      s.sta = clamp(s.sta - 3, 0, C.staMax);
-      s.last = { potential:potential, served:served, turnedAway:turnedAway, price:price, revenue:revenue, cost:cost, profit:profit, dRep:dRep, tired:tired };
-      s.phase='result'; save(); render();
-      if(s.cash<0) over('💸 週轉不靈', '現金見底，店撐不下去了。');
-    }
+    function openShop(){ if(s.phase!=='plan')return;
+      var potential=Math.round(s.rep*0.4*rnd(0.85,1.15)); var tired=s.sta<3;
+      var capacity=tired?Math.round(s.stay*0.6):s.stay; var served=Math.min(potential,capacity);
+      var turnedAway=Math.max(0,potential-served); var price=100+s.cook*20; var revenue=served*price;
+      var cost=wageSum()+200; var profit=revenue-cost; var dRep=0;
+      if(tired)dRep-=2; if(turnedAway>4)dRep-=(turnedAway>10?2:1); if(served>0&&turnedAway<=4)dRep+=2+Math.floor(s.serve/3);
+      s.rep=clamp(s.rep+dRep,0,100); s.cash+=profit; s.sta=clamp(s.sta-3,0,C.staMax);
+      s.last={potential:potential,served:served,turnedAway:turnedAway,price:price,revenue:revenue,cost:cost,profit:profit,dRep:dRep,tired:tired};
+      s.phase='result'; save(); render(); if(s.cash<0) over('💸 週轉不靈','現金見底，店撐不下去了。'); }
     function toClose(){ if(s.phase==='result'){ s.phase='close'; save(); render(); } }
+    function closeShop(kind){ if(s.phase!=='close')return;
+      if(kind==='bonus'){ if(s.cash<300)return; s.cash-=300; s.crew[0].fav+=3; } else if(kind==='care'){ s.crew[0].fav+=1; }
+      s.crew[0].fav=clamp(s.crew[0].fav,0,100); nextDay(); }
+    function nextDay(){ s.day++; s.sta=clamp(s.sta+4,0,C.staMax); s.stay=8; s.slots=3; s.phase='plan'; s.last=null; s.offers=rollOffers();
+      if(s.rep>=C.milestone&&!s.done){ s.done=true; save(); render(); return over('🏮 站穩了','名聲做到 '+C.milestone+'，這條巷子開始有人記得這間店。'); }
+      if(s.day>C.goalDay){ save(); return over('📅 撐過一個月','現金 '+money(s.cash)+'・名聲 '+s.rep+'。'); }
+      save(); render(); }
 
-    // ===== 收工（好感給沈·crew[0]）=====
-    function closeShop(kind){
-      if(s.phase!=='close') return;
-      if(kind==='bonus'){ if(s.cash<300) return; s.cash-=300; s.crew[0].fav+=3; }
-      else if(kind==='care'){ s.crew[0].fav+=1; }
-      s.crew[0].fav = clamp(s.crew[0].fav,0,100);
-      nextDay();
-    }
-    function nextDay(){
-      s.day++;
-      s.sta = clamp(s.sta+4, 0, C.staMax);
-      s.stay = 8; s.slots = 3; s.phase='plan'; s.last=null;
-      s.offers = rollOffers(s);
-      if(s.rep>=C.milestone && !s.done){ s.done=true; save(); render();
-        return over('🏮 站穩了', '名聲做到 '+C.milestone+'，這條巷子開始有人記得這間店。\n（之後接關卡／劇情／沈的線。）'); }
-      if(s.day>C.goalDay){ save(); return over('📅 撐過一個月', '現金 '+money(s.cash)+'・名聲 '+s.rep+'。\n第一個月活下來了。'); }
-      save(); render();
-    }
-
-    // ===== 畫面 =====
-    function stat(k,v,barCls){ var bar=''; if(barCls){ var p=barCls.split(' '); var w=p.pop(); bar='<div class="'+p.join(' ')+'"><i style="width:'+w+'%"></i></div>'; }
-      return '<div class="stat"><div class="k">'+k+'</div><div class="v">'+v+'</div>'+bar+'</div>'; }
-    function pct(v,m){ return Math.round(clamp(v,0,m)/m*100); }
-    function hud(){
-      var wk=['日','一','二','三','四','五','六'][ s.day%7 ];
-      return stat('第 '+s.day+' 天','（週'+wk+'）','') + stat('現金', money(s.cash),'') +
-        stat('店的名聲', s.rep, 'bar b-rep '+pct(s.rep,100)) +
-        stat('廚藝','Lv.'+s.cook,'') + stat('服務','Lv.'+s.serve,'') +
-        stat('體力', s.sta+' <small>/'+C.staMax+'</small>', 'bar b-sta '+pct(s.sta,C.staMax)) +
-        stat(s.crew[0].name+'的好感', s.crew[0].fav, 'bar b-fav '+pct(s.crew[0].fav,100));
-    }
-    function reqLine(t){
-      var r=t.req, parts=[];
-      if(r.cook) parts.push('<span class="'+(s.cook>=r.cook?'ok':'')+'">廚藝'+r.cook+'</span>');
-      if(r.serve)parts.push('<span class="'+(s.serve>=r.serve?'ok':'')+'">服務'+r.serve+'</span>');
-      if(r.rep)  parts.push('<span class="'+(s.rep>=r.rep?'ok':'')+'">名聲'+r.rep+'</span>');
-      return '需求：'+parts.join('・')+'・體力'+t.sta;
-    }
-    function rewLine(t){ var r=t.rew, p=[]; if(r.cash)p.push(money(r.cash)); if(r.rep)p.push('名聲+'+r.rep); if(r.fav)p.push('好感+'+r.fav); return '報酬：'+p.join('・'); }
-    function taskCard(id){
-      var t=taskDef(id), can = reqMet(t) && s.sta>=t.sta && s.slots>0;
-      return '<div class="task'+(can?' can':'')+'">'+
-        '<div class="tn">'+t.n+'</div><div class="td">'+t.d+'</div>'+
-        '<div class="meta"><span class="req'+(reqMet(t)?' ok':'')+'">'+reqLine(t)+'</span></div>'+
-        '<div class="meta"><span></span><span class="rew">'+rewLine(t)+'</span></div>'+
-        '<button class="take" '+(can?'':'disabled')+' onclick="takeTask(\''+id+'\')">'+
-          (reqMet(t)?(s.slots<=0?'沒時段了':(s.sta<t.sta?'體力不夠':'接下這個通告')):'資格不足')+'</button></div>';
-    }
+    function chip(k,v,cls){ return '<div class="chip'+(cls?' '+cls:'')+'"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>'; }
+    function hud(){ var wk=['日','一','二','三','四','五','六'][s.day%7];
+      return '<div class="hrow">'+chip('第','' +s.day+' 天')+chip('$',money(s.cash).replace('$',''))+chip('沈',s.crew[0].fav,'fav')+'</div>'+
+             '<div class="hrow">'+chip('名聲',s.rep,'rep')+chip('廚藝',s.cook)+chip('服務',s.serve)+chip('體力',s.sta+'/'+C.staMax,'sta')+'</div>'; }
+    function reqStr(t){ var r=t.req,p=[];
+      if(r.cook)p.push('<span class="'+(s.cook>=r.cook?'ok':'no')+'">廚藝'+r.cook+'</span>');
+      if(r.serve)p.push('<span class="'+(s.serve>=r.serve?'ok':'no')+'">服務'+r.serve+'</span>');
+      if(r.rep)p.push('<span class="'+(s.rep>=r.rep?'ok':'no')+'">名聲'+r.rep+'</span>');
+      p.push('體力'+t.sta); return p.join('·'); }
+    function rewStr(t){ var r=t.rew,p=[]; if(r.cash)p.push(money(r.cash)); if(r.rep)p.push('名聲+'+r.rep); if(r.fav)p.push('好感+'+r.fav); return p.join('·'); }
+    function taskCard(id){ var t=taskDef(id), can=reqMet(t)&&s.sta>=t.sta&&s.slots>0;
+      var lbl=reqMet(t)?(s.slots<=0?'沒時段':(s.sta<t.sta?'沒體力':'接')):'不夠格';
+      return '<div class="task'+(can?' can':'')+'"><div class="trow"><span class="tn">'+t.n+'</span>'+
+        '<button class="take" '+(can?'':'disabled')+' onclick="takeTask(\''+id+'\')">'+lbl+'</button></div>'+
+        '<div class="tmeta">'+reqStr(t)+'　→　<span class="rew">'+rewStr(t)+'</span></div></div>'; }
     function panel(){
-      if(s.phase==='plan'){
-        var h='<div class="phase">白天 · 排今天的行程</div>';
-        h+='<div class="slots">剩下時段：<b>'+s.slots+'</b> / 3　今晚備料上限：<b>'+s.stay+'</b> 位</div>';
+      if(s.phase==='plan'){ var h='<div class="phase">白天 · 排今天的行程</div>';
+        h+='<div class="slots">剩時段 <b>'+s.slots+'</b>/3　今晚備料上限 <b>'+s.stay+'</b> 位</div>';
         h+='<div class="sec">今日通告（各佔 1 時段）</div>';
-        if(s.offers.length) s.offers.forEach(function(id){ h+=taskCard(id); });
-        else h+='<div class="note">今天沒有通告上門。</div>';
-        h+='<div class="sec">練功・備戰（各佔 1 時段）</div><div class="acts">';
-        ACTS.forEach(function(a){ var can = s.slots>0 && !(a.sta>0&&s.sta<a.sta) && !(a.cash<0&&s.cash+a.cash<0);
-          h+='<div class="act'+(can?'':' off')+'" onclick="doAct(\''+a.id+'\')"><div><div class="n">'+a.n+'</div><div class="d">'+a.d+'</div></div><div class="cost">'+a.cost+'</div></div>'; });
-        h+='</div><button class="go" onclick="openShop()">🌙 開始今晚營業</button>';
-        return h;
-      }
-      if(s.phase==='result'){
-        var L=s.last, h='<div class="phase">🌙 今晚 · 結算</div><div class="res">';
-        h+=row('上門客人', L.potential+' 位'+(L.turnedAway>0?'（'+L.turnedAway+' 位撲空）':''));
-        h+=row('接待', L.served+' 位'+(L.tired?'（太累·服務打折）':''));
-        h+=row('客單價', money(L.price));
-        h+=row('營業額', money(L.revenue));
-        h+=row('人事＋雜費', money(-L.cost),'neg');
-        h+=row('<b>今晚淨利</b>','<b>'+money(L.profit)+'</b>', L.profit>=0?'pos':'neg','big');
-        h+=row('店的名聲', (L.dRep>=0?'+':'')+L.dRep, L.dRep>=0?'pos':'neg');
-        h+='</div><button class="go" onclick="toClose()">打烊、收工</button>';
-        return h;
-      }
-      if(s.phase==='close'){
-        var h='<div class="phase">🌃 收工</div><div class="note">'+s.crew[0].name+'在收拾最後幾張桌子。</div><div class="acts" style="margin-top:12px;">';
-        h+='<div class="act" onclick="closeShop(\'bonus\')"><div><div class="n">多發她一點獎金</div><div class="d">好感 +3</div></div><div class="cost neg">-$300</div></div>';
-        h+='<div class="act" onclick="closeShop(\'care\')"><div><div class="n">道聲辛苦</div><div class="d">好感 +1</div></div><div class="cost">免費</div></div>';
-        h+='<div class="act" onclick="closeShop(\'quiet\')"><div><div class="n">各自打烊</div><div class="d">—</div></div><div class="cost">—</div></div>';
-        h+='</div>';
-        return h;
-      }
-      return '';
-    }
+        if(s.offers.length) s.offers.forEach(function(id){ h+=taskCard(id); }); else h+='<div class="note">今天沒通告上門。</div>';
+        h+='<div class="sec">練功・備戰（各佔 1 時段）</div><div class="acts2">';
+        ACTS.forEach(function(a){ var can=s.slots>0&&!(a.sta>0&&s.sta<a.sta)&&!(a.cash<0&&s.cash+a.cash<0);
+          h+='<div class="act2'+(can?'':' off')+'" onclick="doAct(\''+a.id+'\')"><span class="n">'+a.n+'</span><span class="c">'+a.c+'</span></div>'; });
+        h+='</div><button class="go" onclick="openShop()">🌙 開始今晚營業</button>'; return h; }
+      if(s.phase==='result'){ var L=s.last,h='<div class="phase">🌙 今晚 · 結算</div><div class="res">';
+        h+=row('上門客人',L.potential+' 位'+(L.turnedAway>0?'（'+L.turnedAway+' 撲空）':''));
+        h+=row('接待',L.served+' 位'+(L.tired?'（太累·打折）':''));
+        h+=row('客單價',money(L.price))+row('營業額',money(L.revenue))+row('人事＋雜費',money(-L.cost),'neg');
+        h+=row('<b>今晚淨利</b>','<b>'+money(L.profit)+'</b>',L.profit>=0?'pos':'neg','big');
+        h+=row('店的名聲',(L.dRep>=0?'+':'')+L.dRep,L.dRep>=0?'pos':'neg');
+        h+='</div><button class="go" onclick="toClose()">打烊、收工</button>'; return h; }
+      if(s.phase==='close'){ var h='<div class="phase">🌃 收工</div><div class="note">'+s.crew[0].name+'在收拾最後幾張桌子。</div><div class="cacts">';
+        h+='<div class="cbtn" onclick="closeShop(\'bonus\')"><span class="n">多發她一點獎金</span><span class="c neg">好感+3・-$300</span></div>';
+        h+='<div class="cbtn" onclick="closeShop(\'care\')"><span class="n">道聲辛苦</span><span class="c">好感+1</span></div>';
+        h+='<div class="cbtn" onclick="closeShop(\'quiet\')"><span class="n">各自打烊</span><span class="c">—</span></div>';
+        h+='</div>'; return h; }
+      return ''; }
     function row(k,v,cls,big){ return '<div class="row'+(big?' big':'')+'"><span>'+k+'</span><span class="r '+(cls||'')+'">'+v+'</span></div>'; }
     function render(){ document.getElementById('hud').innerHTML=hud(); document.getElementById('panel').innerHTML=panel(); }
-
     function over(t,p){ document.getElementById('ovT').textContent=t; document.getElementById('ovP').textContent=p; document.getElementById('over').style.display='flex'; }
     function hardReset(){ document.getElementById('over').style.display='none'; s=fresh(); save(); render(); }
-
-    s = load() || fresh(); render();
+    s=load()||fresh(); render();
   </script>
 </body>
 </html>
