@@ -21,7 +21,7 @@
 
 ## Router_Action.gs（中樞分派器）
 
-`ActionRouter`(8) 是 action 字串→handler 函式的查找表；`handleGameAction`(124) 解析 `action` 欄位後以 `ActionRouter[action]` 分派。**任何 `actionXxx` 函式只要在這張表登記，就算「被使用」**——即使全 repo 找不到其他直接呼叫（唯一呼叫路徑就是這張表的字串分派）。已逐一驗證 53 項 action 全部對應真實存在的函式，且每個 `actionXxx` 函式都有對應表項，無缺漏（2026-07 大整理：補回先前漏列的 `kanshou_set_home_name`、`spirit_repair` 兩項，表項數由 51 修正為 53）。
+`ActionRouter`(8) 是 action 字串→handler 函式的查找表；`handleGameAction`(124) 解析 `action` 欄位後以 `ActionRouter[action]` 分派。**任何 `actionXxx` 函式只要在這張表登記，就算「被使用」**——即使全 repo 找不到其他直接呼叫（唯一呼叫路徑就是這張表的字串分派）。已逐一驗證 55 項 action 全部對應真實存在的函式，且每個 `actionXxx` 函式都有對應表項，無缺漏。
 
 | action 字串 | handler | 所在檔 |
 |---|---|---|
@@ -78,6 +78,8 @@
 | rest | actionRest | Router_Movement.gs |
 | play | actionPlay | Gallery.gs |
 | narrate_only | actionNarrateOnly | Router_Narrative.gs |
+| get_album | actionGetAlbum | Gallery.gs |
+| album_delete | actionAlbumDelete | Gallery.gs |
 
 其餘 Router_Action.gs 函式：
 
@@ -104,7 +106,6 @@
 
 - `rankVal`(90) — E~EX階級轉數值(含+/-微調)，呼叫50+
 - `cleanChineseName`(108) — 姓名清洗成純中文(全系統唯一真線)
-- `realWorldClockStr_`(115) — 組真實日期/星期/時段字串(鑑賞氛圍用)
 - `buildTrajectoryDigest_`(133) — 組軌跡骨幹摘要供AI錨點
 - `fateMaxHpMp_`(157)/`masterMaxHpMp_`(168) — 從者/御主基底HP/MP計算
 - `masterPoolMax_`(178) — 共用魔力池上限(迴路×10＋從者魔力×2)
@@ -339,11 +340,8 @@
 （原文件的 `KANSHOU_ASKING_WHO_ELSE_RE_` 常數已刪除：偵測「這裡還有誰」的關鍵字猜測法已在本季改為前端明確 `lookAround:true` 按鈕旗標，此常數是死引用。）
 
 ### 房客日常去向系統(缺席英靈的每日/每小時定位)
-- `KANSHOU_HOUSEMATE_WANDER_CHANCE_`(964,常數) — 房客10%機率當天不待房間、外出閒晃
-- `kanshouRollDailyLocation_`(974) — 決定缺席英靈當天/當時段的位置(房客房間/外部住所/去向表加權)
-- `KANSHOU_BREAKFAST_KITCHEN_CHANCE_`/`KANSHOU_BREAKFAST_OWNROOM_CHANCE_`(2026-07新增,常數) — 「準備早餐」時段行動的房客去向機率(85%下樓/10%賴床/剩餘5%已出門)
-- `kanshouRollBreakfastSpot_`(2026-07新增) — 依上述機率骰單一房客的今早去向('kitchen'/'ownRoom'/'out')
-- `KANSHOU_PARTY_DETAIL_CAP_`(2026-07新增,常數，原3→5) — 同地點AI詳細卡片上限(prompt篇幅上限,非玩法容量)，`actionPlay`的`partyRows`用它取代寫死的`slice(0,3)`
+- `kanshouRollDailyLocation_`(1156) — 決定缺席英靈當天/當時段的位置(房客房間/外部住所/去向表加權)
+- `KANSHOU_PARTY_DETAIL_CAP_`(935,常數，=5) — 同地點AI詳細卡片上限(prompt篇幅上限,非玩法容量)，`actionPlay`的`partyRows`用它取代寫死的`slice(0,3)`
 
 ### 鑑賞曆法/時鐘系統
 - `KANSHOU_CAL_START_MONTH_`/`KANSHOU_CAL_START_DAY_`(999,常數) — 第1天曆法錨點=12月28日
@@ -588,7 +586,7 @@
 - `ensureKcMapOverlay_`/`closeKcMapOverlay`/`openKanshouMap`/`kanshouMoveTo` — 「出門走走」地圖彈窗
 - `kcRefreshPartyOnly_` — 局部刷新(不重打get_heroes)
 - `kanshouSummonHero`/`kanshouEditRelTag` — 召喚(2026-07拿掉「請走」，沒有隊伍容量需要騰位置)/改關係標籤
-- `kanshouAcceptRoomEvent`/`kanshouOfferDebtPayment` — 夜襲/賴床叫醒/肉償橋段按鈕(2026-07新增)
+- `kanshouAcceptRoomEvent` — 夜襲/賴床叫醒橋段接受按鈕(肉償/欠租橋段已隨經濟層刪除)
 - `changeKanshouName`/`changeKanshouSex`/`askKanshouSex` — 改名/切換性別
 - `askKanshouSetup` — 首次進場設定彈窗
 - `backfillKanshouAi` — 背景AI潤色御主敘事
