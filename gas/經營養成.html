@@ -25,6 +25,7 @@
     .day .wd { font-size:9.5px; color:#8a8262; }
     .day .as { font-size:11px; font-weight:bold; margin-top:3px; line-height:1.2; }
     .day .as.task { color:#b9a0e0; } .day .as.rest{ color:#7fc26a; }
+    .stf { font-size:9px; color:#5aa0d0; margin-top:2px; } .stf.tired{ color:#e0705a; font-weight:bold; }
     /* 指派調色盤 */
     .pal { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px; }
     .pi { text-align:left; background:#221f16; border:1px solid #38311f; border-radius:8px; padding:8px 10px; cursor:pointer; color:#eae4d6; }
@@ -139,6 +140,14 @@
       save(); render();
     }
 
+    // ---- 體力預估（排班時就看得到）----
+    function forecast(){ var sta=s.sta, out=[];
+      for(var d=0;d<7;d++){ var id=s.week[d], cost;
+        if(isTask(id)){ var t=taskDef(id); cost=(reqMet(t)&&sta>=t.sta)?t.sta:0; }
+        else { cost=assignDef(id).sta; }
+        sta=clamp(sta-cost,0,C.staMax); out.push({sta:sta, tired:sta<2});
+      } return out; }
+
     // ---- 畫面 ----
     function chip(k,v,cls){ return '<div class="chip'+(cls?' '+cls:'')+'"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>'; }
     function hud(){ return chip('第','' +s.wk+' 週')+chip('$',money(s.cash).replace('$',''))+chip('名聲',s.rep,'rep')+
@@ -148,9 +157,10 @@
 
     function panel(){
       if(s.phase==='plan'){
+        var fc=forecast(); var tiredN=0; for(var i=0;i<7;i++) if(fc[i].tired)tiredN++;
         var h='<div class="phase">第 '+s.wk+' 週 · 排這週的班</div>';
         h+='<div class="week">';
-        for(var d=0;d<7;d++){ h+='<div class="day'+(s.sel===d?' sel':'')+'" onclick="pickDay('+d+')"><div class="wd">週'+WD[d]+'</div><div class="as '+cls(s.week[d])+'">'+label(s.week[d])+'</div></div>'; }
+        for(var d=0;d<7;d++){ h+='<div class="day'+(s.sel===d?' sel':'')+'" onclick="pickDay('+d+')"><div class="wd">週'+WD[d]+'</div><div class="as '+cls(s.week[d])+'">'+label(s.week[d])+'</div><div class="stf'+(fc[d].tired?' tired':'')+'">體'+fc[d].sta+'</div></div>'; }
         h+='</div>';
         h+='<div class="sec">指派給【週'+WD[s.sel]+'】</div><div class="pal">';
         ASSIGN.forEach(function(a){ h+='<div class="pi" onclick="assign(\''+a.id+'\')"><span class="n">'+a.n+'</span><span class="c">'+a.c+'</span></div>'; });
@@ -158,7 +168,8 @@
           h+='<div class="pi task'+(ok?'':' off')+'" onclick="assign(\''+id+'\')"><span class="n">📋 '+t.n+'</span><span class="c'+(ok?'':' no')+'">'+reqStr(t)+'</span></div>'; });
         h+='</div>';
         h+='<button class="go" onclick="runWeek()">▶ 跑完這一週</button>';
-        h+='<div class="note" style="margin-top:7px;">排滿七天再跑。休息別排太少——體力見底那晚會累到接不了客（撲空）。</div>';
+        h+='<div class="note" style="margin-top:7px;">體力 '+s.sta+'→'+fc[6].sta+'/'+C.staMax+
+           (tiredN? '　<span style="color:#e0705a;">⚠ '+tiredN+' 晚會累爆·撲空（多排幾天休息）</span>' : '　排班順，不會撲空') + '</div>';
         return h;
       }
       if(s.phase==='summary'){ var L=s.last, h='<div class="phase">第 '+s.wk+' 週 · 結算</div><div class="res">';
