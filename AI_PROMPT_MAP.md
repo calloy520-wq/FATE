@@ -6,7 +6,7 @@
 >
 > 底層架構一句話：GAS 算數值（擲骰/HP/MP/勝負）→ 若該動作需要敘事，handler 組一段 `aiPrompt`（或 `dreamPrompt`/`summonPrompt`/`sealNote`附掛等）隨 JSON 回前端 → 前端 `narrate(text)` 呼叫 `action:'narrate_only'` → `actionNarrateOnly`（`Router_Narrative.gs`，solo 專用）套上共用 `miniSystem` 系統提示詞 → `narrateWithState_` 補目前血量/魔力 state brief ＋近期對話歷史 → `callGeminiAPI`（`Engine_Combat.gs`，solo／鑑賞共用基礎設施）。**唯一真正打 API 的函式只有 `narrateWithState_`／`actionPlay`**；其餘 handler 都只是「組字串」，不自己叫 AI。
 >
-> 例外：`actionPlay`（`Gallery.gs`，kanshou 慾海專用自由聊天引擎）自己組完整 prompt **並直接呼叫** `callGeminiAPI`，不經過 `narrate_only`。另有 `actionBackfillMasterAi`、`actionSummonServant`(自訂英靈分支)、`actionClaimGrail` 三個「建角/建資料」用途的 AI 呼叫，也是直接組 prompt 呼叫 API（走 `callGeminiAPI` 拿 JSON 結構化資料，而非敘事文字）。
+> 例外：`actionPlay`（`Gallery.gs`，kanshou 慾海專用自由聊天引擎）自己組完整 prompt **並直接呼叫** `callGeminiAPI`，不經過 `narrate_only`。另有 `actionBackfillMasterAi`、`actionSummonServant`(自訂英靈分支)、`actionBackfillKanshouAi`(鑑賞御主敘事欄背景補完) 等「建角/建資料」用途的 AI 呼叫，也是直接組 prompt 呼叫 API（走 `callGeminiAPI` 拿 JSON 結構化資料，而非敘事文字）。
 >
 > **🔀 2026-07 玩家定案「兩軌完全拆開，鑑賞集中在一個GS」**：`actionPlay`／`buildDefaultSystemPrompt`（含 `nsfwBaseRules`）已從 `Router_Narrative.gs`／`Engine_Combat.gs` 搬到 `Gallery.gs`，跟其餘鑑賞 action 集中一處；`Router_Narrative.gs` 從此只服務 solo，`Engine_Combat.gs` 只留兩軌共用的 `callGeminiAPI`。純檔案搬遷，函式內容逐字未動。
 
@@ -305,25 +305,23 @@
 
 | Action | 按鈕/觸發 | Handler | AI |
 |---|---|---|---|
-| `claim_grail` | 勝利畫面「⚜️ 奪得聖杯」 | `actionClaimGrail` | **是**（回憶散文，結構化+散文混合） |
-| `enter_kanshou` | 主選單「🌹 進入鑑賞」→`enterKanshou()`（Script_Kanshou.html:150） | `actionEnterKanshou` | 否 |
-| `kanshou_companions` | 抽屜「👥 後日談同伴」→`openCompanions()`（Kanshou:16） | `actionKanshouCompanions` | 否 |
-| `kanshou_summon_hero` | 駐留清單「召喚」→`kanshouSummonHero(heroId)`（Kanshou） | `actionKanshouSummonHero` | 否（2026-07「加入這個世界的感覺」定案後只能召喚一次，沒有「請走」/隊伍容量概念了） |
-| `kanshou_set_name` | 「✏改名」→`changeKanshouName()`（Kanshou:64） | `actionKanshouSetName` | 否 |
-| `kanshou_set_sex` | 「⚧切換性別」→`changeKanshouSex()`（Kanshou:78） | `actionKanshouSetSex` | 否 |
-| `dev_seed_gallery` | 主選單 DEV「🧪 產生測試從者」（Index.html） | `actionDevSeedGallery` | 否（罐頭測試文案） |
+| `enter_kanshou` | 主選單「🌹 進入鑑賞」→`enterKanshou()`（Script_Kanshou.html） | `actionEnterKanshou` | 否 |
+| `backfill_kanshou_ai` | `enter_kanshou` 首次建檔後前端背景呼叫 | `actionBackfillKanshouAi` | **是**（結構化 JSON，補鑑賞御主敘事欄） |
+| `kanshou_companions` | 抽屜「👥 後日談同伴」→`openCompanions()` | `actionKanshouCompanions` | 否 |
+| `kanshou_summon_hero` | 駐留清單「召喚」→`kanshouSummonHero(heroId)` | `actionKanshouSummonHero` | 否（2026-07「加入這個世界的感覺」定案後只能召喚一次，沒有「請走」/隊伍容量概念了） |
+| `kanshou_memoir_op` | 💞共同回憶面板「📌釘選/☆/🗑」→`kanshouMemoirOp(name,op,text)` | `actionKanshouMemoirOp` | 否（玩家手動管理回憶） |
+| `kanshou_set_name` | 「✏改名」→`changeKanshouName()` | `actionKanshouSetName` | 否 |
+| `kanshou_set_sex` | 「⚧切換性別」→`changeKanshouSex()` | `actionKanshouSetSex` | 否 |
+| `kanshou_set_home_name` | 「出門走走」面板「家」改名 | `actionKanshouSetHomeName` | 否（寫 MEMORY【住所】標記） |
+| `get_album` | 📷相簿載入→`openAlbum()` | `actionGetAlbum` | 否（讀本局照片＋剩餘底片） |
+| `album_delete` | 相簿「刪照片」→`deletePhoto()` | `actionAlbumDelete` | 否 |
 | `purge_orphans` | 主選單 DEV「🧹 清殘列」（Index.html） | `actionPurgeOrphans`（其實在 Account.gs） | 否 |
 | `dev_resync_codex` | 主選單 DEV「🔄 套用最新平衡」（Index.html） | `actionDevResyncCodex`（Seed 系統） | 否 |
 
-### `actionClaimGrail`（action `claim_grail`）
-奪杯寫入「鑑賞」表的回憶散文。系統提示詞：
-> ★以溫柔內斂的 Fate／TYPE-MOON 筆觸，第二人稱（你＝御主），寫一段 80～130 字的回憶：濃縮御主與這名從者並肩走過的數日、勝利當下的情緒、以及兩人之間的羈絆。
-> ★【鐵律·演出而非說明】嚴禁直接寫出『願望』『萌點』『個性』等字面設定，只能以情景與細節暗示。
-> ★只輸出回憶散文本體，禁任何系統字樣、JSON、選項、標籤名。
-埋入事實：御主名、從者真名+職階、羈絆深度（bond）、性格參考(pref)、御主願望(若有，明確 gated)、固定結局事實「御主斬盡所有敵對從者，奪得聖杯」。AI 失敗有硬編碼備援回憶字串（優雅降級）。同盟封存（好感≥90或【鑑賞緣】的盟友）另用**純模板字串**（非 AI）產生回憶。
+> ⚠ **2026-07 已砍**：舊版奪杯封存流程 `actionClaimGrail`（action `claim_grail`·寫「鑑賞」GAL 表的回憶散文）已整套刪除——ActionRouter 無此註冊、`gas/` 查無 handler，鑑賞改由「英靈殿直接召喚」(`enter_kanshou`＋`kanshou_summon_hero`)進入，不再需要先打贏戰爭奪杯封存。
 
 ### 其餘 Gallery.gs handler
-`actionEnterKanshou`／`actionKanshouCompanions`／`actionKanshouSummonHero`／`actionKanshouSetSex`／`actionKanshouSetName`／`actionDevSeedGallery` 皆純機制寫表/讀表，不叫 AI。之後的 kanshou 內對話走 `actionPlay`（§9），不在這幾個 action 內。
+`actionEnterKanshou`／`actionKanshouCompanions`／`actionKanshouSummonHero`／`actionKanshouMemoirOp`／`actionKanshouSetSex`／`actionKanshouSetName`／`actionKanshouSetHomeName`／`actionGetAlbum`／`actionAlbumDelete` 皆純機制寫表/讀表，不叫 AI。之後的 kanshou 內對話走 `actionPlay`（§9），不在這幾個 action 內。
 
 ---
 
@@ -366,7 +364,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 - 玩家自身卡、近期歷史（最近 6 筆原始訊息／3輪，`getGameHistoryBatchRaw`，走 `aiConfig.chatHistory` 而非塞進 prompt 字面）
 - **🧹 2026-07 玩家定案「砍掉同地路人、開放世界無結界」**：舊版「同地路人」清單（`allLocals`/`displayPeople`）＋其好感階梯行為指令（`resistPrompt`，死仇→摯友七級）＋場景第三方交叉羈絆整套刪除。改為單純的 `backgroundCrowdStr`（★【開放世界·背景人煙】：路人可自由描寫增添生活感，但不具名、不可被指名互動、不追蹤好感）。能被指名、有名有姓、好感被記錄延續的對象，收斂為僅有**目前在場人物**（見上）。
 - **🚪🏠 2026-07 新增「巧遇開關」＋可改名的「家」移動選項**：`kanshouEncounterStr`(巧遇系統例外提示詞注入)現受`encounterOn`(讀`userData.encounter`，前端「出門走走」面板一顆checkbox、localStorage持久化)閘門，關閉時移動/原地問「還有誰」兩個擲骰點都不會觸發，但不影響已在場的`【邂逅中】`對象持續互動。`KANSHOU_LOCATIONS_`（2026-07已擴充到**50個地點**、非10個，見 `FUNCTION_MANUAL.md`）外新增一個不在清單內、顯示名稱可由玩家自訂(MEMORY`【住所】`標記，預設「家」)的私人地點——`isHomeMove`比對成立時恆不擲骰(私人空間永不巧遇陌生人)，其餘寫LOC/清`【邂逅中】`的邏輯與一般地點一致。詳見 `SOLO_REFERENCE.md` §44。
-- **僅 NSFW/kanshou 模式**：同地性別配對提示、肉體狀態 JSON（2026-07 玩家定案「肉體那些欄位不需要了，只要狀態就好」：physical_state 從 6 鍵數字代碼（姿勢與動作/胸部/顏面/肉棒/蜜穴/服裝狀態）全部砍掉，簡化為單一自由文字欄，AI 自行決定每回合要不要提、提多細，不強制逐項列舉，每回合仍需據實反映最新狀態）、每位在場同伴的「身體記憶」技能標籤、敏感點、親密次數計數器、愛稱、🔥主動掌握模式(點火 driveOn)段落（前端 `drive` 旗標開啟時注入——同伴依個性主動掌握節奏、推進更猛；僅鑑賞生效。⚠ 2026-07 更正：點火按鈕為**現行有效** toggle，`driveOn` **只控敘事推進幅度(driveStr)、不再切模型**——模型改由兩模式一律先打 `SOLO_MODEL`(gemini-3.1-flash-lite)、`AI_MODEL`(deepseek)僅備援、`retries=1`。鑑賞現況一律以 `KANSHOU_REFERENCE.md` 為準）
+- **僅 NSFW/kanshou 模式**：同地性別配對提示、肉體狀態 JSON（2026-07 玩家定案「肉體那些欄位不需要了，只要狀態就好」：physical_state 從 6 鍵數字代碼（姿勢與動作/胸部/顏面/肉棒/蜜穴/服裝狀態）全部砍掉，簡化為單一自由文字欄，AI 自行決定每回合要不要提、提多細，不強制逐項列舉，每回合仍需據實反映最新狀態）、每位在場同伴的「身體記憶」技能標籤(`dynamic_skills`)、愛稱(`mutual_nicknames`)、🔥主動掌握模式(點火 driveOn)段落（前端 `drive` 旗標開啟時注入——同伴依個性主動掌握節奏、推進更猛；僅鑑賞生效。⚠ 2026-07 更正：點火按鈕為**現行有效** toggle，`driveOn` **只控敘事推進幅度(driveStr)、不再切模型**——模型改由兩模式一律先打 `SOLO_MODEL`(gemini-3.1-flash-lite)、`AI_MODEL`(deepseek)僅備援、`retries=1`。鑑賞現況一律以 `KANSHOU_REFERENCE.md` 為準）
 
 關鍵結構/收尾指令（逐字節錄）：
 > 【敘事法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。
@@ -423,11 +421,11 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 
 ## 附：純機制、完全不叫 AI 的 action 總表（快速核對用）
 
-`check_name`、`get_full_status`、`update_fate`、`get_tags`、`sync`、`update_rel_tag`、`create`、`get_heroes`、`get_masters`、`get_map_nodes`、`set_servant_output`、`set_mage_realm`、`set_rune_mode`、`set_np_choice`、`account_login`、`account_new_game`、`purge_orphans`、`dev_seed_gallery`、`dev_resync_codex`、`enter_kanshou`、`kanshou_companions`、`kanshou_summon_hero`、`kanshou_set_name`、`kanshou_set_sex`、`kanshou_set_home_name`（2026-07新增，「出門走走」面板的「家」選項改名，寫進 MEMORY【住所】標記，見 `SOLO_REFERENCE.md` §44）。（`leaderboard`／`get_victory_history`／`get_epic_history`／`war_chronicle`／`war_history_list` 已整套刪除，見 §8 訂正說明，不再列於此。）
+`check_name`、`check_sheets`、`get_full_status`、`update_fate`、`get_tags`、`sync`、`update_rel_tag`、`create`、`get_heroes`、`get_masters`、`get_map_nodes`、`set_servant_output`、`set_mage_realm`、`set_rune_mode`、`set_np_choice`、`account_login`、`account_new_game`、`end_run`、`purge_orphans`、`dev_resync_codex`、`enter_kanshou`、`kanshou_companions`、`kanshou_summon_hero`、`kanshou_memoir_op`、`kanshou_set_name`、`kanshou_set_sex`、`kanshou_set_home_name`（「出門走走」面板的「家」選項改名，寫進 MEMORY【住所】標記，見 `SOLO_REFERENCE.md` §44）、`get_album`、`album_delete`。（`leaderboard`／`get_victory_history`／`get_epic_history`／`war_chronicle`／`war_history_list`／`claim_grail`／`dev_seed_gallery` 已整套刪除，不再列於此。）
 
 （`set_servant_output`／`set_mage_realm`／`set_rune_mode`／`set_np_choice` 這 4 個是戰鬥前的**純數值檔位切換**——性質等同選單勾選，不是敘事時刻，刻意不接 AI：接了反而每次調檔位都要多等一次生成、拖慢戰鬥節奏，也沒有畫面可演。)
 
-會叫 AI（敘事 `narrate_only` 或結構化 JSON）的 action／路徑：`fate_battle`（5 分支）、`use_seal`、`mana_supply`、`rule_break_steal`、`second_wind`、`rest`（條件式）、`move`（前端組 prompt）、`bond`、`propose_alliance`、`break_alliance`、`ally_bond`、`scout`、`scavenge`、`set_workshop`、`prep_meal`（**2026-07 新增這 4 個**，見 §3——玩家反映「solo每個按鍵好像有些沒有接上ai敘述」逐一稽核補齊，皆為 60~100 字輕量演出，不拖慢節奏）、`backfill_master_ai`（結構化）、`summon_servant`（條件式結構化＋一律附敘事）、`claim_grail`（結構化回憶）、`play`（kanshou/full 自由聊天）、`narrate_only`（通用出口，本身無事實，套系統提示詞轉呼叫）。dispatcher 層另有一條隱性路徑：14 天時限中央攔截自動掛 `dreamPrompt`。
+會叫 AI（敘事 `narrate_only` 或結構化 JSON）的 action／路徑：`fate_battle`（5 分支）、`use_seal`、`mana_supply`、`rule_break_steal`、`second_wind`、`rest`（條件式）、`move`（前端組 prompt）、`bond`、`propose_alliance`、`break_alliance`、`ally_bond`、`scout`、`scavenge`、`set_workshop`、`prep_meal`（**2026-07 新增這 4 個**，見 §3——玩家反映「solo每個按鍵好像有些沒有接上ai敘述」逐一稽核補齊，皆為 60~100 字輕量演出，不拖慢節奏）、`backfill_master_ai`（結構化）、`backfill_kanshou_ai`（結構化·鑑賞御主敘事欄）、`summon_servant`（條件式結構化＋一律附敘事）、`play`（kanshou 自由聊天）、`narrate_only`（通用出口，本身無事實，套系統提示詞轉呼叫）。dispatcher 層另有一條隱性路徑：14 天時限中央攔截自動掛 `dreamPrompt`。
 
 ---
 
