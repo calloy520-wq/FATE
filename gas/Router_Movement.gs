@@ -334,9 +334,31 @@ function actionMove(userData, pcId, sheets) {
     });
   } catch (e) { }
 
+  // 🫶 遇敵態度（GAS 依「在場敵對者對你的好感」裁定，AI 只照這定調演）：好感高→未必有敵意；好感低→殺氣明顯。
+  //   中性(未培養過好感)→留空，維持既有找上門/偶遇 steer。
+  var foeMoodNote = "";
+  try {
+    var moodFavs = [];
+    allPcData.forEach(function (r) {
+      if (String(r[COL.PC.GAME_ID] || "") !== moveGameId) return;
+      if (String(r[COL.PC.LOC] || "").trim() !== tgtTrim) return;
+      if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+      if (!hasArrived_(r, _moveDay())) return;
+      var f = String(r[COL.PC.FACTION]);
+      if ((f === "敵御主" || f === "敵從者") && !isAllied_(r)) moodFavs.push(bondFavor_(r));
+    });
+    if (moodFavs.length) {
+      var moodAvg = moodFavs.reduce(function (a, b) { return a + b; }, 0) / moodFavs.length;
+      if (moodAvg >= 0.45) foeMoodNote = "此地敵對者對你已有相當好感——讓他們此刻態度和緩、流露幾分親近或至少不設防，別演成一見面就劍拔弩張。";
+      else if (moodAvg >= 0.15) foeMoodNote = "此地敵對者對你略有好感——態度偏克制觀望，戒備仍在但留了餘地，別演成純然殺意。";
+      else if (moodAvg <= -0.35) foeMoodNote = "此地敵對者對你頗有敵意——讓他們的殺氣與提防更外顯。";
+    }
+  } catch (e) { }
+
   STATE_PRE_DATA_ = allPcData; // ⚡ 交棒：本 handler 所有寫入(worldTick_/spendAp_/markRivalsSeen_/夜襲…)皆已原地改回 allPcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({
     success: true,
+    foeMood: foeMoodNote, // 🫶 遇敵態度·GAS 依好感裁定→前端注入抵達 steer
     masterCard: masterCard_(allPcData[pIdx]), // 🎭 御主演出依據→抵達敘事讓「我」依性格開口、不再啞巴主角
     servantCard: svCardMove,
     foeCards: foeCardsMove,
@@ -665,7 +687,9 @@ function playerAmbushOnEnemy_(sheets, pcData, pIdx, gameId, targetName) {
   var defC = rowToCombatant_(pcData[eIdx]);
   var probe = resolveFateBattle_(atkC, defC, { ambush: true, skill: servantActiveSkill_(atkC) });
   var baseDmg = probe.atkWins ? (probe.damage || 1) : Math.max(1, Math.round(rankVal(atkC.six['筋力'] || 'C') * 0.5));
-  var dmg = Math.max(1, Math.round(baseDmg * 1.5)); // 🗡️ 趁隙奇襲加乘（敵分心、來不及反應）
+  // 🗡️🫶 趁隙奇襲加乘：敵越信你(對你好感高)＝越沒料到你會偷襲＝這一記越狠；越提防你則打不出全效。
+  var ambushMul = 1.3 + Math.max(-0.25, Math.min(0.5, bondFavor_(pcData[eIdx]) * 0.5));
+  var dmg = Math.max(1, Math.round(baseDmg * ambushMul));
   var out = { enemyName: String(pcData[eIdx][COL.PC.NAME]), svName: String(pcData[svIdx][COL.PC.NAME]), dmg: dmg, hit: !!probe.atkWins, destroyed: false, victory: false, dreamPrompt: "", foeCard: '〔趁隙偷襲的目標〕' + servantCard_(pcData[eIdx]) };
   var severed = hasFx_(atkC, 'rule_breaker') || hasFx_(atkC, 'anti_magic_lance');
   var eHp = parseInt(pcData[eIdx][COL.PC.HP]) || 0, after = eHp - dmg;
@@ -749,6 +773,8 @@ function actionIncite(userData, pcId, sheets) {
   var leanA = mIdxA >= 0 ? masterPersonaLean_(pcData[mIdxA]) : { pragmatic: false, loner: true };
   var leanB = mIdxB >= 0 ? masterPersonaLean_(pcData[mIdxB]) : { pragmatic: false, loner: true };
   var prob = 0.5 + ((leanA.loner || leanB.loner) ? 0.2 : 0) - ((leanA.pragmatic && leanB.pragmatic) ? 0.25 : 0);
+  // 🫶 他們越信你(對你好感高)，越聽得進你的挑撥；越提防你，越可能識破反過來一起戒你。
+  prob += (bondFavor_(pcData[iA]) + bondFavor_(pcData[iB])) / 2 * 0.25;
   prob = Math.max(0.1, Math.min(0.85, prob));
   var success = Math.random() < prob;
   var svAName = String(pcData[iA][COL.PC.NAME]), svBName = String(pcData[iB][COL.PC.NAME]);

@@ -308,13 +308,22 @@ function masterPersonaLean_(masterRow) {
   };
 }
 
-// 結盟意願（GAS 判定，不靠 AI）：依對方御主性格/陣營 ＋ 戰局階段 ＋ 共同強敵
+// 🫶 對方對玩家的好感傾向（BOND 0-100，40＝中性起點）→ 機率修正 [-0.67, +1.0]。
+//   單一真實來源：各處「依好感提高成功率」的 GAS 判定共用。未互動過(0/空)視為中性 40。
+function bondFavor_(row) {
+  var b = parseInt(row[COL.PC.BOND]) || 0;
+  if (b <= 0) b = 40; // 未設過好感＝中性起點(比照 bumpBond_ 預設 40)
+  return (b - 40) / 60; // 40→0、100→+1.0、0→-0.67
+}
+
+// 結盟意願（GAS 判定，不靠 AI）：依對方御主性格/陣營 ＋ 戰局階段 ＋ 共同強敵 ＋ 🫶對你的好感
 function allianceWillingness_(masterRow, aliveFoes) {
   var lean = masterPersonaLean_(masterRow);
   var w = 0.42;
   if (lean.pragmatic) w += 0.25; // 肯談的務實/有目的者
   if (lean.loner) w -= 0.32;     // 孤狼/瘋狂/看戲者難說動
   if (aliveFoes <= 3) w -= 0.45; else if (aliveFoes >= 6) w += 0.15; // 「最後只能剩一個」——剩越少越不肯
+  w += bondFavor_(masterRow) * 0.3; // 🫶 交情越好越肯談、越提防越不肯（±約0.2~0.3）
   return Math.max(0.05, Math.min(0.9, w));
 }
 

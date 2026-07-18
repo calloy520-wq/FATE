@@ -317,6 +317,7 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
   - 🎭 **挑撥離間**（`incite`→`actionIncite`）：standoff/parley 時煽動兩敵。成敗由 `masterPersonaLean_` 擲（base .5＋孤狼.2−雙務實.25，夾[.1,.85]）；成功→兩敵真打(雙方扣血·保1)，失敗→兩敵合流戒你(無數值罰)。耗 1AP。
   - 💨 **悄悄離開**（slip）：frenzy/parley/pact 時，`actionMove` 讀【趁隙】窗口→跳過撤離追擊判定。
   - 兩 action 皆進 `STATE_AFTER_ACTIONS`＋`KANSHOU_BLOCKED_ACTIONS_`。
+- **🫶 好感提高成功率（GAS 判定·單一真實來源 `bondFavor_(row)`）**：BOND 0-100，40＝中性（未互動過的 0/空視為 40）；回 `(b-40)/60` ∈[-0.67,+1.0]。「對方對你的好感越高→越容易成」套進四處：①`allianceWillingness_` +bondFavor×0.3（交涉結盟）②`actionIncite` prob +avg×0.25（挑撥）③`actionMove` `foeMood`（遇敵態度·依在場敵對者平均好感給 AI 定調 steer·中性留空）④`playerAmbushOnEnemy_` 奇襲加乘 `ambushMul=1.3+clamp(bondFavor×0.5,-0.25,0.5)`（趁隙）。⚠ 目前 solo 尚無「主動培養敵人好感」的入口（BOND 多維持中性 40），此為機制plumbing、待後續補「示好/外交」升敵好感的來源才會明顯生效。
 - **令咒透支倒數**：敵從者燃最後令咒脫離（無 `fx:'solo'`）→`stampDoom_` 寫【靈基透支】死線（day*24+hour+`SEAL_DOOM_HOURS`=3）。`worldTick_` 到期 `DEAD_`＋風聞。收掉最後敵從者→`victory:true`。御主戰死也連坐同款倒數（masterless 敵從者）。單獨行動者免倒數。
 - **喪失從者的敵御主**：敵從者死亡時 `markMasterLostServant_` 在同地敵御主 MEMORY 寫【喪失從者】。前端演出形單影隻。
 - **敘事連續記憶 `lastAiContext`**（模組級·最近 AI 文≤300字）：`narrate`/play 更新；`travelTo` 在 foe 時當「前情」塞進抵達提示（承接逃跑後再遇）。
