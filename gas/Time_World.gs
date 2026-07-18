@@ -495,6 +495,20 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
       var _pickA = Math.floor(Math.random() * faraway.length);
       var _pickB; do { _pickB = Math.floor(Math.random() * faraway.length); } while (_pickB === _pickA);
       var infoA = faraway[_pickA], infoB = faraway[_pickB];
+      // 🤝 敵盟：兩名離場敵從者若其御主已締盟(未逾期)→是同一陣線、不自相殘殺，跳過這場暗鬥。
+      try {
+        var _mAn = getServantMaster_(data[infoA.idx][COL.PC.MEMORY]), _mBn = getServantMaster_(data[infoB.idx][COL.PC.MEMORY]);
+        if (_mAn && _mBn) {
+          var _mARow = null;
+          for (var _z = 1; _z < data.length; _z++) {
+            if (String(data[_z][COL.PC.FACTION]) === "敵御主" && String(data[_z][COL.PC.GAME_ID] || "") === gameId && !String(data[_z][COL.PC.ID]).startsWith("DEAD_") && nameLoose_(data[_z][COL.PC.NAME]) === nameLoose_(_mAn)) { _mARow = data[_z]; break; }
+          }
+          if (_mARow) {
+            var _pt = getEnemyPact_(_mARow[COL.PC.MEMORY]);
+            if (_pt && nameLoose_(_pt.partner) === nameLoose_(_mBn) && _pt.until >= (_ckR ? _ckR.day : 1)) continue;
+          }
+        }
+      } catch (e) { }
       var comA = rowToCombatant_(data[infoA.idx]), comB = rowToCombatant_(data[infoB.idx]);
       // 一次交鋒＝A出擊、B存活才反擊(跟fateStrike_同款一來一往，不無限回合硬打到死)
       var strikeAB = resolveFateBattle_(comA, comB, {});

@@ -491,8 +491,10 @@ function actionAllyBond(userData, pcId, sheets) {
   const gain = 6 + Math.floor(Math.random() * 6); // +6~11
   const after = bumpBond_(sheets, pcData, aIdx, gain);
   let unlocked = false;
-  if (after >= 90 && !/【鑑賞緣】/.test(String(pcData[aIdx][COL.PC.MEMORY] || ""))) {
-    pcData[aIdx][COL.PC.MEMORY] = String(pcData[aIdx][COL.PC.MEMORY] || "") + "｜【鑑賞緣】";
+  // 🤝 深盟里程碑（首度臻至 90）——純敘事高光的「已演出」防重複標記【摯交】，無鑑賞入口意義
+  //   (原【鑑賞緣】戰後納入鑑賞已砍：鑑賞角色一律鑑賞內自行召喚)。
+  if (after >= 90 && !/【摯交】/.test(String(pcData[aIdx][COL.PC.MEMORY] || ""))) {
+    pcData[aIdx][COL.PC.MEMORY] = String(pcData[aIdx][COL.PC.MEMORY] || "") + "｜【摯交】";
     sheets.pc.getRange(aIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[aIdx][COL.PC.MEMORY]);
     unlocked = true;
   }
@@ -509,14 +511,14 @@ function actionAllyBond(userData, pcId, sheets) {
     `【系統·盟誼】御主『${masterName}』與盟友「${allyName}」${allyIsMaster ? '共處' : '交流'}，當前羈絆 ${after}/100。\n` +
     `★Fate 筆觸【90~140字】寫一段此次共處的小品，自由發揮、勿每次都同一套說辭。語氣親疏【務必嚴格】貼合當前羈絆：${tier}。對方仍是「暫時」盟友，留一絲各自的算計與保留。show, don't tell。` +
     (unlocked ? `（此次羈絆首度臻至深處，結尾可用一個眼神或半句未盡之言，含蓄點出情誼悄然越過了「暫時」的界線。）` : "");
-  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：bumpBond_/【鑑賞緣】標記/spendAp_ 皆已原地改回 pcData
+  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：bumpBond_/【摯交】標記/spendAp_ 皆已原地改回 pcData
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, bond: after, unlocked: unlocked, ally: allyName, clock: clock, ap: ap, apMax: AP_PER_DAY, ambush: false, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
 // 🕊️ 示好／交涉：對同地【未結盟的敵御主/敵從者】釋出善意、慢慢養好感(BOND)。GAS 依對方性格決定升多少
 //   (務實者領情快、孤狼/瘋狂者慢熱)，AI 只演對方【依性格×當前好感】的反應。每名敵人每日一次、耗 1AP。
 //   這是「好感提高成功率」整套的主動培養入口——養高了：遇敵態度和緩、結盟更易、挑撥更靈、趁隙更狠、
-//   撤離不被追擊(BOND≥50)；養到 90 蓋【鑑賞緣】(戰後可納入鑑賞名冊)。真·親密一律留戰後鑑賞、戰場只到 SFW 曖昧。
+//   撤離不被追擊(BOND≥50)。戰場只到 SFW 曖昧；鑑賞角色一律於鑑賞內自行召喚，不靠 solo 帶入。
 function actionCourtEnemy(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
   let pcData = sheets.pc.getDataRange().getValues();
@@ -548,12 +550,8 @@ function actionCourtEnemy(userData, pcId, sheets) {
   const before = parseInt(pcData[tIdx][COL.PC.BOND]) || 40;
   const after = bumpBond_(sheets, pcData, tIdx, delta); // 內含 0-100 夾值＋寫回 BOND 格
 
-  // 標記今日已示好；養到 90 蓋【鑑賞緣】
+  // 標記今日已示好（每敵每日一次）
   pcData[tIdx][COL.PC.MEMORY] = _mem.replace(/｜?【示好日】\d+/g, "") + "｜【示好日】" + _courtDay;
-  let kanshouUnlocked = false;
-  if (after >= 90 && !/【鑑賞緣】/.test(pcData[tIdx][COL.PC.MEMORY])) {
-    pcData[tIdx][COL.PC.MEMORY] += "｜【鑑賞緣】"; kanshouUnlocked = true;
-  }
   sheets.pc.getRange(tIdx + 1, 1, 1, pcData[tIdx].length).setValues([pcData[tIdx]]);
 
   let ap = AP_PER_DAY, clock = "";
@@ -563,9 +561,9 @@ function actionCourtEnemy(userData, pcId, sheets) {
   const aiPrompt = masterCard_(pcData[pIdx]) + '〔示好對象·敵對陣營〕' + card +
     `【系統·示好／交涉·已裁定】御主『${String(pcData[pIdx][COL.PC.NAME])}』在刀鋒之外向敵對的「${targetName}」釋出善意（好感 ${before}→${after}／100）。\n` +
     `★以 Fate／TYPE-MOON 筆觸【約 100~150 字】演出這番示好、與對方【依其性格×當前好感】的真實反應：${lean.loner ? '孤高／激烈者多半冷淡、譏諷或半信半疑，只鬆動一絲' : lean.pragmatic ? '務實者會權衡利害、順水推舟地緩和態度' : '依其性格自然回應'}——但仍分屬敵對，留一分保留與算計，別演成一下就交心。GAS 已算好數值，你只演反應、不另定成敗。` +
-    (kanshouUnlocked ? '\n★此刻情誼首度臻至莫逆（戰後可納入鑑賞）——收在一個彼此心照不宣、卻仍隔著立場的微妙瞬間。' : '');
-  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：bumpBond_/【示好日】/【鑑賞緣】/spendAp_ 皆已原地改回 pcData
-  return JSON.stringify({ success: true, aiPrompt: aiPrompt, target: targetName, bond: after, delta: delta, kanshouUnlocked: kanshouUnlocked, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
+    (after >= 90 ? '\n★此刻情誼已臻莫逆——收在一個彼此心照不宣、卻仍隔著立場的微妙瞬間。' : '');
+  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：bumpBond_/【示好日】/spendAp_ 皆已原地改回 pcData
+  return JSON.stringify({ success: true, aiPrompt: aiPrompt, target: targetName, bond: after, delta: delta, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
 // 🗝️ 破戒奪僕：對「打殘(HP<35%)的敵從者」斬契奪為第二從者（需破戒之力＋燃一道令咒；上限 2 名從者）

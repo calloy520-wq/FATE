@@ -254,7 +254,7 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 - `allianceWillingness_(masterRow,aliveFoes)`：結盟意願（base.42；務實+.25/孤高-.32；剩≤3騎-.45）。
 - `actionProposeAlliance`：對同地敵御主提議，`Math.random()<willingness`。成→盟主+其同地從者標【盟約至】day+3。
 - `actionBreakAlliance`／`breakStaleAlliances_`：撕毀／自然瓦解（效期到 或 在世敵從者≤3 強制翻臉）。`actionMove`＋`actionRest` 都呼叫。
-- `actionAllyBond`：與同地盟友共處，耗1AP，`bumpBond_` 升羈絆，達90標【鑑賞緣】。SFW only。
+- `actionAllyBond`：與同地盟友共處，耗1AP，`bumpBond_` 升羈絆，達90標【摯交】（純敘事高光防重複·無鑑賞入口意義）。SFW only。
 - **協同強襲**（actionFateBattle 內）：盟友從者每回合助攻一擊。
 - **情報共享 `hasAllyInGame_`**：有盟友→地圖無視 SEEN 全揭露＋敵從者職階揭露（`intelCls`）。
 - **前端 override `getLocalPeopleList`**：結盟的敵御主/敵從者 faction 改顯 `盟友御主/盟友從者`（`allied:true`），前端不列為可攻擊。
@@ -289,7 +289,8 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 【羈絆日】D:type1,type2(跨日重置) 【羈絆里程碑】30,60,90(已演出清單·get/setBondMilestonesFired_)
 【陣地】loc(setWorkshop·供魔工房+8·getWorkshop_) 【搜刮】loc(scavenge·魔力枯竭標記) 【禮裝】id
 【示好日】day(actionCourtEnemy 每敵每日一次限制·存敵人列)
-【盟約至】day 【鑑賞緣】 【破戒奪取】 【黑化Alter】 【敵盟】對方御主名:到期day(敵敵結盟·resolveFactionEncounter_·get/setEnemyPact_)
+【盟約至】day 【摯交】(盟友羈絆90里程碑·防重複·無鑑賞入口) 【破戒奪取】
+【敵盟】對方御主名:到期day(敵敵結盟·get/setEnemyPact_·worldTick 暗鬥會跳過已締盟兩敵) 【交惡】對方御主名:到期day(挑撥得逞·get/setEnemyFeud_·撞見時狠推火併/追殺) 【提防】絕對小時(遭趁隙偷襲後戒心·get/setWary_·WARY_HOURS_6內再趁隙×0.6)
 【趁隙】loc@type(撞見敵人的可反應窗口·決定抵達該格開放哪些情境選擇·get/set/clearEncounterWindow_·移動或用掉即清)
 【魔境】fx(玩家選的通用A階被動·set_mage_realm·rowToCombatant_ 注入) 【符文】def/dmg/regen(set_rune_mode)
 【御主】名/【從者】名(敵御主↔敵從者硬連結) 【喪失從者】名·死因 【靈基透支】絕對時數(令咒燒盡倒數·stampDoom_)
@@ -312,14 +313,15 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 - **地圖**：`renderMapPane`（陣地/搜索/盟友通報橫幅·優先吃夾帶 `mapNodes` 免 round-trip·存 `lastMapNodes` 快取）、`buildMapSvg_`（節點實色 `typeColor`＋圖例對齊）。**20 正典地點**種子在 `Setup_FateWorld.gs` `FATE_MAP_SEED`（`reseedIfEmpty_` upsert）；前端位置是 `buildMapSvg_` 內 hardcoded `LAYOUT`（非試算表座標）。改地圖同步改種子（名字）＋LAYOUT（位置）。`COL.MAP.WAR` 戰爭分流（'4th' 限定海特飯店/麥肯基宅/碼頭倉庫）。
 - **移動敘事 `actionMove`**：先 `worldTick_`（敵換位）→重讀眾生→落玩家到 target→讀同地人物。回傳 `servantCard`（我方·前綴【我方從者】）＋`foeCards`（敵·前綴【敵方從者·非我方】）＋`masterCard`。前端 `travelTo` 抵達提示前置。無人在場禁生具名角色；遭遇分「找上門/偶遇」（讀 `preFoes`）。**接敵姿態**（純敘述·存 localStorage `fate_stance`·免 round-trip）：🥷隱蔽/🚶泰然/🔥光明，只輕觸 `actionMove` 追擊機率。
 - **撤離追擊**（`actionMove`·用移動前資料判定）：離開有活敵從者的格子時，敏≥我方且 BOND<50 的敵從者依機率咬一記（base30%·帶傷+20%/騎乘-15%/姿態±10%·夾0~0.55）。命中則 `resolveFateBattle_` 真·雙向判定（我輸/我贏回身逼退·保1不致死）。回 `pursuit`（含 `foeCard`）＋數字戰報卡。無預告時退回六圍追擊。
-- **抵達時撞見兩方敵人**（`resolveFactionEncounter_`·Router_Movement）：≥2 位不同敵御主（皆非結盟）同格→**不再永遠「互毆→見你停手」**，改**資料驅動權重表擲一種局面**：clash(交手餘傷·停手)／frenzy(殺紅眼·沒理你繼續打)／standoff(對峙未發)／hunt(一方追殺殘方)／unite(暫時聯手戒你)／pact(敵敵結盟·設【敵盟】)／truce(各自休整)／parley(談判被打斷)／allied_pair(已締盟續演)。權重依雙方 `masterPersonaLean_`（性格投契度·與 `allianceWillingness_` 共用單一真實來源）＋從者傷勢差＋殘敵數動態調整。HP 餘傷／`setEnemyPact_` 敵盟標記等後果 GAS 落地寫 allPcData，`factionClash.note`（純場面事實）給 AI 演出。加局面＝往權重表 W 加一項＋switch 補一段 note。前端 arrivePrompt 用中性 steer（不再假設「你打斷了戰鬥」）。⚠ v1：worldTick 未讀【敵盟】（敵盟只影響再次抵達的演出＋不重擲火併），敵盟未給敵方協同增益。
+- **抵達時撞見兩方敵人**（`resolveFactionEncounter_`·Router_Movement）：≥2 位不同敵御主（皆非結盟）同格→**不再永遠「互毆→見你停手」**，改**資料驅動權重表擲一種局面**：clash(交手餘傷·停手)／frenzy(殺紅眼·沒理你繼續打)／standoff(對峙未發)／hunt(一方追殺殘方)／unite(暫時聯手戒你)／pact(敵敵結盟·設【敵盟】)／truce(各自休整)／parley(談判被打斷)／allied_pair(已締盟續演)。權重依雙方 `masterPersonaLean_`（性格投契度·與 `allianceWillingness_` 共用單一真實來源）＋從者傷勢差＋殘敵數動態調整。HP 餘傷／`setEnemyPact_` 敵盟標記等後果 GAS 落地寫 allPcData，`factionClash.note`（純場面事實）給 AI 演出。加局面＝往權重表 W 加一項＋switch 補一段 note。前端 arrivePrompt 用中性 steer（不再假設「你打斷了戰鬥」）。**敵盟／交惡回饋**：已締【敵盟】未逾期→直接演 allied_pair（不重擲）＋`worldTick_` 暗鬥跳過這對（不自相殘殺）；已結【交惡】未逾期→抽掉 pact/unite/truce/parley/standoff、狠推 frenzy/hunt。（尚未做的：敵盟在**正面戰鬥**給協同增益——目前只影響遭遇局面與暗鬥。）
 - **撞見敵人的配套「後續選擇」**（局面決定開放哪些按鈕·`FACTION_ENCOUNTER_CHOICES_` 資料表）：抵達時 `resolveFactionEncounter_` 回 `choices:{ambush,incite,slip}`，actionMove 寫【趁隙】loc@type 窗口進御主 MEMORY，`buildTagsPayload_` 回 `encounterWindow` → 前端 `renderEncounterBubbles`（複用鑑賞 `.btn-option` 泡泡·GAS 自產不靠 AI）畫進 `options-container`；抵達時 travelTo 吃 `_state.tags`、之後每次 `refreshFateTags` 依 `window._encWin` 重畫，窗口清掉即自動消失。
   - 🥷 **趁隙偷襲**（`faction_ambush`→`actionFactionAmbush`→`playerAmbushOnEnemy_`）：敵分心（frenzy/standoff/parley/pact）時搶一記奇襲，複用 `resolveFateBattle_` 的 `ambush` 先機（鏡射 `enemyAmbushOnServant_` 反向），×1.5 加乘、處理敵死亡(DEAD_/`markMasterLostServant_`/`aliveEnemyServants_` 勝利)。耗 1AP、用掉清窗口。
   - 🎭 **挑撥離間**（`incite`→`actionIncite`）：standoff/parley 時煽動兩敵。成敗由 `masterPersonaLean_` 擲（base .5＋孤狼.2−雙務實.25，夾[.1,.85]）；成功→兩敵真打(雙方扣血·保1)，失敗→兩敵合流戒你(無數值罰)。耗 1AP。
   - 💨 **悄悄離開**（slip）：frenzy/parley/pact 時，`actionMove` 讀【趁隙】窗口→跳過撤離追擊判定。
   - 兩 action 皆進 `STATE_AFTER_ACTIONS`＋`KANSHOU_BLOCKED_ACTIONS_`。
 - **🫶 好感提高成功率（GAS 判定·單一真實來源 `bondFavor_(row)`）**：BOND 0-100，40＝中性（未互動過的 0/空視為 40）；回 `(b-40)/60` ∈[-0.67,+1.0]。「對方對你的好感越高→越容易成」套進四處：①`allianceWillingness_` +bondFavor×0.3（交涉結盟）②`actionIncite` prob +avg×0.25（挑撥）③`actionMove` `foeMood`（遇敵態度·依在場敵對者平均好感給 AI 定調 steer·中性留空）④`playerAmbushOnEnemy_` 奇襲加乘 `ambushMul=1.3+clamp(bondFavor×0.5,-0.25,0.5)`（趁隙）。**另有既有的 emergent 回饋**：BOND≥50 的敵從者離場時不追擊你（`actionMove` 撤離追擊條件）。
-- **🕊️ 主動培養敵人好感的入口＝`actionCourtEnemy`（示好／交涉·action `court_enemy`）**：對同地【未結盟】敵御主/敵從者釋出善意→GAS 依 `masterPersonaLean_` 定升幅（務實 +10~13／中性 +6~9／孤狼瘋狂 +2~5·地板 2），`bumpBond_` 升 BOND、AI 只演對方依性格×好感的反應。每名敵人每日一次（【示好日】<day> 存對方列）、耗 1AP、無突襲風險（純口頭善意）。養到 90 蓋【鑑賞緣】（戰後可納入鑑賞）。這是上面整套「好感提高成功率」的**主動入口**——養高了遇敵和緩／結盟易／挑撥靈／趁隙狠／撤離不被追。前端＝每張敵人卡多一顆「🕊️ 示好／交涉」鈕。進 `STATE_AFTER_ACTIONS`＋`KANSHOU_BLOCKED_ACTIONS_`。
+- **🕊️ 主動培養敵人好感的入口＝`actionCourtEnemy`（示好／交涉·action `court_enemy`）**：對同地【未結盟】敵御主/敵從者釋出善意→GAS 依 `masterPersonaLean_` 定升幅（務實 +10~13／中性 +6~9／孤狼瘋狂 +2~5·地板 2），`bumpBond_` 升 BOND、AI 只演對方依性格×好感的反應。每名敵人每日一次（【示好日】<day> 存對方列）、耗 1AP、無突襲風險（純口頭善意）。這是上面整套「好感提高成功率」的**主動入口**——養高了遇敵和緩／結盟易／挑撥靈／趁隙狠／撤離不被追。前端＝每張敵人卡多一顆「🕊️ 示好／交涉」鈕。進 `STATE_AFTER_ACTIONS`＋`KANSHOU_BLOCKED_ACTIONS_`。**（原養到 90 蓋【鑑賞緣】戰後納入鑑賞已砍——鑑賞角色一律鑑賞內自行召喚、不靠 solo 帶入。）**
+- **趁隙／挑撥的後續配套**：趁隙偷襲沒殺死→對方蓋【提防】（`setWary_`·6 小時內再趁隙傷害 ×0.6，不能無限白嫖同一人）。挑撥離間得逞→兩敵蓋【交惡】（結樑子·影響日後遭遇局面）；被看穿→兩敵各降 4 好感（操弄未遂留芥蒂）。
 - **令咒透支倒數**：敵從者燃最後令咒脫離（無 `fx:'solo'`）→`stampDoom_` 寫【靈基透支】死線（day*24+hour+`SEAL_DOOM_HOURS`=3）。`worldTick_` 到期 `DEAD_`＋風聞。收掉最後敵從者→`victory:true`。御主戰死也連坐同款倒數（masterless 敵從者）。單獨行動者免倒數。
 - **喪失從者的敵御主**：敵從者死亡時 `markMasterLostServant_` 在同地敵御主 MEMORY 寫【喪失從者】。前端演出形單影隻。
 - **敘事連續記憶 `lastAiContext`**（模組級·最近 AI 文≤300字）：`narrate`/play 更新；`travelTo` 在 foe 時當「前情」塞進抵達提示（承接逃跑後再遇）。

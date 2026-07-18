@@ -2212,12 +2212,6 @@
       preMsg: `<div class="msg-player"><b>【系統】：</b>御主在刀鋒之外，向「${npcName}」遞出一分善意……</div>`,
       payload: { action: 'court_enemy', pcId: pc.id, npcName: npcName, acctName: (pc && pc.account) || currentAccount },
       onSuccess: res => updateClock(res.clock, res.ap, res.apMax),
-      onSuccessAfterNarrate: async res => {
-        if (res && res.kanshouUnlocked) {
-          const story = document.getElementById('story');
-          if (story) { story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#e0b0d0;font-size:12.5px;text-align:center;border:1px solid rgba(200,140,180,0.35);border-radius:8px;padding:6px 10px;">🌹 與「${escapeHtml(String(res.target||''))}」的情誼已臻莫逆——戰後可將其納入鑑賞。</div>`); story.scrollTop = story.scrollHeight; }
-        }
-      },
       failMsg: '此刻無法示好。'
     });
   }

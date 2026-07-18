@@ -541,6 +541,26 @@ function setEnemyPact_(memory, partnerName, untilDay) {
   return mem ? mem + "｜" + tag : tag;
 }
 
+// 🔥 敵敵交惡標記（【交惡】<對方御主名>:<到期day>）：挑撥離間得逞後 GAS 蓋雙方御主——之後撞見他們更可能
+//   火併/追殺、不會結盟休整（敵盟的反面）。與敵盟互斥（設交惡先清敵盟、反之亦然）。
+function getEnemyFeud_(memory) {
+  var m = String(memory || "").match(/【交惡】([^｜:]+):(\d+)/);
+  return m ? { partner: m[1], until: parseInt(m[2]) || 0 } : null;
+}
+function setEnemyFeud_(memory, partnerName, untilDay) {
+  var mem = String(memory || "").replace(/【交惡】[^｜]*/g, "").replace(/【敵盟】[^｜]*/g, "").replace(/｜｜+/g, "｜").replace(/^｜|｜$/g, "");
+  var tag = "【交惡】" + String(partnerName || "").replace(/[｜:【】]/g, "") + ":" + (parseInt(untilDay) || 0);
+  return mem ? mem + "｜" + tag : tag;
+}
+
+// 🛡️ 遭趁隙偷襲後的警覺（【提防】<絕對小時>）：短期(WARY_HOURS_)內對你戒心加重，下次趁隙偷襲加乘打折。
+var WARY_HOURS_ = 6;
+function getWaryAbs_(memory) { var m = String(memory || "").match(/【提防】(\d+)/); return m ? (parseInt(m[1]) || 0) : 0; }
+function setWary_(memory, absHour) {
+  var mem = String(memory || "").replace(/｜?【提防】\d+/g, "");
+  return (mem ? mem + "｜" : "") + "【提防】" + (parseInt(absHour) || 0);
+}
+
 // 🎭 撞見兩方敵人的可能局面（資料驅動·GAS 擲、AI 演）。取代舊「永遠互毆→見你停手」單一劇本：
 //   依雙方御主性格投契度（masterPersonaLean_）＋從者傷勢＋戰局殘敵數，擲一種局面；HP 餘傷／敵敵盟約
 //   等後果由 GAS 落地寫進 allPcData，note 只給 AI 當演出事實。回 factionClash {type,aMaster,bMaster,loserName,note}。
@@ -556,6 +576,9 @@ function resolveFactionEncounter_(allPcData, mA, mB, svA, svB, gameId, day) {
   // 已締敵盟且未逾期 → 直接演「早已結為一夥」，不再火併。
   var pactA = getEnemyPact_(String(mA[COL.PC.MEMORY] || "")), pactB = getEnemyPact_(String(mB[COL.PC.MEMORY] || ""));
   var alreadyPacted = pactA && pactB && pactA.partner === mBName && pactB.partner === mAName && pactA.until >= day && pactB.until >= day;
+  // 🔥 已交惡且未逾期（被你挑撥成功過）→ 撞見時更可能火併/追殺、不會結盟休整。
+  var feudA = getEnemyFeud_(String(mA[COL.PC.MEMORY] || "")), feudB = getEnemyFeud_(String(mB[COL.PC.MEMORY] || ""));
+  var feuding = feudA && feudB && feudA.partner === mBName && feudB.partner === mAName && feudA.until >= day && feudB.until >= day;
 
   var leanA = masterPersonaLean_(mA), leanB = masterPersonaLean_(mB);
   var bothPrag = leanA.pragmatic && leanB.pragmatic;
@@ -591,6 +614,11 @@ function resolveFactionEncounter_(allPcData, mA, mB, svA, svB, gameId, day) {
     truce: 4 + (bothPrag ? 3 : 0),                             // 各自休整·井水不犯河水
     parley: 3 + (bothPrag ? 7 : 0)                             // 談判中·被你打斷
   };
+  // 🔥 交惡中：他們彼此有仇（你挑撥過）→ 抽掉一切和睦選項、狠推火併/追殺。
+  if (feuding) {
+    W.pact = 0; W.unite = 0; W.truce = 0; W.parley = 0; W.standoff = 0;
+    W.frenzy += 14; W.hunt += 8;
+  }
   var type;
   if (alreadyPacted) type = 'allied_pair';
   else {
@@ -689,6 +717,11 @@ function playerAmbushOnEnemy_(sheets, pcData, pIdx, gameId, targetName) {
   var baseDmg = probe.atkWins ? (probe.damage || 1) : Math.max(1, Math.round(rankVal(atkC.six['筋力'] || 'C') * 0.5));
   // 🗡️🫶 趁隙奇襲加乘：敵越信你(對你好感高)＝越沒料到你會偷襲＝這一記越狠；越提防你則打不出全效。
   var ambushMul = 1.3 + Math.max(-0.25, Math.min(0.5, bondFavor_(pcData[eIdx]) * 0.5));
+  // 🛡️ 近期才被你趁隙偷襲過(【提防】)＝戒心未消、這一記大打折扣（配套後續：偷襲不再能無限白嫖同一人）。
+  var _absNow = (parseInt(pcData[pIdx][COL.PC.DAY]) || 1) * 24 + (parseInt(pcData[pIdx][COL.PC.HOUR]) || 0);
+  var _wary = getWaryAbs_(pcData[eIdx][COL.PC.MEMORY]);
+  var stillWary = _wary > 0 && (_absNow - _wary) >= 0 && (_absNow - _wary) < WARY_HOURS_;
+  if (stillWary) ambushMul *= 0.6;
   var dmg = Math.max(1, Math.round(baseDmg * ambushMul));
   var out = { enemyName: String(pcData[eIdx][COL.PC.NAME]), svName: String(pcData[svIdx][COL.PC.NAME]), dmg: dmg, hit: !!probe.atkWins, destroyed: false, victory: false, dreamPrompt: "", foeCard: '〔趁隙偷襲的目標〕' + servantCard_(pcData[eIdx]) };
   var severed = hasFx_(atkC, 'rule_breaker') || hasFx_(atkC, 'anti_magic_lance');
@@ -709,6 +742,8 @@ function playerAmbushOnEnemy_(sheets, pcData, pIdx, gameId, targetName) {
     }
   } else {
     pcData[eIdx][COL.PC.HP] = after;
+    pcData[eIdx][COL.PC.MEMORY] = setWary_(pcData[eIdx][COL.PC.MEMORY], _absNow); // 🛡️ 沒殺死→對方戒心加重，短期內難再趁隙
+    out.nowWary = true;
   }
   sheets.pc.getRange(eIdx + 1, 1, 1, pcData[eIdx].length).setValues([pcData[eIdx]]);
   out.after = Math.max(0, after);
@@ -789,11 +824,22 @@ function actionIncite(userData, pcId, sheets) {
     pcData[wiIdx][COL.PC.HP] = Math.max(1, (parseInt(pcData[wiIdx][COL.PC.HP]) || 0) - wiDmg);
     sheets.pc.getRange(loIdx + 1, 1, 1, pcData[loIdx].length).setValues([pcData[loIdx]]);
     sheets.pc.getRange(wiIdx + 1, 1, 1, pcData[wiIdx].length).setValues([pcData[wiIdx]]);
-    aiPrompt = `【系統·挑撥離間·得逞】你三言兩語點燃了「${svAName}」與「${svBName}」之間的火——兩人當真打了起來，「${loName}」吃了較重的一擊（−${loDmg}），另一方亦掛彩（−${wiDmg}）。\n` +
+    // 🔥 後續配套：得逞→兩敵結下樑子(【交惡】雙方御主，至 day+3)，之後撞見他們更可能火併/追殺、不會結盟。
+    if (mIdxA >= 0 && mIdxB >= 0) {
+      var _mAName = String(pcData[mIdxA][COL.PC.NAME]), _mBName = String(pcData[mIdxB][COL.PC.NAME]);
+      pcData[mIdxA][COL.PC.MEMORY] = setEnemyFeud_(pcData[mIdxA][COL.PC.MEMORY], _mBName, day + 3);
+      pcData[mIdxB][COL.PC.MEMORY] = setEnemyFeud_(pcData[mIdxB][COL.PC.MEMORY], _mAName, day + 3);
+      sheets.pc.getRange(mIdxA + 1, 1, 1, pcData[mIdxA].length).setValues([pcData[mIdxA]]);
+      sheets.pc.getRange(mIdxB + 1, 1, 1, pcData[mIdxB].length).setValues([pcData[mIdxB]]);
+    }
+    aiPrompt = `【系統·挑撥離間·得逞】你三言兩語點燃了「${svAName}」與「${svBName}」之間的火——兩人當真打了起來，「${loName}」吃了較重的一擊（−${loDmg}），另一方亦掛彩（−${wiDmg}），自此結下樑子。\n` +
       `★以 Fate／TYPE-MOON 筆觸【約 80~140 字】演出你如何煽風點火、兩方如何被激得反目相向；你則在一旁坐收其亂。傷害已由 GAS 結算。`;
     report = { incite: true, success: true, aName: svAName, bName: svBName, loName: loName, loDmg: loDmg, wiDmg: wiDmg };
   } else {
-    aiPrompt = `【系統·挑撥離間·被看穿】你試圖挑撥「${svAName}」與「${svBName}」反目，卻被兩人一眼看穿——他們非但沒中計，反而不約而同地轉過頭，戒備地一同盯向你這攪局的外人。\n` +
+    // 🫶 後續配套：被看穿→兩敵對你更反感，各降 4 好感（你操弄未遂、留下芥蒂）。
+    bumpBond_(sheets, pcData, iA, -4);
+    bumpBond_(sheets, pcData, iB, -4);
+    aiPrompt = `【系統·挑撥離間·被看穿】你試圖挑撥「${svAName}」與「${svBName}」反目，卻被兩人一眼看穿——他們非但沒中計，反而不約而同地轉過頭，戒備地一同盯向你這攪局的外人，對你的好感也淡了幾分。\n` +
       `★以 Fate／TYPE-MOON 筆觸【約 70~120 字】演出這記挑撥落空、兩方合流戒你的尷尬瞬間；語氣別替玩家決定接下來怎麼辦。`;
     report = { incite: true, success: false, aName: svAName, bName: svBName };
   }
