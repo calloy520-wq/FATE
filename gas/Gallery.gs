@@ -268,6 +268,17 @@ function kanshouSyncRelTier_(pcData, idx) {
 //   或一起經歷橋段(+KANSHOU_SCENE_BOND_·下方roomEventAccept)這類真實相處才能突破到下一梯度(經濟/送禮已砍)。
 //   上限沿用KANSHOU_REL_TIER_同一份門檻，不重複開新數字。
 const KANSHOU_SCENE_BOND_ = 3; // 接受親密橋段(夜襲/共浴/膝枕…非拒絕分支)給的好感，直接寫、不吃聊天上限。
+
+// 🫶 玩家主動提議(相約/牽手/同去)她答不答應——【GAS 依好感擲，AI 只演反應】(2026-07 由 AI 判定改為 GAS 判定)。
+//   好感越高越可能答應；不同提議親密度不同起點/斜率（牽手最看好感、同去最隨和）。個性風味留給 AI 在敘述裡演。
+function kanshouProposalAccepts_(type, bond) {
+  bond = parseInt(bond) || 0;
+  var base, slope;
+  if (type === 'move') { base = 0.45; slope = 0.006; }         // 一起去某地·門檻低(0→.45 / 40→.69 / 80→.93)
+  else if (type === 'promise') { base = 0.30; slope = 0.007; } // 相約明天·中等(0→.30 / 40→.58 / 80→.86)
+  else { base = 0.10; slope = 0.010; }                          // 牽手·最私密最看好感(0→.10 / 40→.50 / 80→.90)
+  return Math.random() < Math.max(0.03, Math.min(0.97, base + bond * slope));
+}
 // 純聊天封頂只從「熟識(40)」這道門檻起算——第一階「點頭之交→普通朋友」本就該靠日常閒聊自然發生
 //   (陌生變朋友天經地義)，不該逼玩家在還沒熟時就得約會/夜襲(2026-07 玩家實測卡在19爬不出、矜持角色
 //   約定又被婉拒的死結)。聊天可自由爬到39；40/60/80 三道親密門檻維持要約定赴約/橋段才能突破(slow burn)。
@@ -1633,8 +1644,8 @@ function actionPlay(userData, pcId, sheets) {
       // 時段：前端帶 band(午後/黃昏/夜)；不合法或沒帶→退回無時段(舊「整天有效」·向後相容)。
       const _pmBand = kanshouApptHour_(String(userData.promiseMeet.band || "").trim()) !== null ? String(userData.promiseMeet.band).trim() : "";
       const _pmBandLabel = _pmBand ? (KANSHOU_APPT_BANDS_.find(b => b.band === _pmBand) || {}).label : "";
-      _pendingProposal = { type: 'promise', idx: _pmIdx, loc: _pmLoc, band: _pmBand };
-      kanshouPromiseStr = `\n★【提議·相約】：你向『${_pmHer}』提議【明天${_pmBandLabel ? _pmBandLabel + '於' : '在'}「${_pmLoc}」見面】。依她既有個性與目前好感(${_pmBond}/100)真實演出答不答應——不預設結果，並在 proposal_accept 欄如實填「接受」或「婉拒」。她接受，系統明天才記得這個約；婉拒則此約不成立、不必替玩家找補。`;
+      _pendingProposal = { type: 'promise', idx: _pmIdx, loc: _pmLoc, band: _pmBand, accepted: kanshouProposalAccepts_('promise', _pmBond) };
+      kanshouPromiseStr = `\n★【提議·相約·GAS已裁定】你向『${_pmHer}』提議【明天${_pmBandLabel ? _pmBandLabel + '於' : '在'}「${_pmLoc}」見面】。系統已依好感(${_pmBond}/100)裁定她${_pendingProposal.accepted ? '【答應】了——請 narration 依她的個性演出答應的反應（雀躍／害羞／矜持地點頭皆可），系統明天會記得這個約' : '【婉拒】了——請 narration 依她的個性演出婉拒的反應（不好意思／認真說改天／打趣帶過皆可），此約不成立、不必替玩家找補'}。★成敗由系統定，【不可】自行改寫她的決定，只演她的反應。`;
       finalUserMsg = `【玩家意圖】：向『${_pmHer}』提出「明天${_pmBandLabel || ''}在${_pmLoc}見面」的約定。`;
     } else if (_pmName) {
       kanshouPromiseStr = `\n★【相約撲空】：你想找『${_pmName}』相約見面，但她此刻並不在這裡——演出這份撲空的悵然即可，約定沒有成立。`;
@@ -1655,8 +1666,8 @@ function actionPlay(userData, pcId, sheets) {
     if (_pvLocOk && _pvIdx !== -1) {
       const _pvHer = String(pcData[_pvIdx][COL.PC.NAME]);
       const _pvBond = parseInt(pcData[_pvIdx][COL.PC.BOND]) || 0;
-      _pendingProposal = { type: 'move', idx: _pvIdx, loc: _pvLoc };
-      kanshouPromiseStr += `\n★【提議·同去】：你向『${_pvHer}』提議【現在一起去「${_pvLoc}」】。依她既有個性與目前好感(${_pvBond}/100)真實演出答不答應——不預設結果，並在 proposal_accept 欄如實填「接受」或「婉拒」——本回合【不要】另填 move_proposal，是否動身由系統依你的答覆處理。narration 停在她給出回應的當下，【不可】演出發、走路或抵達。`;
+      _pendingProposal = { type: 'move', idx: _pvIdx, loc: _pvLoc, accepted: kanshouProposalAccepts_('move', _pvBond) };
+      kanshouPromiseStr += `\n★【提議·同去·GAS已裁定】你向『${_pvHer}』提議【現在一起去「${_pvLoc}」】。系統已依好感(${_pvBond}/100)裁定她${_pendingProposal.accepted ? '【答應】同行——請 narration 依她的個性演出答應的反應' : '【婉拒】了——請 narration 依她的個性演出婉拒的反應'}。本回合【不要】另填 move_proposal，是否動身由系統處理；narration 停在她給出回應的當下，【不可】演出發、走路或抵達。★成敗由系統定，別自行改寫她的決定。`;
       finalUserMsg = `【玩家意圖】：邀身旁的『${_pvHer}』現在一起去「${_pvLoc}」。`;
     } else if (_pvIdx === -1) {
       kanshouPromiseStr += `\n★【提議撲空】：你想邀人一起去「${_pvLoc}」，但此刻身邊沒有同伴——演出這份獨自的悵然即可(玩家可自己用地圖移動)。`;
@@ -1760,8 +1771,8 @@ function actionPlay(userData, pcId, sheets) {
         const _hhName = String(pcData[_hhIdx][COL.PC.NAME]);
         const _hhBond = parseInt(pcData[_hhIdx][COL.PC.BOND]) || 0;
         // 牽手tag存在玩家自己列(pcIndex)、值=她的名字；接受與否由AI判定，接受後才在post-AI區寫回。
-        _pendingProposal = { type: 'hold', idx: pcIndex, name: _hhName };
-        kanshouHandHoldStr = `\n★【提議·牽手】：你伸手想牽起『${_hhName}』的手。依她既有個性與目前好感(${_hhBond}/100)真實演出讓不讓你牽——不預設結果，並在 proposal_accept 欄如實填「接受」或「婉拒」。★敘事必須與你的決定一致：填「接受」＝narration 要真實演出【她的手交到你手中／你們牽起手】的那一刻(不可只碰衣角、拉衣袖之類含糊帶過——那不算牽手)；填「婉拒」＝演她收手/避開，沒牽成、不必替玩家找補。她接受後，之後你移動她會相伴同行(直到放手)。`;
+        _pendingProposal = { type: 'hold', idx: pcIndex, name: _hhName, accepted: kanshouProposalAccepts_('hold', _hhBond) };
+        kanshouHandHoldStr = `\n★【提議·牽手·GAS已裁定】你伸手想牽起『${_hhName}』的手。系統已依好感(${_hhBond}/100)裁定她${_pendingProposal.accepted ? '【讓你牽了】——narration 必須真實演出【她的手交到你手中／你們牽起手】的那一刻(不可只碰衣角、拉衣袖之類含糊帶過——那不算牽手)，語氣依其個性（大方／害羞／彆扭皆可）；她接受後，之後你移動她會相伴同行(直到放手)' : '【收回了手】——narration 依其個性演出她收手／避開、沒牽成的反應，不必替玩家找補'}。★成敗由系統定，別自行改寫她的決定。`;
         finalUserMsg = `【玩家意圖】：伸手想牽起『${_hhName}』的手。`;
       }
     }
@@ -2568,9 +2579,9 @@ ${PROMPT_REL}
     // kanshouProposalResult_ 已於 pre-AI(promiseAccept 那塊)宣告——這裡直接賦值，別再 let 蓋出內層影子
     //   變數(否則回傳時讀到的是外層那個、拿不到這裡寫的值)。一回合只走 promiseAccept 或 proposal_accept 一條。
     if (_pendingProposal) {
-      const _paTxt = String(aiData.proposal_accept || "");
-      // 否定組要蓋住「不/沒/未＋肯定詞」全型——「不同意」「不答應」「沒答應」都含肯定字眼，漏列＝被判成接受(fail-open)。
-      const _accepted = /接受|答應|同意|願意/.test(_paTxt) && !/拒|不接受|不肯|不願|不答應|不同意|沒(有)?接受|沒(有)?答應|未接受|未答應|未同意/.test(_paTxt);
+      // 🫶 成敗由 GAS 於 pre-AI 依好感擲定(_pendingProposal.accepted)，不再讀 AI 的 proposal_accept——
+      //   AI 只負責照裁定演出她的反應。(2026-07 由 AI 判定改 GAS 判定·kanshouProposalAccepts_)
+      const _accepted = !!_pendingProposal.accepted;
       // 🐛→✅ 牽手(hold)的 idx 是【玩家自己列】(標記存玩家MEMORY)，拿 idx 的名字會變成玩家自己
       //   (「風音沒有讓你牽手」)——她的名字存在 _pendingProposal.name，優先用它。
       const _ppHer = String(_pendingProposal.name || pcData[_pendingProposal.idx][COL.PC.NAME] || "");

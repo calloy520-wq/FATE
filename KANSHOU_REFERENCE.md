@@ -235,7 +235,8 @@ UNLOCKED_MODEL = x-ai/grok-4.20              (屬性 UNLOCKED_MODEL)
 - **onclick 字串內的呼叫不算死碼**；`removeAllTriggers()` 零呼叫是 GAS 工具正常型態、非死碼。
 - **HTML 刪除先手算 div 開合平衡**再刪，避免刪頭忘刪尾崩整頁。
 - **泡泡(必點UI)別跟可關閉的東西同住一個容器**：「AI選項開關」曾整個 `options-container` display:none，所有泡泡(前往/邀約/同居/敲門/橋段/結識)陪葬——關掉選項的玩家**從沒見過任何泡泡**。現制：【命運的抉擇】包在 `#ai-options-grid` 小盒、開關只藏它；容器本身恆 flex(載入時強制恢復)。新泡泡一律放容器直下、別放進 grid。
-- **別依賴小模型「自發」填選填欄位**：Gemini-lite 從不自發填 move_proposal——玩家發起的機制動作一律走「明確 payload → pre-AI 記提議 → AI 只答 proposal_accept」的確定性管線(👋proposeMove/相約/牽手同款)，提示詞授權只當補網。
+- **別依賴小模型「自發」填選填欄位**：Gemini-lite 從不自發填 move_proposal——玩家發起的機制動作一律走「明確 payload → pre-AI 記提議 → 確定性管線」(👋proposeMove/相約/牽手同款)，提示詞授權只當補網。
+- **🫶 玩家提議（相約/牽手/同去）她答不答應＝GAS 依好感擲、AI 只演**（2026-07 由 AI 判定改 GAS 判定）：pre-AI 用 `kanshouProposalAccepts_(type, bond)` 依好感擲定 `_pendingProposal.accepted`（曲線：move base .45/slope .006、promise .30/.007、hold .10/.010，夾[.03,.97]——牽手最看好感、同去最隨和），★提議鐵律直接告訴 AI「她【答應/婉拒】了，只演她的反應、不可改寫決定」；post-AI 落地讀 `_pendingProposal.accepted`（**不再讀 AI 的 `proposal_accept`**）。`proposal_accept` schema 欄保留但已無效（AI 填了 GAS 忽略）。她主動提議(promise_proposal/cohabit)＋同居(cohabitInvite≥90)仍走原本各自的 GAS 門檻。**紅線①核對過：nsfwBaseRules／慾海律令／driveStr／五階演化 0 改動。**
 - **通用錯誤文案是查案毒藥**：send()/saveFate 的 catch 已帶出 e.message(【原因】行)；後端 success:false 的 message 會演進故事流。別再寫吞掉真因的 alert。
 - **獨立事件別共用單一回饋槽**：赴約/爽約「結算」與相約/牽手/同去「提議結果」是兩條獨立事件流，舊版共用 `proposalResult` 單槽＝並發時後寫的吞掉先寫的(爽約通知無聲消失2.0)。現制：結算走 `promiseSettle`、提議走 `proposalResult`，前端各自出通知條。新回饋事件進來時先問「跟既有槽是同一條事件流嗎」，不是就開新欄位。
 - **後端早退回應別夾空集合**：敲門早退曾夾 `people: []` 把前端 `localNPCs` 快取洗空(泡泡期間拍照面板變無人)。早退＝沒人移動＝不帶 people；前端也只在 `Array.isArray(data.people)` 才更新快取(雙保險)。
