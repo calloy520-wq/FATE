@@ -474,17 +474,6 @@ function actionRest(userData, pcId, sheets) {
   });
 }
 
-
-
-
-
-
-
-
-
-
-
-
 // ==========================================
 // 🍱 整備·進食：耗 1 AP，給御主一行 MEAL_BUFF_HOURS 小時的戰鬥命中 +MEAL_BUFF_BONUS（戰前 buff）
 function actionPrepMeal(userData, pcId, sheets) {
@@ -515,8 +504,8 @@ function actionPrepMeal(userData, pcId, sheets) {
   });
 }
 
-// 🕯️ 喪失從者紀錄：敵從者死亡時，在「同地同 game_id 的敵御主」MEMORY 標記如何失去從者，
-//   供 AI 演出形單影隻、再無從者可驅使的無牙御主。配對採同落點(一master一servant結伴移動)。
+// ⚔️ 卸防突襲：在同地有清醒敵從者時做「補魔／羈絆／休息」等卸下防備之舉，會招致敵從者趁隙重擊我方從者
+//   （氣息遮斷／暗殺職階更致命）。回 null＝無敵不觸發；否則 {enemyName,dmg,defeat,dreamPrompt,after,stealthy}。
 function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul) {
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
   const ambushDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1; // 🕰️ 尚未登場者不會夜襲

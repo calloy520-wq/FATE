@@ -543,6 +543,3 @@ function actionRuleBreakSteal(userData, pcId, sheets) {
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：陣營轉換/HP/MEMORY清理/令咒扣除/raiseBond_ 皆已原地改回 pcData
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, stolen: stolenName, seals: seals, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
-
-// ⚔️ 卸防突襲：在同地有清醒敵從者時做「補魔／羈絆／休息」等卸下防備之舉，會招致敵從者趁隙重擊我方從者
-//   （氣息遮斷／暗殺職階更致命）。回 null＝無敵不觸發；否則 {enemyName,dmg,defeat,dreamPrompt,after,stealthy}。

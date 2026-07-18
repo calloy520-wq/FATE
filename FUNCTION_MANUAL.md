@@ -74,7 +74,7 @@
 | `get_full_status` | `actionGetFullStatus` | 查某角完整狀態字串 |
 | `update_fate` | `actionUpdateFate` | 逆天改命（4 敘事欄） |
 | `update_rel_tag` | `actionUpdateRelTag` | 重定義關係稱呼 |
-| `create` | `actionManualNpc` | 御主創角（isCreate 分支）；`!isCreate`＝死碼 |
+| `create` | `actionManualNpc` | 御主創角（非阻塞，種子值秒寫一列） |
 | `backfill_master_ai` | `actionBackfillMasterAi` | 開局非阻塞·背景補御主敘事欄 |
 | `summon_servant` | `actionSummonServant` | 召喚從者 |
 | `get_heroes` | `actionGetHeroes` | 英靈殿清單 |
@@ -528,7 +528,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint)` — AI 把戰時外貌轉成現代日常穿搭/外型（四短句 look＋一句 outfit），本相不變、戰甲換日常。失敗原樣退回。dailyMoeHint 傳入避免「私密一面」跟萌點撞。
 - `translatePersonalityToDaily_(name, cls, rawWords, lookPrivateHint)` — AI 把戰場語境性格短句（戰意/殺意）轉成日常等價說法、補滿四格；純個性核心原樣保留。失敗退回原值。
 - `translateMoeToDaily_(name, cls, rawMoe)` — AI 把靠戰爭/創傷撐出的沉重反差萌改寫成輕量日常萌點（限 18/硬截 30 字）。只用於 ai_gen 英靈（canon 手寫死進 persona.dailyMoe）。
-- ⚠ 這三個 translate* 皆呼叫 `callGeminiAPI` 且本檔【無呼叫點】——`getDailyHeroFields_` 已純讀取快取、`heroToKanshouRow_` 不呼叫 AI。呼叫端在別檔（Seed/工房 codex 建檔）。若別處也不用即為死碼，值得查證。
+- ✅ 這三個 translate* 皆呼叫 `callGeminiAPI`，本檔內無呼叫點但**確為活碼**：呼叫端在 `Router_Creation.gs` 的 `recordOriginalHero_`（工房鑄入）與 `actionSaveHero`（修改分支）——工房存檔時一次算好日常欄寫入 DAILY_*，鑑賞撈取（`getDailyHeroFields_`/`heroToKanshouRow_`）改純讀快取、不再呼叫 AI。
 
 #### 從英靈殿建列（進鑑賞世界）
 
@@ -656,8 +656,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 **清點**：約 62 個函式（含 `actionPlay` 內嵌 helper）＋ 約 33 個模組級常數/資料表/標記器。
 
-**可疑/死碼**：
-1. `translateLookToDaily_`／`translatePersonalityToDaily_`／`translateMoeToDaily_` 三支戰時→日常 AI 轉譯函式在本檔【無呼叫點】（`getDailyHeroFields_` 已改純讀快取、`heroToKanshouRow_` 不呼叫 AI）。呼叫端理應在別檔（Seed/工房 codex 建檔）；若別處也不用即為死碼——建議 grep 全庫確認。
+**備註（已查證·非死碼）**：
+1. `translateLookToDaily_`／`translatePersonalityToDaily_`／`translateMoeToDaily_` 三支戰時→日常 AI 轉譯函式本檔內無呼叫點，但確為活碼：呼叫端在 `Router_Creation.gs`（`recordOriginalHero_` 工房鑄入＋`actionSaveHero` 修改分支），工房存檔時算好寫入 DAILY_* 欄；鑑賞撈取純讀快取、不呼叫 AI。
 2. 檔頭註解自陳：「鑑賞」schema 已移除、全庫無讀寫者，留著的空分頁無害可自行刪（已知殘留·非 bug）。
 3. `kanshouRoomDisplayName_(locKey, pcData, gameId, myName, myIdx)` 只用到 locKey/myName，pcData/gameId/myIdx 三個參數現未使用（房客世界觀砍除後的殘留簽名·無害）。
 ### Core_Settings.gs

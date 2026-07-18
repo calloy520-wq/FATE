@@ -272,5 +272,3 @@ function actionSpiritRepair(userData, pcId, sheets) {
 
 // 🩸 燃血補魔是【被動機制】，非主動 action：共用魔力池見底時消耗補不上，
 //   applyRegen_(Time_World) 自動「燃命續契約」——缺口÷2 全額扣【御主】HP(保底1)，從者不扣血。
-
-// ── 💕 羈絆日限：記於御主 MEMORY 的【羈絆日】D:type1,type2（跨日自動重置）──
