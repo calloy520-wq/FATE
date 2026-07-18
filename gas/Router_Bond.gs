@@ -513,6 +513,61 @@ function actionAllyBond(userData, pcId, sheets) {
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, bond: after, unlocked: unlocked, ally: allyName, clock: clock, ap: ap, apMax: AP_PER_DAY, ambush: false, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
+// 🕊️ 示好／交涉：對同地【未結盟的敵御主/敵從者】釋出善意、慢慢養好感(BOND)。GAS 依對方性格決定升多少
+//   (務實者領情快、孤狼/瘋狂者慢熱)，AI 只演對方【依性格×當前好感】的反應。每名敵人每日一次、耗 1AP。
+//   這是「好感提高成功率」整套的主動培養入口——養高了：遇敵態度和緩、結盟更易、挑撥更靈、趁隙更狠、
+//   撤離不被追擊(BOND≥50)；養到 90 蓋【鑑賞緣】(戰後可納入鑑賞名冊)。真·親密一律留戰後鑑賞、戰場只到 SFW 曖昧。
+function actionCourtEnemy(userData, pcId, sheets) {
+  const npcName = String(userData.npcName || "").trim();
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
+  const _courtDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
+  const tIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(nameLoose_(npcName)) !== -1
+    && (String(r[COL.PC.FACTION]) === "敵御主" || String(r[COL.PC.FACTION]) === "敵從者")
+    && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_")
+    && !isAllied_(r) && String(r[COL.PC.LOC]).trim() === myLoc && hasArrived_(r, _courtDay));
+  if (tIdx === -1) return JSON.stringify({ success: false, message: "此地沒有可示好的對象——須與對方同處一地、對方為敵對陣營（盟友請用『與盟友共處』）。" });
+
+  const isFate = myGameId.indexOf("g_") === 0;
+  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足——請『休息』恢復後再來。" });
+
+  // 每名敵人每日一次（【示好日】<day> 存對方列）
+  const _mem = String(pcData[tIdx][COL.PC.MEMORY] || "");
+  const _cm = _mem.match(/【示好日】(\d+)/);
+  if (_cm && parseInt(_cm[1]) === _courtDay) return JSON.stringify({ success: false, message: "今日已向此人示好過了——來日方長，改日再敘。" });
+
+  const targetName = String(pcData[tIdx][COL.PC.NAME]);
+  const targetIsMaster = String(pcData[tIdx][COL.PC.FACTION]) === "敵御主";
+  const lean = masterPersonaLean_(pcData[tIdx]);
+  // 依性格定升幅：務實者領情快、孤狼/瘋狂者慢熱。地板 +2（總不至於毫無鬆動）。
+  let delta = 6 + (lean.pragmatic ? 4 : 0) - (lean.loner ? 3 : 0);
+  delta = Math.max(2, delta + Math.floor(Math.random() * 3));
+  const before = parseInt(pcData[tIdx][COL.PC.BOND]) || 40;
+  const after = bumpBond_(sheets, pcData, tIdx, delta); // 內含 0-100 夾值＋寫回 BOND 格
+
+  // 標記今日已示好；養到 90 蓋【鑑賞緣】
+  pcData[tIdx][COL.PC.MEMORY] = _mem.replace(/｜?【示好日】\d+/g, "") + "｜【示好日】" + _courtDay;
+  let kanshouUnlocked = false;
+  if (after >= 90 && !/【鑑賞緣】/.test(pcData[tIdx][COL.PC.MEMORY])) {
+    pcData[tIdx][COL.PC.MEMORY] += "｜【鑑賞緣】"; kanshouUnlocked = true;
+  }
+  sheets.pc.getRange(tIdx + 1, 1, 1, pcData[tIdx].length).setValues([pcData[tIdx]]);
+
+  let ap = AP_PER_DAY, clock = "";
+  if (isFate) { try { ap = spendAp_(myGameId, 1, pcData, sheets).ap; clock = clockLabel_(myGameId, pcData); } catch (e) { } }
+
+  const card = targetIsMaster ? enemyMasterCard_(pcData[tIdx]) : servantCard_(pcData[tIdx]);
+  const aiPrompt = masterCard_(pcData[pIdx]) + '〔示好對象·敵對陣營〕' + card +
+    `【系統·示好／交涉·已裁定】御主『${String(pcData[pIdx][COL.PC.NAME])}』在刀鋒之外向敵對的「${targetName}」釋出善意（好感 ${before}→${after}／100）。\n` +
+    `★以 Fate／TYPE-MOON 筆觸【約 100~150 字】演出這番示好、與對方【依其性格×當前好感】的真實反應：${lean.loner ? '孤高／激烈者多半冷淡、譏諷或半信半疑，只鬆動一絲' : lean.pragmatic ? '務實者會權衡利害、順水推舟地緩和態度' : '依其性格自然回應'}——但仍分屬敵對，留一分保留與算計，別演成一下就交心。GAS 已算好數值，你只演反應、不另定成敗。` +
+    (kanshouUnlocked ? '\n★此刻情誼首度臻至莫逆（戰後可納入鑑賞）——收在一個彼此心照不宣、卻仍隔著立場的微妙瞬間。' : '');
+  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：bumpBond_/【示好日】/【鑑賞緣】/spendAp_ 皆已原地改回 pcData
+  return JSON.stringify({ success: true, aiPrompt: aiPrompt, target: targetName, bond: after, delta: delta, kanshouUnlocked: kanshouUnlocked, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
+}
+
 // 🗝️ 破戒奪僕：對「打殘(HP<35%)的敵從者」斬契奪為第二從者（需破戒之力＋燃一道令咒；上限 2 名從者）
 function actionRuleBreakSteal(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();

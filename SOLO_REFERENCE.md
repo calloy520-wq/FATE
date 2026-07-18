@@ -288,6 +288,7 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 【出力】pct(靈基出力檔) 【整備至】絕對小時(戰前buff) 【回魔日】day(敵御主·refillMastersDaily_)
 【羈絆日】D:type1,type2(跨日重置) 【羈絆里程碑】30,60,90(已演出清單·get/setBondMilestonesFired_)
 【陣地】loc(setWorkshop·供魔工房+8·getWorkshop_) 【搜刮】loc(scavenge·魔力枯竭標記) 【禮裝】id
+【示好日】day(actionCourtEnemy 每敵每日一次限制·存敵人列)
 【盟約至】day 【鑑賞緣】 【破戒奪取】 【黑化Alter】 【敵盟】對方御主名:到期day(敵敵結盟·resolveFactionEncounter_·get/setEnemyPact_)
 【趁隙】loc@type(撞見敵人的可反應窗口·決定抵達該格開放哪些情境選擇·get/set/clearEncounterWindow_·移動或用掉即清)
 【魔境】fx(玩家選的通用A階被動·set_mage_realm·rowToCombatant_ 注入) 【符文】def/dmg/regen(set_rune_mode)
@@ -317,7 +318,8 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
   - 🎭 **挑撥離間**（`incite`→`actionIncite`）：standoff/parley 時煽動兩敵。成敗由 `masterPersonaLean_` 擲（base .5＋孤狼.2−雙務實.25，夾[.1,.85]）；成功→兩敵真打(雙方扣血·保1)，失敗→兩敵合流戒你(無數值罰)。耗 1AP。
   - 💨 **悄悄離開**（slip）：frenzy/parley/pact 時，`actionMove` 讀【趁隙】窗口→跳過撤離追擊判定。
   - 兩 action 皆進 `STATE_AFTER_ACTIONS`＋`KANSHOU_BLOCKED_ACTIONS_`。
-- **🫶 好感提高成功率（GAS 判定·單一真實來源 `bondFavor_(row)`）**：BOND 0-100，40＝中性（未互動過的 0/空視為 40）；回 `(b-40)/60` ∈[-0.67,+1.0]。「對方對你的好感越高→越容易成」套進四處：①`allianceWillingness_` +bondFavor×0.3（交涉結盟）②`actionIncite` prob +avg×0.25（挑撥）③`actionMove` `foeMood`（遇敵態度·依在場敵對者平均好感給 AI 定調 steer·中性留空）④`playerAmbushOnEnemy_` 奇襲加乘 `ambushMul=1.3+clamp(bondFavor×0.5,-0.25,0.5)`（趁隙）。⚠ 目前 solo 尚無「主動培養敵人好感」的入口（BOND 多維持中性 40），此為機制plumbing、待後續補「示好/外交」升敵好感的來源才會明顯生效。
+- **🫶 好感提高成功率（GAS 判定·單一真實來源 `bondFavor_(row)`）**：BOND 0-100，40＝中性（未互動過的 0/空視為 40）；回 `(b-40)/60` ∈[-0.67,+1.0]。「對方對你的好感越高→越容易成」套進四處：①`allianceWillingness_` +bondFavor×0.3（交涉結盟）②`actionIncite` prob +avg×0.25（挑撥）③`actionMove` `foeMood`（遇敵態度·依在場敵對者平均好感給 AI 定調 steer·中性留空）④`playerAmbushOnEnemy_` 奇襲加乘 `ambushMul=1.3+clamp(bondFavor×0.5,-0.25,0.5)`（趁隙）。**另有既有的 emergent 回饋**：BOND≥50 的敵從者離場時不追擊你（`actionMove` 撤離追擊條件）。
+- **🕊️ 主動培養敵人好感的入口＝`actionCourtEnemy`（示好／交涉·action `court_enemy`）**：對同地【未結盟】敵御主/敵從者釋出善意→GAS 依 `masterPersonaLean_` 定升幅（務實 +10~13／中性 +6~9／孤狼瘋狂 +2~5·地板 2），`bumpBond_` 升 BOND、AI 只演對方依性格×好感的反應。每名敵人每日一次（【示好日】<day> 存對方列）、耗 1AP、無突襲風險（純口頭善意）。養到 90 蓋【鑑賞緣】（戰後可納入鑑賞）。這是上面整套「好感提高成功率」的**主動入口**——養高了遇敵和緩／結盟易／挑撥靈／趁隙狠／撤離不被追。前端＝每張敵人卡多一顆「🕊️ 示好／交涉」鈕。進 `STATE_AFTER_ACTIONS`＋`KANSHOU_BLOCKED_ACTIONS_`。
 - **令咒透支倒數**：敵從者燃最後令咒脫離（無 `fx:'solo'`）→`stampDoom_` 寫【靈基透支】死線（day*24+hour+`SEAL_DOOM_HOURS`=3）。`worldTick_` 到期 `DEAD_`＋風聞。收掉最後敵從者→`victory:true`。御主戰死也連坐同款倒數（masterless 敵從者）。單獨行動者免倒數。
 - **喪失從者的敵御主**：敵從者死亡時 `markMasterLostServant_` 在同地敵御主 MEMORY 寫【喪失從者】。前端演出形單影隻。
 - **敘事連續記憶 `lastAiContext`**（模組級·最近 AI 文≤300字）：`narrate`/play 更新；`travelTo` 在 foe 時當「前情」塞進抵達提示（承接逃跑後再遇）。
