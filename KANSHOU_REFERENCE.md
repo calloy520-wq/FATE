@@ -8,7 +8,7 @@
 
 ## 🌹 一句話定位
 
-鑑賞＝奪杯後日談的**約會模式**（NSFW）。**一個更單純的世界**：無戰鬥、無經濟、無房東房客世界觀，一張約會大地圖，她們各自有自己的住處與作息，其餘全靠 AI 即興演出。建在 `nsfwBaseRules`＋`buildDefaultSystemPrompt` 上、與 solo 共用 `actionPlay` 引擎與 `callGeminiAPI`。
+鑑賞＝**約會模式**後日談（NSFW）——**主選單直接進、從英靈殿直接召喚同伴，不需先打贏戰爭**（`actionEnterKanshou`＋`actionKanshouSummonHero`）。**一個更單純的世界**：無戰鬥、無經濟、無房東房客世界觀，一張約會大地圖，她們各自有自己的住處與作息，其餘全靠 AI 即興演出。建在 `nsfwBaseRules`＋`buildDefaultSystemPrompt` 上、與 solo 共用 `actionPlay` 引擎與 `callGeminiAPI`。
 
 ### 世界觀鐵則（都是「已砍」的反向定義，別復活）
 - **無戰鬥／無經濟**：`Router_Action.gs` dispatcher 明文擋 `KANSHOU_BLOCKED_ACTIONS_`。錢/打工/房租/商店/客房/肉償/欠租/宵禁全部**已刪**，grep 查無定義。AI 需要時自己掰、不寫試算表。
@@ -25,7 +25,7 @@
 - **KPC_ 前綴路由**：dispatcher（`handleGameAction`）見 `pcId` 以 `KPC_` 開頭 → `sheets.pc` 指向鑑賞眾生。solo 是 `PC_`。
 - **引擎硬擋**：`actionPlay` 開頭 `pcId` 非 `KPC_` 直接 return。
 - **歸屬驗證**：`kanshouOwnedRowIdx_` 每次查帳號表 KPC 欄（`getAccountKanshouPcId_`）比對，不憑 pcId 找列（防偽造）。
-- **前綴白名單**：`KPC_`(御主 avatar)／`KSV_`(封存邀請同伴)／`KHV_`(直接召喚同伴)／`DEAD_`。
+- **前綴白名單**：`KPC_`(御主 avatar)／`KHV_`(直接召喚同伴)／`DEAD_`；`KSV_` 是**舊奪杯封存邀請的遺留前綴**——封存管線已砍、不再產生新 `KSV_` 列，僅在 sync／`isKanshou` 判定保留向後相容識別（別當現行機制）。
 - **歷史暫存**：solo/鑑賞**共用同一張「歷史暫存」表**，靠 `pcId` 前綴（`PC_` vs `KPC_`）隔離、非物理分表——架構唯一例外，記在案。
 
 ### COL.PC 鑑賞實際用到的欄位（定義 `Core_Settings.gs`）
@@ -219,7 +219,7 @@ UNLOCKED_MODEL = x-ai/grok-4.20              (屬性 UNLOCKED_MODEL)
 - **函式分組**：地圖移動(`kcMapListHtml_`/`kanshouMoveTo`/`kanshouProposeMove`/`kanshouLookAround`)、同伴面板(`openCompanions`/`renderKcHeroList_`/`kanshouEditRelTag`)、召喚(`kanshouSummonHero`)、回憶(`kanshouOpenMemoir`/`kanshouMemoirOp`)、約定(`kanshouPromiseMeet`/`kanshouWaitForPromise`)、拍照相簿(`kanshouTakePhoto`/`openKanshouAlbum`)、時鐘(`kanshouEndDay`/`kanshouNextStage`/`kanshouJumpBand`/`kanshouJumpFestival`)。
 - **泡泡 UI**（`send()` 內依回傳欄位組）：移動同意(`moveProposal`)、敲門(`knockEvent`)、橋段邀請(`roomEventOffer`)、巧遇(`encounterOffer`)、拍照結果(`photoResult`)、地圖人數徽章(`_lastTags.locationCounts`)。
 - **前端鏡像常數**（後端為真實來源）：`KC_REGIONS_`/`KC_FESTIVALS_`/`KC_TIME_BANDS_`/`KC_LOCATIONS_`/`KC_APPT_BANDS_`。時鐘全域 `kcClock`（`Script.html`）。
-- **`Script.html`/`Index.html` 的鑑賞殘留**：`applyModeUI()` 總開關（依 isKanshou 切 topbar/輸入框/drive開關/photo-btn/相簿抽屜/節慶抽屜）；同伴卡鑑賞按鈕列(🏷️關係/📅相約/✋放手/🤝牽手/🏠同居/💞回憶)；`enterKanshou()` 入口。⚠ `Index.html` 的 `#victory-memoir`＋💞里程碑是**戰爭軌奪杯回憶錄 UI，不屬鑑賞**（別混淆）。
+- **`Script.html`/`Index.html` 的鑑賞殘留**：`applyModeUI()` 總開關（依 isKanshou 切 topbar/輸入框/drive開關/photo-btn/相簿抽屜/節慶抽屜）；同伴卡鑑賞按鈕列(🏷️關係/📅相約/✋放手/🤝牽手/🏠同居/💞回憶)；`enterKanshou()` 入口。⚠ `Index.html` 的 `#victory-memoir` div 是**戰爭軌殘留**：奪杯回憶錄機制已砍，該 div 現只被清空/隱藏、不再填充（非鑑賞，別誤接鑑賞邏輯）。
 
 ---
 
