@@ -422,6 +422,37 @@
     return null;
   }
 
+  // 🎯 撞見敵人的情境選擇泡泡（複用鑑賞 .btn-option 泡泡·GAS 自己產出、不靠 AI）：
+  //   趁隙偷襲／挑撥離間走直接 handler；悄悄離開是提示（照常按移動即不被追擊）。窗口(window._encWin)由後端 encounterWindow 決定。
+  function renderEncounterBubbles() {
+    const oc = document.getElementById('options-container');
+    if (!oc) return;
+    // 只在 solo 且有有效窗口時接管 options-container；否則若是自己畫的泡泡就清掉（別動鑑賞的泡泡）。
+    const w = window._encWin;
+    if (!pc || pc.mode === 'kanshou' || !w || !w.choices) {
+      if (oc.querySelector('#enc-bubbles')) oc.innerHTML = '';
+      return;
+    }
+    const enemySvs = (localNPCs || []).filter(n => n && n.isExact && n.faction === '敵從者');
+    let btns = '';
+    if (w.choices.ambush && enemySvs.length) {
+      btns += enemySvs.map(f => {
+        const nm = String(f.name).replace(/'/g, "\\'");
+        return `<button class="btn-option" onclick="factionAmbush('${nm}')">🥷 趁隙偷襲「${escapeHtml(f.name)}」<small style="opacity:.65;">（耗1AP）</small></button>`;
+      }).join('');
+    }
+    if (w.choices.incite && enemySvs.length >= 2) {
+      btns += `<button class="btn-option" onclick="incite()">🎭 挑撥離間<small style="opacity:.65;">（煽動兩方反目·耗1AP）</small></button>`;
+    }
+    if (!btns) {
+      oc.innerHTML = w.choices.slip ? `<div id="enc-bubbles" style="color:#9aa8b8;font-size:12px;padding:2px 8px;">💨 他們正分心——此刻悄悄離開不會被追擊。</div>` : (oc.querySelector('#enc-bubbles') ? '' : oc.innerHTML);
+      return;
+    }
+    oc.innerHTML = `<div id="enc-bubbles">`
+      + `<div style="color:var(--gold-accent);font-weight:bold;border-bottom:1px dashed rgba(212,175,55,0.3);padding-bottom:6px;margin-bottom:8px;">⚡ 眼前有隙可乘${w.choices.slip ? '（他們分心，離開也不會被追擊）' : ''}</div>`
+      + `<div class="options-grid">${btns}</div></div>`;
+  }
+
   function renderWarActions() {
     const bar = document.getElementById('war-actions');
     if (!bar) return;
@@ -447,28 +478,6 @@
         + '</div>';
     };
     let h = '';
-    // 🎯 撞見敵人的情境選擇（趁隙偷襲／挑撥離間／悄悄離開）——後端 encounterWindow 決定開放哪些
-    const encWin = window._encWin;
-    if (encWin && encWin.choices) {
-      const enemySvs = foes.filter(f => f.faction === '敵從者');
-      let sit = '';
-      if (encWin.choices.ambush && enemySvs.length) {
-        sit += enemySvs.map(f => {
-          const nm = String(f.name).replace(/'/g, '');
-          return '<button onclick="factionAmbush(\'' + nm + '\')" style="flex:1; min-width:120px; font-size:12px; padding:8px 6px; background:rgba(180,120,60,.18); color:#e0a860; border:1px solid rgba(200,140,70,.6); border-radius:8px; cursor:pointer; font-weight:bold;">🥷 趁隙偷襲「' + f.name + '」<small style="opacity:.7;">耗1AP</small></button>';
-        }).join('');
-      }
-      if (encWin.choices.incite && enemySvs.length >= 2) {
-        sit += '<button onclick="incite()" style="flex:1; min-width:120px; font-size:12px; padding:8px 6px; background:rgba(150,90,170,.18); color:#c090d8; border:1px solid rgba(160,100,180,.6); border-radius:8px; cursor:pointer; font-weight:bold;">🎭 挑撥離間 <small style="opacity:.7;">耗1AP</small></button>';
-      }
-      if (sit) {
-        h += '<div style="flex:1 0 100%; margin-bottom:5px; padding:7px 8px; border:1px dashed rgba(200,150,90,.5); border-radius:9px; background:rgba(40,28,16,.3);">'
-          + '<div style="font-size:11px; color:#d8b088; margin-bottom:5px; font-weight:bold;">⚡ 眼前有隙可乘' + (encWin.choices.slip ? '（他們正分心，此刻離開也不會被追擊）' : '') + '</div>'
-          + '<div style="display:flex; gap:5px; flex-wrap:wrap;">' + sit + '</div></div>';
-      } else if (encWin.choices.slip) {
-        h += '<div style="flex:1 0 100%; margin-bottom:5px; font-size:11px; color:#9aa8b8;">💨 他們正分心——此刻悄悄離開不會被追擊。</div>';
-      }
-    }
     // 🤝 盟友卡
     allies.forEach(a => {
       const sa = String(a.name).replace(/'/g, '');
@@ -769,7 +778,8 @@
         updateEconomy(data.economy);
         showRumors(data.rumors);
         if (optContainer) optContainer.innerHTML = '';
-        try { renderMapPane(data.mapNodes); refreshFateTags(); renderWarActions(); } catch (e) {}
+        // ⚡ 用夾帶的 _state.tags 重整狀態＋情境泡泡（含 encounterWindow），免多一趟 get_tags
+        try { renderMapPane(data.mapNodes); refreshFateTags(data._state && data._state.tags); renderWarActions(); } catch (e) {}
         story.scrollTop = story.scrollHeight;
 
         // 2. 🎬 抵達即觸發一段 AI 劇情——純按鈕模式靠它讓世界活起來
@@ -1283,7 +1293,8 @@
       if (!t || !t.success) return;
       // ⚡ 留一份參照供已知伺服器確認值、只想重繪的呼叫端(如 changeOutfit/changeWeapon)直接改欄位、當 prefetched 傳回重繪，免一趟 get_tags。
       window._lastTags = t;
-      window._encWin = t.encounterWindow || null; // 🎯 撞見敵人的可反應窗口→renderWarActions 據此顯示情境按鈕
+      window._encWin = t.encounterWindow || null; // 🎯 撞見敵人的可反應窗口→情境泡泡據此顯示
+      try { renderEncounterBubbles(); } catch (e) {}
       const box = document.getElementById('fate-tags');
       if (!box) return;
       const card = (accent, head, name, lines) =>
