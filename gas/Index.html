@@ -1,312 +1,438 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html>
+
 <head>
-  <base target="_top">
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <style>
-    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-    body { margin:0; background:#12131a; color:#e8e6f0; font-family:system-ui,'Noto Sans TC',sans-serif; padding:10px; }
-    .wrap { max-width:480px; margin:0 auto; }
-    h1 { font-size:16px; margin:2px 0 6px; letter-spacing:1px; }
-    #bar { display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-bottom:4px; }
-    #phase { font-weight:bold; }
-    #cpbar { display:flex; align-items:center; gap:6px; font-size:12px; margin-bottom:6px; color:#c9c2e0; }
-    .pips { letter-spacing:2px; }
-    #board { display:grid; gap:2px; background:#0c0d12; padding:2px; border-radius:6px; touch-action:manipulation; }
-    .cell { position:relative; aspect-ratio:1/1; background:#20222e; border-radius:3px; display:flex; align-items:center; justify-content:center; font-size:min(5vw,22px); cursor:pointer; user-select:none; }
-    .cell.forest { background:#1e3226; }
-    .cell.rock { background:#33333d; cursor:default; }
-    .cell.cover { background:#2a3340; }
-    .cell.mv { box-shadow:inset 0 0 0 2px #4a7ad0; background:#243046; }
-    .cell.atk { box-shadow:inset 0 0 0 2px #d05a5a; background:#3a2430; }
-    .cell.sel { box-shadow:inset 0 0 0 2px #e0c060; }
-    .cell.hit { animation:flash .3s; }
-    @keyframes flash { 0%{background:#c04040;} 100%{} }
-    .hp { position:absolute; left:2px; right:2px; bottom:2px; height:3px; background:#511; border-radius:2px; overflow:hidden; }
-    .hp > i { display:block; height:100%; background:#4ad06a; }
-    .hp.enemy > i { background:#d05a5a; }
-    .dir { position:absolute; top:0; right:2px; font-size:9px; color:#ffe08a; line-height:1; }
-    .terr { position:absolute; top:1px; left:2px; font-size:9px; opacity:.8; }
-    #log { font-size:12.5px; color:#b8b0c8; min-height:48px; margin:8px 0; line-height:1.5; white-space:pre-line; }
-    .btns { display:flex; gap:8px; }
-    button { flex:1; padding:11px; border:none; border-radius:9px; background:#3a3450; color:#e8e0f5; font-size:14px; font-weight:bold; cursor:pointer; }
-    button.primary { background:#5a4a80; }
-    button:disabled { opacity:.4; }
-    #over { position:fixed; inset:0; background:rgba(0,0,0,.7); display:none; align-items:center; justify-content:center; }
-    #over .box { background:#1c1a28; border:1px solid #4a3f6a; border-radius:14px; padding:22px 26px; text-align:center; }
-    #over h2 { margin:0 0 12px; font-size:22px; }
-    .tip { font-size:11px; color:#7d7893; margin-top:8px; line-height:1.6; }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>命運停駐之夜 ─ Fate</title>
+  <?!= HtmlService.createHtmlOutputFromFile('Style').getContent(); ?>
 </head>
+
 <body>
-  <div class="wrap">
-    <h1>🎖️ 戰場戰術 <span style="font-size:11px;color:#7d7893;">— 原型 v0.2</span></h1>
-    <div id="bar">
-      <span id="phase"></span>
-      <span id="counts"></span>
+  <div id="setup" style="align-items:center; justify-content:center;">
+    <!-- 🏷️ 遊戲標題：工房屏(openForge)會暫時隱藏省高度、closeForge 還原 -->
+    <h1 id="game-title"
+      style="color:var(--gold-accent); letter-spacing:10px; text-shadow: 0 0 10px var(--gold-accent); font-size: 32px; margin-bottom: 30px;">
+      命運停駐之夜</h1>
+    <div id="step-account" style="width:300px;">
+      <p style="text-align:center; color:#816e54; font-size:13px; margin-bottom: 10px;">帳號名稱（無密碼，輸入即登入）</p>
+      <input id="in-account" class="std-in" style="width:100%; box-sizing:border-box;" maxlength="20" placeholder="例如：遠坂玩家01">
+      <button class="btn" style="width:100%; margin-top:14px; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="lockBtn(event, accountLogin)">進　入</button>
+      <button class="btn" style="width:100%; margin-top:8px; padding:6px; border-color:#777; color:#999; font-size:11px;" onclick="devCheckSheets()" title="測試期清空試算表後，按這顆手動補回缺少的分頁；登入前也能用。">🔧 DEV：檢查／建立試算表分頁</button>
     </div>
-    <div id="cpbar">
-      <span>指揮點 <b id="cp" class="pips"></b></span>
-      <span id="apinfo"></span>
+    <div id="scr-menu" style="display:none; width:300px;">
+      <p id="menu-greet" style="text-align:center; color:var(--gold-accent); font-size:14px; margin-bottom:14px;"></p>
+
+      <!-- 🎴 第一道門：純淨（單人聖杯戰爭，SFW） -->
+      <div style="border:1px solid rgba(159,192,239,.45); border-radius:11px; padding:11px 11px 6px; margin-bottom:13px; background:rgba(30,40,60,.25);">
+        <div style="color:#9fc0ef; font-size:13px; font-weight:bold; letter-spacing:1px; margin-bottom:9px; text-align:center;">🎴 純淨 · 單人聖杯戰爭</div>
+        <button id="btn-resume" class="btn" style="display:none; width:100%; margin-bottom:9px; padding:12px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="continueGame()">▶ 繼續戰爭</button>
+        <button class="btn" style="width:100%; margin-bottom:7px; padding:12px; border-color:#9fc0ef; color:#cfe0ff;" onclick="newGameFlow()">🔥 開啟新的聖杯戰爭</button>
+        <button class="btn" style="width:100%; margin-bottom:7px; padding:9px; border-color:#6a8ac0; color:#8fb0e8; font-size:12.5px;" onclick="openForge('menu')">🛠️ 英靈工房（打造／修改原創英靈）</button>
+      </div>
+
+      <!-- 🌹 第二道門：慾海（鑑賞後日談，可邀請贏過的戰爭封存從者，也可直接從英靈庫召喚任一英靈） -->
+      <div style="border:1px solid rgba(200,120,150,.45); border-radius:11px; padding:11px 11px 6px; margin-bottom:13px; background:rgba(55,28,40,.25);">
+        <div style="color:#e0a0bc; font-size:13px; font-weight:bold; letter-spacing:1px; margin-bottom:3px; text-align:center;">🌹 慾海 · 鑑賞後日談</div>
+        <p style="color:#9a7f8c; font-size:10.5px; text-align:center; margin:0 0 9px;">走進這座和平城鎮的日常時光——出門走走會遇見人，也能用 👥 面板邀人同行</p>
+        <button class="btn" style="width:100%; margin-bottom:7px; padding:12px; border-color:#c87896; color:#e8b8cc;" onclick="enterKanshou()">🌹 進入鑑賞</button>
+        <button class="btn" style="width:100%; padding:7px; border-color:#6a8a5a; color:#9ac08a; font-size:11px;" onclick="devResyncCodex()" title="無視版本旗標，立即把英靈殿與在場從者重刷成最新種子(寶具/六圍/標籤)">🔄 DEV：套用最新平衡到現有從者（寶具/標籤更新）</button>
+        <button class="btn" style="width:100%; margin-top:7px; padding:7px; border-color:#8a6a5a; color:#c0a08a; font-size:11px;" onclick="devPurgeOrphans()">🧹 DEV：清殘列（刪孤兒戰局／加速操作）</button>
+      </div>
+
+      <button class="btn" style="width:100%; padding:9px; border-color:#777; color:#999; font-size:12px;" onclick="logoutAccount()">🚪 登出</button>
     </div>
-    <div id="board"></div>
-    <div id="log"></div>
-    <div class="btns">
-      <button id="endBtn" class="primary" onclick="endTurn()">結束我方回合</button>
-      <button onclick="resetGame()">重來</button>
+    <div id="scr-warmode" style="display:none; width:300px;">
+      <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:12px;">選擇聖杯戰爭型態</p>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; border-color:var(--gold-accent); color:var(--gold-accent); text-align:left;" onclick="chooseWarMode('canon')">📜 <b>正史模式</b><br><small style="color:#9a7b4f; font-weight:normal;">各場聖杯戰爭正典陣容為敵，你是追加參戰者（不可奪取正典英靈）</small></button>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left;" onclick="chooseWarMode('chaos')">🎲 <b>混亂模式</b><br><small style="color:#9a7b4f; font-weight:normal;">御主×從者隨機洗牌配對，每局敵方陣容都不同</small></button>
+      <button class="btn" style="width:100%; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="document.getElementById('scr-warmode').style.display='none';document.getElementById('scr-menu').style.display='block';">← 返回</button>
     </div>
-    <div class="tip">
-      🟢我方 🥾斥候(機動) 🔫突擊(火力)　🔴敵 👹帝國兵 🎯狙擊<br>
-      <b>指揮點</b>：發動一隻花 1 點，可重複發動同一隻猛衝。　<b>AP</b>：移動計量表，跑越遠越危險。<br>
-      <b>⚡攔截</b>：你的移動路線經過敵人射程就被咬一口——走掩體/繞開視線！　🌿+2防 🧱掩體+4防 ⬛岩石擋路又擋視線。<br>
-      <b>背擊</b>：從敵人背後打 ×1.5 且對方無法反擊。箭頭=面向。
+    <div id="scr-war" style="display:none; width:300px;">
+      <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:12px;">參戰哪一場聖杯戰爭？</p>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="chooseWar('4th')">⚔️ <b>第四次聖杯戰爭</b><br><small style="color:#9a7b4f; font-weight:normal;">Fate/Zero・正典七組（切嗣+Saber、時臣+吉爾伽美什…）</small></button>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="chooseWar('5th')">🏆 <b>第五次聖杯戰爭</b><br><small style="color:#9a7b4f; font-weight:normal;">stay night・八組為敵（士郎+Saber、凜+EMIYA、臟硯+真Assassin、慎二+金閃閃、佐佐木孤身蟄伏柳洞寺…）</small></button>
+      <!-- 🧹 「偽聖杯戰爭 Fake」開局選項已移除(FATE_FAKE_ROSTER 陣容大部分角色一併清空，只剩銀狼×恩奇都不足以撐一場戰爭)——見 Seed_Rivals.gs/Seed_Codex.gs v52 註解。 -->
+      <button class="btn" style="width:100%; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="document.getElementById('scr-war').style.display='none';document.getElementById('scr-warmode').style.display='block';">← 返回</button>
+    </div>
+    <div id="scr-role" style="display:none; width:300px;">
+      <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:12px;">你要怎麼參戰？</p>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="chooseRole('canon')">🎭 <b>扮演正典御主</b><br><small style="color:#9a7b4f; font-weight:normal;">成為其中一位正典御主（設定可改），但從者你自己召喚</small></button>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left;" onclick="chooseRole('original')">✍️ <b>自創角色</b><br><small style="color:#9a7b4f; font-weight:normal;">打造原創御主，作為追加的參戰者闖入正典戰局</small></button>
+      <button class="btn" style="width:100%; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="document.getElementById('scr-role').style.display='none';document.getElementById('scr-war').style.display='block';">← 返回</button>
+    </div>
+    <div id="scr-master" style="display:none; width:300px;">
+      <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:8px;">選擇要扮演的正典御主</p>
+      <div id="master-pick-list" style="max-height:300px; overflow-y:auto;"></div>
+      <button class="btn" style="width:100%; margin-top:8px; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="document.getElementById('scr-master').style.display='none';document.getElementById('scr-role').style.display='block';">← 返回</button>
+    </div>
+    <div id="step-name" style="display:none; width:280px;">
+      <input id="s-name" class="std-in" style="width:100%; box-sizing:border-box;" placeholder="輸入御主之名（限中文）..." maxlength="10">
+      <p style="text-align:center; color:#9a7b4f; font-size:12px; margin:8px 0 0;">※ 御主之名僅限中文字，不可使用英文、數字或符號。</p>
+      <button id="start-btn" class="btn" style="width:100%; margin-top:16px;" onclick="lockBtn(event, () => checkName(event))">啟程</button>
+      <button class="btn" style="width:100%; margin-top:8px; border-color:#777; color:#999; font-size:12px; padding:6px;" onclick="document.getElementById('step-name').style.display='none';document.getElementById('scr-menu').style.display='block';">← 返回</button>
+    </div>
+    <div id="step-detail" style="display:none; width:280px;">
+      <p style="text-align:center; color:#816e54; font-size:14px; margin-bottom: 16px;">締結令咒，成為御主：</p>
+      <select id="s-sex" class="std-select" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
+        <option value="男">男</option>
+        <option value="女">女</option>
+        <option value="異">異</option>
+      </select>
+      <input type="text" id="s-appear" class="std-in" placeholder="外貌（如：紅褐短髮的高中生／黑長雙馬尾）" maxlength="30" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
+      <input type="text" id="s-standing" class="std-in" placeholder="身世／財力（如：沒落魔術名門末裔／揮金如土的醫科生）" maxlength="40" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
+      <input type="text" id="s-wish" class="std-in" placeholder="你對聖杯的願望（如：拯救某個人／證明自己的價值）" maxlength="40" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
+      <!-- 🎴 起始禮裝（玩家自選，非隨機）。id 需對應後端 MYSTIC_CODES（成對維護·同 ALLOWED_FX_/FX_MENU_）；破戒(rule_breaker·戰中奪僕)不列。 -->
+      <div style="color:#cdbbe6; font-size:12px; margin-bottom:4px;">🎴 起始禮裝（御主裝備·戰鬥被動加持）</div>
+      <select id="s-mystic" class="std-select" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
+        <option value="">（不帶禮裝）</option>
+        <option value="avalon">🛡️ 全世界之鞘 Avalon｜承受寶具傷減免＋時回回血（＋阿爾托莉雅＝解鎖理想鄉）</option>
+        <option value="jewels">🔷 魔力儲存寶石｜每擊傷害略增</option>
+        <option value="black_keys">🗝️ 黑鍵｜命中略增</option>
+      </select>
+      <div style="background:rgba(212,175,55,0.06); border:1px solid rgba(212,175,55,0.3); border-radius:6px; padding:8px; margin-bottom:8px;">
+        <button class="btn" type="button" style="width:100%; border-color:var(--gold-accent); color:var(--gold-accent); font-size:13px; padding:8px;" onclick="rollFate()">🎲 命運測定（魔術天賦）</button>
+        <div id="fate-roll-box" style="color:#cdbbe6; font-size:12px; line-height:1.6; margin-top:8px; text-align:center;">尚未測定 —— 可測定 3 次取最滿意的</div>
+      </div>
+      <button id="create-btn" class="btn" style="width:100%; margin-top:6px;" onclick="lockBtn(event, () => createPC(event))">⚜️ 締結令咒</button>
+    </div>
+    <div id="step-summon" style="display:none; width:320px;">
+      <p style="text-align:center; color:var(--gold-accent); font-size:16px; font-weight:bold; margin-bottom:4px;">📿 召喚從者</p>
+      <p style="text-align:center; color:#816e54; font-size:12px; margin:0 0 10px;">選擇職階，從英靈殿挑選與你締約的英靈：</p>
+      <!-- 🎴 七正職階：等寬不換行、flex 置中（第 7 個 Berserker 自動置中），全部按鈕獨立拉出 -->
+      <div id="summon-class-grid" style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:8px;">
+        <button type="button" class="btn summon-cls" data-cls="Saber" onclick="selectSummonClass('Saber')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">⚔️ Saber</button>
+        <button type="button" class="btn summon-cls" data-cls="Archer" onclick="selectSummonClass('Archer')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🏹 Archer</button>
+        <button type="button" class="btn summon-cls" data-cls="Lancer" onclick="selectSummonClass('Lancer')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🔱 Lancer</button>
+        <button type="button" class="btn summon-cls" data-cls="Rider" onclick="selectSummonClass('Rider')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🐎 Rider</button>
+        <button type="button" class="btn summon-cls" data-cls="Caster" onclick="selectSummonClass('Caster')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">📖 Caster</button>
+        <button type="button" class="btn summon-cls" data-cls="Assassin" onclick="selectSummonClass('Assassin')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🗡️ Assassin</button>
+        <button type="button" class="btn summon-cls" data-cls="Berserker" onclick="selectSummonClass('Berserker')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">💢 Berserker</button>
+      </div>
+      <button type="button" class="btn summon-cls" data-cls="__all__" onclick="selectSummonClass('__all__')" style="width:100%; box-sizing:border-box; margin-bottom:6px; padding:9px; font-size:13px; border-color:#9a7b4f; color:#c9a86a; border-style:dashed;">📜 瀏覽全部英靈殿（含 Avenger 等特殊職階）</button>
+      <!-- 🌟 玩家原創專區：工房/盲盒創造的英靈(英靈殿 source=ai_gen)全在這，直點即召喚 -->
+      <button type="button" class="btn summon-cls" data-cls="__custom__" onclick="selectSummonClass('__custom__')" style="width:100%; box-sizing:border-box; margin-bottom:8px; padding:9px; font-size:13px; border-color:#6a8ac0; color:#8fb0e8; border-style:dashed;">🌟 玩家原創英靈（工房與盲盒的作品集）</button>
+      <div id="hero-list" style="max-height:190px; overflow-y:auto; margin:6px 0; padding:4px; background:rgba(0,0,0,0.18); border:1px solid rgba(212,175,55,0.25); border-radius:6px;">
+        <p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">↑ 選一個職階，或按「全部」瀏覽整個英靈殿</p>
+      </div>
+      <!-- 🎲 隨機移來這裡跟瀏覽/原創同一群(都是「從現有名冊挑」)；工房底下那顆按鈕已砍掉——外面選單(Index.html:31 openForge('menu'))本來就有一顆一樣的，砍的是重複入口，不是砍功能。 -->
+      <button class="btn" style="width:100%; margin-bottom:8px; border-color:#9a7b4f; color:#9a7b4f;" onclick="lockBtn(event, summonRandom)">🎲 隨機召喚</button>
+      <div style="border-top:1px dashed rgba(212,175,55,0.3); margin-top:6px; padding-top:8px;">
+        <div style="text-align:center; color:#816e54; font-size:11px; margin-bottom:8px;">或者，用下面幾種方式召喚——</div>
+        <div style="color:#9a7b4f; font-size:11px; margin-bottom:4px;">✨ 輸入姓名：正典英靈精準召喚；查無此名（含他作角色，如悟空／炭治郎）則交給 AI 全權生成</div>
+        <input type="text" id="s-truename" class="std-in" placeholder="輸入真名" maxlength="20" style="width:100%; box-sizing:border-box;">
+        <button class="btn" style="width:100%; margin-top:6px; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="lockBtn(event, summonByName)">✨ 真名召喚</button>
+
+        <div style="color:#9a7b4f; font-size:11px; margin:12px 0 4px;">🖋️ 大概敘述：AI 會往你描述的方向生成，但不保證精準符合</div>
+        <textarea id="s-desc" class="std-in" maxlength="120" placeholder="如：手持巨鎌、沉默寡言的死神少女" style="width:100%; box-sizing:border-box; height:48px; resize:none; font-family:inherit;"></textarea>
+        <button class="btn" style="width:100%; margin-top:6px; border-color:#a06cd0; color:#c79be8;" onclick="lockBtn(event, summonByDesc)">🖋️ 自訂生成（AI 快速盲盒）</button>
+      </div>
+    </div>
+    <!-- 🛠️ 自訂英靈工房：獨立一屏——一步一屏對齊 onboarding 慣例，欄位 ID 全部不變 -->
+    <div id="step-forge" style="display:none;">
+      <p style="text-align:center; color:#8fb0e8; font-size:16px; font-weight:bold; margin-bottom:2px;">🛠️ 自訂英靈工房</p>
+      <p style="text-align:center; color:#816e54; font-size:11.5px; margin:0 0 10px;">數值全由你定（340 點預算）·AI 只補人格與寶具英文名<br>工房＝製造與修改；召喚請回「🌟 玩家原創」專區</p>
+      <!-- 🛠️/📚 工房雙模式：創造＝三分頁表單；作品＝本帳號英靈清單(點修改) -->
+      <div style="display:flex; gap:5px; margin-bottom:8px;">
+        <button type="button" id="cf-mode-create" class="btn" style="flex:1; padding:8px 2px; font-size:13px;" onclick="forgeModeCreate()">🛠️ 創造</button>
+        <button type="button" id="cf-mode-works" class="btn" style="flex:1; padding:8px 2px; font-size:13px;" onclick="forgeMode('works')">📚 作品</button>
+      </div>
+      <div id="cf-works" style="display:none; padding:10px; background:rgba(20,18,34,.45); border:1px solid rgba(120,140,200,.35); border-radius:8px; text-align:left;"></div>
+      <div id="cust-forge" style="padding:10px; background:rgba(20,18,34,.45); border:1px solid rgba(120,140,200,.35); border-radius:8px; text-align:left;">
+          <!-- 📑 三分頁：🎭演出｜⚔️靈基(主·預設)｜🌟寶具——欄位 ID 全不變·純版面分裝 -->
+          <div style="display:flex; gap:5px; margin-bottom:9px;">
+            <button type="button" id="cf-tab-1" class="btn" style="flex:1; padding:7px 2px; font-size:12px;" onclick="forgeTab(1)">🎭 演出</button>
+            <button type="button" id="cf-tab-2" class="btn" style="flex:1; padding:7px 2px; font-size:12px;" onclick="forgeTab(2)">⚔️ 靈基</button>
+            <button type="button" id="cf-tab-3" class="btn" style="flex:1; padding:7px 2px; font-size:12px;" onclick="forgeTab(3)">🌟 寶具</button>
+          </div>
+          <!-- ⚔️ 頁2·靈基（主·預設）：真名/職階/六圍/技能 -->
+          <div id="cf-page-2">
+            <input id="cf-name" class="std-in" maxlength="20" placeholder="真名（必填·原創，正典角色請走真名召喚）" style="width:100%; box-sizing:border-box;">
+            <div style="display:flex; gap:6px; margin-top:6px;">
+              <select id="cf-cls" class="std-in" style="flex:2;" onchange="refreshClsHint_()"></select>
+              <select id="cf-sex" class="std-in" style="flex:1;"><option>女</option><option>男</option><option>異</option></select>
+            </div>
+            <!-- 🎁 職階附贈技能提示（固定階級·免費·不占3槽·由 refreshClsHint_ 依所選職階更新） -->
+            <div id="cf-cls-hint" style="color:#9a8bb0; font-size:11px; margin-top:3px;"></div>
+            <div style="color:#8fb0e8; font-size:12px; margin:9px 0 4px;">六圍（傷害底＝筋/魔取高·敏捷走命中與迴避）</div>
+            <div id="cf-six"></div>
+            <div style="color:#8fb0e8; font-size:12px; margin:9px 0 4px;">技能 2×2（效果＋階級·可改名·帶滿4技+20）</div>
+            <div id="cf-skills"></div>
+          </div>
+          <!-- 🎭 頁1·演出：外貌/個性各一句＋進階演出細節(選填·預設收合)＋整體描述 -->
+          <!-- 🧹 外貌/個性拆4格的版本 UI 太瑣碎，改回各一個自由文字欄——後端 parseForgeBuild_ 本就用「有沒有頓號/逗號分3段以上」判斷填了幾成(lookFull/prefFull)，單句描述天然落在「核心設定，交給AI擴寫成四短句」路徑，欄位 ID 與後端格式完全不變。演出細節7小欄收進預設收合的「進階」區塊。 -->
+          <div id="cf-page-1" style="display:none;">
+            <input id="cf-look" class="std-in" maxlength="40" placeholder="🎨 外貌一句（選填·如：黑長直髮的冷豔劍士；留空＝AI補）" style="width:100%; box-sizing:border-box;">
+            <input id="cf-pref" class="std-in" maxlength="40" placeholder="💭 個性一句（選填·如：外冷內熱，重視承諾；留空＝AI補）" style="width:100%; box-sizing:border-box; margin-top:6px;">
+            <button type="button" class="btn" id="cf-adv-toggle" style="width:100%; margin-top:8px; padding:6px; font-size:12px; border-color:#8a7a9a; color:#b8a8d0;" onclick="toggleForgeAdvanced()">▸ 進階演出細節（選填·自稱/陣營/態度/萌點/口吻/小動作/身世）</button>
+            <div id="cf-drama" style="display:none; margin-top:6px;">
+              <div style="display:flex; gap:5px;">
+                <input id="cf-fp" class="std-in" maxlength="4" placeholder="自稱（本王…）" style="flex:1; min-width:0;">
+                <select id="cf-align" class="std-in" style="flex:1; min-width:0;"><option>中立</option><option>秩序・善</option><option>秩序・中庸</option><option>秩序・惡</option><option>中立・善</option><option>中立・惡</option><option>混沌・善</option><option>混沌・中庸</option><option>混沌・惡</option></select>
+              </div>
+              <div style="display:flex; gap:5px; margin-top:5px;">
+                <input id="cf-tomaster" class="std-in" maxlength="20" placeholder="對御主態度（忠誠/傲慢…）" style="flex:1; min-width:0;">
+                <input id="cf-moe" class="std-in" maxlength="15" placeholder="萌點（嗜甜/怕黑…）" style="flex:1; min-width:0;">
+              </div>
+              <input id="cf-speech" class="std-in" maxlength="40" placeholder="口吻（古風敬語/句尾帶「呢」/簡短冷淡…）" style="width:100%; box-sizing:border-box; margin-top:5px;">
+              <div style="display:flex; gap:5px; margin-top:5px;">
+                <input id="cf-tic" class="std-in" maxlength="30" placeholder="小動作（撥髮/瞇眼…）" style="flex:1; min-width:0;">
+                <input id="cf-back" class="std-in" maxlength="28" placeholder="身世一句" style="flex:1; min-width:0;">
+              </div>
+            </div>
+            <textarea id="cf-desc" class="std-in" maxlength="120" placeholder="（選填·可留白）補充描述——想讓 AI 多讀一點的氛圍/靈感，不碰數值，也不影響上面欄位" style="width:100%; box-sizing:border-box; height:44px; resize:none; margin-top:8px; font-family:inherit;"></textarea>
+          </div>
+          <!-- 🌟 頁3·寶具與武裝 -->
+          <div id="cf-page-3" style="display:none;">
+            <div style="color:#8fb0e8; font-size:12px; margin:0 0 4px;">寶具（中文名由你定·AI 只補英文真名讀法；威力＝六圍的「寶具」階；職階技能自動附贈）</div>
+            <div style="display:flex; gap:6px;">
+              <input id="cf-np-name" class="std-in" maxlength="20" placeholder="寶具名" style="flex:3; min-width:0;">
+              <select id="cf-np-scale" class="std-in" style="flex:2;" onchange="forgeBudget_()"><option value="對人">對人（免費）</option><option value="對軍">對軍（+20點）</option></select>
+            </div>
+            <input id="cf-np-desc" class="std-in" maxlength="40" placeholder="寶具威能一句（選填·如：斬鋼之風化作千刃奔湧）" style="width:100%; box-sizing:border-box; margin-top:6px;">
+            <input id="cf-weapon" class="std-in" maxlength="30" placeholder="⚔️ 武裝／戰鬥方式（選填·如：雙持大劍——敘述以此為準）" style="width:100%; box-sizing:border-box; margin-top:6px;">
+          </div>
+          <!-- 常駐底欄：⚡靈基即時預覽＋預算(進度條)＋存檔（三頁共用·全由 forgeBudget_ 單點刷新） -->
+          <div id="cf-preview" style="color:#9fb8d8; font-size:11px; margin-top:9px;"></div>
+          <div style="text-align:right; color:#8fb0e8; font-size:12px; margin-top:4px;"><span id="cf-budget"></span></div>
+          <div id="cf-budget-bar" style="height:4px; background:#242c3c; border-radius:2px; margin-top:3px; overflow:hidden;"><div id="cf-budget-fill" style="width:0%; height:100%; border-radius:2px; background:#8fd0a0; transition:width .15s;"></div></div>
+          <button id="cf-save" class="btn" style="width:100%; margin-top:5px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="lockBtn(event, summonByForge)">💾 鑄入英靈殿（回「🌟 玩家原創」即可召喚）</button>
+      </div>
+      <button class="btn" style="width:100%; margin-top:8px; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="closeForge()">← 返回召喚</button>
     </div>
   </div>
 
-  <div id="over"><div class="box"><h2 id="overT"></h2><button class="primary" onclick="resetGame()">再玩一場</button></div></div>
+  <div id="game">
+    <div class="top-navbar">
+      <div class="top-navbar-content" style="display: flex; gap: 8px; align-items: center; width:100%;">
+        <!-- 🎴 solo 頂部三鍵：資料／魔力／設定，取代地點顯示。純按鍵、手機單手可操作；詳細再切左右分頁。 -->
+        <div id="topbar-solo" style="display:none; gap:6px; width:100%;">
+          <button class="btn" style="flex:1; padding:6px 4px; font-size:12px; border-color:#2ca68c; color:#4fd0b0;" onclick="openViewMenu()">📋 資料</button>
+          <button class="btn" style="flex:1; padding:6px 4px; font-size:12px; border-color:#4a6fa0; color:#7fb0e8;" onclick="openManaPanel()">🔮 魔力</button>
+          <button class="btn" style="flex:1; padding:6px 4px; font-size:12px; border-color:#8a7a4a; color:#c9b885;" onclick="openSettingsMenu()">⚙️ 設定</button>
+          <!-- ❓ 常駐新手教學鈕：單一總覽卡，隨時可查，不強制彈窗。 -->
+          <button class="btn" style="flex:1; padding:6px 4px; font-size:12px; border-color:#d9a93a; color:#e7c873;" onclick="openTutorial()">❓ 教學</button>
+        </div>
+        <div id="topbar-kanshou" class="player-badge">
+          <span id="header-loc">感應中...</span>
+          <!-- 👥 召喚/管理同伴的唯一常駐入口：直接開既有的openCompanions()面板，不必再挖進「+」抽屜。 -->
+          <button class="btn" style="margin-left:8px; padding:3px 8px; font-size:11px; border-color:#5a3a6a; color:#dcc8ff;" onclick="openCompanions()" title="邀請/管理後日談同伴、召喚英靈入席">👥 邀請</button>
+        </div>
+      </div>
+    </div>
+    <div id="pane-wrap">
+      <div id="pane-status" class="game-pane">
+        <div id="fate-tags" style="display:none; gap:6px; padding:6px 8px 2px;"></div>
+        <!-- 🐛→✅ 這顆固定在卡片列表下方、恆看「御主自己」的狀態(triggerDrawerAction('status')→openStatus()無參數＝pc自己)。鑑賞模式的御主卡已補上同款按鈕列(applyModeUI 隱藏本顆，免重複外露)；solo 御主卡無此按鈕，本顆繼續是 solo 唯一入口。 -->
+        <div id="my-status-fallback" style="text-align:center; padding:6px;">
+          <button class="btn" style="font-size:12px; padding:5px 12px; border-color:#9a7b4f; color:#9a7b4f;" onclick="triggerDrawerAction('status')">👤 我的詳細狀態</button>
+        </div>
+      </div>
+      <div id="pane-chat" class="game-pane active">
+        <div id="clock-hud" style="display:none; text-align:center; font-size:12px; color:#c9b885; letter-spacing:1px; padding:5px 8px; border-bottom:1px solid rgba(212,175,55,0.18); background:rgba(20,14,28,0.4);">🌙 ─</div>
+        <div id="economy-hud" style="display:none; text-align:center; font-size:11.5px; letter-spacing:0.5px; padding:4px 8px; border-bottom:1px solid rgba(212,175,55,0.18); background:rgba(20,14,28,0.4);"></div>
+        <div id="story"></div>
+        <div id="options-container" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px; padding: 0 8px 8px;"></div>
+        <div id="war-actions" style="display:none; gap:6px; flex-wrap:wrap; padding:8px; border-top:1px solid rgba(212,175,55,0.2); background:rgba(16,12,22,0.6);"></div>
+      </div>
+      <div id="pane-map" class="game-pane">
+        <div id="map-pane-content" style="padding:10px;"></div>
+      </div>
+    </div>
+    <div id="game-tabs">
+      <button id="tab-status" class="game-tab" onclick="showGamePane('status')">👤 標籤</button>
+      <button id="tab-chat" class="game-tab tab-active" onclick="showGamePane('chat')">📖 故事</button>
+      <button id="tab-map" class="game-tab" onclick="showGamePane('map')">🗺️ 地圖</button>
+    </div>
+    <div id="action-drawer">
+      <button class="drawer-item" onclick="triggerDrawerAction('status')"><i>👤</i><span>查看狀態</span></button>
+      <button class="drawer-item" id="drawer-festival" onclick="openKanshouFestivals()" style="display:none;"><i>🎊</i><span>快轉節慶</span></button>
+      <button class="drawer-item" id="drawer-album" onclick="openKanshouAlbum()" style="display:none;"><i>📚</i><span>相簿</span></button>
+      <button class="drawer-item" onclick="triggerDrawerAction('settings')"><i>⚙️</i><span>系統設定</span></button>
+    </div>
 
-  <script>
-    var W=8, H=8, CP_P=5, CP_E=3;
-    var terrain=[], units=[], phase='player', turn=1;
-    var playerCP=CP_P, enemyCP=CP_E, busy=false;
-    var sel=null, reachData=null, moveTiles=[], atkTiles=[], stage='pick';
+    <div id="input-bar">
+      <div class="pill-wrapper">
+        <button id="plus-trigger" class="plus-btn" onclick="toggleActionDrawer()">＋</button>
+        <!-- 🔥 主動掌握開關：舊 nsfw-mode-toggle 在「後端改由 pcId 路由決定 NSFW」後已成死旗標，重生為「同伴主動度」開關——滅=矜持模式(靠玩家推進)；亮=同伴依個性主動掌握節奏。只影響鑑賞敘事語氣，NSFW 與否仍由 pcId 決定、solo 不受影響。 -->
+        <label title="🔥 主動掌握：亮起後同伴依個性主動出擊、掌握節奏，你想迴避也會被攔下；熄滅則回到矜持模式，由你主導推進。" style="color: #ff6b6b; font-size: 14px; margin-right: 5px; margin-left: 2px; cursor: pointer; display: flex; align-items: center; white-space: nowrap; font-weight: bold;">
+          <input type="checkbox" id="drive-mode-toggle" style="accent-color: #ff6b6b; margin-right: 3px;">🔥
+        </label>
+        <button id="photo-btn" onclick="kanshouTakePhoto()" title="📷 拍下此刻(每天3張底片·隔天洗好)。按下會問想拍什麼——留空拍眼前的人或景，也可指定貓貓狗狗/風景" style="display:none; background:none; border:1px solid #6a5a7a; border-radius:8px; color:#c9b8d8; font-size:15px; padding:4px 8px; cursor:pointer; margin-right:4px;">📷</button>
+        <input id="u-in" maxlength="300" placeholder="輸入行動..." onkeypress="if(event.key==='Enter')send()">
+        <button id="send-btn" class="send-trigger" onclick="send()">傳送</button>
+      </div>
+    </div>
+  </div>
 
-    function sgn(n){ return n>0?1:(n<0?-1:0); }
-    function mk(o){ o.maxhp=o.hp; o.ap=o.maxap; o.dirty=false; o.alive=true;
-      o.dir = o.side==='ally' ? [1,0] : [-1,0]; return o; }
+  <div id="settings-overlay" class="modal-overlay" onclick="closeSystemModal('settings-overlay')">
+    <div class="modal-scroll" onclick="event.stopPropagation()">
+      <span class="modal-close-btn" onclick="closeSystemModal('settings-overlay')">&times;</span>
+      <h2 style="text-align:center; color:#555; border-bottom:2px solid #555; padding-bottom:10px; margin-top:0;">⚙️
+        系統設定</h2>
+      <div style="display:flex; flex-direction:column; gap: 15px; margin-top: 20px;">
 
-    function freshState(){
-      terrain=[]; for(var y=0;y<H;y++){ var r=[]; for(var x=0;x<W;x++) r.push(0); terrain.push(r); }
-      [[4,3],[3,4],[5,4],[4,4]].forEach(function(p){ terrain[p[1]][p[0]]=1; }); // 森林+2
-      [[3,2],[4,5],[2,3]].forEach(function(p){ terrain[p[1]][p[0]]=2; });        // 岩石·擋路擋視線
-      [[4,2],[5,3],[3,5],[2,4],[5,5]].forEach(function(p){ terrain[p[1]][p[0]]=3; }); // 掩體+4
-      units=[
-        mk({id:'a1',name:'斥候',emoji:'🥾',side:'ally', x:1,y:6, hp:18,atk:7, def:3,maxap:7,rng:2}),
-        mk({id:'a2',name:'突擊',emoji:'🔫',side:'ally', x:2,y:7, hp:24,atk:10,def:5,maxap:5,rng:2}),
-        mk({id:'e1',name:'帝國兵',emoji:'👹',side:'enemy',x:6,y:1, hp:20,atk:8, def:4,maxap:5,rng:2}),
-        mk({id:'e2',name:'帝國兵',emoji:'👹',side:'enemy',x:7,y:2, hp:20,atk:8, def:4,maxap:5,rng:2}),
-        mk({id:'e3',name:'狙擊',emoji:'🎯',side:'enemy',x:6,y:4, hp:14,atk:11,def:2,maxap:4,rng:3})
-      ];
-      phase='player'; turn=1; playerCP=CP_P; enemyCP=CP_E; busy=false;
-      sel=null; reachData=null; moveTiles=[]; atkTiles=[]; stage='pick';
-      // 敵人初始面向最近我方
-      units.forEach(function(u){ if(u.side==='enemy'){ var a=nearestFoe(u); if(a) u.dir=[sgn(a.x-u.x),sgn(a.y-u.y)]; } });
-    }
+        <div
+          style="display:flex; justify-content:space-between; align-items:center; background: rgba(51,34,17,0.05); padding: 12px; border-radius: 4px; border: 1px solid rgba(51,34,17,0.2);">
+          <span style="color:#800; font-weight:bold; font-size:15px;">🎲 命運抉擇 (AI選項輔助)</span>
+          <label style="cursor:pointer; display:flex; align-items:center;">
+            <input type="checkbox" id="setting-opt-toggle" style="width:20px; height:20px; accent-color:#800; cursor:pointer;" onchange="toggleAiOptions(this)">
+          </label>
+        </div>
+        <div
+          style="background: rgba(51,34,17,0.05); padding: 12px; border-radius: 4px; border: 1px solid rgba(51,34,17,0.2);">
+          <span style="color:#800; font-weight:bold; font-size:15px; display:block; margin-bottom:10px;">🔠 對話字體大小</span>
+          <div style="display:flex; gap:8px;">
+            <button class="font-scale-btn btn" data-scale="0.85" style="flex:1; padding:8px 0; font-size:12px;" onclick="setStoryFontScale(0.85)">小</button>
+            <button class="font-scale-btn btn" data-scale="1" style="flex:1; padding:8px 0; font-size:14px;" onclick="setStoryFontScale(1)">中</button>
+            <button class="font-scale-btn btn" data-scale="1.2" style="flex:1; padding:8px 0; font-size:16px;" onclick="setStoryFontScale(1.2)">大</button>
+            <button class="font-scale-btn btn" data-scale="1.4" style="flex:1; padding:8px 0; font-size:18px;" onclick="setStoryFontScale(1.4)">特大</button>
+          </div>
+        </div>
+        <button class="btn" onclick="toggleFullScreen()">🖥️ 切換全螢幕模式</button>
+        <button class="btn" style="border-color:#800; color:#800;" onclick="if(confirm('確定離開冬木？一切羈絆暫且封存。')){localStorage.clear();location.reload();}">🚪 離開冬木 (登出)</button>
+      </div>
+    </div>
+  </div>
 
-    function unitAt(x,y){ for(var i=0;i<units.length;i++){ var u=units[i]; if(u.alive&&u.x===x&&u.y===y) return u; } return null; }
-    function inB(x,y){ return x>=0&&x<W&&y>=0&&y<H; }
-    function defBonus(x,y){ var t=terrain[y][x]; return t===1?2:(t===3?4:0); }
-    function anyAlive(side){ return units.some(function(u){return u.alive&&u.side===side;}); }
-    function nearestFoe(u){ var foes=units.filter(function(o){return o.alive&&o.side!==u.side;}); if(!foes.length)return null;
-      return foes.reduce(function(a,b){ return (Math.abs(a.x-u.x)+Math.abs(a.y-u.y))<=(Math.abs(b.x-u.x)+Math.abs(b.y-u.y))?a:b; }); }
+  <div id="exit-confirm-overlay" class="modal-overlay">
+    <div class="modal-scroll" style="text-align:center; padding-bottom:30px;">
+      <h2 style="color:#800; margin-top:0;">⚠️ 離開冬木</h2>
+      <p style="color:#332211; font-size:16px;">確定要中斷連線、離開命運停駐之夜嗎？</p>
+      <div style="display:flex; gap:15px; justify-content:center; margin-top:25px;">
+        <button class="btn" style="flex:1; border-color:#2e8b57; color:#2e8b57; padding:12px;" onclick="cancelExit()">留下來</button>
+        <button class="btn" style="flex:1; border-color:#800; color:#800; padding:12px;" onclick="confirmExit()">去意已決</button>
+      </div>
+    </div>
+  </div>
 
-    // 視線：兩點之間若有岩石(2)則被擋（Bresenham·排除端點）
-    function los(x0,y0,x1,y1){
-      var dx=Math.abs(x1-x0), dy=Math.abs(y1-y0), sx=x0<x1?1:-1, sy=y0<y1?1:-1, err=dx-dy, x=x0, y=y0;
-      while(true){
-        if(!(x===x0&&y===y0)&&!(x===x1&&y===y1)){ if(terrain[y][x]===2) return false; }
-        if(x===x1&&y===y1) break;
-        var e2=2*err; if(e2>-dy){ err-=dy; x+=sx; } if(e2<dx){ err+=dx; y+=sy; }
-      }
-      return true;
-    }
+  
 
-    // BFS·回 {tiles:可停格(排除起點/被占), parent:路徑回溯}
-    function reachable(u){
-      var key=function(x,y){return x+','+y;}, cost={}, parent={};
-      var sk=key(u.x,u.y); cost[sk]=0; parent[sk]=null; var q=[[u.x,u.y]];
-      while(q.length){ var c=q.shift(), cx=c[0], cy=c[1], cc=cost[key(cx,cy)];
-        [[0,1],[0,-1],[1,0],[-1,0]].forEach(function(d){
-          var nx=cx+d[0], ny=cy+d[1]; if(!inB(nx,ny)) return;
-          if(terrain[ny][nx]===2) return;                       // 岩石擋路
-          var oc=unitAt(nx,ny); if(oc && oc.side!==u.side) return; // 敵擋路
-          var nc=cc+1; if(nc>u.ap) return;
-          var nk=key(nx,ny);
-          if(cost[nk]===undefined || nc<cost[nk]){ cost[nk]=nc; parent[nk]=[cx,cy]; q.push([nx,ny]); }
-        });
-      }
-      var tiles=[]; for(var k in cost){ if(k===sk) continue; var p=k.split(',').map(Number); if(unitAt(p[0],p[1])) continue; tiles.push({x:p[0],y:p[1]}); }
-      return {tiles:tiles, parent:parent};
-    }
-    function buildPath(sx,sy,dx,dy,parent){
-      var key=function(x,y){return x+','+y;}; if(sx===dx&&sy===dy) return [[sx,sy]];
-      var cur=key(dx,dy); if(parent[cur]===undefined) return null;
-      var arr=[[dx,dy]]; while(cur!==key(sx,sy)){ var p=parent[cur]; if(!p) return null; arr.unshift([p[0],p[1]]); cur=key(p[0],p[1]); }
-      return arr;
-    }
-    // 從 (x,y) 能命中的敵（射程內＋視線通）
-    function targetsFrom(u,x,y){ var t=[]; units.forEach(function(o){ if(o.alive&&o.side!==u.side){
-      var d=Math.abs(o.x-x)+Math.abs(o.y-y); if(d>=1&&d<=u.rng&&los(x,y,o.x,o.y)) t.push(o); } }); return t; }
+  <div id="status-overlay" class="modal-overlay" onclick="closeStatus()">
+    <div class="modal-scroll character-sheet" onclick="event.stopPropagation()">
+      <span class="modal-close-btn" onclick="closeStatus()">&times;</span>
 
-    function isRear(att,def){ return (att.x-def.x)*def.dir[0]+(att.y-def.y)*def.dir[1] < 0; }
-    function isRearAt(ax,ay,def){ return (ax-def.x)*def.dir[0]+(ay-def.y)*def.dir[1] < 0; }
+      <h2 class="sheet-title">
+        <span id="ui-name" style="font-size: 24px;">--</span>
+        <span id="ui-sex" style="font-size: 14px; color: #555; border: 1px solid #555; padding: 0 4px; border-radius: 3px; margin-left: 5px;">--</span>
+      </h2>
 
-    // 攔截：mover 每踏一格，射程＋視線內的敵人各開一槍（整段移動每敵限一次）
-    function interceptAt(mover, fired){
-      var foe = mover.side==='ally'?'enemy':'ally';
-      units.forEach(function(o){ if(!o.alive||o.side!==foe||fired[o.id]||!mover.alive) return;
-        var d=Math.abs(o.x-mover.x)+Math.abs(o.y-mover.y);
-        if(d>=1&&d<=o.rng&&los(o.x,o.y,mover.x,mover.y)){
-          fired[o.id]=true;
-          var cover=defBonus(mover.x,mover.y);
-          var dmg=Math.max(1, Math.floor(o.atk*0.5)-(mover.def+cover));
-          mover.hp-=dmg; addLog('⚡'+o.emoji+o.name+' 攔截 '+mover.emoji+mover.name+' -'+dmg+(cover?'（掩體減傷）':''));
-          flash(mover.x,mover.y);
-          if(mover.hp<=0){ mover.hp=0; mover.alive=false; addLog('💥'+mover.emoji+mover.name+' 在火線中倒下！'); }
-        }
-      });
-    }
+      <div class="status-flex-container" style="display: flex; gap: 8px; margin-bottom: 12px; align-items: stretch;">
 
-    function resolveAttack(att,def){
-      att.dir=[sgn(def.x-att.x)||att.dir[0], sgn(def.y-att.y)||att.dir[1]];
-      var rear=isRear(att,def), cover=defBonus(def.x,def.y);
-      var base=Math.max(1, att.atk-(def.def+cover));
-      var dmg=rear?Math.round(base*1.5):base;
-      def.hp-=dmg; flash(def.x,def.y);
-      var m=att.emoji+att.name+' → '+def.emoji+def.name+' '+dmg+(rear?'（背擊×1.5！）':(cover?'（掩體）':''));
-      if(def.hp<=0){ def.hp=0; def.alive=false; m+=' '+def.emoji+'倒下！'; }
-      else if(!rear){ // 正/側面才會被反擊（背擊無反擊）
-        var d=Math.abs(att.x-def.x)+Math.abs(att.y-def.y);
-        if(d>=1&&d<=def.rng&&los(def.x,def.y,att.x,att.y)){
-          var cc=defBonus(att.x,att.y), cd=Math.max(1, def.atk-(att.def+cc));
-          att.hp-=cd; m+=' 反擊'+cd; if(att.hp<=0){ att.hp=0; att.alive=false; m+=' '+att.emoji+'倒下！'; }
-        }
-      }
-      addLog(m);
-    }
+        <div
+          style="flex: 1; display: flex; flex-direction: column; background: rgba(51, 34, 17, 0.03); border: 1px solid rgba(51, 34, 17, 0.15); border-radius: 6px; padding: 6px;">
+          <div
+            style="color: #332211; font-size: 13px; font-weight: bold; text-align: center; border-bottom: 1px dashed rgba(51,34,17,0.2); padding-bottom: 4px; margin-bottom: 6px;">
+            【 角色狀態 】</div>
+          <div class="stats-grid" style="margin: 0; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; flex: 0 0 auto;">
+            <div class="stat-box" style="padding:3px 2px;">
+              <span>❤️ 生命</span><b id="ui-hp" style="color:#b22222; font-size:12px;">--</b>
+            </div>
+            <div class="stat-box" style="padding:3px 2px;">
+              <span>🌀 魔力</span><b id="ui-mp" style="color:#4169e1; font-size:12px;">--</b>
+            </div>
+            <div class="stat-box" style="display:none;">
+              <span>📍 位置</span>
+              <b id="ui-loc" style="color:#2e8b57; font-size:11px; display:block; max-width:55px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="位置">--</b>
+            </div>
+          </div>
+        </div>
 
-    // ---- 移動動畫（逐格·沿途攔截）----
-    function animateMove(u, dx, dy, cb){
-      busy=true; var rd=reachable(u); var p=buildPath(u.x,u.y,dx,dy,rd.parent);
-      if(!p){ busy=false; cb&&cb(); return; }
-      u.ap-=(p.length-1); var fired={}, i=1;
-      (function step(){
-        if(i>=p.length || !u.alive){ busy=false; cb&&cb(); return; }
-        var pv=p[i-1], cu=p[i]; u.dir=[cu[0]-pv[0], cu[1]-pv[1]]; u.x=cu[0]; u.y=cu[1];
-        render(); interceptAt(u, fired); render();
-        if(!u.alive){ busy=false; cb&&cb(); return; }
-        i++; setTimeout(step, 145);
-      })();
-    }
+      </div>
 
-    // ---------- 渲染 ----------
-    var flashCell=null;
-    function flash(x,y){ flashCell=x+','+y; }
-    function dirArrow(d){ if(d[0]>0)return '▶'; if(d[0]<0)return '◀'; if(d[1]>0)return '▼'; if(d[1]<0)return '▲'; return ''; }
-    function render(){
-      var b=document.getElementById('board'); b.style.gridTemplateColumns='repeat('+W+',1fr)';
-      var mv={}, at={}; moveTiles.forEach(function(t){mv[t.x+','+t.y]=1;}); atkTiles.forEach(function(t){at[t.x+','+t.y]=1;});
-      var html='';
-      for(var y=0;y<H;y++) for(var x=0;x<W;x++){
-        var t=terrain[y][x], cls='cell';
-        if(t===1)cls+=' forest'; else if(t===2)cls+=' rock'; else if(t===3)cls+=' cover';
-        if(mv[x+','+y])cls+=' mv'; if(at[x+','+y])cls+=' atk';
-        if(sel&&sel.x===x&&sel.y===y)cls+=' sel';
-        if(flashCell===x+','+y)cls+=' hit';
-        var u=unitAt(x,y), inner='';
-        if(t===1)inner+='<span class="terr">🌿</span>'; else if(t===2)inner+='<span class="terr">⬛</span>'; else if(t===3)inner+='<span class="terr">🧱</span>';
-        if(u){ inner+=u.emoji+'<span class="dir">'+dirArrow(u.dir)+'</span><div class="hp'+(u.side==='enemy'?' enemy':'')+'"><i style="width:'+Math.round(u.hp/u.maxhp*100)+'%"></i></div>'; }
-        html+='<div class="'+cls+'" onclick="tap('+x+','+y+')">'+inner+'</div>';
-      }
-      b.innerHTML=html; flashCell=null;
-      document.getElementById('phase').textContent=(phase==='player'?'🟢 我方回合':'🔴 敵方回合')+'　第 '+turn+' 回';
-      document.getElementById('counts').textContent='我 '+units.filter(function(u){return u.alive&&u.side==='ally';}).length+' / 敵 '+units.filter(function(u){return u.alive&&u.side==='enemy';}).length;
-      var cp=phase==='player'?playerCP:enemyCP, base=phase==='player'?CP_P:CP_E;
-      var pips=''; for(var i=0;i<base;i++) pips+= i<cp?'🔷':'▫️';
-      document.getElementById('cp').textContent=pips;
-      document.getElementById('apinfo').textContent = (sel&&sel.alive)? (sel.emoji+sel.name+'　AP '+sel.ap+'/'+sel.maxap) : '';
-      document.getElementById('endBtn').disabled=(phase!=='player'||busy);
-    }
-    var logLines=[];
-    function addLog(t){ logLines.push(t); if(logLines.length>3) logLines.shift(); document.getElementById('log').textContent=logLines.join('\n'); }
-    function setLog(t){ logLines=[t]; document.getElementById('log').textContent=t; }
+      <div class="trait-box"
+        style="margin-top:8px; background: rgba(46, 139, 87, 0.05); border-color: #2e8b57; position: relative;">
+        <span style="color: #2e8b57;">—— 處事個性 ——</span>
+        <b id="ui-pref">--</b>
+        <button id="fate-btn-pref" class="btn" style="position: absolute; right: 8px; top: 8px; padding: 2px 8px; font-size: 11px; border-color: #d4af37; color: #d4af37;" onclick="openFateEdit('pref')">改命</button>
+      </div>
 
-    // ---------- 玩家操作 ----------
-    function activate(u){ playerCP--; sel=u; u.ap=u.maxap; u.dirty=false;
-      reachData=reachable(u); moveTiles=reachData.tiles; atkTiles=targetsFrom(u,u.x,u.y).map(function(o){return {x:o.x,y:o.y};});
-      stage='move'; setLog('▶ 發動 '+u.emoji+u.name+'（−1指揮點）。藍格移動、紅框開火、點自己待命。'); render(); }
-    function finishActivation(){ sel=null; reachData=null; moveTiles=[]; atkTiles=[]; stage='pick'; render(); }
+      <div class="trait-box" style="position: relative;">
+        <span>—— 命格特徵 ——</span>
+        <b id="ui-trait">--</b>
+        <button id="fate-btn-trait" class="btn" style="position: absolute; right: 8px; top: 8px; padding: 2px 8px; font-size: 11px; border-color: #d4af37; color: #d4af37;" onclick="openFateEdit('trait')">改命</button>
+      </div>
 
-    function tap(x,y){
-      if(busy||phase!=='player') return;
-      var u=unitAt(x,y);
-      if(stage==='pick'){
-        if(u&&u.side==='ally'){ if(playerCP<=0){ setLog('指揮點用完了，請結束我方回合。'); return; } activate(u); }
-        else if(u&&u.side==='enemy'){ setLog(u.emoji+u.name+'　HP '+u.hp+'/'+u.maxhp+'　攻'+u.atk+' 防'+u.def+' 射程'+u.rng); }
-        return;
-      }
-      // stage==='move'
-      if(u&&u.side==='enemy'&&atkTiles.some(function(t){return t.x===x&&t.y===y;})){
-        resolveAttack(sel,u); finishActivation(); checkEnd(); return;
-      }
-      if(u===sel){ if(!sel.dirty){ playerCP++; setLog(sel.name+'：取消發動（返還指揮點）。'); } else setLog(sel.name+' 待命。'); finishActivation(); return; }
-      if(moveTiles.some(function(t){return t.x===x&&t.y===y;}) && !unitAt(x,y)){
-        sel.dirty=true; var mv=sel;
-        animateMove(sel, x, y, function(){
-          if(!mv.alive){ finishActivation(); checkEnd(); return; }
-          reachData=reachable(mv); moveTiles=reachData.tiles;
-          atkTiles=targetsFrom(mv,mv.x,mv.y).map(function(o){return {x:o.x,y:o.y};});
-          stage='move'; render();
-          setLog(mv.emoji+mv.name+' 抵達　AP剩'+mv.ap+(atkTiles.length?'。紅框開火，或續走/待命。':'。無目標，可續走或點自己待命。'));
-        });
-        return;
-      }
-      if(u&&u.side==='ally'&&u!==sel){ if(!sel.dirty) playerCP++; finishActivation(); if(playerCP>0) activate(u); else setLog('指揮點用完了。'); return; }
-      if(!sel.dirty) playerCP++; setLog('取消。'); finishActivation();
-    }
+      <div class="trait-box" style="margin-top: 8px; background: rgba(51, 34, 17, 0.05); border: 1px solid #332211; position: relative;">
+  <span id="ui-back-title" style="color: #332211;">—— 身分背景 ——</span>
+  <b id="ui-back">--</b>
+  <div style="position:absolute; right:8px; top:8px; display:flex; gap:4px;">
+    <button id="fate-btn-back" class="btn" style="padding: 2px 8px; font-size: 11px; border-color: #d4af37; color: #d4af37;" onclick="openFateEdit('back')">改命</button>
+  </div>
+</div>
 
-    function endTurn(){ if(busy||phase!=='player') return; finishActivation(); startEnemy(); }
+      <div class="trait-box" style="margin-top: 8px; background: rgba(0, 128, 128, 0.05); border: 1px solid #008080;">
+        <span style="color: #008080;">—— 當前狀態 ——</span>
+        <div id="ui-status"
+          style="font-size: 13px; line-height: 1.6; font-weight: bold; color: #332211; margin-top: 6px; word-break: break-word;">
+          --</div>
+      </div>
 
-    // ---------- 敵方 AI（CP·會攔截你、會背擊、會躲）----------
-    function startEnemy(){ phase='enemy'; enemyCP=CP_E; sel=null; moveTiles=[]; atkTiles=[]; stage='pick'; setLog('🔴 敵方行動…'); render(); setTimeout(enemyAct, 550); }
-    function endEnemy(){ phase='player'; turn++; playerCP=CP_P; enemyCP=0; busy=false; render(); setLog('🟢 你的回合。指揮點 '+CP_P+' 點。'); }
+      <div class="trait-box"
+        style="margin-top: 8px; background: rgba(128, 0, 128, 0.05); border: 1px solid #800080; position: relative;">
+        <span style="color: #800080;">—— 隱藏萌點 ——</span>
+        <b id="ui-intent">--</b>
+        <button id="fate-btn-intent" class="btn" style="position: absolute; right: 8px; top: 8px; padding: 2px 8px; font-size: 11px; border-color: #d4af37; color: #d4af37;" onclick="openFateEdit('intent')">改命</button>
+      </div>
 
-    function enemyAct(){
-      if(!anyAlive('ally')){ checkEnd(); return; }
-      if(enemyCP<=0){ endEnemy(); return; }
-      // 評估：每隻敵人×每個落點×每個目標，找最高傷害（優先擊殺、偏好背擊）
-      var best=null;
-      units.forEach(function(e){ if(!e.alive||e.side!=='enemy') return; e.ap=e.maxap;
-        var rd=reachable(e); var tiles=rd.tiles.concat([{x:e.x,y:e.y}]);
-        tiles.forEach(function(tl){
-          var foes=units.filter(function(o){return o.alive&&o.side==='ally';});
-          foes.forEach(function(o){ var d=Math.abs(o.x-tl.x)+Math.abs(o.y-tl.y);
-            if(d>=1&&d<=e.rng&&los(tl.x,tl.y,o.x,o.y)){
-              var rear=isRearAt(tl.x,tl.y,o), cover=defBonus(o.x,o.y);
-              var base=Math.max(1,e.atk-(o.def+cover)), dmg=rear?Math.round(base*1.5):base;
-              var score=dmg*100 + (dmg>=o.hp?100000:0) + (rear?300:0) - (Math.abs(tl.x-e.x)+Math.abs(tl.y-e.y));
-              if(!best||score>best.score) best={e:e,tl:tl,o:o,score:score};
-            }
-          });
-        });
-      });
-      if(best){
-        enemyCP--; var e=best.e, o=best.o, tl=best.tl;
-        animateMove(e, tl.x, tl.y, function(){
-          if(e.alive && o.alive){ var d=Math.abs(e.x-o.x)+Math.abs(e.y-o.y); if(d>=1&&d<=e.rng&&los(e.x,e.y,o.x,o.y)) resolveAttack(e,o); }
-          render(); checkEnd();
-          if(!anyAlive('ally')||!anyAlive('enemy')) return;
-          setTimeout(enemyAct, 480);
-        });
-        return;
-      }
-      // 無人能攻擊 → 挑離我方最近的敵人，往最近我方推進
-      var mover=null, mdist=1e9;
-      units.forEach(function(e){ if(!e.alive||e.side!=='enemy')return; var a=nearestFoe(e); if(!a)return; var d=Math.abs(a.x-e.x)+Math.abs(a.y-e.y); if(d<mdist){mdist=d;mover=e;} });
-      if(!mover){ endEnemy(); return; }
-      mover.ap=mover.maxap; var target=nearestFoe(mover); var rd=reachable(mover);
-      var step=rd.tiles.reduce(function(a,b){ return (Math.abs(a.x-target.x)+Math.abs(a.y-target.y))<=(Math.abs(b.x-target.x)+Math.abs(b.y-target.y))?a:b; }, {x:mover.x,y:mover.y});
-      if(step.x===mover.x&&step.y===mover.y){ endEnemy(); return; } // 動不了→結束
-      enemyCP--;
-      animateMove(mover, step.x, step.y, function(){ render(); checkEnd(); if(!anyAlive('ally')||!anyAlive('enemy'))return; setTimeout(enemyAct, 480); });
-    }
+      <div class="trait-box" style="margin-top:8px; background: rgba(212,175,55,0.05); border: 1px solid #d4af37;">
+        <span style="color: #d4af37;">—— 所屬陣營 ——</span>
+        <div style="display: flex; gap: 5px; font-size: 13px; justify-content: center; color:#332211;">
+          <b id="ui-faction">無所屬</b> / <b id="ui-rank">自由人</b> (<b id="ui-align">絕對中立</b>)
+        </div>
+      </div>
 
-    function checkEnd(){ if(!anyAlive('enemy')) return showOver('🏆 勝利！敵軍肅清。'); if(!anyAlive('ally')) return showOver('💀 全隊陣亡…'); }
-    function showOver(t){ busy=true; document.getElementById('overT').textContent=t; document.getElementById('over').style.display='flex'; }
-    function resetGame(){ document.getElementById('over').style.display='none'; freshState(); logLines=[]; render(); setLog('🟢 你的回合。指揮點 '+CP_P+' 點——點自己人發動。'); }
+    </div>
+  </div>
 
-    freshState(); render(); setLog('🟢 你的回合。指揮點 '+CP_P+' 點——點自己人發動（可重複發動同一隻猛衝）。小心敵人的⚡攔截射擊，善用🧱掩體與⬛岩石視線死角。');
-  </script>
+  <div id="fate-edit-modal" class="modal-overlay" style="z-index: 10000;"
+    onclick="document.getElementById('fate-edit-modal').style.display='none'">
+    <div class="modal-scroll" style="max-width: 350px;" onclick="event.stopPropagation()">
+      <span class="modal-close-btn" onclick="document.getElementById('fate-edit-modal').style.display='none'">&times;</span>
+      <h2 id="fate-edit-title"
+        style="text-align:center; color:#d4af37; border-bottom:1px solid #d4af37; padding-bottom:10px; margin-top:0;">
+        逆天改命</h2>
+      <div id="fate-edit-fields" style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
+        </div>
+      <button class="btn" style="width:100%; margin-top: 20px; background:#332211; color:var(--paper-bg); font-size:16px;" onclick="lockBtn(event, saveFate)">確認重塑</button>
+    </div>
+  </div>
+
+
+  <!-- 🐯 老虎道場（敗北講評／勝利祝賀共用同一個殼，runTigerDojo_ 依 mode 重寫標題與文案）-->
+  <div id="tiger-dojo-overlay" style="display:none; position:fixed; inset:0; z-index:10001; background:rgba(10,6,16,0.94); align-items:center; justify-content:center; padding:20px;">
+    <div style="background:linear-gradient(160deg,#241a2e,#1a1420); border:1px solid #c66; border-radius:14px; max-width:460px; width:100%; padding:22px; text-align:center; box-shadow:0 10px 50px rgba(0,0,0,0.7);">
+      <div id="dojo-emoji" style="font-size:46px; line-height:1;">🐯</div>
+      <h2 id="dojo-title" style="color:#ff8a8a; margin:8px 0 4px;">老虎道場</h2>
+      <p id="dojo-subtitle" style="color:#e7c873; font-size:14px; margin:4px 0 10px;">「哎呀呀～你的從者被打倒了呢！」</p>
+      <div id="dojo-ai-body" style="color:#cfc3d8; font-size:13.5px; line-height:1.8; text-align:left; margin:0 0 16px; max-height:52vh; overflow-y:auto;">
+        聖杯戰爭已然落幕，你的靈基化作了星塵。<br>
+        但別氣餒——藤村大河老師的特訓，能讓下一場聖杯戰爭走得更遠！<br>
+        <span style="color:#9a8fb0; font-size:12px;">（敗北的存檔已封存於戰史，可重啟新的一局。）</span>
+      </div>
+      <button id="dojo-back-btn" onclick="dojoBackToMenu()" disabled style="width:100%; padding:12px; background:#4a3a6a; color:#fff; border:none; border-radius:8px; font-size:15px; cursor:not-allowed; opacity:0.4; margin-bottom:8px;">返回選單 ／ 開新的一局</button>
+    </div>
+  </div>
+
+  <!-- 🏆 勝利（奪杯）-->
+  <div id="victory-overlay" style="display:none; position:fixed; inset:0; z-index:10001; background:rgba(8,6,2,0.94); align-items:center; justify-content:center; padding:20px;">
+    <div style="background:linear-gradient(160deg,#2a2410,#1d1808); border:1px solid #e7c873; border-radius:14px; max-width:480px; width:100%; padding:26px; text-align:center; box-shadow:0 10px 60px rgba(0,0,0,0.75);">
+      <div style="font-size:54px; line-height:1;">🏆</div>
+      <h2 style="color:#e7c873; margin:10px 0 4px; letter-spacing:2px;">勝利！奪得聖杯！</h2>
+      <p style="color:#cfc3d8; font-size:14px; line-height:1.7; margin:0 0 16px;">
+        所有敵對從者皆已殞落，冬木的夜不再有廝殺。<br>
+        願望之器，正靜靜等待你的祈願。
+      </p>
+      <div id="victory-memoir" style="display:none; background:rgba(231,200,115,0.07); border:1px solid rgba(231,200,115,0.3); border-radius:8px; padding:14px; margin:0 0 16px; color:#e8dcc0; font-size:13.5px; line-height:1.85; text-align:left; max-height:34vh; overflow-y:auto;"></div>
+      <button id="victory-claim-btn" onclick="claimGrail()" style="width:100%; padding:13px; background:#7a5a1a; color:#fff; border:none; border-radius:8px; font-size:15px; cursor:pointer; font-weight:bold;">⚜️ 奪得聖杯</button>
+      <button id="victory-menu-btn" onclick="closeVictory(); dojoBackToMenu()" style="display:none; width:100%; padding:12px; background:#4a3a6a; color:#fff; border:none; border-radius:8px; font-size:15px; cursor:pointer; margin-top:8px;">返回選單</button>
+      <p style="color:#9a8f70; font-size:11.5px; margin:10px 0 0;">※ 結算後此局資料將結束歸檔。想與英靈共度和平時光？前往「鑑賞」直接召喚即可。</p>
+    </div>
+  </div>
+
+  <?!= HtmlService.createHtmlOutputFromFile('Script').getContent(); ?>
+  <?!= HtmlService.createHtmlOutputFromFile('Script_Onboarding').getContent(); ?>
+  <?!= HtmlService.createHtmlOutputFromFile('Script_Kanshou').getContent(); ?>
 </body>
+
 </html>
