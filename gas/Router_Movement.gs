@@ -246,10 +246,10 @@ function actionMove(userData, pcId, sheets) {
     };
   }
 
-  // ⚔️ 抵達地點若同時有 ≥2 位不同敵御主在場，判他們早已交手片刻(真實交鋒裁決扣一點餘傷)，
-  //   避免多批敵人相安無事杵在同一格；只挑第一組配對成功者(3+方同格的極少數情況不重複觸發)。
+  // ⚔️ 抵達地點若同時有 ≥2 位不同敵御主在場，擲一種「敵營局面」（不再永遠互毆→見你停手）。
+  //   局面種類/後果全由 resolveFactionEncounter_ 依雙方性格＋傷勢＋戰局 GAS 裁定，AI 只演出。
   var factionClash = null;
-  // isFateMove guard：這段會真的寫HP(下方clashDmg扣血)，明確guard而非依賴「鑑賞無敵對陣營列」的資料形狀僥倖安全。
+  // isFateMove guard：這段會真的寫HP/MEMORY，明確guard而非依賴「鑑賞無敵對陣營列」的資料形狀僥倖安全。
   try {
     var clashMasters = [];
     if (isFateMove) allPcData.forEach(function (r) {
@@ -257,7 +257,7 @@ function actionMove(userData, pcId, sheets) {
       if (String(r[COL.PC.LOC] || "").trim() !== tgtTrim) return;
       if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
       if (String(r[COL.PC.FACTION]) !== "敵御主") return;
-      if (isAllied_(r)) return; // 已與玩家結盟者現在算友軍，不參與這場「敵對互毆」演出
+      if (isAllied_(r)) return; // 已與玩家結盟者現在算友軍，不參與這場敵營局面演出
       if (!hasArrived_(r, _moveDay())) return; // 🕰️ 尚未登場者不參與這場演出
       clashMasters.push(r);
     });
@@ -272,20 +272,11 @@ function actionMove(userData, pcId, sheets) {
       };
       var svA = findClashSv_(clashMasters[0]), svB = findClashSv_(clashMasters[1]);
       if (svA && svB && String(svA[COL.PC.ID]) !== String(svB[COL.PC.ID])) {
-        var crossRes = resolveFateBattle_(rowToCombatant_(svA), rowToCombatant_(svB), {});
-        var loserRow = crossRes.atkWins ? svB : svA;
-        var loserIdx = allPcData.findIndex(function (r) { return String(r[COL.PC.ID]) === String(loserRow[COL.PC.ID]); });
-        var clashDmg = Math.max(1, Math.round((crossRes.damage || 1) * 0.4)); // 🩸 只是先前交手的餘傷，非全力對決
-        if (loserIdx !== -1) allPcData[loserIdx][COL.PC.HP] = Math.max(1, (parseInt(allPcData[loserIdx][COL.PC.HP]) || 0) - clashDmg);
-        factionClash = {
-          aMaster: String(clashMasters[0][COL.PC.NAME]), bMaster: String(clashMasters[1][COL.PC.NAME]),
-          loserName: String(loserRow[COL.PC.NAME]), dmg: clashDmg,
-          note: `你抵達時，「${String(clashMasters[0][COL.PC.NAME])}」與「${String(clashMasters[1][COL.PC.NAME])}」的從者已鏖戰多時——「${String(loserRow[COL.PC.NAME])}」帶著新添的傷勢（−${clashDmg}），雙方在你踏入的瞬間戒備地停手，各自警惕地看向這個不速之客。`
-        };
+        factionClash = resolveFactionEncounter_(allPcData, clashMasters[0], clashMasters[1], svA, svB, moveGameId, _moveDay());
       }
     }
   } catch (e) { }
-  if (factionClash) worldRumors.unshift('〔敵對交鋒〕' + factionClash.note);
+  if (factionClash) worldRumors.unshift('〔敵營動向〕' + factionClash.note);
 
   // ⏳ 時回：移動的 2 小時間，御主與同行從者隨時間自然回復（HP 固定、MP 看魔術迴路）。
   //   大幅恢復靠「休息」（同一套規則 ×2）。便宜：只改記憶體那幾格，隨移動一起寫回，零額外讀寫，不會變慢。
@@ -502,6 +493,114 @@ function actionPrepMeal(userData, pcId, sheets) {
     clock: clock, ap: ap, apMax: AP_PER_DAY, mealBuff: true,
     statusString: getFreshStatusString(pcId, pIdx, sheets)
   });
+}
+
+// 🤝 敵敵盟約標記（【敵盟】<對方御主名>:<到期day>）：撞見兩方敵人擲到「結盟」時 GAS 蓋在雙方御主 MEMORY。
+function getEnemyPact_(memory) {
+  var m = String(memory || "").match(/【敵盟】([^｜:]+):(\d+)/);
+  return m ? { partner: m[1], until: parseInt(m[2]) || 0 } : null;
+}
+function setEnemyPact_(memory, partnerName, untilDay) {
+  var mem = String(memory || "").replace(/【敵盟】[^｜]*/g, "").replace(/｜｜+/g, "｜").replace(/^｜|｜$/g, "");
+  var tag = "【敵盟】" + String(partnerName || "").replace(/[｜:【】]/g, "") + ":" + (parseInt(untilDay) || 0);
+  return mem ? mem + "｜" + tag : tag;
+}
+
+// 🎭 撞見兩方敵人的可能局面（資料驅動·GAS 擲、AI 演）。取代舊「永遠互毆→見你停手」單一劇本：
+//   依雙方御主性格投契度（masterPersonaLean_）＋從者傷勢＋戰局殘敵數，擲一種局面；HP 餘傷／敵敵盟約
+//   等後果由 GAS 落地寫進 allPcData，note 只給 AI 當演出事實。回 factionClash {type,aMaster,bMaster,loserName,note}。
+//   加局面＝往權重表 W 加一項＋switch 補一段 note，引擎自動吃。
+function resolveFactionEncounter_(allPcData, mA, mB, svA, svB, gameId, day) {
+  var idxOf = function (row) { return allPcData.findIndex(function (r) { return String(r[COL.PC.ID]) === String(row[COL.PC.ID]); }); };
+  var idxA = idxOf(svA), idxB = idxOf(svB), mIdxA = idxOf(mA), mIdxB = idxOf(mB);
+  var mAName = String(mA[COL.PC.NAME] || ""), mBName = String(mB[COL.PC.NAME] || "");
+  var svAName = String(svA[COL.PC.NAME] || ""), svBName = String(svB[COL.PC.NAME] || "");
+  var hpRatio = function (r) { return (parseInt(r[COL.PC.HP]) || 0) / Math.max(1, parseInt(r[COL.PC.MAX_HP]) || 1); };
+  var hpA = hpRatio(svA), hpB = hpRatio(svB);
+
+  // 已締敵盟且未逾期 → 直接演「早已結為一夥」，不再火併。
+  var pactA = getEnemyPact_(String(mA[COL.PC.MEMORY] || "")), pactB = getEnemyPact_(String(mB[COL.PC.MEMORY] || ""));
+  var alreadyPacted = pactA && pactB && pactA.partner === mBName && pactB.partner === mAName && pactA.until >= day && pactB.until >= day;
+
+  var leanA = masterPersonaLean_(mA), leanB = masterPersonaLean_(mB);
+  var bothPrag = leanA.pragmatic && leanB.pragmatic;
+  var anyLoner = leanA.loner || leanB.loner;
+  var aliveFoes = 0;
+  allPcData.forEach(function (r) {
+    if (String(r[COL.PC.GAME_ID] || "") === gameId && String(r[COL.PC.FACTION]) === "敵從者" && !String(r[COL.PC.ID]).startsWith("DEAD_")) aliveFoes++;
+  });
+  var endgame = aliveFoes <= 3;
+  var lopsided = Math.abs(hpA - hpB) >= 0.35;
+
+  // 交手裁決一次（純函式·無 I/O）：定「誰吃虧」；不同局面決定要不要真的落血、落多少。
+  var cross = resolveFateBattle_(rowToCombatant_(svA), rowToCombatant_(svB), {});
+  var loserIdx = cross.atkWins ? idxB : idxA; // atk=svA 贏→輸家 svB
+  var loserName = cross.atkWins ? svBName : svAName;
+  var baseDmg = Math.max(1, Math.round((cross.damage || 1) * 0.4));
+  var chip = function (idx, mul) {
+    if (idx < 0) return 0;
+    var d = Math.max(1, Math.round(baseDmg * mul));
+    allPcData[idx][COL.PC.HP] = Math.max(1, (parseInt(allPcData[idx][COL.PC.HP]) || 0) - d);
+    return d;
+  };
+  var moreHurt = (hpA <= hpB) ? svAName : svBName, moreHurtIdx = (hpA <= hpB) ? idxA : idxB;
+
+  // 權重表（資料驅動·依性格/傷勢/戰局動態加權）
+  var W = {
+    clash: 10,                                                 // 交手餘傷·見你戒備停手（原味）
+    frenzy: 6 + (anyLoner ? 6 : 0) + (endgame ? 5 : 0),        // 殺紅眼·沒理你繼續打
+    standoff: 6 + (!bothPrag && !anyLoner ? 6 : 0),            // 對峙未發·你的到來是引信
+    hunt: 4 + (lopsided ? 9 : 0) + (anyLoner ? 3 : 0),         // 一方追殺殘方
+    unite: 5 + (bothPrag ? 4 : 0) + (endgame ? 4 : 0),         // 暫時聯手戒你這外人
+    pact: 3 + (bothPrag ? 9 : 0) + (endgame ? 4 : 0),          // 敵敵結盟（設【敵盟】）
+    truce: 4 + (bothPrag ? 3 : 0),                             // 各自休整·井水不犯河水
+    parley: 3 + (bothPrag ? 7 : 0)                             // 談判中·被你打斷
+  };
+  var type;
+  if (alreadyPacted) type = 'allied_pair';
+  else {
+    var total = 0, k;
+    for (k in W) total += W[k];
+    var roll = Math.random() * total, acc = 0;
+    for (k in W) { acc += W[k]; if (roll < acc) { type = k; break; } }
+    if (!type) type = 'clash';
+  }
+
+  var note;
+  switch (type) {
+    case 'frenzy':
+      note = `你踏進來時，「${mAName}」與「${mBName}」的從者正殺紅了眼死鬥——刀光不停，「${loserName}」已添新傷（−${chip(loserIdx, 1.6)}）。你的出現沒讓他們收手，兩人仍纏鬥不休，只有一瞬掃來提防的餘光。`;
+      break;
+    case 'standoff':
+      note = `「${mAName}」與「${mBName}」的從者兵刃相向、劍拔弩張地對峙，卻誰也沒先動手。你的踏入像投進火藥的一粒火星——三方的緊繃在同一刻被拉到極限。`;
+      break;
+    case 'hunt':
+      note = `這裡正上演一場追殺：一方從者步步進逼，「${moreHurt}」帶著更重的傷（−${chip(moreHurtIdx, 1.2)}）節節後退。你的到來，成了獵人與獵物都得重新盤算的變數。`;
+      break;
+    case 'unite':
+      note = `「${mAName}」與「${mBName}」方才還互不相讓，見你這不速之客闖入，兩人卻不約而同收住招式、警惕地一同轉向你——眼下這個外人，似乎比彼此更值得提防。`;
+      break;
+    case 'pact':
+      if (mIdxA >= 0) allPcData[mIdxA][COL.PC.MEMORY] = setEnemyPact_(String(allPcData[mIdxA][COL.PC.MEMORY] || ""), mBName, day + 3);
+      if (mIdxB >= 0) allPcData[mIdxB][COL.PC.MEMORY] = setEnemyPact_(String(allPcData[mIdxB][COL.PC.MEMORY] || ""), mAName, day + 3);
+      note = `你撞見的不是廝殺，而是一樁剛談成的密約——「${mAName}」與「${mBName}」握手言和、暫結一夥。兩方從者並肩而立，用審視的目光打量闖入的你：眼下他們是同一陣線。`;
+      break;
+    case 'truce':
+      note = `這裡並沒有火併：一方從者正就地養傷、整備，另一方按兵不動，井水不犯河水地各據一角。你的出現打破了這份微妙的平靜。`;
+      break;
+    case 'parley':
+      note = `你撞見「${mAName}」與「${mBName}」正低聲交涉——條件、算計、彼此的保留都寫在神情裡。談判尚未有結果，你的闖入讓兩人同時噤聲、戒備地看過來。`;
+      break;
+    case 'allied_pair':
+      note = `「${mAName}」與「${mBName}」早已結為一夥，此刻並肩守在這裡。他們沒有內鬥，只有對你這外人的共同戒心。`;
+      break;
+    case 'clash':
+    default:
+      type = 'clash';
+      note = `你抵達時，「${mAName}」與「${mBName}」的從者已鏖戰多時——「${loserName}」帶著新添的傷勢（−${chip(loserIdx, 1.0)}），雙方在你踏入的瞬間戒備地停手，各自警惕地看向這個不速之客。`;
+      break;
+  }
+  return { type: type, aMaster: mAName, bMaster: mBName, loserName: loserName, note: note };
 }
 
 // ⚔️ 卸防突襲：在同地有清醒敵從者時做「補魔／羈絆／休息」等卸下防備之舉，會招致敵從者趁隙重擊我方從者

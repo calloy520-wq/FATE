@@ -298,12 +298,22 @@ function allyUntil_(row) { return ALLY_UNTIL_TAG_.get(row && row[COL.PC.MEMORY])
 function setAllyMem_(memory, untilDay) { return ALLY_UNTIL_TAG_.set(memory, untilDay); }
 function clearAllyMem_(memory) { return ALLY_UNTIL_TAG_.clear(memory); }
 
+// 🎭 御主性格傾向分類（單一真實來源）：結盟意願 ＋ 敵敵相遇局面 共用。
+//   pragmatic＝肯談的務實/有目的者；loner＝孤狼/瘋狂/看戲者難說動。讀 PREF｜MEMORY｜BACK。
+function masterPersonaLean_(masterRow) {
+  var p = String(masterRow[COL.PC.PREF] || "") + "｜" + String(masterRow[COL.PC.MEMORY] || "") + "｜" + String(masterRow[COL.PC.BACK] || "");
+  return {
+    pragmatic: /務實|冷靜|算計|理性|成長|自卑|好強|悲憤|拯救|守護|溫柔|不擇手段|名門/.test(p),
+    loner: /孤高|傲慢|瘋狂|狂|虔誠|扭曲|壓抑|暴君|惡意|看好戲|喜悅|空虛|純粹/.test(p)
+  };
+}
+
 // 結盟意願（GAS 判定，不靠 AI）：依對方御主性格/陣營 ＋ 戰局階段 ＋ 共同強敵
 function allianceWillingness_(masterRow, aliveFoes) {
-  var p = String(masterRow[COL.PC.PREF] || "") + "｜" + String(masterRow[COL.PC.MEMORY] || "") + "｜" + String(masterRow[COL.PC.BACK] || "");
+  var lean = masterPersonaLean_(masterRow);
   var w = 0.42;
-  if (/務實|冷靜|算計|理性|成長|自卑|好強|悲憤|拯救|守護|溫柔|不擇手段|名門/.test(p)) w += 0.25; // 肯談的務實/有目的者
-  if (/孤高|傲慢|瘋狂|狂|虔誠|扭曲|壓抑|暴君|惡意|看好戲|喜悅|空虛|純粹/.test(p)) w -= 0.32;     // 孤狼/瘋狂/看戲者難說動
+  if (lean.pragmatic) w += 0.25; // 肯談的務實/有目的者
+  if (lean.loner) w -= 0.32;     // 孤狼/瘋狂/看戲者難說動
   if (aliveFoes <= 3) w -= 0.45; else if (aliveFoes >= 6) w += 0.15; // 「最後只能剩一個」——剩越少越不肯
   return Math.max(0.05, Math.min(0.9, w));
 }
