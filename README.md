@@ -2,7 +2,7 @@
 
 把九州武俠 GAS 遊戲改造成 **Fate/stay night 聖杯戰爭**（純按鍵單人）的 Google Apps Script 專案。
 
-**雙軌**：🎴 純淨 solo（單人聖杯戰爭，SFW，按鍵＋AI 敘述）／🌹 慾海 kanshou（奪杯後的鑑賞約會後日談，NSFW）。
+**雙軌**：🎴 純淨 solo（單人聖杯戰爭，SFW，按鍵＋AI 敘述）／🌹 慾海 kanshou（鑑賞約會後日談，NSFW；不需先打贏，主選單直接進、英靈殿召喚同伴）。
 **核心鐵則**：GAS 掌所有數值、AI 只說書。
 
 ## 文件

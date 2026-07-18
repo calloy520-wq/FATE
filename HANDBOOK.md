@@ -82,7 +82,7 @@ ACC(帳號·4欄): NAME0 PC1(solo御主連結) CREATED2 KPC3(🌹2026-07新增·
 | **Script_Kanshou.html** | ~150 | 前端 SPA·鑑賞(慾海)專屬(2026-07 從 Script.html 拆出) | `enterKanshou`/`openCompanions`/`kanshouSummonHero`/`changeKanshouName`/`changeKanshouSex`/`askKanshouSex`/`askKanshouSetup`。2026-07「加入這個世界的感覺」定案後拿掉「請走」(`kanshouRemove`)，召喚沒有隊伍容量上限。與 Script.html 共享同一頁面全域作用域(見 §4.1) |
 | **Engine_Fate.gs** | 564 | 純數值戰鬥核心（D20+六圍+fx+寶具） | `resolveFateBattle_`、`rowToCombatant_`、`npAtkScale_/npDefScale_`、`NP_SCALE_MATRIX`、`CONCEPT_TIER`、`servantActiveSkill_`、`servantNpOptions_` |
 | **Core_Settings.gs** | 422 | 金鑰/COL schema/六圍換算/狀態封裝/地理雷達 | `COL`、`rankVal`、`fateMaxHpMp_`/`masterMaxHpMp_`/`masterPoolMax_`、`outputTier_`、`masterSynergySix_`、`getLocalPeopleList`、`buildPlayerStatusString` |
-| **Gallery.gs** | 430 | 奪杯→封存→慾海管線（NSFW軌資料層） | `actionClaimGrail`、`actionEnterKanshou`、`actionKanshou*`、`purgeGameData_`、`getKanshouPcSheet_` |
+| **Gallery.gs** | 430 | 🌹慾海(鑑賞)軌資料層＋進場/召喚/AI深化（`nsfwBaseRules`＋`actionPlay` 集中於此·奪杯封存已砍） | `actionEnterKanshou`、`actionKanshouSummonHero`、`actionPlay`、`purgeGameData_`、`getKanshouPcSheet_` |
 | **Time_World.gs** | 400 | 時間/AP＋御主電池經濟＋世界自走 | `getClock_`/`spendAp_`、`servantEconomy_`/`applyRegen_`、`worldTick_`、`AP_PER_DAY=12` |
 | **Seed_Codex.gs** | 405 | 種子英靈(37騎)/御主(14名)名冊＋灌表/升級管線 | `SEED_SERVANTS`、`SEED_MASTERS`、`seedFateCodex_`、`upgradeCodexPersonas_`、`resyncSummonedServants_` |
 | **Account.gs** | 316 | 帳號登入/存檔/清殘局 | `actionAccountLogin`、`actionAccountNewGame`、`actionPurgeOrphans`。⚠ 2026-07：排行榜/戰史相關 `actionLeaderboard`/`actionGetVictoryHistory`/`incrementWin_`/`recordHistory_`/`recordWinSpeed_` 已整套刪除（單人專注，不做跨帳號回顧） |
