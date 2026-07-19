@@ -1128,6 +1128,19 @@ function actionFateBattle(userData, pcId, sheets) {
     } catch (e) { npName = null; }
   }
 
+  // 🎌 御主參戰風格·並肩感（每場【必給】·2026-07 玩家回饋「御主扣血卻沒一起上陣的感覺」）：
+  //   御主體術/魔術/分擔血量這三個訊號若都沒觸發(常見：御主無體術魔術數值＋見機行事5%小傷攤成0)，
+  //   AI 完全收不到「御主在場」的訊號→只演從者孤軍奮戰。故不論數值，每場都給御主當下的參戰姿態，
+  //   讓 AI 演出並肩作戰的臨場感；masterShared>0 再追加「以身擋傷」的具體代價。
+  var _stanceKey = String(userData.stance || 'normal');
+  var _masterStanceLine = (_stanceKey === 'open'
+    ? `· 【御主參戰·正大光明】御主與『${atkC.name}』並肩立於陣前，直面敵手、共擔鋒鏑——親臨戰線、與從者一同進退，絕非遠遠旁觀。`
+    : _stanceKey === 'stealth'
+      ? `· 【御主參戰·後方支援】御主據守後方掩蔽處，穩定供魔、冷靜判讀戰況並下令指揮——雖不入近身險境，卻是這場交鋒的中樞，與從者運籌一體，切勿寫成御主缺席或無關。`
+      : `· 【御主參戰·見機行事】御主守在戰線側後方、讀著戰況伺機介入——該掩護時上前補位、該退則果斷，與從者一攻一守、彼此呼應。`)
+    + (masterShared > 0 ? `此戰御主更以身替『${atkC.name}』硬扛下 ${masterShared} 點傷勢（自身流血受創、數值已由 GAS 結算）。` : ``)
+    + `★務必演出御主與從者「並肩作戰」的臨場參與感，別把御主晾在畫面外。\n`;
+
   let aiPrompt;
   // 🎬 敘述：給 AI【事實素材】，少下指令——讓它自己演。只保留必要紅線(show-don't-tell／勿擅自寫死)。
   const horrorFired = rounds.some(r => (r.strikes || []).some(k => k.horror));
@@ -1151,7 +1164,8 @@ function actionFateBattle(userData, pcId, sheets) {
   if (defeat) {
     aiPrompt = servantCard_(pcData[atkIdx]) + foeServantCardStr + enemyMasterCardStr +
       `【戰報·已裁定】御主號令『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合。\n${roundsBrief}\n結局：『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。\n` +
-      `★以 Fate／TYPE-MOON 筆觸演出這場敗北的最後一幕(一段即可)${atkC.cls === 'Caster' ? '（Caster 以魔術轟擊為主、非肉搏）' : ''}，語氣留白。勝負已定，你只演過程。`;
+      _masterStanceLine +
+      `★以 Fate／TYPE-MOON 筆觸演出這場敗北的最後一幕(一段即可)${atkC.cls === 'Caster' ? '（Caster 以魔術轟擊為主、非肉搏）' : ''}——御主與從者並肩奮戰到最後，語氣留白。勝負已定，你只演過程。`;
   } else {
     aiPrompt = servantCard_(pcData[atkIdx]) + foeServantCardStr + enemyMasterCardStr +
       `【戰報·已裁定，勝負與傷害不可改】御主號令${atkLabel}出擊，與「${defC.name}」交鋒 ${nRounds} 回合。\n` +
@@ -1164,7 +1178,7 @@ function actionFateBattle(userData, pcId, sheets) {
       ((useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.25) ? `· 【灌魔超載】御主${atkC.npOverloadMul >= 1.9 ? '把餘裕魔力盡數傾注' : '將大量魔力加壓灌注'}這一發真名解放${atkC.overcharge ? '（方才補魔蓄積的澎湃魔力一併傾瀉而出）' : ''}——寶具威能被推至${atkC.npOverloadMul >= 1.9 ? '極限、化作規格外的毀滅光輝' : '遠超尋常的輝度'}。演出這股${atkC.npOverloadMul >= 1.9 ? '「傾盡一切、超載解放」的壯烈與光壓' : '「加壓超載」的灼熱光壓'}。\n` : "") +
       (backlash ? `· 【過載反噬】倍額魔力灌注的代價在解放後湧回——御主魔術迴路暴走灼身(−${backlash.dmg} HP)，強撐住了意識。★純迴路過載的內在灼痛虛脫·非流血外傷。\n` : "") +
       (skillFired ? `· 交鋒間，我方從者的技術「${_fullSkill.name}」自然而發、順勢加持了攻勢。\n` : "") +
-      (masterShared > 0 ? `· 【御主參戰·正大光明／見機行事】御主未躲在後方，而是立於陣前一同承擔——替從者硬扛下 ${masterShared} 點傷勢(御主自身流血受創)。演出御主涉險共戰、以身擋傷的擔當(這是內在覺悟與肉身代價，數值已由 GAS 結算)。\n` : "") +
+      _masterStanceLine +
       (horrorFired ? `· 我方術師以螺湮城教本自深淵召出觸手巨獸「深淵海怪」，常駐戰場、每回合與本人並肩撕咬，靠御主魔力維持(枯竭則潰散)。\n` : "") +
       (dualAttack ? `· 我方兩名從者並肩夾擊同一敵手。\n` : "") +
       (allyAssistName ? `· 盟友從者「${allyAssistName}」依約自側翼掩護助攻。\n` : "") +
