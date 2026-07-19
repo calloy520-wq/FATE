@@ -549,7 +549,7 @@
         }
       }
       // 🕊️ 示好／交涉：對此未結盟敵人釋出善意、養好感（好感機制的主動入口·敵御主/敵從者皆可）
-      acts += '<button onclick="courtEnemy(\'' + safe + '\')" title="示好／交涉：慢慢養對方對你的好感（好感高→遇敵態度和緩、更易結盟、挑撥更靈、趁隙更狠、撤離不被追擊；養到 90 可在戰後納入鑑賞）。每人每日一次、耗 1AP。" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(210,160,90,.14); color:#e0c088; border:1px solid #b0863f; border-radius:7px; cursor:pointer; font-weight:bold;">🕊️ 示好／交涉 <small style="opacity:.7;">耗1AP·每人每日一次</small></button>';
+      acts += '<button onclick="courtEnemy(\'' + safe + '\',\'' + String(f.id).replace(/'/g, '') + '\')" title="示好／交涉：慢慢養對方對你的好感（好感高→遇敵態度和緩、更易結盟、挑撥更靈、趁隙更狠、撤離不被追擊）。每人每日一次、耗 1AP。" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(210,160,90,.14); color:#e0c088; border:1px solid #b0863f; border-radius:7px; cursor:pointer; font-weight:bold;">🕊️ 示好／交涉 <small style="opacity:.7;">耗1AP·每人每日一次</small></button>';
       return '<div style="grid-column:1 / -1; padding:5px 2px 2px; display:flex; gap:5px; flex-wrap:wrap;">' + acts + '</div>';
     };
     // 成對：每個御主配其硬連結從者(f.master/f.servant)；一列＝一組 2 欄 grid
@@ -2216,10 +2216,10 @@
     });
   }
   // 🕊️ 示好／交涉：對未結盟敵人養好感（GAS 依性格定升幅，AI 只演反應）
-  async function courtEnemy(npcName) {
+  async function courtEnemy(npcName, npcId) {
     await runSimpleAction_({
       preMsg: `<div class="msg-player"><b>【系統】：</b>御主在刀鋒之外，向「${npcName}」遞出一分善意……</div>`,
-      payload: { action: 'court_enemy', pcId: pc.id, npcName: npcName, acctName: (pc && pc.account) || currentAccount },
+      payload: { action: 'court_enemy', pcId: pc.id, npcName: npcName, npcId: npcId || "", acctName: (pc && pc.account) || currentAccount },
       onSuccess: res => updateClock(res.clock, res.ap, res.apMax),
       failMsg: '此刻無法示好。'
     });

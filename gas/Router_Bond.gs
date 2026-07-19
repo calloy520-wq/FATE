@@ -522,16 +522,27 @@ function actionAllyBond(userData, pcId, sheets) {
 //   撤離不被追擊(BOND≥50)。戰場只到 SFW 曖昧；鑑賞角色一律於鑑賞內自行召喚，不靠 solo 帶入。
 function actionCourtEnemy(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
+  const npcId = String(userData.npcId || "").trim();
+  const npcKey = nameLoose_(npcName); // 去中點/空白
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
   const _courtDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
-  const tIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(nameLoose_(npcName)) !== -1
-    && (String(r[COL.PC.FACTION]) === "敵御主" || String(r[COL.PC.FACTION]) === "敵從者")
-    && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_")
-    && !isAllied_(r) && String(r[COL.PC.LOC]).trim() === myLoc && hasArrived_(r, _courtDay));
+  // 🔧 比照攻擊/結盟路徑：先 npcId 精準配、再 nameLoose_ fallback——含全形括號名(如「哈桑·薩巴赫（咒腕）」)
+  //   會被 sanitizeUserData_ 的 cleanChineseName 剝成「哈桑薩巴赫咒腕」，純 name 比對必漏，故靠 id。
+  const tIdx = pcData.findIndex(function (r) {
+    var fac = String(r[COL.PC.FACTION]);
+    if (fac !== "敵御主" && fac !== "敵從者") return false;
+    if (String(r[COL.PC.GAME_ID] || "") !== myGameId) return false;
+    if (String(r[COL.PC.ID]).startsWith("DEAD_")) return false;
+    if (isAllied_(r)) return false;
+    if (String(r[COL.PC.LOC]).trim() !== myLoc) return false;
+    if (!hasArrived_(r, _courtDay)) return false;
+    if (npcId && String(r[COL.PC.ID]) === npcId) return true;
+    return npcKey && nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1;
+  });
   if (tIdx === -1) return JSON.stringify({ success: false, message: "此地沒有可示好的對象——須與對方同處一地、對方為敵對陣營（盟友請用『與盟友共處』）。" });
 
   const isFate = myGameId.indexOf("g_") === 0;
