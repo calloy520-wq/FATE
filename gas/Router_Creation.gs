@@ -294,7 +294,7 @@ function sanitizeSix_(o) {
 }
 
 // 把 AI 生成的原創從者寫回英靈殿（重名則不收；御主不適用此機制）。
-//   選填 pExtra(工房玩家自定 look/moe/firstP/toMaster/speech/tic/back)——不存的話重召時 persona 欄退回預設。
+//   選填 pExtra(工房玩家自定 look/moe/firstP/toMaster/speech/tic/back/weapon＋綁定用 creator)——不存的話重召時 persona 欄退回預設。
 function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, traits, np, personaWords, align, pExtra) {
   // 🛡️ 這是唯一寫進共用英靈殿的入口(手動工房已在parseForgeBuild_清過build.name，但AI輔助召喚
   //   path的realName可能只清過userData.trueName、AI自己回傳的aiBrief.realName未經任何清洗)——
@@ -317,7 +317,11 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
   var px = pExtra || {};
   var persona = JSON.stringify({
     words: String(personaWords || ""), firstP: String(px.firstP || "") || "我", toMaster: String(px.toMaster || ""),
-    look: String(px.look || ""), moe: String(px.moe || ""), speech: String(px.speech || ""), tic: String(px.tic || ""), back: String(px.back || "")
+    look: String(px.look || ""), moe: String(px.moe || ""), speech: String(px.speech || ""), tic: String(px.tic || ""), back: String(px.back || ""),
+    // 🔑 creator＝編輯權限綁定(actionSaveHero edit 分支靠 pj.creator===acct 擋非本人)；weapon＝武裝敘述。
+    //   兩者 edit 分支都會保留(line 497)、call site 也都有傳，create 當下卻漏寫→creator 恆空=沒人能改自己的角色、
+    //   自訂生成的英靈也不綁製作者。補進 persona 這唯一寫入點，工房/自訂生成兩路一次到位。
+    weapon: String(px.weapon || ""), creator: String(px.creator || "")
   });
   // 工房角色創造當下就順手轉好日常版(DAILY_LOOK/DAILY_WORDS)寫進英靈殿，跟種子英靈的懶惰快取
   //   (getOrComputeDailyHeroFields_)不同——之後第一次被召喚進鑑賞就直接有現成版本，不必等召喚當下才轉。
