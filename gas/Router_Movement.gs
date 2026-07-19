@@ -93,23 +93,28 @@ function actionMove(userData, pcId, sheets) {
   var _slipAway = !!(_slipWin && _slipWin.loc === String(allPcData[pIdx][COL.PC.LOC] || "").trim() && encounterChoices_(_slipWin.type).slip);
   // 🏃 撤退旗標：前端按「撤退」殺出重圍時帶 retreat=true——敵方【必】追擊(非機率)、GAS 判勝負。
   var isRetreat = isFateMove && (userData.retreat === true || userData.retreat === 'true');
-  // 🚫 有敵時封鎖從容移動：離場格若有【非盟約·已登場·未友好(BOND<50)】的能戰敵從者，plain 移動被擋，須改按「撤退」。
-  //   分心窗口(slip)可悄悄離開則不受此限；撤退本身(isRetreat)也放行。
+  // 🏰 在自己陣地＝安全港：主場結界／機關掩護，敵人闖進來也困不住你——不強制撤退、離場亦不被追擊
+  //   (與 slip 同級的豁免)。這是「設置陣地」承諾的主場優勢，敵在你陣地反被守株(見 enemyAmbushOnServant_ 陣地反擊)。
   var _fromLocR = String(allPcData[pIdx][COL.PC.LOC] || "").trim();
-  if (isFateMove && !_slipAway && !isRetreat && tgtTrim !== _fromLocR) {
+  var _atOwnHome = false;
+  try { var _ws = getWorkshop_(allPcData[pIdx][COL.PC.MEMORY]); _atOwnHome = !!(_ws && String(_ws).split('-')[0].trim() === _fromLocR.split('-')[0].trim()); } catch (e) { }
+  // 🚫 有敵時封鎖從容移動：離場格若有【非盟約·已登場·未友好(BOND<50)】的能戰敵從者，plain 移動被擋，須改按「撤退」。
+  //   分心窗口(slip)可悄悄離開則不受此限；撤退本身(isRetreat)也放行；在自己陣地(_atOwnHome)享安全港·不封鎖。
+  if (isFateMove && !_slipAway && !_atOwnHome && !isRetreat && tgtTrim !== _fromLocR) {
     var _hostileHere = allPcData.some(function (r) {
       return String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === moveGameId &&
         !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC] || "").trim() === _fromLocR &&
         !isAllied_(r) && hasArrived_(r, _moveDay()) && (parseInt(r[COL.PC.BOND]) || 0) < 50;
     });
-    if (_hostileHere) return JSON.stringify({ success: false, needRetreat: true, message: "此地有敵從者當前——無法從容轉身離去。須按「🏃 撤退」殺出重圍（對方必追擊、勝負由 GAS 裁定）。" });
+    if (_hostileHere) return JSON.stringify({ success: false, needRetreat: true, message: "此地有敵從者盯著，無法從容轉身離去——須按「🏃 撤退」殺出重圍（對方必定追擊、成敗當場見真章）。" });
   }
   var pursuit = null;
   try {
     var fromLocM = String(allPcData[pIdx][COL.PC.LOC] || "").trim();
     // 🏃 追擊機制已【全數轉移到撤退按鈕】(玩家定案)：唯有 isRetreat（殺出重圍）才觸發追擊——一般移動遇敵已被上方
     //   needRetreat 擋下（強制走撤退），遇不到敵則本就無人可追，故不再有「機率性離場追擊」這條路徑。
-    if (isFateMove && isRetreat && !_slipAway && fromLocM && tgtTrim && tgtTrim !== fromLocM) {
+    //   🏰 從自己陣地離場享安全港·不被追擊(_atOwnHome)——即便按了撤退，主場結界也掩護你從容抽身。
+    if (isFateMove && isRetreat && !_slipAway && !_atOwnHome && fromLocM && tgtTrim && tgtTrim !== fromLocM) {
       var psvIdxM = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
       if (psvIdxM !== -1) {
         var psvC = rowToCombatant_(allPcData[psvIdxM]);
@@ -793,7 +798,7 @@ function actionFactionAmbush(userData, pcId, sheets) {
   var _mySvIdx = findPlayerServantIdx_(pcData, gameId, "");
   var aiPrompt = servantCard_(pcData[_mySvIdx !== -1 ? _mySvIdx : pIdx]) + res.foeCard +
     `【系統·趁隙偷襲·已裁定】趁「${res.enemyName}」分心之際，你的從者搶先發難——${hitTxt}${res.destroyed ? '，將其當場擊破！' : '，對方旋即警覺、不再有隙可趁。'}\n` +
-    `★以 Fate／TYPE-MOON 筆觸【約 80~140 字】演出這記趁隙奇襲：把握、突發、對方由鬆懈轉為戒備的瞬間；依雙方性格演，別自行加碼改寫勝負（傷害已由 GAS 結算）。`;
+    `★以 Fate／TYPE-MOON 筆觸【約 80~140 字】演出這記趁隙奇襲：把握、突發、對方由鬆懈轉為戒備的瞬間；依雙方性格演，別自行加碼改寫勝負（傷害已由系統結算）。`;
   STATE_PRE_DATA_ = pcData;
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, report: res.report,
@@ -855,7 +860,7 @@ function actionIncite(userData, pcId, sheets) {
       sheets.pc.getRange(mIdxB + 1, 1, 1, pcData[mIdxB].length).setValues([pcData[mIdxB]]);
     }
     aiPrompt = `【系統·挑撥離間·得逞】你三言兩語點燃了「${svAName}」與「${svBName}」之間的火——兩人當真打了起來，「${loName}」吃了較重的一擊（−${loDmg}），另一方亦掛彩（−${wiDmg}），自此結下樑子。\n` +
-      `★以 Fate／TYPE-MOON 筆觸【約 80~140 字】演出你如何煽風點火、兩方如何被激得反目相向；你則在一旁坐收其亂。傷害已由 GAS 結算。`;
+      `★以 Fate／TYPE-MOON 筆觸【約 80~140 字】演出你如何煽風點火、兩方如何被激得反目相向；你則在一旁坐收其亂。傷害已由系統結算。`;
     var wiName = cross.atkWins ? svAName : svBName;
     report = { incite: true, success: true, aName: svAName, bName: svBName,
       loName: loName, loDmg: loDmg, loAfter: loAfter, loHpMax: parseInt(pcData[loIdx][COL.PC.MAX_HP]) || loAfter,
@@ -1013,18 +1018,20 @@ var WORKSHOP_TAG_ = makeTextTag_('陣地');
 function getWorkshop_(memory) { return WORKSHOP_TAG_.get(memory); }
 function setWorkshopMemory_(memory, loc) { return WORKSHOP_TAG_.set(memory, loc); }
 
-// 🏰 主場陣地判定：玩家於【自己佈設的陣地】迎戰、且隊上有【陣地作成】從者 → 回最高陣地作成階(供主場結界減傷)；否則空。
-//   引敵入陣地決戰＝主場優勢的核心。階級越高(EX 空中庭園級)結界越強。
+// 🏰 主場陣地判定：玩家於【自己佈設的陣地】迎戰 → 回主場結界階(供減傷/反擊)；不在自己陣地回空。
+//   ★任何人親手設的陣地(結界/機關/監視術式)都給【基礎 D 階】主場防禦——這是「設置陣地」對所有人承諾的
+//   「敵襲反被擊退／安全港」；隊上若有【陣地作成】從者則升到其階(C/B/A/EX·空中庭園級)、結界更強。
+//   (2026-07 修：舊版沒陣地作成從者就回空→無陣地作成的玩家設了陣地卻毫無防禦、被敵直接突襲，與承諾不符。)
 function homeTerritoryRank_(pcData, pIdx, gameId) {
   try {
     var ws = getWorkshop_(pcData[pIdx][COL.PC.MEMORY]); if (!ws) return "";
     var battleLoc = String(pcData[pIdx][COL.PC.LOC] || "").trim();
     if (!battleLoc || String(ws).split('-')[0].trim() !== battleLoc.split('-')[0].trim()) return "";
-    var best = "";
+    var best = "D"; // 基礎陣地防禦(任何人設的陣地都有)
     for (var i = 0; i < pcData.length; i++) {
       if (String(pcData[i][COL.PC.FACTION]) !== "從者" || String(pcData[i][COL.PC.GAME_ID] || "") !== gameId || String(pcData[i][COL.PC.ID]).startsWith("DEAD_")) continue;
       var r = hasFx_(rowToCombatant_(pcData[i]), 'territory');
-      if (r && (!best || rankVal(r) > rankVal(best))) best = r;
+      if (r && rankVal(r) > rankVal(best)) best = r; // 陣地作成從者升階
     }
     return best;
   } catch (e) { return ""; }

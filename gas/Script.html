@@ -553,7 +553,9 @@
     h += chip('🍱 整備', 'prepMeal()', '210,170,90');
     h += chip('🛏️ 休息', 'openRestMenu()', '169,169,216');
     // 🏃 有敵從者在場＝交戰狀態：移動鈕直接變「撤退突圍」(點開退路選單·敵必追擊)；無敵才是從容移動(開地圖點目的地)。
-    if (foeServs.length) h += chip('🏃 撤退突圍', 'promptRetreat()', '224,120,70');
+    //   🏰 但在自己陣地(_lastEco.atHome)享安全港——敵闖進來也困不住你，維持「移動」、不逼撤退。
+    var _atOwnHomeUI = !!(window._lastEco && window._lastEco.atHome);
+    if (foeServs.length && !_atOwnHomeUI) h += chip('🏃 撤退突圍', 'promptRetreat()', '224,120,70');
     else h += chip('🗺️ 移動', "showGamePane('map')", '159,192,239');
     bar.innerHTML = h;
     bar.style.display = 'flex';
@@ -738,7 +740,7 @@
       var nm = String(l.name).replace(/'/g, '');
       return '<button onclick="retreatTo(\'' + nm + '\')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid #c0872e;background:rgba(200,120,70,.14);color:#e8c8a8;font-weight:bold;">🏃 退往「' + escapeHtml(l.name) + '」</button>';
     }).join('');
-    showHistoryOverlay('<h3 style="margin:0 0 6px;color:#e0a080;">🏃 撤退突圍——退往何處？</h3><div style="color:#cfc3d8;font-size:13px;line-height:1.7;margin-bottom:10px;">此地有敵、無法從容離去。選一個方向殺出重圍——對方必定追擊，勝負由 GAS 裁定（耗 2AP）。</div>' + btns);
+    showHistoryOverlay('<h3 style="margin:0 0 6px;color:#e0a080;">🏃 撤退突圍——退往何處？</h3><div style="color:#cfc3d8;font-size:13px;line-height:1.7;margin-bottom:10px;">此地有敵、無法從容離去。選一個方向殺出重圍——對方必定追擊，成敗當場見真章（耗 2AP）。</div>' + btns);
   }
   function retreatTo(name) {
     try { var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none'; } catch (e) {}
@@ -806,8 +808,8 @@
               ? `★【撤離追擊】方才從「${data.pursuit.enemyName}」的勢力範圍抽身時，對方追上來咬了一記（從者受創 −${data.pursuit.dmg}）——依上方【撤離途中的追兵】的性格與口吻演出這記追擊，也讓從者演出被咬中的反應；抵達時帶著甩脫追兵的餘悸與狼狽，而非從容無事。\n`
               : `★【撤離反咬】方才「${data.pursuit.enemyName}」追擊而至，從者回身一擊將其逼退（追兵受創 −${data.pursuit.dmg}）——依上方【撤離途中的追兵】的性格演出對方追擊落空/被逼退時的反應，我方從者則演出漂亮斷後的餘裕；抵達時方才從容退場，而非纏戰。\n`) : '')
           + ((foes.filter(f => f.faction === '敵御主' || f.faction === '敵從者').length > 1) ? `★【在場敵對歸屬·勿張冠李戴】${foes.filter(f => f.faction === '敵御主').map(f => `御主「${f.name}」${f.servant ? `↔從者「${f.servant}」` : '（已無從者）'}`).concat(foes.filter(f => f.faction === '敵從者' && !foes.some(m => m.faction === '敵御主' && m.servant === f.name)).map(f => `從者「${f.name}」${f.master ? `↔御主「${f.master}」` : ''}`)).join('；')}。各組從者只聽命於自己的御主，彼此可能也互為敵手。\n` : '')
-          + (data.factionClash ? `★【抵達·撞見兩方敵人】${data.factionClash.note}——這是 GAS 已裁定的當下場面：據此讓雙方依各自性格反應，別改寫成別種局面、別自行分出最終勝負、也別替玩家決定是否出手。\n` : '')
-          + (data.foeMood ? `★【敵方態度·GAS 已依好感裁定，照此定調】${data.foeMood}\n` : '')
+          + (data.factionClash ? `★【抵達·撞見兩方敵人】${data.factionClash.note}——這是【已裁定】的當下場面：據此讓雙方依各自性格反應，別改寫成別種局面、別自行分出最終勝負、也別替玩家決定是否出手。\n` : '')
+          + (data.foeMood ? `★【敵方態度·已依好感裁定，照此定調】${data.foeMood}\n` : '')
           + (lastAiContext ? `\n【前情·僅供承接劇情連貫，勿原樣複述】方才之事：${lastAiContext.slice(0, 280)}\n${foes.length ? '若眼前敵人正是方才那場的對手，便是對方一路追上來／再度狹路相逢——承接前情、別當第一次見面（對方可能仍帶著方才的傷或怒）。' : '此番移動承接前情——【依方才的勝負結果與當前血量自行定調，勿臆測】：剛大勝→可帶餘勇或警戒餘悸；浴血慘勝→疲憊卻仍挺立；落敗逃離→狼狽負傷。別硬演成敗走、也別當若無其事。'}\n` : '')
           + `★以 Fate／TYPE-MOON 筆觸描寫兩人抵達此地的所見所感、環境細節與當下氛圍。若有敵蹤，營造一觸即發的對峙張力（但是否交戰、勝負留待御主下令，禁止自行開打或分勝負）；若無敵蹤，寫一段巡查、警戒或短暫喘息的氛圍，並自然暗示「可凝神偵查四周，或轉往他處」。\n`
           + (foes.length ? '' : `★此地此刻並無其他已知角色在場——【禁止】無中生出可對話、有名有姓的人物來湊互動（不是路人、不是熟人偶遇、不是巧遇的敵手）；環境細節與氛圍照寫，但互動對象僅御主與隨行從者。\n`)
@@ -1660,9 +1662,12 @@
 
     // 地圖節點本身即可點擊移動；🏃 交戰中(有敵從者在場)＝無法從容移動，點地點會自動轉為「撤退突圍」(敵必追擊)。
     var _foeHere = (localNPCs || []).some(function (n) { return n && n.isExact && n.faction === '敵從者'; });
-    html += _foeHere
-      ? '<div style="color:#e0a080; font-size:11px; margin:10px 0 6px; text-align:center; border:1px solid rgba(200,120,70,.4); border-radius:7px; padding:6px 8px;">⚔️ 此地有敵——無法從容移動。點任一地點將以「🏃 撤退突圍」殺出（敵必追擊、勝負由 GAS 裁定）。</div>'
-      : '<div style="color:#6a5f80; font-size:11px; margin:10px 0 6px; text-align:center;">👆 點地圖上的地點即可前往</div>';
+    var _atHomeMap = !!(window._lastEco && window._lastEco.atHome);
+    html += (_foeHere && !_atHomeMap)
+      ? '<div style="color:#e0a080; font-size:11px; margin:10px 0 6px; text-align:center; border:1px solid rgba(200,120,70,.4); border-radius:7px; padding:6px 8px;">⚔️ 此地有敵——無法從容移動。點任一地點將以「🏃 撤退突圍」殺出（對方必定追擊、成敗當場見真章）。</div>'
+      : (_foeHere && _atHomeMap)
+        ? '<div style="color:#8fd0a0; font-size:11px; margin:10px 0 6px; text-align:center; border:1px solid rgba(90,170,110,.4); border-radius:7px; padding:6px 8px;">🏰 此地是你親手佈設的陣地——敵人闖入亦難越雷池，你可從容移動、離場不被追擊。</div>'
+        : '<div style="color:#6a5f80; font-size:11px; margin:10px 0 6px; text-align:center;">👆 點地圖上的地點即可前往</div>';
     c.innerHTML = html;
   }
   function refreshMapPane() { syncData(true); }
