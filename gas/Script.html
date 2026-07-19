@@ -432,6 +432,22 @@
       + `<div class="options-grid">${btns}</div></div>`;
   }
 
+  // 🏃 「須撤退突圍」判定——與後端 actionMove 強制撤退/追擊【同源】(單一真實來源)：此地有【敵從者·
+  //   未友好 bond<50】＝交戰，離場須殺出重圍(敵必追擊·GAS 出戰報)。以下例外＝可從容移動·離場無追擊·
+  //   不出戰報，故按鈕維持「移動」：① 在自己陣地(atHome 主場結界) ② 敵人分心的趁隙窗口(_encWin.slip)。
+  //   漏了任一例外，按鈕就會承諾一場【不會發生】的追擊戰(玩家按了突圍卻沒戰報)——對照後端 lines 103/107/117。
+  function _engagedFoeHere_() {
+    return (localNPCs || []).some(function (n) {
+      return n && n.isExact && n.faction === '敵從者' && (parseInt(n.relVal) || 0) < 50;
+    });
+  }
+  function _mustBreakout_() {
+    if (!_engagedFoeHere_()) return false;
+    if (window._lastEco && window._lastEco.atHome) return false;                               // 🏰 主場安全港
+    if (window._encWin && window._encWin.choices && window._encWin.choices.slip) return false; // 💨 趁隙可悄悄離開
+    return true;
+  }
+
   function renderWarActions() {
     const bar = document.getElementById('war-actions');
     if (!bar) return;
@@ -552,10 +568,10 @@
     h += chip('🔍 偵查', 'scout()', '127,199,199');
     h += chip('🍱 整備', 'prepMeal()', '210,170,90');
     h += chip('🛏️ 休息', 'openRestMenu()', '169,169,216');
-    // 🏃 有敵從者在場＝交戰狀態：移動鈕直接變「撤退突圍」(點開退路選單·敵必追擊)；無敵才是從容移動(開地圖點目的地)。
-    //   🏰 但在自己陣地(_lastEco.atHome)享安全港——敵闖進來也困不住你，維持「移動」、不逼撤退。
-    var _atOwnHomeUI = !!(window._lastEco && window._lastEco.atHome);
-    if (foeServs.length && !_atOwnHomeUI) h += chip('🏃 撤退突圍', 'promptRetreat()', '224,120,70');
+    // 🏃 交戰中＝移動鈕變「撤退突圍」(點開退路選單·敵必追擊·GAS 出戰報)；否則從容移動(開地圖點目的地)。
+    //   判定與後端 actionMove 同源(_mustBreakout_)——befriended(bond≥50)/主場/趁隙窗口皆非交戰，
+    //   維持「移動」，才不會按了突圍卻無追擊戰報(對不上後端＝按鈕承諾一場不會發生的戰鬥)。
+    if (_mustBreakout_()) h += chip('🏃 撤退突圍', 'promptRetreat()', '224,120,70');
     else h += chip('🗺️ 移動', "showGamePane('map')", '159,192,239');
     bar.innerHTML = h;
     bar.style.display = 'flex';
@@ -1698,12 +1714,13 @@
         + '</div>';
     }
 
-    // 地圖節點本身即可點擊移動；🏃 交戰中(有敵從者在場)＝無法從容移動，點地點會自動轉為「撤退突圍」(敵必追擊)。
-    var _foeHere = (localNPCs || []).some(function (n) { return n && n.isExact && n.faction === '敵從者'; });
+    // 地圖節點本身即可點擊移動；🏃 交戰中＝無法從容移動，點地點會自動轉為「撤退突圍」(敵必追擊)。
+    //   與撤退按鈕同用 _mustBreakout_()——befriended/主場/趁隙窗口皆非交戰，免地圖假警報「有敵擋道」。
+    var _mustBk = _mustBreakout_();
     var _atHomeMap = !!(window._lastEco && window._lastEco.atHome);
-    html += (_foeHere && !_atHomeMap)
+    html += _mustBk
       ? '<div style="color:#e0a080; font-size:11px; margin:10px 0 6px; text-align:center; border:1px solid rgba(200,120,70,.4); border-radius:7px; padding:6px 8px;">⚔️ 此地有敵——無法從容移動。點任一地點將以「🏃 撤退突圍」殺出（對方必定追擊、成敗當場見真章）。</div>'
-      : (_foeHere && _atHomeMap)
+      : (_engagedFoeHere_() && _atHomeMap)
         ? '<div style="color:#8fd0a0; font-size:11px; margin:10px 0 6px; text-align:center; border:1px solid rgba(90,170,110,.4); border-radius:7px; padding:6px 8px;">🏰 此地是你親手佈設的陣地——敵人闖入亦難越雷池，你可從容移動、離場不被追擊。</div>'
         : '<div style="color:#6a5f80; font-size:11px; margin:10px 0 6px; text-align:center;">👆 點地圖上的地點即可前往</div>';
     c.innerHTML = html;
