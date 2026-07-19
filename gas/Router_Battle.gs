@@ -365,7 +365,7 @@ function actionFateBattle(userData, pcId, sheets) {
   // 🛡️ 常駐寶具閘：God Hand/治癒結界等【常駐寶具】自動生效、不是攻擊——擋下攻擊解放
   //   (前端💥鈕已灰化，此為舊快取前端的後端保險)。
   if (useNp && atkIdx !== -1 && /【常駐寶具】/.test(String(pcData[atkIdx][COL.PC.MARTIAL] || ""))) {
-    return JSON.stringify({ success: false, message: "此從者的寶具為【常駐型】（已自動生效），並非可解放的攻擊寶具——請以普攻／主動技／令咒作戰。" });
+    return JSON.stringify({ success: false, message: "此從者的寶具為【常駐型】（已自動生效），並非可解放的攻擊寶具——請以普攻／令咒作戰（施放技術已被動化、每擊自動擲）。" });
   }
   if (atkIdx === -1) return JSON.stringify({ success: false, message: "你尚未召喚從者，無從者可出戰。" });
   // 🌟 多寶具選定索引 ＋ 🔋 解放寶具自動全開出力：兩者隨 fate_battle 一起送來，省去單獨 set_np_choice／set_servant_output 往返。

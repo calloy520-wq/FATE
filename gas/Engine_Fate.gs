@@ -245,7 +245,7 @@ function combatProfile_(c) {
 //   要加/調技能＝改一列，引擎(servantActiveSkill_＋fxHitAdd_/fxDmgApply_)自動吃。只收【線性加減乘】型；
 //   骰子彈幕(gob/chain)、概念貫穿減傷(rho_aias/territory/神核)、時機/條件觸發(stealth/tsubame/petrify)等
 //   特例邏輯不進表、保持明碼(硬塞進表＝過度工程)。欄位：
-//     active/prio/mpPct/icon/descFn＝主動施放技術(開關制)專用；zh＝中文名(fired 標籤 fallback)；
+//     active/prio/mpPct/icon/descFn＝施放技術(已被動化·每擊50%擲)專用；zh＝中文名(fired 標籤 fallback)；
 //     hit/hitAdd＝命中加成(攻方)；dmgMul/dmgAdd＝傷害加成(勝方)——皆可為數字或 r=>.. 或 (r,c)=>..；
 //     blockedByLoserFx＝敗方有此 fx 則免疫；silent＝套用時不推 fired 標籤(morale 靜默/self_mod 傷害段避免重列)。
 var SKILL_FX_ = {
@@ -307,7 +307,7 @@ function servantActiveSkill_(c) {
     var da = e.dmgAdd != null ? Math.round(skillFxVal_(e.dmgAdd, r, c)) : 0;
     return { id: fx, name: fxName_(c, fx, e.zh), icon: e.icon, mpPct: e.mpPct, hit: ht, dmgMul: dm, dmgAdd: da, desc: e.descFn(ht, dm, da) };
   }
-  return null; // 無真·施放技術者→無主動技（戰力全在被動＋寶具）
+  return null; // 無真·施放技術者→無此被動增益（戰力全在常駐被動＋寶具）
 }
 // 🛡 被動命中加成套用（攻方持有 fx 時）：讀 SKILL_FX_[fx].hitAdd。回新 aHit，並推 fired 標籤。
 function fxHitAdd_(aHit, atk, fx, fired) {
@@ -489,7 +489,7 @@ function bestNpChoice_(name, cls) {
 // 🎚️ 被動技能 fx 對 命中/迴避 的【淨加成上限】：直感/心眼/千里眼/騎乘/變化/避矢/王財/洞悉/自我改造/
 //   狂化/魔眼/天之鎖/燕返/愛之痣 等被動 fx 的命中(攻)與迴避(守)各自加總後 clamp ±HIT_FX_CAP——
 //   買越多遞減為零，防止堆疊流把差距拉到「永遠打不到」。
-//   ★不入帳(各有自己的成本/體系)：出力/整備/過充/主動技(耗魔)/禮裝(裝備)/職階相剋(身分)/幸運骰/奇襲(一次性)。
+//   ★不入帳(各有自己的成本/體系)：出力/整備/過充/施放技術(被動50%擲)/禮裝(裝備)/職階相剋(身分)/幸運骰/奇襲(一次性)。
 var HIT_FX_CAP = 8;
 // 主裁決：一次交手。回傳 {atkWins, winner, loser, damage, aRoll,dRoll,aHit,dEva, fired[], crit, np, seal}
 function resolveFateBattle_(atk, def, opts) {
@@ -556,14 +556,14 @@ function resolveFateBattle_(atk, def, opts) {
   //   避免同一項代價在戰鬥層被收兩次稅。傷害加成(SKILL_FX_.mad)不受影響。
   // 自我改造(self_mod)：命中 +2（被動·SKILL_FX_ 表驅動）
   aHitFx = fxHitAdd_(aHitFx, atk, 'self_mod', fired);
-  // ⚡ 主動技（玩家本戰啟動）：命中加成 + 標記發動
-  if (opts.skill) { aHit += (opts.skill.hit || 0); fired.push(atk.name + '·' + opts.skill.name + (opts.skill.tiny ? '(微量)' : '(主動技·全開)')); }
+  // 🎲 施放技術（已被動化·每擊 50% 由 rollSkill_ 擲中才傳入 opts.skill）：命中加成 + 標記發動
+  if (opts.skill) { aHit += (opts.skill.hit || 0); fired.push(atk.name + '·' + opts.skill.name + '(施放技術·發動)'); }
   // ✨ 禮裝被動加持·命中（御主禮裝注入我方從者，見 injectMysticBuff_）
   var mcAtk = mcCombatFx_(atk); if (mcAtk && mcAtk.hit) { aHit += mcAtk.hit; fired.push(atk.name + '·禮裝「' + mcAtk.label + '」(命中+' + mcAtk.hit + ')'); }
 
   // 騎乘(ride) 機動 +2×階級
   var rideA = hasFx_(atk, 'ride'); if (rideA) aHitFx += Math.round(2 * rankMul_(rideA));
-  // 🎯 千里眼(aim)：恆常的卓越目力鎖破綻（被動·SKILL_FX_ 表驅動）。投影(projection) 為主動技 only、此處不給被動。
+  // 🎯 千里眼(aim)：恆常的卓越目力鎖破綻（被動·SKILL_FX_ 表驅動）。投影(projection)＝施放技術·被動 only、此處不給被動。
   //   千里眼永久免疫「無欲」等封鎖先機的效果——這正是它比命中·中(first_strike/analyze)貴的理由。
   aHitFx = fxHitAdd_(aHitFx, atk, 'aim', fired);
   // 🌟 全知全能之星(insight／吉爾伽美什)：看穿本質·洞悉破綻，恆常命中 +4（他懶得認真開·僅中等被動）。
@@ -782,7 +782,7 @@ function resolveFateBattle_(atk, def, opts) {
     else { scaleMult = NP_SCALE_MATRIX[NP_SCALE_IDX[atkScaleLabel]][NP_SCALE_IDX[npDefScale_(loser, pierces)]]; }
     if (scaleMult !== 1) { base = Math.round(base * scaleMult); fired.push(winner.name + '·' + (plagueDoom ? '疫病·病死宿命(無可逃避·概念碾壓)' : (atkScaleLabel + '寶具' + (atkScaleLabel === '對神' && loserDivR ? '·弒神(神格' + loserDivR + ')' : ''))) + ' vs ' + npDefScale_(loser, pierces) + '防(×' + scaleMult + ')'); }
   }
-  // ⚡ 主動技傷害增益（僅當攻方獲勝＝此增益屬於攻方時生效）
+  // 🎲 施放技術傷害增益（僅當攻方獲勝＝此增益屬於攻方時生效；被動·由 rollSkill_ 每擊 50% 傳入）
   if (opts.skill && atkWins) {
     if (opts.skill.dmgMul && opts.skill.dmgMul !== 1) base = Math.round(base * opts.skill.dmgMul);
     if (opts.skill.dmgAdd) base += opts.skill.dmgAdd;

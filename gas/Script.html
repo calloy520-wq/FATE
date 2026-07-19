@@ -1402,7 +1402,7 @@
       // 🗝️ 從者卡（支援雙從者）：點卡切換「出戰中」，動作列只出現在出戰中那張
       var buildSvCard = function (s, isActive, dual) {
         var six = s.six || {};
-        var safeN = String(s.name).replace(/'/g, ''); // 🩹 提前定義：下方 skillPills map(魔境/符文/主動技開關)即用到，晚定義會因 var hoisting 取到 undefined
+        var safeN = String(s.name).replace(/'/g, ''); // 🩹 提前定義：下方 skillPills map(魔境/符文/施放技術標籤)即用到，晚定義會因 var hoisting 取到 undefined
         var sixLine = ['筋' + (six.筋力 || '?'), '耐' + (six.耐久 || '?'), '敏' + (six.敏捷 || '?'), '魔' + (six.魔力 || '?'), '運' + (six.幸運 || '?'), '寶' + (six.寶具 || '?')].join('　');
         var pill = function (n, r, fx, col, glow, pre) {
           var label = n + (r && r !== '-' ? (' ' + r) : '');
@@ -2024,7 +2024,7 @@
 
   async function servantStrike(npcName, useNp, useSeal, isMaster, npPicked, npChoiceArg) {
     var _npOverload; // 🔥 規格外寶具的超載選擇(undefined＝非規格外；false=僅底費/'p1'/'p2'＝攻擊列蓄勢鈕預選)
-    // ❖ 令咒·蓄勢消費：蓄勢中按 普攻/⚡主動/💥寶具 即自動帶上令咒(必中＋×1.5)；刺殺(isMaster)不適用、蓄勢保留。
+    // ❖ 令咒·蓄勢消費：蓄勢中按 普攻/💥寶具 即自動帶上令咒(必中＋×1.5)；刺殺(isMaster)不適用、蓄勢保留。
     //   實際熄燈在所有確認通過後(beginAction 前)——中途取消不熄、令咒不白燒。
     if (sealArmed && !isMaster && !useSeal) useSeal = true;
     // 🌟 多寶具英靈：解放寶具前先讓玩家挑要放哪個（單寶具直接放）。挑完帶 npPicked=true 回來，不再彈選單。
