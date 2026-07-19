@@ -669,8 +669,8 @@ function resolveFateBattle_(atk, def, opts) {
   if (wOut.dmgMul !== 1.0) { base = Math.round(base * wOut.dmgMul); fired.push(winner.name + '·出力' + (winner.output || 60) + '%·' + wOut.label); }
   // 🔥 補魔過充傷害端：攻方持過充狀態且此擊由其打出時，傷害微揚(命中端已於上方+2)。
   if (winner === atk && atk.overcharge) base = Math.round(base * 1.06);
-  // ⚠ 怪力(str_up)／魔力放出(burst) 為【主動技 only】(見 servantActiveSkill_)：此處不重複給被動傷害，
-  //   須點 ⚡主動技 發動、耗魔力才生效。
+  // ⚠ 怪力(str_up)／魔力放出(burst)＝【施放技術·被動 only】(見 servantActiveSkill_)：不走此處常駐被動，
+  //   由 rollSkill_ 每擊 50% 擲是否經 opts.skill 套用全效。
   // 勇猛/卡里斯瑪(morale·敵透化免疫)＋自我改造(self_mod)：常駐被動傷害（SKILL_FX_ 表驅動·位置順序不變）。
   base = fxDmgApply_(base, winner, loser, 'morale', fired);
   base = fxDmgApply_(base, winner, loser, 'self_mod', fired);
@@ -681,8 +681,8 @@ function resolveFateBattle_(atk, def, opts) {
     if (opts.np && mcWin.npMul && mcWin.npMul !== 1) { base = Math.round(base * mcWin.npMul); fired.push(winner.name + '·禮裝「' + mcWin.label + '」(寶具×' + mcWin.npMul + ')'); }
     else if (mcWin.dmgAdd) fired.push(winner.name + '·禮裝「' + mcWin.label + '」(傷+' + mcWin.dmgAdd + ')');
   }
-  // ⚠ 投影魔術(projection) 為【主動技 only】(見 servantActiveSkill_)：命中/傷害全併入主動技，
-  //   此處不重複給被動傷害。
+  // ⚠ 投影魔術(projection)＝【施放技術·被動 only】(見 servantActiveSkill_)：命中/傷害全併入 opts.skill，
+  //   由 rollSkill_ 每擊 50% 擲是否套用，此處不重複給被動傷害。
   // 🗡️ 首擊奇襲·要害一擊：氣息遮斷者開場突襲命中→額外重創(吃階級·一次性)。僅【普通首擊】生效——
   //   若開場直接解放寶具(opts.np)則走寶具自身爆發，不疊奇襲(避免奇襲×zabaniya 雙重爆擊一發秒人)。
   if (opts.ambush && atkWins && !opts.np && hasFx_(atk, 'stealth') && !senseNegate) {

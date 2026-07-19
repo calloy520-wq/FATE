@@ -1128,8 +1128,8 @@
     ride: m => `騎乘：駕馭一切坐騎，命中 +${Math.round(2 * m)}。`,
     first_strike: m => `直感：戰鬥第六感，先機——命中與迴避 +${Math.round(3 * m)}。`,
     analyze: m => `心眼：洞察破綻，命中與迴避 +${Math.round(3 * m)}。`,
-    str_up: m => `怪力（⚡主動技）：激發膂力。攻擊時按「⚡主動」＝該次交鋒傷害 +${Math.round(8 * m) + 14}（抽御主魔力一次）；未按＝微量被動 +${Math.round((Math.round(8 * m) + 14) * 0.35)}（免費、每擊自動）。`,
-    burst: m => `魔力放出（⚡主動技）：灌注魔力瞬間爆發。攻擊時按「⚡主動」＝該次交鋒傷害 ×${(1 + 0.45 * m).toFixed(2)}（抽御主魔力一次）；未按＝微量 ×${(1 + 0.45 * m * 0.35).toFixed(2)}（免費）。`,
+    str_up: m => `怪力（🎲施放技術·被動）：激發膂力。每次交鋒有 50% 機率自動全效發動＝該擊傷害 +${Math.round(8 * m) + 14}（免耗魔、不必手動）；未發動則該擊無此加成。`,
+    burst: m => `魔力放出（🎲施放技術·被動）：灌注魔力瞬間爆發。每次交鋒有 50% 機率自動全效發動＝該擊傷害 ×${(1 + 0.45 * m).toFixed(2)}（免耗魔、不必手動）；未發動則該擊無此加成。`,
     morale: m => `勇猛／卡里斯瑪（被動）：與生俱來的統率氣場，傷害 +${Math.round(3 * m)}（敵「透化」可免疫；每擊自動生效）。`,
     evade_ranged: m => `避矢加護：對 Archer 遠程的迴避 +${Math.round(6 * m)}。`,
     divine_core: m => `神核：女神之軀，受傷 −${Math.round(18 * m)}%（破魔可無視）。`,
@@ -1156,7 +1156,7 @@
     fast_cast: m => `高速詠唱：一回合內連珠疊咒，魔砲彈幕傷害 +${Math.round(12 * m)}。`,
     mage_realm: () => '可選借得技能（魔境的智慧／皇帝特權…）：由御主在從者卡挑選一個通用 A 階被動注入此戰——實際威力依所選的那個被動決定，見已選擇的技能。',
     petrify: m => `鎖死身法（魔眼石化／冰封／疫染等）：鎖死獵物身法，令敵迴避 −${Math.round(4 * m)}（剋閃避流）；寶具解放時乘隙致命，傷害 ×1.3。`,
-    projection: () => '投影魔術（⚡主動技）：詠唱「Trace on」連續投影名劍齊射。攻擊時按「⚡主動」＝該次交鋒命中+2、追加傷害（依寶具階級·抽御主魔力一次）；未按＝微量版（約3.5成、免費、每擊自動）。',
+    projection: () => '投影魔術（🎲施放技術·被動）：詠唱「Trace on」連續投影名劍齊射。每次交鋒有 50% 機率自動全效發動＝該擊命中+2、追加傷害（依寶具階級·免耗魔、不必手動）；未發動則該擊無此加成。',
     rho_aias: m => `概念護盾（七天盾・羅・埃亞斯等）：只對【敵寶具解放】的一擊反應性展開，受傷 ×${(1 - 0.40 * m).toFixed(2)}（依階級）；普通攻擊不觸發。我方展開每次耗御主 30 魔，魔力不足則張不開；唯超位階概念寶具（乖離劍等）可貫穿。`,
     rune: m => `原初符文：可選三種運用——護符減傷(受傷 ×${(1 - 0.10 * m).toFixed(2)})／符文灼擊增傷(+${Math.round(10 * m)})／涓流回血(每回合約${(2.5 * m).toFixed(1)}%上限HP，上限30)，戰前自選一種。`,
     regen: m => `治癒（回復魔藥／狐之治癒等）：常駐自癒——每回合涓流回復約 ${(2.5 * m).toFixed(1)}% 上限體力（上限30），持久戰越拖越穩。`,
@@ -1213,17 +1213,16 @@
     showHistoryOverlay(html);
   }
 
-  // ⚡ 主動技說明 popup：純資訊——實際發動在攻擊列按「⚡主動」(當次交鋒生效·扣魔一次)，未按時自動享約3.5成微量被動(免費)。
+  // 🎲 施放技術說明 popup：純資訊——已被動化，戰時每擊 50% 機率自動全效發動、免耗魔、不必手動。
   function showActiveSkillInfo(name, fx, rank) {
     var mul = rankVal_(rank || 'C') / 30;
     var desc = FX_DESC[fx] ? FX_DESC[fx](mul, rank) : '';
-    var cost = (fx === 'burst') ? 30 : 24;
     var rk = (rank && rank !== '-') ? ('　<span style="color:#e7c873;">階級 ' + rank + '</span>') : '';
-    var html = '<h3 style="margin:0 0 8px; color:#7ec8ff;">⚡ 主動技：' + name + rk + '</h3>'
+    var html = '<h3 style="margin:0 0 8px; color:#7ec8ff;">🎲 施放技術：' + name + rk + '</h3>'
       + '<div style="color:#cfc3d8; font-size:14px; line-height:1.9;">' + desc + '</div>'
       + '<div style="margin:10px 0 0; padding:8px 10px; border-radius:8px; background:rgba(20,14,28,.5); border:1px solid #4e92c0;">'
-      +   '<div style="color:#7ec8ff; font-size:13px; font-weight:bold;">發動方式：攻擊敵從者時按「⚡主動」按鈕</div>'
-      +   '<div style="color:#8a7fa0; font-size:11px; margin-top:3px;">按下＝該次交鋒全力發動、抽御主魔力一次（約 ' + cost + '）；平時每擊自動享約 3.5 成的微量效果（免費）。與寶具/令咒按鈕擇一使用。</div>'
+      +   '<div style="color:#7ec8ff; font-size:13px; font-weight:bold;">發動方式：被動·每次交鋒 50% 機率自動【全效】發動</div>'
+      +   '<div style="color:#8a7fa0; font-size:11px; margin-top:3px;">不必手動、免耗魔；發動則該擊享全效，未發動則該擊無此加成。與寶具/令咒各自獨立、不衝突。</div>'
       + '</div>';
     showHistoryOverlay(html);
   }
@@ -1439,7 +1438,7 @@
             var _arg = "'" + String(sk.n).replace(/'/g, '') + "','" + sk.fx + "','" + String(sk.r || '').replace(/'/g, '') + "'";
             var _rc = pillRankCls_(sk.r);
             var _sh = _rc === 'ex' ? '0 0 7px rgba(180,140,255,.55)' : _rc === 'a' ? '0 0 6px rgba(224,87,74,.45)' : _rc === 'b' ? '0 0 4px rgba(231,200,115,.4)' : 'none';
-            return '<span onclick="event.stopPropagation();showActiveSkillInfo(' + _arg + ')" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid #7ec8ff; color:#7ec8ff; background:rgba(110,180,220,.12); border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap; box-shadow:' + _sh + ';">⚡' + sk.n + (sk.r && sk.r !== '-' ? ' ' + sk.r : '') + '</span>';
+            return '<span onclick="event.stopPropagation();showActiveSkillInfo(' + _arg + ')" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid #7ec8ff; color:#7ec8ff; background:rgba(110,180,220,.12); border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap; box-shadow:' + _sh + ';">🎲' + sk.n + (sk.r && sk.r !== '-' ? ' ' + sk.r : '') + '</span>';
           }
           return pill(sk.n, sk.r, sk.fx, '#d9a93a', false);
         }).join('');
@@ -1590,10 +1589,10 @@
       + '<div style="color:#8a8298; font-size:10.5px; margin-bottom:4px;">🎌 御主參戰風格 <small style="opacity:.6;">· 御主替從者分擔戰損 <span id="stance-share-pct">' + _shareNow + '</span>%、並定調接敵/撤離追擊</small></div>'
       + '<div style="display:flex; gap:4px;">' + segs + '</div></div>';
   }
-  // 抵達/撤離敘事用的姿態定調句（無敵蹤時用·正常＝不加，留白給資料驅動）
+  // 抵達/撤離敘事用的參戰風格定調句（無敵蹤時用·見機行事＝不加，留白給資料驅動）
   function stanceLine_() {
     var k = getStance(); if (k === 'normal') return '';
-    return '★【接敵姿態】御主此刻以〔' + STANCES[k].label + '〕之姿行動——'
+    return '★【御主參戰風格】御主此刻以〔' + STANCES[k].label + '〕之姿行動——'
       + (k === 'stealth' ? '壓低存在感、避免張揚，盡量不被察覺地接近或抽身' : '毫不掩飾、堂堂現身，主動暴露行蹤、不屑隱匿')
       + '。讓此姿態自然滲入現身與被察覺的方式，勿喧賓奪主、勿替敵人預設反應。\n';
   }
@@ -1642,7 +1641,7 @@
       + ((pc && pc.mode === 'kanshou') ? '' : '<button class="btn" style="padding:3px 9px; font-size:12px; border-color:#4a8a8a; color:#7fc7c7;" onclick="scout()">🔍 偵查</button>')
       + '<button class="btn" style="padding:3px 9px; font-size:12px; border-color:#4682b4; color:#9fc0ef;" onclick="refreshMapPane()">🔄 重整</button>'
       + '</div></div>';
-    if (!(pc && pc.mode === 'kanshou')) html += stancePillHtml_(); // 🎭 接敵姿態藥丸（戰爭軌限定·鑑賞無戰鬥）
+    if (!(pc && pc.mode === 'kanshou')) html += stancePillHtml_(); // 🎌 御主參戰風格藥丸（戰爭軌限定·鑑賞無戰鬥）
     html += '<div style="color:#9a8bb0; font-size:11px; margin-bottom:6px;">📍 目前所在：' + (here || '未知') + '　<span style="color:#d65c5c;">⚔ = 敵人</span></div>';
     if (allyIntel) html += '<div style="color:#8fd0a0; font-size:11px; margin-bottom:6px; padding:4px 7px; background:rgba(20,45,28,.3); border:1px solid rgba(90,170,120,.4); border-radius:6px;">🤝 盟友通報·敵蹤全揭露——同盟期間無視戰爭迷霧，全圖敵人位置一覽無遺。</div>';
     html += buildMapSvg_(nodes);
