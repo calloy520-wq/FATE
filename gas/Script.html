@@ -524,8 +524,6 @@
         if (myCanRB && myServants.length < 2 && myMasterSeals > 0) {
           acts += '<button onclick="ruleBreakSteal(\'' + safe + '\')" title="破戒奪僕：對打殘(HP<35%)的敵從者斬契奪為第二從者，燃一道令咒" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(176,108,208,.16); color:#d0a0e8; border:1px solid #8a5fb0; border-radius:7px; cursor:pointer; font-weight:bold;">⛓ 破戒奪僕 <small style="opacity:.7;">須打殘至35%＋燃令咒</small></button>';
         }
-        // 🏃 撤退突圍（原「⚡主動」鍵位改此）：有敵在場時無法從容移動，須以撤退離場——對方【必】追擊、勝負由 GAS 裁定。
-        acts += '<button onclick="promptRetreat()" title="殺出重圍撤離此地：有敵在場時無法從容移動，須以撤退離開，對方必追擊、勝負由 GAS 裁定(耗 2AP)。" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(200,120,70,.16); color:#e0a080; border:1px solid #c0872e; border-radius:7px; cursor:pointer; font-weight:bold;">🏃 撤退突圍 <small style="opacity:.7;">殺出重圍離場·敵必追擊</small></button>';
       }
       // 🕊️ 示好：只對【敵御主】交涉（好感由整組御主＋從者共用，示好御主會連坐養其從者）——從者不設此鈕
       if (f.faction === '敵御主') {
@@ -554,7 +552,9 @@
     h += chip('🔍 偵查', 'scout()', '127,199,199');
     h += chip('🍱 整備', 'prepMeal()', '210,170,90');
     h += chip('🛏️ 休息', 'openRestMenu()', '169,169,216');
-    h += chip('🗺️ 移動', "showGamePane('map')", '159,192,239');
+    // 🏃 有敵從者在場＝交戰狀態：移動鈕直接變「撤退突圍」(點開退路選單·敵必追擊)；無敵才是從容移動(開地圖點目的地)。
+    if (foeServs.length) h += chip('🏃 撤退突圍', 'promptRetreat()', '224,120,70');
+    else h += chip('🗺️ 移動', "showGamePane('map')", '159,192,239');
     bar.innerHTML = h;
     bar.style.display = 'flex';
   }
@@ -1658,8 +1658,11 @@
         + '</div>';
     }
 
-    // 地圖節點本身即可點擊移動，文字「可前往」清單已多餘，移除。
-    html += '<div style="color:#6a5f80; font-size:11px; margin:10px 0 6px; text-align:center;">👆 點地圖上的地點即可前往</div>';
+    // 地圖節點本身即可點擊移動；🏃 交戰中(有敵從者在場)＝無法從容移動，點地點會自動轉為「撤退突圍」(敵必追擊)。
+    var _foeHere = (localNPCs || []).some(function (n) { return n && n.isExact && n.faction === '敵從者'; });
+    html += _foeHere
+      ? '<div style="color:#e0a080; font-size:11px; margin:10px 0 6px; text-align:center; border:1px solid rgba(200,120,70,.4); border-radius:7px; padding:6px 8px;">⚔️ 此地有敵——無法從容移動。點任一地點將以「🏃 撤退突圍」殺出（敵必追擊、勝負由 GAS 裁定）。</div>'
+      : '<div style="color:#6a5f80; font-size:11px; margin:10px 0 6px; text-align:center;">👆 點地圖上的地點即可前往</div>';
     c.innerHTML = html;
   }
   function refreshMapPane() { syncData(true); }
