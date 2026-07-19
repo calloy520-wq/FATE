@@ -91,6 +91,19 @@ function actionMove(userData, pcId, sheets) {
   // 🥷 悄悄離開：若正從一個「敵人分心」的局面格（趁隙窗口·slip）抽身，此刻離開不會被追擊。
   var _slipWin = isFateMove ? getEncounterWindow_(allPcData[pIdx][COL.PC.MEMORY]) : null;
   var _slipAway = !!(_slipWin && _slipWin.loc === String(allPcData[pIdx][COL.PC.LOC] || "").trim() && encounterChoices_(_slipWin.type).slip);
+  // 🏃 撤退旗標：前端按「撤退」殺出重圍時帶 retreat=true——敵方【必】追擊(非機率)、GAS 判勝負。
+  var isRetreat = isFateMove && (userData.retreat === true || userData.retreat === 'true');
+  // 🚫 有敵時封鎖從容移動：離場格若有【非盟約·已登場·未友好(BOND<50)】的能戰敵從者，plain 移動被擋，須改按「撤退」。
+  //   分心窗口(slip)可悄悄離開則不受此限；撤退本身(isRetreat)也放行。
+  var _fromLocR = String(allPcData[pIdx][COL.PC.LOC] || "").trim();
+  if (isFateMove && !_slipAway && !isRetreat && tgtTrim !== _fromLocR) {
+    var _hostileHere = allPcData.some(function (r) {
+      return String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === moveGameId &&
+        !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC] || "").trim() === _fromLocR &&
+        !isAllied_(r) && hasArrived_(r, _moveDay()) && (parseInt(r[COL.PC.BOND]) || 0) < 50;
+    });
+    if (_hostileHere) return JSON.stringify({ success: false, needRetreat: true, message: "此地有敵從者當前——無法從容轉身離去。須按「🏃 撤退」殺出重圍（對方必追擊、勝負由 GAS 裁定）。" });
+  }
   var pursuit = null;
   try {
     var fromLocM = String(allPcData[pIdx][COL.PC.LOC] || "").trim();
@@ -153,22 +166,27 @@ function actionMove(userData, pcId, sheets) {
           var a = rankVal((rowToCombatant_(r).six['敏捷']) || 'C');
           if (a > chaserAgi) { chaserAgi = a; chaser = r; }
         });
-        if (!pursuit && chaser && chaserAgi >= psvAgi) { // 追得上(敵敏≥我敏)才追
-          var pProb = 0.30 + (psvHp < psvMax * 0.4 ? 0.20 : 0) - (hasFx_(psvC, 'ride') ? 0.15 : 0);
-          var stanceM = String(userData.stance || 'normal'); // 🎭 接敵姿態(純敘述 flavor·僅此處輕觸追擊)：隱蔽−/光明+
-          pProb += (stanceM === 'open' ? 0.10 : stanceM === 'stealth' ? -0.10 : 0);
-          pProb = Math.max(0, Math.min(0.55, pProb)); // 夾上限·免殘血+光明變「離場必被咬」
+        // 🏃 撤退＝敵方【必】追擊：無視「敵敏≥我敏」門檻與機率(對方燃令咒強行追殺)；一般離場才走機率/敏捷判定。
+        if (!pursuit && chaser && (isRetreat || chaserAgi >= psvAgi)) {
+          var pProb;
+          if (isRetreat) { pProb = 1; }
+          else {
+            pProb = 0.30 + (psvHp < psvMax * 0.4 ? 0.20 : 0) - (hasFx_(psvC, 'ride') ? 0.15 : 0);
+            var stanceM = String(userData.stance || 'normal'); // 🎌 御主參戰風格(僅此處輕觸追擊機率)：後方支援−/正大光明+
+            pProb += (stanceM === 'open' ? 0.10 : stanceM === 'stealth' ? -0.10 : 0);
+            pProb = Math.max(0, Math.min(0.55, pProb)); // 夾上限·免殘血+光明變「離場必被咬」
+          }
           if (Math.random() < pProb) {
             var chC = rowToCombatant_(chaser);
             // ⚔️ 真·交手判定(非單方挨打)：追兵 vs 我方從者一次交鋒，誰輸誰扣血——我方夠強可回身反咬逼退追兵。
-            //   雙方保 1 不致死(離別小衝突·防玩家來回刷殺/也防被追擊秒殺)。
-            var pr = resolveFateBattle_(chC, psvC, {});
+            //   雙方保 1 不致死(離別小衝突·防玩家來回刷殺/也防被追擊秒殺)。撤退時追兵搶得先機(ambush)、更難全身而退。
+            var pr = resolveFateBattle_(chC, psvC, isRetreat ? { ambush: true } : {});
             var chaserNm = String(chaser[COL.PC.NAME]);
             // 六圍追擊也需要 note——worldRumors 只在 pursuit.note 存在時才推播戰報，缺了 note 扣血就看不出原因。
-            pursuit = { enemyName: chaserNm, chaserId: String(chaser[COL.PC.ID]), dmg: Math.max(1, pr.damage), hitWho: pr.atkWins ? 'us' : 'foe',
+            pursuit = { enemyName: chaserNm, chaserId: String(chaser[COL.PC.ID]), dmg: Math.max(1, pr.damage), hitWho: pr.atkWins ? 'us' : 'foe', retreat: isRetreat,
               note: pr.atkWins
-                ? ('「' + chaserNm + '」腳程更快，你才轉身欲走，她已欺身欺至，狠狠螫了你的從者一記——沒能全身而退。')
-                : ('「' + chaserNm + '」欺身追至，卻被你的從者堪堪回身擋開、反手逼退。') };
+                ? ((isRetreat ? '你決意殺出重圍，「' + chaserNm + '」豈容獵物脫逃——燃令咒疾追而至，' : '「' + chaserNm + '」腳程更快，你才轉身欲走，她已欺身欺至，') + '狠狠螫了你的從者一記——沒能全身而退。')
+                : ((isRetreat ? '你強行突圍，「' + chaserNm + '」燃令咒疾追，' : '「' + chaserNm + '」欺身追至，') + '卻被你的從者堪堪回身擋開、反手逼退。') };
           }
         }
       }
@@ -244,7 +262,7 @@ function actionMove(userData, pcId, sheets) {
     var pChaserRow = allPcData.find(function (r) { return String(r[COL.PC.ID]) === pursuit.chaserId; });
     pursuit.foeCard = pChaserRow ? servantCard_(pChaserRow) : "";
     pursuitReport = {
-      pursuit: true, np: !!pursuit.np, enemyName: pursuit.enemyName, dmg: pursuit.dmg, hitWho: pursuit.hitWho,
+      pursuit: true, np: !!pursuit.np, retreat: !!pursuit.retreat, enemyName: pursuit.enemyName, dmg: pursuit.dmg, hitWho: pursuit.hitWho,
       svName: pSvName, svHpMax: pSvHpMax, after: pSvHpAfter
     };
   }
@@ -601,10 +619,14 @@ function resolveFactionEncounter_(allPcData, mA, mB, svA, svB, gameId, day) {
   var loserIdx = cross.atkWins ? idxB : idxA; // atk=svA 贏→輸家 svB
   var loserName = cross.atkWins ? svBName : svAName;
   var baseDmg = Math.max(1, Math.round((cross.damage || 1) * 0.4));
+  // 📊 GAS 戰報：撞見兩方敵人時 GAS 實際落血，記進 clashHits 供前端畫數字卡（絕不讓 AI 亂掰傷害）。
+  var clashHits = [];
   var chip = function (idx, mul) {
     if (idx < 0) return 0;
     var d = Math.max(1, Math.round(baseDmg * mul));
-    allPcData[idx][COL.PC.HP] = Math.max(1, (parseInt(allPcData[idx][COL.PC.HP]) || 0) - d);
+    var after = Math.max(1, (parseInt(allPcData[idx][COL.PC.HP]) || 0) - d);
+    allPcData[idx][COL.PC.HP] = after;
+    clashHits.push({ name: String(allPcData[idx][COL.PC.NAME] || ""), dmg: d, after: after, hpMax: parseInt(allPcData[idx][COL.PC.MAX_HP]) || after });
     return d;
   };
   var moreHurt = (hpA <= hpB) ? svAName : svBName, moreHurtIdx = (hpA <= hpB) ? idxA : idxB;
@@ -669,7 +691,9 @@ function resolveFactionEncounter_(allPcData, mA, mB, svA, svB, gameId, day) {
       note = `你抵達時，「${mAName}」與「${mBName}」的從者已鏖戰多時——「${loserName}」帶著新添的傷勢（−${chip(loserIdx, 1.0)}），雙方在你踏入的瞬間戒備地停手，各自警惕地看向這個不速之客。`;
       break;
   }
-  return { type: type, aMaster: mAName, bMaster: mBName, loserName: loserName, note: note, choices: encounterChoices_(type) };
+  // 有實際落血才附戰報卡（frenzy/hunt/clash 三種會 chip；其餘局面無傷→無卡，純敘事）。
+  var report = clashHits.length ? { factionClash: true, ftype: type, aMaster: mAName, bMaster: mBName, hits: clashHits } : null;
+  return { type: type, aMaster: mAName, bMaster: mBName, loserName: loserName, note: note, report: report, choices: encounterChoices_(type) };
 }
 
 // 局面 type → 開放的情境選擇（前端據此顯示按鈕）。ambush＝趁隙偷襲／incite＝挑撥離間／slip＝悄悄離開不被追擊。
@@ -826,8 +850,10 @@ function actionIncite(userData, pcId, sheets) {
     var loName = cross.atkWins ? svBName : svAName;
     var loDmg = Math.max(1, Math.round((cross.damage || 1) * 0.6));
     var wiDmg = Math.max(1, Math.round((cross.damage || 1) * 0.25));
-    pcData[loIdx][COL.PC.HP] = Math.max(1, (parseInt(pcData[loIdx][COL.PC.HP]) || 0) - loDmg);
-    pcData[wiIdx][COL.PC.HP] = Math.max(1, (parseInt(pcData[wiIdx][COL.PC.HP]) || 0) - wiDmg);
+    var loAfter = Math.max(1, (parseInt(pcData[loIdx][COL.PC.HP]) || 0) - loDmg);
+    var wiAfter = Math.max(1, (parseInt(pcData[wiIdx][COL.PC.HP]) || 0) - wiDmg);
+    pcData[loIdx][COL.PC.HP] = loAfter;
+    pcData[wiIdx][COL.PC.HP] = wiAfter;
     sheets.pc.getRange(loIdx + 1, 1, 1, pcData[loIdx].length).setValues([pcData[loIdx]]);
     sheets.pc.getRange(wiIdx + 1, 1, 1, pcData[wiIdx].length).setValues([pcData[wiIdx]]);
     // 🔥 後續配套：得逞→兩敵結下樑子(【交惡】雙方御主，至 day+3)，之後撞見他們更可能火併/追殺、不會結盟。
@@ -840,7 +866,10 @@ function actionIncite(userData, pcId, sheets) {
     }
     aiPrompt = `【系統·挑撥離間·得逞】你三言兩語點燃了「${svAName}」與「${svBName}」之間的火——兩人當真打了起來，「${loName}」吃了較重的一擊（−${loDmg}），另一方亦掛彩（−${wiDmg}），自此結下樑子。\n` +
       `★以 Fate／TYPE-MOON 筆觸【約 80~140 字】演出你如何煽風點火、兩方如何被激得反目相向；你則在一旁坐收其亂。傷害已由 GAS 結算。`;
-    report = { incite: true, success: true, aName: svAName, bName: svBName, loName: loName, loDmg: loDmg, wiDmg: wiDmg };
+    var wiName = cross.atkWins ? svAName : svBName;
+    report = { incite: true, success: true, aName: svAName, bName: svBName,
+      loName: loName, loDmg: loDmg, loAfter: loAfter, loHpMax: parseInt(pcData[loIdx][COL.PC.MAX_HP]) || loAfter,
+      wiName: wiName, wiDmg: wiDmg, wiAfter: wiAfter, wiHpMax: parseInt(pcData[wiIdx][COL.PC.MAX_HP]) || wiAfter };
   } else {
     // 🫶 後續配套：被看穿→兩敵對你更反感，各降 4 好感（你操弄未遂、留下芥蒂）。
     bumpBond_(sheets, pcData, iA, -4);

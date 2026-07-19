@@ -312,8 +312,8 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 - **敗北/勝利收場**：`handleDefeat`→虛假之夢→🐯老虎道場 AI 講評（`runTigerDojo_`·依實際敗因·藤村大河+伊莉雅吐槽+對症建議）。`handleVictory`→願望真夢→道場祝賀版→奪杯畫面（共用殼·`openTigerDojo('victory')`）。
 - **召喚/創角**（搬到 `Script_Onboarding.html`·只開局跑一次·共享同頁全域作用域）：`accountLogin`/`chooseWarMode`/`chooseWar`/`chooseRole`/`pickCanonMaster`、`rollFate`/`selectFateRoll`/`renderFateRolls`（魔術天賦測定·擲 melee＋獨立擲 magicRank）、`checkName`/`createPC`/`backfillMasterAi`、`doSummon`/`summonByHero`/`startGame`。
 - **地圖**：`renderMapPane`（陣地/搜索/盟友通報橫幅·優先吃夾帶 `mapNodes` 免 round-trip·存 `lastMapNodes` 快取）、`buildMapSvg_`（節點實色 `typeColor`＋圖例對齊）。**20 正典地點**種子在 `Setup_FateWorld.gs` `FATE_MAP_SEED`（`reseedIfEmpty_` upsert）；前端位置是 `buildMapSvg_` 內 hardcoded `LAYOUT`（非試算表座標）。改地圖同步改種子（名字）＋LAYOUT（位置）。`COL.MAP.WAR` 戰爭分流（'4th' 限定海特飯店/麥肯基宅/碼頭倉庫）。
-- **移動敘事 `actionMove`**：先 `worldTick_`（敵換位）→重讀眾生→落玩家到 target→讀同地人物。回傳 `servantCard`（我方·前綴【我方從者】）＋`foeCards`（敵·前綴【敵方從者·非我方】）＋`masterCard`。前端 `travelTo` 抵達提示前置。無人在場禁生具名角色；遭遇分「找上門/偶遇」（讀 `preFoes`）。**接敵姿態**（純敘述·存 localStorage `fate_stance`·免 round-trip）：🥷隱蔽/🚶泰然/🔥光明，只輕觸 `actionMove` 追擊機率。
-- **撤離追擊**（`actionMove`·用移動前資料判定）：離開有活敵從者的格子時，敏≥我方且 BOND<50 的敵從者依機率咬一記（base30%·帶傷+20%/騎乘-15%/姿態±10%·夾0~0.55）。命中則 `resolveFateBattle_` 真·雙向判定（我輸/我贏回身逼退·保1不致死）。回 `pursuit`（含 `foeCard`）＋數字戰報卡。無預告時退回六圍追擊。
+- **移動敘事 `actionMove`**：先 `worldTick_`（敵換位）→重讀眾生→落玩家到 target→讀同地人物。回傳 `servantCard`（我方·前綴【我方從者】）＋`foeCards`（敵·前綴【敵方從者·非我方】）＋`masterCard`。前端 `travelTo` 抵達提示前置。無人在場禁生具名角色；遭遇分「找上門/偶遇」（讀 `preFoes`）。**御主參戰風格**（＝前身「接敵姿態」·存 localStorage `fate_stance`·免 round-trip·一鍵三段藥丸 `STANCES`）：🛡️後方支援(stealth·0%)／👁️見機行事(normal·5%)／🔥正大光明(open·10%)。一鍵定兩事——①接敵/撤離追擊基調（隱蔽−/光明+ 追擊機率）②戰鬥中御主替從者**分擔戰損比例**（見下 §14 ①）。`fate_battle` 與 `move` payload 皆帶 `stance`。
+- **撤離追擊／🏃撤退**（`actionMove`·用移動前資料判定）：一般離場時，敏≥我方且 BOND<50 的敵從者依機率咬一記（base30%·帶傷+20%/騎乘-15%/姿態±10%·夾0~0.55）。**有敵擋道則封鎖從容移動**：離場格有【非盟約·已登場·未友好(BOND<50)】能戰敵從者時，plain move 被擋回 `needRetreat`，須改按 **🏃撤退**（`retreat:true`）殺出重圍——此時追擊**必發（pProb=1·無視敏捷門檻·敵燃令咒追殺·追兵帶 ambush 先機）**。命中則 `resolveFateBattle_` 真·雙向判定（我輸/我贏回身逼退·保1不致死）。回 `pursuit`（含 `foeCard`·`retreat` 旗標）＋數字戰報卡。slip 窗口（敵分心）可悄悄離開不受此限。前端 `promptRetreat`/`retreatTo` 開退路選單（原「⚡主動」鍵位改此撤退鈕），或直接點地圖被擋→跳「🏃撤退突圍」卡。
 - **抵達時撞見兩方敵人**（`resolveFactionEncounter_`·Router_Movement）：≥2 位不同敵御主（皆非結盟）同格→**不再永遠「互毆→見你停手」**，改**資料驅動權重表擲一種局面**：clash(交手餘傷·停手)／frenzy(殺紅眼·沒理你繼續打)／standoff(對峙未發)／hunt(一方追殺殘方)／unite(暫時聯手戒你)／pact(敵敵結盟·設【敵盟】)／truce(各自休整)／parley(談判被打斷)／allied_pair(已締盟續演)。權重依雙方 `masterPersonaLean_`（性格投契度·與 `allianceWillingness_` 共用單一真實來源）＋從者傷勢差＋殘敵數動態調整。HP 餘傷／`setEnemyPact_` 敵盟標記等後果 GAS 落地寫 allPcData，`factionClash.note`（純場面事實）給 AI 演出。加局面＝往權重表 W 加一項＋switch 補一段 note。前端 arrivePrompt 用中性 steer（不再假設「你打斷了戰鬥」）。**敵盟／交惡回饋**：已締【敵盟】未逾期→直接演 allied_pair（不重擲）＋`worldTick_` 暗鬥跳過這對（不自相殘殺）＋**正面戰鬥協防**（`actionFateBattle`：攻其一，其敵盟夥伴的同地從者每回合替其反擊我方一記·敵版協同強襲·`rl.pactDef`）；已結【交惡】未逾期→抽掉 pact/unite/truce/parley/standoff、狠推 frenzy/hunt。
 - **撞見敵人的配套「後續選擇」**（局面決定開放哪些按鈕·`FACTION_ENCOUNTER_CHOICES_` 資料表）：抵達時 `resolveFactionEncounter_` 回 `choices:{ambush,incite,slip}`，actionMove 寫【趁隙】loc@type 窗口進御主 MEMORY，`buildTagsPayload_` 回 `encounterWindow` → 前端 `renderEncounterBubbles`（複用鑑賞 `.btn-option` 泡泡·GAS 自產不靠 AI）畫進 `options-container`；抵達時 travelTo 吃 `_state.tags`、之後每次 `refreshFateTags` 依 `window._encWin` 重畫，窗口清掉即自動消失。
   - 🥷 **趁隙偷襲**（`faction_ambush`→`actionFactionAmbush`→`playerAmbushOnEnemy_`）：敵分心（frenzy/standoff/parley/pact）時搶一記奇襲，複用 `resolveFateBattle_` 的 `ambush` 先機（鏡射 `enemyAmbushOnServant_` 反向），×1.5 加乘、處理敵死亡(DEAD_/`markMasterLostServant_`/`aliveEnemyServants_` 勝利)。耗 1AP、用掉清窗口。
@@ -337,3 +337,17 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 ①戰鬥職階相剋＋寶具專屬（Engine_Fate） ②~~正典劇情橋段~~已退役 ③戰爭規則含結盟（同盟系統） ④日常與羈絆（bond/補魔/夢境/禮裝/雙從者/破戒奪僕/同盟生命週期→鑑賞）。種子庫 20 從者＋15 御主 persona 全補完。
 
 *完整逐檔逐函式 track 矩陣見 `HANDBOOK.md` §12；每個 action↔按鈕↔prompt 全景見 `AI_PROMPT_MAP.md`。改碼順手更新本檔。*
+
+---
+
+## 14. 戰鬥改版（2026-07·御主參戰／被動技／撤退／全戰報卡）
+
+- **① 御主參戰風格·替從者分擔戰損**（`STANCE_SHARE_`＝{stealth:0, normal:.05, open:.10}·`stanceShareOf_`／`applyMasterStanceShare_`·Router_Battle）：`actionFateBattle` 讀 `userData.stance` 得 share。每當從者挨了**非致命**一擊（主戰輪敵反擊／敵盟協防／開場對轟回震），御主「討回」`round(dmg×share)` 替扛——從者HP回補、御主HP扣（保底1·不因分擔而死；御主≤1則無力再擋），兩列即刻寫回 sheet（比照 backlash/drainForNp_ 逐事件寫）。累計 `masterShared` 進戰報 `report.masterShared`＋敘述句＋前端「🎌御主參戰：替扛 −X HP」＋御主血條（陣前）。**單一真實來源**：share 值後端為準、前端 `STANCES[k].share` 僅顯示。
+- **② 主動技→被動 50%**（`rollSkill_`·Router_Battle｜移除 `tinyActiveSkill_`/drain/`⚡主動`鈕）：施放技術（burst/str_up/projection）不再手動、不扣魔、無微效保底——改**每一擊獨立 50% 機率自動全效發動**（`SKILL_PROC_=0.5`·rounds 迴圈＋開場對轟各自擲）。`skillFired` 記本戰是否至少發動一次→敘述＋戰報 `report.skill{name,icon,desc}`。前端刪 `activeSkillOfActive_`／`⚡主動` 鈕／`useSkill` 全鏈；從者卡標籤改「🎲每擊50%自動全效」。
+- **③ 撤退按鈕**：見 §12「撤離追擊／🏃撤退」。核心＝有敵封鎖 plain move（`needRetreat`）＋撤退必追擊（GAS 判勝負）。
+- **④ 全戰鬥須有 GAS 戰報卡**（玩家鐵則：所有落血皆 GAS 算·不容 AI 亂掰數字）。`renderFateBattleReport` 新增／補全卡型：
+  - 🎭 **敵營動向**（`resolveFactionEncounter_` 回 `report{factionClash,ftype,hits[]}`·frenzy/hunt/clash 才落血）→ travelTo 渲染 `data.factionClash.report`。
+  - 🥷 **趁隙偷襲**（player 方向·`report.player`＋`eHpMax`）→ `factionAmbush` onSuccess 渲染·敵血條卡。
+  - 🎭 **挑撥離間**（得逞·`report.incite`·雙敵落血含 loAfter/wiAfter）→ `incite` onSuccess 渲染；被看穿無傷不畫卡。
+  - 🤝 **敵盟協防逐擊**（`rd.pactDef` 於 round 區塊條列「協防·X 襲 Y −Z」，不再混進總血條看不見）。
+  - 例外：`worldTick_` 暗處互鬥（off-screen）刻意不洩具體數字、只出模糊風聞（AI 亦無數字可掰·非缺口）。

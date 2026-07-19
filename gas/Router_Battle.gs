@@ -325,6 +325,27 @@ function enemyCanAffordNp_(pcData, svIdx, gameId, prana) {
   return { afford: maxPay >= prana, masterIdx: mi };
 }
 
+// 🎌 御主參戰風格（與前端「御主戰法」三段藥丸同鍵）：御主替從者分擔戰損的比例。
+//   後方支援(stealth)＝0%·躲在後方不涉險；見機行事(normal)＝5%·相機補位；正大光明(open)＝10%·堂堂立於陣前共擔傷勢。
+var STANCE_SHARE_ = { stealth: 0.0, normal: 0.05, open: 0.10 };
+function stanceShareOf_(stance) { var s = STANCE_SHARE_[String(stance || "")]; return (typeof s === 'number') ? s : STANCE_SHARE_.normal; }
+// 🩸 傷害轉移：從者剛吃了 dmg(fateStrike_ 已寫入從者HP＋sheet)，御主依風格「討回」share 比例替其承受——
+//   從者HP回補 shared、御主HP扣 shared，兩列即刻寫回 sheet(與 backlash/drainForNp_ 同一套逐事件寫法)。
+//   御主不因分擔而死(保底1)；已瀕死(≤1)則無力再擋。回實際分擔值(供戰報)。
+function applyMasterStanceShare_(sheets, pcData, svIdx, masterIdx, dmg, share) {
+  if (!share || share <= 0 || dmg <= 0 || svIdx < 0 || masterIdx < 0 || svIdx === masterIdx) return 0;
+  var mHp = parseInt(pcData[masterIdx][COL.PC.HP]) || 0;
+  if (mHp <= 1) return 0;
+  var shared = Math.min(Math.max(1, Math.round(dmg * share)), mHp - 1);
+  if (shared <= 0) return 0;
+  var svMax = parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 999999;
+  pcData[svIdx][COL.PC.HP] = Math.min(svMax, (parseInt(pcData[svIdx][COL.PC.HP]) || 0) + shared);
+  pcData[masterIdx][COL.PC.HP] = mHp - shared;
+  sheets.pc.getRange(svIdx + 1, COL.PC.HP + 1).setValue(pcData[svIdx][COL.PC.HP]);
+  sheets.pc.getRange(masterIdx + 1, COL.PC.HP + 1).setValue(pcData[masterIdx][COL.PC.HP]);
+  return shared;
+}
+
 function actionFateBattle(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
   if (!npcName) return JSON.stringify({ success: false, message: "未指定攻擊目標。" });
@@ -648,20 +669,20 @@ function actionFateBattle(userData, pcId, sheets) {
     }
   }
 
-  // ⚡ 從者主動技：攻擊列第4顆「⚡主動」按鈕，userData.skill=true 才全效發動＋扣魔一次，跟 💥寶具/❖令咒
-  //   同一套「按下當次生效」的資源決策模式。未按＝微量被動(免費·每擊自動)。與寶具互斥由前端按鈕天然保證。
-  let skillBuff = null, skillBattery = null, skillActivated = false;
+  // 🎲 從者主動技已改「被動化」(玩家 2026-07 定案)：不再有手動「⚡主動」按鈕、不扣魔、無微效保底——
+  //   改為每一擊獨立 50% 機率自動【全效】發動(見下方 rollSkill_，於 rounds 迴圈與開場對轟各自擲)。
+  //   skillFired 只記「本戰至少發動過一次」，供敘述/戰報標示。
+  const SKILL_PROC_ = 0.5;
   const _fullSkill = servantActiveSkill_(atkC);  // 完整效果表(或 null＝無真·施放技術)
-  if (_fullSkill) {
-    if (userData.skill === true || userData.skill === 'true') {
-      skillBuff = _fullSkill; skillActivated = true;
-      const skCost = Math.round(200 * skillBuff.mpPct);   // 🔋 本戰扣一次(此區塊只跑一次·非回合迴圈內)，付不起走御主電池
-      skillBattery = drainForNp_(sheets, pcData, atkIdx, pIdx, skCost);
-      atkC.mp = parseInt(pcData[atkIdx][COL.PC.MP]) || 0;
-    } else {
-      skillBuff = tinyActiveSkill_(_fullSkill);   // 未按→微量被動、免費(無 drain)
-    }
-  }
+  let skillFired = false;
+  const rollSkill_ = function () {
+    if (_fullSkill && Math.random() < SKILL_PROC_) { skillFired = true; return _fullSkill; }
+    return null;
+  };
+
+  // 🎌 御主參戰風格：御主替從者分擔本戰所受傷害的比例(後方支援0%/見機行事5%/正大光明10%)。masterShared 累計實際分擔血量(供戰報)。
+  const _stanceShare = stanceShareOf_(userData.stance);
+  let masterShared = 0;
 
   let knockedOut = [], victory = false, defeat = false, dreamPrompt = "", destroyedName = "", sealEscaped = false, sealNote = "", godRevived = false, godNote = "";
   let enemyNpSpent = false; // 敵寶具一場限一次
@@ -707,7 +728,7 @@ function actionFateBattle(userData, pcId, sheets) {
       enemyC0.output = 100;
       // 🎯 火力取樣用 forceHit：damage 恆屬「攻方」——擲輸時取到的是對面的反殺傷害，會把與寶具威能
       //   無關的噪音帶進對轟比大小，故強制取攻方 damage。
-      const pPow = resolveFateBattle_(atkC, enemyC0, { np: true, seal: useSeal, skill: skillBuff, forceHit: true }).damage;
+      const pPow = resolveFateBattle_(atkC, enemyC0, { np: true, seal: useSeal, skill: rollSkill_(), forceHit: true }).damage;
       // 敵方火力取樣須補 servantActiveSkill_(敵AI恆全效免費)：burst/str_up/projection 是主動 only 技能，
       //   漏帶會讓持這三技的敵從者開場對轟火力系統性偏低。
       // 💠 對轟中敵寶具轟向我方從者＝七天盾的正戲：注入御主純魔供其展開(削 ePow)，取樣後立即結算費用
@@ -739,6 +760,8 @@ function actionFateBattle(userData, pcId, sheets) {
         const pHit = fateStrike_(sheets, pcData, enemyC0, atkIdx, { forceDamage: spill }, ctx);
         if (pHit.destroyed && pHit.knocked) knockedOut.push(pHit.knocked);
         if (pHit.defeat) { defeat = true; victory = false; dreamPrompt = pHit.dreamPrompt; }
+        // 🎌 御主參戰風格·對轟回震也替從者分擔(非致命時)
+        else if (spill > 0) { const _shC = applyMasterStanceShare_(sheets, pcData, atkIdx, pIdx, spill, _stanceShare); if (_shC) masterShared += _shC; }
       }
       clash = {
         outcome: outcome, pPow: pPow, ePow: ePow, pDmgTaken: pDmgTaken, eDmgTaken: eDmgTaken,
@@ -823,7 +846,7 @@ function actionFateBattle(userData, pcId, sheets) {
       //   除了對轟分支直接用 atkC 外，一般路徑(多數情況)都走這條每回合迴圈用 sC 結算，需手動複製過去，
       //   否則玩家已付超載代價卻吃不到超載倍率/過充加成。
       if (isActive && opening && openingNp) { sC.npOverloadMul = atkC.npOverloadMul; sC.overcharge = atkC.overcharge; }
-      const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && openingNp && isActive, seal: opening && openingSeal && isActive, ambush: opening && isActive, skill: isActive ? skillBuff : null, round: rd + 1 }, ctx);
+      const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && openingNp && isActive, seal: opening && openingSeal && isActive, ambush: opening && isActive, skill: isActive ? rollSkill_() : null, round: rd + 1 }, ctx);
       // 目標為敵御主(非從者)：引擎計算了反傷 fired 但不套用，過濾掉「winner·武器骰」等傷害計算噪音
       const _pFiredClean = isMasterTarget
         ? (ps.fired || []).filter(function (t) { return !/·武器骰|·出力\d/.test(String(t)); })
@@ -1000,6 +1023,8 @@ function actionFateBattle(userData, pcId, sheets) {
           const es = fateStrike_(sheets, pcData, enemyNow, ctgt, { counterMul: enemyFireNp ? 1.0 : 0.85, np: enemyFireNp, skill: eSkill, round: rd + 1 }, ctx);
           rl.eHit = es.hit; rl.eRoll = es.aRoll; rl.eHitVal = es.aHit; rl.eDmg = es.hit ? es.damage : 0; rl.eFired = es.fired; rl.eTarget = String(pcData[ctgt][COL.PC.NAME]); rl.eNp = enemyFireNp;
           if (es.defeat) { defeat = true; victory = false; dreamPrompt = es.dreamPrompt; }
+          // 🎌 御主參戰風格·替從者分擔：只在從者挨了非致命一擊時，御主討回 share 比例的傷勢自己扛。
+          else if (es.hit && rl.eDmg > 0) { const _sh = applyMasterStanceShare_(sheets, pcData, ctgt, pIdx, rl.eDmg, _stanceShare); if (_sh) { masterShared += _sh; rl.masterShared = (rl.masterShared || 0) + _sh; } }
         }
       }
     }
@@ -1015,6 +1040,8 @@ function actionFateBattle(userData, pcId, sheets) {
         const pds = fateStrike_(sheets, pcData, pdC, ctgt2, { counterMul: 0.85, skill: servantActiveSkill_(pdC), round: rd + 1 }, ctx);
         rl.pactDef = { name: pdC.name, hit: pds.hit, dmg: pds.hit ? pds.damage : 0, target: String(pcData[ctgt2][COL.PC.NAME]) };
         if (pds.defeat) { defeat = true; victory = false; dreamPrompt = pds.dreamPrompt; }
+        // 🎌 御主參戰風格·連協防這記也替從者分擔(非致命時)
+        else if (pds.hit && rl.pactDef.dmg > 0) { const _sh2 = applyMasterStanceShare_(sheets, pcData, ctgt2, pIdx, rl.pactDef.dmg, _stanceShare); if (_sh2) { masterShared += _sh2; rl.masterShared = (rl.masterShared || 0) + _sh2; } }
       }
     }
 
@@ -1120,7 +1147,8 @@ function actionFateBattle(userData, pcId, sheets) {
         : `· ${atkC.name} 高呼真名【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】、解放了寶具——★演出時務必讓其【親口唸出這個真名】(中文真名與原名並呼、氣勢拉滿)，這是 Fate 寶具解放的靈魂。\n`) : "")) +
       ((useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.25) ? `· 【灌魔超載】御主${atkC.npOverloadMul >= 1.9 ? '把餘裕魔力盡數傾注' : '將大量魔力加壓灌注'}這一發真名解放${atkC.overcharge ? '（方才補魔蓄積的澎湃魔力一併傾瀉而出）' : ''}——寶具威能被推至${atkC.npOverloadMul >= 1.9 ? '極限、化作規格外的毀滅光輝' : '遠超尋常的輝度'}。演出這股${atkC.npOverloadMul >= 1.9 ? '「傾盡一切、超載解放」的壯烈與光壓' : '「加壓超載」的灼熱光壓'}。\n` : "") +
       (backlash ? `· 【過載反噬】倍額魔力灌注的代價在解放後湧回——御主魔術迴路暴走灼身(−${backlash.dmg} HP)，強撐住了意識。★這是迴路過載的內在劇痛與虛脫，非外傷流血，切勿描寫成血流滿地。\n` : "") +
-      (skillActivated ? `· 我方全力催動了主動技「${skillBuff.name}」。\n` : "") +
+      (skillFired ? `· 交鋒間，我方從者的技術「${_fullSkill.name}」自然而發、順勢加持了攻勢。\n` : "") +
+      (masterShared > 0 ? `· 【御主參戰·正大光明／見機行事】御主未躲在後方，而是立於陣前一同承擔——替從者硬扛下 ${masterShared} 點傷勢(御主自身流血受創)。演出御主涉險共戰、以身擋傷的擔當(這是內在覺悟與肉身代價，數值已由 GAS 結算)。\n` : "") +
       (horrorFired ? `· 我方術師以螺湮城教本自深淵召出觸手巨獸「深淵海怪」，常駐戰場、每回合與本人並肩撕咬，靠御主魔力維持(枯竭則潰散)。\n` : "") +
       (dualAttack ? `· 我方兩名從者並肩夾擊同一敵手。\n` : "") +
       (allyAssistName ? `· 盟友從者「${allyAssistName}」依約自側翼掩護助攻。\n` : "") +
@@ -1151,6 +1179,7 @@ function actionFateBattle(userData, pcId, sheets) {
   const report = {
     atk: atkLabel, def: defC.name, rounds: rounds, dual: dualAttack, allyAssist: allyAssistName,
     useNp: useNp, npName: npName, useSeal: useSeal, totalDealt: totalDealt, totalTaken: totalTaken,
+    masterShared: masterShared, // 🎌 御主參戰風格·本戰替從者分擔的血量(0＝後方支援或未觸發)→前端戰報卡
     overload: (useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.01) ? +atkC.npOverloadMul.toFixed(2) : 0, // 🔥 灌魔超載倍率→前端橫幅
     overcharge: !!(useNp && atkC.overcharge), // 🔥 本發吃到補魔過充
     backlash: backlash, // ⚡🩸 過載反噬 {dmg,hp,hpMax}→前端紅幅(不致死·純資源傷害)
@@ -1164,7 +1193,7 @@ function actionFateBattle(userData, pcId, sheets) {
     defHp: parseInt(pcData[nIdx][COL.PC.HP]) || 0, defHpMax: parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0,
     atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0,
     battery: (battery && battery.usedBattery) ? { fromMasterMp: battery.fromMasterMp, fromMasterHp: battery.fromMasterHp, bledMaster: battery.bledMaster, masterHp: battery.masterHp, masterHpMax: battery.masterHpMax } : null,
-    skill: skillActivated ? { name: skillBuff.name, icon: skillBuff.icon, desc: skillBuff.desc, bledMaster: !!(skillBattery && skillBattery.bledMaster), fromMasterHp: skillBattery ? skillBattery.fromMasterHp : 0 } : null,
+    skill: skillFired ? { name: _fullSkill.name, icon: _fullSkill.icon, desc: _fullSkill.desc } : null,
     clash: clash,
     masterHp: parseInt(pcData[pIdx][COL.PC.HP]) || 0, masterHpMax: parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 0,
     party: partyIdxs.map(i => ({ name: String(pcData[i][COL.PC.NAME]), hp: parseInt(pcData[i][COL.PC.HP]) || 0, hpMax: parseInt(pcData[i][COL.PC.MAX_HP]) || 0 }))

@@ -249,7 +249,7 @@ function combatProfile_(c) {
 //     hit/hitAdd＝命中加成(攻方)；dmgMul/dmgAdd＝傷害加成(勝方)——皆可為數字或 r=>.. 或 (r,c)=>..；
 //     blockedByLoserFx＝敗方有此 fx 則免疫；silent＝套用時不推 fired 標籤(morale 靜默/self_mod 傷害段避免重列)。
 var SKILL_FX_ = {
-  // ⚡ 主動施放技術（開關制·單層）：tiny 版由 tinyActiveSkill_ 自動 ×ACTIVE_SKILL_TINY_ 生成
+  // ⚡ 施放技術（burst/str_up/projection）：已被動化——戰時每擊 50% 自動全效發動(見 Router_Battle rollSkill_)，不再手動開關
   burst: { active: true, prio: 1, mpPct: 0.15, icon: '💥', zh: '魔力放出', dmgMul: function (r) { return 1 + 0.45 * r; }, descFn: function (ht, dm) { return '本戰傷害 ×' + dm.toFixed(2) + '（灌注魔力放出）'; } },
   str_up: { active: true, prio: 2, mpPct: 0.12, icon: '💪', zh: '怪力', dmgAdd: function (r) { return Math.round(8 * r) + 14; }, descFn: function (ht, dm, da) { return '本戰傷害 +' + da + '（激發怪力）'; } },
   // 投影魔術數值已對齊同表 burst/str_up 量級(battle_sim 模擬過，開關勝率差距不超過 ~30 個百分點)。
@@ -294,8 +294,8 @@ function injectMasterMagicSupport_(c, masterMemory) {
   return c;
 }
 
-// ⚡ 從者主動技（施放技術·開關制）：掃 SKILL_FX_ 中 active 者依 prio 取第一個持有的。無則 null。
-//   數值隨技能自身階級成長(rank 折入)；tinyActiveSkill_ 產微量版(關閉時)。★只增益我方出擊、不碰防禦端。
+// ⚡ 從者施放技術（已被動化）：掃 SKILL_FX_ 中 active 者依 prio 取第一個持有的完整效果。無則 null。
+//   數值隨技能自身階級成長(rank 折入)。戰時由 rollSkill_ 每擊 50% 擲是否套用全效。★只增益我方出擊、不碰防禦端。
 function servantActiveSkill_(c) {
   var order = ['burst', 'str_up', 'projection']; // 優先序(prio)
   for (var i = 0; i < order.length; i++) {
@@ -308,19 +308,6 @@ function servantActiveSkill_(c) {
     return { id: fx, name: fxName_(c, fx, e.zh), icon: e.icon, mpPct: e.mpPct, hit: ht, dmgMul: dm, dmgAdd: da, desc: e.descFn(ht, dm, da) };
   }
   return null; // 無真·施放技術者→無主動技（戰力全在被動＋寶具）
-}
-// ⚡ 主動技【關閉】時的微量被動版：完整效果按 ACTIVE_SKILL_TINY_ 比例縮小、免費。開/關二選一、永不並存(不回 double-dip)。
-var ACTIVE_SKILL_TINY_ = 0.35;
-function tinyActiveSkill_(buff) {
-  if (!buff) return null;
-  var F = ACTIVE_SKILL_TINY_;
-  return {
-    id: buff.id, name: buff.name, icon: buff.icon, mpPct: 0, tiny: true,
-    hit: Math.round((buff.hit || 0) * F),
-    dmgMul: 1 + ((buff.dmgMul || 1) - 1) * F,
-    dmgAdd: Math.round((buff.dmgAdd || 0) * F),
-    desc: buff.desc
-  };
 }
 // 🛡 被動命中加成套用（攻方持有 fx 時）：讀 SKILL_FX_[fx].hitAdd。回新 aHit，並推 fired 標籤。
 function fxHitAdd_(aHit, atk, fx, fired) {
