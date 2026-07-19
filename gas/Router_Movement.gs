@@ -71,7 +71,7 @@ function actionMove(userData, pcId, sheets) {
   const moveGameId = String(allPcData[pIdx][COL.PC.GAME_ID] || "");
   const isFateMove = moveGameId.indexOf("g_") === 0;
   if (isFateMove && getAp_(moveGameId, allPcData) < 2) {
-    return JSON.stringify({ success: false, message: "行動力不足以遠行（需 2 點）——請『休息』恢復後再出發。", clock: clockLabel_(moveGameId, allPcData), ap: getAp_(moveGameId, allPcData), apMax: AP_PER_DAY });
+    return JSON.stringify({ success: false, needRest: true, message: "行動力不足以遠行（需 2 點）——請『休息』恢復後再出發。", clock: clockLabel_(moveGameId, allPcData), ap: getAp_(moveGameId, allPcData), apMax: AP_PER_DAY });
   }
 
   // 💨 撤離追擊(一點點)：從「有活敵從者」的格子離開時，較快的敵從者可能咬一記離別追擊。
@@ -527,7 +527,7 @@ function actionPrepMeal(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   var myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   var isFate = myGameId.indexOf("g_") === 0;
-  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以好好整備——請休息恢復後再進食。" });
+  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不足以好好整備——請休息恢復後再進食。" });
   var clk = getClock_(myGameId);
   if (!clk) return JSON.stringify({ success: false, message: "此刻無法整備。" });
   var nowAbs = clk.day * 24 + clk.hour;
@@ -787,7 +787,7 @@ function actionFactionAmbush(userData, pcId, sheets) {
   var win = getEncounterWindow_(pcData[pIdx][COL.PC.MEMORY]);
   if (!win || win.loc !== String(pcData[pIdx][COL.PC.LOC]).trim() || !encounterChoices_(win.type).ambush)
     return JSON.stringify({ success: false, message: "眼下已沒有可趁的空隙了。" });
-  if (getAp_(gameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以搶這一手。" });
+  if (getAp_(gameId) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不足以搶這一手。" });
   var res = playerAmbushOnEnemy_(sheets, pcData, pIdx, gameId, String(userData.targetName || ""));
   if (res.err) return JSON.stringify({ success: false, message: res.err });
   pcData[pIdx][COL.PC.MEMORY] = clearEncounterWindow_(pcData[pIdx][COL.PC.MEMORY]); // 用掉即清窗口
@@ -820,7 +820,7 @@ function actionIncite(userData, pcId, sheets) {
   var win = getEncounterWindow_(pcData[pIdx][COL.PC.MEMORY]);
   if (!win || win.loc !== myLoc || !encounterChoices_(win.type).incite)
     return JSON.stringify({ success: false, message: "此刻沒有可挑撥的對立局面。" });
-  if (getAp_(gameId) < 1) return JSON.stringify({ success: false, message: "行動力不足。" });
+  if (getAp_(gameId) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不足。" });
   // 找同地兩名不同陣營敵從者（各自御主判性格）
   var foeSvs = [];
   pcData.forEach(function (r, i) {
@@ -1055,7 +1055,7 @@ function actionSetWorkshop(userData, pcId, sheets) {
   const loc = String(pcData[pIdx][COL.PC.LOC] || "").trim();
   if (!loc) return JSON.stringify({ success: false, message: "無法在虛無之地佈設陣地。" });
   if (getWorkshop_(pcData[pIdx][COL.PC.MEMORY]) === loc) return JSON.stringify({ success: false, message: `「${loc}」已是你的陣地。` });
-  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以佈設陣地——請休息恢復。" });
+  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不足以佈設陣地——請休息恢復。" });
   // 🔮 布設陣地的勞動：灌注魔力築起結界／機關／術式，須御主純魔 ≥ WORKSHOP_MANA_COST
   const mMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
   if (isFate && mMp < WORKSHOP_MANA_COST) return JSON.stringify({ success: false, message: `佈設陣地要灌注魔力築起結界與機關（需 ${WORKSHOP_MANA_COST} 魔），當前御主魔力不足（${mMp}／需 ${WORKSHOP_MANA_COST}）——先補魔或休整。` });
@@ -1086,7 +1086,7 @@ function actionScavenge(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const isFate = myGameId.indexOf("g_") === 0;
-  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以細細搜索——請休息恢復。" });
+  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不足以細細搜索——請休息恢復。" });
   // 🔋 撿拾零星魔力：基礎 ~10% 上限；同地已搜刮過→枯竭、僅得殘渣 ~3%。靠移動探索換取、非站樁刷魔。
   const mpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || 80;
   const cur = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
@@ -1133,7 +1133,7 @@ function actionScout(userData, pcId, sheets) {
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const isFateScout = myGameId.indexOf("g_") === 0;
   if (isFateScout && getAp_(myGameId) < 1) {
-    return JSON.stringify({ success: false, message: "行動力不足以偵查——請『休息』恢復後再探。" });
+    return JSON.stringify({ success: false, needRest: true, message: "行動力不足以偵查——請『休息』恢復後再探。" });
   }
   const curLoc = String(pcData[pIdx][COL.PC.LOC] || "").trim();
   // 附近地點（含當前）作為偵查範圍

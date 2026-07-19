@@ -747,6 +747,32 @@
     travelTo(name, 0, true);
   }
 
+  // 🎴 動作被擋→丟一張帶「一鍵解圍」按鈕的故事卡(取代冷冰冰 alert)，比照撤退/盟友告急泡泡。
+  //   後端於可解圍的擋下回應夾結構旗標(needRest／needMana／needBreakAlliance)，這裡據此畫對應解圍鈕。
+  //   回 true＝已用卡片處理(呼叫端不再 alert)；回 false＝非可解圍類型(照舊 alert)。
+  function resolveBlockCard_(res) {
+    if (!res) return false;
+    const story = document.getElementById('story'); if (!story) return false;
+    const _btnCss = 'margin-top:7px;font-size:12px;padding:7px 15px;border-radius:7px;cursor:pointer;font-weight:bold;';
+    let accent = '', bg = '', btn = '';
+    if (res.needRest) {
+      accent = '169,169,216'; bg = '22,20,32';
+      btn = '<button onclick="openRestMenu()" style="' + _btnCss + 'background:rgba(169,169,216,.2);color:#c9c0e8;border:1px solid #8a7fc0;">🛏️ 去休息（恢復行動力）</button>';
+    } else if (res.needMana) {
+      // 「休整／補魔」二選一：🛏️休息＝免費·靠時間回魔(溫和)；💧補魔＝即刻回滿但【永久】代價(生命上限/迴路)，點下另有確認。
+      accent = '126,150,220'; bg = '14,20,38';
+      btn = '<button onclick="openRestMenu()" style="' + _btnCss + 'margin-right:6px;background:rgba(169,169,216,.2);color:#c9c0e8;border:1px solid #8a7fc0;">🛏️ 休整回魔</button>'
+        + '<button onclick="manaSupply()" style="' + _btnCss + 'background:rgba(126,150,220,.2);color:#9ec8ff;border:1px solid #4e92c0;">💧 補魔 <small style="opacity:.7;">永久代價</small></button>';
+    } else if (res.needBreakAlliance) {
+      const nm = String(res.blockAlly || '').replace(/'/g, "\\'");
+      accent = '200,100,110'; bg = '32,16,18';
+      btn = '<button onclick="breakAlliance(\'' + nm + '\')" style="' + _btnCss + 'background:rgba(200,100,110,.18);color:#e08a8a;border:1px solid #a05050;">💔 撕毀盟約（方可動手）</button>';
+    } else return false;
+    story.insertAdjacentHTML('beforeend', '<div class="msg-ai" style="align-self:center;color:#cfc3d8;font-size:12.5px;text-align:center;border:1px solid rgba(' + accent + ',0.45);border-radius:8px;padding:8px 11px;background:rgba(' + bg + ',0.5);">' + escapeHtml(res.message || '此刻無法如此行動。') + '<br>' + btn + '</div>');
+    story.scrollTop = story.scrollHeight;
+    return true;
+  }
+
   async function travelTo(targetName, distance, retreat) {
     if (!beginAction()) return;
 
@@ -846,7 +872,7 @@
         const _t = String(targetName).replace(/'/g, "\\'");
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#e0a080;font-size:12.5px;text-align:center;border:1px solid rgba(200,120,70,0.45);border-radius:8px;padding:8px 11px;">⚔️ ${escapeHtml(data.message || '此地有敵，無法從容離去。')}<br><button onclick="travelTo('${_t}', 0, true)" style="margin-top:7px;font-size:12px;padding:7px 15px;background:rgba(200,120,70,.2);color:#e0a080;border:1px solid #c0872e;border-radius:7px;cursor:pointer;font-weight:bold;">🏃 撤退突圍·退往「${escapeHtml(targetName)}」 <small style="opacity:.7;">敵必追擊·耗2AP</small></button></div>`);
         story.scrollTop = story.scrollHeight;
-      } else {
+      } else if (!resolveBlockCard_(data)) {
         alert("連線阻礙：" + data.message);
       }
     } catch(e) {
@@ -2088,7 +2114,7 @@
         //   回讀時才不會看到「喊了解放寶具卻無下文」的斷頭訊息)＋重新同步清掉殘留敵蹤卡
         story.insertAdjacentHTML('beforeend', '<div class="msg-player" style="color:#c9a0a0;"><b>【系統】：</b>' + ((res && res.message) || '出擊未遂。') + '</div>');
         story.scrollTop = story.scrollHeight;
-        alert((res && res.message) || '出擊失敗。'); try { syncData(true); } catch (e) {}
+        if (!resolveBlockCard_(res)) alert((res && res.message) || '出擊失敗。'); try { syncData(true); } catch (e) {}
       }
     } catch (e) { alert('連線失敗，出擊未果。'); } finally { endAction(); }
   }
@@ -2250,7 +2276,7 @@
         await narrate(res.aiPrompt, opts.narrateExtra ? opts.narrateExtra(res) : undefined);
         if (opts.onSuccessAfterNarrate) await opts.onSuccessAfterNarrate(res);
       } else {
-        alert((res && res.message) || opts.failMsg || '操作失敗。');
+        if (!resolveBlockCard_(res)) alert((res && res.message) || opts.failMsg || '操作失敗。');
         if (opts.onFail) opts.onFail(res);
       }
     } catch (e) { alert(opts.catchMsg || '連線失敗。'); } finally { endAction(); }

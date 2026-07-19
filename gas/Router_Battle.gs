@@ -431,12 +431,12 @@ function actionFateBattle(userData, pcId, sheets) {
   //   getAp_/spendAp_ 傳入手上這份 pcData(記憶體查找+原地改)，免整表重讀，結尾可直接餵 buildClientState_。
   const isFateBattle = myGameId.indexOf("g_") === 0;
   if (isFateBattle && getAp_(myGameId, pcData) < 1) {
-    return JSON.stringify({ success: false, message: "行動點已耗盡，從者也需喘息——請『歇息』恢復後再戰。" });
+    return JSON.stringify({ success: false, needRest: true, message: "行動點已耗盡，從者也需喘息——請『歇息』恢復後再戰。" });
   }
 
   // 🤝 盟友不可攻擊：須先撕毀盟約
   if (isAllied_(pcData[nIdx])) {
-    return JSON.stringify({ success: false, message: `「${pcData[nIdx][COL.PC.NAME]}」是你的盟友——若要動手，須先『撕毀盟約』。` });
+    return JSON.stringify({ success: false, needBreakAlliance: true, blockAlly: String(pcData[nIdx][COL.PC.NAME]), message: `「${pcData[nIdx][COL.PC.NAME]}」是你的盟友——若要動手，須先『撕毀盟約』。` });
   }
 
   // 🐙 清逾時海怪殘影(戰前)：讓 atkC.horrorUp 與城防判定準確——單一真實來源不留過期字串
@@ -464,7 +464,7 @@ function actionFateBattle(userData, pcId, sheets) {
     const mHpPre = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
     const maxPay = mMpPre + Math.floor(Math.max(0, mHpPre - 1) / BATTERY_HP_PER_MP);
     if (maxPay < npCostPre) {
-      return JSON.stringify({ success: false, message: `御主魔力已油盡燈枯——以血魔竭力相湊仍不足以供「${atkC.name}」解放寶具(需 ${npCostPre})，須先休整／補魔。` });
+      return JSON.stringify({ success: false, needMana: true, message: `御主魔力已油盡燈枯——以血魔竭力相湊仍不足以供「${atkC.name}」解放寶具(需 ${npCostPre})，須先休整／補魔。` });
     }
   }
 

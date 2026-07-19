@@ -203,7 +203,7 @@ function actionBond(userData, pcId, sheets) {
   // AP 不足須在動作前先擋，跟 actionProposeAlliance/actionAllyBond 一致；否則 spendAp_ 只會靜默
   //   不扣時間，羈絆值/日限/突襲風險仍照樣結算。
   const isFate = myGameId.indexOf("g_") === 0;
-  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以從容相處——請『休息』恢復後再來。" });
+  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不足以從容相處——請『休息』恢復後再來。" });
 
   // 日限檢查
   const clk = getClock_(myGameId);
@@ -353,7 +353,7 @@ function actionProposeAlliance(userData, pcId, sheets) {
   if (isAllied_(pcData[mIdx])) return JSON.stringify({ success: false, message: `你已與「${pcData[mIdx][COL.PC.NAME]}」結盟。` });
 
   const isFate = myGameId.indexOf("g_") === 0;
-  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以交涉——請休息恢復。" });
+  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不足以交涉——請休息恢復。" });
 
   const aliveFoes = aliveEnemyServants_(sheets, myGameId, pcData);
   const w = allianceWillingness_(pcData[mIdx], aliveFoes);
@@ -471,7 +471,7 @@ function actionAllyBond(userData, pcId, sheets) {
   if (aIdx === -1) return JSON.stringify({ success: false, message: "此地沒有可交流的盟友——須與盟友同處一地。" });
 
   const isFate = myGameId.indexOf("g_") === 0;
-  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足以從容相處——請『休息』恢復後再來。" });
+  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不足以從容相處——請『休息』恢復後再來。" });
 
   const masterName = String(pcData[pIdx][COL.PC.NAME]);
   const allyName = String(pcData[aIdx][COL.PC.NAME]);
@@ -546,7 +546,7 @@ function actionCourtEnemy(userData, pcId, sheets) {
   if (tIdx === -1) return JSON.stringify({ success: false, message: "此地沒有可示好的敵御主——示好只對敵御主進行（好感由整組御主＋從者共用），須與對方同處一地。" });
 
   const isFate = myGameId.indexOf("g_") === 0;
-  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足——請『休息』恢復後再來。" });
+  if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不足——請『休息』恢復後再來。" });
 
   // 每名敵人每日一次（【示好日】<day> 存對方列）
   const _mem = String(pcData[tIdx][COL.PC.MEMORY] || "");
