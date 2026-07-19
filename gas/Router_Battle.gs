@@ -504,7 +504,7 @@ function actionFateBattle(userData, pcId, sheets) {
       pcData[nIdx][COL.PC.ID] = "DEAD_" + String(pcData[nIdx][COL.PC.ID]);
       pcData[nIdx][COL.PC.HP] = 0;
       pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "凌亂", "姿勢": "倒地不起", "負面": "重傷不治·身亡", "顏面": "生機已絕" });
-      sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
+      if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
       const guardC = rowToCombatant_(pcData[assassinGuardIdx]);
       let guardSurvived = false;
       if (hasFx_(guardC, 'god_hand')) {
@@ -623,7 +623,7 @@ function actionFateBattle(userData, pcId, sheets) {
   if (useSeal) {
     const left = getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]) - 1;
     pcData[pIdx][COL.PC.MEMORY] = setPlayerSeals_(pcData[pIdx][COL.PC.MEMORY], left);
-    sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+    if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   }
   // 🔋 寶具魔力 = 依寶具階級的 Prana Cost（E40 D70 C110 B160 A220 EX300）。從者付不起 → 御主電池接力供能。
   let battery = null, backlash = null;
@@ -662,7 +662,7 @@ function actionFateBattle(userData, pcId, sheets) {
       usedOvercharge = ocUsed > 0;                     // 真的灌到超載才消耗；沒派上用場則保留過充(修無謂燒 token)
       if (usedOvercharge) {                            // 過充一次性：確實流入這一發即清
         pcData[pIdx][COL.PC.MEMORY] = clearOvercharge_(pcData[pIdx][COL.PC.MEMORY]);
-        sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+        if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
       }
     }
     battery = drainForNp_(sheets, pcData, atkIdx, pIdx, totalDrain - ocUsed);
@@ -679,7 +679,7 @@ function actionFateBattle(userData, pcId, sheets) {
       var _blDmg = Math.max(1, Math.round(_mMaxHp * (_bl.min + Math.random() * (_bl.max - _bl.min))));
       var _mHpNow = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
       pcData[pIdx][COL.PC.HP] = Math.max(1, _mHpNow - _blDmg); // 保底1·不致死
-      sheets.pc.getRange(pIdx + 1, COL.PC.HP + 1).setValue(pcData[pIdx][COL.PC.HP]);
+      if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, COL.PC.HP + 1).setValue(pcData[pIdx][COL.PC.HP]);
       backlash = { dmg: _blDmg, hp: parseInt(pcData[pIdx][COL.PC.HP]) || 1, hpMax: _mMaxHp };
     }
   }
@@ -738,7 +738,7 @@ function actionFateBattle(userData, pcId, sheets) {
       enemyNpSpent = true;
       // 🔮 敵寶具已在對轟中答覆解放 → 消耗其【寶具預告】旗標(原漏清：殘旗會讓下一場無條件再必發＋逃跑背擊誤觸發)
       pcData[nIdx][COL.PC.MEMORY] = clearNpTelegraph_(pcData[nIdx][COL.PC.MEMORY]);
-      sheets.pc.getRange(nIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[nIdx][COL.PC.MEMORY]);
+      if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(nIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[nIdx][COL.PC.MEMORY]);
       openingNp = false; openingSeal = false;
       enemyC0.output = 100;
       // 🎯 火力取樣用 forceHit：damage 恆屬「攻方」——擲輸時取到的是對面的反殺傷害，會把與寶具威能
@@ -827,7 +827,7 @@ function actionFateBattle(userData, pcId, sheets) {
   //   場外每小時另抽 HORROR_HOURLY_UPKEEP(applyRegen_·池赤字海怪先沉)。★寶具解放當下(重新)召喚·刷新肉身；已在場則沿用。
   if (useNp && hasFx_(atkC, 'summon_horror')) {
     pcData[atkIdx][COL.PC.MEMORY] = summonHorror_(pcData[atkIdx][COL.PC.MEMORY], myGameId);
-    sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
+    if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
     atkC.horrorUp = true; // 反映到本場已建好的 atkC(後續回合的 sC 由 rowToCombatant_ 讀新 MEMORY 自然帶旗)
   }
   let horrorActive = horrorPresent_(pcData[atkIdx][COL.PC.MEMORY], myGameId); // 召喚當下 or 先前已召喚未解除 → 在場
@@ -891,7 +891,7 @@ function actionFateBattle(userData, pcId, sheets) {
         const curR = parseInt(pcData[ridx][COL.PC.HP]) || 0;
         if (healR > 0 && curR > 0 && curR < hpMaxR) {
           pcData[ridx][COL.PC.HP] = Math.min(hpMaxR, curR + healR);
-          sheets.pc.getRange(ridx + 1, 1, 1, pcData[ridx].length).setValues([pcData[ridx]]);
+          if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(ridx + 1, 1, 1, pcData[ridx].length).setValues([pcData[ridx]]);
           const healLbl = runeRegen ? '原初符文·治癒' : fxName_(rc, 'regen', '治癒');
           rl.strikes.push({ by: rc.name, rune: true, pHit: false, pDmg: 0, pCrit: '', pFired: [], note: healLbl + '（+' + Math.min(healR, hpMaxR - curR) + '）' });
         }
@@ -908,7 +908,7 @@ function actionFateBattle(userData, pcId, sheets) {
         if (_hgSh.remaining < _hgSh.max) {
           var _hgNew = Math.min(_hgSh.max, _hgSh.remaining + HORROR_REGEN);
           pcData[atkIdx][COL.PC.MEMORY] = setHorrorShield_(pcData[atkIdx][COL.PC.MEMORY], _hgNew, _hgSh.max, _hgSh.expiry);
-          sheets.pc.getRange(atkIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[atkIdx][COL.PC.MEMORY]);
+          if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(atkIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[atkIdx][COL.PC.MEMORY]);
           rl.strikes.push({ by: '🐙深淵海怪', horror: true, pHit: false, pDmg: 0, pCrit: '', pFired: [], note: '深淵海怪·肉身再生（+' + (_hgNew - _hgSh.remaining) + '·餘 ' + _hgNew + '/' + _hgSh.max + '）' });
         }
       } else {
@@ -916,7 +916,7 @@ function actionFateBattle(userData, pcId, sheets) {
         // 🐙 清 MEMORY 殘影(逾時的護盾字串仍在)：讓後續 horrorUp/城防歸位·單一真實來源
         if (/【海怪護盾】/.test(String(pcData[atkIdx][COL.PC.MEMORY] || ""))) {
           pcData[atkIdx][COL.PC.MEMORY] = clearHorrorShield_(pcData[atkIdx][COL.PC.MEMORY]);
-          sheets.pc.getRange(atkIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[atkIdx][COL.PC.MEMORY]);
+          if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(atkIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[atkIdx][COL.PC.MEMORY]);
         }
       }
     }
@@ -928,7 +928,7 @@ function actionFateBattle(userData, pcId, sheets) {
         horrorActive = false;
         // 🐙 維持費付不出 → 海怪潰散，清肉身狀態(不留殘影·下場不再誤判在場)
         pcData[atkIdx][COL.PC.MEMORY] = clearHorrorShield_(pcData[atkIdx][COL.PC.MEMORY]);
-        sheets.pc.getRange(atkIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[atkIdx][COL.PC.MEMORY]);
+        if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(atkIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[atkIdx][COL.PC.MEMORY]);
         rl.strikes.push({ by: '🐙深淵海怪', horror: true, pHit: false, pDmg: 0, pCrit: '', pFired: [], note: '御主魔力枯竭·海怪潰散退場' });
       } else {
         const hs = fateStrike_(sheets, pcData, horrorC, nIdx, { round: rd + 1 }, ctx);
@@ -993,7 +993,7 @@ function actionFateBattle(userData, pcId, sheets) {
             const ePranaT = npPranaCost_(npEffectiveRank_(enemyNow)); // 🎴 吃已選定寶具的官方階級
             if (enemyCanAffordNp_(pcData, nIdx, myGameId, ePranaT).afford) {
               pcData[nIdx][COL.PC.MEMORY] = setNpTelegraph_(pcData[nIdx][COL.PC.MEMORY]);
-              sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
+              if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
               rl.eTelegraph = String(pcData[nIdx][COL.PC.MARTIAL] || "").split(/[（(／]/)[0].trim() || defC.name; // 前端/AI 警告用
               npTeleHandled = true;
             }
@@ -1007,7 +1007,7 @@ function actionFateBattle(userData, pcId, sheets) {
               enemyNow.output = 100; // ⚖️ 敵解放寶具＝全開(與玩家對等)
               enemyNpSpent = true;
               pcData[nIdx][COL.PC.MEMORY] = clearNpTelegraph_(pcData[nIdx][COL.PC.MEMORY]); // 消耗預告
-              sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
+              if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
               npTeleHandled = true;
             } else {
               enemyFireNp = false; // 魔力不足(通常不會·預告時已驗)，改普攻
@@ -1023,7 +1023,7 @@ function actionFateBattle(userData, pcId, sheets) {
           const mMpNow = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
           if (hasFx_(tgtC0, 'avalon_saber') && offenseTier_(enemyNow, true) >= 6 && mMpNow >= 100) {
             pcData[pIdx][COL.PC.MP] = mMpNow - 100;
-            sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+            if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
             idealBlocked = true;
           }
         }
