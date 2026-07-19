@@ -622,14 +622,17 @@ function actionSummonServant(userData, pcId, sheets) {
 
 ★【六圍 six】依該英靈強弱給「筋力/耐久/敏捷/魔力/幸運/寶具」各一個階級，階級用 E,D,C,B,A,EX（強處可加 + 如 A+）；務必有強有弱、貼合傳說。若為 Berserker 或持狂化(mad)者，六圍請直接填【狂化後】的數值（與官方參數表慣例一致；狂化的傷害加成由系統另計，勿再自行灌水）。
 ★【技能帶 fx】classSkills(職階技能 1~2 個)＋skills(固有技能 2~3 個)，每個含 {"n":"技能名","r":"階級","fx":"效果碼"}。職階技能貼合職階慣例：Saber/Lancer/Archer＝對魔力(Archer 另有單獨行動)、Rider＝對魔力＋騎乘、Caster＝陣地作成＋道具作成、Assassin＝氣息遮斷、Berserker＝狂化(mad)。
-★【技能命名·像寶具一樣】n 是【顯示名】、fx 才是機制——鼓勵替【固有技能 skills】取貼合這名英靈的獨特招式名(像寶具那樣有個性)，fx 照挑對應機制即可。例：fx=str_up 命名「鬼之膂力」勝過死板的「怪力」；fx=morale 命名「獅子之心」；fx=first_strike 命名「野性直感」。職階技能(對魔力/騎乘等)可保留正史慣用名。⚠獨特名勿與清單上【其他】fx 的正史名撞名(如非 first_strike 者別叫「直感/神速」)，以免戰報張冠李戴。
+★【技能命名·像寶具一樣】n 是【顯示名】、fx 才是機制。★★分兩種情形，別搞混：
+  ①【正史/傳說已有此角色的角色】(指定真名或知名英靈)：技能名【忠於該角色原著既有的招式/技能名】(如庫夫林「蓋・波爾克」、正史「對魔力/魔力放出/直感/怪力」)——這些本就獨特且正確，直接沿用，【勿】自行重編或亂加花名。
+  ②【原創角色】(玩家自訂描述·無正史對應)、或某技能該角色正史沒有對應招式：才【自取】貼合其形象的獨特招式名(像寶具那樣有個性)，例 fx=str_up→「鬼之膂力」、fx=morale→「獅子之心」、fx=first_strike→「野性直感」。
+  ⚠自取名勿與清單上【其他】fx 的正史名撞名(如非 first_strike 者別叫「直感/神速」)，以免戰報張冠李戴。
 ${FX_MENU_}
 ★【特性 traits】1~3 個，{"n":"特性名"}（如 王/龍/人類/神性/巨人/猛獸；有神性者會被神殺剋）。
 ★【演出而非說明】personality 與寶具只作底層，勿直接複述字面。personality 剛好 4 短句頓號分隔：日常表象、真實內裡、喜歡的事物、討厭的事物。
 ★np：寶具名＋一句威能簡述；規模上限【對軍】——對城/對界/對神為種子英靈專屬，寫了也會被系統降為對軍，簡述請勿誇稱斬城滅界。★npc_intent：一句【簡短】反差萌（≤18字，系統會在30字處硬性截斷、務必精簡，務必寫完整一句話不可斷在句意未完處）。【禁】誤用令咒當裝飾性萌點元素——令咒是御主持有、對從者下達絕對命令的機制道具，並非從者自己所有或隨手就能用的萬用法寶；也不要單純重複寶具名稱湊字數，請改用生活化情境(手作/習慣/小癖好等)。★sex 從 男／女／異 擇一。
 
 ★【輸出】合法 JSON、禁 Markdown：
-{"realName":"英靈真名","sex":"女","align":"中立・善","background":"限20字","npc_intent":"反差萌一句","personality":"四格頓號","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"classSkills":[{"n":"對魔力","r":"B","fx":"nullify_magic"}],"skills":[{"n":"野性直感","r":"A","fx":"first_strike"},{"n":"鬼之膂力","r":"B","fx":"str_up"}],"traits":[{"n":"人類"}]}`;
+{"realName":"英靈真名","sex":"女","align":"中立・善","background":"限20字","npc_intent":"反差萌一句","personality":"四格頓號","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"classSkills":[{"n":"對魔力","r":"B","fx":"nullify_magic"}],"skills":[{"n":"直感","r":"A","fx":"first_strike"},{"n":"怪力","r":"B","fx":"str_up"}],"traits":[{"n":"人類"}]}`;
       const aiBrief = JSON.parse(callGeminiAPI(`【職階】：${cls}\n【御主】：${pcName}${trueName ? `\n【指定真名】：${trueName}` : ""}${custDesc ? `\n【玩家自訂描述】：${custDesc}` : ""}`, sysOverride, { temperature: custDesc ? 0.85 : 0.6, ignoreLaw: true }));
       // callGeminiAPI 連線失敗不丟例外，而是回 fallback 敘事 JSON(narration/options)——照收會靜默生出全C
       //   六圍/零技能的殘缺從者並永久污染英靈殿。缺 realName 或 six 視為生成失敗，中止讓玩家重試。
