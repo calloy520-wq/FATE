@@ -694,6 +694,7 @@
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#8aa8d0;font-size:12.5px;text-align:center;border:1px solid rgba(90,130,180,0.32);border-radius:8px;padding:6px 10px;">🌊 ${res.message || '深淵海怪已沉回深淵。'}</div>`);
         story.scrollTop = story.scrollHeight;
         syncData(true);
+        if (res.aiPrompt) await narrate(res.aiPrompt); // 🌊 海怪退場短演出
       } else { alert((res && res.message) || '解除失敗。'); }
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
   }

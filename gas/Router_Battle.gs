@@ -1162,7 +1162,7 @@ function actionFateBattle(userData, pcId, sheets) {
         ? `· ${atkC.name} 解放了寶具【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】——★此從者已狂化、無法詠唱：解放是咆哮與本能的爆發，旁白可呈現真名與威能，但【嚴禁】讓其開口唸出任何字句。\n`
         : `· ${atkC.name} 高呼真名【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】、解放了寶具——★演出時務必讓其【親口唸出這個真名】(中文真名與原名並呼、氣勢拉滿)，這是 Fate 寶具解放的靈魂。\n`) : "")) +
       ((useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.25) ? `· 【灌魔超載】御主${atkC.npOverloadMul >= 1.9 ? '把餘裕魔力盡數傾注' : '將大量魔力加壓灌注'}這一發真名解放${atkC.overcharge ? '（方才補魔蓄積的澎湃魔力一併傾瀉而出）' : ''}——寶具威能被推至${atkC.npOverloadMul >= 1.9 ? '極限、化作規格外的毀滅光輝' : '遠超尋常的輝度'}。演出這股${atkC.npOverloadMul >= 1.9 ? '「傾盡一切、超載解放」的壯烈與光壓' : '「加壓超載」的灼熱光壓'}。\n` : "") +
-      (backlash ? `· 【過載反噬】倍額魔力灌注的代價在解放後湧回——御主魔術迴路暴走灼身(−${backlash.dmg} HP)，強撐住了意識。★這是迴路過載的內在劇痛與虛脫，非外傷流血，切勿描寫成血流滿地。\n` : "") +
+      (backlash ? `· 【過載反噬】倍額魔力灌注的代價在解放後湧回——御主魔術迴路暴走灼身(−${backlash.dmg} HP)，強撐住了意識。★純迴路過載的內在灼痛虛脫·非流血外傷。\n` : "") +
       (skillFired ? `· 交鋒間，我方從者的技術「${_fullSkill.name}」自然而發、順勢加持了攻勢。\n` : "") +
       (masterShared > 0 ? `· 【御主參戰·正大光明／見機行事】御主未躲在後方，而是立於陣前一同承擔——替從者硬扛下 ${masterShared} 點傷勢(御主自身流血受創)。演出御主涉險共戰、以身擋傷的擔當(這是內在覺悟與肉身代價，數值已由 GAS 結算)。\n` : "") +
       (horrorFired ? `· 我方術師以螺湮城教本自深淵召出觸手巨獸「深淵海怪」，常駐戰場、每回合與本人並肩撕咬，靠御主魔力維持(枯竭則潰散)。\n` : "") +
@@ -1172,7 +1172,7 @@ function actionFateBattle(userData, pcId, sheets) {
       (npTelegraphed ? `· 「${defC.name}」的靈基驟然高鳴——真名解放的預兆正急速匯聚、殺意如實質般壓來，寶具即將出鞘卻【尚未發動】。演出這股「山雨欲來、下一擊便是真名解放」的窒息壓迫感，讓御主明白必須當機立斷。\n` : "") +
       (homeField ? `· 【主場·陣地】這場交鋒發生在我方 Caster 親手佈設的陣地之中——魔術防壁、結界與布下的機關層層環伺，這裡是法師的堡壘。我方全員承其庇護、受創大減；敵手則在滿是術式的敵境中步步受制。演出「引敵入陣地決戰」的主場壓制感。\n` : "") +
       (idealRealmFired ? `· 【理想鄉】「${idealRealmFoe}」傾盡全力解放了斬裂世界／碾穿一切的究極真名，然而在觸及「${idealRealmSaber}」的剎那，全世界遙遠的理想鄉 Avalon 悄然展開——那是隔絕於世界之外、永不凋零的無敵結界。究極寶具的威能盡數湮滅於金色的理想鄉中，「${idealRealmSaber}」毫髮無傷。演出這一擋的神聖、靜謐與絕對，御主付出大量魔力方換得此護。\n` : "") +
-      ((battery && battery.usedBattery) ? `· 御主電池：${battery.bledMaster ? `御主燃燒生命力硬扛魔力缺口，魔術迴路過載灼痛難當(餘 ${battery.masterHp}/${battery.masterHpMax} HP)——★這是迴路透支的內在劇痛與虛脫，非外傷流血，切勿描寫成血流滿地或皮肉傷` : `御主順暢導流自身魔力(無焚血、無透支)——★本次供魔從容有餘，勿寫成迴路焚燒/殘存魔力/瀕死透支等慘狀(那是先前戰鬥的舊事)`}為從者頂上魔力缺口。\n` : "") +
+      ((battery && battery.usedBattery) ? `· 御主電池：${battery.bledMaster ? `御主燃燒生命力硬扛魔力缺口，魔術迴路過載灼痛難當(餘 ${battery.masterHp}/${battery.masterHpMax} HP)——★迴路透支的內在灼痛虛脫·非流血外傷` : `御主順暢導流自身魔力(無焚血、無透支)——★本次供魔從容有餘，勿寫成迴路焚燒/殘存魔力/瀕死透支等慘狀(那是先前戰鬥的舊事)`}為從者頂上魔力缺口。\n` : "") +
       (godRevived ? (() => { let godTally = ""; try { const ghNow = getGodHandLives_(pcData[nIdx][COL.PC.MEMORY]); const ghBurn = Math.max(0, ghLivesStart - ghNow); if (ghBurn > 0) godTally = `★本戰共燒去 ${ghBurn} 條命、尚餘 ${ghNow}；「燒命數」與「倒地站起的次數」是兩回事(單擊可一口氣燒多命)，勿混寫成同一個數。`; } catch (e) { } return `· 十二試煉：${godNote}${godTally}\n`; })() : "") +
       (sealEscaped ? `· 對面御主燃令咒、強行扯離重傷從者，敵已遁走不在場。${sealNote}★此撤離僅止於該從者及其本主，與在場其他御主／從者無關。\n` : "") +
       ((destroyedName && targetIsFoeServant && enemyMasterRow && !isMasterTarget) ? `· 在場敵御主「${String(enemyMasterRow[COL.PC.NAME])}」親眼目睹自己契約的從者靈基崩潰、化作光點消散——失去從者＝失去依靠與這場戰爭的資格。★依其性格與身世演出這一刻的衝擊與反應(崩潰/嘶喊/怔忡/強撐皆可，由性格定)，非沉默背景板。\n` : "") +
@@ -1310,6 +1310,7 @@ function actionDismissHorror(userData, pcId, sheets) {
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：海怪標記清除已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({
     success: true, message: `「深淵海怪」已沉回深淵（停止每小時 ${HORROR_HOURLY_UPKEEP} 魔的維持）。要再召喚須重付寶具魔力。`,
+    aiPrompt: `【系統·解除召喚】御主令「${svName}」撤去螺湮城教本所召的深淵海怪——那頭觸手巨獸緩緩崩解、化作濁流沉回深淵，戰場重歸沉寂。\n★以 Fate／TYPE-MOON 筆觸【精煉 40~70 字】描寫海怪退場的一幕即可（氛圍收束、供魔負擔解除的微鬆），別替玩家決定下一步。`,
     statusString: buildPlayerStatusString(pcData[pIdx])
   });
 }

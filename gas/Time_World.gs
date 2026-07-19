@@ -518,8 +518,8 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
         var strikeBA = resolveFateBattle_(comB, comA, {});
         hpAAfter = Math.max(0, comA.hp - (strikeBA.atkWins ? strikeBA.damage : 0));
       }
-      data[infoA.idx][COL.PC.HP] = hpAAfter; sheets.pc.getRange(infoA.idx + 1, COL.PC.HP + 1).setValue(hpAAfter);
-      data[infoB.idx][COL.PC.HP] = hpBAfter; sheets.pc.getRange(infoB.idx + 1, COL.PC.HP + 1).setValue(hpBAfter);
+      // ⚡ 只改記憶體＋掀 anyHpDirty，交給結尾的 HP 整欄批次寫回落盤(免暗處互鬥每對各兩次逐格 setValue)。
+      data[infoA.idx][COL.PC.HP] = hpAAfter; data[infoB.idx][COL.PC.HP] = hpBAfter; anyHpDirty = true;
       var aDied = hpAAfter <= 0, bDied = hpBAfter <= 0;
       [{ died: aDied, info: infoA }, { died: bDied, info: infoB }].forEach(function (o) {
         if (!o.died) return;
