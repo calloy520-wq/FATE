@@ -1266,7 +1266,7 @@ function actionSummonHorror(userData, pcId, sheets) {
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：drainForNp_/海怪標記/spendAp_ 皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, clock: clock, ap: ap, apMax: AP_PER_DAY,
-    statusString: getFreshStatusString(pcId, pIdx, sheets)
+    statusString: buildPlayerStatusString(pcData[pIdx])
   });
 }
 
@@ -1292,7 +1292,7 @@ function actionDismissHorror(userData, pcId, sheets) {
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：海怪標記清除已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({
     success: true, message: `「深淵海怪」已沉回深淵（停止每小時 ${HORROR_HOURLY_UPKEEP} 魔的維持）。要再召喚須重付寶具魔力。`,
-    statusString: getFreshStatusString(pcId, pIdx, sheets)
+    statusString: buildPlayerStatusString(pcData[pIdx])
   });
 }
 

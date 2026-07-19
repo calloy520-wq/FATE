@@ -468,11 +468,8 @@ function buildPlayerStatusString(selfRow, relMem = "") {
   ].join('§');
 }
 
-function getFreshStatusString(targetId, pIdx, sheets) {
-  // getValues() 本身會 flush pending 寫入，無需額外 SpreadsheetApp.flush()（省一次強制 commit）。
-  const freshPcData = sheets.pc.getDataRange().getValues();
-  return buildPlayerStatusString(freshPcData[pIdx]);
-}
+// 🗑️ getFreshStatusString 已移除：所有呼叫端本就手握權威 pcData(STATE_PRE_DATA_ 交棒)，
+//   一律改 buildPlayerStatusString(pcData[pIdx])，省掉每個非戰鬥動作各一次的整表重讀。
 
 // ⚡ 靜態種子表快取共用時數：英靈殿(客製從者部分)幾乎不寫(只在召喚/版本升級時)，
 //   卻被戰鬥/移動/羈絆等熱路徑高頻讀取——6 小時內免整表重讀，寫入點各自呼叫對應 remove() 清快取。
