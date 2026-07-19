@@ -330,8 +330,9 @@ function summonByHero(id) { return doSummon({ heroId: id }); }
 function summonRandom() { return doSummon({ cls: (selectedSummonClass && selectedSummonClass !== '__all__') ? selectedSummonClass : '' }); }
 function summonByDesc() {
   var d = (document.getElementById('s-desc') && document.getElementById('s-desc').value.trim()) || '';
-  if (!d) { alert('請先描述你想要的原創從者。'); return; }
-  return doSummon({ desc: d, cls: (selectedSummonClass && selectedSummonClass !== '__all__') ? selectedSummonClass : '' });
+  if (!d) { alert('請先描述你想要的從者。'); return; }
+  var og = (document.getElementById('s-origin') && document.getElementById('s-origin').value) || 'original'; // 🎭 角色來源三分類
+  return doSummon({ desc: d, origin: og, cls: (selectedSummonClass && selectedSummonClass !== '__all__') ? selectedSummonClass : '' });
 }
 
 // ══ 🛠️ 自訂英靈工房 ══
@@ -777,16 +778,17 @@ async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，�
     speech: _v('cf-speech'), tic: _v('cf-tic'), moe: _v('cf-moe'), back: _v('cf-back')
   };
   // 💾 工房＝純製造/修改：存英靈殿(save_hero)，召喚一律走「🌟 玩家原創」專區
+  var og = (document.getElementById('cf-origin') && document.getElementById('cf-origin').value) || 'original'; // 🎭 角色來源→AI 補人格忠實度
   showProcessing(_forgeEditId ? '正在重鑄靈基…' : '正在鑄造靈基…');
   try {
-    var res = await gasRun({ action: 'save_hero', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '', build: JSON.stringify(build), heroId: _forgeEditId || '', acctName: (typeof currentAccount !== 'undefined' ? currentAccount : '') });
+    var res = await gasRun({ action: 'save_hero', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '', build: JSON.stringify(build), origin: og, heroId: _forgeEditId || '', acctName: (typeof currentAccount !== 'undefined' ? currentAccount : '') });
     // 🐛→✅ 職階切成「御主」會清空原本的戰鬥數值(不可逆)，後端擋下第一次沒帶確認旗標的請求；
     //   這裡接住那個特殊回應，跳確認框，玩家按確定才帶著confirmMasterConvert重送一次。
     if (res && !res.success && res.needConfirmMasterConvert) {
       hideProcessing();
       if (!confirm(res.message || '確定要把這名英靈切換成「御主」嗎？(會清空六圍/技能/寶具，不可逆)')) return;
       showProcessing('正在重鑄靈基…');
-      res = await gasRun({ action: 'save_hero', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '', build: JSON.stringify(build), heroId: _forgeEditId || '', acctName: (typeof currentAccount !== 'undefined' ? currentAccount : ''), confirmMasterConvert: true });
+      res = await gasRun({ action: 'save_hero', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '', build: JSON.stringify(build), origin: og, heroId: _forgeEditId || '', acctName: (typeof currentAccount !== 'undefined' ? currentAccount : ''), confirmMasterConvert: true });
     }
     if (res && res.success) {
       alert(res.message || '已鑄入英靈殿。');

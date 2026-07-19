@@ -119,8 +119,15 @@
       <button class="btn" style="width:100%; margin-bottom:8px; border-color:#9a7b4f; color:#9a7b4f;" onclick="lockBtn(event, summonRandom)">🎲 隨機召喚</button>
       <div style="border-top:1px dashed rgba(212,175,55,0.3); margin-top:6px; padding-top:8px;">
         <div style="text-align:center; color:#816e54; font-size:11px; margin-bottom:8px;">或者，用 AI 自訂生成召喚——</div>
-        <div style="color:#9a7b4f; font-size:11px; margin:0 0 4px;">🖋️ 大概敘述：AI 會往你描述的方向生成，但不保證精準符合（正典英靈請從上方職階英靈殿挑選）</div>
+        <div style="color:#9a7b4f; font-size:11px; margin:0 0 4px;">🖋️ 大概敘述：AI 會往你描述的方向生成，但不保證精準符合</div>
         <textarea id="s-desc" class="std-in" maxlength="120" placeholder="如：手持巨鎌、沉默寡言的死神少女" style="width:100%; box-sizing:border-box; height:48px; resize:none; font-family:inherit;"></textarea>
+        <!-- 🎭 角色來源：決定 AI 怎麼取技能名(fate 正史招式名／anime 該角色招牌招式／original 自由發揮) -->
+        <div style="color:#9a7b4f; font-size:11px; margin:8px 0 3px;">🎭 角色來源（決定技能怎麼命名）</div>
+        <select id="s-origin" class="std-in" style="width:100%; box-sizing:border-box;">
+          <option value="original" selected>完全原創（技能名自由發揮）</option>
+          <option value="fate">Fate 正史角色（技能用正史招式名）</option>
+          <option value="anime">其他動漫畫角色（技能用該角色招牌招式）</option>
+        </select>
         <button class="btn" style="width:100%; margin-top:6px; border-color:#a06cd0; color:#c79be8;" onclick="lockBtn(event, summonByDesc)">🖋️ 自訂生成（AI 快速盲盒）</button>
       </div>
     </div>
@@ -143,7 +150,13 @@
           </div>
           <!-- ⚔️ 頁2·靈基（主·預設）：真名/職階/六圍/技能 -->
           <div id="cf-page-2">
-            <input id="cf-name" class="std-in" maxlength="20" placeholder="真名（必填·原創，正典角色請從職階英靈殿挑選）" style="width:100%; box-sizing:border-box;">
+            <input id="cf-name" class="std-in" maxlength="20" placeholder="真名（必填）" style="width:100%; box-sizing:border-box;">
+            <!-- 🎭 角色來源：技能名工房本就你自己打·此選項只決定「AI 補人格/演出」要不要忠於原著角色 -->
+            <select id="cf-origin" class="std-in" style="width:100%; box-sizing:border-box; margin-top:6px;">
+              <option value="original" selected>🎭 完全原創（AI 補人格自由發揮）</option>
+              <option value="fate">🎭 Fate 正史角色（AI 補人格忠於原著）</option>
+              <option value="anime">🎭 其他動漫畫角色（AI 補人格忠於原著）</option>
+            </select>
             <div style="display:flex; gap:6px; margin-top:6px;">
               <select id="cf-cls" class="std-in" style="flex:2;" onchange="refreshClsHint_()"></select>
               <select id="cf-sex" class="std-in" style="flex:1;"><option>女</option><option>男</option><option>異</option></select>

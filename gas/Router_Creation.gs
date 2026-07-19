@@ -242,6 +242,27 @@ var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應�
   "破魔(無視神核/續行)=anti_magic_lance、破戒(斬契約救贖)=rule_breaker、神性(神裔·會被神殺剋)=divine、以巧破力(以敏捷為傷害底)=agile_striker、" +
   "氣息感知(看穿奇襲)=sense、神殺(剋神性之敵)=god_slay、愛之痣(魅惑·敵命中-1)=lovespot";
 
+// 🎭 創角「來源三分類」(origin)→ 角色框定 frame ＋ 技能命名規則 skill。玩家在召喚/工房明講，不靠 AI 猜。
+//   fate=Fate 正史角色(忠正史招式名)／anime=其他動漫畫遊戲知名角色(取角色招牌招式名)／original=完全原創(自取花名)。
+//   空/未知＝original(維持舊行為·當原創處理)。自訂生成用 frame+skill；工房只用 frame(技能名玩家自己打)。
+function originGuide_(origin) {
+  if (origin === 'fate') return {
+    frame: '這是【Fate 系列的正史角色】，請依玩家描述【還原召喚這名英靈】，忠於其原著傳說、性格與能力，勿當成原創另行杜撰。',
+    skill: '★技能名【忠於該角色 Fate 原著既有的技能/招式名】(對魔力／魔力放出／直感／庫夫林「蓋・波爾克」…)，直接沿用勿重編亂加花名；fx 照挑對應機制。',
+    pnote: '【Fate 系列正史角色】(演出/外貌/人格補完請忠於其原著、勿當原創杜撰)的'
+  };
+  if (origin === 'anime') return {
+    frame: '這是【其他動漫／漫畫／遊戲的知名角色】，請依玩家描述【還原這名角色】，忠於其原著形象、性格與代表能力，勿當成原創另行杜撰。',
+    skill: '★技能名【取該角色原著的招牌招式／絕技名】(如 悟空→龜派氣功／瞬間移動、炭治郎→水之呼吸)，fx 照挑最接近的機制；原著招式找不到對應機制就挑最貼近者、名字仍用原著招式名。',
+    pnote: '【其他動漫／漫畫／遊戲知名角色】(演出/外貌/人格補完請忠於其原著、勿當原創杜撰)的'
+  };
+  return { // original 或未指定
+    frame: '這是玩家【自訂描述的原創英靈】，請依描述創作一位全新原創從者（可自取貼切真名），忠於描述的形象與氣質。',
+    skill: '★技能名依角色形象【自取貼合的獨特招式名】(像寶具那樣有個性)，例 fx=str_up→「鬼之膂力」、fx=morale→「獅子之心」；⚠自取名勿與清單上其他 fx 的正史名撞名(如非 first_strike 者別叫「直感/神速」)以免張冠李戴。',
+    pnote: '原創'
+  };
+}
+
 // 清洗 AI 給的技能陣列為 [{n,r,fx}]（fx 不在字典就清空，仍保留為演出用標籤）。
 //   r 階級與 sanitizeSix_ 同一套驗證(承認 A++/B−)。maxCount 由呼叫端傳真實預算上限(classSkills 1~2/
 //   skills 2~3)，不共用同一個寬鬆值，避免 AI 吐出兩倍於預算的技能數量。
@@ -497,11 +518,12 @@ function actionSaveHero(userData, pcId, sheets) {
   // 🎭 AI 只補「玩家沒填的」演出欄＋寶具英文真名——失敗不擋鑄造
   // 🌹 御主職階無寶具/技能，提示詞跳過那兩行、系統prompt也不要求 npEn(反正不會被讀)。
   const isMasterCls = pb.cls === "御主";
+  const _ogF = originGuide_(String(userData.origin || "").trim()); // 🎭 工房三分類→AI 補人格時的忠實度(技能名玩家自己打·此處只管演出補完)
   let flavor = null;
   try {
     flavor = JSON.parse(callGeminiAPI(
       `【真名】：${pb.name}\n【職階】：${pb.cls}\n【性別】：${pb.sex}\n【玩家描述】：${pb.desc || "無"}${pb.look ? `\n【外貌(${pb.lookFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.look}` : ""}${pb.pref ? `\n【個性(${pb.prefFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.pref}` : ""}${pb.fp ? `\n【自稱(玩家已定)】：${pb.fp}` : ""}${pb.speech ? `\n【口吻(玩家已定)】：${pb.speech}` : ""}${pb.moe ? `\n【萌點(玩家已定·照抄勿改)】：${pb.moe}` : ""}${pb.back ? `\n【身世(玩家已定·照抄勿改)】：${pb.back}` : ""}${pb.weapon ? `\n【武裝(以此為準·勿依職階/原典改寫)】：${pb.weapon}` : ""}${isMasterCls ? "" : `\n【技能】：${pb.skills.map(s => s.n).join("、") || "無"}\n【寶具】：${pb.npName}${pb.npDesc ? `（${pb.npDesc}）` : ""}`}`,
-      `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名原創${isMasterCls ? "御主(鑑賞限定·不參與戰鬥)" : "從者"}的設定，你【只】負責補完演出側寫${isMasterCls ? "" : "與寶具英文真名"}，【嚴禁】輸出任何數值/階級/技能設定。玩家標「照抄勿改」的欄位原樣沿用；標「核心設定·擴寫」的欄位以玩家給的為靈魂擴寫、【嚴禁】偏離或覆蓋其本意。★personality 與 look 皆【恰好4段·只用頓號「、」分隔·絕對不要用句號「。」或半形句點·每段是簡短詞組非完整句子·段內不再用頓號列舉】。★輸出合法 JSON、禁 Markdown：{"personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔）","look":"外貌四短句頓號分隔（五官髮色/身形/衣著印象，最後一句必須是不含服裝字眼的純氣質詞）","background":"生平一句·限20字","npc_intent":"一句反差萌·限18字·務必寫完整一句話不可斷在句意未完處"${isMasterCls ? "" : `,"npEn":"寶具的英文真名讀法(拉丁字母·如 Excalibur 風格·限4個單字)"`}}`,
+      `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名${_ogF.pnote}${isMasterCls ? "御主(鑑賞限定·不參與戰鬥)" : "從者"}的設定，你【只】負責補完演出側寫${isMasterCls ? "" : "與寶具英文真名"}，【嚴禁】輸出任何數值/階級/技能設定。玩家標「照抄勿改」的欄位原樣沿用；標「核心設定·擴寫」的欄位以玩家給的為靈魂擴寫、【嚴禁】偏離或覆蓋其本意。★personality 與 look 皆【恰好4段·只用頓號「、」分隔·絕對不要用句號「。」或半形句點·每段是簡短詞組非完整句子·段內不再用頓號列舉】。★輸出合法 JSON、禁 Markdown：{"personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔）","look":"外貌四短句頓號分隔（五官髮色/身形/衣著印象，最後一句必須是不含服裝字眼的純氣質詞）","background":"生平一句·限20字","npc_intent":"一句反差萌·限18字·務必寫完整一句話不可斷在句意未完處"${isMasterCls ? "" : `,"npEn":"寶具的英文真名讀法(拉丁字母·如 Excalibur 風格·限4個單字)"`}}`,
       { temperature: 0.85, ignoreLaw: true }));
   } catch (e) { flavor = null; }
   const fNpEn = String((flavor && flavor.npEn) || "").replace(/[^A-Za-z0-9 .'\-:]/g, "").trim().slice(0, 30);
@@ -523,6 +545,7 @@ function actionSummonServant(userData, pcId, sheets) {
   const heroId = String(userData.heroId || "").trim();
   const trueName = String(userData.trueName || "").trim().slice(0, 20);
   const custDesc = String(userData.desc || "").trim().slice(0, 120); // 自訂描述生成原創從者
+  const origin = String(userData.origin || "").trim(); // 🎭 自訂生成三分類：fate/anime/original(空=original)
 
   const pcData = sheets.pc.getDataRange().getValues();
   const masterRow = pcData.find(r => r[COL.PC.ID] == pcId);
@@ -618,14 +641,12 @@ function actionSummonServant(userData, pcId, sheets) {
     } else {
       // 🌀 名冊查無 → AI 即時生成「第一級從者」：含真實六圍階級＋帶 fx 的技能（吃得到標籤）
       cls = reqCls || "Saber";
-      const sysOverride = `你是《命運停駐之夜》的英靈召喚核心。玩家御主召喚出一名「從者（Servant）」，職階為「${cls}」。${custDesc ? `這是玩家【自訂描述的原創英靈】，請依描述創作一位全新原創從者（可自取貼切真名），忠於描述的形象與氣質。` : (trueName ? `指定真名為「${trueName}」，請忠於該英靈的傳說與性格（可跨作品：動漫／遊戲／神話／歷史皆可）。` : "請挑選一位契合此職階、知名的歷史或傳說英靈。")}
+      const _og = originGuide_(origin); // 🎭 三分類→角色框定＋技能命名(僅自訂描述路徑生效)
+      const sysOverride = `你是《命運停駐之夜》的英靈召喚核心。玩家御主召喚出一名「從者（Servant）」，職階為「${cls}」。${custDesc ? _og.frame : (trueName ? `指定真名為「${trueName}」，請忠於該英靈的傳說與性格（可跨作品：動漫／遊戲／神話／歷史皆可）。` : "請挑選一位契合此職階、知名的歷史或傳說英靈。")}
 
 ★【六圍 six】依該英靈強弱給「筋力/耐久/敏捷/魔力/幸運/寶具」各一個階級，階級用 E,D,C,B,A,EX（強處可加 + 如 A+）；務必有強有弱、貼合傳說。若為 Berserker 或持狂化(mad)者，六圍請直接填【狂化後】的數值（與官方參數表慣例一致；狂化的傷害加成由系統另計，勿再自行灌水）。
 ★【技能帶 fx】classSkills(職階技能 1~2 個)＋skills(固有技能 2~3 個)，每個含 {"n":"技能名","r":"階級","fx":"效果碼"}。職階技能貼合職階慣例：Saber/Lancer/Archer＝對魔力(Archer 另有單獨行動)、Rider＝對魔力＋騎乘、Caster＝陣地作成＋道具作成、Assassin＝氣息遮斷、Berserker＝狂化(mad)。
-★【技能命名·像寶具一樣】n 是【顯示名】、fx 才是機制。★★分兩種情形，別搞混：
-  ①【正史/傳說已有此角色的角色】(指定真名或知名英靈)：技能名【忠於該角色原著既有的招式/技能名】(如庫夫林「蓋・波爾克」、正史「對魔力/魔力放出/直感/怪力」)——這些本就獨特且正確，直接沿用，【勿】自行重編或亂加花名。
-  ②【原創角色】(玩家自訂描述·無正史對應)、或某技能該角色正史沒有對應招式：才【自取】貼合其形象的獨特招式名(像寶具那樣有個性)，例 fx=str_up→「鬼之膂力」、fx=morale→「獅子之心」、fx=first_strike→「野性直感」。
-  ⚠自取名勿與清單上【其他】fx 的正史名撞名(如非 first_strike 者別叫「直感/神速」)，以免戰報張冠李戴。
+★【技能命名】n 是【顯示名】、fx 才是機制(兩者脫鉤)。${custDesc ? _og.skill : '★技能名忠於該角色原著既有的招式/技能名(對魔力／直感／庫夫林「蓋・波爾克」…)，直接沿用勿重編亂加花名。'}
 ${FX_MENU_}
 ★【特性 traits】1~3 個，{"n":"特性名"}（如 王/龍/人類/神性/巨人/猛獸；有神性者會被神殺剋）。
 ★【演出而非說明】personality 與寶具只作底層，勿直接複述字面。personality 剛好 4 短句頓號分隔：日常表象、真實內裡、喜歡的事物、討厭的事物。
