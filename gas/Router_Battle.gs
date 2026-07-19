@@ -454,6 +454,7 @@ function actionFateBattle(userData, pcId, sheets) {
 
   // 🔋 寶具魔力（出力電池制）：寶具全由御主供魔。① 寶具僅能在「出力 100%（全開·認真）」解放——御主把魔力全灌進去才釋放得了真名。
   //   ② 御主魔力(MP)＋焚血(HP)都湊不出 prana → 油盡燈枯，擋下。
+  let npSealForced = false; // 🎴 令咒·絕對命令強開寶具(魔力見底時燃令咒逼出真名)——供敘述
   if (useNp) {
     const atkOutput = servantOutput_(pcData[atkIdx][COL.PC.MEMORY]);
     if (atkOutput < 100) {
@@ -464,7 +465,14 @@ function actionFateBattle(userData, pcId, sheets) {
     const mHpPre = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
     const maxPay = mMpPre + Math.floor(Math.max(0, mHpPre - 1) / BATTERY_HP_PER_MP);
     if (maxPay < npCostPre) {
-      return JSON.stringify({ success: false, needMana: true, message: `御主魔力已油盡燈枯——以血魔竭力相湊仍不足以供「${atkC.name}」解放寶具(需 ${npCostPre})，須先休整／補魔。` });
+      // 🎴 令咒·絕對命令【強開寶具】：御主魔力見底，燃一道令咒逼出不可能之力——令咒補上缺口魔力(令咒即燃料，
+      //   御主血肉不再被榨乾)。須真有令咒可燃(userData.seal＋餘量)，否則照舊擋下、並回 canForceSeal 供前端出「燃令咒強開」鈕。
+      if (!!userData.seal && getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]) > 0) {
+        pcData[pIdx][COL.PC.MP] = Math.max(mMpPre, npCostPre); // 令咒 materializes 缺口魔力→下游 drainForNp_ 只扣魔、不焚血
+        npSealForced = true;
+      } else {
+        return JSON.stringify({ success: false, needMana: true, canForceSeal: getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]) > 0, message: `御主魔力已油盡燈枯——以血魔竭力相湊仍不足以供「${atkC.name}」解放寶具(需 ${npCostPre})，須先休整／補魔${getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]) > 0 ? '，或燃令咒·絕對命令強開' : ''}。` });
+      }
     }
   }
 
@@ -1172,6 +1180,7 @@ function actionFateBattle(userData, pcId, sheets) {
       `${roundsBrief}\n我方造成 ${totalDealt} 傷害、受創 ${totalTaken}。${finalLine}\n` +
       `── 本戰發生的事(素材，自行織入畫面，勿複述標籤名) ──\n` +
       (useSeal ? `· 御主燃燒一道令咒·絕對命令，強令此擊必中、引爆超限戰力。\n` : "") +
+      (npSealForced ? `· 【令咒·絕對命令·強開寶具】御主魔力早已見底、血肉也湊不出真名解放所需——卻仍以令咒之力硬逼出這一擊：那道刻在手背的絕對命令化作純粹魔力，補上枯竭的缺口，強令從者不顧一切解放寶具。演出「魔力見底仍以令咒逼出真名」的孤注一擲與令咒燃盡的灼痛榮光。\n` : "") +
       (clash ? `· 寶具對轟：${clash.outcome === 'causality' ? `因果律先行截斷——『${atkC.name}』的死亡詛咒在敵方寶具解放之前便已降臨，敵 NP 殘波極微。` : clash.outcome === 'player' ? '我方威能壓過對手。' : clash.outcome === 'enemy' ? '對面威能壓過我方（從者以鋼鐵意志撐住）。' : '勢均力敵、轟然相抵、雙方震退。'}\n` : (useNp ? (hasFx_(atkC, 'mad')
         ? `· ${atkC.name} 解放了寶具【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】——★此從者已狂化、無法詠唱：解放是咆哮與本能的爆發，旁白可呈現真名與威能，但【嚴禁】讓其開口唸出任何字句。\n`
         : `· ${atkC.name} 高呼真名【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】、解放了寶具——★演出時務必讓其【親口唸出這個真名】(中文真名與原名並呼、氣勢拉滿)，這是 Fate 寶具解放的靈魂。\n`) : "")) +

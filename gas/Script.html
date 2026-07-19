@@ -763,9 +763,10 @@
         ? _restBtn
         : ('<button onclick="secondWind()" style="' + _btnCss + 'margin-right:6px;background:rgba(200,90,90,.18);color:#e89a9a;border:1px solid #a05050;">🩸 燃血強撐 <small style="opacity:.7;">+4AP·不耗時</small></button>' + _restBtn);
     } else if (res.needMana) {
-      // 「休整／補魔」二選一：🛏️休息＝免費·靠時間回魔(溫和)；💧補魔＝即刻回滿但【永久】代價(生命上限/迴路)，點下另有確認。
+      // ❖令咒強開(有令咒才給·絕對命令逼出真名·免焚血) ／ 🛏️休整回魔(免費·靠時間) ／ 💧補魔(即刻·永久代價·另有確認)。
       accent = '126,150,220'; bg = '14,20,38';
-      btn = '<button onclick="openRestMenu()" style="' + _btnCss + 'margin-right:6px;background:rgba(169,169,216,.2);color:#c9c0e8;border:1px solid #8a7fc0;">🛏️ 休整回魔</button>'
+      btn = (res.canForceSeal ? '<button onclick="forceSealNp_()" style="' + _btnCss + 'margin-right:6px;background:rgba(200,120,240,.22);color:#e0b0ff;border:1px solid #b06cd0;">❖ 燃令咒·強開寶具</button>' : '')
+        + '<button onclick="openRestMenu()" style="' + _btnCss + 'margin-right:6px;background:rgba(169,169,216,.2);color:#c9c0e8;border:1px solid #8a7fc0;">🛏️ 休整回魔</button>'
         + '<button onclick="manaSupply()" style="' + _btnCss + 'background:rgba(126,150,220,.2);color:#9ec8ff;border:1px solid #4e92c0;">💧 補魔 <small style="opacity:.7;">永久代價</small></button>';
     } else if (res.needBreakAlliance) {
       const nm = String(res.blockAlly || '').replace(/'/g, "\\'");
@@ -775,6 +776,13 @@
     story.insertAdjacentHTML('beforeend', '<div class="msg-ai" style="align-self:center;color:#cfc3d8;font-size:12.5px;text-align:center;border:1px solid rgba(' + accent + ',0.45);border-radius:8px;padding:8px 11px;background:rgba(' + bg + ',0.5);">' + escapeHtml(res.message || '此刻無法如此行動。') + '<br>' + btn + '</div>');
     story.scrollTop = story.scrollHeight;
     return true;
+  }
+  // ❖ 燃令咒·絕對命令【強開寶具】：魔力見底時，燃一道令咒逼出真名(令咒補上缺口·免焚血)＋必中×1.5。重打剛才那一發寶具。
+  function forceSealNp_() {
+    const t = window._lastNpTry; if (!t || !t.npcName) { alert('沒有可強開的寶具目標。'); return; }
+    if (myMasterSeals <= 0) { alert('令咒已用盡，無法絕對命令。'); return; }
+    if (!confirm('❖ 燃一道令咒·絕對命令，強令從者不顧魔力枯竭、解放寶具？\n\n令咒之力補上魔力缺口（御主血肉不再被榨乾），並附【必中＋威力 ×1.5】。\n餘 ' + myMasterSeals + ' 道令咒。\n\n確定燃令咒強開？')) return;
+    servantStrike(t.npcName, true, true, false, true, t.npChoice); // useNp+useSeal+npPicked
   }
 
   async function travelTo(targetName, distance, retreat) {
@@ -2118,6 +2126,7 @@
         //   回讀時才不會看到「喊了解放寶具卻無下文」的斷頭訊息)＋重新同步清掉殘留敵蹤卡
         story.insertAdjacentHTML('beforeend', '<div class="msg-player" style="color:#c9a0a0;"><b>【系統】：</b>' + ((res && res.message) || '出擊未遂。') + '</div>');
         story.scrollTop = story.scrollHeight;
+        if (res && res.needMana) window._lastNpTry = { npcName: npcName, npChoice: (typeof npChoiceArg === 'number' ? npChoiceArg : undefined) }; // ❖ 供「燃令咒·強開寶具」重打同一發
         if (!resolveBlockCard_(res)) alert((res && res.message) || '出擊失敗。'); try { syncData(true); } catch (e) {}
       }
     } catch (e) { alert('連線失敗，出擊未果。'); } finally { endAction(); }
