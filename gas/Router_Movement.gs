@@ -107,14 +107,14 @@ function actionMove(userData, pcId, sheets) {
   var pursuit = null;
   try {
     var fromLocM = String(allPcData[pIdx][COL.PC.LOC] || "").trim();
-    if (isFateMove && !_slipAway && fromLocM && tgtTrim && tgtTrim !== fromLocM) {
+    // 🏃 追擊機制已【全數轉移到撤退按鈕】(玩家定案)：唯有 isRetreat（殺出重圍）才觸發追擊——一般移動遇敵已被上方
+    //   needRetreat 擋下（強制走撤退），遇不到敵則本就無人可追，故不再有「機率性離場追擊」這條路徑。
+    if (isFateMove && isRetreat && !_slipAway && fromLocM && tgtTrim && tgtTrim !== fromLocM) {
       var psvIdxM = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
       if (psvIdxM !== -1) {
         var psvC = rowToCombatant_(allPcData[psvIdxM]);
         try { injectMysticBuff_(psvC, allPcData[pIdx][COL.PC.MEMORY]); } catch (e) { } // ✨ 逃跑時也吃御主禮裝(如 Avalon 承受寶具減傷)
         psvC._shieldMp = parseInt(allPcData[pIdx][COL.PC.MP]) || 0; // 💠 背擊寶具＝七天盾可展開(扣魔)，付不起張不開
-        var psvAgi = rankVal(psvC.six['敏捷'] || 'C');
-        var psvHp = parseInt(allPcData[psvIdxM][COL.PC.HP]) || 0, psvMax = parseInt(allPcData[psvIdxM][COL.PC.MAX_HP]) || 1;
         // 🔮 預告寶具·背後傾瀉：離場格若有敵人正蓄勢寶具預告 → 朝你退卻的背影轟出 NP 級臨別重擊(優先於一般追擊，保1不致死)。
         //   用 find() 只取第一個相符者，避免多個預告敵人同格時只有最後一個結算、其餘旗標卡住不清。
         var teleFoe = allPcData.find(function (r) {
@@ -166,28 +166,18 @@ function actionMove(userData, pcId, sheets) {
           var a = rankVal((rowToCombatant_(r).six['敏捷']) || 'C');
           if (a > chaserAgi) { chaserAgi = a; chaser = r; }
         });
-        // 🏃 撤退＝敵方【必】追擊：無視「敵敏≥我敏」門檻與機率(對方燃令咒強行追殺)；一般離場才走機率/敏捷判定。
-        if (!pursuit && chaser && (isRetreat || chaserAgi >= psvAgi)) {
-          var pProb;
-          if (isRetreat) { pProb = 1; }
-          else {
-            pProb = 0.30 + (psvHp < psvMax * 0.4 ? 0.20 : 0) - (hasFx_(psvC, 'ride') ? 0.15 : 0);
-            var stanceM = String(userData.stance || 'normal'); // 🎌 御主參戰風格(僅此處輕觸追擊機率)：後方支援−/正大光明+
-            pProb += (stanceM === 'open' ? 0.10 : stanceM === 'stealth' ? -0.10 : 0);
-            pProb = Math.max(0, Math.min(0.55, pProb)); // 夾上限·免殘血+光明變「離場必被咬」
-          }
-          if (Math.random() < pProb) {
-            var chC = rowToCombatant_(chaser);
-            // ⚔️ 真·交手判定(非單方挨打)：追兵 vs 我方從者一次交鋒，誰輸誰扣血——我方夠強可回身反咬逼退追兵。
-            //   雙方保 1 不致死(離別小衝突·防玩家來回刷殺/也防被追擊秒殺)。撤退時追兵搶得先機(ambush)、更難全身而退。
-            var pr = resolveFateBattle_(chC, psvC, isRetreat ? { ambush: true } : {});
-            var chaserNm = String(chaser[COL.PC.NAME]);
-            // 六圍追擊也需要 note——worldRumors 只在 pursuit.note 存在時才推播戰報，缺了 note 扣血就看不出原因。
-            pursuit = { enemyName: chaserNm, chaserId: String(chaser[COL.PC.ID]), dmg: Math.max(1, pr.damage), hitWho: pr.atkWins ? 'us' : 'foe', retreat: isRetreat,
-              note: pr.atkWins
-                ? ((isRetreat ? '你決意殺出重圍，「' + chaserNm + '」豈容獵物脫逃——燃令咒疾追而至，' : '「' + chaserNm + '」腳程更快，你才轉身欲走，她已欺身欺至，') + '狠狠螫了你的從者一記——沒能全身而退。')
-                : ((isRetreat ? '你強行突圍，「' + chaserNm + '」燃令咒疾追，' : '「' + chaserNm + '」欺身追至，') + '卻被你的從者堪堪回身擋開、反手逼退。') };
-          }
+        // 🏃 撤退＝敵方【必】追擊（本區塊唯 isRetreat 才進·見上方 guard）：無視敏捷門檻與機率，對方燃令咒強行追殺。
+        if (!pursuit && chaser) {
+          var chC = rowToCombatant_(chaser);
+          // ⚔️ 真·交手判定(非單方挨打)：追兵 vs 我方從者一次交鋒，誰輸誰扣血——我方夠強可回身反咬逼退追兵。
+          //   雙方保 1 不致死。撤退時追兵搶得先機(ambush)、更難全身而退。
+          var pr = resolveFateBattle_(chC, psvC, { ambush: true });
+          var chaserNm = String(chaser[COL.PC.NAME]);
+          // note 必給——worldRumors 只在 pursuit.note 存在時才推播戰報，缺了 note 扣血就看不出原因。
+          pursuit = { enemyName: chaserNm, chaserId: String(chaser[COL.PC.ID]), dmg: Math.max(1, pr.damage), hitWho: pr.atkWins ? 'us' : 'foe', retreat: true,
+            note: pr.atkWins
+              ? ('你決意殺出重圍，「' + chaserNm + '」豈容獵物脫逃——燃令咒疾追而至，狠狠螫了你的從者一記——沒能全身而退。')
+              : ('你強行突圍，「' + chaserNm + '」燃令咒疾追，卻被你的從者堪堪回身擋開、反手逼退。') };
         }
       }
     }

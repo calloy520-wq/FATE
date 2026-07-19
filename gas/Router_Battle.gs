@@ -336,7 +336,9 @@ function applyMasterStanceShare_(sheets, pcData, svIdx, masterIdx, dmg, share) {
   if (!share || share <= 0 || dmg <= 0 || svIdx < 0 || masterIdx < 0 || svIdx === masterIdx) return 0;
   var mHp = parseInt(pcData[masterIdx][COL.PC.HP]) || 0;
   if (mHp <= 1) return 0;
-  var shared = Math.min(Math.max(1, Math.round(dmg * share)), mHp - 1);
+  // 🎯 忠於標稱百分比：四捨五入即可、【不】保底1——小額擦傷(如 5% 的個位數傷)攤到 0 就不扣御主，
+  //   免每一記都硬吃 1 讓實際分擔遠超標稱％。御主不因分擔而死(夾 mHp−1)。
+  var shared = Math.min(Math.round(dmg * share), mHp - 1);
   if (shared <= 0) return 0;
   var svMax = parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 999999;
   pcData[svIdx][COL.PC.HP] = Math.min(svMax, (parseInt(pcData[svIdx][COL.PC.HP]) || 0) + shared);
@@ -1051,7 +1053,8 @@ function actionFateBattle(userData, pcId, sheets) {
 
   // 戰報摘要（含寶具對轟的傷害）
   const totalDealt = rounds.reduce((s, r) => s + (r.strikes || []).reduce((a, k) => a + (k.pDmg || 0), 0), 0) + (clash ? (clash.eDmgTaken || 0) : 0);
-  const totalTaken = rounds.reduce((s, r) => s + (r.eDmg || 0), 0) + (clash ? (clash.pDmgTaken || 0) : 0);
+  // 受創含敵盟協防那記(rl.pactDef.dmg)——否則「受創X − 御主替扛Y」對不上從者實際血量掉幅(協防傷也走 masterShared)。
+  const totalTaken = rounds.reduce((s, r) => s + (r.eDmg || 0) + (r.pactDef && r.pactDef.hit ? (r.pactDef.dmg || 0) : 0), 0) + (clash ? (clash.pDmgTaken || 0) : 0);
   const nRounds = rounds.length;
   const atkLabel = dualAttack ? `${atkC.name} 與另一名從者協同` : atkC.name;
   const roundsBrief = rounds.map(r =>
