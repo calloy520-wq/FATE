@@ -600,7 +600,7 @@
     try {
       const res = await gasRun({ action: 'second_wind', pcId: pc.id });
       if (res && res.success) { updateClock(res.clock, res.ap, res.apMax); syncData(true); await narrate(res.aiPrompt); }
-      else { alert((res && res.message) || '無法強撐。'); }
+      else if (!resolveBlockCard_(res)) { alert((res && res.message) || '無法強撐。'); } // 🩸 血太虛(needRest+noSecondWind)→跳「只剩休息」卡
     } catch (e) { alert('連線失敗。'); } finally { endAction(); }
   }
 
@@ -757,7 +757,11 @@
     let accent = '', bg = '', btn = '';
     if (res.needRest) {
       accent = '169,169,216'; bg = '22,20,32';
-      btn = '<button onclick="openRestMenu()" style="' + _btnCss + 'background:rgba(169,169,216,.2);color:#c9c0e8;border:1px solid #8a7fc0;">🛏️ 去休息（恢復行動力）</button>';
+      const _restBtn = '<button onclick="openRestMenu()" style="' + _btnCss + 'background:rgba(169,169,216,.2);color:#c9c0e8;border:1px solid #8a7fc0;">🛏️ 去休息（恢復行動力）</button>';
+      // 🩸 沒 AP → 先給「燃血強撐」(燒命換 +4AP·不推進時間)；血已太虛(noSecondWind)則只剩休息。
+      btn = res.noSecondWind
+        ? _restBtn
+        : ('<button onclick="secondWind()" style="' + _btnCss + 'margin-right:6px;background:rgba(200,90,90,.18);color:#e89a9a;border:1px solid #a05050;">🩸 燃血強撐 <small style="opacity:.7;">+4AP·不耗時</small></button>' + _restBtn);
     } else if (res.needMana) {
       // 「休整／補魔」二選一：🛏️休息＝免費·靠時間回魔(溫和)；💧補魔＝即刻回滿但【永久】代價(生命上限/迴路)，點下另有確認。
       accent = '126,150,220'; bg = '14,20,38';

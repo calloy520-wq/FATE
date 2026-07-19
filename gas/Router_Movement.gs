@@ -1001,7 +1001,7 @@ function actionSecondWind(userData, pcId, sheets) {
   const maxHp = parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 120;
   const cur = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
   const cost = Math.max(10, Math.round(maxHp * 0.20));
-  if (cur <= cost) return JSON.stringify({ success: false, message: "你的身體太過虛弱，再燃燒生命恐當場斷氣——請改用『休息』恢復，或令咒脫離。" });
+  if (cur <= cost) return JSON.stringify({ success: false, needRest: true, noSecondWind: true, message: "你的身體太過虛弱，再燃燒生命恐當場斷氣——唯有『休息』恢復，或令咒脫離。" });
   pcData[pIdx][COL.PC.HP] = cur - cost;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   const ap = grantAp_(myGameId, 4, pcData, sheets);
