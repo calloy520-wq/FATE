@@ -355,10 +355,16 @@ function actionMove(userData, pcId, sheets) {
     }
   } catch (e) { }
 
+  // 🆘 盟友告急（同盟配套）：worldTick 後若有盟友在別處被敵從者纏上→報信＋供「趕去馳援」。
+  var allyPeril = null;
+  try { if (isFateMove) allyPeril = detectAllyPeril_(allPcData, moveGameId, target, _moveDay()); } catch (e) { }
+  if (allyPeril) worldRumors.unshift(`〔盟友告急〕盟友「${allyPeril.ally}」此刻正於「${allyPeril.loc}」與敵從者「${allyPeril.foe}」對上、情勢緊繃。`);
+
   STATE_PRE_DATA_ = allPcData; // ⚡ 交棒：本 handler 所有寫入(worldTick_/spendAp_/markRivalsSeen_/夜襲…)皆已原地改回 allPcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({
     success: true,
     foeMood: foeMoodNote, // 🫶 遇敵態度·GAS 依好感裁定→前端注入抵達 steer
+    allyPeril: allyPeril, // 🆘 盟友告急→前端報信＋「趕去馳援」泡泡
     masterCard: masterCard_(allPcData[pIdx]), // 🎭 御主演出依據→抵達敘事讓「我」依性格開口、不再啞巴主角
     servantCard: svCardMove,
     foeCards: foeCardsMove,
@@ -849,6 +855,27 @@ function actionIncite(userData, pcId, sheets) {
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   STATE_PRE_DATA_ = pcData;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, report: report, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: getFreshStatusString(pcId, pIdx, sheets) });
+}
+
+// 🆘 盟友告急偵測（同盟配套）：找一名在【別處】、與未結盟活敵從者同格的盟友——他正被人纏上、有難。
+//   回 {ally, loc, foe, allyFaction} 供前端報信＋「趕去馳援」；查無回 null。情報共享故玩家得知(結盟即無戰爭迷霧)。
+function detectAllyPeril_(pcData, gameId, playerLoc, curDay) {
+  var pl = String(playerLoc || "").trim(), d = parseInt(curDay) || 1;
+  for (var i = 1; i < pcData.length; i++) {
+    var r = pcData[i];
+    if (String(r[COL.PC.GAME_ID] || "") !== gameId) continue;
+    if (String(r[COL.PC.ID]).startsWith("DEAD_")) continue;
+    var fac = String(r[COL.PC.FACTION]);
+    if ((fac !== "敵御主" && fac !== "敵從者") || !isAllied_(r)) continue; // 只看盟友
+    var loc = String(r[COL.PC.LOC] || "").trim();
+    if (!loc || loc === pl) continue; // 在玩家這格＝已能就近援手、不必報信
+    var foe = pcData.find(function (x) {
+      return String(x[COL.PC.FACTION]) === "敵從者" && String(x[COL.PC.GAME_ID] || "") === gameId &&
+        !String(x[COL.PC.ID]).startsWith("DEAD_") && !isAllied_(x) && String(x[COL.PC.LOC] || "").trim() === loc && hasArrived_(x, d);
+    });
+    if (foe) return { ally: String(r[COL.PC.NAME]), allyFaction: fac, loc: loc, foe: String(foe[COL.PC.NAME]) };
+  }
+  return null;
 }
 
 // ⚔️ 卸防突襲：在同地有清醒敵從者時做「補魔／羈絆／休息」等卸下防備之舉，會招致敵從者趁隙重擊我方從者

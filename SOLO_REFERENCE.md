@@ -256,6 +256,7 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 - `actionBreakAlliance`／`breakStaleAlliances_`：撕毀／自然瓦解（效期到 或 在世敵從者≤3 強制翻臉）。`actionMove`＋`actionRest` 都呼叫。
 - `actionAllyBond`：與同地盟友共處，耗1AP，`bumpBond_` 升羈絆，達90標【摯交】（純敘事高光防重複·無鑑賞入口意義）。SFW only。
 - **協同強襲**（actionFateBattle 內）：盟友從者每回合助攻一擊。
+- **🆘 盟友告急**（`detectAllyPeril_`·Router_Movement）：`actionMove` 後（worldTick 已推進）若有盟友在【別處】與未結盟活敵從者同格→回 `allyPeril{ally,loc,foe}`＋傳聞，前端插「🆘 盟友告急」報信卡＋「🏃 趕去馳援」一鍵 `travelTo(loc)`（純情報·去不去玩家決定）；抵達那格打敵人時既有協同強襲自動生效。AI 抵達 steer 得知此情報（結盟情報共享）但不替玩家起身。
 - **情報共享 `hasAllyInGame_`**：有盟友→地圖無視 SEEN 全揭露＋敵從者職階揭露（`intelCls`）。
 - **前端 override `getLocalPeopleList`**：結盟的敵御主/敵從者 faction 改顯 `盟友御主/盟友從者`（`allied:true`），前端不列為可攻擊。
 
