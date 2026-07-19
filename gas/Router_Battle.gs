@@ -768,6 +768,21 @@ function actionFateBattle(userData, pcId, sheets) {
     if (allyAtkIdx !== -1) allyAssistName = String(pcData[allyAtkIdx][COL.PC.NAME]);
   }
 
+  // 🤝 敵盟·協防（同盟功能·敵方版）：你攻擊的敵從者，其御主若與另一敵御主締有【敵盟】(未逾期)，且該盟友御主的
+  //   從者同地在場→盟友從者每回合替其反擊我方一記（敵版協同強襲，讓敵盟在正面戰鬥真的有分量）。
+  let pactDefIdx = -1, pactDefName = "";
+  if (targetIsFoeServant) {
+    const _tgtMaster = getServantMaster_(pcData[nIdx][COL.PC.MEMORY]); // 被攻擊敵從者的御主名
+    const _mRow = _tgtMaster ? pcData.find(r => String(r[COL.PC.FACTION]) === "敵御主" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && nameLoose_(r[COL.PC.NAME]) === nameLoose_(_tgtMaster)) : null;
+    const _pact = _mRow ? getEnemyPact_(_mRow[COL.PC.MEMORY]) : null;
+    const _curDay = ((getClock_(myGameId, pcData) || {}).day) || 1;
+    if (_pact && _pact.until >= _curDay) {
+      const _defLoc = String(pcData[nIdx][COL.PC.LOC]).trim();
+      pactDefIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === _defLoc && r[COL.PC.ID] != pcData[nIdx][COL.PC.ID] && !isAllied_(r) && nameLoose_(getServantMaster_(r[COL.PC.MEMORY])) === nameLoose_(_pact.partner));
+      if (pactDefIdx !== -1) pactDefName = String(pcData[pactDefIdx][COL.PC.NAME]);
+    }
+  }
+
 
   // 🐙 螺湮城教本(變身框架)：青鬍子解放寶具【或戰前召喚】→ 深淵海怪在場(狀態存 MEMORY·無期限·魔力維持制)。
   //   在場則：以肉身擋傷(fateStrike_)＋每回合再生＋並肩追擊(每交鋒回合抽 HORROR_UPKEEP)＋本體防禦升對城規模(npDefScale)；
@@ -988,6 +1003,21 @@ function actionFateBattle(userData, pcId, sheets) {
         }
       }
     }
+
+    // 🤝 敵盟·協防反擊：被攻擊者的敵盟夥伴每回合替其回擊我方一記（雙方尚未分勝負才出手；純普攻·不解放寶具）
+    if (pactDefIdx !== -1 && !String(pcData[pactDefIdx][COL.PC.ID]).startsWith("DEAD_") && !defeat && !victory && !destroyedName && !sealEscaped) {
+      let ctgt2 = atkIdx;
+      if (String(pcData[ctgt2][COL.PC.ID]).startsWith("DEAD_")) { const alt2 = partyIdxs.find(i => !String(pcData[i][COL.PC.ID]).startsWith("DEAD_")); if (alt2 != null) ctgt2 = alt2; }
+      if (!String(pcData[ctgt2][COL.PC.ID]).startsWith("DEAD_")) {
+        const pdC = rowToCombatant_(pcData[pactDefIdx]);
+        const _pdMem = enemyMasterMemoryFor_(pcData, myGameId, pcData[pactDefIdx]);
+        if (_pdMem) { injectMasterMeleeSupport_(pdC, _pdMem); injectMasterMagicSupport_(pdC, _pdMem); }
+        const pds = fateStrike_(sheets, pcData, pdC, ctgt2, { counterMul: 0.85, skill: servantActiveSkill_(pdC), round: rd + 1 }, ctx);
+        rl.pactDef = { name: pdC.name, hit: pds.hit, dmg: pds.hit ? pds.damage : 0, target: String(pcData[ctgt2][COL.PC.NAME]) };
+        if (pds.defeat) { defeat = true; victory = false; dreamPrompt = pds.dreamPrompt; }
+      }
+    }
+
     rounds.push(rl);
     if (defeat) break;
   }
@@ -1094,6 +1124,7 @@ function actionFateBattle(userData, pcId, sheets) {
       (horrorFired ? `· 我方術師以螺湮城教本自深淵召出觸手巨獸「深淵海怪」，常駐戰場、每回合與本人並肩撕咬，靠御主魔力維持(枯竭則潰散)。\n` : "") +
       (dualAttack ? `· 我方兩名從者並肩夾擊同一敵手。\n` : "") +
       (allyAssistName ? `· 盟友從者「${allyAssistName}」依約自側翼掩護助攻。\n` : "") +
+      (pactDefName ? `· 敵方盟友「${pactDefName}」（與「${defC.name}」的御主締有密約）並肩馳援、替其反擊我方——你攻其一，兩敵同禦。\n` : "") +
       (npTelegraphed ? `· 「${defC.name}」的靈基驟然高鳴——真名解放的預兆正急速匯聚、殺意如實質般壓來，寶具即將出鞘卻【尚未發動】。演出這股「山雨欲來、下一擊便是真名解放」的窒息壓迫感，讓御主明白必須當機立斷。\n` : "") +
       (homeField ? `· 【主場·陣地】這場交鋒發生在我方 Caster 親手佈設的陣地之中——魔術防壁、結界與布下的機關層層環伺，這裡是法師的堡壘。我方全員承其庇護、受創大減；敵手則在滿是術式的敵境中步步受制。演出「引敵入陣地決戰」的主場壓制感。\n` : "") +
       (idealRealmFired ? `· 【理想鄉】「${idealRealmFoe}」傾盡全力解放了斬裂世界／碾穿一切的究極真名，然而在觸及「${idealRealmSaber}」的剎那，全世界遙遠的理想鄉 Avalon 悄然展開——那是隔絕於世界之外、永不凋零的無敵結界。究極寶具的威能盡數湮滅於金色的理想鄉中，「${idealRealmSaber}」毫髮無傷。演出這一擋的神聖、靜謐與絕對，御主付出大量魔力方換得此護。\n` : "") +
