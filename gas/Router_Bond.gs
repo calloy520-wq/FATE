@@ -48,7 +48,7 @@ function markMasterLostServant_(sheet, data, svIdx, cause) {
       if (!isMatch) continue;
       var before = String(data[m][COL.PC.MEMORY] || "");
       var after = stampLostServant_(before, svName, cause);
-      if (after !== before) { data[m][COL.PC.MEMORY] = after; sheet.getRange(m + 1, 1, 1, data[m].length).setValues([data[m]]); }
+      if (after !== before) { data[m][COL.PC.MEMORY] = after; if (!BATTLE_DEFER_WRITE_) sheet.getRange(m + 1, 1, 1, data[m].length).setValues([data[m]]); }
       return;
     }
   } catch (e) { }

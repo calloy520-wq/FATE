@@ -6,6 +6,13 @@
 
 // ⚔️ Fate 戰鬥：御主號令從者出擊（D20＋六圍＋fx＋寶具），game_id 隔離
 // ==========================================
+
+// 🚀 戰鬥寫入延遲旗標（速度：主戰鬥一次按鍵原本散落 30~50 次逐列 setValues，每次都是一趟慢 Sheets 往返）：
+//   actionFateBattle 主路徑把它設 true → 底下每擊會呼到的寫入 helper(fateStrike_/drainForNp_/settleShieldMana_/
+//   applyMasterStanceShare_/markMasterLostServant_)只改記憶體 pcData、跳過逐列寫；最後由 actionFateBattle 做【一次】
+//   整表 setValues 落盤(比照 actionMove 的單次寫回·全程握 ScriptLock 保證安全)。斬首分支在旗標設定前已 return、不受影響；
+//   其餘呼叫端(召喚海怪/移動)旗標恆 false、照常即時寫。GAS 每次執行重置模組變數，跨請求不會殘留。
+var BATTLE_DEFER_WRITE_ = false;
 // ⚔️ 單次出擊裁決：atkC 攻擊 pcData[tgtIdx]。命中才扣血（未中＝撲空、不自傷）。
 //   處理破戒/戰鬥續行/令咒緊急脫離/十二試煉復活/死亡(敵→勝利判定；我→敗北)。
 //   opts:{np,seal,counterMul}　ctx:{myGameId,pIdx,userData}
@@ -15,7 +22,7 @@ function settleShieldMana_(sheets, pcData, masterIdx, c) {
   var spent = c && c._shieldSpent;
   if (!spent || masterIdx == null || masterIdx < 0) return;
   pcData[masterIdx][COL.PC.MP] = Math.max(0, (parseInt(pcData[masterIdx][COL.PC.MP]) || 0) - spent);
-  sheets.pc.getRange(masterIdx + 1, COL.PC.MP + 1).setValue(pcData[masterIdx][COL.PC.MP]);
+  if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(masterIdx + 1, COL.PC.MP + 1).setValue(pcData[masterIdx][COL.PC.MP]);
   c._shieldSpent = 0;
 }
 
@@ -131,7 +138,7 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
         pcData[tgtIdx][COL.PC.HP] = ghReviveHp;
         pcData[tgtIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[tgtIdx][COL.PC.MEMORY], ghRemain);
         pcData[tgtIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "神性光輝纏身", "姿勢": "緩緩起身", "負面": `十二試煉·餘${ghRemain}命`, "顏面": "不滅的戰意" });
-        sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
+        if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
         out.godNote = `「${pcData[tgtIdx][COL.PC.NAME]}」倒下了——卻又緩緩站起。${lossN > 1 ? `這一擊的概念威能極重，一口氣燒去 ${lossN} 條命` : `十二試煉的詛咒讓他自死亡歸來`}（尚餘 ${ghRemain} 條命）。`;
         out.fired.push(pcData[tgtIdx][COL.PC.NAME] + '·十二試煉(God Hand)' + (lossN > 1 ? `·一擊燒${lossN}命` : ''));
         return out;
@@ -162,7 +169,7 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
       if (!doomNote) pcData[tgtIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基受創", "姿勢": "踉蹌", "負面": "令咒緊急脫離", "顏面": "咬牙退避" });
       var oldLoc = String(pcData[tgtIdx][COL.PC.LOC]).trim(), newLoc = enemyRetreatLoc_(oldLoc);
       pcData[tgtIdx][COL.PC.LOC] = newLoc;
-      sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
+      if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
       // 🔗 用硬連結【御主】找「這名從者真正的御主」，避免同地多組時抓錯人
       //   （曾出現 A 御主一道令咒帶走 B 御主的從者的離譜 bug）。舊角色無連結→退回同地比對。
       var escMaster = getServantMaster_(pcData[tgtIdx][COL.PC.MEMORY]);
@@ -177,7 +184,7 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
         if (!escMasterName) escMasterName = String(pcData[mi][COL.PC.NAME]);
         // 只有「本主與從者同地」才一起撤離；遠端御主只是隔空燃令咒下令，本人不跟著瞬移
         if (String(pcData[mi][COL.PC.LOC]).trim() === oldLoc) {
-          pcData[mi][COL.PC.LOC] = newLoc; sheets.pc.getRange(mi + 1, 1, 1, pcData[mi].length).setValues([pcData[mi]]);
+          pcData[mi][COL.PC.LOC] = newLoc; if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(mi + 1, 1, 1, pcData[mi].length).setValues([pcData[mi]]);
         }
         break;
       }
@@ -196,7 +203,7 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
     pcData[tgtIdx][COL.PC.STATUS] = killedIsMaster
       ? JSON.stringify({ "衣服": "凌亂", "姿勢": "倒地不起", "負面": "重傷不治·身亡", "顏面": "生機已絕" })
       : JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "靈基崩潰·消滅", "顏面": "已無生息" });
-    sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
+    if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
     // 🕯️ 御主(非護衛斬首場)戰死 → 失去供魔的敵從者與令咒燒盡同一套下場：無「單獨行動」者掛 SEAL_DOOM_HOURS 倒數消滅，
     //   有「單獨行動」者靠靈基殘存苟活(見 enemyCanAffordNp_ 的 INDEPENDENT_ACTION_RESERVE)。
     //   斬首·護衛在場的即死已在上方 assassinGuardIdx 分支處理，此處只補「無護衛」的一般陣亡路徑。
@@ -213,7 +220,7 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
           if (getDoom_(pcData[oi][COL.PC.MEMORY]) > 0) continue;          // 已有倒數在算(例如先前令咒燒盡)，不覆蓋
           pcData[oi][COL.PC.MEMORY] = stampDoom_(pcData[oi][COL.PC.MEMORY], oDeadAbs);
           pcData[oi][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰蝕", "姿勢": "踉蹌", "負面": `御主已亡·靈基透支(約 ${SEAL_DOOM_HOURS} 時消滅)`, "顏面": "強撐將潰" });
-          sheets.pc.getRange(oi + 1, 1, 1, pcData[oi].length).setValues([pcData[oi]]);
+          if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(oi + 1, 1, 1, pcData[oi].length).setValues([pcData[oi]]);
         }
       }
     }
@@ -243,7 +250,7 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
     }
   } else {
     pcData[tgtIdx][COL.PC.HP] = after;
-    sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
+    if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
   }
   return out;
 }
@@ -274,14 +281,14 @@ function drainForNp_(sheets, pcData, svIdx, masterIdx, mpCost) {
     if (_fromSolo > 0) {
       need -= _fromSolo;
       pcData[svIdx][COL.PC.MEMORY] = setSoloReserve_(pcData[svIdx][COL.PC.MEMORY], _solo - _fromSolo);
-      sheets.pc.getRange(svIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[svIdx][COL.PC.MEMORY]);
+      if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(svIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[svIdx][COL.PC.MEMORY]);
     }
   }
   // 寫回御主（有動到才寫）
   if (masterIdx >= 0 && (fromMMp > 0 || fromMHp > 0)) {
     pcData[masterIdx][COL.PC.MP] = Math.max(0, mMp - fromMMp);
     pcData[masterIdx][COL.PC.HP] = Math.max(1, mHp - fromMHp);
-    sheets.pc.getRange(masterIdx + 1, 1, 1, pcData[masterIdx].length).setValues([pcData[masterIdx]]);
+    if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(masterIdx + 1, 1, 1, pcData[masterIdx].length).setValues([pcData[masterIdx]]);
   }
   return {
     cost: mpCost, fromSv: 0, fromMasterMp: fromMMp, fromMasterHp: fromMHp, shortfall: need,
@@ -343,8 +350,10 @@ function applyMasterStanceShare_(sheets, pcData, svIdx, masterIdx, dmg, share) {
   var svMax = parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 999999;
   pcData[svIdx][COL.PC.HP] = Math.min(svMax, (parseInt(pcData[svIdx][COL.PC.HP]) || 0) + shared);
   pcData[masterIdx][COL.PC.HP] = mHp - shared;
-  sheets.pc.getRange(svIdx + 1, COL.PC.HP + 1).setValue(pcData[svIdx][COL.PC.HP]);
-  sheets.pc.getRange(masterIdx + 1, COL.PC.HP + 1).setValue(pcData[masterIdx][COL.PC.HP]);
+  if (!BATTLE_DEFER_WRITE_) {
+    sheets.pc.getRange(svIdx + 1, COL.PC.HP + 1).setValue(pcData[svIdx][COL.PC.HP]);
+    sheets.pc.getRange(masterIdx + 1, COL.PC.HP + 1).setValue(pcData[masterIdx][COL.PC.HP]);
+  }
   return shared;
 }
 
@@ -603,6 +612,10 @@ function actionFateBattle(userData, pcId, sheets) {
       statusString: buildPlayerStatusString(pcData[pIdx]) // ⚡ pcData 即權威，免 getFreshStatusString 的整表重讀
     });
   }
+
+  // 🚀 主戰鬥路徑從這裡開始延遲寫入：底下每擊的 helper 只改記憶體 pcData、跳過逐列 setValues，
+  //   結尾一次整表寫回(見 return 前的批次 setValues)。斬首分支已於上方 return、不進此段。
+  BATTLE_DEFER_WRITE_ = true;
 
   // ⚔️ 一次出戰＝最多 ROUNDS 個來回（我攻→敵反擊），命中才扣血、未中＝撲空；任一方倒下即止。
   //   寶具/令咒只在開場第一擊生效；其後為普通互砍。敵御主空手不反擊。
@@ -1202,7 +1215,12 @@ function actionFateBattle(userData, pcId, sheets) {
     party: partyIdxs.map(i => ({ name: String(pcData[i][COL.PC.NAME]), hp: parseInt(pcData[i][COL.PC.HP]) || 0, hpMax: parseInt(pcData[i][COL.PC.MAX_HP]) || 0 }))
   };
 
-  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：主戰鬥路徑所有寫入(fateStrike_/drainForNp_/spendAp_/raiseBond_/對轟/預告旗標)皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
+  // 🚀 一次整表寫回：本戰所有 helper 皆只改記憶體 pcData(延遲寫)，這裡比照 actionMove 單次 setValues 落盤，
+  //   取代原本散落 30~50 次逐列寫的慢往返(每場戰鬥省 ~1~3 秒)。全程握 ScriptLock、其他局的列原值寫回不受影響。
+  BATTLE_DEFER_WRITE_ = false;
+  sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
+
+  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：主戰鬥路徑所有寫入皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, knockedOut: knockedOut,
     victory: victory, defeat: defeat, dreamPrompt: dreamPrompt,
