@@ -291,7 +291,7 @@ function renderHeroList() {
   if (!list.length) {
     box.innerHTML = custom
       ? '<p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">尚無玩家原創英靈——用下方「🛠️ 自訂英靈工房」打造第一位吧！</p>'
-      : '<p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">此職階英靈殿暫無資料，可用下方真名召喚。</p>';
+      : '<p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">此職階英靈殿暫無資料，可改選其他職階，或用下方「🖋️ 自訂生成」召喚。</p>';
     return;
   }
   box.innerHTML = list.map(function (h) {
@@ -326,13 +326,7 @@ async function doSummon(payload) {
   }
 }
 function summonByHero(id) { return doSummon({ heroId: id }); }
-function summonByName() {
-  var tn = (document.getElementById('s-truename') && document.getElementById('s-truename').value.trim()) || '';
-  if (!tn) { alert('請輸入真名，或從上方挑選英靈。'); return; }
-  // 🐛→✅ 原本沒帶目前瀏覽的職階分頁，同真名跨職階(如斯卡哈 Lancer/Assassin)永遠固定召到英靈殿裡排比較前面的版本——把 selectedSummonClass 一併帶給後端當同分優先提示。
-  var _cls = (selectedSummonClass && selectedSummonClass !== '__all__' && selectedSummonClass !== '__custom__') ? selectedSummonClass : '';
-  return doSummon({ trueName: tn, cls: _cls });
-}
+// 🗑️ summonByName(真名文字召喚)已移除——正典英靈改走職階英靈殿挑選、其餘走自訂生成(summonByDesc)。
 function summonRandom() { return doSummon({ cls: (selectedSummonClass && selectedSummonClass !== '__all__') ? selectedSummonClass : '' }); }
 function summonByDesc() {
   var d = (document.getElementById('s-desc') && document.getElementById('s-desc').value.trim()) || '';
