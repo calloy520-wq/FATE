@@ -548,8 +548,10 @@
           acts += '<button onclick="ruleBreakSteal(\'' + safe + '\')" title="破戒奪僕：對打殘(HP<35%)的敵從者斬契奪為第二從者，燃一道令咒" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(176,108,208,.16); color:#d0a0e8; border:1px solid #8a5fb0; border-radius:7px; cursor:pointer; font-weight:bold;">⛓ 破戒奪僕 <small style="opacity:.7;">須打殘至35%＋燃令咒</small></button>';
         }
       }
-      // 🕊️ 示好／交涉：對此未結盟敵人釋出善意、養好感（好感機制的主動入口·敵御主/敵從者皆可）
-      acts += '<button onclick="courtEnemy(\'' + safe + '\',\'' + String(f.id).replace(/'/g, '') + '\')" title="示好／交涉：慢慢養對方對你的好感（好感高→遇敵態度和緩、更易結盟、挑撥更靈、趁隙更狠、撤離不被追擊）。每人每日一次、耗 1AP。" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(210,160,90,.14); color:#e0c088; border:1px solid #b0863f; border-radius:7px; cursor:pointer; font-weight:bold;">🕊️ 示好／交涉 <small style="opacity:.7;">耗1AP·每人每日一次</small></button>';
+      // 🕊️ 示好：只對【敵御主】交涉（好感由整組御主＋從者共用，示好御主會連坐養其從者）——從者不設此鈕
+      if (f.faction === '敵御主') {
+        acts += '<button onclick="courtEnemy(\'' + safe + '\',\'' + String(f.id).replace(/'/g, '') + '\')" title="示好：慢慢養這一組(御主＋從者)對你的好感（好感高→遇敵態度和緩、更易結盟、挑撥更靈、趁隙更狠、撤離不被追擊）。每日一次、耗 1AP。" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(210,160,90,.14); color:#e0c088; border:1px solid #b0863f; border-radius:7px; cursor:pointer; font-weight:bold;">🕊️ 示好 <small style="opacity:.7;">養好感·耗1AP·每日一次</small></button>';
+      }
       return '<div style="grid-column:1 / -1; padding:5px 2px 2px; display:flex; gap:5px; flex-wrap:wrap;">' + acts + '</div>';
     };
     // 成對：每個御主配其硬連結從者(f.master/f.servant)；一列＝一組 2 欄 grid

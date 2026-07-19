@@ -516,7 +516,8 @@ function actionAllyBond(userData, pcId, sheets) {
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, bond: after, unlocked: unlocked, ally: allyName, clock: clock, ap: ap, apMax: AP_PER_DAY, ambush: false, statusString: getFreshStatusString(pcId, pIdx, sheets) });
 }
 
-// 🕊️ 示好／交涉：對同地【未結盟的敵御主/敵從者】釋出善意、慢慢養好感(BOND)。GAS 依對方性格決定升多少
+// 🕊️ 示好／交涉：對同地【未結盟的敵御主】釋出善意、慢慢養好感(BOND)。只對敵御主(交涉的對象是決策者)；
+//   好感由整組御主＋從者共用——示好御主會連坐把其硬連結從者的 BOND 一起養。GAS 依對方性格決定升多少
 //   (務實者領情快、孤狼/瘋狂者慢熱)，AI 只演對方【依性格×當前好感】的反應。每名敵人每日一次、耗 1AP。
 //   這是「好感提高成功率」整套的主動培養入口——養高了：遇敵態度和緩、結盟更易、挑撥更靈、趁隙更狠、
 //   撤離不被追擊(BOND≥50)。戰場只到 SFW 曖昧；鑑賞角色一律於鑑賞內自行召喚，不靠 solo 帶入。
@@ -533,8 +534,7 @@ function actionCourtEnemy(userData, pcId, sheets) {
   // 🔧 比照攻擊/結盟路徑：先 npcId 精準配、再 nameLoose_ fallback——含全形括號名(如「哈桑·薩巴赫（咒腕）」)
   //   會被 sanitizeUserData_ 的 cleanChineseName 剝成「哈桑薩巴赫咒腕」，純 name 比對必漏，故靠 id。
   const tIdx = pcData.findIndex(function (r) {
-    var fac = String(r[COL.PC.FACTION]);
-    if (fac !== "敵御主" && fac !== "敵從者") return false;
+    if (String(r[COL.PC.FACTION]) !== "敵御主") return false; // 🕊️ 只跟敵御主交涉(好感整組共用·會連坐養其從者)
     if (String(r[COL.PC.GAME_ID] || "") !== myGameId) return false;
     if (String(r[COL.PC.ID]).startsWith("DEAD_")) return false;
     if (isAllied_(r)) return false;
@@ -543,7 +543,7 @@ function actionCourtEnemy(userData, pcId, sheets) {
     if (npcId && String(r[COL.PC.ID]) === npcId) return true;
     return npcKey && nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1;
   });
-  if (tIdx === -1) return JSON.stringify({ success: false, message: "此地沒有可示好的對象——須與對方同處一地、對方為敵對陣營（盟友請用『與盟友共處』）。" });
+  if (tIdx === -1) return JSON.stringify({ success: false, message: "此地沒有可示好的敵御主——示好只對敵御主進行（好感由整組御主＋從者共用），須與對方同處一地。" });
 
   const isFate = myGameId.indexOf("g_") === 0;
   if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, message: "行動力不足——請『休息』恢復後再來。" });
