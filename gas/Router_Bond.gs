@@ -311,8 +311,9 @@ function masterPersonaLean_(masterRow) {
 // 🫶 對方對玩家的好感傾向（BOND 0-100，40＝中性起點）→ 機率修正 [-0.67, +1.0]。
 //   單一真實來源：各處「依好感提高成功率」的 GAS 判定共用。未互動過(0/空)視為中性 40。
 function bondFavor_(row) {
-  var b = parseInt(row[COL.PC.BOND]) || 0;
-  if (b <= 0) b = 40; // 未設過好感＝中性起點(比照 bumpBond_ 預設 40)
+  var raw = row[COL.PC.BOND];
+  // 未互動過(空)＝中性起點 40；但被挑撥失敗等磨到真正的數字 0＝敵意到底(−0.67)，別再吞回中性。
+  var b = (raw === "" || raw == null) ? 40 : (parseInt(raw) || 0);
   return (b - 40) / 60; // 40→0、100→+1.0、0→-0.67
 }
 
@@ -549,6 +550,14 @@ function actionCourtEnemy(userData, pcId, sheets) {
   delta = Math.max(2, delta + Math.floor(Math.random() * 3));
   const before = parseInt(pcData[tIdx][COL.PC.BOND]) || 40;
   const after = bumpBond_(sheets, pcData, tIdx, delta); // 內含 0-100 夾值＋寫回 BOND 格
+  // 🤝 好感是「這一整組(御主＋從者)對你的態度」：連坐硬連結的另一半一起升，讓結盟(讀御主列)與偷襲/挑撥/撤離
+  //   不被追(讀從者列)的回饋都吃得到——玩家不必猜該對御主還是從者示好。
+  var _partnerName = targetIsMaster ? getMasterServant_(pcData[tIdx][COL.PC.MEMORY]) : getServantMaster_(pcData[tIdx][COL.PC.MEMORY]);
+  if (_partnerName) {
+    var _pFac = targetIsMaster ? "敵從者" : "敵御主";
+    var _pIdx = pcData.findIndex(function (r) { return String(r[COL.PC.FACTION]) === _pFac && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && nameLoose_(r[COL.PC.NAME]) === nameLoose_(_partnerName); });
+    if (_pIdx !== -1) bumpBond_(sheets, pcData, _pIdx, delta);
+  }
 
   // 標記今日已示好（每敵每日一次）
   pcData[tIdx][COL.PC.MEMORY] = _mem.replace(/｜?【示好日】\d+/g, "") + "｜【示好日】" + _courtDay;
