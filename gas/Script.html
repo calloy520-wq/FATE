@@ -434,8 +434,10 @@
 
   // 🏃 「須撤退突圍」判定——與後端 actionMove 強制撤退/追擊【同源】(單一真實來源)：此地有【敵從者·
   //   未友好 bond<50】＝交戰，離場須殺出重圍(敵必追擊·GAS 出戰報)。以下例外＝可從容移動·離場無追擊·
-  //   不出戰報，故按鈕維持「移動」：① 在自己陣地(atHome 主場結界) ② 敵人分心的趁隙窗口(_encWin.slip)。
+  //   不出戰報，故按鈕維持「移動」：① 在自己陣地(atWorkshop 主場結界) ② 敵人分心的趁隙窗口(_encWin.slip)。
   //   漏了任一例外，按鈕就會承諾一場【不會發生】的追擊戰(玩家按了突圍卻沒戰報)——對照後端 lines 103/107/117。
+  //   ⚠ 陣地(_atOwnHome＝getWorkshop_)跟出生地 HOME_LOC(eco.atHome)是兩個不同欄位——後端安全港判定
+  //   只認陣地，這裡務必讀 eco.atWorkshop、不是 eco.atHome，否則陣地跟出生地不同城時會判定錯邊。
   function _engagedFoeHere_() {
     return (localNPCs || []).some(function (n) {
       return n && n.isExact && n.faction === '敵從者' && (parseInt(n.relVal) || 0) < 50;
@@ -443,7 +445,7 @@
   }
   function _mustBreakout_() {
     if (!_engagedFoeHere_()) return false;
-    if (window._lastEco && window._lastEco.atHome) return false;                               // 🏰 主場安全港
+    if (window._lastEco && window._lastEco.atWorkshop) return false;                            // 🏰 主場安全港(陣地)
     if (window._encWin && window._encWin.choices && window._encWin.choices.slip) return false; // 💨 趁隙可悄悄離開
     return true;
   }
@@ -1613,7 +1615,8 @@
     if (name === 'status') refreshFateTags();
   }
   // 🎌 御主參戰風格（常駐三段藥丸·存 localStorage·免 round-trip）：一鍵決定兩件事——
-  //   ①接敵基調(隱蔽−/光明+ 撤離追擊機率、抵達敘事定調)；②戰鬥中御主替從者【分擔傷害】的比例(share)。
+  //   ①接敵敘事基調(抵達演出定調；撤退追擊已改「按撤退鈕必追」，非此處風格影響機率)；
+  //   ②戰鬥中御主替從者【分擔傷害】的比例(share)。
   //   後方支援=躲後方(0%分擔·最難被察覺)；見機行事=相機補位(5%)；正大光明=立於陣前共擔(10%·最易被察覺)。
   //   share 由後端 STANCE_SHARE_ 為準，此處僅供 UI 顯示。
   var STANCES = {
@@ -1717,7 +1720,7 @@
     // 地圖節點本身即可點擊移動；🏃 交戰中＝無法從容移動，點地點會自動轉為「撤退突圍」(敵必追擊)。
     //   與撤退按鈕同用 _mustBreakout_()——befriended/主場/趁隙窗口皆非交戰，免地圖假警報「有敵擋道」。
     var _mustBk = _mustBreakout_();
-    var _atHomeMap = !!(window._lastEco && window._lastEco.atHome);
+    var _atHomeMap = !!(window._lastEco && window._lastEco.atWorkshop); // 🏰 陣地(非出生地 HOME_LOC)，與 _mustBreakout_ 同源
     html += _mustBk
       ? '<div style="color:#e0a080; font-size:11px; margin:10px 0 6px; text-align:center; border:1px solid rgba(200,120,70,.4); border-radius:7px; padding:6px 8px;">⚔️ 此地有敵——無法從容移動。點任一地點將以「🏃 撤退突圍」殺出（對方必定追擊、成敗當場見真章）。</div>'
       : (_engagedFoeHere_() && _atHomeMap)
