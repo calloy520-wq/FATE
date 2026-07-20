@@ -504,6 +504,15 @@ function actionFateBattle(userData, pcId, sheets) {
     }
     const rolls = asnParty.map(idx => ({ idx: idx, name: String(pcData[idx][COL.PC.NAME]), roll: Math.floor(Math.random() * 20) + 1 }));
     const crit = rolls.find(r => r.roll === 20) || null;
+    // 🐛→✅ 斬首這整條分支的三份 asnPrompt 從沒附上任何演出依據卡——AI 被要求「依『${crit.name}』的職階與
+    //   真名自行演出」致命手段、演出護衛反噬的反應、演出敵御主之死，卻連從者/護衛的性格卡、御主本人的
+    //   演出依據卡都沒拿到，等同要求它憑空捏造。比照主戰路徑(ourMasterCardStr)補齊：我方出擊從者(含雙從者)
+    //   ＋御主本人＋護衛從者＋目標敵御主，四張卡一次備好、三個分支共用。
+    const asnMasterCardStr = masterCard_(pcData[pIdx]);
+    const asnAtkCardsStr = rolls.map(r => servantCard_(pcData[r.idx])).join('');
+    const asnGuardCardStr = '〔敵御主之護衛從者〕' + servantCard_(pcData[assassinGuardIdx]);
+    const asnTargetMasterCardStr = enemyMasterCard_(pcData[nIdx]);
+    const asnCardsStr = asnMasterCardStr + asnAtkCardsStr + asnGuardCardStr + asnTargetMasterCardStr;
     const dualAsn = asnParty.length > 1;
     let asnReport, asnPrompt, asnVictory = false, asnDefeat = false, asnDream = "", asnKnocked = [];
 
@@ -544,7 +553,7 @@ function actionFateBattle(userData, pcId, sheets) {
         selfDmg: 0, victory: asnVictory, defeat: false,
         atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0
       };
-      asnPrompt = `【系統·斬首戰報·已裁定】御主號令${dualAsn ? '兩名從者齊撲' : `從者『${crit.name}』`}奇襲敵御主「${masterName}」。命運的骰子由『${crit.name}』擲出 20 — 大成功！撕開護衛從者「${guardName}」的防線、取下御主性命。御主既亡（凡人之軀·斃命，非靈基消滅）、魔力供給斷絕，` +
+      asnPrompt = asnCardsStr + `【系統·斬首戰報·已裁定】御主號令${dualAsn ? '兩名從者齊撲' : `從者『${crit.name}』`}奇襲敵御主「${masterName}」。命運的骰子由『${crit.name}』擲出 20 — 大成功！撕開護衛從者「${guardName}」的防線、取下御主性命。御主既亡（凡人之軀·斃命，非靈基消滅）、魔力供給斷絕，` +
         (guardSurvived ? `然「${guardName}」憑一己神秘之力強行維繫靈基、瀕死重創卻未消散。` : `從者「${guardName}」失去供魔當場化作光點消散。`) +
         `${asnVictory ? '此為最後的敵對陣營——聖杯已然在握！' : ''}\n` +
         `★以 Fate／TYPE-MOON 筆觸描寫這萬中選一、石破天驚的斬首瞬間（一段即可）。【致命的手段由你依『${crit.name}』的職階與真名自行演出——法師為魔術一擊、近戰為兵刃、弓兵為遠程，勿假設特定方式】${dualAsn ? '，兩名從者夾擊、其中一人覷得破綻收尾' : ''}。勝負已由系統結算。\n` +
@@ -600,11 +609,11 @@ function actionFateBattle(userData, pcId, sheets) {
       };
       const whoTxt = dualAsn ? '兩名從者' : `從者『${atkC.name}』`;
       if (asnDefeat) {
-        asnPrompt = `【系統·斬首戰報·已裁定】御主號令${whoTxt}奇襲敵御主「${masterName}」，無人擲出 20。護衛從者「${guardName}」捨身擋下、反手以 1.5 倍之力逐一痛擊（${rollsTxt}），我方從者悉數靈基崩潰、化作光點消散，御主敗北。\n` +
+        asnPrompt = asnCardsStr + `【系統·斬首戰報·已裁定】御主號令${whoTxt}奇襲敵御主「${masterName}」，無人擲出 20。護衛從者「${guardName}」捨身擋下、反手以 1.5 倍之力逐一痛擊（${rollsTxt}），我方從者悉數靈基崩潰、化作光點消散，御主敗北。\n` +
           `★以 Fate／TYPE-MOON 筆觸沉痛描寫斬首落空、護衛反殺、從者消滅的瞬間（一段即可），語氣留白。勝負已由系統結算。\n` +
           ``;
       } else {
-        asnPrompt = `【系統·斬首戰報·已裁定】御主號令${whoTxt}欲奇襲敵御主「${masterName}」，無人擲出 20（大成功）。護衛從者「${guardName}」如影攔在御主身前、硬生生擋下，並反手以 1.5 倍之力逐一痛擊（${rollsTxt}）。御主未能得手。\n` +
+        asnPrompt = asnCardsStr + `【系統·斬首戰報·已裁定】御主號令${whoTxt}欲奇襲敵御主「${masterName}」，無人擲出 20（大成功）。護衛從者「${guardName}」如影攔在御主身前、硬生生擋下，並反手以 1.5 倍之力逐一痛擊（${rollsTxt}）。御主未能得手。\n` +
           `★以 Fate／TYPE-MOON 筆觸描寫護衛捨身格擋、反噬重擊${dualAsn ? '、兩名從者同遭反震' : ''}的險惡瞬間（一段即可）。傷害已由系統結算。\n` +
           `★未崩潰之從者最多重傷，【絕對禁止】描寫其死亡。\n` +
           ``;
@@ -723,6 +732,10 @@ function actionFateBattle(userData, pcId, sheets) {
   //   ★ 對轟輸方不致死：差值再大也只打到 1 HP——英雄倒下前總能拼出最後一口氣。
   let openingNp = useNp, openingSeal = useSeal; // 對轟已用掉開場 NP/令咒威能則清掉，避免回合迴圈重放
   let clash = null;
+  // 🐛→✅ 對轟的兩記 fateStrike_(eHit/pHit) 也可能觸發「戰鬥續行」/「斬斷救贖」，但下方 extraFired 只
+  //   掃過 rounds[] 裡的一般交鋒，對轟從沒推進 rounds——這兩個關鍵轉折發生在對轟時會整個漏講給 AI。
+  //   在此收集，稍後併入 extraFired。
+  let clashFired = [];
   if (useNp && targetIsFoeServant && !String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) {
     const enemyC0 = rowToCombatant_(pcData[nIdx]);
     // 🥋🔮 對轟中 enemyC0 稍後會反過來當攻方(ePow，見下)，補上其硬連結敵御主的體術/魔術支援。
@@ -769,6 +782,7 @@ function actionFateBattle(userData, pcId, sheets) {
       const outcome = clashRes.outcome;
       const pDmgTaken = clashRes.pDmg, eDmgTaken = clashRes.eDmg, pLethalOk = clashRes.pLethal;
       const eHit = fateStrike_(sheets, pcData, atkC, nIdx, { forceDamage: eDmgTaken }, ctx);
+      clashFired = clashFired.concat(eHit.fired || []);
       if (eHit.destroyed) destroyedName = eHit.destroyed;
       if (eHit.knocked) knockedOut.push(eHit.knocked);
       if (eHit.sealEscaped) { sealEscaped = true; sealNote = eHit.sealNote; }
@@ -781,6 +795,7 @@ function actionFateBattle(userData, pcId, sheets) {
         const spill0 = (destroyedName && !pLethalOk) ? Math.round(pDmgTaken * 0.5) : pDmgTaken;
         const spill = pLethalOk ? spill0 : Math.min(spill0, Math.max(0, (parseInt(pcData[atkIdx][COL.PC.HP]) || 1) - 1));
         const pHit = fateStrike_(sheets, pcData, enemyC0, atkIdx, { forceDamage: spill }, ctx);
+        clashFired = clashFired.concat(pHit.fired || []);
         if (pHit.destroyed && pHit.knocked) knockedOut.push(pHit.knocked);
         if (pHit.defeat) { defeat = true; victory = false; dreamPrompt = pHit.dreamPrompt; }
         // 🎌 御主參戰風格·對轟回震也替從者分擔(非致命時)
@@ -1086,7 +1101,10 @@ function actionFateBattle(userData, pcId, sheets) {
   const npTelegraphed = rounds.some(r => r.eTelegraph); // 🔮 本戰敵寶具進入預告→AI 演出＋前端保底警告
   const finalLine = destroyedName
     ? (!targetIsFoeServant
-        ? `敵御主「${defC.name}」已斃命——凡人之軀、並非靈基消滅（${atkC.cls === 'Caster' ? 'Caster 以魔術給予決定性一擊、非肉搏；' : ''}致命手段依出戰從者職階自行演出）${victory ? '；其從者失去供魔亦將隨之消散，聖杯已近！' : '。'}`
+        // 🐛→✅ 殺死敵御主這條路徑(fateStrike_ 的 killedIsMaster 分支)結構上不會設 victory=true(勝利
+        //   判定只掛在殺死「敵從者」的 isFoeSv 分支)——這裡原本的 victory 三元式恆假、是條死路，
+        //   誤導成「殺死御主也可能直接奪杯」，清掉避免以後有人真的想接上卻搞錯判定分支。
+        ? `敵御主「${defC.name}」已斃命——凡人之軀、並非靈基消滅（${atkC.cls === 'Caster' ? 'Caster 以魔術給予決定性一擊、非肉搏；' : ''}致命手段依出戰從者職階自行演出）。`
         : `「${defC.name}」靈基崩潰、徹底消滅${victory ? '——此乃最後一名敵對從者，聖杯已近！' : '。'}`)
     : sealEscaped ? `「${defC.name}」被對面御主令咒緊急扯離戰場、遁走不在場。`
       : godRevived ? `「${defC.name}」屢屢自死亡歸來、仍未倒下。`
@@ -1162,7 +1180,13 @@ function actionFateBattle(userData, pcId, sheets) {
   //   (godNote/sealNote)，但「戰鬥續行」(致命傷卻硬撐留1)／「斬斷救贖」(此類護命效果被破戒/反魔力
   //   兵裝之類的手段強行突破)這兩種只進了 pFired、從沒進過 aiPrompt——AI 看不出「這下明明該死卻沒死」
   //   或「原本免死的招式這次被打穿了」的關鍵轉折，收攏成一句素材補上。
+  // 🐛→✅ 對轟(clash)的兩記 fateStrike_ 一樣可能吐出這兩個旗標，但只掃 rounds[] 會漏掉——clashFired
+  //   (上面對轟區塊收集)併進來源，開場那發對轟若剛好觸發戰鬥續行/斬斷救贖也講得出來。
   const extraFired = [];
+  clashFired.forEach(t => {
+    const s = String(t || "");
+    if (/·戰鬥續行|·斬斷救贖/.test(s) && extraFired.indexOf(s) < 0) extraFired.push(s);
+  });
   rounds.forEach(r => (r.strikes || []).forEach(k => (k.pFired || []).forEach(t => {
     const s = String(t || "");
     if (/·戰鬥續行|·斬斷救贖/.test(s) && extraFired.indexOf(s) < 0) extraFired.push(s);
@@ -1180,13 +1204,18 @@ function actionFateBattle(userData, pcId, sheets) {
   //   便自行編造出跟角色設定無關的招式(如「甩出魔術迴路干擾」)，玩家反應「超級出戲」。這裡補上
   //   masterCard_，讓 AI 依御主真實的魔術系統/體術/身世去想像參戰畫面，而非憑空捏造。
   const ourMasterCardStr = masterCard_(pcData[pIdx]);
+  // 🐛→✅ allyAssistName/pactDefName 都是真實參戰、每回合實際落血的角色(協同強襲/敵盟協防)，但過去
+  //   aiPrompt 只提過其名字一次，從沒附上 servantCard_——AI 被要求演出他們助攻/馳援的畫面卻毫無性格
+  //   依據。比照 foeServantCardStr 的既有慣例補上。
+  const allyAssistCardStr = allyAssistName ? '〔盟友從者〕' + servantCard_(pcData[allyAtkIdx]) : "";
+  const pactDefCardStr = pactDefName ? '〔敵方盟友從者〕' + servantCard_(pcData[pactDefIdx]) : "";
   if (defeat) {
     aiPrompt = ourMasterCardStr + servantCard_(pcData[atkIdx]) + foeServantCardStr + enemyMasterCardStr +
       `【戰報·已裁定】御主號令『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合。\n${roundsBrief}\n結局：『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。\n` +
       _masterStanceLine +
       `★以 Fate／TYPE-MOON 筆觸演出這場敗北的最後一幕(一段即可)${atkC.cls === 'Caster' ? '（Caster 以魔術轟擊為主、非肉搏）' : ''}——御主與從者並肩奮戰到最後，語氣留白。勝負已定，你只演過程。`;
   } else {
-    aiPrompt = ourMasterCardStr + servantCard_(pcData[atkIdx]) + foeServantCardStr + enemyMasterCardStr +
+    aiPrompt = ourMasterCardStr + servantCard_(pcData[atkIdx]) + foeServantCardStr + enemyMasterCardStr + allyAssistCardStr + pactDefCardStr +
       `【戰報·已裁定，勝負與傷害不可改】御主號令${atkLabel}出擊，與「${defC.name}」交鋒 ${nRounds} 回合。\n` +
       `${roundsBrief}\n我方造成 ${totalDealt} 傷害、受創 ${totalTaken}。${finalLine}\n` +
       `── 本戰發生的事(素材，自行織入畫面，勿複述標籤名) ──\n` +
