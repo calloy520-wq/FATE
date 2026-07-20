@@ -75,7 +75,13 @@ const COL = {
 const RANK_VALUE = { "E": 10, "D": 20, "C": 30, "B": 40, "A": 50, "EX": 60 };
 function rankVal(r) {
   r = String(r || "E").trim();
-  let base = RANK_VALUE[r.replace(/[+\-]/g, "").toUpperCase()] || 10;
+  const letterOnly = r.replace(/[+\-]/g, "");
+  // 🐛→✅ 純"-"佔位(無官方階級，如佐佐木小次郎的寶具六圍)：去掉"-"後沒有半個字母可查——
+  //   舊版仍照樣把這同一個"-"字元當「減號修飾」再扣一次3，讓"-"算出比真正的E(10)還低的7，
+  //   跌破多處 rankVal(...)>=10 的「有無寶具」判斷門檻。沒有字母就沒有可修飾的基準，直接視同E、
+  //   不套用+/-加減，才對得上註解與資料原意的「保底吃E」。
+  if (!letterOnly) return RANK_VALUE["E"];
+  let base = RANK_VALUE[letterOnly.toUpperCase()] || 10;
   // 🛡️ +/-修飾字元理論上只會是UI骰出的1~2個(如"A+"/"A++")，但這欄位來源包含玩家自由輸入
   // (見actionManualNpc的melee/magicRank)，沒上限的話可以打"A+++++++"無限灌傷害，封頂3個。
   const plus = Math.min((r.match(/\+/g) || []).length, 3);

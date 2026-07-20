@@ -754,7 +754,11 @@ function resolveFateBattle_(atk, def, opts) {
     // wRelease(解放者本人)吃「所選寶具」自己的官方階級(atkNp.r，沒定義則退回六圍表)；
     //   對手反殺(!wRelease)維持吃自身六圍表寶具值(不受玩家寶具選擇影響)。
     var npRank = wRelease ? atkNp.r : winner.six["寶具"];
-    var npDice = npBaseDice_(npRank); base += npDice; fired.push(winner.name + '·寶具骰(' + (rankVal(npRank) >= 60 ? 'EX' : npRank) + ')=' + npDice);
+    // 🐛→✅ 佐佐木小次郎這類「官方未給寶具階級」的種子資料，npRank 是裸 "-" 佔位——直接印進戰報會變成
+    //   看不懂的「寶具骰(-)=26」，像顯示壞掉而非刻意留白。rankVal(npRank) 已把裸"-"視同E結算傷害，
+    //   顯示標籤比照同一套等價關係，沒有字母就秀"E"，不再吐出裸符號。
+    var npRankLabel = rankVal(npRank) >= 60 ? 'EX' : (/[A-Za-z]/.test(String(npRank)) ? npRank : 'E');
+    var npDice = npBaseDice_(npRank); base += npDice; fired.push(winner.name + '·寶具骰(' + npRankLabel + ')=' + npDice);
     base += Math.round(rankVal(npRank) * 1.2) + 35; fired.push(winner.name + '·寶具解放' + (wRelease && atkNp && atkNp.name ? ('·' + String(atkNp.name).split(' ')[0]) : '')); // 🎴 寶具威力大幅提升·看得出差別
     // 🔥 灌魔加乘：規格外寶具(＋/EX)超載——威力隨御主灌注的餘裕魔力線性放大(倍率由上游 actionFateBattle 依實灌量算好·已扣魔)。
     //   僅「主動解放者本人(wRelease)」享用；對手反殺照其自身寶具、不吃玩家的灌注。
