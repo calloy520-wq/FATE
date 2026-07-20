@@ -16,7 +16,7 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   //   有帶的模型會吃到、不支援的模型OpenRouter會直接忽略(不會報錯)，故用undefined判斷、不給預設值。
   // max_tokens 是能直接省生成時間的旋鈕；鑑賞(kanshou) narration 目標字數較短，上限故比 solo 低。
   const maxT = config.max_tokens || (config.isNsfwMode ? 1000 : 2000);
-  const retries = config.retries || 3;
+  const retries = config.retries || 5; // 🐛→✅ 玩家反饋審查攔截時想多試幾次，預設3→5次(單顆模型內)
   const plainText = !!config.plainText; // 🆕 純散文模式(如奪杯回憶錄)：不強制 json_object、不抽 {…}、原樣回傳內容
   let lastErrorMessage = "";
 
@@ -106,15 +106,20 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   const isBlocked = lastErrorMessage.includes("Triggered_NSFW_Filter") || lastErrorMessage.includes("safety");
   // 技術性錯誤訊息只留 Logger 給開發者除錯，玩家一律只看到貼合世界觀的柔性重試提示，避免出戲。
   if (!isBlocked) { try { Logger.log("[callGeminiAPI 連線失敗] " + lastErrorMessage); } catch (e) { } }
+  // 🐛→✅ 玩家反饋「結界觸發」這類措辭太出戲(像系統跳出來講話)，改成順著情境走的口吻——
+  //   氣息未定、畫面忽然朦朧了幾秒，讀起來像是被打斷而非被系統攔下。
   const fallbackNarration = isBlocked
-    ? "🌸【結界觸發】妳的舉動觸動了某種微妙的禁制，此處的景象暫時被屏蔽，請再度嘗試。"
+    ? "🌸鬢邊沁著薄汗，呼吸尚未平復——這一幕忽然被氤氳水氣模糊了輪廓，請再嘗試一次。"
     : "🌫️【因果紊亂】命運的絲線在此刻忽地紊亂——這段因果暫時無法讀出，請稍後再試一次。";
 
   if (plainText) return fallbackNarration; // 散文模式：失敗也回純文字，不污染回憶錄成 JSON
 
+  // 🐛→✅ _genFailed 旗標：這組是失敗保底文字、不是真正生成的敘事，讓呼叫端(narrateWithState_/
+  //   actionPlay)能辨識出來、不要把它當成既定劇情事實存進歷史——否則下次呼叫會把「什麼都沒發生」
+  //   的保底措辭誤當上一輪的真實進展餵回AI，可能接續出跟實際劇情矛盾的敘事。
   return JSON.stringify({
     narration: fallbackNarration, options: ["1. 深吸一口氣，平復心緒", "2. 溫柔地退開半步", "3. 輕聲轉移話題", "4. 稍作歇息"],
-    rel_changes: []
+    rel_changes: [], _genFailed: true
   });
 }
 

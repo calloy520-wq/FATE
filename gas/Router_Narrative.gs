@@ -134,6 +134,11 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
   try {
     var start = raw.indexOf('{'), end = raw.lastIndexOf('}');
     var data = JSON.parse(raw.substring(start, end + 1));
+    // 🐛→✅ callGeminiAPI 全部重試失敗時回傳的保底文字 JSON 格式跟真正成功的敘述一樣，會被誤當
+    //   合法敘事回傳、進而存進歷史(actionNarrateOnly)供下次呼叫餵回AI，讓AI誤以為那句「什麼都
+    //   沒發生」的保底措辭是既定劇情事實。有 _genFailed 旗標時當成失敗處理，回 null 讓既有的
+    //   null 分支(呼叫端本就有)接手——那條分支本就不會寫進歷史。
+    if (data._genFailed) return null;
     return stripLeakedScaffold_(data.narration) || "天地靜默，一片祥和。";
   } catch (e) { return null; }
 }

@@ -2532,6 +2532,16 @@ ${PROMPT_REL}
     const cleanJson = aiResponseRaw.substring(start, end + 1);
     const aiData = sanitizeAiData_(JSON.parse(cleanJson));
 
+    // 🐛→✅ callGeminiAPI 全部重試/審查攔截皆失敗時，回傳的是一組「保底文字」JSON(而非丟例外)，
+    //   長相跟真正生成成功的回應一模一樣——若照舊往下跑，這句「什麼都沒發生」的保底文字會被
+    //   後面 saveGameHistoryBatch 原封不動存進歷史，下次呼叫又把它當成上一輪的既定事實餵回AI，
+    //   可能讓AI誤以為劇情已經走到某個曖昧不明的狀態、接續出跟實際劇情矛盾的敘事。callGeminiAPI
+    //   在保底文字裡加了 _genFailed 旗標即可辨識，失敗就在這裡直接回給前端、完全不進入後面任何
+    //   側效(拍照/性格/回憶/提議…)、也不寫進歷史。
+    if (aiData._genFailed) {
+      return JSON.stringify({ text: aiData.narration, people: [], options: aiData.options });
+    }
+
     // 📷 拍照落地：AI成功回應才耗底片＋寫相簿(失敗＝底片不浪費)。敘述吃AI的photo_caption，
     //   沒吐就用「時段的地點·人物」模板保底；髮色從第一位被拍者的TRAIT現場解析(通吃工房新角色)。
     var kanshouPhotoResult_ = null;
