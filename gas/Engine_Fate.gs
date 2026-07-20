@@ -437,6 +437,14 @@ function servantNpOptions_(name, cls) {
     { n: '王之軍勢 Ionioi Hetairoi', r: 'EX', scale: '對軍', fx: '', desc: '對軍·固有結界召喚萬軍亂踏' },
     { n: '神威的車輪 Gordius Wheel', r: 'A+', scale: '對人', fx: '', desc: '對人·雷神戰車的單騎衝鋒' }
   ];
+  // 🐛→✅ 種子表(Seed_Codex.gs)美杜莎的 np 字串本就寫了兩個具名寶具(／分隔，跟斯卡哈/吉爾伽美什等
+  //   多寶具英靈同款文案慣例)，卻從沒在此表登記——沒有 servantNpOptions_ 條目時 npProfile_ 只能退回
+  //   firstSignatureFx_ 抓到的 petrify(魔眼被動)，玩家永遠選不到 Blood Fort/Bellerophon，機制上她
+  //   只剩魔眼一種寶具打法，跟卡面寫的兩個寶具名不符。
+  if (name === '美杜莎' && cls === 'Rider') return [
+    { n: '他者封印·鮮血神殿 Blood Fort Andromeda', r: 'A+', scale: '對軍', fx: 'petrify', desc: '對軍·血色結界瀰漫瘴氣、封鎖敵眾身法' },
+    { n: '騎英之手綱 Bellerophon', r: 'A+', scale: '對軍', fx: '', desc: '對軍·喚出神駿天馬珀伽索斯，凌空突刺衝鋒' }
+  ];
   if (name === '無名（EMIYA）') return [
     { n: '無限劍製 Unlimited Blade Works', scale: '對城', fx: 'ubw', desc: '對城·固有結界劍雨壓制（不受對魔力）' },
     { n: '偽·螺旋劍 Caladbolg II', scale: '對人', fx: 'projection', desc: '對人·破斷重塑的流星劍狙擊' }
