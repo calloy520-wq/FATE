@@ -272,7 +272,7 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 - `masterCard_(row)`：御主演出依據卡（名/性別/性格/特徵/願望/萌點/體術/魔術）。**御主有聲**：可依性格給台詞，但**不替御主拍板戰略抉擇**（出戰/結盟/移動/補魔由玩家按鍵）、不逼問、不快轉。
 - `enemyMasterCard_(row)`：敵御主精簡演出卡（性格取前4/特徵取前3/萌點/身世/體術/魔術，不塞六圍/寶具）。NPC 不受「不可替玩家決定」限制。只在敵御主本人同地在場時注入（`enemyMasterIdx_`＋位置比對）；`actionFateBattle` aiPrompt 加**關係錨**（「此敵御主正是 defC 的契約御主」）＋**戰局實況錨點**（用算好的 HP比例/傷害交換組白話戰況給 AI，讓敵御主反應對得上場面）。正典人物優先調用原作認知、卡片僅錨點。
 - **開放世界**（無「同地路人」機制）：solo 同地角色一律純文字（無金色互動連結·整套 `openInteractMenu` 互動選單死碼已刪）。鑑賞路人＝純氛圍背景人煙（`backgroundCrowdStr`·不具名·不追蹤好感）。能被指名/記好感的只有同行隊伍成員。
-- `enemyAmbushOnServant_`：卸防（補魔/羈絆/共處/休息）時同地未結盟敵從者趁隙重擊（回 `report`＋`foeCard`）。
+- `enemyAmbushOnServant_`：卸防（補魔/羈絆/共處/休息/結盟）時同地未結盟敵從者的反應。陣地(homeRank)優先→反擊擊退。無陣地時依該敵從者職階/性格擲局面：狂化(無法言語)/暗殺(本色即偷襲)必定突襲；其餘職階多數突襲、有機會落「按兵不動」或「試探性接觸」(皆無戰鬥·`peaceful:true`，5個呼叫端與前端戰報卡共用同一支函式的回傳判斷 `homeRepel||peaceful`)。回 `report`＋`foeCard`。
 - `raiseBond_`(升既有·帶 preData)／`bumpBond_`(無則建)／`getBond_`。`extractWish_`、`buildDreamPrompt_`（敗北虛假之夢·`cause==='timeout'`＝時限夢）、`buildVictoryDreamPrompt_`（勝利真夢·不露破綻）。
 - **⏳ 14天時限**：`day>14` 未奪杯＝敗北。中央攔截在 `handleGameAction`——對 PC_ solo 解析回應現成 `clock` 字串，N>14 且 success 且未 victory/defeat → 補 `defeat:true+deadline:true+dreamPrompt`。前端 `data.defeat`→`handleDefeat`。
 - ⚠ solo 全走 `narrate_only`，後端只讀 `data.narration`、其餘欄位丟棄——prompt 別再寫「嚴禁輸出 stat_changes/items_gained」（多餘且把欄位名秀給 AI）。外顯狀態 STATUS 在 solo 已移除（AI 寫了沒人看）。
@@ -343,7 +343,7 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 ## 14. 戰鬥改版（2026-07·御主參戰／被動技／撤退／全戰報卡）
 
 - **① 御主參戰風格·替從者分擔戰損**（`STANCE_SHARE_`＝{stealth:0, normal:.05, open:.10}·`stanceShareOf_`／`applyMasterStanceShare_`·Router_Battle）：`actionFateBattle` 讀 `userData.stance` 得 share。每當從者挨了**非致命**一擊（主戰輪敵反擊／敵盟協防／開場對轟回震），御主「討回」`round(dmg×share)` 替扛——從者HP回補、御主HP扣（保底1·不因分擔而死；御主≤1則無力再擋），兩列即刻寫回 sheet（比照 backlash/drainForNp_ 逐事件寫）。累計 `masterShared` 進戰報 `report.masterShared`＋敘述句＋前端「🎌御主參戰：替扛 −X HP」＋御主血條（陣前）。**單一真實來源**：share 值後端為準、前端 `STANCES[k].share` 僅顯示。
-- **② 主動技→被動 50%**（`rollSkill_`·Router_Battle｜移除 `tinyActiveSkill_`/drain/`⚡主動`鈕）：施放技術（burst/str_up/projection）不再手動、不扣魔、無微效保底——改**每一擊獨立 50% 機率自動全效發動**（`SKILL_PROC_=0.5`·rounds 迴圈＋開場對轟各自擲）。`skillFired` 記本戰是否至少發動一次→敘述＋戰報 `report.skill{name,icon,desc}`。前端刪 `activeSkillOfActive_`／`⚡主動` 鈕／`useSkill` 全鏈；從者卡標籤改「🎲每擊50%自動全效」。
+- **② 主動技→被動 30%**（`rollSkill_`·Router_Battle｜移除 `tinyActiveSkill_`/drain/`⚡主動`鈕）：施放技術（burst/str_up/projection）不再手動、不扣魔、無微效保底——改**每一擊獨立擲 `SKILL_PROC_` 機率自動全效發動**（現行 0.3，2026-07 玩家回饋原 0.5 太強下修·rounds 迴圈＋開場對轟各自擲）。`skillFired` 記本戰是否至少發動一次→敘述＋戰報 `report.skill{name,icon,desc}`。前端刪 `activeSkillOfActive_`／`⚡主動` 鈕／`useSkill` 全鏈；從者卡標籤與 popup 說明改純機制敘述(不再另掛跟角色實際技能名重複的通用代稱)。
 - **③ 撤退按鈕**：見 §12「撤離追擊／🏃撤退」。核心＝有敵封鎖 plain move（`needRetreat`）＋撤退必追擊（GAS 判勝負）。
 - **④ 全戰鬥須有 GAS 戰報卡**（玩家鐵則：所有落血皆 GAS 算·不容 AI 亂掰數字）。`renderFateBattleReport` 新增／補全卡型：
   - 🎭 **敵營動向**（`resolveFactionEncounter_` 回 `report{factionClash,ftype,hits[]}`·frenzy/hunt/clash 才落血）→ travelTo 渲染 `data.factionClash.report`。
