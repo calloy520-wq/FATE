@@ -191,8 +191,11 @@ function actionManaSupply(userData, pcId, sheets) {
   if (ambush && (ambush.homeRepel || ambush.peaceful)) {
     aiPrompt = ambush.repelNote; // 🏰 陣地反擊·優雅擊退／🎲 按兵不動或試探接觸(卸防時刻多樣化)
   } else if (ambush) {
-    aiPrompt = (ambush.foeCard || '') + `【系統·補魔遭突襲·已裁定】御主正以魔力供給「${svName}」、彼此門戶大開之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
-      `★以 Fate／TYPE-MOON 筆觸描寫補魔的私密一刻被突襲打斷的驚變：魔力交融的脆弱、敵襲的兇險、${ambush.destroyed ? '從者消滅的痛楚（語氣留白）' : '從者依其性格與羈絆對此突襲的反應（重情者強撐護主、疏離者未必）'}。傷害與勝負已由系統結算。\n` +
+    // 🐛→✅ 此分支原本只附敵從者的卡(foeCard)、沒附我方御主/從者的卡，卻要求AI演出「${svName}」依性格
+    //   反應——毫無依據；也從沒告訴AI補魔本身(迴路/血上限燒蝕、回滿魔力)其實已經結算完成，AI只收到
+    //   「被突襲打斷」的訊息、容易演成補魔沒做成，跟已經回滿的魔力池數字矛盾。兩者一併補上。
+    aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) + (ambush.foeCard || '') + `【系統·補魔遭突襲·已裁定】御主硬擠魔術迴路為「${svName}」回滿共用魔力池（迴路永久燒蝕至 ${newCirc} 條、生命上限永久跌為 ${newMaxHp}）已然結算完成；就在彼此門戶大開之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
+      `★以 Fate／TYPE-MOON 筆觸描寫補魔的私密一刻被突襲打斷的驚變：魔力交融的脆弱、敵襲的兇險、${ambush.destroyed ? '從者消滅的痛楚（語氣留白）' : '從者依其性格與羈絆對此突襲的反應（重情者強撐護主、疏離者未必）'}。補魔本身已完成，只是隨即被打斷，別演成沒供成魔。傷害與勝負已由系統結算。\n` +
       ``;
   } else {
     // 此分支只在好感≥門檻且魔力見底時走到——從者是真心信任、主動託付的，敘述可更直接大膽；
@@ -253,8 +256,9 @@ function actionSpiritRepair(userData, pcId, sheets) {
   if (ambush && (ambush.homeRepel || ambush.peaceful)) {
     aiPrompt = ambush.repelNote; // 🏰 陣地反擊·優雅擊退／🎲 按兵不動或試探接觸(卸防時刻多樣化)
   } else if (ambush) {
-    aiPrompt = (ambush.foeCard || '') + `【系統·靈基修復遭突襲·已裁定】御主正引共用魔力池為「${svName}」療傷、彼此門戶大開之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
-      `★以 Fate／TYPE-MOON 筆觸描寫療傷的私密一刻被突襲打斷的驚變，${ambush.destroyed ? '及從者消滅的痛楚（語氣留白）' : '及從者依其性格與羈絆對此突襲的反應（重情者強撐護主、疏離者未必）'}。傷害與勝負已由系統結算。\n` +
+    // 🐛→✅ 同款缺漏：沒附我方御主/從者的卡，也沒講療傷本身(回復${healed}點)其實已經結算完成。
+    aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) + (ambush.foeCard || '') + `【系統·靈基修復遭突襲·已裁定】御主引動共用魔力池為「${svName}」療傷、體力回復 ${healed} 點已然結算完成；就在彼此門戶大開之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
+      `★以 Fate／TYPE-MOON 筆觸描寫療傷的私密一刻被突襲打斷的驚變，${ambush.destroyed ? '及從者消滅的痛楚（語氣留白）' : '及從者依其性格與羈絆對此突襲的反應（重情者強撐護主、疏離者未必）'}。療傷本身已完成，只是隨即被打斷，別演成沒療成。傷害與勝負已由系統結算。\n` +
       ``;
   } else {
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +

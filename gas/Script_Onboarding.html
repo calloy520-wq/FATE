@@ -315,7 +315,7 @@ function renderHeroList() {
     return '<div style="display:flex; gap:4px; margin-bottom:5px;">'
       + '<button class="btn" style="flex:1; min-width:0; text-align:left; border-color:#d4af37; color:#e8dcc0; padding:8px 10px;" onclick="lockBtn(event, function(){return summonByHero(\'' + id + '\');})"><b>' + h.name + '</b>' + ((all || custom) && h.cls ? ' <small style="color:#9a7b4f;">' + h.cls + '</small>' : '') + (h.np ? '<br><small style="color:#9a8bb0;">' + h.np + '</small>' : '') + '</button>'
       + (mine ? '<button class="btn" title="修改這名英靈（僅創造者本人）——改的是範本，之後召喚生效" style="flex:none; width:44px; border-color:#6a8ac0; color:#8fb0e8; padding:0;" onclick="forgeEdit(\'' + id + '\')">✏️</button>' : '')
-      + (unclaimed ? '<button class="btn" title="認領：這名原創英靈是「創造者印記」功能上線前鑄的、目前無主——認領後你就是創造者、可修改" style="flex:none; width:44px; border-color:#8a7a4a; color:#c9b885; padding:0;" onclick="claimHero(\'' + id + '\')">🖐</button>' : '')
+      + (unclaimed ? '<button class="btn" title="認領：這名原創英靈是「創造者印記」功能上線前鑄的、目前無主——認領後你就是創造者、可修改" style="flex:none; width:44px; border-color:#8a7a4a; color:#c9b885; padding:0;" onclick="lockBtn(event, function(){return claimHero(\'' + id + '\');})">🖐</button>' : '')
       + '</div>';
   }).join('');
 }
@@ -512,7 +512,7 @@ function renderForgeWorks_() {
     hxml += '<div style="color:#c9b885; font-size:11.5px; margin:10px 0 6px;">🖐 無主原創（印記功能上線前鑄的·認領後可修改·先到先得）</div>'
       + unclaimed.map(function (h) {
           var id = String(h.id).replace(/'/g, '');
-          return row(h, '<button class="btn" style="flex:none; width:52px; border-color:#8a7a4a; color:#c9b885;" onclick="claimHero(\'' + id + '\')">🖐<br><small style="font-size:9px;">認領</small></button>');
+          return row(h, '<button class="btn" style="flex:none; width:52px; border-color:#8a7a4a; color:#c9b885;" onclick="lockBtn(event, function(){return claimHero(\'' + id + '\');})">🖐<br><small style="font-size:9px;">認領</small></button>');
         }).join('');
   }
   box.innerHTML = hxml;
