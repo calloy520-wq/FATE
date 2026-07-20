@@ -479,22 +479,30 @@ function actionRest(userData, pcId, sheets) {
     [pIdx].concat(partyNames.map(n => pcData.findIndex(r => r[COL.PC.NAME] === n && String(r[COL.PC.GAME_ID] || "") === restGameId && !String(r[COL.PC.ID]).startsWith("DEAD_")))).forEach(idx => {
       if (idx >= 0 && (parseInt(pcData[idx][COL.PC.HP]) || 0) >= (parseInt(pcData[idx][COL.PC.MAX_HP]) || 0)) pcData[idx][COL.PC.STATUS] = normalStatus;
     });
-    sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
+    // 🐛→✅ 舊版這裡先整表寫一次(只含時回結果)，緊接著 restHours_/worldTick_/breakStaleAlliances_
+    // 又各自即時寫入同一批列——單次休息最壞可疊到3~5次個別Sheets寫入。改成這裡先不寫，開
+    // BATTLE_DEFER_WRITE_ 讓下面三支只改記憶體，等三者都跑完後一次整表寫回(見下方收尾)。
+    const _prevDeferRest = BATTLE_DEFER_WRITE_;
+    BATTLE_DEFER_WRITE_ = true;
 
     let restClock = "", restRumors = [], apAfter = AP_PER_DAY, restVictory = false, restVictoryDream = "";
     try {
-      const clk = restHours_(restGameId, restHours, pcData, sheets);
+      const clk = restHours_(restGameId, restHours, pcData, sheets, true);
       apAfter = clk ? clk.ap : AP_PER_DAY;
       const rounds = Math.floor(restHours / 3); // 1h:0、3h:1、6h:2 輪世界自走
       // worldTick_ 拿 pcData 在同一份陣列上原地改(傳參考)，不必事後重讀整表才拿得到最新狀態。
       if (rounds > 0) {
-        const tick = worldTick_(sheets, restGameId, pcLoc, rounds, true, pcData); restRumors = tick.rumors || []; restVictory = !!tick.victory;
+        const tick = worldTick_(sheets, restGameId, pcLoc, rounds, true, pcData, true); restRumors = tick.rumors || []; restVictory = !!tick.victory;
         restVictoryDream = tick.dreamPrompt || ""; // 🏆 令咒透支延遲結算若剛好收尾此局，願望夢跟著帶出來
         // 🤝 同盟到期/終局強制瓦解原本只在 actionMove 判——休息也會推進時間，理應同步判一次(沿用同一份 pcData傳參考)。
         try { const ab = breakStaleAlliances_(sheets, restGameId, pcData); if (ab.broken.length) restRumors.push(`〔盟約${ab.forced ? '瓦解' : '到期'}〕你與「${ab.broken.join('、')}」的同盟已${ab.forced ? '因戰局逼近終局而破裂——最後只能剩一個' : '到期失效'}，重回敵對。`); } catch (e) { }
       }
       restClock = clockLabel_(restGameId, pcData);
     } catch (e) { }
+    BATTLE_DEFER_WRITE_ = _prevDeferRest;
+    // 收尾一次整表寫回：時回／時鐘／世界自走／盟約瓦解全部已在同一份 pcData 上改完，這裡一次寫完，
+    // 取代舊版散落的多趟寫入。下方 enemyAmbushOnServant_／raiseBond_ 各自的寫入發生在此之後，維持原樣不動。
+    sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
     // 世界已在同一份 pcData 上 tick 完，直接沿用即可判夜襲，不必重讀整表。
     // ⚔️ 卸防突襲：當敵蹤同地時休息＝酣睡門戶大開，最為兇險（mul 1.5）
     const restAmbush = enemyAmbushOnServant_(sheets, pcData, pIdx, restGameId, 1.5);

@@ -97,13 +97,14 @@ function grantAp_(gameId, n, pcData, sheets) {
 }
 
 // 🛏️ 休息 N 小時：推進 N 小時、補 2×N AP（上限 12）。何時休、休多久由玩家決定。
-function restHours_(gameId, hours, pcData, sheets) {
+// skipWrite(選填，比照 spendAp_)：呼叫端保證隨後必有一次涵蓋 DAY/HOUR/AP 這3欄的批次整表寫回時傳true。
+function restHours_(gameId, hours, pcData, sheets, skipWrite) {
   var clk = getClock_(gameId, pcData, sheets);
   if (!clk || clk.masterIdx < 0) return null;
   hours = Math.max(1, Math.min(12, parseInt(hours) || 1));
   rollHours_(clk, hours);
   clk.ap = Math.min(AP_PER_DAY, clk.ap + hours * 2);
-  writeClockToRow_(clk, pcData, sheets);
+  writeClockToRow_(clk, pcData, sheets, skipWrite);
   return clk;
 }
 

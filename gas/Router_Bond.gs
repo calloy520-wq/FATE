@@ -458,7 +458,9 @@ function breakStaleAlliances_(sheets, gameId, preData) {
       }
     }
     // forceAll(終局逼近)時常一次瓦解多組同盟，MEMORY 整欄一次寫回(取代逐列 setValues 的零散往返)
-    if (dirty) {
+    // 🐛→✅ 補 BATTLE_DEFER_WRITE_ guard：actionRest 整併寫入時會設此旗標，這裡也該一併略過即時
+    //   寫入，交給收尾那次整表 setValues 一次到位。
+    if (dirty && !BATTLE_DEFER_WRITE_) {
       var memCol = []; for (var z = 1; z < data.length; z++) memCol.push([data[z][COL.PC.MEMORY]]);
       sheets.pc.getRange(2, COL.PC.MEMORY + 1, memCol.length, 1).setValues(memCol);
     }
