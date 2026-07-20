@@ -61,7 +61,11 @@ function actionManualNpc(userData, pcId, sheets) {
   //   數值(HP/MP/game_id/MEMORY)全由 GAS 決定，故無 AI 也是結構完整、可直接開打的列。
   try {
     // 🎴 御主(凡人魔術師)初始數值：HP/MP 依魔術迴路(財力/身世決定)推算——御主是凡人，遠低於英靈從者。
-    const masterStats = masterMaxHpMp_(parseInt(circuits) || 30);
+    // 🐛→✅ masterMaxHpMp_ 本身已補上限，但這裡若直接把玩家原始輸入寫進 MEMORY【迴路】，之後
+    //   masterPoolMax_ 是另外重新 parse 這個 MEMORY 字串(不會再走 masterMaxHpMp_)算共用魔力池——
+    //   兩處不同步的話，上限形同虛設。改成算好同一個夾好範圍的值，兩處共用。
+    const safeCircuits = circuits ? Math.max(12, Math.min(50, parseInt(circuits) || 30)) : null;
+    const masterStats = masterMaxHpMp_(safeCircuits || 30);
     // 起始落點：確定性選一個有效冬木居所(偏好新都)，不需 AI；backfill 不動落點以免與移動競寫。
     const spawnName = validMapNames.find(n => /新都/.test(n)) || validMapNames[0];
 
@@ -77,7 +81,7 @@ function actionManualNpc(userData, pcId, sheets) {
     newRow[COL.PC.MEMORY] = [
       wish ? `【願望】${cleanTagText_(wish)}` : "",
       magic ? `【魔術】${cleanTagText_(magic)}` : "",
-      circuits ? `【迴路】${cleanTagText_(circuits)}` : "",
+      safeCircuits ? `【迴路】${cleanTagText_(safeCircuits)}` : "",
       origin ? `【出身】${cleanTagText_(origin)}` : "",
       melee ? `【體術】${cleanTagText_(melee)}` : "",
       magicRank ? `【魔術階位】${cleanTagText_(magicRank)}` : "",
@@ -289,7 +293,9 @@ function sanitizeSkills_(arr, maxCount) {
     var fx = String((s && (s.fx || s.效果碼)) || "").trim();
     var r = String((s && (s.r || s.階級 || s.rank)) || "C").toUpperCase().trim();
     return {
-      n: String((s && (s.n || s.名稱 || s.name)) || "技能").slice(0, 10),
+      // 🐛→✅ 補 HTML 斷字字元清洗，比照工房 parseForgeBuild_ 對應的技能名稱清洗規則——這是 AI 生成
+      //   從者(actionSummonServant)唯一經過的技能清洗函式，產出的名稱會永久寫進英靈殿並顯示在戰鬥UI。
+      n: String((s && (s.n || s.名稱 || s.name)) || "技能").replace(/[<>&"'`]/g, "").slice(0, 10) || "技能",
       r: okR(r) ? r : "C",
       // 🛡️ ALLOWED_FX_是純物件字面量，truthy查詢會被Object.prototype繼承的鍵(constructor/
       //   toString/valueOf等)污染成false positive——改用hasOwnProperty才是真的「在白名單裡」。
@@ -734,11 +740,20 @@ ${FX_MENU_}
         return JSON.stringify({ success: false, message: "英靈之座的迴響中斷——召喚失敗，請稍候再試一次。" });
       }
       if (clsUnset) cls = VALID_CLS.includes(String(aiBrief.cls)) ? String(aiBrief.cls) : "Saber"; // AI 依描述判斷的職階；非法值才退回 Saber
-      realName = String(aiBrief.realName || trueName || (cls + "從者")).trim() || (cls + "從者");
-      sex = aiBrief.sex || "異"; align = ALIGNS_.includes(String(aiBrief.align)) ? String(aiBrief.align) : "中立"; np = aiBrief.np || "寶具（未顯現）";
+      // 🐛→✅ 舊版沒清 HTML 斷字字元、沒封頂長度——工房路徑(parseForgeBuild_)對 out.name 有
+      //   .replace(/[<>&"'`]/g,"").trim().slice(0,20)，這裡完全沒有；recordOriginalHero_ 內部雖然
+      //   也會清洗，但那是函式內的區域變數副本(JS 字串傳值)，不會回寫外層 realName——導致「這局實際
+      //   使用、寫進戰鬥狀態的名字」跟「寫回英靈殿供未來重召的名字」不一致，前者還完全繞過 HTML 斷字防線。
+      realName = String(aiBrief.realName || trueName || (cls + "從者")).replace(/[<>&"'`]/g, "").trim().slice(0, 20) || (cls + "從者");
+      // 🐛→✅ sex 舊版沒有白名單驗證(工房 parseForgeBuild_ 早有 ["男","女","異"].includes(...) 檢查)，
+      //   AI 吐出的任意字串會原樣通過並永久寫進英靈殿，往後任何讀取點都得自己防禦這個不可信欄位。
+      sex = ["男", "女", "異"].includes(String(aiBrief.sex)) ? String(aiBrief.sex) : "異";
+      align = ALIGNS_.includes(String(aiBrief.align)) ? String(aiBrief.align) : "中立";
+      np = aiBrief.np || "寶具（未顯現）";
       // npAtkScale_ 讀 np 字串關鍵字算規模——AI 自訂寶具最高「對軍」，對城/對界/對神為種子專屬(堵字串後門)。
       //   【常駐寶具】標記同理為種子專屬(B叔/玉藻)，混入會讓從者自己的💥被鎖死，故一律剝除。
-      np = String(np).replace(/對界|對城|對神/g, "對軍").replace(/【常駐寶具】/g, "").slice(0, 80);
+      //   🐛→✅ 補上 HTML 斷字字元清洗，比照工房 out.npName/out.npDesc 的既有規則。
+      np = String(np).replace(/[<>&"'`]/g, "").replace(/對界|對城|對神/g, "對軍").replace(/【常駐寶具】/g, "").slice(0, 80);
       const aiSix = sanitizeSix_(aiBrief.six);
       // 🐛→✅ 玩家實測抓到「Berserker 身上多一個像符文技能的職階技能」——舊版讓 AI 自己生 classSkills，
       //   prompt 只講「貼合職階慣例」是軟性建議、擋不住 AI 額外發明一個不屬於該職階原型的技能(如替
@@ -764,10 +779,15 @@ ${FX_MENU_}
       if (aiCSkills.concat(aiSkills).some(function (s) { return s && s.fx === 'god_hand'; })) {
         row[COL.PC.MEMORY] += '｜【試煉】3';
       }
-      row[COL.PC.BACK] = aiBrief.background ? String(aiBrief.background).slice(0, 40) : `${cls} 職階的英靈`; // 補防呆上限，比照其他AI生成路徑
+      const svBackAi = aiBrief.background ? String(aiBrief.background).slice(0, 40) : `${cls} 職階的英靈`; // 補防呆上限，比照其他AI生成路徑
+      row[COL.PC.BACK] = svBackAi;
       // 不重名的原創從者寫回英靈殿(含六圍/技能fx/特性)，日後可重用。pExtra 需帶 moe——否則永久記錄
       //   (persona.moe) 是空字串，若日後被邀進鑑賞會無從轉出日常萌點。
-      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], aiCSkills, aiSkills, aiTraits, np, aiBrief.personality, align, { moe: String(aiBrief.npc_intent || "").slice(0, 30), creator: String(userData.acctName || "").trim() }); } catch (e) { }
+      // 🐛→✅ 舊版 pExtra 沒帶 back——工房路徑(actionSaveHero)完整傳了 back，這條 AI 生成路徑卻漏傳，
+      //   即使這局「當下」的從者列(row[COL.PC.BACK])明明已經有值：recordOriginalHero_ 內對缺欄位的
+      //   處理是空字串，這名原創英靈永久寫回英靈殿的 persona.back 因此恆為空，之後任何重新召喚都會
+      //   落回泛用預設值「職階・真名」，AI 當初生成的身世徹底遺失，工房編輯清單上也永遠看到空白欄位。
+      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], aiCSkills, aiSkills, aiTraits, np, aiBrief.personality, align, { moe: String(aiBrief.npc_intent || "").slice(0, 30), back: svBackAi, creator: String(userData.acctName || "").trim() }); } catch (e) { }
     }
 
     row[COL.PC.ID] = newId;

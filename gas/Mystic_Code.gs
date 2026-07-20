@@ -55,7 +55,10 @@ function masterMysticBuffSkill_(memory) {
 function injectMysticBuff_(c, masterMemory) {
   // 持 Avalon 的阿爾托莉雅額外標記 avalon_saber + 時回，供 Router_Battle 理想鄉攔截判定用；
   // 非阿爾托莉雅持 Avalon 走下方一般被動(僅減傷，無理想鄉攔截)。
-  if (getMystic_(masterMemory) === 'avalon' && c && /阿爾托莉雅/.test(String(c.name || '')) && String(c.cls) === 'Saber') {
+  // 🐛→✅ 舊版用子字串正則(/阿爾托莉雅/.test(...))比對，玩家自訂/AI 生成的 Saber 從者只要真名剛好
+  //   包含這四個字(如刻意取名「阿爾托莉雅・奧爾塔」)就會被誤判成王之聖劍的合法持有者——這類機制本該
+  //   資料驅動(如 FORGE_CLS_SKILLS_/ALLOWED_FX_)、至少也該用精確比對，改成完整真名相等。
+  if (getMystic_(masterMemory) === 'avalon' && c && String(c.name || '').trim() === '阿爾托莉雅' && String(c.cls) === 'Saber') {
     c.skills = (c.skills || []);
     if (!c.skills.some(function (s) { return s && s.fx === 'avalon_saber'; })) c.skills = c.skills.concat([{ n: '理想鄉 Avalon', r: 'A', fx: 'avalon_saber' }]);
     if (!c.skills.some(function (s) { return s && s.fx === 'regen'; })) c.skills = c.skills.concat([{ n: '鞘之恩澤', r: 'A', fx: 'regen' }]);

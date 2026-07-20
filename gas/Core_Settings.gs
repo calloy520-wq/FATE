@@ -141,7 +141,10 @@ function fateMaxHpMp_(con, mag) {
 function masterMaxHpMp_(circuits) {
   // 🛡️ parseInt(x)||30 只擋得住NaN/0，擋不住負數——前端骰子UI本就夾在12~50，但這裡是唯一
   //   信任邊界(直打API可繞過前端)，補上下限，避免負迴路生出0血/負魔力的御主。
-  var c = Math.max(1, parseInt(circuits) || 30);
+  // 🐛→✅ 舊版只擋下限沒擋上限——直打API送circuits=999999能生出HP/MP近乎無限的御主，且這個值
+  //   會永久寫進MEMORY【迴路】標記，之後masterPoolMax_每次重算共用魔力池都沿用這個灌爆的數字，
+  //   貫穿補魔/供魔/戰鬥整個系統。補上跟前端骰子UI相同的上限(50)。
+  var c = Math.max(1, Math.min(50, parseInt(circuits) || 30));
   return {
     hp: 100 + c * 2,
     mp: c * 10   // 迴路係數：A階寶具付完底費仍有超載餘裕

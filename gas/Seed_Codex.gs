@@ -168,7 +168,7 @@ var SEED_SERVANTS = [
     align:'中立・中庸', persona:{firstP:'我',look:'青綠長髮・中性無垢的神造之軀、平和',words:'純真・追尋摯友',toMaster:'溫和而疏離，心繫吉爾伽美什',speech:'平和中性、無機質卻溫柔',moe:'神造兵器卻最有人性',tic:'歪頭觀察',
     dailyLook:'青綠長髮・中性無垢的身影、氣質平和帶著一絲疏離感、自稱「我」・語氣平和中性卻藏著溫柔、私下總惦記著吉爾伽美什，偶爾會對著他送的小東西發愣好一會兒',
     dailyOutfit:'簡樸自然色調的休閒服裝',
-    dailyWords:'平和無垢、純真地掛念著摯友吉爾伽美什、新奇的事物、傷害他人之舉',dailyMoe:'看似無機質，其實對世界充滿好奇'} },
+    dailyWords:'平和無垢、純真地掛念著摯友吉爾伽美什、新奇的事物、傷害他人之舉',dailyBack:'神造的中性存在，看似無機質，卻始終惦記著一位重要的摯友',dailyMoe:'看似無機質，其實對世界充滿好奇'} },
   // 斯卡哈 三職階
   // 對魔力A(官方「可無效A階以下魔術」)；神殺B、魔境的智慧A+，均為官方技能表階級。
   { id:'斯卡哈-Lancer', cls:'Lancer', realName:'斯卡哈', wars:['客串'], gender:'女',
@@ -190,7 +190,7 @@ var SEED_SERVANTS = [
     align:'中立・中庸', persona:{firstP:'我',look:'紫髮紅瞳・泳裝海灘造型的致命女王(夏日Assassin版)、冷冽',words:'影・潛行的女王',toMaster:'冷眼試探、出手無情，認可方鬆動',speech:'低冷簡短、一針見血',moe:'影中女王的致命優雅',tic:'融入暗影',
     dailyLook:'紫髮紅瞳・冷冽優雅的女子身影、氣質慵懶自在中帶著一絲警覺、自稱「我」・說話低冷簡短・一針見血、私下其實很享受被人依賴的感覺，即使嘴上總是一副事不關己的樣子',
     dailyOutfit:'海灘度假風的輕便穿搭',
-    dailyWords:'深居簡出、骨子裡仍保有潛行者般的冷靜、安靜的獨處時光、無謂的張揚',dailyMoe:'慵懶自在，偶爾流露女王般的小得意'} },
+    dailyWords:'深居簡出、骨子裡仍保有潛行者般的冷靜、安靜的獨處時光、無謂的張揚',dailyBack:'冷冽自持的女王，拒人於千里之外，其實很享受被人依賴的感覺',dailyMoe:'慵懶自在，偶爾流露女王般的小得意'} },
   { id:'美遊-Saber', cls:'Saber', realName:'美遊·埃德費爾特（Saber install）', wars:['客串'], gender:'女',
     six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'C',幸運:'C',寶具:'A'},
     classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
@@ -217,7 +217,7 @@ var SEED_SERVANTS = [
     align:'中立・善', persona:{firstP:'我',look:'白髮紅瞳・魔杖在手的魔法少女、元氣',words:'天真・善良',toMaster:'純真信賴，朝氣蓬勃',speech:'活潑直率、元氣滿滿',moe:'愛哭卻在關鍵時刻勇敢',tic:'眼眶泛淚還硬撐',
     dailyLook:'白髮紅瞳・元氣滿滿的少女身影、氣質天真爛漫、自稱「我」・說話活潑直率・元氣滿滿、看到可愛的東西會挪不開腳步，非要抱一下摸一下才甘心',
     dailyOutfit:'可愛的日常打扮，隨身帶著別緻的手杖裝飾',
-    dailyWords:'天真爛漫、淚眼汪汪卻在緊要關頭豁得出去的勇敢、熱鬧開心的事、看到有人受欺負',dailyMoe:'愛哭鬼，卻在重要時刻意外勇敢'} },
+    dailyWords:'天真爛漫、淚眼汪汪卻在緊要關頭豁得出去的勇敢、熱鬧開心的事、看到有人受欺負',dailyBack:'天真爛漫的魔法少女，愛哭卻在重要時刻意外地豁得出去',dailyMoe:'愛哭鬼，卻在重要時刻意外勇敢'} },
   // 🌹 這3位是聖杯戰爭正典御主(非從者)，直接進英靈殿供鑑賞「直接召喚」。cls 刻意標'御主'
   //   (非七大從者職階)：solo召喚頁職階清單與 actionSummonServant 白名單皆會擋下，只有鑑賞召喚得到；
   //   wars 標'客串'排除於混亂模式敵從者池外。six/技能/寶具留空——這幾位在鑑賞只演出、不涉戰鬥。
@@ -388,7 +388,9 @@ function upgradeMasterCodex_(ss) {
 //   ⚠ 不動 HP/MP/MEMORY/敘事欄/狀態/位置/羈絆，保住玩家實例狀態與逆天改命。查無種子(AI 原創從者)→跳過。
 // ⚠ 換職階遷移表：種子改版連職階都換掉時(舊 key→新 key)，已召喚實體的 RANK 欄還存舊職階，
 //   單靠 (真名,職階) 對不上新種子，換版削弱就永遠不生效於既有存檔。
-var SEED_RECLASSED_ = { '貞德｜Ruler': '貞德｜Archer', '吉爾·德·萊斯（青鬍子）｜Caster': '吉爾·德·萊斯｜Caster' }; // 後者為 realName 去掉原型綽號，舊列名字不改、kit 照刷
+// 🐛→✅ 舊表另有 '貞德｜Ruler': '貞德｜Archer' 一條，新舊 key 指的「貞德」在現行 SEED_SERVANTS
+//   都查無此人(regulation 換版遺留的懸空項)，久放只會混淆維護者，故清除；只留下面這條活的改名映射。
+var SEED_RECLASSED_ = { '吉爾·德·萊斯（青鬍子）｜Caster': '吉爾·德·萊斯｜Caster' }; // 後者為 realName 去掉原型綽號，舊列名字不改、kit 照刷
 function resyncSummonedServants_(ss) {
   var pc = ss.getSheetByName('眾生');
   if (!pc || pc.getLastRow() <= 1) return 0;

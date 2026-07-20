@@ -357,3 +357,16 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
   - 🎭 **挑撥離間**（得逞·`report.incite`·雙敵落血含 loAfter/wiAfter）→ `incite` onSuccess 渲染；被看穿無傷不畫卡。
   - 🤝 **敵盟協防逐擊**（`rd.pactDef` 於 round 區塊條列「協防·X 襲 Y −Z」，不再混進總血條看不見）。
   - 例外：`worldTick_` 暗處互鬥（off-screen）刻意不洩具體數字、只出模糊風聞（AI 亦無數字可掰·非缺口）。
+
+---
+
+## 15. 五路稽核批次②③（2026-07・經濟創角＋種子資料防呆補強）
+
+- **`masterMaxHpMp_`(Core_Settings) 補上限**：舊版 `Math.max(1, parseInt(circuits)||30)` 只擋下限，直打 API 送 `circuits=999999` 能生出近乎無限 HP/MP 的御主，且這個數字會永久寫進 MEMORY【迴路】——之後 `masterPoolMax_` 是另外重新 parse 這串 MEMORY 字串算共用魔力池(不會再走 `masterMaxHpMp_`)。改成 `Math.min(50,...)`(比照前端骰子 UI 上限)，`actionManualNpc` 也改用同一個算好的 `safeCircuits` 寫進 HP/MP 與 MEMORY 兩處，不再各自算一次導致上限形同虛設。
+- **`actionSummonServant` AI 生成分支補齊防呆**（比照工房 `parseForgeBuild_` 既有規則，一次補齊四處）：`realName` 補 HTML 斷字字元清洗＋長度封頂 20（舊版只 `.trim()`，且 `recordOriginalHero_` 內部清洗是函式內區域變數副本，不會回寫外層——造成「這局實際用的名字」跟「寫回英靈殿的名字」不一致，前者完全繞過清洗）；`sex` 補 `["男","女","異"]` 白名單（舊版 AI 吐什麼字串就存什麼）；`np`(寶具描述) 補 HTML 斷字字元清洗；`sanitizeSkills_` 的技能名 `n` 欄同樣補上 HTML 斷字字元清洗（這是 AI 生成從者唯一經過的技能清洗函式，產出名稱會永久寫進英靈殿＋顯示戰鬥 UI）。
+- **AI 生成從者 `back`(身世) 補寫回英靈殿**：舊版 `recordOriginalHero_` 呼叫的 `pExtra` 沒帶 `back`，即使當局戰鬥列(`row[COL.PC.BACK]`)明明有值，永久寫回的 `persona.back` 卻恆為空字串——之後任何重新召喚都會落回泛用預設值「職階・真名」，AI 當初生成的身世徹底遺失，工房編輯清單也永遠看到空白欄位。已比照工房 `actionSaveHero` 補傳 `back`。
+- **`injectMysticBuff_`(Mystic_Code) Avalon+Saber 改精確比對**：舊版用子字串正則 `/阿爾托莉雅/.test(c.name)`，玩家自訂/AI 生成的 Saber 從者只要真名剛好包含這四個字（如刻意取名「阿爾托莉雅・奧爾塔」）就會被誤判成王之聖劍合法持有者。改成完整真名相等 `String(c.name).trim()==='阿爾托莉雅'`。
+- **`SEED_RECLASSED_`(Seed_Codex) 清除懸空遷移項**：舊表 `'貞德｜Ruler':'貞德｜Archer'` 一條，新舊 key 指的「貞德」在現行 `SEED_SERVANTS` 都查無此人（regulation 換版遺留、從未清理），與本 session 稍早已清掉的迦爾納/蒼白騎兵死碼同一類——已移除，只留活的 `'吉爾·德·萊斯（青鬍子）｜Caster':'吉爾·德·萊斯｜Caster'` 改名映射。
+- **3 位種子英靈補 `dailyBack`**：恩奇都-Lancer／斯卡哈-Assassin／伊莉雅-Caster 先前缺 `dailyBack`(鑑賞日常版身世一句)，已比照其他種子英靈補上。
+
+**⚠ 五路稽核尚未處理的中低優先項**（詳見稽核報告，未來要做時直接查對應檔案）：斬首反噬機率估算未注入御主加成/主場/禮裝、`wantSv` 子字串比對挑選出戰從者、`actionMove` 撞見敵人只處理前 2 組敵御主、`setEnemyPact_`/`setEnemyFeud_` 只存單一夥伴標記(3方以上關係會互相覆寫)、`god_hand` 說明 popup 寫死「11次」未依角色實際命數、`TRAIT_DESC` 神性描述寫死「+10%」未反映實際 rank 倍率區間、`renderWarActions` 敵人卡純用名字字串去重(應改用 id)。
