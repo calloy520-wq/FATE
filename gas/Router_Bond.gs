@@ -516,7 +516,14 @@ function actionAllyBond(userData, pcId, sheets) {
   // 盟友從者→servantCard_(含狂化禁言等口吻，補〔盟友從者〕標籤跟其餘呼叫端一致)；
   //   盟友御主→enemyMasterCard_(比手刻陽春卡更完整，與 Router_Battle.gs 戰鬥時同厚度)。
   const allyCard = allyIsMaster ? enemyMasterCard_(pcData[aIdx]) : ('〔盟友從者〕' + servantCard_(pcData[aIdx]));
-  const aiPrompt = masterCard_(pcData[pIdx]) + allyCard +
+  // 🐛→✅ 玩家實測抓到「盟友從者說話像真的是我的從者」——servantCard_「對御主」那段語氣是寫給「自己的
+  //   契約御主」看的，AI 沒被告知這名從者真正的御主另有其人，順著卡片語氣自己腦補成在跟玩家講契約話語
+  //   (如「既然契約還在」)。用 getServantMaster_ 硬連結查出他真正的御主名字，明講清楚劃開身分。
+  const allyTrueMaster = allyIsMaster ? "" : getServantMaster_(pcData[aIdx][COL.PC.MEMORY]);
+  const clarifyFact = allyTrueMaster
+    ? `★【身分釐清】「${allyName}」真正締結契約的御主是「${allyTrueMaster}」，不是你——此刻只是暫時結盟的立場，他對你保持的是結盟該有的分寸、戲謔或算計，【嚴禁】寫成他真的向你效忠、聽命於你的令咒，或提及「契約仍在」之類只對其本主才成立的話語。\n`
+    : "";
+  const aiPrompt = masterCard_(pcData[pIdx]) + allyCard + clarifyFact +
     `【系統·盟誼】御主『${masterName}』與盟友「${allyName}」${allyIsMaster ? '共處' : '交流'}，當前羈絆 ${after}/100。\n` +
     `★Fate 筆觸【90~140字】寫一段此次共處的小品，自由發揮、勿每次都同一套說辭。語氣親疏【務必嚴格】貼合當前羈絆：${tier}。對方仍是「暫時」盟友，留一絲各自的算計與保留。show, don't tell。` +
     (unlocked ? `（此次羈絆首度臻至深處，結尾可用一個眼神或半句未盡之言，含蓄點出情誼悄然越過了「暫時」的界線。）` : "");
