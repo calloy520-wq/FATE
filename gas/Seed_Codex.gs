@@ -418,7 +418,7 @@ function resyncSummonedServants_(ss) {
     }
     data[i][COL.PC.MARTIAL] = s.np || data[i][COL.PC.MARTIAL];
     data[i][COL.PC.SIX] = JSON.stringify(s.six);
-    data[i][COL.PC.TAGS] = JSON.stringify({ skills: (s.classSkills || []).concat(s.skills || []), traits: s.traits || [] });
+    data[i][COL.PC.TAGS] = JSON.stringify({ skills: tagSkillKind_(s.classSkills, 'class').concat(tagSkillKind_(s.skills, 'skill')), traits: s.traits || [] });
     n++;
   }
   if (n) pc.getRange(1, 1, data.length, data[0].length).setValues(data);

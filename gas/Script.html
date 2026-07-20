@@ -1461,7 +1461,7 @@
       // 🗝️ 從者卡（支援雙從者）：點卡切換「出戰中」，動作列只出現在出戰中那張
       var buildSvCard = function (s, isActive, dual) {
         var six = s.six || {};
-        var safeN = String(s.name).replace(/'/g, ''); // 🩹 提前定義：下方 skillPills map(魔境/符文/施放技術標籤)即用到，晚定義會因 var hoisting 取到 undefined
+        var safeN = String(s.name).replace(/'/g, ''); // 🩹 提前定義：下方 renderSkillPill_(魔境/符文/施放技術標籤)即用到，晚定義會因 var hoisting 取到 undefined
         var sixLine = ['筋' + (six.筋力 || '?'), '耐' + (six.耐久 || '?'), '敏' + (six.敏捷 || '?'), '魔' + (six.魔力 || '?'), '運' + (six.幸運 || '?'), '寶' + (six.寶具 || '?')].join('　');
         var pill = function (n, r, fx, col, glow, pre) {
           var label = n + (r && r !== '-' ? (' ' + r) : '');
@@ -1479,7 +1479,9 @@
         var selPill = function (label, onclickJs) {
           return '<span class="tag-selectable" onclick="event.stopPropagation();' + onclickJs + '" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid #7ec8ff; color:#bfe3ff; border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap;">✨ ' + label + '</span>';
         };
-        var skillPills = (s.skills || []).map(function (sk) {
+        // 🗂️ 技能卡片分三類：職階技能／固有技能(依階級高→低排序)／特殊技能(可選效果類別)——寶具維持原樣不動。
+        //   單顆技能怎麼畫(特殊可選/變容/施放技術/一般)邏輯不變，只是抽成 renderSkillPill_ 讓三類共用。
+        var renderSkillPill_ = function (sk) {
           // ✨ 特殊·可選（查 SELECTABLE_FX 表·資料驅動）：魔境的智慧／皇帝特權／原初符文·盧恩…要玩家自選武技/模式者
           var selDef = SELECTABLE_FX[sk.fx];
           if (selDef && selDef.ready(s)) return selPill(sk.n + selDef.suffix(s), selDef.onclick(s, safeN, sk));
@@ -1500,7 +1502,17 @@
             return '<span onclick="event.stopPropagation();showActiveSkillInfo(' + _arg + ')" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid #7ec8ff; color:#7ec8ff; background:rgba(110,180,220,.12); border-radius:10px; padding:1px 7px; margin:2px 3px 0 0; white-space:nowrap; box-shadow:' + _sh + ';">🎲' + sk.n + (sk.r && sk.r !== '-' ? ' ' + sk.r : '') + '</span>';
           }
           return pill(sk.n, sk.r, sk.fx, '#d9a93a', false);
-        }).join('');
+        };
+        var _allSkills = s.skills || [];
+        var classSkillPills = _allSkills.filter(function (sk) { return sk && skillBucket_(sk) === 'class'; }).map(renderSkillPill_).join('');
+        var innateSkillPills = _allSkills.filter(function (sk) { return sk && skillBucket_(sk) === 'skill'; })
+          .sort(function (a, b) { return rankVal_(b.r) - rankVal_(a.r); }) // 固有技能依階級高→低排序
+          .map(renderSkillPill_).join('');
+        var specialSkillPills = _allSkills.filter(function (sk) { return sk && skillBucket_(sk) === 'special'; }).map(renderSkillPill_).join('');
+        var skillGroupLabel_ = function (label, pills) {
+          return pills ? ('<div style="margin-top:4px;"><span style="color:#7a6f52; font-size:9px; letter-spacing:.5px;">' + label + '</span><div style="margin-top:1px;">' + pills + '</div></div>') : '';
+        };
+        var skillPills = classSkillPills || innateSkillPills || specialSkillPills; // 沿用既有變數名判斷「有沒有技能」(下方 hint/kanshou 分支用)
         var hasActiveSkill = (s.skills || []).some(function (sk) { return sk && ACTIVE_FX_JS[sk.fx]; });
         var traitPills = (s.traits || []).map(function (tr) { return pill(tr.n, tr.r, 'trait', '#c0392b'); }).join('');
         // 🌹 慾海：從者卡只露 名字/裝扮/服裝狀態/當下狀態——不露血量/魔力/六圍/技能/寶具/動作鈕；個性/特徵/關係改進「📜詳細狀態」按鈕看。
@@ -1546,7 +1558,9 @@
               + '</div></div>')
           + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5; margin-top:4px;">羈絆 ' + (parseInt(s.bond) || 0) + ' · ' + bondWord(s.bond) + '</div>'
           + '<div style="color:#cdbbe6; font-size:11px; margin-top:3px; letter-spacing:.5px;">六圍 <span onclick="event.stopPropagation();showSixHelp(\'' + sixLine.replace(/'/g, '') + '\')" style="cursor:pointer; font-size:10px; color:#cdbbe6; border:1px solid #6a5a8a; border-radius:8px; width:13px; height:13px; display:inline-block; line-height:13px; text-align:center;">?</span></div>'
-          + (skillPills ? ('<div style="margin-top:3px;">' + skillPills + '</div>') : '')
+          + skillGroupLabel_('職階技能', classSkillPills)
+          + skillGroupLabel_('固有技能', innateSkillPills)
+          + skillGroupLabel_('特殊技能', specialSkillPills)
           + (traitPills ? ('<div style="margin-top:1px;">' + traitPills + '</div>') : '')
           + (s.canIdealRealm ? ('<div style="margin-top:4px;"><span onclick="event.stopPropagation();showIdealRealm()" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid #c0a24e; color:#ffe6a8; background:rgba(255,212,121,.14); border-radius:10px; padding:2px 8px; white-space:nowrap;">🛡️ 理想鄉·自動護盾</span></div>') : '')
           + ((skillPills || traitPills) ? '<div style="color:#6a5f80; font-size:9.5px; margin-top:2px;">👆 點標籤看效果' + ((s.mageRealm && s.mageRealm.has) || (s.skills || []).some(function (k) { return k.fx === 'rune'; }) ? '；✨發亮的可點開挑選' : '') + (hasActiveSkill ? '；<span style="color:#7ec8ff;">🎲施放技術＝每次交鋒 50% 自動全效發動（被動·免耗魔）</span>' : '') + '</div>' : '')
@@ -2053,9 +2067,21 @@
   //   已被動化——戰時每擊 50% 自動全效發動(見後端 rollSkill_)，前端僅用此表決定要不要露資訊標。
   var ACTIVE_FX_JS = { burst: 1, str_up: 1, projection: 1 };
 
+  // 🏷️ 職階技能猜測集合(僅供【舊角色】無 kind 標記時退回用)——鏡射後端 FORGE_CLS_SKILLS_/AI生成慣例。
+  //   新角色一律讀後端 tagSkillKind_ 寫入的 sk.kind('class'/'skill')，100%準確、不吃這張猜測表。
+  var CLASS_SKILL_FX_HEUR_ = { nullify_magic: 1, ride: 1, mad: 1, territory: 1, crafting: 1, stealth: 1, solo: 1 };
+  // 📚 技能卡片分類：特殊(可選效果)優先於 kind 標記(魔境的智慧/原初符文本就不會出現在職階技能慣例表)；
+  //   有 kind 標記直接信；無標記(舊角色)才退回 fx 猜測，猜不中的一律落固有技能(不誤判成職階技能較安全)。
+  function skillBucket_(sk) {
+    if (sk && SELECTABLE_FX[sk.fx]) return 'special';
+    if (sk && sk.kind === 'class') return 'class';
+    if (sk && sk.kind === 'skill') return 'skill';
+    return (sk && CLASS_SKILL_FX_HEUR_[sk.fx]) ? 'class' : 'skill';
+  }
+
   // 🔮 ✨特殊·可選 註冊表（資料驅動·不寫 if 鏈）：一列＝一種「要玩家自選武技/模式」的能力。
   //   ready＝該從者是否具備(決定顯不顯)；suffix＝標籤後綴(顯示當前選了什麼)；onclick＝點開的 picker。
-  //   要加第三種可選能力＝往這表加一列＋寫那支 picker，skillPills 迴圈一字不動。
+  //   要加第三種可選能力＝往這表加一列＋寫那支 picker，renderSkillPill_/skillBucket_ 一字不動。
   var SELECTABLE_FX = {
     mage_realm: { // 魔境的智慧／皇帝特權…：挑 1 門通用 A 階武技
       ready: function (s) { return !!(s.mageRealm && s.mageRealm.has); },

@@ -296,6 +296,16 @@ function sanitizeSkills_(arr, maxCount) {
     };
   });
 }
+// 🏷️ 技能來源標記：寫入 TAGS 前把 classSkills/skills 分別打上 kind('class'/'skill')再合併——
+//   四個寫入點(召喚 hero 分支/AI生成分支/種子英靈/敵方鋪陳)合併前都還是兩個分開的陣列，只是合併那刻
+//   來源資訊就丟了；提早在這裡標記，前端卡片才能 100% 準確分「職階技能／固有技能」而非用 fx 代碼猜。
+//   純顯示用欄位：hasFx_/fxName_ 只認 fx/r，多這個欄位不影響任何戰鬥判定。舊角色(合併時未標記)在前端
+//   會退回 fx 代碼表猜測分類，見 Script.html 的 CLASS_SKILL_FX_HEUR_。
+function tagSkillKind_(arr, kind) {
+  return (Array.isArray(arr) ? arr : []).filter(Boolean).map(function (s) {
+    return Object.assign({}, s, { kind: kind });
+  });
+}
 // 清洗六圍：6 鍵齊全、階級合法（E~EX、可帶 +/++/−，承認 A++/B− ——AI 常自發吐 A++）；缺或亂給則補 C。
 //   格式合法不代表強度合理：EX 級最多保留 2 項(比照種子最強者的分布，如吉爾伽美什寶具EX/理查一世敏捷EX)，
 //   其餘超額降階為 A——否則 recordOriginalHero_ 會把全 EX 角色永久寫回英靈殿供重召，固化成長期破台角色。
@@ -647,7 +657,7 @@ function actionSummonServant(userData, pcId, sheets) {
       row[COL.PC.MEMORY] = stampPersonaFlavor_(`第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || "保持距離"}`, persona.speech, persona.tic);
       if (persona.weapon) row[COL.PC.MEMORY] = setWeapon_(row[COL.PC.MEMORY], persona.weapon); // ⚔️ 工房原創的自定武裝·重召不掉
       row[COL.PC.SIX] = JSON.stringify(six);
-      row[COL.PC.TAGS] = JSON.stringify({ skills: classSkills.concat(skills), traits: traits });
+      row[COL.PC.TAGS] = JSON.stringify({ skills: tagSkillKind_(classSkills, 'class').concat(tagSkillKind_(skills, 'skill')), traits: traits });
       // 復活命數：god_hand 持有者優先讀技能物件自己的 lives(如尼祿 lives:3)；種子沒標時，ai_gen 給3(尼祿基準)，
       //   其餘靠 getGodHandLives_ 預設11(赫拉克勒斯十二試煉專屬)，別讓 AI 產物白拿。
       var ghSkill = classSkills.concat(skills).find(function (s) { return s && s.fx === 'god_hand'; });
@@ -702,7 +712,7 @@ ${FX_MENU_}
       row[COL.PC.INTENT] = String(aiBrief.npc_intent || "").slice(0, 30); // 比照 slice(0,18) 腰斬修正，放寬緩衝
       row[COL.PC.MEMORY] = `第一人稱「我」｜對御主：初締約·尚在觀察`; // 與種子路徑對稱(原漏寫→servantCard_ 演出資訊變薄)
       row[COL.PC.SIX] = JSON.stringify(aiSix);
-      row[COL.PC.TAGS] = JSON.stringify({ skills: aiCSkills.concat(aiSkills), traits: aiTraits });
+      row[COL.PC.TAGS] = JSON.stringify({ skills: tagSkillKind_(aiCSkills, 'class').concat(tagSkillKind_(aiSkills, 'skill')), traits: aiTraits });
       // 🕯️ 復活命數：AI 產物持 god_hand → 標【試煉】3(尼祿「三度輝映」基準)——預設 11 是赫拉克勒斯(seed)專屬。
       if (aiCSkills.concat(aiSkills).some(function (s) { return s && s.fx === 'god_hand'; })) {
         row[COL.PC.MEMORY] += '｜【試煉】3';
