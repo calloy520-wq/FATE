@@ -287,17 +287,27 @@ function actionMove(userData, pcId, sheets) {
       clashMasters.push(r);
     });
     if (clashMasters.length >= 2) {
+      // 🐛→✅ 舊版用 indexOf("【御主】"+mN) 子字串比對，同地若某敵御主真名恰為另一人的前綴(如
+      //   「Illya」vs「Illyasviel」)會誤配硬連結——改用單一真實來源 getServantMaster_(嚴格切到下個
+      //   ｜分隔符)取出的完整真名做精確比對。
       var findClashSv_ = function (masterRow) {
         var mN = String(masterRow[COL.PC.NAME] || "");
         return allPcData.find(function (r) {
           return String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === moveGameId &&
             String(r[COL.PC.LOC] || "").trim() === tgtTrim && !String(r[COL.PC.ID]).startsWith("DEAD_") &&
-            String(r[COL.PC.MEMORY] || "").indexOf("【御主】" + mN) >= 0;
+            getServantMaster_(r[COL.PC.MEMORY]) === mN;
         });
       };
-      var svA = findClashSv_(clashMasters[0]), svB = findClashSv_(clashMasters[1]);
+      // 🐛→✅ 舊版固定只挑 clashMasters[0]/[1]，同地若有 3 組以上敵御主，第 3 組以後永遠沒有機會
+      //   演出這場「敵營動向」——改成從全部在場組別中隨機挑一對，多組時輪流有機會登場。
+      var ia = 0, ib = 1;
+      if (clashMasters.length > 2) {
+        ia = Math.floor(Math.random() * clashMasters.length);
+        do { ib = Math.floor(Math.random() * clashMasters.length); } while (ib === ia);
+      }
+      var svA = findClashSv_(clashMasters[ia]), svB = findClashSv_(clashMasters[ib]);
       if (svA && svB && String(svA[COL.PC.ID]) !== String(svB[COL.PC.ID])) {
-        factionClash = resolveFactionEncounter_(allPcData, clashMasters[0], clashMasters[1], svA, svB, moveGameId, _moveDay());
+        factionClash = resolveFactionEncounter_(allPcData, clashMasters[ia], clashMasters[ib], svA, svB, moveGameId, _moveDay());
       }
     }
   } catch (e) { }

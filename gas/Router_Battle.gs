@@ -372,7 +372,9 @@ function actionFateBattle(userData, pcId, sheets) {
 
   // 🗝️ 雙從者：若指定出戰從者(userData.servant)則用之，否則取第一個在世從者
   const wantSv = String(userData.servant || "").trim();
-  let atkIdx = wantSv ? pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.NAME]).includes(wantSv)) : -1;
+  // 🐛→✅ 舊版用 String(name).includes(wantSv) 子字串比對挑選出戰從者，雙從者其一真名恰為另一人
+  //   前綴/子字串時(如「阿爾托莉雅」vs「阿爾托莉雅・奧爾塔」)會選錯人出戰——改精確相等比對。
+  let atkIdx = wantSv ? pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.NAME]).trim() === wantSv) : -1;
   if (atkIdx === -1) atkIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
   // 🛡️ 常駐寶具閘：God Hand/治癒結界等【常駐寶具】自動生效、不是攻擊——擋下攻擊解放
   //   (前端💥鈕已灰化，此為舊快取前端的後端保險)。
@@ -1387,7 +1389,7 @@ function actionSummonHorror(userData, pcId, sheets) {
     if (String(pcData[i][COL.PC.GAME_ID] || "") !== gameId) continue;
     if (String(pcData[i][COL.PC.ID]).startsWith("DEAD_")) continue;
     if (!hasFx_(rowToCombatant_(pcData[i]), 'summon_horror')) continue;
-    if (wantSv && String(pcData[i][COL.PC.NAME]).indexOf(wantSv) === -1) continue;
+    if (wantSv && String(pcData[i][COL.PC.NAME]).trim() !== wantSv) continue; // 🐛→✅ 同上，精確相等取代子字串比對
     svIdx = i; break;
   }
   if (svIdx === -1) return JSON.stringify({ success: false, message: "無能翻閱螺湮城教本的從者（需持此寶具的召喚師·如吉爾·德·萊斯）。" });

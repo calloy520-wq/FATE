@@ -369,4 +369,16 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 - **`SEED_RECLASSED_`(Seed_Codex) 清除懸空遷移項**：舊表 `'貞德｜Ruler':'貞德｜Archer'` 一條，新舊 key 指的「貞德」在現行 `SEED_SERVANTS` 都查無此人（regulation 換版遺留、從未清理），與本 session 稍早已清掉的迦爾納/蒼白騎兵死碼同一類——已移除，只留活的 `'吉爾·德·萊斯（青鬍子）｜Caster':'吉爾·德·萊斯｜Caster'` 改名映射。
 - **3 位種子英靈補 `dailyBack`**：恩奇都-Lancer／斯卡哈-Assassin／伊莉雅-Caster 先前缺 `dailyBack`(鑑賞日常版身世一句)，已比照其他種子英靈補上。
 
-**⚠ 五路稽核尚未處理的中低優先項**（詳見稽核報告，未來要做時直接查對應檔案）：斬首反噬機率估算未注入御主加成/主場/禮裝、`wantSv` 子字串比對挑選出戰從者、`actionMove` 撞見敵人只處理前 2 組敵御主、`setEnemyPact_`/`setEnemyFeud_` 只存單一夥伴標記(3方以上關係會互相覆寫)、`god_hand` 說明 popup 寫死「11次」未依角色實際命數、`TRAIT_DESC` 神性描述寫死「+10%」未反映實際 rank 倍率區間、`renderWarActions` 敵人卡純用名字字串去重(應改用 id)。
+**⚠ 五路稽核尚未處理的中低優先項**（詳見稽核報告，未來要做時直接查對應檔案）：斬首反噬機率估算未注入御主加成/主場/禮裝、斬首「大成功」雙從者同時擲20固定歸主戰從者完成斬殺(非隨機/雙重觸發)、`Gate of Skye`寶具描述稱即死判定但引擎無實作、`setEnemyPact_`/`setEnemyFeud_` 只存單一夥伴標記(3方以上關係會互相覆寫)、`actionIncite` 再掃前2敵從者未核對是否為 `resolveFactionEncounter_` 認定的同一對、NP預告攔截/趁隙偷襲的「first match wins」只從一個合格對象觸發、`MYSTIC_CODES` 與 Index.html 選項列表兩份手動同步的平行拷貝、`COL.MASTER.HOME` 定義了卻沒人讀(實際出生地來自 ROSTER 自己的loc)、"疫病"特性機制已全孤兒(無種子角色持有)、`FATE_SHEET_DEFS["眾生"]` header 少3欄對不上 COL.PC。
+
+## 16. 五路稽核批次④（2026-07・戰鬥/移動精確比對＋前端資訊誠實化）
+
+- **`injectMysticBuff_`(前批次已修) 之外另兩處子字串比對改精確**：`actionFateBattle`/`actionSummonHorror`(Router_Battle.gs) 的 `wantSv` 舊版 `String(name).includes(wantSv)` 挑選出戰從者，雙從者其一真名為另一人前綴時(如「阿爾托莉雅」vs「阿爾托莉雅・奧爾塔」)會選錯人出戰或誤觸發變身；`actionMove` 的 `findClashSv_`(Router_Movement.gs) 舊版 `indexOf("【御主】"+mN)` 子字串比對硬連結，同款前綴碰撞風險。三處統一改精確相等 / 改用單一真實來源 `getServantMaster_`。
+- **`actionMove` 撞見敵人只處理前 2 組敵御主**：`clashMasters` 舊版固定只取 `[0]`/`[1]`，同地若有 3 組以上敵御主，第 3 組以後永遠沒有「敵營動向」演出機會。改成 ≥3 組時隨機抽一對，多組時輪流有機會登場（非受害於固定順序）。
+- **`actionBreakAlliance` 空 `npcName` 全滅盟約**：舊版 `(!npcName || ...)` 條件在缺/空名字時對每個已結盟對象都成立——前端 UI 一律帶明確名字，但直打 API 漏傳會一次撕毀玩家「所有」現存盟約而非預期的「這一個」。改成缺名字直接擋下回錯誤訊息。
+- **god_hand(十二試煉) 說明 popup 補真實命數**：舊版前端 `FX_DESC.god_hand` 寫死「11 次」，只對種子赫拉克勒斯正確，工房/AI生成從者實際固定3命、尼祿等敵方各自有專屬命數。`buildTagsPayload_`(Router_Action.gs) 補算 `s.ghLives`(該從者實際剩餘命數，走 `getGodHandLives_`)隨從者資料一起下傳，`pill()`/`showSkillDesc()`(Script.html) 補一個 `extra` 參數把這個真值帶進 popup 文案，不再顯示錯誤數字。
+- **`TRAIT_DESC` 神性/神格/神靈描述補真實倍率區間**：舊版三則皆寫死「寶具威力+10%」，引擎實際公式(`Engine_Fate.gs` `1+0.1×rankMul_(自身神格)`)依階級介於 ×1.02(E-)~×1.2(EX)，跟已修過的同類問題(god_slay 描述)同一類但沒同步——改寫成區間描述。
+- **`renderWarActions` 敵人卡改用 id 去重**：舊版 `usedSv` 以名字字串當 key，兩敵方實體恰好撞名時其中一個會被誤判「已配對」變成 ghost 佔位，即使牠仍活著有主。`localPeopleList` 每個實體本就有穩定 `id`，改用 id 當 key。
+- **`servantStrike` 目標查找補陣營過濾**：舊版 `localNPCs.find(n=>n.name===npcName)` 純用名字比對、不分陣營，若同地某盟友/其他敵人恰巧與被點目標同名，會把錯誤的 id 送進 `fate_battle` payload。改成先按 `isMaster` 決定該找「敵御主」還是「敵從者」陣營再比名字。
+- **「戰鬥續行」技能說明修正「可反覆」誤導**：`Script_Onboarding.html` 技能圖鑑舊版寫「可反覆」，讀起來像能連續多次自動觸發，實際機制是撐 1 血後必須先被治癒回 1 以上，下次致命傷才會再度觸發——改寫成「須先療傷才能再撐一次」。
+- **`localFoeServantName()` 補多敵情況**：舊版只回第一個找到的敵從者名字，同地若有 ≥2 個未結盟敵從者，卸防警示(休息/補魔/靈基修復/羈絆/與盟友共處前置確認)只提一個名字、低估威脅——改成找全部，多於1個時在名字後補「等N名」（不變動任一呼叫端的字串組裝格式）。

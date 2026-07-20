@@ -411,6 +411,10 @@ function actionProposeAlliance(userData, pcId, sheets) {
 // 💔 撕毀盟約：解除與某敵御主(及其從者)的同盟，恢復敵對
 function actionBreakAlliance(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
+  // 🐛→✅ 舊版 `!npcName` 條件在缺/空 npcName 時對每個已結盟對象都成立——前端 UI 呼叫此 action 一律
+  //   帶著明確名字(卡片按鈕/needBreakAlliance 提示皆固定傳值)，但直打 API 漏傳/傳空字串會一次撕毀
+  //   玩家「所有」現存盟約，而非預期中的「這一個」。改成缺名字直接擋下，不再有全滅副作用。
+  if (!npcName) return JSON.stringify({ success: false, message: "請指定要撕毀盟約的對象。" });
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
@@ -419,7 +423,7 @@ function actionBreakAlliance(userData, pcId, sheets) {
   for (let i = 1; i < pcData.length; i++) {
     if (String(pcData[i][COL.PC.GAME_ID] || "") !== myGameId) continue;
     const fac = String(pcData[i][COL.PC.FACTION]);
-    if ((fac === "敵御主" || fac === "敵從者") && isAllied_(pcData[i]) && (!npcName || nameLoose_(pcData[i][COL.PC.NAME]).indexOf(nameLoose_(npcName)) !== -1)) { // 🔧 loose 比對·含中點名字不漏
+    if ((fac === "敵御主" || fac === "敵從者") && isAllied_(pcData[i]) && nameLoose_(pcData[i][COL.PC.NAME]).indexOf(nameLoose_(npcName)) !== -1) { // 🔧 loose 比對·含中點名字不漏
       pcData[i][COL.PC.MEMORY] = clearAllyMem_(pcData[i][COL.PC.MEMORY]);
       if (fac === "敵御主") who = String(pcData[i][COL.PC.NAME]);
       broke++;
