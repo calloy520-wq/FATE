@@ -172,8 +172,8 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 - 玩家側＋敵側皆接戰鬥：`fateStrike_` 守方分支對「敵從者」用 `enemyMasterMemoryFor_`(Router_Bond) 反查敵御主 MEMORY 注入。體術/魔術發動的 `fired[]` 標籤（御主體術/御主魔術）也餵進 aiPrompt。
 
 ### 主要 fx 機制（現行）
-- **主動技（按鈕制）**：`servantActiveSkill_(c)` 只給 3 種原作真·施放技術 `burst 魔力放出`/`str_up 怪力`/`projection 投影`（fx 只活在主動層·下修 projection 見 SKILL_FX_）。攻擊列第4顆「⚡主動」按鈕按下＝全效＋`drainForNp_` 扣魔一次；未按＝`tinyActiveSkill_`（0.35倍微量·免費）。敵AI 恆走全效免費。常駐被動 `morale 卡里斯瑪`/`aim 千里眼`/`self_mod 自我改造` 從主動候選拔除。
-- **令咒·蓄勢開關**：❖鈕 toggle（`sealArmed`），之後按 普攻/⚡主動/💥寶具 自動帶令咒（絕對必中 `atkWins=true`＋×1.5）並熄燈。後端 seal/np/skill 獨立旗標。
+- **施放技術（被動化·2026-07）**：`servantActiveSkill_(c)` 只給 3 種原作真·施放技術 `burst 魔力放出`/`str_up 怪力`/`projection 投影`（fx 只活在此層·下修 projection 見 SKILL_FX_）。無按鈕、免耗魔——`rollSkill_`（Router_Battle）每次交鋒 50% 機率自動【全效】發動，未中則該擊無此加成；持有者兩者機率互斥不疊加。敵AI 恆走全效免費（`servantActiveSkill_` 直接餵 `resolveFateBattle_({skill:...})`，不經 50% 骰）。前端「🎲」技能膠囊點開只顯示發動方式說明（`showActiveSkillInfo`），非操作按鈕。常駐被動 `morale 卡里斯瑪`/`aim 千里眼`/`self_mod 自我改造` 不在此列。
+- **令咒·蓄勢開關**：❖鈕 toggle（`sealArmed`），之後按 普攻/💥寶具 自動帶令咒（絕對必中 `atkWins=true`＋×1.5）並熄燈。後端 seal/np/skill 獨立旗標。
 - **stealth 首擊奇襲**：只在 `opts.ambush` 生效·吃階級（命中+rankVal/10＋要害×~1.4）。**sense 氣息感知**（恩奇都·守方）：`rankVal(sense)≥攻方 stealth`→奇襲先機＋要害全失效。
 - **gae_bolg 必中之槍**：`atkWins = gaebolg ? !gbEvaded : (aHit>=dEva)`。閃避機率 `gbEsc`＝幸運＋直感/心眼(0.15)＋變化(0.10)，夾0.6。令咒必中不受影響。
 - **ea 執行殺**（吉爾）：僅 `opts.np`＋自身血≤40% 觸發（傷害 寶具rankVal×4+6d12+200·必中越防）。血足走常規×1.7。

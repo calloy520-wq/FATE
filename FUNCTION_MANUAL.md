@@ -457,9 +457,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### 技能 fx 表（線性加減乘·資料驅動）
 
 - `SKILL_FX_` — 資料表：把主動技與線性被動加成收成一張表。欄位 active/prio/mpPct/icon/descFn（主動施放）、zh（中文名）、hit/hitAdd（命中）、dmgMul/dmgAdd（傷害）、blockedByLoserFx（敗方免疫）、silent（不推 fired 標籤）。骰子彈幕/概念貫穿/時機觸發等特例不進表、保持明碼。
-- `ACTIVE_SKILL_TINY_` — 常數 0.35：主動技關閉時的微量被動版縮放比例。
-- `servantActiveSkill_(c)` — 掃 SKILL_FX_ 中 active 者依 prio(burst>str_up>projection) 取第一個持有的，回 {id,name,icon,mpPct,hit,dmgMul,dmgAdd,desc}；無則 null。只增益我方出擊。
-- `tinyActiveSkill_(buff)` — 主動技關閉時的微量免費版（效果 ×ACTIVE_SKILL_TINY_、mpPct=0、tiny:true）。開/關二選一不並存。
+- `servantActiveSkill_(c)` — 掃 SKILL_FX_ 中 active 者依 prio(burst>str_up>projection) 取第一個持有的，回 {id,name,icon,mpPct,hit,dmgMul,dmgAdd,desc}；無則 null。玩家側經 `rollSkill_` 50% 機率骰中才餵入(被動化·2026-07)；敵AI 直接餵、恆全效免費。
 - `fxHitAdd_(aHit, atk, fx, fired)` — 攻方持 fx 時套用 SKILL_FX_[fx].hitAdd，回新 aHit 並推 fired 標籤（命中段一律推，self_mod 在此列一次）。
 - `fxDmgApply_(base, winner, loser, fx, fired)` — 勝方持 fx 時套 dmgMul/dmgAdd；blockedByLoserFx 則免疫；silent 不推標籤。回新 base。
 
@@ -761,8 +759,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `parseVisibleStatus(rawStatus)` — 解析外顯狀態 JSON → {衣服/姿勢/負面/顏面}，失敗則把原字串當顏面。
 - `buildVisibleStatusString(rawStatus)` — 組人眼可讀的外顯狀態串（濾掉「無」與健康類詞），空則回「氣息平穩」。
 - `mergePhysicalStatus(oldJson, newVal)` — 合併 physical_state（現只單一「狀態」鍵）；解析失敗當空物件確保 newVal 一定套用。
-- `buildPlayerStatusString(selfRow, relMem)` — 組 `§` 分隔的下傳狀態串；MEMORY/relMem 內 `|` 轉義為 `@@@`；慾海(K系id)以肉體狀態填外顯格、solo 留空；含九州廢欄占位。
-- `getFreshStatusString(targetId, pIdx, sheets)` — 重讀 pc 整表（getValues 順帶 flush）取第 pIdx 列，交 `buildPlayerStatusString` 回最新狀態串。
+- `buildPlayerStatusString(selfRow, relMem)` — 組 `§` 分隔的下傳狀態串；MEMORY/relMem 內 `|` 轉義為 `@@@`；慾海(K系id)以肉體狀態填外顯格、solo 留空；含九州廢欄占位。已移除 `getFreshStatusString`(整表重讀版)——各 handler 改直接對記憶體中的 pcData 呼叫 `buildPlayerStatusString`，省一次整表讀。
 
 #### 靜態種子表快取
 
@@ -795,7 +792,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### 統計 / 死碼可疑處
 
 - **函式數：58**（另常數/schema 區約 11 個非函式常數，含 IIFE 模型金鑰、COL、RANK_VALUE、OUTPUT_TIERS_、RUNE_MODES_、OVERCHARGE_TAG_、SEED_CACHE_SECONDS_）。
-- 未用參數（保留相容/簽名對齊）：`getMapDataCached(sheets)` 完全不用 sheets（註解已載明坤圖靜態化）；`getFreshStatusString(targetId,…)` 的 targetId 未用、只用 sheets.pc；`getLocalPeopleList(…, pcName, …)` 的 pcName 未用。
+- 未用參數（保留相容/簽名對齊）：`getMapDataCached(sheets)` 完全不用 sheets（註解已載明坤圖靜態化）；`getLocalPeopleList(…, pcName, …)` 的 pcName 未用。
 - COL 死欄占位（讀寫端已移除、恆空，僅保位置索引不刪）：`PC.MONEY/UPKEEP_WEEK/ROOM(33-35)`、`PC.MEMOIR(27)` 標為鑑賞復用但 solo 不用。`ACC.CREATED/KPC`、`HERO.DAILY_*` 屬鑑賞欄，solo 側於此檔未觸及。
 - 外部相依（此檔未定義、依賴他檔）：`AP_PER_DAY`、`getClock_`、`getPlayerSeals_`、`svNum_`、`callGeminiAPI`、`FATE_MAP_SEED`、`SEED_MASTERS`、`masterToCodexRow_`、`getLostServant_`/`getServantMaster_`/`getMasterServant_`——註解齊全，非死碼。
 - 註解遺留提示：`getMasterCodexCached`/`getMapDataCached` 皆已改為即時組表不讀對應分頁，分頁本身「僅供人工查閱」——若之後有人以為遊戲仍讀表可能誤判，屬文件而非程式問題。
@@ -1012,7 +1009,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `rankVal_(r)` — 階級（E~EX，含 +）→數值，對齊後端 rankVal/rankMul（C=30 基準）。
 - `pillRankCls_(r)` — 階級→技能膠囊流光 class 後綴（ex/a/b/de；C 與無階級=''）。
 - `showSkillDesc(name, fx, rank)` — 技能/特性 pill 點開說明：查 `FX_DESC`（依實際階級算數值）或 `TRAIT_DESC`。
-- `showActiveSkillInfo(name, fx, rank)` — ⚡主動技說明彈窗（純資訊：實際發動在攻擊列，耗魔/微量被動說明）。
+- `showActiveSkillInfo(name, fx, rank)` — 🎲 施放技術說明彈窗（純資訊：被動化·每次交鋒 50% 機率自動全效發動，免耗魔、無按鈕）。
 - `showIdealRealm()` — 理想鄉 Avalon 無敵結界說明（被動自動、6 階究極寶具來襲＋御主魔力≥100 展開）。
 - `showSynergyInfo(on, master, peak)` — 恩奇都「變容·主從契合」說明（六圍隨御主浮動、與特定御主結契全盛）。
 - `showSixHelp(line)` — 六圍教學彈窗（筋/耐/敏/魔/運/寶說明＋該從者實際值）。
@@ -1028,8 +1025,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `setActiveServant(name)` — 切出戰從者，更新 `myServantCls`、重繪 tags/戰爭列。
 - `attackStyle_()` — 依職階回傳基礎攻擊類別樣式（Caster 魔砲/Archer 狙擊/其餘近戰）。
 - `toggleWarTarget(key)` — 戰爭行動列手風琴：展開/收合某目標卡。
-- `activeSkillOfActive_()` — 出戰從者的主動技（burst/str_up/projection，含魔境智慧 pick 補注），無則 null；決定要不要露「⚡主動」鈕。
-- `renderWarActions()` — 渲染底部戰爭行動列：盟友卡（共處/撕盟）、敵御主↔從者成對卡（普攻/主動/寶具/超載/令咒/刺殺/結盟/破戒奪僕）＋底部偵查/整備/休息/移動；鑑賞隱藏。內含 `chip`/`card`/`foeChip`/`foeGhost`/`foePanel`/`_tierBtn` 等閉包。
+- `renderWarActions()` — 渲染底部戰爭行動列：盟友卡（共處/撕盟）、敵御主↔從者成對卡（普攻/寶具/超載/令咒/刺殺/結盟/破戒奪僕，施放技術已被動化免按鈕）＋底部偵查/整備/休息/移動或撤退突圍(交戰中互斥切換，見 `_mustBreakout_`)；鑑賞隱藏。內含 `chip`/`card`/`foeChip`/`foeGhost`/`foePanel`/`_tierBtn` 等閉包。
 - `showRumors(rumors)` — 把世界自走風聞推進故事流（居中紫框氣泡）。
 - `localFoeServantName()` — 同地是否有清醒敵從者（卸防行動突襲警示用），回名字或空。
 
@@ -1065,9 +1061,9 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `renderFateBattleReport(r)` — 多形態戰報卡渲染：撤離追擊/反咬、卸防突襲、陣地反擊、斬首（D20）、多回合交鋒（寶具真名橫幅、對轟、逐回合骰子/命中/傷害、御主電池血條、理想鄉、寶具預兆）。內含 `hpbar`/`critTxt`/`stripOwnName` 閉包。
 
 #### 從者攻擊 / 出力 / 換裝
-- `openNpReleasePicker(npcName, sv, useSeal, isMaster, useSkill)` — 多寶具英靈「解放哪個寶具」選單。
-- `pickNpAndStrike(idx, npcName, svName, useSeal, useSkill)` — 選定寶具→關選單→帶 idx 進 servantStrike。
-- `servantStrike(npcName, useNp, useSeal, isMaster, useSkill, npPicked, npChoiceArg)` — 核心攻擊：處理令咒蓄勢消費、多寶具選單、斬首/寶具超載/主動技/令咒各自 confirm，打 `fate_battle`（帶目標 ID·output·overload）；成功先渲戰報撤遮罩再 narrate，處理勝敗。
+- `openNpReleasePicker(npcName, sv, useSeal, isMaster)` — 多寶具英靈「解放哪個寶具」選單。
+- `pickNpAndStrike(idx, npcName, svName, useSeal)` — 選定寶具→關選單→帶 idx 進 servantStrike。
+- `servantStrike(npcName, useNp, useSeal, isMaster, npPicked, npChoiceArg)` — 核心攻擊：處理令咒蓄勢消費、多寶具選單、斬首/寶具超載/令咒各自 confirm(施放技術已被動化·不再是攻擊時的手動分支)，打 `fate_battle`（帶目標 ID·output·overload）；成功先渲戰報撤遮罩再 narrate，處理勝敗。
 - `setServantOutput(btn, npcName, output)` — 從者卡出力旋鈕：樂觀更新轉盤外觀＋背景 `set_servant_output`，失敗 syncData 校正。
 - `changeOutfit(name, isSelf)` — 換裝（`outfit`，只換衣）：吃後端消毒值原地重繪（免 get_tags）。
 - `changeWeapon(name)` — 自訂武裝（`weapon`，蓋過職階/原典習慣）；鏡射 changeOutfit。

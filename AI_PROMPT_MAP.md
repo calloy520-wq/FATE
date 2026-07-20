@@ -82,7 +82,7 @@
 
 | Action | 按鈕/觸發 | Handler | AI |
 |---|---|---|---|
-| `fate_battle` | 從者卡「⚔️出戰／💥寶具／❖令咒／⚡主動技／🗡️刺殺御主」等鈕 →`servantStrike(...)`（Script.html:1917） | `actionFateBattle`（Router_Battle.gs） | **是**，最多 5 種 prompt 分支（見下） |
+| `fate_battle` | 從者卡「⚔️出戰／💥寶具／❖令咒／🗡️刺殺御主」等鈕 →`servantStrike(...)`（Script.html，施放技術已被動化·50%機率自動全效免按鈕） | `actionFateBattle`（Router_Battle.gs） | **是**，最多 5 種 prompt 分支（見下） |
 | `use_seal` | 令咒選單「修復/補魔/緊急脫離」→`useSeal(type)` | `actionUseSeal`（Router_Bond.gs） | 是（`mana`依好感分安全/致死兩支，2026-07新增） |
 | `mana_supply` | 從者卡「💧補魔」→`manaSupply()` | `actionManaSupply`（Router_Economy.gs） | 是（含突襲/婉拒/解鎖三分支，2026-07新增好感門檻） |
 | `set_servant_output` | 從者卡🔋出力轉盤 5 鈕 →`setOutput(npcName,output)` | `actionSetServantOutput`（Router_Economy.gs） | 否，純樂觀更新 setter |
