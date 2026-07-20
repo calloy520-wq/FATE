@@ -363,6 +363,54 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
   try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { } // 種子表已變動→清快取，下次讀到新從者
 }
 
+// 陣營九宮格(單一真實來源)：秩序/中立/混沌 × 善/中庸/惡，"中立"(無修飾)是通用預設值。
+//   工房(parseForgeBuild_)與 AI 生成從者(actionSummonServant)共用同一份白名單驗證。
+var ALIGNS_ = ["秩序・善", "秩序・中庸", "秩序・惡", "中立・善", "中立", "中立・惡", "混沌・善", "混沌・中庸", "混沌・惡"];
+
+// 💰 六圍/技能/規模 統一計價（單一真實來源：工房 parseForgeBuild_ 的預算上限檢查、AI 自訂從者的
+//   下限保底 bumpSixToFloor_ 共用同一套算式，避免定價邏輯散落兩處各自為政）。skills 不含
+//   classSkills——職階技能工房是白送的、不占錢包，AI 生成分支比照排除。
+var SKILL_PTS_ = { E: 5, D: 10, C: 15, B: 20, A: 25 };
+// 三軌計價：同組同價會讓大係數標籤嚴格支配小係數，故照引擎真實係數分軌——強效(如千里眼/高速詠唱)貴 1/3、
+//   輕效(如騎乘/風王)便宜 1/3。前端鏡射 FORGE_SK_TRACK/FORGE_SK_PTS_*(Script_Onboarding.html，工房即時預算UI用)。
+var SKILL_PTS_BIG_ = { E: 7, D: 13, C: 20, B: 27, A: 33 };
+var SKILL_PTS_SMALL_ = { E: 3, D: 7, C: 10, B: 13, A: 17 };
+var SKILL_TRACK_ = { aim: 1, petrify: 1, fast_cast: 1, divine_age: 1, territory: 1, ride: -1, wind_strike: -1, morale: -1 };
+// 二元平價(引擎不讀購買階級，效果恆固定)：god_hand/survive/tsubame/zabaniya/gae_bolg/rule_breaker/
+//   anti_magic_lance/agile_striker/weapon_steal/god_slay/lovespot/self_mod/tactics/projection。
+var FLAT_FX_ = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25, weapon_steal: 25, god_slay: 25, lovespot: 5, self_mod: 15, tactics: 25, projection: 25 };
+function forgeCost_(six, skills, npScale) {
+  var spent = Object.keys(six).reduce(function (s, k) { return s + rankVal(six[k]); }, 0);
+  var scaleCost = (npScale === "對軍") ? 20 : 0;
+  var slotFee = skills.length > 3 ? 20 : 0;
+  var skillCost = skills.reduce(function (s, k) { return s + (k.fx ? (FLAT_FX_[k.fx] ||
+    (SKILL_TRACK_[k.fx] === 1 ? SKILL_PTS_BIG_ : SKILL_TRACK_[k.fx] === -1 ? SKILL_PTS_SMALL_ : SKILL_PTS_)[k.r] || 15) : 0); }, slotFee);
+  return { spent: spent, scaleCost: scaleCost, skillCost: skillCost, total: spent + scaleCost + skillCost };
+}
+
+// 🌀 AI 自訂從者的六圍下限保底：對齊工房 FORGE_BUDGET(340)——AI 常自己抓不準力度，光靠 prompt 措辭
+//   拜託「務必有強有弱」擋不住偶爾生出偏弱從者，這裡改成 GAS 硬性補強：算完低於下限就把最弱一項六圍
+//   逐階往上補，直到達標或撞 EX≤2 上限(見 sanitizeSix_)為止。同樣不算職階技能(見上，工房也不算)。
+var FORGE_FLOOR_ = 340;
+function bumpSixToFloor_(six, skills, npScale) {
+  var RANKS = ["E", "D", "C", "B", "A", "EX"];
+  var keys = Object.keys(six);
+  var guard = 0;
+  while (forgeCost_(six, skills, npScale).total < FORGE_FLOOR_ && guard++ < 40) {
+    var exCount = keys.filter(function (k) { return six[k] === "EX"; }).length;
+    var bumpable = keys.filter(function (k) {
+      var idx = RANKS.indexOf(String(six[k]).replace(/[+\-]+$/, ""));
+      if (idx < 0 || idx >= RANKS.length - 1) return false; // 已是 EX 或格式異常
+      return !(RANKS[idx + 1] === "EX" && exCount >= 2); // 已有2項EX，此項封頂A不再進位
+    });
+    if (!bumpable.length) break; // 已達 EX≤2 上限下的六圍總和上限，補無可補
+    var weakest = bumpable.reduce(function (a, b) { return rankVal(six[a]) <= rankVal(six[b]) ? a : b; });
+    var idx = RANKS.indexOf(String(six[weakest]).replace(/[+\-]+$/, ""));
+    six[weakest] = RANKS[idx + 1];
+  }
+  return six;
+}
+
 // 🛠️ 職階技能慣例表（工房自動附贈·不占 3 槽·與種子/AI 生成對稱）
 var FORGE_CLS_SKILLS_ = {
   Saber: [{ n: "對魔力", r: "B", fx: "nullify_magic" }], Lancer: [{ n: "對魔力", r: "C", fx: "nullify_magic" }],
@@ -392,7 +440,6 @@ function parseForgeBuild_(build, reqCls) {
   const _fClean = (v, n) => String(v || "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, n);
   out.fp = _fClean(build.fp, 4); out.toM = _fClean(build.toMaster, 20); out.speech = _fClean(build.speech, 40);
   out.tic = _fClean(build.tic, 30); out.moe = _fClean(build.moe, 18); out.back = _fClean(build.back, 28);
-  const ALIGNS_ = ["秩序・善", "秩序・中庸", "秩序・惡", "中立・善", "中立", "中立・惡", "混沌・善", "混沌・中庸", "混沌・惡"];
   out.align = ALIGNS_.includes(String(build.align)) ? String(build.align) : "中立";
   out.look = _fClean(build.look, 60); out.pref = _fClean(build.pref, 60);
   const _segs = v => v ? v.split(/[、,，]/).filter(Boolean).length : 0;
@@ -415,9 +462,7 @@ function parseForgeBuild_(build, reqCls) {
   ["筋力", "耐久", "敏捷", "魔力", "幸運", "寶具"].forEach(k => { const v = String((build.six || {})[k] || "C").toUpperCase(); out.six[k] = okPlain(v) ? v : "C"; });
   const exK = Object.keys(out.six).filter(k => out.six[k] === "EX");
   if (exK.length > 2) exK.slice(2).forEach(k => out.six[k] = "A");
-  const spent = Object.keys(out.six).reduce((s, k) => s + rankVal(out.six[k]), 0);
   out.npScale = (String(build.npScale) === "對軍") ? "對軍" : "對人";
-  const scaleCost = (out.npScale === "對軍") ? 20 : 0;
   // 第4技能欄位費+20：預算才是真約束(逼六圍讓位)，疊加上限±8 讓多買的命中/迴避冗餘——
   //   最壞情況四技組合(83~85%)仍未超過三技頂點(93%)。
   out.skills = (Array.isArray(build.skills) ? build.skills : []).filter(Boolean).slice(0, 4).map(s => {
@@ -428,22 +473,11 @@ function parseForgeBuild_(build, reqCls) {
     let r = String(s && s.r || "C").toUpperCase(); if (!/^(E|D|C|B|A)$/.test(r)) r = "C";
     return { n: String(s && s.n || "").replace(/[<>&"'`]/g, "").slice(0, 10) || "技能", r: r, fx: fx };
   });
-  const SKILL_PTS_ = { E: 5, D: 10, C: 15, B: 20, A: 25 };
-  // 三軌計價：同組同價會讓大係數標籤嚴格支配小係數，故照引擎真實係數分軌——強效(如千里眼/高速詠唱)貴 1/3、
-  //   輕效(如騎乘/風王)便宜 1/3。鏡射前端 FORGE_SK_TRACK/FORGE_SK_PTS_*。
-  const SKILL_PTS_BIG_ = { E: 7, D: 13, C: 20, B: 27, A: 33 };
-  const SKILL_PTS_SMALL_ = { E: 3, D: 7, C: 10, B: 13, A: 17 };
-  const SKILL_TRACK_ = { aim: 1, petrify: 1, fast_cast: 1, divine_age: 1, territory: 1, ride: -1, wind_strike: -1, morale: -1 }; // 1=強效 -1=輕效 其餘標準
-  // 二元平價(引擎不讀階級)：weapon_steal 對龍恆×1.5(原階級計價可 E5 白撿)、god_slay 依對方神格縮放、lovespot 恆-1(風味價5)
-  // self_mod/tactics/projection 三個 fx 引擎皆不讀購買階級(效果恆固定)——原本落到依階級計價(E5~A25)，
-  //   等於花大錢買不到差異。改固定價：self_mod 比照標準 C 階(15，效果輕量)；tactics/projection 比照 25(強度與同價位標籤相當)。
-  const FLAT_FX_ = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25, weapon_steal: 25, god_slay: 25, lovespot: 5, self_mod: 15, tactics: 25, projection: 25 };
-  const slotFee = out.skills.length > 3 ? 20 : 0; // 🎰 第4欄啟用費(有第4個技能條目即收·純演出標籤也占欄)
-  const skillCost = out.skills.reduce((s, k) => s + (k.fx ? (FLAT_FX_[k.fx] ||
-    (SKILL_TRACK_[k.fx] === 1 ? SKILL_PTS_BIG_ : SKILL_TRACK_[k.fx] === -1 ? SKILL_PTS_SMALL_ : SKILL_PTS_)[k.r] || 15) : 0), slotFee);
-  const total = spent + scaleCost + skillCost;
+  const cost = forgeCost_(out.six, out.skills, out.npScale); // 計價單一真實來源，見檔案上方 forgeCost_
+  const slotFee = out.skills.length > 3 ? 20 : 0; // 🎰 第4欄啟用費(有第4個技能條目即收·純演出標籤也占欄，訊息文字用)
+  const total = cost.total;
   const clsBudget = FORGE_BUDGET + (FORGE_CLS_BONUS_[out.cls] || 0);
-  if (total > clsBudget) return { ok: false, message: `六圍 ${spent}＋技能 ${skillCost}${slotFee ? "(含第4欄+20)" : ""}＋規模「${out.npScale}」${scaleCost ? `+${scaleCost}` : "0"} ＝ ${total}，超過預算 ${clsBudget}${FORGE_CLS_BONUS_[out.cls] ? "(含狂化補正+" + FORGE_CLS_BONUS_[out.cls] + ")" : ""}——請調降六圍/技能階級或改對人規模。` };
+  if (total > clsBudget) return { ok: false, message: `六圍 ${cost.spent}＋技能 ${cost.skillCost}${slotFee ? "(含第4欄+20)" : ""}＋規模「${out.npScale}」${cost.scaleCost ? `+${cost.scaleCost}` : "0"} ＝ ${total}，超過預算 ${clsBudget}${FORGE_CLS_BONUS_[out.cls] ? "(含狂化補正+" + FORGE_CLS_BONUS_[out.cls] + ")" : ""}——請調降六圍/技能階級或改對人規模。` };
   out.classSkills = FORGE_CLS_SKILLS_[out.cls] || [];
   out.npName = String(build.npName || "").replace(/[<>&"'`]/g, "").replace(/【常駐寶具】|對城|對界|對神/g, "").trim().slice(0, 20) || "無名寶具";
   out.npR = out.six["寶具"]; // 顯示階＝六圍寶具階(引擎本就只吃 six.寶具)
@@ -695,13 +729,16 @@ ${FX_MENU_}
       }
       if (clsUnset) cls = VALID_CLS.includes(String(aiBrief.cls)) ? String(aiBrief.cls) : "Saber"; // AI 依描述判斷的職階；非法值才退回 Saber
       realName = String(aiBrief.realName || trueName || (cls + "從者")).trim() || (cls + "從者");
-      sex = aiBrief.sex || "異"; align = aiBrief.align || "中立"; np = aiBrief.np || "寶具（未顯現）";
+      sex = aiBrief.sex || "異"; align = ALIGNS_.includes(String(aiBrief.align)) ? String(aiBrief.align) : "中立"; np = aiBrief.np || "寶具（未顯現）";
       // npAtkScale_ 讀 np 字串關鍵字算規模——AI 自訂寶具最高「對軍」，對城/對界/對神為種子專屬(堵字串後門)。
       //   【常駐寶具】標記同理為種子專屬(B叔/玉藻)，混入會讓從者自己的💥被鎖死，故一律剝除。
       np = String(np).replace(/對界|對城|對神/g, "對軍").replace(/【常駐寶具】/g, "").slice(0, 80);
       const aiSix = sanitizeSix_(aiBrief.six);
       const aiCSkills = sanitizeSkills_(aiBrief.classSkills, 2); // prompt 要求 1~2 個
       const aiSkills = sanitizeSkills_(aiBrief.skills, 3);       // prompt 要求 2~3 個
+      // 🌀 六圍下限保底：AI 常自己抓不準力度，光靠 prompt「務必有強有弱」擋不住——GAS 這裡硬性補強
+      //   到與工房 FORGE_BUDGET(340) 對齊(不含職階技能 aiCSkills，理由見 bumpSixToFloor_ 註解)。
+      bumpSixToFloor_(aiSix, aiSkills, /對軍/.test(np) ? "對軍" : "對人");
       const aiTraits = Array.isArray(aiBrief.traits) ? aiBrief.traits.filter(Boolean).slice(0, 4).map(t => ({ n: String((t && (t.n || t.名稱 || t.name)) || t).slice(0, 8) })) : [];
       const svHp = 150 + svNum_(aiSix.耐久) * 6, svMp = 0; // 🔋 出力電池制：從者無自有魔力池，出力檔存 MEMORY、預設 60 巡航
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
