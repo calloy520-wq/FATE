@@ -378,7 +378,8 @@ function actionProposeAlliance(userData, pcId, sheets) {
     aiPrompt = (gIdx >= 0 ? '〔敵御主之從者〕' : '') + servantCard_(gIdx >= 0 ? pcData[gIdx] : null) +
       `【系統·結盟已達成·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』向敵御主「${masterName}」${allyServant ? `（從者「${allyServant}」）` : ""}提議結盟，對方權衡利害後接受了——雙方暫時休兵、互不侵犯（至第 ${until} 日前後）。\n` +
       `★以 Fate／TYPE-MOON 筆觸【約 120~180 字】演出這場談判：「${masterName}」依其性格回應（務實的權衡、開出條件或冷淡的「暫時」），最後達成不穩固的同盟。對方的算計與保留要演出來，留一絲不信任的伏筆。\n` +
-      ``;
+      // 🐛→✅ 這個動作沒改動任何人的 LOC(結盟雙方都仍留在原地)，同款「AI 自行編出離場」風險。
+      `★「${masterName}」${allyServant ? `與「${allyServant}」` : ''}結盟後【仍留在原地】，並未轉身離去，收在同地暫時休兵的微妙氣氛即可。\n`;
     STATE_PRE_DATA_ = pcData; // ⚡ 交棒：結盟成立分支的所有寫入(MEMORY盟約標記/spendAp_)皆已原地改回 pcData
     return JSON.stringify({ success: true, allied: true, aiPrompt: aiPrompt, master: masterName, until: until, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: buildPlayerStatusString(pcData[pIdx]) });
   } else {
@@ -581,7 +582,11 @@ function actionCourtEnemy(userData, pcId, sheets) {
   const aiPrompt = masterCard_(pcData[pIdx]) + '〔示好對象·敵對陣營〕' + card +
     `【系統·示好／交涉·已裁定】御主『${String(pcData[pIdx][COL.PC.NAME])}』在刀鋒之外向敵對的「${targetName}」釋出善意（好感 ${before}→${after}／100）。\n` +
     `★以 Fate／TYPE-MOON 筆觸【約 100~150 字】演出這番示好、與對方【依其性格×當前好感】的真實反應：${lean.loner ? '孤高／激烈者多半冷淡、譏諷或半信半疑，只鬆動一絲' : lean.pragmatic ? '務實者會權衡利害、順水推舟地緩和態度' : '依其性格自然回應'}——但仍分屬敵對，留一分保留與算計，別演成一下就交心。GAS 已算好數值，你只演反應、不另定成敗。` +
-    (after >= 90 ? '\n★此刻情誼已臻莫逆——收在一個彼此心照不宣、卻仍隔著立場的微妙瞬間。' : '');
+    (after >= 90 ? '\n★此刻情誼已臻莫逆——收在一個彼此心照不宣、卻仍隔著立場的微妙瞬間。' : '') +
+    // 🐛→✅ 這個動作從未改動過「${targetName}」的所在地(LOC 未變、她仍在原地)，但舊指令沒講清楚這點，
+    //   AI 便自行編出「轉身離去」之類的退場收尾——下一次玩家在同地遇到她，畫面就跟這句「已經走了」互相
+    //   矛盾。明講「仍留在原地」，收尾定格在氣氛鬆動的瞬間，不可讓她離場/走遠/消失於視野。
+    `\n★「${targetName}」示好後【仍留在原地】，並未離開這個場景——收在她態度鬆動、但仍按兵不動的瞬間即可，不可描寫她轉身離去、走遠或消失於視野，那不是這個動作發生的事。`;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：bumpBond_/【示好日】/spendAp_ 皆已原地改回 pcData
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, target: targetName, bond: after, delta: delta, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: buildPlayerStatusString(pcData[pIdx]) });
 }

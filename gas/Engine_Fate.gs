@@ -245,11 +245,11 @@ function combatProfile_(c) {
 //   要加/調技能＝改一列，引擎(servantActiveSkill_＋fxHitAdd_/fxDmgApply_)自動吃。只收【線性加減乘】型；
 //   骰子彈幕(gob/chain)、概念貫穿減傷(rho_aias/territory/神核)、時機/條件觸發(stealth/tsubame/petrify)等
 //   特例邏輯不進表、保持明碼(硬塞進表＝過度工程)。欄位：
-//     active/prio/mpPct/icon/descFn＝施放技術(已被動化·每擊50%擲)專用；zh＝中文名(fired 標籤 fallback)；
+//     active/prio/mpPct/icon/descFn＝施放技術(已被動化·每擊擲 SKILL_PROC_ 機率)專用；zh＝中文名(fired 標籤 fallback)；
 //     hit/hitAdd＝命中加成(攻方)；dmgMul/dmgAdd＝傷害加成(勝方)——皆可為數字或 r=>.. 或 (r,c)=>..；
 //     blockedByLoserFx＝敗方有此 fx 則免疫；silent＝套用時不推 fired 標籤(morale 靜默/self_mod 傷害段避免重列)。
 var SKILL_FX_ = {
-  // ⚡ 施放技術（burst/str_up/projection）：已被動化——戰時每擊 50% 自動全效發動(見 Router_Battle rollSkill_)，不再手動開關
+  // ⚡ 施放技術（burst/str_up/projection）：已被動化——戰時每擊 SKILL_PROC_ 機率自動全效發動(見 Router_Battle rollSkill_)，不再手動開關
   burst: { active: true, prio: 1, mpPct: 0.15, icon: '💥', zh: '魔力放出', dmgMul: function (r) { return 1 + 0.45 * r; }, descFn: function (ht, dm) { return '本戰傷害 ×' + dm.toFixed(2) + '（灌注魔力放出）'; } },
   str_up: { active: true, prio: 2, mpPct: 0.12, icon: '💪', zh: '怪力', dmgAdd: function (r) { return Math.round(8 * r) + 14; }, descFn: function (ht, dm, da) { return '本戰傷害 +' + da + '（激發怪力）'; } },
   // 投影魔術數值已對齊同表 burst/str_up 量級(battle_sim 模擬過，開關勝率差距不超過 ~30 個百分點)。
@@ -295,7 +295,7 @@ function injectMasterMagicSupport_(c, masterMemory) {
 }
 
 // ⚡ 從者施放技術（已被動化）：掃 SKILL_FX_ 中 active 者依 prio 取第一個持有的完整效果。無則 null。
-//   數值隨技能自身階級成長(rank 折入)。戰時由 rollSkill_ 每擊 50% 擲是否套用全效。★只增益我方出擊、不碰防禦端。
+//   數值隨技能自身階級成長(rank 折入)。戰時由 rollSkill_ 每擊擲 SKILL_PROC_ 機率是否套用全效。★只增益我方出擊、不碰防禦端。
 function servantActiveSkill_(c) {
   var order = ['burst', 'str_up', 'projection']; // 優先序(prio)
   for (var i = 0; i < order.length; i++) {
@@ -489,7 +489,7 @@ function bestNpChoice_(name, cls) {
 // 🎚️ 被動技能 fx 對 命中/迴避 的【淨加成上限】：直感/心眼/千里眼/騎乘/變化/避矢/王財/洞悉/自我改造/
 //   狂化/魔眼/天之鎖/燕返/愛之痣 等被動 fx 的命中(攻)與迴避(守)各自加總後 clamp ±HIT_FX_CAP——
 //   買越多遞減為零，防止堆疊流把差距拉到「永遠打不到」。
-//   ★不入帳(各有自己的成本/體系)：出力/整備/過充/施放技術(被動50%擲)/禮裝(裝備)/職階相剋(身分)/幸運骰/奇襲(一次性)。
+//   ★不入帳(各有自己的成本/體系)：出力/整備/過充/施放技術(被動 SKILL_PROC_ 機率擲)/禮裝(裝備)/職階相剋(身分)/幸運骰/奇襲(一次性)。
 var HIT_FX_CAP = 8;
 // 主裁決：一次交手。回傳 {atkWins, winner, loser, damage, aRoll,dRoll,aHit,dEva, fired[], crit, np, seal}
 function resolveFateBattle_(atk, def, opts) {
@@ -556,7 +556,7 @@ function resolveFateBattle_(atk, def, opts) {
   //   避免同一項代價在戰鬥層被收兩次稅。傷害加成(SKILL_FX_.mad)不受影響。
   // 自我改造(self_mod)：命中 +2（被動·SKILL_FX_ 表驅動）
   aHitFx = fxHitAdd_(aHitFx, atk, 'self_mod', fired);
-  // 🎲 施放技術（已被動化·每擊 50% 由 rollSkill_ 擲中才傳入 opts.skill）：命中加成 + 標記發動
+  // 🎲 施放技術（已被動化·每擊由 rollSkill_ 依 SKILL_PROC_ 機率擲中才傳入 opts.skill）：命中加成 + 標記發動
   if (opts.skill) { aHit += (opts.skill.hit || 0); fired.push(atk.name + '·' + opts.skill.name + '(施放技術·發動)'); }
   // ✨ 禮裝被動加持·命中（御主禮裝注入我方從者，見 injectMysticBuff_）
   var mcAtk = mcCombatFx_(atk); if (mcAtk && mcAtk.hit) { aHit += mcAtk.hit; fired.push(atk.name + '·禮裝「' + mcAtk.label + '」(命中+' + mcAtk.hit + ')'); }
@@ -670,7 +670,7 @@ function resolveFateBattle_(atk, def, opts) {
   // 🔥 補魔過充傷害端：攻方持過充狀態且此擊由其打出時，傷害微揚(命中端已於上方+2)。
   if (winner === atk && atk.overcharge) base = Math.round(base * 1.06);
   // ⚠ 怪力(str_up)／魔力放出(burst)＝【施放技術·被動 only】(見 servantActiveSkill_)：不走此處常駐被動，
-  //   由 rollSkill_ 每擊 50% 擲是否經 opts.skill 套用全效。
+  //   由 rollSkill_ 每擊依 SKILL_PROC_ 機率擲是否經 opts.skill 套用全效。
   // 勇猛/卡里斯瑪(morale·敵透化免疫)＋自我改造(self_mod)：常駐被動傷害（SKILL_FX_ 表驅動·位置順序不變）。
   base = fxDmgApply_(base, winner, loser, 'morale', fired);
   base = fxDmgApply_(base, winner, loser, 'self_mod', fired);
@@ -682,7 +682,7 @@ function resolveFateBattle_(atk, def, opts) {
     else if (mcWin.dmgAdd) fired.push(winner.name + '·禮裝「' + mcWin.label + '」(傷+' + mcWin.dmgAdd + ')');
   }
   // ⚠ 投影魔術(projection)＝【施放技術·被動 only】(見 servantActiveSkill_)：命中/傷害全併入 opts.skill，
-  //   由 rollSkill_ 每擊 50% 擲是否套用，此處不重複給被動傷害。
+  //   由 rollSkill_ 每擊依 SKILL_PROC_ 機率擲是否套用，此處不重複給被動傷害。
   // 🗡️ 首擊奇襲·要害一擊：氣息遮斷者開場突襲命中→額外重創(吃階級·一次性)。僅【普通首擊】生效——
   //   若開場直接解放寶具(opts.np)則走寶具自身爆發，不疊奇襲(避免奇襲×zabaniya 雙重爆擊一發秒人)。
   if (opts.ambush && atkWins && !opts.np && hasFx_(atk, 'stealth') && !senseNegate) {
@@ -782,7 +782,7 @@ function resolveFateBattle_(atk, def, opts) {
     else { scaleMult = NP_SCALE_MATRIX[NP_SCALE_IDX[atkScaleLabel]][NP_SCALE_IDX[npDefScale_(loser, pierces)]]; }
     if (scaleMult !== 1) { base = Math.round(base * scaleMult); fired.push(winner.name + '·' + (plagueDoom ? '疫病·病死宿命(無可逃避·概念碾壓)' : (atkScaleLabel + '寶具' + (atkScaleLabel === '對神' && loserDivR ? '·弒神(神格' + loserDivR + ')' : ''))) + ' vs ' + npDefScale_(loser, pierces) + '防(×' + scaleMult + ')'); }
   }
-  // 🎲 施放技術傷害增益（僅當攻方獲勝＝此增益屬於攻方時生效；被動·由 rollSkill_ 每擊 50% 傳入）
+  // 🎲 施放技術傷害增益（僅當攻方獲勝＝此增益屬於攻方時生效；被動·由 rollSkill_ 每擊依 SKILL_PROC_ 機率傳入）
   if (opts.skill && atkWins) {
     if (opts.skill.dmgMul && opts.skill.dmgMul !== 1) base = Math.round(base * opts.skill.dmgMul);
     if (opts.skill.dmgAdd) base += opts.skill.dmgAdd;

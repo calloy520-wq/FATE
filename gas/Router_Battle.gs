@@ -693,9 +693,9 @@ function actionFateBattle(userData, pcId, sheets) {
   }
 
   // 🎲 從者主動技已改「被動化」(玩家 2026-07 定案)：不再有手動「⚡主動」按鈕、不扣魔、無微效保底——
-  //   改為每一擊獨立 50% 機率自動【全效】發動(見下方 rollSkill_，於 rounds 迴圈與開場對轟各自擲)。
+  //   改為每一擊獨立擲 SKILL_PROC_ 機率自動【全效】發動(見下方 rollSkill_，於 rounds 迴圈與開場對轟各自擲)。
   //   skillFired 只記「本戰至少發動過一次」，供敘述/戰報標示。
-  const SKILL_PROC_ = 0.5;
+  const SKILL_PROC_ = 0.3; // 🐛→✅ 玩家回饋50%發動率太強、幾乎每擊都吃到全效加成，降到30%（唯一真實來源，前端文案/showActiveSkillInfo同步跟改）
   const _fullSkill = servantActiveSkill_(atkC);  // 完整效果表(或 null＝無真·施放技術)
   let skillFired = false;
   const rollSkill_ = function () {

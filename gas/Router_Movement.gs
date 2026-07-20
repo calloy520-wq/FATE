@@ -916,7 +916,10 @@ function detectAllyPeril_(pcData, gameId, playerLoc, curDay) {
 function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul) {
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
   const ambushDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1; // 🕰️ 尚未登場者不會夜襲
-  const eIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc && !isAllied_(r) && hasArrived_(r, ambushDay));
+  // 🐛→✅ 玩家反應「不可能每次休息/補魔/結盟都是打我吧」——舊碼不論好感一律突襲，跟移動路徑既有的
+  //   「BOND≥50＝友好·不追殺」門檻(見上方 actionMove 的 hostile check)不一致：已經養出交情的敵從者
+  //   沒理由每次都翻臉偷襲。門檻對齊同一顆常數，友好者這裡直接視為無敵可趁。
+  const eIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc && !isAllied_(r) && hasArrived_(r, ambushDay) && (parseInt(r[COL.PC.BOND]) || 0) < 50);
   if (eIdx === -1) return null;
   const svIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
   if (svIdx === -1) return null;
@@ -939,10 +942,15 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul) {
       pcData[eIdx][COL.PC.HP] = eAfter;
       sheets.pc.getRange(eIdx + 1, 1, 1, pcData[eIdx].length).setValues([pcData[eIdx]]);
       const eNm = String(pcData[eIdx][COL.PC.NAME]), sNm = String(pcData[svIdx][COL.PC.NAME]);
+      // 🐛→✅ 這支從沒附上入侵者的演出卡(servantCard_)，指令又寫死「語氣留白」——AI 完全沒有這名
+      //   敵從者的性格/口吻依據，只能寫成無聲的暗影，玩家回報「對方沒有對話??」。四個突襲呼叫端
+      //   (休息/羈絆/結盟/補魔)都吃這支函式的回傳，補一次就四處一起修好(單一真實來源)。
+      const eFoeCard = '〔夜襲者〕' + servantCard_(pcData[eIdx]);
       return {
         homeRepel: true, enemyName: eNm, svName: sNm, backDmg: backDmg, wardCost: wardCost, homeRank: homeRank,
         dmg: 0, destroyed: false, defeat: false, dreamPrompt: "", after: parseInt(pcData[svIdx][COL.PC.HP]) || 0,
-        repelNote: `【系統·陣地反擊·已裁定】潛伏同地的敵從者「${eNm}」欲趁御主一行卸防時偷襲，然此地正是我方親手佈設的陣地——魔術結界示警、機關迭起，「${sNm}」從容起身、反手將來犯者擊退驅離（敵受創 −${backDmg}），我方毫髮無傷（御主耗 ${wardCost} 魔維持結界運作）。\n★以 Fate／TYPE-MOON 筆觸演出「潛入者反被主場結界與從者從容擊退」的優雅反制，語氣留白。`,
+        foeCard: eFoeCard,
+        repelNote: eFoeCard + `【系統·陣地反擊·已裁定】潛伏同地的敵從者「${eNm}」欲趁御主一行卸防時偷襲，然此地正是我方親手佈設的陣地——魔術結界示警、機關迭起，「${sNm}」從容起身、反手將來犯者擊退驅離（敵受創 −${backDmg}），我方毫髮無傷（御主耗 ${wardCost} 魔維持結界運作）。\n★以 Fate／TYPE-MOON 筆觸演出「潛入者反被主場結界與從者從容擊退」的優雅反制——「${eNm}」依其性格可以有反應/一兩句話(不甘、譏諷、冷笑皆可，狂化者改用低吼/肢體)，別把入侵者寫成毫無聲息的純背景。`,
         report: { homeRepel: true, ambush: false, enemyName: eNm, svName: sNm, backDmg: backDmg, wardCost: wardCost, homeRank: homeRank }
       };
     }
