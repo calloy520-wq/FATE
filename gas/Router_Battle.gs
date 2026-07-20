@@ -182,10 +182,10 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
                                     : (String(pcData[mi][COL.PC.LOC]).trim() === oldLoc);
         if (!isOwnMaster) continue;
         if (!escMasterName) escMasterName = String(pcData[mi][COL.PC.NAME]);
-        // 只有「本主與從者同地」才一起撤離；遠端御主只是隔空燃令咒下令，本人不跟著瞬移
-        if (String(pcData[mi][COL.PC.LOC]).trim() === oldLoc) {
-          pcData[mi][COL.PC.LOC] = newLoc; if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(mi + 1, 1, 1, pcData[mi].length).setValues([pcData[mi]]);
-        }
+        // 🐛→✅ 玩家指正：令咒＝絕對命令從者帶著本主一起強制撤離戰場，不是從者自己逃走、御主留在原地——
+        //   舊版只在「本主剛好與從者同地」才一起搬，遠端御主完全不動，導致這對主從就此永久拆散(敵從者
+        //   在 Time_World.gs 的世界自走裡沒有獨立移動機會，一旦拆開就再也碰不到面)。改成一律跟著撤離。
+        pcData[mi][COL.PC.LOC] = newLoc; if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(mi + 1, 1, 1, pcData[mi].length).setValues([pcData[mi]]);
         break;
       }
       // ⚠ sealNote 同時會進玩家看得到的回合報告(k.note)，別在這裡塞「★」AI指令字面(那種只該進 aiPrompt，見下方
