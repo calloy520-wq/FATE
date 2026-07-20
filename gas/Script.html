@@ -128,7 +128,8 @@
       const locTarget = e.target.closest('[data-loc]');
       if (locTarget) {
         const locName = locTarget.getAttribute('data-loc');
-        
+        // 🐛→✅ AI 敘事文字裡提到的地名也可能剛好是玩家「當前所在地」——點了會觸發一趟白跑的移動。
+        if (lastMapNodes && locName === lastMapNodes.here) { return; }
         // 🔴 專屬防護：只有點擊故事對話中的綠色地名，才會跳出確認！
         if (confirm(`確定要啟程前往「${locName}」嗎？`)) {
           travelTo(locName, 0);
@@ -2729,6 +2730,9 @@
     }
   }
   function travelFromPane(name) {
+    // 🐛→✅ ◈所在節點本身也可點擊(方便辨識位置)，但點自己所在地會觸發一趟白跑的 travelTo(耗2AP、
+    //   世界推進、卻哪裡都沒去)——後端已補防線(見 actionMove)，這裡先擋掉省一次網路來回。
+    if (lastMapNodes && name === lastMapNodes.here) { showGamePane('chat'); return; }
     try { travelTo(name, 0); } catch (e) { }
     showGamePane('chat');
   }

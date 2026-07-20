@@ -88,6 +88,11 @@ function actionMove(userData, pcId, sheets) {
       return JSON.stringify({ success: false, message: "輿圖之上查無此地，無路可達。" });
     }
   } catch (e) { }
+  // 🐛→✅ 目的地＝當前所在地：地圖節點/故事內文的地名連結都沒擋這個案例(點自己所在的◈節點一樣可觸發
+  //   travelTo)，此路徑會白耗 2 AP、跑一輪世界推進與抵達敘事，卻哪裡都沒去——原地無意義的「移動」。
+  if (tgtTrim === String(allPcData[pIdx][COL.PC.LOC] || "").trim()) {
+    return JSON.stringify({ success: false, message: "你已經在此地，無須移動。" });
+  }
   // 🥷 悄悄離開：若正從一個「敵人分心」的局面格（趁隙窗口·slip）抽身，此刻離開不會被追擊。
   var _slipWin = isFateMove ? getEncounterWindow_(allPcData[pIdx][COL.PC.MEMORY]) : null;
   var _slipAway = !!(_slipWin && _slipWin.loc === String(allPcData[pIdx][COL.PC.LOC] || "").trim() && encounterChoices_(_slipWin.type).slip);
