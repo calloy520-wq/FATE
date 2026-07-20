@@ -1216,6 +1216,11 @@ function actionFateBattle(userData, pcId, sheets) {
       (godRevived ? (() => { let godTally = ""; try { const ghNow = getGodHandLives_(pcData[nIdx][COL.PC.MEMORY]); const ghBurn = Math.max(0, ghLivesStart - ghNow); if (ghBurn > 0) godTally = `★本戰共燒去 ${ghBurn} 條命、尚餘 ${ghNow}；「燒命數」與「倒地站起的次數」是兩回事(單擊可一口氣燒多命)，勿混寫成同一個數。`; } catch (e) { } return `· 十二試煉：${godNote}${godTally}\n`; })() : "") +
       (sealEscaped ? `· 對面御主燃令咒、強行扯離重傷從者，敵已遁走不在場。${sealNote}★此撤離僅止於該從者及其本主，與在場其他御主／從者無關。\n` : "") +
       ((destroyedName && targetIsFoeServant && enemyMasterRow && !isMasterTarget) ? `· 在場敵御主「${String(enemyMasterRow[COL.PC.NAME])}」親眼目睹自己契約的從者靈基崩潰、化作光點消散——失去從者＝失去依靠與這場戰爭的資格。★依其性格與身世演出這一刻的衝擊與反應(崩潰/嘶喊/怔忡/強撐皆可，由性格定)，非沉默背景板。\n` : "") +
+      // 🐛→✅ destroyedName 為真時，上方 finalLine 只在數字摘要那行提過一次「已消滅」，下方卻仍會走到
+      //   line ~1231 那句通用的「演出互有攻防的交鋒」收尾指令——AI 沒被【明確】告知這是終局、於是自行
+      //   接著編出敵人死而復生繼續攻擊、我方角色詢問「接下來怎麼辦」的續戰畫面(玩家回報「都把對面宰了
+      //   為啥還這樣敘述」)。這裡補一句不可退讓的終局指令，擋在收尾指令之前。
+      ((destroyedName && !sealEscaped && !godRevived) ? `★【本戰已於第 ${rounds.length} 回合終結】「${defC.name}」已當場靈基崩潰、化作光點消散——這是死局，【嚴禁】讓「${defC.name}」在此之後繼續出手、反擊或存在於場上，也【嚴禁】讓我方角色詢問「接下來怎麼辦／要不要繼續」這類彷彿戰鬥仍未分曉的台詞。演出應收在「終結的這一擊」與其後的餘韻(喘息、確認勝負、望向消散的光點)，不可延伸出新的交鋒回合。\n` : "") +
       ((!destroyedName && !sealEscaped && !godRevived) ? `· 敗方尚有餘力(見上方 HP)，勿描寫死亡／消滅／屍體。此乃御主下令出擊、雙方仍在交鋒中，下回合是否再戰仍由御主決定。\n` : "") +
       (atkC.cls === 'Caster' ? `· 出戰從者為 Caster（魔術師）職階：此戰以魔術轟擊為主、非肉搏，演出時勿讓其上前近戰。\n` : "") +
       (extraFired.length ? `· 戰局關鍵轉折：${extraFired.join('；')}。\n` : "") +
@@ -1228,7 +1233,9 @@ function actionFateBattle(userData, pcId, sheets) {
       ((!destroyedName && !sealEscaped && !godRevived) ? (hasFx_(atkC, 'mad')
         ? `★戰後讓「${atkC.name}」以其已狂化的方式(低吼／肢體動作／神情)透出對這場交手的直覺判斷，不成篇整句台詞。\n`
         : `★戰後讓「${atkC.name}」依其性格與口吻，對這場交鋒給出簡短的主觀判斷或建議(如看出的破綻、對方寶具是否已現底牌、值得乘勝追擊還是該見好就收)——是角色的觀察與建議，不是戰略指令，下一步仍由御主按鍵定奪。\n`) : "") +
-      `★以 Fate／TYPE-MOON 筆觸演出這 ${nRounds} 回合互有攻防的交鋒(約 220~280 字)：show, don't tell，把上列事實化為畫面與張力，技能/寶具演其威能而非報菜名。`;
+      ((destroyedName && !sealEscaped && !godRevived)
+        ? `★以 Fate／TYPE-MOON 筆觸演出這 ${nRounds} 回合、以擊破敵手收尾的交鋒(約 220~280 字)：show, don't tell，把上列事實化為畫面與張力，技能/寶具演其威能而非報菜名，收在「${defC.name}」崩潰消散的瞬間與其後的餘韻，不再讓其還手或延伸新回合。`
+        : `★以 Fate／TYPE-MOON 筆觸演出這 ${nRounds} 回合互有攻防的交鋒(約 220~280 字)：show, don't tell，把上列事實化為畫面與張力，技能/寶具演其威能而非報菜名。`);
   }
 
   // 📊 給前端的多回合視覺戰報
