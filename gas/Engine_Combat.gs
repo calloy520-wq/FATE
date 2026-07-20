@@ -109,7 +109,7 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   // 🐛→✅ 玩家反饋「結界觸發」這類措辭太出戲(像系統跳出來講話)，改成順著情境走的口吻——
   //   氣息未定、畫面忽然朦朧了幾秒，讀起來像是被打斷而非被系統攔下。
   const fallbackNarration = isBlocked
-    ? "🌸鬢邊沁著薄汗，呼吸尚未平復——這一幕忽然被氤氳水氣模糊了輪廓，請再嘗試一次。"
+    ? "🌸交纏的氣息還未散去，肌膚滾燙如火——下一幕卻被濃郁的水氣徹底吞沒，什麼都看不清了，請再嘗試一次。"
     : "🌫️【因果紊亂】命運的絲線在此刻忽地紊亂——這段因果暫時無法讀出，請稍後再試一次。";
 
   if (plainText) return fallbackNarration; // 散文模式：失敗也回純文字，不污染回憶錄成 JSON
