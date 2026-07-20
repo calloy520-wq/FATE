@@ -2072,7 +2072,10 @@
         + (b.bledMaster ? (b.fromMasterMp ? '＋' : '') + '焚血 <b style="color:#e06a6a;">' + b.fromMasterHp + '</b> HP' : '')
         + '</div>';
     }
-    if (r.destroyed) h += '<div style="color:#d65c5c;font-weight:bold;margin-top:2px;">💀 「' + r.def + '」靈基崩潰·消滅！' + (r.victory ? '　🏆 聖杯已近！' : '') + '</div>';
+    // 🐛→✅ 舊版死亡橫幅寫死用 r.def(這場鎖定的敵人名字)，不管實際死的是敵人還是我方從者都印同一個名字——
+    //   我方從者被打死(defeat)時，戰報反而顯示「敵人靈基崩潰・消滅」，跟血條/後續敗北夢境自相矛盾。
+    //   r.destroyed 才是真正死者的名字(backend destroyedName)，改用它＋依 defeat/victory 分流收尾文字。
+    if (r.destroyed) h += '<div style="color:#d65c5c;font-weight:bold;margin-top:2px;">💀 「' + r.destroyed + '」靈基崩潰·消滅！' + (r.victory ? '　🏆 聖杯已近！' : (r.defeat ? '　御主敗北……' : '')) + '</div>';
     else if (r.sealEscaped) h += '<div style="color:#c79be8;margin-top:2px;">❖ 敵令咒緊急脫離、遁走</div>';
     else if (r.godRevived) h += '<div style="color:#d4af37;margin-top:2px;">✨ 十二試煉·自死亡歸來</div>';
     if (r.telegraph) h += '<div style="color:#ffcf6a;font-weight:bold;margin-top:4px;padding:5px 8px;border:1px solid #c0872e;border-radius:6px;background:rgba(200,120,40,.15);font-size:12px;line-height:1.5;">⚠️ 寶具預兆！「' + r.telegraph + '」真名解放蓄勢待發——<b>下次接觸必傾瀉而出</b>。留魔開理想鄉結界／寶具對衝／速速脫離！</div>';
