@@ -367,15 +367,21 @@ function actionProposeAlliance(userData, pcId, sheets) {
   let aiPrompt;
   if (ok) {
     const until = day + 3; // 盟約效期約 3 日
-    // 盟主＋其同地從者一併標記盟約
+    // 盟主＋其硬連結從者(getMasterServant_ 查真正屬於他的從者，非同地任一敵人)一併標記盟約
     pcData[mIdx][COL.PC.MEMORY] = setAllyMem_(pcData[mIdx][COL.PC.MEMORY], until);
     sheets.pc.getRange(mIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[mIdx][COL.PC.MEMORY]);
-    const gIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc);
+    // 🐛→✅ 舊碼「同地任一敵從者」就抓來標盟約——若該地同時有別組敵人(常見，同地點常撞見多方)，
+    //   會誤把毫無關係的敵從者標成這名御主的從者、AI 也跟著誤演成「他的從者」(玩家回報「俺的御主都
+    //   開口了????」)。改用 getMasterServant_ 硬連結查真正屬於這名御主的從者，不再靠地點瞎猜。
+    const linkedSvName = getMasterServant_(pcData[mIdx][COL.PC.MEMORY]);
+    const gIdx = linkedSvName ? pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && nameLoose_(r[COL.PC.NAME]) === nameLoose_(linkedSvName)) : -1;
     let allyServant = "";
     if (gIdx >= 0) { allyServant = String(pcData[gIdx][COL.PC.NAME]); pcData[gIdx][COL.PC.MEMORY] = setAllyMem_(pcData[gIdx][COL.PC.MEMORY], until); sheets.pc.getRange(gIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[gIdx][COL.PC.MEMORY]); }
+    // 演出卡只在這名從者確實同地在場時才附上——不在場就不必替她/他捏造登場。
+    const gPresent = gIdx >= 0 && String(pcData[gIdx][COL.PC.LOC]).trim() === myLoc;
     // servantCard_ 卡片內容不含身分標籤，須比照 Router_Battle.gs〔敵方出戰者〕/
     //   Router_Movement.gs〔夜襲者〕的慣例先標明身分，避免 AI 誤讀態度欄位方向。
-    aiPrompt = (gIdx >= 0 ? '〔敵御主之從者〕' : '') + servantCard_(gIdx >= 0 ? pcData[gIdx] : null) +
+    aiPrompt = (gPresent ? '〔敵御主之從者〕' + servantCard_(pcData[gIdx]) : "") +
       `【系統·結盟已達成·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』向敵御主「${masterName}」${allyServant ? `（從者「${allyServant}」）` : ""}提議結盟，對方權衡利害後接受了——雙方暫時休兵、互不侵犯（至第 ${until} 日前後）。\n` +
       `★以 Fate／TYPE-MOON 筆觸【約 120~180 字】演出這場談判：「${masterName}」依其性格回應（務實的權衡、開出條件或冷淡的「暫時」），最後達成不穩固的同盟。對方的算計與保留要演出來，留一絲不信任的伏筆。\n` +
       // 🐛→✅ 這個動作沒改動任何人的 LOC(結盟雙方都仍留在原地)，同款「AI 自行編出離場」風險。
@@ -456,8 +462,9 @@ function bumpBond_(sheets, pcData, npcIdx, delta) {
 }
 
 // 🤝 與盟友共處／共濟魔力：對同地盟友（敵御主或敵從者·結盟中）交流增進羈絆——同盟的「交流」維度。
-//   原作依據：聖杯戰爭中的同盟羈絆（遠坂凜↔士郎並肩信賴、共通後勤）。羈絆養至 90↑ → 戰後可納入鑑賞名冊。
-//   ★此處僅止於 SFW 的信賴／曖昧鋪陳（fade）；真・親密一律留給戰後鑑賞世界，絕不在戰場開啟慾海引擎。
+//   原作依據：聖杯戰爭中的同盟羈絆（遠坂凜↔士郎並肩信賴、共通後勤）。羈絆養至 90↑ 只解鎖【摯交】敘事
+//   里程碑(見下方)，純敘事高光、無鑑賞入口意義——鑑賞角色一律鑑賞內自行召喚，與 solo 羈絆無關聯。
+//   ★此處僅止於 SFW 的信賴／曖昧鋪陳（fade）；真・親密一律留給鑑賞世界，絕不在戰場開啟慾海引擎。
 function actionAllyBond(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
   let pcData = sheets.pc.getDataRange().getValues();
@@ -502,7 +509,7 @@ function actionAllyBond(userData, pcId, sheets) {
   }
 
   // 羈絆分級·嚴格控制親疏（盟友＝暫時利益結合，低羈絆務必冷淡，唯 90+ 才解鎖親近）
-  const tier = after >= 90 ? "【羈絆深厚】可流露真切的信任與溫柔（守住性格內核、不踰矩，真親密留待奪杯後鑑賞）"
+  const tier = after >= 90 ? "【羈絆深厚】可流露真切的信任與溫柔（守住性格內核、不踰矩，止於曖昧 fade，真親密不在此展開）"
     : after >= 70 ? "【羈絆漸增】有限度的信任、偶爾流露一絲真心，但仍保留戒備與分寸，不主動親暱"
     : after >= 45 ? "【羈絆尚淺】純屬利益結盟：維持戒備、客套與算計，【絕不可】親近或交心，至多一閃而過的微妙交集"
     : "【幾無私交】冷淡、警惕、公事公辦，話語間滿是試探與保留";
