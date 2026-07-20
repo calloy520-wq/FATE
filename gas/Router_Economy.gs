@@ -188,8 +188,8 @@ function actionManaSupply(userData, pcId, sheets) {
 
   // 戰場補魔：甜而克制的曖昧 fade（給點甜頭、不開慾海引擎）——真・慾海留給鑑賞
   let aiPrompt;
-  if (ambush && ambush.homeRepel) {
-    aiPrompt = ambush.repelNote; // 🏰 陣地反擊·優雅擊退
+  if (ambush && (ambush.homeRepel || ambush.peaceful)) {
+    aiPrompt = ambush.repelNote; // 🏰 陣地反擊·優雅擊退／🎲 按兵不動或試探接觸(卸防時刻多樣化)
   } else if (ambush) {
     aiPrompt = (ambush.foeCard || '') + `【系統·補魔遭突襲·已裁定】御主正以魔力供給「${svName}」、彼此門戶大開之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
       `★以 Fate／TYPE-MOON 筆觸描寫補魔的私密一刻被突襲打斷的驚變：魔力交融的脆弱、敵襲的兇險、${ambush.destroyed ? '從者消滅的痛楚（語氣留白）' : '從者依其性格與羈絆對此突襲的反應（重情者強撐護主、疏離者未必）'}。傷害與勝負已由系統結算。\n` +
@@ -250,8 +250,8 @@ function actionSpiritRepair(userData, pcId, sheets) {
   const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.3);
 
   let aiPrompt;
-  if (ambush && ambush.homeRepel) {
-    aiPrompt = ambush.repelNote; // 🏰 陣地反擊·優雅擊退
+  if (ambush && (ambush.homeRepel || ambush.peaceful)) {
+    aiPrompt = ambush.repelNote; // 🏰 陣地反擊·優雅擊退／🎲 按兵不動或試探接觸(卸防時刻多樣化)
   } else if (ambush) {
     aiPrompt = (ambush.foeCard || '') + `【系統·靈基修復遭突襲·已裁定】御主正引共用魔力池為「${svName}」療傷、彼此門戶大開之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
       `★以 Fate／TYPE-MOON 筆觸描寫療傷的私密一刻被突襲打斷的驚變，${ambush.destroyed ? '及從者消滅的痛楚（語氣留白）' : '及從者依其性格與羈絆對此突襲的反應（重情者強撐護主、疏離者未必）'}。傷害與勝負已由系統結算。\n` +

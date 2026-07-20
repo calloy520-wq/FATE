@@ -464,7 +464,7 @@ function actionRest(userData, pcId, sheets) {
     const restAmbush = enemyAmbushOnServant_(sheets, pcData, pIdx, restGameId, 1.5);
     // 🌙 從者之夢（回想）：安睡(≥3h)且未遭突襲時，有機會順著聯繫夢見從者生前傳說的片段，加深羈絆
     let restDreamPrompt = "";
-    if ((!restAmbush || restAmbush.homeRepel) && restHours >= 3) { // 🏰 陣地反擊＝安睡無虞·仍可做夢
+    if ((!restAmbush || restAmbush.homeRepel || restAmbush.peaceful) && restHours >= 3) { // 🏰 陣地反擊／🎲 按兵不動·試探接觸＝安睡無虞·仍可做夢
       const svRow = pcData.find(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === restGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
       if (svRow && Math.random() < 0.25) {
         const dSvName = String(svRow[COL.PC.NAME]);
@@ -477,8 +477,8 @@ function actionRest(userData, pcId, sheets) {
       }
     }
     let restAmbushPrompt = "";
-    if (restAmbush && restAmbush.homeRepel) {
-      restAmbushPrompt = restAmbush.repelNote; // 🏰 陣地反擊·優雅擊退
+    if (restAmbush && (restAmbush.homeRepel || restAmbush.peaceful)) {
+      restAmbushPrompt = restAmbush.repelNote; // 🏰 陣地反擊·優雅擊退／🎲 按兵不動或試探接觸(卸防時刻多樣化)
     } else if (restAmbush) {
       restAmbushPrompt = (restAmbush.foeCard || '') + `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${restAmbush.enemyName}」${restAmbush.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊重創「${restAmbush.svName || '從者'}」（−${restAmbush.dmg}）${restAmbush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
     }
@@ -952,6 +952,46 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul) {
         foeCard: eFoeCard,
         repelNote: eFoeCard + `【系統·陣地反擊·已裁定】潛伏同地的敵從者「${eNm}」欲趁御主一行卸防時偷襲，然此地正是我方親手佈設的陣地——魔術結界示警、機關迭起，「${sNm}」從容起身、反手將來犯者擊退驅離（敵受創 −${backDmg}），我方毫髮無傷（御主耗 ${wardCost} 魔維持結界運作）。\n★以 Fate／TYPE-MOON 筆觸演出「潛入者反被主場結界與從者從容擊退」的優雅反制——「${eNm}」依其性格可以有反應/一兩句話(不甘、譏諷、冷笑皆可，狂化者改用低吼/肢體)，別把入侵者寫成毫無聲息的純背景。`,
         report: { homeRepel: true, ambush: false, enemyName: eNm, svName: sNm, backDmg: backDmg, wardCost: wardCost, homeRank: homeRank }
+      };
+    }
+  }
+  // 🎲 卸防時刻的敵方反應多樣化（玩家回饋「不可能每次都是打我」）：不是每次都直接開打——
+  //   依這名敵從者的職階/性格擲一次，多數仍是偷襲(維持既有的臨場威脅感)，但狂化(無法言語)／
+  //   暗殺(本色即偷襲)以外的職階，有機會按兵不動觀望、或帶著戒心試探接觸(無戰鬥、羈絆小幅變動)。
+  const eClsForRoll = String(pcData[eIdx][COL.PC.RANK] || "");
+  const eCombatant0 = rowToCombatant_(pcData[eIdx]);
+  const eCantTalk = hasFx_(eCombatant0, 'mad') || eClsForRoll === 'Assassin';
+  if (!eCantTalk) {
+    const eLean = masterPersonaLean_(pcData[eIdx]);
+    const eBondNow = parseInt(pcData[eIdx][COL.PC.BOND]) || 40;
+    const W = {
+      ambush: 62 - (eLean.pragmatic ? 10 : 0) + (eLean.loner ? 8 : 0),
+      observe: 20 + (eLean.pragmatic ? 6 : 0),
+      probe: 18 + Math.max(0, Math.round((eBondNow - 40) / 3)) // 好感越接近友好門檻，越傾向試探而非開打
+    };
+    const totalW = W.ambush + W.observe + W.probe;
+    const rollW = Math.random() * totalW;
+    const outcome = rollW < W.ambush ? 'ambush' : (rollW < W.ambush + W.observe ? 'observe' : 'probe');
+    if (outcome !== 'ambush') {
+      const eNm2 = String(pcData[eIdx][COL.PC.NAME]), svNm2 = String(pcData[svIdx][COL.PC.NAME]);
+      const foeCard2 = '〔潛伏者〕' + servantCard_(pcData[eIdx]);
+      if (outcome === 'observe') {
+        return {
+          homeRepel: false, peaceful: true, kind: 'observe', enemyName: eNm2, svName: svNm2,
+          dmg: 0, destroyed: false, defeat: false, dreamPrompt: "", after: parseInt(pcData[svIdx][COL.PC.HP]) || 0,
+          foeCard: foeCard2,
+          repelNote: foeCard2 + `【系統·卸防時刻·已裁定】潛伏同地的敵從者「${eNm2}」其實已窺見這破綻，卻按兵不動、只是冷眼旁觀——似乎另有盤算，此刻並未出手。\n★以 Fate／TYPE-MOON 筆觸演出「${svNm2}」一行渾然不覺、或事後驚覺曾被窺伺的一絲寒意(依性格擇一)；「${eNm2}」依其性格演出這份按兵不動的姿態與神情/隻言片語即可，不必開打。`,
+          report: { peaceful: true, kind: 'observe', enemyName: eNm2, svName: svNm2 }
+        };
+      }
+      const bump = 2 + Math.floor(Math.random() * 4); // 小幅 +2~5
+      const afterBond = bumpBond_(sheets, pcData, eIdx, bump);
+      return {
+        homeRepel: false, peaceful: true, kind: 'probe', enemyName: eNm2, svName: svNm2,
+        dmg: 0, destroyed: false, defeat: false, dreamPrompt: "", after: parseInt(pcData[svIdx][COL.PC.HP]) || 0,
+        foeCard: foeCard2, bondAfter: afterBond,
+        repelNote: foeCard2 + `【系統·卸防時刻·已裁定】潛伏同地的敵從者「${eNm2}」現身，卻沒有動手——帶著幾分戒心，像是想試探些什麼(好感 ${afterBond}/100)。\n★以 Fate／TYPE-MOON 筆觸演出這場短暫、帶著猜忌與算計的試探性接觸(一兩句交鋒或對峙即可)：兩邊都清楚此刻並非開戰時機，「${eNm2}」依其性格留下一絲若有似無的試探或警告，不必開打、也不必交心。`,
+        report: { peaceful: true, kind: 'probe', enemyName: eNm2, svName: svNm2, bondAfter: afterBond }
       };
     }
   }

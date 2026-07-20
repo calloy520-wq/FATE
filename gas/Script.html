@@ -1913,6 +1913,16 @@
       story.scrollTop = story.scrollHeight;
       return;
     }
+    // 🎲 卸防時刻·按兵不動／試探接觸戰報卡（enemyAmbushOnServant_ 的多樣化結果，非陣地反擊也非真突襲——無傷害）
+    if (r.peaceful) {
+      let a = '<div style="border:1px solid rgba(120,130,170,0.45);border-radius:9px;padding:10px 12px;margin:6px 0;background:rgba(22,20,34,0.5);font-size:12px;">';
+      a += '<div style="font-weight:bold;margin-bottom:5px;color:#a0a8d6;">' + (r.kind === 'probe' ? '🎭 敵從者試探接觸' : '👁️ 敵從者按兵不動') + '・「' + r.enemyName + '」</div>';
+      a += '<div style="color:#c3c3e0;font-size:11.5px;">' + (r.kind === 'probe' ? '雙方帶著戒心試探了幾句，未見刀兵' + (r.bondAfter != null ? '（好感 ' + r.bondAfter + '/100）' : '') : '對方冷眼旁觀、按兵未動，此刻無事發生') + '</div>';
+      a += '</div>';
+      story.insertAdjacentHTML('beforeend', a);
+      story.scrollTop = story.scrollHeight;
+      return;
+    }
     // 🏰 陣地反擊戰報卡（於自己陣地遭潛入→結界示警·從者從容擊退·我方無傷）
     if (r.homeRepel) {
       let a = '<div style="border:1px solid rgba(90,170,110,0.5);border-radius:9px;padding:10px 12px;margin:6px 0;background:rgba(20,34,24,0.55);font-size:12px;">';
