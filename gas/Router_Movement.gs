@@ -176,18 +176,22 @@ function actionMove(userData, pcId, sheets) {
           var a = rankVal((rowToCombatant_(r).six['敏捷']) || 'C');
           if (a > chaserAgi) { chaserAgi = a; chaser = r; }
         });
-        // 🏃 撤退＝敵方【必】追擊（本區塊唯 isRetreat 才進·見上方 guard）：無視敏捷門檻與機率，對方燃令咒強行追殺。
+        // 🏃 撤退＝敵方【必】追擊（本區塊唯 isRetreat 才進·見上方 guard）：無視敏捷門檻與機率，對方全力追殺。
         if (!pursuit && chaser) {
           var chC = rowToCombatant_(chaser);
           // ⚔️ 真·交手判定(非單方挨打)：追兵 vs 我方從者一次交鋒，誰輸誰扣血——我方夠強可回身反咬逼退追兵。
           //   雙方保 1 不致死。撤退時追兵搶得先機(ambush)、更難全身而退。
           var pr = resolveFateBattle_(chC, psvC, { ambush: true });
           var chaserNm = String(chaser[COL.PC.NAME]);
+          // 🐛→✅ 舊文案「燃令咒疾追」把這場【每次撤退必定觸發、不設機率】的追擊，寫成敵方燒了一道
+          //   令咒——但令咒是全局僅 3 道、真正花費時會扣減 leftSeals 的稀缺資源(見 Router_Battle.gs
+          //   sealEscaped)，這裡從沒動過那個計數，純屬掛羊頭的敘事詞，卻讓玩家每撤退一次就以為對面
+          //   燒掉一次奇蹟(玩家反應「?!」)。改成不涉及令咒的純體能追擊措辭。
           // note 必給——worldRumors 只在 pursuit.note 存在時才推播戰報，缺了 note 扣血就看不出原因。
           pursuit = { enemyName: chaserNm, chaserId: String(chaser[COL.PC.ID]), dmg: Math.max(1, pr.damage), hitWho: pr.atkWins ? 'us' : 'foe', retreat: true,
             note: pr.atkWins
-              ? ('你決意殺出重圍，「' + chaserNm + '」豈容獵物脫逃——燃令咒疾追而至，狠狠螫了你的從者一記——沒能全身而退。')
-              : ('你強行突圍，「' + chaserNm + '」燃令咒疾追，卻被你的從者堪堪回身擋開、反手逼退。') };
+              ? ('你決意殺出重圍，「' + chaserNm + '」豈容獵物脫逃——不顧一切疾追而至，狠狠螫了你的從者一記——沒能全身而退。')
+              : ('你強行突圍，「' + chaserNm + '」窮追不捨，卻被你的從者堪堪回身擋開、反手逼退。') };
         }
       }
     }
