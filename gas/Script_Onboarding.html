@@ -332,7 +332,11 @@ function summonByDesc() {
   var d = (document.getElementById('s-desc') && document.getElementById('s-desc').value.trim()) || '';
   if (!d) { alert('請先描述你想要的從者。'); return; }
   var og = (document.getElementById('s-origin') && document.getElementById('s-origin').value) || 'original'; // 🎭 角色來源三分類
-  return doSummon({ desc: d, origin: og, cls: (selectedSummonClass && selectedSummonClass !== '__all__') ? selectedSummonClass : '' });
+  // 🐛→✅ 曾誤讀 selectedSummonClass(上方瀏覽名冊用的職階分頁)——玩家點過分頁瀏覽後再來這裡自訂生成，
+  //   會被悄悄鎖死那個職階(不選就預設 Saber)，跟描述內容完全無關(玩家回報「難怪我自創一堆Saber」)。
+  //   改讀這裡獨立的 s-cls：不選＝空字串＝職階交給 AI 依描述判斷。
+  var clsSel = (document.getElementById('s-cls') && document.getElementById('s-cls').value) || '';
+  return doSummon({ desc: d, origin: og, cls: clsSel });
 }
 
 // ══ 🛠️ 自訂英靈工房 ══

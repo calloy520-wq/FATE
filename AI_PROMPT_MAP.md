@@ -266,7 +266,7 @@
 | `backfill_master_ai` | create 後前端背景呼叫（Onboarding:236） | `actionBackfillMasterAi` | **是**（結構化 JSON，非敘事） |
 | `get_heroes` | 召喚頁載入英靈清單（Onboarding:251） | `actionGetHeroes` | 否 |
 | `get_masters` | 選正典御主清單（Onboarding:75） | `actionGetMasters` | 否 |
-| `summon_servant` | 「✨真名召喚／🎲隨機／🖋️自訂生成」（Index.html:117-119 / Onboarding:280） | `actionSummonServant` | **條件式**：種子英靈否／自訂或名冊查無者是（結構化 JSON）；召喚後一律另組 `summonPrompt` 交 `narrate_only` |
+| `summon_servant` | 「⚔️職階分頁選英靈／🎲隨機／🖋️自訂生成」（Index.html:104-131 / Onboarding） | `actionSummonServant` | **條件式**：種子英靈否／自訂或名冊查無者是（結構化 JSON）；召喚後一律另組 `summonPrompt` 交 `narrate_only` |
 
 ### `actionManualNpc`（action `create`）
 確認**不叫 AI**：所有敘事欄（BACK/TRAIT/PREF/INTENT）用玩家輸入種子值或硬編碼預設（如「外貌平凡、舉止從容、自稱「我」、卸下心防的私密一面」）直接寫入，數值/HP/MP/迴路/令咒/模式/起始禮裝由 GAS 算。AI 補完延後到 `backfill_master_ai`。
@@ -282,7 +282,7 @@
 
 ### `actionSummonServant`（action `summon_servant`）
 - **種子英靈分支**（名冊/真名比對命中）：**不叫 AI**，直接套種子庫寫死的 `persona.look/words/moe/back`（省一次 API、加速召喚）。
-- **自訂/名冊查無分支**（`custDesc` 或查無比對）：**叫 AI**，走結構化 JSON：
+- **自訂/名冊查無分支**（`custDesc` 或查無比對）：**叫 AI**，走結構化 JSON。**⚔️ 職階**：玩家可用 `s-cls` 明講(獨立於瀏覽名冊用的職階分頁，不共用)，不選則 `cls` 未定、要求 AI 依描述自選並回填 JSON 的 `cls` 欄(非法值才退回 Saber)——不再無條件預設 Saber。**🎭 origin 三分類**見上方 `originGuide_` 段。
   > ★【六圍 six】依該英靈強弱給…階級用 E,D,C,B,A,EX…務必有強有弱、貼合傳說。
   > ★【技能帶 fx】classSkills(職階技能 1~2 個)＋skills(固有技能 2~3 個)…（附 FX_MENU_ 技能碼字典）
   > ★【特性 traits】1~3 個…(如 王/龍/人類/神性/巨人/猛獸；有神性者會被神殺剋）。

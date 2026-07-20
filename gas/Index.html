@@ -121,6 +121,19 @@
         <div style="text-align:center; color:#816e54; font-size:11px; margin-bottom:8px;">或者，用 AI 自訂生成召喚——</div>
         <div style="color:#9a7b4f; font-size:11px; margin:0 0 4px;">🖋️ 大概敘述：AI 會往你描述的方向生成，但不保證精準符合</div>
         <textarea id="s-desc" class="std-in" maxlength="120" placeholder="如：手持巨鎌、沉默寡言的死神少女" style="width:100%; box-sizing:border-box; height:48px; resize:none; font-family:inherit;"></textarea>
+        <!-- ⚔️ 職階：獨立於上方瀏覽用的職階分頁，不會誤沿用「剛才點來看名冊」的分頁選擇——
+             預設「不限」時職階交給 AI 依描述判斷，不再死綁 Saber。 -->
+        <div style="color:#9a7b4f; font-size:11px; margin:8px 0 3px;">⚔️ 指定職階（選填，不選由 AI 依描述判斷）</div>
+        <select id="s-cls" class="std-in" style="width:100%; box-sizing:border-box;">
+          <option value="" selected>不限（AI 依描述判斷）</option>
+          <option value="Saber">⚔️ Saber 劍兵</option>
+          <option value="Archer">🏹 Archer 弓兵</option>
+          <option value="Lancer">🔱 Lancer 槍兵</option>
+          <option value="Rider">🐎 Rider 騎兵</option>
+          <option value="Caster">📖 Caster 魔術師</option>
+          <option value="Assassin">🗡️ Assassin 暗殺者</option>
+          <option value="Berserker">💢 Berserker 狂戰士</option>
+        </select>
         <!-- 🎭 角色來源：決定 AI 怎麼取技能名(fate 正史招式名／anime 該角色招牌招式／original 自由發揮) -->
         <div style="color:#9a7b4f; font-size:11px; margin:8px 0 3px;">🎭 角色來源（決定技能怎麼命名）</div>
         <select id="s-origin" class="std-in" style="width:100%; box-sizing:border-box;">
