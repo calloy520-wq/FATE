@@ -266,10 +266,24 @@ async function backfillMasterAi(seed) {
 let heroesData = [];
 let selectedSummonClass = '';
 async function loadHeroes() {
+  summonTab('roster'); // 🧭 每次進召喚頁重置回預設分頁(瀏覽名冊)，避免上次離開時停在自訂生成分頁
   try {
     const r = await gasRun({ action: 'get_heroes', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '' });
     heroesData = (r && r.heroes) || [];
   } catch (e) { heroesData = []; }
+}
+// 🧭 瀏覽名冊／自訂生成 分頁切換(比照工房 forgeMode 樣式)
+function summonTab(m) {
+  var isCustom = (m === 'custom');
+  var ros = document.getElementById('summon-tab-roster'), cus = document.getElementById('summon-tab-custom');
+  if (ros) ros.style.display = isCustom ? 'none' : 'block';
+  if (cus) cus.style.display = isCustom ? 'block' : 'none';
+  [['summon-tab-roster-btn', !isCustom], ['summon-tab-custom-btn', isCustom]].forEach(function (x) {
+    var b = document.getElementById(x[0]); if (!b) return;
+    b.style.borderColor = x[1] ? 'var(--gold-accent)' : '#3a3550';
+    b.style.color = x[1] ? 'var(--gold-accent)' : '#8a8298';
+    b.style.fontWeight = x[1] ? 'bold' : 'normal';
+  });
 }
 function selectSummonClass(cls) {
   selectedSummonClass = cls;

@@ -98,34 +98,41 @@
     </div>
     <div id="step-summon" style="display:none; width:320px;">
       <p style="text-align:center; color:var(--gold-accent); font-size:16px; font-weight:bold; margin-bottom:4px;">📿 召喚從者</p>
-      <p style="text-align:center; color:#816e54; font-size:12px; margin:0 0 10px;">選擇職階，從英靈殿挑選與你締約的英靈：</p>
-      <!-- 🎴 七正職階：等寬不換行、flex 置中（第 7 個 Berserker 自動置中），全部按鈕獨立拉出 -->
-      <div id="summon-class-grid" style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:8px;">
-        <button type="button" class="btn summon-cls" data-cls="Saber" onclick="selectSummonClass('Saber')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">⚔️ Saber</button>
-        <button type="button" class="btn summon-cls" data-cls="Archer" onclick="selectSummonClass('Archer')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🏹 Archer</button>
-        <button type="button" class="btn summon-cls" data-cls="Lancer" onclick="selectSummonClass('Lancer')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🔱 Lancer</button>
-        <button type="button" class="btn summon-cls" data-cls="Rider" onclick="selectSummonClass('Rider')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🐎 Rider</button>
-        <button type="button" class="btn summon-cls" data-cls="Caster" onclick="selectSummonClass('Caster')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">📖 Caster</button>
-        <button type="button" class="btn summon-cls" data-cls="Assassin" onclick="selectSummonClass('Assassin')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🗡️ Assassin</button>
-        <button type="button" class="btn summon-cls" data-cls="Berserker" onclick="selectSummonClass('Berserker')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">💢 Berserker</button>
+      <!-- 🧭 瀏覽名冊／自訂生成 分頁切換(比照工房 cf-mode-create/cf-mode-works 樣式)——
+           兩塊各自完整一長串，攤在同一屏會把手機畫面塞爆，拆開後每次只看一塊。 -->
+      <div style="display:flex; gap:5px; margin-bottom:10px;">
+        <button type="button" id="summon-tab-roster-btn" class="btn" style="flex:1; padding:8px 2px; font-size:13px;" onclick="summonTab('roster')">📜 瀏覽名冊</button>
+        <button type="button" id="summon-tab-custom-btn" class="btn" style="flex:1; padding:8px 2px; font-size:13px;" onclick="summonTab('custom')">🖋️ 自訂生成</button>
       </div>
-      <button type="button" class="btn summon-cls" data-cls="__all__" onclick="selectSummonClass('__all__')" style="width:100%; box-sizing:border-box; margin-bottom:6px; padding:9px; font-size:13px; border-color:#9a7b4f; color:#c9a86a; border-style:dashed;">📜 瀏覽全部英靈殿（含 Avenger 等特殊職階）</button>
-      <!-- 🌟 玩家原創專區：工房/盲盒創造的英靈(英靈殿 source=ai_gen)全在這，直點即召喚 -->
-      <button type="button" class="btn summon-cls" data-cls="__custom__" onclick="selectSummonClass('__custom__')" style="width:100%; box-sizing:border-box; margin-bottom:8px; padding:9px; font-size:13px; border-color:#6a8ac0; color:#8fb0e8; border-style:dashed;">🌟 玩家原創英靈（工房與盲盒的作品集）</button>
-      <div id="hero-list" style="max-height:190px; overflow-y:auto; margin:6px 0; padding:4px; background:rgba(0,0,0,0.18); border:1px solid rgba(212,175,55,0.25); border-radius:6px;">
-        <p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">↑ 選一個職階，或按「全部」瀏覽整個英靈殿</p>
+      <div id="summon-tab-roster">
+        <p style="text-align:center; color:#816e54; font-size:12px; margin:0 0 10px;">選擇職階，從英靈殿挑選與你締約的英靈：</p>
+        <!-- 🎴 七正職階：等寬不換行、flex 置中（第 7 個 Berserker 自動置中），全部按鈕獨立拉出 -->
+        <div id="summon-class-grid" style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:8px;">
+          <button type="button" class="btn summon-cls" data-cls="Saber" onclick="selectSummonClass('Saber')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">⚔️ Saber</button>
+          <button type="button" class="btn summon-cls" data-cls="Archer" onclick="selectSummonClass('Archer')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🏹 Archer</button>
+          <button type="button" class="btn summon-cls" data-cls="Lancer" onclick="selectSummonClass('Lancer')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🔱 Lancer</button>
+          <button type="button" class="btn summon-cls" data-cls="Rider" onclick="selectSummonClass('Rider')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🐎 Rider</button>
+          <button type="button" class="btn summon-cls" data-cls="Caster" onclick="selectSummonClass('Caster')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">📖 Caster</button>
+          <button type="button" class="btn summon-cls" data-cls="Assassin" onclick="selectSummonClass('Assassin')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🗡️ Assassin</button>
+          <button type="button" class="btn summon-cls" data-cls="Berserker" onclick="selectSummonClass('Berserker')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">💢 Berserker</button>
+        </div>
+        <button type="button" class="btn summon-cls" data-cls="__all__" onclick="selectSummonClass('__all__')" style="width:100%; box-sizing:border-box; margin-bottom:6px; padding:9px; font-size:13px; border-color:#9a7b4f; color:#c9a86a; border-style:dashed;">📜 瀏覽全部英靈殿（含 Avenger 等特殊職階）</button>
+        <!-- 🌟 玩家原創專區：工房/盲盒創造的英靈(英靈殿 source=ai_gen)全在這，直點即召喚 -->
+        <button type="button" class="btn summon-cls" data-cls="__custom__" onclick="selectSummonClass('__custom__')" style="width:100%; box-sizing:border-box; margin-bottom:8px; padding:9px; font-size:13px; border-color:#6a8ac0; color:#8fb0e8; border-style:dashed;">🌟 玩家原創英靈（工房與盲盒的作品集）</button>
+        <div id="hero-list" style="max-height:190px; overflow-y:auto; margin:6px 0; padding:4px; background:rgba(0,0,0,0.18); border:1px solid rgba(212,175,55,0.25); border-radius:6px;">
+          <p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">↑ 選一個職階，或按「全部」瀏覽整個英靈殿</p>
+        </div>
+        <!-- 🎲 隨機移來這裡跟瀏覽/原創同一群(都是「從現有名冊挑」)；工房底下那顆按鈕已砍掉——外面選單(Index.html:31 openForge('menu'))本來就有一顆一樣的，砍的是重複入口，不是砍功能。 -->
+        <button class="btn" style="width:100%; border-color:#9a7b4f; color:#9a7b4f;" onclick="lockBtn(event, summonRandom)">🎲 隨機召喚</button>
       </div>
-      <!-- 🎲 隨機移來這裡跟瀏覽/原創同一群(都是「從現有名冊挑」)；工房底下那顆按鈕已砍掉——外面選單(Index.html:31 openForge('menu'))本來就有一顆一樣的，砍的是重複入口，不是砍功能。 -->
-      <button class="btn" style="width:100%; margin-bottom:8px; border-color:#9a7b4f; color:#9a7b4f;" onclick="lockBtn(event, summonRandom)">🎲 隨機召喚</button>
-      <div style="border-top:1px dashed rgba(212,175,55,0.3); margin-top:6px; padding-top:8px;">
-        <div style="text-align:center; color:#816e54; font-size:11px; margin-bottom:8px;">或者，用 AI 自訂生成召喚——</div>
+      <div id="summon-tab-custom" style="display:none;">
         <div style="color:#9a7b4f; font-size:11px; margin:0 0 4px;">🖋️ 大概敘述：AI 會往你描述的方向生成，但不保證精準符合</div>
         <textarea id="s-desc" class="std-in" maxlength="120" placeholder="如：手持巨鎌、沉默寡言的死神少女" style="width:100%; box-sizing:border-box; height:48px; resize:none; font-family:inherit;"></textarea>
         <!-- 🧹 職階/來源預設收合(比照工房 cf-adv-toggle 樣式)——兩者皆有合理預設(不限/完全原創)，
              免每次自訂生成手機畫面都被撐長；想細調才展開。 -->
         <button type="button" class="btn" id="s-adv-toggle" style="width:100%; margin-top:8px; padding:6px; font-size:12px; border-color:#8a7a9a; color:#b8a8d0;" onclick="toggleSummonAdvanced()">▸ 進階選項（指定職階／角色來源，預設不限・完全原創）</button>
         <div id="s-adv" style="display:none; margin-top:6px;">
-          <!-- ⚔️ 職階：獨立於上方瀏覽用的職階分頁，不會誤沿用「剛才點來看名冊」的分頁選擇——
+          <!-- ⚔️ 職階：獨立於瀏覽名冊分頁的職階分頁，不會誤沿用「剛才點來看名冊」的分頁選擇——
                預設「不限」時職階交給 AI 依描述判斷，不再死綁 Saber。 -->
           <div style="color:#9a7b4f; font-size:11px; margin:0 0 3px;">⚔️ 指定職階（選填，不選由 AI 依描述判斷）</div>
           <select id="s-cls" class="std-in" style="width:100%; box-sizing:border-box;">
