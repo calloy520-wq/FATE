@@ -78,7 +78,7 @@ function actionUseSeal(userData, pcId, sheets) {
     // 🔋 出力電池制：令咒重塑亦讓御主魔力儲備(唯一供魔源)回滿
     pcData[pIdx][COL.PC.MP] = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || 240;
     sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-    effectMsg = `令咒迸發，重塑「${svName}」的靈基——氣血回滿、傷勢一掃而空，御主魔力儲備亦充盈如初。`;
+    effectMsg = `令咒迸發，重塑「${svName}」的靈基——體力回滿、傷勢一掃而空，御主魔力儲備亦充盈如初。`;
   } else if (type === "mana") {
     // 🔋 出力電池制：令咒灌頂回充御主魔力儲備(供魔源)，而非從者(從者無池)
     const oldMpSeal = parseInt(pcData[pIdx][COL.PC.MP]) || 0;

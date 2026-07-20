@@ -1135,6 +1135,12 @@ function actionFateBattle(userData, pcId, sheets) {
       npName = { zh: (_m && _m[1] ? _m[1].trim() : _npFull), en: (_m && _m[2] ? _m[2].trim() : "") };
     } catch (e) { npName = null; }
   }
+  // 🐛→✅ 開場即解放寶具那一擊，若骰輸(揮空)：舊碼不論命中與否都無條件講「解放了寶具、高呼真名」，
+  //   跟 roundsBrief 裡那行「揮空」的事實對不上——AI 收到的是單方面的「勝利宣告」指令，沒被告知這發
+  //   NP 落空了，只能自己含糊帶過(玩家回報「寶具失手 沒有演出」)。這裡補回命中與否的判斷，讓落空的
+  //   那一發也有專屬、對得上數字的演出指令，而不是被無條件的「唸名·得意」蓋過去。
+  const npOpeningStrike = (!clash && useNp && rounds[0]) ? rounds[0].strikes.find(function (k) { return k.by === atkC.name; }) : null;
+  const npMissed = !!(npOpeningStrike && !npOpeningStrike.pHit);
 
   // 🎌 御主參戰風格·並肩感（每場【必給】·2026-07 玩家回饋「御主扣血卻沒一起上陣的感覺」）：
   //   御主體術/魔術/分擔血量這三個訊號若都沒觸發(常見：御主無體術魔術數值＋見機行事5%小傷攤成0)，
@@ -1181,9 +1187,15 @@ function actionFateBattle(userData, pcId, sheets) {
       `── 本戰發生的事(素材，自行織入畫面，勿複述標籤名) ──\n` +
       (useSeal ? `· 御主燃燒一道令咒·絕對命令，強令此擊必中、引爆超限戰力。\n` : "") +
       (npSealForced ? `· 【令咒·絕對命令·強開寶具】御主魔力早已見底、血肉也湊不出真名解放所需——卻仍以令咒之力硬逼出這一擊：那道刻在手背的絕對命令化作純粹魔力，補上枯竭的缺口，強令從者不顧一切解放寶具。演出「魔力見底仍以令咒逼出真名」的孤注一擲與令咒燃盡的灼痛榮光。\n` : "") +
-      (clash ? `· 寶具對轟：${clash.outcome === 'causality' ? `因果律先行截斷——『${atkC.name}』的死亡詛咒在敵方寶具解放之前便已降臨，敵 NP 殘波極微。` : clash.outcome === 'player' ? '我方威能壓過對手。' : clash.outcome === 'enemy' ? '對面威能壓過我方（從者以鋼鐵意志撐住）。' : '勢均力敵、轟然相抵、雙方震退。'}\n` : (useNp ? (hasFx_(atkC, 'mad')
-        ? `· ${atkC.name} 解放了寶具【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】——★此從者已狂化、無法詠唱：解放是咆哮與本能的爆發，旁白可呈現真名與威能，但【嚴禁】讓其開口唸出任何字句。\n`
-        : `· ${atkC.name} 高呼真名【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】、解放了寶具——★演出時務必讓其【親口唸出這個真名】(中文真名與原名並呼、氣勢拉滿)，這是 Fate 寶具解放的靈魂。\n`) : "")) +
+      (clash ? `· 寶具對轟：${clash.outcome === 'causality' ? `因果律先行截斷——『${atkC.name}』的死亡詛咒在敵方寶具解放之前便已降臨，敵 NP 殘波極微。` : clash.outcome === 'player' ? '我方威能壓過對手。' : clash.outcome === 'enemy' ? '對面威能壓過我方（從者以鋼鐵意志撐住）。' : '勢均力敵、轟然相抵、雙方震退。'}\n` : (useNp ? (
+        npMissed
+          ? (hasFx_(atkC, 'mad')
+              ? `· ${atkC.name} 解放了寶具【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】——這記狂化本能的全力一擊卻被「${defC.name}」堪堪避開，威能撲了個空。★此從者已狂化、無法詠唱：解放是咆哮與本能的爆發，這次沒能命中——旁白可呈現真名與威能，演出「全力一擊卻被驚險避開」的震撼與不甘(別讓這次落空顯得平淡帶過)，但【嚴禁】讓其開口唸出任何字句。\n`
+              : `· ${atkC.name} 高呼真名【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】、解放了寶具——這一擊卻被「${defC.name}」堪堪避開，真名的威能撲了個空。★演出時仍讓其【親口唸出這個真名】(中文真名與原名並呼、氣勢拉滿)，但這發落空了——這是「傾盡全力卻遭驚險躲過」值得濃墨重彩的一幕，別寫成平淡無事的小失誤。\n`)
+          : (hasFx_(atkC, 'mad')
+              ? `· ${atkC.name} 解放了寶具【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】——★此從者已狂化、無法詠唱：解放是咆哮與本能的爆發，旁白可呈現真名與威能，但【嚴禁】讓其開口唸出任何字句。\n`
+              : `· ${atkC.name} 高呼真名【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】、解放了寶具——★演出時務必讓其【親口唸出這個真名】(中文真名與原名並呼、氣勢拉滿)，這是 Fate 寶具解放的靈魂。\n`)
+      ) : "")) +
       ((useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.25) ? `· 【灌魔超載】御主${atkC.npOverloadMul >= 1.9 ? '把餘裕魔力盡數傾注' : '將大量魔力加壓灌注'}這一發真名解放${atkC.overcharge ? '（方才補魔蓄積的澎湃魔力一併傾瀉而出）' : ''}——寶具威能被推至${atkC.npOverloadMul >= 1.9 ? '極限、化作規格外的毀滅光輝' : '遠超尋常的輝度'}。演出這股${atkC.npOverloadMul >= 1.9 ? '「傾盡一切、超載解放」的壯烈與光壓' : '「加壓超載」的灼熱光壓'}。\n` : "") +
       (backlash ? `· 【過載反噬】倍額魔力灌注的代價在解放後湧回——御主魔術迴路暴走灼身(−${backlash.dmg} HP)，強撐住了意識。★純迴路過載的內在灼痛虛脫·非流血外傷。\n` : "") +
       (skillFired ? `· 交鋒間，我方從者的技術「${_fullSkill.name}」自然而發、順勢加持了攻勢。\n` : "") +

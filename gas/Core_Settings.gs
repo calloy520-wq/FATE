@@ -112,7 +112,7 @@ function buildTrajectoryDigest_(pcData, gameId, pcRow) {
     var bondWord = bond >= 80 ? '深厚信賴' : bond >= 50 ? '漸生信任' : bond >= 20 ? '仍在磨合' : '尚且生疏';
     parts.push('與從者「' + svRow[COL.PC.NAME] + '」好感' + bond + '(' + bondWord + ')');
     var svHp = parseInt(svRow[COL.PC.HP]), svMaxHp = parseInt(svRow[COL.PC.MAX_HP]) || 1;
-    if (!isNaN(svHp) && svHp < svMaxHp * 0.3) parts.push('從者剛歷經惡戰、氣血未復');
+    if (!isNaN(svHp) && svHp < svMaxHp * 0.3) parts.push('從者剛歷經惡戰、體力未復');
   }
   // 魔力池告急時明講是從者自己的存亡危機(從者無自有魔力池，全靠此池維生，見masterPoolMax_/applyRegen_)，
   //   避免AI誤演成只跟御主有關的旁支數值。

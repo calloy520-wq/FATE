@@ -201,7 +201,7 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   // 🏷️ 鑑賞用日常稱呼(SABER/RIDER/櫻/凜…)當 NAME——比對經 kanshouNameCandidates_ 別名橋接，全名照樣對得上。
   sRow[COL.PC.NAME] = KANSHOU_CASUAL_NAME_[String(heroRow[COL.HERO.ID])] || name;
   sRow[COL.PC.SEX] = sex;
-  // 鑑賞無戰鬥：氣血/真氣/上限/STATUS 皆不寫(唯一可能的讀取點 people[].status 從未被前端消費)。
+  // 鑑賞無戰鬥：體力/魔力/上限/STATUS 皆不寫(唯一可能的讀取點 people[].status 從未被前端消費)。
   sRow[COL.PC.LOC] = loc;
   sRow[COL.PC.FACTION] = "從者";
   sRow[COL.PC.RANK] = String(heroRow[COL.HERO.CLS] || "從者");
@@ -431,7 +431,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
   mRow[COL.PC.ID] = mId;
   mRow[COL.PC.NAME] = mName;
   mRow[COL.PC.SEX] = mSex;
-  // 鑑賞無戰鬥：氣血/真氣/上限/STATUS 皆不寫(見 heroToKanshouRow_ 同款理由)。五圍已棄欄，戰鬥吃六圍 SIX。
+  // 鑑賞無戰鬥：體力/魔力/上限/STATUS 皆不寫(見 heroToKanshouRow_ 同款理由)。五圍已棄欄，戰鬥吃六圍 SIX。
   mRow[COL.PC.LOC] = loc2;
   mRow[COL.PC.FACTION] = "御主";
   // 借用solo既有的COL.PC.DAY/HOUR欄位存鑑賞自己的時鐘。開局(及結束一天醒來)固定清晨6點——

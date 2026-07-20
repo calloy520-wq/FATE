@@ -140,7 +140,7 @@ function actionManaSupply(userData, pcId, sheets) {
       : `御主提出了補魔的請求，但此刻魔力儲備尚非危急（未曾見底），「${svName}」認為不必以燒蝕迴路的沉重代價換取這一次回魔`;
     const declinePrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【系統·補魔遭婉拒】${declineReason}。\n` +
-      `★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】演出「${svName}」依其性格婉拒這個請求的一幕（一段即可）——不必說教講理由，用態度/神情/一句話帶過即可；show, don't tell，不影響雙方氣血/魔力/好感，是否改用其他方式回魔仍由御主自行決定。`;
+      `★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】演出「${svName}」依其性格婉拒這個請求的一幕（一段即可）——不必說教講理由，用態度/神情/一句話帶過即可；show, don't tell，不影響雙方體力/魔力/好感，是否改用其他方式回魔仍由御主自行決定。`;
     STATE_PRE_DATA_ = pcData; // ⚡ 沒寫入也要交棒，否則 dispatcher 的 STATE_AFTER_ACTIONS 夾帶會退回整表重讀
     return JSON.stringify({ success: true, declined: true, aiPrompt: declinePrompt, statusString: buildPlayerStatusString(pcData[pIdx]) }); // ⚡ pcData 即權威，免 getFreshStatusString 的整表重讀
   }
@@ -226,7 +226,7 @@ function actionSpiritRepair(userData, pcId, sheets) {
 
   const svMaxHp = parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 450;
   const svHp = parseInt(pcData[svIdx][COL.PC.HP]) || 0;
-  if (svHp >= svMaxHp) return JSON.stringify({ success: false, message: `「${svName}」氣血已然充盈，毋須修復。` });
+  if (svHp >= svMaxHp) return JSON.stringify({ success: false, message: `「${svName}」體力已然充盈，毋須修復。` });
 
   const mpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || masterPoolMax_(masterCircuits_(pcData[pIdx]), 0);
   const mp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
@@ -258,7 +258,7 @@ function actionSpiritRepair(userData, pcId, sheets) {
       ``;
   } else {
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
-      `【系統·靈基修復已結算】御主引動共用魔力池（−${cost}）為「${svName}」療傷，氣血回復 ${healed} 點（現 ${pcData[svIdx][COL.PC.HP]}/${svMaxHp}）。羈絆微升。\n` +
+      `【系統·靈基修復已結算】御主引動共用魔力池（−${cost}）為「${svName}」療傷，體力回復 ${healed} 點（現 ${pcData[svIdx][COL.PC.HP]}/${svMaxHp}）。羈絆微升。\n` +
       `★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】描寫這場療傷小品——魔力沿契約流向從者、傷勢緩緩平復的觸感與體溫，依「${svName}」性格與當前羈絆自然反應演出（不預設溫情，冷傲疏離者可淡然受之）。\n` +
       `★【show, don't tell】用言行、神態去流露反應，不可直白說出其願望／個性／萌點等設定詞。`;
   }
