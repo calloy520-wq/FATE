@@ -349,13 +349,29 @@ function actionMove(userData, pcId, sheets) {
   //   AI 對這名敵御主毫無性格依據，只能即興通用反派。補上 enemyMasterCard_(比照戰鬥路徑的用法)。
   var foeCardsMove = "";
   try {
-    allPcData.forEach(function (r) {
-      if (String(r[COL.PC.GAME_ID] || "") !== moveGameId) return;
-      if (String(r[COL.PC.LOC] || "").trim() !== tgtTrim) return;
-      if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
-      if (!hasArrived_(r, _moveDay())) return; // 🕰️ 尚未登場者不出現在抵達敘事的人設卡裡
-      if (String(r[COL.PC.FACTION]) === "敵從者") foeCardsMove += servantCard_(r);
-      else if (String(r[COL.PC.FACTION]) === "敵御主") foeCardsMove += enemyMasterCard_(r);
+    // 🐛→✅ 玩家實測抓到的同類問題：同地若同時有 ≥2 組敵人(各自帶從者)，舊版把每張卡原樣串接、
+    //   完全沒標「哪張從者卡屬於哪張御主卡」，AI 沒有配對依據可能把 A 組從者的台詞演成對 B 組御主講。
+    //   只在同地確實有 ≥2 位敵御主時才加標籤(單組場面維持原樣、不增加噪音)，用硬連結【御主】tag 標出
+    //   真正歸屬，而非同地任一比對。
+    var _foeRowsMove = allPcData.filter(function (r) {
+      return String(r[COL.PC.GAME_ID] || "") === moveGameId
+        && String(r[COL.PC.LOC] || "").trim() === tgtTrim
+        && !String(r[COL.PC.ID]).startsWith("DEAD_")
+        && hasArrived_(r, _moveDay())
+        && (String(r[COL.PC.FACTION]) === "敵從者" || String(r[COL.PC.FACTION]) === "敵御主");
+    });
+    var _multiFoeGroupsMove = _foeRowsMove.filter(function (r) { return String(r[COL.PC.FACTION]) === "敵御主"; }).length > 1;
+    _foeRowsMove.forEach(function (r) {
+      if (String(r[COL.PC.FACTION]) === "敵從者") {
+        var _ownTag = "";
+        if (_multiFoeGroupsMove) {
+          var _ownName = getServantMaster_(r[COL.PC.MEMORY]);
+          if (_ownName) _ownTag = '〔「' + _ownName + '」之從者〕';
+        }
+        foeCardsMove += _ownTag + servantCard_(r);
+      } else if (String(r[COL.PC.FACTION]) === "敵御主") {
+        foeCardsMove += enemyMasterCard_(r);
+      }
     });
   } catch (e) { }
 

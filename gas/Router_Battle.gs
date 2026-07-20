@@ -564,6 +564,12 @@ function actionFateBattle(userData, pcId, sheets) {
     } else {
       // 全部失手：護衛捨身格擋，反手 1.5 倍痛擊「每一名」參與斬首的從者
       const guardC = rowToCombatant_(pcData[assassinGuardIdx]);
+      // 🐛→✅ 這整段是斬首反噬的死亡結算迷你版，跟 fateStrike_ 是兩套各自手刻的邏輯——本 session 已在
+      //   fateStrike_ 修好「god_hand 優先於 survive、且兩者都受 severed(rule_breaker/anti_magic_lance)阻斷」，
+      //   卻沒同步套用到這裡：舊版 survive 檢查無條件先撐 1 血，god_hand 的 after<=0 判斷永遠進不去，
+      //   同時持有兩者的從者在這條路徑白嫖一次續命、十二試煉命數帳目跟主戰鬥路徑對不上；也完全沒有
+      //   severed 判定，護衛就算持破戒/反魔力兵裝也繞不過這兩種免死。
+      const severed = hasFx_(guardC, 'rule_breaker') || hasFx_(guardC, 'anti_magic_lance');
       const hits = [];
       rolls.forEach(r => {
         const sC = rowToCombatant_(pcData[r.idx]);
@@ -574,14 +580,16 @@ function actionFateBattle(userData, pcId, sheets) {
         const selfDmg = Math.max(1, Math.round(guardBase * 1.5));
         const ahp = parseInt(pcData[r.idx][COL.PC.HP]) || 0;
         let after = ahp - selfDmg;
-        if (after <= 0 && hasFx_(sC, 'survive') && ahp > 1) after = 1; // 戰鬥續行(致命傷才硬撐留1·2026-07 修)
-        if (after <= 0 && hasFx_(sC, 'god_hand')) {
+        // god_hand 優先判定(severed 未阻斷才生效)——與 fateStrike_ 同順序。
+        if (after <= 0 && !severed && hasFx_(sC, 'god_hand')) {
           const ghLives = getGodHandLives_(pcData[r.idx][COL.PC.MEMORY]);
           if (ghLives > 0) {
             after = Math.max(1, Math.round((parseInt(pcData[r.idx][COL.PC.MAX_HP]) || 300) * 0.2));
             pcData[r.idx][COL.PC.MEMORY] = setGodHandLives_(pcData[r.idx][COL.PC.MEMORY], ghLives - 1);
           }
         }
+        // 戰鬥續行：只在未持 god_hand(或 god_hand 已燒盡仍 after<=0)、且未被 severed 阻斷時才頂血留1。
+        if (after <= 0 && !severed && hasFx_(sC, 'survive') && ahp > 1) after = 1;
         let knocked = false;
         if (after <= 0) {
           knocked = true;
@@ -975,6 +983,11 @@ function actionFateBattle(userData, pcId, sheets) {
       rl.strikes.push({ by: allyC.name, ally: true, pRoll: aps.aRoll, pHitVal: aps.aHit, dRoll: aps.dRoll, dEvaVal: aps.dEva, pHit: aps.hit, pDmg: aps.hit ? aps.damage : 0, pCrit: aps.crit, pFired: aps.fired, note: "盟友協同" });
       if (aps.destroyed) destroyedName = aps.destroyed;
       if (aps.knocked) knockedOut.push(aps.knocked);
+      // 🐛→✅ 漏檢查 sealEscaped/godRevived：盟友這擊若把敵從者打到燃令咒脫離，fateStrike_ 內部已經把
+      //   該敵從者 HP 設 1、LOC 改成撤退地點(令咒脫離不標 DEAD_)，但這裡沒讀 aps.sealEscaped，主流程完全
+      //   不知道敵人已經跑了——下方「敵反擊」段落只檢查 !DEAD_，仍會讓一個已經逃到別處的敵人繼續反擊。
+      if (aps.sealEscaped) { sealEscaped = true; sealNote = aps.sealNote; }
+      if (aps.godRevived) { godRevived = true; godNote = aps.godNote; }
       if (aps.victory) { victory = true; dreamPrompt = aps.dreamPrompt; }
     }
 
@@ -1063,6 +1076,14 @@ function actionFateBattle(userData, pcId, sheets) {
           const eSkill = servantActiveSkill_(enemyNow);
           const es = fateStrike_(sheets, pcData, enemyNow, ctgt, { counterMul: enemyFireNp ? 1.0 : 0.85, np: enemyFireNp, skill: eSkill, round: rd + 1 }, ctx);
           rl.eHit = es.hit; rl.eRoll = es.aRoll; rl.eHitVal = es.aHit; rl.eDmg = es.hit ? es.damage : 0; rl.eFired = es.fired; rl.eTarget = String(pcData[ctgt][COL.PC.NAME]); rl.eNp = enemyFireNp;
+          // 🐛→✅ 玩家實測抓到：我方出擊(ps)/深淵海怪(hs)都完整檢查 destroyed/knocked/godRevived/sealEscaped，
+          //   敵反擊(es)舊版只讀 defeat/hit——雙從者出戰時，敵反擊打死的若不是最後一名從者，defeat 不成立，
+          //   destroyedName/knockedOut 完全不會被設，AI 戰報與前端都不知道這名從者剛剛死了；同理若這擊
+          //   該觸發十二試煉復活/令咒脫離，godRevived/sealEscaped 也會整組漏掉。
+          if (es.destroyed) destroyedName = es.destroyed;
+          if (es.knocked) knockedOut.push(es.knocked);
+          if (es.sealEscaped) { sealEscaped = true; sealNote = es.sealNote; }
+          if (es.godRevived) { godRevived = true; godNote = es.godNote; }
           if (es.defeat) { defeat = true; victory = false; dreamPrompt = es.dreamPrompt; }
           // 🎌 御主參戰風格·替從者分擔：只在從者挨了非致命一擊時，御主討回 share 比例的傷勢自己扛。
           else if (es.hit && rl.eDmg > 0) { const _sh = applyMasterStanceShare_(sheets, pcData, ctgt, pIdx, rl.eDmg, _stanceShare); if (_sh) { masterShared += _sh; rl.masterShared = (rl.masterShared || 0) + _sh; } }
@@ -1079,7 +1100,15 @@ function actionFateBattle(userData, pcId, sheets) {
         const _pdMem = enemyMasterMemoryFor_(pcData, myGameId, pcData[pactDefIdx]);
         if (_pdMem) { injectMasterMeleeSupport_(pdC, _pdMem); injectMasterMagicSupport_(pdC, _pdMem); }
         const pds = fateStrike_(sheets, pcData, pdC, ctgt2, { counterMul: 0.85, skill: servantActiveSkill_(pdC), round: rd + 1 }, ctx);
-        rl.pactDef = { name: pdC.name, hit: pds.hit, dmg: pds.hit ? pds.damage : 0, target: String(pcData[ctgt2][COL.PC.NAME]) };
+        // 🐛→✅ pds.fired 舊版從沒被讀取——敵盟協防者身上任何 fx 觸發(如王之財寶彈幕/morale加成)、以及
+        //   萬一觸發「戰鬥續行」「斬斷救贖」這類關鍵轉折，全部悄悄消失，AI 跟玩家都看不到這名協防者
+        //   實際做了什麼，只剩一句籠統的「並肩馳援」通用台詞。
+        rl.pactDef = { name: pdC.name, hit: pds.hit, dmg: pds.hit ? pds.damage : 0, target: String(pcData[ctgt2][COL.PC.NAME]), fired: pds.fired || [] };
+        // 🐛→✅ 同上一併補齊：敵盟協防這擊一樣可能打死/救活我方從者，舊版只讀 defeat/hit。
+        if (pds.destroyed) destroyedName = pds.destroyed;
+        if (pds.knocked) knockedOut.push(pds.knocked);
+        if (pds.sealEscaped) { sealEscaped = true; sealNote = pds.sealNote; }
+        if (pds.godRevived) { godRevived = true; godNote = pds.godNote; }
         if (pds.defeat) { defeat = true; victory = false; dreamPrompt = pds.dreamPrompt; }
         // 🎌 御主參戰風格·連協防這記也替從者分擔(非致命時)
         else if (pds.hit && rl.pactDef.dmg > 0) { const _sh2 = applyMasterStanceShare_(sheets, pcData, ctgt2, pIdx, rl.pactDef.dmg, _stanceShare); if (_sh2) { masterShared += _sh2; rl.masterShared = (rl.masterShared || 0) + _sh2; } }
@@ -1207,6 +1236,16 @@ function actionFateBattle(userData, pcId, sheets) {
     const s = String(t || "");
     if (/·戰鬥續行|·斬斷救贖/.test(s) && extraFired.indexOf(s) < 0) extraFired.push(s);
   })));
+  // 🐛→✅ 敵反擊(rl.eFired)／敵盟協防(rl.pactDef.fired)舊版完全沒被這個收集掃到——只掃了我方出擊的
+  //   pFired，若戰鬥續行/斬斷救贖是敵方那一擊觸發的(如敵反擊本該致死卻被續行撐住)，AI 一樣收不到訊號。
+  rounds.forEach(r => (r.eFired || []).forEach(t => {
+    const s = String(t || "");
+    if (/·戰鬥續行|·斬斷救贖/.test(s) && extraFired.indexOf(s) < 0) extraFired.push(s);
+  }));
+  rounds.forEach(r => (r.pactDef && r.pactDef.fired || []).forEach(t => {
+    const s = String(t || "");
+    if (/·戰鬥續行|·斬斷救贖/.test(s) && extraFired.indexOf(s) < 0) extraFired.push(s);
+  }));
   // 🥋🔮 御主體術/魔術參戰：跟上面同一種「有記錄沒講給AI聽」的落差——這兩個 fx 每擊都可能悄悄加傷害，
   //   卻從沒被塞進 aiPrompt，AI 完全不知道御主動手了，只能憑空演出御主在旁乾看/捏著寶石不出手的空氣戲。
   //   我方出擊的 fired 進 strikes[].pFired；敵方反擊的 fired 是獨立存在 rl.eFired(不在 strikes[] 裡)，

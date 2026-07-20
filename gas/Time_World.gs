@@ -445,12 +445,29 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
         data[j][COL.PC.LOC] = newLoc; foundServant = true; break;
       }
       // 第二輪：找不到配對 → fallback 抓同格任一孤身從者（MEMORY 無【御主】或御主不在同格）
+      // 🐛→✅ 註解一直這樣寫，但程式碼從沒真的檢查「孤身」這個條件——只要同地、未死，第一個掃到的
+      //   從者就會被拖走，即使牠其實掛在另一位(這輪未移動/稍後才輪到的)敵御主名下，導致把 B 御主的
+      //   從者誤拖去 A 御主的新位置。補上硬連結檢查：有【御主】tag 且該御主此刻仍在原地存活，才算
+      //   「還有主」、跳過不拖；無 tag 或御主已不在此地，才是真的孤身可拖。
       if (!foundServant) {
         for (var j = 1; j < data.length; j++) {
           if (String(data[j][COL.PC.FACTION]) !== "敵從者") continue;
           if (String(data[j][COL.PC.GAME_ID] || "") !== gameId) continue;
           if (String(data[j][COL.PC.ID]).startsWith("DEAD_")) continue;
           if (String(data[j][COL.PC.LOC]).trim() !== oldLoc) continue;
+          var svOwner = getServantMaster_(data[j][COL.PC.MEMORY]);
+          if (svOwner) {
+            var ownerStillHere = false;
+            for (var ow = 1; ow < data.length; ow++) {
+              if (String(data[ow][COL.PC.FACTION]) !== "敵御主") continue;
+              if (String(data[ow][COL.PC.GAME_ID] || "") !== gameId) continue;
+              if (String(data[ow][COL.PC.ID]).startsWith("DEAD_")) continue;
+              if (String(data[ow][COL.PC.NAME]) !== svOwner) continue;
+              if (String(data[ow][COL.PC.LOC]).trim() !== oldLoc) continue;
+              ownerStillHere = true; break;
+            }
+            if (ownerStillHere) continue; // 有自己活著的御主同地在場→不是孤身，別搶
+          }
           data[j][COL.PC.LOC] = newLoc; break;
         }
       }
@@ -485,6 +502,9 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
       if (String(data[k][COL.PC.GAME_ID] || "") !== gameId) continue;
       if (String(data[k][COL.PC.ID]).startsWith("DEAD_")) continue;
       if (!hasArrived_(data[k], _ckR ? _ckR.day : 1)) continue; // 🕰️ 尚未登場者不參與暗處互鬥
+      // 🐛→✅ 玩家辛苦養出的盟友(isAllied_)不該被系統隨機抽去暗處互鬥賜死——結盟＝暫時非敵對、可倚仗
+      //   的戰友，舊版這裡完全沒排除，盟友只要離開玩家所在格就有機率在背景無預警戰死，跟結盟的設計承諾矛盾。
+      if (isAllied_(data[k])) continue;
       offstage.push({ idx: k, name: String(data[k][COL.PC.NAME]), loc: String(data[k][COL.PC.LOC]).trim() });
     }
     var aliveTotal = offstage.length;

@@ -116,6 +116,17 @@ function actionUseSeal(userData, pcId, sheets) {
     pcData[svIdx][COL.PC.LOC] = newLoc;
     sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
     sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+    // 🐛→✅ 玩家實測抓到：破戒奪僕可讓玩家合法擁有兩名同行從者(IS_PARTY==="同行")，舊版緊急脫離只搬
+    //   findPlayerServantIdx_ 挑出的「這一個」，第二名同行從者的 LOC 完全沒被觸碰——燃掉全局僅3道的
+    //   令咒卻沒真正帶走全隊。比照 actionMove 早就用「所有 IS_PARTY===同行」的迴圈搬人，這裡補上同一套。
+    pcData.forEach((r, idx) => {
+      if (idx === pIdx || idx === svIdx) return;
+      if (String(r[COL.PC.IS_PARTY] || "") !== "同行") return;
+      if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+      if (String(r[COL.PC.GAME_ID] || "") !== myGameId) return;
+      pcData[idx][COL.PC.LOC] = newLoc;
+      sheets.pc.getRange(idx + 1, 1, 1, pcData[idx].length).setValues([pcData[idx]]);
+    });
     effectMsg = `令咒干涉空間，將你與「${svName}」一同從險境中強行抽離，遁往「${newLoc}」。`;
   } else {
     return JSON.stringify({ success: false, message: "未知的令咒指令。" });

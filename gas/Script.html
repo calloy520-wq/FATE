@@ -2017,35 +2017,43 @@
       h += '<div style="font-size:10.5px;color:#9ab;margin-top:2px;">火力 我 <b style="color:#7ec8ff;">' + c.pPow + '</b> ⚔ 敵 <b style="color:#e08a8a;">' + c.ePow + '</b>　→　敵受創 <b style="color:#e06a6a;">−' + c.eDmgTaken + '</b>／我回震 <b style="color:#e0a06a;">−' + c.pDmgTaken + '</b></div>';
       h += '</div>';
     }
+    // 🧵 回合細節(骰值/命中迴避/〔發動〕技能標籤)收進可展開區塊，預設收合——這些是給想看數字的玩家鑽研用，
+    //   不該擋在故事前面逼所有人先解析一串「武器骰5d8=25・出力100%・全開」這類機制代號才看得到結果；
+    //   結算摘要(總傷害/HP條)本就在下方獨立顯示、不受影響，收合的只有這段逐回合流水帳。
+    let roundsHtml = '';
     r.rounds.forEach(rd => {
-      h += '<div style="border-top:1px dashed rgba(212,175,55,0.18);margin-top:5px;padding-top:4px;">';
-      h += '<div style="color:#caa44a;font-size:10.5px;margin-bottom:2px;">第 ' + rd.n + ' 回合</div>';
+      roundsHtml += '<div style="border-top:1px dashed rgba(212,175,55,0.18);margin-top:5px;padding-top:4px;">';
+      roundsHtml += '<div style="color:#caa44a;font-size:10.5px;margin-bottom:2px;">第 ' + rd.n + ' 回合</div>';
       // 我方出擊（雙從者＝多筆 strikes）
       const strikes = rd.strikes || [{ by: r.atk, pHitVal: rd.pHitVal, pRoll: rd.pRoll, dEvaVal: rd.dEvaVal, dRoll: rd.dRoll, pCrit: rd.pCrit, pHit: rd.pHit, pDmg: rd.pDmg, pFired: rd.pFired, note: rd.note }];
       strikes.forEach(k => {
         // 🐛→✅ 原初符文回血/海怪肉身再生/海怪魔力枯竭退場這3種strike只帶{by,pHit:false,pDmg:0,note}，沒有pRoll——只在k.pRoll有定義才顯示命中/迴避那行，否則只顯示發動者名號，避免印出「undefined」亂碼。
         if (k.pRoll !== undefined) {
-          h += '<div style="color:#bcd;font-size:11px;">▸ ' + k.by + '：命中 <b style="color:#fff;">' + k.pHitVal + '</b> <span class="dice-roll">🎲' + k.pRoll + '</span> vs 迴避 <b style="color:#fff;">' + k.dEvaVal + '</b> <span class="dice-roll">🎲' + k.dRoll + '</span> ' + critTxt(k.pCrit)
+          roundsHtml += '<div style="color:#bcd;font-size:11px;">▸ ' + k.by + '：命中 <b style="color:#fff;">' + k.pHitVal + '</b> <span class="dice-roll">🎲' + k.pRoll + '</span> vs 迴避 <b style="color:#fff;">' + k.dEvaVal + '</b> <span class="dice-roll">🎲' + k.dRoll + '</span> ' + critTxt(k.pCrit)
             + '<span style="margin-left:6px;color:' + (k.pHit ? '#7ec87e' : '#888') + ';font-weight:bold;">' + (k.pHit ? '命中 −' + k.pDmg : '揮空') + '</span></div>';
         } else {
-          h += '<div style="color:#bcd;font-size:11px;">▸ ' + k.by + '</div>';
+          roundsHtml += '<div style="color:#bcd;font-size:11px;">▸ ' + k.by + '</div>';
         }
-        if (k.pFired && k.pFired.length) h += '<div style="color:#9a8;font-size:10px;">　〔發動〕' + stripOwnName(k.pFired, k.by).join('・') + '</div>';
-        if (k.note) h += '<div style="color:#d4af37;font-size:10px;">　' + String(k.note).replace(/\n/g, ' ') + '</div>';
+        if (k.pFired && k.pFired.length) roundsHtml += '<div style="color:#9a8;font-size:10px;">　〔發動〕' + stripOwnName(k.pFired, k.by).join('・') + '</div>';
+        if (k.note) roundsHtml += '<div style="color:#d4af37;font-size:10px;">　' + String(k.note).replace(/\n/g, ' ') + '</div>';
       });
       // 敵方反擊
       if (rd.eDmg || rd.eHit === true) {
-        h += '<div style="color:#e0a0a0;font-size:11px;">◂ ' + r.def + ' 回擊' + (rd.eTarget ? '「' + rd.eTarget + '」' : '') + '：' + (rd.eHit ? '命中 <b style="color:#e06a6a;">−' + rd.eDmg + '</b>' : '被擋') + '</div>';
-        if (rd.eFired && rd.eFired.length) h += '<div style="color:#9a8;font-size:10px;">　〔發動〕' + stripOwnName(rd.eFired, r.def).join('・') + '</div>';
+        roundsHtml += '<div style="color:#e0a0a0;font-size:11px;">◂ ' + r.def + ' 回擊' + (rd.eTarget ? '「' + rd.eTarget + '」' : '') + '：' + (rd.eHit ? '命中 <b style="color:#e06a6a;">−' + rd.eDmg + '</b>' : '被擋') + '</div>';
+        if (rd.eFired && rd.eFired.length) roundsHtml += '<div style="color:#9a8;font-size:10px;">　〔發動〕' + stripOwnName(rd.eFired, r.def).join('・') + '</div>';
       } else if (rd.eHit === false && rd.eRoll) {
-        h += '<div style="color:#7b9991;font-size:11px;">◂ ' + r.def + ' 反擊被擋下</div>';
+        roundsHtml += '<div style="color:#7b9991;font-size:11px;">◂ ' + r.def + ' 反擊被擋下</div>';
       }
       // 🤝 敵盟協防：與敵結盟的第二名敵從者也補一記（GAS 已落血，逐擊條列出來，別讓那 −X 混進總血條看不見）
       if (rd.pactDef) {
-        h += '<div style="color:#d0a0a0;font-size:11px;">◂ 協防·「' + rd.pactDef.name + '」' + (rd.pactDef.target ? '襲「' + rd.pactDef.target + '」' : '') + '：' + (rd.pactDef.hit ? '命中 <b style="color:#e06a6a;">−' + rd.pactDef.dmg + '</b>' : '被擋') + '</div>';
+        roundsHtml += '<div style="color:#d0a0a0;font-size:11px;">◂ 協防·「' + rd.pactDef.name + '」' + (rd.pactDef.target ? '襲「' + rd.pactDef.target + '」' : '') + '：' + (rd.pactDef.hit ? '命中 <b style="color:#e06a6a;">−' + rd.pactDef.dmg + '</b>' : '被擋') + '</div>';
       }
-      h += '</div>';
+      roundsHtml += '</div>';
     });
+    h += '<details style="margin-top:4px;">'
+      + '<summary style="cursor:pointer;color:#a89968;font-size:10.5px;padding:2px 0;user-select:none;">▸ 回合細節（骰值／技能發動，共 ' + r.rounds.length + ' 回合）</summary>'
+      + roundsHtml
+      + '</details>';
     // 結算：雙方血條 + 總傷
     h += '<div style="border-top:1px solid rgba(212,175,55,0.25);margin-top:6px;padding-top:5px;">';
     h += '<div style="color:#9aa6c8;font-size:10.5px;">本戰：我方造成 <b style="color:#ffae6a;">' + (r.totalDealt || 0) + '</b>　受創 <b style="color:#e06a6a;">' + (r.totalTaken || 0) + '</b></div>';
