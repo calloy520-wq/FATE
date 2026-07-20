@@ -361,7 +361,7 @@ function parseForgeBuild_(build, reqCls) {
   // SEED_SERVANTS 真名欄位是 `realName` 不是 `name`——用 `s.name` 會恆 undefined，撞名擋失效。
   if ((typeof SEED_SERVANTS !== "undefined" && SEED_SERVANTS.some(s => s && s.realName === out.name)) ||
       (typeof SEED_MASTERS !== "undefined" && SEED_MASTERS.some(m => m && m.name === out.name))) {
-    return { ok: false, message: `「${out.name}」是英靈殿正典角色——請用「✨真名召喚」直接召喚，或另取原創真名。` };
+    return { ok: false, message: `「${out.name}」是英靈殿正典角色——請從召喚頁上方「職階英靈殿」挑選召喚，或另取原創真名。` };
   }
   out.sex = ["男", "女", "異"].includes(String(build.sex)) ? String(build.sex) : "異";
   const _fClean = (v, n) => String(v || "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, n);
