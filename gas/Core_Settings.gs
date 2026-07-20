@@ -61,7 +61,10 @@ const COL = {
   // DAILY_OUTFIT：服裝從 DAILY_LOOK 拆出獨立欄位，DAILY_LOOK 改為四段[外貌本相][氣質舉止][自稱口氣]
   //   [私密一面]，對齊 PERSONA.traits/PREF 格式。SOLO(戰時 PERSONA.look) 獨立一套不受影響。
   HERO: { ID: 0, CLS: 1, NAME: 2, SEX: 3, SIX: 4, CLASS_SKILLS: 5, SKILLS: 6, TRAITS: 7, NP: 8, PERSONA: 9, ALIGN: 10, WARS: 11, SOURCE: 12, DAILY_LOOK: 13, DAILY_WORDS: 14, DAILY_MOE: 15, DAILY_OUTFIT: 16 },
-  MASTER: { ID: 0, NAME: 1, SEX: 2, APPEAR: 3, MAGIC: 4, CIRCUITS: 5, MELEE: 6, MAGIC_RANK: 7, HOME: 8, WISH: 9, PERSONA: 10, WAR: 11, SOURCE: 12, BACK: 13, MOE: 14 },
+  // ALIGN(15)：陣營標籤(如「混沌・善」)，附加尾端不動既有欄位位置。原本 SEED_MASTERS 沒這格，
+  //   masterToNpcRow_ 寫敵御主眾生列時 COL.PC.ALIGN 永遠空——enemyMasterCard_ 讀陣營的那段邏輯
+  //   看似有跑、實際上從沒讀到值(2026-07 補上單一真實來源)。
+  MASTER: { ID: 0, NAME: 1, SEX: 2, APPEAR: 3, MAGIC: 4, CIRCUITS: 5, MELEE: 6, MAGIC_RANK: 7, HOME: 8, WISH: 9, PERSONA: 10, WAR: 11, SOURCE: 12, BACK: 13, MOE: 14, ALIGN: 15 },
   // 帳號（存檔身分）：帳號名 → 目前御主角色ID。
   // KPC(鑑賞角色ID)：由伺服器端 linkAccountToKanshouPc_/getAccountKanshouPcId_ 專責讀寫，比照 solo
   // 「連結存在外部表、玩家端無法影響」，結構上不可繞過冒充。

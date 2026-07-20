@@ -449,14 +449,8 @@ function servantNpOptions_(name, cls) {
     { n: '無限劍製 Unlimited Blade Works', scale: '對城', fx: 'ubw', desc: '對城·固有結界劍雨壓制（不受對魔力）' },
     { n: '偽·螺旋劍 Caladbolg II', scale: '對人', fx: 'projection', desc: '對人·破斷重塑的流星劍狙擊' }
   ];
-  if (name === '迦爾納') return [
-    { n: '穿刺死亡之槍 Vasavi Shakti', r: 'EX', scale: '對神', fx: '', desc: '對神·梵天弒神之槍：對神性之敵單體特大傷害（弒神）' },
-    { n: '日輪啊化作鎧甲吧 Kavacha and Kundala', r: 'A', scale: '對人', fx: 'divine_core', desc: '對人·不滅黃金鎧·常駐防護' }
-  ];
-  if (name === '蒼白騎兵（Pale Rider）') return [
-    { n: '審判日將至 Doomsday Come', r: 'EX', scale: '對界', fx: '', desc: '對界·疫病具現的終末審判' },
-    { n: '籠中之鳥 Kagome Kagome', r: 'A', scale: '對軍', fx: '', desc: '對軍·封鎖之疫瘴結界' }
-  ];
+  // 🐛→✅ 迦爾納／蒼白騎兵(Pale Rider)兩條目已砍：SEED_SERVANTS 名冊裡根本沒有這兩名真名，
+  //   純粹是規劃階段留下、從沒清掉的死路徑——留著只會誤導以後的人以為他們真的在名冊裡。
   return null;
 }
 // 單寶具退路：取該從者最主要的「寶具簽名 fx」（決定寶具乘子）。

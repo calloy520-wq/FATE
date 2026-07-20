@@ -650,7 +650,7 @@ function actionFateBattle(userData, pcId, sheets) {
     //   超載＝固定價格檔位、依寶具階等比(A階＝總耗 220/440/660，即底費P/2P/3P)，魔力優先支付、不足才焚血
     //   (drainForNp_ 2HP=1MP)。userData.overload：false＝僅底費／'p1'＝超載檔(總價2P·灌P)／'p2'＝極限檔
     //   (總價3P·灌2P)／true·'blood'·未帶旗標(舊前端/敵方)＝相容檔。過充 token 只無償折抵超載段。
-    const cap = npOverloadCap_(npEffectiveRank_(atkC)); // 🎴 超載上限依所選寶具階級(如迦爾納選A階黃金鎧則無法超載，選EX的Vasavi Shakti才能)
+    const cap = npOverloadCap_(npEffectiveRank_(atkC)); // 🎴 超載上限依所選寶具階級(如美杜莎選A+的鮮血神殿只到一般上限，選EX階寶具才能衝更高檔位)
     const ov = userData.overload;
     const wantOverload = !(ov === false || ov === 'false');         // 未帶旗標(舊前端/敵方)＝超載(不焚血)
     let totalDrain = prana, npOverloadMul = 1.0, ocUsed = 0, usedOvercharge = false;
