@@ -601,6 +601,8 @@ function actionCourtEnemy(userData, pcId, sheets) {
 // 🗝️ 破戒奪僕：對「打殘(HP<35%)的敵從者」斬契奪為第二從者（需破戒之力＋燃一道令咒；上限 2 名從者）
 function actionRuleBreakSteal(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
+  const npcId = String(userData.npcId || "").trim();
+  const npcKey = nameLoose_(npcName); // 🐛→✅ 比照攻擊/結盟/示好路徑：raw includes() 撞含中點/全形括號的名字(如「哈桑·薩巴赫（咒腕）」被 sanitizeUserData_ 剝成「哈桑薩巴赫咒腕」)會找不到人，改 npcId 優先＋nameLoose_ 退路
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
@@ -612,7 +614,9 @@ function actionRuleBreakSteal(userData, pcId, sheets) {
   if (seals <= 0) return JSON.stringify({ success: false, message: "重新締約需燃燒一道令咒，但你的令咒已用盡。" });
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
   const _stealDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1; // 🕰️ 尚未登場者不可被斬契奪取
-  const nIdx = pcData.findIndex(r => String(r[COL.PC.NAME]).includes(npcName) && String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc && hasArrived_(r, _stealDay));
+  const _stealHere = (r) => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc && hasArrived_(r, _stealDay);
+  let nIdx = npcId ? pcData.findIndex(r => String(r[COL.PC.ID]) === npcId && _stealHere(r)) : -1;
+  if (nIdx === -1) nIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1 && _stealHere(r));
   if (nIdx === -1) return JSON.stringify({ success: false, message: "此地沒有這名敵從者。" });
   // 🤝 盟友不可奪：與 actionFateBattle 同一道閘門，若要奪須先撕毀盟約。
   if (isAllied_(pcData[nIdx])) {
@@ -622,10 +626,15 @@ function actionRuleBreakSteal(userData, pcId, sheets) {
   if (hp / hpMax >= 0.35) return JSON.stringify({ success: false, message: `「${pcData[nIdx][COL.PC.NAME]}」靈基仍旺（${Math.round(hp / hpMax * 100)}%），破戒奪僕無法奏效——須先在戰鬥中將其打殘至 35% 以下。` });
 
   const stolenName = String(pcData[nIdx][COL.PC.NAME]);
+  const stolenCardForAi = servantCard_(pcData[nIdx]); // 🐛→✅ 換陣營字串前先取卡——陣營一改，servantCard_ 的敵我判斷可能跟著變調
   pcData[nIdx][COL.PC.FACTION] = "從者";
   pcData[nIdx][COL.PC.HP] = Math.max(hp, Math.round(hpMax * 0.5));
   pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "契約重締", "姿勢": "屈膝聽令", "負面": "無", "顏面": "複雜而臣服" });
   pcData[nIdx][COL.PC.CONTRIB] = 0;
+  // 🐛→✅ 陣營改成「從者」卻從沒設 IS_PARTY="同行"——applyRegen_/世界推進的回魔+耗魔只認 IS_PARTY，
+  //   HUD(playerServantEconomy_) 卻是不論 IS_PARTY、只要 FACTION=從者 就整組算——奪來的第二從者從此
+  //   在 HUD 上看得到維持費、但實際休息/世界推進根本不會扣他的魔也不會回他的血，兩邊帳對不起來。
+  pcData[nIdx][COL.PC.IS_PARTY] = "同行";
   // 🧹 清除敵屬時代殘留標記：舊主硬連結【御主】(殘留會誤觸 masterSynergy 全盛六圍/主從誤鏈)、
   //   【寶具預告】【盟約至】【靈基透支】(敵方機制·奪來後不再適用)。
   var _stMem = String(pcData[nIdx][COL.PC.MEMORY] || "")
@@ -641,8 +650,9 @@ function actionRuleBreakSteal(userData, pcId, sheets) {
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   try { raiseBond_(sheets, myGameId, pcData[pIdx][COL.PC.NAME], stolenName, 10, pcData); } catch (e) { }
 
-  const aiPrompt = `【系統·破戒奪僕·已裁定】御主以破戒全咒（七彩短劍）斬斷「${stolenName}」與原御主的契約、強行重締為己用——「${stolenName}」自此成為你的第二從者（燃一道令咒，餘 ${seals} 道）。\n` +
-    `★以 Fate／TYPE-MOON 筆觸描寫妖異七彩短劍刺入、舊契約如琉璃寸寸碎裂、新締約的魔力烙印纏上手背的瞬間，與這名從者被迫易主的複雜神情（一段即可）。已結算。\n` +
+  const aiPrompt = masterCard_(pcData[pIdx]) + stolenCardForAi +
+    `【系統·破戒奪僕·已裁定】御主以破戒全咒（七彩短劍）斬斷「${stolenName}」與原御主的契約、強行重締為己用——「${stolenName}」自此成為你的第二從者（燃一道令咒，餘 ${seals} 道）。\n` +
+    `★以 Fate／TYPE-MOON 筆觸描寫妖異七彩短劍刺入、舊契約如琉璃寸寸碎裂、新締約的魔力烙印纏上手背的瞬間，與這名從者依其性格被迫易主的複雜神情（一段即可）。已結算。\n` +
     ``;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：陣營轉換/HP/MEMORY清理/令咒扣除/raiseBond_ 皆已原地改回 pcData
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, stolen: stolenName, seals: seals, statusString: buildPlayerStatusString(pcData[pIdx]) });

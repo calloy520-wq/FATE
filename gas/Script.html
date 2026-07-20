@@ -541,7 +541,7 @@
               + (_npPlus >= 2 ? _tierBtn('p2', '🩸＋＋', '極限灌注 ×' + _npCap + '（總耗 ' + (_npP * 3) + '·反噬65%隨機扣血）——再按一次取消', '#ff7a6a') : ''))
           + '<button onclick="toggleSealArm()" title="' + (sealArmed ? '令咒蓄勢中——下一記 普攻/主動/寶具 將必中＋威力×1.5；再按一次取消蓄勢(不耗令咒)' : '令咒・絕對命令：按下蓄勢(免費)，下一記 普攻/主動/寶具 自動帶上必中＋×1.5') + '" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:' + (sealArmed ? 'rgba(200,120,240,.38)' : 'rgba(176,108,208,.15)') + '; color:' + (sealArmed ? '#f0d0ff' : '#c79be8') + '; border:1px solid ' + (sealArmed ? '#d09af0' : '#b06cd0') + '; border-radius:7px; cursor:pointer; font-weight:bold;' + (sealArmed ? ' box-shadow:0 0 10px rgba(200,120,240,.65); text-shadow:0 0 6px rgba(240,200,255,.8);' : '') + '">' + (sealArmed ? '❖ 蓄勢中' : '❖ 令咒') + '</button>';
         if (myCanRB && myServants.length < 2 && myMasterSeals > 0) {
-          acts += '<button onclick="ruleBreakSteal(\'' + safe + '\')" title="破戒奪僕：對打殘(HP<35%)的敵從者斬契奪為第二從者，燃一道令咒" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(176,108,208,.16); color:#d0a0e8; border:1px solid #8a5fb0; border-radius:7px; cursor:pointer; font-weight:bold;">⛓ 破戒奪僕 <small style="opacity:.7;">須打殘至35%＋燃令咒</small></button>';
+          acts += '<button onclick="ruleBreakSteal(\'' + safe + '\',\'' + String(f.id).replace(/'/g, '') + '\')" title="破戒奪僕：對打殘(HP<35%)的敵從者斬契奪為第二從者，燃一道令咒" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(176,108,208,.16); color:#d0a0e8; border:1px solid #8a5fb0; border-radius:7px; cursor:pointer; font-weight:bold;">⛓ 破戒奪僕 <small style="opacity:.7;">須打殘至35%＋燃令咒</small></button>';
         }
       }
       // 🕊️ 示好：只對【敵御主】交涉（好感由整組御主＋從者共用，示好御主會連坐養其從者）——從者不設此鈕
@@ -2350,11 +2350,11 @@
     } catch (e) { alert(opts.catchMsg || '連線失敗。'); } finally { endAction(); }
   }
 
-  async function ruleBreakSteal(npcName) {
+  async function ruleBreakSteal(npcName, npcId) {
     if (!confirm('⛓ 以破戒全咒奪取「' + npcName + '」為第二從者？\n\n條件：對方須被打殘至 HP 35% 以下，並燃燒一道令咒重新締約。\n成功後你將同時駕馭兩名從者（供魔雙倍吃緊）。\n\n確定破戒奪僕？')) return;
     await runSimpleAction_({
       preMsg: `<div class="msg-player"><b>【系統】：</b>御主舉起七彩短劍，欲斬斷「${npcName}」的契約……</div>`,
-      payload: { action: 'rule_break_steal', pcId: pc.id, npcName: npcName, acctName: (pc && pc.account) || currentAccount },
+      payload: { action: 'rule_break_steal', pcId: pc.id, npcName: npcName, npcId: npcId, acctName: (pc && pc.account) || currentAccount },
       failMsg: '破戒奪僕失敗。'
     });
   }

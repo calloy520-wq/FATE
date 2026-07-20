@@ -344,7 +344,9 @@ function actionMove(userData, pcId, sheets) {
   var svIdxMove = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
   var svCardMove = svIdxMove !== -1 ? servantCard_(allPcData[svIdxMove]) : "";
 
-  // 🎭 在場敵從者人設卡餵給抵達敘事，讓敵人依性格反應而非 AI 即興通用反派；servantCard_ 對敵從者一樣適用(低羈絆→戒備敵意)。
+  // 🎭 在場敵從者/敵御主人設卡餵給抵達敘事，讓敵人依性格反應而非 AI 即興通用反派；servantCard_ 對敵從者一樣適用(低羈絆→戒備敵意)。
+  //   🐛→✅ 原本只餵敵從者的卡——若目的地只有孤身敵御主(從者已死/在別處)，或有兩方敵御主互動的場面，
+  //   AI 對這名敵御主毫無性格依據，只能即興通用反派。補上 enemyMasterCard_(比照戰鬥路徑的用法)。
   var foeCardsMove = "";
   try {
     allPcData.forEach(function (r) {
@@ -353,6 +355,7 @@ function actionMove(userData, pcId, sheets) {
       if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
       if (!hasArrived_(r, _moveDay())) return; // 🕰️ 尚未登場者不出現在抵達敘事的人設卡裡
       if (String(r[COL.PC.FACTION]) === "敵從者") foeCardsMove += servantCard_(r);
+      else if (String(r[COL.PC.FACTION]) === "敵御主") foeCardsMove += enemyMasterCard_(r);
     });
   } catch (e) { }
 
@@ -847,6 +850,9 @@ function actionIncite(userData, pcId, sheets) {
   prob = Math.max(0.1, Math.min(0.85, prob));
   var success = Math.random() < prob;
   var svAName = String(pcData[iA][COL.PC.NAME]), svBName = String(pcData[iB][COL.PC.NAME]);
+  // 🐛→✅ 挑撥離間指名兩個具體角色、要求AI演出他們反目/合流戒備的性格化反應，卻從沒附上他們的演出依據
+  //   卡(比照唯一姊妹路徑 actionFactionAmbush 已有的 servantCard_+foeCard 慣例)。
+  var inciteCardsStr = '〔敵方A〕' + servantCard_(pcData[iA]) + '〔敵方B〕' + servantCard_(pcData[iB]);
   var aiPrompt, report;
   if (success) {
     var cross = resolveFateBattle_(rowToCombatant_(pcData[iA]), rowToCombatant_(pcData[iB]), {});
@@ -868,7 +874,7 @@ function actionIncite(userData, pcId, sheets) {
       sheets.pc.getRange(mIdxA + 1, 1, 1, pcData[mIdxA].length).setValues([pcData[mIdxA]]);
       sheets.pc.getRange(mIdxB + 1, 1, 1, pcData[mIdxB].length).setValues([pcData[mIdxB]]);
     }
-    aiPrompt = `【系統·挑撥離間·得逞】你三言兩語點燃了「${svAName}」與「${svBName}」之間的火——兩人當真打了起來，「${loName}」吃了較重的一擊（−${loDmg}），另一方亦掛彩（−${wiDmg}），自此結下樑子。\n` +
+    aiPrompt = inciteCardsStr + `【系統·挑撥離間·得逞】你三言兩語點燃了「${svAName}」與「${svBName}」之間的火——兩人當真打了起來，「${loName}」吃了較重的一擊（−${loDmg}），另一方亦掛彩（−${wiDmg}），自此結下樑子。\n` +
       `★以 Fate／TYPE-MOON 筆觸【約 80~140 字】演出你如何煽風點火、兩方如何被激得反目相向；你則在一旁坐收其亂。傷害已由系統結算。`;
     var wiName = cross.atkWins ? svAName : svBName;
     report = { incite: true, success: true, aName: svAName, bName: svBName,
@@ -878,7 +884,7 @@ function actionIncite(userData, pcId, sheets) {
     // 🫶 後續配套：被看穿→兩敵對你更反感，各降 4 好感（你操弄未遂、留下芥蒂）。
     bumpBond_(sheets, pcData, iA, -4);
     bumpBond_(sheets, pcData, iB, -4);
-    aiPrompt = `【系統·挑撥離間·被看穿】你試圖挑撥「${svAName}」與「${svBName}」反目，卻被兩人一眼看穿——他們非但沒中計，反而不約而同地轉過頭，戒備地一同盯向你這攪局的外人，對你的好感也淡了幾分。\n` +
+    aiPrompt = inciteCardsStr + `【系統·挑撥離間·被看穿】你試圖挑撥「${svAName}」與「${svBName}」反目，卻被兩人一眼看穿——他們非但沒中計，反而不約而同地轉過頭，戒備地一同盯向你這攪局的外人，對你的好感也淡了幾分。\n` +
       `★以 Fate／TYPE-MOON 筆觸【約 70~120 字】演出這記挑撥落空、兩方合流戒你的尷尬瞬間；語氣別替玩家決定接下來怎麼辦。`;
     report = { incite: true, success: false, aName: svAName, bName: svBName };
   }
