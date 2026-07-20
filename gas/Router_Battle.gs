@@ -104,7 +104,10 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
     }
   }
   var after = hp - dmg;
-  if (severed && after <= 0) out.fired.push(atkC.name + '·斬斷救贖(契約已破)');
+  // 🐛→✅ 玩家實測抓到：這句舊版只要攻方帶 rule_breaker/anti_magic_lance 且這擊致命就無條件顯示「契約已破」，
+  //   即使守方根本沒有 god_hand 可破(如 Weiss Schnee)也照樣跳出——沒破到任何契約，卻講得像破了什麼。
+  //   斬斷救贖唯一實際作用是「原本會觸發 god_hand 復活，卻被搶先繞過」，故補上守方確實持有 god_hand 才顯示。
+  if (severed && after <= 0 && hasFx_(defC, 'god_hand')) out.fired.push(atkC.name + '·斬斷救贖(契約已破)');
   // 🛡️ 戰鬥續行＝受【致命傷】(after<=0)才觸發硬撐留 1——非「殘血 2~5 也被拖到 1」。
   //   「僅一次」由 hp>1 天然保證：撐過後站在 1 血，下一記致死擊不再觸發。
   // survive 與 god_hand 結構性互斥（別靠「種子資料別同時掛」自律）：兩者若同掛，survive 判定順序在前
@@ -1099,13 +1102,21 @@ function actionFateBattle(userData, pcId, sheets) {
     (r.eTelegraph ? `　⚠️敵「${defC.name}」真名解放的預兆匯聚·寶具蓄勢待發(下次接觸必傾瀉)` : '')
   ).join('\n');
   const npTelegraphed = rounds.some(r => r.eTelegraph); // 🔮 本戰敵寶具進入預告→AI 演出＋前端保底警告
+  // 🐛→✅ 玩家實測抓到「明明是我方從者被敵方回擊打死，戰報卻還在問接下來怎麼辦」——根因是下面這幾處
+  //   凡 destroyedName 為真就無條件當成「defC(這場一開始鎖定的敵方目標)死了」，從沒考慮 destroyedName
+  //   實際上可能是 atkC(我方出戰從者)自己的名字(敵方回擊/NP對轟回震致死時)。此戰若還有其他從者存活，
+  //   defeat 不會是 true(見 fateStrike_ 的「雙從者」判定)，於是走進這支 finalLine／終局指令／收尾指令，
+  //   卻把「我方死了」誤講成「defC死了」，AI 收到自相矛盾的事實只能各自表述。
+  const ourSideDestroyed = !!(destroyedName && atkC && destroyedName === atkC.name);
   const finalLine = destroyedName
-    ? (!targetIsFoeServant
-        // 🐛→✅ 殺死敵御主這條路徑(fateStrike_ 的 killedIsMaster 分支)結構上不會設 victory=true(勝利
-        //   判定只掛在殺死「敵從者」的 isFoeSv 分支)——這裡原本的 victory 三元式恆假、是條死路，
-        //   誤導成「殺死御主也可能直接奪杯」，清掉避免以後有人真的想接上卻搞錯判定分支。
-        ? `敵御主「${defC.name}」已斃命——凡人之軀、並非靈基消滅（${atkC.cls === 'Caster' ? 'Caster 以魔術給予決定性一擊、非肉搏；' : ''}致命手段依出戰從者職階自行演出）。`
-        : `「${defC.name}」靈基崩潰、徹底消滅${victory ? '——此乃最後一名敵對從者，聖杯已近！' : '。'}`)
+    ? (ourSideDestroyed
+        ? `『${atkC.name}』靈基崩潰、化作光點消散——「${defC.name}」仍存活於場上，此戰未能全身而退。`
+        : !targetIsFoeServant
+          // 🐛→✅ 殺死敵御主這條路徑(fateStrike_ 的 killedIsMaster 分支)結構上不會設 victory=true(勝利
+          //   判定只掛在殺死「敵從者」的 isFoeSv 分支)——這裡原本的 victory 三元式恆假、是條死路，
+          //   誤導成「殺死御主也可能直接奪杯」，清掉避免以後有人真的想接上卻搞錯判定分支。
+          ? `敵御主「${defC.name}」已斃命——凡人之軀、並非靈基消滅（${atkC.cls === 'Caster' ? 'Caster 以魔術給予決定性一擊、非肉搏；' : ''}致命手段依出戰從者職階自行演出）。`
+          : `「${defC.name}」靈基崩潰、徹底消滅${victory ? '——此乃最後一名敵對從者，聖杯已近！' : '。'}`)
     : sealEscaped ? `「${defC.name}」被對面御主令咒緊急扯離戰場、遁走不在場。`
       : godRevived ? `「${defC.name}」屢屢自死亡歸來、仍未倒下。`
         : defeat ? `『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。`
@@ -1244,12 +1255,17 @@ function actionFateBattle(userData, pcId, sheets) {
       ((battery && battery.usedBattery) ? `· 御主電池：${battery.bledMaster ? `御主燃燒生命力硬扛魔力缺口，魔術迴路過載灼痛難當(餘 ${battery.masterHp}/${battery.masterHpMax} HP)——★迴路透支的內在灼痛虛脫·非流血外傷` : `御主順暢導流自身魔力(無焚血、無透支)——★本次供魔從容有餘，勿寫成迴路焚燒/殘存魔力/瀕死透支等慘狀(那是先前戰鬥的舊事)`}為從者頂上魔力缺口。\n` : "") +
       (godRevived ? (() => { let godTally = ""; try { const ghNow = getGodHandLives_(pcData[nIdx][COL.PC.MEMORY]); const ghBurn = Math.max(0, ghLivesStart - ghNow); if (ghBurn > 0) godTally = `★本戰共燒去 ${ghBurn} 條命、尚餘 ${ghNow}；「燒命數」與「倒地站起的次數」是兩回事(單擊可一口氣燒多命)，勿混寫成同一個數。`; } catch (e) { } return `· 十二試煉：${godNote}${godTally}\n`; })() : "") +
       (sealEscaped ? `· 對面御主燃令咒、強行扯離重傷從者，敵已遁走不在場。${sealNote}★此撤離僅止於該從者及其本主，與在場其他御主／從者無關。\n` : "") +
-      ((destroyedName && targetIsFoeServant && enemyMasterRow && !isMasterTarget) ? `· 在場敵御主「${String(enemyMasterRow[COL.PC.NAME])}」親眼目睹自己契約的從者靈基崩潰、化作光點消散——失去從者＝失去依靠與這場戰爭的資格。★依其性格與身世演出這一刻的衝擊與反應(崩潰/嘶喊/怔忡/強撐皆可，由性格定)，非沉默背景板。\n` : "") +
+      ((destroyedName && targetIsFoeServant && enemyMasterRow && !isMasterTarget && !ourSideDestroyed) ? `· 在場敵御主「${String(enemyMasterRow[COL.PC.NAME])}」親眼目睹自己契約的從者靈基崩潰、化作光點消散——失去從者＝失去依靠與這場戰爭的資格。★依其性格與身世演出這一刻的衝擊與反應(崩潰/嘶喊/怔忡/強撐皆可，由性格定)，非沉默背景板。\n` : "") +
       // 🐛→✅ destroyedName 為真時，上方 finalLine 只在數字摘要那行提過一次「已消滅」，下方卻仍會走到
       //   line ~1231 那句通用的「演出互有攻防的交鋒」收尾指令——AI 沒被【明確】告知這是終局、於是自行
       //   接著編出敵人死而復生繼續攻擊、我方角色詢問「接下來怎麼辦」的續戰畫面(玩家回報「都把對面宰了
       //   為啥還這樣敘述」)。這裡補一句不可退讓的終局指令，擋在收尾指令之前。
-      ((destroyedName && !sealEscaped && !godRevived) ? `★【本戰已於第 ${rounds.length} 回合終結】「${defC.name}」已當場靈基崩潰、化作光點消散——這是死局，【嚴禁】讓「${defC.name}」在此之後繼續出手、反擊或存在於場上，也【嚴禁】讓我方角色詢問「接下來怎麼辦／要不要繼續」這類彷彿戰鬥仍未分曉的台詞。演出應收在「終結的這一擊」與其後的餘韻(喘息、確認勝負、望向消散的光點)，不可延伸出新的交鋒回合。\n` : "") +
+      // 🐛→✅ 玩家實測抓到更深一層：這句舊版無條件講「defC死了」——若這場其實是我方 atkC 被敵方回擊
+      //   打死(ourSideDestroyed，此戰仍有其他從者存活、defeat 未必為真)，講法整個講反，AI 收到自相
+      //   矛盾的事實只能各自表述(玩家回報「我方從者死亡沒告訴AI嗎」)。依 ourSideDestroyed 分流講法。
+      ((destroyedName && !sealEscaped && !godRevived) ? (ourSideDestroyed
+        ? `★【本戰已於第 ${rounds.length} 回合終結】『${atkC.name}』已當場靈基崩潰、化作光點消散——這是我方的死局，「${defC.name}」仍存活於場上、無需跟著消散。【嚴禁】讓『${atkC.name}』在此之後繼續出手、反擊或存在於場上，也【嚴禁】讓御主詢問「接下來怎麼辦／要不要繼續」這類彷彿戰鬥仍未分曉的台詞。演出應收在「我方從者殞落的這一擊」與御主的震動反應，不可延伸出新的交鋒回合。\n`
+        : `★【本戰已於第 ${rounds.length} 回合終結】「${defC.name}」已當場靈基崩潰、化作光點消散——這是死局，【嚴禁】讓「${defC.name}」在此之後繼續出手、反擊或存在於場上，也【嚴禁】讓我方角色詢問「接下來怎麼辦／要不要繼續」這類彷彿戰鬥仍未分曉的台詞。演出應收在「終結的這一擊」與其後的餘韻(喘息、確認勝負、望向消散的光點)，不可延伸出新的交鋒回合。\n`) : "") +
       ((!destroyedName && !sealEscaped && !godRevived) ? `· 敗方尚有餘力(見上方 HP)，勿描寫死亡／消滅／屍體。此乃御主下令出擊、雙方仍在交鋒中，下回合是否再戰仍由御主決定。\n` : "") +
       (atkC.cls === 'Caster' ? `· 出戰從者為 Caster（魔術師）職階：此戰以魔術轟擊為主、非肉搏，演出時勿讓其上前近戰。\n` : "") +
       (extraFired.length ? `· 戰局關鍵轉折：${extraFired.join('；')}。\n` : "") +
@@ -1263,7 +1279,9 @@ function actionFateBattle(userData, pcId, sheets) {
         ? `★戰後讓「${atkC.name}」以其已狂化的方式(低吼／肢體動作／神情)透出對這場交手的直覺判斷，不成篇整句台詞。\n`
         : `★戰後讓「${atkC.name}」依其性格與口吻，對這場交鋒給出簡短的主觀判斷或建議(如看出的破綻、對方寶具是否已現底牌、值得乘勝追擊還是該見好就收)——是角色的觀察與建議，不是戰略指令，下一步仍由御主按鍵定奪。\n`) : "") +
       ((destroyedName && !sealEscaped && !godRevived)
-        ? `★以 Fate／TYPE-MOON 筆觸演出這 ${nRounds} 回合、以擊破敵手收尾的交鋒(約 220~280 字)：show, don't tell，把上列事實化為畫面與張力，技能/寶具演其威能而非報菜名，收在「${defC.name}」崩潰消散的瞬間與其後的餘韻，不再讓其還手或延伸新回合。`
+        ? (ourSideDestroyed
+            ? `★以 Fate／TYPE-MOON 筆觸演出這 ${nRounds} 回合、以我方從者殞落收尾的交鋒(約 220~280 字)：show, don't tell，把上列事實化為畫面與張力，技能/寶具演其威能而非報菜名，收在『${atkC.name}』崩潰消散的瞬間與御主的震動反應，不再讓其還手或延伸新回合，「${defC.name}」在這一擊後仍安然存活。`
+            : `★以 Fate／TYPE-MOON 筆觸演出這 ${nRounds} 回合、以擊破敵手收尾的交鋒(約 220~280 字)：show, don't tell，把上列事實化為畫面與張力，技能/寶具演其威能而非報菜名，收在「${defC.name}」崩潰消散的瞬間與其後的餘韻，不再讓其還手或延伸新回合。`)
         : `★以 Fate／TYPE-MOON 筆觸演出這 ${nRounds} 回合互有攻防的交鋒(約 220~280 字)：show, don't tell，把上列事實化為畫面與張力，技能/寶具演其威能而非報菜名。`);
   }
 

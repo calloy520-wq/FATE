@@ -193,7 +193,7 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
    - ⚠ **回合順序＝我方固定先手**（非骰子決定誰先攻）：每回合 ①我方出擊 ②盟友協同 ③敵從者存活才反擊。骰子只決定單次交鋒誰打贏、傷害算誰的。
 4. **協同強襲**（§8）：同地盟友從者每回合助攻一擊（不被反擊）。
 5. **敵反擊**：`enemyNpSpent` 一場限一次寶具。**寶具閘**：敵唯有自己被打殘(`eHpRatio<0.5`)或我方從者已殘(`pHpRatio<0.45`)才解放真名；健康對健康一律普攻試探。敵多寶具用 `bestNpChoice_` 選最強。
-6. `fateStrike_`：包一次我方攻擊（回 aRoll/hit/damage/destroyed/knocked/victory/sealEscaped/godRevived）。`fateStrike_` 內判定順序：**God Hand（免費復活）先於令咒脫離**；帶 `rule_breaker`/`anti_magic_lance` 攻方用 `severed` 擋復活。
+6. `fateStrike_`：包一次我方攻擊（回 aRoll/hit/damage/destroyed/knocked/victory/sealEscaped/godRevived）。`fateStrike_` 內判定順序：**God Hand（免費復活）先於令咒脫離**；帶 `rule_breaker`/`anti_magic_lance` 攻方用 `severed` 擋復活。**🐛→✅ 2026-07 修「斬斷救贖」誤報**：舊版只要攻方帶 `severed` 技能且這擊致命就無條件顯示「契約已破」，即使守方根本沒有 `god_hand` 可破也照樣跳出——沒破到任何契約卻講得像破了什麼。改成也驗守方確實持有 `god_hand`(`severed && after<=0 && hasFx_(defC,'god_hand')`) 才顯示。**🐛→✅ 同批修「我方從者死亡沒告訴AI」**：`actionFateBattle` 的 `finalLine`／終局指令／收尾指令舊版凡 `destroyedName` 為真就無條件當成「defC(此戰鎖定的敵方目標)死了」，從未考慮 `destroyedName` 實際上可能是 `atkC`(我方出戰從者)自己的名字——雙從者機制下這場若還有其他從者存活，`defeat` 不會是 true，於是走進這段長版戰報卻把「我方死了」誤講成「敵方死了」，AI 收到自相矛盾的事實只能自行接續出「接下來怎麼辦」的續戰畫面。新增 `ourSideDestroyed = destroyedName===atkC.name` 判斷，三處講法依此分流。
 7. 回傳 `report`（前端 `renderFateBattleReport`）＋`aiPrompt`（`servantCard_`+敵御主卡+戰報+從者判斷建議·未分生死時）＋victory/defeat/dreamPrompt。
 
 ### 十二試煉 / 令咒 / 戰報
