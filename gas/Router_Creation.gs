@@ -6,6 +6,21 @@
 
 function actionManualNpc(userData, pcId, sheets) {
   // 御主創角（action="create"）；從者召喚見 actionSummonServant。
+  // 🛡️ 帳號重入防呆：此帳號若已連結一局活著的遊戲(charId 存在且非 DEAD_)，拒絕再建一次——
+  //   否則 linkAccountToPc_ 會悄悄覆寫帳號的連結指標，把舊角色＋已召喚的從者孤兒化(英靈殿範本
+  //   不受影響、但這局「進行中遊戲」從帳號視角消失，下次登入變成一場空的 needsSummon，玩家會以為
+  //   角色跟從者憑空消失了)。合法流程(newGameFlow)本就會先呼叫 account_new_game 清連結才走到這裡，
+  //   故此擋不影響正常開新局；只堵「create 被異常呼叫第二次」(連點/多分頁/重送)這個從無防護的洞。
+  if (userData.account) {
+    try {
+      const acc = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("帳號");
+      const found = acc && findAccountRow_(acc, String(userData.account).trim());
+      const oldCharId = found ? String(found.row[COL.ACC.PC] || "") : "";
+      if (oldCharId && sheets.pc.getDataRange().getValues().some(r => String(r[COL.PC.ID]) === oldCharId)) {
+        return JSON.stringify({ success: false, message: "此帳號已有進行中的聖杯戰爭——請用「繼續遊戲」接續，或先在選單開新局清除舊檔。" });
+      }
+    } catch (e) { } // 檢查失敗不擋創角(優雅降級)，寧可放行也不要卡死正常玩家
+  }
   const newId = "PC_" + Date.now();
   const { name, sex, identity, standing, wish, appearance, magic, circuits, origin, melee, magicRank } = userData;
   let finalName = name;
