@@ -257,7 +257,8 @@
     <div id="pane-wrap">
       <div id="pane-status" class="game-pane">
         <div id="fate-tags" style="display:none; gap:6px; padding:6px 8px 2px;"></div>
-        <!-- 🐛→✅ 這顆固定在卡片列表下方、恆看「御主自己」的狀態(triggerDrawerAction('status')→openStatus()無參數＝pc自己)。鑑賞模式的御主卡已補上同款按鈕列(applyModeUI 隱藏本顆，免重複外露)；solo 御主卡無此按鈕，本顆繼續是 solo 唯一入口。 -->
+        <!-- 🐛→✅ 這顆固定在卡片列表下方、恆看「御主自己」的狀態(triggerDrawerAction('status')→openStatus()無參數＝pc自己)。
+             鑑賞／solo 御主卡都已補上同款「📜狀態」inline 按鈕(名字旁)，這顆兩邊都重複了——applyModeUI 恆隱藏。 -->
         <div id="my-status-fallback" style="text-align:center; padding:6px;">
           <button class="btn" style="font-size:12px; padding:5px 12px; border-color:#9a7b4f; color:#9a7b4f;" onclick="triggerDrawerAction('status')">👤 我的詳細狀態</button>
         </div>

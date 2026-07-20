@@ -1306,12 +1306,12 @@
       + '</div>';
     showHistoryOverlay(html);
   }
-  function showSixHelp(line) {
+  // 🐛→✅ 數值已直接顯示在卡片上(見六圍那行)，這裡只留欄位意義的一般性說明，不再重複夾帶數值。
+  function showSixHelp() {
     var html = '<h3 style="margin:0 0 8px; color:#cdbbe6;">🎴 六圍</h3>'
       + '<div style="color:#cfc3d8; font-size:14px; line-height:1.9;">'
       + '從者的六項基礎能力，階級 E～EX 越高越強：<br>'
-      + '筋力(近戰力)　耐久(抗打)　敏捷(命中/迴避)　魔力(耗魔/寶具倍率)　幸運(逆轉機率)　寶具(真名威力階級)<br><br>'
-      + '這名從者：' + line
+      + '筋力(近戰力)　耐久(抗打)　敏捷(命中/迴避)　魔力(耗魔/寶具倍率)　幸運(逆轉機率)　寶具(真名威力階級)'
       + '</div>';
     showHistoryOverlay(html);
   }
@@ -1342,7 +1342,7 @@
       + '<b style="color:#c79be8;">❖ 令咒</b>　御主卡片上 3 道絕對命令，每道限用一次，留給真正危急的時刻（治從者傷／逼魔力全滿／強行脫離險境）。<br><br>'
       + '<b style="color:#c9b885;">⏳ 行動力（AP）</b>　每天固定額度，移動／戰鬥／休息都要花，額度見底就得休息推進到隔天——別忘了 14 天倒數在跑。<br><br>'
       + '<b style="color:#7ec8ff;">🔋 靈基出力</b>　從者的供魔強度旋鈕（20%~100%），越高戰力越強但越耗魔池，唯有全開 100% 才能解放寶具。<br><br>'
-      + '<b style="color:#e0574a;">⚔️ 戰鬥</b>　移動到同地敵人身邊即可「攻擊」；血量歸零分勝負。從者卡上還有 💧補魔／🩹靈基修復／💕羈絆／🛏️休息／👗換裝／⚔️武裝 等常用按鈕，各有不同資源代價，點按鈕上的說明文字都會講清楚。<br><br>'
+      + '<b style="color:#e0574a;">⚔️ 戰鬥</b>　移動到同地敵人身邊即可「攻擊」；血量歸零分勝負。從者卡上還有 💧補魔／🩹治療／💕羈絆／🛏️休息／👗換裝／⚔️武裝 等常用按鈕，各有不同資源代價，點按鈕上的說明文字都會講清楚。<br><br>'
       + '<b style="color:#4fd0b0;">🤝 結盟</b>　與其他御主可提議結盟、暫免交戰。<br><br>'
       + '<span style="color:#6a7a90; font-size:12px;">想查更細的公式或某個標籤的效果，直接點畫面上對應的名字/圖示（大多可點開說明）。這份教學隨時能從頂部「❓ 教學」重開。</span>'
       + '</div>';
@@ -1398,15 +1398,17 @@
               : 'linear-gradient(180deg,#ef8a82,#d0473f 55%,#a52f28)');
         const glow = kind === 'mp' ? 'rgba(120,180,255,.55)' : (pct > 50 ? 'rgba(140,224,140,.5)' : pct > 20 ? 'rgba(224,176,64,.5)' : 'rgba(224,90,80,.55)');
         const icon = kind === 'mp' ? '🔷' : '❤️';
+        // 🐛→✅ 「?」挪到數字後面、魔力條直接帶淨值/時(不必再開「🔮魔力」才看得到)：500/500 -11/時 ?
         const help = kind === 'mp' ? '<span onclick="event.stopPropagation();showManaHelp()" style="cursor:pointer; font-size:10px; color:#7ec8ff; border:1px solid #4a6fa0; border-radius:8px; width:13px; height:13px; line-height:13px; text-align:center; flex:none;">?</span>' : '';
+        const netTxt = (kind === 'mp' && typeof net === 'number') ? (' <span style="color:' + (net < 0 ? '#e88a8a' : net > 0 ? '#8ecf9a' : '#9a8fae') + ';">' + (net > 0 ? '+' : '') + net + '/時</span>') : '';
         return '<div style="display:flex; align-items:center; gap:6px; margin:4px 0;">'
           + '<span style="font-size:11px; width:16px; flex:none; text-align:center;">' + icon + '</span>'
-          + help
           + '<div style="flex:1; min-width:0; position:relative; height:12px; background:linear-gradient(180deg,#16121c,#241d2c); border-radius:7px; overflow:hidden; border:1px solid rgba(0,0,0,0.45); box-shadow:inset 0 1px 2px rgba(0,0,0,.6);">'
           + '<div style="width:' + pct + '%; height:100%; background:' + grad + '; border-radius:7px; box-shadow:0 0 6px ' + glow + '; transition:width .35s ease;' + anim + '"></div>'
           + '<div style="position:absolute; top:1px; left:3px; right:3px; height:3px; border-radius:3px; background:linear-gradient(90deg,rgba(255,255,255,.35),rgba(255,255,255,0)); pointer-events:none;"></div>'
           + '</div>'
-          + '<span style="font-size:9.5px; color:#9a8fae; width:56px; flex:none; text-align:right; font-variant-numeric:tabular-nums;">' + cur + '/' + max + '</span></div>';
+          + '<span style="font-size:9.5px; color:#9a8fae; flex:none; text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;">' + cur + '/' + max + netTxt + '</span>'
+          + help + '</div>';
       };
       // 🐙 深淵海怪肉身條：青鬍子寶具召喚物的血池，掩護術師、優先承傷。深淵藍紫色，與體力(紅)/魔力(藍)區隔。
       const horrorBar = (cur, max) => {
@@ -1447,7 +1449,10 @@
         : '';
       let mh = '<div style="background:rgba(20,14,28,0.55); border:1px solid #d4af37; border-radius:8px; padding:6px 8px;">'
         + '<div style="color:#d4af37; font-weight:bold; font-size:12px;">⚜️ 御主</div>'
-        + '<div style="color:#e8dcc0; font-size:13px; font-weight:bold; margin:1px 0 3px;">' + m.name + '</div>'
+        // 🐛→✅ solo 御主也補跟從者卡一致的「名字旁📜狀態」inline 按鈕(原本 solo 唯一入口是卡片列表下方
+        //   獨立的 #my-status-fallback，樣式跟從者卡不統一)。kanshou 已有自己整合進 mButtonsLine 的版本，
+        //   這裡不重複加，維持 kanshou 原樣不動。
+        + '<div style="color:#e8dcc0; font-size:13px; font-weight:bold; margin:1px 0 3px;">' + m.name + ((pc && pc.mode === 'kanshou') ? '' : ' <button onclick="event.stopPropagation();openStatus()" title="查看你自己的完整狀態：個性／特徵／身世／萌點等，並可逆天改命微調敘事欄" style="font-size:10px; font-weight:normal; padding:1px 7px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer; vertical-align:middle;">📜 狀態</button>') + '</div>'
         + mOutfitLine
         + mPhysLine
         + ((pc && pc.mode === 'kanshou') ? '' :  // 🌹 慾海：御主只露名字＋肉體，不露血量/魔力/令咒/禮裝
@@ -1557,7 +1562,8 @@
               + [20, 40, 60, 80, 100].map(function (o) { var on = (o === (s.output || 60)); return '<button class="out-btn" data-o="' + o + '" onclick="setServantOutput(this,\'' + safeN + '\',' + o + ')" title="' + (o === 100 ? '全開：戰力最強、唯一可解放寶具，御主魔力消耗最劇' : o === 20 ? '維持：御主魔力最省，但戰力受限、無法放寶具' : '出力 ' + o + '%') + '" style="flex:1; font-size:10px; padding:3px 0; border-radius:5px; cursor:pointer; border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + '; background:' + (on ? 'rgba(110,180,220,.30)' : 'rgba(40,50,65,.4)') + '; color:' + (on ? '#bfe3ff' : '#7a8aa0') + '; font-weight:' + (on ? 'bold' : 'normal') + ';">' + o + (o === 100 ? '💥' : '') + '</button>'; }).join('')
               + '</div></div>')
           + '<div style="color:#9a8bb0; font-size:11px; line-height:1.5; margin-top:4px;">羈絆 ' + (parseInt(s.bond) || 0) + ' · ' + bondWord(s.bond) + '</div>'
-          + '<div style="color:#cdbbe6; font-size:11px; margin-top:3px; letter-spacing:.5px;">六圍 <span onclick="event.stopPropagation();showSixHelp(\'' + sixLine.replace(/'/g, '') + '\')" style="cursor:pointer; font-size:10px; color:#cdbbe6; border:1px solid #6a5a8a; border-radius:8px; width:13px; height:13px; display:inline-block; line-height:13px; text-align:center;">?</span></div>'
+          // 🐛→✅ 六圍數值直接顯示在卡片上(原本要點「?」才看得到)；「?」只留一般性說明(欄位意義)，不再夾帶數值。
+          + '<div style="color:#cdbbe6; font-size:11px; margin-top:3px; letter-spacing:.5px;">六圍 ' + sixLine + ' <span onclick="event.stopPropagation();showSixHelp()" style="cursor:pointer; font-size:10px; color:#cdbbe6; border:1px solid #6a5a8a; border-radius:8px; width:13px; height:13px; display:inline-block; line-height:13px; text-align:center;">?</span></div>'
           + skillGroupLabel_('職階技能', classSkillPills)
           + skillGroupLabel_('固有技能', innateSkillPills)
           + skillGroupLabel_('特殊技能', specialSkillPills)
@@ -1571,7 +1577,7 @@
               + '<button onclick="event.stopPropagation();manaSupply()" title="補魔：硬擠魔術迴路回滿共用魔力池。⚠永久代價：血上限−15、迴路−3。孤注一擲，過度=慢性自盡。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
               + '<button onclick="event.stopPropagation();openBondMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(224,138,170,0.16); color:#e08aaa; border:1px solid #b06c84; border-radius:6px; cursor:pointer;">💕 羈絆</button>'
               // 🐛→✅ 令咒鈕挪去御主卡，這裡原本的位置改放「靈基修復」——消費共用魔力池為從者療傷、不燃令咒、可重複使用。
-              + '<button onclick="event.stopPropagation();spiritRepair()" title="靈基修復：引動共用魔力池為從者療傷，回復部分氣血（不燃令咒、可重複使用；魔力池不足則無法發動）。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(70,150,110,0.18); color:#7ee0a8; border:1px solid #3a8a5a; border-radius:6px; cursor:pointer;">🩹 靈基修復</button>'
+              + '<button onclick="event.stopPropagation();spiritRepair()" title="靈基修復：引動共用魔力池為從者療傷，回復部分氣血（不燃令咒、可重複使用；魔力池不足則無法發動）。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(70,150,110,0.18); color:#7ee0a8; border:1px solid #3a8a5a; border-radius:6px; cursor:pointer;">🩹 治療</button>'
               + '<button onclick="event.stopPropagation();openRestMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(120,120,160,0.16); color:#a9a9d8; border:1px solid #5a5a8a; border-radius:6px; cursor:pointer;">🛏️ 休息</button>'
               + '<button onclick="event.stopPropagation();changeOutfit(\'' + safeN + '\')" title="換裝：自訂從者當前服裝穿著，AI 敘述依此描寫（只換衣不換人·五官/髮色/體態不變）。免費即時、留空恢復本相。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(150,110,190,0.16); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👗 換裝</button>'
               + '<button onclick="event.stopPropagation();changeWeapon(\'' + safeN + '\')" title="武裝：自訂從者的武器與戰鬥方式（如 雙持大劍、鎖鏈鐮刀），敘述以此為準——不受職階慣例或原典習慣綁。免費即時、留空恢復自然演出。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(190,140,90,0.16); color:#e0b080; border:1px solid #a07a4a; border-radius:6px; cursor:pointer;">⚔️ 武裝</button>'
@@ -1600,20 +1606,10 @@
           sh = sh ? (sh + '<div style="height:6px;"></div>' + slotHtml) : slotHtml;
         }
       }
-      // 💠 供魔收支（放在左側狀態面板，一眼看光）
-      var eco = t.economy, ecoStrip = '';
-      if (eco && !(pc && pc.mode === 'kanshou')) {
-        var leyIcon = eco.ley >= 12 ? '🔵' : eco.ley >= 6 ? '🟢' : '⚪';
-        var net = eco.net, netCol = net > 0 ? '#7ec87e' : net < 0 ? '#e06a6a' : '#c9b885';
-        var wsStr = eco.workshop ? ((eco.atHome ? '🏠工房' : '🔯陣地') + ' +' + eco.workshop + '　') : '';
-        ecoStrip = '<div style="background:rgba(20,14,28,0.55); border:1px solid rgba(120,120,160,0.3); border-radius:8px; padding:6px 9px; font-size:11px; color:#bcd; margin-top:6px;">'
-          + '<div style="color:#9aa6c8; font-weight:bold; margin-bottom:3px;">💠 供魔收支（每小時）</div>'
-          + '迴路 +' + eco.supply + '　' + leyIcon + '靈脈 +' + eco.ley + '　' + (eco.svFeed ? '📿從者 +' + eco.svFeed + '　' : '') + wsStr + '<span style="color:#9a8;">維持 −' + eco.drain + '</span>'
-          + '　＝ <b style="color:' + netCol + ';">淨 ' + (net > 0 ? '+' : '') + net + '/時</b>'
-          + (net < 0 ? '<div style="color:#e06a6a; margin-top:2px;">⚠ 入不敷出——宜搶靈脈／設陣地工房／補魔</div>' : '')
-          + '</div>';
-      }
-      box.innerHTML = mh + sh + ecoStrip;
+      // 🐛→✅ 移除左側狀態面板這份「供魔收支」明細——跟頂部「🔮 魔力」彈窗(openManaPanel)完全重複，
+      //   標題更清楚(🔮 御主魔力・供魔收支)、還多帶靈基出力面板；魔力條現已直接顯示淨值/時(見 bar())，
+      //   一眼看光的需求不再需要這裡再疊一份。入不敷出警告仍在「🔮 魔力」彈窗保留。
+      box.innerHTML = mh + sh;
       box.style.display = 'flex';
       box.style.flexDirection = 'column';
     } catch (e) { }
@@ -2829,8 +2825,9 @@ function applyModeUI() {
   var dalb = document.getElementById('drawer-album'); if (dalb) dalb.style.display = isKanshou ? '' : 'none';
   // 戰爭行動列：取代輸入框，只在戰爭模式顯示
   var wa = document.getElementById('war-actions'); if (wa) wa.style.display = isKanshou ? 'none' : 'flex';
-  // 🌹 鑑賞御主卡已內建「換裝＋詳細狀態」按鈕列，卡片列表下方這顆獨立按鈕改只在 solo 顯示，避免重複外露
-  var msf = document.getElementById('my-status-fallback'); if (msf) msf.style.display = isKanshou ? 'none' : '';
+  // 🌹 鑑賞御主卡已內建「換裝＋詳細狀態」按鈕列；solo 御主卡名字旁現也補了同款「📜狀態」inline 鈕——
+  //   卡片列表下方這顆獨立按鈕兩邊都已重複，恆隱藏。
+  var msf = document.getElementById('my-status-fallback'); if (msf) msf.style.display = 'none';
   // 🗺️ 地圖分頁/面板兩軌都顯示——solo 維持既有戰場SVG圖(renderMapPane內部判斷)，鑑賞改渲染「出門走走」地點清單，兩者共用同一顆分頁按鈕與 #pane-wrap 三欄/三分頁版型。
   var tMap = document.getElementById('tab-map'); if (tMap) tMap.style.display = '';
   var pMap = document.getElementById('pane-map'); if (pMap) pMap.style.display = '';
