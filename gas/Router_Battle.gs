@@ -1153,7 +1153,7 @@ function actionFateBattle(userData, pcId, sheets) {
       ? `· 【御主參戰·後方支援】御主據守後方掩蔽處，穩定供魔、冷靜判讀戰況並下令指揮——雖不入近身險境，卻是這場交鋒的中樞，與從者運籌一體，切勿寫成御主缺席或無關。`
       : `· 【御主參戰·見機行事】御主守在戰線側後方、讀著戰況伺機介入——該掩護時上前補位、該退則果斷，與從者一攻一守、彼此呼應。`)
     + (masterShared > 0 ? `此戰御主更以身替『${atkC.name}』硬扛下 ${masterShared} 點傷勢——★請具體演出這記「以身相代」的畫面(撲上以身卸力、擋在身前吃下這一擊、或接住被打飛的從者而自己因此擦傷負創)，別只丟一個數字；自身確實流血受創、數值已由 GAS 結算。` : ``)
-    + `★務必演出御主與從者「並肩作戰」的臨場參與感，別把御主晾在畫面外。\n`;
+    + `★務必演出御主與從者「並肩作戰」的臨場參與感，別把御主晾在畫面外，但若要具體描寫御主出手的招式/手段，只能依上方御主「演出依據」卡上實際列出的魔術系統／體術；卡上沒寫的技術一律不可捏造(如卡上沒魔術系統就別讓御主無中生有甩出什麼術式干擾，改寫成呼喊指令/眼神示意/肢體掩護等不需特定技術的參與方式)。\n`;
 
   let aiPrompt;
   // 🎬 敘述：給 AI【事實素材】，少下指令——讓它自己演。只保留必要紅線(show-don't-tell／勿擅自寫死)。
@@ -1175,13 +1175,18 @@ function actionFateBattle(userData, pcId, sheets) {
   const ourMagicFired = rounds.some(r => (r.strikes || []).some(k => (k.pFired || []).some(t => /·御主魔術/.test(String(t)))));
   const foeMeleeFired = rounds.some(r => (r.eFired || []).some(t => /·御主體術/.test(String(t))));
   const foeMagicFired = rounds.some(r => (r.eFired || []).some(t => /·御主魔術/.test(String(t))));
+  // 🐛→✅ 御主本人的「演出依據」卡(魔術系統/體術階/身世/性格)之前從沒進過這支戰鬥 aiPrompt——
+  //   AI 只收到上面 _masterStanceLine 那句抽象姿態指令(「伺機介入」)，具體要怎麼參戰毫無憑據，
+  //   便自行編造出跟角色設定無關的招式(如「甩出魔術迴路干擾」)，玩家反應「超級出戲」。這裡補上
+  //   masterCard_，讓 AI 依御主真實的魔術系統/體術/身世去想像參戰畫面，而非憑空捏造。
+  const ourMasterCardStr = masterCard_(pcData[pIdx]);
   if (defeat) {
-    aiPrompt = servantCard_(pcData[atkIdx]) + foeServantCardStr + enemyMasterCardStr +
+    aiPrompt = ourMasterCardStr + servantCard_(pcData[atkIdx]) + foeServantCardStr + enemyMasterCardStr +
       `【戰報·已裁定】御主號令『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合。\n${roundsBrief}\n結局：『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。\n` +
       _masterStanceLine +
       `★以 Fate／TYPE-MOON 筆觸演出這場敗北的最後一幕(一段即可)${atkC.cls === 'Caster' ? '（Caster 以魔術轟擊為主、非肉搏）' : ''}——御主與從者並肩奮戰到最後，語氣留白。勝負已定，你只演過程。`;
   } else {
-    aiPrompt = servantCard_(pcData[atkIdx]) + foeServantCardStr + enemyMasterCardStr +
+    aiPrompt = ourMasterCardStr + servantCard_(pcData[atkIdx]) + foeServantCardStr + enemyMasterCardStr +
       `【戰報·已裁定，勝負與傷害不可改】御主號令${atkLabel}出擊，與「${defC.name}」交鋒 ${nRounds} 回合。\n` +
       `${roundsBrief}\n我方造成 ${totalDealt} 傷害、受創 ${totalTaken}。${finalLine}\n` +
       `── 本戰發生的事(素材，自行織入畫面，勿複述標籤名) ──\n` +
