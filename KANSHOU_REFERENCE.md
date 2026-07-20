@@ -2,7 +2,7 @@
 
 > **這份只寫「現在是什麼」，不寫演變過程。** 想動鑑賞任何一塊、開機失憶要重建脈絡，看這一本就夠，不必去 `SOLO_REFERENCE.md` 考古編年史。
 > **行號會漂，一律以「函式名／常數名」為錨。** 每條都以現行代碼為準（2026-07 對 main `1b4d98c` 核實）。
-> 🔴 動手前必讀 `CLAUDE.md` 紅線：`nsfwBaseRules`＋NSFW 機制不可改（玩家授權才碰）、`Engine_Combat.gs` 的 `callGeminiAPI` 是兩軌共用基礎設施、`GAS` repo 不碰、model id 不進 repo。
+> 🔴 動手前必讀 `CLAUDE.md` 紅線：`Gallery.gs` 的 `nsfwBaseRules`＋NSFW 機制不可改（玩家授權才碰）、`Engine_Combat.gs` 的 `callGeminiAPI` 是兩軌共用基礎設施、model id 不進 repo。（2026-07 已移除「GAS repo 不可動」一條，九州衍生碼清理判斷併入 CLAUDE.md 工程準則）
 
 ---
 
@@ -145,7 +145,7 @@
 - **開局欄位**（`actionEnterKanshou` 秒寫）：TRAIT＝外貌(玩家填)、氣質空、自稱「我」、私密「無」；PREF＝對外性格(玩家填「個性方向」)、獨處/喜歡/討厭全空；**經歷(BACK)＝「剛搬來冬木市」**；萌點(INTENT)空。
 - **經歷（原「身世」正名）**：AI 每回合經 `master_note.經歷` **滾動更新**（承接舊值增補新遭遇、≤80字·bounded overwrite），玩家可經**改命**自己改（back 型·mode 判斷 kanshou 才叫「經歷」、cap 80）。卡面標題 `#ui-back-title` 也依模式正名：**鑑賞看自己卡＝「經歷」**、從者卡/solo＝「身分背景」（updateUI 切換·從者的 BACK 是真背景不是滾動經歷）。
 - **空性格欄 AI 側寫回填**：`master_note.{對外性格/獨處性格/喜歡/討厭}` **只回填仍空的格**——玩家改命填過的＝鎖（判準：該 PREF slot 非空），AI 絕不覆寫。像對話 AI 慢慢認識使用者。
-- **萌點(INTENT) AI 盲寫**：`master_note.萌點`——⚠ 萌點是紅線③ show-don't-tell、**絕不餵給 AI**，故 AI 看不到現值只能「盲寫」(依這回合言行暗中觀察一個反差/可愛弱點)。因盲寫不能 refine(會 churn)，落地採**「只補第一個發現、之後不覆寫」**：`COL.PC.INTENT` 空才寫、非空(AI 補過 or 玩家改命填過)＝鎖死不動(Gallery.gs post-processing)。跟性格不同款(性格餵給 AI 可持續 refine·萌點盲寫只補一次)——差異源於能不能餵給 AI。玩家改命隨時可覆蓋。
+- **萌點(INTENT) AI 盲寫**：`master_note.萌點`——⚠ 萌點是紅線② show-don't-tell、**絕不餵給 AI**，故 AI 看不到現值只能「盲寫」(依這回合言行暗中觀察一個反差/可愛弱點)。因盲寫不能 refine(會 churn)，落地採**「只補第一個發現、之後不覆寫」**：`COL.PC.INTENT` 空才寫、非空(AI 補過 or 玩家改命填過)＝鎖死不動(Gallery.gs post-processing)。跟性格不同款(性格餵給 AI 可持續 refine·萌點盲寫只補一次)——差異源於能不能餵給 AI。玩家改命隨時可覆蓋。
 - **🔒 性格鎖（玩家 UI 控制·預設不鎖）**：改命-個性視窗每格一個 🔒 開關 → 寫 `【性格鎖】`（`kanshouGetPrefLocks_`/`SetPrefLocks_`）。**鎖了 = AI 連那欄都看不到**（`actionPlay` 依鎖狀態算「沒鎖的格」→ `buildDefaultSystemPrompt(unlockedKeys)` **動態組 master_note、鎖的格不出現在 schema**）＋GAS 落地再過濾一次（雙保底）。沒鎖 = AI 可持續 refine（不是一次寫死）。鎖狀態經 play 回應 `prefLocks` 快取到前端 `window._kcPrefLocks`（改命視窗顯示開關）——**`enter_kanshou` 兩條路徑也回傳 `prefLocks` 播種**＋後端 `update_fate` 只在 `Array.isArray(userData.prefLocks)` 時才寫鎖（undefined＝保留現鎖），2026-07 稽核修「重登→未按過 play 就改命存檔＝鎖被清空」。鎖開關只在**看自己卡片**時顯示（`_isKSelf`·從者卡看得到鎖圖示但無開關）。經歷不鎖（改命=修正、AI 續滾）。⚠ `buildDefaultSystemPrompt(masterNoteUnlocked)` 只有 `actionPlay` 一個呼叫者，故在 actionPlay 組好當 systemOverride 傳入。
 - **🪪 角色卡分行顯示（前端 `renderSegField_`·Script.html）**：鑑賞卡把「處事個性(對外/獨處/喜歡/討厭)」「命格特徵(外貌/氣質/自稱/私密)」從一串頓號拆成帶標籤小行，空格提示分欄位：處事個性→「（AI 待補）」(AI 會側寫)、命格特徵→「（待你改命填寫）」(AI 不寫 TRAIT)；從者卡一律「—」。鎖住的處事個性格右側掛 🔒（只看自己卡片時·`currentStatusTargetId===pc.id`）。原始頓號字串存 `dataset.raw`，改命視窗改讀它（分行 HTML 的 innerText 會亂）。solo 維持原樣純文字。
 - **⚠ 拆格 bug 根治**：`fateSegSplit_`(顯示與改命共用)只做 `。→、` 正規化＋`split('、')` 補滿4格，**不再壓縮連續頓號**——舊版 `.replace(/、+/g,'、')` 會把「、、我、無」壓成「我、無」導致值位移(我被推到第1格)，改命預填/存回全錯，現已修正。
@@ -179,7 +179,7 @@
 ### 🧠 記憶全景（AI 每回合看得到什麼·寫回什麼·多久一次）— 2026-07 整理
 **AI 每回合看得到（組進 prompt）**：
 - **近期對話**：`getGameHistoryBatchRaw(pcId, 6)` 滑動窗（6筆＝3輪，更早的靠下面的持久欄接力）。
-- **玩家**：性格(PREF)／特徵(TRAIT)／裝扮／**經歷(BACK·滾動≤80字)**／位置＋地點活動 context（`kanshouLocContextForAI_`）／肉體(PHYSICAL)／身體記憶(技巧前5)。⚠ **玩家萌點(INTENT)絕不餵**（紅線③）——AI 只能盲寫。
+- **玩家**：性格(PREF)／特徵(TRAIT)／裝扮／**經歷(BACK·滾動≤80字)**／位置＋地點活動 context（`kanshouLocContextForAI_`）／肉體(PHYSICAL)／身體記憶(技巧前5)。⚠ **玩家萌點(INTENT)絕不餵**（紅線②）——AI 只能盲寫。
 - **每位在場 NPC**（`partyDetailsArr` 一行一人）：身世(BACK)／裝扮／性格／特徵／日常風味／**萌點(有餵·標「僅供內化」，與玩家不同)**／當前活動／共同回憶(MEMOIR)／與玩家的約定／關係 tag＋好感＋相處記憶＋聊天天花板＋階調；NSFW 區另帶 肉體＋技巧前5＋羈絆(REL_MEM：專屬稱呼＋態度)。
 
 **AI 寫回（GAS 落地）**：

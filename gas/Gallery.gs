@@ -2873,7 +2873,7 @@ ${PROMPT_REL}
         if (v && v !== String(_prefSlots[i] || "").trim()) { _prefSlots[i] = v; _prefChanged = true; } // AI 給值且有變→更新(可refine)
       });
       if (_prefChanged) { pcData[pcIndex][COL.PC.PREF] = _prefSlots.slice(0, 4).join("、"); dirtyPcRows.add(pcIndex); }
-      // 萌點：AI 盲寫(看不到現值·紅線③不餵)，故【只補第一個發現、之後不覆寫】——INTENT 空才寫，
+      // 萌點：AI 盲寫(看不到現值·紅線②不餵)，故【只補第一個發現、之後不覆寫】——INTENT 空才寫，
       //   非空(AI 補過 or 玩家改命填過)＝鎖死不動。玩家改命隨時可覆蓋。
       const _curMoe = String(pcData[pcIndex][COL.PC.INTENT] || "").trim();
       if (!_curMoe) {

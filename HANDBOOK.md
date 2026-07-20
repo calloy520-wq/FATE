@@ -88,7 +88,7 @@ ACC(帳號·4欄): NAME0 PC1(solo御主連結) CREATED2 KPC3(🌹2026-07新增·
 | **Account.gs** | 316 | 帳號登入/存檔/清殘局 | `actionAccountLogin`、`actionAccountNewGame`、`actionPurgeOrphans`。⚠ 2026-07：排行榜/戰史相關 `actionLeaderboard`/`actionGetVictoryHistory`/`incrementWin_`/`recordHistory_`/`recordWinSpeed_` 已整套刪除（單人專注，不做跨帳號回顧） |
 | **Seed_Rivals.gs** | 231 | 開局鋪敵（正典/混亂/偽聖杯陣容） | `FATE_5TH/4TH/FAKE_ROSTER`、`seedRivalsForGame_`、`heroToNpcRow_`/`masterToNpcRow_`、`markRivalsSeen_` |
 | **Setup_FateWorld.gs** | 166 | 冪等建 7 分頁(2026-07 精簡自 13 分頁)＋冬木地圖種子 | `ensureFateSheets_`、`FATE_SHEET_DEFS`、`FATE_MAP_SEED`、`doGet` 觸發 |
-| **Engine_Combat.gs** | 245 | 🔴 LLM 調用核心＋NSFW 演化規則 | `buildDefaultSystemPrompt`、`callGeminiAPI`、`doGet`、`nsfwBaseRules`(紅線①) |
+| **Engine_Combat.gs** | 245 | 兩軌共用 LLM 調用核心 | `callGeminiAPI`、`doGet`。⚠ `nsfwBaseRules`／`buildDefaultSystemPrompt` 已於更早的重構搬到 `Gallery.gs`，此檔不含紅線①常數本體(勿再誤植) |
 | **Style.html** | 594 | 全站 CSS（暗色·金色主題·三欄RWD） | `:root` 變數、`.msg-*`、`.modal-*`、`fk*` 地圖動畫、`barThrob` |
 | **Index.html** | 414 | HTML 進入殼＋各屏 div | `#setup`/`#game` 兩容器、創角召喚各屏 ID、雙軌入口卡片 |
 | **History_Sync.gs** | 153 | 對話歷史暫存(逐句對話，驅動聊天記錄/敘事連續性) | `saveGameHistoryBatch`、`getGameHistoryBatchRaw`、`getGameHistory`。⚠ 2026-07：「因果」(事件log)機制已整套刪除——`pickRelevantLogs`/`readRecentLogRows`/`formatCausalityEntry`/`pickNsfwCausalityEvent`/`trimLogRowsByOwner`/`IMPORTANT_LOG_TAGS` 全數移除，`actionPlay` 提示詞不再組「前塵因果」段；此與仍保留的「歷史暫存」是兩套不同機制 |
@@ -184,7 +184,7 @@ ACC(帳號·4欄): NAME0 PC1(solo御主連結) CREATED2 KPC3(🌹2026-07新增·
 
 ## 9. 紅線 · 部署 · 工作流程
 
-**🚨 紅線**：① `Engine_Combat.gs` 的 `nsfwBaseRules`＋整套 NSFW 一律不可改（改鄰近處事後 `git diff | grep nsfwBaseRules` 須0）；② `calloy520-wq/GAS`(原始九州) 一字不碰，但 FATE 內九州衍生碼可清可改；③ show-don't-tell；④ 只在 `claude/traditional-chinese-chat-q8ptho` 開發；⑤ model id 不進 repo；⑥ commit footer 固定。
+**🚨 紅線**（2026-07 CLAUDE.md 已移除「GAS repo 不可動」一條，九州衍生碼清理判斷併入工程準則）：① `Gallery.gs` 的 `nsfwBaseRules`＋整套 NSFW 一律不可改（改鄰近處事後 `git diff -- gas/Gallery.gs | grep nsfwBaseRules` 須0）；② show-don't-tell；③ 只在 `claude/traditional-chinese-chat-q8ptho` 開發；④ model id 不進 repo；⑤ commit footer 固定。
 
 **驗證**：改完必跑 `bash check.sh`（驗所有 .gs ＋ Script.html 內嵌 JS·CI 不檢查 .html JS）。
 **部署**：push 該分支 → GitHub Action(clasp 3.3.0·`clasp push -f`) 自動覆蓋上 GAS。

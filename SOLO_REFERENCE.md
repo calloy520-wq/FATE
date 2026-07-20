@@ -12,9 +12,8 @@
 | 規則 | 說明 |
 |---|---|
 | **慾海禁區** | `nsfwBaseRules`（演化核心，定義在 `Gallery.gs`）＋整套 NSFW 機制**一律不可改**。只能改 SFW 的 gating／名冊。改鄰近處後跑 `git diff -- gas/Gallery.gs \| grep -c nsfwBaseRules` 確認常數本體 0 改動（grep 可能因 context 行出現假陽性，須逐行核對 `+`/`-` 兩側是否真的動到常數）。 |
-| **九州 GAS 不可動** | 原始九州/GAS repo（`/home/user/GAS`）只能複製、不可改。FATE 內部的九州衍生碼可清理。 |
 | **show-don't-tell** | 敘事禁止直接寫出角色的 願望／個性／萌點 字面。只能用神態動作演出（`servantCard_` 鐵則一二三 已強制）。 |
-| **model id** | 本模型的 exact id 不可出現在 commit／PR／程式碼／任何 push 進 repo 的東西（見 CLAUDE.md 紅線⑤）。 |
+| **model id** | 本模型的 exact id 不可出現在 commit／PR／程式碼／任何 push 進 repo 的東西（見 CLAUDE.md 紅線④）。 |
 | **branch** | 只在 `claude/traditional-chinese-chat-q8ptho` 開發。 |
 
 - **兩軌完全拆開**：`actionPlay`（鑑賞自由聊天引擎）＋`buildDefaultSystemPrompt`（含 `nsfwBaseRules`）都住在 `Gallery.gs`（鑑賞軌集中地）。`callGeminiAPI`（solo/鑑賞共用的打 API 核心）留在 `Engine_Combat.gs`。solo 走完全獨立的 `narrateWithState_`（`Router_Narrative.gs`），從不呼叫 `buildDefaultSystemPrompt`。

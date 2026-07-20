@@ -1,7 +1,7 @@
 # PLAYBOOK.md — 工作手冊（不論哪個模型接手，照這套做）
 
 > 給每一個接手本專案的 Claude（Opus／Sonnet／任何型號）。紅線在 `CLAUDE.md`（那是「不可以做什麼」），**這份是「怎麼把事做好」**——歷代 session 實戰淬出來的方法論，每條都附真實案例。效能差距不在模型大小，在有沒有照這套節奏走。
-> ⚠ 本檔提到模型只用行銷名，**確切 model id 永不寫進 repo**（紅線⑤）。
+> ⚠ 本檔提到模型只用行銷名，**確切 model id 永不寫進 repo**（紅線④）。
 
 ---
 
@@ -29,9 +29,9 @@
    git diff --stat gas/Engine_Combat.gs        # 必須空
    git diff gas/Gallery.gs | grep -c nsfwBaseRules  # 0；非0先確認只是 context 行假陽性
    確認 model id 沒進任何要 push 的檔案
-⑥ commit（訊息講「為什麼」不只「做了什麼」＋固定 footer，見 CLAUDE.md 紅線⑥）
+⑥ commit（訊息講「為什麼」不只「做了什麼」＋固定 footer，見 CLAUDE.md 紅線⑤）
 ⑦ git push -u origin <分支>
-⑧ ⛔ 停：等玩家說「要」才部署。push ≠ 玩家看得到（紅線④）
+⑧ ⛔ 停：等玩家說「要」才部署。push ≠ 玩家看得到（紅線③）
 ⑨ 部署：workflow_dispatch 觸發 deploy.yml(ref=分支) → 輪詢到 completed/success
    且 head_sha 對上這次的 commit → 才能回報「已上線」
 ⑩ 順手更新對應工具書（改鑑賞→KANSHOU_REFERENCE；改solo→SOLO_REFERENCE；

@@ -212,7 +212,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `PREF_LABELS_` = [日常表象, 真實內裡, 喜歡的事物, 討厭的事物]；`TRAIT_LABELS_` = [外貌本相, 氣質舉止, 自稱與口氣, 卸下心防的私密一面]。
 
 #### 演出卡（回傳一段塞進 narration prompt 的字串；show-don't-tell 禁複述設定字面）
-- `servantCard_(row)` — 🎭 從者卡（我方/敵/盟友共用同一份）。真名/職階/第一人稱（限角色台詞內）/對自己御主態度/四段個性/口吻/萌點/小動作/外貌四段（`looksToTraitParts_`）/身世/陣營/關係稱呼/換裝/武裝/寶具。附 ★換裝、★武裝·絕對（禁依職階或原典武器習慣改寫）、★狂化·絕對（`mad` 偵測→禁台詞只咆哮）三條硬指令。缺欄位退回 `codexPersona_`。**CLAUDE.md 紅線③強制載體。**
+- `servantCard_(row)` — 🎭 從者卡（我方/敵/盟友共用同一份）。真名/職階/第一人稱（限角色台詞內）/對自己御主態度/四段個性/口吻/萌點/小動作/外貌四段（`looksToTraitParts_`）/身世/陣營/關係稱呼/換裝/武裝/寶具。附 ★換裝、★武裝·絕對（禁依職階或原典武器習慣改寫）、★狂化·絕對（`mad` 偵測→禁台詞只咆哮）三條硬指令。缺欄位退回 `codexPersona_`。**CLAUDE.md 紅線②強制載體。**
 - `masterCard_(row)` — 🎭 御主卡（精簡）。性別/四段個性/四段特徵/萌點/身世/魔術系統+階/體術階/願望（僅供氛圍禁直述）。★可依性格給御主台詞反應，但**不可替玩家拍板戰略抉擇**（停在問句/思索）。讀 `getPlayedMaster_`→若扮演正典御主則提示 AI 調用原作形象。
 - `sealGenderFact_(masterSex, svSex, svName)` — 令咒補魔 NSFW 用性別配對事實（異/無按女性向處理）：女女→禁陽具插入描寫、無固定插入方；其餘→依各自實際性別合理呈現。與 kanshou Gallery.gs 邏輯類似但**完全獨立不共用**（紅線① solo/kanshou 隔離）。
 - `enemyMasterCard_(row)` — 🎭 敵御主卡（精簡）。戰鬥現場敵御主在場時給反應/台詞用；四段個性/特徵/萌點/身世（取「。外貌：」前段）/陣營/魔術/體術/願望。★正典人物優先調用原作形象、禁劇透未揭露身分；★非沉默背景板但勝負傷害不可改。與 masterCard_ 不同：AI 可自決其言行（NPC）。
@@ -850,7 +850,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `SEED_SERVANTS` — 種子從者名冊，**現況 25 筆**：正職戰鬥從者 14 騎（第五次 8：阿爾托莉雅/EMIYA/庫丘林/美杜莎/美狄亞/佐佐木小次郎/赫拉克勒斯/咒腕之哈桑；第四次 6：吉爾伽美什/迪盧木多/伊斯坎達爾/吉爾德萊/百貌哈桑/蘭斯洛特）＋客串戰鬥 6 騎（恩奇都、斯卡哈-Lancer、斯卡哈-Assassin、美遊、小黑、伊莉雅）＋鑑賞專用「御主」職階 5 位（遠坂凜/伊莉雅絲菲爾/間桐櫻黑化/衛宮士郎/藤村大河，cls='御主' 只供鑑賞召喚、solo 白名單擋下、six/技能/寶具留空）。每筆含 six/classSkills/skills/traits/np/persona（含 dailyLook/dailyOutfit/dailyWords/dailyBack/dailyMoe 鑑賞日常欄）。
 - `SEED_MASTERS` — 種子御主名冊，**現況 15 筆**（第五次 8：士郎/凜/慎二/臟硯/葛木/綺禮/伊莉雅絲菲爾/櫻黑化；第四次 7：切嗣/時臣/肯尼斯/韋伯/龍之介/綺禮/雁夜）。每筆含 circuits/melee/magic_rank/home/wish/persona/back/moe。
 - `CODEX_PERSONA_VER = 'v64'` — 種子人設版本，精緻化 persona 就升版觸發升級管線。
-- `SEED_RECLASSED_` — 換職階遷移表（舊 key→新 key，如貞德 Ruler→Archer；兩者現皆懸空孤兒，見下方死碼註記）。
+- `SEED_RECLASSED_` — 換職階遷移表（舊 key→新 key，如吉爾·德·萊斯青鬍子綽號列→正名列）。**2026-07 已清除懸空的 `貞德｜Ruler→貞德｜Archer` 死映射**（新舊 key 皆查無此人，regulation 遺留），現僅剩 1 條活映射，見下方死碼註記已同步更新。
 
 #### 物件→列轉換
 - `servantToHeroRow_(s)` — 從者物件→英靈殿列（順序＝COL.HERO，含 4 個日常快取欄），source='seed'。
@@ -956,7 +956,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 
 ## 死碼／可疑處
 
-- **Seed_Codex.gs `SEED_RECLASSED_` 兩條映射皆懸空**：`'貞德｜Ruler'→'貞德｜Archer'` 與 `'吉爾·德·萊斯（青鬍子）｜Caster'→'吉爾·德·萊斯｜Caster'`，但 SEED_SERVANTS 現況查無「貞德」任何職階，「吉爾·德·萊斯」種子 realName 為「吉爾·德·萊斯」cls Caster（key='吉爾·德·萊斯｜Caster'）——後者遷移的「新 key」雖解得到種子（有效，處理舊「青鬍子」綽號列），但「貞德」新舊 key 都無對應種子，該條為純死映射（resyncSummonedServants_ 有 `byKey[SEED_RECLASSED_[k]]` 存在性守門，不會誤改，只是永不生效）。
+- ~~Seed_Codex.gs `SEED_RECLASSED_` 貞德映射懸空~~ **2026-07 已清除**：原 `'貞德｜Ruler'→'貞德｜Archer'` 新舊 key 皆查無此人，純死映射，已從表中移除。現僅剩 `'吉爾·德·萊斯（青鬍子）｜Caster'→'吉爾·德·萊斯｜Caster'` 一條，這條「新 key」解得到種子（有效，處理舊「青鬍子」綽號列），非死碼。
 - **Setup_FateWorld.gs FATE_SHEET_DEFS「鑑賞」定義已移除但註解自承**：舊試算表若已建實體分頁不會自動刪（留著無害，需手動刪）。屬已知殘留、非 bug。
 - **Time_World.gs `playerHomeLoc_` 疑似被繞過**：playerServantEconomy_ 內註解明說「pIdx 剛掃過整表…直接讀 HOME_LOC 省掉再呼叫 playerHomeLoc_」，故 playerHomeLoc_ 在本檔內未被 playerServantEconomy_ 使用；是否有其他檔呼叫需跨檔確認（本七檔範圍內無其他呼叫點）。
 - **worldTick_ 暗處互鬥的 HP 寫回為逐列 setValue**（infoA/infoB 各一次、死亡列整列 setValues），與同函式其他階段「整欄批次寫回」慣例不一致；因觸發率低（7%）影響小，非錯誤但可統一。
@@ -1008,8 +1008,8 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `kanshouStatusLines_(po)` — 鑑賞肉體狀態單一自由文字欄渲染（合併自舊 6 鍵）。
 - `rankVal_(r)` — 階級（E~EX，含 +）→數值，對齊後端 rankVal/rankMul（C=30 基準）。
 - `pillRankCls_(r)` — 階級→技能膠囊流光 class 後綴（ex/a/b/de；C 與無階級=''）。
-- `showSkillDesc(name, fx, rank)` — 技能/特性 pill 點開說明：查 `FX_DESC`（依實際階級算數值）或 `TRAIT_DESC`。
-- `showActiveSkillInfo(name, fx, rank)` — 🎲 施放技術說明彈窗（純資訊：被動化·每次交鋒 50% 機率自動全效發動，免耗魔、無按鈕）。
+- `showSkillDesc(name, fx, rank, extra)` — 技能/特性 pill 點開說明：查 `FX_DESC`（依實際階級算數值，`extra` 目前只供 god_hand 帶實際剩餘命數）或 `TRAIT_DESC`。
+- `showActiveSkillInfo(name, fx, rank)` — 🎲 施放技術說明彈窗（純資訊：被動化·每次交鋒 30% 機率自動全效發動，免耗魔、無按鈕；單一真實來源見 `Router_Battle.gs` `SKILL_PROC_`）。
 - `showIdealRealm()` — 理想鄉 Avalon 無敵結界說明（被動自動、6 階究極寶具來襲＋御主魔力≥100 展開）。
 - `showSynergyInfo(on, master, peak)` — 恩奇都「變容·主從契合」說明（六圍隨御主浮動、與特定御主結契全盛）。
 - `showSixHelp(line)` — 六圍教學彈窗（筋/耐/敏/魔/運/寶說明＋該從者實際值）。

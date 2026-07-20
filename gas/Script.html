@@ -2863,7 +2863,7 @@ function applyModeUI() {
   // 🔥 曾經隱藏過這顆開關，導致 driveOn 永遠鎖在 false、🔥主動掌握模式(driveStr注入/deepseek-v3.1-terminus)整個變成用不到的死路——改回依模式顯示/隱藏。
   var drv = document.getElementById('drive-mode-toggle'); // 🔥 主動掌握開關(原nsfw-mode-toggle重生，見Index.html註解)
   if (drv) { var lab = drv.closest('label'); if (lab) lab.style.display = isKanshou ? '' : 'none'; }
-  // 🎴 solo 頂部＝查看/魔力/系統三鍵(取代地點)、底部輸入框整條隱藏(純按鍵)；慾海維持原本(頂部地點徽章＋底部輸入框＋NSFW開關)，零改動守紅線②。
+  // 🎴 solo 頂部＝查看/魔力/系統三鍵(取代地點)、底部輸入框整條隱藏(純按鍵)；慾海維持原本(頂部地點徽章＋底部輸入框＋NSFW開關)，零改動守紅線①。
   var tSolo = document.getElementById('topbar-solo'); if (tSolo) tSolo.style.display = isKanshou ? 'none' : 'flex';
   var tKan = document.getElementById('topbar-kanshou'); if (tKan) tKan.style.display = isKanshou ? '' : 'none';
   var ibar = document.getElementById('input-bar'); if (ibar) ibar.style.display = isKanshou ? '' : 'none';
