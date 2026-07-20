@@ -360,7 +360,9 @@ function refillMastersDaily_(sheets, gameId, day, preData) {
     dirty = true;
   }
   // 多名敵御主同天需回魔時，MP/MEMORY 各整欄一次寫回(取代迴圈內逐列 setValues 的零散往返，同 worldTick_ LOC 批寫手法)
-  if (dirty) {
+  // 🐛→✅ 補 BATTLE_DEFER_WRITE_ guard：呼叫端(worldTick_)若被上層要求延遲寫入(如 actionMove 稍後
+  //   自己整表批次寫回)，這裡也該一併略過，否則同一批 MP/MEMORY 值還是會被送兩次。
+  if (dirty && !BATTLE_DEFER_WRITE_) {
     var mpCol = [], memCol = [];
     for (var z = 1; z < data.length; z++) { mpCol.push([data[z][COL.PC.MP]]); memCol.push([data[z][COL.PC.MEMORY]]); }
     sheets.pc.getRange(2, COL.PC.MP + 1, mpCol.length, 1).setValues(mpCol);
@@ -377,10 +379,18 @@ var ATTRITION_START_DAY = 3; // ⏳ 開戰前期不減員：第 N 日(含)前，
 //   完全沒有回血機制，「打一下、撤退、再打一下」就能零風險磨死任何對手。回血速度遠低於玩家(不隨休息倍增)，
 //   逼玩家加快節奏或正面找到剋制手段，而不是純靠耐心刷。
 var ENEMY_REGEN_RATE_ = 0.06;
-function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) {
+// 🐛→✅ deferWrite：呼叫端(目前僅 actionMove)若稍後自己會整表批次 setValues，傳 true 讓本函式
+//   (與其內部呼叫的 refillMastersDaily_/markMasterLostServant_，皆共用同一個全域旗標)略過自己的
+//   即時寫入——否則同一批 LOC/HP/MEMORY/MP 值會在一次移動裡被送進 Sheets 兩次(worldTick_ 先寫一次、
+//   actionMove 收尾又整表寫一次)。actionRest 呼叫時不傳(維持原行為)，因它沒有涵蓋 worldTick_ 之後
+//   還會發生的 restHours_/breakStaleAlliances_/enemyAmbushOnServant_ 寫入的最終整表寫回，貿然略過
+//   worldTick_ 自己的寫入會讓這批變動整個遺失、不只是多寫一次而已。
+function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, deferWrite) {
   var rumors = [];
   if (!gameId) return { rumors: rumors, moved: 0 };
   rounds = rounds || 1;
+  var _prevDefer = BATTLE_DEFER_WRITE_;
+  if (deferWrite) BATTLE_DEFER_WRITE_ = true;
   // 全函式只整表讀一次，各階段(移位/廝殺/透支判定)共用同一份記憶體 data、只做局部批次寫回。
   // 呼叫端(actionMove/actionRest)手上通常已有剛讀好的整表 → 傳 preData 直接在同一份陣列上原地改
   // (JS 陣列傳參考)，事後不必重讀一次整表拿最新狀態；沒傳才自己整表讀一次(相容)。
@@ -545,7 +555,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
         if (!o.died) return;
         data[o.info.idx][COL.PC.ID] = "DEAD_" + String(data[o.info.idx][COL.PC.ID]);
         data[o.info.idx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "暗處殞落", "顏面": "已無生息" });
-        sheets.pc.getRange(o.info.idx + 1, 1, 1, data[o.info.idx].length).setValues([data[o.info.idx]]);
+        if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(o.info.idx + 1, 1, 1, data[o.info.idx].length).setValues([data[o.info.idx]]);
         markMasterLostServant_(sheets.pc, data, o.info.idx, "在冬木暗處的互鬥中、歿於他人之手");
       });
       // 🎨 風聞措辭多樣化：不洩漏具體交鋒數字/勝方身分，只留下魔力波動／寶具氣息等氛圍線索——
@@ -572,18 +582,20 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
   }
   // ⚡ LOC/HP 整欄一次寫回(取代原本每輪各寫一次·最多12h休息=4輪就是4次)——data 全程原地改，
   //   等所有輪跑完才寫，仍是同一份最終狀態，只是省去中途的重複 Sheets 寫入次數。
-  if (anyLocDirty) {
+  // 🐛→✅ 補 BATTLE_DEFER_WRITE_ guard：actionMove 傳 deferWrite=true 時，這裡也該略過即時寫入，
+  //   交給 actionMove 收尾那次整表 setValues 一次到位，避免同一批 LOC/HP/MEMORY 值送 Sheets 兩次。
+  if (anyLocDirty && !BATTLE_DEFER_WRITE_) {
     var locColF = [];
     for (var zl = 1; zl < data.length; zl++) locColF.push([data[zl][COL.PC.LOC]]);
     sheets.pc.getRange(2, COL.PC.LOC + 1, locColF.length, 1).setValues(locColF);
   }
-  if (anyHpDirty) {
+  if (anyHpDirty && !BATTLE_DEFER_WRITE_) {
     var hpColF = [];
     for (var zh = 1; zh < data.length; zh++) hpColF.push([data[zh][COL.PC.HP]]);
     sheets.pc.getRange(2, COL.PC.HP + 1, hpColF.length, 1).setValues(hpColF);
   }
   // 🔮 登場預告(【已預告】旗標)整欄一次寫回：同一批次寫回慣例，跟 LOC/HP 同時機、只寫一次。
-  if (anyMemDirty) {
+  if (anyMemDirty && !BATTLE_DEFER_WRITE_) {
     var memColF = [];
     for (var zm = 1; zm < data.length; zm++) memColF.push([data[zm][COL.PC.MEMORY]]);
     sheets.pc.getRange(2, COL.PC.MEMORY + 1, memColF.length, 1).setValues(memColF);
@@ -600,13 +612,17 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
         if (String(data[di][COL.PC.FACTION]) !== "敵從者") continue;
         if (String(data[di][COL.PC.GAME_ID] || "") !== gameId) continue;
         if (String(data[di][COL.PC.ID]).startsWith("DEAD_")) continue;
+        // 🐛→✅ 舊版沒排除已結盟者——上方「暗處互鬥」段落(507行)明確有 isAllied_ 守衛，這裡漏了。
+        //   玩家跟某敵從者締盟後，牠先前戰鬥留下的【靈基透支】死線並不會被撤盟約清除，時間一到就會
+        //   在玩家毫不知情下把剛結盟的盟友判死，敘事還謊稱死因是「令咒燃盡」——跟雙方已休兵的現況矛盾。
+        if (isAllied_(data[di])) continue;
         if (!hasArrived_(data[di], ck.day)) continue; // 🕰️ 尚未登場者不會有靈基透支倒數
         var dl = getDoom_(data[di][COL.PC.MEMORY]);
         if (dl > 0 && nowAbs >= dl) {
           data[di][COL.PC.ID] = "DEAD_" + String(data[di][COL.PC.ID]);
           data[di][COL.PC.HP] = 0;
           data[di][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "令咒耗盡·靈基透支消滅", "顏面": "已無生息" });
-          sheets.pc.getRange(di + 1, 1, 1, data[di].length).setValues([data[di]]);
+          if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(di + 1, 1, 1, data[di].length).setValues([data[di]]);
           markMasterLostServant_(sheets.pc, data, di, "三道令咒燃盡、靈基透支崩解而消滅");
           rumors.push("〔風聞〕「" + String(data[di][COL.PC.NAME]) + "」三道令咒已燃盡、又無『單獨行動』自持，失穩的靈基終究撐不過——崩解消散於冬木的夜色中。");
           faded = true;
@@ -628,5 +644,6 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData) 
     }
   } catch (e) { }
 
+  if (deferWrite) BATTLE_DEFER_WRITE_ = _prevDefer; // 還原旗標，不影響呼叫端後續其他邏輯的判斷
   return { rumors: rumors, moved: moved, victory: victory, dreamPrompt: dreamPrompt };
 }

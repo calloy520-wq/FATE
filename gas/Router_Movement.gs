@@ -216,7 +216,11 @@ function actionMove(userData, pcId, sheets) {
       const sp = spendAp_(moveGameId, 2, allPcData, sheets, true);
       apLeft = sp.ap;
       // 傳 allPcData 給 worldTick_/breakStaleAlliances_ 原地改(陣列傳參考)，免事後重讀整表拿 tick 後狀態。
-      const tick = worldTick_(sheets, moveGameId, target, 1, false, allPcData); // 移動只讓敵換位，不死人；但令咒透支倒數可能到期收尾
+      // 🐛→✅ 補最後一個 deferWrite=true 參數：worldTick_ 舊版不管有沒有人要求都會自己即時寫回
+      // LOC/HP/MEMORY/MP，本函式結尾(340行)又整表 setValues 一次，同一批值等於送進 Sheets 兩次——
+      // 幾乎每次移動都會踩到(敵35%機率移位、敵御主每日回魔)。傳 true 讓 worldTick_ 只改記憶體，交給
+      // 這裡收尾一次寫完。
+      const tick = worldTick_(sheets, moveGameId, target, 1, false, allPcData, true); // 移動只讓敵換位，不死人；但令咒透支倒數可能到期收尾
       worldRumors = tick.rumors || [];
       moveVictory = !!tick.victory;
       moveDream = tick.dreamPrompt || ""; // 🏆 令咒透支延遲結算若剛好收尾此局，願望夢跟著帶出來
@@ -317,7 +321,10 @@ function actionMove(userData, pcId, sheets) {
   if (isFateMove) {
     var _ch = factionClash && factionClash.choices;
     if (_ch && (_ch.ambush || _ch.incite || _ch.slip)) {
-      allPcData[pIdx][COL.PC.MEMORY] = setEncounterWindow_(allPcData[pIdx][COL.PC.MEMORY], tgtTrim, factionClash.type);
+      // svA/svB 是上面 resolveFactionEncounter_ 實際敘事的那兩名敵從者(見 clashMasters[ia]/[ib] 配對)，
+      // 隨窗口存進 MEMORY 供 actionIncite 精確鎖定，不再讓它自己猜陣列前兩個。
+      var _windowNames = (typeof svA !== 'undefined' && svA && typeof svB !== 'undefined' && svB) ? [String(svA[COL.PC.NAME]), String(svB[COL.PC.NAME])] : [];
+      allPcData[pIdx][COL.PC.MEMORY] = setEncounterWindow_(allPcData[pIdx][COL.PC.MEMORY], tgtTrim, factionClash.type, _windowNames);
     } else {
       allPcData[pIdx][COL.PC.MEMORY] = clearEncounterWindow_(allPcData[pIdx][COL.PC.MEMORY]);
     }
@@ -578,6 +585,11 @@ function actionPrepMeal(userData, pcId, sheets) {
   var mealPrompt = masterCard_(pcData[pIdx]) + (mealSvIdx !== -1 ? servantCard_(pcData[mealSvIdx]) : '') +
     `【系統·整備已裁定】御主與從者稍作整備、飽餐一頓——接下來約 ${MEAL_BUFF_HOURS} 小時內，從者出擊命中 +${MEAL_BUFF_BONUS}。\n` +
     `★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】演出這段戰前用餐、稍事休整的日常小品（一段即可），依從者性格自然流露對這頓飯／這位御主的反應；show, don't tell，語氣輕快不冗長。`;
+  // 🐛→✅ 這是本檔唯一沒交棒 STATE_PRE_DATA_ 的耗AP動作(其餘 actionScavenge/actionScout/
+  //   actionSetWorkshop/actionSecondWind 等皆有)——平時不影響任何東西(prep_meal 不在
+  //   STATE_AFTER_ACTIONS 名單內)，但若這動作剛好跨過第14日時限，Router_Action.gs 的中央攔截拿不到
+  //   交棒的 pcData 會多做一次整表重讀，跟其餘動作行為不一致，順手補上。
+  STATE_PRE_DATA_ = pcData;
   return JSON.stringify({
     success: true,
     message: `整備完畢——你與從者飽餐一頓、稍事休整。接下來約 ${MEAL_BUFF_HOURS} 小時內，從者出擊命中 +${MEAL_BUFF_BONUS}。`,
@@ -743,16 +755,20 @@ var FACTION_ENCOUNTER_CHOICES_ = {
 };
 function encounterChoices_(type) { return FACTION_ENCOUNTER_CHOICES_[type] || { ambush: false, incite: false, slip: false }; }
 
-// 🎯 撞見敵人後的「可反應窗口」：御主 MEMORY【趁隙】<loc>@<type>。決定抵達這格開放哪些情境選擇。
+// 🎯 撞見敵人後的「可反應窗口」：御主 MEMORY【趁隙】<loc>@<type>@<svA>、<svB>。決定抵達這格開放哪些情境選擇。
 //   窗口在「再次移動」時清掉（悄悄離開）或被下一次抵達覆寫；趁隙/挑撥用掉即清。
-function setEncounterWindow_(memory, loc, type) {
+// 🐛→✅ names 補上這場局面實際牽涉的兩名敵從者真名——舊版只存 loc@type，actionIncite 事後靠
+//   陣列順序重新猜「前兩個」敵從者，同地若有第三組完全無關的敵人排在更前面，會被誤挑撥/誤傷，
+//   跟玩家剛讀到的敘事(哪兩個在對峙)完全脫鉤。有 names 就精確鎖定，缺 names(相容舊呼叫)才退回猜測。
+function setEncounterWindow_(memory, loc, type, names) {
   var mem = clearEncounterWindow_(memory);
-  var tag = "【趁隙】" + String(loc || "").replace(/[｜@【】]/g, "") + "@" + String(type || "");
+  var safeNames = (names || []).filter(Boolean).map(function (n) { return String(n).replace(/[｜@【】、]/g, ""); });
+  var tag = "【趁隙】" + String(loc || "").replace(/[｜@【】]/g, "") + "@" + String(type || "") + (safeNames.length ? "@" + safeNames.join("、") : "");
   return mem ? mem + "｜" + tag : tag;
 }
 function getEncounterWindow_(memory) {
-  var m = String(memory || "").match(/【趁隙】([^｜@]+)@([a-z_]+)/);
-  return m ? { loc: m[1], type: m[2] } : null;
+  var m = String(memory || "").match(/【趁隙】([^｜@]+)@([a-z_]+)(?:@([^｜]*))?/);
+  return m ? { loc: m[1], type: m[2], names: m[3] ? m[3].split("、").filter(Boolean) : [] } : null;
 }
 function clearEncounterWindow_(memory) {
   return String(memory || "").replace(/【趁隙】[^｜]*/g, "").replace(/｜｜+/g, "｜").replace(/^｜|｜$/g, "");
@@ -866,7 +882,15 @@ function actionIncite(userData, pcId, sheets) {
       String(r[COL.PC.LOC]).trim() === myLoc && !isAllied_(r) && hasArrived_(r, day)) foeSvs.push(i);
   });
   if (foeSvs.length < 2) return JSON.stringify({ success: false, message: "這裡沒有兩方可供挑撥的敵人。" });
-  var iA = foeSvs[0], iB = foeSvs[1];
+  // 🐛→✅ 舊版固定取 foeSvs[0]/[1](陣列/試算表列序)，跟玩家剛讀到的敘事(resolveFactionEncounter_
+  //   實際挑中哪兩組)毫無關聯——同地≥3組敵人時，可能挑撥/傷到敘事完全沒提到的第三組。win.names
+  //   帶著那場敘事真正牽涉的兩個真名，優先用真名精確比對；缺 names(相容舊窗口)才退回陣列順序猜測。
+  var iA, iB;
+  if (win.names && win.names.length >= 2) {
+    iA = foeSvs.find(function (i) { return String(pcData[i][COL.PC.NAME]) === win.names[0]; });
+    iB = foeSvs.find(function (i) { return String(pcData[i][COL.PC.NAME]) === win.names[1]; });
+  }
+  if (iA == null || iB == null || iA === iB) { iA = foeSvs[0]; iB = foeSvs[1]; }
   var mIdxA = enemyMasterIdx_(pcData, iA, gameId), mIdxB = enemyMasterIdx_(pcData, iB, gameId);
   var leanA = mIdxA >= 0 ? masterPersonaLean_(pcData[mIdxA]) : { pragmatic: false, loner: true };
   var leanB = mIdxB >= 0 ? masterPersonaLean_(pcData[mIdxB]) : { pragmatic: false, loner: true };
@@ -1165,10 +1189,22 @@ function actionSetWorkshop(userData, pcId, sheets) {
 
 // 🔍 搜索物資：偵查鄰近敵蹤為主，順手撿拾零星魔力（耗 1 AP）
 //   ⚠ 反「無痛回魔」：每地的散逸魔力有限，搜刮一次即枯竭——同地重搜只得殘渣。
-//   想真正回滿池要付永久代價(補魔)或靠時間(靈脈/陣地/休息)。標記記於 MEMORY【搜刮】loc。
-var SCAVENGE_TAG_ = makeTextTag_('搜刮');
-function getScavengedLoc_(memory) { return SCAVENGE_TAG_.get(memory); }
-function setScavengedLoc_(memory, loc) { return SCAVENGE_TAG_.set(memory, loc); }
+//   想真正回滿池要付永久代價(補魔)或靠時間(靈脈/陣地/休息)。標記記於 MEMORY【搜刮】loc1、loc2...(已枯竭地點清單)。
+// 🐛→✅ 舊版用 makeTextTag_ 只能存「單一」最近搜刮地點，玩家在A、B兩地間來回搜刮可無限白嫖：
+//   搜A(標記枯竭=A)→搜B(標記被覆寫成枯竭=B，A的枯竭紀錄就此消失)→回搜A又被當成全新地點、領滿額——
+//   跟註解自陳的「同地重搜只得殘渣」設計意圖矛盾。改成存「所有已枯竭地點」清單、用 indexOf 判斷
+//   是否曾搜過，而非跟單一最近值相等比對，才是真的「每地限一次」。
+function getScavengedLocs_(memory) {
+  var m = String(memory || '').match(/【搜刮】([^｜【]+)/);
+  return m ? m[1].split('、').filter(Boolean) : [];
+}
+function addScavengedLoc_(memory, loc) {
+  var locs = getScavengedLocs_(memory);
+  if (locs.indexOf(loc) < 0) locs.push(loc);
+  var s = String(memory || '');
+  var tag = '【搜刮】' + locs.join('、');
+  return /【搜刮】[^｜【]*/.test(s) ? s.replace(/【搜刮】[^｜【]*/, tag) : (s ? s + '｜' : '') + tag;
+}
 function actionScavenge(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
@@ -1180,11 +1216,11 @@ function actionScavenge(userData, pcId, sheets) {
   const mpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || 80;
   const cur = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
   const curLoc = String(pcData[pIdx][COL.PC.LOC] || "").trim();
-  const depleted = getScavengedLoc_(pcData[pIdx][COL.PC.MEMORY]) === curLoc && curLoc !== "";
+  const depleted = curLoc !== "" && getScavengedLocs_(pcData[pIdx][COL.PC.MEMORY]).indexOf(curLoc) >= 0;
   const rate = depleted ? 0.03 : 0.10;
   const gain = Math.max(0, Math.min(mpMax, cur + Math.round(mpMax * rate)) - cur);
   pcData[pIdx][COL.PC.MP] = cur + gain;
-  if (!depleted && curLoc) pcData[pIdx][COL.PC.MEMORY] = setScavengedLoc_(pcData[pIdx][COL.PC.MEMORY], curLoc);
+  if (!depleted && curLoc) pcData[pIdx][COL.PC.MEMORY] = addScavengedLoc_(pcData[pIdx][COL.PC.MEMORY], curLoc);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   let ap = AP_PER_DAY, clock = "";
   if (isFate) { try { ap = spendAp_(myGameId, 1, pcData, sheets).ap; clock = clockLabel_(myGameId, pcData); } catch (e) { } }

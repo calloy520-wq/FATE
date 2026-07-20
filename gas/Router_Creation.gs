@@ -88,7 +88,11 @@ function actionManualNpc(userData, pcId, sheets) {
       "【令咒】3",
       `【模式】${userData.warMode === 'chaos' ? 'chaos' : 'canon'}`,
       userData.warMode === 'chaos' ? "" : `【戰爭】${['4th', '5th'].indexOf(String(userData.war)) >= 0 ? userData.war : '5th'}`,
-      (userData.warMode !== 'chaos' && userData.playedMaster) ? `【扮演】${cleanTagText_(userData.playedMaster)}` : ""
+      // 🐛→✅ 舊版只看 userData.playedMaster 是否有值，沒有同步要求上面第43-44行驗證過的
+      //   _playingThisCanon(playedMaster id 對應真名須等於 finalName)——玩家選了扮演正典御主、
+      //   隨後把姓名欄改成任意原創名再送出，仍會殘留【扮演】標記，讓 seedRivalsForGame_ 誤將
+      //   該正典御主整組從本局敵人名單移除，等於免費刪掉一組對手。改成與撞名檢查共用同一個判準。
+      (userData.warMode !== 'chaos' && _playingThisCanon) ? `【扮演】${cleanTagText_(userData.playedMaster)}` : ""
     ].filter(Boolean).join("｜");
     // 起始禮裝：玩家自選；驗證＝合法的【被動】禮裝 id，空／'none'／破戒(special) 一律不帶。
     try {
@@ -288,7 +292,11 @@ function originGuide_(origin) {
 //   skills 2~3)，不共用同一個寬鬆值，避免 AI 吐出兩倍於預算的技能數量。
 function sanitizeSkills_(arr, maxCount) {
   if (!Array.isArray(arr)) return [];
-  var okR = function (v) { return /^(E|D|C|B|A|EX)(\+{1,2}|\-)?$/.test(v); };
+  // 🐛→✅ 舊版連 EX、連帶 +/++/− 修飾符都放行，但 forgeCost_ 的計價表(SKILL_PTS_/_BIG_/_SMALL_/
+  //   FLAT_FX_)只有 E/D/C/B/A 五個裸階級鍵，EX 或帶修飾符的階級一律落到 `||15` 預設分——比B階(20)/
+  //   A階(25)還便宜，卻套用真正EX(60點)的戰鬥威力，形同同時放寬驗證又算價算錯。改成比照工房
+  //   parseForgeBuild_ 對技能階級的精確驗證集合(只認裸 E/D/C/B/A)，不在此集合內一律退回 C。
+  var okR = function (v) { return /^(E|D|C|B|A)$/.test(v); };
   return arr.filter(Boolean).slice(0, maxCount || 5).map(function (s) {
     var fx = String((s && (s.fx || s.效果碼)) || "").trim();
     var r = String((s && (s.r || s.階級 || s.rank)) || "C").toUpperCase().trim();
@@ -399,6 +407,9 @@ function forgeCost_(six, skills, npScale) {
 //   拜託「務必有強有弱」擋不住偶爾生出偏弱從者，這裡改成 GAS 硬性補強：算完低於下限就把最弱一項六圍
 //   逐階往上補，直到達標或撞 EX≤2 上限(見 sanitizeSix_)為止。同樣不算職階技能(見上，工房也不算)。
 var FORGE_FLOOR_ = 340;
+// Berserker 職階附贈狂化C(傷+但命中/迴避−·不可關)是唯一負資產禮物，補正+30 拉平——工房與 AI
+// 生成上限封頂共用同一份，不各自宣告(單一真實來源)。
+var FORGE_CLS_BONUS_ = { Berserker: 30 };
 function bumpSixToFloor_(six, skills, npScale) {
   var RANKS = ["E", "D", "C", "B", "A", "EX"];
   var keys = Object.keys(six);
@@ -414,6 +425,29 @@ function bumpSixToFloor_(six, skills, npScale) {
     var weakest = bumpable.reduce(function (a, b) { return rankVal(six[a]) <= rankVal(six[b]) ? a : b; });
     var idx = RANKS.indexOf(String(six[weakest]).replace(/[+\-]+$/, ""));
     six[weakest] = RANKS[idx + 1];
+  }
+  return six;
+}
+
+// 🐛→✅ 舊版只擋「太弱」(bumpSixToFloor_)沒擋「太強」——工房 parseForgeBuild_ 超預算會直接
+//   `return {ok:false,...}` 拒絕重填，但 AI 生成沒有「打回重填」的來回，若 AI 一開始就給出偏強
+//   六圍+技能(prompt 明講「不得保守低估」很容易誘發)，完全沒有後續檢查會擋下，可無上限超出工房
+//   任何職階都拿不到的預算天花板。改成比照 bumpSixToFloor_ 反向：超過上限就把最強一項六圍逐階
+//   往下砍，直到達標或砍無可砍(全部已是 E)為止；上限比照 parseForgeBuild_ 的 clsBudget 概念，
+//   共用 FORGE_CLS_BONUS_ 讓 Berserker 補正對稱。
+function capSixToBudget_(six, skills, npScale, cls) {
+  var RANKS = ["E", "D", "C", "B", "A", "EX"];
+  var keys = Object.keys(six);
+  var budget = FORGE_FLOOR_ + (FORGE_CLS_BONUS_[cls] || 0);
+  var guard = 0;
+  while (forgeCost_(six, skills, npScale).total > budget && guard++ < 40) {
+    var reducible = keys.filter(function (k) {
+      return RANKS.indexOf(String(six[k]).replace(/[+\-]+$/, "")) > 0; // 已是 E 就不能再降
+    });
+    if (!reducible.length) break;
+    var strongest = reducible.reduce(function (a, b) { return rankVal(six[a]) >= rankVal(six[b]) ? a : b; });
+    var idx = RANKS.indexOf(String(six[strongest]).replace(/[+\-]+$/, ""));
+    six[strongest] = RANKS[idx - 1];
   }
   return six;
 }
@@ -455,7 +489,9 @@ function parseForgeBuild_(build, reqCls) {
   // 🎭 特性(traits)：純敘事風味標籤(見 Script.html TRAIT_DESC)，不進 FORGE_BUDGET 計費、不驗白名單——
   //   玩家想捏其他作品角色(如「賽亞人」「人造人」)需要能自由發揮，比照 AI 生成分支(aiTraits)同一套
   //   清洗規則(頓號/逗號分段、上限4個、單則截8字)，讓工房手捏角色也能貼這類梗。
-  out.traits = String(build.traits || "").split(/[、,，]/).map(s => s.trim()).filter(Boolean).slice(0, 4).map(n => ({ n: n.slice(0, 8) }));
+  // 🐛→✅ 補 HTML 斷字字元清洗——同一函式內技能名稱(out.skills)早有這道清洗，特性名稱漏了，
+  //   兩者最終都會被 Script.html 的 pill()/showSkillDesc() 原樣拼進 <span> HTML 顯示。
+  out.traits = String(build.traits || "").split(/[、,，]/).map(s => s.trim()).filter(Boolean).slice(0, 4).map(n => ({ n: n.replace(/[<>&"'`]/g, "").slice(0, 8) }));
   if (isMasterCls) {
     // 🌹 御主：六圍/技能/寶具/武裝全部略過驗證與計費，強制留空(鑑賞用不到、不進戰鬥引擎)。
     out.six = {}; out.skills = []; out.classSkills = [];
@@ -465,9 +501,9 @@ function parseForgeBuild_(build, reqCls) {
   }
   // 預算 340＝種子中位數(點滿≈尼祿/美杜莎中堅)；強者種子(420~505·且握有工房買不到的概念 fx)仍明確在上。
   const FORGE_BUDGET = 340;
+  // FORGE_CLS_BONUS_ 已上移為檔案級單一真實來源（與 AI 生成路徑 capSixToBudget_ 共用）：
   // Berserker 職階附贈狂化C(傷+但命中/迴避−·不可關)是唯一負資產禮物，同素體實測墊底——
   //   補正+30 拉平(+50 會反轉成最優職階，370 頂配狂戰實測後仍只是強力中堅，安全)。
-  const FORGE_CLS_BONUS_ = { Berserker: 30 };
   const okPlain = v => /^(E|D|C|B|A|EX)$/.test(String(v || "").toUpperCase());
   out.six = {};
   ["筋力", "耐久", "敏捷", "魔力", "幸運", "寶具"].forEach(k => { const v = String((build.six || {})[k] || "C").toUpperCase(); out.six[k] = okPlain(v) ? v : "C"; });
@@ -764,7 +800,11 @@ ${FX_MENU_}
       // 🌀 六圍下限保底：AI 常自己抓不準力度，光靠 prompt「務必有強有弱」擋不住——GAS 這裡硬性補強
       //   到與工房 FORGE_BUDGET(340) 對齊(不含職階技能 aiCSkills，理由見 bumpSixToFloor_ 註解)。
       bumpSixToFloor_(aiSix, aiSkills, /對軍/.test(np) ? "對軍" : "對人");
-      const aiTraits = Array.isArray(aiBrief.traits) ? aiBrief.traits.filter(Boolean).slice(0, 4).map(t => ({ n: String((t && (t.n || t.名稱 || t.name)) || t).slice(0, 8) })) : [];
+      // 🐛→✅ 只補下限沒補上限——AI 常被 prompt「不得保守低估」誘導生出偏強六圍/技能組合，比照
+      //   工房 parseForgeBuild_ 的預算硬上限，改成超標就砍最強一項六圍，直到落回預算內。
+      capSixToBudget_(aiSix, aiSkills, /對軍/.test(np) ? "對軍" : "對人", cls);
+      // 🐛→✅ 同工房路徑，補 HTML 斷字字元清洗（原本只做長度截斷）。
+      const aiTraits = Array.isArray(aiBrief.traits) ? aiBrief.traits.filter(Boolean).slice(0, 4).map(t => ({ n: String((t && (t.n || t.名稱 || t.name)) || t).replace(/[<>&"'`]/g, "").slice(0, 8) })) : [];
       const svHp = 150 + svNum_(aiSix.耐久) * 6, svMp = 0; // 🔋 出力電池制：從者無自有魔力池，出力檔存 MEMORY、預設 60 巡航
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;

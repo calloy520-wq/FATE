@@ -1616,17 +1616,11 @@
       } else {
         sh = '';
       }
-      // 🆕 鑑賞標籤卡片下方露出剩餘空位，純顯示用(有人跟你同地點才會出現卡片，沒有就是空位)——
-      //   不可點擊，召喚/管理同伴改走頂部標題列的👥鈕(見Index.html #topbar-kanshou/openCompanions)。
-      if (pc && pc.mode === 'kanshou') {
-        var kcEmptySlots = Math.max(0, 3 - myServants.length);
-        if (kcEmptySlots > 0) {
-          var slotHtml = Array(kcEmptySlots).fill(0).map(function () {
-            return '<div style="background:rgba(40,20,34,0.3); border:1px dashed #4a3a44; border-radius:8px; padding:14px 8px; text-align:center; color:#6a5560; font-size:12px;">（空位）</div>';
-          }).join('<div style="height:6px;"></div>');
-          sh = sh ? (sh + '<div style="height:6px;"></div>' + slotHtml) : slotHtml;
-        }
-      }
+      // 🐛→✅ 舊版在這裡補畫「剩餘空位」佔位框，寫死用「3 - 目前人數」算空位數——但 2026-07 §91
+      //   「駐留制」改版後，同地點可召喚同伴數量早已沒有上限(buildTagsPayload_ 只按 LOC 是否同一格
+      //   篩選，沒有任何數量截斷)。這個「3」是介面上憑空捏造出來的假上限，暗示玩家「這裡最多3人」
+      //   「要湊到3人才算補滿隊伍」，會誤導玩家對容量規則的認知。因為沒有實際上限、也就沒有對應的
+      //   「正確空位數」可以顯示，故整段移除，不再假裝有一個不存在的容量規則。
       // 🐛→✅ 移除左側狀態面板這份「供魔收支」明細——跟頂部「🔮 魔力」彈窗(openManaPanel)完全重複，
       //   標題更清楚(🔮 御主魔力・供魔收支)、還多帶靈基出力面板；魔力條現已直接顯示淨值/時(見 bar())，
       //   一眼看光的需求不再需要這裡再疊一份。入不敷出警告仍在「🔮 魔力」彈窗保留。

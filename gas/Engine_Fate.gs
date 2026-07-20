@@ -46,7 +46,12 @@ var PIERCE_GAP = 2; // 攻方概念階高出守方此值以上 → 概念壓制�
 function conceptTier_(fx) { return CONCEPT_TIER[fx] || 1; }
 // 取某戰鬥單位「進攻概念」的最高位階（只看寶具解放時真正打出的高位階攻擊概念）
 function offenseTier_(c, isNp) {
-  var pierceFx = isNp ? ['ea', 'enuma', 'excalibur', 'rule_breaker', 'ubw', 'summon_horror', 'anti_magic_lance', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify']
+  // 🐛→✅ 舊版 pierceFx 把 gae_bolg 放進「不管選哪個寶具都無條件掃永久技能列表」的清單——單寶具
+  //   從者(如庫丘林)沒問題，但斯卡哈這類多寶具從者的 gae_bolg 同時也是一條永久固有技能(她的槍本身)，
+  //   即使這次選的是完全無關的 Gate of Skye，仍會被判定「這次解放帶概念4貫穿」。下面第55行的
+  //   npProfile_(c).fx 判定本就已經正確處理「這次實際選的是哪個寶具」(單寶具靠 firstSignatureFx_
+  //   退路、多寶具讀 npChoice)，故 gae_bolg 從這個無條件清單移除，改完全交給該行按選定寶具判定。
+  var pierceFx = isNp ? ['ea', 'enuma', 'excalibur', 'rule_breaker', 'ubw', 'summon_horror', 'anti_magic_lance', 'tsubame', 'zabaniya', 'petrify']
                       : ['rule_breaker', 'anti_magic_lance']; // 非解放時，只有破戒/破魔這類「常駐穿透概念」生效
   var t = 1;
   for (var i = 0; i < pierceFx.length; i++) { if (hasFx_(c, pierceFx[i])) t = Math.max(t, conceptTier_(pierceFx[i])); }
@@ -170,9 +175,13 @@ function hasFx_(c, fx) {
   }
   return null;
 }
-// ⚡ 因果律武器：技能帶 causality:true 的從者，寶具對轟時死亡已在因果上先確定（Gáe Bolg 等）。
+// ⚡ 因果律武器：寶具對轟時死亡已在因果上先確定（Gáe Bolg 等，技能帶 causality:true 標記）。
+// 🐛→✅ 舊版掃整個永久技能列表找 causality 旗標，沒管玩家「這次實際解放的是哪個寶具」——斯卡哈
+//   雙寶具其一是 Gáe Bolg(因果律)、另一是 Gate of Skye(無此機制)，永久技能列表裡仍留著
+//   {fx:'gae_bolg',causality:true}的技能條目，導致選了 Gate of Skye 照樣被判定為因果律必殺。
+//   改成跟 resolveFateBattle_ 內 npIs('gae_bolg') 同一套判準：只看「這次實際解放」的 npProfile_.fx。
 function hasCausalityNp_(c) {
-  return (c.skills || []).some(function(s) { return s && s.causality; });
+  return npProfile_(c).fx === 'gae_bolg';
 }
 
 // 🕊️ 目標的「神性階級」單一真實來源：divine fx／divine_core fx／特性技能名含 神性|神格|神靈(無標階退'C')

@@ -101,8 +101,15 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
   row[COL.PC.SIX] = JSON.stringify(six);
   row[COL.PC.TAGS] = JSON.stringify({ skills: tagSkillKind_(classSkills, 'class').concat(tagSkillKind_(skills, 'skill')), traits: traits });
   // 復活命數：敵從者也要吃 god_hand 的 lives 覆寫(如尼祿3)，否則 getGodHandLives_ 誤套赫拉克勒斯專屬預設11。
+  // 🐛→✅ 舊版只在技能物件本身寫死 lives 時才補標記，漏了 Router_Creation.gs actionSummonServant
+  //   對玩家自己召喚 ai_gen 原創從者的同一條後備規則(無 lives 時 ai_gen→3命)。混亂模式明確允許玩家
+  //   原創英靈進敵人池，一旦這類從者被抽中當敵人，這裡沒有 ai_gen 後備，就會落回預設11命——同一隻
+  //   從者玩家自己召喚只有3命，變成敵人卻有11命，比原設計硬了近4倍。
   var ghSkillNpc = classSkills.concat(skills).find(function (s) { return s && s.fx === 'god_hand'; });
-  if (ghSkillNpc && ghSkillNpc.lives != null) row[COL.PC.MEMORY] += '｜【試煉】' + ghSkillNpc.lives;
+  if (ghSkillNpc) {
+    var ghLivesNpc = (ghSkillNpc.lives != null) ? ghSkillNpc.lives : (String(hero[COL.HERO.SOURCE]) === 'ai_gen' ? 3 : null);
+    if (ghLivesNpc != null) row[COL.PC.MEMORY] += '｜【試煉】' + ghLivesNpc;
+  }
   row[COL.PC.CONTRIB] = (faction === "敵從者") ? 3 : 0; // 敵方令咒餘量(對面御主的 3 道令咒，可緊急脫離)
   row[COL.PC.GAME_ID] = gameId;
   return row;
@@ -126,7 +133,12 @@ function masterToNpcRow_(mr, gameId, loc, faction, heroMagicRank) {
   row[COL.PC.LOC] = loc;
   row[COL.PC.PREF] = parseTraitsHelper(String(mr[COL.MASTER.PERSONA] || "").replace(/・/g, "、"), "沉著表象、堅定內裡、珍視之物、厭惡之事");
   // 敵御主與玩家御主同制：HP 看迴路(masterMaxHpMp_)，MP 走共用魔力池公式(masterPoolMax_＝迴路×10＋從者魔力×2)。
-  var circuits = parseInt(mr[COL.MASTER.CIRCUITS] || 30);
+  // 🐛→✅ masterMaxHpMp_ 本身已補迴路上限(Math.min(50,...))，但這裡沒把「同一個」夾好範圍的值
+  //   同時餵給沒有上限的 masterPoolMax_、也沒同步寫進 MEMORY【迴路】——SEED_MASTERS 剛好有兩位
+  //   circuits > 50(伊莉雅絲菲爾-5th:80、肯尼斯-4th:65)，導致她們 HP 被夾在 50 迴路水準、MP 卻按
+  //   真正的 80/65 算，兩邊從開局第一天起就內部不自洽。玩家自創御主的建角流程(Router_Creation.gs
+  //   actionManualNpc)已修過同一個坑，這裡比照同一套夾法、同一個值餵兩處＋寫進 MEMORY。
+  var circuits = Math.max(12, Math.min(50, parseInt(mr[COL.MASTER.CIRCUITS] || 30)));
   var hp = masterMaxHpMp_(circuits).hp, mp = masterPoolMax_(circuits, rankVal(heroMagicRank || 'C'));
   row[COL.PC.HP] = hp; row[COL.PC.MP] = mp;
   row[COL.PC.MAX_HP] = hp; row[COL.PC.MAX_MP] = mp;
@@ -136,7 +148,7 @@ function masterToNpcRow_(mr, gameId, loc, faction, heroMagicRank) {
   //   讀陣營那段邏輯看似在跑、實際上從沒讀到值。現在有值了，補上單一真實來源的搬運。
   row[COL.PC.ALIGN] = String(mr[COL.MASTER.ALIGN] || "").trim();
   // 體術/魔術階位需寫進 MEMORY，masterCard_ 與 injectMasterMeleeSupport_/injectMasterMagicSupport_ 才讀得到。
-  row[COL.PC.MEMORY] = `【願望】${mr[COL.MASTER.WISH] || ""}｜【魔術】${mr[COL.MASTER.MAGIC] || ""}｜【迴路】${parseInt(mr[COL.MASTER.CIRCUITS] || 30)}｜【體術】${mr[COL.MASTER.MELEE] || ""}｜【魔術階位】${mr[COL.MASTER.MAGIC_RANK] || ""}`;
+  row[COL.PC.MEMORY] = `【願望】${mr[COL.MASTER.WISH] || ""}｜【魔術】${mr[COL.MASTER.MAGIC] || ""}｜【迴路】${circuits}｜【體術】${mr[COL.MASTER.MELEE] || ""}｜【魔術階位】${mr[COL.MASTER.MAGIC_RANK] || ""}`;
   row[COL.PC.GAME_ID] = gameId;
   return row;
 }
@@ -224,7 +236,12 @@ function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
       if (r.arriveDay) sRow[COL.PC.MEMORY] = setArriveDay_(sRow[COL.PC.MEMORY], r.arriveDay);
       if (r.arriveHint) sRow[COL.PC.MEMORY] = setArriveHint_(sRow[COL.PC.MEMORY], r.arriveHint);
       var master = r.master ? findMaster(r.master) : null;
-      if (!master) { rows.push(sRow); return; } // 🕯️ 真正無御主：只鋪從者列，不建御主列、不做硬連結
+      // 🐛→✅ heroToNpcRow_ 無條件給敵從者 CONTRIB=3(「對面御主的3道令咒，可緊急脫離」)——但令咒本是
+      //   御主的資源，真正無御主的孤身從者(如佐佐木小次郎)沒有人能燃令咒命他撤離。舊版沒歸零，
+      //   Router_Battle.gs 的令咒緊急脫離分支見 CONTRIB>0 就照樣觸發，因無【御主】連結退回「同地點
+      //   就當作是他的御主」的相容性後備，若剛好有其他敵御主同駐一地(如柳洞寺的葛木宗一郎)，會被
+      //   誤判成孤身從者的主人、一併強制傳送撤離，把他跟自己真正的從者硬生生拆散。
+      if (!master) { sRow[COL.PC.CONTRIB] = 0; rows.push(sRow); return; } // 🕯️ 真正無御主：只鋪從者列，不建御主列、不做硬連結
       var mRow = masterToNpcRow_(master, gameId, r.loc, '敵御主', heroMagicRank_(hero));
       if (r.arriveDay) mRow[COL.PC.MEMORY] = setArriveDay_(mRow[COL.PC.MEMORY], r.arriveDay);
       if (r.arriveHint) mRow[COL.PC.MEMORY] = setArriveHint_(mRow[COL.PC.MEMORY], r.arriveHint);

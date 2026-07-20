@@ -235,12 +235,10 @@ function actionBond(userData, pcId, sheets) {
   let bondAp = null, bondClock = "";
   if (isFate) { try { bondAp = spendAp_(myGameId, 1, pcData, sheets).ap; bondClock = clockLabel_(myGameId, pcData); } catch (e) { } }
 
-  // 取最新羈絆值供顯示（羈絆存於從者自己列的 BOND 欄，raiseBond_ 已寫回，這裡重讀一次拿最新值）
-  let bondNow = 0;
-  try {
-    const freshSv = sheets.pc.getRange(svIdx + 1, COL.PC.BOND + 1).getValue();
-    bondNow = parseInt(freshSv) || 0;
-  } catch (e) { }
+  // 🐛→✅ 舊版又即時讀一次 Sheets 拿「最新羈絆值」，但 raiseBond_(229行) 早已在同一份 pcData
+  //   陣列上原地改過(svIdx 與 raiseBond_ 內部依名字找到的列是同一列，同 game_id 下從者名字唯一)，
+  //   pcData[svIdx][COL.PC.BOND] 這裡就已經是最新值，改直接讀記憶體，省一趟純浪費的 Sheets 讀取。
+  const bondNow = parseInt(pcData[svIdx][COL.PC.BOND]) || 0;
 
   // 取「已達成但尚未演出過」的最低門檻，不論本次相處是否跨過門檻——羈絆若被其他管道墊高越過，
   //   仍能補演。只算候選、暫不寫回，等確認沒被奇襲打斷才落地。

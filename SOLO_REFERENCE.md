@@ -381,3 +381,46 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 - **`servantStrike` 目標查找補陣營過濾**：舊版 `localNPCs.find(n=>n.name===npcName)` 純用名字比對、不分陣營，若同地某盟友/其他敵人恰巧與被點目標同名，會把錯誤的 id 送進 `fate_battle` payload。改成先按 `isMaster` 決定該找「敵御主」還是「敵從者」陣營再比名字。
 - **「戰鬥續行」技能說明修正「可反覆」誤導**：`Script_Onboarding.html` 技能圖鑑舊版寫「可反覆」，讀起來像能連續多次自動觸發，實際機制是撐 1 血後必須先被治癒回 1 以上，下次致命傷才會再度觸發——改寫成「須先療傷才能再撐一次」。
 - **`localFoeServantName()` 補多敵情況**：舊版只回第一個找到的敵從者名字，同地若有 ≥2 個未結盟敵從者，卸防警示(休息/補魔/靈基修復/羈絆/與盟友共處前置確認)只提一個名字、低估威脅——改成找全部，多於1個時在名字後補「等N名」（不變動任一呼叫端的字串組裝格式）。
+
+## 17. 更廣範圍擴大稽核（2026-07・9維度找問題＋雙重對抗驗證，25項確認為真全數修復）
+
+玩家對五路稽核仍不放心，要求開一輪更徹底的：9個維度(戰鬥引擎/移動世界模擬/創角召喚工房/種子資料schema/前端UI/MEMORY標記一致性/AI敘事一致性/效能round-trip/輸入驗證安全邊界)平行找問題，每個候選發現派2個獨立AI各自讀code嘗試推翻，兩個都推翻不了才算數。26個候選中25個確認為真、1個被推翻，25個全數修復：
+
+**安全邊界**：
+- `sanitizeUserData_` 的 `STRICT_NAME_FIELDS` 白名單寫的是 `newRelName`，但 `actionUpdateRelTag` 實際讀的欄位叫 `newTagText`——兩個字串對不上，這條HTML斷字字元清洗規則從沒生效過，關係稱呼欄位只吃長度截斷，前端卡片onclick屬性拼接又只濾單引號，等於留一個可注入的缺口。改成白名單放對的鍵名。
+- `setOutfit_`/`setWeapon_`(Core_Settings.gs) 只濾MEMORY分隔符沒濾HTML斷字字元，換裝/武裝文字被原樣拼進innerHTML且未逃逸——比照同批已修過的realName/np補上清洗。
+- 工房與AI生成兩路徑的特性(traits)名稱只做長度截斷，唯獨技能名稱有HTML斷字字元清洗——兩路徑都補齊。
+
+**創角召喚工房**：
+- AI自訂召喚只有六圍下限保底(`bumpSixToFloor_`)沒有上限——工房 `parseForgeBuild_` 超預算會直接拒絕，AI沒有「打回重填」的來回，可無上限超出預算。新增 `capSixToBudget_`(反向邏輯：超標就砍最強一項六圍)，`FORGE_CLS_BONUS_` 上移為檔案級單一真實來源給兩路徑共用。
+- `sanitizeSkills_` 的技能階級驗證允許 `EX` 且帶 `+/++/-` 修飾符，但 `forgeCost_` 計價表只有裸 E/D/C/B/A 五個鍵，EX技能落到比B/A都便宜的預設分卻套用真正EX的戰鬥威力——改成只認裸E/D/C/B/A，比照工房驗證集合。
+- `actionManualNpc` 寫入【扮演】標記只看 `userData.playedMaster` 是否有值，沒同步要求 `_playingThisCanon`(真名比對)——玩家選扮演正典御主又改名，仍會殘留標記讓 `seedRivalsForGame_` 誤刪一組正典敵人，免費刪對手。改成共用同一個判準。
+
+**戰鬥引擎**：
+- `hasCausalityNp_`(Engine_Fate.gs) 掃整個永久技能列表找 `causality` 旗標，沒管「這次實際解放的是哪個寶具」——斯卡哈雙寶具其一是Gáe Bolg(因果律)、另一是Gate of Skye(無此機制)，選了後者仍被判定必殺。改成只看 `npProfile_(c).fx`(這次實際選定的寶具)。連帶修正 `offenseTier_` 的 `pierceFx` 清單同款問題(gae_bolg從清單移除，改完全交給既有的npProfile_判定)。
+- `applyMasterStanceShare_`(御主參戰分擔) 在從者剛被打死的同一擊仍會觸發，對已標記 `DEAD_` 的列回補HP、白扣御主HP——3個呼叫點都補 `!knocked` 判斷，函式本身也加一道防禦性補查。
+- 斬首戰術分支從沒套用 `BATTLE_DEFER_WRITE_` 批次寫回，雙從者斬首失敗最壞觸發5+次個別Sheets寫入——改成跟主戰鬥路徑同一套，分支結尾一次整表寫回。
+- `actionFateBattle` 的 `spendAp_` 呼叫沒傳 `skipWrite`，跟斬首分支(現已批次)或主路徑的收尾整表寫回都會把AP值重複送一次——補 `skipWrite=true`。
+
+**移動/世界模擬**：
+- `worldTick_`「令咒耗盡·靈基透支」死線計時器沒排除已結盟(`isAllied_`)敵從者——玩家跟某敵從者締盟後，牠先前戰鬥留下的死線不會被撤盟清除，時間到會在玩家不知情下把剛結盟的盟友判死，敘事還謊稱死因是「令咒燃盡」。補上跟「暗處互鬥」段落同款的 `isAllied_` 守衛。
+- `worldTick_` 自己即時寫回LOC/HP/MEMORY/MP，`actionMove` 收尾又整表寫一次同樣的值——幾乎每次移動都會踩到(敵35%機率移位、敵御主每日回魔)。新增 `deferWrite` 參數(actionMove傳true)，讓 `worldTick_`／`refillMastersDaily_`／`markMasterLostServant_`(共用同一個 `BATTLE_DEFER_WRITE_` 全域旗標)在這個呼叫路徑下只改記憶體，交給 `actionMove` 收尾一次寫完。**⚠ actionRest 呼叫 worldTick_ 未套用此參數**——它在worldTick_之後還有 restHours_/breakStaleAlliances_/enemyAmbushOnServant_ 各自的寫入、沒有涵蓋一切的最終整表寫回，貿然套用deferWrite會讓worldTick_的變動整個遺失而非只是省一次寫入，風險與這條「效能」發現的嚴重度不成比例，暫緩處理。
+- `resolveFactionEncounter_` 敘事隨機抽中的兩組敵御主(同地≥3組時)沒被記進撞見窗口，`actionIncite` 只是照陣列順序抓「前兩個」敵從者，可能挑撥到跟敘事完全無關的第三組。`setEncounterWindow_`/`getEncounterWindow_` 擴充存下這場敘事實際牽涉的兩個真名，`actionIncite` 優先用真名精確比對，缺真名(舊窗口)才退回陣列順序。
+- `actionScavenge` 的搜刮枯竭標記只能存單一最近地點(`makeTextTag_`)，玩家在A、B兩地間來回搜刮可無限白嫖——改成存「所有已枯竭地點」清單、用 `indexOf` 判斷是否曾搜過。
+- `actionPrepMeal` 是本檔唯一沒交棒 `STATE_PRE_DATA_` 的耗AP動作，補齊。
+
+**種子資料**：
+- `masterToNpcRow_`(Seed_Rivals.gs) 對高迴路種子御主(circuits>50)：HP走有上限的公式、MP卻用未夾範圍的原始值算，兩邊不自洽(伊莉雅絲菲爾-5th circuits:80、肯尼斯-4th circuits:65 尤其嚴重)。比照玩家建角流程的既有修法，同一個夾好範圍的值餵兩處＋寫進MEMORY。
+- `heroToNpcRow_` 缺少 ai_gen 原創從者的 god_hand 命數後備(玩家自創時無lives標記→3命)，混亂模式把這類從者當敵人抽到會誤套赫拉克勒斯專屬11命——補齊同一條後備規則。
+- 佐佐木小次郎這類「真正無御主」的孤身從者，`heroToNpcRow_` 仍無條件給CONTRIB=3(令咒逃脫額度)，令咒緊急脫離的同地點fallback邏輯會把牠誤配到剛好同駐一地的無關敵御主、強制一起傳送——真正無御主時歸零CONTRIB。
+
+**AI敘事一致性**：
+- `buildDreamPrompt_`/`buildVictoryDreamPrompt_`(Router_Narrative.gs) 要求AI用「第二人稱」寫夢境，直接違反同一套miniSystem規則1(旁白第一人稱「我」禁用「你」)——改成一致的第一人稱，連帶修正硬寫的「你身側」。
+- 14日時限中央攔截(Router_Action.gs)組時限夢時傳空字串當願望，是唯一沒呼叫 `extractWish_` 的敗北分支——單純被時限拖垮的玩家夢境讀起來像通用場景。補上。
+- miniSystem規則3強制「整段至少3個`<br><br>`」，跟多處60~130字的短篇幅指令矛盾(短字數本就湊不出8+句)——改成分段數量依指定字數自然而定，不強求硬性下限。
+
+**前端UI**：
+- 鑑賞同伴卡片列表用寫死的「3」補畫空位佔位框，暗示「此地最多3位同伴」，但§91駐留制改版後已無此容量限制——整段移除，不留一個不存在的假規則。
+
+**效能round-trip**：
+- `actionBond` 在 `raiseBond_` 已原地改過 `pcData` 後，又多打一次即時Sheets讀取拿「最新羈絆值」——直接讀記憶體。

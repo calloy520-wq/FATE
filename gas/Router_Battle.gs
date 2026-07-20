@@ -344,6 +344,9 @@ function stanceShareOf_(stance) { var s = STANCE_SHARE_[String(stance || "")]; r
 //   御主不因分擔而死(保底1)；已瀕死(≤1)則無力再擋。回實際分擔值(供戰報)。
 function applyMasterStanceShare_(sheets, pcData, svIdx, masterIdx, dmg, share) {
   if (!share || share <= 0 || dmg <= 0 || svIdx < 0 || masterIdx < 0 || svIdx === masterIdx) return 0;
+  // 🛡️ 防禦性補查：呼叫端已各自補上 !knocked 判斷，這裡再加一道保險——絕不對已被 fateStrike_
+  //   標記 DEAD_ 的列回補HP/扣御主HP，避免任何未來新呼叫點漏掉同一個判斷又重蹈覆轍。
+  if (String(pcData[svIdx][COL.PC.ID]).startsWith("DEAD_")) return 0;
   var mHp = parseInt(pcData[masterIdx][COL.PC.HP]) || 0;
   if (mHp <= 1) return 0;
   // 🎯 忠於標稱百分比：四捨五入即可、【不】保底1——小額擦傷(如 5% 的個位數傷)攤到 0 就不扣御主，
@@ -489,7 +492,10 @@ function actionFateBattle(userData, pcId, sheets) {
 
   // 戰鬥確定開打 → 耗 1 AP（推進 2 小時）
   let battleAp = AP_PER_DAY;
-  if (isFateBattle) { try { battleAp = spendAp_(myGameId, 1, pcData, sheets).ap; } catch (e) { } }
+  // 🐛→✅ 舊版沒傳 skipWrite，這裡立刻寫一次 DAY/HOUR/AP，之後不管走斬首分支(現已批次收尾)還是
+  //   主戰鬥路徑(1370行整表 setValues)都會把同一批值再送一次——比照 Router_Economy.gs 的
+  //   actionManaSupply/actionSpiritRepair 既有寫法補 skipWrite=true，兩處都吃記憶體 pcData 就好。
+  if (isFateBattle) { try { battleAp = spendAp_(myGameId, 1, pcData, sheets, true).ap; } catch (e) { } }
 
   // ⚔️ 交手即削好感：拔劍相向直接 −5（不勞 AI 判定）。只削既有交情列、不憑空建列(萍水相逢者本就 0)。
   //   ★同時是「刷好感躲追殺」的天然制衡：要奪杯就得打、打了好感掉破 50→追擊閘重新開啟。
@@ -498,6 +504,10 @@ function actionFateBattle(userData, pcId, sheets) {
   // 🗡️ 斬首裁決：敵御主仍有從者在側護衛時，唯有「大成功（擲 20）」能突破護衛、一擊斬殺御主；
   //    否則護衛捨身格擋、並反手予我方從者 1.5 倍痛擊（可能致敗）。寶具／令咒對奇襲斬首不適用。
   if (isMasterTarget && assassinGuardIdx !== -1) {
+    // 🐛→✅ 斬首分支舊版從沒套用 BATTLE_DEFER_WRITE_ 批次寫回——下方每個 fateStrike_ 級寫入各自
+    //   即時 setValues 一次，雙從者斬首失敗最壞可一次觸發 5+ 次個別 Sheets 寫入。改成跟主戰鬥路徑
+    //   同一套：進分支就開批次旗標，分支結尾 return 前只發一次整表 setValues。
+    BATTLE_DEFER_WRITE_ = true;
     const masterName = String(pcData[nIdx][COL.PC.NAME]);
     const guardName = String(pcData[assassinGuardIdx][COL.PC.NAME]);
     // 🗝️ 雙從者：每名在世從者各擲一次 D20（出戰中排第一）——更多嘗試＝更高斬首機率，但失手者各遭護衛反噬
@@ -542,7 +552,7 @@ function actionFateBattle(userData, pcId, sheets) {
         pcData[assassinGuardIdx][COL.PC.HP] = 0;
         pcData[assassinGuardIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "化作光點", "負面": "御主既亡·魔力斷絕消滅", "顏面": "黯然消散" });
       }
-      sheets.pc.getRange(assassinGuardIdx + 1, 1, 1, pcData[assassinGuardIdx].length).setValues([pcData[assassinGuardIdx]]);
+      if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(assassinGuardIdx + 1, 1, 1, pcData[assassinGuardIdx].length).setValues([pcData[assassinGuardIdx]]);
       asnKnocked = guardSurvived ? [masterName] : [masterName, guardName];
       if (aliveEnemyServants_(sheets, myGameId, pcData) <= 0) {
         asnVictory = true;
@@ -601,7 +611,7 @@ function actionFateBattle(userData, pcId, sheets) {
         } else {
           pcData[r.idx][COL.PC.HP] = after;
         }
-        sheets.pc.getRange(r.idx + 1, 1, 1, pcData[r.idx].length).setValues([pcData[r.idx]]);
+        if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(r.idx + 1, 1, 1, pcData[r.idx].length).setValues([pcData[r.idx]]);
         hits.push({ name: r.name, roll: r.roll, dmg: selfDmg, knocked: knocked, hp: parseInt(pcData[r.idx][COL.PC.HP]) || 0, hpMax: parseInt(pcData[r.idx][COL.PC.MAX_HP]) || 0 });
       });
       // 敗北：所有我方從者皆亡
@@ -633,6 +643,10 @@ function actionFateBattle(userData, pcId, sheets) {
       }
     }
 
+    // 🐛→✅ 批次寫回收尾：分支內每擊只改了記憶體 pcData，這裡一次整表 setValues 送出，取代原本
+    //   每個 idx 各自即時寫入的多趟 round-trip。
+    sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
+    BATTLE_DEFER_WRITE_ = false;
     STATE_PRE_DATA_ = pcData; // ⚡ 交棒：斬首路徑的所有寫入(fateStrike_/spendAp_/raiseBond_)皆已原地改回 pcData
     return JSON.stringify({
       success: true, aiPrompt: asnPrompt, knockedOut: asnKnocked,
@@ -812,7 +826,10 @@ function actionFateBattle(userData, pcId, sheets) {
         if (pHit.destroyed && pHit.knocked) knockedOut.push(pHit.knocked);
         if (pHit.defeat) { defeat = true; victory = false; dreamPrompt = pHit.dreamPrompt; }
         // 🎌 御主參戰風格·對轟回震也替從者分擔(非致命時)
-        else if (spill > 0) { const _shC = applyMasterStanceShare_(sheets, pcData, atkIdx, pIdx, spill, _stanceShare); if (_shC) masterShared += _shC; }
+        // 🐛→✅ 舊版只擋 !pHit.defeat(最後一名從者才算)，雙從者出戰時這擊若打死非最後一名從者，
+        //   pHit.defeat 不成立、但 pHit.knocked 已標記該從者陣亡——沒補 !pHit.knocked 會對著
+        //   fateStrike_ 剛寫成 DEAD_/HP=0 的那一列回補血量、還白白扣一筆御主HP去「保護」一個已經不在的人。
+        else if (!pHit.knocked && spill > 0) { const _shC = applyMasterStanceShare_(sheets, pcData, atkIdx, pIdx, spill, _stanceShare); if (_shC) masterShared += _shC; }
       }
       clash = {
         outcome: outcome, pPow: pPow, ePow: ePow, pDmgTaken: pDmgTaken, eDmgTaken: eDmgTaken,
@@ -1088,7 +1105,9 @@ function actionFateBattle(userData, pcId, sheets) {
           if (es.godRevived) { godRevived = true; godNote = es.godNote; }
           if (es.defeat) { defeat = true; victory = false; dreamPrompt = es.dreamPrompt; }
           // 🎌 御主參戰風格·替從者分擔：只在從者挨了非致命一擊時，御主討回 share 比例的傷勢自己扛。
-          else if (es.hit && rl.eDmg > 0) { const _sh = applyMasterStanceShare_(sheets, pcData, ctgt, pIdx, rl.eDmg, _stanceShare); if (_sh) { masterShared += _sh; rl.masterShared = (rl.masterShared || 0) + _sh; } }
+          // 🐛→✅ 舊版只擋 !es.defeat，雙從者出戰時這擊打死非最後一名從者不會使 defeat 成立，
+          //   但 es.knocked 已標記陣亡——沒補 !es.knocked 一樣會回補死者HP、白扣御主HP。
+          else if (!es.knocked && es.hit && rl.eDmg > 0) { const _sh = applyMasterStanceShare_(sheets, pcData, ctgt, pIdx, rl.eDmg, _stanceShare); if (_sh) { masterShared += _sh; rl.masterShared = (rl.masterShared || 0) + _sh; } }
         }
       }
     }
@@ -1113,7 +1132,8 @@ function actionFateBattle(userData, pcId, sheets) {
         if (pds.godRevived) { godRevived = true; godNote = pds.godNote; }
         if (pds.defeat) { defeat = true; victory = false; dreamPrompt = pds.dreamPrompt; }
         // 🎌 御主參戰風格·連協防這記也替從者分擔(非致命時)
-        else if (pds.hit && rl.pactDef.dmg > 0) { const _sh2 = applyMasterStanceShare_(sheets, pcData, ctgt2, pIdx, rl.pactDef.dmg, _stanceShare); if (_sh2) { masterShared += _sh2; rl.masterShared = (rl.masterShared || 0) + _sh2; } }
+        // 🐛→✅ 同上補 !pds.knocked，避免對已陣亡的從者回補HP、白扣御主HP。
+        else if (!pds.knocked && pds.hit && rl.pactDef.dmg > 0) { const _sh2 = applyMasterStanceShare_(sheets, pcData, ctgt2, pIdx, rl.pactDef.dmg, _stanceShare); if (_sh2) { masterShared += _sh2; rl.masterShared = (rl.masterShared || 0) + _sh2; } }
       }
     }
 

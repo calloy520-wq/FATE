@@ -139,6 +139,9 @@ function masterCard_(row) {
     var melee = getMasterMelee_(row[COL.PC.MEMORY]);
     var magic = getMasterMagic_(row[COL.PC.MEMORY]);
     var magicRank = getMasterMagicRank_(row[COL.PC.MEMORY]);
+    // 🐛→✅ 【出身】舊版只在創角時寫入 MEMORY，全專案沒有任何讀取點——純寫入死資料，玩家選的
+    //   出身(如「教會代行者出身」)從此再也影響不到任何敘事。補讀取，併進演出依據卡。
+    var origin = getMasterOrigin_(row[COL.PC.MEMORY]);
     // 🐛→✅ 「扮演正典御主」入口存在的意義就是讓AI認得這個真名、調用原作形象——但這支卡
     //   從沒讀過getPlayedMaster_，玩家選了扮演卻等於沒選。servantCard_/enemyMasterCard_
     //   都有對應的「若認得此真名出自Fate正典…」提示，這裡補齊同款。
@@ -149,6 +152,7 @@ function masterCard_(row) {
       quadLabeled_(row[COL.PC.TRAIT], TRAIT_LABELS_, true) +
       (moe && moe !== "（待揭曉）" ? `｜萌點(反差·僅供內化)：${moe}` : "") +
       (back ? `｜身世：${back}` : "") +
+      (origin ? `｜出身：${origin}` : "") +
       (magic ? `｜魔術系統：${magic}${magicRank ? `(${magicRank}階)` : ""}` : "") +
       (melee ? `｜體術：${melee}階` : "") +
       (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
