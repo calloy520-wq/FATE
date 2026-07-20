@@ -193,8 +193,9 @@ function actionGetHeroes(userData, pcId, sheets) {
       if (h.src === "ai_gen") { // ✏️ 原創英靈附 創造者＋編輯預填資料(工房修改模式用·種子不附)
         let pj = {}; try { pj = JSON.parse(r[COL.HERO.PERSONA] || "{}"); } catch (e) { }
         h.creator = String(pj.creator || "");
-        let six = {}, sk = []; try { six = JSON.parse(r[COL.HERO.SIX] || "{}"); } catch (e) { } try { sk = JSON.parse(r[COL.HERO.SKILLS] || "[]"); } catch (e) { }
+        let six = {}, sk = [], tr = []; try { six = JSON.parse(r[COL.HERO.SIX] || "{}"); } catch (e) { } try { sk = JSON.parse(r[COL.HERO.SKILLS] || "[]"); } catch (e) { } try { tr = JSON.parse(r[COL.HERO.TRAITS] || "[]"); } catch (e) { }
         h.detail = { six: six, skills: sk, align: String(r[COL.HERO.ALIGN] || "中立"),
+          traits: (Array.isArray(tr) ? tr : []).map(t => String((t && t.n) || t)).join("、"), // 編輯預填用：陣列→頓號字串，比照 cf-traits 輸入格式
           look: String(pj.look || ""), pref: String(pj.words || ""), moe: String(pj.moe || ""), fp: String(pj.firstP || ""),
           toMaster: String(pj.toMaster || ""), speech: String(pj.speech || ""), tic: String(pj.tic || ""), back: String(pj.back || ""), weapon: String(pj.weapon || "") };
       }
@@ -445,6 +446,10 @@ function parseForgeBuild_(build, reqCls) {
   const _segs = v => v ? v.split(/[、,，]/).filter(Boolean).length : 0;
   out.lookFull = _segs(out.look) >= 3; out.prefFull = _segs(out.pref) >= 3;
   out.desc = String(build.desc || "").trim().slice(0, 120);
+  // 🎭 特性(traits)：純敘事風味標籤(見 Script.html TRAIT_DESC)，不進 FORGE_BUDGET 計費、不驗白名單——
+  //   玩家想捏其他作品角色(如「賽亞人」「人造人」)需要能自由發揮，比照 AI 生成分支(aiTraits)同一套
+  //   清洗規則(頓號/逗號分段、上限4個、單則截8字)，讓工房手捏角色也能貼這類梗。
+  out.traits = String(build.traits || "").split(/[、,，]/).map(s => s.trim()).filter(Boolean).slice(0, 4).map(n => ({ n: n.slice(0, 8) }));
   if (isMasterCls) {
     // 🌹 御主：六圍/技能/寶具/武裝全部略過驗證與計費，強制留空(鑑賞用不到、不進戰鬥引擎)。
     out.six = {}; out.skills = []; out.classSkills = [];
@@ -552,6 +557,7 @@ function actionSaveHero(userData, pcId, sheets) {
     data[idx][COL.HERO.CLASS_SKILLS] = JSON.stringify(pb.classSkills);
     data[idx][COL.HERO.SKILLS] = JSON.stringify(pb.skills);
     data[idx][COL.HERO.NP] = np; data[idx][COL.HERO.ALIGN] = pb.align;
+    data[idx][COL.HERO.TRAITS] = JSON.stringify(pb.traits);
     const newWords = keep(pb.pref, pj.words), newLook = keep(pb.look, pj.look), newMoe = keep(pb.moe, pj.moe);
     const newFp = keep(pb.fp, pj.firstP) || "我", newSpeech = keep(pb.speech, pj.speech);
     data[idx][COL.HERO.PERSONA] = JSON.stringify({
@@ -596,7 +602,7 @@ function actionSaveHero(userData, pcId, sheets) {
   const moe = pb.moe || String((flavor && flavor.npc_intent) || "").slice(0, 30); // 比照 slice(0,18) 腰斬修正，放寬緩衝
   const back = pb.back || String((flavor && flavor.background) || "").slice(0, 28);
   try {
-    recordOriginalHero_(pb.name, pb.cls, pb.sex, JSON.stringify(pb.six), pb.classSkills, pb.skills, [], np, finalPref || "", pb.align,
+    recordOriginalHero_(pb.name, pb.cls, pb.sex, JSON.stringify(pb.six), pb.classSkills, pb.skills, pb.traits, np, finalPref || "", pb.align,
       { look: finalLook, moe: moe, firstP: pb.fp, toMaster: pb.toM, speech: pb.speech, tic: pb.tic, back: back, weapon: pb.weapon, creator: acct });
   } catch (e) { return JSON.stringify({ success: false, message: "寫入英靈殿失敗：" + e.message }); }
   return JSON.stringify({ success: true, created: true, name: pb.name, message: `「${pb.name}」已鑄入英靈殿——到召喚頁「🌟 玩家原創英靈」即可召喚；之後想調整可在該區「✏️ 修改」（僅你本人）。` });
