@@ -117,15 +117,22 @@
       }
 
 
-      let cleanText = data.text.split('[')[0];
+      // 🐛→✅ 玩家實測前主動抓到：舊版這裡砍掉第一個「[」之後的全部內容，但後端 data.text 就是
+      //   aiData.narration 原文(見 Gallery.gs finalResponseText)，沒有任何「[」分隔慣例——找不到現行
+      //   代碼會刻意在narration後面接一段方括號內容給這裡濾掉，卻會誤殺敘述本文裡剛好出現的「[」
+      //   (自由生成的散文不保證不含此字元)，一中就整段從那裡開始被靜默截斷、無警告。移除這道無來由的裁切。
+      let cleanText = data.text;
 
       // 🔴 絕對安全版換行修復：只抓取 AI 偶爾解析錯誤的字面 "\n" 或 "\r\n"，將其轉為真實換行。
       cleanText = cleanText.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
 
       let displayText = cleanText;
 
-      // 🟢 統一連結引擎：眾生／提及人物／地名彙整成一份候選清單，
-      // 依名稱長度排序後單次掃描取代，避免子字串名稱互相啃食對方剛插入的 HTML。
+      // 🐛→✅ 玩家實測前主動抓到：註解自稱「統一連結引擎」彙整「眾生／提及人物／地名」三種來源，
+      //   但下面只有 localNPCs 一個來源會塞進 linkCandidates，也從未產生可點擊的<a>——跟同段落下面
+      //   「同地角色一律純文字，不再有可點擊的連結」互相矛盾，是舊版功能被簡化後沒同步改的殘留描述。
+      //   改成描述現況：純粹是「同地角色名稱」的候選清單，依名稱長度排序後單次掃描替換(避免子字串
+      //   名稱互相啃食)，替換結果仍是純文字，不是連結。
       const linkCandidates = [];
       const pushCandidate = (name, html) => {
         if (name && !linkCandidates.find(c => c.name === name)) {
@@ -289,20 +296,24 @@ let plainTextContext = cleanText;
         const _col = _pr.ok ? 'rgba(90,160,110,.14);border:1px solid #4a8a5a;color:#a8e0b8' : 'rgba(150,110,120,.14);border:1px solid #8a5a6a;color:#e0b0bc';
         story.insertAdjacentHTML('beforeend', `<div style="background:${_col};border-radius:8px;padding:7px 10px;margin:4px 0;font-size:12.5px;">${_msg}</div>`);
       }
-      // 📅 赴約/爽約結算通知(promiseSettle·獨立通道)：跟提議結果(proposalResult)是兩個獨立事件，
+      // 📅 赴約/爽約結算通知(promiseSettle·獨立通道·陣列)：跟提議結果(proposalResult)是兩個獨立事件，
       //   同回合並發時各自顯示、互不覆蓋(舊版共用單槽，post-AI 提議結果會把結算通知吞掉)。
-      if (data.promiseSettle) {
-        const _ps = data.promiseSettle, _psNm = escapeHtml(String(_ps.name || '她')), _psLoc = escapeHtml(String(_ps.loc || ''));
-        const _psMsg = _ps.type === 'promise_met'
-          ? '📅 <b>依約相會！</b>你守住了與「' + _psNm + '」在「' + _psLoc + '」的約定(好感↑)。'
-          : '📅 與「' + _psNm + '」在「' + _psLoc + '」見面的約定<b>過期了</b>——你沒有赴約，她有些在意(好感↓)。約定是一次性的，想再見就再約一次吧。';
-        const _psCol = _ps.ok ? 'rgba(90,160,110,.14);border:1px solid #4a8a5a;color:#a8e0b8' : 'rgba(150,110,120,.14);border:1px solid #8a5a6a;color:#e0b0bc';
-        story.insertAdjacentHTML('beforeend', `<div style="background:${_psCol};border-radius:8px;padding:7px 10px;margin:4px 0;font-size:12.5px;">${_psMsg}</div>`);
+      // 🐛→✅ 玩家實測前主動抓到：同回合若同時有兩位同伴各自結算(如A赴約成功+B同時爽約)，舊版後端
+      //   也是單槽、後蓋前——改成陣列後這裡逐筆渲染，不再只顯示最後一筆。
+      if (data.promiseSettle && data.promiseSettle.length) {
+        data.promiseSettle.forEach(_ps => {
+          const _psNm = escapeHtml(String(_ps.name || '她')), _psLoc = escapeHtml(String(_ps.loc || ''));
+          const _psMsg = _ps.type === 'promise_met'
+            ? '📅 <b>依約相會！</b>你守住了與「' + _psNm + '」在「' + _psLoc + '」的約定(好感↑)。'
+            : '📅 與「' + _psNm + '」在「' + _psLoc + '」見面的約定<b>過期了</b>——你沒有赴約，她有些在意(好感↓)。約定是一次性的，想再見就再約一次吧。';
+          const _psCol = _ps.ok ? 'rgba(90,160,110,.14);border:1px solid #4a8a5a;color:#a8e0b8' : 'rgba(150,110,120,.14);border:1px solid #8a5a6a;color:#e0b0bc';
+          story.insertAdjacentHTML('beforeend', `<div style="background:${_psCol};border-radius:8px;padding:7px 10px;margin:4px 0;font-size:12.5px;">${_psMsg}</div>`);
+        });
       }
       // 約定「任何」變動(成立/赴約成功/爽約過期)都重抓同伴清單(_kcCur)——地圖📅徽章與睡前爽約警示
       //   靠它判斷，過期資料會誤報「今天還有沒赴的約」(稽核抓到的假警報)。成立走 proposalResult、
       //   結算走 promiseSettle，兩邊任一命中都刷新(只刷一次)。
-      if (data.promiseSettle || (data.proposalResult && String(data.proposalResult.type) === 'promise')) {
+      if ((data.promiseSettle && data.promiseSettle.length) || (data.proposalResult && String(data.proposalResult.type) === 'promise')) {
         (async function () { try { const r = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount }); if (r && r.success) { _kcCur = r.current || []; try { renderMapPane(); } catch (e) {} try { renderKcPartyList_(); } catch (e) {} } } catch (e) {} })();
       }
       localStorage.setItem('kyushu_story', story.innerHTML);
@@ -422,14 +433,21 @@ let plainTextContext = cleanText;
       ov = document.createElement('div');
       ov.id = 'km-overlay';
       ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
-      ov.onclick = function (e) { if (e.target === ov) ov.style.display = 'none'; };
+      // 🐛→✅ 玩家實測前主動抓到：這顆overlay若最先由本函式建立(常見)，就永遠沒有 _kmShowLoading_
+      //   那份「操作中禁止點background關閉」的判斷——kanshouMemoirOp 執行中點背景關閉，request resolve
+      //   後finally區塊仍會呼叫kanshouOpenMemoir重繪，把玩家剛關掉的視窗又打開。比照補同一道判斷。
+      ov.onclick = function (e) { if (e.target === ov && !_kmBusy) ov.style.display = 'none'; };
       document.body.appendChild(ov);
     }
     var entries = c.memoir || [];
     var rows = entries.length ? entries.map(function (e) {
       var pinned = e.charAt(0) === '★';
       var text = e.replace(/^★/, '');
-      var tEsc = String(text).replace(/'/g, '');
+      // 🐛→✅ 玩家實測前主動抓到：舊版用 .replace(/'/g,'') 把撇號整個剝掉，送給後端的item就不再等於
+      //   回憶原文——後端 actionKanshouMemoirOp 只清 ｜【】[]★ 這幾個字元(不剝撇號)、要求逐字完全相符，
+      //   任何含撇號的回憶(AI生成的自由文字並無禁止撇號)因此永遠釘選/刪除失敗。改成正確跳脫(\')而非
+      //   刪字，讓送出的item字串經JS解析後等於原文。
+      var tEsc = String(text).replace(/'/g, "\\'");
       return '<div style="display:flex;align-items:center;gap:6px;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
         + '<span style="flex:1;color:' + (pinned ? '#ffd9a0' : '#e8d8e0') + ';font-size:13px;line-height:1.5;">' + (pinned ? '★ ' : '') + escapeHtml(text) + '</span>'
         + '<button onclick="kanshouMemoirOp(\'' + String(name).replace(/'/g, '') + '\',\'' + (pinned ? 'unpin' : 'pin') + '\',\'' + tEsc + '\')" title="' + (pinned ? '取消釘選' : '釘選·永不遺忘') + '" style="padding:4px 7px;background:' + (pinned ? '#6a5a3a' : '#3a3a44') + ';color:#ffd9a0;border:none;border-radius:6px;cursor:pointer;font-size:12px;">' + (pinned ? '📌' : '☆') + '</button>'
