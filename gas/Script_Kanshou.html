@@ -86,7 +86,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined, handHold: handHold || undefined, promiseAccept: promiseAccept || undefined, cohabitAccept: cohabitAccept || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined, handHold: handHold || undefined, promiseAccept: promiseAccept || undefined, cohabitAccept: cohabitAccept || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -1046,7 +1046,7 @@ let plainTextContext = cleanText;
   async function kanshouDeletePhoto(photoId) {
     if (!confirm('確定撕掉這張照片？(不可復原)')) return;
     try {
-      const res = await gasRun({ action: 'album_delete', pcId: pc.id, photoId: photoId });
+      const res = await gasRun({ action: 'album_delete', pcId: pc.id, acctName: currentAccount, photoId: photoId });
       if (res && res.success) openKanshouAlbum(); else alert((res && res.message) || '刪除失敗。');
     } catch (e) { alert('刪除失敗。'); }
   }
@@ -1121,7 +1121,7 @@ let plainTextContext = cleanText;
       + '</div><div id="kc-album-body" style="color:#8a8298; font-size:12px;">讀取中……</div></div>';
     document.body.appendChild(ov);
     try {
-      var res = await gasRun({ action: 'get_album', pcId: pc.id });
+      var res = await gasRun({ action: 'get_album', pcId: pc.id, acctName: currentAccount });
       if (res && res.success) { kcAlbumData_ = res; kcAlbumFilter_ = ''; kcAlbumRender_(); }
       else { var b = document.getElementById('kc-album-body'); if (b) b.textContent = '讀取失敗。'; }
     } catch (e) { var b2 = document.getElementById('kc-album-body'); if (b2) b2.textContent = '讀取失敗。'; }

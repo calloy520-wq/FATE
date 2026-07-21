@@ -625,6 +625,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `kanshouRollEncounter_(locName, excludeIds)` — 70% 機率加權抽巧遇對象（標籤池優先、退全女保底、排除已召喚者）；回 SEED_SERVANTS hero 或 null。
 - `kanshouHeroIdByName_(heroName)` — 由真名/短名反查 SEED id（短名優先、再 `kanshouNameCandidates_` 候選比對）。
 - `kanshouResidenceUnlocked_(pcData, residenceName, gameId)` — 拜訪私宅門檻：屋主本局已入駐且好感≥`KANSHOU_VISIT_BOND_`(40) 才解鎖。前後端共用單一真相。
+- `kanshouLocHasPendingPromise_(pcData, loc, curDay, gameId)`（2026-07 新增）— 該地點是否有任一同伴的未過期(`day>=curDay`)約定指向這裡；`actionPlay_` 移動攔截用它豁免已成立約定的私宅解鎖檢查（防「好感賽跑後跌破門檻＝必爽約」的死亡螺旋）。
 - `kanshouRollDailyLocation_(heroName, hour, cohabit)` — 幫不在身邊的英靈骰當下去哪：同居版（深夜回和室/清晨賴床/夜間家中公共空間）vs 一般版（深夜/清晨大機率回登記住處）；保底池排除 room/visit 分區。
 
 #### 日曆·時鐘·天氣（純算·多為確定性）
@@ -676,13 +677,14 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 🔴 核心敘事引擎
 
-- `actionPlay(userData, pcId, sheets)`（~1440 行）— 鑑賞唯一敘事引擎（入口擋非 KPC_）。單回合處理全部意圖：地點移動＋私宅門檻／**玩家發起的相約·牽手·同去提議**（2026-07 改版：`kanshouProposalAccepts_` 在呼叫 AI **前**先依 BOND 擲骰定成敗，結果直接寫進提示詞告訴 AI「成敗已由系統定」，AI 回傳的 `proposal_accept` 對這幾種提案已停用忽略——不再是舊版「AI 判斷、事後讀 `proposal_accept` 才落地」的模型）／**她（NPC）主動邀約**同意（promiseAccept/cohabitAccept，這條路徑本就不經 AI 判斷，未變）／結識入駐（inviteResident）／橋段觸發與接受（roomEventAccept·三層：節慶>同住人房間>地點×時段）／深夜敲門（endDay 擲骰→knockEvent/knockAccept）／結束一天（睡眠·同床≥80·晨間餘韻·強制回房·放手·眾人重骰行程）／推進時間·跳時段·跳節慶（rollHours_）／被動時間流動（每動作 +10 分·跨時段觸發 NPC 自然告辭）／赴約·爽約結算（時間×地點驅動·準時窗+5/遲到+3/爽約-5·寫共同回憶）／巧遇擲骰／拍照·看照片。組 system prompt（`buildDefaultSystemPrompt`）＋巨型 USER prompt（在場卡片/親密五階/移動鐵律/時段/世界觀）→ `callGeminiAPI`（先打快 SOLO_MODEL、AI_MODEL 只當備援；時間轉場砍 max_tokens）。落地 AI 回傳：move_proposal/rel_changes（夾聊天上限·kanshouSyncRelTier_）/intimacy_feedback（physical_state/outfit_change/dynamic_skills/mutual_nicknames/attitude/memory 共同回憶）/npc_exit/master_note 滾動側寫（經歷滾動·性格四格只補沒鎖格·萌點盲寫只補第一次）。回傳前經 `sanitizeAiData_` 守門。競態修 `buildLiveIdIndex_` 重定位後單列寫回。回傳 text/people/options/tags/各種泡泡與通知條/時鐘。
+- `actionPlay(userData, pcId, sheets)`（2026-07 稽核後改為薄包裝，~15 行）— 用 `CacheService` 對同一 `pcId` 做軟性互斥（偵測到同 pcId 仍有一次在跑就直接回「請稍候」拒絕本次），再委派給 `actionPlay_`。修的是：本函式故意豁免 `LOCK_EXEMPT_ACTIONS_` 全域鎖(AI呼叫數秒~49秒，鎖全域會拖累其他玩家)，但寫回是「整表快照→記憶體全改→結尾整列覆寫」，同pcId兩次呼叫窗口重疊時後flush者會整列蓋掉先flush者的全部改動——這裡不加全域鎖(仍會拖累其他玩家)，只鎖「同一pcId」。
+- `actionPlay_(userData, pcId, sheets)`（~1440 行，原 `actionPlay` 更名而來，呼叫關係／ActionRouter 對照不變，仍是 `"play"` 唯一實際邏輯）— 鑑賞唯一敘事引擎（入口擋非 KPC_，帳號歸屬驗證改用 `kanshouOwnedRowIdx_`——2026-07 稽核抓到舊版裸 `findIndex` 沒查帳號、`pcId` 可枚舉猜中即可讀寫別人存檔的漏洞已補）。單回合處理全部意圖：地點移動＋私宅門檻／**玩家發起的相約·牽手·同去提議**（2026-07 改版：`kanshouProposalAccepts_` 在呼叫 AI **前**先依 BOND 擲骰定成敗，結果直接寫進提示詞告訴 AI「成敗已由系統定」，AI 回傳的 `proposal_accept` 對這幾種提案已停用忽略——不再是舊版「AI 判斷、事後讀 `proposal_accept` 才落地」的模型）／**她（NPC）主動邀約**同意（promiseAccept/cohabitAccept，這條路徑本就不經 AI 判斷，未變）／結識入駐（inviteResident）／橋段觸發與接受（roomEventAccept·三層：節慶>同住人房間>地點×時段）／深夜敲門（endDay 擲骰→knockEvent/knockAccept）／結束一天（睡眠·同床≥80·晨間餘韻·強制回房·放手·眾人重骰行程）／推進時間·跳時段·跳節慶（rollHours_）／被動時間流動（每動作 +10 分·跨時段觸發 NPC 自然告辭）／赴約·爽約結算（時間×地點驅動·準時窗+5/遲到+3/爽約-5·寫共同回憶）／巧遇擲骰／拍照·看照片。組 system prompt（`buildDefaultSystemPrompt`）＋巨型 USER prompt（在場卡片/親密五階/移動鐵律/時段/世界觀）→ `callGeminiAPI`（先打快 SOLO_MODEL、AI_MODEL 只當備援；時間轉場砍 max_tokens）。落地 AI 回傳：move_proposal/rel_changes（夾聊天上限·kanshouSyncRelTier_）/intimacy_feedback（physical_state/outfit_change/dynamic_skills/mutual_nicknames/attitude/memory 共同回憶）/npc_exit/master_note 滾動側寫（經歷滾動·性格四格只補沒鎖格·萌點盲寫只補第一次）。回傳前經 `sanitizeAiData_` 守門。競態修 `buildLiveIdIndex_` 重定位後單列寫回。回傳 text/people/options/tags/各種泡泡與通知條/時鐘。
   - 內嵌 helper：`formatPref`/`formatTrait`（性格·特徵四格格式化）、`relMemMemoryStr_`（REL_MEM 專屬稱呼＋態度）、`_whereIsHer`（撲空提示找她位置）、`_settle`（赴約結算閉包）、`sanitizePhysicalState`/`sanitizeOutfitChange`（篩敷衍語·容錯截斷）、`processSkills`/`setSkillTag_`（雙修技巧升級·只更新該段標記）、`processTags`（專屬稱呼 append 去重）、`processMemoir_`（共同回憶 append·雙字組 0.6 相似去重·★釘選不驅逐）。
 
 #### 相簿 actions（讀/刪·拍照本體在 actionPlay）
 
-- `actionGetAlbum(userData, pcId, sheets)` — 讀本局全部照片（新到舊·dateLabel 後端算好·developed=拍攝日<今天）＋今日剩餘底片。
-- `actionAlbumDelete(userData, pcId, sheets)` — 刪照片（照片 ID＋遊戲 ID 雙比對·只能刪自己這局）。
+- `actionGetAlbum(userData, pcId, sheets)` — 讀本局全部照片（新到舊·dateLabel 後端算好·developed=拍攝日<今天）＋今日剩餘底片。帳號歸屬驗證改用 `kanshouOwnedRowIdx_`（2026-07 稽核修：舊版裸 `findIndex` 沒查帳號，猜中 pcId 可讀走別人相簿）。
+- `actionAlbumDelete(userData, pcId, sheets)` — 刪照片（照片 ID＋遊戲 ID 雙比對·只能刪自己這局）。帳號歸屬驗證改用 `kanshouOwnedRowIdx_`（同上，舊版可讓人猜中 pcId 刪掉別人的照片）。
 
 ---
 

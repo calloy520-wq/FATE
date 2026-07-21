@@ -24,7 +24,7 @@
 - 鑑賞資料寫 **「鑑賞眾生」分頁**（`getKanshouPcSheet_`，lazy 建、schema 複製主「眾生」表頭、`COL.PC` 索引一致），與 solo「眾生」表隔離。
 - **KPC_ 前綴路由**：dispatcher（`handleGameAction`）見 `pcId` 以 `KPC_` 開頭 → `sheets.pc` 指向鑑賞眾生。solo 是 `PC_`。
 - **引擎硬擋**：`actionPlay` 開頭 `pcId` 非 `KPC_` 直接 return。
-- **歸屬驗證**：`kanshouOwnedRowIdx_` 每次查帳號表 KPC 欄（`getAccountKanshouPcId_`）比對，不憑 pcId 找列（防偽造）。
+- **歸屬驗證**：`kanshouOwnedRowIdx_` 每次查帳號表 KPC 欄（`getAccountKanshouPcId_`）比對，不憑 pcId 找列（防偽造）。⚠ **2026-07 全面稽核抓到嚴重漏洞**：這句話此前只對 6 個小動作 handler(`kanshou_companions`/`memoir_op`/`set_name`/`set_sex`/`enter_kanshou`/`set_home_name`)成立——系統負擔最重、寫入面最廣的 `actionPlay`(整個聊天/移動/相約/同居/牽手引擎)與 `actionGetAlbum`/`actionAlbumDelete` 全部用裸 `pcData.findIndex(r=>r[COL.PC.ID]==pcId)`，完全沒有反查帳號表。`pcId`(`KPC_`+建檔當下毫秒時間戳)理論上可預測/枚舉，攻擊者不需密碼(帳號系統本就無密碼)、只要猜中或拿到別人的 pcId，就能對這三個 action 直打 API 讀寫對方的好感／地點／回憶／相簿——形同接管另一帳號的整份鑑賞存檔。已補上 `kanshouOwnedRowIdx_` 檢查，三處都覆蓋了。**任何新增的 kanshou action handler，只要會讀寫 pcData 或私有資料，一律要用 `kanshouOwnedRowIdx_` 換 index，不能只用 `findIndex` 裸查——這條規則現在才真的對全部 handler 成立。**
 - **前綴白名單**：`KPC_`(御主 avatar)／`KHV_`(直接召喚同伴)／`DEAD_`；`KSV_` 是**舊奪杯封存邀請的遺留前綴**——封存管線已砍、不再產生新 `KSV_` 列，僅在 sync／`isKanshou` 判定保留向後相容識別（別當現行機制）。
 - **歷史暫存**：solo/鑑賞**共用同一張「歷史暫存」表**，靠 `pcId` 前綴（`PC_` vs `KPC_`）隔離、非物理分表——架構唯一例外，記在案。
 
@@ -107,6 +107,7 @@
   - **爽約**（`_pr.day < curDay`）→ 清約＋`BOND-5`（夾0）＋寫一筆 memoir「我爽約了…讓她空等一場」＋回 **`promiseSettle{type:'promise_missed'}`** 通知條；在場才餵「爽約之後」提示（讓她流露被放鴿子的在意）。前端 `kanshouEndDay` 睡前若有今日之約會先跳警告。
   - 累加進 `kanshouPromiseMetStr` 餵 AI。⚠ **結算回饋走獨立通道 `promiseSettle`、不借用 `proposalResult` 單槽**（第二輪稽核三路同時撞到：post-AI 提議結果無條件覆寫單槽，同回合「爽約結算＋新提議成功」時結算通知被吞）——前端收到 `promiseSettle` 或 `proposalResult.type==='promise'` 任一都重抓 `kanshou_companions` 刷新 `_kcCur`（否則舊快取殘留已結算的約→假爽約警告）。
   - **⚠ 未解鎖私宅不可當約定地**（2026-07 第二輪稽核·必爽約陷阱）：鎖住的 visit 住處物理上進不去（地圖灰鎖＋後端擋移動）→ 約在那裡＝到期必 -5。三層擋：前端 `kanshouPromiseMeet` 地點面板不列、後端 `_pmLocOk`、AI `promise_proposal` 驗證，皆走 `kanshouResidenceUnlocked_`。
+  - **⚠ 「必爽約陷阱」還有一個成立後才會出現的變種**（2026-07 全面稽核）：約定成立當下有解鎖檢查沒錯，但**赴約前**若好感因其他事件跌破熟識(40)，屋主私宅會重新上鎖——玩家想赴約走過去卻被登門攔截擋在門外，隔天還被系統判「爽約」倒扣好感，兩個各自正確的機制互相矛盾、且玩家全程無法得知這個已成立的約定即將必然失敗。已補 `kanshouLocHasPendingPromise_`：已成立且未過期(day≥curDay)的約定，若目的地正是該私宅，移動時豁免解鎖檢查——赴約優先於門檻。
 - **前端**：`kanshouPromiseMeet(name)` 發起（選地點+時段）；`kanshouWaitForPromise(targetHour)` 撲空等待框（跳到約定前10分鐘）；地圖 `promiseByLoc` 徽章顯示哪個地點有約。
 - **移動接人**：時間快轉在「給 AI 資料之前」先把該去的人拉到約定地點（順序鐵則同上）。
 - **🆕 她也能主動邀約**（`promise_proposal`）：AI 讓在場同伴開口約你改天見面 → 後端驗證（在場＋合法地點＋合法時段）→ 回傳 `promiseProposal` → 前端跳同意泡泡（`kanshouAcceptPromise`）→ 玩家按同意帶 `opts.promiseAccept` **直接落地【約定】**（她自己提的、不走 proposal_accept 二次判定）。婉拒＝`kanshouDeclinePromise`。與玩家發起共用同一套赴約結算。**⚖️ 玩家裁定：她約完就走也照樣成立**——約是她提的、契約只差玩家點頭，她在不在場不影響寫入；差別只在敘事（在場演她的反應／已離場演玩家記下這個約）。別把「玩家發起需對方在場」的規則錯套到這裡。
@@ -144,7 +145,7 @@
 
 - **獨立作息**：每人有自己的家 `KANSHOU_HERO_HOME_`（`region:'visit'`）；`kanshouRollDailyLocation_` 每逢時間推進重骰全世界去向；**LOC 判在場**。
 - **同伴詳情上限** `KANSHOU_PARTY_DETAIL_CAP_ = 5`（同地最多給5張詳細卡，敘事上限非隊伍容量），依 BOND 排序。
-- **同居**：好感≥`KANSHOU_COHABIT_BOND_ = 90` 可邀（`kanshouInviteCohabit`），就寢/夜襲在 `KANSHOU_COHABIT_ROOM_ = '和室'`；`【同居】1` 標記。**🆕 她也能主動邀同居**（`cohabit_proposal`，好感達門檻＋在場＋未同住時）→ 回傳 `cohabitProposal` → 前端同意泡泡（`kanshouAcceptCohabit`，複用 cohabitInvite 後端、不重複跳確認框）。
+- **同居**：好感≥`KANSHOU_COHABIT_BOND_ = 90` 可邀（`kanshouInviteCohabit`），就寢/夜襲在 `KANSHOU_COHABIT_ROOM_ = '和室'`；`【同居】1` 標記。**🆕 她也能主動邀同居**（`cohabit_proposal`，好感達門檻＋在場＋未同住時）→ 回傳 `cohabitProposal` → 前端同意泡泡（`kanshouAcceptCohabit`，複用 cohabitInvite 後端、不重複跳確認框）。⚠ **2026-07 稽核修·同居會隨好感跌破90自動解除**：舊版`【同居】`只有兩處會寫成1(邀請成立/她主動提議)、全檔案沒有任何地方清回0——好感若同居後因爽約/冒犯一路跌到接近「點頭之交」，標記仍在，AI仍照樣把她骰進和室、仍觸發夜襲/賴床，敘事跟數值直接矛盾。已在`kanshouSyncRelTier_`(跟REL_TAG梯度同步同一個函式、呼叫時機也一致)裡補上：BOND低於`KANSHOU_COHABIT_BOND_`就清掉`【同居】`。
 - 🎛️ **AI 主動提議通則**（move/promise/cohabit_proposal 共用）：都是「意圖非結果」，narration 停在她開口的當下、由玩家按泡泡決定；三種提議同回合互斥（有 moveProposal 就不浮 promise/cohabit，避免泡泡打架）。
 - **拜訪私宅**：好感≥`KANSHOU_VISIT_BOND_ = 40`（熟識朋友切點）才解鎖登門（`kanshouResidenceUnlocked_`）。
 - **巧遇**：`kanshouToggleEncounter_` 開關；女性保底池 `KANSHOU_ENCOUNTER_FEMALE_IDS_`；結識 `kanshouAcceptInvite`（`inviteResident`）。
@@ -170,6 +171,7 @@
 ## 🤖 AI 管線
 
 ### `actionPlay` 執行階段順序（**順序鐵則·勿亂動**）
+0. **`actionPlay` 現在是一層薄包裝**（2026-07 稽核補）：真正的引擎邏輯搬進 `actionPlay_`（下面1~12步都在這支裡）。外層 `actionPlay` 只做「同 pcId 併發軟鎖」——見下方教訓區「play 故意豁免全域鎖」。
 1. 入口守門（非 `KPC_` return）＋`driveOn`/`encounterOn` 旗標＋標籤化
 2. 讀表（整表只讀一次）→ 定位 pc、curL/curDay/curHour
 3. UI 按鈕意圖落地（相約提議/同居/牽手/結識入駐/橋段 offer+accept）
@@ -258,6 +260,9 @@ SOLO_MODEL   = google/gemini-3.1-flash-lite  (屬性 SOLO_MODEL)   ← 主力(�
 - **審查攔截保底文字別讓它悄悄變成歷史**：`callGeminiAPI`(Engine_Combat.gs) 全部重試/審查攔截皆失敗時，回傳的是一組跟真正生成成功長相一模一樣的「保底文字」JSON——2026-07 抓到 `actionPlay`(Gallery.gs)/`narrateWithState_`(Router_Narrative.gs)舊版都會把這句「什麼都沒發生」的保底措辭原封不動存進 `saveGameHistoryBatch`，下次呼叫又把它當成上一輪的既定事實餵回AI，可能接續出跟實際劇情矛盾的敘事。已加 `_genFailed` 旗標讓兩處呼叫端辨識、失敗時完全跳過寫歷史。**任何新的敘事呼叫端要接 `callGeminiAPI` 並自己存歷史，記得先檢查這個旗標。**
 - **提示詞講的規則，代碼要真的照做**（2026-07 全面稽核抓到）：`rel_changes`/`intimacy_feedback.npcs[]` 寫入好感/外顯前，提示詞明講「只有【目前在場人物】才准變動」，但兩處寫入邏輯從沒真的檢查 `pcData[idx][COL.PC.LOC]` 是否等於 `curL`——AI 若因對話歷史殘留或幻覺提到不在場的人名，好感值一樣被悄悄寫入。同批也發現 `rel_changes` 的「單回合漲跌上限±5」只寫在提示詞裡，代碼只有 `sanitizeAiData_` 的 `[-100,100]` 粗夾，從沒真的把±5夾進去。兩處都已補上對應的程式碼檢查/夾值。**提示詞裡承諾的每一條護欄，都要回頭確認代碼是不是真的照做了，不能只靠告訴AI「請遵守」。**
 - **回饋通道只開一槽，同回合兩筆就吞一筆**（2026-07 稽核抓到）：`kanshouPromiseSettle_` 沿用了 `proposalResult` 那次改版學到的「獨立通道」教訓，卻自己還是單槽——玩家若同時有兩位同伴的約定在同一回合結算(如A赴約成功+B同時爽約)，`forEach` 跑兩輪，後跑的無條件覆寫前一筆，前一筆的通知條就消失(底層BOND/MEMORY寫入正常，只有UI通知被吞)。改成陣列，前端逐筆渲染。**同一件事「可能同時發生不只一次」時，回饋通道要用陣列，不要嫌麻煩用單一物件卡死自己。**
+- **「防偽造」helper 存在，不代表每個呼叫點都真的用了它**（2026-07 全面稽核·本輪最嚴重發現）：`kanshouOwnedRowIdx_` 明明就是為了防 `pcId` 被猜中/偽造而寫的，但 `actionPlay`／`actionGetAlbum`／`actionAlbumDelete` 三個高頻/高權限 handler 一路用裸 `pcData.findIndex` 繞過它，等於整套防禦形同虛設——而且是系統負擔最重、寫入面最廣的那個函式漏掉。**新增任何會讀寫 pcData 或私有資料的 handler，一律要主動去比對現有的歸屬驗證 helper 是否真的被呼叫，不能假設「這套機制存在＝全部路徑都受保護」。**
+- **`play` 故意豁免全域鎖，但「豁免鎖」不等於「不用防併發」**（2026-07 全面稽核·兩組獨立agent各自收斂到同一根因）：`actionPlay`(現為`actionPlay_`)的寫回機制是「整表快照→本回合全部改動只在記憶體→結尾整列覆寫」，若同一 pcId 的兩次呼叫執行窗口重疊(同帳號兩分頁/兩裝置同時操作、或聊天等AI回應時另開改命視窗存檔)，後flush的請求會用自己那份舊快照整列覆寫掉先flush者的所有改動。已用 `CacheService` 做「同一pcId」的軟性互斥(外層薄包裝 `actionPlay`，見上方執行階段順序第0步)：偵測到同pcId仍有一次在跑就直接拒絕待玩家稍候，不佔全域鎖、不影響其他玩家。**⚠ 已知未解的相關限制**：拍照的「寫相簿(立即/不可逆的`appendRow`)」與「扣底片(記憶體→回合尾端才flush)」是分離提交，若中途有未接住的例外，可能出現免費照片+其他當回合狀態改動一併消失；目前判斷觸發機率低(此檔案防呆已相當紮實)，暫不處理，日後若要根治需重新設計成同一次原子寫入。
+- **字串前綴比對記得連 `indexOf` 的意義都要核對，不要只挑「有沒有寫」**（2026-07 稽核抓到）：`Router_Action.gs` 的 `_state` 隨動作回應夾帶機制原本只判斷 `String(pcId||"").indexOf("PC_")===0`——但 `"KPC_xxx".indexOf("PC_")` 結果是 `1` 不是 `0`，鑑賞被整個排除在外，即使 `update_fate`/`update_rel_tag` 兩個handler明明就是特地做給鑑賞共用、也確實有交棒`STATE_PRE_DATA_`，改命/改稱呼存檔後鑑賞玩家還是得白跑一趟整表`sync`。已補上 `isKanshouCtx` 條件放行(這兩個action是`isKanshouCtx`為真時唯一能走到這個判斷點的，其餘solo專屬action都在更早被`KANSHOU_BLOCKED_ACTIONS_`擋掉，改動安全)。
 
 ---
 

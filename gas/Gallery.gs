@@ -258,11 +258,19 @@ const KANSHOU_REL_TIER_ = [
 //   繼續變動也不會被自動蓋回去，尊重玩家的手動選擇。呼叫時機：任何讓BOND變動的地方之後都補呼叫
 //   一次(目前有②約定赴約/橋段加好感、③AI rel_changes)，冪等、重複呼叫不出錯。
 function kanshouSyncRelTier_(pcData, idx) {
-  const curTag = String(pcData[idx][COL.PC.REL_TAG] || "");
-  if (!KANSHOU_REL_TIER_.some(t => t.label === curTag)) return;
   const bond = parseInt(pcData[idx][COL.PC.BOND]) || 0;
-  const tier = KANSHOU_REL_TIER_.find(t => bond >= t.min);
-  if (tier && tier.label !== curTag) pcData[idx][COL.PC.REL_TAG] = tier.label;
+  const curTag = String(pcData[idx][COL.PC.REL_TAG] || "");
+  if (KANSHOU_REL_TIER_.some(t => t.label === curTag)) {
+    const tier = KANSHOU_REL_TIER_.find(t => bond >= t.min);
+    if (tier && tier.label !== curTag) pcData[idx][COL.PC.REL_TAG] = tier.label;
+  }
+  // 🐛→✅ 2026-07 稽核抓到：【同居】只有邀請成立/她主動提議兩處會寫成1，全檔案沒有任何地方
+  //   清回0——好感若在同居後一路跌破門檻(爽約/冒犯累積)，標記仍在，AI仍每晚照樣把她骰進和室、
+  //   仍觸發夜襲/賴床，敘事跟「都快變成點頭之交了」的數值直接矛盾。跟REL_TAG同一個函式做，因為
+  //   两者都是「BOND變動後的下游狀態同步」，呼叫時機也完全一致(冪等、任何BOND變動處都會補呼叫)。
+  if (kanshouIsCohabit_(pcData[idx]) && bond < KANSHOU_COHABIT_BOND_) {
+    pcData[idx][COL.PC.MEMORY] = KANSHOU_COHABIT_TAG_.set(pcData[idx][COL.PC.MEMORY], 0);
+  }
 }
 // 純聊天(AI rel_changes)加好感只能推到「目前所在梯度的上限」就卡住，要靠約定赴約(+5·kanshouPromiseMetStr)
 //   或一起經歷橋段(+KANSHOU_SCENE_BOND_·下方roomEventAccept)這類真實相處才能突破到下一梯度(經濟/送禮已砍)。
@@ -1160,6 +1168,17 @@ function kanshouResidenceUnlocked_(pcData, residenceName, gameId) {
     return home === residenceName && (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_VISIT_BOND_;
   });
 }
+// 🐛→✅ 2026-07 稽核抓到的「必爽約陷阱」：約定成立當下有檢查地點解鎖(見actionPlay的_pmLocOk)，
+//   但約定成立後、赴約前若好感因其他事件跌破熟識(40)，屋主的私宅會重新上鎖——玩家想赴約走過去卻被
+//   kanshouVisitBlockedStr攔在門外，隔天還被系統判「爽約」倒扣好感，兩個機制都各自正確卻互相矛盾。
+//   已成立的約定若目的地正是這裡、且還沒過期(day>=curDay)，移動時豁免解鎖檢查——赴約優先於門檻。
+function kanshouLocHasPendingPromise_(pcData, loc, curDay, gameId) {
+  return pcData.some(function (r) {
+    if (gameId && String(r[COL.PC.GAME_ID] || "") !== gameId) return false;
+    const p = kanshouGetPromise_(r[COL.PC.MEMORY]);
+    return !!(p && p.day >= curDay && p.loc === loc);
+  });
+}
 // 同住人深夜/清晨睡不著出門走走的機率，獨立於一般英靈的homeBias，資料只存一處。
 // 幫「不在身邊」的英靈決定當下要去哪——反查KANSHOU_LOCATION_TAGS_有沒有標到這位英靈，有就
 //   加權隨機挑一個常去地點，沒標到就全地點隨機挑。hour：深夜/清晨時段大機率改回「她自己原本
@@ -1540,7 +1559,27 @@ function kanshouNameCandidates_(fullName) {
   return out;
 }
 
+// 🔒 併發保護（2026-07 全面稽核·兩組獨立agent各自抓到同一根因）：actionPlay 故意豁免全域鎖
+//   (見 Router_Action.gs LOCK_EXEMPT_ACTIONS_，理由是AI呼叫4-5秒~最壞49秒不等，鎖全域會拖累其他
+//   玩家)，但寫回機制是「整表快照→本回合全部改動只在記憶體→結尾整列覆寫」(見下方dirtyPcRows)，
+//   若同一個pcId的兩次呼叫執行窗口重疊(同帳號兩分頁/兩裝置同時操作、或聊天等AI回應時另開改命
+//   視窗存檔)，後flush的請求會用自己那份舊快照整列覆寫掉先flush者的所有改動——不分青紅皂白，
+//   好感/MEMORY標記/服裝/技巧全部蓋掉。這裡不加全域鎖(仍會拖累其他玩家)，改用CacheService做
+//   「同一pcId」的軟性互斥：偵測到同pcId仍有一次actionPlay在跑，直接拒絕本次待玩家稍候，不讓
+//   兩者的整列覆寫互相競速。
 function actionPlay(userData, pcId, sheets) {
+  const _lockKey = "kplay_" + String(pcId || "");
+  const _cache = CacheService.getScriptCache();
+  if (_cache.get(_lockKey)) return JSON.stringify({ success: false, message: "上一步還在處理中，請稍候片刻再送出。" });
+  _cache.put(_lockKey, "1", 90); // 90秒涵蓋最壞情境(降階重試~49秒)+安全margin，逾時自動失效不會卡死
+  try {
+    return actionPlay_(userData, pcId, sheets);
+  } finally {
+    _cache.remove(_lockKey);
+  }
+}
+
+function actionPlay_(userData, pcId, sheets) {
   const userMsg = userData.message || ""; // 📅 endDay 呼叫不一定會帶 message，防呆避免下方 .includes 炸掉
 
   // 慾海(KPC_ 御主)專用引擎：鑑賞玩家 pcId 恆為 KPC_ 前綴，全專案已無路徑呼叫這裡走solo——
@@ -1567,7 +1606,12 @@ function actionPlay(userData, pcId, sheets) {
 
   let pcData = sheets.pc.getDataRange().getValues();
 
-  const pcIndex = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  // 🔒 帳號歸屬驗證（2026-07 稽核抓到的漏洞補上）：pcId(KPC_+時間戳)理論上可預測/枚舉，此前
+  //   這裡只用裸 findIndex 信任呼叫者聲稱的 pcId，等於整個 actionPlay(讀寫好感/地點/回憶/相簿門檻
+  //   全靠這裡)完全沒查是不是呼叫者本人的帳號——其餘6個kanshou handler都有比照kanshouOwnedRowIdx_
+  //   反查帳號表，唯獨系統負擔最重、寫入面最廣的這裡漏了。
+  const acctName = String(userData.acctName || "").trim();
+  const pcIndex = kanshouOwnedRowIdx_(pcData, pcId, acctName);
   if (pcIndex === -1) return JSON.stringify({ text: "查無此人", people: [] });
   const pc = pcData[pcIndex];
   const pcName = pc[COL.PC.NAME];
@@ -1586,7 +1630,7 @@ function actionPlay(userData, pcId, sheets) {
   const _myGid_ = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
   let kanshouVisitBlockedStr = "";
   let moveTarget = moveTarget0_;
-  if (moveTarget0_ && moveTarget0_.region === 'visit' && !kanshouResidenceUnlocked_(pcData, moveTarget0_.name, _myGid_)) {
+  if (moveTarget0_ && moveTarget0_.region === 'visit' && !kanshouResidenceUnlocked_(pcData, moveTarget0_.name, _myGid_) && !kanshouLocHasPendingPromise_(pcData, moveTarget0_.name, curDay, _myGid_)) {
     kanshouVisitBlockedStr = `\n★【登門未果·私人住處】：你來到「${moveTarget0_.name}」門前，卻想起跟這裡的主人還沒熟到能這樣直接登門造訪——演出你在門外停步、終究沒敲門就轉身離開的猶豫即可(不要進屋、不要讓屋主出現、不必解釋機制或提到數值)。`;
     moveTarget = null;
   }
@@ -2554,7 +2598,9 @@ ${PROMPT_REL}
     //   在保底文字裡加了 _genFailed 旗標即可辨識，失敗就在這裡直接回給前端、完全不進入後面任何
     //   側效(拍照/性格/回憶/提議…)、也不寫進歷史。
     if (aiData._genFailed) {
-      return JSON.stringify({ text: aiData.narration, people: [], options: aiData.options });
+      // ⚠ 不帶 people——理由同上方 knockEvent 早退：這條沒人真的移動，夾 people:[] 會把前端
+      //   localNPCs 快取洗成空(2026-07 稽核抓到這裡漏做了同一個已修過的防護)。
+      return JSON.stringify({ text: aiData.narration, options: aiData.options });
     }
 
     // 📷 拍照落地：AI成功回應才耗底片＋寫相簿(失敗＝底片不浪費)。敘述吃AI的photo_caption，
@@ -3016,7 +3062,12 @@ ${PROMPT_REL}
       clock: kanshouClock ? kanshouClock.label : ""
     });
 
-  } catch (e) { return JSON.stringify({ text: "系統錯誤：" + e.message, people: [] }); }
+  } catch (e) {
+    // 🐛→✅ 2026-07 稽核抓到：舊版這裡回的物件沒有 success:false，前端因此判斷成「正常敘事」
+    //   直接把原始JS例外訊息(如 TypeError...)當「說書人」台詞演出，違反show-don't-tell、玩家也
+    //   分不出是劇情還是系統壞了。改回前端既有的 success:false 分支(⚠警示樣式，不進敘事流)。
+    return JSON.stringify({ success: false, message: "系統暫時發生錯誤，請再試一次。" });
+  }
 }
 
 // ==========================================
@@ -3025,7 +3076,7 @@ ${PROMPT_REL}
 // 讀相簿：本局全部照片(新到舊)＋今日剩餘底片。dateLabel後端算好(kanshouAbsDayToDate_)，前端零日曆邏輯。
 function actionGetAlbum(userData, pcId, sheets) {
   const pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  const pIdx = kanshouOwnedRowIdx_(pcData, pcId, String(userData.acctName || "").trim());
   if (pIdx === -1) return JSON.stringify({ success: false, photos: [] });
   const gid = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const curDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
@@ -3048,7 +3099,7 @@ function actionGetAlbum(userData, pcId, sheets) {
 // 刪照片：只能刪自己這局的(照片ID＋遊戲ID雙比對)，相簿滿了得騰位子才能再拍。
 function actionAlbumDelete(userData, pcId, sheets) {
   const pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  const pIdx = kanshouOwnedRowIdx_(pcData, pcId, String(userData.acctName || "").trim());
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const gid = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const pid = String(userData.photoId || "").trim();
