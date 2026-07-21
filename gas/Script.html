@@ -321,7 +321,13 @@
       if (!isKanshou && typeof ap === 'number' && apMax) {
         const lit = '⚡'.repeat(Math.max(0, Math.min(apMax, ap)));
         const dim = '·'.repeat(Math.max(0, apMax - ap));
-        apStr = `　行動 ${ap}/${apMax} <span style="letter-spacing:-1px;color:#caa44a;">${lit}</span><span style="letter-spacing:-1px;color:#5a4a2a;">${dim}</span>`;
+        // 🐛→✅ 玩家反饋常常玩到AP見底才發現——沒有彈窗/AI提醒(避免打斷節奏、也避免機制訊息污染AI敘述判斷，
+        //   同本次戰局實況錨點bug同一個教訓)，改用純UI視覺提示：AP≤4時常駐時鐘HUD這排文字/雷電圖示變警示色，
+        //   玩家瞄一眼頂部就會注意到。
+        const apLow = ap > 0 && ap <= 4;
+        const apLabelColor = apLow ? '#e0704a' : '';
+        const litColor = apLow ? '#e0704a' : '#caa44a';
+        apStr = `　<span style="${apLabelColor ? 'color:' + apLabelColor + ';font-weight:bold;' : ''}">${apLow ? '⚠️ ' : ''}行動 ${ap}/${apMax}</span> <span style="letter-spacing:-1px;color:${litColor};">${lit}</span><span style="letter-spacing:-1px;color:#5a4a2a;">${dim}</span>`;
       }
       hud.innerHTML = icon + ' ' + label + apStr;
       hud.style.display = 'block';
@@ -1720,10 +1726,11 @@
     else {
       try { var r = await gasRun({ action: 'get_map_nodes', pcId: pc.id }); if (r && r.success) { nodes = r.nodes || []; here = r.here || ''; allyIntel = !!r.allyIntel; lastMapNodes = r; } } catch (e) { }
     }
+    // 🐛→✅ 玩家實測抓到：「🔍偵查」在這裡跟底部永遠可見的戰場行動列(renderWarActions 的 chip('🔍 偵查', 'scout()'…))
+    //   是同一個 scout()，地圖分頁打開時兩顆按鈕同時存在、完全重複——只留底部那顆常駐入口，這裡拿掉。
     var html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">'
       + '<div style="color:#d4af37; font-weight:bold; font-size:14px;">🗺️ 冬木 · 戰場</div>'
       + '<div style="display:flex; gap:5px;">'
-      + ((pc && pc.mode === 'kanshou') ? '' : '<button class="btn" style="padding:3px 9px; font-size:12px; border-color:#4a8a8a; color:#7fc7c7;" onclick="scout()">🔍 偵查</button>')
       + '<button class="btn" style="padding:3px 9px; font-size:12px; border-color:#4682b4; color:#9fc0ef;" onclick="refreshMapPane()">🔄 重整</button>'
       + '</div></div>';
     if (!(pc && pc.mode === 'kanshou')) html += stancePillHtml_(); // 🎌 御主參戰風格藥丸（戰爭軌限定·鑑賞無戰鬥）
