@@ -396,7 +396,8 @@ function actionMove(userData, pcId, sheets) {
         foeCardsMove += _ownTag + servantCard_(r, { skipClose: true });
         perfNamesMove.push(String(r[COL.PC.NAME]));
       } else if (String(r[COL.PC.FACTION]) === "敵御主") {
-        foeCardsMove += enemyMasterCard_(r);
+        foeCardsMove += enemyMasterCard_(r, { skipClose: true });
+        perfNamesMove.push(String(r[COL.PC.NAME]));
       }
     });
   } catch (e) { }

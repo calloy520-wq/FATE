@@ -206,8 +206,13 @@ function sealGenderFact_(masterSex, svSex, svName) {
 // 🎭 敵御主「演出依據」卡（精簡）：戰鬥現場若敵御主本人在場(同地)，讓 AI 依其性格給反應/台詞，
 //   別讓對方全程沉默——只塞夠判斷語氣與反差的精簡片段(性格全4項/特徵/萌點)，不塞六圍/寶具/全份人設。
 //   跟 masterCard_ 不同：這是 NPC、AI 可自行決定其言行反應，不受「不可替玩家做決定」那條限制。
-function enemyMasterCard_(row) {
+// 🐛→✅ 玩家實測抓到：本卡跟 servantCard_ 同框的3處(戰鬥主路徑/暗殺分支/抵達場景)，各自收尾都在講一次
+//   「show don't tell＋正典認知優先」——跟 performanceNote_() 內容重疊。opts.skipClose=true 時省略這段
+//   重疊部分，呼叫端把敵御主真名併入同一次 performanceNote_()；「非沉默背景板」這句是敵御主專屬的行為
+//   準則(非共用不變句)，不受 skipClose 影響、恆常保留。不傳 opts 行為完全不變，向下相容。
+function enemyMasterCard_(row, opts) {
   if (!row) return "";
+  var skipClose = !!(opts && opts.skipClose);
   try {
     var name = String(row[COL.PC.NAME] || "敵御主");
     var moe = String(row[COL.PC.INTENT] || "").trim();
@@ -232,8 +237,11 @@ function enemyMasterCard_(row) {
       (magic ? `｜魔術系統：${magic}${magicRank ? `(${magicRank}階)` : ""}` : "") +
       (melee ? `｜體術：${melee}階` : "") +
       (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
-      `。★若此人為 Fate 正典人物，優先調用你對其原作形象的完整認知來演出——上述設定僅為錨點提醒、並非其全部；非正典的原創人物才嚴格依上述設定。【禁】預告或影射其原作後續結局與未揭露的身分。\n` +
-      `★此役敵御主本人在場，依其性格/身世與萌點反差給出神態反應或台詞(show, don't tell：別把萌點/性格詞當台詞或由旁白點破)——非沉默背景板，但戰局勝負與傷害不可改。\n`;
+      "。" +
+      (skipClose ? "" : `★若此人為 Fate 正典人物，優先調用你對其原作形象的完整認知來演出——上述設定僅為錨點提醒、並非其全部；非正典的原創人物才嚴格依上述設定。【禁】預告或影射其原作後續結局與未揭露的身分。\n`) +
+      (skipClose
+        ? `★此役敵御主本人在場，依其性格/身世與萌點反差給出神態反應或台詞——非沉默背景板，但戰局勝負與傷害不可改。\n`
+        : `★此役敵御主本人在場，依其性格/身世與萌點反差給出神態反應或台詞(show, don't tell：別把萌點/性格詞當台詞或由旁白點破)——非沉默背景板，但戰局勝負與傷害不可改。\n`);
   } catch (e) { return ""; }
 }
 

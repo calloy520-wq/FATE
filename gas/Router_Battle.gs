@@ -528,9 +528,9 @@ function actionFateBattle(userData, pcId, sheets) {
     //   完整的「怎麼演」收尾句——改成每張卡skipClose，收尾句用 performanceNote_() 統一講一次。
     const asnAtkCardsStr = rolls.map(r => servantCard_(pcData[r.idx], { skipClose: true })).join('');
     const asnGuardCardStr = '〔敵御主之護衛從者〕' + servantCard_(pcData[assassinGuardIdx], { skipClose: true });
-    const asnTargetMasterCardStr = enemyMasterCard_(pcData[nIdx]);
+    const asnTargetMasterCardStr = enemyMasterCard_(pcData[nIdx], { skipClose: true });
     const asnCardsStr = asnMasterCardStr + asnAtkCardsStr + asnGuardCardStr + asnTargetMasterCardStr +
-      performanceNote_(rolls.map(r => r.name).concat([String(pcData[assassinGuardIdx][COL.PC.NAME])]));
+      performanceNote_(rolls.map(r => r.name).concat([String(pcData[assassinGuardIdx][COL.PC.NAME]), String(pcData[nIdx][COL.PC.NAME])]));
     const dualAsn = asnParty.length > 1;
     let asnReport, asnPrompt, asnVictory = false, asnDefeat = false, asnDream = "", asnKnocked = [];
 
@@ -1191,7 +1191,7 @@ function actionFateBattle(userData, pcId, sheets) {
       enemyMasterRow = pcData[_emIdx];
     }
   }
-  let enemyMasterCardStr = enemyMasterRow ? enemyMasterCard_(enemyMasterRow) : "";
+  let enemyMasterCardStr = enemyMasterRow ? enemyMasterCard_(enemyMasterRow, { skipClose: true }) : "";
   // 🎭 關係錨：明說在場敵御主與「defC」的契約關係——否則兩人在提示詞裡只是不相干的名詞，AI 演不出
   //   「自己的從者在眼前交戰/被消滅」的切身衝擊，只會照性格詞即興出「冷眼旁觀」的類型套路。
   if (enemyMasterCardStr && !isMasterTarget) {
@@ -1300,13 +1300,13 @@ function actionFateBattle(userData, pcId, sheets) {
   const allyAssistCardStr = allyAssistName ? '〔盟友從者〕' + servantCard_(pcData[allyAtkIdx], { skipClose: true }) : "";
   const pactDefCardStr = pactDefName ? '〔敵方盟友從者〕' + servantCard_(pcData[pactDefIdx], { skipClose: true }) : "";
   if (defeat) {
-    const _perfNamesDefeat = [atkC.name].concat(foeServantCardStr ? [defC.name] : []);
+    const _perfNamesDefeat = [atkC.name].concat(foeServantCardStr ? [defC.name] : []).concat(enemyMasterRow ? [String(enemyMasterRow[COL.PC.NAME])] : []);
     aiPrompt = ourMasterCardStr + servantCard_(pcData[atkIdx], { skipClose: true }) + foeServantCardStr + enemyMasterCardStr + performanceNote_(_perfNamesDefeat) +
       `【戰報·已裁定】御主號令『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合。\n${roundsBrief}\n結局：『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。\n` +
       _masterStanceLine +
       `★以 Fate／TYPE-MOON 筆觸演出這場敗北的最後一幕(一段即可)${atkC.cls === 'Caster' ? '（Caster 以魔術轟擊為主、非肉搏）' : ''}——御主與從者並肩奮戰到最後，語氣留白。勝負已定，你只演過程。`;
   } else {
-    const _perfNames = [atkC.name].concat(foeServantCardStr ? [defC.name] : []).concat(allyAssistName ? [allyAssistName] : []).concat(pactDefName ? [pactDefName] : []);
+    const _perfNames = [atkC.name].concat(foeServantCardStr ? [defC.name] : []).concat(allyAssistName ? [allyAssistName] : []).concat(pactDefName ? [pactDefName] : []).concat(enemyMasterRow ? [String(enemyMasterRow[COL.PC.NAME])] : []);
     aiPrompt = ourMasterCardStr + servantCard_(pcData[atkIdx], { skipClose: true }) + foeServantCardStr + enemyMasterCardStr + allyAssistCardStr + pactDefCardStr + performanceNote_(_perfNames) +
       `【戰報·已裁定，勝負與傷害不可改】御主號令${atkLabel}出擊，與「${defC.name}」交鋒 ${nRounds} 回合。\n` +
       `${roundsBrief}\n我方造成 ${totalDealt} 傷害、受創 ${totalTaken}。${finalLine}\n` +
