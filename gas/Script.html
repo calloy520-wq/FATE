@@ -619,7 +619,8 @@
   }
   // 🩸 燃燒生命強撐：扣血換 AP（每日一次）
   async function secondWind() {
-    if (!confirm('🩸 燃燒生命力強撐？\n\n透支體力與魔術迴路，扣除一截生命（約 20% 上限）換取 +4 行動力。\n不耗 AP、可重複——但血燒到接近見底就撐不住。\n\n確定強撐？')) return;
+    // 🐛→✅ 玩家反饋：按鈕本身已清楚寫「+4AP·不耗時」＋警示紅色樣式，不必再跳一次confirm確認——
+    //   點了就是要用，多一道彈窗只是拖慢節奏。
     if (!beginAction()) return;
     var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none';
     const story = document.getElementById('story');
