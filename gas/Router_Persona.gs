@@ -105,7 +105,9 @@ function servantCard_(row) {
     var card = `〈${name}·${cls}·演出依據(僅供內化，禁複述設定字面)〉此角色台詞內自稱「${fp}」(僅限她/他自己的引號台詞，敘事旁白的「我」永遠是玩家本人、與此無關)｜對自己御主的態度：${toM || '依真名'}` +
       (persona ? quadLabeled_(persona, PREF_LABELS_, false) : `｜性格：依真名`) +
       (speech ? `｜口吻：${speech}` : "") +
-      (moe ? `｜萌點：${moe}` : "") +
+      // 🐛→✅ 同批修正(比照 masterCard_)：萌點沒講頻率，容易連續幾場戲都反覆用同一個具體動作點出反差，
+      //   讀起來像機械公式——補「不必每回合硬塞、情境對了才自然浮現」。
+      (moe ? `｜萌點(不必每回合硬塞，情境對了才自然浮現一次，避免每次都用同一個具體動作重複)：${moe}` : "") +
       (tic ? `｜小動作：${tic}` : "") +
       (look ? quadLabeled_(look, TRAIT_LABELS_, false) : "") +
       (back ? `｜身世：${back}` : "") +
@@ -150,7 +152,11 @@ function masterCard_(row) {
     return `〈御主「${name}」·演出依據(僅內化、禁複述)〉` + (sex ? `性別${sex}` : "") +
       quadLabeled_(row[COL.PC.PREF], PREF_LABELS_, true) +
       quadLabeled_(row[COL.PC.TRAIT], TRAIT_LABELS_, true) +
-      (moe && moe !== "（待揭曉）" ? `｜萌點(反差·僅供內化)：${moe}` : "") +
+      // 🐛→✅ 玩家實測抓到：萌點只講「不能直接講出來」，沒講「不用每回合硬塞」——這張卡幾乎每次
+      //   敘述都帶上，AI 手上唯一的反差素材只有這句，連續幾回合就會反覆重複同一個具體動作(如
+      //   每場戰鬥都摸一次口袋布偶)，讀起來像機械公式，show don't tell 變相變成另一種 tell。
+      //   補頻率節制：不必每回合硬塞，情緒/場合對了才自然浮現，且別老是同一個具體動作。
+      (moe && moe !== "（待揭曉）" ? `｜萌點(反差·僅供內化，不必每回合硬塞，情境對了才自然浮現一次，避免每次都用同一個具體動作重複)：${moe}` : "") +
       (back ? `｜身世：${back}` : "") +
       (origin ? `｜出身：${origin}` : "") +
       (magic ? `｜魔術系統：${magic}${magicRank ? `(${magicRank}階)` : ""}` : "") +
