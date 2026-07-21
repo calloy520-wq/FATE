@@ -447,3 +447,25 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 
 **效能round-trip**：
 - `actionBond` 在 `raiseBond_` 已原地改過 `pcData` 後，又多打一次即時Sheets讀取拿「最新羈絆值」——直接讀記憶體。
+
+## 18. GAS掌事實／AI只說書：找出還在給AI自由判斷的候選（2026-07·玩家提出四目標後續稽核）
+
+玩家提出「GAS處理快速＋介面簡單明瞭＋GAS嚴謹計算＋AI敘述不出戲」四目標，問solo還有沒有強化空間。逐項盤點後判斷：快速/介面兩塊已成熟或該交給實測而非代碼審查；AI不出戲這塊指出「別再摳字數，該延續本專案自己的設計鐵律『GAS掌數值、AI只說書』——找還有哪些現在丟給AI自己判斷、其實GAS早算好答案卻沒講的地方」。4個agent分組稽核Router_Battle/Movement/Bond/Economy+Persona+Narrative，找到10個候選(Router_Economy/Persona/Narrative這組正確回報「這幾檔本來就做對了、沒找到」，反過來確認了`actionManaSupply`的信任門檻/`servantCard_`等既有寫法是這個模式的正確範例)：
+
+**Router_Battle.gs（戰鬥核心，2個，皆高信心）**：
+- **敵方反擊解放寶具的真名從沒告訴AI**：`rl.eNp`只寫入(1092/1100行)從沒被讀取，`extraFired`等收集器只認「戰鬥續行/斬斷救贖」這兩種標籤、篩掉了「·寶具解放·真名」——導致敵反擊即使是寶具級的一擊也可能被AI演成普通反擊，跟同一份提示詞裡「這是Fate寶具解放的靈魂」這條規則自相矛盾。補`rl.eNpName`(比照玩家自己`npName`的拆法用`npProfile_(enemyNow)`算)，新增`enemyNpRoundNotes`收集器併入aiPrompt。
+- **雙方寶具對轟(clash)開場的真名，兩邊都沒講**：`npName`(我方)只在非clash分支才被引用；`clash.enemyNp`存的是MARTIAL欄原始字串(可能含未選中的其他寶具、沒拆真名)。全場最戲劇性的NP-vs-NP交鋒，AI反而拿不到任何一方的真名依據。補`clash.enemyNpName`(用已選定的`enemyC0.npChoice`算)，clash分支的aiPrompt改為明講「我方真名【X】vs敵方真名【Y】——雙方均需在此刻高呼真名」。
+
+**Router_Bond.gs（4個，皆高/中高信心）**：
+- `actionBond`「相處」frame舊版寫「由你自行定調羈絆的深淺」——GAS明明有`bondNow`這個確切數字(且同檔`actionAllyBond`早就示範過怎麼分tier)，卻沒換算成濃淡定調餵給AI。補4級`bondTier`。
+- 羈絆里程碑(30/60/90)只拿來內部判斷寫回標記，三道門檻量級差很大(30是初次鬆動、90近乎告白)，AI卻只拿到「依羈絆深淺」自己猜。補`milestoneScale`依`milestone`值分流具體量級描述。
+- `actionProposeAlliance`：`allianceWillingness_`內部呼叫`masterPersonaLean_`算出這名敵御主的性格傾向、算完就丟掉——同檔案`actionCourtEnemy`早就示範過怎麼把這傾向轉成具體反應描述(628行)，這裡卻仍讓AI自己從泛用選項裡瞎挑。補`lean`變數，成功/失敗兩分支都依`lean.pragmatic`/`lean.loner`分流反應描述。
+- `actionBond`遭突襲反應舊版寫「重情者強撐護主、疏離者未必」的二選一，沒講此刻`bondNow`實際落在哪邊——比照`actionAllyBond`的tier分級，直接定調。
+
+**Router_Movement.gs（4個）**：
+- 撤退追擊/歇息夜襲/趁隙偷襲三處(`actionMove`撤退分支、`actionRest`、`playerAmbushOnEnemy_`)全部無條件寫死「重創」，不管`dmg`實際佔對方HP上限的比例——GAS明明算得出`svHpMax`/`eHpMax`卻沒換算成傷勢用詞，文字可能跟血條矛盾(如只扣1點血也講「重創」)。三處統一補「重創(≥40%)／負傷(≥15%)／擦傷(其餘)」三級判斷。
+- 撤離背擊寶具的反手交鋒舊版無條件寫「堪堪擋開」(千鈞一髮)，但`prT.dEva - prT.aHit`margin早就算出躲得有多輕鬆——高信心度躲開時改講「從容擋下」。
+- `detectAllyPeril_`的盟友告急報信無條件寫「情勢緊繃」，沒讀盟友實際HP比例——補`hpRatio`回傳值，依血量分三級(尚占上風/戰況膠著/命懸一線)。
+- `enemyAmbushOnServant_`的陣地反擊repelNote無條件寫「優雅擊退」，沒把`homeRank`(D~EX規模事實)換算成強度描述——同一句話套在陽春土壘跟EX級空中庭園結界上讀起來一樣，補`homeRankScale`依`rankVal(homeRank)`分3級。
+
+全部10項皆為「GAS已經算出/能輕易算出這個事實，卻沒有餵給AI」的漏餵類型，不涉及刪減任何既有指令，`bash check.sh`全過、`nsfwBaseRules`紅線未觸及。

@@ -196,7 +196,7 @@ function setBondMilestonesFired_(memory, arr) {
 // 💕 羈絆互動（純按鈕，無對話框）：單一「相處」（每遊戲日限一次、跨日重置、+10 羈絆），味道交給
 //   AI 依當下時段/羈絆/性格自由即興，不做假選擇的每日清單。
 var BOND_ACTS = {
-  together: { label: '相處', bond: 10, frame: '一段與御主相處的時光——由你依當下時段、兩人羈絆的深淺與從者性格，自由定調是巡查歇腳的閒話家常、一同用餐的尋常溫度、並肩切磋的默契，或夜深促膝的交心；擇一自然發生、勿逐項羅列' }
+  together: { label: '相處', bond: 10, frame: '一段與御主相處的時光' }
 };
 function actionBond(userData, pcId, sheets) {
   const type = String(userData.bondType || "").trim();
@@ -256,25 +256,40 @@ function actionBond(userData, pcId, sheets) {
   if (ambush && (ambush.homeRepel || ambush.peaceful)) {
     aiPrompt = ambush.repelNote; // 🏰 陣地反擊·優雅擊退／🎲 按兵不動或試探接觸(卸防時刻多樣化)
   } else if (ambush) {
+    // 🐛→✅ 舊版給AI「重情者強撐護主、疏離者未必」這種二選一，卻沒講此刻bondNow實際落在哪一邊——
+    //   GAS早算好這個數字(241行)，比照 actionAllyBond 的tier分級，直接定調而非讓AI自己猜個性夠不夠重情。
+    const ambushBondNote = bondNow >= 50 ? "羈絆已深，這一刻會奮力強撐護主" : "羈絆尚淺，這一刻未必挺身相護、更可能先顧自己";
     aiPrompt = (ambush.foeCard || '') + `【系統·相伴遭突襲·已裁定】御主『${masterName}』與「${svName}」正${act.label}、卸下心防之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自暗處無聲突襲' : '抓準這破綻殺出'}，一擊重創「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n` +
-      `★以 Fate／TYPE-MOON 筆觸描寫溫存被突襲撕裂的驚變與兇險，${ambush.destroyed ? '及從者消滅的痛楚（語氣留白）' : '及從者依其性格與羈絆對此突襲的反應（重情者強撐護主、疏離者未必）'}。傷害與勝負已由系統結算。\n` +
+      `★以 Fate／TYPE-MOON 筆觸描寫溫存被突襲撕裂的驚變與兇險，${ambush.destroyed ? '及從者消滅的痛楚（語氣留白）' : `及從者對此突襲的反應：${ambushBondNote}`}。傷害與勝負已由系統結算。\n` +
       ``;
   } else if (milestone) {
     // 里程碑真正落地：標記已演出，之後同一門檻不會再觸發
     firedMilestones.push(milestone);
     pcData[svIdx][COL.PC.MEMORY] = setBondMilestonesFired_(pcData[svIdx][COL.PC.MEMORY], firedMilestones);
     sheets.pc.getRange(svIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[svIdx][COL.PC.MEMORY]);
+    // 🐛→✅ milestone(30/60/90)只用來內部判斷寫回標記，從沒告訴AI是哪一道門檻——三道門檻的量級差很大
+    //   (30是初次鬆動、90是近乎告白的敞開)，AI卻只拿到同一句「依羈絆的深淺」自己猜，等於GAS明明知道
+    //   答案卻不講。改成依milestone分流具體量級提示。
+    const milestoneScale = milestone >= 90 ? "羈絆臻至極深——這是目前為止最大幅度的敞開心扉，甚至帶點連自己都措手不及的坦率"
+      : milestone >= 60 ? "羈絆已深一層——可以比平常更明顯地卸下慣有的距離感"
+      : "信任剛跨過門檻的起點——舉動應細微、克制，帶點自己都沒完全察覺的鬆動，不宜太大幅度";
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【系統·羈絆里程碑·已裁定】御主『${masterName}』與從者「${svName}」相處之際，兩人的羈絆悄然邁過一道分水嶺（時值${band}）。\n` +
-      `★這不是尋常的${act.label}，而是關係質變的一瞬——依「${svName}」的真名、性格與此刻羈絆的深淺，寫出屬於這位從者獨有的一個具體舉動或一句話（例如：卸下慣有的距離感、罕見地主動靠近、遞出從未給過的東西、換了個從未用過的稱呼——擇其中最貼合這位從者性格的一種，不要套用泛用模板，也不要多選並列）。\n` +
+      `★這不是尋常的${act.label}，而是關係質變的一瞬，量級是：${milestoneScale}——依「${svName}」的真名與性格，寫出屬於這位從者獨有的一個具體舉動或一句話（例如：卸下慣有的距離感、罕見地主動靠近、遞出從未給過的東西、換了個從未用過的稱呼——擇其中最貼合這位從者性格與上述量級的一種，不要套用泛用模板，也不要多選並列）。\n` +
       `★【精煉100~160字】以 Fate／TYPE-MOON 筆觸，聚焦這一個瞬間，勿流水帳交代前後經過。\n` +
       `★【show, don't tell】絕不可直白說出「羈絆加深了」「更信任了」等抽象詞，也絕不可直述其「願望／個性／萌點」設定字面，只憑神態與言行流露；停在意猶未盡的留白。\n` +
       `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。`;
   } else {
+    // 🐛→✅ 舊版只給「由你自行定調羈絆深淺」這種抽象指令，GAS 明明手上就有 bondNow 這個確切數字
+    //   (跟 actionAllyBond 的 tier 分級同一套邏輯)，卻沒換算成濃淡定調餵給 AI——比照補上。
+    const bondTier = bondNow >= 90 ? "羈絆深厚，可以是夜深促膝的交心，或難得流露的親近隨性"
+      : bondNow >= 60 ? "彼此有默契的信任，可並肩切磋或帶點輕鬆的閒談"
+      : bondNow >= 30 ? "漸生熟悉，多是一同用餐的尋常溫度"
+      : "剛熟識不久，多是巡查歇腳的閒話家常，仍帶點客套";
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【系統·羈絆已結算】御主『${masterName}』與從者「${svName}」${act.label}、共度約莫一個小時的光景，兩人的羈絆又深了一分（時值${band}）。\n` +
       `★【時間尺度】這是一段約一個小時的相處，寫出「有一段時光緩緩流過」的從容，勿寫成三言兩語的瞬間、也勿橫跨大半天。\n` +
-      `★以 Fate／TYPE-MOON 筆觸寫一段【精煉 90~150 字、輕快不冗長】${svName} 與御主${act.frame}的小品。務必貼合上方「演出依據」中的性格、自稱與口吻，演出其獨有神態，點到為止留餘味。\n` +
+      `★依當前羈絆定調濃淡：${bondTier}。以 Fate／TYPE-MOON 筆觸寫一段【精煉 90~150 字、輕快不冗長】${svName} 與御主${act.frame}的小品。務必貼合上方「演出依據」中的性格、自稱與口吻，演出其獨有神態，點到為止留餘味。\n` +
       `★【show, don't tell】用言行、神態、停頓去流露情感與性格，絕不可直白說出其「願望／個性／萌點」等設定詞；停在含蓄的留白。\n` +
       `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。`;
   }
@@ -368,6 +383,10 @@ function actionProposeAlliance(userData, pcId, sheets) {
   const w = allianceWillingness_(pcData[mIdx], aliveFoes);
   const ok = Math.random() < w;
   const masterName = String(pcData[mIdx][COL.PC.NAME]);
+  // 🐛→✅ allianceWillingness_ 內部呼叫 masterPersonaLean_ 算出這名敵御主的性格傾向，卻只拿來算機率、
+  //   算完就丟掉——同檔案 actionCourtEnemy(628行)已經示範過怎麼把這個傾向轉成具體反應描述餵給AI，
+  //   這裡卻仍讓AI自己從「務實的權衡/開出條件/冷淡的『暫時』」等泛用選項裡憑空挑一個，比照補上。
+  const lean = masterPersonaLean_(pcData[mIdx]);
 
   let ap = AP_PER_DAY, clock = "";
   if (isFate) { try { ap = spendAp_(myGameId, 1, pcData, sheets).ap; clock = clockLabel_(myGameId, pcData); } catch (e) { } }
@@ -392,14 +411,14 @@ function actionProposeAlliance(userData, pcId, sheets) {
     //   Router_Movement.gs〔夜襲者〕的慣例先標明身分，避免 AI 誤讀態度欄位方向。
     aiPrompt = (gPresent ? '〔敵御主之從者〕' + servantCard_(pcData[gIdx]) : "") +
       `【系統·結盟已達成·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』向敵御主「${masterName}」${allyServant ? `（從者「${allyServant}」）` : ""}提議結盟，對方權衡利害後接受了——雙方暫時休兵、互不侵犯（至第 ${until} 日前後）。\n` +
-      `★以 Fate／TYPE-MOON 筆觸【約 120~180 字】演出這場談判：「${masterName}」依其性格回應（務實的權衡、開出條件或冷淡的「暫時」），最後達成不穩固的同盟。對方的算計與保留要演出來，留一絲不信任的伏筆。\n` +
+      `★以 Fate／TYPE-MOON 筆觸【約 120~180 字】演出這場談判：「${masterName}」${lean.pragmatic ? '務實者會爽快權衡利害、順水推舟地開出條件' : lean.loner ? '孤高／瘋狂者即便接受也是冷淡的權宜之計，語氣多帶嘲諷或警戒' : '依其性格自然回應'}，最後達成不穩固的同盟。對方的算計與保留要演出來，留一絲不信任的伏筆。\n` +
       // 🐛→✅ 這個動作沒改動任何人的 LOC(結盟雙方都仍留在原地)，同款「AI 自行編出離場」風險。
       `★「${masterName}」${allyServant ? `與「${allyServant}」` : ''}結盟後【仍留在原地】，並未轉身離去，收在同地暫時休兵的微妙氣氛即可。\n`;
     STATE_PRE_DATA_ = pcData; // ⚡ 交棒：結盟成立分支的所有寫入(MEMORY盟約標記/spendAp_)皆已原地改回 pcData
     return JSON.stringify({ success: true, allied: true, aiPrompt: aiPrompt, master: masterName, until: until, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: buildPlayerStatusString(pcData[pIdx]) });
   } else {
     aiPrompt = `【系統·結盟破局·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』向敵御主「${masterName}」提議結盟，對方拒絕了。\n` +
-      `★以 Fate／TYPE-MOON 筆觸【約 100~150 字】演出「${masterName}」依其性格回絕的瞬間（嘲諷、警戒、或「聖杯只能有一個」的冷冽）。氣氛轉為一觸即發，但本回合不開打。\n` +
+      `★以 Fate／TYPE-MOON 筆觸【約 100~150 字】演出「${masterName}」${lean.loner ? '孤高／瘋狂者的回絕帶著嘲諷、警戒或看好戲的興味' : lean.pragmatic ? '務實者的回絕仍留餘地，是「暫時不需要」的冷靜盤算而非情緒化拒絕' : '依其性格回絕的瞬間（嘲諷、警戒、或「聖杯只能有一個」的冷冽）'}。氣氛轉為一觸即發，但本回合不開打。\n` +
       ``;
     STATE_PRE_DATA_ = pcData; // ⚡ 交棒：結盟破局分支僅spendAp_推進時間，已原地改回 pcData
     return JSON.stringify({ success: true, allied: false, aiPrompt: aiPrompt, master: masterName, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: buildPlayerStatusString(pcData[pIdx]) });

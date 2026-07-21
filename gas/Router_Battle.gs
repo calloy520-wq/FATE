@@ -834,9 +834,13 @@ function actionFateBattle(userData, pcId, sheets) {
         //   fateStrike_ 剛寫成 DEAD_/HP=0 的那一列回補血量、還白白扣一筆御主HP去「保護」一個已經不在的人。
         else if (!pHit.knocked && spill > 0) { const _shC = applyMasterStanceShare_(sheets, pcData, atkIdx, pIdx, spill, _stanceShare); if (_shC) masterShared += _shC; }
       }
+      // 🐛→✅ enemyNp 舊版只存 MARTIAL 欄原始字串(可能含未選中的其他寶具/未拆真名)，AI 演對轟這場
+      //   「全場最戲劇性時刻」時卻從沒被告知敵方這次實際解放的真名是哪一個——比照玩家自己的 npName
+      //   拆法，用已選定的 enemyC0.npChoice 算出這次真正解放的那把。
+      let enemyNpName = ""; try { enemyNpName = String(npProfile_(enemyC0).name || enemyC0.np || "").split(/[（(／]/)[0].trim(); } catch (e) { }
       clash = {
         outcome: outcome, pPow: pPow, ePow: ePow, pDmgTaken: pDmgTaken, eDmgTaken: eDmgTaken,
-        enemyNp: String(pcData[nIdx][COL.PC.MARTIAL] || ""),
+        enemyNp: String(pcData[nIdx][COL.PC.MARTIAL] || ""), enemyNpName: enemyNpName,
         atkHp: parseInt(pcData[atkIdx][COL.PC.HP]) || 0, atkHpMax: parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 0,
         defHp: parseInt(pcData[nIdx][COL.PC.HP]) || 0, defHpMax: parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0
       };
@@ -1098,6 +1102,10 @@ function actionFateBattle(userData, pcId, sheets) {
           const eSkill = servantActiveSkill_(enemyNow);
           const es = fateStrike_(sheets, pcData, enemyNow, ctgt, { counterMul: enemyFireNp ? 1.0 : 0.85, np: enemyFireNp, skill: eSkill, round: rd + 1 }, ctx);
           rl.eHit = es.hit; rl.eRoll = es.aRoll; rl.eHitVal = es.aHit; rl.eDmg = es.hit ? es.damage : 0; rl.eFired = es.fired; rl.eTarget = String(pcData[ctgt][COL.PC.NAME]); rl.eNp = enemyFireNp;
+          // 🐛→✅ 玩家自己解放寶具已有 npName 讓 AI 高呼真名(見下方)，敵方反擊解放寶具卻從沒對稱處理——
+          //   GAS 明明已經算出 enemyNow.npChoice/敵方寶具真名，卻沒餵給 AI，導致敵反擊即使是寶具等級的
+          //   一擊也可能被演成普通揮拳，跟「這是 Fate 寶具解放的靈魂」這條設計鐵則自相矛盾。
+          if (enemyFireNp) { try { const _eNpFull = String(npProfile_(enemyNow).name || enemyNow.np || "").split(/[（(／]/)[0].trim(); rl.eNpName = _eNpFull || null; } catch (e) { rl.eNpName = null; } }
           // 🐛→✅ 玩家實測抓到：我方出擊(ps)/深淵海怪(hs)都完整檢查 destroyed/knocked/godRevived/sealEscaped，
           //   敵反擊(es)舊版只讀 defeat/hit——雙從者出戰時，敵反擊打死的若不是最後一名從者，defeat 不成立，
           //   destroyedName/knockedOut 完全不會被設，AI 戰報與前端都不知道這名從者剛剛死了；同理若這擊
@@ -1289,6 +1297,10 @@ function actionFateBattle(userData, pcId, sheets) {
   const ourMagicFired = rounds.some(r => (r.strikes || []).some(k => (k.pFired || []).some(t => /·御主魔術/.test(String(t)))));
   const foeMeleeFired = rounds.some(r => (r.eFired || []).some(t => /·御主體術/.test(String(t))));
   const foeMagicFired = rounds.some(r => (r.eFired || []).some(t => /·御主魔術/.test(String(t))));
+  // 🔮 敵反擊解放寶具的真名——同一種「GAS算出來卻沒告訴AI」的漏餵，比照上面 extraFired 補一個對稱收集。
+  const enemyNpRoundNotes = rounds.filter(r => r.eNp && r.eNpName).map(r =>
+    `第${r.n}回合「${defC.name}」反擊解放真名【${r.eNpName}】${r.eHit ? `命中「${r.eTarget}」` : '，卻被躲開落空'}`
+  ).join('；');
   // 🐛→✅ 御主本人的「演出依據」卡(魔術系統/體術階/身世/性格)之前從沒進過這支戰鬥 aiPrompt——
   //   AI 只收到上面 _masterStanceLine 那句抽象姿態指令(「伺機介入」)，具體要怎麼參戰毫無憑據，
   //   便自行編造出跟角色設定無關的招式(如「甩出魔術迴路干擾」)，玩家反應「超級出戲」。這裡補上
@@ -1313,7 +1325,7 @@ function actionFateBattle(userData, pcId, sheets) {
       `── 本戰發生的事(素材，自行織入畫面，勿複述標籤名) ──\n` +
       (useSeal ? `· 御主燃燒一道令咒·絕對命令，強令此擊必中、引爆超限戰力。\n` : "") +
       (npSealForced ? `· 【令咒·絕對命令·強開寶具】御主魔力早已見底、血肉也湊不出真名解放所需——卻仍以令咒之力硬逼出這一擊：那道刻在手背的絕對命令化作純粹魔力，補上枯竭的缺口，強令從者不顧一切解放寶具。演出「魔力見底仍以令咒逼出真名」的孤注一擲與令咒燃盡的灼痛榮光。\n` : "") +
-      (clash ? `· 寶具對轟：${clash.outcome === 'causality' ? `因果律先行截斷——『${atkC.name}』的死亡詛咒在敵方寶具解放之前便已降臨，敵 NP 殘波極微。` : clash.outcome === 'player' ? '我方威能壓過對手。' : clash.outcome === 'enemy' ? '對面威能壓過我方（從者以鋼鐵意志撐住）。' : '勢均力敵、轟然相抵、雙方震退。'}\n` : (useNp ? (
+      (clash ? `· 寶具對轟：我方真名【${npName ? npName.zh : atkC.name}】 vs 敵方真名【${clash.enemyNpName || defC.name}】——雙方均需在此刻高呼各自真名、正面展現寶具威能，這是這場戰鬥最戲劇性的瞬間。${clash.outcome === 'causality' ? `因果律先行截斷——『${atkC.name}』的死亡詛咒在敵方寶具解放之前便已降臨，敵 NP 殘波極微。` : clash.outcome === 'player' ? '我方威能壓過對手。' : clash.outcome === 'enemy' ? '對面威能壓過我方（從者以鋼鐵意志撐住）。' : '勢均力敵、轟然相抵、雙方震退。'}\n` : (useNp ? (
         npMissed
           ? (hasFx_(atkC, 'mad')
               ? `· ${atkC.name} 解放了寶具【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】——這記狂化本能的全力一擊卻被「${defC.name}」堪堪避開，威能撲了個空。★此從者已狂化、無法詠唱：解放是咆哮與本能的爆發，這次沒能命中——旁白可呈現真名與威能，演出「全力一擊卻被驚險避開」的震撼與不甘(別讓這次落空顯得平淡帶過)，但【嚴禁】讓其開口唸出任何字句。\n`
@@ -1350,6 +1362,7 @@ function actionFateBattle(userData, pcId, sheets) {
       ((!destroyedName && !sealEscaped && !godRevived) ? `· 敗方尚有餘力(見上方 HP)，勿描寫死亡／消滅／屍體。此乃御主下令出擊、雙方仍在交鋒中，下回合是否再戰仍由御主決定。\n` : "") +
       (atkC.cls === 'Caster' ? `· 出戰從者為 Caster（魔術師）職階：此戰以魔術轟擊為主、非肉搏，演出時勿讓其上前近戰。\n` : "") +
       (extraFired.length ? `· 戰局關鍵轉折：${extraFired.join('；')}。\n` : "") +
+      (enemyNpRoundNotes ? `· ${enemyNpRoundNotes}——這不是普通反擊而是寶具解放，演出時應讓「${defC.name}」展現寶具威能／可高呼真名，不可寫成尋常一擊。\n` : "") +
       (ourMeleeFired ? `· 我方御主親自出手體術助拳，這場交鋒的攻勢不全是『${atkC.name}』一人之力。\n` : "") +
       (ourMagicFired ? `· 我方御主暗中引動自身魔術支援這一擊，攻勢裡混著御主自己的魔力。\n` : "") +
       (foeMeleeFired ? `· 對面御主同樣親自體術助陣，敵方這回合的攻勢摻著御主自己的招式，並非「${defC.name}」隻身出手。\n` : "") +

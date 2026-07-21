@@ -155,8 +155,12 @@ function actionMove(userData, pcId, sheets) {
                   note: '「' + teleName + '」蓄勢已久的真名解放朝你退卻的背影轟然傾瀉——這一擊的代價，是逃離強敵的必然。' };
               } else {
                 var cntT = resolveFateBattle_(psvC, foeC2, {}); // 反手＝普通交鋒(不白嫖寶具骰)
+                // 🐛→✅ 舊版無條件講「堪堪擋開」(千鈞一髮)，但 prT(foe的寶具骰)其實已經算出這次躲得有多輕鬆——
+                //   命中值(prT.aHit)跟迴避值(prT.dEva)差距大時根本不算「堪堪」，跟後面的骰子margin矛盾。
+                var counterMargin = prT.dEva - prT.aHit;
+                var counterDesc = counterMargin >= 8 ? '從容擋下、反手逼退' : '堪堪擋開、反手逼退';
                 pursuit = { enemyName: teleName, chaserId: String(teleFoe[COL.PC.ID]), dmg: Math.max(1, cntT.atkWins ? cntT.damage : Math.round(rankVal(psvC.six['筋力'] || 'C') * 0.5)), hitWho: 'foe', np: true,
-                  note: '「' + teleName + '」的寶具在你身後炸開，卻被你的從者堪堪擋開、反手逼退。' };
+                  note: '「' + teleName + '」的寶具在你身後炸開，卻被你的從者' + counterDesc + '。' };
               }
             } else {
               pursuit = { enemyName: teleName, chaserId: String(teleFoe[COL.PC.ID]), dmg: 0, hitWho: 'foe', np: true,
@@ -183,6 +187,10 @@ function actionMove(userData, pcId, sheets) {
           //   雙方保 1 不致死。撤退時追兵搶得先機(ambush)、更難全身而退。
           var pr = resolveFateBattle_(chC, psvC, { ambush: true });
           var chaserNm = String(chaser[COL.PC.NAME]);
+          // 🐛→✅ 舊版無條件講「重創」，但 pr.damage 可能只是 Math.max(1,...) 的地板值(輕傷)——GAS
+          //   明明知道這擊佔從者上限多少比例，卻沒換算成對應的傷勢用詞餵給AI，讓文字跟血條可能對不上。
+          var psvHpMaxM = parseInt(allPcData[psvIdxM][COL.PC.MAX_HP]) || 1;
+          var chaserSevM = pr.atkWins ? (Math.max(1, pr.damage) / psvHpMaxM >= 0.4 ? '重創' : Math.max(1, pr.damage) / psvHpMaxM >= 0.15 ? '負傷' : '擦傷') : '';
           // 🐛→✅ 舊文案「燃令咒疾追」把這場【每次撤退必定觸發、不設機率】的追擊，寫成敵方燒了一道
           //   令咒——但令咒是全局僅 3 道、真正花費時會扣減 leftSeals 的稀缺資源(見 Router_Battle.gs
           //   sealEscaped)，這裡從沒動過那個計數，純屬掛羊頭的敘事詞，卻讓玩家每撤退一次就以為對面
@@ -192,7 +200,7 @@ function actionMove(userData, pcId, sheets) {
             // 🐛→✅ 玩家實測抓到：「沒能全身而退」讀起來容易誤解成「撤退失敗、沒能脫身」，但這場撤退
             //   本就必定成功抵達目的地(只是途中挨了一記)——改成明確講「帶傷脫身」，不再有歧義。
             note: pr.atkWins
-              ? ('你下令撤退，「' + chaserNm + '」強襲重創從者，從者忍痛掩護，帶你驚險脫離戰場。')
+              ? ('你下令撤退，「' + chaserNm + '」強襲擊中從者致其' + chaserSevM + '，從者忍痛掩護，帶你驚險脫離戰場。')
               : ('你下令撤退，「' + chaserNm + '」追擊被從者回身逼退，主從二人毫髮無傷地撤離。') };
         }
       }
@@ -428,7 +436,11 @@ function actionMove(userData, pcId, sheets) {
   // 🆘 盟友告急（同盟配套）：worldTick 後若有盟友在別處被敵從者纏上→報信＋供「趕去馳援」。
   var allyPeril = null;
   try { if (isFateMove) allyPeril = detectAllyPeril_(allPcData, moveGameId, target, _moveDay()); } catch (e) { }
-  if (allyPeril) worldRumors.unshift(`〔盟友告急〕盟友「${allyPeril.ally}」此刻正於「${allyPeril.loc}」與敵從者「${allyPeril.foe}」對上、情勢緊繃。`);
+  // 🐛→✅ 舊版無條件講「情勢緊繃」，GAS 明明算出 allyPeril.hpRatio 卻沒依實際血量分級——比照修正。
+  if (allyPeril) {
+    var _allyPerilSev = allyPeril.hpRatio >= 0.6 ? '尚占上風、應付得來' : allyPeril.hpRatio >= 0.3 ? '戰況膠著' : '命懸一線、情勢危急';
+    worldRumors.unshift(`〔盟友告急〕盟友「${allyPeril.ally}」此刻正於「${allyPeril.loc}」與敵從者「${allyPeril.foe}」對上，${_allyPerilSev}。`);
+  }
 
   STATE_PRE_DATA_ = allPcData; // ⚡ 交棒：本 handler 所有寫入(worldTick_/spendAp_/markRivalsSeen_/夜襲…)皆已原地改回 allPcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({
@@ -538,7 +550,10 @@ function actionRest(userData, pcId, sheets) {
     if (restAmbush && (restAmbush.homeRepel || restAmbush.peaceful)) {
       restAmbushPrompt = restAmbush.repelNote; // 🏰 陣地反擊·優雅擊退／🎲 按兵不動或試探接觸(卸防時刻多樣化)
     } else if (restAmbush) {
-      restAmbushPrompt = (restAmbush.foeCard || '') + `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${restAmbush.enemyName}」${restAmbush.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊重創「${restAmbush.svName || '從者'}」（−${restAmbush.dmg}）${restAmbush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
+      // 🐛→✅ 舊版無條件講「重創」，GAS 明明已算出 svHpMax/dmg 卻沒換算成實際傷勢用詞——比照撤退追擊同款修法。
+      const restSevRatio = restAmbush.svHpMax ? (restAmbush.dmg || 0) / restAmbush.svHpMax : 1;
+      const restSev = restSevRatio >= 0.4 ? '重創' : restSevRatio >= 0.15 ? '負傷' : '擦傷';
+      restAmbushPrompt = (restAmbush.foeCard || '') + `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${restAmbush.enemyName}」${restAmbush.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊擊中「${restAmbush.svName || '從者'}」致其${restSev}（−${restAmbush.dmg}）${restAmbush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
     }
     // 🏆 夢的優先序：夜襲致敗的虛假之夢 > 令咒透支延遲結算的勝利真夢 > 空——兩者互斥(defeat/victory 本就互斥)。
     const restFinalVictory = restVictory && !(restAmbush && restAmbush.defeat);
@@ -872,7 +887,10 @@ function actionFactionAmbush(userData, pcId, sheets) {
   var ap = AP_PER_DAY, clock = "";
   try { ap = spendAp_(gameId, 1, pcData, sheets).ap; clock = clockLabel_(gameId, pcData); } catch (e) { }
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]); // 寫回御主列(窗口清除＋AP)
-  var hitTxt = res.hit ? `一擊得手，重創「${res.enemyName}」（−${res.dmg}）` : `倉促搶攻只擦過「${res.enemyName}」（−${res.dmg}）`;
+  // 🐛→✅ 舊版命中就無條件講「重創」，GAS 明明算出 eHpMax 卻沒換算實際傷勢比例——比照其餘兩處撤退/夜襲同款修法。
+  var _ambSevRatio = res.eHpMax ? (res.dmg || 0) / res.eHpMax : 1;
+  var _ambSev = _ambSevRatio >= 0.4 ? '重創' : _ambSevRatio >= 0.15 ? '負傷' : '擦傷';
+  var hitTxt = res.hit ? `一擊得手，「${res.enemyName}」${_ambSev}（−${res.dmg}）` : `倉促搶攻只擦過「${res.enemyName}」（−${res.dmg}）`;
   var _mySvIdx = findPlayerServantIdx_(pcData, gameId, "");
   var aiPrompt = servantCard_(pcData[_mySvIdx !== -1 ? _mySvIdx : pIdx], { skipClose: true }) + res.foeCard + performanceNote_([res.svName, res.enemyName]) +
     `【系統·趁隙偷襲·已裁定】趁「${res.enemyName}」分心之際，你的從者搶先發難——${hitTxt}${res.destroyed ? '，將其當場擊破！' : '，對方旋即警覺、不再有隙可趁。'}\n` +
@@ -987,7 +1005,13 @@ function detectAllyPeril_(pcData, gameId, playerLoc, curDay) {
       return String(x[COL.PC.FACTION]) === "敵從者" && String(x[COL.PC.GAME_ID] || "") === gameId &&
         !String(x[COL.PC.ID]).startsWith("DEAD_") && !isAllied_(x) && String(x[COL.PC.LOC] || "").trim() === loc && hasArrived_(x, d);
     });
-    if (foe) return { ally: String(r[COL.PC.NAME]), allyFaction: fac, loc: loc, foe: String(foe[COL.PC.NAME]) };
+    if (foe) {
+      // 🐛→✅ 舊版回傳沒帶血量，呼叫端只能無條件講「情勢緊繃」——GAS明明有這名盟友的HP/上限，
+      //   卻沒算成緊急程度餵給AI，導致95%血量從容應對 跟 8%血量命懸一線 讀起來一樣嚴重。
+      var allyHpMax = parseInt(r[COL.PC.MAX_HP]) || 1;
+      var allyHpRatio = allyHpMax ? (parseInt(r[COL.PC.HP]) || 0) / allyHpMax : 1;
+      return { ally: String(r[COL.PC.NAME]), allyFaction: fac, loc: loc, foe: String(foe[COL.PC.NAME]), hpRatio: allyHpRatio };
+    }
   }
   return null;
 }
@@ -1027,11 +1051,14 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul) {
       //   敵從者的性格/口吻依據，只能寫成無聲的暗影，玩家回報「對方沒有對話??」。四個突襲呼叫端
       //   (休息/羈絆/結盟/補魔)都吃這支函式的回傳，補一次就四處一起修好(單一真實來源)。
       const eFoeCard = '〔夜襲者〕' + servantCard_(pcData[eIdx]);
+      // 🐛→✅ homeRank(D~EX)是GAS已經算出的陣地規模事實，舊版卻沒換算成強度用詞——同一句「優雅擊退」
+      //   套在陽春D階土壘跟EX階空中庭園級結界上，AI完全分不出差異，讀起來千篇一律。
+      const homeRankScale = rankVal(homeRank) >= 60 ? '堪比城砦的壯闊結界' : rankVal(homeRank) >= 40 ? '頗具規模的堅實結界' : '倉促佈設的簡易結界';
       return {
         homeRepel: true, enemyName: eNm, svName: sNm, backDmg: backDmg, wardCost: wardCost, homeRank: homeRank,
         dmg: 0, destroyed: false, defeat: false, dreamPrompt: "", after: parseInt(pcData[svIdx][COL.PC.HP]) || 0,
         foeCard: eFoeCard,
-        repelNote: eFoeCard + `【系統·陣地反擊·已裁定】潛伏同地的敵從者「${eNm}」欲趁御主一行卸防時偷襲，然此地正是我方親手佈設的陣地——魔術結界示警、機關迭起，「${sNm}」從容起身、反手將來犯者擊退驅離（敵受創 −${backDmg}），我方毫髮無傷（御主耗 ${wardCost} 魔維持結界運作）。\n★以 Fate／TYPE-MOON 筆觸演出「潛入者反被主場結界與從者從容擊退」的優雅反制——「${eNm}」依其性格可以有反應/一兩句話(不甘、譏諷、冷笑皆可，狂化者改用低吼/肢體)，別把入侵者寫成毫無聲息的純背景。`,
+        repelNote: eFoeCard + `【系統·陣地反擊·已裁定】潛伏同地的敵從者「${eNm}」欲趁御主一行卸防時偷襲，然此地正是我方親手佈設的陣地——${homeRankScale}示警、機關迭起，「${sNm}」從容起身、反手將來犯者擊退驅離（敵受創 −${backDmg}），我方毫髮無傷（御主耗 ${wardCost} 魔維持結界運作）。\n★以 Fate／TYPE-MOON 筆觸演出「潛入者反被主場結界與從者從容擊退」的優雅反制，結界的氣勢與規模需貼合上述描述——「${eNm}」依其性格可以有反應/一兩句話(不甘、譏諷、冷笑皆可，狂化者改用低吼/肢體)，別把入侵者寫成毫無聲息的純背景。`,
         report: { homeRepel: true, ambush: false, enemyName: eNm, svName: sNm, backDmg: backDmg, wardCost: wardCost, homeRank: homeRank }
       };
     }
