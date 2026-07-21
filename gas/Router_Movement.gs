@@ -189,8 +189,10 @@ function actionMove(userData, pcId, sheets) {
           //   燒掉一次奇蹟(玩家反應「?!」)。改成不涉及令咒的純體能追擊措辭。
           // note 必給——worldRumors 只在 pursuit.note 存在時才推播戰報，缺了 note 扣血就看不出原因。
           pursuit = { enemyName: chaserNm, chaserId: String(chaser[COL.PC.ID]), dmg: Math.max(1, pr.damage), hitWho: pr.atkWins ? 'us' : 'foe', retreat: true,
+            // 🐛→✅ 玩家實測抓到：「沒能全身而退」讀起來容易誤解成「撤退失敗、沒能脫身」，但這場撤退
+            //   本就必定成功抵達目的地(只是途中挨了一記)——改成明確講「帶傷脫身」，不再有歧義。
             note: pr.atkWins
-              ? ('你決意殺出重圍，「' + chaserNm + '」豈容獵物脫逃——不顧一切疾追而至，狠狠螫了你的從者一記——沒能全身而退。')
+              ? ('你決意殺出重圍，「' + chaserNm + '」豈容獵物脫逃——不顧一切疾追而至，狠狠螫了你的從者一記，你這才帶傷殺出重圍、驚險脫身。')
               : ('你強行突圍，「' + chaserNm + '」窮追不捨，卻被你的從者堪堪回身擋開、反手逼退。') };
         }
       }
