@@ -524,10 +524,13 @@ function actionFateBattle(userData, pcId, sheets) {
     //   演出依據卡都沒拿到，等同要求它憑空捏造。比照主戰路徑(ourMasterCardStr)補齊：我方出擊從者(含雙從者)
     //   ＋御主本人＋護衛從者＋目標敵御主，四張卡一次備好、三個分支共用。
     const asnMasterCardStr = masterCard_(pcData[pIdx]);
-    const asnAtkCardsStr = rolls.map(r => servantCard_(pcData[r.idx])).join('');
-    const asnGuardCardStr = '〔敵御主之護衛從者〕' + servantCard_(pcData[assassinGuardIdx]);
+    // 🐛→✅ 玩家實測抓到：雙從者斬首時 servantCard_ 呼叫2~3次(攻方1~2名+護衛1名)，每次都各自帶一份
+    //   完整的「怎麼演」收尾句——改成每張卡skipClose，收尾句用 performanceNote_() 統一講一次。
+    const asnAtkCardsStr = rolls.map(r => servantCard_(pcData[r.idx], { skipClose: true })).join('');
+    const asnGuardCardStr = '〔敵御主之護衛從者〕' + servantCard_(pcData[assassinGuardIdx], { skipClose: true });
     const asnTargetMasterCardStr = enemyMasterCard_(pcData[nIdx]);
-    const asnCardsStr = asnMasterCardStr + asnAtkCardsStr + asnGuardCardStr + asnTargetMasterCardStr;
+    const asnCardsStr = asnMasterCardStr + asnAtkCardsStr + asnGuardCardStr + asnTargetMasterCardStr +
+      performanceNote_(rolls.map(r => r.name).concat([String(pcData[assassinGuardIdx][COL.PC.NAME])]));
     const dualAsn = asnParty.length > 1;
     let asnReport, asnPrompt, asnVictory = false, asnDefeat = false, asnDream = "", asnKnocked = [];
 
@@ -1215,7 +1218,10 @@ function actionFateBattle(userData, pcId, sheets) {
   }
   // 🎭 敵從者演出卡：附上敵從者卡，讓性格/口吻/狂化禁言有依據，而非全靠 AI 憑真名即興；
   //   同一張 servantCard_，狂化「嚴禁台詞」鐵則對敵方一併生效。
-  const foeServantCardStr = targetIsFoeServant ? '〔敵方出戰者〕' + servantCard_(pcData[nIdx]) : "";
+  // 🐛→✅ 玩家實測抓到：這場戰鬥可能同時呼叫servantCard_多達4次(我方/敵方/盟友/敵盟協防)，每次都各自
+  //   帶一份完整的「怎麼演」收尾句——四份幾乎一樣的收尾句擠在同一個提示詞裡純屬浪費。改成每張卡都
+  //   skipClose，收集這場戲實際出現的所有真名，在下方組裝aiPrompt時用 performanceNote_() 只講一次。
+  const foeServantCardStr = targetIsFoeServant ? '〔敵方出戰者〕' + servantCard_(pcData[nIdx], { skipClose: true }) : "";
 
   // 💥 本次解放寶具的【真名】(多寶具取所選那把)：拆中文／原名供戰報橫幅＋AI 高呼。寶具解放必唸真名。
   let npName = null;
@@ -1291,15 +1297,17 @@ function actionFateBattle(userData, pcId, sheets) {
   // 🐛→✅ allyAssistName/pactDefName 都是真實參戰、每回合實際落血的角色(協同強襲/敵盟協防)，但過去
   //   aiPrompt 只提過其名字一次，從沒附上 servantCard_——AI 被要求演出他們助攻/馳援的畫面卻毫無性格
   //   依據。比照 foeServantCardStr 的既有慣例補上。
-  const allyAssistCardStr = allyAssistName ? '〔盟友從者〕' + servantCard_(pcData[allyAtkIdx]) : "";
-  const pactDefCardStr = pactDefName ? '〔敵方盟友從者〕' + servantCard_(pcData[pactDefIdx]) : "";
+  const allyAssistCardStr = allyAssistName ? '〔盟友從者〕' + servantCard_(pcData[allyAtkIdx], { skipClose: true }) : "";
+  const pactDefCardStr = pactDefName ? '〔敵方盟友從者〕' + servantCard_(pcData[pactDefIdx], { skipClose: true }) : "";
   if (defeat) {
-    aiPrompt = ourMasterCardStr + servantCard_(pcData[atkIdx]) + foeServantCardStr + enemyMasterCardStr +
+    const _perfNamesDefeat = [atkC.name].concat(foeServantCardStr ? [defC.name] : []);
+    aiPrompt = ourMasterCardStr + servantCard_(pcData[atkIdx], { skipClose: true }) + foeServantCardStr + enemyMasterCardStr + performanceNote_(_perfNamesDefeat) +
       `【戰報·已裁定】御主號令『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合。\n${roundsBrief}\n結局：『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。\n` +
       _masterStanceLine +
       `★以 Fate／TYPE-MOON 筆觸演出這場敗北的最後一幕(一段即可)${atkC.cls === 'Caster' ? '（Caster 以魔術轟擊為主、非肉搏）' : ''}——御主與從者並肩奮戰到最後，語氣留白。勝負已定，你只演過程。`;
   } else {
-    aiPrompt = ourMasterCardStr + servantCard_(pcData[atkIdx]) + foeServantCardStr + enemyMasterCardStr + allyAssistCardStr + pactDefCardStr +
+    const _perfNames = [atkC.name].concat(foeServantCardStr ? [defC.name] : []).concat(allyAssistName ? [allyAssistName] : []).concat(pactDefName ? [pactDefName] : []);
+    aiPrompt = ourMasterCardStr + servantCard_(pcData[atkIdx], { skipClose: true }) + foeServantCardStr + enemyMasterCardStr + allyAssistCardStr + pactDefCardStr + performanceNote_(_perfNames) +
       `【戰報·已裁定，勝負與傷害不可改】御主號令${atkLabel}出擊，與「${defC.name}」交鋒 ${nRounds} 回合。\n` +
       `${roundsBrief}\n我方造成 ${totalDealt} 傷害、受創 ${totalTaken}。${finalLine}\n` +
       `── 本戰發生的事(素材，自行織入畫面，勿複述標籤名) ──\n` +

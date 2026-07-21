@@ -270,7 +270,10 @@ function actionMove(userData, pcId, sheets) {
     var pSvHpMax = pFsvIdx !== -1 ? (parseInt(allPcData[pFsvIdx][COL.PC.MAX_HP]) || 0) : 0;
     var pSvHpAfter = pFsvIdx !== -1 ? (parseInt(allPcData[pFsvIdx][COL.PC.HP]) || 0) : 0;
     var pChaserRow = allPcData.find(function (r) { return String(r[COL.PC.ID]) === pursuit.chaserId; });
-    pursuit.foeCard = pChaserRow ? servantCard_(pChaserRow) : "";
+    // 🐛→✅ 玩家實測抓到：這張追兵卡常常跟抵達場景的己方/敵方servantCard_同框——skipClose，
+    //   讓下方 perfNamesMove 一併收進統一收尾(pursuitChaserName 供尚未宣告的 perfNamesMove 稍後合併)。
+    pursuit.foeCard = pChaserRow ? servantCard_(pChaserRow, { skipClose: true }) : "";
+    var pursuitChaserName = pChaserRow ? String(pChaserRow[COL.PC.NAME]) : "";
     pursuitReport = {
       pursuit: true, np: !!pursuit.np, retreat: !!pursuit.retreat, enemyName: pursuit.enemyName, dmg: pursuit.dmg, hitWho: pursuit.hitWho,
       svName: pSvName, svHpMax: pSvHpMax, after: pSvHpAfter
@@ -360,8 +363,11 @@ function actionMove(userData, pcId, sheets) {
   if (subMapInfo) mapDesc += `\n【當前分支：${target}】${subMapInfo[COL.MAP.DESC]}`;
 
   // 🎭 隨行從者的「演出依據」卡（含狂化禁言/口吻），供前端抵達敘事讓從者真的在場、有反應，不是御主獨白
+  // 🐛→✅ 玩家實測抓到：抵達場景常同框我方從者＋同地多名敵人＋撤離追兵，可能有3張以上servantCard_，
+  //   每張各自帶一份完整收尾句——全部skipClose，收集這場戲實際出現的真名，perfNamesMove統一收尾一次。
   var svIdxMove = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
-  var svCardMove = svIdxMove !== -1 ? servantCard_(allPcData[svIdxMove]) : "";
+  var svCardMove = svIdxMove !== -1 ? servantCard_(allPcData[svIdxMove], { skipClose: true }) : "";
+  var perfNamesMove = svIdxMove !== -1 ? [String(allPcData[svIdxMove][COL.PC.NAME])] : [];
 
   // 🎭 在場敵從者/敵御主人設卡餵給抵達敘事，讓敵人依性格反應而非 AI 即興通用反派；servantCard_ 對敵從者一樣適用(低羈絆→戒備敵意)。
   //   🐛→✅ 原本只餵敵從者的卡——若目的地只有孤身敵御主(從者已死/在別處)，或有兩方敵御主互動的場面，
@@ -387,12 +393,15 @@ function actionMove(userData, pcId, sheets) {
           var _ownName = getServantMaster_(r[COL.PC.MEMORY]);
           if (_ownName) _ownTag = '〔「' + _ownName + '」之從者〕';
         }
-        foeCardsMove += _ownTag + servantCard_(r);
+        foeCardsMove += _ownTag + servantCard_(r, { skipClose: true });
+        perfNamesMove.push(String(r[COL.PC.NAME]));
       } else if (String(r[COL.PC.FACTION]) === "敵御主") {
         foeCardsMove += enemyMasterCard_(r);
       }
     });
   } catch (e) { }
+  // 🐛→✅ 併入撤離追兵真名（若有）——同框素材統一收尾一次，避免 pursuit.foeCard 自帶的收尾句重複出現
+  if (pursuitChaserName && perfNamesMove.indexOf(pursuitChaserName) < 0) perfNamesMove.push(pursuitChaserName);
 
   // 🫶 遇敵態度（GAS 依「在場敵對者對你的好感」裁定，AI 只照這定調演）：好感高→未必有敵意；好感低→殺氣明顯。
   //   中性(未培養過好感)→留空，維持既有找上門/偶遇 steer。
@@ -428,6 +437,7 @@ function actionMove(userData, pcId, sheets) {
     masterCard: masterCard_(allPcData[pIdx]), // 🎭 御主演出依據→抵達敘事讓「我」依性格開口、不再啞巴主角
     servantCard: svCardMove,
     foeCards: foeCardsMove,
+    perfNote: performanceNote_(perfNamesMove), // 🎭 抵達場景可能同框多張 servantCard_(皆已 skipClose)，統一收尾一次
     pursuit: pursuit,
     report: pursuitReport, // 📊 撤離追擊數字戰報卡(見上方建構處)——renderFateBattleReport 秒顯，不等 AI
     factionClash: factionClash, // ⚔️ 抵達時撞見的敵對互毆(見上方建構處)——供前端插入抵達演出提示詞
@@ -813,7 +823,9 @@ function playerAmbushOnEnemy_(sheets, pcData, pIdx, gameId, targetName) {
   var stillWary = _wary > 0 && (_absNow - _wary) >= 0 && (_absNow - _wary) < WARY_HOURS_;
   if (stillWary) ambushMul *= 0.6;
   var dmg = Math.max(1, Math.round(baseDmg * ambushMul));
-  var out = { enemyName: String(pcData[eIdx][COL.PC.NAME]), svName: String(pcData[svIdx][COL.PC.NAME]), dmg: dmg, hit: !!probe.atkWins, destroyed: false, victory: false, dreamPrompt: "", foeCard: '〔趁隙偷襲的目標〕' + servantCard_(pcData[eIdx]) };
+  // 🐛→✅ 玩家實測抓到：foeCard 跟呼叫端的己方servantCard_各自帶一份收尾句——這裡skipClose，
+  //   呼叫端(actionPlayerAmbush)組完兩張卡後用performanceNote_()統一講一次。
+  var out = { enemyName: String(pcData[eIdx][COL.PC.NAME]), svName: String(pcData[svIdx][COL.PC.NAME]), dmg: dmg, hit: !!probe.atkWins, destroyed: false, victory: false, dreamPrompt: "", foeCard: '〔趁隙偷襲的目標〕' + servantCard_(pcData[eIdx], { skipClose: true }) };
   var severed = hasFx_(atkC, 'rule_breaker') || hasFx_(atkC, 'anti_magic_lance');
   var eHp = parseInt(pcData[eIdx][COL.PC.HP]) || 0, after = eHp - dmg;
   if (after <= 0 && hasFx_(defC, 'survive') && eHp > 1 && !severed) after = 1;
@@ -861,7 +873,7 @@ function actionFactionAmbush(userData, pcId, sheets) {
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]); // 寫回御主列(窗口清除＋AP)
   var hitTxt = res.hit ? `一擊得手，重創「${res.enemyName}」（−${res.dmg}）` : `倉促搶攻只擦過「${res.enemyName}」（−${res.dmg}）`;
   var _mySvIdx = findPlayerServantIdx_(pcData, gameId, "");
-  var aiPrompt = servantCard_(pcData[_mySvIdx !== -1 ? _mySvIdx : pIdx]) + res.foeCard +
+  var aiPrompt = servantCard_(pcData[_mySvIdx !== -1 ? _mySvIdx : pIdx], { skipClose: true }) + res.foeCard + performanceNote_([res.svName, res.enemyName]) +
     `【系統·趁隙偷襲·已裁定】趁「${res.enemyName}」分心之際，你的從者搶先發難——${hitTxt}${res.destroyed ? '，將其當場擊破！' : '，對方旋即警覺、不再有隙可趁。'}\n` +
     `★以 Fate／TYPE-MOON 筆觸【約 80~140 字】演出這記趁隙奇襲：把握、突發、對方由鬆懈轉為戒備的瞬間；依雙方性格演，別自行加碼改寫勝負（傷害已由系統結算）。`;
   STATE_PRE_DATA_ = pcData;
@@ -913,7 +925,8 @@ function actionIncite(userData, pcId, sheets) {
   var svAName = String(pcData[iA][COL.PC.NAME]), svBName = String(pcData[iB][COL.PC.NAME]);
   // 🐛→✅ 挑撥離間指名兩個具體角色、要求AI演出他們反目/合流戒備的性格化反應，卻從沒附上他們的演出依據
   //   卡(比照唯一姊妹路徑 actionFactionAmbush 已有的 servantCard_+foeCard 慣例)。
-  var inciteCardsStr = '〔敵方A〕' + servantCard_(pcData[iA]) + '〔敵方B〕' + servantCard_(pcData[iB]);
+  // 🐛→✅ 玩家實測抓到：兩張卡各自帶一份完整「怎麼演」收尾句——skipClose後用performanceNote_()講一次。
+  var inciteCardsStr = '〔敵方A〕' + servantCard_(pcData[iA], { skipClose: true }) + '〔敵方B〕' + servantCard_(pcData[iB], { skipClose: true }) + performanceNote_([svAName, svBName]);
   var aiPrompt, report;
   if (success) {
     var cross = resolveFateBattle_(rowToCombatant_(pcData[iA]), rowToCombatant_(pcData[iB]), {});

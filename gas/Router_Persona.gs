@@ -55,10 +55,25 @@ function quadLabeled_(raw, labels, skipNone) {
   return out;
 }
 
+// 🎭 表演總則（單一真實來源）：show-don't-tell／正典認知覆蓋／羈絆親疏，這句對「這次提示詞裡出現的
+//   每一位角色」都適用、內容固定不變——不管同框幾位，只需要講一次。names 傳入這次同框的所有真名，
+//   servantCard_(row,{skipClose:true}) 呼叫端負責在組完所有角色卡後、於此收尾一次。
+function performanceNote_(names) {
+  var list = (names || []).filter(Boolean);
+  if (!list.length) return "";
+  return `★依上述「${list.join('、')}」的真名與性格/口吻演出（show, don't tell）：用言行神態自然流露，【禁】把性格詞/萌點/六圍/技能/寶具名當台詞或由旁白點破。若認得其中真名出自Fate正典，身世底蘊優先依你自己對該英靈的認識自然帶出，不受限於上方身世短句(那只是輔助錨點，非全貌)。依各自羈絆高低調親疏：低→保留戒備矜持、高→漸親近，守住性格內核、未深不越界倒貼。\n`;
+}
+
 // 🎭 從者「演出依據」卡：真名/職階/第一人稱/個性/對御主/口吻/萌點/招牌動作/六圍/技能/寶具
 //   壓成一段塞進 narration 提示詞，讓 AI 依『我們定義的角色』內化演出（只當背景、不准說嘴）。
-function servantCard_(row) {
+// 🐛→✅ 玩家實測抓到：同一場戰鬥/事件常同時呼叫本函式2~4次(我方/敵方/盟友/敵盟協防從者)，
+//   每次呼叫都各自帶一份完整的「怎麼演」收尾句(show-don't-tell/正典認知/羈絆親疏)——這句是
+//   固定不變的表演總則、不是各角色專屬的事實資料，一場戲裡重複3~4次純屬浪費字數、稀釋注意力。
+//   opts.skipClose=true 時省略這句，呼叫端改在組完所有角色卡後，用 performanceNote_() 只講一次。
+//   不傳 opts(絕大多數單一角色卡的呼叫端)行為完全不變，向下相容。
+function servantCard_(row, opts) {
   if (!row) return "";
+  var skipClose = !!(opts && opts.skipClose);
   try {
     var name = String(row[COL.PC.NAME] || "");
     var cls = String(row[COL.PC.RANK] || "");
@@ -122,7 +137,7 @@ function servantCard_(row) {
     if (outfit) card += `★【換裝】現穿「${outfit}」（僅換裝，五官/髮色/體態/氣質仍照本相，不因換裝改變相貌）。\n`;
     if (weapon) card += `★【武裝·絕對】戰鬥用「${weapon}」為準，不套用職階慣例或原典武器（即便認得此名，本作武裝就是這個）。\n`;
     if (mad) card += `★【狂化·絕對】此從者已狂化、喪失言語：【嚴禁】說出任何完整句子或台詞，只能以低吼、咆哮、肢體與本能反應表達（旁白可寫其情緒，但他不開口）。\n`;
-    card += `★依「${name}」真名與上述性格/口吻演出（show, don't tell）：用言行神態自然流露，【禁】把性格詞/萌點/六圍/技能/寶具名當台詞或由旁白點破。若認得此真名出自Fate正典，身世底蘊優先依你自己對該英靈的認識自然帶出，不受限於上方身世短句(那只是輔助錨點，非全貌)。依羈絆高低調親疏：低→保留戒備矜持、高→漸親近，守住性格內核、未深不越界倒貼。\n`;
+    if (!skipClose) card += performanceNote_([name]);
     return card;
   } catch (e) { return ""; }
 }

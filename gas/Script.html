@@ -860,7 +860,7 @@
         // 🐛→✅ 鑑賞(慾海)foes 恆為空陣列，但共用 solo 的抵達提示詞仍硬帶「巡查/警戒」戰爭氛圍——改成鑑賞獨立一份溫和提示詞，講同行同伴的日常互動。
         const kanshouCompanionNames = (myServants || []).map(function (s) { return s.name; }).filter(Boolean);
         const arrivePrompt = (pc.mode === 'kanshou') ? (
-          (data.masterCard || '') + (data.servantCard ? '【同行同伴】' + data.servantCard : '')
+          (data.masterCard || '') + (data.servantCard ? '【同行同伴】' + data.servantCard : '') + (data.perfNote || '')
           + `【抵達場景】『${pc.name}』${kanshouCompanionNames.length ? `與「${kanshouCompanionNames.join('、')}」` : ''}來到了「${targetName}」，時值${timeStr}。\n`
           + `此地氛圍：${locDesc}\n`
           + `★以細膩溫暖的 Fate／TYPE-MOON 筆觸描寫抵達此地的所見所感、環境細節與當下氛圍——這是後日談的和平時光，沒有敵蹤、沒有戰鬥，不必警戒或巡查，單純換了個地方繼續相處。\n`
@@ -869,6 +869,7 @@
         ) : (
         (data.masterCard || '') + (data.servantCard ? '【我方從者】' + data.servantCard : '') + (data.foeCards ? '【敵方從者·非我方】' + data.foeCards : '')
           + (data.pursuit && data.pursuit.foeCard ? '【撤離途中的追兵】' + data.pursuit.foeCard : '')
+          + (data.perfNote || '') // 🎭 上面所有 servantCard_ 皆已 skipClose，這裡統一收尾一次(見 Router_Movement.gs actionMove)
           + `【抵達場景】御主『${pc.name}』${pc.servant ? `與從者「${pc.servant}」` : ''}剛抵達冬木的「${targetName}」，時值${timeStr}。\n`
           + `此地氛圍：${locDesc}\n敵情：${foeStr}。\n`
           + (data.pursuit ? (data.pursuit.hitWho === 'us'
