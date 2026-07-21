@@ -1197,13 +1197,20 @@ function actionFateBattle(userData, pcId, sheets) {
     //   HP比例/傷害交換即時算成一句白話戰況，逼反應對應當下真實場面。
     const _defHpNow = parseInt(pcData[nIdx][COL.PC.HP]) || 0, _defHpMaxNow = parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1;
     const _hpRatioNow = _defHpMaxNow > 0 ? _defHpNow / _defHpMaxNow : 1;
+    // 🐛→✅ 玩家實測抓到：雙方都還將近滿血(如450血只交換了30~40傷害)時，光憑「這回合誰吃多一點」的
+    //   比例(1.3倍)就敢講「明顯佔上風」，AI 順著這句錨點就把開場試探寫成「敗象已現/不對稱壓制」的
+    //   決定性戰局——跟兩邊血條幾乎沒少的實況完全對不上。補一道「本回合交換總傷害佔血池門檻」，沒到
+    //   門檻(表示雙方都還沒真的傷到彼此)一律先講「仍在試探」，不夠格說誰佔上風/被壓著打。
+    const _hpMaxRef = Math.max(_defHpMaxNow, parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 1);
+    const _exchangeSignificant = (totalDealt + totalTaken) >= _hpMaxRef * 0.2;
     const _situText = defeat ? '己方從者完全壓制、我方從者早已潰敗'
       : destroyedName ? '己方從者剛親手終結了對面戰力'
         : _hpRatioNow <= 0.25 ? '己方從者身陷重創、命懸一線，情勢危急'
           : _hpRatioNow <= 0.55 ? '己方從者已見劣勢、傷勢漸重'
-            : (totalTaken > totalDealt * 1.3) ? '己方從者正壓著對方打、明顯佔上風'
-              : (totalDealt > totalTaken * 1.3) ? '己方從者略顯吃力、被壓著打'
-                : '雙方勢均力敵、勝負未有定論';
+            : !_exchangeSignificant ? '雙方仍在試探交手，血條都還健在，尚未分出明顯優劣'
+              : (totalTaken > totalDealt * 1.3) ? '己方從者正壓著對方打、明顯佔上風'
+                : (totalDealt > totalTaken * 1.3) ? '己方從者略顯吃力、被壓著打'
+                  : '雙方勢均力敵、勝負未有定論';
     enemyMasterCardStr += `★【戰局實況】此刻真實情勢是：${_situText}——敵御主的神態/語氣/台詞必須讀懂這個場面(得意、焦慮、強撐、嘲諷、動搖皆可，由性格決定怎麼反應，但反應內容不可無視當下戰況自說自話)。\n`;
   }
   // 🎭 敵從者演出卡：附上敵從者卡，讓性格/口吻/狂化禁言有依據，而非全靠 AI 憑真名即興；
