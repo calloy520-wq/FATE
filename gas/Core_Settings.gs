@@ -647,7 +647,10 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, allPcData) {
   return localPeopleList;
 }
 
-function getNearbyLocations(currentLoc, mapData) {
+// myWar：呼叫端傳玩家本局【戰爭】標記，比照 buildMapNodesPayload_(Router_Movement.gs) 同一套規則過濾
+//   戰爭限定地點(如第四次限定的海特飯店)——否則這份清單(撤退突圍/鄰近地點)會漏濾，讓地圖上看不到、
+//   理應跨戰爭隱藏的地點反而從這裡露出來。myWar 留空(如鑑賞)則等同不限定戰爭的通用地點才會顯示。
+function getNearbyLocations(currentLoc, mapData, myWar) {
   if (!currentLoc) return [];
   const rootLoc = String(currentLoc).split('-')[0].trim();
   const parentInfo = mapData.find(m => String(m[COL.MAP.NAME]).trim() === rootLoc);
@@ -658,6 +661,8 @@ function getNearbyLocations(currentLoc, mapData) {
   for (let i = 1; i < mapData.length; i++) {
     const mName = String(mapData[i][COL.MAP.NAME]).trim();
     if (!mName || mName === rootLoc || mName.startsWith(rootLoc + "-")) continue;
+    const nodeWar = String(mapData[i][COL.MAP.WAR] || "").trim();
+    if (nodeWar && nodeWar !== String(myWar || "").trim()) continue; // 戰爭限定地點：與本局戰爭不符 → 不列入
     let coords = mapData[i][COL.MAP.COORD] ? String(mapData[i][COL.MAP.COORD]).split(',').map(Number) : [0, 0];
     if (isNaN(coords[0]) || isNaN(coords[1])) coords = [0, 0];
     nearbyLocs.push({ name: mName, type: mapData[i][COL.MAP.TYPE] || "荒野", desc: mapData[i][COL.MAP.DESC] || "一處未知的地帶。", dist: Math.abs(coords[0] - pCoord[0]) + Math.abs(coords[1] - pCoord[1]) });

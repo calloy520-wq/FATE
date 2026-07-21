@@ -480,7 +480,9 @@ function buildClientState_(sheets, pcId, preData) {
     statusString: buildPlayerStatusString(allPcData[pcIndex]),
     // 關係併入眾生列，不再需要關係表 → 少一次整表讀
     people: isKanshouCtx_ ? getKanshouPeopleList_(pcId, curL, allPcData) : getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, allPcData),
-    locations: getNearbyLocations(curL, freshMapData),
+    // 🐛→✅ 玩家實測抓到：漏傳戰爭標記，第四次限定地點(海特飯店等)會漏濾、出現在撤退突圍/鄰近地點清單裡
+    //   （地圖本體 buildMapNodesPayload_ 有比對戰爭、這裡原本沒有，兩處各自兜規則導致不一致）。
+    locations: getNearbyLocations(curL, freshMapData, isFate ? getWarName_(allPcData[pcIndex][COL.PC.MEMORY]) : ""),
     mapDesc: currentMapInfo ? currentMapInfo[COL.MAP.DESC] : "四下靜謐。",
     clock: clk, ap: ap, apMax: AP_PER_DAY,
     kanshouClock: kanshouClock,

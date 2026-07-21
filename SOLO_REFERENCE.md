@@ -409,6 +409,7 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 - **`actionRest` 補齊同款整併**（原暫緩項，2026-07 後續補上）：`restHours_` 新增 `skipWrite` 參數(比照 `spendAp_`)；`actionRest` 在時回結果算完後不再立刻整表寫回，改開 `BATTLE_DEFER_WRITE_` 讓 `restHours_`(傳 `skipWrite=true`)／`worldTick_`(傳 `deferWrite=true`)／`breakStaleAlliances_`(新補 `!BATTLE_DEFER_WRITE_` guard，同 `worldTick_`／`markMasterLostServant_` 共用同一顆全域旗標) 三者都只改記憶體，跑完才還原旗標＋一次整表寫回——單次休息從最壞3~5次個別Sheets寫入，收斂成1次。**`enemyAmbushOnServant_`／`raiseBond_`(從者之夢)刻意不動**：這兩者發生在收尾寫回之後、且被結盟/補魔/靈基修復共4個其他呼叫端共用，牽動面較廣，維持原本各自立即寫入的行為不變。
 - `resolveFactionEncounter_` 敘事隨機抽中的兩組敵御主(同地≥3組時)沒被記進撞見窗口，`actionIncite` 只是照陣列順序抓「前兩個」敵從者，可能挑撥到跟敘事完全無關的第三組。`setEncounterWindow_`/`getEncounterWindow_` 擴充存下這場敘事實際牽涉的兩個真名，`actionIncite` 優先用真名精確比對，缺真名(舊窗口)才退回陣列順序。
 - `actionScavenge` 的搜刮枯竭標記只能存單一最近地點(`makeTextTag_`)，玩家在A、B兩地間來回搜刮可無限白嫖——改成存「所有已枯竭地點」清單、用 `indexOf` 判斷是否曾搜過。
+- **`getNearbyLocations`(Core_Settings.gs) 漏過濾戰爭限定地點**（玩家實測抓到，2026-07後續補上）：地圖本體 `buildMapNodesPayload_`(Router_Movement.gs) 有比對玩家本局【戰爭】標記、濾掉不屬於本局戰爭的限定地點(如第四次限定的海特飯店)，但「撤退突圍」清單／偵查範圍都是另外呼叫 `getNearbyLocations` 算的，這個函式原本完全沒管戰爭標記——兩處各自兜規則，導致地圖上根本看不到、理應隱藏的第四次限定地點卻從撤退選單冒出來。改成 `getNearbyLocations` 新增 `myWar` 參數、比照同一套「`nodeWar` 有值且與 `myWar` 不同則跳過」規則過濾，3個呼叫端(`Router_Action.gs` 的 `buildClientState_`／`Router_Movement.gs` 的 `actionMove`／`actionScout`)都補上傳 `getWarName_(...)`。
 - `actionPrepMeal` 是本檔唯一沒交棒 `STATE_PRE_DATA_` 的耗AP動作，補齊。
 
 **種子資料**：

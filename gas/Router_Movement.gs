@@ -435,7 +435,8 @@ function actionMove(userData, pcId, sheets) {
     statusString: buildPlayerStatusString(allPcData[pIdx]),
     // 🧹 move 現為 solo 專屬 action(鑑賞已改走 kanshouMoveTo)，不需分流呼叫 getKanshouPeopleList_。
     people: getLocalPeopleList(sheets, pcName, pcId, target, allPcData),
-    locations: getNearbyLocations(target, freshMapData).slice(0, 5),
+    // 🐛→✅ 同批修正：漏傳戰爭標記會讓第四次限定地點(海特飯店等)混進撤退突圍/鄰近地點清單。
+    locations: getNearbyLocations(target, freshMapData, getWarName_(allPcData[pIdx][COL.PC.MEMORY])).slice(0, 5),
     mapNodes: buildMapNodesPayload_(sheets, allPcData, moveGameId, target), // ⚡ 夾帶地圖節點，免手機抵達後再打一趟 get_map_nodes
     mapDesc: mapDesc,
     parentRegion: rootTarget,
@@ -1272,7 +1273,9 @@ function actionScout(userData, pcId, sheets) {
   // 附近地點（含當前）作為偵查範圍
   const mapData = getMapDataCached(sheets); // 坤圖已靜態化：getMapDataCached 直接讀FATE_MAP_SEED常數，零I/O成本
   let scope = [curLoc];
-  try { getNearbyLocations(curLoc, mapData).forEach(l => { const nm = (l && l.name) ? l.name : l; if (nm) scope.push(String(nm).trim()); }); } catch (e) { }
+  // 🐛→✅ 同批修正：漏傳戰爭標記會讓偵查範圍納入第四次限定地點(海特飯店等)，白掃一個本局根本不存在的地點。
+  const scoutWar = isFateScout ? getWarName_(pcData[pIdx][COL.PC.MEMORY]) : "";
+  try { getNearbyLocations(curLoc, mapData, scoutWar).forEach(l => { const nm = (l && l.name) ? l.name : l; if (nm) scope.push(String(nm).trim()); }); } catch (e) { }
 
   let revealed = [];
   for (let i = 1; i < pcData.length; i++) {
