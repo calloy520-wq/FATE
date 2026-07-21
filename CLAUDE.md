@@ -29,7 +29,7 @@ GAS 在 `gas/`。⚠ **push 只自動同步代碼、不會自動上線**——�
 - **🧱 穩健**：邊界/空值先擋（`parseInt||0`、`try/catch`＋fallback、失敗不炸整局）；輸入當不可信（`sanitizeUserData_` 是唯一真線）；寫表冪等。
 - **⚡ 快速**：守住**每按鍵 3→1 round-trip**（`_state`/`__pendingState`）＋整表只讀一次下傳＋樂觀更新。**別把多餘 round-trip 或重複整表讀回加回來。** AI 阻塞能非阻塞就非阻塞。
 - **🧩 易擴充**：**資料驅動優先**——能查表就別寫 if 鏈（`MC_COMBAT_`禮裝/`NP_SCALE_MATRIX`規模/`CONCEPT_TIER`概念）。加東西＝往表加一列、既有引擎自動吃。
-- **🔧 易維護**：**單一真實來源**（一個數只存一處）；**複用引擎、不加特例**（禮裝 `injectMysticBuff_` 注 fx→走既有 `resolveFateBattle_`）；helper 成套（get/set/clear/view）；改碼順手更新 `SOLO_REFERENCE.md`。**FATE 內部的九州衍生碼可放手清理改造**（判斷可否砍：kanshou/full 有用到→留；兩軌都用不到→可清，**COL 是位置索引，刪欄位移全表，寧棄用不刪欄**）。
+- **🔧 易維護**：**單一真實來源**（一個數只存一處）；**複用引擎、不加特例**（禮裝 `injectMysticBuff_` 注 fx→走既有 `resolveFateBattle_`）；helper 成套（get/set/clear/view）；改碼順手更新 `SOLO_REFERENCE.md`＋新增/改簽名/刪函式時同步 `FUNCTION_MANUAL.md` 對應那條。**FATE 內部的九州衍生碼可放手清理改造**（判斷可否砍：kanshou/full 有用到→留；兩軌都用不到→可清，**COL 是位置索引，刪欄位移全表，寧棄用不刪欄**）。
 - **🚫 不臨時應變**：不疊補丁繞症狀、不 hardcode 特判、不「先這樣之後再說」。舊做法錯就重構掉（分隔符 bug 系統性修全部而非只修犯錯那處）。
 
 ## 📌 開工前先讀
@@ -51,3 +51,4 @@ GAS 在 `gas/`。⚠ **push 只自動同步代碼、不會自動上線**——�
 ## 🧭 紀律
 
 **改了代碼就順手更新 `SOLO_REFERENCE.md`／`KANSHOU_REFERENCE.md`**——筆記過期會騙下一個失憶的我。
+**新增/改簽名（加減參數）/刪除函式時，`FUNCTION_MANUAL.md` 對應那一條也要同步改**（只改動到的條目，不必整檔重新稽核）——這份是逐字寫簽名/計數的索引，零容錯，沒跟著改的話比完全沒有這份文件還誤導人。
