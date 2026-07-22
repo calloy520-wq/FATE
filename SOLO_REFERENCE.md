@@ -395,6 +395,7 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 - AI自訂召喚只有六圍下限保底(`bumpSixToFloor_`)沒有上限——工房 `parseForgeBuild_` 超預算會直接拒絕，AI沒有「打回重填」的來回，可無上限超出預算。新增 `capSixToBudget_`(反向邏輯：超標就砍最強一項六圍)，`FORGE_CLS_BONUS_` 上移為檔案級單一真實來源給兩路徑共用。
 - `sanitizeSkills_` 的技能階級驗證允許 `EX` 且帶 `+/++/-` 修飾符，但 `forgeCost_` 計價表只有裸 E/D/C/B/A 五個鍵，EX技能落到比B/A都便宜的預設分卻套用真正EX的戰鬥威力——改成只認裸E/D/C/B/A，比照工房驗證集合。
 - `actionManualNpc` 寫入【扮演】標記只看 `userData.playedMaster` 是否有值，沒同步要求 `_playingThisCanon`(真名比對)——玩家選扮演正典御主又改名，仍會殘留標記讓 `seedRivalsForGame_` 誤刪一組正典敵人，免費刪對手。改成共用同一個判準。
+- **🐛→✅ 2026-07 追加**（玩家「SOLO也看一下是不是有類似問題」，比對鑑賞小道具稽核抓到的同款漏洞回頭複查）：`actionManualNpc` 的 `standing`(身世)/`wish`(願望)這兩格開局自由輸入，只靠前端 `#s-standing`/`#s-wish` 的 `maxlength=40` 擋，backend 完全沒設上限——`newRow[COL.PC.BACK]`原本直接寫`standing`不裁長度，`cleanTagText_(wish)`也沒有長度參數。`actionBackfillMasterAi` 餵進 AI 提示詞的 `appearance`/`standing`/`wish` 同樣沒有任何長度上限。都已補上跟前端一致的上限(appearance 30／standing・wish 40)。§9維度稽核當時抓的是`realName`/`sex`/`np`/技能名/特性名這幾欄，`standing`/`wish`/`appearance`這三格是後來才補的「開局非阻塞創角」欄位，沒被那輪覆蓋到——**任何新增的自由輸入欄位都要重新過一次這張 checklist，不能假設「已經稽核過一次」就自動涵蓋新欄位**。
 
 **戰鬥引擎**：
 - `hasCausalityNp_`(Engine_Fate.gs) 掃整個永久技能列表找 `causality` 旗標，沒管「這次實際解放的是哪個寶具」——斯卡哈雙寶具其一是Gáe Bolg(因果律)、另一是Gate of Skye(無此機制)，選了後者仍被判定必殺。改成只看 `npProfile_(c).fx`(這次實際選定的寶具)。連帶修正 `offenseTier_` 的 `pierceFx` 清單同款問題(gae_bolg從清單移除，改完全交給既有的npProfile_判定)。

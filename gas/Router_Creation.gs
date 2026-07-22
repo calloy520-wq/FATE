@@ -72,14 +72,19 @@ function actionManualNpc(userData, pcId, sheets) {
     // 🛡️ 這幾格是玩家自由填寫的文字(sanitizeUserData_只截長度、不擋｜【】——那道清洗只鎖
     //   name/npcName等嚴格姓名欄位)，MEMORY是全欄位共用｜分隔的標記格式，比照setOutfit_/setWeapon_
     //   同款清洗，避免玩家文字裡剛好帶的｜【】把後面的【模式】【戰爭】【扮演】等系統標記截斷或偽造。
-    const cleanTagText_ = (s) => String(s || "").replace(/[｜【】\n\r\t]/g, "");
+    // 🐛→✅ 稽核抓到：maxLen 原本沒帶，願望(wish)只靠前端#s-wish的maxlength=40擋，backend
+    //   不設限——補上可選長度上限，願望套40跟前端一致，其餘(magic/origin等)是命運測定擲骰結果、
+    //   非玩家自由輸入，維持不裁(避免誤傷合法roll值)。
+    const cleanTagText_ = (s, maxLen) => { const v = String(s || "").replace(/[｜【】\n\r\t]/g, ""); return maxLen ? v.slice(0, maxLen) : v; };
     const pcColCount = Object.keys(COL.PC).length;
     const newRow = Array(pcColCount).fill("");
     newRow[COL.PC.ID] = newId; newRow[COL.PC.NAME] = finalName; newRow[COL.PC.SEX] = finalSex;
-    newRow[COL.PC.BACK] = standing || identity || "來歷不明的魔術師"; // 種子＝玩家輸入身世；backfill 會用 AI 潤成 20 字背景
+    // 🐛→✅ 稽核抓到(比照鑑賞actionEnterKanshou同款漏洞)：只靠前端#s-standing的maxlength=40擋，
+    //   backend原本沒設長度上限——繞過前端能塞任意長度進BACK欄。補上跟前端一致的上限。
+    newRow[COL.PC.BACK] = String(standing || identity || "來歷不明的魔術師").slice(0, 40); // 種子＝玩家輸入身世；backfill 會用 AI 潤成 20 字背景
     newRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
     newRow[COL.PC.MEMORY] = [
-      wish ? `【願望】${cleanTagText_(wish)}` : "",
+      wish ? `【願望】${cleanTagText_(wish, 40)}` : "",
       magic ? `【魔術】${cleanTagText_(magic)}` : "",
       safeCircuits ? `【迴路】${cleanTagText_(safeCircuits)}` : "",
       origin ? `【出身】${cleanTagText_(origin)}` : "",
@@ -126,8 +131,10 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const row = pcData[pIdx];
   const finalName = String(row[COL.PC.NAME] || ""), finalSex = String(row[COL.PC.SEX] || "異");
-  const appearance = String(userData.appearance || ""), standing = String(userData.standing || "");
-  const wish = String(userData.wish || ""), magic = String(userData.magic || ""), origin = String(userData.origin || "");
+  // 🐛→✅ 稽核抓到(比照鑑賞actionBackfillKanshouAi同款漏洞)：這幾欄餵進AI提示詞前也從沒設過長度
+  //   上限，只靠前端擋，補上跟對應輸入框maxlength一致的上限(appearance30/standing・wish40)。
+  const appearance = String(userData.appearance || "").slice(0, 30), standing = String(userData.standing || "").slice(0, 40);
+  const wish = String(userData.wish || "").slice(0, 40), magic = String(userData.magic || ""), origin = String(userData.origin || "");
 
   // getMapDataCached 直接讀 FATE_MAP_SEED 常數(零 I/O、恆非空)，不必靠 sheets.map 是否存在來決定要不要退回保底地名。
   const validMapNames = getMapDataCached(sheets).slice(1).map(r => String(r[COL.MAP.NAME]).trim()).filter(n => n !== "" && !n.includes('-'));

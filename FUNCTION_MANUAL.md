@@ -239,8 +239,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 御主創角
 
-- `actionManualNpc(userData, pcId, sheets)` — 御主創角(action="create")。入口先擋帳號重入(已綁定進行中局的帳號再次呼叫直接拒絕，防孤兒角色/從者)。非阻塞：不叫 AI，用種子值秒寫一列御主進表。清洗姓名(僅中文，空即擋)、擋正典御主/從者撞名(`SEED_MASTERS.name`/`SEED_SERVANTS.realName`，經 `cleanChineseName` 正規化；扮演正典御主 `playedMaster` 例外放行並還原正典原名)。開新 `game_id`(`g_` 前綴)世界；`masterMaxHpMp_` 依迴路算 HP/MP；確定性選落點(偏好新都)；MEMORY 寫入願望/魔術/迴路/出身/體術/魔術階位/令咒3/模式(canon|chaos)/戰爭(4th|5th)/扮演，各欄過 `cleanTagText_` 剝 `｜【】`；起始禮裝經 `MYSTIC_CODES` 驗證(passive)後 `equipMysticToMemory_` 帶入；種子敘事欄(TRAIT/PREF)用 `parseTraitsHelper` 預設值。`appendRow` 後 `linkAccountToPc_` 綁帳號。**副作用**：寫 PC 表新列。
-- `actionBackfillMasterAi(userData, pcId, sheets)` — 御主敘事非阻塞補生成(召喚頁背景執行)。以 `callGeminiAPI`(`ignoreLaw:true`)生 background/traits/personality/npc_intent，只用**單格 setValue** 覆蓋敘事欄(BACK/TRAIT/PREF/INTENT)、且僅 AI 有給值時才寫；數值/MEMORY/位置一律不碰。呼叫 AI 前索引可能因清列位移，寫回前用 `buildLiveIdIndex_` 重新以 ID 定位，列被刪則放棄。失敗保留種子預設。
+- `actionManualNpc(userData, pcId, sheets)` — 御主創角(action="create")。入口先擋帳號重入(已綁定進行中局的帳號再次呼叫直接拒絕，防孤兒角色/從者)。非阻塞：不叫 AI，用種子值秒寫一列御主進表。清洗姓名(僅中文，空即擋)、擋正典御主/從者撞名(`SEED_MASTERS.name`/`SEED_SERVANTS.realName`，經 `cleanChineseName` 正規化；扮演正典御主 `playedMaster` 例外放行並還原正典原名)。開新 `game_id`(`g_` 前綴)世界；`masterMaxHpMp_` 依迴路算 HP/MP；確定性選落點(偏好新都)；MEMORY 寫入願望/魔術/迴路/出身/體術/魔術階位/令咒3/模式(canon|chaos)/戰爭(4th|5th)/扮演，各欄過 `cleanTagText_(s, maxLen)`(2026-07新增可選長度參數)剝 `｜【】\n\r\t`；起始禮裝經 `MYSTIC_CODES` 驗證(passive)後 `equipMysticToMemory_` 帶入；種子敘事欄(TRAIT/PREF)用 `parseTraitsHelper` 預設值。`appendRow` 後 `linkAccountToPc_` 綁帳號。**副作用**：寫 PC 表新列。**🐛→✅ 稽核抓到**：`standing`(身世)/`wish`(願望)開局只靠前端`maxlength=40`擋，backend原本沒設上限——`newRow[COL.PC.BACK]`已補`.slice(0,40)`、`wish`已改走`cleanTagText_(wish,40)`。
+- `actionBackfillMasterAi(userData, pcId, sheets)` — 御主敘事非阻塞補生成(召喚頁背景執行)。以 `callGeminiAPI`(`ignoreLaw:true`)生 background/traits/personality/npc_intent，只用**單格 setValue** 覆蓋敘事欄(BACK/TRAIT/PREF/INTENT)、且僅 AI 有給值時才寫；數值/MEMORY/位置一律不碰。呼叫 AI 前索引可能因清列位移，寫回前用 `buildLiveIdIndex_` 重新以 ID 定位，列被刪則放棄。失敗保留種子預設。**🐛→✅ 稽核抓到**：餵進 AI 提示詞的 `appearance`/`standing`/`wish` 原本也沒有長度上限，已補跟前端一致的上限(appearance30／standing・wish40)。
 
 #### 召喚小工具（MEMORY 讀取器＋橋接）
 

@@ -1573,9 +1573,11 @@ function kanshouSetCustomProps_(memory, arr) {
 }
 // 通用【tag】值淨化：清掉標籤分隔字元(,/:/｜/【/】)避免撐破 MEMORY 裡任何單值 tag 的格式(自訂道具
 //   名稱/部位、住所名…)，順手也清掉引號/角括號(防止原樣塞進前端onclick屬性時破壞HTML)。maxLen不帶
-//   預設8。
+//   預設8。🐛→✅ 稽核比對 solo Router_Creation.gs 的同款清洗(cleanTagText_/_fClean)發現那邊多清
+//   \n\r\t(換行/tab)這裡沒清——雖不會撐破｜【】格式(regex排除集本就含隱式匹配換行)，但跟既有
+//   慣例對齊，一併補上。
 function kanshouSanitizeTagValue_(value, maxLen) {
-  return String(value || "").replace(/[,:｜【】"'<>]/g, "").trim().slice(0, maxLen || 8);
+  return String(value || "").replace(/[,:｜【】"'<>\n\r\t]/g, "").trim().slice(0, maxLen || 8);
 }
 // 內建＋玩家自訂合併後的完整道具目錄(查找/顯示用)——傳玩家列(KPC_)的MEMORY進來。
 function kanshouAllProps_(playerMemory) {
