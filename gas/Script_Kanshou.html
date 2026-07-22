@@ -503,9 +503,14 @@ let plainTextContext = cleanText;
   var _kcCustomPropsLoaded = false;
   var _kpBusy = false;
   var _kpOpenName = ''; // 目前開著的小道具面板是哪位同伴，供 kanshouDeleteCustomProp 原地重繪用
+  // 🌀 2026-07「催眠的和新道具要確實分開成兩種」：一般道具面板/催眠指令面板是兩個獨立入口，
+  //   共用#kp-overlay這個彈窗容器＋共用kanshouDeleteCustomProp刪除，靠這個mode記錄目前開的是
+  //   哪一種，刪除後才知道要重繪回哪個面板(不能兩種各自複製一份overlay邏輯)。
+  var _kpOpenMode = 'props'; // 'props' | 'hypnosis'
   async function kanshouOpenProps(name) {
     if (_kpBusy) return;
     _kpOpenName = name;
+    _kpOpenMode = 'props';
     var c = _kcCur.find(function (x) { return x.name === name; });
     if (!c || !_kcCustomPropsLoaded) {
       _kpBusy = true;
@@ -525,40 +530,39 @@ let plainTextContext = cleanText;
       ov.onclick = function (e) { if (e.target === ov && !_kpBusy) ov.style.display = 'none'; };
       document.body.appendChild(ov);
     }
-    var curArr = c.props || []; // 🎀 多件同時裝備(2026-07 改版)，不再是單一 c.prop
+    var curArrAll = c.props || []; // 🎀 多件同時裝備(2026-07 改版)，不再是單一 c.prop
+    // 🐛→✅ 2026-07「催眠的和新道具要確實分開成兩種」：這個面板只管一般道具(裝飾/物理類)，
+    //   ignoreBond(催眠指令)類完全過濾掉、改到專屬的 kanshouOpenHypnosis 面板管理，避免混在一起。
+    var curArr = curArrAll.filter(function (x) { return !x.ignoreBond; });
     var safeN = String(name).replace(/'/g, "\\'");
-    var allProps = KC_PROPS_.concat(_kcCustomProps);
+    var allProps = KC_PROPS_.concat(_kcCustomProps).filter(function (p) { return !p.ignoreBond; });
     var rows = allProps.map(function (p) {
       var isCustom = !KC_PROPS_.some(function (x) { return x.id === p.id; });
       var delBtn = isCustom ? '<button onclick="kanshouDeleteCustomProp(\'' + p.id.replace(/'/g, "\\'") + '\')" title="從你的道具目錄整個刪掉這項定義" style="padding:3px 6px;background:#3a3a44;color:#999;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:4px;">🗑目錄</button>' : '';
       var eq = curArr.find(function (x) { return x.id === p.id; });
       var partHint = p.part ? '<span style="color:#8a7fa0;font-size:11px;margin-left:4px;">(' + escapeHtml(p.part) + ')</span>' : '';
-      // 🌀「催眠暗示」類(ignoreBond)：不受好感門檻限制，小標籤提示玩家這件跟其他道具不同。
-      var ignoreBondHint = p.ignoreBond ? '<span style="color:#e0a0ff;font-size:10px;margin-left:4px;border:1px solid rgba(224,160,255,.4);border-radius:4px;padding:1px 4px;">🌀無視好感</span>' : '';
       if (p.hasIntensity) {
         var levelBtns = KC_PROP_LEVELS_.map(function (lv) {
           var active = eq && eq.level === lv;
           return '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'' + lv + '\')" style="flex:1;padding:6px 3px;font-size:12px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : '#ccc') + ';border:none;border-radius:6px;cursor:pointer;">' + lv + '</button>';
         }).join('');
         return '<div style="padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
-          + '<div style="display:flex;align-items:center;margin-bottom:6px;"><span style="flex:1;color:#f0b8e0;font-size:13px;">' + escapeHtml(p.name) + partHint + ignoreBondHint + '</span>'
+          + '<div style="display:flex;align-items:center;margin-bottom:6px;"><span style="flex:1;color:#f0b8e0;font-size:13px;">' + escapeHtml(p.name) + partHint + '</span>'
           + (eq ? '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'\')" title="移除" style="padding:3px 8px;background:#4a3038;color:#e09999;border:none;border-radius:6px;cursor:pointer;font-size:11px;">🗑</button>' : '') + delBtn + '</div>'
           + '<div style="display:flex;gap:5px;">' + levelBtns + '</div></div>';
       }
       return '<div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
-        + '<span style="flex:1;color:#f0b8e0;font-size:13px;">' + escapeHtml(p.name) + partHint + ignoreBondHint + '</span>'
+        + '<span style="flex:1;color:#f0b8e0;font-size:13px;">' + escapeHtml(p.name) + partHint + '</span>'
         + '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'' + (eq ? '' : '戴著') + '\')" style="padding:5px 10px;background:' + (eq ? '#a05088' : '#3a3a44') + ';color:' + (eq ? '#fff' : '#ccc') + ';border:none;border-radius:6px;cursor:pointer;font-size:12px;">' + (eq ? '已裝備(點擊移除)' : '裝備') + '</button>' + delBtn + '</div>';
     }).join('');
     // 🎀 自訂新道具(2026-07新增)：輸入名稱＋勾選是否有強度分級，按下去直接裝備在這位同伴身上，
-    //   同步存進玩家自己的道具目錄(之後在別人身上也能選)。
+    //   同步存進玩家自己的道具目錄(之後在別人身上也能選)。純裝飾/物理類道具，不含催眠效果——
+    //   要記一句暗示內容請用「🌀催眠指令」專屬面板(kanshouOpenHypnosis)。
     var addRow = '<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);">'
       + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:5px;">找不到想要的？自己新增一個：</div>'
       + '<div style="display:flex;gap:5px;align-items:center;margin-bottom:5px;">'
       + '<input id="kp-new-name" maxlength="10" placeholder="道具名稱(≤10字)" style="flex:1;min-width:0;padding:5px 6px;background:#2a2430;color:#eee;border:1px solid rgba(240,184,224,.3);border-radius:6px;font-size:12px;">'
       + '<label style="display:flex;align-items:center;gap:3px;color:#ccc;font-size:11px;white-space:nowrap;"><input id="kp-new-intensity" type="checkbox">強度可調</label>'
-      + '</div>'
-      + '<div style="display:flex;align-items:center;margin-bottom:5px;">'
-      + '<label style="display:flex;align-items:center;gap:3px;color:#e0a0ff;font-size:11px;white-space:nowrap;"><input id="kp-new-ignorebond" type="checkbox">🌀無視好感(催眠暗示類效果，不受好感門檻限制)</label>'
       + '</div>'
       + '<div style="display:flex;gap:5px;align-items:center;">'
       + '<input id="kp-new-part" maxlength="8" placeholder="部位(選填，不填讓AI自己發揮)" style="flex:1;min-width:0;padding:5px 6px;background:#2a2430;color:#eee;border:1px solid rgba(240,184,224,.3);border-radius:6px;font-size:12px;">'
@@ -567,7 +571,7 @@ let plainTextContext = cleanText;
     ov.innerHTML = '<div style="width:min(400px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(240,184,224,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#f0b8e0;">🎀 「' + escapeHtml(name) + '」的小道具</b>'
       + '<button onclick="document.getElementById(\'kp-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
-      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:2px;">可同時裝備多件。' + (curArr.length ? '目前：' + curArr.map(function (x) { var bits = []; if (x.part) bits.push('戴在' + escapeHtml(x.part)); if (x.hasIntensity) bits.push(escapeHtml(x.level)); if (x.ignoreBond) bits.push('🌀無視好感'); return escapeHtml(x.name) + (bits.length ? '(' + bits.join('，') + ')' : ''); }).join('、') : '目前沒裝備任何道具') + '</div>'
+      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:2px;">可同時裝備多件。' + (curArr.length ? '目前：' + curArr.map(function (x) { var bits = []; if (x.part) bits.push('戴在' + escapeHtml(x.part)); if (x.hasIntensity) bits.push(escapeHtml(x.level)); return escapeHtml(x.name) + (bits.length ? '(' + bits.join('，') + ')' : ''); }).join('、') : '目前沒裝備任何道具') + '</div>'
       + '<div style="color:#c98a9a;font-size:11px;margin-bottom:6px;">⚠️ 會持續生效到你手動關閉/移除，不是AI會自己收——不用時記得回來關掉。</div>'
       + rows
       + addRow
@@ -609,13 +613,12 @@ let plainTextContext = cleanText;
     var nameEl = document.getElementById('kp-new-name');
     var intensityEl = document.getElementById('kp-new-intensity');
     var partEl = document.getElementById('kp-new-part');
-    var ignoreBondEl = document.getElementById('kp-new-ignorebond');
     var newName = nameEl ? nameEl.value.trim() : '';
     if (!newName) { alert('請先輸入道具名稱。'); return; }
     _kpBusy = true;
     _kpShowLoading_(targetName);
     try {
-      const res = await gasRun({ action: 'kanshou_add_custom_prop', pcId: pc.id, acctName: currentAccount, targetName: targetName, name: newName, hasIntensity: !!(intensityEl && intensityEl.checked), part: partEl ? partEl.value.trim() : '', ignoreBond: !!(ignoreBondEl && ignoreBondEl.checked) });
+      const res = await gasRun({ action: 'kanshou_add_custom_prop', pcId: pc.id, acctName: currentAccount, targetName: targetName, name: newName, hasIntensity: !!(intensityEl && intensityEl.checked), part: partEl ? partEl.value.trim() : '' });
       if (!res || !res.success) { alert((res && res.message) || '新增失敗。'); return; }
       _kcCustomProps = res.customProps || _kcCustomProps;
       if (res.message) { alert(res.message); } // 目錄新增成功但找不到同伴可裝備的邊界情況
@@ -639,7 +642,90 @@ let plainTextContext = cleanText;
     } catch (e) { alert('刪除失敗。'); }
     finally {
       _kpBusy = false;
-      if (_kpOpenName) kanshouOpenProps(_kpOpenName); // 面板原地重繪
+      // 兩個面板共用這支刪除函式，用_kpOpenMode決定原地重繪回哪一個。
+      if (_kpOpenName) { if (_kpOpenMode === 'hypnosis') kanshouOpenHypnosis(_kpOpenName); else kanshouOpenProps(_kpOpenName); }
+    }
+  }
+
+  // 🌀 催眠指令面板(2026-07「催眠的和新道具要確實分開成兩種」新增獨立入口)：跟一般小道具面板
+  //   (kanshouOpenProps)分開，只管ignoreBond類的暗示指令——底層共用同一套【自訂道具】/裝備上限，
+  //   但UI跟「施展」動作是完全獨立的一條路，不會跟裝飾性道具混在一起管理。
+  async function kanshouOpenHypnosis(name) {
+    if (_kpBusy) return;
+    _kpOpenName = name;
+    _kpOpenMode = 'hypnosis';
+    var c = _kcCur.find(function (x) { return x.name === name; });
+    if (!c || !_kcCustomPropsLoaded) {
+      _kpBusy = true;
+      _kpShowLoading_(name);
+      try {
+        const res = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount });
+        if (res && res.success) { _kcCur = res.current || []; _kcCustomProps = res.customProps || []; _kcCustomPropsLoaded = true; }
+      } catch (e) { } finally { _kpBusy = false; }
+      c = _kcCur.find(function (x) { return x.name === name; });
+      if (!c) { var _ov0 = document.getElementById('kp-overlay'); if (_ov0) _ov0.style.display = 'none'; alert('讀取失敗，稍後再試。'); return; }
+    }
+    var ov = document.getElementById('kp-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'kp-overlay';
+      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
+      ov.onclick = function (e) { if (e.target === ov && !_kpBusy) ov.style.display = 'none'; };
+      document.body.appendChild(ov);
+    }
+    var safeN = String(name).replace(/'/g, "\\'");
+    var activeH = (c.props || []).filter(function (x) { return x.ignoreBond; });
+    var rows = activeH.map(function (p) {
+      var levelBtns = KC_PROP_LEVELS_.map(function (lv) {
+        var active = p.level === lv;
+        return '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id.replace(/'/g, "\\'") + '\',\'' + lv + '\')" style="flex:1;padding:6px 3px;font-size:12px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : '#ccc') + ';border:none;border-radius:6px;cursor:pointer;">' + lv + '</button>';
+      }).join('');
+      var delBtn = '<button onclick="kanshouDeleteCustomProp(\'' + p.id.replace(/'/g, "\\'") + '\')" title="從你的催眠指令目錄整個刪掉這項定義" style="padding:3px 6px;background:#3a3a44;color:#999;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:4px;">🗑目錄</button>';
+      return '<div style="padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
+        + '<div style="display:flex;align-items:center;margin-bottom:6px;"><span style="flex:1;color:#e0a0ff;font-size:13px;">「' + escapeHtml(p.name) + '」</span>' + delBtn + '</div>'
+        + '<div style="display:flex;gap:5px;">' + levelBtns + '</div></div>';
+    }).join('');
+    var castRow = '<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);">'
+      + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:5px;">施展新的催眠指令(不受好感限制·立即生效)：</div>'
+      + '<div style="display:flex;gap:5px;align-items:center;">'
+      + '<input id="kh-new-text" maxlength="30" placeholder="指令內容(如：妳現在超級渴望我)" style="flex:1;min-width:0;padding:5px 6px;background:#2a2430;color:#eee;border:1px solid rgba(224,160,255,.4);border-radius:6px;font-size:12px;">'
+      + '<button onclick="kanshouCastHypnosis(\'' + safeN + '\')" style="padding:5px 10px;background:#8050a0;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">🌀施展</button>'
+      + '</div></div>';
+    ov.innerHTML = '<div style="width:min(400px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(224,160,255,.3);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
+      + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#e0a0ff;">🌀 對「' + escapeHtml(name) + '」的催眠指令</b>'
+      + '<button onclick="document.getElementById(\'kp-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
+      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:6px;">跟一般小道具是分開的兩種效果，不受好感限制。可同時生效多條。</div>'
+      + '<div style="color:#c98a9a;font-size:11px;margin-bottom:6px;">⚠️ 施展新指令會立即觸發一次對話，讓她當場演出被暗示的反應。</div>'
+      + (rows || '<div style="color:#8a7fa0;font-size:12px;padding:8px 4px;">目前沒有生效中的催眠指令。</div>')
+      + castRow
+      + '</div>';
+    ov.style.display = 'flex';
+  }
+  // 🌀 施展催眠指令：跟一般道具「裝備後靜默等下一輪」不同，這裡在後端寫入成功後【立即觸發一次
+  //   正常對話】(send())，讓AI馬上演出催眠生效的當下——這是這個效果存在的意義，玩家明講「這裡
+  //   需要一次呼叫AI才有催眠感覺」，不能像小道具那樣悄悄寫入就算數。
+  async function kanshouCastHypnosis(targetName) {
+    if (_kpBusy) return;
+    var textEl = document.getElementById('kh-new-text');
+    var text = textEl ? textEl.value.trim() : '';
+    if (!text) { alert('請先輸入指令內容。'); return; }
+    _kpBusy = true;
+    _kpShowLoading_(targetName);
+    try {
+      const res = await gasRun({ action: 'kanshou_cast_hypnosis', pcId: pc.id, acctName: currentAccount, targetName: targetName, text: text });
+      if (!res || !res.success) { alert((res && res.message) || '施展失敗。'); return; }
+      _kcCustomProps = res.customProps || _kcCustomProps;
+      if (res.message) { alert(res.message); _kpBusy = false; kanshouOpenHypnosis(targetName); return; } // 找不到同伴/裝備已滿的邊界情況，不觸發對話
+      var c = _kcCur.find(function (x) { return x.name === targetName; });
+      if (c) c.props = res.props || [];
+      var ov = document.getElementById('kp-overlay');
+      if (ov) ov.style.display = 'none'; // 關閉面板讓玩家看到故事流裡的即時反應
+      _kpBusy = false;
+      send('我對' + targetName + '施展了催眠暗示：「' + text + '」'); // 立即觸發一次對話，AI當場演出反應
+      return;
+    } catch (e) { alert('施展失敗。'); }
+    finally {
+      if (_kpBusy) { _kpBusy = false; kanshouOpenHypnosis(targetName); }
     }
   }
 

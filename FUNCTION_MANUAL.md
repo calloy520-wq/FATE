@@ -71,8 +71,9 @@
 | `kanshou_set_name` | `actionKanshouSetName` | 設同伴名 |
 | `kanshou_set_home_name` | `actionKanshouSetHomeName` | 設住處名 |
 | `kanshou_set_prop` | `actionKanshouSetProp` | 小道具裝備/移除/調強度(2026-07新增，啟動卡好感門檻) |
-| `kanshou_add_custom_prop` | `actionKanshouAddCustomProp` | 玩家自建新道具＋立即裝備(2026-07新增，name/hasIntensity/part選填) |
-| `kanshou_delete_custom_prop` | `actionKanshouDeleteCustomProp` | 從玩家自訂道具目錄整個刪掉一項(同步清所有同伴身上裝備) |
+| `kanshou_add_custom_prop` | `actionKanshouAddCustomProp` | 玩家自建新道具＋立即裝備(2026-07新增，name/hasIntensity/part選填，強制ignoreBond:false) |
+| `kanshou_delete_custom_prop` | `actionKanshouDeleteCustomProp` | 從玩家自訂道具目錄整個刪掉一項(同步清所有同伴身上裝備，一般道具/催眠指令共用) |
+| `kanshou_cast_hypnosis` | `actionKanshouCastHypnosis` | 催眠指令：跟一般道具分開的獨立入口(2026-07新增，text≤30字，強制hasIntensity+ignoreBond) |
 | `prep_meal` | `actionPrepMeal` | 準備餐點 |
 | `get_full_status` | `actionGetFullStatus` | 查某角完整狀態字串 |
 | `update_fate` | `actionUpdateFate` | 逆天改命（4 敘事欄） |
@@ -592,7 +593,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `actionKanshouSetName(userData, pcId, sheets)` — 改御主名字（≤16 字）；關係併入從者自己列，改名不影響羈絆。
 - `actionKanshouSetHomeName(userData, pcId, sheets)` — 改「家」顯示名（≤12 字），寫進 MEMORY【住所】標記（`setKanshouHomeName_`）。
 - `actionKanshouSetProp(userData, pcId, sheets)`（2026-07 新增，同批改多件同時裝備）— 小道具裝備/移除/調強度：`targetName`+`propId`+`level`(空字串＝只移除這一件，其餘已裝備道具不受影響)，比照 `actionKanshouMemoirOp` 同款帳號驗證+目標同伴查找，寫 MEMORY【小道具】（`kanshouToggleProp_`）。GAS直接寫、不靠AI自己判斷該不該記(根治「幫她戴貓耳朵過幾輪就忘記」的機制保證版)。同伴卡面板與故事視窗快速抽屜共用此 action。**任何新增/切換到非空level的操作**(含選『關閉』起手)都檢查`KANSHOU_PROP_EQUIP_BOND_`好感門檻，不足回傳失敗訊息、不寫入；唯獨移除(level空字串)不受限。**例外**：`def.ignoreBond`為真的道具(玩家自訂「催眠暗示」類效果)跳過此好感檢查，仍受`KANSHOU_PROP_EQUIP_CAP_`同一個裝備上限。
-- `actionKanshouAddCustomProp(userData, pcId, sheets)`（2026-07 新增）— 玩家自建道具：`targetName`+`name`(≤10字)+`hasIntensity`+`part`(選填)+`ignoreBond`(選填·2026-07新增·「無視好感」催眠暗示類效果)。查重(跟內建道具同名擋)＋上限檢查後寫進玩家列【自訂道具】(目錄新增不受好感門檻限制)；接著嘗試立即裝備在`targetName`身上，`ignoreBond`為真則跳過`KANSHOU_PROP_EQUIP_BOND_`檢查、否則好感不夠只成功建目錄不裝備並回傳訊息告知；兩種情況都仍受裝備上限`KANSHOU_PROP_EQUIP_CAP_`檢查。找不到目標同伴仍會成功新增進目錄，回傳訊息告知。
+- `actionKanshouAddCustomProp(userData, pcId, sheets)`（2026-07 新增，同批**強制`ignoreBond:false`**——2026-07二度改版「催眠的和新道具要確實分開成兩種」，不管`userData`帶了什麼一律無視，催眠效果只走`actionKanshouCastHypnosis`）— 玩家自建裝飾/物理類道具：`targetName`+`name`(≤10字)+`hasIntensity`+`part`(選填)。查重(跟內建道具同名擋)＋上限檢查後寫進玩家列【自訂道具】；接著嘗試立即裝備在`targetName`身上，好感不夠只成功建目錄不裝備並回傳訊息告知(一般道具永遠受`KANSHOU_PROP_EQUIP_BOND_`約束)；仍受裝備上限`KANSHOU_PROP_EQUIP_CAP_`檢查。找不到目標同伴仍會成功新增進目錄，回傳訊息告知。
+- `actionKanshouCastHypnosis(userData, pcId, sheets)`（2026-07 新增，跟一般道具分開的獨立入口）— 玩家施展催眠指令：`targetName`+`text`(暗示內容，非道具名稱，≤30字，比一般道具name的10字寬)。強制`hasIntensity:true`/`ignoreBond:true`(不像一般道具是選填)，永遠跳過`KANSHOU_PROP_EQUIP_BOND_`好感檢查，但仍受`KANSHOU_CUSTOM_PROP_CAP_`(目錄)與`KANSHOU_PROP_EQUIP_CAP_`(裝備上限)。首次施展預設落在`KANSHOU_PROP_LEVELS_[1]`(微弱)起跳，不像一般道具從關閉起手——這是「施展」動作，落地就該有效果。底層跟一般自訂道具共用同一套`【自訂道具】`目錄(id=text本身)，調整既有指令的強度改走既有`actionKanshouSetProp`。前端在這個action成功後會緊接著送一次正常對話(`send()`)，讓AI立即演出催眠生效的當下——玩家明講「這裡需要一次呼叫AI才有催眠感覺」，不能像一般道具靜默寫入等下一輪才反映。
 - `actionKanshouDeleteCustomProp(userData, pcId, sheets)`（2026-07 新增）— 從玩家列【自訂道具】整個移除一項定義，並掃描該局所有從者、把身上目前裝備的這一項一併移除(`kanshouToggleProp_(row, name, "")`)，避免孤兒資料(目錄查無定義卻有人還裝備著)。
 
 #### AI 提示詞組裝（🔴 鑑賞 AI 核心）
@@ -1220,16 +1222,17 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `_kmShowLoading_(name)` — 把 `#km-overlay` 內容換成讀條（不存在則先建）。
 - `kanshouMemoirOp(name, op, item)` — 釘選/取消/刪除回憶（`kanshou_memoir_op`）；`_kmBusy` 擋連點；完成後原地重繪並同步卡片數量徽章。
 
-#### 小道具（2026-07 新增）
+#### 小道具（2026-07 新增；同批二度改版「催眠指令要跟一般道具確實分開成兩種」）
 - `KC_PROPS_` / `KC_PROP_LEVELS_` — 鏡像後端 `KANSHOU_PROPS_`/`KANSHOU_PROP_LEVELS_`（唯一真實來源在 Gallery.gs，改後端記得同步這裡）。
-- `_kcCustomProps` / `_kcCustomPropsLoaded`（2026-07 新增）— 玩家自訂道具目錄本地快取，跟 `KC_PROPS_` 合併成 `allProps` 使用；隨 `kanshou_companions` 回傳一併載入。
-- `_kpOpenName`（2026-07 新增）— 目前開著的小道具面板是哪位同伴，供 `kanshouDeleteCustomProp` 刪除後原地重繪用。
-- `kanshouOpenProps(name)` — 開/重繪「某人的小道具」彈窗 `#kp-overlay`；`_kcCur`/`_kcCustomProps` 沒載到會自抓一次；列出內建＋自訂全部道具（自訂項多一顆「🗑目錄」按鈕，呼叫 `kanshouDeleteCustomProp`），已裝備的顯示目前強度＋🗑，未裝備的顯示「裝備」鈕（呼叫 `kanshouSetProp`）；有`part`的項目名稱旁附註部位。多件可同時裝備。面板底部附「自己新增一個」表單（名稱/強度可調/部位選填輸入框＋裝備鈕，呼叫 `kanshouAddCustomProp`）。
+- `_kcCustomProps` / `_kcCustomPropsLoaded`（2026-07 新增）— 玩家自訂道具目錄本地快取(一般道具＋催眠指令都存在這裡，靠`ignoreBond`欄位區分)，跟 `KC_PROPS_` 合併成 `allProps` 使用；隨 `kanshou_companions` 回傳一併載入。
+- `_kpOpenName`（2026-07 新增）— 目前開著的面板是哪位同伴。`_kpOpenMode`('props'|'hypnosis'·2026-07新增) — 目前開的是一般道具面板還是催眠指令面板，兩者共用同一個`#kp-overlay`容器＋共用`kanshouDeleteCustomProp`刪除，靠這個mode決定刪除後原地重繪回哪一個。
+- `kanshouOpenProps(name)`（2026-07二度改版：`allProps`/`curArr`都`.filter(p => !p.ignoreBond)`，完全看不到催眠指令）— 開/重繪「某人的小道具」彈窗 `#kp-overlay`；`_kcCur`/`_kcCustomProps` 沒載到會自抓一次；列出內建＋自訂的**一般(非ignoreBond)**道具（自訂項多一顆「🗑目錄」按鈕，呼叫 `kanshouDeleteCustomProp`），已裝備的顯示目前強度＋🗑，未裝備的顯示「裝備」鈕（呼叫 `kanshouSetProp`）；有`part`的項目名稱旁附註部位。多件可同時裝備。面板底部附「自己新增一個」表單（名稱/強度可調/部位選填輸入框＋裝備鈕，呼叫 `kanshouAddCustomProp`——**不再有`ignoreBond`勾選框**，那個效果已搬到專屬面板）。
 - `_kpShowLoading_(name)` — 把 `#kp-overlay` 內容換成讀條（不存在則先建）。
-- `kanshouSetProp(name, propId, level)` — 裝備/移除/改強度單一道具（`kanshou_set_prop`，level空字串＝移除）；`_kpBusy` 擋連點；完成後原地重繪面板。
-- `kanshouAddCustomProp(targetName)`（2026-07 新增，2026-07再補`#kp-new-ignorebond`）— 讀 `#kp-new-name`/`#kp-new-intensity`/`#kp-new-part`/`#kp-new-ignorebond`(「🌀無視好感」勾選框) 輸入框，打 `kanshou_add_custom_prop`，成功後更新本地 `_kcCustomProps`/該同伴 `c.props` 並原地重繪面板；找不到目標同伴的邊界情況會 alert 後端回傳的訊息。
-- `ignoreBondHint`（2026-07 新增，`kanshouOpenProps`內區域變數）— `p.ignoreBond`為真時渲染的小標籤(🌀無視好感)，跟`partHint`同款掛在道具名稱後面，提示玩家哪些道具跳過好感門檻。
-- `kanshouDeleteCustomProp(propName)`（2026-07 新增）— confirm 確認後打 `kanshou_delete_custom_prop`，成功後更新 `_kcCustomProps`、清掉本地 `_kcCur` 所有同伴快取裡這一項，再用 `_kpOpenName` 原地重繪面板。
+- `kanshouSetProp(name, propId, level)` — 裝備/移除/改強度單一道具（`kanshou_set_prop`，level空字串＝移除）；`_kpBusy` 擋連點；完成後原地重繪面板。一般道具/催眠指令的既有項目調強度都共用這支。
+- `kanshouAddCustomProp(targetName)`（2026-07 新增，二度改版拿掉`#kp-new-ignorebond`）— 讀 `#kp-new-name`/`#kp-new-intensity`/`#kp-new-part` 輸入框，打 `kanshou_add_custom_prop`，成功後更新本地 `_kcCustomProps`/該同伴 `c.props` 並原地重繪面板；找不到目標同伴的邊界情況會 alert 後端回傳的訊息。
+- `kanshouDeleteCustomProp(propName)`（2026-07 新增，二度改版靠`_kpOpenMode`決定重繪回哪個面板）— confirm 確認後打 `kanshou_delete_custom_prop`，成功後更新 `_kcCustomProps`、清掉本地 `_kcCur` 所有同伴快取裡這一項，再依`_kpOpenMode`呼叫`kanshouOpenHypnosis`或`kanshouOpenProps`原地重繪。
+- `kanshouOpenHypnosis(name)`（2026-07 新增，獨立於`kanshouOpenProps`的專屬面板）— 開/重繪「對某人的催眠指令」彈窗(共用`#kp-overlay`)；只顯示`c.props`裡`ignoreBond===true`的項目，各自附強度鈕(`kanshouSetProp`)＋「🗑目錄」刪除鈕；面板底部附「施展新的催眠指令」表單(`#kh-new-text`文字輸入，maxlength 30＋「🌀施展」鈕，呼叫`kanshouCastHypnosis`)。
+- `kanshouCastHypnosis(targetName)`（2026-07 新增）— 讀`#kh-new-text`，打`kanshou_cast_hypnosis`；成功且無邊界訊息時**關閉面板並立即呼叫`send('我對'+targetName+'施展了催眠暗示：「'+text+'」')`**觸發一次真實對話——這是本函式跟`kanshouAddCustomProp`最大的差異，玩家明講「這裡需要一次呼叫AI才有催眠感覺」；找不到同伴/裝備已滿等邊界情況只alert訊息並原地重繪面板，不觸發對話。
 - `_kcEnsureDrawer_()` — 懶建立故事視窗旁的「小道具快速控制抽屜」DOM（`#kc-prop-drawer`），回傳該元素；`applyModeUI()`(Script.html) 依鑑賞模式切換其顯示。
 - `kcTogglePropDrawer()` — 展開/收合抽屜；展開時呼叫 `_kcRenderDrawer_`。
 - `_kcRenderDrawer_()` — 重繪抽屜內容：只列**在場**且有強度可調道具的同伴，每項給強度快選鈕（呼叫 `kcQuickSetProp`）；`_kcCur` 沒載到會自抓一次。

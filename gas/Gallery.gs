@@ -720,6 +720,10 @@ function actionKanshouSetProp(userData, pcId, sheets) {
 //   (2026-07「整個小道具直接卡80吧」)——目錄本身可以先建，但好感不夠就只是建了定義、還不能裝上去。
 //   part(部位)選填(2026-07「選填吧，想指定就自己打，沒有就AI自己想辦法發揮」)：留空則不注入部位
 //   敘述，交給AI自行決定戴在哪。
+// 🐛→✅ 2026-07「催眠的和新道具要確實分開成兩種」：ignoreBond原本開放這裡勾選，玩家覺得該獨立
+//   成專屬入口(actionKanshouCastHypnosis)——這裡改成**一律強制ignoreBond:false**，不管
+//   userData帶了什麼都無視，確保「一般道具」這條路徑物理上做不出無視好感的效果，兩種道具在
+//   backend層就分道揚鑣，不是只靠前端不給勾選框這種軟性分隔。
 function actionKanshouAddCustomProp(userData, pcId, sheets) {
   var kpc = sheets.pc;
   var acctName = String(userData.acctName || "").trim();
@@ -727,7 +731,7 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
   var name = kanshouSanitizeTagValue_(userData.name, 10);
   var hasIntensity = !!userData.hasIntensity;
   var part = kanshouSanitizeTagValue_(userData.part, 8); // 選填，留空就讓AI自己發揮(不注入部位敘述)
-  var ignoreBond = !!userData.ignoreBond; // 🌀「催眠暗示」類效果：勾了就跳過好感門檻(仍受裝備上限)
+  var ignoreBond = false; // 一般道具強制不能無視好感，這個效果只走 actionKanshouCastHypnosis
   if (!targetName || !name) return JSON.stringify({ success: false, message: "參數不完整。" });
   var data = kpc.getDataRange().getValues();
   var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
@@ -759,6 +763,46 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
   var newMemory = kanshouToggleProp_(data[tIdx][COL.PC.MEMORY], name, finalLevel);
   kpc.getRange(tIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
   return JSON.stringify({ success: true, props: kanshouGetProps_(newMemory, KANSHOU_PROPS_.concat(custom)), customProps: custom });
+}
+
+// 🌀 催眠指令：跟一般自訂道具「確實分開成兩種」(2026-07 玩家定案)的獨立入口。玩家打一句暗示內容
+//   (text，非道具名稱)，強度**必帶**(不像一般道具是選填勾選)，底層仍是同一套【自訂道具】目錄/
+//   裝備上限(id=text本身)，只是強制hasIntensity:true/ignoreBond:true——語意上這就是「無視好感」的
+//   那一種，不需要另外勾選。text≤30字(比一般道具name的10字寬，因為這是一句完整暗示而非短標籤)。
+//   首次施展預設落在微弱(不像一般道具從關閉起手)：這是「施展」動作，落地就該有效果，不是先裝備
+//   再另外啟動兩步。前端在這個action成功後會緊接著送一次正常對話(send())，讓AI立即演出催眠生效
+//   的當下——這是本效果存在的意義，不能像一般道具靜默寫入等下一輪才反映。
+function actionKanshouCastHypnosis(userData, pcId, sheets) {
+  var kpc = sheets.pc;
+  var acctName = String(userData.acctName || "").trim();
+  var targetName = String(userData.targetName || "").trim();
+  var text = kanshouSanitizeTagValue_(userData.text, 30);
+  if (!targetName || !text) return JSON.stringify({ success: false, message: "參數不完整。" });
+  var data = kpc.getDataRange().getValues();
+  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  if (KANSHOU_PROPS_.some(function (p) { return p.name === text; })) return JSON.stringify({ success: false, message: "這句指令跟內建道具重複了，換個說法吧。" });
+  var custom = kanshouGetCustomProps_(data[meIdx][COL.PC.MEMORY]);
+  var already = custom.some(function (p) { return p.id === text; });
+  if (!already && custom.length >= KANSHOU_CUSTOM_PROP_CAP_) return JSON.stringify({ success: false, message: "自訂道具/催眠指令目錄已達上限(" + KANSHOU_CUSTOM_PROP_CAP_ + "件)，先刪掉一些吧。" });
+  custom = custom.filter(function (p) { return p.id !== text; });
+  custom.push({ id: text, hasIntensity: true, part: '', ignoreBond: true });
+  var newPlayerMemory = kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom);
+  kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newPlayerMemory);
+  var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
+  var tIdx = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(data[i][COL.PC.NAME])).includes(targetName)) { tIdx = i; break; }
+  }
+  if (tIdx < 0) return JSON.stringify({ success: true, props: [], customProps: custom, message: "已記下這句指令，但找不到這位同伴可施展。" });
+  var _existingT = kanshouGetProps_(data[tIdx][COL.PC.MEMORY]);
+  if (!_existingT.some(function (p) { return p.id === text; }) && _existingT.length >= KANSHOU_PROP_EQUIP_CAP_) {
+    return JSON.stringify({ success: true, props: kanshouGetProps_(data[tIdx][COL.PC.MEMORY], KANSHOU_PROPS_.concat(custom)), customProps: custom, message: "已記下這句指令，但她身上裝備已達上限(" + KANSHOU_PROP_EQUIP_CAP_ + "件)，先移除一件才能施展。" });
+  }
+  var finalLevel = KANSHOU_PROP_LEVELS_[1]; // 微弱起跳——施展就該立即生效，不像一般道具從關閉起手
+  var newMemory = kanshouToggleProp_(data[tIdx][COL.PC.MEMORY], text, finalLevel);
+  kpc.getRange(tIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
+  return JSON.stringify({ success: true, props: kanshouGetProps_(newMemory, KANSHOU_PROPS_.concat(custom)), customProps: custom, level: finalLevel });
 }
 
 // 🗑 刪除玩家自訂道具定義：同步清掉所有同伴身上目前裝備的這一項，避免留下型錄查無定義的孤兒資料。
