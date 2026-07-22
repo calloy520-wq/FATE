@@ -2956,7 +2956,11 @@ ${PROMPT_PARTY_SYSTEM}
     const moveProposalRaw = String(aiData.move_proposal || "").trim();
     // AI 明確填的 move_proposal 優先；沒填但它自作主張寫了 location(aiAutoMoveProposal)也一併轉成提議，
     //   兩條路最後都走同一個「同意」泡泡。
-    let moveProposal = (moveProposalRaw && KANSHOU_LOCATIONS_.some(l => l.name === moveProposalRaw) ? moveProposalRaw : "") || aiAutoMoveProposal; // let：下方玩家提議同去(type:'move')她接受時會回填
+    // 🐛→✅ 玩家實測抓到：AI 敘事提到某個非清單地名(如「麵包店」)當風味細節時，偶爾會把 move_proposal
+    //   填成「玩家此刻所在地」本身(離清單最近的匹配)，冒出一顆「一起去○○」的提議泡泡——但玩家早就
+    //   在那裡了，點同意等於原地不動的假移動，還會因為场景/在場人/歷史幾乎沒變而讓AI生出近乎重複的
+    //   內容。比照下面 aiAutoMoveProposal 那條本來就有的 !== curL 防呆，這裡也補上同款。
+    let moveProposal = (moveProposalRaw && KANSHOU_LOCATIONS_.some(l => l.name === moveProposalRaw) && moveProposalRaw !== curL ? moveProposalRaw : "") || aiAutoMoveProposal; // let：下方玩家提議同去(type:'move')她接受時會回填
 
     // 📅🤝 相約/牽手的成立判定：pre-AI只記了待判定(_pendingProposal)、沒動MEMORY，這裡讀AI依角色
     //   個性與好感給出的 proposal_accept 才決定要不要落地。fail-closed：只有明確「接受」且無「拒」字
