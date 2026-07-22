@@ -910,18 +910,16 @@ function buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote, include
     //   敘事視角(玩家「我」)打架；「本回合開始前」明講時態，避免被誤讀成預寫本回合結果。
     "inner_monologue": "【純思考·不顯示·約50字】第三人稱總結主NPC本回合開始前的狀態([性格尊嚴]vs[當下情緒身體])·承接歷史勿歸零",
     "narration": "劇情(第一人稱·禁替玩家做決定·篇幅依下方【篇幅隨關係濃淡】)",
-    // 🗺️ 2026-07 移動改「同意泡泡」制(見§134)：AI 不得自行搬動玩家。此處刻意【不設 location 欄】——
-    //   玩家的所在地一律由 GAS 掌握(地圖按鈕/赴約/跳時間時寫好)，AI 每回合照抄毫無意義、徒增 token 與
-    //   自相矛盾風險；想換場景一律走下面的 move_proposal 提議。後端仍保留 aiData.location 攔截層當保險
-    //   (萬一模型自作主張硬吐 location→照樣轉成 move_proposal 泡泡，不會無聲搬人)。
-    // move_proposal是「提議」不是「已發生」——填了這欄，narration必須停在邀請當下、不可先寫出移動或
-    //   抵達，真正是否移動由玩家事後回應決定。
-    "move_proposal": "出現「一起去某地」共識就填目標地名(限地點清單)：她邀你或你邀她而她答應皆填·意圖非結果·narration停在提議當下勿演移動。婉拒/無意圖填空。有【提議·同去】標記時【不填此欄】——同去結果由系統裁定、你只演反應",
-    // 📅 她主動邀約(promise_proposal)：跟 move_proposal 同理的「提議」——她開口約改天見面，narration 停在
-    //   她邀約的當下，由玩家按泡泡決定。GAS 只在玩家同意後才落地【約定】(意圖非結果)。band 限午後/黃昏/夜。
+    // 🗺️ 2026-07 移動改「同意泡泡」制(見§134)；2026-07再修（玩家實測「AI一直提議移動、頭痛」）：
+    //   move_proposal 欄位整個砍掉，AI 不再有任何管道自己決定要不要換場景/換去哪。此處刻意【不設
+    //   location/move_proposal 欄】——玩家的所在地一律由 GAS 掌握：要嘛玩家自己用地圖走(moveTarget)，
+    //   要嘛玩家在地圖上向同伴提議同去(proposeMove)、GAS 依好感直接裁定接不接受(_pendingProposal)，
+    //   AI 兩種情況都只負責演出反應，從不負責「要不要提議」或「去哪裡」這兩個決定。
+    // 📅 她主動邀約(promise_proposal)：她開口約改天見面，narration 停在她邀約的當下，由玩家按泡泡決定。
+    //   GAS 只在玩家同意後才落地【約定】(意圖非結果)。band 限午後/黃昏/夜。
     "promise_proposal": "在場同伴想主動約你改天見面才填 {\"name\":\"真名\",\"loc\":\"清單地名\",\"band\":\"午後|黃昏|夜或空\"}·narration停在她邀約當下·否則{}",
-    // 🏠 她主動邀同居(cohabit_proposal)：僅在她對玩家好感很深、且還沒同住時才有意義；同 move_proposal 的
-    //   提議語意，narration 停在她開口當下，玩家同意後 GAS 才落地【同居】。
+    // 🏠 她主動邀同居(cohabit_proposal)：僅在她對玩家好感很深、且還沒同住時才有意義，同樣是「提議」
+    //   語意，narration 停在她開口當下，玩家同意後 GAS 才落地【同居】。
     "cohabit_proposal": "在場同伴好感極深且未同住·她想邀你同住才填她真名·narration停在她開口當下·否則空",
     // proposal_accept：【已停用·GAS 判定】相約/牽手/同去她答不答應由 GAS 依好感於 pre-AI 擲定、寫在敘事鐵律區
     //   (★【提議…GAS已裁定…】)，AI 只照裁定演反應。此欄保留相容但後端一律忽略——不必填、填了也不影響結果。
@@ -1981,7 +1979,7 @@ function actionPlay_(userData, pcId, sheets) {
       const _pvHer = String(pcData[_pvIdx][COL.PC.NAME]);
       const _pvBond = parseInt(pcData[_pvIdx][COL.PC.BOND]) || 0;
       _pendingProposal = { type: 'move', idx: _pvIdx, loc: _pvLoc, accepted: kanshouProposalAccepts_('move', _pvBond) };
-      kanshouPromiseStr += `\n★【提議·同去·GAS已裁定】你向『${_pvHer}』提議【現在一起去「${_pvLoc}」】。系統已依好感(${_pvBond}/100)裁定她${_pendingProposal.accepted ? '【答應】同行——請 narration 依她的個性演出答應的反應' : '【婉拒】了——請 narration 依她的個性演出婉拒的反應'}。本回合【不要】另填 move_proposal，是否動身由系統處理；narration 停在她給出回應的當下，【不可】演出發、走路或抵達。★成敗由系統定，別自行改寫她的決定。`;
+      kanshouPromiseStr += `\n★【提議·同去·GAS已裁定】你向『${_pvHer}』提議【現在一起去「${_pvLoc}」】。系統已依好感(${_pvBond}/100)裁定她${_pendingProposal.accepted ? '【答應】同行——請 narration 依她的個性演出答應的反應' : '【婉拒】了——請 narration 依她的個性演出婉拒的反應'}。是否動身由系統處理；narration 停在她給出回應的當下，【不可】演出發、走路或抵達。★成敗由系統定，別自行改寫她的決定。`;
       finalUserMsg = `【玩家意圖】：邀身旁的『${_pvHer}』現在一起去「${_pvLoc}」。`;
     } else if (_pvIdx === -1) {
       kanshouPromiseStr += `\n★【提議撲空】：你想邀人一起去「${_pvLoc}」，但此刻身邊沒有同伴——演出這份獨自的悵然即可(玩家可自己用地圖移動)。`;
@@ -2365,10 +2363,10 @@ function actionPlay_(userData, pcId, sheets) {
   // 合法地點時才寫入LOC＋抽選巧遇＋記錄邂逅名單。抽選只在「按下移動按鈕」這個瞬間跑一次，不會
   //   每句對話重算。移動不再強制拖走任何已存在的英靈(每個人都是獨立的)——想帶誰同行：地圖 👋
   //   提議同去(proposeMove 確定性提議管線，見上方★【提議·同去】)或牽手跟隨。
-  // 🐛→✅ 例外：玩家按下的是「同意」AI剛提議的move_proposal(userData.moveWithCompanion)時，
-  //   UI已經明確告訴玩家「好，一起去」，若不真的把提議者也帶過去，她會被留在舊地點、卻在敘事
+  // 🐛→✅ 例外：玩家按下的是「同意」(接受了自己提議的同去、GAS裁定她答應，userData.moveWithCompanion)時，
+  //   UI已經明確告訴玩家「好，一起去」，若不真的把受邀者也帶過去，她會被留在舊地點、卻在敘事
   //   跟人物列表裡憑空消失——這裡先在curL變動【前】記下當時同地點的人，帶她們一起走。
-  //   ⚡ 帶人三態：①同意AI提議一起去(moveWithCompanion)→帶當時同地全部人；②否則有牽手對象且
+  //   ⚡ 帶人三態：①同意同去邀約(moveWithCompanion)→帶當時同地全部人；②否則有牽手對象且
   //   她此刻同地→只帶她(牽手優先跟隨)；③否則只帶自己。
   const kanshouPreMoveCompanions_ = !moveTarget ? []
     : userData.moveWithCompanion
@@ -2859,15 +2857,15 @@ ${PROMPT_REL}
 ★多人各依各自好感·不共用同階。
 ★【篇幅隨關係濃淡】：低好感(點頭之交/普通朋友)點到為止(200~300字)·別把陌生互動寫成大段內心戲；熟識(40~59)約350~450字；親近以上(60+)約450~600字·隨關係加深逐步拉長、細節與內心刻畫同步加深，別卡在跟低好感差不多的字數。
 ★【演出而非說明】不直述其願望/萌點/個性字面。僅 rel_changes(好感)·不輸出生命變化或戰鬥。
-★【地點清單】：世界只有這些地點：${KANSHOU_LOCATIONS_.map(l => l.name).join('、')}——move_proposal 只能填清單內名·禁自創地名。
-★★【移動鐵律】：你和玩家【此刻在「${curL}」】。任何換場景都只能填 move_proposal(有【提議·同去】標記時【不填】·同去結果由系統裁定、你只演反應)·narration 停在「提議/達成共識/正要起身」就打住·禁演移動過程/抵達——沒填就是還在${curL}。禁把「泡泡/按鈕/地圖」等介面詞寫進敘事。(例外：玩家已用地圖移動＝系統已寫好新位置·直接寫此地當下·不再演路程。)
+★【地點清單】：世界只有這些地點：${KANSHOU_LOCATIONS_.map(l => l.name).join('、')}——promise_proposal 的 loc 只能填清單內名·禁自創地名。
+★★【移動鐵律】：你和玩家【此刻在「${curL}」】。換場景/去哪裡完全不是你能決定的事——只有玩家自己用地圖走、或玩家提議同去經系統依好感裁定，才會真的換地方(有【提議·同去】標記時系統已經裁定完畢，你只演她答應/婉拒的反應)。你不可以自己讓劇情走去別的地方、也不可以演出出發/走路/抵達的過程——沒有系統明講換地方，就是還在${curL}。禁把「泡泡/按鈕/地圖」等介面詞寫進敘事。(例外：玩家已用地圖移動＝系統已寫好新位置·直接寫此地當下·不再演路程。)
 ★【此地唯一真實】：場景/氛圍/對話對象一律以「${curL}」與在場名單為準·歷史在別地/別人的已是過去(被想起可以·開口不行·【自然告辭】豁免除外)·換幕就寫新場景。
 ★【不憑空生東西】：無金錢/物品/背包·禁自作主張讓玩家「準備好禮物」「掏錢包」「變道具」·送禮由玩家輸入決定。
 ★【不替玩家腦補·結尾停外部】：第一人稱『我』只演玩家實際輸入的動作＋當下五感·禁腦補大段內心戲/願望/替他做決定·禁把段落收在玩家的期待/渴望上·結尾停【外部當下】(對方反應/眼前場景/未完成的動作)·把「下一步想怎樣」留給玩家。
 ★【歷史僅供參考·專注本回合】：對話歷史只是脈絡背景，不是這回合的事實來源——實際狀態一律以上方系統明確宣告的事實＋下方【本回合在場資料】為準，別被歷史裡已經過期的設定/情緒/場景牽著走。
 ${PROMPT_PARTY_SYSTEM}
 ★【現場僅此名單】：以上就是此刻在場的全部人物，除此之外沒有別人在場——沒被列出的名字即使歷史提過，此刻也不在這裡。
-★【地點釘死·此刻只有這裡】：你們現在人在「${curL}」，就是這裡，不是別的地方。對話歷史如果提過其他地名(如更早聊到的地點)，那些都已經是過去式——同伴此刻的言行、場景描寫只能圍繞「${curL}」，不可以講得好像人還在別處、也不可以讓她突然說想去別的地方(那要走 move_proposal，不是直接講成當下事實)。
+★【地點釘死·此刻只有這裡】：你們現在人在「${curL}」，就是這裡，不是別的地方。對話歷史如果提過其他地名(如更早聊到的地點)，那些都已經是過去式——同伴此刻的言行、場景描寫只能圍繞「${curL}」，不可以講得好像人還在別處、也不可以讓她說出「想去別的地方」聽起來像真的要發生(頂多是嘴上聊聊、不會真的移動——要換地方只能靠玩家自己用地圖)。
 現在演化玩家動作：『${finalUserMsg}』${npcDialoguePrompt}
 
 🚨【收尾${driveOn ? '·主動掌握' : ''}】：${driveOn ? '同伴主導推進·本回合大幅推進到位·該親暱該進一步就真的發生·別在曖昧邊緣空轉。但仍' : ''}停在「我」當下進行式的情緒·留未完成的動作/未說完的話交還玩家——但被玩家搭話的在場人物【必須先給出她此刻的回應】(答話或神情動作)才停筆·禁只寫完玩家動作就收尾·禁「那一刻/那一夜/自此/從此」等翻頁式總結收尾。`;
@@ -2952,28 +2950,12 @@ ${PROMPT_PARTY_SYSTEM}
 
 
 
-    // 💭 AI 不得自行搬動玩家(§134)：範本已不設 location 欄(見上)，正常回合 aiData.location 為 undefined、
-    //   下面 aiLocRaw 得到空字串、aiAutoMoveProposal 恆空——此段對正常流程等於無操作。保留純為【保險】：
-    //   萬一模型無視範本硬吐一個 location，也照樣轉成 move_proposal 泡泡由玩家決定，絕不無聲搬人。
-    //   驗證同 move_proposal：只認 KANSHOU_LOCATIONS_ 內的合法地名，杜絕玩家點不到的幽靈地點。
-    // 🚫→💭 能走到這裡的 aiData.location 一定是「AI 自作主張要換地點」的情況——
-    //   玩家用地圖按鈕移動時，上游 moveTarget 管線(見1739)早已把 curL 寫好，AI 只是照抄、aiLoc===curL
-    //   不會進這塊。故一律【不直接寫 LOC】，改把目標地名轉成 move_proposal 提議、跟同伴邀約共用同一個
-    //   「同意/拒絕」泡泡(見下方 moveProposal 合併)，玩家按同意才走既有 moveTarget 管線真的移動(含巧遇/
-    //   同伴跟隨)。這樣「AI 想移動玩家」也必須玩家點頭，不再無聲搬人。
-    const aiLocRaw = String(aiData.location || "").trim().slice(0, 20);
-    const aiAutoMoveProposal = (aiLocRaw && KANSHOU_LOCATIONS_.some(l => l.name === aiLocRaw) && aiLocRaw !== curL) ? aiLocRaw : "";
-
-    // AI提議換地點需玩家同意：只轉發給前端顯示同意/拒絕UI，不在這裡寫LOC——真正的移動要等
-    //   玩家按下「同意」、前端帶著moveTarget再送一次，走既有moveTarget管線。
-    const moveProposalRaw = String(aiData.move_proposal || "").trim();
-    // AI 明確填的 move_proposal 優先；沒填但它自作主張寫了 location(aiAutoMoveProposal)也一併轉成提議，
-    //   兩條路最後都走同一個「同意」泡泡。
-    // 🐛→✅ 玩家實測抓到：AI 敘事提到某個非清單地名(如「麵包店」)當風味細節時，偶爾會把 move_proposal
-    //   填成「玩家此刻所在地」本身(離清單最近的匹配)，冒出一顆「一起去○○」的提議泡泡——但玩家早就
-    //   在那裡了，點同意等於原地不動的假移動，還會因為场景/在場人/歷史幾乎沒變而讓AI生出近乎重複的
-    //   內容。比照下面 aiAutoMoveProposal 那條本來就有的 !== curL 防呆，這裡也補上同款。
-    let moveProposal = (moveProposalRaw && KANSHOU_LOCATIONS_.some(l => l.name === moveProposalRaw) && moveProposalRaw !== curL ? moveProposalRaw : "") || aiAutoMoveProposal; // let：下方玩家提議同去(type:'move')她接受時會回填
+    // 💭 AI 不得自行搬動玩家、也不再有任何欄位讓它自己提議換地方(§134·2026-07再修，玩家實測
+    //   「AI一直提議移動、頭痛」後把 move_proposal 整欄砍掉)：地點只有兩條合法變動路徑——玩家自己
+    //   用地圖走(moveTarget，見上游1739)，或玩家在地圖向同伴提議同去、GAS 依好感直接裁定
+    //   (_pendingProposal.type==='move'，下方判定式會回填這裡)。moveProposal 在此固定為空，
+    //   唯一寫入來源就是下面那段 _pendingProposal 判定，AI 完全無從置喙。
+    let moveProposal = ""; // let：下方玩家提議同去(type:'move')她接受時會回填
 
     // 📅🤝 相約/牽手的成立判定：pre-AI只記了待判定(_pendingProposal)、沒動MEMORY，這裡讀AI依角色
     //   個性與好感給出的 proposal_accept 才決定要不要落地。fail-closed：只有明確「接受」且無「拒」字
@@ -3003,17 +2985,15 @@ ${PROMPT_PARTY_SYSTEM}
         }
         dirtyPcRows.add(_pendingProposal.idx);
       } else {
-        // 她婉拒同去時清掉 moveProposal——AI 偶爾會順手把 move_proposal 也填了(移動鐵律的「不填＝不會發生」
-        //   讓它緊張)，不清＝玩家同時收到「她婉拒了」通知＋「前往」泡泡，自相矛盾。
-        if (_pendingProposal.type === 'move') moveProposal = "";
+        // 她婉拒同去：moveProposal 本就固定從""起始、只有上面 _accepted 分支會填，這裡不需要再清一次。
         // loc：move 婉拒的通知條要顯示地名(稽核抓到「不想去「」」空字串)；其他型別不讀此欄、帶著無害。
         kanshouProposalResult_ = { ok: false, type: _pendingProposal.type, name: _ppHer, loc: _pendingProposal.loc || "" };
       }
     }
 
     // 📅🏠 她主動提議(promise_proposal / cohabit_proposal)：AI 這回合讓某在場同伴開口邀約→GAS 驗證後轉成
-    //   「同意泡泡」回傳前端(kanshouAiPromise_/kanshouAiCohabit_)，玩家按同意才落地(意圖非結果，跟 move_proposal
-    //   同一套)。只認此刻同地在場、且未婉拒門檻的對象；驗不過就當她只是隨口說說、不跳泡泡。
+    //   「同意泡泡」回傳前端(kanshouAiPromise_/kanshouAiCohabit_)，玩家按同意才落地(意圖非結果)。
+    //   只認此刻同地在場、且未婉拒門檻的對象；驗不過就當她只是隨口說說、不跳泡泡。
     let kanshouAiPromise_ = null, kanshouAiCohabit_ = null;
     const _inSceneIdxByName = (nm) => {
       const n = String(nm || "").trim();

@@ -1149,7 +1149,7 @@ let plainTextContext = cleanText;
   // 🚶 同意時重用既有moveTarget管線(跟kanshouMoveTo同一條路，含巧遇/留人重逢等效果)，不另開移動程式碼；拒絕就當作一句普通續寫，原地不動。
   async function kanshouConfirmMoveProposal(loc) {
     showGamePane('chat');
-    // 🐛→✅ moveWithCompanion=true：告訴後端這是「同意AI提議、要帶著提議者一起走」，
+    // 🐛→✅ moveWithCompanion=true：告訴後端這是「她答應了你的同去邀約、要帶著受邀者一起走」，
     //   不是玩家自己單獨點地圖移動(那種不強制拖走任何人，見Gallery.gs同款註解)。
     await send('好，一起去「' + loc + '」吧。', false, { moveTarget: loc, moveWithCompanion: true });
   }

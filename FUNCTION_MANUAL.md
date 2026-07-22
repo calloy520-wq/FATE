@@ -600,7 +600,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### AI 提示詞組裝（🔴 鑑賞 AI 核心）
 
 - `dialogueFormatRule_()` — 全遊戲【單一真實來源】對話與敘事格式規則（口/喉發聲進「」台詞、每句台詞冠說話者名、看得見動作走敘事、只用單層「」）。solo miniSystem 與此檔 nsfwBaseRules 共用。
-- `buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote, includeOptions)` — 組鑑賞系統提示詞（唯一呼叫者 actionPlay）。動態組 JSON 輸出範本（inner_monologue/narration/move_proposal/promise_proposal/cohabit_proposal/proposal_accept/npc_exit/options/intimacy_feedback/rel_changes/master_note）。三個開關：masterNoteUnlocked=只放沒鎖的性格欄、includeMasterNote=false 整塊拿掉（側寫節流）、includeOptions=false 拿掉 options。
+- `buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote, includeOptions)` — 組鑑賞系統提示詞（唯一呼叫者 actionPlay）。動態組 JSON 輸出範本（inner_monologue/narration/promise_proposal/cohabit_proposal/proposal_accept/npc_exit/options/intimacy_feedback/rel_changes/master_note）。**2026-07 拔掉 move_proposal**：AI 不再有任何欄位能自己提議換地點，移動只走 GAS 決定的地圖移動/proposeMove 兩條路。三個開關：masterNoteUnlocked=只放沒鎖的性格欄、includeMasterNote=false 整塊拿掉（側寫節流）、includeOptions=false 拿掉 options。
   - 🔴 內含 `nsfwBaseRules`（函式內 const，非獨立函式）— 慾海演化核心紅線常數，後日談敘事鐵律 6 條＋【慾海律令】7 條；連同 `specificRules`＋範本 JSON 一起回傳。**紅線①：一律不可改。**
 - `getKanshouPeopleList_(pcId, curL, allPcData)` — 鑑賞自算精簡「同地人物」清單（只 id/name/isExact），不借 solo 的 getLocalPeopleList（那多算 12 欄）。
 
