@@ -697,6 +697,11 @@ function actionKanshouSetProp(userData, pcId, sheets) {
     if ((parseInt(data[tIdx][COL.PC.BOND]) || 0) < KANSHOU_PROP_EQUIP_BOND_) {
       return JSON.stringify({ success: false, message: "好感還沒到那個地步，她不會讓你這麼做。" });
     }
+    // 🔢 只卡「新增裝備」：propId還沒在她身上的已裝備清單才算新增，調整已裝備項目的強度不占額外名額。
+    var _existingP = kanshouGetProps_(data[tIdx][COL.PC.MEMORY]);
+    if (!_existingP.some(function (p) { return p.id === propId; }) && _existingP.length >= KANSHOU_PROP_EQUIP_CAP_) {
+      return JSON.stringify({ success: false, message: "同時最多只能裝備" + KANSHOU_PROP_EQUIP_CAP_ + "件，先移除一件吧。" });
+    }
   }
   var newMemory = kanshouToggleProp_(data[tIdx][COL.PC.MEMORY], propId, finalLevel);
   kpc.getRange(tIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
@@ -713,14 +718,16 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
   var kpc = sheets.pc;
   var acctName = String(userData.acctName || "").trim();
   var targetName = String(userData.targetName || "").trim();
-  var name = String(userData.name || "").trim().slice(0, 10);
+  var name = kanshouSanitizePropTag_(userData.name, 10);
   var hasIntensity = !!userData.hasIntensity;
-  var part = kanshouSanitizePropPart_(userData.part); // 選填，留空就讓AI自己發揮(不注入部位敘述)
+  var part = kanshouSanitizePropTag_(userData.part, 8); // 選填，留空就讓AI自己發揮(不注入部位敘述)
   if (!targetName || !name) return JSON.stringify({ success: false, message: "參數不完整。" });
   var data = kpc.getDataRange().getValues();
   var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
-  if (KANSHOU_PROPS_.some(function (p) { return p.id === name; })) return JSON.stringify({ success: false, message: "這個名字跟內建道具重複了，換一個名字吧。" });
+  // 🐛→✅ 稽核抓到：原本比對 p.id(內建道具的內部代號如'egg_vibrator')跟玩家打的中文名，永遠不
+  //   會相等，撞名檢查形同虛設(玩家真的取名「跳蛋」反而不會被擋)。改比對顯示名稱 p.name。
+  if (KANSHOU_PROPS_.some(function (p) { return p.name === name; })) return JSON.stringify({ success: false, message: "這個名字跟內建道具重複了，換一個名字吧。" });
   var custom = kanshouGetCustomProps_(data[meIdx][COL.PC.MEMORY]);
   var already = custom.some(function (p) { return p.id === name; });
   if (!already && custom.length >= KANSHOU_CUSTOM_PROP_CAP_) return JSON.stringify({ success: false, message: "自訂道具已達上限(" + KANSHOU_CUSTOM_PROP_CAP_ + "件)，先刪掉一些吧。" });
@@ -736,6 +743,10 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
   if (tIdx < 0) return JSON.stringify({ success: true, props: [], customProps: custom, message: "已新增到你的道具目錄，但找不到這位同伴可裝備。" });
   if ((parseInt(data[tIdx][COL.PC.BOND]) || 0) < KANSHOU_PROP_EQUIP_BOND_) {
     return JSON.stringify({ success: true, props: kanshouGetProps_(data[tIdx][COL.PC.MEMORY], KANSHOU_PROPS_.concat(custom)), customProps: custom, message: "已新增到你的道具目錄，但好感還沒到那個地步，她還不會讓你幫她裝備。" });
+  }
+  var _existingT = kanshouGetProps_(data[tIdx][COL.PC.MEMORY]);
+  if (!_existingT.some(function (p) { return p.id === name; }) && _existingT.length >= KANSHOU_PROP_EQUIP_CAP_) {
+    return JSON.stringify({ success: true, props: kanshouGetProps_(data[tIdx][COL.PC.MEMORY], KANSHOU_PROPS_.concat(custom)), customProps: custom, message: "已新增到你的道具目錄，但她身上裝備已達上限(" + KANSHOU_PROP_EQUIP_CAP_ + "件)，先移除一件才能裝上這個。" });
   }
   var finalLevel = hasIntensity ? KANSHOU_PROP_LEVELS_[0] : "戴著"; // 新裝備一律關閉起手
   var newMemory = kanshouToggleProp_(data[tIdx][COL.PC.MEMORY], name, finalLevel);
@@ -816,15 +827,16 @@ function buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote, include
   };
   _mnKeysOpen.forEach(function (k) { if (_mnDescs[k]) _masterNote[k] = _mnDescs[k]; });
 
-  // appearance_extras(原 outfit_change，2026-07 改名)：角色當下實際穿著/配飾狀態，AI 可依劇情如實
-  //   更新(正常穿著寫身上衣物，全裸/沐浴/更衣等狀態也要如實反映)，會寫回持久的【換裝】記錄，不是
-  //   每回合就消失的暫時描述。
+  // appearance_extras(原 outfit_change，2026-07 改名)：角色當下實際穿著狀態，AI 可依劇情如實更新
+  //   (正常穿著寫身上衣物，全裸/沐浴/更衣等狀態也要如實反映)，會寫回持久的【換裝】記錄，不是每回合
+  //   就消失的暫時描述。
   // 🐛→✅ 2026-07 玩家實測「幫她戴貓耳朵，過幾輪就忘記」：舊欄名"outfit_change"字面就是「換裝」，
-  //   容易連AI帶欄名一起窄化成只認「衣服本身的替換」，範例也只給正經換裝(絲綢襯衫)，玩家臨時加的
-  //   配飾/道具(貓耳朵之類)容易被當成這句台詞的趣味描述、不覺得該記進持久欄——沒記進來，滑出對話
-  //   歷史窗口後就真的看不到了。改名成更中性的"appearance_extras"(外觀附加物)＋補配飾類範例，兩處
-  //   一起下手：欄名本身別再暗示只認衣服，範例也明講配飾/道具算。
-  const _appearanceExtras = "角色當下穿著狀態(第三人稱·≤20字·名詞短語如「絲綢襯衫」「貓耳頭飾」·含玩家臨時加的配飾/道具·禁動作句「換上了…」)";
+  //   容易連AI帶欄名一起窄化成只認「衣服本身的替換」，當時補了配飾類範例(「貓耳頭飾」)把玩家臨時
+  //   加的道具也塞進這欄一起救。**2026-07再修**（玩家「小道具已經有專門機制了，外觀服裝也幫我專注
+  //   在外觀服裝吧」）：現在持久小道具(KANSHOU_PROPS_/自訂道具)才是配飾/道具類的機制保證正解，這欄
+  //   改回**只專注服裝本身**，不再兼管配飾——避免兩套機制搶著記同一件事、混淆該由誰負責。AI 若自己
+  //   想在敘事順帶提到身上的小道具(如貓耳)，那是它自由發揮，不強求也不靠這欄記錄。
+  const _appearanceExtras = "角色當下穿著的衣物狀態(第三人稱·≤20字·名詞短語如「絲綢襯衫」「牛仔褲」·禁動作句「換上了…」)";
 
   // 🔴 npc的範本欄位填「同上」：actionPlay 落地端(本檔·intimacy_feedback 解析)的 ignoreWords 防呆清單本就
   // 含「同上」，即使AI偷懶照抄範本字面值也會被當成敷衍語忽略、不會寫進玩家看到的狀態欄，省字數不引入新的失敗模式。
@@ -1533,6 +1545,9 @@ const KANSHOU_PROP_LEVELS_ = ['關閉', '微弱', '中等', '強勁'];
 //   **移除**(level空字串)不受限、隨時能拿掉。比照情慾場/無上限同一個切點(戀人80)，不靠AI自己判斷
 //   要不要演抵抗(那樣容易出現「機制上開著、敘事卻在抵抗」的矛盾)，直接在GAS這層擋下。
 const KANSHOU_PROP_EQUIP_BOND_ = 80;
+// 🔢 同時裝備上限(2026-07 玩家「設個上限5個?」)：避免道具無限疊加在同一人身上，只擋「新增裝備」，
+//   已裝備項目調強度/移除不受此限——判準看propId是否已在該同伴的已裝備清單裡。
+const KANSHOU_PROP_EQUIP_CAP_ = 5;
 // 🎀 自訂道具(玩家自建·存玩家列MEMORY【自訂道具】name1:hasIntensity1:part1,name2:hasIntensity2:part2,...)：
 //   內建KANSHOU_PROPS_清單之外，玩家可自己命名新增(2026-07「不能玩家自己新增?」)。跟內建清單合併
 //   使用同一套KANSHOU_PROP_LEVELS_強度階，不重新發明標籤。上限KANSHOU_CUSTOM_PROP_CAP_筆。part(部位)
@@ -1552,10 +1567,10 @@ function kanshouSetCustomProps_(memory, arr) {
   const joined = arr.map(function (p) { return p.id + ':' + (p.hasIntensity ? '1' : '0') + ':' + (p.part || ''); }).join(',');
   return (cleared ? cleared + "｜" : "") + "【自訂道具】" + joined;
 }
-// 部位(選填)：玩家想指定就自己打(2026-07「選填吧，想指定就自己打，沒有就AI自己想辦法發揮」)，
-//   清掉標籤分隔字元避免撐破【自訂道具】格式、限長度。
-function kanshouSanitizePropPart_(part) {
-  return String(part || "").replace(/[,:｜【】]/g, "").trim().slice(0, 8);
+// 自訂道具的「名稱」「部位」共用淨化：清掉標籤分隔字元(,/:/｜/【/】)避免撐破【自訂道具】/【小道具】
+//   格式，順手也清掉引號/角括號(防止原樣塞進前端onclick屬性時破壞HTML)。maxLen不帶預設8(給part用)。
+function kanshouSanitizePropTag_(value, maxLen) {
+  return String(value || "").replace(/[,:｜【】"'<>]/g, "").trim().slice(0, maxLen || 8);
 }
 // 內建＋玩家自訂合併後的完整道具目錄(查找/顯示用)——傳玩家列(KPC_)的MEMORY進來。
 function kanshouAllProps_(playerMemory) {

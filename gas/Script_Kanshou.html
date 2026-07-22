@@ -687,9 +687,17 @@ let plainTextContext = cleanText;
   }
   function kcQuickSetProp(name, propId, level) {
     var c = _kcCur.find(function (x) { return x.name === name; });
-    if (c) { var p = (c.props || []).find(function (x) { return x.id === propId; }); if (p) p.level = level; }
+    var p = c && (c.props || []).find(function (x) { return x.id === propId; });
+    var _prevLevel = p ? p.level : '';
+    if (p) p.level = level;
     _kcRenderDrawer_(); // 樂觀：立即用本地快取重繪，不等後端
-    gasRun({ action: 'kanshou_set_prop', pcId: pc.id, acctName: currentAccount, targetName: name, propId: propId, level: level }).catch(function () { });
+    // 🐛→✅ 稽核抓到：好感門檻擴大後(不只啟動，連調整強度都可能被卡)，樂觀更新若不回頭確認後端
+    // 是否真的成功，UI跟實際狀態會悄悄兜不攏——失敗就把本地值還原+提醒，不是每次都靜默吞掉。
+    gasRun({ action: 'kanshou_set_prop', pcId: pc.id, acctName: currentAccount, targetName: name, propId: propId, level: level })
+      .then(function (res) {
+        if (!res || !res.success) { if (p) p.level = _prevLevel; _kcRenderDrawer_(); alert((res && res.message) || '操作失敗，已還原。'); }
+      })
+      .catch(function () { if (p) p.level = _prevLevel; _kcRenderDrawer_(); });
   }
 
   // 🌙 結束一天：不在身邊的英靈由GAS自動決定隔天去哪(見Gallery.gs kanshouRollDailyLocation_)，不用手動排程；跟一般聊天走同一個send()、同一套渲染。
