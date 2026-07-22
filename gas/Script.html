@@ -1570,10 +1570,10 @@
             // 💞 共同回憶：與同伴面板同一個 kanshouOpenMemoir(Script_Kanshou.html·自抓資料版)，卡片這裡也給入口。
             + '<button onclick="kanshouOpenMemoir(\'' + safeN + '\')" title="看你們的共同回憶——重要瞬間她都會記著；★釘選永不遺忘、🗑刪掉不想留的" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(200,120,150,0.16); color:#e8b0c8; border:1px solid #a06080; border-radius:6px; cursor:pointer;">💞 回憶</button>'
             + '</div>'
-            // 🆕 直接複用既有 kanshouEditRelTag(Script_Kanshou.html)，不重寫新邏輯。召喚是一次性的、
+            // 🆕 直接複用既有 kanshouOpenRelTag(Script_Kanshou.html)，不重寫新邏輯。召喚是一次性的、
             //   沒有隊伍容量要騰，不需要「請走」這種按鈕。
             + '<div style="margin-top:6px; display:flex; gap:6px;">'
-            + '<button onclick="kanshouEditRelTag(\'' + safeN + '\',\'' + String(s.tag || '').replace(/'/g, '') + '\')" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(120,90,180,0.18); color:#dcc8ff; border:1px solid #6a4a9a; border-radius:6px; cursor:pointer;">🏷️ 關係</button>'
+            + '<button onclick="kanshouOpenRelTag(\'' + safeN + '\',\'' + String(s.tag || '').replace(/'/g, '') + '\')" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(120,90,180,0.18); color:#dcc8ff; border:1px solid #6a4a9a; border-radius:6px; cursor:pointer;">🏷️ 關係</button>'
             + '<button onclick="kanshouPromiseMeet(\'' + safeN + '\')" title="跟她約明天在某地見面——她明天會在那裡等你；赴約好感↑、放鴿子好感↓(須本人在場才約得成)" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(90,140,180,0.18); color:#a8d0f0; border:1px solid #4a7a9a; border-radius:6px; cursor:pointer;">📅 相約</button>'
             + (s.held
               ? '<button onclick="kanshouReleaseHand()" title="放開她的手" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(200,120,150,0.28); color:#f0c0d4; border:1px solid #b06888; border-radius:6px; cursor:pointer;">✋ 放手</button>'
@@ -2693,7 +2693,7 @@
     } catch (e) { alert('清理失敗，請稍後再試。'); } finally { hideProcessing(); }
   }
 
-  // 🌹 鑑賞(慾海)模式的前端函數已搬到 gas/Script_Kanshou.html：openCompanions/kanshouSummonHero/kanshouEditRelTag 等。共用同一頁面全域作用域，此檔可直接呼叫它們。
+  // 🌹 鑑賞(慾海)模式的前端函數已搬到 gas/Script_Kanshou.html：openCompanions/kanshouSummonHero/kanshouOpenRelTag 等。共用同一頁面全域作用域，此檔可直接呼叫它們。
 
   // mode: 'defeat'(預設，藤村大河+伊莉雅講評敗因) ｜ 'victory'(同兩人祝賀，換皮不換殼)
   function openTigerDojo(mode) {

@@ -406,7 +406,7 @@ let plainTextContext = cleanText;
       return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
         + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(c.name) + ' <small style="color:#8a7fa0;">(關係:' + escapeHtml(c.tag || '點頭之交') + '・好感' + c.bond + ')</small><br><small style="color:#7a9fa0;">📍 ' + escapeHtml(c.locLabel || c.loc || '不明') + '</small>' + (c.promise ? '<br><small style="color:#a8d0f0;">📅 ' + escapeHtml(c.promise.date) + (c.promise.time ? ' ' + escapeHtml(c.promise.time) : '') + ' 在「' + escapeHtml(c.promise.loc) + '」有約</small>' : '') + '</span>'
         + '<button onclick="kanshouOpenMemoir(\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 8px;background:' + (memCount ? '#5a3a4a' : '#3a3a44') + ';color:' + (memCount ? '#e8b8cc' : '#999') + ';border:none;border-radius:6px;cursor:pointer;font-size:12px;">💞回憶' + (memCount ? '(' + memCount + ')' : '') + '</button>'
-        + '<button onclick="kanshouEditRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button></div>';
+        + '<button onclick="kanshouOpenRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button></div>';
     }).join('') : '<div style="color:#888;padding:6px;">（這座城裡你還誰都不認識，從下方邀一個人來吧）</div>';
   }
 
@@ -1446,15 +1446,60 @@ let plainTextContext = cleanText;
     showGamePane('chat');
     await send('（鼓起勇氣，邀「' + name + '」搬來一起住。）', false, { cohabitInvite: name });
   }
-  async function kanshouEditRelTag(name, oldTag) {
-    var nt = prompt('「' + name + '」的關係稱呼(對方不一定會馬上認同，依好感與個性而定)：', oldTag || '從者');
-    if (nt === null) return;
-    nt = String(nt).trim();
-    if (!nt) { alert('關係稱呼不能空白。'); return; }
+  // 🏷️ 關係稱呼面板(2026-07「那個關係也不要用彈窗吧...做一個專門的來處理??」，取代原本的prompt())：
+  //   跟 KANSHOU_REL_TIER_(Gallery.gs) 鏡像的5階預設稱呼＋自訂輸入框。選預設會讓這格文字重新
+  //   匹配某個梯度標籤，之後kanshouSyncRelTier_又會自動跟著好感升降；打自訂稱呼則固定下來、
+  //   不會再被好感自動改動(既有行為，只是把UI從native prompt換成專屬面板)。
+  var KC_REL_TIERS_ = [
+    { min: 80, label: '戀人' },
+    { min: 60, label: '親近的人' },
+    { min: 40, label: '熟識的朋友' },
+    { min: 20, label: '普通朋友' },
+    { min: -100, label: '點頭之交' }
+  ];
+  var _krBusy = false;
+  function kanshouOpenRelTag(name, curTag) {
+    if (_krBusy) return;
+    var ov = document.getElementById('kr-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'kr-overlay';
+      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
+      ov.onclick = function (e) { if (e.target === ov && !_krBusy) ov.style.display = 'none'; };
+      document.body.appendChild(ov);
+    }
+    var safeN = String(name).replace(/'/g, "\\'");
+    var isPreset = KC_REL_TIERS_.some(function (t) { return t.label === curTag; });
+    var presetBtns = KC_REL_TIERS_.map(function (t) {
+      var active = t.label === curTag;
+      return '<button onclick="kanshouSetRelTag(\'' + safeN + '\',\'' + t.label + '\')" style="width:100%;text-align:left;padding:8px 10px;margin-bottom:5px;font-size:13px;background:' + (active ? '#6a4a9a' : '#2a2430') + ';color:' + (active ? '#fff' : '#dcc8ff') + ';border:1px solid rgba(180,140,255,.3);border-radius:6px;cursor:pointer;">' + t.label + (active ? '（目前）' : '') + '</button>';
+    }).join('');
+    ov.innerHTML = '<div style="width:min(360px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(180,140,255,.3);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
+      + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#dcc8ff;">🏷️ 「' + escapeHtml(name) + '」的關係稱呼</b>'
+      + '<button onclick="document.getElementById(\'kr-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
+      + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:8px;">目前：' + escapeHtml(curTag || '從者') + '。選預設稱呼會跟著好感自動升降；打自訂稱呼會固定下來，之後不會再自動改變。</div>'
+      + presetBtns
+      + '<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);display:flex;gap:5px;">'
+      + '<input id="kr-custom" maxlength="20" placeholder="自訂稱呼" value="' + (isPreset ? '' : escapeHtml(curTag || '')) + '" style="flex:1;min-width:0;padding:6px;background:#2a2430;color:#eee;border:1px solid rgba(180,140,255,.3);border-radius:6px;font-size:12px;">'
+      + '<button onclick="kanshouSetRelTagCustom(\'' + safeN + '\')" style="padding:6px 10px;background:#6a4a9a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">確定</button>'
+      + '</div></div>';
+    ov.style.display = 'flex';
+  }
+  async function kanshouSetRelTag(name, tag) {
+    if (_krBusy) return;
+    _krBusy = true;
     try {
-      const res = await gasRun({ action: 'update_rel_tag', pcId: pc.id, targetName: name, newTagText: nt });
-      if (res && res.success) { syncData(true); kcRefreshPartyOnly_(); } else { alert((res && res.message) || '更改失敗。'); }
+      const res = await gasRun({ action: 'update_rel_tag', pcId: pc.id, targetName: name, newTagText: tag });
+      if (res && res.success) { syncData(true); kcRefreshPartyOnly_(); var ov = document.getElementById('kr-overlay'); if (ov) ov.style.display = 'none'; }
+      else { alert((res && res.message) || '更改失敗。'); }
     } catch (e) { alert('更改失敗。'); }
+    finally { _krBusy = false; }
+  }
+  async function kanshouSetRelTagCustom(name) {
+    var el = document.getElementById('kr-custom');
+    var nt = el ? el.value.trim() : '';
+    if (!nt) { alert('關係稱呼不能空白。'); return; }
+    await kanshouSetRelTag(name, nt);
   }
   // ✏ 隨時更改後日談中「你（御主）」的名字
   async function changeKanshouName() {

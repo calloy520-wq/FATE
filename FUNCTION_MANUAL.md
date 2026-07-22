@@ -1207,7 +1207,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `ensureKcOverlay_()` — 惰性建 `#kc-overlay`（master-box/party-list/filters/hero-list 四獨立容器）。
 - `closeKcOverlay()` — 隱藏 `#kc-overlay`。
 - `renderKcMasterBox_()` — 重繪御主資訊框（名/性別＋改名/切性別鈕 → `changeKanshouName`/`changeKanshouSex`）。
-- `renderKcPartyList_()` — 重繪駐留清單每列（名/關係 tag/好感/所在地/約定徽章＋💞回憶鈕→`kanshouOpenMemoir`、🏷️關係鈕→`kanshouEditRelTag`）；更新 `#kc-count`。
+- `renderKcPartyList_()` — 重繪駐留清單每列（名/關係 tag/好感/所在地/約定徽章＋💞回憶鈕→`kanshouOpenMemoir`、🏷️關係鈕→`kanshouOpenRelTag`）；更新 `#kc-count`。
 - `openCompanions()` — 開同伴面板總入口：`Promise.all` 併抓 `kanshou_companions`＋(需要時)`get_heroes`；套用 `KC_SUMMON_BLOCKED_IDS_`（手動同步後端）；呼各 render 子函式並顯示 overlay。
 - `renderKcFilters_()` — 建性別/職階篩選下拉（只在英靈庫重抓時重建）。
 - `renderKcHeroList_()` — 建可召喚英靈列（每列標 `data-gender`/`data-cls`，召喚鈕→`kanshouSummonHero`）；管 `#kc-hero-empty`。
@@ -1292,7 +1292,9 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `kanshouReleaseHand()` — 放手（`handHold:'__release__'`）。
 - `kanshouAcceptInvite(name)` — 結識巧遇對象使其入駐（`inviteResident`）。
 - `kanshouInviteCohabit(name)` — 玩家發起邀同居（`cohabitInvite`，需她在場，確認框）。
-- `kanshouEditRelTag(name, oldTag)` — 手動改關係稱呼（`update_rel_tag`，prompt）；成功→`syncData`＋`kcRefreshPartyOnly_`。
+- `kanshouOpenRelTag(name, curTag)`（2026-07 新增，原`kanshouEditRelTag`用native prompt()，玩家「那個關係也不要用彈窗吧」改成專屬面板）— 開`#kr-overlay`彈窗：`KC_REL_TIERS_`(鏡像Gallery.gs `KANSHOU_REL_TIER_`)5階預設稱呼各一顆按鈕(呼叫`kanshouSetRelTag`)＋自訂稱呼輸入框(`#kr-custom`，呼叫`kanshouSetRelTagCustom`)。選預設會讓文字重新匹配某梯度標籤(之後`kanshouSyncRelTier_`繼續自動跟好感升降)；打自訂稱呼會固定下來不再自動改動(既有行為，只換UI容器)。
+- `kanshouSetRelTag(name, tag)`（2026-07 新增）— 打`update_rel_tag`，成功→`syncData`＋`kcRefreshPartyOnly_`＋關閉`#kr-overlay`；`_krBusy`擋連點。
+- `kanshouSetRelTagCustom(name)`（2026-07 新增）— 讀`#kr-custom`輸入框(空值擋)，呼叫`kanshouSetRelTag`。
 
 #### 改御主名 / 性別
 - `changeKanshouName()` — 改御主名（`kanshou_set_name`，prompt）；更新 `pc.name`/`#ui-name`/重繪 master-box。**🐛→✅ 稽核抓到**：原本沒做前端長度檢查(`kanshouRenameHome`有、這裡漏了)，超長會白跑一趟round-trip才被後端擋，已補同款≤16字檢查。
