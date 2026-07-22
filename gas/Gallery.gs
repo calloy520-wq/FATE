@@ -138,22 +138,27 @@ function translatePersonalityToDaily_(name, cls, rawWords, lookPrivateHint) {
 // 戰時萌點常靠戰爭/創傷撐出沉重反差，直接照搬到沒發生過聖杯戰爭的平行世界會顯得莫名沉重——
 //   改寫成輕量、會心一笑的日常萌點。只用在 AI 原創(ai_gen)英靈；canon 種子英靈已手寫死進
 //   persona.dailyMoe(見 Seed_Codex.gs)。
+//   🐛→✅ 萌點≠反差萌：萌點泛指任何讓人喜歡上這角色的特色，可能是反差(表面兇其實軟)，也可能
+//   只是單純討喜的外觀/行為/習慣(巨乳、雙馬尾、大食、路痴等)——之前這裡連措辭都寫死成「反差萌」，
+//   逼AI每次都硬套反差句型，見 SOLO_REFERENCE.md 相關章節。
 function translateMoeToDaily_(name, cls, rawMoe) {
   var moe = String(rawMoe || "").trim();
   if (!moe) return moe;
   try {
-    var sys = "你是《命運停駐之夜》的角色側寫顧問。玩家提供一位角色在聖杯戰爭(戰時)既有的「反差萌」" +
-      "一句話——這種戰時反差萌常常是靠沉重背景撐出來的(創傷/自卑/孤獨/悲劇宿命等)。這個角色現在要" +
+    var sys = "你是《命運停駐之夜》的角色側寫顧問。玩家提供一位角色在聖杯戰爭(戰時)既有的「萌點」" +
+      "一句話——這種戰時萌點常常是靠沉重背景撐出來的(創傷/自卑/孤獨/悲劇宿命等)，形式不拘：可能是" +
+      "反差(表面兇其實軟)，也可能只是單純討喜的外觀/行為/習慣特色。這個角色現在要" +
       "進入一個【平行世界的日常線】：這裡從來沒有發生過聖杯戰爭這回事(她依然是同一位英靈，只是活在" +
-      "一個沒有戰爭、不必背負詛咒創傷的和平世界)。想像《衛宮家今天的餐桌風景》那種基調，把這句反差萌" +
+      "一個沒有戰爭、不必背負詛咒創傷的和平世界)。想像《衛宮家今天的餐桌風景》那種基調，把這句戰時萌點" +
       "改寫成一句「日常向」的可愛萌點：\n" +
       "①保留角色的性格核心(如高冷/傲氣/寡言/暖心等本相不變)，只是換一個不需要靠悲劇/創傷/戰爭陰影" +
       "撐出來的呈現方式。\n" +
-      "②必須是單看了會覺得溫馨、正面、會心一笑的小萌點(如生活小習慣、意外的手藝、小小的害羞反應等)，" +
-      "不要保留原句的沉重/悲傷/自卑成分。\n" +
+      "②必須是單看了會覺得溫馨、正面、會心一笑的小萌點(可以是反差、也可以是單純的外觀特色/生活習慣/" +
+      "意外的手藝/小小的害羞反應等，不強求一定要寫成「表面X其實Y」的反差句型)，不要保留原句的沉重/悲傷/" +
+      "自卑成分。\n" +
       "③限18字，務必寫完整一句話，不可斷在句意未完處。\n" +
       "★只輸出這一句話，不要輸出任何說明、標籤、引號、前後綴。";
-    var prompt = "角色：" + name + "（" + cls + "）\n戰時反差萌：" + moe;
+    var prompt = "角色：" + name + "（" + cls + "）\n戰時萌點：" + moe;
     var out = String(callGeminiAPI(prompt, sys, { temperature: 0.75, ignoreLaw: true, plainText: true }) || "").trim();
     return out.slice(0, 30) || moe;
   } catch (e) { return moe; }
@@ -512,13 +517,13 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 ★【四格·格式鐵律】traits 與 personality 各【恰好4段】，只用頓號「、」分隔成4段，【絕對不要用句號「。」或半形句點】，每段是一個【簡短詞組】(不是完整句子)，每段內部也【不要】再用頓號列舉多項；禁數字標籤。
 - traits：外貌、氣質舉止、自稱與口氣(第一人稱·如 我/俺/吾＋說話語氣)、卸下心防的私密一面。範例：「黑長直髮琥珀瞳、氣質溫婉恬靜、自稱「我」語氣輕柔、私下愛對植物自言自語」
 - personality：日常表象、真實內裡、喜歡的事物、討厭的事物。範例：「文靜內向、內心溫柔細膩、照顧小動物與植物、大聲喧嘩與浪費食物」
-★npc_intent：一句【簡短】萌點（可愛反差，≤18字，系統會在30字處硬性截斷、務必精簡），結合此人身分性格，要反差、可愛、獨特。務必寫完整一句話，不可斷在句意未完處。【禁】誤用聖杯戰爭機制專有詞(令咒/寶具/魔術迴路/從者/職階等)當裝飾性魔法元素湊萌點——這個平行世界從未發生過聖杯戰爭，這些詞在這裡沒有來由，請改用生活化情境(手作/習慣/小癖好等)。★這個萌點必須是單看了會覺得溫馨、正面、會心一笑的日常小反差(如生活小習慣、意外的手藝、小小的害羞反應等)，【禁】靠創傷/自卑/孤獨/悲劇宿命撐出反差感——那是戰時角色才需要的沉重寫法，這裡是輕鬆的日常後日談。
+★npc_intent：一句【簡短】萌點（讓人喜歡上這角色的特色，≤18字，系統會在30字處硬性截斷、務必精簡），結合此人身分性格，要可愛、獨特——形式不拘，可以是反差(表面X其實Y)，也可以是單純討喜的外觀/行為/習慣特色(如巨乳、雙馬尾、大食、路痴等)，不強求一定要寫成反差句型。務必寫完整一句話，不可斷在句意未完處。【禁】誤用聖杯戰爭機制專有詞(令咒/寶具/魔術迴路/從者/職階等)當裝飾性魔法元素湊萌點——這個平行世界從未發生過聖杯戰爭，這些詞在這裡沒有來由，請改用生活化情境(手作/習慣/小癖好等)。★這個萌點必須是單看了會覺得溫馨、正面、會心一笑的日常小萌點，【禁】靠創傷/自卑/孤獨/悲劇宿命撐出來——那是戰時角色才需要的沉重寫法，這裡是輕鬆的日常後日談。
 ★background：限20字，呼應其身世，不出現具體物品名，語氣平和溫馨，不涉及聖杯戰爭或任何戰爭史。
 ★outfit：一句她/他今天的日常穿搭(限20字)，依外貌與個性方向自然搭配(如文靜者素雅、活潑者亮色休閒)，純日常便服/居家/外出風格，不含任何戰甲/武裝/戰鬥裝束字眼。
 ★【勿輸出數值】戰力數值一律不需要，也不要輸出地點。
 
 ★【輸出】合法 JSON、禁 Markdown：
-{"background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","npc_intent":"結合此人身分的獨特可愛反差萌，一句話","outfit":"一句日常穿搭"}`;
+{"background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","npc_intent":"結合此人身分的獨特可愛萌點(不限反差)，一句話","outfit":"一句日常穿搭"}`;
 
   try {
     const aiBrief = JSON.parse(callGeminiAPI(promptStr, KANSHOU_MASTER_GEN_SYS, { temperature: 0.6, ignoreLaw: true }));
@@ -874,7 +879,7 @@ function buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote, include
   const _masterNote = {
     "_note": "觀察玩家本人慢慢認識他(不顯示·非敘事)·有新觀察才更新否則留空保持原樣",
     "經歷": "承接舊經歷·只增補這回合有意義的新遭遇·回滾動摘要≤50字·沒新事就原樣回舊值",
-    "萌點": "暗中觀察到玩家一個反差/可愛弱點就寫詞組·否則空·★絕不在敘述點破(show-don't-tell)·你看不到現值照觀察寫"
+    "萌點": "暗中觀察到玩家一個討喜特色(不限反差，外觀/習慣/口頭禪皆可)就寫詞組·否則空·★絕不在敘述點破(show-don't-tell)·你看不到現值照觀察寫"
   };
   _mnKeysOpen.forEach(function (k) { if (_mnDescs[k]) _masterNote[k] = _mnDescs[k]; });
 
@@ -2716,7 +2721,7 @@ function actionPlay_(userData, pcId, sheets) {
         pPromiseStr = ` | 與玩家的約定:${_pdWhen}${_pdBandL}在「${_pdPr.loc}」見面——她記得這個約，聊到相關話題時自然帶著這份期待/在意，但勿每回合主動提起`;
       }
       // 明講方向的「TA是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍TA。
-      partyDetailsArr.push(`【在場人物】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(反差·僅供內化):${pMoeStr}` : ""}${pActivityStr}${pCohabitStr}${pPropStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr})`);
+      partyDetailsArr.push(`【在場人物】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(僅供內化):${pMoeStr}` : ""}${pActivityStr}${pCohabitStr}${pPropStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr})`);
     }
   });
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【目前在場人物命格詳情】:\n${partyDetailsArr.join("\n")}` : "目前這個地點沒有其他人，玩家是獨自行動的。";

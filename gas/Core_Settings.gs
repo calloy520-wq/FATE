@@ -56,7 +56,7 @@ const COL = {
   // DAILY_LOOK/DAILY_WORDS：鑑賞用日常版外貌/性格，與戰時 PERSONA(look/words)分開存；懶惰快取，首次
   //   召喚進鑑賞才由AI轉換寫入(heroToKanshouRow_)，之後直接讀取不重複呼叫AI。空字串＝尚未轉換。
   //   附加尾端不動既有欄位位置(COL 是位置索引，見專案紀律)。
-  // DAILY_MOE：鑑賞用日常萌點，與戰時 PERSONA.moe(常靠戰爭/創傷撐出的反差萌)分開存——鑑賞世界沒發生過
+  // DAILY_MOE：鑑賞用日常萌點，與戰時 PERSONA.moe(常靠戰爭/創傷撐出的沉重萌點)分開存——鑑賞世界沒發生過
   //   戰爭，改用輕量溫馨的日常版萌點，來源同上(translateMoeToDaily_)。
   // DAILY_OUTFIT：服裝從 DAILY_LOOK 拆出獨立欄位，DAILY_LOOK 改為四段[外貌本相][氣質舉止][自稱口氣]
   //   [私密一面]，對齊 PERSONA.traits/PREF 格式。SOLO(戰時 PERSONA.look) 獨立一套不受影響。

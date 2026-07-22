@@ -214,7 +214,8 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
   - `SEED_SERVANTS`（**20騎**）：4th/5th 正典14騎（阿爾托莉雅-Saber/EMIYA-Archer/庫丘林-Lancer/美杜莎-Rider/美狄亞-Caster/佐佐木小次郎-Assassin/赫拉克勒斯-Berserker/吉爾伽美什-Archer/迪盧木多-Lancer/伊斯坎達爾-Rider/吉爾德萊-Caster/百貌哈桑-Assassin/咒腕之哈桑-Assassin/蘭斯洛特-Berserker）＋鑑賞客串6騎（斯卡哈-Lancer/斯卡哈-Assassin/恩奇都-Lancer/美遊-Saber/小黑-Archer/伊莉雅-Caster）。每筆 id/cls/realName/wars/gender/six/classSkills/skills/traits/np/align/persona（{firstP,words,toMaster,speech,moe,tic}）。
     - ⚠ **戰爭僅認 `4th`/`5th`**（`fake` 偽聖杯戰爭開局選項＋整套 `FATE_FAKE_ROSTER` 已移除）。chaos 亂鬥靠 `wars` 含 `'客串'` 排除，非硬編碼名單。
     - 單寶具種子的簽名概念 fx 必須掛進 skills（庫丘林 gae_bolg/EMIYA ubw/佐佐木 tsubame/阿爾托莉雅·美遊 excalibur）——只寫 np 字串＝只有規模、沒有概念位階。
-  - `SEED_MASTERS`（15名）：id/name/sex/appearance/magic/circuits/melee/magic_rank/home/wish/persona（4段頓號·被 masterCard_ 拆解·結構不可動）/back(身世)/moe(萌點)。
+  - `SEED_MASTERS`（15名）：id/name/sex/appearance/magic/circuits/melee/magic_rank/home/wish/persona（4段頓號=表象・內裡・喜歡・厭惡，被 masterCard_ 拆解·結構不可動，v67前全數只寫3段、喜歡欄位缺失已補齊）/back(身世)/moe(萌點)。
+    - ⚠ **萌點(moe/INTENT)≠只能是反差萌**：泛指任何讓人喜歡上這角色的特色，可以是反差(表面X其實Y)，也可以是單純討喜的外觀/行為/習慣(巨乳/雙馬尾/大食/路痴等)——v67前全站(AI brief生成prompt/每回合演出卡標籤/工房UI文字)都寫死成「反差萌」，逼AI每次都硬套反差句型，已全面鬆綁措辭(見 Gallery.gs/Router_Creation.gs/Router_Persona.gs/Script.html)。
   - `servantToHeroRow_`/`masterToCodexRow_`：物件→分頁列。
   - `seedFateCodex_(ss)`：英靈殿/御主殿為空才灌（冪等）。版本 `CODEX_PERSONA_VER`（現行版號見檔頂），升版觸發 `upgradeCodexPersonas_`（英靈殿整列覆寫+孤兒清理·只刪 source==='seed'）＋`upgradeMasterCodex_`（御主殿整列重寫）。
 - **傳播鏈（改 SEED 要升版否則不生效）**：召喚讀英靈殿 sheet→凍進眾生列。升 `CODEX_PERSONA_VER`→`seedFateCodex_`（版本不符才動）→`upgradeCodexPersonas_`＋`resyncSummonedServants_`（依真名+職階刷已召喚從者的寶具/六圍/標籤·不動 HP/MP/MEMORY/敘事）。換職階用遷移表 `SEED_RECLASSED_`（舊key→新key）。手動強制：DEV「🔄 套用最新平衡」→`dev_resync_codex`→`actionDevResyncCodex`。

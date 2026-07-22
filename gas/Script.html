@@ -1046,11 +1046,11 @@
             <input id="fate-f1" class="std-in" maxlength="${_isK ? 80 : 30}" value="${escapeHtml(currentVal)}">
         `;
     }
-    // 🔴 萌點（反差/可愛弱點）
+    // 🔴 萌點（讓人喜歡上這角色的特色，不限反差）
     else if (type === 'intent') {
         titleEl.innerText = "逆天改命 - 修改萌點";
         fieldsEl.innerHTML = `
-            <label style="font-size:13px; color:#800080; font-weight:bold;">萌點 (反差/可愛弱點，如：傲嬌、路痴、怕鬼) 限 30 字</label>
+            <label style="font-size:13px; color:#800080; font-weight:bold;">萌點 (讓人喜歡上這角色的特色，如：傲嬌、路痴、怕鬼、巨乳、雙馬尾) 限 30 字</label>
             <input id="fate-f1" class="std-in" maxlength="30" value="${escapeHtml(currentVal)}">
         `;
     }
