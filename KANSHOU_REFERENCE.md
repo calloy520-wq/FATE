@@ -53,7 +53,6 @@
 | 【住所】 | `【住所】家名` | 玩家列 | `getKanshouHomeName_`（常見預設是`(玩家名)的家`；玩家連名字都沒有才退回通用「我家」）／改名 set |
 | 【晨間餘韻】 | `【晨間餘韻】同伴名` | — | 同床隔天引子，讀一次即清 |
 | 【初見日】 | `【初見日】absDay`（IntTag 預設0） | 同伴列 | 首次同地寫入，紀念日里程碑比對 |
-| 【底片】 | `【底片】day:used` | 玩家列 | `kanshouFilmUsed_`，隔日歸零 |
 | 【帳號】 | `【帳號】acctName` | — | 人工檢視辨識（非驗證，歸屬走帳號表） |
 | 【性格鎖】 | `【性格鎖】對外性格,喜歡`（逗號分隔鍵名清單） | 玩家列 | `kanshouGetPrefLocks_`/`SetPrefLocks_`：玩家用改命【自訂】某性格格後登記在此，滾動側寫只補沒鎖的格，不覆寫玩家自訂值 |
 | 【側寫計數】 | `【側寫計數】N` | 玩家列 | `kanshouGetSideWriteCount_`/`SetSideWriteCount_`：AI滾動側寫玩家性格的節流計數(每3回合才補寫一次) |
@@ -137,8 +136,13 @@
 
 ## 📷 拍照／相簿
 
-- **底片** `KANSHOU_FILM_PER_DAY_ = 3`（`【底片】day:used`，隔日歸零）；**相簿上限** `KANSHOU_ALBUM_CAP_ = 100`。
-- 拍照落地在 **AI 成功後**（失敗不耗底片）：AI 多吐 `photo_caption`，寫 `kanshouAlbumSheet_`。髮色從被拍者 TRAIT 現場解析（`KANSHOU_HAIR_COLORS_`）。
+**⚠ 2026-07 拍照改「手機」（玩家「拍照要改成手機、不用等」）**：原本是寶麗來設定（每日底片限量`KANSHOU_FILM_PER_DAY_=3`＋隔天沖洗才看得到），玩家覺得手機沒有底片這種東西、拍完也該立刻能看——兩個限制都拔掉了：
+- **沒有每日張數上限**：只驗**相簿總容量** `KANSHOU_ALBUM_CAP_ = 100`（滿了要刪舊照才能再拍）。`kanshouFilmUsed_`/`kanshouFilmStamp_`/【底片】MEMORY tag 整組刪除。
+- **拍完立刻能看**：`actionGetAlbum` 不再回傳 `developed` 欄位，相簿卡片一律顯示完整內容，不再有「🎞️沖洗中……明天就能看了」的半成品卡；`showPhoto` 也不再檢查「還沒洗好」。
+- **色色時也不用隱晦**：`photo_caption` 的生成指示補一句「若拍到的是親密畫面也直接寫實描述，不用刻意隱晦帶過」。
+- 措辭全面從「相機」改「手機」（`kanshouPhotoStr`/`finalUserMsg`/UI 按鈕 title 等）。
+
+- 拍照落地在 **AI 成功後**（失敗不寫入，反正沒有底片可浪費）：AI 多吐 `photo_caption`，寫 `kanshouAlbumSheet_`。髮色從被拍者 TRAIT 現場解析（`KANSHOU_HAIR_COLORS_`）。
 - 前端：`kanshouTakePhoto`／`kanshouShowPhoto`(拿照片給在場者看)／`openKanshouAlbum`（`get_album`）／`kanshouDeletePhoto`（`album_delete`）。
 
 ---
@@ -198,7 +202,7 @@
 5. **跳時間/advanceHours**（重骰全世界去向、換幕鐵律）
 6. **約定赴約結算（`_settle`）** ← ⚠ **必須在第7步之前**
 7. **partyRows/partyMembers 組裝**（同地在場名單、詳情卡 `partyDetailsArr`）
-8. 拍照（驗底片/容量 → 掛 `kanshouPhotoPending_`）
+8. 拍照（驗相簿容量 → 掛 `kanshouPhotoPending_`）
 9. 提示詞組裝（USER prompt，見下）
 10. `aiConfig` → 歷史餵入 → `callGeminiAPI`
 11. `sanitizeAiData_` → 各欄位落地（拍照/proposal_accept/npc_exit/rel_changes/intimacy_feedback）→ 髒列窄讀重定位寫回 → `saveGameHistoryBatch`
@@ -253,7 +257,7 @@ SOLO_MODEL   = google/gemini-3.5-flash-lite  (屬性 SOLO_MODEL)   ← 主力(�
 ## 🖥️ 前端地圖（`gas/Script_Kanshou.html` 為主）
 
 - **唯一引擎入口 `send(customMsg, isSilent, opts)`＝`action:'play'`**（2026-07 重構：原 22+ 位置參數收進單一 opts 物件，payload 不變零速度影響）。移動/相約/拍照/牽手/同居/敲門/橋段**沒有各自的 action**，全靠 opts 夾旗標：`moveTarget`/`moveWithCompanion`/`promiseMeet`/`promiseAccept`/`takePhoto`+`photoIntent`/`showPhoto`/`handHold`/`cohabitInvite`/`roomEventAccept`/`knockAccept`/`skipKnockCheck`/`lookAround`/`inviteResident`/`endDay`/`advanceHours`/`jumpBand`/`jumpFestival`/`loaderCaptions`。
-- **回饋條 `proposalResult`** 涵蓋 相約/牽手/同去/同居 四型＋**撲空含「她似乎在○○」位置提示**；**`promiseSettle`（獨立通道）** 涵蓋 赴約成功/爽約過期 結算通知（與提議結果並發時各自顯示·見教訓區「單一回饋槽」）；底片用完/相簿滿的 `photoResult` 附直達鈕（🌙睡到明天/📚開相簿）——「撲空/婉拒/卡住」一律要有下一步，別讓玩家對著空氣猜。
+- **回饋條 `proposalResult`** 涵蓋 相約/牽手/同去/同居 四型＋**撲空含「她似乎在○○」位置提示**；**`promiseSettle`（獨立通道）** 涵蓋 赴約成功/爽約過期 結算通知（與提議結果並發時各自顯示·見教訓區「單一回饋槽」）；相簿滿的 `photoResult` 附直達鈕（📚開相簿）——「撲空/婉拒/卡住」一律要有下一步，別讓玩家對著空氣猜。
 - **改命同伴卡**（2026-07 第二輪稽核修）：`update_fate` 名字比對原硬性要求 `IS_PARTY==='同行'`，但鑑賞列從不寫該欄→同伴卡改命鈕恆「查無此人」；現比照 `update_rel_tag` 給 `k_` 世界豁免（同世界名字直配），改同伴的 個性/特徵/身世 是合法自訂。玩家自己卡的性格鎖快取 `_kcPrefLocks` 只在 `res.success` 才更新（失敗也寫＝前端假象）。**萌點例外(2026-07 再修)**：同伴/NPC的萌點改成「真正內化」——`intent-box`(Index.html)在非自己卡片整格連改命鈕都隱藏，`actionUpdateFate` 也擋掉 `fateType==='intent'` 且目標非自己的請求，玩家從此看不到也改不了同伴萌點，只留給AI演出參考。
 - **獨立 action**：`kanshou_companions`／`get_heroes`／`kanshou_summon_hero`／`get_album`／`album_delete`／`update_rel_tag`／`kanshou_memoir_op`／`kanshou_set_home_name`／`kanshou_set_name`／`kanshou_set_sex`／`enter_kanshou`／`backfill_kanshou_ai`。
 - **函式分組**：地圖移動(`kcMapListHtml_`/`kanshouMoveTo`/`kanshouProposeMove`/`kanshouLookAround`)、同伴面板(`openCompanions`/`renderKcHeroList_`/`kanshouEditRelTag`)、召喚(`kanshouSummonHero`)、回憶(`kanshouOpenMemoir`/`kanshouMemoirOp`)、約定(`kanshouPromiseMeet`/`kanshouWaitForPromise`)、拍照相簿(`kanshouTakePhoto`/`openKanshouAlbum`)、時鐘(`kanshouEndDay`/`kanshouNextStage`/`kanshouJumpBand`/`kanshouJumpFestival`)。
@@ -287,7 +291,7 @@ SOLO_MODEL   = google/gemini-3.5-flash-lite  (屬性 SOLO_MODEL)   ← 主力(�
 - **提示詞講的規則，代碼要真的照做**（2026-07 全面稽核抓到）：`rel_changes`/`intimacy_feedback.npcs[]` 寫入好感/外顯前，提示詞明講「只有【目前在場人物】才准變動」，但兩處寫入邏輯從沒真的檢查 `pcData[idx][COL.PC.LOC]` 是否等於 `curL`——AI 若因對話歷史殘留或幻覺提到不在場的人名，好感值一樣被悄悄寫入。同批也發現 `rel_changes` 的「單回合漲跌上限±5」只寫在提示詞裡，代碼只有 `sanitizeAiData_` 的 `[-100,100]` 粗夾，從沒真的把±5夾進去。兩處都已補上對應的程式碼檢查/夾值。**提示詞裡承諾的每一條護欄，都要回頭確認代碼是不是真的照做了，不能只靠告訴AI「請遵守」。**
 - **回饋通道只開一槽，同回合兩筆就吞一筆**（2026-07 稽核抓到）：`kanshouPromiseSettle_` 沿用了 `proposalResult` 那次改版學到的「獨立通道」教訓，卻自己還是單槽——玩家若同時有兩位同伴的約定在同一回合結算(如A赴約成功+B同時爽約)，`forEach` 跑兩輪，後跑的無條件覆寫前一筆，前一筆的通知條就消失(底層BOND/MEMORY寫入正常，只有UI通知被吞)。改成陣列，前端逐筆渲染。**同一件事「可能同時發生不只一次」時，回饋通道要用陣列，不要嫌麻煩用單一物件卡死自己。**
 - **「防偽造」helper 存在，不代表每個呼叫點都真的用了它**（2026-07 全面稽核·本輪最嚴重發現）：`kanshouOwnedRowIdx_` 明明就是為了防 `pcId` 被猜中/偽造而寫的，但 `actionPlay`／`actionGetAlbum`／`actionAlbumDelete` 三個高頻/高權限 handler 一路用裸 `pcData.findIndex` 繞過它，等於整套防禦形同虛設——而且是系統負擔最重、寫入面最廣的那個函式漏掉。**新增任何會讀寫 pcData 或私有資料的 handler，一律要主動去比對現有的歸屬驗證 helper 是否真的被呼叫，不能假設「這套機制存在＝全部路徑都受保護」。**
-- **`play` 故意豁免全域鎖，但「豁免鎖」不等於「不用防併發」**（2026-07 全面稽核·兩組獨立agent各自收斂到同一根因）：`actionPlay`(現為`actionPlay_`)的寫回機制是「整表快照→本回合全部改動只在記憶體→結尾整列覆寫」，若同一 pcId 的兩次呼叫執行窗口重疊(同帳號兩分頁/兩裝置同時操作、或聊天等AI回應時另開改命視窗存檔)，後flush的請求會用自己那份舊快照整列覆寫掉先flush者的所有改動。已用 `CacheService` 做「同一pcId」的軟性互斥(外層薄包裝 `actionPlay`，見上方執行階段順序第0步)：偵測到同pcId仍有一次在跑就直接拒絕待玩家稍候，不佔全域鎖、不影響其他玩家。**⚠ 已知未解的相關限制**：拍照的「寫相簿(立即/不可逆的`appendRow`)」與「扣底片(記憶體→回合尾端才flush)」是分離提交，若中途有未接住的例外，可能出現免費照片+其他當回合狀態改動一併消失；目前判斷觸發機率低(此檔案防呆已相當紮實)，暫不處理，日後若要根治需重新設計成同一次原子寫入。
+- **`play` 故意豁免全域鎖，但「豁免鎖」不等於「不用防併發」**（2026-07 全面稽核·兩組獨立agent各自收斂到同一根因）：`actionPlay`(現為`actionPlay_`)的寫回機制是「整表快照→本回合全部改動只在記憶體→結尾整列覆寫」，若同一 pcId 的兩次呼叫執行窗口重疊(同帳號兩分頁/兩裝置同時操作、或聊天等AI回應時另開改命視窗存檔)，後flush的請求會用自己那份舊快照整列覆寫掉先flush者的所有改動。已用 `CacheService` 做「同一pcId」的軟性互斥(外層薄包裝 `actionPlay`，見上方執行階段順序第0步)：偵測到同pcId仍有一次在跑就直接拒絕待玩家稍候，不佔全域鎖、不影響其他玩家。**⚠ 已解除的相關限制（2026-07 拍照改手機後自然消失）**：舊版拍照的「寫相簿(立即/不可逆的`appendRow`)」與「扣底片(記憶體→回合尾端才flush)」曾是分離提交，中途有未接住的例外時可能出現免費照片+其他當回合狀態改動一併消失的風險；拔掉底片機制後這條路徑只剩單一的`appendRow`寫入，這個併發疑慮已經不存在，不需要再另外根治。
 - **字串前綴比對記得連 `indexOf` 的意義都要核對，不要只挑「有沒有寫」**（2026-07 稽核抓到）：`Router_Action.gs` 的 `_state` 隨動作回應夾帶機制原本只判斷 `String(pcId||"").indexOf("PC_")===0`——但 `"KPC_xxx".indexOf("PC_")` 結果是 `1` 不是 `0`，鑑賞被整個排除在外，即使 `update_fate`/`update_rel_tag` 兩個handler明明就是特地做給鑑賞共用、也確實有交棒`STATE_PRE_DATA_`，改命/改稱呼存檔後鑑賞玩家還是得白跑一趟整表`sync`。已補上 `isKanshouCtx` 條件放行(這兩個action是`isKanshouCtx`為真時唯一能走到這個判斷點的，其餘solo專屬action都在更早被`KANSHOU_BLOCKED_ACTIONS_`擋掉，改動安全)。
 - **給小模型的篇幅指示，沒數字的那端會被無視**（2026-07 玩家實測「好感高了字數還是100~200」）：`★【篇幅隨關係濃淡】`原本只有低好感端給了具體數字(200~300字)，高好感端只寫「越深越濃才放長寫細」這種沒有錨點的模糊話——`SOLO_MODEL`(gemini-3.5-flash-lite)這類小模型對沒有具體數字的指示執行力很弱，結果好感再高篇幅也沒跟著拉長。已補上熟識(350~450字)/親近以上(450~600字)的具體區間。**任何要求「隨程度增減」的提示詞，每一端都要給具體數字，不能一端有數字一端純形容詞。**
   **⚠ 2026-07 再修（玩家「字數一下很長一下很短」）**：即使兩端都給了數字區間，還是留了兩個變因給 AI 自己判斷：①要把好感數字bucket進哪個區間本身對小模型就不穩、②多人在場、各自好感不同時不知道該以誰為準——兩者疊加就是忽長忽短的根因。改成 GAS 直接算好一個**具體目標字數**（`_kanshouTargetWords_`，取在場好感最高者、沒人在場用最低檔：<40→250字／40~59→400字／60+→500字）直接指定，規則名也從`★【篇幅隨關係濃淡】`改成`★【篇幅指定】`（`driveStr`/schema 的`narration`欄描述同步改引用新名字）。AI 不必再自己做「好感→區間」的判斷，只需要照給定的數字寫，同名多人不同好感也有唯一答案。

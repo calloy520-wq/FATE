@@ -66,7 +66,7 @@ const ActionRouter = {
   "rest": actionRest,
   "play": actionPlay,
   "narrate_only": actionNarrateOnly,
-  "get_album": actionGetAlbum,   // 📷 鑑賞相簿：讀本局全部照片＋剩餘底片(拍照本體在 play 的 takePhoto 分支)
+  "get_album": actionGetAlbum,   // 📷 鑑賞相簿：讀本局全部照片(拍照本體在 play 的 takePhoto 分支)
   "album_delete": actionAlbumDelete // 📷 刪照片(相簿滿了騰位子)
 };
 

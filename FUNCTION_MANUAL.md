@@ -669,12 +669,11 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `kanshouSanitizePropPart_(part)`（2026-07 新增）— 清掉道具部位欄的標籤分隔字元(`,`/`:`/`｜`/`【`/`】`)並限長8字。
 - `kanshouAllProps_(playerMemory)`（2026-07 新增）— 內建`KANSHOU_PROPS_`＋`kanshouGetCustomProps_`合併後的完整目錄，`actionKanshouCompanions`/`actionPlay_`的`partyDetailsArr`都吃這份合併目錄（而非只認內建清單）。
 
-#### 相簿（拍照·2026-07）
+#### 相簿（拍照·手機·2026-07 再修）
 
-- `KANSHOU_FILM_PER_DAY_`(3)、`KANSHOU_ALBUM_CAP_`(100)（常數）。
+- `KANSHOU_ALBUM_CAP_`(100)（常數，唯一容量限制）。**2026-07 拍照改手機**：`KANSHOU_FILM_PER_DAY_`常數＋`kanshouFilmUsed_`/`kanshouFilmStamp_`函式已整組刪除——手機沒有底片這種東西，拍照不再有每日張數上限。
 - `kanshouAlbumSheet_()` — 取（無則建）「相簿」分頁（11 欄位置索引）。
-- `kanshouFilmUsed_(memory, day)` / `kanshouFilmStamp_(memory, day, used)` — MEMORY【底片】day:used 讀/寫（跨日自動歸零）。
-- `KANSHOU_HAIR_COLORS_`（常數·順序敏感）+ `kanshouHairHex_(lookText)` — 從 TRAIT 外貌文字抓髮色詞→hex（相簿寶麗來色卡用），查無退中性深棕。
+- `KANSHOU_HAIR_COLORS_`（常數·順序敏感）+ `kanshouHairHex_(lookText)` — 從 TRAIT 外貌文字抓髮色詞→hex（相簿色卡用），查無退中性深棕。
 - `KANSHOU_ANNIV_MILESTONES_`（常數 [7,30,100,365]）— 相識紀念日里程碑。
 
 #### 輕量小事件·邂逅中·住所（MEMORY 標記）
@@ -699,7 +698,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 相簿 actions（讀/刪·拍照本體在 actionPlay）
 
-- `actionGetAlbum(userData, pcId, sheets)` — 讀本局全部照片（新到舊·dateLabel 後端算好·developed=拍攝日<今天）＋今日剩餘底片。帳號歸屬驗證改用 `kanshouOwnedRowIdx_`（2026-07 稽核修：舊版裸 `findIndex` 沒查帳號，猜中 pcId 可讀走別人相簿）。
+- `actionGetAlbum(userData, pcId, sheets)` — 讀本局全部照片（新到舊·dateLabel 後端算好）。**2026-07 拍照改手機**：不再回傳 `developed`/`filmLeft`/`filmPerDay`，手機拍完立刻能看，只剩 `cap` 這個相簿總容量。帳號歸屬驗證用 `kanshouOwnedRowIdx_`（2026-07 稽核修：舊版裸 `findIndex` 沒查帳號，猜中 pcId 可讀走別人相簿）。
 - `actionAlbumDelete(userData, pcId, sheets)` — 刪照片（照片 ID＋遊戲 ID 雙比對·只能刪自己這局）。帳號歸屬驗證改用 `kanshouOwnedRowIdx_`（同上，舊版可讓人猜中 pcId 刪掉別人的照片）。
 
 ---

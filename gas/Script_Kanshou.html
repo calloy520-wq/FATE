@@ -231,16 +231,15 @@ let plainTextContext = cleanText;
         }
         optionsHtml += `<div style="background:rgba(160,60,90,0.14); border:1px solid #8a3a5a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">${reInner}</div>`;
       }
-      // 📷 拍照結果小字回饋(敘事本身由AI演，這行只補機制數字：剩幾張底片/為何沒拍成)。
+      // 📷 拍照結果小字回饋(敘事本身由AI演，這行只補機制數字：為何沒拍成)。
+      //   2026-07「拍照改手機、不用等」：手機沒有底片，拍完立刻存進相簿、立刻能看。
       if (data.photoResult) {
         const pr = data.photoResult;
-        const prTxt = pr.ok ? `📷 咔嚓——拍下了。今日底片剩 ${pr.filmLeft} 張，照片明天洗好(＋抽屜→相簿)。`
-          : pr.reason === 'film' ? '📷 今天的底片用完了，明天會補充。'
+        const prTxt = pr.ok ? `📷 咔嚓——拍下了，已經存進相簿。`
           : pr.reason === 'cap' ? '📷 相簿已滿(100張)——去相簿刪幾張舊照片才能再拍。'
           : pr.reason === 'nobody' ? '📷 身邊沒有可拍的人。' : '📷 這一張沒拍成。';
         optionsHtml += `<div style="color:#9a917f; font-size:11px; padding:4px 2px 8px;">${prTxt}</div>`;
-        // 📣 走查抓到的軟卡點：底片用完/相簿滿只有文字、沒有下一步——補直達鈕。
-        if (!pr.ok && pr.reason === 'film') optionsHtml += `<button class="btn-option" style="width:100%; margin-bottom:8px;" onclick="kanshouEndDay()">🌙 那就睡覺吧——直接到明天(底片會補充)</button>`;
+        // 📣 走查抓到的軟卡點：相簿滿只有文字、沒有下一步——補直達鈕。
         if (!pr.ok && pr.reason === 'cap') optionsHtml += `<button class="btn-option" style="width:100%; margin-bottom:8px;" onclick="openKanshouAlbum()">📚 打開相簿，刪幾張舊照片</button>`;
       }
       // 🤝 巧遇對象的「結識」邀請框：她此刻只是路人(不記好感·離開即散)，點了才正式入駐這座城。
@@ -1303,7 +1302,8 @@ let plainTextContext = cleanText;
     var cb = _kpCb; _kpCb = null;
     if (cb) cb(name);
   }
-  // 📷 拍照：拍下此刻(每天3張底片·隔天洗好)。2026-07 玩家要求比照相約改選單——prompt() 改成面板：
+  // 📷 拍照：手機拍下此刻，拍完立刻能看，沒有底片限制(2026-07「拍照要改成手機、不用等」)。
+  //   選單化沿用 2026-07 玩家要求比照相約改選單——prompt() 改成面板：
   //   在場同伴一人一顆「拍她」、≥2人多一顆合照、風景一顆，另保留自由輸入(拍橘貓/夕陽等創意主題)。
   //   intent 語義沿用後端既有判定：點名同伴→拍那位；''＝預設(有同伴合照前3、沒同伴風景)；
   //   沒點名到任何人的文字→以該主題拍風景/生活照。
@@ -1339,13 +1339,13 @@ let plainTextContext = cleanText;
     if (ov) ov.style.display = 'none';
     intent = String(intent || '').trim();
     showGamePane('chat');
-    await send(intent ? ('（舉起相機——這張想拍的是「' + intent + '」。）') : '（舉起相機，拍下此刻的光景。）', false, { takePhoto: true, photoIntent: intent || null });
+    await send(intent ? ('（舉起手機——這張想拍的是「' + intent + '」。）') : '（舉起手機，拍下此刻的光景。）', false, { takePhoto: true, photoIntent: intent || null });
   }
-  // 📷 拿照片給在場的人看(相簿卡片上的按鈕)：洗好的才有內容，沒洗好後端會演「明天才看得到」。
+  // 📷 拿照片給在場的人看(相簿卡片上的按鈕)：手機拍完立刻能看，隨時都能拿出來給人看。
   async function kanshouShowPhoto(photoId) {
     kanshouCloseAlbum_();
     showGamePane('chat');
-    await send('（從口袋拿出一張照片，遞給身邊的人看。）', false, { showPhoto: photoId });
+    await send('（拿出手機，把一張照片給身邊的人看。）', false, { showPhoto: photoId });
   }
   async function kanshouDeletePhoto(photoId) {
     if (!confirm('確定撕掉這張照片？(不可復原)')) return;
@@ -1380,16 +1380,15 @@ let plainTextContext = cleanText;
       + '</svg>';
   }
   function kcAlbumCardHtml_(p) {
-    var body = p.developed
-      ? '<div style="font-size:11px; color:#5a5248; padding:7px 3px 6px; line-height:1.5;">' + escapeHtml(p.caption) + '</div>'
-        + '<div style="font-size:9px; color:#9a917f; padding:0 3px 6px;">📷 ' + escapeHtml(p.dateLabel) + '・' + escapeHtml(p.weather) + '｜' + escapeHtml(p.names) + (p.flag ? '・' + escapeHtml(p.flag) : '') + '</div>'
-        + '<div style="display:flex; gap:5px; padding:0 2px 7px;">'
-        + '<button onclick="kanshouShowPhoto(\'' + p.id + '\')" style="flex:1; font-size:10px; padding:3px 4px; background:rgba(90,140,100,0.14); color:#3a6a48; border:1px solid #6a9a7a; border-radius:5px; cursor:pointer;">👀 給在場的人看</button>'
-        + '<button onclick="kanshouDeletePhoto(\'' + p.id + '\')" style="font-size:10px; padding:3px 7px; background:rgba(160,60,60,0.1); color:#a04a4a; border:1px solid #b07a7a; border-radius:5px; cursor:pointer;">🗑️</button>'
-        + '</div>'
-      : '<div style="font-size:11px; color:#8a8278; padding:9px 3px 12px;">🎞️ 沖洗中……明天就能看了。<br><span style="font-size:9px; color:#a89f8f;">📷 ' + escapeHtml(p.dateLabel) + '・' + escapeHtml(p.loc) + '｜' + escapeHtml(p.names) + '</span></div>';
+    // 2026-07「拍照改手機、不用等」：手機拍完立刻能看，不再有沖洗中狀態，一律顯示完整卡片。
+    var body = '<div style="font-size:11px; color:#5a5248; padding:7px 3px 6px; line-height:1.5;">' + escapeHtml(p.caption) + '</div>'
+      + '<div style="font-size:9px; color:#9a917f; padding:0 3px 6px;">📷 ' + escapeHtml(p.dateLabel) + '・' + escapeHtml(p.weather) + '｜' + escapeHtml(p.names) + (p.flag ? '・' + escapeHtml(p.flag) : '') + '</div>'
+      + '<div style="display:flex; gap:5px; padding:0 2px 7px;">'
+      + '<button onclick="kanshouShowPhoto(\'' + p.id + '\')" style="flex:1; font-size:10px; padding:3px 4px; background:rgba(90,140,100,0.14); color:#3a6a48; border:1px solid #6a9a7a; border-radius:5px; cursor:pointer;">👀 給在場的人看</button>'
+      + '<button onclick="kanshouDeletePhoto(\'' + p.id + '\')" style="font-size:10px; padding:3px 7px; background:rgba(160,60,60,0.1); color:#a04a4a; border:1px solid #b07a7a; border-radius:5px; cursor:pointer;">🗑️</button>'
+      + '</div>';
     return '<div style="background:#f5f2ea; padding:8px 8px 2px; border-radius:3px; box-shadow:0 4px 10px rgba(0,0,0,.45); width:186px;">'
-      + (p.developed ? kcAlbumCardSvg_(p) : '<div style="height:110px; background:repeating-linear-gradient(45deg,#3a3630,#3a3630 8px,#2e2a26 8px,#2e2a26 16px); display:flex; align-items:center; justify-content:center; color:#8a8070; font-size:22px;">🎞️</div>')
+      + kcAlbumCardSvg_(p)
       + body + '</div>';
   }
   var kcAlbumData_ = null, kcAlbumFilter_ = '';
@@ -1403,7 +1402,7 @@ let plainTextContext = cleanText;
       var on = kcAlbumFilter_ === n;
       chips += '<button onclick="kcAlbumSetFilter_(\'' + n.replace(/'/g, "\\'") + '\')" style="font-size:11px; padding:3px 9px; border-radius:10px; cursor:pointer; border:1px solid ' + (on ? '#d4af37' : '#5a5470') + '; background:' + (on ? 'rgba(212,175,55,.18)' : 'transparent') + '; color:#d8d0e0;"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:' + names[n] + '; margin-right:4px; vertical-align:middle;"></span>' + escapeHtml(n) + '</button>';
     });
-    box.innerHTML = '<div style="color:#c9b8d8; font-size:11.5px; margin-bottom:8px;">🎞️ 今日底片剩 <b>' + kcAlbumData_.filmLeft + '</b>/' + kcAlbumData_.filmPerDay + ' 張・相簿 ' + kcAlbumData_.photos.length + '/' + kcAlbumData_.cap + ' 張</div>'
+    box.innerHTML = '<div style="color:#c9b8d8; font-size:11.5px; margin-bottom:8px;">📷 相簿 ' + kcAlbumData_.photos.length + '/' + kcAlbumData_.cap + ' 張</div>'
       + '<div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:12px;">' + chips + '</div>'
       + (photos.length
         ? '<div style="display:flex; gap:14px; flex-wrap:wrap; justify-content:center;">' + photos.map(kcAlbumCardHtml_).join('') + '</div>'
