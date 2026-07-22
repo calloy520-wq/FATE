@@ -499,16 +499,20 @@ let plainTextContext = cleanText;
   //   後端記得同步這裡)。
   var KC_PROPS_ = [{ id: 'egg_vibrator', name: '跳蛋', hasIntensity: true }];
   var KC_PROP_LEVELS_ = ['關閉', '微弱', '中等', '強勁'];
+  var _kcCustomProps = []; // 🎀 玩家自訂道具目錄(2026-07新增)，跟KC_PROPS_合併使用
+  var _kcCustomPropsLoaded = false;
   var _kpBusy = false;
+  var _kpOpenName = ''; // 目前開著的小道具面板是哪位同伴，供 kanshouDeleteCustomProp 原地重繪用
   async function kanshouOpenProps(name) {
     if (_kpBusy) return;
+    _kpOpenName = name;
     var c = _kcCur.find(function (x) { return x.name === name; });
-    if (!c) {
+    if (!c || !_kcCustomPropsLoaded) {
       _kpBusy = true;
       _kpShowLoading_(name);
       try {
         const res = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount });
-        if (res && res.success) _kcCur = res.current || [];
+        if (res && res.success) { _kcCur = res.current || []; _kcCustomProps = res.customProps || []; _kcCustomPropsLoaded = true; }
       } catch (e) { } finally { _kpBusy = false; }
       c = _kcCur.find(function (x) { return x.name === name; });
       if (!c) { var _ov0 = document.getElementById('kp-overlay'); if (_ov0) _ov0.style.display = 'none'; alert('讀取失敗，稍後再試。'); return; }
@@ -523,27 +527,44 @@ let plainTextContext = cleanText;
     }
     var curArr = c.props || []; // 🎀 多件同時裝備(2026-07 改版)，不再是單一 c.prop
     var safeN = String(name).replace(/'/g, "\\'");
-    var rows = KC_PROPS_.map(function (p) {
+    var allProps = KC_PROPS_.concat(_kcCustomProps);
+    var rows = allProps.map(function (p) {
+      var isCustom = !KC_PROPS_.some(function (x) { return x.id === p.id; });
+      var delBtn = isCustom ? '<button onclick="kanshouDeleteCustomProp(\'' + p.id.replace(/'/g, "\\'") + '\')" title="從你的道具目錄整個刪掉這項定義" style="padding:3px 6px;background:#3a3a44;color:#999;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:4px;">🗑目錄</button>' : '';
       var eq = curArr.find(function (x) { return x.id === p.id; });
+      var partHint = p.part ? '<span style="color:#8a7fa0;font-size:11px;margin-left:4px;">(' + escapeHtml(p.part) + ')</span>' : '';
       if (p.hasIntensity) {
         var levelBtns = KC_PROP_LEVELS_.map(function (lv) {
           var active = eq && eq.level === lv;
           return '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'' + lv + '\')" style="flex:1;padding:6px 3px;font-size:12px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : '#ccc') + ';border:none;border-radius:6px;cursor:pointer;">' + lv + '</button>';
         }).join('');
         return '<div style="padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
-          + '<div style="display:flex;align-items:center;margin-bottom:6px;"><span style="flex:1;color:#f0b8e0;font-size:13px;">' + escapeHtml(p.name) + '</span>'
-          + (eq ? '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'\')" title="移除" style="padding:3px 8px;background:#4a3038;color:#e09999;border:none;border-radius:6px;cursor:pointer;font-size:11px;">🗑</button>' : '') + '</div>'
+          + '<div style="display:flex;align-items:center;margin-bottom:6px;"><span style="flex:1;color:#f0b8e0;font-size:13px;">' + escapeHtml(p.name) + partHint + '</span>'
+          + (eq ? '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'\')" title="移除" style="padding:3px 8px;background:#4a3038;color:#e09999;border:none;border-radius:6px;cursor:pointer;font-size:11px;">🗑</button>' : '') + delBtn + '</div>'
           + '<div style="display:flex;gap:5px;">' + levelBtns + '</div></div>';
       }
       return '<div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
-        + '<span style="flex:1;color:#f0b8e0;font-size:13px;">' + escapeHtml(p.name) + '</span>'
-        + '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'' + (eq ? '' : '戴著') + '\')" style="padding:5px 10px;background:' + (eq ? '#a05088' : '#3a3a44') + ';color:' + (eq ? '#fff' : '#ccc') + ';border:none;border-radius:6px;cursor:pointer;font-size:12px;">' + (eq ? '已裝備(點擊移除)' : '裝備') + '</button></div>';
+        + '<span style="flex:1;color:#f0b8e0;font-size:13px;">' + escapeHtml(p.name) + partHint + '</span>'
+        + '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'' + (eq ? '' : '戴著') + '\')" style="padding:5px 10px;background:' + (eq ? '#a05088' : '#3a3a44') + ';color:' + (eq ? '#fff' : '#ccc') + ';border:none;border-radius:6px;cursor:pointer;font-size:12px;">' + (eq ? '已裝備(點擊移除)' : '裝備') + '</button>' + delBtn + '</div>';
     }).join('');
+    // 🎀 自訂新道具(2026-07新增)：輸入名稱＋勾選是否有強度分級，按下去直接裝備在這位同伴身上，
+    //   同步存進玩家自己的道具目錄(之後在別人身上也能選)。
+    var addRow = '<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);">'
+      + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:5px;">找不到想要的？自己新增一個：</div>'
+      + '<div style="display:flex;gap:5px;align-items:center;margin-bottom:5px;">'
+      + '<input id="kp-new-name" maxlength="10" placeholder="道具名稱(≤10字)" style="flex:1;min-width:0;padding:5px 6px;background:#2a2430;color:#eee;border:1px solid rgba(240,184,224,.3);border-radius:6px;font-size:12px;">'
+      + '<label style="display:flex;align-items:center;gap:3px;color:#ccc;font-size:11px;white-space:nowrap;"><input id="kp-new-intensity" type="checkbox">強度可調</label>'
+      + '</div>'
+      + '<div style="display:flex;gap:5px;align-items:center;">'
+      + '<input id="kp-new-part" maxlength="8" placeholder="部位(選填，不填讓AI自己發揮)" style="flex:1;min-width:0;padding:5px 6px;background:#2a2430;color:#eee;border:1px solid rgba(240,184,224,.3);border-radius:6px;font-size:12px;">'
+      + '<button onclick="kanshouAddCustomProp(\'' + safeN + '\')" style="padding:5px 10px;background:#a05088;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">裝備</button>'
+      + '</div></div>';
     ov.innerHTML = '<div style="width:min(400px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(240,184,224,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#f0b8e0;">🎀 「' + escapeHtml(name) + '」的小道具</b>'
       + '<button onclick="document.getElementById(\'kp-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
-      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:6px;">可同時裝備多件。' + (curArr.length ? '目前：' + curArr.map(function (x) { return escapeHtml(x.name) + (x.hasIntensity ? '(' + escapeHtml(x.level) + ')' : ''); }).join('、') : '目前沒裝備任何道具') + '</div>'
+      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:6px;">可同時裝備多件。' + (curArr.length ? '目前：' + curArr.map(function (x) { var bits = []; if (x.part) bits.push('戴在' + escapeHtml(x.part)); if (x.hasIntensity) bits.push(escapeHtml(x.level)); return escapeHtml(x.name) + (bits.length ? '(' + bits.join('，') + ')' : ''); }).join('、') : '目前沒裝備任何道具') + '</div>'
       + rows
+      + addRow
       + '</div>';
     ov.style.display = 'flex';
   }
@@ -573,6 +594,45 @@ let plainTextContext = cleanText;
     finally {
       _kpBusy = false;
       kanshouOpenProps(name); // 面板原地重繪
+    }
+  }
+  // 🎀 玩家自建新道具(2026-07「不能玩家自己新增?」)：讀輸入框→新增進玩家自己的道具目錄＋立即裝備在
+  //   targetName身上。部位(part)選填，留空由AI自行發揮(2026-07「選填吧...沒有就AI自己想辦法發揮」)。
+  async function kanshouAddCustomProp(targetName) {
+    if (_kpBusy) return;
+    var nameEl = document.getElementById('kp-new-name');
+    var intensityEl = document.getElementById('kp-new-intensity');
+    var partEl = document.getElementById('kp-new-part');
+    var newName = nameEl ? nameEl.value.trim() : '';
+    if (!newName) { alert('請先輸入道具名稱。'); return; }
+    _kpBusy = true;
+    _kpShowLoading_(targetName);
+    try {
+      const res = await gasRun({ action: 'kanshou_add_custom_prop', pcId: pc.id, acctName: currentAccount, targetName: targetName, name: newName, hasIntensity: !!(intensityEl && intensityEl.checked), part: partEl ? partEl.value.trim() : '' });
+      if (!res || !res.success) { alert((res && res.message) || '新增失敗。'); return; }
+      _kcCustomProps = res.customProps || _kcCustomProps;
+      if (res.message) { alert(res.message); } // 目錄新增成功但找不到同伴可裝備的邊界情況
+      else { var c = _kcCur.find(function (x) { return x.name === targetName; }); if (c) c.props = res.props || []; }
+    } catch (e) { alert('新增失敗。'); }
+    finally {
+      _kpBusy = false;
+      kanshouOpenProps(targetName); // 面板原地重繪，新道具會出現在清單裡
+    }
+  }
+  // 🗑 從玩家的自訂道具目錄整個刪掉這項定義——後端同步移除所有同伴身上目前裝備的這一項，避免孤兒資料。
+  async function kanshouDeleteCustomProp(propName) {
+    if (_kpBusy) return;
+    if (!confirm('確定要把「' + propName + '」從你的道具目錄整個刪掉嗎？所有裝備中的同伴也會一併移除。')) return;
+    _kpBusy = true;
+    try {
+      const res = await gasRun({ action: 'kanshou_delete_custom_prop', pcId: pc.id, acctName: currentAccount, name: propName });
+      if (!res || !res.success) { alert((res && res.message) || '刪除失敗。'); return; }
+      _kcCustomProps = res.customProps || [];
+      _kcCur.forEach(function (c) { if (c.props) c.props = c.props.filter(function (p) { return p.id !== propName; }); });
+    } catch (e) { alert('刪除失敗。'); }
+    finally {
+      _kpBusy = false;
+      if (_kpOpenName) kanshouOpenProps(_kpOpenName); // 面板原地重繪
     }
   }
 

@@ -70,7 +70,9 @@
 | `kanshou_set_sex` | `actionKanshouSetSex` | 設同伴性別 |
 | `kanshou_set_name` | `actionKanshouSetName` | 設同伴名 |
 | `kanshou_set_home_name` | `actionKanshouSetHomeName` | 設住處名 |
-| `kanshou_set_prop` | `actionKanshouSetProp` | 小道具裝備/移除/調強度(2026-07新增) |
+| `kanshou_set_prop` | `actionKanshouSetProp` | 小道具裝備/移除/調強度(2026-07新增，啟動卡好感門檻) |
+| `kanshou_add_custom_prop` | `actionKanshouAddCustomProp` | 玩家自建新道具＋立即裝備(2026-07新增，name/hasIntensity/part選填) |
+| `kanshou_delete_custom_prop` | `actionKanshouDeleteCustomProp` | 從玩家自訂道具目錄整個刪掉一項(同步清所有同伴身上裝備) |
 | `prep_meal` | `actionPrepMeal` | 準備餐點 |
 | `get_full_status` | `actionGetFullStatus` | 查某角完整狀態字串 |
 | `update_fate` | `actionUpdateFate` | 逆天改命（4 敘事欄） |
@@ -589,7 +591,9 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `actionKanshouSetSex(userData, pcId, sheets)` — 切換御主性別（限男/女）；切男時檢查世界內是否已有男性從者（避免男男配對）；真換時重置 PHYSICAL 為中性預設。
 - `actionKanshouSetName(userData, pcId, sheets)` — 改御主名字（≤16 字）；關係併入從者自己列，改名不影響羈絆。
 - `actionKanshouSetHomeName(userData, pcId, sheets)` — 改「家」顯示名（≤12 字），寫進 MEMORY【住所】標記（`setKanshouHomeName_`）。
-- `actionKanshouSetProp(userData, pcId, sheets)`（2026-07 新增，同批改多件同時裝備）— 小道具裝備/移除/調強度：`targetName`+`propId`+`level`(空字串＝只移除這一件，其餘已裝備道具不受影響)，比照 `actionKanshouMemoirOp` 同款帳號驗證+目標同伴查找，寫 MEMORY【小道具】（`kanshouToggleProp_`）。GAS直接寫、不靠AI自己判斷該不該記(根治「幫她戴貓耳朵過幾輪就忘記」的機制保證版)。同伴卡面板與故事視窗快速抽屜共用此 action。
+- `actionKanshouSetProp(userData, pcId, sheets)`（2026-07 新增，同批改多件同時裝備）— 小道具裝備/移除/調強度：`targetName`+`propId`+`level`(空字串＝只移除這一件，其餘已裝備道具不受影響)，比照 `actionKanshouMemoirOp` 同款帳號驗證+目標同伴查找，寫 MEMORY【小道具】（`kanshouToggleProp_`）。GAS直接寫、不靠AI自己判斷該不該記(根治「幫她戴貓耳朵過幾輪就忘記」的機制保證版)。同伴卡面板與故事視窗快速抽屜共用此 action。**啟動**(強度非關閉)時檢查`KANSHOU_PROP_ACTIVATE_BOND_`好感門檻，不足回傳失敗訊息、不寫入。
+- `actionKanshouAddCustomProp(userData, pcId, sheets)`（2026-07 新增）— 玩家自建道具：`targetName`+`name`(≤10字)+`hasIntensity`+`part`(選填)。查重(跟內建道具同名擋)＋上限檢查後寫進玩家列【自訂道具】，並立即裝備在`targetName`身上(一律從「關閉/戴著」起手，不繞過啟動門檻)。找不到目標同伴仍會成功新增進目錄，回傳訊息告知。
+- `actionKanshouDeleteCustomProp(userData, pcId, sheets)`（2026-07 新增）— 從玩家列【自訂道具】整個移除一項定義，並掃描該局所有從者、把身上目前裝備的這一項一併移除(`kanshouToggleProp_(row, name, "")`)，避免孤兒資料(目錄查無定義卻有人還裝備著)。
 
 #### AI 提示詞組裝（🔴 鑑賞 AI 核心）
 
@@ -656,7 +660,12 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `KANSHOU_COHABIT_TAG_`（makeIntTag_ 同居）、`KANSHOU_HANDHOLD_TAG_`（makeTextTag_ 牽手·存玩家列單一對象）、`KANSHOU_COHABIT_BOND_`(90)、`KANSHOU_VISIT_BOND_`(40)、`KANSHOU_COHABIT_ROOM_`(和室)（常數）。
 - `kanshouIsCohabit_(row)` — 該從者是否同居中。
 - `KANSHOU_PROPS_`（資料驅動小道具庫，目前1筆：跳蛋，hasIntensity=true）、`KANSHOU_PROP_LEVELS_`(關閉/微弱/中等/強勁)（2026-07 新增·常數，前端 `Script_Kanshou.html` 的 `KC_PROPS_`/`KC_PROP_LEVELS_` 鏡像同步）。
-- `kanshouGetProps_(memory)`（回傳陣列）/ `kanshouSetProps_(memory, propsArr)` / `kanshouToggleProp_(memory, propId, level)`（2026-07 新增，同批改多件同時裝備）— MEMORY【小道具】id1:強度1,id2:強度2,... 讀/整批寫/單件切換（`ToggleProp_` 是實際呼叫端用的：level空字串＝移除該項、其餘已裝備道具原樣保留）。
+- `KANSHOU_PROP_ACTIVATE_BOND_ = 80`（2026-07 新增·常數）— 道具**啟動**(強度非「關閉」)才卡的好感門檻，單純裝備成關閉/戴著不受限；比照情慾場/無上限同一個切點。
+- `kanshouGetProps_(memory, catalog)`（回傳陣列，`catalog`選填不傳只認內建`KANSHOU_PROPS_`）/ `kanshouSetProps_(memory, propsArr)` / `kanshouToggleProp_(memory, propId, level)`（2026-07 新增，同批改多件同時裝備）— MEMORY【小道具】id1:強度1,id2:強度2,... 讀/整批寫/單件切換（`ToggleProp_` 是實際呼叫端用的：level空字串＝移除該項、其餘已裝備道具原樣保留）。回傳物件含 `part`(來自catalog定義，內建道具無此欄)。
+- `KANSHOU_CUSTOM_PROP_CAP_ = 10`（2026-07 新增·常數）— 玩家自訂道具目錄上限筆數。
+- `kanshouGetCustomProps_(memory)` / `kanshouSetCustomProps_(memory, arr)`（2026-07 新增）— 玩家列 MEMORY【自訂道具】name1:hasIntensity1:part1,... 讀/整批寫（`part`選填，留空由AI自行決定戴哪）。
+- `kanshouSanitizePropPart_(part)`（2026-07 新增）— 清掉道具部位欄的標籤分隔字元(`,`/`:`/`｜`/`【`/`】`)並限長8字。
+- `kanshouAllProps_(playerMemory)`（2026-07 新增）— 內建`KANSHOU_PROPS_`＋`kanshouGetCustomProps_`合併後的完整目錄，`actionKanshouCompanions`/`actionPlay_`的`partyDetailsArr`都吃這份合併目錄（而非只認內建清單）。
 
 #### 相簿（拍照·2026-07）
 
@@ -1212,9 +1221,13 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 
 #### 小道具（2026-07 新增）
 - `KC_PROPS_` / `KC_PROP_LEVELS_` — 鏡像後端 `KANSHOU_PROPS_`/`KANSHOU_PROP_LEVELS_`（唯一真實來源在 Gallery.gs，改後端記得同步這裡）。
-- `kanshouOpenProps(name)` — 開/重繪「某人的小道具」彈窗 `#kp-overlay`；`_kcCur` 沒載到會自抓一次；列出全部道具，已裝備的顯示目前強度＋🗑，未裝備的顯示「裝備」鈕（呼叫 `kanshouSetProp`）。多件可同時裝備。
+- `_kcCustomProps` / `_kcCustomPropsLoaded`（2026-07 新增）— 玩家自訂道具目錄本地快取，跟 `KC_PROPS_` 合併成 `allProps` 使用；隨 `kanshou_companions` 回傳一併載入。
+- `_kpOpenName`（2026-07 新增）— 目前開著的小道具面板是哪位同伴，供 `kanshouDeleteCustomProp` 刪除後原地重繪用。
+- `kanshouOpenProps(name)` — 開/重繪「某人的小道具」彈窗 `#kp-overlay`；`_kcCur`/`_kcCustomProps` 沒載到會自抓一次；列出內建＋自訂全部道具（自訂項多一顆「🗑目錄」按鈕，呼叫 `kanshouDeleteCustomProp`），已裝備的顯示目前強度＋🗑，未裝備的顯示「裝備」鈕（呼叫 `kanshouSetProp`）；有`part`的項目名稱旁附註部位。多件可同時裝備。面板底部附「自己新增一個」表單（名稱/強度可調/部位選填輸入框＋裝備鈕，呼叫 `kanshouAddCustomProp`）。
 - `_kpShowLoading_(name)` — 把 `#kp-overlay` 內容換成讀條（不存在則先建）。
 - `kanshouSetProp(name, propId, level)` — 裝備/移除/改強度單一道具（`kanshou_set_prop`，level空字串＝移除）；`_kpBusy` 擋連點；完成後原地重繪面板。
+- `kanshouAddCustomProp(targetName)`（2026-07 新增）— 讀 `#kp-new-name`/`#kp-new-intensity`/`#kp-new-part` 輸入框，打 `kanshou_add_custom_prop`，成功後更新本地 `_kcCustomProps`/該同伴 `c.props` 並原地重繪面板；找不到目標同伴的邊界情況會 alert 後端回傳的訊息。
+- `kanshouDeleteCustomProp(propName)`（2026-07 新增）— confirm 確認後打 `kanshou_delete_custom_prop`，成功後更新 `_kcCustomProps`、清掉本地 `_kcCur` 所有同伴快取裡這一項，再用 `_kpOpenName` 原地重繪面板。
 - `_kcEnsureDrawer_()` — 懶建立故事視窗旁的「小道具快速控制抽屜」DOM（`#kc-prop-drawer`），回傳該元素；`applyModeUI()`(Script.html) 依鑑賞模式切換其顯示。
 - `kcTogglePropDrawer()` — 展開/收合抽屜；展開時呼叫 `_kcRenderDrawer_`。
 - `_kcRenderDrawer_()` — 重繪抽屜內容：只列**在場**且有強度可調道具的同伴，每項給強度快選鈕（呼叫 `kcQuickSetProp`）；`_kcCur` 沒載到會自抓一次。

@@ -58,7 +58,8 @@
 | 【性格鎖】 | `【性格鎖】對外性格,喜歡`（逗號分隔鍵名清單） | 玩家列 | `kanshouGetPrefLocks_`/`SetPrefLocks_`：玩家用改命【自訂】某性格格後登記在此，滾動側寫只補沒鎖的格，不覆寫玩家自訂值 |
 | 【側寫計數】 | `【側寫計數】N` | 玩家列 | `kanshouGetSideWriteCount_`/`SetSideWriteCount_`：AI滾動側寫玩家性格的節流計數(每3回合才補寫一次) |
 | [雙修技巧] | `[雙修技巧]技巧名`（半形方括號，跟其餘全形【】標記不同） | 同伴列 | `setSkillTag_`：只更新這一段、不動其餘標記；`dynamic_skills` 欄寫入用 |
-| 【小道具】 | `【小道具】id1:強度1,id2:強度2,...`（逗號分隔·多件可同時裝備） | 同伴列 | `kanshouGetProps_`/`SetProps_`/`ToggleProp_`：玩家UI裝備/移除/調強度(同伴卡「🎀小道具」按鈕＋故事視窗快速抽屜)，GAS直接寫，非AI判斷 |
+| 【小道具】 | `【小道具】id1:強度1,id2:強度2,...`（逗號分隔·多件可同時裝備） | 同伴列 | `kanshouGetProps_`/`SetProps_`/`ToggleProp_`：玩家UI裝備/移除/調強度(同伴卡「🎀小道具」按鈕＋故事視窗快速抽屜)，GAS直接寫，非AI判斷。真正**啟動**(強度非關閉)才卡`KANSHOU_PROP_ACTIVATE_BOND_`好感門檻 |
+| 【自訂道具】 | `【自訂道具】name1:hasIntensity1:part1,...`（逗號分隔·`part`選填） | **玩家列** | `kanshouGetCustomProps_`/`SetCustomProps_`：玩家自建道具目錄(跟內建`KANSHOU_PROPS_`合併用`kanshouAllProps_`)，上限`KANSHOU_CUSTOM_PROP_CAP_=10` |
 | 【換裝】【口吻】【小動作】 | — | 同伴列 | 鑑賞**讀取**（`getOutfit_`/persona），寫入屬 solo/persona 生態、非鑑賞獨有 |
 
 ---
@@ -156,6 +157,9 @@
   - **入口①同伴卡面板**：卡片「🎀小道具」按鈕（`Script.html`）→ `kanshouOpenProps`/`kanshouSetProp`（`Script_Kanshou.html`，鏡像後端 `KC_PROPS_`/`KC_PROP_LEVELS_`，改後端記得同步）——負責「裝備哪些道具」，會等後端確認+可增減項目。
   - **入口②故事視窗快速控制抽屜**（2026-07 玩家「想在故事視窗旁弄個隱藏抽屜快速調強度」）：畫面右側常駐小拉環(`_kcEnsureDrawer_`/`kcTogglePropDrawer`，`applyModeUI()`依模式顯隱)，展開只列**在場**且有強度道具的同伴，`kcQuickSetProp` 快速切強度——**只負責「已裝備道具即時調強度」，不能新增/移除道具**(那是面板的事)。★**樂觀更新**：按下立即用本地 `_kcCur` 快取重繪畫面，背景 `gasRun` 送出不等待、**不觸發AI敘事**——不是每轉一次旋鈕就逼AI講一輪話，AI 會在玩家下一次正常互動時自然從 `partyDetailsArr` 的既定事實讀到目前強度去演。兩個入口共用同一個後端 action。
   - 兩個入口都打同一個 `kanshou_set_prop` action（`actionKanshouSetProp`，比照 `actionKanshouMemoirOp` 同款帳號驗證+目標同伴查找，`level`空字串＝移除該項、其餘已裝備道具不受影響）。持久狀態餵進 `partyDetailsArr`(`pPropStr`，多件用「、」串接)當既定事實，narration 自然反映其存在與強度，不受親密尺度五階影響（道具本身不繞過好感天花板，只是描述現況）。**擴充新項目(項圈/眼罩/手銬之類)只要往 `KANSHOU_PROPS_` 加一筆＋前端鏡像同步一筆，不必改任何邏輯。**
+  - **🔒 啟動好感門檻**（2026-07 玩家「AI也不能反抗…感覺缺少鑑賞的感覺」）：單純裝備成「關閉/戴著」不設限，但真正**啟動**(`hasIntensity`道具強度非「關閉」)才卡 `KANSHOU_PROP_ACTIVATE_BOND_ = 80`（比照情慾場/無上限同一個切點）——不靠 AI 自己判斷「該不該演抵抗」(那樣容易演成「機制上開著、敘事卻在抵抗」的矛盾)，直接在 GAS 這層擋下，好感不夠就回傳失敗訊息、不寫入。維持「機制保證」精神的同時，重新對齊[性格]×[好感]的核心把關哲學。
+  - **🆕 玩家自訂道具**（2026-07「不能玩家自己新增?」）：面板底部「找不到想要的？自己新增一個」表單——輸入名稱(≤10字)＋勾選「強度可調」＋**選填部位**，按「裝備」直接寫進玩家自己的道具目錄`【自訂道具】`(玩家列 MEMORY，格式`name:hasIntensity:part`，上限`KANSHOU_CUSTOM_PROP_CAP_=10`筆)並立即裝備在該同伴身上(新裝備一律從「關閉/戴著」起手，**不繞過上面的啟動門檻**)。`kanshouAllProps_(playerMemory)`＝內建`KANSHOU_PROPS_`＋玩家自訂目錄合併查找，`actionKanshouCompanions`/`actionPlay_`都改吃這份合併目錄。同名跟內建道具重複會被擋。`actionKanshouAddCustomProp`/`actionKanshouDeleteCustomProp`（刪除會同步清掉所有同伴身上目前裝備的這一項，避免孤兒資料）；前端 `kanshouAddCustomProp`/`kanshouDeleteCustomProp`（`Script_Kanshou.html`）。
+  - **部位(part)選填**（2026-07「選填吧，想指定就自己打，沒有就AI自己想辦法發揮」）：玩家自訂道具才有這個欄位，內建`跳蛋`沒有。有填才在 `pPropStr` 加一句「戴在○○」；沒填就完全不提部位，交給 AI 自己決定戴在哪——不強迫每件自訂道具都要講清楚部位。`kanshouSanitizePropPart_` 清掉標籤分隔字元(`,`/`:`/`｜`/`【`/`】`)避免撐破格式，限長8字。
 
 ---
 

@@ -552,6 +552,7 @@ function actionKanshouCompanions(userData, pcId, sheets) {
   var gid = String(me[COL.PC.GAME_ID] || "");
   var myLoc = String(me[COL.PC.LOC] || "");
   var myName = String(me[COL.PC.NAME] || "");
+  var propCatalog = kanshouAllProps_(me[COL.PC.MEMORY]); // 內建+玩家自訂道具合併目錄
   var current = [];
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) {
@@ -563,10 +564,10 @@ function actionKanshouCompanions(userData, pcId, sheets) {
       var _pmDate = _pm ? kanshouAbsDayToDate_(_pm.day) : null;
       // memoir：共同回憶(27欄)原樣下傳(★前綴=玩家釘選)，供面板顯示/釘選/刪除。
       var _pmTime = _pm ? (KANSHOU_APPT_BANDS_.find(function (b) { return b.band === _pm.band; }) || {}).label : "";
-      current.push({ name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, promise: _pm ? { loc: _pm.loc, date: _pmDate.month + '/' + _pmDate.day, time: _pmTime || '' } : null, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean), props: kanshouGetProps_(data[i][COL.PC.MEMORY]) });
+      current.push({ name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, promise: _pm ? { loc: _pm.loc, date: _pmDate.month + '/' + _pmDate.day, time: _pmTime || '' } : null, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean), props: kanshouGetProps_(data[i][COL.PC.MEMORY], propCatalog) });
     }
   }
-  return JSON.stringify({ success: true, current: current });
+  return JSON.stringify({ success: true, current: current, customProps: kanshouGetCustomProps_(me[COL.PC.MEMORY]) });
 }
 
 // 💞 共同回憶面板操作(釘選/取消釘選/刪除)——比照 update_rel_tag「玩家 UI 手動管理、AI 無權」精神。
@@ -686,13 +687,78 @@ function actionKanshouSetProp(userData, pcId, sheets) {
     if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(data[i][COL.PC.NAME])).includes(targetName)) { tIdx = i; break; }
   }
   if (tIdx < 0) return JSON.stringify({ success: false, message: "找不到這位同伴。" });
-  var def = KANSHOU_PROPS_.find(function (p) { return p.id === propId; });
+  var def = kanshouAllProps_(data[meIdx][COL.PC.MEMORY]).find(function (p) { return p.id === propId; });
   if (!def) return JSON.stringify({ success: false, message: "查無此道具。" });
   var finalLevel = "";
-  if (level) finalLevel = def.hasIntensity ? (KANSHOU_PROP_LEVELS_.indexOf(level) !== -1 ? level : KANSHOU_PROP_LEVELS_[0]) : "戴著";
+  if (level) {
+    finalLevel = def.hasIntensity ? (KANSHOU_PROP_LEVELS_.indexOf(level) !== -1 ? level : KANSHOU_PROP_LEVELS_[0]) : "戴著";
+    // 🔒 啟動(強度非關閉)才卡好感門檻——單純裝備成關閉狀態不受限，見上方KANSHOU_PROP_ACTIVATE_BOND_註解。
+    if (def.hasIntensity && finalLevel !== KANSHOU_PROP_LEVELS_[0] && (parseInt(data[tIdx][COL.PC.BOND]) || 0) < KANSHOU_PROP_ACTIVATE_BOND_) {
+      return JSON.stringify({ success: false, message: "好感還沒到那個地步，她不會讓你這麼做——先裝備(關閉狀態)吧。" });
+    }
+  }
   var newMemory = kanshouToggleProp_(data[tIdx][COL.PC.MEMORY], propId, finalLevel);
   kpc.getRange(tIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
-  return JSON.stringify({ success: true, props: kanshouGetProps_(newMemory) });
+  return JSON.stringify({ success: true, props: kanshouGetProps_(newMemory, kanshouAllProps_(data[meIdx][COL.PC.MEMORY])) });
+}
+
+// 🎀 自訂道具新增：玩家自建新道具定義＋立即裝備在targetName身上(合併成一步，體驗比「先建目錄、
+//   再另外裝備」更順)。name≤10字，玩家自訂目錄上限KANSHOU_CUSTOM_PROP_CAP_筆；同名再次新增＝
+//   更新hasIntensity/part(以最後一次設定為準)。新裝備一律從「關閉/戴著」起手，不繞過上面的啟動門檻。
+//   part(部位)選填(2026-07「選填吧，想指定就自己打，沒有就AI自己想辦法發揮」)：留空則不注入部位
+//   敘述，交給AI自行決定戴在哪。
+function actionKanshouAddCustomProp(userData, pcId, sheets) {
+  var kpc = sheets.pc;
+  var acctName = String(userData.acctName || "").trim();
+  var targetName = String(userData.targetName || "").trim();
+  var name = String(userData.name || "").trim().slice(0, 10);
+  var hasIntensity = !!userData.hasIntensity;
+  var part = kanshouSanitizePropPart_(userData.part); // 選填，留空就讓AI自己發揮(不注入部位敘述)
+  if (!targetName || !name) return JSON.stringify({ success: false, message: "參數不完整。" });
+  var data = kpc.getDataRange().getValues();
+  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  if (KANSHOU_PROPS_.some(function (p) { return p.id === name; })) return JSON.stringify({ success: false, message: "這個名字跟內建道具重複了，換一個名字吧。" });
+  var custom = kanshouGetCustomProps_(data[meIdx][COL.PC.MEMORY]);
+  var already = custom.some(function (p) { return p.id === name; });
+  if (!already && custom.length >= KANSHOU_CUSTOM_PROP_CAP_) return JSON.stringify({ success: false, message: "自訂道具已達上限(" + KANSHOU_CUSTOM_PROP_CAP_ + "件)，先刪掉一些吧。" });
+  custom = custom.filter(function (p) { return p.id !== name; });
+  custom.push({ id: name, hasIntensity: hasIntensity, part: part });
+  var newPlayerMemory = kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom);
+  kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newPlayerMemory);
+  var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
+  var tIdx = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(data[i][COL.PC.NAME])).includes(targetName)) { tIdx = i; break; }
+  }
+  if (tIdx < 0) return JSON.stringify({ success: true, props: [], customProps: custom, message: "已新增到你的道具目錄，但找不到這位同伴可裝備。" });
+  var finalLevel = hasIntensity ? KANSHOU_PROP_LEVELS_[0] : "戴著"; // 新裝備一律關閉起手，不繞過啟動門檻
+  var newMemory = kanshouToggleProp_(data[tIdx][COL.PC.MEMORY], name, finalLevel);
+  kpc.getRange(tIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
+  return JSON.stringify({ success: true, props: kanshouGetProps_(newMemory, KANSHOU_PROPS_.concat(custom)), customProps: custom });
+}
+
+// 🗑 刪除玩家自訂道具定義：同步清掉所有同伴身上目前裝備的這一項，避免留下型錄查無定義的孤兒資料。
+function actionKanshouDeleteCustomProp(userData, pcId, sheets) {
+  var kpc = sheets.pc;
+  var acctName = String(userData.acctName || "").trim();
+  var name = String(userData.name || "").trim();
+  if (!name) return JSON.stringify({ success: false, message: "參數不完整。" });
+  var data = kpc.getDataRange().getValues();
+  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  var custom = kanshouGetCustomProps_(data[meIdx][COL.PC.MEMORY]).filter(function (p) { return p.id !== name; });
+  kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom));
+  var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) {
+      var existing = kanshouGetProps_(data[i][COL.PC.MEMORY]);
+      if (existing.some(function (p) { return p.id === name; })) {
+        kpc.getRange(i + 1, COL.PC.MEMORY + 1).setValue(kanshouToggleProp_(data[i][COL.PC.MEMORY], name, ""));
+      }
+    }
+  }
+  return JSON.stringify({ success: true, customProps: custom });
 }
 
 
@@ -1454,14 +1520,49 @@ const KANSHOU_PROPS_ = [
   { id: 'egg_vibrator', name: '跳蛋', hasIntensity: true }
 ];
 const KANSHOU_PROP_LEVELS_ = ['關閉', '微弱', '中等', '強勁'];
-function kanshouGetProps_(memory) {
-  const m = String(memory || "").match(/【小道具】([^｜【】]*)/);
+// 🔒 2026-07 玩家「AI也不能反抗，感覺缺少鑑賞的感覺」：小道具原本繞過[性格]×[好感]完全不設防，
+//   跟親密尺度五階/情慾場「沒到那個地步她會依個性擋下」的精神不一致。改成「裝備(關閉狀態)不設限、
+//   真正啟動(強度非關閉)才卡好感門檻」——比照情慾場/無上限同一個切點(戀人80)，不靠AI自己判斷要不要
+//   演抵抗(那樣容易出現「機制上開著、敘事卻在抵抗」的矛盾)，直接在GAS這層擋下，好感不夠就拒絕操作。
+const KANSHOU_PROP_ACTIVATE_BOND_ = 80;
+// 🎀 自訂道具(玩家自建·存玩家列MEMORY【自訂道具】name1:hasIntensity1:part1,name2:hasIntensity2:part2,...)：
+//   內建KANSHOU_PROPS_清單之外，玩家可自己命名新增(2026-07「不能玩家自己新增?」)。跟內建清單合併
+//   使用同一套KANSHOU_PROP_LEVELS_強度階，不重新發明標籤。上限KANSHOU_CUSTOM_PROP_CAP_筆。part(部位)
+//   選填，留空由AI自行決定戴在哪(2026-07「選填吧...沒有就AI自己想辦法發揮」)。
+const KANSHOU_CUSTOM_PROP_CAP_ = 10;
+function kanshouGetCustomProps_(memory) {
+  const m = String(memory || "").match(/【自訂道具】([^｜【】]*)/);
   if (!m || !m[1]) return [];
   return m[1].split(',').filter(Boolean).map(function (pair) {
     const parts = pair.split(':');
+    return { id: parts[0], name: parts[0], hasIntensity: parts[1] === '1', part: parts[2] || '' };
+  });
+}
+function kanshouSetCustomProps_(memory, arr) {
+  const cleared = String(memory || "").replace(/｜?【自訂道具】[^｜【】]*/g, "").replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
+  if (!arr || !arr.length) return cleared;
+  const joined = arr.map(function (p) { return p.id + ':' + (p.hasIntensity ? '1' : '0') + ':' + (p.part || ''); }).join(',');
+  return (cleared ? cleared + "｜" : "") + "【自訂道具】" + joined;
+}
+// 部位(選填)：玩家想指定就自己打(2026-07「選填吧，想指定就自己打，沒有就AI自己想辦法發揮」)，
+//   清掉標籤分隔字元避免撐破【自訂道具】格式、限長度。
+function kanshouSanitizePropPart_(part) {
+  return String(part || "").replace(/[,:｜【】]/g, "").trim().slice(0, 8);
+}
+// 內建＋玩家自訂合併後的完整道具目錄(查找/顯示用)——傳玩家列(KPC_)的MEMORY進來。
+function kanshouAllProps_(playerMemory) {
+  return KANSHOU_PROPS_.concat(kanshouGetCustomProps_(playerMemory));
+}
+// catalog 可選：不傳就只認內建清單(舊呼叫相容)；要認得玩家自訂道具的呼叫端請傳 kanshouAllProps_(...)。
+function kanshouGetProps_(memory, catalog) {
+  const m = String(memory || "").match(/【小道具】([^｜【】]*)/);
+  if (!m || !m[1]) return [];
+  const cat = catalog || KANSHOU_PROPS_;
+  return m[1].split(',').filter(Boolean).map(function (pair) {
+    const parts = pair.split(':');
     const id = parts[0], level = parts[1] || '';
-    const def = KANSHOU_PROPS_.find(function (p) { return p.id === id; });
-    return { id: id, name: def ? def.name : id, hasIntensity: def ? def.hasIntensity : false, level: level };
+    const def = cat.find(function (p) { return p.id === id; });
+    return { id: id, name: def ? def.name : id, hasIntensity: def ? def.hasIntensity : false, level: level, part: (def && def.part) || '' };
   });
 }
 function kanshouSetProps_(memory, propsArr) {
@@ -1470,7 +1571,8 @@ function kanshouSetProps_(memory, propsArr) {
   const joined = propsArr.map(function (p) { return p.id + ':' + p.level; }).join(',');
   return (cleared ? cleared + "｜" : "") + "【小道具】" + joined;
 }
-// 切換單一道具：level空字串＝移除該項、非空＝裝備/改強度，其餘已裝備道具原樣保留。
+// 切換單一道具：level空字串＝移除該項、非空＝裝備/改強度，其餘已裝備道具原樣保留。不做好感檢查
+// (純資料層工具函式)——好感門檻在呼叫端(actionKanshouSetProp/actionKanshouAddCustomProp)判斷。
 function kanshouToggleProp_(memory, propId, level) {
   const rest = kanshouGetProps_(memory).filter(function (p) { return p.id !== propId; });
   if (level) rest.push({ id: propId, level: level });
@@ -2454,6 +2556,7 @@ function actionPlay_(userData, pcId, sheets) {
   // ⚡ 提速：dailySpeechByName_ 對每位同伴呼叫都會重新解析英靈殿快取字串，這裡在迴圈外先抓一次
   //   共用傳入，省掉重複整表解析。
   const _partyHeroCodex = partyMembers.length > 0 ? getHeroCodexCached() : null;
+  const _kanshouPropCatalog = kanshouAllProps_(pc[COL.PC.MEMORY]); // 內建+玩家自訂道具合併目錄，迴圈外先算一次
   partyMembers.forEach(pName => {
     // 需要 sameGame 過濾——若不同局/不同帳號剛好撞名(種子有限、AI原創從者皆可能撞)，會把別局
     //   同名者的資料塞進本局的敘事提示詞。
@@ -2491,8 +2594,14 @@ function actionPlay_(userData, pcId, sheets) {
       const pCohabitStr = kanshouIsCohabit_(r) ? " | 同居中:是(她現在與你同住一處，語氣可依此帶著日常同居的親近感、不是作客)" : "";
       // 🎀 小道具(玩家UI裝備·GAS直接寫·非AI自行判斷)：既定事實直接告訴AI，narration自然反映其存在
       //   與目前狀態，不必等玩家每回合重提——這是「機制保證」路徑，不靠AI自己判斷該不該記。
-      const pPropsArr = kanshouGetProps_(r[COL.PC.MEMORY]);
-      const pPropStr = pPropsArr.length ? ` | 佩戴道具:${pPropsArr.map(p => `${p.name}${p.hasIntensity ? `(${p.level})` : ""}`).join('、')}——這是既定事實，narration須自然反映其存在${pPropsArr.some(p => p.hasIntensity && p.level !== '關閉') ? `，其中正在運作的道具依強度影響她的反應` : ``}` : "";
+      const pPropsArr = kanshouGetProps_(r[COL.PC.MEMORY], _kanshouPropCatalog);
+      // part(部位)玩家選填才有；沒填就不提部位，讓AI自己決定戴在哪(2026-07「選填吧...沒有就AI自己想辦法發揮」)。
+      const pPropStr = pPropsArr.length ? ` | 佩戴道具:${pPropsArr.map(p => {
+        const bits = [];
+        if (p.part) bits.push(`戴在${p.part}`);
+        if (p.hasIntensity) bits.push(p.level);
+        return `${p.name}${bits.length ? `(${bits.join('，')})` : ""}`;
+      }).join('、')}——這是既定事實，narration須自然反映其存在${pPropsArr.some(p => p.hasIntensity && p.level !== '關閉') ? `，其中正在運作的道具依強度影響她的反應` : ``}` : "";
       // 💞 共同回憶(27欄 MEMOIR)：你們一路走來累積的里程碑，讓 AI 自然承接你倆的專屬過往(儲存用全形｜
       //   分隔，餵給 AI 時換成「；」較好讀)。空的就不加這行。
       const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
