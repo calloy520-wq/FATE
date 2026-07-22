@@ -698,7 +698,7 @@ function dialogueFormatRule_() {
 // 🎛️ includeOptions=false(玩家關掉【命運的抉擇】開關)＝options 欄整個拿掉——玩家看不到的東西
 //   不必叫 AI 每回合生 4 條(省 token 省注意力)。undefined/true＝照常帶。
 function buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote, includeOptions) {
-  // physical_state 只留顏面神情(≤15字)：只管表情，衣裝狀態拆進獨立的 outfit_change 欄
+  // physical_state 只留顏面神情(≤15字)：只管表情，衣裝狀態拆進獨立的 appearance_extras 欄
   //   (下方)，兩者關注點不同——前者是每回合都可能變的暫時神情，後者是要持久記住的實際穿著。
   const _physicalState = "角色當下顏面神情(第三人稱·≤15字)";
   // 🌱 依鎖狀態動態組 master_note：只納入沒鎖的性格欄(鎖的連提都不提)。
@@ -716,17 +716,20 @@ function buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote, include
   };
   _mnKeysOpen.forEach(function (k) { if (_mnDescs[k]) _masterNote[k] = _mnDescs[k]; });
 
-  // outfit_change：角色當下實際穿著狀態，AI 可依劇情如實更新(正常穿著寫身上衣物，全裸/沐浴/
-  //   更衣等狀態也要如實反映)，會寫回持久的【換裝】記錄，不是每回合就消失的暫時描述。
-  // 🐛→✅ 2026-07 玩家實測「幫她戴貓耳朵，過幾輪就忘記」：範例只給正經換裝(絲綢襯衫)，AI容易把
-  //   玩家臨時加的配飾/道具當成這句台詞的趣味描述、不覺得該記進持久欄——沒記進來，滑出對話歷史
-  //   窗口後就真的看不到了。補一個配飾類範例，明講這類玩鬧設定也算。
-  const _outfitChange = "角色當下穿著狀態(第三人稱·≤20字·名詞短語如「絲綢襯衫」「貓耳頭飾」·含玩家臨時加的配飾/道具·禁動作句「換上了…」)";
+  // appearance_extras(原 outfit_change，2026-07 改名)：角色當下實際穿著/配飾狀態，AI 可依劇情如實
+  //   更新(正常穿著寫身上衣物，全裸/沐浴/更衣等狀態也要如實反映)，會寫回持久的【換裝】記錄，不是
+  //   每回合就消失的暫時描述。
+  // 🐛→✅ 2026-07 玩家實測「幫她戴貓耳朵，過幾輪就忘記」：舊欄名"outfit_change"字面就是「換裝」，
+  //   容易連AI帶欄名一起窄化成只認「衣服本身的替換」，範例也只給正經換裝(絲綢襯衫)，玩家臨時加的
+  //   配飾/道具(貓耳朵之類)容易被當成這句台詞的趣味描述、不覺得該記進持久欄——沒記進來，滑出對話
+  //   歷史窗口後就真的看不到了。改名成更中性的"appearance_extras"(外觀附加物)＋補配飾類範例，兩處
+  //   一起下手：欄名本身別再暗示只認衣服，範例也明講配飾/道具算。
+  const _appearanceExtras = "角色當下穿著狀態(第三人稱·≤20字·名詞短語如「絲綢襯衫」「貓耳頭飾」·含玩家臨時加的配飾/道具·禁動作句「換上了…」)";
 
   // 🔴 npc的範本欄位填「同上」：actionPlay 落地端(本檔·intimacy_feedback 解析)的 ignoreWords 防呆清單本就
   // 含「同上」，即使AI偷懶照抄範本字面值也會被當成敷衍語忽略、不會寫進玩家看到的狀態欄，省字數不引入新的失敗模式。
   const _physicalStateRef = "同上";
-  const _outfitChangeRef = "同上";
+  const _appearanceExtrasRef = "同上";
 
   const finalJson = {
     // 強制思維鏈：放範本第一位讓模型先自省再寫敘事。後端 sanitizeAiData_ 不讀此欄，純粹是給
@@ -755,16 +758,16 @@ function buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote, include
     "npc_exit": "在場同伴自然告辭離場的真名陣列(可多位)·narration演出她離開·否則[]",
     "options": ["1. [主動]強勢掌握主導...", "2. [被動]順從委婉試探...", "3. [接續]順劇情延續互動...", "4. [反差]跳脫氛圍的驚人舉動..."],
     "intimacy_feedback": {
-      "_note": "physical_state=顏面神情(第三人稱·禁內心戲·≤15字)；outfit_change=穿著狀態(名詞短語·≤20字·持久)。★差分：沒實質變化就填空(系統沿用舊值)、有變化(神情轉變/脫穿沐浴/情事進展)才更新。npcs每位與player同格式。",
+      "_note": "physical_state=顏面神情(第三人稱·禁內心戲·≤15字)；appearance_extras=穿著狀態(名詞短語·≤20字·持久)。★差分：沒實質變化就填空(系統沿用舊值)、有變化(神情轉變/脫穿沐浴/情事進展)才更新。npcs每位與player同格式。",
       "player": {
         "physical_state": _physicalState,
-        "outfit_change": _outfitChange,
+        "appearance_extras": _appearanceExtras,
         "dynamic_skills": "雙修技巧名(2~5字，規則見上方慾海律令第5條)"
       },
       "npcs": [{
         "name": "NPC真名(固定真名·不填暱稱/職階)",
         "physical_state": _physicalStateRef,
-        "outfit_change": _outfitChangeRef,
+        "appearance_extras": _appearanceExtrasRef,
         "dynamic_skills": "雙修技巧名(2~5字·見律令5)",
         "mutual_nicknames": "雙方自然發展的暱稱(見律令5)",
         "attitude": "NPC對御主當下臨場態度(第三人稱·≤15字·見律令6)",
@@ -1657,7 +1660,7 @@ function actionPlay_(userData, pcId, sheets) {
   dirtyPcRows.add(pcIndex); // 玩家本人一定會被處理到，先加進去
 
   const currentAmbition = pc[COL.PC.INTENT] ? String(pc[COL.PC.INTENT]).trim() : "尚無明確目標，隨遇而安。";
-  // 玩家自己的換裝(玩家UI設定或AI依outfit_change更新)，比照【同行夥伴】卡片(partyDetailsArr)
+  // 玩家自己的換裝(玩家UI設定或AI依appearance_extras更新)，比照【同行夥伴】卡片(partyDetailsArr)
   //   同款「裝扮:XXX(當前服裝·五官體態不變)」格式補上，AI 才能讀到當前實際服裝，而非憑空假設。
   const myOutfit = getOutfit_(pc[COL.PC.MEMORY]);
   // 晨間餘韻：讀一次(上一回合結束一天留下的旗標，若有)就立刻清掉，只讓「緊接著的下一回合」
@@ -2395,7 +2398,7 @@ function actionPlay_(userData, pcId, sheets) {
     //   同名者的資料塞進本局的敘事提示詞。
     const r = pcData.find(row => String(row[COL.PC.NAME]).trim() === String(pName).trim() && !String(row[COL.PC.ID]).startsWith("DEAD_") && sameGame(row));
     if (r) {
-      const pOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 換裝：當前服裝穿著(換衣不換人；玩家UI設定或AI依outfit_change更新)
+      const pOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 換裝：當前服裝穿著(換衣不換人；玩家UI設定或AI依appearance_extras更新)
       // 鑑賞無戰鬥，HP/STATUS 恆定不變(已被 physical_state 取代)，不重複注入。
       const pMemStr = relMemMemoryStr_(r[COL.PC.REL_MEM]);
       const pMoeStr = String(r[COL.PC.INTENT] || "").trim();
@@ -2488,7 +2491,7 @@ function actionPlay_(userData, pcId, sheets) {
     if (Object.keys(npcPhysicalObj).length === 0) npcPhysicalObj = { "狀態": "如常" };
     let npcSkills = kanshouSkillTagStr_(r[COL.PC.MEMORY]).split('、').slice(0, 5).join('、');
     let relMem = r[COL.PC.REL_MEM] || "無";
-    let npcOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 換裝：當前服裝穿著(換衣不換人·五官體態依本相；玩家UI設定或AI依outfit_change更新)
+    let npcOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 換裝：當前服裝穿著(換衣不換人·五官體態依本相；玩家UI設定或AI依appearance_extras更新)
     nsfwMemories += `${npcOutfit ? `\n[${r[COL.PC.NAME]} 裝扮]：${npcOutfit}（當前服裝·五官/髮色/體態不變）` : ""}\n[${r[COL.PC.NAME]} 肉體]：${JSON.stringify(npcPhysicalObj)}\n[快照]：[技巧]${npcSkills} | [羈絆]${relMem}`;
   });
 
@@ -2821,9 +2824,9 @@ ${PROMPT_REL}
         return (!val || ignoreWords.includes(val)) ? "" : val;
       };
 
-      // outfit_change：AI 如實回報的當下實際穿著，篩掉敷衍語後直接交給既有 setOutfit_ 寫回
+      // appearance_extras：AI 如實回報的當下實際穿著/配飾，篩掉敷衍語後直接交給既有 setOutfit_ 寫回
       //   持久的【換裝】記錄(setOutfit_ 本身已有 40 字硬上限與清洗特殊字元，這裡不重複截斷)。
-      const sanitizeOutfitChange = (rawOutfit) => {
+      const sanitizeAppearanceExtras = (rawOutfit) => {
         if (typeof rawOutfit !== 'string') return "";
         // 🩹 這欄要的是【穿著本身】(如「質地優雅的絲綢襯衫」)，AI 偶爾寫成動作句(「換上了一件…。」)，
         //   卡片顯示「裝扮 換上了一件…」變病句(玩家實測)——剝掉動作前綴/量詞/句尾標點，留衣物描述。
@@ -2906,8 +2909,8 @@ ${PROMPT_REL}
         const pCleanState = sanitizePhysicalState(pfb.physical_state);
         if (pCleanState) pcData[pcIndex][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[pcIndex][COL.PC.PHYSICAL], pCleanState);
 
-        const pOutfitChange = sanitizeOutfitChange(pfb.outfit_change);
-        if (pOutfitChange) pcData[pcIndex][COL.PC.MEMORY] = setOutfit_(pcData[pcIndex][COL.PC.MEMORY], pOutfitChange);
+        const pAppearanceExtras = sanitizeAppearanceExtras(pfb.appearance_extras);
+        if (pAppearanceExtras) pcData[pcIndex][COL.PC.MEMORY] = setOutfit_(pcData[pcIndex][COL.PC.MEMORY], pAppearanceExtras);
 
         let oldPMem = pcData[pcIndex][COL.PC.MEMORY] || "";
         pcData[pcIndex][COL.PC.MEMORY] = setSkillTag_(oldPMem, processSkills(oldPMem, pfb.dynamic_skills));
@@ -2930,8 +2933,8 @@ ${PROMPT_REL}
           dirtyPcRows.add(targetIdx);
           const nCleanState = sanitizePhysicalState(nfb.physical_state);
           if (nCleanState) pcData[targetIdx][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[targetIdx][COL.PC.PHYSICAL], nCleanState);
-          const nOutfitChange = sanitizeOutfitChange(nfb.outfit_change);
-          if (nOutfitChange) pcData[targetIdx][COL.PC.MEMORY] = setOutfit_(pcData[targetIdx][COL.PC.MEMORY], nOutfitChange);
+          const nAppearanceExtras = sanitizeAppearanceExtras(nfb.appearance_extras);
+          if (nAppearanceExtras) pcData[targetIdx][COL.PC.MEMORY] = setOutfit_(pcData[targetIdx][COL.PC.MEMORY], nAppearanceExtras);
           if (nfb.dynamic_skills) {
             let oldNMem = pcData[targetIdx][COL.PC.MEMORY] || "";
             pcData[targetIdx][COL.PC.MEMORY] = setSkillTag_(oldNMem, processSkills(oldNMem, nfb.dynamic_skills));

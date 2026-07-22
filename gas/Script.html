@@ -1564,7 +1564,7 @@
             + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + ' <span style="font-size:11px; font-weight:normal; color:#e0a0bc;">💗' + (s.bond || 0) + ' · ' + escapeHtml(s.tag || '點頭之交') + '</span></div>'
             + (s.outfit ? '<div style="color:#c9a0e0; font-size:11px; line-height:1.5;">裝扮　' + s.outfit + '</div>' : '')
             + kanshouStatusLines_(po)
-            // 🚫 同伴的服裝改由AI依outfit_change欄位自主更新(見Gallery.gs)，不再手動指定——changeOutfit()/actionSetOutfit本體保留未刪(仍供御主本人換裝與solo從者卡使用)，這裡只是不露出觸發同伴換裝的入口。
+            // 🚫 同伴的服裝改由AI依appearance_extras欄位自主更新(見Gallery.gs，2026-07原名outfit_change)，不再手動指定——changeOutfit()/actionSetOutfit本體保留未刪(仍供御主本人換裝與solo從者卡使用)，這裡只是不露出觸發同伴換裝的入口。
             + '<div style="margin-top:6px; display:flex; gap:6px;">'
             + '<button onclick="openStatus(\'' + safeN + '\',\'' + safeN + '\')" title="查看「' + safeN + '」的完整狀態：個性／特徵／身世／萌點／關係等，並可逆天改命微調敘事欄" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 詳細狀態</button>'
             // 💞 共同回憶：與同伴面板同一個 kanshouOpenMemoir(Script_Kanshou.html·自抓資料版)，卡片這裡也給入口。
