@@ -2811,8 +2811,9 @@ ${PROMPT_REL}
     // 🎛️ 2026-07 玩家調整採樣參數：temperature/top_p 略升、加top_k/repetition_penalty/presence_penalty/
     //   frequency_penalty 抑制重複套路句(如老是收在同一種收尾語氣)，僅driveOn吃到大模型(AI_MODEL)時
     //   這幾顆額外旋鈕才會實際生效，矜持模式(SOLO_MODEL)不支援的部分由OpenRouter靜默忽略。
-    // 🚀 2026-07 探針實測定案(v2硬版·六階梯度)：SOLO_MODEL(當時為gemini-3.1-flash-lite，同月稍後升級為
-    //   gemini-3.5-flash-lite，下述具體秒數/命中數字是舊版測的，僅供參考·未針對3.5重新探針)在真慾海律令下
+    // 🚀 2026-07 探針實測定案(v2硬版·六階梯度)：SOLO_MODEL(當時為gemini-3.1-flash-lite，同月陸續換過
+    //   gemini-3.5-flash-lite／gemini-2.5-flash-lite(玩家實測比較效果中)，下述具體秒數/命中數字是最初
+    //   3.1版測的，僅供參考·未針對後續版本重新探針)在真慾海律令下
     //   階4~6全過、露骨度🔥(極致階命中13個器官/水聲/動作字眼·真敢寫到底)、每次僅~4-5秒；反觀原本
     //   點火(driveOn=true)硬吃的 AI_MODEL(deepseek)慢達15~49秒、且極致露骨那階還被審查擋下。故【兩模式
     //   一律先打快 Gemini】、DeepSeek 只留最後備援(rare fallback，本就少觸發)。driveOn 從此【只控敘事
