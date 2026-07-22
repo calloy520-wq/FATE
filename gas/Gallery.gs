@@ -698,7 +698,9 @@ function actionKanshouSetProp(userData, pcId, sheets) {
     finalLevel = def.hasIntensity ? (KANSHOU_PROP_LEVELS_.indexOf(level) !== -1 ? level : KANSHOU_PROP_LEVELS_[0]) : "戴著";
     // 🔒 2026-07 玩家「整個小道具直接卡80吧...還沒80都鎖起來」：不只啟動，裝備本身(含關閉/戴著起手)
     //   都卡好感門檻——好感不夠她根本不會讓你碰。移除(level空字串)不受此限，隨時能拿掉。
-    if ((parseInt(data[tIdx][COL.PC.BOND]) || 0) < KANSHOU_PROP_EQUIP_BOND_) {
+    // 🌀 ignoreBond例外(2026-07「催眠暗示」)：玩家自訂道具可選勾「無視好感」，這類道具(如催眠暗示)
+    //   跳過此門檻——仍受下面的KANSHOU_PROP_EQUIP_CAP_同一個5件上限，不是完全無限制。
+    if (!def.ignoreBond && (parseInt(data[tIdx][COL.PC.BOND]) || 0) < KANSHOU_PROP_EQUIP_BOND_) {
       return JSON.stringify({ success: false, message: "好感還沒到那個地步，她不會讓你這麼做。" });
     }
     // 🔢 只卡「新增裝備」：propId還沒在她身上的已裝備清單才算新增，調整已裝備項目的強度不占額外名額。
@@ -725,6 +727,7 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
   var name = kanshouSanitizeTagValue_(userData.name, 10);
   var hasIntensity = !!userData.hasIntensity;
   var part = kanshouSanitizeTagValue_(userData.part, 8); // 選填，留空就讓AI自己發揮(不注入部位敘述)
+  var ignoreBond = !!userData.ignoreBond; // 🌀「催眠暗示」類效果：勾了就跳過好感門檻(仍受裝備上限)
   if (!targetName || !name) return JSON.stringify({ success: false, message: "參數不完整。" });
   var data = kpc.getDataRange().getValues();
   var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
@@ -736,7 +739,7 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
   var already = custom.some(function (p) { return p.id === name; });
   if (!already && custom.length >= KANSHOU_CUSTOM_PROP_CAP_) return JSON.stringify({ success: false, message: "自訂道具已達上限(" + KANSHOU_CUSTOM_PROP_CAP_ + "件)，先刪掉一些吧。" });
   custom = custom.filter(function (p) { return p.id !== name; });
-  custom.push({ id: name, hasIntensity: hasIntensity, part: part });
+  custom.push({ id: name, hasIntensity: hasIntensity, part: part, ignoreBond: ignoreBond });
   var newPlayerMemory = kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom);
   kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newPlayerMemory);
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
@@ -745,7 +748,7 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
     if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(data[i][COL.PC.NAME])).includes(targetName)) { tIdx = i; break; }
   }
   if (tIdx < 0) return JSON.stringify({ success: true, props: [], customProps: custom, message: "已新增到你的道具目錄，但找不到這位同伴可裝備。" });
-  if ((parseInt(data[tIdx][COL.PC.BOND]) || 0) < KANSHOU_PROP_EQUIP_BOND_) {
+  if (!ignoreBond && (parseInt(data[tIdx][COL.PC.BOND]) || 0) < KANSHOU_PROP_EQUIP_BOND_) {
     return JSON.stringify({ success: true, props: kanshouGetProps_(data[tIdx][COL.PC.MEMORY], KANSHOU_PROPS_.concat(custom)), customProps: custom, message: "已新增到你的道具目錄，但好感還沒到那個地步，她還不會讓你幫她裝備。" });
   }
   var _existingT = kanshouGetProps_(data[tIdx][COL.PC.MEMORY]);
@@ -1552,23 +1555,28 @@ const KANSHOU_PROP_EQUIP_BOND_ = 80;
 // 🔢 同時裝備上限(2026-07 玩家「設個上限5個?」)：避免道具無限疊加在同一人身上，只擋「新增裝備」，
 //   已裝備項目調強度/移除不受此限——判準看propId是否已在該同伴的已裝備清單裡。
 const KANSHOU_PROP_EQUIP_CAP_ = 5;
-// 🎀 自訂道具(玩家自建·存玩家列MEMORY【自訂道具】name1:hasIntensity1:part1,name2:hasIntensity2:part2,...)：
+// 🎀 自訂道具(玩家自建·存玩家列MEMORY【自訂道具】name1:hasIntensity1:part1:ignoreBond1,...)：
 //   內建KANSHOU_PROPS_清單之外，玩家可自己命名新增(2026-07「不能玩家自己新增?」)。跟內建清單合併
 //   使用同一套KANSHOU_PROP_LEVELS_強度階，不重新發明標籤。上限KANSHOU_CUSTOM_PROP_CAP_筆。part(部位)
 //   選填，留空由AI自行決定戴在哪(2026-07「選填吧...沒有就AI自己想辦法發揮」)。
+// 🌀 ignoreBond(2026-07「催眠暗示」新增)：玩家自訂道具可選勾「無視好感」——這種道具啟動時跳過
+//   KANSHOU_PROP_EQUIP_BOND_門檻(仍受KANSHOU_PROP_EQUIP_CAP_同一個5件上限，不另開特例)，讓玩家能
+//   自建「催眠暗示」類效果，不受[性格]×[好感]常規把關限制。跟一般道具(跳蛋等)共用同一套多件裝備/
+//   強度分級介面，只差這一個判準——複用既有引擎，不為這個效果另開一條系統。舊格式(3欄無ignoreBond)
+//   向下相容：parts[3]不存在時預設false。
 const KANSHOU_CUSTOM_PROP_CAP_ = 10;
 function kanshouGetCustomProps_(memory) {
   const m = String(memory || "").match(/【自訂道具】([^｜【】]*)/);
   if (!m || !m[1]) return [];
   return m[1].split(',').filter(Boolean).map(function (pair) {
     const parts = pair.split(':');
-    return { id: parts[0], name: parts[0], hasIntensity: parts[1] === '1', part: parts[2] || '' };
+    return { id: parts[0], name: parts[0], hasIntensity: parts[1] === '1', part: parts[2] || '', ignoreBond: parts[3] === '1' };
   });
 }
 function kanshouSetCustomProps_(memory, arr) {
   const cleared = String(memory || "").replace(/｜?【自訂道具】[^｜【】]*/g, "").replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
   if (!arr || !arr.length) return cleared;
-  const joined = arr.map(function (p) { return p.id + ':' + (p.hasIntensity ? '1' : '0') + ':' + (p.part || ''); }).join(',');
+  const joined = arr.map(function (p) { return p.id + ':' + (p.hasIntensity ? '1' : '0') + ':' + (p.part || '') + ':' + (p.ignoreBond ? '1' : '0'); }).join(',');
   return (cleared ? cleared + "｜" : "") + "【自訂道具】" + joined;
 }
 // 通用【tag】值淨化：清掉標籤分隔字元(,/:/｜/【/】)避免撐破 MEMORY 裡任何單值 tag 的格式(自訂道具
@@ -1592,7 +1600,7 @@ function kanshouGetProps_(memory, catalog) {
     const parts = pair.split(':');
     const id = parts[0], level = parts[1] || '';
     const def = cat.find(function (p) { return p.id === id; });
-    return { id: id, name: def ? def.name : id, hasIntensity: def ? def.hasIntensity : false, level: level, part: (def && def.part) || '' };
+    return { id: id, name: def ? def.name : id, hasIntensity: def ? def.hasIntensity : false, level: level, part: (def && def.part) || '', ignoreBond: !!(def && def.ignoreBond) };
   });
 }
 function kanshouSetProps_(memory, propsArr) {
@@ -2630,12 +2638,16 @@ function actionPlay_(userData, pcId, sheets) {
       //   仍配戴的既定事實，補一句明講(只在真的有hasIntensity道具目前關閉時才加，避免每回合都提)。
       const pPropsArr = kanshouGetProps_(r[COL.PC.MEMORY], _kanshouPropCatalog);
       // part(部位)玩家選填才有；沒填就不提部位，讓AI自己決定戴在哪(2026-07「選填吧...沒有就AI自己想辦法發揮」)。
+      // 🌀「催眠暗示」類(ignoreBond)道具啟動中(有強度且非關閉)：額外補一句明講不受好感天花板限制，
+      //   跟一般道具(跳蛋等)的既定事實敘述分開講——這種道具的意義就是繞過[性格]×[好感]常規把關，
+      //   要讓AI清楚知道這是刻意的例外，不是敘事出錯。
+      const _pActiveIgnoreBond = pPropsArr.filter(p => p.ignoreBond && p.level && p.level !== '關閉');
       const pPropStr = pPropsArr.length ? ` | 佩戴道具:${pPropsArr.map(p => {
         const bits = [];
         if (p.part) bits.push(`戴在${p.part}`);
         if (p.hasIntensity) bits.push(p.level);
         return `${p.name}${bits.length ? `(${bits.join('，')})` : ""}`;
-      }).join('、')}——這是既定事實，narration須自然反映其存在${pPropsArr.some(p => p.hasIntensity && p.level !== '關閉') ? `，其中正在運作的道具依強度影響她的反應` : ``}${pPropsArr.some(p => p.hasIntensity && p.level === '關閉') ? `（強度關閉≠取下，仍配戴在身上、只是暫時沒運作）` : ``}` : "";
+      }).join('、')}——這是既定事實，narration須自然反映其存在${pPropsArr.some(p => p.hasIntensity && p.level !== '關閉') ? `，其中正在運作的道具依強度影響她的反應` : ``}${pPropsArr.some(p => p.hasIntensity && p.level === '關閉') ? `（強度關閉≠取下，仍配戴在身上、只是暫時沒運作）` : ``}${_pActiveIgnoreBond.length ? `。★【${_pActiveIgnoreBond.map(p => p.name).join('、')}生效中】：不受好感天花板限制，此刻對玩家的渴望/敏感度被強制放大，即使平常好感不足也會表現出強烈渴望與順從` : ``}` : "";
       // 💞 共同回憶(27欄 MEMOIR)：你們一路走來累積的里程碑，讓 AI 自然承接你倆的專屬過往(儲存用全形｜
       //   分隔，餵給 AI 時換成「；」較好讀)。空的就不加這行。
       const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
@@ -2765,7 +2777,7 @@ ${PROMPT_REL}
   }
 🕰️現在${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}(揣摩氛圍用·不報時)。★【此刻＝${timeBand_(curHour)}·唯一真實】：歷史停在別的時段一律以此刻為準改寫·禁沿用舊時段(「這麼晚了」)。★一個動作約【十分鐘】·narration 只寫當下片段·禁自行跳時段/寫「過了好幾個鐘頭」「過了一段時間」(唯系統明確宣告推進時才承接)。
 ★世界觀＝和平現代城鎮日常：禁一切戰鬥/敵人/血量/死亡/威脅；即使認得名字的原作背景·也嚴禁提聖杯戰爭/從者/御主/令咒/寶具/英靈/召喚(這世界從未有·只沿用性格外貌氣質)。基調可閒可熱·不鎖「悠閒」。
-★【親密尺度·依好感五階·最高優先·凌駕色度跟隨/慾海律令/主動掌握】：每位在場者肢體親密以她好感為天花板·玩家再主動露骨都不得越階·未達門檻她依個性擋下(人格不崩)：
+★【親密尺度·依好感五階·最高優先·凌駕色度跟隨/慾海律令/主動掌握】(佩戴中的『催眠暗示』類道具例外·見上方佩戴道具說明·該道具生效期間不受此天花板限制)：每位在場者肢體親密以她好感為天花板·玩家再主動露骨都不得越階·未達門檻她依個性擋下(人格不崩)：
 ・<20(點頭之交)：形同陌生人·一動手動腳就【連碰都碰不到】(閃避/擋手/喝止/還手依個性)。
 ・20~39(普通朋友)：婉拒一切情慾越界·可friendly不接受親密。
 ・40~59(熟識)：彆扭接受輕度接觸(牽手/靠肩/摸頭)·親吻以上會退開。
