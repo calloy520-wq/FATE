@@ -307,6 +307,11 @@ function actionUpdateFate(userData, pcId, sheets) {
   // 🔵 只准改 4 種敘事欄（個性/特徵/身世/萌點）；數值(六圍/迴路/禮裝)與寶具(martial)一律不可改——GAS 掌數值鐵則。
   let targetCol = fateType === 'trait' ? COL.PC.TRAIT : fateType === 'pref' ? COL.PC.PREF : fateType === 'back' ? COL.PC.BACK : fateType === 'intent' ? COL.PC.INTENT : -1;
   if (targetCol === -1) return JSON.stringify({ success: false, message: "此欄位不可修改（只能改個性／特徵／身世／萌點，數值與寶具一律鎖死）。" });
+  // 🐛→✅ 玩家要求「真正內化」的萌點：同伴/NPC的萌點只留給AI演出參考，玩家不可查看也不可竄改——
+  //   前端已把同伴卡的萌點格連按鈕都藏了，這裡補後端防線，擋掉繞前端直打API的路。
+  if (fateType === 'intent' && String(pcData[pIdx][COL.PC.ID]) !== String(pcId)) {
+    return JSON.stringify({ success: false, message: "同伴的萌點由AI自行體會，不開放查看或修改。" });
+  }
   // 🔴 命格欄位直寫入表格，需自行把關長度：身世/萌點 單格 30；個性/特徵 為 4 格頓號拼接、給較寬上限
   var cap = fateType === 'back' ? 80 : fateType === 'intent' ? 30 : 130; // 經歷(back)放寬到80配合AI滾動
   pcData[pIdx][targetCol] = String(fateValue || "").slice(0, cap);
