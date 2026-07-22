@@ -2887,6 +2887,8 @@ function applyModeUI() {
   // 📷 拍照鈕(輸入列)＋相簿(＋抽屜)：鑑賞限定
   var pbtn = document.getElementById('photo-btn'); if (pbtn) pbtn.style.display = isKanshou ? '' : 'none';
   var dalb = document.getElementById('drawer-album'); if (dalb) dalb.style.display = isKanshou ? '' : 'none';
+  // 🎀 小道具快速控制抽屜(鑑賞限定，見Script_Kanshou.html的_kcEnsureDrawer_)：懶建立(第一次進applyModeUI才生)。
+  if (typeof _kcEnsureDrawer_ === 'function') { var _kcd = _kcEnsureDrawer_(); _kcd.style.display = isKanshou ? 'block' : 'none'; }
   // 戰爭行動列：取代輸入框，只在戰爭模式顯示
   var wa = document.getElementById('war-actions'); if (wa) wa.style.display = isKanshou ? 'none' : 'flex';
   // 🌹 鑑賞御主卡已內建「換裝＋詳細狀態」按鈕列；solo 御主卡名字旁現也補了同款「📜狀態」inline 鈕——

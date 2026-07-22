@@ -589,7 +589,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `actionKanshouSetSex(userData, pcId, sheets)` — 切換御主性別（限男/女）；切男時檢查世界內是否已有男性從者（避免男男配對）；真換時重置 PHYSICAL 為中性預設。
 - `actionKanshouSetName(userData, pcId, sheets)` — 改御主名字（≤16 字）；關係併入從者自己列，改名不影響羈絆。
 - `actionKanshouSetHomeName(userData, pcId, sheets)` — 改「家」顯示名（≤12 字），寫進 MEMORY【住所】標記（`setKanshouHomeName_`）。
-- `actionKanshouSetProp(userData, pcId, sheets)`（2026-07 新增）— 小道具裝備/移除/調強度：`targetName`+`propId`(空字串＝移除)+`level`，比照 `actionKanshouMemoirOp` 同款帳號驗證+目標同伴查找，寫 MEMORY【小道具】（`kanshouSetProp_`）。GAS直接寫、不靠AI自己判斷該不該記(根治「幫她戴貓耳朵過幾輪就忘記」的機制保證版)。
+- `actionKanshouSetProp(userData, pcId, sheets)`（2026-07 新增，同批改多件同時裝備）— 小道具裝備/移除/調強度：`targetName`+`propId`+`level`(空字串＝只移除這一件，其餘已裝備道具不受影響)，比照 `actionKanshouMemoirOp` 同款帳號驗證+目標同伴查找，寫 MEMORY【小道具】（`kanshouToggleProp_`）。GAS直接寫、不靠AI自己判斷該不該記(根治「幫她戴貓耳朵過幾輪就忘記」的機制保證版)。同伴卡面板與故事視窗快速抽屜共用此 action。
 
 #### AI 提示詞組裝（🔴 鑑賞 AI 核心）
 
@@ -656,7 +656,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `KANSHOU_COHABIT_TAG_`（makeIntTag_ 同居）、`KANSHOU_HANDHOLD_TAG_`（makeTextTag_ 牽手·存玩家列單一對象）、`KANSHOU_COHABIT_BOND_`(90)、`KANSHOU_VISIT_BOND_`(40)、`KANSHOU_COHABIT_ROOM_`(和室)（常數）。
 - `kanshouIsCohabit_(row)` — 該從者是否同居中。
 - `KANSHOU_PROPS_`（資料驅動小道具庫，目前1筆：跳蛋，hasIntensity=true）、`KANSHOU_PROP_LEVELS_`(關閉/微弱/中等/強勁)（2026-07 新增·常數，前端 `Script_Kanshou.html` 的 `KC_PROPS_`/`KC_PROP_LEVELS_` 鏡像同步）。
-- `kanshouGetProp_(memory)` / `kanshouSetProp_(memory, propId, level)`（2026-07 新增）— MEMORY【小道具】道具id:強度 讀/寫（propId空字串＝移除，同時只存一件、新道具蓋舊）。
+- `kanshouGetProps_(memory)`（回傳陣列）/ `kanshouSetProps_(memory, propsArr)` / `kanshouToggleProp_(memory, propId, level)`（2026-07 新增，同批改多件同時裝備）— MEMORY【小道具】id1:強度1,id2:強度2,... 讀/整批寫/單件切換（`ToggleProp_` 是實際呼叫端用的：level空字串＝移除該項、其餘已裝備道具原樣保留）。
 
 #### 相簿（拍照·2026-07）
 
@@ -1209,6 +1209,16 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `kanshouOpenMemoir(name)` — 開/重繪「與某人的共同回憶」彈窗 `#km-overlay`；`_kcCur` 沒載到會自抓一次；每列有 📌釘選(pin/unpin)＋🗑刪除鈕→`kanshouMemoirOp`。
 - `_kmShowLoading_(name)` — 把 `#km-overlay` 內容換成讀條（不存在則先建）。
 - `kanshouMemoirOp(name, op, item)` — 釘選/取消/刪除回憶（`kanshou_memoir_op`）；`_kmBusy` 擋連點；完成後原地重繪並同步卡片數量徽章。
+
+#### 小道具（2026-07 新增）
+- `KC_PROPS_` / `KC_PROP_LEVELS_` — 鏡像後端 `KANSHOU_PROPS_`/`KANSHOU_PROP_LEVELS_`（唯一真實來源在 Gallery.gs，改後端記得同步這裡）。
+- `kanshouOpenProps(name)` — 開/重繪「某人的小道具」彈窗 `#kp-overlay`；`_kcCur` 沒載到會自抓一次；列出全部道具，已裝備的顯示目前強度＋🗑，未裝備的顯示「裝備」鈕（呼叫 `kanshouSetProp`）。多件可同時裝備。
+- `_kpShowLoading_(name)` — 把 `#kp-overlay` 內容換成讀條（不存在則先建）。
+- `kanshouSetProp(name, propId, level)` — 裝備/移除/改強度單一道具（`kanshou_set_prop`，level空字串＝移除）；`_kpBusy` 擋連點；完成後原地重繪面板。
+- `_kcEnsureDrawer_()` — 懶建立故事視窗旁的「小道具快速控制抽屜」DOM（`#kc-prop-drawer`），回傳該元素；`applyModeUI()`(Script.html) 依鑑賞模式切換其顯示。
+- `kcTogglePropDrawer()` — 展開/收合抽屜；展開時呼叫 `_kcRenderDrawer_`。
+- `_kcRenderDrawer_()` — 重繪抽屜內容：只列**在場**且有強度可調道具的同伴，每項給強度快選鈕（呼叫 `kcQuickSetProp`）；`_kcCur` 沒載到會自抓一次。
+- `kcQuickSetProp(name, propId, level)` — ★樂觀更新：立即用本地 `_kcCur` 快取改值+重繪，背景 `gasRun` 送出（`kanshou_set_prop`）不等待、**不觸發AI敘事**——AI 下次正常互動會自然從既定事實讀到最新強度。跟 `kanshouSetProp`（會等後端確認）是兩條路，共用同一後端 action。
 
 #### 時間推進 / 節慶
 - `kanshouEndDay()` — 結束一天（`endDay:true` 走 `send`）；睡前先掃 `_kcCur` 今天未赴的約做爽約警示確認框。

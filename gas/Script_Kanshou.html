@@ -521,29 +521,29 @@ let plainTextContext = cleanText;
       ov.onclick = function (e) { if (e.target === ov && !_kpBusy) ov.style.display = 'none'; };
       document.body.appendChild(ov);
     }
-    var cur = c.prop || null;
+    var curArr = c.props || []; // 🎀 多件同時裝備(2026-07 改版)，不再是單一 c.prop
     var safeN = String(name).replace(/'/g, "\\'");
     var rows = KC_PROPS_.map(function (p) {
-      var equipped = cur && cur.id === p.id;
+      var eq = curArr.find(function (x) { return x.id === p.id; });
       if (p.hasIntensity) {
         var levelBtns = KC_PROP_LEVELS_.map(function (lv) {
-          var active = equipped && cur.level === lv;
+          var active = eq && eq.level === lv;
           return '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'' + lv + '\')" style="flex:1;padding:6px 3px;font-size:12px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : '#ccc') + ';border:none;border-radius:6px;cursor:pointer;">' + lv + '</button>';
         }).join('');
         return '<div style="padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
-          + '<div style="color:#f0b8e0;font-size:13px;margin-bottom:6px;">' + escapeHtml(p.name) + '</div>'
+          + '<div style="display:flex;align-items:center;margin-bottom:6px;"><span style="flex:1;color:#f0b8e0;font-size:13px;">' + escapeHtml(p.name) + '</span>'
+          + (eq ? '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'\')" title="移除" style="padding:3px 8px;background:#4a3038;color:#e09999;border:none;border-radius:6px;cursor:pointer;font-size:11px;">🗑</button>' : '') + '</div>'
           + '<div style="display:flex;gap:5px;">' + levelBtns + '</div></div>';
       }
       return '<div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
         + '<span style="flex:1;color:#f0b8e0;font-size:13px;">' + escapeHtml(p.name) + '</span>'
-        + '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'戴著\')" style="padding:5px 10px;background:' + (equipped ? '#a05088' : '#3a3a44') + ';color:' + (equipped ? '#fff' : '#ccc') + ';border:none;border-radius:6px;cursor:pointer;font-size:12px;">' + (equipped ? '已裝備' : '裝備') + '</button></div>';
+        + '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'' + (eq ? '' : '戴著') + '\')" style="padding:5px 10px;background:' + (eq ? '#a05088' : '#3a3a44') + ';color:' + (eq ? '#fff' : '#ccc') + ';border:none;border-radius:6px;cursor:pointer;font-size:12px;">' + (eq ? '已裝備(點擊移除)' : '裝備') + '</button></div>';
     }).join('');
     ov.innerHTML = '<div style="width:min(400px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(240,184,224,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#f0b8e0;">🎀 「' + escapeHtml(name) + '」的小道具</b>'
       + '<button onclick="document.getElementById(\'kp-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
-      + (cur ? '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:6px;">目前：' + escapeHtml(cur.name) + (cur.hasIntensity ? '(' + escapeHtml(cur.level) + ')' : '') + '</div>' : '')
+      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:6px;">可同時裝備多件。' + (curArr.length ? '目前：' + curArr.map(function (x) { return escapeHtml(x.name) + (x.hasIntensity ? '(' + escapeHtml(x.level) + ')' : ''); }).join('、') : '目前沒裝備任何道具') + '</div>'
       + rows
-      + (cur ? '<button onclick="kanshouSetProp(\'' + safeN + '\',\'\',\'\')" style="width:100%;margin-top:8px;padding:8px;background:#4a3038;color:#e09999;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🗑 移除目前道具</button>' : '')
       + '</div>';
     ov.style.display = 'flex';
   }
@@ -568,12 +568,66 @@ let plainTextContext = cleanText;
       const res = await gasRun({ action: 'kanshou_set_prop', pcId: pc.id, acctName: currentAccount, targetName: name, propId: propId, level: level });
       if (!res || !res.success) { alert((res && res.message) || '操作失敗。'); return; }
       var c = _kcCur.find(function (x) { return x.name === name; });
-      if (c) c.prop = res.prop || null;
+      if (c) c.props = res.props || [];
     } catch (e) { alert('操作失敗。'); }
     finally {
       _kpBusy = false;
       kanshouOpenProps(name); // 面板原地重繪
     }
+  }
+
+  // 🎀🎚️ 小道具快速控制抽屜(2026-07 新增·玩家「想在故事視窗旁弄個隱藏抽屜快速調強度」)：常駐固定
+  //   在畫面右側的小拉環，展開後只列「在場」且有強度可調的道具，點一下就切強度。★樂觀更新：本地
+  //   資料/畫面立即反映，背景 gasRun 送出不等待、也不觸發AI敘事——不是每轉一次旋鈕就逼AI講一輪話，
+  //   AI 會在玩家下一次正常互動時自然從 partyDetailsArr 的既定事實讀到目前強度去演。跟同伴卡面板
+  //   (kanshouOpenProps，會等後端確認+可增減道具)是兩條路：面板負責「裝備哪些道具」，這裡負責
+  //   「已裝備的道具即時調強度」，共用同一個後端 action(kanshou_set_prop)。
+  var _kcDrawerOpen = false;
+  function _kcEnsureDrawer_() {
+    var wrap = document.getElementById('kc-prop-drawer');
+    if (wrap) return wrap;
+    wrap = document.createElement('div');
+    wrap.id = 'kc-prop-drawer';
+    wrap.style.cssText = 'display:none;position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:900;';
+    wrap.innerHTML = '<div style="display:flex;align-items:center;">'
+      + '<div id="kc-prop-panel" style="display:none;width:210px;max-height:60vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(240,184,224,.3);border-radius:10px 0 0 10px;padding:10px;box-shadow:-4px 0 16px rgba(0,0,0,.4);"></div>'
+      + '<div id="kc-prop-tab" onclick="kcTogglePropDrawer()" title="小道具快速控制" style="width:20px;height:56px;background:rgba(160,80,136,.85);border-radius:8px 0 0 8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;font-size:13px;">◀</div>'
+      + '</div>';
+    document.body.appendChild(wrap);
+    return wrap;
+  }
+  async function kcTogglePropDrawer() {
+    _kcEnsureDrawer_();
+    var panel = document.getElementById('kc-prop-panel');
+    var tab = document.getElementById('kc-prop-tab');
+    _kcDrawerOpen = !_kcDrawerOpen;
+    panel.style.display = _kcDrawerOpen ? 'block' : 'none';
+    if (tab) tab.textContent = _kcDrawerOpen ? '▶' : '◀';
+    if (_kcDrawerOpen) await _kcRenderDrawer_();
+  }
+  async function _kcRenderDrawer_() {
+    if (!_kcCur.length) {
+      try { const res = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount }); if (res && res.success) _kcCur = res.current || []; } catch (e) { }
+    }
+    var panel = document.getElementById('kc-prop-panel');
+    if (!panel) return;
+    var here = _kcCur.filter(function (c) { return c.isHere && (c.props || []).some(function (p) { return p.hasIntensity; }); });
+    if (!here.length) { panel.innerHTML = '<div style="color:#8a7fa0;font-size:12px;">在場沒有可調整強度的道具</div>'; return; }
+    panel.innerHTML = here.map(function (c) {
+      return (c.props || []).filter(function (p) { return p.hasIntensity; }).map(function (p) {
+        var btns = KC_PROP_LEVELS_.map(function (lv) {
+          var active = p.level === lv;
+          return '<button onclick="kcQuickSetProp(\'' + c.name.replace(/'/g, "\\'") + '\',\'' + p.id + '\',\'' + lv + '\')" style="flex:1;padding:5px 2px;font-size:11px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : '#ccc') + ';border:none;border-radius:5px;cursor:pointer;">' + lv + '</button>';
+        }).join('');
+        return '<div style="margin-bottom:8px;"><div style="color:#f0b8e0;font-size:12px;margin-bottom:4px;">' + escapeHtml(c.name) + ' · ' + escapeHtml(p.name) + '</div><div style="display:flex;gap:3px;">' + btns + '</div></div>';
+      }).join('');
+    }).join('');
+  }
+  function kcQuickSetProp(name, propId, level) {
+    var c = _kcCur.find(function (x) { return x.name === name; });
+    if (c) { var p = (c.props || []).find(function (x) { return x.id === propId; }); if (p) p.level = level; }
+    _kcRenderDrawer_(); // 樂觀：立即用本地快取重繪，不等後端
+    gasRun({ action: 'kanshou_set_prop', pcId: pc.id, acctName: currentAccount, targetName: name, propId: propId, level: level }).catch(function () { });
   }
 
   // 🌙 結束一天：不在身邊的英靈由GAS自動決定隔天去哪(見Gallery.gs kanshouRollDailyLocation_)，不用手動排程；跟一般聊天走同一個send()、同一套渲染。

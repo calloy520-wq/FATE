@@ -58,7 +58,7 @@
 | 【性格鎖】 | `【性格鎖】對外性格,喜歡`（逗號分隔鍵名清單） | 玩家列 | `kanshouGetPrefLocks_`/`SetPrefLocks_`：玩家用改命【自訂】某性格格後登記在此，滾動側寫只補沒鎖的格，不覆寫玩家自訂值 |
 | 【側寫計數】 | `【側寫計數】N` | 玩家列 | `kanshouGetSideWriteCount_`/`SetSideWriteCount_`：AI滾動側寫玩家性格的節流計數(每3回合才補寫一次) |
 | [雙修技巧] | `[雙修技巧]技巧名`（半形方括號，跟其餘全形【】標記不同） | 同伴列 | `setSkillTag_`：只更新這一段、不動其餘標記；`dynamic_skills` 欄寫入用 |
-| 【小道具】 | `【小道具】道具id:強度` | 同伴列 | `kanshouGetProp_`/`SetProp_`：玩家UI裝備/移除(同伴卡「🎀小道具」按鈕)，GAS直接寫，非AI判斷 |
+| 【小道具】 | `【小道具】id1:強度1,id2:強度2,...`（逗號分隔·多件可同時裝備） | 同伴列 | `kanshouGetProps_`/`SetProps_`/`ToggleProp_`：玩家UI裝備/移除/調強度(同伴卡「🎀小道具」按鈕＋故事視窗快速抽屜)，GAS直接寫，非AI判斷 |
 | 【換裝】【口吻】【小動作】 | — | 同伴列 | 鑑賞**讀取**（`getOutfit_`/persona），寫入屬 solo/persona 生態、非鑑賞獨有 |
 
 ---
@@ -152,7 +152,10 @@
 - **拜訪私宅**：好感≥`KANSHOU_VISIT_BOND_ = 40`（熟識朋友切點）才解鎖登門（`kanshouResidenceUnlocked_`）。
 - **巧遇**：`kanshouToggleEncounter_` 開關；女性保底池 `KANSHOU_ENCOUNTER_FEMALE_IDS_`；結識 `kanshouAcceptInvite`（`inviteResident`）。
 - **牽手**：`kanshouHoldHand`/`kanshouReleaseHand`（單獨約會氛圍，`【牽手】` 存玩家列·值＝她的短名）。⚠ **2026-07 玩家「牽手太用力·每次都提·地理錯亂」重寫 `kanshouHoldingStr`**：舊版每回合強推「交握的溫度／並肩距離／別人也看得見」＝AI 每回合死抓著手講；且沒斷言「她此刻與你同處」＝AI 腦補成「她在○○等你、你跑進來」（明明牽著手寸步不離）。新版＝**背景資訊·別過度著墨**（偶爾輕帶一筆、重心放當下互動）＋明確斷言「她就在你身邊、和你同處一地、絕非在別處等你」。**生命週期不變式**（2026-07 玩家實測補齊）：① 跳時間重骰**豁免**牽手對象（不會憑空消失）；② 每回合算 `kanshouHeldName_` 時驗「她真的在場」——不同地點自動放手清標記（根治「隔空牽手/重逢自動牽手」）；③ `endDay` 睡覺一律放手；④ 對象名一律走 `kanshouNameCandidates_` 比對（別名/大小寫都認得）。
-- **🎀 小道具**（2026-07 新增·根治「幫她戴貓耳朵過幾輪就忘記」的機制保證版）：`KANSHOU_PROPS_`(資料驅動·目前只有`跳蛋`)＋`KANSHOU_PROP_LEVELS_`(關閉/微弱/中等/強勁)，存該同伴列 MEMORY `【小道具】道具id:強度`（`kanshouGetProp_`/`SetProp_`，同時只存一件，換道具＝新道具蓋舊道具）。**玩家UI手動裝備/移除，GAS直接寫，不靠AI自己判斷該不該記**——跟`outfit_change`(現appearance_extras)那套「AI自己判斷有沒有變化」的路徑刻意分開，這條是機制保證。入口：同伴卡片「🎀小道具」按鈕（`Script.html`）→ `kanshouOpenProps`/`kanshouSetProp`（`Script_Kanshou.html`，面板鏡像後端 `KC_PROPS_`/`KC_PROP_LEVELS_`，改後端記得同步）→ `kanshou_set_prop` action（`actionKanshouSetProp`，比照 `actionKanshouMemoirOp` 同款帳號驗證+目標同伴查找）。持久狀態餵進 `partyDetailsArr`(`pPropStr`)當既定事實，narration 自然反映其存在與強度，不受親密尺度五階影響（道具本身不繞過好感天花板，只是描述現況）。**擴充新項目(項圈/眼罩/手銬之類)只要往 `KANSHOU_PROPS_` 加一筆＋前端鏡像同步一筆，不必改任何邏輯。**
+- **🎀 小道具**（2026-07 新增·根治「幫她戴貓耳朵過幾輪就忘記」的機制保證版）：`KANSHOU_PROPS_`(資料驅動·目前只有`跳蛋`)＋`KANSHOU_PROP_LEVELS_`(關閉/微弱/中等/強勁)，存該同伴列 MEMORY `【小道具】id1:強度1,id2:強度2,...`（`kanshouGetProps_`/`SetProps_`/`ToggleProps_`，**多件可同時裝備**，逗號分隔比照【性格鎖】同款寫法——2026-07 玩家「其他道具怎麼辦，一次只能一種？」後從單槽改多槽）。**玩家UI手動裝備/移除/調強度，GAS直接寫，不靠AI自己判斷該不該記**——跟`outfit_change`(現appearance_extras)那套「AI自己判斷有沒有變化」的路徑刻意分開，這條是機制保證。
+  - **入口①同伴卡面板**：卡片「🎀小道具」按鈕（`Script.html`）→ `kanshouOpenProps`/`kanshouSetProp`（`Script_Kanshou.html`，鏡像後端 `KC_PROPS_`/`KC_PROP_LEVELS_`，改後端記得同步）——負責「裝備哪些道具」，會等後端確認+可增減項目。
+  - **入口②故事視窗快速控制抽屜**（2026-07 玩家「想在故事視窗旁弄個隱藏抽屜快速調強度」）：畫面右側常駐小拉環(`_kcEnsureDrawer_`/`kcTogglePropDrawer`，`applyModeUI()`依模式顯隱)，展開只列**在場**且有強度道具的同伴，`kcQuickSetProp` 快速切強度——**只負責「已裝備道具即時調強度」，不能新增/移除道具**(那是面板的事)。★**樂觀更新**：按下立即用本地 `_kcCur` 快取重繪畫面，背景 `gasRun` 送出不等待、**不觸發AI敘事**——不是每轉一次旋鈕就逼AI講一輪話，AI 會在玩家下一次正常互動時自然從 `partyDetailsArr` 的既定事實讀到目前強度去演。兩個入口共用同一個後端 action。
+  - 兩個入口都打同一個 `kanshou_set_prop` action（`actionKanshouSetProp`，比照 `actionKanshouMemoirOp` 同款帳號驗證+目標同伴查找，`level`空字串＝移除該項、其餘已裝備道具不受影響）。持久狀態餵進 `partyDetailsArr`(`pPropStr`，多件用「、」串接)當既定事實，narration 自然反映其存在與強度，不受親密尺度五階影響（道具本身不繞過好感天花板，只是描述現況）。**擴充新項目(項圈/眼罩/手銬之類)只要往 `KANSHOU_PROPS_` 加一筆＋前端鏡像同步一筆，不必改任何邏輯。**
 
 ---
 
