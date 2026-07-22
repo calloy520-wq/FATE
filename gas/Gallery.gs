@@ -2641,13 +2641,21 @@ function actionPlay_(userData, pcId, sheets) {
       // 🌀「催眠暗示」類(ignoreBond)道具啟動中(有強度且非關閉)：額外補一句明講不受好感天花板限制，
       //   跟一般道具(跳蛋等)的既定事實敘述分開講——這種道具的意義就是繞過[性格]×[好感]常規把關，
       //   要讓AI清楚知道這是刻意的例外，不是敘事出錯。
-      const _pActiveIgnoreBond = pPropsArr.filter(p => p.ignoreBond && p.level && p.level !== '關閉');
+      // 🌀 2026-07 玩家「輕中重強度AI會知道怎麼表現嗎?」：不要對三階都套同一句「更強烈」，小模型
+      //   對純粹形容詞疊加的區分度很弱(跟篇幅指示同一個教訓)。改成三階各給具體不同的行為指令，
+      //   弧線＝微弱(反差為主·懷疑但小順從)→中等(反差減弱·困惑但持續順從)→強勁(反差消失·暗示
+      //   本身取代常規人格反應，直接引用道具名稱字面內容當最高優先)。
+      const _ignoreBondLines = pPropsArr.filter(p => p.ignoreBond && p.level && p.level !== '關閉').map(p => {
+        if (p.level === '微弱') return `★【${p.name}·輕度生效】：不受好感天花板限制，她隱約感覺到一絲異樣的順從衝動，意識仍清醒，會皺眉懷疑「自己為什麼會這樣」並口頭表示懷疑/抗拒，但身體不由自主順從小小一步——嘴上抗拒、身體妥協的反差為主。`;
+        if (p.level === '中等') return `★【${p.name}·中度生效】：不受好感天花板限制，她開始恍惚失神、抵抗力明顯下降，會用虛弱困惑的語氣表示懷疑(如「為什麼…沒辦法拒絕…」)，但行動上已持續半推半就地順從，不只是一時動搖。`;
+        return `★【暗示接管中：『${p.name}』】：這句暗示此刻是她意識的最高優先，其餘設定(含[性格]×[好感]的常規反應)暫時讓位，言行直接服膺這句暗示內容，近乎執行指令、跟平常判若兩人，直到暗示強度降低或解除。`;
+      });
       const pPropStr = pPropsArr.length ? ` | 佩戴道具:${pPropsArr.map(p => {
         const bits = [];
         if (p.part) bits.push(`戴在${p.part}`);
         if (p.hasIntensity) bits.push(p.level);
         return `${p.name}${bits.length ? `(${bits.join('，')})` : ""}`;
-      }).join('、')}——這是既定事實，narration須自然反映其存在${pPropsArr.some(p => p.hasIntensity && p.level !== '關閉') ? `，其中正在運作的道具依強度影響她的反應` : ``}${pPropsArr.some(p => p.hasIntensity && p.level === '關閉') ? `（強度關閉≠取下，仍配戴在身上、只是暫時沒運作）` : ``}${_pActiveIgnoreBond.length ? `。★【${_pActiveIgnoreBond.map(p => p.name).join('、')}生效中】：不受好感天花板限制，此刻對玩家的渴望/敏感度被強制放大，即使平常好感不足也會表現出強烈渴望與順從` : ``}` : "";
+      }).join('、')}——這是既定事實，narration須自然反映其存在${pPropsArr.some(p => p.hasIntensity && p.level !== '關閉') ? `，其中正在運作的道具依強度影響她的反應` : ``}${pPropsArr.some(p => p.hasIntensity && p.level === '關閉') ? `（強度關閉≠取下，仍配戴在身上、只是暫時沒運作）` : ``}${_ignoreBondLines.length ? `。${_ignoreBondLines.join('')}` : ``}` : "";
       // 💞 共同回憶(27欄 MEMOIR)：你們一路走來累積的里程碑，讓 AI 自然承接你倆的專屬過往(儲存用全形｜
       //   分隔，餵給 AI 時換成「；」較好讀)。空的就不加這行。
       const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
