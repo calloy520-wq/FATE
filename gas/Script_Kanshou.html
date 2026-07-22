@@ -675,9 +675,13 @@ let plainTextContext = cleanText;
     var safeN = String(name).replace(/'/g, "\\'");
     var activeH = (c.props || []).filter(function (x) { return x.ignoreBond; });
     var rows = activeH.map(function (p) {
-      var levelBtns = KC_PROP_LEVELS_.map(function (lv) {
+      // 🐛→✅ 玩家「催眠太強，可以用GAS控制他升級嗎」：不能一次跳兩階以上升(微弱直接跳強勁太突兀)，
+      //   後端已擋，這裡同步把跳太多階的按鈕標成不可點，玩家不用點了才被錯誤訊息打回票。
+      var curIdx = KC_PROP_LEVELS_.indexOf(p.level);
+      var levelBtns = KC_PROP_LEVELS_.map(function (lv, idx) {
         var active = p.level === lv;
-        return '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id.replace(/'/g, "\\'") + '\',\'' + lv + '\')" style="flex:1;padding:6px 3px;font-size:12px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : '#ccc') + ';border:none;border-radius:6px;cursor:pointer;">' + lv + '</button>';
+        var tooFar = idx > curIdx + 1;
+        return '<button' + (tooFar ? ' disabled' : ' onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id.replace(/'/g, "\\'") + '\',\'' + lv + '\')"') + ' style="flex:1;padding:6px 3px;font-size:12px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : (tooFar ? '#666' : '#ccc')) + ';border:none;border-radius:6px;cursor:' + (tooFar ? 'not-allowed' : 'pointer') + ';opacity:' + (tooFar ? '0.5' : '1') + ';">' + lv + '</button>';
       }).join('');
       var delBtn = '<button onclick="kanshouDeleteCustomProp(\'' + p.id.replace(/'/g, "\\'") + '\')" title="從你的催眠指令目錄整個刪掉這項定義" style="padding:3px 6px;background:#3a3a44;color:#999;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:4px;">🗑目錄</button>';
       return '<div style="padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
@@ -721,7 +725,9 @@ let plainTextContext = cleanText;
       var ov = document.getElementById('kp-overlay');
       if (ov) ov.style.display = 'none'; // 關閉面板讓玩家看到故事流裡的即時反應
       _kpBusy = false;
-      send('我對' + targetName + '施展了催眠暗示：「' + text + '」'); // 立即觸發一次對話，AI當場演出反應
+      // 🐛→✅ 玩家「第一次催眠敘述改成使用手機催眠app的寫法」：呼應拍照已經改手機的世界觀，施展
+      //   當下也用「拿出手機、播放催眠APP的暗示音」這個更貼近現代設定的畫面，取代直接講「施展催眠暗示」。
+      send('（拿出手機，打開一款催眠APP，對著『' + targetName + '』播放了一段暗示語音：「' + text + '」）'); // 立即觸發一次對話，AI當場演出反應
       return;
     } catch (e) { alert('施展失敗。'); }
     finally {

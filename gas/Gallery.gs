@@ -703,6 +703,7 @@ function actionKanshouSetProp(userData, pcId, sheets) {
   if (tIdx < 0) return JSON.stringify({ success: false, message: "找不到這位同伴。" });
   var def = kanshouAllProps_(data[meIdx][COL.PC.MEMORY]).find(function (p) { return p.id === propId; });
   if (!def) return JSON.stringify({ success: false, message: "查無此道具。" });
+  var _existingP = kanshouGetProps_(data[tIdx][COL.PC.MEMORY]);
   var finalLevel = "";
   if (level) {
     finalLevel = def.hasIntensity ? (KANSHOU_PROP_LEVELS_.indexOf(level) !== -1 ? level : KANSHOU_PROP_LEVELS_[0]) : "戴著";
@@ -713,8 +714,17 @@ function actionKanshouSetProp(userData, pcId, sheets) {
     if (!def.ignoreBond && (parseInt(data[tIdx][COL.PC.BOND]) || 0) < KANSHOU_PROP_EQUIP_BOND_) {
       return JSON.stringify({ success: false, message: "好感還沒到那個地步，她不會讓你這麼做。" });
     }
+    // 🐛→✅ 玩家「催眠太強，可以用GAS控制他升級嗎」：催眠類道具的強度不能一次跳兩階以上升——
+    //   微弱直接跳強勁太突兀，逼玩家一階一階推進。降級(含直接關閉)隨時可以，不受此限。
+    if (def.ignoreBond && finalLevel !== KANSHOU_PROP_LEVELS_[0]) {
+      const _curP = _existingP.find(function (p) { return p.id === propId; });
+      const _curIdx = _curP ? KANSHOU_PROP_LEVELS_.indexOf(_curP.level) : 0; // 還沒裝備過視同「關閉」起跳
+      const _newIdx = KANSHOU_PROP_LEVELS_.indexOf(finalLevel);
+      if (_newIdx - _curIdx > 1) {
+        return JSON.stringify({ success: false, message: "暗示需要一階一階加深，不能一次跳這麼多階。" });
+      }
+    }
     // 🔢 只卡「新增裝備」：propId還沒在她身上的已裝備清單才算新增，調整已裝備項目的強度不占額外名額。
-    var _existingP = kanshouGetProps_(data[tIdx][COL.PC.MEMORY]);
     if (!_existingP.some(function (p) { return p.id === propId; }) && _existingP.length >= KANSHOU_PROP_EQUIP_CAP_) {
       return JSON.stringify({ success: false, message: "同時最多只能裝備" + KANSHOU_PROP_EQUIP_CAP_ + "件，先移除一件吧。" });
     }
