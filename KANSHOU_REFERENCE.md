@@ -145,6 +145,7 @@
 
 - **獨立作息**：每人有自己的家 `KANSHOU_HERO_HOME_`（`region:'visit'`）；`kanshouRollDailyLocation_` 每逢時間推進重骰全世界去向；**LOC 判在場**。
 - **同伴詳情上限** `KANSHOU_PARTY_DETAIL_CAP_ = 5`（同地最多給5張詳細卡，敘事上限非隊伍容量），依 BOND 排序。
+- **🌍 世界概況(輕量版)**（2026-07 玩家「NPC不知道彼此存在，很怪」）：不在場的同伴也給 AI 一份極簡名單——只有**名字＋大分區**(`KANSHOU_REGIONS_`的房間/家的共用空間/深山町/冬木市中心/山林/拜訪住處，不給精確地點/在幹嘛)，依 BOND 取前 `KANSHOU_WORLD_ROSTER_CAP_ = 8` 位，避免同伴一多每回合無限膨脹。★提示詞明講**僅供閒聊背景話題、絕不可讓對方憑空出現/開口/被指名互動**——不影響【在場驗證鐵律】，指名互動/追蹤好感仍只認同地點的 `partyRows`。純粹解決「明明認識彼此、對話裡卻連提都不能提」的違和感，不是給 NPC 即時動向。
 - **同居**：好感≥`KANSHOU_COHABIT_BOND_ = 90` 可邀（`kanshouInviteCohabit`），就寢/夜襲在 `KANSHOU_COHABIT_ROOM_ = '和室'`；`【同居】1` 標記。**🆕 她也能主動邀同居**（`cohabit_proposal`，好感達門檻＋在場＋未同住時）→ 回傳 `cohabitProposal` → 前端同意泡泡（`kanshouAcceptCohabit`，複用 cohabitInvite 後端、不重複跳確認框）。⚠ **2026-07 稽核修·同居會隨好感跌破90自動解除**：舊版`【同居】`只有兩處會寫成1(邀請成立/她主動提議)、全檔案沒有任何地方清回0——好感若同居後因爽約/冒犯一路跌到接近「點頭之交」，標記仍在，AI仍照樣把她骰進和室、仍觸發夜襲/賴床，敘事跟數值直接矛盾。已在`kanshouSyncRelTier_`(跟REL_TAG梯度同步同一個函式、呼叫時機也一致)裡補上：BOND低於`KANSHOU_COHABIT_BOND_`就清掉`【同居】`。
 - 🎛️ **AI 主動提議通則**（move/promise/cohabit_proposal 共用）：都是「意圖非結果」，narration 停在她開口的當下、由玩家按泡泡決定；三種提議同回合互斥（有 moveProposal 就不浮 promise/cohabit，避免泡泡打架）。
 - **拜訪私宅**：好感≥`KANSHOU_VISIT_BOND_ = 40`（熟識朋友切點）才解鎖登門（`kanshouResidenceUnlocked_`）。
