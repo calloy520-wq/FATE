@@ -2587,12 +2587,6 @@ function actionPlay_(userData, pcId, sheets) {
     }
   });
   const kanshouAnnivStr = kanshouAnnivLines_.length ? `\n★【紀念日·非強制】：今天是${kanshouAnnivLines_.join('、')}的日子——若氣氛合適可自然帶出這份紀念的溫度(她記得、或你記得皆可)，不必強行慶祝或報幕。` : "";
-  // 💢 醋意暗流(輕量·非橋段)：兩位以上好感≥60的同伴同場時20%機率餵一行提示——AI即興演出醋意
-  //   火花，不骰走向、不加按鈕，點到為止不喧賓奪主。
-  const _jealousPool = partyRows.filter(r => (parseInt(r[COL.PC.BOND]) || 0) >= 60);
-  const kanshouJealousStr = (_jealousPool.length >= 2 && Math.random() < 0.2)
-    ? `\n★【醋意暗流·非強制】：『${_jealousPool.map(r => String(r[COL.PC.NAME])).join('、')}』跟你的羈絆都不淺、此刻又同在一處——可讓她們之間自然流露一絲互相較勁或暗暗吃味的醋意火花(依各自性格，明爭暗鬥/故作大方/悄悄觀察皆可)，點到為止、不喧賓奪主。`
-    : "";
   // 🤝 牽手中·常駐氛圍：牽的對象此刻真的同地在場才提示(被時間推進骰走就不提)。這回合剛牽/放手
   //   的當下演出走 kanshouHandHoldStr，這條是「牽著手的後續回合」持續帶出親密感。
   const kanshouHoldingStr = (kanshouHeldName_ && partyMembers.some(n => kanshouNameCandidates_(String(n)).includes(kanshouHeldName_)) && !(userData.handHold))
@@ -2853,7 +2847,7 @@ function actionPlay_(userData, pcId, sheets) {
 
 ${PROMPT_REL}
 ★【在場驗證·最高優先】：只有【目前在場人物】可被指名對話/持續互動/記錄好感；背景路人不具名、不可指名互動、不追蹤好感、不可寫成固定角色。例外：①玩家明確邀請/招呼/引入第三人時該人可登場　②系統注入段明示豁免者(如【自然告辭】道別、【系統指定巧遇】)依該段辦。歷史提到但不在場的名字＝不在場的回憶·嚴禁憑空登場開口。
-★【焦點禮讓】：玩家只對一位互動時焦點留給她·其他在場者維持背景(輕描一筆·不搶話打斷/介入親密·除非系統另有醋意/橋段提示)。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouRoomEventStr}${kanshouNpcLeaveStr_}${kanshouVisitBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouJealousStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶】：今天是「${_f.name}」·narration 自然帶入應景氣氛·不報幕。`; if (jumpFest) return `\n★【節慶】：明天就是「${jumpFest.name}」·街頭已有前夕氣氛·自然帶入不報幕。`; return ""; })()}
+★【焦點禮讓】：玩家只對一位互動時焦點留給她·其他在場者維持背景(輕描一筆·不搶話打斷/介入親密·除非系統另有橋段提示)。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouRoomEventStr}${kanshouNpcLeaveStr_}${kanshouVisitBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶】：今天是「${_f.name}」·narration 自然帶入應景氣氛·不報幕。`; if (jumpFest) return `\n★【節慶】：明天就是「${jumpFest.name}」·街頭已有前夕氣氛·自然帶入不報幕。`; return ""; })()}
 ★【今日天氣】：${kanshouWeather_(curDay)}·自然滲入場景不必每句提。${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
 💕【後日談模式·最高優先覆寫】：${partyRows.length === 0
     ? `眼下無相識者在場·玩家一個人的尋常時光。`

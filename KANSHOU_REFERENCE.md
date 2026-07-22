@@ -183,7 +183,7 @@
 - **⚠ 拆格 bug 根治**：`fateSegSplit_`(顯示與改命共用)只做 `。→、` 正規化＋`split('、')` 補滿4格，**不再壓縮連續頓號**——舊版 `.replace(/、+/g,'、')` 會把「、、我、無」壓成「我、無」導致值位移(我被推到第1格)，改命預填/存回全錯，現已修正。
 - **🌀 側寫節流（每 N 回合才問·`KANSHOU_SIDEWRITE_EVERY_`=3）**：master_note 每回合都問會分散 AI 對敘事的注意力，改成計數節流——`【側寫計數】` 標記存玩家列 MEMORY（`kanshouGet/SetSideWriteCount_`，該列恆寫回·零額外 round-trip），`actionPlay` 每回合 +1，只在第 1、N+1、2N+1… 回合（`_swCount % N === 1`·首回合必寫抓初印象）把 `includeMasterNote=true` 傳給 `buildDefaultSystemPrompt`；非側寫回合整塊 master_note 從 schema `delete` 掉、AI 連這欄都看不到。落地端 `if(aiData.master_note)` 守衛自動跳過缺席回合、經歷/性格/萌點保留舊值不動。N=3 剛好貼齊 6筆/3輪 歷史窗。要調頻率＝改常數。
 - **🏷️ 日常稱呼系統（2026-07 玩家定案「姓氏太多餘、名字太正式」）**：鑑賞世界一律短名——`KANSHOU_CASUAL_NAME_`（keyed by SEED id）：SABER／RIDER／伊莉雅／櫻／凜／大河／士郎。`KANSHOU_NAME_ALIAS_` 全名↔短名雙向別名疊進 `kanshouNameCandidates_`（舊存檔/歷史/AI 寫哪種都對得上人）＋**拉丁字母大小寫變體**（AI 寫 Saber/saber 也對得上 SABER——2026-07 稽核修，否則 rel_changes/npc_exit 大小寫不合＝靜默失效）；`kanshouHeroIdByName_` 短名優先查 id。建列（`heroToKanshouRow_`）、巧遇/結識顯示、召喚訊息全用短名；召喚查重跨名比對。`actionEnterKanshou` 路①含**一次性遷移**（既有列全名→短名·冪等，含玩家 MEMORY 牽手標記值；**只改 `FACTION==='從者'` 列**——2026-07 稽核修，無過濾會把玩家分身列也改名）。⚠ 種子庫只有一位櫻（id `間桐櫻黑化-Master`·真名間桐櫻）→ 就叫「櫻」，無黑櫻。英靈殿/solo 名字不動。「見過面」名單（`addKanshouMet_`）仍存全名（向後相容，比對不經它）。
-- **★焦點禮讓**（玩家實測「我親櫻乾伊莉雅啥事」）：玩家明確只對一位互動時其他在場者保持背景存在感、不可搶話批評介入親密舉動；交情淺的旁觀者頂多尷尬移開視線。醋意暗流（`kanshouJealousStr`·兩位 ≥60 同場 20%）另有系統提示不受此限。
+- **★焦點禮讓**（玩家實測「我親櫻乾伊莉雅啥事」）：玩家明確只對一位互動時其他在場者保持背景存在感、不可搶話批評介入親密舉動；交情淺的旁觀者頂多尷尬移開視線。**⚠ 2026-07 拔掉醋意暗流**（玩家「感覺可以不要....沒啥用的感覺」，實測觸發時讀起來像在指責玩家「太超過/適可而止」，體感不佳且沒實質作用）：`kanshouJealousStr`／`_jealousPool`（兩位 ≥60 同場 20%機率）整段刪除，焦點禮讓不再有例外，其他在場者一律維持背景。
 - ⚠ `master_note` 是 KANSHOU-only（buildDefaultSystemPrompt）；solo BACK 仍是固定身世（改命 UI 依 `pc.mode` 分標籤/字數）。
 
 ## 🤖 AI 管線
