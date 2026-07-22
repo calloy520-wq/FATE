@@ -70,6 +70,7 @@
 | `kanshou_set_sex` | `actionKanshouSetSex` | 設同伴性別 |
 | `kanshou_set_name` | `actionKanshouSetName` | 設同伴名 |
 | `kanshou_set_home_name` | `actionKanshouSetHomeName` | 設住處名 |
+| `kanshou_set_prop` | `actionKanshouSetProp` | 小道具裝備/移除/調強度(2026-07新增) |
 | `prep_meal` | `actionPrepMeal` | 準備餐點 |
 | `get_full_status` | `actionGetFullStatus` | 查某角完整狀態字串 |
 | `update_fate` | `actionUpdateFate` | 逆天改命（4 敘事欄） |
@@ -588,6 +589,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `actionKanshouSetSex(userData, pcId, sheets)` — 切換御主性別（限男/女）；切男時檢查世界內是否已有男性從者（避免男男配對）；真換時重置 PHYSICAL 為中性預設。
 - `actionKanshouSetName(userData, pcId, sheets)` — 改御主名字（≤16 字）；關係併入從者自己列，改名不影響羈絆。
 - `actionKanshouSetHomeName(userData, pcId, sheets)` — 改「家」顯示名（≤12 字），寫進 MEMORY【住所】標記（`setKanshouHomeName_`）。
+- `actionKanshouSetProp(userData, pcId, sheets)`（2026-07 新增）— 小道具裝備/移除/調強度：`targetName`+`propId`(空字串＝移除)+`level`，比照 `actionKanshouMemoirOp` 同款帳號驗證+目標同伴查找，寫 MEMORY【小道具】（`kanshouSetProp_`）。GAS直接寫、不靠AI自己判斷該不該記(根治「幫她戴貓耳朵過幾輪就忘記」的機制保證版)。
 
 #### AI 提示詞組裝（🔴 鑑賞 AI 核心）
 
@@ -653,6 +655,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `kanshouPromisePin_(row, absDay, curHour)` — 約定日把她 pin 到約定地：有時段=時刻前 10 分~+2h 內回地點、否則整天釘（相容）。
 - `KANSHOU_COHABIT_TAG_`（makeIntTag_ 同居）、`KANSHOU_HANDHOLD_TAG_`（makeTextTag_ 牽手·存玩家列單一對象）、`KANSHOU_COHABIT_BOND_`(90)、`KANSHOU_VISIT_BOND_`(40)、`KANSHOU_COHABIT_ROOM_`(和室)（常數）。
 - `kanshouIsCohabit_(row)` — 該從者是否同居中。
+- `KANSHOU_PROPS_`（資料驅動小道具庫，目前1筆：跳蛋，hasIntensity=true）、`KANSHOU_PROP_LEVELS_`(關閉/微弱/中等/強勁)（2026-07 新增·常數，前端 `Script_Kanshou.html` 的 `KC_PROPS_`/`KC_PROP_LEVELS_` 鏡像同步）。
+- `kanshouGetProp_(memory)` / `kanshouSetProp_(memory, propId, level)`（2026-07 新增）— MEMORY【小道具】道具id:強度 讀/寫（propId空字串＝移除，同時只存一件、新道具蓋舊）。
 
 #### 相簿（拍照·2026-07）
 

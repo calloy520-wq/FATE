@@ -21,6 +21,7 @@ const ActionRouter = {
   "kanshou_set_sex": actionKanshouSetSex,
   "kanshou_set_name": actionKanshouSetName,
   "kanshou_set_home_name": actionKanshouSetHomeName,
+  "kanshou_set_prop": actionKanshouSetProp, // 🎀 小道具面板：裝備/移除/調強度(玩家UI手動管理，GAS直接寫)
   "prep_meal": actionPrepMeal,
   "get_full_status": actionGetFullStatus,
   "update_fate": actionUpdateFate,

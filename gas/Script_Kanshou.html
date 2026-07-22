@@ -493,6 +493,89 @@ let plainTextContext = cleanText;
     }
   }
 
+  // 🎀 小道具面板：GAS直接寫的持久欄位(見Gallery.gs KANSHOU_PROPS_)，不靠AI自己判斷該不該記——
+  //   這是「幫她戴貓耳朵過幾輪就忘記」問題的機制保證版根治(範例/改名只是提高AI判斷準度，這裡是
+  //   繞開判斷直接寫)。KC_PROPS_/KC_PROP_LEVELS_鏡像後端同名常數(唯一真實來源在 Gallery.gs，改
+  //   後端記得同步這裡)。
+  var KC_PROPS_ = [{ id: 'egg_vibrator', name: '跳蛋', hasIntensity: true }];
+  var KC_PROP_LEVELS_ = ['關閉', '微弱', '中等', '強勁'];
+  var _kpBusy = false;
+  async function kanshouOpenProps(name) {
+    if (_kpBusy) return;
+    var c = _kcCur.find(function (x) { return x.name === name; });
+    if (!c) {
+      _kpBusy = true;
+      _kpShowLoading_(name);
+      try {
+        const res = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount });
+        if (res && res.success) _kcCur = res.current || [];
+      } catch (e) { } finally { _kpBusy = false; }
+      c = _kcCur.find(function (x) { return x.name === name; });
+      if (!c) { var _ov0 = document.getElementById('kp-overlay'); if (_ov0) _ov0.style.display = 'none'; alert('讀取失敗，稍後再試。'); return; }
+    }
+    var ov = document.getElementById('kp-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'kp-overlay';
+      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
+      ov.onclick = function (e) { if (e.target === ov && !_kpBusy) ov.style.display = 'none'; };
+      document.body.appendChild(ov);
+    }
+    var cur = c.prop || null;
+    var safeN = String(name).replace(/'/g, "\\'");
+    var rows = KC_PROPS_.map(function (p) {
+      var equipped = cur && cur.id === p.id;
+      if (p.hasIntensity) {
+        var levelBtns = KC_PROP_LEVELS_.map(function (lv) {
+          var active = equipped && cur.level === lv;
+          return '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'' + lv + '\')" style="flex:1;padding:6px 3px;font-size:12px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : '#ccc') + ';border:none;border-radius:6px;cursor:pointer;">' + lv + '</button>';
+        }).join('');
+        return '<div style="padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
+          + '<div style="color:#f0b8e0;font-size:13px;margin-bottom:6px;">' + escapeHtml(p.name) + '</div>'
+          + '<div style="display:flex;gap:5px;">' + levelBtns + '</div></div>';
+      }
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
+        + '<span style="flex:1;color:#f0b8e0;font-size:13px;">' + escapeHtml(p.name) + '</span>'
+        + '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'戴著\')" style="padding:5px 10px;background:' + (equipped ? '#a05088' : '#3a3a44') + ';color:' + (equipped ? '#fff' : '#ccc') + ';border:none;border-radius:6px;cursor:pointer;font-size:12px;">' + (equipped ? '已裝備' : '裝備') + '</button></div>';
+    }).join('');
+    ov.innerHTML = '<div style="width:min(400px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(240,184,224,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
+      + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#f0b8e0;">🎀 「' + escapeHtml(name) + '」的小道具</b>'
+      + '<button onclick="document.getElementById(\'kp-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
+      + (cur ? '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:6px;">目前：' + escapeHtml(cur.name) + (cur.hasIntensity ? '(' + escapeHtml(cur.level) + ')' : '') + '</div>' : '')
+      + rows
+      + (cur ? '<button onclick="kanshouSetProp(\'' + safeN + '\',\'\',\'\')" style="width:100%;margin-top:8px;padding:8px;background:#4a3038;color:#e09999;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🗑 移除目前道具</button>' : '')
+      + '</div>';
+    ov.style.display = 'flex';
+  }
+  function _kpShowLoading_(name) {
+    var ov = document.getElementById('kp-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'kp-overlay';
+      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
+      ov.onclick = function (e) { if (e.target === ov && !_kpBusy) ov.style.display = 'none'; };
+      document.body.appendChild(ov);
+    }
+    ov.innerHTML = '<div style="width:min(400px,92vw);background:#1d1722;border:1px solid rgba(240,184,224,.25);border-radius:12px;padding:14px;">'
+      + '<b style="color:#f0b8e0;">🎀 「' + escapeHtml(name || '') + '」的小道具</b>' + kmSpinner_('讀取中…') + '</div>';
+    ov.style.display = 'flex';
+  }
+  async function kanshouSetProp(name, propId, level) {
+    if (_kpBusy) return;
+    _kpBusy = true;
+    _kpShowLoading_(name);
+    try {
+      const res = await gasRun({ action: 'kanshou_set_prop', pcId: pc.id, acctName: currentAccount, targetName: name, propId: propId, level: level });
+      if (!res || !res.success) { alert((res && res.message) || '操作失敗。'); return; }
+      var c = _kcCur.find(function (x) { return x.name === name; });
+      if (c) c.prop = res.prop || null;
+    } catch (e) { alert('操作失敗。'); }
+    finally {
+      _kpBusy = false;
+      kanshouOpenProps(name); // 面板原地重繪
+    }
+  }
+
   // 🌙 結束一天：不在身邊的英靈由GAS自動決定隔天去哪(見Gallery.gs kanshouRollDailyLocation_)，不用手動排程；跟一般聊天走同一個send()、同一套渲染。
   async function kanshouEndDay() {
     // 📅 睡前爽約警示(玩家實測「不知不覺跨了兩天、約定無聲過期」)：今天還沒赴的約，一過夜就會

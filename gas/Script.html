@@ -1580,6 +1580,9 @@
               : '<button onclick="kanshouHoldHand(\'' + safeN + '\')" title="牽起她的手一起行動——之後你移動到哪她都相伴同行(她本人要在場才牽得成)" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(200,120,150,0.16); color:#e8b0c8; border:1px solid #a06080; border-radius:6px; cursor:pointer;">🤝 牽手</button>')
             + '<button onclick="kanshouInviteCohabit(\'' + safeN + '\')" title="邀她搬來同住(需關係足夠深厚、她本人在場)——同居後深夜大多回家就寢、清晨可能賴床、晚間常在家中活動，白天照常出門" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(180,140,90,0.18); color:#e8c8a0; border:1px solid #9a7a4a; border-radius:6px; cursor:pointer;">🏠 同居</button>'
             + '</div>'
+            // 🎀 小道具：GAS直接寫的持久欄位(見Gallery.gs KANSHOU_PROPS_)，不靠AI自己判斷該不該記——
+            //   面板本身(kanshouOpenProps)住在 Script_Kanshou.html，跟其他鑑賞專屬面板同一批。
+            + '<div style="margin-top:6px;"><button onclick="kanshouOpenProps(\'' + safeN + '\')" title="幫她裝備/移除小道具(如跳蛋)，機制直接記住、不靠對話" style="width:100%; font-size:11px; padding:4px 3px; background:rgba(220,120,180,0.16); color:#f0b8e0; border:1px solid #a05088; border-radius:6px; cursor:pointer;">🎀 小道具</button></div>'
             + '</div>';
         }
         var bcol = isActive ? '#e0574a' : '#7a4040';

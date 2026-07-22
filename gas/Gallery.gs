@@ -563,7 +563,7 @@ function actionKanshouCompanions(userData, pcId, sheets) {
       var _pmDate = _pm ? kanshouAbsDayToDate_(_pm.day) : null;
       // memoir：共同回憶(27欄)原樣下傳(★前綴=玩家釘選)，供面板顯示/釘選/刪除。
       var _pmTime = _pm ? (KANSHOU_APPT_BANDS_.find(function (b) { return b.band === _pm.band; }) || {}).label : "";
-      current.push({ name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, promise: _pm ? { loc: _pm.loc, date: _pmDate.month + '/' + _pmDate.day, time: _pmTime || '' } : null, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean) });
+      current.push({ name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, promise: _pm ? { loc: _pm.loc, date: _pmDate.month + '/' + _pmDate.day, time: _pmTime || '' } : null, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean), prop: kanshouGetProp_(data[i][COL.PC.MEMORY]) });
     }
   }
   return JSON.stringify({ success: true, current: current });
@@ -664,6 +664,36 @@ function actionKanshouSetHomeName(userData, pcId, sheets) {
   var newMemory = setKanshouHomeName_(data[meIdx][COL.PC.MEMORY], newName);
   kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
   return JSON.stringify({ success: true, homeName: newName, message: "住所已改名為「" + newName + "」。" });
+}
+
+// 🎀 小道具面板：裝備/移除/調整強度，玩家UI手動操作、GAS直接寫，不靠AI判斷要不要記(見上方
+//   KANSHOU_PROPS_註解)。propId空字串＝移除目前道具。比照 actionKanshouMemoirOp 同款帳號驗證+
+//   目標同伴查找寫法。
+function actionKanshouSetProp(userData, pcId, sheets) {
+  var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」
+  var acctName = String(userData.acctName || "").trim();
+  var targetName = String(userData.targetName || "").trim();
+  var propId = String(userData.propId || "").trim();
+  var level = String(userData.level || "").trim();
+  if (!targetName) return JSON.stringify({ success: false, message: "參數不完整。" });
+  var data = kpc.getDataRange().getValues();
+  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
+  var tIdx = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(data[i][COL.PC.NAME])).includes(targetName)) { tIdx = i; break; }
+  }
+  if (tIdx < 0) return JSON.stringify({ success: false, message: "找不到這位同伴。" });
+  if (!propId) {
+    kpc.getRange(tIdx + 1, COL.PC.MEMORY + 1).setValue(kanshouSetProp_(data[tIdx][COL.PC.MEMORY], "", ""));
+    return JSON.stringify({ success: true, prop: null });
+  }
+  var def = KANSHOU_PROPS_.find(function (p) { return p.id === propId; });
+  if (!def) return JSON.stringify({ success: false, message: "查無此道具。" });
+  var finalLevel = def.hasIntensity ? (KANSHOU_PROP_LEVELS_.indexOf(level) !== -1 ? level : KANSHOU_PROP_LEVELS_[0]) : "戴著";
+  kpc.getRange(tIdx + 1, COL.PC.MEMORY + 1).setValue(kanshouSetProp_(data[tIdx][COL.PC.MEMORY], propId, finalLevel));
+  return JSON.stringify({ success: true, prop: { id: propId, name: def.name, level: finalLevel } });
 }
 
 
@@ -1415,6 +1445,27 @@ const KANSHOU_COHABIT_BOND_ = 90;
 const KANSHOU_VISIT_BOND_ = 40;
 const KANSHOU_COHABIT_ROOM_ = '和室';
 function kanshouIsCohabit_(row) { return KANSHOU_COHABIT_TAG_.get(row[COL.PC.MEMORY]) > 0; }
+// 🎀 小道具(存該同伴列MEMORY·【小道具】道具id:強度)：玩家UI手動裝備/移除(kanshouOwnedRowIdx_驗過才
+//   動)，GAS直接寫，不靠AI自己判斷要不要記——這是2026-07「幫她戴貓耳朵過幾輪就忘記」問題的根治版：
+//   不持久的設定改走這條「機制保證」路徑，而非指望AI每次都正確判斷「這算不算變化」。資料驅動：
+//   之後想加項圈/眼罩/手銬之類，只要往KANSHOU_PROPS_加一筆，前端清單自動跟著長。hasIntensity=true
+//   的道具額外支援強度分級(KANSHOU_PROP_LEVELS_)；false的只有戴上/移除二態(level固定"戴著")。
+//   同時只存一件，換道具＝新道具蓋舊道具(跟換裝/約定同款寫法)。
+const KANSHOU_PROPS_ = [
+  { id: 'egg_vibrator', name: '跳蛋', hasIntensity: true }
+];
+const KANSHOU_PROP_LEVELS_ = ['關閉', '微弱', '中等', '強勁'];
+function kanshouGetProp_(memory) {
+  const m = String(memory || "").match(/【小道具】([^:｜【】]+):([^｜【】]+)/);
+  if (!m) return null;
+  const def = KANSHOU_PROPS_.find(function (p) { return p.id === m[1]; });
+  return { id: m[1], name: def ? def.name : m[1], hasIntensity: def ? def.hasIntensity : false, level: m[2] };
+}
+function kanshouSetProp_(memory, propId, level) {
+  const cleared = String(memory || "").replace(/｜?【小道具】[^｜【】]*/g, "").replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
+  if (!propId) return cleared; // 移除道具＝清空
+  return (cleared ? cleared + "｜" : "") + "【小道具】" + propId + ":" + level;
+}
 // 📷 相簿(拍照收集·2026-07玩家定案)：A案色卡寶麗來(不畫人·時段色調×天氣×髮色標記)、每日底片
 //   KANSHOU_FILM_PER_DAY_張、隔天沖洗(拍攝日<今天才看得到敘述)、親密可拍、每局上限
 //   KANSHOU_ALBUM_CAP_張(滿了要刪舊照)。小敘述由AI在拍照當回合的回應JSON多吐photo_caption
@@ -2428,6 +2479,10 @@ function actionPlay_(userData, pcId, sheets) {
       //   卻從沒告訴AI「這個人現在跟你同居」這個事實——平常聊天靠AI自己從對話歷史猜，換幕縮窗(見下方
       //   history-trim)又只留1~2回合，猜不準時容易忘記她已經住這、演成外人作客的疏離語氣。補一句明講。
       const pCohabitStr = kanshouIsCohabit_(r) ? " | 同居中:是(她現在與你同住一處，語氣可依此帶著日常同居的親近感、不是作客)" : "";
+      // 🎀 小道具(玩家UI裝備·GAS直接寫·非AI自行判斷)：既定事實直接告訴AI，narration自然反映其存在
+      //   與目前狀態，不必等玩家每回合重提——這是「機制保證」路徑，不靠AI自己判斷該不該記。
+      const pPropObj = kanshouGetProp_(r[COL.PC.MEMORY]);
+      const pPropStr = pPropObj ? ` | 佩戴道具:${pPropObj.name}${pPropObj.hasIntensity ? `(目前${pPropObj.level})` : ""}——這是既定事實，narration須自然反映其存在${pPropObj.hasIntensity && pPropObj.level !== '關閉' ? `與正在運作中(依強度影響她的反應)` : ``}` : "";
       // 💞 共同回憶(27欄 MEMOIR)：你們一路走來累積的里程碑，讓 AI 自然承接你倆的專屬過往(儲存用全形｜
       //   分隔，餵給 AI 時換成「；」較好讀)。空的就不加這行。
       const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
@@ -2444,7 +2499,7 @@ function actionPlay_(userData, pcId, sheets) {
         pPromiseStr = ` | 與玩家的約定:${_pdWhen}${_pdBandL}在「${_pdPr.loc}」見面——她記得這個約，聊到相關話題時自然帶著這份期待/在意，但勿每回合主動提起`;
       }
       // 明講方向的「TA是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍TA。
-      partyDetailsArr.push(`【在場人物】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(反差·僅供內化):${pMoeStr}` : ""}${pActivityStr}${pCohabitStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr})`);
+      partyDetailsArr.push(`【在場人物】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(反差·僅供內化):${pMoeStr}` : ""}${pActivityStr}${pCohabitStr}${pPropStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr})`);
     }
   });
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【目前在場人物命格詳情】:\n${partyDetailsArr.join("\n")}` : "目前這個地點沒有其他人，玩家是獨自行動的。";
