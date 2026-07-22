@@ -425,7 +425,9 @@ function actionEnterKanshou(userData, pcId, sheets) {
   //   名字/性別的奪杯，不該由系統掛帳號或亂猜)。前端沒帶齊 → 回 needSetup 請前端先問一次。
   //   建好後持久存於這列，之後可用 kanshou_set_name／kanshou_set_sex 隨時改。
   var mSex = String(userData.pcSex || "").trim();
-  var mName = String(userData.pcName || "").trim();
+  // 🐛→✅ 稽核抓到：改名路徑(actionKanshouSetName)有卡≤16字，但這條「首次進場建檔」路徑完全沒設
+  //   長度上限——只靠前端 maxlength=16 擋，繞過前端直接呼叫就能塞任意長度進 NAME 欄。補上同款上限。
+  var mName = String(userData.pcName || "").trim().slice(0, 16);
   if ((mSex !== "男" && mSex !== "女") || !mName) {
     return JSON.stringify({ success: true, needSetup: true, defaultName: acctName });
   }
@@ -457,8 +459,9 @@ function actionEnterKanshou(userData, pcId, sheets) {
   //   AI 於 actionPlay 用 master_note 慢慢補【仍空的】欄(玩家自己填過的不動)、經歷隨劇情滾動更新。
   //   這裡只秒寫最小預設：TRAIT 四格=外貌(玩家填·留空則空)/氣質(空)/自稱「我」/私密一面「無」；
   //   PREF 四格=對外性格(玩家填「個性方向」·留空則空)/獨處性格/喜歡/討厭(後三格全留空待 AI 慢慢長)。
-  var kAppear = String(userData.appearance || "").trim();
-  var kPersona = String(userData.persona || "").trim();
+  // 🐛→✅ 同上：外貌/個性方向也只靠前端 textarea maxlength=60 擋，backend 補同款上限。
+  var kAppear = String(userData.appearance || "").trim().slice(0, 60);
+  var kPersona = String(userData.persona || "").trim().slice(0, 60);
   var _apPart = kAppear.replace(/、/g, "·").trim();   // 外貌塞第1格(內部頓號換·，免溢位其他格)
   var _psPart = kPersona.replace(/、/g, "·").trim();  // 個性方向塞「對外性格」第1格
   mRow[COL.PC.BACK] = "剛搬來冬木市";                  // 經歷開局(原「身世」正名；之後 AI 滾動＋玩家可改命)
@@ -495,8 +498,9 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const row = pcData[pIdx];
   const finalName = String(row[COL.PC.NAME] || ""), finalSex = String(row[COL.PC.SEX] || "異");
-  const appearance = String(userData.appearance || ""), standing = String(userData.standing || "");
-  const persona = String(userData.persona || "");
+  // 🐛→✅ 稽核抓到：這三欄餵進AI提示詞前也從沒設過長度上限，只靠前端擋，補上同款(60字)。
+  const appearance = String(userData.appearance || "").slice(0, 60), standing = String(userData.standing || "").slice(0, 60);
+  const persona = String(userData.persona || "").slice(0, 60);
 
   const promptStr = `【御主】：名號『${finalName}』，性別『${finalSex}』\n【外貌】：${appearance || "隨機"}\n【身世】：${standing || "隨機"}\n【個性方向】：${persona || "隨機"}`;
 
@@ -718,9 +722,9 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
   var kpc = sheets.pc;
   var acctName = String(userData.acctName || "").trim();
   var targetName = String(userData.targetName || "").trim();
-  var name = kanshouSanitizePropTag_(userData.name, 10);
+  var name = kanshouSanitizeTagValue_(userData.name, 10);
   var hasIntensity = !!userData.hasIntensity;
-  var part = kanshouSanitizePropTag_(userData.part, 8); // 選填，留空就讓AI自己發揮(不注入部位敘述)
+  var part = kanshouSanitizeTagValue_(userData.part, 8); // 選填，留空就讓AI自己發揮(不注入部位敘述)
   if (!targetName || !name) return JSON.stringify({ success: false, message: "參數不完整。" });
   var data = kpc.getDataRange().getValues();
   var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
@@ -1567,9 +1571,10 @@ function kanshouSetCustomProps_(memory, arr) {
   const joined = arr.map(function (p) { return p.id + ':' + (p.hasIntensity ? '1' : '0') + ':' + (p.part || ''); }).join(',');
   return (cleared ? cleared + "｜" : "") + "【自訂道具】" + joined;
 }
-// 自訂道具的「名稱」「部位」共用淨化：清掉標籤分隔字元(,/:/｜/【/】)避免撐破【自訂道具】/【小道具】
-//   格式，順手也清掉引號/角括號(防止原樣塞進前端onclick屬性時破壞HTML)。maxLen不帶預設8(給part用)。
-function kanshouSanitizePropTag_(value, maxLen) {
+// 通用【tag】值淨化：清掉標籤分隔字元(,/:/｜/【/】)避免撐破 MEMORY 裡任何單值 tag 的格式(自訂道具
+//   名稱/部位、住所名…)，順手也清掉引號/角括號(防止原樣塞進前端onclick屬性時破壞HTML)。maxLen不帶
+//   預設8。
+function kanshouSanitizeTagValue_(value, maxLen) {
   return String(value || "").replace(/[,:｜【】"'<>]/g, "").trim().slice(0, maxLen || 8);
 }
 // 內建＋玩家自訂合併後的完整道具目錄(查找/顯示用)——傳玩家列(KPC_)的MEMORY進來。
@@ -1711,7 +1716,9 @@ function getKanshouHomeName_(memory, playerName) {
 function setKanshouHomeName_(memory, name) {
   const s = String(memory || "");
   const cleaned = s.replace(/｜?【住所】[^｜【】]*/g, "");
-  const safe = String(name || "").trim().slice(0, 12) || "我家";
+  // 🐛→✅ 稽核抓到：原本沒清掉｜/【/】等標籤分隔字元，玩家取名帶這些字元會撐壞這行MEMORY格式
+  //   (讀取時regex在第一個｜就截斷，殘餘字變成脫隊在tag外的孤兒文字)。比照自訂道具同款淨化。
+  const safe = kanshouSanitizeTagValue_(name, 12) || "我家";
   return (cleaned ? cleaned + "｜" : "") + "【住所】" + safe;
 }
 // 部分英靈殿角色的 realName 帶括號附註(如「克洛伊·馮·愛因茲貝倫（Archer install）」)，AI 敘事自然只會用括號前後其中

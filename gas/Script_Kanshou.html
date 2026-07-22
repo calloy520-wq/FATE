@@ -1371,6 +1371,9 @@ let plainTextContext = cleanText;
     if (nm === null) return;
     nm = String(nm).trim();
     if (!nm) { alert('名字不能空白。'); return; }
+    // 🐛→✅ 稽核抓到：只有改「家」名(kanshouRenameHome)有做前端長度檢查，這裡漏了，
+    //   原本會讓玩家白跑一趟round-trip才被後端擋下。比照同款補上。
+    if (nm.length > 16) { alert('名字請在16字以內。'); return; }
     try {
       const res = await gasRun({ action: 'kanshou_set_name', pcId: pc.id, acctName: currentAccount, pcName: nm });
       if (res && res.success) {

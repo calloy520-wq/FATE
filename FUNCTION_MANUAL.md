@@ -581,7 +581,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### 5 顆 KPC action（進場/召喚/面板/設定）
 
 - `actionKanshouSummonHero(userData, pcId, sheets)` — 從英靈庫召喚一位英靈「存在」於此後日談世界（不必先 solo 封存）。防線：擁有權驗證、士郎位置擋、`KANSHOU_SUMMON_BLOCKED_IDS_` 擋、ai_gen 僅創造者可召、不開放男男、同一位只召一次（跨名比對）。通過即 appendRow(`heroToKanshouRow_`)。
-- `actionEnterKanshou(userData, pcId, sheets)` — 進入常駐後日談世界（每帳號一個）。三分支：①帳號表已連結→接續（含全名→短名一次性遷移）②MEMORY【帳號】標記舊角色→補寫帳號表連結遷移③無存檔→需 needSetup 問名字/性別後新建御主列（KPC_ 前綴，開場「我的房間」Day1 06:00）＋入駐 `KANSHOU_STARTER_IDS_` 4 位起始住民。
+- `actionEnterKanshou(userData, pcId, sheets)` — 進入常駐後日談世界（每帳號一個）。三分支：①帳號表已連結→接續（含全名→短名一次性遷移）②MEMORY【帳號】標記舊角色→補寫帳號表連結遷移③無存檔→需 needSetup 問名字/性別後新建御主列（KPC_ 前綴，開場「我的房間」Day1 06:00）＋入駐 `KANSHOU_STARTER_IDS_` 4 位起始住民。**🐛→✅ 稽核抓到**：pcName/appearance/persona 這條首建路徑原本完全沒設 backend 長度上限(只靠前端 maxlength 擋)，已補 pcName≤16／appearance・persona≤60，跟後續改名/改命路徑口徑一致。
 - `actionBackfillKanshouAi(userData, pcId, sheets)` — 非阻塞背景補生成御主 4 個敘事欄（background/traits/personality/npc_intent/outfit）。比照 `actionBackfillMasterAi`「種子秒建＋AI 潤色」；競態修用 `buildLiveIdIndex_` 寫回前重定位，只單格 setValue，數值/位置不碰。
 - `actionKanshouCompanions(userData, pcId, sheets)` — 列出本世界已存在的所有從者＋各自地點/關係標籤/好感/是否同地/待赴約定/共同回憶，供玩家決定去找誰。無隊伍/人數上限。
 - `actionKanshouMemoirOp(userData, pcId, sheets)` — 共同回憶面板操作（op=pin/unpin/del）：釘選加 ★ 前綴（釘選上限 8）、刪除整條移除。玩家 UI 手動管理、AI 無權；帳號綁定＋同 gid 驗證。
@@ -679,7 +679,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `KANSHOU_EVENT_SEEDS_`（常數 daily/ambiguous/spicy）+ `kanshouRollEvent_(driveOn)` — 抵達新地點 20% 抽一顆靈感種子注入提示詞（spicy 僅 driveOn）。
 - `getKanshouActiveEncounter_` / `setKanshouActiveEncounter_` / `clearKanshouActiveEncounter_(memory[,heroId])` — MEMORY【邂逅中】（這次到訪暫時巧遇對象·存 hero id·換地點清除）讀/寫/清。
-- `getKanshouHomeName_(memory, playerName)` / `setKanshouHomeName_(memory, name)` — MEMORY【住所】家顯示名，未自訂預設「(玩家名)的家」/「我家」。
+- `getKanshouHomeName_(memory, playerName)` / `setKanshouHomeName_(memory, name)` — MEMORY【住所】家顯示名，未自訂預設「(玩家名)的家」/「我家」。**🐛→✅ 稽核抓到**：`setKanshouHomeName_`原本只裁長度、沒清標籤分隔字元，玩家取名帶`｜`會撐壞這行MEMORY格式；已改用`kanshouSanitizeTagValue_`(見上方小道具章節同款)。
+- `kanshouSanitizeTagValue_(value, maxLen)`（2026-07 新增，原`kanshouSanitizePropTag_`只給小道具用，稽核時發現住所名也有同樣的裸存漏洞而擴大成通用版並改名）— 清掉 MEMORY 單值 tag 共用的分隔字元(`,`/`:`/`｜`/`【`/`】`)＋引號/角括號，`maxLen`不帶預設8。任何要塞進單一`【tag】值`格式的自由輸入都該過這道，不要各自複製一份正則。
 
 #### 稱呼別名橋（短名↔全名比對）
 
@@ -1290,7 +1291,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `kanshouEditRelTag(name, oldTag)` — 手動改關係稱呼（`update_rel_tag`，prompt）；成功→`syncData`＋`kcRefreshPartyOnly_`。
 
 #### 改御主名 / 性別
-- `changeKanshouName()` — 改御主名（`kanshou_set_name`，prompt）；更新 `pc.name`/`#ui-name`/重繪 master-box。
+- `changeKanshouName()` — 改御主名（`kanshou_set_name`，prompt）；更新 `pc.name`/`#ui-name`/重繪 master-box。**🐛→✅ 稽核抓到**：原本沒做前端長度檢查(`kanshouRenameHome`有、這裡漏了)，超長會白跑一趟round-trip才被後端擋，已補同款≤16字檢查。
 - `changeKanshouSex()` — 切御主性別（`askKanshouSex`→`kanshou_set_sex`）；更新 `pc.sex`/`#ui-sex`/重繪。
 
 #### 進場 / 首次創角
