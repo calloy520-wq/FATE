@@ -2602,6 +2602,8 @@ function actionPlay_(userData, pcId, sheets) {
       const pCohabitStr = kanshouIsCohabit_(r) ? " | 同居中:是(她現在與你同住一處，語氣可依此帶著日常同居的親近感、不是作客)" : "";
       // 🎀 小道具(玩家UI裝備·GAS直接寫·非AI自行判斷)：既定事實直接告訴AI，narration自然反映其存在
       //   與目前狀態，不必等玩家每回合重提——這是「機制保證」路徑，不靠AI自己判斷該不該記。
+      //   2026-07 玩家「關閉就是還在體內」：強度關閉≠移除，怕AI把「關閉」誤讀成「拿掉了」而漏演
+      //   仍配戴的既定事實，補一句明講(只在真的有hasIntensity道具目前關閉時才加，避免每回合都提)。
       const pPropsArr = kanshouGetProps_(r[COL.PC.MEMORY], _kanshouPropCatalog);
       // part(部位)玩家選填才有；沒填就不提部位，讓AI自己決定戴在哪(2026-07「選填吧...沒有就AI自己想辦法發揮」)。
       const pPropStr = pPropsArr.length ? ` | 佩戴道具:${pPropsArr.map(p => {
@@ -2609,7 +2611,7 @@ function actionPlay_(userData, pcId, sheets) {
         if (p.part) bits.push(`戴在${p.part}`);
         if (p.hasIntensity) bits.push(p.level);
         return `${p.name}${bits.length ? `(${bits.join('，')})` : ""}`;
-      }).join('、')}——這是既定事實，narration須自然反映其存在${pPropsArr.some(p => p.hasIntensity && p.level !== '關閉') ? `，其中正在運作的道具依強度影響她的反應` : ``}` : "";
+      }).join('、')}——這是既定事實，narration須自然反映其存在${pPropsArr.some(p => p.hasIntensity && p.level !== '關閉') ? `，其中正在運作的道具依強度影響她的反應` : ``}${pPropsArr.some(p => p.hasIntensity && p.level === '關閉') ? `（強度關閉≠取下，仍配戴在身上、只是暫時沒運作）` : ``}` : "";
       // 💞 共同回憶(27欄 MEMOIR)：你們一路走來累積的里程碑，讓 AI 自然承接你倆的專屬過往(儲存用全形｜
       //   分隔，餵給 AI 時換成「；」較好讀)。空的就不加這行。
       const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
