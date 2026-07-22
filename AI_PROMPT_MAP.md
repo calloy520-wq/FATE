@@ -43,7 +43,7 @@
 > 6b. ★【服裝與外貌】嚴格依角色卡「外貌本相／此刻裝扮」——【此刻裝扮】(玩家換裝)最優先·寫什麼穿什麼；卡上沒寫的【嚴禁】自行裸露或增減服裝(戰鬥可寫甲冑碎裂衣袂破損、不得升級成裸身)；解結界/隱匿只顯現【武器】、與衣著無關。
 > 7. 只輸出 JSON：{"narration":"…含 `<br><br>` 分段"}，禁其他欄位、禁 Markdown。
 
-`narrateWithState_`（Router_Narrative.gs:699）：在 `promptText` 前掛 `stateBrief`（御主/在場從者當前血/魔）＋近 2 輪對話歷史，呼叫 `callGeminiAPI(stateBrief+promptText, miniSystem, aiConfig)`（`model: google/gemini-3.1-flash-lite`, `temperature:0.85`, `max_tokens:720`）。解析失敗回 `null`→`actionNarrateOnly` 退回罐頭句「（此處因果已定，氣息微微一閃。）」。存歷史時，玩家側存的是 `cleanNarrateEcho_(promptText)`（剝掉〈〉演出卡／★指令／【】標籤／──分隔線的乾淨摘要，避免鷹架外洩給玩家）。
+`narrateWithState_`（Router_Narrative.gs:699）：在 `promptText` 前掛 `stateBrief`（御主/在場從者當前血/魔）＋近 2 輪對話歷史，呼叫 `callGeminiAPI(stateBrief+promptText, miniSystem, aiConfig)`（`model: google/gemini-3.5-flash-lite`, `temperature:0.85`, `max_tokens:720`）。解析失敗回 `null`→`actionNarrateOnly` 退回罐頭句「（此處因果已定，氣息微微一閃。）」。存歷史時，玩家側存的是 `cleanNarrateEcho_(promptText)`（剝掉〈〉演出卡／★指令／【】標籤／──分隔線的乾淨摘要，避免鷹架外洩給玩家）。
 
 ### `servantCard_` / `masterCard_`（Router_Persona.gs）
 幾乎每個「有敘事」的 handler 都會把這兩張卡串進 `aiPrompt` 開頭，作為「演出依據」。
@@ -364,7 +364,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 - 玩家自身卡、近期歷史（最近 6 筆原始訊息／3輪，`getGameHistoryBatchRaw`，走 `aiConfig.chatHistory` 而非塞進 prompt 字面）
 - **🧹 2026-07 玩家定案「砍掉同地路人、開放世界無結界」**：舊版「同地路人」清單（`allLocals`/`displayPeople`）＋其好感階梯行為指令（`resistPrompt`，死仇→摯友七級）＋場景第三方交叉羈絆整套刪除。改為單純的 `backgroundCrowdStr`（★【開放世界·背景人煙】：路人可自由描寫增添生活感，但不具名、不可被指名互動、不追蹤好感）。能被指名、有名有姓、好感被記錄延續的對象，收斂為僅有**目前在場人物**（見上）。
 - **🚪🏠 2026-07 新增「巧遇開關」＋可改名的「家」移動選項**：`kanshouEncounterStr`(巧遇系統例外提示詞注入)現受`encounterOn`(讀`userData.encounter`，前端「出門走走」面板一顆checkbox、localStorage持久化)閘門，關閉時移動/原地問「還有誰」兩個擲骰點都不會觸發，但不影響已在場的`【邂逅中】`對象持續互動。`KANSHOU_LOCATIONS_`（2026-07已擴充到**50個地點**、非10個，見 `FUNCTION_MANUAL.md`）外新增一個不在清單內、顯示名稱可由玩家自訂(MEMORY`【住所】`標記，預設「家」)的私人地點——`isHomeMove`比對成立時恆不擲骰(私人空間永不巧遇陌生人)，其餘寫LOC/清`【邂逅中】`的邏輯與一般地點一致。詳見 `SOLO_REFERENCE.md` §44。
-- **僅 NSFW/kanshou 模式**：同地性別配對提示、肉體狀態 JSON（2026-07 玩家定案「肉體那些欄位不需要了，只要狀態就好」：physical_state 從 6 鍵數字代碼（姿勢與動作/胸部/顏面/肉棒/蜜穴/服裝狀態）全部砍掉，簡化為單一自由文字欄，AI 自行決定每回合要不要提、提多細，不強制逐項列舉，每回合仍需據實反映最新狀態）、每位在場同伴的「身體記憶」技能標籤(`dynamic_skills`)、愛稱(`mutual_nicknames`)、🔥主動掌握模式(點火 driveOn)段落（前端 `drive` 旗標開啟時注入——同伴依個性主動掌握節奏、推進更猛；僅鑑賞生效。⚠ 2026-07 更正：點火按鈕為**現行有效** toggle，`driveOn` **只控敘事推進幅度(driveStr)、不再切模型**——模型改由兩模式一律先打 `SOLO_MODEL`(gemini-3.1-flash-lite)、`AI_MODEL`(deepseek)僅備援、`retries=1`。鑑賞現況一律以 `KANSHOU_REFERENCE.md` 為準）
+- **僅 NSFW/kanshou 模式**：同地性別配對提示、肉體狀態 JSON（2026-07 玩家定案「肉體那些欄位不需要了，只要狀態就好」：physical_state 從 6 鍵數字代碼（姿勢與動作/胸部/顏面/肉棒/蜜穴/服裝狀態）全部砍掉，簡化為單一自由文字欄，AI 自行決定每回合要不要提、提多細，不強制逐項列舉，每回合仍需據實反映最新狀態）、每位在場同伴的「身體記憶」技能標籤(`dynamic_skills`)、愛稱(`mutual_nicknames`)、🔥主動掌握模式(點火 driveOn)段落（前端 `drive` 旗標開啟時注入——同伴依個性主動掌握節奏、推進更猛；僅鑑賞生效。⚠ 2026-07 更正：點火按鈕為**現行有效** toggle，`driveOn` **只控敘事推進幅度(driveStr)、不再切模型**——模型改由兩模式一律先打 `SOLO_MODEL`(gemini-3.5-flash-lite)、`AI_MODEL`(deepseek)僅備援、`retries=1`。鑑賞現況一律以 `KANSHOU_REFERENCE.md` 為準）
 
 關鍵結構/收尾指令（逐字節錄）：
 > 【敘事法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。

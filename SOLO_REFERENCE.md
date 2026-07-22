@@ -21,7 +21,7 @@
 - **模型常數**（`Core_Settings.gs`，皆讀指令碼屬性、未設定才落回程式碼內字面預設）：
   - `OPENROUTER_API_KEY`（唯一認的金鑰屬性名，無相容別名）。
   - `AI_MODEL`（屬性 `MODEL`）：鑑賞（NSFW）用。
-  - `SOLO_MODEL`（屬性 `SOLO_MODEL`，預設 `google/gemini-3.1-flash-lite`）：solo `narrateWithState_` 用，低延遲小模型。
+  - `SOLO_MODEL`（屬性 `SOLO_MODEL`，預設 `google/gemini-3.5-flash-lite`）：solo `narrateWithState_` 用，低延遲小模型。
   - `UNLOCKED_MODEL`（屬性 `UNLOCKED_MODEL`）：補魔/令咒高好感解鎖分支（`actionNarrateOnly` 的 `deepseek` 旗標）用。
 - `callGeminiAPI` payload 帶 Gemini `safety_settings`（BLOCK_ONLY_HIGH，非 Gemini 模型靜默忽略）＋尾端附「台灣繁體中文（正體字）」語言鐵律（避免簡體滲透）。`max_tokens`：鑑賞 1000 / solo fallback 2000 / `narrateWithState_` 預設 720。連線失敗時 fallback 回貼世界觀的柔性訊息（🌫️因果紊亂），原始錯誤只進 `Logger.log`。
 
