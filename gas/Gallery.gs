@@ -692,9 +692,10 @@ function actionKanshouSetProp(userData, pcId, sheets) {
   var finalLevel = "";
   if (level) {
     finalLevel = def.hasIntensity ? (KANSHOU_PROP_LEVELS_.indexOf(level) !== -1 ? level : KANSHOU_PROP_LEVELS_[0]) : "戴著";
-    // 🔒 啟動(強度非關閉)才卡好感門檻——單純裝備成關閉狀態不受限，見上方KANSHOU_PROP_ACTIVATE_BOND_註解。
-    if (def.hasIntensity && finalLevel !== KANSHOU_PROP_LEVELS_[0] && (parseInt(data[tIdx][COL.PC.BOND]) || 0) < KANSHOU_PROP_ACTIVATE_BOND_) {
-      return JSON.stringify({ success: false, message: "好感還沒到那個地步，她不會讓你這麼做——先裝備(關閉狀態)吧。" });
+    // 🔒 2026-07 玩家「整個小道具直接卡80吧...還沒80都鎖起來」：不只啟動，裝備本身(含關閉/戴著起手)
+    //   都卡好感門檻——好感不夠她根本不會讓你碰。移除(level空字串)不受此限，隨時能拿掉。
+    if ((parseInt(data[tIdx][COL.PC.BOND]) || 0) < KANSHOU_PROP_EQUIP_BOND_) {
+      return JSON.stringify({ success: false, message: "好感還沒到那個地步，她不會讓你這麼做。" });
     }
   }
   var newMemory = kanshouToggleProp_(data[tIdx][COL.PC.MEMORY], propId, finalLevel);
@@ -704,7 +705,8 @@ function actionKanshouSetProp(userData, pcId, sheets) {
 
 // 🎀 自訂道具新增：玩家自建新道具定義＋立即裝備在targetName身上(合併成一步，體驗比「先建目錄、
 //   再另外裝備」更順)。name≤10字，玩家自訂目錄上限KANSHOU_CUSTOM_PROP_CAP_筆；同名再次新增＝
-//   更新hasIntensity/part(以最後一次設定為準)。新裝備一律從「關閉/戴著」起手，不繞過上面的啟動門檻。
+//   更新hasIntensity/part(以最後一次設定為準)。裝備這步一樣卡KANSHOU_PROP_EQUIP_BOND_好感門檻
+//   (2026-07「整個小道具直接卡80吧」)——目錄本身可以先建，但好感不夠就只是建了定義、還不能裝上去。
 //   part(部位)選填(2026-07「選填吧，想指定就自己打，沒有就AI自己想辦法發揮」)：留空則不注入部位
 //   敘述，交給AI自行決定戴在哪。
 function actionKanshouAddCustomProp(userData, pcId, sheets) {
@@ -732,7 +734,10 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
     if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(data[i][COL.PC.NAME])).includes(targetName)) { tIdx = i; break; }
   }
   if (tIdx < 0) return JSON.stringify({ success: true, props: [], customProps: custom, message: "已新增到你的道具目錄，但找不到這位同伴可裝備。" });
-  var finalLevel = hasIntensity ? KANSHOU_PROP_LEVELS_[0] : "戴著"; // 新裝備一律關閉起手，不繞過啟動門檻
+  if ((parseInt(data[tIdx][COL.PC.BOND]) || 0) < KANSHOU_PROP_EQUIP_BOND_) {
+    return JSON.stringify({ success: true, props: kanshouGetProps_(data[tIdx][COL.PC.MEMORY], KANSHOU_PROPS_.concat(custom)), customProps: custom, message: "已新增到你的道具目錄，但好感還沒到那個地步，她還不會讓你幫她裝備。" });
+  }
+  var finalLevel = hasIntensity ? KANSHOU_PROP_LEVELS_[0] : "戴著"; // 新裝備一律關閉起手
   var newMemory = kanshouToggleProp_(data[tIdx][COL.PC.MEMORY], name, finalLevel);
   kpc.getRange(tIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
   return JSON.stringify({ success: true, props: kanshouGetProps_(newMemory, KANSHOU_PROPS_.concat(custom)), customProps: custom });
@@ -1521,10 +1526,13 @@ const KANSHOU_PROPS_ = [
 ];
 const KANSHOU_PROP_LEVELS_ = ['關閉', '微弱', '中等', '強勁'];
 // 🔒 2026-07 玩家「AI也不能反抗，感覺缺少鑑賞的感覺」：小道具原本繞過[性格]×[好感]完全不設防，
-//   跟親密尺度五階/情慾場「沒到那個地步她會依個性擋下」的精神不一致。改成「裝備(關閉狀態)不設限、
-//   真正啟動(強度非關閉)才卡好感門檻」——比照情慾場/無上限同一個切點(戀人80)，不靠AI自己判斷要不要
-//   演抵抗(那樣容易出現「機制上開著、敘事卻在抵抗」的矛盾)，直接在GAS這層擋下，好感不夠就拒絕操作。
-const KANSHOU_PROP_ACTIVATE_BOND_ = 80;
+//   跟親密尺度五階/情慾場「沒到那個地步她會依個性擋下」的精神不一致。**2026-07再修**（玩家「整個
+//   小道具直接卡80吧...還沒80都鎖起來」）：一開始只卡「啟動(強度非關閉)」、裝備成關閉/戴著不設限，
+//   後來玩家覺得連裝備本身都該卡——好感不夠她根本不會讓你碰，不只是「碰了但不會動」。現版本＝
+//   任何等於「新增/切換到某個非空level」的操作(裝備/改強度，含選『關閉』)都卡這個門檻，唯獨
+//   **移除**(level空字串)不受限、隨時能拿掉。比照情慾場/無上限同一個切點(戀人80)，不靠AI自己判斷
+//   要不要演抵抗(那樣容易出現「機制上開著、敘事卻在抵抗」的矛盾)，直接在GAS這層擋下。
+const KANSHOU_PROP_EQUIP_BOND_ = 80;
 // 🎀 自訂道具(玩家自建·存玩家列MEMORY【自訂道具】name1:hasIntensity1:part1,name2:hasIntensity2:part2,...)：
 //   內建KANSHOU_PROPS_清單之外，玩家可自己命名新增(2026-07「不能玩家自己新增?」)。跟內建清單合併
 //   使用同一套KANSHOU_PROP_LEVELS_強度階，不重新發明標籤。上限KANSHOU_CUSTOM_PROP_CAP_筆。part(部位)
