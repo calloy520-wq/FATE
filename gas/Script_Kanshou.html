@@ -739,14 +739,18 @@ let plainTextContext = cleanText;
   function _kcEnsureDrawer_() {
     var wrap = document.getElementById('kc-prop-drawer');
     if (wrap) return wrap;
+    // 🐛→✅ 稽核抓到：舊版 position:fixed;right:0 貼死整個視窗右邊，桌機三欄版型下
+    //   會被最右側#pane-map(地圖欄)頂過去、跟故事欄脫節。改掛在#pane-chat內部
+    //   絕對定位(該欄已設position:relative)，永遠卡在故事欄自己的右緣。
+    var host = document.getElementById('pane-chat') || document.body;
     wrap = document.createElement('div');
     wrap.id = 'kc-prop-drawer';
-    wrap.style.cssText = 'display:none;position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:900;';
+    wrap.style.cssText = 'display:none;position:absolute;right:0;top:50%;transform:translateY(-50%);z-index:900;';
     wrap.innerHTML = '<div style="display:flex;align-items:center;">'
       + '<div id="kc-prop-panel" style="display:none;width:210px;max-height:60vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(240,184,224,.3);border-radius:10px 0 0 10px;padding:10px;box-shadow:-4px 0 16px rgba(0,0,0,.4);"></div>'
       + '<div id="kc-prop-tab" onclick="kcTogglePropDrawer()" title="小道具快速控制" style="width:20px;height:56px;background:rgba(160,80,136,.85);border-radius:8px 0 0 8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;font-size:13px;">◀</div>'
       + '</div>';
-    document.body.appendChild(wrap);
+    host.appendChild(wrap);
     return wrap;
   }
   async function kcTogglePropDrawer() {
