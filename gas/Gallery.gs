@@ -2723,7 +2723,7 @@ function actionPlay_(userData, pcId, sheets) {
         if (p.part) bits.push(`戴在${p.part}`);
         if (p.hasIntensity) bits.push(p.level);
         return `${p.name}${bits.length ? `(${bits.join('，')})` : ""}`;
-      }).join('、')}——這是既定事實，narration須自然反映其存在${pPropsArr.some(p => p.hasIntensity && p.level !== '關閉') ? `，其中正在運作的道具依強度影響她的反應` : ``}${pPropsArr.some(p => p.hasIntensity && p.level === '關閉') ? `（強度關閉≠取下，仍配戴在身上、只是暫時沒運作）` : ``}${_ignoreBondLines.length ? `。${_ignoreBondLines.join('')}★這是只有她自己感覺得到的私密效果，除非外顯到旁人一看就懂，否則在場其他人不知情、不該對此有反應或評論。` : ``}` : "";
+      }).join('、')}——這是既定事實，narration須自然反映其存在${pPropsArr.some(p => p.hasIntensity && p.level !== '關閉') ? `，其中正在運作的道具依強度影響她的反應` : ``}${pPropsArr.some(p => p.hasIntensity && p.level === '關閉') ? `（強度關閉≠取下，仍配戴在身上、只是暫時沒運作）` : ``}${_ignoreBondLines.length ? `。${_ignoreBondLines.join('')}★這是只有她自己感覺得到的私密效果，除非外顯到旁人一看就懂，否則在場其他人不知情、不該對此有反應或評論。★暗示內容裡若出現「你/妳」「我」等代詞，你/妳＝她本人、我＝玩家，依此代入解讀，不要弄反。` : ``}` : "";
       // 💞 共同回憶(27欄 MEMOIR)：你們一路走來累積的里程碑，讓 AI 自然承接你倆的專屬過往(儲存用全形｜
       //   分隔，餵給 AI 時換成「；」較好讀)。空的就不加這行。
       const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
