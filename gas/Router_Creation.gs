@@ -772,10 +772,11 @@ ${clsUnset ? "★【職階 cls】玩家未指定職階——請依描述判斷�
 ${FX_MENU_}
 ★【特性 traits】1~3 個，{"n":"特性名"}（如 王/龍/人類/神性/巨人/猛獸；有神性者會被神殺剋）。
 ★【演出而非說明】personality 與寶具只作底層，勿直接複述字面。personality 剛好 4 短句頓號分隔：日常表象、真實內裡、喜歡的事物、討厭的事物。
+★【外貌 look】剛好 4 短句頓號分隔，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝；若判定此英靈為女性，務必包含身形/胸圍等具體身材描寫(如高挑豐滿／嬌小玲瓏／纖細等)，不要只寫髮色瞳色就交差)]、[氣質舉止]、[自稱與口氣(固定格式「自稱「X」，再接一句依其說話語氣寫成的口氣描述」)]、[卸下心防的私密一面(具體生活化的小動作，不可直述心情/動機)]。
 ★np：寶具名＋一句威能簡述；規模上限【對軍】——對城/對界/對神為種子英靈專屬，寫了也會被系統降為對軍，簡述請勿誇稱斬城滅界。★npc_intent：一句【簡短】萌點（讓人喜歡上這位英靈的特色，≤18字，系統會在30字處硬性截斷、務必精簡，務必寫完整一句話不可斷在句意未完處）——形式不拘，可以是反差(表面X其實Y)，也可以是單純討喜的外觀/行為/習慣特色，不強求一定要寫成反差句型。【禁】誤用令咒當裝飾性萌點元素——令咒是御主持有、對從者下達絕對命令的機制道具，並非從者自己所有或隨手就能用的萬用法寶；也不要單純重複寶具名稱湊字數，請改用生活化情境(手作/習慣/小癖好等)。★sex 從 男／女／異 擇一。
 
 ★【輸出】合法 JSON、禁 Markdown：
-{"realName":"英靈真名",${clsUnset ? '"cls":"Saber",' : ""}"sex":"女","align":"中立・善","background":"限20字","npc_intent":"萌點一句(不限反差)","personality":"四格頓號","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"skills":[{"n":"直感","r":"A","fx":"first_strike"},{"n":"怪力","r":"B","fx":"str_up"}],"traits":[{"n":"人類"}]}`;
+{"realName":"英靈真名",${clsUnset ? '"cls":"Saber",' : ""}"sex":"女","align":"中立・善","background":"限20字","npc_intent":"萌點一句(不限反差)","personality":"四格頓號","look":"四格頓號","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"skills":[{"n":"直感","r":"A","fx":"first_strike"},{"n":"怪力","r":"B","fx":"str_up"}],"traits":[{"n":"人類"}]}`;
       const aiBrief = JSON.parse(callGeminiAPI(`【職階】：${clsUnset ? "未指定(請依描述判斷)" : cls}\n【御主】：${pcName}${trueName ? `\n【指定真名】：${trueName}` : ""}${custDesc ? `\n【玩家自訂描述】：${custDesc}` : ""}`, sysOverride, { temperature: custDesc ? 0.85 : 0.6, ignoreLaw: true }));
       // callGeminiAPI 連線失敗不丟例外，而是回 fallback 敘事 JSON(narration/options)——照收會靜默生出全C
       //   六圍/零技能的殘缺從者並永久污染英靈殿。缺 realName 或 six 視為生成失敗，中止讓玩家重試。
@@ -815,8 +816,9 @@ ${FX_MENU_}
       const svHp = 150 + svNum_(aiSix.耐久) * 6, svMp = 0; // 🔋 出力電池制：從者無自有魔力池，出力檔存 MEMORY、預設 60 巡航
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
-      // 🎴 AI 即時生成的原創從者：特徵走通用敘事預設(不再用戰鬥特性污染敘事欄)，玩家可逆天改命微調。
-      row[COL.PC.TRAIT] = parseTraitsHelper("", "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
+      // 🐛→✅ 玩家反饋：這裡原本完全不生成外貌(直接套通用預設「外貌出眾、舉止從容…」)，逼玩家自己
+      //   用逆天改命補——現在跟 aiBrief.look 一起生成，缺的話才退回同款通用預設。
+      row[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.look, "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
       row[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "沉著表象、堅定內裡、珍視之物、厭惡之事");
       row[COL.PC.INTENT] = String(aiBrief.npc_intent || "").slice(0, 30); // 比照 slice(0,18) 腰斬修正，放寬緩衝
       row[COL.PC.MEMORY] = `第一人稱「我」｜對御主：初締約·尚在觀察`; // 與種子路徑對稱(原漏寫→servantCard_ 演出資訊變薄)
@@ -834,7 +836,9 @@ ${FX_MENU_}
       //   即使這局「當下」的從者列(row[COL.PC.BACK])明明已經有值：recordOriginalHero_ 內對缺欄位的
       //   處理是空字串，這名原創英靈永久寫回英靈殿的 persona.back 因此恆為空，之後任何重新召喚都會
       //   落回泛用預設值「職階・真名」，AI 當初生成的身世徹底遺失，工房編輯清單上也永遠看到空白欄位。
-      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], aiCSkills, aiSkills, aiTraits, np, aiBrief.personality, align, { moe: String(aiBrief.npc_intent || "").slice(0, 30), back: svBackAi, creator: String(userData.acctName || "").trim() }); } catch (e) { }
+      // look 一併存進 persona——之後日常版轉換(translateLookToDaily_)跟重新召喚都吃得到這次AI生成的外貌，
+      //   不再永遠停留在通用預設(見上方 TRAIT 賦值處的同批修正)。
+      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], aiCSkills, aiSkills, aiTraits, np, aiBrief.personality, align, { moe: String(aiBrief.npc_intent || "").slice(0, 30), back: svBackAi, look: String(aiBrief.look || "").replace(/[<>&"'`]/g, "").slice(0, 80), creator: String(userData.acctName || "").trim() }); } catch (e) { }
     }
 
     row[COL.PC.ID] = newId;
