@@ -58,7 +58,10 @@ function injectMysticBuff_(c, masterMemory) {
   // 🐛→✅ 舊版用子字串正則(/阿爾托莉雅/.test(...))比對，玩家自訂/AI 生成的 Saber 從者只要真名剛好
   //   包含這四個字(如刻意取名「阿爾托莉雅・奧爾塔」)就會被誤判成王之聖劍的合法持有者——這類機制本該
   //   資料驅動(如 FORGE_CLS_SKILLS_/ALLOWED_FX_)、至少也該用精確比對，改成完整真名相等。
-  if (getMystic_(masterMemory) === 'avalon' && c && String(c.name || '').trim() === '阿爾托莉雅' && String(c.cls) === 'Saber') {
+  // 🐛→✅ 2026-07 前次修正比對錯了字串：種子真名其實是「阿爾托莉雅·潘德拉貢」(Seed_Codex.gs)，
+  //   前次改的完整相等只比對到「阿爾托莉雅」四字，永遠對不上召喚後 c.name 的完整全名，導致理想鄉
+  //   對唯一合法持有者(正典本尊)從此再也無法觸發——改比對真正的完整真名。
+  if (getMystic_(masterMemory) === 'avalon' && c && String(c.name || '').trim() === '阿爾托莉雅·潘德拉貢' && String(c.cls) === 'Saber') {
     c.skills = (c.skills || []);
     if (!c.skills.some(function (s) { return s && s.fx === 'avalon_saber'; })) c.skills = c.skills.concat([{ n: '理想鄉 Avalon', r: 'A', fx: 'avalon_saber' }]);
     if (!c.skills.some(function (s) { return s && s.fx === 'regen'; })) c.skills = c.skills.concat([{ n: '鞘之恩澤', r: 'A', fx: 'regen' }]);
