@@ -2205,6 +2205,18 @@ function actionPlay_(userData, pcId, sheets) {
       dirtyPcRows.add(pcIndex);
     }
   }
+  // 🐛→✅ 八度改版稽核抓到：夜襲/賴床叫醒新觸發點「玩家自己房間」＋pSleepStr的睡眠提示，都只看
+  //   LOC×時刻，沒排除「她是這回合跟玩家一起走進來的(牽手/同意同去)」——牽著手走進房間的人明顯
+  //   還醒著、正跟玩家互動，不該被判定成已經熟睡。跟kanshouPreMoveCompanions_同一套「帶人三態」
+  //   判準(那個變數宣告在後面、此刻用不到)，這裡先算一次同名邏輯的姓名集合供本節共用。
+  const kanshouArrivingNames_ = !moveTarget ? []
+    : userData.moveWithCompanion
+      ? pcData.filter(r => r !== pc && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()).map(r => String(r[COL.PC.NAME]))
+      : (kanshouHeldName_ ? [kanshouHeldName_] : []);
+  // 目前牽著手、或這回合跟玩家一起走進來的同伴——正醒著跟玩家互動中，不該被判定成熟睡中。
+  function kanshouIsAwakeWithMe_(name) {
+    return (kanshouHeldName_ && kanshouNameCandidates_(String(name)).includes(kanshouHeldName_)) || kanshouArrivingNames_.some(n => kanshouNameCandidates_(String(name)).includes(String(n)));
+  }
 
   // 🤝 結識(巧遇→入駐)：巧遇對象只是路人(不記好感·離開即散)，玩家點「結識」(inviteResident=name)
   //   才正式建列入駐——驗證對象必須真的是【邂逅中】的那位(防直打API憑空加人)、且尚未入駐。
@@ -2274,6 +2286,10 @@ function actionPlay_(userData, pcId, sheets) {
     if (_locEv && _locEv.bands.indexOf(kanshouReBand_) >= 0) kanshouRoomEventKey_ = _locEv.eventKey;
   }
   let kanshouRoomEventCandidate_ = null;
+  // 🐛→✅ 八度改版：夜襲/賴床叫醒的前提是「她獨自在熟睡」——跟玩家牽手/剛同意同去而一起走進來
+  //   的同伴顯然還醒著，不該被列進候選(candidate意味著「可以靠近熟睡的她」，這種情況下不成立)。
+  //   只排除夜襲類，其餘橋段(共浴/膝枕等)本就不假設對方在睡，不受影響。
+  const _reIsAsleepTrigger_ = (kanshouRoomEventKey_ === '夜襲' || kanshouRoomEventKey_ === '賴床叫醒');
   if (kanshouRoomEventKey_) {
     // 蒐集此地(和室/她住處)所有在場的同伴——多人同居擠一間時，全部列出讓玩家【點名要靠近誰】，
     //   不再隨機挑(玩家「我可以挑選夜襲誰？！」→可以)。單人時前端就一顆按鈕、體驗跟以前一樣。
@@ -2282,7 +2298,7 @@ function actionPlay_(userData, pcId, sheets) {
       // 🚫 今天已跟她經歷過橋段(KANSHOU_SCENE_DAY_TAG_==今天)就不再把她列進候選——擋「重複詢問」：
       //   §132 只擋重複加好感、按鈕仍每回合冒；這裡連 offer 都收掉，一天一位一次特別相處，隔天(結束
       //   這天後 curDay+1)自然重新開放。
-      if (i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC] || "").trim() === kanshouRoomEventTargetLoc_ && KANSHOU_SCENE_DAY_TAG_.get(r[COL.PC.MEMORY]) !== curDay) _reMatches.push(i);
+      if (i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC] || "").trim() === kanshouRoomEventTargetLoc_ && KANSHOU_SCENE_DAY_TAG_.get(r[COL.PC.MEMORY]) !== curDay && (!_reIsAsleepTrigger_ || !kanshouIsAwakeWithMe_(r[COL.PC.NAME]))) _reMatches.push(i);
     });
     if (_reMatches.length) {
       kanshouRoomEventCandidate_ = { eventKey: kanshouRoomEventKey_, matches: _reMatches.map(i => ({ name: String(pcData[i][COL.PC.NAME]), idx: i })) };
@@ -2837,6 +2853,8 @@ function actionPlay_(userData, pcId, sheets) {
       //   已描述她的反應)就不重複補這句，避免兩條指令互相打架。
       const pSleepStr = (() => {
         if (kanshouRoomEventPartnerName_ && kanshouNameCandidates_(pName).includes(kanshouRoomEventPartnerName_)) return "";
+        // 🐛→✅ 八度改版：牽手/剛同意同去而跟玩家一起走進來的同伴顯然還醒著，不該說她在熟睡。
+        if (kanshouIsAwakeWithMe_(pName)) return "";
         const _pHomeHeroId = kanshouHeroIdByName_(pName);
         const _pHome = kanshouGetHeroHome_(_pHomeHeroId, r[COL.PC.MEMORY]);
         // 🐛→✅ 八度改版：跟夜襲/賴床叫醒觸發判準對齊——0~8點(非timeBand_的深夜/清晨切法，清晨band
