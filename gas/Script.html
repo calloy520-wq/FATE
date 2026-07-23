@@ -12,6 +12,25 @@
       .replace(/'/g, "&#39;");
   }
   // ==========================================
+  // 🍃 輕量成功提示：不打斷操作的短暫浮字，取代「還要按確定才能關掉」的 alert()——
+  //   只給「單純告知已完成、不需要玩家決策」的訊息用(如改命成功)；需要玩家看清楚原因的
+  //   失敗訊息維持 alert()，兩者用途不同、不必統一成同一種UI。
+  // ==========================================
+  function showToast_(msg) {
+    let el = document.getElementById('toast-msg');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'toast-msg';
+      el.className = 'toast-msg';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.remove('toast-show'); void el.offsetWidth; // 重觸發動畫(連續觸發時)
+    el.classList.add('toast-show');
+    clearTimeout(el._hideTimer);
+    el._hideTimer = setTimeout(() => el.classList.remove('toast-show'), 1800);
+  }
+  // ==========================================
   // 🔴 核心通訊層：封裝 google.script.run 成 Promise，完美替換 fetch
   // ==========================================
   let __pendingState = null; // ⚡ 動作回應夾帶的最新 client state，供緊接的 syncData 直接消費(免再打一趟 sync)
@@ -1126,8 +1145,8 @@
             if (currentStatusTargetId === pc.id) {
                 localStorage.setItem('kyushu_last_status', res.statusString);
             }
-            alert("改命成功！");
-            syncData(true); 
+            showToast_("✅ 改命成功！");
+            syncData(true);
         } else {
             alert("改命失敗：" + res.message);
         }

@@ -342,6 +342,16 @@
     50% { opacity: 1; }
   }
 
+  /* 🍃 輕量成功提示(showToast_)：浮在畫面上方、不擋操作、自動淡出，取代需要按確定的 alert() */
+  .toast-msg {
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%) translateY(-14px);
+    z-index: 10050; background: var(--paper-bg); color: var(--text-dark);
+    border: 1px solid var(--gold-accent); border-radius: 999px; padding: 9px 20px;
+    font-size: 14px; font-weight: bold; white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+    opacity: 0; pointer-events: none; transition: opacity .25s ease, transform .25s ease;
+  }
+  .toast-msg.toast-show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
   /* 🎞️ 跑條：給「推進時間」這類需要花時間的動作用，跟純聊天的瞬間感做區別——
      進度條本身只是不斷來回滑動的填色動畫(不綁定固定秒數，因為AI實際耗時本來就不固定)，
      文字才是重點，會依showProgressLoader_傳入的captions輪播，直到AI真的回應才移除。 */
