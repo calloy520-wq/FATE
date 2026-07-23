@@ -1008,7 +1008,13 @@ let plainTextContext = cleanText;
 
     { name: '隱蔽的工房', region: 'visit' }, { name: '島嶼道場', region: 'visit' },
     { name: '埃德費爾特宅邸', region: 'visit' }, { name: '愛因茲貝倫城', region: 'visit' },
-    { name: '遠坂邸', region: 'visit' }, { name: '藤村家', region: 'visit' }
+    { name: '遠坂邸', region: 'visit' }, { name: '藤村家', region: 'visit' },
+    // 🏠 2026-07 七度改版·泛用住處池(鏡像後端 KANSHOU_GENERIC_HOME_POOL_)：沒有專屬豪邸的英靈
+    //   隨機分配其中一間、終身持有(見Gallery.gs heroToKanshouRow_)。
+    { name: '河畔小公寓', region: 'visit' }, { name: '巷弄老屋', region: 'visit' },
+    { name: '高塔套房', region: 'visit' }, { name: '郊區透天', region: 'visit' },
+    { name: '老街閣樓', region: 'visit' }, { name: '街角公寓', region: 'visit' },
+    { name: '靜巷租屋', region: 'visit' }, { name: '河堤畔宅', region: 'visit' }
   ];
   // 🎭 橋段觸發鏡像(顯示用·唯一真實來源在後端 KANSHOU_LOCATION_EVENTS_／KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_)：
   //   地點×時段對得上、她又在場，就會跳橋段邀請框。玩家最常卡「不知道去哪、幾點」，把它標在地圖地點鈕旁邊當提醒。
@@ -1027,7 +1033,16 @@ let plainTextContext = cleanText;
     '埃德費爾特宅邸': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
     '愛因茲貝倫城': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
     '遠坂邸': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
-    '藤村家': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true }
+    '藤村家': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
+    // 🏠 泛用住處池(七度改版)：同一套夜襲/賴床徽章，比照上面6間手寫豪邸逐一對應。
+    '河畔小公寓': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
+    '巷弄老屋': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
+    '高塔套房': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
+    '郊區透天': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
+    '老街閣樓': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
+    '街角公寓': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
+    '靜巷租屋': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
+    '河堤畔宅': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true }
   };
   // 時段 key→精簡顯示(徽章用·免整串 emoji)。
   var KC_BAND_SHORT_ = { '清晨': '清晨', '午後': '午後', '黃昏': '黃昏', '夜': '夜', '深夜': '深夜' };

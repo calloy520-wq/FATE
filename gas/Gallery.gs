@@ -250,6 +250,13 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   // 鑑賞不寫IS_PARTY——已全面改用「LOC是否跟玩家目前位置一致」判斷是否同地點在場(solo自己的
   //   隊伍系統仍讀寫IS_PARTY，兩軌互不干擾)。
   sRow[COL.PC.REL_MEM] = "初次相遇，緣分才剛開始";
+  // 🏠 2026-07 七度改版：查無專屬豪邸(KANSHOU_HERO_HOME_)就隨機分配一間泛用住處(KANSHOU_GENERIC_
+  //   HOME_POOL_)，讓她也有家可拜訪/可被夜襲——一次分配、寫進【住處】記憶標記，之後由
+  //   kanshouGetHeroHome_ 統一讀取，永久持有(不重骰、不會搬家)。
+  if (!KANSHOU_HERO_HOME_[String(heroRow[COL.HERO.ID])] && KANSHOU_GENERIC_HOME_POOL_.length) {
+    var _homePick = KANSHOU_GENERIC_HOME_POOL_[Math.floor(Math.random() * KANSHOU_GENERIC_HOME_POOL_.length)];
+    sRow[COL.PC.MEMORY] = setKanshouHeroHome_(sRow[COL.PC.MEMORY], _homePick.name);
+  }
   return sRow;
 }
 
@@ -1098,6 +1105,8 @@ const KANSHOU_LOCATIONS_ = [
 
   // 拜訪住處：只保留女性角色的住處，noEncounter:true(私人住處，恆不觸發陌生人巧遇)，name
   //   務必與下方KANSHOU_HERO_HOME_的值逐字一致，否則kanshouRollDailyLocation_骰到的地點對不上這裡。
+  //   （2026-07 七度改版：泛用住處池KANSHOU_GENERIC_HOME_POOL_不寫在這裡手動維護，改在該常數
+  //   宣告處用push動態併入此陣列，同樣受這條「name須逐字一致」規則約束，只是來源不同。）
   { name: '隱蔽的工房', region: 'visit', desc: '隱藏在巷尾、飄著藥草氣味的工房。', noEncounter: true },
   { name: '島嶼道場', region: 'visit', desc: '孤懸海上、只有濤聲相伴的道場。', noEncounter: true },
   { name: '埃德費爾特宅邸', region: 'visit', desc: '歐風古典的埃德費爾特家宅邸。', noEncounter: true },
@@ -1347,14 +1356,49 @@ function kanshouRollSceneBranch_(eventKey, bond) {
 // 修過的bug：kanshouRollDailyLocation_原本深夜/清晨的homeBias會直接回傳玩家自己家的房間，
 //   讓不在場的人溜進玩家家裡——改成每位英靈自己的住處(資料驅動，同KANSHOU_LOCATION_TAGS_
 //   寫法)，已同步登記進KANSHOU_LOCATIONS_(region:'visit')成為可造訪的真實地點；也是夜襲/
-//   賴床叫醒橋段候選地點的唯一真實來源(見actionPlay)。查無資料(如玩家原創英靈)退回通用值
-//   「自己的住處」——這個值刻意不登記進KANSHOU_LOCATIONS_，多位角色共用同一泛用字串會混淆
-//   是哪一位，故維持不可造訪。
+//   賴床叫醒橋段候選地點的唯一真實來源(見actionPlay)。
+// 🏠 2026-07 七度改版·手寫專屬住處只有這7位種子英靈，其餘所有英靈(其他種子＋玩家原創/AI生成)
+//   完全沒有可造訪的家——夜襲/賴床/拜訪住處對她們全數失效(玩家「新增的英靈會有住處嗎？」)。
+//   已改成 kanshouGetHeroHome_ 統一讀取：這份手寫表優先(專屬豪邸不變)，查無才退回下面的
+//   KANSHOU_GENERIC_HOME_POOL_(隨機分配、寫進她自己列的【住處】記憶標記，一次分配、終身持有，
+//   見heroToKanshouRow_)。方便(新英靈免手動維護此表)·合理(每人一個可視為她家的真實地點，不
+//   共用泛用字串)·隨機(從池子隨機抽一間)。
 const KANSHOU_HERO_HOME_ = {
   '美狄亞-Caster': '隱蔽的工房', '斯卡哈-Lancer': '島嶼道場',
   '美遊-Saber': '埃德費爾特宅邸', '小黑-Archer': '愛因茲貝倫城',
   '遠坂凜-Master': '遠坂邸', '伊莉雅絲菲爾-Master': '愛因茲貝倫城', '藤村大河-Master': '藤村家'
 };
+// 🏠 泛用住處池(七度改版新增)：沒有專屬豪邸的英靈隨機抽一間、終身持有。純泛用命名(不影射任何
+//   特定角色背景)，跟手寫豪邸一樣登記進 KANSHOU_LOCATIONS_(region:'visit')成為可造訪的真實
+//   地點，共用同一套移動驗證/拜訪門檻，不必另開機制。generic:true 標記只供 heroToKanshouRow_
+//   篩選"可隨機分配"的候選池，不影響其餘既有邏輯(其餘地方一律當普通 visit 地點看待)。
+const KANSHOU_GENERIC_HOME_POOL_ = [
+  { name: '河畔小公寓', desc: '面河的小公寓，採光通風都好，租金也親民。' },
+  { name: '巷弄老屋', desc: '藏在巷弄深處的老式住宅，帶點懷舊氣息。' },
+  { name: '高塔套房', desc: '城區高處的一間套房，能眺望遠方街景。' },
+  { name: '郊區透天', desc: '稍嫌偏僻但寬敞安靜的獨棟透天厝。' },
+  { name: '老街閣樓', desc: '老街屋頂加蓋的一間安靜閣樓。' },
+  { name: '街角公寓', desc: '鬧區街角的公寓，樓下就是店家，出入方便。' },
+  { name: '靜巷租屋', desc: '藏身在安靜巷弄裡的一處租屋。' },
+  { name: '河堤畔宅', desc: '鄰近河堤的一棟住宅，晨昏都靜謐。' }
+];
+// 把泛用住處池登記進 KANSHOU_LOCATIONS_(單一真實來源)，讓移動驗證/拜訪門檻/前端地圖等既有
+//   機制原樣吃到這些地點，不必為隨機分配的住處另開一套判斷邏輯。
+KANSHOU_GENERIC_HOME_POOL_.forEach(function (h) {
+  KANSHOU_LOCATIONS_.push({ name: h.name, region: 'visit', desc: h.desc, noEncounter: true, generic: true });
+});
+// 🏠 住處統一讀取入口：手寫專屬豪邸優先，查無才讀【住處】隨機分配記憶標記，兩者皆無才退回
+//   不可造訪的通用值(理論上七度改版後不該再發生，只保留給改版前已存在、尚未補分配的舊存檔)。
+function kanshouGetHeroHome_(heroId, memory) {
+  if (heroId && KANSHOU_HERO_HOME_[heroId]) return KANSHOU_HERO_HOME_[heroId];
+  const m = String(memory || "").match(/【住處】([^｜【】]*)/);
+  return (m && m[1].trim()) || '自己的住處';
+}
+// 寫入隨機分配的住處記憶標記，比照 setOutfit_ 同款「清除舊值再整段append」寫法。
+function setKanshouHeroHome_(memory, homeName) {
+  const cleaned = String(memory || "").replace(/｜?【住處】[^｜【】]*/g, "");
+  return homeName ? (cleaned ? cleaned + "｜" : "") + "【住處】" + homeName : cleaned;
+}
 // 🏷️ MEMORY標記存取器【邂逅】：逗號分隔的巧遇過姓名清單，去重、僅供「似曾相識」氛圍參考——
 //   同行隊伍成員的好感/關係走既有 REL_TAG/BOND，這裡只記路人巧遇過誰，不重複記錄。
 //   比照 getOutfit_/setOutfit_(Core_Settings.gs)同款「清除舊值再整段append」寫法。
@@ -1400,8 +1444,8 @@ function kanshouResidenceUnlocked_(pcData, residenceName, gameId) {
     if (String(r[COL.PC.FACTION]) !== "從者" || String(r[COL.PC.ID]).startsWith("DEAD_")) return false;
     if (gameId && String(r[COL.PC.GAME_ID] || "") !== gameId) return false;
     const hid = kanshouHeroIdByName_(String(r[COL.PC.NAME]));
-    const home = hid && KANSHOU_HERO_HOME_[hid];
-    return home === residenceName && (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_VISIT_BOND_;
+    const home = kanshouGetHeroHome_(hid, r[COL.PC.MEMORY]);
+    return home === residenceName && home !== '自己的住處' && (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_VISIT_BOND_;
   });
 }
 // 🐛→✅ 2026-07 稽核抓到的「必爽約陷阱」：約定成立當下有檢查地點解鎖(見actionPlay的_pmLocOk)，
@@ -1418,8 +1462,11 @@ function kanshouLocHasPendingPromise_(pcData, loc, curDay, gameId) {
 // 同住人深夜/清晨睡不著出門走走的機率，獨立於一般英靈的homeBias，資料只存一處。
 // 幫「不在身邊」的英靈決定當下要去哪——反查KANSHOU_LOCATION_TAGS_有沒有標到這位英靈，有就
 //   加權隨機挑一個常去地點，沒標到就全地點隨機挑。hour：深夜/清晨時段大機率改回「她自己原本
-//   就有的住處」(KANSHOU_HERO_HOME_，查無就退回通用的「自己的住處」)。
-function kanshouRollDailyLocation_(heroName, hour, cohabit) {
+//   就有的住處」(kanshouGetHeroHome_：KANSHOU_HERO_HOME_專屬住處優先，查無就讀【住處】隨機
+//   分配記憶標記，兩者皆無才退回通用的「自己的住處」)。
+// memory選填：只有call site拿得到該英靈自己列的MEMORY時才傳，供讀取隨機分配的【住處】標記；
+//   省略時只吃KANSHOU_HERO_HOME_專屬住處(現有7位種子英靈不受影響)。
+function kanshouRollDailyLocation_(heroName, hour, cohabit, memory) {
   const heroId = kanshouHeroIdByName_(heroName);
   if (hour !== undefined && hour !== null) {
     const band = timeBand_(hour);
@@ -1435,7 +1482,7 @@ function kanshouRollDailyLocation_(heroName, hour, cohabit) {
     } else {
       const homeBias = band === '深夜' ? 0.85 : (band === '清晨' ? 0.5 : 0);
       if (homeBias > 0 && Math.random() < homeBias) {
-        return (heroId && KANSHOU_HERO_HOME_[heroId]) || '自己的住處';
+        return kanshouGetHeroHome_(heroId, memory);
       }
     }
   }
@@ -2194,7 +2241,12 @@ function actionPlay_(userData, pcId, sheets) {
   else if (userData.jumpFestival) _reHourAfter = 6; // 跳節慶恆落在前一天清晨6點(kanshouHoursUntilDate_ 的落點)
   else if (curHour < KANSHOU_DAY_LAST_HOUR_) _reHourAfter = Math.min(KANSHOU_DAY_LAST_HOUR_, curHour + KANSHOU_HOUR_PER_ACTION_);
   const kanshouReBand_ = timeBand_(_reHourAfter);
-  const kanshouHomeLocs_ = Object.values(KANSHOU_HERO_HOME_);
+  // 🐛→✅ 2026-07 七度改版稽核抓到：這裡原本只認 Object.values(KANSHOU_HERO_HOME_)(7位種子英靈
+  //   的手寫豪邸)，泛用住處池(KANSHOU_GENERIC_HOME_POOL_)雖已登記進 KANSHOU_LOCATIONS_ 成為可
+  //   造訪的真實地點，卻沒被這裡認出是「某人的家」，導致隨機分配到泛用住處的英靈永遠觸發不了
+  //   夜襲/賴床叫醒。改成直接從 KANSHOU_LOCATIONS_ 篩 region==='visit'(單一真實來源)，兩種
+  //   住處來源都吃得到，之後再擴充住處池也不必記得同步這裡。
+  const kanshouHomeLocs_ = KANSHOU_LOCATIONS_.filter(l => l.region === 'visit').map(l => l.name);
   // 橋段觸發三層(擇一，優先序由稀至常)：①節慶(一年一天)→②同住人房間(她家×深夜/清晨)→③地點×時段。
   //   三層共用同一套候選人蒐集＋offer按鈕＋accept骰走向流程，只是決定eventKey的來源不同。
   let kanshouRoomEventKey_ = null;
@@ -2335,7 +2387,7 @@ function actionPlay_(userData, pcId, sheets) {
     allEstablished.forEach(r => {
       const idx = pcData.indexOf(r);
       // 優先序：同床過夜(留玩家房間) > 今天有約(釘約定地點守著) > 照常骰行程(同居者走同居版)。curDay已是隔天。
-      pcData[idx][COL.PC.LOC] = intimateNightNames.includes(r[COL.PC.NAME]) ? kanshouMyRoomLoc_ : (kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, kanshouIsCohabit_(r)));
+      pcData[idx][COL.PC.LOC] = intimateNightNames.includes(r[COL.PC.NAME]) ? kanshouMyRoomLoc_ : (kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, kanshouIsCohabit_(r), r[COL.PC.MEMORY]));
       dirtyPcRows.add(idx);
     });
     finalUserMsg = `【一天結束】夜幕降臨，${intimateNightNames.length ? `跟『${intimateNightNames.join('、')}』一起` : ""}回到房間安頓下來，今天到此為止，明天又是新的一天。`;
@@ -2373,7 +2425,7 @@ function actionPlay_(userData, pcId, sheets) {
         //   陪你一起跳過這段時間——牽手＝她選擇跟著你，不被作息骰走(直到放手/結束一天)。
         if (kanshouHeldName_ && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim() && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(kanshouHeldName_)) return;
         // 今天有約→釘在約定地點守著；沒約→照常骰(同居者走同居版)。curDay已是推進後的日期。
-        pcData[idx][COL.PC.LOC] = kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, kanshouIsCohabit_(r));
+        pcData[idx][COL.PC.LOC] = kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, kanshouIsCohabit_(r), r[COL.PC.MEMORY]);
         dirtyPcRows.add(idx);
       });
       const newDate = kanshouAbsDayToDate_(curDay);
@@ -2511,7 +2563,7 @@ function actionPlay_(userData, pcId, sheets) {
         const _ppN = String(_pendingProposal.name || pcData[_pendingProposal.idx][COL.PC.NAME] || "");
         if (_ppN && kanshouNameCandidates_(_nm).includes(_ppN)) return;
       }
-      const _newLoc = String(kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(_nm, curHour, kanshouIsCohabit_(r)) || "").trim();
+      const _newLoc = String(kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(_nm, curHour, kanshouIsCohabit_(r), r[COL.PC.MEMORY]) || "").trim();
       if (_newLoc && _newLoc !== String(curL || "").trim()) {
         pcData[i][COL.PC.LOC] = _newLoc;
         dirtyPcRows.add(i);
@@ -3095,11 +3147,11 @@ ${PROMPT_PARTY_SYSTEM}
           if (!exitName) return;
           const eIdx = pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(exitName) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim());
           if (eIdx === -1) return;
-          let dest = kanshouRollDailyLocation_(pcData[eIdx][COL.PC.NAME], curHour, kanshouIsCohabit_(pcData[eIdx]));
+          let dest = kanshouRollDailyLocation_(pcData[eIdx][COL.PC.NAME], curHour, kanshouIsCohabit_(pcData[eIdx]), pcData[eIdx][COL.PC.MEMORY]);
           if (String(dest || "").trim() === String(curL || "").trim()) {
             const eHeroId = kanshouHeroIdByName_(pcData[eIdx][COL.PC.NAME]);
-            const eHome = eHeroId && KANSHOU_HERO_HOME_[eHeroId];
-            dest = (eHome && eHome !== curL) ? eHome
+            const eHome = kanshouGetHeroHome_(eHeroId, pcData[eIdx][COL.PC.MEMORY]);
+            dest = (eHome && eHome !== '自己的住處' && eHome !== curL) ? eHome
               : ((KANSHOU_LOCATIONS_.filter(l => l.region !== 'room' && l.region !== 'visit' && !l.dateOnly && l.name !== curL)[0] || {}).name || dest);
           }
           pcData[eIdx][COL.PC.LOC] = dest;

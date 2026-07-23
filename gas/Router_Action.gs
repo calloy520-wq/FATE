@@ -450,8 +450,11 @@ function buildTagsPayload_(sheets, pcId, preData) {
       var l = String(r[COL.PC.LOC] || "").trim();
       if (l) locationCounts[l] = (locationCounts[l] || 0) + 1;
       var hid = kanshouHeroIdByName_(String(r[COL.PC.NAME]));
-      var home = hid && KANSHOU_HERO_HOME_[hid];
-      if (home && (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_VISIT_BOND_) unlockedResidences[home] = true;
+      // 🐛→✅ 2026-07 七度改版稽核抓到：原本只認KANSHOU_HERO_HOME_(7位種子英靈手寫豪邸)，隨機
+      //   分配到泛用住處池的英靈永遠解鎖不了——改用kanshouGetHeroHome_統一讀取(手寫優先、查無
+      //   讀【住處】隨機分配標記)，同 kanshouResidenceUnlocked_(Gallery.gs)那套判定同步。
+      var home = kanshouGetHeroHome_(hid, r[COL.PC.MEMORY]);
+      if (home && home !== '自己的住處' && (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_VISIT_BOND_) unlockedResidences[home] = true;
     });
   }
   // 🎯 撞見敵人的可反應窗口（趁隙/挑撥/溜走）：僅 solo 且窗口 loc＝目前所在地時給前端，供顯示情境按鈕。

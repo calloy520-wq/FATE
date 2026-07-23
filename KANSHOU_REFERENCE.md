@@ -12,7 +12,7 @@
 
 ### 世界觀鐵則（都是「已砍」的反向定義，別復活）
 - **無戰鬥／無經濟**：`Router_Action.gs` dispatcher 明文擋 `KANSHOU_BLOCKED_ACTIONS_`。錢/打工/房租/商店/客房/肉償/欠租/宵禁全部**已刪**，grep 查無定義。AI 需要時自己掰、不寫試算表。
-- **無房東房客**：獨立作息制（independent residency），不是跟隊模型。她們有自己的家（`KANSHOU_HERO_HOME_`）、每天自己移動。
+- **無房東房客**：獨立作息制（independent residency），不是跟隊模型。她們有自己的家（`KANSHOU_HERO_HOME_`手寫豪邸優先，查無退回`KANSHOU_GENERIC_HOME_POOL_`隨機分配、見下方§住處分配）、每天自己移動。
 - **無奪杯封存**：`claim_grail`/`actionClaimGrail`/排行榜/戰記**已刪**。
 - **全程無花錢入口**（跟 solo 一樣）。`COL.PC.MONEY/UPKEEP_WEEK/ROOM` 是恆空死欄。
 
@@ -137,7 +137,7 @@
 - **offer+accept 制**：先跳邀請框（`roomEventOffer`），玩家按 `kanshouAcceptRoomEvent` 才演。非拒絕分支 `BOND+3`。⚠ offer 組裝時**現場過濾候選人 LOC＝當前地點**（2026-07 稽核修：舊版沿用回合初快取，人已離場還發邀請＝幽靈橋段），過濾後無人＝不發 offer。
 - **觸發表**：`KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_ = {深夜:夜襲, 清晨:賴床叫醒}`（同居和室）／`KANSHOU_LOCATION_EVENTS_`（地點×時段）／`KANSHOU_FESTIVAL_EVENTS_`（節慶）。
 - **深夜敲門**：每次「結束一天」擲 `KANSHOU_KNOCK_CHANCE_ = 0.2`，候選需好感≥`KANSHOU_KNOCK_MIN_BOND_ = 60`；跳敲門泡泡（`kanshouAnswerKnock`/`kanshouIgnoreKnock`）。
-- **🎭 橋段提醒徽章（前端·2026-07·玩家「不知道去哪、幾點」）**：地圖每個地點按鈕旁標該地橋段＋時段（客廳💤午後、浴室🛁夜/深夜、屋頂花園🌌夜/深夜、廚房🍳黃昏、隱藏溫泉♨️、和室🌙深夜/清晨、她們各自私宅🌙深夜/清晨）；**當前時段命中就高亮**。⚠ 夜襲/賴床**不必同居**——她們各自的家（`KANSHOU_HERO_HOME_`：遠坂邸/藤村家/愛因茲貝倫城…·好感40解鎖登門）深夜/清晨登門即觸發；同居(90)只是「她搬來睡和室」的另一條路。徽章對齊後端所有住處值，鎖住的私宅走🔒分支不顯示徽章。前端鏡像 `KC_LOCATION_EVENTS_`＋`kcSceneBadge_`（唯一真實來源仍是後端 `KANSHOU_LOCATION_EVENTS_`／`KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_`，改後端觸發表記得同步鏡像）。⚠ 橋段 offer **無好感門檻**（好感只軟硬化她的反應·分支），徽章不標好感。
+- **🎭 橋段提醒徽章（前端·2026-07·玩家「不知道去哪、幾點」）**：地圖每個地點按鈕旁標該地橋段＋時段（客廳💤午後、浴室🛁夜/深夜、屋頂花園🌌夜/深夜、廚房🍳黃昏、隱藏溫泉♨️、和室🌙深夜/清晨、她們各自私宅🌙深夜/清晨）；**當前時段命中就高亮**。⚠ 夜襲/賴床**不必同居**——她們各自的家（`KANSHOU_HERO_HOME_`手寫豪邸：遠坂邸/藤村家/愛因茲貝倫城…，或`KANSHOU_GENERIC_HOME_POOL_`隨機分配的泛用住處，見§住處分配·好感40解鎖登門）深夜/清晨登門即觸發；同居(90)只是「她搬來睡和室」的另一條路。徽章對齊後端所有住處值，鎖住的私宅走🔒分支不顯示徽章。前端鏡像 `KC_LOCATION_EVENTS_`＋`kcSceneBadge_`（唯一真實來源仍是後端 `KANSHOU_LOCATION_EVENTS_`／`KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_`，改後端觸發表記得同步鏡像）。⚠ 橋段 offer **無好感門檻**（好感只軟硬化她的反應·分支），徽章不標好感。
 
 ---
 
@@ -157,6 +157,12 @@
 ## 🚶 作息／同居／拜訪
 
 - **獨立作息**：每人有自己的家 `KANSHOU_HERO_HOME_`（`region:'visit'`）；`kanshouRollDailyLocation_` 每逢時間推進重骰全世界去向；**LOC 判在場**。
+- **🏠 住處分配（2026-07 七度改版，玩家「新增的英靈會有住處嗎？種子庫是不是要整理、直接隨機就好」）**：手寫專屬豪邸(`KANSHOU_HERO_HOME_`)只有7位種子英靈有——其餘所有英靈(其他種子＋玩家原創/AI生成)過去完全沒有可造訪的家，`拜訪住處`/夜襲/賴床叫醒對她們全數失效，只能退回不可造訪的通用值「自己的住處」。已改成**方便·合理·隨機**三原則的自動分配：
+  - `KANSHOU_GENERIC_HOME_POOL_`（8間泛用住處：河畔小公寓/巷弄老屋/高塔套房/郊區透天/老街閣樓/街角公寓/靜巷租屋/河堤畔宅）——純泛用命名、不影射任何角色背景，跟手寫豪邸一樣登記進 `KANSHOU_LOCATIONS_`(`region:'visit'`)，共用同一套移動驗證/拜訪門檻，不必另開機制。
+  - `heroToKanshouRow_`(英靈召喚/入駐/結識的唯一建列函式)在建列當下檢查：查無 `KANSHOU_HERO_HOME_` 專屬住處，就從泛用池隨機抽一間，寫進她自己列的 `【住處】` 記憶標記——**一次分配、終身持有**(不重骰、不會搬家，不像約會地點那樣每天可能換)。不做「避免跟其他同伴撞同一間」的去重邏輯(接受偶爾撞名的極小機率，narrative上也可解讀成她們剛好是室友，跟`小黑`/`伊莉雅絲菲爾`共用「愛因茲貝倫城」的既有設計精神一致)。
+  - `kanshouGetHeroHome_(heroId, memory)`：住處統一讀取入口，手寫專屬豪邸優先，查無才讀 `【住處】` 標記，兩者皆無才退回不可造訪的「自己的住處」(理論上七度改版後不該再發生，只保留給改版前已存在、尚未補分配的舊存檔)。`setKanshouHeroHome_(memory, homeName)` 寫入，比照 `setOutfit_` 同款「清除舊值再整段append」寫法。
+  - **🐛→✅ 順手抓到的連帶bug**：`kanshouRollDailyLocation_`(深夜/清晨的homeBias)、`kanshouResidenceUnlocked_`(拜訪門檻判定)、`buildTagsPayload_`(前端`unlockedResidences`鎖圖示清單)、以及夜襲/賴床叫醒三層觸發判定裡的 `kanshouHomeLocs_`，原本全部只認 `KANSHOU_HERO_HOME_`/`Object.values(KANSHOU_HERO_HOME_)` 這張手寫表，即使加了泛用住處池，這幾處還是認不出「這是某人的家」——已全數改走 `kanshouGetHeroHome_` 或直接篩 `KANSHOU_LOCATIONS_` 的 `region==='visit'`(單一真實來源)，之後再擴充住處池也不必記得同步這幾處。
+  - 前端 `KC_LOCATIONS_`／`KC_LOCATION_EVENTS_`(夜襲/賴床徽章)鏡射同步補上 8 間泛用住處。
 - **同伴詳情上限** `KANSHOU_PARTY_DETAIL_CAP_ = 5`（同地最多給5張詳細卡，敘事上限非隊伍容量），依 BOND 排序。
 - **🌍 世界概況(輕量版)**（2026-07 玩家「NPC不知道彼此存在，很怪」）：不在場的同伴也給 AI 一份極簡名單——只有**名字＋大分區**(`KANSHOU_REGIONS_`的房間/家的共用空間/深山町/冬木市中心/山林/拜訪住處，不給精確地點/在幹嘛)，依 BOND 取前 `KANSHOU_WORLD_ROSTER_CAP_ = 8` 位，避免同伴一多每回合無限膨脹。★提示詞明講**僅供閒聊背景話題、絕不可讓對方憑空出現/開口/被指名互動**——不影響【在場驗證鐵律】，指名互動/追蹤好感仍只認同地點的 `partyRows`。純粹解決「明明認識彼此、對話裡卻連提都不能提」的違和感，不是給 NPC 即時動向。
 - **同居**：好感≥`KANSHOU_COHABIT_BOND_ = 90` 可邀（`kanshouInviteCohabit`），就寢/夜襲在 `KANSHOU_COHABIT_ROOM_ = '和室'`；`【同居】1` 標記。**她也能主動邀同居**（`kanshouCohabitOffer_`，2026-07 三度改版·同一批把 `cohabit_proposal` 從AI手上拔掉，玩家「好感超過90並且沒有同居時詢問玩家她是否可以與玩家同居」）：GAS 每回合掃在場同伴，好感≥90＋未同住＋今天還沒問過(`KANSHOU_COHABIT_ASK_TAG_`【同居邀約日】標記，存 absDay) → **一定問**（不是機率），問過就記當天日期(不管答不答應)避免同一天被反覆追問，隔天若仍未同住會再問一次。回傳 `cohabitProposal` → 前端同意泡泡（`kanshouAcceptCohabit`，複用 cohabitInvite 後端、不重複跳確認框）。⚠ **2026-07 稽核修·同居會隨好感跌破90自動解除**：舊版`【同居】`只有兩處會寫成1(邀請成立/她主動提議)、全檔案沒有任何地方清回0——好感若同居後因爽約/冒犯一路跌到接近「點頭之交」，標記仍在，AI仍照樣把她骰進和室、仍觸發夜襲/賴床，敘事跟數值直接矛盾。已在`kanshouSyncRelTier_`(跟REL_TAG梯度同步同一個函式、呼叫時機也一致)裡補上：BOND低於`KANSHOU_COHABIT_BOND_`就清掉`【同居】`。
@@ -321,4 +327,4 @@ SOLO_MODEL   = google/gemini-3.5-flash-lite  (屬性 SOLO_MODEL)   ← 主力(�
 ---
 
 ## 📎 主要常數速查（都在 `gas/Gallery.gs`）
-`KANSHOU_REL_TIER_`(五階) · `KANSHOU_SCENE_BOND_`(3) · `KANSHOU_APPT_BANDS_`(午後14/黃昏18/夜20) · `KANSHOU_HOUR_PER_ACTION_`(1/6) · `KANSHOU_TIME_BANDS_`(5時段) · `KANSHOU_LOCATIONS_`(合法地點白名單·AI location/move 驗證) · `KANSHOU_HERO_HOME_`(各人住處) · `KANSHOU_SCENE_EVENTS_`(橋段庫) · `KANSHOU_FILM_PER_DAY_`(3)/`KANSHOU_ALBUM_CAP_`(100) · `KANSHOU_KNOCK_CHANCE_`(0.2)/`KANSHOU_KNOCK_MIN_BOND_`(60) · `KANSHOU_COHABIT_BOND_`(90)/`KANSHOU_VISIT_BOND_`(40) · `KANSHOU_PARTY_DETAIL_CAP_`(5) · `KANSHOU_STARTER_IDS_`(開局起手池) · `KANSHOU_SUMMON_BLOCKED_IDS_`(暫不開放召喚)。
+`KANSHOU_REL_TIER_`(五階) · `KANSHOU_SCENE_BOND_`(3) · `KANSHOU_APPT_BANDS_`(午後14/黃昏18/夜20) · `KANSHOU_HOUR_PER_ACTION_`(1/6) · `KANSHOU_TIME_BANDS_`(5時段) · `KANSHOU_LOCATIONS_`(合法地點白名單·AI location/move 驗證) · `KANSHOU_HERO_HOME_`(手寫專屬豪邸)/`KANSHOU_GENERIC_HOME_POOL_`(泛用住處池·8間·查無專屬豪邸者隨機分配) · `KANSHOU_SCENE_EVENTS_`(橋段庫) · `KANSHOU_FILM_PER_DAY_`(3)/`KANSHOU_ALBUM_CAP_`(100) · `KANSHOU_KNOCK_CHANCE_`(0.2)/`KANSHOU_KNOCK_MIN_BOND_`(60) · `KANSHOU_COHABIT_BOND_`(90)/`KANSHOU_VISIT_BOND_`(40) · `KANSHOU_PARTY_DETAIL_CAP_`(5) · `KANSHOU_STARTER_IDS_`(開局起手池) · `KANSHOU_SUMMON_BLOCKED_IDS_`(暫不開放召喚)。
