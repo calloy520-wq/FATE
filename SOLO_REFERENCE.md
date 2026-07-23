@@ -507,6 +507,25 @@ Seed_Codex.gs 頂部 `CODEX_PERSONA_VER` 的註解只留當前版號一行簡述
 - **v66**：凜/櫻/大河鑑賞日常欄補喜歡/討厭具體細節，拿掉會被覆誦的身高數字；`SEED_MASTERS` 全數14人 persona 欄從3段補齊成註解要求的4段（原本喜歡欄位缺失，解析時被厭惡內容錯位頂替）。
 - **v67**：萌點欄位不再侷限「反差萌」——凜的萌點從瞎編的「私下迷糊」改成 canon「電器白痴」；大河的喜歡改成 canon「蹭飯偷吃」(大食)，不再是抽象句子。
 - **v68**：女性種子角色 dailyLook 補上身形/體態描寫（阿爾托莉雅嬌小玲瓏、美杜莎/斯卡哈豐滿、美狄亞纖細、凜勻稱、大河嬌小），幼女型角色（伊莉雅絲菲爾等）刻意不加。
+
+## 22. 全面重構掃描（2026-07·玩家「整體整理整理~還有哪裡可以重構？」）
+
+6組平行審查掃遍全部 .gs/.html 找可合併/精簡的重複，篩出零風險～低風險項目全部落地，分 A~F 六批次（見對應 commit）：
+
+- **A**：`Router_Action.gs` 3處手刻找列邏輯改 `findPcRowIdx_`；`Core_Settings.gs` 4個MEMORY getter改用既有 `makeTextTag_` 工廠；新增 `clampCircuits_` 取代3處硬寫的迴路夾值(12~50)魔數。
+- **B**：`Router_Battle.gs`/`Engine_Fate.gs` 新增 `injectMasterSupportFor_`（合併我方/敵方共6處注入御主支援）、`pushMatching_`（合併4處extraFired收集迴圈）、`buildPartyIdxs_`（合併斬首/主戰鬥2處複製貼上）、`ourMeleeFired`等4段掃描改資料驅動。
+- **C**：`Router_Movement.gs`/`Router_Economy.gs`/`Router_Bond.gs` 新增 `dmgSeverityWord_`（傷害嚴重度分級，順便修 `actionBond` 突襲提示原本沒分級的不一致）、`ambushDispatchPrompt_`（合併5處突襲結果三分支）、`chargeApOrReject_`（合併11處AP門檻+扣AP+時鐘標籤樣板）。`actionMove`(cost=2、與`worldTick_`緊密耦合)刻意不動；Bond.gs的5處npcId+nameLoose_ fallback逐一核對，全部帶有`findPcRowIdx_`無法表達的額外條件(`hasArrived_`/`isAllied_`/批次操作)，維持原樣。
+- **D**：`Gallery.gs`（鑑賞層，`nsfwBaseRules`全程未觸及）4個handler改用`findPcRowIdx_`（`actionKanshouDeleteCustomProp`因是「清全部同伴身上」而非單一目標查找，非等價重構，跳過）；新增`kanshouMissStr_`合併5處提議撲空敘事；3個「戰時→日常」AI wrapper合併共用開場白+呼叫殼；`formatPref`/`formatTrait`合併成`formatFourSlot_`；刪除已確認零讀取點的死碼欄位`minBond`。
+- **E**：`Script_Kanshou.html` 新增`ensureOverlay_`合併11處overlay建立樣板、`_showOverlayLoading_`合併2個讀條函式；修`kp-overlay` id被3種功能共用的隱性耦合(`kanshouPickLocation_`改用獨立的`kloc-overlay`)。
+- **F**：`Account.gs`新增`findPcRowByCharId_`；`History_Sync.gs`新增`readRecentPlayerRows_`；`Seed_Codex.gs`/`Seed_Rivals.gs`重複fallback文案抽成`DEFAULT_TRAIT_FALLBACK_`/`DEFAULT_PREF_FALLBACK_`；`CODEX_PERSONA_VER`版本註解瘦身(歷史見上方§21)。
+
+**額外發現並修正的真實不一致(非純風格重構)**：`Router_Battle.gs` 對轟(`CLASH_OFF_FX`)與敵反擊解放(`ECF`)兩份「攻擊型寶具判準」清單，註解都明講「與對轟同準」理應是同一套標準，卻各自維護、對轟那份漏了`summon_horror`——同一隻只有深淵召喚型寶具的敵人，在對轟場景不會被判定為攻擊型、但在敵反擊場景會，兩處判定不一致。已統一成單一常數`OFFENSIVE_NP_ATK_FX_`（採較完整的敵反擊版為準），兩處呼叫點都改用它。
+
+**刻意判斷不應合併、維持現狀的兩份清單**（審查曾建議一併看，逐一核對用途後確認語意範圍本就不同，非重複）：`Engine_Fate.gs`的`offenseTier_`內`pierceFx`——只收錄`CONCEPT_TIER`表裡真正有分級的fx(概念貫穿計算專用，收錄`gob`/`chain`等未分級的fx毫無意義，因為`conceptTier_`對未列在表裡的fx一律回傳最低的1)；`OFFENSIVE_NP_FX_`(`bestNpChoice_`用，多寶具敵人選「最強攻擊寶具」時判斷某個NP選項算不算攻擊型)——語意範圍本就比對轟/反擊判準更寬鬆，兩者職責不同，未合併。
+
+**其餘明確判斷風險偏高、本輪不碰的項目**（供之後評估）：`fateStrike_`與斬首反噬分支的死亡結算重複合併；`actionMove`裡4處重複掃描`allPcData`找同地點敵人的邏輯合併；`upgradeCodexPersonas_`/`upgradeMasterCodex_`合併(各自有刪孤兒種子列的side effect)；kanshou側8個handler仿`runSimpleAction_`做共用wrapper；`kanshouOpenProps`/`kanshouOpenHypnosis`更深度合併。
+
+`bash check.sh` 全過、`nsfwBaseRules` 紅線未觸及。
 - **v69**：玩家指出「豐滿」太籠統（AI不一定會讀成胸部大），美杜莎/斯卡哈x2的胸部描寫改成明確的「巨乳」，AI生成prompt的範例詞同步從「高挑豐滿」改「巨乳/貧乳」對照組。
 
 （v70 起的當前版本簡述見 Seed_Codex.gs 檔內 `CODEX_PERSONA_VER` 那一行。）

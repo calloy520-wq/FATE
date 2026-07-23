@@ -267,6 +267,12 @@ function pushMatching_(arr, target, regex) {
   });
 }
 
+// ⚔️ 「攻擊型寶具」判準（只有這類寶具才觸發對轟/敵方反擊解放；純防禦/召喚型如 God Hand、summon_horror
+//   單獨的召喚體本身不算，但 summon_horror 這個 fx 本身代表深淵召喚攻擊、算攻擊型）——2026-07 稽核發現
+//   對轟(原CLASH_OFF_FX)與敵反擊(原ECF)兩處清單本應同一套標準(註解皆明講「與對轟同準」)，卻各自維護、
+//   對轟那份漏了 summon_horror，兩處判定不一致。統一成單一真實來源，以較完整的敵反擊版為準。
+var OFFENSIVE_NP_ATK_FX_ = ['ea', 'excalibur', 'ubw', 'summon_horror', 'gob', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify', 'chain', 'anti_magic_lance', 'wind_strike', 'projection'];
+
 // 🗝️ 雙從者：收集所有在世我方從者列索引，出戰中的 atkIdx 排最前(寶具/令咒/斬首優先權只落在他身上)——
 //   斬首分支的 asnParty 與主戰鬥路徑的 partyIdxs 是同一段複製貼上，2026-07 稽核抽出共用。
 function buildPartyIdxs_(pcData, myGameId, atkIdx) {
@@ -785,10 +791,9 @@ function actionFateBattle(userData, pcId, sheets) {
     //   對人的王之財寶)須改選最強寶具，與下方「敵反擊」段落同步，避免同場戰鬥前後不一致地低估敵方火力。
     enemyC0.npChoice = bestNpChoice_(enemyC0.name, enemyC0.cls);
     const enemyHasNp = !!String(pcData[nIdx][COL.PC.MARTIAL] || "").trim() && rankVal(enemyC0.six["寶具"] || "-") >= 10;
-    // 只有「攻擊型寶具」才對轟；防禦/生存/召喚型(God Hand、summon_horror…)不去抵銷玩家寶具。
-    const CLASH_OFF_FX = ['ea', 'excalibur', 'ubw', 'gob', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify', 'chain', 'anti_magic_lance', 'wind_strike', 'projection'];
+    // 只有「攻擊型寶具」才對轟；防禦/生存型(God Hand等)不去抵銷玩家寶具。
     const eScaleClash = npAtkScale_(enemyC0);
-    const enemyOffensiveNp = enemyHasNp && (eScaleClash === '對軍' || eScaleClash === '對城' || eScaleClash === '對界' || CLASH_OFF_FX.some(function (f) { return hasFx_(enemyC0, f); }));
+    const enemyOffensiveNp = enemyHasNp && (eScaleClash === '對軍' || eScaleClash === '對城' || eScaleClash === '對界' || OFFENSIVE_NP_ATK_FX_.some(function (f) { return hasFx_(enemyC0, f); }));
     const eHpR = (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[nIdx][COL.PC.HP]) || 0) / (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) : 1;
     const clashUrge = 0.6 + (hasFx_(enemyC0, 'mad') || hasFx_(enemyC0, 'zabaniya') ? 0.25 : 0) - (1 - eHpR) * 0.3;
     const clashPrana = npPranaCost_(npEffectiveRank_(enemyC0)); // 🎴 吃已選定(bestNpChoice_)寶具的官方階級
@@ -1044,9 +1049,8 @@ function actionFateBattle(userData, pcId, sheets) {
         const eHpRatio = (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[nIdx][COL.PC.HP]) || 0) / (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) : 1;
         const eNpUrge = (hasFx_(enemyNow, 'zabaniya') || hasFx_(enemyNow, 'mad')) ? 0.22 : 0.10;
         // ⚔️ 只有「攻擊型寶具」才反擊解放(與對轟同準)：純防禦/對人寶具(如 Rule Breaker 對人C·無攻擊 fx)不該吃解放加成
-        const ECF = ['ea', 'excalibur', 'ubw', 'summon_horror', 'gob', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify', 'chain', 'anti_magic_lance', 'wind_strike', 'projection'];
         const eOffensiveNp = !!String(pcData[nIdx][COL.PC.MARTIAL] || "").trim() && rankVal(enemyNow.six["寶具"] || "-") >= 10
-          && (['對軍', '對城', '對界'].indexOf(npAtkScale_(enemyNow)) >= 0 || ECF.some(function (f) { return hasFx_(enemyNow, f); }));
+          && (['對軍', '對城', '對界'].indexOf(npAtkScale_(enemyNow)) >= 0 || OFFENSIVE_NP_ATK_FX_.some(function (f) { return hasFx_(enemyNow, f); }));
         // 🛡️ 寶具是孤注一擲的殺招、不是見面的招呼：敵方唯有【自己被打殘】或【對方已殘可收尾】才解放真名——
         //    免得玩家一接觸就被無預警的寶具秒殺(「見面開寶具」的惡感)。健康對健康＝先以普攻試探。
         const pHpRatio = (parseInt(pcData[ctgt][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[ctgt][COL.PC.HP]) || 0) / (parseInt(pcData[ctgt][COL.PC.MAX_HP]) || 1) : 1;
