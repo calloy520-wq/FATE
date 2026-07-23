@@ -932,11 +932,10 @@ function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
     // 🐛→✅ 2026-07 三度改版（玩家「proposal_accept可以拿掉…promise_proposal也可以拿掉，讓GAS
     //   好感超過90…詢問玩家她是否可以與玩家同居…想要當好感卡39之類的時候GAS主動發出邀約」）：
     //   promise_proposal(她主動約你改天見面)／cohabit_proposal(她主動邀同居)／proposal_accept(早已停用)
-    //   三個欄位全部拔掉，AI 不再有任何管道自己決定「要不要開口邀」——約會邀約改由 GAS 依好感數值
-    //   直接判定觸發(見actionPlay_的kanshouPromiseOffer_)，同意後落地沿用舊有 promiseAccept 管線，
-    //   AI 只在玩家按下同意鈕後才演出她開口的當下，不必每回合先自己猜要不要提。同居邀約(原
-    //   kanshouCohabitOffer_/cohabitAccept)後來因玩家嫌「每天被系統追問」煩人已整組移除，玩家
-    //   想同居時仍可隨時自己主動邀請(cohabitInvite)。
+    //   三個欄位全部拔掉，AI 不再有任何管道自己決定「要不要開口邀」——約會/同居邀約當時改由 GAS
+    //   依好感數值直接判定觸發(kanshouPromiseOffer_/kanshouCohabitOffer_)，後來雙雙因玩家嫌「太
+    //   煩人」(約會泡泡每回合都跳、同居泡泡每天都跳)已整組移除，約會/同居現只剩玩家自己主動
+    //   發起(promiseMeet/cohabitInvite)一條路。
     // npc_exit：同伴自主權——她可自然告辭離場，GAS真的把她移出場景(不再是嘴上說走卻還在)。只認此刻
     //   在場同伴，去向由系統依作息決定；被牽的人離場→牽手自動鬆開。不必每回合遣散，只在情境自然時。
     "npc_exit": "在場同伴自然告辭離場的真名陣列(可多位)·narration演出她離開·否則[]",
@@ -1057,12 +1056,14 @@ function kanshouLocContextForAI_(locName, homeName) {
 //   🏠 房間分區的name是穩定不變的內部key(給LOC比對用)，顯示給玩家/AI看的名稱是動態算的
 //   (kanshouRoomDisplayName_)——「我的房間」永遠顯示「(玩家名)的房間」。2026-07 經濟/房東房客
 //   世界觀砍除後，鑑賞不再有可指派的客房，同伴們各自落腳在自己原本的住處(KANSHOU_HERO_HOME_)。
-// 🌱 2026-07 三度改版新增 minBond/dateOnly：GAS主動判定「該邀她約會」時(kanshouPickDate_)只依
-//   好感梯度(KANSHOU_REL_TIER_同一份門檻)篩地點——minBond省略＝0(日常初識可去)；40+/60+/80+
-//   分別對應熟識/親近/戀人三階，好感越深解鎖越有情調(甚至很色)的去處。★這個門檻只影響GAS自動
-//   選點，不限制玩家自己走地圖過去或帶她同去(玩家「玩家邀約或是牽手帶去不管」)，地圖上一律可走。
-//   dateOnly:true＝只給GAS的約會邀請挑，不進kanshouRollDailyLocation_的日常閒晃保底池(避免其他
-//   同伴平白無故被骰去這種明顯是「約會限定」的私密地點閒晃)。
+// 🌱 2026-07 三度改版新增 minBond/dateOnly：原本給GAS主動邀約(kanshouPickDate_)篩選地點用——
+//   minBond省略＝0(日常初識可去)；40+/60+/80+分別對應熟識/親近/戀人三階，好感越深解鎖越有情調
+//   (甚至很色)的去處。★這個門檻從來只影響GAS自動選點，不限制玩家自己走地圖過去或帶她同去(玩家
+//   「玩家邀約或是牽手帶去不管」)，地圖上一律可走。⚠ 2026-07 八度改版(玩家「約會泡泡也好煩人」)
+//   移除GAS主動邀約機制(kanshouPickDate_)後，minBond欄位已無任何程式碼讀取，純屬保留給未來若要
+//   恢復類似機制參考用的既有分級資料，不影響現行流程。
+//   dateOnly:true＝不進kanshouRollDailyLocation_的日常閒晃保底池(避免其他同伴平白無故被骰去這種
+//   明顯是「約會限定」的私密地點閒晃)，這個用途仍在使用中(見kanshouRollDailyLocation_)。
 // 🕐 2026-07 六度改版新增 bands：玩家實測「清晨走進深夜賓館，櫃檯空無一人像恐怖片開場」──有些
 //   地點名字本身就寫明時段(深夜賓館/夜景展望台)、有些現實中就有營業時段(書店/水族館)，卻能被
 //   玩家在任何時段自由走進去，AI只能硬掰理由圓場，讀起來很違和。bands＝這個地點在哪些
@@ -1073,8 +1074,8 @@ function kanshouLocContextForAI_(locName, homeName) {
 //   暗示的營業時段」訂，非玩家點名的地點一律維持不設限，之後想擴大範圍只需往表加 bands 一列。
 //   ⚠ 改這裡記得同步前端顯示鏡射 KC_LOCATIONS_(Script_Kanshou.html)的同名地點——否則鎖圖示對不上
 //   後端實際判定(同KANSHOU_LOCATIONS_/KC_LOCATIONS_過去漏同步過5個地點的教訓)。設有 bands 限制的
-//   地點若同時可被GAS約會邀請(kanshouPickDate_)或玩家相約(promiseMeet)選中，兩處都已改成只挑
-//   跟該地點bands相容的時段，避免「約好了、赴約時卻被地點未開放擋在門外」的必爽約陷阱。
+//   地點若被玩家相約(promiseMeet)選中，只能挑跟該地點bands相容的時段，避免「約好了、赴約時卻被
+//   地點未開放擋在門外」的必爽約陷阱。
 const KANSHOU_LOCATIONS_ = [
   { name: '我的房間', region: 'room', desc: '安穩靜謐、只屬於自己的房間。', noEncounter: true, isRoom: true },
 
@@ -1115,30 +1116,6 @@ const KANSHOU_LOCATIONS_ = [
   { name: '遠坂邸', region: 'visit', desc: '老字號魔術師家系的遠坂邸。', noEncounter: true },
   { name: '藤村家', region: 'visit', desc: '熱鬧溫馨、時常傳出笑鬧聲的藤村家。', noEncounter: true }
 ];
-// 💌 GAS依好感梯度幫她挑約會地點(kanshouRelChatCeiling_/KANSHOU_REL_TIER_同一份門檻，單一數字
-//   來源)：先抓「好感梯度剛好卡在哪一階」對應的地點池，池空才退而求其次抓所有已解鎖的梯度。
-//   同一(她,同一天)固定挑到同一個地點/時段(hash動day+heroName)，避免同一天內邀約地點每回合亂跳；
-//   隔天若還沒約成，明天的邀約就可能換一個地方，體感上像是她换了個提議。玩家自己邀約/牽手完全
-//   不受此函式限制(見promiseMeet/proposeMove的驗證式，只認KANSHOU_LOCATIONS_本身合不合法)。
-function kanshouPickDate_(heroName, day, bond) {
-  const tiers = KANSHOU_REL_TIER_.map(t => t.min).concat([0]).sort((a, b) => b - a);
-  const tier = tiers.find(t => bond >= t) || 0;
-  const _datePool = l => l.region !== 'room' && l.region !== 'home' && l.region !== 'visit';
-  let pool = KANSHOU_LOCATIONS_.filter(l => (parseInt(l.minBond) || 0) === tier && _datePool(l));
-  if (!pool.length) pool = KANSHOU_LOCATIONS_.filter(l => (parseInt(l.minBond) || 0) <= tier && _datePool(l));
-  if (!pool.length) return null;
-  const key = String(heroName || "") + "#" + (parseInt(day, 10) || 0);
-  let h = 0;
-  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
-  const locObj = pool[h % pool.length];
-  // 🕐 2026-07 六度改版：地點若有時段限制(bands)，只能從跟它相容的約會時段挑，避免「約好了、
-  //   赴約時卻被地點未開放擋在門外」的必爽約陷阱(見上方【地點未開放】判定)。目前6個設限地點
-  //   都至少跟一個約會時段(午後/黃昏/夜)相容，理論上不會挑到空集合，但仍保底退回全部時段。
-  const compatBands = locObj.bands ? KANSHOU_APPT_BANDS_.filter(b => locObj.bands.indexOf(b.band) !== -1) : KANSHOU_APPT_BANDS_;
-  const bandPool = compatBands.length ? compatBands : KANSHOU_APPT_BANDS_;
-  const band = bandPool[Math.floor(h / pool.length) % bandPool.length].band;
-  return { loc: locObj.name, band: band };
-}
 // 🏠 房間顯示名稱：只剩玩家自己的房間，永遠顯示「(玩家名)的房間」。
 function kanshouRoomDisplayName_(locKey, pcData, gameId, myName, myIdx) {
   if (locKey === '我的房間') return String(myName || "御主") + '的房間';
@@ -1989,7 +1966,7 @@ function actionPlay_(userData, pcId, sheets) {
   }
   // 🕐 2026-07 六度改版·時段限定地點門檻：跟上面私人住處同一套「擋在移動前、當作沒真的進去」寫法。
   //   有pending約定要去這裡的話豁免(赴約優先於門檻，理由同上方kanshouLocHasPendingPromise_註解——
-  //   約定成立時已檢查過時段相容，赴約當下不該又被同一個門檻擋，見kanshouPickDate_/promiseMeet處理)。
+  //   約定成立時已檢查過時段相容，赴約當下不該又被同一個門檻擋，見promiseMeet處理)。
   let kanshouTimeBlockedStr = "";
   if (moveTarget && Array.isArray(moveTarget.bands) && moveTarget.bands.indexOf(timeBand_(curHour)) === -1 && !kanshouLocHasPendingPromise_(pcData, moveTarget.name, curDay, _myGid_)) {
     kanshouTimeBlockedStr = `\n★【撲空·地點未開放】：你來到「${moveTarget.name}」，卻發現此刻(${timeBand_(curHour)})根本還沒到營業/開放的時段——演出你意識到撲了個空、隨即轉身作罷即可(不要進去、不要讓任何人出現、不必解釋機制或提到數值)。`;
@@ -2083,33 +2060,6 @@ function actionPlay_(userData, pcId, sheets) {
     } else if (_pvIdx === -1) {
       kanshouPromiseStr += `\n★【提議撲空】：你想邀人一起去「${_pvLoc}」，但此刻身邊沒有同伴——演出這份獨自的悵然即可(玩家可自己用地圖移動)。`;
       finalUserMsg = `【玩家意圖】：想邀同伴一起去「${_pvLoc}」，卻發現身邊沒有人。`;
-    }
-  }
-
-  // 📅 玩家同意她主動提的約(GAS判定該邀約→kanshouPromiseOffer_泡泡→玩家按同意→帶 promiseAccept
-  //   回來)：她已開口(2026-07 三度改版起這步改GAS依好感卡關直接判定，不再靠AI自己決定要不要開口)，
-  //   玩家點頭，直接落地【約定】，不走二次判定(她不會婉拒自己提的約)。
-  //   🔵 2026-07 玩家定案「她約完就走也沒問題」：約是她提的、意思已表達完，契約只差玩家點頭——她還在
-  //   不在場【不影響成立】(舊版錯把「玩家發起需對方在場」的規則套過來、擋成撲空，已改)。差別只在敘事：
-  //   在場演她聽到答覆的反應；已離場演玩家記下這個約(目送背影/寫進心裡)。
-  if (userData.promiseAccept && typeof userData.promiseAccept === 'object') {
-    const _paName = String(userData.promiseAccept.name || "").trim();
-    const _paLoc = String(userData.promiseAccept.loc || "").trim();
-    const _paLocOk = KANSHOU_LOCATIONS_.some(l => l.name === _paLoc && l.region !== 'room');
-    const _paBand = kanshouApptHour_(String(userData.promiseAccept.band || "").trim()) !== null ? String(userData.promiseAccept.band).trim() : "";
-    const _paIdx = _paName ? pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_paName)) : -1;
-    if (_paLocOk && _paIdx !== -1) {
-      const _paHer = String(pcData[_paIdx][COL.PC.NAME]);
-      const _paBandLabel = _paBand ? (KANSHOU_APPT_BANDS_.find(b => b.band === _paBand) || {}).label : "";
-      const _paInScene = String(pcData[_paIdx][COL.PC.LOC] || "").trim() === String(curL || "").trim();
-      pcData[_paIdx][COL.PC.MEMORY] = kanshouSetPromise_(pcData[_paIdx][COL.PC.MEMORY], curDay + 1, _paLoc, _paBand);
-      dirtyPcRows.add(_paIdx);
-      kanshouProposalResult_ = { ok: true, type: 'promise', name: _paHer, loc: _paLoc, bandLabel: _paBandLabel };
-      const _paWhen = `【明天${_paBandLabel ? _paBandLabel + '於' : '在'}「${_paLoc}」見面】`;
-      kanshouPromiseStr = _paInScene
-        ? `\n★【約定·敲定】：你答應了『${_paHer}』的邀約——你們約好${_paWhen}。演出你點頭答應這一刻、她聽到後依性格的反應(雀躍/靦腆/故作淡定皆可)。`
-        : `\n★【約定·敲定】：你答應了『${_paHer}』的邀約——你們約好${_paWhen}。她此刻已先離開了，演出你把這個約放進心裡的樣子(目送過的背影/默默記下/一點期待)，約定已確實成立、不必演她在場回應。`;
-      finalUserMsg = `【玩家意圖】：答應了『${_paHer}』改天在「${_paLoc}」見面的邀約。`;
     }
   }
 
@@ -3152,26 +3102,11 @@ ${PROMPT_PARTY_SYSTEM}
       }
     }
 
-    // 📅 GAS主動判定「好感卡關(39/59/79)+沒有約」→該提議約她出去了(2026-07 三度改版拔掉AI自己判斷
-    //   要不要開口，玩家「好感卡39之類的時候GAS主動發出邀約」；四度改版把前端文案框成「玩家自己想
-    //   約她」而非「她主動開口」，這裡的判定邏輯/地點/時機完全沒變，只是前端顯示方向反過來)：只認
-    //   此刻同地在場者，卡關中就一定跳邀請泡泡(不是機率、必問)，地點由 kanshouPickDate_ 依當前好感
-    //   梯度挑(玩家自己邀約/牽手完全不受此限)。一次只邀一位，跟moveProposal(玩家提議同去)互斥避免
-    //   同回合兩個提議泡泡打架。落地走既有 promiseAccept 管線(玩家按「邀請她」鈕才寫入【約定】)。
-    let kanshouPromiseOffer_ = null;
-    if (!moveProposal) {
-      for (const r of partyRows) {
-        const _poBond = parseInt(r[COL.PC.BOND]) || 0;
-        const _poCeil = kanshouRelChatCeiling_(_poBond);
-        if (_poCeil >= 100 || _poBond !== _poCeil) continue; // 沒卡關
-        if (kanshouGetPromise_(r[COL.PC.MEMORY])) continue; // 已有約，不重複邀
-        const _poPick = kanshouPickDate_(String(r[COL.PC.NAME]), curDay, _poBond);
-        if (!_poPick) continue;
-        const _poBandLabel = (KANSHOU_APPT_BANDS_.find(b => b.band === _poPick.band) || {}).label || "";
-        kanshouPromiseOffer_ = { name: String(r[COL.PC.NAME]), loc: _poPick.loc, band: _poPick.band, bandLabel: _poBandLabel };
-        break;
-      }
-    }
+    // 🐛→✅ 2026-07 玩家「約會泡泡也好煩人」：拿掉GAS依好感卡關(39/59/79)每回合主動追問「要不要
+    //   約她出去」的泡泡(原kanshouPromiseOffer_)——跟同居泡泡同一個嫌煩理由，且卡關中這顆泡泡是
+    //   每回合都跳(不是一天一次)，比同居泡泡還更頻繁。玩家想約會時仍可隨時用既有 promiseMeet(地圖
+    //   「相約」)主動邀約，赴約成功一樣拿+5好感、一樣能突破聊天上限(kanshouPromiseMetStr不吃
+    //   chat ceiling)，沒有損失任何機制，只是系統不再主動跳出來問。
     // 🐛→✅ 2026-07 玩家「取消同居詢問的泡泡吧，太煩人了」：拿掉GAS每天主動追問「要不要邀她同居」
     //   這個泡泡——玩家想同居時仍可隨時自己主動邀請(見上方cohabitInvite/kanshouInviteCohabit)，
     //   只是不再被系統每天問。
@@ -3483,7 +3418,6 @@ ${PROMPT_PARTY_SYSTEM}
       proposalResult: kanshouProposalResult_ || undefined,
       promiseSettle: kanshouPromiseSettle_.length ? kanshouPromiseSettle_ : undefined, // 📅 赴約/爽約結算通知陣列(獨立通道·不與提議結果搶單槽·可同時容納多筆)
       promiseWait: kanshouPromiseWait_ || undefined,
-      promiseProposal: kanshouPromiseOffer_ || undefined, // 📅 GAS判定她該邀約→前端跳同意泡泡
       photoResult: kanshouPhotoResult_ || undefined,
       kanshouClock: kanshouClock,
       // 修過的bug：#clock-hud讀共用的updateClock(data.clock,...)，但data.clock在鑑賞這條路徑

@@ -46,7 +46,7 @@
       promiseMeet = opts.promiseMeet || null, cohabitInvite = opts.cohabitInvite || null,
       inviteResident = opts.inviteResident || null, proposeMove = opts.proposeMove || null, takePhoto = !!opts.takePhoto,
       showPhoto = opts.showPhoto || null, photoIntent = opts.photoIntent || null,
-      handHold = opts.handHold || null, promiseAccept = opts.promiseAccept || null;
+      handHold = opts.handHold || null;
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
     // 🔥 主動掌握開關：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
@@ -85,7 +85,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined, handHold: handHold || undefined, promiseAccept: promiseAccept || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined, handHold: handHold || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -171,24 +171,6 @@ let plainTextContext = cleanText;
           + `<button class="btn-option" style="flex:1;" onclick="kanshouDeclineMoveProposal()">拒絕</button>`
           + `</div></div>`;
       }
-      // 📅 GAS判定好感卡關→跳邀約提示：同 moveProposal 的同意泡泡——2026-07 三度改版起改GAS依好感
-      //   卡關直接判定(不再靠AI自己決定要不要開口，見Gallery.gs kanshouPromiseOffer_)。
-      // 🐛→✅ 2026-07 四度改版·框成玩家自己的念頭(玩家「當回合AI敘述完全沒鋪墊邀約，突然跳出『她
-      //   想約你』很怪；應該是玩家自己意識到好感到頂了、想更近一步」)：GAS決定的時機/地點不變，只是
-      //   文案跟按鈕從「她主動開口、你點頭」改成「你自己心裡冒出念頭，要不要開口約她」，跟敘事斷裂
-      //   的違和感就消失了——反正這個念頭一冒出來就篤定會成(GAS已判定該邀)，不必真的走player-initiated
-      //   的kanshouPromiseMeet_不確定流程。
-      if (data.promiseProposal) {
-        const _pp = data.promiseProposal, _ppn = escapeHtml(String(_pp.name || '她'));
-        const _ppLoc = String(_pp.loc || ''), _ppBand = String(_pp.band || '');
-        const _ppWhen = _pp.bandLabel ? escapeHtml(String(_pp.bandLabel)) + '於' : '在';
-        optionsHtml += `<div style="background:rgba(200,120,150,0.14); border:1px solid #b06a86; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#e8b8cc; font-size:12.5px; margin-bottom:6px;">📅 感覺和「${_ppn}」可以更靠近一步了——要不要約她明天${_ppWhen}「${escapeHtml(_ppLoc)}」見面？</div>`
-          + `<div style="display:flex; gap:8px;">`
-          + `<button class="btn-option" style="flex:1;" onclick="kanshouAcceptPromise('${String(_pp.name || '').replace(/'/g, "\\'")}','${_ppLoc.replace(/'/g, "\\'")}','${_ppBand.replace(/'/g, "\\'")}')">邀請她</button>`
-          + `<button class="btn-option" style="flex:1;" onclick="kanshouDeclinePromise()">這次算了</button>`
-          + `</div></div>`;
-      }
       // 📅 到約定地點但太早(她還沒到)：跳「等到約定前10分」框——一鍵把時鐘推到她抵達的時刻(她也剛到)。
       if (data.promiseWait) {
         const _pw = data.promiseWait, _pwn = escapeHtml(String(_pw.name || '她'));
@@ -264,7 +246,7 @@ let plainTextContext = cleanText;
       if (optContainer) optContainer.innerHTML = optionsHtml;
       // 📣 有「必須點的泡泡」(前往/邀約/同居/敲門/橋段/結識)時自動把它捲進視野——回應完只捲故事框、
       //   泡泡藏在頁面下方看不到＝玩家實測「哪裡有同意按鈕??」的真兇。一般選項不強制捲(維持閱讀位置)。
-      if (optContainer && (data.moveProposal || data.promiseProposal || data.knockEvent || data.roomEventOffer || data.encounterOffer || data.promiseWait)) {
+      if (optContainer && (data.moveProposal || data.knockEvent || data.roomEventOffer || data.encounterOffer || data.promiseWait)) {
         try { optContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { }
       }
 
@@ -1190,21 +1172,6 @@ let plainTextContext = cleanText;
   }
   async function kanshouDeclineMoveProposal() {
     await send('這次還是先留在這裡好了。', false);
-  }
-
-  // 📅 GAS判定該邀約(卡關)→玩家點下「邀請她」→這裡：帶 promiseAccept(第23參數)直接落地【約定】，
-  //   不走二次判定(GAS已裁定會成，不必真的走kanshouPromiseMeet_那套不確定流程)。
-  // 🐛→✅ 玩家「這樣看起來是她邀請我，但我點下去是我邀請她」+「當回合AI敘述完沒鋪墊邀約、突然跳出
-  //   她主動邀約很怪，應該是玩家自己意識到好感到頂了、主動想約她」：四度改版把泡泡文案跟送給AI的
-  //   合成訊息都改成玩家自己起心動念、主動開口邀約——「她主動開口」的中間版本(2026-07三度改版)
-  //   只是消歧義的過渡，這次直接照玩家指定方向定案。
-  async function kanshouAcceptPromise(name, loc, band) {
-    showGamePane('chat');
-    await send('（我鼓起勇氣，開口約「' + name + '」改天見面——她點頭答應了，說好在「' + loc + '」碰面。）', false, { promiseAccept: { name: name, loc: loc, band: band } });
-  }
-  // 婉拒她的邀約：送一句軟性婉拒，正常敘事帶過、不落地任何狀態。
-  async function kanshouDeclinePromise() {
-    await send('（微笑著，這次先婉轉地推遲了。）', false);
   }
 
   // 🚪 跟move proposal同款「選了才真的觸發」寫法，只是這個是GAS機率事件(見Gallery.gs結束一天前的擲骰)。開門帶knockAccept(把訪客接來、不推進日期)；不予理會帶skipKnockCheck重送結束一天(跳過判定、直接推進日期)。
