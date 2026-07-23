@@ -172,7 +172,8 @@ let plainTextContext = cleanText;
           + `<button class="btn-option" style="flex:1;" onclick="kanshouDeclineMoveProposal()">拒絕</button>`
           + `</div></div>`;
       }
-      // 📅 她主動邀約(promise_proposal)：同 moveProposal 的同意泡泡——她開口約改天，玩家按同意才落地【約定】。
+      // 📅 她主動邀約：同 moveProposal 的同意泡泡——2026-07 三度改版起改GAS依好感卡關直接判定(不
+      //   再靠AI自己決定要不要開口，見Gallery.gs kanshouPromiseOffer_)，玩家按同意才落地【約定】。
       if (data.promiseProposal) {
         const _pp = data.promiseProposal, _ppn = escapeHtml(String(_pp.name || '她'));
         const _ppLoc = String(_pp.loc || ''), _ppBand = String(_pp.band || '');
@@ -184,7 +185,8 @@ let plainTextContext = cleanText;
           + `<button class="btn-option" style="flex:1;" onclick="kanshouDeclinePromise()">這次算了</button>`
           + `</div></div>`;
       }
-      // 🏠 她主動邀同居(cohabit_proposal)：玩家按同意直接複用既有 kanshouInviteCohabit(好感門檻端一致)。
+      // 🏠 她主動邀同居：2026-07 三度改版起改GAS依好感≥90直接判定(見Gallery.gs kanshouCohabitOffer_)，
+      //   玩家按同意直接複用既有 kanshouInviteCohabit(好感門檻端一致)。
       if (data.cohabitProposal) {
         const _cp = data.cohabitProposal, _cpn = String(_cp.name || '');
         optionsHtml += `<div style="background:rgba(200,120,150,0.14); border:1px solid #b06a86; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
@@ -1133,9 +1135,10 @@ let plainTextContext = cleanText;
     await send('📍 走向了「' + name + '」，四處看看。', false, { moveTarget: name });
   }
 
-  // 🙋👋 玩家提議同去：帶 proposeMove 機制標記，走「確定性提議」管線(後端記待判定→AI 在 proposal_accept
-  //   答接受/婉拒→接受出「前往」泡泡、按同意才真的移動)。2026-07 根因修復：舊版只送一句閒聊、全押在
-  //   AI 自發填 move_proposal 上，Gemini 從不填→玩家從沒見過移動泡泡。跟 kanshouMoveTo(自己走)是兩條路。
+  // 🙋👋 玩家提議同去：帶 proposeMove 機制標記，走「確定性提議」管線(後端記待判定→GAS依好感直接
+  //   裁定接受/婉拒→接受出「前往」泡泡、按同意才真的移動，AI只負責演反應)。2026-07 根因修復：舊版
+  //   只送一句閒聊、全押在AI自發填 move_proposal 上，Gemini 從不填→玩家從沒見過移動泡泡。跟
+  //   kanshouMoveTo(自己走)是兩條路。
   async function kanshouProposeMove(name) {
     // 🧱 身邊沒人直接在前端擋掉——不白跑一輪 AI 演撲空(省 round-trip)。localNPCs 是【全世界】同局
     //   名單(getKanshouPeopleList_ 以 isExact 標在不在場)，要濾 isExact 才是真「在場」——舊版只看
@@ -1162,8 +1165,8 @@ let plainTextContext = cleanText;
     await send('這次還是先留在這裡好了。', false);
   }
 
-  // 📅 同意她主動提的約(promise_proposal 泡泡→這裡)：帶 promiseAccept(第23參數)直接落地【約定】，
-  //   不走 proposal_accept 二次判定(她自己提的、玩家答應了，就是成立)。
+  // 📅 同意她主動提的約(GAS判定該邀約→泡泡→這裡)：帶 promiseAccept(第23參數)直接落地【約定】，
+  //   不走二次判定(她自己提的、玩家答應了，就是成立)。
   async function kanshouAcceptPromise(name, loc, band) {
     showGamePane('chat');
     await send('（點頭答應了「' + name + '」，約好改天在「' + loc + '」見面。）', false, { promiseAccept: { name: name, loc: loc, band: band } });
@@ -1172,7 +1175,7 @@ let plainTextContext = cleanText;
   async function kanshouDeclinePromise() {
     await send('（微笑著，這次先婉轉地推遲了。）', false);
   }
-  // 🏠 同意她主動邀同居(cohabit_proposal 泡泡→這裡)：走專用 cohabitAccept(不要求她仍在場——玩家總原則
+  // 🏠 同意她主動邀同居(GAS判定該邀→泡泡→這裡)：走專用 cohabitAccept(不要求她仍在場——玩家總原則
   //   「只要同意就寫入，她邀完就走也沒差」)，與 cohabitInvite(玩家發起、需她在場被問)是兩條路。
   async function kanshouAcceptCohabit(name) {
     showGamePane('chat');
