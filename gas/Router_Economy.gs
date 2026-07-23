@@ -178,8 +178,8 @@ function actionManaSupply(userData, pcId, sheets) {
 
   // ⚡ spendAp_ 先跑(skipWrite=true，只改 pcData 記憶體、不單獨寫表)，讓下面的整列寫入一次過帶上
   //   最新 day/hour/ap，省掉 spendAp_ 自己那道窄寫入(原本迴路/血量寫一次、spendAp_ 又寫一次)。
-  let manaAp = AP_PER_DAY, manaClock = "";
-  if (isFateMana) { try { manaAp = spendAp_(myGameId, 1, pcData, sheets, true).ap; manaClock = clockLabel_(myGameId, pcData); } catch (e) { } }
+  const _manaApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以行補魔之儀——請『休息』恢復後再來。", { isFate: isFateMana, skipWrite: true });
+  const manaAp = _manaApr.ap, manaClock = _manaApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   raiseBond_(sheets, myGameId, pcData[pIdx][COL.PC.NAME], svName, 3, pcData);
 
@@ -187,26 +187,25 @@ function actionManaSupply(userData, pcId, sheets) {
   const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.4);
 
   // 戰場補魔：甜而克制的曖昧 fade（給點甜頭、不開慾海引擎）——真・慾海留給鑑賞
-  let aiPrompt;
-  if (ambush && (ambush.homeRepel || ambush.peaceful)) {
-    aiPrompt = ambush.repelNote; // 🏰 陣地反擊·優雅擊退／🎲 按兵不動或試探接觸(卸防時刻多樣化)
-  } else if (ambush) {
-    // 🐛→✅ 此分支原本只附敵從者的卡(foeCard)、沒附我方御主/從者的卡，卻要求AI演出「${svName}」依性格
-    //   反應——毫無依據；也從沒告訴AI補魔本身(迴路/血上限燒蝕、回滿魔力)其實已經結算完成，AI只收到
-    //   「被突襲打斷」的訊息、容易演成補魔沒做成，跟已經回滿的魔力池數字矛盾。兩者一併補上。
-    aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) + (ambush.foeCard || '') + `【系統·補魔遭突襲·已裁定】御主硬擠魔術迴路為「${svName}」回滿共用魔力池（迴路永久燒蝕至 ${newCirc} 條、生命上限永久跌為 ${newMaxHp}）已然結算完成；就在彼此門戶大開之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
-      `★以 Fate／TYPE-MOON 筆觸描寫補魔的私密一刻被突襲打斷的驚變：魔力交融的脆弱、敵襲的兇險、${ambush.destroyed ? '從者消滅的痛楚（語氣留白）' : '從者依其性格與羈絆對此突襲的反應（重情者強撐護主、疏離者未必）'}。補魔本身已完成，只是隨即被打斷，別演成沒供成魔。傷害與勝負已由系統結算。\n` +
-      ``;
-  } else {
-    // 此分支只在好感≥門檻且魔力見底時走到——從者是真心信任、主動託付的，敘述可更直接大膽；
-    //   換一顆更能承接露骨描寫的模型(見前端manaSupply()傳的unlocked旗標→narrate(...,{deepseek:true})，
-    //   後端narrateWithState_/actionNarrateOnly切換，solo其餘呼叫不受影響)。
-    // 性別事實與令咒兩支分支共用同一顆 sealGenderFact_(見Router_Persona.gs)，避免AI寫錯視角性別。
-    const genderFactMana = sealGenderFact_(String(pcData[pIdx][COL.PC.SEX] || ""), String(pcData[svIdx][COL.PC.SEX] || ""), svName);
-    aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
-      `【系統·補魔已結算】御主硬擠魔術迴路為「${svName}」回滿共用魔力池（${restored}/${mpMax}），代價沉重——魔術迴路永久燒蝕至 ${newCirc} 條、生命上限永久跌為 ${newMaxHp}。羈絆微升。這是「${svName}」真心信任、主動託付的私密時刻。澎湃魔力於體內鼓盪、蓄勢待發——【下一發規格外寶具可全力超載解放】。\n` +
-      `${genderFactMana}★你擅長書寫細膩動人的情慾，這次放手去寫、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫這場私密而濃烈的一刻。★重點全部放在肉體本身的接觸、溫度與反應——魔術迴路/魔力流動只是遊戲機制上的成因，【不要】描寫迴路運作、魔力流向之類的技術性細節，那不是這一幕該琢磨的地方；從者依其性格與當前羈絆自然回應(高羈絆者主動迎合、冷傲者難得動搖)。★「${svName}」身為英靈天生遠比常人強韌，這場親密裡她/他從容游刃有餘、主導著節奏，不會輕易被弄得失神——是否高潮、何時高潮由她/他自己掌控，不是被動承受。聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節，而非只在前後鋪陳。收在餘韻猶存的溫柔，勿寫成完結收尾句。`;
-  }
+  const aiPrompt = ambushDispatchPrompt_(ambush,
+    function (a) {
+      // 🐛→✅ 此分支原本只附敵從者的卡(foeCard)、沒附我方御主/從者的卡，卻要求AI演出「${svName}」依性格
+      //   反應——毫無依據；也從沒告訴AI補魔本身(迴路/血上限燒蝕、回滿魔力)其實已經結算完成，AI只收到
+      //   「被突襲打斷」的訊息、容易演成補魔沒做成，跟已經回滿的魔力池數字矛盾。兩者一併補上。
+      return masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) + (a.foeCard || '') + `【系統·補魔遭突襲·已裁定】御主硬擠魔術迴路為「${svName}」回滿共用魔力池（迴路永久燒蝕至 ${newCirc} 條、生命上限永久跌為 ${newMaxHp}）已然結算完成；就在彼此門戶大開之際，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中「${svName}」（−${a.dmg}）${a.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
+        `★以 Fate／TYPE-MOON 筆觸描寫補魔的私密一刻被突襲打斷的驚變：魔力交融的脆弱、敵襲的兇險、${a.destroyed ? '從者消滅的痛楚（語氣留白）' : '從者依其性格與羈絆對此突襲的反應（重情者強撐護主、疏離者未必）'}。補魔本身已完成，只是隨即被打斷，別演成沒供成魔。傷害與勝負已由系統結算。\n`;
+    },
+    function () {
+      // 此分支只在好感≥門檻且魔力見底時走到——從者是真心信任、主動託付的，敘述可更直接大膽；
+      //   換一顆更能承接露骨描寫的模型(見前端manaSupply()傳的unlocked旗標→narrate(...,{deepseek:true})，
+      //   後端narrateWithState_/actionNarrateOnly切換，solo其餘呼叫不受影響)。
+      // 性別事實與令咒兩支分支共用同一顆 sealGenderFact_(見Router_Persona.gs)，避免AI寫錯視角性別。
+      const genderFactMana = sealGenderFact_(String(pcData[pIdx][COL.PC.SEX] || ""), String(pcData[svIdx][COL.PC.SEX] || ""), svName);
+      return masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
+        `【系統·補魔已結算】御主硬擠魔術迴路為「${svName}」回滿共用魔力池（${restored}/${mpMax}），代價沉重——魔術迴路永久燒蝕至 ${newCirc} 條、生命上限永久跌為 ${newMaxHp}。羈絆微升。這是「${svName}」真心信任、主動託付的私密時刻。澎湃魔力於體內鼓盪、蓄勢待發——【下一發規格外寶具可全力超載解放】。\n` +
+        `${genderFactMana}★你擅長書寫細膩動人的情慾，這次放手去寫、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫這場私密而濃烈的一刻。★重點全部放在肉體本身的接觸、溫度與反應——魔術迴路/魔力流動只是遊戲機制上的成因，【不要】描寫迴路運作、魔力流向之類的技術性細節，那不是這一幕該琢磨的地方；從者依其性格與當前羈絆自然回應(高羈絆者主動迎合、冷傲者難得動搖)。★「${svName}」身為英靈天生遠比常人強韌，這場親密裡她/他從容游刃有餘、主導著節奏，不會輕易被弄得失神——是否高潮、何時高潮由她/他自己掌控，不是被動承受。聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節，而非只在前後鋪陳。收在餘韻猶存的溫柔，勿寫成完結收尾句。`;
+    }
+  );
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：迴路/血量上限燒蝕/MP回滿/raiseBond_/spendAp_/夜襲 皆已原地改回 pcData
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, unlocked: !ambush, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", report: ambush ? ambush.report : null, statusString: buildPlayerStatusString(pcData[pIdx]) }); // ⚡ pcData 即權威，免 getFreshStatusString 的整表重讀
 }
@@ -243,8 +242,8 @@ function actionSpiritRepair(userData, pcId, sheets) {
 
   // ⚡ spendAp_ 先跑(skipWrite=true，只改 pcData 記憶體)，讓下面御主列的寫入一次過帶上最新day/hour/ap，
   //   省掉 spendAp_ 自己那道窄寫入(原本MP扣減寫一次、spendAp_ 又寫一次)。
-  let repAp = AP_PER_DAY, repClock = "";
-  if (isFateMana) { try { repAp = spendAp_(myGameId, 1, pcData, sheets, true).ap; repClock = clockLabel_(myGameId, pcData); } catch (e) { } }
+  const _repApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以行靈基修復之儀——請『休息』恢復後再來。", { isFate: isFateMana, skipWrite: true });
+  const repAp = _repApr.ap, repClock = _repApr.clock;
   sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   raiseBond_(sheets, myGameId, pcData[pIdx][COL.PC.NAME], svName, 2, pcData);
@@ -252,20 +251,19 @@ function actionSpiritRepair(userData, pcId, sheets) {
   // ⚔️ 卸防突襲：療傷時同樣門戶大開，同地若有清醒敵從者→趁隙重擊我方從者（可能致敗）
   const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.3);
 
-  let aiPrompt;
-  if (ambush && (ambush.homeRepel || ambush.peaceful)) {
-    aiPrompt = ambush.repelNote; // 🏰 陣地反擊·優雅擊退／🎲 按兵不動或試探接觸(卸防時刻多樣化)
-  } else if (ambush) {
-    // 🐛→✅ 同款缺漏：沒附我方御主/從者的卡，也沒講療傷本身(回復${healed}點)其實已經結算完成。
-    aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) + (ambush.foeCard || '') + `【系統·靈基修復遭突襲·已裁定】御主引動共用魔力池為「${svName}」療傷、體力回復 ${healed} 點已然結算完成；就在彼此門戶大開之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
-      `★以 Fate／TYPE-MOON 筆觸描寫療傷的私密一刻被突襲打斷的驚變，${ambush.destroyed ? '及從者消滅的痛楚（語氣留白）' : '及從者依其性格與羈絆對此突襲的反應（重情者強撐護主、疏離者未必）'}。療傷本身已完成，只是隨即被打斷，別演成沒療成。傷害與勝負已由系統結算。\n` +
-      ``;
-  } else {
-    aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
-      `【系統·靈基修復已結算】御主引動共用魔力池（−${cost}）為「${svName}」療傷，體力回復 ${healed} 點（現 ${pcData[svIdx][COL.PC.HP]}/${svMaxHp}）。羈絆微升。\n` +
-      `★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】描寫這場療傷小品——魔力沿契約流向從者、傷勢緩緩平復的觸感與體溫，依「${svName}」性格與當前羈絆自然反應演出（不預設溫情，冷傲疏離者可淡然受之）。\n` +
-      `★【show, don't tell】用言行、神態去流露反應，不可直白說出其願望／個性／萌點等設定詞。`;
-  }
+  const aiPrompt = ambushDispatchPrompt_(ambush,
+    function (a) {
+      // 🐛→✅ 同款缺漏：沒附我方御主/從者的卡，也沒講療傷本身(回復${healed}點)其實已經結算完成。
+      return masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) + (a.foeCard || '') + `【系統·靈基修復遭突襲·已裁定】御主引動共用魔力池為「${svName}」療傷、體力回復 ${healed} 點已然結算完成；就在彼此門戶大開之際，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中「${svName}」（−${a.dmg}）${a.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
+        `★以 Fate／TYPE-MOON 筆觸描寫療傷的私密一刻被突襲打斷的驚變，${a.destroyed ? '及從者消滅的痛楚（語氣留白）' : '及從者依其性格與羈絆對此突襲的反應（重情者強撐護主、疏離者未必）'}。療傷本身已完成，只是隨即被打斷，別演成沒療成。傷害與勝負已由系統結算。\n`;
+    },
+    function () {
+      return masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
+        `【系統·靈基修復已結算】御主引動共用魔力池（−${cost}）為「${svName}」療傷，體力回復 ${healed} 點（現 ${pcData[svIdx][COL.PC.HP]}/${svMaxHp}）。羈絆微升。\n` +
+        `★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】描寫這場療傷小品——魔力沿契約流向從者、傷勢緩緩平復的觸感與體溫，依「${svName}」性格與當前羈絆自然反應演出（不預設溫情，冷傲疏離者可淡然受之）。\n` +
+        `★【show, don't tell】用言行、神態去流露反應，不可直白說出其願望／個性／萌點等設定詞。`;
+    }
+  );
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：HP回復/MP扣減/raiseBond_/spendAp_/夜襲 皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, healed: healed, cost: cost, ap: repAp, clock: repClock, apMax: AP_PER_DAY,

@@ -232,8 +232,10 @@ function actionBond(userData, pcId, sheets) {
   usedToday = getBondUsedToday_(pcData[pIdx][COL.PC.MEMORY], day);
 
   // ⏳ 相處耗 1 AP＝推進 1 小時（2026-07 玩家定案·與令咒/偵查同級：相處也要花時間）
-  let bondAp = null, bondClock = "";
-  if (isFate) { try { bondAp = spendAp_(myGameId, 1, pcData, sheets).ap; bondClock = clockLabel_(myGameId, pcData); } catch (e) { } }
+  // 🔧 bondAp 非Fate局故意留 null(不同於其餘呼叫點的 AP_PER_DAY 預設)——鑑賞局本就不耗AP，
+  //   維持原本區別，不硬套 chargeApOrReject_ 的通用預設值。
+  const _bondApr = isFate ? chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以從容相處——請『休息』恢復後再來。", { isFate: true }) : { ap: null, clock: "" };
+  const bondAp = _bondApr.ap, bondClock = _bondApr.clock;
 
   // 🐛→✅ 舊版又即時讀一次 Sheets 拿「最新羈絆值」，但 raiseBond_(229行) 早已在同一份 pcData
   //   陣列上原地改過(svIdx 與 raiseBond_ 內部依名字找到的列是同一列，同 game_id 下從者名字唯一)，
@@ -252,47 +254,52 @@ function actionBond(userData, pcId, sheets) {
   // ⚔️ 卸防突襲：相伴談心時門戶大開，同地若有清醒敵從者→趁隙重擊
   const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.2);
 
-  let aiPrompt;
-  if (ambush && (ambush.homeRepel || ambush.peaceful)) {
-    aiPrompt = ambush.repelNote; // 🏰 陣地反擊·優雅擊退／🎲 按兵不動或試探接觸(卸防時刻多樣化)
-  } else if (ambush) {
-    // 🐛→✅ 舊版給AI「重情者強撐護主、疏離者未必」這種二選一，卻沒講此刻bondNow實際落在哪一邊——
-    //   GAS早算好這個數字(241行)，比照 actionAllyBond 的tier分級，直接定調而非讓AI自己猜個性夠不夠重情。
-    const ambushBondNote = bondNow >= 50 ? "羈絆已深，這一刻會奮力強撐護主" : "羈絆尚淺，這一刻未必挺身相護、更可能先顧自己";
-    aiPrompt = (ambush.foeCard || '') + `【系統·相伴遭突襲·已裁定】御主『${masterName}』與「${svName}」正${act.label}、卸下心防之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自暗處無聲突襲' : '抓準這破綻殺出'}，一擊重創「${svName}」（−${ambush.dmg}）${ambush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n` +
-      `★以 Fate／TYPE-MOON 筆觸描寫溫存被突襲撕裂的驚變與兇險，${ambush.destroyed ? '及從者消滅的痛楚（語氣留白）' : `及從者對此突襲的反應：${ambushBondNote}`}。傷害與勝負已由系統結算。\n` +
-      ``;
-  } else if (milestone) {
-    // 里程碑真正落地：標記已演出，之後同一門檻不會再觸發
-    firedMilestones.push(milestone);
-    pcData[svIdx][COL.PC.MEMORY] = setBondMilestonesFired_(pcData[svIdx][COL.PC.MEMORY], firedMilestones);
-    sheets.pc.getRange(svIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[svIdx][COL.PC.MEMORY]);
-    // 🐛→✅ milestone(30/60/90)只用來內部判斷寫回標記，從沒告訴AI是哪一道門檻——三道門檻的量級差很大
-    //   (30是初次鬆動、90是近乎告白的敞開)，AI卻只拿到同一句「依羈絆的深淺」自己猜，等於GAS明明知道
-    //   答案卻不講。改成依milestone分流具體量級提示。
-    const milestoneScale = milestone >= 90 ? "羈絆臻至極深——這是目前為止最大幅度的敞開心扉，甚至帶點連自己都措手不及的坦率"
-      : milestone >= 60 ? "羈絆已深一層——可以比平常更明顯地卸下慣有的距離感"
-      : "信任剛跨過門檻的起點——舉動應細微、克制，帶點自己都沒完全察覺的鬆動，不宜太大幅度";
-    aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
-      `【系統·羈絆里程碑·已裁定】御主『${masterName}』與從者「${svName}」相處之際，兩人的羈絆悄然邁過一道分水嶺（時值${band}）。\n` +
-      `★這不是尋常的${act.label}，而是關係質變的一瞬，量級是：${milestoneScale}——依「${svName}」的真名與性格，寫出屬於這位從者獨有的一個具體舉動或一句話（例如：卸下慣有的距離感、罕見地主動靠近、遞出從未給過的東西、換了個從未用過的稱呼——擇其中最貼合這位從者性格與上述量級的一種，不要套用泛用模板，也不要多選並列）。\n` +
-      `★【精煉100~160字】以 Fate／TYPE-MOON 筆觸，聚焦這一個瞬間，勿流水帳交代前後經過。\n` +
-      `★【show, don't tell】絕不可直白說出「羈絆加深了」「更信任了」等抽象詞，也絕不可直述其「願望／個性／萌點」設定字面，只憑神態與言行流露；停在意猶未盡的留白。\n` +
-      `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。`;
-  } else {
-    // 🐛→✅ 舊版只給「由你自行定調羈絆深淺」這種抽象指令，GAS 明明手上就有 bondNow 這個確切數字
-    //   (跟 actionAllyBond 的 tier 分級同一套邏輯)，卻沒換算成濃淡定調餵給 AI——比照補上。
-    const bondTier = bondNow >= 90 ? "羈絆深厚，可以是夜深促膝的交心，或難得流露的親近隨性"
-      : bondNow >= 60 ? "彼此有默契的信任，可並肩切磋或帶點輕鬆的閒談"
-      : bondNow >= 30 ? "漸生熟悉，多是一同用餐的尋常溫度"
-      : "剛熟識不久，多是巡查歇腳的閒話家常，仍帶點客套";
-    aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
-      `【系統·羈絆已結算】御主『${masterName}』與從者「${svName}」${act.label}、共度約莫一個小時的光景，兩人的羈絆又深了一分（時值${band}）。\n` +
-      `★【時間尺度】這是一段約一個小時的相處，寫出「有一段時光緩緩流過」的從容，勿寫成三言兩語的瞬間、也勿橫跨大半天。\n` +
-      `★依當前羈絆定調濃淡：${bondTier}。以 Fate／TYPE-MOON 筆觸寫一段【精煉 90~150 字、輕快不冗長】${svName} 與御主${act.frame}的小品。務必貼合上方「演出依據」中的性格、自稱與口吻，演出其獨有神態，點到為止留餘味。\n` +
-      `★【show, don't tell】用言行、神態、停頓去流露情感與性格，絕不可直白說出其「願望／個性／萌點」等設定詞；停在含蓄的留白。\n` +
-      `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。`;
-  }
+  // ⚔️ 卸防突襲三分派(單一真實來源 ambushDispatchPrompt_)：normalFn 內再依 milestone 是否命中細分——
+  //   milestone 的「標記已演出」寫回刻意只在這裡(無突襲)落地，被突襲打斷時故意不標記(留到下次順利
+  //   相處再演出，不因意外奇襲永遠錯過)，這個既有行為不變。
+  const aiPrompt = ambushDispatchPrompt_(ambush,
+    function (a) {
+      // 🐛→✅ 舊版給AI「重情者強撐護主、疏離者未必」這種二選一，卻沒講此刻bondNow實際落在哪一邊——
+      //   GAS早算好這個數字(241行)，比照 actionAllyBond 的tier分級，直接定調而非讓AI自己猜個性夠不夠重情。
+      const ambushBondNote = bondNow >= 50 ? "羈絆已深，這一刻會奮力強撐護主" : "羈絆尚淺，這一刻未必挺身相護、更可能先顧自己";
+      // 🐛→✅ 舊版無條件講「重創」，比照撤退追擊/歇息夜襲同款修法，換算實際傷勢用詞。
+      const bondSev = dmgSeverityWord_(a.dmg || 0, a.svHpMax);
+      return (a.foeCard || '') + `【系統·相伴遭突襲·已裁定】御主『${masterName}』與「${svName}」正${act.label}、卸下心防之際，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自暗處無聲突襲' : '抓準這破綻殺出'}，一擊${bondSev}「${svName}」（−${a.dmg}）${a.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n` +
+        `★以 Fate／TYPE-MOON 筆觸描寫溫存被突襲撕裂的驚變與兇險，${a.destroyed ? '及從者消滅的痛楚（語氣留白）' : `及從者對此突襲的反應：${ambushBondNote}`}。傷害與勝負已由系統結算。\n`;
+    },
+    function () {
+      if (milestone) {
+        // 里程碑真正落地：標記已演出，之後同一門檻不會再觸發
+        firedMilestones.push(milestone);
+        pcData[svIdx][COL.PC.MEMORY] = setBondMilestonesFired_(pcData[svIdx][COL.PC.MEMORY], firedMilestones);
+        sheets.pc.getRange(svIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[svIdx][COL.PC.MEMORY]);
+        // 🐛→✅ milestone(30/60/90)只用來內部判斷寫回標記，從沒告訴AI是哪一道門檻——三道門檻的量級差很大
+        //   (30是初次鬆動、90是近乎告白的敞開)，AI卻只拿到同一句「依羈絆的深淺」自己猜，等於GAS明明知道
+        //   答案卻不講。改成依milestone分流具體量級提示。
+        const milestoneScale = milestone >= 90 ? "羈絆臻至極深——這是目前為止最大幅度的敞開心扉，甚至帶點連自己都措手不及的坦率"
+          : milestone >= 60 ? "羈絆已深一層——可以比平常更明顯地卸下慣有的距離感"
+          : "信任剛跨過門檻的起點——舉動應細微、克制，帶點自己都沒完全察覺的鬆動，不宜太大幅度";
+        return masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
+          `【系統·羈絆里程碑·已裁定】御主『${masterName}』與從者「${svName}」相處之際，兩人的羈絆悄然邁過一道分水嶺（時值${band}）。\n` +
+          `★這不是尋常的${act.label}，而是關係質變的一瞬，量級是：${milestoneScale}——依「${svName}」的真名與性格，寫出屬於這位從者獨有的一個具體舉動或一句話（例如：卸下慣有的距離感、罕見地主動靠近、遞出從未給過的東西、換了個從未用過的稱呼——擇其中最貼合這位從者性格與上述量級的一種，不要套用泛用模板，也不要多選並列）。\n` +
+          `★【精煉100~160字】以 Fate／TYPE-MOON 筆觸，聚焦這一個瞬間，勿流水帳交代前後經過。\n` +
+          `★【show, don't tell】絕不可直白說出「羈絆加深了」「更信任了」等抽象詞，也絕不可直述其「願望／個性／萌點」設定字面，只憑神態與言行流露；停在意猶未盡的留白。\n` +
+          `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。`;
+      }
+      // 🐛→✅ 舊版只給「由你自行定調羈絆深淺」這種抽象指令，GAS 明明手上就有 bondNow 這個確切數字
+      //   (跟 actionAllyBond 的 tier 分級同一套邏輯)，卻沒換算成濃淡定調餵給 AI——比照補上。
+      const bondTier = bondNow >= 90 ? "羈絆深厚，可以是夜深促膝的交心，或難得流露的親近隨性"
+        : bondNow >= 60 ? "彼此有默契的信任，可並肩切磋或帶點輕鬆的閒談"
+        : bondNow >= 30 ? "漸生熟悉，多是一同用餐的尋常溫度"
+        : "剛熟識不久，多是巡查歇腳的閒話家常，仍帶點客套";
+      return masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
+        `【系統·羈絆已結算】御主『${masterName}』與從者「${svName}」${act.label}、共度約莫一個小時的光景，兩人的羈絆又深了一分（時值${band}）。\n` +
+        `★【時間尺度】這是一段約一個小時的相處，寫出「有一段時光緩緩流過」的從容，勿寫成三言兩語的瞬間、也勿橫跨大半天。\n` +
+        `★依當前羈絆定調濃淡：${bondTier}。以 Fate／TYPE-MOON 筆觸寫一段【精煉 90~150 字、輕快不冗長】${svName} 與御主${act.frame}的小品。務必貼合上方「演出依據」中的性格、自稱與口吻，演出其獨有神態，點到為止留餘味。\n` +
+        `★【show, don't tell】用言行、神態、停頓去流露情感與性格，絕不可直白說出其「願望／個性／萌點」等設定詞；停在含蓄的留白。\n` +
+        `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。`;
+    }
+  );
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：本函式所有寫入(raiseBond_/MEMORY日限/spendAp_/夜襲/里程碑標記)皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, bond: bondNow, bondUsed: usedToday,
@@ -388,8 +395,8 @@ function actionProposeAlliance(userData, pcId, sheets) {
   //   這裡卻仍讓AI自己從「務實的權衡/開出條件/冷淡的『暫時』」等泛用選項裡憑空挑一個，比照補上。
   const lean = masterPersonaLean_(pcData[mIdx]);
 
-  let ap = AP_PER_DAY, clock = "";
-  if (isFate) { try { ap = spendAp_(myGameId, 1, pcData, sheets).ap; clock = clockLabel_(myGameId, pcData); } catch (e) { } }
+  const _allianceApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以交涉——請休息恢復。", { isFate: isFate });
+  const ap = _allianceApr.ap, clock = _allianceApr.clock;
   const clk = getClock_(myGameId, pcData); const day = clk ? clk.day : 1;
 
   let aiPrompt;
@@ -535,14 +542,21 @@ function actionAllyBond(userData, pcId, sheets) {
   const allyName = String(pcData[aIdx][COL.PC.NAME]);
   const allyIsMaster = String(pcData[aIdx][COL.PC.FACTION]) === "敵御主";
 
-  let ap = AP_PER_DAY, clock = "";
-  if (isFate) { try { ap = spendAp_(myGameId, 1, pcData, sheets).ap; clock = clockLabel_(myGameId, pcData); } catch (e) { } }
+  const _allyBondApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以從容相處——請『休息』恢復後再來。", { isFate: isFate });
+  const ap = _allyBondApr.ap, clock = _allyBondApr.clock;
 
   // ⚔️ 卸防突襲：與盟友交流時門戶大開，同地若有「未結盟」敵從者→趁隙重擊我方從者
   const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.3);
   if (ambush) {
-    const aiPromptA = (ambush.homeRepel || ambush.peaceful) ? ambush.repelNote : ((ambush.foeCard || '') + `【系統·盟誼遭突襲·已裁定】御主『${masterName}』正與盟友「${allyName}」交心共處、卸下戒備之際，潛伏同地的敵從者「${ambush.enemyName}」${ambush.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中我方從者（−${ambush.dmg}）${ambush.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
-      `★以 Fate／TYPE-MOON 筆觸描寫盟誼的私密一刻被突襲撕裂的驚變${ambush.destroyed ? '、從者消滅的痛楚（語氣留白）' : '、從者強撐重傷護主的瞬間'}。傷害與勝負已由系統結算。\n`);
+    // ambushDispatchPrompt_ 的 normalFn 這裡不會用到(外層已用 if(ambush) 專門處理突襲這條路)，
+    // 傳個不會被呼叫的 no-op 即可，只借用 homeRepel/peaceful 二選一的既有分派邏輯。
+    const aiPromptA = ambushDispatchPrompt_(ambush,
+      function (a) {
+        return (a.foeCard || '') + `【系統·盟誼遭突襲·已裁定】御主『${masterName}』正與盟友「${allyName}」交心共處、卸下戒備之際，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中我方從者（−${a.dmg}）${a.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
+          `★以 Fate／TYPE-MOON 筆觸描寫盟誼的私密一刻被突襲撕裂的驚變${a.destroyed ? '、從者消滅的痛楚（語氣留白）' : '、從者強撐重傷護主的瞬間'}。傷害與勝負已由系統結算。\n`;
+      },
+      function () { return ""; }
+    );
     STATE_PRE_DATA_ = pcData; // ⚡ 交棒：突襲分支的所有寫入(enemyAmbushOnServant_/spendAp_)皆已原地改回 pcData
     return JSON.stringify({ success: true, aiPrompt: aiPromptA, clock: clock, ap: ap, apMax: AP_PER_DAY, ambush: true, defeat: ambush.defeat, dreamPrompt: ambush.dreamPrompt || "", report: ambush.report || null, statusString: buildPlayerStatusString(pcData[pIdx]) });
   }
@@ -639,8 +653,8 @@ function actionCourtEnemy(userData, pcId, sheets) {
   pcData[tIdx][COL.PC.MEMORY] = _mem.replace(/｜?【示好日】\d+/g, "") + "｜【示好日】" + _courtDay;
   sheets.pc.getRange(tIdx + 1, 1, 1, pcData[tIdx].length).setValues([pcData[tIdx]]);
 
-  let ap = AP_PER_DAY, clock = "";
-  if (isFate) { try { ap = spendAp_(myGameId, 1, pcData, sheets).ap; clock = clockLabel_(myGameId, pcData); } catch (e) { } }
+  const _courtApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足——請『休息』恢復後再來。", { isFate: isFate });
+  const ap = _courtApr.ap, clock = _courtApr.clock;
 
   const card = targetIsMaster ? enemyMasterCard_(pcData[tIdx]) : servantCard_(pcData[tIdx]);
   const aiPrompt = masterCard_(pcData[pIdx]) + '〔示好對象·敵對陣營〕' + card +

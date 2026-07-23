@@ -190,7 +190,7 @@ function actionMove(userData, pcId, sheets) {
           // 🐛→✅ 舊版無條件講「重創」，但 pr.damage 可能只是 Math.max(1,...) 的地板值(輕傷)——GAS
           //   明明知道這擊佔從者上限多少比例，卻沒換算成對應的傷勢用詞餵給AI，讓文字跟血條可能對不上。
           var psvHpMaxM = parseInt(allPcData[psvIdxM][COL.PC.MAX_HP]) || 1;
-          var chaserSevM = pr.atkWins ? (Math.max(1, pr.damage) / psvHpMaxM >= 0.4 ? '重創' : Math.max(1, pr.damage) / psvHpMaxM >= 0.15 ? '負傷' : '擦傷') : '';
+          var chaserSevM = pr.atkWins ? dmgSeverityWord_(Math.max(1, pr.damage), psvHpMaxM) : '';
           // 🐛→✅ 舊文案「燃令咒疾追」把這場【每次撤退必定觸發、不設機率】的追擊，寫成敵方燒了一道
           //   令咒——但令咒是全局僅 3 道、真正花費時會扣減 leftSeals 的稀缺資源(見 Router_Battle.gs
           //   sealEscaped)，這裡從沒動過那個計數，純屬掛羊頭的敘事詞，卻讓玩家每撤退一次就以為對面
@@ -546,15 +546,16 @@ function actionRest(userData, pcId, sheets) {
           ``;
       }
     }
-    let restAmbushPrompt = "";
-    if (restAmbush && (restAmbush.homeRepel || restAmbush.peaceful)) {
-      restAmbushPrompt = restAmbush.repelNote; // 🏰 陣地反擊·優雅擊退／🎲 按兵不動或試探接觸(卸防時刻多樣化)
-    } else if (restAmbush) {
-      // 🐛→✅ 舊版無條件講「重創」，GAS 明明已算出 svHpMax/dmg 卻沒換算成實際傷勢用詞——比照撤退追擊同款修法。
-      const restSevRatio = restAmbush.svHpMax ? (restAmbush.dmg || 0) / restAmbush.svHpMax : 1;
-      const restSev = restSevRatio >= 0.4 ? '重創' : restSevRatio >= 0.15 ? '負傷' : '擦傷';
-      restAmbushPrompt = (restAmbush.foeCard || '') + `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${restAmbush.enemyName}」${restAmbush.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊擊中「${restAmbush.svName || '從者'}」致其${restSev}（−${restAmbush.dmg}）${restAmbush.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
-    }
+    // ⚔️ 卸防突襲三分派(單一真實來源 ambushDispatchPrompt_)：歇息這裡沒有獨立的「正常結果」敘事
+    //   (那部分由下方 restVictory/restFinalDream 另外處理)，normalFn 只需回空字串即可。
+    const restAmbushPrompt = ambushDispatchPrompt_(restAmbush,
+      function (a) {
+        // 🐛→✅ 舊版無條件講「重創」，GAS 明明已算出 svHpMax/dmg 卻沒換算成實際傷勢用詞——比照撤退追擊同款修法。
+        const restSev = dmgSeverityWord_(a.dmg || 0, a.svHpMax);
+        return (a.foeCard || '') + `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊擊中「${a.svName || '從者'}」致其${restSev}（−${a.dmg}）${a.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
+      },
+      function () { return ""; }
+    );
     // 🏆 夢的優先序：夜襲致敗的虛假之夢 > 令咒透支延遲結算的勝利真夢 > 空——兩者互斥(defeat/victory 本就互斥)。
     const restFinalVictory = restVictory && !(restAmbush && restAmbush.defeat);
     const restFinalDream = (restAmbush && restAmbush.defeat) ? restAmbush.dreamPrompt : (restFinalVictory ? restVictoryDream : "");
@@ -615,8 +616,8 @@ function actionPrepMeal(userData, pcId, sheets) {
   var nowAbs = clk.day * 24 + clk.hour;
   pcData[pIdx][COL.PC.MEMORY] = stampMeal_(pcData[pIdx][COL.PC.MEMORY], nowAbs + MEAL_BUFF_HOURS);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-  var ap = AP_PER_DAY, clock = "";
-  if (isFate) { try { ap = spendAp_(myGameId, 1, pcData, sheets).ap; clock = clockLabel_(myGameId, pcData); } catch (e) { } }
+  var _mealApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以好好整備——請休息恢復後再進食。", { isFate: isFate });
+  var ap = _mealApr.ap, clock = _mealApr.clock;
   // 🎬 aiPrompt 讓 AI 演出這段整備場景，而非只回罐頭 message。
   var mealSvIdx = findPlayerServantIdx_(pcData, myGameId, "");
   var mealPrompt = masterCard_(pcData[pIdx]) + (mealSvIdx !== -1 ? servantCard_(pcData[mealSvIdx]) : '') +
@@ -884,12 +885,11 @@ function actionFactionAmbush(userData, pcId, sheets) {
   var res = playerAmbushOnEnemy_(sheets, pcData, pIdx, gameId, String(userData.targetName || ""));
   if (res.err) return JSON.stringify({ success: false, message: res.err });
   pcData[pIdx][COL.PC.MEMORY] = clearEncounterWindow_(pcData[pIdx][COL.PC.MEMORY]); // 用掉即清窗口
-  var ap = AP_PER_DAY, clock = "";
-  try { ap = spendAp_(gameId, 1, pcData, sheets).ap; clock = clockLabel_(gameId, pcData); } catch (e) { }
+  var _ambApr = chargeApOrReject_(gameId, 1, pcData, sheets, "行動力不足以搶這一手。", { isFate: true });
+  var ap = _ambApr.ap, clock = _ambApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]); // 寫回御主列(窗口清除＋AP)
   // 🐛→✅ 舊版命中就無條件講「重創」，GAS 明明算出 eHpMax 卻沒換算實際傷勢比例——比照其餘兩處撤退/夜襲同款修法。
-  var _ambSevRatio = res.eHpMax ? (res.dmg || 0) / res.eHpMax : 1;
-  var _ambSev = _ambSevRatio >= 0.4 ? '重創' : _ambSevRatio >= 0.15 ? '負傷' : '擦傷';
+  var _ambSev = dmgSeverityWord_(res.dmg || 0, res.eHpMax);
   var hitTxt = res.hit ? `一擊得手，「${res.enemyName}」${_ambSev}（−${res.dmg}）` : `倉促搶攻只擦過「${res.enemyName}」（−${res.dmg}）`;
   var _mySvIdx = findPlayerServantIdx_(pcData, gameId, "");
   var aiPrompt = servantCard_(pcData[_mySvIdx !== -1 ? _mySvIdx : pIdx], { skipClose: true }) + res.foeCard + performanceNote_([res.svName, res.enemyName]) +
@@ -982,8 +982,8 @@ function actionIncite(userData, pcId, sheets) {
     report = { incite: true, success: false, aName: svAName, bName: svBName };
   }
   pcData[pIdx][COL.PC.MEMORY] = clearEncounterWindow_(pcData[pIdx][COL.PC.MEMORY]);
-  var ap = AP_PER_DAY, clock = "";
-  try { ap = spendAp_(gameId, 1, pcData, sheets).ap; clock = clockLabel_(gameId, pcData); } catch (e) { }
+  var _inciteApr = chargeApOrReject_(gameId, 1, pcData, sheets, "行動力不足。", { isFate: true });
+  var ap = _inciteApr.ap, clock = _inciteApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   STATE_PRE_DATA_ = pcData;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, report: report, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: buildPlayerStatusString(pcData[pIdx]) });
@@ -1227,8 +1227,8 @@ function actionSetWorkshop(userData, pcId, sheets) {
   if (isFate) pcData[pIdx][COL.PC.MP] = Math.max(0, mMp - WORKSHOP_MANA_COST);
   pcData[pIdx][COL.PC.MEMORY] = setWorkshopMemory_(pcData[pIdx][COL.PC.MEMORY], loc);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]); // MP＋MEMORY 一起寫回
-  let ap = AP_PER_DAY, clock = "";
-  if (isFate) { try { ap = spendAp_(myGameId, 1, pcData, sheets).ap; clock = clockLabel_(myGameId, pcData); } catch (e) { } }
+  const _wsApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以佈設陣地——請休息恢復。", { isFate: isFate });
+  const ap = _wsApr.ap, clock = _wsApr.clock;
   // 🎬 AI 演出：布設陣地的勞作（有陣地作成 Caster→其親手築結界；否則御主張設簡易營地）。給事實素材、少下指令。
   const casterRow = pcData.find(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && hasFx_(rowToCombatant_(r), 'territory'));
   const csName = casterRow ? String(casterRow[COL.PC.NAME]) : "";
@@ -1274,8 +1274,8 @@ function actionScavenge(userData, pcId, sheets) {
   pcData[pIdx][COL.PC.MP] = cur + gain;
   if (!depleted && curLoc) pcData[pIdx][COL.PC.MEMORY] = addScavengedLoc_(pcData[pIdx][COL.PC.MEMORY], curLoc);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-  let ap = AP_PER_DAY, clock = "";
-  if (isFate) { try { ap = spendAp_(myGameId, 1, pcData, sheets).ap; clock = clockLabel_(myGameId, pcData); } catch (e) { } }
+  const _scavApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以細細搜索——請休息恢復。", { isFate: isFate });
+  const ap = _scavApr.ap, clock = _scavApr.clock;
   // 35% 機率察覺鄰近敵蹤（揭露一名最近的未偵查敵）——搜索的真正價值在情報
   let intel = "";
   if (Math.random() < 0.35) {
@@ -1335,8 +1335,8 @@ function actionScout(userData, pcId, sheets) {
     revealed.push(pcData[i][COL.PC.NAME] + "（" + loc + "）");
   }
 
-  let scoutAp = AP_PER_DAY, scoutClock = "";
-  if (isFateScout) { try { scoutAp = spendAp_(myGameId, 1, pcData, sheets).ap; scoutClock = clockLabel_(myGameId, pcData); } catch (e) { } }
+  const _scoutApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以偵查——請『休息』恢復後再探。", { isFate: isFateScout });
+  const scoutAp = _scoutApr.ap, scoutClock = _scoutApr.clock;
 
   const msg = revealed.length
     ? `偵查四方，捕捉到氣息：${revealed.join("、")}。`

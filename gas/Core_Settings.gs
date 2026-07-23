@@ -267,6 +267,55 @@ function buildLiveIdIndex_(sheet) {
   return map;
 }
 
+// 🩸 傷勢嚴重度中文詞（單一真實來源）：dmg 佔 hpMax 比例 ≥40%＝重創／≥15%＝負傷／否則擦傷。
+//   hpMax 為 0/falsy 時比照既有呼叫端「查無上限就當最嚴重」的既有慣例，比例夾為 1(必為重創)。
+//   Router_Movement.gs(撤退追擊／歇息夜襲／趁隙偷襲) ＋ Router_Bond.gs(相處遭突襲) 共用同一條件鏈，
+//   別各自重寫這條 ratio 判斷。
+function dmgSeverityWord_(dmg, hpMax) {
+  var ratio = hpMax ? (parseFloat(dmg) || 0) / hpMax : 1;
+  return ratio >= 0.4 ? '重創' : ratio >= 0.15 ? '負傷' : '擦傷';
+}
+
+// ⚔️ 卸防突襲三分派樣板（單一真實來源）：enemyAmbushOnServant_ 回傳的 ambush 物件只有三種去向——
+//   ①homeRepel/peaceful(陣地反擊·優雅擊退／按兵不動·試探接觸，文案已在 ambush.repelNote 現成)
+//   ②真突襲命中(需呼叫端自組「被打斷」的專屬敘事，各處措辭不同，故用 callback)
+//   ③無突襲(呼叫端自組「正常結果」的敘事，同樣用 callback，可在其中再自行細分milestone等子分支)。
+//   補魔/靈基修復/相處/盟友交流/歇息 五處突襲呼叫端共用同一套分派邏輯，各自只帶自己的文案 callback，
+//   不重寫這三分支判斷。interruptedFn(ambush)/normalFn() 皆回傳字串(aiPrompt)。
+function ambushDispatchPrompt_(ambush, interruptedFn, normalFn) {
+  if (ambush && (ambush.homeRepel || ambush.peaceful)) return ambush.repelNote;
+  if (ambush) return interruptedFn(ambush);
+  return normalFn();
+}
+
+// ⏳ AP門檻＋扣AP＋時鐘標籤（單一真實來源）：cost/rejectMsg 依呼叫端自訂；opts.isFate 未帶就自己
+//   依 gameId 是否 "g_" 開頭判斷（鑑賞 k_ 局一律視為不擋、不耗AP，回傳{ap:AP_PER_DAY, clock:""}，
+//   比照各呼叫點既有「非Fate局不擋」慣例）；opts.skipWrite 透傳給 spendAp_(呼叫端結尾另有整表/整列
+//   批次寫回時傳true，省掉 spendAp_ 自己那道窄寫入)。
+//   門檻不足回傳 {reject:{success:false,needRest:true,message:rejectMsg}}——呼叫端請直接
+//   `return JSON.stringify(apr.reject)`；足夠則扣AP＋回傳 {ap, clock}。
+//   ⚠ 各呼叫點原本大多在函式前段就已有一道獨立的「門檻不足→提前 return」guard(擋在任何寫入/扣費之前，
+//   避免門檻不足時仍留下半吊子副作用)，此函式故意只在原本「扣AP＋算時鐘」那個位置呼叫、不去取代前面
+//   那道 guard、也不把扣AP時間點提前——部分呼叫端在扣AP前後有依賴當下(扣AP前)day/hour的計算(如
+//   趁隙偷襲 playerAmbushOnEnemy_ 的【提防】冷卻窗口判斷)，提前扣AP會讓那類判斷不小心吃到扣費後的
+//   時間，是本次重構刻意迴避的邊界風險——因此這裡的門檻檢查在實務上多半已被前面那道 guard 擋過一次，
+//   屬防禦性複查、非多此一舉。
+function chargeApOrReject_(gameId, cost, pcData, sheets, rejectMsg, opts) {
+  opts = opts || {};
+  var isFate = opts.isFate !== undefined ? opts.isFate : (String(gameId || "").indexOf("g_") === 0);
+  if (!isFate) return { ap: AP_PER_DAY, clock: "" };
+  if (getAp_(gameId, pcData) < cost) {
+    return { reject: { success: false, needRest: true, message: rejectMsg } };
+  }
+  var ap = AP_PER_DAY, clock = "";
+  try {
+    var sp = spendAp_(gameId, cost, pcData, sheets, opts.skipWrite);
+    ap = sp.ap;
+    clock = clockLabel_(gameId, pcData);
+  } catch (e) { }
+  return { ap: ap, clock: clock };
+}
+
 // 主從synergy（原作設定「御主供魔／契合度提升從者能力」）：特定主從組合回到全盛六圍。
 //   目前只：恩奇都 ↔ 銀狼（獵犬御主，原作真正的御主——以銀狼為觸媒召喚、令咒落在狼身上）→ 全能力 A、寶具 A++。
 //   其餘御主（含玩家自召）下恩奇都維持削弱基線。讀從者列 MEMORY【御主】名判定；在 rowToCombatant_ 套用。
