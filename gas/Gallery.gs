@@ -930,7 +930,7 @@ function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
         "physical_state": _physicalStateRef,
         "appearance_extras": _appearanceExtrasRef,
         "mutual_nicknames": "雙方自然發展的暱稱(見律令4)",
-        "attitude": "NPC對御主當下臨場態度(第三人稱·≤15字·見律令5)",
+        "attitude": "(該角色對玩家)當下的臨場態度(第三人稱·≤15字·有變化才填)",
         "memory": "本回合若有值得長期記的里程碑(告白/初牽手/難忘約會橋段/重要約定達成)寫一句≤30字·玩家第一人稱「我」記我們做的事·禁寫成她的視角/第三人稱·尋常閒聊填「無」·★同一件事只記一次(與她【共同回憶】已有的重複就填無)"
       }]
     },
