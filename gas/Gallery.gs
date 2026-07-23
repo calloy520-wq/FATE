@@ -1055,6 +1055,18 @@ function kanshouLocContextForAI_(locName, homeName) {
 //   選點，不限制玩家自己走地圖過去或帶她同去(玩家「玩家邀約或是牽手帶去不管」)，地圖上一律可走。
 //   dateOnly:true＝只給GAS的約會邀請挑，不進kanshouRollDailyLocation_的日常閒晃保底池(避免其他
 //   同伴平白無故被骰去這種明顯是「約會限定」的私密地點閒晃)。
+// 🕐 2026-07 六度改版新增 bands：玩家實測「清晨走進深夜賓館，櫃檯空無一人像恐怖片開場」──有些
+//   地點名字本身就寫明時段(深夜賓館/夜景展望台)、有些現實中就有營業時段(書店/水族館)，卻能被
+//   玩家在任何時段自由走進去，AI只能硬掰理由圓場，讀起來很違和。bands＝這個地點在哪些
+//   timeBand_(Time_World.gs 5段：清晨/午後/黃昏/夜/深夜)開放；省略此欄＝不受限、全天候開放
+//   (向後相容，其餘地點不受影響)。只管「玩家能不能走進去」，不影響同伴日常閒晃(dateOnly地點
+//   本就不進閒晃池；非dateOnly地點的閒晃池目前不比對bands，極少數情況同伴可能被骰去玩家當下
+//   進不去的地點，純屬「她剛好在，你正好碰不上」的日常感，不是bug)。門檻依「地點名字/現實常識
+//   暗示的營業時段」訂，非玩家點名的地點一律維持不設限，之後想擴大範圍只需往表加 bands 一列。
+//   ⚠ 改這裡記得同步前端顯示鏡射 KC_LOCATIONS_(Script_Kanshou.html)的同名地點——否則鎖圖示對不上
+//   後端實際判定(同KANSHOU_LOCATIONS_/KC_LOCATIONS_過去漏同步過5個地點的教訓)。設有 bands 限制的
+//   地點若同時可被GAS約會邀請(kanshouPickDate_)或玩家相約(promiseMeet)選中，兩處都已改成只挑
+//   跟該地點bands相容的時段，避免「約好了、赴約時卻被地點未開放擋在門外」的必爽約陷阱。
 const KANSHOU_LOCATIONS_ = [
   { name: '我的房間', region: 'room', desc: '安穩靜謐、只屬於自己的房間。', noEncounter: true, isRoom: true },
 
@@ -1070,19 +1082,19 @@ const KANSHOU_LOCATIONS_ = [
   { name: '便利商店', region: 'shinzan', desc: '燈火通明、24小時營業的街角小店。' },
 
   { name: '咖啡廳', region: 'fuyuki', desc: '磨豆香氣繚繞的小巧咖啡館。' },
-  { name: '書店二樓', region: 'fuyuki', desc: '安靜得只聽見翻頁聲的二樓書架間。' },
+  { name: '書店二樓', region: 'fuyuki', desc: '安靜得只聽見翻頁聲的二樓書架間。', bands: ['清晨', '午後', '黃昏'] },
   { name: '屋頂花園', region: 'fuyuki', desc: '高樓頂上的一方綠意，能望見整座城市。' },
   { name: '商店街', region: 'fuyuki', desc: '人聲鼎沸的商店街，攤販林立。' },
-  { name: '摩天輪', region: 'fuyuki', desc: '入夜會點燈的摩天輪，是情侶間熱門的約會景點。', minBond: 40 },
-  { name: '水族館', region: 'fuyuki', desc: '館內盡是幽藍燈光，水母缸前總擠著竊竊私語的情侶。', minBond: 40 },
-  { name: '深夜賓館', region: 'fuyuki', desc: '招牌亮著曖昧的霓虹燈，房間隔音很好，沒有人會多問一句。', minBond: 80, noEncounter: true, dateOnly: true },
+  { name: '摩天輪', region: 'fuyuki', desc: '入夜會點燈的摩天輪，是情侶間熱門的約會景點。', minBond: 40, bands: ['清晨', '午後', '黃昏', '夜'] },
+  { name: '水族館', region: 'fuyuki', desc: '館內盡是幽藍燈光，水母缸前總擠著竊竊私語的情侶。', minBond: 40, bands: ['清晨', '午後'] },
+  { name: '深夜賓館', region: 'fuyuki', desc: '招牌亮著曖昧的霓虹燈，房間隔音很好，沒有人會多問一句。', minBond: 80, noEncounter: true, dateOnly: true, bands: ['黃昏', '夜', '深夜'] },
 
   { name: '老道場', region: 'dojo', desc: '木地板與竹刀氣味的老道場。' },
   { name: '山間小徑', region: 'dojo', desc: '林蔭遮天、只聞鳥鳴的山間小路。' },
   { name: '隱藏溫泉', region: 'dojo', desc: '深藏山林間、鮮少人知的一方溫泉。', minBond: 60 },
   { name: '廢棄神社', region: 'dojo', desc: '荒草蔓生、早已無人祭拜的廢棄神社。' },
-  { name: '夜景展望台', region: 'dojo', desc: '能俯瞰整座冬木市萬家燈火的高地，晚風正好，兩人並肩無語也不尷尬。', minBond: 60 },
-  { name: '情侶溫泉套房', region: 'dojo', desc: '只租給兩人的溫泉旅館房間，一拉上紙門，外頭的世界就與你們無關了。', minBond: 80, noEncounter: true, dateOnly: true },
+  { name: '夜景展望台', region: 'dojo', desc: '能俯瞰整座冬木市萬家燈火的高地，晚風正好，兩人並肩無語也不尷尬。', minBond: 60, bands: ['黃昏', '夜', '深夜'] },
+  { name: '情侶溫泉套房', region: 'dojo', desc: '只租給兩人的溫泉旅館房間，一拉上紙門，外頭的世界就與你們無關了。', minBond: 80, noEncounter: true, dateOnly: true, bands: ['黃昏', '夜', '深夜'] },
 
   // 拜訪住處：只保留女性角色的住處，noEncounter:true(私人住處，恆不觸發陌生人巧遇)，name
   //   務必與下方KANSHOU_HERO_HOME_的值逐字一致，否則kanshouRollDailyLocation_骰到的地點對不上這裡。
@@ -1108,9 +1120,14 @@ function kanshouPickDate_(heroName, day, bond) {
   const key = String(heroName || "") + "#" + (parseInt(day, 10) || 0);
   let h = 0;
   for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
-  const loc = pool[h % pool.length].name;
-  const band = KANSHOU_APPT_BANDS_[Math.floor(h / pool.length) % KANSHOU_APPT_BANDS_.length].band;
-  return { loc: loc, band: band };
+  const locObj = pool[h % pool.length];
+  // 🕐 2026-07 六度改版：地點若有時段限制(bands)，只能從跟它相容的約會時段挑，避免「約好了、
+  //   赴約時卻被地點未開放擋在門外」的必爽約陷阱(見上方【地點未開放】判定)。目前6個設限地點
+  //   都至少跟一個約會時段(午後/黃昏/夜)相容，理論上不會挑到空集合，但仍保底退回全部時段。
+  const compatBands = locObj.bands ? KANSHOU_APPT_BANDS_.filter(b => locObj.bands.indexOf(b.band) !== -1) : KANSHOU_APPT_BANDS_;
+  const bandPool = compatBands.length ? compatBands : KANSHOU_APPT_BANDS_;
+  const band = bandPool[Math.floor(h / pool.length) % bandPool.length].band;
+  return { loc: locObj.name, band: band };
 }
 // 🏠 房間顯示名稱：只剩玩家自己的房間，永遠顯示「(玩家名)的房間」。
 function kanshouRoomDisplayName_(locKey, pcData, gameId, myName, myIdx) {
@@ -1919,12 +1936,22 @@ function actionPlay_(userData, pcId, sheets) {
     kanshouVisitBlockedStr = `\n★【登門未果·私人住處】：你來到「${moveTarget0_.name}」門前，卻想起跟這裡的主人還沒熟到能這樣直接登門造訪——演出你在門外停步、終究沒敲門就轉身離開的猶豫即可(不要進屋、不要讓屋主出現、不必解釋機制或提到數值)。`;
     moveTarget = null;
   }
+  // 🕐 2026-07 六度改版·時段限定地點門檻：跟上面私人住處同一套「擋在移動前、當作沒真的進去」寫法。
+  //   有pending約定要去這裡的話豁免(赴約優先於門檻，理由同上方kanshouLocHasPendingPromise_註解——
+  //   約定成立時已檢查過時段相容，赴約當下不該又被同一個門檻擋，見kanshouPickDate_/promiseMeet處理)。
+  let kanshouTimeBlockedStr = "";
+  if (moveTarget && Array.isArray(moveTarget.bands) && moveTarget.bands.indexOf(timeBand_(curHour)) === -1 && !kanshouLocHasPendingPromise_(pcData, moveTarget.name, curDay, _myGid_)) {
+    kanshouTimeBlockedStr = `\n★【撲空·地點未開放】：你來到「${moveTarget.name}」，卻發現此刻(${timeBand_(curHour)})根本還沒到營業/開放的時段——演出你意識到撲了個空、隨即轉身作罷即可(不要進去、不要讓任何人出現、不必解釋機制或提到數值)。`;
+    moveTarget = null;
+  }
   const moveName = moveTarget ? moveTarget.name : "";
   let finalUserMsg = kanshouVisitBlockedStr
     ? `【玩家意圖】：想直接登門造訪「${moveTarget0_.name}」。`
-    : moveTarget
-      ? `【玩家意圖】：走向了「${moveName}」，四處看看那裡有什麼、有沒有遇見誰。`
-      : `【玩家意圖】：${userMsg}`;
+    : kanshouTimeBlockedStr
+      ? `【玩家意圖】：走向了「${moveTarget0_.name}」，卻發現這時段還沒開放。`
+      : moveTarget
+        ? `【玩家意圖】：走向了「${moveName}」，四處看看那裡有什麼、有沒有遇見誰。`
+        : `【玩家意圖】：${userMsg}`;
 
   // 鑑賞世界觀明文禁止任何戰鬥/血量變化/死亡威脅，故不帶 solo 戰鬥引擎的殘留概念(擊倒/復活/
   //   戰敗虛假之夢/剛結盟NPC排除等)。
@@ -1964,14 +1991,18 @@ function actionPlay_(userData, pcId, sheets) {
   if (userData.promiseMeet && typeof userData.promiseMeet === 'object') {
     const _pmName = String(userData.promiseMeet.name || "").trim();
     const _pmLoc = String(userData.promiseMeet.loc || "").trim();
+    // 時段：前端帶 band(午後/黃昏/夜)；不合法或沒帶→退回無時段(舊「整天有效」·向後相容)。
+    const _pmBand = kanshouApptHour_(String(userData.promiseMeet.band || "").trim()) !== null ? String(userData.promiseMeet.band).trim() : "";
+    const _pmLocObj_ = KANSHOU_LOCATIONS_.find(l => l.name === _pmLoc);
     // 私人住處(visit)未解鎖不可當約定地——約成立後玩家根本進不去(前端灰鎖＋後端擋移動)＝必然爽約陷阱。
-    const _pmLocOk = KANSHOU_LOCATIONS_.some(l => l.name === _pmLoc && l.region !== 'room' && (l.region !== 'visit' || kanshouResidenceUnlocked_(pcData, _pmLoc, _myGid_)));
+    // 🕐 2026-07 六度改版·時段限定地點同理：約的時段若不在該地點開放時段內，赴約當下會被上方
+    //   【地點未開放】擋在門外，同樣是必然爽約陷阱——約定當下就先擋掉這種不相容組合(前端已只給
+    //   相容時段選項，這裡是直打API的後端保底，同kanshouResidenceUnlocked_那行的既有寫法)。
+    const _pmLocOk = !!(_pmLocObj_ && _pmLocObj_.region !== 'room' && (_pmLocObj_.region !== 'visit' || kanshouResidenceUnlocked_(pcData, _pmLoc, _myGid_)) && (!_pmLocObj_.bands || !_pmBand || _pmLocObj_.bands.indexOf(_pmBand) !== -1));
     const _pmIdx = _pmName ? pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_pmName) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) : -1;
     if (_pmLocOk && _pmIdx !== -1) {
       const _pmBond = parseInt(pcData[_pmIdx][COL.PC.BOND]) || 0;
       const _pmHer = String(pcData[_pmIdx][COL.PC.NAME]);
-      // 時段：前端帶 band(午後/黃昏/夜)；不合法或沒帶→退回無時段(舊「整天有效」·向後相容)。
-      const _pmBand = kanshouApptHour_(String(userData.promiseMeet.band || "").trim()) !== null ? String(userData.promiseMeet.band).trim() : "";
       const _pmBandLabel = _pmBand ? (KANSHOU_APPT_BANDS_.find(b => b.band === _pmBand) || {}).label : "";
       _pendingProposal = { type: 'promise', idx: _pmIdx, loc: _pmLoc, band: _pmBand, accepted: kanshouProposalAccepts_('promise', _pmBond) };
       kanshouPromiseStr = `\n★【提議·相約·GAS已裁定】你向『${_pmHer}』提議【明天${_pmBandLabel ? _pmBandLabel + '於' : '在'}「${_pmLoc}」見面】。系統已依好感(${_pmBond}/100)裁定她${_pendingProposal.accepted ? '【答應】了——請 narration 依她的個性演出答應的反應（雀躍／害羞／矜持地點頭皆可），系統明天會記得這個約' : '【婉拒】了——請 narration 依她的個性演出婉拒的反應（不好意思／認真說改天／打趣帶過皆可），此約不成立、不必替玩家找補'}。★成敗由系統定，【不可】自行改寫她的決定，只演她的反應。`;
@@ -2858,7 +2889,7 @@ function actionPlay_(userData, pcId, sheets) {
 
 ${PROMPT_REL}
 ★【在場驗證·最高優先】：只有【目前在場人物】可被指名對話/持續互動/記錄好感；背景路人不具名、不可指名互動、不追蹤好感、不可寫成固定角色。例外：①玩家明確邀請/招呼/引入第三人時該人可登場　②系統注入段明示豁免者(如【自然告辭】道別、【系統指定巧遇】)依該段辦。歷史提到但不在場的名字＝不在場的回憶·嚴禁憑空登場開口。
-★【焦點禮讓】：玩家只對一位互動時焦點留給她·其他在場者維持背景(輕描一筆·不搶話打斷/介入親密·除非系統另有橋段提示)。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouRoomEventStr}${kanshouNpcLeaveStr_}${kanshouVisitBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶】：今天是「${_f.name}」·narration 自然帶入應景氣氛·不報幕。`; if (jumpFest) return `\n★【節慶】：明天就是「${jumpFest.name}」·街頭已有前夕氣氛·自然帶入不報幕。`; return ""; })()}
+★【焦點禮讓】：玩家只對一位互動時焦點留給她·其他在場者維持背景(輕描一筆·不搶話打斷/介入親密·除非系統另有橋段提示)。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouRoomEventStr}${kanshouNpcLeaveStr_}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶】：今天是「${_f.name}」·narration 自然帶入應景氣氛·不報幕。`; if (jumpFest) return `\n★【節慶】：明天就是「${jumpFest.name}」·街頭已有前夕氣氛·自然帶入不報幕。`; return ""; })()}
 ★【今日天氣】：${kanshouWeather_(curDay)}·自然滲入場景不必每句提。${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
 💕【後日談模式·最高優先覆寫】：${partyRows.length === 0
     ? `眼下無相識者在場·玩家一個人的尋常時光。`

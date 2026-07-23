@@ -611,8 +611,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `KANSHOU_REGIONS_`（常數）— 大地圖分區清單（room/home/shinzan/fuyuki/dojo/visit），純 UI 分組。
 - `kanshouLocContextForAI_(locName, homeName)` — 依 region 補一句給 AI 的場域脈絡（自己房間/共用空間/別人住處/深山町…），AI 自創地點回空字串。
-- `KANSHOU_LOCATIONS_`（常數）— 全地點清單（name/region/desc/noEncounter/isRoom/minBond/dateOnly），驗證/邏輯的唯一真相（前端另有一份純畫按鈕）。2026-07 三度改版新增 `minBond`（省略＝0，沿用`KANSHOU_REL_TIER_`門檻，供`kanshouPickDate_`選約會地點分級用，不限制玩家自己走地圖）／`dateOnly`（情侶溫泉套房/深夜賓館這類約會限定私密地點，不進`kanshouRollDailyLocation_`日常閒晃保底池）。
-- `kanshouPickDate_(heroName, day, bond)`（2026-07 三度改版新增）— GAS依好感梯度幫她挑約會地點+時段：先抓好感梯度剛好卡在哪一階對應的地點池，池空退而求其次抓全部已解鎖梯度；同一(她,同一天)固定挑到同一地點/時段(hash動day+heroName)，不會每回合亂跳。供`kanshouPromiseOffer_`(actionPlay_內)呼叫。
+- `KANSHOU_LOCATIONS_`（常數）— 全地點清單（name/region/desc/noEncounter/isRoom/minBond/dateOnly/bands），驗證/邏輯的唯一真相（前端另有一份純畫按鈕）。2026-07 三度改版新增 `minBond`（省略＝0，沿用`KANSHOU_REL_TIER_`門檻，供`kanshouPickDate_`選約會地點分級用，不限制玩家自己走地圖）／`dateOnly`（情侶溫泉套房/深夜賓館這類約會限定私密地點，不進`kanshouRollDailyLocation_`日常閒晃保底池）。**六度改版新增 `bands`**（省略＝全天候開放；`timeBand_`5段子集，管「現在幾點能不能去」，跟管「好感夠不夠去」的`minBond`互相獨立）——目前書店二樓/水族館/摩天輪/深夜賓館/夜景展望台/情侶溫泉套房設限，其餘地點不設限。
+- `kanshouPickDate_(heroName, day, bond)`（2026-07 三度改版新增）— GAS依好感梯度幫她挑約會地點+時段：先抓好感梯度剛好卡在哪一階對應的地點池，池空退而求其次抓全部已解鎖梯度；同一(她,同一天)固定挑到同一地點/時段(hash動day+heroName)，不會每回合亂跳。**六度改版**：挑中的地點若有`bands`限制，只從跟它相容的`KANSHOU_APPT_BANDS_`子集挑時段(而非全部3個)，避免約好的時段落在地點未開放的窗口、赴約時被【地點未開放】擋在門外。供`kanshouPromiseOffer_`(actionPlay_內)呼叫。
 - `kanshouRoomDisplayName_(locKey, pcData, gameId, myName, myIdx)` — 房間顯示名：「我的房間」→「(玩家名)的房間」，其餘原樣。（pcData/gameId/myIdx 現未使用。）
 - `KANSHOU_SUMMON_BLOCKED_IDS_`（常數）— 暫移出鑑賞的英靈 id（召喚/巧遇/住處共用單一來源）。
 - `KANSHOU_STARTER_IDS_`（常數）— 開局 4 位起始住民（大河/凜/櫻/SABER）。
@@ -697,7 +697,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### 🔴 核心敘事引擎
 
 - `actionPlay(userData, pcId, sheets)`（2026-07 稽核後改為薄包裝，~15 行）— 用 `CacheService` 對同一 `pcId` 做軟性互斥（偵測到同 pcId 仍有一次在跑就直接回「請稍候」拒絕本次），再委派給 `actionPlay_`。修的是：本函式故意豁免 `LOCK_EXEMPT_ACTIONS_` 全域鎖(AI呼叫數秒~49秒，鎖全域會拖累其他玩家)，但寫回是「整表快照→記憶體全改→結尾整列覆寫」，同pcId兩次呼叫窗口重疊時後flush者會整列蓋掉先flush者的全部改動——這裡不加全域鎖(仍會拖累其他玩家)，只鎖「同一pcId」。
-- `actionPlay_(userData, pcId, sheets)`（~1440 行，原 `actionPlay` 更名而來，呼叫關係／ActionRouter 對照不變，仍是 `"play"` 唯一實際邏輯）— 鑑賞唯一敘事引擎（入口擋非 KPC_，帳號歸屬驗證改用 `kanshouOwnedRowIdx_`——2026-07 稽核抓到舊版裸 `findIndex` 沒查帳號、`pcId` 可枚舉猜中即可讀寫別人存檔的漏洞已補）。單回合處理全部意圖：地點移動＋私宅門檻／**玩家發起的相約·牽手·同去提議**（`kanshouProposalAccepts_` 在呼叫 AI **前**先依 BOND 擲骰定成敗，結果直接寫進提示詞告訴 AI「成敗已由系統定」，AI 只演反應，`proposal_accept` schema 欄已整個刪除)／**她（NPC）主動邀約/邀同居**（2026-07 三度改版：觸發判定也改GAS直接算——`kanshouPromiseOffer_` 依好感卡關(39/59/79)+無待赴約定判定、`kanshouCohabitOffer_` 依好感≥90+未同住+一天一次判定，`kanshouPickDate_` 依好感梯度挑地點，AI 不再有 `promise_proposal`/`cohabit_proposal` 欄自己決定要不要開口；玩家同意走既有 promiseAccept/cohabitAccept 落地)／結識入駐（inviteResident）／橋段觸發與接受（roomEventAccept·三層：節慶>同住人房間>地點×時段）／深夜敲門（endDay 擲骰→knockEvent/knockAccept）／結束一天（睡眠·同床≥80·晨間餘韻·強制回房·放手·眾人重骰行程）／推進時間·跳時段·跳節慶（rollHours_）／被動時間流動（每動作 +10 分·跨時段觸發 NPC 自然告辭）／赴約·爽約結算（時間×地點驅動·準時窗+5/遲到+3/爽約-5·寫共同回憶）／巧遇擲骰／拍照·看照片。組 system prompt（`buildDefaultSystemPrompt`）＋巨型 USER prompt（在場卡片/親密五階/移動鐵律/時段/世界觀）→ `callGeminiAPI`（先打快 SOLO_MODEL、AI_MODEL 只當備援；時間轉場砍 max_tokens）。落地 AI 回傳：rel_changes（夾聊天上限·kanshouSyncRelTier_）/intimacy_feedback（physical_state/appearance_extras(原outfit_change)/mutual_nicknames/attitude/memory 共同回憶）/npc_exit/master_note 滾動側寫（現只剩經歷一格，性格四格/萌點創角時一次生成、遊玩期間AI不再碰）。**2026-07 四度改版拔掉`dynamic_skills`(雙修技巧)**：無UI無使用規則的孤兒欄位，連同`kanshouSkillTagStr_`/`processSkills`/`setSkillTag_`三個輔助函式一併刪除。回傳前經 `sanitizeAiData_` 守門。競態修 `buildLiveIdIndex_` 重定位後單列寫回。回傳 text/people/options/tags/各種泡泡與通知條/時鐘。
+- `actionPlay_(userData, pcId, sheets)`（~1440 行，原 `actionPlay` 更名而來，呼叫關係／ActionRouter 對照不變，仍是 `"play"` 唯一實際邏輯）— 鑑賞唯一敘事引擎（入口擋非 KPC_，帳號歸屬驗證改用 `kanshouOwnedRowIdx_`——2026-07 稽核抓到舊版裸 `findIndex` 沒查帳號、`pcId` 可枚舉猜中即可讀寫別人存檔的漏洞已補）。單回合處理全部意圖：地點移動＋私宅門檻＋**六度改版新增時段門檻**（`moveTarget.bands`跟`timeBand_(curHour)`不合就擋在移動前，比照私宅門檻同款「當作沒真的進去」寫法，有pending約定豁免）／**玩家發起的相約·牽手·同去提議**（`kanshouProposalAccepts_` 在呼叫 AI **前**先依 BOND 擲骰定成敗，結果直接寫進提示詞告訴 AI「成敗已由系統定」，AI 只演反應，`proposal_accept` schema 欄已整個刪除)／**她（NPC）主動邀約/邀同居**（2026-07 三度改版：觸發判定也改GAS直接算——`kanshouPromiseOffer_` 依好感卡關(39/59/79)+無待赴約定判定、`kanshouCohabitOffer_` 依好感≥90+未同住+一天一次判定，`kanshouPickDate_` 依好感梯度挑地點，AI 不再有 `promise_proposal`/`cohabit_proposal` 欄自己決定要不要開口；玩家同意走既有 promiseAccept/cohabitAccept 落地)／結識入駐（inviteResident）／橋段觸發與接受（roomEventAccept·三層：節慶>同住人房間>地點×時段）／深夜敲門（endDay 擲骰→knockEvent/knockAccept）／結束一天（睡眠·同床≥80·晨間餘韻·強制回房·放手·眾人重骰行程）／推進時間·跳時段·跳節慶（rollHours_）／被動時間流動（每動作 +10 分·跨時段觸發 NPC 自然告辭）／赴約·爽約結算（時間×地點驅動·準時窗+5/遲到+3/爽約-5·寫共同回憶）／巧遇擲骰／拍照·看照片。組 system prompt（`buildDefaultSystemPrompt`）＋巨型 USER prompt（在場卡片/親密五階/移動鐵律/時段/世界觀）→ `callGeminiAPI`（先打快 SOLO_MODEL、AI_MODEL 只當備援；時間轉場砍 max_tokens）。落地 AI 回傳：rel_changes（夾聊天上限·kanshouSyncRelTier_）/intimacy_feedback（physical_state/appearance_extras(原outfit_change)/mutual_nicknames/attitude/memory 共同回憶）/npc_exit/master_note 滾動側寫（現只剩經歷一格，性格四格/萌點創角時一次生成、遊玩期間AI不再碰）。**2026-07 四度改版拔掉`dynamic_skills`(雙修技巧)**：無UI無使用規則的孤兒欄位，連同`kanshouSkillTagStr_`/`processSkills`/`setSkillTag_`三個輔助函式一併刪除。回傳前經 `sanitizeAiData_` 守門。競態修 `buildLiveIdIndex_` 重定位後單列寫回。回傳 text/people/options/tags/各種泡泡與通知條/時鐘。
   - 內嵌 helper：`formatPref`/`formatTrait`（性格·特徵四格格式化）、`relMemMemoryStr_`（REL_MEM 專屬稱呼＋態度）、`_whereIsHer`（撲空提示找她位置）、`_settle`（赴約結算閉包）、`sanitizePhysicalState`/`sanitizeAppearanceExtras`（原`sanitizeOutfitChange`，篩敷衍語·容錯截斷）、`processTags`（專屬稱呼 append 去重）、`processMemoir_`（共同回憶 append·雙字組 0.6 相似去重·★釘選不驅逐）。（`processSkills`/`setSkillTag_` 已隨雙修技巧機制整組刪除）
 
 #### 相簿 actions（讀/刪·拍照本體在 actionPlay）
@@ -1260,7 +1260,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `kcSwitchRegion_(id)` — 切分區分頁（存 localStorage）＋重繪 `#kc-map-list`。
 - `kanshouToggleEncounter_(checked)` — 巧遇開關切換（存 localStorage，`send` 每次讀進 `encounter`）。
 - `kcRoomLabel_(key)` — 「我的房間」→「<御主名>的房間」動態顯示名（鏡射後端 `kanshouRoomDisplayName_`）。
-- `kcMapListHtml_()` — **產整個地圖分頁 HTML**：分區切換列＋家改名鈕＋各地點鈕（人數徽章 `window._lastTags.locationCounts`、橋段徽章、約定徽章、鎖住的私人住處走🔒、移動鈕→`kanshouMoveTo`、邀同去👋→`kanshouProposeMove`）。由 Script.html `renderMapPane()` 塞進 `#map-pane-content`。
+- `kcMapListHtml_()` — **產整個地圖分頁 HTML**：分區切換列＋家改名鈕＋各地點鈕（人數徽章 `window._lastTags.locationCounts`、橋段徽章、約定徽章、鎖住的私人住處走🔒、**六度改版新增：時段未到的`bands`限定地點同樣走🔒**（比對`l.bands`跟`_curBand`）、移動鈕→`kanshouMoveTo`、邀同去👋→`kanshouProposeMove`）。由 Script.html `renderMapPane()` 塞進 `#map-pane-content`。
 - `kanshouRenameHome()` — 改「家」名（`kanshou_set_home_name`，寫後端 MEMORY【住所】）；成功更新 `pc.homeName`＋重繪。
 - `kanshouMoveTo(name)` — 自己移動到某地（確認框→切 chat 分頁→`send({moveTarget})`）。
 - `kanshouProposeMove(name)` — 邀同伴一起去（`proposeMove`，走確定性提議管線）；身邊無人(濾 `isExact`)前端先擋。
@@ -1277,8 +1277,8 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `kanshouAcceptRoomEvent(name)` — 接受橋段（夜襲/賴床/共浴等）靠近某人（`roomEventAccept`）。
 
 #### 相約 / 等待 / 選單
-- `kanshouPromiseMeet(name)` — 相約流程：先 `kanshouPickLocation_` 選地點（排除私室/未解鎖住處）→再 `kanshouPickBand_` 選時段→`send({promiseMeet})`。
-- `kanshouPickBand_(title, name, cb)` — 開時段選擇彈窗 `#kb-overlay`（`KC_APPT_BANDS_` 三顆鈕），回呼存 `_kbCb`。
+- `kanshouPromiseMeet(name)` — 相約流程：先 `kanshouPickLocation_` 選地點（排除私室/未解鎖住處）→**六度改版**：選定地點若有`bands`限制，算出跟`KC_APPT_BANDS_`相容的子集(`_bandOptions`)→再 `kanshouPickBand_` 選時段(傳入`_bandOptions`，沒限制就照舊給全部3個)→`send({promiseMeet})`。
+- `kanshouPickBand_(title, name, cb, bandOptions)` — 開時段選擇彈窗 `#kb-overlay`（`bandOptions`選填的子集，省略＝`KC_APPT_BANDS_`全部3顆鈕），回呼存 `_kbCb`。
 - `kanshouPickBand2_(band)` — 時段鈕點擊：關彈窗→執行 `_kbCb(band)`。
 - `kanshouWaitForPromise(targetHour)` — 「等到約定前 10 分」：算 `advanceHours=目標−現在` 走時間推進。
 - `kanshouPickLocation_(title, hint, pool, cb)` — **共用地點點選面板** `#kp-overlay`（按 `KC_REGIONS_` 分區列地點鈕），取代 prompt() 編號；回呼存 `_kpCb`。

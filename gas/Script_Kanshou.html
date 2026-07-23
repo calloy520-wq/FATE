@@ -961,6 +961,9 @@ let plainTextContext = cleanText;
   }
 
   // 🗾 出門走走·分區地圖：純氛圍用的分區/地點清單，僅供畫按鈕——實際合法地點驗證/巧遇抽選都在後端 Gallery.gs 的 KANSHOU_REGIONS_/KANSHOU_LOCATIONS_(唯一真實來源)，改地點記得同步。
+  // 🕐 2026-07 六度改版新增 bands：純顯示用mirror(灰鎖UI判斷)，真正擋移動的門檻在後端
+  //   KANSHOU_LOCATIONS_(見Gallery.gs同名常數註解)——改後端bands記得同步這裡，否則鎖圖示會跟
+  //   實際能不能走進去對不上(同KANSHOU_LOCATIONS_/KC_LOCATIONS_過去漏同步過5個地點的教訓)。
   // 🏠 2026-07：「房間」獨立分頁併進「家」——夜襲不再靠玩家自家房間細分(改看她住處/同居和室)，
   //   房間沒必要單獨一頁。「我的房間」的 region 在前端顯示層改掛 home(見 KC_LOCATIONS_)，但仍以
   //   isRoom:true 保留其特殊性(別人不會骰進來、相約不能約這裡)；後端 KANSHOU_LOCATIONS_ 的 region
@@ -995,13 +998,13 @@ let plainTextContext = cleanText;
 
     { name: '河邊小徑', region: 'shinzan' }, { name: '古老神社', region: 'shinzan' },
     { name: '社區公園', region: 'shinzan' }, { name: '便利商店', region: 'shinzan' },
-    { name: '咖啡廳', region: 'fuyuki' }, { name: '書店二樓', region: 'fuyuki' },
+    { name: '咖啡廳', region: 'fuyuki' }, { name: '書店二樓', region: 'fuyuki', bands: ['清晨', '午後', '黃昏'] },
     { name: '屋頂花園', region: 'fuyuki' }, { name: '商店街', region: 'fuyuki' },
-    { name: '摩天輪', region: 'fuyuki' }, { name: '水族館', region: 'fuyuki' },
-    { name: '深夜賓館', region: 'fuyuki' },
+    { name: '摩天輪', region: 'fuyuki', bands: ['清晨', '午後', '黃昏', '夜'] }, { name: '水族館', region: 'fuyuki', bands: ['清晨', '午後'] },
+    { name: '深夜賓館', region: 'fuyuki', bands: ['黃昏', '夜', '深夜'] },
     { name: '老道場', region: 'dojo' }, { name: '山間小徑', region: 'dojo' },
     { name: '隱藏溫泉', region: 'dojo' }, { name: '廢棄神社', region: 'dojo' },
-    { name: '夜景展望台', region: 'dojo' }, { name: '情侶溫泉套房', region: 'dojo' },
+    { name: '夜景展望台', region: 'dojo', bands: ['黃昏', '夜', '深夜'] }, { name: '情侶溫泉套房', region: 'dojo', bands: ['黃昏', '夜', '深夜'] },
 
     { name: '隱蔽的工房', region: 'visit' }, { name: '島嶼道場', region: 'visit' },
     { name: '埃德費爾特宅邸', region: 'visit' }, { name: '愛因茲貝倫城', region: 'visit' },
@@ -1101,6 +1104,17 @@ let plainTextContext = cleanText;
           + 'style="flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;background:#1b1822;color:#6a6478;border:1px dashed #3a3348;border-radius:8px;cursor:not-allowed;font-size:13px;">'
           + '<span>🔒 ' + escapeHtml(label) + '</span>'
           + '<span style="font-size:10.5px;color:#7a7488;">尚未熟識</span>'
+          + '</button></div>';
+      }
+      // 🕐 2026-07 六度改版：時段限定地點——現在的時段不在她的開放時段內就灰鎖，比照上面拜訪住處
+      //   同一套UI(灰底虛線框+🔒+不可點)，避免玩家清晨走進「深夜賓館」撲了個空、讀起來很違和。
+      if (l.bands && l.bands.indexOf(_curBand) === -1) {
+        var _bandsTxt = l.bands.map(function (b) { return KC_BAND_SHORT_[b] || b; }).join('/');
+        return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
+          + '<button onclick="alert(\'「' + escapeHtml(label).replace(/\'/g, "\\'") + '」現在還沒開放，只在' + _bandsTxt + '才營業，晚點再來看看吧。\')" '
+          + 'style="flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;background:#1b1822;color:#6a6478;border:1px dashed #3a3348;border-radius:8px;cursor:not-allowed;font-size:13px;">'
+          + '<span>🔒 ' + escapeHtml(label) + '</span>'
+          + '<span style="font-size:10.5px;color:#7a7488;">' + escapeHtml(_bandsTxt) + '開放</span>'
           + '</button></div>';
       }
       return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
@@ -1248,16 +1262,23 @@ let plainTextContext = cleanText;
     var pool = KC_LOCATIONS_.filter(function (l) { return !l.isRoom && (l.region !== 'visit' || _pmUnlocked.indexOf(l.name) !== -1); });
     // 先選地點 → 再選時段 → 才送出(她約定時刻前10分到場；早到有「都早到」開場、遲到會唸你)
     kanshouPickLocation_('📅 和「' + name + '」約明天在哪見面？', '她明天會在那個時段到場等你；準時/早到赴約好感↑、遲到打折、放鴿子好感↓', pool, function (loc) {
+      // 🕐 2026-07 六度改版：地點若有開放時段限制，只給相容的時段選——約在她開放時段外＝赴約時
+      //   必被地點未開放擋在門外(後端 _pmLocOk 也同步擋這種組合，這裡先不給選)。
+      var _locObj = KC_LOCATIONS_.find(function (l) { return l.name === loc; });
+      var _bandOptions = (_locObj && _locObj.bands) ? KC_APPT_BANDS_.filter(function (b) { return _locObj.bands.indexOf(b.band) !== -1; }) : KC_APPT_BANDS_;
+      if (!_bandOptions.length) _bandOptions = KC_APPT_BANDS_;
       kanshouPickBand_('📅 約在「' + loc + '」的什麼時候？', name, function (band) {
         showGamePane('chat');
         send('（向「' + name + '」提出明天在「' + loc + '」見面的約定。）', false, { promiseMeet: { name: name, loc: loc, band: band } });
-      });
+      }, _bandOptions);
     });
   }
-  // 📅 時段選擇框(相約用)：三顆按鈕，點了回呼 band key。
+  // 📅 時段選擇框(相約用)：三顆按鈕，點了回呼 band key。bandOptions選填——地點有開放時段限制時
+  //   只傳相容子集(見kanshouPromiseMeet)，省略＝照舊給全部3個時段。
   var _kbCb = null;
-  function kanshouPickBand_(title, name, cb) {
+  function kanshouPickBand_(title, name, cb, bandOptions) {
     _kbCb = cb;
+    var opts = (bandOptions && bandOptions.length) ? bandOptions : KC_APPT_BANDS_;
     var ov = document.getElementById('kb-overlay');
     if (!ov) {
       ov = document.createElement('div');
@@ -1270,7 +1291,7 @@ let plainTextContext = cleanText;
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#a8d0f0;">' + escapeHtml(title) + '</b>'
       + '<button onclick="document.getElementById(\'kb-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
       + '<div style="display:flex;flex-direction:column;gap:8px;">'
-      + KC_APPT_BANDS_.map(function (b) { return '<button onclick="kanshouPickBand2_(\'' + b.band + '\')" style="padding:9px;background:rgba(90,140,180,0.18);color:#a8d0f0;border:1px solid #4a7a9a;border-radius:8px;cursor:pointer;font-size:13px;">' + b.label + '</button>'; }).join('')
+      + opts.map(function (b) { return '<button onclick="kanshouPickBand2_(\'' + b.band + '\')" style="padding:9px;background:rgba(90,140,180,0.18);color:#a8d0f0;border:1px solid #4a7a9a;border-radius:8px;cursor:pointer;font-size:13px;">' + b.label + '</button>'; }).join('')
       + '</div></div>';
     ov.style.display = 'flex';
   }
