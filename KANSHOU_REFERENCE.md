@@ -55,7 +55,6 @@
 | 【初見日】 | `【初見日】absDay`（IntTag 預設0） | 同伴列 | 首次同地寫入，紀念日里程碑比對 |
 | 【帳號】 | `【帳號】acctName` | — | 人工檢視辨識（非驗證，歸屬走帳號表） |
 | 【側寫計數】 | `【側寫計數】N` | 玩家列 | `kanshouGetSideWriteCount_`/`SetSideWriteCount_`：AI滾動側寫玩家經歷的節流計數(每3回合才補寫一次；2026-07 二度改版後 master_note 只剩經歷一格，性格/萌點改由創角一次擴寫、AI 不再側寫，「【性格鎖】」標記已隨之整組刪除) |
-| [雙修技巧] | `[雙修技巧]技巧名`（半形方括號，跟其餘全形【】標記不同） | 同伴列 | `setSkillTag_`：只更新這一段、不動其餘標記；`dynamic_skills` 欄寫入用 |
 | 【小道具】 | `【小道具】id1:強度1,id2:強度2,...`（逗號分隔·多件可同時裝備） | 同伴列 | `kanshouGetProps_`/`SetProps_`/`ToggleProp_`：玩家UI裝備/移除/調強度(同伴卡「🎀小道具」按鈕＋故事視窗快速抽屜)，GAS直接寫，非AI判斷。**裝備本身**(含選「關閉/戴著」起手)就卡`KANSHOU_PROP_EQUIP_BOND_`好感門檻，唯獨移除不受限 |
 | 【自訂道具】 | `【自訂道具】name1:hasIntensity1:part1,...`（逗號分隔·`part`選填） | **玩家列** | `kanshouGetCustomProps_`/`SetCustomProps_`：玩家自建道具目錄(跟內建`KANSHOU_PROPS_`合併用`kanshouAllProps_`)，上限`KANSHOU_CUSTOM_PROP_CAP_=10` |
 | 【換裝】【口吻】【小動作】 | — | 同伴列 | 鑑賞**讀取**（`getOutfit_`/persona），寫入屬 solo/persona 生態、非鑑賞獨有 |
@@ -212,7 +211,8 @@
 ⚠ **2026-07 玩家「提示詞太大量」全面壓縮**（核心訴求「AI 只依資料扮演」）：System＋USER＋driveStr＋schema 逐欄全部壓成最短句，冗字/重複/客套/最高級通膨砍到見骨——**但機械護欄（在場驗證/親密尺度五階/移動鐵律/冠名格式/角色一致性/世界觀）一條不刪、只縮字**。實際送 AI 文字砍約 35~45%。加規則前先想「這是機械護欄還是冗字」，冗字不進提示詞。
 ⚠ **2026-07 後續二輪·玩家拿 Gemini 改寫再壓縮回精簡風格**：`nsfwBaseRules`(規則1)/`driveStr`/`🛑角色一致性`/`dialogueFormatRule_`①②③ 這幾段文字重新順過措辭，同步拿掉幾個「具體例子/原因說明」（如規則1的「？？不可演成從容挑釁」範例、driveStr的「該親就親/該進一步/該索求」具體推進動詞、角色一致性的「冷酷」型例子、對話格式②冠名規則的「為何要冠名(櫻認錯自己台詞)」解釋、③的錯例/正例對照）——**這些多半是「示範用具體例子」而非機械護欄本體，砍了會讓提示詞更省字，但也可能讓模型在對應的邊角情況下少一點依循，若之後實測某個對應行為(如認錯自己台詞/停在曖昧不推進)又回歸，優先考慮把對應的具體例子/原因說明補回去，而不是整句重寫**。**曾考慮把 driveStr(僅driveOn=true才出現的USER prompt動態片段)直接合併進恆常存在的System prompt(nsfwBaseRules/慾海律令)裡——玩家決定不做**：driveStr關掉時是0字(GAS動態組裝不塞這段)，合併進恆常規則反而讓「開關關掉」的多數回合每回合都要多付這段字數，且拿掉了「矜持/主動掌握」兩種節奏可切換的實際功能，省字帳算下來不划算。
 ⚠ **2026-07「色色部分搬去給點火」實驗（進行中·結果待玩家實測回報）**：慾海律令原 0(色度跟隨)＋4(情慾場生理特寫)兩條**整段搬進 `driveStr`**（新編號⑤⑥，只有 `driveOn=true` 才組進提示詞），慾海律令本體剩 5 條(重新編號1~5)。**這兩條原本是「怎麼寫得好」的常駐風格指導、不是「准不准寫」的開關**——准不准寫全程由【親密尺度五階】的好感天花板決定、跟 driveOn 無關，天花板不變。搬走後的實際影響：矜持模式(driveOn=false)不再拿到這兩條的具體露骨寫作指引，即使好感已達戀人階(80+，天花板本身仍允許無上限)，措辭可能反而變保守含糊；主動掌握模式因為同時吃到 driveStr 的「推進到真的發生」指令＋這兩條的露骨寫作指引，兩者疊加可能更猛。**若實測發現矜持模式下的高好感場景意外變乾癟/含糊，這就是根因，把這兩條原樣搬回 specificRules 即可還原。**
-- **finalJson 欄位**：`inner_monologue`(純思考不顯示)／`narration`(約500字第一人稱)／`npc_exit`(自然告辭離場真名陣列)／`options`(固定4)／`intimacy_feedback`{player,npcs[]:physical_state≤15/appearance_extras(原outfit_change)≤20/dynamic_skills/mutual_nicknames/attitude≤15/memory}／`rel_changes`[]{target真名,fav_change整數±·單回合上限+5}／`master_note`(現只剩經歷一格，側寫節流回合才出現)。
+- **finalJson 欄位**：`inner_monologue`(純思考不顯示)／`narration`(約500字第一人稱)／`npc_exit`(自然告辭離場真名陣列)／`options`(固定4)／`intimacy_feedback`{player,npcs[]:physical_state≤15/appearance_extras(原outfit_change)≤20/mutual_nicknames/attitude≤15/memory}／`rel_changes`[]{target真名,fav_change整數±·單回合上限+5}／`master_note`(現只剩經歷一格，側寫節流回合才出現)。
+  **⚠ 2026-07 四度改版·`dynamic_skills`(雙修技巧)整個拔掉**（玩家「雙修技巧還有在用？UI拿掉玩家也看不到了」）：稽核發現這欄早就沒有任何玩家UI顯示，也沒有任何規則告訴AI該怎麼運用讀回的技巧清單(純粹讀進去擺著)，形同每回合白吃AI注意力換不到實質效果——連帶`kanshouSkillTagStr_`/`processSkills`/`setSkillTag_`三個輔助函式與`【身體記憶】`/`【快照】[技巧]`兩段USER prompt注入全數刪除，`[雙修技巧]`MEMORY標記不再讀寫(舊存檔殘留值不影響任何邏輯，純孤兒資料)。順手修正一個連帶發現的off-by-one：`mutual_nicknames`/`attitude`schema文字原本寫「見律令5」「見律令6」，實際慾海律令只有5條，拔掉dynamic_skills後律令4=mutual_nicknames、律令5=attitude，schema引用已同步改對。
   **⚠ 2026-07 三度改版·`promise_proposal`／`cohabit_proposal`／`proposal_accept` 三欄全部拔掉**（玩家「proposal_accept可以拿掉…promise_proposal也可以拿掉，讓GAS好感超過90…詢問玩家她是否可以與玩家同居…想要當好感卡39之類的時候GAS主動發出邀約」）：AI 不再有任何欄位能自己決定「要不要開口約/邀同居」，這兩件事改由 GAS 依好感數值直接判定觸發（見上方「約會地點好感分級」與「她也能主動邀約/邀同居」段落），`proposal_accept` 本就早已停用、一併真正刪除不再保留相容佔位。
   **⚠ 2026-07 拔掉 `move_proposal`＋`location` 欄（玩家實測「AI一直提議移動、頭痛」）**：舊版讓 AI 自己決定要不要提議換地方、換去哪，結果反覆出現「同地點原地邀約」「跟歷史地點串戲」等 bug，且體感一直被打斷。現在 AI **完全沒有任何欄位能提議或宣告換地點**，換地方只剩兩條 GAS 決定的路：①玩家自己用地圖走(`moveTarget`)；②玩家在地圖對在場同伴提議「一起去」（`proposeMove` 機制標記，見下），GAS 依好感直接裁定接不接受，AI 只演她答應/婉拒的反應。因為①②都不讀 AI 輸出，也就不需要「攔截 AI 硬吐 location」這層保險了，直接整段刪除。
   **🚶👋 玩家提議同去（唯一存活的換地點提議路徑）**：地圖 👋 鈕帶 `proposeMove` 機制標記 → pre-AI 記 `_pendingProposal{type:'move'}`＋依好感用 `kanshouProposalAccepts_` 直接裁定成不成，注入★【提議·同去·GAS已裁定】鐵律讓 AI 只演反應 → 接受＝post-AI 回填 `moveProposal` 出既有「前往」泡泡＋`proposalResult` 通知條，玩家按同意才真的移動（moveWithCompanion 帶同地眾人）。多人在場＝一起邀（以第一位個性判定）。
@@ -222,11 +222,11 @@
 ### 🧠 記憶全景（AI 每回合看得到什麼·寫回什麼·多久一次）— 2026-07 整理
 **AI 每回合看得到（組進 prompt）**：
 - **近期對話**：`getGameHistoryBatchRaw(pcId, 6)` 滑動窗（6筆＝3輪，更早的靠下面的持久欄接力）。
-- **玩家**：性格(PREF)／特徵(TRAIT)／裝扮／**經歷(BACK·滾動≤80字)**／位置＋地點活動 context（`kanshouLocContextForAI_`）／肉體(PHYSICAL)／身體記憶(技巧前5)。⚠ **玩家萌點(INTENT)絕不餵**（紅線②）——2026-07 二度改版後 AI 連「盲寫」都不准了，性格/萌點創角時 `actionBackfillKanshouAi` 寫一次定案，遊戲中只有玩家自己改命能動，AI 完全不碰。
-- **每位在場 NPC**（`partyDetailsArr` 一行一人）：身世(BACK)／裝扮／性格／特徵／日常風味／**萌點(有餵·標「僅供內化」，與玩家不同)**／當前活動／**同居狀態**(`kanshouIsCohabit_`判定·2026-07 稽核補：已同居者額外標註「她現在與你同住一處」，讓AI語氣能自然帶同居的日常親近感、不是每次都當作客處理)／共同回憶(MEMOIR)／與玩家的約定／關係 tag＋好感＋相處記憶＋聊天天花板＋階調；NSFW 區另帶 肉體＋技巧前5＋羈絆(REL_MEM：專屬稱呼＋態度)。
+- **玩家**：性格(PREF)／特徵(TRAIT)／裝扮／**經歷(BACK·滾動≤80字)**／位置＋地點活動 context（`kanshouLocContextForAI_`）／肉體(PHYSICAL)。⚠ **玩家萌點(INTENT)絕不餵**（紅線②）——2026-07 二度改版後 AI 連「盲寫」都不准了，性格/萌點創角時 `actionBackfillKanshouAi` 寫一次定案，遊戲中只有玩家自己改命能動，AI 完全不碰。**2026-07 四度改版拔掉雙修技巧(身體記憶)**：沒UI也沒使用規則的孤兒欄位，見上方finalJson欄位說明。
+- **每位在場 NPC**（`partyDetailsArr` 一行一人）：身世(BACK)／裝扮／性格／特徵／日常風味／**萌點(有餵·標「僅供內化」，與玩家不同)**／當前活動／**同居狀態**(`kanshouIsCohabit_`判定·2026-07 稽核補：已同居者額外標註「她現在與你同住一處」，讓AI語氣能自然帶同居的日常親近感、不是每次都當作客處理)／共同回憶(MEMOIR)／與玩家的約定／關係 tag＋好感＋相處記憶＋聊天天花板＋階調；NSFW 區另帶 肉體＋羈絆(REL_MEM：專屬稱呼＋態度)。
 
 **AI 寫回（GAS 落地）**：
-- **每回合**：`physical_state`/`appearance_extras`(原outfit_change)→PHYSICAL·【換裝】；`dynamic_skills`→MEMORY 技巧；`mutual_nicknames`+`attitude`→REL_MEM；`memory` 里程碑→MEMOIR(cap10·★釘選不驅逐)；`rel_changes`→BOND；proposals→前端泡泡(意圖非結果)；`npc_exit`→LOC。
+- **每回合**：`physical_state`/`appearance_extras`(原outfit_change)→PHYSICAL·【換裝】；`mutual_nicknames`+`attitude`→REL_MEM；`memory` 里程碑→MEMOIR(cap10·★釘選不驅逐)；`rel_changes`→BOND；proposals→前端泡泡(意圖非結果)；`npc_exit`→LOC。
 - **每 3 回合**（側寫節流·【側寫計數】）：`master_note`→**只剩經歷滾動一項**（2026-07 二度改版拔掉性格/萌點側寫，見上方「一次擴寫＋經歷滾動」節）。⚠ **節流三件套缺一不可**（第二輪稽核抓到擊穿）：① schema delete（非側寫回合）② USER prompt 的「你可透過 master_note.經歷 滾動增補」提及跟著 `_doSideWrite` 條件化（`_doSideWrite` 為此**提前到 prompt 組裝前計算**）③ 落地端 `if (_doSideWrite && aiData.master_note…)` 守衛（AI 無視 schema 自發吐也不落地）。
 
 **🩺 AI 負擔瘦身（2026-07 玩家診斷「滾動式+衣服外觀神情太要他老命」·小模型注意力有限，能省則省）**：

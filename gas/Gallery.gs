@@ -305,14 +305,6 @@ function kanshouRelChatCeiling_(bond) {
   return 100;
 }
 
-// [雙修技巧]標記專用讀取——舊寫法曾把整格MEMORY(含關係介紹句、口吻、換裝等其他標記)當「技巧」
-//   字面餵給AI，讓AI讀到過期又不相干的內容。只該讀這個標記本身的值。
-function kanshouSkillTagStr_(memory) {
-  const m = String(memory || "").match(/\[雙修技巧\]([^｜]*)/);
-  const raw = m ? m[1].trim() : "";
-  return raw || "無";
-}
-
 // 直接從英靈庫召喚一位英靈、讓她「存在」於這個後日談世界(不需先在 solo 封存)。召喚是一次性的
 //   「讓她出現」，不是「加入隊伍」——沒有隊伍容量上限，之後她依kanshouRollDailyLocation_自己
 //   過自己的生活。同一位只能被召喚一次(已存在就不重複建列)。
@@ -931,16 +923,14 @@ function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
       "_note": "physical_state=顏面神情(第三人稱·禁內心戲·≤15字)；appearance_extras=穿著狀態(名詞短語·≤20字·持久)。★差分：沒實質變化就填空(系統沿用舊值)、有變化(神情轉變/脫穿沐浴/情事進展)才更新。npcs每位與player同格式。",
       "player": {
         "physical_state": _physicalState,
-        "appearance_extras": _appearanceExtras,
-        "dynamic_skills": "雙修技巧名(2~5字，規則見上方慾海律令第5條)"
+        "appearance_extras": _appearanceExtras
       },
       "npcs": [{
         "name": "NPC真名(固定真名·不填暱稱/職階)",
         "physical_state": _physicalStateRef,
         "appearance_extras": _appearanceExtrasRef,
-        "dynamic_skills": "雙修技巧名(2~5字·見律令5)",
-        "mutual_nicknames": "雙方自然發展的暱稱(見律令5)",
-        "attitude": "NPC對御主當下臨場態度(第三人稱·≤15字·見律令6)",
+        "mutual_nicknames": "雙方自然發展的暱稱(見律令4)",
+        "attitude": "NPC對御主當下臨場態度(第三人稱·≤15字·見律令5)",
         "memory": "本回合若有值得長期記的里程碑(告白/初牽手/難忘約會橋段/重要約定達成)寫一句≤30字·玩家第一人稱「我」記我們做的事·禁寫成她的視角/第三人稱·尋常閒聊填「無」·★同一件事只記一次(與她【共同回憶】已有的重複就填無)"
       }]
     },
@@ -988,7 +978,7 @@ const specificRules = `
 1. 先在 inner_monologue 依「玩家輸入×NPC個性×近期歷史」判最真實反應·再寫 narration。
 2. 繼承歷史情緒與親密階·絕不無故重置(降溫只因被打斷/翻臉等明確事件)·玩家只是日常時禁憑空推進情慾。
 3. 女女：純女女之愛·主導跟隨依個性·動作柔美；男女：依器官自然互動·女性側柔美。
-4. dynamic_skills/mutual_nicknames：本回合真發生才填·否則「無」。
+4. mutual_nicknames：本回合真發生才填·否則「無」。
 5. attitude(≤15字)：有明顯轉變才填·空=沿用舊值。`;
 
 return nsfwBaseRules + "\n" + specificRules + "\n\n★【輸出範本】\n" + JSON.stringify(finalJson, null, 2);
@@ -2446,7 +2436,7 @@ function actionPlay_(userData, pcId, sheets) {
     const nickMatch = s.match(/\[專屬稱呼\](.*?)(?=\| \[|$)/);
     const nickTrim = nickMatch ? nickMatch[1].trim() : "";
     const nickStr = (nickTrim && nickTrim !== "無") ? ` [專屬稱呼:${nickTrim}]` : "";
-    // 態度：NPC對御主當下的臨場態度(與好感分開追蹤，見慾海律令第6條)，讓AI下筆前看得到自己
+    // 態度：NPC對御主當下的臨場態度(與好感分開追蹤，見慾海律令第5條)，讓AI下筆前看得到自己
     //   上一輪演的態度，不會忽冷忽熱亂跳。
     const attMatch = s.match(/\[態度\](.*?)(?=\| \[|$)/);
     const attTrim = attMatch ? attMatch[1].trim() : "";
@@ -2782,21 +2772,18 @@ function actionPlay_(userData, pcId, sheets) {
   //   若沒擋，該角色從此每回合都會拋錯、永遠好不了(見CLAUDE.md「邊界先擋」)。
   let pPhysicalObj = {}; try { pPhysicalObj = JSON.parse(pcData[pcIndex][COL.PC.PHYSICAL] || "{}"); } catch (e) { }
   if (Object.keys(pPhysicalObj).length === 0) pPhysicalObj = { "狀態": "如常" };
-  // 提示詞只給前5個(即使實際存到30個)，省字數；真正的技巧清單仍完整存在MEMORY裡不受影響。
-  let pSkills = kanshouSkillTagStr_(pcData[pcIndex][COL.PC.MEMORY]).split('、').slice(0, 5).join('、');
   // 玩家自己的換裝也要補進[情境延續]區塊(比照NPC每回合補進[名字 裝扮]行)，這是情慾場景AI主要
   //   參照的區塊，不能只在【玩家命格】看得到。
-  let nsfwMemories = `\n[玩家『${pcName}』肉體]：${JSON.stringify(pPhysicalObj)}\n[身體記憶]：${pSkills}${myOutfit ? `\n[玩家『${pcName}』裝扮]：${myOutfit}（當前服裝·五官/髮色/體態不變）` : ""}`;
+  let nsfwMemories = `\n[玩家『${pcName}』肉體]：${JSON.stringify(pPhysicalObj)}${myOutfit ? `\n[玩家『${pcName}』裝扮]：${myOutfit}（當前服裝·五官/髮色/體態不變）` : ""}`;
 
   // ⚡ 提速：跟上面 presentRowsForGender 是完全相同的 filter 條件，直接複用，省掉第二次整表掃描。
   let allPresentRows = presentRowsForGender;
   allPresentRows.forEach(r => {
     let npcPhysicalObj = {}; try { npcPhysicalObj = JSON.parse(r[COL.PC.PHYSICAL] || "{}"); } catch (e) { }
     if (Object.keys(npcPhysicalObj).length === 0) npcPhysicalObj = { "狀態": "如常" };
-    let npcSkills = kanshouSkillTagStr_(r[COL.PC.MEMORY]).split('、').slice(0, 5).join('、');
     let relMem = r[COL.PC.REL_MEM] || "無";
     let npcOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👗 換裝：當前服裝穿著(換衣不換人·五官體態依本相；玩家UI設定或AI依appearance_extras更新)
-    nsfwMemories += `${npcOutfit ? `\n[${r[COL.PC.NAME]} 裝扮]：${npcOutfit}（當前服裝·五官/髮色/體態不變）` : ""}\n[${r[COL.PC.NAME]} 肉體]：${JSON.stringify(npcPhysicalObj)}\n[快照]：[技巧]${npcSkills} | [羈絆]${relMem}`;
+    nsfwMemories += `${npcOutfit ? `\n[${r[COL.PC.NAME]} 裝扮]：${npcOutfit}（當前服裝·五官/髮色/體態不變）` : ""}\n[${r[COL.PC.NAME]} 肉體]：${JSON.stringify(npcPhysicalObj)}\n[快照]：[羈絆]${relMem}`;
   });
 
   // 巧遇者是還沒被召喚、沒有資料列的陌生人，明講「這次到訪期間的系統例外」，避免跟下方
@@ -3145,23 +3132,6 @@ ${PROMPT_PARTY_SYSTEM}
       };
 
 
-      const processSkills = (oldMem, newSkillsStr) => {
-        // 邊界用全形｜(跟整個MEMORY生態系其餘標記【換裝】【邂逅】等一致)，而非半形「| [」。
-        let skillMap = {}; let oldSkills = (oldMem.match(/\[雙修技巧\]([^｜]*)/) || [])[1]?.trim() || "";
-        if (oldSkills && oldSkills !== "無") oldSkills.replace(/^\.\.\./, "").split('、').forEach(p => { let m = p.match(/(.+?)\(Lv\.(\d+)\)/); if (m) skillMap[m[1].trim()] = parseInt(m[2], 10); else if (p.trim()) skillMap[p.trim()] = 1; });
-        // 🛡️ AI可能幻覺出帶｜【】的技巧名(這串本身就充滿這類格式範例)，比照setOutfit_/setWeapon_
-        //   同款清洗，避免污染到MEMORY其餘標記的邊界。
-        if (String(newSkillsStr || "").trim() && String(newSkillsStr || "").trim() !== "無") String(newSkillsStr || "").trim().split('、').forEach(s => { let cn = s.replace(/[\(\[]?Lv\.?\d+[\)\]]?/gi, '').replace(/[｜【】\[\]]/g, '').trim(); if (cn) skillMap[cn] = Math.min((skillMap[cn] || 0) + 1, 10); });
-        let sorted = Object.keys(skillMap).map(k => ({ n: k, lv: skillMap[k] })).sort((a, b) => b.lv - a.lv);
-        return sorted.length > 0 ? sorted.slice(0, 30).map(sk => `${sk.n}(Lv.${sk.lv})`).join('、') : "無";
-      };
-      // MEMORY欄是多個標記共用同一顆cell(【換裝】【帳號】【口吻】【邂逅中】等全擠在這裡，用全形｜
-      //   分隔)，只能用 setSkillTag_ 只更新雙修技巧那一段、不動其餘標記，絕不能整格覆寫MEMORY。
-      const setSkillTag_ = (oldMem, newSkillsStr) => {
-        const cleaned = String(oldMem || "").replace(/｜?\[雙修技巧\][^｜]*/g, "");
-        return (cleaned ? cleaned + "｜" : "") + "[雙修技巧]" + newSkillsStr;
-      };
-
       const processTags = (oldMem, regex, newTagStr, maxCount) => {
         // 1. 取出舊標籤，拆成單項陣列(去頭部殘留的...、濾空白)
         let oldStr = (oldMem.match(regex) || [])[1]?.trim() || "無";
@@ -3185,7 +3155,7 @@ ${PROMPT_PARTY_SYSTEM}
 
       // 💞 共同回憶(27欄 MEMOIR)：同 processTags 精神——append 去重、保留最近 maxCount 條。差別是這格是
       //   獨立 cell(非 REL_MEM 裡的標籤)，且一條回憶句子本身可能含「、」，故【改用全形｜當條目分隔】、
-      //   寫入前先清掉句中的 ｜【】[] 避免污染分隔(比照 setOutfit_/processSkills 的清洗)。
+      //   寫入前先清掉句中的 ｜【】[] 避免污染分隔(比照 setOutfit_ 的清洗)。
       const processMemoir_ = (oldMemoir, newLine, maxCount) => {
         let arr = String(oldMemoir || "").split('｜').map(x => x.trim()).filter(x => x !== "" && x !== "無");
         let clean = String(newLine || "").replace(/[｜【】\[\]★]/g, "").trim().slice(0, 40);
@@ -3218,9 +3188,6 @@ ${PROMPT_PARTY_SYSTEM}
 
         const pAppearanceExtras = sanitizeAppearanceExtras(pfb.appearance_extras);
         if (pAppearanceExtras) pcData[pcIndex][COL.PC.MEMORY] = setOutfit_(pcData[pcIndex][COL.PC.MEMORY], pAppearanceExtras);
-
-        let oldPMem = pcData[pcIndex][COL.PC.MEMORY] || "";
-        pcData[pcIndex][COL.PC.MEMORY] = setSkillTag_(oldPMem, processSkills(oldPMem, pfb.dynamic_skills));
       }
 
       if (Array.isArray(aiData.intimacy_feedback.npcs)) {
@@ -3242,10 +3209,6 @@ ${PROMPT_PARTY_SYSTEM}
           if (nCleanState) pcData[targetIdx][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[targetIdx][COL.PC.PHYSICAL], nCleanState);
           const nAppearanceExtras = sanitizeAppearanceExtras(nfb.appearance_extras);
           if (nAppearanceExtras) pcData[targetIdx][COL.PC.MEMORY] = setOutfit_(pcData[targetIdx][COL.PC.MEMORY], nAppearanceExtras);
-          if (nfb.dynamic_skills) {
-            let oldNMem = pcData[targetIdx][COL.PC.MEMORY] || "";
-            pcData[targetIdx][COL.PC.MEMORY] = setSkillTag_(oldNMem, processSkills(oldNMem, nfb.dynamic_skills));
-          }
 
           // 羈絆記憶已併入該 NPC 自己列的 REL_MEM 欄，現在只剩專屬稱呼。
           let oldRMem = pcData[targetIdx][COL.PC.REL_MEM] || "";
