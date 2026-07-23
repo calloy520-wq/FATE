@@ -120,7 +120,7 @@
   let myServants = [];   // 🗝️ 我方所有在世從者（雙從者）
   let myActiveServant = '';// 🗝️ 目前出戰／操作中的從者名
   let myMasterSeals = 0;  // 令咒餘量
-  let myMasterOutfit = ''; // 👗 御主本人當前換裝（鑑賞：與從者outfit同款機制，供「換裝」按鈕預填）
+  let myMasterOutfit = ''; // 👕 御主本人當前換裝（鑑賞：與從者outfit同款機制，供「換裝」按鈕預填）
   // ❖ 令咒·蓄勢開關：按❖發亮＝蓄勢(免費·可取消)，下一次攻擊自動帶上令咒(必中×1.5)並熄滅；非攻擊動作不消耗，蓄勢保留。
   let sealArmed = false;
   function toggleSealArm() {
@@ -1410,7 +1410,7 @@
       + '<b style="color:#c79be8;">❖ 令咒</b>　御主卡片上 3 道絕對命令，每道限用一次，留給真正危急的時刻（治從者傷／逼魔力全滿／強行脫離險境）。<br><br>'
       + '<b style="color:#c9b885;">⏳ 行動力（AP）</b>　每天固定額度，移動／戰鬥／休息都要花，額度見底就得休息推進到隔天——別忘了 14 天倒數在跑。<br><br>'
       + '<b style="color:#7ec8ff;">🔋 靈基出力</b>　從者的供魔強度旋鈕（20%~100%），越高戰力越強但越耗魔池，唯有全開 100% 才能解放寶具。<br><br>'
-      + '<b style="color:#e0574a;">⚔️ 戰鬥</b>　移動到同地敵人身邊即可「攻擊」；血量歸零分勝負。從者卡上還有 💧補魔／🩹治療／💕羈絆／🛏️休息／👗換裝／⚔️武裝 等常用按鈕，各有不同資源代價，點按鈕上的說明文字都會講清楚。<br><br>'
+      + '<b style="color:#e0574a;">⚔️ 戰鬥</b>　移動到同地敵人身邊即可「攻擊」；血量歸零分勝負。從者卡上還有 💧補魔／🩹治療／💕羈絆／🛏️休息／👕換裝／⚔️武裝 等常用按鈕，各有不同資源代價，點按鈕上的說明文字都會講清楚。<br><br>'
       + '<b style="color:#4fd0b0;">🤝 結盟</b>　與其他御主可提議結盟、暫免交戰。<br><br>'
       + '<span style="color:#6a7a90; font-size:12px;">想查更細的公式或某個標籤的效果，直接點畫面上對應的名字/圖示（大多可點開說明）。這份教學隨時能從頂部「❓ 教學」重開。</span>'
       + '</div>';
@@ -1511,7 +1511,7 @@
       // 🐛→✅ 鑑賞御主卡補上與從者卡同款的換裝＋詳細狀態按鈕列，原本獨立浮在卡片列表下方的「我的詳細狀態」(Index.html #pane-status)併到這一行，不再重複外露。
       var mButtonsLine = (pc && pc.mode === 'kanshou')
         ? ('<div style="margin-top:6px; display:flex; gap:6px;">'
-            + '<button onclick="changeOutfit(\'' + String(m.name).replace(/'/g, '') + '\', true)" title="換裝：自訂你此刻的服裝穿著，AI 會依此描寫（只換衣不換人）。免費即時、留空恢復本相。" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(150,110,190,0.18); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👗 換裝</button>'
+            + '<button onclick="changeOutfit(\'' + String(m.name).replace(/'/g, '') + '\', true)" title="換裝：自訂你此刻的服裝穿著，AI 會依此描寫（只換衣不換人）。免費即時、留空恢復本相。" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(150,110,190,0.18); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👕 換裝</button>'
             + '<button onclick="openStatus()" title="查看你自己的完整狀態：個性／特徵／身世／萌點等，並可逆天改命微調敘事欄" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 詳細狀態</button>'
             + '</div>')
         : '';
@@ -1630,7 +1630,7 @@
           + '<div style="color:#c0392b; font-weight:bold; font-size:12px;">📿 從者・' + s.cls + (s.stolen ? ' <small style="color:#b06cd0;">⛓奪取</small>' : '') + (dual ? (isActive ? ' <small style="color:#e0574a;">⚔出戰中</small>' : ' <small style="color:#8a7;">待命·點擊出戰</small>') : '') + '</div>'
           // 📜 詳細狀態：呼叫既有 openStatus→完整命盤視窗＋逆天改命(同行從者 canEditFate=true)。event.stopPropagation 防 dual 卡點名觸發切換出戰。
           + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + ' <button onclick="event.stopPropagation();openStatus(\'' + safeN + '\',\'' + safeN + '\')" title="查看「' + safeN + '」的完整狀態：個性／特徵／身世／六圍／技能／羈絆等，並可逆天改命微調敘事欄" style="font-size:10px; font-weight:normal; padding:1px 7px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer; vertical-align:middle;">📜 狀態</button></div>'
-          + (s.outfit ? '<div style="color:#c9a0e0; font-size:10.5px; margin-top:1px;">👗 ' + s.outfit + '</div>' : '')
+          + (s.outfit ? '<div style="color:#c9a0e0; font-size:10.5px; margin-top:1px;">👕 ' + s.outfit + '</div>' : '')
           + bar('體', s.hpNum, s.hpMax, 'hp')
           + (s.horror ? horrorBar(s.horror.cur, s.horror.max) : '')  // 🐙 深淵海怪肉身（在前掩護·優先承傷）
           + ((pc && pc.mode === 'kanshou') ? '' :  // 🔋 靈基出力轉盤（從者無自有魔力，靠御主供魔；出力決定戰力＋御主每小時維持費；100% 才能解放寶具）
@@ -1657,7 +1657,7 @@
               // 🐛→✅ 令咒鈕挪去御主卡，這裡原本的位置改放「靈基修復」——消費共用魔力池為從者療傷、不燃令咒、可重複使用。
               + '<button onclick="event.stopPropagation();spiritRepair()" title="靈基修復：引動共用魔力池為從者療傷，回復部分體力（不燃令咒、可重複使用；魔力池不足則無法發動）。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(70,150,110,0.18); color:#7ee0a8; border:1px solid #3a8a5a; border-radius:6px; cursor:pointer;">🩹 治療</button>'
               + '<button onclick="event.stopPropagation();openRestMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(120,120,160,0.16); color:#a9a9d8; border:1px solid #5a5a8a; border-radius:6px; cursor:pointer;">🛏️ 休息</button>'
-              + '<button onclick="event.stopPropagation();changeOutfit(\'' + safeN + '\')" title="換裝：自訂從者當前服裝穿著，AI 敘述依此描寫（只換衣不換人·五官/髮色/體態不變）。免費即時、留空恢復本相。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(150,110,190,0.16); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👗 換裝</button>'
+              + '<button onclick="event.stopPropagation();changeOutfit(\'' + safeN + '\')" title="換裝：自訂從者當前服裝穿著，AI 敘述依此描寫（只換衣不換人·五官/髮色/體態不變）。免費即時、留空恢復本相。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(150,110,190,0.16); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👕 換裝</button>'
               + '<button onclick="event.stopPropagation();changeWeapon(\'' + safeN + '\')" title="武裝：自訂從者的武器與戰鬥方式（如 雙持大劍、鎖鏈鐮刀），敘述以此為準——不受職階慣例或原典習慣綁。免費即時、留空恢復自然演出。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(190,140,90,0.16); color:#e0b080; border:1px solid #a07a4a; border-radius:6px; cursor:pointer;">⚔️ 武裝</button>'
               + (s.canSummonHorror ? '<button onclick="event.stopPropagation();summonHorror(\'' + safeN + '\')" title="戰前召喚：翻開螺湮城教本，自深淵召出「深淵海怪」進入變身態（無期限·魔力供養制）——海怪以身擋傷、每回合再生、並肩追擊，本體防禦升至對城規模。付寶具魔力＋耗 1AP；在場期間每小時抽 8 魔、每交鋒回合另抽 10 魔維持，池見底時海怪先沉回深淵。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(90,70,150,0.2); color:#a99ae0; border:1px solid #6a5ab0; border-radius:6px; cursor:pointer;">🐙 召喚海怪</button>' : '')
               + (s.horror ? '<button onclick="event.stopPropagation();dismissHorror()" title="解除召喚：把深淵海怪送回深淵——免費、即時、不耗 AP，立刻止住每小時 8 魔的維持費。要再召喚須重付全額寶具魔力。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(70,90,120,0.2); color:#8aa8d0; border:1px solid #4a6a9a; border-radius:6px; cursor:pointer;">🌊 解除海怪</button>' : '')
@@ -2298,7 +2298,7 @@
     } catch (e) { alert('連線失敗，出力設定未果。'); try { syncData(true); } catch (e2) {} }
   }
 
-  // 👗 換裝：自訂服裝穿著（只換衣不換人·五官體態不變）。免費即時、留空恢復本相。兩軌通用。
+  // 👕 換裝：自訂服裝穿著（只換衣不換人·五官體態不變）。免費即時、留空恢復本相。兩軌通用。
   // 🐛→✅ 玩家「想要換裝UI、內建幾套衣服」：只有玩家自己(isSelf)點換裝才跳快選面板(4套通用+
   //   自訂輸入)，同伴/solo自己從者維持原本prompt()——範圍限縮避免過度工程(同伴外觀本就交給AI
   //   依appearance_extras自動更新，玩家不手動介入)。
@@ -2306,7 +2306,7 @@
   function changeOutfit(name, isSelf) {
     var cur = isSelf ? myMasterOutfit : (((myServants || []).find(function (x) { return x && x.name === name; }) || {}).outfit || '');
     if (isSelf) { openOutfitPicker_(name, cur); return; }
-    var txt = prompt('👗 換裝「' + name + '」\n\n輸入她此刻的服裝／裝扮，AI 敘述會依此描寫。\n只換衣不換人——五官、髮色、體態、氣質不變。\n留空＝恢復原本裝束。（限 40 字）', cur);
+    var txt = prompt('👕 換裝「' + name + '」\n\n輸入她此刻的服裝／裝扮，AI 敘述會依此描寫。\n只換衣不換人——五官、髮色、體態、氣質不變。\n留空＝恢復原本裝束。（限 40 字）', cur);
     if (txt === null) return; // 取消
     submitOutfit_(name, isSelf, txt);
   }
@@ -2325,7 +2325,7 @@
     card.style.cssText = 'background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:360px;width:100%;padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);';
     var title = document.createElement('div');
     title.style.cssText = 'color:#e8d8f0;font-size:14px;margin-bottom:4px;';
-    title.textContent = '👗 換裝';
+    title.textContent = '👕 換裝';
     var curLine = document.createElement('div');
     curLine.style.cssText = 'color:#8a7a9a;font-size:11px;margin-bottom:12px;';
     curLine.textContent = '目前：' + (cur ? cur : '（本來裝束）');

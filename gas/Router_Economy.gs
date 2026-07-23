@@ -72,7 +72,7 @@ function actionSetRuneMode(userData, pcId, sheets) {
   }); // 樂觀更新·前端自走輕量 syncData，不再算丟棄的 statusString
 }
 
-// 👗 從者換裝（玩家自訂當前服裝穿著，存從者 MEMORY【換裝】）：純外觀·免費·即時·不耗 AP。
+// 👕 從者換裝（玩家自訂當前服裝穿著，存從者 MEMORY【換裝】）：純外觀·免費·即時·不耗 AP。
 //   只換衣不換人(五官/髮色/體態依種子 look)；空字串＝恢復本相。
 function actionSetOutfit(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
