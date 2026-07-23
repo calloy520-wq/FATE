@@ -599,8 +599,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### AI 提示詞組裝（🔴 鑑賞 AI 核心）
 
 - `dialogueFormatRule_()` — 全遊戲【單一真實來源】對話與敘事格式規則（口/喉發聲進「」台詞、每句台詞冠說話者名、看得見動作走敘事、只用單層「」）。solo miniSystem 與此檔 nsfwBaseRules 共用。
-- `buildDefaultSystemPrompt(includeMasterNote, includeOptions)` — 組鑑賞系統提示詞（唯一呼叫者 actionPlay_）。動態組 JSON 輸出範本（inner_monologue/narration/promise_proposal/cohabit_proposal/proposal_accept/npc_exit/options/intimacy_feedback/rel_changes/master_note）。**2026-07 拔掉 move_proposal**：AI 不再有任何欄位能自己提議換地點，移動只走 GAS 決定的地圖移動/proposeMove 兩條路。**2026-07 二度改版·簽名從 3 參數瘦身成 2 參數**（拔掉 `masterNoteUnlocked`）：`master_note` schema 現在只剩「經歷」一格，性格四段/萌點創角時 `actionBackfillKanshouAi` 一次生成、遊戲中 AI 不再側寫，故不需要「只放沒鎖的性格欄」這層動態鎖過濾。剩兩個開關：includeMasterNote=false 整塊拿掉（側寫節流）、includeOptions=false 拿掉 options。
-  - 🔴 內含 `nsfwBaseRules`（函式內 const，非獨立函式）— 慾海演化核心紅線常數，後日談敘事鐵律 6 條＋【慾海律令】7 條；連同 `specificRules`＋範本 JSON 一起回傳。**紅線①：一律不可改。**
+- `buildDefaultSystemPrompt(includeMasterNote, includeOptions)` — 組鑑賞系統提示詞（唯一呼叫者 actionPlay_）。動態組 JSON 輸出範本（inner_monologue/narration/npc_exit/options/intimacy_feedback/rel_changes/master_note）。**2026-07 拔掉 move_proposal／promise_proposal／cohabit_proposal／proposal_accept**：AI 不再有任何欄位能自己提議換地點/邀約/邀同居，這些全改由 GAS 依好感數值直接判定觸發。**2026-07 拔掉 dynamic_skills**：無 UI 也無使用規則的孤兒欄位，見 KANSHOU_REFERENCE.md。**2026-07 二度改版·簽名從 3 參數瘦身成 2 參數**（拔掉 `masterNoteUnlocked`）：`master_note` schema 現在只剩「經歷」一格，性格四段/萌點創角時 `actionBackfillKanshouAi` 一次生成、遊戲中 AI 不再側寫，故不需要「只放沒鎖的性格欄」這層動態鎖過濾。剩兩個開關：includeMasterNote=false 整塊拿掉（側寫節流）、includeOptions=false 拿掉 options。
+  - 🔴 內含 `nsfwBaseRules`（函式內 const，非獨立函式）— 慾海演化核心紅線常數，後日談敘事鐵律 6 條；連同 `specificRules`(【慾海律令】現 6 條，**2026-07 新增第6條「options 只能建議在場人物/當下場景真能做到的動作」**，修「AI選項建議移動/呼喚不在場者、玩家點了做不到」的bug)＋範本 JSON 一起回傳。**紅線①：一律不可改（specificRules 可改，非紅線本體）。**
 - `getKanshouPeopleList_(pcId, curL, allPcData)` — 鑑賞自算精簡「同地人物」清單（只 id/name/isExact），不借 solo 的 getLocalPeopleList（那多算 12 欄）。
 
 #### 大地圖·地點（資料驅動）
