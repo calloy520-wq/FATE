@@ -538,7 +538,7 @@ let plainTextContext = cleanText;
     var allProps = KC_PROPS_.concat(_kcCustomProps).filter(function (p) { return !p.ignoreBond; });
     var rows = allProps.map(function (p) {
       var isCustom = !KC_PROPS_.some(function (x) { return x.id === p.id; });
-      var delBtn = isCustom ? '<button onclick="kanshouDeleteCustomProp(\'' + p.id.replace(/'/g, "\\'") + '\')" title="從你的道具目錄整個刪掉這項定義" style="padding:3px 6px;background:#3a3a44;color:#999;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:4px;">🗑目錄</button>' : '';
+      var delBtn = isCustom ? '<button onclick="kanshouDeleteCustomProp(\'' + p.id.replace(/'/g, "\\'") + '\')" title="從你的道具目錄整個刪掉這項定義" style="padding:3px 6px;background:#3a3a44;color:#999;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:4px;">🗑刪除</button>' : '';
       var eq = curArr.find(function (x) { return x.id === p.id; });
       var partHint = p.part ? '<span style="color:#8a7fa0;font-size:11px;margin-left:4px;">(' + escapeHtml(p.part) + ')</span>' : '';
       if (p.hasIntensity) {
@@ -684,7 +684,7 @@ let plainTextContext = cleanText;
         var tooFar = idx > curIdx + 1;
         return '<button' + (tooFar ? ' disabled' : ' onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id.replace(/'/g, "\\'") + '\',\'' + lv + '\')"') + ' style="flex:1;padding:6px 3px;font-size:12px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : (tooFar ? '#666' : '#ccc')) + ';border:none;border-radius:6px;cursor:' + (tooFar ? 'not-allowed' : 'pointer') + ';opacity:' + (tooFar ? '0.5' : '1') + ';">' + lv + '</button>';
       }).join('');
-      var delBtn = '<button onclick="kanshouDeleteCustomProp(\'' + p.id.replace(/'/g, "\\'") + '\')" title="從你的催眠指令目錄整個刪掉這項定義" style="padding:3px 6px;background:#3a3a44;color:#999;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:4px;">🗑目錄</button>';
+      var delBtn = '<button onclick="kanshouDeleteCustomProp(\'' + p.id.replace(/'/g, "\\'") + '\')" title="從你的催眠指令目錄整個刪掉這項定義" style="padding:3px 6px;background:#3a3a44;color:#999;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:4px;">🗑刪除</button>';
       return '<div style="padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
         + '<div style="display:flex;align-items:center;margin-bottom:6px;"><span style="flex:1;color:#e0a0ff;font-size:13px;">「' + escapeHtml(p.name) + '」</span>' + delBtn + '</div>'
         + '<div style="display:flex;gap:5px;">' + levelBtns + '</div></div>';
