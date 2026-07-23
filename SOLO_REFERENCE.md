@@ -529,3 +529,24 @@ Seed_Codex.gs 頂部 `CODEX_PERSONA_VER` 的註解只留當前版號一行簡述
 - **v69**：玩家指出「豐滿」太籠統（AI不一定會讀成胸部大），美杜莎/斯卡哈x2的胸部描寫改成明確的「巨乳」，AI生成prompt的範例詞同步從「高挑豐滿」改「巨乳/貧乳」對照組。
 
 （v70 起的當前版本簡述見 Seed_Codex.gs 檔內 `CODEX_PERSONA_VER` 那一行。）
+
+## 23. 重構後再驗證輪（2026-07·玩家「再仔細確認一次！需要更新說明書！再看看哪裡有問題 還有沒有可以繼續整理的」）
+
+對 §22 全面重構的成果派5組agent交叉覆核：驗證重構diff正確性、覆核KANSHOU_REFERENCE.md過時內容、solo新一輪bug稽核、kanshou新一輪bug稽核、找更多整理機會。找到並修正以下真實問題：
+
+- **🔴 高嚴重度安全漏洞：5個kanshou handler完全跳過帳號歸屬驗證**——`actionBackfillKanshouAi`(Gallery.gs)、`actionGetFullStatus`/`actionUpdateFate`/`actionUpdateRelTag`/`actionSetNickname`(Router_Action.gs，solo+鑑賞共用handler)全部只用裸`pcData.find(r=>r[COL.PC.ID]==pcId)`信任傳入的pcId，鑑賞context下pcId(`KPC_`+建檔毫秒時間戳)可預測/枚舉，且帳號本身無密碼——猜中/取得任一鑑賞玩家的pcId即可冒名竄改其御主外貌/性格/萌點、任一同伴的個性/身世/萌點/關係稱呼/專屬稱呼，或讀出完整狀態。這比先前(§早期章節)記錄過的漏洞(僅涉及`actionPlay`/相簿)更嚴重，因為連`kanshouOwnedRowIdx_`這道既有防線都被繞過。已修：Router_Action.gs新增共用`resolveCallerGameId_(pcData, pcId, acctName)`——鑑賞(`KPC_`開頭)一律反查帳號表(`kanshouOwnedRowIdx_`)驗證歸屬失敗回`null`(呼叫端視同查無此人)；solo沿用原本裸find行為(零行為變化，帳號綁定在登入時已處理、不在本次範圍)。4支handler改用它；`actionBackfillKanshouAi`直接改用`kanshouOwnedRowIdx_`。**同步修前端**：`get_full_status`/`update_fate`/`update_rel_tag`/`kanshou_set_nickname`/`backfill_kanshou_ai`這5個action原本都沒有送`acctName`(其餘鑑賞action早就都有送)，後端新驗證需要它才能通過——已在`Script.html`(2處)/`Script_Kanshou.html`(3處)補上`acctName`欄位，否則後端修完前端沒跟進送值，會讓正常玩家也被擋下。
+- **🐛→✅ EMIYA的`ubw`(無限劍製)跟斯卡哈`gae_bolg`同款孿生bug**：`offenseTier_`(Engine_Fate.gs)的`pierceFx`無條件清單原本仍含`ubw`——EMIYA的『無限劍製』既是他的永久固有技能(投影魔術本體)、又是他兩個可選寶具之一，選擇較弱的『偽·螺旋劍』(fx:projection)時，`ubw`仍會被這份無條件清單掃到，誤判成帶概念4貫穿的無限劍製強度，讓Caladbolg II能不該地打穿`territory`/`divine_core`/`nullify_magic`等概念2防禦。已比照當年gae_bolg的修法，從`pierceFx`移除`ubw`，交給後段`npProfile_(c).fx`(按本次實際選定寶具判定)處理。連帶修`Router_Battle.gs`的God Hand嚴重度計算：`var ghScale = npAtkScale_(atkC)`只認永久技能字面、不看`npChoice`，改成`npProfile_(atkC).scale`(比照Engine_Fate.gs解放判定同款寫法)，避免玩家選較弱寶具時仍被判定成最強寶具規模去燒對方God Hand的命。
+- **🐛→✅ 鑑賞小道具/催眠指令3個handler漏帶`loc`在場驗證**：`actionKanshouSetProp`/`actionKanshouAddCustomProp`/`actionKanshouCastHypnosis`(Gallery.gs)呼叫`findPcRowIdx_`時，跟`promiseMeet`/`cohabitInvite`/`handHold`用的是同一支resolver，唯獨這3處沒帶`loc:curL`——沒驗證目標同伴此刻是否真的在場就能裝備/施展。已補上`loc: String(data[meIdx][COL.PC.LOC]||"")`，跟其餘親密向action驗證邏輯一致(`actionKanshouMemoirOp`共同回憶本就不需要在場、`actionKanshouDeleteCustomProp`是批次清全部同伴身上的道具，兩者刻意不帶loc)。
+- **補完§22兩處遺漏的批次收斂**：`Router_Movement.gs`的`playerAmbushOnEnemy_`(趁隙偷襲)、`enemyAmbushOnServant_`(陣地反擊分支＋真突襲分支)共3處仍手刻`injectMasterMeleeSupport_`+`injectMasterMagicSupport_`雙支呼叫，沒跟進`injectMasterSupportFor_`——已改用共用函式。`Router_Battle.gs`的`actionFateBattle`/`actionSummonHorror`共2處仍手刻AP門檻+扣費，沒跟進`chargeApOrReject_`——已改用共用函式(`actionSummonHorror`那處**不能**傳`skipWrite`，因為`drainForNp_`的整列寫回發生在AP扣款【之前】，DAY/HOUR/AP仍需自己的窄欄寫入，跟`actionFateBattle`「稍後還有一次整表寫回」的情境不同，誤傳skipWrite會讓AP扣款只留在記憶體、沒真的寫回試算表)。
+- **文件補註**：`chargeApOrReject_`(Core_Settings.gs)的`.reject`回傳路徑目前全部14處呼叫端都沒真的檢查過(因為呼叫前都已有獨立guard擋過)，屬於「預留但目前吃不到」的死路徑——已在函式註解明講，新呼叫點若打算只靠它擋門檻(不自帶前置guard)務必自己補`.reject`檢查。
+
+**KANSHOU_REFERENCE.md 過時內容已一併修正**（8類、約10處）：`minBond`欄位3處從「保留無讀取」訂正為「已整批物理刪除」；`KANSHOU_FILM_PER_DAY_`從常數速查表移除(拍照改手機後此常數已刪，文件原本自相矛盾)；`kanshouPickDate_`改過去式(八度改版已整支刪除)；補上`kanshouPickLocation_`改用獨立`#kloc-overlay`(解耦離`#kp-overlay`的隱性碰撞風險)；補上`findPcRowIdx_`/`kanshouMissStr_`/`formatFourSlot_`/`kanshouDailyTranslateCall_`/`ensureOverlay_`/`_showOverlayLoading_`這幾支§22新增共用helper跟既有段落的關聯。
+
+**評估後判斷仍應維持現狀、本輪不動的項目**（供之後評估，非遺漏）：
+- `fateStrike_`(Router_Battle.gs)與斬首反噬分支的死亡結算合併——重新盤點後發現實際是**4處**(含`Router_Movement.gs`的`playerAmbushOnEnemy_`/`enemyAmbushOnServant_`各自的survive/god_hand簡化版)而非原認知的2處；`Router_Movement.gs`內部這2處可安全合併(結構最接近、無額外機制差異)，但`fateStrike_`本身承載的規則明顯更多(海怪護盾/整備餐/令咒脫離)，強行泛化風險仍偏高，暫不動。
+- `actionMove`裡4~6處重複掃描`allPcData`找同地敵人——逐一核對filter組合後發現雖然「外層形狀」相似(LOC+game_id+存活+已登場)，但每處都搭配不同的次要條件(isAllied_/BOND門檻/限定陣營)，屬於「收斂演化」而非真複製，整支泛化仍不建議。
+- `upgradeCodexPersonas_`/`upgradeMasterCodex_`(Seed_Codex.gs)合併——重新評估後風險從「中」降到「低-中」(可用顯式參數化避免刪除side effect誤觸)，但仍建議動手前先跑模擬測試，本輪暫不做。
+- kanshou側8個handler仿`runSimpleAction_`共用wrapper——重新檢視後8支的「成功後處理」分裂成至少4種截然不同模式，真正能省下的公版骨架只有3~4行，投報比差，維持不做；但`kanshouSetProp`/`kanshouAddCustomProp`/`kanshouDeleteCustomProp`3支(共用`_kpBusy`+原地重繪同一面板)可低風險局部合併，`kanshouOpenProps`/`kanshouOpenHypnosis`的前導載入區塊也逐字重複可安全抽出——這兩項為本輪盤點出的新候選，尚未動手。
+- 額外盤點出的零風險候選(尚未動手，供下一輪參考)：`STATUS` JSON四鍵樣板全庫重複20處(`Router_Battle.gs`/`Router_Movement.gs`/`Router_Creation.gs`/`Seed_Rivals.gs`/`Router_Bond.gs`/`Time_World.gs`)可抽`mkStatus_`共用函式；`BATTLE_DEFER_WRITE_`守門的單列寫入樣板全庫重複19+處可抽`writeRowIfLive_`；`Time_World.gs`的「暗處互鬥」背景死亡判定完全沒有survive/god_hand檢查(可能是刻意的背景演出簡化，也可能是規則不一致，需要跟玩家確認設計意圖而非自行判斷)。
+
+`bash check.sh` 全過、`nsfwBaseRules` 紅線未觸及。

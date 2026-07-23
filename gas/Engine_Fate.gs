@@ -51,7 +51,11 @@ function offenseTier_(c, isNp) {
   //   即使這次選的是完全無關的 Gate of Skye，仍會被判定「這次解放帶概念4貫穿」。下面第55行的
   //   npProfile_(c).fx 判定本就已經正確處理「這次實際選的是哪個寶具」(單寶具靠 firstSignatureFx_
   //   退路、多寶具讀 npChoice)，故 gae_bolg 從這個無條件清單移除，改完全交給該行按選定寶具判定。
-  var pierceFx = isNp ? ['ea', 'enuma', 'excalibur', 'rule_breaker', 'ubw', 'summon_horror', 'anti_magic_lance', 'tsubame', 'zabaniya', 'petrify']
+  // 🐛→✅ 2026-07 再稽核抓到同款孿生bug：EMIYA(無名)的『無限劍製』(ubw)同理，既是他的永久固有技能
+  //   (投影魔術本體)、又是他兩個可選寶具之一——選了另一個較弱的『偽·螺旋劍』(fx:projection)時，
+  //   ubw仍會被這份無條件清單掃到，讓Caladbolg II誤判成帶概念4貫穿的無限劍製強度。同樣從清單移除，
+  //   交給下面npProfile_(c).fx按實際選定寶具判定。
+  var pierceFx = isNp ? ['ea', 'enuma', 'excalibur', 'rule_breaker', 'summon_horror', 'anti_magic_lance', 'tsubame', 'zabaniya', 'petrify']
                       : ['rule_breaker', 'anti_magic_lance']; // 非解放時，只有破戒/破魔這類「常駐穿透概念」生效
   var t = 1;
   for (var i = 0; i < pierceFx.length; i++) { if (hasFx_(c, pierceFx[i])) t = Math.max(t, conceptTier_(pierceFx[i])); }

@@ -133,14 +133,15 @@
 
 #### 🔹 本檔定義的 handler
 - `actionCheckName(...)` — 建角姓名檢查。名清洗後為空＝含非中文→擋；比對 `SEED_MASTERS.name`/`SEED_SERVANTS.realName`（皆過 `cleanChineseName`）擋正典撞名。不擋跨局同名。
-- `actionGetFullStatus(...)` — 依 `targetName`＋自己 game_id 找該角列，回 `buildPlayerStatusString`＋是否可改命（IS_PARTY==="同行"）。關係併入眾生列，直讀 REL_MEM。
-- `actionUpdateFate(...)` — 🔵 逆天改命：只准改 4 敘事欄（trait/pref/back/intent），數值/寶具鎖死。接受 ID 或同行從者名，限本局 game_id；鑑賞（k_）豁免「同行」要求。長度上限 back 80/intent 30/其餘 130。交棒 `STATE_PRE_DATA_`。（2026-07 二度改版拔掉性格鎖：不再接受/處理 `prefLocks`，`kanshouSetPrefLocks_` 已刪除——AI 遊戲中本就不再側寫性格/萌點，鎖定機制失去意義）
+- `resolveCallerGameId_(pcData, pcId, acctName)`（2026-07 再稽核抓到漏洞新增）— `actionGetFullStatus`/`actionUpdateFate`/`actionUpdateRelTag`/`actionSetNickname`共用的呼叫者身分解析：`pcId`為`KPC_`開頭(鑑賞)一律反查帳號表(`kanshouOwnedRowIdx_`)驗證歸屬，失敗回`null`(呼叫端須視同查無此人直接回絕)；solo沿用原本裸`find`行為(零行為變化)。修的漏洞：這4支handler原本都只信任裸傳入的pcId，鑑賞context下pcId可預測/枚舉且無密碼，等同完全繞過帳號歸屬驗證，可冒名竄改/讀取任一鑑賞玩家的資料。**同步修前端**：`get_full_status`/`update_fate`/`update_rel_tag`/`kanshou_set_nickname`原本都沒送`acctName`，已在`Script.html`/`Script_Kanshou.html`補上。
+- `actionGetFullStatus(...)`（2026-07 再稽核：改用`resolveCallerGameId_`＋`findPcRowIdx_`取代裸find/裸findIndex，見上）— 依 `targetName`＋自己 game_id 找該角列，回 `buildPlayerStatusString`＋是否可改命（IS_PARTY==="同行"）。關係併入眾生列，直讀 REL_MEM。
+- `actionUpdateFate(...)`（2026-07 再稽核：`myGameId`改用`resolveCallerGameId_`取得，見上）— 🔵 逆天改命：只准改 4 敘事欄（trait/pref/back/intent），數值/寶具鎖死。接受 ID 或同行從者名，限本局 game_id；鑑賞（k_）豁免「同行」要求。長度上限 back 80/intent 30/其餘 130。交棒 `STATE_PRE_DATA_`。（2026-07 二度改版拔掉性格鎖：不再接受/處理 `prefLocks`，`kanshouSetPrefLocks_` 已刪除——AI 遊戲中本就不再側寫性格/萌點，鎖定機制失去意義）
 - `actionGetTags(...)` — 薄包裝，回 `buildTagsPayload_`。
 - `buildTagsPayload_(sheets, pcId, preData?)` — 🔧 左側狀態卡資料建構（get_tags 與 sync 共用）。組御主卡（HP 詞化/令咒/願望/禮裝/換裝）＋在世我方從者陣列（solo 靠「同行」、鑑賞靠同地點過濾），逐從者附六圍/技能/出力/寶具/魔境/符文/synergy/理想鄉/多寶具/海怪/換裝/武裝/牽手/破戒奪取旗標＋**`id`**（2026-07 id 化重構新增，供前端 `myActiveServantId` 記錄、日後系統內部指令帶 id 用）。戰鬥限定欄以 `isFateCtx`（g_）結構性擋成 null。另回 economy/bondUsed/mystic/canRuleBreak/鑑賞 locationCounts/unlockedResidences。**七度改版**：`unlockedResidences`改用`kanshouGetHeroHome_`讀住處(原本只認`KANSHOU_HERO_HOME_`，隨機分配到泛用住處池的英靈解鎖不了)。
 - `buildClientState_(sheets, pcId, preData?)` — 完整 client state blob。`markRivalsSeen_`（戰爭迷霧，鑑賞跳過）＋狀態字串＋people（鑑賞/solo 分版）＋鄰近地點＋地圖描述＋時鐘/AP＋economy＋`buildTagsPayload_`＋mapNodes，全部沿用同一次整表讀。
 - `actionSync(...)` — 薄包裝，回 `buildClientState_`＋success。
-- `actionUpdateRelTag(...)`（2026-07 稽核：找列邏輯改委派 `findPcRowIdx_(pcData, myGameId, {name:targetName})`，取代手刻迴圈，行為等價） — 重定義關係稱呼：改該 NPC 自己列 REL_TAG。限本局 game_id；solo 要求同行、鑑賞豁免。**2026-07 五度改版**：5階預設標籤(`KANSHOU_REL_TIER_`)永遠可設，自訂文字(不等於任一預設標籤)需 bond≥`KANSHOU_CUSTOM_TAG_BOND_`(80)——防低好感塞露骨自訂稱呼繞過親密尺度天花板(該文字會字面塞進AI提示詞當既定事實)。交棒 `STATE_PRE_DATA_`。
-- `actionSetNickname(userData, pcId, sheets)`（2026-07 五度改版新增；同年稽核：找列邏輯同上改委派 `findPcRowIdx_`）— 專屬稱呼(REL_MEM`[專屬稱呼]`)手動鎖定入口：同 bond≥80 門檻，通過後清掉分隔符危險字元(｜[])＋截20字，寫入`[專屬稱呼]${nick}| [稱呼鎖]是`(保留既有`[態度]`段)，讓 `actionPlay_` 的 NPC 寫回邏輯尊重此鎖(偵測到`[稱呼鎖]是`就不再吃`mutual_nicknames`自動覆寫)。交棒 `STATE_PRE_DATA_`。
+- `actionUpdateRelTag(...)`（2026-07 稽核：找列邏輯改委派 `findPcRowIdx_(pcData, myGameId, {name:targetName})`，取代手刻迴圈；再稽核：`myGameId`改用`resolveCallerGameId_`取得，補上鑑賞帳號歸屬驗證，見上） — 重定義關係稱呼：改該 NPC 自己列 REL_TAG。限本局 game_id；solo 要求同行、鑑賞豁免。**2026-07 五度改版**：5階預設標籤(`KANSHOU_REL_TIER_`)永遠可設，自訂文字(不等於任一預設標籤)需 bond≥`KANSHOU_CUSTOM_TAG_BOND_`(80)——防低好感塞露骨自訂稱呼繞過親密尺度天花板(該文字會字面塞進AI提示詞當既定事實)。交棒 `STATE_PRE_DATA_`。
+- `actionSetNickname(userData, pcId, sheets)`（2026-07 五度改版新增；同年稽核：找列邏輯同上改委派 `findPcRowIdx_`；再稽核：`myGameId`改用`resolveCallerGameId_`取得，補上鑑賞帳號歸屬驗證，見上）— 專屬稱呼(REL_MEM`[專屬稱呼]`)手動鎖定入口：同 bond≥80 門檻，通過後清掉分隔符危險字元(｜[])＋截20字，寫入`[專屬稱呼]${nick}| [稱呼鎖]是`(保留既有`[態度]`段)，讓 `actionPlay_` 的 NPC 寫回邏輯尊重此鎖(偵測到`[稱呼鎖]是`就不再吃`mutual_nicknames`自動覆寫)。交棒 `STATE_PRE_DATA_`。
 
 ---
 
@@ -372,7 +373,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 裁決（單次出擊）
 
-- `fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx)` — **單次出擊裁決核心**。`atkC` 攻擊 `pcData[tgtIdx]`；命中才扣血（撲空不自傷）。副作用密集：守方為我方從者時注入御主禮裝/體術/魔術/主場結界＋七天盾額度；守方為敵從者時注入其硬連結敵御主支援；整備餐 buff（`mealBuffActive_`）；呼 `resolveFateBattle_` 定生死；海怪護盾以身擋傷（含概念貫穿判定 `offenseTier_`/`PIERCE_GAP`）；致命傷後依序判 `survive` 戰鬥續行→`god_hand` 十二試煉復活（傷害溢出可一擊燒多命）→令咒緊急脫離（僅敵從者·30%）→真正陣亡（改 ID 為 `DEAD_`、御主死觸發同陣敵從者靈基透支倒數）；勝負判定＋敗北/勝利夢境提示（`buildDreamPrompt_`/`buildVictoryDreamPrompt_`）。`opts:{np,seal,skill,ambush,counterMul,forceDamage,noMeal,round}`。回傳 out 大物件（hit/damage/fired/destroyed/sealEscaped/godRevived/victory/defeat/dreamPrompt/knocked…）。
+- `fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx)` — **單次出擊裁決核心**。`atkC` 攻擊 `pcData[tgtIdx]`；命中才扣血（撲空不自傷）。副作用密集：守方為我方從者時注入御主禮裝/體術/魔術/主場結界＋七天盾額度；守方為敵從者時注入其硬連結敵御主支援；整備餐 buff（`mealBuffActive_`）；呼 `resolveFateBattle_` 定生死；海怪護盾以身擋傷（含概念貫穿判定 `offenseTier_`/`PIERCE_GAP`）；致命傷後依序判 `survive` 戰鬥續行→`god_hand` 十二試煉復活（傷害溢出可一擊燒多命；**🐛→✅ 2026-07 再稽核**：解放寶具時的嚴重度下限計算原本用`npAtkScale_(atkC)`，只認永久技能字面、不看這次實際選了哪個寶具——多寶具英靈(如EMIYA)選較弱寶具時仍會被誤判成最強寶具規模去燒更多命，已改用`npProfile_(atkC).scale`按實際選定寶具判定，比照Engine_Fate.gs解放判定同款寫法）→令咒緊急脫離（僅敵從者·30%）→真正陣亡（改 ID 為 `DEAD_`、御主死觸發同陣敵從者靈基透支倒數）；勝負判定＋敗北/勝利夢境提示（`buildDreamPrompt_`/`buildVictoryDreamPrompt_`）。`opts:{np,seal,skill,ambush,counterMul,forceDamage,noMeal,round}`。回傳 out 大物件（hit/damage/fired/destroyed/sealEscaped/godRevived/victory/defeat/dreamPrompt/knocked…）。
 
 #### 電池與魔力
 
@@ -455,7 +456,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `CONCEPT_TIER` — 資料表：fx→概念位階數字（2~6）。真理級 ea/enuma=6、王權級 excalibur/rule_breaker/divine_age=5、固有結界/必中/超位盾 ubw/gae_bolg/rho_aias…=4、傳說武技 god_hand/tsubame/zabaniya/petrify=3、防禦技能 nullify_magic/divine_core/territory=2。Avalon(7)不入表、走 Router_Battle idealRealm 硬擋。
 - `PIERCE_GAP` — 常數 2：攻方概念階高出守方防禦此值以上→概念壓制（無視該防禦）。
 - `conceptTier_(fx)` — 查 CONCEPT_TIER，查無回 1。
-- `offenseTier_(c, isNp)` — 取某單位「進攻概念」最高位階。解放時掃全套穿透 fx＋本次解放寶具自身 npProfile_.fx（該 fx 存 npOptions 而非 skills，hasFx_ 掃不到需額外計入）；非解放時只認常駐穿透 rule_breaker/anti_magic_lance。
+- `offenseTier_(c, isNp)` — 取某單位「進攻概念」最高位階。解放時掃全套穿透 fx＋本次解放寶具自身 npProfile_.fx（該 fx 存 npOptions 而非 skills，hasFx_ 掃不到需額外計入）；非解放時只認常駐穿透 rule_breaker/anti_magic_lance。**🐛→✅ 2026-07 再稽核**：無條件`pierceFx`清單原本仍含`ubw`——EMIYA的『無限劍製』既是永久固有技能又是他兩個可選寶具之一，選較弱的『偽·螺旋劍』時`ubw`仍會被無條件掃到，誤判成帶概念4貫穿(跟斯卡哈`gae_bolg`同款孿生bug，修法比照：從清單移除，交給`npProfile_(c).fx`按實際選定寶具判定)。
 
 #### 寶具規模與費用
 
@@ -489,7 +490,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `injectMasterMeleeSupport_(c, masterMemory)` — 把御主【體術】階級以 master_melee fx 注入我方從者 skills（不限職階；已存在則略過；空則不注入）。
 - `injectMasterMagicSupport_(c, masterMemory)` — 把御主【魔術】階級以 master_magic fx 注入——僅當 c 是 Caster 才注入（體術管近戰、魔術限 Caster，避免無腦疊加）。
-- `injectMasterSupportFor_(c, pcData, myGameId, row, isEnemy)`（Router_Battle.gs，2026-07 稽核抽出）— 找到硬連結御主 MEMORY 後呼叫上兩支的共用外殼，取代原本我方/敵方視角各寫3遍、共6處幾乎相同的「找御主→注兩種支援」樣板。`isEnemy=false`：`row` 本身即御主列，直接讀其 MEMORY；`isEnemy=true`：`row` 是敵從者列，走既有 `enemyMasterMemoryFor_` 查其硬連結御主 MEMORY，查無則不注入。
+- `injectMasterSupportFor_(c, pcData, myGameId, row, isEnemy)`（實際定義於 Engine_Fate.gs，Router_Battle.gs 2026-07 稽核抓到重複而抽出）— 找到硬連結御主 MEMORY 後呼叫上兩支的共用外殼，取代原本我方/敵方視角各寫3遍、共6處幾乎相同的「找御主→注兩種支援」樣板。`isEnemy=false`：`row` 本身即御主列，直接讀其 MEMORY；`isEnemy=true`：`row` 是敵從者列，走既有 `enemyMasterMemoryFor_` 查其硬連結御主 MEMORY，查無則不注入。**2026-07 再稽核補完**：`Router_Movement.gs`的`playerAmbushOnEnemy_`(趁隙偷襲)/`enemyAmbushOnServant_`(陣地反擊分支＋真突襲分支)共3處原本仍手刻雙支呼叫，已一併改用此共用函式。
 
 #### 技能 fx 表（線性加減乘·資料驅動）
 
@@ -591,7 +592,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `actionKanshouSummonHero(userData, pcId, sheets)` — 從英靈庫召喚一位英靈「存在」於此後日談世界（不必先 solo 封存）。防線：擁有權驗證、士郎位置擋、`KANSHOU_SUMMON_BLOCKED_IDS_` 擋、ai_gen 僅創造者可召、不開放男男、同一位只召一次（跨名比對）。通過即 appendRow(`heroToKanshouRow_`)。
 - `actionEnterKanshou(userData, pcId, sheets)` — 進入常駐後日談世界（每帳號一個）。三分支：①帳號表已連結→接續（含全名→短名一次性遷移）②MEMORY【帳號】標記舊角色→補寫帳號表連結遷移③無存檔→需 needSetup 問名字/性別後新建御主列（KPC_ 前綴，開場「我的房間」Day1 06:00）＋入駐 `KANSHOU_STARTER_IDS_` 4 位起始住民。**🐛→✅ 稽核抓到**：pcName/appearance/persona 這條首建路徑原本完全沒設 backend 長度上限(只靠前端 maxlength 擋)，已補 pcName≤16／appearance・persona≤60，跟後續改名/改命路徑口徑一致。（2026-07 二度改版：兩個成功回應物件都拿掉 `prefLocks` 欄位，性格鎖系統整組刪除）
-- `actionBackfillKanshouAi(userData, pcId, sheets)` — 非阻塞背景補生成御主 4 個敘事欄（background/traits/personality/npc_intent/outfit）。比照 `actionBackfillMasterAi`「種子秒建＋AI 潤色」；競態修用 `buildLiveIdIndex_` 寫回前重定位，只單格 setValue，數值/位置不碰。
+- `actionBackfillKanshouAi(userData, pcId, sheets)`（2026-07 再稽核抓到漏洞：找列邏輯改用`kanshouOwnedRowIdx_`驗證帳號歸屬，取代原本裸`findIndex`信任傳入pcId的漏洞——鑑賞pcId可預測/枚舉，舊版可被冒名竄改任一玩家的敘事欄；前端`backfillKanshouAi`同步補送`acctName`）— 非阻塞背景補生成御主 4 個敘事欄（background/traits/personality/npc_intent/outfit）。比照 `actionBackfillMasterAi`「種子秒建＋AI 潤色」；競態修用 `buildLiveIdIndex_` 寫回前重定位，只單格 setValue，數值/位置不碰。
 - `actionKanshouCompanions(userData, pcId, sheets)` — 列出本世界已存在的所有從者＋各自地點/關係標籤/**專屬稱呼(2026-07新增，`getNickname_`裸值)**/好感/是否同地/待赴約定/共同回憶/**`id`(2026-07 id 化重構新增)**，供玩家決定去找誰。無隊伍/人數上限。
 - `actionKanshouMemoirOp(userData, pcId, sheets)`（2026-07 稽核：找目標同伴列改委派 `findPcRowIdx_`，取代手刻迴圈，行為等價）— 共同回憶面板操作（op=pin/unpin/del）：釘選加 ★ 前綴（釘選上限 8）、刪除整條移除。玩家 UI 手動管理、AI 無權；帳號綁定＋同 gid 驗證。
 
@@ -600,9 +601,9 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `actionKanshouSetSex(userData, pcId, sheets)` — 切換御主性別（限男/女）；切男時檢查世界內是否已有男性從者（避免男男配對）；真換時重置 PHYSICAL 為中性預設。
 - `actionKanshouSetName(userData, pcId, sheets)` — 改御主名字（≤16 字）；關係併入從者自己列，改名不影響羈絆。
 - `actionKanshouSetHomeName(userData, pcId, sheets)` — 改「家」顯示名（≤12 字），寫進 MEMORY【住所】標記（`setKanshouHomeName_`）。
-- `actionKanshouSetProp(userData, pcId, sheets)`（2026-07 新增，同批改多件同時裝備；同年稽核：找目標同伴列改委派 `findPcRowIdx_`）— 小道具裝備/移除/調強度：`targetName`+`propId`+`level`(空字串＝只移除這一件，其餘已裝備道具不受影響)，比照 `actionKanshouMemoirOp` 同款帳號驗證+目標同伴查找，寫 MEMORY【小道具】（`kanshouToggleProp_`）。GAS直接寫、不靠AI自己判斷該不該記(根治「幫她戴貓耳朵過幾輪就忘記」的機制保證版)。同伴卡面板與故事視窗快速抽屜共用此 action。**任何新增/切換到非空level的操作**(含選『關閉』起手)都檢查`KANSHOU_PROP_EQUIP_BOND_`好感門檻，不足回傳失敗訊息、不寫入；唯獨移除(level空字串)不受限。**例外**：`def.ignoreBond`為真的道具(玩家自訂「催眠暗示」類效果)跳過此好感檢查，仍受`KANSHOU_PROP_EQUIP_CAP_`同一個裝備上限。
-- `actionKanshouAddCustomProp(userData, pcId, sheets)`（2026-07 稽核：找目標同伴列改委派 `findPcRowIdx_`；同批**強制`ignoreBond:false`**——2026-07二度改版「催眠的和新道具要確實分開成兩種」，不管`userData`帶了什麼一律無視，催眠效果只走`actionKanshouCastHypnosis`）— 玩家自建裝飾/物理類道具：`targetName`+`name`(≤10字)+`hasIntensity`+`part`(選填)。查重(跟內建道具同名擋)＋上限檢查後寫進玩家列【自訂道具】；接著嘗試立即裝備在`targetName`身上，好感不夠只成功建目錄不裝備並回傳訊息告知(一般道具永遠受`KANSHOU_PROP_EQUIP_BOND_`約束)；仍受裝備上限`KANSHOU_PROP_EQUIP_CAP_`檢查。找不到目標同伴仍會成功新增進目錄，回傳訊息告知。
-- `actionKanshouCastHypnosis(userData, pcId, sheets)`（2026-07 新增，跟一般道具分開的獨立入口；同年稽核：找目標同伴列改委派 `findPcRowIdx_`）— 玩家施展催眠指令：`targetName`+`text`(暗示內容，非道具名稱，≤30字，比一般道具name的10字寬)。強制`hasIntensity:true`/`ignoreBond:true`(不像一般道具是選填)，永遠跳過`KANSHOU_PROP_EQUIP_BOND_`好感檢查，但仍受`KANSHOU_CUSTOM_PROP_CAP_`(目錄)與`KANSHOU_PROP_EQUIP_CAP_`(裝備上限)。首次施展預設落在`KANSHOU_PROP_LEVELS_[1]`(微弱)起跳，不像一般道具從關閉起手——這是「施展」動作，落地就該有效果。底層跟一般自訂道具共用同一套`【自訂道具】`目錄(id=text本身)，調整既有指令的強度改走既有`actionKanshouSetProp`。前端在這個action成功後會緊接著送一次正常對話(`send()`)，讓AI立即演出催眠生效的當下——玩家明講「這裡需要一次呼叫AI才有催眠感覺」，不能像一般道具靜默寫入等下一輪才反映。
+- `actionKanshouSetProp(userData, pcId, sheets)`（2026-07 新增，同批改多件同時裝備；同年稽核：找目標同伴列改委派 `findPcRowIdx_`；🐛→✅ 再稽核：`findPcRowIdx_`呼叫補上`loc`，之前漏帶——跟相約/牽手/同居用同一支resolver卻沒驗證目標同伴此刻是否在場，已補齊一致）— 小道具裝備/移除/調強度：`targetName`+`propId`+`level`(空字串＝只移除這一件，其餘已裝備道具不受影響)，比照 `actionKanshouMemoirOp` 同款帳號驗證+目標同伴查找，寫 MEMORY【小道具】（`kanshouToggleProp_`）。GAS直接寫、不靠AI自己判斷該不該記(根治「幫她戴貓耳朵過幾輪就忘記」的機制保證版)。同伴卡面板與故事視窗快速抽屜共用此 action。**任何新增/切換到非空level的操作**(含選『關閉』起手)都檢查`KANSHOU_PROP_EQUIP_BOND_`好感門檻，不足回傳失敗訊息、不寫入；唯獨移除(level空字串)不受限。**例外**：`def.ignoreBond`為真的道具(玩家自訂「催眠暗示」類效果)跳過此好感檢查，仍受`KANSHOU_PROP_EQUIP_CAP_`同一個裝備上限。
+- `actionKanshouAddCustomProp(userData, pcId, sheets)`（2026-07 稽核：找目標同伴列改委派 `findPcRowIdx_`；🐛→✅ 再稽核補`loc`同上；同批**強制`ignoreBond:false`**——2026-07二度改版「催眠的和新道具要確實分開成兩種」，不管`userData`帶了什麼一律無視，催眠效果只走`actionKanshouCastHypnosis`）— 玩家自建裝飾/物理類道具：`targetName`+`name`(≤10字)+`hasIntensity`+`part`(選填)。查重(跟內建道具同名擋)＋上限檢查後寫進玩家列【自訂道具】；接著嘗試立即裝備在`targetName`身上，好感不夠只成功建目錄不裝備並回傳訊息告知(一般道具永遠受`KANSHOU_PROP_EQUIP_BOND_`約束)；仍受裝備上限`KANSHOU_PROP_EQUIP_CAP_`檢查。找不到目標同伴仍會成功新增進目錄，回傳訊息告知。
+- `actionKanshouCastHypnosis(userData, pcId, sheets)`（2026-07 新增，跟一般道具分開的獨立入口；同年稽核：找目標同伴列改委派 `findPcRowIdx_`；🐛→✅ 再稽核補`loc`同上）— 玩家施展催眠指令：`targetName`+`text`(暗示內容，非道具名稱，≤30字，比一般道具name的10字寬)。強制`hasIntensity:true`/`ignoreBond:true`(不像一般道具是選填)，永遠跳過`KANSHOU_PROP_EQUIP_BOND_`好感檢查，但仍受`KANSHOU_CUSTOM_PROP_CAP_`(目錄)與`KANSHOU_PROP_EQUIP_CAP_`(裝備上限)。首次施展預設落在`KANSHOU_PROP_LEVELS_[1]`(微弱)起跳，不像一般道具從關閉起手——這是「施展」動作，落地就該有效果。底層跟一般自訂道具共用同一套`【自訂道具】`目錄(id=text本身)，調整既有指令的強度改走既有`actionKanshouSetProp`。前端在這個action成功後會緊接著送一次正常對話(`send()`)，讓AI立即演出催眠生效的當下——玩家明講「這裡需要一次呼叫AI才有催眠感覺」，不能像一般道具靜默寫入等下一輪才反映。
 - `actionKanshouDeleteCustomProp(userData, pcId, sheets)`（2026-07 新增）— 從玩家列【自訂道具】整個移除一項定義，並掃描該局所有從者、把身上目前裝備的這一項一併移除(`kanshouToggleProp_(row, name, "")`)，避免孤兒資料(目錄查無定義卻有人還裝備著)。**2026-07 稽核刻意未改用`findPcRowIdx_`**：這支是「清全部同伴身上的這一項」的批次操作、不是單一目標查找，跟其餘4支`kanshou_*_prop`/`kanshou_cast_hypnosis`性質不同，強行套用會改變行為。
 
 #### AI 提示詞組裝（🔴 鑑賞 AI 核心）
@@ -753,7 +754,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `maxStatsForRow_(row)` — 解析列的 SIX JSON，取耐久/魔力交給 `fateMaxHpMp_` 算 HP/MP。
 - `dmgSeverityWord_(dmg, hpMax)`（2026-07 稽核抽出）— 傷害嚴重度中文詞分級（重創≥0.4／負傷≥0.15／擦傷），取代 `Router_Movement.gs` 三處(撤退追擊/休息突襲/陣營突襲)重複的同一條 ternary；`Router_Bond.gs` 的 `actionBond` 突襲提示原本沒有分級(硬寫死「重創」)，順手改用此函式補齊一致性。
 - `ambushDispatchPrompt_(ambush, interruptedFn, normalFn)`（2026-07 稽核抽出）— 共用「突襲結果三分支」派工：`ambush.homeRepel`/`peaceful` 為真→用 `ambush.repelNote`；有 `ambush` 但非上述→呼叫 `interruptedFn(ambush)`；否則呼叫 `normalFn()`。取代 `Router_Economy.gs`(補魔/修復)、`Router_Bond.gs`(羈絆/盟友共處)、`Router_Movement.gs`(休息) 共5處幾乎相同的三分支判斷樣板，各呼叫端只帶自己的敘事文案。
-- `chargeApOrReject_(gameId, cost, pcData, sheets, rejectMsg, opts)`（2026-07 稽核抽出）— 合併「AP門檻檢查(不足回`{success:false,needRest:true,message:rejectMsg}`)＋`spendAp_`扣AP＋`clockLabel_`算時鐘標籤」三件套，取代 Movement/Economy/Bond 三檔共11處幾乎逐字重複的樣板；`opts.skipWrite`透傳給`spendAp_`。`actionMove`(cost固定2、與`worldTick_`緊密耦合)刻意不套用，維持原樣。
+- `chargeApOrReject_(gameId, cost, pcData, sheets, rejectMsg, opts)`（2026-07 稽核抽出）— 合併「AP門檻檢查(不足回`{success:false,needRest:true,message:rejectMsg}`)＋`spendAp_`扣AP＋`clockLabel_`算時鐘標籤」三件套，取代 Movement/Economy/Bond 三檔共11處幾乎逐字重複的樣板；`opts.skipWrite`透傳給`spendAp_`。`actionMove`(cost固定2、與`worldTick_`緊密耦合)刻意不套用，維持原樣。**2026-07 再稽核補完**：`Router_Battle.gs`的`actionFateBattle`(傳`skipWrite:true`，因後段還有一次整表`setValues`會覆蓋同一批欄位)/`actionSummonHorror`(**不傳**`skipWrite`，因`drainForNp_`的整列寫回發生在AP扣款前、DAY/HOUR/AP仍需這裡自己補窄欄寫入，兩者情境不同不能套同一種傳法)共2處原本仍手刻AP門檻+扣費，已一併改用此共用函式。**⚠ `.reject`回傳路徑目前全部呼叫端都沒真的檢查過**(呼叫前皆已有獨立guard擋過)，是預留但吃不到的死路徑，新呼叫點若打算只靠這支擋門檻(不自帶前置guard)務必自己補`.reject`檢查，否則門檻不足會讓`{ap,clock}`兩key靜默消失混進成功回應。
 
 #### 從者出力檔位（MEMORY【出力】）
 

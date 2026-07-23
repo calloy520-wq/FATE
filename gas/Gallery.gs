@@ -527,7 +527,9 @@ function actionEnterKanshou(userData, pcId, sheets) {
 //   於進場後背景補 AI 版 4 個敘事欄，失敗＝保留種子預設。數值/位置/MEMORY 一律不碰，只單格 setValue。
 function actionBackfillKanshouAi(userData, pcId, sheets) {
   const pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  // 🔒 帳號歸屬驗證（2026-07 再稽核抓到的漏洞補上）：跟 actionPlay_ 同一種缺口——猜中/取得
+  //   pcId 即可直打此 action 竄改任何人的外貌/身世/個性/萌點/裝扮，比照其餘 handler 補上。
+  const pIdx = kanshouOwnedRowIdx_(pcData, pcId, String(userData.acctName || "").trim());
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const row = pcData[pIdx];
   const finalName = String(row[COL.PC.NAME] || ""), finalSex = String(row[COL.PC.SEX] || "異");
@@ -720,7 +722,9 @@ function actionKanshouSetProp(userData, pcId, sheets) {
   var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", nameCandidates: kanshouNameCandidates_ });
+  // 🐛→✅ 2026-07 再稽核抓到：跟相約/牽手/同居同一套findPcRowIdx_，唯獨這裡漏帶loc——沒驗證
+  //   目標同伴此刻是否真的在場，比照相約/牽手/同居補上，裝備道具也要求她本人在場。
+  var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", loc: String(data[meIdx][COL.PC.LOC] || ""), nameCandidates: kanshouNameCandidates_ });
   if (tIdx < 0) return JSON.stringify({ success: false, message: "找不到這位同伴。" });
   var def = kanshouAllProps_(data[meIdx][COL.PC.MEMORY]).find(function (p) { return p.id === propId; });
   if (!def) return JSON.stringify({ success: false, message: "查無此道具。" });
@@ -788,7 +792,8 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
   var newPlayerMemory = kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom);
   kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newPlayerMemory);
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", nameCandidates: kanshouNameCandidates_ });
+  // 🐛→✅ 2026-07 再稽核：同上，補loc要求目標同伴此刻在場才能立即裝備(目錄新增本身不受此限)。
+  var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", loc: String(data[meIdx][COL.PC.LOC] || ""), nameCandidates: kanshouNameCandidates_ });
   if (tIdx < 0) return JSON.stringify({ success: true, props: [], customProps: custom, message: "已新增到你的道具目錄，但找不到這位同伴可裝備。" });
   if (!ignoreBond && (parseInt(data[tIdx][COL.PC.BOND]) || 0) < KANSHOU_PROP_EQUIP_BOND_) {
     return JSON.stringify({ success: true, props: kanshouGetProps_(data[tIdx][COL.PC.MEMORY], KANSHOU_PROPS_.concat(custom)), customProps: custom, message: "已新增到你的道具目錄，但好感還沒到那個地步，她還不會讓你幫她裝備。" });
@@ -828,7 +833,8 @@ function actionKanshouCastHypnosis(userData, pcId, sheets) {
   var newPlayerMemory = kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom);
   kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newPlayerMemory);
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", nameCandidates: kanshouNameCandidates_ });
+  // 🐛→✅ 2026-07 再稽核：同上，施展催眠指令這步也要求目標同伴此刻在場(目錄記下本身不受此限)。
+  var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", loc: String(data[meIdx][COL.PC.LOC] || ""), nameCandidates: kanshouNameCandidates_ });
   if (tIdx < 0) return JSON.stringify({ success: true, props: [], customProps: custom, message: "已記下這句指令，但找不到這位同伴可施展。" });
   var _existingT = kanshouGetProps_(data[tIdx][COL.PC.MEMORY]);
   if (!_existingT.some(function (p) { return p.id === text; }) && _existingT.length >= KANSHOU_PROP_EQUIP_CAP_) {

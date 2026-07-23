@@ -121,7 +121,10 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
       var lossN = 1;
       if (opts.np) {
         var ghTier = offenseTier_(atkC, true);
-        var ghScale = npAtkScale_(atkC);
+        // 🐛→✅ 2026-07 稽核：多寶具英靈(如EMIYA)npAtkScale_只認永久技能字面、不看這次實際選了哪個
+        //   寶具——改用npProfile_(atkC).scale(比照Engine_Fate.gs解放判定同款寫法)，讓選較弱寶具
+        //   (如偽·螺旋劍)時不會被誤判成最強寶具(無限劍製)的規模去燒God Hand的命。
+        var ghScale = npProfile_(atkC).scale;
         var ghScaleTier = ghScale === '對界' ? 6 : ghScale === '對城' ? 5 : ghScale === '對軍' ? 4 : 1;
         var ghSev = Math.max(ghTier, ghScaleTier);
         if (ghSev >= 6) lossN = Math.max(lossN, 3); else if (ghSev >= 5) lossN = Math.max(lossN, 2);
@@ -513,11 +516,12 @@ function actionFateBattle(userData, pcId, sheets) {
   }
 
   // 戰鬥確定開打 → 耗 1 AP（推進 2 小時）
-  let battleAp = AP_PER_DAY;
   // 🐛→✅ 舊版沒傳 skipWrite，這裡立刻寫一次 DAY/HOUR/AP，之後不管走斬首分支(現已批次收尾)還是
   //   主戰鬥路徑(1370行整表 setValues)都會把同一批值再送一次——比照 Router_Economy.gs 的
   //   actionManaSupply/actionSpiritRepair 既有寫法補 skipWrite=true，兩處都吃記憶體 pcData 就好。
-  if (isFateBattle) { try { battleAp = spendAp_(myGameId, 1, pcData, sheets, true).ap; } catch (e) { } }
+  //   2026-07 稽核：改用共用 chargeApOrReject_(467行已提前擋過門檻，這裡只借它做扣費+算clock，
+  //   .reject分支理論上不會命中，同其餘12處呼叫端一致的寫法)。
+  const battleAp = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動點已耗盡，從者也需喘息——請『歇息』恢復後再戰。", { isFate: isFateBattle, skipWrite: true }).ap;
 
   // ⚔️ 交手即削好感：拔劍相向直接 −5（不勞 AI 判定）。只削既有交情列、不憑空建列(萍水相逢者本就 0)。
   //   ★同時是「刷好感躲追殺」的天然制衡：要奪杯就得打、打了好感掉破 50→追擊閘重新開啟。
@@ -1474,8 +1478,11 @@ function actionSummonHorror(userData, pcId, sheets) {
   // 🐙 設肉身 12h（變身態·單一狀態源）
   pcData[svIdx][COL.PC.MEMORY] = summonHorror_(pcData[svIdx][COL.PC.MEMORY], gameId);
   sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
-  let ap = AP_PER_DAY, clock = "";
-  if (isFate) { try { ap = spendAp_(gameId, 1, pcData, sheets).ap; clock = clockLabel_(gameId, pcData); } catch (e) { } }
+  // 2026-07 稽核：改用共用 chargeApOrReject_(1467行已提前擋過門檻，這裡只借它做扣費+算clock；
+  //   不傳skipWrite——drainForNp_剛才的整列寫回發生在AP扣款【之前】，DAY/HOUR/AP仍需這裡自己的
+  //   窄欄寫入，跟actionFateBattle那種"稍後還有一次整表寫回"的情境不同，不能省略這次寫入)。
+  const _horrorApr = chargeApOrReject_(gameId, 1, pcData, sheets, "行動點不足——召喚深淵海怪需 1 AP。", { isFate: isFate });
+  const ap = _horrorApr.ap, clock = _horrorApr.clock;
   const aiPrompt = servantCard_(pcData[svIdx]) +
     `【系統·螺湮城教本·已解放】御主號令「${svName}」翻開螺湮城教本，自深淵召出觸手巨獸「深淵海怪」（肉身 ${HORROR_SHIELD_HP}）常駐身側——只要魔力供養不絕，海怪便持續以身擋傷、每回合再生、並肩撕咬敵手，本體防禦亦升至對城規模；代價是每小時抽 ${HORROR_HOURLY_UPKEEP} 魔、每個交鋒回合另抽 ${HORROR_UPKEEP} 魔維持，共用魔力見底時海怪將先行沉回深淵。\n` +
     `★以 Fate／TYPE-MOON 筆觸演出深淵巨獸自書頁裂隙湧現、觸手蔽天的壓迫一幕（一段即可）。已結算。`;

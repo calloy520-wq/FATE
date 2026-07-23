@@ -300,6 +300,11 @@ function ambushDispatchPrompt_(ambush, interruptedFn, normalFn) {
 //   趁隙偷襲 playerAmbushOnEnemy_ 的【提防】冷卻窗口判斷)，提前扣AP會讓那類判斷不小心吃到扣費後的
 //   時間，是本次重構刻意迴避的邊界風險——因此這裡的門檻檢查在實務上多半已被前面那道 guard 擋過一次，
 //   屬防禦性複查、非多此一舉。
+//   ⚠ 2026-07 再稽核確認：目前全部14處呼叫端都只解構{ap,clock}，沒有任何一處真的檢查`.reject`——
+//   因為呼叫前都已經有前述獨立guard擋過，`.reject`分支在現有呼叫模式下實際上永遠打不到，是預留但
+//   目前吃不到的死路徑。新增呼叫點若打算只靠這支函式擋門檻(不自帶前置guard)，務必自己補上
+//   `if (apr.reject) return JSON.stringify(apr.reject);`，否則門檻不足時{ap:undefined,clock:undefined}
+//   會混進成功回應(JSON.stringify會把這兩個undefined的key整個省略掉，前端讀不到但也不會報錯)。
 function chargeApOrReject_(gameId, cost, pcData, sheets, rejectMsg, opts) {
   opts = opts || {};
   var isFate = opts.isFate !== undefined ? opts.isFate : (String(gameId || "").indexOf("g_") === 0);

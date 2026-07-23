@@ -375,7 +375,7 @@
       }
       document.getElementById('ui-name').innerText = "命盤解析中...";
       try {
-        const res = await gasRun({ action: "get_full_status", targetName: targetName, pcId: pc.id });
+        const res = await gasRun({ action: "get_full_status", targetName: targetName, pcId: pc.id, acctName: (pc && pc.account) || currentAccount });
         
         if (res.success) {
           // 🔴 已經不需要後端的 canEditFate 許可證了，直接更新 UI
@@ -1222,6 +1222,7 @@
         const res = await gasRun({
             action: "update_fate",
             pcId: pc.id,  // 🔴 關鍵修復：必須把自己的身分證傳過去！
+            acctName: (pc && pc.account) || currentAccount,
             targetId: currentStatusTargetId,
             fateType: currentFateType,
             fateValue: newValue

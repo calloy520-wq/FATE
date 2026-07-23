@@ -1492,7 +1492,7 @@ let plainTextContext = cleanText;
     if (_krBusy) return;
     _krBusy = true;
     try {
-      const res = await gasRun({ action: 'update_rel_tag', pcId: pc.id, targetName: name, newTagText: tag });
+      const res = await gasRun({ action: 'update_rel_tag', pcId: pc.id, acctName: currentAccount, targetName: name, newTagText: tag });
       if (res && res.success) { syncData(true); kcRefreshPartyOnly_(); var ov = document.getElementById('kr-overlay'); if (ov) ov.style.display = 'none'; }
       else { alert((res && res.message) || '更改失敗。'); }
     } catch (e) { alert('更改失敗。'); }
@@ -1513,7 +1513,7 @@ let plainTextContext = cleanText;
     if (_krBusy) return;
     _krBusy = true;
     try {
-      const res = await gasRun({ action: 'kanshou_set_nickname', pcId: pc.id, targetName: name, newNickname: nt });
+      const res = await gasRun({ action: 'kanshou_set_nickname', pcId: pc.id, acctName: currentAccount, targetName: name, newNickname: nt });
       if (res && res.success) { syncData(true); kcRefreshPartyOnly_(); var ov = document.getElementById('kr-overlay'); if (ov) ov.style.display = 'none'; }
       else { alert((res && res.message) || '更改失敗。'); }
     } catch (e) { alert('更改失敗。'); }
@@ -1626,7 +1626,7 @@ let plainTextContext = cleanText;
   async function backfillKanshouAi(seed) {
     try {
       if (!pc || !pc.id) return;
-      const res = await gasRun({ action: 'backfill_kanshou_ai', pcId: pc.id,
+      const res = await gasRun({ action: 'backfill_kanshou_ai', pcId: pc.id, acctName: currentAccount,
         appearance: seed.appearance || "", standing: seed.standing || "", persona: seed.persona || "" });
       if (res && res.success) { try { syncData(); } catch (e) {} }
     } catch (e) { /* 靜默：保留種子設定 */ }

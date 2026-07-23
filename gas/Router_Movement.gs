@@ -827,8 +827,7 @@ function playerAmbushOnEnemy_(sheets, pcData, pIdx, gameId, targetName) {
   if (eIdx === -1) return { err: "當前沒有那名可趁隙偷襲的敵從者。" };
   var atkC = rowToCombatant_(pcData[svIdx]);
   injectMysticBuff_(atkC, pcData[pIdx][COL.PC.MEMORY]);
-  injectMasterMeleeSupport_(atkC, pcData[pIdx][COL.PC.MEMORY]);
-  injectMasterMagicSupport_(atkC, pcData[pIdx][COL.PC.MEMORY]);
+  injectMasterSupportFor_(atkC, pcData, gameId, pcData[pIdx], false);
   var defC = rowToCombatant_(pcData[eIdx]);
   var probe = resolveFateBattle_(atkC, defC, { ambush: true, skill: servantActiveSkill_(atkC) });
   var baseDmg = probe.atkWins ? (probe.damage || 1) : Math.max(1, Math.round(rankVal(atkC.six['筋力'] || 'C') * 0.5));
@@ -1039,8 +1038,7 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul) {
       sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
       const svR = rowToCombatant_(pcData[svIdx]); injectHomeField_(svR, homeRank);
       const eDefC = rowToCombatant_(pcData[eIdx]);
-      const _eWardMasterMem = enemyMasterMemoryFor_(pcData, gameId, pcData[eIdx]);
-      if (_eWardMasterMem) { injectMasterMeleeSupport_(eDefC, _eWardMasterMem); injectMasterMagicSupport_(eDefC, _eWardMasterMem); }
+      injectMasterSupportFor_(eDefC, pcData, gameId, pcData[eIdx], true);
       const cr = resolveFateBattle_(svR, eDefC, {});
       const backDmg = Math.max(1, Math.round((cr.atkWins ? (cr.damage || 1) : rankVal(svR.six['筋力'] || 'C')) * 0.6));
       const eHp = parseInt(pcData[eIdx][COL.PC.HP]) || 0, eAfter = Math.max(1, eHp - backDmg); // 驅離·保1不斬殺
@@ -1106,8 +1104,7 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul) {
   const enemyC = rowToCombatant_(pcData[eIdx]);
   const svC = rowToCombatant_(pcData[svIdx]);
   // 🥋🔮 突襲主角是 enemyC(攻方)：補上其硬連結敵御主的體術/魔術支援。
-  const _eAmbushMasterMem = enemyMasterMemoryFor_(pcData, gameId, pcData[eIdx]);
-  if (_eAmbushMasterMem) { injectMasterMeleeSupport_(enemyC, _eAmbushMasterMem); injectMasterMagicSupport_(enemyC, _eAmbushMasterMem); }
+  injectMasterSupportFor_(enemyC, pcData, gameId, pcData[eIdx], true);
   // 🎯 敵AI自動施展招牌施放技術(免費·戰鬥本色)：還原單層歸屬前這些是免費被動的敵方偷襲威力。
   const probe = resolveFateBattle_(enemyC, svC, { ambush: true, skill: servantActiveSkill_(enemyC) });
   let mul = baseMul || 1.4;
