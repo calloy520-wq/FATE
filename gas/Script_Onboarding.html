@@ -40,7 +40,7 @@ function continueGame() {
 
 async function newGameFlow() {
   if (accountLoginRes && accountLoginRes.hasGame) {
-    if (!confirm('⚠️ 開啟新的聖杯戰爭會【清除】你目前的存檔（御主、從者、戰況全部消失）。\n確定要重新開始嗎？')) return;
+    if (!await customConfirm_('⚠️ 開啟新的聖杯戰爭會【清除】你目前的存檔（御主、從者、戰況全部消失）。\n確定要重新開始嗎？')) return;
     try {
       var res = await gasRun({ action: 'account_new_game', acctName: currentAccount });
       if (!res || !res.success) { alert((res && res.message) || '清檔失敗。'); return; }
@@ -562,7 +562,7 @@ function forgeEdit(id) {
 async function claimHero(id) {
   var h = (heroesData || []).find(function (x) { return String(x.id) === String(id); });
   if (!h) return;
-  if (!confirm('🖐 認領「' + h.name + '」？\n\n這名原創英靈目前無主（創造者印記功能上線前鑄造）。\n認領後你就是她的創造者，可在工房修改；先到先得。')) return;
+  if (!await customConfirm_('🖐 認領「' + h.name + '」？\n\n這名原創英靈目前無主（創造者印記功能上線前鑄造）。\n認領後你就是她的創造者，可在工房修改；先到先得。')) return;
   try {
     var res = await gasRun({ action: 'claim_hero', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '', heroId: String(id), acctName: (typeof currentAccount !== 'undefined' ? currentAccount : '') });
     alert((res && res.message) || (res && res.success ? '已認領。' : '認領失敗。'));
@@ -815,7 +815,7 @@ async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，�
     //   這裡接住那個特殊回應，跳確認框，玩家按確定才帶著confirmMasterConvert重送一次。
     if (res && !res.success && res.needConfirmMasterConvert) {
       hideProcessing();
-      if (!confirm(res.message || '確定要把這名英靈切換成「御主」嗎？(會清空六圍/技能/寶具，不可逆)')) return;
+      if (!await customConfirm_(res.message || '確定要把這名英靈切換成「御主」嗎？(會清空六圍/技能/寶具，不可逆)')) return;
       showProcessing('正在重鑄靈基…');
       res = await gasRun({ action: 'save_hero', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '', build: JSON.stringify(build), origin: og, heroId: _forgeEditId || '', acctName: (typeof currentAccount !== 'undefined' ? currentAccount : ''), confirmMasterConvert: true });
     }

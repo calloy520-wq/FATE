@@ -477,7 +477,7 @@ let plainTextContext = cleanText;
   }
   async function kanshouMemoirOp(name, op, item) {
     if (_kmBusy) return;   // 💞讀條保護：上一個釘選/刪除還在跑就忽略連點，防重複送出/競態
-    if (op === 'del' && !confirm('確定刪掉這條回憶嗎？刪了她就真的忘了。')) return;
+    if (op === 'del' && !await customConfirm_('確定刪掉這條回憶嗎？刪了她就真的忘了。')) return;
     _kmBusy = true;
     _kmShowLoading_(name);  // 面板換成讀條，處理中不可再點
     try {
@@ -632,7 +632,7 @@ let plainTextContext = cleanText;
   // 🗑 從玩家的自訂道具目錄整個刪掉這項定義——後端同步移除所有同伴身上目前裝備的這一項，避免孤兒資料。
   async function kanshouDeleteCustomProp(propName) {
     if (_kpBusy) return;
-    if (!confirm('確定要把「' + propName + '」從你的道具目錄整個刪掉嗎？所有裝備中的同伴也會一併移除。')) return;
+    if (!await customConfirm_('確定要把「' + propName + '」從你的道具目錄整個刪掉嗎？所有裝備中的同伴也會一併移除。')) return;
     _kpBusy = true;
     try {
       const res = await gasRun({ action: 'kanshou_delete_custom_prop', pcId: pc.id, acctName: currentAccount, name: propName });
@@ -817,7 +817,7 @@ let plainTextContext = cleanText;
         if (_due.length) _edWarn = '\n\n⚠ 今天還有沒赴的約：' + _due.map(function (c) { return '「' + c.name + '」' + (c.promise.time || '') + '在「' + c.promise.loc + '」'; }).join('、') + '\n現在睡下去就是爽約，她會在意的(好感下降)！';
       }
     } catch (e) { }
-    if (!confirm('結束今天，讓時間流動到明天嗎？' + _edWarn)) return;
+    if (!await customConfirm_('結束今天，讓時間流動到明天嗎？' + _edWarn)) return;
     showGamePane('chat');
     await send('🌙 結束了這一天。', false, { endDay: true, loaderCaptions: ['夜色漸漸深了…', '一天的塵埃緩緩落定…', '悄悄迎向嶄新的一天…'] });
   }
@@ -841,7 +841,7 @@ let plainTextContext = cleanText;
 
   // 🎊「跳到節慶」：不帶advanceHours(留0)，帶jumpFestival讓後端自己算「距離該節慶還有幾小時」(見Gallery.gs kanshouHoursUntilDate_)，前端不重算日期，單一真實來源在後端。
   async function kanshouJumpFestival(key, name) {
-    if (!confirm('要讓時間快轉到「' + name + '」嗎？(不在身邊的英靈會依新時刻重新分佈)')) return;
+    if (!await customConfirm_('要讓時間快轉到「' + name + '」嗎？(不在身邊的英靈會依新時刻重新分佈)')) return;
     showGamePane('chat');
     await send('🎊 想快轉到「' + name + '」看看。', false, { jumpFestival: key, loaderCaptions: ['翻閱著行事曆…', '想著當天的種種安排…'] });
   }
@@ -1130,7 +1130,7 @@ let plainTextContext = cleanText;
   // AI 會依後端算好的巧遇資訊直接把抵達場景/偶遇演出來，故不在此處另外插一句本地假訊息。
   async function kanshouMoveTo(name) {
     // 🐛→✅ 地圖改分頁後，手機一次只顯示一個分頁，移動完敘事寫進「故事」分頁看不到——比照 solo 的 travelFromPane「先切分頁再送出動作」寫法，讓移動結果直接可見。
-    if (!confirm('確定要前往「' + name + '」嗎？')) return;
+    if (!await customConfirm_('確定要前往「' + name + '」嗎？')) return;
     showGamePane('chat');
     await send('📍 走向了「' + name + '」，四處看看。', false, { moveTarget: name });
   }
@@ -1356,7 +1356,7 @@ let plainTextContext = cleanText;
     await send('（拿出手機，把一張照片給身邊的人看。）', false, { showPhoto: photoId });
   }
   async function kanshouDeletePhoto(photoId) {
-    if (!confirm('確定撕掉這張照片？(不可復原)')) return;
+    if (!await customConfirm_('確定撕掉這張照片？(不可復原)')) return;
     try {
       const res = await gasRun({ action: 'album_delete', pcId: pc.id, acctName: currentAccount, photoId: photoId });
       if (res && res.success) openKanshouAlbum(); else alert((res && res.message) || '刪除失敗。');
@@ -1454,7 +1454,7 @@ let plainTextContext = cleanText;
   // 🏠 邀請同居：她在場+關係夠深(後端把關)→搬進「和室」——深夜大多回家就寢、清晨可能賴床、
   //   晚間常在家中活動，白天照常出門過自己的生活。
   async function kanshouInviteCohabit(name) {
-    if (!confirm('邀「' + name + '」搬來同住？\n(需要彼此關係足夠深厚，她也可能婉拒；她本人要在場才問得出口)')) return;
+    if (!await customConfirm_('邀「' + name + '」搬來同住？\n(需要彼此關係足夠深厚，她也可能婉拒；她本人要在場才問得出口)')) return;
     showGamePane('chat');
     await send('（鼓起勇氣，邀「' + name + '」搬來一起住。）', false, { cohabitInvite: name });
   }
@@ -1604,9 +1604,9 @@ let plainTextContext = cleanText;
       }
       fBtn.onclick = function () { selectedSex = '女'; renderSexPick(); };
       mBtn.onclick = function () { selectedSex = '男'; renderSexPick(); };
-      ov.querySelector('#ksu-simple').onclick = function () {
+      ov.querySelector('#ksu-simple').onclick = async function () {
         if (selectedSex !== '女' && selectedSex !== '男') { alert('請先選擇性別。'); return; }
-        if (!confirm('要用「' + selectedSex + '」御主直接進入後日談嗎？\n\nAI 會依你填的外貌/個性一次幫你擴寫成完整形象。\n(之後在御主狀態頁點「改命」隨時可改)')) return;
+        if (!await customConfirm_('要用「' + selectedSex + '」御主直接進入後日談嗎？\n\nAI 會依你填的外貌/個性一次幫你擴寫成完整形象。\n(之後在御主狀態頁點「改命」隨時可改)')) return;
         var nm = (ov.querySelector('#ksu-name').value || '').trim() || (defaultName || '御主');
         var appearance = (ov.querySelector('#ksu-appear').value || '').trim();
         var persona = (ov.querySelector('#ksu-persona').value || '').trim();

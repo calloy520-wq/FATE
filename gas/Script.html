@@ -31,6 +31,39 @@
     el._hideTimer = setTimeout(() => el.classList.remove('toast-show'), 1800);
   }
   // ==========================================
+  // 🧱 自畫確認對話框：取代瀏覽器原生 confirm()——原生 confirm() 跑在 Apps Script 的沙盒
+  //   iframe(script.googleusercontent.com)裡，瀏覽器彈窗會把這串陌生網址秀在最上面，讀起來
+  //   像可疑警告；改自畫 modal 後外觀吃遊戲主題，也不會冒出那段網址。原生 confirm() 是同步
+  //   (擋住整條執行緒直到玩家按下)，這裡改成 Promise<boolean>，呼叫端一律改成
+  //   `if (!await customConfirm_(msg)) return;`(呼叫端函式需為 async)。
+  // ==========================================
+  function customConfirm_(message) {
+    return new Promise(resolve => {
+      let el = document.getElementById('confirm-modal');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'confirm-modal';
+        el.className = 'modal-overlay';
+        el.style.zIndex = '10060'; // 蓋過其餘 modal(fate-edit-modal 是 10000)
+        el.innerHTML = `<div class="modal-scroll" style="max-width:420px;">
+          <div id="confirm-modal-msg" class="confirm-modal-msg"></div>
+          <div class="confirm-modal-btns">
+            <button type="button" class="btn confirm-modal-cancel">取消</button>
+            <button type="button" class="btn confirm-modal-ok">確定</button>
+          </div>
+        </div>`;
+        document.body.appendChild(el);
+      }
+      document.getElementById('confirm-modal-msg').innerHTML = escapeHtml(message).replace(/\n/g, '<br>');
+      el.style.display = 'flex';
+      const okBtn = el.querySelector('.confirm-modal-ok');
+      const cancelBtn = el.querySelector('.confirm-modal-cancel');
+      const finish = (result) => { el.style.display = 'none'; okBtn.onclick = null; cancelBtn.onclick = null; resolve(result); };
+      okBtn.onclick = () => finish(true);
+      cancelBtn.onclick = () => finish(false);
+    });
+  }
+  // ==========================================
   // 🔴 核心通訊層：封裝 google.script.run 成 Promise，完美替換 fetch
   // ==========================================
   let __pendingState = null; // ⚡ 動作回應夾帶的最新 client state，供緊接的 syncData 直接消費(免再打一趟 sync)
@@ -143,14 +176,14 @@
 }
 
 
-    document.getElementById('story').addEventListener('click', function(e) {
+    document.getElementById('story').addEventListener('click', async function(e) {
       const locTarget = e.target.closest('[data-loc]');
       if (locTarget) {
         const locName = locTarget.getAttribute('data-loc');
         // 🐛→✅ AI 敘事文字裡提到的地名也可能剛好是玩家「當前所在地」——點了會觸發一趟白跑的移動。
         if (lastMapNodes && locName === lastMapNodes.here) { return; }
         // 🔴 專屬防護：只有點擊故事對話中的綠色地名，才會跳出確認！
-        if (confirm(`確定要啟程前往「${locName}」嗎？`)) {
+        if (await customConfirm_(`確定要啟程前往「${locName}」嗎？`)) {
           travelTo(locName, 0);
         }
         return;
@@ -655,7 +688,7 @@
   // 🛏️ 休息 N 小時：補 2×N AP、回血回魔（按時數比例）、世界自走
   async function rest(hours) {
     const foe = localFoeServantName();
-    if (foe && !confirm('⚠ 此地有敵從者「' + foe + '」！\n\n就地休息＝酣睡防備全失，最易遭夜襲重擊（重則靈基崩潰、敗北）。\n強烈建議先擊退敵人或轉往安全處。\n\n仍要在此休息？')) return;
+    if (foe && !await customConfirm_('⚠ 此地有敵從者「' + foe + '」！\n\n就地休息＝酣睡防備全失，最易遭夜襲重擊（重則靈基崩潰、敗北）。\n強烈建議先擊退敵人或轉往安全處。\n\n仍要在此休息？')) return;
     if (!beginAction()) return;
     var ov = document.getElementById('history-overlay');
     if (ov) ov.style.display = 'none';
@@ -735,7 +768,7 @@
   }
   // 🌊 解除召喚·深淵海怪：免費即時送回深淵，止住每小時維持費（重召須再付全額寶具魔力）。
   async function dismissHorror() {
-    if (!confirm('🌊 解除召喚：讓深淵海怪沉回深淵？\n\n・立即停止每小時 8 魔的維持費\n・失去 護盾擋傷／回合再生／並肩追擊／對城防禦\n・要再召喚須重付全額寶具魔力')) return;
+    if (!await customConfirm_('🌊 解除召喚：讓深淵海怪沉回深淵？\n\n・立即停止每小時 8 魔的維持費\n・失去 護盾擋傷／回合再生／並肩追擊／對城防禦\n・要再召喚須重付全額寶具魔力')) return;
     if (!beginAction()) return;
     const story = document.getElementById('story');
     try {
@@ -826,10 +859,10 @@
     return true;
   }
   // ❖ 燃令咒·絕對命令【強開寶具】：魔力見底時，燃一道令咒逼出真名(令咒補上缺口·免焚血)＋必中×1.5。重打剛才那一發寶具。
-  function forceSealNp_() {
+  async function forceSealNp_() {
     const t = window._lastNpTry; if (!t || !t.npcName) { alert('沒有可強開的寶具目標。'); return; }
     if (myMasterSeals <= 0) { alert('令咒已用盡，無法絕對命令。'); return; }
-    if (!confirm('❖ 燃一道令咒·絕對命令，強令從者不顧魔力枯竭、解放寶具？\n\n令咒之力補上魔力缺口（御主血肉不再被榨乾），並附【必中＋威力 ×1.5】。\n餘 ' + myMasterSeals + ' 道令咒。\n\n確定燃令咒強開？')) return;
+    if (!await customConfirm_('❖ 燃一道令咒·絕對命令，強令從者不顧魔力枯竭、解放寶具？\n\n令咒之力補上魔力缺口（御主血肉不再被榨乾），並附【必中＋威力 ×1.5】。\n餘 ' + myMasterSeals + ' 道令咒。\n\n確定燃令咒強開？')) return;
     servantStrike(t.npcName, true, true, false, true, t.npChoice); // useNp+useSeal+npPicked
   }
 
@@ -2188,7 +2221,7 @@
     // 🗡️ 斬首敵御主極兇險：唯有「大成功（擲 20）」能突破護衛從者、一擊斬殺御主；
     //    否則必被護衛擋下，並反噬 1.5 倍傷害給你的從者（可能直接靈基崩潰、敗北）。
     if (isMaster) {
-      if (!confirm('🗡️ 刺殺敵御主「' + npcName + '」？\n\n唯有擲出 20（大成功，1/20）能突破護衛從者、斬殺御主奪勝；\n否則必被護衛捨身擋下，並反噬 1.5 倍傷害給你的從者——重則靈基崩潰、聖杯戰爭落敗。\n\n確定發動奇襲斬首？')) return;
+      if (!await customConfirm_('🗡️ 刺殺敵御主「' + npcName + '」？\n\n唯有擲出 20（大成功，1/20）能突破護衛從者、斬殺御主奪勝；\n否則必被護衛捨身擋下，並反噬 1.5 倍傷害給你的從者——重則靈基崩潰、聖杯戰爭落敗。\n\n確定發動奇襲斬首？')) return;
     } else if (useNp) {
       // 💥 寶具零確認：檔位由攻擊列 ＋/＋＋ 蓄勢鈕預選(未亮＝僅付底費)，按💥直接開火，價格/倍率/反噬%資訊在按鈕 tooltip。
       var _oSv = (myServants || []).find(function (x) { return x.name === myActiveServant; });
@@ -2196,7 +2229,7 @@
       _npOverload = /\+|EX/i.test(_oNpr) ? (npTierArmed || false) : undefined;
     } else if (useSeal) {
       // ❖ 令咒普攻(蓄勢消費或互動選單直發·普攻原本無確認)：燃令咒是大事，補一個確認防誤耗——取消則不出擊、蓄勢保留。
-      if (!confirm('❖ 這記普攻將燃燒一道令咒‧絕對命令——必中＋威力 ×1.5（餘 ' + myMasterSeals + ' 道）。\n\n確定出擊？（取消＝不出擊' + (sealArmed ? '、蓄勢保留' : '') + '）')) return;
+      if (!await customConfirm_('❖ 這記普攻將燃燒一道令咒‧絕對命令——必中＋威力 ×1.5（餘 ' + myMasterSeals + ' 道）。\n\n確定出擊？（取消＝不出擊' + (sealArmed ? '、蓄勢保留' : '') + '）')) return;
     }
     if (!beginAction()) return;
     // ❖ 蓄勢熄燈：所有確認已過、此擊確定帶令咒出手（中途取消不會走到這裡，蓄勢保留）
@@ -2432,7 +2465,7 @@
   }
   // ⛓ 破戒奪僕：對打殘的敵從者斬契奪為第二從者
   // 🧰 共用小動作執行器：收斂 ruleBreakSteal/proposeAlliance/breakAlliance/allyBond/manaSupply/spiritRepair/bond/useSeal 這8個handler重複的「beginAction→gasRun→(成功: 副作用→syncData→narrate→善後)→(失敗: alert)→endAction」骨架。
-  //   confirm() 對話框留在各自呼叫端(措辭/門檻差異大)，這裡只收斂「confirm 通過之後」的流程。opts：
+  //   customConfirm_() 對話框留在各自呼叫端(措辭/門檻差異大)，這裡只收斂「確認通過之後」的流程。opts：
   //     payload(必)：gasRun 的 payload 物件
   //     beforeCall：beginAction() 成功後、story 訊息插入前的同步前置動作(如收合彈窗)
   //     preMsg：成功前先插入 story 的系統提示 HTML(選填，無則不插)
@@ -2464,7 +2497,7 @@
   }
 
   async function ruleBreakSteal(npcName, npcId) {
-    if (!confirm('⛓ 以破戒全咒奪取「' + npcName + '」為第二從者？\n\n條件：對方須被打殘至 HP 35% 以下，並燃燒一道令咒重新締約。\n成功後你將同時駕馭兩名從者（供魔雙倍吃緊）。\n\n確定破戒奪僕？')) return;
+    if (!await customConfirm_('⛓ 以破戒全咒奪取「' + npcName + '」為第二從者？\n\n條件：對方須被打殘至 HP 35% 以下，並燃燒一道令咒重新締約。\n成功後你將同時駕馭兩名從者（供魔雙倍吃緊）。\n\n確定破戒奪僕？')) return;
     await runSimpleAction_({
       preMsg: `<div class="msg-player"><b>【系統】：</b>御主舉起七彩短劍，欲斬斷「${npcName}」的契約……</div>`,
       payload: { action: 'rule_break_steal', pcId: pc.id, npcName: npcName, npcId: npcId, acctName: (pc && pc.account) || currentAccount },
@@ -2502,7 +2535,7 @@
   }
   // 🤝 交涉結盟（系統判定成敗，AI 演出）
   async function proposeAlliance(npcName, npcId) {
-    if (!confirm('🤝 向敵御主「' + npcName + '」交涉結盟？\n\n成敗取決於對方的性格／陣營、是否有共同強敵、以及戰局階段（剩越少騎越難結盟）。\n成盟後暫時休兵、互不侵犯（約 3 日，或存活 ≤3 騎時強制翻臉）。\n\n提議結盟？')) return;
+    if (!await customConfirm_('🤝 向敵御主「' + npcName + '」交涉結盟？\n\n成敗取決於對方的性格／陣營、是否有共同強敵、以及戰局階段（剩越少騎越難結盟）。\n成盟後暫時休兵、互不侵犯（約 3 日，或存活 ≤3 騎時強制翻臉）。\n\n提議結盟？')) return;
     await runSimpleAction_({
       preMsg: `<div class="msg-player"><b>【系統】：</b>御主向「${npcName}」遞出結盟的橄欖枝……</div>`,
       // 🔧 帶 npcId（比照攻擊路徑）：名字含中點（韋伯·維爾維特）走 raw 比對會漏，後端改吃 id/nameLoose_
@@ -2513,7 +2546,7 @@
   }
   // 💔 撕毀盟約
   async function breakAlliance(npcName) {
-    if (!confirm('💔 撕毀與「' + npcName + '」的盟約、重回敵對？')) return;
+    if (!await customConfirm_('💔 撕毀與「' + npcName + '」的盟約、重回敵對？')) return;
     await runSimpleAction_({
       payload: { action: 'break_alliance', pcId: pc.id, npcName: npcName },
       failMsg: '操作失敗。'
@@ -2522,7 +2555,7 @@
   // 🤝 與盟友共處／共濟魔力（增進羈絆；養至 90 解鎖【摯交】敘事里程碑，純敘事高光、無鑑賞入口意義）
   async function allyBond(npcName) {
     const foe = localFoeServantName();
-    if (foe && !confirm('⚠ 此地有未結盟的敵從者「' + foe + '」！\n\n與盟友共處時門戶大開，可能遭其趁隙突襲你的從者。\n仍要在此與盟友相處？')) return;
+    if (foe && !await customConfirm_('⚠ 此地有未結盟的敵從者「' + foe + '」！\n\n與盟友共處時門戶大開，可能遭其趁隙突襲你的從者。\n仍要在此與盟友相處？')) return;
     await runSimpleAction_({
       preMsg: `<div class="msg-player"><b>【系統】：</b>御主在暫時休兵的空檔，與盟友「${npcName}」並肩共處……</div>`,
       payload: { action: 'ally_bond', pcId: pc.id, npcName: npcName, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount },
@@ -2537,9 +2570,9 @@
 
   // 💧 補魔：御主硬擠魔術迴路回滿共用魔力池——但永久燒蝕(血上限−15、迴路−3)。孤注一擲的回魔。
   async function manaSupply() {
-    if (!confirm('💧 補魔：御主硬擠魔術迴路，將共用魔力池一口氣回滿。\n\n⚠ 代價【永久】：生命上限 −15、魔術迴路 −3 條（迴路↓會讓魔力池上限縮小、回魔變慢、禮裝變弱）。\n這是燃迴路續契約的孤注一擲——過度依賴等於慢性自盡。\n\n（想省代價：靠靈脈/陣地/休息自然回魔。注意：池見底會被動燃血、缺口÷2 由御主血量獨自承擔。）\n\n確定補魔？')) return;
+    if (!await customConfirm_('💧 補魔：御主硬擠魔術迴路，將共用魔力池一口氣回滿。\n\n⚠ 代價【永久】：生命上限 −15、魔術迴路 −3 條（迴路↓會讓魔力池上限縮小、回魔變慢、禮裝變弱）。\n這是燃迴路續契約的孤注一擲——過度依賴等於慢性自盡。\n\n（想省代價：靠靈脈/陣地/休息自然回魔。注意：池見底會被動燃血、缺口÷2 由御主血量獨自承擔。）\n\n確定補魔？')) return;
     const foe = localFoeServantName();
-    if (foe && !confirm('⚠ 此地有敵從者「' + foe + '」！\n\n補魔時門戶大開，極可能遭其趁隙突襲重擊你的從者（重則靈基崩潰、敗北）。\n建議先擊退敵人或轉往安全處。\n\n仍要在此補魔？')) return;
+    if (foe && !await customConfirm_('⚠ 此地有敵從者「' + foe + '」！\n\n補魔時門戶大開，極可能遭其趁隙突襲重擊你的從者（重則靈基崩潰、敗北）。\n建議先擊退敵人或轉往安全處。\n\n仍要在此補魔？')) return;
     await runSimpleAction_({
       preMsg: `<div class="msg-player"><b>【系統】：</b>御主凝神靜息，藉與從者的契約共鳴回充魔力儲備……</div>`,
       payload: { action: 'mana_supply', pcId: pc.id, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount },
@@ -2557,9 +2590,9 @@
 
   // 🩹 靈基修復：消費共用魔力池為從者療傷——不燃令咒、可重複使用（魔力池不足則無法發動）。
   async function spiritRepair() {
-    if (!confirm('🩹 靈基修復：引動共用魔力池為從者療傷，回復部分體力。\n\n不燃令咒、可重複使用；若共用魔力池不足則無法發動。\n\n確定發動？')) return;
+    if (!await customConfirm_('🩹 靈基修復：引動共用魔力池為從者療傷，回復部分體力。\n\n不燃令咒、可重複使用；若共用魔力池不足則無法發動。\n\n確定發動？')) return;
     const foe = localFoeServantName();
-    if (foe && !confirm('⚠ 此地有敵從者「' + foe + '」！\n\n療傷時門戶大開，極可能遭其趁隙突襲重擊你的從者（重則靈基崩潰、敗北）。\n建議先擊退敵人或轉往安全處。\n\n仍要在此療傷？')) return;
+    if (foe && !await customConfirm_('⚠ 此地有敵從者「' + foe + '」！\n\n療傷時門戶大開，極可能遭其趁隙突襲重擊你的從者（重則靈基崩潰、敗北）。\n建議先擊退敵人或轉往安全處。\n\n仍要在此療傷？')) return;
     await runSimpleAction_({
       preMsg: `<div class="msg-player"><b>【系統】：</b>御主引動共用魔力池，為從者療傷……</div>`,
       payload: { action: 'spirit_repair', pcId: pc.id, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount },
@@ -2592,7 +2625,7 @@
   }
   async function bond(type) {
     const foe = localFoeServantName();
-    if (foe && !confirm('⚠ 此地有敵從者「' + foe + '」！\n\n卸下心防相伴恐遭其趁隙突襲（重則靈基崩潰、敗北）。\n仍要在此相伴？')) return;
+    if (foe && !await customConfirm_('⚠ 此地有敵從者「' + foe + '」！\n\n卸下心防相伴恐遭其趁隙突襲（重則靈基崩潰、敗北）。\n仍要在此相伴？')) return;
     const label = (BOND_MENU.find(function (o) { return o[0] === type; }) || ['', '相伴'])[1];
     await runSimpleAction_({
       beforeCall: () => { var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none'; },
@@ -2746,7 +2779,7 @@
 
   // 🧹 清殘列：刪掉孤兒戰局/亡靈殘留，縮小「眾生」表 → 每次按鍵更快。不影響進行中的活躍戰局與鑑賞。
   async function devPurgeOrphans() {
-    if (!confirm('🧹 清理殘列？\n\n會刪除「沒有任何帳號在玩」的舊戰局殘留（敗北殘局、棄局、亡靈），縮小資料表、加快每次操作。\n\n✅ 安全：不會動到任何進行中的戰局，也不影響鑑賞後日談與已封存從者。\n\n確定清理？')) return;
+    if (!await customConfirm_('🧹 清理殘列？\n\n會刪除「沒有任何帳號在玩」的舊戰局殘留（敗北殘局、棄局、亡靈），縮小資料表、加快每次操作。\n\n✅ 安全：不會動到任何進行中的戰局，也不影響鑑賞後日談與已封存從者。\n\n確定清理？')) return;
     showProcessing('清理殘列中…', true);
     try {
       const res = await gasRun({ action: 'purge_orphans', pcId: (pc && pc.id) || '' });
@@ -2916,6 +2949,12 @@ var currentAccount = '';
 var accountLoginRes = null;
 
 function logoutAccount() { localStorage.clear(); location.reload(); }
+// 🚪 遊戲中的「離開冬木」按鈕比登入畫面的登出多一道確認(會丟棄未存的當下羈絆狀態)，
+//   登入畫面那顆按鈕本就無進行中狀態可丟，維持直接呼叫 logoutAccount()、不必多此一問。
+async function logoutWithConfirm_() {
+  if (!await customConfirm_('確定離開冬木？一切羈絆暫且封存。')) return;
+  logoutAccount();
+}
 
 function showHistoryOverlay(html) {
   var ov = document.getElementById('history-overlay');

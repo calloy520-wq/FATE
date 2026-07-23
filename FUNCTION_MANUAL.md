@@ -1019,6 +1019,8 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 
 #### 通訊 / state 同步層
 - `escapeHtml(str)` — XSS 轉義（跨玩家可見文字渲染進 innerHTML 前的第二層保險）；null/undefined→空字串。
+- `showToast_(msg)` — 輕量成功提示：浮在畫面上方、1.8秒自動淡出、不擋操作。只給「單純告知已完成」的訊息用（如改命成功），需要玩家看清原因的失敗訊息仍用 `alert()`。
+- `customConfirm_(message)` — **2026-07 新增**：自畫確認對話框，取代瀏覽器原生 `confirm()`（原生版在 Apps Script 沙盒 iframe 裡會把 `script.googleusercontent.com` 這串陌生網址秀在最上面，讀起來像可疑警告）。回傳 `Promise<boolean>`（原生 confirm 是同步阻塞，這裡改非同步），共用 `.modal-overlay`/`.modal-scroll` 底座。呼叫端一律 `if (!await customConfirm_(msg)) return;`（呼叫端函式需為 `async`）——**全代碼庫原生 confirm() 已於同批次全數替換**。
 - `gasRun(payload)` — 把 `google.script.run.handleGameAction` 封成 Promise；每趟呼叫先清空 `__pendingState`，回應若含 `_state` 就暫存供 `syncData` 直接消費（3→1 round-trip 核心）。
 - `beginAction(msg)` — 全域動作鎖：`__actionBusy` 已忙則回 false 擋連點；上進度遮罩＋progress 游標。
 - `endAction()` — 解鎖 `__actionBusy`、撤遮罩、還原游標。
@@ -1165,7 +1167,8 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `devPurgeOrphans()` — 清孤兒戰局/亡靈殘列（`purge_orphans`）。
 
 #### 模式切換 / 通用工具
-- `logoutAccount()` — localStorage.clear＋reload。
+- `logoutAccount()` — localStorage.clear＋reload。登入畫面的「登出」鈕直接呼叫這支(無進行中狀態可丟，不必確認)。
+- `logoutWithConfirm_()` — **2026-07 新增**：`customConfirm_` 確認後才呼叫 `logoutAccount()`；遊戲中「離開冬木」鈕用這支(會丟棄未存的當下羈絆狀態，多一道確認)。
 - `showHistoryOverlay(html)` — 通用彈窗（懶建 `history-overlay`，內容區可捲、關閉鈕恆可見）；全檔各 popup 共用。
 - `applyModeUI()` — 模式總開關：solo 隱藏輸入框/傳送/NSFW 開關/拍照/相簿/節慶、顯戰爭列；鑑賞相反。
 - `withButtonLock(btnEl, asyncFn)` — 通用按鈕防連點鎖（執行期 disable+變灰，finally 解鎖）。
