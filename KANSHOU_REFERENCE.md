@@ -133,7 +133,8 @@
 
 ## 🎭 橋段（scripted events）
 
-- **資料表** `KANSHOU_SCENE_EVENTS_`（約13筆）：日常 夜襲／賴床叫醒／共浴／溫泉同浴／膝枕／下廚／觀星；節慶 初詣／情人節巧克力／七夕短冊／中秋賞月／聖誕約會／跨年倒數。走向骰 `kanshouRollSceneBranch_`。
+- **資料表** `KANSHOU_SCENE_EVENTS_`（約13筆）：日常 夜襲／賴床叫醒／共浴／溫泉同浴／膝枕／下廚／觀星；節慶 初詣／情人節巧克力／七夕短冊／中秋賞月／聖誕約會／跨年倒數。走向骰 `kanshouRollSceneBranch_`(依bond由高到低取第一個達標的branch)。
+  - **🐛→✅ 2026-07 玩家實測「夜襲橋段沒有睡夢中被弄醒的感覺，泡泡是不是沒用」**：抓到兩個問題——① `夜襲` 的 `label` 原寫「似乎還醒著」，直接否定了「她在睡夢中」這個前提，跟橋段本該演出的「睡夢中被弄醒」畫面互相矛盾，也跟 §作息 提到的睡眠狀態提示(`pSleepStr`)打架；② `夜襲`(原60/30/-100三層)與`賴床叫醒`(原80/40/-100三層)的最低那一層(`min:30`/`min:-100`)**從沒真的用得到**——進得了她房間的前提是拜訪住處門檻已解鎖(`KANSHOU_VISIT_BOND_=40`)，bond 不可能落在40以下，那一層 branch 形同死碼。已改：`label`/`verb`/`intent`/`branches` 全部改寫成「熟睡→被觸碰喚醒」的明確畫面，好感決定的是**醒來後的反應強度**、不是清醒與否；死碼層直接刪掉，`夜襲` 只留 60+/40+ 兩層(60沿用親密尺度五階「親吻擁抱」切點、40沿用「輕度接觸」切點，跟其餘尺度判定同一套數字)，`賴床叫醒` 只留 80+/40+ 兩層(方向本就正確，只清掉死碼)。
 - **offer+accept 制**：先跳邀請框（`roomEventOffer`），玩家按 `kanshouAcceptRoomEvent` 才演。非拒絕分支 `BOND+3`。⚠ offer 組裝時**現場過濾候選人 LOC＝當前地點**（2026-07 稽核修：舊版沿用回合初快取，人已離場還發邀請＝幽靈橋段），過濾後無人＝不發 offer。
 - **觸發表**：`KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_ = {深夜:夜襲, 清晨:賴床叫醒}`（同居和室）／`KANSHOU_LOCATION_EVENTS_`（地點×時段）／`KANSHOU_FESTIVAL_EVENTS_`（節慶）。
 - **深夜敲門**：每次「結束一天」擲 `KANSHOU_KNOCK_CHANCE_ = 0.2`，候選需好感≥`KANSHOU_KNOCK_MIN_BOND_ = 60`；跳敲門泡泡（`kanshouAnswerKnock`/`kanshouIgnoreKnock`）。
