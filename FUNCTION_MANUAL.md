@@ -1212,6 +1212,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 #### 聊天引擎與 loading
 - `showProgressLoader_(loadId, captions)` — 插入「跑條」loading（推進時間類動作用），文字每 1.1s 輪播直到 AI 回應；設 `progressTimer`。
 - `hideProgressLoader_(loadId)` — 清 `progressTimer` 並移除跑條 DOM。
+- `kcInsertPhrase(text)`（2026-07 新增）— 快速輸入貼圖列(`#kc-quick-phrases`，鑑賞限定)的 onclick 目標：把文字插入 `#u-in` 游標處並聚焦，不呼叫 `send()`，純粹幫玩家把括號註記(害羞/小聲等)打進輸入框，仍要玩家自己按傳送。
 - `send(customMsg, isSilent=false, opts={})` — **鑑賞聊天引擎，唯一 `action:'play'` 呼叫點**；本檔/Script.html 所有互動最終都經此送出。2026-07 重構：23 位置參數→單一 `opts` 物件（`moveTarget`/`lookAround`/`endDay`/`advanceHours`/`jumpFestival`/`jumpBand`/`knockAccept`/`skipKnockCheck`/`roomEventAccept`/`moveWithCompanion`/`promiseMeet`/`cohabitInvite`/`inviteResident`/`proposeMove`/`takePhoto`/`showPhoto`/`photoIntent`/`handHold`/`loaderCaptions` 等；`cohabitAccept`/`promiseAccept` 已隨GAS主動邀同居/邀約機制於八度改版一併移除）；前兩位置參數保留（選項鈕 `send(text,true)`）。忙碌鎖用 `btn.disabled`；數字 1–4 映射 `currentOptions`。呼叫 `gasRun`，消費回應：更新 `localNPCs`/`nearbyLocations`/`kcClock`(→`renderMapPane`)/`clock`(→`updateClock`)/`statusString`(→`updateUI`)；渲染各式「必點泡泡」（`moveProposal`/`promiseWait`/`knockEvent`/`roomEventOffer`/`photoResult`/`encounterOffer`/`options`【命運的抉擇】），有泡泡自動 `scrollIntoView`；插入說書人敘事＋`proposalResult`/`promiseSettle` 系統通知條；約定變動時背景重抓 `kanshou_companions` 刷 `_kcCur`；末尾 `refreshFateTags(data.tags)`＋重繪地圖人數徽章。失敗不炸整局（`success:false` 走灰字提示）。
 
 #### 同伴面板（駐留清單 / 召喚）

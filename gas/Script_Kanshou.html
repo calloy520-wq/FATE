@@ -32,6 +32,18 @@
     document.getElementById(loadId)?.remove();
   }
 
+  // 🎀 快速輸入貼圖：點下去把括號註記塞進輸入框游標處(不送出)，玩家自己決定要不要送。
+  function kcInsertPhrase(text) {
+    const el = document.getElementById('u-in');
+    if (!el) return;
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? el.value.length;
+    el.value = el.value.slice(0, start) + text + el.value.slice(end);
+    el.focus();
+    const pos = start + text.length;
+    el.setSelectionRange(pos, pos);
+  }
+
   // 🧰 2026-07 重構：原本 23 個位置參數(呼叫端一長串 null 極易錯位)改成單一 opts 物件；
   //   前兩個位置參數(customMsg, isSilent)保留——選項按鈕 send(text, true) 用法不變。
   //   純前端組參方式改變，送後端的 payload 一模一樣，零速度影響。

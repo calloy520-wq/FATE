@@ -178,6 +178,31 @@
     padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
   }
 
+  /* 🎀 慾海快速輸入貼圖：點下去把括號註記塞進輸入框(不送出)，省得玩家自己打字 */
+  #kc-quick-phrases {
+    display: flex;
+    overflow-x: auto;
+    gap: 6px;
+    padding: 6px 16px 0;
+    background: var(--bg-color);
+  }
+
+  .kc-qp-btn {
+    flex: none;
+    background: rgba(240, 184, 224, .12);
+    border: 1px solid rgba(240, 184, 224, .3);
+    border-radius: 14px;
+    color: #e8d8e0;
+    font-size: 12px;
+    padding: 5px 10px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .kc-qp-btn:active {
+    background: rgba(240, 184, 224, .28);
+  }
+
   .pill-wrapper {
     flex: 1;
     display: flex;

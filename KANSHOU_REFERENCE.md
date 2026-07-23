@@ -304,7 +304,8 @@ SOLO_MODEL   = google/gemini-3.5-flash-lite  (屬性 SOLO_MODEL)   ← 主力(�
 - **函式分組**：地圖移動(`kcMapListHtml_`/`kanshouMoveTo`/`kanshouProposeMove`/`kanshouLookAround`)、同伴面板(`openCompanions`/`renderKcHeroList_`/`kanshouEditRelTag`)、召喚(`kanshouSummonHero`)、回憶(`kanshouOpenMemoir`/`kanshouMemoirOp`)、約定(`kanshouPromiseMeet`/`kanshouWaitForPromise`)、拍照相簿(`kanshouTakePhoto`/`openKanshouAlbum`)、時鐘(`kanshouEndDay`/`kanshouNextStage`/`kanshouJumpBand`/`kanshouJumpFestival`)。
 - **泡泡 UI**（`send()` 內依回傳欄位組）：移動同意(`moveProposal`)、敲門(`knockEvent`)、橋段邀請(`roomEventOffer`)、巧遇(`encounterOffer`)、拍照結果(`photoResult`)、地圖人數徽章(`_lastTags.locationCounts`)。
 - **前端鏡像常數**（後端為真實來源）：`KC_REGIONS_`/`KC_FESTIVALS_`/`KC_TIME_BANDS_`/`KC_LOCATIONS_`/`KC_APPT_BANDS_`。時鐘全域 `kcClock`（`Script.html`）。
-- **`Script.html`/`Index.html` 的鑑賞殘留**：`applyModeUI()` 總開關（依 isKanshou 切 topbar/輸入框/drive開關/photo-btn/相簿抽屜/節慶抽屜）；同伴卡鑑賞按鈕列(🏷️關係/📅相約/✋放手/🤝牽手/🏠同居/💞回憶)；`enterKanshou()` 入口。⚠ `Index.html` 的 `#victory-memoir` div 是**戰爭軌殘留**：奪杯回憶錄機制已砍，該 div 現只被清空/隱藏、不再填充（非鑑賞，別誤接鑑賞邏輯）。
+- **`Script.html`/`Index.html` 的鑑賞殘留**：`applyModeUI()` 總開關（依 isKanshou 切 topbar/輸入框/drive開關/photo-btn/快速輸入貼圖列/相簿抽屜/節慶抽屜）；同伴卡鑑賞按鈕列(🏷️關係/📅相約/✋放手/🤝牽手/🏠同居/💞回憶)；`enterKanshou()` 入口。⚠ `Index.html` 的 `#victory-memoir` div 是**戰爭軌殘留**：奪杯回憶錄機制已砍，該 div 現只被清空/隱藏、不再填充（非鑑賞，別誤接鑑賞邏輯）。
+- **🎀 快速輸入貼圖**（2026-07 新增，玩家「打符號會不會被砍掉？可以加類似罐頭訊息的貼圖嗎，點下去幫玩家輸入好(不送出)就是塞進對話框」）：查證後**玩家輸入從前端到後端全程沒有任何地方會過濾/剝除文字**(`send()` 直接讀 `input.value`；後端 `const userMsg = userData.message || ""` 原樣轉送)，玩家誤以為被砍掉的是「AI輸出narration不寫括號」——那是 `dialogueFormatRule_` 故意禁止 AI 自己用（輕哼）（嬌喘）這類括號描述聲音，跟玩家打字輸入無關，兩者是不同機制。新增的貼圖列是純前端小功能：`Index.html` 輸入列上方新增 `#kc-quick-phrases`(鑑賞限定，`applyModeUI()` 切 `display:flex`/`none`)，8顆預設短句(害羞/小聲/苦笑/臉紅/嘆氣/撒嬌/沉默/愣住)；`Script_Kanshou.html` 新函式 `kcInsertPhrase(text)` 把文字插入 `#u-in` 游標處並聚焦，**不呼叫 send()**、純粹幫忙打字，玩家仍要自己按傳送。要加減句子只需改 `Index.html` 裡的 `onclick="kcInsertPhrase('...')"` 那幾行，不涉及任何後端/提示詞邏輯。
 
 ---
 

@@ -3047,6 +3047,8 @@ function applyModeUI() {
   var dfest = document.getElementById('drawer-festival'); if (dfest) dfest.style.display = isKanshou ? '' : 'none';
   // 📷 拍照鈕(輸入列)＋相簿(＋抽屜)：鑑賞限定
   var pbtn = document.getElementById('photo-btn'); if (pbtn) pbtn.style.display = isKanshou ? '' : 'none';
+  // 🎀 快速輸入貼圖列(輸入框上方，鑑賞限定)：見Script_Kanshou.html的kcInsertPhrase。
+  var qphr = document.getElementById('kc-quick-phrases'); if (qphr) qphr.style.display = isKanshou ? 'flex' : 'none';
   var dalb = document.getElementById('drawer-album'); if (dalb) dalb.style.display = isKanshou ? '' : 'none';
   // 🎀 小道具快速控制抽屜(鑑賞限定，見Script_Kanshou.html的_kcEnsureDrawer_)：懶建立(第一次進applyModeUI才生)。
   if (typeof _kcEnsureDrawer_ === 'function') { var _kcd = _kcEnsureDrawer_(); _kcd.style.display = isKanshou ? 'block' : 'none'; }
