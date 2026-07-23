@@ -29,6 +29,7 @@ const ActionRouter = {
   "get_full_status": actionGetFullStatus,
   "update_fate": actionUpdateFate,
   "update_rel_tag": actionUpdateRelTag,
+  "kanshou_set_nickname": actionSetNickname, // 🔒 2026-07 五度改版：專屬稱呼比照update_rel_tag同一套bond≥80門檻(見Gallery.gs KANSHOU_CUSTOM_TAG_BOND_)
   "create": actionManualNpc, // 御主創角(isCreate 分支)。手動建 NPC(manual_npc) 已移除、其 !isCreate 分支成死碼。
   "backfill_master_ai": actionBackfillMasterAi, // 🚀 開局非阻塞：create 後於召喚頁背景補御主敘事欄
   "summon_servant": actionSummonServant,
@@ -80,7 +81,7 @@ function sanitizeUserData_(userData) {
   // 🐛→✅ 舊版寫的是 "newRelName"，但 actionUpdateRelTag 實際讀的欄位叫 userData.newTagText——
   //   兩個字串對不上，這條清洗規則從沒生效過，讓關係稱呼欄位只吃 GLOBAL_MAX 截斷、沒過 HTML 斷字
   //   字元清洗，前端卡片渲染該欄位時又漏包 escapeHtml，等於留一個可注入 innerHTML 的缺口。
-  const STRICT_NAME_FIELDS = new Set(["name", "npcName", "targetName", "factionName", "newTagText", "pcName", "trueName"]);
+  const STRICT_NAME_FIELDS = new Set(["name", "npcName", "targetName", "factionName", "newTagText", "newNickname", "pcName", "trueName"]);
   // 🔴 只在「建立角色/登記NPC」的姓名欄位強制純中文(去英數/符號/空白)；
   //   參照既有角色的欄位(targetName/newRelName 等)不清洗，以免破壞改版前可能存在的非中文名查找。
   const CHINESE_NAME_FIELDS = new Set(["name", "npcName"]);
@@ -186,7 +187,8 @@ function handleGameAction(userData) {
   //   但 update_fate/update_rel_tag 兩個handler本就是特地扣出來給鑑賞共用(見上方KANSHOU_BLOCKED_
   //   ACTIONS_註解)、也确实有交棒STATE_PRE_DATA_，只是這裡的守門條件忘了同步放行，導致鑑賞玩家
   //   改命/改稱呼存檔後前端沒收到_state、白跑一趟真正的sync整表重讀。isKanshouCtx為真時能走到這裡
-  //   的action只剩這兩個(其餘STATE_AFTER_ACTIONS成員都在更早的KANSHOU_BLOCKED_ACTIONS_被擋掉)。
+  //   的action只有這三個(其餘STATE_AFTER_ACTIONS成員都在更早的KANSHOU_BLOCKED_ACTIONS_被擋掉)：
+  //   update_fate/update_rel_tag/kanshou_set_nickname(2026-07五度改版新增專屬稱呼手動設定)。
   if (STATE_AFTER_ACTIONS[action] && (String(pcId || "").indexOf("PC_") === 0 || isKanshouCtx)) {
     try {
       const obj = JSON.parse(out);
@@ -220,11 +222,11 @@ const STATE_AFTER_ACTIONS = {
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
   second_wind: 1, scout: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
   faction_ambush: 1, incite: 1, court_enemy: 1,
-  update_fate: 1, update_rel_tag: 1
+  update_fate: 1, update_rel_tag: 1, kanshou_set_nickname: 1
 };
 // 🛡️ 慾海(KPC_)明確擋下的戰鬥／經濟／結盟類 action——皆為 solo 戰爭專屬，前端在 kanshou 模式下
-//   本就全數隱藏對應按鈕，這裡擋 API 直打。取 STATE_AFTER_ACTIONS 扣掉 update_fate/update_rel_tag
-//   (通用敘事欄編輯，慾海也適用)，加上 3 個樂觀更新輕量 setter。
+//   本就全數隱藏對應按鈕，這裡擋 API 直打。取 STATE_AFTER_ACTIONS 扣掉 update_fate/update_rel_tag/
+//   kanshou_set_nickname(通用或鑑賞專屬的敘事欄編輯，慾海也適用)，加上 3 個樂觀更新輕量 setter。
 //   move 不在名單中：鑑賞移動地圖走 action:'play'+moveTarget，從不真的呼叫 action:'move'；且
 //   actionMove 用 KPC_ id 去查「眾生」表本就查無此人、安全但原因與其他表面相似的判斷不同。
 //   weapon/get_map_nodes/narrate_only/end_run/create/summon_servant/backfill_master_ai/
@@ -378,6 +380,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
     servants.push({
       name: s[COL.PC.NAME], cls: s[COL.PC.RANK] || "從者", sex: s[COL.PC.SEX],
       tag: s[COL.PC.REL_TAG] || "從者", // 🏷️ 關係標籤(鑑賞卡片「🏷️關係」鈕預填用；solo不使用此欄)
+      nickname: getNickname_(s[COL.PC.REL_MEM]), // 💬 專屬稱呼裸值(鑑賞卡片「🏷️關係」面板預填用)
       // 預取狀態字串隨 state 一併帶回，前端切從者直接秒顯，免每次都打一趟 get_full_status round-trip。
       statusString: buildPlayerStatusString(s, String(s[COL.PC.REL_MEM] || "")),
       hp: hpWord(s[COL.PC.HP], s[COL.PC.MAX_HP]),
@@ -525,11 +528,55 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   }
 
   const finalTag = String(newTagText).trim();
+  // 🔒 2026-07 五度改版·自訂稱呼會被字面「TA是你的${tag}」原樣塞進AI提示詞當既定事實，玩家實測
+  //   低好感就打露骨自訂稱呼會讓AI無視好感天花板照樣演到底——5階預設標籤(KANSHOU_REL_TIER_)本就
+  //   由GAS依好感計算，不受此限；只擋「自訂文字不等於任一預設標籤」這條路徑。
+  const isPreset = KANSHOU_REL_TIER_.some(t => t.label === finalTag);
+  const bond = parseInt(pcData[tIdx][COL.PC.BOND]) || 0;
+  if (!isPreset && bond < KANSHOU_CUSTOM_TAG_BOND_) {
+    return JSON.stringify({ success: false, message: `好感達到${KANSHOU_CUSTOM_TAG_BOND_}(戀人)才能自訂關係稱呼，目前${bond}。` });
+  }
+
   // 需同步寫回 pcData 的記憶體鏡射，才能安全交棒 STATE_PRE_DATA_(否則夾帶的 _state.people 會顯示舊稱呼)。
   pcData[tIdx][COL.PC.REL_TAG] = finalTag;
   sheets.pc.getRange(tIdx + 1, COL.PC.REL_TAG + 1).setValue(finalTag);
 
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：REL_TAG改寫已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({ success: true, message: `羈絆已重新定義為「${finalTag}」。`, newTag: finalTag });
+}
+
+// 🔒 2026-07 五度改版·專屬稱呼比照 update_rel_tag 同一套bond門檻+同一個injection風險，玩家手動設定
+//   後寫入【稱呼鎖】旗標，讓AI的rel_changes.mutual_nicknames不再自動覆寫(尊重玩家的手動選擇，同
+//   kanshouSyncRelTier_對自訂關係稱呼「一旦手動改過就不再被自動覆寫」的精神)。
+function actionSetNickname(userData, pcId, sheets) {
+  const { targetName, newNickname } = userData;
+  if (!newNickname || !String(newNickname).trim()) return JSON.stringify({ success: false, message: "稱呼不可為空。" });
+
+  const pcData = sheets.pc.getDataRange().getValues();
+  const me = pcData.find(r => r[COL.PC.ID] == pcId);
+  const myGameId = me ? String(me[COL.PC.GAME_ID] || "") : "";
+  const tIdx = pcData.findIndex(r => r[COL.PC.NAME] === targetName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
+  if (tIdx === -1) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
+
+  const bond = parseInt(pcData[tIdx][COL.PC.BOND]) || 0;
+  if (bond < KANSHOU_CUSTOM_TAG_BOND_) {
+    return JSON.stringify({ success: false, message: `好感達到${KANSHOU_CUSTOM_TAG_BOND_}(戀人)才能自訂專屬稱呼，目前${bond}。` });
+  }
+
+  // 分隔符安全：清掉可能撞到REL_MEM組字格式的符號(｜全形/[]方括號)，避免污染後續欄位解析。
+  const finalNick = String(newNickname).trim().replace(/[｜\[\]]/g, "").slice(0, 20);
+  if (!finalNick) return JSON.stringify({ success: false, message: "稱呼不可為空。" });
+
+  const oldRMem = String(pcData[tIdx][COL.PC.REL_MEM] || "");
+  // 保留既有【態度】段(若有)，只覆寫【專屬稱呼】+補上【稱呼鎖】。
+  const attMatch = oldRMem.match(/\[態度\](.*?)(?=\| \[|$)/);
+  const attPart = attMatch ? `| [態度]${attMatch[1].trim()}` : "";
+  const newRMem = `[專屬稱呼]${finalNick}| [稱呼鎖]是${attPart}`;
+
+  pcData[tIdx][COL.PC.REL_MEM] = newRMem;
+  sheets.pc.getRange(tIdx + 1, COL.PC.REL_MEM + 1).setValue(newRMem);
+
+  STATE_PRE_DATA_ = pcData;
+  return JSON.stringify({ success: true, message: `專屬稱呼已設為「${finalNick}」。`, newNickname: finalNick });
 }
 

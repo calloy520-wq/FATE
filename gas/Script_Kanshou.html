@@ -411,7 +411,7 @@ let plainTextContext = cleanText;
       return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
         + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(c.name) + ' <small style="color:#8a7fa0;">(關係:' + escapeHtml(c.tag || '點頭之交') + '・好感' + c.bond + ')</small><br><small style="color:#7a9fa0;">📍 ' + escapeHtml(c.locLabel || c.loc || '不明') + '</small>' + (c.promise ? '<br><small style="color:#a8d0f0;">📅 ' + escapeHtml(c.promise.date) + (c.promise.time ? ' ' + escapeHtml(c.promise.time) : '') + ' 在「' + escapeHtml(c.promise.loc) + '」有約</small>' : '') + '</span>'
         + '<button onclick="kanshouOpenMemoir(\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 8px;background:' + (memCount ? '#5a3a4a' : '#3a3a44') + ';color:' + (memCount ? '#e8b8cc' : '#999') + ';border:none;border-radius:6px;cursor:pointer;font-size:12px;">💞回憶' + (memCount ? '(' + memCount + ')' : '') + '</button>'
-        + '<button onclick="kanshouOpenRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button></div>';
+        + '<button onclick="kanshouOpenRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\',' + (parseInt(c.bond) || 0) + ',\'' + String(c.nickname || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button></div>';
     }).join('') : '<div style="color:#888;padding:6px;">（這座城裡你還誰都不認識，從下方邀一個人來吧）</div>';
   }
 
@@ -1482,8 +1482,12 @@ let plainTextContext = cleanText;
     { min: 20, label: '普通朋友' },
     { min: -100, label: '點頭之交' }
   ];
+  // 🔒 2026-07 五度改版·跟 Gallery.gs 的 KANSHOU_CUSTOM_TAG_BOND_ 同一個數字(80=戀人)——自訂關係
+  //   稱呼／專屬稱呼的文字會被字面塞進AI提示詞當既定事實，低好感就打露骨自訂內容會讓AI無視好感
+  //   天花板照樣演到底，門檻切在跟親密尺度五階「80+無上限」同一個點，一解鎖尺度本就已經全開。
+  var KC_CUSTOM_TAG_BOND_ = 80;
   var _krBusy = false;
-  function kanshouOpenRelTag(name, curTag) {
+  function kanshouOpenRelTag(name, curTag, bond, curNickname) {
     if (_krBusy) return;
     var ov = document.getElementById('kr-overlay');
     if (!ov) {
@@ -1494,20 +1498,34 @@ let plainTextContext = cleanText;
       document.body.appendChild(ov);
     }
     var safeN = String(name).replace(/'/g, "\\'");
+    var b = parseInt(bond) || 0;
+    var unlocked = b >= KC_CUSTOM_TAG_BOND_;
     var isPreset = KC_REL_TIERS_.some(function (t) { return t.label === curTag; });
     var presetBtns = KC_REL_TIERS_.map(function (t) {
       var active = t.label === curTag;
       return '<button onclick="kanshouSetRelTag(\'' + safeN + '\',\'' + t.label + '\')" style="width:100%;text-align:left;padding:8px 10px;margin-bottom:5px;font-size:13px;background:' + (active ? '#6a4a9a' : '#2a2430') + ';color:' + (active ? '#fff' : '#dcc8ff') + ';border:1px solid rgba(180,140,255,.3);border-radius:6px;cursor:pointer;">' + t.label + (active ? '（目前）' : '') + '</button>';
     }).join('');
+    // 🔒 自訂關係稱呼／專屬稱呼都會被字面塞進AI提示詞當既定事實，未達門檻前不給輸入框、只顯示鎖定說明。
+    var customSection = unlocked
+      ? ('<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);">'
+        + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:5px;">自訂關係稱呼：填一個詞就好(像「小可愛」「寶貝」這種)，不要打完整句子，不然容易跟系統模板打架、AI 反而理解錯。</div>'
+        + '<div style="display:flex;gap:5px;">'
+        + '<input id="kr-custom" maxlength="20" placeholder="自訂稱呼" value="' + (isPreset ? '' : escapeHtml(curTag || '')) + '" style="flex:1;min-width:0;padding:6px;background:#2a2430;color:#eee;border:1px solid rgba(180,140,255,.3);border-radius:6px;font-size:12px;">'
+        + '<button onclick="kanshouSetRelTagCustom(\'' + safeN + '\')" style="padding:6px 10px;background:#6a4a9a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">確定</button>'
+        + '</div>'
+        + '<div style="color:#8a7fa0;font-size:11px;margin:12px 0 5px;">專屬稱呼(她私下怎麼稱呼你，同樣只填一個詞)：</div>'
+        + '<div style="display:flex;gap:5px;">'
+        + '<input id="kr-nickname" maxlength="20" placeholder="專屬稱呼" value="' + escapeHtml(curNickname || '') + '" style="flex:1;min-width:0;padding:6px;background:#2a2430;color:#eee;border:1px solid rgba(180,140,255,.3);border-radius:6px;font-size:12px;">'
+        + '<button onclick="kanshouSetNicknameCustom(\'' + safeN + '\')" style="padding:6px 10px;background:#6a4a9a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">確定</button>'
+        + '</div></div>')
+      : ('<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);color:#7a7086;font-size:11.5px;">🔒 好感達到' + KC_CUSTOM_TAG_BOND_ + '(戀人)才能自訂關係稱呼／專屬稱呼，目前好感' + b + '。</div>');
     ov.innerHTML = '<div style="width:min(360px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(180,140,255,.3);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#dcc8ff;">🏷️ 「' + escapeHtml(name) + '」的關係稱呼</b>'
       + '<button onclick="document.getElementById(\'kr-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
       + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:8px;">目前：' + escapeHtml(curTag || '從者') + '。選預設稱呼會跟著好感自動升降；打自訂稱呼會固定下來，之後不會再自動改變。</div>'
       + presetBtns
-      + '<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);display:flex;gap:5px;">'
-      + '<input id="kr-custom" maxlength="20" placeholder="自訂稱呼" value="' + (isPreset ? '' : escapeHtml(curTag || '')) + '" style="flex:1;min-width:0;padding:6px;background:#2a2430;color:#eee;border:1px solid rgba(180,140,255,.3);border-radius:6px;font-size:12px;">'
-      + '<button onclick="kanshouSetRelTagCustom(\'' + safeN + '\')" style="padding:6px 10px;background:#6a4a9a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">確定</button>'
-      + '</div></div>';
+      + customSection
+      + '</div>';
     ov.style.display = 'flex';
   }
   async function kanshouSetRelTag(name, tag) {
@@ -1525,6 +1543,21 @@ let plainTextContext = cleanText;
     var nt = el ? el.value.trim() : '';
     if (!nt) { alert('關係稱呼不能空白。'); return; }
     await kanshouSetRelTag(name, nt);
+  }
+  // 💬 專屬稱呼手動設定(2026-07五度改版)：比照 kanshouSetRelTag 同一套busy鎖+回應處理，走新的
+  //   kanshou_set_nickname action(見Router_Action.gs actionSetNickname)。
+  async function kanshouSetNicknameCustom(name) {
+    var el = document.getElementById('kr-nickname');
+    var nt = el ? el.value.trim() : '';
+    if (!nt) { alert('專屬稱呼不能空白。'); return; }
+    if (_krBusy) return;
+    _krBusy = true;
+    try {
+      const res = await gasRun({ action: 'kanshou_set_nickname', pcId: pc.id, targetName: name, newNickname: nt });
+      if (res && res.success) { syncData(true); kcRefreshPartyOnly_(); var ov = document.getElementById('kr-overlay'); if (ov) ov.style.display = 'none'; }
+      else { alert((res && res.message) || '更改失敗。'); }
+    } catch (e) { alert('更改失敗。'); }
+    finally { _krBusy = false; }
   }
   // ✏ 隨時更改後日談中「你（御主）」的名字
   async function changeKanshouName() {

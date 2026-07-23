@@ -34,8 +34,8 @@
 | `MEMORY` | 12 | 所有中文方括號標記共用 cell（見下表），大量讀寫 |
 | `LOC` | 6 | **鑑賞「是否同地在場」的唯一判準**（取代 IS_PARTY）。行程骰每回合寫回 |
 | `BOND` | 24 | 好感。橋段+3／赴約+5／爽約-5／AI rel_changes 加減（夾天花板） |
-| `REL_TAG` | 25 | 五階關係標籤。GAS 自動升降（`kanshouSyncRelTier_`），**AI 無寫入權**、玩家 UI 手動改（`update_rel_tag`） |
-| `REL_MEM` | 28 | 關係專屬記憶／專屬稱呼／態度。AI 寫回 |
+| `REL_TAG` | 25 | 五階關係標籤。GAS 自動升降（`kanshouSyncRelTier_`），**AI 無寫入權**、玩家 UI 手動改（`update_rel_tag`，自訂文字需 bond≥80） |
+| `REL_MEM` | 28 | 關係專屬記憶／專屬稱呼／態度／稱呼鎖。AI 寫回；專屬稱呼另可由玩家經 `kanshou_set_nickname` 手動鎖定（bond≥80） |
 | `MEMOIR` | 27 | **共同回憶**（見專節）。原 `MAJOR_EVENT` 死欄復用 |
 | `NAME/SEX/PREF/TRAIT/BACK/FACTION/GAME_ID/ID` | — | 組敘事卡片、sameGame 過濾、前綴判定 |
 
@@ -93,6 +93,12 @@
   - **約定赴約 +5**（硬編字面，`kanshouPromiseMetStr` 那段，不吃 chat ceiling）
   - **親密橋段 +3**（`KANSHOU_SCENE_BOND_ = 3`，非拒絕分支）
 - **AI 對關係的影響力只剩「認不認」**：寫在 `intimacy_feedback.npcs[].attitude`，**不能覆寫 REL_TAG**。
+- **🔒 2026-07 五度改版·自訂關係稱呼／專屬稱呼門檻**（玩家實測抓到：把 REL_TAG 改成露骨自訂稱呼後，即使好感才 39/59 就能讓 AI 無視親密尺度天花板直接演到底）——根因是 REL_TAG／專屬稱呼的文字會被字面`「TA是你的${tag}」`原樣塞進 AI 提示詞當**既定事實**（`partyDetailsArr`，見下方 §AI 提示詞），跟前面「強迫字眼繞過天花板」是同一種「強勢文字覆寫規則式門檻」的失敗模式。修法：
+  - `KANSHOU_CUSTOM_TAG_BOND_ = 80`（Gallery.gs，戀人門檻，跟親密尺度五階「80+無上限」同一個切點——一旦解鎖，尺度本就已經全開，不會有「好感沒到、卻被自訂文字撐開尺度」的倒掛）。
+  - **5 階預設標籤永遠可選**，不受此門檻限制（`actionUpdateRelTag` 只擋「新文字不等於任一預設標籤」的自訂路徑）。
+  - **專屬稱呼**（原本 100% AI 寫入的 `REL_MEM【專屬稱呼】`）新增玩家可控入口：新 action `kanshou_set_nickname`（`actionSetNickname`，Router_Action.gs）同樣受 bond≥80 門檻保護，成功後在 REL_MEM 寫入 `【稱呼鎖】是` 旗標，讓 AI 的 `mutual_nicknames` 不再自動覆寫（尊重玩家手動選擇，同 `kanshouSyncRelTier_` 對自訂 REL_TAG 的「一旦手動改過就不再被自動覆寫」精神）。
+  - 讀值共用 helper `getNickname_(relMem)`（Gallery.gs）：`actionKanshouCompanions`／servant 清單(`buildTagsPayload_`附近)兩處各自要秀給玩家看，都呼叫這支，不重複寫 regex。
+  - **UI**：`kanshouOpenRelTag(name, curTag, bond, curNickname)`（Script_Kanshou.html，call site 在 Script.html 卡片鈕與 Script_Kanshou.html 同伴清單）——bond<80 時整個自訂區塊換成鎖定說明文字，不給輸入框；bond≥80 才顯示「自訂關係稱呼」＋「專屬稱呼」兩組輸入框，並附一句引導文案：**這格是填空的名詞，不要打完整句子**（打完整句子會跟系統模板`「TA是你的___」`文法打結、AI 容易理解錯方向）。
 - **親密尺度分五階**（提示詞側·硬約束肢體親密程度）：<20完全碰不到／20-39婉拒／40-59輕度接觸／60-79親吻擁抱／80+無上限。門檻 20/40/60/80 借用同居(80床)/夜襲(60)等切點。
   - **🚨 2026-07 真實 bug 修復（玩家實測抓到）**：低好感(剛認識·<20)場景輸入明講「強姦她」等強迫字眼，AI 仍讓行為得逞、寫成一段完整的非合意侵犯過程(她持續哭喊/掙扎/表達厭惡憎恨、甚至咬破嘴唇流血)——天花板規則完全沒擋住。根因：`nsfwBaseRules`(紅線①·不可改)第4條「玩家自己的動作/台詞【如實發生】」跟親密尺度天花板兩條指示對輕量模型來說互相打架，模型在強勢命令句面前選擇了「如實發生」，把「這個舉動的嘗試」誤讀成「這個舉動一定成功」。已在**天花板規則本體**(不受紅線保護，可改)追加兩條：①**明講強迫/暴力字眼一樣受天花板約束**——未達門檻就是「攻勢落空」，並明文「這條凌駕【依玩家輸入確實推演】——如實發生只代表嘗試、不代表成功」正面解決跟紅線第4條的優先權衝突；②**禁對同伴造成真正傷害**（無論好感高低）——流血/骨折/撕裂傷這類真實身體傷害一律禁止，親密場景激烈歸激烈，不能寫成傷害她的身體。**⚠ 玩家再修（「呼救/逃離這感覺不用吧，狠狠教訓玩家就好！！」——玩家設計理念「裡面的女的都不好惹才對」）**：拿掉「掙脫/呼救/逃離」這幾個偏向受害者視角的選項，改成單一方向「她依個性狠狠反擊/教訓回去(吃虧受傷的是玩家、不是她)」——這個方向沒有安全疑慮(挨打的是玩家不是同伴)，且更貼合「同伴不是好惹的」的角色形象，比消極閃避更帶感。
 
@@ -264,7 +270,7 @@ SOLO_MODEL   = google/gemini-3.5-flash-lite  (屬性 SOLO_MODEL)   ← 主力(�
 - **唯一引擎入口 `send(customMsg, isSilent, opts)`＝`action:'play'`**（2026-07 重構：原 22+ 位置參數收進單一 opts 物件，payload 不變零速度影響）。移動/相約/拍照/牽手/同居/敲門/橋段**沒有各自的 action**，全靠 opts 夾旗標：`moveTarget`/`moveWithCompanion`/`promiseMeet`/`promiseAccept`/`takePhoto`+`photoIntent`/`showPhoto`/`handHold`/`cohabitInvite`/`roomEventAccept`/`knockAccept`/`skipKnockCheck`/`lookAround`/`inviteResident`/`endDay`/`advanceHours`/`jumpBand`/`jumpFestival`/`loaderCaptions`。
 - **回饋條 `proposalResult`** 涵蓋 相約/牽手/同去/同居 四型＋**撲空含「她似乎在○○」位置提示**；**`promiseSettle`（獨立通道）** 涵蓋 赴約成功/爽約過期 結算通知（與提議結果並發時各自顯示·見教訓區「單一回饋槽」）；相簿滿的 `photoResult` 附直達鈕（📚開相簿）——「撲空/婉拒/卡住」一律要有下一步，別讓玩家對著空氣猜。
 - **改命同伴卡**（2026-07 第二輪稽核修）：`update_fate` 名字比對原硬性要求 `IS_PARTY==='同行'`，但鑑賞列從不寫該欄→同伴卡改命鈕恆「查無此人」；現比照 `update_rel_tag` 給 `k_` 世界豁免（同世界名字直配），改同伴的 個性/特徵/身世 是合法自訂。**萌點例外(2026-07 再修)**：同伴/NPC的萌點改成「真正內化」——`intent-box`(Index.html)在非自己卡片整格連改命鈕都隱藏，`actionUpdateFate` 也擋掉 `fateType==='intent'` 且目標非自己的請求，玩家從此看不到也改不了同伴萌點，只留給AI演出參考。（2026-07 二度改版：玩家自己卡的性格鎖快取 `_kcPrefLocks` 已隨性格鎖系統整組刪除）
-- **獨立 action**：`kanshou_companions`／`get_heroes`／`kanshou_summon_hero`／`get_album`／`album_delete`／`update_rel_tag`／`kanshou_memoir_op`／`kanshou_set_home_name`／`kanshou_set_name`／`kanshou_set_sex`／`enter_kanshou`／`backfill_kanshou_ai`。
+- **獨立 action**：`kanshou_companions`／`get_heroes`／`kanshou_summon_hero`／`get_album`／`album_delete`／`update_rel_tag`／`kanshou_set_nickname`（2026-07 五度改版新增·專屬稱呼手動鎖定，bond≥80）／`kanshou_memoir_op`／`kanshou_set_home_name`／`kanshou_set_name`／`kanshou_set_sex`／`enter_kanshou`／`backfill_kanshou_ai`。
 - **函式分組**：地圖移動(`kcMapListHtml_`/`kanshouMoveTo`/`kanshouProposeMove`/`kanshouLookAround`)、同伴面板(`openCompanions`/`renderKcHeroList_`/`kanshouEditRelTag`)、召喚(`kanshouSummonHero`)、回憶(`kanshouOpenMemoir`/`kanshouMemoirOp`)、約定(`kanshouPromiseMeet`/`kanshouWaitForPromise`)、拍照相簿(`kanshouTakePhoto`/`openKanshouAlbum`)、時鐘(`kanshouEndDay`/`kanshouNextStage`/`kanshouJumpBand`/`kanshouJumpFestival`)。
 - **泡泡 UI**（`send()` 內依回傳欄位組）：移動同意(`moveProposal`)、敲門(`knockEvent`)、橋段邀請(`roomEventOffer`)、巧遇(`encounterOffer`)、拍照結果(`photoResult`)、地圖人數徽章(`_lastTags.locationCounts`)。
 - **前端鏡像常數**（後端為真實來源）：`KC_REGIONS_`/`KC_FESTIVALS_`/`KC_TIME_BANDS_`/`KC_LOCATIONS_`/`KC_APPT_BANDS_`。時鐘全域 `kcClock`（`Script.html`）。
