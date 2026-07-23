@@ -1114,7 +1114,7 @@ let plainTextContext = cleanText;
   // 🏠 改名「家」：寫進後端 MEMORY【住所】標記(kanshou_set_home_name)，成功後同步更新本地 pc.homeName＋重繪清單，不必整頁重整或重打 sync。
   async function kanshouRenameHome() {
     var cur = (pc && pc.homeName) ? pc.homeName : '我家';
-    var name = prompt('把「' + cur + '」改成什麼名字？(12字以內)', cur);
+    var name = await customPrompt_('把「' + cur + '」改成什麼名字？(12字以內)', cur, 12);
     if (name === null) return;
     name = name.trim();
     if (!name) { alert('名稱不能空白。'); return; }
@@ -1170,9 +1170,13 @@ let plainTextContext = cleanText;
 
   // 📅 同意她主動提的約(GAS判定該邀約→泡泡→這裡)：帶 promiseAccept(第23參數)直接落地【約定】，
   //   不走二次判定(她自己提的、玩家答應了，就是成立)。
+  // 🐛→✅ 玩家實測「看起來是她邀請我，點下去卻演成我邀請她」：舊句「（點頭答應了『大河』…）」
+  //   對小模型來說主詞不夠明確，容易被誤讀成「我點頭答應[要約]大河」而非「大河約我、我點頭答應」，
+  //   導致AI敘事把邀約方向倒過來演(如寫成「聽到我邀約的瞬間」)。改成明講「是她主動開口」的句式，
+  //   消除歧義。
   async function kanshouAcceptPromise(name, loc, band) {
     showGamePane('chat');
-    await send('（點頭答應了「' + name + '」，約好改天在「' + loc + '」見面。）', false, { promiseAccept: { name: name, loc: loc, band: band } });
+    await send('（「' + name + '」主動開口，說想約我改天見面——我點頭答應了，說好在「' + loc + '」碰面。）', false, { promiseAccept: { name: name, loc: loc, band: band } });
   }
   // 婉拒她的邀約/同居(共用)：送一句軟性婉拒，正常敘事帶過、不落地任何狀態。
   async function kanshouDeclinePromise() {
@@ -1519,7 +1523,7 @@ let plainTextContext = cleanText;
   // ✏ 隨時更改後日談中「你（御主）」的名字
   async function changeKanshouName() {
     if (!pc || !pc.id) { alert('尚未進入後日談。'); return; }
-    var nm = prompt('御主新名字：', pc.name || '');
+    var nm = await customPrompt_('御主新名字：', pc.name || '');
     if (nm === null) return;
     nm = String(nm).trim();
     if (!nm) { alert('名字不能空白。'); return; }

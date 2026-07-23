@@ -67,6 +67,44 @@
     });
   }
   // ==========================================
+  // 🧱 自畫輸入對話框：取代瀏覽器原生 prompt()——同一批「沙盒網址嚇人」問題(玩家「這個沒修正到?」
+  //   抓到換裝還在用原生 prompt())，跟 customConfirm_ 共用 modal-overlay/modal-scroll 底座。
+  //   回傳 Promise<string|null>(null＝取消，跟原生 prompt() 語意一致)，呼叫端一律改成
+  //   `const txt = await customPrompt_(msg, cur); if (txt === null) return;`(呼叫端函式需為 async)。
+  // ==========================================
+  function customPrompt_(message, defaultValue, maxLen) {
+    return new Promise(resolve => {
+      let el = document.getElementById('prompt-modal');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'prompt-modal';
+        el.className = 'modal-overlay';
+        el.style.zIndex = '100000';
+        el.innerHTML = `<div class="modal-scroll" style="max-width:420px;">
+          <div id="prompt-modal-msg" class="confirm-modal-msg"></div>
+          <input type="text" id="prompt-modal-input" class="std-in" style="width:100%; box-sizing:border-box; margin-bottom:14px;">
+          <div class="confirm-modal-btns">
+            <button type="button" class="btn confirm-modal-cancel">取消</button>
+            <button type="button" class="btn confirm-modal-ok">確定</button>
+          </div>
+        </div>`;
+        document.body.appendChild(el);
+      }
+      document.getElementById('prompt-modal-msg').innerHTML = escapeHtml(message).replace(/\n/g, '<br>');
+      const input = document.getElementById('prompt-modal-input');
+      input.value = defaultValue || '';
+      if (maxLen) input.maxLength = maxLen; else input.removeAttribute('maxlength');
+      el.style.display = 'flex';
+      setTimeout(() => { input.focus(); input.select(); }, 30);
+      const okBtn = el.querySelector('.confirm-modal-ok');
+      const cancelBtn = el.querySelector('.confirm-modal-cancel');
+      const finish = (result) => { el.style.display = 'none'; okBtn.onclick = null; cancelBtn.onclick = null; input.onkeydown = null; resolve(result); };
+      okBtn.onclick = () => finish(input.value);
+      cancelBtn.onclick = () => finish(null);
+      input.onkeydown = (e) => { if (e.key === 'Enter') finish(input.value); else if (e.key === 'Escape') finish(null); };
+    });
+  }
+  // ==========================================
   // 🔴 核心通訊層：封裝 google.script.run 成 Promise，完美替換 fetch
   // ==========================================
   let __pendingState = null; // ⚡ 動作回應夾帶的最新 client state，供緊接的 syncData 直接消費(免再打一趟 sync)
@@ -2303,18 +2341,18 @@
 
   // 👕 換裝：自訂服裝穿著（只換衣不換人·五官體態不變）。免費即時、留空恢復本相。兩軌通用。
   // 🐛→✅ 玩家「想要換裝UI、內建幾套衣服」：只有玩家自己(isSelf)點換裝才跳快選面板(4套通用+
-  //   自訂輸入)，同伴/solo自己從者維持原本prompt()——範圍限縮避免過度工程(同伴外觀本就交給AI
-  //   依appearance_extras自動更新，玩家不手動介入)。
+  //   自訂輸入)，同伴/solo自己從者維持原本單一輸入框(customPrompt_)——範圍限縮避免過度工程(同伴
+  //   外觀本就交給AI依appearance_extras自動更新，玩家不手動介入)。
   var KANSHOU_OUTFIT_PRESETS_ = ['日常便服', '外出服', '居家休閒', '睡衣'];
-  function changeOutfit(name, isSelf) {
+  async function changeOutfit(name, isSelf) {
     var cur = isSelf ? myMasterOutfit : (((myServants || []).find(function (x) { return x && x.name === name; }) || {}).outfit || '');
     if (isSelf) { openOutfitPicker_(name, cur); return; }
-    var txt = prompt('👕 換裝「' + name + '」\n\n輸入她此刻的服裝／裝扮，AI 敘述會依此描寫。\n只換衣不換人——五官、髮色、體態、氣質不變。\n留空＝恢復原本裝束。（限 40 字）', cur);
+    var txt = await customPrompt_('👕 換裝「' + name + '」\n\n輸入她此刻的服裝／裝扮，AI 敘述會依此描寫。\n只換衣不換人——五官、髮色、體態、氣質不變。\n留空＝恢復原本裝束。（限 40 字）', cur, 40);
     if (txt === null) return; // 取消
     submitOutfit_(name, isSelf, txt);
   }
 
-  // 換裝快選面板：4套通用預設 + 自訂輸入(退回原本prompt())，動態建DOM＋closure綁事件，
+  // 換裝快選面板：4套通用預設 + 自訂輸入(退回customPrompt_)，動態建DOM＋closure綁事件，
   // 不用字串拼onclick，人名/服裝內容含特殊字元也不會壞。
   function openOutfitPicker_(name, cur) {
     var ov = document.getElementById('outfit-picker-overlay');
@@ -2344,9 +2382,9 @@
     var customBtn = document.createElement('button');
     customBtn.textContent = '✏️ 自訂輸入...';
     customBtn.style.cssText = 'width:100%;padding:9px;background:rgba(90,90,120,0.2);color:#c9c0d8;border:1px solid #5a5a7a;border-radius:8px;cursor:pointer;font-size:12px;margin-bottom:8px;';
-    customBtn.onclick = function () {
+    customBtn.onclick = async function () {
       closeOutfitPicker_();
-      var t = prompt('輸入自訂裝扮（限 40 字）\n留空＝恢復原本裝束。', cur || '');
+      var t = await customPrompt_('輸入自訂裝扮（限 40 字）\n留空＝恢復原本裝束。', cur || '', 40);
       if (t !== null) submitOutfit_(name, true, t);
     };
     var cancelBtn = document.createElement('button');
@@ -2385,10 +2423,10 @@
   }
 
   // ⚔️ 自訂武裝：自定武器/戰鬥方式，敘述強制以此為準，蓋過職階慣例(Saber=劍…)與原典武器習慣。鏡射 changeOutfit；留空＝清除、恢復自然演出。
-  function changeWeapon(name) {
+  async function changeWeapon(name) {
     var sv = (myServants || []).find(function (x) { return x && x.name === name; });
     var cur = (sv && sv.weapon) ? sv.weapon : '';
-    var txt = prompt('⚔️ 武裝「' + name + '」\n\n輸入她的武器與戰鬥方式（如：雙持大劍、鎖鏈鐮刀、拳腳體術），\nAI 敘述會嚴格以此為準——不受職階慣例或原典武器習慣綁。\n留空＝清除，恢復自然演出。（限 30 字）', cur);
+    var txt = await customPrompt_('⚔️ 武裝「' + name + '」\n\n輸入她的武器與戰鬥方式（如：雙持大劍、鎖鏈鐮刀、拳腳體術），\nAI 敘述會嚴格以此為準——不受職階慣例或原典武器習慣綁。\n留空＝清除，恢復自然演出。（限 30 字）', cur, 30);
     if (txt === null) return; // 取消
     gasRun({ action: 'weapon', pcId: pc.id, servant: name, weapon: txt, acctName: (pc && pc.account) || currentAccount })
       .then(function (res) {

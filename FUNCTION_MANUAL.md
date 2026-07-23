@@ -1020,7 +1020,8 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 #### 通訊 / state 同步層
 - `escapeHtml(str)` — XSS 轉義（跨玩家可見文字渲染進 innerHTML 前的第二層保險）；null/undefined→空字串。
 - `showToast_(msg)` — 輕量成功提示：浮在畫面上方、1.8秒自動淡出、不擋操作。只給「單純告知已完成」的訊息用（如改命成功），需要玩家看清原因的失敗訊息仍用 `alert()`。
-- `customConfirm_(message)` — **2026-07 新增**：自畫確認對話框，取代瀏覽器原生 `confirm()`（原生版在 Apps Script 沙盒 iframe 裡會把 `script.googleusercontent.com` 這串陌生網址秀在最上面，讀起來像可疑警告）。回傳 `Promise<boolean>`（原生 confirm 是同步阻塞，這裡改非同步），共用 `.modal-overlay`/`.modal-scroll` 底座。呼叫端一律 `if (!await customConfirm_(msg)) return;`（呼叫端函式需為 `async`）——**全代碼庫原生 confirm() 已於同批次全數替換**。
+- `customConfirm_(message)` — **2026-07 新增**：自畫確認對話框，取代瀏覽器原生 `confirm()`（原生版在 Apps Script 沙盒 iframe 裡會把 `script.googleusercontent.com` 這串陌生網址秀在最上面，讀起來像可疑警告）。回傳 `Promise<boolean>`（原生 confirm 是同步阻塞，這裡改非同步），共用 `.modal-overlay`/`.modal-scroll` 底座、z-index `100000`(蓋過全代碼庫其餘彈窗，含 askKanshouSetup 的 99999)。呼叫端一律 `if (!await customConfirm_(msg)) return;`（呼叫端函式需為 `async`）——**全代碼庫原生 confirm() 已於同批次全數替換**。
+- `customPrompt_(message, defaultValue, maxLen)` — **2026-07 新增**：自畫輸入對話框，取代瀏覽器原生 `prompt()`(同一批「沙盒網址嚇人」問題)。回傳 `Promise<string|null>`(null＝取消，跟原生 prompt() 語意一致)，共用 `customConfirm_` 的 modal 底座＋`.std-in` 輸入框，`maxLen` 選填(設 `input.maxLength`)。呼叫端 `const txt = await customPrompt_(msg, cur); if (txt === null) return;`——**全代碼庫原生 prompt() 已全數替換**(換裝/武裝/改名/御主改名等)。
 - `gasRun(payload)` — 把 `google.script.run.handleGameAction` 封成 Promise；每趟呼叫先清空 `__pendingState`，回應若含 `_state` 就暫存供 `syncData` 直接消費（3→1 round-trip 核心）。
 - `beginAction(msg)` — 全域動作鎖：`__actionBusy` 已忙則回 false 擋連點；上進度遮罩＋progress 游標。
 - `endAction()` — 解鎖 `__actionBusy`、撤遮罩、還原游標。
@@ -1127,7 +1128,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `pickNpAndStrike(idx, npcName, svName, useSeal)` — 選定寶具→關選單→帶 idx 進 servantStrike。
 - `servantStrike(npcName, useNp, useSeal, isMaster, npPicked, npChoiceArg)` — 核心攻擊：處理令咒蓄勢消費、多寶具選單、斬首/寶具超載/令咒各自 confirm(施放技術已被動化·不再是攻擊時的手動分支)，打 `fate_battle`（帶目標 ID·output·overload）；成功先渲戰報撤遮罩再 narrate，處理勝敗。
 - `setServantOutput(btn, npcName, output)` — 從者卡出力旋鈕：樂觀更新轉盤外觀＋背景 `set_servant_output`，失敗 syncData 校正。
-- `changeOutfit(name, isSelf)` — 換裝（`outfit`，只換衣）：`isSelf`(玩家自己)改跳`openOutfitPicker_`快選面板(2026-07新增)，非isSelf維持原本`prompt()`。實際送出走共用`submitOutfit_(name, isSelf, txt)`，吃後端消毒值原地重繪（免 get_tags）。
+- `changeOutfit(name, isSelf)` — 換裝（`outfit`，只換衣）：`isSelf`(玩家自己)改跳`openOutfitPicker_`快選面板(2026-07新增)，非isSelf走`customPrompt_`(2026-07取代原生`prompt()`)。實際送出走共用`submitOutfit_(name, isSelf, txt)`，吃後端消毒值原地重繪（免 get_tags）。
 - `openOutfitPicker_(name, cur)` / `closeOutfitPicker_()`（2026-07新增）— 換裝快選面板：動態建DOM+closure綁事件(不拼onclick字串)，`KANSHOU_OUTFIT_PRESETS_`(4套通用預設)按鈕＋「✏️自訂輸入」退回`prompt()`。只給玩家自己用，同伴外觀仍交給AI依`appearance_extras`自動更新。
 - `submitOutfit_(name, isSelf, txt)`（2026-07新增，從changeOutfit抽出）— 換裝的實際送出邏輯：打`outfit` action、成功後原地更新`myMasterOutfit`/`myServants`快取＋`refreshFateTags`。
 - `changeWeapon(name)` — 自訂武裝（`weapon`，蓋過職階/原典習慣）；鏡射 changeOutfit。
@@ -1301,7 +1302,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `kanshouSetRelTagCustom(name)`（2026-07 新增）— 讀`#kr-custom`輸入框(空值擋)，呼叫`kanshouSetRelTag`。
 
 #### 改御主名 / 性別
-- `changeKanshouName()` — 改御主名（`kanshou_set_name`，prompt）；更新 `pc.name`/`#ui-name`/重繪 master-box。**🐛→✅ 稽核抓到**：原本沒做前端長度檢查(`kanshouRenameHome`有、這裡漏了)，超長會白跑一趟round-trip才被後端擋，已補同款≤16字檢查。
+- `changeKanshouName()` — 改御主名（`kanshou_set_name`，`customPrompt_`）；更新 `pc.name`/`#ui-name`/重繪 master-box。**🐛→✅ 稽核抓到**：原本沒做前端長度檢查(`kanshouRenameHome`有、這裡漏了)，超長會白跑一趟round-trip才被後端擋，已補同款≤16字檢查。
 - `changeKanshouSex()` — 切御主性別（`askKanshouSex`→`kanshou_set_sex`）；更新 `pc.sex`/`#ui-sex`/重繪。
 
 #### 進場 / 首次創角
