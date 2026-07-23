@@ -1054,7 +1054,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 #### 狀態面板（御主/從者命盤）
 - `openStatus(targetId, targetName)` — 統一狀態讀取入口：自己→吃 `kyushu_last_status`；從者→優先吃 `myServants` 預取的 statusString 秒顯，無則後端 `get_full_status` fallback。
 - `closeStatus()` — 關命盤、把背景 UI 切回玩家。
-- `updateClock(label, ap, apMax)` — 時鐘 HUD：時段圖示＋文字，solo 額外顯示 ⚡AP/12，鑑賞不顯 AP。**AP≤4 時**(2026-07 新增)「行動 X/Y」文字＋雷電圖示切警示橙色(`#e0704a`)並加⚠️前綴——玩家反饋常打到見底才發現，不用彈窗(太煩)也不靠AI提醒(易被誤演成劇情)，改走純UI視覺提示。
+- `updateClock(label, ap, apMax)` — 時鐘 HUD：時段圖示＋文字，solo 額外顯示 ⚡AP/12，鑑賞不顯 AP。**AP≤4 時**(2026-07 新增)「行動 X/Y」文字＋雷電圖示切警示橙色(`#e0704a`)並加⚠️前綴——玩家反饋常打到見底才發現，不用彈窗(太煩)也不靠AI提醒(易被誤演成劇情)，改走純UI視覺提示。**2026-07 六度改版**（玩家「手機很長，切到地圖分頁點下一階段太麻煩」）：鑑賞模式下 `#clock-hud` 改成一整排 flex——`👥邀請`(原topbar-kanshou)＋時鐘文字＋`⏰下一階段`/`🌙睡覺`(原renderMapPane，含深夜變色邏輯)三者並列，常駐、不必切分頁。solo 模式不受影響、行為不變。
 - `updateEconomy(eco)` — 存最新供魔收支到 `window._lastEco`；常駐 HUD 已停用（恆隱藏），明細移到「🔮魔力」彈窗。
 - `closeHistoryOverlay()` — 關 `history-overlay`（通用彈窗）。
 - `openViewMenu()` — 「👁查看」誰的狀態：單角色直開、多角色列選單。
@@ -1117,7 +1117,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `stancePillHtml_()` — 產出姿態藥丸 HTML（地圖頁·戰爭軌限定）。
 - `stanceLine_()` — 無敵蹤時抵達/撤離敘事的姿態定調句（normal 不加）。
 - `stanceNotice_(isSeek)` — 遭遇「誰先發現誰」定調句（折進偶遇/找上門框架）。
-- `renderMapPane(preNodes)` — 渲染地圖分頁：優先吃夾帶/快取節點免 round-trip；鑑賞→「出門走走」地點清單（複用 kcMapListHtml_），solo→戰場 SVG＋盟友通報＋此地經營（設陣地/搜索）。用 `offsetParent===null` 判實際可見。
+- `renderMapPane(preNodes)` — 渲染地圖分頁：優先吃夾帶/快取節點免 round-trip；鑑賞→「出門走走」地點清單（複用 kcMapListHtml_），solo→戰場 SVG＋盟友通報＋此地經營（設陣地/搜索）。用 `offsetParent===null` 判實際可見。**2026-07 六度改版**：原本常駐在此的「⏰下一階段」鈕已搬進 `updateClock` 的 `#clock-hud`(不必切分頁才點得到)，此處不再重複放。
 - `refreshMapPane()` — 重整地圖（走 syncData(true)）。
 - `buildMapSvg_(nodes)` — 產出冬木戰場 SVG（固定 LAYOUT 座標/CONN 連線/未遠川/星塵/節點·敵蹤·所在環·可點移動）＋圖例。
 - `travelFromPane(name)` — 從地圖點擊移動→travelTo＋切回故事頁。
@@ -1175,7 +1175,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `logoutAccount()` — localStorage.clear＋reload。登入畫面的「登出」鈕直接呼叫這支(無進行中狀態可丟，不必確認)。
 - `logoutWithConfirm_()` — **2026-07 新增**：`customConfirm_` 確認後才呼叫 `logoutAccount()`；遊戲中「離開冬木」鈕用這支(會丟棄未存的當下羈絆狀態，多一道確認)。
 - `showHistoryOverlay(html)` — 通用彈窗（懶建 `history-overlay`，內容區可捲、關閉鈕恆可見）；全檔各 popup 共用。
-- `applyModeUI()` — 模式總開關：solo 隱藏輸入框/傳送/NSFW 開關/拍照/相簿/節慶、顯戰爭列；鑑賞相反。
+- `applyModeUI()` — 模式總開關：solo 隱藏輸入框/傳送/NSFW 開關/拍照/相簿/節慶、顯戰爭列；鑑賞相反。**2026-07 六度改版新增**：`#top-navbar`(新增id) 鑑賞模式整條隱藏——`👥邀請`/`⏰下一階段`兩顆鈕都搬進 `#clock-hud`(見`updateClock`)後，`#topbar-kanshou`不再有可見內容，連外層一起藏免留空白窄條。
 - `withButtonLock(btnEl, asyncFn)` — 通用按鈕防連點鎖（執行期 disable+變灰，finally 解鎖）。
 - `lockBtn(event, asyncFn)` — onclick 語法糖，包 withButtonLock。
 

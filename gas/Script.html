@@ -422,7 +422,20 @@
         const litColor = apLow ? '#e0704a' : '#caa44a';
         apStr = `　<span style="${apLabelColor ? 'color:' + apLabelColor + ';font-weight:bold;' : ''}">${apLow ? '⚠️ ' : ''}行動 ${ap}/${apMax}</span> <span style="letter-spacing:-1px;color:${litColor};">${lit}</span><span style="letter-spacing:-1px;color:#5a4a2a;">${dim}</span>`;
       }
-      hud.innerHTML = icon + ' ' + label + apStr;
+      // 🕰️ 2026-07「手機很長，切到地圖分頁點下一階段太麻煩」：👥邀請／⏰下一階段兩顆常駐鈕搬進
+      //   這一行(原本各自散在頂部窄條/地圖分頁裡，要切分頁才點得到)，一鍵直達不必來回切。
+      //   邀請鈕原樣複製自舊 topbar-kanshou(openCompanions())；下一階段鈕原樣複製自舊
+      //   renderMapPane 的 kanshouNextStage() 按鈕(含深夜「🌙睡覺」變色邏輯)，行為完全不變。
+      if (isKanshou) {
+        const isNight = kcClock && kcClock.band === '深夜';
+        hud.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">'
+          + '<button class="btn" style="padding:3px 8px;font-size:11px;flex-shrink:0;border-color:#5a3a6a;color:#dcc8ff;" onclick="openCompanions()" title="邀請/管理後日談同伴、召喚英靈入席">👥 邀請</button>'
+          + '<span style="flex:1;min-width:0;">' + icon + ' ' + label + '</span>'
+          + '<button class="btn" style="padding:3px 8px;font-size:11px;flex-shrink:0;border-color:' + (isNight ? '#7a5a9a' : '#4a6a8a') + ';color:' + (isNight ? '#c9a0e0' : '#8ac0e0') + ';" onclick="kanshouNextStage()" title="' + (isNight ? '睡一晚、迎向明天(回房間·同床/敲門判定)' : '推進到下一個時段') + '">' + (isNight ? '🌙 睡覺' : '⏰ 下一階段') + '</button>'
+          + '</div>';
+      } else {
+        hud.innerHTML = icon + ' ' + label + apStr;
+      }
       hud.style.display = 'block';
     } else {
       hud.style.display = 'none';
@@ -1805,9 +1818,8 @@
         + '<input type="checkbox" id="kc-encounter-toggle" ' + (kanshouEncounterOn ? 'checked' : '') + ' onchange="kanshouToggleEncounter_(this.checked)"> 路上可能巧遇陌生人'
         + '</label>'
         + '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:#8a6a9a;color:#d0a8e0;" onclick="kanshouLookAround()">👀 看看四周還有沒有其他人</button>'
-        // ⏰ 精簡：「跳到時段(5選1)」＋「結束一天」合併成一顆「下一階段」，固定往下一個時段推進，
-        //   深夜按下去自然就是睡過夜(見 kanshouNextStage，Script_Kanshou.html)。
-        + '<button class="btn" style="width:100%;padding:6px 4px;font-size:12px;margin-bottom:10px;border-color:' + (kcClock && kcClock.band === '深夜' ? '#7a5a9a' : '#4a6a8a') + ';color:' + (kcClock && kcClock.band === '深夜' ? '#c9a0e0' : '#8ac0e0') + ';" onclick="kanshouNextStage()" title="' + (kcClock && kcClock.band === '深夜' ? '睡一晚、迎向明天(回房間·同床/敲門判定)' : '推進到下一個時段') + '">' + (kcClock && kcClock.band === '深夜' ? '🌙 睡覺・結束這天' : '⏰ 下一階段') + '</button>'
+        // ⏰ 2026-07「手機很長，切到地圖分頁點下一階段太麻煩」：這顆鈕搬進常駐 #clock-hud(見
+        //   updateClock，Script.html)跟時鐘同一行，不必切到地圖分頁才點得到，這裡不再重複放。
         // 🎊「跳到節慶」不常用，已收進＋抽屜(見 Index.html drawer-festival／Script_Kanshou.html openKanshouFestivals)，地圖頁不再常駐佔版面。
         + '<div id="kc-map-list">' + kcMapListHtml_() + '</div>';
       return;
@@ -3026,6 +3038,10 @@ function applyModeUI() {
   // 🎴 solo 頂部＝查看/魔力/系統三鍵(取代地點)、底部輸入框整條隱藏(純按鍵)；慾海維持原本(頂部地點徽章＋底部輸入框＋NSFW開關)，零改動守紅線①。
   var tSolo = document.getElementById('topbar-solo'); if (tSolo) tSolo.style.display = isKanshou ? 'none' : 'flex';
   var tKan = document.getElementById('topbar-kanshou'); if (tKan) tKan.style.display = isKanshou ? '' : 'none';
+  // 🕰️ 2026-07 玩家「手機很長，切到地圖分頁點下一階段太麻煩」：👥邀請／⏰下一階段兩顆常駐鈕
+  //   搬進 #clock-hud 那一行(見 updateClock)，不必再切分頁——topbar-kanshou 從此不再有內容
+  //   (topbar-solo 本就不含這排)，連同外層 .top-navbar 整條一起隱藏，免留一條空白窄條。
+  var tNav = document.getElementById('top-navbar'); if (tNav) tNav.style.display = isKanshou ? 'none' : '';
   var ibar = document.getElementById('input-bar'); if (ibar) ibar.style.display = isKanshou ? '' : 'none';
   // 🎊 快轉節慶(從地圖頁移進＋抽屜，不常用)：只在鑑賞模式出現
   var dfest = document.getElementById('drawer-festival'); if (dfest) dfest.style.display = isKanshou ? '' : 'none';

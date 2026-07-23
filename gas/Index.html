@@ -238,7 +238,7 @@
   </div>
 
   <div id="game">
-    <div class="top-navbar">
+    <div class="top-navbar" id="top-navbar">
       <div class="top-navbar-content" style="display: flex; gap: 8px; align-items: center; width:100%;">
         <!-- 🎴 solo 頂部三鍵：資料／魔力／設定，取代地點顯示。純按鍵、手機單手可操作；詳細再切左右分頁。 -->
         <div id="topbar-solo" style="display:none; gap:6px; width:100%;">
@@ -251,10 +251,11 @@
                （鑑賞走「+」抽屜→系統設定同一個modal進來，拿掉會斷了鑑賞唯一的全螢幕入口，故兩處並存）。 -->
           <button class="btn" style="flex:1; padding:6px 4px; font-size:12px; border-color:#5a7a8a; color:#a8ccd8;" onclick="toggleFullScreen()">🖥️ 全螢幕</button>
         </div>
+        <!-- 🕰️ 2026-07「手機很長，切到地圖分頁點下一階段太麻煩」：👥邀請鈕已搬進 #clock-hud(見
+             updateClock，Script.html)跟時鐘同一行常駐，這裡只剩 header-loc(鑑賞恆隱藏，純歷史殘留
+             不刪是因為 solo 共用同一個 id 判斷式，見 updateStatus 裡的 headerEl 邏輯)。 -->
         <div id="topbar-kanshou" class="player-badge">
           <span id="header-loc">感應中...</span>
-          <!-- 👥 召喚/管理同伴的唯一常駐入口：直接開既有的openCompanions()面板，不必再挖進「+」抽屜。 -->
-          <button class="btn" style="margin-left:8px; padding:3px 8px; font-size:11px; border-color:#5a3a6a; color:#dcc8ff;" onclick="openCompanions()" title="邀請/管理後日談同伴、召喚英靈入席">👥 邀請</button>
         </div>
       </div>
     </div>
