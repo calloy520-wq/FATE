@@ -989,9 +989,7 @@
     if (_backTitleEl) _backTitleEl.innerText = (_isKan && _selfCard) ? '—— 經歷 ——' : '—— 身分背景 ——';
     if (_isKan) {
       renderSegField_('ui-trait', s[2], ['外貌', '氣質', '自稱', '私密'], null, null, _selfCard, '（待你改命填寫）');
-      var _prefLockKeys = ['對外性格', '獨處性格', '喜歡', '討厭'];
-      var _prefActive = (_selfCard && Array.isArray(window._kcPrefLocks)) ? window._kcPrefLocks : [];
-      renderSegField_('ui-pref', s[4], ['對外', '獨處', '喜歡', '討厭'], _prefLockKeys, _prefActive, _selfCard, '（AI 待補）');
+      renderSegField_('ui-pref', s[4], ['對外', '獨處', '喜歡', '討厭'], null, null, _selfCard, '（AI 待補）');
     } else {
       setUI('ui-trait', s[2]);
       setUI('ui-pref', s[4]);
@@ -1079,22 +1077,15 @@
         const parts = fateSegSplit_(currentVal);
         for(let i=0; i<4; i++) { if(!parts[i] || parts[i].trim() === "") parts[i] = "無"; }
         titleEl.innerText = "逆天改命 - 修改個性";
-        // 🌱 鑑賞御主：每格加 🔒 開關(預設不鎖)——鎖了 AI 連這欄都看不到、絕不更動；沒鎖 AI 慢慢幫你寫。
-        //   標籤也改成新命名(對外/獨處性格)。solo 維持原樣、無開關。
+        // 🌱 鑑賞御主標籤改新命名(對外/獨處性格)；solo 維持原樣。
+        // 🐛→✅ 2026-07 拆除「性格鎖」開關(玩家「萌點AI根本亂寫...AI只能改動經歷」)：AI 的滾動側寫
+        //   已經完全不會再去動性格/萌點這兩類欄位了，鎖不鎖沒有意義，這裡不再顯示鎖定勾選框。
         const _isK = (pc && pc.mode === 'kanshou');
-        // 🔒 鎖開關只屬於【玩家自己的卡】——從者卡改個性不該長出勾選框(勾了也無效、預勾的還是玩家自己的鎖，純誤導)。
-        const _isKSelf = _isK && currentStatusTargetId === pc.id;
-        const _pkKeys = ['對外性格','獨處性格','喜歡','討厭'];
         const _pkLabels = _isK ? ['對外性格','獨處(卸下心防)性格','喜歡的事物','討厭的事物'] : ['日常表象','真實內裡','喜歡的事物','討厭的事物'];
-        const _pkLocks = (_isKSelf && Array.isArray(window._kcPrefLocks)) ? window._kcPrefLocks : [];
         let _pkHtml = '';
         for (let i = 0; i < 4; i++) {
           _pkHtml += `<label style="font-size:13px; color:#2e8b57; font-weight:bold;">${i+1}. ${_pkLabels[i]}</label>`
             + `<input id="fate-f${i+1}" class="std-in" maxlength="20" value="${escapeHtml(parts[i])}">`;
-          if (_isKSelf) {
-            const _ck = _pkLocks.indexOf(_pkKeys[i]) !== -1 ? 'checked' : '';
-            _pkHtml += `<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#9a8f70;margin:2px 0 8px;cursor:pointer;"><input type="checkbox" class="fate-lock" data-key="${_pkKeys[i]}" ${_ck} style="width:14px;height:14px;"> 🔒 鎖定（AI 不再更動這格、連提都不提；不鎖＝AI 邊玩邊幫你寫）</label>`;
-          }
         }
         fieldsEl.innerHTML = _pkHtml;
     }
@@ -1119,25 +1110,15 @@
     
     document.getElementById('fate-edit-title').innerText = "重塑中...";
 
-    // 🔒 鑑賞御主改個性：收集勾選的 🔒 → prefLocks(哪幾格鎖定)。solo/其他欄不帶。
-    let prefLocks = undefined;
-    if (currentFateType === 'pref' && pc && pc.mode === 'kanshou' && currentStatusTargetId === pc.id) {
-      prefLocks = Array.prototype.slice.call(document.querySelectorAll('.fate-lock'))
-        .filter(function (c) { return c.checked; }).map(function (c) { return c.getAttribute('data-key'); });
-    }
-
     try {
         const res = await gasRun({
             action: "update_fate",
             pcId: pc.id,  // 🔴 關鍵修復：必須把自己的身分證傳過去！
             targetId: currentStatusTargetId,
             fateType: currentFateType,
-            fateValue: newValue,
-            prefLocks: prefLocks
+            fateValue: newValue
         });
         if (res.success) {
-            // 只在後端真的存成功才更新鎖快取——失敗也寫＝前端顯示的鎖狀態跟後端脫鉤(假象)。
-            if (prefLocks) { try { window._kcPrefLocks = prefLocks; } catch (e) {} }
             document.getElementById('fate-edit-modal').style.display = 'none';
             // 如果後端傳回的 statusString 包含新的背景，這裡會自動更新 UI
             updateUI(res.statusString.split('§'));

@@ -405,8 +405,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
         success: true,
         pcId: linkedKpcId, pcName: String(data[r][COL.PC.NAME] || acctName),
         pcSex: String(data[r][COL.PC.SEX] || "異"), loc: loc,
-        homeName: getKanshouHomeName_(data[r][COL.PC.MEMORY], String(data[r][COL.PC.NAME] || acctName)),
-        prefLocks: kanshouGetPrefLocks_(data[r][COL.PC.MEMORY]) // 🔒 進場即下傳，重載後改命視窗開關狀態才正確(不再無聲清鎖)
+        homeName: getKanshouHomeName_(data[r][COL.PC.MEMORY], String(data[r][COL.PC.NAME] || acctName))
       });
     }
     // 連結指向的列不存在(手動整理試算表等邊角情況)→ 當作沒有存檔，往下走新建流程。
@@ -424,8 +423,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
         success: true,
         pcId: migId, pcName: String(data[m][COL.PC.NAME] || acctName),
         pcSex: String(data[m][COL.PC.SEX] || "異"), loc: String(data[m][COL.PC.LOC] || "冬木·深山町"),
-        homeName: getKanshouHomeName_(data[m][COL.PC.MEMORY], String(data[m][COL.PC.NAME] || acctName)),
-        prefLocks: kanshouGetPrefLocks_(data[m][COL.PC.MEMORY])
+        homeName: getKanshouHomeName_(data[m][COL.PC.MEMORY], String(data[m][COL.PC.NAME] || acctName))
       });
     }
   }
@@ -872,31 +870,24 @@ function dialogueFormatRule_() {
 // 只被鑑賞(慾海)呼叫——solo走完全獨立的 miniSystem。唯一呼叫來源 actionPlay 的 isNsfwMode
 //   恆為 true，故不再分 SFW/NSFW 分支，直接寫死唯一會用到的版本。driveOn(主動掌握)由
 //   actionPlay 自己組的 driveStr 處理，不在這裡管轄。
-// 🌱 master_note(玩家御主滾動側寫)動態 schema：actionPlay 傳入「玩家沒鎖的性格欄」清單，這裡只把
-//   沒鎖的格放進範本——鎖了的格【連欄位都不出現】，AI 根本不知道有這欄(玩家定案，比「叫他別寫」更乾淨)。
-//   經歷永遠在(不鎖)。未傳(undefined)＝四格全開(相容 solo/舊呼叫)。
+// 🌱 master_note(玩家御主滾動側寫)動態 schema：2026-07 再修（玩家「萌點AI根本亂寫...遊戲中也
+//   不要讓AI可以改動，AI只能改動經歷」）——創角時已經讓AI依姓名/性別/外貌/個性一次生成完整的
+//   性格四格(對外性格/獨處性格/喜歡/討厭)與萌點(見actionBackfillKanshouAi)，寫定之後就不該再
+//   被遊玩中零碎片段的盲猜覆寫掉。master_note 從此【只剩經歷會繼續滾動】，性格四格/萌點徹底
+//   從這裡拿掉，AI 遊玩期間完全看不到這兩類欄位、也就無從亂寫。舊版「性格鎖」機制(玩家自己
+//   改命鎖哪幾格不讓AI碰)也一併拆除——AI已經完全不會去動這些欄位，鎖不鎖沒有意義。
 // 🌀 includeMasterNote=false(側寫節流·非側寫回合)＝整塊 master_note 從 schema 拿掉，AI 專心敘事；
 //   undefined/true＝照常帶(相容舊呼叫)。
 // 🎛️ includeOptions=false(玩家關掉【命運的抉擇】開關)＝options 欄整個拿掉——玩家看不到的東西
 //   不必叫 AI 每回合生 4 條(省 token 省注意力)。undefined/true＝照常帶。
-function buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote, includeOptions) {
+function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
   // physical_state 只留顏面神情(≤15字)：只管表情，衣裝狀態拆進獨立的 appearance_extras 欄
   //   (下方)，兩者關注點不同——前者是每回合都可能變的暫時神情，後者是要持久記住的實際穿著。
   const _physicalState = "角色當下顏面神情(第三人稱·≤15字)";
-  // 🌱 依鎖狀態動態組 master_note：只納入沒鎖的性格欄(鎖的連提都不提)。
-  const _mnDescs = {
-    "對外性格": "玩家人前性格判斷(詞組·有更準才更新·否則空)",
-    "獨處性格": "玩家獨處真實一面(詞組·有更準才更新·否則空)",
-    "喜歡": "玩家明確喜歡的事物(詞組·有新發現才更新·否則空)",
-    "討厭": "玩家明確討厭的事物(詞組·有新發現才更新·否則空)"
-  };
-  const _mnKeysOpen = Array.isArray(masterNoteUnlocked) ? masterNoteUnlocked : ["對外性格", "獨處性格", "喜歡", "討厭"];
   const _masterNote = {
     "_note": "觀察玩家本人慢慢認識他(不顯示·非敘事)·有新觀察才更新否則留空保持原樣",
-    "經歷": "承接舊經歷·只增補這回合有意義的新遭遇·回滾動摘要≤50字·沒新事就原樣回舊值",
-    "萌點": "暗中觀察到玩家一個討喜特色(不限反差，外觀/習慣/口頭禪皆可)就寫詞組·否則空·★絕不在敘述點破(show-don't-tell)·你看不到現值照觀察寫"
+    "經歷": "承接舊經歷·只增補這回合有意義的新遭遇·回滾動摘要≤50字·沒新事就原樣回舊值"
   };
-  _mnKeysOpen.forEach(function (k) { if (_mnDescs[k]) _masterNote[k] = _mnDescs[k]; });
 
   // appearance_extras(原 outfit_change，2026-07 改名)：角色當下實際穿著狀態，AI 可依劇情如實更新
   //   (正常穿著寫身上衣物，全裸/沐浴/更衣等狀態也要如實反映)，會寫回持久的【換裝】記錄，不是每回合
@@ -1530,20 +1521,7 @@ var KANSHOU_APPT_BANDS_ = [
   { band: '黃昏', hour: 18, label: '黃昏 18:00' },
   { band: '夜',   hour: 20, label: '夜晚 20:00' }
 ];
-// 🔒 性格鎖(存玩家御主列 MEMORY·【性格鎖】對外性格,喜歡)：玩家用改命【自訂】的性格格會登記在此，
-//   AI 的 master_note 側寫【只更新沒被鎖的格】、絕不覆寫玩家自訂的——區分「玩家設的(鎖死)」vs
-//   「AI 自己設的(可持續 refine)」，解決「AI 第一次寫完就再也不改」的問題。經歷不鎖(玩家改命=修正，
-//   AI 之後照樣滾動)、只鎖離散的性格四格。
-function kanshouGetPrefLocks_(memory) {
-  const m = String(memory || "").match(/【性格鎖】([^｜【】]*)/);
-  return m ? m[1].split(",").map(function (s) { return s.trim(); }).filter(Boolean) : [];
-}
-function kanshouSetPrefLocks_(memory, keysArr) {
-  const cleared = String(memory || "").replace(/｜?【性格鎖】[^｜【】]*/g, "").replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
-  if (!keysArr || !keysArr.length) return cleared;
-  return (cleared ? cleared + "｜" : "") + "【性格鎖】" + keysArr.join(",");
-}
-// 🌀 側寫節流：master_note(經歷/性格/萌點)每回合都問會分散 AI 對敘事的注意力。改成每 N 回合才把
+// 🌀 側寫節流：master_note(經歷)每回合都問會分散 AI 對敘事的注意力。改成每 N 回合才把
 //   master_note 放進 schema，其餘回合 AI 完全不知道有這回事、專心寫敘事。計數存玩家列 MEMORY——該列
 //   每回合本就必寫回(pcIndex 恆在 dirtyPcRows)，故零額外 round-trip。N=3 剛好貼齊 6筆/3輪 的歷史窗。
 const KANSHOU_SIDEWRITE_EVERY_ = 3;
@@ -2830,9 +2808,6 @@ function actionPlay_(userData, pcId, sheets) {
   // 🌱 動態 master_note 的前置計算(要在 USER prompt 組裝【之前】算好——下面【玩家命格】那行的
   //   「你可透過 master_note.經歷 滾動增補」提及必須跟著 _doSideWrite 條件化，否則非側寫回合
   //   schema 已刪掉 master_note、USER prompt 卻還在催，AI 會自發吐出 schema 外的欄位擊穿節流)。
-  const _allPrefKeys = ["對外性格", "獨處性格", "喜歡", "討厭"];
-  const _prefLocks = kanshouGetPrefLocks_(pc[COL.PC.MEMORY]);
-  const _unlockedPrefKeys = _allPrefKeys.filter(function (k) { return _prefLocks.indexOf(k) === -1; });
   // 🌀 側寫節流：計數 +1 存回 MEMORY(玩家列恆寫回·零額外 round-trip)，只在第 1、N+1、2N+1… 回合帶
   //   master_note(首回合必寫·抓初印象)。非側寫回合整塊拿掉、AI 專心敘事，落地端守衛同步擋掉自發輸出。
   const _swCount = kanshouGetSideWriteCount_(pc[COL.PC.MEMORY]) + 1;
@@ -2915,11 +2890,12 @@ ${PROMPT_PARTY_SYSTEM}
       }));
     }
 
-    // 🌱 動態 master_note：只把玩家【沒鎖】的性格欄交給 AI(鎖的連欄位都不出現在 schema)。buildDefaultSystemPrompt
-    //   只有此處呼叫，故把系統提示詞在這裡組好、當 systemOverride 傳入(取代 callGeminiAPI 內的無參數 fallback)。
-    //   _unlockedPrefKeys/_doSideWrite 已在 USER prompt 組裝前算好(見上方·prompt 內的經歷提及要跟著條件化)。
+    // 🌱 動態 master_note：只剩經歷會滾動(性格四格/萌點已不再交給AI，見buildDefaultSystemPrompt註解)。
+    //   buildDefaultSystemPrompt 只有此處呼叫，故把系統提示詞在這裡組好、當 systemOverride 傳入
+    //   (取代 callGeminiAPI 內的無參數 fallback)。_doSideWrite 已在 USER prompt 組裝前算好(見上方·
+    //   prompt 內的經歷提及要跟著條件化)。
     // 🎛️ 玩家關掉【命運的抉擇】→ options 欄整個不進 schema(前端帶 optionsOn；沒帶=舊前端，照常給)。
-    const _sysPrompt = buildDefaultSystemPrompt(_unlockedPrefKeys, _doSideWrite, userData.optionsOn !== false);
+    const _sysPrompt = buildDefaultSystemPrompt(_doSideWrite, userData.optionsOn !== false);
     const aiResponseRaw = callGeminiAPI(prompt, _sysPrompt, aiConfig);
     const start = aiResponseRaw.indexOf('{');
     const end = aiResponseRaw.lastIndexOf('}');
@@ -3250,8 +3226,9 @@ ${PROMPT_PARTY_SYSTEM}
       }
     }
 
-    // 🌱 玩家御主「滾動側寫」(master_note)：AI 慢慢認識玩家。經歷每回合承接舊值滾動更新(bounded)；
-    //   性格四格【只回填玩家仍留白的欄】(玩家自己改命填過的＝鎖，AI 絕不覆寫，判準：該格非空)。
+    // 🌱 玩家御主「滾動側寫」(master_note)：2026-07 再修（玩家「萌點AI根本亂寫...AI只能改動經歷」）
+    //   ——性格四格與萌點已在創角時由AI一次生成完整(見actionBackfillKanshouAi)，遊玩期間AI完全
+    //   看不到這兩類欄位(schema已拿掉)、也就無從寫。這裡只剩經歷會繼續滾動。
     //   _doSideWrite 守衛：非側寫回合 AI 若無視 schema 自發吐 master_note 也不落地(節流不可被擊穿)。
     if (_doSideWrite && aiData.master_note && typeof aiData.master_note === 'object') {
       const mn = aiData.master_note;
@@ -3261,26 +3238,6 @@ ${PROMPT_PARTY_SYSTEM}
       //   AI 略超時不半句腰斬——別「對齊文件」改回 50。
       const _newExp = String(mn["經歷"] || "").replace(/[<>【】｜]/g, "").trim().slice(0, 80);
       if (_newExp) { pcData[pcIndex][COL.PC.BACK] = _newExp; dirtyPcRows.add(pcIndex); }
-      // 性格四格(對外/獨處/喜歡/討厭)：【玩家改命自訂的鎖死不碰、AI 自己寫的可持續 refine】。
-      //   判準改用【性格鎖】標記(非「格子是否空」)——AI 給了新值就更新(允許修正自己先前的判斷)。
-      const _locks = kanshouGetPrefLocks_(pcData[pcIndex][COL.PC.MEMORY]);
-      const _prefSlots = String(pcData[pcIndex][COL.PC.PREF] || "").split("、");
-      while (_prefSlots.length < 4) _prefSlots.push("");
-      const _mnKeys = ["對外性格", "獨處性格", "喜歡", "討厭"];
-      let _prefChanged = false;
-      _mnKeys.forEach((k, i) => {
-        if (_locks.indexOf(k) !== -1) return; // 玩家改命自訂→鎖死，AI 絕不覆寫
-        const v = String(mn[k] || "").replace(/[<>【】、｜]/g, "").trim().slice(0, 12);
-        if (v && v !== String(_prefSlots[i] || "").trim()) { _prefSlots[i] = v; _prefChanged = true; } // AI 給值且有變→更新(可refine)
-      });
-      if (_prefChanged) { pcData[pcIndex][COL.PC.PREF] = _prefSlots.slice(0, 4).join("、"); dirtyPcRows.add(pcIndex); }
-      // 萌點：AI 盲寫(看不到現值·紅線②不餵)，故【只補第一個發現、之後不覆寫】——INTENT 空才寫，
-      //   非空(AI 補過 or 玩家改命填過)＝鎖死不動。玩家改命隨時可覆蓋。
-      const _curMoe = String(pcData[pcIndex][COL.PC.INTENT] || "").trim();
-      if (!_curMoe) {
-        const _newMoe = String(mn["萌點"] || "").replace(/[<>【】、｜]/g, "").trim().slice(0, 20);
-        if (_newMoe) { pcData[pcIndex][COL.PC.INTENT] = _newMoe; dirtyPcRows.add(pcIndex); }
-      }
     }
 
     const pcColCount = Object.keys(COL.PC).length;
@@ -3372,7 +3329,6 @@ ${PROMPT_PARTY_SYSTEM}
       promiseWait: kanshouPromiseWait_ || undefined,
       promiseProposal: kanshouAiPromise_ || undefined, // 📅 她主動邀約→前端跳同意泡泡
       cohabitProposal: kanshouAiCohabit_ || undefined, // 🏠 她主動邀同居→前端跳同意泡泡
-      prefLocks: _prefLocks, // 🔒 玩家已鎖的性格欄→前端快取，改命視窗顯示開關狀態
       photoResult: kanshouPhotoResult_ || undefined,
       kanshouClock: kanshouClock,
       // 修過的bug：#clock-hud讀共用的updateClock(data.clock,...)，但data.clock在鑑賞這條路徑

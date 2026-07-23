@@ -54,8 +54,7 @@
 | 【晨間餘韻】 | `【晨間餘韻】同伴名` | — | 同床隔天引子，讀一次即清 |
 | 【初見日】 | `【初見日】absDay`（IntTag 預設0） | 同伴列 | 首次同地寫入，紀念日里程碑比對 |
 | 【帳號】 | `【帳號】acctName` | — | 人工檢視辨識（非驗證，歸屬走帳號表） |
-| 【性格鎖】 | `【性格鎖】對外性格,喜歡`（逗號分隔鍵名清單） | 玩家列 | `kanshouGetPrefLocks_`/`SetPrefLocks_`：玩家用改命【自訂】某性格格後登記在此，滾動側寫只補沒鎖的格，不覆寫玩家自訂值 |
-| 【側寫計數】 | `【側寫計數】N` | 玩家列 | `kanshouGetSideWriteCount_`/`SetSideWriteCount_`：AI滾動側寫玩家性格的節流計數(每3回合才補寫一次) |
+| 【側寫計數】 | `【側寫計數】N` | 玩家列 | `kanshouGetSideWriteCount_`/`SetSideWriteCount_`：AI滾動側寫玩家經歷的節流計數(每3回合才補寫一次；2026-07 二度改版後 master_note 只剩經歷一格，性格/萌點改由創角一次擴寫、AI 不再側寫，「【性格鎖】」標記已隨之整組刪除) |
 | [雙修技巧] | `[雙修技巧]技巧名`（半形方括號，跟其餘全形【】標記不同） | 同伴列 | `setSkillTag_`：只更新這一段、不動其餘標記；`dynamic_skills` 欄寫入用 |
 | 【小道具】 | `【小道具】id1:強度1,id2:強度2,...`（逗號分隔·多件可同時裝備） | 同伴列 | `kanshouGetProps_`/`SetProps_`/`ToggleProp_`：玩家UI裝備/移除/調強度(同伴卡「🎀小道具」按鈕＋故事視窗快速抽屜)，GAS直接寫，非AI判斷。**裝備本身**(含選「關閉/戴著」起手)就卡`KANSHOU_PROP_EQUIP_BOND_`好感門檻，唯獨移除不受限 |
 | 【自訂道具】 | `【自訂道具】name1:hasIntensity1:part1,...`（逗號分隔·`part`選填） | **玩家列** | `kanshouGetCustomProps_`/`SetCustomProps_`：玩家自建道具目錄(跟內建`KANSHOU_PROPS_`合併用`kanshouAllProps_`)，上限`KANSHOU_CUSTOM_PROP_CAP_=10` |
@@ -176,17 +175,15 @@
 
 ---
 
-## 🌱 玩家御主：留白＋滾動側寫（2026-07）
+## 🌱 玩家御主：一次擴寫＋經歷滾動（2026-07 二度改版·拔掉留白＋性格鎖）
 
-- **兩種創角**（`askKanshouSetup`）：**超簡易**（`aiExpand:true`→`backfill_kanshou_ai` 一次 AI 擴寫，原配方）／**詳細**（留白，之後改命自己填＋AI 側寫慢慢補）。
-- **開局欄位**（`actionEnterKanshou` 秒寫）：TRAIT＝外貌(玩家填)、氣質空、自稱「我」、私密「無」；PREF＝對外性格(玩家填「個性方向」)、獨處/喜歡/討厭全空；**經歷(BACK)＝「剛搬來冬木市」**；萌點(INTENT)空。
-- **經歷（原「身世」正名）**：AI 每回合經 `master_note.經歷` **滾動更新**（承接舊值增補新遭遇、≤80字·bounded overwrite），玩家可經**改命**自己改（back 型·mode 判斷 kanshou 才叫「經歷」、cap 80）。卡面標題 `#ui-back-title` 也依模式正名：**鑑賞看自己卡＝「經歷」**、從者卡/solo＝「身分背景」（updateUI 切換·從者的 BACK 是真背景不是滾動經歷）。
-- **空性格欄 AI 側寫回填**：`master_note.{對外性格/獨處性格/喜歡/討厭}` **只回填仍空的格**——玩家改命填過的＝鎖（判準：該 PREF slot 非空），AI 絕不覆寫。像對話 AI 慢慢認識使用者。
-- **萌點(INTENT) AI 盲寫**：`master_note.萌點`——⚠ 萌點是紅線② show-don't-tell、**絕不餵給 AI**，故 AI 看不到現值只能「盲寫」(依這回合言行暗中觀察一個反差/可愛弱點)。因盲寫不能 refine(會 churn)，落地採**「只補第一個發現、之後不覆寫」**：`COL.PC.INTENT` 空才寫、非空(AI 補過 or 玩家改命填過)＝鎖死不動(Gallery.gs post-processing)。跟性格不同款(性格餵給 AI 可持續 refine·萌點盲寫只補一次)——差異源於能不能餵給 AI。玩家改命隨時可覆蓋。
-- **🔒 性格鎖（玩家 UI 控制·預設不鎖）**：改命-個性視窗每格一個 🔒 開關 → 寫 `【性格鎖】`（`kanshouGetPrefLocks_`/`SetPrefLocks_`）。**鎖了 = AI 連那欄都看不到**（`actionPlay` 依鎖狀態算「沒鎖的格」→ `buildDefaultSystemPrompt(unlockedKeys)` **動態組 master_note、鎖的格不出現在 schema**）＋GAS 落地再過濾一次（雙保底）。沒鎖 = AI 可持續 refine（不是一次寫死）。鎖狀態經 play 回應 `prefLocks` 快取到前端 `window._kcPrefLocks`（改命視窗顯示開關）——**`enter_kanshou` 兩條路徑也回傳 `prefLocks` 播種**＋後端 `update_fate` 只在 `Array.isArray(userData.prefLocks)` 時才寫鎖（undefined＝保留現鎖），2026-07 稽核修「重登→未按過 play 就改命存檔＝鎖被清空」。鎖開關只在**看自己卡片**時顯示（`_isKSelf`·從者卡看得到鎖圖示但無開關）。經歷不鎖（改命=修正、AI 續滾）。⚠ `buildDefaultSystemPrompt(masterNoteUnlocked)` 只有 `actionPlay` 一個呼叫者，故在 actionPlay 組好當 systemOverride 傳入。
-- **🪪 角色卡分行顯示（前端 `renderSegField_`·Script.html）**：鑑賞卡把「處事個性(對外/獨處/喜歡/討厭)」「命格特徵(外貌/氣質/自稱/私密)」從一串頓號拆成帶標籤小行，空格提示分欄位：處事個性→「（AI 待補）」(AI 會側寫)、命格特徵→「（待你改命填寫）」(AI 不寫 TRAIT)；從者卡一律「—」。鎖住的處事個性格右側掛 🔒（只看自己卡片時·`currentStatusTargetId===pc.id`）。原始頓號字串存 `dataset.raw`，改命視窗改讀它（分行 HTML 的 innerText 會亂）。solo 維持原樣純文字。
+⚠ **2026-07 拔掉「留白創角」＋AI 側寫性格/萌點**（玩家「玩家萌點 AI 根本亂寫…鑑賞玩家要輸入姓名性別外貌個性，其他丟給 AI 去寫，遊戲中也不要讓 AI 可以改動，AI 只能改動經歷」）：舊版有兩條創角路徑，其中「留白、遊戲中讓 AI 慢慢認識我」全靠遊玩中零碎片段盲猜性格/萌點，餵給 AI 的上下文遠比創角當下單薄，猜出來的東西經常語意亂飄。改成**只保留一條路**：創角只問姓名/性別/外貌/個性四樣，**一律**呼叫 `actionBackfillKanshouAi` 一次性擴寫剩下欄位（背景/性格四段/萌點/裝扮）；進入遊戲後 AI **完全不能再碰**性格四段與萌點——這兩類欄位變成「創角時 AI 寫一次、之後只有玩家自己用改命能動」的靜態欄，滾動側寫只剩經歷一項。連帶著「性格鎖」整套鎖定機制（原本用來擋 AI 側寫覆寫玩家自訂值）也失去存在意義，一併刪除（玩家「之前那些鎖定也可以拿掉，不用 AI 負責改」）。
+- **創角**（`askKanshouSetup`）：**只剩一顆按鈕**——填姓名/性別/外貌/個性（外貌個性可留空）→ 確定即呼叫 `backfill_kanshou_ai`（`actionBackfillKanshouAi`）一次擴寫出背景/性格四段/萌點/裝扮全部欄位。想自己填？創角當下先留空，事後隨時進「改命」自己補/改。
+- **開局欄位**（`actionEnterKanshou` 秒寫）：TRAIT＝外貌(玩家填)、氣質空、自稱「我」、私密「無」；PREF＝對外性格(玩家填「個性方向」)、獨處/喜歡/討厭全空；**經歷(BACK)＝「剛搬來冬木市」**；萌點(INTENT)空——這些都只是等 `actionBackfillKanshouAi` 進場前的秒建種子值，backfill 完成後會被覆蓋成 AI 擴寫的完整版本。
+- **經歷（原「身世」正名）**：AI 每回合經 `master_note.經歷` **滾動更新**（承接舊值增補新遭遇、≤80字·bounded overwrite），玩家可經**改命**自己改（back 型·mode 判斷 kanshou 才叫「經歷」、cap 80）。卡面標題 `#ui-back-title` 也依模式正名：**鑑賞看自己卡＝「經歷」**、從者卡/solo＝「身分背景」（updateUI 切換·從者的 BACK 是真背景不是滾動經歷）。**master_note 現在只有這一格**——是玩家開放讓 AI 持續觀察改寫的唯一欄位。
+- **性格四段／萌點：創角一次寫定，遊戲中 AI 不再碰**：`對外性格/獨處性格/喜歡/討厭`(PREF) 與 `萌點`(INTENT) 全由 `actionBackfillKanshouAi` 在創角當下一次生成，`buildDefaultSystemPrompt` 的 `master_note` schema 已不含這幾欄，AI 回合輸出裡即使自己吐了這些 key 也不會落地（GAS 落地端只認 `master_note.經歷`）。想改？只能玩家自己用「改命」手動編輯，AI 不會再幫忙補、也不會覆寫。
 - **⚠ 拆格 bug 根治**：`fateSegSplit_`(顯示與改命共用)只做 `。→、` 正規化＋`split('、')` 補滿4格，**不再壓縮連續頓號**——舊版 `.replace(/、+/g,'、')` 會把「、、我、無」壓成「我、無」導致值位移(我被推到第1格)，改命預填/存回全錯，現已修正。
-- **🌀 側寫節流（每 N 回合才問·`KANSHOU_SIDEWRITE_EVERY_`=3）**：master_note 每回合都問會分散 AI 對敘事的注意力，改成計數節流——`【側寫計數】` 標記存玩家列 MEMORY（`kanshouGet/SetSideWriteCount_`，該列恆寫回·零額外 round-trip），`actionPlay` 每回合 +1，只在第 1、N+1、2N+1… 回合（`_swCount % N === 1`·首回合必寫抓初印象）把 `includeMasterNote=true` 傳給 `buildDefaultSystemPrompt`；非側寫回合整塊 master_note 從 schema `delete` 掉、AI 連這欄都看不到。落地端 `if(aiData.master_note)` 守衛自動跳過缺席回合、經歷/性格/萌點保留舊值不動。N=3 剛好貼齊 6筆/3輪 歷史窗。要調頻率＝改常數。
+- **🌀 側寫節流（每 N 回合才問·`KANSHOU_SIDEWRITE_EVERY_`=3）**：master_note(現只剩經歷一格)每回合都問會分散 AI 對敘事的注意力，改成計數節流——`【側寫計數】` 標記存玩家列 MEMORY（`kanshouGet/SetSideWriteCount_`，該列恆寫回·零額外 round-trip），`actionPlay` 每回合 +1，只在第 1、N+1、2N+1… 回合（`_swCount % N === 1`·首回合必寫抓初印象）把 `includeMasterNote=true` 傳給 `buildDefaultSystemPrompt`；非側寫回合整塊 master_note 從 schema `delete` 掉、AI 連經歷這欄都看不到。落地端 `if(aiData.master_note)` 守衛自動跳過缺席回合、經歷保留舊值不動。N=3 剛好貼齊 6筆/3輪 歷史窗。要調頻率＝改常數。
 - **🏷️ 日常稱呼系統（2026-07 玩家定案「姓氏太多餘、名字太正式」）**：鑑賞世界一律短名——`KANSHOU_CASUAL_NAME_`（keyed by SEED id）：SABER／RIDER／伊莉雅／櫻／凜／大河／士郎。`KANSHOU_NAME_ALIAS_` 全名↔短名雙向別名疊進 `kanshouNameCandidates_`（舊存檔/歷史/AI 寫哪種都對得上人）＋**拉丁字母大小寫變體**（AI 寫 Saber/saber 也對得上 SABER——2026-07 稽核修，否則 rel_changes/npc_exit 大小寫不合＝靜默失效）；`kanshouHeroIdByName_` 短名優先查 id。建列（`heroToKanshouRow_`）、巧遇/結識顯示、召喚訊息全用短名；召喚查重跨名比對。`actionEnterKanshou` 路①含**一次性遷移**（既有列全名→短名·冪等，含玩家 MEMORY 牽手標記值；**只改 `FACTION==='從者'` 列**——2026-07 稽核修，無過濾會把玩家分身列也改名）。⚠ 種子庫只有一位櫻（id `間桐櫻黑化-Master`·真名間桐櫻）→ 就叫「櫻」，無黑櫻。英靈殿/solo 名字不動。「見過面」名單（`addKanshouMet_`）仍存全名（向後相容，比對不經它）。
 - **★焦點禮讓**（玩家實測「我親櫻乾伊莉雅啥事」）：玩家明確只對一位互動時其他在場者保持背景存在感、不可搶話批評介入親密舉動；交情淺的旁觀者頂多尷尬移開視線。**⚠ 2026-07 拔掉醋意暗流**（玩家「感覺可以不要....沒啥用的感覺」，實測觸發時讀起來像在指責玩家「太超過/適可而止」，體感不佳且沒實質作用）：`kanshouJealousStr`／`_jealousPool`（兩位 ≥60 同場 20%機率）整段刪除，焦點禮讓不再有例外，其他在場者一律維持背景。
 - ⚠ `master_note` 是 KANSHOU-only（buildDefaultSystemPrompt）；solo BACK 仍是固定身世（改命 UI 依 `pc.mode` 分標籤/字數）。
@@ -223,12 +220,12 @@
 ### 🧠 記憶全景（AI 每回合看得到什麼·寫回什麼·多久一次）— 2026-07 整理
 **AI 每回合看得到（組進 prompt）**：
 - **近期對話**：`getGameHistoryBatchRaw(pcId, 6)` 滑動窗（6筆＝3輪，更早的靠下面的持久欄接力）。
-- **玩家**：性格(PREF)／特徵(TRAIT)／裝扮／**經歷(BACK·滾動≤80字)**／位置＋地點活動 context（`kanshouLocContextForAI_`）／肉體(PHYSICAL)／身體記憶(技巧前5)。⚠ **玩家萌點(INTENT)絕不餵**（紅線②）——AI 只能盲寫。
+- **玩家**：性格(PREF)／特徵(TRAIT)／裝扮／**經歷(BACK·滾動≤80字)**／位置＋地點活動 context（`kanshouLocContextForAI_`）／肉體(PHYSICAL)／身體記憶(技巧前5)。⚠ **玩家萌點(INTENT)絕不餵**（紅線②）——2026-07 二度改版後 AI 連「盲寫」都不准了，性格/萌點創角時 `actionBackfillKanshouAi` 寫一次定案，遊戲中只有玩家自己改命能動，AI 完全不碰。
 - **每位在場 NPC**（`partyDetailsArr` 一行一人）：身世(BACK)／裝扮／性格／特徵／日常風味／**萌點(有餵·標「僅供內化」，與玩家不同)**／當前活動／**同居狀態**(`kanshouIsCohabit_`判定·2026-07 稽核補：已同居者額外標註「她現在與你同住一處」，讓AI語氣能自然帶同居的日常親近感、不是每次都當作客處理)／共同回憶(MEMOIR)／與玩家的約定／關係 tag＋好感＋相處記憶＋聊天天花板＋階調；NSFW 區另帶 肉體＋技巧前5＋羈絆(REL_MEM：專屬稱呼＋態度)。
 
 **AI 寫回（GAS 落地）**：
 - **每回合**：`physical_state`/`appearance_extras`(原outfit_change)→PHYSICAL·【換裝】；`dynamic_skills`→MEMORY 技巧；`mutual_nicknames`+`attitude`→REL_MEM；`memory` 里程碑→MEMOIR(cap10·★釘選不驅逐)；`rel_changes`→BOND；proposals→前端泡泡(意圖非結果)；`npc_exit`→LOC。
-- **每 3 回合**（側寫節流·【側寫計數】）：`master_note`→經歷滾動／沒鎖的性格格／萌點(僅 INTENT 空時補首個發現)。⚠ **節流三件套缺一不可**（第二輪稽核抓到擊穿）：① schema delete（非側寫回合）② USER prompt 的「你可透過 master_note.經歷 滾動增補」提及跟著 `_doSideWrite` 條件化（`_doSideWrite` 為此**提前到 prompt 組裝前計算**）③ 落地端 `if (_doSideWrite && aiData.master_note…)` 守衛（AI 無視 schema 自發吐也不落地）。
+- **每 3 回合**（側寫節流·【側寫計數】）：`master_note`→**只剩經歷滾動一項**（2026-07 二度改版拔掉性格/萌點側寫，見上方「一次擴寫＋經歷滾動」節）。⚠ **節流三件套缺一不可**（第二輪稽核抓到擊穿）：① schema delete（非側寫回合）② USER prompt 的「你可透過 master_note.經歷 滾動增補」提及跟著 `_doSideWrite` 條件化（`_doSideWrite` 為此**提前到 prompt 組裝前計算**）③ 落地端 `if (_doSideWrite && aiData.master_note…)` 守衛（AI 無視 schema 自發吐也不落地）。
 
 **🩺 AI 負擔瘦身（2026-07 玩家診斷「滾動式+衣服外觀神情太要他老命」·小模型注意力有限，能省則省）**：
 - **狀態差分**：`physical_state`/`appearance_extras`(原outfit_change)/`attitude` 沒實質變化留空＝系統沿用舊值（GAS 空值本就跳過寫入；attitude 配套修掉「空值洗白態度」舊 bug——空→從 oldRMem 撈回舊態度；**「無/同上/不變/沿用/維持原樣/如前」等敷衍值也視同空**，否則差分模式下 AI 真的會把「同上」二字寫進態度欄）。有變化（脫/穿/沐浴/情事/神情轉變）必須更新，NSFW 場景照記。
@@ -258,7 +255,7 @@ SOLO_MODEL   = google/gemini-3.5-flash-lite  (屬性 SOLO_MODEL)   ← 主力(�
 
 - **唯一引擎入口 `send(customMsg, isSilent, opts)`＝`action:'play'`**（2026-07 重構：原 22+ 位置參數收進單一 opts 物件，payload 不變零速度影響）。移動/相約/拍照/牽手/同居/敲門/橋段**沒有各自的 action**，全靠 opts 夾旗標：`moveTarget`/`moveWithCompanion`/`promiseMeet`/`promiseAccept`/`takePhoto`+`photoIntent`/`showPhoto`/`handHold`/`cohabitInvite`/`roomEventAccept`/`knockAccept`/`skipKnockCheck`/`lookAround`/`inviteResident`/`endDay`/`advanceHours`/`jumpBand`/`jumpFestival`/`loaderCaptions`。
 - **回饋條 `proposalResult`** 涵蓋 相約/牽手/同去/同居 四型＋**撲空含「她似乎在○○」位置提示**；**`promiseSettle`（獨立通道）** 涵蓋 赴約成功/爽約過期 結算通知（與提議結果並發時各自顯示·見教訓區「單一回饋槽」）；相簿滿的 `photoResult` 附直達鈕（📚開相簿）——「撲空/婉拒/卡住」一律要有下一步，別讓玩家對著空氣猜。
-- **改命同伴卡**（2026-07 第二輪稽核修）：`update_fate` 名字比對原硬性要求 `IS_PARTY==='同行'`，但鑑賞列從不寫該欄→同伴卡改命鈕恆「查無此人」；現比照 `update_rel_tag` 給 `k_` 世界豁免（同世界名字直配），改同伴的 個性/特徵/身世 是合法自訂。玩家自己卡的性格鎖快取 `_kcPrefLocks` 只在 `res.success` 才更新（失敗也寫＝前端假象）。**萌點例外(2026-07 再修)**：同伴/NPC的萌點改成「真正內化」——`intent-box`(Index.html)在非自己卡片整格連改命鈕都隱藏，`actionUpdateFate` 也擋掉 `fateType==='intent'` 且目標非自己的請求，玩家從此看不到也改不了同伴萌點，只留給AI演出參考。
+- **改命同伴卡**（2026-07 第二輪稽核修）：`update_fate` 名字比對原硬性要求 `IS_PARTY==='同行'`，但鑑賞列從不寫該欄→同伴卡改命鈕恆「查無此人」；現比照 `update_rel_tag` 給 `k_` 世界豁免（同世界名字直配），改同伴的 個性/特徵/身世 是合法自訂。**萌點例外(2026-07 再修)**：同伴/NPC的萌點改成「真正內化」——`intent-box`(Index.html)在非自己卡片整格連改命鈕都隱藏，`actionUpdateFate` 也擋掉 `fateType==='intent'` 且目標非自己的請求，玩家從此看不到也改不了同伴萌點，只留給AI演出參考。（2026-07 二度改版：玩家自己卡的性格鎖快取 `_kcPrefLocks` 已隨性格鎖系統整組刪除）
 - **獨立 action**：`kanshou_companions`／`get_heroes`／`kanshou_summon_hero`／`get_album`／`album_delete`／`update_rel_tag`／`kanshou_memoir_op`／`kanshou_set_home_name`／`kanshou_set_name`／`kanshou_set_sex`／`enter_kanshou`／`backfill_kanshou_ai`。
 - **函式分組**：地圖移動(`kcMapListHtml_`/`kanshouMoveTo`/`kanshouProposeMove`/`kanshouLookAround`)、同伴面板(`openCompanions`/`renderKcHeroList_`/`kanshouEditRelTag`)、召喚(`kanshouSummonHero`)、回憶(`kanshouOpenMemoir`/`kanshouMemoirOp`)、約定(`kanshouPromiseMeet`/`kanshouWaitForPromise`)、拍照相簿(`kanshouTakePhoto`/`openKanshouAlbum`)、時鐘(`kanshouEndDay`/`kanshouNextStage`/`kanshouJumpBand`/`kanshouJumpFestival`)。
 - **泡泡 UI**（`send()` 內依回傳欄位組）：移動同意(`moveProposal`)、敲門(`knockEvent`)、橋段邀請(`roomEventOffer`)、巧遇(`encounterOffer`)、拍照結果(`photoResult`)、地圖人數徽章(`_lastTags.locationCounts`)。

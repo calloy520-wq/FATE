@@ -108,7 +108,6 @@
       //   從未呼叫updateClock(data.clock,...)刷新頂部常駐的#clock-hud——後端其實有正確推進、
       //   也有把label塞進data.clock，只是前端這裡漏了消費它，導致HUD停在進場當下那一次的值。
       if (data.kanshouClock) { kcClock = data.kanshouClock; try { renderMapPane(); } catch (e) { } }
-      if (Array.isArray(data.prefLocks)) window._kcPrefLocks = data.prefLocks; // 🔒 快取性格鎖狀態(改命視窗顯示開關用)
       if (data.clock) updateClock(data.clock, null, null);
       // 🔴 直接接收後端傳來的狀態字串，不再依賴 AI 的文字解析
       if (data.statusString) {
@@ -1571,6 +1570,10 @@ let plainTextContext = cleanText;
   //   之後 👥 面板可改名/改性別；外貌/身世/個性方向只在首次建檔時餵給AI潤色一次(見backfillKanshouAi)。
   //   回傳 {name, sex, appearance, standing, persona}。
   // 🐛→✅ 性別鈕原本一點就直接送出整張表單(其他欄位來不及填就被提交)——改成純選取(點擊只切換高亮)，另加一顆「進入後日談」鈕才真正送出。
+  // 🐛→✅ 2026-07 拆掉「留白創角」選項(玩家「鑑賞玩家要輸入姓名性別外貌個性，這樣就好，其他的
+  //   丟給AI去寫」)：舊版讓玩家選「留白、遊戲中讓AI慢慢認識我」，靠遊玩中零碎片段盲猜性格/萌點，
+  //   寫得很爛——現在統一只剩「AI一次擴寫」這條路，玩家填姓名/性別/必填，外貌/個性可留空，
+  //   送出後直接呼叫 backfillKanshouAi 一次把外貌/個性/萌點/經歷寫完整。
   function askKanshouSetup(defaultName) {
     return new Promise(function (resolve) {
       var selectedSex = '';
@@ -1578,20 +1581,15 @@ let plainTextContext = cleanText;
       ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.74);display:flex;align-items:center;justify-content:center;padding:16px;';
       ov.innerHTML = '<div style="background:#20141b;border:1px solid rgba(200,120,150,.5);border-radius:14px;padding:22px;width:100%;max-width:340px;max-height:calc(100vh - 32px);overflow-y:auto;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6);">'
         + '<div style="color:#e0a0bc;font-weight:bold;font-size:15px;margin-bottom:6px;">🌹 後日談 · 設定你（御主）</div>'
-        + '<div style="color:#9a8f70;font-size:11px;line-height:1.7;margin-bottom:14px;">取個名字、選擇性別。外貌與個性【留空也沒關係】——她們會透過相處慢慢認識你，你的「經歷」也會隨故事自然累積（想自己設定，之後在御主狀態頁點「改命」隨時可填/可改）。</div>'
+        + '<div style="color:#9a8f70;font-size:11px;line-height:1.7;margin-bottom:14px;">取個名字、選擇性別、外貌與個性（後兩者可留空）——AI 會依你填的內容一次幫你擴寫成完整形象（想自己設定，之後在御主狀態頁點「改命」隨時可填/可改）。</div>'
         + '<input id="ksu-name" maxlength="16" value="' + escapeHtml(defaultName || '') + '" placeholder="御主名" style="width:100%;box-sizing:border-box;padding:11px;background:#16101a;border:1px solid rgba(200,120,150,.4);border-radius:8px;color:#f0e0e8;font-size:14px;text-align:center;">'
         + '<div style="display:flex;gap:10px;margin-top:10px;">'
         + '<button id="ksu-f" style="flex:1;padding:13px;background:rgba(90,50,70,.35);color:#d8a8c0;border:2px solid transparent;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♀ 女</button>'
         + '<button id="ksu-m" style="flex:1;padding:13px;background:rgba(50,60,90,.35);color:#a8c0e0;border:2px solid transparent;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♂ 男</button>'
         + '</div>'
-        + '<textarea id="ksu-appear" maxlength="60" placeholder="外貌（選填·留空她們慢慢認識你）" style="width:100%;box-sizing:border-box;margin-top:10px;padding:9px;background:#16101a;border:1px solid rgba(200,120,150,.3);border-radius:8px;color:#f0e0e8;font-size:13px;resize:none;height:40px;"></textarea>'
-        + '<textarea id="ksu-persona" maxlength="60" placeholder="個性方向（選填·留空由相處中自然浮現）" style="width:100%;box-sizing:border-box;margin-top:8px;padding:9px;background:#16101a;border:1px solid rgba(200,120,150,.3);border-radius:8px;color:#f0e0e8;font-size:13px;resize:none;height:40px;"></textarea>'
-        // 🎭 兩種創角分流(2026-07 玩家定案)：AI擴寫＝原配方(AI 依提示一次擴寫成完整御主)；
-        //   留白＝不擴寫(之後用「改命」自己填、AI 側寫補空欄、經歷隨玩滾動)。名稱要直白，別讓玩家
-        //   誤以為「詳細」是更多設定選單、一按卻直接進遊戲。兩顆都加確認框。
+        + '<textarea id="ksu-appear" maxlength="60" placeholder="外貌（選填·留空由AI幫你決定）" style="width:100%;box-sizing:border-box;margin-top:10px;padding:9px;background:#16101a;border:1px solid rgba(200,120,150,.3);border-radius:8px;color:#f0e0e8;font-size:13px;resize:none;height:40px;"></textarea>'
+        + '<textarea id="ksu-persona" maxlength="60" placeholder="個性方向（選填·留空由AI幫你決定）" style="width:100%;box-sizing:border-box;margin-top:8px;padding:9px;background:#16101a;border:1px solid rgba(200,120,150,.3);border-radius:8px;color:#f0e0e8;font-size:13px;resize:none;height:40px;"></textarea>'
         + '<button id="ksu-simple" style="width:100%;box-sizing:border-box;margin-top:12px;padding:13px;background:linear-gradient(90deg,#7a4a6a,#5a3a6a);color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:bold;cursor:pointer;">✨ 讓 AI 依你填的一次擴寫完整</button>'
-        + '<button id="ksu-detail" style="width:100%;box-sizing:border-box;margin-top:8px;padding:13px;background:rgba(90,60,80,.35);color:#e0c0d4;border:1px solid rgba(200,120,150,.5);border-radius:9px;font-size:14px;font-weight:bold;cursor:pointer;">🌱 留白·遊戲中讓 AI 慢慢認識我</button>'
-        + '<div style="color:#8a8070;font-size:10.5px;line-height:1.6;margin-top:8px;">兩顆都會【直接進入遊戲】。差別只在「現在就 AI 擴寫」還是「留白、之後在御主狀態頁點『改命』自己填＋AI 邊玩邊補」。兩種事後都能改命。</div>'
         + '</div>';
       document.body.appendChild(ov);
       var fBtn = ov.querySelector('#ksu-f'), mBtn = ov.querySelector('#ksu-m');
@@ -1603,22 +1601,13 @@ let plainTextContext = cleanText;
       }
       fBtn.onclick = function () { selectedSex = '女'; renderSexPick(); };
       mBtn.onclick = function () { selectedSex = '男'; renderSexPick(); };
-      function _submit(aiExpand) {
-        if (selectedSex !== '女' && selectedSex !== '男') { alert('請先選擇性別。'); return; }
-        var nm = (ov.querySelector('#ksu-name').value || '').trim() || (defaultName || '御主');
-        var appearance = (ov.querySelector('#ksu-appear').value || '').trim();
-        var persona = (ov.querySelector('#ksu-persona').value || '').trim();
-        document.body.removeChild(ov); resolve({ name: nm, sex: selectedSex, appearance: appearance, standing: '', persona: persona, aiExpand: aiExpand });
-      }
       ov.querySelector('#ksu-simple').onclick = function () {
         if (selectedSex !== '女' && selectedSex !== '男') { alert('請先選擇性別。'); return; }
         if (!confirm('要用「' + selectedSex + '」御主直接進入後日談嗎？\n\nAI 會依你填的外貌/個性一次幫你擴寫成完整形象。\n(之後在御主狀態頁點「改命」隨時可改)')) return;
-        _submit(true);
-      };
-      ov.querySelector('#ksu-detail').onclick = function () {
-        if (selectedSex !== '女' && selectedSex !== '男') { alert('請先選擇性別。'); return; }
-        if (!confirm('要用「' + selectedSex + '」御主直接進入後日談嗎？\n\n【留白模式】現在先不設定外貌/個性——她們會透過相處慢慢認識你，AI 也會隨遊玩把你的性格與經歷慢慢寫出來。\n(想自己細填？進去後在御主狀態頁點「改命」隨時可填/可改)')) return;
-        _submit(false);
+        var nm = (ov.querySelector('#ksu-name').value || '').trim() || (defaultName || '御主');
+        var appearance = (ov.querySelector('#ksu-appear').value || '').trim();
+        var persona = (ov.querySelector('#ksu-persona').value || '').trim();
+        document.body.removeChild(ov); resolve({ name: nm, sex: selectedSex, appearance: appearance, standing: '', persona: persona });
       };
     });
   }
@@ -1651,8 +1640,6 @@ let plainTextContext = cleanText;
       }
       // 建立鑑賞視角的 pc（mode=kanshou：隱藏戰鬥相關 UI、顯示同伴面板）
       pc = { id: res.pcId, name: res.pcName, sex: res.pcSex, mode: 'kanshou', account: currentAccount, homeName: res.homeName || '家' };
-      // 🔒 性格鎖進場即播種——重載後直接開改命也拿得到正確開關狀態(修「重載即存檔會無聲清鎖」)。
-      window._kcPrefLocks = Array.isArray(res.prefLocks) ? res.prefLocks : [];
       localStorage.setItem('kyushu_v27', JSON.stringify(pc));
       document.getElementById('setup').style.display = 'none';
       document.getElementById('game').style.display = 'flex';
@@ -1665,8 +1652,10 @@ let plainTextContext = cleanText;
       refreshFateTags();
       // 🗺️ 寬螢幕三欄並排時 #pane-map 不需要點分頁才顯示，進場當下就先算一次(比照 solo 登入後 syncData 觸發的 renderMapPane 初次填色)。
       renderMapPane();
-      // 🚀 只有「超簡易創角」(aiExpand)才 AI 擴寫御主；「詳細創角」留白、靠改命+相處慢慢養(不呼叫)。
-      if (firstTimeSeed && firstTimeSeed.aiExpand) backfillKanshouAi(firstTimeSeed);
+      // 🚀 2026-07 拆掉「留白創角」分流(玩家「其他的丟給AI去寫...AI只能改動經歷」)：創角一律
+      //   立即用玩家填的姓名/性別/外貌/個性一次擴寫完整(外貌/個性/萌點/經歷)，不再留白等遊戲中
+      //   慢慢猜——那個路徑正是「萌點AI亂寫」的根源。
+      if (firstTimeSeed) backfillKanshouAi(firstTimeSeed);
       // 🧵 跟單機一樣：靠 pcId 從「歷史暫存」撈前塵對話，承接上次的後日談，不重開場
       const story = document.getElementById('story');
       story.innerHTML = `<div class="loading-text">後日談因果重啟，喚醒前塵記憶…</div>`;

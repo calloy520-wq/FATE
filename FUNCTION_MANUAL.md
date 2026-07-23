@@ -133,7 +133,7 @@
 #### 🔹 本檔定義的 handler
 - `actionCheckName(...)` — 建角姓名檢查。名清洗後為空＝含非中文→擋；比對 `SEED_MASTERS.name`/`SEED_SERVANTS.realName`（皆過 `cleanChineseName`）擋正典撞名。不擋跨局同名。
 - `actionGetFullStatus(...)` — 依 `targetName`＋自己 game_id 找該角列，回 `buildPlayerStatusString`＋是否可改命（IS_PARTY==="同行"）。關係併入眾生列，直讀 REL_MEM。
-- `actionUpdateFate(...)` — 🔵 逆天改命：只准改 4 敘事欄（trait/pref/back/intent），數值/寶具鎖死。接受 ID 或同行從者名，限本局 game_id；鑑賞（k_）豁免「同行」要求。長度上限 back 80/intent 30/其餘 130。鑑賞御主改『個性』時依 `prefLocks` 寫【性格鎖】（`kanshouSetPrefLocks_`）。交棒 `STATE_PRE_DATA_`。
+- `actionUpdateFate(...)` — 🔵 逆天改命：只准改 4 敘事欄（trait/pref/back/intent），數值/寶具鎖死。接受 ID 或同行從者名，限本局 game_id；鑑賞（k_）豁免「同行」要求。長度上限 back 80/intent 30/其餘 130。交棒 `STATE_PRE_DATA_`。（2026-07 二度改版拔掉性格鎖：不再接受/處理 `prefLocks`，`kanshouSetPrefLocks_` 已刪除——AI 遊戲中本就不再側寫性格/萌點，鎖定機制失去意義）
 - `actionGetTags(...)` — 薄包裝，回 `buildTagsPayload_`。
 - `buildTagsPayload_(sheets, pcId, preData?)` — 🔧 左側狀態卡資料建構（get_tags 與 sync 共用）。組御主卡（HP 詞化/令咒/願望/禮裝/換裝）＋在世我方從者陣列（solo 靠「同行」、鑑賞靠同地點過濾），逐從者附六圍/技能/出力/寶具/魔境/符文/synergy/理想鄉/多寶具/海怪/換裝/武裝/牽手/破戒奪取旗標。戰鬥限定欄以 `isFateCtx`（g_）結構性擋成 null。另回 economy/bondUsed/mystic/canRuleBreak/鑑賞 locationCounts/unlockedResidences。
 - `buildClientState_(sheets, pcId, preData?)` — 完整 client state blob。`markRivalsSeen_`（戰爭迷霧，鑑賞跳過）＋狀態字串＋people（鑑賞/solo 分版）＋鄰近地點＋地圖描述＋時鐘/AP＋economy＋`buildTagsPayload_`＋mapNodes，全部沿用同一次整表讀。
@@ -582,7 +582,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### 5 顆 KPC action（進場/召喚/面板/設定）
 
 - `actionKanshouSummonHero(userData, pcId, sheets)` — 從英靈庫召喚一位英靈「存在」於此後日談世界（不必先 solo 封存）。防線：擁有權驗證、士郎位置擋、`KANSHOU_SUMMON_BLOCKED_IDS_` 擋、ai_gen 僅創造者可召、不開放男男、同一位只召一次（跨名比對）。通過即 appendRow(`heroToKanshouRow_`)。
-- `actionEnterKanshou(userData, pcId, sheets)` — 進入常駐後日談世界（每帳號一個）。三分支：①帳號表已連結→接續（含全名→短名一次性遷移）②MEMORY【帳號】標記舊角色→補寫帳號表連結遷移③無存檔→需 needSetup 問名字/性別後新建御主列（KPC_ 前綴，開場「我的房間」Day1 06:00）＋入駐 `KANSHOU_STARTER_IDS_` 4 位起始住民。**🐛→✅ 稽核抓到**：pcName/appearance/persona 這條首建路徑原本完全沒設 backend 長度上限(只靠前端 maxlength 擋)，已補 pcName≤16／appearance・persona≤60，跟後續改名/改命路徑口徑一致。
+- `actionEnterKanshou(userData, pcId, sheets)` — 進入常駐後日談世界（每帳號一個）。三分支：①帳號表已連結→接續（含全名→短名一次性遷移）②MEMORY【帳號】標記舊角色→補寫帳號表連結遷移③無存檔→需 needSetup 問名字/性別後新建御主列（KPC_ 前綴，開場「我的房間」Day1 06:00）＋入駐 `KANSHOU_STARTER_IDS_` 4 位起始住民。**🐛→✅ 稽核抓到**：pcName/appearance/persona 這條首建路徑原本完全沒設 backend 長度上限(只靠前端 maxlength 擋)，已補 pcName≤16／appearance・persona≤60，跟後續改名/改命路徑口徑一致。（2026-07 二度改版：兩個成功回應物件都拿掉 `prefLocks` 欄位，性格鎖系統整組刪除）
 - `actionBackfillKanshouAi(userData, pcId, sheets)` — 非阻塞背景補生成御主 4 個敘事欄（background/traits/personality/npc_intent/outfit）。比照 `actionBackfillMasterAi`「種子秒建＋AI 潤色」；競態修用 `buildLiveIdIndex_` 寫回前重定位，只單格 setValue，數值/位置不碰。
 - `actionKanshouCompanions(userData, pcId, sheets)` — 列出本世界已存在的所有從者＋各自地點/關係標籤/好感/是否同地/待赴約定/共同回憶，供玩家決定去找誰。無隊伍/人數上限。
 - `actionKanshouMemoirOp(userData, pcId, sheets)` — 共同回憶面板操作（op=pin/unpin/del）：釘選加 ★ 前綴（釘選上限 8）、刪除整條移除。玩家 UI 手動管理、AI 無權；帳號綁定＋同 gid 驗證。
@@ -600,7 +600,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### AI 提示詞組裝（🔴 鑑賞 AI 核心）
 
 - `dialogueFormatRule_()` — 全遊戲【單一真實來源】對話與敘事格式規則（口/喉發聲進「」台詞、每句台詞冠說話者名、看得見動作走敘事、只用單層「」）。solo miniSystem 與此檔 nsfwBaseRules 共用。
-- `buildDefaultSystemPrompt(masterNoteUnlocked, includeMasterNote, includeOptions)` — 組鑑賞系統提示詞（唯一呼叫者 actionPlay）。動態組 JSON 輸出範本（inner_monologue/narration/promise_proposal/cohabit_proposal/proposal_accept/npc_exit/options/intimacy_feedback/rel_changes/master_note）。**2026-07 拔掉 move_proposal**：AI 不再有任何欄位能自己提議換地點，移動只走 GAS 決定的地圖移動/proposeMove 兩條路。三個開關：masterNoteUnlocked=只放沒鎖的性格欄、includeMasterNote=false 整塊拿掉（側寫節流）、includeOptions=false 拿掉 options。
+- `buildDefaultSystemPrompt(includeMasterNote, includeOptions)` — 組鑑賞系統提示詞（唯一呼叫者 actionPlay_）。動態組 JSON 輸出範本（inner_monologue/narration/promise_proposal/cohabit_proposal/proposal_accept/npc_exit/options/intimacy_feedback/rel_changes/master_note）。**2026-07 拔掉 move_proposal**：AI 不再有任何欄位能自己提議換地點，移動只走 GAS 決定的地圖移動/proposeMove 兩條路。**2026-07 二度改版·簽名從 3 參數瘦身成 2 參數**（拔掉 `masterNoteUnlocked`）：`master_note` schema 現在只剩「經歷」一格，性格四段/萌點創角時 `actionBackfillKanshouAi` 一次生成、遊戲中 AI 不再側寫，故不需要「只放沒鎖的性格欄」這層動態鎖過濾。剩兩個開關：includeMasterNote=false 整塊拿掉（側寫節流）、includeOptions=false 拿掉 options。
   - 🔴 內含 `nsfwBaseRules`（函式內 const，非獨立函式）— 慾海演化核心紅線常數，後日談敘事鐵律 6 條＋【慾海律令】7 條；連同 `specificRules`＋範本 JSON 一起回傳。**紅線①：一律不可改。**
 - `getKanshouPeopleList_(pcId, curL, allPcData)` — 鑑賞自算精簡「同地人物」清單（只 id/name/isExact），不借 solo 的 getLocalPeopleList（那多算 12 欄）。
 
@@ -654,8 +654,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `KANSHOU_KNOCK_CHANCE_`(=0.2)、`KANSHOU_KNOCK_MIN_BOND_`(=60)（常數）— 結束一天敲門機率與候選門檻。
 - `KANSHOU_MORNING_AFTER_TAG_`（makeTextTag_ 晨間餘韻）、`KANSHOU_SCENE_DAY_TAG_`（makeIntTag_ 橋段日·防同日重刷）、`KANSHOU_FIRST_MET_DAY_TAG_`（makeIntTag_ 初見日·紀念日）、`KANSHOU_APPT_BANDS_`（約定時段 午後14/黃昏18/夜20）。
-- `kanshouGetPrefLocks_(memory)` / `kanshouSetPrefLocks_(memory, keysArr)` — MEMORY【性格鎖】讀/寫：玩家改命自訂的性格格登記於此，AI master_note 側寫只更新沒鎖的格。
-- `KANSHOU_SIDEWRITE_EVERY_`(=3)（常數）+ `kanshouGetSideWriteCount_`/`kanshouSetSideWriteCount_(memory[,n])` — 側寫節流計數（存玩家列，第 1、N+1… 回合才帶 master_note）。
+- `KANSHOU_SIDEWRITE_EVERY_`(=3)（常數）+ `kanshouGetSideWriteCount_`/`kanshouSetSideWriteCount_(memory[,n])` — 側寫節流計數（存玩家列，第 1、N+1… 回合才帶 master_note；2026-07 二度改版後 master_note 只剩經歷一格，`kanshouGetPrefLocks_`/`SetPrefLocks_`＋【性格鎖】標記已整組刪除）。
 - `kanshouApptHour_(band)` — 約定時段→時刻（null=舊格式無時段）。
 - `kanshouGetPromise_` / `kanshouClearPromise_` / `kanshouSetPromise_(memory, absDay, loc, band)` — MEMORY【約定】absDay:band:loc 讀/清/寫（新約蓋舊、舊格式相容）。
 - `kanshouPromisePin_(row, absDay, curHour)` — 約定日把她 pin 到約定地：有時段=時刻前 10 分~+2h 內回地點、否則整天釘（相容）。
@@ -1100,8 +1099,8 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `travelTo(targetName, distance, retreat?)` — 移動（`move`）：更新狀態/NPC/地圖/撤離追擊戰報，依 solo/鑑賞組不同抵達 AI 提示詞（含敵情/前情/偶遇找上門，兩分支皆插入後端算好的 `data.perfNote` 收尾一次）。`retreat`(2026-07 撤退按鈕定案新增)：true＝殺出重圍(必觸發追擊)，由 `retreatTo()`/需撤退時的故事卡按鈕帶入；後端回 `needRetreat` 時前端不彈 alert，改故事流插入一張撤退提示卡。處理勝敗。
 
 #### 逆天改命
-- `openFateEdit(type)` — 開改命 modal（pref/trait/back/intent）：讀 `dataset.raw` 預填、依模式（solo/鑑賞）給不同標籤/字數，鑑賞個性欄含🔒鎖定勾選框。
-- `saveFate()` — 存改命（`update_fate`）：四格拼接或單值＋收集 prefLocks；成功才更新鎖快取與 UI。
+- `openFateEdit(type)` — 開改命 modal（pref/trait/back/intent）：讀 `dataset.raw` 預填、依模式（solo/鑑賞）給不同標籤/字數。（2026-07 二度改版拔掉性格鎖：鑑賞個性欄不再有🔒鎖定勾選框）
+- `saveFate()` — 存改命（`update_fate`）：四格拼接或單值；成功才更新 UI。（2026-07 二度改版：不再收集/送出 `prefLocks`，鎖快取機制已刪除）
 
 #### 地圖
 - `showGamePane(name)` — 手機三分頁切換（status/chat/map）；切 map→renderMapPane、切 status→refreshFateTags。
@@ -1198,7 +1197,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 #### 聊天引擎與 loading
 - `showProgressLoader_(loadId, captions)` — 插入「跑條」loading（推進時間類動作用），文字每 1.1s 輪播直到 AI 回應；設 `progressTimer`。
 - `hideProgressLoader_(loadId)` — 清 `progressTimer` 並移除跑條 DOM。
-- `send(customMsg, isSilent=false, opts={})` — **鑑賞聊天引擎，唯一 `action:'play'` 呼叫點**；本檔/Script.html 所有互動最終都經此送出。2026-07 重構：23 位置參數→單一 `opts` 物件（`moveTarget`/`lookAround`/`endDay`/`advanceHours`/`jumpFestival`/`jumpBand`/`knockAccept`/`skipKnockCheck`/`roomEventAccept`/`moveWithCompanion`/`promiseMeet`/`cohabitInvite`/`inviteResident`/`proposeMove`/`takePhoto`/`showPhoto`/`photoIntent`/`handHold`/`promiseAccept`/`cohabitAccept`/`loaderCaptions` 等）；前兩位置參數保留（選項鈕 `send(text,true)`）。忙碌鎖用 `btn.disabled`；數字 1–4 映射 `currentOptions`。呼叫 `gasRun`，消費回應：更新 `localNPCs`/`nearbyLocations`/`kcClock`(→`renderMapPane`)/`clock`(→`updateClock`)/`statusString`(→`updateUI`)/`window._kcPrefLocks`；渲染各式「必點泡泡」（`moveProposal`/`promiseProposal`/`cohabitProposal`/`promiseWait`/`knockEvent`/`roomEventOffer`/`photoResult`/`encounterOffer`/`options`【命運的抉擇】），有泡泡自動 `scrollIntoView`；插入說書人敘事＋`proposalResult`/`promiseSettle` 系統通知條；約定變動時背景重抓 `kanshou_companions` 刷 `_kcCur`；末尾 `refreshFateTags(data.tags)`＋重繪地圖人數徽章。失敗不炸整局（`success:false` 走灰字提示）。
+- `send(customMsg, isSilent=false, opts={})` — **鑑賞聊天引擎，唯一 `action:'play'` 呼叫點**；本檔/Script.html 所有互動最終都經此送出。2026-07 重構：23 位置參數→單一 `opts` 物件（`moveTarget`/`lookAround`/`endDay`/`advanceHours`/`jumpFestival`/`jumpBand`/`knockAccept`/`skipKnockCheck`/`roomEventAccept`/`moveWithCompanion`/`promiseMeet`/`cohabitInvite`/`inviteResident`/`proposeMove`/`takePhoto`/`showPhoto`/`photoIntent`/`handHold`/`promiseAccept`/`cohabitAccept`/`loaderCaptions` 等）；前兩位置參數保留（選項鈕 `send(text,true)`）。忙碌鎖用 `btn.disabled`；數字 1–4 映射 `currentOptions`。呼叫 `gasRun`，消費回應：更新 `localNPCs`/`nearbyLocations`/`kcClock`(→`renderMapPane`)/`clock`(→`updateClock`)/`statusString`(→`updateUI`)；渲染各式「必點泡泡」（`moveProposal`/`promiseProposal`/`cohabitProposal`/`promiseWait`/`knockEvent`/`roomEventOffer`/`photoResult`/`encounterOffer`/`options`【命運的抉擇】），有泡泡自動 `scrollIntoView`；插入說書人敘事＋`proposalResult`/`promiseSettle` 系統通知條；約定變動時背景重抓 `kanshou_companions` 刷 `_kcCur`；末尾 `refreshFateTags(data.tags)`＋重繪地圖人數徽章。失敗不炸整局（`success:false` 走灰字提示）。
 
 #### 同伴面板（駐留清單 / 召喚）
 - `invalidateKanshouHeroCache()` — 令英靈庫快取 `_kcHeroesCacheReady=false`（工房鑄造/修改成功後由 Onboarding 呼叫，下次開面板重抓）。
@@ -1301,9 +1300,9 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 
 #### 進場 / 首次創角
 - `askKanshouSex()` — Promise 版性別選擇彈窗（回 '女'/'男'）。
-- `askKanshouSetup(defaultName)` — Promise 版首次進場設定彈窗（名/性別/外貌/個性；兩顆進入鈕：`aiExpand` 立即 AI 擴寫 vs 留白慢慢養）；回 `{name,sex,appearance,standing,persona,aiExpand}`。性別鈕改純選取（修「一點就送出」bug）。
+- `askKanshouSetup(defaultName)` — Promise 版首次進場設定彈窗（名/性別/外貌/個性）；回 `{name,sex,appearance,standing,persona}`。性別鈕改純選取（修「一點就送出」bug）。**2026-07 二度改版**：拔掉「留白、遊戲中讓AI慢慢認識我」分流，只剩一顆「✨讓AI依你填的一次擴寫完整」按鈕（回傳物件不再帶 `aiExpand` 旗標，因為只有一條路徑）。
 - `backfillKanshouAi(seed)` — 非阻塞背景補生成御主敘事欄（`backfill_kanshou_ai`）；成功→`syncData`；失敗靜默保留種子。
-- `enterKanshou()` — **鑑賞總入口**：`enter_kanshou`；`needSetup`→`askKanshouSetup` 二次建檔；建 `pc(mode='kanshou')`＋播種 `_kcPrefLocks`；顯示 game／`applyModeUI`／`refreshFateTags`／`renderMapPane`；`aiExpand` 才 `backfillKanshouAi`；用 `getGameHistory(pcId)` 撈前塵對話承接後日談。
+- `enterKanshou()` — **鑑賞總入口**：`enter_kanshou`；`needSetup`→`askKanshouSetup` 二次建檔；建 `pc(mode='kanshou')`；顯示 game／`applyModeUI`／`refreshFateTags`／`renderMapPane`；**2026-07 二度改版**：`firstTimeSeed` 存在就一律 `backfillKanshouAi`（不再判斷 `aiExpand`，也不再播種 `_kcPrefLocks`——性格鎖系統已刪除）；用 `getGameHistory(pcId)` 撈前塵對話承接後日談。
 
 ---
 
