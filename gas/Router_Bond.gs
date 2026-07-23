@@ -217,7 +217,7 @@ function actionBond(userData, pcId, sheets) {
   if (isFate && getAp_(myGameId) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不足以從容相處——請『休息』恢復後再來。" });
 
   // 日限檢查
-  const clk = getClock_(myGameId);
+  const clk = getClock_(myGameId, pcData);
   const day = clk ? clk.day : 1;
   const band = clk ? timeBand_(clk.hour) : "夜";
   let usedToday = getBondUsedToday_(pcData[pIdx][COL.PC.MEMORY], day);

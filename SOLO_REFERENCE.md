@@ -247,7 +247,7 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 - `getAp_/spendAp_(gid,n)/grantAp_(gid,n)`（不推時間）、`restHours_`、`rollHours_`、`timeBand_`(晨/午/夜)、`clockLabel_`。
 - AP：每日12，移動2AP、戰鬥/偵查/補魔/禮裝/結盟/共處/整備=1AP、休息每hr補2。
 - `playerServantEconomy_`：御主魔力收支 HUD（含 output/outputLabel/svFeed）。工房加成＝atHome‖hasTerritory‖atWorkshop（讀御主【陣地】marker·須與 applyRegen_ 對齊）。**須與 `applyRegen_` 同一套算式。**
-- `worldTick_`：跨時推進世界。含：敵移位（`freezeLoc=playerLoc` 玩家格上敵人禁移，避免撲空）、`refillMastersDaily_`、敵從者小幅自癒 `ENEMY_REGEN_RATE_`(0.06·跨輪累積旗標只寫一次)、令咒透支倒數結算、暗處廝殺（`allowAttrition` 休息·第 `ATTRITION_START_DAY`(3) 日起·遠處·存活>`WORLD_FLOOR_`(4)·7%/tick·挑戰力最低者先死）。**🐛→✅ 2026-07 五路稽核修正**：①敵御主移位時「找不到硬連結從者→抓同格任一孤身從者」的 fallback，註解一直寫「孤身」卻從沒真的檢查——只要同格未死就是第一個掃到的被拖走，即使牠其實掛在另一位(這輪未移動/稍後才輪到的)敵御主名下；改成先查該從者的【御主】tag 是否有一位活著且仍在原地的主人，有→跳過不搶。②暗處互鬥的 `offstage` 候選名單完全沒排除 `isAllied_`(已結盟)的敵從者——玩家養出的盟友只要離開玩家所在格，就有機率被系統隨機抽去和不相干的敵從者互鬥致死，跟「結盟＝可倚仗的戰友」矛盾；已排除。
+- `worldTick_`：跨時推進世界。含：敵移位（`freezeLoc=playerLoc` 玩家格上敵人禁移，避免撲空）、`refillMastersDaily_`、敵從者小幅自癒 `ENEMY_REGEN_RATE_`(0.06·跨輪累積旗標只寫一次)、令咒透支倒數結算、暗處廝殺（`allowAttrition` 休息·第 `ATTRITION_START_DAY`(3) 日起·遠處·存活>`WORLD_FLOOR_`(4)·7%/tick·挑戰力最低者先死）。**🐛→✅ 2026-07 五路稽核修正**：①敵御主移位時「找不到硬連結從者→抓同格任一孤身從者」的 fallback，註解一直寫「孤身」卻從沒真的檢查——只要同格未死就是第一個掃到的被拖走，即使牠其實掛在另一位(這輪未移動/稍後才輪到的)敵御主名下；改成先查該從者的【御主】tag 是否有一位活著且仍在原地的主人，有→跳過不搶。②暗處互鬥的 `offstage` 候選名單完全沒排除 `isAllied_`(已結盟)的敵從者——玩家養出的盟友只要離開玩家所在格，就有機率被系統隨機抽去和不相干的敵從者互鬥致死，跟「結盟＝可倚仗的戰友」矛盾；已排除。**🐛→✅ 2026-07 玩家「檢查solo看看有沒有問題」稽核抓到①的未修孿生**：敵御主移位隨行從者的「第一輪」配對(找 MEMORY 有【御主】=mName 的從者)一直是子字串 `indexOf` 比對——正是 `Router_Movement.gs findClashSv_` 已修過的同一種前綴撞名 bug，而且緊接在後的「第二輪」fallback 早就已經改用 `getServantMaster_` 精確比對，第一輪先撞名誤配對、`break` 就直接跳過了第二輪的正確判準。chaos/AI原創敵御主撞名前綴(如「伊莉雅」vs「伊莉雅絲菲爾-5th」)時會把 B 御主的從者誤拖去 A 御主的新位置。已改成第一輪也用 `getServantMaster_` 精確比對，兩輪判準統一。
 - **「養不起爆炸」機制已移除**（總撞同一目標·與隨機初衷矛盾）。
 - `leylineAt_`、`masterCircuits_`（MEMORY【迴路】N 預設30）。
 
@@ -274,7 +274,7 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 ## 10. servantCard_ / persona 注入（show-don't-tell 核心）
 
 - `codexPersona_(name)`：從英靈殿 PERSONA 撈細緻人設（firstP/words/toMaster/speech/moe/tic）。
-- `servantCard_(row)`（Router_Persona.gs）：壓成「〈角色背景·僅供內化〉」段塞進 narration prompt。**鐵則一**＝當背景揣摩；**鐵則二**＝設定字眼禁直述/說嘴；**鐵則三**＝依羈絆調親疏。含**狂化偵測**（persona.speech/firstP 含 狂化/無法言語/咆哮 → 加「禁說完整句、只咆哮」·赫拉克勒斯/蘭斯洛特命中·會說話的開膛手傑克不中）。自稱標籤限定範圍（「台詞內自稱，敘事旁白的『我』永遠是玩家」）防視角混淆。
+- `servantCard_(row)`（Router_Persona.gs）：壓成「〈角色背景·僅供內化〉」段塞進 narration prompt。**鐵則一**＝當背景揣摩；**鐵則二**＝設定字眼禁直述/說嘴；**鐵則三**＝依羈絆調親疏。含**狂化偵測**（persona.speech/firstP 含 狂化/無法言語/**僅**咆哮/不語 → 加「禁說完整句、只咆哮」·赫拉克勒斯/蘭斯洛特命中·刻意用「僅咆哮」而非裸「咆哮」，讓「時而文雅、時而癲狂咆哮」的吉爾·德·萊斯這類會說話的角色不誤中）。自稱標籤限定範圍（「台詞內自稱，敘事旁白的『我』永遠是玩家」）防視角混淆。
 - `masterCard_(row)`：御主演出依據卡（名/性別/性格/特徵/願望/萌點/體術/魔術）。**御主有聲**：可依性格給台詞，但**不替御主拍板戰略抉擇**（出戰/結盟/移動/補魔由玩家按鍵）、不逼問、不快轉。
 - `enemyMasterCard_(row)`：敵御主精簡演出卡（性格取前4/特徵取前3/萌點/身世/體術/魔術，不塞六圍/寶具）。NPC 不受「不可替玩家決定」限制。只在敵御主本人同地在場時注入（`enemyMasterIdx_`＋位置比對）；`actionFateBattle` aiPrompt 加**關係錨**（「此敵御主正是 defC 的契約御主」）＋**戰局實況錨點**（用算好的 HP比例/傷害交換組白話戰況給 AI，讓敵御主反應對得上場面）。正典人物優先調用原作認知、卡片僅錨點。
 - **開放世界**（無「同地路人」機制）：solo 同地角色一律純文字（無金色互動連結·整套 `openInteractMenu` 互動選單死碼已刪）。鑑賞路人＝純氛圍背景人煙（`backgroundCrowdStr`·不具名·不追蹤好感）。能被指名/記好感的只有同行隊伍成員。

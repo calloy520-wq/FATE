@@ -447,12 +447,17 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
       var mName = String(data[i][COL.PC.NAME] || "");
       var foundServant = false;
       // 第一輪：找 MEMORY 有【御主】=mName 的配對從者
+      // 🐛→✅ 2026-07 玩家「檢查solo看看有沒有問題」稽核抓到：這裡子字串 indexOf 比對是同一個
+      //   前綴撞名 bug(Router_Movement.gs findClashSv_ 已修過)的未修孿生——chaos/AI原創敵御主
+      //   可能撞名前綴(如「伊莉雅」與「伊莉雅絲菲爾-5th」)，處理「伊莉雅」移位時會誤命中掛在
+      //   後者名下的從者並搶先 break，下方第二輪(已用 getServantMaster_ 精確比對)反而永遠輪不到。
+      //   改成同一套精確比對，兩輪判準統一。
       for (var j = 1; j < data.length; j++) {
         if (String(data[j][COL.PC.FACTION]) !== "敵從者") continue;
         if (String(data[j][COL.PC.GAME_ID] || "") !== gameId) continue;
         if (String(data[j][COL.PC.ID]).startsWith("DEAD_")) continue;
         if (String(data[j][COL.PC.LOC]).trim() !== oldLoc) continue;
-        if (String(data[j][COL.PC.MEMORY] || "").indexOf("【御主】" + mName) < 0) continue;
+        if (getServantMaster_(data[j][COL.PC.MEMORY]) !== mName) continue;
         data[j][COL.PC.LOC] = newLoc; foundServant = true; break;
       }
       // 第二輪：找不到配對 → fallback 抓同格任一孤身從者（MEMORY 無【御主】或御主不在同格）
