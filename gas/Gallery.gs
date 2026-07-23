@@ -85,6 +85,19 @@ function getKanshouPcSheet_(ss) {
   return sh;
 }
 
+// 🔤 translateLookToDaily_/translatePersonalityToDaily_/translateMoeToDaily_ 共用開場白：三者
+//   系統提示詞都以「你是《命運停駐之夜》的角色側寫顧問。★【語言】」起手(look段多一句JSON欄位名
+//   例外，各自保留在自己的規則段落裡，不動這段共用前綴的字面)。
+const KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_ = "你是《命運停駐之夜》的角色側寫顧問。★【語言】";
+// 🔧 共用呼叫殼子：try/callGeminiAPI/catch-fallback原值三者結構相同，只有「怎麼從API原始回傳值
+//   算出最終結果」跟「失敗時的保底值」不同——resultMapper 在 try 內把 raw 轉成最終回傳值(沿用
+//   原本各自的 JSON.parse/String(...).trim() 等寫法)，任何一步拋錯都跟原本一樣落到 fallbackValue。
+function kanshouDailyTranslateCall_(prompt, sys, apiOpts, resultMapper, fallbackValue) {
+  try {
+    return resultMapper(callGeminiAPI(prompt, sys, apiOpts));
+  } catch (e) { return fallbackValue; }
+}
+
 // 把戰時外貌(如「貼身黑色戰甲勁裝」)轉譯成現代日常穿搭/外型：本相不變、戰甲換成日常打扮；
 //   呼叫端(召喚/奪杯封存)僅一次性觸發，失敗時原樣退回戰時描述。
 // dailyMoeHint：私密一面與萌點是兩次獨立 AI 呼叫，容易各自發想撞成同一件事，故傳入已算好的
@@ -92,28 +105,28 @@ function getKanshouPcSheet_(ss) {
 function translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint, sex) {
   var look = String(rawLook || "").trim();
   if (!look) return { look: "", outfit: "" };
-  try {
-    // 🐛→✅ 玩家反饋：女性角色的「外貌本相」段常常只寫髮色/瞳色，體態/身材完全空白——
-    //   明確要求納入身形/胸圍等身材描寫，讓AI日後描寫外貌時有東西可用，不必臨場瞎編。
-    //   幼女/孩童型角色(如伊莉雅絲菲爾)不適用，交給玩家自訂的rawLook本身判斷、不強加。
-    var figureHint = (sex === "女") ? "，若角色是成年女性、務必包含身形/胸部具體描寫，但要寫成自然的敘述句(如「胸前豐盈」「身形纖瘦」)、不要用「巨乳」這類生硬孤立的分類標籤直接呈現——這句話會顯示在玩家看得到的狀態欄位；「豐滿」單獨出現不夠明確，須明確扣連到胸部，不要只寫髮色瞳色就交差" : "";
-    var sys = "你是《命運停駐之夜》的角色側寫顧問。★【語言】除JSON欄位名本身外，所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母。玩家提供一段用「、」或「・」分隔的角色戰時外貌描述" +
-      "(前面數段是外貌本相與戰時攻防裝束，最後一段是整體氣質／神情)，以及她的第一人稱自稱、說話語氣。" +
-      "這是 Fate／聖杯戰爭的平行世界日常線，想像《衛宮家今天的餐桌風景》那種基調——換上現代日常穿搭，" +
-      "但一看就知道是她本人。請輸出兩樣東西：\n" +
-      "①look：日常版「外貌」四短句、頓號分隔，每句精簡收束、避免堆疊多重子句，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝)" + figureHint + "]、" +
-      "[氣質舉止(依和平日常情境自然轉化，但性格底色不變，不可變成另一個人的氣質；【不可與下方口氣段用相同字眼重複描述】，例如兩段都寫「溫柔」「謙恭」)]、" +
-      "[自稱與口氣：固定格式「自稱「" + (firstP || "我") + "」，再接一句依她原本說話語氣(" + (speech || "無特別描述") + ")寫成的日常口氣描述」]、" +
-      "[卸下心防的私密一面(這個角色只有放下戒備才會流露的一個具體、生活化、忠於其性格的小可愛面向，" +
-      "【必須用看得到的具體小動作或情境呈現(show-don't-tell)，禁止直接說出她的內心想法/動機/情感獨白——如「心裡一直惦記著…」「其實很在意…」這類直述寫法一律不允許】，也不要只是把她的性格或喜好換句話說(那屬於性格欄)，" +
-      "不可空泛或套用他人" + (dailyMoeHint ? "；這個角色的招牌萌點已經是「" + dailyMoeHint + "」，這一格【禁止】重複或換句話說同一件事，必須是完全不同的另一個生活切面(小動作/小習慣/情緒觸發點)" : "") + ")]。\n" +
-      "②outfit：一句她今天的日常穿搭，保留原本服裝的色系/風格精神、換成現代日常款式，盡量貼近原味，" +
-      "不要跟look的內容重複。\n" +
-      "★輸出合法 JSON、禁 Markdown：{\"look\":\"四短句頓號分隔\",\"outfit\":\"一句日常穿搭\"}";
-    var prompt = "角色：" + name + "（" + cls + "）\n戰時外貌描述：" + look;
-    var out = JSON.parse(callGeminiAPI(prompt, sys, { temperature: 0.7, ignoreLaw: true }) || "{}");
+  // 🐛→✅ 玩家反饋：女性角色的「外貌本相」段常常只寫髮色/瞳色，體態/身材完全空白——
+  //   明確要求納入身形/胸圍等身材描寫，讓AI日後描寫外貌時有東西可用，不必臨場瞎編。
+  //   幼女/孩童型角色(如伊莉雅絲菲爾)不適用，交給玩家自訂的rawLook本身判斷、不強加。
+  var figureHint = (sex === "女") ? "，若角色是成年女性、務必包含身形/胸部具體描寫，但要寫成自然的敘述句(如「胸前豐盈」「身形纖瘦」)、不要用「巨乳」這類生硬孤立的分類標籤直接呈現——這句話會顯示在玩家看得到的狀態欄位；「豐滿」單獨出現不夠明確，須明確扣連到胸部，不要只寫髮色瞳色就交差" : "";
+  var sys = KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_ + "除JSON欄位名本身外，所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母。玩家提供一段用「、」或「・」分隔的角色戰時外貌描述" +
+    "(前面數段是外貌本相與戰時攻防裝束，最後一段是整體氣質／神情)，以及她的第一人稱自稱、說話語氣。" +
+    "這是 Fate／聖杯戰爭的平行世界日常線，想像《衛宮家今天的餐桌風景》那種基調——換上現代日常穿搭，" +
+    "但一看就知道是她本人。請輸出兩樣東西：\n" +
+    "①look：日常版「外貌」四短句、頓號分隔，每句精簡收束、避免堆疊多重子句，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝)" + figureHint + "]、" +
+    "[氣質舉止(依和平日常情境自然轉化，但性格底色不變，不可變成另一個人的氣質；【不可與下方口氣段用相同字眼重複描述】，例如兩段都寫「溫柔」「謙恭」)]、" +
+    "[自稱與口氣：固定格式「自稱「" + (firstP || "我") + "」，再接一句依她原本說話語氣(" + (speech || "無特別描述") + ")寫成的日常口氣描述」]、" +
+    "[卸下心防的私密一面(這個角色只有放下戒備才會流露的一個具體、生活化、忠於其性格的小可愛面向，" +
+    "【必須用看得到的具體小動作或情境呈現(show-don't-tell)，禁止直接說出她的內心想法/動機/情感獨白——如「心裡一直惦記著…」「其實很在意…」這類直述寫法一律不允許】，也不要只是把她的性格或喜好換句話說(那屬於性格欄)，" +
+    "不可空泛或套用他人" + (dailyMoeHint ? "；這個角色的招牌萌點已經是「" + dailyMoeHint + "」，這一格【禁止】重複或換句話說同一件事，必須是完全不同的另一個生活切面(小動作/小習慣/情緒觸發點)" : "") + ")]。\n" +
+    "②outfit：一句她今天的日常穿搭，保留原本服裝的色系/風格精神、換成現代日常款式，盡量貼近原味，" +
+    "不要跟look的內容重複。\n" +
+    "★輸出合法 JSON、禁 Markdown：{\"look\":\"四短句頓號分隔\",\"outfit\":\"一句日常穿搭\"}";
+  var prompt = "角色：" + name + "（" + cls + "）\n戰時外貌描述：" + look;
+  return kanshouDailyTranslateCall_(prompt, sys, { temperature: 0.7, ignoreLaw: true }, function (raw) {
+    var out = JSON.parse(raw || "{}");
     return { look: String(out.look || "").trim() || look, outfit: String(out.outfit || "").trim() };
-  } catch (e) { return { look: look, outfit: "" }; }
+  }, { look: look, outfit: "" });
 }
 
 // 跟 Core_Settings.gs 的 enrichPersonalityLikesDislikes_ 不同：那個只補缺項、維持戰時語境給
@@ -121,22 +134,22 @@ function translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint,
 function translatePersonalityToDaily_(name, cls, rawWords, lookPrivateHint) {
   var words = String(rawWords || "").trim();
   if (!words) return words;
-  try {
-    var sys = "你是《命運停駐之夜》的角色側寫顧問。★【語言】所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母。玩家提供一位角色在聖杯戰爭(戰時)既有的性格短句" +
-      "(用「、」分隔，依序對應[日常表象][真實內裡][喜歡的事物][討厭的事物]，段數可能不足4段——" +
-      "這是正常的，種子資料本就只服務戰鬥)。這個角色現在要進入現代都市的和平日常生活，想像" +
-      "《衛宮家今天的餐桌風景》那種基調——性格核心不變，只是活在和平日常裡，請你：\n" +
-      "①若既有短句偏戰場語境(如「戰意」「殺意」「勝負」「殺戮」等)，轉譯成性格本質不變、但適合" +
-      "日常場景展現的等價說法；純屬個性核心(不涉戰場)的短句原樣保留、不要亂改。\n" +
-      "②段數不足4段時，依既有特質延伸出貼合、具體、適合日常場景的「喜歡的事物」與「討厭的事物」" +
-      "補滿4句。\n" +
-      "③每句精簡收束、避免堆疊多重子句。\n" +
-      (lookPrivateHint ? "④她的日常外貌欄已寫好一句「私密一面」：「" + lookPrivateHint + "」——你這4句性格【不要】跟它重複或換句話說同一件事，各自要是獨立的面向。\n" : "") +
-      "★只輸出最終4句、用「、」分隔，不要輸出任何說明、標籤、引號、前後綴。";
-    var prompt = "角色：" + name + "（" + cls + "）\n戰時性格短句：" + words;
-    var out = String(callGeminiAPI(prompt, sys, { temperature: 0.75, ignoreLaw: true, plainText: true }) || "").trim();
+  var sys = KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_ + "所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母。玩家提供一位角色在聖杯戰爭(戰時)既有的性格短句" +
+    "(用「、」分隔，依序對應[日常表象][真實內裡][喜歡的事物][討厭的事物]，段數可能不足4段——" +
+    "這是正常的，種子資料本就只服務戰鬥)。這個角色現在要進入現代都市的和平日常生活，想像" +
+    "《衛宮家今天的餐桌風景》那種基調——性格核心不變，只是活在和平日常裡，請你：\n" +
+    "①若既有短句偏戰場語境(如「戰意」「殺意」「勝負」「殺戮」等)，轉譯成性格本質不變、但適合" +
+    "日常場景展現的等價說法；純屬個性核心(不涉戰場)的短句原樣保留、不要亂改。\n" +
+    "②段數不足4段時，依既有特質延伸出貼合、具體、適合日常場景的「喜歡的事物」與「討厭的事物」" +
+    "補滿4句。\n" +
+    "③每句精簡收束、避免堆疊多重子句。\n" +
+    (lookPrivateHint ? "④她的日常外貌欄已寫好一句「私密一面」：「" + lookPrivateHint + "」——你這4句性格【不要】跟它重複或換句話說同一件事，各自要是獨立的面向。\n" : "") +
+    "★只輸出最終4句、用「、」分隔，不要輸出任何說明、標籤、引號、前後綴。";
+  var prompt = "角色：" + name + "（" + cls + "）\n戰時性格短句：" + words;
+  return kanshouDailyTranslateCall_(prompt, sys, { temperature: 0.75, ignoreLaw: true, plainText: true }, function (raw) {
+    var out = String(raw || "").trim();
     return out || words;
-  } catch (e) { return words; }
+  }, words);
 }
 
 // 戰時萌點常靠戰爭/創傷撐出沉重反差，直接照搬到沒發生過聖杯戰爭的平行世界會顯得莫名沉重——
@@ -148,24 +161,24 @@ function translatePersonalityToDaily_(name, cls, rawWords, lookPrivateHint) {
 function translateMoeToDaily_(name, cls, rawMoe) {
   var moe = String(rawMoe || "").trim();
   if (!moe) return moe;
-  try {
-    var sys = "你是《命運停駐之夜》的角色側寫顧問。★【語言】所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母。玩家提供一位角色在聖杯戰爭(戰時)既有的「萌點」" +
-      "一句話——這種戰時萌點常常是靠沉重背景撐出來的(創傷/自卑/孤獨/悲劇宿命等)，形式不拘：可能是" +
-      "反差(表面兇其實軟)，也可能只是單純討喜的外觀/行為/習慣特色。這個角色現在要" +
-      "進入一個【平行世界的日常線】：這裡從來沒有發生過聖杯戰爭這回事(她依然是同一位英靈，只是活在" +
-      "一個沒有戰爭、不必背負詛咒創傷的和平世界)。想像《衛宮家今天的餐桌風景》那種基調，把這句戰時萌點" +
-      "改寫成一句「日常向」的可愛萌點：\n" +
-      "①保留角色的性格核心(如高冷/傲氣/寡言/暖心等本相不變)，只是換一個不需要靠悲劇/創傷/戰爭陰影" +
-      "撐出來的呈現方式。\n" +
-      "②必須是單看了會覺得溫馨、正面、會心一笑的小萌點(可以是反差、也可以是單純的外觀特色/生活習慣/" +
-      "意外的手藝/小小的害羞反應等，不強求一定要寫成「表面X其實Y」的反差句型)，不要保留原句的沉重/悲傷/" +
-      "自卑成分。\n" +
-      "③限18字，務必寫完整一句話，不可斷在句意未完處。\n" +
-      "★只輸出這一句話，不要輸出任何說明、標籤、引號、前後綴。";
-    var prompt = "角色：" + name + "（" + cls + "）\n戰時萌點：" + moe;
-    var out = String(callGeminiAPI(prompt, sys, { temperature: 0.75, ignoreLaw: true, plainText: true }) || "").trim();
+  var sys = KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_ + "所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母。玩家提供一位角色在聖杯戰爭(戰時)既有的「萌點」" +
+    "一句話——這種戰時萌點常常是靠沉重背景撐出來的(創傷/自卑/孤獨/悲劇宿命等)，形式不拘：可能是" +
+    "反差(表面兇其實軟)，也可能只是單純討喜的外觀/行為/習慣特色。這個角色現在要" +
+    "進入一個【平行世界的日常線】：這裡從來沒有發生過聖杯戰爭這回事(她依然是同一位英靈，只是活在" +
+    "一個沒有戰爭、不必背負詛咒創傷的和平世界)。想像《衛宮家今天的餐桌風景》那種基調，把這句戰時萌點" +
+    "改寫成一句「日常向」的可愛萌點：\n" +
+    "①保留角色的性格核心(如高冷/傲氣/寡言/暖心等本相不變)，只是換一個不需要靠悲劇/創傷/戰爭陰影" +
+    "撐出來的呈現方式。\n" +
+    "②必須是單看了會覺得溫馨、正面、會心一笑的小萌點(可以是反差、也可以是單純的外觀特色/生活習慣/" +
+    "意外的手藝/小小的害羞反應等，不強求一定要寫成「表面X其實Y」的反差句型)，不要保留原句的沉重/悲傷/" +
+    "自卑成分。\n" +
+    "③限18字，務必寫完整一句話，不可斷在句意未完處。\n" +
+    "★只輸出這一句話，不要輸出任何說明、標籤、引號、前後綴。";
+  var prompt = "角色：" + name + "（" + cls + "）\n戰時萌點：" + moe;
+  return kanshouDailyTranslateCall_(prompt, sys, { temperature: 0.75, ignoreLaw: true, plainText: true }, function (raw) {
+    var out = String(raw || "").trim();
     return out.slice(0, 30) || moe;
-  } catch (e) { return moe; }
+  }, moe);
 }
 
 // DAILY_LOOK/DAILY_WORDS 皆在進英靈殿前就保證非空(種子手寫或工房建立時AI預轉)，故此處純讀取，
@@ -1047,14 +1060,11 @@ function kanshouLocContextForAI_(locName, homeName) {
 //   🏠 房間分區的name是穩定不變的內部key(給LOC比對用)，顯示給玩家/AI看的名稱是動態算的
 //   (kanshouRoomDisplayName_)——「我的房間」永遠顯示「(玩家名)的房間」。2026-07 經濟/房東房客
 //   世界觀砍除後，鑑賞不再有可指派的客房，同伴們各自落腳在自己原本的住處(KANSHOU_HERO_HOME_)。
-// 🌱 2026-07 三度改版新增 minBond/dateOnly：原本給GAS主動邀約(kanshouPickDate_)篩選地點用——
-//   minBond省略＝0(日常初識可去)；40+/60+/80+分別對應熟識/親近/戀人三階，好感越深解鎖越有情調
-//   (甚至很色)的去處。★這個門檻從來只影響GAS自動選點，不限制玩家自己走地圖過去或帶她同去(玩家
-//   「玩家邀約或是牽手帶去不管」)，地圖上一律可走。⚠ 2026-07 八度改版(玩家「約會泡泡也好煩人」)
-//   移除GAS主動邀約機制(kanshouPickDate_)後，minBond欄位已無任何程式碼讀取，純屬保留給未來若要
-//   恢復類似機制參考用的既有分級資料，不影響現行流程。
-//   dateOnly:true＝不進kanshouRollDailyLocation_的日常閒晃保底池(避免其他同伴平白無故被骰去這種
+// 🌱 dateOnly:true＝不進kanshouRollDailyLocation_的日常閒晃保底池(避免其他同伴平白無故被骰去這種
 //   明顯是「約會限定」的私密地點閒晃)，這個用途仍在使用中(見kanshouRollDailyLocation_)。
+//   ⚠ 2026-07 八度改版(玩家「約會泡泡也好煩人」)移除GAS主動邀約機制(kanshouPickDate_)後，原本
+//   隨dateOnly一起新增、給該機制篩選地點用的minBond欄位已無任何程式碼讀取，故整批移除
+//   (地圖上玩家自己走過去/帶她同去這條路本就不受這個門檻限制，移除不影響現行流程)。
 // 🕐 2026-07 六度改版新增 bands：玩家實測「清晨走進深夜賓館，櫃檯空無一人像恐怖片開場」──有些
 //   地點名字本身就寫明時段(深夜賓館/夜景展望台)、有些現實中就有營業時段(書店/水族館)，卻能被
 //   玩家在任何時段自由走進去，AI只能硬掰理由圓場，讀起來很違和。bands＝這個地點在哪些
@@ -1085,16 +1095,16 @@ const KANSHOU_LOCATIONS_ = [
   { name: '書店二樓', region: 'fuyuki', desc: '安靜得只聽見翻頁聲的二樓書架間。', bands: ['清晨', '午後', '黃昏'] },
   { name: '屋頂花園', region: 'fuyuki', desc: '高樓頂上的一方綠意，能望見整座城市。' },
   { name: '商店街', region: 'fuyuki', desc: '人聲鼎沸的商店街，攤販林立。' },
-  { name: '摩天輪', region: 'fuyuki', desc: '入夜會點燈的摩天輪，是情侶間熱門的約會景點。', minBond: 40, bands: ['清晨', '午後', '黃昏', '夜'] },
-  { name: '水族館', region: 'fuyuki', desc: '館內盡是幽藍燈光，水母缸前總擠著竊竊私語的情侶。', minBond: 40, bands: ['清晨', '午後'] },
-  { name: '深夜賓館', region: 'fuyuki', desc: '招牌亮著曖昧的霓虹燈，房間隔音很好，沒有人會多問一句。', minBond: 80, noEncounter: true, dateOnly: true, bands: ['黃昏', '夜', '深夜'] },
+  { name: '摩天輪', region: 'fuyuki', desc: '入夜會點燈的摩天輪，是情侶間熱門的約會景點。', bands: ['清晨', '午後', '黃昏', '夜'] },
+  { name: '水族館', region: 'fuyuki', desc: '館內盡是幽藍燈光，水母缸前總擠著竊竊私語的情侶。', bands: ['清晨', '午後'] },
+  { name: '深夜賓館', region: 'fuyuki', desc: '招牌亮著曖昧的霓虹燈，房間隔音很好，沒有人會多問一句。', noEncounter: true, dateOnly: true, bands: ['黃昏', '夜', '深夜'] },
 
   { name: '老道場', region: 'dojo', desc: '木地板與竹刀氣味的老道場。' },
   { name: '山間小徑', region: 'dojo', desc: '林蔭遮天、只聞鳥鳴的山間小路。' },
-  { name: '隱藏溫泉', region: 'dojo', desc: '深藏山林間、鮮少人知的一方溫泉。', minBond: 60 },
+  { name: '隱藏溫泉', region: 'dojo', desc: '深藏山林間、鮮少人知的一方溫泉。' },
   { name: '廢棄神社', region: 'dojo', desc: '荒草蔓生、早已無人祭拜的廢棄神社。' },
-  { name: '夜景展望台', region: 'dojo', desc: '能俯瞰整座冬木市萬家燈火的高地，晚風正好，兩人並肩無語也不尷尬。', minBond: 60, bands: ['黃昏', '夜', '深夜'] },
-  { name: '情侶溫泉套房', region: 'dojo', desc: '只租給兩人的溫泉旅館房間，一拉上紙門，外頭的世界就與你們無關了。', minBond: 80, noEncounter: true, dateOnly: true, bands: ['黃昏', '夜', '深夜'] },
+  { name: '夜景展望台', region: 'dojo', desc: '能俯瞰整座冬木市萬家燈火的高地，晚風正好，兩人並肩無語也不尷尬。', bands: ['黃昏', '夜', '深夜'] },
+  { name: '情侶溫泉套房', region: 'dojo', desc: '只租給兩人的溫泉旅館房間，一拉上紙門，外頭的世界就與你們無關了。', noEncounter: true, dateOnly: true, bands: ['黃昏', '夜', '深夜'] },
 
   // 拜訪住處：只保留女性角色的住處，noEncounter:true(私人住處，恆不觸發陌生人巧遇)，name
   //   務必與下方KANSHOU_HERO_HOME_的值逐字一致，否則kanshouRollDailyLocation_骰到的地點對不上這裡。
@@ -1921,6 +1931,13 @@ function actionPlay(userData, pcId, sheets) {
   }
 }
 
+// 🏷️ 四格頓號短句格式化(PREF/TRAIT 兩欄共用同一種「存單句、拆四格標籤呈現給AI」形狀，只有
+//   標籤文字不同)：labels=[第1格,第2格,第3格,第4格]，缺格一律補「無」。
+function formatFourSlot_(str, labels) {
+  const arr = String(str || "").split('、');
+  return `[${labels[0]}]${arr[0] || "無"} [${labels[1]}]${arr[1] || "無"} [${labels[2]}]${arr[2] || "無"} [${labels[3]}]${arr[3] || "無"}`;
+}
+
 function actionPlay_(userData, pcId, sheets) {
   const userMsg = userData.message || ""; // 📅 endDay 呼叫不一定會帶 message，防呆避免下方 .includes 炸掉
 
@@ -1932,18 +1949,12 @@ function actionPlay_(userData, pcId, sheets) {
   //   已在場的【邂逅中】對象持續互動、也不影響同行隊伍成員。
   const encounterOn = !(userData.encounter === false || String(userData.encounter) === "false");
 
-  const formatPref = (str) => {
-    let arr = String(str || "").split('、');
-    // 喜好與厭惡是常態情報，全面開放給 AI 參考
-    return `[表象]${arr[0] || "無"} [內裡]${arr[1] || "無"} [喜歡]${arr[2] || "無"} [討厭]${arr[3] || "無"}`;
-  };
+  // 喜好與厭惡是常態情報，全面開放給 AI 參考
+  const formatPref = (str) => formatFourSlot_(str, ['表象', '內裡', '喜歡', '討厭']);
 
   // [自稱] 這格內容通常已是「自稱「我」」這類完整片語，跟敘事視角說明的「我」字面相鄰容易混淆
   //   (小模型尤其)，標籤加註明確限定範圍，比照 servantCard_ 的修法。
-  const formatTrait = (str) => {
-    let arr = String(str || "").split('、');
-    return `[外貌]${arr[0] || "無"} [氣質舉止]${arr[1] || "無"} [台詞自稱(僅其本人引號內用，非旁白視角)]${arr[2] || "無"} [卸下心防的私密一面]${arr[3] || "無"}`;
-  };
+  const formatTrait = (str) => formatFourSlot_(str, ['外貌', '氣質舉止', '台詞自稱(僅其本人引號內用，非旁白視角)', '卸下心防的私密一面']);
 
 
   let pcData = sheets.pc.getDataRange().getValues();

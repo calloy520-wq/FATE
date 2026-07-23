@@ -1456,14 +1456,7 @@ let plainTextContext = cleanText;
   var _krBusy = false;
   function kanshouOpenRelTag(name, curTag, bond, curNickname) {
     if (_krBusy) return;
-    var ov = document.getElementById('kr-overlay');
-    if (!ov) {
-      ov = document.createElement('div');
-      ov.id = 'kr-overlay';
-      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
-      ov.onclick = function (e) { if (e.target === ov && !_krBusy) ov.style.display = 'none'; };
-      document.body.appendChild(ov);
-    }
+    var ov = ensureOverlay_('kr-overlay', { zIndex: 10001, onBgClick: function (ov) { if (!_krBusy) ov.style.display = 'none'; } });
     var safeN = String(name).replace(/'/g, "\\'");
     var b = parseInt(bond) || 0;
     var unlocked = b >= KC_CUSTOM_TAG_BOND_;
