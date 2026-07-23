@@ -34,20 +34,24 @@ function escapeHtml_(str) {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-function getGameHistory(pcId, pcName) {
+// 讀「歷史暫存」最後 1000 列(避免整表掃描)→ 按 pcId 過濾 → 取最後 limit 筆原始 row。
+//   getGameHistory(轉HTML)／getGameHistoryBatchRaw(回傳原始物件)共用同一份讀表邏輯。
+function readRecentPlayerRows_(pcId, limit) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("歷史暫存");
-  if (!sheet) return "";
+  if (!sheet) return [];
 
-  // 只讀最後 1000 列，避免整表掃描
   const lastRow = sheet.getLastRow();
-  if (lastRow <= 1) return "";
+  if (lastRow <= 1) return [];
 
   const startRow = Math.max(2, lastRow - 1000);
   const numRows = lastRow - startRow + 1;
   const data = sheet.getRange(startRow, 1, numRows, 4).getValues();
   const playerHistory = data.filter(row => String(row[1]) === String(pcId));
 
-  const lastTen = playerHistory.slice(-10);
+  return playerHistory.slice(-limit);
+}
+function getGameHistory(pcId, pcName) {
+  const lastTen = readRecentPlayerRows_(pcId, 10);
   const safePcName = escapeHtml_(pcName);
 
   let html = "";
@@ -84,21 +88,8 @@ function purgeHistoryForPcIds_(pcIds) {
   }
 }
 function getGameHistoryBatchRaw(pcId, limit) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("歷史暫存");
-  if (!sheet) return [];
-  
-  // 同上：只讀最後 1000 列避免整表掃描
-  const lastRow = sheet.getLastRow();
-  if (lastRow <= 1) return [];
-  
-  const startRow = Math.max(2, lastRow - 1000);
-  const numRows = lastRow - startRow + 1;
-  const data = sheet.getRange(startRow, 1, numRows, 4).getValues();
-  
-  const playerHistory = data.filter(row => String(row[1]) === String(pcId));
-  
-  const recentRows = playerHistory.slice(-limit);
-  
+  const recentRows = readRecentPlayerRows_(pcId, limit);
+
   return recentRows.map(row => ({
     speaker: row[2],
     content: row[3]

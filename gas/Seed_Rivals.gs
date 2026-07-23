@@ -87,9 +87,9 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
   row[COL.PC.BACK] = cls + " 職階英靈";
   row[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "佇立", "負面": "無", "顏面": "氣息冷冽" });
   // persona.look 含外貌與氣質詞混雜，用 looksToTraitParts_ 切分＋帶入 persona.firstP 當自稱，避免位置盲目塞格。
-  row[COL.PC.TRAIT] = parseTraitsHelper(looksToTraitParts_(persona.look, persona.firstP), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面"); // 🎴 特徵直接讀種子 persona.look
+  row[COL.PC.TRAIT] = parseTraitsHelper(looksToTraitParts_(persona.look, persona.firstP), DEFAULT_TRAIT_FALLBACK_); // 🎴 特徵直接讀種子 persona.look
   row[COL.PC.LOC] = loc;
-  row[COL.PC.PREF] = parseTraitsHelper(String(persona.words || "").replace(/・/g, "、"), "沉著表象、堅定內裡、珍視之物、厭惡之事");
+  row[COL.PC.PREF] = parseTraitsHelper(String(persona.words || "").replace(/・/g, "、"), DEFAULT_PREF_FALLBACK_);
   row[COL.PC.HP] = hp; row[COL.PC.MP] = mp;
   // 🎴 五圍已棄欄：戰鬥吃六圍 SIX。
   row[COL.PC.MAX_HP] = hp; row[COL.PC.MAX_MP] = mp;
@@ -131,7 +131,7 @@ function masterToNpcRow_(mr, gameId, loc, faction, heroMagicRank) {
   // TRAIT 用 mAppear(外貌)而非 PERSONA，比照 heroToNpcRow_ 把外貌/性格分開兩欄，避免與 PREF 重複。
   row[COL.PC.TRAIT] = parseTraitsHelper(mAppear, "外貌平凡、舉止從容、通曉魔術、深藏心事");
   row[COL.PC.LOC] = loc;
-  row[COL.PC.PREF] = parseTraitsHelper(String(mr[COL.MASTER.PERSONA] || "").replace(/・/g, "、"), "沉著表象、堅定內裡、珍視之物、厭惡之事");
+  row[COL.PC.PREF] = parseTraitsHelper(String(mr[COL.MASTER.PERSONA] || "").replace(/・/g, "、"), DEFAULT_PREF_FALLBACK_);
   // 敵御主與玩家御主同制：HP 看迴路(masterMaxHpMp_)，MP 走共用魔力池公式(masterPoolMax_＝迴路×10＋從者魔力×2)。
   // 🐛→✅ masterMaxHpMp_ 本身已補迴路上限(Math.min(50,...))，但這裡沒把「同一個」夾好範圍的值
   //   同時餵給沒有上限的 masterPoolMax_、也沒同步寫進 MEMORY【迴路】——SEED_MASTERS 剛好有兩位

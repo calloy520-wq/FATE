@@ -612,10 +612,7 @@ function actionKanshouMemoirOp(userData, pcId, sheets) {
   var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  var tIdx = -1;
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(data[i][COL.PC.NAME])).includes(targetName)) { tIdx = i; break; }
-  }
+  var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", nameCandidates: kanshouNameCandidates_ });
   if (tIdx < 0) return JSON.stringify({ success: false, message: "找不到這位同伴。" });
   var entries = String(data[tIdx][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean);
   var hit = entries.findIndex(function (e) { return e.replace(/^★/, "") === item; });
@@ -710,10 +707,7 @@ function actionKanshouSetProp(userData, pcId, sheets) {
   var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  var tIdx = -1;
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(data[i][COL.PC.NAME])).includes(targetName)) { tIdx = i; break; }
-  }
+  var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", nameCandidates: kanshouNameCandidates_ });
   if (tIdx < 0) return JSON.stringify({ success: false, message: "找不到這位同伴。" });
   var def = kanshouAllProps_(data[meIdx][COL.PC.MEMORY]).find(function (p) { return p.id === propId; });
   if (!def) return JSON.stringify({ success: false, message: "查無此道具。" });
@@ -781,10 +775,7 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
   var newPlayerMemory = kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom);
   kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newPlayerMemory);
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  var tIdx = -1;
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(data[i][COL.PC.NAME])).includes(targetName)) { tIdx = i; break; }
-  }
+  var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", nameCandidates: kanshouNameCandidates_ });
   if (tIdx < 0) return JSON.stringify({ success: true, props: [], customProps: custom, message: "已新增到你的道具目錄，但找不到這位同伴可裝備。" });
   if (!ignoreBond && (parseInt(data[tIdx][COL.PC.BOND]) || 0) < KANSHOU_PROP_EQUIP_BOND_) {
     return JSON.stringify({ success: true, props: kanshouGetProps_(data[tIdx][COL.PC.MEMORY], KANSHOU_PROPS_.concat(custom)), customProps: custom, message: "已新增到你的道具目錄，但好感還沒到那個地步，她還不會讓你幫她裝備。" });
@@ -824,10 +815,7 @@ function actionKanshouCastHypnosis(userData, pcId, sheets) {
   var newPlayerMemory = kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom);
   kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newPlayerMemory);
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  var tIdx = -1;
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(data[i][COL.PC.NAME])).includes(targetName)) { tIdx = i; break; }
-  }
+  var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", nameCandidates: kanshouNameCandidates_ });
   if (tIdx < 0) return JSON.stringify({ success: true, props: [], customProps: custom, message: "已記下這句指令，但找不到這位同伴可施展。" });
   var _existingT = kanshouGetProps_(data[tIdx][COL.PC.MEMORY]);
   if (!_existingT.some(function (p) { return p.id === text; }) && _existingT.length >= KANSHOU_PROP_EQUIP_CAP_) {
@@ -1898,6 +1886,21 @@ function kanshouNameCandidates_(fullName) {
   return out;
 }
 
+// 📣 「提議撲空」敘事字串資料驅動查表：promiseMeet/proposeMove/cohabitInvite/handHold/inviteResident
+//   五處各自的「對象不在場/緣分不成立」撲空回饋，字面各自保留(措辭本就不完全相同)，只把
+//   「組字串」這個動作抽成單一helper，type→措辭表，5處呼叫同一支函式、不再各自手刻字串拼接。
+const KANSHOU_MISS_COPY_ = {
+  promise: { title: '相約撲空', body: (n) => `你想找『${n}』相約見面，但她此刻並不在這裡——演出這份撲空的悵然即可，約定沒有成立。` },
+  move: { title: '提議撲空', body: (n) => `你想邀人一起去「${n}」，但此刻身邊沒有同伴——演出這份獨自的悵然即可(玩家可自己用地圖移動)。` },
+  cohabit: { title: '邀請撲空', body: (n) => `你想邀『${n}』搬來同住，但她此刻並不在這裡——演出這份撲空的悵然即可。` },
+  hold: { title: '牽手落空', body: (n) => `你想牽『${n}』的手，但她此刻並不在你身邊——演出這份撲空即可。` },
+  invite: { title: '結識未成', body: (n) => `你想跟『${n}』深交下去，但這段緣分此刻不成立(對方已離開、或早已相識)——演出這份悵然即可。` }
+};
+function kanshouMissStr_(type, name) {
+  const c = KANSHOU_MISS_COPY_[type];
+  return c ? `\n★【${c.title}】：${c.body(name)}` : '';
+}
+
 // 🔒 併發保護（2026-07 全面稽核·兩組獨立agent各自抓到同一根因）：actionPlay 故意豁免全域鎖
 //   (見 Router_Action.gs LOCK_EXEMPT_ACTIONS_，理由是AI呼叫4-5秒~最壞49秒不等，鎖全域會拖累其他
 //   玩家)，但寫回機制是「整表快照→本回合全部改動只在記憶體→結尾整列覆寫」(見下方dirtyPcRows)，
@@ -2048,7 +2051,7 @@ function actionPlay_(userData, pcId, sheets) {
       kanshouPromiseStr = `\n★【提議·相約·GAS已裁定】你向『${_pmHer}』提議【明天${_pmBandLabel ? _pmBandLabel + '於' : '在'}「${_pmLoc}」見面】。系統已依好感(${_pmBond}/100)裁定她${_pendingProposal.accepted ? '【答應】了——請 narration 依她的個性演出答應的反應（雀躍／害羞／矜持地點頭皆可），系統明天會記得這個約' : '【婉拒】了——請 narration 依她的個性演出婉拒的反應（不好意思／認真說改天／打趣帶過皆可），此約不成立、不必替玩家找補'}。★成敗由系統定，【不可】自行改寫她的決定，只演她的反應。`;
       finalUserMsg = `【玩家意圖】：向『${_pmHer}』提出「明天${_pmBandLabel || ''}在${_pmLoc}見面」的約定。`;
     } else if (_pmName) {
-      kanshouPromiseStr = `\n★【相約撲空】：你想找『${_pmName}』相約見面，但她此刻並不在這裡——演出這份撲空的悵然即可，約定沒有成立。`;
+      kanshouPromiseStr = kanshouMissStr_('promise', _pmName);
       finalUserMsg = `【玩家意圖】：想找『${_pmName}』相約，卻發現她不在身邊。`;
       kanshouProposalResult_ = { ok: false, miss: true, type: 'promise', name: _pmName, where: _whereIsHer(_pmName) };
     }
@@ -2070,7 +2073,7 @@ function actionPlay_(userData, pcId, sheets) {
       kanshouPromiseStr += `\n★【提議·同去·GAS已裁定】你向『${_pvHer}』提議【現在一起去「${_pvLoc}」】。系統已依好感(${_pvBond}/100)裁定她${_pendingProposal.accepted ? '【答應】同行——請 narration 依她的個性演出答應的反應' : '【婉拒】了——請 narration 依她的個性演出婉拒的反應'}。是否動身由系統處理；narration 停在她給出回應的當下，【不可】演出發、走路或抵達。★成敗由系統定，別自行改寫她的決定。`;
       finalUserMsg = `【玩家意圖】：邀身旁的『${_pvHer}』現在一起去「${_pvLoc}」。`;
     } else if (_pvIdx === -1) {
-      kanshouPromiseStr += `\n★【提議撲空】：你想邀人一起去「${_pvLoc}」，但此刻身邊沒有同伴——演出這份獨自的悵然即可(玩家可自己用地圖移動)。`;
+      kanshouPromiseStr += kanshouMissStr_('move', _pvLoc);
       finalUserMsg = `【玩家意圖】：想邀同伴一起去「${_pvLoc}」，卻發現身邊沒有人。`;
     }
   }
@@ -2084,7 +2087,7 @@ function actionPlay_(userData, pcId, sheets) {
     const _chId = String(userData.cohabitInviteId || "").trim();
     const _chIdx = _chName ? findPcRowIdx_(pcData, _myGid_, { id: _chId, name: _chName, faction: "從者", loc: curL, excludeIdx: pcIndex, nameCandidates: kanshouNameCandidates_ }) : -1;
     if (_chIdx === -1) {
-      kanshouCohabitStr = `\n★【邀請撲空】：你想邀『${_chName}』搬來同住，但她此刻並不在這裡——演出這份撲空的悵然即可。`;
+      kanshouCohabitStr = kanshouMissStr_('cohabit', _chName);
       finalUserMsg = `【玩家意圖】：想邀『${_chName}』搬來一起住，卻發現她不在身邊。`;
       kanshouProposalResult_ = { ok: false, miss: true, type: 'cohabit', name: _chName, where: _whereIsHer(_chName) };
     } else {
@@ -2123,7 +2126,7 @@ function actionPlay_(userData, pcId, sheets) {
       const _hhId = String(userData.handHoldId || "").trim();
       const _hhIdx = findPcRowIdx_(pcData, _myGid_, { id: _hhId, name: _hhArg, faction: "從者", loc: curL, excludeIdx: pcIndex, nameCandidates: kanshouNameCandidates_ });
       if (_hhIdx === -1) {
-        kanshouHandHoldStr = `\n★【牽手落空】：你想牽『${_hhArg}』的手，但她此刻並不在你身邊——演出這份撲空即可。`;
+        kanshouHandHoldStr = kanshouMissStr_('hold', _hhArg);
         finalUserMsg = `【玩家意圖】：想牽『${_hhArg}』的手，卻發現她不在身邊。`;
         kanshouProposalResult_ = { ok: false, miss: true, type: 'hold', name: _hhArg, where: _whereIsHer(_hhArg) };
       } else {
@@ -2188,7 +2191,7 @@ function actionPlay_(userData, pcId, sheets) {
     const _ivAlready = _ivMatch && pcData.some((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_ivHero.realName));
     const _ivMaleMale = _ivMatch && String(pc[COL.PC.SEX]) === "男" && String(_ivHero.gender) === "男";
     if (!_ivMatch || _ivAlready || _ivMaleMale) {
-      kanshouInviteStr = `\n★【結識未成】：你想跟『${_ivName}』深交下去，但這段緣分此刻不成立(對方已離開、或早已相識)——演出這份悵然即可。`;
+      kanshouInviteStr = kanshouMissStr_('invite', _ivName);
       finalUserMsg = `【玩家意圖】：想跟『${_ivName}』深交，卻發現緣分沒有接上。`;
     } else {
       const _ivCodexRow = getHeroCodexCached().slice(1).find(r => String(r[COL.HERO.ID]) === String(_ivHero.id));

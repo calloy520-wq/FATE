@@ -346,11 +346,40 @@ let plainTextContext = cleanText;
       .filter(function (h) { return !(pc && pc.sex === '男' && h.gender === '男'); });
   }
 
+  // 🧱 2026-07 重構：全部面板共用的「取得/建立 overlay 容器殼」抽出成這支——原本每個面板
+  //   (kc-overlay/km-overlay/kp-overlay/kb-overlay/kf-overlay/kr-overlay/kc-festival-overlay等)
+  //   各自手寫「getElementById沒有就createElement→設id→設style.cssText→掛onclick背景關閉→
+  //   appendChild」8~11行一模一樣的骨架，逐字重複11次。現在只留各面板專屬的innerHTML內容邏輯，
+  //   容器殼統一走這裡。opts: zIndex(預設10001)/dim(背景遮罩透明度,預設.72)/extraStyle(額外
+  //   cssText片段，如padding)/onBgClick(點背景時要做的事，收到(ov)當參數；不傳=點背景不關閉，
+  //   因為部分面板背景點擊關閉時要擋"忙碌中不可關"的判斷，這個差異由呼叫端在onBgClick裡自己判斷)。
+  //   overlay已存在就直接回傳既有元素，不重建(呼叫端仍可能需要每次重繪innerHTML，那是各自的事)。
+  function ensureOverlay_(id, opts) {
+    opts = opts || {};
+    var ov = document.getElementById(id);
+    if (ov) return ov;
+    ov = document.createElement('div');
+    ov.id = id;
+    var z = opts.zIndex || 10001;
+    var dim = (opts.dim != null) ? opts.dim : .72;
+    ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,' + dim + ');z-index:' + z + ';align-items:center;justify-content:center;' + (opts.extraStyle || '');
+    if (opts.onBgClick) ov.onclick = function (e) { if (e.target === ov) opts.onBgClick(ov); };
+    document.body.appendChild(ov);
+    return ov;
+  }
+  // 🧱 面板讀條共用：_kmShowLoading_/_kpShowLoading_原本逐行相同(ensure overlay→塞讀條HTML→
+  //   display:flex)，只差overlay id/標題文字/配色——合併成這支，各自帶自己的ensureOpts(給
+  //   ensureOverlay_)＋boxOpts(width/borderColor/titleHtml，各面板配色不同)呼叫。
+  function _showOverlayLoading_(overlayId, ensureOpts, boxOpts) {
+    var ov = ensureOverlay_(overlayId, ensureOpts);
+    ov.innerHTML = '<div style="width:min(' + boxOpts.width + ',92vw);background:#1d1722;border:1px solid ' + boxOpts.borderColor + ';border-radius:12px;padding:14px;">'
+      + boxOpts.titleHtml + kmSpinner_('讀取中…') + '</div>';
+    ov.style.display = 'flex';
+  }
+
   function ensureKcOverlay_() {
     if (document.getElementById('kc-overlay')) return;
-    var ov = document.createElement('div');
-    ov.id = 'kc-overlay';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.82);display:none;align-items:center;justify-content:center;padding:18px;';
+    var ov = ensureOverlay_('kc-overlay', { zIndex: 9998, dim: 0.82, extraStyle: 'padding:18px;' });
     ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:480px;width:100%;max-height:calc(100vh - 36px);padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;">'
       + '<div style="overflow-y:auto;min-height:0;">'
       + '<h3 style="margin:0 0 4px;color:#e0a0bc;">👥 這個世界裡的人 (<span id="kc-count">0</span>)</h3>'
@@ -365,7 +394,6 @@ let plainTextContext = cleanText;
       + '</div>'
       + '<button onclick="closeKcOverlay()" style="margin-top:12px;width:100%;padding:10px;background:#4a3a6a;color:#fff;border:none;border-radius:8px;cursor:pointer;flex-shrink:0;">關閉</button>'
       + '</div>';
-    document.body.appendChild(ov);
   }
   function closeKcOverlay() { var ov = document.getElementById('kc-overlay'); if (ov) ov.style.display = 'none'; }
 
@@ -415,17 +443,10 @@ let plainTextContext = cleanText;
       c = _kcCur.find(function (x) { return x.name === name; });
       if (!c) { var _ov = document.getElementById('km-overlay'); if (_ov) _ov.style.display = 'none'; alert('讀取回憶失敗，稍後再試。'); return; }
     }
-    var ov = document.getElementById('km-overlay');
-    if (!ov) {
-      ov = document.createElement('div');
-      ov.id = 'km-overlay';
-      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
-      // 🐛→✅ 玩家實測前主動抓到：這顆overlay若最先由本函式建立(常見)，就永遠沒有 _kmShowLoading_
-      //   那份「操作中禁止點background關閉」的判斷——kanshouMemoirOp 執行中點背景關閉，request resolve
-      //   後finally區塊仍會呼叫kanshouOpenMemoir重繪，把玩家剛關掉的視窗又打開。比照補同一道判斷。
-      ov.onclick = function (e) { if (e.target === ov && !_kmBusy) ov.style.display = 'none'; };
-      document.body.appendChild(ov);
-    }
+    // 🐛→✅ 玩家實測前主動抓到：這顆overlay若最先由本函式建立(常見)，就永遠沒有 _kmShowLoading_
+    //   那份「操作中禁止點background關閉」的判斷——kanshouMemoirOp 執行中點背景關閉，request resolve
+    //   後finally區塊仍會呼叫kanshouOpenMemoir重繪，把玩家剛關掉的視窗又打開。比照補同一道判斷。
+    var ov = ensureOverlay_('km-overlay', { zIndex: 10001, onBgClick: function (ov) { if (!_kmBusy) ov.style.display = 'none'; } });
     var entries = c.memoir || [];
     var rows = entries.length ? entries.map(function (e) {
       var pinned = e.charAt(0) === '★';
@@ -450,17 +471,9 @@ let plainTextContext = cleanText;
 
   // 面板讀條：把 overlay 內容換成 spinner(overlay 不存在就先建一個空的)。
   function _kmShowLoading_(name) {
-    var ov = document.getElementById('km-overlay');
-    if (!ov) {
-      ov = document.createElement('div');
-      ov.id = 'km-overlay';
-      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
-      ov.onclick = function (e) { if (e.target === ov && !_kmBusy) ov.style.display = 'none'; };
-      document.body.appendChild(ov);
-    }
-    ov.innerHTML = '<div style="width:min(440px,92vw);background:#1d1722;border:1px solid rgba(232,184,204,.25);border-radius:12px;padding:14px;">'
-      + '<b style="color:#e8b8cc;">💞 與「' + escapeHtml(name || '') + '」的共同回憶</b>' + kmSpinner_('讀取中…') + '</div>';
-    ov.style.display = 'flex';
+    _showOverlayLoading_('km-overlay',
+      { zIndex: 10001, onBgClick: function (ov) { if (!_kmBusy) ov.style.display = 'none'; } },
+      { width: '440px', borderColor: 'rgba(232,184,204,.25)', titleHtml: '<b style="color:#e8b8cc;">💞 與「' + escapeHtml(name || '') + '」的共同回憶</b>' });
   }
   async function kanshouMemoirOp(name, op, item) {
     if (_kmBusy) return;   // 💞讀條保護：上一個釘選/刪除還在跑就忽略連點，防重複送出/競態
@@ -509,14 +522,7 @@ let plainTextContext = cleanText;
       c = _kcCur.find(function (x) { return x.name === name; });
       if (!c) { var _ov0 = document.getElementById('kp-overlay'); if (_ov0) _ov0.style.display = 'none'; alert('讀取失敗，稍後再試。'); return; }
     }
-    var ov = document.getElementById('kp-overlay');
-    if (!ov) {
-      ov = document.createElement('div');
-      ov.id = 'kp-overlay';
-      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
-      ov.onclick = function (e) { if (e.target === ov && !_kpBusy) ov.style.display = 'none'; };
-      document.body.appendChild(ov);
-    }
+    var ov = ensureOverlay_('kp-overlay', { zIndex: 10001, onBgClick: function (ov) { if (!_kpBusy) ov.style.display = 'none'; } });
     var curArrAll = c.props || []; // 🎀 多件同時裝備(2026-07 改版)，不再是單一 c.prop
     // 🐛→✅ 2026-07「催眠的和新道具要確實分開成兩種」：這個面板只管一般道具(裝飾/物理類)，
     //   ignoreBond(催眠指令)類完全過濾掉、改到專屬的 kanshouOpenHypnosis 面板管理，避免混在一起。
@@ -566,17 +572,9 @@ let plainTextContext = cleanText;
     ov.style.display = 'flex';
   }
   function _kpShowLoading_(name) {
-    var ov = document.getElementById('kp-overlay');
-    if (!ov) {
-      ov = document.createElement('div');
-      ov.id = 'kp-overlay';
-      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
-      ov.onclick = function (e) { if (e.target === ov && !_kpBusy) ov.style.display = 'none'; };
-      document.body.appendChild(ov);
-    }
-    ov.innerHTML = '<div style="width:min(400px,92vw);background:#1d1722;border:1px solid rgba(240,184,224,.25);border-radius:12px;padding:14px;">'
-      + '<b style="color:#f0b8e0;">🎀 「' + escapeHtml(name || '') + '」的小道具</b>' + kmSpinner_('讀取中…') + '</div>';
-    ov.style.display = 'flex';
+    _showOverlayLoading_('kp-overlay',
+      { zIndex: 10001, onBgClick: function (ov) { if (!_kpBusy) ov.style.display = 'none'; } },
+      { width: '400px', borderColor: 'rgba(240,184,224,.25)', titleHtml: '<b style="color:#f0b8e0;">🎀 「' + escapeHtml(name || '') + '」的小道具</b>' });
   }
   async function kanshouSetProp(name, propId, level) {
     if (_kpBusy) return;
@@ -652,14 +650,7 @@ let plainTextContext = cleanText;
       c = _kcCur.find(function (x) { return x.name === name; });
       if (!c) { var _ov0 = document.getElementById('kp-overlay'); if (_ov0) _ov0.style.display = 'none'; alert('讀取失敗，稍後再試。'); return; }
     }
-    var ov = document.getElementById('kp-overlay');
-    if (!ov) {
-      ov = document.createElement('div');
-      ov.id = 'kp-overlay';
-      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
-      ov.onclick = function (e) { if (e.target === ov && !_kpBusy) ov.style.display = 'none'; };
-      document.body.appendChild(ov);
-    }
+    var ov = ensureOverlay_('kp-overlay', { zIndex: 10001, onBgClick: function (ov) { if (!_kpBusy) ov.style.display = 'none'; } });
     var safeN = String(name).replace(/'/g, "\\'");
     var activeH = (c.props || []).filter(function (x) { return x.ignoreBond; });
     var rows = activeH.map(function (p) {
@@ -838,10 +829,7 @@ let plainTextContext = cleanText;
     try { var dr = document.getElementById('action-drawer'); if (dr && dr.style.display !== 'none' && typeof toggleActionDrawer === 'function') toggleActionDrawer(); } catch (e) {}
     var ov = document.getElementById('kc-festival-overlay');
     if (!ov) {
-      ov = document.createElement('div');
-      ov.id = 'kc-festival-overlay';
-      ov.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.82);display:none;align-items:center;justify-content:center;padding:18px;';
-      ov.onclick = function (e) { if (e.target === ov) closeKanshouFestivals(); };
+      ov = ensureOverlay_('kc-festival-overlay', { zIndex: 9998, dim: 0.82, extraStyle: 'padding:18px;', onBgClick: function () { closeKanshouFestivals(); } });
       ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:360px;width:100%;padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);">'
         + '<h3 style="margin:0 0 4px;color:#e0b080;">🎊 快轉到節慶</h3>'
         + '<div style="color:#9a8f70;font-size:11px;margin-bottom:10px;">快轉到下一次這個節日的【前一天】，讓你迎接節慶當天的到來；不在身邊的英靈會依新時刻重新分佈。</div>'
@@ -850,7 +838,6 @@ let plainTextContext = cleanText;
         + '</div>'
         + '<button onclick="closeKanshouFestivals()" style="margin-top:14px;width:100%;padding:10px;background:#4a3a6a;color:#fff;border:none;border-radius:8px;cursor:pointer;">關閉</button>'
         + '</div>';
-      document.body.appendChild(ov);
     }
     ov.style.display = 'flex';
   }
@@ -1256,14 +1243,7 @@ let plainTextContext = cleanText;
   function kanshouPickBand_(title, name, cb, bandOptions) {
     _kbCb = cb;
     var opts = (bandOptions && bandOptions.length) ? bandOptions : KC_APPT_BANDS_;
-    var ov = document.getElementById('kb-overlay');
-    if (!ov) {
-      ov = document.createElement('div');
-      ov.id = 'kb-overlay';
-      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10002;align-items:center;justify-content:center;';
-      ov.onclick = function (e) { if (e.target === ov) { ov.style.display = 'none'; _kbCb = null; } };
-      document.body.appendChild(ov);
-    }
+    var ov = ensureOverlay_('kb-overlay', { zIndex: 10002, onBgClick: function (ov) { ov.style.display = 'none'; _kbCb = null; } });
     ov.innerHTML = '<div style="width:min(360px,92vw);background:#1d1722;border:1px solid rgba(168,208,240,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#a8d0f0;">' + escapeHtml(title) + '</b>'
       + '<button onclick="document.getElementById(\'kb-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
@@ -1291,14 +1271,10 @@ let plainTextContext = cleanText;
   var _kpCb = null;
   function kanshouPickLocation_(title, hint, pool, cb) {
     _kpCb = cb;
-    var ov = document.getElementById('kp-overlay');
-    if (!ov) {
-      ov = document.createElement('div');
-      ov.id = 'kp-overlay';
-      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
-      ov.onclick = function (e) { if (e.target === ov) { ov.style.display = 'none'; _kpCb = null; } };
-      document.body.appendChild(ov);
-    }
+    // 🐛→✅ 2026-07 稽核抓到：原本沿用'kp-overlay'跟小道具/催眠面板(kanshouOpenProps/
+    //   kanshouOpenHypnosis)共用同一個DOM id，三種不相關功能只靠呼叫時序沒撞在一起，是潛在
+    //   風險——選地點跟道具完全無關，換一個獨立id('kloc-overlay')徹底解耦。
+    var ov = ensureOverlay_('kloc-overlay', { zIndex: 10001, onBgClick: function (ov) { ov.style.display = 'none'; _kpCb = null; } });
     var body = KC_REGIONS_.map(function (r) {
       var locs = pool.filter(function (l) { return l.region === r.id; });
       if (!locs.length) return '';
@@ -1310,13 +1286,13 @@ let plainTextContext = cleanText;
     }).join('');
     ov.innerHTML = '<div style="width:min(440px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(168,208,240,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
       + '<div style="display:flex;align-items:center;margin-bottom:4px;"><b style="flex:1;color:#a8d0f0;">' + escapeHtml(title) + '</b>'
-      + '<button onclick="document.getElementById(\'kp-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
+      + '<button onclick="document.getElementById(\'kloc-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
       + (hint ? '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:4px;">' + escapeHtml(hint) + '</div>' : '')
       + body + '</div>';
     ov.style.display = 'flex';
   }
   function kanshouPickLoc_(name) {
-    var ov = document.getElementById('kp-overlay');
+    var ov = document.getElementById('kloc-overlay');
     if (ov) ov.style.display = 'none';
     var cb = _kpCb; _kpCb = null;
     if (cb) cb(name);
@@ -1328,14 +1304,7 @@ let plainTextContext = cleanText;
   //   沒點名到任何人的文字→以該主題拍風景/生活照。
   async function kanshouTakePhoto() {
     var present = (localNPCs || []).filter(function (p) { return p.isExact; }).map(function (p) { return String(p.name); });
-    var ov = document.getElementById('kf-overlay');
-    if (!ov) {
-      ov = document.createElement('div');
-      ov.id = 'kf-overlay';
-      ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10001;align-items:center;justify-content:center;';
-      ov.onclick = function (e) { if (e.target === ov) ov.style.display = 'none'; };
-      document.body.appendChild(ov);
-    }
+    var ov = ensureOverlay_('kf-overlay', { zIndex: 10001, onBgClick: function (ov) { ov.style.display = 'none'; } });
     var b = function (label, intentVal) {
       return '<button onclick="kanshouShoot_(\'' + String(intentVal).replace(/'/g, '') + '\')" style="padding:6px 10px;background:rgba(200,120,150,0.16);color:#e8b0c8;border:1px solid #a06080;border-radius:8px;cursor:pointer;font-size:12.5px;">' + label + '</button>';
     };

@@ -33,16 +33,11 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   //   💠 注入御主純魔作「展開扣魔」防禦(七天盾)的付費額度——引擎付不起就張不開
   if (String(pcData[tgtIdx][COL.PC.FACTION]) === "從者" && ctx && ctx.pIdx >= 0) {
     injectMysticBuff_(defC, pcData[ctx.pIdx][COL.PC.MEMORY]); injectHomeField_(defC, ctx && ctx.homeField);
-    injectMasterMeleeSupport_(defC, pcData[ctx.pIdx][COL.PC.MEMORY]); // 🥋 御主體術參戰（守方時亦生效）
-    injectMasterMagicSupport_(defC, pcData[ctx.pIdx][COL.PC.MEMORY]); // 🔮 御主魔術支援（守方時亦生效·僅Caster）
+    injectMasterSupportFor_(defC, pcData, ctx.myGameId, pcData[ctx.pIdx], false); // 🥋🔮 御主體術/魔術參戰（守方時亦生效）
     defC._shieldMp = parseInt(pcData[ctx.pIdx][COL.PC.MP]) || 0;
   } else if (String(pcData[tgtIdx][COL.PC.FACTION]) === "敵從者" && ctx && ctx.myGameId) {
     // 🥋🔮 敵從者防守時同樣吃「自己御主」的體術/魔術支援(讀硬連結敵御主)，讓敵御主的能力也反應在戰報傷害上。
-    var _eMasterMem = enemyMasterMemoryFor_(pcData, ctx.myGameId, pcData[tgtIdx]);
-    if (_eMasterMem) {
-      injectMasterMeleeSupport_(defC, _eMasterMem);
-      injectMasterMagicSupport_(defC, _eMasterMem);
-    }
+    injectMasterSupportFor_(defC, pcData, ctx.myGameId, pcData[tgtIdx], true);
   }
   // 🍱 整備·進食加成：御主一行戰前整備過、且尚在效期內 → 從者出擊命中 +MEAL_BUFF_BONUS。
   //   ⚠ 只屬於【我方陣營的出擊】——目標是我方從者＝攻擊者是敵人，不吃玩家的餐；盟友助攻亦非御主一行，
@@ -262,6 +257,28 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
 //   導致明明同地有敵卻「此世界查無此目標」。傳入空字串時回空(呼叫端須自行擋空名)。
 function nameLoose_(s) { return String(s == null ? "" : s).replace(/[·・•‧∙⋅･·\s]/g, ""); }
 
+// 🎬 收集素材字串共用 helper：把 arr 內符合 regex 且尚未出現在 target 裡的字串各自 push 進 target
+//   (依 target 去重·非依 arr 自身)。2026-07 稽核抽出，取代 aiPrompt 組裝處 4 段幾乎一樣的
+//   「掃陣列+regex.test+indexOf去重+push」重複迴圈(對轟/我方出擊/敵反擊/敵盟協防四種來源共用同一份)。
+function pushMatching_(arr, target, regex) {
+  (arr || []).forEach(function (t) {
+    var s = String(t || "");
+    if (regex.test(s) && target.indexOf(s) < 0) target.push(s);
+  });
+}
+
+// 🗝️ 雙從者：收集所有在世我方從者列索引，出戰中的 atkIdx 排最前(寶具/令咒/斬首優先權只落在他身上)——
+//   斬首分支的 asnParty 與主戰鬥路徑的 partyIdxs 是同一段複製貼上，2026-07 稽核抽出共用。
+function buildPartyIdxs_(pcData, myGameId, atkIdx) {
+  var idxs = [];
+  for (var pi = 1; pi < pcData.length; pi++) {
+    if (String(pcData[pi][COL.PC.FACTION]) === "從者" && String(pcData[pi][COL.PC.GAME_ID] || "") === myGameId && !String(pcData[pi][COL.PC.ID]).startsWith("DEAD_")) {
+      if (pi === atkIdx) idxs.unshift(pi); else idxs.push(pi);
+    }
+  }
+  return idxs;
+}
+
 // 🔋 御主電池（出力電池制 2026-06）：從者【沒有自有魔力池】，寶具/技能魔力全由御主供——
 //   付款順序：①御主 MP(主資源) → ②御主 HP(2 HP 換 1 MP，焚血供能、御主血量不可低於 1)。
 //   寫回試算表並回傳明細，供戰報／敘述演出「拿御主當電池」。fromSv 恆 0（保留欄位相容舊戰報）。
@@ -455,8 +472,7 @@ function actionFateBattle(userData, pcId, sheets) {
   const homeField = homeTerritoryRank_(pcData, pIdx, myGameId); // 🏰 於自己陣地決戰＋隊有陣地作成→主場結界階級(否則"")
   const atkC = rowToCombatant_(pcData[atkIdx]);
   injectMysticBuff_(atkC, pcData[pIdx][COL.PC.MEMORY]);  // ✨ 御主禮裝被動加持我方從者（含開場對轟攻防）
-  injectMasterMeleeSupport_(atkC, pcData[pIdx][COL.PC.MEMORY]); // 🥋 御主體術參戰（開場對轟）
-  injectMasterMagicSupport_(atkC, pcData[pIdx][COL.PC.MEMORY]); // 🔮 御主魔術支援（開場對轟·僅Caster）
+  injectMasterSupportFor_(atkC, pcData, myGameId, pcData[pIdx], false); // 🥋🔮 御主體術/魔術參戰（開場對轟）
   injectHomeField_(atkC, homeField);                    // 🏰 主場·陣地結界（僅玩家於自己陣地決戰）
   const defC = rowToCombatant_(pcData[nIdx]);
 
@@ -511,12 +527,7 @@ function actionFateBattle(userData, pcId, sheets) {
     const masterName = String(pcData[nIdx][COL.PC.NAME]);
     const guardName = String(pcData[assassinGuardIdx][COL.PC.NAME]);
     // 🗝️ 雙從者：每名在世從者各擲一次 D20（出戰中排第一）——更多嘗試＝更高斬首機率，但失手者各遭護衛反噬
-    const asnParty = [];
-    for (let pi = 1; pi < pcData.length; pi++) {
-      if (String(pcData[pi][COL.PC.FACTION]) === "從者" && String(pcData[pi][COL.PC.GAME_ID] || "") === myGameId && !String(pcData[pi][COL.PC.ID]).startsWith("DEAD_")) {
-        if (pi === atkIdx) asnParty.unshift(pi); else asnParty.push(pi);
-      }
-    }
+    const asnParty = buildPartyIdxs_(pcData, myGameId, atkIdx);
     const rolls = asnParty.map(idx => ({ idx: idx, name: String(pcData[idx][COL.PC.NAME]), roll: Math.floor(Math.random() * 20) + 1 }));
     const crit = rolls.find(r => r.roll === 20) || null;
     // 🐛→✅ 斬首這整條分支的三份 asnPrompt 從沒附上任何演出依據卡——AI 被要求「依『${crit.name}』的職階與
@@ -769,8 +780,7 @@ function actionFateBattle(userData, pcId, sheets) {
   if (useNp && targetIsFoeServant && !String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) {
     const enemyC0 = rowToCombatant_(pcData[nIdx]);
     // 🥋🔮 對轟中 enemyC0 稍後會反過來當攻方(ePow，見下)，補上其硬連結敵御主的體術/魔術支援。
-    const _e0MasterMem = enemyMasterMemoryFor_(pcData, myGameId, pcData[nIdx]);
-    if (_e0MasterMem) { injectMasterMeleeSupport_(enemyC0, _e0MasterMem); injectMasterMagicSupport_(enemyC0, _e0MasterMem); }
+    injectMasterSupportFor_(enemyC0, pcData, myGameId, pcData[nIdx], true);
     // 敵方從未被 setNpChoice_ 寫入選擇，npChoice_ 會退回預設索引0——多寶具敵人(如吉爾伽美什索引0是
     //   對人的王之財寶)須改選最強寶具，與下方「敵反擊」段落同步，避免同場戰鬥前後不一致地低估敵方火力。
     enemyC0.npChoice = bestNpChoice_(enemyC0.name, enemyC0.cls);
@@ -853,12 +863,7 @@ function actionFateBattle(userData, pcId, sheets) {
   }
 
   // 🗝️ 雙從者齊攻：收齊所有在世我方從者（出戰中 atkIdx 排第一；寶具/令咒只加在他身上）。每回合每名各出一擊。
-  const partyIdxs = [];
-  for (let pi = 1; pi < pcData.length; pi++) {
-    if (String(pcData[pi][COL.PC.FACTION]) === "從者" && String(pcData[pi][COL.PC.GAME_ID] || "") === myGameId && !String(pcData[pi][COL.PC.ID]).startsWith("DEAD_")) {
-      if (pi === atkIdx) partyIdxs.unshift(pi); else partyIdxs.push(pi);
-    }
-  }
+  const partyIdxs = buildPartyIdxs_(pcData, myGameId, atkIdx);
   const dualAttack = partyIdxs.length > 1;
 
   // 🤝 協同強襲（同盟背景生效）：同地盟友從者（敵從者＋盟約在身）對「共同敵人」每回合助攻一擊。
@@ -918,8 +923,7 @@ function actionFateBattle(userData, pcId, sheets) {
       if (String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) break;
       const sC = rowToCombatant_(pcData[sidx]);
       injectMysticBuff_(sC, pcData[pIdx][COL.PC.MEMORY]);  // ✨ 御主禮裝被動加持我方從者（每回合出擊）
-      injectMasterMeleeSupport_(sC, pcData[pIdx][COL.PC.MEMORY]); // 🥋 御主體術參戰（每回合出擊）
-      injectMasterMagicSupport_(sC, pcData[pIdx][COL.PC.MEMORY]); // 🔮 御主魔術支援（每回合出擊·僅Caster）
+      injectMasterSupportFor_(sC, pcData, myGameId, pcData[pIdx], false); // 🥋🔮 御主體術/魔術參戰（每回合出擊）
       injectHomeField_(sC, homeField);                     // 🏰 主場·陣地結界
       const isActive = (sidx === atkIdx);
       // npOverloadMul/overcharge 只設在 atkC 上、不存進 MEMORY，而 sC 是每回合重新建的新物件讀不到——
@@ -1034,8 +1038,7 @@ function actionFateBattle(userData, pcId, sheets) {
       if (!String(pcData[ctgt][COL.PC.ID]).startsWith("DEAD_")) {
         const enemyNow = rowToCombatant_(pcData[nIdx]);
         // 🥋🔮 敵從者本回合出擊(對玩家)：補上其硬連結敵御主的體術/魔術支援，讓敵御主的能力真的算進傷害。
-        const _eNowMasterMem = enemyMasterMemoryFor_(pcData, myGameId, pcData[nIdx]);
-        if (_eNowMasterMem) { injectMasterMeleeSupport_(enemyNow, _eNowMasterMem); injectMasterMagicSupport_(enemyNow, _eNowMasterMem); }
+        injectMasterSupportFor_(enemyNow, pcData, myGameId, pcData[nIdx], true);
         enemyNow.npChoice = bestNpChoice_(enemyNow.name, enemyNow.cls); // 🌟 敵解放/預告用最強攻擊寶具(如吉爾掏乖離劍·非預設王財)
         // 🔥 敵人也會解放寶具！殘血越急越想拼、暗殺/狂戰系更愛搏命；開寶具則全力(不打折)
         const eHpRatio = (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[nIdx][COL.PC.HP]) || 0) / (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) : 1;
@@ -1134,8 +1137,7 @@ function actionFateBattle(userData, pcId, sheets) {
       if (String(pcData[ctgt2][COL.PC.ID]).startsWith("DEAD_")) { const alt2 = partyIdxs.find(i => !String(pcData[i][COL.PC.ID]).startsWith("DEAD_")); if (alt2 != null) ctgt2 = alt2; }
       if (!String(pcData[ctgt2][COL.PC.ID]).startsWith("DEAD_")) {
         const pdC = rowToCombatant_(pcData[pactDefIdx]);
-        const _pdMem = enemyMasterMemoryFor_(pcData, myGameId, pcData[pactDefIdx]);
-        if (_pdMem) { injectMasterMeleeSupport_(pdC, _pdMem); injectMasterMagicSupport_(pdC, _pdMem); }
+        injectMasterSupportFor_(pdC, pcData, myGameId, pcData[pactDefIdx], true);
         const pds = fateStrike_(sheets, pcData, pdC, ctgt2, { counterMul: 0.85, skill: servantActiveSkill_(pdC), round: rd + 1 }, ctx);
         // 🐛→✅ pds.fired 舊版從沒被讀取——敵盟協防者身上任何 fx 觸發(如王之財寶彈幕/morale加成)、以及
         //   萬一觸發「戰鬥續行」「斬斷救贖」這類關鍵轉折，全部悄悄消失，AI 跟玩家都看不到這名協防者
@@ -1275,33 +1277,28 @@ function actionFateBattle(userData, pcId, sheets) {
   //   或「原本免死的招式這次被打穿了」的關鍵轉折，收攏成一句素材補上。
   // 🐛→✅ 對轟(clash)的兩記 fateStrike_ 一樣可能吐出這兩個旗標，但只掃 rounds[] 會漏掉——clashFired
   //   (上面對轟區塊收集)併進來源，開場那發對轟若剛好觸發戰鬥續行/斬斷救贖也講得出來。
-  const extraFired = [];
-  clashFired.forEach(t => {
-    const s = String(t || "");
-    if (/·戰鬥續行|·斬斷救贖/.test(s) && extraFired.indexOf(s) < 0) extraFired.push(s);
-  });
-  rounds.forEach(r => (r.strikes || []).forEach(k => (k.pFired || []).forEach(t => {
-    const s = String(t || "");
-    if (/·戰鬥續行|·斬斷救贖/.test(s) && extraFired.indexOf(s) < 0) extraFired.push(s);
-  })));
   // 🐛→✅ 敵反擊(rl.eFired)／敵盟協防(rl.pactDef.fired)舊版完全沒被這個收集掃到——只掃了我方出擊的
   //   pFired，若戰鬥續行/斬斷救贖是敵方那一擊觸發的(如敵反擊本該致死卻被續行撐住)，AI 一樣收不到訊號。
-  rounds.forEach(r => (r.eFired || []).forEach(t => {
-    const s = String(t || "");
-    if (/·戰鬥續行|·斬斷救贖/.test(s) && extraFired.indexOf(s) < 0) extraFired.push(s);
-  }));
-  rounds.forEach(r => (r.pactDef && r.pactDef.fired || []).forEach(t => {
-    const s = String(t || "");
-    if (/·戰鬥續行|·斬斷救贖/.test(s) && extraFired.indexOf(s) < 0) extraFired.push(s);
-  }));
+  //   四段來源(對轟clashFired／我方strikes.pFired／敵反擊eFired／敵盟協防pactDef.fired)掃描邏輯完全
+  //   一樣、只差來源陣列——2026-07 稽核抽成 pushMatching_ 共用 helper，一處改規則四處生效。
+  const extraFired = [];
+  const _extraFiredRe_ = /·戰鬥續行|·斬斷救贖/;
+  pushMatching_(clashFired, extraFired, _extraFiredRe_);
+  rounds.forEach(r => (r.strikes || []).forEach(k => pushMatching_(k.pFired, extraFired, _extraFiredRe_)));
+  rounds.forEach(r => pushMatching_(r.eFired, extraFired, _extraFiredRe_));
+  rounds.forEach(r => pushMatching_(r.pactDef && r.pactDef.fired, extraFired, _extraFiredRe_));
   // 🥋🔮 御主體術/魔術參戰：跟上面同一種「有記錄沒講給AI聽」的落差——這兩個 fx 每擊都可能悄悄加傷害，
   //   卻從沒被塞進 aiPrompt，AI 完全不知道御主動手了，只能憑空演出御主在旁乾看/捏著寶石不出手的空氣戲。
   //   我方出擊的 fired 進 strikes[].pFired；敵方反擊的 fired 是獨立存在 rl.eFired(不在 strikes[] 裡)，
   //   兩邊各自查，才不會漏掉敵御主(如凜的魔術)明明在戰報數字裡出力、敘述卻對此隻字不提。
-  const ourMeleeFired = rounds.some(r => (r.strikes || []).some(k => (k.pFired || []).some(t => /·御主體術/.test(String(t)))));
-  const ourMagicFired = rounds.some(r => (r.strikes || []).some(k => (k.pFired || []).some(t => /·御主魔術/.test(String(t)))));
-  const foeMeleeFired = rounds.some(r => (r.eFired || []).some(t => /·御主體術/.test(String(t))));
-  const foeMagicFired = rounds.some(r => (r.eFired || []).some(t => /·御主魔術/.test(String(t))));
+  //   四行只差「來源陣列(我方/敵方)×關鍵字(體術/魔術)」——資料驅動：來源先各自攤平一次，再兩個關鍵字各查一次。
+  const _ourFiredAll_ = rounds.reduce((a, r) => a.concat((r.strikes || []).reduce((b, k) => b.concat(k.pFired || []), [])), []);
+  const _foeFiredAll_ = rounds.reduce((a, r) => a.concat(r.eFired || []), []);
+  const _fxHit_ = (arr, kw) => arr.some(t => String(t).indexOf(kw) >= 0);
+  const ourMeleeFired = _fxHit_(_ourFiredAll_, '御主體術');
+  const ourMagicFired = _fxHit_(_ourFiredAll_, '御主魔術');
+  const foeMeleeFired = _fxHit_(_foeFiredAll_, '御主體術');
+  const foeMagicFired = _fxHit_(_foeFiredAll_, '御主魔術');
   // 🔮 敵反擊解放寶具的真名——同一種「GAS算出來卻沒告訴AI」的漏餵，比照上面 extraFired 補一個對稱收集。
   const enemyNpRoundNotes = rounds.filter(r => r.eNp && r.eNpName).map(r =>
     `第${r.n}回合「${defC.name}」反擊解放真名【${r.eNpName}】${r.eHit ? `命中「${r.eTarget}」` : '，卻被躲開落空'}`

@@ -3,6 +3,12 @@
 // seedFateCodex_(ss)：英靈殿/御主殿 為空時自動灌入；ensureFateSheets_ 末尾呼叫。
 // ==========================================
 
+// 🎴 共用 fallback 常數：TRAIT/PREF 解析不到內容時的預設文字。GAS 全域作用域共享，
+//   Seed_Rivals.gs(heroToNpcRow_/masterToNpcRow_)與本檔(resyncSummonedServants_)皆讀這裡，
+//   避免同一句字面散落各檔各改各的。
+var DEFAULT_TRAIT_FALLBACK_ = "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面";
+var DEFAULT_PREF_FALLBACK_ = "沉著表象、堅定內裡、珍視之物、厭惡之事";
+
 var SEED_SERVANTS = [
   // 第五次
   { id:'阿爾托莉雅-Saber', cls:'Saber', realName:'阿爾托莉雅·潘德拉貢', wars:['4th','5th'], gender:'女',
@@ -314,17 +320,7 @@ function masterToCodexRow_(m) {
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
 var CODEX_PERSONA_VER = 'v70'; // v70：玩家覺得「巨乳」太直白、這句話會顯示在玩家可見的狀態欄——
 //   美杜莎/斯卡哈x2改成「胸前豐盈」這種自然敘述句，AI生成prompt同步要求別用生硬標籤呈現。
-//   v69：玩家指出「豐滿」太籠統(AI不一定會讀成胸部大)，美杜莎/斯卡哈
-//   x2的胸部描寫改成明確的「巨乳」，AI生成prompt的範例詞同步從「高挑豐滿」改「巨乳/貧乳」對照組。
-//   v68：女性種子角色dailyLook補上身形/體態描寫(阿爾托莉雅嬌小玲瓏、
-//   美杜莎/斯卡哈豐滿、美狄亞纖細、凜勻稱、大河嬌小)，幼女型角色(伊莉雅絲菲爾等)刻意不加。
-//   v67：萌點欄位不再侷限「反差萌」——凜的萌點從瞎編的「私下迷糊」
-//   改成canon「電器白痴」；大河的喜歡改成canon「蹭飯偷吃」(大食)，不再是抽象句子。
-//   v66：凜/櫻/大河鑑賞日常欄補喜歡/討厭具體細節、拿掉會被覆誦的身高數字；
-//   SEED_MASTERS 全數14人persona欄從3段補齊成註解要求的4段(原本喜歡欄位缺失，解析時被厭惡內容錯位頂替)。
-//   v65：SEED_MASTERS 補齊 align 陣營欄(原本從沒填過)。每次精緻化種子 persona(萌點/口吻/日常欄)就升一版，觸發
-//   upgradeCodexPersonas_ 整列覆寫既有英靈殿/御主殿(已召喚過的英靈才讀得到新內容)。
-//   逐版校對細節與查證來源見 SOLO_REFERENCE.md，不在此堆積歷史留言。
+//   逐版校對細節與查證來源見 SOLO_REFERENCE.md §21，不在此堆積歷史留言。
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
@@ -452,7 +448,7 @@ function resyncSummonedServants_(ss) {
       if (ks.persona.dailyBack) kdata[j][COL.PC.BACK] = String(ks.persona.dailyBack).slice(0, 28);
       var kparts = String(ks.persona.dailyLook || '').split('、').map(function (x) { return x.trim(); }).filter(Boolean);
       if (kparts.length >= 4) {
-        kdata[j][COL.PC.TRAIT] = parseTraitsHelper(ks.persona.dailyLook, '外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面');
+        kdata[j][COL.PC.TRAIT] = parseTraitsHelper(ks.persona.dailyLook, DEFAULT_TRAIT_FALLBACK_);
         var kmem = String(kdata[j][COL.PC.MEMORY] || '');
         var ksp = kparts[2].slice(0, 40);
         kdata[j][COL.PC.MEMORY] = /【口吻】/.test(kmem)

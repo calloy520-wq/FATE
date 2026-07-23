@@ -12,6 +12,13 @@ function findAccountRow_(accSheet, name) {
   return null;
 }
 
+// 依 charId 找「眾生」列，含已標記 DEAD_ 的殘局列：帳號表存的是原始 charId，御主死亡時
+//   ID 會被加上 "DEAD_" 前綴但帳號連結不會跟著改，故兩者都要查。actionAccountLogin／
+//   actionAccountNewGame 皆靠這條反查殘局的 game_id 以便整局清除。
+function findPcRowByCharId_(pcData, charId) {
+  return pcData.find(function (r) { var rid = String(r[COL.PC.ID]); return rid === charId || rid === "DEAD_" + charId; });
+}
+
 // 找玩家目前世界仍存活的從者列（回傳 row 與 index）。
 // 🧹 跟下面兩個函式同屬 solo game-lifecycle(結束一局/清檔)邏輯，鑑賞不會呼叫。
 function findPlayerServant_(pcData, gameId) {
@@ -117,7 +124,7 @@ function actionAccountLogin(userData, pcId, sheets) {
   // 帳號表仍存原 charId，故需含 DEAD_ 反查該列拿 game_id 一併 purge。
   if (charId) {
     try {
-      var deadRow = pcData.find(function (r) { var rid = String(r[COL.PC.ID]); return rid === charId || rid === "DEAD_" + charId; });
+      var deadRow = findPcRowByCharId_(pcData, charId);
       if (deadRow) {
         var deadGid = String(deadRow[COL.PC.GAME_ID] || "");
         if (deadGid && deadGid.indexOf("g_") === 0) {
@@ -144,7 +151,7 @@ function actionAccountNewGame(userData, pcId, sheets) {
     var pcData = sheets.pc.getDataRange().getValues();
     // charId 那列可能已是 DEAD_ 版本（敗北時 ID 加 "DEAD_" 前綴，帳號表仍存原 charId），須兩者都查，
     // 否則 gid 查無、下面刪除迴圈找不到列可刪，殘列留在「眾生」表，違背本函式清舊存檔的目的。
-    var prow = pcData.find(function (r) { var rid = String(r[COL.PC.ID]); return rid === charId || rid === "DEAD_" + charId; });
+    var prow = findPcRowByCharId_(pcData, charId);
     var gid = prow ? String(prow[COL.PC.GAME_ID] || "") : "";
     // 刪舊單人戰場：同 game_id 的整個世界 ＋ 御主本人(按 charId 或 DEAD_charId，防 game_id 為空的孤兒殘留佔名)。
     for (var r = pcData.length - 1; r >= 1; r--) {

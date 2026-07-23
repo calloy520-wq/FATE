@@ -302,6 +302,17 @@ function injectMasterMagicSupport_(c, masterMemory) {
   }
   return c;
 }
+// 🥋🔮 御主體術＋魔術支援·合併入口（Router_Battle.gs 2026-07 稽核抓到 5 處重複而抽出）：
+//   isEnemy=false → row 本身就是御主列，直接讀其 MEMORY(供我方視角：defC 我方從者受擊/atkC 出擊/sC 每回合出擊)；
+//   isEnemy=true  → row 是敵從者列，走 enemyMasterMemoryFor_ 硬連結查其「自己的敵御主」MEMORY(查無則不注入)。
+//   兩支注入函式本身已各自做「fx 已存在則略過」的冪等檢查，這裡不需要重複作。
+function injectMasterSupportFor_(c, pcData, myGameId, row, isEnemy) {
+  var mem = isEnemy ? enemyMasterMemoryFor_(pcData, myGameId, row) : (row ? row[COL.PC.MEMORY] : null);
+  if (!mem) return c;
+  injectMasterMeleeSupport_(c, mem);
+  injectMasterMagicSupport_(c, mem);
+  return c;
+}
 
 // ⚡ 從者施放技術（已被動化）：掃 SKILL_FX_ 中 active 者依 prio 取第一個持有的完整效果。無則 null。
 //   數值隨技能自身階級成長(rank 折入)。戰時由 rollSkill_ 每擊擲 SKILL_PROC_ 機率是否套用全效。★只增益我方出擊、不碰防禦端。
