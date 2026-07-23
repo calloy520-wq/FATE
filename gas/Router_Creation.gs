@@ -64,7 +64,7 @@ function actionManualNpc(userData, pcId, sheets) {
     // 🐛→✅ masterMaxHpMp_ 本身已補上限，但這裡若直接把玩家原始輸入寫進 MEMORY【迴路】，之後
     //   masterPoolMax_ 是另外重新 parse 這個 MEMORY 字串(不會再走 masterMaxHpMp_)算共用魔力池——
     //   兩處不同步的話，上限形同虛設。改成算好同一個夾好範圍的值，兩處共用。
-    const safeCircuits = circuits ? Math.max(12, Math.min(50, parseInt(circuits) || 30)) : null;
+    const safeCircuits = circuits ? clampCircuits_(circuits) : null;
     const masterStats = masterMaxHpMp_(safeCircuits || 30);
     // 起始落點：確定性選一個有效冬木居所(偏好新都)，不需 AI；backfill 不動落點以免與移動競寫。
     const spawnName = validMapNames.find(n => /新都/.test(n)) || validMapNames[0];

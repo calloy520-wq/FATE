@@ -126,6 +126,8 @@ let masterRoll = null;  // 玩家選中接受的那一個
 function rollFate() {
   if (masterRolls.length >= 3) { alert('命運最多測定 3 次了，請從下方點選一個結果接受。'); return; }
   const r = (Math.random() + Math.random()) / 2;
+  // ⚠ 12/50 這組範圍跟 Core_Settings.gs clampCircuits_() 是同一份數字，HTML跨執行環境不共用函式，
+  //   改這裡務必連 clampCircuits_() 也一起改。
   const circuits = Math.max(12, Math.min(50, Math.round(15 + r * 35)));
   const magic = FATE_MAGICS_[Math.floor(Math.random() * FATE_MAGICS_.length)];
   const origin = FATE_ORIGINS_[Math.floor(Math.random() * FATE_ORIGINS_.length)];

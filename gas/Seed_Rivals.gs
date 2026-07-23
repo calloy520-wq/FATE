@@ -138,7 +138,7 @@ function masterToNpcRow_(mr, gameId, loc, faction, heroMagicRank) {
   //   circuits > 50(伊莉雅絲菲爾-5th:80、肯尼斯-4th:65)，導致她們 HP 被夾在 50 迴路水準、MP 卻按
   //   真正的 80/65 算，兩邊從開局第一天起就內部不自洽。玩家自創御主的建角流程(Router_Creation.gs
   //   actionManualNpc)已修過同一個坑，這裡比照同一套夾法、同一個值餵兩處＋寫進 MEMORY。
-  var circuits = Math.max(12, Math.min(50, parseInt(mr[COL.MASTER.CIRCUITS] || 30)));
+  var circuits = clampCircuits_(mr[COL.MASTER.CIRCUITS] || 30);
   var hp = masterMaxHpMp_(circuits).hp, mp = masterPoolMax_(circuits, rankVal(heroMagicRank || 'C'));
   row[COL.PC.HP] = hp; row[COL.PC.MP] = mp;
   row[COL.PC.MAX_HP] = hp; row[COL.PC.MAX_MP] = mp;

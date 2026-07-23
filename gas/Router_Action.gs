@@ -535,7 +535,7 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   // 故需再比對呼叫者自己列的 game_id(myGameId 為空時放行，相容沒有 game_id 的舊資料)。
   const me = pcData.find(r => r[COL.PC.ID] == pcId);
   const myGameId = me ? String(me[COL.PC.GAME_ID] || "") : "";
-  const tIdx = pcData.findIndex(r => r[COL.PC.NAME] === targetName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
+  const tIdx = findPcRowIdx_(pcData, myGameId, { name: targetName });
   if (tIdx === -1) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
 
   // 🔵 solo 仍要求「同行的從者才能重新定義稱呼」；鑑賞無 IS_PARTY 概念，改稱呼是低風險設定、不要求同行。
@@ -571,7 +571,7 @@ function actionSetNickname(userData, pcId, sheets) {
   const pcData = sheets.pc.getDataRange().getValues();
   const me = pcData.find(r => r[COL.PC.ID] == pcId);
   const myGameId = me ? String(me[COL.PC.GAME_ID] || "") : "";
-  const tIdx = pcData.findIndex(r => r[COL.PC.NAME] === targetName && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId));
+  const tIdx = findPcRowIdx_(pcData, myGameId, { name: targetName });
   if (tIdx === -1) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
 
   const bond = parseInt(pcData[tIdx][COL.PC.BOND]) || 0;

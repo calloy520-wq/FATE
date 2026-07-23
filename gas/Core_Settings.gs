@@ -144,6 +144,10 @@ function fateMaxHpMp_(con, mag) {
 // 御主(凡人魔術師)HP/MP：唯一核心數值＝魔術迴路(財力/身世決定)。共用魔力池制：從者無獨立魔力池，
 //   與御主共用一池(存御主MP)，池上限＝御主迴路×10＋同隊從者魔力×2(見masterPoolMax_)。
 //   masterMaxHpMp_ 只給「尚無從者」基底(迴路×10)；血由迴路×2。
+// 迴路骰子範圍(12~50)——跟前端骰子UI(Script_Onboarding.html)夾值範圍一致，三處各自硬寫過同一組
+//   數字，改這個範圍務必連 Script_Onboarding.html 那處也一起改(HTML端跨執行環境不共用此函式)。
+function clampCircuits_(n) { return Math.max(12, Math.min(50, parseInt(n) || 30)); }
+
 function masterMaxHpMp_(circuits) {
   // 🛡️ parseInt(x)||30 只擋得住NaN/0，擋不住負數——前端骰子UI本就夾在12~50，但這裡是唯一
   //   信任邊界(直打API可繞過前端)，補上下限，避免負迴路生出0血/負魔力的御主。
@@ -591,28 +595,20 @@ function hasArrived_(row, currentDay) {
 // 御主自身能力標記：【體術】(rank字母，命運測定/種子皆保證合法)／【魔術】(自由描述文字)，創角/鋪敵時
 //   寫進御主自己的 MEMORY。體術兩用途：① masterCard_/enemyMasterCard_ 讀出當演出依據(能力描述，
 //   不受show-don't-tell限制)；②Engine_Fate.gs 的 injectMasterMeleeSupport_ 讀 rank 字母算真實戰鬥加成。
-function getMasterMelee_(memory) {
-  var m = String(memory || "").match(/【體術】([^｜]+)/);
-  return m ? m[1].trim() : "";
-}
-function getMasterMagic_(memory) {
-  var m = String(memory || "").match(/【魔術】([^｜]+)/);
-  return m ? m[1].trim() : "";
-}
+var MASTER_MELEE_TAG_ = makeTextTag_('體術');
+var MASTER_MAGIC_TAG_ = makeTextTag_('魔術');
 // 御主魔術階位（rank字母）：跟體術同款「凡人自身能力」，只在己方出戰從者為 Caster(魔砲型)時才生效
 //   (injectMasterMagicSupport_ 內部判斷)——體術管近戰助拳、魔術階位管施法支援，避免疊在一起變成
 //   無腦雙倍加成。
-function getMasterMagicRank_(memory) {
-  var m = String(memory || "").match(/【魔術階位】([^｜]+)/);
-  return m ? m[1].trim() : "";
-}
+var MASTER_MAGIC_RANK_TAG_ = makeTextTag_('魔術階位');
 // 🐛→✅ 【出身】(玩家創角時選的出身背景)舊版只在 actionManualNpc 寫入，全專案查無任何讀取點——
 //   純寫入死資料，backfill 用的是當下 userData.origin(前端再送一次)而非這個持久化標記。補上跟
 //   體術/魔術/魔術階位同款讀取器，讓 masterCard_ 能把這份設定持續餵給 AI 當演出依據。
-function getMasterOrigin_(memory) {
-  var m = String(memory || "").match(/【出身】([^｜]+)/);
-  return m ? m[1].trim() : "";
-}
+var MASTER_ORIGIN_TAG_ = makeTextTag_('出身');
+function getMasterMelee_(memory) { return MASTER_MELEE_TAG_.get(memory); }
+function getMasterMagic_(memory) { return MASTER_MAGIC_TAG_.get(memory); }
+function getMasterMagicRank_(memory) { return MASTER_MAGIC_RANK_TAG_.get(memory); }
+function getMasterOrigin_(memory) { return MASTER_ORIGIN_TAG_.get(memory); }
 
 // 關係已併入眾生表自身欄位(BOND/REL_TAG/IS_PARTY)，不再需要 relData 參數／跨表查找。
 function getLocalPeopleList(sheets, pcName, pcId, curL, allPcData) {
