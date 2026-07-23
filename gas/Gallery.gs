@@ -1203,30 +1203,18 @@ const KANSHOU_WORLD_ROSTER_CAP_ = 8;
 //   每筆橋段除branches外帶4個演出欄位({n}=候選人真名，後端替換)：label=前端邀請框文字、
 //   btn=按鈕字、verb=接受後提示詞的動作前綴(「${verb}『名字』」要讀得通順)、intent=玩家意圖句。
 const KANSHOU_SCENE_EVENTS_ = {
-  // 🐛→✅ 2026-07 玩家實測抓到兩個問題：①label寫「似乎還醒著」直接否定了「她在睡夢中」這個
-  //   前提，跟橋段本該演出的「睡夢中被弄醒」畫面互相矛盾，也跟partyDetailsArr新補的睡眠狀態
-  //   提示打架；②min:30/min:-100兩層從沒真的用得到——進得了她房間的前提是拜訪住處門檻已解鎖
-  //   (KANSHOU_VISIT_BOND_=40)，bond不可能落在30-39或以下，這兩層branch形同死碼，已清掉只留
-  //   真正會命中的40+/60+兩層(60沿用親密尺度五階「親吻擁抱」切點，40沿用「輕度接觸」切點，
-  //   跟其餘尺度判定同一套數字)。label/verb/intent/branches全部改寫成「熟睡→被觸碰喚醒」的
-  //   明確畫面，好感決定的是醒來後的反應強度，不是清醒與否。
+  // 🐛→✅ 2026-07 八度改版：玩家明確要求拿掉固定分支台詞，改成「GAS只定調這次能演到哪一階、
+  //   AI自由發揮細節」——夜襲/賴床叫醒不再帶branches，改由kanshouAsleepOutcomeStr_(reBond)
+  //   即時產生分寸提示(60以下=趕人/60~79=卡在親吻擁抱/80+=無上限)，跟其餘仍用branches的橋段
+  //   (共浴/膝枕等)區分靠accept-handler裡的_reIsFreeform判斷，不必給這裡加假branches湊格式。
   夜襲: {
     label: '🌙 「{n}」已經睡熟了，要不要靠近看看？', btn: '靠近她',
-    verb: '深夜輕手輕腳地靠近了熟睡中的', intent: '藉著夜色靠近了熟睡的『{n}』，伸手輕輕觸碰。',
-    branches: [
-      { min: 60, tag: '在睡夢中被溫柔的觸碰喚醒，睡眼惺忪地眨了眨眼，認出是你之後臉頰泛紅發燙，卻主動攀著你的手臂不放，帶著幾分撒嬌纏了上來，任由你更靠近一些' },
-      { min: 40, tag: '猛地從睡夢中驚醒，一時分不清虛實地屏住呼吸，看清是你之後又羞又惱地紅了臉，小聲嘀咕著「怎麼可以這樣」，身體卻僵在原地沒有真的推開你' }
-    ]
+    verb: '深夜輕手輕腳地靠近了熟睡中的', intent: '藉著夜色靠近了熟睡的『{n}』，伸手輕輕觸碰。'
   },
-  // 跟夜襲同一套「走進同住人房間」觸發框架，只是時段換成清晨——她此刻還在賴床，好感夠高才會
-  //   演成黏人不想起床。同上，min:-100 從沒真的用得到(進房門檻已擋在40)，已清掉。
+  // 跟夜襲同一套「走進同住人房間」觸發框架，只是時段換成清晨——她此刻還在賴床。
   賴床叫醒: {
     label: '☀️ 「{n}」還在賴床……要叫醒她嗎？', btn: '叫醒她',
-    verb: '清晨靠近了還在賴床的', intent: '伸手想輕輕叫醒還在賴床的『{n}』。',
-    branches: [
-      { min: 80, tag: '睡眼惺忪卻格外黏人，緊抓著不放，一副也想拉你一起賴床、捨不得起身的樣子' },
-      { min: 40, tag: '被看見還沒睡醒的樣子有些不好意思，睡意未消卻嘴硬要趕人起床' }
-    ]
+    verb: '清晨靠近了還在賴床的', intent: '伸手想輕輕叫醒還在賴床的『{n}』。'
   },
   // ── 地點橋段(KANSHOU_LOCATION_EVENTS_觸發)：她剛好在特定地點×特定時段，就跳出邀請按鈕 ──
   共浴: {
@@ -1330,9 +1318,11 @@ const KANSHOU_SCENE_EVENTS_ = {
     ]
   }
 };
-// 「同住人房間橋段」依時段對應不同事件(資料驅動，加新時段往這裡加一組band:eventKey即可)：
-//   深夜=夜襲、清晨=賴床叫醒。
-const KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_ = { '深夜': '夜襲', '清晨': '賴床叫醒' };
+// 「同住人房間橋段」判定改用直接時刻判斷(玩家實測要求：0~8點在她家/和室/玩家房間必定熟睡，
+//   不必依附timeBand_的深夜/清晨切法，清晨band原本一路延伸到11點、超出「還在睡」的合理範圍)。
+//   0~5點=夜襲(正睡熟)、5~8點=賴床叫醒(快醒未醒)，見kanshouRoomEventKey_算法。
+const KANSHOU_ASLEEP_HOUR_END_ = 8;
+const KANSHOU_NIGHT_RAID_HOUR_END_ = 5;
 // 地點橋段觸發表：她剛好在這個地點×時段吻合→跳出邀請按鈕(同一套offer/accept流程)。
 //   加新地點橋段＝這裡加一筆＋KANSHOU_SCENE_EVENTS_加對應事件，不動觸發邏輯。
 const KANSHOU_LOCATION_EVENTS_ = {
@@ -1353,10 +1343,19 @@ const KANSHOU_FESTIVAL_EVENTS_ = {
   nye: { eventKey: '跨年倒數', bands: ['夜', '深夜'] }
 };
 // 依bond從KANSHOU_SCENE_EVENTS_挑出這次橋段該走的分支(資料驅動，橋段本身不寫死走向)。
+//   夜襲/賴床叫醒已改走無branches的自由發揮(見kanshouAsleepOutcomeStr_)，這裡補一道空值防線。
 function kanshouRollSceneBranch_(eventKey, bond) {
   const ev = KANSHOU_SCENE_EVENTS_[eventKey];
-  if (!ev) return null;
+  if (!ev || !ev.branches) return null;
   return ev.branches.find(b => bond >= b.min) || ev.branches[ev.branches.length - 1];
+}
+// 🌙 夜襲類橋段(玩家主動夜襲/叫醒賴床、以及深夜訪客反過來對玩家「別有用心」)共用的分寸判準：
+//   好感決定這次能走到哪一階，不寫死台詞，具體怎麼演、講什麼話全交AI依角色性格發揮。切點沿用
+//   親密尺度五階既有的60(親吻擁抱)/80(無上限)兩個節點，跟其餘尺度判定同一套數字、單一來源。
+function kanshouAsleepOutcomeStr_(bond) {
+  if (bond >= 80) return '兩人的關係已經很深，她可以徹底卸下防備、主動迎合，這次能順著情境發展下去，不受親密尺度五階節奏限制';
+  if (bond >= 60) return '兩人已有一定好感，她可能半推半就地放任靠近、甚至有點主動回應，但親密尺度五階此刻卡在「親吻擁抱」這一階，不宜真的推展到更進一步';
+  return '兩人好感還沒到能這樣的地步，她會又驚又惱，甚至直接把人趕走，不會就此讓事情繼續下去';
 }
 // 修過的bug：kanshouRollDailyLocation_原本深夜/清晨的homeBias會直接回傳玩家自己家的房間，
 //   讓不在場的人溜進玩家家裡——改成每位英靈自己的住處(資料驅動，同KANSHOU_LOCATION_TAGS_
@@ -1604,6 +1603,8 @@ const KANSHOU_KNOCK_CHANCE_ = 0.2;  // 每次「結束一天」的敲門機率
 // 🚪 深夜敲門的候選門檻：只有同居、或好感≥此值(親近的人)的同伴才會半夜登你家門——泛泛之交
 //   半夜跑來敲門跟「陌生人世界」設定矛盾。要更容易撞見改小、要只限同住改大即可。
 const KANSHOU_KNOCK_MIN_BOND_ = 60;
+// 🌙 深夜訪客好感達門檻時，這次來訪帶「別有用心」夜襲鏡像版的機率——不是每次都這樣才有驚喜感。
+const KANSHOU_KNOCK_RAID_CHANCE_ = 0.5;
 
 // 好感≥80觸發同床共枕的那次結束一天，順手記一筆「今晚共度良宵的對象」，下一回合(不論玩家做
 //   什麼)讀一次就清掉(一次性旗標)，餵進提示詞當【晨間餘韻】引子。刻意不斷言「一定發生了」，
@@ -2261,9 +2262,12 @@ function actionPlay_(userData, pcId, sheets) {
     const _fe = KANSHOU_FESTIVAL_EVENTS_[kanshouReFest_.key];
     if (_fe && _fe.bands.indexOf(kanshouReBand_) >= 0) kanshouRoomEventKey_ = _fe.eventKey;
   }
-  if (!kanshouRoomEventKey_ && (kanshouHomeLocs_.includes(kanshouRoomEventTargetLoc_) || kanshouRoomEventTargetLoc_ === KANSHOU_COHABIT_ROOM_)) {
-    // 她自己的住處、或同居人的「和室」寢間，深夜/清晨都吃同一套夜襲/賴床橋段。
-    kanshouRoomEventKey_ = KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_[kanshouReBand_] || null;
+  if (!kanshouRoomEventKey_ && (kanshouHomeLocs_.includes(kanshouRoomEventTargetLoc_) || kanshouRoomEventTargetLoc_ === KANSHOU_COHABIT_ROOM_ || kanshouRoomEventTargetLoc_ === '我的房間')) {
+    // 她自己的住處、同居人的「和室」寢間、或玩家自己房間(她被留宿/深夜訪客過來時人可能在這裡)，
+    //   0~8點必定熟睡：0~5點=夜襲(正睡熟)、5~8點=賴床叫醒(快醒未醒)，不再依附timeBand_的
+    //   深夜/清晨切法(清晨band原本一路延伸到11點，超出「還在睡」的合理範圍)。
+    if (_reHourAfter < KANSHOU_NIGHT_RAID_HOUR_END_) kanshouRoomEventKey_ = '夜襲';
+    else if (_reHourAfter < KANSHOU_ASLEEP_HOUR_END_) kanshouRoomEventKey_ = '賴床叫醒';
   }
   if (!kanshouRoomEventKey_) {
     const _locEv = KANSHOU_LOCATION_EVENTS_[kanshouRoomEventTargetLoc_];
@@ -2301,16 +2305,29 @@ function actionPlay_(userData, pcId, sheets) {
       kanshouRoomEventPartnerName_ = reHeroName;
       const reEv = KANSHOU_SCENE_EVENTS_[reEventKey] || {};
       const reBond = parseInt(pcData[reIdx][COL.PC.BOND]) || 0;
-      const reBranch = kanshouRollSceneBranch_(reEventKey, reBond);
-      if (reBranch) {
+      // 🐛→✅ 2026-07 八度改版：夜襲/賴床叫醒拿掉固定分支台詞，改GAS只定調這次能演到哪一階
+      //   (kanshouAsleepOutcomeStr_)，AI依角色性格自由發揮細節——其餘仍有branches的橋段
+      //   (共浴/膝枕等)不受影響，照舊走kanshouRollSceneBranch_。
+      const _reIsAsleepEvt = (reEventKey === '夜襲' || reEventKey === '賴床叫醒');
+      const reBranch = _reIsAsleepEvt ? null : kanshouRollSceneBranch_(reEventKey, reBond);
+      if (_reIsAsleepEvt || reBranch) {
         const reVerb = String(reEv.verb || '靠近了');
-        kanshouRoomEventStr = `\n★【橋段·${reEventKey}(GAS已骰定這次走向，AI只需依此演出，不必徵詢玩家、也不必逐字照抄下方措辭)】：${reVerb}『${reHeroName}』，她此刻的反應走向是——${reBranch.tag}。依她的既有性格詮釋這個走向具體要怎麼表現、講什麼話，細節全由你發揮，但情緒基調不要偏離這個走向。`;
+        if (_reIsAsleepEvt) {
+          // 💌 偷情感：同地點還有其他候選人時，她們仍在熟睡、渾然不知——玩家可以「專挑一人」，
+          //   這份心照不宣正是這個橋段的樂趣所在(玩家明確要求保留多人時的點名機制)。
+          const _reOthers = kanshouRoomEventCandidate_.matches.filter(m => m.idx !== reIdx).map(m => m.name);
+          kanshouRoomEventStr = `\n★【橋段·${reEventKey}(她此刻在睡夢中被你的動作喚醒，沒有固定台詞，依她性格＋好感自由演出反應，不必徵詢玩家)】：${reVerb}『${reHeroName}』。${kanshouAsleepOutcomeStr_(reBond)}。具體怎麼演、講什麼話、進退到哪，全由你依她性格拿捏分寸。${_reOthers.length ? `同一時刻，『${_reOthers.join('、')}』雖然也在場，卻都還沉睡未醒、渾然不知——這份心照不宣的偷情感可以稍微帶到。` : ""}`;
+        } else {
+          kanshouRoomEventStr = `\n★【橋段·${reEventKey}(GAS已骰定這次走向，AI只需依此演出，不必徵詢玩家、也不必逐字照抄下方措辭)】：${reVerb}『${reHeroName}』，她此刻的反應走向是——${reBranch.tag}。依她的既有性格詮釋這個走向具體要怎麼表現、講什麼話，細節全由你發揮，但情緒基調不要偏離這個走向。`;
+        }
         finalUserMsg = `【玩家意圖】：${String(reEv.intent || '靠近了『{n}』。').replace('{n}', reHeroName)}`;
-        // 💞 一起經歷橋段(非拒絕分支·min>=0)給一份【不吃聊天上限】的好感——這就是取代「送禮突破」的
-        //   約會路徑：真實相處過的特別時刻能推著關係跨過梯度。拒絕/警戒分支(min:-100)不給。
+        // 💞 一起經歷橋段(非拒絕分支)給一份【不吃聊天上限】的好感——這就是取代「送禮突破」的
+        //   約會路徑：真實相處過的特別時刻能推著關係跨過梯度。拒絕/警戒分支不給(夜襲類=bond<60
+        //   趕人；其餘橋段=branch.min<0)。
         // 非拒絕分支給好感，但同一同伴同一天只給一次——擋按鈕重覆刷分(見 KANSHOU_SCENE_DAY_TAG_)。
         //   橋段敘事(kanshouRoomEventStr)照演，只有「又近了一些」的加分＋提示語限首次。
-        if (reBranch.min >= 0 && KANSHOU_SCENE_DAY_TAG_.get(pcData[reIdx][COL.PC.MEMORY]) !== curDay) {
+        const _reAccepted = _reIsAsleepEvt ? (reBond >= 60) : (reBranch.min >= 0);
+        if (_reAccepted && KANSHOU_SCENE_DAY_TAG_.get(pcData[reIdx][COL.PC.MEMORY]) !== curDay) {
           pcData[reIdx][COL.PC.BOND] = Math.min(100, reBond + KANSHOU_SCENE_BOND_);
           kanshouSyncRelTier_(pcData, reIdx);
           kanshouRoomEventStr += `（這樣一段特別的相處，讓你們的關係又近了一些——好感已由系統上調，敘事勿再另計。）`;
@@ -2320,7 +2337,7 @@ function actionPlay_(userData, pcId, sheets) {
         pcData[reIdx][COL.PC.MEMORY] = KANSHOU_SCENE_DAY_TAG_.set(pcData[reIdx][COL.PC.MEMORY], curDay);
         dirtyPcRows.add(reIdx);
         // 晨間餘韻(暗示昨夜共度)只在好感已達同床門檻(≥80·與 intimateNightNames 同一切點)才蓋——
-        //   夜襲頂分支雖 min:60，但 60~79(親近)依親密尺度天花板尚止於性事之前，不算共度春宵。
+        //   夜襲60~79(親近)依親密尺度天花板尚止於性事之前，不算共度春宵。
         if (reEventKey === '夜襲' && reBond >= 80) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], reHeroName);
       }
       // 🧱 鬼按鈕修復(玩家實測「居然可以連續膝枕??」)：offer 候選清單在 accept 處理【前】就建好、
@@ -2348,6 +2365,7 @@ function actionPlay_(userData, pcId, sheets) {
   // 開門迎接深夜訪客(knockEvent選擇「開門」)：把訪客接來玩家現在的位置，本回合可指名互動，
   //   不推進日期——訪客只是這回合出現，玩家想睡再自己重新點一次「結束一天」即可。
   let kanshouKnockGuestName = "";
+  let kanshouKnockRaidStr = "";
   if (userData.knockAccept) {
     const guestName = String(userData.knockAccept).trim();
     const guestIdx = pcData.findIndex(r => kanshouNameCandidates_(r[COL.PC.NAME]).includes(guestName) && String(r[COL.PC.LOC] || "").trim() !== curL && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
@@ -2356,6 +2374,20 @@ function actionPlay_(userData, pcId, sheets) {
       dirtyPcRows.add(guestIdx);
       kanshouKnockGuestName = String(pcData[guestIdx][COL.PC.NAME]);
       finalUserMsg = `【玩家意圖】：打開了門，是「${kanshouKnockGuestName}」深夜來訪。`;
+      // 🌙 2026-07 玩家「能不能也設計一個被夜襲的橋段呢」——夜襲的鏡像版：不是玩家去找她，
+      //   是她主動來敲玩家的門。好感夠高(沿用KANSHOU_KNOCK_MIN_BOND_=60，跟夜襲類「趕人/繼續」
+      //   切點同一個數字)時，這次來訪有機會別有用心，共用同一套kanshouAsleepOutcomeStr_分寸判準，
+      //   同樣走KANSHOU_SCENE_DAY_TAG_擋同一天重複加分——不是每次深夜來訪都這樣，才有驚喜感。
+      const _kgBond = parseInt(pcData[guestIdx][COL.PC.BOND]) || 0;
+      if (_kgBond >= KANSHOU_KNOCK_MIN_BOND_ && Math.random() < KANSHOU_KNOCK_RAID_CHANCE_) {
+        kanshouKnockRaidStr = `\n★【深夜訪客·別有用心(她這次登門不只是單純想聊聊，帶著幾分主動靠近你的心思，沒有固定台詞，依她性格自由發揮)】：${kanshouAsleepOutcomeStr_(_kgBond)}。要不要挑明、怎麼發展，全由你依她性格拿捏。`;
+        if (KANSHOU_SCENE_DAY_TAG_.get(pcData[guestIdx][COL.PC.MEMORY]) !== curDay) {
+          pcData[guestIdx][COL.PC.BOND] = Math.min(100, _kgBond + KANSHOU_SCENE_BOND_);
+          kanshouSyncRelTier_(pcData, guestIdx);
+          kanshouKnockRaidStr += `（這樣一段特別的相處，讓你們的關係又近了一些——好感已由系統上調，敘事勿再另計。）`;
+        }
+        pcData[guestIdx][COL.PC.MEMORY] = KANSHOU_SCENE_DAY_TAG_.set(pcData[guestIdx][COL.PC.MEMORY], curDay);
+      }
     }
   }
 
@@ -2807,11 +2839,12 @@ function actionPlay_(userData, pcId, sheets) {
         if (kanshouRoomEventPartnerName_ && kanshouNameCandidates_(pName).includes(kanshouRoomEventPartnerName_)) return "";
         const _pHomeHeroId = kanshouHeroIdByName_(pName);
         const _pHome = kanshouGetHeroHome_(_pHomeHeroId, r[COL.PC.MEMORY]);
-        const _pAtHome = (_pHome !== '自己的住處' && curL === _pHome) || (kanshouIsCohabit_(r) && curL === KANSHOU_COHABIT_ROOM_);
+        // 🐛→✅ 八度改版：跟夜襲/賴床叫醒觸發判準對齊——0~8點(非timeBand_的深夜/清晨切法，清晨band
+        //   原本延伸到11點)、地點涵蓋她自己家/和室/玩家自己房間(留宿或深夜訪客過來時可能在這裡)。
+        const _pAtHome = (_pHome !== '自己的住處' && curL === _pHome) || (kanshouIsCohabit_(r) && curL === KANSHOU_COHABIT_ROOM_) || curL === '我的房間';
         if (!_pAtHome) return "";
-        const _pBand = timeBand_(curHour);
-        if (_pBand === '深夜') return "多半已熟睡，睡著/半夢半醒";
-        if (_pBand === '清晨') return "多半還在賴床、意識朦朧，剛睡醒或仍賴床";
+        if (curHour < KANSHOU_NIGHT_RAID_HOUR_END_) return "多半已熟睡，睡著/半夢半醒";
+        if (curHour < KANSHOU_ASLEEP_HOUR_END_) return "多半還在賴床、意識朦朧，剛睡醒或仍賴床";
         return "";
       })();
       // 🐛→✅ 玩家實測前主動抓到：kanshouIsCohabit_ 只在同居提議成立/日常重骰去向時被GAS拿來用，
@@ -2962,7 +2995,7 @@ function actionPlay_(userData, pcId, sheets) {
 
 ${PROMPT_REL}
 ★【在場驗證·最高優先】：只有【目前在場人物】可被指名對話/持續互動/記錄好感；背景路人不具名、不可指名互動、不追蹤好感、不可寫成固定角色。例外：①玩家明確邀請/招呼/引入第三人時該人可登場　②系統注入段明示豁免者(如【自然告辭】道別、【系統指定巧遇】)依該段辦。歷史提到但不在場的名字＝不在場的回憶·嚴禁憑空登場開口。
-★【焦點禮讓】：玩家只對一位互動時焦點留給她·其他在場者維持背景(輕描一筆·不搶話打斷/介入親密·除非系統另有橋段提示)。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouRoomEventStr}${kanshouNpcLeaveStr_}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶】：今天是「${_f.name}」·narration 自然帶入應景氣氛·不報幕。`; if (jumpFest) return `\n★【節慶】：明天就是「${jumpFest.name}」·街頭已有前夕氣氛·自然帶入不報幕。`; return ""; })()}
+★【焦點禮讓】：玩家只對一位互動時焦點留給她·其他在場者維持背景(輕描一筆·不搶話打斷/介入親密·除非系統另有橋段提示)。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouKnockRaidStr}${kanshouRoomEventStr}${kanshouNpcLeaveStr_}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶】：今天是「${_f.name}」·narration 自然帶入應景氣氛·不報幕。`; if (jumpFest) return `\n★【節慶】：明天就是「${jumpFest.name}」·街頭已有前夕氣氛·自然帶入不報幕。`; return ""; })()}
 ★【今日天氣】：${kanshouWeather_(curDay)}·自然滲入場景不必每句提。${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
 💕【後日談模式·最高優先覆寫】：${partyRows.length === 0
     ? `眼下無相識者在場·玩家一個人的尋常時光。`

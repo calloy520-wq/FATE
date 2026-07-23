@@ -624,11 +624,12 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 橋段庫（夜襲/共浴/節慶…資料驅動）
 
-- `KANSHOU_SCENE_EVENTS_`（常數）— 橋段庫（夜襲/賴床叫醒/共浴/溫泉同浴/膝枕/下廚/觀星＋6 節慶橋段）；每筆 label/btn/verb/intent＋branches（依 bond 由高到低選走向）。
-- `KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_`（常數）— 同住人房間橋段：深夜=夜襲、清晨=賴床叫醒。
+- `KANSHOU_SCENE_EVENTS_`（常數）— 橋段庫（夜襲/賴床叫醒/共浴/溫泉同浴/膝枕/下廚/觀星＋6 節慶橋段）；每筆 label/btn/verb/intent。共浴/膝枕等仍帶 branches（依 bond 由高到低選走向）；**2026-07 八度改版**：夜襲/賴床叫醒拔掉 branches，改走 `kanshouAsleepOutcomeStr_` 自由發揮。
+- `KANSHOU_NIGHT_RAID_HOUR_END_`(=5)、`KANSHOU_ASLEEP_HOUR_END_`(=8)（常數，2026-07 八度改版新增，取代 `KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_`）— 同住人房間橋段改直接比對時刻：0~5點→夜襲、5~8點→賴床叫醒（不再依附 timeBand_ 的深夜/清晨切法，清晨band原本一路延伸到11點）；有效地點含她自己的家/`KANSHOU_COHABIT_ROOM_`(和室)/`'我的房間'`(玩家自己房間)。
 - `KANSHOU_LOCATION_EVENTS_`（常數）— 地點×時段橋段觸發表（浴室/隱藏溫泉/客廳/廚房/屋頂花園）。
 - `KANSHOU_FESTIVAL_EVENTS_`（常數）— 節慶橋段觸發表（key 對齊 FESTIVALS）。
-- `kanshouRollSceneBranch_(eventKey, bond)` — 依 bond 從 SCENE_EVENTS 挑該走的分支（找不到達標退最後一個）。
+- `kanshouRollSceneBranch_(eventKey, bond)` — 依 bond 從 SCENE_EVENTS 挑該走的分支（找不到達標退最後一個；事件不存在或無 branches 回 `null`——2026-07 八度改版補的空值防線，夜襲/賴床叫醒已無 branches）。
+- `kanshouAsleepOutcomeStr_(bond)`（2026-07 八度改版新增）— 夜襲類橋段(玩家主動夜襲/叫醒賴床、以及深夜訪客「被夜襲」鏡像版)共用的分寸判準：60以下＝趕人、60~79＝卡在親吻擁抱、80+＝無上限，不寫死台詞，具體演出交AI依角色性格發揮。切點沿用親密尺度五階既有的60/80。
 - `KANSHOU_HERO_HOME_`（常數）— 手寫專屬豪邸，僅7位種子英靈（region:'visit' 可造訪地點）。
 - `KANSHOU_GENERIC_HOME_POOL_`（常數，2026-07 七度改版新增）— 8間泛用住處(河畔小公寓/巷弄老屋/高塔套房/郊區透天/老街閣樓/街角公寓/靜巷租屋/河堤畔宅)，宣告時即用`.forEach(push)`動態併入`KANSHOU_LOCATIONS_`(region:'visit', generic:true)。供查無`KANSHOU_HERO_HOME_`專屬豪邸的英靈隨機分配用（玩家「新增的英靈會有住處嗎？種子庫直接隨機就好」）。
 - `kanshouGetHeroHome_(heroId, memory)`（2026-07 七度改版新增）— 住處統一讀取入口：`KANSHOU_HERO_HOME_`手寫豪邸優先，查無就讀該英靈自己列MEMORY的`【住處】`標記，兩者皆無才退回不可造訪的「自己的住處」。取代所有直接查`KANSHOU_HERO_HOME_[heroId]`的呼叫點。
@@ -660,6 +661,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### MEMORY 標記存取器（多標記共擠一格·全形｜分隔）
 
 - `KANSHOU_KNOCK_CHANCE_`(=0.2)、`KANSHOU_KNOCK_MIN_BOND_`(=60)（常數）— 結束一天敲門機率與候選門檻。
+- `KANSHOU_KNOCK_RAID_CHANCE_`(=0.5)（常數，2026-07 八度改版新增，玩家「能不能也設計一個被夜襲的橋段」）— 開門迎接深夜訪客(`knockAccept`)且訪客好感≥`KANSHOU_KNOCK_MIN_BOND_`時，這次來訪「別有用心」(夜襲鏡像版，共用`kanshouAsleepOutcomeStr_`)的機率。
 - `KANSHOU_MORNING_AFTER_TAG_`（makeTextTag_ 晨間餘韻）、`KANSHOU_SCENE_DAY_TAG_`（makeIntTag_ 橋段日·防同日重刷）、`KANSHOU_FIRST_MET_DAY_TAG_`（makeIntTag_ 初見日·紀念日）、`KANSHOU_APPT_BANDS_`（約定時段 午後14/黃昏18/夜20）。
 - `KANSHOU_SIDEWRITE_EVERY_`(=3)（常數）+ `kanshouGetSideWriteCount_`/`kanshouSetSideWriteCount_(memory[,n])` — 側寫節流計數（存玩家列，第 1、N+1… 回合才帶 master_note；2026-07 二度改版後 master_note 只剩經歷一格，`kanshouGetPrefLocks_`/`SetPrefLocks_`＋【性格鎖】標記已整組刪除）。
 - `kanshouApptHour_(band)` — 約定時段→時刻（null=舊格式無時段）。

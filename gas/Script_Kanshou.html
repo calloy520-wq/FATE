@@ -1025,33 +1025,35 @@ let plainTextContext = cleanText;
     '浴室': { icon: '🛁', name: '共浴', bands: ['夜', '深夜'] },
     '屋頂花園': { icon: '🌌', name: '觀星', bands: ['夜', '深夜'] },
     '隱藏溫泉': { icon: '♨️', name: '溫泉同浴', bands: ['午後', '黃昏', '夜'] },
-    '和室': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
-    // 🌙 她們各自的家(拜訪住處·好感40解鎖登門)：深夜/清晨登門就能夜襲/賴床，不必等同居(90)。
+    '和室': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
+    // 🌙 她們各自的家(拜訪住處·好感40解鎖登門)：0~8點登門必定熟睡，可夜襲/賴床，不必等同居(90)。
+    //   八度改版跟後端對齊改用直接時刻(不再是深夜/清晨band，清晨band原本一路延伸到11點)。
     //   對齊後端 KANSHOU_HERO_HOME_ 的所有住處值。徽章只在住處已解鎖時顯示(鎖住的走🔒分支)。
-    '隱蔽的工房': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
-    '島嶼道場': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
-    '埃德費爾特宅邸': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
-    '愛因茲貝倫城': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
-    '遠坂邸': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
-    '藤村家': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
+    '隱蔽的工房': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
+    '島嶼道場': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
+    '埃德費爾特宅邸': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
+    '愛因茲貝倫城': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
+    '遠坂邸': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
+    '藤村家': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
     // 🏠 泛用住處池(七度改版)：同一套夜襲/賴床徽章，比照上面6間手寫豪邸逐一對應。
-    '河畔小公寓': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
-    '巷弄老屋': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
-    '高塔套房': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
-    '郊區透天': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
-    '老街閣樓': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
-    '街角公寓': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
-    '靜巷租屋': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true },
-    '河堤畔宅': { icon: '🌙', name: '夜襲/賴床', bands: ['深夜', '清晨'], atHome: true }
+    '河畔小公寓': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
+    '巷弄老屋': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
+    '高塔套房': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
+    '郊區透天': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
+    '老街閣樓': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
+    '街角公寓': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
+    '靜巷租屋': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
+    '河堤畔宅': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true }
   };
   // 時段 key→精簡顯示(徽章用·免整串 emoji)。
   var KC_BAND_SHORT_ = { '清晨': '清晨', '午後': '午後', '黃昏': '黃昏', '夜': '夜', '深夜': '深夜' };
-  // 組單一地點的橋段徽章 HTML(當前時段命中就高亮)；沒有橋段的地點回空字串。
-  function kcSceneBadge_(locName, curBand) {
+  // 組單一地點的橋段徽章 HTML(當前時段/時刻命中就高亮)；沒有橋段的地點回空字串。
+  //   hourEnd(夜襲/賴床專用)＝直接比對時刻(0~hourEnd點)，其餘橋段仍走bands比對時段key。
+  function kcSceneBadge_(locName, curBand, curHour) {
     var ev = KC_LOCATION_EVENTS_[locName];
     if (!ev) return '';
-    var hitNow = ev.bands.indexOf(curBand) !== -1;
-    var bandsTxt = ev.bands.map(function (b) { return KC_BAND_SHORT_[b] || b; }).join('/');
+    var hitNow = (typeof ev.hourEnd === 'number') ? (typeof curHour === 'number' && curHour < ev.hourEnd) : ev.bands.indexOf(curBand) !== -1;
+    var bandsTxt = (typeof ev.hourEnd === 'number') ? ('0~' + ev.hourEnd + '點') : ev.bands.map(function (b) { return KC_BAND_SHORT_[b] || b; }).join('/');
     var tip = ev.icon + ev.name + '·' + bandsTxt + (ev.atHome ? '(在她自己的家·登門即可)' : '') + '——她在場時會跳邀請(每位同伴每天限一次特別橋段，今天已跟她玩過別的橋段就要等明天)';
     var style = hitNow
       ? 'background:rgba(224,160,188,.22);border:1px solid #c07090;color:#f0c0d4;'
@@ -1110,7 +1112,7 @@ let plainTextContext = cleanText;
     var locBtns = KC_LOCATIONS_.filter(function (l) { return l.region === kcActiveRegion_; }).map(function (l) {
       var label = l.isRoom ? kcRoomLabel_(l.name) : l.name;
       var cnt = locCounts[l.name] || 0;
-      var _scBadge = kcSceneBadge_(l.name, _curBand); // 🎭 此地有橋段→標時段提醒(當前時段命中高亮)
+      var _scBadge = kcSceneBadge_(l.name, _curBand, kcClock && kcClock.hour); // 🎭 此地有橋段→標時段/時刻提醒(命中高亮)
       var _pmHere = promiseByLoc[l.name];
       var _pmBadge = _pmHere ? '<span style="color:#a8d0f0;font-size:10px;">📅 ' + escapeHtml(_pmHere[0].promise.date + (_pmHere[0].promise.time ? ' ' + _pmHere[0].promise.time.replace(/^\S+\s/, '') : '')) + (_pmHere.length > 1 ? ' +' + (_pmHere.length - 1) : '') + '</span>' : '';
       if (l.region === 'visit' && unlockedRes.indexOf(l.name) === -1) {
