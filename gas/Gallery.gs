@@ -3067,8 +3067,13 @@ ${PROMPT_PARTY_SYSTEM}
     // ⚡ 純時間轉場(跳時段/結束一天/跳節慶/推進時間)只是換幕、不需 AI 寫滿500字場景——上限砍到600
     //   讓生成快一截(玩家實測「讓時間流轉到夜晚超級久」)。一般聊天/移動仍1500(narration目標約500字·
     //   太低會截斷成不完整JSON)。移動(moveTarget)不算轉場提速範圍——走到新地點仍要完整場景。
+    // 🐛→✅ 玩家實測抓到：上面這句「太低會截斷成不完整JSON」的警語，其實時間轉場也躲不掉——
+    //   轉場當下若剛好有同伴在場(如牽著手一起跳時段)，AI一樣得寫一整段她的反應場景，跟一般聊天
+    //   同等篇幅需求，600 tokens 常常寫到一半就被截斷、JSON 不完整，重試全部失敗只能回「因果
+    //   紊亂」保底文字(Cloud 記錄檔證實：JSON.parse 卡在 truncate 掉的字串中間)。只有真的沒人在場
+    //   (純粹「時間過去了」的簡短交代)才適用600的精簡上限，有人在場時比照一般聊天給滿1500。
     const _timeJump = !!(userData.endDay === true || userData.jumpBand || userData.jumpFestival || (parseFloat(userData.advanceHours) || 0) > 0);
-    let aiConfig = { temperature: 1.08, top_p: 0.97, top_k: 60, repetition_penalty: 1.12, presence_penalty: 0.25, frequency_penalty: 0.25, retries: 1, model: SOLO_MODEL, isNsfwMode: true, max_tokens: _timeJump ? 600 : 1500 };
+    let aiConfig = { temperature: 1.08, top_p: 0.97, top_k: 60, repetition_penalty: 1.12, presence_penalty: 0.25, frequency_penalty: 0.25, retries: 1, model: SOLO_MODEL, isNsfwMode: true, max_tokens: (_timeJump && partyRows.length === 0) ? 600 : 1500 };
     aiConfig.fallbackModel = AI_MODEL;
 
     // 抓取近 6 筆原始歷史(3輪)，轉換為 API 格式。
