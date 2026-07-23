@@ -2793,6 +2793,22 @@ function actionPlay_(userData, pcId, sheets) {
         const _a = !_pCameWithMe ? kanshouLocActivity_(curL, pName, curDay) : "";
         return _a ? ` | 現況:${_a}(她本來就是這個狀態，不是這回合才開始，別演出「換上/開始」這類起始動作)` : "";
       })();
+      // 🌙 2026-07 玩家「深夜或清晨去她房間找她，有提示AI要讓她們是睡眠狀態嗎?」——查證後確實沒有：
+      //   kanshouRoomEventStr(她的反應走向)只在玩家按下夜襲/賴床叫醒同意鈕【之後】才會注入，剛推門
+      //   進去、按鈕還沒點的這一回合完全沒有任何提示，AI只能自己從時段猜，容易演成她還醒著閒聊，
+      //   跟「深夜找她＝多半在睡」的直覺矛盾。同一位本回合若已進了room-event accept流程(kanshouRoomEventStr
+      //   已描述她的反應)就不重複補這句，避免兩條指令互相打架。
+      const pSleepStr = (() => {
+        if (kanshouRoomEventPartnerName_ && kanshouNameCandidates_(pName).includes(kanshouRoomEventPartnerName_)) return "";
+        const _pHomeHeroId = kanshouHeroIdByName_(pName);
+        const _pHome = kanshouGetHeroHome_(_pHomeHeroId, r[COL.PC.MEMORY]);
+        const _pAtHome = (_pHome !== '自己的住處' && curL === _pHome) || (kanshouIsCohabit_(r) && curL === KANSHOU_COHABIT_ROOM_);
+        if (!_pAtHome) return "";
+        const _pBand = timeBand_(curHour);
+        if (_pBand === '深夜') return "多半已熟睡，睡著/半夢半醒";
+        if (_pBand === '清晨') return "多半還在賴床、意識朦朧，剛睡醒或仍賴床";
+        return "";
+      })();
       // 🐛→✅ 玩家實測前主動抓到：kanshouIsCohabit_ 只在同居提議成立/日常重骰去向時被GAS拿來用，
       //   卻從沒告訴AI「這個人現在跟你同居」這個事實——平常聊天靠AI自己從對話歷史猜，換幕縮窗(見下方
       //   history-trim)又只留1~2回合，猜不準時容易忘記她已經住這、演成外人作客的疏離語氣。補一句明講。
@@ -2837,7 +2853,7 @@ function actionPlay_(userData, pcId, sheets) {
         pPromiseStr = ` | 與玩家的約定:${_pdWhen}${_pdBandL}在「${_pdPr.loc}」見面——她記得這個約，聊到相關話題時自然帶著這份期待/在意，但勿每回合主動提起`;
       }
       // 明講方向的「TA是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍TA。
-      partyDetailsArr.push(`【在場人物】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(僅供內化):${pMoeStr}` : ""}${pActivityStr}${pCohabitStr}${pPropStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr})`);
+      partyDetailsArr.push(`【在場人物】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(僅供內化):${pMoeStr}` : ""}${pActivityStr}${pSleepStr ? ` | 現況:她此刻在自己家、${pSleepStr}(除非橋段已明確叫醒她，否則維持這個狀態演出，不宜寫成清醒閒聊)` : ""}${pCohabitStr}${pPropStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr})`);
     }
   });
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【目前在場人物命格詳情】:\n${partyDetailsArr.join("\n")}` : "目前這個地點沒有其他人，玩家是獨自行動的。";
