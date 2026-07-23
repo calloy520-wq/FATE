@@ -46,8 +46,7 @@
       promiseMeet = opts.promiseMeet || null, cohabitInvite = opts.cohabitInvite || null,
       inviteResident = opts.inviteResident || null, proposeMove = opts.proposeMove || null, takePhoto = !!opts.takePhoto,
       showPhoto = opts.showPhoto || null, photoIntent = opts.photoIntent || null,
-      handHold = opts.handHold || null, promiseAccept = opts.promiseAccept || null,
-      cohabitAccept = opts.cohabitAccept || null;
+      handHold = opts.handHold || null, promiseAccept = opts.promiseAccept || null;
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
     // 🔥 主動掌握開關：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
@@ -86,7 +85,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined, handHold: handHold || undefined, promiseAccept: promiseAccept || undefined, cohabitAccept: cohabitAccept || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined, handHold: handHold || undefined, promiseAccept: promiseAccept || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -190,17 +189,6 @@ let plainTextContext = cleanText;
           + `<button class="btn-option" style="flex:1;" onclick="kanshouDeclinePromise()">這次算了</button>`
           + `</div></div>`;
       }
-      // 🏠 GAS判定好感≥90→跳邀同居提示：2026-07 三度改版起改GAS依好感≥90直接判定(見Gallery.gs
-      //   kanshouCohabitOffer_)。四度改版同上，框成玩家自己的念頭而非她主動開口。
-      if (data.cohabitProposal) {
-        const _cp = data.cohabitProposal, _cpn = String(_cp.name || '');
-        optionsHtml += `<div style="background:rgba(200,120,150,0.14); border:1px solid #b06a86; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#e8b8cc; font-size:12.5px; margin-bottom:6px;">🏠 和「${escapeHtml(_cpn)}」已經無比親密了——要不要邀請她搬來一起住？</div>`
-          + `<div style="display:flex; gap:8px;">`
-          + `<button class="btn-option" style="flex:1;" onclick="kanshouAcceptCohabit('${_cpn.replace(/'/g, "\\'")}')">邀請她</button>`
-          + `<button class="btn-option" style="flex:1;" onclick="kanshouDeclinePromise()">還不要</button>`
-          + `</div></div>`;
-      }
       // 📅 到約定地點但太早(她還沒到)：跳「等到約定前10分」框——一鍵把時鐘推到她抵達的時刻(她也剛到)。
       if (data.promiseWait) {
         const _pw = data.promiseWait, _pwn = escapeHtml(String(_pw.name || '她'));
@@ -276,7 +264,7 @@ let plainTextContext = cleanText;
       if (optContainer) optContainer.innerHTML = optionsHtml;
       // 📣 有「必須點的泡泡」(前往/邀約/同居/敲門/橋段/結識)時自動把它捲進視野——回應完只捲故事框、
       //   泡泡藏在頁面下方看不到＝玩家實測「哪裡有同意按鈕??」的真兇。一般選項不強制捲(維持閱讀位置)。
-      if (optContainer && (data.moveProposal || data.promiseProposal || data.cohabitProposal || data.knockEvent || data.roomEventOffer || data.encounterOffer || data.promiseWait)) {
+      if (optContainer && (data.moveProposal || data.promiseProposal || data.knockEvent || data.roomEventOffer || data.encounterOffer || data.promiseWait)) {
         try { optContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { }
       }
 
@@ -1214,16 +1202,9 @@ let plainTextContext = cleanText;
     showGamePane('chat');
     await send('（我鼓起勇氣，開口約「' + name + '」改天見面——她點頭答應了，說好在「' + loc + '」碰面。）', false, { promiseAccept: { name: name, loc: loc, band: band } });
   }
-  // 婉拒她的邀約/同居(共用)：送一句軟性婉拒，正常敘事帶過、不落地任何狀態。
+  // 婉拒她的邀約：送一句軟性婉拒，正常敘事帶過、不落地任何狀態。
   async function kanshouDeclinePromise() {
     await send('（微笑著，這次先婉轉地推遲了。）', false);
-  }
-  // 🏠 GAS判定好感≥90(該邀同居)→玩家點下「邀請她」→這裡：走專用 cohabitAccept(不要求她仍在場——
-  //   玩家總原則「只要同意就寫入，人在哪都無妨」)，與 cohabitInvite(玩家自己隨時發起、需她在場被
-  //   問)是兩條路，訊息框架四度改版後跟 cohabitInvite 統一成玩家主動口吻(見上方 promiseAccept 同款修法)。
-  async function kanshouAcceptCohabit(name) {
-    showGamePane('chat');
-    await send('（我鼓起勇氣，邀「' + name + '」搬來一起住——她答應了。）', false, { cohabitAccept: name });
   }
 
   // 🚪 跟move proposal同款「選了才真的觸發」寫法，只是這個是GAS機率事件(見Gallery.gs結束一天前的擲骰)。開門帶knockAccept(把訪客接來、不推進日期)；不予理會帶skipKnockCheck重送結束一天(跳過判定、直接推進日期)。

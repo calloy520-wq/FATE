@@ -932,10 +932,11 @@ function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
     // 🐛→✅ 2026-07 三度改版（玩家「proposal_accept可以拿掉…promise_proposal也可以拿掉，讓GAS
     //   好感超過90…詢問玩家她是否可以與玩家同居…想要當好感卡39之類的時候GAS主動發出邀約」）：
     //   promise_proposal(她主動約你改天見面)／cohabit_proposal(她主動邀同居)／proposal_accept(早已停用)
-    //   三個欄位全部拔掉，AI 不再有任何管道自己決定「要不要開口邀」——這三件事全部改由 GAS 依好感
-    //   數值直接判定觸發(見actionPlay_的kanshouPromiseOffer_/kanshouCohabitOffer_)，同意後落地的
-    //   邏輯完全沿用舊有 promiseAccept/cohabitAccept 兩條既有管線，AI 只在玩家按下同意鈕後才演出
-    //   她開口的當下，不必每回合先自己猜要不要提。
+    //   三個欄位全部拔掉，AI 不再有任何管道自己決定「要不要開口邀」——約會邀約改由 GAS 依好感數值
+    //   直接判定觸發(見actionPlay_的kanshouPromiseOffer_)，同意後落地沿用舊有 promiseAccept 管線，
+    //   AI 只在玩家按下同意鈕後才演出她開口的當下，不必每回合先自己猜要不要提。同居邀約(原
+    //   kanshouCohabitOffer_/cohabitAccept)後來因玩家嫌「每天被系統追問」煩人已整組移除，玩家
+    //   想同居時仍可隨時自己主動邀請(cohabitInvite)。
     // npc_exit：同伴自主權——她可自然告辭離場，GAS真的把她移出場景(不再是嘴上說走卻還在)。只認此刻
     //   在場同伴，去向由系統依作息決定；被牽的人離場→牽手自動鬆開。不必每回合遣散，只在情境自然時。
     "npc_exit": "在場同伴自然告辭離場的真名陣列(可多位)·narration演出她離開·否則[]",
@@ -1675,9 +1676,6 @@ var KANSHOU_COHABIT_TAG_ = makeIntTag_('同居', 0);
 //   仍看好感80+全部，見結束一天邏輯)。放手=清空。她只是「優先帶走」的標記，不影響她的獨立生活。
 var KANSHOU_HANDHOLD_TAG_ = makeTextTag_('牽手');
 const KANSHOU_COHABIT_BOND_ = 90;
-// 💌 GAS主動邀同居的「今天已問過」標記(存該同伴列MEMORY·absDay)：好感達門檻+在場+未同住時
-//   GAS一律主動問要不要搬來同住，但一天只問一次(問過就記，不管答不答應，隔天若仍未同住會再問)。
-var KANSHOU_COHABIT_ASK_TAG_ = makeIntTag_('同居邀約日', 0);
 // 🔒 登門拜訪私人住處(region:'visit')的好感門檻＝熟識的朋友(見 KANSHOU_REL_TIER_ 的40切點)。
 const KANSHOU_VISIT_BOND_ = 40;
 const KANSHOU_COHABIT_ROOM_ = '和室';
@@ -2142,26 +2140,6 @@ function actionPlay_(userData, pcId, sheets) {
         kanshouCohabitStr = `\n★【同居開始】：『${_chRealName}』答應搬來與你同住了！從今以後她深夜會回這個家的「和室」就寢、清晨可能還賴在被窩、晚間常在家中活動，白天依然過她自己的生活——演出她答應這一刻依性格的反應(欣喜/彆扭/故作平靜皆可)，這是關係的一大步。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣邀『${_chRealName}』搬來一起住。`;
       }
-    }
-  }
-
-  // 🏠 玩家同意「她主動邀的同居」(GAS判定該邀→kanshouCohabitOffer_泡泡→cohabitAccept)：2026-07
-  //   三度改版起這步改GAS依好感≥90+在場+未同住直接判定(一天一次)，不再靠AI自己決定要不要開口。
-  //   跟上面 cohabitInvite(玩家發起、需她在場被問)是兩條路：這條是她已開口、只差玩家點頭，找她
-  //   【不要求同地】、點頭即蓋【同居】。好感門檻仍複驗(防直打API繞過)。
-  if (userData.cohabitAccept) {
-    const _caName = String(userData.cohabitAccept).trim();
-    const _caIdx = _caName ? pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_caName)) : -1;
-    if (_caIdx !== -1 && !kanshouIsCohabit_(pcData[_caIdx]) && (parseInt(pcData[_caIdx][COL.PC.BOND]) || 0) >= KANSHOU_COHABIT_BOND_) {
-      const _caHer = String(pcData[_caIdx][COL.PC.NAME]);
-      const _caInScene = String(pcData[_caIdx][COL.PC.LOC] || "").trim() === String(curL || "").trim();
-      pcData[_caIdx][COL.PC.MEMORY] = KANSHOU_COHABIT_TAG_.set(pcData[_caIdx][COL.PC.MEMORY], 1);
-      dirtyPcRows.add(_caIdx);
-      kanshouProposalResult_ = { ok: true, type: 'cohabit', name: _caHer };
-      kanshouCohabitStr = _caInScene
-        ? `\n★【同居開始】：你答應了『${_caHer}』的心意——她要搬來與你同住了！深夜她會回這個家的「和室」就寢、清晨可能賴在被窩、晚間常在家中。演出你點頭這一刻、她聽到後依性格的反應(欣喜/彆扭/故作平靜皆可)，這是關係的一大步。`
-        : `\n★【同居開始】：你答應了『${_caHer}』想搬來同住的心意。她此刻已先離開了，演出你把這個決定放進心裡的樣子——同居已確實成立，她今晚就會回這個家的「和室」就寢，不必演她在場回應。`;
-      finalUserMsg = `【玩家意圖】：答應了『${_caHer}』想搬來一起住的心意。`;
     }
   }
 
@@ -3194,22 +3172,9 @@ ${PROMPT_PARTY_SYSTEM}
         break;
       }
     }
-    // 🏠 GAS主動判定「好感≥90+未同住+在場」→該提議邀她同住了(玩家「好感超過90並且沒有同居時詢問
-    //   玩家她是否可以與玩家同居」；四度改版前端文案同上改框成玩家自己的念頭)。一天只問一次(【同居
-    //   邀約日】標記，問過就記、不管答不答應，避免每回合都被追問)，隔天若仍未同住會再問一次。落地
-    //   走既有 cohabitAccept 管線。
-    let kanshouCohabitOffer_ = null;
-    if (!moveProposal && !kanshouPromiseOffer_) {
-      for (const r of partyRows) {
-        if ((parseInt(r[COL.PC.BOND]) || 0) < KANSHOU_COHABIT_BOND_ || kanshouIsCohabit_(r)) continue;
-        if (KANSHOU_COHABIT_ASK_TAG_.get(r[COL.PC.MEMORY]) === curDay) continue; // 今天已經問過
-        const _coIdx = pcData.indexOf(r);
-        pcData[_coIdx][COL.PC.MEMORY] = KANSHOU_COHABIT_ASK_TAG_.set(r[COL.PC.MEMORY], curDay);
-        dirtyPcRows.add(_coIdx);
-        kanshouCohabitOffer_ = { name: String(r[COL.PC.NAME]) };
-        break;
-      }
-    }
+    // 🐛→✅ 2026-07 玩家「取消同居詢問的泡泡吧，太煩人了」：拿掉GAS每天主動追問「要不要邀她同居」
+    //   這個泡泡——玩家想同居時仍可隨時自己主動邀請(見上方cohabitInvite/kanshouInviteCohabit)，
+    //   只是不再被系統每天問。
 
     // 🚶‍♀️ 同伴自主離場(npc_exit)：AI判斷某在場同伴這回合自然告辭時，GAS真的把她移出場景——依當前
     //   時刻骰她的日常去向(獨立住民作息)，下回合就不在你身邊，解掉舊「嘴上說走卻還在場」的違和。
@@ -3519,7 +3484,6 @@ ${PROMPT_PARTY_SYSTEM}
       promiseSettle: kanshouPromiseSettle_.length ? kanshouPromiseSettle_ : undefined, // 📅 赴約/爽約結算通知陣列(獨立通道·不與提議結果搶單槽·可同時容納多筆)
       promiseWait: kanshouPromiseWait_ || undefined,
       promiseProposal: kanshouPromiseOffer_ || undefined, // 📅 GAS判定她該邀約→前端跳同意泡泡
-      cohabitProposal: kanshouCohabitOffer_ || undefined, // 🏠 GAS判定她該邀同居→前端跳同意泡泡
       photoResult: kanshouPhotoResult_ || undefined,
       kanshouClock: kanshouClock,
       // 修過的bug：#clock-hud讀共用的updateClock(data.clock,...)，但data.clock在鑑賞這條路徑
