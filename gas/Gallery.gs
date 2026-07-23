@@ -2396,15 +2396,15 @@ function actionPlay_(userData, pcId, sheets) {
       pcData[pcIndex][COL.PC.DAY] = curDay;
       pcData[pcIndex][COL.PC.HOUR] = curHour;
       // ⏩ 這是玩家【主動按鈕跳時段/節慶】的刻意時間快轉——跟「每回合被動+0.5h流動」(§122，那條根本
-      //   不重骰任何人)不同：既然玩家選擇快轉數小時，全世界(含此刻正跟你在一起的那位)都該依新時刻回到
-      //   各自的作息去向，所以【不再排除同地在場者】。原§84排除是為了擋「被動流動把互動中的人傳走」的
-      //   突兀，那個場景現在由被動流動不重骰負責，主動快轉反而應該讓世界真的動起來。
+      //   不重骰任何人)不同：玩家選擇快轉數小時，不在身邊的人依新時刻重骰去向，讓世界動起來。
+      // 🐛→✅ 玩家實測抓到：原本只有「牽手中」才排除，但正跟玩家同地點聊天、卻沒特地牽手的同伴，
+      //   一按跳時段就憑空消失、對話對象平白蒸發，體感是bug而非「她去過自己的生活了」。改成只要
+      //   此刻跟玩家同地點就一律不重骰(牽手只是同地點的其中一種情況，本就涵蓋在內)——真正「不在
+      //   身邊」的人才依新時刻重骰，在場的人不會被時段跳躍憑空傳走。
       const allEstablishedForTime = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
       allEstablishedForTime.forEach(r => {
         const idx = pcData.indexOf(r);
-        // 🤝 牽手例外(玩家實測「牽手後推進時間她就不見了」)：正被你牽著、且此刻同地的她，
-        //   陪你一起跳過這段時間——牽手＝她選擇跟著你，不被作息骰走(直到放手/結束一天)。
-        if (kanshouHeldName_ && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim() && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(kanshouHeldName_)) return;
+        if (String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) return;
         // 今天有約→釘在約定地點守著；沒約→照常骰(同居者走同居版)。curDay已是推進後的日期。
         pcData[idx][COL.PC.LOC] = kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, kanshouIsCohabit_(r), r[COL.PC.MEMORY]);
         dirtyPcRows.add(idx);
