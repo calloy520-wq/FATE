@@ -1652,6 +1652,12 @@ var KANSHOU_COHABIT_TAG_ = makeIntTag_('同居', 0);
 // 🤝 牽手(存玩家列·單一對象)：選定的同行對象，移動時她若同地就一定跟著走(優先但不獨佔——睡覺
 //   仍看好感80+全部，見結束一天邏輯)。放手=清空。她只是「優先帶走」的標記，不影響她的獨立生活。
 var KANSHOU_HANDHOLD_TAG_ = makeTextTag_('牽手');
+// 🌙 醒著陪同標記(存該同伴列MEMORY·地點值)：牽手/剛同意同去而醒著陪同的同伴，即使之後放手、
+//   或玩家離開又走回來，只要人還在同一個地點沒變動，就持續視為醒著——否則放手的瞬間、或
+//   離開再進來的下一回合，她就會被誤判成剛好躺在自己家/和室裡熟睡，儘管全程明明醒著陪在
+//   玩家身邊互動(玩家實測「放開手馬上跳出賴床叫醒的泡泡」「離開又進去，敘事明明醒著卻還跳
+//   賴床泡泡」)。地點一變(她離開/被重骰走)就自然失效，不必手動清。
+var KANSHOU_AWAKE_HERE_TAG_ = makeTextTag_('醒著陪同');
 const KANSHOU_COHABIT_BOND_ = 90;
 // 🔒 登門拜訪私人住處(region:'visit')的好感門檻＝熟識的朋友(見 KANSHOU_REL_TIER_ 的40切點)。
 const KANSHOU_VISIT_BOND_ = 40;
@@ -2141,9 +2147,23 @@ function actionPlay_(userData, pcId, sheets) {
     : userData.moveWithCompanion
       ? pcData.filter(r => r !== pc && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()).map(r => String(r[COL.PC.NAME]))
       : (kanshouHeldName_ ? [kanshouHeldName_] : []);
-  // 目前牽著手、或這回合跟玩家一起走進來的同伴——正醒著跟玩家互動中，不該被判定成熟睡中。
-  function kanshouIsAwakeWithMe_(name) {
-    return (kanshouHeldName_ && kanshouNameCandidates_(String(name)).includes(kanshouHeldName_)) || kanshouArrivingNames_.some(n => kanshouNameCandidates_(String(name)).includes(String(n)));
+  // 🐛→✅ 玩家實測連兩次抓到：只認「這回合牽手/剛到」太短命——放開手的瞬間、或離開又走回來的
+  //   下一回合，這兩個條件雙雙落空，她就會被誤判成剛好躺在自己家/和室裡熟睡，即使敘事明明還在
+  //   演她清醒對話。改成用KANSHOU_AWAKE_HERE_TAG_記住「她在這個地點是醒著的」，只要地點沒變就
+  //   持續生效(自我修復：這回合判定醒著就更新標記地點；地點對不上了就自動清掉，不必額外收尾)。
+  function kanshouIsAwakeWithMe_(idx) {
+    const row = pcData[idx];
+    const name = String(row[COL.PC.NAME]);
+    const loc = String(row[COL.PC.LOC] || "").trim();
+    const _isNow = (kanshouHeldName_ && kanshouNameCandidates_(name).includes(kanshouHeldName_)) || kanshouArrivingNames_.some(n => kanshouNameCandidates_(name).includes(String(n)));
+    const _tagLoc = KANSHOU_AWAKE_HERE_TAG_.get(row[COL.PC.MEMORY]);
+    const _awake = _isNow || (!!_tagLoc && _tagLoc === loc);
+    const _newTagVal = _awake ? loc : '';
+    if (_newTagVal !== (_tagLoc || '')) {
+      pcData[idx][COL.PC.MEMORY] = KANSHOU_AWAKE_HERE_TAG_.set(row[COL.PC.MEMORY], _newTagVal);
+      dirtyPcRows.add(idx);
+    }
+    return _awake;
   }
 
   // 🤝 結識(巧遇→入駐)：巧遇對象只是路人(不記好感·離開即散)，玩家點「結識」(inviteResident=name)
@@ -2226,7 +2246,7 @@ function actionPlay_(userData, pcId, sheets) {
       // 🚫 今天已跟她經歷過橋段(KANSHOU_SCENE_DAY_TAG_==今天)就不再把她列進候選——擋「重複詢問」：
       //   §132 只擋重複加好感、按鈕仍每回合冒；這裡連 offer 都收掉，一天一位一次特別相處，隔天(結束
       //   這天後 curDay+1)自然重新開放。
-      if (i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC] || "").trim() === kanshouRoomEventTargetLoc_ && KANSHOU_SCENE_DAY_TAG_.get(r[COL.PC.MEMORY]) !== curDay && (!_reIsAsleepTrigger_ || !kanshouIsAwakeWithMe_(r[COL.PC.NAME]))) _reMatches.push(i);
+      if (i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC] || "").trim() === kanshouRoomEventTargetLoc_ && KANSHOU_SCENE_DAY_TAG_.get(r[COL.PC.MEMORY]) !== curDay && (!_reIsAsleepTrigger_ || !kanshouIsAwakeWithMe_(i))) _reMatches.push(i);
     });
     if (_reMatches.length) {
       kanshouRoomEventCandidate_ = { eventKey: kanshouRoomEventKey_, matches: _reMatches.map(i => ({ name: String(pcData[i][COL.PC.NAME]), idx: i })) };
@@ -2782,7 +2802,7 @@ function actionPlay_(userData, pcId, sheets) {
       const pSleepStr = (() => {
         if (kanshouRoomEventPartnerName_ && kanshouNameCandidates_(pName).includes(kanshouRoomEventPartnerName_)) return "";
         // 🐛→✅ 八度改版：牽手/剛同意同去而跟玩家一起走進來的同伴顯然還醒著，不該說她在熟睡。
-        if (kanshouIsAwakeWithMe_(pName)) return "";
+        if (kanshouIsAwakeWithMe_(pcData.indexOf(r))) return "";
         const _pHomeHeroId = kanshouHeroIdByName_(pName);
         const _pHome = kanshouGetHeroHome_(_pHomeHeroId, r[COL.PC.MEMORY]);
         // 🐛→✅ 八度改版：跟夜襲/賴床叫醒觸發判準對齊——0~8點(非timeBand_的深夜/清晨切法，清晨band

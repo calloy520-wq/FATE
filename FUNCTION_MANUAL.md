@@ -666,8 +666,9 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `kanshouApptHour_(band)` — 約定時段→時刻（null=舊格式無時段）。
 - `kanshouGetPromise_` / `kanshouClearPromise_` / `kanshouSetPromise_(memory, absDay, loc, band)` — MEMORY【約定】absDay:band:loc 讀/清/寫（新約蓋舊、舊格式相容）。
 - `kanshouPromisePin_(row, absDay, curHour)` — 約定日把她 pin 到約定地：有時段=時刻前 10 分~+2h 內回地點、否則整天釘（相容）。
-- `KANSHOU_COHABIT_TAG_`（makeIntTag_ 同居）、`KANSHOU_HANDHOLD_TAG_`（makeTextTag_ 牽手·存玩家列單一對象）、`KANSHOU_COHABIT_BOND_`(90)、`KANSHOU_VISIT_BOND_`(40)、`KANSHOU_COHABIT_ROOM_`(和室)（常數）。
+- `KANSHOU_COHABIT_TAG_`（makeIntTag_ 同居）、`KANSHOU_HANDHOLD_TAG_`（makeTextTag_ 牽手·存玩家列單一對象）、`KANSHOU_AWAKE_HERE_TAG_`（makeTextTag_ 醒著陪同·2026-07新增·存該同伴列MEMORY·值＝她被判定醒著時所在的LOC）、`KANSHOU_COHABIT_BOND_`(90)、`KANSHOU_VISIT_BOND_`(40)、`KANSHOU_COHABIT_ROOM_`(和室)（常數）。
 - `kanshouIsCohabit_(row)` — 該從者是否同居中。
+- `kanshouIsAwakeWithMe_(idx)`（`actionPlay_`內部函式，2026-07 改吃`pcData`索引，原吃姓名字串）— 判定該同伴此刻是否醒著陪同(供夜襲/賴床叫醒的候選過濾＋`pSleepStr`熟睡提示排除用)：牽手中／這回合剛與玩家一起移動抵達＝true；否則讀`KANSHOU_AWAKE_HERE_TAG_`，若上次判定醒著時記的LOC仍等於她目前LOC也算true。判定為醒著就把她目前LOC寫回tag，否則清空——地點一變(離開/被重骰走)tag自動失效，不必額外收尾。**🐛→✅**：原本只認「這回合牽手/剛到」，一放手或下一回合就失效，會把明明還醒著互動的同伴誤判成熟睡，改成這個持久tag解決。
 - `KANSHOU_PROPS_`（資料驅動小道具庫，目前1筆：跳蛋，hasIntensity=true）、`KANSHOU_PROP_LEVELS_`(關閉/微弱/中等/強勁)（2026-07 新增·常數，前端 `Script_Kanshou.html` 的 `KC_PROPS_`/`KC_PROP_LEVELS_` 鏡像同步）。
 - `KANSHOU_PROP_EQUIP_BOND_ = 80`（2026-07 新增·常數，原名`KANSHOU_PROP_ACTIVATE_BOND_`，玩家「整個小道具直接卡80吧」後擴大範圍改名）— **裝備本身**(含選『關閉/戴著』起手，任何非空level的新增/切換)就卡的好感門檻，唯獨移除(level空字串)不受限；比照情慾場/無上限同一個切點。
 - `kanshouGetProps_(memory, catalog)`（回傳陣列，`catalog`選填不傳只認內建`KANSHOU_PROPS_`）/ `kanshouSetProps_(memory, propsArr)` / `kanshouToggleProp_(memory, propId, level)`（2026-07 新增，同批改多件同時裝備）— MEMORY【小道具】id1:強度1,id2:強度2,... 讀/整批寫/單件切換（`ToggleProp_` 是實際呼叫端用的：level空字串＝移除該項、其餘已裝備道具原樣保留）。回傳物件含 `part`(來自catalog定義，內建道具無此欄)。
