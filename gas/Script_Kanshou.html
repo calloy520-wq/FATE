@@ -1232,7 +1232,7 @@ let plainTextContext = cleanText;
     { band: '黃昏', label: '🌆 黃昏 18:00' },
     { band: '夜', label: '🌙 夜晚 20:00' }
   ];
-  async function kanshouPromiseMeet(name) {
+  async function kanshouPromiseMeet(name, npcId) {
     // 相約排除：玩家私室(isRoom)＋【未解鎖的私人住處】——鎖住的住處物理上進不去(地圖灰鎖＋後端擋移動)，
     //   約在那裡＝必然爽約陷阱(後端 _pmLocOk 也擋，這裡先不給選)。
     var _pmUnlocked = (window._lastTags && window._lastTags.unlockedResidences) || [];
@@ -1246,7 +1246,7 @@ let plainTextContext = cleanText;
       if (!_bandOptions.length) _bandOptions = KC_APPT_BANDS_;
       kanshouPickBand_('📅 約在「' + loc + '」的什麼時候？', name, function (band) {
         showGamePane('chat');
-        send('（向「' + name + '」提出明天在「' + loc + '」見面的約定。）', false, { promiseMeet: { name: name, loc: loc, band: band } });
+        send('（向「' + name + '」提出明天在「' + loc + '」見面的約定。）', false, { promiseMeet: { name: name, id: npcId || "", loc: loc, band: band } });
       }, _bandOptions);
     });
   }
@@ -1449,9 +1449,9 @@ let plainTextContext = cleanText;
     } catch (e) { var b2 = document.getElementById('kc-album-body'); if (b2) b2.textContent = '讀取失敗。'; }
   }
   // 🤝 牽手/放手：牽了誰，移動就帶她一起走(她本人要在場才牽得成)。睡覺仍看好感80+全部(不獨佔)。
-  async function kanshouHoldHand(name) {
+  async function kanshouHoldHand(name, npcId) {
     showGamePane('chat');
-    await send('（自然地牽起「' + name + '」的手。）', false, { handHold: name });
+    await send('（自然地牽起「' + name + '」的手。）', false, { handHold: name, handHoldId: npcId || "" });
   }
   async function kanshouReleaseHand() {
     showGamePane('chat');
@@ -1464,10 +1464,10 @@ let plainTextContext = cleanText;
   }
   // 🏠 邀請同居：她在場+關係夠深(後端把關)→搬進「和室」——深夜大多回家就寢、清晨可能賴床、
   //   晚間常在家中活動，白天照常出門過自己的生活。
-  async function kanshouInviteCohabit(name) {
+  async function kanshouInviteCohabit(name, npcId) {
     if (!await customConfirm_('邀「' + name + '」搬來同住？\n(需要彼此關係足夠深厚，她也可能婉拒；她本人要在場才問得出口)')) return;
     showGamePane('chat');
-    await send('（鼓起勇氣，邀「' + name + '」搬來一起住。）', false, { cohabitInvite: name });
+    await send('（鼓起勇氣，邀「' + name + '」搬來一起住。）', false, { cohabitInvite: name, cohabitInviteId: npcId || "" });
   }
   // 🏷️ 關係稱呼面板(2026-07「那個關係也不要用彈窗吧...做一個專門的來處理??」，取代原本的prompt())：
   //   跟 KANSHOU_REL_TIER_(Gallery.gs) 鏡像的5階預設稱呼＋自訂輸入框。選預設會讓這格文字重新

@@ -589,7 +589,10 @@ function actionKanshouCompanions(userData, pcId, sheets) {
       var _pmDate = _pm ? kanshouAbsDayToDate_(_pm.day) : null;
       // memoir：共同回憶(27欄)原樣下傳(★前綴=玩家釘選)，供面板顯示/釘選/刪除。
       var _pmTime = _pm ? (KANSHOU_APPT_BANDS_.find(function (b) { return b.band === _pm.band; }) || {}).label : "";
-      current.push({ name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), nickname: getNickname_(data[i][COL.PC.REL_MEM]), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, promise: _pm ? { loc: _pm.loc, date: _pmDate.month + '/' + _pmDate.day, time: _pmTime || '' } : null, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean), props: kanshouGetProps_(data[i][COL.PC.MEMORY], propCatalog) });
+      // 🆔 2026-07「整體重構·id優先」：補id讓前端能存起來隨後續action(牽手/邀同居/相約/結識等)回傳，
+      //   後端才有id可用、不必只靠名字(kanshouNameCandidates_別名表已處理大部分情況，但id才是真正杜絕
+      //   撞名/前綴混淆的單一真實來源)。
+      current.push({ id: String(data[i][COL.PC.ID]), name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), nickname: getNickname_(data[i][COL.PC.REL_MEM]), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, promise: _pm ? { loc: _pm.loc, date: _pmDate.month + '/' + _pmDate.day, time: _pmTime || '' } : null, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean), props: kanshouGetProps_(data[i][COL.PC.MEMORY], propCatalog) });
     }
   }
   return JSON.stringify({ success: true, current: current, customProps: kanshouGetCustomProps_(me[COL.PC.MEMORY]) });
@@ -2033,7 +2036,10 @@ function actionPlay_(userData, pcId, sheets) {
     //   【地點未開放】擋在門外，同樣是必然爽約陷阱——約定當下就先擋掉這種不相容組合(前端已只給
     //   相容時段選項，這裡是直打API的後端保底，同kanshouResidenceUnlocked_那行的既有寫法)。
     const _pmLocOk = !!(_pmLocObj_ && _pmLocObj_.region !== 'room' && (_pmLocObj_.region !== 'visit' || kanshouResidenceUnlocked_(pcData, _pmLoc, _myGid_)) && (!_pmLocObj_.bands || !_pmBand || _pmLocObj_.bands.indexOf(_pmBand) !== -1));
-    const _pmIdx = _pmName ? pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_pmName) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) : -1;
+    // 🆔 2026-07「整體重構·id優先」：前端已補id(見actionKanshouCompanions/servants.push)，id對得上
+    //   優先鎖定，找不到才退回kanshouNameCandidates_別名比對——同名/前綴混淆不再有機可乘。
+    const _pmId = String(userData.promiseMeet.id || "").trim();
+    const _pmIdx = _pmName ? findPcRowIdx_(pcData, _myGid_, { id: _pmId, name: _pmName, faction: "從者", loc: curL, excludeIdx: pcIndex, nameCandidates: kanshouNameCandidates_ }) : -1;
     if (_pmLocOk && _pmIdx !== -1) {
       const _pmBond = parseInt(pcData[_pmIdx][COL.PC.BOND]) || 0;
       const _pmHer = String(pcData[_pmIdx][COL.PC.NAME]);
@@ -2074,7 +2080,9 @@ function actionPlay_(userData, pcId, sheets) {
   let kanshouCohabitStr = "";
   if (userData.cohabitInvite) {
     const _chName = String(userData.cohabitInvite).trim();
-    const _chIdx = _chName ? pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_chName) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) : -1;
+    // 🆔 2026-07「整體重構·id優先」：同上，id對得上優先鎖定，找不到才退回別名比對。
+    const _chId = String(userData.cohabitInviteId || "").trim();
+    const _chIdx = _chName ? findPcRowIdx_(pcData, _myGid_, { id: _chId, name: _chName, faction: "從者", loc: curL, excludeIdx: pcIndex, nameCandidates: kanshouNameCandidates_ }) : -1;
     if (_chIdx === -1) {
       kanshouCohabitStr = `\n★【邀請撲空】：你想邀『${_chName}』搬來同住，但她此刻並不在這裡——演出這份撲空的悵然即可。`;
       finalUserMsg = `【玩家意圖】：想邀『${_chName}』搬來一起住，卻發現她不在身邊。`;
@@ -2111,7 +2119,9 @@ function actionPlay_(userData, pcId, sheets) {
       kanshouHandHoldStr = _hhPrev ? `\n★【放手】：你輕輕鬆開了與『${_hhPrev}』牽著的手——演出這個自然的放手瞬間即可(不必解釋機制)。` : "";
       if (_hhPrev) finalUserMsg = `【玩家意圖】：鬆開了與『${_hhPrev}』牽著的手。`;
     } else {
-      const _hhIdx = pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_hhArg) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim());
+      // 🆔 2026-07「整體重構·id優先」：同上，id對得上優先鎖定，找不到才退回別名比對。
+      const _hhId = String(userData.handHoldId || "").trim();
+      const _hhIdx = findPcRowIdx_(pcData, _myGid_, { id: _hhId, name: _hhArg, faction: "從者", loc: curL, excludeIdx: pcIndex, nameCandidates: kanshouNameCandidates_ });
       if (_hhIdx === -1) {
         kanshouHandHoldStr = `\n★【牽手落空】：你想牽『${_hhArg}』的手，但她此刻並不在你身邊——演出這份撲空即可。`;
         finalUserMsg = `【玩家意圖】：想牽『${_hhArg}』的手，卻發現她不在身邊。`;

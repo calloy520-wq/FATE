@@ -120,7 +120,7 @@ function actionMove(userData, pcId, sheets) {
     //   needRetreat 擋下（強制走撤退），遇不到敵則本就無人可追，故不再有「機率性離場追擊」這條路徑。
     //   🏰 從自己陣地離場享安全港·不被追擊(_atOwnHome)——即便按了撤退，主場結界也掩護你從容抽身。
     if (isFateMove && isRetreat && !_slipAway && !_atOwnHome && fromLocM && tgtTrim && tgtTrim !== fromLocM) {
-      var psvIdxM = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
+      var psvIdxM = findPlayerServantIdx_(allPcData, moveGameId, userData.servant, userData.servantId);
       if (psvIdxM !== -1) {
         var psvC = rowToCombatant_(allPcData[psvIdxM]);
         try { injectMysticBuff_(psvC, allPcData[pIdx][COL.PC.MEMORY]); } catch (e) { } // ✨ 逃跑時也吃御主禮裝(如 Avalon 承受寶具減傷)
@@ -254,7 +254,7 @@ function actionMove(userData, pcId, sheets) {
   // 💨 套用撤離追擊判定(前述交手)：輸的一方扣血·保 1 不致死(隨下方整表 setValues 寫回)。
   if (pursuit) {
     if (pursuit.hitWho === 'us') { // 我方從者輸→挨追擊
-      var fsvIdx = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
+      var fsvIdx = findPlayerServantIdx_(allPcData, moveGameId, userData.servant, userData.servantId);
       if (fsvIdx !== -1) { allPcData[fsvIdx][COL.PC.HP] = Math.max(1, (parseInt(allPcData[fsvIdx][COL.PC.HP]) || 0) - pursuit.dmg); }
       else { pursuit = null; }
     } else if (pursuit.dmg) { // 追兵輸→被回身反咬逼退(對追兵 ID 扣血·保1；追兵已 tick 走/不在則仍報甩脫成功)
@@ -273,7 +273,7 @@ function actionMove(userData, pcId, sheets) {
   // 📊🎭 比照 enemyAmbushOnServant_ 補上 foeCard(追兵性格素材，AI才演得出反應)＋report(前端秒顯數字戰報卡，不等AI)。
   var pursuitReport = null;
   if (pursuit) {
-    var pFsvIdx = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
+    var pFsvIdx = findPlayerServantIdx_(allPcData, moveGameId, userData.servant, userData.servantId);
     var pSvName = pFsvIdx !== -1 ? String(allPcData[pFsvIdx][COL.PC.NAME]) : "從者";
     var pSvHpMax = pFsvIdx !== -1 ? (parseInt(allPcData[pFsvIdx][COL.PC.MAX_HP]) || 0) : 0;
     var pSvHpAfter = pFsvIdx !== -1 ? (parseInt(allPcData[pFsvIdx][COL.PC.HP]) || 0) : 0;
@@ -373,7 +373,7 @@ function actionMove(userData, pcId, sheets) {
   // 🎭 隨行從者的「演出依據」卡（含狂化禁言/口吻），供前端抵達敘事讓從者真的在場、有反應，不是御主獨白
   // 🐛→✅ 玩家實測抓到：抵達場景常同框我方從者＋同地多名敵人＋撤離追兵，可能有3張以上servantCard_，
   //   每張各自帶一份完整收尾句——全部skipClose，收集這場戲實際出現的真名，perfNamesMove統一收尾一次。
-  var svIdxMove = findPlayerServantIdx_(allPcData, moveGameId, userData.servant);
+  var svIdxMove = findPlayerServantIdx_(allPcData, moveGameId, userData.servant, userData.servantId);
   var svCardMove = svIdxMove !== -1 ? servantCard_(allPcData[svIdxMove], { skipClose: true }) : "";
   var perfNamesMove = svIdxMove !== -1 ? [String(allPcData[svIdxMove][COL.PC.NAME])] : [];
 

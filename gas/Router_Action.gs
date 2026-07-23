@@ -382,6 +382,10 @@ function buildTagsPayload_(sheets, pcId, preData) {
     try { six = JSON.parse(s[COL.PC.SIX] || "{}"); } catch (e) { }
     try { const tg = JSON.parse(s[COL.PC.TAGS] || "{}"); skills = tg.skills || []; traits = tg.traits || []; } catch (e) { }
     servants.push({
+      // 🆔 2026-07「整體重構·id優先」：舊版卡片只帶 name，前端只能用名字回指定這名從者(雙從者名字
+      // 撞前綴時就會選錯人)——補上 id，前端存起來隨後續 action 回傳，後端 findPcRowIdx_/
+      // findPlayerServantIdx_ 才有 id 可用、不必再靠名字比對這條容易出錯的路。
+      id: s[COL.PC.ID],
       name: s[COL.PC.NAME], cls: s[COL.PC.RANK] || "從者", sex: s[COL.PC.SEX],
       tag: s[COL.PC.REL_TAG] || "從者", // 🏷️ 關係標籤(鑑賞卡片「🏷️關係」鈕預填用；solo不使用此欄)
       nickname: getNickname_(s[COL.PC.REL_MEM]), // 💬 專屬稱呼裸值(鑑賞卡片「🏷️關係」面板預填用)

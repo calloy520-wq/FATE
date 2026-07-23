@@ -136,7 +136,7 @@
 - `actionGetFullStatus(...)` — 依 `targetName`＋自己 game_id 找該角列，回 `buildPlayerStatusString`＋是否可改命（IS_PARTY==="同行"）。關係併入眾生列，直讀 REL_MEM。
 - `actionUpdateFate(...)` — 🔵 逆天改命：只准改 4 敘事欄（trait/pref/back/intent），數值/寶具鎖死。接受 ID 或同行從者名，限本局 game_id；鑑賞（k_）豁免「同行」要求。長度上限 back 80/intent 30/其餘 130。交棒 `STATE_PRE_DATA_`。（2026-07 二度改版拔掉性格鎖：不再接受/處理 `prefLocks`，`kanshouSetPrefLocks_` 已刪除——AI 遊戲中本就不再側寫性格/萌點，鎖定機制失去意義）
 - `actionGetTags(...)` — 薄包裝，回 `buildTagsPayload_`。
-- `buildTagsPayload_(sheets, pcId, preData?)` — 🔧 左側狀態卡資料建構（get_tags 與 sync 共用）。組御主卡（HP 詞化/令咒/願望/禮裝/換裝）＋在世我方從者陣列（solo 靠「同行」、鑑賞靠同地點過濾），逐從者附六圍/技能/出力/寶具/魔境/符文/synergy/理想鄉/多寶具/海怪/換裝/武裝/牽手/破戒奪取旗標。戰鬥限定欄以 `isFateCtx`（g_）結構性擋成 null。另回 economy/bondUsed/mystic/canRuleBreak/鑑賞 locationCounts/unlockedResidences。**七度改版**：`unlockedResidences`改用`kanshouGetHeroHome_`讀住處(原本只認`KANSHOU_HERO_HOME_`，隨機分配到泛用住處池的英靈解鎖不了)。
+- `buildTagsPayload_(sheets, pcId, preData?)` — 🔧 左側狀態卡資料建構（get_tags 與 sync 共用）。組御主卡（HP 詞化/令咒/願望/禮裝/換裝）＋在世我方從者陣列（solo 靠「同行」、鑑賞靠同地點過濾），逐從者附六圍/技能/出力/寶具/魔境/符文/synergy/理想鄉/多寶具/海怪/換裝/武裝/牽手/破戒奪取旗標＋**`id`**（2026-07 id 化重構新增，供前端 `myActiveServantId` 記錄、日後系統內部指令帶 id 用）。戰鬥限定欄以 `isFateCtx`（g_）結構性擋成 null。另回 economy/bondUsed/mystic/canRuleBreak/鑑賞 locationCounts/unlockedResidences。**七度改版**：`unlockedResidences`改用`kanshouGetHeroHome_`讀住處(原本只認`KANSHOU_HERO_HOME_`，隨機分配到泛用住處池的英靈解鎖不了)。
 - `buildClientState_(sheets, pcId, preData?)` — 完整 client state blob。`markRivalsSeen_`（戰爭迷霧，鑑賞跳過）＋狀態字串＋people（鑑賞/solo 分版）＋鄰近地點＋地圖描述＋時鐘/AP＋economy＋`buildTagsPayload_`＋mapNodes，全部沿用同一次整表讀。
 - `actionSync(...)` — 薄包裝，回 `buildClientState_`＋success。
 - `actionUpdateRelTag(...)` — 重定義關係稱呼：改該 NPC 自己列 REL_TAG。限本局 game_id；solo 要求同行、鑑賞豁免。**2026-07 五度改版**：5階預設標籤(`KANSHOU_REL_TIER_`)永遠可設，自訂文字(不等於任一預設標籤)需 bond≥`KANSHOU_CUSTOM_TAG_BOND_`(80)——防低好感塞露骨自訂稱呼繞過親密尺度天花板(該文字會字面塞進AI提示詞當既定事實)。交棒 `STATE_PRE_DATA_`。
@@ -176,7 +176,7 @@
 - `bondFavor_(row)` — 把 BOND(0~100) 換算成機率加減項 `[-0.67,+1.0]`，供結盟意願／示好交涉／（Router_Movement.gs）夜襲卸防等機率判定共用。
 - `allianceWillingness_(masterRow, aliveFoes)` — 🎲 GAS 判定結盟意願（0.05~0.9）：依對方性格詞加減＋剩餘敵從者數（越少越不肯）＋`bondFavor_(masterRow)*0.3`（好感越高越肯結盟）。不靠 AI。
 - `actionProposeAlliance(...)` — 對同地敵御主提議（npcId 精準→`nameLoose_` 比對；須已登場 `hasArrived_`）。`Math.random() < w` 判定；成盟＝盟主＋其同地從者一併標【盟約至】(day+3)、AI 只演談判。查無時回診斷訊息（對方在哪 vs 你在哪）。交棒。
-- `actionBreakAlliance(...)` — 單方撕毀盟約：清掉匹配敵御主/敵從者的【盟約至】（`nameLoose_` 比對），MEMORY 整欄批次寫回。交棒。
+- `actionBreakAlliance(userData, pcId, sheets)`（2026-07 補 `npcId` 精準配）— 單方撕毀盟約：清掉匹配敵御主/敵從者的【盟約至】。`userData.npcId` 有給先 id+game_id 精準比對命中對象，比對用的名字改抓該列真名（非玩家傳入、可能過期的字串）；查無 id 才退回原本 `nameLoose_` 子字串批次撕毀。MEMORY 整欄批次寫回。交棒。
 - `breakStaleAlliances_(sheets, gameId, preData?)` — ⏳ 盟約自然瓦解：效期到 或 存活敵從者≤3（強制翻臉）。整欄批次寫回，回破裂御主名單。
 - `bumpBond_(sheets, pcData, npcIdx, delta)` — 該 NPC 列 BOND ±delta（0~100，起步預設 40），寫回回傳新值。
 - `actionAllyBond(...)` — 與同地盟友交流（+6~11 羈絆）。AP 不足先擋→`enemyAmbushOnServant_`（1.3 倍，未結盟敵從者趁隙）→`bumpBond_`→達 90 蓋【摯交】（純敘事親疏標記，**無鑑賞入口意義**——原【鑑賞緣】戰後納入鑑賞名冊機制已砍）。四級羈絆嚴控親疏 tier；盟友御主用 `enemyMasterCard_`、盟友從者用 `servantCard_`。★真親密一律留戰後鑑賞，戰場絕不開慾海引擎。交棒。
@@ -231,7 +231,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `enemyMasterCard_(row, opts?)` — 🎭 敵御主卡（精簡）。戰鬥現場敵御主在場時給反應/台詞用；四段個性/特徵/萌點/身世（取「。外貌：」前段）/陣營/魔術/體術/願望。★正典人物優先調用原作形象、禁劇透未揭露身分；★非沉默背景板但勝負傷害不可改（此句為敵御主專屬行為準則，不受 skipClose 影響、恆常保留）。`opts.skipClose:true` 時省略「正典認知優先/show don't tell」那段（與同框的 `servantCard_` 一併併入同一次 `performanceNote_`）。與 masterCard_ 不同：AI 可自決其言行（NPC）。
 
 #### 我方從者索引
-- `findPlayerServantIdx_(pcData, gameId, wantName?)` — 取我方在世從者列索引；指定 `wantName` 優先取該名，否則取第一個（雙從者用）。被 actionUseSeal/actionBond 等呼叫。
+- `findPlayerServantIdx_(pcData, gameId, wantName?, wantId?)`（2026-07 id 化重構：改委派共用 `findPcRowIdx_`）— 取我方在世從者列索引；`wantId` 有給先精準比對（id 不合規則自動退回名字），否則 `wantName`（`nameLoose_` 容錯分隔符變體），皆查無則取第一個在世從者（雙從者用）。被 actionUseSeal/actionBond/actionBattle 等 13+ 處呼叫，前端統一多帶 `servantId:myActiveServantId`。
 # 逐函式文件：創角／移動／經濟三檔
 
 ---
@@ -587,7 +587,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `actionKanshouSummonHero(userData, pcId, sheets)` — 從英靈庫召喚一位英靈「存在」於此後日談世界（不必先 solo 封存）。防線：擁有權驗證、士郎位置擋、`KANSHOU_SUMMON_BLOCKED_IDS_` 擋、ai_gen 僅創造者可召、不開放男男、同一位只召一次（跨名比對）。通過即 appendRow(`heroToKanshouRow_`)。
 - `actionEnterKanshou(userData, pcId, sheets)` — 進入常駐後日談世界（每帳號一個）。三分支：①帳號表已連結→接續（含全名→短名一次性遷移）②MEMORY【帳號】標記舊角色→補寫帳號表連結遷移③無存檔→需 needSetup 問名字/性別後新建御主列（KPC_ 前綴，開場「我的房間」Day1 06:00）＋入駐 `KANSHOU_STARTER_IDS_` 4 位起始住民。**🐛→✅ 稽核抓到**：pcName/appearance/persona 這條首建路徑原本完全沒設 backend 長度上限(只靠前端 maxlength 擋)，已補 pcName≤16／appearance・persona≤60，跟後續改名/改命路徑口徑一致。（2026-07 二度改版：兩個成功回應物件都拿掉 `prefLocks` 欄位，性格鎖系統整組刪除）
 - `actionBackfillKanshouAi(userData, pcId, sheets)` — 非阻塞背景補生成御主 4 個敘事欄（background/traits/personality/npc_intent/outfit）。比照 `actionBackfillMasterAi`「種子秒建＋AI 潤色」；競態修用 `buildLiveIdIndex_` 寫回前重定位，只單格 setValue，數值/位置不碰。
-- `actionKanshouCompanions(userData, pcId, sheets)` — 列出本世界已存在的所有從者＋各自地點/關係標籤/**專屬稱呼(2026-07新增，`getNickname_`裸值)**/好感/是否同地/待赴約定/共同回憶，供玩家決定去找誰。無隊伍/人數上限。
+- `actionKanshouCompanions(userData, pcId, sheets)` — 列出本世界已存在的所有從者＋各自地點/關係標籤/**專屬稱呼(2026-07新增，`getNickname_`裸值)**/好感/是否同地/待赴約定/共同回憶/**`id`(2026-07 id 化重構新增)**，供玩家決定去找誰。無隊伍/人數上限。
 - `actionKanshouMemoirOp(userData, pcId, sheets)` — 共同回憶面板操作（op=pin/unpin/del）：釘選加 ★ 前綴（釘選上限 8）、刪除整條移除。玩家 UI 手動管理、AI 無權；帳號綁定＋同 gid 驗證。
 
 #### 御主 avatar 設定（隨時可改）
@@ -701,7 +701,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### 🔴 核心敘事引擎
 
 - `actionPlay(userData, pcId, sheets)`（2026-07 稽核後改為薄包裝，~15 行）— 用 `CacheService` 對同一 `pcId` 做軟性互斥（偵測到同 pcId 仍有一次在跑就直接回「請稍候」拒絕本次），再委派給 `actionPlay_`。修的是：本函式故意豁免 `LOCK_EXEMPT_ACTIONS_` 全域鎖(AI呼叫數秒~49秒，鎖全域會拖累其他玩家)，但寫回是「整表快照→記憶體全改→結尾整列覆寫」，同pcId兩次呼叫窗口重疊時後flush者會整列蓋掉先flush者的全部改動——這裡不加全域鎖(仍會拖累其他玩家)，只鎖「同一pcId」。
-- `actionPlay_(userData, pcId, sheets)`（~1440 行，原 `actionPlay` 更名而來，呼叫關係／ActionRouter 對照不變，仍是 `"play"` 唯一實際邏輯）— 鑑賞唯一敘事引擎（入口擋非 KPC_，帳號歸屬驗證改用 `kanshouOwnedRowIdx_`——2026-07 稽核抓到舊版裸 `findIndex` 沒查帳號、`pcId` 可枚舉猜中即可讀寫別人存檔的漏洞已補）。單回合處理全部意圖：地點移動＋私宅門檻＋**六度改版新增時段門檻**（`moveTarget.bands`跟`timeBand_(curHour)`不合就擋在移動前，比照私宅門檻同款「當作沒真的進去」寫法，有pending約定豁免）／**玩家發起的相約·牽手·同去提議**（`kanshouProposalAccepts_` 在呼叫 AI **前**先依 BOND 擲骰定成敗，結果直接寫進提示詞告訴 AI「成敗已由系統定」，AI 只演反應，`proposal_accept` schema 欄已整個刪除)／結識入駐（inviteResident）（NPC 主動邀約/邀同居的 GAS 判定觸發機制`kanshouPromiseOffer_`/`kanshouCohabitOffer_`皆已於八度改版移除，約會/同居現只剩玩家自己主動發起——`promiseMeet`/`kanshouInviteCohabit`一條路）／橋段觸發與接受（roomEventAccept·三層：節慶>同住人房間>地點×時段）／深夜敲門（endDay 擲骰→knockEvent/knockAccept）／結束一天（睡眠·同床≥80·晨間餘韻·強制回房·放手·眾人重骰行程）／推進時間·跳時段·跳節慶（rollHours_）／被動時間流動（每動作 +10 分·跨時段觸發 NPC 自然告辭）／赴約·爽約結算（時間×地點驅動·準時窗+5/遲到+3/爽約-5·寫共同回憶）／巧遇擲骰／拍照·看照片。組 system prompt（`buildDefaultSystemPrompt`）＋巨型 USER prompt（在場卡片/親密五階/移動鐵律/時段/世界觀）→ `callGeminiAPI`（先打快 SOLO_MODEL、AI_MODEL 只當備援；時間轉場砍 max_tokens）。落地 AI 回傳：rel_changes（夾聊天上限·kanshouSyncRelTier_）/intimacy_feedback（physical_state/appearance_extras(原outfit_change)/mutual_nicknames/attitude/memory 共同回憶）/npc_exit/master_note 滾動側寫（現只剩經歷一格，性格四格/萌點創角時一次生成、遊玩期間AI不再碰）。**2026-07 四度改版拔掉`dynamic_skills`(雙修技巧)**：無UI無使用規則的孤兒欄位，連同`kanshouSkillTagStr_`/`processSkills`/`setSkillTag_`三個輔助函式一併刪除。回傳前經 `sanitizeAiData_` 守門。競態修 `buildLiveIdIndex_` 重定位後單列寫回。回傳 text/people/options/tags/各種泡泡與通知條/時鐘。
+- `actionPlay_(userData, pcId, sheets)`（~1440 行，原 `actionPlay` 更名而來，呼叫關係／ActionRouter 對照不變，仍是 `"play"` 唯一實際邏輯）— 鑑賞唯一敘事引擎（入口擋非 KPC_，帳號歸屬驗證改用 `kanshouOwnedRowIdx_`——2026-07 稽核抓到舊版裸 `findIndex` 沒查帳號、`pcId` 可枚舉猜中即可讀寫別人存檔的漏洞已補）。單回合處理全部意圖：地點移動＋私宅門檻＋**六度改版新增時段門檻**（`moveTarget.bands`跟`timeBand_(curHour)`不合就擋在移動前，比照私宅門檻同款「當作沒真的進去」寫法，有pending約定豁免）／**玩家發起的相約·牽手·同去提議**（`kanshouProposalAccepts_` 在呼叫 AI **前**先依 BOND 擲骰定成敗，結果直接寫進提示詞告訴 AI「成敗已由系統定」，AI 只演反應，`proposal_accept` schema 欄已整個刪除；2026-07 id 化重構：`promiseMeet`/`cohabitInvite`/`handHold` 三處對象解析改走 `findPcRowIdx_({id, name, nameCandidates:kanshouNameCandidates_})`，前端有帶 id 就精準命中、查無才退回原本名字模糊比對，同時仍套用同地點/在世/faction 過濾)／結識入駐（inviteResident）（NPC 主動邀約/邀同居的 GAS 判定觸發機制`kanshouPromiseOffer_`/`kanshouCohabitOffer_`皆已於八度改版移除，約會/同居現只剩玩家自己主動發起——`promiseMeet`/`kanshouInviteCohabit`一條路）／橋段觸發與接受（roomEventAccept·三層：節慶>同住人房間>地點×時段）／深夜敲門（endDay 擲骰→knockEvent/knockAccept）／結束一天（睡眠·同床≥80·晨間餘韻·強制回房·放手·眾人重骰行程）／推進時間·跳時段·跳節慶（rollHours_）／被動時間流動（每動作 +10 分·跨時段觸發 NPC 自然告辭）／赴約·爽約結算（時間×地點驅動·準時窗+5/遲到+3/爽約-5·寫共同回憶）／巧遇擲骰／拍照·看照片。組 system prompt（`buildDefaultSystemPrompt`）＋巨型 USER prompt（在場卡片/親密五階/移動鐵律/時段/世界觀）→ `callGeminiAPI`（先打快 SOLO_MODEL、AI_MODEL 只當備援；時間轉場砍 max_tokens）。落地 AI 回傳：rel_changes（夾聊天上限·kanshouSyncRelTier_）/intimacy_feedback（physical_state/appearance_extras(原outfit_change)/mutual_nicknames/attitude/memory 共同回憶）/npc_exit/master_note 滾動側寫（現只剩經歷一格，性格四格/萌點創角時一次生成、遊玩期間AI不再碰）。**2026-07 四度改版拔掉`dynamic_skills`(雙修技巧)**：無UI無使用規則的孤兒欄位，連同`kanshouSkillTagStr_`/`processSkills`/`setSkillTag_`三個輔助函式一併刪除。回傳前經 `sanitizeAiData_` 守門。競態修 `buildLiveIdIndex_` 重定位後單列寫回。回傳 text/people/options/tags/各種泡泡與通知條/時鐘。
   - 內嵌 helper：`formatPref`/`formatTrait`（性格·特徵四格格式化）、`relMemMemoryStr_`（REL_MEM 專屬稱呼＋態度）、`_whereIsHer`（撲空提示找她位置）、`_settle`（赴約結算閉包）、`sanitizePhysicalState`/`sanitizeAppearanceExtras`（原`sanitizeOutfitChange`，篩敷衍語·容錯截斷）、`processTags`（專屬稱呼 append 去重）、`processMemoir_`（共同回憶 append·雙字組 0.6 相似去重·★釘選不驅逐）。（`processSkills`/`setSkillTag_` 已隨雙修技巧機制整組刪除）
 
 #### 相簿 actions（讀/刪·拍照本體在 actionPlay）
@@ -844,6 +844,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### 地理雷達 / 在場清單
 
 - `buildLiveIdIndex_(sheet)` — 單欄窄讀 ID 欄回 {id → 當下 0-based 列索引}；供豁免寫入鎖的 play/backfill 在 AI 回來後重定位、避開期間刪列造成的錯位。
+- `findPcRowIdx_(pcData, gid, opts)`（2026-07 新增，id 化重構單一真實來源）— 系統內部身分解析共用 resolver（別跟 AI 敘事文字比對混：那類仍走各自的 `nameCandidates` 名字比對，見下）。`opts = {id, name, gid(透過參數帶入)/faction/loc/excludeIdx/aliveOnly=true/nameCandidates/normalize}`。`opts.id` 有給先在 `gid` 範圍內找 id 命中列；查無或未給才退回名字比對（`nameCandidates` 產生候選陣列＋`normalize` 正規化，預設純 trim）。**id 路徑與名字路徑套用同一份 `passesFilters(r,i)`**（game_id/`aliveOnly`＝ID 未被標記`DEAD_`/faction/loc/excludeIdx 全部一致套用，避免 id 路徑抄捷徑跳過在場/存活/陣營檢查）。查無回 -1。solo 由 `findPlayerServantIdx_` 委派（`normalize:nameLoose_`）；鑑賞由 `actionPlay_` 的 promiseMeet/cohabitInvite/handHold 三處委派（`nameCandidates:kanshouNameCandidates_`）。
 - `getLocalPeopleList(sheets, pcName, pcId, curL, allPcData)` — solo 專用在場清單；依 game_id 實例化＋登場日閘門過濾，收同地點/高好感/同行者，處理結盟顯示（盟友*）、情報共享揭露職階、失去從者標記、敵對主從硬連結。
 - `getNearbyLocations(currentLoc, mapData, myWar)` — 由當前地點根名的座標算曼哈頓距離，回最近 5 個非本地地點（name/type/desc/dist）。**`myWar`**(2026-07 新增)：過濾掉戰爭限定地點(`COL.MAP.WAR` 有值且與 `myWar` 不同者跳過)，比照 `buildMapNodesPayload_` 既有的同款規則——修「撤退突圍/偵查」清單曾漏濾、讓地圖上根本看不到的限定地點(如僅第四次限定的海特飯店)冒出來的 bug。3 個呼叫端(`Router_Action.gs`的`buildClientState_`／`Router_Movement.gs`的`actionMove`／`actionScout`)皆已補傳。
 
@@ -1279,7 +1280,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `kanshouAcceptRoomEvent(name)` — 接受橋段（夜襲/賴床/共浴等）靠近某人（`roomEventAccept`）。
 
 #### 相約 / 等待 / 選單
-- `kanshouPromiseMeet(name)` — 相約流程：先 `kanshouPickLocation_` 選地點（排除私室/未解鎖住處）→**六度改版**：選定地點若有`bands`限制，算出跟`KC_APPT_BANDS_`相容的子集(`_bandOptions`)→再 `kanshouPickBand_` 選時段(傳入`_bandOptions`，沒限制就照舊給全部3個)→`send({promiseMeet})`。
+- `kanshouPromiseMeet(name, npcId)`（2026-07 補 `npcId` 第二參數）— 相約流程：先 `kanshouPickLocation_` 選地點（排除私室/未解鎖住處）→**六度改版**：選定地點若有`bands`限制，算出跟`KC_APPT_BANDS_`相容的子集(`_bandOptions`)→再 `kanshouPickBand_` 選時段(傳入`_bandOptions`，沒限制就照舊給全部3個)→`send({promiseMeet:{name, id:npcId||""}})`。卡片渲染 onclick 已同步多帶 `s.id`，後端 `actionPlay_` 用 `findPcRowIdx_` id 優先比對（查無才退回 `kanshouNameCandidates_` 名字比對）。
 - `kanshouPickBand_(title, name, cb, bandOptions)` — 開時段選擇彈窗 `#kb-overlay`（`bandOptions`選填的子集，省略＝`KC_APPT_BANDS_`全部3顆鈕），回呼存 `_kbCb`。
 - `kanshouPickBand2_(band)` — 時段鈕點擊：關彈窗→執行 `_kbCb(band)`。
 - `kanshouWaitForPromise(targetHour)` — 「等到約定前 10 分」：算 `advanceHours=目標−現在` 走時間推進。
@@ -1299,10 +1300,10 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `openKanshouAlbum()` — 開相簿（建 `#kc-album-overlay`＋`get_album`→`kcAlbumRender_`）。
 
 #### 牽手 / 結識 / 同居 / 關係
-- `kanshouHoldHand(name)` — 牽起某人的手（`handHold:name`，移動帶她同行）。
+- `kanshouHoldHand(name, npcId)`（2026-07 補 `npcId` 第二參數）— 牽起某人的手（`handHold:name, handHoldId:npcId||""`，移動帶她同行）；後端 `findPcRowIdx_` id 優先比對。
 - `kanshouReleaseHand()` — 放手（`handHold:'__release__'`）。
 - `kanshouAcceptInvite(name)` — 結識巧遇對象使其入駐（`inviteResident`）。
-- `kanshouInviteCohabit(name)` — 玩家發起邀同居（`cohabitInvite`，需她在場，確認框）。
+- `kanshouInviteCohabit(name, npcId)`（2026-07 補 `npcId` 第二參數）— 玩家發起邀同居（`cohabitInvite:name, cohabitInviteId:npcId||""`，需她在場，確認框）；後端 `findPcRowIdx_` id 優先比對。**`kanshouAcceptInvite`/`inviteResident` 未同步補 id**：目標是尚未召喚過的「巧遇陌生人」，結構上沒有 pcData 列可帶 id，維持純名字比對。
 - `kanshouOpenRelTag(name, curTag, bond, curNickname)`（2026-07 新增，原`kanshouEditRelTag`用native prompt()，玩家「那個關係也不要用彈窗吧」改成專屬面板；**五度改版新增`bond`/`curNickname`參數**）— 開`#kr-overlay`彈窗：`KC_REL_TIERS_`(鏡像Gallery.gs `KANSHOU_REL_TIER_`)5階預設稱呼各一顆按鈕(呼叫`kanshouSetRelTag`，永遠可選)＋自訂區塊。**bond<`KC_CUSTOM_TAG_BOND_`(80)時自訂區塊整個換成鎖定說明文字**；bond≥80才顯示「自訂關係稱呼」輸入框(`#kr-custom`，呼叫`kanshouSetRelTagCustom`)＋「專屬稱呼」輸入框(`#kr-nickname`，呼叫`kanshouSetNicknameCustom`)，並附「這格是填空的名詞，不要打完整句子」引導文案。選預設會讓文字重新匹配某梯度標籤(之後`kanshouSyncRelTier_`繼續自動跟好感升降)；打自訂稱呼會固定下來不再自動改動(既有行為，只換UI容器)。呼叫端傳入`bond`/`nickname`：Script.html卡片鈕用`s.bond`/`s.nickname`、Script_Kanshou.html同伴清單用`c.bond`/`c.nickname`。
 - `kanshouSetRelTag(name, tag)`（2026-07 新增）— 打`update_rel_tag`，成功→`syncData`＋`kcRefreshPartyOnly_`＋關閉`#kr-overlay`；`_krBusy`擋連點。
 - `kanshouSetRelTagCustom(name)`（2026-07 新增）— 讀`#kr-custom`輸入框(空值擋)，呼叫`kanshouSetRelTag`。

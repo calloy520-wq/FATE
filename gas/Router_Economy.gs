@@ -8,7 +8,7 @@ function actionSetServantOutput(userData, pcId, sheets) {
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可調整出力。" });
   const want = snapOutput_(userData.output);
   pcData[svIdx][COL.PC.MEMORY] = setServantOutput_(pcData[svIdx][COL.PC.MEMORY], want);
@@ -29,7 +29,7 @@ function actionSetMageRealm(userData, pcId, sheets) {
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無此從者。" });
   let skills = [];
   try { const tg = JSON.parse(pcData[svIdx][COL.PC.TAGS] || "{}"); skills = tg.skills || []; } catch (e) { }
@@ -54,7 +54,7 @@ function actionSetRuneMode(userData, pcId, sheets) {
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無此從者。" });
   let skills = [];
   try { const tg = JSON.parse(pcData[svIdx][COL.PC.TAGS] || "{}"); skills = (tg.classSkills || []).concat(tg.skills || []); } catch (e) { }
@@ -80,7 +80,7 @@ function actionSetOutfit(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   // self=true：換的是御主本人(鑑賞御主卡「換裝」鈕)，鎖定自己這列，不查從者
-  const svIdx = userData.self ? pIdx : findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  const svIdx = userData.self ? pIdx : findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無此從者。" });
   pcData[svIdx][COL.PC.MEMORY] = setOutfit_(pcData[svIdx][COL.PC.MEMORY], userData.outfit); // set 內已剝分隔字元＋限 40 字
   sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
@@ -99,7 +99,7 @@ function actionSetWeapon(userData, pcId, sheets) {
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無此從者。" });
   pcData[svIdx][COL.PC.MEMORY] = setWeapon_(pcData[svIdx][COL.PC.MEMORY], userData.weapon); // set 內已剝分隔字元＋限 30 字
   sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
@@ -120,7 +120,7 @@ function actionManaSupply(userData, pcId, sheets) {
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可供魔。" });
   const svName = pcData[svIdx][COL.PC.NAME];
   // 補魔＝御主硬擠魔術迴路、回滿共用池——但【永久】燒蝕：血量上限−15、迴路−3(有地板)。
@@ -218,7 +218,7 @@ function actionSpiritRepair(userData, pcId, sheets) {
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可供修復。" });
   const svName = pcData[svIdx][COL.PC.NAME];
 

@@ -220,6 +220,38 @@ function setRuneMode_(memory, mode) {
 // AI 呼叫後寫回前的列重定位索引：play/backfill 因 AI 呼叫耗時被豁免寫入鎖(LOCK_EXEMPT)，用的是呼叫前
 //   讀到的列索引；期間若其他上鎖動作刪列(清殘列/登入自動清)，索引會位移錯位。此函式單欄窄讀(只讀ID欄，
 //   非整表)回傳 {id → 當下真實列索引(0-based)}；ID已消失(列被刪)則查無，呼叫端跳過。
+// 🆔 單一真實來源·找出眾生列裡的指定角色：id 對得上優先(同 game_id 內恆唯一，不受同名/子字串
+//   前綴/別名困擾)；只有 id 缺席時才退回名字比對(供舊呼叫/前端未帶id的過渡路徑用)。這條規則專治
+//   一整類反覆出現的bug——凡是「系統內部自己判斷這是哪個角色」(前端按鈕點誰/MEMORY硬連結/結盟
+//   對象查找)都該走這支、優先吃id；只有跟AI自由生成文字對帳(如narration提到的真名)才不得不
+//   退回名字，那條路本就無法避免模糊、該用kanshouNameCandidates_這類別名表处理，不歸這支管。
+//   opts: {id, name, gid, faction, loc, excludeIdx, aliveOnly=true, nameCandidates, normalize}
+//   nameCandidates(name)：可選，傳自訂候選產生器(如kanshouNameCandidates_)取代預設的「僅trim精確比對」。
+//   normalize(s)：可選，比對前套用在候選字串與該列真名兩側(如nameLoose_去除分隔符變體)，預設原樣trim。
+function findPcRowIdx_(pcData, gid, opts) {
+  opts = opts || {};
+  const excludeIdx = opts.excludeIdx;
+  // 共用篩選(game_id/存活/陣營/地點)——id路徑跟名字路徑都要套，id只是「認人」這一步的捷徑，不能
+  // 順便繞過「她此刻是否真的在場/仍在世」這些遊戲規則本身要求的條件(不然id快取到舊值，會讓玩家
+  // 對一個其實已經不在場的人牽手/邀約成功)。
+  const passesFilters = function (r, i) {
+    if (i === excludeIdx) return false;
+    if (gid && String(r[COL.PC.GAME_ID] || "") !== String(gid)) return false;
+    if (opts.aliveOnly !== false && String(r[COL.PC.ID]).startsWith("DEAD_")) return false;
+    if (opts.faction && String(r[COL.PC.FACTION]) !== opts.faction) return false;
+    if (opts.loc != null && String(r[COL.PC.LOC] || "").trim() !== String(opts.loc).trim()) return false;
+    return true;
+  };
+  if (opts.id) {
+    const idx = pcData.findIndex(function (r, i) { return String(r[COL.PC.ID]) === String(opts.id) && passesFilters(r, i); });
+    if (idx !== -1) return idx;
+  }
+  if (!opts.name) return -1;
+  const norm = opts.normalize || function (s) { return String(s).trim(); };
+  const cands = (opts.nameCandidates ? opts.nameCandidates(String(opts.name)) : [String(opts.name).trim()]).map(norm);
+  return pcData.findIndex(function (r, i) { return passesFilters(r, i) && cands.indexOf(norm(r[COL.PC.NAME])) !== -1; });
+}
+
 function buildLiveIdIndex_(sheet) {
   var map = {};
   try {

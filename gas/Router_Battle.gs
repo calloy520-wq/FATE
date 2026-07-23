@@ -373,12 +373,12 @@ function actionFateBattle(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
 
-  // 🗝️ 雙從者：若指定出戰從者(userData.servant)則用之，否則取第一個在世從者
-  const wantSv = String(userData.servant || "").trim();
+  // 🗝️ 雙從者：若指定出戰從者(userData.servant/servantId)則用之，否則取第一個在世從者
   // 🐛→✅ 舊版用 String(name).includes(wantSv) 子字串比對挑選出戰從者，雙從者其一真名恰為另一人
-  //   前綴/子字串時(如「阿爾托莉雅」vs「阿爾托莉雅・奧爾塔」)會選錯人出戰——改精確相等比對。
-  let atkIdx = wantSv ? pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.NAME]).trim() === wantSv) : -1;
-  if (atkIdx === -1) atkIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  //   前綴/子字串時(如「阿爾托莉雅」vs「阿爾托莉雅・奧爾塔」)會選錯人出戰——先改精確相等比對，
+  //   2026-07「整體重構·id優先」再進一步改走單一真實來源 findPlayerServantIdx_(id優先、名字才
+  //   走nameLoose_精確比對)，跟其餘13處呼叫端同一套邏輯，不再各自維護一份。
+  const atkIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
   // 🛡️ 常駐寶具閘：God Hand/治癒結界等【常駐寶具】自動生效、不是攻擊——擋下攻擊解放
   //   (前端💥鈕已灰化，此為舊快取前端的後端保險)。
   if (useNp && atkIdx !== -1 && /【常駐寶具】/.test(String(pcData[atkIdx][COL.PC.MARTIAL] || ""))) {

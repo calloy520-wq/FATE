@@ -64,7 +64,7 @@ function actionUseSeal(userData, pcId, sheets) {
   let seals = getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]);
   if (seals <= 0) return JSON.stringify({ success: false, message: "你的令咒已經用盡，無法再施加絕對命令。" });
 
-  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者，令咒無從施加。" });
   const svName = pcData[svIdx][COL.PC.NAME];
 
@@ -206,7 +206,7 @@ function actionBond(userData, pcId, sheets) {
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant);
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可相伴。" });
   const svName = pcData[svIdx][COL.PC.NAME];
   const masterName = pcData[pIdx][COL.PC.NAME];
@@ -428,6 +428,7 @@ function actionProposeAlliance(userData, pcId, sheets) {
 // 💔 撕毀盟約：解除與某敵御主(及其從者)的同盟，恢復敵對
 function actionBreakAlliance(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
+  const npcId = String(userData.npcId || "").trim();
   // 🐛→✅ 舊版 `!npcName` 條件在缺/空 npcName 時對每個已結盟對象都成立——前端 UI 呼叫此 action 一律
   //   帶著明確名字(卡片按鈕/needBreakAlliance 提示皆固定傳值)，但直打 API 漏傳/傳空字串會一次撕毀
   //   玩家「所有」現存盟約，而非預期中的「這一個」。改成缺名字直接擋下，不再有全滅副作用。
@@ -436,11 +437,19 @@ function actionBreakAlliance(userData, pcId, sheets) {
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  // 🐛→✅ 2026-07「整體重構·id優先」：舊版純 nameLoose_ 子字串.indexOf()比對——若npcName恰為另一個
+  //   已結盟對象名字的子字串(如兩者共用「遠坂」開頭)，會誤把不相干的盟約也一併撕毀。改成npcId對得上
+  //   時只鎖定該筆(及其硬連結主從)；npcId缺席(舊呼叫/自動重試按鈕沒帶id)才退回原本的loose子字串比對。
+  const targetIdx = npcId ? pcData.findIndex(r => String(r[COL.PC.ID]) === npcId && String(r[COL.PC.GAME_ID] || "") === myGameId) : -1;
+  const targetName = targetIdx !== -1 ? String(pcData[targetIdx][COL.PC.NAME]) : "";
   let broke = 0, who = "";
   for (let i = 1; i < pcData.length; i++) {
     if (String(pcData[i][COL.PC.GAME_ID] || "") !== myGameId) continue;
     const fac = String(pcData[i][COL.PC.FACTION]);
-    if ((fac === "敵御主" || fac === "敵從者") && isAllied_(pcData[i]) && nameLoose_(pcData[i][COL.PC.NAME]).indexOf(nameLoose_(npcName)) !== -1) { // 🔧 loose 比對·含中點名字不漏
+    if (!(fac === "敵御主" || fac === "敵從者") || !isAllied_(pcData[i])) continue;
+    const isMatch = npcId ? (i === targetIdx || nameLoose_(pcData[i][COL.PC.NAME]) === nameLoose_(targetName))
+      : (nameLoose_(pcData[i][COL.PC.NAME]).indexOf(nameLoose_(npcName)) !== -1); // 🔧 loose 比對·含中點名字不漏
+    if (isMatch) {
       pcData[i][COL.PC.MEMORY] = clearAllyMem_(pcData[i][COL.PC.MEMORY]);
       if (fac === "敵御主") who = String(pcData[i][COL.PC.NAME]);
       broke++;

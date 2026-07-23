@@ -160,6 +160,7 @@
   let myMystic = null;   // ✨ 御主禮裝（{id,name,type,charges,req,target}）
   let myServants = [];   // 🗝️ 我方所有在世從者（雙從者）
   let myActiveServant = '';// 🗝️ 目前出戰／操作中的從者名
+  let myActiveServantId = '';// 🆔 同上·id版(2026-07整體重構·id優先)——後端一律優先吃這個，名字只當id缺席時的備援
   let myMasterSeals = 0;  // 令咒餘量
   let myMasterOutfit = ''; // 👕 御主本人當前換裝（鑑賞：與從者outfit同款機制，供「換裝」按鈕預填）
   // ❖ 令咒·蓄勢開關：按❖發亮＝蓄勢(免費·可取消)，下一次攻擊自動帶上令咒(必中×1.5)並熄滅；非攻擊動作不消耗，蓄勢保留。
@@ -176,6 +177,7 @@
   function setActiveServant(name) {
     myActiveServant = name;
     var sv = (myServants || []).find(function (x) { return x.name === name; });
+    myActiveServantId = sv ? (sv.id || '') : '';
     myServantCls = sv ? sv.cls : myServantCls;
     try { refreshFateTags(); } catch (e) {}
     try { renderWarActions(); } catch (e) {}
@@ -600,7 +602,7 @@
         + '</div>'
         + '<div style="flex:1 0 100%; font-size:10px; line-height:1.4; color:' + (eligible ? '#e8c873' : '#7d8a9a') + '; margin-bottom:3px;">' + (eligible ? '🌹 這份情誼已臻深處，無需言明的牽絆' : '🌹 羈絆養至 90，情誼將臻至深處') + '</div>'
         + '<button onclick="allyBond(\'' + sa + '\',\'' + String(a.id).replace(/'/g, '') + '\')" title="與盟友共處／共濟魔力：增進羈絆" style="flex:2; min-width:120px; font-size:12px; padding:7px; background:rgba(90,170,120,.16); color:#8fd0a0; border:1px solid #4ea56a; border-radius:7px; cursor:pointer; font-weight:bold;">🤝 與盟友共處 <small style="opacity:.7;">耗1AP</small></button>'
-        + '<button onclick="breakAlliance(\'' + sa + '\')" style="flex:1; min-width:80px; font-size:11.5px; padding:7px; background:rgba(165,42,42,.18); color:#e08a8a; border:1px solid #a05050; border-radius:7px; cursor:pointer; font-weight:bold;">💔 撕毀盟約</button>';
+        + '<button onclick="breakAlliance(\'' + sa + '\',\'' + String(a.id).replace(/'/g, '') + '\')" style="flex:1; min-width:80px; font-size:11.5px; padding:7px; background:rgba(165,42,42,.18); color:#e08a8a; border:1px solid #a05050; border-radius:7px; cursor:pointer; font-weight:bold;">💔 撕毀盟約</button>';
       h += card(String(a.name), 'rgba(90,170,120,.5)', 'rgba(20,45,28,.25)', title, acts);
     });
     // ⚔️ 敵蹤：御主↔從者【成對並列】(a御主 a從者 / b御主 b從者)。收合＝兩欄精簡標籤(長名省略號)；點該格→其行動整排全寬攤開、按鈕不擠。
@@ -1555,6 +1557,7 @@
       if (!myServants.some(function (x) { return x.name === myActiveServant; })) myActiveServant = (myServants[0] || {}).name || '';
       var activeSv = myServants.find(function (x) { return x.name === myActiveServant; }) || myServants[0] || null;
       myServantCls = (activeSv && activeSv.cls) || '';
+      myActiveServantId = (activeSv && activeSv.id) || ''; // 🆔 每次刷新都跟著 activeSv 重算，換人/陣亡切換都同步
       try { renderWarActions(); } catch (e) {}
       // 🎴 外顯狀態自 solo 移除(死資料·恆顯示預設字樣)；慾海御主卡以「肉體狀態」抵換此列。
       var mPhysLine = '';
@@ -1665,11 +1668,11 @@
             //   沒有隊伍容量要騰，不需要「請走」這種按鈕。
             + '<div style="margin-top:6px; display:flex; gap:6px;">'
             + '<button onclick="kanshouOpenRelTag(\'' + safeN + '\',\'' + String(s.tag || '').replace(/'/g, '') + '\',' + (parseInt(s.bond) || 0) + ',\'' + String(s.nickname || '').replace(/'/g, '') + '\')" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(120,90,180,0.18); color:#dcc8ff; border:1px solid #6a4a9a; border-radius:6px; cursor:pointer;">🏷️ 關係</button>'
-            + '<button onclick="kanshouPromiseMeet(\'' + safeN + '\')" title="跟她約明天在某地見面——她明天會在那裡等你；赴約好感↑、放鴿子好感↓(須本人在場才約得成)" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(90,140,180,0.18); color:#a8d0f0; border:1px solid #4a7a9a; border-radius:6px; cursor:pointer;">📅 相約</button>'
+            + '<button onclick="kanshouPromiseMeet(\'' + safeN + '\',\'' + String(s.id || '').replace(/'/g, '') + '\')" title="跟她約明天在某地見面——她明天會在那裡等你；赴約好感↑、放鴿子好感↓(須本人在場才約得成)" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(90,140,180,0.18); color:#a8d0f0; border:1px solid #4a7a9a; border-radius:6px; cursor:pointer;">📅 相約</button>'
             + (s.held
               ? '<button onclick="kanshouReleaseHand()" title="放開她的手" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(200,120,150,0.28); color:#f0c0d4; border:1px solid #b06888; border-radius:6px; cursor:pointer;">✋ 放手</button>'
-              : '<button onclick="kanshouHoldHand(\'' + safeN + '\')" title="牽起她的手一起行動——之後你移動到哪她都相伴同行(她本人要在場才牽得成)" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(200,120,150,0.16); color:#e8b0c8; border:1px solid #a06080; border-radius:6px; cursor:pointer;">🤝 牽手</button>')
-            + '<button onclick="kanshouInviteCohabit(\'' + safeN + '\')" title="邀她搬來同住(需關係足夠深厚、她本人在場)——同居後深夜大多回家就寢、清晨可能賴床、晚間常在家中活動，白天照常出門" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(180,140,90,0.18); color:#e8c8a0; border:1px solid #9a7a4a; border-radius:6px; cursor:pointer;">🏠 同居</button>'
+              : '<button onclick="kanshouHoldHand(\'' + safeN + '\',\'' + String(s.id || '').replace(/'/g, '') + '\')" title="牽起她的手一起行動——之後你移動到哪她都相伴同行(她本人要在場才牽得成)" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(200,120,150,0.16); color:#e8b0c8; border:1px solid #a06080; border-radius:6px; cursor:pointer;">🤝 牽手</button>')
+            + '<button onclick="kanshouInviteCohabit(\'' + safeN + '\',\'' + String(s.id || '').replace(/'/g, '') + '\')" title="邀她搬來同住(需關係足夠深厚、她本人在場)——同居後深夜大多回家就寢、清晨可能賴床、晚間常在家中活動，白天照常出門" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(180,140,90,0.18); color:#e8c8a0; border:1px solid #9a7a4a; border-radius:6px; cursor:pointer;">🏠 同居</button>'
             + '</div>'
             // 🎀 小道具：GAS直接寫的持久欄位(見Gallery.gs KANSHOU_PROPS_)，不靠AI自己判斷該不該記——
             //   面板本身(kanshouOpenProps)住在 Script_Kanshou.html，跟其他鑑賞專屬面板同一批。
@@ -2302,7 +2305,7 @@
       //   isMaster 決定目標應為「敵御主」還是「敵從者」，先按這個陣營篩過再找名字。
       const _wantFac = isMaster ? '敵御主' : '敵從者';
       const _foe = (localNPCs || []).find(function (n) { return n && n.faction === _wantFac && String(n.name) === npcName; });
-      const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, npcId: (_foe && _foe.id) ? String(_foe.id) : "", np: !!useNp, seal: !!useSeal, stance: getStance(), servant: myActiveServant, npChoice: (typeof npChoiceArg === 'number' ? npChoiceArg : undefined), output: (useNp ? 100 : undefined), overload: (useNp ? _npOverload : undefined), acctName: (pc && pc.account) || currentAccount });
+      const res = await gasRun({ action: 'fate_battle', pcId: pc.id, npcName: npcName, npcId: (_foe && _foe.id) ? String(_foe.id) : "", np: !!useNp, seal: !!useSeal, stance: getStance(), servant: myActiveServant, servantId: myActiveServantId, npChoice: (typeof npChoiceArg === 'number' ? npChoiceArg : undefined), output: (useNp ? 100 : undefined), overload: (useNp ? _npOverload : undefined), acctName: (pc && pc.account) || currentAccount });
       if (res && res.success) {
         if (res.report) {
           renderFateBattleReport(res.report); // 📊 先攤開骰子/數字戰報(秒顯，不等AI)
@@ -2562,7 +2565,7 @@
   async function factionAmbush(npcName) {
     await runSimpleAction_({
       preMsg: `<div class="msg-player"><b>【系統】：</b>你的從者趁「${npcName}」分心之際，悄然逼近……</div>`,
-      payload: { action: 'faction_ambush', pcId: pc.id, targetName: npcName, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount },
+      payload: { action: 'faction_ambush', pcId: pc.id, targetName: npcName, servant: myActiveServant, servantId: myActiveServantId, acctName: (pc && pc.account) || currentAccount },
       onSuccess: res => { updateClock(res.clock, res.ap, res.apMax); if (res.report) renderFateBattleReport(res.report); }, // 🥷 GAS 落血→數字戰報卡
       onSuccessAfterNarrate: async res => { if (res.victory) { try { await handleVictory(res); } catch (e) {} } },
       failMsg: '此刻已無隙可趁。'
@@ -2598,10 +2601,10 @@
     });
   }
   // 💔 撕毀盟約
-  async function breakAlliance(npcName) {
+  async function breakAlliance(npcName, npcId) {
     if (!await customConfirm_('💔 撕毀與「' + npcName + '」的盟約、重回敵對？')) return;
     await runSimpleAction_({
-      payload: { action: 'break_alliance', pcId: pc.id, npcName: npcName },
+      payload: { action: 'break_alliance', pcId: pc.id, npcName: npcName, npcId: npcId || "" },
       failMsg: '操作失敗。'
     });
   }
@@ -2612,7 +2615,7 @@
     await runSimpleAction_({
       preMsg: `<div class="msg-player"><b>【系統】：</b>御主在暫時休兵的空檔，與盟友「${npcName}」並肩共處……</div>`,
       // 🔧 帶 npcId（比照攻擊/交涉/示好路徑）：名字含全形括號（哈桑・薩巴赫（咒腕）之類）走 raw 比對會漏
-      payload: { action: 'ally_bond', pcId: pc.id, npcName: npcName, npcId: npcId || "", servant: myActiveServant, acctName: (pc && pc.account) || currentAccount },
+      payload: { action: 'ally_bond', pcId: pc.id, npcName: npcName, npcId: npcId || "", servant: myActiveServant, servantId: myActiveServantId, acctName: (pc && pc.account) || currentAccount },
       onSuccess: res => updateClock(res.clock, res.ap, res.apMax),
       onSuccessAfterNarrate: async res => {
         if (res.unlocked) setTimeout(function () { alert('💞 你與「' + res.ally + '」的羈絆已臻深處——這份情誼，無需言明。'); }, 400);
@@ -2629,7 +2632,7 @@
     if (foe && !await customConfirm_('⚠ 此地有敵從者「' + foe + '」！\n\n補魔時門戶大開，極可能遭其趁隙突襲重擊你的從者（重則靈基崩潰、敗北）。\n建議先擊退敵人或轉往安全處。\n\n仍要在此補魔？')) return;
     await runSimpleAction_({
       preMsg: `<div class="msg-player"><b>【系統】：</b>御主凝神靜息，藉與從者的契約共鳴回充魔力儲備……</div>`,
-      payload: { action: 'mana_supply', pcId: pc.id, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount },
+      payload: { action: 'mana_supply', pcId: pc.id, servant: myActiveServant, servantId: myActiveServantId, acctName: (pc && pc.account) || currentAccount },
       onSuccess: res => {
         if (res.report) renderFateBattleReport(res.report); // ⚔️ 補魔遭突襲→戰報卡
         // 💧 即時反饋：補魔代價沉重(血上限↓/迴路↓/回滿魔)——敘述前先把狀態條刷成最新，別等 syncData
@@ -2649,7 +2652,7 @@
     if (foe && !await customConfirm_('⚠ 此地有敵從者「' + foe + '」！\n\n療傷時門戶大開，極可能遭其趁隙突襲重擊你的從者（重則靈基崩潰、敗北）。\n建議先擊退敵人或轉往安全處。\n\n仍要在此療傷？')) return;
     await runSimpleAction_({
       preMsg: `<div class="msg-player"><b>【系統】：</b>御主引動共用魔力池，為從者療傷……</div>`,
-      payload: { action: 'spirit_repair', pcId: pc.id, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount },
+      payload: { action: 'spirit_repair', pcId: pc.id, servant: myActiveServant, servantId: myActiveServantId, acctName: (pc && pc.account) || currentAccount },
       onSuccess: res => {
         if (res.report) renderFateBattleReport(res.report); // ⚔️ 療傷遭突襲→戰報卡
         if (res.statusString) { localStorage.setItem('kyushu_last_status', res.statusString); updateUI(res.statusString.split('§')); }
@@ -2684,7 +2687,7 @@
     await runSimpleAction_({
       beforeCall: () => { var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none'; },
       preMsg: `<div class="msg-player"><b>【系統】：</b>御主與從者${label}……</div>`,
-      payload: { action: 'bond', bondType: type, pcId: pc.id, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount },
+      payload: { action: 'bond', bondType: type, pcId: pc.id, servant: myActiveServant, servantId: myActiveServantId, acctName: (pc && pc.account) || currentAccount },
       onSuccess: res => {
         myBondUsed = res.bondUsed || myBondUsed;
         if (res.report) renderFateBattleReport(res.report); // ⚔️ 相伴遭突襲→戰報卡(跟 rest()/scout() 同一套)

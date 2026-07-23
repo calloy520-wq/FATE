@@ -246,11 +246,13 @@ function enemyMasterCard_(row, opts) {
 }
 
 // 🗝️ 取我方從者列索引：指定 wantName 則優先取該名，否則取第一個在世從者（雙從者用）
-function findPlayerServantIdx_(pcData, gameId, wantName) {
+// 🐛→✅ 2026-07「整體重構·id優先」：舊版用 String(...).includes(want) 子字串比對，雙從者其一真名
+//   為另一人前綴時(如「阿爾托莉雅」vs「阿爾托莉雅・奧爾塔」)會選錯人——跟 Router_Battle.gs 的
+//   wantSv 早已修過的同一種bug，這裡是漏修的孿生。改走單一真實來源 findPcRowIdx_(id優先、名字走
+//   nameLoose_精確比對，不再是子字串)，13+個呼叫端(補魔/靈基修復/羈絆/休息/搜索/偵查/整備等)一次到位。
+function findPlayerServantIdx_(pcData, gameId, wantName, wantId) {
   var want = String(wantName || "").trim();
-  if (want) {
-    var i = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.NAME]).includes(want));
-    if (i !== -1) return i;
-  }
+  var idx = findPcRowIdx_(pcData, gameId, { id: wantId, name: want || null, faction: "從者", normalize: nameLoose_ });
+  if (idx !== -1) return idx;
   return pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
 }

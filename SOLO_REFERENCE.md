@@ -484,3 +484,17 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 - 其餘4個維度(創角召喚種子禮裝／羈絆人設敘事／路由分派帳號設定)逐一驗證文件既有不變量全數成立，僅各揪出1~2處極低優先的措辭/round-trip小疵(已順手一併修正：狂化偵測文件描述用字對齊正則「僅咆哮」而非裸「咆哮」；`actionBond`的`getClock_`補傳`pcData`省一次整表重讀)，無新增具體功能性缺陷。
 
 `bash check.sh` 全過、`nsfwBaseRules` 紅線未觸及。
+
+## 20. id 化重構（2026-07·玩家「多人單機遊玩 你決定好就整體重構」，跨 solo＋鑑賞兩軌）
+
+**背景**：§19 稽核抓出的一串 bug（Avalon-Saber/worldTick_/actionAllyBond 等）並非各自獨立事故，是同一個結構性根因的多次重複發作——每一列資料本來就有唯一 `ID`(`COL.PC.ID`)，但十幾個呼叫點各自手刻名字比對（子字串`.includes`/裸`indexOf`），互不知道彼此，也各自漏掉不同的邊界情況。玩家問「沒辦法給他們一個id」後拍板整體重構，此輪把**系統內部身分解析**（前端按鈕→後端目標、MEMORY 硬連結、盟約帳本——這些場合 id 本來就已經在渲染資料裡）統一收斂到一支共用 resolver；**AI 敘事文字比對**（`rel_changes[].target`／`npc_exit[]` 等，AI 只會吐名字、永遠沒有 id）維持原樣不動，兩者性質不同不可混為一談。
+
+- **`findPcRowIdx_(pcData, gid, opts)`**（Core_Settings.gs 新增，單一真實來源）：`opts = {id, name, faction, loc, excludeIdx, aliveOnly=true, nameCandidates, normalize}`。`opts.id` 有給先在 `gid` 範圍內找 id 命中列；查無/未給才退回名字比對（`nameCandidates` 產生候選陣列＋`normalize`）。**id 路徑與名字路徑套用同一份 `passesFilters(r,i)`**（game_id/存活(`ID`未被標`DEAD_`)/faction/loc/excludeIdx）——自我複查時抓到第一版 id 路徑只查了 `id`+`game_id` 就直接回傳、完全跳過在場/存活/陣營檢查，若用了過期快取的 id 會讓玩家對「已經離開/已經死亡/陣營不對」的對象牽手/相約/邀同居，已在 commit 前修正、兩路徑統一收斂到共用 predicate。
+- **`findPlayerServantIdx_`**（Router_Persona.gs，13+ 處呼叫）改委派 `findPcRowIdx_`（`normalize:nameLoose_`），新增第 4 參數 `wantId`。原本是 `.includes(want)` 子字串比對——真名字首碰巧是另一從者子字串時會誤配，已修正為精準比對＋id 優先。Router_Economy.gs(7處)/Router_Bond.gs(2處)/Router_Movement.gs(4處)/Router_Battle.gs(1處) 全部呼叫點同步補傳 `userData.servantId`；前端 `Script.html` 新增 `myActiveServantId` 全域(隨 `setActiveServant`/定期 sync 刷新)，7 處 `servant: myActiveServant` payload 同步多帶 `servantId: myActiveServantId`。
+- **`actionBreakAlliance`（Router_Bond.gs）新增 `npcId` 精準配**：這是本輪重構中**新發現**（非 §19 已知）的獨立 bug——舊版純靠 `nameLoose_` 子字串批次撕毀，跟 §19 記錄過的「`actionProposeAlliance`/`actionCourtEnemy` 早有 npcId 精準配、唯獨這支沒有」是同一種遺漏模式。已補 `userData.npcId` 有給先精準命中，比對用名字改抓該列真實欄位值（不再信任玩家傳入字串），查無 id 才退回原批次子字串撕毀；前端 `breakAlliance(npcName)`→`breakAlliance(npcName, npcId)`，onclick 補傳 `a.id`。
+- **`servants.push`（Router_Action.gs `buildTagsPayload_`）／`current.push`（Gallery.gs `actionKanshouCompanions`）兩份前端從者/同伴清單資料，本來就都沒有 `id` 欄位**——這是本輪重構中發現的真正根本缺口：不是「後端邏輯沒查 id」，而是「前端資料結構從頭到尾沒帶 id 出來過」。兩處都補上 `id: s[COL.PC.ID]`／`id: String(data[i][COL.PC.ID])`，才有辦法讓前端卡片 onclick 把 id 一路帶回後端。
+- **鑑賞側 `actionPlay_`（Gallery.gs）`promiseMeet`/`cohabitInvite`/`handHold` 三處**改用 `findPcRowIdx_(pcData, _myGid_, {id, name, faction:"從者", loc:curL, excludeIdx:pcIndex, nameCandidates:kanshouNameCandidates_})`；前端 `kanshouPromiseMeet`/`kanshouHoldHand`/`kanshouInviteCohabit` 三支函式新增 `npcId` 第二參數，卡片渲染 onclick 同步多帶 `s.id`。**`kanshouAcceptInvite`/`inviteResident` 刻意不動**：目標是尚未召喚的「巧遇陌生人」，結構上沒有 pcData 列可帶 id。
+- **驗證過的既有正確用法（未改動，避免重工）**：solo 敵方側 `actionProposeAlliance`/`actionCourtEnemy`/`actionRuleBreakSteal` 早就是 npcId 優先＋`nameLoose_` fallback，是這次重構參照的既有範本而非待修對象。
+- **刻意排出本輪範圍外**（風險/時間考量，非遺漏）：`outfit`/`weapon`/`set_servant_output`/`summon_horror_beast` 這幾支跨軌共用 handler，`name` 來源分散在多種卡片渲染器、尚未逐一盤點清楚各自的資料流向，留待後續有需要再處理。
+
+`bash check.sh` 全過、`nsfwBaseRules` 紅線未觸及。
