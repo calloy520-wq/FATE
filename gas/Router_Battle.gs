@@ -826,7 +826,12 @@ function actionFateBattle(userData, pcId, sheets) {
         const spill = pLethalOk ? spill0 : Math.min(spill0, Math.max(0, (parseInt(pcData[atkIdx][COL.PC.HP]) || 1) - 1));
         const pHit = fateStrike_(sheets, pcData, enemyC0, atkIdx, { forceDamage: spill }, ctx);
         clashFired = clashFired.concat(pHit.fired || []);
-        if (pHit.destroyed && pHit.knocked) knockedOut.push(pHit.knocked);
+        // 🐛→✅ 2026-07 稽核抓到：跟上方 eHit 同一套判定卻只做了一半——這擊若剛好打死我方出戰從者
+        //   (因果律截斷組合可跳過保1)，舊版只 push knockedOut，從沒把 destroyedName/godRevived 補上，
+        //   跟五路稽核已修過的敵反擊/敵盟協防「死了卻沒告訴AI」是同一種 desync，只是漏了對轟這條路徑。
+        if (pHit.destroyed) destroyedName = pHit.destroyed;
+        if (pHit.knocked) knockedOut.push(pHit.knocked);
+        if (pHit.godRevived) { godRevived = true; godNote = pHit.godNote; }
         if (pHit.defeat) { defeat = true; victory = false; dreamPrompt = pHit.dreamPrompt; }
         // 🎌 御主參戰風格·對轟回震也替從者分擔(非致命時)
         // 🐛→✅ 舊版只擋 !pHit.defeat(最後一名從者才算)，雙從者出戰時這擊若打死非最後一名從者，

@@ -599,7 +599,7 @@
         +   '<small style="color:' + (eligible ? '#e8c873' : '#8fa0b0') + '; font-size:10.5px; white-space:nowrap;">羈絆 ' + bond + (eligible ? ' ·情誼已臻深處' : '/90') + '</small>'
         + '</div>'
         + '<div style="flex:1 0 100%; font-size:10px; line-height:1.4; color:' + (eligible ? '#e8c873' : '#7d8a9a') + '; margin-bottom:3px;">' + (eligible ? '🌹 這份情誼已臻深處，無需言明的牽絆' : '🌹 羈絆養至 90，情誼將臻至深處') + '</div>'
-        + '<button onclick="allyBond(\'' + sa + '\')" title="與盟友共處／共濟魔力：增進羈絆" style="flex:2; min-width:120px; font-size:12px; padding:7px; background:rgba(90,170,120,.16); color:#8fd0a0; border:1px solid #4ea56a; border-radius:7px; cursor:pointer; font-weight:bold;">🤝 與盟友共處 <small style="opacity:.7;">耗1AP</small></button>'
+        + '<button onclick="allyBond(\'' + sa + '\',\'' + String(a.id).replace(/'/g, '') + '\')" title="與盟友共處／共濟魔力：增進羈絆" style="flex:2; min-width:120px; font-size:12px; padding:7px; background:rgba(90,170,120,.16); color:#8fd0a0; border:1px solid #4ea56a; border-radius:7px; cursor:pointer; font-weight:bold;">🤝 與盟友共處 <small style="opacity:.7;">耗1AP</small></button>'
         + '<button onclick="breakAlliance(\'' + sa + '\')" style="flex:1; min-width:80px; font-size:11.5px; padding:7px; background:rgba(165,42,42,.18); color:#e08a8a; border:1px solid #a05050; border-radius:7px; cursor:pointer; font-weight:bold;">💔 撕毀盟約</button>';
       h += card(String(a.name), 'rgba(90,170,120,.5)', 'rgba(20,45,28,.25)', title, acts);
     });
@@ -2606,12 +2606,13 @@
     });
   }
   // 🤝 與盟友共處／共濟魔力（增進羈絆；養至 90 解鎖【摯交】敘事里程碑，純敘事高光、無鑑賞入口意義）
-  async function allyBond(npcName) {
+  async function allyBond(npcName, npcId) {
     const foe = localFoeServantName();
     if (foe && !await customConfirm_('⚠ 此地有未結盟的敵從者「' + foe + '」！\n\n與盟友共處時門戶大開，可能遭其趁隙突襲你的從者。\n仍要在此與盟友相處？')) return;
     await runSimpleAction_({
       preMsg: `<div class="msg-player"><b>【系統】：</b>御主在暫時休兵的空檔，與盟友「${npcName}」並肩共處……</div>`,
-      payload: { action: 'ally_bond', pcId: pc.id, npcName: npcName, servant: myActiveServant, acctName: (pc && pc.account) || currentAccount },
+      // 🔧 帶 npcId（比照攻擊/交涉/示好路徑）：名字含全形括號（哈桑・薩巴赫（咒腕）之類）走 raw 比對會漏
+      payload: { action: 'ally_bond', pcId: pc.id, npcName: npcName, npcId: npcId || "", servant: myActiveServant, acctName: (pc && pc.account) || currentAccount },
       onSuccess: res => updateClock(res.clock, res.ap, res.apMax),
       onSuccessAfterNarrate: async res => {
         if (res.unlocked) setTimeout(function () { alert('💞 你與「' + res.ally + '」的羈絆已臻深處——這份情誼，無需言明。'); }, 400);

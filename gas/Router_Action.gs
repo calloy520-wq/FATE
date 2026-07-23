@@ -336,7 +336,11 @@ function buildTagsPayload_(sheets, pcId, preData) {
   // mIdx 順手記下來，下面 canRuleBreak_ 需要索引時直接複用，不必再 findIndex 重掃一次。
   const mIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   const m = mIdx >= 0 ? pcData[mIdx] : undefined;
-  if (!m) return JSON.stringify({ success: false });
+  // 🐛→✅ 2026-07 稽核抓到：這裡原本回傳「已stringify的字串」，跟下方成功路徑回傳「物件」型別不一致——
+  //   `actionGetTags` 呼叫端會再包一層JSON.stringify，字串誤入變成雙重編碼；另兩處直接把回傳值當
+  //   物件用(`tp.success`／`tags:`欄位)，字串會讓`.success`讀到undefined、或讓`tags`欄位變成一段
+  //   跳脫過的JSON字串而非巢狀物件。改回傳物件，跟成功路徑型別一致。
+  if (!m) return { success: false };
   const gameId = String(m[COL.PC.GAME_ID] || "");
   // 下方 servants.push 組裝的戰鬥限定欄位(魔境/符文/synergy/理想鄉/多寶具/深淵海怪)須明確以
   // isFateCtx 擋成 null，不能只靠「鑑賞列 TAGS/SKILLS 恆空」這種資料形狀僥倖安全。

@@ -501,15 +501,22 @@ function bumpBond_(sheets, pcData, npcIdx, delta) {
 //   ★此處僅止於 SFW 的信賴／曖昧鋪陳（fade）；真・親密一律留給鑑賞世界，絕不在戰場開啟慾海引擎。
 function actionAllyBond(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
+  const npcId = String(userData.npcId || "").trim();
+  const npcKey = nameLoose_(npcName); // 去中點/空白
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
-  const aIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(nameLoose_(npcName)) !== -1 // 🔧 loose 比對·含中點名字不漏
-    && (String(r[COL.PC.FACTION]) === "敵御主" || String(r[COL.PC.FACTION]) === "敵從者")
+  // 🐛→✅ 2026-07 稽核抓到：這裡是全專案唯一還沒補 npcId 精準配的盟友/羈絆 handler，純 nameLoose_
+  //   比對含全形括號的真名(如「哈桑·薩巴赫（咒腕）」)會被 sanitizeUserData_ 的 cleanChineseName
+  //   剝掉括號、兩側對不上，導致跟這類正典角色結盟後永遠「此地沒有可交流的盟友」。比照
+  //   actionCourtEnemy/actionProposeAlliance 補上 npcId 精準配、找不到才退回 nameLoose_ fallback。
+  const _allyHere = (r) => (String(r[COL.PC.FACTION]) === "敵御主" || String(r[COL.PC.FACTION]) === "敵從者")
     && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_")
-    && isAllied_(r) && String(r[COL.PC.LOC]).trim() === myLoc);
+    && isAllied_(r) && String(r[COL.PC.LOC]).trim() === myLoc;
+  let aIdx = npcId ? pcData.findIndex(r => String(r[COL.PC.ID]) === npcId && _allyHere(r)) : -1;
+  if (aIdx === -1) aIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1 && _allyHere(r));
   if (aIdx === -1) return JSON.stringify({ success: false, message: "此地沒有可交流的盟友——須與盟友同處一地。" });
 
   const isFate = myGameId.indexOf("g_") === 0;

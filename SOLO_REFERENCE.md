@@ -471,3 +471,16 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 - `enemyAmbushOnServant_`的陣地反擊repelNote無條件寫「優雅擊退」，沒把`homeRank`(D~EX規模事實)換算成強度描述——同一句話套在陽春土壘跟EX級空中庭園結界上讀起來一樣，補`homeRankScale`依`rankVal(homeRank)`分3級。
 
 全部10項皆為「GAS已經算出/能輕易算出這個事實，卻沒有餵給AI」的漏餵類型，不涉及刪減任何既有指令，`bash check.sh`全過、`nsfwBaseRules`紅線未觸及。
+
+## 19. 五路稽核外傳（2026-07·玩家「檢查solo看看有沒有問題」，5個agent平行分區稽核）
+
+戰鬥引擎/移動世界模擬同盟/創角召喚種子禮裝/羈絆人設敘事/路由分派帳號設定，5個維度平行找問題，每個候選都先比對本檔既有紀錄（本檔已記錄的既有修復一律不重複回報，只找survived所有先前稽核的新發現）。
+
+- **Avalon-Saber 理想鄉對正典本尊從沒真正生效過**：見上方§6「Avalon-Saber 理想鄉」條目——前次子字串誤判修正比對到錯的短名，已修正。
+- **`worldTick_` 敵移位隨行「第一輪」比對是未修孿生**：`Router_Movement.gs findClashSv_`已修過的前綴撞名bug，`Time_World.gs`同函式緊接在後的「第二輪」fallback也早改對，唯獨第一輪還是子字串`indexOf`——見上方§7「worldTick_」條目，已修正。
+- **`Router_Battle.gs` 對轟回震(`pHit`)沒回填 `destroyedName`/`godRevived`**：`actionFateBattle`對轟區塊，`eHit`(打敵方)有完整回填 destroyedName/knocked/sealEscaped/godRevived 四項，緊接著的 `pHit`(回震打我方)只做了 knocked，跟五路稽核已修過的敵反擊/敵盟協防「死了卻沒告訴AI」是同一種 desync 在對轟路徑的未修孿生——雙從者出戰且對方持因果律寶具(如庫丘林/斯卡哈)時，回震可跳過保1真正打死我方出戰從者，`destroyedName`卻沒設，終局指令收不到這個事實。已補齊 `destroyedName`/`godRevived` 回填，跟 `eHit` 對稱。
+- **`actionAllyBond` 是唯一沒補 `npcId` 精準配的盟友/羈絆 handler**：`actionProposeAlliance`/`actionCourtEnemy` 早就示範過「先 npcId 精準配、找不到才 nameLoose_ fallback」(因 `sanitizeUserData_` 的 `cleanChineseName` 會剝掉全形括號，含「哈桑·薩巴赫（咒腕）」這類正典真名純比對必漏)，唯獨 `actionAllyBond` 還在單靠 `nameLoose_`——跟這類正典盟友「與盟友共處」會一律回「此地沒有可交流的盟友」。已補 npcId 精準配，前端 `allyBond()`/按鈕 onclick 同步補傳 `a.id`。
+- **`buildTagsPayload_` 錯誤路徑回傳型別跟成功路徑不一致**：查無御主時 `return JSON.stringify({success:false})`(字串)，成功路徑卻回物件——`actionGetTags` 呼叫端會再包一層 `JSON.stringify` 導致字串被雙重編碼；另兩處直接把回傳值當物件用(`tp.success`／內嵌 `tags:` 欄位)，字串會讓 `.success` 讀到 undefined、或讓 `tags` 欄位變成一段跳脫過的 JSON 字串而非巢狀物件。改回傳物件，跟成功路徑型別一致。
+- 其餘4個維度(創角召喚種子禮裝／羈絆人設敘事／路由分派帳號設定)逐一驗證文件既有不變量全數成立，僅各揪出1~2處極低優先的措辭/round-trip小疵(已順手一併修正：狂化偵測文件描述用字對齊正則「僅咆哮」而非裸「咆哮」；`actionBond`的`getClock_`補傳`pcData`省一次整表重讀)，無新增具體功能性缺陷。
+
+`bash check.sh` 全過、`nsfwBaseRules` 紅線未觸及。
