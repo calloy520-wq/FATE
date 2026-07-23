@@ -44,7 +44,10 @@
         el = document.createElement('div');
         el.id = 'confirm-modal';
         el.className = 'modal-overlay';
-        el.style.zIndex = '10060'; // 蓋過其餘 modal(fate-edit-modal 是 10000)
+        // 🐛→✅ 玩家實測「AI創角的確認彈窗按不到」：askKanshouSetup 等進場設定彈窗 z-index 高達
+        //   99999(見Script_Onboarding.html)，這裡若只設10060會被蓋在下面、點不到——蓋過全代碼庫
+        //   目前最高的 z-index(99999)，之後若再出現更高層的彈窗，customConfirm_ 永遠疊最上層。
+        el.style.zIndex = '100000';
         el.innerHTML = `<div class="modal-scroll" style="max-width:420px;">
           <div id="confirm-modal-msg" class="confirm-modal-msg"></div>
           <div class="confirm-modal-btns">
