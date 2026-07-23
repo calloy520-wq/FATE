@@ -1125,7 +1125,9 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `pickNpAndStrike(idx, npcName, svName, useSeal)` — 選定寶具→關選單→帶 idx 進 servantStrike。
 - `servantStrike(npcName, useNp, useSeal, isMaster, npPicked, npChoiceArg)` — 核心攻擊：處理令咒蓄勢消費、多寶具選單、斬首/寶具超載/令咒各自 confirm(施放技術已被動化·不再是攻擊時的手動分支)，打 `fate_battle`（帶目標 ID·output·overload）；成功先渲戰報撤遮罩再 narrate，處理勝敗。
 - `setServantOutput(btn, npcName, output)` — 從者卡出力旋鈕：樂觀更新轉盤外觀＋背景 `set_servant_output`，失敗 syncData 校正。
-- `changeOutfit(name, isSelf)` — 換裝（`outfit`，只換衣）：吃後端消毒值原地重繪（免 get_tags）。
+- `changeOutfit(name, isSelf)` — 換裝（`outfit`，只換衣）：`isSelf`(玩家自己)改跳`openOutfitPicker_`快選面板(2026-07新增)，非isSelf維持原本`prompt()`。實際送出走共用`submitOutfit_(name, isSelf, txt)`，吃後端消毒值原地重繪（免 get_tags）。
+- `openOutfitPicker_(name, cur)` / `closeOutfitPicker_()`（2026-07新增）— 換裝快選面板：動態建DOM+closure綁事件(不拼onclick字串)，`KANSHOU_OUTFIT_PRESETS_`(4套通用預設)按鈕＋「✏️自訂輸入」退回`prompt()`。只給玩家自己用，同伴外觀仍交給AI依`appearance_extras`自動更新。
+- `submitOutfit_(name, isSelf, txt)`（2026-07新增，從changeOutfit抽出）— 換裝的實際送出邏輯：打`outfit` action、成功後原地更新`myMasterOutfit`/`myServants`快取＋`refreshFateTags`。
 - `changeWeapon(name)` — 自訂武裝（`weapon`，蓋過職階/原典習慣）；鏡射 changeOutfit。
 - `openMageRealmPicker(svName, curFx, title)` — 魔境的智慧/皇帝特權：挑 1 門通用 A 階被動（含清除）。
 - `openRunePicker(svName, curMode)` — 原初符文：選 減傷/增傷/回血。

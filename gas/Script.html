@@ -2246,11 +2246,69 @@
     } catch (e) { alert('連線失敗，出力設定未果。'); try { syncData(true); } catch (e2) {} }
   }
 
-  // 👗 換裝：自訂從者當前服裝穿著（只換衣不換人·五官體態不變）。免費即時、留空恢復本相。兩軌通用。
+  // 👗 換裝：自訂服裝穿著（只換衣不換人·五官體態不變）。免費即時、留空恢復本相。兩軌通用。
+  // 🐛→✅ 玩家「想要換裝UI、內建幾套衣服」：只有玩家自己(isSelf)點換裝才跳快選面板(4套通用+
+  //   自訂輸入)，同伴/solo自己從者維持原本prompt()——範圍限縮避免過度工程(同伴外觀本就交給AI
+  //   依appearance_extras自動更新，玩家不手動介入)。
+  var KANSHOU_OUTFIT_PRESETS_ = ['日常便服', '外出服', '居家休閒', '睡衣'];
   function changeOutfit(name, isSelf) {
     var cur = isSelf ? myMasterOutfit : (((myServants || []).find(function (x) { return x && x.name === name; }) || {}).outfit || '');
-    var txt = prompt('👗 換裝「' + name + '」\n\n輸入' + (isSelf ? '你' : '她') + '此刻的服裝／裝扮，AI 敘述會依此描寫。\n只換衣不換人——五官、髮色、體態、氣質不變。\n留空＝恢復原本裝束。（限 40 字）', cur);
+    if (isSelf) { openOutfitPicker_(name, cur); return; }
+    var txt = prompt('👗 換裝「' + name + '」\n\n輸入她此刻的服裝／裝扮，AI 敘述會依此描寫。\n只換衣不換人——五官、髮色、體態、氣質不變。\n留空＝恢復原本裝束。（限 40 字）', cur);
     if (txt === null) return; // 取消
+    submitOutfit_(name, isSelf, txt);
+  }
+
+  // 換裝快選面板：4套通用預設 + 自訂輸入(退回原本prompt())，動態建DOM＋closure綁事件，
+  // 不用字串拼onclick，人名/服裝內容含特殊字元也不會壞。
+  function openOutfitPicker_(name, cur) {
+    var ov = document.getElementById('outfit-picker-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'outfit-picker-overlay';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;padding:18px;';
+      document.body.appendChild(ov);
+    }
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:360px;width:100%;padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);';
+    var title = document.createElement('div');
+    title.style.cssText = 'color:#e8d8f0;font-size:14px;margin-bottom:4px;';
+    title.textContent = '👗 換裝';
+    var curLine = document.createElement('div');
+    curLine.style.cssText = 'color:#8a7a9a;font-size:11px;margin-bottom:12px;';
+    curLine.textContent = '目前：' + (cur ? cur : '（本來裝束）');
+    var grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;';
+    KANSHOU_OUTFIT_PRESETS_.forEach(function (p) {
+      var b = document.createElement('button');
+      b.textContent = p;
+      b.style.cssText = 'padding:10px;background:rgba(150,110,190,0.16);color:#c9a0e0;border:1px solid #7a5aa0;border-radius:8px;cursor:pointer;font-size:13px;';
+      b.onclick = function () { closeOutfitPicker_(); submitOutfit_(name, true, p); };
+      grid.appendChild(b);
+    });
+    var customBtn = document.createElement('button');
+    customBtn.textContent = '✏️ 自訂輸入...';
+    customBtn.style.cssText = 'width:100%;padding:9px;background:rgba(90,90,120,0.2);color:#c9c0d8;border:1px solid #5a5a7a;border-radius:8px;cursor:pointer;font-size:12px;margin-bottom:8px;';
+    customBtn.onclick = function () {
+      closeOutfitPicker_();
+      var t = prompt('輸入自訂裝扮（限 40 字）\n留空＝恢復原本裝束。', cur || '');
+      if (t !== null) submitOutfit_(name, true, t);
+    };
+    var cancelBtn = document.createElement('button');
+    cancelBtn.textContent = '取消';
+    cancelBtn.style.cssText = 'width:100%;padding:8px;background:transparent;color:#8a7a9a;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:12px;';
+    cancelBtn.onclick = closeOutfitPicker_;
+    ov.innerHTML = '';
+    card.appendChild(title); card.appendChild(curLine); card.appendChild(grid); card.appendChild(customBtn); card.appendChild(cancelBtn);
+    ov.appendChild(card);
+    ov.style.display = 'flex';
+  }
+  function closeOutfitPicker_() {
+    var ov = document.getElementById('outfit-picker-overlay');
+    if (ov) ov.style.display = 'none';
+  }
+
+  function submitOutfit_(name, isSelf, txt) {
     gasRun({ action: 'outfit', pcId: pc.id, servant: name, self: !!isSelf, outfit: txt, acctName: (pc && pc.account) || currentAccount })
       .then(function (res) {
         if (res && res.success) {
