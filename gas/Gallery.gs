@@ -2598,10 +2598,13 @@ function actionPlay_(userData, pcId, sheets) {
       if (activeId) {
         kanshouEncounterLocName = curLocDef.name;
         kanshouEncounterHero = SEED_SERVANTS.find(h => h.id === activeId) || null;
-      } else if (encounterOn && !curLocDef.noEncounter && userData.lookAround === true) {
+      } else if (encounterOn && !curLocDef.noEncounter && !kanshouSomeoneAlreadyHere_ && userData.lookAround === true) {
         // 前端明確的「看看四周」按鈕(lookAround:true)。目前還沒有巧遇中的對象時，用目前地點
         //   重新擲一次巧遇——跟按移動按鈕同一套加權隨機，不寫LOC(沒有移動)。noEncounter地點
         //   (家)恆不觸發此路徑。
+        // 🐛→✅ 稽核抓到：移動分支(2585行)有檢查!kanshouSomeoneAlreadyHere_(已有熟人在場就不擲
+        //   陌生人巧遇)，這裡漏了同一條件，導致跟熟人對話中按「看看四周」仍可能擲出陌生人、
+        //   兩者同框，牴觸移動分支自己訂的「熟人在場優先」規則。
         kanshouEncounterLocName = curLocDef.name;
         kanshouEncounterHero = kanshouRollEncounter_(curLocDef.name, kanshouExcludeIds_);
         if (kanshouEncounterHero) {
