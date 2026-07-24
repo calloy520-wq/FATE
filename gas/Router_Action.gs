@@ -151,8 +151,9 @@ function handleGameAction(userData) {
   //   long-standing只用裸findIndex信任前端傳來的pcId，完全沒反查「帳號」表確認呼叫者真的擁有這個
   //   pcId——pcId是可預測字串("PC_"+timestamp)，猜中/枚舉即可代任意玩家讀取私密狀態或竄改HP/羈絆/
   //   同盟/裝備(部分甚至不可逆，如mana_supply燒蝕迴路)。單一真實來源修法：不逐一補洞，改在
-  //   dispatch前統一擋(見verifyPcOwnership_)，比照kanshou既有的kanshouOwnedRowIdx_同一套邏輯
-  //   (PC_查COL.ACC.PC／KPC_查COL.ACC.KPC)。白名單只留「pcId尚不存在／已用其他方式驗證歸屬」的動作。
+  //   dispatch前統一擋(見verifyPcOwnership_)，比照kanshou原本各handler各自反查帳號表的同一套邏輯
+  //   (PC_查COL.ACC.PC／KPC_查COL.ACC.KPC)，故各kanshou handler原本的反查已可精簡成純索引查找
+  //   (見Gallery.gs的kanshouPcIdx_)。白名單只留「pcId尚不存在／已用其他方式驗證歸屬」的動作。
   if (pcId && !OWNERSHIP_CHECK_EXEMPT_[action] && !verifyPcOwnership_(userData.acctName, pcId)) {
     return JSON.stringify({ success: false, message: "查無御主。" });
   }
@@ -308,15 +309,14 @@ function actionCheckName(userData, pcId, sheets) {
   return JSON.stringify({ exists: _canonHit, canon: _canonHit, message: _canonHit ? `「${userData.name}」是聖杯戰爭中已知的英靈／御主——請另取名號，或用「扮演正典御主」入口。` : "" });
 }
 
-// 🔒 呼叫者身分解析（2026-07 再稽核抓到：get_full_status/update_fate/update_rel_tag/
-//   kanshou_set_nickname 這4個solo/鑑賞共用handler，都只用裸findIndex信任傳入的pcId，
-//   鑑賞context下pcId(KPC_+時間戳)可預測/枚舉——等同完全繞過kanshouOwnedRowIdx_帳號歸屬驗證，
-//   可冒名竄改/讀取任一鑑賞玩家的敘事欄/關係稱呼）。鑑賞(KPC_開頭)一律反查帳號表；solo沿用
-//   原本的裸find行為(帳號綁定在登入時已處理，不在本次稽核範圍內，維持零行為變化)。
-//   回傳null＝鑑賞歸屬驗證失敗，呼叫端須視同「查無此人」直接回絕；solo一律回字串(可能是"")。
-function resolveCallerGameId_(pcData, pcId, acctName) {
+// 🔒 呼叫者身分解析：get_full_status/update_fate/update_rel_tag/kanshou_set_nickname 這4個
+//   solo/鑑賞共用handler，用這支找出呼叫者自己的 game_id。歸屬驗證本身已上移到 dispatcher
+//   統一擋（`handleGameAction`→`verifyPcOwnership_`，見上方；kanshou/solo pcId 進到這裡時都已
+//   確認真的屬於這個帳號），這裡只需要純索引查找＋讀 GAME_ID，不必再反查一次帳號表。
+//   回傳null＝查無此列，呼叫端須視同「查無此人」直接回絕；solo一律回字串(可能是"")。
+function resolveCallerGameId_(pcData, pcId) {
   if (String(pcId || "").indexOf("KPC_") === 0) {
-    const idx = kanshouOwnedRowIdx_(pcData, pcId, String(acctName || "").trim());
+    const idx = kanshouPcIdx_(pcData, pcId);
     return idx === -1 ? null : String(pcData[idx][COL.PC.GAME_ID] || "");
   }
   // 🐛→✅ 再稽核抓到：查無此列時原本回傳""(非null)，呼叫端只擋null——導致捏造的pcId能讓下游
@@ -332,7 +332,7 @@ function actionGetFullStatus(userData, pcId, sheets) {
   const allPcData = sheets.pc.getDataRange().getValues();
   // 只比對 NAME 會在不同局剛好撞名時洩漏別局角色狀態/關係；限比呼叫者自己的 game_id
   // (myGameId 為空時放行，相容沒有 game_id 的舊資料)。
-  const myGameId = resolveCallerGameId_(allPcData, pcId, userData.acctName);
+  const myGameId = resolveCallerGameId_(allPcData, pcId);
   if (myGameId === null) return JSON.stringify({ success: false, message: "查無此人" });
   const tIdx = findPcRowIdx_(allPcData, myGameId, { name: targetName });
   if (tIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
@@ -351,7 +351,7 @@ function actionUpdateFate(userData, pcId, sheets) {
   // 從者狀態(📜 狀態鈕)開的 openStatus 傳的是【名字】非 ID，故需接受 ID 或同行從者名字，
   // 且限本局 game_id(防跨局撞名／名字誤中敵方非同行者)。
   // 🔒 帳號歸屬驗證（2026-07 再稽核抓到的漏洞補上，見 resolveCallerGameId_ 說明）。
-  const myGameId = resolveCallerGameId_(pcData, pcId, userData.acctName);
+  const myGameId = resolveCallerGameId_(pcData, pcId);
   if (myGameId === null) return JSON.stringify({ success: false, message: "查無此人" });
   const pIdx = pcData.findIndex(r => {
     if (String(r[COL.PC.ID]).startsWith("DEAD_")) return false;
@@ -598,7 +598,7 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   // 光靠姓名+下方「同行」門檻不保證是「我這局」的同行者；不同局剛好有同名同行從者仍會被誤改，
   // 故需再比對呼叫者自己列的 game_id(myGameId 為空時放行，相容沒有 game_id 的舊資料)。
   // 🔒 帳號歸屬驗證（2026-07 再稽核抓到的漏洞補上，見 resolveCallerGameId_ 說明）。
-  const myGameId = resolveCallerGameId_(pcData, pcId, userData.acctName);
+  const myGameId = resolveCallerGameId_(pcData, pcId);
   if (myGameId === null) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
   const tIdx = findPcRowIdx_(pcData, myGameId, { name: targetName });
   if (tIdx === -1) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
@@ -635,7 +635,7 @@ function actionSetNickname(userData, pcId, sheets) {
 
   const pcData = sheets.pc.getDataRange().getValues();
   // 🔒 帳號歸屬驗證（2026-07 再稽核抓到的漏洞補上，見 resolveCallerGameId_ 說明）。
-  const myGameId = resolveCallerGameId_(pcData, pcId, userData.acctName);
+  const myGameId = resolveCallerGameId_(pcData, pcId);
   if (myGameId === null) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
   const tIdx = findPcRowIdx_(pcData, myGameId, { name: targetName });
   if (tIdx === -1) return JSON.stringify({ success: false, message: "查無此段羈絆。" });

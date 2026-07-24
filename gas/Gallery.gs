@@ -56,11 +56,12 @@ function getAccountKanshouPcId_(accountName) {
   return found ? String(found.row[COL.ACC.KPC] || "") : "";
 }
 
-// 帳號歸屬驗證：KPC_ ID 只用 Date.now()、理論上可預測，故不能只憑 pcId 找列就信任是本人——
-//   每次都查「帳號」表的 KPC 欄位(唯一權威來源)是否確實等於呼叫者聲稱的 pcId。
-function kanshouOwnedRowIdx_(data, pcId, acctName) {
-  var trueKpc = getAccountKanshouPcId_(acctName);
-  if (!trueKpc || trueKpc !== String(pcId || "")) return -1;
+// 帳號歸屬驗證：KPC_ ID 只用 Date.now()、理論上可預測，原本每個 kanshou handler 各自反查
+//   「帳號」表的 KPC 欄位確認呼叫者身分。2026-07 稽核抓到系統性漏洞後，這道驗證已上移到
+//   dispatcher 統一擋(`handleGameAction`→`verifyPcOwnership_`，見 Router_Action.gs)，所有
+//   經 ActionRouter 派發的 handler 進來前都已驗過——這裡只需要純索引查找，不必再反查一次
+//   帳號表(那會是同一份帳號表在同一趟請求裡的第二次整表讀，純浪費)。
+function kanshouPcIdx_(data, pcId) {
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][COL.PC.ID]) === String(pcId)) return i;
   }
@@ -355,7 +356,7 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
   var acctName = String(userData.acctName || "").trim();
   var heroId = String(userData.heroId || "").trim();
   var data = kpc.getDataRange().getValues();
-  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  var meIdx = kanshouPcIdx_(data, pcId);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   var me = data[meIdx];
   var gid = String(me[COL.PC.GAME_ID] || ""); var loc = String(me[COL.PC.LOC] || "冬木·深山町");
@@ -537,7 +538,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
   const pcData = sheets.pc.getDataRange().getValues();
   // 🔒 帳號歸屬驗證（2026-07 再稽核抓到的漏洞補上）：跟 actionPlay_ 同一種缺口——猜中/取得
   //   pcId 即可直打此 action 竄改任何人的外貌/身世/個性/萌點/裝扮，比照其餘 handler 補上。
-  const pIdx = kanshouOwnedRowIdx_(pcData, pcId, String(userData.acctName || "").trim());
+  const pIdx = kanshouPcIdx_(pcData, pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const row = pcData[pIdx];
   const finalName = String(row[COL.PC.NAME] || ""), finalSex = String(row[COL.PC.SEX] || "異");
@@ -592,9 +593,8 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 //   召喚只是讓她第一次出現在這個世界(見actionKanshouSummonHero)，之後她就自己過自己的生活。
 function actionKanshouCompanions(userData, pcId, sheets) {
   var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」，見 actionKanshouSummonHero 同款註解
-  var acctName = String(userData.acctName || "").trim();
   var data = kpc.getDataRange().getValues();
-  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  var meIdx = kanshouPcIdx_(data, pcId);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   var me = data[meIdx];
   var gid = String(me[COL.PC.GAME_ID] || "");
@@ -639,11 +639,10 @@ function kanshouSetQuickPhrases_(memory, arr) {
 }
 function actionKanshouAddQuickPhrase(userData, pcId, sheets) {
   var kpc = sheets.pc;
-  var acctName = String(userData.acctName || "").trim();
   var text = kanshouSanitizeTagValue_(userData.text, 12);
   if (!text) return JSON.stringify({ success: false, message: "請輸入貼圖文字。" });
   var data = kpc.getDataRange().getValues();
-  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  var meIdx = kanshouPcIdx_(data, pcId);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   var phrases = kanshouGetQuickPhrases_(data[meIdx][COL.PC.MEMORY]);
   if (phrases.indexOf(text) !== -1) return JSON.stringify({ success: false, message: "這句已經在你的快速貼圖裡了。" });
@@ -655,11 +654,10 @@ function actionKanshouAddQuickPhrase(userData, pcId, sheets) {
 }
 function actionKanshouDeleteQuickPhrase(userData, pcId, sheets) {
   var kpc = sheets.pc;
-  var acctName = String(userData.acctName || "").trim();
   var text = String(userData.text || "").trim();
   if (!text) return JSON.stringify({ success: false, message: "參數不完整。" });
   var data = kpc.getDataRange().getValues();
-  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  var meIdx = kanshouPcIdx_(data, pcId);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   var phrases = kanshouGetQuickPhrases_(data[meIdx][COL.PC.MEMORY]).filter(function (t) { return t !== text; });
   var newMemory = kanshouSetQuickPhrases_(data[meIdx][COL.PC.MEMORY], phrases);
@@ -669,16 +667,15 @@ function actionKanshouDeleteQuickPhrase(userData, pcId, sheets) {
 
 // 💞 共同回憶面板操作(釘選/取消釘選/刪除)——比照 update_rel_tag「玩家 UI 手動管理、AI 無權」精神。
 //   釘選=條目加 ★ 前綴(processMemoir_ 淘汰舊條目時永不驅逐★)；刪除=整條移除。
-//   op: 'pin'|'unpin'|'del'；item=條目原文(不含★)。帳號綁定：kanshouOwnedRowIdx_ 驗過才動同 gid 的列。
+//   op: 'pin'|'unpin'|'del'；item=條目原文(不含★)。帳號歸屬已由 dispatcher 統一驗過，這裡只需索引查找同 gid 的列。
 function actionKanshouMemoirOp(userData, pcId, sheets) {
   var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」
-  var acctName = String(userData.acctName || "").trim();
   var op = String(userData.op || "").trim();
   var item = String(userData.item || "").replace(/[｜【】\[\]★]/g, "").trim();
   var targetName = String(userData.targetName || "").trim();
   if (!item || !targetName || ['pin', 'unpin', 'del'].indexOf(op) === -1) return JSON.stringify({ success: false, message: "參數不完整。" });
   var data = kpc.getDataRange().getValues();
-  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  var meIdx = kanshouPcIdx_(data, pcId);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
   var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", nameCandidates: kanshouNameCandidates_ });
@@ -705,9 +702,8 @@ function actionKanshouSetSex(userData, pcId, sheets) {
   var newSex = String(userData.pcSex || "").trim();
   if (newSex !== "男" && newSex !== "女") return JSON.stringify({ success: false, message: "性別僅限 男／女。" });
   var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」，見 actionKanshouSummonHero 同款註解
-  var acctName = String(userData.acctName || "").trim();
   var data = kpc.getDataRange().getValues();
-  var i = kanshouOwnedRowIdx_(data, pcId, acctName);
+  var i = kanshouPcIdx_(data, pcId);
   if (i < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   if (newSex === "男") {
     var gid = String(data[i][COL.PC.GAME_ID] || "");
@@ -737,9 +733,8 @@ function actionKanshouSetName(userData, pcId, sheets) {
   if (!newName) return JSON.stringify({ success: false, message: "名字不能空白。" });
   if (newName.length > 16) return JSON.stringify({ success: false, message: "名字請在16字以內。" });
   var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」，見 actionKanshouSummonHero 同款註解
-  var acctName = String(userData.acctName || "").trim();
   var data = kpc.getDataRange().getValues();
-  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  var meIdx = kanshouPcIdx_(data, pcId);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   kpc.getRange(meIdx + 1, COL.PC.NAME + 1).setValue(newName);
   return JSON.stringify({ success: true, pcName: newName, message: "御主已改名為「" + newName + "」。" });
@@ -752,9 +747,8 @@ function actionKanshouSetHomeName(userData, pcId, sheets) {
   if (!newName) return JSON.stringify({ success: false, message: "名稱不能空白。" });
   if (newName.length > 12) return JSON.stringify({ success: false, message: "名稱請在12字以內。" });
   var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」，見 actionKanshouSummonHero 同款註解
-  var acctName = String(userData.acctName || "").trim();
   var data = kpc.getDataRange().getValues();
-  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  var meIdx = kanshouPcIdx_(data, pcId);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   var newMemory = setKanshouHomeName_(data[meIdx][COL.PC.MEMORY], newName);
   kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
@@ -767,13 +761,12 @@ function actionKanshouSetHomeName(userData, pcId, sheets) {
 //   驗證+目標同伴查找寫法。
 function actionKanshouSetProp(userData, pcId, sheets) {
   var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」
-  var acctName = String(userData.acctName || "").trim();
   var targetName = String(userData.targetName || "").trim();
   var propId = String(userData.propId || "").trim();
   var level = String(userData.level || "").trim();
   if (!targetName || !propId) return JSON.stringify({ success: false, message: "參數不完整。" });
   var data = kpc.getDataRange().getValues();
-  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  var meIdx = kanshouPcIdx_(data, pcId);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
   // 🐛→✅ 2026-07 再稽核抓到：跟相約/牽手/同居同一套findPcRowIdx_，唯獨這裡漏帶loc——沒驗證
@@ -825,7 +818,6 @@ function actionKanshouSetProp(userData, pcId, sheets) {
 //   backend層就分道揚鑣，不是只靠前端不給勾選框這種軟性分隔。
 function actionKanshouAddCustomProp(userData, pcId, sheets) {
   var kpc = sheets.pc;
-  var acctName = String(userData.acctName || "").trim();
   var targetName = String(userData.targetName || "").trim();
   var name = kanshouSanitizeTagValue_(userData.name, 10);
   var hasIntensity = !!userData.hasIntensity;
@@ -834,7 +826,7 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
   var ignoreBond = false; // 一般道具強制不能無視好感，這個效果只走 actionKanshouCastHypnosis
   if (!targetName || !name) return JSON.stringify({ success: false, message: "參數不完整。" });
   var data = kpc.getDataRange().getValues();
-  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  var meIdx = kanshouPcIdx_(data, pcId);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   // 🐛→✅ 稽核抓到：原本比對 p.id(內建道具的內部代號如'egg_vibrator')跟玩家打的中文名，永遠不
   //   會相等，撞名檢查形同虛設(玩家真的取名「跳蛋」反而不會被擋)。改比對顯示名稱 p.name。
@@ -855,9 +847,13 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
   var intensityChanged = already && existing.hasIntensity !== hasIntensity;
   custom = custom.filter(function (p) { return p.id !== name; });
   custom.push({ id: name, hasIntensity: hasIntensity, part: part, ignoreBond: ignoreBond, effect: effect });
-  var newPlayerMemory = kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom);
-  kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newPlayerMemory);
+  data[meIdx][COL.PC.MEMORY] = kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom);
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
+  // 🐛→✅ 稽核抓到：舊版逐位同伴各自 setValue(N位同伴=N+1次Sheets I/O)、且無try/catch——中途任一次
+  //   拋例外(暫時性API錯誤/併發衝突)就半途而廢，部分同伴已正規化、部分還留著舊強度字串；一旦
+  //   hasIntensity日後又改回原值，漏寫的那位會在玩家毫不知情下用舊強度「復活」，本函式頭頂的註解
+  //   宣稱「比照刪除路徑的批次寫回慣例」卻沒真的做。改成全程只改記憶體data，函式結尾單次整表寫回
+  //   (比照 actionKanshouDeleteCustomProp 實際的寫法)，不論N多大都只有1次寫入、也不會半途而廢。
   if (intensityChanged) {
     var _normLevel = hasIntensity ? KANSHOU_PROP_LEVELS_[0] : "戴著";
     for (var _si = 1; _si < data.length; _si++) {
@@ -865,24 +861,28 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
       var _sExisting = kanshouGetProps_(data[_si][COL.PC.MEMORY]);
       if (_sExisting.some(function (p) { return p.id === name; })) {
         data[_si][COL.PC.MEMORY] = kanshouToggleProp_(data[_si][COL.PC.MEMORY], name, _normLevel);
-        kpc.getRange(_si + 1, COL.PC.MEMORY + 1).setValue(data[_si][COL.PC.MEMORY]);
       }
     }
   }
   // 🐛→✅ 2026-07 再稽核：同上，補loc要求目標同伴此刻在場才能立即裝備(目錄新增本身不受此限)。
   var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", loc: String(data[meIdx][COL.PC.LOC] || ""), nameCandidates: kanshouNameCandidates_ });
-  if (tIdx < 0) return JSON.stringify({ success: true, props: [], customProps: custom, message: "已新增到你的道具目錄，但找不到這位同伴可裝備。" });
+  if (tIdx < 0) {
+    kpc.getRange(1, 1, data.length, data[0].length).setValues(data);
+    return JSON.stringify({ success: true, props: [], customProps: custom, message: "已新增到你的道具目錄，但找不到這位同伴可裝備。" });
+  }
   if (!ignoreBond && (parseInt(data[tIdx][COL.PC.BOND]) || 0) < KANSHOU_PROP_EQUIP_BOND_) {
+    kpc.getRange(1, 1, data.length, data[0].length).setValues(data);
     return JSON.stringify({ success: true, props: kanshouGetProps_(data[tIdx][COL.PC.MEMORY], KANSHOU_PROPS_.concat(custom)), customProps: custom, message: "已新增到你的道具目錄，但好感還沒到那個地步，她還不會讓你幫她裝備。" });
   }
   var _existingT = kanshouGetProps_(data[tIdx][COL.PC.MEMORY]);
   if (!_existingT.some(function (p) { return p.id === name; }) && _existingT.length >= KANSHOU_PROP_EQUIP_CAP_) {
+    kpc.getRange(1, 1, data.length, data[0].length).setValues(data);
     return JSON.stringify({ success: true, props: kanshouGetProps_(data[tIdx][COL.PC.MEMORY], KANSHOU_PROPS_.concat(custom)), customProps: custom, message: "已新增到你的道具目錄，但她身上裝備已達上限(" + KANSHOU_PROP_EQUIP_CAP_ + "件)，先移除一件才能裝上這個。" });
   }
   var finalLevel = hasIntensity ? KANSHOU_PROP_LEVELS_[0] : "戴著"; // 新裝備一律關閉起手
-  var newMemory = kanshouToggleProp_(data[tIdx][COL.PC.MEMORY], name, finalLevel);
-  kpc.getRange(tIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
-  return JSON.stringify({ success: true, props: kanshouGetProps_(newMemory, KANSHOU_PROPS_.concat(custom)), customProps: custom });
+  data[tIdx][COL.PC.MEMORY] = kanshouToggleProp_(data[tIdx][COL.PC.MEMORY], name, finalLevel);
+  kpc.getRange(1, 1, data.length, data[0].length).setValues(data);
+  return JSON.stringify({ success: true, props: kanshouGetProps_(data[tIdx][COL.PC.MEMORY], KANSHOU_PROPS_.concat(custom)), customProps: custom });
 }
 
 // 🌀 催眠指令：跟一般自訂道具「確實分開成兩種」(2026-07 玩家定案)的獨立入口。玩家打一句暗示內容
@@ -894,12 +894,11 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
 //   的當下——這是本效果存在的意義，不能像一般道具靜默寫入等下一輪才反映。
 function actionKanshouCastHypnosis(userData, pcId, sheets) {
   var kpc = sheets.pc;
-  var acctName = String(userData.acctName || "").trim();
   var targetName = String(userData.targetName || "").trim();
   var text = kanshouSanitizeTagValue_(userData.text, 30);
   if (!targetName || !text) return JSON.stringify({ success: false, message: "參數不完整。" });
   var data = kpc.getDataRange().getValues();
-  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  var meIdx = kanshouPcIdx_(data, pcId);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   if (KANSHOU_PROPS_.some(function (p) { return p.name === text; })) return JSON.stringify({ success: false, message: "這句指令跟內建道具重複了，換個說法吧。" });
   var custom = kanshouGetCustomProps_(data[meIdx][COL.PC.MEMORY]);
@@ -930,11 +929,10 @@ function actionKanshouCastHypnosis(userData, pcId, sheets) {
 // 🗑 刪除玩家自訂道具定義：同步清掉所有同伴身上目前裝備的這一項，避免留下型錄查無定義的孤兒資料。
 function actionKanshouDeleteCustomProp(userData, pcId, sheets) {
   var kpc = sheets.pc;
-  var acctName = String(userData.acctName || "").trim();
   var name = String(userData.name || "").trim();
   if (!name) return JSON.stringify({ success: false, message: "參數不完整。" });
   var data = kpc.getDataRange().getValues();
-  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  var meIdx = kanshouPcIdx_(data, pcId);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   var custom = kanshouGetCustomProps_(data[meIdx][COL.PC.MEMORY]).filter(function (p) { return p.id !== name; });
   data[meIdx][COL.PC.MEMORY] = kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom);
@@ -1771,7 +1769,7 @@ const KANSHOU_VISIT_BOND_ = 40;
 const KANSHOU_COHABIT_ROOM_ = '和室';
 function kanshouIsCohabit_(row) { return KANSHOU_COHABIT_TAG_.get(row[COL.PC.MEMORY]) > 0; }
 // 🎀 小道具(存該同伴列MEMORY·【小道具】id1:強度1,id2:強度2,...·多件同時裝備·逗號分隔比照【性格鎖】
-//   同款寫法)：玩家UI手動裝備/移除/調強度(kanshouOwnedRowIdx_驗過才動)，GAS直接寫，不靠AI自己判斷
+//   同款寫法)：玩家UI手動裝備/移除/調強度(帳號歸屬已由dispatcher統一驗過)，GAS直接寫，不靠AI自己判斷
 //   要不要記——這是2026-07「幫她戴貓耳朵過幾輪就忘記」問題的根治版：不持久的設定改走這條「機制
 //   保證」路徑，而非指望AI每次都正確判斷「這算不算變化」。資料驅動：之後想加內建項目，只要往
 //   KANSHOU_PROPS_加一筆，前端清單自動跟著長。hasIntensity=true的道具額外支援強度分級
@@ -2068,12 +2066,9 @@ function actionPlay_(userData, pcId, sheets) {
 
   let pcData = sheets.pc.getDataRange().getValues();
 
-  // 🔒 帳號歸屬驗證（2026-07 稽核抓到的漏洞補上）：pcId(KPC_+時間戳)理論上可預測/枚舉，此前
-  //   這裡只用裸 findIndex 信任呼叫者聲稱的 pcId，等於整個 actionPlay(讀寫好感/地點/回憶/相簿門檻
-  //   全靠這裡)完全沒查是不是呼叫者本人的帳號——其餘6個kanshou handler都有比照kanshouOwnedRowIdx_
-  //   反查帳號表，唯獨系統負擔最重、寫入面最廣的這裡漏了。
-  const acctName = String(userData.acctName || "").trim();
-  const pcIndex = kanshouOwnedRowIdx_(pcData, pcId, acctName);
+  // 🔒 帳號歸屬驗證已上移到 dispatcher 統一擋（`handleGameAction`→`verifyPcOwnership_`），
+  //   進到這裡的 pcId 已保證屬於呼叫者本人，只需純索引查找。
+  const pcIndex = kanshouPcIdx_(pcData, pcId);
   if (pcIndex === -1) return JSON.stringify({ text: "查無此人", people: [] });
   const pc = pcData[pcIndex];
   const pcName = pc[COL.PC.NAME];
@@ -3619,7 +3614,7 @@ ${PROMPT_PARTY_SYSTEM}
 //   (kanshouAbsDayToDate_)，前端零日曆邏輯。
 function actionGetAlbum(userData, pcId, sheets) {
   const pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = kanshouOwnedRowIdx_(pcData, pcId, String(userData.acctName || "").trim());
+  const pIdx = kanshouPcIdx_(pcData, pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, photos: [] });
   const gid = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const rows = kanshouAlbumSheet_().getDataRange().getValues();
@@ -3640,7 +3635,7 @@ function actionGetAlbum(userData, pcId, sheets) {
 // 刪照片：只能刪自己這局的(照片ID＋遊戲ID雙比對)，相簿滿了得騰位子才能再拍。
 function actionAlbumDelete(userData, pcId, sheets) {
   const pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = kanshouOwnedRowIdx_(pcData, pcId, String(userData.acctName || "").trim());
+  const pIdx = kanshouPcIdx_(pcData, pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const gid = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const pid = String(userData.photoId || "").trim();
