@@ -572,10 +572,10 @@ let plainTextContext = cleanText;
   //   共用#kp-overlay這個彈窗容器＋共用kanshouDeleteCustomProp刪除，靠這個mode記錄目前開的是
   //   哪一種，刪除後才知道要重繪回哪個面板(不能兩種各自複製一份overlay邏輯)。
   var _kpOpenMode = 'props'; // 'props' | 'hypnosis'
-  async function kanshouOpenProps(name) {
-    if (_kpBusy) return;
-    _kpOpenName = name;
-    _kpOpenMode = 'props';
+  // 🐛→✅ 稽核抓到：kanshouOpenProps/kanshouOpenHypnosis開場「確保_kcCur已載入該同伴＋開共用overlay」
+  // 這段逐字重複，只有面板mode不同(呼叫方自己設_kpOpenMode)，抽出共用避免兩處各自維護一份loading/
+  // 錯誤處理邏輯。純搬移、無新增gasRun呼叫，只多一層函式呼叫(遠小於本來就有的gasRun網路往返)。
+  async function _kpEnsureCompanionPanel_(name) {
     var c = _kcCur.find(function (x) { return x.name === name; });
     if (!c || !_kcCustomPropsLoaded) {
       _kpBusy = true;
@@ -585,9 +585,18 @@ let plainTextContext = cleanText;
         if (res && res.success) { _kcCur = res.current || []; _kcCustomProps = res.customProps || []; _kcCustomPropsLoaded = true; }
       } catch (e) { } finally { _kpBusy = false; }
       c = _kcCur.find(function (x) { return x.name === name; });
-      if (!c) { var _ov0 = document.getElementById('kp-overlay'); if (_ov0) _ov0.style.display = 'none'; alert('讀取失敗，稍後再試。'); return; }
+      if (!c) { var _ov0 = document.getElementById('kp-overlay'); if (_ov0) _ov0.style.display = 'none'; alert('讀取失敗，稍後再試。'); return null; }
     }
     var ov = ensureOverlay_('kp-overlay', { zIndex: 10001, onBgClick: function (ov) { if (!_kpBusy) ov.style.display = 'none'; } });
+    return { c: c, ov: ov };
+  }
+  async function kanshouOpenProps(name) {
+    if (_kpBusy) return;
+    _kpOpenName = name;
+    _kpOpenMode = 'props';
+    var _r = await _kpEnsureCompanionPanel_(name);
+    if (!_r) return;
+    var c = _r.c, ov = _r.ov;
     var curArrAll = c.props || []; // 🎀 多件同時裝備(2026-07 改版)，不再是單一 c.prop
     // 🐛→✅ 2026-07「催眠的和新道具要確實分開成兩種」：這個面板只管一般道具(裝飾/物理類)，
     //   ignoreBond(催眠指令)類完全過濾掉、改到專屬的 kanshouOpenHypnosis 面板管理，避免混在一起。
@@ -709,18 +718,9 @@ let plainTextContext = cleanText;
     if (_kpBusy) return;
     _kpOpenName = name;
     _kpOpenMode = 'hypnosis';
-    var c = _kcCur.find(function (x) { return x.name === name; });
-    if (!c || !_kcCustomPropsLoaded) {
-      _kpBusy = true;
-      _kpShowLoading_(name);
-      try {
-        const res = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount });
-        if (res && res.success) { _kcCur = res.current || []; _kcCustomProps = res.customProps || []; _kcCustomPropsLoaded = true; }
-      } catch (e) { } finally { _kpBusy = false; }
-      c = _kcCur.find(function (x) { return x.name === name; });
-      if (!c) { var _ov0 = document.getElementById('kp-overlay'); if (_ov0) _ov0.style.display = 'none'; alert('讀取失敗，稍後再試。'); return; }
-    }
-    var ov = ensureOverlay_('kp-overlay', { zIndex: 10001, onBgClick: function (ov) { if (!_kpBusy) ov.style.display = 'none'; } });
+    var _r = await _kpEnsureCompanionPanel_(name);
+    if (!_r) return;
+    var c = _r.c, ov = _r.ov;
     var safeN = String(name).replace(/'/g, "\\'");
     var activeH = (c.props || []).filter(function (x) { return x.ignoreBond; });
     var rows = activeH.map(function (p) {
