@@ -73,8 +73,11 @@ function actionManualNpc(userData, pcId, sheets) {
     //   name/npcName等嚴格姓名欄位)，MEMORY是全欄位共用｜分隔的標記格式，比照setOutfit_/setWeapon_
     //   同款清洗，避免玩家文字裡剛好帶的｜【】把後面的【模式】【戰爭】【扮演】等系統標記截斷或偽造。
     // 🐛→✅ 稽核抓到：maxLen 原本沒帶，願望(wish)只靠前端#s-wish的maxlength=40擋，backend
-    //   不設限——補上可選長度上限，願望套40跟前端一致，其餘(magic/origin等)是命運測定擲骰結果、
-    //   非玩家自由輸入，維持不裁(避免誤傷合法roll值)。
+    //   不設限——補上可選長度上限，願望套40跟前端一致。
+    // 🐛→✅ 再一輪稽核抓到：magic/origin/melee/magicRank這4格原本連maxLen都沒帶(靠「這是命運測定
+    //   擲骰結果、非玩家自由輸入」的假設不裁)——但這假設只在走前端rollFate()時成立，直打API可送入
+    //   sanitizeUserData_全域上限內(2000字)的任意文字。合法roll值(FATE_MAGICS_/FATE_ORIGINS_最長
+    //   約10字、melee/magicRank僅E~B單字母)遠短於20字，補上20字上限不會誤傷任何合法roll值。
     const cleanTagText_ = (s, maxLen) => { const v = String(s || "").replace(/[｜【】\n\r\t]/g, ""); return maxLen ? v.slice(0, maxLen) : v; };
     const pcColCount = Object.keys(COL.PC).length;
     const newRow = Array(pcColCount).fill("");
@@ -85,11 +88,11 @@ function actionManualNpc(userData, pcId, sheets) {
     newRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
     newRow[COL.PC.MEMORY] = [
       wish ? `【願望】${cleanTagText_(wish, 40)}` : "",
-      magic ? `【魔術】${cleanTagText_(magic)}` : "",
+      magic ? `【魔術】${cleanTagText_(magic, 20)}` : "",
       safeCircuits ? `【迴路】${cleanTagText_(safeCircuits)}` : "",
-      origin ? `【出身】${cleanTagText_(origin)}` : "",
-      melee ? `【體術】${cleanTagText_(melee)}` : "",
-      magicRank ? `【魔術階位】${cleanTagText_(magicRank)}` : "",
+      origin ? `【出身】${cleanTagText_(origin, 20)}` : "",
+      melee ? `【體術】${cleanTagText_(melee, 20)}` : "",
+      magicRank ? `【魔術階位】${cleanTagText_(magicRank, 20)}` : "",
       "【令咒】3",
       `【模式】${userData.warMode === 'chaos' ? 'chaos' : 'canon'}`,
       userData.warMode === 'chaos' ? "" : `【戰爭】${['4th', '5th'].indexOf(String(userData.war)) >= 0 ? userData.war : '5th'}`,
