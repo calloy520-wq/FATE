@@ -501,7 +501,11 @@ function parseForgeBuild_(build, reqCls) {
     return { ok: false, message: `「${out.name}」是英靈殿正典角色——請從召喚頁上方「職階英靈殿」挑選召喚，或另取原創真名。` };
   }
   out.sex = ["男", "女", "異"].includes(String(build.sex)) ? String(build.sex) : "異";
-  const _fClean = (v, n) => String(v || "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, n);
+  // 🐛→✅ 稽核抓到：原本沒濾HTML斷字字元(<>&"'`)——這些欄位(toM/speech/tic/moe/back/look/pref/
+  //   weapon)跟同函式內name(496)/traits(517)/skills(544)/npName(552)一樣，最終都會被前端原樣拼進
+  //   innerHTML顯示(如showNpDesc→showHistoryOverlay無escape)，原創英靈存進共用英靈殿，其他帳號
+  //   召喚到就會觸發，是可跨帳號的儲存型注入，不是自傷。補齊跟其餘欄位同款清洗。
+  const _fClean = (v, n) => String(v || "").replace(/[<>&"'`｜【】\n\r\t]/g, "").trim().slice(0, n);
   out.fp = _fClean(build.fp, 4); out.toM = _fClean(build.toMaster, 20); out.speech = _fClean(build.speech, 40);
   out.tic = _fClean(build.tic, 30); out.moe = _fClean(build.moe, 18); out.back = _fClean(build.back, 28);
   out.align = ALIGNS_.includes(String(build.align)) ? String(build.align) : "中立";
@@ -551,7 +555,7 @@ function parseForgeBuild_(build, reqCls) {
   out.classSkills = FORGE_CLS_SKILLS_[out.cls] || [];
   out.npName = String(build.npName || "").replace(/[<>&"'`]/g, "").replace(/【常駐寶具】|對城|對界|對神/g, "").trim().slice(0, 20) || "無名寶具";
   out.npR = out.six["寶具"]; // 顯示階＝六圍寶具階(引擎本就只吃 six.寶具)
-  out.npDesc = String(build.npDesc || "").replace(/【常駐寶具】|對城|對界|對神/g, "").replace(/[｜【】\n\r\t]/g, "").trim().slice(0, 40);
+  out.npDesc = String(build.npDesc || "").replace(/【常駐寶具】|對城|對界|對神/g, "").replace(/[<>&"'`｜【】\n\r\t]/g, "").trim().slice(0, 40);
   out.weapon = _fClean(build.weapon, 30);
   out.ok = true;
   return out;
