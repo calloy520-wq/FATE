@@ -1045,7 +1045,13 @@ function detectAllyPeril_(pcData, gameId, playerLoc, curDay) {
 
 // ⚔️ 卸防突襲：在同地有清醒敵從者時做「補魔／羈絆／休息」等卸下防備之舉，會招致敵從者趁隙重擊我方從者
 //   （氣息遮斷／暗殺職階更致命）。回 null＝無敵不觸發；否則 {enemyName,dmg,defeat,dreamPrompt,after,stealthy}。
-function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul) {
+//   preferSvIdx(選填)：呼叫端若已用 findPlayerServantIdx_ 選定「玩家當下操作/提及的那位從者」
+//   (如 actionBond/actionManaSupply/actionSpiritRepair 的 svIdx)，這裡優先打這位；驗證仍為存活我方
+//   從者才採用，否則(未提供/驗證失敗)退回原本「同局第一位存活從者」的預設。
+//   🐛→✅ 稽核抓到：雙從者(rule_break_steal奪到第二名)情境下，這裡舊版永遠裸找「第一位」從者，
+//   跟呼叫端敘事引用的「玩家當下相處/供魔/療傷的那位從者」完全脫鉤——玩家選第二從者操作時，敘事
+//   文字說是它遇襲/陣亡，實際扣血/標記陣亡的卻是第一從者，兩者矛盾且從者身分張冠李戴。
+function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul, preferSvIdx) {
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
   const ambushDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1; // 🕰️ 尚未登場者不會夜襲
   // 🐛→✅ 玩家反應「不可能每次休息/補魔/結盟都是打我吧」——舊碼不論好感一律突襲，跟移動路徑既有的
@@ -1053,7 +1059,11 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul) {
   //   沒理由每次都翻臉偷襲。門檻對齊同一顆常數，友好者這裡直接視為無敵可趁。
   const eIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc && !isAllied_(r) && hasArrived_(r, ambushDay) && (parseInt(r[COL.PC.BOND]) || 0) < 50);
   if (eIdx === -1) return null;
-  const svIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  const preferOk = typeof preferSvIdx === 'number' && preferSvIdx >= 0 && pcData[preferSvIdx] &&
+    String(pcData[preferSvIdx][COL.PC.FACTION]) === "從者" && String(pcData[preferSvIdx][COL.PC.GAME_ID] || "") === gameId &&
+    !String(pcData[preferSvIdx][COL.PC.ID]).startsWith("DEAD_");
+  const svIdx = preferOk ? preferSvIdx
+    : pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
   if (svIdx === -1) return null;
   // 🏰 陣地·安全港·反擊：玩家於【自己佈設的陣地】(隊有陣地作成從者)遭潛入 → 結界示警、機關迭起，從者從容起身反擊、
   //   將來犯者擊退驅離(敵扣血·保1不斬)，我方毫髮無傷；代價＝御主耗魔維持結界。魔力不足則結界失效、照常挨突襲。

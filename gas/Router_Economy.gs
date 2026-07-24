@@ -184,7 +184,8 @@ function actionManaSupply(userData, pcId, sheets) {
   raiseBond_(sheets, myGameId, pcData[pIdx][COL.PC.NAME], svName, 3, pcData);
 
   // ⚔️ 卸防突襲：補魔時門戶大開，同地若有清醒敵從者→趁隙重擊我方從者（可能致敗）
-  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.4);
+  // 🐛→✅ 稽核抓到：雙從者情境下漏帶 svIdx，可能敘事說補魔的這位遇襲、實際扣血/陣亡的卻是另一位。
+  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.4, svIdx);
 
   // 戰場補魔：甜而克制的曖昧 fade（給點甜頭、不開慾海引擎）——真・慾海留給鑑賞
   const aiPrompt = ambushDispatchPrompt_(ambush,
@@ -253,7 +254,8 @@ function actionSpiritRepair(userData, pcId, sheets) {
   raiseBond_(sheets, myGameId, pcData[pIdx][COL.PC.NAME], svName, 2, pcData);
 
   // ⚔️ 卸防突襲：療傷時同樣門戶大開，同地若有清醒敵從者→趁隙重擊我方從者（可能致敗）
-  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.3);
+  // 🐛→✅ 稽核抓到：雙從者情境下漏帶 svIdx，可能敘事說療傷的這位遇襲、實際扣血/陣亡的卻是另一位。
+  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.3, svIdx);
 
   const aiPrompt = ambushDispatchPrompt_(ambush,
     function (a) {

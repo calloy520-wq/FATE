@@ -264,7 +264,9 @@ function actionBond(userData, pcId, sheets) {
   }
 
   // ⚔️ 卸防突襲：相伴談心時門戶大開，同地若有清醒敵從者→趁隙重擊
-  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.2);
+  // 🐛→✅ 稽核抓到：雙從者情境下漏帶 svIdx，突襲內部會裸抓「第一位」從者，可能跟這裡敘事引用的
+  //   「正在相處的這位」對不上(玩家挑第二從者相處，卻演成/打到第一從者)。補帶已解析好的 svIdx。
+  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.2, svIdx);
 
   // ⚔️ 卸防突襲三分派(單一真實來源 ambushDispatchPrompt_)：normalFn 內再依 milestone 是否命中細分——
   //   milestone 的「標記已演出」寫回刻意只在這裡(無突襲)落地，被突襲打斷時故意不標記(留到下次順利
@@ -591,7 +593,11 @@ function actionAllyBond(userData, pcId, sheets) {
   const ap = _allyBondApr.ap, clock = _allyBondApr.clock;
 
   // ⚔️ 卸防突襲：與盟友交流時門戶大開，同地若有「未結盟」敵從者→趁隙重擊我方從者
-  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.3);
+  // 🐛→✅ 稽核抓到：雙從者情境下漏帶偏好的 svIdx——前端其實已隨這個action送了 servant/servantId
+  //   (跟其餘卸防動作同款payload)，這裡卻從沒解析拿來用，突襲永遠打「第一位」從者，可能跟玩家當下
+  //   出戰/操作的第二從者對不上。比照 actionBond/actionManaSupply/actionSpiritRepair 補上解析。
+  const mySvIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
+  const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.3, mySvIdx);
   if (ambush) {
     // ambushDispatchPrompt_ 的 normalFn 這裡不會用到(外層已用 if(ambush) 專門處理突襲這條路)，
     // 傳個不會被呼叫的 no-op 即可，只借用 homeRepel/peaceful 二選一的既有分派邏輯。
