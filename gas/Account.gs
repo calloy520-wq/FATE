@@ -214,6 +214,7 @@ function actionPurgeOrphans(userData, pcId, sheets) {
   }
   // 3) 逐列保留判定
   var kept = [];
+  var removedIds = [];
   for (var r = 1; r < all.length; r++) {
     var row = all[r];
     var rid = String(row[COL.PC.ID]);
@@ -222,7 +223,7 @@ function actionPurgeOrphans(userData, pcId, sheets) {
     if (rid.indexOf("DEAD_") === 0) keep = false;   // 死列一律清
     else if (!gid) keep = true;                      // 無 game_id：保守保留
     else keep = !!liveGids[gid];                     // 只留活躍戰局
-    if (keep) kept.push(row);
+    if (keep) kept.push(row); else removedIds.push(rid.replace(/^DEAD_/, ""));
   }
   var removed = (all.length - 1) - kept.length;
   if (removed > 0) {
@@ -230,6 +231,9 @@ function actionPurgeOrphans(userData, pcId, sheets) {
     if (kept.length) pc.getRange(2, 1, kept.length, header.length).setValues(kept);
     var tail = dataRows - kept.length;
     if (tail > 0) pc.deleteRows(2 + kept.length, tail);
+    // 🐛→✅ 稽核抓到：這裡原本沒同步清「歷史暫存」——違反History_Sync.gs自己的設計前提(結束局
+    //   要清孤兒pcId的歷史列，否則表無上限成長)，比照purgeGameData_補上。
+    try { purgeHistoryForPcIds_(removedIds); } catch (e) { }
   }
 
   return JSON.stringify({
