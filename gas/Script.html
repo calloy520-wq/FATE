@@ -772,7 +772,9 @@
     story.insertAdjacentHTML('beforeend', `<div class="msg-player"><b>【系統】：</b>御主一行就地休息 ${hours} 小時……</div>`);
     story.scrollTop = story.scrollHeight;
     try {
-      const data = await gasRun({ action: 'rest', pcId: pc.id, restHours: hours, acctName: (pc && pc.account) || currentAccount });
+      // 🐛→✅ 同款缺漏：休息卸防突襲(enemyAmbushOnServant_)雙從者時應優先打玩家當下操作中的那位，
+      //   但這裡從沒送servant/servantId，比照move/相處等其餘動作補上。
+      const data = await gasRun({ action: 'rest', pcId: pc.id, restHours: hours, servant: myActiveServant, servantId: myActiveServantId, acctName: (pc && pc.account) || currentAccount });
       if (data && data.success) {
         if (data.statusString) { localStorage.setItem('kyushu_last_status', data.statusString); updateUI(data.statusString.split('§')); }
         updateClock(data.clock, data.ap, data.apMax);
@@ -954,7 +956,11 @@
 
     try {
       // 呼叫後端移動（retreat=true＝殺出重圍·敵必追擊）
-      const data = await gasRun({ action: "move", pcId: pc.id, target: targetName, stance: getStance(), retreat: !!retreat });
+      // 🐛→✅ 稽核抓到：撤退追擊(actionMove的isRetreat分支)後端本就靠findPlayerServantIdx_(依servant/
+      //   servantId優先配對)挑我方從者應戰，但這裡從沒送這兩個欄位——雙從者時永遠退回「同局第一位」
+      //   從者，可能跟玩家UI上實際切換操作中的第二從者對不上：追擊戰鬥/扣血/戰報卡全部張冠李戴到
+      //   沒在用的那位身上。比照fate_battle/mana_supply等其餘戰鬥相關action補上這兩個欄位。
+      const data = await gasRun({ action: "move", pcId: pc.id, target: targetName, stance: getStance(), retreat: !!retreat, servant: myActiveServant, servantId: myActiveServantId });
       
       if (data.success) {
         // 1. 同步狀態 (UI 與 LocalStorage)

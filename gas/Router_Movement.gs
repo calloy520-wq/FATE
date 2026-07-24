@@ -546,7 +546,9 @@ function actionRest(userData, pcId, sheets) {
     sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
     // 世界已在同一份 pcData 上 tick 完，直接沿用即可判夜襲，不必重讀整表。
     // ⚔️ 卸防突襲：當敵蹤同地時休息＝酣睡門戶大開，最為兇險（mul 1.5）
-    const restAmbush = enemyAmbushOnServant_(sheets, pcData, pIdx, restGameId, 1.5);
+    // 🐛→✅ 稽核抓到：漏帶偏好的 svIdx，雙從者時突襲永遠打「第一位」從者，比照 actionBond 等補上。
+    const restSvIdx = findPlayerServantIdx_(pcData, restGameId, userData.servant, userData.servantId);
+    const restAmbush = enemyAmbushOnServant_(sheets, pcData, pIdx, restGameId, 1.5, restSvIdx);
     // 🌙 從者之夢（回想）：安睡(≥3h)且未遭突襲時，有機會順著聯繫夢見從者生前傳說的片段，加深羈絆
     let restDreamPrompt = "";
     if ((!restAmbush || restAmbush.homeRepel || restAmbush.peaceful) && restHours >= 3) { // 🏰 陣地反擊／🎲 按兵不動·試探接觸＝安睡無虞·仍可做夢
