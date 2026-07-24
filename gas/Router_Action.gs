@@ -278,8 +278,12 @@ function resolveCallerGameId_(pcData, pcId, acctName) {
     const idx = kanshouOwnedRowIdx_(pcData, pcId, String(acctName || "").trim());
     return idx === -1 ? null : String(pcData[idx][COL.PC.GAME_ID] || "");
   }
+  // 🐛→✅ 再稽核抓到：查無此列時原本回傳""(非null)，呼叫端只擋null——導致捏造的pcId能讓下游
+  //   findPcRowIdx_/手寫的myGameId比對因gid為""(falsy)整個跳過game_id過濾，退化成跨全局姓名搜尋
+  //   (get_full_status可讀任意玩家狀態；update_fate/update_rel_tag甚至可跨局竄改)。查無此列一律
+  //   回null強制呼叫端拒絕；「找到列但其GAME_ID欄本身是空字串」(舊資料相容)才維持回傳""。
   const me = pcData.find(r => r[COL.PC.ID] == pcId);
-  return me ? String(me[COL.PC.GAME_ID] || "") : "";
+  return me ? String(me[COL.PC.GAME_ID] || "") : null;
 }
 
 function actionGetFullStatus(userData, pcId, sheets) {

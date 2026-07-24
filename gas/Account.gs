@@ -61,6 +61,15 @@ function purgeGameData_(sheets, gameId, accountName, preData) {
 //   從者/盟友要在慾海重逢，改用「英靈殿直接召喚」(見 actionKanshouSummonHero)。
 function actionEndRun(userData, pcId, sheets) {
   var acctName = String(userData.acctName || "").trim();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var acc = ss.getSheetByName("帳號");
+  var found = acc && acctName ? findAccountRow_(acc, acctName) : null;
+  // 🔒 稽核抓到：原本純用pcId(格式"PC_"+時間戳，可預測)裸find，完全沒驗證acctName是否真的擁有
+  //   這個pcId——等同任何人皆可猜/枚舉pcId替別人結束並清空整局存檔。改比對帳號表COL.ACC.PC實際
+  //   連結的charId，不符直接拒絕。
+  if (!found || String(found.row[COL.ACC.PC] || "") !== String(pcId)) {
+    return JSON.stringify({ success: false, message: "查無御主。" });
+  }
   var pcData = sheets.pc.getDataRange().getValues();
   var pIdx = pcData.findIndex(function (r) { return r[COL.PC.ID] == pcId; });
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主。" });
@@ -153,11 +162,18 @@ function actionAccountNewGame(userData, pcId, sheets) {
     // 否則 gid 查無、下面刪除迴圈找不到列可刪，殘列留在「眾生」表，違背本函式清舊存檔的目的。
     var prow = findPcRowByCharId_(pcData, charId);
     var gid = prow ? String(prow[COL.PC.GAME_ID] || "") : "";
-    // 刪舊單人戰場：同 game_id 的整個世界 ＋ 御主本人(按 charId 或 DEAD_charId，防 game_id 為空的孤兒殘留佔名)。
-    for (var r = pcData.length - 1; r >= 1; r--) {
-      var rgid = String(pcData[r][COL.PC.GAME_ID] || "");
-      var rid = String(pcData[r][COL.PC.ID]);
-      if ((gid && rgid === gid) || rid === charId || rid === "DEAD_" + charId) sheets.pc.deleteRow(r + 1);
+    // 🐛→✅ 稽核抓到：原本自行重寫一份刪除迴圈，沒像 purgeGameData_ 一樣同步清「歷史暫存」表——
+    //   開新局是玩家最常見的棄局路徑，一直沒清會讓歷史表持續累積孤兒列。gid存在時直接共用
+    //   purgeGameData_(含歷史清理)；gid為空(孤兒charId，無對應game_id世界)才維持原本單獨刪列
+    //   + 補一次歷史清理，兩種情況都不再遺漏。
+    if (gid) {
+      purgeGameData_(sheets, gid, null, pcData);
+    } else {
+      for (var r = pcData.length - 1; r >= 1; r--) {
+        var rid = String(pcData[r][COL.PC.ID]);
+        if (rid === charId || rid === "DEAD_" + charId) sheets.pc.deleteRow(r + 1);
+      }
+      try { purgeHistoryForPcIds_([charId]); } catch (e) { }
     }
   }
   acc.getRange(found.idx + 1, COL.ACC.PC + 1).setValue(""); // 解除連結
