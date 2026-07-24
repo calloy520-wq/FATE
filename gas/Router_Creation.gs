@@ -363,8 +363,13 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
     if (String(data[i][COL.HERO.ID]).trim() === newIdCandidate) return; // id層級也擋(短名撞種子id)
   }
   var px = pExtra || {};
+  // 🐛→✅ 稽核抓到：personaWords(AI輔助召喚路徑傳入的是aiBrief.personality原始值，完全沒經過
+  //   parseTraitsHelper或任何清洗)沒有長度上限也沒清HTML斷字字元——這裡是「唯一寫進共用英靈殿的
+  //   入口」，比照上面name的做法補一道，兩條呼叫路徑(工房finalPref/AI輔助召喚aiBrief.personality)
+  //   一次到位，且會被recordOriginalHero_/日後每次重召/每回合提示詞持續回灌，不擋在這裡就無界污染。
+  var personaWordsClean = String(personaWords || "").replace(/[<>&"'`]/g, "").trim().slice(0, 200);
   var persona = JSON.stringify({
-    words: String(personaWords || ""), firstP: String(px.firstP || "") || "我", toMaster: String(px.toMaster || ""),
+    words: personaWordsClean, firstP: String(px.firstP || "") || "我", toMaster: String(px.toMaster || ""),
     look: String(px.look || ""), moe: String(px.moe || ""), speech: String(px.speech || ""), tic: String(px.tic || ""), back: String(px.back || ""),
     // 🔑 creator＝編輯權限綁定(actionSaveHero edit 分支靠 pj.creator===acct 擋非本人)；weapon＝武裝敘述。
     //   兩者 edit 分支都會保留(line 497)、call site 也都有傳，create 當下卻漏寫→creator 恆空=沒人能改自己的角色、
@@ -379,7 +384,7 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
   // translateLookToDaily_ 一次呼叫同時產出四段式 look(外貌本相/氣質舉止/自稱與口氣/私密一面) 與獨立的 outfit(日常穿搭)。
   var dailyLookRes = translateLookToDaily_(name, cls, String(px.look || ""), String(px.firstP || ""), String(px.speech || ""), dailyMoe, sex);
   // 私密一面(dailyLook 第4段)先算好、當 hint 傳給性格生成，避免日常性格跟私密一面又講一次。
-  var dailyWords = translatePersonalityToDaily_(name, cls, String(personaWords || ""), (String(dailyLookRes.look || "").split("、")[3] || ""));
+  var dailyWords = translatePersonalityToDaily_(name, cls, personaWordsClean, (String(dailyLookRes.look || "").split("、")[3] || ""));
   hs.appendRow([name + "-" + cls, cls, name, sex || "異", sixJson || "{}",
     JSON.stringify(classSkills || []), JSON.stringify(skills || []), JSON.stringify(traits || []),
     np || "", persona, align || "中立", "[]", "ai_gen", dailyLookRes.look, dailyWords, dailyMoe, dailyLookRes.outfit]);

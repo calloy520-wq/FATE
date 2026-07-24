@@ -464,6 +464,12 @@ function parseTraitsHelper(data, defaultStr) {
   // 切割並過濾空字串
   let parts = str.split('、').map(s => s.trim()).filter(s => s !== "");
 
+  // 🐛→✅ 稽核抓到：這支函式沒有長度上限也沒清HTML斷字字元(<>&"'`)——反觀同批呼叫的background/
+  //   np/realName等AI生成欄位都有比照套用邊界防呆，唯獨這裡(寫進row[COL.PC.TRAIT]/PREF的主要
+  //   來源)漏了；AI若吐出超長或含特殊字元的一段內容，會無界污染這兩個核心敘事欄位。逐段套用同款
+  //   規則(單段封頂30字，比對外貌/性格短語的自然長度留足空間)。
+  parts = parts.map(s => s.replace(/[<>&"'`]/g, "").slice(0, 30));
+
   // 缺的格數改從 defaultStr 對應分段取值、補不到才退回「無」——避免玩家只打幾個字未達4段時，整句
   // 寫好的 defaultStr(如 actionEnterKanshou 準備的預設句)被晾在一邊，其餘格數變成生硬的「無、無、無」。
   const defParts = String(defaultStr || "").split('、').map(s => s.trim()).filter(s => s !== "");
