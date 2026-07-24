@@ -149,6 +149,20 @@ function handleGameAction(userData) {
   if (isKanshouCtx && KANSHOU_BLOCKED_ACTIONS_[action]) {
     return JSON.stringify({ success: false, message: "慾海是純粹的約會後日談，沒有戰鬥／經濟機制。" });
   }
+  // 🔒 稽核抓到：actionPlay_(Gallery.gs)因AI呼叫數秒~數十秒故意豁免全域鎖，改用CacheService鍵
+  //   kplay_<pcId> 做自己的軟性互斥，只防「同pcId兩次play互撞」；但其餘kanshou setter action
+  //   (kanshou_set_prop/kanshou_add_quick_phrase/update_rel_tag/kanshou_set_name等)完全不理會
+  //   這把鎖，能在play等AI回應期間插隊執行並成功寫入——而play結尾是「整列覆寫」(見actionPlay_
+  //   的dirtyPcRows)，用的是呼叫當下的舊快照，會把這些setter剛寫入的改動悄悄蓋回舊值(玩家已看到
+  //   setter回報成功，稍後卻被吃掉)。讓這些setter偵測到同pcId有play在跑時直接請玩家稍候，避免跟
+  //   play的整列覆寫競速；只對「非play本身、且會實際取ScriptLock寫表」的action套用，純讀取類不受影響。
+  if (isKanshouCtx && action !== 'play' && !LOCK_EXEMPT_ACTIONS_[action]) {
+    try {
+      if (CacheService.getScriptCache().get("kplay_" + String(pcId || ""))) {
+        return JSON.stringify({ success: false, message: "上一步還在處理中，請稍候片刻再試一次。" });
+      }
+    } catch (e) { }
+  }
   // 🔒 寫入互斥：會寫表的動作取 ScriptLock，擋「同鍵重送/連點」重複扣血扣AP。
   //   豁免不取鎖：①純讀取 ②長 AI 敘事(鎖是全域的，被數秒的 AI 呼叫佔住會卡到其他請求)。
   //   搶不到鎖(上一動作尚在結算)→回「稍候」而非疊加重跑。
