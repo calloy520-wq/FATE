@@ -913,16 +913,20 @@ function actionKanshouDeleteCustomProp(userData, pcId, sheets) {
   var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   var custom = kanshouGetCustomProps_(data[meIdx][COL.PC.MEMORY]).filter(function (p) { return p.id !== name; });
-  kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom));
+  data[meIdx][COL.PC.MEMORY] = kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom);
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
+  // 🐛→✅ 稽核抓到：舊版迴圈內逐一 setValue，N位同伴持有此道具就是N+1次Sheets I/O往返——
+  //   改成全程只改記憶體 data，迴圈結束後單次整表寫回(比照 Router_Battle.gs 的
+  //   BATTLE_DEFER_WRITE_ 批次寫回慣例)，不論N多大都只有1次寫入。
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) {
       var existing = kanshouGetProps_(data[i][COL.PC.MEMORY]);
       if (existing.some(function (p) { return p.id === name; })) {
-        kpc.getRange(i + 1, COL.PC.MEMORY + 1).setValue(kanshouToggleProp_(data[i][COL.PC.MEMORY], name, ""));
+        data[i][COL.PC.MEMORY] = kanshouToggleProp_(data[i][COL.PC.MEMORY], name, "");
       }
     }
   }
+  kpc.getRange(1, 1, data.length, data[0].length).setValues(data);
   return JSON.stringify({ success: true, customProps: custom });
 }
 

@@ -963,16 +963,14 @@ function actionIncite(userData, pcId, sheets) {
     var wiAfter = Math.max(1, (parseInt(pcData[wiIdx][COL.PC.HP]) || 0) - wiDmg);
     pcData[loIdx][COL.PC.HP] = loAfter;
     pcData[wiIdx][COL.PC.HP] = wiAfter;
-    sheets.pc.getRange(loIdx + 1, 1, 1, pcData[loIdx].length).setValues([pcData[loIdx]]);
-    sheets.pc.getRange(wiIdx + 1, 1, 1, pcData[wiIdx].length).setValues([pcData[wiIdx]]);
     // 🔥 後續配套：得逞→兩敵結下樑子(【交惡】雙方御主，至 day+3)，之後撞見他們更可能火併/追殺、不會結盟。
     if (mIdxA >= 0 && mIdxB >= 0) {
       var _mAName = String(pcData[mIdxA][COL.PC.NAME]), _mBName = String(pcData[mIdxB][COL.PC.NAME]);
       pcData[mIdxA][COL.PC.MEMORY] = setEnemyFeud_(pcData[mIdxA][COL.PC.MEMORY], _mBName, day + 3);
       pcData[mIdxB][COL.PC.MEMORY] = setEnemyFeud_(pcData[mIdxB][COL.PC.MEMORY], _mAName, day + 3);
-      sheets.pc.getRange(mIdxA + 1, 1, 1, pcData[mIdxA].length).setValues([pcData[mIdxA]]);
-      sheets.pc.getRange(mIdxB + 1, 1, 1, pcData[mIdxB].length).setValues([pcData[mIdxB]]);
     }
+    // 🐛→✅ 稽核抓到：舊版loIdx/wiIdx/mIdxA/mIdxB各自立即setValues(最多4次)，改成全程只改記憶體，
+    //   跟函式尾端bumpBond_(skipWrite)/chargeApOrReject_(skipWrite)一起併入下方單次整表寫回。
     aiPrompt = inciteCardsStr + `【系統·挑撥離間·得逞】你三言兩語點燃了「${svAName}」與「${svBName}」之間的火——兩人當真打了起來，「${loName}」吃了較重的一擊（−${loDmg}），另一方亦掛彩（−${wiDmg}），自此結下樑子。\n` +
       `★以 Fate／TYPE-MOON 筆觸【約 80~140 字】演出你如何煽風點火、兩方如何被激得反目相向；你則在一旁坐收其亂。傷害已由系統結算。`;
     var wiName = cross.atkWins ? svAName : svBName;
@@ -981,8 +979,8 @@ function actionIncite(userData, pcId, sheets) {
       wiName: wiName, wiDmg: wiDmg, wiAfter: wiAfter, wiHpMax: parseInt(pcData[wiIdx][COL.PC.MAX_HP]) || wiAfter };
   } else {
     // 🫶 後續配套：被看穿→兩敵對你更反感，各降 4 好感（你操弄未遂、留下芥蒂）。
-    bumpBond_(sheets, pcData, iA, -4);
-    bumpBond_(sheets, pcData, iB, -4);
+    bumpBond_(sheets, pcData, iA, -4, true);
+    bumpBond_(sheets, pcData, iB, -4, true);
     aiPrompt = inciteCardsStr + `【系統·挑撥離間·被看穿】你試圖挑撥「${svAName}」與「${svBName}」反目，卻被兩人一眼看穿——他們非但沒中計，反而不約而同地轉過頭，戒備地一同盯向你這攪局的外人，對你的好感也淡了幾分。\n` +
       `★以 Fate／TYPE-MOON 筆觸【約 70~120 字】演出這記挑撥落空、兩方合流戒你的尷尬瞬間；語氣別替玩家決定接下來怎麼辦。`;
     report = { incite: true, success: false, aName: svAName, bName: svBName };
@@ -992,7 +990,9 @@ function actionIncite(userData, pcId, sheets) {
   //   兩次Sheets I/O。補skipWrite:true，讓下面這次整列寫回一次到位。
   var _inciteApr = chargeApOrReject_(gameId, 1, pcData, sheets, "行動力不足。", { isFate: true, skipWrite: true });
   var ap = _inciteApr.ap, clock = _inciteApr.clock;
-  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+  // 🐛→✅ 稽核抓到：舊版loIdx/wiIdx/mIdxA/mIdxB各自立即setValues、bumpBond_也各自立即setValue，
+  //   成功分支最多6次Sheets I/O往返——現全程只改記憶體pcData，這裡單次整表寫回一次到位。
+  sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
   STATE_PRE_DATA_ = pcData;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, report: report, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: buildPlayerStatusString(pcData[pIdx]) });
 }

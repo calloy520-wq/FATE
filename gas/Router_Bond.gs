@@ -68,16 +68,22 @@ function actionUseSeal(userData, pcId, sheets) {
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者，令咒無從施加。" });
   const svName = pcData[svIdx][COL.PC.NAME];
 
+  // 🐛→✅ 稽核抓到：舊版每個分支各自 setValues 立即寫回(repair 2次/mana 最多3次/escape 2+N名同行者
+  //   迴圈內各寫一次)，效果先落地、令咒扣減卻在函式最後才發生——任何一次中途失敗都會讓玩家拿到
+  //   效果(回滿血/回滿魔/脫離)卻沒真的扣到令咒。比照 actionFateBattle 既有的 BATTLE_DEFER_WRITE_
+  //   批次寫回引擎(複用、不加特例)：全程只在記憶體改 pcData，函式尾端單次整表寫回，read+write
+  //   各一次，效果與扣令咒同一次寫入落地，也順手解決了迴圈內逐一 Sheets I/O 的GAS速度反模式。
+  BATTLE_DEFER_WRITE_ = true;
   let effectMsg = "";
   let sealManaUnlocked = false, sealManaKill = false; // 見下方 'mana' 分支
   let genderFactSeal = "", activeActFact = ""; // 見下方 'mana' 分支賦值，aiPrompt 組字在函式尾段共用區塊、需跨 if/else-if 存活
   if (type === "repair") {
     pcData[svIdx][COL.PC.HP] = parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 480;
     pcData[svIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基重塑", "姿勢": "昂然而立", "負面": "無", "顏面": "神采奕奕" });
-    sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+    if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
     // 🔋 出力電池制：令咒重塑亦讓御主魔力儲備(唯一供魔源)回滿
     pcData[pIdx][COL.PC.MP] = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || 240;
-    sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+    if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
     effectMsg = `令咒迸發，重塑「${svName}」的靈基——體力回滿、傷勢一掃而空，御主魔力儲備亦充盈如初。`;
   } else if (type === "mana") {
     // 🔋 出力電池制：令咒灌頂回充御主魔力儲備(供魔源)，而非從者(從者無池)
@@ -95,14 +101,14 @@ function actionUseSeal(userData, pcId, sheets) {
     //   避免AI把多個轉折各用一句帶過寫成流水帳。
     activeActFact = `★令咒不會讓「${svName}」一開啟就自動被動地高潮完結——高潮是御主主動愛撫/操控其身體引發的，但被強制拉高的敏感度會讓她/他像被灌下大量媚藥般理智漸漸被本能淹沒，從抗拒的掙扎翻轉成情不自禁地主動索求更多快感(纏抱、催促、主動索吻索撫)，這份由被動翻轉成主動索求的瞬間才是失控的具體反差(不是天生如此、也不是單純被動挨弄)；令咒同時強化了御主的性能力，足以承接住這股瘋狂需索——御主自己的情慾與快感也要有實際鋪陳、貫穿全程可見，不能只在結尾硬塞一句「一起高潮」交代過去。★全篇只選1~2個關鍵轉折深入著墨(例如：從抗拒崩潰成主動索求的瞬間、雙方一起攀頂的瞬間)，寧可少寫幾個轉折但每個都寫得深入綿密，也不要把好幾個轉折都各用一兩句話帶過、寫成流水帳。`;
     pcData[pIdx][COL.PC.MP] = mpMaxSeal;
-    sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+    if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
     // 絕對命令跳過「同意」，好感是否足夠決定這是幸運還是致命：≥MANA_TRUST_BOND_→仍生效但只是
     //   「太浪費了」的調侃，複用既有「過充」機制當額外好處；<MANA_TRUST_BOND_→強制壓下意志，解除
     //   瞬間積怨反噬直接了結御主，複用既有「假夢→老虎道場」死亡流程(buildDreamPrompt_)不另開一套。
     const bondForSeal = parseInt(pcData[svIdx][COL.PC.BOND]) || 0;
     if (bondForSeal >= MANA_TRUST_BOND_) {
       pcData[pIdx][COL.PC.MEMORY] = setOvercharge_(pcData[pIdx][COL.PC.MEMORY], mpMaxSeal); // 複用既有「下一發規格外寶具可無償超載」機制
-      sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+      if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
       sealManaUnlocked = true;
       effectMsg = `令咒化作一道灌頂的魔力洪流，強化了從者的敏感度與御主的性能力（${manaFact}）——其實「${svName}」根本不必勞動令咒也會欣然應允，這道絕對命令用得有些太浪費了；但既已發動，如果什麼都不做就太浪費了（魔力依舊洶湧灌注，下一發規格外寶具可無償超載解放）。`;
     } else {
@@ -114,8 +120,8 @@ function actionUseSeal(userData, pcId, sheets) {
     const newLoc = enemyRetreatLoc_(oldLoc, getWarName_(pcData[pIdx][COL.PC.MEMORY]));
     pcData[pIdx][COL.PC.LOC] = newLoc;
     pcData[svIdx][COL.PC.LOC] = newLoc;
-    sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-    sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
+    if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+    if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
     // 🐛→✅ 玩家實測抓到：破戒奪僕可讓玩家合法擁有兩名同行從者(IS_PARTY==="同行")，舊版緊急脫離只搬
     //   findPlayerServantIdx_ 挑出的「這一個」，第二名同行從者的 LOC 完全沒被觸碰——燃掉全局僅3道的
     //   令咒卻沒真正帶走全隊。比照 actionMove 早就用「所有 IS_PARTY===同行」的迴圈搬人，這裡補上同一套。
@@ -125,24 +131,25 @@ function actionUseSeal(userData, pcId, sheets) {
       if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
       if (String(r[COL.PC.GAME_ID] || "") !== myGameId) return;
       pcData[idx][COL.PC.LOC] = newLoc;
-      sheets.pc.getRange(idx + 1, 1, 1, pcData[idx].length).setValues([pcData[idx]]);
+      if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(idx + 1, 1, 1, pcData[idx].length).setValues([pcData[idx]]);
     });
     effectMsg = `令咒干涉空間，將你與「${svName}」一同從險境中強行抽離，遁往「${newLoc}」。`;
   } else {
+    BATTLE_DEFER_WRITE_ = false; // 提早return前先歸位旗標(此路徑尚未動過pcData，無需寫回)
     return JSON.stringify({ success: false, message: "未知的令咒指令。" });
   }
 
   // 扣令咒（寫回御主 MEMORY），脫離情況御主 LOC 已改、需用最新 row 再寫一次
   seals -= 1;
   pcData[pIdx][COL.PC.MEMORY] = setPlayerSeals_(pcData[pIdx][COL.PC.MEMORY], seals);
-  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+  if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
 
   let aiPrompt, defeat = false, dreamPrompt = "", report = null;
   if (sealManaKill) {
     // 🔥 好感不足時被強逼交心的反噬：這一幕先走DeepSeek的露骨敘述(描寫到令咒解除、從者出手為止)，
     //   死亡本身複用既有「假夢→老虎道場」流程(buildDreamPrompt_)，不新增另一套死亡機制。
     pcData[pIdx][COL.PC.HP] = 0;
-    sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
+    if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
     const wishSeal = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【系統·令咒·強制補魔已裁定】${effectMsg}\n` +
@@ -159,6 +166,8 @@ function actionUseSeal(userData, pcId, sheets) {
         `★以 Fate／TYPE-MOON 筆觸描寫令咒在手背灼亮、絕對命令權貫徹的瞬間（一段即可）。效果已由系統結算。\n` +
         ``;
   }
+  BATTLE_DEFER_WRITE_ = false;
+  sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData); // 單次整表寫回，效果與扣令咒同批落地
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：本函式所有寫入(HP/MP/LOC/MEMORY/raiseBond_)皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, unlocked: sealManaUnlocked || sealManaKill, seals: seals, defeat: defeat, dreamPrompt: dreamPrompt, report: report, statusString: buildPlayerStatusString(pcData[pIdx]) });
 }

@@ -1534,7 +1534,10 @@ function setGodHandLives_(memory, n) { return GOD_HAND_TAG_.set(memory, n); }
 var PLAYER_SEALS_TAG_ = makeIntTag_('令咒', 3);
 function getPlayerSeals_(memory) { return PLAYER_SEALS_TAG_.get(memory); }
 // 寫回令咒餘量（回傳更新後的 MEMORY 字串）
-function setPlayerSeals_(memory, n) { return PLAYER_SEALS_TAG_.set(memory, n); }
+// 🐛→✅ 稽核抓到：makeIntTag_ 泛用 set() 無下限鉗制，且底層【令咒】(\d+) 不支援負號——萬一日後
+//   哪處扣點漏做「先擋門再扣」寫出負值，下次讀取會直接配對失敗、靜默退回 defaultVal=3(令咒憑空
+//   復活，比單純負值更隱蔽)。比照 setOvercharge_ 同款鉗制，斷絕負值出現的可能。
+function setPlayerSeals_(memory, n) { return PLAYER_SEALS_TAG_.set(memory, Math.max(0, Math.round(n))); }
 
 // 🕯️ 令咒耗盡·靈基透支倒數：令咒燒到 0 又無「單獨行動」的敵從者，只能再撐 SEAL_DOOM_HOURS 小時。
 var SEAL_DOOM_HOURS = 3; // 失去令咒穩固、無單獨行動自持的靈基存續上限（遊戲內小時）
