@@ -562,6 +562,21 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
         var strikeBA = resolveFateBattle_(comB, comA, {});
         hpAAfter = Math.max(0, comA.hp - (strikeBA.atkWins ? strikeBA.damage : 0));
       }
+      // 🐛→✅ 稽核抓到：這條「暗處互鬥」是獨立於fateStrike_的一套死亡判定，完全沒檢查god_hand/
+      //   survive/severed——持十二試煉的敵從者(如混沌局赫拉克勒斯)被系統抽中打這場背景暗鬥，會在
+      //   玩家毫不知情下真的被判定永久死亡，God Hand形同虛設。比照fateStrike_同順序補上判定。
+      var severedA = hasFx_(comA, 'rule_breaker') || hasFx_(comA, 'anti_magic_lance');
+      var severedB = hasFx_(comB, 'rule_breaker') || hasFx_(comB, 'anti_magic_lance');
+      if (hpAAfter <= 0 && hasFx_(comA, 'survive') && !hasFx_(comA, 'god_hand') && comA.hp > 1 && !severedA) hpAAfter = 1;
+      if (hpBAfter <= 0 && hasFx_(comB, 'survive') && !hasFx_(comB, 'god_hand') && comB.hp > 1 && !severedB) hpBAfter = 1;
+      if (hpAAfter <= 0 && !severedA && hasFx_(comA, 'god_hand')) {
+        var livesA = getGodHandLives_(data[infoA.idx][COL.PC.MEMORY]);
+        if (livesA > 0) { hpAAfter = Math.max(1, Math.round((parseInt(data[infoA.idx][COL.PC.MAX_HP]) || 300) * 0.2)); data[infoA.idx][COL.PC.MEMORY] = setGodHandLives_(data[infoA.idx][COL.PC.MEMORY], livesA - 1); }
+      }
+      if (hpBAfter <= 0 && !severedB && hasFx_(comB, 'god_hand')) {
+        var livesB = getGodHandLives_(data[infoB.idx][COL.PC.MEMORY]);
+        if (livesB > 0) { hpBAfter = Math.max(1, Math.round((parseInt(data[infoB.idx][COL.PC.MAX_HP]) || 300) * 0.2)); data[infoB.idx][COL.PC.MEMORY] = setGodHandLives_(data[infoB.idx][COL.PC.MEMORY], livesB - 1); }
+      }
       // ⚡ 只改記憶體＋掀 anyHpDirty，交給結尾的 HP 整欄批次寫回落盤(免暗處互鬥每對各兩次逐格 setValue)。
       data[infoA.idx][COL.PC.HP] = hpAAfter; data[infoB.idx][COL.PC.HP] = hpBAfter; anyHpDirty = true;
       var aDied = hpAAfter <= 0, bDied = hpBAfter <= 0;

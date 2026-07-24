@@ -847,7 +847,9 @@ function playerAmbushOnEnemy_(sheets, pcData, pIdx, gameId, targetName) {
   var out = { enemyName: String(pcData[eIdx][COL.PC.NAME]), svName: String(pcData[svIdx][COL.PC.NAME]), dmg: dmg, hit: !!probe.atkWins, destroyed: false, victory: false, dreamPrompt: "", foeCard: '〔趁隙偷襲的目標〕' + servantCard_(pcData[eIdx], { skipClose: true }) };
   var severed = hasFx_(atkC, 'rule_breaker') || hasFx_(atkC, 'anti_magic_lance');
   var eHp = parseInt(pcData[eIdx][COL.PC.HP]) || 0, after = eHp - dmg;
-  if (after <= 0 && hasFx_(defC, 'survive') && eHp > 1 && !severed) after = 1;
+  // 🐛→✅ 稽核抓到：survive跟god_hand結構性互斥(見fateStrike_同款規則)，這裡原本沒排除god_hand——
+  //   同時持有兩者時survive會搶先頂血，god_hand的after<=0判斷永遠進不去，燒命帳目跟主戰鬥路徑對不上。
+  if (after <= 0 && hasFx_(defC, 'survive') && !hasFx_(defC, 'god_hand') && eHp > 1 && !severed) after = 1;
   if (after <= 0 && !severed && hasFx_(defC, 'god_hand')) {
     var lives = getGodHandLives_(pcData[eIdx][COL.PC.MEMORY]);
     if (lives > 0) { after = Math.max(1, Math.round((parseInt(pcData[eIdx][COL.PC.MAX_HP]) || 300) * 0.2)); pcData[eIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[eIdx][COL.PC.MEMORY], lives - 1); out.godRevived = true; }
@@ -1125,7 +1127,9 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul) {
   // 🗡️ 斬斷救贖(severed)：與 fateStrike_ 同一道閘門，確保帶 rule_breaker/anti_magic_lance 的敵從者不會靠突襲繞過戰鬥續行/復活封鎖。
   const severed = hasFx_(enemyC, 'rule_breaker') || hasFx_(enemyC, 'anti_magic_lance');
   let hp = parseInt(pcData[svIdx][COL.PC.HP]) || 0, after = hp - dmg;
-  if (after <= 0 && hasFx_(svC, 'survive') && hp > 1 && !severed) after = 1; // 戰鬥續行(致命傷才硬撐留1·2026-07 修)
+  // 🐛→✅ 稽核抓到：survive跟god_hand結構性互斥(見fateStrike_同款規則)，這裡原本沒排除god_hand——
+  //   同時持有兩者時survive會搶先頂血，god_hand的after<=0判斷永遠進不去，燒命帳目跟主戰鬥路徑對不上。
+  if (after <= 0 && hasFx_(svC, 'survive') && !hasFx_(svC, 'god_hand') && hp > 1 && !severed) after = 1; // 戰鬥續行(致命傷才硬撐留1·2026-07 修)
   if (after <= 0 && !severed && hasFx_(svC, 'god_hand')) {
     const lives = getGodHandLives_(pcData[svIdx][COL.PC.MEMORY]);
     if (lives > 0) { after = Math.max(1, Math.round((parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 300) * 0.2)); pcData[svIdx][COL.PC.MEMORY] = setGodHandLives_(pcData[svIdx][COL.PC.MEMORY], lives - 1); }
