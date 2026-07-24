@@ -3233,12 +3233,28 @@ ${PROMPT_PARTY_SYSTEM}
     var kanshouPhotoResult_ = null;
     if (kanshouPhotoPending_) {
       try {
-        const _phCap = String(aiData.photo_caption || `${timeBand_(curHour)}的${String(curL || "")}，${kanshouPhotoPending_.names.join('、')}的身影。`).replace(/[<>&"'`｜【】]/g, "").slice(0, 90);
+        // 🐛→✅ 稽核抓到：這是AI結構化輸出(非玩家直接輸入)寫進試算表儲存格的自由文字，卻只清了
+        //   HTML斷字/內部標記符號，沒比照sanitizeUserData_(Router_Action.gs)也清控制/零寬/雙向
+        //   控制字元、也沒擋開頭=+-@這類會被Sheets appendRow解讀成公式的引導字元——照樣落地的話，
+        //   之後任何讀這欄位的地方(含未來可能新增的畫面)都會拿到帶零寬/雙向字元的髒字串，儲存格
+        //   本身也可能被解讀成公式而非純文字。跟玩家輸入欄位比照同一套防線。
+        const _phCap = String(aiData.photo_caption || `${timeBand_(curHour)}的${String(curL || "")}，${kanshouPhotoPending_.names.join('、')}的身影。`)
+          .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, "")
+          .replace(/^[=+\-@\t\r]+/, "")
+          .replace(/[<>&"'`｜【】]/g, "").slice(0, 90);
         const _phSubj = kanshouPhotoPending_.scenery ? null : pcData.find(r => String(r[COL.PC.NAME]).trim() === String(kanshouPhotoPending_.names[0]).trim() && String(r[COL.PC.FACTION]) === "從者" && sameGame(r));
         const _phHair = kanshouPhotoPending_.scenery ? '#7a9a6a' : kanshouHairHex_(_phSubj ? String(_phSubj[COL.PC.TRAIT] || "") : ""); // 風景照緞帶固定草綠
         const _phFlag = (driveOn || userData.roomEventAccept) ? '親密' : (kanshouReFest_ ? kanshouReFest_.name : '');
         const _phId = 'PH_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
-        kanshouAlbumSheet_().appendRow([myGameId, _phId, curDay, timeBand_(curHour), String(curL || ""), kanshouWeather_(curDay), kanshouPhotoPending_.names.join('、'), kanshouLocActivity_(curL, (kanshouPhotoPending_.names[0] || ""), curDay), _phCap, _phFlag, _phHair]);
+        // 🐛→✅ 稽核抓到：跟上面敘事用的pActivityStr(2959行)同一份kanshouLocActivity_，卻沒套用
+        //   同款_pCameWithMe防呆——若被拍者是這回合才被玩家帶著同行(moveTarget)的同伴，這裡仍照樣
+        //   算出「她在這打工/當班」這類固定職業描述存進相簿，跟本回合敘事剛講的「她陪你來」矛盾。
+        //   雖然前端目前沒有任何地方讀這個活動欄位(存粹存檔·尚無顯示介面)，但既然要存就該存對，
+        //   比照敘事那份判斷邏輯：本回合才同行者不附活動描述。
+        const _phSubjName0 = kanshouPhotoPending_.names[0] || "";
+        const _phCameWithMe = !!moveTarget && kanshouPreMoveCompanions_.some(cr => String(cr[COL.PC.NAME]).trim() === _phSubjName0.trim());
+        const _phActivity = _phCameWithMe ? "" : kanshouLocActivity_(curL, _phSubjName0, curDay);
+        kanshouAlbumSheet_().appendRow([myGameId, _phId, curDay, timeBand_(curHour), String(curL || ""), kanshouWeather_(curDay), kanshouPhotoPending_.names.join('、'), _phActivity, _phCap, _phFlag, _phHair]);
         kanshouPhotoResult_ = { ok: true };
       } catch (e) { kanshouPhotoResult_ = { ok: false, reason: 'error' }; }
     } else if (kanshouPhotoDenied_) {
