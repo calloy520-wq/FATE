@@ -57,7 +57,7 @@
 | 【側寫計數】 | `【側寫計數】N` | 玩家列 | `kanshouGetSideWriteCount_`/`SetSideWriteCount_`：AI滾動側寫玩家經歷的節流計數(每3回合才補寫一次；2026-07 二度改版後 master_note 只剩經歷一格，性格/萌點改由創角一次擴寫、AI 不再側寫，「【性格鎖】」標記已隨之整組刪除) |
 | 【小道具】 | `【小道具】id1:強度1,id2:強度2,...`（逗號分隔·多件可同時裝備） | 同伴列 | `kanshouGetProps_`/`SetProps_`/`ToggleProp_`：玩家UI裝備/移除/調強度(同伴卡「🎀小道具」按鈕＋故事視窗快速抽屜)，GAS直接寫，非AI判斷。**裝備本身**(含選「關閉/戴著」起手)就卡`KANSHOU_PROP_EQUIP_BOND_`好感門檻，唯獨移除不受限 |
 | 【自訂道具】 | `【自訂道具】name1:hasIntensity1:part1:ignoreBond1:effect1,...`（逗號分隔·`part`/`effect`選填，2026-07補5欄effect·舊3/4欄格式向下相容） | **玩家列** | `kanshouGetCustomProps_`/`SetCustomProps_`：玩家自建道具目錄(跟內建`KANSHOU_PROPS_`合併用`kanshouAllProps_`)，上限`KANSHOU_CUSTOM_PROP_CAP_=10` |
-| 【快速貼圖】 | `【快速貼圖】text1,text2,...`（逗號分隔） | **玩家列** | `kanshouGetQuickPhrases_`/`SetQuickPhrases_`：玩家自訂快速輸入貼圖(2026-07新增)，上限`KANSHOU_QUICK_PHRASE_CAP_=8`句，跟內建8個(害羞/小聲等，純前端寫死)分開存 |
+| 【快速貼圖】 | `【快速貼圖】text1,text2,...`（逗號分隔） | **玩家列** | `kanshouGetQuickPhrases_`/`SetQuickPhrases_`：玩家自訂快速輸入貼圖(2026-07新增)，上限`KANSHOU_QUICK_PHRASE_CAP_=8`句，跟內建4個(害羞/小聲/苦笑/臉紅，2026-07同月再縮減，純前端寫死)分開存 |
 | 【換裝】【口吻】【小動作】 | — | 同伴列 | 鑑賞**讀取**（`getOutfit_`/persona），寫入屬 solo/persona 生態、非鑑賞獨有 |
 
 ---
@@ -314,7 +314,7 @@ SOLO_MODEL   = google/gemini-3.5-flash-lite  (屬性 SOLO_MODEL)   ← 主力(�
 - **泡泡 UI**（`send()` 內依回傳欄位組）：移動同意(`moveProposal`)、敲門(`knockEvent`)、橋段邀請(`roomEventOffer`)、巧遇(`encounterOffer`)、拍照結果(`photoResult`)、地圖人數徽章(`_lastTags.locationCounts`)。
 - **前端鏡像常數**（後端為真實來源）：`KC_REGIONS_`/`KC_FESTIVALS_`/`KC_TIME_BANDS_`/`KC_LOCATIONS_`/`KC_APPT_BANDS_`。時鐘全域 `kcClock`（`Script.html`）。
 - **`Script.html`/`Index.html` 的鑑賞殘留**：`applyModeUI()` 總開關（依 isKanshou 切 topbar/輸入框/drive開關/photo-btn/快速輸入貼圖列/相簿抽屜/節慶抽屜）；同伴卡鑑賞按鈕列(🏷️關係/📅相約/✋放手/🤝牽手/🏠同居/💞回憶)；`enterKanshou()` 入口。⚠ `Index.html` 的 `#victory-memoir` div 是**戰爭軌殘留**：奪杯回憶錄機制已砍，該 div 現只被清空/隱藏、不再填充（非鑑賞，別誤接鑑賞邏輯）。
-- **🎀 快速輸入貼圖**（2026-07 新增，玩家「打符號會不會被砍掉？可以加類似罐頭訊息的貼圖嗎，點下去幫玩家輸入好(不送出)就是塞進對話框」）：查證後**玩家輸入從前端到後端全程沒有任何地方會過濾/剝除文字**(`send()` 直接讀 `input.value`；後端 `const userMsg = userData.message || ""` 原樣轉送)，玩家誤以為被砍掉的是「AI輸出narration不寫括號」——那是 `dialogueFormatRule_` 故意禁止 AI 自己用（輕哼）（嬌喘）這類括號描述聲音，跟玩家打字輸入無關，兩者是不同機制。新增的貼圖列是純前端小功能：`Index.html` 輸入列上方新增 `#kc-quick-phrases`(鑑賞限定，`applyModeUI()` 切 `display:flex`/`none`)，8顆預設短句(害羞/小聲/苦笑/臉紅/嘆氣/撒嬌/沉默/愣住)；`Script_Kanshou.html` 新函式 `kcInsertPhrase(text)` 把文字插入 `#u-in` 游標處並聚焦，**不呼叫 send()**、純粹幫忙打字，玩家仍要自己按傳送。要加減句子只需改 `Index.html` 裡的 `onclick="kcInsertPhrase('...')"` 那幾行，不涉及任何後端/提示詞邏輯。
+- **🎀 快速輸入貼圖**（2026-07 新增，玩家「打符號會不會被砍掉？可以加類似罐頭訊息的貼圖嗎，點下去幫玩家輸入好(不送出)就是塞進對話框」；同月再追加「內建8句想改玩家自訂」＋「內建句數想減少」）：查證後**玩家輸入從前端到後端全程沒有任何地方會過濾/剝除文字**(`send()` 直接讀 `input.value`；後端 `const userMsg = userData.message || ""` 原樣轉送)，玩家誤以為被砍掉的是「AI輸出narration不寫括號」——那是 `dialogueFormatRule_` 故意禁止 AI 自己用（輕哼）（嬌喘）這類括號描述聲音，跟玩家打字輸入無關，兩者是不同機制。現況：`Index.html` 輸入列上方只留空容器 `#kc-quick-phrases`(鑑賞限定，`applyModeUI()` 切 `display:flex`/`none`)，內容改由 `Script_Kanshou.html` 的 `renderKcQuickPhrases_()` 動態渲染——`KC_QUICK_PHRASES_BUILTIN_` 4顆固定內建短句(害羞/小聲/苦笑/臉紅，2026-07再縮減，純前端寫死不可刪)＋玩家自訂 `_kcQuickPhrases`(來自後端`kanshouGetQuickPhrases_`，見上方 MEMORY 表格)＋一顆「⚙️自訂」管理鈕。`kcInsertPhrase(text)` 把文字插入 `#u-in` 游標處並聚焦，**不呼叫 send()**、純粹幫忙打字，玩家仍要自己按傳送。要改內建句子改 `KC_QUICK_PHRASES_BUILTIN_` 陣列即可；玩家自訂走 `kanshou_add_quick_phrase`/`kanshou_delete_quick_phrase` action（上限見 `KANSHOU_QUICK_PHRASE_CAP_`），不涉及任何提示詞邏輯。
 
 ---
 

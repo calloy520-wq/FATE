@@ -614,8 +614,9 @@ function actionKanshouCompanions(userData, pcId, sheets) {
   return JSON.stringify({ success: true, current: current, customProps: kanshouGetCustomProps_(me[COL.PC.MEMORY]), quickPhrases: kanshouGetQuickPhrases_(me[COL.PC.MEMORY]) });
 }
 
-// 🎀 快速輸入貼圖·玩家自訂(2026-07「表情包文字也想自訂」)：8個內建貼圖(害羞/小聲/苦笑等)寫死在
-//   Index.html純前端顯示，這裡只管玩家自己額外新增的——存玩家列MEMORY【快速貼圖】text1,text2,...，
+// 🎀 快速輸入貼圖·玩家自訂(2026-07「表情包文字也想自訂」，同月再縮減內建數量)：4個內建貼圖(害羞/
+//   小聲/苦笑/臉紅)寫死在Script_Kanshou.html(KC_QUICK_PHRASES_BUILTIN_)純前端顯示，這裡只管玩家
+//   自己額外新增的——存玩家列MEMORY【快速貼圖】text1,text2,...，
 //   逗號分隔比照【自訂道具】同款寫法。純文字清單(不像道具需要強度/部位等子欄位)，點下去一樣只是
 //   把文字塞進輸入框游標處(不送出)，玩家自己決定要不要送——後端只負責存/取這份清單。
 const KANSHOU_QUICK_PHRASE_CAP_ = 8;

@@ -43,9 +43,9 @@
     const pos = start + text.length;
     el.setSelectionRange(pos, pos);
   }
-  // 🎀 8個內建快速貼圖(固定不可刪)＋玩家自訂(2026-07「表情包文字也想自訂」新增，存後端
+  // 🎀 4個內建快速貼圖(固定不可刪，2026-07再縮減)＋玩家自訂(2026-07「表情包文字也想自訂」新增，存後端
   //   MEMORY【快速貼圖】，上限KANSHOU_QUICK_PHRASE_CAP_=8句，見Gallery.gs)。
-  var KC_QUICK_PHRASES_BUILTIN_ = ['（害羞）', '（小聲）', '（苦笑）', '（臉紅）', '（嘆氣）', '（撒嬌）', '（沉默）', '（愣住）'];
+  var KC_QUICK_PHRASES_BUILTIN_ = ['（害羞）', '（小聲）', '（苦笑）', '（臉紅）'];
   var KC_QUICK_PHRASE_CAP_ = 8; // 鏡像後端 KANSHOU_QUICK_PHRASE_CAP_(Gallery.gs)，改後端記得同步這裡
   var _kcQuickPhrases = []; // 玩家自訂的部分，enterKanshou()成功時載入
   function renderKcQuickPhrases_() {
@@ -60,7 +60,7 @@
     html += '<button class="kc-qp-btn" onclick="kanshouOpenQuickPhraseManager()" title="新增/管理你自己的快速貼圖" style="opacity:.7;">⚙️自訂</button>';
     box.innerHTML = html;
   }
-  // ⚙️ 管理面板：列出玩家自訂的貼圖(內建8個不可刪、不列在這裡)＋新增輸入框。
+  // ⚙️ 管理面板：列出玩家自訂的貼圖(內建4個不可刪、不列在這裡)＋新增輸入框。
   function kanshouOpenQuickPhraseManager() {
     var ov = ensureOverlay_('kqp-overlay', { zIndex: 10001, onBgClick: function (ov) { if (!_kqpBusy) ov.style.display = 'none'; } });
     var rows = _kcQuickPhrases.map(function (t) {
@@ -72,7 +72,7 @@
     ov.innerHTML = '<div style="width:min(360px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(240,184,224,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#f0b8e0;">🎀 自訂快速貼圖</b>'
       + '<button onclick="document.getElementById(\'kqp-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
-      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:8px;">內建8個(害羞/小聲等)固定不可刪；這裡新增的會排在後面，最多' + KC_QUICK_PHRASE_CAP_ + '句。</div>'
+      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:8px;">內建4個(害羞/小聲等)固定不可刪；這裡新增的會排在後面，最多' + KC_QUICK_PHRASE_CAP_ + '句。</div>'
       + rows
       + '<div style="display:flex;gap:5px;align-items:center;margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);">'
       + '<input id="kqp-new-text" maxlength="12" placeholder="新貼圖文字(≤12字，如：（想你了）)" style="flex:1;min-width:0;padding:5px 6px;background:#2a2430;color:#eee;border:1px solid rgba(240,184,224,.3);border-radius:6px;font-size:12px;">'
