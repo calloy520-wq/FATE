@@ -1385,6 +1385,9 @@
     god_slay: () => '神殺（神性殺し）：斬盡神明與不死者的死之秘法——對具「神性」之敵，最終傷害依其神格放大 ×1.17〜2.0（神格越高越致命）；對凡人無此加成。',
     sense: () => '氣息感知：穿透大地的遠距感知——階級 ≥ 敵方氣息遮斷者，看穿其奇襲，敵開場突襲的命中先機與要害一擊全數失效（貼原作：近距離廢掉同級以下的隱形）。',
     insight: () => '全知全能之星 Sha Naqba Imuru：看穿一切本質的睿智——恆常洞悉破綻（命中 +4），並看破敵方奇襲（階級 ≥ 敵氣息遮斷則突襲失效）。※他嫌麻煩不願全開，僅取中等之效。',
+    // ⚠ 單一真實來源提醒：×0.82／≥100/耗100魔 抄自 Mystic_Code.gs 的 MC_COMBAT_.avalon_saber.npDefMul
+    //   與 Router_Battle.gs 的 idealRealm 判定(GAS常數無法直接餵給client端HTML，只能手動同步複本)——
+    //   showIdealRealm() 也有同一份複本，三處都要一起改。
     avalon_saber: () => '全世界遙遠的理想鄉 Avalon：劍鞘回到正主阿爾托莉雅手中。被動自動——① 常駐鞘之基本減傷（承受寶具傷 ×0.82）＋時回自癒；② 面對【6 階究極寶具】(乖離劍 Ea／恩奇都 Enuma Elish 等·會碾穿一切防禦一發秒人)時，御主魔力 ≥100 則自動展開無敵結界（概念 7 階·凌駕一切）完全擋下那一發（耗 100 魔）。普通寶具不勞結界·靠減傷＋六圍扛。不需開關。',
     double_summon: () => '二重召喚（Double Summon）：橫跨 Caster 與 Assassin 兩職階的稀有適性，正是她能同時鋪設空中庭園結界、又施展神毒暗殺的前提。其效已分呈於陣地作成／道具作成／氣息遮斷諸技，本標籤為傳說門面／無獨立戰鬥數值。'
   };
@@ -1437,6 +1440,8 @@
     showHistoryOverlay(html);
   }
   // 🛡️ 理想鄉·無敵結界（阿爾托莉雅＋Avalon 禮裝專屬·被動自動·純說明）
+  // ⚠ 單一真實來源提醒：×0.82／≥100/耗100魔 同 FX_DESC.avalon_saber 那份複本，源頭見
+  //   Mystic_Code.gs 的 MC_COMBAT_.avalon_saber.npDefMul／Router_Battle.gs 的 idealRealm 判定。
   function showIdealRealm() {
     var html = '<h3 style="margin:0 0 8px; color:#ffd479;">🛡️ 理想鄉 Avalon（全世界遙遠的理想鄉）</h3>'
       + '<div style="color:#cfc3d8; font-size:14px; line-height:1.9;">劍鞘回到正主阿爾托莉雅手中。<b style="color:#ffe6a8;">被動自動·無須開關</b>：<br><br>'

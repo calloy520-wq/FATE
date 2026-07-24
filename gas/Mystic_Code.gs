@@ -34,9 +34,13 @@ var MYSTIC_CODES = {
 var MC_COMBAT_ = {
   mc_blackkey:    { hit: 2, dmgAdd: 0,  npMul: 1.0,  npDefMul: 1.0,  label: '黑鍵·牽制' },
   mc_jewel_minor: { hit: 1, dmgAdd: 10, npMul: 1.0,  npDefMul: 1.0,  label: '魔力儲存寶石' },
+  // ⚠ 單一真實來源提醒(2026-07稽核抓到)：這裡的 npDefMul 0.82 沒有階級縮放(禮裝不像從者技能吃
+  //   rankMul_)，是純手動維護的常數——Script.html 的 FX_DESC.avalon_saber／showIdealRealm() 各自
+  //   手打了一份「×0.82」文字(GAS常數無法直接餵給client端HTML)，日後調整這裡記得同步改那兩處。
   avalon:         { hit: 0, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.82, label: '全世界之鞘' },
-  // Avalon 回到阿爾托莉雅手中時減傷/時回同一般 avalon；理想鄉全擋 6 階究極寶具是 Router_Battle
-  // 的攔截判定(idealRealm，耗 100 魔)，不在此表常駐生效。
+  // Avalon 回到阿爾托莉雅手中時減傷/時回同一般 avalon；理想鄉全擋 6 階究極寶具是 Router_Battle.gs
+  // 的攔截判定(idealRealm，耗 100 魔，見該檔 offenseTier_>=6 分支)，不在此表常駐生效。同上，
+  // Script.html 的「≥100/100 魔」文字也是手動維護的複本，改這裡的門檻/耗魔量記得同步那邊。
   avalon_saber:   { hit: 0, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.82, label: '全世界遙遠的理想鄉' }
 };
 // 取某戰鬥單位身上的禮裝戰鬥效果（找第一個命中 MC_COMBAT_ 的 fx）。回 null＝無。
