@@ -178,7 +178,7 @@ ACC(帳號·4欄): NAME0 PC1(solo御主連結) CREATED2 KPC3(🌹2026-07新增·
 - `enter_kanshou`(`actionEnterKanshou`)：每帳號唯一常駐後日談世界，首次進入才建立`KPC_`御主avatar(帳號表`COL.ACC.KPC`欄結構性連結，`kanshouOwnedRowIdx_`每次操作前驗證所有權)，之後永遠直接接續，不重講開場。
 - `kanshou_summon_hero`(`actionKanshouSummonHero`)：**不需先在solo打贏一場戰爭**，直接從「英靈殿」codex挑一位召喚，`heroToKanshouRow_`建列(`KHV_`前綴)——刻意不帶任何戰鬥資料(SIX/TAGS/MARTIAL留空)，改讀該英靈的「日常」快取欄位(`DAILY_LOOK/DAILY_WORDS/DAILY_MOE/DAILY_OUTFIT`，見§3)組出TRAIT/PREF/INTENT。所有召喚者初始一律 BOND 10、REL_TAG「點頭之交」(舊「房東房客」世界觀給3位房客高初始好感的機制已隨經濟/房東房客一併砍除)，之後依`KANSHOU_REL_TIER_`5階好感自動升級稱謂(點頭之交→普通朋友→熟識的朋友→親近的人→戀人)。召喚無容量上限，只能召喚一次(已存在則拒絕)。
 - **2026-07 §91「駐留制」大改版(取代舊「同行」隊伍系統)**：kanshou 已完全不用`IS_PARTY`欄位——「在場」純看`LOC===當前地點`，按鍵移動不再強拉任何人同步(每個人獨立行動)，只有AI敘事內明講「一起移動」時才會同步當時已在場的人。AI prompt 詳細人物卡(`partyDetailsArr`)按好感排序取前3人，是**prompt 篇幅上限**、不是玩法容量上限——同地點第4人仍然存在、仍可被特定劇情(橋段/欠租/敲門)點名，只是不會出現在那回合的詳細卡。人物清單(`actionKanshouCompanions`/`getKanshouPeopleList_`)一律列出所有已存在角色，無此截斷。
-- **橋段(劇本化場景)骨架 `KANSHOU_SCENE_EVENTS_`**：夜襲／賴床叫醒／肉償三個橋段皆走「GAS判斷可觸發時機→前端顯示按鈕→玩家按下才詢問→GAS依好感roll分支→AI只在該分支內敘事」的offer+accept模式，玩家永遍不會被劇情硬拖走、也不會靠自己打字硬凹出想要的演出。
+- **橋段(劇本化場景)骨架 `KANSHOU_SCENE_EVENTS_`**：夜襲／賴床叫醒兩個橋段(肉償已刪除)皆走「GAS判斷可觸發時機→前端顯示按鈕→玩家按下才詢問→GAS依好感roll分支→AI只在該分支內敘事」的offer+accept模式，玩家永遍不會被劇情硬拖走、也不會靠自己打字硬凹出想要的演出。
 - **平行世界設定(2026-06 玩家定案·核心原則)**：鑑賞世界「從未發生過聖杯戰爭」——角色仍是原本的英靈，但不背負戰爭/創傷造成的沉重反差，`persona.moe/look/words`(戰時版，solo專用)一律要先過daily轉換管線(`translateMoeToDaily_`/`translateLookToDaily_`/`translatePersonalityToDaily_`，AI原創英靈適用；種子英靈由人工手寫`dailyMoe`等4欄)才能進鑑賞，禁止任何戰時原始欄位不經轉換直接餵給鑑賞AI——這條原則歷經多輪稽核抓出的洩漏(`persona.back`身世／`persona.speech`+`tic`口吻小動作)已於2026-07修正，完整清單與逐函式track歸屬見 §12。
 - `actionPlay`(Gallery.gs)是鑑賞唯一的敘事引擎，入口即擋非`KPC_`呼叫；`buildDefaultSystemPrompt`/`nsfwBaseRules`(紅線①)只服務這個函式。
 
