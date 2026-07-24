@@ -16,14 +16,26 @@ function trimRowsByOwner(sheet, pcId, keepCount, idColIndex0Based) {
     }
   }
 }
+// 🔒 稽核抓到：這裡的「讀lastRow→append→trimRowsByOwner(讀全欄→算絕對列號→刪列)」是不折不扣的
+//   read-modify-write，但唯一的兩個呼叫端(actionNarrateOnly/actionPlay_)都刻意豁免全域鎖(見
+//   Router_Action.gs LOCK_EXEMPT_ACTIONS_——AI呼叫耗時數秒，鎖整個request會卡住其他玩家)。
+//   此表solo/鑑賞共用、所有玩家併發寫入，兩個請求交錯時可能：①同pcId併發append互相覆寫剛寫入的列，
+//   ②trimRowsByOwner算出的絕對列號在deleteRows執行前，被另一個pcId併發的trim/deleteRows推移，
+//   刪到已經不屬於自己的列(跨玩家)。這個函式本身在AI回應已經拿到之後才呼叫，只是單純Sheets讀寫、
+//   耗時遠低於秒級——用短暫ScriptLock只包住這個函式本體(非整個action)：搶到鎖＝消除競態；搶不到
+//   (極端併發下)＝退回今天原本的無鎖行為，不會比現狀更差、也不會讓其他玩家等一場數秒的AI呼叫。
 function saveGameHistoryBatch(pcId, entries) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("歷史暫存");
   if (!sheet) return;
   const rowsToAppend = entries.map(entry => [new Date(), pcId, entry.speaker, entry.content]);
-  const lastRow = sheet.getLastRow();
-  sheet.getRange(lastRow + 1, 1, rowsToAppend.length, 4).setValues(rowsToAppend);
-  trimRowsByOwner(sheet, pcId, 40, 1);
+  let _lock = null;
+  try { _lock = LockService.getScriptLock(); if (!_lock.tryLock(4000)) _lock = null; } catch (e) { _lock = null; }
+  try {
+    const lastRow = sheet.getLastRow();
+    sheet.getRange(lastRow + 1, 1, rowsToAppend.length, 4).setValues(rowsToAppend);
+    trimRowsByOwner(sheet, pcId, 40, 1);
+  } finally { if (_lock) { try { _lock.releaseLock(); } catch (e) { } } }
 }
 
 // 🛡️ 儲存型XSS修復：玩家自己打的訊息(message)/鑑賞御主名(pcName)存進「歷史暫存」時未經
@@ -36,6 +48,12 @@ function escapeHtml_(str) {
 }
 // 讀「歷史暫存」最後 1000 列(避免整表掃描)→ 按 pcId 過濾 → 取最後 limit 筆原始 row。
 //   getGameHistory(轉HTML)／getGameHistoryBatchRaw(回傳原始物件)共用同一份讀表邏輯。
+// ⚠ 稽核備註(已知規模限制·非本輪修復範圍)：這 1000 列窗口是「整張共用表」的最後1000列，不是
+//   「這個pcId」的最後1000列——若同時段有夠多其他玩家(solo+鑑賞共用同一張表)瘋狂觸發narrate_only
+//   /play，一個暫時不活躍但仍在進行中的玩家，其本應在40列扣打內的舊列可能被擠出這個窗口，
+//   getGameHistory(讀歷史還原)／getGameHistoryBatchRaw(AI連戲上下文)會靜默回傳截斷/空結果。
+//   purgeHistoryForPcIds_只在局終/刪檔時清表，不解決「進行中對局被別人擠出窗口」這個情境。
+//   目前玩家規模下發生機率低，先記錄在案；真的要根治需要改用per-pcId索引或加大窗口，屬於較大改動。
 function readRecentPlayerRows_(pcId, limit) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("歷史暫存");
   if (!sheet) return [];
