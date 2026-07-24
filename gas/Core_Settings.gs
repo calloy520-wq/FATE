@@ -690,7 +690,7 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, allPcData) {
     const ar = allPcData[a];
     if (myGameId && String(ar[COL.PC.GAME_ID] || "") !== myGameId) continue;
     const af = String(ar[COL.PC.FACTION] || "");
-    if ((af === "敵御主" || af === "敵從者") && !String(ar[COL.PC.ID]).startsWith("DEAD_") && hasArrived_(ar, myDay) && /【盟約至】\d+/.test(String(ar[COL.PC.MEMORY] || ""))) { hasAlly = true; }
+    if ((af === "敵御主" || af === "敵從者") && !String(ar[COL.PC.ID]).startsWith("DEAD_") && hasArrived_(ar, myDay) && isAllied_(ar)) { hasAlly = true; }
   }
 
   for (let i = 1; i < allPcData.length; i++) {
@@ -712,7 +712,7 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, allPcData) {
       // 🤝 結盟中的敵御主/敵從者 → 對前端顯示為「盟友*」，即不再列為可攻擊敵蹤
       let fac = String(r[COL.PC.FACTION] || "");
       const rawFac = fac;
-      const allied = (fac === "敵御主" || fac === "敵從者") && /【盟約至】\d+/.test(String(r[COL.PC.MEMORY] || ""));
+      const allied = (fac === "敵御主" || fac === "敵從者") && isAllied_(r);
       if (allied) fac = (fac === "敵御主") ? "盟友御主" : "盟友從者";
       // 🤝 情報共享：有盟友在世時，揭露敵從者／盟友從者的職階（盟友通報的敵情）
       const isServantKind = (rawFac === "敵從者" || rawFac === "從者");
