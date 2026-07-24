@@ -960,6 +960,9 @@ function actionFateBattle(userData, pcId, sheets) {
       const ridx = livingParty[rk];
       if (String(pcData[ridx][COL.PC.ID]).startsWith("DEAD_")) continue;
       const rc = rowToCombatant_(pcData[ridx]);
+      // 🐛→✅ 稽核抓到：這裡現建的rc沒呼叫injectMysticBuff_(對照上面攻擊迴圈的sC有呼叫)，導致
+      //   Avalon注入阿爾托莉雅的「鞘之恩澤」regen fx永遠讀不到——理想鄉的時回加成完全死碼。補上。
+      injectMysticBuff_(rc, pcData[pIdx][COL.PC.MEMORY]);
       const rrn = hasFx_(rc, 'rune');
       const runeRegen = rrn && rc.runeMode === 'regen';
       const healFx = hasFx_(rc, 'regen');              // 專屬治癒 fx
