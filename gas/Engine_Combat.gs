@@ -15,8 +15,10 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   // OpenRouter 額外採樣旋鈕(非OpenAI標準四件組)：不同底層模型支援程度不一，未設定的呼叫端完全不受影響，
   //   有帶的模型會吃到、不支援的模型OpenRouter會直接忽略(不會報錯)，故用undefined判斷、不給預設值。
   // max_tokens 是能直接省生成時間的旋鈕；鑑賞(kanshou) narration 目標字數較短，上限故比 solo 低。
-  const maxT = config.max_tokens || (config.isNsfwMode ? 1000 : 2000);
-  const retries = config.retries || 5; // 🐛→✅ 玩家反饋審查攔截時想多試幾次，預設3→5次(單顆模型內)
+  // 🐛→✅ 稽核抓到：跟上面temp/topP同一支函式裡卻用||而非!==undefined判斷，會把呼叫端刻意傳的
+  //   0(如「只試一次不重試」)靜默吃成預設值——目前無人這樣傳、屬休眠地雷，比照上面已確立的寫法修正。
+  const maxT = config.max_tokens !== undefined ? config.max_tokens : (config.isNsfwMode ? 1000 : 2000);
+  const retries = config.retries !== undefined ? config.retries : 5; // 🐛→✅ 玩家反饋審查攔截時想多試幾次，預設3→5次(單顆模型內)
   const plainText = !!config.plainText; // 🆕 純散文模式(如奪杯回憶錄)：不強制 json_object、不抽 {…}、原樣回傳內容
   let lastErrorMessage = "";
 
@@ -103,7 +105,10 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   }
   if (apiResult !== null) return apiResult;
 
-  const isBlocked = lastErrorMessage.includes("Triggered_NSFW_Filter") || lastErrorMessage.includes("safety");
+  // 🐛→✅ 稽核抓到：兩處throw前都已把含safety/PROHIBITED_CONTENT字樣的原始錯誤正規化成固定字串
+  //   "Triggered_NSFW_Filter"(見68/74行)，lastErrorMessage不可能還留著原始"safety"字樣——
+  //   .includes("safety")是永遠打不到的死分支，清掉避免誤導後續維護者以為還有第二種判斷路徑。
+  const isBlocked = lastErrorMessage.includes("Triggered_NSFW_Filter");
   // 技術性錯誤訊息只留 Logger 給開發者除錯，玩家一律只看到貼合世界觀的柔性重試提示，避免出戲。
   if (!isBlocked) { try { Logger.log("[callGeminiAPI 連線失敗] " + lastErrorMessage); } catch (e) { } }
   // 🐛→✅ 玩家反饋「結界觸發」這類措辭太出戲(像系統跳出來講話)，改成順著情境走的口吻——
