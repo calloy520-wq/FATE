@@ -344,7 +344,17 @@ function clearAllyMem_(memory) { return ALLY_UNTIL_TAG_.clear(memory); }
 // 🎭 御主性格傾向分類（單一真實來源）：結盟意願 ＋ 敵敵相遇局面 共用。
 //   pragmatic＝肯談的務實/有目的者；loner＝孤狼/瘋狂/看戲者難說動。讀 PREF｜MEMORY｜BACK。
 function masterPersonaLean_(masterRow) {
-  var p = String(masterRow[COL.PC.PREF] || "") + "｜" + String(masterRow[COL.PC.MEMORY] || "") + "｜" + String(masterRow[COL.PC.BACK] || "");
+  // 🐛→✅ 稽核抓到：MEMORY是全部跑分狀態tag的大雜燴，其中【從者】/【御主】(硬連結夥伴真名，
+  //   Seed_Rivals.gs)、【交惡】NAME:day(setEnemyFeud_)等tag會把「第三方真名」原文嵌進MEMORY——
+  //   loner正則裡的單字「狂」只要MEMORY任何角落(哪怕只是夥伴真名裡剛好有這個字)命中就會誤判，
+  //   跟這名御主自己的性格設定毫無關係，卻直接餵進結盟意願/挑撥成功率/示好增幅/夜襲權重等實際
+  //   數值結算。改成只掃PREF/BACK＋MEMORY裡真正屬於語氣類的【口吻】【小動作】【願望】三個tag，
+  //   排除硬連結/狀態類tag的污染。
+  var mem = String(masterRow[COL.PC.MEMORY] || "");
+  var wish = (mem.match(/【願望】([^｜|【\n]*)/) || [])[1] || "";
+  var speech = (mem.match(/【口吻】([^｜|【]*)/) || [])[1] || "";
+  var tic = (mem.match(/【小動作】([^｜|【]*)/) || [])[1] || "";
+  var p = String(masterRow[COL.PC.PREF] || "") + "｜" + wish + "｜" + speech + "｜" + tic + "｜" + String(masterRow[COL.PC.BACK] || "");
   return {
     pragmatic: /務實|冷靜|算計|理性|成長|自卑|好強|悲憤|拯救|守護|溫柔|不擇手段|名門/.test(p),
     loner: /孤高|傲慢|瘋狂|狂|虔誠|扭曲|壓抑|暴君|惡意|看好戲|喜悅|空虛|純粹/.test(p)

@@ -495,7 +495,13 @@ function actionRest(userData, pcId, sheets) {
 
   // 🛏️ FATE 休息：玩家自選時數（1/3/6…），每小時補 2 AP；回血回魔＝時回同一套規則 ×2（休息＝雙倍恢復）。
   if (isFateRest) {
-    const restHours = Math.max(1, Math.min(12, parseInt(userData.restHours) || 6));
+    // 🐛→✅ 稽核抓到：世界自走輪數用 Math.floor(restHours/3)，只對{1,3,6}(前端openRestMenu()唯一
+    //   提供的三個按鈕值)這組設計值正確對齊(1h:0/3h:1/6h:2)；舊版clamp卻放行1~12任意整數，直打API
+    //   傳4/5/7/8/10/11這類非3倍數值時，AP/HP/MP回復跟時鐘照樣吃滿完整restHours，世界模擬輪數卻
+    //   被floor砍掉餘數小時份——同樣的世界風險換到更多回復量與時間推進，形同可鑽的失衡缺口。改成
+    //   白名單收斂到公式實際設計覆蓋的值，不再仰賴前端按鈕巧合對齊。
+    const _restAllowed = [1, 3, 6];
+    const restHours = _restAllowed.includes(parseInt(userData.restHours)) ? parseInt(userData.restHours) : 6;
     const prevHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
     const hpMaxP = parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 0;
     const wasInjured = prevHp < hpMaxP;
