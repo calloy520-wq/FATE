@@ -188,7 +188,7 @@ function getWarMode_(memory) {
   var m = String(memory || "").match(/【模式】(canon|chaos)/);
   return m ? m[1] : "canon";
 }
-// 鋪敵用的「戰爭」字串：混亂→chaos；正史→【戰爭】(4th/5th/fake，預設 5th)
+// 鋪敵用的「戰爭」字串：混亂→chaos；正史→【戰爭】(4th/5th，預設 5th)
 function getWarName_(memory) {
   if (getWarMode_(memory) === "chaos") return "chaos";
   var m = String(memory || "").match(/【戰爭】(4th|5th)/);
