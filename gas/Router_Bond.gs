@@ -471,12 +471,21 @@ function actionBreakAlliance(userData, pcId, sheets) {
   //   時只鎖定該筆(及其硬連結主從)；npcId缺席(舊呼叫/自動重試按鈕沒帶id)才退回原本的loose子字串比對。
   const targetIdx = npcId ? pcData.findIndex(r => String(r[COL.PC.ID]) === npcId && String(r[COL.PC.GAME_ID] || "") === myGameId) : -1;
   const targetName = targetIdx !== -1 ? String(pcData[targetIdx][COL.PC.NAME]) : "";
+  // 🐛→✅ 稽核抓到：上面註解宣稱 npcId 路徑會「鎖定該筆及其硬連結主從」，但從沒真的查過硬連結——
+  //   actionProposeAlliance 結盟時是主從兩側對稱寫入(428行御主／436行從者各自標【盟約至】)，這裡
+  //   撕毀卻只匹配被點的那一筆(及跟它同名的列)，另一側完全沒被 isMatch 命中。玩家點某一張盟友卡
+  //   撕毀後，那一側恢復敵對，另一側(其硬連結主從)卻仍卡在【盟約至】——攻擊被 needBreakAlliance
+  //   擋下(明明剛撕毀)、突襲/挑撥名單仍排除他、還能被 court_enemy 額外撿到好感，直到自然到期
+  //   (breakStaleAlliances_)才會清掉，最長可拖約3天。改成跟建盟同款：查目標的硬連結對象名一併比對。
+  const linkedName = targetIdx !== -1
+    ? (String(pcData[targetIdx][COL.PC.FACTION]) === "敵御主" ? getMasterServant_(pcData[targetIdx][COL.PC.MEMORY]) : getServantMaster_(pcData[targetIdx][COL.PC.MEMORY]))
+    : "";
   let broke = 0, who = "";
   for (let i = 1; i < pcData.length; i++) {
     if (String(pcData[i][COL.PC.GAME_ID] || "") !== myGameId) continue;
     const fac = String(pcData[i][COL.PC.FACTION]);
     if (!(fac === "敵御主" || fac === "敵從者") || !isAllied_(pcData[i])) continue;
-    const isMatch = npcId ? (i === targetIdx || nameLoose_(pcData[i][COL.PC.NAME]) === nameLoose_(targetName))
+    const isMatch = npcId ? (i === targetIdx || nameLoose_(pcData[i][COL.PC.NAME]) === nameLoose_(targetName) || (linkedName && nameLoose_(pcData[i][COL.PC.NAME]) === nameLoose_(linkedName)))
       : (nameLoose_(pcData[i][COL.PC.NAME]).indexOf(nameLoose_(npcName)) !== -1); // 🔧 loose 比對·含中點名字不漏
     if (isMatch) {
       // 🐛→✅ 稽核抓到：結盟期間世界tick跳過死線檢查、不代表死線被取消——若原本掛著【靈基透支】
