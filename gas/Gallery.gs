@@ -833,7 +833,11 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
   //   會相等，撞名檢查形同虛設(玩家真的取名「跳蛋」反而不會被擋)。改比對顯示名稱 p.name。
   if (KANSHOU_PROPS_.some(function (p) { return p.name === name; })) return JSON.stringify({ success: false, message: "這個名字跟內建道具重複了，換一個名字吧。" });
   var custom = kanshouGetCustomProps_(data[meIdx][COL.PC.MEMORY]);
-  var already = custom.some(function (p) { return p.id === name; });
+  var existing = custom.find(function (p) { return p.id === name; });
+  // 🐛→✅ 稽核抓到：跟 actionKanshouCastHypnosis 共用同一份【自訂道具】清單、同名會互相覆寫
+  //   ——同名撞進催眠指令(ignoreBond:true)會靜默解除好感門檻且清空原part/effect。撞名一律拒絕。
+  if (existing && existing.ignoreBond) return JSON.stringify({ success: false, message: "這個名字已經是你設定過的催眠指令，換一個名字吧。" });
+  var already = !!existing;
   if (!already && custom.length >= KANSHOU_CUSTOM_PROP_CAP_) return JSON.stringify({ success: false, message: "自訂道具已達上限(" + KANSHOU_CUSTOM_PROP_CAP_ + "件)，先刪掉一些吧。" });
   custom = custom.filter(function (p) { return p.id !== name; });
   custom.push({ id: name, hasIntensity: hasIntensity, part: part, ignoreBond: ignoreBond, effect: effect });
@@ -874,7 +878,11 @@ function actionKanshouCastHypnosis(userData, pcId, sheets) {
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   if (KANSHOU_PROPS_.some(function (p) { return p.name === text; })) return JSON.stringify({ success: false, message: "這句指令跟內建道具重複了，換個說法吧。" });
   var custom = kanshouGetCustomProps_(data[meIdx][COL.PC.MEMORY]);
-  var already = custom.some(function (p) { return p.id === text; });
+  var existing = custom.find(function (p) { return p.id === text; });
+  // 🐛→✅ 稽核抓到：跟 actionKanshouAddCustomProp 共用同一份【自訂道具】清單、同名會互相覆寫
+  //   ——同名撞進一般道具(ignoreBond:false)會靜默關閉「無視好感」，玩家毫無感知。撞名一律拒絕。
+  if (existing && !existing.ignoreBond) return JSON.stringify({ success: false, message: "這句話跟你已有的一般道具同名，換個說法吧。" });
+  var already = !!existing;
   if (!already && custom.length >= KANSHOU_CUSTOM_PROP_CAP_) return JSON.stringify({ success: false, message: "自訂道具/催眠指令目錄已達上限(" + KANSHOU_CUSTOM_PROP_CAP_ + "件)，先刪掉一些吧。" });
   custom = custom.filter(function (p) { return p.id !== text; });
   custom.push({ id: text, hasIntensity: true, part: '', ignoreBond: true });
