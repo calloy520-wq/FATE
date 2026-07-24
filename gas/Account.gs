@@ -33,7 +33,9 @@ function findPlayerServant_(pcData, gameId) {
 
 // 清理某 game_id 的整局資料（眾生，關係已併入列自身欄位，刪列即刪關係），並解除帳號連結。
 //   preData 可選：呼叫端若已有整表快照可傳入省一次讀取，不傳則自己讀。
-function purgeGameData_(sheets, gameId, accountName, preData) {
+//   accIdx 可選：呼叫端若已查過帳號表拿到列索引(findAccountRow_的結果)可傳入省一次帳號表整表重讀，
+//   不傳則自己用 accountName 查一次(相容舊呼叫)。
+function purgeGameData_(sheets, gameId, accountName, preData, accIdx) {
   if (gameId) {
     var fresh = preData || sheets.pc.getDataRange().getValues();
     // 順手收集要刪的每一列 pcId，一併清掉「歷史暫存」裡屬於這些 pcId 的對話列，避免結束對局的
@@ -51,8 +53,8 @@ function purgeGameData_(sheets, gameId, accountName, preData) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var acc = ss.getSheetByName("帳號");
     if (acc) {
-      var found = findAccountRow_(acc, accountName);
-      if (found) acc.getRange(found.idx + 1, COL.ACC.PC + 1).setValue("");
+      var idx = accIdx != null ? accIdx : (function () { var f = findAccountRow_(acc, accountName); return f ? f.idx : null; })();
+      if (idx != null) acc.getRange(idx + 1, COL.ACC.PC + 1).setValue("");
     }
   }
 }
@@ -78,7 +80,9 @@ function actionEndRun(userData, pcId, sheets) {
   var sv = findPlayerServant_(pcData, gameId);
   var realName = sv ? String(sv.row[COL.PC.NAME] || "從者") : "";
 
-  purgeGameData_(sheets, gameId, acctName, pcData);
+  // 🐛→✅ 稽核抓到：found.idx早就查過了，這裡再傳acctName字串會讓purgeGameData_內部又整表重讀
+  //   一次「帳號」表——直接傳found.idx省掉這次重讀。
+  purgeGameData_(sheets, gameId, acctName, pcData, found.idx);
 
   return JSON.stringify({ success: true, servantName: realName });
 }
@@ -119,7 +123,7 @@ function actionAccountLogin(userData, pcId, sheets) {
       // 尚未召喚從者時 servantAlive 恆 false，不能與「已召喚但已死」共用同一判斷，否則會在
       // 玩家還停留在召喚從者頁時就誤判整局已結束；只有 servantExisted && !servantAlive 才算殘局。
       if (!masterAlive || (servantExisted && !servantAlive)) {
-        try { purgeGameData_(sheets, gid, name, pcData); } catch (e) { }
+        try { purgeGameData_(sheets, gid, name, pcData, found.idx); } catch (e) { }
         return JSON.stringify({ success: true, name: name, hasGame: false, ended: true });
       }
     }
@@ -137,7 +141,7 @@ function actionAccountLogin(userData, pcId, sheets) {
       if (deadRow) {
         var deadGid = String(deadRow[COL.PC.GAME_ID] || "");
         if (deadGid && deadGid.indexOf("g_") === 0) {
-          purgeGameData_(sheets, deadGid, name, pcData);
+          purgeGameData_(sheets, deadGid, name, pcData, found.idx);
         }
       }
     } catch (e) { }

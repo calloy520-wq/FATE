@@ -228,14 +228,17 @@ function actionBond(userData, pcId, sheets) {
   // 升羈絆＋寫回日限標記
   raiseBond_(sheets, myGameId, masterName, svName, act.bond, pcData);
   pcData[pIdx][COL.PC.MEMORY] = setBondUsedToday_(pcData[pIdx][COL.PC.MEMORY], day, type);
-  sheets.pc.getRange(pIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[pIdx][COL.PC.MEMORY]);
   usedToday = getBondUsedToday_(pcData[pIdx][COL.PC.MEMORY], day);
 
   // ⏳ 相處耗 1 AP＝推進 1 小時（2026-07 玩家定案·與令咒/偵查同級：相處也要花時間）
   // 🔧 bondAp 非Fate局故意留 null(不同於其餘呼叫點的 AP_PER_DAY 預設)——鑑賞局本就不耗AP，
   //   維持原本區別，不硬套 chargeApOrReject_ 的通用預設值。
-  const _bondApr = isFate ? chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以從容相處——請『休息』恢復後再來。", { isFate: true }) : { ap: null, clock: "" };
+  // 🐛→✅ 稽核抓到：原本MEMORY單格寫回後，chargeApOrReject_(isFate分支)沒帶skipWrite又對同一
+  //   pIdx列寫一次DAY/HOUR/AP——高頻動作(相處)每次多1次Sheets I/O。改成MEMORY先只改記憶體、
+  //   chargeApOrReject_加skipWrite，下面一次整列寫回涵蓋MEMORY+AP/day/hour。
+  const _bondApr = isFate ? chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以從容相處——請『休息』恢復後再來。", { isFate: true, skipWrite: true }) : { ap: null, clock: "" };
   const bondAp = _bondApr.ap, bondClock = _bondApr.clock;
+  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
 
   // 🐛→✅ 舊版又即時讀一次 Sheets 拿「最新羈絆值」，但 raiseBond_(229行) 早已在同一份 pcData
   //   陣列上原地改過(svIdx 與 raiseBond_ 內部依名字找到的列是同一列，同 game_id 下從者名字唯一)，
@@ -504,10 +507,11 @@ function breakStaleAlliances_(sheets, gameId, preData) {
 }
 
 // 羈絆 +delta（寫在該 NPC 自己列的 BOND 欄；無互動過的盟友起步約 40），回傳新值
-function bumpBond_(sheets, pcData, npcIdx, delta) {
+// skipWrite(選填)：呼叫端隨後必有一次涵蓋 BOND 欄的整列/單欄寫回時傳 true，省掉這裡的單格立即寫入。
+function bumpBond_(sheets, pcData, npcIdx, delta, skipWrite) {
   var v = Math.max(0, Math.min(100, (parseInt(pcData[npcIdx][COL.PC.BOND]) || 40) + delta));
   pcData[npcIdx][COL.PC.BOND] = v;
-  sheets.pc.getRange(npcIdx + 1, COL.PC.BOND + 1).setValue(v);
+  if (!skipWrite) sheets.pc.getRange(npcIdx + 1, COL.PC.BOND + 1).setValue(v);
   return v;
 }
 
@@ -639,7 +643,9 @@ function actionCourtEnemy(userData, pcId, sheets) {
   let delta = 6 + (lean.pragmatic ? 4 : 0) - (lean.loner ? 3 : 0);
   delta = Math.max(2, delta + Math.floor(Math.random() * 3));
   const before = parseInt(pcData[tIdx][COL.PC.BOND]) || 40;
-  const after = bumpBond_(sheets, pcData, tIdx, delta); // 內含 0-100 夾值＋寫回 BOND 格
+  // 🐛→✅ 稽核抓到：bumpBond_預設會立即單格寫回tIdx列的BOND，但657-658行緊接著又對同一列做
+  //   整列寫回(示好日標記)——同列2次Sheets I/O。改skipWrite:true，交給下面那次整列寫回一併涵蓋。
+  const after = bumpBond_(sheets, pcData, tIdx, delta, true); // 內含 0-100 夾值＋寫回 BOND 格(記憶體)
   // 🤝 好感是「這一整組(御主＋從者)對你的態度」：連坐硬連結的另一半一起升，讓結盟(讀御主列)與偷襲/挑撥/撤離
   //   不被追(讀從者列)的回饋都吃得到——玩家不必猜該對御主還是從者示好。
   var _partnerName = targetIsMaster ? getMasterServant_(pcData[tIdx][COL.PC.MEMORY]) : getServantMaster_(pcData[tIdx][COL.PC.MEMORY]);
@@ -715,11 +721,13 @@ function actionRuleBreakSteal(userData, pcId, sheets) {
     .replace(/｜?【靈基透支】\d+/g, "")
     .replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
   pcData[nIdx][COL.PC.MEMORY] = _stMem + "｜【破戒奪取】契約已轉予新御主。";
+  // 🐛→✅ 稽核抓到：原本先整列寫回nIdx列(帶著raiseBond_調整前的舊BOND)、raiseBond_才又對同一列
+  //   單格寫BOND——同列2次Sheets I/O。改成raiseBond_(skipWrite)先只改記憶體，下面整列寫回一次到位。
+  try { raiseBond_(sheets, myGameId, pcData[pIdx][COL.PC.NAME], stolenName, 10, pcData, true); } catch (e) { }
   sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
   seals -= 1;
   pcData[pIdx][COL.PC.MEMORY] = setPlayerSeals_(pcData[pIdx][COL.PC.MEMORY], seals);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-  try { raiseBond_(sheets, myGameId, pcData[pIdx][COL.PC.NAME], stolenName, 10, pcData); } catch (e) { }
 
   const aiPrompt = masterCard_(pcData[pIdx]) + stolenCardForAi +
     `【系統·破戒奪僕·已裁定】御主以破戒全咒（七彩短劍）斬斷「${stolenName}」與原御主的契約、強行重締為己用——「${stolenName}」自此成為你的第二從者（燃一道令咒，餘 ${seals} 道）。\n` +

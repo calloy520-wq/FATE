@@ -9,7 +9,8 @@
 // 提升御主×從者羈絆（關係表好感）
 // preData：呼叫端已讀好的整表陣列可直接傳入原地改+寫格，省一次整表重讀；未給則自己整表讀一次。
 // gameId 一律由呼叫端直接傳入，不用 pcName 反查局——自訂御主名允許跨局撞名，反查會綁錯局、寫錯資料。
-function raiseBond_(sheets, gameId, pcName, svName, delta, preData) {
+// skipWrite(選填)：呼叫端隨後必有一次涵蓋 BOND 欄的整列寫回時傳true，省掉這裡的單格立即寫入。
+function raiseBond_(sheets, gameId, pcName, svName, delta, preData, skipWrite) {
   try {
     const pd = preData || sheets.pc.getDataRange().getValues();
     const gid = String(gameId || "");
@@ -19,7 +20,7 @@ function raiseBond_(sheets, gameId, pcName, svName, delta, preData) {
     if (nIdx === -1) return;
     const v = Math.max(0, Math.min(100, (parseInt(pd[nIdx][COL.PC.BOND]) || 0) + delta)); // 地板 0：負 delta(交手削好感)不破底
     pd[nIdx][COL.PC.BOND] = v; // 原地回填(preData 模式下呼叫端陣列即權威；自讀模式下無副作用)
-    sheets.pc.getRange(nIdx + 1, COL.PC.BOND + 1).setValue(v);
+    if (!skipWrite) sheets.pc.getRange(nIdx + 1, COL.PC.BOND + 1).setValue(v);
   } catch (e) { }
 }
 
