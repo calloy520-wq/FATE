@@ -840,11 +840,29 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
   if (existing && existing.ignoreBond) return JSON.stringify({ success: false, message: "這個名字已經是你設定過的催眠指令，換一個名字吧。" });
   var already = !!existing;
   if (!already && custom.length >= KANSHOU_CUSTOM_PROP_CAP_) return JSON.stringify({ success: false, message: "自訂道具已達上限(" + KANSHOU_CUSTOM_PROP_CAP_ + "件)，先刪掉一些吧。" });
+  // 🐛→✅ 稽核抓到：hasIntensity存在玩家帳號共用的道具「定義」，但每位同伴身上的裝備「強度」各自
+  //   獨立存放於自己MEMORY——若這裡改動的hasIntensity跟舊定義不同(如true→false再改回true，中途
+  //   目標各換過別的同伴)，只有「當次目標」的強度值被同步歸零，其餘早已裝備同名道具、卻沒被這次
+  //   指令碰到的同伴，其舊強度字串會原封不動留在MEMORY裡——一旦hasIntensity日後又變回符合它的值，
+  //   會在玩家毫不知情、沒下過任何指令的情況下對那些同伴「復活」成舊強度。hasIntensity真的改變時，
+  //   同game_id下所有裝備此propId的同伴一併正規化強度值(比照刪除路徑的批次寫回慣例)。
+  var intensityChanged = already && existing.hasIntensity !== hasIntensity;
   custom = custom.filter(function (p) { return p.id !== name; });
   custom.push({ id: name, hasIntensity: hasIntensity, part: part, ignoreBond: ignoreBond, effect: effect });
   var newPlayerMemory = kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom);
   kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newPlayerMemory);
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
+  if (intensityChanged) {
+    var _normLevel = hasIntensity ? KANSHOU_PROP_LEVELS_[0] : "戴著";
+    for (var _si = 1; _si < data.length; _si++) {
+      if (String(data[_si][COL.PC.GAME_ID] || "") !== gid || String(data[_si][COL.PC.FACTION]) !== "從者" || String(data[_si][COL.PC.ID]).startsWith("DEAD_")) continue;
+      var _sExisting = kanshouGetProps_(data[_si][COL.PC.MEMORY]);
+      if (_sExisting.some(function (p) { return p.id === name; })) {
+        data[_si][COL.PC.MEMORY] = kanshouToggleProp_(data[_si][COL.PC.MEMORY], name, _normLevel);
+        kpc.getRange(_si + 1, COL.PC.MEMORY + 1).setValue(data[_si][COL.PC.MEMORY]);
+      }
+    }
+  }
   // 🐛→✅ 2026-07 再稽核：同上，補loc要求目標同伴此刻在場才能立即裝備(目錄新增本身不受此限)。
   var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", loc: String(data[meIdx][COL.PC.LOC] || ""), nameCandidates: kanshouNameCandidates_ });
   if (tIdx < 0) return JSON.stringify({ success: true, props: [], customProps: custom, message: "已新增到你的道具目錄，但找不到這位同伴可裝備。" });

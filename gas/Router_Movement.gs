@@ -832,10 +832,14 @@ function clearEncounterWindow_(memory) {
 
 // 🥷 趁隙偷襲：撞見敵人分心（殺紅眼/對峙/談判/剛結盟）時，我方從者搶一記奇襲。複用 resolveFateBattle_ 的 ambush 先機，
 //   鏡射 enemyAmbushOnServant_ 反向版：命中才傷、奇襲加乘、處理敵死亡(DEAD_/無牙御主/勝利)。回 out 物件（err＝不合法）。
-function playerAmbushOnEnemy_(sheets, pcData, pIdx, gameId, targetName) {
+// 🐛→✅ 稽核抓到：舊版用裸findIndex永遠挑表列第一個在世從者出擊，跟fate_battle/bond/use_seal等
+//   十餘處呼叫端同樣讀userData.servant/servantId、透過findPlayerServantIdx_尊重玩家UI切換的「出戰
+//   從者」形成不一致——雙從者玩家切到後奪來的第二從者，這裡仍會派原從者出手，UI操作形同無效。
+//   補上wantSv/wantSvId兩參數，改用單一真實來源findPlayerServantIdx_。
+function playerAmbushOnEnemy_(sheets, pcData, pIdx, gameId, targetName, wantSv, wantSvId) {
   var myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
   var day = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
-  var svIdx = pcData.findIndex(function (r) { return String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_"); });
+  var svIdx = findPlayerServantIdx_(pcData, gameId, wantSv, wantSvId);
   if (svIdx === -1) return { err: "你沒有可出擊的從者。" };
   var want = nameLoose_(targetName);
   var eIdx = pcData.findIndex(function (r) {
@@ -901,7 +905,7 @@ function actionFactionAmbush(userData, pcId, sheets) {
   if (!win || win.loc !== String(pcData[pIdx][COL.PC.LOC]).trim() || !encounterChoices_(win.type).ambush)
     return JSON.stringify({ success: false, message: "眼下已沒有可趁的空隙了。" });
   if (getAp_(gameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不足以搶這一手。" });
-  var res = playerAmbushOnEnemy_(sheets, pcData, pIdx, gameId, String(userData.targetName || ""));
+  var res = playerAmbushOnEnemy_(sheets, pcData, pIdx, gameId, String(userData.targetName || ""), userData.servant, userData.servantId);
   if (res.err) return JSON.stringify({ success: false, message: res.err });
   pcData[pIdx][COL.PC.MEMORY] = clearEncounterWindow_(pcData[pIdx][COL.PC.MEMORY]); // 用掉即清窗口
   // 🐛→✅ 稽核抓到：chargeApOrReject_原本沒skipWrite，內部窄寫(AP/day/hour)後緊接著下一行又整列
@@ -912,7 +916,7 @@ function actionFactionAmbush(userData, pcId, sheets) {
   // 🐛→✅ 舊版命中就無條件講「重創」，GAS 明明算出 eHpMax 卻沒換算實際傷勢比例——比照其餘兩處撤退/夜襲同款修法。
   var _ambSev = dmgSeverityWord_(res.dmg || 0, res.eHpMax);
   var hitTxt = res.hit ? `一擊得手，「${res.enemyName}」${_ambSev}（−${res.dmg}）` : `倉促搶攻只擦過「${res.enemyName}」（−${res.dmg}）`;
-  var _mySvIdx = findPlayerServantIdx_(pcData, gameId, "");
+  var _mySvIdx = findPlayerServantIdx_(pcData, gameId, userData.servant, userData.servantId);
   var aiPrompt = servantCard_(pcData[_mySvIdx !== -1 ? _mySvIdx : pIdx], { skipClose: true }) + res.foeCard + performanceNote_([res.svName, res.enemyName]) +
     `【系統·趁隙偷襲·已裁定】趁「${res.enemyName}」分心之際，你的從者搶先發難——${hitTxt}${res.destroyed ? '，將其當場擊破！' : '，對方旋即警覺、不再有隙可趁。'}\n` +
     `★以 Fate／TYPE-MOON 筆觸【約 80~140 字】演出這記趁隙奇襲：把握、突發、對方由鬆懈轉為戒備的瞬間；依雙方性格演，別自行加碼改寫勝負（傷害已由系統結算）。`;
