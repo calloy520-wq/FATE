@@ -2909,7 +2909,7 @@
     if (backBtn) { backBtn.disabled = true; backBtn.style.opacity = '0.4'; backBtn.style.cursor = 'not-allowed'; }
     try {
       const promptText = mode === 'victory' ? buildTigerDojoVictoryPrompt_(servantName) : buildTigerDojoPrompt_(servantName, causeCtx);
-      const res = await gasRun({ action: 'narrate_only', pcId: pc.id, promptText: promptText, isNsfw: false });
+      const res = await gasRun({ action: 'narrate_only', pcId: pc.id, promptText: promptText, isNsfw: false, acctName: (pc && pc.account) || currentAccount });
       if (res && res.success && res.text && body) {
         var t = String(res.text).replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\n{2,}/g, '<br><br>').replace(/\n/g, '<br>');
         var tailNote = mode === 'victory' ? '（可隨時前往鑑賞，從英靈殿召喚同伴共度和平時光。）' : '（敗北的存檔已封存於戰史，可重啟新的一局。）';
@@ -3097,7 +3097,7 @@ function applyModeUI() {
     try {
       // 🧹 isNsfw 旗標已拔——actionNarrateOnly 純看 pcId 路由(KPC_=NSFW)，前端傳了也被無視。
       // 🔥 opts.deepseek：唯一會傳true的呼叫端是manaSupply()/useSeal()的高好感解鎖分支(res.unlocked)，其餘呼叫不傳。
-      const res = await gasRun({ action: "narrate_only", pcId: pc.id, promptText: promptText, deepseek: !!(opts && opts.deepseek) });
+      const res = await gasRun({ action: "narrate_only", pcId: pc.id, promptText: promptText, deepseek: !!(opts && opts.deepseek), acctName: (pc && pc.account) || currentAccount });
       document.getElementById(loadId)?.remove();
 
       if (res.success && res.text) {

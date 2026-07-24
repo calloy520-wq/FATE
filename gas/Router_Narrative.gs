@@ -145,6 +145,18 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
 }
 
 function actionNarrateOnly(userData, pcId, sheets) {
+  // 🔒 稽核抓到：跟actionBackfillMasterAi同一類漏洞——完全沒驗證acctName是否真的擁有這個pcId。
+  //   此action豁免全域鎖(LOCK_EXEMPT_ACTIONS_)、不耗AP，攻擊者只要猜/枚舉pcId(可預測的"PC_"+
+  //   時間戳)，就能讀出受害者當前HP/MP狀態，還能用自己控制的promptText觸發AI生成、寫進受害者
+  //   的「歷史暫存」表(saveGameHistoryBatch每pcId只留最新40列，連呼叫約20次就能把對方真實遊戲
+  //   歷程整段擠出、換成偽造敘事，汙染存檔且盜用AI額度)。比照actionEndRun/actionBackfillMasterAi
+  //   同款補上帳號歸屬驗證。
+  const acctName = String(userData.acctName || "").trim();
+  const accSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("帳號");
+  const foundAcc = accSheet && acctName ? findAccountRow_(accSheet, acctName) : null;
+  if (!foundAcc || String(foundAcc.row[COL.ACC.PC] || "") !== String(pcId)) {
+    return JSON.stringify({ success: false, message: "查無御主" });
+  }
   const { promptText } = userData;
   // 不信任前端 userData.isNsfw(共用 checkbox、鑑賞離場不重置的風險)，改純看 pcId 路由判斷。
   const isNsfw = String(pcId || "").indexOf("KPC_") === 0;
