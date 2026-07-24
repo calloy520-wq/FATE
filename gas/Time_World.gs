@@ -565,15 +565,21 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
       // 🐛→✅ 稽核抓到：這條「暗處互鬥」是獨立於fateStrike_的一套死亡判定，完全沒檢查god_hand/
       //   survive/severed——持十二試煉的敵從者(如混沌局赫拉克勒斯)被系統抽中打這場背景暗鬥，會在
       //   玩家毫不知情下真的被判定永久死亡，God Hand形同虛設。比照fateStrike_同順序補上判定。
-      var severedA = hasFx_(comA, 'rule_breaker') || hasFx_(comA, 'anti_magic_lance');
-      var severedB = hasFx_(comB, 'rule_breaker') || hasFx_(comB, 'anti_magic_lance');
-      if (hpAAfter <= 0 && hasFx_(comA, 'survive') && !hasFx_(comA, 'god_hand') && comA.hp > 1 && !severedA) hpAAfter = 1;
-      if (hpBAfter <= 0 && hasFx_(comB, 'survive') && !hasFx_(comB, 'god_hand') && comB.hp > 1 && !severedB) hpBAfter = 1;
-      if (hpAAfter <= 0 && !severedA && hasFx_(comA, 'god_hand')) {
+      // 🐛→✅ 稽核抓到：severedA/severedB 原本各自讀「該方自己」的rule_breaker/anti_magic_lance拿去
+      //   擋「該方自己」的復活判定——跟fateStrike_(Router_Battle.gs)/夜襲路徑(Router_Movement.gs)
+      //   的既有慣例相反：severed 該由「攻擊者」的fx決定、用來擋「被攻擊那一方」的復活。這裡是A/B
+      //   互擊兩段式(strikeAB：A打B；strikeBA：B打A)，故擋B復活的severed要看A的fx、擋A復活的
+      //   severed要看B的fx——原本兩者對調，導致真正持rule_breaker/anti_magic_lance的一方打死
+      //   god_hand/survive持有者時，這條暗處互鬥路徑完全沒擋下復活(判定的是被打者自己沒有的fx)。
+      var severedByA = hasFx_(comA, 'rule_breaker') || hasFx_(comA, 'anti_magic_lance'); // A是strikeAB攻擊方→擋B復活
+      var severedByB = hasFx_(comB, 'rule_breaker') || hasFx_(comB, 'anti_magic_lance'); // B是strikeBA攻擊方→擋A復活
+      if (hpAAfter <= 0 && hasFx_(comA, 'survive') && !hasFx_(comA, 'god_hand') && comA.hp > 1 && !severedByB) hpAAfter = 1;
+      if (hpBAfter <= 0 && hasFx_(comB, 'survive') && !hasFx_(comB, 'god_hand') && comB.hp > 1 && !severedByA) hpBAfter = 1;
+      if (hpAAfter <= 0 && !severedByB && hasFx_(comA, 'god_hand')) {
         var livesA = getGodHandLives_(data[infoA.idx][COL.PC.MEMORY]);
         if (livesA > 0) { hpAAfter = Math.max(1, Math.round((parseInt(data[infoA.idx][COL.PC.MAX_HP]) || 300) * 0.2)); data[infoA.idx][COL.PC.MEMORY] = setGodHandLives_(data[infoA.idx][COL.PC.MEMORY], livesA - 1); }
       }
-      if (hpBAfter <= 0 && !severedB && hasFx_(comB, 'god_hand')) {
+      if (hpBAfter <= 0 && !severedByA && hasFx_(comB, 'god_hand')) {
         var livesB = getGodHandLives_(data[infoB.idx][COL.PC.MEMORY]);
         if (livesB > 0) { hpBAfter = Math.max(1, Math.round((parseInt(data[infoB.idx][COL.PC.MAX_HP]) || 300) * 0.2)); data[infoB.idx][COL.PC.MEMORY] = setGodHandLives_(data[infoB.idx][COL.PC.MEMORY], livesB - 1); }
       }
