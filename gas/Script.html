@@ -758,7 +758,7 @@
       const res = await gasRun({ action: 'second_wind', pcId: pc.id });
       if (res && res.success) { updateClock(res.clock, res.ap, res.apMax); syncData(true); await narrate(res.aiPrompt); }
       else if (!resolveBlockCard_(res)) { alert((res && res.message) || '無法強撐。'); } // 🩸 血太虛(needRest+noSecondWind)→跳「只剩休息」卡
-    } catch (e) { alert('連線失敗。'); } finally { endAction(); }
+    } catch (e) { alert('連線失敗。'); try { syncData(true); } catch (e2) {} } finally { endAction(); }
   }
 
   // 🛏️ 休息 N 小時：補 2×N AP、回血回魔（按時數比例）、世界自走
@@ -786,7 +786,7 @@
         if (data.defeat) { await handleDefeat(data); }
         else if (data.victory) { await handleVictory(data); } // 🕯️ 休息推進時間→令咒透支倒數到期、清掉最後敵人→奪杯
       } else { alert((data && data.message) || '休息失敗。'); }
-    } catch (e) { alert('連線失敗，休息未果。'); } finally { endAction(); }
+    } catch (e) { alert('連線失敗，休息未果。'); try { syncData(true); } catch (e2) {} } finally { endAction(); }
   }
 
   // 🔍 偵查：耗 1 AP，揭露附近藏匿的敵人到地圖
@@ -806,7 +806,7 @@
         if (data.ambushPrompt || data.aiPrompt) await narrate(data.ambushPrompt || data.aiPrompt);
         if (data.defeat) { await handleDefeat(data); }
       } else { alert((data && data.message) || '偵查失敗。'); }
-    } catch (e) { alert('連線失敗，偵查未果。'); } finally { endAction(); }
+    } catch (e) { alert('連線失敗，偵查未果。'); try { syncData(true); } catch (e2) {} } finally { endAction(); }
   }
 
   // 🍱 整備·進食（戰前 buff）：耗 1 AP，接下來數小時內從者出擊命中 +2。solo 無道具欄，食物由整備抽象供給。
@@ -824,7 +824,7 @@
         syncData(true);
         if (data.aiPrompt) await narrate(data.aiPrompt);
       } else { alert((data && data.message) || '整備失敗。'); }
-    } catch (e) { alert('連線失敗，整備未果。'); } finally { endAction(); }
+    } catch (e) { alert('連線失敗，整備未果。'); try { syncData(true); } catch (e2) {} } finally { endAction(); }
   }
 
   // 🐙 戰前召喚·深淵海怪（變身態）：翻開螺湮城教本，付寶具魔力＋1AP 召出海怪——無期限、魔力供養制（每小時抽魔）。
@@ -840,7 +840,7 @@
         syncData(true);
         if (res.aiPrompt) await narrate(res.aiPrompt); // 🎬 演出巨獸自書頁湧現
       } else { alert((res && res.message) || '召喚失敗。'); }
-    } catch (e) { alert('連線失敗，召喚未果。'); } finally { endAction(); }
+    } catch (e) { alert('連線失敗，召喚未果。'); try { syncData(true); } catch (e2) {} } finally { endAction(); }
   }
   // 🌊 解除召喚·深淵海怪：免費即時送回深淵，止住每小時維持費（重召須再付全額寶具魔力）。
   async function dismissHorror() {
@@ -855,7 +855,7 @@
         syncData(true);
         if (res.aiPrompt) await narrate(res.aiPrompt); // 🌊 海怪退場短演出
       } else { alert((res && res.message) || '解除失敗。'); }
-    } catch (e) { alert('連線失敗。'); } finally { endAction(); }
+    } catch (e) { alert('連線失敗。'); try { syncData(true); } catch (e2) {} } finally { endAction(); }
   }
 
   // 🏕️ 設置陣地（工房）：提升駐留此地的供魔收入
@@ -870,7 +870,7 @@
         syncData(true); // applyClientState 已含 renderMapPane()，免重複
         if (res.aiPrompt) await narrate(res.aiPrompt); // 🎬 演出布設陣地的勞作
       } else { alert((res && res.message) || '設置陣地失敗。'); }
-    } catch (e) { alert('連線失敗。'); } finally { endAction(); }
+    } catch (e) { alert('連線失敗。'); try { syncData(true); } catch (e2) {} } finally { endAction(); }
   }
   // 🔍 搜索物資：回復御主魔力，偶有所獲或察覺敵蹤
   async function scavenge() {
@@ -886,7 +886,7 @@
         if (res.aiPrompt) await narrate(res.aiPrompt);
         if (res.defeat) { await handleDefeat(res); }
       } else { alert((res && res.message) || '搜索失敗。'); }
-    } catch (e) { alert('連線失敗。'); } finally { endAction(); }
+    } catch (e) { alert('連線失敗。'); try { syncData(true); } catch (e2) {} } finally { endAction(); }
   }
 
   // 🏃 撤退突圍：列出鄰近可退往的地點，選一個殺出重圍（travelTo 帶 retreat=true·敵必追擊）。
@@ -1049,8 +1049,14 @@
         alert("連線阻礙：" + data.message);
       }
     } catch(e) {
+        // 🐛→✅ 稽核抓到：move 是全遊戲最高頻的動作，逾時/中斷時原本連 alert 都沒有(只有
+        //   console.error，玩家看不到)，也沒有 syncData(true) 校正——gasRun 的90秒逾時本就是
+        //   為了接住「GAS 撞執行上限卻沒乾淨拋例外」這種後端可能已寫入成功的情境，此時畫面
+        //   卡在移動前的舊地點/舊狀態，玩家不知道到底有沒有走成，可能重複點擊移動或戰鬥動作。
         console.error("移動時發生錯誤:", e);
+        alert("連線失敗，移動未果——請確認目前位置後再試一次。");
         if (optContainer) optContainer.innerHTML = '';
+        try { syncData(true); } catch (e2) {}
     } finally { endAction(); }
   }
 
@@ -2345,7 +2351,7 @@
         if (res && res.needMana) window._lastNpTry = { npcName: npcName, npChoice: (typeof npChoiceArg === 'number' ? npChoiceArg : undefined) }; // ❖ 供「燃令咒·強開寶具」重打同一發
         if (!resolveBlockCard_(res)) alert((res && res.message) || '出擊失敗。'); try { syncData(true); } catch (e) {}
       }
-    } catch (e) { alert('連線失敗，出擊未果。'); } finally { endAction(); }
+    } catch (e) { alert('連線失敗，出擊未果。'); try { syncData(true); } catch (e2) {} } finally { endAction(); }
   }
 
   // 🔋 設定從者靈基出力檔位（20/40/60/80/100）：玩家旋鈕，免費即時。高檔強但御主每小時維持費高；100% 才能解放寶具。
@@ -2570,7 +2576,14 @@
         if (!resolveBlockCard_(res)) alert((res && res.message) || opts.failMsg || '操作失敗。');
         if (opts.onFail) opts.onFail(res);
       }
-    } catch (e) { alert(opts.catchMsg || '連線失敗。'); } finally { endAction(); }
+    } catch (e) {
+      // 🐛→✅ 稽核抓到：跟 servantStrike 一樣的缺口——連線逾時/中斷時無法得知後端是否已經
+      //   悄悄寫入成功(gasRun 的 90 秒逾時本就是為了接住「GAS 撞執行上限卻沒乾淨拋例外」這種
+      //   情境)，此時畫面卡在action前的舊狀態，玩家以為沒生效可能重試造成重複扣資源。比照
+      //   res.success===false 分支已有的 syncData(true)，逾時/中斷同樣強制重新整表校正。
+      alert(opts.catchMsg || '連線失敗。');
+      try { syncData(true); } catch (e2) {}
+    } finally { endAction(); }
   }
 
   async function ruleBreakSteal(npcName, npcId) {
