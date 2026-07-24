@@ -1046,6 +1046,11 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul) {
       pcData[pIdx][COL.PC.MP] = mMp - wardCost;
       sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
       const svR = rowToCombatant_(pcData[svIdx]); injectHomeField_(svR, homeRank);
+      // 🐛→✅ 稽核抓到：反擊方svR漏注禮裝(injectMysticBuff_)與御主體術/魔術支援(injectMasterSupportFor_)，
+      //   對照鏡射函式playerAmbushOnEnemy_(831-833行)兩者皆注——同一段代碼裡敵方eDefC卻正確拿到
+      //   支援，形成不對稱，禮裝越貴/御主養得越好的玩家在這條合法防禦機制裡傷害被系統性低估。
+      injectMysticBuff_(svR, pcData[pIdx][COL.PC.MEMORY]);
+      injectMasterSupportFor_(svR, pcData, gameId, pcData[pIdx], false);
       const eDefC = rowToCombatant_(pcData[eIdx]);
       injectMasterSupportFor_(eDefC, pcData, gameId, pcData[eIdx], true);
       const cr = resolveFateBattle_(svR, eDefC, {});
