@@ -699,7 +699,11 @@ function actionSummonServant(userData, pcId, sheets) {
   const reqCls = VALID_CLS.includes(userData.cls) ? userData.cls : "";
   const heroId = String(userData.heroId || "").trim();
   const trueName = String(userData.trueName || "").trim().slice(0, 20);
-  const custDesc = String(userData.desc || "").trim().slice(0, 120); // 自訂描述生成原創從者
+  // 🐛→✅ 稽核抓到：跟同檔工房路徑的_fClean(515行，清<>&"'`｜【】)不一致，這裡只trim+截斷，沒清
+  //   ｜【】——這段文字會原樣嵌進送給AI的召喚提示詞(808~822行，同樣用【…】/★標記真正指令)，玩家
+  //   可塞偽裝的【…】字樣混淆AI。補上同款字元清洗，維持全代碼庫「會進AI提示詞的自由文字都清這組
+  //   符號」的一致慣例。
+  const custDesc = String(userData.desc || "").replace(/[<>&"'`｜【】]/g, "").trim().slice(0, 120); // 自訂描述生成原創從者
   const origin = String(userData.origin || "").trim(); // 🎭 自訂生成三分類：fate/anime/original(空=original)
 
   const pcData = sheets.pc.getDataRange().getValues();
