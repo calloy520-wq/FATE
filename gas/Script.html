@@ -111,7 +111,7 @@
   // 🐛→✅ __pendingState 在每趟新的 gasRun() 呼叫時就被清空(含 narrate() 內部呼叫的 narrate_only)——handler 必須先 syncData(true) 再 narrate()，順序反了 state 會被提前洗掉、白算一趟。
   function gasRun(payload) {
     __pendingState = null; // 新一趟伺服器呼叫開始 → 作廢任何未消費的舊 state(防過期錯套)
-    return new Promise((resolve, reject) => {
+    const callPromise = new Promise((resolve, reject) => {
       google.script.run
         .withSuccessHandler(responseRaw => {
           try {
@@ -129,6 +129,15 @@
         })
         .handleGameAction(payload);
     });
+    // 🐛→✅ 稽核抓到：google.script.run 原本沒有client端逾時——手機切背景太久/行動網路瞬斷/GAS撞
+    //   執行上限卻沒乾淨拋例外時，withSuccessHandler/withFailureHandler 都不會被呼叫，這個Promise
+    //   永遠不settle，全部掛在其 finally 的忙碌鎖(__actionBusy/btn.disabled等)就永久卡住，玩家得
+    //   重新整理頁面才能繼續。補一道逾時(給AI敘事生成留足空間，不誤觸)，讓既有catch/finally骨架
+    //   自然接手解鎖；逾時後才姍姍來遲的真回應會被Promise.race忽略(不影響已恢復的UI)。
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('連線逾時，請檢查網路後再試一次。')), 90000);
+    });
+    return Promise.race([callPromise, timeoutPromise]);
   }
 
   // 🔒 全域動作鎖：任一動作進行中就擋掉連點與其他動作，等系統回應再放行
