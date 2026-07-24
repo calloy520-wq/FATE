@@ -411,7 +411,16 @@ function fxDefApply_(base, loser, winner, fx, pierces, atkMagic, fired, npStrike
 function rowToCombatant_(row) {
   var six = {}, skills = [], traits = [];
   try { six = JSON.parse(row[COL.PC.SIX] || "{}"); } catch (e) { }
-  try { var tg = JSON.parse(row[COL.PC.TAGS] || "{}"); skills = tg.skills || []; traits = tg.traits || []; } catch (e) { }
+  // 🐛→✅ 稽核抓到：skills/traits 只用 ||[] 擋 falsy，沒擋「合法JSON但不是陣列」(如手動編輯儲存格
+  //   把 traits 存成物件而非陣列)——下游 divineRankOf_/resolveFateBattle_ 對這兩者直接呼叫
+  //   .concat()/.some()，非陣列值會拋出未被攔截的例外，一路穿透 actionFateBattle(無外層try)＋
+  //   handleGameAction(只有finally無catch)，變成玩家看到的原始連線中斷而非正常戰鬥結果。
+  //   讀取時就用 Array.isArray 攔一次，這是所有戰鬥讀取的單一入口，堵住即保護全部下游呼叫端。
+  try {
+    var tg = JSON.parse(row[COL.PC.TAGS] || "{}");
+    skills = Array.isArray(tg.skills) ? tg.skills : [];
+    traits = Array.isArray(tg.traits) ? tg.traits : [];
+  } catch (e) { }
   // 🔮 魔境的智慧：持有 mage_realm 的從者（斯卡哈），把玩家選定的通用 A 階被動注入 skills（戰鬥即時生效）。
   if (skills.some(function (sk) { return sk && sk.fx === 'mage_realm'; })) {
     var pick = mageRealmPick_(row[COL.PC.MEMORY]);

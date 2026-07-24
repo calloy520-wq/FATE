@@ -74,7 +74,10 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
   var six = safeJson_(hero[COL.HERO.SIX], {});
   var classSkills = safeJson_(hero[COL.HERO.CLASS_SKILLS], []);
   var skills = safeJson_(hero[COL.HERO.SKILLS], []);
-  var traits = safeJson_(hero[COL.HERO.TRAITS], []);
+  // 🐛→✅ 稽核抓到：safeJson_只擋「解析失敗」，若儲存格是合法JSON但非陣列(如物件)，dflt不會生效——
+  //   跟 Router_Creation.gs 的 actionSummonServant 同款補上陣列型別檢查，避免壞資料寫進敵從者列。
+  var traitsRaw = safeJson_(hero[COL.HERO.TRAITS], []);
+  var traits = Array.isArray(traitsRaw) ? traitsRaw : [];
   var persona = safeJson_(hero[COL.HERO.PERSONA], {});
   var cls = hero[COL.HERO.CLS];
   var nStr = svNum_(six["筋力"]), nCon = svNum_(six["耐久"]), nAgi = svNum_(six["敏捷"]), nInt = svNum_(six["魔力"]), nLuk = svNum_(six["幸運"]);

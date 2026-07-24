@@ -760,7 +760,11 @@ function actionSummonServant(userData, pcId, sheets) {
       const six = JSON.parse(hero[COL.HERO.SIX] || "{}");
       const classSkills = JSON.parse(hero[COL.HERO.CLASS_SKILLS] || "[]");
       const skills = JSON.parse(hero[COL.HERO.SKILLS] || "[]");
-      const traits = JSON.parse(hero[COL.HERO.TRAITS] || "[]");
+      // 🐛→✅ 稽核抓到：跟classSkills/skills不同，traits在這裡沒經過陣列型別檢查——若英靈殿這欄被
+      //   手動編輯成合法JSON但非陣列(如物件)，會原樣寫進新召喚從者的TAGS，讀取端(rowToCombatant_)
+      //   雖已補上Array.isArray防線不會再讓戰鬥崩潰，但這裡仍順手擋住，不讓壞資料繼續往前傳。
+      const traitsParsed = JSON.parse(hero[COL.HERO.TRAITS] || "[]");
+      const traits = Array.isArray(traitsParsed) ? traitsParsed : [];
       const persona = JSON.parse(hero[COL.HERO.PERSONA] || "{}");
 
       // 從者血厚：耐久越高越肉。🔋 出力電池制：從者無自有魔力池(MP欄置0)，靠御主供魔；出力檔存 MEMORY、預設 60 巡航。
