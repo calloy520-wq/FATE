@@ -145,7 +145,11 @@ function npDefScale_(c, pierces) {
 }
 // 令咒緊急脫離的落點：隨機挑一個非約會型的冬木地點（≠ 當前地）
 // 戰鬥熱路徑，用 getMapDataCached(讀 FATE_MAP_SEED 常數，零 I/O) 而非整表讀取「坤圖」分頁。
-function enemyRetreatLoc_(currentLoc) {
+// 🐛→✅ 稽核抓到：原本沒濾「戰爭限定地點」(COL.MAP.WAR)，姊妹函式getNearbyLocations/
+//   buildMapNodesPayload_/actionScout都有濾這道(避開4th限定的海特飯店/麥肯基宅/碼頭倉庫)，
+//   唯獨這裡漏了——5th戰爭或chaos局的敵人一旦被移到這3個地點，UI一律濾掉該node/偵查範圍，
+//   該敵人形同永久消失(打不到也偵不到)。myWar選填：不傳則不濾(相容舊呼叫，但呼叫端應盡量傳)。
+function enemyRetreatLoc_(currentLoc, myWar) {
   try {
     var d = getMapDataCached();
     var pool = [];
@@ -153,6 +157,8 @@ function enemyRetreatLoc_(currentLoc) {
       var nm = String(d[i][COL.MAP.NAME]).trim();
       var ty = String(d[i][COL.MAP.TYPE]).trim();
       if (!nm || ty === "約會") continue;          // 約會景點不作為撤退落點
+      var nodeWar = String(d[i][COL.MAP.WAR] || "").trim();
+      if (nodeWar && myWar && nodeWar !== myWar) continue; // 戰爭限定地點：與本局戰爭不符 → 不列入
       if (nm === String(currentLoc).trim()) continue;
       pool.push(nm);
     }

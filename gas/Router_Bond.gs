@@ -111,7 +111,7 @@ function actionUseSeal(userData, pcId, sheets) {
     }
   } else if (type === "escape") {
     const oldLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
-    const newLoc = enemyRetreatLoc_(oldLoc);
+    const newLoc = enemyRetreatLoc_(oldLoc, getWarName_(pcData[pIdx][COL.PC.MEMORY]));
     pcData[pIdx][COL.PC.LOC] = newLoc;
     pcData[svIdx][COL.PC.LOC] = newLoc;
     sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);

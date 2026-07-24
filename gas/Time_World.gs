@@ -397,6 +397,14 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
   // (JS 陣列傳參考)，事後不必重讀一次整表拿最新狀態；沒傳才自己整表讀一次(相容)。
   var data = preData || sheets.pc.getDataRange().getValues();
   var _ck0 = getClock_(gameId, data); if (_ck0) refillMastersDaily_(sheets, gameId, _ck0.day, data);
+  // 🐛→✅ 稽核抓到：下面敵御主隨機移位呼叫enemyRetreatLoc_，該函式沒濾戰爭限定地點(見同批修正)，
+  //   會導致5th/chaos局的敵人被移到4th限定地點後永久消失(打不到也偵不到)。這裡查一次本局戰爭
+  //   名稱供傳入，只需查一次(整輪rounds共用，戰爭設定不會中途變動)。
+  var _myWar = "";
+  try {
+    var _myMIdx = data.findIndex(function (r) { return String(r[COL.PC.FACTION]) === "御主" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_"); });
+    if (_myMIdx !== -1) _myWar = getWarName_(data[_myMIdx][COL.PC.MEMORY]);
+  } catch (e) { }
   var moved = 0;
   var anyMemDirty = false;
   // 🔮 登場預告：尚未登場、但已進入「登場前1~2天」窗口的敵從者，世界風聲提前透露一絲氣息——只觸發
@@ -438,7 +446,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
       var oldLoc = String(data[i][COL.PC.LOC]).trim();
       if (freezeLoc && oldLoc === freezeLoc) continue; // 敵在玩家格上→鎖住，留給玩家正面遭遇
       if (Math.random() >= 0.35) continue;
-      var newLoc = enemyRetreatLoc_(oldLoc);
+      var newLoc = enemyRetreatLoc_(oldLoc, _myWar);
       if (newLoc === oldLoc) continue;
       data[i][COL.PC.LOC] = newLoc; locDirty = true;
       // 🔭 已偵查到的敵人移位後【保持可見】(不清 SEEN)：一旦感應到對手氣息就持續追蹤其當前位置，

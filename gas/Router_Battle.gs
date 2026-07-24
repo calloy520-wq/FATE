@@ -168,7 +168,8 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
         }
       }
       if (!doomNote) pcData[tgtIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基受創", "姿勢": "踉蹌", "負面": "令咒緊急脫離", "顏面": "咬牙退避" });
-      var oldLoc = String(pcData[tgtIdx][COL.PC.LOC]).trim(), newLoc = enemyRetreatLoc_(oldLoc);
+      var _retreatWar = (ctx && ctx.pIdx >= 0) ? getWarName_(pcData[ctx.pIdx][COL.PC.MEMORY]) : "";
+      var oldLoc = String(pcData[tgtIdx][COL.PC.LOC]).trim(), newLoc = enemyRetreatLoc_(oldLoc, _retreatWar);
       pcData[tgtIdx][COL.PC.LOC] = newLoc;
       if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(tgtIdx + 1, 1, 1, pcData[tgtIdx].length).setValues([pcData[tgtIdx]]);
       // 🔗 用硬連結【御主】找「這名從者真正的御主」，避免同地多組時抓錯人
