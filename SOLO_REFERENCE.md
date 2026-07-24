@@ -568,3 +568,30 @@ Seed_Codex.gs 頂部 `CODEX_PERSONA_VER` 的註解只留當前版號一行簡述
 **驗證後判斷無問題、維持現狀的範圍**：鑑賞層`kanshouOwnedRowIdx_`已覆蓋全部handler無遺漏；快速貼圖sanitize/cap與前端一致；`Router_Economy.gs`/`Router_Movement.gs`已無房東房客/經濟殘留死碼；`Mystic_Code.gs`除以零/NaN邊界皆有擋；前後端XSS(escapeHtml)/acctName傳輸/UI一致性核對後皆正常；資料層(Seed_Codex/Seed_Rivals/History_Sync/Setup_FateWorld/Router_Persona/Router_Creation)既有🐛→✅修補註記皆核對一致，無新發現。
 
 `bash check.sh` 全過、`nsfwBaseRules` 紅線未觸及。
+
+## 25. 連續稽核輪（2026-07・「繼續檢查只要有問題修正完成後就繼續查…直到連續3次沒有找到問題」，跑到連續3輪乾淨為止）
+
+**🔴 系統性漏洞：pcId 未驗證歸屬**——見 §3「pcId 歸屬中央驗證」，本輪最大修復，已寫在該節不重複。
+
+**雙從者身分張冠李戴**：
+- `enemyAmbushOnServant_` 新增 `preferSvIdx` 參數（見 §「卸防突襲」function manual 對照），`actionBond`/`actionAllyBond`/`actionManaSupply`/`actionSpiritRepair`/`actionRest` 都改傳各自已解析好的 `findPlayerServantIdx_` 結果，不再永遠突襲表上第一位從者；前端 `move`/`rest`/`ally_bond` payload 同步補上 `servant`/`servantId`。
+
+**主從硬連結**：
+- `actionBreakAlliance` 撕毀盟約時新增硬連結對象同步解除——撕毀敵御主連帶清掉其硬連結敵從者的【盟約至】，反之亦然，修掉舊版「一側撕了、另一側仍卡在已結盟狀態」的殘留。
+
+**worldTick_ 暗處互鬥 severed 判定方向顛倒**：
+- 背景勢力互鬥模擬（`Time_World.gs`）的 god_hand/survive 復活判定，`severed`（是否遭破階效果封鎖復活）原本讀的是「自己」的破階 fx，跟 `fateStrike_`/ambush 既定的「severed＝看攻擊方破階 fx」慣例方向剛好相反——已改 `severedByA`/`severedByB`，對應到真正的攻擊方。
+
+**遭遇窗口（【趁隙】）身分比對缺漏擴大修復**：
+- §17 已修過 `actionIncite` 的 win.names 精確比對；本輪追加：`actionMove` 的悄悄離開（`_slipAway`）原本只鎖窗口 loc+type，沒比對 `win.names`——三方以上混戰時，離場只該豁免窗口點名的那兩位，同地若還有其他未被點名的能戰敵從者，仍應強制走撤退，已補 `_slipNames` 過濾。`actionFactionAmbush`（趁隙偷襲）同款漏洞：`targetName` 原本沒驗證是否為窗口點名對象，同地第三方未分心的敵人也能被指名白吃偷襲加乘，已補 `win.names` 檢查。`actionIncite` 再追加一處：win.names 存在但查無匹配時（點名雙方已死亡/離場），舊版仍會退回陣列順序瞎猜，現在直接拒絕不再退回——只有「窗口本身沒有 names」（相容舊窗口）才維持陣列順序 fallback。
+
+**其他修復**：
+- `saveGameHistoryBatch`（History_Sync.gs）補短暫（4秒）`LockService` 鎖，堵無鎖 read-modify-write 競態；呼叫端 `narrate_only`/`play` 維持 dispatcher 層全域鎖豁免不變，只鎖這一支快函式本身。
+- `reseedIfEmpty_`（Setup_FateWorld.gs）的坤圖 upsert 補孤兒列清除，比照 `Seed_Codex.gs` 既有慣例。
+- `rowToCombatant_`（Engine_Fate.gs）讀 `TAGS.skills`/`traits` 原本只擋 falsy，沒擋「合法 JSON 但型別不對」——補 `Array.isArray` 檢查；`Router_Creation.gs`(`actionSummonServant`)/`Seed_Rivals.gs`(`heroToNpcRow_`) 兩個寫入端同步補齊。
+- 前端（Script.html）多處連線逾時/中斷的 `catch` 分支原本只 `console.error`、不刷新畫面，補上 `syncData(true)`（比照原本就有的顯式失敗 `else` 分支），避免請求丟失時畫面卡在過期的樂觀更新狀態；`travelTo` 的 catch 額外補上玩家可見的 `alert()`。
+- `actionSummonServant`（Router_Creation.gs）的 `custDesc`（自訂召喚描述）原本只 trim+截長，補上 `｜【】` 及 `<>&"'` 等 HTML 斷字字元清洗，防玩家自訂描述被拿來偽造 MEMORY 標記或破壞前端 innerHTML 拼接。
+
+**鑑賞（kanshou）側**（詳見 `KANSHOU_REFERENCE.md`）：`message`/`photo_caption` 補齊 `｜【】`＋控制字元/公式注入清洗；`actionKanshouAddCustomProp` 改為單次 `setValues`（原本多列分次寫入非原子）；`advanceHours`/`jumpBand`/`jumpFestival` 補上 `clearKanshouActiveEncounter_`（原本只在移動/結識/結束一天清，路人巧遇旗標可無限期滯留）。
+
+`bash check.sh` 全過、`nsfwBaseRules` 紅線未觸及。連續3輪（XSS/innerHTML 渲染、COL 欄位索引一致性、武器名稱與戰鬥加成交互、超載/令咒消耗正確性、種子資料完整性、快取失效）皆確認乾淨無新發現，本輪稽核到此收斂。

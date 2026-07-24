@@ -24,6 +24,7 @@
 - 鑑賞資料寫 **「鑑賞眾生」分頁**（`getKanshouPcSheet_`，lazy 建、schema 複製主「眾生」表頭、`COL.PC` 索引一致），與 solo「眾生」表隔離。
 - **KPC_ 前綴路由**：dispatcher（`handleGameAction`）見 `pcId` 以 `KPC_` 開頭 → `sheets.pc` 指向鑑賞眾生。solo 是 `PC_`。
 - **引擎硬擋**：`actionPlay` 開頭 `pcId` 非 `KPC_` 直接 return。
+- **輸入清洗**（2026-07 稽核補）：主對話 `message` 欄位嵌入提示詞前補 `｜【】` 分隔符清洗，防玩家用這幾個符號偽造 MEMORY 標記或偽造「★【...】」格式的假系統指令段（遊戲本身的真實系統指令就長這樣，不濾會讓兩者無法區分）。
 - **歸屬驗證**（2026-07 兩階段補洞後現況）：⚠ 舊版每個 kanshou handler 各自呼叫 `kanshouOwnedRowIdx_`(內部反查帳號表 KPC 欄)才敢信任 pcId；全面稽核先後抓到 `actionPlay`/`actionGetAlbum`/`actionAlbumDelete` 等多處漏掉這道驗證，形同可憑猜中/拿到的 `pcId` 冒名讀寫他人存檔。**這道驗證後來整個上移到 dispatcher**：`handleGameAction`（Router_Action.gs）在派發到任何 handler 之前，統一呼叫 `verifyPcOwnership_(acctName, pcId)`（Account.gs，反查帳號表 `COL.ACC.KPC`/`COL.ACC.PC`），白名單 `OWNERSHIP_CHECK_EXEMPT_` 外的動作一律先過這關。故 `kanshouOwnedRowIdx_` 已刪除，改為純索引查找版 `kanshouPcIdx_(data, pcId)`（Gallery.gs）——所有 kanshou handler 進來前 pcId 已保證屬於呼叫者，不必再反查一次帳號表(那是同一趟請求裡的第二次整表讀，純浪費)。**任何新增的 kanshou action handler，只要會讀寫 pcData，一律用 `kanshouPcIdx_` 換 index 即可（歸屬驗證由 dispatcher 保證，handler 不必自己再查帳號表）。**
 - **前綴白名單**：`KPC_`(御主 avatar)／`KHV_`(直接召喚同伴)／`DEAD_`；`KSV_` 是**舊奪杯封存邀請的遺留前綴**——封存管線已砍、不再產生新 `KSV_` 列，僅在 sync／`isKanshou` 判定保留向後相容識別（別當現行機制）。
 - **歷史暫存**：solo/鑑賞**共用同一張「歷史暫存」表**，靠 `pcId` 前綴（`PC_` vs `KPC_`）隔離、非物理分表——架構唯一例外，記在案。
@@ -49,7 +50,7 @@
 | 【同居】 | `【同居】1` | 同伴列 | 寫入同居落地；讀 `kanshouIsCohabit_` |
 | 【牽手】 | `【牽手】對象名` | **玩家列** | 牽手 set／放手 set('')／在場氛圍讀 |
 | 【邂逅】 | `【邂逅】逗號分隔姓名` | 玩家列 | 永久巧遇名單（去重） |
-| 【邂逅中】 | `【邂逅中】heroId` | 玩家列 | 本次到訪暫存，換地點清 |
+| 【邂逅中】 | `【邂逅中】heroId` | 玩家列 | 本次到訪暫存，換地點清（`clearKanshouActiveEncounter_`）。**2026-07 稽核補**：原本只在移動/結識/`endDay` 清，`advanceHours`/`jumpBand`/`jumpFestival` 這幾條跳時間路徑漏呼叫，路人巧遇旗標可無限期滯留——已在 `advanceHours>0` 分支補齊呼叫 |
 | 【住所】 | `【住所】家名` | 玩家列 | `getKanshouHomeName_`（常見預設是`(玩家名)的家`；玩家連名字都沒有才退回通用「我家」）／改名 set |
 | 【晨間餘韻】 | `【晨間餘韻】同伴名` | — | 同床隔天引子，讀一次即清 |
 | 【初見日】 | `【初見日】absDay`（IntTag 預設0） | 同伴列 | 首次同地寫入，紀念日里程碑比對 |
@@ -161,7 +162,7 @@
 - **色色時也不用隱晦**：`photo_caption` 的生成指示補一句「若拍到的是親密畫面也直接寫實描述，不用刻意隱晦帶過」。
 - 措辭全面從「相機」改「手機」（`kanshouPhotoStr`/`finalUserMsg`/UI 按鈕 title 等）。
 
-- 拍照落地在 **AI 成功後**（失敗不寫入，反正沒有底片可浪費）：AI 多吐 `photo_caption`，寫 `kanshouAlbumSheet_`。髮色從被拍者 TRAIT 現場解析（`KANSHOU_HAIR_COLORS_`）。
+- 拍照落地在 **AI 成功後**（失敗不寫入，反正沒有底片可浪費）：AI 多吐 `photo_caption`，寫 `kanshouAlbumSheet_`。髮色從被拍者 TRAIT 現場解析（`KANSHOU_HAIR_COLORS_`）。**2026-07 稽核補**：`photo_caption` 寫入前補控制/零寬/雙向字元清洗＋公式引導字元阻擋（比照 `sanitizeUserData_` 同等保護），防 AI 輸出被利用來污染相簿列。
 - 前端：`kanshouTakePhoto`／`kanshouShowPhoto`(拿照片給在場者看)／`openKanshouAlbum`（`get_album`）／`kanshouDeletePhoto`（`album_delete`）。
 
 ---
@@ -196,7 +197,7 @@
   - 兩個入口都打同一個 `kanshou_set_prop` action（`actionKanshouSetProp`，比照 `actionKanshouMemoirOp` 同款帳號驗證+目標同伴查找（`actionKanshouSetProp`/`actionKanshouAddCustomProp`/`actionKanshouCastHypnosis` 三支同批改用共用 `findPcRowIdx_`；`actionKanshouDeleteCustomProp` 因是「掃全部同伴清該項道具」的批次操作、非單一查找，刻意保留原樣手刻迴圈），`level`空字串＝移除該項、其餘已裝備道具不受影響）。持久狀態餵進 `partyDetailsArr`(`pPropStr`，多件用「、」串接)當既定事實，narration 自然反映其存在與強度，不受親密尺度五階影響（道具本身不繞過好感天花板，只是描述現況）。**擴充新項目(項圈/眼罩/手銬之類)只要往 `KANSHOU_PROPS_` 加一筆＋前端鏡像同步一筆，不必改任何邏輯。**
   - **⚠️ 關閉≠取下**（2026-07 玩家「關閉就是還在體內」）：強度「關閉」只是暫時沒運作、道具本身仍配戴在身上，跟`level`空字串(真的移除)是兩回事。怕小模型把「關閉」字面誤讀成「已經拿掉」而漏演既定事實，`pPropStr` 在有 hasIntensity 道具目前關閉時額外補一句「強度關閉≠取下，仍配戴在身上、只是暫時沒運作」。
   - **🔒 裝備好感門檻**（2026-07 玩家「AI也不能反抗…感覺缺少鑑賞的感覺」→再修「整個小道具直接卡80吧…還沒80都鎖起來」）：一開始只卡「啟動(強度非關閉)」、裝備成關閉/戴著不設限；玩家後來覺得連裝備本身都該卡——好感不夠她根本不會讓你碰，不只是「碰了但不會動」。**現版本＝任何新增/切換到非空level的操作(裝備/改強度/含選『關閉』起手)都卡 `KANSHOU_PROP_EQUIP_BOND_ = 80`**（比照情慾場/無上限同一個切點），唯獨**移除**(level空字串)不受限、隨時能拿掉。不靠 AI 自己判斷「該不該演抵抗」(那樣容易演成「機制上開著、敘事卻在抵抗」的矛盾)，直接在 GAS 這層擋下，好感不夠就回傳失敗訊息、不寫入。維持「機制保證」精神的同時，重新對齊[性格]×[好感]的核心把關哲學。
-  - **🆕 玩家自訂道具**（2026-07「不能玩家自己新增?」）：面板底部「找不到想要的？自己新增一個」表單——輸入名稱(≤10字)＋勾選「強度可調(有開關)」＋**選填效果描述**＋**選填部位**，按「裝備」直接寫進玩家自己的道具目錄`【自訂道具】`(玩家列 MEMORY，格式`name:hasIntensity:part:ignoreBond:effect`，上限`KANSHOU_CUSTOM_PROP_CAP_=10`筆)並嘗試立即裝備在該同伴身上——**目錄新增不受好感門檻限制，但裝備這步一樣卡上面的`KANSHOU_PROP_EQUIP_BOND_`**：好感不夠只會成功建目錄、不會真的裝上去，回傳訊息告知。`kanshouAllProps_(playerMemory)`＝內建`KANSHOU_PROPS_`(現空)＋玩家自訂目錄合併查找，`actionKanshouCompanions`/`actionPlay_`都改吃這份合併目錄。`actionKanshouAddCustomProp`/`actionKanshouDeleteCustomProp`（刪除會同步清掉所有同伴身上目前裝備的這一項，避免孤兒資料）；前端 `kanshouAddCustomProp`/`kanshouDeleteCustomProp`（`Script_Kanshou.html`）。
+  - **🆕 玩家自訂道具**（2026-07「不能玩家自己新增?」）：面板底部「找不到想要的？自己新增一個」表單——輸入名稱(≤10字)＋勾選「強度可調(有開關)」＋**選填效果描述**＋**選填部位**，按「裝備」直接寫進玩家自己的道具目錄`【自訂道具】`(玩家列 MEMORY，格式`name:hasIntensity:part:ignoreBond:effect`，上限`KANSHOU_CUSTOM_PROP_CAP_=10`筆)並嘗試立即裝備在該同伴身上——**目錄新增不受好感門檻限制，但裝備這步一樣卡上面的`KANSHOU_PROP_EQUIP_BOND_`**：好感不夠只會成功建目錄、不會真的裝上去，回傳訊息告知。`kanshouAllProps_(playerMemory)`＝內建`KANSHOU_PROPS_`(現空)＋玩家自訂目錄合併查找，`actionKanshouCompanions`/`actionPlay_`都改吃這份合併目錄。`actionKanshouAddCustomProp`/`actionKanshouDeleteCustomProp`（刪除會同步清掉所有同伴身上目前裝備的這一項，避免孤兒資料）；前端 `kanshouAddCustomProp`/`kanshouDeleteCustomProp`（`Script_Kanshou.html`）。**2026-07 稽核修**：`actionKanshouAddCustomProp` 原本「寫玩家自訂道具目錄」與「立即裝備到目標同伴」是兩次分開的 Sheets 寫入，中途失敗會留下「目錄已建但沒裝上」或反過來的半套資料——已改成全程只在記憶體（`data`）操作，兩件事都確定後才在各回傳分支各自一次性 `setValues` 寫回。
   - **🌟 效果描述(effect)選填**（2026-07「移除內建跳蛋、想新增效果類別」新增）：純靠道具名稱字面讓AI腦補容易猜不準(玩家自己取的名字比「跳蛋」模糊得多)，補一格`effect`(≤16字)描述這個道具實際該演出什麼效果，餵進`pPropStr`提示詞當「效果:○○」一起交給AI，不再純靠名稱腦補。面板上每件道具名稱旁附註目前設定的效果文字(斜體，跟部位提示並列)。留空一樣可以，AI照舊靠名稱自己發揮。
   - **部位(part)選填**（2026-07「選填吧，想指定就自己打，沒有就AI自己想辦法發揮」）：有填才在 `pPropStr` 加一句「戴在○○」；沒填就完全不提部位，交給 AI 自己決定戴在哪——不強迫每件自訂道具都要講清楚部位。`kanshouSanitizeTagValue_(value, maxLen)`（原`kanshouSanitizePropPart_`→`kanshouSanitizePropTag_`→定案為通用版`kanshouSanitizeTagValue_`，稽核時發現「名稱」欄從沒淨化過、且住所名也有同款漏洞，擴大適用範圍＋改名）清掉標籤分隔字元(`,`/`:`/`｜`/`【`/`】`)＋引號/角括號/換行(防onclick屬性被破壞、對齊solo `cleanTagText_`同款處理)，`name`限10字/`part`限8字/`effect`限16字。
   - **🔢 同時裝備上限**（2026-07 玩家「設個上限5個?」）：`KANSHOU_PROP_EQUIP_CAP_ = 5`——只擋「新增裝備」(propId還沒在該同伴已裝備清單裡才算新增)，調整已裝備項目的強度/移除不占名額、不受此限。`actionKanshouSetProp`/`actionKanshouAddCustomProp`兩個裝備入口都檢查。
