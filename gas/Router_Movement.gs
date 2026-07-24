@@ -1313,11 +1313,19 @@ function actionScavenge(userData, pcId, sheets) {
   const ap = _scavApr.ap, clock = _scavApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   // 35% 機率察覺鄰近敵蹤（揭露一名最近的未偵查敵）——搜索的真正價值在情報
+  // 🐛→✅ 稽核抓到：舊版直接掃全表第一個未SEEN的敵蹤，沒有比照姊妹函式actionScout做「範圍限定
+  //   (當前+鄰近地點)」與「hasArrived_登場日閘門」——會把地圖另一端、甚至本局劇本尚未登場的敵情
+  //   提早揭露，跟訊息文字「附近/一帶」自相矛盾，也繞過戰爭迷霧設計。補齊同一套規則。
+  const scavMapData = getMapDataCached(sheets);
+  const scavWar = isFate ? getWarName_(pcData[pIdx][COL.PC.MEMORY]) : "";
+  let scavScope = [curLoc];
+  try { getNearbyLocations(curLoc, scavMapData, scavWar).forEach(l => { const nm = (l && l.name) ? l.name : l; if (nm) scavScope.push(String(nm).trim()); }); } catch (e) { }
+  const scavDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
   let intel = "";
   if (Math.random() < 0.35) {
     for (var i = 1; i < pcData.length; i++) {
       var fac = String(pcData[i][COL.PC.FACTION]);
-      if ((fac === "敵御主" || fac === "敵從者") && String(pcData[i][COL.PC.GAME_ID] || "") === myGameId && !String(pcData[i][COL.PC.ID]).startsWith("DEAD_") && !pcData[i][COL.PC.SEEN]) {
+      if ((fac === "敵御主" || fac === "敵從者") && String(pcData[i][COL.PC.GAME_ID] || "") === myGameId && !String(pcData[i][COL.PC.ID]).startsWith("DEAD_") && !pcData[i][COL.PC.SEEN] && scavScope.indexOf(String(pcData[i][COL.PC.LOC] || "").trim()) !== -1 && hasArrived_(pcData[i], scavDay)) {
         // 需同步寫回 pcData[i][COL.PC.SEEN]，否則交棒給 STATE_PRE_DATA_ 的陣列仍是「未偵查」，跟訊息文字自相矛盾。
         pcData[i][COL.PC.SEEN] = "1";
         sheets.pc.getRange(i + 1, COL.PC.SEEN + 1).setValue("1");
