@@ -114,6 +114,12 @@
   //   後才到)，會無條件把已被更新的action(如攻擊戰報)的新鮮_state覆寫回自己那份舊快照，戰報結果被
   //   悄悄倒退。用世代序號守門：只有「當下最新一次發出」的請求，其回應才准寫入__pendingState。
   function gasRun(payload) {
+    // 🔒 稽核抓到系統性漏洞：後端新增 pcId 歸屬驗證(見 Router_Action.gs verifyPcOwnership_)後，
+    //   每一趟帶 pcId 的呼叫都需要一併帶 acctName 才能通過——與其在數十個呼叫端逐一補這個欄位
+    //   (漏一處就變成該功能整個打不通)，改在唯一的通訊層入口統一補齊，呼叫端已自帶時不覆蓋。
+    if (payload && payload.acctName === undefined) {
+      try { payload.acctName = (typeof pc !== 'undefined' && pc && pc.account) || (typeof currentAccount !== 'undefined' ? currentAccount : '') || ''; } catch (e) { }
+    }
     __pendingState = null; // 新一趟伺服器呼叫開始 → 作廢任何未消費的舊 state(防過期錯套)
     const mySeq = ++__gasRunSeq;
     const callPromise = new Promise((resolve, reject) => {

@@ -147,6 +147,15 @@ function handleGameAction(userData) {
   if (!handler) {
     return JSON.stringify({ success: false, message: "找不到這個指令，請重新整理頁面後再試一次。" });
   }
+  // 🔒 稽核抓到系統性漏洞：get_tags/sync/fate_battle/bond/mana_supply…等近全部solo戰場action，
+  //   long-standing只用裸findIndex信任前端傳來的pcId，完全沒反查「帳號」表確認呼叫者真的擁有這個
+  //   pcId——pcId是可預測字串("PC_"+timestamp)，猜中/枚舉即可代任意玩家讀取私密狀態或竄改HP/羈絆/
+  //   同盟/裝備(部分甚至不可逆，如mana_supply燒蝕迴路)。單一真實來源修法：不逐一補洞，改在
+  //   dispatch前統一擋(見verifyPcOwnership_)，比照kanshou既有的kanshouOwnedRowIdx_同一套邏輯
+  //   (PC_查COL.ACC.PC／KPC_查COL.ACC.KPC)。白名單只留「pcId尚不存在／已用其他方式驗證歸屬」的動作。
+  if (pcId && !OWNERSHIP_CHECK_EXEMPT_[action] && !verifyPcOwnership_(userData.acctName, pcId)) {
+    return JSON.stringify({ success: false, message: "查無御主。" });
+  }
   // 🛡️ 慾海(kanshou)無戰鬥／經濟機制(CLAUDE.md「不打工、無經濟、無戰鬥」)。前端 UI 全部隱藏這批
   //   action，但直打 API 仍可能繞過；統一在此明確擋下，讓限制是結構保證而非依賴資料形狀湊巧擋住。
   if (isKanshouCtx && KANSHOU_BLOCKED_ACTIONS_[action]) {
@@ -226,6 +235,17 @@ function handleGameAction(userData) {
 }
 // 🔒 不取寫入鎖的動作：純讀取(不寫表·鎖了白繳成本) ＋ 長 AI 敘事(佔鎖數秒會卡住全域)。
 //   ⚠ sync 雖會 markRivalsSeen_ 標記 SEEN，但該寫入冪等(重標無害)，不值得為它鎖每一次同步。
+// 🔒 pcId 歸屬驗證豁免名單：僅列「pcId 當下尚不存在／已用其他方式驗證歸屬」的動作——
+//   account_login/account_new_game/create/enter_kanshou 建立帳號連結前根本不帶 pcId；
+//   claim_hero/save_hero 走 persona.creator===acctName 這套不同模型(英靈殿列，非個人pcId列)；
+//   get_heroes/get_masters 是公開名冊，handler 本身完全不讀 pcId；
+//   check_name/check_sheets/dev_resync_codex 不涉及個別玩家列；purge_orphans 是全局孤兒清理。
+//   其餘只要動作帶了 pcId，一律先過 verifyPcOwnership_ 反查「帳號」表確認真的是本人。
+const OWNERSHIP_CHECK_EXEMPT_ = {
+  check_name: 1, check_sheets: 1, dev_resync_codex: 1, purge_orphans: 1,
+  account_login: 1, account_new_game: 1, enter_kanshou: 1, create: 1,
+  get_heroes: 1, get_masters: 1, claim_hero: 1, save_hero: 1
+};
 const LOCK_EXEMPT_ACTIONS_ = {
   check_name: 1, get_full_status: 1, get_heroes: 1, get_masters: 1,
   get_tags: 1, get_map_nodes: 1, sync: 1, get_album: 1,

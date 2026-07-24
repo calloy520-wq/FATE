@@ -12,6 +12,23 @@ function findAccountRow_(accSheet, name) {
   return null;
 }
 
+// 🔒 單一真實來源：solo(PC_)／鑑賞(KPC_) 共用的「這個 pcId 真的屬於這個帳號嗎」驗證。
+//   比照 actionEndRun 原本各自手寫的反查「帳號」表寫法抽出，讓 handleGameAction 能在
+//   dispatch 前統一擋下「猜中/枚舉他人 pcId 即可代操作」這整類漏洞，不必每個 handler 各自補。
+function verifyPcOwnership_(acctName, pcId) {
+  try {
+    var id = String(pcId || "");
+    if (!id) return false;
+    var name = String(acctName || "").trim();
+    if (!name) return false;
+    var acc = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("帳號");
+    var found = acc && findAccountRow_(acc, name);
+    if (!found) return false;
+    var col = id.indexOf("KPC_") === 0 ? COL.ACC.KPC : COL.ACC.PC;
+    return String(found.row[col] || "") === id;
+  } catch (e) { return false; }
+}
+
 // 依 charId 找「眾生」列，含已標記 DEAD_ 的殘局列：帳號表存的是原始 charId，御主死亡時
 //   ID 會被加上 "DEAD_" 前綴但帳號連結不會跟著改，故兩者都要查。actionAccountLogin／
 //   actionAccountNewGame 皆靠這條反查殘局的 game_id 以便整局清除。
