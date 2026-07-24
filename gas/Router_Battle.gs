@@ -1561,6 +1561,12 @@ function rowHasSolo_(row) {
 var DOOM_TAG_ = makeIntTag_('靈基透支', 0);
 function stampDoom_(memory, deadAbsHour) { return DOOM_TAG_.set(memory, deadAbsHour); }
 function getDoom_(memory) { return DOOM_TAG_.get(memory); }
+// 🐛→✅ 稽核抓到：結盟只讓Time_World.gs的世界tick跳過死線檢查(isAllied_→continue)，不是取消死線本身；
+//   解盟(actionBreakAlliance/breakStaleAlliances_)過去只clearAllyMem_、沒清【靈基透支】——結盟期間
+//   絕對時鐘持續前進，死線可能早已過期，一旦解盟isAllied_變false，下次tick立刻讀到過期死線、
+//   該敵從者瞬間「令咒耗盡消滅」，敘事跟「剛結束同盟」完全脫節，甚至可能誤觸終局勝利判定。
+//   比照actionRuleBreakSteal奪僕路徑同款清法，補上共用清除函式。
+function clearDoom_(memory) { return DOOM_TAG_.clear(memory); }
 
 // 🍱 整備·進食（戰前 buff）：solo 無商城/道具欄，食物由「整備」抽象供給(AI 敘述來源)，
 //   不寫道具列、不花錢。MEMORY 記【整備至】<絕對小時>，過期自動失效。

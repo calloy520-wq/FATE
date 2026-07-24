@@ -84,7 +84,16 @@ function actionMove(userData, pcId, sheets) {
   try {
     moveMapData = getMapDataCached(sheets);
     const _tgtRoot = tgtTrim.split('-')[0].trim();
-    if (!moveMapData.some(m => { const nm = String(m[COL.MAP.NAME]).trim(); return nm === tgtTrim || nm === _tgtRoot; })) {
+    const _destNode = moveMapData.find(m => { const nm = String(m[COL.MAP.NAME]).trim(); return nm === tgtTrim || nm === _tgtRoot; });
+    if (!_destNode) {
+      return JSON.stringify({ success: false, message: "輿圖之上查無此地，無路可達。" });
+    }
+    // 🐛→✅ 稽核抓到：這裡只驗證地名是否存在於全坤圖，完全沒套用buildMapNodesPayload_/getNearbyLocations
+    //   /enemyRetreatLoc_都有的【戰爭】標記過濾——前端節點選單雖只列出符合本局戰爭的地點，但直打API
+    //   帶戰爭限定地點名(如非第四次局的「海特飯店」)仍會被這裡放行完成整趟移動，把玩家傳送到依設計
+    //   對本局根本不存在的地點。比照手足函式同一套規則補上。
+    const _destWar = String(_destNode[COL.MAP.WAR] || "").trim();
+    if (isFateMove && _destWar && _destWar !== getWarName_(allPcData[pIdx][COL.PC.MEMORY])) {
       return JSON.stringify({ success: false, message: "輿圖之上查無此地，無路可達。" });
     }
   } catch (e) { }
@@ -1337,12 +1346,17 @@ function actionScout(userData, pcId, sheets) {
   const scoutWar = isFateScout ? getWarName_(pcData[pIdx][COL.PC.MEMORY]) : "";
   try { getNearbyLocations(curLoc, mapData, scoutWar).forEach(l => { const nm = (l && l.name) ? l.name : l; if (nm) scope.push(String(nm).trim()); }); } catch (e) { }
 
+  // 🐛→✅ 稽核抓到：舊版漏了hasArrived_「尚未登場」日期閘門——對照buildMapNodesPayload_/actionMove
+  //   等其餘所有敵蹤可見性判斷都會擋這道，唯獨這裡漏掉，會把還沒登場的敵御主/敵從者真名+地點提早
+  //   洩漏給玩家與AI敘事、還永久標記SEEN，形同繞過戰爭迷霧設計。
+  const scoutDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
   let revealed = [];
   for (let i = 1; i < pcData.length; i++) {
     const fac = String(pcData[i][COL.PC.FACTION]);
     if (fac !== "敵御主" && fac !== "敵從者") continue;
     if (String(pcData[i][COL.PC.GAME_ID] || "") !== myGameId) continue;
     if (String(pcData[i][COL.PC.ID]).startsWith("DEAD_")) continue;
+    if (!hasArrived_(pcData[i], scoutDay)) continue;
     const loc = String(pcData[i][COL.PC.LOC]).trim();
     if (scope.indexOf(loc) === -1) continue;
     if (!String(pcData[i][COL.PC.SEEN] || "")) {

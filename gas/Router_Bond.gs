@@ -469,7 +469,9 @@ function actionBreakAlliance(userData, pcId, sheets) {
     const isMatch = npcId ? (i === targetIdx || nameLoose_(pcData[i][COL.PC.NAME]) === nameLoose_(targetName))
       : (nameLoose_(pcData[i][COL.PC.NAME]).indexOf(nameLoose_(npcName)) !== -1); // 🔧 loose 比對·含中點名字不漏
     if (isMatch) {
-      pcData[i][COL.PC.MEMORY] = clearAllyMem_(pcData[i][COL.PC.MEMORY]);
+      // 🐛→✅ 稽核抓到：結盟期間世界tick跳過死線檢查、不代表死線被取消——若原本掛著【靈基透支】
+      //   (令咒燒盡瀕死)倒數才結盟，解盟當下若不順手清掉，可能瞬間讀到早已過期的舊死線暴斃。
+      pcData[i][COL.PC.MEMORY] = clearDoom_(clearAllyMem_(pcData[i][COL.PC.MEMORY]));
       if (fac === "敵御主") who = String(pcData[i][COL.PC.NAME]);
       broke++;
     }
@@ -498,7 +500,9 @@ function breakStaleAlliances_(sheets, gameId, preData) {
       var fac = String(data[j][COL.PC.FACTION]);
       if ((fac === "敵御主" || fac === "敵從者") && String(data[j][COL.PC.GAME_ID] || "") === gameId && isAllied_(data[j])) {
         if (forceAll || day > allyUntil_(data[j])) {
-          data[j][COL.PC.MEMORY] = clearAllyMem_(data[j][COL.PC.MEMORY]);
+          // 🐛→✅ 同actionBreakAlliance同款修法：自然瓦解也可能讓早已過期的【靈基透支】死線在
+          //   解盟瞬間被讀到，一併清掉。
+          data[j][COL.PC.MEMORY] = clearDoom_(clearAllyMem_(data[j][COL.PC.MEMORY]));
           dirty = true;
           if (fac === "敵御主") broken.push(String(data[j][COL.PC.NAME]));
         }
