@@ -55,7 +55,11 @@ function offenseTier_(c, isNp) {
   //   (投影魔術本體)、又是他兩個可選寶具之一——選了另一個較弱的『偽·螺旋劍』(fx:projection)時，
   //   ubw仍會被這份無條件清單掃到，讓Caladbolg II誤判成帶概念4貫穿的無限劍製強度。同樣從清單移除，
   //   交給下面npProfile_(c).fx按實際選定寶具判定。
-  var pierceFx = isNp ? ['ea', 'enuma', 'excalibur', 'rule_breaker', 'summon_horror', 'anti_magic_lance', 'tsubame', 'zabaniya', 'petrify']
+  // 🐛→✅ 再稽核第三例(同構)：美杜莎的『魔眼』被動技能(Seed_Codex.gs)fx也是petrify，同時petrify又是
+  //   她兩個可選寶具之一(他者封印·鮮血神殿)——選了另一個(貝勒羅豐)時，petrify仍會被這份無條件清單
+  //   掃到誤判成帶概念3貫穿。同樣移除，交給下面npProfile_(c).fx按實際選定寶具判定；下方627/797行的
+  //   petrify判定是她「魔眼」被動本身(迴避減益/瀕死乘隙)，不受寶具選擇影響，維持hasFx_原樣不動。
+  var pierceFx = isNp ? ['ea', 'enuma', 'excalibur', 'rule_breaker', 'summon_horror', 'anti_magic_lance', 'tsubame', 'zabaniya']
                       : ['rule_breaker', 'anti_magic_lance']; // 非解放時，只有破戒/破魔這類「常駐穿透概念」生效
   var t = 1;
   for (var i = 0; i < pierceFx.length; i++) { if (hasFx_(c, pierceFx[i])) t = Math.max(t, conceptTier_(pierceFx[i])); }

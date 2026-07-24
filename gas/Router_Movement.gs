@@ -615,9 +615,12 @@ function actionPrepMeal(userData, pcId, sheets) {
   if (!clk) return JSON.stringify({ success: false, message: "此刻無法整備。" });
   var nowAbs = clk.day * 24 + clk.hour;
   pcData[pIdx][COL.PC.MEMORY] = stampMeal_(pcData[pIdx][COL.PC.MEMORY], nowAbs + MEAL_BUFF_HOURS);
-  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-  var _mealApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以好好整備——請休息恢復後再進食。", { isFate: isFate });
+  // 🐛→✅ 稽核抓到：原本先整列寫回(帶著扣AP前的舊AP)、chargeApOrReject_才扣AP，讓它內部那道
+  //   3欄窄寫又補寫一次——同一列兩次Sheets I/O。改成先扣AP(skipWrite跳過內部窄寫)、扣完AP的
+  //   最終狀態再整列寫回一次，跟actionFateBattle同款省I/O寫法。
+  var _mealApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以好好整備——請休息恢復後再進食。", { isFate: isFate, skipWrite: true });
   var ap = _mealApr.ap, clock = _mealApr.clock;
+  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   // 🎬 aiPrompt 讓 AI 演出這段整備場景，而非只回罐頭 message。
   var mealSvIdx = findPlayerServantIdx_(pcData, myGameId, "");
   var mealPrompt = masterCard_(pcData[pIdx]) + (mealSvIdx !== -1 ? servantCard_(pcData[mealSvIdx]) : '') +
@@ -884,7 +887,9 @@ function actionFactionAmbush(userData, pcId, sheets) {
   var res = playerAmbushOnEnemy_(sheets, pcData, pIdx, gameId, String(userData.targetName || ""));
   if (res.err) return JSON.stringify({ success: false, message: res.err });
   pcData[pIdx][COL.PC.MEMORY] = clearEncounterWindow_(pcData[pIdx][COL.PC.MEMORY]); // 用掉即清窗口
-  var _ambApr = chargeApOrReject_(gameId, 1, pcData, sheets, "行動力不足以搶這一手。", { isFate: true });
+  // 🐛→✅ 稽核抓到：chargeApOrReject_原本沒skipWrite，內部窄寫(AP/day/hour)後緊接著下一行又整列
+  //   寫回同一列——同一列兩次Sheets I/O。補skipWrite:true，讓下面這次整列寫回一次到位。
+  var _ambApr = chargeApOrReject_(gameId, 1, pcData, sheets, "行動力不足以搶這一手。", { isFate: true, skipWrite: true });
   var ap = _ambApr.ap, clock = _ambApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]); // 寫回御主列(窗口清除＋AP)
   // 🐛→✅ 舊版命中就無條件講「重創」，GAS 明明算出 eHpMax 卻沒換算實際傷勢比例——比照其餘兩處撤退/夜襲同款修法。
@@ -981,7 +986,9 @@ function actionIncite(userData, pcId, sheets) {
     report = { incite: true, success: false, aName: svAName, bName: svBName };
   }
   pcData[pIdx][COL.PC.MEMORY] = clearEncounterWindow_(pcData[pIdx][COL.PC.MEMORY]);
-  var _inciteApr = chargeApOrReject_(gameId, 1, pcData, sheets, "行動力不足。", { isFate: true });
+  // 🐛→✅ 稽核抓到：chargeApOrReject_原本沒skipWrite，內部窄寫後下一行又整列寫回同一列，同一列
+  //   兩次Sheets I/O。補skipWrite:true，讓下面這次整列寫回一次到位。
+  var _inciteApr = chargeApOrReject_(gameId, 1, pcData, sheets, "行動力不足。", { isFate: true, skipWrite: true });
   var ap = _inciteApr.ap, clock = _inciteApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   STATE_PRE_DATA_ = pcData;
@@ -1223,9 +1230,11 @@ function actionSetWorkshop(userData, pcId, sheets) {
   if (isFate && mMp < WORKSHOP_MANA_COST) return JSON.stringify({ success: false, message: `佈設陣地要灌注魔力築起結界與機關（需 ${WORKSHOP_MANA_COST} 魔），當前御主魔力不足（${mMp}／需 ${WORKSHOP_MANA_COST}）——先補魔或休整。` });
   if (isFate) pcData[pIdx][COL.PC.MP] = Math.max(0, mMp - WORKSHOP_MANA_COST);
   pcData[pIdx][COL.PC.MEMORY] = setWorkshopMemory_(pcData[pIdx][COL.PC.MEMORY], loc);
-  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]); // MP＋MEMORY 一起寫回
-  const _wsApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以佈設陣地——請休息恢復。", { isFate: isFate });
+  // 🐛→✅ 稽核抓到：原本先整列寫回(帶著扣AP前的舊AP)、chargeApOrReject_才扣AP，內部又補寫一次
+  //   ——同一列兩次Sheets I/O。改成先扣AP(skipWrite跳過內部窄寫)，最終狀態再整列一次寫回。
+  const _wsApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以佈設陣地——請休息恢復。", { isFate: isFate, skipWrite: true });
   const ap = _wsApr.ap, clock = _wsApr.clock;
+  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]); // MP＋MEMORY＋AP 一起寫回
   // 🎬 AI 演出：布設陣地的勞作（有陣地作成 Caster→其親手築結界；否則御主張設簡易營地）。給事實素材、少下指令。
   const casterRow = pcData.find(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && hasFx_(rowToCombatant_(r), 'territory'));
   const csName = casterRow ? String(casterRow[COL.PC.NAME]) : "";
@@ -1270,9 +1279,11 @@ function actionScavenge(userData, pcId, sheets) {
   const gain = Math.max(0, Math.min(mpMax, cur + Math.round(mpMax * rate)) - cur);
   pcData[pIdx][COL.PC.MP] = cur + gain;
   if (!depleted && curLoc) pcData[pIdx][COL.PC.MEMORY] = addScavengedLoc_(pcData[pIdx][COL.PC.MEMORY], curLoc);
-  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-  const _scavApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以細細搜索——請休息恢復。", { isFate: isFate });
+  // 🐛→✅ 稽核抓到：原本先整列寫回(帶著扣AP前的舊AP)、chargeApOrReject_才扣AP，內部又補寫一次
+  //   ——同一列兩次Sheets I/O。改成先扣AP(skipWrite跳過內部窄寫)，最終狀態再整列一次寫回。
+  const _scavApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以細細搜索——請休息恢復。", { isFate: isFate, skipWrite: true });
   const ap = _scavApr.ap, clock = _scavApr.clock;
+  sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   // 35% 機率察覺鄰近敵蹤（揭露一名最近的未偵查敵）——搜索的真正價值在情報
   let intel = "";
   if (Math.random() < 0.35) {
