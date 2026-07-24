@@ -565,6 +565,15 @@ function actionAllyBond(userData, pcId, sheets) {
   const isFate = myGameId.indexOf("g_") === 0;
   if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不足以從容相處——請『休息』恢復後再來。" });
 
+  // 🐛→✅ 稽核抓到：本檔手足機制(actionBond的【羈絆日】、actionCourtEnemy的【示好日】)都有「每日
+  //   一次」節流，唯獨這裡完全沒有——AP足夠(每日12點)可連續呼叫6~7次就把盟友羈絆從40衝到90+，
+  //   一天內直接解鎖【摯交】里程碑，遠比其餘手足機制「細水長流」的設計節奏快上一整個量級。
+  //   比照【示好日】同款每對象每日一次節流。
+  const _allyBondDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
+  const _abMem = String(pcData[aIdx][COL.PC.MEMORY] || "");
+  const _abm = _abMem.match(/【交流日】(\d+)/);
+  if (_abm && parseInt(_abm[1]) === _allyBondDay) return JSON.stringify({ success: false, message: "今日已與此盟友交流過了——來日方長，改日再敘。" });
+
   const masterName = String(pcData[pIdx][COL.PC.NAME]);
   const allyName = String(pcData[aIdx][COL.PC.NAME]);
   const allyIsMaster = String(pcData[aIdx][COL.PC.FACTION]) === "敵御主";
@@ -589,15 +598,20 @@ function actionAllyBond(userData, pcId, sheets) {
   }
 
   const gain = 6 + Math.floor(Math.random() * 6); // +6~11
-  const after = bumpBond_(sheets, pcData, aIdx, gain);
+  // 🐛→✅ 稽核抓到：bumpBond_預設會立即單格寫回aIdx列的BOND，下面【摯交】里程碑命中時又對同一列
+  //   做MEMORY單格寫回——同列2次Sheets I/O。改skipWrite:true，交給下面單次整列寫回一併涵蓋
+  //   (含BOND／可能的【摯交】／【交流日】節流標記)。
+  const after = bumpBond_(sheets, pcData, aIdx, gain, true);
   let unlocked = false;
   // 🤝 深盟里程碑（首度臻至 90）——純敘事高光的「已演出」防重複標記【摯交】，無鑑賞入口意義
   //   (原【鑑賞緣】戰後納入鑑賞已砍：鑑賞角色一律鑑賞內自行召喚)。
   if (after >= 90 && !/【摯交】/.test(String(pcData[aIdx][COL.PC.MEMORY] || ""))) {
     pcData[aIdx][COL.PC.MEMORY] = String(pcData[aIdx][COL.PC.MEMORY] || "") + "｜【摯交】";
-    sheets.pc.getRange(aIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[aIdx][COL.PC.MEMORY]);
     unlocked = true;
   }
+  // 標記今日已與此盟友交流過（每對象每日一次）
+  pcData[aIdx][COL.PC.MEMORY] = String(pcData[aIdx][COL.PC.MEMORY] || "").replace(/｜?【交流日】\d+/g, "") + "｜【交流日】" + _allyBondDay;
+  sheets.pc.getRange(aIdx + 1, 1, 1, pcData[aIdx].length).setValues([pcData[aIdx]]);
 
   // 羈絆分級·嚴格控制親疏（盟友＝暫時利益結合，低羈絆務必冷淡，唯 90+ 才解鎖親近）
   const tier = after >= 90 ? "【羈絆深厚】可流露真切的信任與溫柔（守住性格內核、不踰矩，止於曖昧 fade，真親密不在此展開）"
