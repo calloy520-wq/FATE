@@ -350,11 +350,17 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
   // 🛡️ 這是唯一寫進共用英靈殿的入口(手動工房已在parseForgeBuild_清過build.name，但AI輔助召喚
   //   path的realName可能只清過userData.trueName、AI自己回傳的aiBrief.realName未經任何清洗)——
   //   在單一真實來源補一道，兩條路徑都保證進表的名字不含HTML斷字字元。
+  // 🐛→✅ 稽核抓到：本函式原本無回傳值，撞名靜默return跟真的寫入appendRow完全無法區分——
+  //   actionSaveHero(製造模式)不論這裡有沒有真的寫入，一律回報「已鑄入英靈殿」成功。TOCTOU：
+  //   line 643的查重跟這裡的appendRow之間隔著一次AI呼叫(常達數秒)，兩個幾乎同時的save_hero
+  //   請求(同名/雙擊重試)都可能通過各自的查重、只有先appendRow那個真的寫入，後者在這裡撞名
+  //   静默return，玩家卻收到假成功、之後召喚出的其實是對方那份設定。改回傳布林值，讓呼叫端
+  //   誠實回報。
   name = String(name || "").replace(/[<>&"'`]/g, "").trim();
-  if (!name) return;
+  if (!name) return false;
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hs = ss.getSheetByName("英靈殿");
-  if (!hs) return;
+  if (!hs) return false;
   var data = getHeroCodexCached();
   // 🐛→✅ 只查NAME不夠：部分種子英靈的id用去標點短名(如「庫丘林-Lancer」)、跟自己的realName
   //   (「庫·丘林」)不同——玩家指定的trueName若剛好是那個短名，NAME比對不會撞、但這裡組出的
@@ -362,8 +368,8 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
   //   會依id覆寫，把玩家原創英靈整列蓋成種子資料。補上id層級的查重。
   var newIdCandidate = name + "-" + String(cls || "").trim();
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][COL.HERO.NAME]).trim() === name) return; // 已有同名 → 不重複收錄
-    if (String(data[i][COL.HERO.ID]).trim() === newIdCandidate) return; // id層級也擋(短名撞種子id)
+    if (String(data[i][COL.HERO.NAME]).trim() === name) return false; // 已有同名 → 不重複收錄
+    if (String(data[i][COL.HERO.ID]).trim() === newIdCandidate) return false; // id層級也擋(短名撞種子id)
   }
   var px = pExtra || {};
   // 🐛→✅ 稽核抓到：personaWords(AI輔助召喚路徑傳入的是aiBrief.personality原始值，完全沒經過
@@ -392,6 +398,7 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
     JSON.stringify(classSkills || []), JSON.stringify(skills || []), JSON.stringify(traits || []),
     np || "", persona, align || "中立", "[]", "ai_gen", dailyLookRes.look, dailyWords, dailyMoe, dailyLookRes.outfit]);
   try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { } // 種子表已變動→清快取，下次讀到新從者
+  return true;
 }
 
 // 陣營九宮格(單一真實來源)：秩序/中立/混沌 × 善/中庸/惡，"中立"(無修飾)是通用預設值。
@@ -659,10 +666,15 @@ function actionSaveHero(userData, pcId, sheets) {
   const finalPref = pb.prefFull ? pb.pref : (String((flavor && flavor.personality) || "").trim() || pb.pref);
   const moe = pb.moe || String((flavor && flavor.npc_intent) || "").slice(0, 30); // 比照 slice(0,18) 腰斬修正，放寬緩衝
   const back = pb.back || String((flavor && flavor.background) || "").slice(0, 28);
+  let wasCreated;
   try {
-    recordOriginalHero_(pb.name, pb.cls, pb.sex, JSON.stringify(pb.six), pb.classSkills, pb.skills, pb.traits, np, finalPref || "", pb.align,
+    wasCreated = recordOriginalHero_(pb.name, pb.cls, pb.sex, JSON.stringify(pb.six), pb.classSkills, pb.skills, pb.traits, np, finalPref || "", pb.align,
       { look: finalLook, moe: moe, firstP: pb.fp, toMaster: pb.toM, speech: pb.speech, tic: pb.tic, back: back, weapon: pb.weapon, creator: acct });
   } catch (e) { return JSON.stringify({ success: false, message: "寫入英靈殿失敗：" + e.message }); }
+  // 🐛→✅ 稽核抓到：line 643的查重跟AI呼叫(651-654，常達數秒)之間有TOCTOU競態窗口——兩個幾乎
+  //   同時的save_hero請求可能都通過各自查重，只有先寫入appendRow那個真的成功，後者在
+  //   recordOriginalHero_內部撞名靜默return false，卻原本一律被這裡回報「已鑄入」成功。誠實回報。
+  if (!wasCreated) return JSON.stringify({ success: false, message: `「${pb.name}」剛被搶先鑄造同名英靈，請換一個真名再試一次。` });
   return JSON.stringify({ success: true, created: true, name: pb.name, message: `「${pb.name}」已鑄入英靈殿——到召喚頁「🌟 玩家原創英靈」即可召喚；之後想調整可在該區「✏️ 修改」（僅你本人）。` });
 }
 
