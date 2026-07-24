@@ -255,6 +255,7 @@ async function backfillMasterAi(seed) {
   try {
     if (!pc || !pc.id) return;
     const res = await gasRun({ action: 'backfill_master_ai', pcId: pc.id,
+      acctName: (typeof currentAccount !== 'undefined' ? currentAccount : ''),
       appearance: seed.appearance || "", standing: seed.standing || "", wish: seed.wish || "",
       magic: seed.magic || "", origin: seed.origin || "" });
     if (res && res.success) {

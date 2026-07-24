@@ -129,6 +129,16 @@ function actionManualNpc(userData, pcId, sheets) {
 // 御主敘事非阻塞補生成：create 已用種子值秒建御主；此處於「召喚從者頁」背景叫 AI 補背景/特徵/個性/萌點，
 //   只用單格 setValue 更新敘事欄(不整列 write-back，避免與玩家動作競寫)；失敗則保留種子預設。數值欄一律不碰。
 function actionBackfillMasterAi(userData, pcId, sheets) {
+  // 🔒 稽核抓到：跟actionEndRun修過的同一類漏洞——原本純用pcId(格式"PC_"+時間戳，可預測)裸find，
+  //   完全沒驗證acctName是否真的擁有這個pcId，且此action豁免全域鎖(LOCK_EXEMPT_ACTIONS_)可高速
+  //   重試，等同任何人皆可窮舉pcId替別人的御主竄改外貌/身世/個性/萌點敘事欄。比照actionEndRun/
+  //   actionBackfillKanshouAi同款補上帳號歸屬驗證。
+  const acctName = String(userData.acctName || "").trim();
+  const accSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("帳號");
+  const foundAcc = accSheet && acctName ? findAccountRow_(accSheet, acctName) : null;
+  if (!foundAcc || String(foundAcc.row[COL.ACC.PC] || "") !== String(pcId)) {
+    return JSON.stringify({ success: false, message: "查無御主" });
+  }
   const pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
