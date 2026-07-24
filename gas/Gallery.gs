@@ -450,7 +450,8 @@ function actionEnterKanshou(userData, pcId, sheets) {
         success: true,
         pcId: migId, pcName: String(data[m][COL.PC.NAME] || acctName),
         pcSex: String(data[m][COL.PC.SEX] || "異"), loc: String(data[m][COL.PC.LOC] || "冬木·深山町"),
-        homeName: getKanshouHomeName_(data[m][COL.PC.MEMORY], String(data[m][COL.PC.NAME] || acctName))
+        homeName: getKanshouHomeName_(data[m][COL.PC.MEMORY], String(data[m][COL.PC.NAME] || acctName)),
+        quickPhrases: kanshouGetQuickPhrases_(data[m][COL.PC.MEMORY])
       });
     }
   }

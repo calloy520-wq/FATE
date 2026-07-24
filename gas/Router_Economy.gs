@@ -146,7 +146,7 @@ function actionManaSupply(userData, pcId, sheets) {
   }
 
   const isFateMana = myGameId.indexOf("g_") === 0;
-  if (isFateMana && getAp_(myGameId) < 1) {
+  if (isFateMana && getAp_(myGameId, pcData) < 1) {
     return JSON.stringify({ success: false, needRest: true, message: "行動力不足以行補魔之儀——請『休息』恢復後再來。" });
   }
   const oldCirc = masterCircuits_(pcData[pIdx]);
@@ -222,7 +222,7 @@ function actionSpiritRepair(userData, pcId, sheets) {
   const svName = pcData[svIdx][COL.PC.NAME];
 
   const isFateMana = myGameId.indexOf("g_") === 0;
-  if (isFateMana && getAp_(myGameId) < 1) {
+  if (isFateMana && getAp_(myGameId, pcData) < 1) {
     return JSON.stringify({ success: false, needRest: true, message: "行動力不足以行靈基修復之儀——請『休息』恢復後再來。" });
   }
 

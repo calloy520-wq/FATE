@@ -1464,7 +1464,7 @@ function actionSummonHorror(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: "深淵海怪已在場，無需重複召喚。" });
   }
   const isFate = gameId.indexOf("g_") === 0;
-  if (isFate && getAp_(gameId) < 1) return JSON.stringify({ success: false, message: "行動點不足——召喚深淵海怪需 1 AP。" });
+  if (isFate && getAp_(gameId, pcData) < 1) return JSON.stringify({ success: false, message: "行動點不足——召喚深淵海怪需 1 AP。" });
   // ⚖️ 刻意不設「出力 100%」閘(與戰鬥內解放的差異)：戰鬥中解放要全開是「臨戰瞬間灌注」的張力；
   //   戰前召喚是不趕時間的儀式詠唱(出力檔本就免費即時可調·設閘只是無意義的點擊摩擦)。prana 全額照付。
   // 🔋 付寶具 prana（御主電池·MP＋焚血）：湊不出則召不動。用 npEffectiveRank_ 與同檔其餘呼叫點一致
