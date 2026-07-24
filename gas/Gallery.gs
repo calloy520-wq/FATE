@@ -1687,6 +1687,21 @@ var KANSHOU_SCENE_DAY_TAG_ = makeIntTag_('橋段日', 0);
 // 📅 初見日(存該同伴列MEMORY·absDay)：首次跟玩家同地當下蓋戳，之後相識滿7/30/100/365天且人
 //   在場時餵一行紀念日提示。0=尚未記錄(舊存檔首次相遇當天補戳，從那天起算)。
 var KANSHOU_FIRST_MET_DAY_TAG_ = makeIntTag_('初見日', 0);
+// 🐛→✅ 稽核抓到：紀念日里程碑原本用exact-match(curDay-初見日 === 7/30/100/365)判斷，但時間可一次
+//   跳多天(節慶跳/大量advanceHours上限3年)，一旦跳過整數剛好等於門檻的那天，該里程碑就永久漏發
+//   (curDay-初見日只會遞增遠離、不會回頭)；同伴當天恰好不在場(partyRows之外)也是同一類漏發。
+//   比照BOND_MILESTONES_(Router_Bond.gs)既有「已發集合」寫法：改成>=門檻且尚未發過，跨過門檻
+//   也能在她下次入場時補上，且發過就不再重複觸發同一則。
+function getKanshouAnnivFired_(memory) {
+  var m = String(memory || "").match(/【紀念日里程碑】([\d,]*)/);
+  return m && m[1] ? m[1].split(",").map(Number) : [];
+}
+function setKanshouAnnivFired_(memory, arr) {
+  var s = String(memory || "");
+  var marker = "【紀念日里程碑】" + arr.join(",");
+  if (/【紀念日里程碑】[\d,]*/.test(s)) return s.replace(/【紀念日里程碑】[\d,]*/, marker);
+  return (s ? s + "｜" : "") + marker;
+}
 // 📅 約定 2.0(存該同伴列MEMORY)：【約定】absDay:時段:地點＝「那天午後在X見」。同時只存一筆(新約蓋舊約)。
 //   band 為 KANSHOU_APPT_BANDS_ 之一(午後/黃昏/夜)；舊格式【約定】day:loc(無時段)向後相容＝整天有效。
 // 約定時刻表：她提前10分到場、準時窗=[時刻-10分, 時刻+30分]、之後~2h算遲到、整天沒去=爽約。排除
@@ -2815,8 +2830,18 @@ function actionPlay_(userData, pcId, sheets) {
     if (!_met) {
       pcData[_ri][COL.PC.MEMORY] = KANSHOU_FIRST_MET_DAY_TAG_.set(pcData[_ri][COL.PC.MEMORY], curDay);
       dirtyPcRows.add(_ri);
-    } else if (KANSHOU_ANNIV_MILESTONES_.indexOf(curDay - _met) >= 0) {
-      kanshouAnnivLines_.push(`與『${String(r[COL.PC.NAME])}』相識恰好滿${curDay - _met}天`);
+    } else {
+      const _daysKnown = curDay - _met;
+      const _annivFired = getKanshouAnnivFired_(r[COL.PC.MEMORY]);
+      const _crossed = KANSHOU_ANNIV_MILESTONES_.filter(m => _daysKnown >= m);
+      const _newlyDue = _crossed.filter(m => _annivFired.indexOf(m) === -1);
+      if (_newlyDue.length) {
+        const _biggest = Math.max(..._newlyDue);
+        kanshouAnnivLines_.push(`與『${String(r[COL.PC.NAME])}』相識已滿${_biggest}天`);
+        // 跨過門檻一次補齊全標記已發，避免之後又補announce較小、已經跨過的門檻
+        pcData[_ri][COL.PC.MEMORY] = setKanshouAnnivFired_(pcData[_ri][COL.PC.MEMORY], _crossed);
+        dirtyPcRows.add(_ri);
+      }
     }
   });
   const kanshouAnnivStr = kanshouAnnivLines_.length ? `\n★【紀念日·非強制】：今天是${kanshouAnnivLines_.join('、')}的日子——若氣氛合適可自然帶出這份紀念的溫度(她記得、或你記得皆可)，不必強行慶祝或報幕。` : "";
