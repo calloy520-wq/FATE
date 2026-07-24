@@ -109,14 +109,19 @@
   // ==========================================
   let __pendingState = null; // ⚡ 動作回應夾帶的最新 client state，供緊接的 syncData 直接消費(免再打一趟 sync)
   // 🐛→✅ __pendingState 在每趟新的 gasRun() 呼叫時就被清空(含 narrate() 內部呼叫的 narrate_only)——handler 必須先 syncData(true) 再 narrate()，順序反了 state 會被提前洗掉、白算一趟。
+  let __gasRunSeq = 0; // 🐛→✅ 稽核抓到：google.script.run不保證回應依發出順序抵達——setServantOutput是
+  //   全站唯一沒走__actionBusy鎖、能跟其他action並發在外的呼叫端，若它的回應姍姍來遲(或90秒逾時
+  //   後才到)，會無條件把已被更新的action(如攻擊戰報)的新鮮_state覆寫回自己那份舊快照，戰報結果被
+  //   悄悄倒退。用世代序號守門：只有「當下最新一次發出」的請求，其回應才准寫入__pendingState。
   function gasRun(payload) {
     __pendingState = null; // 新一趟伺服器呼叫開始 → 作廢任何未消費的舊 state(防過期錯套)
+    const mySeq = ++__gasRunSeq;
     const callPromise = new Promise((resolve, reject) => {
       google.script.run
         .withSuccessHandler(responseRaw => {
           try {
             const data = (typeof responseRaw === 'string') ? JSON.parse(responseRaw) : responseRaw;
-            if (data && data._state) __pendingState = data._state; // ⚡ 暫存，syncData 會優先吃這份
+            if (data && data._state && mySeq === __gasRunSeq) __pendingState = data._state; // ⚡ 暫存，syncData 會優先吃這份(非最新世代的過期回應直接丟棄)
             resolve(data);
           } catch (e) {
             console.error("【解析異常】:", responseRaw);
