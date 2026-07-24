@@ -2820,9 +2820,12 @@ function actionPlay_(userData, pcId, sheets) {
   let kanshouPhotoStr = "", kanshouPhotoPending_ = null, kanshouPhotoDenied_ = "";
   if (userData.takePhoto === true) {
     const _phIntent = String(userData.photoIntent || "").replace(/[<>&"'`｜【】]/g, "").slice(0, 60);
-    let _phCount = 0;
-    try { const _ar = kanshouAlbumSheet_().getDataRange().getValues(); for (let i = 1; i < _ar.length; i++) { if (String(_ar[i][0]) === myGameId) _phCount++; } } catch (e) { }
-    if (_phCount >= KANSHOU_ALBUM_CAP_) {
+    // 🐛→✅ 稽核抓到：讀表失敗時原本靜默吞例外、_phCount留在初始值0，等於cap在讀表不穩時直接
+    //   fail-open放行拍照——改成讀表失敗就視為「已滿」fail-closed拒絕，寧可誤擋一次拍照，也不讓
+    //   相簿容量上限形同虛設。
+    let _phCount = 0, _phCountErr = false;
+    try { const _ar = kanshouAlbumSheet_().getDataRange().getValues(); for (let i = 1; i < _ar.length; i++) { if (String(_ar[i][0]) === myGameId) _phCount++; } } catch (e) { _phCountErr = true; }
+    if (_phCountErr || _phCount >= KANSHOU_ALBUM_CAP_) {
       kanshouPhotoDenied_ = 'cap';
       kanshouPhotoStr = `\n★【相簿已滿】：玩家舉起手機，卻想起相簿已經放不下更多照片了——演出這份「回憶太滿」的感嘆即可。`;
       finalUserMsg = `【玩家意圖】：舉起手機，卻想起相簿已經滿了。`;
