@@ -84,8 +84,9 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 
 ## 3. 後端路由 `ActionRouter`（Router_Action.gs 頂部）
 
-主進入點 `handleGameAction` → `sanitizeUserData_`(輸入清洗) → 查 `ActionRouter[action]`。AI 輸出經 `sanitizeAiData_` 夾值防幻覺。未知 action 走 else 支優雅回錯誤。
+主進入點 `handleGameAction` → `sanitizeUserData_`(輸入清洗) → 查 `ActionRouter[action]` → **pcId 歸屬中央驗證**(2026-07新增，見下)。AI 輸出經 `sanitizeAiData_` 夾值防幻覺。未知 action 走 else 支優雅回錯誤。
 
+- **🔒 pcId 歸屬中央驗證**（2026-07 系統性漏洞修補）：稽核發現近全部 solo 戰場/移動/羈絆/經濟類 action（`get_tags`/`sync`/`fate_battle`/`mana_supply`/`bond`/`move`/`use_seal`…共20餘個）過去只用裸 `findIndex` 信任前端傳入的 `pcId`（可預測字串 `"PC_"+timestamp`），完全沒反查「帳號」表——猜中/枚舉即可代任意玩家讀取私密狀態或竄改 HP/羈絆/裝備，部分不可逆（`mana_supply` 燒蝕迴路）。修法：`handleGameAction` 在 dispatch 前對所有帶 `pcId` 且非 `OWNERSHIP_CHECK_EXEMPT_` 白名單的 action，統一呼叫 `verifyPcOwnership_(acctName, pcId)`（Account.gs，反查帳號表 `COL.ACC.PC`/`COL.ACC.KPC`）；前端 `gasRun()` 同步補上「未帶 `acctName` 就自動填 `pc.account||currentAccount`」，取代逐一補幾十個呼叫端 payload。白名單只留 `account_login`/`account_new_game`/`create`/`enter_kanshou`（pcId尚不存在）、`claim_hero`/`save_hero`（走 creator 模型）、`get_heroes`/`get_masters`（公開名冊）等不涉個別玩家列的動作。
 - **慾海擋牆**：`KANSHOU_BLOCKED_ACTIONS_` 白名單，`isKanshouCtx` 命中就在 dispatcher 層擋下戰鬥/經濟類 action（`fate_battle`/`use_seal`/`mana_supply`/`bond`/`rule_break_steal`/結盟系/陣地系/`set_*` 等）。刻意不擋 `move`/`update_fate`/`update_rel_tag`。
 - **⚡ 每按鍵 3→1 round-trip**：dispatcher 對 `STATE_AFTER_ACTIONS` 白名單動作＋`PC_` 御主，自動把 `_state:buildClientState_()` 夾進回應；前端 `gasRun` 暫存 `data._state`→`__pendingState`，`syncData` 優先消費。寫入完整性已驗證的 handler（move/rest/fate_battle）用 `STATE_PRE_DATA_` 把權威 pcData 交棒給 dispatcher，`buildClientState_(sheets,pcId,preData)` 直接複用免整表重讀。**別把多餘 round-trip 或重複整表讀回加回來。**
 
