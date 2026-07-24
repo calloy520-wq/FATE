@@ -105,6 +105,12 @@ function actionMove(userData, pcId, sheets) {
   // 🥷 悄悄離開：若正從一個「敵人分心」的局面格（趁隙窗口·slip）抽身，此刻離開不會被追擊。
   var _slipWin = isFateMove ? getEncounterWindow_(allPcData[pIdx][COL.PC.MEMORY]) : null;
   var _slipAway = !!(_slipWin && _slipWin.loc === String(allPcData[pIdx][COL.PC.LOC] || "").trim() && encounterChoices_(_slipWin.type).slip);
+  // 🐛→✅ 稽核抓到：窗口只鎖 loc+type，從沒比對 win.names(該局面實際牽涉的那兩名敵從者)——同地若
+  //   撞見的是「三方以上」混戰(clashMasters無2人上限)，窗口只記錄隨機挑中的那兩名敵人對峙，第三組
+  //   完全無關的敵從者從未被分心，卻因為同一個loc+type的窗口存在而讓玩家一併悄悄溜走，繞過下面的
+  //   needRetreat硬性攔截。改成：悄悄離開只豁免「窗口點名那兩位」，同地若還有其他未被點名的能戰敵
+  //   從者，依然視為未分心、照樣強制走撤退。
+  var _slipNames = (_slipAway && _slipWin.names && _slipWin.names.length) ? _slipWin.names.map(nameLoose_) : null;
   // 🏃 撤退旗標：前端按「撤退」殺出重圍時帶 retreat=true——敵方【必】追擊(非機率)、GAS 判勝負。
   var isRetreat = isFateMove && (userData.retreat === true || userData.retreat === 'true');
   // 🏰 在自己陣地＝安全港：主場結界／機關掩護，敵人闖進來也困不住你——不強制撤退、離場亦不被追擊
@@ -114,11 +120,14 @@ function actionMove(userData, pcId, sheets) {
   try { var _ws = getWorkshop_(allPcData[pIdx][COL.PC.MEMORY]); _atOwnHome = !!(_ws && String(_ws).split('-')[0].trim() === _fromLocR.split('-')[0].trim()); } catch (e) { }
   // 🚫 有敵時封鎖從容移動：離場格若有【非盟約·已登場·未友好(BOND<50)】的能戰敵從者，plain 移動被擋，須改按「撤退」。
   //   分心窗口(slip)可悄悄離開則不受此限；撤退本身(isRetreat)也放行；在自己陣地(_atOwnHome)享安全港·不封鎖。
-  if (isFateMove && !_slipAway && !_atOwnHome && !isRetreat && tgtTrim !== _fromLocR) {
+  if (isFateMove && !_atOwnHome && !isRetreat && tgtTrim !== _fromLocR) {
     var _hostileHere = allPcData.some(function (r) {
-      return String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === moveGameId &&
+      if (!(String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === moveGameId &&
         !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC] || "").trim() === _fromLocR &&
-        !isAllied_(r) && hasArrived_(r, _moveDay()) && (parseInt(r[COL.PC.BOND]) || 0) < 50;
+        !isAllied_(r) && hasArrived_(r, _moveDay()) && (parseInt(r[COL.PC.BOND]) || 0) < 50)) return false;
+      // 悄悄離開只豁免窗口點名的那兩位(分心中)，其餘未點名的敵從者依然算「盯著」，強制走撤退。
+      if (_slipAway && _slipNames && _slipNames.indexOf(nameLoose_(r[COL.PC.NAME])) !== -1) return false;
+      return true;
     });
     if (_hostileHere) return JSON.stringify({ success: false, needRetreat: true, message: "此地有敵從者盯著，無法從容轉身離去——須按「🏃 撤退」殺出重圍（對方必定追擊、成敗當場見真章）。" });
   }
@@ -906,6 +915,13 @@ function actionFactionAmbush(userData, pcId, sheets) {
   var win = getEncounterWindow_(pcData[pIdx][COL.PC.MEMORY]);
   if (!win || win.loc !== String(pcData[pIdx][COL.PC.LOC]).trim() || !encounterChoices_(win.type).ambush)
     return JSON.stringify({ success: false, message: "眼下已沒有可趁的空隙了。" });
+  // 🐛→✅ 稽核抓到：這裡只驗證窗口loc+type，從沒比對win.names——同地若有「窗口點名兩人之外」的
+  //   第三方敵從者，原本也能被targetName指到、白吃趁隙偷襲加乘，但對方根本沒被這場對峙分心過。
+  //   比照actionIncite既有的win.names鎖定寫法補上。
+  var _targetKey = nameLoose_(String(userData.targetName || ""));
+  if (win.names && win.names.length && _targetKey && win.names.map(nameLoose_).indexOf(_targetKey) === -1) {
+    return JSON.stringify({ success: false, message: "此人並未被這場對峙分心，無隙可趁。" });
+  }
   if (getAp_(gameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不足以搶這一手。" });
   var res = playerAmbushOnEnemy_(sheets, pcData, pIdx, gameId, String(userData.targetName || ""), userData.servant, userData.servantId);
   if (res.err) return JSON.stringify({ success: false, message: res.err });
@@ -958,8 +974,13 @@ function actionIncite(userData, pcId, sheets) {
   if (win.names && win.names.length >= 2) {
     iA = foeSvs.find(function (i) { return String(pcData[i][COL.PC.NAME]) === win.names[0]; });
     iB = foeSvs.find(function (i) { return String(pcData[i][COL.PC.NAME]) === win.names[1]; });
+    // 🐛→✅ 稽核抓到：win.names查無時原本會退回foeSvs[0]/[1]陣列順序猜測——正是這支函式要修的那個
+    //   bug本身，只是換一種觸發方式(點名的兩位已死亡/離場，但同地還有≥2組完全無關的第三方敵人)。
+    //   已經有明確真名可查證時，查無就該直接拒絕，不再退回瞎猜。
+    if (iA == null || iB == null || iA === iB) return JSON.stringify({ success: false, message: "那場對峙的雙方已不在此處，這份談資已經過時了。" });
+  } else {
+    iA = foeSvs[0]; iB = foeSvs[1]; // foeSvs.length>=2 已由上方(969行)保證
   }
-  if (iA == null || iB == null || iA === iB) { iA = foeSvs[0]; iB = foeSvs[1]; }
   var mIdxA = enemyMasterIdx_(pcData, iA, gameId), mIdxB = enemyMasterIdx_(pcData, iB, gameId);
   var leanA = mIdxA >= 0 ? masterPersonaLean_(pcData[mIdxA]) : { pragmatic: false, loner: true };
   var leanB = mIdxB >= 0 ? masterPersonaLean_(pcData[mIdxB]) : { pragmatic: false, loner: true };
