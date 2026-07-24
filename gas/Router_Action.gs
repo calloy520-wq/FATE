@@ -531,7 +531,7 @@ function buildClientState_(sheets, pcId, preData) {
   const pcIndex = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pcIndex === -1) return null;
   const curL = allPcData[pcIndex][COL.PC.LOC];
-  const freshMapData = getMapDataCached(sheets); // 坤圖靜態→走 1h 快取
+  const freshMapData = getMapDataCached(sheets); // 坤圖已靜態化，直讀常數，零I/O成本(非快取，過期措辭已更正)
   const currentMapInfo = freshMapData.find(m => m[COL.MAP.NAME] === (curL ? String(curL).split('-')[0] : ""));
   const gid = String(allPcData[pcIndex][COL.PC.GAME_ID] || "");
   const isFate = gid && gid.indexOf("g_") === 0;
