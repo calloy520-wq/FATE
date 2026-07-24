@@ -431,7 +431,8 @@ function actionEnterKanshou(userData, pcId, sheets) {
         success: true,
         pcId: linkedKpcId, pcName: String(data[r][COL.PC.NAME] || acctName),
         pcSex: String(data[r][COL.PC.SEX] || "異"), loc: loc,
-        homeName: getKanshouHomeName_(data[r][COL.PC.MEMORY], String(data[r][COL.PC.NAME] || acctName))
+        homeName: getKanshouHomeName_(data[r][COL.PC.MEMORY], String(data[r][COL.PC.NAME] || acctName)),
+        quickPhrases: kanshouGetQuickPhrases_(data[r][COL.PC.MEMORY])
       });
     }
     // 連結指向的列不存在(手動整理試算表等邊角情況)→ 當作沒有存檔，往下走新建流程。
@@ -610,7 +611,52 @@ function actionKanshouCompanions(userData, pcId, sheets) {
       current.push({ id: String(data[i][COL.PC.ID]), name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), nickname: getNickname_(data[i][COL.PC.REL_MEM]), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, promise: _pm ? { loc: _pm.loc, date: _pmDate.month + '/' + _pmDate.day, time: _pmTime || '' } : null, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean), props: kanshouGetProps_(data[i][COL.PC.MEMORY], propCatalog) });
     }
   }
-  return JSON.stringify({ success: true, current: current, customProps: kanshouGetCustomProps_(me[COL.PC.MEMORY]) });
+  return JSON.stringify({ success: true, current: current, customProps: kanshouGetCustomProps_(me[COL.PC.MEMORY]), quickPhrases: kanshouGetQuickPhrases_(me[COL.PC.MEMORY]) });
+}
+
+// 🎀 快速輸入貼圖·玩家自訂(2026-07「表情包文字也想自訂」)：8個內建貼圖(害羞/小聲/苦笑等)寫死在
+//   Index.html純前端顯示，這裡只管玩家自己額外新增的——存玩家列MEMORY【快速貼圖】text1,text2,...，
+//   逗號分隔比照【自訂道具】同款寫法。純文字清單(不像道具需要強度/部位等子欄位)，點下去一樣只是
+//   把文字塞進輸入框游標處(不送出)，玩家自己決定要不要送——後端只負責存/取這份清單。
+const KANSHOU_QUICK_PHRASE_CAP_ = 8;
+function kanshouGetQuickPhrases_(memory) {
+  const m = String(memory || "").match(/【快速貼圖】([^｜【】]*)/);
+  if (!m || !m[1]) return [];
+  return m[1].split(',').filter(Boolean);
+}
+function kanshouSetQuickPhrases_(memory, arr) {
+  const cleared = String(memory || "").replace(/｜?【快速貼圖】[^｜【】]*/g, "").replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
+  if (!arr || !arr.length) return cleared;
+  return (cleared ? cleared + "｜" : "") + "【快速貼圖】" + arr.join(',');
+}
+function actionKanshouAddQuickPhrase(userData, pcId, sheets) {
+  var kpc = sheets.pc;
+  var acctName = String(userData.acctName || "").trim();
+  var text = kanshouSanitizeTagValue_(userData.text, 12);
+  if (!text) return JSON.stringify({ success: false, message: "請輸入貼圖文字。" });
+  var data = kpc.getDataRange().getValues();
+  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  var phrases = kanshouGetQuickPhrases_(data[meIdx][COL.PC.MEMORY]);
+  if (phrases.indexOf(text) !== -1) return JSON.stringify({ success: false, message: "這句已經在你的快速貼圖裡了。" });
+  if (phrases.length >= KANSHOU_QUICK_PHRASE_CAP_) return JSON.stringify({ success: false, message: "自訂貼圖已達上限(" + KANSHOU_QUICK_PHRASE_CAP_ + "句)，先刪掉一些吧。" });
+  phrases.push(text);
+  var newMemory = kanshouSetQuickPhrases_(data[meIdx][COL.PC.MEMORY], phrases);
+  kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
+  return JSON.stringify({ success: true, quickPhrases: phrases });
+}
+function actionKanshouDeleteQuickPhrase(userData, pcId, sheets) {
+  var kpc = sheets.pc;
+  var acctName = String(userData.acctName || "").trim();
+  var text = String(userData.text || "").trim();
+  if (!text) return JSON.stringify({ success: false, message: "參數不完整。" });
+  var data = kpc.getDataRange().getValues();
+  var meIdx = kanshouOwnedRowIdx_(data, pcId, acctName);
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  var phrases = kanshouGetQuickPhrases_(data[meIdx][COL.PC.MEMORY]).filter(function (t) { return t !== text; });
+  var newMemory = kanshouSetQuickPhrases_(data[meIdx][COL.PC.MEMORY], phrases);
+  kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
+  return JSON.stringify({ success: true, quickPhrases: phrases });
 }
 
 // 💞 共同回憶面板操作(釘選/取消釘選/刪除)——比照 update_rel_tag「玩家 UI 手動管理、AI 無權」精神。
@@ -776,6 +822,7 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
   var name = kanshouSanitizeTagValue_(userData.name, 10);
   var hasIntensity = !!userData.hasIntensity;
   var part = kanshouSanitizeTagValue_(userData.part, 8); // 選填，留空就讓AI自己發揮(不注入部位敘述)
+  var effect = kanshouSanitizeTagValue_(userData.effect, 16); // 選填，留空就讓AI只靠名稱腦補效果
   var ignoreBond = false; // 一般道具強制不能無視好感，這個效果只走 actionKanshouCastHypnosis
   if (!targetName || !name) return JSON.stringify({ success: false, message: "參數不完整。" });
   var data = kpc.getDataRange().getValues();
@@ -788,7 +835,7 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
   var already = custom.some(function (p) { return p.id === name; });
   if (!already && custom.length >= KANSHOU_CUSTOM_PROP_CAP_) return JSON.stringify({ success: false, message: "自訂道具已達上限(" + KANSHOU_CUSTOM_PROP_CAP_ + "件)，先刪掉一些吧。" });
   custom = custom.filter(function (p) { return p.id !== name; });
-  custom.push({ id: name, hasIntensity: hasIntensity, part: part, ignoreBond: ignoreBond });
+  custom.push({ id: name, hasIntensity: hasIntensity, part: part, ignoreBond: ignoreBond, effect: effect });
   var newPlayerMemory = kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom);
   kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newPlayerMemory);
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
@@ -1673,12 +1720,12 @@ function kanshouIsCohabit_(row) { return KANSHOU_COHABIT_TAG_.get(row[COL.PC.MEM
 // 🎀 小道具(存該同伴列MEMORY·【小道具】id1:強度1,id2:強度2,...·多件同時裝備·逗號分隔比照【性格鎖】
 //   同款寫法)：玩家UI手動裝備/移除/調強度(kanshouOwnedRowIdx_驗過才動)，GAS直接寫，不靠AI自己判斷
 //   要不要記——這是2026-07「幫她戴貓耳朵過幾輪就忘記」問題的根治版：不持久的設定改走這條「機制
-//   保證」路徑，而非指望AI每次都正確判斷「這算不算變化」。資料驅動：之後想加項圈/眼罩/手銬之類，
-//   只要往KANSHOU_PROPS_加一筆，前端清單自動跟著長。hasIntensity=true的道具額外支援強度分級
+//   保證」路徑，而非指望AI每次都正確判斷「這算不算變化」。資料驅動：之後想加內建項目，只要往
+//   KANSHOU_PROPS_加一筆，前端清單自動跟著長。hasIntensity=true的道具額外支援強度分級
 //   (KANSHOU_PROP_LEVELS_)；false的只有戴上/移除二態(level固定"戴著")。
-const KANSHOU_PROPS_ = [
-  { id: 'egg_vibrator', name: '跳蛋', hasIntensity: true }
-];
+// 🐛→✅ 2026-07 移除內建「跳蛋」：全面改走玩家自訂道具(見下 kanshouGetCustomProps_)，內建清單
+//   目前空著、僅保留資料驅動的擴充掛勾(之後想加內建項目一樣是往這裡加一筆)。
+const KANSHOU_PROPS_ = [];
 const KANSHOU_PROP_LEVELS_ = ['關閉', '微弱', '中等', '強勁'];
 // 🔒 2026-07 玩家「AI也不能反抗，感覺缺少鑑賞的感覺」：小道具原本繞過[性格]×[好感]完全不設防，
 //   跟親密尺度五階/情慾場「沒到那個地步她會依個性擋下」的精神不一致。**2026-07再修**（玩家「整個
@@ -1691,7 +1738,7 @@ const KANSHOU_PROP_EQUIP_BOND_ = 80;
 // 🔢 同時裝備上限(2026-07 玩家「設個上限5個?」)：避免道具無限疊加在同一人身上，只擋「新增裝備」，
 //   已裝備項目調強度/移除不受此限——判準看propId是否已在該同伴的已裝備清單裡。
 const KANSHOU_PROP_EQUIP_CAP_ = 5;
-// 🎀 自訂道具(玩家自建·存玩家列MEMORY【自訂道具】name1:hasIntensity1:part1:ignoreBond1,...)：
+// 🎀 自訂道具(玩家自建·存玩家列MEMORY【自訂道具】name1:hasIntensity1:part1:ignoreBond1:effect1,...)：
 //   內建KANSHOU_PROPS_清單之外，玩家可自己命名新增(2026-07「不能玩家自己新增?」)。跟內建清單合併
 //   使用同一套KANSHOU_PROP_LEVELS_強度階，不重新發明標籤。上限KANSHOU_CUSTOM_PROP_CAP_筆。part(部位)
 //   選填，留空由AI自行決定戴在哪(2026-07「選填吧...沒有就AI自己想辦法發揮」)。
@@ -1700,19 +1747,22 @@ const KANSHOU_PROP_EQUIP_CAP_ = 5;
 //   自建「催眠暗示」類效果，不受[性格]×[好感]常規把關限制。跟一般道具(跳蛋等)共用同一套多件裝備/
 //   強度分級介面，只差這一個判準——複用既有引擎，不為這個效果另開一條系統。舊格式(3欄無ignoreBond)
 //   向下相容：parts[3]不存在時預設false。
+// 🌟 effect(2026-07 移除內建跳蛋後新增)：純靠道具名稱字面讓AI腦補效果太模糊(「跳蛋」還算好猜，玩家
+//   自訂的名稱AI未必猜得到)，補一格效果描述選填欄，餵進提示詞讓AI照著演而非純靠名稱腦補。舊格式
+//   (4欄無effect)向下相容：parts[4]不存在時預設空字串。
 const KANSHOU_CUSTOM_PROP_CAP_ = 10;
 function kanshouGetCustomProps_(memory) {
   const m = String(memory || "").match(/【自訂道具】([^｜【】]*)/);
   if (!m || !m[1]) return [];
   return m[1].split(',').filter(Boolean).map(function (pair) {
     const parts = pair.split(':');
-    return { id: parts[0], name: parts[0], hasIntensity: parts[1] === '1', part: parts[2] || '', ignoreBond: parts[3] === '1' };
+    return { id: parts[0], name: parts[0], hasIntensity: parts[1] === '1', part: parts[2] || '', ignoreBond: parts[3] === '1', effect: parts[4] || '' };
   });
 }
 function kanshouSetCustomProps_(memory, arr) {
   const cleared = String(memory || "").replace(/｜?【自訂道具】[^｜【】]*/g, "").replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
   if (!arr || !arr.length) return cleared;
-  const joined = arr.map(function (p) { return p.id + ':' + (p.hasIntensity ? '1' : '0') + ':' + (p.part || '') + ':' + (p.ignoreBond ? '1' : '0'); }).join(',');
+  const joined = arr.map(function (p) { return p.id + ':' + (p.hasIntensity ? '1' : '0') + ':' + (p.part || '') + ':' + (p.ignoreBond ? '1' : '0') + ':' + (p.effect || ''); }).join(',');
   return (cleared ? cleared + "｜" : "") + "【自訂道具】" + joined;
 }
 // 通用【tag】值淨化：清掉標籤分隔字元(,/:/｜/【/】)避免撐破 MEMORY 裡任何單值 tag 的格式(自訂道具
@@ -1736,7 +1786,7 @@ function kanshouGetProps_(memory, catalog) {
     const parts = pair.split(':');
     const id = parts[0], level = parts[1] || '';
     const def = cat.find(function (p) { return p.id === id; });
-    return { id: id, name: def ? def.name : id, hasIntensity: def ? def.hasIntensity : false, level: level, part: (def && def.part) || '', ignoreBond: !!(def && def.ignoreBond) };
+    return { id: id, name: def ? def.name : id, hasIntensity: def ? def.hasIntensity : false, level: level, part: (def && def.part) || '', ignoreBond: !!(def && def.ignoreBond), effect: (def && def.effect) || '' };
   });
 }
 function kanshouSetProps_(memory, propsArr) {
@@ -2869,6 +2919,9 @@ function actionPlay_(userData, pcId, sheets) {
         const bits = [];
         if (p.part) bits.push(`戴在${p.part}`);
         if (p.hasIntensity) bits.push(p.level);
+        // 🌟 2026-07 移除內建跳蛋、全面改自訂道具後新增：純靠道具名稱字面容易讓AI猜不到效果
+        //   (玩家自己取的名字比「跳蛋」模糊得多)，effect選填時把效果描述也餵進去，讓AI照著演。
+        if (p.effect) bits.push(`效果:${p.effect}`);
         return `${p.name}${bits.length ? `(${bits.join('，')})` : ""}`;
       }).join('、')}——這是既定事實，narration須自然反映其存在${pPropsArr.some(p => p.hasIntensity && p.level !== '關閉') ? `，其中正在運作的道具依強度影響她的反應` : ``}${pPropsArr.some(p => p.hasIntensity && p.level === '關閉') ? `（強度關閉≠取下，仍配戴在身上、只是暫時沒運作）` : ``}${_ignoreBondLines.length ? `。${_ignoreBondLines.join('')}★這是只有她自己感覺得到的私密效果，除非外顯到旁人一看就懂，否則在場其他人不知情、不該對此有反應或評論。★暗示內容裡若出現「你/妳」「我」等代詞，你/妳＝她本人、我＝玩家，依此代入解讀，不要弄反。` : ``}` : "";
       // 💞 共同回憶(27欄 MEMOIR)：你們一路走來累積的里程碑，讓 AI 自然承接你倆的專屬過往(儲存用全形｜

@@ -43,6 +43,71 @@
     const pos = start + text.length;
     el.setSelectionRange(pos, pos);
   }
+  // 🎀 8個內建快速貼圖(固定不可刪)＋玩家自訂(2026-07「表情包文字也想自訂」新增，存後端
+  //   MEMORY【快速貼圖】，上限KANSHOU_QUICK_PHRASE_CAP_=8句，見Gallery.gs)。
+  var KC_QUICK_PHRASES_BUILTIN_ = ['（害羞）', '（小聲）', '（苦笑）', '（臉紅）', '（嘆氣）', '（撒嬌）', '（沉默）', '（愣住）'];
+  var KC_QUICK_PHRASE_CAP_ = 8; // 鏡像後端 KANSHOU_QUICK_PHRASE_CAP_(Gallery.gs)，改後端記得同步這裡
+  var _kcQuickPhrases = []; // 玩家自訂的部分，enterKanshou()成功時載入
+  function renderKcQuickPhrases_() {
+    var box = document.getElementById('kc-quick-phrases');
+    if (!box) return;
+    var html = KC_QUICK_PHRASES_BUILTIN_.map(function (t) {
+      return '<button class="kc-qp-btn" onclick="kcInsertPhrase(\'' + t.replace(/'/g, "\\'") + '\')">' + escapeHtml(t) + '</button>';
+    }).join('');
+    html += _kcQuickPhrases.map(function (t) {
+      return '<button class="kc-qp-btn" onclick="kcInsertPhrase(\'' + t.replace(/'/g, "\\'") + '\')">' + escapeHtml(t) + '</button>';
+    }).join('');
+    html += '<button class="kc-qp-btn" onclick="kanshouOpenQuickPhraseManager()" title="新增/管理你自己的快速貼圖" style="opacity:.7;">⚙️自訂</button>';
+    box.innerHTML = html;
+  }
+  // ⚙️ 管理面板：列出玩家自訂的貼圖(內建8個不可刪、不列在這裡)＋新增輸入框。
+  function kanshouOpenQuickPhraseManager() {
+    var ov = ensureOverlay_('kqp-overlay', { zIndex: 10001, onBgClick: function (ov) { if (!_kqpBusy) ov.style.display = 'none'; } });
+    var rows = _kcQuickPhrases.map(function (t) {
+      var safeT = t.replace(/'/g, "\\'");
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
+        + '<span style="flex:1;color:#f0b8e0;font-size:13px;">' + escapeHtml(t) + '</span>'
+        + '<button onclick="kanshouDeleteQuickPhrase(\'' + safeT + '\')" style="padding:3px 8px;background:#4a3038;color:#e09999;border:none;border-radius:6px;cursor:pointer;font-size:11px;">🗑刪除</button></div>';
+    }).join('') || '<div style="color:#8a7fa0;font-size:12px;padding:6px 4px;">還沒有自訂貼圖。</div>';
+    ov.innerHTML = '<div style="width:min(360px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(240,184,224,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
+      + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#f0b8e0;">🎀 自訂快速貼圖</b>'
+      + '<button onclick="document.getElementById(\'kqp-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
+      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:8px;">內建8個(害羞/小聲等)固定不可刪；這裡新增的會排在後面，最多' + KC_QUICK_PHRASE_CAP_ + '句。</div>'
+      + rows
+      + '<div style="display:flex;gap:5px;align-items:center;margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);">'
+      + '<input id="kqp-new-text" maxlength="12" placeholder="新貼圖文字(≤12字，如：（想你了）)" style="flex:1;min-width:0;padding:5px 6px;background:#2a2430;color:#eee;border:1px solid rgba(240,184,224,.3);border-radius:6px;font-size:12px;">'
+      + '<button onclick="kanshouAddQuickPhrase()" style="padding:5px 10px;background:#a05088;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">新增</button>'
+      + '</div></div>';
+    ov.style.display = 'flex';
+  }
+  var _kqpBusy = false;
+  async function kanshouAddQuickPhrase() {
+    if (_kqpBusy) return;
+    var el = document.getElementById('kqp-new-text');
+    var text = el ? el.value.trim() : '';
+    if (!text) { alert('請輸入貼圖文字。'); return; }
+    _kqpBusy = true;
+    try {
+      const res = await gasRun({ action: 'kanshou_add_quick_phrase', pcId: pc.id, acctName: currentAccount, text: text });
+      if (!res || !res.success) { alert((res && res.message) || '新增失敗。'); return; }
+      _kcQuickPhrases = res.quickPhrases || _kcQuickPhrases;
+      renderKcQuickPhrases_();
+      kanshouOpenQuickPhraseManager(); // 面板原地重繪
+    } catch (e) { alert('新增失敗。'); }
+    finally { _kqpBusy = false; }
+  }
+  async function kanshouDeleteQuickPhrase(text) {
+    if (_kqpBusy) return;
+    _kqpBusy = true;
+    try {
+      const res = await gasRun({ action: 'kanshou_delete_quick_phrase', pcId: pc.id, acctName: currentAccount, text: text });
+      if (!res || !res.success) { alert((res && res.message) || '刪除失敗。'); return; }
+      _kcQuickPhrases = res.quickPhrases || [];
+      renderKcQuickPhrases_();
+      kanshouOpenQuickPhraseManager(); // 面板原地重繪
+    } catch (e) { alert('刪除失敗。'); }
+    finally { _kqpBusy = false; }
+  }
 
   // 🧰 2026-07 重構：原本 23 個位置參數(呼叫端一長串 null 極易錯位)改成單一 opts 物件；
   //   前兩個位置參數(customMsg, isSilent)保留——選項按鈕 send(text, true) 用法不變。
@@ -497,7 +562,7 @@ let plainTextContext = cleanText;
   //   這是「幫她戴貓耳朵過幾輪就忘記」問題的機制保證版根治(範例/改名只是提高AI判斷準度，這裡是
   //   繞開判斷直接寫)。KC_PROPS_/KC_PROP_LEVELS_鏡像後端同名常數(唯一真實來源在 Gallery.gs，改
   //   後端記得同步這裡)。
-  var KC_PROPS_ = [{ id: 'egg_vibrator', name: '跳蛋', hasIntensity: true }];
+  var KC_PROPS_ = []; // 2026-07 移除內建「跳蛋」，全面改走玩家自訂道具（見 kanshouAddCustomProp）
   var KC_PROP_LEVELS_ = ['關閉', '微弱', '中等', '強勁'];
   var _kcCustomProps = []; // 🎀 玩家自訂道具目錄(2026-07新增)，跟KC_PROPS_合併使用
   var _kcCustomPropsLoaded = false;
@@ -534,18 +599,19 @@ let plainTextContext = cleanText;
       var delBtn = isCustom ? '<button onclick="kanshouDeleteCustomProp(\'' + p.id.replace(/'/g, "\\'") + '\')" title="從你的道具目錄整個刪掉這項定義" style="padding:3px 6px;background:#3a3a44;color:#999;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:4px;">🗑刪除</button>' : '';
       var eq = curArr.find(function (x) { return x.id === p.id; });
       var partHint = p.part ? '<span style="color:#8a7fa0;font-size:11px;margin-left:4px;">(' + escapeHtml(p.part) + ')</span>' : '';
+      var effectHint = p.effect ? '<span style="color:#8a7fa0;font-size:11px;margin-left:4px;font-style:italic;">效果:' + escapeHtml(p.effect) + '</span>' : '';
       if (p.hasIntensity) {
         var levelBtns = KC_PROP_LEVELS_.map(function (lv) {
           var active = eq && eq.level === lv;
           return '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'' + lv + '\')" style="flex:1;padding:6px 3px;font-size:12px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : '#ccc') + ';border:none;border-radius:6px;cursor:pointer;">' + lv + '</button>';
         }).join('');
         return '<div style="padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
-          + '<div style="display:flex;align-items:center;margin-bottom:6px;"><span style="flex:1;color:#f0b8e0;font-size:13px;">' + escapeHtml(p.name) + partHint + '</span>'
+          + '<div style="display:flex;align-items:center;margin-bottom:6px;"><span style="flex:1;color:#f0b8e0;font-size:13px;">' + escapeHtml(p.name) + partHint + effectHint + '</span>'
           + (eq ? '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'\')" title="移除" style="padding:3px 8px;background:#4a3038;color:#e09999;border:none;border-radius:6px;cursor:pointer;font-size:11px;">🗑</button>' : '') + delBtn + '</div>'
           + '<div style="display:flex;gap:5px;">' + levelBtns + '</div></div>';
       }
       return '<div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
-        + '<span style="flex:1;color:#f0b8e0;font-size:13px;">' + escapeHtml(p.name) + partHint + '</span>'
+        + '<span style="flex:1;color:#f0b8e0;font-size:13px;">' + escapeHtml(p.name) + partHint + effectHint + '</span>'
         + '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'' + (eq ? '' : '戴著') + '\')" style="padding:5px 10px;background:' + (eq ? '#a05088' : '#3a3a44') + ';color:' + (eq ? '#fff' : '#ccc') + ';border:none;border-radius:6px;cursor:pointer;font-size:12px;">' + (eq ? '已裝備(點擊移除)' : '裝備') + '</button>' + delBtn + '</div>';
     }).join('');
     // 🎀 自訂新道具(2026-07新增)：輸入名稱＋勾選是否有強度分級，按下去直接裝備在這位同伴身上，
@@ -555,7 +621,10 @@ let plainTextContext = cleanText;
       + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:5px;">找不到想要的？自己新增一個：</div>'
       + '<div style="display:flex;gap:5px;align-items:center;margin-bottom:5px;">'
       + '<input id="kp-new-name" maxlength="10" placeholder="道具名稱(≤10字)" style="flex:1;min-width:0;padding:5px 6px;background:#2a2430;color:#eee;border:1px solid rgba(240,184,224,.3);border-radius:6px;font-size:12px;">'
-      + '<label style="display:flex;align-items:center;gap:3px;color:#ccc;font-size:11px;white-space:nowrap;"><input id="kp-new-intensity" type="checkbox">強度可調</label>'
+      + '<label style="display:flex;align-items:center;gap:3px;color:#ccc;font-size:11px;white-space:nowrap;"><input id="kp-new-intensity" type="checkbox">強度可調(有開關)</label>'
+      + '</div>'
+      + '<div style="display:flex;gap:5px;align-items:center;margin-bottom:5px;">'
+      + '<input id="kp-new-effect" maxlength="16" placeholder="效果描述(選填，不填讓AI只靠名稱腦補)" style="flex:1;min-width:0;padding:5px 6px;background:#2a2430;color:#eee;border:1px solid rgba(240,184,224,.3);border-radius:6px;font-size:12px;">'
       + '</div>'
       + '<div style="display:flex;gap:5px;align-items:center;">'
       + '<input id="kp-new-part" maxlength="8" placeholder="部位(選填，不填讓AI自己發揮)" style="flex:1;min-width:0;padding:5px 6px;background:#2a2430;color:#eee;border:1px solid rgba(240,184,224,.3);border-radius:6px;font-size:12px;">'
@@ -598,12 +667,13 @@ let plainTextContext = cleanText;
     var nameEl = document.getElementById('kp-new-name');
     var intensityEl = document.getElementById('kp-new-intensity');
     var partEl = document.getElementById('kp-new-part');
+    var effectEl = document.getElementById('kp-new-effect');
     var newName = nameEl ? nameEl.value.trim() : '';
     if (!newName) { alert('請先輸入道具名稱。'); return; }
     _kpBusy = true;
     _kpShowLoading_(targetName);
     try {
-      const res = await gasRun({ action: 'kanshou_add_custom_prop', pcId: pc.id, acctName: currentAccount, targetName: targetName, name: newName, hasIntensity: !!(intensityEl && intensityEl.checked), part: partEl ? partEl.value.trim() : '' });
+      const res = await gasRun({ action: 'kanshou_add_custom_prop', pcId: pc.id, acctName: currentAccount, targetName: targetName, name: newName, hasIntensity: !!(intensityEl && intensityEl.checked), part: partEl ? partEl.value.trim() : '', effect: effectEl ? effectEl.value.trim() : '' });
       if (!res || !res.success) { alert((res && res.message) || '新增失敗。'); return; }
       _kcCustomProps = res.customProps || _kcCustomProps;
       if (res.message) { alert(res.message); } // 目錄新增成功但找不到同伴可裝備的邊界情況
@@ -1653,6 +1723,8 @@ let plainTextContext = cleanText;
       document.getElementById('setup').style.display = 'none';
       document.getElementById('game').style.display = 'flex';
       applyModeUI();
+      _kcQuickPhrases = res.quickPhrases || [];
+      renderKcQuickPhrases_();
       // 🔥 舊「自動勾NSFW開關」已拔——NSFW 早改由 pcId(KPC_)路由決定、與勾選格無關；該勾選格已重生為「主動掌握」開關(亮=同伴主動出擊)，預設熄滅=矜持模式(玩家主導)。
       var _dt = document.getElementById('drive-mode-toggle'); if (_dt) _dt.checked = false;
       document.getElementById('ui-name').innerText = pc.name;
