@@ -3098,7 +3098,10 @@ function applyModeUI() {
       if (res.success && res.text) {
         let t = res.text.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
         lastAiContext = t;  // 🧵 記住這段敘事，作為下一次移動/互動的「前情」，讓世界有連續記憶
-        t = t.replace(/\n{2,}/g, "<br><br>").replace(/\n/g, "<br><br>");
+        // 🐛→✅ 稽核抓到：AI敘事本文是唯一沒escapeHtml就塞進insertAdjacentHTML的欄位（同伴名/選項/
+        //   道具等都有escape）——後端只靠prompt指令禁止HTML標籤、無程式碼層級過濾，提示注入誘導AI
+        //   吐出<img onerror=...>等標籤會在該玩家自己瀏覽器內執行self-XSS。escape後才轉換換行。
+        t = escapeHtml(t).replace(/\n{2,}/g, "<br><br>").replace(/\n/g, "<br><br>");
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【說書人】</b>${t}</div>`);
         localStorage.setItem('kyushu_story', story.innerHTML);
         story.scrollTop = story.scrollHeight;
