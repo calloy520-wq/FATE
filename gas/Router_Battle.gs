@@ -317,7 +317,11 @@ function drainForNp_(sheets, pcData, svIdx, masterIdx, mpCost) {
   // 寫回御主（有動到才寫）
   if (masterIdx >= 0 && (fromMMp > 0 || fromMHp > 0)) {
     pcData[masterIdx][COL.PC.MP] = Math.max(0, mMp - fromMMp);
-    pcData[masterIdx][COL.PC.HP] = Math.max(1, mHp - fromMHp);
+    // 🐛→✅ 稽核抓到：mHp本已是0(如令咒反噬致死·actionUseSeal的sealManaKill分支)時，
+    //   Math.max(1,...)保底會把已宣告defeat的御主HP悄悄寫回1、形同無聲復活——御主死亡
+    //   不像從者有DEAD_前綴這種持久終局標記，純靠HP數值本身，一旦被這類「保底1」邏輯
+    //   誤觸就會跟前端已顯示的defeat狀態互相矛盾。只在御主本來就還活著時才套用保底。
+    if (mHp > 0) pcData[masterIdx][COL.PC.HP] = Math.max(1, mHp - fromMHp);
     if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(masterIdx + 1, 1, 1, pcData[masterIdx].length).setValues([pcData[masterIdx]]);
   }
   return {
@@ -398,6 +402,11 @@ function actionFateBattle(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  // 🐛→✅ 稽核抓到：御主死亡(如令咒反噬)沒有像從者DEAD_那樣的持久終局標記，純靠HP=0這個數值——
+  //   前端雖在收到defeat:true後鎖UI，但那只是前端節流、非後端強制。若在鎖生效前(多分頁/callback
+  //   競態/直打API)再送一次fate_battle，drainForNp_等御主血量保底邏輯會把HP=0悄悄寫回1，
+  //   跟已回報的defeat狀態互相矛盾。這裡在入口統一擋下，比逐一修補每個保底寫入點更根本。
+  if ((parseInt(pcData[pIdx][COL.PC.HP]) || 0) <= 0) return JSON.stringify({ success: false, message: "御主已然殞落，此局已結束。" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
 
   // 🗝️ 雙從者：若指定出戰從者(userData.servant/servantId)則用之，否則取第一個在世從者
@@ -747,7 +756,9 @@ function actionFateBattle(userData, pcId, sheets) {
       var _mMaxHp = parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 100;
       var _blDmg = Math.max(1, Math.round(_mMaxHp * (_bl.min + Math.random() * (_bl.max - _bl.min))));
       var _mHpNow = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
-      pcData[pIdx][COL.PC.HP] = Math.max(1, _mHpNow - _blDmg); // 保底1·不致死
+      // 🐛→✅ 同drainForNp_一款漏洞：_mHpNow本已是0(令咒反噬致死等)時，保底1會讓已defeat的
+      //   御主悄悄復活成HP=1。御主死亡無DEAD_可擋，只在本來還活著時才套保底。
+      if (_mHpNow > 0) pcData[pIdx][COL.PC.HP] = Math.max(1, _mHpNow - _blDmg); // 保底1·不致死
       if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, COL.PC.HP + 1).setValue(pcData[pIdx][COL.PC.HP]);
       backlash = { dmg: _blDmg, hp: parseInt(pcData[pIdx][COL.PC.HP]) || 1, hpMax: _mMaxHp };
     }
