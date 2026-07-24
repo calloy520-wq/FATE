@@ -125,7 +125,13 @@ function translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint,
   var prompt = "角色：" + name + "（" + cls + "）\n戰時外貌描述：" + look;
   return kanshouDailyTranslateCall_(prompt, sys, { temperature: 0.7, ignoreLaw: true }, function (raw) {
     var out = JSON.parse(raw || "{}");
-    return { look: String(out.look || "").trim() || look, outfit: String(out.outfit || "").trim() };
+    // 🐛→✅ 稽核抓到：AI回傳的look段數從未驗證就直接持久化——下游dailySpeechByName_/
+    //   heroToKanshouRow_都用裸split('、')[2]取「自稱與口氣」，只檢查length>=4(非===4)，若AI
+    //   吐出5段以上(氣質舉止的自然語句意外夾帶頓號很常見)，取到的會是被推移過的錯誤段落且不會
+    //   崩潰、靜默錯用，還會被懶惰快取永久保留。比照parseTraitsHelper既有的四段式正規化(截斷多餘/
+    //   補齊不足)在寫入源頭就鎖死4段，不留給每個下游各自防呆。
+    var rawOutLook = String(out.look || "").trim() || look;
+    return { look: parseTraitsHelper(rawOutLook, look), outfit: String(out.outfit || "").trim() };
   }, { look: look, outfit: "" });
 }
 
