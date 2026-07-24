@@ -611,7 +611,7 @@ function actionPrepMeal(userData, pcId, sheets) {
   var myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   var isFate = myGameId.indexOf("g_") === 0;
   if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不足以好好整備——請休息恢復後再進食。" });
-  var clk = getClock_(myGameId);
+  var clk = getClock_(myGameId, pcData);
   if (!clk) return JSON.stringify({ success: false, message: "此刻無法整備。" });
   var nowAbs = clk.day * 24 + clk.hour;
   pcData[pIdx][COL.PC.MEMORY] = stampMeal_(pcData[pIdx][COL.PC.MEMORY], nowAbs + MEAL_BUFF_HOURS);
@@ -1164,7 +1164,7 @@ function actionSecondWind(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   if (myGameId.indexOf("g_") !== 0) return JSON.stringify({ success: false, message: "此處無需強撐。" });
-  const clk = getClock_(myGameId);
+  const clk = getClock_(myGameId, pcData);
   // 🩸 強撐不耗AP、可重複，唯一限制是「血夠不夠燒」(每次扣20%上限)——不設每日次數，避免違背「燃燒生命續行」的初衷；HP即天然煞車。
   if (clk && clk.ap >= AP_PER_DAY - 1) return JSON.stringify({ success: false, message: "行動力尚足，毋須燃燒生命強撐。" });
   const maxHp = parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 120;

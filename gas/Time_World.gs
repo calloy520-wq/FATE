@@ -215,7 +215,7 @@ function playerServantEconomy_(sheets, pcId, preData) {
   var horrorUpkeep = 0;
   try {
     for (var hj = 0; hj < svRowsE.length; hj++) {
-      if (horrorPresent_(svRowsE[hj][COL.PC.MEMORY], gid)) { horrorUpkeep = HORROR_HOURLY_UPKEEP; break; }
+      if (horrorPresent_(svRowsE[hj][COL.PC.MEMORY], gid, data)) { horrorUpkeep = HORROR_HOURLY_UPKEEP; break; }
     }
   } catch (e) { }
   drain += horrorUpkeep;
@@ -286,7 +286,7 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
   var horrorIdx = -1;
   svRows.forEach(function (ri) {
     if (horrorIdx !== -1) return;
-    if (horrorPresent_(data[ri][COL.PC.MEMORY], gameId)) horrorIdx = ri;
+    if (horrorPresent_(data[ri][COL.PC.MEMORY], gameId, data)) horrorIdx = ri;
   });
   if (horrorIdx !== -1) totalDrain += HORROR_HOURLY_UPKEEP;
 

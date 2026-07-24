@@ -83,7 +83,11 @@ function sanitizeUserData_(userData) {
   // 🐛→✅ 舊版寫的是 "newRelName"，但 actionUpdateRelTag 實際讀的欄位叫 userData.newTagText——
   //   兩個字串對不上，這條清洗規則從沒生效過，讓關係稱呼欄位只吃 GLOBAL_MAX 截斷、沒過 HTML 斷字
   //   字元清洗，前端卡片渲染該欄位時又漏包 escapeHtml，等於留一個可注入 innerHTML 的缺口。
-  const STRICT_NAME_FIELDS = new Set(["name", "npcName", "targetName", "factionName", "newTagText", "newNickname", "pcName", "trueName"]);
+  // 🐛→✅ 再一輪稽核抓到：acctName 原本完全沒過濾｜【】——鑑賞首次建檔(actionEnterKanshou)會把
+  //   acctName 原樣字串拼接進 MEMORY(`"【帳號】"+acctName+"｜【鑑賞後日談】..."`)，玩家把帳號名稱
+  //   打成含｜【】的字串就能偽造任意MEMORY標記(如偽造【自訂道具】帶ignoreBond:1繞過好感門檻)。
+  //   併入這裡統一擋，並在下面規則加上｜【】清洗(不只<>&"'`)。
+  const STRICT_NAME_FIELDS = new Set(["name", "npcName", "targetName", "factionName", "newTagText", "newNickname", "pcName", "trueName", "acctName"]);
   // 🔴 只在「建立角色/登記NPC」的姓名欄位強制純中文(去英數/符號/空白)；
   //   參照既有角色的欄位(targetName/newRelName 等)不清洗，以免破壞改版前可能存在的非中文名查找。
   const CHINESE_NAME_FIELDS = new Set(["name", "npcName"]);
@@ -101,7 +105,7 @@ function sanitizeUserData_(userData) {
     if (CHINESE_NAME_FIELDS.has(key)) {
       v = cleanChineseName(v);
     } else if (STRICT_NAME_FIELDS.has(key)) {
-      v = v.replace(/[<>&"'`]/g, "").slice(0, NAME_MAX);
+      v = v.replace(/[<>&"'`｜【】]/g, "").slice(0, NAME_MAX);
     } else {
       v = v.slice(0, GLOBAL_MAX);
     }
@@ -438,12 +442,12 @@ function buildTagsPayload_(sheets, pcId, preData) {
       npOptions: isFateCtx ? (servantNpOptions_(s[COL.PC.NAME], s[COL.PC.RANK]) || undefined) : undefined,
       npChoice: isFateCtx ? npChoice_(s[COL.PC.MEMORY]) : undefined,
       // 🐙 深淵海怪肉身（持 summon_horror 且現存海怪時 {cur,max}）：前端在體力條下方獨立渲染一條海怪血條
-      horror: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) ? horrorShieldView_(s[COL.PC.MEMORY], gameId) : undefined,
+      horror: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) ? horrorShieldView_(s[COL.PC.MEMORY], gameId, pcData) : undefined,
       // 🐛→✅ god_hand(十二試煉)說明 popup 舊版前端寫死「11次」，只對種子赫拉克勒斯正確——工房/AI生成
       //   固定3命、尼祿等敵方各自有專屬命數(【試煉】N)。帶上這名從者實際剩餘命數，供卡片說明 popup 顯示真值。
       ghLives: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'god_hand'; }) ? getGodHandLives_(s[COL.PC.MEMORY]) : undefined,
       // 🐙 戰前召喚鈕：持 summon_horror 且海怪【尚未在場】→ 前端露出「召喚海怪」按鈕(變身態·跨戰鬥 12h)
-      canSummonHorror: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) && !horrorShieldView_(s[COL.PC.MEMORY], gameId),
+      canSummonHorror: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) && !horrorShieldView_(s[COL.PC.MEMORY], gameId, pcData),
       outfit: getOutfit_(s[COL.PC.MEMORY]), // 👕 玩家換裝：當前服裝(前端預填/顯示·換衣不換人)
       weapon: getWeapon_(s[COL.PC.MEMORY]), // ⚔️ 玩家自定武裝：武器/戰鬥方式(前端預填/顯示·敘述以此為準)
       pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體
@@ -460,7 +464,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
   // 💕 今日已用過的羈絆互動（前端用來灰掉按鈕）
   var bondUsed = [];
   if (gameId && gameId.indexOf("g_") === 0) {
-    try { var bclk = getClock_(gameId); bondUsed = getBondUsedToday_(m[COL.PC.MEMORY], bclk ? bclk.day : 1); } catch (e) { }
+    try { var bclk = getClock_(gameId, pcData); bondUsed = getBondUsedToday_(m[COL.PC.MEMORY], bclk ? bclk.day : 1); } catch (e) { }
   }
   // ✨ 禮裝（御主裝備槽）：純solo戰鬥被動加成概念，用 isFateCtx 結構性擋掉鑑賞列，同 seals 手法。
   var mystic = null;

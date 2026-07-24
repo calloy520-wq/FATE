@@ -44,7 +44,7 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   //   呼叫端以 opts.noMeal 排除。
   var mealOn = false;
   if (String(pcData[tgtIdx][COL.PC.FACTION]) !== "從者" && !opts.noMeal) {
-    try { mealOn = mealBuffActive_(pcData[ctx.pIdx][COL.PC.MEMORY], ctx.myGameId); } catch (e) { }
+    try { mealOn = mealBuffActive_(pcData[ctx.pIdx][COL.PC.MEMORY], ctx.myGameId, pcData); } catch (e) { }
   }
   // ❖ 令咒必中(opts.seal)已在 resolveFateBattle_ 內部定生死(damage 屬於攻方)——勿在此事後翻 atkWins。
   var r = resolveFateBattle_(atkC, defC, { np: !!opts.np, seal: !!opts.seal, skill: opts.skill || null, ambush: !!opts.ambush, mealBuff: mealOn ? MEAL_BUFF_BONUS : 0, round: opts.round || 1 });
@@ -475,7 +475,7 @@ function actionFateBattle(userData, pcId, sheets) {
 
   // 🐙 清逾時海怪殘影(戰前)：讓 atkC.horrorUp 與城防判定準確——單一真實來源不留過期字串
   {
-    const _hce = clearExpiredHorror_(pcData[atkIdx][COL.PC.MEMORY], myGameId);
+    const _hce = clearExpiredHorror_(pcData[atkIdx][COL.PC.MEMORY], myGameId, pcData);
     if (_hce.cleared) { pcData[atkIdx][COL.PC.MEMORY] = _hce.mem; sheets.pc.getRange(atkIdx + 1, COL.PC.MEMORY + 1).setValue(_hce.mem); }
   }
   const homeField = homeTerritoryRank_(pcData, pIdx, myGameId); // 🏰 於自己陣地決戰＋隊有陣地作成→主場結界階級(否則"")
@@ -909,7 +909,7 @@ function actionFateBattle(userData, pcId, sheets) {
     if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
     atkC.horrorUp = true; // 反映到本場已建好的 atkC(後續回合的 sC 由 rowToCombatant_ 讀新 MEMORY 自然帶旗)
   }
-  let horrorActive = horrorPresent_(pcData[atkIdx][COL.PC.MEMORY], myGameId); // 召喚當下 or 先前已召喚未解除 → 在場
+  let horrorActive = horrorPresent_(pcData[atkIdx][COL.PC.MEMORY], myGameId, pcData); // 召喚當下 or 先前已召喚未解除 → 在場
   // 深淵海怪的「肉身血池」＝海怪護盾(setHorrorShield_)；此 horrorC 的 hp 僅追擊判定用、肉身存亡看護盾。
   const horrorC = horrorActive ? {
     name: '深淵海怪', cls: 'Berserker', np: '',
@@ -1458,9 +1458,9 @@ function actionSummonHorror(userData, pcId, sheets) {
   const svC = rowToCombatant_(pcData[svIdx]);
   const svName = String(pcData[svIdx][COL.PC.NAME]);
   // 已在場？先清逾時殘影再判
-  const _hce = clearExpiredHorror_(pcData[svIdx][COL.PC.MEMORY], gameId);
+  const _hce = clearExpiredHorror_(pcData[svIdx][COL.PC.MEMORY], gameId, pcData);
   if (_hce.cleared) pcData[svIdx][COL.PC.MEMORY] = _hce.mem;
-  if (horrorPresent_(pcData[svIdx][COL.PC.MEMORY], gameId)) {
+  if (horrorPresent_(pcData[svIdx][COL.PC.MEMORY], gameId, pcData)) {
     return JSON.stringify({ success: false, message: "深淵海怪已在場，無需重複召喚。" });
   }
   const isFate = gameId.indexOf("g_") === 0;
@@ -1506,7 +1506,7 @@ function actionDismissHorror(userData, pcId, sheets) {
     if (String(pcData[i][COL.PC.FACTION]) !== "從者") continue;
     if (String(pcData[i][COL.PC.GAME_ID] || "") !== gameId) continue;
     if (String(pcData[i][COL.PC.ID]).startsWith("DEAD_")) continue;
-    if (horrorPresent_(pcData[i][COL.PC.MEMORY], gameId)) { svIdx = i; break; }
+    if (horrorPresent_(pcData[i][COL.PC.MEMORY], gameId, pcData)) { svIdx = i; break; }
   }
   if (svIdx === -1) return JSON.stringify({ success: false, message: "深淵海怪並不在場，無可解除。" });
   const svName = String(pcData[svIdx][COL.PC.NAME]);
@@ -1559,8 +1559,12 @@ var HORROR_HOURLY_UPKEEP = 8; // 🐙 時間維持費：海怪在場＝共用池
 //                                才輪到御主燃血】(見 applyRegen_)。無期限、玩家可隨時解除。
 // 🐙 變身框架·單一狀態源：海怪是否在場＝現存肉身(cur>0)且(若帶舊制碼表)未逾時。擋傷/回血/追擊/城防 全讀它。
 //   ★這是「MEMORY 狀態旗標→引擎讀旗標調整攻防」的通用變身範本；日後靈基二階段/化身切換照此複製。
-function horrorPresent_(memory, gameId) {
-  var abs = null; try { var c = getClock_(gameId); if (c) abs = c.day * 24 + c.hour; } catch (e) { }
+// 🐛→✅ 稽核抓到：這4支helper(horrorPresent_/clearExpiredHorror_/mealBuffActive_/horrorShieldView_)
+//   原本呼叫getClock_都沒傳pcData，每次呼叫端手上明明已有整表卻又整表重讀一次「眾生」——
+//   `fateStrike_`每次出擊按鍵最多呼叫近10次，是目前查到影響最大的一處。統一補上可選第3參數
+//   pcData透傳給getClock_，呼叫端有pcData就傳、省掉這些重讀。
+function horrorPresent_(memory, gameId, pcData) {
+  var abs = null; try { var c = getClock_(gameId, pcData); if (c) abs = c.day * 24 + c.hour; } catch (e) { }
   return getHorrorShield_(memory, abs).active;
 }
 // 🐙 召喚/刷新海怪肉身：設 300/300/0（expiry 0＝無期限·維持全靠魔力經濟）。寶具解放與【戰前召喚】共用同一入口。
@@ -1568,19 +1572,19 @@ function summonHorror_(memory, gameId) {
   return setHorrorShield_(memory, HORROR_SHIELD_HP, HORROR_SHIELD_HP, 0);
 }
 // 🐙 清除逾時海怪的 MEMORY 殘影(舊制碼表存檔的過渡清理·新召 expiry 0 永不逾時)。回 {mem, cleared}。
-function clearExpiredHorror_(memory, gameId) {
+function clearExpiredHorror_(memory, gameId, pcData) {
   var m = String(memory || "");
   if (!/【海怪護盾】/.test(m)) return { mem: m, cleared: false };
-  if (horrorPresent_(m, gameId)) return { mem: m, cleared: false };
+  if (horrorPresent_(m, gameId, pcData)) return { mem: m, cleared: false };
   return { mem: clearHorrorShield_(m), cleared: true };
 }
 var MEAL_TAG_ = makeIntTag_('整備至', 0);
 function stampMeal_(memory, expiryAbsHour) { return MEAL_TAG_.set(memory, expiryAbsHour); }
 function getMeal_(memory) { return MEAL_TAG_.get(memory); }
 // 目前是否仍在整備加成效期內（吃 game clock 的絕對小時：day*24+hour）
-function mealBuffActive_(memory, gameId) {
+function mealBuffActive_(memory, gameId, pcData) {
   var exp = getMeal_(memory); if (!exp) return false;
-  var clk = getClock_(gameId); if (!clk) return false;
+  var clk = getClock_(gameId, pcData); if (!clk) return false;
   return (clk.day * 24 + clk.hour) < exp;
 }
 // 讀海怪肉身：回 {active, remaining, max, expiry}。expiry 0＝【無期限】(魔力維持制·時耗見 applyRegen_)；
@@ -1603,9 +1607,9 @@ function clearHorrorShield_(memory) {
   return String(memory || "").replace(/｜?【海怪護盾】\d+\|\d+(?:\|\d+)?/, "").replace(/^｜|｜$/, "");
 }
 // 前端視圖：持 summon_horror 的從者，現存海怪肉身 {cur,max}（無/潰散→null）。供 servant 卡渲染獨立血條。
-function horrorShieldView_(memory, gameId) {
+function horrorShieldView_(memory, gameId, pcData) {
   var abs = null;
-  try { var c = getClock_(gameId); if (c) abs = c.day * 24 + c.hour; } catch (e) { }
+  try { var c = getClock_(gameId, pcData); if (c) abs = c.day * 24 + c.hour; } catch (e) { }
   var sh = getHorrorShield_(memory, abs);
   return sh.active ? { cur: sh.remaining, max: sh.max } : null;
 }
