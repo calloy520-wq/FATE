@@ -6,6 +6,11 @@
 
 function actionManualNpc(userData, pcId, sheets) {
   // 御主創角（action="create"）；從者召喚見 actionSummonServant。
+  // 🐛→✅ 稽核抓到：試算表被清空/尚未建置時 sheets.pc 是 null，這裡完全沒防呆——第122行
+  //   appendRow 會拋出「Cannot read properties of null」這種對玩家毫無意義的原始JS例外訊息
+  //   (雖有外層catch接住不至於整個request掛掉，但玩家看到的是天書，不知道該做什麼)。這是
+  //   全新玩家第一個會呼叫的action，優先在此補上清楚指引，請他們找人跑一次check_sheets。
+  if (!sheets.pc) return JSON.stringify({ success: false, message: "試算表尚未建置完成，請聯繫管理者執行「檢查／建立試算表分頁」後再試一次。" });
   // 🛡️ 帳號重入防呆：此帳號若已連結一局活著的遊戲(charId 存在且非 DEAD_)，拒絕再建一次——
   //   否則 linkAccountToPc_ 會悄悄覆寫帳號的連結指標，把舊角色＋已召喚的從者孤兒化(英靈殿範本
   //   不受影響、但這局「進行中遊戲」從帳號視角消失，下次登入變成一場空的 needsSummon，玩家會以為
