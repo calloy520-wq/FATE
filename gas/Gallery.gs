@@ -2727,21 +2727,11 @@ function actionPlay_(userData, pcId, sheets) {
       //   拿過期資料誤報「今天還有沒赴的約」(稽核抓到的假警報)。
       kanshouPromiseSettle_.push({ ok: true, type: 'promise_met', name: _her, loc: _pr.loc });
     };
-    if (_pr.day === curDay) {
-      if (!_atApptLoc) return; // 今天但不在約定地點→還沒到、也還沒過，等你去，不結算
-      if (_ah === null) { // 舊格式無時段：當天到場即赴約
-        _settle(5, `\n★【依約相會】：今天正是你與『${_her}』約好在「${_pr.loc}」見面的日子，你們此刻真的相會了——演出「約定被守住」的欣喜(好感已上調，勿另計)。`);
-      } else if (curHour < _ah - 1 / 6 - 1e-6) { // 太早：她還沒到→回等待框(−1e-6 epsilon：跳到13:50後浮點誤差不會又被判太早卡死)
-        if (!kanshouPromiseWait_) kanshouPromiseWait_ = { name: _her, loc: _pr.loc, apptLabel: kanshouFmtHM_(_ah), targetHour: _ah - 1 / 6 };
-      } else if (curHour <= _ah + 0.5) { // 準時窗[時刻-10,時刻+30]
-        const _early = curHour < _ah;
-        _settle(5, _early
-          ? `\n★【依約相會·都早到了】：你與『${_her}』約在${kanshouFmtHM_(_ah)}於「${_pr.loc}」見面，而你倆此刻(${kanshouFmtHM_(curHour)})都提早到了——演出兩人都早到、剛好碰上的甜蜜當下與那份心照不宣的默契(好感已上調，勿另計)。`
-          : `\n★【依約相會】：約定的${kanshouFmtHM_(_ah)}，你準時到「${_pr.loc}」與『${_her}』相會——演出約定被守住的欣喜(好感已上調，勿另計)。`);
-      } else { // 遲到(當天、過了準時窗)
-        _settle(3, `\n★【遲到赴約】：你與『${_her}』約在${kanshouFmtHM_(_ah)}，卻拖到${kanshouFmtHM_(curHour)}才到「${_pr.loc}」——她等了你好一會，依個性流露嗔怪/委屈/嘴硬說沒關係(好感仍上調但你遲到了，勿另計)。`);
-      }
-    } else if (_pr.day < curDay) { // 過了約定日還沒赴約=爽約
+    // 🐛→✅ 稽核抓到：「遲到」分支(見下方)原本沒有上限——KANSHOU_APPT_BANDS_註解明講設計是
+    //   「準時窗後~2h算遲到、之後爽約」，但程式碼只要當天結束前(23點)人到場一律判遲到+3，
+    //   放鴿子懲罰在同一天內形同虛設。抽出跟跨日爽約共用的closure，遲到超過2小時比照跨日
+    //   同一套判定(-5好感/寫進memoir/獨立結算通知)，不重複兩份邏輯。
+    const _standUp = () => {
       pcData[i][COL.PC.MEMORY] = kanshouClearPromise_(pcData[i][COL.PC.MEMORY]);
       pcData[i][COL.PC.BOND] = Math.max(0, (parseInt(r[COL.PC.BOND]) || 0) - 5);
       kanshouSyncRelTier_(pcData, i);
@@ -2757,6 +2747,25 @@ function actionPlay_(userData, pcId, sheets) {
       const _missLine = `我爽約了——說好${_missBandL}在「${_pr.loc}」見面卻沒去，讓她空等了一場`;
       const _oldMemoir2 = String(pcData[i][COL.PC.MEMOIR] || "").trim();
       if (_oldMemoir2.indexOf(_missLine) === -1) pcData[i][COL.PC.MEMOIR] = _oldMemoir2 ? (_oldMemoir2 + "｜" + _missLine) : _missLine;
+    };
+    if (_pr.day === curDay) {
+      if (!_atApptLoc) return; // 今天但不在約定地點→還沒到、也還沒過，等你去，不結算
+      if (_ah === null) { // 舊格式無時段：當天到場即赴約
+        _settle(5, `\n★【依約相會】：今天正是你與『${_her}』約好在「${_pr.loc}」見面的日子，你們此刻真的相會了——演出「約定被守住」的欣喜(好感已上調，勿另計)。`);
+      } else if (curHour < _ah - 1 / 6 - 1e-6) { // 太早：她還沒到→回等待框(−1e-6 epsilon：跳到13:50後浮點誤差不會又被判太早卡死)
+        if (!kanshouPromiseWait_) kanshouPromiseWait_ = { name: _her, loc: _pr.loc, apptLabel: kanshouFmtHM_(_ah), targetHour: _ah - 1 / 6 };
+      } else if (curHour <= _ah + 0.5) { // 準時窗[時刻-10,時刻+30]
+        const _early = curHour < _ah;
+        _settle(5, _early
+          ? `\n★【依約相會·都早到了】：你與『${_her}』約在${kanshouFmtHM_(_ah)}於「${_pr.loc}」見面，而你倆此刻(${kanshouFmtHM_(curHour)})都提早到了——演出兩人都早到、剛好碰上的甜蜜當下與那份心照不宣的默契(好感已上調，勿另計)。`
+          : `\n★【依約相會】：約定的${kanshouFmtHM_(_ah)}，你準時到「${_pr.loc}」與『${_her}』相會——演出約定被守住的欣喜(好感已上調，勿另計)。`);
+      } else if (curHour <= _ah + 2) { // 遲到(準時窗後~2小時內)
+        _settle(3, `\n★【遲到赴約】：你與『${_her}』約在${kanshouFmtHM_(_ah)}，卻拖到${kanshouFmtHM_(curHour)}才到「${_pr.loc}」——她等了你好一會，依個性流露嗔怪/委屈/嘴硬說沒關係(好感仍上調但你遲到了，勿另計)。`);
+      } else { // 遲到超過2小時：視為當天已經放鴿子，比照爽約結算
+        _standUp();
+      }
+    } else if (_pr.day < curDay) { // 過了約定日還沒赴約=爽約
+      _standUp();
     }
   });
 

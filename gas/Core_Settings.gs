@@ -468,7 +468,10 @@ function parseTraitsHelper(data, defaultStr) {
   //   np/realName等AI生成欄位都有比照套用邊界防呆，唯獨這裡(寫進row[COL.PC.TRAIT]/PREF的主要
   //   來源)漏了；AI若吐出超長或含特殊字元的一段內容，會無界污染這兩個核心敘事欄位。逐段套用同款
   //   規則(單段封頂30字，比對外貌/性格短語的自然長度留足空間)。
-  parts = parts.map(s => s.replace(/[<>&"'`]/g, "").slice(0, 30));
+  // 🐛→✅ 再稽核抓到：跟_fClean(Router_Creation.gs)同樣少濾｜【】——此函式輸出經
+  //   heroToKanshouRow_的dailySpeechPart路徑最終會被stampPersonaFlavor_原樣寫進MEMORY當
+  //   【口吻】值，若AI輸出的段落恰好含這兩種字元，會偽造出MEMORY其他標記，比照_fClean同款補齊。
+  parts = parts.map(s => s.replace(/[<>&"'`｜【】]/g, "").slice(0, 30));
 
   // 缺的格數改從 defaultStr 對應分段取值、補不到才退回「無」——避免玩家只打幾個字未達4段時，整句
   // 寫好的 defaultStr(如 actionEnterKanshou 準備的預設句)被晾在一邊，其餘格數變成生硬的「無、無、無」。

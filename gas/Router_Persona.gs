@@ -195,12 +195,19 @@ function masterCard_(row) {
 //   男性插入視角；這裡把配對事實算好直接餵給 AI。與 kanshou Gallery.gs 的 genderHintStr 邏輯類似
 //   但完全獨立、不共用(solo/kanshou 機制須徹底隔離，CLAUDE.md 紅線①)。
 function sealGenderFact_(masterSex, svSex, svName) {
-  var mSex = (masterSex === "男" || masterSex === "女") ? masterSex : "女"; // 異/無 一律按女性向器官處理，對齊全專案既有慣例
-  var sSex = (svSex === "男" || svSex === "女") ? svSex : "女";
+  var mRaw = String(masterSex || ""), sRaw = String(svSex || "");
+  var mSex = (mRaw === "男" || mRaw === "女") ? mRaw : "女"; // 異/無 一律按女性向器官處理，對齊全專案既有慣例
+  var sSex = (sRaw === "男" || sRaw === "女") ? sRaw : "女";
+  // 🐛→✅ 稽核抓到：masterCard_把御主原始性別(含合法選項「異」)原樣印成「性別異」，這裡卻悄悄把
+  //   「異」歸類成女性向處理——兩者同框出現在同一段prompt時，「性別異」跟「御主為女性」字面互相
+  //   矛盾。「異→女性向處理」本身是全專案既有慣例(對齊heroToKanshouRow_/kanshou genderHintStr同款
+  //   規則)，不是要改的地方；只在措辭上承認原始標記，避免跟masterCard_直接打架。
+  var mNote = mRaw === "異" ? "(原始性別標記「異」，肉體機制按女性向處理)" : "";
+  var sNote = sRaw === "異" ? "(原始性別標記「異」，肉體機制按女性向處理)" : "";
   if (mSex === "女" && sSex === "女") {
-    return `★【性別配對·務必依此裁定肢體互動】御主與「${svName}」皆為女性——純女女之愛，【禁】描寫插入式陽具動作(如「進入她」)，改以手指/舌尖/器物等方式互動，雙方皆可主動索求，沒有固定的「插入方」。`;
+    return `★【性別配對·務必依此裁定肢體互動】御主${mNote}與「${svName}」${sNote}皆為女性向——純女女之愛，【禁】描寫插入式陽具動作(如「進入她」)，改以手指/舌尖/器物等方式互動，雙方皆可主動索求，沒有固定的「插入方」。`;
   }
-  return `★【性別配對·務必依此裁定肢體互動】御主為${mSex}性、「${svName}」為${sSex}性——一切肢體互動必須依雙方各自實際性別自然合理呈現，【禁】預設或錯置任一方的性別角色(如御主明明是女性卻被寫成男性插入視角)。`;
+  return `★【性別配對·務必依此裁定肢體互動】御主為${mSex}性${mNote}、「${svName}」為${sSex}性${sNote}——一切肢體互動必須依雙方各自實際性別自然合理呈現，【禁】預設或錯置任一方的性別角色(如御主明明是女性卻被寫成男性插入視角)。`;
 }
 
 // 🎭 敵御主「演出依據」卡（精簡）：戰鬥現場若敵御主本人在場(同地)，讓 AI 依其性格給反應/台詞，
