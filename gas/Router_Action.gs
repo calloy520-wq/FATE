@@ -105,7 +105,10 @@ function sanitizeUserData_(userData) {
     if (CHINESE_NAME_FIELDS.has(key)) {
       v = cleanChineseName(v);
     } else if (STRICT_NAME_FIELDS.has(key)) {
-      v = v.replace(/[<>&"'`｜【】]/g, "").slice(0, NAME_MAX);
+      // 🐛→✅ 稽核抓到：slice在trim之前——若字串帶超過NAME_MAX個前導空白(行動裝置自動加空格/
+      //   複製貼上常見)，slice會把20字預算全吃在空白上、砍掉後面真正的名字字元，呼叫端事後再trim
+      //   就得到空字串，合法名稱被誤判成「未輸入」。改成先trim再slice。
+      v = v.trim().replace(/[<>&"'`｜【】]/g, "").slice(0, NAME_MAX);
     } else {
       v = v.slice(0, GLOBAL_MAX);
     }

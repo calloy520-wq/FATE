@@ -97,6 +97,12 @@ function actionAccountLogin(userData, pcId, sheets) {
 
   var found = findAccountRow_(acc, name);
   if (!found) {
+    // 🐛→✅ 稽核抓到：帳號名稱欄位從未鎖成純文字格式——玩家若取純數字帳號(如"0123")，Sheets在
+    //   「自動」格式下寫入時會把看似數字的字串自動轉型(去前導零/長數字轉科學記號)，下次登入時
+    //   findAccountRow_的字串比對永遠對不上，等於每次登入都被誤判成「找不到」而another建一列，
+    //   玩家存檔被鎖在第一列、永遠連不回去。寫入前先鎖該格為純文字，避免自動轉型。
+    var _newRow = acc.getLastRow() + 1;
+    acc.getRange(_newRow, COL.ACC.NAME + 1).setNumberFormat("@");
     acc.appendRow([name, "", new Date()]);
     return JSON.stringify({ success: true, name: name, hasGame: false });
   }
