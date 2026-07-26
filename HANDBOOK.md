@@ -63,36 +63,10 @@ ACC(帳號·4欄): NAME0 PC1(solo御主連結) CREATED2 KPC3(🌹2026-07新增·
 ### MEMORY 標記（存 `COL.PC.MEMORY`·全形 `｜` 分隔，讀取器須排除 `｜`）
 `【願望】【魔術】【迴路】N【出身】【體術】`(御主種子·2026-07起體術/魔術不再只寫不讀——`masterCard_`/`enemyMasterCard_`讀進演出卡當能力描述，體術另外經`injectMasterMeleeSupport_`給玩家側從者真實戰鬥支援傷害，見§6步驟8) ｜ `【令咒】N`(預設3) ｜ `【試煉】N`(god_hand 復活命數·無標記預設11＝赫拉克勒斯專屬；AI 產物召喚時標3·尼祿三度輝映基準) ｜ `【模式】canon/chaos`｜`【戰爭】4th/5th/fake`｜`【扮演】<御主id>`(創角設定) ｜ `【禮裝】id`(被動禮裝) ｜ `【出力】`(靈基出力檔·預設60) ｜ `【寶具選】N`(多寶具) ｜ `【符文】`(斯卡哈) ｜ `【御主】名`/`【從者】名`(敵主從硬連結) ｜ `【海怪護盾】cur|max|expiry`(青鬍子海怪肉身) ｜ `【整備至】N`(餐buff) ｜ `【陣地】地`(工房) ｜ `【搜刮】地`(枯竭) ｜ `【盟約至】day`｜`【鑑賞緣】`(盟友90+解鎖封存) ｜ `【靈基透支】N`(令咒盡死線) ｜ `【喪失從者】名`｜`【破戒奪取】`｜`【羈絆里程碑】30,60`(該NPC自己列·記錄已演出過的BOND門檻，2026-07新增)｜`【帳號】acct`(慾海御主) ｜ NSFW：`[雙修技巧][專屬稱呼]`(`[交談輪數]`2026-07隨log_summary一併移除；`[性愛時敏感部位]`/`[親密次數]`2026-07隨「窺視神髓」UI面板一併移除——那是這兩者唯一的消費者，面板拿掉後即成死欄)。
 
-## 4. 檔案地圖（11,700 行·22 檔·2026-07 Router_Action.gs 拆成 8 檔＋前端拆出鑑賞/開局兩檔，見 §4.1）
+## 4. 檔案地圖
 
-📖 **逐函式清單見 `FUNCTION_MANUAL.md`**（2026-07 全專案 13 組並行稽核建立：每個函式一行用途＋呼叫關係，含 ActionRouter 完整對照表，grep 前先查這份省時間）。下表只列每檔重點函式，完整清單以該檔為準。
-
-| 檔 | 行 | 用途 | 關鍵物 |
-|---|---|---|---|
-| **Router_Action.gs** | ~400 | 後端總分流器·核心(2026-07 拆成 8 檔，見下) | `ActionRouter`(dispatch表)、`handleGameAction`(14天時限攔截＋`_state`夾帶)、`sanitizeUserData_`、`actionGetTags`/`buildTagsPayload_`、`buildClientState_`/`actionSync`、`actionCheckName/GetFullStatus/UpdateFate/UpdateRelTag`(小型通用action) |
-| **Router_Creation.gs** | ~400 | 創角／召喚 | `actionManualNpc`(create，2026-07 非阻塞化)、`actionBackfillMasterAi`、`actionSummonServant`、`actionGetHeroes/GetMasters` |
-| **Router_Movement.gs** | ~550 | 地圖／移動／休息／偵查／搜刮／整備／工房／卸防突襲 | `actionMove`(世界先動玩家後到)、`actionRest`、`actionScout`、`actionScavenge`、`actionSetWorkshop`、`actionSecondWind`、`actionPrepMeal`、`enemyAmbushOnServant_` |
-| **Router_Battle.gs** | ~910 | 戰鬥核心(單檔最大，符合「單一大關注點」) | `fateStrike_`(單次出擊裁決)、`actionFateBattle`(出戰主流程)、`drainForNp_`(御主電池)、十二試煉/令咒餘量/靈基透支死線/餐buff/海怪護盾 MEMORY 存取器 |
-| **Router_Bond.gs** | ~490 | 羈絆／令咒使用／結盟／破戒奪僕／主從連結 | `actionBond`、`actionUseSeal`、結盟三部曲(`actionProposeAlliance/BreakAlliance/AllyBond`)、`actionRuleBreakSteal`、`markMasterLostServant_`。⚠ 2026-07：`actionWarChronicle/WarHistoryList`(「戰記」)已整套刪除 |
-| **Router_Narrative.gs** | ~910 | AI 敘事引擎(actionPlay，solo/kanshou 共用) | `actionPlay`、`narrateWithState_`/`actionNarrateOnly`、`buildDreamPrompt_`(虛假之夢)。⚠ 2026-07：`actionGetEpicHistory`(「史紀」命運長河面板)已整套刪除 |
-| **Router_Persona.gs** | ~80 | 演出依據卡(跨檔共用小工具，不歸屬任何領域) | `servantCard_`/`masterCard_`/`codexPersona_`/`findPlayerServantIdx_` |
-| **Router_Economy.gs** | ~165 | 靈基出力／魔境／符文／寶具選／補魔 | `actionSetServantOutput/MageRealm/RuneMode/NpChoice`(樂觀更新setter)、`actionManaSupply` |
-| **Script.html** | ~2700 | 前端 SPA 核心（共用機制＋戰鬥/地圖/狀態面板，遊戲進行中用到的一切） | `gasRun`/`syncData`/`applyClientState`、`servantStrike`/`renderFateBattleReport`、`refreshFateTags`/`bar`/`horrorBar`、`renderMapPane`/`buildMapSvg_`、`applyModeUI`(兩軌切換總開關，跨onboarding/kanshou共用) |
-| **Script_Onboarding.html** | ~350 | 前端 SPA·登入/創角/召喚開局流程(2026-07 拆出) | `accountLogin`/`chooseWarMode`/`chooseWar`/`chooseRole`/`loadCanonMasters`/`pickCanonMaster`、`rollFate`/`checkName`/`createPC`/`backfillMasterAi`、`loadHeroes`/`doSummon`家族、`startGame`。**只在開局跑一次**，`startGame` 之後永不再被呼叫，與戰鬥/地圖零交集(天然時間邊界，見§4.1) |
-| **Script_Kanshou.html** | ~150 | 前端 SPA·鑑賞(慾海)專屬(2026-07 從 Script.html 拆出) | `enterKanshou`/`openCompanions`/`kanshouSummonHero`/`changeKanshouName`/`changeKanshouSex`/`askKanshouSex`/`askKanshouSetup`。2026-07「加入這個世界的感覺」定案後拿掉「請走」(`kanshouRemove`)，召喚沒有隊伍容量上限。與 Script.html 共享同一頁面全域作用域(見 §4.1) |
-| **Engine_Fate.gs** | 564 | 純數值戰鬥核心（D20+六圍+fx+寶具） | `resolveFateBattle_`、`rowToCombatant_`、`npAtkScale_/npDefScale_`、`NP_SCALE_MATRIX`、`CONCEPT_TIER`、`servantActiveSkill_`、`servantNpOptions_` |
-| **Core_Settings.gs** | 422 | 金鑰/COL schema/六圍換算/狀態封裝/地理雷達 | `COL`、`rankVal`、`fateMaxHpMp_`/`masterMaxHpMp_`/`masterPoolMax_`、`outputTier_`、`masterSynergySix_`、`getLocalPeopleList`、`buildPlayerStatusString` |
-| **Gallery.gs** | 430 | 🌹慾海(鑑賞)軌資料層＋進場/召喚/AI深化（`nsfwBaseRules`＋`actionPlay` 集中於此·奪杯封存已砍） | `actionEnterKanshou`、`actionKanshouSummonHero`、`actionPlay`、`purgeGameData_`、`getKanshouPcSheet_` |
-| **Time_World.gs** | 400 | 時間/AP＋御主電池經濟＋世界自走 | `getClock_`/`spendAp_`、`servantEconomy_`/`applyRegen_`、`worldTick_`、`AP_PER_DAY=12` |
-| **Seed_Codex.gs** | 405 | 種子英靈(37騎)/御主(14名)名冊＋灌表/升級管線 | `SEED_SERVANTS`、`SEED_MASTERS`、`seedFateCodex_`、`upgradeCodexPersonas_`、`resyncSummonedServants_` |
-| **Account.gs** | 316 | 帳號登入/存檔/清殘局 | `actionAccountLogin`、`actionAccountNewGame`、`actionPurgeOrphans`。⚠ 2026-07：排行榜/戰史相關 `actionLeaderboard`/`actionGetVictoryHistory`/`incrementWin_`/`recordHistory_`/`recordWinSpeed_` 已整套刪除（單人專注，不做跨帳號回顧） |
-| **Seed_Rivals.gs** | 231 | 開局鋪敵（正典/混亂/偽聖杯陣容） | `FATE_5TH/4TH/FAKE_ROSTER`、`seedRivalsForGame_`、`heroToNpcRow_`/`masterToNpcRow_`、`markRivalsSeen_` |
-| **Setup_FateWorld.gs** | 166 | 冪等建 7 分頁(2026-07 精簡自 13 分頁)＋冬木地圖種子 | `ensureFateSheets_`、`FATE_SHEET_DEFS`、`FATE_MAP_SEED`、`doGet` 觸發 |
-| **Engine_Combat.gs** | 245 | 兩軌共用 LLM 調用核心 | `callGeminiAPI`、`doGet`。⚠ `nsfwBaseRules`／`buildDefaultSystemPrompt` 已於更早的重構搬到 `Gallery.gs`，此檔不含紅線①常數本體(勿再誤植) |
-| **Style.html** | 594 | 全站 CSS（暗色·金色主題·三欄RWD） | `:root` 變數、`.msg-*`、`.modal-*`、`fk*` 地圖動畫、`barThrob` |
-| **Index.html** | 414 | HTML 進入殼＋各屏 div | `#setup`/`#game` 兩容器、創角召喚各屏 ID、雙軌入口卡片 |
-| **History_Sync.gs** | 153 | 對話歷史暫存(逐句對話，驅動聊天記錄/敘事連續性) | `saveGameHistoryBatch`、`getGameHistoryBatchRaw`、`getGameHistory`。⚠ 2026-07：「因果」(事件log)機制已整套刪除——`pickRelevantLogs`/`readRecentLogRows`/`formatCausalityEntry`/`pickNsfwCausalityEvent`/`trimLogRowsByOwner`/`IMPORTANT_LOG_TAGS` 全數移除，`actionPlay` 提示詞不再組「前塵因果」段；此與仍保留的「歷史暫存」是兩套不同機制 |
-| **Mystic_Code.gs** | ~100 | 禮裝系統（2026-06 全面被動化） | `MYSTIC_CODES`、`MC_COMBAT_`、`injectMysticBuff_`/`mcCombatFx_`。⚠ 2026-07：`rollMysticForMaster_`/`pickByTier_`(創角改玩家自選後零呼叫的死碼)已移除 |
+📖 **檔案地圖已移到 `CODE_MAP.md`**（一頁式：每檔行數／函式數／職責／何時要動它＋全 65 action 對照＋資料驅動表索引）。
+逐函式細節見 `FUNCTION_MANUAL.md`。**這裡刻意不再維護第二份檔案清單**——先前那份的行數與歸屬已隨多次搬檔漂掉（例如 `actionPlay` 早已從 `Router_Narrative.gs` 搬到 `Gallery.gs`），兩份並存只會騙下一個失憶的我。本章往下只留「拆檔慣例」這種不會隨行數變動的架構決策。
 
 ### 4.1 檔案拆分慣例（2026-07 定案·未來新增檔案照這個模式，別重新發明）
 

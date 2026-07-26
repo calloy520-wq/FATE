@@ -3,37 +3,37 @@
 > **grep 前先查這份。** 每個函式一行：做什麼／被誰呼叫，依檔案＋子領域分類。
 > 行號會漂，**以函式名為錨**。改／搬／刪函式時順手回來補（比照 `SOLO_REFERENCE.md` 紀律）。
 
-**與其他說明書的分工**：`HANDBOOK.md`＝架構總覽（理念／資料層／戰鬥管線／三軌），看「這專案在幹嘛」；`SOLO_REFERENCE.md`＝solo 軌代碼地圖（schema／ActionRouter／MEMORY 標記）；`KANSHOU_REFERENCE.md`＝鑑賞現況真相；**這份**＝地毯式逐函式清單，涵蓋 solo＋鑑賞＋共用全部 22 檔。
+**與其他說明書的分工**：`CODE_MAP.md`＝一頁式導航（東西在哪／我要做 X 動哪裡／資料驅動表索引），**找路先看那份**；`HANDBOOK.md`＝架構總覽（理念／資料層／戰鬥管線／三軌），看「這專案在幹嘛」；`SOLO_REFERENCE.md`＝solo 軌代碼地圖（schema／ActionRouter／MEMORY 標記）；`KANSHOU_REFERENCE.md`＝鑑賞現況真相；**這份**＝地毯式逐函式清單，涵蓋 solo＋鑑賞＋共用全部 23 檔（`Style.html` 純 CSS 無函式，不列）。
 
 ## 檔案總覽（後端→前端）
 
 | 檔 | 函式數 | 職責 |
 |---|---|---|
-| **Router_Action.gs** | 10（＋ActionRouter 58 action） | 後端總分流器：`sanitizeUserData_`→`ActionRouter`→`handleGameAction`；鎖／14 日時限／`_state` 夾帶 |
+| **Router_Action.gs** | 12（＋ActionRouter 65 action） | 後端總分流器：`sanitizeUserData_`→`ActionRouter`→`handleGameAction`；鎖／14 日時限／`_state` 夾帶 |
 | **Router_Bond.gs** | 27 | 羈絆／令咒／結盟／示好交涉／破戒奪僕／主從硬連結 |
 | **Router_Narrative.gs** | 8 | SOLO 輕量敘事引擎（`narrateWithState_`／虛假之夢） |
 | **Router_Persona.gs** | 11 | 演出依據卡（`servantCard_`／`masterCard_`／`performanceNote_`…，show-don't-tell 載體） |
 | **Router_Creation.gs** | 20 | 御主創角／召喚從者／工房鑄造（含 `forgeCost_` 計價＋六圍floor/cap） |
 | **Router_Movement.gs** | 31 | 地圖／移動／休息／偵查／搜刮／整備／陣地／卸防突襲／撤退追擊／敵營局面／挑撥離間／趁隙偷襲 |
 | **Router_Economy.gs** | 7 | 靈基出力／魔境／符文／換裝武裝／補魔／修復 |
-| **Router_Battle.gs** | 30 | 出戰主流程／`fateStrike_` 裁決／御主電池／御主參戰分擔／海怪框架 |
-| **Engine_Combat.gs** | 3 | 兩軌共用 LLM 調用（`callGeminiAPI`）＋`doGet` |
-| **Engine_Fate.gs** | 34 | 純數值戰鬥核心（D20／六圍／fx／寶具規模矩陣） |
+| **Router_Battle.gs** | 33 | 出戰主流程／`fateStrike_` 裁決／御主電池／御主參戰分擔／海怪框架 |
+| **Engine_Combat.gs** | 2 | 兩軌共用 LLM 調用（`callGeminiAPI`）＋`doGet` |
+| **Engine_Fate.gs** | 35 | 純數值戰鬥核心（D20／六圍／fx／寶具規模矩陣） |
 | **Mystic_Code.gs** | 8 | 起始禮裝被動化（`injectMysticBuff_`／`MC_COMBAT_`） |
-| **Gallery.gs** | 70 | 鑑賞（慾海）全軌＋`actionPlay`＋`nsfwBaseRules`（紅線①） |
-| **Core_Settings.gs** | 59 | 金鑰／模型常數／`COL` schema／數值公式／MEMORY 封裝／地理雷達 |
+| **Gallery.gs** | 90 | 鑑賞（慾海）全軌＋`actionPlay`＋`nsfwBaseRules`（紅線①） |
+| **Core_Settings.gs** | 63 | 金鑰／模型常數／`COL` schema／數值公式／MEMORY 封裝／地理雷達 |
 | **Time_World.gs** | 21 | 世界時鐘／AP／`worldTick_` NPC 模擬迴圈 |
 | **Seed_Codex.gs** | 7 | 英靈殿種子＋人設回填 |
 | **Seed_Rivals.gs** | 7 | 敵方陣營一次性鋪設 |
 | **Setup_FateWorld.gs** | 4 | 分頁建置／種子灌入 |
-| **Account.gs** | 8 | 帳號綁定／開新局／清理本局 |
-| **History_Sync.gs** | 6 | 戰記寫入／軌跡摘要 |
+| **Account.gs** | 10 | 帳號綁定／開新局／清理本局 |
+| **History_Sync.gs** | 7 | 戰記寫入／軌跡摘要 |
 | **Index.html** | 0 | 載入殼（依序載 Style／Script／Script_Kanshou／Script_Onboarding） |
-| **Script.html** | 126 | 前端 SPA 核心（通訊／狀態面板／戰爭行動／地圖／逆天改命／撤退突圍／趁隙偷襲挑撥） |
-| **Script_Kanshou.html** | ~70 | 鑑賞（慾海）SPA |
+| **Script.html** | 133 | 前端 SPA 核心（通訊／狀態面板／戰爭行動／地圖／逆天改命／撤退突圍／趁隙偷襲挑撥） |
+| **Script_Kanshou.html** | 90 | 鑑賞（慾海）SPA |
 | **Script_Onboarding.html** | 51 | 開局（登入／創角／召喚） |
 
-> ActionRouter 目前註冊 **58 個 action**，全部對應真實 handler、無缺漏（見下 Router_Action.gs 段完整對照表）。
+> ActionRouter 目前註冊 **65 個 action**，全部對應真實 handler、無缺漏（見下 Router_Action.gs 段完整對照表）。
 
 ---
 
@@ -47,9 +47,9 @@
 
 ### Router_Action.gs
 
-後端總分流器：唯一輸入防線 `sanitizeUserData_` → dispatch 表 `ActionRouter` → `handleGameAction`，並集中處理鎖／14 日時限攔截／`_state` 夾帶。共 **10 個函式** ＋ 4 張常數表。
+後端總分流器：唯一輸入防線 `sanitizeUserData_` → dispatch 表 `ActionRouter` → `handleGameAction`，並集中處理鎖／14 日時限攔截／`_state` 夾帶。共 **12 個函式** ＋ 4 張常數表。
 
-#### 🔹 ActionRouter 註冊表（目前註冊 58 個 action）
+#### 🔹 ActionRouter 註冊表（目前註冊 65 個 action）
 
 `"action字串": handler` 完整對照（依原碼順序）：
 
