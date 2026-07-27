@@ -553,7 +553,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
   const KANSHOU_MASTER_GEN_SYS = `你是《命運停駐之夜》後日談(鑑賞)的角色生成核心，為玩家建立一位生活在平行世界(這裡從來沒有發生過聖杯戰爭這回事)、與身邊英靈共度和平日常的「御主」本人形象。請依玩家提供的姓名、性別、外貌、身世、個性方向，生成合理且溫暖自然的設定。
 
 ★【語言】除 JSON 欄位名本身外，所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母；玩家描述若含英文人名/詞彙，請意譯或音譯成中文寫入。
-★【演出而非說明】設定只作為底層依據，不要在 background 裡直接複述字面。
+★【萌點怎麼寫】萌點/設定是【給你內化的素材】，禁複述字面：情境對了才讓它自然浮現一次·不必每回合硬塞·連續回合勿重複同一個具體動作(牽涉隨身物品時尤忌每次都靠「摸/看一眼」交差)。
 ★【四格·格式鐵律】traits 與 personality 各【恰好4段】，只用頓號「、」分隔成4段，【絕對不要用句號「。」或半形句點】，每段是一個【簡短詞組】(不是完整句子)，每段內部也【不要】再用頓號列舉多項；禁數字標籤。
 - traits：外貌、氣質舉止、自稱與口氣(第一人稱·如 我/俺/吾＋說話語氣)、卸下心防的私密一面。${finalSex === '女' ? '外貌段務必包含身形/胸部具體描寫，但要寫成自然的敘述句(如「胸前豐盈」「身形纖瘦」)、不要用「巨乳」這類生硬孤立的分類標籤直接呈現——這句話會顯示在玩家看得到的狀態欄位；「豐滿」單獨出現不夠明確，須明確扣連到胸部，不要只寫髮色瞳色就交差。' : ''}範例：「黑長直髮琥珀瞳、氣質溫婉恬靜、自稱「我」語氣輕柔、私下愛對植物自言自語」
 - personality：日常表象、真實內裡、喜歡的事物、討厭的事物。範例：「文靜內向、內心溫柔細膩、照顧小動物與植物、大聲喧嘩與浪費食物」
@@ -2047,11 +2047,16 @@ function actionPlay_(userData, pcId, sheets) {
   //   【不替玩家腦補】只講一次，標籤回歸單純的欄位名。同 performanceNote_ 那次的「跑時重複」修法。
   //   特徵：外貌+氣質併一格(本來就是同一幅畫面)；[私下一面]只在真的獨處時才送——那是她卸下心防
   //   才會有的樣子，旁邊還有別人的回合送了也用不到。
-  const formatTrait = (str, priv) => {
+  const formatTrait = (str) => {
     const a = String(str || "").split('、');
     const _look = [a[0], a[1]].filter(v => v && v !== '無').join('・');
-    return `[外貌氣質]${_look || "無"} [台詞自稱]${a[2] || "無"}` + (priv && a[3] && a[3] !== '無' ? ` [私下一面]${a[3]}` : "");
+    return `[外貌氣質]${_look || "無"} [台詞自稱]${a[2] || "無"}`;
   };
+  // 🎯 2026-07 玩家「『私下對可愛小物多看兩眼還故作矜持』這個就是萌點就好，不一定要反差」：
+  //   第4格[私下一面]與[萌點]本來就是同一種功能(她那份惹人喜歡的隱藏面)，種子資料裡的萌點還早就
+  //   寫成反差句(「食量驚人卻吃相優雅」)——等於同一件事包了兩層、各寫一遍。改成第4格併進萌點當
+  //   同一批素材送出，不再自成一欄，也就不必各自再套一次反差框架。
+  const traitPrivateOf_ = (str) => { const a = String(str || "").split('、'); return (a[3] && a[3] !== '無') ? a[3] : ""; };
 
 
   let pcData = sheets.pc.getDataRange().getValues();
@@ -3075,7 +3080,7 @@ function actionPlay_(userData, pcId, sheets) {
         if (kanshouTimeJumped_) return "時間流轉之後，【她此刻人在這裡】(別預設你們剛才一直待在一起)";
         return "【你們從剛才就一直在這裡】相處著——她早已在場，這一刻是延續，不是重新登場";
       })();
-      partyDetailsArr.push(`【在場人物】名號:${pName} | 在場來由:${pPresenceStr} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT], partyRows.length === 1)}${pFlavorStr}${pMoeStr ? ` | 萌點(僅供內化):${pMoeStr}` : ""}${pActivityStr}${pSleepStr ? ` | 現況:她此刻在自己家、${pSleepStr}(除非橋段已明確叫醒她，否則維持這個狀態演出，不宜寫成清醒閒聊)` : ""}${pCohabitStr}${pPropStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr})`);
+      partyDetailsArr.push(`【在場人物】名號:${pName} | 在場來由:${pPresenceStr} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${(() => { const _mo = [pMoeStr, traitPrivateOf_(r[COL.PC.TRAIT])].filter(Boolean).join("／"); return _mo ? ` | 萌點(僅供內化):${_mo}` : ""; })()}${pActivityStr}${pSleepStr ? ` | 現況:她此刻在自己家、${pSleepStr}(除非橋段已明確叫醒她，否則維持這個狀態演出，不宜寫成清醒閒聊)` : ""}${pCohabitStr}${pPropStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr})`);
     }
   });
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【目前在場人物命格詳情】:\n${partyDetailsArr.join("\n")}` : "目前這個地點沒有其他人，玩家是獨自行動的。";
