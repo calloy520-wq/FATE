@@ -2031,11 +2031,27 @@ function actionPlay_(userData, pcId, sheets) {
   const encounterOn = !(userData.encounter === false || String(userData.encounter) === "false");
 
   // 喜好與厭惡是常態情報，全面開放給 AI 參考
-  const formatPref = (str) => formatFourSlot_(str, ['表象', '內裡', '喜歡', '討厭']);
+  // 🎯 送出時砍格(2026-07 玩家「性格四格／特徵四格分這麼細，AI 也沒辦法演出來」)：儲存仍是 4 格
+  //   (逆天改命 UI／工房／solo 共用同一個 schema，動它是全面重構)，只精簡【送給 AI 的呈現】。
+  //   性格：表象/內裡是反差核心必須分開；喜歡/討厭是「聊到才用」的話題燃料，併成一格即可。
+  const formatPref = (str) => {
+    const a = String(str || "").split('、');
+    const _like = [a[2], a[3]].filter(v => v && v !== '無').join('／');
+    return `[表象]${a[0] || "無"} [內裡]${a[1] || "無"}` + (_like ? ` [喜惡]${_like}` : "");
+  };
 
   // [自稱] 這格內容通常已是「自稱「我」」這類完整片語，跟敘事視角說明的「我」字面相鄰容易混淆
   //   (小模型尤其)，標籤加註明確限定範圍，比照 servantCard_ 的修法。
-  const formatTrait = (str) => formatFourSlot_(str, ['外貌', '氣質舉止', '台詞自稱(僅其本人引號內用，非旁白視角)', '卸下心防的私密一面']);
+  // 🎯 標籤瘦身(2026-07)：舊版第3個標籤把「僅其本人引號內用，非旁白視角」這條【全域規則】寫進
+  //   欄位標題，於是每位在場者、每回合都重印一次(三人同場印三遍)。規則本身留著、但移到下方
+  //   【不替玩家腦補】只講一次，標籤回歸單純的欄位名。同 performanceNote_ 那次的「跑時重複」修法。
+  //   特徵：外貌+氣質併一格(本來就是同一幅畫面)；[私下一面]只在真的獨處時才送——那是她卸下心防
+  //   才會有的樣子，旁邊還有別人的回合送了也用不到。
+  const formatTrait = (str, priv) => {
+    const a = String(str || "").split('、');
+    const _look = [a[0], a[1]].filter(v => v && v !== '無').join('・');
+    return `[外貌氣質]${_look || "無"} [台詞自稱]${a[2] || "無"}` + (priv && a[3] && a[3] !== '無' ? ` [私下一面]${a[3]}` : "");
+  };
 
 
   let pcData = sheets.pc.getDataRange().getValues();
@@ -3059,7 +3075,7 @@ function actionPlay_(userData, pcId, sheets) {
         if (kanshouTimeJumped_) return "時間流轉之後，【她此刻人在這裡】(別預設你們剛才一直待在一起)";
         return "【你們從剛才就一直在這裡】相處著——她早已在場，這一刻是延續，不是重新登場";
       })();
-      partyDetailsArr.push(`【在場人物】名號:${pName} | 在場來由:${pPresenceStr} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(僅供內化):${pMoeStr}` : ""}${pActivityStr}${pSleepStr ? ` | 現況:她此刻在自己家、${pSleepStr}(除非橋段已明確叫醒她，否則維持這個狀態演出，不宜寫成清醒閒聊)` : ""}${pCohabitStr}${pPropStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr})`);
+      partyDetailsArr.push(`【在場人物】名號:${pName} | 在場來由:${pPresenceStr} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT], partyRows.length === 1)}${pFlavorStr}${pMoeStr ? ` | 萌點(僅供內化):${pMoeStr}` : ""}${pActivityStr}${pSleepStr ? ` | 現況:她此刻在自己家、${pSleepStr}(除非橋段已明確叫醒她，否則維持這個狀態演出，不宜寫成清醒閒聊)` : ""}${pCohabitStr}${pPropStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr})`);
     }
   });
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【目前在場人物命格詳情】:\n${partyDetailsArr.join("\n")}` : "目前這個地點沒有其他人，玩家是獨自行動的。";
@@ -3188,7 +3204,7 @@ ${PROMPT_REL}
 ★【演出而非說明】：不直述願望/萌點/個性字面。僅rel_changes(好感)，不輸出戰鬥/生命值。
 ★★【移動鐵律】：換地點只能靠玩家用地圖走或提議同去經系統裁定。沒系統明講就是還在${curL}，禁自演出發/走路/抵達，禁介面詞(泡泡/按鈕/地圖)入敘事；已移動＝直接寫新地點當下、不演路程。
 ★【不憑空生東西】(無金錢/物品/背包)：禁讓玩家自動「準備好禮物」「掏錢包」「變道具」·送禮由玩家決定。
-★【不替玩家腦補】：『我』只演玩家實際輸入的動作+五感·禁大段內心戲/替他決定。★『我』看不到自己的臉，禁「鏡中我的表情」這類外部視角。★同伴外貌只取材她自己資料，禁挪用玩家特徵。
+★【不替玩家腦補】：『我』只演玩家實際輸入的動作+五感·禁大段內心戲/替他決定。★『我』看不到自己的臉，禁「鏡中我的表情」這類外部視角。★同伴外貌只取材她自己資料，禁挪用玩家特徵。★各人的[台詞自稱]僅其本人引號內台詞可用，旁白不得套用。
 ★【歷史僅供參考】：對話歷史只是背景、非本回合事實來源——以上方系統事實＋下方在場資料為準，別被過期歷史牽著走。
 ${PROMPT_PARTY_SYSTEM}
 ★【地點釘死】：歷史提過的其他地名皆過去式，言行/場景只圍繞「${curL}」，禁講得像人還在別處；她可嘴上聊想去別處但不會真移動(換地方只能靠地圖)。
