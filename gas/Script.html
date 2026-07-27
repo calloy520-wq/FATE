@@ -3046,11 +3046,16 @@
     }
     localNPCs = data.people || [];
     nearbyLocations = data.locations || [];
-    updateClock(data.clock, data.ap, data.apMax);
     // 🕰️ kanshouClock 跟著整份 state 一起夾帶，sync() 也要記下來(不是只有 send() 才更新)。
+    // 🐛→✅ 2026-07 前端稽核·順序錯誤(與 Script_Kanshou.html send() 同一個病，一起修)：
+    //   updateClock 會讀 kcClock(判斷深夜)與 window._lastTags.nightScene(判斷夜未眠)決定那顆
+    //   最常按的鈕寫「⏰下一階段／🌙睡覺／🌅睡到天亮」哪一個——舊版卻把它排在這兩份資料【之前】，
+    //   於是每次 syncData／重新整理後，按鈕都是照上一份狀態畫的(第一次載入更是完全沒有 tags)。
+    //   兩份資料先就位，再畫 HUD。
     if (data.kanshouClock) kcClock = data.kanshouClock;
-    updateEconomy(data.economy);
     refreshFateTags(data.tags); // ⚡ 用夾帶的 tags，省一趟 get_tags round-trip
+    updateClock(data.clock, data.ap, data.apMax);
+    updateEconomy(data.economy);
     // 🧹 renderMapPane 本身已有 offsetParent===null 的隱藏判斷，交給它自己決定要不要畫——不在這裡用 kanshou 身分另外攔一次(桌機三欄並排、地圖頁恆顯示，另攔會讓時段按鈕不即時刷新)。
     renderMapPane(data.mapNodes); // ⚡ 用夾帶的 mapNodes，省一趟 get_map_nodes round-trip
     renderWarActions();
