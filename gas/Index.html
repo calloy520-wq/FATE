@@ -40,14 +40,6 @@
         <button class="btn" style="width:100%; margin-top:7px; padding:7px; border-color:#8a6a5a; color:#c0a08a; font-size:11px;" onclick="devPurgeOrphans()">🧹 DEV：清殘列（刪孤兒戰局／加速操作）</button>
       </div>
 
-      <!-- 📔 第三道門：日記鑑賞（實驗軌·排程一週→AI 寫成週記）。存檔與鑑賞完全分流（DPC_/d_/日記眾生分頁），
-           不好玩就整個拿掉：刪 Diary.gs＋Script_Diary.html＋Router_Action 三行＋這一塊。 -->
-      <div style="border:1px solid rgba(150,140,200,.45); border-radius:11px; padding:11px 11px 6px; margin-bottom:13px; background:rgba(34,30,55,.3);">
-        <div style="color:#b8b0e0; font-size:13px; font-weight:bold; letter-spacing:1px; margin-bottom:3px; text-align:center;">📔 日記 · 週記鑑賞　<span style="font-size:10px;color:#7a74a0;">實驗中</span></div>
-        <p style="color:#8a84a8; font-size:10.5px; text-align:center; margin:0 0 9px;">排好一週的行程，跟她們的生活軌跡重疊就會遇見——一週結束後由 AI 寫成一篇週記</p>
-        <button class="btn" style="width:100%; padding:12px; border-color:#8f86c8; color:#c8c0f0;" onclick="enterDiary()">📔 進入日記</button>
-      </div>
-
       <button class="btn" style="width:100%; padding:9px; border-color:#777; color:#999; font-size:12px;" onclick="logoutAccount()">🚪 登出</button>
     </div>
     <div id="scr-warmode" style="display:none; width:300px;">
@@ -482,7 +474,6 @@
   <?!= HtmlService.createHtmlOutputFromFile('Script').getContent(); ?>
   <?!= HtmlService.createHtmlOutputFromFile('Script_Onboarding').getContent(); ?>
   <?!= HtmlService.createHtmlOutputFromFile('Script_Kanshou').getContent(); ?>
-  <?!= HtmlService.createHtmlOutputFromFile('Script_Diary').getContent(); ?>
 </body>
 
 </html>

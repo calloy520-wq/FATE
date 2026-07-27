@@ -12,10 +12,6 @@ const ActionRouter = {
   "account_new_game": actionAccountNewGame,
   "end_run": actionEndRun, // ⚠ claim_grail(奪杯封存) 已整個砍除，改成單純清理讓玩家開新局
   "enter_kanshou": actionEnterKanshou,
-  // 📔 日記鑑賞(第三軌·實驗)：全部實作在 Diary.gs，刪掉那檔＋這三行就整個消失。
-  "enter_diary": actionEnterDiary,
-  "diary_schedule": actionDiarySchedule,
-  "diary_week": actionDiaryWeek,
   "backfill_kanshou_ai": actionBackfillKanshouAi, // 🚀 開局非阻塞：enter_kanshou 首次建檔後背景補御主敘事欄
   "dev_resync_codex": actionDevResyncCodex,
   "purge_orphans": actionPurgeOrphans,
@@ -142,11 +138,9 @@ function handleGameAction(userData) {
   // 🌹 慾海路由：御主 avatar 以 "KPC_" 開頭 → 整條後日談路徑(actionPlay/sync/move…)改讀「鑑賞眾生」分頁，
   //   與戰爭主表「眾生」完全隔離。solo 御主是 "PC_" 不受影響。
   const isKanshouCtx = String(pcId || "").indexOf("KPC_") === 0;
-  // 📔 日記軌：DPC_ 開頭 → 自己的分頁「日記眾生」，跟鑑賞/solo 三方隔離。
-  const isDiaryCtx = String(pcId || "").indexOf("DPC_") === 0;
   // 坤圖已靜態化：getMapDataCached 直接讀 FATE_MAP_SEED 常數，不需要 sheets.map，省一次 Sheets API 呼叫。
   const sheets = {
-    pc: (isDiaryCtx ? getDiaryPcSheet_(ss) : isKanshouCtx ? getKanshouPcSheet_(ss) : ss.getSheetByName("眾生"))
+    pc: (isKanshouCtx ? getKanshouPcSheet_(ss) : ss.getSheetByName("眾生"))
   };
 
   const handler = ActionRouter[action];
@@ -249,12 +243,6 @@ function handleGameAction(userData) {
 //   check_name/check_sheets/dev_resync_codex 不涉及個別玩家列；purge_orphans 是全局孤兒清理。
 //   其餘只要動作帶了 pcId，一律先過 verifyPcOwnership_ 反查「帳號」表確認真的是本人。
 const OWNERSHIP_CHECK_EXEMPT_ = {
-  // 📔 日記軌(DPC_)：verifyPcOwnership_ 只認 KPC_→COL.ACC.KPC、其餘一律拿去比 solo 的 COL.ACC.PC，
-  //   DPC_ 掉進 else 永遠對不上 → 整條路被回「查無御主」(玩家實測「讀不到行程表」)。
-  //   ★刻意【不】去改帳號表 schema 加一欄 DPC——這一軌是可整檔刪除的實驗品，動共用 schema 就
-  //   刪不乾淨了(且 COL 是位置索引)。改成在這裡豁免、由 Diary.gs 自己用 DIARY_ACCT_TAG_ 驗，
-  //   歸屬檢查一點都沒少（見 diaryVerify_）。
-  enter_diary: 1, diary_schedule: 1, diary_week: 1,
   check_name: 1, check_sheets: 1, dev_resync_codex: 1, purge_orphans: 1,
   account_login: 1, account_new_game: 1, enter_kanshou: 1, create: 1,
   get_heroes: 1, get_masters: 1, claim_hero: 1, save_hero: 1
