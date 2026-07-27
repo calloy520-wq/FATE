@@ -2573,6 +2573,9 @@ function actionPlay_(userData, pcId, sheets) {
   //   回房，於是她就地人間蒸發，正好違反本檔自己的【在場驗證】「禁不解釋就消失」。跨時段那條路早有
   //   【自然告辭·作息】(kanshouNpcLeaveStr_)在做這件事，endDay 只是沒接上。照同一個慣例補：離場前
   //   最後一次讓她開口道別；牽著的手也要演出鬆開，不能默默斷線。
+  // 🕰️ 敘事時鐘：預設等同狀態時鐘，只有「結束一天」會讓兩者分家(見下方 endDay 區塊的說明)。
+  //   組 🕰️ 那行提示詞時一律讀這兩顆，不要再直接讀 curDay/curHour。
+  let kanshouNarrDay_ = null, kanshouNarrHour_ = null;
   let kanshouNightPartStr = "";
   let kanshouClockMoved_ = false; // 結束一天/時段跳躍已自行設時鐘→標記，避免下方每回合流動又加一次
   if (userData.endDay === true) {
@@ -2580,6 +2583,15 @@ function actionPlay_(userData, pcId, sheets) {
     //   「夜→深夜(00:00)」那一步發生過了；晚上睡下才是隔天6點。修玩家實測「一晚被收兩天」
     //   (夜→深夜已+1天、結束一天又+1天)。
     const _nightDay = curDay; // 同床發生在「睡下去」的那一天(遞增前)——【初次】記帳要記那天，不是醒來那天
+    // 🕰️→✅ 2026-07 玩家「那我按睡到天亮會有甚麼事情.....」：狀態必須推進到隔天 6:00(眾人重骰行程
+    //   /日閘門全部依賴它)，但【這一回合要演的是睡下去的那個當下】。舊版直接用推進後的時鐘組提示詞，
+    //   於是同一份提示詞同時說「現在06:00清晨，★此刻＝清晨·唯一真實，光線作息一律依此刻重寫」
+    //   跟「夜幕降臨、回到房間安頓下來、今晚可自然發展到同床」，還限定敘事跨度十分鐘——三者互斥，
+    //   而且「唯一真實」那句明文叫 AI 覆寫掉夜晚的框架，結果就是演出一段不知所云的清晨空景。
+    //   分成兩個時鐘：狀態時鐘照推，敘事時鐘停在睡下去那一刻，晨間留給下一回合(【晨間餘韻】本來
+    //   就是那樣設計的)。只在 endDay 這條路有差，其餘回合兩者相同。
+    kanshouNarrDay_ = curDay;
+    kanshouNarrHour_ = curHour;
     if (curHour >= 6) curDay = curDay + 1;
     curHour = 6;
     kanshouClockMoved_ = true;
@@ -2692,7 +2704,10 @@ function actionPlay_(userData, pcId, sheets) {
     dirtyPcRows.add(pcIndex);
     kanshouBandCrossed_ = timeBand_(curHour) !== _pbBand;
   }
-  const curDateObj_ = kanshouAbsDayToDate_(curDay); // 供下方🕰️提示詞用，只算一次不重複呼叫
+  // 供下方🕰️提示詞用，只算一次不重複呼叫。★讀敘事時鐘而非狀態時鐘——兩者只有 endDay 會不同。
+  const _narrDay_ = (kanshouNarrDay_ === null) ? curDay : kanshouNarrDay_;
+  const _narrHour_ = (kanshouNarrHour_ === null) ? curHour : kanshouNarrHour_;
+  const curDateObj_ = kanshouAbsDayToDate_(_narrDay_);
 
   // 🎨 2026-07「為何偶遇沒有女性」玩家反映：此局已經正式召喚過的英靈(不論是否仍同行)不該又以
   //   「陌生人」身分重複出現(如SABER已同行時，路上不該再巧遇一位不具名的SABER)。用真名候選比對
@@ -3494,7 +3509,7 @@ ${PROMPT_REL}
         ? `你與『${partyMembers.join("、")}』是在這城從陌生相識一路相處到現在——【無】戰前舊識或共同過往·但這段日子的感情真實·依各自好感/關係標籤演出該有的熟悉·別退回「才剛認識」的生澀。`
         : `與『${partyMembers.join("、")}』共度這座和平城鎮的尋常時光。`
   }
-🕰️現在${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}(揣摩氛圍用·不報時)。★【此刻＝${timeBand_(curHour)}·唯一真實】：所有光線/氣溫/作息的感受一律依此刻重寫，歷史停在哪個時段都不算數。★本回合敘事跨度上限【十分鐘】·只寫這十分鐘內的當下片段·時間推進一律由系統宣告。
+🕰️現在${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★【此刻＝${timeBand_(_narrHour_)}·唯一真實】：所有光線/氣溫/作息的感受一律依此刻重寫，歷史停在哪個時段都不算數。★本回合敘事跨度上限【十分鐘】·只寫這十分鐘內的當下片段·時間推進一律由系統宣告。
 ★世界觀＝和平現代城鎮：在場每個人就是這座城裡的普通市民，來歷只能取材自系統給的她自己那份資料；那之外的設定(超凡力量、非現代事物、生死衝突)在這個世界從未發生過。調性不限悠閒。
 ★【親密尺度五階·最高優先】${_kanshouHypnosisActive_ ? '(催眠暗示道具生效中例外)' : ''}：肢體親密以好感為天花板，未達門檻依個性擋下(人格不崩)：
 ・<20(點頭之交)：形同陌生人·一動手動腳就【連碰都碰不到】(閃避/擋手/喝止/還手依個性)。
