@@ -1002,7 +1002,7 @@ let plainTextContext = cleanText;
   // 🕐 2026-07 六度改版新增 bands：純顯示用mirror(灰鎖UI判斷)，真正擋移動的門檻在後端
   //   KANSHOU_LOCATIONS_(見Gallery.gs同名常數註解)——改後端bands記得同步這裡，否則鎖圖示會跟
   //   實際能不能走進去對不上(同KANSHOU_LOCATIONS_/KC_LOCATIONS_過去漏同步過5個地點的教訓)。
-  // 🏠 2026-07：「房間」獨立分頁併進「家」——夜襲不再靠玩家自家房間細分(改看她住處/同居和室)，
+  // 🏠 2026-07：「房間」獨立分頁併進「家」——深夜造訪不再靠玩家自家房間細分(改看她住處/同居和室)，
   //   房間沒必要單獨一頁。「我的房間」的 region 在前端顯示層改掛 home(見 KC_LOCATIONS_)，但仍以
   //   isRoom:true 保留其特殊性(別人不會骰進來、相約不能約這裡)；後端 KANSHOU_LOCATIONS_ 的 region
   //   維持 'room'(純語意)，前後端各司其職、地點名一致即可。
@@ -1054,45 +1054,45 @@ let plainTextContext = cleanText;
     { name: '老街閣樓', region: 'visit' }, { name: '街角公寓', region: 'visit' },
     { name: '靜巷租屋', region: 'visit' }, { name: '河堤畔宅', region: 'visit' }
   ];
-  // 🎭 橋段觸發鏡像(顯示用·唯一真實來源在後端 KANSHOU_LOCATION_EVENTS_／KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_)：
-  //   地點×時段對得上、她又在場，就會跳橋段邀請框。玩家最常卡「不知道去哪、幾點」，把它標在地圖地點鈕旁邊當提醒。
-  //   改後端觸發表記得同步這裡。bands 用後端時段 key(清晨/午後/黃昏/夜/深夜)。needCohabit＝限同居的和室橋段。
+  // 🎭 橋段觸發鏡像(顯示用·唯一真實來源在後端 KANSHOU_LOCATION_EVENTS_)：地點×時段對得上、她又在場，
+  //   場景就會自然帶入該情境(2026-07 泡泡拆除後不再跳邀請框)。玩家最常卡「不知道去哪、幾點」，標在地圖
+  //   地點鈕旁當提醒。改後端觸發表記得同步這裡。bands 用後端時段 key(清晨/午後/黃昏/夜/深夜)。
   var KC_LOCATION_EVENTS_ = {
     '客廳': { icon: '💤', name: '膝枕', bands: ['午後'] },
     '廚房': { icon: '🍳', name: '下廚', bands: ['黃昏'] },
     '浴室': { icon: '🛁', name: '共浴', bands: ['夜', '深夜'] },
     '屋頂花園': { icon: '🌌', name: '觀星', bands: ['夜', '深夜'] },
     '隱藏溫泉': { icon: '♨️', name: '溫泉同浴', bands: ['午後', '黃昏', '夜'] },
-    '和室': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
-    // 🌙 她們各自的家(拜訪住處·好感40解鎖登門)：0~8點登門必定熟睡，可夜襲/賴床，不必等同居(90)。
-    //   八度改版跟後端對齊改用直接時刻(不再是深夜/清晨band，清晨band原本一路延伸到11點)。
+    '和室': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
+    // 🌙 她們各自的家(拜訪住處·好感40解鎖登門)：0~8點登門她必定熟睡(後端 pSleepStr 每回合當既定事實
+    //   餵給 AI)，不必等同居(90)。時刻切點跟後端 KANSHOU_ASLEEP_HOUR_END_ 對齊。
     //   對齊後端 KANSHOU_HERO_HOME_ 的所有住處值。徽章只在住處已解鎖時顯示(鎖住的走🔒分支)。
-    '隱蔽的工房': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
-    '島嶼道場': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
-    '埃德費爾特宅邸': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
-    '愛因茲貝倫城': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
-    '遠坂邸': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
-    '藤村家': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
-    // 🏠 泛用住處池(七度改版)：同一套夜襲/賴床徽章，比照上面6間手寫豪邸逐一對應。
-    '河畔小公寓': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
-    '巷弄老屋': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
-    '高塔套房': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
-    '郊區透天': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
-    '老街閣樓': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
-    '街角公寓': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
-    '靜巷租屋': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true },
-    '河堤畔宅': { icon: '🌙', name: '夜襲/賴床', hourEnd: 8, atHome: true }
+    '隱蔽的工房': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
+    '島嶼道場': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
+    '埃德費爾特宅邸': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
+    '愛因茲貝倫城': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
+    '遠坂邸': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
+    '藤村家': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
+    // 🏠 泛用住處池(七度改版)：同一套熟睡徽章，比照上面6間手寫豪邸逐一對應。
+    '河畔小公寓': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
+    '巷弄老屋': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
+    '高塔套房': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
+    '郊區透天': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
+    '老街閣樓': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
+    '街角公寓': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
+    '靜巷租屋': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
+    '河堤畔宅': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true }
   };
   // 時段 key→精簡顯示(徽章用·免整串 emoji)。
   var KC_BAND_SHORT_ = { '清晨': '清晨', '午後': '午後', '黃昏': '黃昏', '夜': '夜', '深夜': '深夜' };
   // 組單一地點的橋段徽章 HTML(當前時段/時刻命中就高亮)；沒有橋段的地點回空字串。
-  //   hourEnd(夜襲/賴床專用)＝直接比對時刻(0~hourEnd點)，其餘橋段仍走bands比對時段key。
+  //   hourEnd(住處熟睡專用)＝直接比對時刻(0~hourEnd點)，其餘橋段仍走bands比對時段key。
   function kcSceneBadge_(locName, curBand, curHour) {
     var ev = KC_LOCATION_EVENTS_[locName];
     if (!ev) return '';
     var hitNow = (typeof ev.hourEnd === 'number') ? (typeof curHour === 'number' && curHour < ev.hourEnd) : ev.bands.indexOf(curBand) !== -1;
     var bandsTxt = (typeof ev.hourEnd === 'number') ? ('0~' + ev.hourEnd + '點') : ev.bands.map(function (b) { return KC_BAND_SHORT_[b] || b; }).join('/');
-    var tip = ev.icon + ev.name + '·' + bandsTxt + (ev.atHome ? '(在她自己的家·登門即可)' : '') + '——她在場時會跳邀請(每位同伴每天限一次特別橋段，今天已跟她玩過別的橋段就要等明天)';
+    var tip = ev.icon + ev.name + '·' + bandsTxt + (ev.atHome ? '(在她自己的家·登門即可)' : '') + '——她在場時，場景會自然帶入這個情境，要不要理會、怎麼互動全由你決定';
     var style = hitNow
       ? 'background:rgba(224,160,188,.22);border:1px solid #c07090;color:#f0c0d4;'
       : 'background:rgba(120,110,90,.14);border:1px solid #4a4438;color:#9a8f78;';

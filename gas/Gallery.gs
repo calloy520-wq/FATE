@@ -1305,7 +1305,8 @@ const KANSHOU_SCENE_EVENTS_ = {
 //   2026-07 泡泡拆除後，服務對象是 pSleepStr(每回合把睡眠狀態當既定事實餵給 AI)與深夜訪客橋段。
 const KANSHOU_ASLEEP_HOUR_END_ = 8;
 const KANSHOU_NIGHT_RAID_HOUR_END_ = 5;
-// 地點橋段觸發表：她剛好在這個地點×時段吻合→跳出邀請按鈕(同一套offer/accept流程)。
+// 地點橋段觸發表：她剛好在這個地點×時段吻合→把該事件的 ambient 當「此地此刻·情境事實」注入提示詞
+//   (2026-07 泡泡拆除後不再跳按鈕，見 kanshouSceneAmbientStr)。
 //   加新地點橋段＝這裡加一筆＋KANSHOU_SCENE_EVENTS_加對應事件，不動觸發邏輯。
 const KANSHOU_LOCATION_EVENTS_ = {
   '浴室': { eventKey: '共浴', bands: ['夜', '深夜'] },
@@ -1315,7 +1316,7 @@ const KANSHOU_LOCATION_EVENTS_ = {
   '屋頂花園': { eventKey: '觀星', bands: ['夜', '深夜'] }
 };
 // 節慶橋段觸發表：日曆走到節慶當天(KANSHOU_FESTIVALS_的month/day)×時段吻合×玩家所在地有同伴
-//   →跳出邀請按鈕。key對齊KANSHOU_FESTIVALS_.key。
+//   →注入該事件的 ambient 情境事實。key對齊KANSHOU_FESTIVALS_.key。
 const KANSHOU_FESTIVAL_EVENTS_ = {
   newyear: { eventKey: '初詣', bands: ['清晨', '午後'] },
   valentine: { eventKey: '情人節巧克力', bands: ['清晨', '午後', '黃昏', '夜'] },
@@ -1324,14 +1325,14 @@ const KANSHOU_FESTIVAL_EVENTS_ = {
   xmas: { eventKey: '聖誕約會', bands: ['黃昏', '夜'] },
   nye: { eventKey: '跨年倒數', bands: ['夜', '深夜'] }
 };
-// 🏠 同居日常橋段觸發表(時段→事件)：她【同居中】×兩人同處玩家居所×該時段有對應日常→跳邀請按鈕。
+// 🏠 同居日常橋段觸發表(時段→事件)：她【同居中】×兩人同處玩家居所×該時段有對應日常→注入 ambient。
 //   優先序刻意排在地點橋段【之後】(最低)：膝枕(客廳·午後)/共浴(浴室·夜)/下廚(廚房·黃昏)這些既有的
 //   地點專屬橋段仍然優先，同居日常只補它們沒佔到的時段空檔，不搶既有內容。
 //   加時段＝這裡加一列＋KANSHOU_SCENE_EVENTS_ 加對應事件，觸發邏輯不必動。
 const KANSHOU_COHABIT_EVENTS_ = {
   清晨: '同居晨光', 午後: '同居午後', 黃昏: '同居黃昏', 夜: '同居夜話', 深夜: '同居深夜'
 };
-// 🌙 夜襲類橋段(玩家主動夜襲/叫醒賴床、以及深夜訪客反過來對玩家「別有用心」)共用的分寸判準：
+// 🌙 深夜訪客「別有用心」的分寸判準(2026-07 泡泡拆除後，唯一呼叫點只剩深夜敲門那條)：
 //   好感決定這次能走到哪一階，不寫死台詞，具體怎麼演、講什麼話全交AI依角色性格發揮。切點沿用
 //   親密尺度五階既有的60(親吻擁抱)/80(無上限)兩個節點，跟其餘尺度判定同一套數字、單一來源。
 function kanshouAsleepOutcomeStr_(bond) {
