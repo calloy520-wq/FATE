@@ -465,11 +465,9 @@ function resyncSummonedServants_(ss) {
       var kparts = String(ks.persona.dailyLook || '').split('、').map(function (x) { return x.trim(); }).filter(Boolean);
       if (kparts.length >= 4) {
         kdata[j][COL.PC.TRAIT] = parseTraitsHelper(ks.persona.dailyLook, DEFAULT_TRAIT_FALLBACK_);
-        var kmem = String(kdata[j][COL.PC.MEMORY] || '');
-        var ksp = kparts[2].slice(0, 40);
-        kdata[j][COL.PC.MEMORY] = /【口吻】/.test(kmem)
-          ? kmem.replace(/【口吻】[^｜|【]*/, '【口吻】' + ksp)
-          : (kmem ? kmem + '｜' : '') + '【口吻】' + ksp;
+        // 走共用工廠(replace-or-append ＋ 自動清洗)，不再自己拼一份 regex——舊版那份既沒清洗、
+        //   又是全專案第 3 份【口吻】寫入邏輯。
+        kdata[j][COL.PC.MEMORY] = PERSONA_SPEECH_TAG_.set(String(kdata[j][COL.PC.MEMORY] || ''), kparts[2].slice(0, 40));
       }
       kn++;
     }

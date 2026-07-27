@@ -354,8 +354,8 @@ function masterPersonaLean_(masterRow) {
   //   排除硬連結/狀態類tag的污染。
   var mem = String(masterRow[COL.PC.MEMORY] || "");
   var wish = (mem.match(/【願望】([^｜|【\n]*)/) || [])[1] || "";
-  var speech = (mem.match(/【口吻】([^｜|【]*)/) || [])[1] || "";
-  var tic = (mem.match(/【小動作】([^｜|【]*)/) || [])[1] || "";
+  var speech = getPersonaSpeech_(mem);
+  var tic = getPersonaTic_(mem);
   var p = String(masterRow[COL.PC.PREF] || "") + "｜" + wish + "｜" + speech + "｜" + tic + "｜" + String(masterRow[COL.PC.BACK] || "");
   return {
     pragmatic: /務實|冷靜|算計|理性|成長|自卑|好強|悲憤|拯救|守護|溫柔|不擇手段|名門/.test(p),

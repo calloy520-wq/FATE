@@ -359,7 +359,7 @@ function makeIntTag_(tagName, defaultVal) {
 //   既有實作一致。
 function makeTextTag_(tagName) {
   var reGet = new RegExp('【' + tagName + '】([^｜|【]+)');
-  var reSet = new RegExp('【' + tagName + '】[^｜【]*');
+  var reSet = new RegExp('【' + tagName + '】[^｜|【]*');   // 字元類與 reGet 對齊(舊版漏了半形 |)
   return {
     get: function (memory) { var m = String(memory || '').match(reGet); return m ? m[1].trim() : ''; },
     set: function (memory, val) {

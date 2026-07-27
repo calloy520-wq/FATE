@@ -4,13 +4,19 @@
 
 // 召喚時已把種子口吻/小動作複製進眾生列 MEMORY，平常直接讀列不必查英靈殿；查無(舊局/AI原創從者/
 // 鑑賞封存重建)時回 ""，servantCard_ 才退回 codexPersona_ 查表(6h 快取)。
-function getPersonaSpeech_(memory) { var m = String(memory || "").match(/【口吻】([^｜|【]*)/); return m ? m[1].trim() : ""; }
-function getPersonaTic_(memory) { var m = String(memory || "").match(/【小動作】([^｜|【]*)/); return m ? m[1].trim() : ""; }
+// 🐛→✅ 稽核抓到：這兩個標記原本自己拼字串寫入、【完全沒有清洗】——同專案的 setOutfit_/
+//   cleanTagText_/makeTextTag_ 全都會剝掉 ｜【】，只有這裡沒有。而 speech 的來源包含【工房捏角時
+//   AI 生成的 dailyLook 第3段】，AI 吐出一個【 就會把整條 MEMORY 切錯格、後面所有標記靜默失效。
+//   改走 makeTextTag_ 工廠：一次拿到清洗＋replace-or-append(冪等)，並消掉散落三處的重複 regex。
+var PERSONA_SPEECH_TAG_ = makeTextTag_('口吻');
+var PERSONA_TIC_TAG_ = makeTextTag_('小動作');
+function getPersonaSpeech_(memory) { return PERSONA_SPEECH_TAG_.get(memory); }
+function getPersonaTic_(memory) { return PERSONA_TIC_TAG_.get(memory); }
 // 把種子的口吻/小動作附加到既有 MEMORY 字串尾端(召喚建列時呼叫，僅在有值時才附加)。
 function stampPersonaFlavor_(memory, speech, tic) {
   var s = String(memory || "");
-  if (speech) s = (s ? s + "｜" : "") + "【口吻】" + String(speech).slice(0, 40);
-  if (tic) s = (s ? s + "｜" : "") + "【小動作】" + String(tic).slice(0, 30);
+  if (speech) s = PERSONA_SPEECH_TAG_.set(s, String(speech).slice(0, 40));
+  if (tic) s = PERSONA_TIC_TAG_.set(s, String(tic).slice(0, 30));
   return s;
 }
 
