@@ -383,7 +383,7 @@ let plainTextContext = cleanText;
       if ((data.promiseSettle && data.promiseSettle.length) || (data.proposalResult && String(data.proposalResult.type) === 'promise')) {
         (async function () { try { const r = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount }); if (r && r.success) { _kcCur = r.current || []; try { renderMapPane(); } catch (e) {} try { renderKcPartyList_(); } catch (e) {} } } catch (e) {} })();
       }
-      localStorage.setItem('kyushu_story', story.innerHTML);
+      saveStoryLocal_(story);   // 修剪＋配額保護，見 Script.html saveStoryLocal_
       setTimeout(() => { story.scrollTop = story.scrollHeight; }, 50);
 
       // ⚡ actionPlay(Gallery.gs) 會在回應裡順手夾帶 data.tags(跟 get_tags 同格式)，

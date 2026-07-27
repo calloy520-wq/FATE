@@ -12,6 +12,32 @@
       .replace(/'/g, "&#39;");
   }
   // ==========================================
+  // 💾 故事流存檔：每回合都把整份 #story 的 innerHTML 寫進 localStorage。
+  // 🐛→✅ 2026-07 前端稽核：舊版兩處都是【裸 setItem、不修剪】——故事流只增不減，一局玩久了
+  //   必定撞上 localStorage 約 5MB 的配額；而這行就寫在 send() 的 try 裡面，QuotaExceededError
+  //   會被外層 catch 接住，變成【明明這回合成功了、卻每一回合都跳「連結斷絕」】，而且從此不會好，
+  //   直到玩家自己清瀏覽器資料。故事流也不是遊戲記憶的真實來源(那是後端「歷史暫存」表)，只是
+  //   給玩家往回捲的畫面，本來就該有上限。
+  //   作法：先修剪 DOM 到最近 KYUSHU_STORY_KEEP_ 段，再寫；真的還是滿就再砍半重試，最後放棄也
+  //   只是這一份捲軸沒存到，絕不讓它冒泡成一個假的連線錯誤。
+  var KYUSHU_STORY_KEEP_ = 160;
+  function saveStoryLocal_(storyEl) {
+    try {
+      var el = storyEl || document.getElementById('story');
+      if (!el) return;
+      var over = el.children.length - KYUSHU_STORY_KEEP_;
+      for (var i = 0; i < over; i++) { if (el.firstChild) el.removeChild(el.firstChild); }
+      try { localStorage.setItem('kyushu_story', el.innerHTML); }
+      catch (e) {
+        // 配額滿：砍掉一半再試一次；仍失敗就整份放掉(不存也不報錯)。
+        var half = Math.floor(el.children.length / 2);
+        for (var j = 0; j < half; j++) { if (el.firstChild) el.removeChild(el.firstChild); }
+        try { localStorage.setItem('kyushu_story', el.innerHTML); }
+        catch (e2) { try { localStorage.removeItem('kyushu_story'); } catch (e3) { } }
+      }
+    } catch (e) { }
+  }
+  // ==========================================
   // 🍃 輕量成功提示：不打斷操作的短暫浮字，取代「還要按確定才能關掉」的 alert()——
   //   只給「單純告知已完成、不需要玩家決策」的訊息用(如改命成功)；需要玩家看清楚原因的
   //   失敗訊息維持 alert()，兩者用途不同、不必統一成同一種UI。
@@ -3151,7 +3177,7 @@ function applyModeUI() {
         //   吐出<img onerror=...>等標籤會在該玩家自己瀏覽器內執行self-XSS。escape後才轉換換行。
         t = escapeHtml(t).replace(/\n{2,}/g, "<br><br>").replace(/\n/g, "<br><br>");
         story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【說書人】</b>${t}</div>`);
-        localStorage.setItem('kyushu_story', story.innerHTML);
+        saveStoryLocal_(story);
         story.scrollTop = story.scrollHeight;
       }
     } catch (e) {
