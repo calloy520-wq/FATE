@@ -3163,6 +3163,16 @@ function actionPlay_(userData, pcId, sheets) {
     }
   });
   const kanshouAnnivStr = kanshouAnnivLines_.length ? `\n★【紀念日·非強制】：今天是${kanshouAnnivLines_.join('、')}的日子——若氣氛合適可自然帶出這份紀念的溫度(她記得、或你記得皆可)，不必強行慶祝或報幕。` : "";
+  // 🌅 兩條「昨夜」線都必須依【這回合她到底在不在場】過濾(2026-07 玩家「如果我直接移動呢....」)：
+  //   旗標在回合開頭就讀掉了，但那時還不知道玩家這回合要去哪。玩家一起床就走人，她留在房間，
+  //   舊版照樣送出「昨夜與『凜』共度親密·可自然帶晨間曖昧」——叫 AI 跟一個不在場的人演晨間戲，
+  //   正是本檔【在場驗證·最高優先】自己禁的事。鏡像問題在【昨夜她走了】：那句寫死「今早這個房間
+  //   只有你自己」，玩家人在商店街就不成立，而且她若剛好被行程骰到同一個地點，說她不在場更是直接
+  //   跟【在場人物】打架。過濾後為空就整條不送——那一刻本來就沒有這回事。
+  const _morningHere_ = String(morningAfterNames || "").split('、').map(n => n.trim())
+    .filter(n => n && partyMembers.indexOf(n) !== -1).join('、');
+  const _partedAway_ = String(nightPartNames || "").split('、').map(n => n.trim())
+    .filter(n => n && partyMembers.indexOf(n) === -1).join('、');
   // 🏠 同居結束：只給事實，怎麼收由 AI 依她性格演——可以是她自己開口要搬、也可以是不告而別。
   const kanshouCohabitEndStr = kanshouCohabitEndNames_.length
     ? `\n★【她不再住在這裡了】：『${kanshouCohabitEndNames_.join('、')}』已不再與你同住——這是這段關係走到現在的結果，不是意外。若她此刻就在你面前，讓這件事在這回合被說開(她提出要搬／你察覺她東西收走了皆可)；★【不可】寫成系統宣告，也【不可】當作沒發生過。`
@@ -3503,7 +3513,7 @@ ${PROMPT_REL}
 ★【在場驗證·最高優先】：只有【在場人物】可對話/互動/記好感·路人不具名不追蹤。例外：①玩家引入第三人②系統豁免段(自然告辭/指定巧遇)。歷史提過但不在場＝不在場，禁憑空開口；可輕巧帶過原因(去忙別的/剛好不在)，禁裝作還在、禁不解釋就消失。
 ★【焦點禮讓】：玩家專一互動時，其他在場者維持背景輕描·不搶話/不介入親密(除非系統另有提示)。
 ★【在場來由】：一律照各人「在場來由」欄演、不可改寫。標「一直在這裡」＝從她早已在場的狀態接著往下寫，她把你在場視為理所當然；標「結伴一起來到」＝她是跟你一起走進來的，這一路她都在你身邊。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouCohabitEndStr}
-★【今日天氣】：${kanshouWeather_(curDay)}·自然滲入場景不必每句提。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${nightPartNames ? `\n★【昨夜她走了·非強制】：昨晚陪你到最後的『${nightPartNames}』並沒有留下·今早這個房間只有你自己——可自然帶一點昨夜餘溫未散的獨處感·她此刻【不在場】·禁讓她開口或出現。` : ""}
+★【今日天氣】：${kanshouWeather_(curDay)}·自然滲入場景不必每句提。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜她走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·她此刻【不在場】·禁讓她開口或出現。` : ""}
 💕【後日談模式·最高優先覆寫】：${partyRows.length === 0
     ? `眼下無相識者在場·玩家一個人的尋常時光。`
     : (partyRows.every(r => String(r[COL.PC.ID]).indexOf("KHV_") === 0) && partyRows.every(r => (parseInt(r[COL.PC.BOND]) || 0) < 20))

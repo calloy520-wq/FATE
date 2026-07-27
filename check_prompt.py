@@ -11,9 +11,16 @@ s = open('gas/Gallery.gs', encoding='utf-8').read()
 lines = s.split('\n')
 
 # 某變數的定義/push 模板裡有沒有帶人名
+NAME_SRC = r'COL\.PC\.NAME|_herN|_her\b|Name\b|name\b|partyMembers'
 def var_has_name(v):
+    # ① 樣板字面賦值／push：`...${r[COL.PC.NAME]}...`
     for m in re.finditer(r'\b' + re.escape(v) + r'\s*(?:\.push\(|=)\s*`([^`]{0,300})', s):
-        if re.search(r'COL\.PC\.NAME|_herN|_her\b|Name\b|name\b', m.group(1)): return True
+        if re.search(NAME_SRC, m.group(1)): return True
+    # ② 由既有名單推導出來的變數：const _x = String(yNames).split('、').filter(...).join('、')
+    #    這種寫法沒有 backtick，①一律漏判(2026-07 實際誤報：晨間餘韻/昨夜道別依在場過濾後的名單)。
+    #    仍然要求 RHS 出現名單來源字樣才算數——放寬到「任何賦值都算」會讓這道檢查形同虛設。
+    for m in re.finditer(r'\b' + re.escape(v) + r'\s*=\s*([^;]{0,300});', s):
+        if re.search(NAME_SRC, m.group(1)): return True
     return False
 
 blocks = []
