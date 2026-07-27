@@ -123,7 +123,12 @@
       promiseMeet = opts.promiseMeet || null, cohabitInvite = opts.cohabitInvite || null,
       inviteResident = opts.inviteResident || null, proposeMove = opts.proposeMove || null, takePhoto = !!opts.takePhoto,
       showPhoto = opts.showPhoto || null, photoIntent = opts.photoIntent || null,
-      handHold = opts.handHold || null;
+      handHold = opts.handHold || null,
+      // 🐛→✅ 稽核抓到：呼叫端(kanshouHandHold/kanshouInviteCohabit)一直有把 npcId 塞進 opts，
+      //   但 send() 這裡沒解構、下面 gasRun payload 也沒轉發——兩個 id 從未離開過瀏覽器。
+      //   後端 Gallery.gs 的 userData.handHoldId/cohabitInviteId 永遠讀到空字串，「2026-07 id 優先」
+      //   那次重構在這兩條路徑上等於沒生效，一直靠姓名比對 fallback(同名/短名別名撞車時會找錯人)。
+      handHoldId = opts.handHoldId || null, cohabitInviteId = opts.cohabitInviteId || null;
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
     // 🔥 主動掌握開關：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
@@ -162,7 +167,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, skipKnockCheck: skipKnockCheck || undefined, dismissGuest: dismissGuest || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined, handHold: handHold || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, skipKnockCheck: skipKnockCheck || undefined, dismissGuest: dismissGuest || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined, handHold: handHold || undefined, handHoldId: handHoldId || undefined, cohabitInviteId: cohabitInviteId || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
