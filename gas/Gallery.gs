@@ -2003,10 +2003,6 @@ function actionPlay(userData, pcId, sheets) {
 
 // 🏷️ 四格頓號短句格式化(PREF/TRAIT 兩欄共用同一種「存單句、拆四格標籤呈現給AI」形狀，只有
 //   標籤文字不同)：labels=[第1格,第2格,第3格,第4格]，缺格一律補「無」。
-function formatFourSlot_(str, labels) {
-  const arr = String(str || "").split('、');
-  return `[${labels[0]}]${arr[0] || "無"} [${labels[1]}]${arr[1] || "無"} [${labels[2]}]${arr[2] || "無"} [${labels[3]}]${arr[3] || "無"}`;
-}
 
 function actionPlay_(userData, pcId, sheets) {
   // 🐛→✅ 稽核抓到：這是鑑賞主對話輸入，全代碼庫其餘會塞進AI提示詞的自由文字欄位(武裝/換裝/自訂
