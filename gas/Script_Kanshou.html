@@ -854,27 +854,48 @@ let plainTextContext = cleanText;
       .catch(function () { if (p) p.level = _prevLevel; _kcRenderDrawer_(); });
   }
 
+  // 📅 時間推進前的約定警示（三個入口共用）：爽約是玩家唯一會【真的虧到】的機制性懲罰
+  //   (-5 好感 ＋ 寫進共同回憶)。⚠ 2026-07 人類邏輯稽核：舊版只有「結束一天」警示，破壞力最大的
+  //   「跳到節慶」(可能一口氣跨好幾個月、手上所有約定必然全滅)卻零提示——保護程度跟危險程度顛倒。
+  //   kind: 'day'(跨到明天) | 'band'(同日跳時段·只燒準時窗) | 'far'(跳節慶·跨多天全滅)
+  function kcPromiseWarn_(kind, targetHour) {
+    try {
+      if (!kcClock || !kcClock.month || !Array.isArray(_kcCur) || !_kcCur.length) return '';
+      var due = _kcCur.filter(function (c) { return c.promise; });
+      if (!due.length) return '';
+      var fmt = function (l) { return l.map(function (c) { return '「' + c.name + '」' + (c.promise.time || '') + '在「' + c.promise.loc + '」'; }).join('、'); };
+      if (kind === 'far') return '\n\n⚠ 快轉會直接跳過你手上的約定：' + fmt(due) + '\n這些約全部會變成爽約，她們會在意的(好感下降)！';
+      var today = kcClock.month + '/' + kcClock.dayOfMonth;
+      var todayDue = due.filter(function (c) { return c.promise.date === today; });
+      if (!todayDue.length) return '';
+      // hour<6＝凌晨睡下醒來仍是【同一天】6點，今天的約還在、不會爽約。
+      if (kind === 'day') return kcClock.hour < 6 ? '' : '\n\n⚠ 今天還有沒赴的約：' + fmt(todayDue) + '\n現在睡下去就是爽約，她會在意的(好感下降)！';
+      // 'band'：同日跳時段不直接判爽約，但會燒掉準時窗——窗後 2 小時就等同爽約(後端 _standUp)。
+      var burn = todayDue.filter(function (c) {
+        var m = String(c.promise.time || '').match(/(\d{1,2}):(\d{2})/);
+        if (!m || typeof targetHour !== 'number') return false;
+        var ah = parseInt(m[1], 10) + parseInt(m[2], 10) / 60;
+        return targetHour > ah + 0.5 && kcClock.hour <= ah + 0.5;
+      });
+      return burn.length ? '\n\n⚠ 快轉會錯過今天的約定時間：' + fmt(burn) + '\n過了就只能算遲到，拖太久等同爽約。' : '';
+    } catch (e) { return ''; }
+  }
+
   // 🌙 結束一天：不在身邊的英靈由GAS自動決定隔天去哪(見Gallery.gs kanshouRollDailyLocation_)，不用手動排程；跟一般聊天走同一個send()、同一套渲染。
   async function kanshouEndDay() {
-    // 📅 睡前爽約警示(玩家實測「不知不覺跨了兩天、約定無聲過期」)：今天還沒赴的約，一過夜就會
-    //   結算成爽約(好感↓)——確認框先講明。_kcCur/kcClock 沒載到就退回一般確認(盡力而為，後端結算
-    //   通知條仍是保底)。深夜按「下一階段」也走這裡，同樣被擋到。
-    var _edWarn = '';
-    try {
-      // hour>=6 才警告：凌晨(深夜)睡下醒來是【同一天】6點、今天的約還在，不跨日不會爽約。
-      if (kcClock && kcClock.month && kcClock.hour >= 6 && Array.isArray(_kcCur) && _kcCur.length) {
-        var _today = kcClock.month + '/' + kcClock.dayOfMonth;
-        var _due = _kcCur.filter(function (c) { return c.promise && c.promise.date === _today; });
-        if (_due.length) _edWarn = '\n\n⚠ 今天還有沒赴的約：' + _due.map(function (c) { return '「' + c.name + '」' + (c.promise.time || '') + '在「' + c.promise.loc + '」'; }).join('、') + '\n現在睡下去就是爽約，她會在意的(好感下降)！';
-      }
-    } catch (e) { }
-    if (!await customConfirm_('結束今天，讓時間流動到明天嗎？' + _edWarn)) return;
+    // 📅 睡前爽約警示(玩家實測「不知不覺跨了兩天、約定無聲過期」)：判斷邏輯已抽進共用的
+    //   kcPromiseWarn_，三個時間推進入口共用一份。深夜按「下一階段」也走這裡，同樣被擋到。
+    if (!await customConfirm_('結束今天，讓時間流動到明天嗎？' + kcPromiseWarn_('day'))) return;
     showGamePane('chat');
     await send('🌙 結束了這一天。', false, { endDay: true, loaderCaptions: ['夜色漸漸深了…', '一天的塵埃緩緩落定…', '悄悄迎向嶄新的一天…'] });
   }
 
   // ⏰ 直接選目標時段，GAS算好差幾小時(見Gallery.gs kanshouHoursUntilBand_)，走advanceHours管線。
   async function kanshouJumpBand(key, label) {
+    var _tb = KC_TIME_BANDS_.find(function (b) { return b.key === key; });
+    var _w = kcPromiseWarn_('band', _tb ? _tb.startHour : undefined);
+    // 沒有會被燒掉的約定就【不打斷】——這是高頻按鈕，無謂確認框比不警告更惹人厭。
+    if (_w && !await customConfirm_('讓時間流轉到「' + label + '」嗎？' + _w)) return;
     showGamePane('chat');
     await send('⏩ 讓時間悄悄流轉到了' + label + '。', false, { jumpBand: key, loaderCaptions: ['時光靜靜流轉…', '天色漸漸改變…'] });
   }
@@ -892,7 +913,7 @@ let plainTextContext = cleanText;
 
   // 🎊「跳到節慶」：不帶advanceHours(留0)，帶jumpFestival讓後端自己算「距離該節慶還有幾小時」(見Gallery.gs kanshouHoursUntilDate_)，前端不重算日期，單一真實來源在後端。
   async function kanshouJumpFestival(key, name) {
-    if (!await customConfirm_('要讓時間快轉到「' + name + '」嗎？(不在身邊的英靈會依新時刻重新分佈)')) return;
+    if (!await customConfirm_('要讓時間快轉到「' + name + '」嗎？(不在身邊的英靈會依新時刻重新分佈)' + kcPromiseWarn_('far'))) return;
     showGamePane('chat');
     await send('🎊 想快轉到「' + name + '」看看。', false, { jumpFestival: key, loaderCaptions: ['翻閱著行事曆…', '想著當天的種種安排…'] });
   }
@@ -1025,8 +1046,9 @@ let plainTextContext = cleanText;
   ];
   // ⏰ 跳到時段(GAS算差幾小時，kanshouHoursUntilBand_ 唯一真實來源)。純顯示用 mirror，跟 KC_FESTIVALS_ 同一種寫法——改時段記得同步後端 KANSHOU_TIME_BANDS_。
   var KC_TIME_BANDS_ = [
-    { key: '清晨', name: '清晨', label: '☀️清晨' }, { key: '午後', name: '午後', label: '🌤️午後' },
-    { key: '黃昏', name: '黃昏', label: '🌆黃昏' }, { key: '夜', name: '夜晚', label: '🌙夜晚' }, { key: '深夜', name: '深夜', label: '🌌深夜' }
+    // startHour 鏡射後端 KANSHOU_TIME_BANDS_（唯一真實來源在 Gallery.gs），供約定警示算目標時刻。
+    { key: '清晨', name: '清晨', label: '☀️清晨', startHour: 5 }, { key: '午後', name: '午後', label: '🌤️午後', startHour: 11 },
+    { key: '黃昏', name: '黃昏', label: '🌆黃昏', startHour: 17 }, { key: '夜', name: '夜晚', label: '🌙夜晚', startHour: 20 }, { key: '深夜', name: '深夜', label: '🌌深夜', startHour: 0 }
   ];
   // 🏠 房間分區(room)的name是穩定內部key，顯示名稱是動態算的(kcRoomLabel_)——跟後端
   // kanshouRoomDisplayName_同一套邏輯，見下方kcMapListHtml_。2026-07經濟/房東房客世界觀

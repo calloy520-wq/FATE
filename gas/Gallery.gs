@@ -2203,10 +2203,16 @@ function actionPlay_(userData, pcId, sheets) {
       _pendingProposal = { type: 'promise', idx: _pmIdx, loc: _pmLoc, band: _pmBand, today: _pmToday, accepted: kanshouProposalAccepts_('promise', _pmBond) };
       kanshouPromiseStr = `\n★【提議·相約·GAS已裁定】你向『${_pmHer}』提議【${_pmWhenTxt}${_pmBandLabel ? _pmBandLabel + '於' : '在'}「${_pmLoc}」見面】。系統已依好感(${_pmBond}/100)裁定她${_pendingProposal.accepted ? `【答應】了——請 narration 依她的個性演出答應的反應（雀躍／害羞／矜持地點頭皆可），系統${_pmWhenTxt}會記得這個約` : '【婉拒】了——請 narration 依她的個性演出婉拒的反應（不好意思／認真說改天／打趣帶過皆可），此約不成立、不必替玩家找補'}。★成敗由系統定，【不可】自行改寫她的決定，只演她的反應。`;
       finalUserMsg = `【玩家意圖】：向『${_pmHer}』提出「${_pmWhenTxt}${_pmBandLabel || ''}在${_pmLoc}見面」的約定。`;
-    } else if (_pmName) {
+    } else if (_pmName && _pmIdx === -1) {
       kanshouPromiseStr = kanshouMissStr_('promise', _pmName);
       finalUserMsg = `【玩家意圖】：想找『${_pmName}』相約，卻發現她不在身邊。`;
       kanshouProposalResult_ = { ok: false, miss: true, type: 'promise', name: _pmName, where: _whereIsHer(_pmName) };
+    } else if (_pmName) {
+      // 🧠→✅ 稽核抓到診斷錯誤：她【明明就在場】、是地點/時段組合不合法(住處未解鎖／該時段不開放)，
+      //   舊版卻一律回報「她不在身邊」，玩家會照著這句去找人而完全找不到問題在哪。分開兩種原因。
+      kanshouPromiseStr = `\n★【約不成·地點不合適】：你想約『${_pmName}』到「${_pmLoc}」，但那裡此刻並不適合當約會地點(還沒熟到能去、或那個時段根本不開放)——演出你話到嘴邊又換了個說法、這個約沒有談成即可，不必解釋機制。`;
+      finalUserMsg = `【玩家意圖】：想約『${_pmName}』去「${_pmLoc}」，卻發現那裡約不成。`;
+      kanshouProposalResult_ = { ok: false, type: 'promise_loc', name: _pmName, loc: _pmLoc };
     }
   }
 
@@ -2748,11 +2754,23 @@ function actionPlay_(userData, pcId, sheets) {
     //   放鴿子懲罰在同一天內形同虛設。抽出跟跨日爽約共用的closure，遲到超過2小時比照跨日
     //   同一套判定(-5好感/寫進memoir/獨立結算通知)，不重複兩份邏輯。
     const _standUp = () => {
+      // 🧠→✅ 人類邏輯稽核抓到：「她整晚睡在你旁邊，系統卻記下我讓她空等了一場」。
+      //   情境＝約定日你沒去約定地點，卻一整天跟她在一起(牽手/同去/同床)，結束一天後日期一過
+      //   就判爽約 -5、還把「我爽約了」寫進共同回憶。放鴿子的定義是【她等不到你】，人明明就在
+      //   你身邊時這個定義不成立。此時只默默取消約定、不扣好感、不寫回憶，並給 AI 一句中性事實
+      //   讓她可以自然提一句「那個約就算了吧」。⚠ 不給 +5：約沒真的赴，不該有赴約的獎勵。
+      if (String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) {
+        pcData[i][COL.PC.MEMORY] = kanshouClearPromise_(pcData[i][COL.PC.MEMORY]);
+        dirtyPcRows.add(i);
+        kanshouPromiseMetStr += `\n★【那個約就算了】：你與『${_her}』本來約在「${_pr.loc}」見面、結果沒去成，但你們這段時間本來就一直在一起——不是放鴿子，沒有人空等。可自然帶一句「那個約下次再說吧」的默契，【不必】演成道歉或責備，也沒有任何數值變動。`;
+        return;
+      }
       pcData[i][COL.PC.MEMORY] = kanshouClearPromise_(pcData[i][COL.PC.MEMORY]);
       pcData[i][COL.PC.BOND] = Math.max(0, (parseInt(r[COL.PC.BOND]) || 0) - 5);
       kanshouSyncRelTier_(pcData, i);
       dirtyPcRows.add(i);
-      if (String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) kanshouPromiseMetStr += `\n★【爽約之後】：你先前與『${_her}』約好在「${_pr.loc}」見面卻沒赴約——讓她依性格流露被放鴿子的在意(慍怒/落寞/嘴硬說沒關係，好感已下調，勿另計)。`;
+      // ⚠ 走到這裡＝她【不在】你身邊(在場的已在上面提早 return)。敘述留給下次遇到她時演——
+      //   這回合她不在場，照【在場驗證鐵律】本來就不能讓她開口。
       // 📣 爽約明確回饋(玩家實測「約定標示無聲消失、以為是bug」)：她不在場時結算完全無聲——
       //   補通知條讓玩家知道約過期了、好感掉了。
       kanshouPromiseSettle_.push({ ok: false, type: 'promise_missed', name: _her, loc: _pr.loc });
