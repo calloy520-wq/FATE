@@ -323,7 +323,7 @@ function getNickname_(relMem) {
   return (raw && raw !== "無") ? raw : "";
 }
 // 純聊天(AI rel_changes)加好感只能推到「目前所在梯度的上限」就卡住，要靠約定赴約(+5·kanshouPromiseMetStr)
-//   或一起經歷橋段(+KANSHOU_SCENE_BOND_·下方roomEventAccept)這類真實相處才能突破到下一梯度(經濟/送禮已砍)。
+//   或與她獨處於私密場合(+KANSHOU_SCENE_BOND_·見 kanshouAloneBondStr)這類真實相處才能突破到下一梯度。
 //   上限沿用KANSHOU_REL_TIER_同一份門檻，不重複開新數字。
 const KANSHOU_SCENE_BOND_ = 3; // 接受親密橋段(夜襲/共浴/膝枕…非拒絕分支)給的好感，直接寫、不吃聊天上限。
 
@@ -1270,155 +1270,39 @@ const KANSHOU_WORLD_ROSTER_CAP_ = 8;
 //   依bond由高到低排列，取第一個bond達標的當作這次走向。
 //   每筆橋段除branches外帶4個演出欄位({n}=候選人真名，後端替換)：label=前端邀請框文字、
 //   btn=按鈕字、verb=接受後提示詞的動作前綴(「${verb}『名字』」要讀得通順)、intent=玩家意圖句。
+// 🎭 情境氛圍表（2026-07 玩家「橋段太過生硬」根治改版）
+//   ⚠ 舊版每則帶 label/btn/verb/intent ＋ 依好感分歧的 branches[].tag——tag 是一整段【劇本】
+//   (「往旁挪出位置邀你一起、甚至替你擦背」)，且提示詞明令「情緒基調不要偏離」。後果：同一好感
+//   區間每次演出來都是同一段戲、角色個性被壓過去，而且把「說書」寫死進資料表，違反本專案
+//   「GAS 掌事實、AI 只說書」的鐵則。
+//   現版本每則只留一句 ambient＝【此刻的客觀情境事實】，不規定她的反應、不給選項按鈕。玩家想
+//   不想理會、要怎麼互動，直接打字即可(鑑賞本來就有聊天框)。分寸仍由【親密尺度五階】統一管。
+//   🛏️ 夜襲/賴床叫醒已整組移除：她睡著這件事本來就由 pSleepStr 每回合當既定事實餵給 AI(判準
+//   完全相同)，再包一層按鈕只是把自然的處境變成一張要點的卡。
 const KANSHOU_SCENE_EVENTS_ = {
-  // 🐛→✅ 2026-07 八度改版：玩家明確要求拿掉固定分支台詞，改成「GAS只定調這次能演到哪一階、
-  //   AI自由發揮細節」——夜襲/賴床叫醒不再帶branches，改由kanshouAsleepOutcomeStr_(reBond)
-  //   即時產生分寸提示(60以下=趕人/60~79=卡在親吻擁抱/80+=無上限)，跟其餘仍用branches的橋段
-  //   (共浴/膝枕等)區分靠accept-handler裡的_reIsFreeform判斷，不必給這裡加假branches湊格式。
-  夜襲: {
-    label: '🌙 「{n}」已經睡熟了，要不要靠近看看？', btn: '靠近她',
-    verb: '深夜輕手輕腳地靠近了熟睡中的', intent: '藉著夜色靠近了熟睡的『{n}』，伸手輕輕觸碰。'
-  },
-  // 跟夜襲同一套「走進同住人房間」觸發框架，只是時段換成清晨——她此刻還在賴床。
-  賴床叫醒: {
-    label: '☀️ 「{n}」還在賴床……要叫醒她嗎？', btn: '叫醒她',
-    verb: '清晨靠近了還在賴床的', intent: '伸手想輕輕叫醒還在賴床的『{n}』。'
-  },
-  // ── 地點橋段(KANSHOU_LOCATION_EVENTS_觸發)：她剛好在特定地點×特定時段，就跳出邀請按鈕 ──
-  共浴: {
-    label: '🛁 浴室裡傳來水聲——「{n}」正在沐浴……要進去嗎？', btn: '走進浴室',
-    verb: '在浴室撞見了正在沐浴的', intent: '推開浴室的門，走向正在沐浴的『{n}』。',
-    branches: [
-      { min: 70, tag: '微紅著臉卻大方接受，往旁挪出位置邀你一起，甚至自然地替你擦背' },
-      { min: 35, tag: '驚呼一聲慌忙遮掩、嘴上罵你不敲門，卻在罵完之後彆扭地默許你留下' },
-      { min: -100, tag: '又驚又怒地潑水把你轟出去，隔著門氣鼓鼓地數落，短時間別想再踏進半步' }
-    ]
-  },
-  溫泉同浴: {
-    label: '♨️ 氤氳霧氣中「{n}」正在泡湯……要一起泡嗎？', btn: '一起泡湯',
-    verb: '在隱藏溫泉遇上了正在泡湯的', intent: '走進霧氣繚繞的溫泉，向泉中的『{n}』打了聲招呼。',
-    branches: [
-      { min: 70, tag: '大方向你招手讓你一起泡，泡著泡著聊起平時不會說的心裡話，氣氛比泉水更暖' },
-      { min: 35, tag: '隔著岩石各泡各的，嘴上說「不許過來」，卻有一搭沒一搭地跟你聊個不停' },
-      { min: -100, tag: '警戒地沉到只露出眼睛，跟你保持整池的距離，你一靠近就濺水警告' }
-    ]
-  },
-  膝枕: {
-    label: '💤 慵懶的午後——想枕在「{n}」的膝上小憩嗎？', btn: '開口拜託',
-    verb: '午後在客廳裡開口拜託了', intent: '在沙發旁鼓起勇氣，向『{n}』提出想枕著她的膝小睡片刻。',
-    branches: [
-      { min: 70, tag: '輕笑著拍拍自己的膝蓋讓你躺上來，一邊替你梳髮，語氣比平常都溫柔' },
-      { min: 35, tag: '紅著臉彆扭答應「就、就一下下」，全程僵硬得不敢亂動，心跳聲藏都藏不住' },
-      { min: -100, tag: '一臉錯愕地把抱枕塞過來——「枕這個」，想都別想碰到她的膝蓋' }
-    ]
-  },
-  下廚: {
-    label: '🍳 「{n}」正在準備晚餐……要進廚房幫忙嗎？', btn: '進去幫忙',
-    verb: '黃昏的廚房裡走近了正在做晚餐的', intent: '挽起袖子走進廚房，想幫『{n}』一起準備晚餐。',
-    branches: [
-      { min: 70, tag: '自然地遞來圍裙讓你打下手，配合默契得像老夫老妻，不時舀一勺讓你試味道' },
-      { min: 35, tag: '嘴硬說不需要幫忙，卻在你接手切菜時偷偷鬆了口氣，開始小聲指揮你' },
-      { min: -100, tag: '警惕地護著鍋子不讓你靠近半步，堅稱自己一個人就行，把你請出廚房' }
-    ]
-  },
-  觀星: {
-    label: '🌌 夜空清澈——邀「{n}」一起看星星嗎？', btn: '一起看星',
-    verb: '夜裡在屋頂花園走近了仰望星空的', intent: '走到『{n}』身旁坐下，一同抬頭仰望星空。',
-    branches: [
-      { min: 70, tag: '自然地靠上你的肩，指著星空講起她故鄉的星座與往事，聲音比夜色還柔' },
-      { min: 35, tag: '並肩坐著保持一個拳頭的距離，聊著聊著話不知不覺多了起來' },
-      { min: -100, tag: '淡淡應了聲「你也來了」便繼續望天，各看各的星，偶爾才答一句' }
-    ]
-  },
-  // ── 節慶橋段(KANSHOU_FESTIVAL_EVENTS_觸發)：日曆走到節慶當天×時段吻合×身邊有人 ──
-  初詣: {
-    label: '🎍 新年初一——邀「{n}」一起去初詣參拜？', btn: '一起初詣',
-    verb: '新年初一邀了', intent: '向『{n}』提議一起去神社初詣參拜。',
-    branches: [
-      { min: 70, tag: '難得盛裝與你並肩參拜，搖鈴合掌許願後，偷偷告訴你她的願望跟你有關' },
-      { min: 35, tag: '盛裝被稱讚會不好意思，抽到吉籤便忍不住向你炫耀，一路上話比平常多' },
-      { min: -100, tag: '維持著剛好同路的距離感，參拜完便打算離開，你不主動搭話就要走散了' }
-    ]
-  },
-  情人節巧克力: {
-    label: '🍫 今天是情人節——去「{n}」身邊看看？', btn: '走向她',
-    verb: '情人節這天走近了', intent: '情人節這天，走到『{n}』的面前。',
-    branches: [
-      { min: 70, tag: '紅著臉塞給你一盒手作巧克力，強調「不是義理」，非要看你當面嚐一口才罷休' },
-      { min: 35, tag: '彆扭地遞出一小包「只是練習品」的巧克力，眼睛卻直勾勾盯著你的反應' },
-      { min: -100, tag: '手上似乎拿著什麼，見你看過來就藏到身後，堅稱跟你沒有關係' }
-    ]
-  },
-  七夕短冊: {
-    label: '🎋 今晚是七夕——邀「{n}」一起掛短冊許願？', btn: '一起許願',
-    verb: '七夕夜邀了', intent: '邀『{n}』一起在竹枝上掛短冊許願。',
-    branches: [
-      { min: 70, tag: '拉著你一起寫短冊，趁你不注意偷看你寫了什麼，自己那張卻遮得死緊' },
-      { min: 35, tag: '認真挑了根好竹枝掛上短冊，被問到願望就岔開話題，耳根卻悄悄紅了' },
-      { min: -100, tag: '獨自掛完短冊便望著竹枝出神，那個願望，似乎與眼前的你無關' }
-    ]
-  },
-  中秋賞月: {
-    label: '🌕 今晚月色正好——邀「{n}」一起賞月？', btn: '一起賞月',
-    verb: '中秋夜邀了', intent: '邀『{n}』一起賞中秋的滿月。',
-    branches: [
-      { min: 70, tag: '分你一半月見糰子，自然地靠著你賞月，輕聲說「明年也要一起看」' },
-      { min: 35, tag: '並肩坐著吃糰子，話題繞著月亮打轉，誰都沒敢提「明年」兩個字' },
-      { min: -100, tag: '各自賞各自的月，偶爾交換一句客套話，月色再美也照不進兩人之間' }
-    ]
-  },
-  聖誕約會: {
-    label: '🎄 今天是聖誕節——邀「{n}」共度聖誕夜？', btn: '交換禮物',
-    verb: '聖誕夜邀了', intent: '在聖誕燈飾下，向『{n}』拿出準備好的禮物。',
-    branches: [
-      { min: 70, tag: '交換禮物時她準備的那份顯然用足了心，燈飾下的她比聖誕樹更耀眼，遲遲捨不得道晚安' },
-      { min: 35, tag: '彆扭地拿出「剛好多的」禮物跟你交換，燈飾下走著走著，肩膀的距離悄悄近了半步' },
-      { min: -100, tag: '節日的熱鬧反而突顯生疏，禮物客套地收下，道別來得比平常更早' }
-    ]
-  },
-  跨年倒數: {
-    label: '🎆 跨年夜——和「{n}」一起倒數迎接新年？', btn: '一起倒數',
-    verb: '跨年夜拉著', intent: '拉著『{n}』一起等待跨年的倒數。',
-    branches: [
-      { min: 70, tag: '倒數到零的瞬間她轉頭看向你，新年的第一句話、第一個擁抱都給了你' },
-      { min: 35, tag: '跟著遠處的鐘聲一起倒數，互道新年快樂時，眼神多停留了幾秒' },
-      { min: -100, tag: '各數各的倒數，鐘聲響起時只交換了一句形式上的新年快樂' }
-    ]
-  },
-  // ── 同居日常橋段(KANSHOU_COHABIT_EVENTS_觸發·僅限同居中的她×兩人同處居所) ──
-  //   ⚠ 這組刻意寫「平凡的共同生活」而不是情慾升級：同居(好感80)本來就是全模式最後一個里程碑，
-  //   之前抵達之後機制上只多一行「同居中:是」、沒有任何專屬內容，等於最大的獎勵反而最空。缺的是
-  //   「一起生活」的實感，不是更多親密場面(那已經由夜襲/共浴等既有橋段涵蓋)。
-  //   同居必然 bond≥80(跌破會被 kanshouSyncRelTier_ 自動解除同居)，故單一分支即可、不必依好感分歧。
-  同居晨光: {
-    label: '🌅 清晨的家裡有「{n}」的動靜——過去看看？', btn: '走過去',
-    verb: '在清晨的家中走向了', intent: '清晨在家裡，走向已經起身的『{n}』。',
-    branches: [{ min: -100, tag: '一起度過同居生活裡再尋常不過的一個早晨——也許是準備早餐、也許只是併肩喝著茶說些沒營養的話，重點是那份「醒來時有人在」的踏實與熟稔' }]
-  },
-  同居午後: {
-    label: '🛋️ 午後的家裡只有你和「{n}」——一起窩著？', btn: '一起窩著',
-    verb: '在慵懶的午後靠近了', intent: '午後在家裡，走到『{n}』身邊一起消磨時間。',
-    branches: [{ min: -100, tag: '一段什麼正事都沒做的午後——各做各的事卻待在同一個空間，偶爾搭句話、偶爾安靜，是只有一起生活的人才有的那種不必找話題的自在' }]
-  },
-  同居黃昏: {
-    label: '🍳 傍晚了，「{n}」在家——一起弄晚飯？', btn: '一起弄晚飯',
-    verb: '在傍晚的家中找上了', intent: '傍晚在家裡，找『{n}』一起張羅晚飯。',
-    branches: [{ min: -100, tag: '兩人一起把一頓晚飯弄出來的過程——分工、拌嘴、試味道、誰洗碗的協商，鍋鏟聲與飯菜香撐起的那種居家煙火氣' }]
-  },
-  同居夜話: {
-    label: '🌙 夜深了，和「{n}」說說話？', btn: '陪她說話',
-    verb: '在睡前的夜裡陪著', intent: '夜裡在家中，陪『{n}』說些睡前的話。',
-    branches: [{ min: -100, tag: '睡前那段誰都不急著結束的閒談——今天發生的小事、想起的舊事、對明天的隨口打算，話題散漫卻踏實，最後在睏意裡自然收尾' }]
-  },
-  同居深夜: {
-    label: '🌃 半夜醒來，「{n}」也還沒睡——過去？', btn: '走過去',
-    verb: '在半夜的家裡遇上了', intent: '半夜在家裡，遇上同樣還沒睡的『{n}』。',
-    branches: [{ min: -100, tag: '深夜同處一室的靜——也許是誰睡不著、也許是宵夜，燈光昏黃、聲音壓得很低，這個時間的坦白總是比白天多一點' }]
-  }
+  // ── 地點×時段(KANSHOU_LOCATION_EVENTS_) ──
+  共浴: { ambient: '浴室裡傳來水聲，她正在沐浴' },
+  溫泉同浴: { ambient: '氤氳的霧氣裡，她正泡在溫泉中' },
+  膝枕: { ambient: '午後的客廳很慵懶，她正窩在沙發上' },
+  下廚: { ambient: '廚房飄出飯菜香，她正在準備晚餐' },
+  觀星: { ambient: '今晚夜空格外清澈，她在屋頂花園仰望星空' },
+  // ── 節慶(KANSHOU_FESTIVAL_EVENTS_) ──
+  初詣: { ambient: '新年初一，她正準備去神社初詣參拜' },
+  情人節巧克力: { ambient: '今天是情人節，她手上似乎拿著什麼、見人看過來就往身後藏' },
+  七夕短冊: { ambient: '七夕夜，竹枝上掛滿短冊，她手裡也拿著一張還沒寫' },
+  中秋賞月: { ambient: '中秋夜月色正好，她正抬頭望著那輪滿月' },
+  聖誕約會: { ambient: '聖誕燈飾亮了整條街，她今晚的打扮比平時用心' },
+  跨年倒數: { ambient: '跨年夜，遠處已經有人開始倒數' },
+  // ── 同居日常(KANSHOU_COHABIT_EVENTS_·僅同居中的她) ──
+  同居晨光: { ambient: '清晨的家裡，她已經起身在活動' },
+  同居午後: { ambient: '午後的家裡只有你們兩人，她正做著自己的事' },
+  同居黃昏: { ambient: '傍晚了，她在廚房張羅著晚飯' },
+  同居夜話: { ambient: '夜深了，她還沒去睡，看來是想說說話' },
+  同居深夜: { ambient: '半夜，她竟也還醒著' }
 };
-// 「同住人房間橋段」判定改用直接時刻判斷(玩家實測要求：0~8點在她家/和室/玩家房間必定熟睡，
-//   不必依附timeBand_的深夜/清晨切法，清晨band原本一路延伸到11點、超出「還在睡」的合理範圍)。
-//   0~5點=夜襲(正睡熟)、5~8點=賴床叫醒(快醒未醒)，見kanshouRoomEventKey_算法。
+// 睡眠時刻切點(玩家實測要求：0~8點在她家/和室/玩家房間必定熟睡)——不依附 timeBand_ 的深夜/清晨
+//   切法，清晨 band 原本一路延伸到 11 點、超出「還在睡」的合理範圍。0~5點=熟睡、5~8點=賴床將醒。
+//   2026-07 泡泡拆除後，服務對象是 pSleepStr(每回合把睡眠狀態當既定事實餵給 AI)與深夜訪客橋段。
 const KANSHOU_ASLEEP_HOUR_END_ = 8;
 const KANSHOU_NIGHT_RAID_HOUR_END_ = 5;
 // 地點橋段觸發表：她剛好在這個地點×時段吻合→跳出邀請按鈕(同一套offer/accept流程)。
@@ -1447,13 +1331,6 @@ const KANSHOU_FESTIVAL_EVENTS_ = {
 const KANSHOU_COHABIT_EVENTS_ = {
   清晨: '同居晨光', 午後: '同居午後', 黃昏: '同居黃昏', 夜: '同居夜話', 深夜: '同居深夜'
 };
-// 依bond從KANSHOU_SCENE_EVENTS_挑出這次橋段該走的分支(資料驅動，橋段本身不寫死走向)。
-//   夜襲/賴床叫醒已改走無branches的自由發揮(見kanshouAsleepOutcomeStr_)，這裡補一道空值防線。
-function kanshouRollSceneBranch_(eventKey, bond) {
-  const ev = KANSHOU_SCENE_EVENTS_[eventKey];
-  if (!ev || !ev.branches) return null;
-  return ev.branches.find(b => bond >= b.min) || ev.branches[ev.branches.length - 1];
-}
 // 🌙 夜襲類橋段(玩家主動夜襲/叫醒賴床、以及深夜訪客反過來對玩家「別有用心」)共用的分寸判準：
 //   好感決定這次能走到哪一階，不寫死台詞，具體怎麼演、講什麼話全交AI依角色性格發揮。切點沿用
 //   親密尺度五階既有的60(親吻擁抱)/80(無上限)兩個節點，跟其餘尺度判定同一套數字、單一來源。
@@ -2140,6 +2017,10 @@ function actionPlay_(userData, pcId, sheets) {
   //   入口直接擋下非 KPC_ 呼叫，函式其餘部分永遠當作鑑賞情境處理，不再分支。
   if (String(pcId || "").indexOf("KPC_") !== 0) return JSON.stringify({ text: "此功能僅限鑑賞使用。", people: [] });
   const driveOn = (userData.drive === true || String(userData.drive) === "true");
+  // ⏳ 這回合是否發生「時間跳躍」——單一真實來源(原本在下方 aiConfig 處各算一次，現提前並共用)。
+  //   對敘事的意義：時間一跳，全世界重骰行程(kanshouRollDailyLocation_)，此刻同地的人並不是
+  //   「剛才一直跟你在一起」，而是「時間流轉後恰好在這裡」——在場來由判定要靠它，見 pPresenceStr。
+  const kanshouTimeJumped_ = !!(userData.endDay === true || userData.jumpBand || userData.jumpFestival || (parseFloat(userData.advanceHours) || 0) > 0);
   // 巧遇開關：前端「出門走走」面板可關閉「路上巧遇陌生人」——只影響下方隨機巧遇擲骰，不影響
   //   已在場的【邂逅中】對象持續互動、也不影響同行隊伍成員。
   const encounterOn = !(userData.encounter === false || String(userData.encounter) === "false");
@@ -2250,9 +2131,16 @@ function actionPlay_(userData, pcId, sheets) {
       const _pmBond = parseInt(pcData[_pmIdx][COL.PC.BOND]) || 0;
       const _pmHer = String(pcData[_pmIdx][COL.PC.NAME]);
       const _pmBandLabel = _pmBand ? (KANSHOU_APPT_BANDS_.find(b => b.band === _pmBand) || {}).label : "";
-      _pendingProposal = { type: 'promise', idx: _pmIdx, loc: _pmLoc, band: _pmBand, accepted: kanshouProposalAccepts_('promise', _pmBond) };
-      kanshouPromiseStr = `\n★【提議·相約·GAS已裁定】你向『${_pmHer}』提議【明天${_pmBandLabel ? _pmBandLabel + '於' : '在'}「${_pmLoc}」見面】。系統已依好感(${_pmBond}/100)裁定她${_pendingProposal.accepted ? '【答應】了——請 narration 依她的個性演出答應的反應（雀躍／害羞／矜持地點頭皆可），系統明天會記得這個約' : '【婉拒】了——請 narration 依她的個性演出婉拒的反應（不好意思／認真說改天／打趣帶過皆可），此約不成立、不必替玩家找補'}。★成敗由系統定，【不可】自行改寫她的決定，只演她的反應。`;
-      finalUserMsg = `【玩家意圖】：向『${_pmHer}』提出「明天${_pmBandLabel || ''}在${_pmLoc}見面」的約定。`;
+      // 🕐 2026-07 玩家「約會也想要可以約今天的時間」：前端帶 today=true 且該時段【今天還沒過】才算數。
+      //   已經過了的時段約下去＝到期必然爽約(-5)，跟未解鎖住處同一類必爽約陷阱，故後端自己再驗一次
+      //   (前端只給未過時段，這裡是直打 API 的保底)；不合格就默默退回明天，不讓玩家平白吃一次爽約。
+      const _pmApptHour = _pmBand ? kanshouApptHour_(_pmBand) : null;
+      const _pmToday = !!(userData.promiseMeet.today === true || String(userData.promiseMeet.today) === "true")
+        && _pmApptHour !== null && _pmApptHour > curHour;
+      const _pmWhenTxt = _pmToday ? '今天' : '明天';
+      _pendingProposal = { type: 'promise', idx: _pmIdx, loc: _pmLoc, band: _pmBand, today: _pmToday, accepted: kanshouProposalAccepts_('promise', _pmBond) };
+      kanshouPromiseStr = `\n★【提議·相約·GAS已裁定】你向『${_pmHer}』提議【${_pmWhenTxt}${_pmBandLabel ? _pmBandLabel + '於' : '在'}「${_pmLoc}」見面】。系統已依好感(${_pmBond}/100)裁定她${_pendingProposal.accepted ? `【答應】了——請 narration 依她的個性演出答應的反應（雀躍／害羞／矜持地點頭皆可），系統${_pmWhenTxt}會記得這個約` : '【婉拒】了——請 narration 依她的個性演出婉拒的反應（不好意思／認真說改天／打趣帶過皆可），此約不成立、不必替玩家找補'}。★成敗由系統定，【不可】自行改寫她的決定，只演她的反應。`;
+      finalUserMsg = `【玩家意圖】：向『${_pmHer}』提出「${_pmWhenTxt}${_pmBandLabel || ''}在${_pmLoc}見面」的約定。`;
     } else if (_pmName) {
       kanshouPromiseStr = kanshouMissStr_('promise', _pmName);
       finalUserMsg = `【玩家意圖】：想找『${_pmName}』相約，卻發現她不在身邊。`;
@@ -2413,12 +2301,16 @@ function actionPlay_(userData, pcId, sheets) {
     }
   }
 
-  // 🎭 橋段觸發：按鈕(roomEventOffer)在候選人存在期間持續可用，玩家點下去(userData.
-  //   roomEventAccept)才真正骰一次走向；候選人＝目標地點上的同世界同伴，隨機挑一位。
-  const kanshouRoomEventTargetLoc_ = moveTarget ? moveName : curL;
-  // ⏱️ offer 用「本回合結束時」的時刻算時段——按鈕是給回應後的玩家看的，用回合開始的舊時刻會
-  //   慢半拍(玩家實測：10:5x走進客廳沒跳膝枕、原地再點(已11:2x午後)才跳)。各推進型回合各自預測：
-  //   結束一天→6點；跳時段→目標時段起點；推進N小時→+N；一般回合→+0.5(夾23)。
+  // 🎭 情境氛圍(2026-07 玩家「橋段太過生硬」根治改版)：舊版是「跳按鈕→玩家點→GAS骰走向→AI照
+  //   劇本演」的四段式 apparatus，選單感重、且同好感區間每次演出雷同(branches[].tag 是寫死的劇本)。
+  //   現版本只做一件事：判斷此地此刻有沒有值得一提的情境，有就把【客觀事實】寫進提示詞，其餘全部
+  //   交給玩家自己打字互動(鑑賞本來就有聊天框，玩家想怎麼玩都可以)。
+  //   三層觸發判定(節慶 > 地點×時段 > 同居日常)保留——那部分邏輯是對的，只是輸出換掉了。
+  //   🛏️ 睡眠層(夜襲/賴床叫醒)已整組移除：她睡著這件事本來就由 pSleepStr 每回合當既定事實餵給
+  //   AI(判準完全相同)，再包一層按鈕只是把自然的處境變成一張要點的卡。
+  const kanshouSceneLoc_ = moveTarget ? moveName : curL;
+  // ⏱️ 用「本回合結束時」的時刻算時段——氛圍句是給讀到這次回應的玩家看的，用回合開始的舊時刻
+  //   會慢半拍(玩家實測：10:5x走進客廳沒跳、原地再點(已11:2x午後)才跳)。
   let _reHourAfter = curHour;
   if (userData.endDay === true) _reHourAfter = 6;
   else if (userData.jumpBand) { const _rb = KANSHOU_TIME_BANDS_.find(b => b.key === String(userData.jumpBand)); if (_rb) _reHourAfter = _rb.startHour; }
@@ -2426,121 +2318,36 @@ function actionPlay_(userData, pcId, sheets) {
   else if (userData.jumpFestival) _reHourAfter = 6; // 跳節慶恆落在前一天清晨6點(kanshouHoursUntilDate_ 的落點)
   else if (curHour < KANSHOU_DAY_LAST_HOUR_) _reHourAfter = Math.min(KANSHOU_DAY_LAST_HOUR_, curHour + KANSHOU_HOUR_PER_ACTION_);
   const kanshouReBand_ = timeBand_(_reHourAfter);
-  // 🐛→✅ 2026-07 七度改版稽核抓到：這裡原本只認 Object.values(KANSHOU_HERO_HOME_)(7位種子英靈
-  //   的手寫豪邸)，泛用住處池(KANSHOU_GENERIC_HOME_POOL_)雖已登記進 KANSHOU_LOCATIONS_ 成為可
-  //   造訪的真實地點，卻沒被這裡認出是「某人的家」，導致隨機分配到泛用住處的英靈永遠觸發不了
-  //   夜襲/賴床叫醒。改成直接從 KANSHOU_LOCATIONS_ 篩 region==='visit'(單一真實來源)，兩種
-  //   住處來源都吃得到，之後再擴充住處池也不必記得同步這裡。
-  const kanshouHomeLocs_ = KANSHOU_LOCATIONS_.filter(l => l.region === 'visit').map(l => l.name);
-  // 🏠 玩家自己的居所(同居日常橋段的舞台)：家中各處＋玩家房間。與上面的 kanshouHomeLocs_(她的住處)
-  //   是兩回事——那是「去她家」，這是「你們共同的家」。
+  // 🏠 玩家自己的居所(同居日常的舞台)：家中各處＋玩家房間。與「她的住處」(region 'visit')是兩回事。
   const kanshouPlayerHomeLocs_ = KANSHOU_LOCATIONS_.filter(l => l.region === 'home').map(l => l.name).concat(['我的房間']);
-  // 橋段觸發三層(擇一，優先序由稀至常)：①節慶(一年一天)→②同住人房間(她家×深夜/清晨)→③地點×時段。
-  //   三層共用同一套候選人蒐集＋offer按鈕＋accept骰走向流程，只是決定eventKey的來源不同。
-  let kanshouRoomEventKey_ = null;
+  let kanshouSceneKey_ = null;
   const kanshouReDate_ = kanshouAbsDayToDate_(curDay);
   const kanshouReFest_ = KANSHOU_FESTIVALS_.find(f => f.month === kanshouReDate_.month && f.day === kanshouReDate_.day) || null;
   if (kanshouReFest_) {
     const _fe = KANSHOU_FESTIVAL_EVENTS_[kanshouReFest_.key];
-    if (_fe && _fe.bands.indexOf(kanshouReBand_) >= 0) kanshouRoomEventKey_ = _fe.eventKey;
+    if (_fe && _fe.bands.indexOf(kanshouReBand_) >= 0) kanshouSceneKey_ = _fe.eventKey;
   }
-  if (!kanshouRoomEventKey_ && (kanshouHomeLocs_.includes(kanshouRoomEventTargetLoc_) || kanshouRoomEventTargetLoc_ === KANSHOU_COHABIT_ROOM_ || kanshouRoomEventTargetLoc_ === '我的房間')) {
-    // 她自己的住處、同居人的「和室」寢間、或玩家自己房間(她被留宿/深夜訪客過來時人可能在這裡)，
-    //   0~8點必定熟睡：0~5點=夜襲(正睡熟)、5~8點=賴床叫醒(快醒未醒)，不再依附timeBand_的
-    //   深夜/清晨切法(清晨band原本一路延伸到11點，超出「還在睡」的合理範圍)。
-    if (_reHourAfter < KANSHOU_NIGHT_RAID_HOUR_END_) kanshouRoomEventKey_ = '夜襲';
-    else if (_reHourAfter < KANSHOU_ASLEEP_HOUR_END_) kanshouRoomEventKey_ = '賴床叫醒';
+  if (!kanshouSceneKey_) {
+    const _locEv = KANSHOU_LOCATION_EVENTS_[kanshouSceneLoc_];
+    if (_locEv && _locEv.bands.indexOf(kanshouReBand_) >= 0) kanshouSceneKey_ = _locEv.eventKey;
   }
-  if (!kanshouRoomEventKey_) {
-    const _locEv = KANSHOU_LOCATION_EVENTS_[kanshouRoomEventTargetLoc_];
-    if (_locEv && _locEv.bands.indexOf(kanshouReBand_) >= 0) kanshouRoomEventKey_ = _locEv.eventKey;
-  }
-  // 🏠 第四層·同居日常(最低優先，只補前三層沒佔到的空檔)：舞台限「你們共同的家」，候選限同居中的她
-  //   (見下方 _reIsCohabitTrigger_ 過濾)。非同居者剛好也在家中時不會誤觸發這組「一起生活」的橋段。
-  let _reIsCohabitTrigger_ = false;
-  if (!kanshouRoomEventKey_ && kanshouPlayerHomeLocs_.indexOf(kanshouRoomEventTargetLoc_) >= 0) {
+  // 同居日常＝最低優先，只補前兩層沒佔到的時段空檔；對象限【同居中】的她(非同居者剛好也在家中
+  //   時不該套上「一起生活」的情境)。
+  let _sceneIsCohabit_ = false;
+  if (!kanshouSceneKey_ && kanshouPlayerHomeLocs_.indexOf(kanshouSceneLoc_) >= 0) {
     const _coEvKey = KANSHOU_COHABIT_EVENTS_[kanshouReBand_];
-    if (_coEvKey) { kanshouRoomEventKey_ = _coEvKey; _reIsCohabitTrigger_ = true; }
+    if (_coEvKey) { kanshouSceneKey_ = _coEvKey; _sceneIsCohabit_ = true; }
   }
-  let kanshouRoomEventCandidate_ = null;
-  // 🐛→✅ 八度改版：夜襲/賴床叫醒的前提是「她獨自在熟睡」——跟玩家牽手/剛同意同去而一起走進來
-  //   的同伴顯然還醒著，不該被列進候選(candidate意味著「可以靠近熟睡的她」，這種情況下不成立)。
-  //   只排除夜襲類，其餘橋段(共浴/膝枕等)本就不假設對方在睡，不受影響。
-  const _reIsAsleepTrigger_ = (kanshouRoomEventKey_ === '夜襲' || kanshouRoomEventKey_ === '賴床叫醒');
-  if (kanshouRoomEventKey_) {
-    // 蒐集此地(和室/她住處)所有在場的同伴——多人同居擠一間時，全部列出讓玩家【點名要靠近誰】，
-    //   不再隨機挑(玩家「我可以挑選夜襲誰？！」→可以)。單人時前端就一顆按鈕、體驗跟以前一樣。
-    const _reMatches = [];
+  let kanshouSceneAmbientStr = "";
+  if (kanshouSceneKey_) {
+    const _ev = KANSHOU_SCENE_EVENTS_[kanshouSceneKey_];
+    const _sceneNames = [];
     pcData.forEach((r, i) => {
-      // 🚫 今天已跟她經歷過橋段(KANSHOU_SCENE_DAY_TAG_==今天)就不再把她列進候選——擋「重複詢問」：
-      //   §132 只擋重複加好感、按鈕仍每回合冒；這裡連 offer 都收掉，一天一位一次特別相處，隔天(結束
-      //   這天後 curDay+1)自然重新開放。
-      if (i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC] || "").trim() === kanshouRoomEventTargetLoc_ && KANSHOU_SCENE_DAY_TAG_.get(r[COL.PC.MEMORY]) !== curDay && (!_reIsAsleepTrigger_ || !kanshouIsAwakeWithMe_(i)) && (!_reIsCohabitTrigger_ || kanshouIsCohabit_(r))) _reMatches.push(i);
+      if (i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_")
+        && String(r[COL.PC.LOC] || "").trim() === kanshouSceneLoc_ && (!_sceneIsCohabit_ || kanshouIsCohabit_(r))) _sceneNames.push(String(r[COL.PC.NAME]));
     });
-    if (_reMatches.length) {
-      kanshouRoomEventCandidate_ = { eventKey: kanshouRoomEventKey_, matches: _reMatches.map(i => ({ name: String(pcData[i][COL.PC.NAME]), idx: i })) };
-    }
-  }
-  // 玩家按下按鈕(roomEventAccept帶姓名，第二道防線比對姓名確實在候選清單裡，防直打API帶假名字)：
-  //   才真的依bond骰一次走向、寫進提示詞；不點按鈕的話這個字串維持空白，narration完全走一般對話。
-  let kanshouRoomEventStr = "";
-  // 🐛→✅ 玩家實測前主動抓到：橋段對象(reHeroName)沒被排進下方「作息自然告辭」的留下理由清單——
-  //   賴床叫醒的觸發時窗剛好卡在深夜→清晨邊界，這回合接受橋段後、被動時間流動很容易同一回合就跨過
-  //   時段邊界，兩段指令便自相矛盾(「她剛回應了你叫醒她」+「她已到了該走的時間、道別離場」同時出現)。
-  //   reIdx/reHeroName 原本只在 if(_reHit){} 區塊內宣告，這裡先宣告一個外層變數讓稍後的自然告辭
-  //   邏輯也讀得到。
-  let kanshouRoomEventPartnerName_ = "";
-  if (userData.roomEventAccept && kanshouRoomEventCandidate_) {
-    const _reAcc = String(userData.roomEventAccept).trim();
-    const _reHit = kanshouRoomEventCandidate_.matches.find(m => kanshouNameCandidates_(m.name).includes(_reAcc));
-    if (_reHit) {
-      const reEventKey = kanshouRoomEventCandidate_.eventKey, reIdx = _reHit.idx, reHeroName = _reHit.name;
-      kanshouRoomEventPartnerName_ = reHeroName;
-      const reEv = KANSHOU_SCENE_EVENTS_[reEventKey] || {};
-      const reBond = parseInt(pcData[reIdx][COL.PC.BOND]) || 0;
-      // 🐛→✅ 2026-07 八度改版：夜襲/賴床叫醒拿掉固定分支台詞，改GAS只定調這次能演到哪一階
-      //   (kanshouAsleepOutcomeStr_)，AI依角色性格自由發揮細節——其餘仍有branches的橋段
-      //   (共浴/膝枕等)不受影響，照舊走kanshouRollSceneBranch_。
-      const _reIsAsleepEvt = (reEventKey === '夜襲' || reEventKey === '賴床叫醒');
-      const reBranch = _reIsAsleepEvt ? null : kanshouRollSceneBranch_(reEventKey, reBond);
-      if (_reIsAsleepEvt || reBranch) {
-        const reVerb = String(reEv.verb || '靠近了');
-        if (_reIsAsleepEvt) {
-          // 💌 偷情感：同地點還有其他候選人時，她們仍在熟睡、渾然不知——玩家可以「專挑一人」，
-          //   這份心照不宣正是這個橋段的樂趣所在(玩家明確要求保留多人時的點名機制)。
-          const _reOthers = kanshouRoomEventCandidate_.matches.filter(m => m.idx !== reIdx).map(m => m.name);
-          kanshouRoomEventStr = `\n★【橋段·${reEventKey}(她此刻在睡夢中被你的動作喚醒，沒有固定台詞，依她性格＋好感自由演出反應，不必徵詢玩家)】：${reVerb}『${reHeroName}』。${kanshouAsleepOutcomeStr_(reBond)}。具體怎麼演、講什麼話、進退到哪，全由你依她性格拿捏分寸。${_reOthers.length ? `同一時刻，『${_reOthers.join('、')}』雖然也在場，卻都還沉睡未醒、渾然不知——這份心照不宣的偷情感可以稍微帶到。` : ""}`;
-        } else {
-          kanshouRoomEventStr = `\n★【橋段·${reEventKey}(GAS已骰定這次走向，AI只需依此演出，不必徵詢玩家、也不必逐字照抄下方措辭)】：${reVerb}『${reHeroName}』，她此刻的反應走向是——${reBranch.tag}。依她的既有性格詮釋這個走向具體要怎麼表現、講什麼話，細節全由你發揮，但情緒基調不要偏離這個走向。`;
-        }
-        finalUserMsg = `【玩家意圖】：${String(reEv.intent || '靠近了『{n}』。').replace('{n}', reHeroName)}`;
-        // 💞 一起經歷橋段(非拒絕分支)給一份【不吃聊天上限】的好感——這就是取代「送禮突破」的
-        //   約會路徑：真實相處過的特別時刻能推著關係跨過梯度。拒絕/警戒分支不給(夜襲類=bond<60
-        //   趕人；其餘橋段=branch.min<0)。
-        // 非拒絕分支給好感，但同一同伴同一天只給一次——擋按鈕重覆刷分(見 KANSHOU_SCENE_DAY_TAG_)。
-        //   橋段敘事(kanshouRoomEventStr)照演，只有「又近了一些」的加分＋提示語限首次。
-        const _reAccepted = _reIsAsleepEvt ? (reBond >= 60) : (reBranch.min >= 0);
-        if (_reAccepted && KANSHOU_SCENE_DAY_TAG_.get(pcData[reIdx][COL.PC.MEMORY]) !== curDay) {
-          pcData[reIdx][COL.PC.BOND] = Math.min(100, reBond + KANSHOU_SCENE_BOND_);
-          kanshouSyncRelTier_(pcData, reIdx);
-          kanshouRoomEventStr += `（這樣一段特別的相處，讓你們的關係又近了一些——好感已由系統上調，敘事勿再另計。）`;
-        }
-        // 💞 第一次經歷這種橋段(只記非拒絕分支——被轟出浴室不算「第一次共浴」)。以事件名當 key，
-        //   於是每種橋段各留一筆，日後 AI 可以精確回想「第一次一起泡溫泉是哪天」。
-        if (_reAccepted) pcData[reIdx][COL.PC.MEMORY] = kanshouStampFirst_(pcData[reIdx][COL.PC.MEMORY], reEventKey, curDay);
-        // 🚫 當日鎖不分分支(玩家實測：低好感走「防備拒絕」分支不落鎖→按鈕永遠重生、可無限重試)：
-        //   一天一人一次「特別橋段」，被拒也算試過了——明天再來(+3 仍限非拒絕分支)。
-        pcData[reIdx][COL.PC.MEMORY] = KANSHOU_SCENE_DAY_TAG_.set(pcData[reIdx][COL.PC.MEMORY], curDay);
-        dirtyPcRows.add(reIdx);
-        // 晨間餘韻(暗示昨夜共度)只在好感已達同床門檻(≥80·與 intimateNightNames 同一切點)才蓋——
-        //   夜襲60~79(親近)依親密尺度天花板尚止於性事之前，不算共度春宵。
-        if (reEventKey === '夜襲' && reBond >= 80) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], reHeroName);
-      }
-      // 🧱 鬼按鈕修復(玩家實測「居然可以連續膝枕??」)：offer 候選清單在 accept 處理【前】就建好、
-      //   還含著剛經歷完橋段的她——事後把她移出，按鈕不再原地重生(同日防重刷靠 SCENE_DAY_TAG，
-      //   這裡只是讓本回合回應的按鈕清單跟事實同步)。
-      kanshouRoomEventCandidate_.matches = kanshouRoomEventCandidate_.matches.filter(m => m.idx !== reIdx);
-      if (!kanshouRoomEventCandidate_.matches.length) kanshouRoomEventCandidate_ = null;
+    if (_ev && _ev.ambient && _sceneNames.length) {
+      kanshouSceneAmbientStr = `\n★【此地此刻·情境事實】：${_sceneNames.join('、')}——${_ev.ambient}。這只是眼下的客觀情境，【不是】既定劇情：要不要理會、想怎麼互動，全部由玩家自己決定。你只需讓這個情境自然存在於場景描寫裡，【不可】替玩家做決定、不可推著他行動、更不可自行把事情演完。`;
     }
   }
 
@@ -2809,7 +2616,6 @@ function actionPlay_(userData, pcId, sheets) {
       const _nm = String(r[COL.PC.NAME]);
       if (kanshouHeldName_ && kanshouNameCandidates_(_nm).includes(kanshouHeldName_)) return; // 牽手中＝她選擇留下
       if (kanshouPreMoveCompanions_.some(cr => String(cr[COL.PC.NAME]).trim() === _nm.trim())) return; // 剛跟你一起走來
-      if (kanshouRoomEventPartnerName_ && kanshouNameCandidates_(_nm).includes(kanshouRoomEventPartnerName_)) return; // 本回合剛回應了橋段(如賴床叫醒)，不會轉頭就走
       // 玩家本回合正對她提議(相約/牽手/同去·_pendingProposal)——她留下聽完回應：否則被動+10分恰跨時段時，
       //   AI 同回合收到「向她提議」＋「她已告辭」兩條矛盾指令，接受還會把牽手/同去落到已離場的人身上。
       if (_pendingProposal) {
@@ -2939,6 +2745,28 @@ function actionPlay_(userData, pcId, sheets) {
   // 📅 初見日戳＋相識紀念日：同地即相識——沒戳過的在場同伴當下蓋【初見日】(冪等，之後只讀不改)；
   //   已有戳的算相識天數，命中里程碑(7/30/100/365天)就收進紀念日提示(當天內重複對話會重複提及，
   //   跟節慶氛圍同一種「全天有效的氛圍線」設計，AI自然不會每句都講)。
+  // 💞 獨處時光(2026-07「橋段太過生硬」改版·接手原橋段 +3 的破天花板職責)：舊版靠「走進特定房間
+  //   ×點按鈕」拿 KANSHOU_SCENE_BOND_，泡泡拆掉後這條路也跟著沒了——但【破天花板】這個機制本身
+  //   要留下(原始用意：好感天花板防的是「一天刷滿」，總得有一條真實相處才走得通的路)。
+  //   改綁 GAS 完全可驗證、且天然一天一次的條件：**與她單獨在私密場合**(noEncounter 地點＝家中
+  //   各處/她的住處/我的房間)＋好感已達 KANSHOU_VISIT_BOND_(40·熟識，低於此她根本不會想跟你獨處)
+  //   ＋當日尚未給過(沿用 KANSHOU_SCENE_DAY_TAG_ 同一個日閘門)。不需按鈕、不靠 AI 判斷。
+  //   ⚠ 天花板只在 59→60、79→80 兩處真的擋人，都在 40 以上，故這道門檻不會卡住任何該通的路；
+  //   40 以下本來就不封頂(kanshouRelChatCeiling_)，聊天即可推進。
+  let kanshouAloneBondStr = "";
+  if (partyRows.length === 1) {
+    const _alIdx = pcData.indexOf(partyRows[0]);
+    const _alLocObj = KANSHOU_LOCATIONS_.find(l => l.name === String(curL || "").trim());
+    const _alBond = parseInt(partyRows[0][COL.PC.BOND]) || 0;
+    if (_alIdx >= 0 && _alLocObj && _alLocObj.noEncounter === true && _alBond >= KANSHOU_VISIT_BOND_
+      && KANSHOU_SCENE_DAY_TAG_.get(partyRows[0][COL.PC.MEMORY]) !== curDay) {
+      pcData[_alIdx][COL.PC.BOND] = Math.min(100, _alBond + KANSHOU_SCENE_BOND_);
+      kanshouSyncRelTier_(pcData, _alIdx);
+      pcData[_alIdx][COL.PC.MEMORY] = KANSHOU_SCENE_DAY_TAG_.set(pcData[_alIdx][COL.PC.MEMORY], curDay);
+      dirtyPcRows.add(_alIdx);
+      kanshouAloneBondStr = `\n★【獨處時光】：此刻這個地方只有你和『${String(partyRows[0][COL.PC.NAME])}』兩個人——不必特別點破，讓這份「沒有別人」的私密感自然滲進她的語氣與距離感即可(好感已由系統上調，敘事勿再另計)。`;
+    }
+  }
   const kanshouAnnivLines_ = [];
   const kanshouTierCrossLines_ = [];   // 💗 這回合剛跨進新關係階的人
   const kanshouFirstsLines_ = [];      // 💞 在場者的「第一次」帳
@@ -3127,7 +2955,6 @@ function actionPlay_(userData, pcId, sheets) {
       //   跟「深夜找她＝多半在睡」的直覺矛盾。同一位本回合若已進了room-event accept流程(kanshouRoomEventStr
       //   已描述她的反應)就不重複補這句，避免兩條指令互相打架。
       const pSleepStr = (() => {
-        if (kanshouRoomEventPartnerName_ && kanshouNameCandidates_(pName).includes(kanshouRoomEventPartnerName_)) return "";
         // 🐛→✅ 八度改版：牽手/剛同意同去而跟玩家一起走進來的同伴顯然還醒著，不該說她在熟睡。
         if (kanshouIsAwakeWithMe_(pcData.indexOf(r))) return "";
         const _pHomeHeroId = kanshouHeroIdByName_(pName);
@@ -3187,7 +3014,21 @@ function actionPlay_(userData, pcId, sheets) {
         pPromiseStr = ` | 與玩家的約定:${_pdWhen}${_pdBandL}在「${_pdPr.loc}」見面——她記得這個約，聊到相關話題時自然帶著這份期待/在意，但勿每回合主動提起`;
       }
       // 明講方向的「TA是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍TA。
-      partyDetailsArr.push(`【在場人物】名號:${pName} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(僅供內化):${pMoeStr}` : ""}${pActivityStr}${pSleepStr ? ` | 現況:她此刻在自己家、${pSleepStr}(除非橋段已明確叫醒她，否則維持這個狀態演出，不宜寫成清醒閒聊)` : ""}${pCohabitStr}${pPropStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr})`);
+      // 🚪 在場來由(四態)：AI 每回合最容易演錯、也最容易出戲的一件事就是「她是怎麼出現在這裡的」——
+      //   舊版 partyDetailsArr 完全沒有這一欄，AI 只能每回合重猜，於是會對著你牽手帶進來的人說
+      //   「你怎麼跑進來了」，或每回合重新演一次入場。四種來由全部由【本回合實際發生的轉場】算出，
+      //   不需要任何新的持久狀態：移動是 moveTarget、跟你來的是 kanshouPreMoveCompanions_、時間跳躍
+      //   會重骰全世界行程(故不預設連續性)、其餘皆為延續上一回合。
+      const pPresenceStr = (() => {
+        if (moveTarget) {
+          return kanshouPreMoveCompanions_.some(cr => String(cr[COL.PC.NAME]).trim() === String(pName).trim())
+            ? "她是【與你結伴一起來到】這裡的(不是在這裡等你、更不會問你怎麼來了)"
+            : "你剛抵達，【她原本就在這裡】(她不是跟你一起來的)";
+        }
+        if (kanshouTimeJumped_) return "時間流轉之後，【她此刻人在這裡】(別預設你們剛才一直待在一起)";
+        return "【你們從剛才就一直在這裡】相處著——她早已在場，這一刻是延續，不是重新登場";
+      })();
+      partyDetailsArr.push(`【在場人物】名號:${pName} | 在場來由:${pPresenceStr} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${pMoeStr ? ` | 萌點(僅供內化):${pMoeStr}` : ""}${pActivityStr}${pSleepStr ? ` | 現況:她此刻在自己家、${pSleepStr}(除非橋段已明確叫醒她，否則維持這個狀態演出，不宜寫成清醒閒聊)` : ""}${pCohabitStr}${pPropStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr})`);
     }
   });
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【目前在場人物命格詳情】:\n${partyDetailsArr.join("\n")}` : "目前這個地點沒有其他人，玩家是獨自行動的。";
@@ -3291,7 +3132,8 @@ function actionPlay_(userData, pcId, sheets) {
 
 ${PROMPT_REL}
 ★【在場驗證·最高優先】：只有【在場人物】可對話/互動/記好感，路人不具名不追蹤。例外：①玩家邀請/引入第三人②系統豁免段(自然告辭/系統指定巧遇)。歷史提過但不在場＝不在場，禁憑空開口；可自編輕巧理由帶過不在場(去忙別的事/剛好不在這)，禁裝作還在、禁不解釋就消失。
-★【焦點禮讓】：玩家專一互動時，其他在場者維持背景輕描，不搶話/不介入親密(除非系統另有橋段提示)。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouKnockRaidStr}${kanshouRoomEventStr}${kanshouNpcLeaveStr_}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶】：今天是「${_f.name}」·narration 自然帶入應景氣氛·不報幕。`; if (jumpFest) return `\n★【節慶】：明天就是「${jumpFest.name}」·街頭已有前夕氣氛·自然帶入不報幕。`; return ""; })()}
+★【焦點禮讓】：玩家專一互動時，其他在場者維持背景輕描，不搶話/不介入親密(除非系統另有橋段提示)。
+★【在場來由·別重演入場】：每位在場人物的「在場來由」欄已寫明她是怎麼出現在這裡的——【一律以那一欄為準】，不可自行改寫。特別是標示「你們從剛才就一直在這裡」的人：她早就在場，這一刻是【延續】，**不可**再寫她推門進來/剛剛抵達/迎上前來，也不可讓她問「你怎麼會在這裡」。同樣地，標示「與你結伴一起來到」的人，是牽著手或並肩跟你一起走進來的，**不可**寫成她在此地等你、更不可讓她對你的到來表示意外。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶】：今天是「${_f.name}」·narration 自然帶入應景氣氛·不報幕。`; if (jumpFest) return `\n★【節慶】：明天就是「${jumpFest.name}」·街頭已有前夕氣氛·自然帶入不報幕。`; return ""; })()}
 ★【今日天氣】：${kanshouWeather_(curDay)}·自然滲入場景不必每句提。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
 💕【後日談模式·最高優先覆寫】：${partyRows.length === 0
     ? `眼下無相識者在場·玩家一個人的尋常時光。`
@@ -3347,7 +3189,7 @@ ${PROMPT_PARTY_SYSTEM}
     //   同等篇幅需求，600 tokens 常常寫到一半就被截斷、JSON 不完整，重試全部失敗只能回「因果
     //   紊亂」保底文字(Cloud 記錄檔證實：JSON.parse 卡在 truncate 掉的字串中間)。只有真的沒人在場
     //   (純粹「時間過去了」的簡短交代)才適用600的精簡上限，有人在場時比照一般聊天給滿1500。
-    const _timeJump = !!(userData.endDay === true || userData.jumpBand || userData.jumpFestival || (parseFloat(userData.advanceHours) || 0) > 0);
+    const _timeJump = kanshouTimeJumped_;
     let aiConfig = { temperature: 1.08, top_p: 0.97, top_k: 60, repetition_penalty: 1.12, presence_penalty: 0.25, frequency_penalty: 0.25, retries: 1, model: SOLO_MODEL, isNsfwMode: true, max_tokens: (_timeJump && partyRows.length === 0) ? 600 : 1500 };
     aiConfig.fallbackModel = AI_MODEL;
 
@@ -3355,7 +3197,7 @@ ${PROMPT_PARTY_SYSTEM}
     // 🎬 換幕縮窗(確定性根治「換地點/換時段後被舊場景帶著跑」)：移動/跳時段/結束一天的回合只餵
     //   最近 1 輪——舊場景的對話根本不進 AI 眼睛、物理上不可能沿用；保留最近 1 輪讓「決定要來
     //   這裡」的話題接得上(帶同伴同行時對話不斷裂)。
-    const _sceneCut = !!(moveTarget || userData.endDay === true || userData.jumpBand || userData.jumpFestival || (parseFloat(userData.advanceHours) || 0) > 0);
+    const _sceneCut = !!(moveTarget || kanshouTimeJumped_);
     const recentHistoryRaw = getGameHistoryBatchRaw(pcId, _sceneCut ? 2 : 6);
     if (recentHistoryRaw && recentHistoryRaw.length > 0) {
       aiConfig.chatHistory = recentHistoryRaw.map(msg => ({
@@ -3404,7 +3246,7 @@ ${PROMPT_PARTY_SYSTEM}
           .replace(/[<>&"'`｜【】]/g, "").slice(0, 90);
         const _phSubj = kanshouPhotoPending_.scenery ? null : pcData.find(r => String(r[COL.PC.NAME]).trim() === String(kanshouPhotoPending_.names[0]).trim() && String(r[COL.PC.FACTION]) === "從者" && sameGame(r));
         const _phHair = kanshouPhotoPending_.scenery ? '#7a9a6a' : kanshouHairHex_(_phSubj ? String(_phSubj[COL.PC.TRAIT] || "") : ""); // 風景照緞帶固定草綠
-        const _phFlag = (driveOn || userData.roomEventAccept) ? '親密' : (kanshouReFest_ ? kanshouReFest_.name : '');
+        const _phFlag = driveOn ? '親密' : (kanshouReFest_ ? kanshouReFest_.name : '');
         const _phId = 'PH_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
         // 🐛→✅ 稽核抓到：跟上面敘事用的pActivityStr(2959行)同一份kanshouLocActivity_，卻沒套用
         //   同款_pCameWithMe防呆——若被拍者是這回合才被玩家帶著同行(moveTarget)的同伴，這裡仍照樣
@@ -3445,10 +3287,11 @@ ${PROMPT_PARTY_SYSTEM}
       const _ppHer = String(_pendingProposal.name || pcData[_pendingProposal.idx][COL.PC.NAME] || "");
       if (_accepted) {
         if (_pendingProposal.type === 'promise') {
-          pcData[_pendingProposal.idx][COL.PC.MEMORY] = kanshouSetPromise_(pcData[_pendingProposal.idx][COL.PC.MEMORY], curDay + 1, _pendingProposal.loc, _pendingProposal.band);
+          // 🕐 約當天(today)＝存 curDay，否則照舊 curDay+1。today 已在上游驗過「該時段今天還沒過」。
+          pcData[_pendingProposal.idx][COL.PC.MEMORY] = kanshouSetPromise_(pcData[_pendingProposal.idx][COL.PC.MEMORY], curDay + (_pendingProposal.today ? 0 : 1), _pendingProposal.loc, _pendingProposal.band);
           // 📅 明確回饋：後端默默寫 tag、玩家不知成沒成(實測黑洞)——回傳 proposalResult 讓前端跳通知條。
           const _prBandLabel = _pendingProposal.band ? (KANSHOU_APPT_BANDS_.find(b => b.band === _pendingProposal.band) || {}).label : "";
-          kanshouProposalResult_ = { ok: true, type: 'promise', name: _ppHer, loc: _pendingProposal.loc, bandLabel: _prBandLabel };
+          kanshouProposalResult_ = { ok: true, type: 'promise', name: _ppHer, loc: _pendingProposal.loc, bandLabel: _prBandLabel, today: !!_pendingProposal.today };
         } else if (_pendingProposal.type === 'hold') {
           pcData[_pendingProposal.idx][COL.PC.MEMORY] = KANSHOU_HANDHOLD_TAG_.set(pcData[_pendingProposal.idx][COL.PC.MEMORY], _pendingProposal.name);
           // 💞 第一次牽手：記在她那一列(idx 是玩家自己，牽手 tag 才寫玩家列)。
@@ -3730,15 +3573,6 @@ ${PROMPT_PARTY_SYSTEM}
     //   KANSHOU_SCENE_EVENTS_資料驅動，前端照顯示、不再硬編各事件文字。
     // 🤝 巧遇中對象→前端「結識」邀請框(encounterOffer)：她只是路人，玩家點了才正式入駐。
     const encounterOffer = kanshouEncounterHero ? { name: String(kanshouCasualOf_(kanshouEncounterHero)) } : undefined;
-    const roomEventOffer = kanshouRoomEventCandidate_ ? (() => {
-      const _ev = KANSHOU_SCENE_EVENTS_[kanshouRoomEventCandidate_.eventKey] || {};
-      // 候選快照建於告辭/快轉重骰之前——回傳前用當下 LOC 重驗一次，別把已離場者的幽靈按鈕發出去。
-      kanshouRoomEventCandidate_.matches = kanshouRoomEventCandidate_.matches.filter(m => String(pcData[m.idx][COL.PC.LOC] || "").trim() === String(curL || "").trim());
-      if (!kanshouRoomEventCandidate_.matches.length) return undefined;
-      const _names = kanshouRoomEventCandidate_.matches.map(m => m.name);
-      // candidates=在場全部；labelTpl帶{n}讓前端各自替換(單人)，多人時前端列每人一顆按鈕。
-      return { eventKey: kanshouRoomEventCandidate_.eventKey, candidates: _names, name: _names[0], labelTpl: String(_ev.label || ''), btn: String(_ev.btn || '靠近她') };
-    })() : undefined;
 
     const localPeopleList = getKanshouPeopleList_(pcId, curL, pcData);
 
@@ -3782,7 +3616,6 @@ ${PROMPT_PARTY_SYSTEM}
       options: aiData.options,
       tags: tagsPayload,
       moveProposal: moveProposal || undefined,
-      roomEventOffer: roomEventOffer,
       encounterOffer: encounterOffer,
       proposalResult: kanshouProposalResult_ || undefined,
       promiseSettle: kanshouPromiseSettle_.length ? kanshouPromiseSettle_ : undefined, // 📅 赴約/爽約結算通知陣列(獨立通道·不與提議結果搶單槽·可同時容納多筆)

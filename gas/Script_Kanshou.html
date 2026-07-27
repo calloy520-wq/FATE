@@ -118,7 +118,7 @@
     const moveTarget = opts.moveTarget || null, lookAround = !!opts.lookAround, endDay = !!opts.endDay,
       advanceHours = opts.advanceHours || 0, jumpFestival = opts.jumpFestival || null,
       knockAccept = opts.knockAccept || null, skipKnockCheck = !!opts.skipKnockCheck,
-      roomEventAccept = opts.roomEventAccept || null, jumpBand = opts.jumpBand || null,
+      jumpBand = opts.jumpBand || null,
       loaderCaptions = opts.loaderCaptions || null, moveWithCompanion = !!opts.moveWithCompanion,
       promiseMeet = opts.promiseMeet || null, cohabitInvite = opts.cohabitInvite || null,
       inviteResident = opts.inviteResident || null, proposeMove = opts.proposeMove || null, takePhoto = !!opts.takePhoto,
@@ -162,7 +162,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, roomEventAccept: roomEventAccept || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined, handHold: handHold || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, knockAccept: knockAccept || undefined, skipKnockCheck: skipKnockCheck || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined, handHold: handHold || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -267,23 +267,6 @@ let plainTextContext = cleanText;
           + `<button class="btn-option" style="flex:1;" onclick="kanshouIgnoreKnock()">不予理會</button>`
           + `</div></div>`;
       }
-      // 🎭 橋段(夜襲/賴床/共浴/節慶…)不直接演出，先跳出這個邀請框；不點就視為婉拒，正常敘事不受影響。
-      //   按鈕文字/邀請語由後端KANSHOU_SCENE_EVENTS_資料驅動(labelTpl/btn)。多人同場(如多人同居擠和室)
-      //   →列出每一位讓玩家【點名要靠近誰】；單人→跟以前一樣一顆按鈕。
-      if (data.roomEventOffer && data.roomEventOffer.candidates && data.roomEventOffer.candidates.length) {
-        const reCands = data.roomEventOffer.candidates;
-        const reBtn = escapeHtml(String(data.roomEventOffer.btn || '靠近她'));
-        const reTpl = String(data.roomEventOffer.labelTpl || '「{n}」似乎還醒著，要不要更靠近一點？');
-        let reInner;
-        if (reCands.length === 1) {
-          reInner = `<div style="color:#e0a0bc; font-size:12.5px; margin-bottom:6px;">${escapeHtml(reTpl.replace('{n}', String(reCands[0])))}</div>`
-            + `<button class="btn-option" style="width:100%;" onclick="kanshouAcceptRoomEvent('${String(reCands[0]).replace(/'/g, "\\'")}')">${reBtn}</button>`;
-        } else {
-          reInner = `<div style="color:#e0a0bc; font-size:12.5px; margin-bottom:6px;">此刻這裡不只一個人——想靠近誰？</div>`
-            + reCands.map(function (n) { return `<button class="btn-option" style="width:100%; margin-bottom:4px;" onclick="kanshouAcceptRoomEvent('${String(n).replace(/'/g, "\\'")}')">${reBtn}「${escapeHtml(String(n))}」</button>`; }).join('');
-        }
-        optionsHtml += `<div style="background:rgba(160,60,90,0.14); border:1px solid #8a3a5a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">${reInner}</div>`;
-      }
       // 📷 拍照結果小字回饋(敘事本身由AI演，這行只補機制數字：為何沒拍成)。
       //   2026-07「拍照改手機、不用等」：手機沒有底片，拍完立刻存進相簿、立刻能看。
       if (data.photoResult) {
@@ -314,7 +297,7 @@ let plainTextContext = cleanText;
         plainTextContext += `\n\n【命運的抉擇】\n`;
         data.options.forEach(optText => {
           // 🛡️ options是AI自由文字，唯一沒經過escapeHtml就塞進innerHTML的欄位——補上跟本檔
-          //   其餘AI字串(moveProposal/knockEvent/roomEventOffer.name等)一致的跳脫。
+          //   其餘AI字串(moveProposal/knockEvent 等)一致的跳脫。
           optionsHtml += `<button class="btn-option" onclick="send('${optText.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}', true)">${escapeHtml(optText)}</button>`;
           plainTextContext += optText + `\n`;
         });
@@ -323,7 +306,7 @@ let plainTextContext = cleanText;
       if (optContainer) optContainer.innerHTML = optionsHtml;
       // 📣 有「必須點的泡泡」(前往/邀約/同居/敲門/橋段/結識)時自動把它捲進視野——回應完只捲故事框、
       //   泡泡藏在頁面下方看不到＝玩家實測「哪裡有同意按鈕??」的真兇。一般選項不強制捲(維持閱讀位置)。
-      if (optContainer && (data.moveProposal || data.knockEvent || data.roomEventOffer || data.encounterOffer || data.promiseWait)) {
+      if (optContainer && (data.moveProposal || data.knockEvent || data.encounterOffer || data.promiseWait)) {
         try { optContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { }
       }
 
@@ -342,7 +325,7 @@ let plainTextContext = cleanText;
           // 撲空(她不在場)：附上她此刻在哪，玩家不必回地圖亂找(走查抓到的軟死路)。
           _msg = _prIco + ' 「' + _nm + '」此刻不在這裡' + (_pr.where ? '——她似乎在「' + escapeHtml(String(_pr.where)) + '」。' : '。');
         }
-        else if (_pr.ok && _pr.type === 'promise') _msg = '📅 <b>約定成立！</b>明天' + escapeHtml(String(_pr.bandLabel || '')) + '在「' + escapeHtml(String(_pr.loc || '')) + '」與「' + _nm + '」見面——準時/早到好感↑、遲到打折、放鴿子↓。';
+        else if (_pr.ok && _pr.type === 'promise') _msg = '📅 <b>約定成立！</b>' + (_pr.today ? '今天' : '明天') + escapeHtml(String(_pr.bandLabel || '')) + '在「' + escapeHtml(String(_pr.loc || '')) + '」與「' + _nm + '」見面——準時/早到好感↑、遲到打折、放鴿子↓。';
         else if (_pr.ok && _pr.type === 'hold') _msg = '🤝 <b>牽手成功！</b>之後你移動到哪，「' + _nm + '」都會相伴同行(直到放手)。';
         else if (_pr.ok && _pr.type === 'move') _msg = '🚶 <b>「' + _nm + '」答應一起去「' + escapeHtml(String(_pr.loc || '')) + '」！</b>點下方的「同意」，你們就一起動身。';
         else if (_pr.type === 'move') _msg = '🚶 「' + _nm + '」這次不想去「' + escapeHtml(String(_pr.loc || '')) + '」——心情或時機不對，待會再邀、或自己先過去也行。';
@@ -1256,11 +1239,6 @@ let plainTextContext = cleanText;
     await send('（決定不去開門，逕自準備歇下了）', false, { endDay: true, skipKnockCheck: true });
   }
 
-  // 🎭 夜襲/賴床叫醒改成候選人持續存在期間都能按這顆按鈕，不點的話(含直接聊天)就是婉拒，正常敘事完全不受影響。
-  async function kanshouAcceptRoomEvent(name) {
-    await send('（靠近了「' + name + '」……）', false, { roomEventAccept: name });
-  }
-
   // 同伴名單變動後的局部刷新：只重抓「鑑賞眾生在場名單」這份小資料，不再重打 get_heroes，
   // 也只重繪 party-list／hero-list 兩塊(master-box/filters 沒變，不動)。
   async function kcRefreshPartyOnly_() {
@@ -1288,10 +1266,11 @@ let plainTextContext = cleanText;
   // 📅 相約：跟「此刻在場」的同伴約明天在某地見面(她明天會被行程釘在那裡等；赴約好感+、爽約好感−)。
   //   2026-07 玩家「打編號超怪」→ prompt() 編號改成分區地點按鈕面板(kanshouPickLocation_)，點一下即選定。
   // 約會時段(對齊後端 KANSHOU_APPT_BANDS_)：排除清晨6點/深夜——約會不約那時候。band 是後端 key、label 顯示。
+  // hour 對齊後端 KANSHOU_APPT_BANDS_.hour——用來判斷「今天這個時段是否還沒過」，改動要兩邊同步。
   var KC_APPT_BANDS_ = [
-    { band: '午後', label: '🌤️ 午後 14:00' },
-    { band: '黃昏', label: '🌆 黃昏 18:00' },
-    { band: '夜', label: '🌙 夜晚 20:00' }
+    { band: '午後', hour: 14, label: '🌤️ 午後 14:00' },
+    { band: '黃昏', hour: 18, label: '🌆 黃昏 18:00' },
+    { band: '夜', hour: 20, label: '🌙 夜晚 20:00' }
   ];
   async function kanshouPromiseMeet(name, npcId) {
     // 相約排除：玩家私室(isRoom)＋【未解鎖的私人住處】——鎖住的住處物理上進不去(地圖灰鎖＋後端擋移動)，
@@ -1299,21 +1278,29 @@ let plainTextContext = cleanText;
     var _pmUnlocked = (window._lastTags && window._lastTags.unlockedResidences) || [];
     var pool = KC_LOCATIONS_.filter(function (l) { return !l.isRoom && (l.region !== 'visit' || _pmUnlocked.indexOf(l.name) !== -1); });
     // 先選地點 → 再選時段 → 才送出(她約定時刻前10分到場；早到有「都早到」開場、遲到會唸你)
-    kanshouPickLocation_('📅 和「' + name + '」約明天在哪見面？', '她明天會在那個時段到場等你；準時/早到赴約好感↑、遲到打折、放鴿子好感↓', pool, function (loc) {
+    kanshouPickLocation_('📅 和「' + name + '」約在哪見面？', '下一步可選今天(尚未過去的時段)或明天；準時/早到赴約好感↑、遲到打折、放鴿子好感↓', pool, function (loc) {
       // 🕐 2026-07 六度改版：地點若有開放時段限制，只給相容的時段選——約在她開放時段外＝赴約時
       //   必被地點未開放擋在門外(後端 _pmLocOk 也同步擋這種組合，這裡先不給選)。
       var _locObj = KC_LOCATIONS_.find(function (l) { return l.name === loc; });
       var _bandOptions = (_locObj && _locObj.bands) ? KC_APPT_BANDS_.filter(function (b) { return _locObj.bands.indexOf(b.band) !== -1; }) : KC_APPT_BANDS_;
       if (!_bandOptions.length) _bandOptions = KC_APPT_BANDS_;
-      kanshouPickBand_('📅 約在「' + loc + '」的什麼時候？', name, function (band) {
+      // 🕐 2026-07 玩家「約會也想要可以約今天的時間」：今天尚未過去的時段一併列出(今天在前、明天在後)。
+      //   今天只給 hour 還沒到的時段——已經過了的時段約下去就是必然爽約，跟未解鎖住處同一類陷阱。
+      var _nowH = (typeof kcClock === 'object' && kcClock && typeof kcClock.hour === 'number') ? kcClock.hour : 24;
+      var _todayOpts = _bandOptions.filter(function (b) { return b.hour > _nowH; })
+        .map(function (b) { return { band: b.band, today: true, label: '📆 今天 ' + b.label }; });
+      var _tmrOpts = _bandOptions.map(function (b) { return { band: b.band, today: false, label: '🌅 明天 ' + b.label }; });
+      kanshouPickBand_('📅 約在「' + loc + '」的什麼時候？', name, function (opt) {
         showGamePane('chat');
-        send('（向「' + name + '」提出明天在「' + loc + '」見面的約定。）', false, { promiseMeet: { name: name, id: npcId || "", loc: loc, band: band } });
-      }, _bandOptions);
+        var _whenTxt = opt.today ? '今天' : '明天';
+        send('（向「' + name + '」提出' + _whenTxt + '在「' + loc + '」見面的約定。）', false,
+          { promiseMeet: { name: name, id: npcId || "", loc: loc, band: opt.band, today: !!opt.today } });
+      }, _todayOpts.concat(_tmrOpts));
     });
   }
   // 📅 時段選擇框(相約用)：三顆按鈕，點了回呼 band key。bandOptions選填——地點有開放時段限制時
   //   只傳相容子集(見kanshouPromiseMeet)，省略＝照舊給全部3個時段。
-  var _kbCb = null;
+  var _kbCb = null, _kbOpts = null;
   function kanshouPickBand_(title, name, cb, bandOptions) {
     _kbCb = cb;
     var opts = (bandOptions && bandOptions.length) ? bandOptions : KC_APPT_BANDS_;
@@ -1322,15 +1309,18 @@ let plainTextContext = cleanText;
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#a8d0f0;">' + escapeHtml(title) + '</b>'
       + '<button onclick="document.getElementById(\'kb-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
       + '<div style="display:flex;flex-direction:column;gap:8px;">'
-      + opts.map(function (b) { return '<button onclick="kanshouPickBand2_(\'' + b.band + '\')" style="padding:9px;background:rgba(90,140,180,0.18);color:#a8d0f0;border:1px solid #4a7a9a;border-radius:8px;cursor:pointer;font-size:13px;">' + b.label + '</button>'; }).join('')
+      + opts.map(function (b, i) { return '<button onclick="kanshouPickBand2_(' + i + ')" style="padding:9px;background:rgba(90,140,180,0.18);color:#a8d0f0;border:1px solid #4a7a9a;border-radius:8px;cursor:pointer;font-size:13px;">' + escapeHtml(b.label) + '</button>'; }).join('')
       + '</div></div>';
+    _kbOpts = opts;
     ov.style.display = 'flex';
   }
-  function kanshouPickBand2_(band) {
+  // 回呼帶【整個選項物件】而非裸 band 字串——「今天/明天」是第二個維度，用索引取回整筆最單純。
+  function kanshouPickBand2_(i) {
     var ov = document.getElementById('kb-overlay');
     if (ov) ov.style.display = 'none';
     var cb = _kbCb; _kbCb = null;
-    if (cb) cb(band);
+    var opt = (_kbOpts || [])[i];
+    if (cb && opt) cb(opt);
   }
   // 📅 「等到約定前10分」：把時鐘推到 targetHour(她抵達的時刻)——用 advanceHours 走既有時間推進管線，
   //   後端到站時結算會判定「準時·都早到」、把她pin登場。adv 由「目標時刻 − 目前時刻」算(支援小數)。
