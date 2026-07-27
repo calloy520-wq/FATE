@@ -585,7 +585,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### 關係梯度·好感天花板（資料驅動）
 
 - `KANSHOU_REL_TIER_`（常數）— 好感→關係標籤 5 階梯度（80 戀人/60 親近/40 熟識/20 普通朋友/-100 點頭之交）；門檻借鑑賞既有 60/80 節點，單一來源。
-- `kanshouSyncRelTier_(pcData, idx)` — 依當前 BOND 重算該列 REL_TAG，但只在現值仍等於某梯度字面時才覆寫（玩家手動改自訂稱呼後不再自動蓋回）；冪等。任何動 BOND 處之後補呼叫。
+- `kanshouSyncRelTier_(pcData, idx)` — BOND 變動後的下游同步總管，順序固定為 ①好感棘輪夾地板 ②REL_TAG 重算 ③同居門檻檢查。①必須最先：②③都讀 bond，讀到未夾的值會做出跟棘輪矛盾的降階。②只在現值仍等於某梯度字面時才覆寫（玩家手動改自訂稱呼後不再自動蓋回）。③跌破 `KANSHOU_COHABIT_BOND_` 時清【同居】並蓋【同居解除】一次性旗標（棘輪上線後只剩舊存檔會走到）。冪等。任何動 BOND 處之後補呼叫（目前 5 處全數有呼叫）。
+- `kanshouBondFloorOf_(bond)`（2026-07 新增）— 好感棘輪的地板：回傳 bond 已跨過的最高門檻（門檻＝`KANSHOU_REL_TIER_` 的 min>0 ＋ `KANSHOU_COHABIT_BOND_`，即 20/40/60/80/90，由表推導不另寫數字）。**刻意寫成函式而非模組層常數**——`KANSHOU_COHABIT_BOND_` 宣告在本檔後面，const 有 TDZ，模組層直接引用會炸。
 - `KANSHOU_CUSTOM_TAG_BOND_`（常數=80，2026-07 五度改版新增）— 自訂關係稱呼／專屬稱呼的解鎖門檻，跟親密尺度五階「80+無上限」同一個切點。`actionUpdateRelTag`/`actionSetNickname`(Router_Action.gs) 共用此常數。
 - `getNickname_(relMem)`（2026-07 五度改版新增）— 從 REL_MEM 裸取`[專屬稱呼]`值的共用小 helper（供 UI 顯示用；鏡射 `actionPlay_` 內部組提示詞用的 `relMemMemoryStr_`，但那支輸出完整格式化字串，這支只回裸值）。`actionKanshouCompanions`／servant 清單 builder 都吃這支。
 - `KANSHOU_SCENE_BOND_`（常數=3）— 接受親密橋段給的好感，直接寫、不吃聊天上限。
@@ -669,6 +670,11 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `KANSHOU_KNOCK_CHANCE_`(=0.2)、`KANSHOU_KNOCK_MIN_BOND_`(=60)（常數）— 結束一天敲門機率與候選門檻。
 - `KANSHOU_KNOCK_RAID_CHANCE_`(=0.5)（常數，2026-07 八度改版新增，玩家「能不能也設計一個被夜襲的橋段」）— 深夜訪客進門(擲骰命中·見 `KANSHOU_KNOCK_CHANCE_`)且訪客好感≥`KANSHOU_KNOCK_MIN_BOND_`時，這次來訪「別有用心」(夜襲鏡像版，共用`kanshouAsleepOutcomeStr_`)的機率。
+- `KANSHOU_BOND_FLOOR_TAG_`（makeIntTag_ 好感底線·2026-07 新增）— 好感棘輪的高水位，只升不降（那正是「鎖住」本身）；見 `kanshouBondFloorOf_`。
+- `KANSHOU_CHILL_DAY_TAG_`／`KANSHOU_CHILL_MIN_DROP_`(3)／`KANSHOU_CHILL_DAYS_`(1)（2026-07 新增）— 🧊 好感【趨勢】。提示詞原本只給純量好感值，剛爬到 90 跟從 98 摔到 90 完全相同，冷落她毫無效果。只記「最近一次讓她不高興是哪一天」(absDay)，靠日期自然衰減。蓋戳兩處：爽約 -5、AI `rel_changes` 掉幅 ≥ MIN_DROP（**用 `change` 本身判定而非 `newFav-oldFav`**——棘輪把值夾在地板時兩者差 0，但她確實不高興過）。呈現在她自己的卡片（`pChillStr`，接在好感數字後）而非全域旁白，避免代名詞懸空。
+- `KANSHOU_COHABIT_END_TAG_`（makeIntTag_ 同居解除·2026-07 新增）— 跨函式傳事實用：`kanshouSyncRelTier_` 是共用 helper、看不到提示詞變數，蓋一次性旗標讓 `actionPlay_` 組 `kanshouCohabitEndStr` 時讀一次就清。
+- `KANSHOU_NIGHT_PART_TAG_`（makeTextTag_ 昨夜道別·2026-07 新增）— 與【晨間餘韻】同構的另一半：昨晚陪你到最後、卻沒留下的人（未達 80）。兩者互斥。
+- `KANSHOU_KNOCK_DAY_TAG_`／`KANSHOU_NIGHT_GUEST_TAG_`／`KANSHOU_FESTIVAL_DONE_TAG_`（2026-07）— 深夜訪客日戳／夜訪客姓名／今日節慶習俗已完成（absDay）。
 - `KANSHOU_MORNING_AFTER_TAG_`（makeTextTag_ 晨間餘韻）、`KANSHOU_SCENE_DAY_TAG_`（makeIntTag_ 橋段日·防同日重刷）、`KANSHOU_FIRST_MET_DAY_TAG_`（makeIntTag_ 初見日·紀念日）、`KANSHOU_APPT_BANDS_`（約定時段 午後14/黃昏18/夜20）。
 - `KANSHOU_SIDEWRITE_EVERY_`(=3)（常數）+ `kanshouGetSideWriteCount_`/`kanshouSetSideWriteCount_(memory[,n])` — 側寫節流計數（存玩家列，第 1、N+1… 回合才帶 master_note；2026-07 二度改版後 master_note 只剩經歷一格，`kanshouGetPrefLocks_`/`SetPrefLocks_`＋【性格鎖】標記已整組刪除）。
 - `kanshouApptHour_(band)` — 約定時段→時刻（null=舊格式無時段）。
@@ -680,7 +686,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `KANSHOU_KNOCK_DAY_TAG_`（`makeIntTag_('夜訪日')`·存**玩家**列·absDay）／`KANSHOU_NIGHT_GUEST_TAG_`（`makeTextTag_('夜訪客')`·存**玩家**列·姓名）— 🚪 深夜訪客。前者一天只讓她登門一次（落盤化後「結束一天」可能被按很多次）；後者是「請她回去」(`dismissGuest`)的**唯一姓名來源**，刻意不吃 client 傳的名字。任一種收場（留下過夜／送她回去／單純結束一天）都會清掉後者。
 - `KANSHOU_COHABIT_ASKED_TAG_`（`makeIntTag_('同居問過')`·存該同伴列·**absDay 不是布林**）— 🏠 同居邀請泡泡的當日鎖。布林版玩家一旦改用打字，這個「一生一次」的邀請就永遠消失；完全不記又會退回被嫌煩的「每回合都跳」。舊存檔殘留的值 `1` 自然不等於當前 absDay，下次自動恢復詢問，不需遷移。
 - `PERSONA_SPEECH_TAG_`／`PERSONA_TIC_TAG_`（`makeTextTag_('口吻')`／`('小動作')`·Router_Persona.gs）— 🗣️ 2026-07 稽核：這兩個標記原本由 `stampPersonaFlavor_` 自己拼字串、**完全沒清洗**（speech 來源含工房 AI 生成的 dailyLook 第3段，AI 吐一個「【」就切壞整條 MEMORY）。改走工廠後一次拿到清洗＋replace-or-append；`getPersonaSpeech_`/`getPersonaTic_` 與 Router_Bond/Seed_Codex 的三處重複 regex 全部委派過來，全專案 4 份實作收斂成 1。
-- `KANSHOU_REL_RANK_TAG_`／`kanshouRelRank_(bond)`／`kanshouRelTierLabel_(rank)`（2026-07 新增）— 💗 關係階質變。`kanshouRelRank_` 把 BOND 換算成 1(點頭之交)~5(戀人) 的階數（反轉 `KANSHOU_REL_TIER_` 的高→低排序）；`【關係階】` 記歷來最高階、只升不降；`kanshouRelTierLabel_` 把階數換回階名（索引反轉，`KANSHOU_REL_TIER_` 仍是唯一真實來源）。跨階時只餵【事實】「某某從『A階』跨進『B階』」，不給寫好的文案。偵測在 `actionPlay_` 的 `partyRows` 迴圈（與紀念日同一趟）：首次見到靜靜記下當前階不報，之後升階才注入質變提示。**刻意看 BOND 不看 REL_TAG**——玩家自訂關係稱呼後 REL_TAG 不再等於梯度字面，跨階演出不該因此消失。
+- `KANSHOU_REL_RANK_TAG_`／`kanshouRelRank_(bond)`／`kanshouRelTierLabel_(rank)`（2026-07 新增）— 💗 關係階質變。`kanshouRelRank_` 把 BOND 換算成 1(點頭之交)~5(戀人) 的階數（反轉 `KANSHOU_REL_TIER_` 的高→低排序）；`【關係階】` 記當前階，**2026-07 改為雙向**（原本只升不降，於是降階時親密尺度悄悄收緊卻零敘事，玩家下一回合直接撞到「她突然不讓我碰了」；同居邀請的「一生一次」早就不靠這個 tag，有自己的 `KANSHOU_COHABIT_ASKED_TAG_`(absDay)＋`!kanshouIsCohabit_` 兩道獨立閘門，故改雙向是安全的）；`kanshouRelTierLabel_` 把階數換回階名（索引反轉，`KANSHOU_REL_TIER_` 仍是唯一真實來源）。跨階時只餵【事實】「某某從『A階』跨進『B階』」，不給寫好的文案。偵測在 `actionPlay_` 的 `partyRows` 迴圈（與紀念日同一趟）：首次見到靜靜記下當前階不報，之後升階才注入質變提示。**刻意看 BOND 不看 REL_TAG**——玩家自訂關係稱呼後 REL_TAG 不再等於梯度字面，跨階演出不該因此消失。
 - `KANSHOU_COHABIT_EVENTS_`（2026-07 新增·常數）— 🏠 同居日常橋段觸發表（時段→事件名，五時段各一）。觸發是橋段的**第四層·最低優先**（節慶→住處睡眠→地點→同居日常），舞台限 `kanshouPlayerHomeLocs_`（`region:'home'`＋我的房間），候選經 `_reIsCohabitTrigger_` 限同居中的她。加時段＝這裡加一列＋`KANSHOU_SCENE_EVENTS_` 加對應事件，觸發邏輯不動。
 - `kanshouIsAwakeWithMe_(idx)`（`actionPlay_`內部函式，2026-07 改吃`pcData`索引，原吃姓名字串）— 判定該同伴此刻是否醒著陪同(供夜襲/賴床叫醒的候選過濾＋`pSleepStr`熟睡提示排除用)：牽手中／這回合剛與玩家一起移動抵達＝true；否則讀`KANSHOU_AWAKE_HERE_TAG_`，若上次判定醒著時記的LOC仍等於她目前LOC也算true。判定為醒著就把她目前LOC寫回tag，否則清空——地點一變(離開/被重骰走)tag自動失效，不必額外收尾。**🐛→✅**：原本只認「這回合牽手/剛到」，一放手或下一回合就失效，會把明明還醒著互動的同伴誤判成熟睡，改成這個持久tag解決。
 - `KANSHOU_PROPS_`（資料驅動小道具庫，**2026-07移除內建「跳蛋」後現為空陣列**，僅保留擴充掛勾）、`KANSHOU_PROP_LEVELS_`(關閉/微弱/中等/強勁)（2026-07 新增·常數，前端 `Script_Kanshou.html` 的 `KC_PROPS_`/`KC_PROP_LEVELS_` 鏡像同步）。`KANSHOU_QUICK_PHRASE_CAP_ = 8`（2026-07 新增·玩家自訂快速貼圖上限，前端 `KC_QUICK_PHRASE_CAP_` 鏡像同步）。
