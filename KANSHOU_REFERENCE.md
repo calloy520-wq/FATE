@@ -279,8 +279,15 @@
 - **🛏️ 夜襲／賴床叫醒：整組移除**（玩家「最需要保留的是夜襲，但其實也不需要泡泡詢問，只要確定 npc 會睡覺就可以了」）。她睡著這件事**本來就由 `pSleepStr` 每回合當既定事實餵給 AI**、判準完全相同（`KANSHOU_ASLEEP_HOUR_END_=8`／`KANSHOU_NIGHT_RAID_HOUR_END_=5`），再包一層按鈕只是把自然的處境變成一張要點的卡。連帶移除：`kanshouRollSceneBranch_`、`roomEventOffer`、`kanshouAcceptRoomEvent`。
 - **好感天花板破口**：原本靠橋段 `BOND+3`，橋段拆除後改綁 `kanshouAloneBondStr`（真的獨處的私密場合×當日一次，沿用 `KANSHOU_SCENE_DAY_TAG_` 同一個日閘門）。
 - `kanshouAsleepOutcomeStr_(bond)` **仍在**，但唯一呼叫點只剩**深夜敲門·別有用心**：60以下＝她又驚又惱把人趕走／60~79＝半推半就但卡在親吻擁抱／80+＝無上限。切點沿用親密尺度五階的 60/80，單一來源。
-- **深夜敲門**：每次「結束一天」擲 `KANSHOU_KNOCK_CHANCE_ = 0.2`，候選需好感≥`KANSHOU_KNOCK_MIN_BOND_ = 60`；跳敲門泡泡（`kanshouAnswerKnock`/`kanshouIgnoreKnock`）。
-  - **🌙 2026-07 八度改版新增·「被夜襲」（玩家「能不能也設計一個被夜襲的橋段」）**：夜襲的鏡像版——不是玩家去找她，是她主動來敲玩家的門。開門後訪客好感≥`KANSHOU_KNOCK_MIN_BOND_`(60，同一個切點)時，有 `KANSHOU_KNOCK_RAID_CHANCE_ = 0.5` 的機率這次來訪「別有用心」，共用同一套 `kanshouAsleepOutcomeStr_` 分寸判準＋`KANSHOU_SCENE_DAY_TAG_` 當日鎖＋`KANSHOU_SCENE_BOND_` 加分，不是每次深夜來訪都這樣才有驚喜感。
+- **🚪 深夜訪客（2026-07 十度改版·由「待決泡泡」改成「先落盤再善後」）**
+  - **判準**（玩家「如果玩家沒有按泡泡而是打對話呢？」問出來的通則）：泡泡若是**待決狀態的唯一出口**，玩家改用打字就會壞；泡泡若只是**已落盤狀態的捷徑**，忽略它完全無害。深夜敲門原本屬於前者。
+  - **舊版的病**：`endDay` 命中擲骰後純早退（`return {text, knockEvent}`，**零落盤**）。玩家改打字 → ①「結束一天」的意圖靜靜蒸發（日期沒推進、只 +10 分）②訪客還在她自己家、沒進 `partyRows` ③但「敲門聲」已寫進歷史，AI 同時收到「有人敲門」和「她不在場、不准開口」兩條矛盾指令。
+  - **新版**：擲骰命中就**直接把她的 LOC 設成玩家所在地**（沿用既有接人流程，含「別有用心」判定），本回合不推進日期，回傳 `nightGuest` 讓前端給兩顆**善後**鍵：`🛏 一起睡` / `🚪 請她回去`（兩顆都是 `{endDay:true, skipKnockCheck:true}`，差別只在敘事語氣——結束一天本來就會讓所有人各自回家）。**玩家無視這兩顆直接打字也完全正確**：她真的在房裡，AI 照常演。
+  - **擲骰位置**：必須排在 `actionPlay_` 最前面（`sameGame` 之後）——它會取消本回合的 `endDay`，而 `_reHourAfter`（情境時段）與 `kanshouTimeJumped_`（在場來由）都讀 `endDay`，晚一步算就會拿到「已經睡到清晨6點」的錯值。`kanshouTimeJumped_` 的宣告因此也一併下移到擲骰之後。
+  - **當日鎖** `KANSHOU_KNOCK_DAY_TAG_`（存**玩家**列·absDay）：落盤化後「結束一天」可能被按很多次（她進來→打字聊天→再按一次），沒有這個鎖會反覆擲骰、一晚來三個人。
+  - **在場來由**：夜訪者在 `pPresenceStr` 有自己的最高優先分支「她剛剛敲了你的門、這一刻才進來」。舊版靠另一個 ★ 區塊（`kanshouKnockGuestStr`）講，跟同一欄的「你們從剛才就一直在這裡」直接打架——已刪，同一件事只留一個出處。
+  - **安全**：`knockAccept` 從 client 可傳參數收斂成內部變數 `_knockGuestReq_`。好感門檻只在 `knockPool` 篩過，接人流程本身不檢查——留成 client 欄位等於開一條「任意把同伴傳送到身邊」的後門。
+  - 機率 `KANSHOU_KNOCK_CHANCE_ = 0.2`、候選需同居或好感≥`KANSHOU_KNOCK_MIN_BOND_ = 60`；`KANSHOU_KNOCK_RAID_CHANCE_ = 0.5` 決定這次來訪是否「別有用心」（共用 `kanshouAsleepOutcomeStr_` 分寸判準＋`KANSHOU_SCENE_DAY_TAG_` 當日鎖＋`KANSHOU_SCENE_BOND_` 加分）。
 - **🎭 橋段提醒徽章（前端·2026-07·玩家「不知道去哪、幾點」）**：地圖每個地點按鈕旁標該地橋段＋時段（客廳💤午後、浴室🛁夜/深夜、屋頂花園🌌夜/深夜、廚房🍳黃昏、隱藏溫泉♨️、和室🌙0~8點、她們各自私宅🌙0~8點）；**命中就高亮**。⚠ 九度改版後徽章語意改了：住處/和室那組 🌙 標的是**「她熟睡中」這個狀態**（不再是「夜襲/賴床」按鈕，那組橋段已移除），tip 也改成「場景會自然帶入這個情境，要不要理會全由你決定」。造訪她的家（`KANSHOU_HERO_HOME_`手寫豪邸，或`KANSHOU_GENERIC_HOME_POOL_`泛用住處，見§住處分配·好感40解鎖登門）0~8點登門她必定在睡；同居(90)只是「她搬來睡和室」的另一條路。徽章對齊後端所有住處值，鎖住的私宅走🔒分支不顯示徽章。前端鏡像 `KC_LOCATION_EVENTS_`＋`kcSceneBadge_`（住處熟睡類用 `hourEnd` 直接比對 `kcClock.hour`，其餘橋段走 `bands` 比對時段key；唯一真實來源仍是後端，改後端觸發表記得同步鏡像）。
   - **🐛→✅ 2026-07 玩家實測抓到「深夜/清晨去她房間找她，有提示AI要讓她是睡眠狀態嗎？」**：查證後確實沒有，AI只能自己從時段猜，容易演成她還醒著閒聊。已在 `partyDetailsArr`（每回合重算·非持久狀態）補 `pSleepStr`：她此刻 LOC＝自己的家（或同居者在`和室`、或在玩家自己的房間）且時刻落在 0~8 點窗口內時，注入「現況:她此刻在自己家、多半已熟睡／多半還在賴床（除非橋段已明確叫醒她，否則維持這個狀態演出）」。⚠ **九度改版後這句成了睡眠事實的唯一來源**——夜襲/賴床泡泡整組移除，正是因為 `pSleepStr` 判準完全相同、已經把事實餵到位，再包一層按鈕只是把自然的處境變成一張要點的卡。
   - **🐛→✅ 2026-07 玩家連兩次實測抓到「放開手馬上跳賴床泡泡」「離開又走回來也跳賴床泡泡」**：`kanshouIsAwakeWithMe_`(排除熟睡誤判用)原本只認「這回合牽手中」或「這回合剛跟玩家一起移動抵達」(`kanshouArrivingNames_`)，兩者都是**當回合暫存**，一放手或下一回合就失效——即使她全程明明醒著陪玩家互動，仍會被誤判成剛好躺在自己家/和室裡熟睡。改成新增持久 MEMORY tag `KANSHOU_AWAKE_HERE_TAG_`(存該同伴列·地點值)：`kanshouIsAwakeWithMe_(idx)` 判定「當下醒著」時就把她目前 LOC 寫進這個 tag，之後只要她的 LOC 沒變就持續視為醒著(自我修復：地點一變──她離開/被重骰走──tag 自動被視為不匹配，不必手動清)。函式簽名同步改成吃 `pcData` 索引(原本吃姓名字串)，兩處呼叫點(room-event候選過濾、`pSleepStr`)都改傳索引。
@@ -370,7 +377,7 @@
 1. 入口守門（非 `KPC_` return）＋`driveOn`/`encounterOn` 旗標＋標籤化
 2. 讀表（整表只讀一次）→ 定位 pc、curL/curDay/curHour
 3. UI 按鈕意圖落地（相約提議/同居/牽手/結識入駐/橋段 offer+accept）
-4. 結束一天·敲門判定（命中直接回 knockEvent 不推進）
+4. 深夜訪客擲骰（**已移到最前面**，見 §深夜訪客——它會取消 endDay，晚算會讓時段/在場來由拿到錯值）
 5. **跳時間/advanceHours**（重骰全世界去向、換幕鐵律）
 6. **約定赴約結算（`_settle`）** ← ⚠ **必須在第7步之前**
 7. **partyRows/partyMembers 組裝**（同地在場名單、詳情卡 `partyDetailsArr`）
@@ -445,7 +452,9 @@ SOLO_MODEL   = google/gemini-3.5-flash-lite  (屬性 SOLO_MODEL)   ← 主力(�
 - **改命同伴卡**（2026-07 第二輪稽核修）：`update_fate` 名字比對原硬性要求 `IS_PARTY==='同行'`，但鑑賞列從不寫該欄→同伴卡改命鈕恆「查無此人」；現比照 `update_rel_tag` 給 `k_` 世界豁免（同世界名字直配），改同伴的 個性/特徵/身世 是合法自訂。**萌點例外(2026-07 再修)**：同伴/NPC的萌點改成「真正內化」——`intent-box`(Index.html)在非自己卡片整格連改命鈕都隱藏，`actionUpdateFate` 也擋掉 `fateType==='intent'` 且目標非自己的請求，玩家從此看不到也改不了同伴萌點，只留給AI演出參考。（2026-07 二度改版：玩家自己卡的性格鎖快取 `_kcPrefLocks` 已隨性格鎖系統整組刪除）
 - **獨立 action**：`kanshou_companions`／`get_heroes`／`kanshou_summon_hero`／`get_album`／`album_delete`／`update_rel_tag`／`kanshou_set_nickname`（2026-07 五度改版新增·專屬稱呼手動鎖定，bond≥80）／`kanshou_memoir_op`／`kanshou_set_home_name`／`kanshou_set_name`／`kanshou_set_sex`／`enter_kanshou`／`backfill_kanshou_ai`。
 - **函式分組**：地圖移動(`kcMapListHtml_`/`kanshouMoveTo`/`kanshouProposeMove`/`kanshouLookAround`)、同伴面板(`openCompanions`/`renderKcHeroList_`/`kanshouEditRelTag`)、召喚(`kanshouSummonHero`)、回憶(`kanshouOpenMemoir`/`kanshouMemoirOp`)、約定(`kanshouPromiseMeet`/`kanshouWaitForPromise`)、拍照相簿(`kanshouTakePhoto`/`openKanshouAlbum`)、時鐘(`kanshouEndDay`/`kanshouNextStage`/`kanshouJumpBand`/`kanshouJumpFestival`)。
-- **泡泡 UI**（`send()` 內依回傳欄位組）：移動同意(`moveProposal`)、敲門(`knockEvent`)、巧遇(`encounterOffer`)、拍照結果(`photoResult`)、地圖人數徽章(`_lastTags.locationCounts`)。
+- **泡泡 UI**（`send()` 內依回傳欄位組）：移動同意(`moveProposal`)、深夜訪客善後(`nightGuest`)、同居邀請(`cohabitOffer`)、巧遇結識(`encounterOffer`)、等待約定(`promiseWait`)、拍照結果(`photoResult`)、地圖人數徽章(`_lastTags.locationCounts`)。
+  - ⚠ **每加一顆泡泡都要先回答「玩家不點它、直接打字會怎樣？」**：泡泡是待決狀態的唯一出口→忽略就會壞（必須改成先落盤再給善後選項）；泡泡只是已落盤狀態的捷徑→忽略無害。現況全部屬於後者。
+  - `cohabitOffer` 的 `KANSHOU_COHABIT_ASKED_TAG_` 存 **absDay 不是布林**：布林版玩家一旦改用打字，這個「一生一次」的邀請就永遠消失；完全不記又會退回被嫌煩的「每回合都跳」。同一位、同一天最多問一次，接受後靠 `!kanshouIsCohabit_` 自動停。
 - **前端鏡像常數**（後端為真實來源）：`KC_REGIONS_`/`KC_FESTIVALS_`/`KC_TIME_BANDS_`/`KC_LOCATIONS_`/`KC_APPT_BANDS_`。時鐘全域 `kcClock`（`Script.html`）。
 - **`Script.html`/`Index.html` 的鑑賞殘留**：`applyModeUI()` 總開關（依 isKanshou 切 topbar/輸入框/drive開關/photo-btn/快速輸入貼圖列/相簿抽屜/節慶抽屜）；同伴卡鑑賞按鈕列(🏷️關係/📅相約/✋放手/🤝牽手/🏠同居/💞回憶)；`enterKanshou()` 入口。⚠ `Index.html` 的 `#victory-memoir` div 是**戰爭軌殘留**：奪杯回憶錄機制已砍，該 div 現只被清空/隱藏、不再填充（非鑑賞，別誤接鑑賞邏輯）。
 - **🎀 快速輸入貼圖**（2026-07 新增，玩家「打符號會不會被砍掉？可以加類似罐頭訊息的貼圖嗎，點下去幫玩家輸入好(不送出)就是塞進對話框」；同月再追加「內建8句想改玩家自訂」＋「內建句數想減少」）：查證後**玩家輸入從前端到後端全程沒有任何地方會過濾/剝除文字**(`send()` 直接讀 `input.value`；後端 `const userMsg = userData.message || ""` 原樣轉送)，玩家誤以為被砍掉的是「AI輸出narration不寫括號」——那是 `dialogueFormatRule_` 故意禁止 AI 自己用（輕哼）（嬌喘）這類括號描述聲音，跟玩家打字輸入無關，兩者是不同機制。現況：`Index.html` 輸入列上方只留空容器 `#kc-quick-phrases`(鑑賞限定，`applyModeUI()` 切 `display:flex`/`none`)，內容改由 `Script_Kanshou.html` 的 `renderKcQuickPhrases_()` 動態渲染——`KC_QUICK_PHRASES_BUILTIN_` 4顆固定內建短句(害羞/小聲/苦笑/臉紅，2026-07再縮減，純前端寫死不可刪)＋玩家自訂 `_kcQuickPhrases`(來自後端`kanshouGetQuickPhrases_`，見上方 MEMORY 表格)＋一顆「⚙️自訂」管理鈕。`kcInsertPhrase(text)` 把文字插入 `#u-in` 游標處並聚焦，**不呼叫 send()**、純粹幫忙打字，玩家仍要自己按傳送。要改內建句子改 `KC_QUICK_PHRASES_BUILTIN_` 陣列即可；玩家自訂走 `kanshou_add_quick_phrase`/`kanshou_delete_quick_phrase` action（上限見 `KANSHOU_QUICK_PHRASE_CAP_`），不涉及任何提示詞邏輯。
