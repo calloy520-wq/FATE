@@ -2132,6 +2132,14 @@ function actionPlay_(userData, pcId, sheets) {
   const myGameId = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
   const sameGame = (r) => !myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId;
 
+  // 📸 回合【開始時】就跟玩家同地的人（名字快照）。必須在這裡拍——之後 endDay/移動/夜訪都會
+  //   改 LOC，等到那些跑完再問「她在不在身邊」就已經是被打散後的狀態了。
+  //   目前唯一消費端：爽約判定(_standUp)——「她整天陪著你」不該算被放鴿子，而 endDay 的結算
+  //   發生在遣散【之後】，好感<80 的人那時早就被送回自己家了，光看當下位置會誤判。
+  const kanshouWithMeAtStart_ = pcData.filter((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者"
+    && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_")
+    && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()).map(r => String(r[COL.PC.NAME]).trim());
+
   // 🚪 深夜訪客擲骰：必須排在【最前面】——它會取消本回合的 endDay，而 _reHourAfter(情境時段)與
   //   kanshouTimeJumped_(在場來由)都讀 endDay，晚一步算就會拿到「已經睡到清晨6點」的錯值。
   //   命中不早退、不回傳待決泡泡：記進 _knockGuestReq_ 交給下方既有的接人流程(設LOC/組意圖/
@@ -2759,7 +2767,11 @@ function actionPlay_(userData, pcId, sheets) {
       //   就判爽約 -5、還把「我爽約了」寫進共同回憶。放鴿子的定義是【她等不到你】，人明明就在
       //   你身邊時這個定義不成立。此時只默默取消約定、不扣好感、不寫回憶，並給 AI 一句中性事實
       //   讓她可以自然提一句「那個約就算了吧」。⚠ 不給 +5：約沒真的赴，不該有赴約的獎勵。
-      if (String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) {
+      // 判準＝「此刻仍同地」或「這回合一開始就跟你在一起」。後者不可省：結算跑在 endDay 遣散
+      //   【之後】，好感<80 的人那時早已被送回自己家，只看當下位置會把「牽手陪了你一整天」
+      //   誤判成放鴿子(玩家追問「一整天都陪他，但是系統判定失敗?」抓到的第二半)。
+      if (String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()
+        || kanshouWithMeAtStart_.indexOf(String(r[COL.PC.NAME]).trim()) !== -1) {
         pcData[i][COL.PC.MEMORY] = kanshouClearPromise_(pcData[i][COL.PC.MEMORY]);
         dirtyPcRows.add(i);
         kanshouPromiseMetStr += `\n★【那個約就算了】：你與『${_her}』本來約在「${_pr.loc}」見面、結果沒去成，但你們這段時間本來就一直在一起——不是放鴿子，沒有人空等。可自然帶一句「那個約下次再說吧」的默契，【不必】演成道歉或責備，也沒有任何數值變動。`;
