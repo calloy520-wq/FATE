@@ -1317,14 +1317,22 @@ const KANSHOU_LOCATION_EVENTS_ = {
 };
 // 節慶橋段觸發表：日曆走到節慶當天(KANSHOU_FESTIVALS_的month/day)×時段吻合×玩家所在地有同伴
 //   →注入該事件的 ambient 情境事實。key對齊KANSHOU_FESTIVALS_.key。
+// 🎊 節慶【不限時段·不限地點】(2026-07)：bands 欄位保留但【已不再被讀取】——留著當文件，
+//   日後想恢復時段限定不必重寫結構。時刻限制改由 ambient 文字本身寫成任何時刻都成立來取代。
+// 🎯 doneLoc/todo＝「今天該做的事」(2026-07 玩家「想要一個類似任務重點」)：
+//   doneLoc＝完成這件習俗的地點(陣列·任一個都算)；todo＝那件事本身，只拿來組委婉提醒。
+//   完成判定由 GAS 自己看事實(玩家人在 doneLoc ＋ 身邊有同伴)，不問 AI、不加按鈕。
 const KANSHOU_FESTIVAL_EVENTS_ = {
-  newyear: { eventKey: '初詣', bands: ['清晨', '午後'] },
-  valentine: { eventKey: '情人節巧克力', bands: ['清晨', '午後', '黃昏', '夜'] },
-  qixi: { eventKey: '七夕短冊', bands: ['黃昏', '夜', '深夜'] },
-  midautumn: { eventKey: '中秋賞月', bands: ['夜', '深夜'] },
-  xmas: { eventKey: '聖誕約會', bands: ['黃昏', '夜'] },
-  nye: { eventKey: '跨年倒數', bands: ['夜', '深夜'] }
+  newyear: { eventKey: '初詣', bands: ['清晨', '午後'], doneLoc: ['古老神社'], todo: '到神社初詣參拜' },
+  valentine: { eventKey: '情人節巧克力', bands: ['清晨', '午後', '黃昏', '夜'], doneLoc: ['咖啡廳'], todo: '找間店坐下來，好好過這個情人節' },
+  qixi: { eventKey: '七夕短冊', bands: ['黃昏', '夜', '深夜'], doneLoc: ['古老神社'], todo: '到神社把心願寫上短冊、掛上竹枝' },
+  midautumn: { eventKey: '中秋賞月', bands: ['夜', '深夜'], doneLoc: ['屋頂花園', '夜景展望台'], todo: '找個看得見月亮的高處一起賞月' },
+  xmas: { eventKey: '聖誕約會', bands: ['黃昏', '夜'], doneLoc: ['商店街'], todo: '到亮著燈飾的商店街走一趟' },
+  nye: { eventKey: '跨年倒數', bands: ['夜', '深夜'], doneLoc: ['古老神社'], todo: '到神社迎接新年的第一刻' }
 };
+// 🎊 今天的節慶習俗已完成(存【玩家】列·absDay)：同一天只算一次，完成後提示詞從「還沒去」的
+//   委婉提醒切成一句短短的餘韻——順便解掉「不限時段之後那句話整天每回合都印」的重複問題。
+var KANSHOU_FESTIVAL_DONE_TAG_ = makeIntTag_('節慶達成', 0);
 // 🏠 同居日常橋段觸發表(時段→事件)：她【同居中】×兩人同處玩家居所×該時段有對應日常→注入 ambient。
 //   實際優先序＝節慶 > 地點 > 同居，同居刻意排【最低】：膝枕(客廳·午後)/共浴(浴室·夜)/下廚(廚房·黃昏)這些既有的
 //   地點專屬橋段仍然優先，同居日常只補它們沒佔到的時段空檔，不搶既有內容。
@@ -2406,13 +2414,10 @@ function actionPlay_(userData, pcId, sheets) {
   let kanshouSceneKey_ = null;
   const kanshouReDate_ = kanshouAbsDayToDate_(curDay);
   const kanshouReFest_ = KANSHOU_FESTIVALS_.find(f => f.month === kanshouReDate_.month && f.day === kanshouReDate_.day) || null;
-  // 🎊 節慶【不限時段·不限地點】(2026-07 玩家定案)：節慶一年就那麼一天，卡時段等於大半天感受不到
-  //   過節氣氛。地點本來就沒限制(節慶事件不綁 location)，這裡再把 bands 閘門也拿掉——改由
-  //   ambient 文字本身寫成任何時刻都成立的說法(「不提就不用禁」，見 KANSHOU_SCENE_EVENTS_)。
-  if (kanshouReFest_ && KANSHOU_FESTIVAL_EVENTS_[kanshouReFest_.key]) {
-    kanshouSceneKey_ = KANSHOU_FESTIVAL_EVENTS_[kanshouReFest_.key].eventKey;
-  }
-  if (!kanshouSceneKey_) {
+  // 🎊 節慶【已移出這條優先鏈】：改走下方獨立的 kanshouFestivalStr。理由有二——
+  //   ①不限時段之後節慶優先序最高，會整天壓掉膝枕/共浴/下廚/同居所有地點 ambient；
+  //   ②完成判定需要「移動後的地點＋移動後的在場名單」，那些要等 partyRows 算完才有。
+  {
     const _locEv = KANSHOU_LOCATION_EVENTS_[kanshouSceneLoc_];
     if (_locEv && _locEv.bands.indexOf(kanshouReBand_) >= 0) kanshouSceneKey_ = _locEv.eventKey;
   }
@@ -2849,6 +2854,31 @@ function actionPlay_(userData, pcId, sheets) {
   const partyRows = pcData.filter(r => r !== pc && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim())
     .sort((a, b) => (parseInt(b[COL.PC.BOND]) || 0) - (parseInt(a[COL.PC.BOND]) || 0)).slice(0, KANSHOU_PARTY_DETAIL_CAP_);
   const partyMembers = partyRows.map(r => r[COL.PC.NAME]);
+  // 🎊 節慶三態(2026-07 玩家「想要一個類似任務重點…沒去做的話 AI 可以很委婉地提醒，做過就完成
+  //   不要再出現」)。刻意【不加按鈕、不問 AI】——完成與否是 GAS 自己看得到的事實：
+  //     玩家人在 doneLoc 之一 ＋ 身邊有同伴 ＝ 這件習俗一起做過了。
+  //   算在這裡而不是上面的 ambient 區：要用移動【後】的 curL 與 partyMembers，不然「這回合走進
+  //   神社」不會算數。三態各給不同長度，完成後只剩一句短餘韻——這也是「不限時段」之後避免同一句
+  //   整天每回合重印的解法。
+  const kanshouFestivalStr = (() => {
+    const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day);
+    if (!_f) {
+      // 明天就是節慶：只給前夕氣氛，不談習俗(還沒到日子)。
+      return jumpFest ? `\n★【節慶前夕】：明天就是「${jumpFest.name}」，街頭已有前夕的氣氛——自然帶入即可、不報幕。` : "";
+    }
+    const _fe = KANSHOU_FESTIVAL_EVENTS_[_f.key] || {};
+    const _amb = (KANSHOU_SCENE_EVENTS_[_fe.eventKey] || {}).ambient || "";
+    const _done = KANSHOU_FESTIVAL_DONE_TAG_.get(pcData[pcIndex][COL.PC.MEMORY]) === curDay;
+    if (_done) return `\n★【節慶】：今天是「${_f.name}」，該做的事你們已經一起做過了——餘韻自然帶到即可，別再提還沒去。`;
+    const _locOk = Array.isArray(_fe.doneLoc) && _fe.doneLoc.indexOf(String(curL || "").trim()) !== -1;
+    if (_locOk && partyMembers.length) {
+      pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_FESTIVAL_DONE_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], curDay);
+      dirtyPcRows.add(pcIndex);
+      return `\n★【節慶·就是此刻】：今天是「${_f.name}」，而你和『${partyMembers.join('、')}』正好就在「${curL}」——${_fe.todo || '一起過這個節'}這件事，此刻就在發生。把這一幕好好寫出來(這是今天的重頭戲，值得多給一點筆墨)。`;
+    }
+    return `\n★【節慶】：今天是「${_f.name}」——${_amb}。${_fe.todo ? `這一天的老規矩是【${_fe.todo}】，而你們還沒去成。若情境合適，可由她【自然地】提一句(期待/試探/嘴上說無所謂都行)——只能點到為止，【不可】催促玩家、不可替他決定去不去、更不可自行演成已經去過了。` : ''}`;
+  })();
+
   // 🌍 世界概況(輕量版·2026-07 玩家「NPC不知道彼此存在」)：只給名字＋大分區，不給精確地點/在幹嘛，
   //   純粹讓AI知道「這局還認識誰、大概在哪」以便自然閒聊提及——不是在場資料，不影響【在場驗證鐵律】
   //   (指名互動/追蹤好感仍只認同地點的partyRows)。依好感取前KANSHOU_WORLD_ROSTER_CAP_位，避免同伴
@@ -3311,7 +3341,7 @@ function actionPlay_(userData, pcId, sheets) {
 ${PROMPT_REL}
 ★【在場驗證·最高優先】：只有【在場人物】可對話/互動/記好感·路人不具名不追蹤。例外：①玩家引入第三人②系統豁免段(自然告辭/指定巧遇)。歷史提過但不在場＝不在場，禁憑空開口；可輕巧帶過原因(去忙別的/剛好不在)，禁裝作還在、禁不解釋就消失。
 ★【焦點禮讓】：玩家專一互動時，其他在場者維持背景輕描·不搶話/不介入親密(除非系統另有提示)。
-★【在場來由】：一律照各人「在場來由」欄演、不可改寫。標「一直在這裡」＝從她早已在場的狀態接著往下寫，她把你在場視為理所當然；標「結伴一起來到」＝她是跟你一起走進來的，這一路她都在你身邊。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶】：今天是「${_f.name}」·narration 自然帶入應景氣氛·不報幕。`; if (jumpFest) return `\n★【節慶】：明天就是「${jumpFest.name}」·街頭已有前夕氣氛·自然帶入不報幕。`; return ""; })()}
+★【在場來由】：一律照各人「在場來由」欄演、不可改寫。標「一直在這裡」＝從她早已在場的狀態接著往下寫，她把你在場視為理所當然；標「結伴一起來到」＝她是跟你一起走進來的，這一路她都在你身邊。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${kanshouFestivalStr}
 ★【今日天氣】：${kanshouWeather_(curDay)}·自然滲入場景不必每句提。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
 💕【後日談模式·最高優先覆寫】：${partyRows.length === 0
     ? `眼下無相識者在場·玩家一個人的尋常時光。`
