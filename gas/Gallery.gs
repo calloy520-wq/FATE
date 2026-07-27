@@ -1722,6 +1722,11 @@ var KANSHOU_HANDHOLD_TAG_ = makeTextTag_('牽手');
 //   賴床泡泡」)。地點一變(她離開/被重骰走)就自然失效，不必手動清。
 var KANSHOU_AWAKE_HERE_TAG_ = makeTextTag_('醒著陪同');
 const KANSHOU_COHABIT_BOND_ = 90;
+// 🏠 同居邀請「已問過」一次性標記(2026-07 玩家「同居做成泡泡問一次、完全隱藏才是正解」)：
+//   好感首次達 KANSHOU_COHABIT_BOND_ 且她在場時跳一次邀請泡泡，跳過就蓋章、之後永不再問。
+//   ⚠ 刻意【不】綁在「跨進戀人」那一階——戀人是 80、同居門檻是 90，在 80 問會被後端以
+//   「關係還沒深到能同住」回絕，變成問了也沒用的假泡泡。
+var KANSHOU_COHABIT_ASKED_TAG_ = makeIntTag_('同居問過', 0);
 // 🔒 登門拜訪私人住處(region:'visit')的好感門檻＝熟識的朋友(見 KANSHOU_REL_TIER_ 的40切點)。
 const KANSHOU_VISIT_BOND_ = 40;
 const KANSHOU_COHABIT_ROOM_ = '和室';
@@ -2771,6 +2776,11 @@ function actionPlay_(userData, pcId, sheets) {
   const kanshouTierCrossLines_ = [];   // 💗 這回合剛跨進新關係階的人
   const kanshouFirstsLines_ = [];      // 💞 在場者的「第一次」帳
   const kanshouFirstsAnnivLines_ = []; // 🎂 今天剛好是某個「第一次」的週年
+  // 🏠 同居邀請泡泡(2026-07 玩家「同居做成泡泡問一次、完全隱藏才是正解」)：綁在【跨進戀人】那一刻
+  //   ——那正是「要不要住在一起」第一次成立的敘事時機，而且 KANSHOU_REL_RANK_TAG_ 只升不降，這個
+  //   跨階天生只會發生一次，不必另外記「問過沒」。**跟八度改版拔掉的舊版泡泡差別就在這裡**：舊版
+  //   是條件成立就每回合跳(玩家嫌煩)，這版是一生一次。
+  let kanshouCohabitOffer_ = null;
   partyRows.forEach(r => {
     const _ri = pcData.indexOf(r);
     if (_ri < 0) return;
@@ -2778,6 +2788,13 @@ function actionPlay_(userData, pcId, sheets) {
     //   剛認識的人不該演出「我們變成朋友了」，那不是質變、只是初始值。
     const _tierBond = parseInt(r[COL.PC.BOND]) || 0;
     const _tierNow = kanshouRelRank_(_tierBond);
+    // 🏠 同居邀請·一生一次：好感首次達門檻(90)且尚未同住、也還沒問過 → 跳一次泡泡並蓋章。
+    if (!kanshouCohabitOffer_ && _tierBond >= KANSHOU_COHABIT_BOND_ && !kanshouIsCohabit_(r)
+      && !KANSHOU_COHABIT_ASKED_TAG_.get(r[COL.PC.MEMORY])) {
+      kanshouCohabitOffer_ = { name: String(r[COL.PC.NAME]), id: String(r[COL.PC.ID] || "") };
+      pcData[_ri][COL.PC.MEMORY] = KANSHOU_COHABIT_ASKED_TAG_.set(pcData[_ri][COL.PC.MEMORY], 1);
+      dirtyPcRows.add(_ri);
+    }
     const _tierWas = KANSHOU_REL_RANK_TAG_.get(r[COL.PC.MEMORY]);
     if (!_tierWas) {
       pcData[_ri][COL.PC.MEMORY] = KANSHOU_REL_RANK_TAG_.set(pcData[_ri][COL.PC.MEMORY], _tierNow);
@@ -3616,6 +3633,7 @@ ${PROMPT_PARTY_SYSTEM}
       options: aiData.options,
       tags: tagsPayload,
       moveProposal: moveProposal || undefined,
+      cohabitOffer: kanshouCohabitOffer_ || undefined,
       encounterOffer: encounterOffer,
       proposalResult: kanshouProposalResult_ || undefined,
       promiseSettle: kanshouPromiseSettle_.length ? kanshouPromiseSettle_ : undefined, // 📅 赴約/爽約結算通知陣列(獨立通道·不與提議結果搶單槽·可同時容納多筆)

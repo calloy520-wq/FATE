@@ -248,6 +248,18 @@ let plainTextContext = cleanText;
           + `<button class="btn-option" style="flex:1;" onclick="kanshouDeclineMoveProposal()">拒絕</button>`
           + `</div></div>`;
       }
+      // 🏠 同居邀請·一生一次(玩家「同居做成泡泡問一次、完全隱藏才是正解」)：後端只在【剛跨進戀人】
+      //   那一刻送出這個欄位(跨階只發生一次)，平時卡片上完全看不到同居入口。
+      if (data.cohabitOffer && data.cohabitOffer.name) {
+        const _co = data.cohabitOffer;
+        const _coN = String(_co.name), _coNEsc = escapeHtml(_coN);
+        optionsHtml += `<div style="background:rgba(180,140,90,0.14); border:1px solid #9a7a4a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
+          + `<div style="color:#e8c8a0; font-size:12.5px; margin-bottom:6px;">🏠 你和「${_coNEsc}」的關係已經夠深了——要邀她搬來一起住嗎？</div>`
+          + `<div style="display:flex; gap:8px;">`
+          + `<button class="btn-option" style="flex:1;" onclick="kanshouInviteCohabit('${_coN.replace(/'/g, "\\'")}','${String(_co.id || '').replace(/'/g, "\\'")}')">邀她同住</button>`
+          + `<button class="btn-option" style="flex:1;" onclick="this.closest('div').parentElement.remove()">現在還不用</button>`
+          + `</div></div>`;
+      }
       // 📅 到約定地點但太早(她還沒到)：跳「等到約定前10分」框——一鍵把時鐘推到她抵達的時刻(她也剛到)。
       if (data.promiseWait) {
         const _pw = data.promiseWait, _pwn = escapeHtml(String(_pw.name || '她'));
@@ -306,7 +318,7 @@ let plainTextContext = cleanText;
       if (optContainer) optContainer.innerHTML = optionsHtml;
       // 📣 有「必須點的泡泡」(前往/邀約/同居/敲門/橋段/結識)時自動把它捲進視野——回應完只捲故事框、
       //   泡泡藏在頁面下方看不到＝玩家實測「哪裡有同意按鈕??」的真兇。一般選項不強制捲(維持閱讀位置)。
-      if (optContainer && (data.moveProposal || data.knockEvent || data.encounterOffer || data.promiseWait)) {
+      if (optContainer && (data.moveProposal || data.knockEvent || data.encounterOffer || data.promiseWait || data.cohabitOffer)) {
         try { optContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { }
       }
 
@@ -1517,6 +1529,8 @@ let plainTextContext = cleanText;
   //   稱呼／專屬稱呼的文字會被字面塞進AI提示詞當既定事實，低好感就打露骨自訂內容會讓AI無視好感
   //   天花板照樣演到底，門檻切在跟親密尺度五階「80+無上限」同一個點，一解鎖尺度本就已經全開。
   var KC_CUSTOM_TAG_BOND_ = 80;
+  // 🏠 同居門檻，鏡像 Gallery.gs 的 KANSHOU_COHABIT_BOND_(90)——注意跟上面 80(戀人/自訂稱呼)不同。
+  var KC_COHABIT_BOND_ = 90;
   var _krBusy = false;
   // 💞 關係中樞(2026-07 玩家「同伴卡片欄位太多，關係/回憶/同居可以整合在一起？這是最少按到的」)：
   //   同伴卡從 8 顆按鈕收斂成 6 顆(2-2-2)，把三個低頻入口收進這一顆。刻意做成「有摘要的分派面板」
@@ -1544,8 +1558,14 @@ let plainTextContext = cleanText;
         '目前：' + escapeHtml(String(curTag || '點頭之交')) + (curNickname ? '　專屬稱呼：' + escapeHtml(String(curNickname)) : '') + (b >= KC_CUSTOM_TAG_BOND_ ? '' : '　（自訂需好感 ' + KC_CUSTOM_TAG_BOND_ + '）'), '120,90,180')
       + row("kanshouOpenMemoir('" + safeN + "')", '💞', '共同回憶',
         '你們一起經歷過的重要瞬間　★釘選／🗑刪除', '200,120,150')
-      + row("kanshouInviteCohabit('" + safeN + "','" + safeId + "')", '🏠', '同居',
-        cohabit ? '✅ 已經住在一起了' : '邀她搬來同住（需關係足夠深厚、她本人在場）', '180,140,90')
+      // 🏠 同居：主要入口是【剛成為戀人】那一刻跳的一次性泡泡(見 data.cohabitOffer)，平時完全不顯示。
+      //   這裡只在「已經是戀人但還沒同住」這個唯一還有意義的窗口留一條靜默備援——否則玩家在泡泡按了
+      //   「現在還不用」之後就永遠邀不了了(跨階只發生一次、不會再跳)。已同住則改顯示狀態、不再是入口。
+      + (cohabit
+        ? '<div style="padding:8px 12px;color:#e8c8a0;font-size:12px;border:1px dashed rgba(180,140,90,.5);border-radius:8px;">🏠 <b>同居中</b>　你們已經住在一起了</div>'
+        : (b >= KC_COHABIT_BOND_
+          ? row("kanshouInviteCohabit('" + safeN + "','" + safeId + "')", '🏠', '邀她同住', '關係已經夠深了——隨時可以開口（她本人要在場）', '180,140,90')
+          : ''))
       + '</div>';
     ov.style.display = 'flex';
   }
