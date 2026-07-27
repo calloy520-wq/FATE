@@ -2591,7 +2591,10 @@ function actionPlay_(userData, pcId, sheets) {
     //   分成兩個時鐘：狀態時鐘照推，敘事時鐘停在睡下去那一刻，晨間留給下一回合(【晨間餘韻】本來
     //   就是那樣設計的)。只在 endDay 這條路有差，其餘回合兩者相同。
     kanshouNarrDay_ = curDay;
-    kanshouNarrHour_ = curHour;
+    // 敘事時刻＝「就寢的那一刻」，不是按下按鈕的那一刻。玩家可能在早上八點就按結束一天(語意是
+    //   「今天剩下的就這樣過去，然後睡」)，此時照抄 08:10 會跟玩家意圖那句「夜幕降臨」再打一次架
+    //   ——換成當日最後一小時。已經在夜/深夜按的就照用，那本來就是就寢時刻。
+    kanshouNarrHour_ = (timeBand_(curHour) === '夜' || timeBand_(curHour) === '深夜') ? curHour : KANSHOU_DAY_LAST_HOUR_;
     if (curHour >= 6) curDay = curDay + 1;
     curHour = 6;
     kanshouClockMoved_ = true;
