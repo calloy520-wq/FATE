@@ -43,6 +43,9 @@ for f in "$GAS"/*.html; do
   if python3 "$ROOT/check_html.py" "$f"; then :; else fail=1; fi
 done
 
+# 🔍 鑑賞提示詞不變式（本 session 所有 bug 都是這三種的變體，改成機器擋）
+if python3 "$ROOT/check_prompt.py"; then :; else fail=1; fi
+
 echo "──────────────"
 if [ "$fail" = 0 ]; then echo "✅ 全部通過"; else echo "❌ 有語法錯誤，勿 push"; fi
 exit $fail

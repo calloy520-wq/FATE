@@ -2792,7 +2792,7 @@ function actionPlay_(userData, pcId, sheets) {
         || kanshouWithMeAtStart_.indexOf(String(r[COL.PC.NAME]).trim()) !== -1) {
         pcData[i][COL.PC.MEMORY] = kanshouClearPromise_(pcData[i][COL.PC.MEMORY]);
         dirtyPcRows.add(i);
-        kanshouPromiseMetStr += `\n★【那個約就算了】：你與『${_her}』本來約在「${_pr.loc}」見面、結果沒去成，但你們這段時間本來就一直在一起——不是放鴿子，沒有人空等。可自然帶一句「那個約下次再說吧」的默契，【不必】演成道歉或責備，也沒有任何數值變動。`;
+        kanshouPromiseMetStr += `\n★【那個約就算了】：你與『${_her}』本來約在「${_pr.loc}」見面、結果沒去成，但你們這段時間本來就一直在一起——不是放鴿子，沒有人空等。可自然帶過那個沒去成的約——語氣是相視一笑的默契，【不必】演成道歉或責備，也沒有任何數值變動。`;
         return;
       }
       pcData[i][COL.PC.MEMORY] = kanshouClearPromise_(pcData[i][COL.PC.MEMORY]);
