@@ -265,12 +265,12 @@ let plainTextContext = cleanText;
           + `<button class="btn-option" style="flex:1;" onclick="this.closest('div').parentElement.remove()">現在還不用</button>`
           + `</div></div>`;
       }
-      // 📅 到約定地點但太早(她還沒到)：跳「等到約定前10分」框——一鍵把時鐘推到她抵達的時刻(她也剛到)。
+      // 📅 到約定地點但她還沒動身：跳等待框——一鍵把時鐘推到她抵達的時刻(她提前 KANSHOU_APPT_LEAVE_EARLY_ 動身)。
       if (data.promiseWait) {
         const _pw = data.promiseWait, _pwn = escapeHtml(String(_pw.name || '她'));
         optionsHtml += `<div style="background:rgba(90,140,180,0.14); border:1px solid #4a7a9a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
           + `<div style="color:#a8d0f0; font-size:12.5px; margin-bottom:6px;">📅 離跟「${_pwn}」的約定還有一段時間（約定 ${escapeHtml(String(_pw.apptLabel || ''))}，她還沒到）</div>`
-          + `<button class="btn-option" style="width:100%;" onclick="kanshouWaitForPromise(${Number(_pw.targetHour) || 0})">⏳ 在這等到約定前 10 分鐘</button></div>`;
+          + `<button class="btn-option" style="width:100%;" onclick="kanshouWaitForPromise(${Number(_pw.targetHour) || 0})">⏳ 在這等到她來${_pw.waitLabel ? `（${escapeHtml(String(_pw.waitLabel))}）` : ''}</button></div>`;
       }
       // 🚪 「睡覺時機率敲門」：跟moveProposal同款「不是敘事選項、是決定要不要真的觸發」
       //   寫法，但這個是GAS機率觸發(結束一天前擲骰)，不是AI敘事判斷。
@@ -1367,7 +1367,7 @@ let plainTextContext = cleanText;
     var opt = (_kbOpts || [])[i];
     if (cb && opt) cb(opt);
   }
-  // 📅 「等到約定前10分」：把時鐘推到 targetHour(她抵達的時刻)——用 advanceHours 走既有時間推進管線，
+  // 📅 「等到她來」：把時鐘推到 targetHour(她抵達的時刻)——用 advanceHours 走既有時間推進管線，
   //   後端到站時結算會判定「準時·都早到」、把她pin登場。adv 由「目標時刻 − 目前時刻」算(支援小數)。
   async function kanshouWaitForPromise(targetHour) {
     var cur = (kcClock && typeof kcClock.hour === 'number') ? kcClock.hour : null;

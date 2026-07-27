@@ -1287,12 +1287,12 @@ const KANSHOU_SCENE_EVENTS_ = {
   下廚: { ambient: '廚房飄出飯菜香，她正在準備晚餐' },
   觀星: { ambient: '今晚夜空格外清澈，她在屋頂花園仰望星空' },
   // ── 節慶(KANSHOU_FESTIVAL_EVENTS_) ──
-  初詣: { ambient: '新年初一，她正準備去神社初詣參拜' },
+  初詣: { ambient: '新年頭一天，街上到處是要去神社參拜的人潮與攤販' },
   情人節巧克力: { ambient: '今天是情人節，她手上似乎拿著什麼、見人看過來就往身後藏' },
-  七夕短冊: { ambient: '七夕夜，竹枝上掛滿短冊，她手裡也拿著一張還沒寫' },
-  中秋賞月: { ambient: '中秋夜月色正好，她正抬頭望著那輪滿月' },
-  聖誕約會: { ambient: '聖誕燈飾亮了整條街，她今晚的打扮比平時用心' },
-  跨年倒數: { ambient: '跨年夜，遠處已經有人開始倒數' },
+  七夕短冊: { ambient: '七夕，竹枝上掛滿了短冊，她手裡也拿著一張還沒寫' },
+  中秋賞月: { ambient: '中秋，空氣裡都是月餅與團圓的味道，今晚的月亮會特別圓' },
+  聖誕約會: { ambient: '聖誕，整條街的燈飾與音樂都在提醒今天不一樣，她今天的打扮比平時用心' },
+  跨年倒數: { ambient: '一年的最後一天，街上到處是準備跨年的人與收攤的年貨' },
   // ── 同居日常(KANSHOU_COHABIT_EVENTS_·僅同居中的她) ──
   同居晨光: { ambient: '清晨的家裡，她已經起身在活動' },
   同居午後: { ambient: '午後的家裡只有你們兩人，她正做著自己的事' },
@@ -1712,12 +1712,15 @@ function kanshouSetPromise_(memory, absDay, loc, band) {
 }
 // 有時段的約定：她約定時刻前10分到場、待到時刻+2h(碰面窗過了自然離開，不整天空等)；無時段(舊)=整天釘。
 //   curHour 供時段判定；沒傳(舊呼叫)則退回整天釘、不破壞既有行為。
+// ⏰ 約定「該動身了」的提前量(小時)：到點前這麼久她就會自己前往約定地點。0.5＝提前30分，
+//   一個動作 10 分鐘，玩家還有約三步可以跟上。pin 窗口與「先走一步」共用這個數字。
+const KANSHOU_APPT_LEAVE_EARLY_ = 0.5;
 function kanshouPromisePin_(row, absDay, curHour) {
   const p = kanshouGetPromise_(row[COL.PC.MEMORY]);
   if (!p || p.day !== absDay) return null;
   const ah = kanshouApptHour_(p.band);
   if (ah === null || typeof curHour !== 'number') return p.loc; // 無時段或沒傳時→整天釘(相容)
-  return (curHour >= ah - 1 / 6 && curHour < ah + 2) ? p.loc : null;
+  return (curHour >= ah - KANSHOU_APPT_LEAVE_EARLY_ && curHour < ah + 2) ? p.loc : null;
 }
 // 🏠 同居(存該同伴列MEMORY·【同居】1)：好感≥KANSHOU_COHABIT_BOND_且本人在場才邀得成。
 //   同居後行程骰改走同居版(見kanshouRollDailyLocation_)：深夜85%回「和室」就寢(15%在外遊蕩)、
@@ -2403,9 +2406,11 @@ function actionPlay_(userData, pcId, sheets) {
   let kanshouSceneKey_ = null;
   const kanshouReDate_ = kanshouAbsDayToDate_(curDay);
   const kanshouReFest_ = KANSHOU_FESTIVALS_.find(f => f.month === kanshouReDate_.month && f.day === kanshouReDate_.day) || null;
-  if (kanshouReFest_) {
-    const _fe = KANSHOU_FESTIVAL_EVENTS_[kanshouReFest_.key];
-    if (_fe && _fe.bands.indexOf(kanshouReBand_) >= 0) kanshouSceneKey_ = _fe.eventKey;
+  // 🎊 節慶【不限時段·不限地點】(2026-07 玩家定案)：節慶一年就那麼一天，卡時段等於大半天感受不到
+  //   過節氣氛。地點本來就沒限制(節慶事件不綁 location)，這裡再把 bands 閘門也拿掉——改由
+  //   ambient 文字本身寫成任何時刻都成立的說法(「不提就不用禁」，見 KANSHOU_SCENE_EVENTS_)。
+  if (kanshouReFest_ && KANSHOU_FESTIVAL_EVENTS_[kanshouReFest_.key]) {
+    kanshouSceneKey_ = KANSHOU_FESTIVAL_EVENTS_[kanshouReFest_.key].eventKey;
   }
   if (!kanshouSceneKey_) {
     const _locEv = KANSHOU_LOCATION_EVENTS_[kanshouSceneLoc_];
@@ -2795,11 +2800,32 @@ function actionPlay_(userData, pcId, sheets) {
       if (_oldMemoir2.indexOf(_missLine) === -1) pcData[i][COL.PC.MEMOIR] = _oldMemoir2 ? (_oldMemoir2 + "｜" + _missLine) : _missLine;
     };
     if (_pr.day === curDay) {
+      // 🚶‍♀️→✅ 2026-07 玩家「沒有根絕方式嗎…感覺可以讓她時間快到的時候出現在約會地點」：
+      //   根因是「同地點的人永遠不會被重骰」，所以她可以被牽著走一整天、直接錯過自己的約。
+      //   改成【她自己會走】：進入該動身的窗口、她此刻跟你在一起、而你不在約定地點時，她先走一步。
+      //   比「讓她消失」更貼近人的行為，也給玩家明確信號(而不是人憑空不見)；此後沒赴約就是
+      //   真的讓她一個人在那裡等——爽約回歸它原本的意思。
+      if (_ah !== null && !_atApptLoc && curHour >= _ah - KANSHOU_APPT_LEAVE_EARLY_ && curHour < _ah + 2
+        && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) {
+        pcData[i][COL.PC.LOC] = _pr.loc;
+        pcData[i][COL.PC.MEMORY] = KANSHOU_AWAKE_HERE_TAG_.set(pcData[i][COL.PC.MEMORY], '');
+        dirtyPcRows.add(i);
+        // 她走了就不再算「一直陪著你」——否則之後真的沒去，爽約豁免會誤放行。
+        const _wi = kanshouWithMeAtStart_.indexOf(String(r[COL.PC.NAME]).trim());
+        if (_wi !== -1) kanshouWithMeAtStart_.splice(_wi, 1);
+        // 🤝 牽著手也得放開：人要先走了。
+        if (kanshouHeldName_ && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(kanshouHeldName_)) {
+          pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_HANDHOLD_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], '');
+          kanshouHeldName_ = '';
+        }
+        kanshouPromiseMetStr += `\n★【她先過去了】：快到你們約好的${kanshouFmtHM_(_ah)}了，『${_her}』看了眼時間，說了聲要先過去「${_pr.loc}」等你，就從這裡動身離開了——演出她起身道別的那一刻(期待/彆扭/催你別遲到皆可)。她【已經不在這裡】，這段之後不可再讓她開口或在場。`;
+        return; // 她已離場，本回合不再結算
+      }
       if (!_atApptLoc) return; // 今天但不在約定地點→還沒到、也還沒過，等你去，不結算
       if (_ah === null) { // 舊格式無時段：當天到場即赴約
         _settle(5, `\n★【依約相會】：今天正是你與『${_her}』約好在「${_pr.loc}」見面的日子，你們此刻真的相會了——演出「約定被守住」的欣喜(好感已上調，勿另計)。`);
-      } else if (curHour < _ah - 1 / 6 - 1e-6) { // 太早：她還沒到→回等待框(−1e-6 epsilon：跳到13:50後浮點誤差不會又被判太早卡死)
-        if (!kanshouPromiseWait_) kanshouPromiseWait_ = { name: _her, loc: _pr.loc, apptLabel: kanshouFmtHM_(_ah), targetHour: _ah - 1 / 6 };
+      } else if (curHour < _ah - KANSHOU_APPT_LEAVE_EARLY_ - 1e-6) { // 她還沒動身→回等待框(−1e-6 epsilon：跳到抵達時刻後浮點誤差不會又被判太早卡死)
+        if (!kanshouPromiseWait_) kanshouPromiseWait_ = { name: _her, loc: _pr.loc, apptLabel: kanshouFmtHM_(_ah), targetHour: _ah - KANSHOU_APPT_LEAVE_EARLY_, waitLabel: kanshouFmtHM_(_ah - KANSHOU_APPT_LEAVE_EARLY_) };
       } else if (curHour <= _ah + 0.5) { // 準時窗[時刻-10,時刻+30]
         const _early = curHour < _ah;
         _settle(5, _early
