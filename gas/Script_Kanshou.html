@@ -188,6 +188,15 @@
       // 🩹 玩家「跳到節慶後時間看起來沒動靜」查出根因：這裡本來只更新kcClock/renderMapPane，
       //   從未呼叫updateClock(data.clock,...)刷新頂部常駐的#clock-hud——後端其實有正確推進、
       //   也有把label塞進data.clock，只是前端這裡漏了消費它，導致HUD停在進場當下那一次的值。
+      // ⚡ actionPlay(Gallery.gs) 會在回應裡順手夾帶 data.tags(跟 get_tags 同格式)，有夾帶就直接吃、
+      //   省掉原本每次都要另外打一趟 get_tags 的 round-trip；沒夾帶(理論邊角、建構失敗)refreshFateTags
+      //   內部會自動退回原本的 get_tags 呼叫，行為不變。
+      // 🐛→✅ 2026-07 前端稽核·順序錯誤：這一行原本排在整個渲染流程的【最後面】，但下面兩行的
+      //   updateClock 會讀 window._lastTags.nightScene 決定那顆最常按的鈕要寫「🌙睡覺」還是
+      //   「🌅睡到天亮」——結果按鈕永遠慢一回合。實際後果：按下🌙睡覺、【夜未眠】成立了，鈕上卻
+      //   還是「🌙睡覺」，玩家以為沒反應再按一次，那一按就真的睡掉、直接跳到早上——正是【夜未眠】
+      //   要防的那件事。tags 是這一回合的權威狀態，必須在任何讀它的渲染【之前】就位。
+      try { refreshFateTags(data.tags); } catch (e) { }
       if (data.kanshouClock) { kcClock = data.kanshouClock; try { renderMapPane(); } catch (e) { } }
       if (data.clock) updateClock(data.clock, null, null);
       // 🔴 直接接收後端傳來的狀態字串，不再依賴 AI 的文字解析
@@ -386,10 +395,6 @@ let plainTextContext = cleanText;
       saveStoryLocal_(story);   // 修剪＋配額保護，見 Script.html saveStoryLocal_
       setTimeout(() => { story.scrollTop = story.scrollHeight; }, 50);
 
-      // ⚡ actionPlay(Gallery.gs) 會在回應裡順手夾帶 data.tags(跟 get_tags 同格式)，
-      //   有夾帶就直接吃、省掉這裡原本每次都要另外打一趟 get_tags 的 round-trip；沒夾帶(理論邊角、
-      //   建構失敗)refreshFateTags 內部會自動退回原本的 get_tags 呼叫，行為不變。
-      try { refreshFateTags(data.tags); } catch (e) {}
       // 🆕 地圖分頁的人數徽章讀的是window._lastTags.locationCounts(剛被上面refreshFateTags更新)，
       //   這裡只是重繪既有DOM、不另打網路。
       if (pc && pc.mode === 'kanshou') { try { const _kcml = document.getElementById('kc-map-list'); if (_kcml) _kcml.innerHTML = kcMapListHtml_(); } catch (e) {} }
