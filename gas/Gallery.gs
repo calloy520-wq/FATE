@@ -1652,13 +1652,12 @@ function kanshouRelRank_(bond) {
   var i = KANSHOU_REL_TIER_.findIndex(function (t) { return bond >= t.min; });
   return i < 0 ? 1 : (KANSHOU_REL_TIER_.length - i); // 陣列由高到低，故反轉成「由低到高」的階數
 }
-// 跨階當下餵給 AI 的「質變」定調(只給方向不給台詞，細節照樣 AI 自由發揮)。key＝跨進去的那一階。
-var KANSHOU_REL_TIER_CROSS_ = {
-  2: '你們之間從萍水相逢的客套，變成了會主動找對方說上幾句話的普通朋友',
-  3: '你們之間從一般朋友，變成了真正熟識、能放心說些私事與真心話的關係',
-  4: '你們之間從朋友，變成了特別親近、彼此心裡都清楚對方分量的存在',
-  5: '你們越過了那條線——從此是戀人了'
-};
+// 階數(由低到高·kanshouRelRank_ 的回傳值)→ 該階名稱。KANSHOU_REL_TIER_ 是唯一真實來源，
+//   這裡只做索引反轉，不另存一份文字。
+function kanshouRelTierLabel_(rank) {
+  var t = KANSHOU_REL_TIER_[KANSHOU_REL_TIER_.length - rank];
+  return t ? t.label : "";
+}
 // 📅 約定 2.0(存該同伴列MEMORY)：【約定】absDay:時段:地點＝「那天午後在X見」。同時只存一筆(新約蓋舊約)。
 //   band 為 KANSHOU_APPT_BANDS_ 之一(午後/黃昏/夜)；舊格式【約定】day:loc(無時段)向後相容＝整天有效。
 // 約定時刻表：她提前10分到場、準時窗=[時刻-10分, 時刻+30分]、之後~2h算遲到、整天沒去=爽約。排除
@@ -2828,8 +2827,9 @@ function actionPlay_(userData, pcId, sheets) {
       pcData[_ri][COL.PC.MEMORY] = KANSHOU_REL_RANK_TAG_.set(pcData[_ri][COL.PC.MEMORY], _tierNow);
       dirtyPcRows.add(_ri);
     } else if (_tierNow > _tierWas) {
-      const _crossCopy = KANSHOU_REL_TIER_CROSS_[_tierNow];
-      if (_crossCopy) kanshouTierCrossLines_.push(`『${String(r[COL.PC.NAME])}』——${_crossCopy}`);
+      // 🎯 只給【事實】(誰·從哪一階跨到哪一階)，不給寫好的文案——怎麼演由 AI 依她性格自由發揮。
+      const _lbWas = kanshouRelTierLabel_(_tierWas), _lbNow = kanshouRelTierLabel_(_tierNow);
+      if (_lbNow) kanshouTierCrossLines_.push(`『${String(r[COL.PC.NAME])}』從「${_lbWas}」跨進「${_lbNow}」`);
       pcData[_ri][COL.PC.MEMORY] = KANSHOU_REL_RANK_TAG_.set(pcData[_ri][COL.PC.MEMORY], _tierNow);
       dirtyPcRows.add(_ri);
     }
@@ -2878,7 +2878,7 @@ function actionPlay_(userData, pcId, sheets) {
   // 💗 關係質變：跨進新階的當下演一次。給的是「方向」不是台詞——具體怎麼表現交給 AI 依她性格拿捏。
   //   刻意不報幕(不出現數值/階級名詞)，只讓那份轉變自然發生在她的態度與距離感裡。
   const kanshouTierCrossStr = kanshouTierCrossLines_.length
-    ? `\n★【關係質變·就在此刻】：${kanshouTierCrossLines_.join('；')}。這一步【剛剛才跨過去】——在這回合的敘事裡讓這份轉變真實地發生一次：她看你的眼神、說話的分寸、與你之間的距離感，都該比先前更進一層，並讓她以自己的方式(直率／彆扭／沉默地靠近皆可)流露出「有什麼不一樣了」的自覺。★【不可】報幕式地宣告階級或數字、不可寫成系統提示，要演成關係本身自然到達的那一刻。`
+    ? `\n★【關係質變·就在此刻】：${kanshouTierCrossLines_.join('；')}——就在這回合剛跨過去。依她自己的性格讓這份轉變真實發生一次，★【不可】報幕式宣告階級或數字、不可寫成系統提示。`
     : "";
   // 💞 第一次帳：GAS 蓋的既定事實，供 AI 精確回想「我們第一次做某件事是哪天」而非自行編造。
   // 🎯 觸發收緊：這段是「查得到就好的參考資料」，原本只要她有任何一筆【初次】就每回合送(玩幾天

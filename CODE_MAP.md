@@ -233,7 +233,7 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 | 出力檔／符文／參戰風格 | `OUTPUT_TIERS_` / `RUNE_MODES_` / `STANCE_SHARE_` | Core_Settings / Router_Battle |
 | 鑑賞地圖／橋段／道具／節慶／關係階 | `KANSHOU_LOCATIONS_` `KANSHOU_SCENE_EVENTS_` `KANSHOU_PROPS_` `KANSHOU_FESTIVALS_` `KANSHOU_REL_TIER_` | Gallery |
 | 鑑賞橋段觸發(四層) | `KANSHOU_FESTIVAL_EVENTS_`(節慶) `KANSHOU_LOCATION_EVENTS_`(地點×時段) `KANSHOU_COHABIT_EVENTS_`(同居日常·最低優先) | Gallery |
-| 鑑賞「第一次」／關係質變 | `kanshouStampFirst_`(加蓋戳點) `KANSHOU_REL_TIER_CROSS_`(各階質變定調) | Gallery |
+| 鑑賞「第一次」／關係質變 | `kanshouStampFirst_`(加蓋戳點) `kanshouRelTierLabel_`(階數→階名) | Gallery |
 | dispatcher 行為 | `OWNERSHIP_CHECK_EXEMPT_` `LOCK_EXEMPT_ACTIONS_` `STATE_AFTER_ACTIONS` `KANSHOU_BLOCKED_ACTIONS_` | Router_Action |
 
 ---
