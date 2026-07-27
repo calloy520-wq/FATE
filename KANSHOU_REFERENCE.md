@@ -380,7 +380,7 @@
 
 ## 🔧 共用 helper（2026-07 全面重構收尾新增，純內部整理·行為不變）
 
-- `formatFourSlot_(str, labels)`（Gallery.gs）— PREF/TRAIT 四段格式化的單一實作，`formatPref`/`formatTrait` 現在只是帶各自標籤陣列（`[表象/內裡/喜歡/討厭]`／`[外貌/氣質舉止/台詞自稱/私密一面]`）的一行 wrapper，取代原本兩份幾乎相同的實作。
+- ⚠ `formatFourSlot_(str, labels)` **已刪除**（2026-07 送出時砍格後 `formatPref`/`formatTrait` 呈現方式不再相同，共用 wrapper 失去意義）：現在 `formatPref` 只送 `[表象][內裡]`、`formatTrait` 送 `[外貌氣質]＋[台詞自稱]`，第 4 格由 `traitPrivateOf_` 併進萌點。
 - `kanshouDailyTranslateCall_(prompt, sys, apiOpts, resultMapper, fallbackValue)`（Gallery.gs）— `translateLookToDaily_`/`translatePersonalityToDaily_`/`translateMoeToDaily_` 三支「戰時→日常」AI轉譯函式共用的呼叫殼（`KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_`共用開場白＋try/callGeminiAPI/catch-fallback），三支各自只保留自己的規則段落，prompt文字逐字不變。
 - `ensureOverlay_(id, opts)`／`_showOverlayLoading_(overlayId, ensureOpts, boxOpts)`（Script_Kanshou.html）— 前端共用「取得或建立全螢幕遮罩容器」／「顯示讀條」殼，取代11個彈窗函式（`kanshouOpenMemoir`/`kanshouOpenProps`/`kanshouOpenHypnosis`/`kanshouPickBand_`/`kanshouTakePhoto`/`kanshouOpenRelTag`/`openKanshouFestivals`/`kanshouPickLocation_`等）各自手寫的重複DOM建立樣板。
 
@@ -461,7 +461,7 @@ SOLO_MODEL   = google/gemini-3.5-flash-lite  (屬性 SOLO_MODEL)   ← 主力(�
 
 ## 🖥️ 前端地圖（`gas/Script_Kanshou.html` 為主）
 
-- **唯一引擎入口 `send(customMsg, isSilent, opts)`＝`action:'play'`**（2026-07 重構：原 22+ 位置參數收進單一 opts 物件，payload 不變零速度影響）。移動/相約/拍照/牽手/同居/敲門/橋段**沒有各自的 action**，全靠 opts 夾旗標：`moveTarget`/`moveWithCompanion`/`promiseMeet`/`promiseAccept`/`takePhoto`+`photoIntent`/`showPhoto`/`handHold`/`cohabitInvite`/`roomEventAccept`/`knockAccept`/`skipKnockCheck`/`lookAround`/`inviteResident`/`endDay`/`advanceHours`/`jumpBand`/`jumpFestival`/`loaderCaptions`。
+- **唯一引擎入口 `send(customMsg, isSilent, opts)`＝`action:'play'`**（2026-07 重構：原 22+ 位置參數收進單一 opts 物件，payload 不變零速度影響）。移動/相約/拍照/牽手/同居/敲門/橋段**沒有各自的 action**，全靠 opts 夾旗標：`moveTarget`/`moveWithCompanion`/`promiseMeet`/`promiseAccept`/`takePhoto`+`photoIntent`/`showPhoto`/`handHold`/`cohabitInvite`/`cohabitInviteId`/`handHoldId`/`skipKnockCheck`/`dismissGuest`/`lookAround`/`inviteResident`/`endDay`/`advanceHours`/`jumpBand`/`jumpFestival`/`loaderCaptions`。
 - **回饋條 `proposalResult`** 涵蓋 相約/牽手/同去/同居 四型＋**撲空含「她似乎在○○」位置提示**；**`promiseSettle`（獨立通道）** 涵蓋 赴約成功/爽約過期 結算通知（與提議結果並發時各自顯示·見教訓區「單一回饋槽」）；相簿滿的 `photoResult` 附直達鈕（📚開相簿）——「撲空/婉拒/卡住」一律要有下一步，別讓玩家對著空氣猜。
 - **改命同伴卡**（2026-07 第二輪稽核修）：`update_fate` 名字比對原硬性要求 `IS_PARTY==='同行'`，但鑑賞列從不寫該欄→同伴卡改命鈕恆「查無此人」；現比照 `update_rel_tag` 給 `k_` 世界豁免（同世界名字直配），改同伴的 個性/特徵/身世 是合法自訂。**萌點例外(2026-07 再修)**：同伴/NPC的萌點改成「真正內化」——`intent-box`(Index.html)在非自己卡片整格連改命鈕都隱藏，`actionUpdateFate` 也擋掉 `fateType==='intent'` 且目標非自己的請求，玩家從此看不到也改不了同伴萌點，只留給AI演出參考。（2026-07 二度改版：玩家自己卡的性格鎖快取 `_kcPrefLocks` 已隨性格鎖系統整組刪除）
 - **獨立 action**：`kanshou_companions`／`get_heroes`／`kanshou_summon_hero`／`get_album`／`album_delete`／`update_rel_tag`／`kanshou_set_nickname`（2026-07 五度改版新增·專屬稱呼手動鎖定，bond≥80）／`kanshou_memoir_op`／`kanshou_set_home_name`／`kanshou_set_name`／`kanshou_set_sex`／`enter_kanshou`／`backfill_kanshou_ai`。

@@ -516,7 +516,7 @@ Seed_Codex.gs 頂部 `CODEX_PERSONA_VER` 的註解只留當前版號一行簡述
 - **A**：`Router_Action.gs` 3處手刻找列邏輯改 `findPcRowIdx_`；`Core_Settings.gs` 4個MEMORY getter改用既有 `makeTextTag_` 工廠；新增 `clampCircuits_` 取代3處硬寫的迴路夾值(12~50)魔數。
 - **B**：`Router_Battle.gs`/`Engine_Fate.gs` 新增 `injectMasterSupportFor_`（合併我方/敵方共6處注入御主支援）、`pushMatching_`（合併4處extraFired收集迴圈）、`buildPartyIdxs_`（合併斬首/主戰鬥2處複製貼上）、`ourMeleeFired`等4段掃描改資料驅動。
 - **C**：`Router_Movement.gs`/`Router_Economy.gs`/`Router_Bond.gs` 新增 `dmgSeverityWord_`（傷害嚴重度分級，順便修 `actionBond` 突襲提示原本沒分級的不一致）、`ambushDispatchPrompt_`（合併5處突襲結果三分支）、`chargeApOrReject_`（合併11處AP門檻+扣AP+時鐘標籤樣板）。`actionMove`(cost=2、與`worldTick_`緊密耦合)刻意不動；Bond.gs的5處npcId+nameLoose_ fallback逐一核對，全部帶有`findPcRowIdx_`無法表達的額外條件(`hasArrived_`/`isAllied_`/批次操作)，維持原樣。
-- **D**：`Gallery.gs`（鑑賞層，`nsfwBaseRules`全程未觸及）4個handler改用`findPcRowIdx_`（`actionKanshouDeleteCustomProp`因是「清全部同伴身上」而非單一目標查找，非等價重構，跳過）；新增`kanshouMissStr_`合併5處提議撲空敘事；3個「戰時→日常」AI wrapper合併共用開場白+呼叫殼；`formatPref`/`formatTrait`合併成`formatFourSlot_`；刪除已確認零讀取點的死碼欄位`minBond`。
+- **D**：`Gallery.gs`（鑑賞層，`nsfwBaseRules`全程未觸及）4個handler改用`findPcRowIdx_`（`actionKanshouDeleteCustomProp`因是「清全部同伴身上」而非單一目標查找，非等價重構，跳過）；新增`kanshouMissStr_`合併5處提議撲空敘事；3個「戰時→日常」AI wrapper合併共用開場白+呼叫殼；`formatPref`/`formatTrait`合併成`formatFourSlot_`(⚠已於2026-07刪除·見KANSHOU_REFERENCE)；刪除已確認零讀取點的死碼欄位`minBond`。
 - **E**：`Script_Kanshou.html` 新增`ensureOverlay_`合併11處overlay建立樣板、`_showOverlayLoading_`合併2個讀條函式；修`kp-overlay` id被3種功能共用的隱性耦合(`kanshouPickLocation_`改用獨立的`kloc-overlay`)。
 - **F**：`Account.gs`新增`findPcRowByCharId_`；`History_Sync.gs`新增`readRecentPlayerRows_`；`Seed_Codex.gs`/`Seed_Rivals.gs`重複fallback文案抽成`DEFAULT_TRAIT_FALLBACK_`/`DEFAULT_PREF_FALLBACK_`；`CODEX_PERSONA_VER`版本註解瘦身(歷史見上方§21)。
 
@@ -541,7 +541,7 @@ Seed_Codex.gs 頂部 `CODEX_PERSONA_VER` 的註解只留當前版號一行簡述
 - **補完§22兩處遺漏的批次收斂**：`Router_Movement.gs`的`playerAmbushOnEnemy_`(趁隙偷襲)、`enemyAmbushOnServant_`(陣地反擊分支＋真突襲分支)共3處仍手刻`injectMasterMeleeSupport_`+`injectMasterMagicSupport_`雙支呼叫，沒跟進`injectMasterSupportFor_`——已改用共用函式。`Router_Battle.gs`的`actionFateBattle`/`actionSummonHorror`共2處仍手刻AP門檻+扣費，沒跟進`chargeApOrReject_`——已改用共用函式(`actionSummonHorror`那處**不能**傳`skipWrite`，因為`drainForNp_`的整列寫回發生在AP扣款【之前】，DAY/HOUR/AP仍需自己的窄欄寫入，跟`actionFateBattle`「稍後還有一次整表寫回」的情境不同，誤傳skipWrite會讓AP扣款只留在記憶體、沒真的寫回試算表)。
 - **文件補註**：`chargeApOrReject_`(Core_Settings.gs)的`.reject`回傳路徑目前全部14處呼叫端都沒真的檢查過(因為呼叫前都已有獨立guard擋過)，屬於「預留但目前吃不到」的死路徑——已在函式註解明講，新呼叫點若打算只靠它擋門檻(不自帶前置guard)務必自己補`.reject`檢查。
 
-**KANSHOU_REFERENCE.md 過時內容已一併修正**（8類、約10處）：`minBond`欄位3處從「保留無讀取」訂正為「已整批物理刪除」；`KANSHOU_FILM_PER_DAY_`從常數速查表移除(拍照改手機後此常數已刪，文件原本自相矛盾)；`kanshouPickDate_`改過去式(八度改版已整支刪除)；補上`kanshouPickLocation_`改用獨立`#kloc-overlay`(解耦離`#kp-overlay`的隱性碰撞風險)；補上`findPcRowIdx_`/`kanshouMissStr_`/`formatFourSlot_`/`kanshouDailyTranslateCall_`/`ensureOverlay_`/`_showOverlayLoading_`這幾支§22新增共用helper跟既有段落的關聯。
+**KANSHOU_REFERENCE.md 過時內容已一併修正**（8類、約10處）：`minBond`欄位3處從「保留無讀取」訂正為「已整批物理刪除」；`KANSHOU_FILM_PER_DAY_`從常數速查表移除(拍照改手機後此常數已刪，文件原本自相矛盾)；`kanshouPickDate_`改過去式(八度改版已整支刪除)；補上`kanshouPickLocation_`改用獨立`#kloc-overlay`(解耦離`#kp-overlay`的隱性碰撞風險)；補上`findPcRowIdx_`/`kanshouMissStr_`/`formatFourSlot_`(已刪)/`kanshouDailyTranslateCall_`/`ensureOverlay_`/`_showOverlayLoading_`這幾支§22新增共用helper跟既有段落的關聯。
 
 **評估後判斷仍應維持現狀、本輪不動的項目**（供之後評估，非遺漏）：
 - `fateStrike_`(Router_Battle.gs)與斬首反噬分支的死亡結算合併——重新盤點後發現實際是**4處**(含`Router_Movement.gs`的`playerAmbushOnEnemy_`/`enemyAmbushOnServant_`各自的survive/god_hand簡化版)而非原認知的2處；`Router_Movement.gs`內部這2處可安全合併(結構最接近、無額外機制差異)，但`fateStrike_`本身承載的規則明顯更多(海怪護盾/整備餐/令咒脫離)，強行泛化風險仍偏高，暫不動。
