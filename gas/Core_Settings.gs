@@ -364,8 +364,13 @@ function makeTextTag_(tagName) {
     get: function (memory) { var m = String(memory || '').match(reGet); return m ? m[1].trim() : ''; },
     set: function (memory, val) {
       var s = String(memory || '');
-      if (reSet.test(s)) return s.replace(reSet, '【' + tagName + '】' + val);
-      return (s ? s + '｜' : '') + '【' + tagName + '】' + val;
+      // 🛡️ 寫入值一律先剝掉 MEMORY 的結構字元：｜是標記分隔符、【】是標記邊界，混進值裡會把整條
+      //   MEMORY 切錯格(後面所有標記靜默失效或被誤讀)。舊版只在 kanshouStampFirst_ 一個呼叫端做這件
+      //   事——那是「只修犯錯那處」，其餘 TextTag(【口吻】/【裝扮】/【晨間餘韻】/【夜訪客】…)全裸奔。
+      //   移到工廠這裡＝所有現有與未來的 TextTag 自動受保護，單一真實來源。
+      var v = String(val == null ? '' : val).replace(/[｜|【】]/g, '');
+      if (reSet.test(s)) return s.replace(reSet, '【' + tagName + '】' + v);
+      return (s ? s + '｜' : '') + '【' + tagName + '】' + v;
     }
   };
 }

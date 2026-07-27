@@ -2115,6 +2115,9 @@ function actionPlay_(userData, pcId, sheets) {
   //   戰敗虛假之夢/剛結盟NPC排除等)。
   const dirtyPcRows = new Set();
   dirtyPcRows.add(pcIndex); // 玩家本人一定會被處理到，先加進去
+  // 🆕 本回合新增的列(目前只有「結識」會產生)：先只進 pcData 讓本回合就地生效，真正 appendRow
+  //   延到寫回階段——這樣 AI 失敗早退時整回合都是 no-op，不會留下半套狀態。
+  let _pendingNewPcRow_ = null;
 
   const currentAmbition = pc[COL.PC.INTENT] ? String(pc[COL.PC.INTENT]).trim() : "尚無明確目標，隨遇而安。";
   // 玩家自己的換裝(玩家UI設定或AI依appearance_extras更新)，比照【同行夥伴】卡片(partyDetailsArr)
@@ -2350,7 +2353,11 @@ function actionPlay_(userData, pcId, sheets) {
       const _ivCodexRow = getHeroCodexCached().slice(1).find(r => String(r[COL.HERO.ID]) === String(_ivHero.id));
       if (_ivCodexRow) {
         const _ivNewRow = heroToKanshouRow_(_ivCodexRow, myGameId, String(curL || "").trim(), curDay);
-        sheets.pc.appendRow(_ivNewRow);
+        // 🐛→✅ 稽核抓到：這裡原本【當場】appendRow，是 AI 呼叫前唯一的直接寫表。但 aiData._genFailed
+        //   會早退、跳過後面所有寫回——結果是「她已經是同伴列，玩家列的路人例外標記卻沒清掉」的半套
+        //   狀態(下一回合她同時是路人又是在場人物)。改成延後到寫回階段才落盤，讓結識跟這回合其餘
+        //   異動一樣是【全有或全無】：AI 失敗＝整回合 no-op，什麼都沒發生。
+        _pendingNewPcRow_ = _ivNewRow;
         pcData.push(_ivNewRow); // 本回合就地生效：partyRows/在場卡片馬上抓得到她
         pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]); // 她不再是「路人例外」，改走正式在場人物
         dirtyPcRows.add(pcIndex);
@@ -3662,6 +3669,9 @@ ${PROMPT_PARTY_SYSTEM}
 
     // 競態修：play 豁免寫入鎖(AI 呼叫佔數秒會卡全域)，但上面的列索引是 AI 呼叫【前】讀到的——
     //   期間其他上鎖動作若刪列，索引會位移。寫回前做一次 ID 欄窄讀重定位，列已被刪就跳過。
+    // 🆕 新列先落盤，再建 id 索引——順序不能反：liveIdx 建完才 append 的話，新列查不到 id，
+    //   後面 dirtyPcRows 對她的異動(週年/關係階/初次帳)會被當成「列已被刪」靜默跳過。
+    if (_pendingNewPcRow_) sheets.pc.appendRow(_pendingNewPcRow_);
     const liveIdx = buildLiveIdIndex_(sheets.pc);
 
     // MAX_HP/MAX_MP 重算只針對有變動的行，不全表掃描
