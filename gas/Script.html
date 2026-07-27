@@ -3092,18 +3092,22 @@ function showHistoryOverlay(html) {
 function applyModeUI() {
   // 🔵 對話輸入窗只在「鑑賞」(後日談約會)模式出現——單人聖杯戰爭＝純按鈕，GAS 算數值、AI 只說書；保留「＋」工具抽屜，只收掉文字輸入框、傳送鈕與慾海開關。
   var isKanshou = (pc && pc.mode === 'kanshou');
+  // 📔 日記軌(實驗)：純排程＋讀週記，沒有即時對話、沒有地圖、沒有時鐘——所以下面所有
+  //   「isKanshou 才顯示」的東西它一律不要，跟 solo 走同一條 else。這裡只需要額外把
+  //   solo 專屬的頂部三鍵也關掉，其餘靠既有判斷式自動落到隱藏側，零額外分支。
+  var isDiary = (pc && pc.mode === 'diary');
   var uin = document.getElementById('u-in'); if (uin) uin.style.display = isKanshou ? '' : 'none';
   var sbtn = document.getElementById('send-btn'); if (sbtn) sbtn.style.display = isKanshou ? '' : 'none';
   // 🔥 曾經隱藏過這顆開關，導致 driveOn 永遠鎖在 false、🔥主動掌握模式(driveStr注入/deepseek-v3.1-terminus)整個變成用不到的死路——改回依模式顯示/隱藏。
   var drv = document.getElementById('drive-mode-toggle'); // 🔥 主動掌握開關(原nsfw-mode-toggle重生，見Index.html註解)
   if (drv) { var lab = drv.closest('label'); if (lab) lab.style.display = isKanshou ? '' : 'none'; }
   // 🎴 solo 頂部＝查看/魔力/系統三鍵(取代地點)、底部輸入框整條隱藏(純按鍵)；慾海維持原本(頂部地點徽章＋底部輸入框＋NSFW開關)，零改動守紅線①。
-  var tSolo = document.getElementById('topbar-solo'); if (tSolo) tSolo.style.display = isKanshou ? 'none' : 'flex';
+  var tSolo = document.getElementById('topbar-solo'); if (tSolo) tSolo.style.display = (isKanshou || isDiary) ? 'none' : 'flex';
   var tKan = document.getElementById('topbar-kanshou'); if (tKan) tKan.style.display = isKanshou ? '' : 'none';
   // 🕰️ 2026-07 玩家「手機很長，切到地圖分頁點下一階段太麻煩」：👥邀請／⏰下一階段兩顆常駐鈕
   //   搬進 #clock-hud 那一行(見 updateClock)，不必再切分頁——topbar-kanshou 從此不再有內容
   //   (topbar-solo 本就不含這排)，連同外層 .top-navbar 整條一起隱藏，免留一條空白窄條。
-  var tNav = document.getElementById('top-navbar'); if (tNav) tNav.style.display = isKanshou ? 'none' : '';
+  var tNav = document.getElementById('top-navbar'); if (tNav) tNav.style.display = (isKanshou || isDiary) ? 'none' : '';
   var ibar = document.getElementById('input-bar'); if (ibar) ibar.style.display = isKanshou ? '' : 'none';
   // 🎊 快轉節慶(從地圖頁移進＋抽屜，不常用)：只在鑑賞模式出現
   var dfest = document.getElementById('drawer-festival'); if (dfest) dfest.style.display = isKanshou ? '' : 'none';

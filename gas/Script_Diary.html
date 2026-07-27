@@ -1,0 +1,118 @@
+<script>
+  /**
+   * 📔 Script_Diary.html — 日記鑑賞的全部前端。
+   * ⚠ 跟 Diary.gs 一樣是【可整檔刪除】的實驗品：不好玩就刪這兩檔＋Index.html 那道門
+   *   ＋Router_Action 那幾行，鑑賞與 solo 完全不受影響。本檔不覆寫任何既有函式。
+   * 共享頁面全域作用域（同 Script_Kanshou.html 的做法）：gasRun/beginAction/escapeHtml 等
+   *   共用工具仍在 Script.html，這裡直接用。
+   */
+  var _dPlan = null;      // [7][3] 玩家排程，格內是地點名或 ''
+  var _dMeta = null;      // { slots, days, locations, schedule }
+  var _dWeek = 1;
+
+  async function enterDiary() {
+    if (!currentAccount) { alert('請先登入帳號。'); return; }
+    if (!beginAction()) return;
+    try {
+      let res = await gasRun({ action: 'enter_diary', acctName: currentAccount });
+      if (!res || !res.success) { alert((res && res.message) || '無法進入日記。'); return; }
+      if (res.needSetup) {
+        const nm = prompt('你在這條線上的名字？', res.defaultName || currentAccount);
+        if (!nm) return;
+        const sx = confirm('性別：確定＝男，取消＝女') ? '男' : '女';
+        res = await gasRun({ action: 'enter_diary', acctName: currentAccount, pcName: nm.trim(), pcSex: sx });
+        if (!res || !res.success) { alert((res && res.message) || '無法進入日記。'); return; }
+      }
+      pc = { id: res.pcId, name: res.pcName, sex: res.pcSex, mode: 'diary', account: currentAccount };
+      localStorage.setItem('kyushu_v27', JSON.stringify(pc));
+      _dWeek = res.week || 1;
+      _dMeta = await gasRun({ action: 'diary_schedule', pcId: pc.id });
+      if (!_dMeta || !_dMeta.success) { alert('讀不到行程表。'); return; }
+      _dPlan = _dMeta.days.map(function () { return _dMeta.slots.map(function () { return ''; }); });
+      document.getElementById('setup').style.display = 'none';
+      document.getElementById('game').style.display = 'flex';
+      applyModeUI();
+      renderDiaryPlanner();
+    } finally { endAction(); }
+  }
+
+  // 🗓️ 排程表：7 天 × N 格。每格點一下循環切換地點（骨架期用 prompt 選單，先驗迴圈不雕 UI）。
+  function renderDiaryPlanner() {
+    const story = document.getElementById('story');
+    if (!story || !_dMeta) return;
+    let h = '<div style="padding:8px;">'
+      + '<div style="color:#c9b885;font-size:14px;font-weight:bold;text-align:center;margin-bottom:8px;">📔 第 ' + _dWeek + ' 週 · 排程</div>'
+      + '<div style="color:#9a8f78;font-size:11px;text-align:center;margin-bottom:10px;">點格子選地點；跟她們行程重疊的格子＝這週會遇到</div>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:11px;">'
+      + '<tr><th style="padding:3px;color:#9a8f78;"></th>'
+      + _dMeta.slots.map(function (s) { return '<th style="padding:3px;color:#c9b885;">' + s + '</th>'; }).join('')
+      + '</tr>';
+    _dMeta.days.forEach(function (dn, d) {
+      h += '<tr><td style="padding:3px;color:#c9b885;text-align:center;">' + dn + '</td>';
+      _dMeta.slots.forEach(function (sn, s) {
+        const v = _dPlan[d][s];
+        // 這一格會遇到誰——即時預覽，讓排程有得算（這就是策略感的來源）
+        const who = v ? _dMeta.schedule.filter(function (x) { return (x.week[d] || [])[s] === v; }).map(function (x) { return x.hero; }) : [];
+        h += '<td onclick="diaryPickCell(' + d + ',' + s + ')" style="padding:4px 3px;border:1px solid rgba(212,175,55,.18);'
+          + 'text-align:center;cursor:pointer;background:' + (who.length ? 'rgba(200,120,150,.16)' : 'rgba(20,14,28,.35)') + ';">'
+          + '<div style="color:' + (v ? '#e8dcc0' : '#5a5040') + ';">' + (v ? escapeHtml(v) : '—') + '</div>'
+          + (who.length ? '<div style="color:#e0a0bc;font-size:9.5px;">' + escapeHtml(who.join('·')) + '</div>' : '')
+          + '</td>';
+      });
+      h += '</tr>';
+    });
+    const total = diaryCountHits();
+    h += '</table>'
+      + '<div style="text-align:center;color:#9a8f78;font-size:11.5px;margin:10px 0 6px;">這週預計遇到 <b style="color:#e0a0bc;">' + total + '</b> 次</div>'
+      + '<button class="btn" style="width:100%;padding:11px;border-color:#c87896;color:#e8b8cc;" onclick="diarySubmitWeek()">📔 過完這一週，寫成週記</button>'
+      + '</div>';
+    story.innerHTML = h;
+  }
+  function diaryCountHits() {
+    let n = 0;
+    _dMeta.days.forEach(function (dn, d) {
+      _dMeta.slots.forEach(function (sn, s) {
+        const v = _dPlan[d][s]; if (!v) return;
+        n += _dMeta.schedule.filter(function (x) { return (x.week[d] || [])[s] === v; }).length;
+      });
+    });
+    return n;
+  }
+  function diaryPickCell(d, s) {
+    const names = _dMeta.locations.map(function (l) { return l.name; });
+    const cur = _dPlan[d][s];
+    const msg = '週' + _dMeta.days[d] + _dMeta.slots[s] + ' 要去哪？\n（輸入編號，0＝待在家）\n'
+      + names.map(function (n, i) { return (i + 1) + '. ' + n; }).join('\n');
+    const ans = prompt(msg, cur ? String(names.indexOf(cur) + 1) : '0');
+    if (ans === null) return;
+    const i = parseInt(ans, 10);
+    _dPlan[d][s] = (i >= 1 && i <= names.length) ? names[i - 1] : '';
+    renderDiaryPlanner();
+  }
+
+  async function diarySubmitWeek() {
+    if (!beginAction()) return;
+    const story = document.getElementById('story');
+    story.innerHTML = '<div class="loading-text">這一週正在過去…</div>';
+    try {
+      const res = await gasRun({ action: 'diary_week', pcId: pc.id, plan: _dPlan });
+      if (!res || !res.success) { alert((res && res.message) || '週記生成失敗。'); renderDiaryPlanner(); return; }
+      _dWeek = res.nextWeek;
+      let h = '<div style="padding:10px;">'
+        + '<div style="color:#c9b885;font-size:14px;font-weight:bold;text-align:center;margin-bottom:10px;">📔 第 ' + res.week + ' 週</div>'
+        + '<div style="white-space:pre-wrap;line-height:1.75;color:#e8dcc0;font-size:13.5px;">' + escapeHtml(res.diary) + '</div>';
+      if (res.applied && res.applied.length) {
+        h += '<div style="margin-top:14px;padding-top:8px;border-top:1px solid rgba(212,175,55,.2);color:#9a8f78;font-size:11.5px;">'
+          + res.applied.map(function (a) {
+            return escapeHtml(a.name) + '　相遇 ' + a.hits + ' 次　好感 ' + a.from + ' → <b style="color:#e0a0bc;">' + a.to + '</b>';
+          }).join('<br>') + '</div>';
+      }
+      h += '<button class="btn" style="width:100%;margin-top:14px;padding:11px;border-color:#c87896;color:#e8b8cc;" onclick="diaryNextWeek()">▶ 排下一週</button></div>';
+      story.innerHTML = h;
+    } finally { endAction(); }
+  }
+  function diaryNextWeek() {
+    _dPlan = _dMeta.days.map(function () { return _dMeta.slots.map(function () { return ''; }); });
+    renderDiaryPlanner();
+  }
+</script>

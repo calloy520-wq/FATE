@@ -12,6 +12,10 @@ const ActionRouter = {
   "account_new_game": actionAccountNewGame,
   "end_run": actionEndRun, // ⚠ claim_grail(奪杯封存) 已整個砍除，改成單純清理讓玩家開新局
   "enter_kanshou": actionEnterKanshou,
+  // 📔 日記鑑賞(第三軌·實驗)：全部實作在 Diary.gs，刪掉那檔＋這三行就整個消失。
+  "enter_diary": actionEnterDiary,
+  "diary_schedule": actionDiarySchedule,
+  "diary_week": actionDiaryWeek,
   "backfill_kanshou_ai": actionBackfillKanshouAi, // 🚀 開局非阻塞：enter_kanshou 首次建檔後背景補御主敘事欄
   "dev_resync_codex": actionDevResyncCodex,
   "purge_orphans": actionPurgeOrphans,
@@ -138,9 +142,11 @@ function handleGameAction(userData) {
   // 🌹 慾海路由：御主 avatar 以 "KPC_" 開頭 → 整條後日談路徑(actionPlay/sync/move…)改讀「鑑賞眾生」分頁，
   //   與戰爭主表「眾生」完全隔離。solo 御主是 "PC_" 不受影響。
   const isKanshouCtx = String(pcId || "").indexOf("KPC_") === 0;
+  // 📔 日記軌：DPC_ 開頭 → 自己的分頁「日記眾生」，跟鑑賞/solo 三方隔離。
+  const isDiaryCtx = String(pcId || "").indexOf("DPC_") === 0;
   // 坤圖已靜態化：getMapDataCached 直接讀 FATE_MAP_SEED 常數，不需要 sheets.map，省一次 Sheets API 呼叫。
   const sheets = {
-    pc: (isKanshouCtx ? getKanshouPcSheet_(ss) : ss.getSheetByName("眾生"))
+    pc: (isDiaryCtx ? getDiaryPcSheet_(ss) : isKanshouCtx ? getKanshouPcSheet_(ss) : ss.getSheetByName("眾生"))
   };
 
   const handler = ActionRouter[action];
