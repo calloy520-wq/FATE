@@ -272,7 +272,7 @@ let plainTextContext = cleanText;
       if (data.nightGuest) {
         const gNameEsc = escapeHtml(String(data.nightGuest));
         optionsHtml += `<div style="background:rgba(160,110,60,0.14); border:1px solid #8a6a3a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#e0c090; font-size:12.5px; margin-bottom:6px;">🚪 「${gNameEsc}」深夜來訪，此刻人就在這裡——這一夜要怎麼收？<span style="color:#9a8f78;">(也可以先不理這兩顆，繼續聊；她走之前選項都會留著)</span></div>`
+          + `<div style="color:#e0c090; font-size:12.5px; margin-bottom:6px;">🚪 「${gNameEsc}」深夜來訪，此刻人就在這裡——這一夜要怎麼收？<span style="color:#9a8f78;">(不選也行，繼續聊就是了——那她今晚就留下)</span></div>`
           + `<div style="display:flex; gap:8px;">`
           + `<button class="btn-option" style="flex:1;" onclick="kanshouSleepWithGuest()">🛏 讓她留下<br><span style="font-size:10px;opacity:.75;">和在場的人共度·直接到早上</span></button>`
           + `<button class="btn-option" style="flex:1;" onclick="kanshouSendGuestHome()">🚪 請她回去<br><span style="font-size:10px;opacity:.75;">只跟原本陪你的人·直接到早上</span></button>`
@@ -1244,7 +1244,8 @@ let plainTextContext = cleanText;
   // 🚪 深夜訪客的【善後】選項——她【已經在房裡了】(後端擲骰命中時就把 LOC 落盤了)，這兩顆不是
   //   「要不要發生」而是「這一夜怎麼收」。所以玩家完全可以無視它們直接打字聊天：她真的在場、
   //   AI 照常演、日期沒推進，之後想睡再按一次「結束一天」(當日鎖 KANSHOU_KNOCK_DAY_TAG_ 擋著，
-  //   不會再來第二個人)。⚠ 這正是舊版「開門/不予理會」待決泡泡的病根，別再改回去。
+  //   不會再來第二個人)——只是那時她會留下過夜，因為送客鍵只給這一次(玩家定案「就只要問一次」)。
+  //   ⚠ 這正是舊版「開門/不予理會」待決泡泡的病根，別再改回去。
   async function kanshouSleepWithGuest() {
     // 讓她留下＝什麼都不用做：endDay 的 intimateNightNames(好感≥80 且此刻同地)本來就會把在場的
     // 每一位都留在玩家房間過夜——她跟原本就陪著你的人都算在內。

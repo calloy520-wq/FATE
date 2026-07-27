@@ -1604,8 +1604,8 @@ var KANSHOU_SCENE_DAY_TAG_ = makeIntTag_('橋段日', 0);
 // 🚪 夜訪當日戳(存【玩家】列·absDay)：深夜訪客一天只登門一次。落盤化之後「結束一天」可能被按
 //   很多次(她進來了→玩家打字聊天→再按一次結束一天)，沒有這個鎖就會反覆擲骰、一晚來三個人。
 var KANSHOU_KNOCK_DAY_TAG_ = makeIntTag_('夜訪日', 0);
-// 🚪 目前在房裡的夜訪客姓名(存【玩家】列)：善後選項必須【跨回合留著】——玩家打了幾輪字之後
-//   仍然要能送客。也是「送客」的唯一姓名來源(不吃 client 傳的名字，見 dismissGuest)。
+// 🚪 這次夜訪的客人姓名(存【玩家】列)：「送客」的唯一姓名來源——dismissGuest 是下一個 request
+//   才送來的，後端得記得是誰；刻意不吃 client 傳的名字。
 //   清除時機：任一種收場(留下過夜／送她回去／結束一天)都算這次來訪結束。
 var KANSHOU_NIGHT_GUEST_TAG_ = makeTextTag_('夜訪客');
 // 📅 初見日(存該同伴列MEMORY·absDay)：首次跟玩家同地當下蓋戳，之後相識滿7/30/100/365天且人
@@ -3732,17 +3732,11 @@ ${PROMPT_PARTY_SYSTEM}
       tags: tagsPayload,
       moveProposal: moveProposal || undefined,
       cohabitOffer: kanshouCohabitOffer_ || undefined,
-      // 🚪 善後選項【跨回合留著】：不是只有擲骰命中那一回合才給。玩家打了幾輪字之後仍然要能
-      //   「請她回去」，否則她好感≥80 又在場，最後一定被 endDay 留下過夜、等於沒得選。
-      //   條件＝夜訪標記還在 ＋ 她確實還在同一地點(她自己走了/被送走就自動消失)。
-      nightGuest: (() => {
-        const _ng = KANSHOU_NIGHT_GUEST_TAG_.get(pcData[pcIndex][COL.PC.MEMORY]);
-        if (!_ng) return undefined;
-        const _still = pcData.some((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r)
-          && String(r[COL.PC.LOC] || "").trim() === String(pcData[pcIndex][COL.PC.LOC] || "").trim()
-          && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_ng));
-        return _still ? _ng : undefined;
-      })(),
+      // 🚪 善後選項【只在她進門那一回合給一次】(2026-07 玩家「就只要問一次就好」)。
+      //   代價是明白的、也是合理的：玩家若改用打字繼續陪她，就沒有送客鍵了，之後按結束一天
+      //   她會留下過夜——那本來就是「你選擇繼續陪她」的自然結果。⚠ 別為了補這個缺口把泡泡
+      //   改成常駐，玩家對常駐泡泡的容忍度是零(同居/約會泡泡都因此被拔過)。
+      nightGuest: kanshouNightGuest_ || undefined,
       encounterOffer: encounterOffer,
       proposalResult: kanshouProposalResult_ || undefined,
       promiseSettle: kanshouPromiseSettle_.length ? kanshouPromiseSettle_ : undefined, // 📅 赴約/爽約結算通知陣列(獨立通道·不與提議結果搶單槽·可同時容納多筆)

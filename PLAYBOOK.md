@@ -60,6 +60,32 @@
 - 驗證部署：GitHub API 查最新 run → `status=completed, conclusion=success, head_sha=這次的 commit`，三者都對才回報「已上線」。輪詢用 `until <check>; do sleep 5; done`（環境擋裸 sleep 鏈）。
 - 從分支部署即可讓玩家玩到；合併 main 是另一件事，玩家喊「合併」才做。
 
+## ☠️ 批次改檔的絕對防呆（2026-07 真的把檔案炸成 57MB）
+
+用 python 做批次字串替換是這專案的主力手法（比 Edit 快、可帶斷言）。**但有一個會無聲毀檔的坑：**
+
+```python
+a = s[s.find(X) : s.find(Y) + len(Y)]   # 兩個 find 都沒中 → a 變成空字串 ""
+assert a in s                            # ⚠️ 擋不住！"" in s 永遠是 True
+s = s.replace(a, b)                      # → 在【每個字元之間】插入 b
+```
+
+實際後果：`Script_Kanshou.html` 151 KB → **57 MB（膨脹 378 倍）**，`check.sh` 沒擋下來，還推上了 GitHub（觸發大檔警告）。
+
+**鐵則（每個 replace 都要）：**
+
+```python
+for a, b in reps:
+    assert a, "空字串 pattern 一律拒絕"      # ← 這條是新加的，最重要
+    n = s.count(a)
+    assert n == 1, f"命中 {n} 次，期望 1"    # 命中 0 次或多次都是寫錯了
+    s = s.replace(a, b)
+```
+
+**永遠不要用 `s.find()` 的結果去切片當 pattern**——要嘛寫完整字面量，要嘛先 `assert idx >= 0`。
+
+**寫檔後順手看一眼大小**：`ls -la` 一行就能發現異常。檔案大小突變是最便宜的毀檔警報，`check.sh` 反而未必抓得到。
+
 ## 🪤 Git 陷阱實錄（都真的踩過）
 
 - **reset 前必先 fetch**：`git checkout -B <branch> origin/main` 用的是**本地** origin/main——如果 fetch 是在 squash 合併之前做的，你會把分支重置回舊代碼還 force-push 出去。**先 `git fetch origin main`、確認 sha 是預期的合併 commit，再 reset。**（真翻過車：偵察 agent 因此掃了整棵舊樹。）
