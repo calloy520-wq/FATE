@@ -453,6 +453,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
       name: s[COL.PC.NAME], cls: s[COL.PC.RANK] || "從者", sex: s[COL.PC.SEX],
       tag: s[COL.PC.REL_TAG] || "從者", // 🏷️ 關係標籤(鑑賞卡片「🏷️關係」鈕預填用；solo不使用此欄)
       nickname: getNickname_(s[COL.PC.REL_MEM]), // 💬 專屬稱呼裸值(鑑賞卡片「🏷️關係」面板預填用)
+      cohabit: kanshouIsCohabit_(s), // 🏠 是否同居中(鑑賞卡片「關係」中樞面板顯示狀態用·solo恆false)
       // 預取狀態字串隨 state 一併帶回，前端切從者直接秒顯，免每次都打一趟 get_full_status round-trip。
       statusString: buildPlayerStatusString(s, String(s[COL.PC.REL_MEM] || "")),
       hp: hpWord(s[COL.PC.HP], s[COL.PC.MAX_HP]),

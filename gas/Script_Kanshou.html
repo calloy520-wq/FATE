@@ -1518,6 +1518,37 @@ let plainTextContext = cleanText;
   //   天花板照樣演到底，門檻切在跟親密尺度五階「80+無上限」同一個點，一解鎖尺度本就已經全開。
   var KC_CUSTOM_TAG_BOND_ = 80;
   var _krBusy = false;
+  // 💞 關係中樞(2026-07 玩家「同伴卡片欄位太多，關係/回憶/同居可以整合在一起？這是最少按到的」)：
+  //   同伴卡從 8 顆按鈕收斂成 6 顆(2-2-2)，把三個低頻入口收進這一顆。刻意做成「有摘要的分派面板」
+  //   而非把三個面板硬合成一頁——三者的互動型態差很多(選標籤/管清單/送邀請)，硬合只會變成更長的
+  //   捲動頁；分派面板既省卡片空間，又能在同一眼看到三者【目前的狀態】。
+  //   ⚠ 三個既有面板(kanshouOpenRelTag/kanshouOpenMemoir/kanshouInviteCohabit)完全不動、原樣複用。
+  function kanshouOpenBondHub(name, curTag, bond, curNickname, npcId, cohabit) {
+    var ov = ensureOverlay_('kbh-overlay', { zIndex: 10001, onBgClick: function (ov) { ov.style.display = 'none'; } });
+    var safeN = String(name).replace(/'/g, "\\'");
+    var safeId = String(npcId || '').replace(/'/g, "\\'");
+    var safeTag = String(curTag || '').replace(/'/g, "\\'");
+    var safeNick = String(curNickname || '').replace(/'/g, "\\'");
+    var b = parseInt(bond) || 0;
+    var row = function (onclick, icon, title, sub, accent) {
+      return '<button onclick="document.getElementById(\'kbh-overlay\').style.display=\'none\';' + onclick + '"'
+        + ' style="width:100%;text-align:left;padding:10px 12px;margin-bottom:7px;background:rgba(' + accent + ',0.14);color:#e8dcc0;'
+        + 'border:1px solid rgba(' + accent + ',0.55);border-radius:8px;cursor:pointer;font-size:13px;">'
+        + '<span style="font-size:14px;">' + icon + ' <b>' + title + '</b></span>'
+        + '<div style="color:#b9a9c9;font-size:11px;margin-top:3px;">' + sub + '</div></button>';
+    };
+    ov.innerHTML = '<div style="width:min(380px,92vw);background:#1d1722;border:1px solid rgba(224,160,188,.3);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
+      + '<div style="display:flex;align-items:center;margin-bottom:10px;"><b style="flex:1;color:#e0a0bc;">💞 與「' + escapeHtml(String(name)) + '」的關係</b>'
+      + '<button onclick="document.getElementById(\'kbh-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
+      + row("kanshouOpenRelTag('" + safeN + "','" + safeTag + "'," + b + ",'" + safeNick + "')", '🏷️', '關係稱呼',
+        '目前：' + escapeHtml(String(curTag || '點頭之交')) + (curNickname ? '　專屬稱呼：' + escapeHtml(String(curNickname)) : '') + (b >= KC_CUSTOM_TAG_BOND_ ? '' : '　（自訂需好感 ' + KC_CUSTOM_TAG_BOND_ + '）'), '120,90,180')
+      + row("kanshouOpenMemoir('" + safeN + "')", '💞', '共同回憶',
+        '你們一起經歷過的重要瞬間　★釘選／🗑刪除', '200,120,150')
+      + row("kanshouInviteCohabit('" + safeN + "','" + safeId + "')", '🏠', '同居',
+        cohabit ? '✅ 已經住在一起了' : '邀她搬來同住（需關係足夠深厚、她本人在場）', '180,140,90')
+      + '</div>';
+    ov.style.display = 'flex';
+  }
   function kanshouOpenRelTag(name, curTag, bond, curNickname) {
     if (_krBusy) return;
     var ov = ensureOverlay_('kr-overlay', { zIndex: 10001, onBgClick: function (ov) { if (!_krBusy) ov.style.display = 'none'; } });
