@@ -15,9 +15,9 @@
  *   時間單位是「週」不是「回合」——一個遊戲內的週，鑑賞要約 630 次 AI 呼叫，這裡是 1 次。
  */
 
-// 一天切三格。刻意不沿用鑑賞的 5 段（清晨/午後/黃昏/夜/深夜）——排程表是 7×N 的格子，
-//   N=3 手機一屏塞得下，N=5 就得橫向捲。這是 UI 決定資料，不是資料決定 UI。
-const DIARY_SLOTS_ = ['上午', '下午', '晚上'];
+// 🗓️ 一天一格，七天七格。玩家 2026-07「我不要分時段，就是 1-7 天」——初版切了上午/下午/晚上
+//   三格，7×3＝21 格要填，手機上又長又煩，而且策略深度並沒有跟著變三倍（她那天大多待在同一區）。
+//   一天一格＝「這天你打算去哪」，一週七個決定，剛好是一屏看得完、也想得完的量。
 const DIARY_DAYS_ = ['一', '二', '三', '四', '五', '六', '日'];
 
 // 🗓️ 角色行程表（資料驅動·可查詢·不是骰子）。
@@ -27,30 +27,10 @@ const DIARY_DAYS_ = ['一', '二', '三', '四', '五', '六', '日'];
 //   地點名沿用 KANSHOU_LOCATIONS_ 的字面（唯讀共用，不另立一套地圖）。
 //   ⚠ 骨架期只放三位；驗證迴圈好不好玩不需要 25 位。要加就往這張表加一列。
 const DIARY_SCHEDULE_ = [
-  {
-    hero: '櫻',
-    week: [
-      ['商店街', '咖啡廳', '遠坂邸'], ['書店二樓', '咖啡廳', '遠坂邸'], ['商店街', '社區公園', '遠坂邸'],
-      ['書店二樓', '咖啡廳', '遠坂邸'], ['商店街', '河邊小徑', '遠坂邸'], ['社區公園', '商店街', '咖啡廳'],
-      ['古老神社', '河邊小徑', '遠坂邸']
-    ]
-  },
-  {
-    hero: '凜',
-    week: [
-      ['咖啡廳', '書店二樓', '遠坂邸'], ['商店街', '書店二樓', '遠坂邸'], ['咖啡廳', '屋頂花園', '遠坂邸'],
-      ['商店街', '書店二樓', '遠坂邸'], ['咖啡廳', '屋頂花園', '遠坂邸'], ['商店街', '咖啡廳', '屋頂花園'],
-      ['遠坂邸', '書店二樓', '遠坂邸']
-    ]
-  },
-  {
-    hero: '斯卡哈',
-    week: [
-      ['老道場', '山間小徑', '老道場'], ['老道場', '河邊小徑', '老道場'], ['山間小徑', '老道場', '隱藏溫泉'],
-      ['老道場', '山間小徑', '老道場'], ['老道場', '河邊小徑', '隱藏溫泉'], ['山間小徑', '社區公園', '老道場'],
-      ['隱藏溫泉', '老道場', '老道場']
-    ]
-  }
+  // 一維：week[0..6] ＝ 週一~週日她那天在哪。要加人就往這張表加一列，引擎自動吃。
+  { hero: '櫻',   week: ['商店街', '書店二樓', '社區公園', '咖啡廳', '商店街', '咖啡廳', '古老神社'] },
+  { hero: '凜',   week: ['咖啡廳', '書店二樓', '屋頂花園', '書店二樓', '咖啡廳', '商店街', '遠坂邸'] },
+  { hero: '斯卡哈', week: ['老道場', '河邊小徑', '隱藏溫泉', '老道場', '山間小徑', '社區公園', '老道場'] }
 ];
 // 種子英靈 id ↔ 行程表短名（建檔時要照這張表把人放進世界）。
 const DIARY_ROSTER_ = [
@@ -98,10 +78,9 @@ function diaryPcIdx_(data, pcId) {
   return -1;
 }
 // 某角色在第 d 天(0=週一) 第 s 格的所在地。查不到回空字串——沒有行程＝那格不在任何地方，不會命中。
-function diaryWhere_(heroName, d, s) {
+function diaryWhere_(heroName, d) {
   var row = DIARY_SCHEDULE_.find(function (x) { return x.hero === heroName; });
-  if (!row || !row.week[d]) return "";
-  return String(row.week[d][s] || "");
+  return row ? String(row.week[d] || "") : "";
 }
 
 /**
@@ -154,7 +133,7 @@ function actionEnterDiary(userData, pcId, sheets) {
   DIARY_ROSTER_.forEach(function (m) {
     var hero = heroes.find(function (h) { return String(h[COL.HERO.ID]) === m.id; });
     if (!hero) return;
-    var hrow = heroToKanshouRow_(hero, gameId, diaryWhere_(m.name, 0, 0) || "商店街", 1);
+    var hrow = heroToKanshouRow_(hero, gameId, diaryWhere_(m.name, 0) || "商店街", 1);
     hrow[COL.PC.NAME] = m.name;   // 行程表用短名比對，這裡對齊
     sh.appendRow(hrow);
   });
@@ -165,18 +144,40 @@ function actionEnterDiary(userData, pcId, sheets) {
  * 📔 本週角色行程表（給前端排程時參考／之後要做「未知行程」就從這裡收斂）。
  */
 function actionDiarySchedule(userData, pcId, sheets) {
+  var sh = getDiaryPcSheet_(SpreadsheetApp.getActiveSpreadsheet());
+  var data = sh.getDataRange().getValues();
+  var me = diaryVerify_(data, pcId, userData.acctName);
+  if (me < 0) return JSON.stringify({ success: false, message: "查無御主。" });
+  var gameId = String(data[me][COL.PC.GAME_ID] || "");
+  // 🎴 角色卡：玩家 2026-07「我可以看到其他角色的 ui」——排程時要看得到「她是誰、現在幾分、
+  //   這一週每天在哪」，不然七個決定全是瞎猜。外貌/口氣直接讀她那一列的 TRAIT 前兩格
+  //   (跟鑑賞 formatTrait 同一份資料，唯讀共用不另存)。
+  var cast = [];
+  for (var i = 1; i < data.length; i++) {
+    if (i === me || String(data[i][COL.PC.GAME_ID] || "") !== gameId) continue;
+    if (String(data[i][COL.PC.FACTION]) !== "從者") continue;
+    var nm = String(data[i][COL.PC.NAME]);
+    var t = String(data[i][COL.PC.TRAIT] || "").split('、');
+    var row = DIARY_SCHEDULE_.find(function (x) { return x.hero === nm; });
+    cast.push({
+      name: nm, bond: parseInt(data[i][COL.PC.BOND]) || 0,
+      tier: String(data[i][COL.PC.REL_TAG] || ""),
+      look: [t[0], t[1]].filter(function (v) { return v && v !== '無'; }).join('・'),
+      week: row ? row.week : []
+    });
+  }
   return JSON.stringify({
-    success: true, slots: DIARY_SLOTS_, days: DIARY_DAYS_,
-    // 地點清單沿用鑑賞地圖(唯讀)，排除玩家私室以外的全部可去處。
-    locations: KANSHOU_LOCATIONS_.filter(function (l) { return l.region !== 'visit'; })
+    success: true, days: DIARY_DAYS_,
+    // 地點清單沿用鑑賞地圖(唯讀)，排除別人家(region visit·要先解鎖才進得去)。
+    locations: KANSHOU_LOCATIONS_.filter(function (l) { return l.region !== 'visit' && l.region !== 'room'; })
       .map(function (l) { return { name: l.name, desc: l.desc }; }),
-    schedule: DIARY_SCHEDULE_
+    cast: cast
   });
 }
 
 /**
  * 📔 送出一週排程 → 命中判定 → 生成週記 → 套用增量。這是整個模式的核心迴圈。
- * userData.plan = [ [週一上午,下午,晚上], …共7天 ]，每格是地點名（空字串＝那格待在家）。
+ * userData.plan = [ 週一,…,週日 ]，每格是地點名（空字串＝那天待在家哪也沒去）。
  */
 function actionDiaryWeek(userData, pcId, sheets) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -192,16 +193,14 @@ function actionDiaryWeek(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: "排程表格式不對（要 7 天）。" });
   }
 
-  // ① 命中判定：玩家該格地點 === 角色該格行程 → 一筆相遇。純比對，不擲骰、不問 AI。
+  // ① 命中判定：玩家那天去的地點 === 角色那天的行程 → 一筆相遇。純比對，不擲骰、不問 AI。
   var hits = [];
   for (var d = 0; d < DIARY_DAYS_.length; d++) {
-    for (var s = 0; s < DIARY_SLOTS_.length; s++) {
-      var at = String((plan[d] || [])[s] || "").trim();
-      if (!at) continue;
-      var who = DIARY_SCHEDULE_.filter(function (x) { return diaryWhere_(x.hero, d, s) === at; })
-        .map(function (x) { return x.hero; });
-      if (who.length) hits.push({ d: d, s: s, loc: at, who: who });
-    }
+    var at = String(plan[d] || "").trim();
+    if (!at) continue;
+    var who = DIARY_SCHEDULE_.filter(function (x) { return diaryWhere_(x.hero, d) === at; })
+      .map(function (x) { return x.hero; });
+    if (who.length) hits.push({ d: d, loc: at, who: who });
   }
 
   // ② 撈在世名冊(本模式·本 game_id)的狀態快照，餵給生成階段
@@ -260,7 +259,7 @@ const DIARY_SUMMARY_MAX_ = 300;   // 記憶摘要長度上限（滾動壓縮，�
 function diaryGenerate_(meRow, week, hits, cast, prevSummary) {
   var meName = String(meRow[COL.PC.NAME]);
   var hitLines = hits.map(function (h) {
-    return '週' + DIARY_DAYS_[h.d] + DIARY_SLOTS_[h.s] + '在「' + h.loc + '」遇到 ' + h.who.join('、')
+    return '週' + DIARY_DAYS_[h.d] + '在「' + h.loc + '」遇到 ' + h.who.join('、')
       + (h.who.length > 1 ? '（兩人以上同時在場）' : '');
   });
   var castLines = cast.map(function (c) {
