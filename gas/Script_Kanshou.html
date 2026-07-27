@@ -117,7 +117,7 @@
     opts = opts || {};
     const moveTarget = opts.moveTarget || null, lookAround = !!opts.lookAround, endDay = !!opts.endDay,
       advanceHours = opts.advanceHours || 0, jumpFestival = opts.jumpFestival || null,
-      skipKnockCheck = !!opts.skipKnockCheck,
+      skipKnockCheck = !!opts.skipKnockCheck, dismissGuest = !!opts.dismissGuest,
       jumpBand = opts.jumpBand || null,
       loaderCaptions = opts.loaderCaptions || null, moveWithCompanion = !!opts.moveWithCompanion,
       promiseMeet = opts.promiseMeet || null, cohabitInvite = opts.cohabitInvite || null,
@@ -162,7 +162,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, skipKnockCheck: skipKnockCheck || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined, handHold: handHold || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, skipKnockCheck: skipKnockCheck || undefined, dismissGuest: dismissGuest || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined, handHold: handHold || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -272,10 +272,10 @@ let plainTextContext = cleanText;
       if (data.nightGuest) {
         const gNameEsc = escapeHtml(String(data.nightGuest));
         optionsHtml += `<div style="background:rgba(160,110,60,0.14); border:1px solid #8a6a3a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#e0c090; font-size:12.5px; margin-bottom:6px;">🚪 「${gNameEsc}」深夜來訪，此刻就在你房裡——這一夜要怎麼收？<span style="color:#9a8f78;">(也可以不理這兩顆，直接繼續聊)</span></div>`
+          + `<div style="color:#e0c090; font-size:12.5px; margin-bottom:6px;">🚪 「${gNameEsc}」深夜來訪，此刻人就在這裡——這一夜要怎麼收？<span style="color:#9a8f78;">(也可以先不理這兩顆，繼續聊；她走之前選項都會留著)</span></div>`
           + `<div style="display:flex; gap:8px;">`
-          + `<button class="btn-option" style="flex:1;" onclick="kanshouSleepWithGuest()">🛏 一起睡</button>`
-          + `<button class="btn-option" style="flex:1;" onclick="kanshouSendGuestHome()">🚪 請她回去</button>`
+          + `<button class="btn-option" style="flex:1;" onclick="kanshouSleepWithGuest()">🛏 讓她留下<br><span style="font-size:10px;opacity:.75;">和在場的人共度·直接到早上</span></button>`
+          + `<button class="btn-option" style="flex:1;" onclick="kanshouSendGuestHome()">🚪 請她回去<br><span style="font-size:10px;opacity:.75;">只跟原本陪你的人·直接到早上</span></button>`
           + `</div></div>`;
       }
       // 📷 拍照結果小字回饋(敘事本身由AI演，這行只補機制數字：為何沒拍成)。
@@ -1246,11 +1246,14 @@ let plainTextContext = cleanText;
   //   AI 照常演、日期沒推進，之後想睡再按一次「結束一天」(當日鎖 KANSHOU_KNOCK_DAY_TAG_ 擋著，
   //   不會再來第二個人)。⚠ 這正是舊版「開門/不予理會」待決泡泡的病根，別再改回去。
   async function kanshouSleepWithGuest() {
-    await send('（就這樣一起歇下了）', false, { endDay: true, skipKnockCheck: true });
+    // 讓她留下＝什麼都不用做：endDay 的 intimateNightNames(好感≥80 且此刻同地)本來就會把在場的
+    // 每一位都留在玩家房間過夜——她跟原本就陪著你的人都算在內。
+    await send('（就這樣，和在場的人一起度過了這一夜）', false, { endDay: true, skipKnockCheck: true });
   }
   async function kanshouSendGuestHome() {
-    // 結束一天本來就會讓所有人各自回家，不需要另外的「送客」旗標——差別只在敘事給AI的收場語氣。
-    await send('（送她回去之後，自己也歇下了）', false, { endDay: true, skipKnockCheck: true });
+    // ⚠ 一定要帶 dismissGuest：她好感通常≥80 又已落盤在你所在地，不明講送客的話會被 endDay 的
+    //   intimateNightNames 直接留下過夜——「請她回去」會變成完全沒作用(實測前抓到)。
+    await send('（送她回去之後，才和留下來的人一起歇下）', false, { endDay: true, skipKnockCheck: true, dismissGuest: true });
   }
 
   // 同伴名單變動後的局部刷新：只重抓「鑑賞眾生在場名單」這份小資料，不再重打 get_heroes，
