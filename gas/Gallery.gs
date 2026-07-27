@@ -3002,7 +3002,9 @@ function actionPlay_(userData, pcId, sheets) {
   // 🐛→✅ 玩家實測前主動抓到：這裡本身也是單槽——若玩家同時跟兩位同伴各有一筆待結算的約(如A今天
   //   赴約成功、B的舊約同時判定爽約)，這個 forEach 跑兩輪，後跑的那筆會無條件覆寫前一筆，前一筆的
   //   通知條就這樣消失(底層BOND/MEMORY寫入不受影響，只有這條UI通知被吞)。改成陣列，兩筆都保留。
-  let kanshouPromiseSettle_ = []; // [{ok,type:'promise_met'|'promise_missed',name,loc}, ...]
+  let kanshouPromiseSettle_ = []; // [{ok,type:'promise_met'|'promise_missed'|'promise_byher',name,loc}, ...]
+  // 📅 豁免掉的約(人就在你身邊/她單方面約的)：先記名字，待 partyMembers 算出後依在場過濾成句。
+  const kanshouApptWaivedArr_ = [];
   pcData.forEach((r, i) => {
     if (i === pcIndex || String(r[COL.PC.FACTION]) !== "從者" || !sameGame(r) || String(r[COL.PC.ID]).startsWith("DEAD_")) return;
     const _pr = kanshouGetPromise_(r[COL.PC.MEMORY]);
@@ -3042,7 +3044,13 @@ function actionPlay_(userData, pcId, sheets) {
         || kanshouWithMeAtStart_.indexOf(String(r[COL.PC.NAME]).trim()) !== -1) {
         pcData[i][COL.PC.MEMORY] = kanshouClearPromise_(pcData[i][COL.PC.MEMORY]);
         dirtyPcRows.add(i);
-        kanshouPromiseMetStr += `\n★【那個約就算了】：你與『${_her}』本來約在「${_pr.loc}」見面、結果沒去成，但你們這段時間本來就一直在一起——不是放鴿子，沒有人空等。可自然帶過那個沒去成的約——語氣是相視一笑的默契，【不必】演成道歉或責備，也沒有任何數值變動。`;
+        // 🐛→✅ 2026-07 提示詞矛盾掃描抓到：這句原本【當場就寫死】，但豁免條件之一是「這回合一開始
+        //   跟你在一起」——按下結束一天時，遣散跑在結算【之前】，她很可能在組提示詞時早就被送回家了；
+        //   另一個條件 byHer(她單方面約的)更是完全不看她在不在場。結果就是叫 AI 跟一個不在場的人
+        //   相視一笑，跟【在場驗證鐵律】直接打架。跟【晨間餘韻】同一套解法：先記名字，等 partyMembers
+        //   算出來之後再依「此刻真的在場」過濾成句；沒人在場就整句不送(這條本來就是零數值變動的
+        //   純演出提示，沒人可演時安靜才是對的)。
+        kanshouApptWaivedArr_.push({ name: _her, loc: _pr.loc });
         return;
       }
       pcData[i][COL.PC.MEMORY] = kanshouClearPromise_(pcData[i][COL.PC.MEMORY]);
@@ -3188,6 +3196,11 @@ function actionPlay_(userData, pcId, sheets) {
       const _today = _band.hour > curHour + 1;
       pcData[_i][COL.PC.MEMORY] = kanshouSetPromise_(pcData[_i][COL.PC.MEMORY], curDay + (_today ? 0 : 1), _loc.name, _band.band, true);
       dirtyPcRows.add(_i); _stamp();
+      // 📣 這是【真的寫進她那一列的約定】(地圖📅徽章、睡前爽約警示都讀它)，但舊版一個訊號都沒回傳，
+      //   前端的約定快取 _kcCur 只在「玩家自己約成」或「結算」時才刷新——於是她開口約的這一場，
+      //   玩家在地圖上完全看不到，也不會被睡前警示提醒。走既有 promiseSettle 通道補一筆。
+      kanshouPromiseSettle_.push({ ok: true, type: 'promise_byher', name: String(_r[COL.PC.NAME]), loc: _loc.name,
+        when: _today ? '今天' : '明天', bandLabel: _band.label });
       kanshouInitStr = `\n★【她開口約你】：『${String(_r[COL.PC.NAME])}』說了${_today ? '今天' : '明天'}${_band.label}在「${_loc.name}」等你——這句話【已經說出口】，由她依自己的個性演出她是怎麼提的(慎重／裝作隨口／彆扭地繞一圈才講皆可)。★這是她單方面的邀約，你答不答應都行，narration【不可】替玩家決定要去或不去。`;
     } else {
       const _r = _pick(_wantPool);
@@ -3240,6 +3253,13 @@ function actionPlay_(userData, pcId, sheets) {
   const kanshouApptTodoStr = kanshouApptTodoArr_.length
     ? `\n★【今天的約·尚未赴】：${kanshouApptTodoArr_.map(t => `${t.at ? t.at + '於' : ''}「${t.loc}」見『${t.name}』`).join('；')}——這是今天確實還沒完成的事，不是背景設定。${kanshouApptTodoArr_.some(t => partyMembers.indexOf(t.name) !== -1) ? `其中人就在你面前的那位，若情境合適可由她自然提起(確認/催一下/嘴上說不急都行)。` : `對方此刻不在你身邊，只能寫成你自己記著這件事，【不可】讓她開口或出現。`}`
     : "";
+
+  // 📅 那個約就算了(豁免)：這裡才依「此刻真的在場」過濾——見 _standUp 內的說明。人不在場就整句不送。
+  const kanshouApptWaivedStr = (() => {
+    const _here = kanshouApptWaivedArr_.filter(t => partyMembers.indexOf(t.name) !== -1);
+    if (!_here.length) return "";
+    return `\n★【那個約就算了】：你與『${_here.map(t => t.name).join('、')}』本來約在「${_here.map(t => t.loc).join('、')}」見面、結果沒去成，但你們這段時間本來就一直在一起——不是放鴿子，沒有人空等。可自然帶過那個沒去成的約——語氣是相視一笑的默契，【不必】演成道歉或責備，也沒有任何數值變動。`;
+  })();
 
   // 🌍 世界概況(輕量版·2026-07 玩家「NPC不知道彼此存在」)：只給名字＋大分區，不給精確地點/在幹嘛，
   //   純粹讓AI知道「這局還認識誰、大概在哪」以便自然閒聊提及——不是在場資料，不影響【在場驗證鐵律】
@@ -3762,7 +3782,7 @@ function actionPlay_(userData, pcId, sheets) {
 ${PROMPT_REL}
 ★【在場驗證·最高優先】：只有【在場人物】可對話/互動/記好感·路人不具名不追蹤。例外：①玩家引入第三人②系統豁免段(自然告辭/指定巧遇)。歷史提過但不在場＝不在場，禁憑空開口；可輕巧帶過原因(去忙別的/剛好不在)，禁裝作還在、禁不解釋就消失。
 ★【焦點禮讓】：玩家專一互動時，其他在場者維持背景輕描·不搶話/不介入親密(除非系統另有提示)。
-★【在場來由】：一律照各人「在場來由」欄演、不可改寫。標「一直在這裡」＝從她早已在場的狀態接著往下寫，她把你在場視為理所當然；標「結伴一起來到」＝她是跟你一起走進來的，這一路她都在你身邊。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}${kanshouInitStr}
+★【在場來由】：一律照各人「在場來由」欄演、不可改寫。標「一直在這裡」＝從她早已在場的狀態接著往下寫，她把你在場視為理所當然；標「結伴一起來到」＝她是跟你一起走進來的，這一路她都在你身邊。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}${kanshouInitStr}
 ★【今日天氣】：${kanshouWeather_(curDay)}·自然滲入場景不必每句提。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜她走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·她此刻【不在場】·禁讓她開口或出現。` : ""}
 💕【後日談模式·最高優先覆寫】：${partyRows.length === 0
     ? `眼下無相識者在場·玩家一個人的尋常時光。`

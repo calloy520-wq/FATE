@@ -366,9 +366,13 @@ let plainTextContext = cleanText;
       if (data.promiseSettle && data.promiseSettle.length) {
         data.promiseSettle.forEach(_ps => {
           const _psNm = escapeHtml(String(_ps.name || '她')), _psLoc = escapeHtml(String(_ps.loc || ''));
-          const _psMsg = _ps.type === 'promise_met'
-            ? '📅 <b>依約相會！</b>你守住了與「' + _psNm + '」在「' + _psLoc + '」的約定(好感↑)。'
-            : '📅 與「' + _psNm + '」在「' + _psLoc + '」見面的約定<b>過期了</b>——你沒有赴約，她有些在意(好感↓)。約定是一次性的，想再見就再約一次吧。';
+          // 📅 promise_byher＝她自己開口約的(見 Gallery.gs 她主動·invite)：約定是真的、地圖會標，
+          //   但玩家從沒答應過，所以不去【不算爽約、不扣好感】——文案必須把這點講清楚。
+          const _psMsg = _ps.type === 'promise_byher'
+            ? '📅 「' + _psNm + '」說了' + escapeHtml(String(_ps.when || '')) + escapeHtml(String(_ps.bandLabel || '')) + '在「' + _psLoc + '」等你——地圖上會標著這個約。去不去都由你，這是她單方面的邀約，沒去也不會算你放鴿子。'
+            : _ps.type === 'promise_met'
+              ? '📅 <b>依約相會！</b>你守住了與「' + _psNm + '」在「' + _psLoc + '」的約定(好感↑)。'
+              : '📅 與「' + _psNm + '」在「' + _psLoc + '」見面的約定<b>過期了</b>——你沒有赴約，她有些在意(好感↓)。約定是一次性的，想再見就再約一次吧。';
           const _psCol = _ps.ok ? 'rgba(90,160,110,.14);border:1px solid #4a8a5a;color:#a8e0b8' : 'rgba(150,110,120,.14);border:1px solid #8a5a6a;color:#e0b0bc';
           story.insertAdjacentHTML('beforeend', `<div style="background:${_psCol};border-radius:8px;padding:7px 10px;margin:4px 0;font-size:12.5px;">${_psMsg}</div>`);
         });
