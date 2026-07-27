@@ -143,8 +143,8 @@
 - `buildTagsPayload_(sheets, pcId, preData?)` — 🔧 左側狀態卡資料建構（get_tags 與 sync 共用）。組御主卡（HP 詞化/令咒/願望/禮裝/換裝）＋在世我方從者陣列（solo 靠「同行」、鑑賞靠同地點過濾），逐從者附六圍/技能/出力/寶具/魔境/符文/synergy/理想鄉/多寶具/海怪/換裝/武裝/牽手/破戒奪取旗標＋**`id`**（2026-07 id 化重構新增，供前端 `myActiveServantId` 記錄、日後系統內部指令帶 id 用）。戰鬥限定欄以 `isFateCtx`（g_）結構性擋成 null。另回 economy/bondUsed/mystic/canRuleBreak/鑑賞 locationCounts/unlockedResidences。**七度改版**：`unlockedResidences`改用`kanshouGetHeroHome_`讀住處(原本只認`KANSHOU_HERO_HOME_`，隨機分配到泛用住處池的英靈解鎖不了)。
 - `buildClientState_(sheets, pcId, preData?)` — 完整 client state blob。`markRivalsSeen_`（戰爭迷霧，鑑賞跳過）＋狀態字串＋people（鑑賞/solo 分版）＋鄰近地點＋地圖描述＋時鐘/AP＋economy＋`buildTagsPayload_`＋mapNodes，全部沿用同一次整表讀。
 - `actionSync(...)` — 薄包裝，回 `buildClientState_`＋success。
-- `actionUpdateRelTag(...)`（2026-07 稽核：找列邏輯改委派 `findPcRowIdx_(pcData, myGameId, {name:targetName})`，取代手刻迴圈；再稽核：`myGameId`改用`resolveCallerGameId_`取得，補上鑑賞帳號歸屬驗證，見上） — 重定義關係稱呼：改該 NPC 自己列 REL_TAG。限本局 game_id；solo 要求同行、鑑賞豁免。**2026-07 五度改版**：5階預設標籤(`KANSHOU_REL_TIER_`)永遠可設，自訂文字(不等於任一預設標籤)需 bond≥`KANSHOU_CUSTOM_TAG_BOND_`(80)——防低好感塞露骨自訂稱呼繞過親密尺度天花板(該文字會字面塞進AI提示詞當既定事實)。交棒 `STATE_PRE_DATA_`。
-- `actionSetNickname(userData, pcId, sheets)`（2026-07 五度改版新增；同年稽核：找列邏輯同上改委派 `findPcRowIdx_`；再稽核：`myGameId`改用`resolveCallerGameId_`取得，補上鑑賞帳號歸屬驗證，見上）— 專屬稱呼(REL_MEM`[專屬稱呼]`)手動鎖定入口：同 bond≥80 門檻，通過後清掉分隔符危險字元(｜[])＋截20字，寫入`[專屬稱呼]${nick}| [稱呼鎖]是`(保留既有`[態度]`段)，讓 `actionPlay_` 的 NPC 寫回邏輯尊重此鎖(偵測到`[稱呼鎖]是`就不再吃`mutual_nicknames`自動覆寫)。交棒 `STATE_PRE_DATA_`。
+- `actionUpdateRelTag(...)`（2026-07 稽核：找列邏輯改委派 `findPcRowIdx_(pcData, myGameId, {name:targetName})`，取代手刻迴圈；再稽核：`myGameId`改用`resolveCallerGameId_`取得，補上鑑賞帳號歸屬驗證，見上） — 重定義關係稱呼：改該 NPC 自己列 REL_TAG。限本局 game_id；solo 要求同行、鑑賞豁免。**2026-07 五度改版＋逐按鍵稽核**：預設標籤依同一張表的 `KANSHOU_REL_TIER_.min` 把關（沒到那一階就選不了那一階；舊版「預設永遠可設」讓好感30點一下『戀人』就繞過門檻，而 `kanshouSyncRelTier_` 只在 BOND 變動時才跑，純聊天回合會一路掛著），自訂文字(不等於任一預設標籤)需 bond≥`KANSHOU_CUSTOM_TAG_BOND_`(80)——防低好感塞露骨自訂稱呼繞過親密尺度天花板(該文字會字面塞進AI提示詞當既定事實)。交棒 `STATE_PRE_DATA_`。
+- `actionSetNickname(userData, pcId, sheets)`（2026-07 五度改版新增；同年稽核：找列邏輯同上改委派 `findPcRowIdx_`；再稽核：`myGameId`改用`resolveCallerGameId_`取得，補上鑑賞帳號歸屬驗證，見上）— 專屬稱呼(REL_MEM`[專屬稱呼]`)手動鎖定入口：同 bond≥80 門檻，通過後過 `sanitizeNickname_`（清 `|｜[]` ＋截20字，與 AI 寫入路徑共用同一支），寫入`[專屬稱呼]${nick}| [稱呼鎖]是`(保留既有`[態度]`段)，讓 `actionPlay_` 的 NPC 寫回邏輯尊重此鎖(偵測到`[稱呼鎖]是`就不再吃`mutual_nicknames`自動覆寫)。交棒 `STATE_PRE_DATA_`。
 
 ---
 
@@ -432,7 +432,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### LLM 核心
 
-- `callGeminiAPI(prompt, systemOverride=null, config={})` — **兩軌共用的 OpenRouter 呼叫核心**。組裝 system（`systemOverride` 或 `buildDefaultSystemPrompt()`＋尾端補「台灣繁體鐵律」）＋可選 `config.chatHistory` 多輪＋user prompt。採樣旋鈕：`model`（預設 `AI_MODEL`）、temperature(0.8)、top_p(0.95)、`max_tokens`（NSFW 1000／solo 2000）、及未設即略過的 top_k/repetition/presence/frequency_penalty（OpenRouter 不支援會自動忽略）。非 `plainText` 時強制 `response_format=json_object`、抽 `{…}` 並 `JSON.parse` 驗證；`plainText`（如奪杯回憶錄）原樣回傳散文。內含審查降階重試機制（見下 `attemptWithModel_`）＋整組失敗後可換 `config.fallbackModel` 再試一輪。全敗則回世界觀柔性 fallback（審查攔截／連線紊亂兩款文案），失敗訊息只進 Logger 不給玩家。
+- `callGeminiAPI(prompt, systemOverride=null, config={})` — **兩軌共用的 OpenRouter 呼叫核心**。組裝 system（`systemOverride` 或 `buildDefaultSystemPrompt()`＋尾端補「台灣繁體鐵律」）＋可選 `config.chatHistory` 多輪＋user prompt。採樣旋鈕：`model`（預設 `AI_MODEL`）、temperature(0.8)、top_p(0.95)、`max_tokens`（NSFW 1000／solo 2000）、及未設即略過的 top_k/repetition/presence/frequency_penalty（OpenRouter 不支援會自動忽略）。非 `plainText` 時強制 `response_format=json_object`、抽 `{…}` 並 `JSON.parse` 驗證；`plainText`（如奪杯回憶錄）原樣回傳散文。內含審查降階重試機制（見下 `attemptWithModel_`）＋整組失敗後可換 `config.fallbackModel` 再試一輪。全敗則回世界觀柔性 fallback（審查攔截／連線紊亂兩款文案，見下 `aiFallbackNarration_`/`aiFallbackData_`），失敗訊息只進 Logger 不給玩家。
+- `aiFallbackNarration_(isBlocked)` / `aiFallbackData_(isBlocked)`（2026-07 邊界稽核抽出）— 生成失敗保底文字與 `_genFailed` 旗標的**單一真實來源**。除了 `callGeminiAPI` 自己，`actionPlay_` 解析 AI 回應失敗時也走 `aiFallbackData_`：模型吐到 max token 就斷（截斷 JSON）或回純文字道歉是常態，舊版直接 `JSON.parse` 一失敗就丟例外，而 `handleGameAction` 的 try 只有 finally、沒有 catch，例外會一路穿出去變裸錯誤。
   - `attemptWithModel_(model)`（`callGeminiAPI` 內部函式）— 單一模型的完整重試迴圈（`config.retries||5` 次，2026-07 玩家反饋審查攔截時想多試幾次·由 3 調到 5）。逐次 `UrlFetchApp.fetch(MODEL_URL)`；把 `result.error`（含 `PROHIBITED_CONTENT/SAFETY`）與 `finish_reason==content_filter/SAFETY`／空 message 統一丟 `Triggered_NSFW_Filter`；首次觸發審查改掛 `softenSuffix`（更含蓄筆法）重送、`Utilities.sleep(2000)` 退避。回成功文字或 null。
 
 #### 網頁進入點
@@ -557,7 +558,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 輸入驗證／提案裁定／技能標記讀取（`actionPlay` 用的小工具，各自單一職責）
 
-- `sanitizeAiData_(aiData)` — 寫回試算表前的 AI JSON 輸出守門：非物件/陣列直接拒絕，`rel_changes[].fav_change` 夾在 -100~100。`actionPlay` 唯一呼叫者，solo 不用。
+- `sanitizeAiData_(aiData)` — 寫回試算表前的 AI JSON 輸出守門：非物件/陣列直接拒絕，`rel_changes[].fav_change` 夾在 -100~100；`options` 夾成「≤6 個字串、每個 ≤60 字」（這欄原樣轉發前端、一字串一顆按鈕，舊版無上限，模型失控時會長出一整片按鈕牆）。`actionPlay` 唯一呼叫者，solo 不用。
 - `kanshouProposalAccepts_(type, bond)` — 🎲 GAS 依 BOND 擲一個機率(`move`/`promise`/`hold` 三種提案各自不同基礎值/斜率)，決定玩家主動提案(相約同去/約明日見/牽手)是否被接受。玩家發起的提案由 GAS 在呼叫 AI 前先擲骰定成敗、把結果直接寫進提示詞告訴 AI(「★成敗由系統定」)，`proposal_accept` schema 欄已整個刪除（NPC 主動發起約會/同居邀約的對應機制皆已於八度改版移除，約會/同居現只剩玩家自己主動發起一條路）。
 
 #### 帳號綁定與擁有權驗證（資料存取·權威來源）
@@ -589,6 +590,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `kanshouBondFloorOf_(bond)`（2026-07 新增）— 好感棘輪的地板：回傳 bond 已跨過的最高門檻（門檻＝`KANSHOU_REL_TIER_` 的 min>0 ＋ `KANSHOU_COHABIT_BOND_`，即 20/40/60/80/90，由表推導不另寫數字）。**刻意寫成函式而非模組層常數**——`KANSHOU_COHABIT_BOND_` 宣告在本檔後面，const 有 TDZ，模組層直接引用會炸。
 - `KANSHOU_CUSTOM_TAG_BOND_`（常數=80，2026-07 五度改版新增）— 自訂關係稱呼／專屬稱呼的解鎖門檻，跟親密尺度五階「80+無上限」同一個切點。`actionUpdateRelTag`/`actionSetNickname`(Router_Action.gs) 共用此常數。
 - `getNickname_(relMem)`（2026-07 五度改版新增）— 從 REL_MEM 裸取`[專屬稱呼]`值的共用小 helper（供 UI 顯示用；鏡射 `actionPlay_` 內部組提示詞用的 `relMemMemoryStr_`，但那支輸出完整格式化字串，這支只回裸值）。`actionKanshouCompanions`／servant 清單 builder 都吃這支。
+- `sanitizeNickname_(s)`（2026-07 邊界稽核新增）— 專屬稱呼寫入前的**唯一消毒口**：清掉 `|｜[]` ＋截 20 字。REL_MEM 是用 `| [欄名]值` 串成的單格字串，這格有兩條寫入路徑（玩家手動 `actionSetNickname`／AI 的 `intimacy_feedback.mutual_nicknames`），舊版只有手動那條消毒——AI 回一句 `"小可愛| [稱呼鎖]是"` 就能**偽造稱呼鎖**（玩家沒設過卻從此凍結、AI 自己也再改不動），且 AI 那條完全沒長度上限。兩條路徑現在都只走這支。
 - `KANSHOU_SCENE_BOND_`（常數=3）— 接受親密橋段給的好感，直接寫、不吃聊天上限。
 - `kanshouRelChatCeiling_(bond)` — 純聊天加好感的封頂：只從 40 門檻起算（<40 可自由聊到 39），40/60/80 三道親密門檻要靠約定赴約/橋段才能突破（slow burn）。
 

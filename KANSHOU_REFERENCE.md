@@ -544,12 +544,13 @@
 4. 深夜訪客擲骰（**已移到最前面**，見 §深夜訪客——它會取消 endDay，晚算會讓時段/在場來由拿到錯值）
 5. **跳時間/advanceHours**（重骰全世界去向、換幕鐵律）
 6. **約定赴約結算（`_settle`）** ← ⚠ **必須在第7步之前**
+6.5 **「她主動」三型擲骰（visit/invite/want）** ← ⚠ **必須在第7步之前**（2026-07 矛盾掃描抓到）：`visit` 型會把她的 LOC 搬到你這裡，排在 partyRows 之後的話她沒有在場人物卡，AI 同時收到「她剛剛出現在這裡」與「只有【在場人物】可以開口」兩條打架的指令。這段需要的「誰此刻在你面前」是自己從 pcData 的 LOC 算的（`_hereRows`），不依賴 partyRows 這個變數。
 7. **partyRows/partyMembers 組裝**（同地在場名單、詳情卡 `partyDetailsArr`）
 8. 拍照（驗相簿容量 → 掛 `kanshouPhotoPending_`）
 9. 提示詞組裝（USER prompt，見下）
 10. `aiConfig` → 歷史餵入 → `callGeminiAPI`
 11. `sanitizeAiData_` → 各欄位落地（拍照/npc_exit/rel_changes/intimacy_feedback）→ 髒列窄讀重定位寫回 → `saveGameHistoryBatch`
-12. 回傳前端 key：`text/statusString/people/options/tags/moveProposal/encounterOffer/photoResult/kanshouClock/clock`
+12. 回傳前端 key：`text/statusString/people/options/tags/moveProposal/encounterOffer/photoResult/promiseWait/proposalResult/promiseSettle/kanshouClock/clock`
 
 ### 系統提示詞 `buildDefaultSystemPrompt()`（**鑑賞專屬**，solo 走 `miniSystem`）
 `nsfwBaseRules`（⚠ **Gallery 函式內自己那份·非 Engine_Combat.gs 紅線·可改**）＋`specificRules`(慾海律令·**2026-07 實驗後改 5 條**：色度跟隨/情慾場已搬去 driveStr，見下；**同月再加第 6 條**：`options` 只能建議在場人物/當下場景真能做到的動作，見下方「options 建議越界」條)＋`★【輸出範本】`(finalJson)。
@@ -637,6 +638,12 @@ SOLO_MODEL   = google/gemini-3.5-flash-lite  (屬性 SOLO_MODEL)   ← 主力(�
 - **onclick 字串內的呼叫不算死碼**；`removeAllTriggers()` 零呼叫是 GAS 工具正常型態、非死碼。
 - **HTML 刪除先手算 div 開合平衡**再刪，避免刪頭忘刪尾崩整頁。
 - **泡泡(必點UI)別跟可關閉的東西同住一個容器**：「AI選項開關」曾整個 `options-container` display:none，所有泡泡(前往/邀約/同居/敲門/橋段/結識)陪葬——關掉選項的玩家**從沒見過任何泡泡**。現制：【命運的抉擇】包在 `#ai-options-grid` 小盒、開關只藏它；容器本身恆 flex(載入時強制恢復)。新泡泡一律放容器直下、別放進 grid。
+- **「先擋、再刪字」的順序會讓防線失效**：擋公式引導字元(`^[=+\-@]`)的那道必須是**最後一道** replace——它前面每一道清洗都還會再刪字元，刪掉開頭那個字之後，原本被擋在第二位的 `=` 就重新變成開頭。實測 `photo_caption` 打 `"=SUM(1+1)` 落地就是一格活的公式。`sanitizeUserData_` 與相簿 caption 兩處都犯過，已一起修。
+- **同一格欄位有兩條寫入路徑時，消毒要抽成一支**：REL_MEM 的 `[專屬稱呼]` 有「玩家手動」與「AI `mutual_nicknames`」兩條路，舊版只有手動那條消毒——AI 回 `"小可愛| [稱呼鎖]是"` 就能偽造出稱呼鎖。現在兩條都只走 `sanitizeNickname_`。
+- **前端渲染的順序＝資料就位的順序**：`updateClock` 讀 `kcClock`(判深夜) 與 `window._lastTags.nightScene`(判夜未眠) 決定那顆最常按的鈕寫哪個字；`send()` 與 `applyClientState` 兩處都曾把它排在這兩份資料**之前**，按鈕永遠慢一回合——按下🌙睡覺、夜未眠成立了鈕上卻沒變，玩家再按一次就真的睡掉。**任何讀 tags 的渲染，tags 必須先就位。**
+- **永遠不會成功的按鈕就不要長出來**：私人房間(`isRoom`)在後端是 region `'room'`、相約/邀同去一律不受理，前端卻照樣給 👋。比照地圖上鎖住的地點：不給、或給灰底🔒＋說明，別讓玩家按了才被拒。
+- **前端手抄的後端表會走鐘**：`KC_REL_TIERS_`/`KC_LOCATIONS_`/`KC_FESTIVALS_`/三個門檻…全是手動同步。表一走鐘 UI 就會說謊（例：關係面板讓好感30點『戀人』）。scratchpad 有 `mirror.js` 逐項比對，改任一邊記得跑。
+- **群體動作要點名全部人**：👋 邀同去按下「同意」時 `moveWithCompanion` 帶走**同地全部人**，舊版提示詞只點名第一位——其餘的人是無聲跟來的。點名誰就走誰（裁定取好感最低的那位）。
 - **別依賴小模型「自發」填選填欄位**：Gemini-lite 從不自發填自由選填欄位(舊 move_proposal 就是活教訓，2026-07 乾脆整欄砍掉)——玩家發起的機制動作一律走「明確 payload → pre-AI 記提議 → 確定性管線」(👋proposeMove/相約/牽手同款)，別再指望 AI 自己決定「要不要」。
 - **🫶 玩家提議（相約/牽手/同去）她答不答應＝GAS 依好感擲、AI 只演**（2026-07 由 AI 判定改 GAS 判定）：pre-AI 用 `kanshouProposalAccepts_(type, bond)` 依好感擲定 `_pendingProposal.accepted`（曲線：move base .45/slope .006、promise .30/.007、hold .10/.010，夾[.03,.97]——牽手最看好感、同去最隨和），★提議鐵律直接告訴 AI「她【答應/婉拒】了，只演她的反應、不可改寫決定」；post-AI 落地讀 `_pendingProposal.accepted`。**2026-07 三度改版**：`proposal_accept` schema 欄已整個刪除(不再保留相容佔位)。她主動提議約會(`kanshouPromiseOffer_`)＋同居(`kanshouCohabitOffer_`≥90)也已改成同一批 GAS 直接判定觸發，不再等 AI 自己開口。**紅線①核對過：nsfwBaseRules／慾海律令／driveStr／五階演化 0 改動。**
 - **通用錯誤文案是查案毒藥**：send()/saveFate 的 catch 已帶出 e.message(【原因】行)；後端 success:false 的 message 會演進故事流。別再寫吞掉真因的 alert。
