@@ -277,10 +277,10 @@ let plainTextContext = cleanText;
       if (data.nightGuest) {
         const gNameEsc = escapeHtml(String(data.nightGuest));
         optionsHtml += `<div style="background:rgba(160,110,60,0.14); border:1px solid #8a6a3a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#e0c090; font-size:12.5px; margin-bottom:6px;">🚪 「${gNameEsc}」深夜來訪，此刻人就在這裡——這一夜要怎麼收？<span style="color:#9a8f78;">(不選也行，繼續聊就是了——那她今晚就留下)</span></div>`
+          + `<div style="color:#e0c090; font-size:12.5px; margin-bottom:6px;">🚪 「${gNameEsc}」深夜來訪，此刻人就在這裡。<span style="color:#9a8f78;">(不選也行——直接跟她說話，就是要她留下的意思)</span></div>`
           + `<div style="display:flex; gap:8px;">`
           + `<button class="btn-option" style="flex:1;" onclick="kanshouSleepWithGuest()">🛏 讓她留下<br><span style="font-size:10px;opacity:.75;">夜還很長·想待多久都行</span></button>`
-          + `<button class="btn-option" style="flex:1;" onclick="kanshouSendGuestHome()">🚪 請她回去<br><span style="font-size:10px;opacity:.75;">只跟原本陪你的人·直接到早上</span></button>`
+          + `<button class="btn-option" style="flex:1;" onclick="kanshouSendGuestHome()">🚪 請她回去<br><span style="font-size:10px;opacity:.75;">送她回自己家睡·今晚到此為止</span></button>`
           + `</div></div>`;
       }
       // 📷 拍照結果小字回饋(敘事本身由AI演，這行只補機制數字：為何沒拍成)。
@@ -1276,11 +1276,13 @@ let plainTextContext = cleanText;
   //   不會再來第二個人)——只是那時她會留下過夜，因為送客鍵只給這一次(玩家定案「就只要問一次」)。
   //   ⚠ 這正是舊版「開門/不予理會」待決泡泡的病根，別再改回去。
   async function kanshouSleepWithGuest() {
-    // 讓她留下＝什麼都不用做：endDay 的 intimateNightNames(好感≥80 且此刻同地)本來就會把在場的
-    // 每一位都留在玩家房間過夜——她跟原本就陪著你的人都算在內。
-    // 🌙 送的仍是 endDay:true，但後端會先攔成「夜未眠」(見 Gallery.gs 兩段式就寢)——這一按不到早上，
-    //   而是把時間推到就寢時刻、人留在房裡，玩家想演幾回合都行，再按一次 HUD 那顆才真的天亮。
-    await send('（門關上了，這一夜還長）', false, { endDay: true, skipKnockCheck: true });
+    // 🌙 2026-07 玩家「留下就留下可以繼續聊…不拒絕、直接對話就是要她留下的意思」＋「不用拿掉，
+    //   只是不要跳到早上」＋「要讓玩家直覺一點，有些人就是喜歡按泡泡」。
+    //   夜襲命中時後端已經把這一夜切進【夜未眠】(見 Gallery.gs KANSHOU_NIGHT_SCENE_TAG_)，
+    //   所以「留下」不需要送任何旗標——★刻意【不帶 endDay】：帶了就會落到真正的結束一天、
+    //   一口氣跳到早上，跟按鈕上寫的「夜還很長」直接打架。這顆等同於玩家自己打字繼續，
+    //   泡泡派按鈕、打字派打字，兩邊落到同一個結果——這正是「直覺」的意思。
+    await send('（門關上了，這一夜還長）', false, {});
   }
   async function kanshouSendGuestHome() {
     // ⚠ 一定要帶 dismissGuest：她好感通常≥80 又已落盤在你所在地，不明講送客的話會被 endDay 的

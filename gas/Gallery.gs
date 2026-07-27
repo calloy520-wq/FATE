@@ -2203,13 +2203,14 @@ function actionPlay_(userData, pcId, sheets) {
   if (morningAfterNames) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], '');
   // 🌙 夜未眠的出口②：玩家自己走出這個房間，這一夜就到此為止(人都不在了，沒有「獨處」可言)。
   //   放在讀取狀態【之前】——本回合就該失效，不然走出去那一回合還會送出深夜獨處的提示詞。
-  if (userData.moveTarget && KANSHOU_NIGHT_SCENE_TAG_.get(pc[COL.PC.MEMORY])) {
+  if (userData.moveTarget && KANSHOU_NIGHT_SCENE_TAG_.get(pcData[pcIndex][COL.PC.MEMORY])) {
     pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_NIGHT_SCENE_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], 0);
     pc[COL.PC.MEMORY] = pcData[pcIndex][COL.PC.MEMORY];
   }
   // 🌙 夜未眠：這一刻是否已在「深夜獨處」段落中(見 KANSHOU_NIGHT_SCENE_TAG_)。不是一次性旗標，
   //   要撐過好幾個回合，所以只讀不清——清除在下方三個出口：真的睡、換地點、換日自然失效。
-  const kanshouNightSceneOn_ = KANSHOU_NIGHT_SCENE_TAG_.get(pc[COL.PC.MEMORY]) === curDay;
+  //   ★讀 pcData[pcIndex] 而非 pc：夜襲命中時會在上面就地蓋上這個標記，讀 pc 的舊值會漏掉。
+  const kanshouNightSceneOn_ = KANSHOU_NIGHT_SCENE_TAG_.get(pcData[pcIndex][COL.PC.MEMORY]) === curDay;
   // 同款一次性旗標：昨夜陪你到最後卻沒留下的人。跟上面一樣讀完立刻清，只影響緊接著的這一回合。
   const nightPartNames = KANSHOU_NIGHT_PART_TAG_.get(pc[COL.PC.MEMORY]);
   if (nightPartNames) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_NIGHT_PART_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], '');
@@ -2244,6 +2245,16 @@ function actionPlay_(userData, pcId, sheets) {
       dirtyPcRows.add(pcIndex);
       userData.endDay = false;                    // 她來了，這一夜先不睡——日期不推進
       _knockGuestReq_ = kanshouNightGuest_;       // 交給既有接人流程
+      // 🌙 2026-07 玩家「夜襲改簡單點？她直接進來，留下就留下可以繼續聊，拒絕就請她自己回家睡；
+      //   不拒絕、直接對話就是要她留下的意思」——夜襲本來就發生在你正要睡的時候，那一刻就是深夜。
+      //   所以命中當下直接進【夜未眠】，不必再多按一顆「讓她留下」：玩家繼續打字＝這一夜繼續，
+      //   泡泡只剩「請她回去」一顆逃生口。時間同步推到就寢時刻，判準與 endDay 敘事時鐘同一條
+      //   ——順帶修掉「早上八點按結束一天卻跳出深夜訪客」這個既有的違和。
+      pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_NIGHT_SCENE_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], curDay);
+      if (timeBand_(curHour) !== '夜' && timeBand_(curHour) !== '深夜') {
+        curHour = KANSHOU_DAY_LAST_HOUR_;
+        pcData[pcIndex][COL.PC.HOUR] = curHour;
+      }
     }
   }
   // ⏳ 這回合是否發生「時間跳躍」——單一真實來源。必須算在敲門擲骰【之後】(敲門會取消 endDay)。
