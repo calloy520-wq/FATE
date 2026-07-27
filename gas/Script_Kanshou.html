@@ -1222,7 +1222,11 @@ let plainTextContext = cleanText;
         + '<span style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">📍 ' + escapeHtml(label) + _scBadge + (_pmBadge ? ' ' + _pmBadge : '') + '</span>'
         + (cnt ? '<span style="color:#e0a0bc;font-size:11px;">👤' + cnt + '</span>' : '')
         + '</button>'
-        + '<button onclick="kanshouProposeMove(\'' + l.name + '\')" title="邀同伴一起去「' + escapeHtml(label) + '」" style="padding:8px 9px;background:#2a2038;color:#e0c090;border:1px solid #5a4a3a;border-radius:8px;cursor:pointer;font-size:13px;">👋</button>'
+        // 🐛→✅ 2026-07 前後端鏡射稽核：私人房間(isRoom)在後端是 region 'room'，相約/邀同去一律
+        //   不受理(見 Gallery.gs _pmLocOk/_pvLocOk)——這顆 👋 按下去必然被拒、還會拿到「還沒熟到能
+        //   登門」這種對不上的理由。永遠不會成功的按鈕就不要長出來（同地圖上鎖住的地點）。
+        + (l.isRoom ? ''
+          : '<button onclick="kanshouProposeMove(\'' + l.name + '\')" title="邀同伴一起去「' + escapeHtml(label) + '」" style="padding:8px 9px;background:#2a2038;color:#e0c090;border:1px solid #5a4a3a;border-radius:8px;cursor:pointer;font-size:13px;">👋</button>')
         + '</div>';
     }).join('');
     return tabsHtml + renameHtml + locBtns;
