@@ -2934,16 +2934,20 @@ function actionPlay_(userData, pcId, sheets) {
   //   ×點按鈕」拿 KANSHOU_SCENE_BOND_，泡泡拆掉後這條路也跟著沒了——但【破天花板】這個機制本身
   //   要留下(原始用意：好感天花板防的是「一天刷滿」，總得有一條真實相處才走得通的路)。
   //   改綁 GAS 完全可驗證、且天然一天一次的條件：**與她單獨在私密場合**(noEncounter 地點＝家中
-  //   各處/她的住處/我的房間)＋好感已達 KANSHOU_VISIT_BOND_(40·熟識，低於此她根本不會想跟你獨處)
-  //   ＋當日尚未給過(沿用 KANSHOU_SCENE_DAY_TAG_ 同一個日閘門)。不需按鈕、不靠 AI 判斷。
-  //   ⚠ 天花板只在 59→60、79→80 兩處真的擋人，都在 40 以上，故這道門檻不會卡住任何該通的路；
-  //   40 以下本來就不封頂(kanshouRelChatCeiling_)，聊天即可推進。
+  //   各處/她的住處/我的房間)＋好感已爬到聊天自己搆得到的最高點＋當日尚未給過(沿用
+  //   KANSHOU_SCENE_DAY_TAG_ 同一個日閘門)。不需按鈕、不靠 AI 判斷。
+  //   🐛→✅ 門檻改用 kanshouRelChatCeiling_(0)(＝39·聊天封頂那一格)，不再用 KANSHOU_VISIT_BOND_(40)：
+  //   兩者原本共用 40 這個數字，但聊天封頂在【門檻-1】(kanshouRelChatCeiling_ 回傳 t-1)，於是
+  //   39 的人聊天爬不動、獨處又差一點用不了、夜襲還要 60——39→40 這一步變成【只有約定赴約一條路】
+  //   走得通(2026-07 玩家實測跑 30 回合純聊天原地不動)。舊註解宣稱「這道門檻不會卡住任何該通的路」
+  //   正是漏算了 39→40 這道，而那恰好就是門檻自己站的位置。改成直接讀天花板本身，兩個數字從此
+  //   不可能再各走各的；日後 KANSHOU_REL_TIER_ 的門檻怎麼調，這裡都自動對齊。
   let kanshouAloneBondStr = "";
   if (partyRows.length === 1) {
     const _alIdx = pcData.indexOf(partyRows[0]);
     const _alLocObj = KANSHOU_LOCATIONS_.find(l => l.name === String(curL || "").trim());
     const _alBond = parseInt(partyRows[0][COL.PC.BOND]) || 0;
-    if (_alIdx >= 0 && _alLocObj && _alLocObj.noEncounter === true && _alBond >= KANSHOU_VISIT_BOND_
+    if (_alIdx >= 0 && _alLocObj && _alLocObj.noEncounter === true && _alBond >= kanshouRelChatCeiling_(0)
       && KANSHOU_SCENE_DAY_TAG_.get(partyRows[0][COL.PC.MEMORY]) !== curDay) {
       pcData[_alIdx][COL.PC.BOND] = Math.min(100, _alBond + KANSHOU_SCENE_BOND_);
       kanshouSyncRelTier_(pcData, _alIdx);
