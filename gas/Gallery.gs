@@ -2728,6 +2728,13 @@ function actionPlay_(userData, pcId, sheets) {
     const _elsewhere = pcData.filter(r => r !== pc && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() !== String(curL || "").trim())
       .sort((a, b) => (parseInt(b[COL.PC.BOND]) || 0) - (parseInt(a[COL.PC.BOND]) || 0)).slice(0, KANSHOU_WORLD_ROSTER_CAP_);
     if (!_elsewhere.length) return "";
+    // 🎯 觸發收緊(2026-07 玩家「條件式區塊的觸發條件收緊」)：這段【唯一用途】是讓 AI 能正確回答
+    //   「認不認識某某」，但它原本每回合都送(只要有人不在場就成立＝幾乎永遠)，等於絕大多數回合
+    //   都在燒 200+字 講一件玩家沒問的事。改成只在玩家這句話真的可能問到「不在場的人」時才送：
+    //   ①句中出現名單上任一人的名字(含大小寫變體) ②句中有詢問人的關鍵詞。兩者皆無就整段省略。
+    const _rosterAsk = /認識|聽過|見過|知道|在哪|去哪|哪裡|怎麼樣了|還好嗎/.test(userMsg)
+      || _elsewhere.some(r => kanshouNameCandidates_(String(r[COL.PC.NAME] || "")).some(c => c && userMsg.indexOf(c) >= 0));
+    if (!_rosterAsk) return "";
     const _list = _elsewhere.map(r => {
       const _loc = KANSHOU_LOCATIONS_.find(l => l.name === String(r[COL.PC.LOC] || "").trim());
       const _region = _loc && KANSHOU_REGIONS_.find(g => g.id === _loc.region);
@@ -2776,6 +2783,7 @@ function actionPlay_(userData, pcId, sheets) {
   const kanshouTierCrossLines_ = [];   // 💗 這回合剛跨進新關係階的人
   const kanshouFirstsLines_ = [];      // 💞 在場者的「第一次」帳
   const kanshouFirstsAnnivLines_ = []; // 🎂 今天剛好是某個「第一次」的週年
+  let kanshouFirstsStampedToday_ = false; // 本回合(或今天)剛發生一件「第一次」→ 值得讓 AI 知道
   // 🏠 同居邀請泡泡(2026-07 玩家「同居做成泡泡問一次、完全隱藏才是正解」)：綁在【跨進戀人】那一刻
   //   ——那正是「要不要住在一起」第一次成立的敘事時機，而且 KANSHOU_REL_RANK_TAG_ 只升不降，這個
   //   跨階天生只會發生一次，不必另外記「問過沒」。**跟八度改版拔掉的舊版泡泡差別就在這裡**：舊版
@@ -2818,6 +2826,7 @@ function actionPlay_(userData, pcId, sheets) {
       // 🎂 週年：曆法固定 365 天/年(kanshouAbsDayToDate_)，故「同月同日」必然是整年數之差。今天剛好
       //   撞上就單獨拉一句——這正是把「第一次」記成結構化事實最想拿到的回報：她能精準說出「一年前
       //   的今天…」，而不是含糊地感嘆往事。
+      if (_fsts.some(o => o.day === curDay)) kanshouFirstsStampedToday_ = true;
       const _todayD = kanshouAbsDayToDate_(curDay);
       _fsts.forEach(o => {
         const _fd2 = kanshouAbsDayToDate_(o.day);
@@ -2852,7 +2861,12 @@ function actionPlay_(userData, pcId, sheets) {
     ? `\n★【關係質變·就在此刻】：${kanshouTierCrossLines_.join('；')}。這一步【剛剛才跨過去】——在這回合的敘事裡讓這份轉變真實地發生一次：她看你的眼神、說話的分寸、與你之間的距離感，都該比先前更進一層，並讓她以自己的方式(直率／彆扭／沉默地靠近皆可)流露出「有什麼不一樣了」的自覺。★【不可】報幕式地宣告階級或數字、不可寫成系統提示，要演成關係本身自然到達的那一刻。`
     : "";
   // 💞 第一次帳：GAS 蓋的既定事實，供 AI 精確回想「我們第一次做某件事是哪天」而非自行編造。
-  const kanshouFirstsStr = kanshouFirstsLines_.length
+  // 🎯 觸發收緊：這段是「查得到就好的參考資料」，原本只要她有任何一筆【初次】就每回合送(玩幾天
+  //   後＝永遠在送)。改成只在真的用得到的三種回合才送：①今天是某個第一次的週年 ②本回合剛發生
+  //   一件第一次 ③玩家這句話在回顧往事。其餘回合完全省略——AI 平時不需要知道這些日期。
+  const _firstsNeeded = kanshouFirstsAnnivLines_.length > 0 || kanshouFirstsStampedToday_
+    || /第一次|初次|當初|那時|那天|以前|記得|多久|以來|一開始|剛認識/.test(userMsg);
+  const kanshouFirstsStr = (kanshouFirstsLines_.length && _firstsNeeded)
     ? `\n★【你們之間的「第一次」·既定事實】：${kanshouFirstsLines_.join('；')}。這些日期是【確定發生過的事實】，若話題自然聊到往事、或今天恰好是其中某個日子，可以據此準確回憶(她記得、或你記得皆可)；★【不可】自行編造清單以外的「第一次」，也【不必】每回合主動提起。`
     : "";
   // 🎂 週年當天才出現的加強句：這是把「第一次」記成結構化事實的主要回報，值得比一般回憶更被看見。
