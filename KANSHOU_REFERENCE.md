@@ -256,6 +256,16 @@
 
 另外把「台詞自稱僅其本人引號內用、非旁白視角」這條**全域規則**從欄位標題移到常駐規則區只講一次——它原本被當成每個人的欄位標題，三人同場就重印三遍（同 `performanceNote_` 那次的「跑時重複」修法）。
 
+## ⚠️ 種子改版必升 `CODEX_PERSONA_VER`（2026-07 複查抓到·差點整批白做）
+
+`seedFateCodex_` 的升級閘是 **`props.codex_persona_ver !== CODEX_PERSONA_VER`**。線上 Script Property 已經是舊版號時，改再多種子 `upgradeCodexPersonas_` 都不會跑——**只有全新試算表吃得到**，既有存檔完全 no-op。
+
+**改 `daily*`／`persona` 一定要順手把 `CODEX_PERSONA_VER` 升一版**（`gas/Seed_Codex.gs`）。忘了升版不會有任何錯誤訊息，只會靜靜地什麼都沒發生。
+
+同批補上的第二個缺口：`resyncSummonedServants_` 的「鑑賞眾生」分支原本只刷 **BACK／TRAIT／MEMORY【口吻】** 三樣，漏掉 **PREF（`dailyWords`）與 INTENT（`dailyMoe`）**——但這兩欄一樣會被寫進在場卡（`formatPref` 的 [表象][內裡]、萌點欄）。結果是種子性格/萌點改版後，**已召喚的同伴永遠停在舊文字**，只有之後新召喚的才吃得到。已補齊。
+
+`actionDevResyncCodex`（DEV 按鈕）可無視版本閘強制重刷，但那是救援手段，不是正常路徑。
+
 ## 🎭 橋段（scripted events）
 
 > ⚠️ **2026-07 九度改版：整組 offer/accept 泡泡已拆除**（玩家「我覺得橋段太過生硬」）。橋段不再是「跳一張卡、按了才演」，而是**降級成一句情境氛圍**餵給 AI，玩家想怎麼玩自己決定。以下是現況。
@@ -265,7 +275,7 @@
   - 節慶：初詣／情人節巧克力／七夕短冊／中秋賞月／聖誕約會／跨年倒數
   - 同居日常：同居晨光／午後／黃昏／夜話／深夜
 - **注入方式**：命中就組 `kanshouSceneAmbientStr` → `★【此地此刻·情境事實】`，並明講「這只是眼下的客觀情境，**不是**既定劇情：要不要理會全由玩家決定，你不可替玩家做決定、不可推著他行動、不可自行把事情演完」。
-- **觸發表**（三張，優先序由高到低）：`KANSHOU_LOCATION_EVENTS_`（地點×時段）→ `KANSHOU_FESTIVAL_EVENTS_`（節慶日×時段）→ `KANSHOU_COHABIT_EVENTS_`（**同居中**×兩人同處玩家居所×時段，只補前兩者沒佔到的空檔）。**加內容＝往表加一列＋`KANSHOU_SCENE_EVENTS_` 加一筆 ambient，觸發邏輯不必動。**
+- **觸發表**（三張，優先序由高到低）：`KANSHOU_FESTIVAL_EVENTS_`（節慶日×時段·先判，節慶日稀有且特殊）→ `KANSHOU_LOCATION_EVENTS_`（地點×時段）→ `KANSHOU_COHABIT_EVENTS_`（**同居中**×兩人同處玩家居所×時段，只補前兩者沒佔到的空檔）。**加內容＝往表加一列＋`KANSHOU_SCENE_EVENTS_` 加一筆 ambient，觸發邏輯不必動。**
 - **🛏️ 夜襲／賴床叫醒：整組移除**（玩家「最需要保留的是夜襲，但其實也不需要泡泡詢問，只要確定 npc 會睡覺就可以了」）。她睡著這件事**本來就由 `pSleepStr` 每回合當既定事實餵給 AI**、判準完全相同（`KANSHOU_ASLEEP_HOUR_END_=8`／`KANSHOU_NIGHT_RAID_HOUR_END_=5`），再包一層按鈕只是把自然的處境變成一張要點的卡。連帶移除：`kanshouRollSceneBranch_`、`roomEventOffer`、`kanshouAcceptRoomEvent`。
 - **好感天花板破口**：原本靠橋段 `BOND+3`，橋段拆除後改綁 `kanshouAloneBondStr`（真的獨處的私密場合×當日一次，沿用 `KANSHOU_SCENE_DAY_TAG_` 同一個日閘門）。
 - `kanshouAsleepOutcomeStr_(bond)` **仍在**，但唯一呼叫點只剩**深夜敲門·別有用心**：60以下＝她又驚又惱把人趕走／60~79＝半推半就但卡在親吻擁抱／80+＝無上限。切點沿用親密尺度五階的 60/80，單一來源。

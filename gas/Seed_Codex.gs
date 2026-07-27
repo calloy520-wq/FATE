@@ -327,7 +327,10 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v70'; // v70：玩家覺得「巨乳」太直白、這句話會顯示在玩家可見的狀態欄——
+var CODEX_PERSONA_VER = 'v71'; // v71：25位種子的 daily* 全面改寫成「行為傾向」(零引號零台詞)＋壓縮26%。
+//   ⚠ 改 daily*/persona 一定要順手升這個版號——升級閘是 codex_persona_ver !== CODEX_PERSONA_VER，
+//   沒升版 upgradeCodexPersonas_ 不會跑，改再多種子對既有存檔都是 no-op(只有全新試算表才吃得到)。
+//   v70：玩家覺得「巨乳」太直白、這句話會顯示在玩家可見的狀態欄——
 //   美杜莎/斯卡哈x2改成「胸前豐盈」這種自然敘述句，AI生成prompt同步要求別用生硬標籤呈現。
 //   逐版校對細節與查證來源見 SOLO_REFERENCE.md §21，不在此堆積歷史留言。
 
@@ -455,6 +458,10 @@ function resyncSummonedServants_(ss) {
       var ks = byKey[kk];
       if (!ks || !ks.persona) continue;
       if (ks.persona.dailyBack) kdata[j][COL.PC.BACK] = String(ks.persona.dailyBack).slice(0, 28);
+      // 🎯 PREF(dailyWords)／INTENT(dailyMoe) 也必須跟著刷：這兩欄一樣會被寫進在場卡(formatPref 的
+      //   [表象][內裡]、萌點欄)，原本漏掉——種子性格/萌點改版後，已召喚的同伴永遠停在舊文字。
+      if (ks.persona.dailyWords) kdata[j][COL.PC.PREF] = parseTraitsHelper(ks.persona.dailyWords, DEFAULT_PREF_FALLBACK_);
+      if (ks.persona.dailyMoe) kdata[j][COL.PC.INTENT] = ks.persona.dailyMoe;
       var kparts = String(ks.persona.dailyLook || '').split('、').map(function (x) { return x.trim(); }).filter(Boolean);
       if (kparts.length >= 4) {
         kdata[j][COL.PC.TRAIT] = parseTraitsHelper(ks.persona.dailyLook, DEFAULT_TRAIT_FALLBACK_);
