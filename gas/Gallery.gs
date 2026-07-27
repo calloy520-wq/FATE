@@ -3184,7 +3184,7 @@ function actionPlay_(userData, pcId, sheets) {
 ${PROMPT_REL}
 ★【在場驗證·最高優先】：只有【在場人物】可對話/互動/記好感·路人不具名不追蹤。例外：①玩家引入第三人②系統豁免段(自然告辭/指定巧遇)。歷史提過但不在場＝不在場，禁憑空開口；可輕巧帶過原因(去忙別的/剛好不在)，禁裝作還在、禁不解釋就消失。
 ★【焦點禮讓】：玩家專一互動時，其他在場者維持背景輕描·不搶話/不介入親密(除非系統另有提示)。
-★【在場來由】：一律照各人「在場來由」欄演、不可改寫。標「一直在這裡」＝延續，禁再寫她進門/抵達/迎上前，禁問「你怎麼會在這裡」；標「結伴一起來到」＝跟你一起走進來的，禁寫成她在此等你或對你到來感到意外。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶】：今天是「${_f.name}」·narration 自然帶入應景氣氛·不報幕。`; if (jumpFest) return `\n★【節慶】：明天就是「${jumpFest.name}」·街頭已有前夕氣氛·自然帶入不報幕。`; return ""; })()}
+★【在場來由】：一律照各人「在場來由」欄演、不可改寫。標「一直在這裡」＝從她早已在場的狀態接著往下寫，她把你在場視為理所當然；標「結伴一起來到」＝她是跟你一起走進來的，這一路她都在你身邊。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouKnockGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${(() => { const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day); if (_f) return `\n★【節慶】：今天是「${_f.name}」·narration 自然帶入應景氣氛·不報幕。`; if (jumpFest) return `\n★【節慶】：明天就是「${jumpFest.name}」·街頭已有前夕氣氛·自然帶入不報幕。`; return ""; })()}
 ★【今日天氣】：${kanshouWeather_(curDay)}·自然滲入場景不必每句提。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${morningAfterNames ? `\n★【晨間餘韻·非強制】：昨夜與『${morningAfterNames}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
 💕【後日談模式·最高優先覆寫】：${partyRows.length === 0
     ? `眼下無相識者在場·玩家一個人的尋常時光。`
@@ -3194,8 +3194,8 @@ ${PROMPT_REL}
         ? `你與『${partyMembers.join("、")}』是在這城從陌生相識一路相處到現在——【無】戰前舊識或共同過往·但這段日子的感情真實·依各自好感/關係標籤演出該有的熟悉·別退回「才剛認識」的生澀。`
         : `與『${partyMembers.join("、")}』共度這座和平城鎮的尋常時光。`
   }
-🕰️現在${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}(揣摩氛圍用·不報時)。★【此刻＝${timeBand_(curHour)}·唯一真實】：歷史停在別的時段一律以此刻改寫·禁沿用舊時段(「這麼晚了」)。★一個動作約【十分鐘】·只寫當下片段·禁自行跳時段或寫「過了好幾個鐘頭/一段時間」(唯系統宣告推進時才承接)。
-★世界觀＝和平現代城鎮：禁戰鬥/敵人/血量/死亡/威脅；禁提聖杯戰爭/從者/御主/令咒/寶具/英靈/召喚(只沿用性格外貌氣質)。調性不限悠閒。
+🕰️現在${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}(揣摩氛圍用·不報時)。★【此刻＝${timeBand_(curHour)}·唯一真實】：所有光線/氣溫/作息的感受一律依此刻重寫，歷史停在哪個時段都不算數。★本回合敘事跨度上限【十分鐘】·只寫這十分鐘內的當下片段·時間推進一律由系統宣告。
+★世界觀＝和平現代城鎮：在場每個人就是這座城裡的普通市民，來歷只能取材自下方她自己的在場資料；那之外的設定(超凡力量、非現代事物、生死衝突)在這個世界從未發生過。調性不限悠閒。
 ★【親密尺度五階·最高優先】(催眠暗示道具生效中例外)：肢體親密以好感為天花板，未達門檻依個性擋下(人格不崩)：
 ・<20(點頭之交)：形同陌生人·一動手動腳就【連碰都碰不到】(閃避/擋手/喝止/還手依個性)。
 ・20~39(普通朋友)：婉拒一切情慾越界·可friendly不接受親密。
@@ -3205,16 +3205,16 @@ ${PROMPT_REL}
 ★多人各依各自好感·不共用同階。
 ★★【天花板也管命令/強迫/暴力】：命令做肢體服從動作(如「命令她跪下/過來/脫」)、或明講強迫字眼(如「強姦」「壓制」「無視掙扎」)一樣受五階天花板約束——未達門檻【不會得逞】，她依個性拒絕/反擊(嗆回去/翻臉/還手，吃虧的是玩家)；純提議/善意舉動(如「幫她解決OO困擾」)不算冒犯，正常演出即可。禁對同伴造成真實傷害(流血/骨折/撕裂傷)，親密可激烈但不能演成傷害身體。
 ★【篇幅指定】：本回合narration目標約${_kanshouTargetWords_}字(不必精確，別落差太大)——低好感互動別寫成大段內心戲。
-★【演出而非說明】：不直述願望/萌點/個性字面。僅rel_changes(好感)，不輸出戰鬥/生命值。
-★★【移動鐵律】：換地點只能靠玩家用地圖走或提議同去經系統裁定。沒系統明講就是還在${curL}，禁自演出發/走路/抵達，禁介面詞(泡泡/按鈕/地圖)入敘事；已移動＝直接寫新地點當下、不演路程。
-★【不憑空生東西】(無金錢/物品/背包)：禁讓玩家自動「準備好禮物」「掏錢包」「變道具」·送禮由玩家決定。
-★【不替玩家腦補】：『我』只演玩家實際輸入的動作+五感·禁大段內心戲/替他決定。★『我』看不到自己的臉，禁「鏡中我的表情」這類外部視角。★同伴外貌只取材她自己資料，禁挪用玩家特徵。★各人的[台詞自稱]僅其本人引號內台詞可用，旁白不得套用。
+★【演出而非說明】：不直述願望/萌點/個性字面。數值只輸出 rel_changes(好感)。
+★★【移動鐵律】：換地點一律由系統裁定。系統沒宣告就是還在${curL}，敘事停在這裡不移動；系統已宣告＝直接從新地點的當下寫起，路程略過不演。
+★【不憑空生東西】：玩家手上只有他自己說出口的東西，其餘一切物品與金錢在這個世界不存在。
+★【不替玩家腦補】：『我』只演玩家實際輸入的動作+五感·禁大段內心戲/替他決定。★『我』的描寫只能來自他自己的感官(看到/聽到/觸到/心裡的感覺)——他看不見自己的神情。★同伴外貌只取材她自己資料，禁挪用玩家特徵。★各人的[台詞自稱]僅其本人引號內台詞可用，旁白不得套用。
 ★【歷史僅供參考】：對話歷史只是背景、非本回合事實來源——以上方系統事實＋下方在場資料為準，別被過期歷史牽著走。
 ${PROMPT_PARTY_SYSTEM}
-★【地點釘死】：歷史提過的其他地名皆過去式，言行/場景只圍繞「${curL}」，禁講得像人還在別處；她可嘴上聊想去別處但不會真移動(換地方只能靠地圖)。
+★【地點釘死】：所有人此刻都在「${curL}」，言行/場景只圍繞這裡，歷史提過的其他地名一律是過去式；她可嘴上聊想去別處，但真要換地方得由系統裁定。
 現在演化玩家動作：『${finalUserMsg}』${npcDialoguePrompt}
 
-🚨【收尾${driveOn ? '·主動掌握' : ''}】：${driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : ''}停在「我」當下進行式，留未完成動作交還玩家(禁收在玩家期待上)——被搭話者須先回應(答話/神情)才停筆，禁「那一刻/那一夜/自此/從此」等翻頁式收尾。
+🚨【收尾${driveOn ? '·主動掌握' : ''}】：${driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : ''}停在「我」當下進行式，留未完成動作交還玩家——被搭話者須先回應(答話/神情)才停筆；最後一句必須落在正在發生的動作或剛說出口的話上，時間刻度不超出這一分鐘。
 ★【動筆前最後確認】：在場只有${partyMembers.length ? `『${partyMembers.join('、')}』` : '沒有其他人'}，敘述裡開口/被觸碰/在場的只能是這些人，其他名字即使歷史提過也不准出現。`;
 
   try {
