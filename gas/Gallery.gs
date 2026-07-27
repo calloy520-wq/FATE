@@ -3131,7 +3131,13 @@ function actionPlay_(userData, pcId, sheets) {
       //   speech 退回 dailySpeechByName_(日常安全版)，tic 沒有對應日常版就留空，不退回戰時原始值。
       const pSpeech = getPersonaSpeech_(r[COL.PC.MEMORY]) || dailySpeechByName_(pName, _partyHeroCodex);
       const pTic = getPersonaTic_(r[COL.PC.MEMORY]);
-      const pFlavorStr = `${pSpeech ? ` | 口吻:${pSpeech}` : ""}${pTic ? ` | 招牌小動作:${pTic}` : ""}`;
+      // 🐛→✅ 同一句印兩次(2026-07 實跑提示詞抓到)：heroToKanshouRow_ 的【口吻】標記與 TRAIT 第3格
+      //   [台詞自稱] 都取自 dailyLook 第3段，是同一份資料的兩個出口——三人同場就整整重印六遍。
+      //   重複本身會被模型讀成「這句特別重要」，反而壓掉旁邊的行為傾向。同源時只留 formatTrait
+      //   印的 [台詞自稱](下方【不替玩家腦補】的全域規則是用這個名字指涉它的，不能改名)，
+      //   只有舊資料兩者真的不同(TRAIT 還留戰時值)才補印「口吻」把日常版蓋過去。
+      const _traitSpeech = String(r[COL.PC.TRAIT] || "").split('、')[2] || "";
+      const pFlavorStr = `${pSpeech && pSpeech.trim() !== _traitSpeech.trim() ? ` | 口吻:${pSpeech}` : ""}${pTic ? ` | 招牌小動作:${pTic}` : ""}`;
       // 純聊天好感卡在梯度上限這件事本身不會反映在數字上——GAS默默夾住漲幅，若不順便告訴AI，
       //   narration可能寫出「感情大幅推進」這種跟機制矛盾的橋段。只在卡住時才加這句提示。
       const pBond = parseInt(r[COL.PC.BOND]) || 0;
