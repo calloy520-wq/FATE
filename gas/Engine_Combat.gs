@@ -113,19 +113,30 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   if (!isBlocked) { try { Logger.log("[callGeminiAPI 連線失敗] " + lastErrorMessage); } catch (e) { } }
   // 🐛→✅ 玩家反饋「結界觸發」這類措辭太出戲(像系統跳出來講話)，改成順著情境走的口吻——
   //   氣息未定、畫面忽然朦朧了幾秒，讀起來像是被打斷而非被系統攔下。
-  const fallbackNarration = isBlocked
-    ? "🌸交纏的氣息還未散去，肌膚滾燙如火——下一幕卻被濃郁的水氣徹底吞沒，什麼都看不清了，請再嘗試一次。"
-    : "🌫️【因果紊亂】命運的絲線在此刻忽地紊亂——這段因果暫時無法讀出，請稍後再試一次。";
+  const fallbackNarration = aiFallbackNarration_(isBlocked);
 
   if (plainText) return fallbackNarration; // 散文模式：失敗也回純文字，不污染回憶錄成 JSON
 
-  // 🐛→✅ _genFailed 旗標：這組是失敗保底文字、不是真正生成的敘事，讓呼叫端(narrateWithState_/
-  //   actionPlay)能辨識出來、不要把它當成既定劇情事實存進歷史——否則下次呼叫會把「什麼都沒發生」
-  //   的保底措辭誤當上一輪的真實進展餵回AI，可能接續出跟實際劇情矛盾的敘事。
-  return JSON.stringify({
-    narration: fallbackNarration, options: ["1. 深吸一口氣，平復心緒", "2. 溫柔地退開半步", "3. 輕聲轉移話題", "4. 稍作歇息"],
+  return JSON.stringify(aiFallbackData_(isBlocked));
+}
+// 🛡️ 生成失敗時的統一保底：措辭與 _genFailed 旗標的【單一真實來源】。
+//   玩家反饋「結界觸發」這類措辭太出戲(像系統跳出來講話)，改成順著情境走的口吻——氣息未定、
+//   畫面忽然朦朧了幾秒，讀起來像是被打斷而非被系統攔下。
+function aiFallbackNarration_(isBlocked) {
+  return isBlocked
+    ? "🌸交纏的氣息還未散去，肌膚滾燙如火——下一幕卻被濃郁的水氣徹底吞沒，什麼都看不清了，請再嘗試一次。"
+    : "🌫️【因果紊亂】命運的絲線在此刻忽地紊亂——這段因果暫時無法讀出，請稍後再試一次。";
+}
+// _genFailed 旗標：這組是失敗保底文字、不是真正生成的敘事，讓呼叫端(narrateWithState_/actionPlay_)
+//   能辨識出來、不要把它當成既定劇情事實存進歷史——否則下次呼叫會把「什麼都沒發生」的保底措辭
+//   誤當上一輪的真實進展餵回AI，可能接續出跟實際劇情矛盾的敘事。
+//   ★ 呼叫端解析失敗(模型回截斷 JSON／純文字)時也走這支，見 Gallery.gs actionPlay_ 的 parse 保護。
+function aiFallbackData_(isBlocked) {
+  return {
+    narration: aiFallbackNarration_(isBlocked),
+    options: ["1. 深吸一口氣，平復心緒", "2. 溫柔地退開半步", "3. 輕聲轉移話題", "4. 稍作歇息"],
     rel_changes: [], _genFailed: true
-  });
+  };
 }
 
 function doGet() {

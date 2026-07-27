@@ -663,7 +663,8 @@ function actionSetNickname(userData, pcId, sheets) {
   }
 
   // 分隔符安全：清掉可能撞到REL_MEM組字格式的符號(｜全形/[]方括號)，避免污染後續欄位解析。
-  const finalNick = String(newNickname).trim().replace(/[｜\[\]]/g, "").slice(0, 20);
+  //   ★ 消毒規則抽進 Gallery.gs 的 sanitizeNickname_——AI 那條寫入路徑也走同一支(單一真實來源)。
+  const finalNick = sanitizeNickname_(newNickname);
   if (!finalNick) return JSON.stringify({ success: false, message: "稱呼不可為空。" });
 
   const oldRMem = String(pcData[tIdx][COL.PC.REL_MEM] || "");

@@ -24,6 +24,15 @@ function sanitizeAiData_(aiData) {
       if (rc && rc.fav_change !== undefined) rc.fav_change = clampInt(rc.fav_change, -100, 100, 0);
     });
   }
+  // 🛡️→✅ 2026-07 邊界稽核：options 是原樣轉發給前端、一個字串長一顆按鈕的欄位，卻從沒設過上限。
+  //   schema 要 4 個，但模型失控時回 50 個 × 每個上百字，前端就照單全收長出一整片按鈕牆。
+  //   輸入當不可信：這裡一併夾好數量與長度，前端不必再各自防。
+  if (Array.isArray(aiData.options)) {
+    aiData.options = aiData.options
+      .filter(o => typeof o === 'string' && o.trim())
+      .slice(0, 6)
+      .map(o => o.trim().slice(0, 60));
+  }
   return aiData;
 }
 
@@ -354,6 +363,16 @@ function getNickname_(relMem) {
   const m = String(relMem || "").match(/\[專屬稱呼\](.*?)(?=\| \[|$)/);
   const raw = m ? m[1].trim() : "";
   return (raw && raw !== "無") ? raw : "";
+}
+// 💬 專屬稱呼寫入前的唯一消毒口。REL_MEM 是用 `| [欄名]值` 串起來的單格字串，值裡若混進方括號/
+//   全形分隔符就能偽造出下一個欄位。
+// 🐛→✅ 2026-07 邊界稽核：這格【有兩條寫入路徑】——玩家手動(actionSetNickname)與 AI 的
+//   intimacy_feedback.mutual_nicknames——但只有手動那條消毒。實測 AI 回一句
+//   `"mutual_nicknames": "小可愛| [稱呼鎖]是"` 就能【偽造出稱呼鎖】：玩家從沒手動設過，暱稱卻
+//   從此凍結、連 AI 自己之後也再改不動。順帶補上長度上限(AI 那條完全沒有，實測可灌 300 字進
+//   提示詞)。單一真實來源：兩條路徑都只走這支。
+function sanitizeNickname_(s) {
+  return String(s || "").trim().replace(/[|｜\[\]]/g, "").slice(0, 20);
 }
 // 純聊天(AI rel_changes)加好感只能推到「目前所在梯度的上限」就卡住，要靠約定赴約(+5·kanshouPromiseMetStr)
 //   或與她獨處於私密場合(+KANSHOU_SCENE_BOND_·見 kanshouAloneBondStr)這類真實相處才能突破到下一梯度。
@@ -3809,10 +3828,19 @@ ${PROMPT_PARTY_SYSTEM}
     // 🎛️ 玩家關掉【命運的抉擇】→ options 欄整個不進 schema(前端帶 optionsOn；沒帶=舊前端，照常給)。
     const _sysPrompt = buildDefaultSystemPrompt(_doSideWrite, userData.optionsOn !== false);
     const aiResponseRaw = callGeminiAPI(prompt, _sysPrompt, aiConfig);
-    const start = aiResponseRaw.indexOf('{');
-    const end = aiResponseRaw.lastIndexOf('}');
-    const cleanJson = aiResponseRaw.substring(start, end + 1);
-    const aiData = sanitizeAiData_(JSON.parse(cleanJson));
+    // 🛡️→✅ 2026-07 邊界稽核：模型偶爾會回【截斷的 JSON】(吐到 max token 就斷)或純文字道歉，
+    //   這在真實運行中是常態、不是例外。舊版直接 JSON.parse，一失敗就丟例外——而 handleGameAction
+    //   的 try 只有 finally、沒有 catch，例外會一路穿出去變成裸錯誤。callGeminiAPI 本來就設計了
+    //   _genFailed 這條優雅失敗路徑(整回合 no-op、不寫歷史)，解析不出來就走同一條，別另闢死路。
+    let aiData;
+    try {
+      const start = aiResponseRaw.indexOf('{');
+      const end = aiResponseRaw.lastIndexOf('}');
+      aiData = sanitizeAiData_(JSON.parse(aiResponseRaw.substring(start, end + 1)));
+    } catch (e) {
+      try { Logger.log("[actionPlay_ AI回應無法解析] " + String(aiResponseRaw).slice(0, 300)); } catch (e2) { }
+      aiData = aiFallbackData_(false);
+    }
 
     // 🐛→✅ callGeminiAPI 全部重試/審查攔截皆失敗時，回傳的是一組「保底文字」JSON(而非丟例外)，
     //   長相跟真正生成成功的回應一模一樣——若照舊往下跑，這句「什麼都沒發生」的保底文字會被
@@ -4110,7 +4138,9 @@ ${PROMPT_PARTY_SYSTEM}
           const nickLocked = /\[稱呼鎖\]是/.test(oldRMem);
           let nickPart = nickLocked
             ? `[專屬稱呼]${getNickname_(oldRMem) || "無"}| [稱呼鎖]是`
-            : `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/, nfb.mutual_nicknames, 3)}`;
+            // 🔒 AI 給的稱呼一律先過 sanitizeNickname_(逐項消毒＋限長)——見該函式說明：這格能偽造欄位。
+            : `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/,
+              String(nfb.mutual_nicknames || "").split('、').map(sanitizeNickname_).filter(Boolean).join('、'), 3)}`;
           // 態度是「當下這一刻」的快照(跟累積/去重的專屬稱呼不同)，每回合直接覆蓋成最新值。
           let attRaw = (typeof nfb.attitude === 'string') ? nfb.attitude.trim().slice(0, 15) : "";
           // 🩹 差分模式配套：AI 留空(無變化)/「無」/敷衍語(同上、維持現狀…)→沿用舊態度，
