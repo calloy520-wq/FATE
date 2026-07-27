@@ -1625,8 +1625,14 @@ let plainTextContext = cleanText;
     var b = parseInt(bond) || 0;
     var unlocked = b >= KC_CUSTOM_TAG_BOND_;
     var isPreset = KC_REL_TIERS_.some(function (t) { return t.label === curTag; });
+    // 🔒 尚未到達的階級要鎖住(後端同一張表同一條門檻·見 actionUpdateRelTag)：舊版五階全部可點，
+    //   好感30也能點「戀人」，按下去後端接受、提示詞就真的照寫。比照地圖鎖住的地點同一套灰底UI。
     var presetBtns = KC_REL_TIERS_.map(function (t) {
       var active = t.label === curTag;
+      var lock = b < (parseInt(t.min) || 0);
+      if (lock) {
+        return '<button disabled title="好感達到' + t.min + '才稱得上" style="width:100%;text-align:left;padding:8px 10px;margin-bottom:5px;font-size:13px;background:#1b1822;color:#6a6478;border:1px dashed #3a3348;border-radius:6px;cursor:not-allowed;">🔒 ' + t.label + '<span style="float:right;font-size:11px;">好感' + t.min + '</span></button>';
+      }
       return '<button onclick="kanshouSetRelTag(\'' + safeN + '\',\'' + t.label + '\')" style="width:100%;text-align:left;padding:8px 10px;margin-bottom:5px;font-size:13px;background:' + (active ? '#6a4a9a' : '#2a2430') + ';color:' + (active ? '#fff' : '#dcc8ff') + ';border:1px solid rgba(180,140,255,.3);border-radius:6px;cursor:pointer;">' + t.label + (active ? '（目前）' : '') + '</button>';
     }).join('');
     // 🔒 自訂關係稱呼／專屬稱呼都會被字面塞進AI提示詞當既定事實，未達門檻前不給輸入框、只顯示鎖定說明。

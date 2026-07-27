@@ -621,9 +621,17 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   // 🔒 2026-07 五度改版·自訂稱呼會被字面「TA是你的${tag}」原樣塞進AI提示詞當既定事實，玩家實測
   //   低好感就打露骨自訂稱呼會讓AI無視好感天花板照樣演到底——5階預設標籤(KANSHOU_REL_TIER_)本就
   //   由GAS依好感計算，不受此限；只擋「自訂文字不等於任一預設標籤」這條路徑。
-  const isPreset = KANSHOU_REL_TIER_.some(t => t.label === finalTag);
+  const _presetTier = KANSHOU_REL_TIER_.find(t => t.label === finalTag) || null;
   const bond = parseInt(pcData[tIdx][COL.PC.BOND]) || 0;
-  if (!isPreset && bond < KANSHOU_CUSTOM_TAG_BOND_) {
+  // 🐛→✅ 2026-07 逐按鍵稽核：舊版只擋「自訂文字」，預設 5 階一律放行，理由是「反正 GAS 會依好感
+  //   自動升降」——但自動同步只在 BOND【變動時】才跑(kanshouSyncRelTier_ 的呼叫時機)。純聊天不變動
+  //   好感的回合，好感 30 點一下預設的「戀人」就真的一路掛著，提示詞照寫「TA是你的戀人(好感:30)」，
+  //   連低好感的口吻提醒都一起消失——正是這道門檻本來要擋的那個 injection，只是繞過方式從「打字」
+  //   變成「點按鈕」。改成同一張表(KANSHOU_REL_TIER_.min)自己說話：沒到那一階就選不了那一階。
+  if (_presetTier && bond < (parseInt(_presetTier.min) || 0)) {
+    return JSON.stringify({ success: false, message: `「${finalTag}」要好感達到${_presetTier.min}才稱得上，目前${bond}。` });
+  }
+  if (!_presetTier && bond < KANSHOU_CUSTOM_TAG_BOND_) {
     return JSON.stringify({ success: false, message: `好感達到${KANSHOU_CUSTOM_TAG_BOND_}(戀人)才能自訂關係稱呼，目前${bond}。` });
   }
 
