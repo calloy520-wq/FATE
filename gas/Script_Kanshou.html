@@ -1321,7 +1321,9 @@ let plainTextContext = cleanText;
     // 相約排除：玩家私室(isRoom)＋【未解鎖的私人住處】——鎖住的住處物理上進不去(地圖灰鎖＋後端擋移動)，
     //   約在那裡＝必然爽約陷阱(後端 _pmLocOk 也擋，這裡先不給選)。
     var _pmUnlocked = (window._lastTags && window._lastTags.unlockedResidences) || [];
-    var pool = KC_LOCATIONS_.filter(function (l) { return !l.isRoom && (l.region !== 'visit' || _pmUnlocked.indexOf(l.name) !== -1); });
+    // ⛔ 排除「你此刻所在地」：約在站著的地方語意不通，也是好感農場漏洞(後端 _pmSameSpot_ 同步擋)。
+    var _pmHere = String((window._lastTags && window._lastTags.myLoc) || '').trim();
+    var pool = KC_LOCATIONS_.filter(function (l) { return !l.isRoom && l.name !== _pmHere && (l.region !== 'visit' || _pmUnlocked.indexOf(l.name) !== -1); });
     // 先選地點 → 再選時段 → 才送出(她約定時刻前10分到場；早到有「都早到」開場、遲到會唸你)
     kanshouPickLocation_('📅 和「' + name + '」約在哪見面？', '下一步可選今天(尚未過去的時段)或明天；準時/早到赴約好感↑、遲到打折、放鴿子好感↓', pool, function (loc) {
       // 🕐 2026-07 六度改版：地點若有開放時段限制，只給相容的時段選——約在她開放時段外＝赴約時

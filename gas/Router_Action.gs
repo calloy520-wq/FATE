@@ -541,7 +541,10 @@ function buildTagsPayload_(sheets, pcId, preData) {
     var _w = getEncounterWindow_(m[COL.PC.MEMORY]);
     if (_w && _w.loc === String(m[COL.PC.LOC] || "").trim()) encWin = { type: _w.type, choices: encounterChoices_(_w.type) };
   }
-  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length, locationCounts: locationCounts, unlockedResidences: Object.keys(unlockedResidences), encounterWindow: encWin };
+  // 🗺️ myLoc：玩家此刻所在地。鑑賞前端本來完全沒有這個資訊的可靠來源(只有 locationCounts 這種
+  //   彙總數字)，導致「約定地點清單要排除你正站著的地方」之類的判斷做不出來。放進既有 payload
+  //   ＝零額外 round-trip，單一真實來源在後端。
+  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length, locationCounts: locationCounts, unlockedResidences: Object.keys(unlockedResidences), encounterWindow: encWin, myLoc: String(m[COL.PC.LOC] || "") };
 }
 
 // ⚡ preData：手上已有最新整表陣列的呼叫端(見 STATE_PRE_DATA_ 交棒機制)傳入複用，省掉整表重讀——

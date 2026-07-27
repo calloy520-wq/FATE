@@ -780,7 +780,8 @@ function actionKanshouSetProp(userData, pcId, sheets) {
   if (level) {
     finalLevel = def.hasIntensity ? (KANSHOU_PROP_LEVELS_.indexOf(level) !== -1 ? level : KANSHOU_PROP_LEVELS_[0]) : "戴著";
     // 🔒 2026-07 玩家「整個小道具直接卡80吧...還沒80都鎖起來」：不只啟動，裝備本身(含關閉/戴著起手)
-    //   都卡好感門檻——好感不夠她根本不會讓你碰。移除(level空字串)不受此限，隨時能拿掉。
+    //   都卡好感門檻——好感不夠她根本不會讓你碰。移除(level空字串)不受【好感】門檻，但仍要她在場
+    //   (上方 findPcRowIdx_ 帶 loc)——實體道具本來就得人在旁邊才拿得下來。
     // 🌀 ignoreBond例外(2026-07「催眠暗示」)：玩家自訂道具可選勾「無視好感」，這類道具(如催眠暗示)
     //   跳過此門檻——仍受下面的KANSHOU_PROP_EQUIP_CAP_同一個5件上限，不是完全無限制。
     if (!def.ignoreBond && (parseInt(data[tIdx][COL.PC.BOND]) || 0) < KANSHOU_PROP_EQUIP_BOND_) {
@@ -2203,7 +2204,12 @@ function actionPlay_(userData, pcId, sheets) {
     // 🕐 2026-07 六度改版·時段限定地點同理：約的時段若不在該地點開放時段內，赴約當下會被上方
     //   【地點未開放】擋在門外，同樣是必然爽約陷阱——約定當下就先擋掉這種不相容組合(前端已只給
     //   相容時段選項，這裡是直打API的後端保底，同kanshouResidenceUnlocked_那行的既有寫法)。
-    const _pmLocOk = !!(_pmLocObj_ && _pmLocObj_.region !== 'room' && (_pmLocObj_.region !== 'visit' || kanshouResidenceUnlocked_(pcData, _pmLoc, _myGid_)) && (!_pmLocObj_.bands || !_pmBand || _pmLocObj_.bands.indexOf(_pmBand) !== -1));
+    // 🧠→✅ 2026-07 行為級稽核：舊版沒擋「約在你此刻站的這個地方」——兄弟函式 proposeMove 一直有
+    //   `_pvLoc !== curL` 這條，只有這裡漏了。後果有二：①語意荒謬(「我們約在我們現在站的地方見面」)
+    //   ②可農好感——跟她站在公園、約今天午後在公園、原地打三回合字，時間一到就判準時赴約 +5，
+    //   而赴約的 +5 是【不吃聊天天花板】的破關獎勵，等於站著不動就能無限推高好感。
+    const _pmSameSpot_ = _pmLoc === String(curL || "").trim();
+    const _pmLocOk = !!(_pmLocObj_ && _pmLocObj_.region !== 'room' && !_pmSameSpot_ && (_pmLocObj_.region !== 'visit' || kanshouResidenceUnlocked_(pcData, _pmLoc, _myGid_)) && (!_pmLocObj_.bands || !_pmBand || _pmLocObj_.bands.indexOf(_pmBand) !== -1));
     // 🆔 2026-07「整體重構·id優先」：前端已補id(見actionKanshouCompanions/servants.push)，id對得上
     //   優先鎖定，找不到才退回kanshouNameCandidates_別名比對——同名/前綴混淆不再有機可乘。
     const _pmId = String(userData.promiseMeet.id || "").trim();
@@ -2229,7 +2235,9 @@ function actionPlay_(userData, pcId, sheets) {
     } else if (_pmName) {
       // 🧠→✅ 稽核抓到診斷錯誤：她【明明就在場】、是地點/時段組合不合法(住處未解鎖／該時段不開放)，
       //   舊版卻一律回報「她不在身邊」，玩家會照著這句去找人而完全找不到問題在哪。分開兩種原因。
-      kanshouPromiseStr = `\n★【約不成·地點不合適】：你想約『${_pmName}』到「${_pmLoc}」，但那裡此刻並不適合當約會地點(還沒熟到能去、或那個時段根本不開放)——演出你話到嘴邊又換了個說法、這個約沒有談成即可，不必解釋機制。`;
+      kanshouPromiseStr = _pmSameSpot_
+        ? `\n★【約不成·你們就在這裡】：你正想約『${_pmName}』到「${_pmLoc}」見面，才發現你們此刻【就站在那裡】——演出你話說到一半自己笑出來、把這句改成別的即可，這個約沒有成立。`
+        : `\n★【約不成·地點不合適】：你想約『${_pmName}』到「${_pmLoc}」，但那裡此刻並不適合當約會地點(還沒熟到能去、或那個時段根本不開放)——演出你話到嘴邊又換了個說法、這個約沒有談成即可，不必解釋機制。`;
       finalUserMsg = `【玩家意圖】：想約『${_pmName}』去「${_pmLoc}」，卻發現那裡約不成。`;
       kanshouProposalResult_ = { ok: false, type: 'promise_loc', name: _pmName, loc: _pmLoc };
     }
@@ -3359,7 +3367,7 @@ ${PROMPT_REL}
   }
 🕰️現在${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}(揣摩氛圍用·不報時)。★【此刻＝${timeBand_(curHour)}·唯一真實】：所有光線/氣溫/作息的感受一律依此刻重寫，歷史停在哪個時段都不算數。★本回合敘事跨度上限【十分鐘】·只寫這十分鐘內的當下片段·時間推進一律由系統宣告。
 ★世界觀＝和平現代城鎮：在場每個人就是這座城裡的普通市民，來歷只能取材自系統給的她自己那份資料；那之外的設定(超凡力量、非現代事物、生死衝突)在這個世界從未發生過。調性不限悠閒。
-★【親密尺度五階·最高優先】(催眠暗示道具生效中例外)：肢體親密以好感為天花板，未達門檻依個性擋下(人格不崩)：
+★【親密尺度五階·最高優先】${_kanshouHypnosisActive_ ? '(催眠暗示道具生效中例外)' : ''}：肢體親密以好感為天花板，未達門檻依個性擋下(人格不崩)：
 ・<20(點頭之交)：形同陌生人·一動手動腳就【連碰都碰不到】(閃避/擋手/喝止/還手依個性)。
 ・20~39(普通朋友)：婉拒一切情慾越界·可friendly不接受親密。
 ・40~59(熟識)：彆扭接受輕度接觸(牽手/靠肩/摸頭)·親吻以上會退開。
