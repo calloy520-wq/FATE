@@ -2217,7 +2217,11 @@ function actionPlay_(userData, pcId, sheets) {
     : kanshouTimeBlockedStr
       ? `【玩家意圖】：走向了「${moveTarget0_.name}」，卻發現這時段還沒開放。`
       : moveTarget
-        ? `【玩家意圖】：走向了「${moveName}」，四處看看那裡有什麼、有沒有遇見誰。`
+        // 🐛→✅ 同一輪稽核：按「同意」(moveWithCompanion)那一回合送的是這句單身閒逛的意圖，
+        //   跟同時送出的「與你結伴一起來到」在場來由互相打架。同行就照同行寫。
+        ? (userData.moveWithCompanion
+          ? `【玩家意圖】：和身旁答應同行的人一起走向了「${moveName}」。`
+          : `【玩家意圖】：走向了「${moveName}」，四處看看那裡有什麼、有沒有遇見誰。`)
         : `【玩家意圖】：${userMsg}`;
 
   // 鑑賞世界觀明文禁止任何戰鬥/血量變化/死亡威脅，故不帶 solo 戰鬥引擎的殘留概念(擊倒/復活/
@@ -2345,8 +2349,14 @@ function actionPlay_(userData, pcId, sheets) {
       const _pmToday = !!(userData.promiseMeet.today === true || String(userData.promiseMeet.today) === "true")
         && _pmApptHour !== null && _pmApptHour > curHour;
       const _pmWhenTxt = _pmToday ? '今天' : '明天';
+      // 🐛→✅ 2026-07 逐按鍵稽核：一人只存一個約(kanshouSetPromise_ 新約蓋舊約)，舊版新約成立時
+      //   舊約【無聲蒸發】——玩家跟她約好黃昏商店街，再約一次夜晚公園，前一個約就這樣不見了，
+      //   AI 沒被告知、通知條也沒提。她答應時才會真的覆蓋，故只在接受分支帶這句(婉拒＝舊約保留)。
+      const _pmOld = kanshouGetPromise_(pcData[_pmIdx][COL.PC.MEMORY]);
+      const _pmOldStr = (_pmOld && (parseInt(_pmOld.day) || 0) >= curDay)
+        ? `${(parseInt(_pmOld.day) || 0) === curDay ? '今天' : '之前約好的'}${_pmOld.band ? ((KANSHOU_APPT_BANDS_.find(b => b.band === _pmOld.band) || {}).label || _pmOld.band) + '於' : '在'}「${_pmOld.loc}」` : "";
       _pendingProposal = { type: 'promise', idx: _pmIdx, loc: _pmLoc, band: _pmBand, today: _pmToday, accepted: kanshouProposalAccepts_('promise', _pmBond) };
-      kanshouPromiseStr = `\n★【提議·相約·GAS已裁定】你向『${_pmHer}』提議【${_pmWhenTxt}${_pmBandLabel ? _pmBandLabel + '於' : '在'}「${_pmLoc}」見面】。系統已依好感(${_pmBond}/100)裁定她${_pendingProposal.accepted ? `【答應】了——請 narration 依她的個性演出答應的反應（雀躍／害羞／矜持地點頭皆可），系統${_pmWhenTxt}會記得這個約` : '【婉拒】了——請 narration 依她的個性演出婉拒的反應（不好意思／認真說改天／打趣帶過皆可），此約不成立、不必替玩家找補'}。★成敗由系統定，【不可】自行改寫她的決定，只演她的反應。`;
+      kanshouPromiseStr = `\n★【提議·相約·GAS已裁定】你向『${_pmHer}』提議【${_pmWhenTxt}${_pmBandLabel ? _pmBandLabel + '於' : '在'}「${_pmLoc}」見面】。系統已依好感(${_pmBond}/100)裁定她${_pendingProposal.accepted ? `【答應】了——請 narration 依她的個性演出答應的反應（雀躍／害羞／矜持地點頭皆可），系統${_pmWhenTxt}會記得這個約${_pmOldStr ? `。★同時：你們原本還有一個【${_pmOldStr}見面】的約，這次改約等於把它取消了——narration 必須讓她自然把這件事說出口(確認改期／有點可惜／順口調侃皆可)，不可讓舊的約無聲消失` : ''}` : '【婉拒】了——請 narration 依她的個性演出婉拒的反應（不好意思／認真說改天／打趣帶過皆可），此約不成立、不必替玩家找補'}。★成敗由系統定，【不可】自行改寫她的決定，只演她的反應。`;
       finalUserMsg = `【玩家意圖】：向『${_pmHer}』提出「${_pmWhenTxt}${_pmBandLabel || ''}在${_pmLoc}見面」的約定。`;
     } else if (_pmName && _pmIdx === -1) {
       kanshouPromiseStr = kanshouMissStr_('promise', _pmName);
@@ -2359,7 +2369,7 @@ function actionPlay_(userData, pcId, sheets) {
         ? `\n★【約不成·你們就在這裡】：你正想約『${_pmName}』到「${_pmLoc}」見面，才發現你們此刻【就站在那裡】——演出你話說到一半自己笑出來、把這句改成別的即可，這個約沒有成立。`
         : `\n★【約不成·地點不合適】：你想約『${_pmName}』到「${_pmLoc}」，但那裡此刻並不適合當約會地點(還沒熟到能去、或那個時段根本不開放)——演出你話到嘴邊又換了個說法、這個約沒有談成即可，不必解釋機制。`;
       finalUserMsg = `【玩家意圖】：想約『${_pmName}』去「${_pmLoc}」，卻發現那裡約不成。`;
-      kanshouProposalResult_ = { ok: false, type: 'promise_loc', name: _pmName, loc: _pmLoc };
+      kanshouProposalResult_ = { ok: false, type: 'promise_loc', name: _pmName, loc: _pmLoc, sameSpot: _pmSameSpot_ };
     }
   }
 
@@ -2369,18 +2379,46 @@ function actionPlay_(userData, pcId, sheets) {
   //   Gemini 從不自發填→玩家從沒見過移動泡泡；改成明確標記後 AI 只做「答不答應」一件事。
   if (userData.proposeMove) {
     const _pvLoc = String(userData.proposeMove).trim();
-    const _pvLocOk = KANSHOU_LOCATIONS_.some(l => l.name === _pvLoc && l.region !== 'room') && _pvLoc !== String(curL || "").trim();
-    // 提議對象＝此刻在場的同伴(多人在場＝一起邀，以第一位的個性判定；接受後 moveWithCompanion 本就帶同地全部人)。
-    const _pvIdx = pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim());
-    if (_pvLocOk && _pvIdx !== -1) {
-      const _pvHer = String(pcData[_pvIdx][COL.PC.NAME]);
-      const _pvBond = parseInt(pcData[_pvIdx][COL.PC.BOND]) || 0;
-      _pendingProposal = { type: 'move', idx: _pvIdx, loc: _pvLoc, accepted: kanshouProposalAccepts_('move', _pvBond) };
-      kanshouPromiseStr += `\n★【提議·同去·GAS已裁定】你向『${_pvHer}』提議【現在一起去「${_pvLoc}」】。系統已依好感(${_pvBond}/100)裁定她${_pendingProposal.accepted ? '【答應】同行——請 narration 依她的個性演出答應的反應' : '【婉拒】了——請 narration 依她的個性演出婉拒的反應'}。是否動身由系統處理；narration 停在她給出回應的當下，【不可】演出發、走路或抵達。★成敗由系統定，別自行改寫她的決定。`;
+    // 🔒 地點判準與 promiseMeet 對齊(同一類「必然撲空陷阱」)：舊版只擋 room 與同地，沒擋未解鎖住處
+    //   與未開放時段——她答應了、玩家按同意，卻在移動那一步被門檻擋成「登門未果／撲空」，等於系統
+    //   自己安排了一趟不可能成行的邀約。前端 👋 只長在可去的地點上，這裡是直打 API 的後端保底。
+    const _pvLocDef = KANSHOU_LOCATIONS_.find(l => l.name === _pvLoc);
+    const _pvSameSpot = _pvLoc === String(curL || "").trim();
+    const _pvLocOk = !!(_pvLocDef && _pvLocDef.region !== 'room' && !_pvSameSpot
+      && (_pvLocDef.region !== 'visit' || kanshouResidenceUnlocked_(pcData, _pvLoc, _myGid_))
+      && (!_pvLocDef.bands || _pvLocDef.bands.indexOf(timeBand_(curHour)) !== -1));
+    // 提議對象＝此刻在場的【全部】同伴。
+    // 🐛→✅ 2026-07 逐按鍵稽核：舊版只 findIndex 取第一位、提示詞也只點名她，但按下「同意」時
+    //   moveWithCompanion 走的是 kanshouPreMoveCompanions_「帶同地全部人」——三個人在場，AI 只演
+    //   了櫻答應，凜跟斯卡哈卻無聲跟著移動。單一真實來源：這裡點名誰，那邊就走誰。
+    //   裁定基準取【好感最低】的那位——最生疏的人不肯，這趟集體外出就不成立(人越多越難成行，合理)。
+    const _pvIdxs = [];
+    pcData.forEach((r, i) => {
+      if (i === pcIndex || String(r[COL.PC.FACTION]) !== "從者" || !sameGame(r) || String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+      if (String(r[COL.PC.LOC] || "").trim() !== String(curL || "").trim()) return;
+      _pvIdxs.push(i);
+    });
+    if (_pvLocOk && _pvIdxs.length) {
+      const _pvNames = _pvIdxs.map(i => String(pcData[i][COL.PC.NAME]));
+      const _pvHer = _pvNames.join('、');
+      const _pvBond = Math.min.apply(null, _pvIdxs.map(i => parseInt(pcData[i][COL.PC.BOND]) || 0));
+      const _pvMulti = _pvNames.length > 1;
+      _pendingProposal = { type: 'move', idx: _pvIdxs[0], names: _pvNames, name: _pvHer, loc: _pvLoc, accepted: kanshouProposalAccepts_('move', _pvBond) };
+      kanshouPromiseStr += `\n★【提議·同去·GAS已裁定】你向『${_pvHer}』提議【現在一起去「${_pvLoc}」】。系統已依好感(${_pvMulti ? `最生疏的一位 ${_pvBond}` : _pvBond}/100)裁定${_pvMulti ? '她們全體' : '她'}${_pendingProposal.accepted ? `【答應】同行——請 narration ${_pvMulti ? '讓被點名的每一位都各依自己的個性給出答應的反應(可有人爽快、有人半推半就，但結論一致)' : '依她的個性演出答應的反應'}` : `【婉拒】了——請 narration ${_pvMulti ? '讓被點名的每一位都各依自己的個性給出婉拒的反應' : '依她的個性演出婉拒的反應'}`}。是否動身由系統處理；narration 停在${_pvMulti ? '她們' : '她'}給出回應的當下，【不可】演出發、走路或抵達。★成敗由系統定，別自行改寫${_pvMulti ? '她們' : '她'}的決定。`;
       finalUserMsg = `【玩家意圖】：邀身旁的『${_pvHer}』現在一起去「${_pvLoc}」。`;
-    } else if (_pvIdx === -1) {
+    } else if (!_pvIdxs.length) {
       kanshouPromiseStr += kanshouMissStr_('move', _pvLoc);
       finalUserMsg = `【玩家意圖】：想邀同伴一起去「${_pvLoc}」，卻發現身邊沒有人。`;
+    } else {
+      // 🐛→✅ 同輪稽核：人明明在場、只是地點不合適時，舊版【兩個分支都不跑】——沒有★事實、沒有
+      //   通知條，AI 只收到一句閒聊就自由發揮，玩家按下去像是完全沒反應。比照 promiseMeet 的
+      //   「約不成」兩種原因分開講(她就在這裡 / 那裡去不成)，別讓玩家去找一個不存在的問題。
+      const _pvHer0 = _pvIdxs.map(i => String(pcData[i][COL.PC.NAME])).join('、');
+      kanshouPromiseStr += _pvSameSpot
+        ? `\n★【邀不成·你們就在這裡】：你正想邀『${_pvHer0}』一起去「${_pvLoc}」，才發現你們此刻【就站在那裡】——演出你話說到一半自己笑出來、把這句改成別的即可，沒有人要去哪裡。`
+        : `\n★【邀不成·地點去不成】：你想邀『${_pvHer0}』一起去「${_pvLoc}」，但那裡此刻去不了(還沒熟到能登門、或那個時段根本不開放)——演出你話到嘴邊又換了個說法即可，這趟沒有成行，不必解釋機制。`;
+      finalUserMsg = `【玩家意圖】：想邀『${_pvHer0}』一起去「${_pvLoc}」，卻發現那裡此刻去不成。`;
+      kanshouProposalResult_ = { ok: false, type: 'move_loc', name: _pvHer0, loc: _pvLoc, sameSpot: _pvSameSpot };
     }
   }
 
@@ -2439,11 +2477,16 @@ function actionPlay_(userData, pcId, sheets) {
       } else {
         const _hhName = String(pcData[_hhIdx][COL.PC.NAME]);
         const _hhBond = parseInt(pcData[_hhIdx][COL.PC.BOND]) || 0;
+        // 🐛→✅ 2026-07 逐按鍵稽核：牽手 tag 只存一個人，牽著A又去牽B時舊值被【默默覆蓋】——
+        //   A 就站在旁邊，卻在下一回合起憑空變成沒牽手，AI 從沒被告知你鬆了她的手。
+        //   只在【她答應】時才是真的換手(婉拒＝你的手收回來、原本那隻手沒放開)，故字串併在下面接受分支。
+        const _hhPrevN = KANSHOU_HANDHOLD_TAG_.get(pcData[pcIndex][COL.PC.MEMORY]);
+        const _hhSwitch = (_hhPrevN && !kanshouNameCandidates_(_hhName).includes(_hhPrevN)) ? _hhPrevN : "";
         // 牽手tag存在玩家自己列(pcIndex)、值=她的名字；接受與否由AI判定，接受後才在post-AI區寫回。
         // herIdx：牽手 tag 寫在玩家列(idx)，但「第一次牽手」這筆帳要記在【她】那一列，故一併帶著
         //   她的列索引過去，post-AI 接受分支才不必再查一次人。
         _pendingProposal = { type: 'hold', idx: pcIndex, herIdx: _hhIdx, name: _hhName, accepted: kanshouProposalAccepts_('hold', _hhBond) };
-        kanshouHandHoldStr = `\n★【提議·牽手·GAS已裁定】你伸手想牽起『${_hhName}』的手。系統已依好感(${_hhBond}/100)裁定她${_pendingProposal.accepted ? '【讓你牽了】——narration 必須真實演出【她的手交到你手中／你們牽起手】的那一刻(不可只碰衣角、拉衣袖之類含糊帶過——那不算牽手)，語氣依其個性（大方／害羞／彆扭皆可）；她接受後，之後你移動她會相伴同行(直到放手)' : '【收回了手】——narration 依其個性演出她收手／避開、沒牽成的反應，不必替玩家找補'}。★成敗由系統定，別自行改寫她的決定。`;
+        kanshouHandHoldStr = `\n★【提議·牽手·GAS已裁定】你伸手想牽起『${_hhName}』的手。系統已依好感(${_hhBond}/100)裁定她${_pendingProposal.accepted ? `【讓你牽了】——narration 必須真實演出【她的手交到你手中／你們牽起手】的那一刻(不可只碰衣角、拉衣袖之類含糊帶過——那不算牽手)，語氣依其個性（大方／害羞／彆扭皆可）；她接受後，之後你移動她會相伴同行(直到放手)${_hhSwitch ? `。★同時：你原本牽著的是『${_hhSwitch}』的手，這一牽等於當著她的面鬆開了她——narration 必須把這個鬆手先演出來(一個動作或一個眼神都好)、並讓『${_hhSwitch}』依她的個性有所反應，不可讓她的手憑空消失` : ''}` : '【收回了手】——narration 依其個性演出她收手／避開、沒牽成的反應，不必替玩家找補'}。★成敗由系統定，別自行改寫她的決定。`;
         finalUserMsg = `【玩家意圖】：伸手想牽起『${_hhName}』的手。`;
       }
     }
@@ -2911,9 +2954,10 @@ function actionPlay_(userData, pcId, sheets) {
       if (kanshouPreMoveCompanions_.some(cr => String(cr[COL.PC.NAME]).trim() === _nm.trim())) return; // 剛跟你一起走來
       // 玩家本回合正對她提議(相約/牽手/同去·_pendingProposal)——她留下聽完回應：否則被動+10分恰跨時段時，
       //   AI 同回合收到「向她提議」＋「她已告辭」兩條矛盾指令，接受還會把牽手/同去落到已離場的人身上。
+      //   ★ names(同去是群體提議·見上方 proposeMove)優先，否則退回單人 name/idx。
       if (_pendingProposal) {
-        const _ppN = String(_pendingProposal.name || pcData[_pendingProposal.idx][COL.PC.NAME] || "");
-        if (_ppN && kanshouNameCandidates_(_nm).includes(_ppN)) return;
+        const _ppNs = _pendingProposal.names || [String(_pendingProposal.name || pcData[_pendingProposal.idx][COL.PC.NAME] || "")];
+        if (_ppNs.some(n => n && kanshouNameCandidates_(_nm).includes(String(n)))) return;
       }
       const _newLoc = String(kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(_nm, curHour, kanshouIsCohabit_(r), r[COL.PC.MEMORY]) || "").trim();
       if (_newLoc && _newLoc !== String(curL || "").trim()) {

@@ -347,6 +347,14 @@ let plainTextContext = cleanText;
         else if (_pr.type === 'move') _msg = '🚶 「' + _nm + '」這次不想去「' + escapeHtml(String(_pr.loc || '')) + '」——心情或時機不對，待會再邀、或自己先過去也行。';
         else if (_pr.ok && _pr.type === 'cohabit') _msg = '🏠 <b>同居開始！</b>「' + _nm + '」搬來與你同住了——深夜她會回家的和室就寢、清晨可能賴床、晚間常在家中。';
         else if (_pr.type === 'cohabit') _msg = '🏠 「' + _nm + '」婉拒了同居——你們的關係還不夠深(需要非常深厚的信賴)，再一起多累積些回憶吧。';
+        // 🐛→✅ 2026-07 逐按鍵稽核：地點不合法的兩種回報(promise_loc/move_loc)舊版沒有自己的分支，
+        //   一路掉到最後那行 else，印出的是【「她」沒有讓你牽手】——玩家按的明明是相約/邀同去，
+        //   卻收到一則牽手失敗通知，會去找一個不存在的問題。這兩型跟「她婉拒」無關，是地點的事。
+        else if (_pr.type === 'promise_loc' || _pr.type === 'move_loc') {
+          _msg = (_pr.type === 'promise_loc' ? '📅 ' : '🚶 ') + (_pr.sameSpot
+            ? '你們此刻【就在「' + escapeHtml(String(_pr.loc || '')) + '」】——不用約在自己站的地方，挑個別處吧。'
+            : '「' + escapeHtml(String(_pr.loc || '')) + '」此刻去不成(還沒熟到能登門、或那個時段沒開放)，換個地點或換個時段再試試。');
+        }
         else _msg = (_pr.type === 'promise' ? '📅 「' : '🤝 「') + _nm + '」' + (_pr.type === 'promise' ? '婉拒了這次約定。' : '沒有讓你牽手。') + '——關係再深一點、或換個時機再試試。';
         const _col = _pr.ok ? 'rgba(90,160,110,.14);border:1px solid #4a8a5a;color:#a8e0b8' : 'rgba(150,110,120,.14);border:1px solid #8a5a6a;color:#e0b0bc';
         story.insertAdjacentHTML('beforeend', `<div style="background:${_col};border-radius:8px;padding:7px 10px;margin:4px 0;font-size:12.5px;">${_msg}</div>`);
