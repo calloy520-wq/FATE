@@ -83,6 +83,16 @@ function getDiaryPcSheet_(ss) {
   return sh;
 }
 
+// 🔒 本軌自己的歸屬驗證。dispatcher 的 verifyPcOwnership_ 認不得 DPC_（它只查帳號表的
+//   solo/鑑賞兩欄），故那邊豁免、驗證責任落在這裡——不是少驗，是換個地方驗。
+//   回傳玩家列索引，驗不過回 -1。
+function diaryVerify_(data, pcId, acctName) {
+  var i = diaryPcIdx_(data, pcId);
+  if (i < 0) return -1;
+  var acct = String(acctName || "").trim();
+  if (!acct || DIARY_ACCT_TAG_.get(data[i][COL.PC.MEMORY]) !== acct) return -1;
+  return i;
+}
 function diaryPcIdx_(data, pcId) {
   for (var i = 1; i < data.length; i++) if (String(data[i][COL.PC.ID]) === String(pcId)) return i;
   return -1;
@@ -172,8 +182,8 @@ function actionDiaryWeek(userData, pcId, sheets) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = getDiaryPcSheet_(ss);
   var data = sh.getDataRange().getValues();
-  var me = diaryPcIdx_(data, pcId);
-  if (me < 0) return JSON.stringify({ success: false, message: "找不到你的角色。" });
+  var me = diaryVerify_(data, pcId, userData.acctName);
+  if (me < 0) return JSON.stringify({ success: false, message: "查無御主。" });
   var gameId = String(data[me][COL.PC.GAME_ID] || "");
   var week = DIARY_WEEK_TAG_.get(data[me][COL.PC.MEMORY]) || 1;
 

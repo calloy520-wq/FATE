@@ -249,6 +249,12 @@ function handleGameAction(userData) {
 //   check_name/check_sheets/dev_resync_codex 不涉及個別玩家列；purge_orphans 是全局孤兒清理。
 //   其餘只要動作帶了 pcId，一律先過 verifyPcOwnership_ 反查「帳號」表確認真的是本人。
 const OWNERSHIP_CHECK_EXEMPT_ = {
+  // 📔 日記軌(DPC_)：verifyPcOwnership_ 只認 KPC_→COL.ACC.KPC、其餘一律拿去比 solo 的 COL.ACC.PC，
+  //   DPC_ 掉進 else 永遠對不上 → 整條路被回「查無御主」(玩家實測「讀不到行程表」)。
+  //   ★刻意【不】去改帳號表 schema 加一欄 DPC——這一軌是可整檔刪除的實驗品，動共用 schema 就
+  //   刪不乾淨了(且 COL 是位置索引)。改成在這裡豁免、由 Diary.gs 自己用 DIARY_ACCT_TAG_ 驗，
+  //   歸屬檢查一點都沒少（見 diaryVerify_）。
+  enter_diary: 1, diary_schedule: 1, diary_week: 1,
   check_name: 1, check_sheets: 1, dev_resync_codex: 1, purge_orphans: 1,
   account_login: 1, account_new_game: 1, enter_kanshou: 1, create: 1,
   get_heroes: 1, get_masters: 1, claim_hero: 1, save_hero: 1

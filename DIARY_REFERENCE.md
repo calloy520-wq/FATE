@@ -34,6 +34,24 @@
 
 帳號歸屬用本軌自己的 `DIARY_ACCT_TAG_`（`makeTextTag_('日記帳號')`）——鑑賞那邊是手拼 `"【帳號】"+name` 的裸字串且真正驗證走帳號表，本檔**不去動它**。
 
+## 🔒 歸屬驗證走自己這一套（別再踩）
+
+dispatcher 的 `verifyPcOwnership_` 只認兩種前綴：
+
+```js
+var col = id.indexOf("KPC_") === 0 ? COL.ACC.KPC : COL.ACC.PC;
+```
+
+`DPC_` 掉進 else，被拿去比對 **solo 的 PC 欄**，永遠對不上 → 整條路被回「查無御主」（玩家實測回報「讀不到行程表」就是這個）。
+
+**修法刻意不是「去帳號表加一欄 DPC」**——那會動到共用 schema，這一軌就刪不乾淨了（且 `COL` 是位置索引）。改成：
+1. 三個 action 進 `OWNERSHIP_CHECK_EXEMPT_`
+2. 驗證責任落到 `Diary.gs` 的 `diaryVerify_()`，比對本軌自己的 `DIARY_ACCT_TAG_`
+
+**不是少驗，是換個地方驗。** 已實測：換一個帳號拿同一個 `DPC_` id 呼叫 `diary_week`，回「查無御主。」。
+
+⚠️ **之後在這一軌新增任何 action，兩件事都要做**：加進 `OWNERSHIP_CHECK_EXEMPT_`、handler 內呼叫 `diaryVerify_`。只做第一件＝開後門，只做第二件＝功能打不通。
+
 ## 🔁 核心迴圈
 
 ```
