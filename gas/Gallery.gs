@@ -3113,6 +3113,89 @@ function actionPlay_(userData, pcId, sheets) {
     }
   });
 
+  // ⚠ 位置關鍵：這一段【必須排在 partyRows 之前】。「她自己找來了」會把她的 LOC 搬到你這裡，
+  //   而 partyRows(在場名單／人物卡)是照 LOC 篩出來的——排在後面的話，AI 會同時收到「她剛剛
+  //   出現在這裡」跟「只有【在場人物】可以開口」，而她沒有卡片，兩條指令直接打架(2026-07 提示詞
+  //   矛盾掃描實測到)。三種事件需要的「誰此刻在你面前」是自己從 pcData 的 LOC 算的(_hereRows)，
+  //   不依賴 partyRows 這個變數，所以往前搬是安全的。
+  // 🙋 她主動：擲骰→直接落地成既成事實→下面組提示詞。全域每日一次、無泡泡、不看玩家打了什麼。
+  //   排在 partyRows 之後：三種事件都要知道「誰此刻在你面前」。
+  let kanshouInitStr = "";
+  // 🙋 這一刻自己走來的人名（供【在場來由】用，比照深夜訪客 kanshouKnockGuestName）——
+  //   沒有這一欄的話她會被算成「你們從剛才就一直在這裡」，跟★【她自己找來了】互相打架。
+  let kanshouInitVisitName_ = "";
+  (function () {
+    // 只在「玩家自己推進的普通回合」擲：時間跳躍/結束一天/深夜段落各有自己的節奏，硬插會打架。
+    if (kanshouTimeJumped_ || kanshouNightSceneOn_ || kanshouNightGuest_ || kanshouEncounterHero) return;
+    if (KANSHOU_INITIATIVE_DAY_TAG_.get(pcData[pcIndex][COL.PC.MEMORY]) === curDay) return;
+    const _all = pcData.filter((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者"
+      && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+    if (!_all.length) return;
+    // 📉 節流：機率除以「手上未赴的約數」(玩家「有約的話機率再下降一點」)。0個=全速、1個=半速…
+    const _pending = _all.filter(r => { const p = kanshouGetPromise_(r[COL.PC.MEMORY]); return p && p.day >= curDay; }).length;
+    const _maxBond = _all.reduce((m, r) => Math.max(m, parseInt(r[COL.PC.BOND]) || 0), 0);
+    const _p = Math.min(KANSHOU_INIT_MAX_, KANSHOU_INIT_BASE_ + _maxBond * KANSHOU_INIT_PER_BOND_) / (1 + _pending);
+    if (Math.random() >= _p) return;
+
+    const _hereRows = _all.filter(r => String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim());
+    const _locObj = KANSHOU_LOCATIONS_.find(l => l.name === String(curL || "").trim());
+    // ① 她來找你：她不在場、好感夠、而且你此刻【不是待在別人家】(那該是你去拜訪，不是她跑來)
+    const _visitOk = _locObj && _locObj.region !== 'visit'
+      && curHour >= KANSHOU_INIT_VISIT_FROM_ && curHour < KANSHOU_INIT_VISIT_TO_;
+    const _visitPool = _visitOk
+      ? _all.filter(r => String(r[COL.PC.LOC] || "").trim() !== String(curL || "").trim()
+        && (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_VISIT_BOND_) : [];
+    // ② 她開口約你：她在場、熟識以上、而且【她自己】名下沒有還沒赴的約
+    const _invitePool = _hereRows.filter(r => (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_VISIT_BOND_
+      && !(function () { const p = kanshouGetPromise_(r[COL.PC.MEMORY]); return p && p.day >= curDay; })());
+    // ③ 她想要什麼：她在場即可，不看好感——這條不動任何數值，只是讓日常有人味
+    const _wantPool = _hereRows;
+    const _kinds = [];
+    if (_visitPool.length) _kinds.push('visit');
+    if (_invitePool.length) _kinds.push('invite');
+    if (_wantPool.length) _kinds.push('want');
+    // 📐 三型等權(2026-07 實跑調校)：初版給 want 加倍權重，結果邀約變成 20 天才一次——因為
+    //   邀約本來就還要再過「她自己名下沒有未赴的約」這道閘，兩層壓抑疊起來太稀有。等權之後
+    //   約每 9 天一次她會開口約你，而「已有約就降速」那道節流仍在，不會約滿場。
+    if (!_kinds.length) return;
+    const _kind = _kinds[Math.floor(Math.random() * _kinds.length)];
+    const _pick = a => a[Math.floor(Math.random() * a.length)];
+    const _stamp = () => {
+      pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_INITIATIVE_DAY_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], curDay);
+      dirtyPcRows.add(pcIndex);
+    };
+
+    if (_kind === 'visit') {
+      const _r = _pick(_visitPool), _i = pcData.indexOf(_r);
+      pcData[_i][COL.PC.LOC] = curL;
+      // 她是自己走來的、當然醒著——同深夜訪客，不標會在自家時段被 pSleepStr 判成熟睡。
+      pcData[_i][COL.PC.MEMORY] = KANSHOU_AWAKE_HERE_TAG_.set(pcData[_i][COL.PC.MEMORY], curL);
+      dirtyPcRows.add(_i); _stamp();
+      kanshouInitVisitName_ = String(_r[COL.PC.NAME]);
+      kanshouInitStr = `\n★【她自己找來了】：『${String(_r[COL.PC.NAME])}』剛剛出現在「${curL}」——不是你叫她來的，是她自己想見你才過來的。這件事【已經發生】，由她依自己的個性演出她是怎麼出現、怎麼開的口(若無其事／找個藉口／直說皆可)。`;
+    } else if (_kind === 'invite') {
+      const _r = _pick(_invitePool), _i = pcData.indexOf(_r);
+      const _band = _pick(KANSHOU_APPT_BANDS_);
+      // 地點條件與玩家自己相約時完全同一套(見 _pmLocOk)：不能是私室、不能是現在站的地方、
+      //   別人家要先解鎖、有時段限制的要對得上——同一份規則不重寫第二遍。
+      const _cands = KANSHOU_LOCATIONS_.filter(l => l.region !== 'room'
+        && l.name !== String(curL || "").trim()
+        && (l.region !== 'visit' || kanshouResidenceUnlocked_(pcData, l.name, myGameId))
+        && (!l.bands || l.bands.indexOf(_band.band) !== -1));
+      if (!_cands.length) return;
+      const _loc = _pick(_cands);
+      // 這個時段今天還來得及就約今天，否則約明天。
+      const _today = _band.hour > curHour + 1;
+      pcData[_i][COL.PC.MEMORY] = kanshouSetPromise_(pcData[_i][COL.PC.MEMORY], curDay + (_today ? 0 : 1), _loc.name, _band.band, true);
+      dirtyPcRows.add(_i); _stamp();
+      kanshouInitStr = `\n★【她開口約你】：『${String(_r[COL.PC.NAME])}』說了${_today ? '今天' : '明天'}${_band.label}在「${_loc.name}」等你——這句話【已經說出口】，由她依自己的個性演出她是怎麼提的(慎重／裝作隨口／彆扭地繞一圈才講皆可)。★這是她單方面的邀約，你答不答應都行，narration【不可】替玩家決定要去或不去。`;
+    } else {
+      const _r = _pick(_wantPool);
+      _stamp();
+      kanshouInitStr = `\n★【她此刻的心思】：『${String(_r[COL.PC.NAME])}』${_pick(KANSHOU_INIT_WANTS_)}——這是她心裡真的有的事，這一回合讓它自然浮出來一次(要不要說破、怎麼說，依她的個性決定)。★只是一個起頭，【不可】替玩家決定他怎麼回應。`;
+    }
+  })();
+
   // 「開放世界·背景人煙」設計：路人可自由描寫增添生活感，但不具名、不追蹤好感、不能被指名互動；
   //   真正能被指名、好感會被記錄的對象只有【在場人物】，判準是「LOC是否跟玩家目前位置一致」，
   //   不看IS_PARTY。
@@ -3226,79 +3309,6 @@ function actionPlay_(userData, pcId, sheets) {
       kanshouAloneBondStr = `\n★【獨處時光】：此刻這個地方只有你和『${String(partyRows[0][COL.PC.NAME])}』兩個人——不必特別點破，讓這份「沒有別人」的私密感自然滲進她的語氣與距離感即可(好感已由系統上調，敘事勿再另計)。`;
     }
   }
-  // 🙋 她主動：擲骰→直接落地成既成事實→下面組提示詞。全域每日一次、無泡泡、不看玩家打了什麼。
-  //   排在 partyRows 之後：三種事件都要知道「誰此刻在你面前」。
-  let kanshouInitStr = "";
-  (function () {
-    // 只在「玩家自己推進的普通回合」擲：時間跳躍/結束一天/深夜段落各有自己的節奏，硬插會打架。
-    if (kanshouTimeJumped_ || kanshouNightSceneOn_ || kanshouNightGuest_ || kanshouEncounterHero) return;
-    if (KANSHOU_INITIATIVE_DAY_TAG_.get(pcData[pcIndex][COL.PC.MEMORY]) === curDay) return;
-    const _all = pcData.filter((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者"
-      && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_"));
-    if (!_all.length) return;
-    // 📉 節流：機率除以「手上未赴的約數」(玩家「有約的話機率再下降一點」)。0個=全速、1個=半速…
-    const _pending = _all.filter(r => { const p = kanshouGetPromise_(r[COL.PC.MEMORY]); return p && p.day >= curDay; }).length;
-    const _maxBond = _all.reduce((m, r) => Math.max(m, parseInt(r[COL.PC.BOND]) || 0), 0);
-    const _p = Math.min(KANSHOU_INIT_MAX_, KANSHOU_INIT_BASE_ + _maxBond * KANSHOU_INIT_PER_BOND_) / (1 + _pending);
-    if (Math.random() >= _p) return;
-
-    const _hereRows = _all.filter(r => String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim());
-    const _locObj = KANSHOU_LOCATIONS_.find(l => l.name === String(curL || "").trim());
-    // ① 她來找你：她不在場、好感夠、而且你此刻【不是待在別人家】(那該是你去拜訪，不是她跑來)
-    const _visitOk = _locObj && _locObj.region !== 'visit'
-      && curHour >= KANSHOU_INIT_VISIT_FROM_ && curHour < KANSHOU_INIT_VISIT_TO_;
-    const _visitPool = _visitOk
-      ? _all.filter(r => String(r[COL.PC.LOC] || "").trim() !== String(curL || "").trim()
-        && (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_VISIT_BOND_) : [];
-    // ② 她開口約你：她在場、熟識以上、而且【她自己】名下沒有還沒赴的約
-    const _invitePool = _hereRows.filter(r => (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_VISIT_BOND_
-      && !(function () { const p = kanshouGetPromise_(r[COL.PC.MEMORY]); return p && p.day >= curDay; })());
-    // ③ 她想要什麼：她在場即可，不看好感——這條不動任何數值，只是讓日常有人味
-    const _wantPool = _hereRows;
-    const _kinds = [];
-    if (_visitPool.length) _kinds.push('visit');
-    if (_invitePool.length) _kinds.push('invite');
-    if (_wantPool.length) _kinds.push('want');
-    // 📐 三型等權(2026-07 實跑調校)：初版給 want 加倍權重，結果邀約變成 20 天才一次——因為
-    //   邀約本來就還要再過「她自己名下沒有未赴的約」這道閘，兩層壓抑疊起來太稀有。等權之後
-    //   約每 9 天一次她會開口約你，而「已有約就降速」那道節流仍在，不會約滿場。
-    if (!_kinds.length) return;
-    const _kind = _kinds[Math.floor(Math.random() * _kinds.length)];
-    const _pick = a => a[Math.floor(Math.random() * a.length)];
-    const _stamp = () => {
-      pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_INITIATIVE_DAY_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], curDay);
-      dirtyPcRows.add(pcIndex);
-    };
-
-    if (_kind === 'visit') {
-      const _r = _pick(_visitPool), _i = pcData.indexOf(_r);
-      pcData[_i][COL.PC.LOC] = curL;
-      // 她是自己走來的、當然醒著——同深夜訪客，不標會在自家時段被 pSleepStr 判成熟睡。
-      pcData[_i][COL.PC.MEMORY] = KANSHOU_AWAKE_HERE_TAG_.set(pcData[_i][COL.PC.MEMORY], curL);
-      dirtyPcRows.add(_i); _stamp();
-      kanshouInitStr = `\n★【她自己找來了】：『${String(_r[COL.PC.NAME])}』剛剛出現在「${curL}」——不是你叫她來的，是她自己想見你才過來的。這件事【已經發生】，由她依自己的個性演出她是怎麼出現、怎麼開的口(若無其事／找個藉口／直說皆可)。`;
-    } else if (_kind === 'invite') {
-      const _r = _pick(_invitePool), _i = pcData.indexOf(_r);
-      const _band = _pick(KANSHOU_APPT_BANDS_);
-      // 地點條件與玩家自己相約時完全同一套(見 _pmLocOk)：不能是私室、不能是現在站的地方、
-      //   別人家要先解鎖、有時段限制的要對得上——同一份規則不重寫第二遍。
-      const _cands = KANSHOU_LOCATIONS_.filter(l => l.region !== 'room'
-        && l.name !== String(curL || "").trim()
-        && (l.region !== 'visit' || kanshouResidenceUnlocked_(pcData, l.name, myGameId))
-        && (!l.bands || l.bands.indexOf(_band.band) !== -1));
-      if (!_cands.length) return;
-      const _loc = _pick(_cands);
-      // 這個時段今天還來得及就約今天，否則約明天。
-      const _today = _band.hour > curHour + 1;
-      pcData[_i][COL.PC.MEMORY] = kanshouSetPromise_(pcData[_i][COL.PC.MEMORY], curDay + (_today ? 0 : 1), _loc.name, _band.band, true);
-      dirtyPcRows.add(_i); _stamp();
-      kanshouInitStr = `\n★【她開口約你】：『${String(_r[COL.PC.NAME])}』說了${_today ? '今天' : '明天'}${_band.label}在「${_loc.name}」等你——這句話【已經說出口】，由她依自己的個性演出她是怎麼提的(慎重／裝作隨口／彆扭地繞一圈才講皆可)。★這是她單方面的邀約，你答不答應都行，narration【不可】替玩家決定要去或不去。`;
-    } else {
-      const _r = _pick(_wantPool);
-      _stamp();
-      kanshouInitStr = `\n★【她此刻的心思】：『${String(_r[COL.PC.NAME])}』${_pick(KANSHOU_INIT_WANTS_)}——這是她心裡真的有的事，這一回合讓它自然浮出來一次(要不要說破、怎麼說，依她的個性決定)。★只是一個起頭，【不可】替玩家決定他怎麼回應。`;
-    }
-  })();
   const kanshouAnnivLines_ = [];
   const kanshouTierCrossLines_ = [];   // 💗 這回合剛跨進新關係階的人
   const kanshouCohabitEndNames_ = []; // 🏠 這回合剛被解除同居的人
@@ -3626,6 +3636,10 @@ function actionPlay_(userData, pcId, sheets) {
         //   跟這一欄的「你們從剛才就一直在這裡」直接打架——同一件事只能有一個出處。
         if (kanshouKnockGuestName && String(pName).trim() === String(kanshouKnockGuestName).trim()) {
           return "她【剛剛敲了你的門、這一刻才進來】(不是本來就在場，也不是跟你一起回來的)";
+        }
+        // 🙋 她自己找上門(見★【她自己找來了】)：同深夜訪客，是這一刻才出現的，不是本來就在場。
+        if (kanshouInitVisitName_ && String(pName).trim() === String(kanshouInitVisitName_).trim()) {
+          return "她【是自己找上門來的、這一刻才出現在這裡】(不是本來就在場，也不是跟你一起來的)";
         }
         if (moveTarget) {
           return kanshouPreMoveCompanions_.some(cr => String(cr[COL.PC.NAME]).trim() === String(pName).trim())
