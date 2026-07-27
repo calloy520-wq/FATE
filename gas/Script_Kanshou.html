@@ -279,7 +279,7 @@ let plainTextContext = cleanText;
         optionsHtml += `<div style="background:rgba(160,110,60,0.14); border:1px solid #8a6a3a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
           + `<div style="color:#e0c090; font-size:12.5px; margin-bottom:6px;">🚪 「${gNameEsc}」深夜來訪，此刻人就在這裡——這一夜要怎麼收？<span style="color:#9a8f78;">(不選也行，繼續聊就是了——那她今晚就留下)</span></div>`
           + `<div style="display:flex; gap:8px;">`
-          + `<button class="btn-option" style="flex:1;" onclick="kanshouSleepWithGuest()">🛏 讓她留下<br><span style="font-size:10px;opacity:.75;">和在場的人共度·直接到早上</span></button>`
+          + `<button class="btn-option" style="flex:1;" onclick="kanshouSleepWithGuest()">🛏 讓她留下<br><span style="font-size:10px;opacity:.75;">夜還很長·想待多久都行</span></button>`
           + `<button class="btn-option" style="flex:1;" onclick="kanshouSendGuestHome()">🚪 請她回去<br><span style="font-size:10px;opacity:.75;">只跟原本陪你的人·直接到早上</span></button>`
           + `</div></div>`;
       }
@@ -885,9 +885,11 @@ let plainTextContext = cleanText;
   async function kanshouEndDay() {
     // 📅 睡前爽約警示(玩家實測「不知不覺跨了兩天、約定無聲過期」)：判斷邏輯已抽進共用的
     //   kcPromiseWarn_，三個時間推進入口共用一份。深夜按「下一階段」也走這裡，同樣被擋到。
-    if (!await customConfirm_('結束今天，讓時間流動到明天嗎？' + kcPromiseWarn_('day'))) return;
+    // 🌙 夜未眠中按下去＝這一夜收尾、睡到天亮；否則才是一般的「結束今天」。爽約警示兩種都要帶。
+    var _inNight = !!(window._lastTags && window._lastTags.nightScene);
+    if (!await customConfirm_((_inNight ? '這一夜就到這裡，睡到天亮嗎？' : '結束今天，讓時間流動到明天嗎？') + kcPromiseWarn_('day'))) return;
     showGamePane('chat');
-    await send('🌙 結束了這一天。', false, { endDay: true, loaderCaptions: ['夜色漸漸深了…', '一天的塵埃緩緩落定…', '悄悄迎向嶄新的一天…'] });
+    await send(_inNight ? '🌅 這一夜，就這樣過去了。' : '🌙 結束了這一天。', false, { endDay: true, loaderCaptions: ['夜色漸漸深了…', '一天的塵埃緩緩落定…', '悄悄迎向嶄新的一天…'] });
   }
 
   // ⏰ 直接選目標時段，GAS算好差幾小時(見Gallery.gs kanshouHoursUntilBand_)，走advanceHours管線。
@@ -1276,7 +1278,9 @@ let plainTextContext = cleanText;
   async function kanshouSleepWithGuest() {
     // 讓她留下＝什麼都不用做：endDay 的 intimateNightNames(好感≥80 且此刻同地)本來就會把在場的
     // 每一位都留在玩家房間過夜——她跟原本就陪著你的人都算在內。
-    await send('（就這樣，和在場的人一起度過了這一夜）', false, { endDay: true, skipKnockCheck: true });
+    // 🌙 送的仍是 endDay:true，但後端會先攔成「夜未眠」(見 Gallery.gs 兩段式就寢)——這一按不到早上，
+    //   而是把時間推到就寢時刻、人留在房裡，玩家想演幾回合都行，再按一次 HUD 那顆才真的天亮。
+    await send('（門關上了，這一夜還長）', false, { endDay: true, skipKnockCheck: true });
   }
   async function kanshouSendGuestHome() {
     // ⚠ 一定要帶 dismissGuest：她好感通常≥80 又已落盤在你所在地，不明講送客的話會被 endDay 的

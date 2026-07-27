@@ -544,7 +544,12 @@ function buildTagsPayload_(sheets, pcId, preData) {
   // 🗺️ myLoc：玩家此刻所在地。鑑賞前端本來完全沒有這個資訊的可靠來源(只有 locationCounts 這種
   //   彙總數字)，導致「約定地點清單要排除你正站著的地方」之類的判斷做不出來。放進既有 payload
   //   ＝零額外 round-trip，單一真實來源在後端。
-  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length, locationCounts: locationCounts, unlockedResidences: Object.keys(unlockedResidences), encounterWindow: encWin, myLoc: String(m[COL.PC.LOC] || "") };
+  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length, locationCounts: locationCounts, unlockedResidences: Object.keys(unlockedResidences), encounterWindow: encWin, myLoc: String(m[COL.PC.LOC] || ""),
+    // 🌙 夜未眠(Gallery.gs KANSHOU_NIGHT_SCENE_TAG_)：HUD 那顆鈕要據此把「🌙睡覺」換成「🌅睡到天亮」。
+    //   掛在 tags 而非 play 回傳的頂層——tags 是前端的狀態通道(window._lastTags)，也會被
+    //   STATE_AFTER_ACTIONS 重新拉，玩家重新整理頁面後按鈕不會退回錯的字。
+    nightScene: (typeof KANSHOU_NIGHT_SCENE_TAG_ !== 'undefined'
+      && KANSHOU_NIGHT_SCENE_TAG_.get(m[COL.PC.MEMORY]) === (parseInt(m[COL.PC.DAY]) || 0)) || undefined };
 }
 
 // ⚡ preData：手上已有最新整表陣列的呼叫端(見 STATE_PRE_DATA_ 交棒機制)傳入複用，省掉整表重讀——

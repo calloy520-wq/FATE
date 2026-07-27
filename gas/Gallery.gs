@@ -1644,6 +1644,13 @@ var KANSHOU_MORNING_AFTER_TAG_ = makeTextTag_('晨間餘韻');
 //   同時出現在兩張名單。2026-07 玩家「醒來都沒有自言自語？應該要有昨天 NPC 匆忙道別的回憶吧」：
 //   ≥80 留宿的人隔天早上有餘韻可接，未達門檻的人卻是連走都沒交代、隔天更沒有任何痕跡。
 var KANSHOU_NIGHT_PART_TAG_ = makeTextTag_('昨夜道別');
+// 🌙 夜未眠(存玩家列·absDay)：2026-07 玩家「睡覺按鈕這裡有被夜襲判定+色色…要再切一段深夜的
+//   大戰時刻...?」。舊做法是按下「讓她留下」＝ endDay:true，於是【同一個回合】要同時演完深夜
+//   相處、收束到就寢、還要把整天結掉推進到隔天 6:00——按鈕上那行小字「直接到早上」就是自白。
+//   篇幅上限 500 字(_kanshouTargetWords_)塞不下，玩家也完全插不上手。
+//   改成兩段：第一次按＝進入這個狀態(時間停在就寢時刻、人釘在房裡、可無限回合推進)，
+//   第二次按＝真的睡到天亮。值＝進入的那一天，隔天自然失效，不必另寫清除。
+var KANSHOU_NIGHT_SCENE_TAG_ = makeIntTag_('夜未眠', 0);
 // 🎭 橋段當日戳(存該同伴列MEMORY·absDay)：同一位同伴、同一天，只有第一次接受橋段才給
 //   KANSHOU_SCENE_BOND_ 好感——防「靠近她/叫醒她」按鈕在同地×時段吻合時每 0.5h 重覆刷 +3、
 //   繞過細水長流節奏。0=今天尚未經歷橋段。橋段敘事本身照演，只擋重覆加好感。
@@ -2194,6 +2201,15 @@ function actionPlay_(userData, pcId, sheets) {
   //   吃到這個提示詞引子，不論這回合玩家做什麼(聊天/移動/購物皆可)。
   const morningAfterNames = KANSHOU_MORNING_AFTER_TAG_.get(pc[COL.PC.MEMORY]);
   if (morningAfterNames) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], '');
+  // 🌙 夜未眠的出口②：玩家自己走出這個房間，這一夜就到此為止(人都不在了，沒有「獨處」可言)。
+  //   放在讀取狀態【之前】——本回合就該失效，不然走出去那一回合還會送出深夜獨處的提示詞。
+  if (userData.moveTarget && KANSHOU_NIGHT_SCENE_TAG_.get(pc[COL.PC.MEMORY])) {
+    pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_NIGHT_SCENE_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], 0);
+    pc[COL.PC.MEMORY] = pcData[pcIndex][COL.PC.MEMORY];
+  }
+  // 🌙 夜未眠：這一刻是否已在「深夜獨處」段落中(見 KANSHOU_NIGHT_SCENE_TAG_)。不是一次性旗標，
+  //   要撐過好幾個回合，所以只讀不清——清除在下方三個出口：真的睡、換地點、換日自然失效。
+  const kanshouNightSceneOn_ = KANSHOU_NIGHT_SCENE_TAG_.get(pc[COL.PC.MEMORY]) === curDay;
   // 同款一次性旗標：昨夜陪你到最後卻沒留下的人。跟上面一樣讀完立刻清，只影響緊接著的這一回合。
   const nightPartNames = KANSHOU_NIGHT_PART_TAG_.get(pc[COL.PC.MEMORY]);
   if (nightPartNames) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_NIGHT_PART_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], '');
@@ -2578,6 +2594,32 @@ function actionPlay_(userData, pcId, sheets) {
   let kanshouNarrDay_ = null, kanshouNarrHour_ = null;
   let kanshouNightPartStr = "";
   let kanshouClockMoved_ = false; // 結束一天/時段跳躍已自行設時鐘→標記，避免下方每回合流動又加一次
+  // 🌙 兩段式就寢·第一段：按下「睡覺」時若身邊有羈絆已深(≥80)的人、且還沒進過深夜段落 →
+  //   【不結束這一天】，改成把時間推到就寢時刻、進入「夜未眠」。玩家可以無限回合推進這一夜，
+  //   滿意了再按一次(此時 kanshouNightSceneOn_ 已成立，直接落到下面真正的 endDay)。
+  //   ★兩條路共用這個入口：20% 擲中夜襲後按「讓她留下」送的也是 endDay:true，自然也走進來，
+  //   不必為夜襲另寫一條平行路徑(玩家定案「兩條路一致」——否則變成被夜襲才有完整夜戲、
+  //   自己的戀人反而沒有)。
+  //   ⚠ 門檻用 KANSHOU_KNOCK_MIN_BOND_(60·親近的人) 而不是同床的 80：夜襲的招募池本來就是 ≥60，
+  //   寫 80 的話 70 好感的訪客敲門進來、玩家按「讓她留下」還是會一口氣跳到早上(實測抓到)。
+  //   兩個數字必須同源。60~79 能演到哪仍由【親密尺度五階】把關，這裡只決定「要不要切這一段」。
+  let kanshouNightSceneNames_ = [];
+  if (userData.endDay === true && !kanshouNightSceneOn_) {
+    kanshouNightSceneNames_ = pcData.filter((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者"
+      && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_")
+      && (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_KNOCK_MIN_BOND_
+      && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()).map(r => String(r[COL.PC.NAME]).trim());
+    if (kanshouNightSceneNames_.length) {
+      userData.endDay = false;                       // 這一按不結束一天
+      pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_NIGHT_SCENE_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], curDay);
+      // 時間推到就寢時刻(判準與 endDay 的敘事時鐘同一條，不另立規則)。這裡動的是【狀態】時鐘，
+      //   因為這一夜要真的在這個時刻往下走，之後每回合照常流動 10 分鐘。
+      if (timeBand_(curHour) !== '夜' && timeBand_(curHour) !== '深夜') curHour = KANSHOU_DAY_LAST_HOUR_;
+      kanshouClockMoved_ = true;
+      pcData[pcIndex][COL.PC.HOUR] = curHour;
+      finalUserMsg = `【玩家意圖】：夜深了，你和『${kanshouNightSceneNames_.join('、')}』留在這個房間裡，沒有要就此睡去的意思。`;
+    }
+  }
   if (userData.endDay === true) {
     // 🛏️ 結束一天＝睡到「即將到來的清晨6點」：凌晨(深夜0~5點)睡下→【同一天】的6點——跨日已在
     //   「夜→深夜(00:00)」那一步發生過了；晚上睡下才是隔天6點。修玩家實測「一晚被收兩天」
@@ -2590,6 +2632,9 @@ function actionPlay_(userData, pcId, sheets) {
     //   而且「唯一真實」那句明文叫 AI 覆寫掉夜晚的框架，結果就是演出一段不知所云的清晨空景。
     //   分成兩個時鐘：狀態時鐘照推，敘事時鐘停在睡下去那一刻，晨間留給下一回合(【晨間餘韻】本來
     //   就是那樣設計的)。只在 endDay 這條路有差，其餘回合兩者相同。
+    // 🌙 夜未眠的出口①：這次是真的睡了，清掉狀態(不清的話隔天同一個 absDay 值也不成立，
+    //   但清掉才不會在存檔裡留下誤導人的殘值)。
+    pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_NIGHT_SCENE_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], 0);
     kanshouNarrDay_ = curDay;
     // 敘事時刻＝「就寢的那一刻」，不是按下按鈕的那一刻。玩家可能在早上八點就按結束一天(語意是
     //   「今天剩下的就這樣過去，然後睡」)，此時照抄 08:10 會跟玩家意圖那句「夜幕降臨」再打一次架
@@ -3173,6 +3218,12 @@ function actionPlay_(userData, pcId, sheets) {
     .filter(n => n && partyMembers.indexOf(n) !== -1).join('、');
   const _partedAway_ = String(nightPartNames || "").split('、').map(n => n.trim())
     .filter(n => n && partyMembers.indexOf(n) === -1).join('、');
+  // 🌙 深夜獨處(夜未眠)：只給「此刻是什麼場合」這個事實，怎麼發展全看玩家推進與她的個性。
+  //   親密尺度照舊由【親密尺度五階】依各自好感把關，這裡不另開後門——能不能到底，看的還是好感。
+  //   ★剛進入的那一回合與之後每一回合都送(這是持續狀態不是一次性旗標)，措辭一致、不報幕。
+  const kanshouNightSceneStr = (kanshouNightSceneOn_ || kanshouNightSceneNames_.length)
+    ? `\n★【夜已深·門關上了】：這個房間此刻只剩你和『${(kanshouNightSceneNames_.length ? kanshouNightSceneNames_ : partyMembers).join('、')}』，外頭安靜下來，今晚不會再有別人進來，時間也不急著走。★這一段【還沒有結束】：不要寫成睡著、天亮、或一夜就這樣過去了——這一夜什麼時候收，由玩家自己決定，系統會宣告；你只演此刻正在發生的這十分鐘，結尾一樣停在進行式、把下一步交還玩家。`
+    : "";
   // 🏠 同居結束：只給事實，怎麼收由 AI 依她性格演——可以是她自己開口要搬、也可以是不告而別。
   const kanshouCohabitEndStr = kanshouCohabitEndNames_.length
     ? `\n★【她不再住在這裡了】：『${kanshouCohabitEndNames_.join('、')}』已不再與你同住——這是這段關係走到現在的結果，不是意外。若她此刻就在你面前，讓這件事在這回合被說開(她提出要搬／你察覺她東西收走了皆可)；★【不可】寫成系統宣告，也【不可】當作沒發生過。`
@@ -3512,7 +3563,7 @@ function actionPlay_(userData, pcId, sheets) {
 ${PROMPT_REL}
 ★【在場驗證·最高優先】：只有【在場人物】可對話/互動/記好感·路人不具名不追蹤。例外：①玩家引入第三人②系統豁免段(自然告辭/指定巧遇)。歷史提過但不在場＝不在場，禁憑空開口；可輕巧帶過原因(去忙別的/剛好不在)，禁裝作還在、禁不解釋就消失。
 ★【焦點禮讓】：玩家專一互動時，其他在場者維持背景輕描·不搶話/不介入親密(除非系統另有提示)。
-★【在場來由】：一律照各人「在場來由」欄演、不可改寫。標「一直在這裡」＝從她早已在場的狀態接著往下寫，她把你在場視為理所當然；標「結伴一起來到」＝她是跟你一起走進來的，這一路她都在你身邊。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouCohabitEndStr}
+★【在場來由】：一律照各人「在場來由」欄演、不可改寫。標「一直在這裡」＝從她早已在場的狀態接著往下寫，她把你在場視為理所當然；標「結伴一起來到」＝她是跟你一起走進來的，這一路她都在你身邊。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}
 ★【今日天氣】：${kanshouWeather_(curDay)}·自然滲入場景不必每句提。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜她走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·她此刻【不在場】·禁讓她開口或出現。` : ""}
 💕【後日談模式·最高優先覆寫】：${partyRows.length === 0
     ? `眼下無相識者在場·玩家一個人的尋常時光。`
