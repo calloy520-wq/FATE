@@ -101,7 +101,7 @@ function sanitizeUserData_(userData) {
 
   for (const key in userData) {
     if (typeof userData[key] !== "string") continue;
-    let v = userData[key].replace(CONTROL_RE, "").replace(FORMULA_LEAD_RE, "");
+    let v = userData[key].replace(CONTROL_RE, "");
     if (CHINESE_NAME_FIELDS.has(key)) {
       v = cleanChineseName(v);
     } else if (STRICT_NAME_FIELDS.has(key)) {
@@ -112,7 +112,11 @@ function sanitizeUserData_(userData) {
     } else {
       v = v.slice(0, GLOBAL_MAX);
     }
-    userData[key] = v;
+    // 🐛→✅ 2026-07 邊界稽核·順序錯誤：公式引導字元的防線原本跟 CONTROL_RE 綁在【最前面】，
+    //   但它後面還有好幾道 replace 會【再刪字元】——刪掉開頭那個字之後，原本被擋在第二位的
+    //   `=` 就重新變成開頭。實測 photo_caption 打 `"=SUM(1+1)` 落地就是一格活的公式。
+    //   這道守的是「最終落地字串的第一個字」，就必須是【最後一道】。
+    userData[key] = v.replace(FORMULA_LEAD_RE, "");
   }
   return userData;
 }

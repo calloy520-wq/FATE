@@ -3866,8 +3866,11 @@ ${PROMPT_PARTY_SYSTEM}
         //   本身也可能被解讀成公式而非純文字。跟玩家輸入欄位比照同一套防線。
         const _phCap = String(aiData.photo_caption || `${timeBand_(curHour)}的${String(curL || "")}，${kanshouPhotoPending_.names.join('、')}的身影。`)
           .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, "")
-          .replace(/^[=+\-@\t\r]+/, "")
-          .replace(/[<>&"'`｜【】]/g, "").slice(0, 90);
+          .replace(/[<>&"'`｜【】]/g, "").slice(0, 90)
+          // ⚠ 引導字元這道【必須擺最後】：它後面每一道 replace 都還會再刪字元，先擋就會被
+          //   「刪掉開頭那個字→原本第二位的 = 變成開頭」繞過(實測 photo_caption 打 `"=SUM(1+1)`
+          //   落地就是一格活的公式)。同一個順序錯誤在 sanitizeUserData_ 也有，已一併修正。
+          .replace(/^[=+\-@\t\r]+/, "");
         const _phSubj = kanshouPhotoPending_.scenery ? null : pcData.find(r => String(r[COL.PC.NAME]).trim() === String(kanshouPhotoPending_.names[0]).trim() && String(r[COL.PC.FACTION]) === "從者" && sameGame(r));
         const _phHair = kanshouPhotoPending_.scenery ? '#7a9a6a' : kanshouHairHex_(_phSubj ? String(_phSubj[COL.PC.TRAIT] || "") : ""); // 風景照緞帶固定草綠
         const _phFlag = driveOn ? '親密' : (kanshouReFest_ ? kanshouReFest_.name : '');
