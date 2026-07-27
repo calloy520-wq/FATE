@@ -314,7 +314,13 @@ function kanshouSyncRelTier_(pcData, idx) {
   // 🔒 棘輪先跑：先把「這輩子跨過的最高門檻」記下來，再用它當地板夾住這次的值。必須在下面
   //   REL_TAG／同居同步【之前】——那兩者都讀 bond，讀到未夾的值就會做出跟棘輪矛盾的降階。
   const _reachedWas = KANSHOU_BOND_FLOOR_TAG_.get(pcData[idx][COL.PC.MEMORY]);
-  const _reachedNow = Math.max(_reachedWas, kanshouBondFloorOf_(bond));
+  // 🏠 已同居⇒地板至少是同居門檻。這條不是錦上添花，是補一個只會發生一次卻真的會發生的洞：
+  //   棘輪上線【之前】就存在的存檔沒有【好感底線】，若某人當時是 92＋同居中，第一次爽約 -5 之後
+  //   才第一次跑到這裡，算出來的地板是 80(87 已經掉出 90 那一格)，於是 87≥80 不夾、下面同居檢查
+  //   87<90 照樣把她掃地出門。把「同居中」本身當成一次到過 90 的證據，順便把這種列往上補齊，
+  //   而不是把人趕走。玩家定案：同居成立後不因任何事情解除。
+  const _reachedNow = Math.max(_reachedWas, kanshouBondFloorOf_(bond),
+    kanshouIsCohabit_(pcData[idx]) ? KANSHOU_COHABIT_BOND_ : 0);
   if (_reachedNow !== _reachedWas) pcData[idx][COL.PC.MEMORY] = KANSHOU_BOND_FLOOR_TAG_.set(pcData[idx][COL.PC.MEMORY], _reachedNow);
   if (bond < _reachedNow) { bond = _reachedNow; pcData[idx][COL.PC.BOND] = bond; }
   const curTag = String(pcData[idx][COL.PC.REL_TAG] || "");
