@@ -1183,8 +1183,12 @@
         // 🌱 鑑賞：BACK 欄已正名為「經歷」(AI 滾動補寫+玩家可改)；solo 仍是固定的身世背景。依模式分標籤/字數。
         const _isK = (pc && pc.mode === 'kanshou');
         titleEl.innerText = _isK ? "逆天改命 - 修改經歷" : "逆天改命 - 修改身世背景";
+        // 🎯 鑑賞已不再把【同伴的】身世送進 AI 提示詞(玩家實測沒有差異，且與性格表象/內裡高度重疊)。
+        //   玩家【自己的】經歷仍有送(見【玩家命格】那行)，所以只有同伴這一格會變成「改了不影響演出」
+        //   ——照實講明白，不假裝它有效，也不直接藏掉(詳細狀態面板仍看得到這欄，藏了反而不一致)。
+        const _kBackInert = _isK && currentStatusTargetId !== (pc && pc.id);
         fieldsEl.innerHTML = `
-            <label style="font-size:13px; color:#332211; font-weight:bold;">${_isK ? '經歷 (你一路走來的軌跡·AI 會隨遊玩慢慢補寫，你也能自己改·限 80 字)' : '身世背景 (限 30 字)'}</label>
+            ${_kBackInert ? '<div style="font-size:12px;color:#a08050;margin-bottom:6px;">ℹ️ 此欄目前僅供你自己查看／備忘，鑑賞的敘事不會用到它（她的個性與外貌才是演出依據）。</div>' : ''}<label style="font-size:13px; color:#332211; font-weight:bold;">${_isK ? '經歷 (你一路走來的軌跡·AI 會隨遊玩慢慢補寫，你也能自己改·限 80 字)' : '身世背景 (限 30 字)'}</label>
             <input id="fate-f1" class="std-in" maxlength="${_isK ? 80 : 30}" value="${escapeHtml(currentVal)}">
         `;
     }
@@ -1222,10 +1226,16 @@
         //   已經完全不會再去動性格/萌點這兩類欄位了，鎖不鎖沒有意義，這裡不再顯示鎖定勾選框。
         const _isK = (pc && pc.mode === 'kanshou');
         const _pkLabels = _isK ? ['對外性格','獨處(卸下心防)性格','喜歡的事物','討厭的事物'] : ['日常表象','真實內裡','喜歡的事物','討厭的事物'];
+        // 🎯 鑑賞不再把[喜歡][討厭]送進 AI 提示詞(玩家實測「沒有特別的差異」，那兩格屬於「聊到才用」
+        //   的話題燃料)——所以鑑賞這裡也不再顯示這兩格輸入框，免得玩家填了卻沒有任何效果。
+        //   ⚠ 改用 hidden input 原值帶回，資料【不會被清掉】(solo 仍吃完整四格；日後想開回來也還在)。
+        const _pkShown = _isK ? 2 : 4;
         let _pkHtml = '';
         for (let i = 0; i < 4; i++) {
-          _pkHtml += `<label style="font-size:13px; color:#2e8b57; font-weight:bold;">${i+1}. ${_pkLabels[i]}</label>`
-            + `<input id="fate-f${i+1}" class="std-in" maxlength="20" value="${escapeHtml(parts[i])}">`;
+          _pkHtml += i < _pkShown
+            ? `<label style="font-size:13px; color:#2e8b57; font-weight:bold;">${i+1}. ${_pkLabels[i]}</label>`
+              + `<input id="fate-f${i+1}" class="std-in" maxlength="20" value="${escapeHtml(parts[i])}">`
+            : `<input id="fate-f${i+1}" type="hidden" value="${escapeHtml(parts[i])}">`;
         }
         fieldsEl.innerHTML = _pkHtml;
     }

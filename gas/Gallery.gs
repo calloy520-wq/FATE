@@ -2032,8 +2032,10 @@ function actionPlay_(userData, pcId, sheets) {
   //   性格：表象/內裡是反差核心必須分開；喜歡/討厭是「聊到才用」的話題燃料，併成一格即可。
   const formatPref = (str) => {
     const a = String(str || "").split('、');
-    const _like = [a[2], a[3]].filter(v => v && v !== '無').join('／');
-    return `[表象]${a[0] || "無"} [內裡]${a[1] || "無"}` + (_like ? ` [喜惡]${_like}` : "");
+    // 🎯 [喜歡][討厭]不再送鑑賞(玩家實測「沒有特別的差異」)——那兩格是「聊到才用」的話題燃料，
+    //   不是每回合演出都要用的規則。solo 的 servantCard_ 仍吃完整四格，資料本身不變。
+    //   ⚠ 同批已把鑑賞側逆天改命的這兩格藏起來，避免變成「填了沒效果」的假欄位。
+    return `[表象]${a[0] || "無"} [內裡]${a[1] || "無"}`;
   };
 
   // [自稱] 這格內容通常已是「自稱「我」」這類完整片語，跟敘事視角說明的「我」字面相鄰容易混淆
@@ -3076,7 +3078,7 @@ function actionPlay_(userData, pcId, sheets) {
         if (kanshouTimeJumped_) return "時間流轉之後，【她此刻人在這裡】(別預設你們剛才一直待在一起)";
         return "【你們從剛才就一直在這裡】相處著——她早已在場，這一刻是延續，不是重新登場";
       })();
-      partyDetailsArr.push(`【在場人物】名號:${pName} | 在場來由:${pPresenceStr} | 身世:${r[COL.PC.BACK] || "無"}${pOutfit ? ` | 裝扮:${pOutfit}` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${(() => { const _mo = [pMoeStr, traitPrivateOf_(r[COL.PC.TRAIT])].filter(Boolean).join("／"); return _mo ? ` | 萌點(僅供內化):${_mo}` : ""; })()}${pActivityStr}${pSleepStr ? ` | 現況:她此刻在自己家、${pSleepStr}(除非橋段已明確叫醒她，否則維持這個狀態演出，不宜寫成清醒閒聊)` : ""}${pCohabitStr}${pPropStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr})`);
+      partyDetailsArr.push(`【在場人物】名號:${pName} | 在場來由:${pPresenceStr}${pOutfit ? ` | 裝扮:${pOutfit}` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${(() => { const _mo = [pMoeStr, traitPrivateOf_(r[COL.PC.TRAIT])].filter(Boolean).join("／"); return _mo ? ` | 萌點(僅供內化):${_mo}` : ""; })()}${pActivityStr}${pSleepStr ? ` | 現況:她此刻在自己家、${pSleepStr}(除非橋段已明確叫醒她，否則維持這個狀態演出，不宜寫成清醒閒聊)` : ""}${pCohabitStr}${pPropStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr})`);
     }
   });
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【目前在場人物命格詳情】:\n${partyDetailsArr.join("\n")}` : "目前這個地點沒有其他人，玩家是獨自行動的。";
