@@ -3924,7 +3924,7 @@ function actionPlay_(userData, pcId, sheets) {
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【目前在場人物命格詳情】:\n${partyDetailsArr.join("\n")}` : "目前這個地點沒有其他人，玩家是獨自行動的。";
 
   // 具名/互動/好感的完整規則只在下方【在場驗證鐵律】講一次(canonical)，這裡只給「可以寫路人」的正面許可。
-  const backgroundCrowdStr = `★【開放世界·背景人煙】：這是有血有肉的開放世界——場景可自由描寫路過行人、店員、其他顧客等不具名背景人物，增添生活感；但僅供氛圍點綴，具名與互動限制見下方【在場驗證鐵律】。`;
+  const backgroundCrowdStr = `★【開放世界·背景人煙】：這是有血有肉的開放世界——場景可自由描寫路過行人、店員、其他顧客等不具名背景人物，增添生活感；但僅供氛圍點綴，具名與互動限制見下方【在場驗證】。`;
 
   // 🟢 性別配對提示，直接算好給 AI，不需要它自己推理。3人同場時先分組(與玩家同性/異性)，同組
   //   共用一句規則、只在句首列名字，避免逐一 NPC 各寫一整句規則重複。
@@ -4007,11 +4007,11 @@ function actionPlay_(userData, pcId, sheets) {
   const _kanshouTargetWords_ = _kanshouHypnosisActive_ ? 500 : (_kanshouMaxBond_ >= 60 ? 500 : _kanshouMaxBond_ >= 40 ? 400 : 250);
 
   const driveStr = driveOn ? `
-🔥【主動掌握】：同伴主動推進至「實際發生」，拒絕空轉。①主動程度依好感(<40僅言語試弄；高好感解鎖肢體；80+索求到底${_kanshouHypnosisActive_ ? '；催眠暗示道具例外' : ''})；②角色一致性(冷傲冷傲地主動/羞怯鼓起勇氣)，禁霸道模板；③禁真正傷害玩家；④文字尺度受天花板約束，篇幅依【篇幅指定】；⑤色度跟隨玩家，好感允許內細膩露骨(禁迴避)，未達依個性真實反應(拒絕/迴避/害羞/半推半就)；⑥情慾場：大量生理特寫(絞緊/吸吮/痙攣/蜜液/水聲/啪啪)+斷續喘息破碎台詞，未達階依個性婉拒。` : '';
+🔥【主動掌握】：同伴主動推進至「實際發生」，拒絕空轉——推得多遠一律以【親密尺度五階】為準${_kanshouHypnosisActive_ ? '(催眠暗示道具例外)' : ''}，這一段只講【怎麼寫】：①依她自己的個性主動，禁霸道模板；②禁真正傷害玩家；③色度跟隨玩家，尺度允許內細膩露骨、禁迴避；④情慾場：大量生理特寫(絞緊/吸吮/痙攣/蜜液/水聲/啪啪)+斷續喘息破碎台詞。` : '';
 
   const PROMPT_REL = `${backgroundCrowdStr}
-★【視角鎖定】：「我」＝玩家『${pcName}』本人，不誤寫成他人心境。${nsfwMemories}${genderHintStr}${driveStr}
-🛑【角色一致性】：NPC反應死守[性格]×[好感]，不因劇情推進線性軟化——生理反應可以有，人格不崩(高傲咬牙不示弱/虔敬掙扎/活潑藏羞)，禁退化成發情機器。★各人資料裡標「事實：」的那句是系統裁定的【既定事實】(此刻什麼是真的、什麼不會發生)，不是演法：怎麼表現、用什麼表情語氣、拒絕時怎麼拒絕，一律依【她自己的個性】演，禁止兩個人用同一套反應。${_kanshouHypnosisActive_ ? '★催眠暗示生效中【人格照樣不崩】：被繞過的只有「拒絕得了」與「覺得這很奇怪」，個性/態度/敵意原封不動照跑，不可寫成判若兩人。' : ''}`;
+${nsfwMemories}${genderHintStr}${driveStr}
+🛑【角色一致性】：NPC反應死守[性格]×[好感]，不因劇情推進線性軟化——生理反應可以有，人格不崩(高傲咬牙不示弱/虔敬掙扎/活潑藏羞)，禁退化成發情機器。★各人資料裡標「事實：」的那句是系統裁定的【既定事實】(此刻什麼是真的、什麼不會發生)，不是演法：怎麼表現、用什麼表情語氣、拒絕時怎麼拒絕，一律依【她自己的個性】演。${_kanshouHypnosisActive_ ? '★催眠暗示生效中【人格照樣不崩】：被繞過的只有「拒絕得了」與「覺得這很奇怪」，個性/態度/敵意原封不動照跑，不可寫成判若兩人。' : ''}`;
 
   // 有【專屬稱呼】就用暱稱取代真名；JSON 姓名欄不受影響、仍填真名。
   const npcDialoguePrompt = partyMembers.length > 0 ? `\n★【稱呼】：在場者有【專屬稱呼】就用暱稱、否則用真名「${partyMembers.join("、")}」·不自創第三種稱呼(僅narration/台詞·JSON欄仍填真名)。非清單所有人都要出聲。` : "";
@@ -4028,13 +4028,13 @@ function actionPlay_(userData, pcId, sheets) {
 
   // 鑑賞無戰鬥，御主的 HP/MP/MAX_HP/MAX_MP 這4欄從未寫入，故 prompt 不提血量/魔力數值或瀕死判斷
   //   (與世界觀規則「禁止血量/生命變化」一致——該禁令在下方 USER 世界觀＋演出而非說明兩行)。
-  const prompt = `【敘事法旨】：視角鎖定玩家『${pcName}』(ID: ${pcId})。
+  const prompt = `【敘事法旨】：視角鎖定玩家『${pcName}』。
 【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}${_doSideWrite ? '(可透過 master_note.經歷 滾動增補)' : ''} | 位置:${curL}${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName)); return _c ? `（${_c}）` : ""; })()}
 
 ${PROMPT_REL}
-★【在場驗證·最高優先】：只有【在場人物】可對話/互動/記好感·路人不具名不追蹤。例外：①玩家引入第三人②系統豁免段(自然告辭/指定巧遇)。歷史提過但不在場＝不在場，禁憑空開口；可輕巧帶過原因(去忙別的/剛好不在)，禁裝作還在、禁不解釋就消失。
+★【在場驗證】：能開口/互動的只有【在場人物】，路人只當背景、不具名不追蹤。歷史提過但這回合不在的人，一句話帶過原因(去忙別的/剛好不在)，別裝作還在。
 ★【焦點禮讓】：玩家專一互動時，其他在場者維持背景輕描·不搶話/不介入親密(除非系統另有提示)。
-★【在場來由】：一律照各人「在場來由」欄演、不可改寫。標「一直在這裡」＝從她早已在場的狀態接著往下寫，她把你在場視為理所當然；標「結伴一起來到」＝她是跟你一起走進來的，這一路她都在你身邊。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}${kanshouInitStr}
+★【在場來由】：一律照各人「在場來由」欄演、不可改寫，禁止重演一次入場。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}${kanshouInitStr}
 ★【今日天氣】：${kanshouWeather_(curDay)}·自然滲入場景不必每句提。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜她走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·她此刻【不在場】·禁讓她開口或出現。` : ""}
 💕【後日談模式·最高優先覆寫】：${partyRows.length === 0
     ? `眼下無相識者在場·玩家一個人的尋常時光。`
@@ -4048,7 +4048,7 @@ ${PROMPT_REL}
     : `你與『${partyMembers.join("、")}』的關係全部起於這座城·【無】戰前舊識或共同過往·各自熟到什麼程度依她自己那份資料裡的相處基調演。`
   }
 🕰️現在${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★【此刻＝${timeBand_(_narrHour_)}·唯一真實】：所有光線/氣溫/作息的感受一律依此刻重寫，歷史停在哪個時段都不算數。★本回合敘事跨度上限【十分鐘】·只寫這十分鐘內的當下片段·時間推進一律由系統宣告。
-★世界觀＝和平現代城鎮：在場每個人就是這座城裡的普通市民，來歷只能取材自系統給的她自己那份資料；那之外的設定(超凡力量、非現代事物、生死衝突)在這個世界從未發生過。調性不限悠閒。
+★世界觀＝和平現代城鎮：大家都是這座城裡的普通市民，超凡力量/非現代事物/生死衝突在這個世界從未發生過。調性不限悠閒。
 ★【親密尺度五階·最高優先】${_kanshouHypnosisActive_ ? '(催眠暗示道具生效中例外)' : ''}：肢體親密以好感為天花板，未達門檻依個性擋下(人格不崩)：
 ・<20(點頭之交)：形同陌生人·一動手動腳就【連碰都碰不到】(閃避/擋手/喝止/還手依個性)。
 ・20~39(普通朋友)：婉拒一切情慾越界·可friendly不接受親密。
@@ -4056,15 +4056,13 @@ ${PROMPT_REL}
 ・60~79(親近)：親吻擁抱依偎可·脫衣/性事仍止住。
 ・80+(戀人)：無上限·依情境個性到底。
 ★多人各依各自好感·不共用同階。
-★★【天花板也管命令/強迫/暴力】：命令做肢體服從動作(如「命令她跪下/過來/脫」)、或明講強迫字眼(如「強姦」「壓制」「無視掙扎」)一樣受五階天花板約束——未達門檻【不會得逞】，她依個性拒絕/反擊(嗆回去/翻臉/還手，吃虧的是玩家)；純提議/善意舉動(如「幫她解決OO困擾」)不算冒犯，正常演出即可。禁對同伴造成真實傷害(流血/骨折/撕裂傷)，親密可激烈但不能演成傷害身體。
+★★【命令/強迫也吃上面那張表】：命令肢體服從(如「跪下/過來/脫」)或明講強迫字眼(如「強姦」「壓制」「無視掙扎」)一樣照五階判——未達門檻【不會得逞】，她依個性拒絕/反擊，吃虧的是玩家；純提議與善意舉動不算冒犯，正常演出。禁對同伴造成真實傷害(流血/骨折/撕裂傷)，親密可激烈但不是傷害。
 ★【篇幅指定】：本回合narration目標約${_kanshouTargetWords_}字(不必精確，別落差太大)——低好感互動別寫成大段內心戲。
 ★【演出而非說明】：不直述願望/萌點/個性字面。數值只輸出 rel_changes(好感)。
-★★【移動鐵律】：換地點一律由系統裁定。系統沒宣告就是還在${curL}，敘事停在這裡不移動；系統已宣告＝直接從新地點的當下寫起，路程略過不演。
-★【不憑空生東西】：玩家手上只有他自己說出口的東西，其餘一切物品與金錢在這個世界不存在。
-★【不替玩家腦補】：『我』只演玩家實際輸入的動作+五感·禁大段內心戲/替他決定。★『我』的描寫只能來自他自己的感官(看到/聽到/觸到/心裡的感覺)——他看不見自己的神情。★同伴外貌只取材她自己資料，禁挪用玩家特徵。★各人的[台詞自稱]僅其本人引號內台詞可用，旁白不得套用。
-★【歷史僅供參考】：對話歷史只是背景、非本回合事實來源——以上方系統事實＋下方在場資料為準，別被過期歷史牽著走。
+★【沒寫的就不存在】：系統給你的這些資料就是這個世界的全部——沒寫到的人、物品、金錢、過往一律不存在，別自己補。專注把此刻的互動演好。
+★【視角鎖定·不替玩家腦補】：「我」＝玩家『${pcName}』本人(不誤寫成他人心境)，只演玩家實際輸入的動作+五感·禁大段內心戲/替他決定。★『我』的描寫只能來自他自己的感官(看到/聽到/觸到/心裡的感覺)——他看不見自己的神情。★同伴外貌只取材她自己資料，禁挪用玩家特徵。★各人的[台詞自稱]僅其本人引號內台詞可用，旁白不得套用。
 ${PROMPT_PARTY_SYSTEM}
-★【地點釘死】：所有人此刻都在「${curL}」，言行/場景只圍繞這裡，歷史提過的其他地名一律是過去式；她可嘴上聊想去別處，但真要換地方得由系統裁定。
+★★【地點釘死】：此刻在「${curL}」，敘事不離開這裡——想去別處只能嘴上聊，真要換地方由系統宣告。${moveTarget ? '你們剛到，直接從抵達後的當下寫起、路程不演。' : ''}
 現在演化玩家動作：『${finalUserMsg}』${npcDialoguePrompt}
 
 🚨【收尾${driveOn ? '·主動掌握' : ''}】：${driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : ''}停在「我」當下進行式，留未完成動作交還玩家——被搭話者須先回應(答話/神情)才停筆；最後一句必須落在正在發生的動作或剛說出口的話上，時間刻度不超出這一分鐘。
