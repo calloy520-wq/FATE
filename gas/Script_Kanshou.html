@@ -801,20 +801,15 @@ let plainTextContext = cleanText;
     var appliedH = (c.props || []).filter(function (x) { return x.ignoreBond; });
     var rows = catalogH.map(function (def) {
       var p = appliedH.find(function (x) { return x.id === def.id; }) || { id: def.id, name: def.name || def.id, level: '' };
-      // 🐛→✅ 玩家「催眠太強，可以用GAS控制他升級嗎」：不能一次跳兩階以上升(微弱直接跳強勁太突兀)，
-      //   後端已擋，這裡同步把跳太多階的按鈕標成不可點，玩家不用點了才被錯誤訊息打回票。
-      // 🤫「已解除」不在這把尺上(indexOf 回 -1)；未施展是空字串(也回 -1)——兩者都視同關閉起跳。
       var released = p.level === KC_HYPNO_RELEASED_;
       var idle = !p.level;
-      var curIdx = Math.max(0, KC_PROP_LEVELS_.indexOf(p.level));
       var pidJs = String(p.id).replace(/'/g, "\\'");
       var levelBtns = KC_PROP_LEVELS_.map(function (lv, idx) {
         var isOff = idx === 0;
         var active = isOff ? idle : (!released && p.level === lv);
-        var tooFar = idx > curIdx + 1;
         // ⏹解除 送空字串＝從她身上撤下(把裝備名額放回來)，不是寫一個「關閉」進去佔位。
         var sendLv = isOff ? '' : lv;
-        return '<button' + (tooFar ? ' disabled' : ' onclick="kanshouHypnoSet(\'' + safeN + '\',\'' + pidJs + '\',\'' + sendLv + '\')"') + ' style="flex:1;padding:6px 3px;font-size:12px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : (tooFar ? '#666' : '#ccc')) + ';border:none;border-radius:6px;cursor:' + (tooFar ? 'not-allowed' : 'pointer') + ';opacity:' + (tooFar ? '0.5' : '1') + ';">' + (isOff ? '⏹解除' : lv) + '</button>';
+        return '<button onclick="kanshouHypnoSet(\'' + safeN + '\',\'' + pidJs + '\',\'' + sendLv + '\')" title="' + (isOff ? '當面告訴她並解除（會觸發一次對話）' : '調整強度（靜默，下一回合自然反映）') + '" style="flex:1;padding:6px 3px;font-size:12px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : '#ccc') + ';border:none;border-radius:6px;cursor:pointer;">' + (isOff ? '⏹解除' : lv) + '</button>';
       }).join('');
       // 🤫 悄悄解除／告訴她真相：定番橋段——中途把暗示解掉但不告訴她，她仍照原樣順從；之後再當面
       //   宣告「妳早就沒被影響了」，把她最後那個藉口也抽掉。兩顆按鈕是同一條路的前後半段。
@@ -844,7 +839,7 @@ let plainTextContext = cleanText;
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#e0a0ff;">🌀 對「' + escapeHtml(name) + '」的催眠指令</b>'
       + '<button onclick="document.getElementById(\'kp-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
       + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:6px;">跟一般小道具是分開的兩種效果，不受好感限制。可同時生效多條' + (_kcPropCap ? '（同時最多 ' + _kcPropCap + ' 條，⏹解除會把名額放回來）' : '') + '。</div>'
-      + '<div style="color:#c98a9a;font-size:11px;margin-bottom:6px;">⚠️ 施展新指令會立即觸發一次對話，讓她當場演出被暗示的反應。</div>'
+      + '<div style="color:#c98a9a;font-size:11px;margin-bottom:6px;">⚠️ 跟她說話的會演、動手腳的不會：<b>施展／⏹解除／💬告訴她真相</b>會立即觸發一次對話；調強度與🤫悄悄解除是靜默的，下一回合敘事自然反映。</div>'
       + (rows || '<div style="color:#8a7fa0;font-size:12px;padding:8px 4px;">你還沒設定過任何催眠指令。</div>')
       + castRow
       + '</div>';
@@ -854,27 +849,53 @@ let plainTextContext = cleanText;
   //   由它送出去讓 AI 當場演。做成獨立 wrapper 而不是把字串拼進 onclick，是因為暗示內容是玩家
   //   自由輸入的字，塞進 HTML 屬性再塞進 JS 字面量要跨三層跳脫，出錯只會靜靜壞掉。
   function _khStrip_(s) { return String(s || '').replace(/[「」『』]/g, ''); } // 引號會撞壞下面的框架句
+  // 🔄 2026-07 玩家「有點太繁雜」大幅簡化。判準只有一條，好記也好預期：
+  //   **跟她說話的會演，動手腳的不會。**
+  //   · 🌀施展新的一句、⏹解除(＝當面告訴她)、💬告訴她真相 → 觸發一次對話，AI 當場演
+  //   · 調強度、🤫悄悄解除 → 樂觀更新、靜默；下一回合的敘事自然照新狀態演（★行每回合重建）
+  //   悄悄解除靜默不是偷懶：她本來就不該察覺，演出來反而破功——機制語意自己就替它背書。
+  //   升階閘門也一併拿掉，強度隨意切換。
   async function kanshouHypnoSet(name, propId, level) {
     var c = _kcCur.find(function (x) { return x.name === name; });
     var p = ((c && c.props) || []).find(function (x) { return x.id === propId; });
-    var cur = p ? p.level : ''; // 沒施展在她身上＝空字串(不是「關閉」——關閉這個 level 已經不寫進她身上了)
+    var cur = p ? p.level : ''; // 沒施展在她身上＝空字串
     var text = _khStrip_(p ? p.name : propId);
-    var msg;
-    if (level === KC_HYPNO_RELEASED_) {
-      msg = '（趁『' + name + '』沒注意，悄悄把手機上那條「' + text + '」的暗示關掉了——什麼也沒說。）';
-    } else if (!level) {
-      // level 空字串＝從她身上撤下(⏹解除)。從「已解除」撤下＝當面戳破那個定番橋段，講法不一樣。
-      msg = cur === KC_HYPNO_RELEASED_
+    if (!level) {
+      // 撤下＝當面告訴她（不再分「單純撤下」與「告訴她」兩種——玩家：「解除就是會告訴她就好」）。
+      //   從「悄悄解除」撤下時是戳破那個定番橋段，講法不一樣。
+      var msg = cur === KC_HYPNO_RELEASED_
         ? '（看著『' + name + '』，慢慢告訴她：其實從剛才那一刻起，妳身上那條「' + text + '」的暗示就已經解除了。）'
         : '（把手機拿到『' + name + '』面前，讓她親眼看著那條「' + text + '」的暗示被關掉，並告訴她：結束了。）';
-    } else if (!cur) {
-      // 目錄裡舊有的一句，重新施展在她身上——講法要跟🌀施展一致，不能講成「調得更深」(還沒開始哪來的更深)。
-      msg = '（拿出手機，打開那款催眠APP，對著『' + name + '』播放了一段只有她聽得進去的暗示音：「' + text + '」）';
-    } else {
-      var deeper = KC_PROP_LEVELS_.indexOf(level) > Math.max(0, KC_PROP_LEVELS_.indexOf(cur));
-      msg = '（拿出手機，把對『' + name + '』的那條「' + text + '」暗示' + (deeper ? '調得更深' : '調弱') + '了。）';
+      return kanshouSetProp(name, propId, level, msg);
     }
-    return kanshouSetProp(name, propId, level, msg);
+    return kcHypnoQuietSet_(name, propId, level);
+  }
+  // 🤫 靜默切換（樂觀更新）：立刻改本地快取＋重繪，背景送出；失敗才還原＋提醒。
+  //   比照 kcQuickSetProp 的寫法——樂觀更新若不回頭確認後端，UI 跟實際狀態會悄悄兜不攏。
+  function kcHypnoQuietSet_(name, propId, level) {
+    var c = _kcCur.find(function (x) { return x.name === name; });
+    if (!c) return;
+    c.props = c.props || [];
+    var p = c.props.find(function (x) { return x.id === propId; });
+    var prev = p ? p.level : null;
+    if (p) p.level = level;
+    else c.props.push({ id: propId, name: propId, hasIntensity: true, level: level, part: '', ignoreBond: true, effect: '' });
+    if (_kpOpenName === name && _kpOpenMode === 'hypnosis') kanshouOpenHypnosis(name);
+    gasRun({ action: 'kanshou_set_prop', pcId: pc.id, acctName: currentAccount, targetName: name, propId: propId, level: level })
+      .then(function (res) {
+        if (res && res.success) { c.props = res.props || c.props; }
+        else {
+          if (prev === null) c.props = c.props.filter(function (x) { return x.id !== propId; });
+          else if (p) p.level = prev;
+          alert((res && res.message) || '操作失敗，已還原。');
+        }
+        if (_kpOpenName === name && _kpOpenMode === 'hypnosis') kanshouOpenHypnosis(name);
+      })
+      .catch(function () {
+        if (prev === null) c.props = c.props.filter(function (x) { return x.id !== propId; });
+        else if (p) p.level = prev;
+        if (_kpOpenName === name && _kpOpenMode === 'hypnosis') kanshouOpenHypnosis(name);
+      });
   }
   // 🌀 施展催眠指令：跟一般道具「裝備後靜默等下一輪」不同，這裡在後端寫入成功後【立即觸發一次
   //   正常對話】(send())，讓AI馬上演出催眠生效的當下——這是這個效果存在的意義，玩家明講「這裡
@@ -948,10 +969,10 @@ let plainTextContext = cleanText;
     }
     var panel = document.getElementById('kc-prop-panel');
     if (!panel) return;
-    // 🌀 催眠(ignoreBond)類【刻意不放進這個快調抽屜】：它有一整套這裡做不到的規則——升階閘門(不能
-    //   跳階)、悄悄解除/告訴她真相這兩個狀態、以及每次切換都要送一段敘述讓 AI 當場演。抽屜是「靜默
-    //   樂觀更新」的快捷路徑，把催眠也塞進來就等於開了第二道門，而那道門會靜靜地把暗示關掉、不演任何
-    //   東西，也不擋跳階。單一入口：催眠一律走同伴卡的「🌀 催眠指令」面板。
+    // 🌀 催眠(ignoreBond)類【刻意不放進這個快調抽屜】：它有這裡做不到的東西——悄悄解除/告訴她真相
+    //   這兩個狀態，以及「解除＝當面告訴她」必須送一段敘述讓 AI 當場演。抽屜是純靜默的快捷路徑，
+    //   把催眠塞進來就會多一道能靜靜把暗示關掉、什麼都不演的後門。
+    //   單一入口：催眠一律走同伴卡的「🌀 催眠指令」面板。
     var _kcDrawerProp_ = function (p) { return p.hasIntensity && !p.ignoreBond; };
     var here = _kcCur.filter(function (c) { return c.isHere && (c.props || []).some(_kcDrawerProp_); });
     if (!here.length) { panel.innerHTML = '<div style="color:#8a7fa0;font-size:12px;">在場沒有可調整強度的道具</div>'; return; }

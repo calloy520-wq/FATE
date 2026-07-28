@@ -846,18 +846,9 @@ function actionKanshouSetProp(userData, pcId, sheets) {
     if (!def.ignoreBond && (parseInt(data[tIdx][COL.PC.BOND]) || 0) < KANSHOU_PROP_EQUIP_BOND_) {
       return JSON.stringify({ success: false, message: "好感還沒到那個地步，她不會讓你這麼做。" });
     }
-    // 🐛→✅ 玩家「催眠太強，可以用GAS控制他升級嗎」：催眠類道具的強度不能一次跳兩階以上升——
-    //   微弱直接跳強勁太突兀，逼玩家一階一階推進。降級(含直接關閉)隨時可以，不受此限。
-    // 🤫「已解除」不在這把尺上(語意是失效、不是更強)，跟「關閉」一樣隨時可切、不受閘門。
-    if (def.ignoreBond && finalLevel !== KANSHOU_PROP_LEVELS_[0] && finalLevel !== KANSHOU_HYPNO_RELEASED_) {
-      const _curP = _existingP.find(function (p) { return p.id === propId; });
-      // 還沒裝備過、或目前是「已解除」(不在尺上→indexOf 回 -1)，都視同「關閉」起跳。
-      const _curIdx = Math.max(0, _curP ? KANSHOU_PROP_LEVELS_.indexOf(_curP.level) : 0);
-      const _newIdx = KANSHOU_PROP_LEVELS_.indexOf(finalLevel);
-      if (_newIdx - _curIdx > 1) {
-        return JSON.stringify({ success: false, message: "暗示需要一階一階加深，不能一次跳這麼多階。" });
-      }
-    }
+    // 🔄 2026-07 玩家「有點太繁雜，改回去隨意切換強度、不限制慢慢提升」：升階閘門(不能一次跳兩階)
+    //   拿掉了。原本的理由是「微弱直接跳強勁太突兀」，但實際玩起來，為了推到想要的強度得多按兩次、
+    //   而且中途每一階都會被當成一次狀態變更，繁瑣感大於節奏感。強度現在隨意切換。
     // 🔢 只卡「新增裝備」：propId還沒在她身上的已裝備清單才算新增，調整已裝備項目的強度不占額外名額。
     if (!_existingP.some(function (p) { return p.id === propId; }) && _existingP.length >= KANSHOU_PROP_EQUIP_CAP_) {
       return JSON.stringify({ success: false, message: "同時最多只能裝備" + KANSHOU_PROP_EQUIP_CAP_ + "件，先移除一件吧。" });
@@ -1898,9 +1889,8 @@ function kanshouIsCohabit_(row) { return KANSHOU_COHABIT_TAG_.get(row[COL.PC.MEM
 const KANSHOU_PROPS_ = [];
 const KANSHOU_PROP_LEVELS_ = ['關閉', '微弱', '中等', '強勁'];
 // 🤫 2026-07「悄悄解除」：催眠(ignoreBond)類專屬的第五種狀態，**刻意不併進 KANSHOU_PROP_LEVELS_**
-//   ——那個陣列是「一階一階往上升」的階梯，index 差就是升階閘門的判準，插一格進去會讓既有階數位移、
-//   閘門算錯。這個狀態語意上不是「更強/更弱」而是「已經沒效了，但她不知道」，本來就不屬於那把尺。
-//   任何階都能隨時切進來(等同降級，不受升階閘門)，也能從這裡再施加回微弱。
+//   ——那個陣列是三段強度的尺，而這個狀態語意上不是「更強/更弱」而是「已經沒效了，但她不知道」，
+//   本來就不屬於那把尺（併進去只會讓「第幾階」這件事變得沒有意義）。
 const KANSHOU_HYPNO_RELEASED_ = '已解除';
 // 🎀 小道具三階 → 具體行為指令（2026-07 玩家「有時候小道具都沒有生效的感覺」）。
 //   舊寫法只給「其中正在運作的道具依強度影響她的反應」這一句純形容詞、三階共用，而且不是★指令、
