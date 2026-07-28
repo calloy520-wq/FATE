@@ -4007,7 +4007,7 @@ function actionPlay_(userData, pcId, sheets) {
   const _kanshouTargetWords_ = _kanshouHypnosisActive_ ? 500 : (_kanshouMaxBond_ >= 60 ? 500 : _kanshouMaxBond_ >= 40 ? 400 : 250);
 
   const driveStr = driveOn ? `
-🔥【主動掌握】：同伴主動推進至「實際發生」，拒絕空轉——推得多遠一律以【親密尺度五階】為準${_kanshouHypnosisActive_ ? '(催眠暗示道具例外)' : ''}，這一段只講【怎麼寫】：①依她自己的個性主動，禁霸道模板；②禁真正傷害玩家；③色度跟隨玩家，尺度允許內細膩露骨、禁迴避；④情慾場：大量生理特寫(絞緊/吸吮/痙攣/蜜液/水聲/啪啪)+斷續喘息破碎台詞。` : '';
+🔥【主動掌握】：尺度一律以【親密尺度五階】為準${_kanshouHypnosisActive_ ? '(催眠暗示道具例外)' : ''}，這一段只講【怎麼寫】：①她依自己的個性主動出擊，色度可以走在玩家前面——Dirty Talk、直白不迴避，允許範圍內盡量細膩露骨；②情慾場：大量生理特寫(絞緊/吸吮/痙攣/蜜液/水聲/啪啪)+斷續喘息破碎台詞；③不對玩家造成真實傷害。` : '';
 
   const PROMPT_REL = `${backgroundCrowdStr}
 ${nsfwMemories}${genderHintStr}${driveStr}
