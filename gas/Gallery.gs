@@ -670,9 +670,10 @@ function actionKanshouCompanions(userData, pcId, sheets) {
       current.push({ id: String(data[i][COL.PC.ID]), name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), nickname: getNickname_(data[i][COL.PC.REL_MEM]), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, promise: _pm ? { loc: _pm.loc, date: _pmDate.month + '/' + _pmDate.day, time: _pmTime || '' } : null, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean), props: kanshouGetProps_(data[i][COL.PC.MEMORY], propCatalog) });
     }
   }
-  // 🔒 propBond/propCap：裝備好感門檻與同時裝備上限，下傳給前端鎖按鈕/寫提示文案用。**不讓前端自己寫死 80**——前端手抄後端
+  // 🔒 propBond/propCap/propCatalogCap：裝備好感門檻、同時裝備上限、自訂目錄上限——三個都下傳給前端
+  //   鎖按鈕/寫提示文案。目錄上限尤其重要：滿了才在送出時被拒，面板上原本完全看不出來。**不讓前端自己寫死 80**——前端手抄後端
   //   常數是這個專案犯過的錯，改了一邊另一邊就走鐘；由這裡下傳，KANSHOU_PROP_EQUIP_BOND_ 永遠是唯一真相。
-  return JSON.stringify({ success: true, current: current, customProps: kanshouGetCustomProps_(me[COL.PC.MEMORY]), quickPhrases: kanshouGetQuickPhrases_(me[COL.PC.MEMORY]), propBond: KANSHOU_PROP_EQUIP_BOND_, propCap: KANSHOU_PROP_EQUIP_CAP_ });
+  return JSON.stringify({ success: true, current: current, customProps: kanshouGetCustomProps_(me[COL.PC.MEMORY]), quickPhrases: kanshouGetQuickPhrases_(me[COL.PC.MEMORY]), propBond: KANSHOU_PROP_EQUIP_BOND_, propCap: KANSHOU_PROP_EQUIP_CAP_, propCatalogCap: KANSHOU_CUSTOM_PROP_CAP_ });
 }
 
 // 🎀 快速輸入貼圖·玩家自訂(2026-07「表情包文字也想自訂」，同月再縮減內建數量)：4個內建貼圖(害羞/
@@ -2681,7 +2682,7 @@ function actionPlay_(userData, pcId, sheets) {
       //   同樣走KANSHOU_SCENE_DAY_TAG_擋同一天重複加分——不是每次深夜來訪都這樣，才有驚喜感。
       const _kgBond = parseInt(pcData[guestIdx][COL.PC.BOND]) || 0;
       if (_kgBond >= KANSHOU_KNOCK_MIN_BOND_ && Math.random() < KANSHOU_KNOCK_RAID_CHANCE_) {
-        kanshouKnockRaidStr = `\n★【深夜訪客·別有用心(她這次登門不只是單純想聊聊，帶著幾分主動靠近你的心思，沒有固定台詞，依她性格自由發揮)】：${kanshouAsleepOutcomeStr_(_kgBond)}。要不要挑明、怎麼發展，全由你依她性格拿捏。`;
+        kanshouKnockRaidStr = `\n★【深夜訪客「${kanshouKnockGuestName}」·別有用心(她這次登門不只是單純想聊聊，帶著幾分主動靠近你的心思，沒有固定台詞，依她性格自由發揮)】：${kanshouAsleepOutcomeStr_(_kgBond)}。要不要挑明、怎麼發展，全由你依她性格拿捏。`;
         if (KANSHOU_SCENE_DAY_TAG_.get(pcData[guestIdx][COL.PC.MEMORY]) !== curDay) {
           pcData[guestIdx][COL.PC.BOND] = Math.min(100, _kgBond + KANSHOU_SCENE_BOND_);
           kanshouSyncRelTier_(pcData, guestIdx);

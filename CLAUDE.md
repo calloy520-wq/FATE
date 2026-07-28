@@ -45,7 +45,11 @@ GAS 在 `gas/`。⚠ **push 只自動同步代碼、不會自動上線**——�
 
 ## ✅ 工作流程
 
-- **驗證**：改完必跑 `bash check.sh`（驗所有 .gs ＋ Script*.html 內嵌 JS）。CI 只檢查 .gs、不檢查 .html JS（.html 出錯會綠燈部署卻壞 runtime）。
+- **驗證**：改完必跑 `bash check.sh`。除語法外還跑三支不變式掃描，都是把**重複踩過的漏洞形狀**改成機器擋：
+  `check_prompt.py`（★ 區塊：代名詞無指涉／寫死台詞）、`check_mirror.js`（前後端常數鏡射，自動發現所有 `KC_*`）、
+  `check_wiring.py`（門檻有無前端出口／查表有無覆蓋全 enum 且各階不同／★ 覆蓋數不得無聲下降／死路由）。
+  **新增提示詞 ★ 區塊後，順手看一眼區塊數有沒有跟著增加**——數字沒動就代表掃描器沒看見它（這個坑踩過兩次）。
+  CI 只檢查 .gs、不檢查 .html JS（.html 出錯會綠燈部署卻壞 runtime）。
 - **三模式**：`solo`（主體）／`full`（九州全模擬·停用）／`kanshou`（鑑賞）。`applyModeUI()` 是總開關。
 - **暫存檔**：放 scratchpad，不污染 repo。
 

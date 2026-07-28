@@ -588,7 +588,8 @@ let plainTextContext = cleanText;
   // 🔒 一般道具的裝備好感門檻：**由後端 kanshou_companions 下傳**(KANSHOU_PROP_EQUIP_BOND_)，前端不自己寫死，
   //   免得哪天後端改了數字、前端還照舊鎖/放行。沒收到就當 0(不鎖)，讓後端自己去擋，不會誤鎖玩家。
   var _kcPropBond = 0;
-  var _kcPropCap = 0; // 🔒 同時裝備上限(KANSHOU_PROP_EQUIP_CAP_)，同樣由後端下傳，前端不寫死數字
+  var _kcPropCap = 0;        // 🔒 同時裝備上限(KANSHOU_PROP_EQUIP_CAP_)，同樣由後端下傳，前端不寫死數字
+  var _kcCatalogCap = 0;     // 🔒 自訂道具/催眠指令的目錄上限(KANSHOU_CUSTOM_PROP_CAP_)，同上
   var _kcCustomProps = []; // 🎀 玩家自訂道具目錄(2026-07新增)，跟KC_PROPS_合併使用
   var _kcCustomPropsLoaded = false;
   var _kpBusy = false;
@@ -607,7 +608,7 @@ let plainTextContext = cleanText;
       _kpShowLoading_(name);
       try {
         const res = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount });
-        if (res && res.success) { _kcCur = res.current || []; _kcCustomProps = res.customProps || []; _kcCustomPropsLoaded = true; if (res.propBond != null) _kcPropBond = parseInt(res.propBond) || 0; if (res.propCap != null) _kcPropCap = parseInt(res.propCap) || 0; }
+        if (res && res.success) { _kcCur = res.current || []; _kcCustomProps = res.customProps || []; _kcCustomPropsLoaded = true; if (res.propBond != null) _kcPropBond = parseInt(res.propBond) || 0; if (res.propCap != null) _kcPropCap = parseInt(res.propCap) || 0; if (res.propCatalogCap != null) _kcCatalogCap = parseInt(res.propCatalogCap) || 0; }
       } catch (e) { } finally { _kpBusy = false; }
       c = _kcCur.find(function (x) { return x.name === name; });
       if (!c) { var _ov0 = document.getElementById('kp-overlay'); if (_ov0) _ov0.style.display = 'none'; alert('讀取失敗，稍後再試。'); return null; }
@@ -632,6 +633,10 @@ let plainTextContext = cleanText;
     //   點下去才被後端「好感還沒到那個地步」打回票——這是本專案犯過好幾次的「永遠不會成功的按鈕仍
     //   長出來」。門檻值由後端下傳(_kcPropBond)，不在前端寫死。⚠ 只鎖「裝上去/調強度」，**移除(🗑)
     //   一律不鎖**——後端移除路徑本來就不看好感(東西已經在她身上了，拿下來不需要她再同意一次)。
+    // 🔒 目錄上限(後端 KANSHOU_CUSTOM_PROP_CAP_，下傳而來)：滿了原本只有送出時才被拒，面板上看不出來。
+    //   一般道具與催眠指令共用同一份目錄，所以用量要算整份、不是只算非催眠那些。
+    var _catUsed = (_kcCustomProps || []).length;
+    var _catFull = _kcCatalogCap > 0 && _catUsed >= _kcCatalogCap;
     var _pBond = parseInt(c.bond) || 0;
     var _pLocked = _kcPropBond > 0 && _pBond < _kcPropBond;
     var _lockAttr = _pLocked ? ' disabled title="好感' + _kcPropBond + '才裝得上，目前' + _pBond + '"' : '';
@@ -660,7 +665,9 @@ let plainTextContext = cleanText;
     //   同步存進玩家自己的道具目錄(之後在別人身上也能選)。純裝飾/物理類道具，不含催眠效果——
     //   要記一句暗示內容請用「🌀催眠指令」專屬面板(kanshouOpenHypnosis)。
     var addRow = '<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);">'
-      + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:5px;">找不到想要的？自己新增一個：' + (_pLocked ? '<span style="color:#c98a9a;">（好感未達 ' + _kcPropBond + '，只會建進你的道具目錄、還裝不上她身上）</span>' : '') + '</div>'
+      + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:5px;">找不到想要的？自己新增一個'
+      + (_kcCatalogCap ? '<span style="color:' + (_catFull ? '#e0a0a0' : '#8a7fa0') + ';">（目錄 ' + _catUsed + '/' + _kcCatalogCap + (_catFull ? '·已滿，先刪掉一些' : '') + '）</span>' : '')
+      + '：' + (_pLocked ? '<span style="color:#c98a9a;">（好感未達 ' + _kcPropBond + '，只會建進你的道具目錄、還裝不上她身上）</span>' : '') + '</div>'
       + '<div style="display:flex;gap:5px;align-items:center;margin-bottom:5px;">'
       + '<input id="kp-new-name" maxlength="10" placeholder="道具名稱(≤10字)" style="flex:1;min-width:0;padding:5px 6px;background:#2a2430;color:#eee;border:1px solid rgba(240,184,224,.3);border-radius:6px;font-size:12px;">'
       + '<label style="display:flex;align-items:center;gap:3px;color:#ccc;font-size:11px;white-space:nowrap;"><input id="kp-new-intensity" type="checkbox">強度可調(有開關)</label>'
@@ -670,7 +677,7 @@ let plainTextContext = cleanText;
       + '</div>'
       + '<div style="display:flex;gap:5px;align-items:center;">'
       + '<input id="kp-new-part" maxlength="8" placeholder="部位(選填，不填讓AI自己發揮)" style="flex:1;min-width:0;padding:5px 6px;background:#2a2430;color:#eee;border:1px solid rgba(240,184,224,.3);border-radius:6px;font-size:12px;">'
-      + '<button onclick="kanshouAddCustomProp(\'' + safeN + '\')" style="padding:5px 10px;background:#a05088;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">裝備</button>'
+      + '<button' + (_catFull ? ' disabled title="目錄已滿，先刪掉一些"' : ' onclick="kanshouAddCustomProp(\'' + safeN + '\')"') + ' style="padding:5px 10px;background:#a05088;color:#fff;border:none;border-radius:6px;' + (_catFull ? 'opacity:.45;cursor:not-allowed;' : 'cursor:pointer;') + 'font-size:12px;white-space:nowrap;">裝備</button>'
       + '</div></div>';
     ov.innerHTML = '<div style="width:min(400px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(240,184,224,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#f0b8e0;">🎀 「' + escapeHtml(name) + '」的小道具</b>'
@@ -822,12 +829,16 @@ let plainTextContext = cleanText;
         + (released ? '<div style="color:#c98a9a;font-size:11px;margin-bottom:5px;">🤫 已悄悄解除——她還不知道，仍照原樣順從中。</div>' : '')
         + '<div style="display:flex;gap:5px;">' + levelBtns + '</div>' + quietBtn + '</div>';
     }).join('');
+    // 🔒 目錄上限跟一般道具共用同一份（見 kanshouOpenProps 同款註解）
+    var _hCatUsed = (_kcCustomProps || []).length;
+    var _hCatFull = _kcCatalogCap > 0 && _hCatUsed >= _kcCatalogCap;
     var castRow = '<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);">'
-      + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:5px;">施展新的催眠指令(不受好感限制·立即生效)：</div>'
+      + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:5px;">施展新的催眠指令(不受好感限制·立即生效)'
+      + (_kcCatalogCap ? '<span style="color:' + (_hCatFull ? '#e0a0a0' : '#8a7fa0') + ';">（目錄 ' + _hCatUsed + '/' + _kcCatalogCap + (_hCatFull ? '·已滿，先刪掉一些' : '') + '）</span>' : '') + '：</div>'
       + '<div style="color:#8a7fa0;font-size:10.5px;margin-bottom:5px;">💡 用「妳」指她本人、「我」指你自己來寫，AI 會照這個代入解讀——例如「妳現在好想要我」＝她想要你，別寫反了。</div>'
       + '<div style="display:flex;gap:5px;align-items:center;">'
       + '<input id="kh-new-text" maxlength="30" placeholder="指令內容(如：妳現在超級渴望我)" style="flex:1;min-width:0;padding:5px 6px;background:#2a2430;color:#eee;border:1px solid rgba(224,160,255,.4);border-radius:6px;font-size:12px;">'
-      + '<button onclick="kanshouCastHypnosis(\'' + safeN + '\')" style="padding:5px 10px;background:#8050a0;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">🌀施展</button>'
+      + '<button' + (_hCatFull ? ' disabled title="目錄已滿，先刪掉一些"' : ' onclick="kanshouCastHypnosis(\'' + safeN + '\')"') + ' style="padding:5px 10px;background:#8050a0;color:#fff;border:none;border-radius:6px;' + (_hCatFull ? 'opacity:.45;cursor:not-allowed;' : 'cursor:pointer;') + 'font-size:12px;white-space:nowrap;">🌀施展</button>'
       + '</div></div>';
     ov.innerHTML = '<div style="width:min(400px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(224,160,255,.3);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#e0a0ff;">🌀 對「' + escapeHtml(name) + '」的催眠指令</b>'
@@ -1207,7 +1218,11 @@ let plainTextContext = cleanText;
     '浴室': { icon: '🛁', name: '共浴', bands: ['夜', '深夜'] },
     '屋頂花園': { icon: '🌌', name: '觀星', bands: ['夜', '深夜'] },
     '隱藏溫泉': { icon: '♨️', name: '溫泉同浴', bands: ['午後', '黃昏', '夜'] },
-    '和室': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
+    // 🌙 後端 pSleepStr 的熟睡地點有三種，語意不同、提示也該不同（原本三者共用「在她自己的家·登門
+    //   即可」那句，和室/我的房間讀起來都是錯的）：①她自己的住處 ②和室＝同居房(只有同居中才成立)
+    //   ③我的房間(她留宿/深夜過來)。三者都對齊後端 KANSHOU_ASLEEP_HOUR_END_ 的 0~8 點切點。
+    '和室': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true, note: '同居中她會睡在這裡' },
+    '我的房間': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true, note: '她若在你房裡過夜' },
     // 🌙 她們各自的家(拜訪住處·好感40解鎖登門)：0~8點登門她必定熟睡(後端 pSleepStr 每回合當既定事實
     //   餵給 AI)，不必等同居(90)。時刻切點跟後端 KANSHOU_ASLEEP_HOUR_END_ 對齊。
     //   對齊後端 KANSHOU_HERO_HOME_ 的所有住處值。徽章只在住處已解鎖時顯示(鎖住的走🔒分支)。
@@ -1236,7 +1251,7 @@ let plainTextContext = cleanText;
     if (!ev) return '';
     var hitNow = (typeof ev.hourEnd === 'number') ? (typeof curHour === 'number' && curHour < ev.hourEnd) : ev.bands.indexOf(curBand) !== -1;
     var bandsTxt = (typeof ev.hourEnd === 'number') ? ('0~' + ev.hourEnd + '點') : ev.bands.map(function (b) { return KC_BAND_SHORT_[b] || b; }).join('/');
-    var tip = ev.icon + ev.name + '·' + bandsTxt + (ev.atHome ? '(在她自己的家·登門即可)' : '') + '——她在場時，場景會自然帶入這個情境，要不要理會、怎麼互動全由你決定';
+    var tip = ev.icon + ev.name + '·' + bandsTxt + (ev.atHome ? '(' + (ev.note || '在她自己的家·登門即可') + ')' : '') + '——她在場時，場景會自然帶入這個情境，要不要理會、怎麼互動全由你決定';
     var style = hitNow
       ? 'background:rgba(224,160,188,.22);border:1px solid #c07090;color:#f0c0d4;'
       : 'background:rgba(120,110,90,.14);border:1px solid #4a4438;color:#9a8f78;';
