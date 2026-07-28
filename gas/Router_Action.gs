@@ -458,6 +458,10 @@ function buildTagsPayload_(sheets, pcId, preData) {
       tag: s[COL.PC.REL_TAG] || "從者", // 🏷️ 關係標籤(鑑賞卡片「🏷️關係」鈕預填用；solo不使用此欄)
       nickname: getNickname_(s[COL.PC.REL_MEM]), // 💬 專屬稱呼裸值(鑑賞卡片「🏷️關係」面板預填用)
       cohabit: kanshouIsCohabit_(s), // 🏠 是否同居中(鑑賞卡片「關係」中樞面板顯示狀態用·solo恆false)
+      // 💗 告白狀態(鑑賞「關係」中樞面板用)：lover＝已交往；confessWait＝被拒後還要幾天才開得了口。
+      //   門檻本身走 KC_CONFESS_BOND_ 鏡射，這兩個是【逐人狀態】、只能由後端算好下傳。
+      lover: !isFateCtx && kanshouIsLover_(s),
+      confessWait: isFateCtx ? 0 : kanshouConfessWait_(s, parseInt(m[COL.PC.DAY]) || 1),
       // 預取狀態字串隨 state 一併帶回，前端切從者直接秒顯，免每次都打一趟 get_full_status round-trip。
       statusString: buildPlayerStatusString(s, String(s[COL.PC.REL_MEM] || "")),
       hp: hpWord(s[COL.PC.HP], s[COL.PC.MAX_HP]),

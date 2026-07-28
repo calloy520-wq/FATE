@@ -171,7 +171,7 @@ if dead:
 # 這裡記一個下限；真的刻意刪掉區塊時，請一併把這個數字調下來（強迫是個有意識的動作）。
 # ⚠ 這裡的計數方式跟 check_prompt.py 不同（那邊的 regex 會把同一行後面的 ★ 一起吃進 420 字尾巴裡），
 #   所以數字不一樣是正常的；重點是「不准無聲變少」。
-MIN_STAR_BLOCKS = 123   # 2026-07 刻意 -1：移除「悄悄解除」那一階（演不出來，見 Gallery.gs KANSHOU_HYPNO_RELEASED_）
+MIN_STAR_BLOCKS = 128   # 2026-07 +5：告白(成立/被拒/冷卻/已在一起/撲空)。前次 123（移除「悄悄解除」那一階）
 star = 0
 for l in BACK_ALL.split('\n'):
     t = l.strip()
@@ -184,8 +184,33 @@ if star < MIN_STAR_BLOCKS:
         f'要嘛 check_prompt.py 的 regex 漏看了（它還是會印「全部通過」），'
         f'要嘛你真的刪了區塊；後者請把 check_wiring.py 的 MIN_STAR_BLOCKS 一起調下來。')
 
+# ── ⑤ 餵 AI 的資料表：不准當謎語人、不准替角色決定演技 ──────────────────────
+# 兩次實際踩到的形狀，都不在 ★ 區塊裡（check_prompt.py 只掃 ★ 行，看不到資料表）：
+#   ⓐ 未指涉的代詞：「唯獨這件事聊不了」——哪件事？小模型解不開，就自己編一個。
+#   ⓑ 替角色決定微動作：「愣一下／打呵欠／慌一下然後裝沒事」——12 格套同一套表情，
+#      凜和櫻會被演成同一個人（玩家原話：「這樣有模板·誰來演都一樣·那我多個角色不就沒有意義了」）。
+# 規則：這些表只寫【既定事實】（此刻什麼是真的／什麼不會發生），演法留給 AI。
+FACT_TABLES = ['KANSHOU_RAPPORT_TONE_']
+fact_cells = 0
+VAGUE = ['這件事', '那件事', '這種事', '那個意思', '這一切', '那件', '如此這般']
+ACTING = ['愣一下', '打呵欠', '慌一下', '臉紅', '嘟嘴', '歪頭', '眨眨眼', '吐舌']
+for tname in FACT_TABLES:
+    src = grab(tname, BACK_ALL)
+    if not src:
+        problems.append(f'⑤ {tname}：抓不到定義（改名了？檢查沒跟上就等於沒檢查）')
+        continue
+    cells = re.findall(r":\s*'([^']{6,})'", src)
+    fact_cells += len(cells)
+    for c in cells:
+        for v in VAGUE:
+            if v in c:
+                problems.append(f'⑤ {tname} 有未指涉的代詞「{v}」：{c[:34]}…——小模型解不開就會自己編一個，直接寫白')
+        for a in ACTING:
+            if a in c:
+                problems.append(f'⑤ {tname} 替角色決定了微動作「{a}」：{c[:34]}…——這是她的個性該決定的，表只寫既定事實')
+
 print(f'🔌 接線檢查：門檻常數 {len(gates)} 個（其中 {len(NO_UI_NEEDED)} 個登記為不需 UI 出口）、'
-      f'查表 {len(ENUM_TABLES)} 組、★ 區塊 {star} 個、action 路由 {len(routed)} 條（前端呼叫 {len(called)} 條）')
+      f'查表 {len(ENUM_TABLES)} 組、事實表 {fact_cells} 格、★ 區塊 {star} 個、action 路由 {len(routed)} 條（前端呼叫 {len(called)} 條）')
 if problems:
     print(f'  ❌ {len(problems)} 處')
     for p in problems:
