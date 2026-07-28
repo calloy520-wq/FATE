@@ -3657,7 +3657,10 @@ function actionPlay_(userData, pcId, sheets) {
       //   在身上、只是暫時沒運作）」在講一句已經解除的暗示。催眠不是物體，它的全部存在感就是下面
       //   那幾行★指令。兩份清單就此分家：實體道具只列 !ignoreBond，催眠只走★行。
       const _wornArr = pPropsArr.filter(p => !p.ignoreBond);
-      const _wornStr = _wornArr.length ? `佩戴道具:${_wornArr.map(p => {
+      // 🐛→✅ 2026-07 玩家「佩戴道具<<<這開頭也太怪」：前綴把「所有道具都穿戴在身上」寫死了，可是
+      //   道具名稱是玩家自由輸入的——繩子/椅子/遙控器都可能，`佩戴道具:繩子` 讀起來就是錯的。改用
+      //   跟 UI 同一個詞(按鈕/面板都叫「🎀 小道具」，單一詞彙)，是否穿戴交給選填的 `戴在X` 去講。
+      const _wornStr = _wornArr.length ? `小道具:${_wornArr.map(p => {
         const bits = [];
         if (p.part) bits.push(`戴在${p.part}`);
         if (p.hasIntensity) bits.push(p.level);
@@ -3665,7 +3668,7 @@ function actionPlay_(userData, pcId, sheets) {
         //   (玩家自己取的名字比「跳蛋」模糊得多)，effect選填時把效果描述也餵進去，讓AI照著演。
         if (p.effect) bits.push(`效果:${p.effect}`);
         return `${p.name}${bits.length ? `(${bits.join('，')})` : ""}`;
-      }).join('、')}——這是既定事實，narration須自然反映其存在${_wornArr.some(p => p.hasIntensity && p.level !== '關閉') ? `，其中正在運作的道具依強度影響她的反應` : ``}${_wornArr.some(p => p.hasIntensity && p.level === '關閉') ? `（強度關閉≠取下，仍配戴在身上、只是暫時沒運作）` : ``}` : "";
+      }).join('、')}——這是既定事實，narration須自然反映其存在${_wornArr.some(p => p.hasIntensity && p.level !== '關閉') ? `，其中正在運作的道具依強度影響她的反應` : ``}${_wornArr.some(p => p.hasIntensity && p.level === '關閉') ? `（強度關閉≠拿走，東西還在她身上/手邊，只是暫時沒在作用）` : ``}` : "";
       const _hypStr = _ignoreBondLines.length ? `${_ignoreBondLines.join('')}★這是只有她自己感覺得到的私密效果，除非外顯到旁人一看就懂，否則在場其他人不知情、不該對此有反應或評論。★暗示內容裡若出現「你/妳」「我」等代詞，你/妳＝她本人、我＝玩家，依此代入解讀，不要弄反。` : ``;
       const pPropStr = (_wornStr || _hypStr) ? ` | ${_wornStr}${_wornStr && _hypStr ? '。' : ''}${_hypStr}` : "";
       // 💞 共同回憶(27欄 MEMOIR)：你們一路走來累積的里程碑，讓 AI 自然承接你倆的專屬過往(儲存用全形｜
