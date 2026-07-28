@@ -2814,17 +2814,17 @@
   // 敗北：先播「願望實現的虛假之夢」，再【由玩家自己按鈕】進老虎道場（敗北後不能輸入，故用按鈕控節奏，不靠死板 timer 搶播）
   async function handleDefeat(res) {
     const story = document.getElementById('story');
-    // 🐯 結構化敗因：從戰報推導本局實際敗因餵給道場，讓講評對症下藥，而非讓 AI 從敘事散文瞎猜。
-    let causeTag = '';
+    // 🐯 結構化敗因：從戰報挑出本局實際敗因的【鍵】送給後端，講評文案查表(DOJO_CAUSE_)在 GAS 組。
+    //   前端不再組提示詞、也不再附 lastAiContext 散文——敗因是 GAS 算出來的事實，不需要 AI 從敘事回推。
+    let dojoCause = {};
     try {
       const rp = res.report || {};
-      if (res.deadline) causeTag = '【本局敗因】14 日時限已至、未能奪得聖杯——輸給了時間管理。';
-      else if (rp.sealBacklash) causeTag = '【本局敗因】以令咒強逼從者「' + (rp.svName || '') + '」於好感不足時交心，令咒解除瞬間遭其積怨反噬、親手了結——輸在不顧從者意願、濫用絕對命令。';
-      else if (rp.ambush) causeTag = '【本局敗因】卸防（休息／補魔／交流）時遭敵從者「' + (rp.enemyName || '') + '」夜襲、從者殞落——輸在卸防時機與敵蹤警覺。';
-      else if (rp.assassination) causeTag = '【本局敗因】奇襲斬首失敗、遭護衛從者 1.5 倍反殺痛擊、從者盡滅——輸在對斬首成功率(僅擲20)的豪賭。';
-      else if (rp.def) causeTag = '【本局敗因】與「' + rp.def + '」正面交鋒落敗、從者靈基崩潰' + (rp.useNp ? '（本戰已傾盡寶具解放' + (rp.backlash ? '＋吃到過載反噬' : '') + '仍不敵）' : '（未動用寶具）') + '——輸在正面戰力/資源分配。';
+      if (res.deadline) dojoCause = { cause: 'deadline' };
+      else if (rp.sealBacklash) dojoCause = { cause: 'seal_backlash', servantName: rp.svName || '' };
+      else if (rp.ambush) dojoCause = { cause: 'ambush', foeName: rp.enemyName || '' };
+      else if (rp.assassination) dojoCause = { cause: 'assassination' };
+      else if (rp.def) dojoCause = { cause: 'battle', foeName: rp.def, useNp: !!rp.useNp, backlash: !!rp.backlash };
     } catch (e) { }
-    const dojoCause = (causeTag ? causeTag + '\n' : '') + (lastAiContext || ''); // 🐯 在夢覆寫 lastAiContext 前先擷取戰況
     const dojoServant = (pc && pc.servant) || '從者';  // 殞滅的從者名
     // 鎖住輸入與行動列，避免敗北後還能操作
     try { var inp = document.getElementById('u-in'); if (inp) { inp.disabled = true; inp.placeholder = '聖杯戰爭已落幕……'; } } catch (e) {}
@@ -2885,7 +2885,7 @@
           mbtn.style.display = 'block';
           mbtn.textContent = '🎉 慶祝一下';
           // 🎉 老虎道場·祝賀特輯(死亡那套的小改版)：跟敗北的老虎道場同一個殼，換成祝賀，收尾才回選單。
-          mbtn.onclick = function () { closeVictory(); runTigerDojo_(res.servantName || '從者', '', 'victory'); };
+          mbtn.onclick = function () { closeVictory(); runTigerDojo_(res.servantName || '從者', null, 'victory'); };
         }
         // 🔵 防呆：本局已清理，清掉本機續玩快取，避免下次殘留死局
         try { localStorage.removeItem('kyushu_v27'); localStorage.removeItem('kyushu_story'); localStorage.removeItem('kyushu_last_status'); } catch (e) {}
@@ -2946,21 +2946,7 @@
       if (sub) sub.textContent = '「哎呀呀～你的從者被打倒了呢！」';
     }
   }
-  // 🐯 老虎道場敗北講評 prompt（藤村大河＋伊莉雅·依實際敗因吐槽＋給一條對症戰術建議）
-  function buildTigerDojoPrompt_(servantName, causeCtx) {
-    return '【老虎道場·敗北講評】Fate 經典搞笑教學橋段——御主敗北、從者「' + (servantName || '從者') + '」已消滅。\n'
-      + '由【藤村大河】(老虎老師·元氣熱血卻常狀況外·愛耍寶)＋【伊莉雅】(毒舌助手·一針見血道出真正敗因)兩人對話復盤。\n'
-      + (causeCtx ? '〔本局敗因參考·僅供你判讀戰況，勿原樣複述〕：' + String(causeCtx).slice(0, 400) + '\n' : '')
-      + '★結構：①藤村大河開場吐槽/打氣(可中二可耍寶)；②伊莉雅冷靜點出【這場真正輸在哪】並給【一條直接回應敗因的具體建議】——建議必須從上方【本局敗因】推導(死於夜襲→談卸防時機與敵蹤警覺；死於正面硬拚→談職階相剋/補魔/寶具與撤退時機；死於斬首豪賭→談僅擲20的成功率與時機取捨；死於時限→談節奏)，【嚴禁】給與本局敗因無關的泛用套路(沒被斬首反殺就別提斬首、無關就別提偷襲御主)；③藤村大河收尾打氣。\n'
-      + '★【刻意輕鬆詼諧】這是賽後教學番外、非戰場——語氣搞笑溫馨，無視戰場的緊張基調。約 120~180 字、繁體中文。show-don\'t-tell 不直述從者願望/個性字面。只輸出兩人對話，禁選項、禁系統字樣、禁問玩家。';
-  }
-  // 🎉 老虎道場·勝利祝賀 prompt（同兩人，這次是真心祝賀＋一句對這場勝利的犀利吐槽/彩蛋觀察，非講評戰術）
-  function buildTigerDojoVictoryPrompt_(servantName) {
-    return '【老虎道場·祝賀特輯】Fate 經典搞笑教學橋段——御主已奪得聖杯、贏得這場聖杯戰爭，從者「' + (servantName || '從者') + '」與有榮焉。\n'
-      + '由【藤村大河】(老虎老師·元氣熱血卻常狀況外·愛耍寶)＋【伊莉雅】(毒舌助手·這次改用犀利吐槽表達由衷佩服)兩人對話慶祝。\n'
-      + '★結構：①藤村大河誇張慶祝/賣萌邀功(可中二可耍寶，像是自己也出了力)；②伊莉雅嘴上毒舌吐槽但話裡藏著真心的佩服，順帶調侃一下這場戰鬥中最精彩/驚險的瞬間類型(不用具體複述戰報數字，用泛泛的戰鬥意象即可)；③藤村大河收尾，用她一貫誇張的方式恭喜御主。\n'
-      + '★【刻意輕鬆詼諧】這是慶功番外、非戰場——語氣搞笑溫馨歡樂，無視戰場的緊張基調。約 120~180 字、繁體中文。show-don\'t-tell 不直述從者願望/個性字面。只輸出兩人對話，禁選項、禁系統字樣、禁問玩家。';
-  }
+  // 🐯 提示詞本體在後端（Router_Narrative.gs 的 actionTigerDojo／DOJO_CAUSE_）——這裡只送敗因的鍵。
   function dojoFallbackHtml_(mode) {
     return mode === 'victory'
       ? '聖杯戰爭終於落幕，你贏得了這場聖杯戰爭！<br>藤村大河老師與伊莉雅都在為你鼓掌喝彩！<br><span style="color:#9a8fb0; font-size:12px;">（可隨時前往鑑賞，從英靈殿召喚同伴共度和平時光。）</span>'
@@ -2977,8 +2963,11 @@
     // 鎖按鈕，等 AI 生成完再給玩家「下一步」
     if (backBtn) { backBtn.disabled = true; backBtn.style.opacity = '0.4'; backBtn.style.cursor = 'not-allowed'; }
     try {
-      const promptText = mode === 'victory' ? buildTigerDojoVictoryPrompt_(servantName) : buildTigerDojoPrompt_(servantName, causeCtx);
-      const res = await gasRun({ action: 'narrate_only', pcId: pc.id, promptText: promptText, isNsfw: false, acctName: (pc && pc.account) || currentAccount });
+      // 敗因鍵(cause/foeName/useNp…)原樣攤平送後端查表；勝利不帶敗因。servantName 一律送。
+      const payload = Object.assign({ action: 'tiger_dojo', pcId: pc.id, mode: mode || 'defeat', acctName: (pc && pc.account) || currentAccount },
+        (mode !== 'victory' && causeCtx && typeof causeCtx === 'object') ? causeCtx : {});
+      payload.servantName = payload.servantName || servantName || '從者'; // 令咒反噬那條敗因會自帶交心對象的名字
+      const res = await gasRun(payload);
       if (res && res.success && res.text && body) {
         var t = String(res.text).replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\n{2,}/g, '<br><br>').replace(/\n/g, '<br>');
         var tailNote = mode === 'victory' ? '（可隨時前往鑑賞，從英靈殿召喚同伴共度和平時光。）' : '（敗北的存檔已封存於戰史，可重啟新的一局。）';

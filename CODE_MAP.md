@@ -186,7 +186,7 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 
 ---
 
-## §4 全 65 action → handler → 檔
+## §4 全 66 action → handler → 檔
 
 | action | handler | 檔 | | action | handler | 檔 |
 |---|---|---|---|---|---|---|
@@ -212,7 +212,7 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 | update_fate | actionUpdateFate | Router_Action | | prep_meal | actionPrepMeal | Router_Movement |
 | update_rel_tag | actionUpdateRelTag | Router_Action | | second_wind | actionSecondWind | Router_Movement |
 | kanshou_set_nickname | actionSetNickname | Router_Action | | get_map_nodes | actionGetMapNodes | Router_Movement |
-| narrate_only | actionNarrateOnly | Router_Narrative | | faction_ambush | actionFactionAmbush | Router_Movement |
+| narrate_only／tiger_dojo | actionNarrateOnly／actionTigerDojo | Router_Narrative | | faction_ambush | actionFactionAmbush | Router_Movement |
 | dev_resync_codex | actionDevResyncCodex | Seed_Codex | | incite | actionIncite | Router_Movement |
 
 **🌹 全在 `Gallery.gs`**：`play`(→`actionPlay_`)｜`enter_kanshou`｜`backfill_kanshou_ai`｜`kanshou_companions`｜`kanshou_summon_hero`｜`kanshou_memoir_op`｜`kanshou_set_sex`／`_set_name`／`_set_home_name`／`_set_prop`｜`kanshou_add_custom_prop`／`_delete_custom_prop`｜`kanshou_cast_hypnosis`｜`kanshou_add_quick_phrase`／`_delete_quick_phrase`｜`get_album`｜`album_delete`
@@ -257,8 +257,8 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 
 ## §7 現況（2026-07）
 
-- 24 檔・20,748 行・後端 403 函式・65 action
+- 24 檔・20,748 行・後端 405 函式・66 action
 - **死碼 0**（僅 `removeAllTriggers` 無呼叫點＝刻意保留的編輯器手動工具）
-- 65 action 全部有真實 handler 且皆可從前端到達（`set_mage_realm`/`set_rune_mode` 走 `pickSelectable(action,…)` 動態帶入）
+- 66 action 全部有真實 handler 且皆可從前端到達（`set_mage_realm`/`set_rune_mode` 走 `pickSelectable(action,…)` 動態帶入）
 - 連續 3 輪稽核乾淨收斂 → `SOLO_REFERENCE.md` §25
 - `full`（九州全模擬）停用中；兩軌皆無經濟/生活層、無戰記/排行榜

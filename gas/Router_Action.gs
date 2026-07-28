@@ -69,6 +69,7 @@ const ActionRouter = {
   "rest": actionRest,
   "play": actionPlay,
   "narrate_only": actionNarrateOnly,
+  "tiger_dojo": actionTigerDojo, // 🐯 賽後番外(敗北講評/勝利祝賀)：自帶說書人設定、不吃戰場 miniSystem
   "get_album": actionGetAlbum,   // 📷 鑑賞相簿：讀本局全部照片(拍照本體在 play 的 takePhoto 分支)
   "album_delete": actionAlbumDelete // 📷 刪照片(相簿滿了騰位子)
 };
@@ -87,7 +88,8 @@ function sanitizeUserData_(userData) {
   //   acctName 原樣字串拼接進 MEMORY(`"【帳號】"+acctName+"｜【鑑賞後日談】..."`)，玩家把帳號名稱
   //   打成含｜【】的字串就能偽造任意MEMORY標記(如偽造【自訂道具】帶ignoreBond:1繞過好感門檻)。
   //   併入這裡統一擋，並在下面規則加上｜【】清洗(不只<>&"'`)。
-  const STRICT_NAME_FIELDS = new Set(["name", "npcName", "targetName", "factionName", "newTagText", "newNickname", "pcName", "trueName", "acctName"]);
+  // 🐯 servantName/foeName：老虎道場(tiger_dojo)把名字直接拼進提示詞，比照其餘名稱欄位清洗
+  const STRICT_NAME_FIELDS = new Set(["name", "npcName", "targetName", "factionName", "newTagText", "newNickname", "pcName", "trueName", "acctName", "servantName", "foeName"]);
   // 🔴 只在「建立角色/登記NPC」的姓名欄位強制純中文(去英數/符號/空白)；
   //   參照既有角色的欄位(targetName/newRelName 等)不清洗，以免破壞改版前可能存在的非中文名查找。
   const CHINESE_NAME_FIELDS = new Set(["name", "npcName"]);
@@ -254,7 +256,7 @@ const OWNERSHIP_CHECK_EXEMPT_ = {
 const LOCK_EXEMPT_ACTIONS_ = {
   check_name: 1, get_full_status: 1, get_heroes: 1, get_masters: 1,
   get_tags: 1, get_map_nodes: 1, sync: 1, get_album: 1,
-  narrate_only: 1, play: 1, backfill_master_ai: 1, backfill_kanshou_ai: 1,
+  narrate_only: 1, tiger_dojo: 1, play: 1, backfill_master_ai: 1, backfill_kanshou_ai: 1,
   save_hero: 1 // 🛠️ 工房鑄造/修改：含數秒 AI 呼叫·只寫英靈殿(append/單列)不碰戰場——佔全域鎖會卡死其他玩家
 };
 // ⚡ 會改動 solo 戰場狀態、前端事後會 syncData(整頁刷新) 的動作 → 夾帶 _state 省一趟 round-trip。
@@ -287,7 +289,7 @@ const KANSHOU_BLOCKED_ACTIONS_ = {
   second_wind: 1, scout: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
   set_servant_output: 1, set_mage_realm: 1, set_rune_mode: 1,
   prep_meal: 1, purge_orphans: 1, faction_ambush: 1, incite: 1, court_enemy: 1,
-  weapon: 1, get_map_nodes: 1, narrate_only: 1,
+  weapon: 1, get_map_nodes: 1, narrate_only: 1, tiger_dojo: 1,
   end_run: 1, create: 1, summon_servant: 1, backfill_master_ai: 1,
   account_login: 1, account_new_game: 1,
   // 🧹 move 已非共用action——鑑賞地圖改走kanshouMoveTo/kanshouProposeMove，前端不再送action:'move'，

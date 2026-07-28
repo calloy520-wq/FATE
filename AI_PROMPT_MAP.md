@@ -73,8 +73,17 @@
 > ★以 Fate／TYPE-MOON 筆觸，第二人稱，寫一段唯美而令人心碎的虛假美夢：讓「演出」暗示願望成真的幸福感，絕不可直接說出願望內容或「這是假的」。…
 > ★【鐵律】只輸出夢境敘事，禁選項或系統字樣。
 
-### `buildTigerDojoPrompt_`（Script.html:2369，前端函式，非 GAS）
-敗北收場後「老虎道場」講評，前端組 prompt 直接走 `narrate_only`（`action:'narrate_only', promptText: buildTigerDojoPrompt_(servantName, causeCtx), isNsfw:false`）。餵藤村大河＋伊莉雅依實際敗因吐槽＋給戰術建議，一次性呼叫，不影響遊戲中速度。
+### `actionTigerDojo`（action: `tiger_dojo`，Router_Narrative.gs）
+敗北收場／奪杯後的「老虎道場」番外，藤村大河＋伊莉雅兩人對話。**2026-07 從前端收回後端**：前端只送敗因的【鍵】（`{cause:'ambush', foeName:'哈桑'}` 之類），文案由 `DOJO_CAUSE_` 五格查表組——加一種敗因＝往表加一列。
+
+**刻意不走 `narrate_only`／`miniSystem`**：道場是賽後的教室、不是戰場，而 `miniSystem` 的「旁白第一人稱『我』·不用『你』」與「語氣依血量決定·瀕死就是命懸一線」跟「兩人對話＋刻意輕鬆詼諧」正面打架（舊版是在提示詞尾巴硬寫一句「無視戰場的緊張基調」去對抗它）。`actionTigerDojo` 自帶 264 字說書人設定直接呼叫 `callGeminiAPI`，不讀眾生表、不帶歷史、不存歷史（賽後不需要連貫），也順手省掉一次整表讀。
+
+送進去的 user prompt 長這樣（真實輸出，~130 字）：
+```
+【已裁定】御主敗北、從者「阿爾托莉雅」消滅。這一局輸在：在休息／補魔／交流這種卸下防備的時候被敵從者「哈桑」夜襲，從者殞落。
+①大河開場吐槽兼打氣 ②伊莉雅點破真正輸在哪，並針對【什麼時機能卸防、怎麼提早察覺敵蹤】給一條具體建議，只講這一條 ③大河收尾打氣。
+```
+敗因鍵五格：`deadline`（時限）／`seal_backlash`（令咒反噬）／`ambush`（夜襲）／`assassination`（斬首豪賭）／`battle`（正面戰，另吃 `useNp`/`backlash` 兩個旗標）。鍵不在表上→退「沒能撐到最後」通用句；AI 整段失敗→前端 `dojoFallbackHtml_` 罐頭文案。
 
 ---
 
@@ -415,7 +424,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 + [無敵蹤時] stanceLine_()（接敵姿態獨行定調）
 + ★御主（我）可依其性格自然開口、有反應與台詞，別當沉默的旁觀者；但【不可】替御主拍板下一步戰略行動…不可逼問玩家，停在決策前的留白讓玩家以按鍵回應。
 ```
-組完後呼叫 `await narrate(arrivePrompt)` → `action:'narrate_only'`。這是全專案唯一一個「prompt 組裝發生在前端 JS、而非後端 GAS」的案例，值得特別注意（其餘全部在 Router_*.gs 內組好字串才回傳）。
+組完後呼叫 `await narrate(arrivePrompt)` → `action:'narrate_only'`。這是全專案**唯一**一個「prompt 組裝發生在前端 JS、而非後端 GAS」的案例，值得特別注意（其餘全部在 Router_*.gs 內組好字串才回傳）。原本還有老虎道場那兩支，2026-07 已收回後端（見 §2 `actionTigerDojo`）。
 
 ---
 
@@ -425,7 +434,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 
 （`set_servant_output`／`set_mage_realm`／`set_rune_mode`／`set_np_choice` 這 4 個是戰鬥前的**純數值檔位切換**——性質等同選單勾選，不是敘事時刻，刻意不接 AI：接了反而每次調檔位都要多等一次生成、拖慢戰鬥節奏，也沒有畫面可演。)
 
-會叫 AI（敘事 `narrate_only` 或結構化 JSON）的 action／路徑：`fate_battle`（5 分支）、`use_seal`、`mana_supply`、`rule_break_steal`、`second_wind`、`rest`（條件式）、`move`（前端組 prompt）、`bond`、`propose_alliance`、`break_alliance`、`ally_bond`、`scout`、`scavenge`、`set_workshop`、`prep_meal`（**2026-07 新增這 4 個**，見 §3——玩家反映「solo每個按鍵好像有些沒有接上ai敘述」逐一稽核補齊，皆為 60~100 字輕量演出，不拖慢節奏）、`backfill_master_ai`（結構化）、`backfill_kanshou_ai`（結構化·鑑賞御主敘事欄）、`summon_servant`（條件式結構化＋一律附敘事）、`play`（kanshou 自由聊天）、`narrate_only`（通用出口，本身無事實，套系統提示詞轉呼叫）。dispatcher 層另有一條隱性路徑：14 天時限中央攔截自動掛 `dreamPrompt`。
+會叫 AI（敘事 `narrate_only` 或結構化 JSON）的 action／路徑：`fate_battle`（5 分支）、`use_seal`、`mana_supply`、`rule_break_steal`、`second_wind`、`rest`（條件式）、`move`（前端組 prompt）、`bond`、`propose_alliance`、`break_alliance`、`ally_bond`、`scout`、`scavenge`、`set_workshop`、`prep_meal`（**2026-07 新增這 4 個**，見 §3——玩家反映「solo每個按鍵好像有些沒有接上ai敘述」逐一稽核補齊，皆為 60~100 字輕量演出，不拖慢節奏）、`backfill_master_ai`（結構化）、`backfill_kanshou_ai`（結構化·鑑賞御主敘事欄）、`summon_servant`（條件式結構化＋一律附敘事）、`play`（kanshou 自由聊天）、`narrate_only`（通用出口，本身無事實，套系統提示詞轉呼叫）、`tiger_dojo`（賽後番外，自帶說書人設定、不經 `miniSystem`）。dispatcher 層另有一條隱性路徑：14 天時限中央攔截自動掛 `dreamPrompt`。
 
 ---
 

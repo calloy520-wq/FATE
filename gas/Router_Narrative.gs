@@ -175,3 +175,59 @@ function actionNarrateOnly(userData, pcId, sheets) {
   return JSON.stringify({ success: true, text: narrationText });
 }
 
+// ==========================================
+// 🐯 老虎道場（賽後番外·敗北講評／勝利祝賀）
+// ==========================================
+// ⚠ 刻意【不】走 narrateWithState_：道場是賽後的教室、不是戰場——miniSystem 的「旁白第一人稱
+//   『我』·不用『你』」「語氣依血量決定·瀕死就是命懸一線」跟道場要的「兩人對話＋刻意輕鬆詼諧」
+//   正面打架（舊版是在提示詞尾巴硬寫一句「無視戰場的緊張基調」去對抗它，那是補丁不是解法）。
+//   給它自己的說書人設定，順便省掉整表讀＋歷史讀——賽後講評不需要跟前情連貫。
+// ⚠ 提示詞本體收回 GAS：前端只送「哪一種敗因」的鍵，文案查表(DOJO_CAUSE_)在後端組——
+//   加一種敗因＝往表加一列。（前端組提示詞的地方只剩移動的 arrivePrompt。）
+const DOJO_CAUSE_ = {
+  deadline: { fact: '十四日時限耗盡，聖杯始終沒到手', lesson: '一整局十四天的行程該怎麼分配' },
+  seal_backlash: { fact: '用令咒強逼從者{sv}在好感不足時交心，令咒一解就被積怨反噬、御主當場斃命', lesson: '從者的意願，以及絕對命令的代價' },
+  ambush: { fact: '在休息／補魔／交流這種卸下防備的時候被敵從者{foe}夜襲，從者殞落', lesson: '什麼時機能卸防、怎麼提早察覺敵蹤' },
+  assassination: { fact: '奇襲斬首沒得手，反被護衛從者以 1.5 倍反殺、從者盡滅', lesson: '斬首只擲一顆 20 面骰，這場豪賭划不划算' },
+  battle: { fact: '與{foe}正面交鋒落敗、從者靈基崩潰{np}', lesson: '職階相剋、魔力存量與撤退時機' }
+};
+
+// 敗因鍵＋名字/寶具旗標 → 給 AI 的一句既定事實＋該講的那條課題。鍵不在表上回 null（呼叫端退通用文案）。
+function dojoCauseLine_(userData) {
+  var c = DOJO_CAUSE_[String(userData.cause || "")];
+  if (!c) return null;
+  var nm = function (v) { return v ? '「' + String(v) + '」' : ""; };
+  var np = userData.useNp
+    ? ('（寶具已解放' + (userData.backlash ? '、還吃了過載反噬' : '') + '仍不敵）')
+    : '（全程沒動用寶具）';
+  return {
+    fact: c.fact.replace('{sv}', nm(userData.servantName)).replace('{foe}', nm(userData.foeName)).replace('{np}', np),
+    lesson: c.lesson
+  };
+}
+
+function actionTigerDojo(userData, pcId, sheets) {
+  var sv = String(userData.servantName || '從者');
+  var win = String(userData.mode || "") === 'victory';
+  var c = win ? null : dojoCauseLine_(userData);
+  var system = `你是《命運停駐之夜》的賽後番外「老虎道場」——Fate 經典的搞笑教學橋段。
+出場的只有【藤村大河】(老虎老師·元氣熱血、常狀況外、愛耍寶)與【伊莉雅】(毒舌助手·一針見血)，寫她們兩人的對話，沒有旁白。
+每句台詞前冠說話者名(大河「……」)、只用單層「」。每2~3句用 <br><br> 分段，換行一律用 <br><br>，不用真實換行或其他 HTML 標籤。
+台灣繁體中文、約 120~180 字。這裡是戰後的教室，語氣搞笑溫馨。
+只輸出 JSON：{"narration":"…"}，不要其他欄位、不要 Markdown。`;
+  var dojoPrompt = win
+    ? `【已裁定】御主奪得聖杯、這場聖杯戰爭結束，從者「${sv}」與有榮焉。
+①大河誇張慶祝，順便邀功一下 ②伊莉雅嘴上毒舌、話裡藏著真心佩服 ③大河用她一貫誇張的方式恭喜御主。`
+    : `【已裁定】御主敗北、從者「${sv}」消滅。這一局輸在：${c ? c.fact : '沒能撐到最後'}。
+①大河開場吐槽兼打氣 ②伊莉雅點破真正輸在哪，並針對【${c ? c.lesson : '下一局的打法'}】給一條具體建議，只講這一條 ③大河收尾打氣。`;
+  try {
+    var raw = callGeminiAPI(dojoPrompt, system, { temperature: 0.9, ignoreLaw: true, max_tokens: 720, model: SOLO_MODEL });
+    var s = raw.indexOf('{'), e = raw.lastIndexOf('}');
+    var data = JSON.parse(raw.substring(s, e + 1));
+    // callGeminiAPI 重試全敗時的保底文字長得跟成功的一樣，靠 _genFailed 分辨（同 narrateWithState_）。
+    var txt = data._genFailed ? "" : stripLeakedScaffold_(data.narration);
+    if (!txt) return JSON.stringify({ success: false }); // 前端有罐頭文案(dojoFallbackHtml_)接手
+    return JSON.stringify({ success: true, text: txt });
+  } catch (err) { return JSON.stringify({ success: false }); }
+}
+

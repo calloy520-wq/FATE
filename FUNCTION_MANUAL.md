@@ -11,7 +11,7 @@
 |---|---|---|
 | **Router_Action.gs** | 12（＋ActionRouter 65 action） | 後端總分流器：`sanitizeUserData_`→`ActionRouter`→`handleGameAction`；鎖／14 日時限／`_state` 夾帶 |
 | **Router_Bond.gs** | 27 | 羈絆／令咒／結盟／示好交涉／破戒奪僕／主從硬連結 |
-| **Router_Narrative.gs** | 8 | SOLO 輕量敘事引擎（`narrateWithState_`／虛假之夢） |
+| **Router_Narrative.gs** | 10 | SOLO 輕量敘事引擎（`narrateWithState_`／虛假之夢／老虎道場） |
 | **Router_Persona.gs** | 11 | 演出依據卡（`servantCard_`／`masterCard_`／`performanceNote_`…，show-don't-tell 載體） |
 | **Router_Creation.gs** | 20 | 御主創角／召喚從者／工房鑄造（含 `forgeCost_` 計價＋六圍floor/cap） |
 | **Router_Movement.gs** | 31 | 地圖／移動／休息／偵查／搜刮／整備／陣地／卸防突襲／撤退追擊／敵營局面／挑撥離間／趁隙偷襲 |
@@ -118,6 +118,7 @@
 | `rest` | `actionRest` | 休息恢復 AP |
 | `play` | `actionPlay` | 共用敘事引擎主入口 |
 | `narrate_only` | `actionNarrateOnly` | 輕量敘事補完 |
+| `tiger_dojo` | `actionTigerDojo` | 🐯 賽後番外：敗北講評／勝利祝賀 |
 | `get_album` | `actionGetAlbum` | 鑑賞相簿讀取 |
 | `album_delete` | `actionAlbumDelete` | 刪照片 |
 
@@ -125,7 +126,7 @@
 
 #### 🔹 四張旗標常數表（dispatcher 行為開關）
 - `OWNERSHIP_CHECK_EXEMPT_`（2026-07 系統性漏洞修補新增）— 豁免中央 pcId 歸屬驗證的 action 白名單：`account_login`/`account_new_game`/`create`/`enter_kanshou`（pcId 尚不存在）、`claim_hero`/`save_hero`（走 `creator===acctName` 模型）、`get_heroes`/`get_masters`（公開名冊）、`check_name`/`check_sheets`/`dev_resync_codex`/`purge_orphans`（不涉個別玩家列）。其餘只要帶 `pcId` 一律先過 `verifyPcOwnership_`。
-- `LOCK_EXEMPT_ACTIONS_` — 不取寫入鎖的 action：純讀取 ＋ 長 AI 敘事（`play`/`narrate_only`/`backfill_*`/`save_hero` 等）。
+- `LOCK_EXEMPT_ACTIONS_` — 不取寫入鎖的 action：純讀取 ＋ 長 AI 敘事（`play`/`narrate_only`/`tiger_dojo`/`backfill_*`/`save_hero` 等）。
 - `STATE_AFTER_ACTIONS` — 會改 solo 戰場、回應自動夾 `_state` 的 action（`fate_battle`/`use_seal`/`bond`/`update_fate`/`court_enemy`… 共 21 個）。
 - `KANSHOU_BLOCKED_ACTIONS_` — `KPC_` 情境下明確擋掉的 solo 專屬戰鬥/經濟/結盟 action（含 `move`）。
 - `STATE_PRE_DATA_`（`var`）— handler→dispatcher 整表陣列交棒全域，每次 dispatch 開頭重置。
@@ -195,7 +196,7 @@
 
 ### Router_Narrative.gs
 
-SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt 在 Gallery.gs，兩軌不共用）。共 **8 個函式**。
+SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt 在 Gallery.gs，兩軌不共用）。共 **10 個函式**。
 
 #### 羈絆／願望 helper
 - `raiseBond_(sheets, gameId, pcName, svName, delta, preData?)` — 提升御主×從者羈絆（該從者列 BOND，地板 0）。`gameId` 由呼叫端直接傳（不反查，避免跨局撞名綁錯局）。跨多檔共用。
@@ -210,6 +211,10 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `stripLeakedScaffold_(text)` — 防禦性過濾：清掉 AI 誤 echo 的 ★指令與〈演出卡〉；**刻意不清【標籤】**（fallback 文案靠它當視覺標籤）。
 - `narrateWithState_(pcId, sheets, promptText, miniSystem, opts?)` — 🟢 共用敘事核心。組 aiConfig（temp 0.85、ignoreLaw、maxTokens 預設 720、model 預設 `SOLO_MODEL`、opts 可傳 `UNLOCKED_MODEL`）＋最近 2 筆歷史＋自動附「當前狀態」（御主/在場從者 HP/共用魔力池）＋`buildTrajectoryDigest_` 軌跡骨幹（同一次整表讀）→`callGeminiAPI`→解析 `{narration}`（過 `stripLeakedScaffold_`）；解析失敗回 null。
 - `actionNarrateOnly(...)` — 輕量敘事補完 handler（結算已由 GAS 完成）。`isNsfw` 純看 pcId 是否 `KPC_`（不信前端旗標）。內含完整 `miniSystem` 鐵律（第一人稱「我」、`dialogueFormatRule_`、`<br><br>` 分段、show-don't-tell、依當前狀態不臆測勝敗、服裝依卡）。`deepseek` 旗標→maxTokens 2000＋`UNLOCKED_MODEL`（補魔高好感解鎖分支用）。存歷史時存 `cleanNarrateEcho_` 摘要（非整串提示詞）。
+
+#### 🐯 老虎道場（賽後番外）
+- `dojoCauseLine_(userData)` — 敗因鍵（`DOJO_CAUSE_` 五格：deadline／seal_backlash／ambush／assassination／battle）＋名字/寶具旗標 → `{fact,lesson}`；鍵不在表上回 null。
+- `actionTigerDojo(userData, pcId, sheets)` — 🐯 敗北講評／勝利祝賀 handler（action `tiger_dojo`）。**刻意不走 `narrateWithState_`**：道場是賽後教室，`miniSystem` 的「第一人稱我·不用你」「語氣依血量·瀕死就是命懸一線」跟兩人對話＋輕鬆詼諧正面衝突；自帶說書人設定，不讀表、不帶歷史、不存歷史。失敗回 `{success:false}` 讓前端 `dojoFallbackHtml_` 接手。
 
 ---
 
@@ -1201,10 +1206,8 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `handleVictory(res)` — 勝利：播真實美夢、開奪杯遮罩。
 - `claimGrail()` — 奪杯結算（`end_run`）：清本局＋本機快取，改按鈕為「慶祝一下」→勝利版道場。
 - `openTigerDojo(mode)` — 開道場遮罩並依 defeat/victory 換標題文案。
-- `buildTigerDojoPrompt_(servantName, causeCtx)` — 敗北講評 prompt（藤村大河＋伊莉雅，依敗因給對症建議）。
-- `buildTigerDojoVictoryPrompt_(servantName)` — 勝利祝賀 prompt。
 - `dojoFallbackHtml_(mode)` — AI 失敗時的罐頭文案。
-- `runTigerDojo_(servantName, causeCtx, mode)` — 掀道場→`narrate_only` 生講評/祝賀填卡，完成後按鈕：敗北→reload、勝利→dojoBackToMenu。
+- `runTigerDojo_(servantName, causeCtx, mode)` — 掀道場→`tiger_dojo` 生講評/祝賀填卡，完成後按鈕：敗北→reload、勝利→dojoBackToMenu。`causeCtx` 是 `handleDefeat` 從戰報挑出的敗因物件（`{cause,foeName,useNp,backlash}`），非提示詞——文案在後端查表組（2026-07 前端兩支 `buildTigerDojo*Prompt_` 已移除）。
 - `closeTigerDojo()` / `closeVictory()` — 關對應遮罩。
 - `dojoBackToMenu()` — 返回帳號選單（保留帳號、重登刷新 hasGame）。
 
