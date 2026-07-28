@@ -4028,7 +4028,7 @@ ${nsfwMemories}${genderHintStr}${driveStr}
 
   // 鑑賞無戰鬥，御主的 HP/MP/MAX_HP/MAX_MP 這4欄從未寫入，故 prompt 不提血量/魔力數值或瀕死判斷
   //   (與世界觀規則「禁止血量/生命變化」一致——該禁令在下方 USER 世界觀＋演出而非說明兩行)。
-  const prompt = `【玩家資料】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}${_doSideWrite ? '(可透過 master_note.經歷 滾動增補)' : ''} | 位置:${curL}${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName)); return _c ? `（${_c}）` : ""; })()}
+  const prompt = `【玩家資料】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}${_doSideWrite ? '(可透過 master_note.經歷 滾動增補)' : ''}
 
 ${PROMPT_REL}
 ★【路人與缺席者】：路人只當背景、不具名不追蹤(誰能開口見結尾的名單)。歷史提過但這回合不在的人，用一句話交代去向(去忙別的/剛好不在)。
@@ -4049,7 +4049,7 @@ ${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKn
 ★【沒寫的就不存在】：系統給你的這些資料就是這個世界的全部——沒寫到的人、物品、金錢、過往在這個世界都不存在。專注把此刻的互動演好。
 ★【視角鎖定·不替玩家腦補】：「我」＝玩家『${pcName}』本人，只演他實際輸入的動作與五感；關於他的描寫只能來自他自己的感官——他看不見自己的神情。★同伴外貌只取材她自己那份資料，[台詞自稱]只用在她本人引號內的台詞。
 ${PROMPT_PARTY_SYSTEM}
-★★【地點釘死】：此刻在「${curL}」，敘事不離開這裡——想去別處只能嘴上聊，真要換地方由系統宣告。${moveTarget ? '你們剛到，直接從抵達後的當下寫起、路程不演。' : ''}
+★★【地點釘死】：此刻在「${curL}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName)); return _c ? `（${_c}）` : ""; })()}，敘事不離開這裡——想去別處只能嘴上聊，真要換地方由系統宣告。${moveTarget ? '你們剛到，直接從抵達後的當下寫起、路程不演。' : ''}
 ${npcDialoguePrompt}
 🚨【收尾${driveOn ? '·主動掌握' : ''}】：${driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : ''}停在「我」當下進行式，留未完成動作交還玩家——被搭話者須先回應(答話/神情)才停筆；最後一句落在正在發生的動作、或剛說出口的話上。
 ★【動筆前最後確認】：在場只有${partyMembers.length ? `『${partyMembers.join('、')}』` : '沒有其他人'}，敘述裡開口/被觸碰/在場的只能是這些人，其他名字即使歷史提過也不准出現。
