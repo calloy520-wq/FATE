@@ -274,7 +274,10 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   sRow[COL.PC.GAME_ID] = gameId;
   // REL_TAG(關係標籤)只是這裡設的起始值，之後全程只能透過actionUpdateRelTag(玩家UI手動操作)
   //   更改——AI對這欄位完全沒有寫入權限，不會被AI敘事悄悄帶偏。
-  sRow[COL.PC.BOND] = 10;
+  // 🆕 2026-07 起始好感 10 → 0（玩家「是不是從 0 開始才好玩，現在都很熱情」）：舊的 10 沒有任何
+  //   理由、就是寫死的，而它只離「脫離陌生」的 20 差 10 分＝聊天 5~10 回合就走完，陌生期形同不存在。
+  //   改 0 之後要爬 20 分才脫離陌生，加倍；配上相處基調表的「陌生×初識」那一格，開場才真的像初次見面。
+  sRow[COL.PC.BOND] = 0;
   sRow[COL.PC.REL_TAG] = "點頭之交";
   // 鑑賞不寫IS_PARTY——已全面改用「LOC是否跟玩家目前位置一致」判斷是否同地點在場(solo自己的
   //   隊伍系統仍讀寫IS_PARTY，兩軌互不干擾)。
@@ -356,6 +359,47 @@ function kanshouSyncRelTier_(pcData, idx) {
 //   就已經全開，不會再有「好感沒到、卻被自訂文字撐開尺度」的倒掛狀況。單一真實來源：前端顯示
 //   用的門檻數字跟這裡共用同一個常數。
 const KANSHOU_CUSTOM_TAG_BOND_ = 80;
+
+// ══ 🤝 相處基調（2026-07 玩家「好感太絲滑、想保留很熟但不親密的感覺」）══════════════
+// 好感只有一條軸的時候，「她多喜歡你」跟「你們多熟」被迫共用同一個數字，於是
+//   好感59×相處20次 跟 好感59×相處300次 演出來一模一樣——前者該是新鮮期的試探與心動，
+//   後者該是自在到不必說完整句子、卻也就停在這裡了。兩者正交，缺一個軸。
+// 【相處】計數存她自己列 MEMORY，每個「真的在對話」的回合、對每位在場者各 +1
+//   （跳時段/結束一天/移動那些不算相處）。
+var KANSHOU_MET_COUNT_TAG_ = makeIntTag_('相處', 0);
+// 熟悉度三階的門檻（回合數）。一個遊戲日專心陪一個人大約 20~40 回合，所以：
+//   初識＜1日 ／ 混熟 1~5日 ／ 老交情 5日以上。實玩後可調。
+const KANSHOU_FAMILIAR_TIERS_ = [{ min: 150, key: '老交情' }, { min: 30, key: '混熟' }, { min: 0, key: '初識' }];
+// 好感四段（跟 KANSHOU_REL_TIER_ 的五階分開：那個是「稱謂」，這個是「該用什麼調子演」）。
+const KANSHOU_RAPPORT_BOND_TIERS_ = [{ min: 80, key: '很喜歡' }, { min: 50, key: '在意' }, { min: 20, key: '朋友' }, { min: 0, key: '陌生' }];
+// 🎭 2D 基調表：[好感段][熟悉段] → 一句**具體演法**（不是形容詞標籤——那是這專案犯過三次的錯）。
+//   刻意留白：不是每一格都需要指令，中間那些自然而然的狀態讓 AI 自由發揮反而更好。
+//   填滿 12 格只會稀釋掉真正有戲的那幾格。
+const KANSHOU_RAPPORT_TONE_ = {
+  '陌生': {
+    '初識': '你對她而言基本上是個陌生人：她不會主動找話題、答話簡短、保持著社交距離，客氣裡帶著一點戒備，不會有任何親暱的舉動或稱呼。',
+    '混熟': '見過幾次面了，她認得你，會點頭招呼，但話題止於表面——天氣、這個地方、手邊的事，不談自己。',
+    '老交情': '熟歸熟，她對你就是沒有那個意思：能毫無防備地在你面前打呵欠、抱怨、講廢話，可是你一往親密的方向靠近，她會很自然地把話題岔開或退開半步。'
+  },
+  '朋友': {
+    '初識': '剛熟起來的階段，她還在拿捏跟你的距離：話比以前多，偶爾會多問一句你的事，但說完自己會愣一下。',
+    '老交情': '自在到不必把話說完整就懂彼此，相處起來毫不費力——只是這份自在裡沒有緊張感，你們就停在這裡了。'
+  },
+  '在意': {
+    '初識': '她對你有明顯的好感，但相處還太新鮮：會在意自己在你面前的樣子、話裡帶著試探，被說中心事時會慌一下。',
+    '老交情': '她的目光會不自覺跟著你走，卻沒有一句說破——熟到什麼都能聊，唯獨這件事聊不了。'
+  },
+  '很喜歡': {
+    '初識': '這份感情來得比相處的時間還快，連她自己都還沒跟上：靠近你時會慌，事後又懊惱自己反應太大。',
+    '老交情': '對你的在意已經滲進每個習慣裡——她記得你所有的小毛病，也早就不掩飾自己在等你開口。'
+  }
+};
+// 依好感＋相處次數查表，回傳那一格的基調句（查無＝留白，不輸出這個欄位）。
+function kanshouRapportTone_(bond, metCount) {
+  var b = (KANSHOU_RAPPORT_BOND_TIERS_.find(function (t) { return (parseInt(bond) || 0) >= t.min; }) || {}).key;
+  var f = (KANSHOU_FAMILIAR_TIERS_.find(function (t) { return (parseInt(metCount) || 0) >= t.min; }) || {}).key;
+  return (KANSHOU_RAPPORT_TONE_[b] || {})[f] || "";
+}
 // 💬 專屬稱呼(REL_MEM【專屬稱呼】)唯讀取值——關係面板要預填輸入框、companions清單要秀給玩家看，
 //   兩處各自寫一次同款 regex 太重複，抽成共用小 helper(鏡射 actionPlay_ 內部的 relMemMemoryStr_，
 //   但那支是組提示詞用的完整格式化字串，這支只回傳裸值供 UI 使用)。
@@ -392,8 +436,12 @@ function kanshouProposalAccepts_(type, bond) {
 // 純聊天封頂只從「熟識(40)」這道門檻起算——第一階「點頭之交→普通朋友」本就該靠日常閒聊自然發生
 //   (陌生變朋友天經地義)，不該逼玩家在還沒熟時就得約會/夜襲(2026-07 玩家實測卡在19爬不出、矜持角色
 //   約定又被婉拒的死結)。聊天可自由爬到39；40/60/80 三道親密門檻維持要約定赴約/橋段才能突破(slow burn)。
+// 🐛→✅ 2026-07 量到的洞：牆只設在 40/60/80，**過了 80 之後聊天封頂直接是 100**——最濃的那一段
+//   （戀人 80~100，21 分寬）反而是唯一能純靠閒聊走完的親密階段，跟 slow burn 的意圖相反；而同居
+//   門檻 90 就卡在這段中間，完全沒有牆保護。把同居門檻也納入牆的清單，直接讀常數、不再寫死數字。
 function kanshouRelChatCeiling_(bond) {
-  const thresholds = KANSHOU_REL_TIER_.map(t => t.min).filter(m => m >= 40).sort((a, b) => a - b);
+  const thresholds = KANSHOU_REL_TIER_.map(t => t.min).concat([KANSHOU_COHABIT_BOND_])
+    .filter(m => m >= 40).sort((a, b) => a - b);
   for (const t of thresholds) { if (bond < t) return t - 1; }
   return 100;
 }
@@ -1147,7 +1195,7 @@ const specificRules = `
 2. 繼承歷史情緒與親密階·絕不無故重置(降溫只因被打斷/翻臉等明確事件)·玩家只是日常時禁憑空推進情慾。
 3. 女女：純女女之愛·主導跟隨依個性·動作柔美；男女：依器官自然互動·女性側柔美。
 4. mutual_nicknames：本回合真發生才填·否則「無」。
-5. attitude(≤15字)：有明顯轉變才填·空=沿用舊值。
+5. attitude(≤15字)：這一刻她認不認同目前的關係標籤·就事論事寫這一回合·不必跟上一輪一致(系統不保存此欄)。
 6. options：基於本回合 narration 內容出題——在場人物當下真能做到的動作；禁移動地點/尋找不在場角色；禁塞入本回合無關的萌點/背景字面(如「提點她的家電困擾」)。
 7. appearance_extras(裝扮)：本回合真有穿脫/更衣/入浴等具體動作才填新值·否則留空(沿用既有裝扮)。禁以「這身跟這幕不搭」為由自行改寫或省略；玩家指定的裝扮＝既定事實，直到劇情真讓她換裝為止(格式/姿勢禁忌見schema)。`;
 
@@ -2972,10 +3020,16 @@ function actionPlay_(userData, pcId, sheets) {
     const nickStr = (nickTrim && nickTrim !== "無") ? ` [專屬稱呼:${nickTrim}]` : "";
     // 態度：NPC對御主當下的臨場態度(與好感分開追蹤，見慾海律令第5條)，讓AI下筆前看得到自己
     //   上一輪演的態度，不會忽冷忽熱亂跳。
-    const attMatch = s.match(/\[態度\](.*?)(?=\| \[|$)/);
-    const attTrim = attMatch ? attMatch[1].trim() : "";
-    const attStr = (attTrim && attTrim !== "無") ? ` [態度:${attTrim}]` : "";
-    return nickStr + attStr;
+    // 🗑 2026-07 拿掉「態度」：它宣稱是「當下的臨場態度」，實作卻是**永久狀態**——AI 依差分模式留白
+    //   時沿用舊值，而提示詞又把舊值餵回去讓 AI 照著演，於是「沒有轉變可報→留白→沿用」成了自我
+    //   強化迴圈。實測：第 1 回合寫進「警戒又帶點好奇」，29 回合後、好感從 60 拉到 95，一個字沒變。
+    //   它還是**形容詞標籤**（違反 CLAUDE.md「給事實不給形容詞標籤」），且會跟好感階打架
+    //   （卡片同時寫著「戀人·好感95」與「態度：警戒」，小模型面對矛盾的處理不可預測）。
+    //   防忽冷忽熱這個原職責由**歷史視窗**接手：AI 看得到自己前 3 輪的完整敘事，資訊量遠大於
+    //   15 字標籤，而且會隨劇情自然推移、不會鎖死。
+    //   ⚠ schema 的 attitude 欄位刻意保留（紅線 nsfwBaseRules 第 5 條引用了它、不可改）——
+    //     只是不再落地、也不再餵回來，迴圈就斷了。
+    return nickStr;
   }
 
   // 🚶‍♀️ 作息自然告辭(玩家實測「NPC 不會自己離開?」)：npc_exit 靠 AI 自發填＝Gemini 從不填(同
@@ -3424,6 +3478,15 @@ function actionPlay_(userData, pcId, sheets) {
         }
       });
     }
+    // 🤝 相處計數 +1（2026-07 新增）：跟【初見日】同一個位置蓋戳——這裡本來就是「對每位在場者
+    //   逐一處理」的迴圈，而且每回合只跑一次，天然冪等，不必另外記日戳。
+    //   ⚠ 跳時段/結束一天不算相處：那些回合她只是「時間流轉後恰好在這裡」，不是你陪了她（跟
+    //     pPresenceStr 對在場來由的定義一致，也擋掉「連按跳時段刷熟悉度」）。
+    if (!kanshouTimeJumped_) {
+      pcData[_ri][COL.PC.MEMORY] = KANSHOU_MET_COUNT_TAG_.set(
+        pcData[_ri][COL.PC.MEMORY], KANSHOU_MET_COUNT_TAG_.get(r[COL.PC.MEMORY]) + 1);
+      dirtyPcRows.add(_ri);
+    }
     const _met = KANSHOU_FIRST_MET_DAY_TAG_.get(r[COL.PC.MEMORY]);
     if (!_met) {
       pcData[_ri][COL.PC.MEMORY] = KANSHOU_FIRST_MET_DAY_TAG_.set(pcData[_ri][COL.PC.MEMORY], curDay);
@@ -3583,9 +3646,14 @@ function actionPlay_(userData, pcId, sheets) {
       const pChillStr = (_chillDay && curDay - _chillDay >= 0 && curDay - _chillDay <= KANSHOU_CHILL_DAYS_)
         ? `・${curDay === _chillDay ? '就在今天' : '昨天'}你們之間有過一次不愉快，她還沒完全放下——這份芥蒂要真實反映在她此刻的語氣與距離感裡(依她的個性決定是話變少、刻意找碴、還是笑得比平常淡)，但別演成翻臉決裂`
         : "";
-      const pTierToneStr = (pRelTagStr === "點頭之交") ? "，彼此才剛認識不久，口吻應保持禮貌卻略帶生疏保留，不該表現得像已相識多年的熟人或表現得過分熱絡親密"
-        : (pRelTagStr === "普通朋友") ? "，交情仍屬普通朋友，可自然閒聊但仍保留一定分寸與距離感，不宜過度親密"
-        : "";
+      // 🤝 相處基調（2026-07 取代舊的 pTierToneStr）：舊版只看關係階、只在最低兩階出現，是這件事的
+      //   退化 1D 版；現在改查 好感×相處次數 的 2D 表（見 KANSHOU_RAPPORT_TONE_）。
+      //   為什麼非得有第二條軸：好感59×相處20次（新鮮期的試探與心動）跟 好感59×相處300次
+      //   （自在到不必說完整句子、卻也就停在這裡）本來就該是兩種演法，1D 表達不出來。
+      //   查無的格子回空字串＝這一格不給指令，讓 AI 自由發揮（刻意留白，填滿只會稀釋有戲的那幾格）。
+      const pMetCount = KANSHOU_MET_COUNT_TAG_.get(r[COL.PC.MEMORY]);
+      const _rapport = kanshouRapportTone_(pBond, pMetCount);
+      const pTierToneStr = _rapport ? `，${_rapport}` : "";
       // 地點的「當下在做什麼」輕量引子(見上方KANSHOU_LOCATION_ACTIVITY_)，沒對照到的地點
       //   不加這句，AI自然發揮即可。⚠ 只給「原本就在這裡」的人——這回合剛跟玩家一起移動過來的
       //   同伴(kanshouPreMoveCompanions_)不套，否則被你帶來咖啡廳的人會被誤標成「正在打工」。
@@ -3842,11 +3910,14 @@ ${PROMPT_REL}
 ★【今日天氣】：${kanshouWeather_(curDay)}·自然滲入場景不必每句提。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜她走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·她此刻【不在場】·禁讓她開口或出現。` : ""}
 💕【後日談模式·最高優先覆寫】：${partyRows.length === 0
     ? `眼下無相識者在場·玩家一個人的尋常時光。`
-    : (partyRows.every(r => String(r[COL.PC.ID]).indexOf("KHV_") === 0) && partyRows.every(r => (parseInt(r[COL.PC.BOND]) || 0) < 20))
-      ? `『${partyMembers.join("、")}』才剛與玩家在這城認識不久——非舊識重逢·是【初次相遇】後的日常·相處生澀依好感升溫·嚴禁暗示早已相熟或有共同過往。`
-      : partyRows.every(r => String(r[COL.PC.ID]).indexOf("KHV_") === 0)
-        ? `你與『${partyMembers.join("、")}』是在這城從陌生相識一路相處到現在——【無】戰前舊識或共同過往·但這段日子的感情真實·依各自好感/關係標籤演出該有的熟悉·別退回「才剛認識」的生澀。`
-        : `與『${partyMembers.join("、")}』共度這座和平城鎮的尋常時光。`
+    // 🐛→✅ 2026-07 量到的 bug：舊版用 partyRows.every(bond<20) 決定「初次相遇」還是「已經熟了」，
+    //   於是**在場只要有一位好感夠高的舊識，全體都吃到「別退回才剛認識的生澀」**——連今天才召喚
+    //   出來的新人也一起變熱情。這是「群體動作只點名一人」的鏡像版：一人破格、全體破格。
+    //   而且 19→20 是斷崖：兩句話語意完全相反、中間沒有過渡。
+    //   改法：這裡只留**全體共通的事實**（無戰前舊識），「各自多熟」交給每個人自己那行的
+    //   相處基調（見 partyDetailsArr 的 pTierToneStr → kanshouRapportTone_）——那本來就是逐人算的，
+    //   天生沒有 every 的問題，相鄰格的措辭也由我們自己寫、可以寫成漸進而非斷崖。
+    : `你與『${partyMembers.join("、")}』的關係全部起於這座城·【無】戰前舊識或共同過往·各自熟到什麼程度依她自己那份資料裡的相處基調演。`
   }
 🕰️現在${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★【此刻＝${timeBand_(_narrHour_)}·唯一真實】：所有光線/氣溫/作息的感受一律依此刻重寫，歷史停在哪個時段都不算數。★本回合敘事跨度上限【十分鐘】·只寫這十分鐘內的當下片段·時間推進一律由系統宣告。
 ★世界觀＝和平現代城鎮：在場每個人就是這座城裡的普通市民，來歷只能取材自系統給的她自己那份資料；那之外的設定(超凡力量、非現代事物、生死衝突)在這個世界從未發生過。調性不限悠閒。
@@ -4234,13 +4305,10 @@ ${PROMPT_PARTY_SYSTEM}
             // 🔒 AI 給的稱呼一律先過 sanitizeNickname_(逐項消毒＋限長)——見該函式說明：這格能偽造欄位。
             : `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/,
               String(nfb.mutual_nicknames || "").split('、').map(sanitizeNickname_).filter(Boolean).join('、'), 3)}`;
-          // 態度是「當下這一刻」的快照(跟累積/去重的專屬稱呼不同)，每回合直接覆蓋成最新值。
-          let attRaw = (typeof nfb.attitude === 'string') ? nfb.attitude.trim().slice(0, 15) : "";
-          // 🩹 差分模式配套：AI 留空(無變化)/「無」/敷衍語(同上、維持現狀…)→沿用舊態度，
-          //   不再整欄洗掉、也不讓「同上」被當真值寫進 REL_MEM 持久污染。
-          if (!attRaw || attRaw === "無" || ignoreWords.includes(attRaw)) attRaw = ((String(oldRMem).match(/\| \[態度\](.*)$/) || [])[1] || "").trim();
-          let attPart = (attRaw && attRaw !== "無") ? `| [態度]${attRaw}` : "";
-          pcData[targetIdx][COL.PC.REL_MEM] = `${nickPart}${attPart}`;
+          // 🗑 2026-07 態度不再落地（見 relMemMemoryStr_ 的說明：它是會自我鎖死的形容詞標籤）。
+          //   AI 仍可在 attitude 欄表達這一刻認不認同關係標籤（紅線 nsfwBaseRules 第5條要求），
+          //   但那是一次性的表達，不寫進 REL_MEM、也不會被餵回去變成永久人設。
+          pcData[targetIdx][COL.PC.REL_MEM] = nickPart;
 
           // 💞 共同回憶：AI 這回合若吐了里程碑 memory，append 進她自己列的 27 欄(最近 10 條、去重)。
           //   只記里程碑、日常填「無」不動；她在場時會被讀回在場卡(見 partyDetailsArr)餵給 AI 承接。
