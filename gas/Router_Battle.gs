@@ -558,7 +558,7 @@ function actionFateBattle(userData, pcId, sheets) {
     // 🐛→✅ 玩家實測抓到：雙從者斬首時 servantCard_ 呼叫2~3次(攻方1~2名+護衛1名)，每次都各自帶一份
     //   完整的「怎麼演」收尾句——改成每張卡skipClose，收尾句用 performanceNote_() 統一講一次。
     const asnAtkCardsStr = rolls.map(r => servantCard_(pcData[r.idx], { skipClose: true })).join('');
-    const asnGuardCardStr = '〔敵御主之護衛從者〕' + servantCard_(pcData[assassinGuardIdx], { skipClose: true });
+    const asnGuardCardStr = '〔敵御主之護衛從者〕' + servantCard_(pcData[assassinGuardIdx], { skipClose: true, foe: true });
     const asnTargetMasterCardStr = enemyMasterCard_(pcData[nIdx], { skipClose: true });
     const asnCardsStr = asnMasterCardStr + asnAtkCardsStr + asnGuardCardStr + asnTargetMasterCardStr +
       performanceNote_(rolls.map(r => r.name).concat([String(pcData[assassinGuardIdx][COL.PC.NAME]), String(pcData[nIdx][COL.PC.NAME])]));
@@ -1259,7 +1259,7 @@ function actionFateBattle(userData, pcId, sheets) {
   // 🐛→✅ 玩家實測抓到：這場戰鬥可能同時呼叫servantCard_多達4次(我方/敵方/盟友/敵盟協防)，每次都各自
   //   帶一份完整的「怎麼演」收尾句——四份幾乎一樣的收尾句擠在同一個提示詞裡純屬浪費。改成每張卡都
   //   skipClose，收集這場戲實際出現的所有真名，在下方組裝aiPrompt時用 performanceNote_() 只講一次。
-  const foeServantCardStr = targetIsFoeServant ? '〔敵方出戰者〕' + servantCard_(pcData[nIdx], { skipClose: true }) : "";
+  const foeServantCardStr = targetIsFoeServant ? '〔敵方出戰者〕' + servantCard_(pcData[nIdx], { skipClose: true, foe: true }) : "";
 
   // 💥 本次解放寶具的【真名】(多寶具取所選那把)：拆中文／原名供戰報橫幅＋AI 高呼。寶具解放必唸真名。
   let npName = null;
@@ -1335,7 +1335,7 @@ function actionFateBattle(userData, pcId, sheets) {
   //   aiPrompt 只提過其名字一次，從沒附上 servantCard_——AI 被要求演出他們助攻/馳援的畫面卻毫無性格
   //   依據。比照 foeServantCardStr 的既有慣例補上。
   const allyAssistCardStr = allyAssistName ? '〔盟友從者〕' + servantCard_(pcData[allyAtkIdx], { skipClose: true }) : "";
-  const pactDefCardStr = pactDefName ? '〔敵方盟友從者〕' + servantCard_(pcData[pactDefIdx], { skipClose: true }) : "";
+  const pactDefCardStr = pactDefName ? '〔敵方盟友從者〕' + servantCard_(pcData[pactDefIdx], { skipClose: true, foe: true }) : "";
   if (defeat) {
     const _perfNamesDefeat = [atkC.name].concat(foeServantCardStr ? [defC.name] : []).concat(enemyMasterRow ? [String(enemyMasterRow[COL.PC.NAME])] : []);
     aiPrompt = ourMasterCardStr + servantCard_(pcData[atkIdx], { skipClose: true }) + foeServantCardStr + enemyMasterCardStr + performanceNote_(_perfNamesDefeat) +

@@ -50,13 +50,18 @@ var PREF_LABELS_ = ['日常表象', '真實內裡', '喜歡的事物', '討厭�
 var TRAIT_LABELS_ = ['外貌本相', '氣質舉止', '自稱與口氣', '卸下心防的私密一面'];
 // skipNone=true 時該格若為空或字面「無」直接跳過不顯示(給御主卡/敵御主卡沿用既有的無資料防呆)；
 // false 時保留全部4格(給 servantCard_ 用，段數不足時仍顯示「無」，不靜默漏项)。
+// 無資訊量的值：空、「無」、以及 parseTraitsHelper 那幾個「跟標籤同義反覆」的 fallback 預設值
+//   （「卸下心防的私密一面：卸下心防時的柔軟一面」這種——標籤已經把話講完，值等於沒填）。
+var QUAD_EMPTY_ = ['', '無', '卸下心防時的柔軟一面', '卸下心防的私密一面', '舉止從容', '外貌平凡'];
 function quadLabeled_(raw, labels, skipNone) {
   var parts = String(raw || "").split('、');
   var out = "";
   for (var i = 0; i < labels.length; i++) {
     var v = (parts[i] || "").trim();
-    if (skipNone && (!v || v === "無")) continue;
-    out += `｜${labels[i]}：${v || "無"}`;
+    // 🧹 2026-07：空欄一律不送。舊版 skipNone=false 時會輸出「喜歡的事物：無」，理由是「不靜默漏项」
+    //   ——那是為了方便開發者除錯，代價卻由每一張卡的提示詞付。要查漏欄請看試算表，別佔 AI 的注意力。
+    if (QUAD_EMPTY_.indexOf(v) >= 0) continue;
+    out += `｜${labels[i]}：${v}`;
   }
   return out;
 }
@@ -80,6 +85,9 @@ function performanceNote_(names) {
 function servantCard_(row, opts) {
   if (!row) return "";
   var skipClose = !!(opts && opts.skipClose);
+  // 🗡️ 敵方卡：略過「熟了才看得到的一面」(萌點/小動作/私密一面)——戰場上的對手本來就不該有這些，
+  //   送了也只是稀釋掉真正要用的口吻與性格。我方/盟友/羈絆場景仍是完整卡。
+  var foe = !!(opts && opts.foe);
   try {
     var name = String(row[COL.PC.NAME] || "");
     var cls = String(row[COL.PC.RANK] || "");
@@ -129,8 +137,8 @@ function servantCard_(row, opts) {
       // 🐛→✅ 同批修正(比照 masterCard_)：萌點沒講頻率，容易連續幾場戲都反覆用同一個具體動作點出反差，
       //   讀起來像機械公式——補「不必每回合硬塞、情境對了才自然浮現」。牽涉隨身物品的萌點又特別
       //   容易被濫用(摸一下該物品零成本、不需情境鋪陳)，額外提醒別靠這招交差。
-      (moe ? `｜萌點(不必每回合硬塞，情境對了才浮現一次，避免重複同一動作；牽涉隨身物品時別只靠「摸/看一眼」交差)：${moe}` : "") +
-      (tic ? `｜小動作：${tic}` : "") +
+      (moe && !foe ? `｜萌點(情境對了才浮現一次)：${moe}` : "") +
+      (tic && !foe ? `｜小動作：${tic}` : "") +
       (look ? quadLabeled_(look, TRAIT_LABELS_, false) : "") +
       (back ? `｜身世：${back}` : "") +
       (align ? `｜陣營：${align}` : "") +
