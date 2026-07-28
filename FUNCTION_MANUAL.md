@@ -73,7 +73,7 @@
 | `kanshou_set_prop` | `actionKanshouSetProp` | 小道具裝備/移除/調強度(2026-07新增，啟動卡好感門檻) |
 | `kanshou_add_custom_prop` | `actionKanshouAddCustomProp` | 玩家自建新道具＋立即裝備(2026-07新增，name/hasIntensity/part選填，強制ignoreBond:false) |
 | `kanshou_delete_custom_prop` | `actionKanshouDeleteCustomProp` | 從玩家自訂道具目錄整個刪掉一項(同步清所有同伴身上裝備，一般道具/催眠指令共用) |
-| `kanshou_cast_hypnosis` | `actionKanshouCastHypnosis` | 催眠指令：跟一般道具分開的獨立入口(2026-07新增，text≤30字，強制hasIntensity+ignoreBond) |
+| `kanshou_cast_hypnosis` | `actionKanshouCastHypnosis` | 催眠指令：跟一般道具分開的獨立入口(2026-07新增，text≤30字，強制hasIntensity+ignoreBond；同月改成單次整表寫回、不再兩次分開setValue) |
 | `kanshou_add_quick_phrase` | `actionKanshouAddQuickPhrase` | 新增玩家自訂快速貼圖(2026-07新增，≤12字，上限8句) |
 | `kanshou_delete_quick_phrase` | `actionKanshouDeleteQuickPhrase` | 刪除玩家自訂快速貼圖 |
 | `prep_meal` | `actionPrepMeal` | 準備餐點 |
@@ -599,7 +599,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `actionKanshouSummonHero(userData, pcId, sheets)` — 從英靈庫召喚一位英靈「存在」於此後日談世界（不必先 solo 封存）。防線：擁有權驗證、士郎位置擋、`KANSHOU_SUMMON_BLOCKED_IDS_` 擋、ai_gen 僅創造者可召、不開放男男、同一位只召一次（跨名比對）。通過即 appendRow(`heroToKanshouRow_`)。
 - `actionEnterKanshou(userData, pcId, sheets)`（2026-07新增：分支①②回應皆附`quickPhrases`欄，供前端渲染玩家自訂快速貼圖——🐛→✅ 再稽核抓到②原本漏帶，跟①不一致已補齊）— 進入常駐後日談世界（每帳號一個）。三分支：①帳號表已連結→接續（含全名→短名一次性遷移）②MEMORY【帳號】標記舊角色→補寫帳號表連結遷移③無存檔→需 needSetup 問名字/性別後新建御主列（KPC_ 前綴，開場「我的房間」Day1 06:00）＋入駐 `KANSHOU_STARTER_IDS_` 4 位起始住民。**🐛→✅ 稽核抓到**：pcName/appearance/persona 這條首建路徑原本完全沒設 backend 長度上限(只靠前端 maxlength 擋)，已補 pcName≤16／appearance・persona≤60，跟後續改名/改命路徑口徑一致。（2026-07 二度改版：兩個成功回應物件都拿掉 `prefLocks` 欄位，性格鎖系統整組刪除）
 - `actionBackfillKanshouAi(userData, pcId, sheets)`（2026-07 再稽核抓到漏洞：找列邏輯改用`kanshouOwnedRowIdx_`驗證帳號歸屬，取代原本裸`findIndex`信任傳入pcId的漏洞——鑑賞pcId可預測/枚舉，舊版可被冒名竄改任一玩家的敘事欄；前端`backfillKanshouAi`同步補送`acctName`）— 非阻塞背景補生成御主 4 個敘事欄（background/traits/personality/npc_intent/outfit）。比照 `actionBackfillMasterAi`「種子秒建＋AI 潤色」；競態修用 `buildLiveIdIndex_` 寫回前重定位，只單格 setValue，數值/位置不碰。
-- `actionKanshouCompanions(userData, pcId, sheets)` — 列出本世界已存在的所有從者＋各自地點/關係標籤/**專屬稱呼(2026-07新增，`getNickname_`裸值)**/好感/是否同地/待赴約定/共同回憶/**`id`(2026-07 id 化重構新增)**，供玩家決定去找誰。無隊伍/人數上限。回傳另附**`quickPhrases`(2026-07新增，見`kanshouGetQuickPhrases_`)**供前端合併渲染玩家自訂快速貼圖。
+- `actionKanshouCompanions(userData, pcId, sheets)` — 列出本世界已存在的所有從者＋各自地點/關係標籤/**專屬稱呼(2026-07新增，`getNickname_`裸值)**/好感/是否同地/待赴約定/共同回憶/**`id`(2026-07 id 化重構新增)**，供玩家決定去找誰。無隊伍/人數上限。回傳另附**`quickPhrases`(2026-07新增，見`kanshouGetQuickPhrases_`)**供前端合併渲染玩家自訂快速貼圖，以及**`propBond`/`propCap`(2026-07新增)**＝`KANSHOU_PROP_EQUIP_BOND_`/`KANSHOU_PROP_EQUIP_CAP_`——小道具面板靠這兩個值鎖按鈕/寫文案，前端不自己寫死數字（前端手抄後端常數是本專案犯過的錯）。
 - `actionKanshouMemoirOp(userData, pcId, sheets)`（2026-07 稽核：找目標同伴列改委派 `findPcRowIdx_`，取代手刻迴圈，行為等價）— 共同回憶面板操作（op=pin/unpin/del）：釘選加 ★ 前綴（釘選上限 8）、刪除整條移除。玩家 UI 手動管理、AI 無權；帳號綁定＋同 gid 驗證。
 
 #### 御主 avatar 設定（隨時可改）
@@ -1283,11 +1283,11 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `kanshouOpenProps(name)`（2026-07二度改版：`allProps`/`curArr`都`.filter(p => !p.ignoreBond)`，完全看不到催眠指令；三度改版前導委派給`_kpEnsureCompanionPanel_`）— 開/重繪「某人的小道具」彈窗 `#kp-overlay`；列出內建＋自訂的**一般(非ignoreBond)**道具（自訂項多一顆「🗑目錄」按鈕，呼叫 `kanshouDeleteCustomProp`），已裝備的顯示目前強度＋🗑，未裝備的顯示「裝備」鈕（呼叫 `kanshouSetProp`）；有`part`的項目名稱旁附註部位。多件可同時裝備。面板底部附「自己新增一個」表單（名稱/強度可調/部位選填輸入框＋裝備鈕，呼叫 `kanshouAddCustomProp`——**不再有`ignoreBond`勾選框**，那個效果已搬到專屬面板）。
 - `_kpShowLoading_(name)`（2026-07 補 mode 分流）— 把 `#kp-overlay` 內容換成讀條（不存在則先建）；標題/邊框依 `_kpOpenMode` 在「🎀小道具」與「🌀催眠指令」之間切換（原本催眠面板的等待畫面頂著小道具標題，看起來像點錯了）。
 - `kanshouSetProp(name, propId, level, castMsg)`（2026-07 加第4參數＋修重繪分流）— 裝備/移除/改強度單一道具（`kanshou_set_prop`，level空字串＝移除）；`_kpBusy` 擋連點。`castMsg`選填：帶了就關閉面板＋`send(castMsg)`立刻觸發一次對話（催眠專用，由`kanshouHypnoSet`組字串），不帶則靜默寫入（一般道具）。完成後依`_kpOpenMode`重繪回**正確的**面板——原本一律重繪回`kanshouOpenProps`，而那個面板把 ignoreBond 全過濾掉，等於在催眠面板改完強度後清單整個消失。
-- `kanshouHypnoSet(name, propId, level)`（2026-07 新增，催眠面板專用 wrapper）— 從 `_kcCur` 查出該項目目前強度與暗示原文，組出對應的玩家動作敘述（悄悄解除／告訴她真相／調得更深／調弱／當面關掉），再委派 `kanshouSetProp(...,castMsg)`。做成 wrapper 而非把字串拼進 onclick，是因為暗示內容是玩家自由輸入、跨 HTML 屬性→JS 字面量要三層跳脫。
+- `kanshouHypnoSet(name, propId, level)`（2026-07 新增，催眠面板專用 wrapper）— 從 `_kcCur` 查出該項目目前強度與暗示原文，組出對應的玩家動作敘述（重新施展／悄悄解除／告訴她真相／調得更深／調弱／當面撤下；`level=''`＝從她身上撤下），再委派 `kanshouSetProp(...,castMsg)`。做成 wrapper 而非把字串拼進 onclick，是因為暗示內容是玩家自由輸入、跨 HTML 屬性→JS 字面量要三層跳脫。
 - `_khStrip_(s)`（2026-07 新增）— 去掉「」『』，避免玩家輸入的引號撞壞上面那幾句框架敘述。`kanshouHypnoSet`/`kanshouCastHypnosis` 共用。
 - `kanshouAddCustomProp(targetName)`（2026-07 新增，二度改版拿掉`#kp-new-ignorebond`）— 讀 `#kp-new-name`/`#kp-new-intensity`/`#kp-new-part` 輸入框，打 `kanshou_add_custom_prop`，成功後更新本地 `_kcCustomProps`/該同伴 `c.props` 並原地重繪面板；找不到目標同伴的邊界情況會 alert 後端回傳的訊息。
 - `kanshouDeleteCustomProp(propName)`（2026-07 新增，二度改版靠`_kpOpenMode`決定重繪回哪個面板）— confirm 確認後打 `kanshou_delete_custom_prop`，成功後更新 `_kcCustomProps`、清掉本地 `_kcCur` 所有同伴快取裡這一項，再依`_kpOpenMode`呼叫`kanshouOpenHypnosis`或`kanshouOpenProps`原地重繪。
-- `kanshouOpenHypnosis(name)`（2026-07 新增，獨立於`kanshouOpenProps`的專屬面板；三度改版前導委派給`_kpEnsureCompanionPanel_`）— 開/重繪「對某人的催眠指令」彈窗(共用`#kp-overlay`)；只顯示`c.props`裡`ignoreBond===true`的項目，各自附強度鈕(`kanshouHypnoSet`，關閉那顆顯示成「⏹解除」)＋「🤫 悄悄解除（不告訴她）」鈕(切到`已解除`；已是`已解除`時該鈕變成「💬 告訴她真相」＝切回關閉)＋「🗑目錄」刪除鈕；`已解除`狀態列出一行「她還不知道，仍照原樣順從中」；面板底部附「施展新的催眠指令」表單(`#kh-new-text`文字輸入，maxlength 30＋「🌀施展」鈕，呼叫`kanshouCastHypnosis`)。
+- `kanshouOpenHypnosis(name)`（2026-07 新增，獨立於`kanshouOpenProps`的專屬面板；三度改版前導委派給`_kpEnsureCompanionPanel_`；四度改版改列整份目錄）— 開/重繪「對某人的催眠指令」彈窗(共用`#kp-overlay`)；列出`_kcCustomProps`裡`ignoreBond===true`的**整份目錄**（沒施展在她身上的標「未施展」，比照`kanshouOpenProps`的作法；原本只列`c.props`，解除後那句就從畫面消失），各自附強度鈕(`kanshouHypnoSet`，關閉那顆顯示成「⏹解除」)＋「🤫 悄悄解除（不告訴她）」鈕(切到`已解除`；已是`已解除`時該鈕變成「💬 告訴她真相」＝切回關閉)＋「🗑目錄」刪除鈕；`已解除`狀態列出一行「她還不知道，仍照原樣順從中」；面板底部附「施展新的催眠指令」表單(`#kh-new-text`文字輸入，maxlength 30＋「🌀施展」鈕，呼叫`kanshouCastHypnosis`)。
 - `kanshouCastHypnosis(targetName)`（2026-07 新增）— 讀`#kh-new-text`，打`kanshou_cast_hypnosis`；成功且無邊界訊息時**關閉面板並立即呼叫`send('（拿出手機，打開一款催眠APP，對著『'+targetName+'』播放了一段只有她聽得進去的暗示音：「'+text+'」）')`**觸發一次真實對話——這是本函式跟`kanshouAddCustomProp`最大的差異，玩家明講「這裡需要一次呼叫AI才有催眠感覺」；找不到同伴/裝備已滿等邊界情況只alert訊息並原地重繪面板，不觸發對話。
 - `_kcEnsureDrawer_()` — 懶建立故事視窗旁的「小道具快速控制抽屜」DOM（`#kc-prop-drawer`），回傳該元素；`applyModeUI()`(Script.html) 依鑑賞模式切換其顯示。
 - `kcTogglePropDrawer()` — 展開/收合抽屜；展開時呼叫 `_kcRenderDrawer_`。

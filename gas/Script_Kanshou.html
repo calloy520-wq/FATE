@@ -585,6 +585,10 @@ let plainTextContext = cleanText;
   var KC_PROPS_ = []; // 2026-07 移除內建「跳蛋」，全面改走玩家自訂道具（見 kanshouAddCustomProp）
   var KC_PROP_LEVELS_ = ['關閉', '微弱', '中等', '強勁'];
   var KC_HYPNO_RELEASED_ = '已解除'; // 🤫 催眠專屬第五態(對應後端 KANSHOU_HYPNO_RELEASED_)：已失效但她不知情
+  // 🔒 一般道具的裝備好感門檻：**由後端 kanshou_companions 下傳**(KANSHOU_PROP_EQUIP_BOND_)，前端不自己寫死，
+  //   免得哪天後端改了數字、前端還照舊鎖/放行。沒收到就當 0(不鎖)，讓後端自己去擋，不會誤鎖玩家。
+  var _kcPropBond = 0;
+  var _kcPropCap = 0; // 🔒 同時裝備上限(KANSHOU_PROP_EQUIP_CAP_)，同樣由後端下傳，前端不寫死數字
   var _kcCustomProps = []; // 🎀 玩家自訂道具目錄(2026-07新增)，跟KC_PROPS_合併使用
   var _kcCustomPropsLoaded = false;
   var _kpBusy = false;
@@ -603,7 +607,7 @@ let plainTextContext = cleanText;
       _kpShowLoading_(name);
       try {
         const res = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount });
-        if (res && res.success) { _kcCur = res.current || []; _kcCustomProps = res.customProps || []; _kcCustomPropsLoaded = true; }
+        if (res && res.success) { _kcCur = res.current || []; _kcCustomProps = res.customProps || []; _kcCustomPropsLoaded = true; if (res.propBond != null) _kcPropBond = parseInt(res.propBond) || 0; if (res.propCap != null) _kcPropCap = parseInt(res.propCap) || 0; }
       } catch (e) { } finally { _kpBusy = false; }
       c = _kcCur.find(function (x) { return x.name === name; });
       if (!c) { var _ov0 = document.getElementById('kp-overlay'); if (_ov0) _ov0.style.display = 'none'; alert('讀取失敗，稍後再試。'); return null; }
@@ -624,6 +628,14 @@ let plainTextContext = cleanText;
     var curArr = curArrAll.filter(function (x) { return !x.ignoreBond; });
     var safeN = String(name).replace(/'/g, "\\'");
     var allProps = KC_PROPS_.concat(_kcCustomProps).filter(function (p) { return !p.ignoreBond; });
+    // 🐛→✅ 2026-07 玩家「小道具+催眠一起整體檢查」抓到：好感未達門檻時，裝備/強度鈕照樣長出來，
+    //   點下去才被後端「好感還沒到那個地步」打回票——這是本專案犯過好幾次的「永遠不會成功的按鈕仍
+    //   長出來」。門檻值由後端下傳(_kcPropBond)，不在前端寫死。⚠ 只鎖「裝上去/調強度」，**移除(🗑)
+    //   一律不鎖**——後端移除路徑本來就不看好感(東西已經在她身上了，拿下來不需要她再同意一次)。
+    var _pBond = parseInt(c.bond) || 0;
+    var _pLocked = _kcPropBond > 0 && _pBond < _kcPropBond;
+    var _lockAttr = _pLocked ? ' disabled title="好感' + _kcPropBond + '才裝得上，目前' + _pBond + '"' : '';
+    var _lockCss = _pLocked ? 'opacity:.45;cursor:not-allowed;' : 'cursor:pointer;';
     var rows = allProps.map(function (p) {
       var isCustom = !KC_PROPS_.some(function (x) { return x.id === p.id; });
       var delBtn = isCustom ? '<button onclick="kanshouDeleteCustomProp(\'' + p.id.replace(/'/g, "\\'") + '\')" title="從你的道具目錄整個刪掉這項定義" style="padding:3px 6px;background:#3a3a44;color:#999;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:4px;">🗑刪除</button>' : '';
@@ -633,22 +645,22 @@ let plainTextContext = cleanText;
       if (p.hasIntensity) {
         var levelBtns = KC_PROP_LEVELS_.map(function (lv) {
           var active = eq && eq.level === lv;
-          return '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'' + lv + '\')" style="flex:1;padding:6px 3px;font-size:12px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : '#ccc') + ';border:none;border-radius:6px;cursor:pointer;">' + lv + '</button>';
+          return '<button' + (_pLocked ? _lockAttr : ' onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id.replace(/'/g, "\\'") + '\',\'' + lv + '\')"') + ' style="flex:1;padding:6px 3px;font-size:12px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : '#ccc') + ';border:none;border-radius:6px;' + _lockCss + '">' + lv + '</button>';
         }).join('');
         return '<div style="padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
           + '<div style="display:flex;align-items:center;margin-bottom:6px;"><span style="flex:1;color:#f0b8e0;font-size:13px;">' + escapeHtml(p.name) + partHint + effectHint + '</span>'
-          + (eq ? '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'\')" title="移除" style="padding:3px 8px;background:#4a3038;color:#e09999;border:none;border-radius:6px;cursor:pointer;font-size:11px;">🗑</button>' : '') + delBtn + '</div>'
+          + (eq ? '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id.replace(/'/g, "\\'") + '\',\'\')" title="移除" style="padding:3px 8px;background:#4a3038;color:#e09999;border:none;border-radius:6px;cursor:pointer;font-size:11px;">🗑</button>' : '') + delBtn + '</div>'
           + '<div style="display:flex;gap:5px;">' + levelBtns + '</div></div>';
       }
       return '<div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
         + '<span style="flex:1;color:#f0b8e0;font-size:13px;">' + escapeHtml(p.name) + partHint + effectHint + '</span>'
-        + '<button onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id + '\',\'' + (eq ? '' : '戴著') + '\')" style="padding:5px 10px;background:' + (eq ? '#a05088' : '#3a3a44') + ';color:' + (eq ? '#fff' : '#ccc') + ';border:none;border-radius:6px;cursor:pointer;font-size:12px;">' + (eq ? '已裝備(點擊移除)' : '裝備') + '</button>' + delBtn + '</div>';
+        + '<button' + ((!eq && _pLocked) ? _lockAttr : ' onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id.replace(/'/g, "\\'") + '\',\'' + (eq ? '' : '戴著') + '\')"') + ' style="padding:5px 10px;background:' + (eq ? '#a05088' : '#3a3a44') + ';color:' + (eq ? '#fff' : '#ccc') + ';border:none;border-radius:6px;' + ((!eq && _pLocked) ? 'opacity:.45;cursor:not-allowed;' : 'cursor:pointer;') + 'font-size:12px;">' + (eq ? '已裝備(點擊移除)' : '裝備') + '</button>' + delBtn + '</div>';
     }).join('');
     // 🎀 自訂新道具(2026-07新增)：輸入名稱＋勾選是否有強度分級，按下去直接裝備在這位同伴身上，
     //   同步存進玩家自己的道具目錄(之後在別人身上也能選)。純裝飾/物理類道具，不含催眠效果——
     //   要記一句暗示內容請用「🌀催眠指令」專屬面板(kanshouOpenHypnosis)。
     var addRow = '<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);">'
-      + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:5px;">找不到想要的？自己新增一個：</div>'
+      + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:5px;">找不到想要的？自己新增一個：' + (_pLocked ? '<span style="color:#c98a9a;">（好感未達 ' + _kcPropBond + '，只會建進你的道具目錄、還裝不上她身上）</span>' : '') + '</div>'
       + '<div style="display:flex;gap:5px;align-items:center;margin-bottom:5px;">'
       + '<input id="kp-new-name" maxlength="10" placeholder="道具名稱(≤10字)" style="flex:1;min-width:0;padding:5px 6px;background:#2a2430;color:#eee;border:1px solid rgba(240,184,224,.3);border-radius:6px;font-size:12px;">'
       + '<label style="display:flex;align-items:center;gap:3px;color:#ccc;font-size:11px;white-space:nowrap;"><input id="kp-new-intensity" type="checkbox">強度可調(有開關)</label>'
@@ -665,6 +677,7 @@ let plainTextContext = cleanText;
       + '<button onclick="document.getElementById(\'kp-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
       + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:2px;">可同時裝備多件。' + (curArr.length ? '目前：' + curArr.map(function (x) { var bits = []; if (x.part) bits.push('戴在' + escapeHtml(x.part)); if (x.hasIntensity) bits.push(escapeHtml(x.level)); return escapeHtml(x.name) + (bits.length ? '(' + bits.join('，') + ')' : ''); }).join('、') : '目前沒裝備任何道具') + '</div>'
       + '<div style="color:#c98a9a;font-size:11px;margin-bottom:6px;">⚠️ 會持續生效到你手動關閉/移除，不是AI會自己收——不用時記得回來關掉。</div>'
+      + (_pLocked ? '<div style="color:#e0a0a0;font-size:11.5px;margin-bottom:6px;padding:5px 7px;background:rgba(200,120,140,.12);border-radius:6px;">🔒 好感要到 ' + _kcPropBond + ' 她才會讓你幫她戴上（目前 ' + _pBond + '）。已裝備的仍可移除。</div>' : '')
       + rows
       + addRow
       + '</div>';
@@ -738,7 +751,12 @@ let plainTextContext = cleanText;
   // 🗑 從玩家的自訂道具目錄整個刪掉這項定義——後端同步移除所有同伴身上目前裝備的這一項，避免孤兒資料。
   async function kanshouDeleteCustomProp(propName) {
     if (_kpBusy) return;
-    if (!await customConfirm_('確定要把「' + propName + '」從你的道具目錄整個刪掉嗎？所有裝備中的同伴也會一併移除。')) return;
+    // 催眠指令走同一支刪除：刪掉＝正在生效的暗示會靜靜消失、不會有任何解除的敘述，這跟面板上
+    //   ⏹解除/🤫悄悄解除那兩條會演一段的路完全不同，確認文案要講清楚，別讓玩家用刪除當解除。
+    var _delWarn = _kpOpenMode === 'hypnosis'
+      ? '確定要把「' + propName + '」從你的催眠指令目錄整個刪掉嗎？正在受這句暗示影響的同伴會一併失效，而且【不會有任何解除的敘述】——想演出解除請改用 ⏹解除 或 🤫悄悄解除。'
+      : '確定要把「' + propName + '」從你的道具目錄整個刪掉嗎？所有裝備中的同伴也會一併移除。';
+    if (!await customConfirm_(_delWarn)) return;
     _kpBusy = true;
     try {
       const res = await gasRun({ action: 'kanshou_delete_custom_prop', pcId: pc.id, acctName: currentAccount, name: propName });
@@ -764,27 +782,43 @@ let plainTextContext = cleanText;
     if (!_r) return;
     var c = _r.c, ov = _r.ov;
     var safeN = String(name).replace(/'/g, "\\'");
-    var activeH = (c.props || []).filter(function (x) { return x.ignoreBond; });
-    var rows = activeH.map(function (p) {
+    // 🐛→✅ 2026-07 玩家「小道具+催眠一起整體檢查」抓到兩件事，一起改掉：
+    //   ① 這個面板原本只列「她身上正掛著的」(c.props)，不像一般道具面板是列整份目錄；於是解除之後
+    //      那句暗示就從畫面上消失，要再用只能重打一次。改成比照 kanshouOpenProps 列整份目錄
+    //      (_kcCustomProps 裡 ignoreBond 的)，沒施展在她身上的顯示成「未施展」。
+    //   ② 「關閉」原本是寫進她身上的一個 level，佔著 KANSHOU_PROP_EQUIP_CAP_ 的名額不放——攢滿 5 句
+    //      關閉的暗示之後就再也施展不了第 6 句，而玩家完全看不出為什麼。既然關閉狀態對 AI 已經完全
+    //      隱形(提示詞不再提它)，那它跟「沒施展」本來就是同一件事：⏹解除 直接送 level='' 把它從她
+    //      身上撤下，名額當場放回來，目錄那一列還在、隨時可以再施展。
+    var catalogH = (_kcCustomProps || []).filter(function (x) { return x.ignoreBond; });
+    var appliedH = (c.props || []).filter(function (x) { return x.ignoreBond; });
+    var rows = catalogH.map(function (def) {
+      var p = appliedH.find(function (x) { return x.id === def.id; }) || { id: def.id, name: def.name || def.id, level: '' };
       // 🐛→✅ 玩家「催眠太強，可以用GAS控制他升級嗎」：不能一次跳兩階以上升(微弱直接跳強勁太突兀)，
       //   後端已擋，這裡同步把跳太多階的按鈕標成不可點，玩家不用點了才被錯誤訊息打回票。
-      // 🤫「已解除」不在這把尺上(indexOf 回 -1)，視同關閉起跳＝只能再施加回微弱。
+      // 🤫「已解除」不在這把尺上(indexOf 回 -1)；未施展是空字串(也回 -1)——兩者都視同關閉起跳。
       var released = p.level === KC_HYPNO_RELEASED_;
+      var idle = !p.level;
       var curIdx = Math.max(0, KC_PROP_LEVELS_.indexOf(p.level));
-      var pidJs = p.id.replace(/'/g, "\\'");
+      var pidJs = String(p.id).replace(/'/g, "\\'");
       var levelBtns = KC_PROP_LEVELS_.map(function (lv, idx) {
-        var active = !released && p.level === lv;
+        var isOff = idx === 0;
+        var active = isOff ? idle : (!released && p.level === lv);
         var tooFar = idx > curIdx + 1;
-        return '<button' + (tooFar ? ' disabled' : ' onclick="kanshouHypnoSet(\'' + safeN + '\',\'' + pidJs + '\',\'' + lv + '\')"') + ' style="flex:1;padding:6px 3px;font-size:12px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : (tooFar ? '#666' : '#ccc')) + ';border:none;border-radius:6px;cursor:' + (tooFar ? 'not-allowed' : 'pointer') + ';opacity:' + (tooFar ? '0.5' : '1') + ';">' + (lv === KC_PROP_LEVELS_[0] ? '⏹解除' : lv) + '</button>';
+        // ⏹解除 送空字串＝從她身上撤下(把裝備名額放回來)，不是寫一個「關閉」進去佔位。
+        var sendLv = isOff ? '' : lv;
+        return '<button' + (tooFar ? ' disabled' : ' onclick="kanshouHypnoSet(\'' + safeN + '\',\'' + pidJs + '\',\'' + sendLv + '\')"') + ' style="flex:1;padding:6px 3px;font-size:12px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : (tooFar ? '#666' : '#ccc')) + ';border:none;border-radius:6px;cursor:' + (tooFar ? 'not-allowed' : 'pointer') + ';opacity:' + (tooFar ? '0.5' : '1') + ';">' + (isOff ? '⏹解除' : lv) + '</button>';
       }).join('');
       // 🤫 悄悄解除／告訴她真相：定番橋段——中途把暗示解掉但不告訴她，她仍照原樣順從；之後再當面
       //   宣告「妳早就沒被影響了」，把她最後那個藉口也抽掉。兩顆按鈕是同一條路的前後半段。
-      var quietBtn = released
-        ? '<button onclick="kanshouHypnoSet(\'' + safeN + '\',\'' + pidJs + '\',\'' + KC_PROP_LEVELS_[0] + '\')" title="當面宣告：妳早就沒被影響了" style="width:100%;margin-top:5px;padding:6px 3px;font-size:12px;background:#7a4a5a;color:#fff;border:none;border-radius:6px;cursor:pointer;">💬 告訴她真相</button>'
-        : '<button onclick="kanshouHypnoSet(\'' + safeN + '\',\'' + pidJs + '\',\'' + KC_HYPNO_RELEASED_ + '\')" title="解掉暗示，但不讓她知道" style="width:100%;margin-top:5px;padding:6px 3px;font-size:12px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">🤫 悄悄解除（不告訴她）</button>';
+      //   沒施展在她身上的時候兩顆都沒有意義，不長出來。
+      var quietBtn = idle ? ''
+        : (released
+          ? '<button onclick="kanshouHypnoSet(\'' + safeN + '\',\'' + pidJs + '\',\'\')" title="當面宣告：妳早就沒被影響了" style="width:100%;margin-top:5px;padding:6px 3px;font-size:12px;background:#7a4a5a;color:#fff;border:none;border-radius:6px;cursor:pointer;">💬 告訴她真相</button>'
+          : '<button onclick="kanshouHypnoSet(\'' + safeN + '\',\'' + pidJs + '\',\'' + KC_HYPNO_RELEASED_ + '\')" title="解掉暗示，但不讓她知道" style="width:100%;margin-top:5px;padding:6px 3px;font-size:12px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">🤫 悄悄解除（不告訴她）</button>');
       var delBtn = '<button onclick="kanshouDeleteCustomProp(\'' + pidJs + '\')" title="從你的催眠指令目錄整個刪掉這項定義" style="padding:3px 6px;background:#3a3a44;color:#999;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:4px;">🗑刪除</button>';
       return '<div style="padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
-        + '<div style="display:flex;align-items:center;margin-bottom:6px;"><span style="flex:1;color:#e0a0ff;font-size:13px;">「' + escapeHtml(p.name) + '」</span>' + delBtn + '</div>'
+        + '<div style="display:flex;align-items:center;margin-bottom:6px;"><span style="flex:1;color:' + (idle ? '#8a7fa0' : '#e0a0ff') + ';font-size:13px;">「' + escapeHtml(p.name) + '」' + (idle ? '<small style="color:#6a6070;">（未施展）</small>' : '') + '</span>' + delBtn + '</div>'
         + (released ? '<div style="color:#c98a9a;font-size:11px;margin-bottom:5px;">🤫 已悄悄解除——她還不知道，仍照原樣順從中。</div>' : '')
         + '<div style="display:flex;gap:5px;">' + levelBtns + '</div>' + quietBtn + '</div>';
     }).join('');
@@ -798,9 +832,9 @@ let plainTextContext = cleanText;
     ov.innerHTML = '<div style="width:min(400px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(224,160,255,.3);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#e0a0ff;">🌀 對「' + escapeHtml(name) + '」的催眠指令</b>'
       + '<button onclick="document.getElementById(\'kp-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
-      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:6px;">跟一般小道具是分開的兩種效果，不受好感限制。可同時生效多條。</div>'
+      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:6px;">跟一般小道具是分開的兩種效果，不受好感限制。可同時生效多條' + (_kcPropCap ? '（同時最多 ' + _kcPropCap + ' 條，⏹解除會把名額放回來）' : '') + '。</div>'
       + '<div style="color:#c98a9a;font-size:11px;margin-bottom:6px;">⚠️ 施展新指令會立即觸發一次對話，讓她當場演出被暗示的反應。</div>'
-      + (rows || '<div style="color:#8a7fa0;font-size:12px;padding:8px 4px;">目前沒有生效中的催眠指令。</div>')
+      + (rows || '<div style="color:#8a7fa0;font-size:12px;padding:8px 4px;">你還沒設定過任何催眠指令。</div>')
       + castRow
       + '</div>';
     ov.style.display = 'flex';
@@ -812,15 +846,19 @@ let plainTextContext = cleanText;
   async function kanshouHypnoSet(name, propId, level) {
     var c = _kcCur.find(function (x) { return x.name === name; });
     var p = ((c && c.props) || []).find(function (x) { return x.id === propId; });
-    var cur = p ? p.level : KC_PROP_LEVELS_[0];
+    var cur = p ? p.level : ''; // 沒施展在她身上＝空字串(不是「關閉」——關閉這個 level 已經不寫進她身上了)
     var text = _khStrip_(p ? p.name : propId);
     var msg;
     if (level === KC_HYPNO_RELEASED_) {
       msg = '（趁『' + name + '』沒注意，悄悄把手機上那條「' + text + '」的暗示關掉了——什麼也沒說。）';
-    } else if (level === KC_PROP_LEVELS_[0]) {
+    } else if (!level) {
+      // level 空字串＝從她身上撤下(⏹解除)。從「已解除」撤下＝當面戳破那個定番橋段，講法不一樣。
       msg = cur === KC_HYPNO_RELEASED_
         ? '（看著『' + name + '』，慢慢告訴她：其實從剛才那一刻起，妳身上那條「' + text + '」的暗示就已經解除了。）'
         : '（把手機拿到『' + name + '』面前，讓她親眼看著那條「' + text + '」的暗示被關掉，並告訴她：結束了。）';
+    } else if (!cur) {
+      // 目錄裡舊有的一句，重新施展在她身上——講法要跟🌀施展一致，不能講成「調得更深」(還沒開始哪來的更深)。
+      msg = '（拿出手機，打開那款催眠APP，對著『' + name + '』播放了一段只有她聽得進去的暗示音：「' + text + '」）';
     } else {
       var deeper = KC_PROP_LEVELS_.indexOf(level) > Math.max(0, KC_PROP_LEVELS_.indexOf(cur));
       msg = '（拿出手機，把對『' + name + '』的那條「' + text + '」暗示' + (deeper ? '調得更深' : '調弱') + '了。）';

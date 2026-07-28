@@ -670,7 +670,9 @@ function actionKanshouCompanions(userData, pcId, sheets) {
       current.push({ id: String(data[i][COL.PC.ID]), name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), nickname: getNickname_(data[i][COL.PC.REL_MEM]), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, promise: _pm ? { loc: _pm.loc, date: _pmDate.month + '/' + _pmDate.day, time: _pmTime || '' } : null, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean), props: kanshouGetProps_(data[i][COL.PC.MEMORY], propCatalog) });
     }
   }
-  return JSON.stringify({ success: true, current: current, customProps: kanshouGetCustomProps_(me[COL.PC.MEMORY]), quickPhrases: kanshouGetQuickPhrases_(me[COL.PC.MEMORY]) });
+  // 🔒 propBond/propCap：裝備好感門檻與同時裝備上限，下傳給前端鎖按鈕/寫提示文案用。**不讓前端自己寫死 80**——前端手抄後端
+  //   常數是這個專案犯過的錯，改了一邊另一邊就走鐘；由這裡下傳，KANSHOU_PROP_EQUIP_BOND_ 永遠是唯一真相。
+  return JSON.stringify({ success: true, current: current, customProps: kanshouGetCustomProps_(me[COL.PC.MEMORY]), quickPhrases: kanshouGetQuickPhrases_(me[COL.PC.MEMORY]), propBond: KANSHOU_PROP_EQUIP_BOND_, propCap: KANSHOU_PROP_EQUIP_CAP_ });
 }
 
 // 🎀 快速輸入貼圖·玩家自訂(2026-07「表情包文字也想自訂」，同月再縮減內建數量)：4個內建貼圖(害羞/
@@ -969,20 +971,25 @@ function actionKanshouCastHypnosis(userData, pcId, sheets) {
   if (!already && custom.length >= KANSHOU_CUSTOM_PROP_CAP_) return JSON.stringify({ success: false, message: "自訂道具/催眠指令目錄已達上限(" + KANSHOU_CUSTOM_PROP_CAP_ + "件)，先刪掉一些吧。" });
   custom = custom.filter(function (p) { return p.id !== text; });
   custom.push({ id: text, hasIntensity: true, part: '', ignoreBond: true });
-  var newPlayerMemory = kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom);
-  kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newPlayerMemory);
+  // 🐛→✅ 2026-07 玩家「小道具+催眠一起整體檢查」抓到：原本先 setValue 玩家列(目錄)、再 setValue 目標
+  //   列(施展)，兩次分開的 Sheets 寫入——中途失敗就留下「目錄建了但沒施展」的半套資料，而
+  //   actionKanshouAddCustomProp 早就為了同一個理由改成「全程只改記憶體、確定後單次整表寫回」。
+  //   同一種病要一起治：這裡照抄那個慣例，順便把 2 次 round-trip 併成 1 次。
+  data[meIdx][COL.PC.MEMORY] = kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom);
+  var _flush = function () { kpc.getRange(1, 1, data.length, data[0].length).setValues(data); };
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
   // 🐛→✅ 2026-07 再稽核：同上，施展催眠指令這步也要求目標同伴此刻在場(目錄記下本身不受此限)。
   var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", loc: String(data[meIdx][COL.PC.LOC] || ""), nameCandidates: kanshouNameCandidates_ });
-  if (tIdx < 0) return JSON.stringify({ success: true, props: [], customProps: custom, message: "已記下這句指令，但找不到這位同伴可施展。" });
+  if (tIdx < 0) { _flush(); return JSON.stringify({ success: true, props: [], customProps: custom, message: "已記下這句指令，但找不到這位同伴可施展。" }); }
   var _existingT = kanshouGetProps_(data[tIdx][COL.PC.MEMORY]);
   if (!_existingT.some(function (p) { return p.id === text; }) && _existingT.length >= KANSHOU_PROP_EQUIP_CAP_) {
+    _flush();
     return JSON.stringify({ success: true, props: kanshouGetProps_(data[tIdx][COL.PC.MEMORY], KANSHOU_PROPS_.concat(custom)), customProps: custom, message: "已記下這句指令，但她身上裝備已達上限(" + KANSHOU_PROP_EQUIP_CAP_ + "件)，先移除一件才能施展。" });
   }
   var finalLevel = KANSHOU_PROP_LEVELS_[1]; // 微弱起跳——施展就該立即生效，不像一般道具從關閉起手
-  var newMemory = kanshouToggleProp_(data[tIdx][COL.PC.MEMORY], text, finalLevel);
-  kpc.getRange(tIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
-  return JSON.stringify({ success: true, props: kanshouGetProps_(newMemory, KANSHOU_PROPS_.concat(custom)), customProps: custom, level: finalLevel });
+  data[tIdx][COL.PC.MEMORY] = kanshouToggleProp_(data[tIdx][COL.PC.MEMORY], text, finalLevel);
+  _flush();
+  return JSON.stringify({ success: true, props: kanshouGetProps_(data[tIdx][COL.PC.MEMORY], KANSHOU_PROPS_.concat(custom)), customProps: custom, level: finalLevel });
 }
 
 // 🗑 刪除玩家自訂道具定義：同步清掉所有同伴身上目前裝備的這一項，避免留下型錄查無定義的孤兒資料。
@@ -3643,7 +3650,14 @@ function actionPlay_(userData, pcId, sheets) {
         if (p.level === '中等') return `★【${p.name}·中度生效】：不受好感天花板限制。她清楚知道自己不對勁、也知道是你搞的，嘴上照樣質問、抗拒、罵你，但每一次身體還是照這句暗示做了——意志完整、就是擋不住，這個落差要演出來。`;
         return `★【${p.name}·常識改寫】：不受好感天花板限制。她的個性、態度、對你的敵意全部原封不動，只有『這件事很奇怪』這個判斷被拿掉了——她會一臉理所當然地照這句暗示生活，你若追問她還會理直氣壯反駁你。旁人仍照常人反應。`;
       });
-      const pPropStr = pPropsArr.length ? ` | 佩戴道具:${pPropsArr.map(p => {
+      // 🐛→✅ 2026-07 玩家「小道具+催眠一起整體檢查」抓到：催眠指令原本跟實體道具混在同一份
+      //   「佩戴道具:…——這是既定事實，narration須自然反映其存在」清單裡，於是一句暗示被當成
+      //   穿戴在身上的東西——身上明明沒有任何實體道具時也照樣輸出「佩戴道具:妳現在很想靠近我(強勁)」，
+      //   AI 很容易寫成她身上戴著寫有那句話的物件；關閉時更荒謬，整段只剩「（強度關閉≠取下，仍配戴
+      //   在身上、只是暫時沒運作）」在講一句已經解除的暗示。催眠不是物體，它的全部存在感就是下面
+      //   那幾行★指令。兩份清單就此分家：實體道具只列 !ignoreBond，催眠只走★行。
+      const _wornArr = pPropsArr.filter(p => !p.ignoreBond);
+      const _wornStr = _wornArr.length ? `佩戴道具:${_wornArr.map(p => {
         const bits = [];
         if (p.part) bits.push(`戴在${p.part}`);
         if (p.hasIntensity) bits.push(p.level);
@@ -3651,7 +3665,9 @@ function actionPlay_(userData, pcId, sheets) {
         //   (玩家自己取的名字比「跳蛋」模糊得多)，effect選填時把效果描述也餵進去，讓AI照著演。
         if (p.effect) bits.push(`效果:${p.effect}`);
         return `${p.name}${bits.length ? `(${bits.join('，')})` : ""}`;
-      }).join('、')}——這是既定事實，narration須自然反映其存在${pPropsArr.some(p => p.hasIntensity && p.level !== '關閉' && p.level !== KANSHOU_HYPNO_RELEASED_) ? `，其中正在運作的道具依強度影響她的反應` : ``}${pPropsArr.some(p => p.hasIntensity && p.level === '關閉') ? `（強度關閉≠取下，仍配戴在身上、只是暫時沒運作）` : ``}${_ignoreBondLines.length ? `。${_ignoreBondLines.join('')}★這是只有她自己感覺得到的私密效果，除非外顯到旁人一看就懂，否則在場其他人不知情、不該對此有反應或評論。★暗示內容裡若出現「你/妳」「我」等代詞，你/妳＝她本人、我＝玩家，依此代入解讀，不要弄反。` : ``}` : "";
+      }).join('、')}——這是既定事實，narration須自然反映其存在${_wornArr.some(p => p.hasIntensity && p.level !== '關閉') ? `，其中正在運作的道具依強度影響她的反應` : ``}${_wornArr.some(p => p.hasIntensity && p.level === '關閉') ? `（強度關閉≠取下，仍配戴在身上、只是暫時沒運作）` : ``}` : "";
+      const _hypStr = _ignoreBondLines.length ? `${_ignoreBondLines.join('')}★這是只有她自己感覺得到的私密效果，除非外顯到旁人一看就懂，否則在場其他人不知情、不該對此有反應或評論。★暗示內容裡若出現「你/妳」「我」等代詞，你/妳＝她本人、我＝玩家，依此代入解讀，不要弄反。` : ``;
+      const pPropStr = (_wornStr || _hypStr) ? ` | ${_wornStr}${_wornStr && _hypStr ? '。' : ''}${_hypStr}` : "";
       // 💞 共同回憶(27欄 MEMOIR)：你們一路走來累積的里程碑，讓 AI 自然承接你倆的專屬過往(儲存用全形｜
       //   分隔，餵給 AI 時換成「；」較好讀)。空的就不加這行。
       const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
