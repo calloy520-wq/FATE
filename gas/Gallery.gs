@@ -833,11 +833,7 @@ function actionKanshouSetProp(userData, pcId, sheets) {
   var _existingP = kanshouGetProps_(data[tIdx][COL.PC.MEMORY]);
   var finalLevel = "";
   if (level) {
-    // 🤫 催眠類多一個合法值「已解除」(悄悄解除·她不知情)，一般道具沒有這個狀態。
-    finalLevel = def.hasIntensity
-      ? ((def.ignoreBond && level === KANSHOU_HYPNO_RELEASED_) ? KANSHOU_HYPNO_RELEASED_
-        : (KANSHOU_PROP_LEVELS_.indexOf(level) !== -1 ? level : KANSHOU_PROP_LEVELS_[0]))
-      : "戴著";
+    finalLevel = def.hasIntensity ? (KANSHOU_PROP_LEVELS_.indexOf(level) !== -1 ? level : KANSHOU_PROP_LEVELS_[0]) : "戴著";
     // 🔒 2026-07 玩家「整個小道具直接卡80吧...還沒80都鎖起來」：不只啟動，裝備本身(含關閉/戴著起手)
     //   都卡好感門檻——好感不夠她根本不會讓你碰。移除(level空字串)不受【好感】門檻，但仍要她在場
     //   (上方 findPcRowIdx_ 帶 loc)——實體道具本來就得人在旁邊才拿得下來。
@@ -1888,9 +1884,13 @@ function kanshouIsCohabit_(row) { return KANSHOU_COHABIT_TAG_.get(row[COL.PC.MEM
 //   目前空著、僅保留資料驅動的擴充掛勾(之後想加內建項目一樣是往這裡加一筆)。
 const KANSHOU_PROPS_ = [];
 const KANSHOU_PROP_LEVELS_ = ['關閉', '微弱', '中等', '強勁'];
-// 🤫 2026-07「悄悄解除」：催眠(ignoreBond)類專屬的第五種狀態，**刻意不併進 KANSHOU_PROP_LEVELS_**
-//   ——那個陣列是三段強度的尺，而這個狀態語意上不是「更強/更弱」而是「已經沒效了，但她不知道」，
-//   本來就不屬於那把尺（併進去只會讓「第幾階」這件事變得沒有意義）。
+// 🗑 2026-07「悄悄解除」上線同日移除（玩家：「AI能演這麼細緻嗎？不告訴她是不是不要了」）。
+//   拆開看就知道它演不出來：強勁階與「已解除·她不知情」的**外顯行為完全一樣**（照樣順從、照樣不
+//   覺得奇怪），差別只在「這是不是她自己的意思」，而提示詞還明講她不知道——那段期間敘事上沒有任何
+//   東西可以不同。小模型被要求「知道但不准表現出來」時最常見的失敗是漏出來，反而把橋段搞砸。
+//   而那個定番的爽點在**宣告的那一刻**，不在偷偷解除的那段期間；照催眠學那條原理（解除＝信念），
+//   宣告本身就是解除，「有沒有提前解除」這筆帳記了也沒人看得到。已把宣告直接寫進 ⏹解除 那一步。
+//   常數保留純為向下相容：舊存檔裡可能還有 level='已解除'，一律當成沒在生效（見下方 filter）。
 const KANSHOU_HYPNO_RELEASED_ = '已解除';
 // 🎀 小道具三階 → 具體行為指令（2026-07 玩家「有時候小道具都沒有生效的感覺」）。
 //   舊寫法只給「其中正在運作的道具依強度影響她的反應」這一句純形容詞、三階共用，而且不是★指令、
@@ -3644,10 +3644,9 @@ function actionPlay_(userData, pcId, sheets) {
       //   → 中等＝軸2 拉滿＋軸1 清醒＝「明知被操縱卻無法反抗」(核心爽點)
       //   → 強勁＝常識改寫：個性/態度/敵意原封不動，只拔掉「這很奇怪」的判斷，旁人仍照常人反應。
       //   ⚠ p.name 是玩家自己打的暗示句(什麼都有可能)，措辭必須通用，不可假設是命令句。
-      const _ignoreBondLines = pPropsArr.filter(p => p.ignoreBond && p.level && p.level !== '關閉').map(p => {
-        // 🤫「悄悄解除」：暗示已經沒效了，但她不知道——她的順從此刻已經是她自己的，只是她仍以為不是。
-        //   這一階刻意仍然繞過好感天花板：機制上「解除」等於她相信自己被解除了，而她並不相信。
-        if (p.level === KANSHOU_HYPNO_RELEASED_) return `★【${p.name}·已失效·她不知情】：不受好感天花板限制。這句暗示其實早就沒有作用了，她卻完全沒有察覺——她此刻的順從已經是她自己的意思，只是她還以為不是。她不會感覺到任何變化；若你當面戳破，她就再也拿不出『那是被弄的、不是我』這個藉口。`;
+      //   ⚠ 舊存檔可能還有 level='已解除'（悄悄解除機制上線同日就移除了）：一律當成沒在生效，
+      //     不能讓它掉進下面的 else 分支被當作「強勁」演。玩家在面板上會看到它顯示「未施展」。
+      const _ignoreBondLines = pPropsArr.filter(p => p.ignoreBond && p.level && p.level !== '關閉' && p.level !== KANSHOU_HYPNO_RELEASED_).map(p => {
         if (p.level === '微弱') return `★【${p.name}·輕度生效】：不受好感天花板限制。她照常做自己，只是身體比平常慢半拍地不配合她的意思——順著這句暗示的方向，抗拒都會鬆一點、動作都會多做一點。她不覺得有異，頂多覺得今天怪怪的。`;
         if (p.level === '中等') return `★【${p.name}·中度生效】：不受好感天花板限制。她清楚知道自己不對勁、也知道是你搞的，嘴上照樣質問、抗拒、罵你，但每一次身體還是照這句暗示做了——意志完整、就是擋不住，這個落差要演出來。`;
         return `★【${p.name}·常識改寫】：不受好感天花板限制。她的個性、態度、對你的敵意全部原封不動，只有『這件事很奇怪』這個判斷被拿掉了——她會一臉理所當然地照這句暗示生活，你若追問她還會理直氣壯反駁你。旁人仍照常人反應。`;
@@ -3805,7 +3804,7 @@ function actionPlay_(userData, pcId, sheets) {
   const _kanshouMaxBond_ = partyRows.reduce((m, r) => Math.max(m, parseInt(r[COL.PC.BOND]) || 0), 0);
   // 🐛→✅ 玩家「催眠跟好感會不會衝突」：催眠(ignoreBond)生效時常常是低好感也被推到高強度場面，
   //   還照好感字數會覺得被砍短——生效中一律拉到最長檔，不再看好感臉色。
-  const _kanshouHypnosisActive_ = partyRows.some(r => kanshouGetProps_(r[COL.PC.MEMORY], _kanshouPropCatalog).some(p => p.ignoreBond && p.level && p.level !== '關閉'));
+  const _kanshouHypnosisActive_ = partyRows.some(r => kanshouGetProps_(r[COL.PC.MEMORY], _kanshouPropCatalog).some(p => p.ignoreBond && p.level && p.level !== '關閉' && p.level !== KANSHOU_HYPNO_RELEASED_));
   const _kanshouTargetWords_ = _kanshouHypnosisActive_ ? 500 : (_kanshouMaxBond_ >= 60 ? 500 : _kanshouMaxBond_ >= 40 ? 400 : 250);
 
   const driveStr = driveOn ? `

@@ -584,7 +584,7 @@ let plainTextContext = cleanText;
   //   後端記得同步這裡)。
   var KC_PROPS_ = []; // 2026-07 移除內建「跳蛋」，全面改走玩家自訂道具（見 kanshouAddCustomProp）
   var KC_PROP_LEVELS_ = ['關閉', '微弱', '中等', '強勁'];
-  var KC_HYPNO_RELEASED_ = '已解除'; // 🤫 催眠專屬第五態(對應後端 KANSHOU_HYPNO_RELEASED_)：已失效但她不知情
+  var KC_HYPNO_RELEASED_ = '已解除'; // 🗑「悄悄解除」已移除（演不出來，見 Gallery.gs 同名常數的說明）；保留純為認出舊存檔殘值
   // 🔒 一般道具的裝備好感門檻：**由後端 kanshou_companions 下傳**(KANSHOU_PROP_EQUIP_BOND_)，前端不自己寫死，
   //   免得哪天後端改了數字、前端還照舊鎖/放行。沒收到就當 0(不鎖)，讓後端自己去擋，不會誤鎖玩家。
   var _kcPropBond = 0;
@@ -801,28 +801,20 @@ let plainTextContext = cleanText;
     var appliedH = (c.props || []).filter(function (x) { return x.ignoreBond; });
     var rows = catalogH.map(function (def) {
       var p = appliedH.find(function (x) { return x.id === def.id; }) || { id: def.id, name: def.name || def.id, level: '' };
-      var released = p.level === KC_HYPNO_RELEASED_;
-      var idle = !p.level;
+      // 舊存檔殘值 '已解除' 一律當成未施展（後端也是這樣過濾），玩家點任一階即可重新施展。
+      var idle = !p.level || p.level === KC_HYPNO_RELEASED_;
       var pidJs = String(p.id).replace(/'/g, "\\'");
       var levelBtns = KC_PROP_LEVELS_.map(function (lv, idx) {
         var isOff = idx === 0;
-        var active = isOff ? idle : (!released && p.level === lv);
+        var active = isOff ? idle : (!idle && p.level === lv);
         // ⏹解除 送空字串＝從她身上撤下(把裝備名額放回來)，不是寫一個「關閉」進去佔位。
         var sendLv = isOff ? '' : lv;
-        return '<button onclick="kanshouHypnoSet(\'' + safeN + '\',\'' + pidJs + '\',\'' + sendLv + '\')" title="' + (isOff ? '當面告訴她並解除（會觸發一次對話）' : '調整強度（靜默，下一回合自然反映）') + '" style="flex:1;padding:6px 3px;font-size:12px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : '#ccc') + ';border:none;border-radius:6px;cursor:pointer;">' + (isOff ? '⏹解除' : lv) + '</button>';
+        return '<button onclick="kanshouHypnoSet(\'' + safeN + '\',\'' + pidJs + '\',\'' + sendLv + '\')" title="' + (isOff ? '當面告訴她從剛才起就沒作用了，並撤下（會觸發一次對話）' : '調整強度（靜默，下一回合自然反映）') + '" style="flex:1;padding:6px 3px;font-size:12px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : '#ccc') + ';border:none;border-radius:6px;cursor:pointer;">' + (isOff ? '⏹解除' : lv) + '</button>';
       }).join('');
-      // 🤫 悄悄解除／告訴她真相：定番橋段——中途把暗示解掉但不告訴她，她仍照原樣順從；之後再當面
-      //   宣告「妳早就沒被影響了」，把她最後那個藉口也抽掉。兩顆按鈕是同一條路的前後半段。
-      //   沒施展在她身上的時候兩顆都沒有意義，不長出來。
-      var quietBtn = idle ? ''
-        : (released
-          ? '<button onclick="kanshouHypnoSet(\'' + safeN + '\',\'' + pidJs + '\',\'\')" title="當面宣告：妳早就沒被影響了" style="width:100%;margin-top:5px;padding:6px 3px;font-size:12px;background:#7a4a5a;color:#fff;border:none;border-radius:6px;cursor:pointer;">💬 告訴她真相</button>'
-          : '<button onclick="kanshouHypnoSet(\'' + safeN + '\',\'' + pidJs + '\',\'' + KC_HYPNO_RELEASED_ + '\')" title="解掉暗示，但不讓她知道" style="width:100%;margin-top:5px;padding:6px 3px;font-size:12px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">🤫 悄悄解除（不告訴她）</button>');
       var delBtn = '<button onclick="kanshouDeleteCustomProp(\'' + pidJs + '\')" title="從你的催眠指令目錄整個刪掉這項定義" style="padding:3px 6px;background:#3a3a44;color:#999;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:4px;">🗑刪除</button>';
       return '<div style="padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
         + '<div style="display:flex;align-items:center;margin-bottom:6px;"><span style="flex:1;color:' + (idle ? '#8a7fa0' : '#e0a0ff') + ';font-size:13px;">「' + escapeHtml(p.name) + '」' + (idle ? '<small style="color:#6a6070;">（未施展）</small>' : '') + '</span>' + delBtn + '</div>'
-        + (released ? '<div style="color:#c98a9a;font-size:11px;margin-bottom:5px;">🤫 已悄悄解除——她還不知道，仍照原樣順從中。</div>' : '')
-        + '<div style="display:flex;gap:5px;">' + levelBtns + '</div>' + quietBtn + '</div>';
+        + '<div style="display:flex;gap:5px;">' + levelBtns + '</div></div>';
     }).join('');
     // 🔒 目錄上限跟一般道具共用同一份（見 kanshouOpenProps 同款註解）
     var _hCatUsed = (_kcCustomProps || []).length;
@@ -839,7 +831,7 @@ let plainTextContext = cleanText;
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#e0a0ff;">🌀 對「' + escapeHtml(name) + '」的催眠指令</b>'
       + '<button onclick="document.getElementById(\'kp-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
       + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:6px;">跟一般小道具是分開的兩種效果，不受好感限制。可同時生效多條' + (_kcPropCap ? '（同時最多 ' + _kcPropCap + ' 條，⏹解除會把名額放回來）' : '') + '。</div>'
-      + '<div style="color:#c98a9a;font-size:11px;margin-bottom:6px;">⚠️ 跟她說話的會演、動手腳的不會：<b>施展／⏹解除／💬告訴她真相</b>會立即觸發一次對話；調強度與🤫悄悄解除是靜默的，下一回合敘事自然反映。</div>'
+      + '<div style="color:#c98a9a;font-size:11px;margin-bottom:6px;">⚠️ 跟她說話的會演、動手腳的不會：<b>施展</b>與<b>⏹解除</b>會立即觸發一次對話；調強度是靜默的，下一回合敘事自然反映。</div>'
       + (rows || '<div style="color:#8a7fa0;font-size:12px;padding:8px 4px;">你還沒設定過任何催眠指令。</div>')
       + castRow
       + '</div>';
@@ -849,23 +841,21 @@ let plainTextContext = cleanText;
   //   由它送出去讓 AI 當場演。做成獨立 wrapper 而不是把字串拼進 onclick，是因為暗示內容是玩家
   //   自由輸入的字，塞進 HTML 屬性再塞進 JS 字面量要跨三層跳脫，出錯只會靜靜壞掉。
   function _khStrip_(s) { return String(s || '').replace(/[「」『』]/g, ''); } // 引號會撞壞下面的框架句
-  // 🔄 2026-07 玩家「有點太繁雜」大幅簡化。判準只有一條，好記也好預期：
-  //   **跟她說話的會演，動手腳的不會。**
-  //   · 🌀施展新的一句、⏹解除(＝當面告訴她)、💬告訴她真相 → 觸發一次對話，AI 當場演
-  //   · 調強度、🤫悄悄解除 → 樂觀更新、靜默；下一回合的敘事自然照新狀態演（★行每回合重建）
-  //   悄悄解除靜默不是偷懶：她本來就不該察覺，演出來反而破功——機制語意自己就替它背書。
-  //   升階閘門也一併拿掉，強度隨意切換。
+  // 🔄 2026-07 玩家「有點太繁雜」大幅簡化，同日再砍一刀（「不告訴她是不是不要了，解除就是演吧」）。
+  //   判準只剩一條：**跟她說話的會演，動手腳的不會。**
+  //   · 🌀施展新的一句、⏹解除 → 觸發一次對話，AI 當場演
+  //   · 調強度 → 樂觀更新、靜默；下一回合的敘事自然照新狀態演（★行每回合重建）
+  //   「🤫悄悄解除」已整個移除：它跟強勁階的外顯行為一模一樣，演不出差別（詳見 Gallery.gs
+  //   KANSHOU_HYPNO_RELEASED_ 的說明）。那個定番的爽點在**宣告的那一刻**，已直接寫進 ⏹解除。
   async function kanshouHypnoSet(name, propId, level) {
     var c = _kcCur.find(function (x) { return x.name === name; });
     var p = ((c && c.props) || []).find(function (x) { return x.id === propId; });
-    var cur = p ? p.level : ''; // 沒施展在她身上＝空字串
     var text = _khStrip_(p ? p.name : propId);
     if (!level) {
-      // 撤下＝當面告訴她（不再分「單純撤下」與「告訴她」兩種——玩家：「解除就是會告訴她就好」）。
-      //   從「悄悄解除」撤下時是戳破那個定番橋段，講法不一樣。
-      var msg = cur === KC_HYPNO_RELEASED_
-        ? '（看著『' + name + '』，慢慢告訴她：其實從剛才那一刻起，妳身上那條「' + text + '」的暗示就已經解除了。）'
-        : '（把手機拿到『' + name + '』面前，讓她親眼看著那條「' + text + '」的暗示被關掉，並告訴她：結束了。）';
+      // ⏹解除＝當面宣告並撤下。宣告寫成「從剛才那一刻起就沒作用了」而不是「現在關掉」——
+      //   照催眠學那條原理（解除＝信念），這句話是真是假沒人驗證得了，包括她；把那個定番
+      //   （中途解除、事後宣告、看著她失去反抗的藉口）壓縮進這一步，不必額外記一個狀態。
+      var msg = '（看著『' + name + '』，慢慢告訴她：其實從剛才那一刻起，「' + text + '」這句話就已經對妳沒有作用了——妳剛才做的那些，都是妳自己。）';
       return kanshouSetProp(name, propId, level, msg);
     }
     return kcHypnoQuietSet_(name, propId, level);
