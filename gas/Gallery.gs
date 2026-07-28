@@ -1191,8 +1191,7 @@ function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
         "name": "NPC真名(固定真名·不填暱稱/職階)",
         "physical_state": _physicalStateRef,
         "appearance_extras": _appearanceExtrasRef,
-        "mutual_nicknames": "雙方自然發展的暱稱(見律令4)",
-        "attitude": "(該角色對玩家)當下的臨場態度(第三人稱·≤15字·有變化才填)",
+        "mutual_nicknames": "雙方自然發展的暱稱·本回合真的叫出口才填、否則「無」",
         "memory": "有里程碑(告白/初牽手/難忘約會/重要約定)才寫≤30字·玩家第一人稱「我」記事·禁她視角；尋常閒聊填「無」·同一事只記一次(已有【共同回憶】重複填無)"
       }]
     },
@@ -1221,12 +1220,16 @@ function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
   // 概念，[戰力]門檻與世界觀矛盾)；不設傾心/道侶等詞彙黑名單，實質行為門檻改由玩家提示詞的
   // 【親密尺度·分五階】(好感 20/40/60/80 天花板)統一約束，此處系統規則只講原則、不再硬編單一 80 門檻。
   const nsfwBaseRules = `後日談敘事核心·輕小說筆觸·台灣繁體中文·第一人稱「我」·禁上帝視角。鐵律：
-1. 承接玩家最新動作與台詞【語氣照原樣】(疑問就疑問、吐槽就吐槽)·不擴寫不代玩家加戲·被搭話NPC本回合必給完整真實反應·優先接反轉/否定/突發情緒。
-2. 每2~3句 <br><br> 分段·女子體態柔美(柔嫩/雪白/婉約·出力柔中帶勁)。
+1. 承接玩家最新動作與台詞【語氣照原樣】(疑問就疑問、吐槽就吐槽)·不擴寫不代玩家加戲·被搭話的人本回合必給完整真實反應·優先接反轉/否定/突發情緒。
+2. 每2~3句 <br><br> 分段·女子的身體一律柔軟溫熱、手細嫩無繭無疤·力道用絞緊/包裹/吸附這類柔性的寫法，不用鋼鐵/鉗子/機械。
 3. ${dialogueFormatRule_()}
-4. 依玩家輸入【確實推演往下走·不停滯敷衍】——玩家自己的動作/台詞如實發生、被搭話NPC必給回應；NPC的反應由她[個性]×[好感]真實決定(順從/猶豫/半推半就/婉拒皆可·玩家不能替她決定她的反應)·肢體親密受下方【親密尺度五階】好感門檻硬約束、不得跨階。
-5. 關係標籤玩家定·你只在 attitude 認不認；萌點/語癖/名號自然滲入偶爾點到即可·禁每段重複同一個。
-6. 聚焦當下近身互動·只輸出合法JSON${includeOptions === false ? '' : '·options固定4條每條≤20字'}。`;
+4. 依玩家輸入【確實推演往下走·不停滯敷衍】——她答不答應由她的[個性]×[好感]決定(順從/猶豫/半推半就/婉拒皆可)，玩家不能替她決定她的反應；肢體親密照【親密尺度五階】。
+5. 先在 inner_monologue 判她此刻最真實的反應·再寫 narration。
+6. 繼承歷史情緒與親密階·絕不無故重置(降溫只因被打斷/翻臉等明確事件)·玩家只是日常時不憑空推進情慾。
+7. 女女：純女女之愛·主導跟隨依個性·動作柔美；男女：依器官自然互動·女性側柔美。
+8. 萌點/語癖/名號自然滲入、偶爾點到即可·同一個不重複用。關係標籤由玩家定，你不改。
+9. 玩家指定的裝扮＝既定事實，直到劇情真讓她換裝為止——不因為「這身跟這幕不搭」就自行改寫或省略。
+10. 聚焦當下近身互動·只輸出合法JSON(各欄怎麼填見下方輸出範本)。`;
 
 // ⚠ 2026-07 玩家「色色部分都搬去給點火」實驗：色度跟隨(原0)＋情慾場生理特寫(原4)兩條搬進
 //   driveStr(見下方，僅driveOn=true才組進提示詞)——這兩條原本是「怎麼寫得好」的常駐風格指導、
@@ -1235,14 +1238,11 @@ function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
 //   矜持模式下的措辭可能反而更保守含糊；主動掌握模式因為同時拿到driveStr的推進指令＋這兩條的
 //   露骨寫作指引，兩者疊加會更猛。玩家已知情況下要求先試試看，若實測矜持模式下高好感場景意外
 //   變乾癟，這是根因、把這兩條原樣搬回來即可。
-const specificRules = `
-【慾海律令】
-1. 先在 inner_monologue 依「玩家輸入×NPC個性×近期歷史」判最真實反應·再寫 narration。
-2. 繼承歷史情緒與親密階·絕不無故重置(降溫只因被打斷/翻臉等明確事件)·玩家只是日常時禁憑空推進情慾。
-3. 女女：純女女之愛·主導跟隨依個性·動作柔美；男女：依器官自然互動·女性側柔美。
-4. mutual_nicknames：本回合真發生才填·否則「無」。
-5. attitude(≤15字)：這一刻她認不認同目前的關係標籤·就事論事寫這一回合·不必跟上一輪一致(系統不保存此欄)。
-6. 玩家指定的裝扮＝既定事實，直到劇情真讓她換裝為止——不可因為「這身跟這幕不搭」就自行改寫或省略。`;
+// 🗑 2026-07【慾海律令】整塊併進 nsfwBaseRules（玩家：「妳看看能不能整合吧」）——兩份規則實測有 5 處
+//   在講同一件事：①律令1(inner_monologue) ②律令4(mutual_nicknames·schema 欄位自己講就好)
+//   ③律令5(attitude·欄位已整個移除) ④律令6(裝扮) ⑤鐵律5/6 與 schema 的 options。
+//   合成一份 10 條、一個標題，AI 不必再跨兩個清單對照。留空字串是為了不動下面的 return 形狀。
+const specificRules = "";
 
 return nsfwBaseRules + "\n" + specificRules + "\n\n★【輸出範本】\n" + JSON.stringify(finalJson, null, 2);
 }
@@ -3151,8 +3151,8 @@ function actionPlay_(userData, pcId, sheets) {
     //   （卡片同時寫著「戀人·好感95」與「態度：警戒」，小模型面對矛盾的處理不可預測）。
     //   防忽冷忽熱這個原職責由**歷史視窗**接手：AI 看得到自己前 3 輪的完整敘事，資訊量遠大於
     //   15 字標籤，而且會隨劇情自然推移、不會鎖死。
-    //   ⚠ schema 的 attitude 欄位刻意保留（紅線 nsfwBaseRules 第 5 條引用了它、不可改）——
-    //     只是不再落地、也不再餵回來，迴圈就斷了。
+    //   ⚠ 2026-07 後續：schema 的 attitude 欄位已【整個移除】——它當初留著的唯一理由是
+    //     紅線 nsfwBaseRules 第 5 條指名了它；玩家授權整合兩份規則後那句也不在了，欄位跟著走。
     return nickStr;
   }
 
@@ -4289,7 +4289,7 @@ ${npcDialoguePrompt}
         if (change > 0) newFav = Math.min(newFav, kanshouRelChatCeiling_(oldFav));
 
         // REL_TAG 不允許AI直接指定文字寫入，好感變動後GAS依kanshouSyncRelTier_自動升降級；
-        //   AI對標籤的影響力只剩「認不認同」，演在 intimacy_feedback.npcs[].attitude 裡。
+        //   AI 對關係標籤沒有任何寫入權（attitude 欄位已於 2026-07 整組移除，全檔無人讀它）。
         pcData[nIdx][COL.PC.BOND] = newFav;
         // 🧊 掉分達門檻→記下今天。注意要用 change 本身而不是 newFav-oldFav：棘輪把值夾在地板上時
         //   兩者差 0，但「她確實不高興了」這件事仍然發生過，不該因為分數扣不動就當沒事。
@@ -4417,7 +4417,7 @@ ${npcDialoguePrompt}
             : `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/,
               String(nfb.mutual_nicknames || "").split('、').map(sanitizeNickname_).filter(Boolean).join('、'), 3)}`;
           // 🗑 2026-07 態度不再落地（見 relMemMemoryStr_ 的說明：它是會自我鎖死的形容詞標籤）。
-          //   AI 仍可在 attitude 欄表達這一刻認不認同關係標籤（紅線 nsfwBaseRules 第5條要求），
+          //   （attitude 欄位已於 2026-07 移除；那一刻的認不認同改由敘事本身表達，不再佔一個欄位）
           //   但那是一次性的表達，不寫進 REL_MEM、也不會被餵回去變成永久人設。
           pcData[targetIdx][COL.PC.REL_MEM] = nickPart;
 
