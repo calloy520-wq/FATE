@@ -4035,21 +4035,6 @@ ${PROMPT_REL}
 ★【焦點禮讓】：玩家專一對著一個人時，其他在場者維持背景輕描(除非系統另有提示)。
 ${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}${kanshouInitStr}
 ★【今日天氣】：${kanshouWeather_(curDay)}。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜她走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·她此刻【不在場】·禁讓她開口或出現。` : ""}
-💕【後日談】：${partyRows.length === 0
-    ? `眼下無相識者在場·玩家一個人的尋常時光。`
-    // 🐛→✅ 2026-07 量到的 bug：舊版用 partyRows.every(bond<20) 決定「初次相遇」還是「已經熟了」，
-    //   於是**在場只要有一位好感夠高的舊識，全體都吃到「別退回才剛認識的生澀」**——連今天才召喚
-    //   出來的新人也一起變熱情。這是「群體動作只點名一人」的鏡像版：一人破格、全體破格。
-    //   而且 19→20 是斷崖：兩句話語意完全相反、中間沒有過渡。
-    //   改法：這裡只留**全體共通的事實**（無戰前舊識），「各自多熟」交給每個人自己那行的
-    //   相處基調（見 partyDetailsArr 的 pTierToneStr → kanshouRapportTone_）——那本來就是逐人算的，
-    //   天生沒有 every 的問題，相鄰格的措辭也由我們自己寫、可以寫成漸進而非斷崖。
-    // 🧹 2026-07 玩家「這是不是也不要」：後半段「各自熟到什麼程度依相處基調演」已被【角色一致性】
-    //   的交棒句涵蓋（那句才是 canonical），刪。前半段【刻意留下】：模型對 Fate 這幾個名字有很強的
-    //   先驗（她們在原作裡是打過聖杯戰爭的舊識），【沒寫的就不存在】那種泛用句壓不過專有先驗，
-    //   得指名否認才擋得住。72→37 字。
-    : `你與『${partyMembers.join("、")}』的關係全部起於這座城，沒有戰前舊識或共同過往。`
-  }
 🕰️現在${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★光線/氣溫/作息一律依【此刻＝${timeBand_(_narrHour_)}】寫。★本回合只寫這十分鐘內的片段，時間推進由系統宣告。
 ★世界觀＝和平的現代冬木市，大家都是住在這裡的普通市民，沒有魔術與從者。
 ★【親密尺度五階·最高優先】${_kanshouHypnosisActive_ ? '(催眠暗示道具生效中例外)' : ''}：肢體親密以好感為天花板，超過的那一步不會發生，怎麼擋下來依各人的個性：
@@ -4059,7 +4044,6 @@ ${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKn
 ・60~79(親近)：親吻擁抱依偎可以，脫衣/性事止住。
 ・80+(戀人)：無上限，依情境與個性到底。
 ★多人各依各自好感，不共用同階。
-★★【強迫也照上面那張表判】：命令或強迫(如「跪下」「壓制」「無視掙扎」)不是繞過門檻的捷徑，未達門檻一樣【不會得逞】，她依個性反擊、吃虧的是玩家(善意的提議不算)。親密可以激烈，但任何一方都不寫成真實傷害(流血/骨折/撕裂傷)。
 ★【篇幅】：本回合 narration 約 ${_kanshouTargetWords_} 字。
 ★【演出而非說明】：願望/萌點/個性只演出來，不把那幾個字直接寫進敘述。
 ★【沒寫的就不存在】：系統給你的這些資料就是這個世界的全部——沒寫到的人、物品、金錢、過往在這個世界都不存在。專注把此刻的互動演好。
