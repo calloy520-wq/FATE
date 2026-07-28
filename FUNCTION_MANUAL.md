@@ -1281,16 +1281,18 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `_kpOpenName`（2026-07 新增）— 目前開著的面板是哪位同伴。`_kpOpenMode`('props'|'hypnosis'·2026-07新增) — 目前開的是一般道具面板還是催眠指令面板，兩者共用同一個`#kp-overlay`容器＋共用`kanshouDeleteCustomProp`刪除，靠這個mode決定刪除後原地重繪回哪一個。
 - `_kpEnsureCompanionPanel_(name)`（2026-07三度改版新增）— `kanshouOpenProps`/`kanshouOpenHypnosis`共用前導：確保`_kcCur`/`_kcCustomProps`已載到該同伴(沒載到就打`kanshou_companions`一次)＋開共用`#kp-overlay`容器，回傳`{c, ov}`；找不到同伴則自己收拾overlay+alert並回傳`null`（呼叫方看到`null`直接return）。純把兩函式逐字重複的載入/錯誤處理段落抽出，呼叫方仍各自設`_kpOpenMode`＋各畫各的面板內容，無新增gasRun呼叫。
 - `kanshouOpenProps(name)`（2026-07二度改版：`allProps`/`curArr`都`.filter(p => !p.ignoreBond)`，完全看不到催眠指令；三度改版前導委派給`_kpEnsureCompanionPanel_`）— 開/重繪「某人的小道具」彈窗 `#kp-overlay`；列出內建＋自訂的**一般(非ignoreBond)**道具（自訂項多一顆「🗑目錄」按鈕，呼叫 `kanshouDeleteCustomProp`），已裝備的顯示目前強度＋🗑，未裝備的顯示「裝備」鈕（呼叫 `kanshouSetProp`）；有`part`的項目名稱旁附註部位。多件可同時裝備。面板底部附「自己新增一個」表單（名稱/強度可調/部位選填輸入框＋裝備鈕，呼叫 `kanshouAddCustomProp`——**不再有`ignoreBond`勾選框**，那個效果已搬到專屬面板）。
-- `_kpShowLoading_(name)` — 把 `#kp-overlay` 內容換成讀條（不存在則先建）。
-- `kanshouSetProp(name, propId, level)` — 裝備/移除/改強度單一道具（`kanshou_set_prop`，level空字串＝移除）；`_kpBusy` 擋連點；完成後原地重繪面板。一般道具/催眠指令的既有項目調強度都共用這支。
+- `_kpShowLoading_(name)`（2026-07 補 mode 分流）— 把 `#kp-overlay` 內容換成讀條（不存在則先建）；標題/邊框依 `_kpOpenMode` 在「🎀小道具」與「🌀催眠指令」之間切換（原本催眠面板的等待畫面頂著小道具標題，看起來像點錯了）。
+- `kanshouSetProp(name, propId, level, castMsg)`（2026-07 加第4參數＋修重繪分流）— 裝備/移除/改強度單一道具（`kanshou_set_prop`，level空字串＝移除）；`_kpBusy` 擋連點。`castMsg`選填：帶了就關閉面板＋`send(castMsg)`立刻觸發一次對話（催眠專用，由`kanshouHypnoSet`組字串），不帶則靜默寫入（一般道具）。完成後依`_kpOpenMode`重繪回**正確的**面板——原本一律重繪回`kanshouOpenProps`，而那個面板把 ignoreBond 全過濾掉，等於在催眠面板改完強度後清單整個消失。
+- `kanshouHypnoSet(name, propId, level)`（2026-07 新增，催眠面板專用 wrapper）— 從 `_kcCur` 查出該項目目前強度與暗示原文，組出對應的玩家動作敘述（悄悄解除／告訴她真相／調得更深／調弱／當面關掉），再委派 `kanshouSetProp(...,castMsg)`。做成 wrapper 而非把字串拼進 onclick，是因為暗示內容是玩家自由輸入、跨 HTML 屬性→JS 字面量要三層跳脫。
+- `_khStrip_(s)`（2026-07 新增）— 去掉「」『』，避免玩家輸入的引號撞壞上面那幾句框架敘述。`kanshouHypnoSet`/`kanshouCastHypnosis` 共用。
 - `kanshouAddCustomProp(targetName)`（2026-07 新增，二度改版拿掉`#kp-new-ignorebond`）— 讀 `#kp-new-name`/`#kp-new-intensity`/`#kp-new-part` 輸入框，打 `kanshou_add_custom_prop`，成功後更新本地 `_kcCustomProps`/該同伴 `c.props` 並原地重繪面板；找不到目標同伴的邊界情況會 alert 後端回傳的訊息。
 - `kanshouDeleteCustomProp(propName)`（2026-07 新增，二度改版靠`_kpOpenMode`決定重繪回哪個面板）— confirm 確認後打 `kanshou_delete_custom_prop`，成功後更新 `_kcCustomProps`、清掉本地 `_kcCur` 所有同伴快取裡這一項，再依`_kpOpenMode`呼叫`kanshouOpenHypnosis`或`kanshouOpenProps`原地重繪。
-- `kanshouOpenHypnosis(name)`（2026-07 新增，獨立於`kanshouOpenProps`的專屬面板；三度改版前導委派給`_kpEnsureCompanionPanel_`）— 開/重繪「對某人的催眠指令」彈窗(共用`#kp-overlay`)；只顯示`c.props`裡`ignoreBond===true`的項目，各自附強度鈕(`kanshouSetProp`)＋「🗑目錄」刪除鈕；面板底部附「施展新的催眠指令」表單(`#kh-new-text`文字輸入，maxlength 30＋「🌀施展」鈕，呼叫`kanshouCastHypnosis`)。
-- `kanshouCastHypnosis(targetName)`（2026-07 新增）— 讀`#kh-new-text`，打`kanshou_cast_hypnosis`；成功且無邊界訊息時**關閉面板並立即呼叫`send('我對'+targetName+'施展了催眠暗示：「'+text+'」')`**觸發一次真實對話——這是本函式跟`kanshouAddCustomProp`最大的差異，玩家明講「這裡需要一次呼叫AI才有催眠感覺」；找不到同伴/裝備已滿等邊界情況只alert訊息並原地重繪面板，不觸發對話。
+- `kanshouOpenHypnosis(name)`（2026-07 新增，獨立於`kanshouOpenProps`的專屬面板；三度改版前導委派給`_kpEnsureCompanionPanel_`）— 開/重繪「對某人的催眠指令」彈窗(共用`#kp-overlay`)；只顯示`c.props`裡`ignoreBond===true`的項目，各自附強度鈕(`kanshouHypnoSet`，關閉那顆顯示成「⏹解除」)＋「🤫 悄悄解除（不告訴她）」鈕(切到`已解除`；已是`已解除`時該鈕變成「💬 告訴她真相」＝切回關閉)＋「🗑目錄」刪除鈕；`已解除`狀態列出一行「她還不知道，仍照原樣順從中」；面板底部附「施展新的催眠指令」表單(`#kh-new-text`文字輸入，maxlength 30＋「🌀施展」鈕，呼叫`kanshouCastHypnosis`)。
+- `kanshouCastHypnosis(targetName)`（2026-07 新增）— 讀`#kh-new-text`，打`kanshou_cast_hypnosis`；成功且無邊界訊息時**關閉面板並立即呼叫`send('（拿出手機，打開一款催眠APP，對著『'+targetName+'』播放了一段只有她聽得進去的暗示音：「'+text+'」）')`**觸發一次真實對話——這是本函式跟`kanshouAddCustomProp`最大的差異，玩家明講「這裡需要一次呼叫AI才有催眠感覺」；找不到同伴/裝備已滿等邊界情況只alert訊息並原地重繪面板，不觸發對話。
 - `_kcEnsureDrawer_()` — 懶建立故事視窗旁的「小道具快速控制抽屜」DOM（`#kc-prop-drawer`），回傳該元素；`applyModeUI()`(Script.html) 依鑑賞模式切換其顯示。
 - `kcTogglePropDrawer()` — 展開/收合抽屜；展開時呼叫 `_kcRenderDrawer_`。
 - `_kcRenderDrawer_()` — 重繪抽屜內容：只列**在場**且有強度可調道具的同伴，每項給強度快選鈕（呼叫 `kcQuickSetProp`）；`_kcCur` 沒載到會自抓一次。
-- `kcQuickSetProp(name, propId, level)` — ★樂觀更新：立即用本地 `_kcCur` 快取改值+重繪，背景 `gasRun` 送出（`kanshou_set_prop`）不等待、**不觸發AI敘事**——AI 下次正常互動會自然從既定事實讀到最新強度。跟 `kanshouSetProp`（會等後端確認）是兩條路，共用同一後端 action。
+- `kcQuickSetProp(name, propId, level)`（⚠ 2026-07 起抽屜只列 `hasIntensity && !ignoreBond`，催眠不走這條）— ★樂觀更新：立即用本地 `_kcCur` 快取改值+重繪，背景 `gasRun` 送出（`kanshou_set_prop`）不等待、**不觸發AI敘事**——AI 下次正常互動會自然從既定事實讀到最新強度。跟 `kanshouSetProp`（會等後端確認）是兩條路，共用同一後端 action。
 
 #### 時間推進 / 節慶
 - `kanshouEndDay()` — 結束一天（`endDay:true` 走 `send`）；睡前先掃 `_kcCur` 今天未赴的約做爽約警示確認框。

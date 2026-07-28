@@ -830,7 +830,11 @@ function actionKanshouSetProp(userData, pcId, sheets) {
   var _existingP = kanshouGetProps_(data[tIdx][COL.PC.MEMORY]);
   var finalLevel = "";
   if (level) {
-    finalLevel = def.hasIntensity ? (KANSHOU_PROP_LEVELS_.indexOf(level) !== -1 ? level : KANSHOU_PROP_LEVELS_[0]) : "戴著";
+    // 🤫 催眠類多一個合法值「已解除」(悄悄解除·她不知情)，一般道具沒有這個狀態。
+    finalLevel = def.hasIntensity
+      ? ((def.ignoreBond && level === KANSHOU_HYPNO_RELEASED_) ? KANSHOU_HYPNO_RELEASED_
+        : (KANSHOU_PROP_LEVELS_.indexOf(level) !== -1 ? level : KANSHOU_PROP_LEVELS_[0]))
+      : "戴著";
     // 🔒 2026-07 玩家「整個小道具直接卡80吧...還沒80都鎖起來」：不只啟動，裝備本身(含關閉/戴著起手)
     //   都卡好感門檻——好感不夠她根本不會讓你碰。移除(level空字串)不受【好感】門檻，但仍要她在場
     //   (上方 findPcRowIdx_ 帶 loc)——實體道具本來就得人在旁邊才拿得下來。
@@ -841,9 +845,11 @@ function actionKanshouSetProp(userData, pcId, sheets) {
     }
     // 🐛→✅ 玩家「催眠太強，可以用GAS控制他升級嗎」：催眠類道具的強度不能一次跳兩階以上升——
     //   微弱直接跳強勁太突兀，逼玩家一階一階推進。降級(含直接關閉)隨時可以，不受此限。
-    if (def.ignoreBond && finalLevel !== KANSHOU_PROP_LEVELS_[0]) {
+    // 🤫「已解除」不在這把尺上(語意是失效、不是更強)，跟「關閉」一樣隨時可切、不受閘門。
+    if (def.ignoreBond && finalLevel !== KANSHOU_PROP_LEVELS_[0] && finalLevel !== KANSHOU_HYPNO_RELEASED_) {
       const _curP = _existingP.find(function (p) { return p.id === propId; });
-      const _curIdx = _curP ? KANSHOU_PROP_LEVELS_.indexOf(_curP.level) : 0; // 還沒裝備過視同「關閉」起跳
+      // 還沒裝備過、或目前是「已解除」(不在尺上→indexOf 回 -1)，都視同「關閉」起跳。
+      const _curIdx = Math.max(0, _curP ? KANSHOU_PROP_LEVELS_.indexOf(_curP.level) : 0);
       const _newIdx = KANSHOU_PROP_LEVELS_.indexOf(finalLevel);
       if (_newIdx - _curIdx > 1) {
         return JSON.stringify({ success: false, message: "暗示需要一階一階加深，不能一次跳這麼多階。" });
@@ -1883,6 +1889,11 @@ function kanshouIsCohabit_(row) { return KANSHOU_COHABIT_TAG_.get(row[COL.PC.MEM
 //   目前空著、僅保留資料驅動的擴充掛勾(之後想加內建項目一樣是往這裡加一筆)。
 const KANSHOU_PROPS_ = [];
 const KANSHOU_PROP_LEVELS_ = ['關閉', '微弱', '中等', '強勁'];
+// 🤫 2026-07「悄悄解除」：催眠(ignoreBond)類專屬的第五種狀態，**刻意不併進 KANSHOU_PROP_LEVELS_**
+//   ——那個陣列是「一階一階往上升」的階梯，index 差就是升階閘門的判準，插一格進去會讓既有階數位移、
+//   閘門算錯。這個狀態語意上不是「更強/更弱」而是「已經沒效了，但她不知道」，本來就不屬於那把尺。
+//   任何階都能隨時切進來(等同降級，不受升階閘門)，也能從這裡再施加回微弱。
+const KANSHOU_HYPNO_RELEASED_ = '已解除';
 // 🔒 2026-07 玩家「AI也不能反抗，感覺缺少鑑賞的感覺」：小道具原本繞過[性格]×[好感]完全不設防，
 //   跟親密尺度五階/情慾場「沒到那個地步她會依個性擋下」的精神不一致。**2026-07再修**（玩家「整個
 //   小道具直接卡80吧...還沒80都鎖起來」）：一開始只卡「啟動(強度非關閉)」、裝備成關閉/戴著不設限，
@@ -3625,6 +3636,9 @@ function actionPlay_(userData, pcId, sheets) {
       //   → 強勁＝常識改寫：個性/態度/敵意原封不動，只拔掉「這很奇怪」的判斷，旁人仍照常人反應。
       //   ⚠ p.name 是玩家自己打的暗示句(什麼都有可能)，措辭必須通用，不可假設是命令句。
       const _ignoreBondLines = pPropsArr.filter(p => p.ignoreBond && p.level && p.level !== '關閉').map(p => {
+        // 🤫「悄悄解除」：暗示已經沒效了，但她不知道——她的順從此刻已經是她自己的，只是她仍以為不是。
+        //   這一階刻意仍然繞過好感天花板：機制上「解除」等於她相信自己被解除了，而她並不相信。
+        if (p.level === KANSHOU_HYPNO_RELEASED_) return `★【${p.name}·已失效·她不知情】：不受好感天花板限制。這句暗示其實早就沒有作用了，她卻完全沒有察覺——她此刻的順從已經是她自己的意思，只是她還以為不是。她不會感覺到任何變化；若你當面戳破，她就再也拿不出『那是被弄的、不是我』這個藉口。`;
         if (p.level === '微弱') return `★【${p.name}·輕度生效】：不受好感天花板限制。她照常做自己，只是身體比平常慢半拍地不配合她的意思——順著這句暗示的方向，抗拒都會鬆一點、動作都會多做一點。她不覺得有異，頂多覺得今天怪怪的。`;
         if (p.level === '中等') return `★【${p.name}·中度生效】：不受好感天花板限制。她清楚知道自己不對勁、也知道是你搞的，嘴上照樣質問、抗拒、罵你，但每一次身體還是照這句暗示做了——意志完整、就是擋不住，這個落差要演出來。`;
         return `★【${p.name}·常識改寫】：不受好感天花板限制。她的個性、態度、對你的敵意全部原封不動，只有『這件事很奇怪』這個判斷被拿掉了——她會一臉理所當然地照這句暗示生活，你若追問她還會理直氣壯反駁你。旁人仍照常人反應。`;
@@ -3637,7 +3651,7 @@ function actionPlay_(userData, pcId, sheets) {
         //   (玩家自己取的名字比「跳蛋」模糊得多)，effect選填時把效果描述也餵進去，讓AI照著演。
         if (p.effect) bits.push(`效果:${p.effect}`);
         return `${p.name}${bits.length ? `(${bits.join('，')})` : ""}`;
-      }).join('、')}——這是既定事實，narration須自然反映其存在${pPropsArr.some(p => p.hasIntensity && p.level !== '關閉') ? `，其中正在運作的道具依強度影響她的反應` : ``}${pPropsArr.some(p => p.hasIntensity && p.level === '關閉') ? `（強度關閉≠取下，仍配戴在身上、只是暫時沒運作）` : ``}${_ignoreBondLines.length ? `。${_ignoreBondLines.join('')}★這是只有她自己感覺得到的私密效果，除非外顯到旁人一看就懂，否則在場其他人不知情、不該對此有反應或評論。★暗示內容裡若出現「你/妳」「我」等代詞，你/妳＝她本人、我＝玩家，依此代入解讀，不要弄反。` : ``}` : "";
+      }).join('、')}——這是既定事實，narration須自然反映其存在${pPropsArr.some(p => p.hasIntensity && p.level !== '關閉' && p.level !== KANSHOU_HYPNO_RELEASED_) ? `，其中正在運作的道具依強度影響她的反應` : ``}${pPropsArr.some(p => p.hasIntensity && p.level === '關閉') ? `（強度關閉≠取下，仍配戴在身上、只是暫時沒運作）` : ``}${_ignoreBondLines.length ? `。${_ignoreBondLines.join('')}★這是只有她自己感覺得到的私密效果，除非外顯到旁人一看就懂，否則在場其他人不知情、不該對此有反應或評論。★暗示內容裡若出現「你/妳」「我」等代詞，你/妳＝她本人、我＝玩家，依此代入解讀，不要弄反。` : ``}` : "";
       // 💞 共同回憶(27欄 MEMOIR)：你們一路走來累積的里程碑，讓 AI 自然承接你倆的專屬過往(儲存用全形｜
       //   分隔，餵給 AI 時換成「；」較好讀)。空的就不加這行。
       const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();

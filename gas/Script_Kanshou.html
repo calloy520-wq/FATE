@@ -584,6 +584,7 @@ let plainTextContext = cleanText;
   //   後端記得同步這裡)。
   var KC_PROPS_ = []; // 2026-07 移除內建「跳蛋」，全面改走玩家自訂道具（見 kanshouAddCustomProp）
   var KC_PROP_LEVELS_ = ['關閉', '微弱', '中等', '強勁'];
+  var KC_HYPNO_RELEASED_ = '已解除'; // 🤫 催眠專屬第五態(對應後端 KANSHOU_HYPNO_RELEASED_)：已失效但她不知情
   var _kcCustomProps = []; // 🎀 玩家自訂道具目錄(2026-07新增)，跟KC_PROPS_合併使用
   var _kcCustomPropsLoaded = false;
   var _kpBusy = false;
@@ -669,12 +670,21 @@ let plainTextContext = cleanText;
       + '</div>';
     ov.style.display = 'flex';
   }
+  // 載入框標題跟著 _kpOpenMode 走——催眠面板的等待畫面原本頂著「🎀小道具」的標題，看起來像點錯了。
   function _kpShowLoading_(name) {
+    var isH = _kpOpenMode === 'hypnosis';
     _showOverlayLoading_('kp-overlay',
       { zIndex: 10001, onBgClick: function (ov) { if (!_kpBusy) ov.style.display = 'none'; } },
-      { width: '400px', borderColor: 'rgba(240,184,224,.25)', titleHtml: '<b style="color:#f0b8e0;">🎀 「' + escapeHtml(name || '') + '」的小道具</b>' });
+      {
+        width: '400px', borderColor: isH ? 'rgba(224,160,255,.3)' : 'rgba(240,184,224,.25)',
+        titleHtml: isH ? '<b style="color:#e0a0ff;">🌀 對「' + escapeHtml(name || '') + '」的催眠指令</b>'
+          : '<b style="color:#f0b8e0;">🎀 「' + escapeHtml(name || '') + '」的小道具</b>'
+      });
   }
-  async function kanshouSetProp(name, propId, level) {
+  // castMsg(選填)：催眠面板專用——調整強度/解除本身就是一個「玩家做了一件事」的當下，帶著這句
+  //   動作敘述關掉面板、立刻觸發一次對話讓AI當場演出來（跟🌀施展同一個道理）。一般小道具不帶，
+  //   維持靜默寫入。
+  async function kanshouSetProp(name, propId, level, castMsg) {
     if (_kpBusy) return;
     _kpBusy = true;
     _kpShowLoading_(name);
@@ -683,10 +693,22 @@ let plainTextContext = cleanText;
       if (!res || !res.success) { alert((res && res.message) || '操作失敗。'); return; }
       var c = _kcCur.find(function (x) { return x.name === name; });
       if (c) c.props = res.props || [];
+      if (castMsg) {
+        var ov = document.getElementById('kp-overlay');
+        if (ov) ov.style.display = 'none'; // 關閉面板讓玩家看到故事流裡的即時反應
+        _kpBusy = false;
+        send(castMsg);
+        return;
+      }
     } catch (e) { alert('操作失敗。'); }
     finally {
-      _kpBusy = false;
-      kanshouOpenProps(name); // 面板原地重繪
+      // 🐛→✅ 原本一律重繪回 kanshouOpenProps——催眠面板改完強度會跳成一般小道具面板，而那個面板
+      //   把 ignoreBond 全過濾掉了，玩家的催眠清單當場「消失」。比照 kanshouDeleteCustomProp 依
+      //   _kpOpenMode 分流回正確的面板。
+      if (_kpBusy) {
+        _kpBusy = false;
+        if (_kpOpenMode === 'hypnosis') kanshouOpenHypnosis(name); else kanshouOpenProps(name);
+      }
     }
   }
   // 🎀 玩家自建新道具(2026-07「不能玩家自己新增?」)：讀輸入框→新增進玩家自己的道具目錄＋立即裝備在
@@ -746,16 +768,25 @@ let plainTextContext = cleanText;
     var rows = activeH.map(function (p) {
       // 🐛→✅ 玩家「催眠太強，可以用GAS控制他升級嗎」：不能一次跳兩階以上升(微弱直接跳強勁太突兀)，
       //   後端已擋，這裡同步把跳太多階的按鈕標成不可點，玩家不用點了才被錯誤訊息打回票。
-      var curIdx = KC_PROP_LEVELS_.indexOf(p.level);
+      // 🤫「已解除」不在這把尺上(indexOf 回 -1)，視同關閉起跳＝只能再施加回微弱。
+      var released = p.level === KC_HYPNO_RELEASED_;
+      var curIdx = Math.max(0, KC_PROP_LEVELS_.indexOf(p.level));
+      var pidJs = p.id.replace(/'/g, "\\'");
       var levelBtns = KC_PROP_LEVELS_.map(function (lv, idx) {
-        var active = p.level === lv;
+        var active = !released && p.level === lv;
         var tooFar = idx > curIdx + 1;
-        return '<button' + (tooFar ? ' disabled' : ' onclick="kanshouSetProp(\'' + safeN + '\',\'' + p.id.replace(/'/g, "\\'") + '\',\'' + lv + '\')"') + ' style="flex:1;padding:6px 3px;font-size:12px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : (tooFar ? '#666' : '#ccc')) + ';border:none;border-radius:6px;cursor:' + (tooFar ? 'not-allowed' : 'pointer') + ';opacity:' + (tooFar ? '0.5' : '1') + ';">' + lv + '</button>';
+        return '<button' + (tooFar ? ' disabled' : ' onclick="kanshouHypnoSet(\'' + safeN + '\',\'' + pidJs + '\',\'' + lv + '\')"') + ' style="flex:1;padding:6px 3px;font-size:12px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : (tooFar ? '#666' : '#ccc')) + ';border:none;border-radius:6px;cursor:' + (tooFar ? 'not-allowed' : 'pointer') + ';opacity:' + (tooFar ? '0.5' : '1') + ';">' + (lv === KC_PROP_LEVELS_[0] ? '⏹解除' : lv) + '</button>';
       }).join('');
-      var delBtn = '<button onclick="kanshouDeleteCustomProp(\'' + p.id.replace(/'/g, "\\'") + '\')" title="從你的催眠指令目錄整個刪掉這項定義" style="padding:3px 6px;background:#3a3a44;color:#999;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:4px;">🗑刪除</button>';
+      // 🤫 悄悄解除／告訴她真相：定番橋段——中途把暗示解掉但不告訴她，她仍照原樣順從；之後再當面
+      //   宣告「妳早就沒被影響了」，把她最後那個藉口也抽掉。兩顆按鈕是同一條路的前後半段。
+      var quietBtn = released
+        ? '<button onclick="kanshouHypnoSet(\'' + safeN + '\',\'' + pidJs + '\',\'' + KC_PROP_LEVELS_[0] + '\')" title="當面宣告：妳早就沒被影響了" style="width:100%;margin-top:5px;padding:6px 3px;font-size:12px;background:#7a4a5a;color:#fff;border:none;border-radius:6px;cursor:pointer;">💬 告訴她真相</button>'
+        : '<button onclick="kanshouHypnoSet(\'' + safeN + '\',\'' + pidJs + '\',\'' + KC_HYPNO_RELEASED_ + '\')" title="解掉暗示，但不讓她知道" style="width:100%;margin-top:5px;padding:6px 3px;font-size:12px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">🤫 悄悄解除（不告訴她）</button>';
+      var delBtn = '<button onclick="kanshouDeleteCustomProp(\'' + pidJs + '\')" title="從你的催眠指令目錄整個刪掉這項定義" style="padding:3px 6px;background:#3a3a44;color:#999;border:none;border-radius:6px;cursor:pointer;font-size:10px;margin-left:4px;">🗑刪除</button>';
       return '<div style="padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
         + '<div style="display:flex;align-items:center;margin-bottom:6px;"><span style="flex:1;color:#e0a0ff;font-size:13px;">「' + escapeHtml(p.name) + '」</span>' + delBtn + '</div>'
-        + '<div style="display:flex;gap:5px;">' + levelBtns + '</div></div>';
+        + (released ? '<div style="color:#c98a9a;font-size:11px;margin-bottom:5px;">🤫 已悄悄解除——她還不知道，仍照原樣順從中。</div>' : '')
+        + '<div style="display:flex;gap:5px;">' + levelBtns + '</div>' + quietBtn + '</div>';
     }).join('');
     var castRow = '<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);">'
       + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:5px;">施展新的催眠指令(不受好感限制·立即生效)：</div>'
@@ -773,6 +804,28 @@ let plainTextContext = cleanText;
       + castRow
       + '</div>';
     ov.style.display = 'flex';
+  }
+  // 🌀 催眠面板專用的強度/解除切換：把「這一下玩家做了什麼」寫成一句動作敘述交給 kanshouSetProp，
+  //   由它送出去讓 AI 當場演。做成獨立 wrapper 而不是把字串拼進 onclick，是因為暗示內容是玩家
+  //   自由輸入的字，塞進 HTML 屬性再塞進 JS 字面量要跨三層跳脫，出錯只會靜靜壞掉。
+  function _khStrip_(s) { return String(s || '').replace(/[「」『』]/g, ''); } // 引號會撞壞下面的框架句
+  async function kanshouHypnoSet(name, propId, level) {
+    var c = _kcCur.find(function (x) { return x.name === name; });
+    var p = ((c && c.props) || []).find(function (x) { return x.id === propId; });
+    var cur = p ? p.level : KC_PROP_LEVELS_[0];
+    var text = _khStrip_(p ? p.name : propId);
+    var msg;
+    if (level === KC_HYPNO_RELEASED_) {
+      msg = '（趁『' + name + '』沒注意，悄悄把手機上那條「' + text + '」的暗示關掉了——什麼也沒說。）';
+    } else if (level === KC_PROP_LEVELS_[0]) {
+      msg = cur === KC_HYPNO_RELEASED_
+        ? '（看著『' + name + '』，慢慢告訴她：其實從剛才那一刻起，妳身上那條「' + text + '」的暗示就已經解除了。）'
+        : '（把手機拿到『' + name + '』面前，讓她親眼看著那條「' + text + '」的暗示被關掉，並告訴她：結束了。）';
+    } else {
+      var deeper = KC_PROP_LEVELS_.indexOf(level) > Math.max(0, KC_PROP_LEVELS_.indexOf(cur));
+      msg = '（拿出手機，把對『' + name + '』的那條「' + text + '」暗示' + (deeper ? '調得更深' : '調弱') + '了。）';
+    }
+    return kanshouSetProp(name, propId, level, msg);
   }
   // 🌀 施展催眠指令：跟一般道具「裝備後靜默等下一輪」不同，這裡在後端寫入成功後【立即觸發一次
   //   正常對話】(send())，讓AI馬上演出催眠生效的當下——這是這個效果存在的意義，玩家明講「這裡
@@ -796,7 +849,10 @@ let plainTextContext = cleanText;
       _kpBusy = false;
       // 🐛→✅ 玩家「第一次催眠敘述改成使用手機催眠app的寫法」：呼應拍照已經改手機的世界觀，施展
       //   當下也用「拿出手機、播放催眠APP的暗示音」這個更貼近現代設定的畫面，取代直接講「施展催眠暗示」。
-      send('（拿出手機，打開一款催眠APP，對著『' + targetName + '』播放了一段暗示語音：「' + text + '」）'); // 立即觸發一次對話，AI當場演出反應
+      // 🐛→✅ 2026-07 補「只有她聽得進去」：原文是「播放了一段暗示語音」＝當場放出聲音，可是提示詞
+      //   同時要求「在場其他人不知情、不該對此有反應」，兩句直接打架——旁人明明聽得到卻要裝沒聽到。
+      //   改成只有她聽得進去的暗示音，兩邊就一致了（單體催眠＋路人照常反應，本來就是這個機制的重點）。
+      send('（拿出手機，打開一款催眠APP，對著『' + targetName + '』播放了一段只有她聽得進去的暗示音：「' + _khStrip_(text) + '」）'); // 立即觸發一次對話，AI當場演出反應
       return;
     } catch (e) { alert('施展失敗。'); }
     finally {
@@ -843,11 +899,16 @@ let plainTextContext = cleanText;
     }
     var panel = document.getElementById('kc-prop-panel');
     if (!panel) return;
-    var here = _kcCur.filter(function (c) { return c.isHere && (c.props || []).some(function (p) { return p.hasIntensity; }); });
+    // 🌀 催眠(ignoreBond)類【刻意不放進這個快調抽屜】：它有一整套這裡做不到的規則——升階閘門(不能
+    //   跳階)、悄悄解除/告訴她真相這兩個狀態、以及每次切換都要送一段敘述讓 AI 當場演。抽屜是「靜默
+    //   樂觀更新」的快捷路徑，把催眠也塞進來就等於開了第二道門，而那道門會靜靜地把暗示關掉、不演任何
+    //   東西，也不擋跳階。單一入口：催眠一律走同伴卡的「🌀 催眠指令」面板。
+    var _kcDrawerProp_ = function (p) { return p.hasIntensity && !p.ignoreBond; };
+    var here = _kcCur.filter(function (c) { return c.isHere && (c.props || []).some(_kcDrawerProp_); });
     if (!here.length) { panel.innerHTML = '<div style="color:#8a7fa0;font-size:12px;">在場沒有可調整強度的道具</div>'; return; }
-    var _reminder = '<div style="color:#c98a9a;font-size:10.5px;margin-bottom:8px;">⚠️ 不用時記得調回「關閉」，AI不會自己收</div>';
+    var _reminder = '<div style="color:#c98a9a;font-size:10.5px;margin-bottom:8px;">⚠️ 不用時記得調回「關閉」，AI不會自己收（🌀催眠指令請走同伴卡專屬面板）</div>';
     panel.innerHTML = _reminder + here.map(function (c) {
-      return (c.props || []).filter(function (p) { return p.hasIntensity; }).map(function (p) {
+      return (c.props || []).filter(_kcDrawerProp_).map(function (p) {
         var btns = KC_PROP_LEVELS_.map(function (lv) {
           var active = p.level === lv;
           return '<button onclick="kcQuickSetProp(\'' + c.name.replace(/'/g, "\\'") + '\',\'' + p.id + '\',\'' + lv + '\')" style="flex:1;padding:5px 2px;font-size:11px;background:' + (active ? '#a05088' : '#3a3a44') + ';color:' + (active ? '#fff' : '#ccc') + ';border:none;border-radius:5px;cursor:pointer;">' + lv + '</button>';
