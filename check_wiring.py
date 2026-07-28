@@ -209,8 +209,67 @@ for tname in FACT_TABLES:
             if a in c:
                 problems.append(f'⑤ {tname} 替角色決定了微動作「{a}」：{c[:34]}…——這是她的個性該決定的，表只寫既定事實')
 
+# ── ⑥ 每個按鈕都要有配套：玩家意圖 → GAS 裁定結果 ────────────────────────
+# solo 的鐵則是「按鈕保證玩家目的、GAS 結算是絕對事實、AI 只負責寫字」。
+# 那條鐵則要成立，每一段送給 AI 的敘事提示詞都必須同時帶兩樣東西：
+#   ① 玩家/從者這一步做了什麼（意圖）　② GAS 算出來的結果（事實）
+# 少了①，AI 不知道在演誰的動作；少了②，AI 會自己決定成敗——那正是這專案一路在拔掉的東西。
+# ⚠ 只認【真的在組字串】的賦值（RHS 含反引號），回傳物件裡的欄位轉手(`aiPrompt: aiPrompt`)不算
+#   ——第一版沒擋這個，41 個警報全是誤報。
+# ⚠ 只掃 solo 側；鑑賞的 actionPlay_ 是另一套架構，由 scratchpad/sim/dedup.js 顧。
+# 「GAS 已經宣告的既成事實」在本專案的固定講法（新增一種寫法時要加進來——這正是逼你做一次
+#   有意識的決定：這段提示詞到底有沒有把結果講死）。
+VERDICT = re.compile(r'已裁定|已結算|已定|裁定|得逞|被看穿|戰報|【系統|登場|結果[:：]')
+# 「誰做了什麼」——刻意放寬到含裸「你」：這道檢查要抓的是【完全沒交代動作主體】的提示詞，
+#   不是措辭風格。寧可寬一點，也不要為了嚴格而製造一堆誤報（第一版 41 個警報全是誤報）。
+ACTOR = re.compile(r'御主|從者|玩家|你')
+# 這些提示詞是 helper 組的（掃描器看不進函式），改成連 helper 本體一起看。
+PROMPT_HELPERS = ['buildDreamPrompt_', 'buildVictoryDreamPrompt_', 'ambushDispatchPrompt_']
+helper_src = {}
+for h in PROMPT_HELPERS:
+    m = re.search(r'function\s+' + re.escape(h) + r'\s*\([^)]*\)\s*\{', BACK_ALL)
+    if not m:
+        problems.append(f'⑥ 找不到提示詞 helper `{h}` 的定義（改名了？檢查沒跟上就等於沒檢查）')
+    helper_src[h] = BACK_ALL[m.end():m.end() + 2500] if m else ''
+
+
+def prompt_defs(src):
+    """`xxxPrompt = …`（賦值、非物件欄位），抓到同層的分號為止。"""
+    for m in re.finditer(r'(?:^|[\s;{(])(?:var |let |const )?(\w*[Pp]rompt)\s*=\s*(?!=)', src):
+        i, d, j, instr, esc = m.end(), 0, m.end(), None, False
+        while j < len(src):
+            c = src[j]
+            if esc: esc = False
+            elif instr:
+                if c == '\\': esc = True
+                elif c == instr: instr = None
+            elif c in '"\'`': instr = c
+            elif c in '([{': d += 1
+            elif c in ')]}':
+                if d == 0: break
+                d -= 1
+            elif c == ';' and d == 0: break
+            j += 1
+        yield m.group(1), src[i:j]
+
+
+solo_prompts = 0
+for fname, src in back.items():
+    if fname == 'Gallery.gs':
+        continue
+    for name, body in prompt_defs(src):
+        if '`' not in body:
+            continue                      # 沒在組字串＝只是轉手/別名，真正的定義在別處
+        solo_prompts += 1
+        text = body + ''.join(helper_src[h] for h in PROMPT_HELPERS if h in body)
+        miss = ([] if VERDICT.search(text) else ['GAS 裁定結果']) + ([] if ACTOR.search(text) else ['玩家意圖'])
+        if miss:
+            problems.append(
+                f'⑥ {fname} 的 `{name}` 少了【{"】【".join(miss)}】：{re.sub(chr(92)+"s+", " ", body)[:70]}…'
+                f'\n     ——按鈕的鐵則是「意圖→GAS結果→AI只演」，缺一樣 AI 就會自己補那一半。')
+
 print(f'🔌 接線檢查：門檻常數 {len(gates)} 個（其中 {len(NO_UI_NEEDED)} 個登記為不需 UI 出口）、'
-      f'查表 {len(ENUM_TABLES)} 組、事實表 {fact_cells} 格、★ 區塊 {star} 個、action 路由 {len(routed)} 條（前端呼叫 {len(called)} 條）')
+      f'查表 {len(ENUM_TABLES)} 組、事實表 {fact_cells} 格、solo 敘事提示詞 {solo_prompts} 處、★ 區塊 {star} 個、action 路由 {len(routed)} 條（前端呼叫 {len(called)} 條）')
 if problems:
     print(f'  ❌ {len(problems)} 處')
     for p in problems:
