@@ -4034,7 +4034,7 @@ ${nsfwMemories}${genderHintStr}${driveStr}
 ${PROMPT_REL}
 ★【路人與缺席者】：路人只當背景、不具名不追蹤(誰能開口見結尾的名單)。歷史提過但這回合不在的人，一句話帶過原因(去忙別的/剛好不在)，別裝作還在。
 ★【焦點禮讓】：玩家專一互動時，其他在場者維持背景輕描·不搶話/不介入親密(除非系統另有提示)。
-★【在場來由】：一律照各人「在場來由」欄演、不可改寫，禁止重演一次入場。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}${kanshouInitStr}
+${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}${kanshouInitStr}
 ★【今日天氣】：${kanshouWeather_(curDay)}·自然滲入場景不必每句提。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜她走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·她此刻【不在場】·禁讓她開口或出現。` : ""}
 💕【後日談】：${partyRows.length === 0
     ? `眼下無相識者在場·玩家一個人的尋常時光。`
@@ -4060,7 +4060,7 @@ ${PROMPT_REL}
 ・60~79(親近)：親吻擁抱依偎可·脫衣/性事仍止住。
 ・80+(戀人)：無上限·依情境個性到底。
 ★多人各依各自好感·不共用同階。
-★★【命令/強迫也吃上面那張表】：命令肢體服從(如「跪下/過來/脫」)或強迫字眼(如「強姦」「壓制」「無視掙扎」)一樣照五階判，未達門檻【不會得逞】，她依個性拒絕或反擊、吃虧的是玩家；善意的提議不算冒犯。親密可以激烈，但禁演成真實傷害(流血/骨折/撕裂傷)。
+★★【強迫也照上面那張表判】：命令或強迫(如「跪下」「壓制」「無視掙扎」)不是繞過門檻的捷徑，未達門檻一樣【不會得逞】，她依個性反擊、吃虧的是玩家(善意的提議不算)。親密可以激烈，但禁演成真實傷害(流血/骨折/撕裂傷)。
 ★【篇幅指定】：本回合narration目標約${_kanshouTargetWords_}字(不必精確，別落差太大)——低好感互動別寫成大段內心戲。
 ★【演出而非說明】：不直述願望/萌點/個性字面。數值只輸出 rel_changes(好感)。
 ★【沒寫的就不存在】：系統給你的這些資料就是這個世界的全部——沒寫到的人、物品、金錢、過往一律不存在，別自己補。專注把此刻的互動演好。
