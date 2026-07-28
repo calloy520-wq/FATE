@@ -1070,6 +1070,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 
 #### 通訊 / state 同步層
 - `escapeHtml(str)` — XSS 轉義（跨玩家可見文字渲染進 innerHTML 前的第二層保險）；null/undefined→空字串。
+- `aiHtml_(text)` — AI 敘事→安全 HTML（`narrate`／鑑賞 `send`／老虎道場三處共用）：先整段 `escapeHtml`，再**只把 `<br>` 放回來**，最後轉真換行。提示詞明寫「換行一律用 `<br><br>` 分段」，整段 escape 會讓標籤變成畫面上看得見的字（2026-07-24 補 self-XSS 的副作用，兩軌同時中招，2026-07-28 修）。放行清單只有 `<br>`——`<br onload=…>` 這類帶屬性的不放行。
 - `showToast_(msg)` — 輕量成功提示：浮在畫面上方、1.8秒自動淡出、不擋操作。只給「單純告知已完成」的訊息用（如改命成功），需要玩家看清原因的失敗訊息仍用 `alert()`。
 - `customConfirm_(message)` — **2026-07 新增**：自畫確認對話框，取代瀏覽器原生 `confirm()`（原生版在 Apps Script 沙盒 iframe 裡會把 `script.googleusercontent.com` 這串陌生網址秀在最上面，讀起來像可疑警告）。回傳 `Promise<boolean>`（原生 confirm 是同步阻塞，這裡改非同步），共用 `.modal-overlay`/`.modal-scroll` 底座、z-index `100000`(蓋過全代碼庫其餘彈窗，含 askKanshouSetup 的 99999)。呼叫端一律 `if (!await customConfirm_(msg)) return;`（呼叫端函式需為 `async`）——**全代碼庫原生 confirm() 已於同批次全數替換**。
 - `customPrompt_(message, defaultValue, maxLen)` — **2026-07 新增**：自畫輸入對話框，取代瀏覽器原生 `prompt()`(同一批「沙盒網址嚇人」問題)。回傳 `Promise<string|null>`(null＝取消，跟原生 prompt() 語意一致)，共用 `customConfirm_` 的 modal 底座＋`.std-in` 輸入框，`maxLen` 選填(設 `input.maxLength`)。呼叫端 `const txt = await customPrompt_(msg, cur); if (txt === null) return;`——**全代碼庫原生 prompt() 已全數替換**(換裝/武裝/改名/御主改名等)。

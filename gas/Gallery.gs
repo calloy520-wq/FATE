@@ -4048,7 +4048,7 @@ ${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKn
 ${PROMPT_PARTY_SYSTEM}
 ★★【地點釘死】：此刻在「${curL}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName)); return _c ? `（${_c}）` : ""; })()}，敘事不離開這裡——想去別處只能嘴上聊，真要換地方由系統宣告。${moveTarget ? '你們剛到，直接從抵達後的當下寫起、路程不演。' : ''}
 ${npcDialoguePrompt}
-🚨【收尾${driveOn ? '·主動掌握' : ''}】：${driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : ''}停在「我」當下進行式，留未完成動作交還玩家——被搭話者須先回應(答話/神情)才停筆；最後一句落在正在發生的動作、或剛說出口的話上。
+🚨【收尾${driveOn ? '·主動掌握' : ''}】：${driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : ''}把最後一句留給被搭話的那個人——用對方的答話或神情收尾，停在等玩家接話的那一刻。玩家只說他自己輸入的那一句，結尾不替他再開口、再發問。沒有別人在場時才收在「我」的動作上。
 ★【動筆前最後確認】：在場只有${partyMembers.length ? `『${partyMembers.join('、')}』` : '沒有其他人'}，敘述裡開口/被觸碰/在場的只能是這些人，其他名字即使歷史提過也不准出現。
 
 現在演化玩家動作：『${finalUserMsg}』`;

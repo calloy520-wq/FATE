@@ -11,6 +11,17 @@
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
   }
+  // 🧵 AI 敘事 → 安全 HTML（solo narrate／鑑賞 send／老虎道場共用這一支）。
+  //   **唯一放行的標籤是 <br>**：提示詞明寫「換行一律用 <br><br> 分段」(solo miniSystem 與
+  //   鑑賞 nsfwBaseRules 都是)，所以整段 escapeHtml 會把分段標籤變成玩家看得見的「<br><br>」
+  //   四個字元——2026-07-24 補 self-XSS 那次的副作用，兩軌一起中招。先全 escape 擋掉
+  //   <img onerror=…> 這類注入，再單獨把 <br> 放回來，防護與分段兩件事同時成立。
+  //   ⚠ 放行清單就只有 <br>，要加第二種標籤前先想清楚它能不能帶屬性。
+  function aiHtml_(text) {
+    return escapeHtml(String(text || ""))
+      .replace(/&lt;\s*br\s*\/?\s*&gt;/gi, "<br>")
+      .replace(/\n{2,}/g, "<br><br>").replace(/\n/g, "<br><br>");
+  }
   // ==========================================
   // 💾 故事流存檔：每回合都把整份 #story 的 innerHTML 寫進 localStorage。
   // 🐛→✅ 2026-07 前端稽核：舊版兩處都是【裸 setItem、不修剪】——故事流只增不減，一局玩久了
@@ -2969,7 +2980,7 @@
       payload.servantName = payload.servantName || servantName || '從者'; // 令咒反噬那條敗因會自帶交心對象的名字
       const res = await gasRun(payload);
       if (res && res.success && res.text && body) {
-        var t = String(res.text).replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\n{2,}/g, '<br><br>').replace(/\n/g, '<br>');
+        var t = aiHtml_(String(res.text).replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n'));
         var tailNote = mode === 'victory' ? '（可隨時前往鑑賞，從英靈殿召喚同伴共度和平時光。）' : '（敗北的存檔已封存於戰史，可重啟新的一局。）';
         body.innerHTML = t + '<div style="color:#9a8fb0; font-size:12px; margin-top:12px;">' + tailNote + '</div>';
       } else if (body) { body.innerHTML = dojoFallbackHtml_(mode); }
@@ -3166,11 +3177,8 @@ function applyModeUI() {
       if (res.success && res.text) {
         let t = res.text.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
         lastAiContext = t;  // 🧵 記住這段敘事，作為下一次移動/互動的「前情」，讓世界有連續記憶
-        // 🐛→✅ 稽核抓到：AI敘事本文是唯一沒escapeHtml就塞進insertAdjacentHTML的欄位（同伴名/選項/
-        //   道具等都有escape）——後端只靠prompt指令禁止HTML標籤、無程式碼層級過濾，提示注入誘導AI
-        //   吐出<img onerror=...>等標籤會在該玩家自己瀏覽器內執行self-XSS。escape後才轉換換行。
-        t = escapeHtml(t).replace(/\n{2,}/g, "<br><br>").replace(/\n/g, "<br><br>");
-        story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【說書人】</b>${t}</div>`);
+        // 🛡️ 過 aiHtml_：整段 escape 擋 self-XSS，但把提示詞要求的 <br> 分段標籤放回來（見其定義）。
+        story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【說書人】</b>${aiHtml_(t)}</div>`);
         saveStoryLocal_(story);
         story.scrollTop = story.scrollHeight;
       }

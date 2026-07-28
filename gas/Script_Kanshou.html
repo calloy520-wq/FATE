@@ -337,11 +337,9 @@ let plainTextContext = cleanText;
       }
 
       lastAiContext = plainTextContext;
-      // 🐛→✅ 稽核抓到：AI敘事本文是唯一沒escapeHtml就塞進insertAdjacentHTML的欄位（同伴名/選項/
-      //   道具/暱稱等都有escape，見本檔其餘escapeHtml呼叫）——後端只靠prompt指令禁止HTML標籤、
-      //   無程式碼層級過濾，提示注入誘導AI吐出<img onerror=...>等標籤會在玩家自己瀏覽器內執行
-      //   self-XSS。escape後才轉換換行（linkCandidates替換的html值本就等於純文字名稱，不受影響）。
-      story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【說書人】</b>${escapeHtml(displayText.trim()).replace(/\n{2,}/g, "<br><br>").replace(/\n/g, "<br><br>")}</div>`);
+      // 🛡️ 過 aiHtml_(Script.html)：整段 escape 擋 self-XSS，但把提示詞要求的 <br> 分段標籤放回來
+      //   （linkCandidates 替換出來的 html 值本就等於純文字名稱，不受影響）。
+      story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【說書人】</b>${aiHtml_(displayText.trim())}</div>`);
       // 📅🤝 相約/牽手成不成立的明確回饋(後端 proposalResult)——插一條系統通知條，玩家不必再從敘述猜。
       if (data.proposalResult) {
         const _pr = data.proposalResult, _nm = escapeHtml(String(_pr.name || '她'));
