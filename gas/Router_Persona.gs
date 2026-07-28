@@ -72,7 +72,7 @@ function quadLabeled_(raw, labels, skipNone) {
 function performanceNote_(names) {
   var list = (names || []).filter(Boolean);
   if (!list.length) return "";
-  return `★依「${list.join('、')}」的真名與性格/口吻演出(show, don't tell)：言行神態自然流露，【禁】把性格詞/萌點/六圍/技能/寶具名當台詞或由旁白點破。若真名出自Fate正典，身世優先依你自身認知演出，不受限上方短句。依羈絆高低調親疏：低→戒備矜持、高→漸親近，守性格內核，未深不越界倒貼。\n`;
+  return `★依「${list.join('、')}」的真名與性格/口吻演出(show, don't tell)：性格詞/萌點/六圍/技能不當台詞、也不由旁白點破。真名出自 Fate 正典者，身世依你自身認知演出，不受限上方短句。依羈絆高低調親疏：低→戒備矜持、高→漸親近，守性格內核。\n`;
 }
 
 // 🎭 從者「演出依據」卡：真名/職階/第一人稱/個性/對御主/口吻/萌點/招牌動作/六圍/技能/寶具
