@@ -3921,7 +3921,7 @@ function actionPlay_(userData, pcId, sheets) {
       partyDetailsArr.push(`【在場人物】名號:${pName} | 在場來由:${pPresenceStr}${pOutfit ? ` | 裝扮:${pOutfit}` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${(() => { const _mo = [pMoeStr, traitPrivateOf_(r[COL.PC.TRAIT])].filter(Boolean).join("／"); return _mo ? ` | 萌點(僅供內化):${_mo}` : ""; })()}${pActivityStr}${pSleepStr ? ` | 現況:她此刻在自己家、${pSleepStr}(除非橋段已明確叫醒她，否則維持這個狀態演出，不宜寫成清醒閒聊)` : ""}${pCohabitStr}${pPropStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr}${pChillStr})`);
     }
   });
-  const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【目前在場人物命格詳情】:\n${partyDetailsArr.join("\n")}` : "目前這個地點沒有其他人，玩家是獨自行動的。";
+  const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【角色背景資料】(裝扮＝她此刻穿的衣服，五官/髮色/體態不隨換裝改變):\n${partyDetailsArr.join("\n")}` : "目前這個地點沒有其他人，玩家是獨自行動的。";
 
   // 具名/互動/好感的完整規則只在下方【在場驗證鐵律】講一次(canonical)，這裡只給「可以寫路人」的正面許可。
   const backgroundCrowdStr = `★【開放世界·背景人煙】：這是有血有肉的開放世界——場景可自由描寫路過行人、店員、其他顧客等不具名背景人物，增添生活感；但僅供氛圍點綴，具名與互動限制見結尾的在場名單。`;
@@ -3955,18 +3955,18 @@ function actionPlay_(userData, pcId, sheets) {
   //   若沒擋，該角色從此每回合都會拋錯、永遠好不了(見CLAUDE.md「邊界先擋」)。
   let pPhysicalObj = {}; try { pPhysicalObj = JSON.parse(pcData[pcIndex][COL.PC.PHYSICAL] || "{}"); } catch (e) { }
   if (Object.keys(pPhysicalObj).length === 0) pPhysicalObj = { "狀態": "如常" };
-  // 玩家自己的換裝也要補進[情境延續]區塊(比照NPC每回合補進[名字 裝扮]行)，這是情慾場景AI主要
-  //   參照的區塊，不能只在【玩家命格】看得到。
-  let nsfwMemories = `\n[玩家『${pcName}』肉體]：${JSON.stringify(pPhysicalObj)}${myOutfit ? `\n[玩家『${pcName}』裝扮]：${myOutfit}（當前服裝·五官/髮色/體態不變）` : ""}`;
+  // 👕 玩家裝扮只在【玩家資料】那一行講一次（就在提示詞第二行）——舊版在這裡再送一次，
+  //   那是排版還很長的時代留下的補償，現在整份提示詞已經短很多，重複沒有意義。
+  const _isPlainBody_ = o => Object.keys(o).length === 1 && o["狀態"] === "如常"; // 預設值＝沒事，不必送
+  let nsfwMemories = `${_isPlainBody_(pPhysicalObj) ? "" : `\n[玩家『${pcName}』肉體]：${JSON.stringify(pPhysicalObj)}`}`;
 
   // ⚡ 提速：跟上面 presentRowsForGender 是完全相同的 filter 條件，直接複用，省掉第二次整表掃描。
   let allPresentRows = presentRowsForGender;
   allPresentRows.forEach(r => {
     let npcPhysicalObj = {}; try { npcPhysicalObj = JSON.parse(r[COL.PC.PHYSICAL] || "{}"); } catch (e) { }
     if (Object.keys(npcPhysicalObj).length === 0) npcPhysicalObj = { "狀態": "如常" };
-    let relMem = r[COL.PC.REL_MEM] || "無";
-    let npcOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👕 換裝：當前服裝穿著(換衣不換人·五官體態依本相；玩家UI設定或AI依appearance_extras更新)
-    nsfwMemories += `${npcOutfit ? `\n[${r[COL.PC.NAME]} 裝扮]：${npcOutfit}（當前服裝·五官/髮色/體態不變）` : ""}\n[${r[COL.PC.NAME]} 肉體]：${JSON.stringify(npcPhysicalObj)}\n[快照]：[羈絆]${relMem}`;
+    // 👕 裝扮已由【在場人物】那一行帶（同一個值不送兩次）；REL_MEM 的【專屬稱呼】同理走 pMemStr。
+    if (!_isPlainBody_(npcPhysicalObj)) nsfwMemories += `\n[${r[COL.PC.NAME]} 肉體]：${JSON.stringify(npcPhysicalObj)}`;
   });
 
   // 巧遇者是還沒被召喚、沒有資料列的陌生人，明講「這次到訪期間的系統例外」，避免跟下方
@@ -4029,14 +4029,14 @@ ${nsfwMemories}${genderHintStr}${driveStr}
   // 鑑賞無戰鬥，御主的 HP/MP/MAX_HP/MAX_MP 這4欄從未寫入，故 prompt 不提血量/魔力數值或瀕死判斷
   //   (與世界觀規則「禁止血量/生命變化」一致——該禁令在下方 USER 世界觀＋演出而非說明兩行)。
   const prompt = `【敘事法旨】：視角鎖定玩家『${pcName}』。
-【玩家命格】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}${_doSideWrite ? '(可透過 master_note.經歷 滾動增補)' : ''} | 位置:${curL}${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName)); return _c ? `（${_c}）` : ""; })()}
+【玩家資料】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】 性格:${pc[COL.PC.PREF]} | 特徵:${pc[COL.PC.TRAIT]}${myOutfit ? ` | 裝扮:${myOutfit}` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}${_doSideWrite ? '(可透過 master_note.經歷 滾動增補)' : ''} | 位置:${curL}${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName)); return _c ? `（${_c}）` : ""; })()}
 
 ${PROMPT_REL}
 ★【路人與缺席者】：路人只當背景、不具名不追蹤(誰能開口見結尾的名單)。歷史提過但這回合不在的人，一句話帶過原因(去忙別的/剛好不在)，別裝作還在。
 ★【焦點禮讓】：玩家專一互動時，其他在場者維持背景輕描·不搶話/不介入親密(除非系統另有提示)。
 ★【在場來由】：一律照各人「在場來由」欄演、不可改寫，禁止重演一次入場。${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}${kanshouInitStr}
 ★【今日天氣】：${kanshouWeather_(curDay)}·自然滲入場景不必每句提。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜她走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·她此刻【不在場】·禁讓她開口或出現。` : ""}
-💕【後日談模式·最高優先覆寫】：${partyRows.length === 0
+💕【後日談】：${partyRows.length === 0
     ? `眼下無相識者在場·玩家一個人的尋常時光。`
     // 🐛→✅ 2026-07 量到的 bug：舊版用 partyRows.every(bond<20) 決定「初次相遇」還是「已經熟了」，
     //   於是**在場只要有一位好感夠高的舊識，全體都吃到「別退回才剛認識的生澀」**——連今天才召喚
@@ -4045,7 +4045,11 @@ ${PROMPT_REL}
     //   改法：這裡只留**全體共通的事實**（無戰前舊識），「各自多熟」交給每個人自己那行的
     //   相處基調（見 partyDetailsArr 的 pTierToneStr → kanshouRapportTone_）——那本來就是逐人算的，
     //   天生沒有 every 的問題，相鄰格的措辭也由我們自己寫、可以寫成漸進而非斷崖。
-    : `你與『${partyMembers.join("、")}』的關係全部起於這座城·【無】戰前舊識或共同過往·各自熟到什麼程度依她自己那份資料裡的相處基調演。`
+    // 🧹 2026-07 玩家「這是不是也不要」：後半段「各自熟到什麼程度依相處基調演」已被【角色一致性】
+    //   的交棒句涵蓋（那句才是 canonical），刪。前半段【刻意留下】：模型對 Fate 這幾個名字有很強的
+    //   先驗（她們在原作裡是打過聖杯戰爭的舊識），【沒寫的就不存在】那種泛用句壓不過專有先驗，
+    //   得指名否認才擋得住。72→37 字。
+    : `你與『${partyMembers.join("、")}』的關係全部起於這座城，沒有戰前舊識或共同過往。`
   }
 🕰️現在${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★光線/氣溫/作息一律依【此刻＝${timeBand_(_narrHour_)}】寫，歷史停在哪個時段都不算數。★本回合只寫這十分鐘內的片段，時間推進由系統宣告。
 ★世界觀＝和平現代城鎮：大家都是這座城裡的普通市民，超凡力量/非現代事物/生死衝突在這個世界從未發生過。調性不限悠閒。
