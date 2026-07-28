@@ -1139,10 +1139,9 @@ function dialogueFormatRule_() {
 function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
   // physical_state 只留顏面神情(≤15字)：只管表情，衣裝狀態拆進獨立的 appearance_extras 欄
   //   (下方)，兩者關注點不同——前者是每回合都可能變的暫時神情，後者是要持久記住的實際穿著。
-  const _physicalState = "角色當下顏面神情(第三人稱·≤15字)";
+  const _physicalState = "角色當下顏面神情(第三人稱·≤15字·有變化才填、否則留空沿用舊值)";
   const _masterNote = {
-    "_note": "觀察玩家慢慢認識他(不顯示)·有新觀察才更新否則留空",
-    "經歷": "承接舊經歷·只增補本回合有意義新遭遇·滾動摘要≤50字·沒新事回舊值"
+    "經歷": "(不顯示·觀察玩家慢慢認識他)承接舊經歷·只增補本回合有意義的新遭遇·滾動摘要≤50字·沒新事就回舊值"
   };
 
   // appearance_extras(原 outfit_change，2026-07 改名)：角色當下實際穿著狀態，AI 可依劇情如實更新
@@ -1154,7 +1153,7 @@ function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
   //   在外觀服裝吧」）：現在持久小道具(KANSHOU_PROPS_/自訂道具)才是配飾/道具類的機制保證正解，這欄
   //   改回**只專注服裝本身**，不再兼管配飾——避免兩套機制搶著記同一件事、混淆該由誰負責。AI 若自己
   //   想在敘事順帶提到身上的小道具(如貓耳)，那是它自由發揮，不強求也不靠這欄記錄。
-  const _appearanceExtras = "穿著狀態(第三人稱·≤20字·名詞短語如「絲綢襯衫」「牛仔褲」「浴巾」「全裸」·禁「換上了…」動作句·禁「在水下」「泡在浴池」等場景/姿勢)";
+  const _appearanceExtras = "穿著狀態(第三人稱·≤20字·名詞短語如「絲綢襯衫」「牛仔褲」「浴巾」「全裸」·禁「換上了…」動作句·禁「在水下」「泡在浴池」等場景/姿勢·真有穿脫更衣入浴才填、否則留空沿用舊值)";
 
   // 🔴 npc的範本欄位填「同上」：actionPlay 落地端(本檔·intimacy_feedback 解析)的 ignoreWords 防呆清單本就
   // 含「同上」，即使AI偷懶照抄範本字面值也會被當成敷衍語忽略、不會寫進玩家看到的狀態欄，省字數不引入新的失敗模式。
@@ -1182,9 +1181,8 @@ function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
     // npc_exit：同伴自主權——她可自然告辭離場，GAS真的把她移出場景(不再是嘴上說走卻還在)。只認此刻
     //   在場同伴，去向由系統依作息決定；被牽的人離場→牽手自動鬆開。不必每回合遣散，只在情境自然時。
     "npc_exit": "在場同伴自然告辭離場的真名陣列(可多位)·narration演出她離開·否則[]",
-    "options": ["1. [主動]強勢掌握主導...", "2. [被動]順從委婉試探...", "3. [接續]順劇情延續互動...", "4. [反差]跳脫氛圍的驚人舉動..."],
+    "options": ["1. [主動]…（★固定4條·每條≤20字·就本回合 narration 出題，只出在場的人此刻真做得到的動作，不含換地點、不含不在場的人）", "2. [被動]…", "3. [接續]…", "4. [反差]…"],
     "intimacy_feedback": {
-      "_note": "physical_state=顏面神情(≤15字)；appearance_extras=穿著(≤20字)。★有變化才填(神情轉變/脫穿沐浴/情事進展)，否則留空沿用舊值。npcs格式同player。",
       "player": {
         "physical_state": _physicalState,
         "appearance_extras": _appearanceExtras
@@ -1202,8 +1200,8 @@ function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
     //   (COL.PC.REL_TAG)只能由御主透過UI(update_rel_tag)手動更改，AI對標籤的影響力只剩
     //   「認不認同」，寫在 intimacy_feedback.npcs[].attitude，不是靠覆寫這個欄位表達。
     "rel_changes": [{
-      "_note": "fav_change整數：日常+1~2、明顯心動/重大進展+3~5、單回合上限+5、冒犯可負。",
-      "target": "NPC真名(固定真名·不填暱稱/職階/台詞/地名)", "fav_change": 3
+      "target": "NPC真名(固定真名·不填暱稱/職階/台詞/地名)",
+      "fav_change": "整數·日常+1~2、明顯心動或重大進展+3~5、冒犯給負"
     }],
     // 🌱 玩家御主「滾動側寫」：AI 每回合觀察玩家、慢慢認識他(像對話 AI 記住使用者習慣)。GAS 只採用
     //   【玩家仍留白】的欄位(玩家自己填過的一律鎖住、不覆寫)；經歷則每回合承接舊值滾動更新。詳見 §玩家側寫。
@@ -1244,8 +1242,7 @@ const specificRules = `
 3. 女女：純女女之愛·主導跟隨依個性·動作柔美；男女：依器官自然互動·女性側柔美。
 4. mutual_nicknames：本回合真發生才填·否則「無」。
 5. attitude(≤15字)：這一刻她認不認同目前的關係標籤·就事論事寫這一回合·不必跟上一輪一致(系統不保存此欄)。
-6. options：基於本回合 narration 內容出題——在場人物當下真能做到的動作；禁移動地點/尋找不在場角色；禁塞入本回合無關的萌點/背景字面(如「提點她的家電困擾」)。
-7. appearance_extras(裝扮)：本回合真有穿脫/更衣/入浴等具體動作才填新值·否則留空(沿用既有裝扮)。禁以「這身跟這幕不搭」為由自行改寫或省略；玩家指定的裝扮＝既定事實，直到劇情真讓她換裝為止(格式/姿勢禁忌見schema)。`;
+6. 玩家指定的裝扮＝既定事實，直到劇情真讓她換裝為止——不可因為「這身跟這幕不搭」就自行改寫或省略。`;
 
 return nsfwBaseRules + "\n" + specificRules + "\n\n★【輸出範本】\n" + JSON.stringify(finalJson, null, 2);
 }
