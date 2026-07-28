@@ -1901,6 +1901,17 @@ const KANSHOU_PROP_LEVELS_ = ['關閉', '微弱', '中等', '強勁'];
 //   閘門算錯。這個狀態語意上不是「更強/更弱」而是「已經沒效了，但她不知道」，本來就不屬於那把尺。
 //   任何階都能隨時切進來(等同降級，不受升階閘門)，也能從這裡再施加回微弱。
 const KANSHOU_HYPNO_RELEASED_ = '已解除';
+// 🎀 小道具三階 → 具體行為指令（2026-07 玩家「有時候小道具都沒有生效的感覺」）。
+//   舊寫法只給「其中正在運作的道具依強度影響她的反應」這一句純形容詞、三階共用，而且不是★指令、
+//   還埋在她那一列的七成處——這正是本專案已經記過兩次的教訓（篇幅指示／催眠三階）：**小模型對
+//   形容詞疊加的區分度很弱，沒有具體行為指令的那一端會被直接無視**。催眠已經照這條修過並且有感，
+//   小道具還停在舊寫法。查表而非 if 鏈：之後想加階，往這張表加一列就好。
+//   ⚠ 措辭必須通用——道具名稱是玩家自由輸入的，可能是跳蛋也可能是繩子、耳機、遙控器。
+const KANSHOU_PROP_LEVEL_FX_ = {
+  '微弱': '它一直在作用，但還不到打斷她的程度——動作和語氣偶爾被牽動一下，她能若無其事地帶過去。',
+  '中等': '她得分神應付它——句子會斷、動作會停半拍，掩飾得住，但你看得出來她在忍。',
+  '強勁': '它壓過她原本在做的事——這一刻她維持不了平常的對話和動作，反應主要由它主導。'
+};
 // 🔒 2026-07 玩家「AI也不能反抗，感覺缺少鑑賞的感覺」：小道具原本繞過[性格]×[好感]完全不設防，
 //   跟親密尺度五階/情慾場「沒到那個地步她會依個性擋下」的精神不一致。**2026-07再修**（玩家「整個
 //   小道具直接卡80吧...還沒80都鎖起來」）：一開始只卡「啟動(強度非關閉)」、裝備成關閉/戴著不設限，
@@ -3668,9 +3679,20 @@ function actionPlay_(userData, pcId, sheets) {
         //   (玩家自己取的名字比「跳蛋」模糊得多)，effect選填時把效果描述也餵進去，讓AI照著演。
         if (p.effect) bits.push(`效果:${p.effect}`);
         return `${p.name}${bits.length ? `(${bits.join('，')})` : ""}`;
-      }).join('、')}——這是既定事實，narration須自然反映其存在${_wornArr.some(p => p.hasIntensity && p.level !== '關閉') ? `，其中正在運作的道具依強度影響她的反應` : ``}${_wornArr.some(p => p.hasIntensity && p.level === '關閉') ? `（強度關閉≠拿走，東西還在她身上/手邊，只是暫時沒在作用）` : ``}` : "";
+      }).join('、')}——這是既定事實，narration須自然反映其存在${_wornArr.some(p => p.hasIntensity && p.level === '關閉') ? `（強度關閉≠拿走，東西還在她身上/手邊，只是暫時沒在作用）` : ``}` : "";
+      // 🎀 運作中的道具另外拉★行：光在屬性列寫個「(強勁)」小模型讀不出該演成什麼樣，比照催眠
+      //   給具體行為指令。effect 留空時額外補一句，否則 AI 只有名稱可以猜、常常整段當它不存在。
+      //   同一階的多件道具合併成一行——否則兩件都在微弱時，同一句指令會原封不動重複兩遍，
+      //   既浪費字數、讀起來也像複製貼上(小模型對重複段落容易只認一次)。
+      const _wornFxLines = KANSHOU_PROP_LEVELS_.filter(lv => KANSHOU_PROP_LEVEL_FX_[lv]).map(lv => {
+        const _g = _wornArr.filter(p => p.hasIntensity && p.level === lv);
+        if (!_g.length) return "";
+        const _noFx = _g.filter(p => !p.effect).map(p => p.name);
+        return `★【運作中·${_g.map(p => p.name).join('、')}(${lv})】：${KANSHOU_PROP_LEVEL_FX_[lv]}${_noFx.length ? `其中${_noFx.join('、')}沒有指定效果，依名稱合理推定其作用，並整段一致地套用。` : ``}`;
+      }).filter(Boolean);
       const _hypStr = _ignoreBondLines.length ? `${_ignoreBondLines.join('')}★這是只有她自己感覺得到的私密效果，除非外顯到旁人一看就懂，否則在場其他人不知情、不該對此有反應或評論。★暗示內容裡若出現「你/妳」「我」等代詞，你/妳＝她本人、我＝玩家，依此代入解讀，不要弄反。` : ``;
-      const pPropStr = (_wornStr || _hypStr) ? ` | ${_wornStr}${_wornStr && _hypStr ? '。' : ''}${_hypStr}` : "";
+      const _wornAll = `${_wornStr}${_wornStr && _wornFxLines.length ? '。' : ''}${_wornFxLines.join('')}`;
+      const pPropStr = (_wornAll || _hypStr) ? ` | ${_wornAll}${_wornAll && _hypStr ? '。' : ''}${_hypStr}` : "";
       // 💞 共同回憶(27欄 MEMOIR)：你們一路走來累積的里程碑，讓 AI 自然承接你倆的專屬過往(儲存用全形｜
       //   分隔，餵給 AI 時換成「；」較好讀)。空的就不加這行。
       const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();

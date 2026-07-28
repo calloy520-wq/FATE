@@ -27,7 +27,9 @@ blocks = []
 for i, l in enumerate(lines, 1):
     t = l.strip()
     if t.startswith('//') or '★' not in l: continue
-    for m in re.finditer(r'★【[^】]{2,20}】[^`]{0,420}', l):
+    # ⚠ 2026-07：標題上限原本是 20，於是任何標題較長的 ★ 區塊(如插了兩個 ${} 的)會被**靜靜跳過**，
+    #   兩道不變式對它形同不存在——掃描器的覆蓋漏洞比沒有掃描器更危險(會誤以為檢查過了)。放寬到 40。
+    for m in re.finditer(r'★【[^】]{2,40}】[^`]{0,420}', l):
         blocks.append((i, m.group(0)))
 
 PRON  = re.compile(r'(?<![你妳我他])[她](?!們)')
