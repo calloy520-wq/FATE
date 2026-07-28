@@ -12,7 +12,7 @@ GAS 在 `gas/`。⚠ **push 只自動同步代碼、不會自動上線**——�
 
 ## 🚨 紅線（違反＝不可逆災難）
 
-1. **慾海禁區**：`gas/Gallery.gs` 的 `nsfwBaseRules`（演化核心）＋整套 NSFW 機制**一律不可改**。只能改 SFW 的 gating／名冊。改鄰近處，事後 `git diff -- gas/Gallery.gs | grep nsfwBaseRules` 須 0 改動。
+1. ~~慾海禁區~~ **（2026-07 玩家取消此紅線）**：`gas/Gallery.gs` 的 `nsfwBaseRules` 不再是禁區，但它仍是**演化核心**——動它會影響整個鑑賞的敘事調性，所以**改之前先用模擬器量現況、改完必跑 `dedup.js` 與全套探針**。歷次改動與理由記在 `KANSHOU_REFERENCE.md`。（編號刻意保留：②③④⑤ 在全專案被大量引用，重編會讓引用全指錯。）
 2. **show-don't-tell**：敘事禁止直述角色 願望／個性／萌點 字面（`servantCard_` 強制）。
 3. **branch＋兩段式部署**：只在 `claude/traditional-chinese-chat-q8ptho` 開發。commit→push→GitHub Action **只跑 `clasp push`**（同步代碼進 GAS 專案，不建版、不動 `/exec`）。要玩家在網頁看到新版，須**額外手動觸發 workflow_dispatch**（跑 `clasp deploy`）。`push ≠ 上線`——每次上線記得多觸發一次 workflow_dispatch、等 `completed/success`、head_sha 對上，再回報「已上線」。
 4. **model id**：本模型的 exact 型號 id（見系統提示，此處刻意不寫出）不可出現在 commit／PR／程式碼／任何 push 進 repo 的東西。chat 回覆才可講。
