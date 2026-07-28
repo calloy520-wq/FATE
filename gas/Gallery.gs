@@ -3739,16 +3739,19 @@ function actionPlay_(userData, pcId, sheets) {
     // 「異/無」(如開膛手傑克「無固定實體」)這類非二元性別值一律按女性向處理(對齊
     //   heroToKanshouRow_ 的肉體起始預設)。不開放男男配對(邀請關卡已擋)，故只有「女女」是
     //   特殊配對組，其餘一律走「依各自實際性別自然互動」。
-    const sameSexF = [], others = [];
+    const sameSexF = [];
     presentRowsForGender.forEach(r => {
       const npcSexRaw = r[COL.PC.SEX] || "未知";
       const npcSex = (npcSexRaw === "男" || npcSexRaw === "女") ? npcSexRaw : "女";
-      (playerSex === "女" && npcSex === "女" ? sameSexF : others).push(r[COL.PC.NAME]);
+      if (playerSex === "女" && npcSex === "女") sameSexF.push(r[COL.PC.NAME]);
     });
-    const parts = [];
-    if (sameSexF.length) parts.push(`${sameSexF.join("、")}(女女配對)：純女女之愛，禁插入式陽具動作，以手指/舌頭/器物替代`);
-    if (others.length) parts.push(`${others.join("、")}：依各自實際性別自然互動`);
-    genderHintStr = parts.length ? `\n★【性別配對】：${parts.join("；")}。` : "";
+    // 🧹 2026-07「多餘設計」掃描：原本非女女的那一組會輸出「${名字}：依各自實際性別自然互動」——
+    //   那句話**既沒給事實也沒給約束**（連誰是什麼性別都沒講），在場5人時還會把5個名字全列出來
+    //   講這句廢話。判準：「有它跟沒它，這一回合的敘事會不一樣嗎？」不會 → 砍。
+    //   只留真正帶著限制的女女那一條；沒有女女配對時整個區塊不輸出。
+    genderHintStr = sameSexF.length
+      ? `\n★【性別配對】：${sameSexF.join("、")}(女女配對)：純女女之愛，禁插入式陽具動作，以手指/舌頭/器物替代。`
+      : "";
   }
 
   // 🛡️ 比照Core_Settings.gs讀同一欄位(mergePhysicalStatus/parseVisibleStatus)的try/catch防呆——
