@@ -476,7 +476,7 @@ const KANSHOU_SCENE_BOND_ = 3; // 接受親密橋段(夜襲/共浴/膝枕…非�
 function kanshouProposalAccepts_(type, bond) {
   bond = parseInt(bond) || 0;
   var base, slope;
-  if (type === 'move') { base = 0.45; slope = 0.006; }         // 一起去某地·門檻低(0→.45 / 40→.69 / 80→.93)
+  if (type === 'move') { base = 0.55; slope = 0.006; }         // 一起去某地·門檻最低(0→.55 / 40→.79 / 80→.97)
   else if (type === 'promise') { base = 0.30; slope = 0.007; } // 相約明天·中等(0→.30 / 40→.58 / 80→.86)
   else { base = 0.10; slope = 0.010; }                          // 牽手·最私密最看好感(0→.10 / 40→.50 / 80→.90)
   return Math.random() < Math.max(0.03, Math.min(0.97, base + bond * slope));
@@ -2559,10 +2559,15 @@ function actionPlay_(userData, pcId, sheets) {
     if (_pvLocOk && _pvIdxs.length) {
       const _pvNames = _pvIdxs.map(i => String(pcData[i][COL.PC.NAME]));
       const _pvHer = _pvNames.join('、');
-      const _pvBond = Math.min.apply(null, _pvIdxs.map(i => parseInt(pcData[i][COL.PC.BOND]) || 0));
+      // 🎲 裁定基準＝在場同伴的【平均】好感。舊版取最低那位，但提議對象是「同地全部人」(見上)，
+      //   等於把否決權交給剛好路過的陌生人——你跟好感80的她在咖啡廳，來個好感5的路人就掉回五成
+      //   (玩家：「提議移動的成功機率是多少 太低了吧」)。平均值仍保有「人越多越難成行」的意思，
+      //   但一個生面孔不再一票否決。
+      const _pvBonds = _pvIdxs.map(i => parseInt(pcData[i][COL.PC.BOND]) || 0);
+      const _pvBond = Math.round(_pvBonds.reduce(function (a, b) { return a + b; }, 0) / _pvBonds.length);
       const _pvMulti = _pvNames.length > 1;
       _pendingProposal = { type: 'move', idx: _pvIdxs[0], names: _pvNames, name: _pvHer, loc: _pvLoc, accepted: kanshouProposalAccepts_('move', _pvBond) };
-      kanshouPromiseStr += `\n★【提議·同去·GAS已裁定】你向『${_pvHer}』提議【現在一起去「${_pvLoc}」】。系統已依好感(${_pvMulti ? `最生疏的一位 ${_pvBond}` : _pvBond}/100)裁定${_pvMulti ? '她們全體' : '她'}${_pendingProposal.accepted ? `【答應】同行——請 narration ${_pvMulti ? '讓被點名的每一位都各依自己的個性給出答應的反應(可有人爽快、有人半推半就，但結論一致)' : '依她的個性演出答應的反應'}` : `【婉拒】了——請 narration ${_pvMulti ? '讓被點名的每一位都各依自己的個性給出婉拒的反應' : '依她的個性演出婉拒的反應'}`}。是否動身由系統處理；narration 停在${_pvMulti ? '她們' : '她'}給出回應的當下，【不可】演出發、走路或抵達。★成敗由系統定，別自行改寫${_pvMulti ? '她們' : '她'}的決定。`;
+      kanshouPromiseStr += `\n★【提議·同去·GAS已裁定】你向『${_pvHer}』提議【現在一起去「${_pvLoc}」】。系統已依好感(${_pvMulti ? `在場平均 ${_pvBond}` : _pvBond}/100)裁定${_pvMulti ? '她們全體' : '她'}${_pendingProposal.accepted ? `【答應】同行——請 narration ${_pvMulti ? '讓被點名的每一位都各依自己的個性給出答應的反應(可有人爽快、有人半推半就，但結論一致)' : '依她的個性演出答應的反應'}` : `【婉拒】了——請 narration ${_pvMulti ? '讓被點名的每一位都各依自己的個性給出婉拒的反應' : '依她的個性演出婉拒的反應'}`}。是否動身由系統處理；narration 停在${_pvMulti ? '她們' : '她'}給出回應的當下，【不可】演出發、走路或抵達。★成敗由系統定，別自行改寫${_pvMulti ? '她們' : '她'}的決定。`;
       finalUserMsg = `【玩家意圖】：邀身旁的『${_pvHer}』現在一起去「${_pvLoc}」。`;
     } else if (!_pvIdxs.length) {
       kanshouPromiseStr += kanshouMissStr_('move', _pvLoc);
