@@ -18,9 +18,14 @@
   //   <img onerror=…> 這類注入，再單獨把 <br> 放回來，防護與分段兩件事同時成立。
   //   ⚠ 放行清單就只有 <br>，要加第二種標籤前先想清楚它能不能帶屬性。
   function aiHtml_(text) {
+    // <br> 只是「這裡分段」的記號，先跟真換行統一成同一種東西，再一次切段——
+    //   AI 常吐 <br><br><br> 甚至 <br> 後面又接真換行，逐一轉標籤會疊成好幾行大空白
+    //   （玩家：「為啥分段很多」）。連打幾個都只算【一次】分段，首尾的空段直接丟掉。
     return escapeHtml(String(text || ""))
-      .replace(/&lt;\s*br\s*\/?\s*&gt;/gi, "<br>")
-      .replace(/\n{2,}/g, "<br><br>").replace(/\n/g, "<br><br>");
+      .replace(/&lt;\s*br\s*\/?\s*&gt;/gi, "\n")
+      .split(/\s*\n\s*/)
+      .filter(function (s) { return s !== ""; })
+      .join("<br><br>");
   }
   // ==========================================
   // 💾 故事流存檔：每回合都把整份 #story 的 innerHTML 寫進 localStorage。

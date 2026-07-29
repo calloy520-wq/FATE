@@ -52,7 +52,10 @@ if (!esc || !ai) {
 // [說明, 輸入, 判斷] —— 判斷寫成「輸出必須長怎樣」，不是「代碼必須怎麼寫」。
 const CASES = [
   ['AI 寫的 <br><br> 要真的分段', '第一段。<br><br>第二段。', h => h === '第一段。<br><br>第二段。'],
-  ['大寫 <BR> 與自閉合 <br /> 同等對待', 'a<BR>b<br />c', h => h === 'a<br>b<br>c'],
+  ['大寫 <BR> 與自閉合 <br /> 同等對待', 'a<BR>b<br />c', h => h === 'a<br><br>b<br><br>c'],
+  ['連打的 <br> 只算一次分段', '一。<br><br><br><br>二。', h => h === '一。<br><br>二。'],
+  ['標籤混真換行也只算一次', '一。<br>\n\n二。', h => h === '一。<br><br>二。'],
+  ['首尾的空段不留白', '<br><br>正文。<br><br>', h => h === '正文。'],
   ['真換行照樣轉成分段', 'a\n\nb', h => h === 'a<br><br>b'],
   ['<img onerror> 必須失效', '嗨<img src=x onerror=alert(1)>', h => !h.includes('<img') && h.includes('&lt;img')],
   ['<script> 必須失效', '<script>bad()</script>', h => !h.toLowerCase().includes('<script')],
@@ -89,7 +92,7 @@ for (const f of fs.readdirSync(GAS).filter(n => /^Script.*\.html$/.test(n))) {
 const backAll = fs.readdirSync(GAS).filter(n => n.endsWith('.gs'))
   .map(n => fs.readFileSync(path.join(GAS, n), 'utf8')).join('\n');
 const promptWantsBr = /<br><br>\s*分段|換行一律用\s*<br>/.test(backAll);
-const rendererAllowsBr = aiHtml_ ? aiHtml_('a<br>b') === 'a<br>b' : false;
+const rendererAllowsBr = aiHtml_ ? aiHtml_('a<br>b').includes('<br>') : false;
 if (promptWantsBr && !rendererAllowsBr) {
   problems.push('③ 後端提示詞還在叫 AI 用 <br><br> 分段，前端卻不放行 <br>——玩家會看到字面標籤');
 } else if (!promptWantsBr && rendererAllowsBr) {
