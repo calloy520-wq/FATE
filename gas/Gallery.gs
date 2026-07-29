@@ -2610,7 +2610,7 @@ function actionPlay_(userData, pcId, sheets) {
       if (kanshouIsCohabit_(pcData[_chIdx])) {
         kanshouCohabitStr = `\n★【已在同居】：『${_chRealName}』早就跟你住在同一個屋簷下了——演出她對這個明知故問依性格的反應(好笑/沒好氣/趁機撒嬌皆可)。`;
         finalUserMsg = `【玩家意圖】：又問了『${_chRealName}』要不要搬來一起住。`;
-        _settledVerdict = `『${_chRealName}』早就跟你住在一起了`;
+        _settledVerdict = `『${_chRealName}』早就跟你住在同一個屋簷下了`;
       } else if ((parseInt(pcData[_chIdx][COL.PC.BOND]) || 0) < KANSHOU_COHABIT_BOND_) {
         kanshouCohabitStr = `\n★【同居·婉拒】：你邀『${_chRealName}』搬來同住，但你們的關係還沒深到能同住一個屋簷下——演出她依性格婉拒的反應(害羞岔開/認真說還太早/打趣帶過皆可)，這件事沒有成立、也沒有任何數值變動。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣邀『${_chRealName}』搬來一起住。`;
@@ -2649,12 +2649,12 @@ function actionPlay_(userData, pcId, sheets) {
       if (kanshouIsLover_(pcData[_cfIdx])) {
         kanshouConfessStr = `\n★【已經在一起了】：你又向『${_cfHer}』說了一次喜歡她——你們早就是戀人，這不是告白而是情話。演出她依個性收下這句話的反應(嫌你肉麻／耳根紅／回敬一句皆可)。`;
         finalUserMsg = `【玩家意圖】：又對『${_cfHer}』說了一次喜歡她。`;
-        _settledVerdict = `你們早就是戀人，這句情話她收下了`;
+        _settledVerdict = `『${_cfHer}』收下了這句情話，你們早就是戀人`;
       } else if (_cfWait > 0) {
         // 💔 冷卻期：不擲骰、不動數值，只演「話又吞回去」——按鈕在前端本來就會鎖，這裡是後端保險。
         kanshouConfessStr = `\n★【說不出口】：你想再對『${_cfHer}』說一次那句話，但前幾天才被她拒絕過、此刻怎麼樣都開不了口——演出你把話吞回去、改口講了別的，以及她察覺到你欲言又止時依個性的反應(裝作沒發現／追問／不自在皆可)。這次沒有告白，沒有任何數值變動。`;
         finalUserMsg = `【玩家意圖】：想再告白一次，話到嘴邊又吞了回去。`;
-        _settledVerdict = `這次沒有告白出口，她只看到你欲言又止`;
+        _settledVerdict = `『${_cfHer}』只看到你欲言又止，這次沒有告白出口`;
         kanshouProposalResult_ = { ok: false, type: 'confess', name: _cfHer, wait: _cfWait, blocked: true };
       } else if (_cfBond < KANSHOU_CONFESS_BOND_) {
         kanshouConfessStr = `\n★【告白·被拒】：你向『${_cfHer}』告白了，但你們之間還遠不到那個程度——演出她依個性拒絕的反應(錯愕／認真說我們還不夠了解彼此／笑著當成玩笑帶過皆可)，這次不成立，不必替玩家找補。`;
@@ -2791,7 +2791,7 @@ function actionPlay_(userData, pcId, sheets) {
         dirtyPcRows.add(pcIndex);
         kanshouInviteStr = `\n★【正式結識】：你與『${kanshouCasualOf_(_ivHero)}』交換了聯絡方式，這段萍水相逢的緣分正式接上了——從今以後她也是這座城裡你認識的人，會有自己的生活與去處。演出這一刻依她性格的反應(大方/靦腆/意外皆可)，關係才剛起步、保持剛認識的分寸。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣向『${kanshouCasualOf_(_ivHero)}』提出想繼續深交、交換聯絡方式。`;
-        _settledVerdict = `聯絡方式已經交換到手，這段緣分正式接上了`;
+        _settledVerdict = `『${kanshouCasualOf_(_ivHero)}』同意交換聯絡方式，這段緣分正式接上了`;
       }
     }
   }
@@ -4037,7 +4037,7 @@ function actionPlay_(userData, pcId, sheets) {
     _settledVerdict = (_pendingProposal.accepted ? _ppYes : _ppNo)[_pendingProposal.type] || "";
   }
   const _settledTail_ = _settledVerdict
-    ? `\n【結果·GAS 已裁定，不可改寫】${_settledVerdict}。本回合就演到這個結果發生的當下，收在她的反應上——不要停在你開口問的那一刻。`
+    ? `\n【結果·GAS 已裁定，不可改寫】${_settledVerdict}，敘述收在她的反應上，並由她拋出一個玩家接得住的話題。`
     : "";
 
   const driveStr = driveOn ? `
