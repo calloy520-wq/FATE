@@ -53,6 +53,9 @@ if node "$ROOT/check_mirror.js"; then :; else fail=1; fi
 # 🔌 接線檢查（永遠不會成功的按鈕／查表漏一格／三階套同一句／掃描器自己漏看／死路由）
 if python3 "$ROOT/check_wiring.py"; then :; else fail=1; fi
 
+# 🧵 敘事渲染（提示詞叫 AI 用 <br> 分段、前端又整段 escape——兩邊各自都對，湊起來排版就死）
+if node "$ROOT/check_render.js"; then :; else fail=1; fi
+
 echo "──────────────"
 if [ "$fail" = 0 ]; then echo "✅ 全部通過"; else echo "❌ 有語法錯誤，勿 push"; fi
 exit $fail
