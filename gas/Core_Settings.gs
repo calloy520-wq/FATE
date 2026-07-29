@@ -15,9 +15,11 @@ const AI_MODEL = (function () {
   return p.getProperty('MODEL') || 'deepseek/deepseek-v4-flash';
 })();
 // solo(narrateWithState_) 只需精簡按鍵回饋、不需鑑賞級 NSFW 生成能力，獨立用低延遲小模型換取速度，與 AI_MODEL 互不影響。
+// 🔀 2026-07-28 玩家指定 3.1-flash-lite → 2.5-flash-lite（追繁體飄移；矜持模式的鑑賞聊天也跑這顆）。
+//   ⚠ 指令碼屬性 SOLO_MODEL 若有設值會蓋過這裡——換模型沒生效就先去 Apps Script 看那個屬性。
 const SOLO_MODEL = (function () {
   var p = PropertiesService.getScriptProperties();
-  return p.getProperty('SOLO_MODEL') || 'google/gemini-3.1-flash-lite';
+  return p.getProperty('SOLO_MODEL') || 'google/gemini-2.5-flash-lite';
 })();
 // 補魔/令咒解鎖分支(actionNarrateOnly 的 deepseek:true 旗標)專用模型，獨立指令碼屬性，不影響 AI_MODEL/SOLO_MODEL。
 const UNLOCKED_MODEL = (function () {
