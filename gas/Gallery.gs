@@ -1139,7 +1139,7 @@ function dialogueFormatRule_() {
 function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
   // physical_state 只留顏面神情(≤15字)：只管表情，衣裝狀態拆進獨立的 appearance_extras 欄
   //   (下方)，兩者關注點不同——前者是每回合都可能變的暫時神情，後者是要持久記住的實際穿著。
-  const _physicalState = "角色當下顏面神情(第三人稱·≤15字·有變化才填、否則留空沿用舊值)";
+  const _physicalState = "角色當下的神色——只寫臉上看得到的(眼神/臉色/表情)，不寫動作與劇情(第三人稱·≤15字·有變化才填、否則留空沿用舊值)";
   const _masterNote = {
     "經歷": "(不顯示·觀察玩家慢慢認識他)承接舊經歷·只增補本回合有意義的新遭遇·滾動摘要≤50字·沒新事就回舊值"
   };
@@ -2466,6 +2466,14 @@ function actionPlay_(userData, pcId, sheets) {
   //   接不接受(proposal_accept)，回應後(見下方post-AI區)才真正寫MEMORY——貫徹「意圖非結果」，避免
   //   低好感/矜持角色被系統強制答應(舊做法在按下當回合就寫死tag、提示詞還逼AI演成功)。
   let _pendingProposal = null; // {type:'promise'|'hold', idx, loc?, name?}
+  // 🎯 本回合「GAS 已經裁定完、AI 不能再改」的那個結果，會接在提示詞【最後一行】的玩家意圖後面。
+  //   為什麼非放最後一行不可：提示詞收尾是「現在演化玩家動作：『<finalUserMsg>』」，那是離生成點
+  //   最近的一句話。若它只寫「他開口提了什麼」，模型就照著演一個【還沒有答案】的請求然後停筆——
+  //   玩家實測：結識明明 100% 成立，AI 卻演成「我鼓起勇氣問…忐忑地觀察她的反應」就沒了，她連
+  //   一句話都還沒回（玩家：「不是100%成功嗎 幹嘛還要這樣演」「玩家不能是最後說話的 很難接」）。
+  //   ★事實其實寫在二十行以前，只是 recency 贏了。意圖與結果同在最後一行，兩邊才不會打架。
+  //   留空＝這個動作本來就沒有「對方答不答應」這回事(拍照/開門/鬆手…)，交給收尾鐵律即可。
+  let _settledVerdict = "";
   // 📣 成立/婉拒/撲空的明確回饋(相約/牽手/同居/她主動邀約 共用)——pre-AI 撲空婉拒與 post-AI 判定
   //   都可能寫它，一回合只走一條路。宣告須在相約區塊「之前」，撲空案例才寫得進去。
   let kanshouProposalResult_ = null;
@@ -2602,9 +2610,11 @@ function actionPlay_(userData, pcId, sheets) {
       if (kanshouIsCohabit_(pcData[_chIdx])) {
         kanshouCohabitStr = `\n★【已在同居】：『${_chRealName}』早就跟你住在同一個屋簷下了——演出她對這個明知故問依性格的反應(好笑/沒好氣/趁機撒嬌皆可)。`;
         finalUserMsg = `【玩家意圖】：又問了『${_chRealName}』要不要搬來一起住。`;
+        _settledVerdict = `『${_chRealName}』早就跟你住在一起了`;
       } else if ((parseInt(pcData[_chIdx][COL.PC.BOND]) || 0) < KANSHOU_COHABIT_BOND_) {
         kanshouCohabitStr = `\n★【同居·婉拒】：你邀『${_chRealName}』搬來同住，但你們的關係還沒深到能同住一個屋簷下——演出她依性格婉拒的反應(害羞岔開/認真說還太早/打趣帶過皆可)，這件事沒有成立、也沒有任何數值變動。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣邀『${_chRealName}』搬來一起住。`;
+        _settledVerdict = `『${_chRealName}』婉拒了同住`;
         // 📣 走查抓到的資訊黑洞：舊版婉拒只有敘事、無機制回饋，玩家不知道是好感不足還是演出婉拒。
         kanshouProposalResult_ = { ok: false, type: 'cohabit', name: _chRealName };
       } else {
@@ -2614,6 +2624,7 @@ function actionPlay_(userData, pcId, sheets) {
         kanshouProposalResult_ = { ok: true, type: 'cohabit', name: _chRealName };
         kanshouCohabitStr = `\n★【同居開始】：『${_chRealName}』答應搬來與你同住了！從今以後她深夜會回這個家的「和室」就寢、清晨可能還賴在被窩、晚間常在家中活動，白天依然過她自己的生活——演出她答應這一刻依性格的反應(欣喜/彆扭/故作平靜皆可)，這是關係的一大步。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣邀『${_chRealName}』搬來一起住。`;
+        _settledVerdict = `『${_chRealName}』答應搬來同住了`;
       }
     }
   }
@@ -2638,14 +2649,17 @@ function actionPlay_(userData, pcId, sheets) {
       if (kanshouIsLover_(pcData[_cfIdx])) {
         kanshouConfessStr = `\n★【已經在一起了】：你又向『${_cfHer}』說了一次喜歡她——你們早就是戀人，這不是告白而是情話。演出她依個性收下這句話的反應(嫌你肉麻／耳根紅／回敬一句皆可)。`;
         finalUserMsg = `【玩家意圖】：又對『${_cfHer}』說了一次喜歡她。`;
+        _settledVerdict = `你們早就是戀人，這句情話她收下了`;
       } else if (_cfWait > 0) {
         // 💔 冷卻期：不擲骰、不動數值，只演「話又吞回去」——按鈕在前端本來就會鎖，這裡是後端保險。
         kanshouConfessStr = `\n★【說不出口】：你想再對『${_cfHer}』說一次那句話，但前幾天才被她拒絕過、此刻怎麼樣都開不了口——演出你把話吞回去、改口講了別的，以及她察覺到你欲言又止時依個性的反應(裝作沒發現／追問／不自在皆可)。這次沒有告白，沒有任何數值變動。`;
         finalUserMsg = `【玩家意圖】：想再告白一次，話到嘴邊又吞了回去。`;
+        _settledVerdict = `這次沒有告白出口，她只看到你欲言又止`;
         kanshouProposalResult_ = { ok: false, type: 'confess', name: _cfHer, wait: _cfWait, blocked: true };
       } else if (_cfBond < KANSHOU_CONFESS_BOND_) {
         kanshouConfessStr = `\n★【告白·被拒】：你向『${_cfHer}』告白了，但你們之間還遠不到那個程度——演出她依個性拒絕的反應(錯愕／認真說我們還不夠了解彼此／笑著當成玩笑帶過皆可)，這次不成立，不必替玩家找補。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣向『${_cfHer}』告白。`;
+        _settledVerdict = `『${_cfHer}』沒有答應`;
         kanshouProposalResult_ = { ok: false, type: 'confess', name: _cfHer };
       } else if (kanshouConfessAccepts_(_cfBond, _cfMet)) {
         // 💗 成立：先蓋【戀人】(告白牆的鑰匙)，再把好感推過門檻，最後照既有漏斗同步標籤/棘輪。
@@ -2658,6 +2672,7 @@ function actionPlay_(userData, pcId, sheets) {
         kanshouProposalResult_ = { ok: true, type: 'confess', name: _cfHer };
         kanshouConfessStr = `\n★【告白·成立】：『${_cfHer}』答應了——從這一刻起你們是戀人。演出她點頭那一瞬間依個性的反應(眼眶紅／彆扭地別開臉／故作鎮定卻聲音在抖皆可)，並讓這一回合停在剛在一起的餘韻裡，別急著跳到之後的日子。★這是關係的質變，不是又一次閒聊。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣向『${_cfHer}』告白。`;
+        _settledVerdict = `『${_cfHer}』答應了，你們成為戀人`;
       } else {
         // 💔 被拒：扣既有的橋段增量(棘輪仍會把她接在已達門檻之上，不會一路崩)，並蓋冷卻日。
         pcData[_cfIdx][COL.PC.BOND] = Math.max(0, _cfBond - KANSHOU_SCENE_BOND_);
@@ -2667,6 +2682,7 @@ function actionPlay_(userData, pcId, sheets) {
         kanshouProposalResult_ = { ok: false, type: 'confess', name: _cfHer, wait: KANSHOU_CONFESS_COOLDOWN_ };
         kanshouConfessStr = `\n★【告白·被拒】：你向『${_cfHer}』告白了，她沒有答應——不是討厭你，是她此刻還沒辦法把你放在那個位置上。演出她依個性說出口的拒絕(抱歉而認真／慌張逃開／硬邦邦地否認皆可)，以及被拒之後空氣裡那份尷尬；這一回合就停在這裡，別讓她自己反悔改口。★成敗由系統定，不可改寫她的決定。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣向『${_cfHer}』告白。`;
+        _settledVerdict = `『${_cfHer}』沒有答應`;
       }
     }
   }
@@ -2775,6 +2791,7 @@ function actionPlay_(userData, pcId, sheets) {
         dirtyPcRows.add(pcIndex);
         kanshouInviteStr = `\n★【正式結識】：你與『${kanshouCasualOf_(_ivHero)}』交換了聯絡方式，這段萍水相逢的緣分正式接上了——從今以後她也是這座城裡你認識的人，會有自己的生活與去處。演出這一刻依她性格的反應(大方/靦腆/意外皆可)，關係才剛起步、保持剛認識的分寸。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣向『${kanshouCasualOf_(_ivHero)}』提出想繼續深交、交換聯絡方式。`;
+        _settledVerdict = `聯絡方式已經交換到手，這段緣分正式接上了`;
       }
     }
   }
@@ -4008,6 +4025,21 @@ function actionPlay_(userData, pcId, sheets) {
   const _kanshouHypnosisActive_ = partyRows.some(r => kanshouGetProps_(r[COL.PC.MEMORY], _kanshouPropCatalog).some(p => p.ignoreBond && p.level && p.level !== '關閉' && p.level !== KANSHOU_HYPNO_RELEASED_));
   const _kanshouTargetWords_ = _kanshouHypnosisActive_ ? 500 : (_kanshouMaxBond_ >= 60 ? 500 : _kanshouMaxBond_ >= 40 ? 400 : 250);
 
+  // 🎯 三種「確定性提議」的裁定就在 _pendingProposal.accepted，統一在這裡轉成人話；其餘按鈕
+  //   在各自分支已填好 _settledVerdict。組成最後一行的尾巴——玩家意圖與 GAS 結果同在收尾處。
+  if (_pendingProposal && !_settledVerdict) {
+    // ⚠ promise 型的 _pendingProposal 沒有 name 欄（只有 idx），寫死 .name 會印出空的『』——
+    //   比照 post-AI 落地那段(_ppHer)的既有寫法，name 拿不到就回列上讀。
+    const _ppName = String(_pendingProposal.name || (pcData[_pendingProposal.idx] || [])[COL.PC.NAME] || "她");
+    const _ppWho = _pendingProposal.names && _pendingProposal.names.length > 1 ? '她們' : `『${_ppName}』`;
+    const _ppYes = { promise: `${_ppWho}答應了這個約定`, move: `${_ppWho}答應現在一起去`, hold: `${_ppWho}讓你牽住了手` };
+    const _ppNo = { promise: `${_ppWho}婉拒了這個約定`, move: `${_ppWho}婉拒了同行`, hold: `${_ppWho}沒有讓你牽` };
+    _settledVerdict = (_pendingProposal.accepted ? _ppYes : _ppNo)[_pendingProposal.type] || "";
+  }
+  const _settledTail_ = _settledVerdict
+    ? `\n【結果·GAS 已裁定，不可改寫】${_settledVerdict}。本回合就演到這個結果發生的當下，收在她的反應上——不要停在你開口問的那一刻。`
+    : "";
+
   const driveStr = driveOn ? `
 🔥【主動掌握】：尺度一律以【親密尺度五階】為準${_kanshouHypnosisActive_ ? '(催眠暗示道具例外)' : ''}，這一段只講【怎麼寫】：①她依自己的個性主動出擊，色度可以走在玩家前面——Dirty Talk、直白不迴避，允許範圍內盡量細膩露骨；②情慾場：大量生理特寫(絞緊/吸吮/痙攣/蜜液/水聲/啪啪)+斷續喘息破碎台詞。` : '';
 
@@ -4056,7 +4088,7 @@ ${npcDialoguePrompt}
 🚨【收尾${driveOn ? '·主動掌握' : ''}】：${driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : ''}把最後一句留給被搭話的那個人——用對方的答話或神情收尾，停在等玩家接話的那一刻。玩家只說他自己輸入的那一句，結尾不替他再開口、再發問。沒有別人在場時才收在「我」的動作上。
 ★【動筆前最後確認】：全文台灣繁體中文(正體字·台灣慣用語)。在場只有${partyMembers.length ? `『${partyMembers.join('、')}』` : '沒有其他人'}，敘述裡開口/被觸碰/在場的只能是這些人，其他名字即使歷史提過也不准出現。
 
-現在演化玩家動作：『${finalUserMsg}』`;
+現在演化玩家動作：『${finalUserMsg}${_settledTail_}』`;
 
   try {
     // 🔥 平時矜持模式(driveOn=false)用跟solo共用的低延遲小模型(SOLO_MODEL)，只有主動掌握模式
@@ -4309,13 +4341,23 @@ ${npcDialoguePrompt}
       // 🔴 防禦機制：過濾掉 AI 偷懶不想更新狀態時的敷衍用語
       const ignoreWords = ["維持現狀", "無變化", "不變", "維持", "同上", "保持現狀", "沒有變化"];
 
-      // physical_state 只管顏面神情。提示詞要求≤15字，後端刻意截 20 當【容錯緩衝】——AI 常超寫兩三字
+      // physical_state 只管神色。提示詞要求≤15字，後端刻意截 20 當【容錯緩衝】——AI 常超寫兩三字
       //   (如「…因尷尬而生的紅暈」17字)，硬剪 15 會產生斷尾殘句(「…因尷尬而生的」·玩家實測回報)，
       //   寧可放寬 5 字也不要斷句。⚠ 別再「對齊文件」改回 15，這個差距是刻意的。
+      // 🐛→✅ 2026-07-28 玩家實測「狀態：原本專注看書的動作停下，抬頭望向風音，眼」——正好 20 字，
+      //   就是這裡硬剪出來的斷尾。5 字緩衝只夠吸收「超寫兩三字」，AI 把【整句敘事】寫進來時照樣斷句。
+      //   改成【在標點處收尾】：預算內的最後一個標點就是句子的自然結束點，剪在那裡不會殘半個詞。
+      //   預算內完全沒有標點才退回硬剪(至少不是無限長)。
       const sanitizePhysicalState = (rawState) => {
         if (typeof rawState !== 'string') return "";
-        const val = rawState.trim().slice(0, 20);
-        return (!val || ignoreWords.includes(val)) ? "" : val;
+        let val = rawState.trim();
+        if (!val || ignoreWords.includes(val)) return "";
+        if (val.length > 20) {
+          const cut = val.slice(0, 20);
+          const m = cut.match(/^[\s\S]*[，、。；！？]/); // 貪婪：取預算內最後一個標點為止
+          val = m ? m[0].replace(/[，、；]$/, "") : cut;  // 尾巴的逗號/頓號拿掉，句號驚嘆號保留
+        }
+        return ignoreWords.includes(val) ? "" : val;
       };
 
       // appearance_extras：AI 如實回報的當下實際穿著/配飾，篩掉敷衍語後直接交給既有 setOutfit_ 寫回
