@@ -49,7 +49,7 @@ function codexPersona_(name, cls) {
 var PREF_LABELS_ = ['日常表象', '真實內裡', '喜歡的事物', '討厭的事物'];
 var TRAIT_LABELS_ = ['外貌本相', '氣質舉止', '自稱與口氣', '卸下心防的私密一面'];
 // skipNone=true 時該格若為空或字面「無」直接跳過不顯示(給御主卡/敵御主卡沿用既有的無資料防呆)；
-// false 時保留全部4格(給 servantCard_ 用，段數不足時仍顯示「無」，不靜默漏项)。
+// false 時保留全部4格(給 servantCard_ 用，段數不足時仍顯示「無」，不靜默漏項)。
 // 無資訊量的值：空、「無」、以及 parseTraitsHelper 那幾個「跟標籤同義反覆」的 fallback 預設值
 //   （「卸下心防的私密一面：卸下心防時的柔軟一面」這種——標籤已經把話講完，值等於沒填）。
 var QUAD_EMPTY_ = ['', '無', '卸下心防時的柔軟一面', '卸下心防的私密一面', '舉止從容', '外貌平凡'];
@@ -58,7 +58,7 @@ function quadLabeled_(raw, labels, skipNone) {
   var out = "";
   for (var i = 0; i < labels.length; i++) {
     var v = (parts[i] || "").trim();
-    // 🧹 2026-07：空欄一律不送。舊版 skipNone=false 時會輸出「喜歡的事物：無」，理由是「不靜默漏项」
+    // 🧹 2026-07：空欄一律不送。舊版 skipNone=false 時會輸出「喜歡的事物：無」，理由是「不靜默漏項」
     //   ——那是為了方便開發者除錯，代價卻由每一張卡的提示詞付。要查漏欄請看試算表，別佔 AI 的注意力。
     if (QUAD_EMPTY_.indexOf(v) >= 0) continue;
     out += `｜${labels[i]}：${v}`;

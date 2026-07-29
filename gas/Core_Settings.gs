@@ -228,7 +228,7 @@ function setRuneMode_(memory, mode) {
 //   前綴/別名困擾)；只有 id 缺席時才退回名字比對(供舊呼叫/前端未帶id的過渡路徑用)。這條規則專治
 //   一整類反覆出現的bug——凡是「系統內部自己判斷這是哪個角色」(前端按鈕點誰/MEMORY硬連結/結盟
 //   對象查找)都該走這支、優先吃id；只有跟AI自由生成文字對帳(如narration提到的真名)才不得不
-//   退回名字，那條路本就無法避免模糊、該用kanshouNameCandidates_這類別名表处理，不歸這支管。
+//   退回名字，那條路本就無法避免模糊、該用kanshouNameCandidates_這類別名表處理，不歸這支管。
 //   opts: {id, name, gid, faction, loc, excludeIdx, aliveOnly=true, nameCandidates, normalize}
 //   nameCandidates(name)：可選，傳自訂候選產生器(如kanshouNameCandidates_)取代預設的「僅trim精確比對」。
 //   normalize(s)：可選，比對前套用在候選字串與該列真名兩側(如nameLoose_去除分隔符變體)，預設原樣trim。

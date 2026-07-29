@@ -6,7 +6,7 @@
 `engine.js` 直接把 `gas/Core_Settings.gs` + `gas/Engine_Fate.gs` + `gas/Seed_Codex.gs` 原始碼載進一個
 Node vm sandbox 執行——**不複製/改寫任何戰鬥算式或六圍資料**，永遠吃到當下 repo 版本的真實引擎與真實種子表。
 只 stub 掉載入當下會碰到的少數 GAS 全域物件（`PropertiesService`／`SpreadsheetApp`／`mcCombatFx_` 等），
-详见檔案內註解。
+詳見檔案內註解。
 
 ## 用法
 

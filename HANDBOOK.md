@@ -200,7 +200,7 @@ solo專用：`CONTRIB`(敵令咒餘量)／`MARTIAL`(寶具字串)／`SIX`／`TAG
 | 檔案 | 定性 | 備註 |
 |---|---|---|
 | `Core_Settings.gs` | 共用基礎設施 | COL schema／六圍換算／狀態字串／地理雷達皆共用；戰鬥限定helper(`rankVal`/`masterMaxHpMp_`/`OUTPUT_TIERS_`/`RUNE_MODES_`/`mageRealm*`/`masterSynergy*`)僅solo call site觸發，函式本身無track guard(靠呼叫端保護) |
-| `Router_Action.gs` | 分流總樞紐 | `handleGameAction`/`KANSHOU_BLOCKED_ACTIONS_`/`buildClientState_`/`buildTagsPayload_`(2026-07新增`isFateCtx`guard，見下)是兩軌分流的實際执行點 |
+| `Router_Action.gs` | 分流總樞紐 | `handleGameAction`/`KANSHOU_BLOCKED_ACTIONS_`/`buildClientState_`/`buildTagsPayload_`(2026-07新增`isFateCtx`guard，見下)是兩軌分流的實際執行點 |
 | `Gallery.gs` | 鑑賞核心引擎 | `actionPlay`/`heroToKanshouRow_`/`actionEnterKanshou`/`actionKanshouSummonHero`/`translate*ToDaily_`/`nsfwBaseRules`(紅線①)全部鑑賞專用；`findPlayerServant_`/`purgeGameData_`/`actionEndRun`是solo專用(檔案位置歷史因素放在這裡) |
 | `Router_Creation.gs` | 創角/召喚(兩軌共用寫入點) | `actionSummonServant`solo專用；`recordOriginalHero_`/`actionSaveHero`/`actionGetHeroes`/`parseForgeBuild_`是兩軌共用的英靈殿寫入/讀取路徑，`parseForgeBuild_`靠`cls==='御主'`分支正確拆開鑑賞companion(無六圍/技能/NP)與solo戰鬥從者 |
 | `Router_Persona.gs` | 演出卡組裝 | `servantCard_`/`masterCard_`/`enemyMasterCard_`/`quadLabeled_`皆solo專用(鑑賞在Gallery.gs自己另有`formatPref`/`formatTrait`，兩者邏輯相近但物理重複，非bug但是維護債) |
