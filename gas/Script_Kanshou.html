@@ -352,13 +352,13 @@ let plainTextContext = cleanText;
         else if (_pr.ok && _pr.type === 'promise') _msg = '📅 <b>約定成立！</b>' + (_pr.today ? '今天' : '明天') + escapeHtml(String(_pr.bandLabel || '')) + '在「' + escapeHtml(String(_pr.loc || '')) + '」與「' + _nm + '」見面——準時/早到好感↑、遲到打折、放鴿子↓。';
         else if (_pr.ok && _pr.type === 'hold') _msg = '🤝 <b>牽手成功！</b>之後你移動到哪，「' + _nm + '」都會相伴同行(直到放手)。';
         else if (_pr.ok && _pr.type === 'move') _msg = '🚶 <b>「' + _nm + '」答應一起去「' + escapeHtml(String(_pr.loc || '')) + '」！</b>點下方的「同意」，你們就一起動身。';
-        else if (_pr.type === 'move') _msg = '🚶 「' + _nm + '」這次不想去「' + escapeHtml(String(_pr.loc || '')) + '」——心情或時機不對，待會再邀、或自己先過去也行。';
+        else if (_pr.type === 'move') _msg = '🚶 沒有同行——你要自己去「' + escapeHtml(String(_pr.loc || '')) + '」的話，照常點地圖。';
         else if (_pr.ok && _pr.type === 'cohabit') _msg = '🏠 <b>同居開始！</b>「' + _nm + '」搬來與你同住了——深夜她會回家的和室就寢、清晨可能賴床、晚間常在家中。';
         // 💗 告白：成立＝關係階質變(戀人這一階唯一的入口)；被拒＝好感小幅回落＋幾天內說不出第二次。
         else if (_pr.ok && _pr.type === 'confess') _msg = '💗 <b>她答應了！</b>你和「' + _nm + '」從這一刻起是戀人——好感的上限就此打開，關係稱呼／專屬稱呼也一併解鎖。';
         else if (_pr.type === 'confess' && _pr.blocked) _msg = '💔 話到嘴邊又吞了回去——前幾天才被「' + _nm + '」拒絕過，還要 ' + (parseInt(_pr.wait) || 0) + ' 天才說得出口(這次沒有任何變動)。';
         else if (_pr.type === 'confess') _msg = '💔 「' + _nm + '」' + ((parseInt(_pr.wait) || 0) > 0 ? '沒有答應——好感略降，要隔 ' + (parseInt(_pr.wait) || 0) + ' 天你才說得出第二次。' : '沒有答應——你們之間還遠不到那個程度。');
-        else if (_pr.type === 'cohabit') _msg = '🏠 「' + _nm + '」婉拒了同居——你們的關係還不夠深(需要非常深厚的信賴)，再一起多累積些回憶吧。';
+        else if (_pr.type === 'cohabit') _msg = '🏠 沒有搬來——同住這一步需要非常深的信賴，好感還不到。';
         // 🐛→✅ 2026-07 逐按鍵稽核：地點不合法的兩種回報(promise_loc/move_loc)舊版沒有自己的分支，
         //   一路掉到最後那行 else，印出的是【「她」沒有讓你牽手】——玩家按的明明是相約/邀同去，
         //   卻收到一則牽手失敗通知，會去找一個不存在的問題。這兩型跟「她婉拒」無關，是地點的事。
@@ -367,7 +367,7 @@ let plainTextContext = cleanText;
             ? '你們此刻【就在「' + escapeHtml(String(_pr.loc || '')) + '」】——不用約在自己站的地方，挑個別處吧。'
             : '「' + escapeHtml(String(_pr.loc || '')) + '」此刻去不成(還沒熟到能登門、或那個時段沒開放)，換個地點或換個時段再試試。');
         }
-        else _msg = (_pr.type === 'promise' ? '📅 「' : '🤝 「') + _nm + '」' + (_pr.type === 'promise' ? '婉拒了這次約定。' : '沒有讓你牽手。') + '——關係再深一點、或換個時機再試試。';
+        else _msg = _pr.type === 'promise' ? '📅 這次沒有約成。' : '🤝 沒有牽到手。';
         const _col = _pr.ok ? 'rgba(90,160,110,.14);border:1px solid #4a8a5a;color:#a8e0b8' : 'rgba(150,110,120,.14);border:1px solid #8a5a6a;color:#e0b0bc';
         story.insertAdjacentHTML('beforeend', `<div style="background:${_col};border-radius:8px;padding:7px 10px;margin:4px 0;font-size:12.5px;">${_msg}</div>`);
       }
