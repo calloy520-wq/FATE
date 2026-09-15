@@ -234,6 +234,7 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 ### 十二試煉 / 令咒 / 戰報
 - **god_hand 燒命**：`getGodHandLives_` 無標記預設11（赫拉克勒斯）；種子可加 `lives:N`（尼祿3）；AI 原創持 god_hand 一律標【試煉】3。致命時 `lossN=1`＋概念加成＋overkill，`lossN≥餘命`→燒盡 destroyed。
 - **令咒**：`getPlayerSeals_/setPlayerSeals_`（MEMORY【令咒】N）。預設 3 道。令咒對斬首不適用。
+- **送 AI 的戰報**（`Router_Battle.gs` `roundsBrief`）：2026-09 起是單行「交鋒節奏：①命中／②揮空…」＋一句回擊統計，不再逐回合列明細（見 `FUNCTION_MANUAL.md` `actionFateBattle` 那條的說明）。**前端玩家看到的戰報卡不受影響**，仍是 `renderFateBattleReport` 的完整逐回合呈現。
 - **戰報**：`renderFateBattleReport` 畫斬首/strikes/雙從者血條/突襲卡/追擊卡/對轟卡/反噬紅幅。`FX_DESC`（Script.html `showSkillDesc`）依 fx 即時算當前階級數值——加新 fx 就同步補這裡。AI 敘述走事實素材列＋單行 steer（show-don't-tell·不報菜名）。⚠ 戰報固定文字卡別綁死攻擊手法（用中性「重創/擊破/威能壓過」）。
 
 ---

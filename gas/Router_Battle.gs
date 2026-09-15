@@ -1065,11 +1065,22 @@ function actionFateBattle(userData, pcId, sheets) {
   const totalTaken = rounds.reduce((s, r) => s + (r.eDmg || 0) + (r.pactDef && r.pactDef.hit ? (r.pactDef.dmg || 0) : 0), 0) + (clash ? (clash.pDmgTaken || 0) : 0);
   const nRounds = rounds.length;
   const atkLabel = dualAttack ? `${atkC.name} 與另一名從者協同` : atkC.name;
-  const roundsBrief = rounds.map(r =>
-    `第${r.n}回合：` + (r.strikes || []).map(k => `${k.by}${k.pHit ? `命中(−${k.pDmg})` : '揮空'}${k.note ? `【${String(k.note).replace(/\n/g, ' ')}】` : ''}`).join('、') +
-    (targetIsFoeServant ? (r.eDmg ? `，「${defC.name}」回擊${r.eTarget ? `「${r.eTarget}」` : ''}(−${r.eDmg})` : (r.eHit === false ? `，「${defC.name}」反擊被擋` : '')) : '') +
-    (r.eTelegraph ? `　⚠️敵「${defC.name}」真名解放的預兆匯聚·寶具蓄勢待發(下次接觸必傾瀉)` : '')
-  ).join('\n');
+  // 逐回合明細壓成一行「交鋒節奏」：命中/揮空的先後是攻防轉折(AI 要的)，逐行重複的人名與
+  //   單次傷害數字不是——總傷害下面另有一行，鐵律又要求不複述數字、不寫逐回合流水帳。
+  const ROUND_MARKS_ = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
+  const roundsBrief = (() => {
+    const attackers = {};
+    rounds.forEach(r => (r.strikes || []).forEach(k => { attackers[k.by] = 1; }));
+    const multi = Object.keys(attackers).length > 1;
+    const beats = rounds.map((r, i) => (ROUND_MARKS_[i] || ('第' + r.n + '回合')) +
+      (r.strikes || []).map(k => `${multi ? k.by : ''}${k.pHit ? '命中' : '揮空'}${k.note ? `【${String(k.note).replace(/\n/g, ' ')}】` : ''}`).join('＋'));
+    const counter = targetIsFoeServant ? rounds.filter(r => r.eDmg).length : 0;
+    const blocked = targetIsFoeServant && rounds.some(r => r.eHit === false);
+    return `交鋒節奏：${beats.join('／')}` +
+      (targetIsFoeServant ? `。「${defC.name}」${counter === 0 ? (blocked ? '反擊全被擋下' : '全程未能回擊')
+        : counter === rounds.length ? '回回都有回擊' : `其中 ${counter} 回合回擊得手${blocked ? '、其餘被擋下' : ''}`}` : '') +
+      (rounds.some(r => r.eTelegraph) ? `。⚠️敵「${defC.name}」真名解放的預兆已匯聚·寶具蓄勢待發(下次接觸必傾瀉)` : '');
+  })();
   const npTelegraphed = rounds.some(r => r.eTelegraph); // 🔮 本戰敵寶具進入預告→AI 演出＋前端保底警告
   const destroyedRow = destroyedName ? pcData.find(function (r) { return r && String(r[COL.PC.NAME]) === destroyedName && String(r[COL.PC.GAME_ID] || "") === myGameId; }) : null;
   const ourSideDestroyed = !!(destroyedRow && String(destroyedRow[COL.PC.FACTION]) === "從者");

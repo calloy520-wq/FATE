@@ -225,12 +225,13 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `codexPersona_(name, cls?)` — 查英靈殿人設 JSON（6h 快取）；優先「真名＋職階」吻合、找不到退回純真名比對（處理斯卡哈同真名跨職階）。供 `servantCard_` 在列上缺欄位時 fallback。
 
 #### 四段標籤化
-- `quadLabeled_(raw, labels, skipNone)` — PREF/TRAIT 的「、」四段值逐格加標籤餵 AI。`skipNone=true`＝空/「無」跳過（御主卡/敵御主卡用），false＝保留全 4 格（servantCard_ 用）。
+- `quadLabeled_(raw, labels, skipNone)` — PREF/TRAIT 的「、」四段值逐格加標籤餵 AI。值落在 `QUAD_EMPTY_` 的整格不送。⚠ `skipNone` 現已無實際作用（兩種呼叫端都走同一份 `QUAD_EMPTY_`），保留只為相容既有呼叫。
+- `QUAD_EMPTY_`（常數）— **無資訊量佔位字的唯一名單**：`parseTraitsHelper` 各 fallback 的每一格（外貌出眾/外貌平凡/舉止從容/卸下心防…/沉著表象/堅定內裡/珍視之物/厭惡之事/通曉魔術/深藏心事）。2026-09 補齊——漏收的佔位字會被當成真資料送進提示詞（實測一張敵從者卡曾同時夾帶「喜歡的事物：珍視之物」「討厭的事物：厭惡之事」「身世：Archer 職階英靈」三格純噪音）。新增 fallback 時要同步這裡。
 - `PREF_LABELS_` = [日常表象, 真實內裡, 喜歡的事物, 討厭的事物]；`TRAIT_LABELS_` = [外貌本相, 氣質舉止, 自稱與口氣, 卸下心防的私密一面]。
 
 #### 演出卡（回傳一段塞進 narration prompt 的字串；show-don't-tell 禁複述設定字面）
 - `performanceNote_(names)` — 🎭 表演總則（單一真實來源）：show-don't-tell／正典認知覆蓋／羈絆親疏，內容對「這次同框的每一位角色」皆固定不變，只需講一次。`names` 傳入這場戲實際同框的所有真名；`servantCard_`/`enemyMasterCard_` 傳 `opts.skipClose:true` 時各自省略內建收尾，改由呼叫端組完所有角色卡後呼叫本函式統一收尾一次（2026-07 提示詞瘦身：避免多角色同框時每張卡各自重複一份逐字相同的收尾句）。
-- `servantCard_(row, opts?)` — 🎭 從者卡（我方/敵/盟友共用同一份）。真名/職階/第一人稱（限角色台詞內）/對自己御主態度/四段個性/口吻/萌點/小動作/外貌四段（`looksToTraitParts_`）/身世/陣營/關係稱呼/換裝/武裝/寶具。附 ★換裝、★武裝·絕對（禁依職階或原典武器習慣改寫）、★狂化·絕對（`mad` 偵測→禁台詞只咆哮）三條硬指令。`opts.skipClose:true` 時省略內建的 `performanceNote_` 收尾（多卡同框呼叫端用，見上）；不傳 opts（絕大多數單卡呼叫端）行為不變。缺欄位退回 `codexPersona_`。**CLAUDE.md 紅線②強制載體。**
+- `servantCard_(row, opts?)` — 🎭 從者卡（我方/敵/盟友共用同一份）。真名/職階/第一人稱（限角色台詞內）/對自己御主態度/四段個性/口吻/萌點/小動作/外貌四段（`looksToTraitParts_`）/身世/陣營/關係稱呼/換裝/武裝/寶具。⚠ 2026-09 去重兩處：TRAIT 第3格的「自稱」不再輸出（卡頭已寫「台詞自稱」，同一件事講兩次）、`back` 的無資訊量過濾加收 `/職階英靈$/`（`Seed_Rivals.gs` 寫給敵從者的佔位字）。附 ★換裝、★武裝·絕對（禁依職階或原典武器習慣改寫）、★狂化·絕對（`mad` 偵測→禁台詞只咆哮）三條硬指令。`opts.skipClose:true` 時省略內建的 `performanceNote_` 收尾（多卡同框呼叫端用，見上）；不傳 opts（絕大多數單卡呼叫端）行為不變。缺欄位退回 `codexPersona_`。**CLAUDE.md 紅線②強制載體。**
 - `masterCard_(row)` — 🎭 御主卡（精簡）。性別/四段個性/四段特徵/萌點/身世/出身（`getMasterOrigin_`）/魔術系統+階/體術階/願望（僅供氛圍禁直述）。★可依性格給御主台詞反應，但**不可替玩家拍板戰略抉擇**（收尾不限問句，思索/備戰姿態/屏息對峙皆可，連續回合別重複同一種收尾）。讀 `getPlayedMaster_`→若扮演正典御主則提示 AI 調用原作形象。
 - `sealGenderFact_(masterSex, svSex, svName)` — 令咒補魔 NSFW 用性別配對事實（異/無按女性向處理）：女女→禁陽具插入描寫、無固定插入方；其餘→依各自實際性別合理呈現。與 kanshou Gallery.gs 邏輯類似但**完全獨立不共用**（紅線① solo/kanshou 隔離）。
 - `enemyMasterCard_(row, opts?)` — 🎭 敵御主卡（精簡）。戰鬥現場敵御主在場時給反應/台詞用；四段個性/特徵/萌點/身世（取「。外貌：」前段）/陣營/魔術/體術/願望。★正典人物優先調用原作形象、禁劇透未揭露身分；★非沉默背景板但勝負傷害不可改（此句為敵御主專屬行為準則，不受 skipClose 影響、恆常保留）。`opts.skipClose:true` 時省略「正典認知優先/show don't tell」那段（與同框的 `servantCard_` 一併併入同一次 `performanceNote_`）。與 masterCard_ 不同：AI 可自決其言行（NPC）。
@@ -361,7 +362,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 ## 戰鬥流程總覽（心智模型）
 
-`actionFateBattle`（出戰主流程·唯一入口）→ 前置閘門（AP/出力/魔力/令咒/盟友）→ 斬首分支（`fateStrike_` 外的獨立裁決）→ 寶具對轟開場 → `ROUNDS(3)` 回合迴圈（每回合我方每名從者各呼一次 `fateStrike_`、涓流回血、海怪再生＋追擊、盟友助攻、敵反擊）→ 組戰報＋ `aiPrompt`。
+`actionFateBattle`（出戰主流程·唯一入口）→ 前置閘門（AP/出力/魔力/令咒/盟友）→ 斬首分支（`fateStrike_` 外的獨立裁決）→ 寶具對轟開場 → `ROUNDS(3)` 回合迴圈（每回合我方每名從者各呼一次 `fateStrike_`、涓流回血、海怪再生＋追擊、盟友助攻、敵反擊）→ 組戰報＋ `aiPrompt`。⚠ 2026-09 `roundsBrief` 由「每回合一行明細」改成單行**交鋒節奏**（`①命中／②揮空…` ＋ 一句回擊統計）：逐行重複的人名與單次傷害對 AI 沒有資訊量（總傷害另有一行、miniSystem 又明令「不複述數字、不寫逐回合流水帳」，等於一邊禁止一邊示範），命中/揮空的先後才是攻防轉折。多名攻擊者時仍冠攻擊者名。
 `fateStrike_` 是「單次出擊裁決」的通用引擎：命中→扣血→死亡/勝負/十二試煉復活/令咒脫離/海怪擋傷 全套後續。
 `drainForNp_` 是「御主電池」：從者無自有魔力池，寶具/技能魔力一律由御主 MP →焚血（2HP=1MP）供應。
 
@@ -586,7 +587,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 關係梯度·好感天花板（資料驅動）
 
-- `KANSHOU_REL_TIER_`（常數）— 好感→關係標籤 5 階梯度（80 戀人/60 親近/40 熟識/20 普通朋友/-100 點頭之交）；門檻借鑑賞既有 60/80 節點，單一來源。
+- `KANSHOU_REL_TIER_`（常數）— 好感→關係標籤 5 階梯度（80 戀人/60 親近/40 熟識/20 普通朋友/-100 點頭之交）；門檻借鑑賞既有 60/80 節點，單一來源。**2026-09 每階加 `ceiling` 欄**（這一階的肢體親密天花板）——原本提示詞裡另外硬寫一份五行對照表，同一組門檻存兩處。`check_wiring.py` 的 `TIER_TABLES` 盯著每階都要有相異的 `ceiling`。
+- `kanshouIntimacyLines_(bonds)`（2026-09 新增）— 依在場者的好感陣列，只吐出**實際用得到的那幾階**親密尺度（全表五行對小模型是四行雜訊）；沒人在場回空字串、整塊規則不送。
 - `kanshouSyncRelTier_(pcData, idx)` — BOND 變動後的下游同步總管，順序固定為 **⓪告白牆（含舊存檔補齊）** ①好感棘輪夾地板 ②REL_TAG 重算 ③同居門檻檢查。⓪ 2026-07 新增：未 `kanshouIsLover_` 者好感一律夾在 `KANSHOU_REL_TIER_[0].min - 1`（79）——這裡是所有好感變動的唯一漏斗，夾一次等於全路徑都夾到（80/90 之上的戀人標籤・自訂稱呼・同居・最高階親密度因此一起關在告白之後，不必逐項開門檻）；夾之前先補齊舊存檔（已同居／REL_TAG 已是「戀人」／`【好感底線】`≥80 任一成立就補蓋 `KANSHOU_LOVER_TAG_`，**刻意不拿「此刻 bond≥80」當證據**，那會讓 AI 的 +5 自己把牆拆了）。①必須最先：②③都讀 bond，讀到未夾的值會做出跟棘輪矛盾的降階。②只在現值仍等於某梯度字面時才覆寫（玩家手動改自訂稱呼後不再自動蓋回）。③跌破 `KANSHOU_COHABIT_BOND_` 時清【同居】並蓋【同居解除】一次性旗標（棘輪上線後只剩舊存檔會走到）。冪等。任何動 BOND 處之後補呼叫（目前 5 處全數有呼叫）。
 - `kanshouBondFloorOf_(bond)`（2026-07 新增）— 好感棘輪的地板：回傳 bond 已跨過的最高門檻（門檻＝`KANSHOU_REL_TIER_` 的 min>0 ＋ `KANSHOU_COHABIT_BOND_`，即 20/40/60/80/90，由表推導不另寫數字）。**刻意寫成函式而非模組層常數**——`KANSHOU_COHABIT_BOND_` 宣告在本檔後面，const 有 TDZ，模組層直接引用會炸。
 - `KANSHOU_CUSTOM_TAG_BOND_`（常數=80，2026-07 五度改版新增）— 自訂關係稱呼／專屬稱呼的解鎖門檻，跟親密尺度五階「80+無上限」同一個切點。`actionUpdateRelTag`/`actionSetNickname`(Router_Action.gs) 共用此常數。
@@ -719,7 +721,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `actionPlay(userData, pcId, sheets)`（2026-07 稽核後改為薄包裝，~15 行）— 用 `CacheService` 對同一 `pcId` 做軟性互斥（偵測到同 pcId 仍有一次在跑就直接回「請稍候」拒絕本次），再委派給 `actionPlay_`。修的是：本函式故意豁免 `LOCK_EXEMPT_ACTIONS_` 全域鎖(AI呼叫數秒~49秒，鎖全域會拖累其他玩家)，但寫回是「整表快照→記憶體全改→結尾整列覆寫」，同pcId兩次呼叫窗口重疊時後flush者會整列蓋掉先flush者的全部改動——這裡不加全域鎖(仍會拖累其他玩家)，只鎖「同一pcId」。
 - `actionPlay_(userData, pcId, sheets)`（~1440 行，原 `actionPlay` 更名而來，呼叫關係／ActionRouter 對照不變，仍是 `"play"` 唯一實際邏輯）— 鑑賞唯一敘事引擎（入口擋非 KPC_；帳號歸屬驗證**已上移到 dispatcher**——`handleGameAction` 統一呼叫 `verifyPcOwnership_`，本函式內部只需 `kanshouPcIdx_(data, pcId)` 純索引查找，不必再自己反查帳號表；舊版 `kanshouOwnedRowIdx_` 已刪除）。玩家主對話 `message` 欄位嵌入提示詞前已補 `｜【】` 分隔符清洗（防偽造 MEMORY 標記／偽造系統指令段）。單回合處理全部意圖：地點移動＋私宅門檻＋**六度改版新增時段門檻**（`moveTarget.bands`跟`timeBand_(curHour)`不合就擋在移動前，比照私宅門檻同款「當作沒真的進去」寫法，有pending約定豁免）／**玩家發起的相約·牽手·同去提議**（`kanshouProposalAccepts_` 在呼叫 AI **前**先依 BOND 擲骰定成敗，結果直接寫進提示詞告訴 AI「成敗已由系統定」，AI 只演反應，`proposal_accept` schema 欄已整個刪除；2026-07 id 化重構：`promiseMeet`/`cohabitInvite`/`handHold` 三處對象解析改走 `findPcRowIdx_({id, name, nameCandidates:kanshouNameCandidates_})`，前端有帶 id 就精準命中、查無才退回原本名字模糊比對，同時仍套用同地點/在世/faction 過濾；2026-07 稽核：`promiseMeet`/`proposeMove`/`cohabitInvite`/`handHold`/`inviteResident` 五處撲空的敘事字串+回饋物件改呼叫共用 `kanshouMissStr_(type, name)`（查 `KANSHOU_MISS_COPY_` 表取措辭），取代各自手拼字串)／結識入駐（inviteResident）（NPC 主動邀約/邀同居的 GAS 判定觸發機制`kanshouPromiseOffer_`/`kanshouCohabitOffer_`皆已於八度改版移除，約會/同居現只剩玩家自己主動發起——`promiseMeet`/`kanshouInviteCohabit`一條路）／情境橋段注入（三層：節慶>地點×時段>同居日常，只注入 `ambient` 事實、不再有邀請泡泡）／深夜訪客（endDay 擲骰命中→直接落盤讓她進門＋回傳 `nightGuest` 善後選項）／結束一天（睡眠·同床≥80·晨間餘韻·強制回房·放手·眾人重骰行程）／推進時間·跳時段·跳節慶（rollHours_）／被動時間流動（每動作 +10 分·跨時段觸發 NPC 自然告辭）／赴約·爽約結算（時間×地點驅動·準時窗+5/遲到+3/爽約-5·寫共同回憶）／巧遇擲骰／拍照·看照片。組 system prompt（`buildDefaultSystemPrompt`）＋巨型 USER prompt（在場卡片/親密五階/移動鐵律/時段/世界觀）→ `callGeminiAPI`（`AI_MODEL`，被擋才自動換 `FALLBACK_MODEL`；時間轉場砍 max_tokens）。落地 AI 回傳：rel_changes（夾聊天上限·kanshouSyncRelTier_）/intimacy_feedback（physical_state/appearance_extras(原outfit_change)/mutual_nicknames/attitude/memory 共同回憶）/npc_exit/master_note 滾動側寫（現只剩經歷一格，性格四格/萌點創角時一次生成、遊玩期間AI不再碰）。**2026-07 四度改版拔掉`dynamic_skills`(雙修技巧)**：無UI無使用規則的孤兒欄位，連同`kanshouSkillTagStr_`/`processSkills`/`setSkillTag_`三個輔助函式一併刪除。回傳前經 `sanitizeAiData_` 守門。競態修 `buildLiveIdIndex_` 重定位後單列寫回。回傳 text/people/options/tags/各種泡泡與通知條/時鐘。
-  - 內嵌 helper：`formatPref`/`formatTrait`（送 AI 前的性格·特徵格式化。⚠ 2026-07 送出時砍格後兩者呈現方式已不同——`formatPref` 只送 [表象][內裡]、`formatTrait` 合併 [外貌氣質]＋[台詞自稱]，共用的 `formatFourSlot_` 因此失去意義已刪除；第4格由 `traitPrivateOf_` 併進萌點）、`relMemMemoryStr_`（REL_MEM 專屬稱呼＋態度）、`_whereIsHer`（撲空提示找她位置）、`_settle`（赴約結算閉包）、`sanitizePhysicalState`/`sanitizeAppearanceExtras`（原`sanitizeOutfitChange`，篩敷衍語·容錯截斷）、`processTags`（專屬稱呼 append 去重）、`processMemoir_`（共同回憶 append·雙字組 0.6 相似去重·★釘選不驅逐）。（`processSkills`/`setSkillTag_` 已隨雙修技巧機制整組刪除）
+  - 內嵌 helper：`_qv`（值落在 `QUAD_EMPTY_` 就回空，2026-09 新增）／`formatPref`/`formatTrait`（送 AI 前的性格·特徵格式化，空格與佔位字整格不送、不再輸出「無」。⚠ 2026-07 送出時砍格後兩者呈現方式已不同——`formatPref` 只送 [表象][內裡]、`formatTrait` 合併 [外貌氣質]＋[台詞自稱]，共用的 `formatFourSlot_` 因此失去意義已刪除；第4格由 `traitPrivateOf_` 併進萌點）、`relMemMemoryStr_`（REL_MEM 專屬稱呼＋態度）、`_whereIsHer`（撲空提示找她位置）、`_settle`（赴約結算閉包）、`sanitizePhysicalState`/`sanitizeAppearanceExtras`（原`sanitizeOutfitChange`，篩敷衍語·容錯截斷）、`processTags`（專屬稱呼 append 去重）、`processMemoir_`（共同回憶 append·雙字組 0.6 相似去重·★釘選不驅逐）。（`processSkills`/`setSkillTag_` 已隨雙修技巧機制整組刪除）
 
 #### 相簿 actions（讀/刪·拍照本體在 actionPlay）
 

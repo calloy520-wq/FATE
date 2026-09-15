@@ -76,9 +76,15 @@ for g in gates:
 
 # ── ② 查表覆蓋 enum ＋ 值必須彼此不同 ──────────────────────────
 # (enum 常數, 查表常數, 可以不覆蓋的值與理由)
-# 2026-09 玩家「小道具跟催眠完全移除」後，這裡暫時空著——唯一一組(道具強度階↔行為指令表)
-# 隨功能一起刪了。往後再出現「一張 enum 常數 ＋ 一張各階查表」的組合，往這裡加一列即可。
+# 「一張 enum 常數 ＋ 一張各階查表」的組合往這裡加一列。(道具強度階那組隨小道具功能一起刪了)
 ENUM_TABLES = []
+
+# ── ②b 一張表自己就是各階 ＋ 每階必須有某個欄位 ─────────────────
+# (表常數, 必備欄位, 這個欄位在提示詞裡是做什麼的)
+# 漏一階＝那一階在提示詞裡靜靜消失（AI 看不到天花板、玩家覺得規則時靈時不靈）。
+TIER_TABLES = [
+    ('KANSHOU_REL_TIER_', 'ceiling', '親密尺度：好感落在這一階時，肢體親密的天花板'),
+]
 
 
 def grab(name, text):
@@ -130,6 +136,19 @@ for enum_name, table_name, exempt in ENUM_TABLES:
     if tooshort:
         problems.append(f'② {table_name} 有過短的階（{tooshort[0][:20]}…）：小模型對只有形容詞的短指令區分度很弱')
 
+for table_name, field, why in TIER_TABLES:
+    t_src = grab(table_name, BACK_ALL)
+    if not t_src:
+        problems.append(f'②b {table_name}：抓不到定義（改名了？檢查沒跟上就等於沒檢查）')
+        continue
+    tiers = re.findall(r'\{[^{}]*\}', t_src)
+    miss = [i for i, t in enumerate(tiers) if not re.search(re.escape(field) + r"\s*:\s*'[^']{4,}'", t)]
+    if miss:
+        problems.append(f'②b {table_name} 第 {"、".join(str(i + 1) for i in miss)} 階沒有 `{field}`（{why}）——那幾階會從提示詞裡靜靜消失')
+    vals = re.findall(re.escape(field) + r"\s*:\s*'([^']+)'", t_src)
+    if len(vals) != len(set(vals)):
+        problems.append(f'②b {table_name} 有兩階的 `{field}` 一字不差——那兩階等於沒分開')
+
 # ── ④ 前端呼叫的 action 名稱必須真的存在於後端 router ────────────
 # 打錯一個字，玩家按下去只會拿到一句無關的失敗訊息（或整個沒反應），
 # 沒有任何東西會告訴你「這個 action 根本不存在」。反向也查：後端掛著沒人呼叫的 action
@@ -171,7 +190,7 @@ if dead:
 # 這裡記一個下限；真的刻意刪掉區塊時，請一併把這個數字調下來（強迫是個有意識的動作）。
 # ⚠ 這裡的計數方式跟 check_prompt.py 不同（那邊的 regex 會把同一行後面的 ★ 一起吃進 420 字尾巴裡），
 #   所以數字不一樣是正常的；重點是「不准無聲變少」。
-MIN_STAR_BLOCKS = 115   # 2026-09 刻意 -4：小道具/催眠整套移除，連帶拿掉它們的 ★ 區塊。前次 119
+MIN_STAR_BLOCKS = 112   # 2026-09 刻意 -3：鑑賞提示詞去重（路人/焦點禮讓/演出而非說明/沒寫的就不存在/稱呼/動筆前確認 合併成 3 條）。前次 115
 star = 0
 for l in BACK_ALL.split('\n'):
     t = l.strip()
@@ -269,7 +288,7 @@ for fname, src in back.items():
                 f'\n     ——按鈕的鐵則是「意圖→GAS結果→AI只演」，缺一樣 AI 就會自己補那一半。')
 
 print(f'🔌 接線檢查：門檻常數 {len(gates)} 個（其中 {len(NO_UI_NEEDED)} 個登記為不需 UI 出口）、'
-      f'查表 {len(ENUM_TABLES)} 組、事實表 {fact_cells} 格、solo 敘事提示詞 {solo_prompts} 處、★ 區塊 {star} 個、action 路由 {len(routed)} 條（前端呼叫 {len(called)} 條）')
+      f'查表 {len(ENUM_TABLES) + len(TIER_TABLES)} 組、事實表 {fact_cells} 格、solo 敘事提示詞 {solo_prompts} 處、★ 區塊 {star} 個、action 路由 {len(routed)} 條（前端呼叫 {len(called)} 條）')
 if problems:
     print(f'  ❌ {len(problems)} 處')
     for p in problems:

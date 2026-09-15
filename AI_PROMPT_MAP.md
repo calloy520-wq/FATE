@@ -1,5 +1,7 @@
 # 《命運停駐之夜》ActionRouter × AI 提示詞 全景圖
 
+
+> ⚠ **2026-09 提示詞瘦身（第八輪·先量再砍）**：鑑賞一回合 4,143 → 3,539 字（−15%）、solo 戰鬥 −8%。量測發現**試算表資料只佔 24%**，肥的是重複的規則與 JSON 範本。本檔以下各段若與 `Gallery.gs`／`Router_Narrative.gs` 現況有出入，以代碼為準；改動全紀錄與教訓見 `KANSHOU_REFERENCE.md` 的「第八輪」那條。
 > 目的：列出 `ActionRouter`（`Router_Action.gs` 行 8）內**每一個** action，對照其在 `Script.html` / `Script_Onboarding.html` / `Script_Kanshou.html` 的觸發按鈕、後端 handler 檔案位置，以及**是否組出送給 AI 的 prompt**（若有，摘要嵌入事實＋逐字引用收尾指令行）。
 >
 > ⚠ **行號說明**：本文 `檔.gs:NN` 行號是撰寫當下快照、會隨改碼漂移；**以函數名／按鈕文字 grep 為定位錨點**，行號僅供粗略跳轉。前端小函數的行號已拔除（只留函數名）。

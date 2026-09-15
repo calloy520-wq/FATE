@@ -49,7 +49,11 @@ function codexPersona_(name, cls) {
 var PREF_LABELS_ = ['日常表象', '真實內裡', '喜歡的事物', '討厭的事物'];
 var TRAIT_LABELS_ = ['外貌本相', '氣質舉止', '自稱與口氣', '卸下心防的私密一面'];
 // skipNone=true 時該格若為空或字面「無」直接跳過不顯示(給御主卡/敵御主卡沿用既有的無資料防呆)；false 時保留全部4格(給 servantCard_ 用，段數不足時仍顯示「無」，不靜默漏項)。
-var QUAD_EMPTY_ = ['', '無', '卸下心防時的柔軟一面', '卸下心防的私密一面', '舉止從容', '外貌平凡'];
+// 無資訊量佔位字的【唯一名單】：parseTraitsHelper 各 fallback 的每一格都必須在這裡，
+//   否則佔位字會被當成真資料送進提示詞、佔掉 AI 的注意力（新增 fallback 時記得補這裡）。
+var QUAD_EMPTY_ = ['', '無',
+  '外貌出眾', '外貌平凡', '舉止從容', '卸下心防時的柔軟一面', '卸下心防的私密一面',
+  '沉著表象', '堅定內裡', '珍視之物', '厭惡之事', '通曉魔術', '深藏心事'];
 function quadLabeled_(raw, labels, skipNone) {
   var parts = String(raw || "").split('、');
   var out = "";
@@ -98,12 +102,14 @@ function servantCard_(row, opts) {
     var tic = rowTic || p.tic || "";
     // persona.look 召喚時已複製進 row.TRAIT(parseTraitsHelper)，跟 fp/toM/persona 一樣退回讀列，別讓 p 變空物件時這格靜默消失。
     var look = String(p.look ? looksToTraitParts_(p.look, p.firstP || fp) : (row[COL.PC.TRAIT] || ""));
+    // 卡頭已寫「台詞自稱『X』」，TRAIT 第3格的自稱是同一件事講第二次——就地清掉，不動存進表裡的值。
+    if (look) { var _lk = look.split('、'); if (/^自稱/.test(String(_lk[2] || ""))) { _lk[2] = ""; look = _lk.join('、'); } }
     var outfit = getOutfit_(mem);              // 👕 玩家換裝：當前服裝穿著(疊在本相上·可清)
     var weapon = getWeapon_(mem);              // ⚔️ 玩家自定武裝：武器/戰鬥方式(蓋過職階慣例/原典習慣·可清)
     // 過濾掉召喚時的無資訊量 fallback(`${cls}・${realName}`，跟卡頭〈${name}·${cls}〉逐字重複)，
     //   只顯示真身世(玩家寫的原創英靈/AI補的身世)。
     var back = String(row[COL.PC.BACK] || "").trim();
-    if (back === `${cls}・${name}`) back = "";
+    if (back === `${cls}・${name}` || /職階英靈$/.test(back)) back = "";
     // 陣營(秩序/中立/混沌 ×善/中庸/惡)：種子/工房原創都填得完整，是道德決策傾向的錨點，
     //   一直存但沒餵過AI——補上，讓「秩序・善」跟「混沌・狂」等角色的抉擇風格自然分化。
     var align = String(row[COL.PC.ALIGN] || "").trim();
