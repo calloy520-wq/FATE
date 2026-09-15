@@ -4,6 +4,7 @@
 //   休息：玩家自選時數，每小時補 2 AP（6h 補滿）。何時休由玩家決定。
 //   世界 tick（移動/休息時）：敵移位(偵查失效) ＋ 暗處從者陣亡(戰爭自走)。
 // ==========================================
+// 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
 
 var AP_PER_DAY = 12; // 體力池上限（1 AP = 1 小時的行動）
 
@@ -51,7 +52,6 @@ function rollHours_(clk, hours) {
   while (clk.hour >= 24) { clk.hour -= 24; clk.day += 1; }
 }
 // 把時鐘寫回御主列 + 表（僅在 masterIdx 有效時才動作；沒有現成 pcData/sheets 則整表讀一次落地）。
-// skipWrite：呼叫端明確知道自己隨後必有一次涵蓋這3欄的批次整表寫回時傳 true，省掉這裡多餘的單列立即寫入。
 function writeClockToRow_(clk, pcData, sheets, skipWrite) {
   if (!clk || clk.masterIdx == null || clk.masterIdx < 0) return;
   var data = pcData, sh = sheets && sheets.pc;
@@ -93,7 +93,6 @@ function grantAp_(gameId, n, pcData, sheets) {
 }
 
 // 🛏️ 休息 N 小時：推進 N 小時、補 2×N AP（上限 12）。何時休、休多久由玩家決定。
-// skipWrite(選填，比照 spendAp_)：呼叫端保證隨後必有一次涵蓋 DAY/HOUR/AP 這3欄的批次整表寫回時傳true。
 function restHours_(gameId, hours, pcData, sheets, skipWrite) {
   var clk = getClock_(gameId, pcData, sheets);
   if (!clk || clk.masterIdx < 0) return null;
@@ -106,8 +105,6 @@ function restHours_(gameId, hours, pcData, sheets, skipWrite) {
 
 // 時段名（依小時）
 function timeBand_(hour) {
-  // 半開區間([下界,上界))：既相容整數(結果與舊版逐一相同)，又讓鑑賞的半小時刻度(如10.5)不會
-  //   掉進邊界縫隙被誤判成深夜。分界對齊 KANSHOU_TIME_BANDS_ 的 startHour。
   if (hour >= 5 && hour < 11) return "清晨";
   if (hour >= 11 && hour < 17) return "午後";
   if (hour >= 17 && hour < 20) return "黃昏";
@@ -152,7 +149,6 @@ function servantEconomy_(circuits, six, isMad, leyline, hasWorkshop) {
 }
 
 // 取玩家家園(居所)所在地；無則 ""。居所併入御主自己那一列(COL.PC.HOME_LOC)，不用獨立表。
-//   傳 pcData 可省一次整表讀(呼叫端手上通常已有)；沒傳才自行整表讀一次(相容)。
 function playerHomeLoc_(sheets, pcId, pcData) {
   if (!sheets || !sheets.pc) return "";
   try {
@@ -185,8 +181,6 @@ function playerServantEconomy_(sheets, pcId, preData) {
   // 🏕️ 陣地(工房)：玩家以 setWorkshop 設定的【陣地】marker，駐留該地→供魔工房加成。
   var workshopLoc = ""; try { workshopLoc = getWorkshop_(data[pIdx][COL.PC.MEMORY]); } catch (e) { }
   var atWorkshop = !!(workshopLoc && rootLoc && String(workshopLoc).split('-')[0].trim() === rootLoc);
-  // 🧮 HUD 顯示的收支必須跟 applyRegen_(實際時回) 用同一套算式，否則玩家看到的「淨 X/時」對不上
-  //   實際魔力增量；要涵蓋全隊(從者魔力貢獻/維持費/territory)，日後改公式兩函式務必一起動。
   var combatantsE = svRowsE.map(function (r) { return rowToCombatant_(r); });
   var partyMagicVal = 0, anyTerritory = false;
   combatantsE.forEach(function (c0) { partyMagicVal += rankVal(c0.six['魔力'] || 'E'); if (hasFx_(c0, 'territory')) anyTerritory = true; });
@@ -202,7 +196,6 @@ function playerServantEconomy_(sheets, pcId, preData) {
   var output = servantOutput_(sv[COL.PC.MEMORY]);
   var drain = Math.round(drainSum);
   // 🐙 海怪在場＝共用池另一張嘴(每小時 HORROR_HOURLY_UPKEEP)：HUD 收支與 applyRegen_ 實際時耗對齊。
-  //   掃全隊(海怪可能掛在第二從者·如破戒奪來的青鬍子)，與 applyRegen_ 的 svRows 掃描同準。
   var horrorUpkeep = 0;
   try {
     for (var hj = 0; hj < svRowsE.length; hj++) {
@@ -244,7 +237,6 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
   var did = false;
 
   // 🔋 出力電池制：從者【沒有自有魔力池】——御主MP 是唯一且持續的魔力資源，被同隊從者按「出力檔位」持續抽取。
-  //   先蒐集御主列＋在世同隊從者，再算御主魔力收支：收入(迴路供給+靈脈+工房) − Σ 從者維持費×出力 drainMul。
   var masterI = -1, svRows = [];
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][COL.PC.GAME_ID] || "") !== gameId) continue;
@@ -271,7 +263,6 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
     totalDrain += d * outputTier_(cs.output).drainMul;
   });
   // 🐙 深淵海怪·時間維持費：海怪在場＝共用池的另一張嘴，每小時另抽 HORROR_HOURLY_UPKEEP。
-  //   池赤字時【海怪先沉回深淵、才輪到御主燃血】(見下方 deficit 分支)。
   var horrorIdx = -1;
   svRows.forEach(function (ri) {
     if (horrorIdx !== -1) return;
@@ -309,7 +300,6 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
   }
 
   // 從者：【不參與燃血】。缺口時魔力短缺、靈基自我修復停擺(HP 不動)；無缺口則正常自我修復。
-  //   出力檔＝玩家旋鈕，不在時回變動；無自有魔力池。
   var deficitNow = masterBurn > 0;
   svRows.forEach(function (ri) {
     var shpMax = parseInt(data[ri][COL.PC.MAX_HP]) || 0, shp = parseInt(data[ri][COL.PC.HP]) || 0;
@@ -394,8 +384,6 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
       anyMemDirty = true;
     }
   }
-  // LOC/HP 整欄批次寫回跨輪累積髒旗標、迴圈跑完後才各寫一次(rounds 最多4輪)，
-  // data 全程原地改，跑完才寫不影響任何一輪讀到的中間值。
   var anyLocDirty = false, anyHpDirty = false;
 
   for (var rd = 0; rd < rounds; rd++) {
@@ -530,8 +518,6 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
         if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(o.info.idx + 1, 1, 1, data[o.info.idx].length).setValues([data[o.info.idx]]);
         markMasterLostServant_(sheets.pc, data, o.info.idx, "在冬木暗處的互鬥中、歿於他人之手");
       });
-      // 🎨 風聞措辭多樣化：不洩漏具體交鋒數字/勝方身分，只留下魔力波動／寶具氣息等氛圍線索——
-      //   有死亡才點名罹難者，純掛彩(多數情況)只留下模糊的異狀傳聞。
       if (aDied || bDied) {
         var victimName = aDied ? infoA.name : infoB.name;
         var lethalTpl = [
@@ -570,7 +556,6 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
     sheets.pc.getRange(2, COL.PC.MEMORY + 1, memColF.length, 1).setValues(memColF);
   }
   // 🕯️ 令咒耗盡·靈基透支：時間到 → 無「單獨行動」自持的脫逃敵從者，靈基崩解消滅。
-  //   這不是世界隨機清人(那有 WORLD_FLOOR_ 保底)，而是玩家親手把對方打到燃盡令咒後的「延遲結算」，故允許收尾、可觸發勝利。
   var victory = false, dreamPrompt = "";
   try {
     var ck = getClock_(gameId, data);
@@ -596,8 +581,6 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
       }
       if (faded && aliveEnemyServants_(sheets, gameId, data) <= 0) {
         victory = true;
-        // 🏆 這裡是唯二的「非直接戰鬥致勝」路徑(令咒透支延遲結算)，同樣要有願望夢——查玩家自己的
-        // 御主/從者列給 buildVictoryDreamPrompt_。
         try {
           var vmIdx = findGameMasterIdx_(data, gameId);
           var vsIdx = data.findIndex(function (r) { return String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_"); });

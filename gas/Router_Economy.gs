@@ -2,6 +2,7 @@
 // 🔋 Router_Economy.gs — 靈基出力／魔境／符文／寶具選／補魔
 //   玩家可調的從者旋鈕(樂觀更新 setter)＋actionManaSupply(硬擠迴路回滿共用池)。
 // ==========================================
+// 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
 
 function actionSetServantOutput(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
@@ -23,7 +24,6 @@ function actionSetServantOutput(userData, pcId, sheets) {
 }
 
 // 🔮 設定魔境的智慧選定標籤（斯卡哈專屬，玩家點選 1 個通用 A 階被動）：免費、即時、不耗 AP。
-//   只接受 mageRealmPool_ 池內 fx；空字串＝清除選擇。
 function actionSetMageRealm(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
@@ -73,7 +73,6 @@ function actionSetRuneMode(userData, pcId, sheets) {
 }
 
 // 👕 從者換裝（玩家自訂當前服裝穿著，存從者 MEMORY【換裝】）：純外觀·免費·即時·不耗 AP。
-//   只換衣不換人(五官/髮色/體態依種子 look)；空字串＝恢復本相。
 function actionSetOutfit(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
@@ -93,7 +92,6 @@ function actionSetOutfit(userData, pcId, sheets) {
 }
 
 // ⚔️ 設定從者武裝（存 MEMORY【武裝】）：玩家自定武器/戰鬥方式，敘述以此為準(蓋過職階慣例/原典習慣)。
-//   免費、即時、不耗 AP；留空＝清除、恢復自然演出。鏡射 actionSetOutfit。
 function actionSetWeapon(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
@@ -124,19 +122,15 @@ function actionManaSupply(userData, pcId, sheets) {
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可供魔。" });
   const svName = pcData[svIdx][COL.PC.NAME];
   // 補魔＝御主硬擠魔術迴路、回滿共用池——但【永久】燒蝕：血量上限−15、迴路−3(有地板)。
-  //   過度補魔＝慢性自盡(迴路↓→池縮、回魔慢、禮裝弱)。
   const CIRC_FLOOR = 8, HP_FLOOR = 40;
   const curMpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || masterPoolMax_(masterCircuits_(pcData[pIdx]), 0);
   const curMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
   if (curMp >= curMpMax) return JSON.stringify({ success: false, message: `御主的魔力儲備已然充盈，毋須補魔（免付燒蝕之代價）。` });
 
-  // 從者不是有求必應：須好感≥MANA_TRUST_BOND_且魔力已見底(≤10%上限)才會同意；不合資格時不動任何
-  //   數值，改由AI依從者性格生成婉拒——拒絕理由區分「不夠信任」與「還不到非做不可」兩種事實，避免AI編出對不上實情的理由。
   const bondForMana = parseInt(pcData[svIdx][COL.PC.BOND]) || 0;
   const lowEnoughForMana = curMp <= curMpMax * 0.10;
   if (bondForMana < MANA_TRUST_BOND_ || !lowEnoughForMana) {
     // GAS 只給裁定後的事實，理由留給 AI 用她的個性演——舊版把「信任尚淺、羈絆未至可託付如此私密之事的深度」
-    //   這種機制說明直接當台詞寫死，玩家反映過同款毛病(「提議移動失敗的台詞超級無敵僵硬」)。
     const declineWhy = bondForMana < MANA_TRUST_BOND_ ? '兩人的交情還不到這一步' : '魔力還沒到非付出這種代價不可的地步';
     const declinePrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【已裁定】御主開口求補魔，「${svName}」婉拒了——${declineWhy}。\n` +
@@ -176,15 +170,12 @@ function actionManaSupply(userData, pcId, sheets) {
   pcData[pIdx][COL.PC.MEMORY] = setOvercharge_(pcData[pIdx][COL.PC.MEMORY], newMpMax);
   const mpMax = newMpMax; // 給下方敘述沿用
 
-  // ⚡ spendAp_ 先跑(skipWrite=true，只改 pcData 記憶體、不單獨寫表)，讓下面的整列寫入一次過帶上
-  //   最新 day/hour/ap，省掉 spendAp_ 自己那道窄寫入(原本迴路/血量寫一次、spendAp_ 又寫一次)。
   const _manaApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以行補魔之儀——請『休息』恢復後再來。", { isFate: isFateMana, skipWrite: true });
   const manaAp = _manaApr.ap, manaClock = _manaApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   raiseBond_(sheets, myGameId, pcData[pIdx][COL.PC.NAME], svName, 3, pcData);
 
   // ⚔️ 卸防突襲：補魔時門戶大開，同地若有清醒敵從者→趁隙重擊我方從者（可能致敗）
-  // 🐛→✅ 稽核抓到：雙從者情境下漏帶 svIdx，可能敘事說補魔的這位遇襲、實際扣血/陣亡的卻是另一位。
   const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.4, svIdx);
 
   // 戰場補魔：甜而克制的曖昧 fade（給點甜頭、不開慾海引擎）——真・慾海留給鑑賞
@@ -234,8 +225,6 @@ function actionSpiritRepair(userData, pcId, sheets) {
   pcData[svIdx][COL.PC.HP] = svHp + healed;
   pcData[pIdx][COL.PC.MP] = mp - cost;
 
-  // ⚡ spendAp_ 先跑(skipWrite=true，只改 pcData 記憶體)，讓下面御主列的寫入一次過帶上最新day/hour/ap，
-  //   省掉 spendAp_ 自己那道窄寫入(原本MP扣減寫一次、spendAp_ 又寫一次)。
   const _repApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以行靈基修復之儀——請『休息』恢復後再來。", { isFate: isFateMana, skipWrite: true });
   const repAp = _repApr.ap, repClock = _repApr.clock;
   sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
@@ -243,7 +232,6 @@ function actionSpiritRepair(userData, pcId, sheets) {
   raiseBond_(sheets, myGameId, pcData[pIdx][COL.PC.NAME], svName, 2, pcData);
 
   // ⚔️ 卸防突襲：療傷時同樣門戶大開，同地若有清醒敵從者→趁隙重擊我方從者（可能致敗）
-  // 🐛→✅ 稽核抓到：雙從者情境下漏帶 svIdx，可能敘事說療傷的這位遇襲、實際扣血/陣亡的卻是另一位。
   const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.3, svIdx);
 
   const aiPrompt = ambushDispatchPrompt_(ambush,
@@ -267,5 +255,3 @@ function actionSpiritRepair(userData, pcId, sheets) {
   });
 }
 
-// 🩸 燃血補魔是【被動機制】，非主動 action：共用魔力池見底時消耗補不上，
-//   applyRegen_(Time_World) 自動「燃命續契約」——缺口÷2 全額扣【御主】HP(保底1)，從者不扣血。

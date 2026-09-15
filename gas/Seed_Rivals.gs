@@ -3,6 +3,7 @@
 //   敵御主 FACTION='敵御主'、敵從者 FACTION='敵從者'（與玩家自己的「從者」區分，
 //   才不會被 get_tags / fate_battle 誤認成玩家的從者）。
 // ==========================================
+// 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
 
 function safeJson_(s, dflt) { try { return JSON.parse(s || ""); } catch (e) { return dflt; } }
 
@@ -10,7 +11,6 @@ function safeJson_(s, dflt) { try { return JSON.parse(s || ""); } catch (e) { re
 function heroMagicRank_(heroRow) { return String(safeJson_(heroRow[COL.HERO.SIX], {})["魔力"] || "C"); }
 
 // 🔵 戰爭迷霧：玩家所在若有未偵查的敵御主/敵從者，標記為「已偵查」(地圖才會點亮)
-//   preData 就地標記避免重讀整表；變動時整欄一次 setValues 而非逐格寫入。
 function markRivalsSeen_(sheets, pcId, preData) {
   try {
     const data = preData || sheets.pc.getDataRange().getValues();
@@ -142,8 +142,6 @@ function shuffle_(a) {
   return a;
 }
 
-// 🔵 開局鋪敵：war ∈ '4th'|'5th'|'chaos'；playedMaster=玩家扮演的正典御主id(那組移除)，
-//   playerServantName(玩家奪取的從者)那一組也一律從對手移除。
 function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
   if (!gameId) return;
   war = war || '5th';
@@ -197,16 +195,12 @@ function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
       }
       rows.push(mRow, sRow);
     }
-    // 🔗 硬連結每組敵御主↔敵從者（rows 嚴格交替 master, servant…）：互寫【從者】/【御主】名於 MEMORY，
-    //   讓多組同場也分得清誰的從者被誰打掉。（僅此分支；4th/5th 正史分支逐對即時連結，不倚賴位置假設。）
     for (var pi = 0; pi + 1 < rows.length; pi += 2) {
       var mName = String(rows[pi][COL.PC.NAME] || ""), sName = String(rows[pi + 1][COL.PC.NAME] || "");
       if (sName) rows[pi][COL.PC.MEMORY] = String(rows[pi][COL.PC.MEMORY] || "") + "｜【從者】" + sName;
       if (mName) rows[pi + 1][COL.PC.MEMORY] = String(rows[pi + 1][COL.PC.MEMORY] || "") + "｜【御主】" + mName;
     }
   } else {
-    // 📜 正史 4th / 5th：正典組為敵；玩家扮演者那組、玩家奪取從者那組，皆移除
-    // 逐組當場配對即時連結(不倚賴陣列位置)：master:null 的孤身從者只 push 一列，位置式硬連結會讓後續全部錯位。
     var roster = (war === '4th') ? FATE_4TH_ROSTER : FATE_5TH_ROSTER;
     roster.forEach(function (r) {
       if (playedMaster && r.master && String(r.master) === playedMaster) return; // 你扮演的那組

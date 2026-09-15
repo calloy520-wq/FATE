@@ -5,6 +5,7 @@
 
 // 🎴 共用 fallback 常數：TRAIT/PREF 解析不到內容時的預設文字。GAS 全域作用域共享，
 //   Seed_Rivals.gs(heroToNpcRow_/masterToNpcRow_)與本檔(resyncSummonedServants_)皆讀這裡，
+// 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
 //   避免同一句字面散落各檔各改各的。
 var DEFAULT_TRAIT_FALLBACK_ = "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面";
 var DEFAULT_PREF_FALLBACK_ = "沉著表象、堅定內裡、珍視之物、厭惡之事";
@@ -270,7 +271,6 @@ var SEED_SERVANTS = [
 ];
 
 // 御主 persona 為 4 段頓號（日常表象・真實內裡・喜歡・厭惡）供 TRAIT/PREF 解析；
-// back＝身世生平（show-don't-tell 的演出依據）、moe＝萌點（不限反差，外觀/行為/習慣特色皆可）。
 var SEED_MASTERS = [
   // 第五次
   // circuits=27(官方數字，一般魔術師約20條)：他真正的弱項是迴路品質而非數量，此欄只管數量。
@@ -332,8 +332,6 @@ function upgradeCodexPersonas_(ss) {
     var s = byId[String(d[i][COL.HERO.ID])];
     // 整列依種子重寫(六圍/職階技能/固有技能/特性/寶具/人設/陣營)，只刷種子英靈(ID 對應)、不動客製英靈
     if (s) {
-      // 日常版欄位(dailyLook/dailyWords等)已手寫寫死進每位 persona，servantToHeroRow_ 回傳含這些欄，
-      // 整列覆寫即帶最新內容，不需要事後 clearContent() 逼 AI 重新生成。
       var row = servantToHeroRow_(s); hero.getRange(i + 1, 1, 1, row.length).setValues([row]); n++;
     }
   }
@@ -344,8 +342,6 @@ function upgradeCodexPersonas_(ss) {
     hero.getRange(hero.getLastRow() + 1, 1, addRows.length, addRows[0].length).setValues(addRows);
     n += addRows.length;
   }
-  // 🧹 淘汰孤兒：種子改名/汰換後，英靈殿殘留的舊種子列(ID 已不在 SEED_SERVANTS)自動清除，
-  //    嚴格只刪來源=='seed' 者，杜絕誤刪玩家自創英靈(ai_gen)。由下往上刪避免位移。
   for (var j = d.length - 1; j >= 1; j--) {
     if (!byId[String(d[j][COL.HERO.ID])] && String(d[j][COL.HERO.SOURCE]) === 'seed') { hero.deleteRow(j + 1); n++; }
   }
@@ -354,7 +350,6 @@ function upgradeCodexPersonas_(ss) {
 }
 
 // 升級既有御主殿：依種子整列重寫（依 ID 對應；不動客製御主）。整列重寫(而非只刷 persona/back/moe)
-//   確保 circuits/home/wish/melee/magic_rank 等影響玩法的欄位(如迴路→敵御主魔力池)也能吃到種子校正。
 function upgradeMasterCodex_(ss) {
   var msh = ss.getSheetByName('御主殿');
   if (!msh || msh.getLastRow() <= 1) return 0;
@@ -406,8 +401,6 @@ function resyncSummonedServants_(ss) {
     }
     var s = byKey[k];
     if (!s) continue; // AI 原創從者無種子 → 不動
-    // 🌸 鑑賞(k_)實例：戰時無 back、身世改讀 dailyBack。補寫種子後，已在場的同伴也趁版本升級一起
-    //   刷新身世，不再卡在「生活在這座城鎮裡的普通身影」通用預設(如舊 SABER)。只動鑑賞列、不碰 solo。
     if (String(data[i][COL.PC.GAME_ID] || '').indexOf('k_') === 0 && s.persona && s.persona.dailyBack) {
       data[i][COL.PC.BACK] = String(s.persona.dailyBack).slice(0, 28);
     }
@@ -430,15 +423,11 @@ function resyncSummonedServants_(ss) {
       var ks = byKey[kk];
       if (!ks || !ks.persona) continue;
       if (ks.persona.dailyBack) kdata[j][COL.PC.BACK] = String(ks.persona.dailyBack).slice(0, 28);
-      // 🎯 PREF(dailyWords)／INTENT(dailyMoe) 也必須跟著刷：這兩欄一樣會被寫進在場卡(formatPref 的
-      //   [表象][內裡]、萌點欄)，原本漏掉——種子性格/萌點改版後，已召喚的同伴永遠停在舊文字。
       if (ks.persona.dailyWords) kdata[j][COL.PC.PREF] = parseTraitsHelper(ks.persona.dailyWords, DEFAULT_PREF_FALLBACK_);
       if (ks.persona.dailyMoe) kdata[j][COL.PC.INTENT] = ks.persona.dailyMoe;
       var kparts = String(ks.persona.dailyLook || '').split('、').map(function (x) { return x.trim(); }).filter(Boolean);
       if (kparts.length >= 4) {
         kdata[j][COL.PC.TRAIT] = parseTraitsHelper(ks.persona.dailyLook, DEFAULT_TRAIT_FALLBACK_);
-        // 走共用工廠(replace-or-append ＋ 自動清洗)，不再自己拼一份 regex——舊版那份既沒清洗、
-        //   又是全專案第 3 份【口吻】寫入邏輯。
         kdata[j][COL.PC.MEMORY] = PERSONA_SPEECH_TAG_.set(String(kdata[j][COL.PC.MEMORY] || ''), kparts[2].slice(0, 40));
       }
       kn++;
@@ -450,7 +439,6 @@ function resyncSummonedServants_(ss) {
 }
 
 // 🔄【手動·強制】無視版本旗標，立刻把英靈殿＋在場從者重刷成最新種子(套用最新寶具/六圍/標籤/平衡)。
-//   給前端 DEV 按鈕用——不靠自動版本閘(怕部署時序/旗標卡住)，按一下立即生效並回報筆數。
 function actionDevResyncCodex(userData, pcId, sheets) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var codexN = 0, svN = 0, errs = [];
@@ -465,7 +453,6 @@ function actionDevResyncCodex(userData, pcId, sheets) {
 }
 
 // 🔵 英靈殿/御主殿 為空(只有表頭)時，自動灌入名冊。冪等：有資料就不動。
-//   另：版本升級時自動把既有種子英靈的 persona 刷成最新（萌點/口吻），不動客製英靈。
 function seedFateCodex_(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
   var hero = ss.getSheetByName('英靈殿');

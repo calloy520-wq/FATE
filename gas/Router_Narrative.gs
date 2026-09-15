@@ -9,6 +9,7 @@
 // 提升御主×從者羈絆（關係表好感）
 // preData：呼叫端已讀好的整表陣列可直接傳入原地改+寫格，省一次整表重讀；未給則自己整表讀一次。
 // gameId 一律由呼叫端直接傳入，不用 pcName 反查局——自訂御主名允許跨局撞名，反查會綁錯局、寫錯資料。
+// 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
 // skipWrite(選填)：呼叫端隨後必有一次涵蓋 BOND 欄的整列寫回時傳true，省掉這裡的單格立即寫入。
 function raiseBond_(sheets, gameId, pcName, svName, delta, preData, skipWrite) {
   try {
@@ -55,11 +56,6 @@ function buildVictoryDreamPrompt_(pcName, wish, servantName) {
 }
 
 
-// ==========================================
-// 🟢 輕量敘事專用路由：結算已由 GAS 完成，這裡只請 AI 補一段純文字描寫
-// 不讀規矩表、不帶歷史、不解析 JSON 數值，token 砍到最低
-// ==========================================
-// 把「給 AI 的提示詞」洗成玩家看的簡短回顧：去掉演出卡/★指令/素材/系統標籤，只留行動梗概並截短，供歷史顯示用（非整串幕後鷹架）。
 function cleanNarrateEcho_(promptText) {
   var s = String(promptText || "");
   s = s.replace(/〈[^〉]*〉[^\n]*/g, "");                       // 整段演出依據卡(到行尾)
@@ -99,7 +95,6 @@ function stripLeakedScaffold_(text) {
 }
 
 // 共用敘事核心：帶最近2筆歷史＋當前狀態(御主/在場從者 HP/MP)，呼叫輕量模型生成一段敘述。
-//   回 narrationText；JSON 解析失敗回 null(呼叫端給 fallback)。stateBrief 只給 AI 看、不存歷史。
 function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
   opts = opts || {};
   var aiConfig = {
@@ -146,8 +141,6 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
 }
 
 function actionNarrateOnly(userData, pcId, sheets) {
-  // 🔒 帳號歸屬驗證已上移到 dispatcher 統一擋（`handleGameAction`→`verifyPcOwnership_`），
-  //   進到這裡的 pcId 已保證屬於呼叫者本人，不必再反查一次「帳號」表。
   const { promptText } = userData;
   // 不信任前端 userData.isNsfw(共用 checkbox、鑑賞離場不重置的風險)，改純看 pcId 路由判斷。
   const isNsfw = String(pcId || "").indexOf("KPC_") === 0;

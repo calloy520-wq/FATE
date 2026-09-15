@@ -3,6 +3,7 @@
 //   帳號名(無密碼)登入 → 底下掛一個御主＋game_id。
 //   繼續 / 新的一局(清舊檔)。
 // ==========================================
+// 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
 
 function findAccountRow_(accSheet, name) {
   var data = accSheet.getDataRange().getValues();
@@ -33,7 +34,6 @@ function findPcRowByCharId_(pcData, charId) {
 }
 
 // 找玩家目前世界仍存活的從者列（回傳 row 與 index）。
-// 🧹 跟下面兩個函式同屬 solo game-lifecycle(結束一局/清檔)邏輯，鑑賞不會呼叫。
 function findPlayerServant_(pcData, gameId) {
   for (var i = 1; i < pcData.length; i++) {
     if (String(pcData[i][COL.PC.FACTION]) !== "從者") continue;
@@ -48,8 +48,6 @@ function findPlayerServant_(pcData, gameId) {
 function purgeGameData_(sheets, gameId, accountName, preData, accIdx) {
   if (gameId) {
     var fresh = preData || sheets.pc.getDataRange().getValues();
-    // 順手收集要刪的每一列 pcId，一併清掉「歷史暫存」裡屬於這些 pcId 的對話列，避免結束對局的
-    //   歷史列無上限累積。
     var purgedPcIds = [];
     for (var r = fresh.length - 1; r >= 1; r--) {
       if (String(fresh[r][COL.PC.GAME_ID] || "") === gameId) {
@@ -70,7 +68,6 @@ function purgeGameData_(sheets, gameId, accountName, preData, accIdx) {
 }
 
 // 🏆 奪得聖杯／結束本局：不再封存，只做清理，讓玩家能立刻開新局。
-//   從者/盟友要在慾海重逢，改用「英靈殿直接召喚」(見 actionKanshouSummonHero)。
 function actionEndRun(userData, pcId, sheets) {
   var acctName = String(userData.acctName || "").trim();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -128,8 +125,6 @@ function actionAccountLogin(userData, pcId, sheets) {
         if (String(pcData[j][COL.PC.ID]).startsWith("DEAD_")) continue;
         if ((parseInt(pcData[j][COL.PC.HP]) || 0) > 0) { servantAlive = true; break; }
       }
-      // 尚未召喚從者時 servantAlive 恆 false，不能與「已召喚但已死」共用同一判斷，否則會在
-      // 玩家還停留在召喚從者頁時就誤判整局已結束；只有 servantExisted && !servantAlive 才算殘局。
       if (!masterAlive || (servantExisted && !servantAlive)) {
         try { purgeGameData_(sheets, gid, name, pcData, found.idx); } catch (e) { }
         return JSON.stringify({ success: true, name: name, hasGame: false, ended: true });
@@ -141,8 +136,6 @@ function actionAccountLogin(userData, pcId, sheets) {
       needsSummon: gid.indexOf("g_") === 0 && !servantExisted
     });
   }
-  // charId 指向的御主已被標記 DEAD_（或不存在）→ 殘局：先清掉整局世界再解除連結。死亡時 ID 會加 "DEAD_" 前綴，
-  // 帳號表仍存原 charId，故需含 DEAD_ 反查該列拿 game_id 一併 purge。
   if (charId) {
     try {
       var deadRow = findPcRowByCharId_(pcData, charId);
@@ -170,8 +163,6 @@ function actionAccountNewGame(userData, pcId, sheets) {
   var charId = String(found.row[COL.ACC.PC] || "");
   if (charId) {
     var pcData = sheets.pc.getDataRange().getValues();
-    // charId 那列可能已是 DEAD_ 版本（敗北時 ID 加 "DEAD_" 前綴，帳號表仍存原 charId），須兩者都查，
-    // 否則 gid 查無、下面刪除迴圈找不到列可刪，殘列留在「眾生」表，違背本函式清舊存檔的目的。
     var prow = findPcRowByCharId_(pcData, charId);
     var gid = prow ? String(prow[COL.PC.GAME_ID] || "") : "";
     if (gid) {

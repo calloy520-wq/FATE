@@ -7,6 +7,7 @@
 // 🐛→✅ 稽核抓到：這兩個標記原本自己拼字串寫入、【完全沒有清洗】——同專案的 setOutfit_/
 //   cleanTagText_/makeTextTag_ 全都會剝掉 ｜【】，只有這裡沒有。而 speech 的來源包含【工房捏角時
 //   AI 生成的 dailyLook 第3段】，AI 吐出一個【 就會把整條 MEMORY 切錯格、後面所有標記靜默失效。
+// 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
 //   改走 makeTextTag_ 工廠：一次拿到清洗＋replace-or-append(冪等)，並消掉散落三處的重複 regex。
 var PERSONA_SPEECH_TAG_ = makeTextTag_('口吻');
 var PERSONA_TIC_TAG_ = makeTextTag_('小動作');
@@ -20,8 +21,6 @@ function stampPersonaFlavor_(memory, speech, tic) {
   return s;
 }
 
-// cls 可選：同真名跨職階共存時（如「斯卡哈」同時有 Lancer/Assassin 兩個種子條目、皆用同一
-//   realName）避免抓錯人設——優先找「真名＋職階」都吻合的列，找不到才退回舊的純真名比對。
 function codexPersona_(name, cls) {
   try {
     var d = getHeroCodexCached();
@@ -44,13 +43,9 @@ function codexPersona_(name, cls) {
   return {};
 }
 
-// PREF/TRAIT 內部是四段慣例存值，若整段黏成一串只掛外層標籤(性格：/特徵：)AI 看不出哪句對應哪格，
-// 故逐格加標籤餵給 AI。
 var PREF_LABELS_ = ['日常表象', '真實內裡', '喜歡的事物', '討厭的事物'];
 var TRAIT_LABELS_ = ['外貌本相', '氣質舉止', '自稱與口氣', '卸下心防的私密一面'];
 // skipNone=true 時該格若為空或字面「無」直接跳過不顯示(給御主卡/敵御主卡沿用既有的無資料防呆)；false 時保留全部4格(給 servantCard_ 用，段數不足時仍顯示「無」，不靜默漏項)。
-// 無資訊量佔位字的【唯一名單】：parseTraitsHelper 各 fallback 的每一格都必須在這裡，
-//   否則佔位字會被當成真資料送進提示詞、佔掉 AI 的注意力（新增 fallback 時記得補這裡）。
 var QUAD_EMPTY_ = ['', '無',
   '外貌出眾', '外貌平凡', '舉止從容', '卸下心防時的柔軟一面', '卸下心防的私密一面',
   '沉著表象', '堅定內裡', '珍視之物', '厭惡之事', '通曉魔術', '深藏心事'];
@@ -59,16 +54,12 @@ function quadLabeled_(raw, labels, skipNone) {
   var out = "";
   for (var i = 0; i < labels.length; i++) {
     var v = (parts[i] || "").trim();
-    // 🧹 2026-07：空欄一律不送。舊版 skipNone=false 時會輸出「喜歡的事物：無」，理由是「不靜默漏項」
-    //   ——那是為了方便開發者除錯，代價卻由每一張卡的提示詞付。要查漏欄請看試算表，別佔 AI 的注意力。
     if (QUAD_EMPTY_.indexOf(v) >= 0) continue;
     out += `｜${labels[i]}：${v}`;
   }
   return out;
 }
 
-// 🎭 這一則提示詞裡有誰。固定的表演總則(show-don't-tell／正典認知覆蓋／羈絆親疏)2026-09 移進
-//   miniSystem 講一次——它每顆按鍵都貼一遍、109 字、內容從不變，是全 solo 最貴的重複。
 function performanceNote_(names) {
   var list = (names || []).filter(Boolean);
   if (!list.length) return "";
@@ -79,8 +70,6 @@ function performanceNote_(names) {
 function servantCard_(row, opts) {
   if (!row) return "";
   var skipClose = !!(opts && opts.skipClose);
-  // 🗡️ 敵方卡：略過「熟了才看得到的一面」(萌點/小動作/私密一面)——戰場上的對手本來就不該有這些，
-  //   送了也只是稀釋掉真正要用的口吻與性格。我方/盟友/羈絆場景仍是完整卡。
   var foe = !!(opts && opts.foe);
   try {
     var name = String(row[COL.PC.NAME] || "");
@@ -94,8 +83,6 @@ function servantCard_(row, opts) {
     // 排除字元集用 `｜|【`(兩種 pipe 都排)，跟 getPersonaSpeech_/getPersonaTic_ 一致，避免尾端吃進雜訊字元。
     var toM = p.toMaster || (mem.match(/對(?:自己)?御主：([^｜|【]*)/) || [])[1] || "";
     var prefArr = String(row[COL.PC.PREF] || "").split('、').filter(Boolean);
-    // p.words 是種子原始格式(段落用「・」分隔)，quadLabeled_ 只切「、」——跟召喚寫列時
-    //   (Router_Creation.gs)同款先把「・」正規化成「、」，否則多段個性會擠成一格、後面格數錯位。
     var persona = p.words ? String(p.words).replace(/・/g, "、") : prefArr.slice(0, 4).join('、');
     var np = String(row[COL.PC.MARTIAL] || "");
     var speech = rowSpeech || p.speech || "";
@@ -107,12 +94,8 @@ function servantCard_(row, opts) {
     if (look) { var _lk = look.split('、'); if (/^自稱/.test(String(_lk[2] || ""))) { _lk[2] = ""; look = _lk.join('、'); } }
     var outfit = getOutfit_(mem);              // 👕 玩家換裝：當前服裝穿著(疊在本相上·可清)
     var weapon = getWeapon_(mem);              // ⚔️ 玩家自定武裝：武器/戰鬥方式(蓋過職階慣例/原典習慣·可清)
-    // 過濾掉召喚時的無資訊量 fallback(`${cls}・${realName}`，跟卡頭〈${name}·${cls}〉逐字重複)，
-    //   只顯示真身世(玩家寫的原創英靈/AI補的身世)。
     var back = String(row[COL.PC.BACK] || "").trim();
     if (back === `${cls}・${name}` || /職階英靈$/.test(back)) back = "";
-    // 陣營(秩序/中立/混沌 ×善/中庸/惡)：種子/工房原創都填得完整，是道德決策傾向的錨點，
-    //   一直存但沒餵過AI——補上，讓「秩序・善」跟「混沌・狂」等角色的抉擇風格自然分化。
     var align = String(row[COL.PC.ALIGN] || "").trim();
     if (align === "中立") align = ""; // 中立是通用預設值、無資訊量，略過不顯示
     // 玩家自訂關係稱呼(🏷️關係鈕)：預設值「從者」無資訊量，只在玩家真的改過才顯示。
@@ -120,8 +103,6 @@ function servantCard_(row, opts) {
     if (relTag === "從者" || relTag === "無") relTag = "";
     // 狂化偵測：喪失言語、只咆哮（如赫拉克勒斯、蘭斯洛特）。開膛手傑克等會說話的狂戰士不命中。
     var mad = /狂化|無法言語|僅咆哮|不語/.test(speech + String(fp));
-    // 多數角色 fp 預設值就是「我」，長提示詞中段容易讓小模型把角色自稱「我」跟敘事旁白第一人稱的
-    //   「我」(玩家)混淆，故明確限定「僅此角色自己台詞內」，不留一個懸空的「自稱」標籤。
     var card = `〈${name}·${cls}·演出依據·勿複述字面〉台詞自稱「${fp}」(旁白的「我」永遠是玩家)｜對自己御主的態度：${toM || '依真名'}` +
       (persona ? quadLabeled_(persona, PREF_LABELS_, false) : `｜性格：依真名`) +
       (speech ? `｜口吻：${speech}` : "") +
@@ -143,7 +124,6 @@ function servantCard_(row, opts) {
 }
 
 // 🎭 御主「演出依據」卡（精簡）：讓 AI 知道玩家御主是誰(性別/性格/特徵/願望/萌點)，以便 portray 互動。
-//   ★只供內化、禁複述；願望僅供氛圍不直述；【可】依性格給御主台詞/反應(讓角色有聲)，但【不替御主拍板戰略抉擇】。
 function masterCard_(row) {
   if (!row) return "";
   try {
@@ -155,7 +135,6 @@ function masterCard_(row) {
     var back = String(row[COL.PC.BACK] || "").trim();
     if (back === "來歷不明的魔術師") back = "";
     // 體術/魔術是能力描述(非願望/個性/萌點字面)，不受 show-don't-tell 限制，可直接陳述；
-    //   魔術階位跟魔術系統併成一行(如「寶石魔術(A階)」)，避免兩行都掛「魔術」開頭重複。
     var melee = getMasterMelee_(row[COL.PC.MEMORY]);
     var magic = getMasterMagic_(row[COL.PC.MEMORY]);
     var magicRank = getMasterMagicRank_(row[COL.PC.MEMORY]);
@@ -196,8 +175,6 @@ function enemyMasterCard_(row, opts) {
   try {
     var name = String(row[COL.PC.NAME] || "敵御主");
     var moe = String(row[COL.PC.INTENT] || "").trim();
-    // 性格詞光禿禿沒有情感錨點，AI 沒別的依據就滑向類型套路，故補身世＋願望；BACK 欄格式＝
-    //   「身世。外貌：…」(masterToNpcRow_)，外貌已由 TRAIT 欄呈現，這裡只取「。外貌：」前的身世段。
     var back = String(row[COL.PC.BACK] || "").split("。外貌：")[0].trim();
     if (back === "魔術師") back = ""; // masterToNpcRow_ 的無資料預設值，塞卡無資訊量
     var wish = (String(row[COL.PC.MEMORY] || "").match(/【願望】([^｜|【\n]*)/) || [])[1] || "";

@@ -6,6 +6,7 @@
 // ==========================================
 
 // 7 張分頁的表頭定義（欄位順序＝COL 對照表，引擎以索引讀取，表頭僅供人看）
+// 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
 // 關係/時鐘/權柄/因果/史紀/戰史 六表已併入眾生列尾端(BOND/REL_TAG/IS_PARTY/MEMOIR/REL_MEM/DAY/HOUR/AP/HOME_LOC)，欄序需與 COL.PC 對齊。(27 槽原 MAJOR_EVENT 死欄已復用為鑑賞 MEMOIR 共同回憶)
 var FATE_SHEET_DEFS = {
   "坤圖":   ["地域", "地名", "類型", "座標", "描述", "上級", "戰爭"],
@@ -20,8 +21,6 @@ var FATE_SHEET_DEFS = {
   "歷史暫存": ["時間", "角色ID", "發話者", "內容"]
 };
 
-// 🧹 一鍵清除專案所有觸發器（舊版經濟/飛書機制的殘留時間觸發器，函式本體已移除但觸發器可能還掛著）。
-//   FATE 世界推進靠玩家按鍵時的 worldTick_，不需任何觸發器，於 GAS 編輯器手動執行一次即可全清。
 function removeAllTriggers() {
   var ts = ScriptApp.getProjectTriggers();
   ts.forEach(function (t) { ScriptApp.deleteTrigger(t); });
@@ -154,8 +153,6 @@ function reseedIfEmpty_(ss) {
   try { PropertiesService.getScriptProperties().setProperty('fate_reseed_ver', RESEED_VER); } catch (e) { } // 一次性遷移完成、之後跳過
 }
 
-// 🔘 登入畫面「檢查/建立試算表」按鈕的唯一呼叫點，包成前端可觸發的 action。刻意不需要 pcId(登入前就能按)，
-//   也不受 KANSHOU_BLOCKED_ACTIONS_ 影響(該名單只擋鑑賞context呼叫solo專屬action，這裡 pcId 恆為空不會被攔)。
 function actionCheckSheets(userData, pcId, sheets) {
   try {
     var created = ensureFateSheets_();

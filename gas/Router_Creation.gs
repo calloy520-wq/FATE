@@ -3,6 +3,7 @@
 //   御主創角(actionManualNpc)＋敘事非阻塞補生成(actionBackfillMasterAi)＋召喚從者(actionSummonServant)。
 //   共用 GAS 全域作用域，與 Router_Action.gs 等其他檔互叫無礙。見 HANDBOOK.md §4.1 拆分慣例。
 // ==========================================
+// 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
 
 function actionManualNpc(userData, pcId, sheets) {
   // 御主創角（action="create"）；從者召喚見 actionSummonServant。
@@ -52,7 +53,6 @@ function actionManualNpc(userData, pcId, sheets) {
   const validMapNames = getMapDataCached(sheets).slice(1).map(r => String(r[COL.MAP.NAME]).trim()).filter(n => n !== "" && !n.includes('-'));
 
   // 開局非阻塞：create 不叫 AI，秒寫種子值進場；AI 生成的背景/特徵/個性/萌點由 actionBackfillMasterAi 背景補上。
-  //   數值(HP/MP/game_id/MEMORY)全由 GAS 決定，故無 AI 也是結構完整、可直接開打的列。
   try {
     // 🎴 御主(凡人魔術師)初始數值：HP/MP 依魔術迴路(財力/身世決定)推算——御主是凡人，遠低於英靈從者。
     const safeCircuits = circuits ? clampCircuits_(circuits) : null;
@@ -103,11 +103,7 @@ function actionManualNpc(userData, pcId, sheets) {
   } catch (e) { return JSON.stringify({ success: false, message: "建立失敗:" + e.message }); }
 }
 
-// 御主敘事非阻塞補生成：create 已用種子值秒建御主；此處於「召喚從者頁」背景叫 AI 補背景/特徵/個性/萌點，
-//   只用單格 setValue 更新敘事欄(不整列 write-back，避免與玩家動作競寫)；失敗則保留種子預設。數值欄一律不碰。
 function actionBackfillMasterAi(userData, pcId, sheets) {
-  // 🔒 帳號歸屬驗證已上移到 dispatcher 統一擋（`handleGameAction`→`verifyPcOwnership_`），
-  //   進到這裡的 pcId 已保證屬於呼叫者本人，不必再反查一次「帳號」表。
   const pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
@@ -165,8 +161,6 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
 // 🔵 六圍階級 → 內部數值（橋接）：rankVal 轉，最低 8
 function svNum_(rank) { return Math.max(8, rankVal(rank)); }
 
-// 🔵 提供前端瀏覽英靈殿：回傳 [{id,cls,name,gender,np}]
-// 從御主 MEMORY 讀戰役模式（canon=正史 / chaos=混亂；舊角色預設 canon）
 function getWarMode_(memory) {
   var m = String(memory || "").match(/【模式】(canon|chaos)/);
   return m ? m[1] : "canon";
@@ -237,8 +231,6 @@ var ALLOWED_FX_ = {
   // 施放技術/命中/防禦/對人放大——中階以下，拉高自訂從者上限、不含頂級概念寶具
   aim: 1, projection: 1, fast_cast: 1, crafting: 1, petrify: 1, shapeshift: 1,
   solo: 1, weapon_steal: 1, rho_aias: 1, territory: 1, wall_def: 1, zabaniya: 1, regen: 1,
-  // divine_core(神核) 已拔除工房開放——理由與 ea/王之財寶/UBW/海怪/天之鎖/黃金律 等頂級機制相同：
-  //   凡人不該持有的機制，漲價解決不了(有預算照樣買得到)，故收為種子專屬。
   divine: 1, // 神性(帶階級，比 trait 名判定精準)——引擎中主要是弱點(被神殺/天之鎖剋)，濫用價值低
   agile_striker: 1, // 以巧破力：以敏捷為傷害底(敏高於筋/魔時)，敏捷輸出流唯一通道。顯示名勿用「神速」——與 first_strike(先機) 正史技能撞名
   // 三項於互鬥測試中補上以填補剋制缺口：
@@ -289,8 +281,6 @@ function sanitizeSkills_(arr, maxCount) {
     return {
       n: String((s && (s.n || s.名稱 || s.name)) || "技能").replace(/[<>&"'`]/g, "").slice(0, 10) || "技能",
       r: okR(r) ? r : "C",
-      // 🛡️ ALLOWED_FX_是純物件字面量，truthy查詢會被Object.prototype繼承的鍵(constructor/
-      //   toString/valueOf等)污染成false positive——改用hasOwnProperty才是真的「在白名單裡」。
       fx: Object.prototype.hasOwnProperty.call(ALLOWED_FX_, fx) ? fx : ""
     };
   });
@@ -312,7 +302,6 @@ function sanitizeSix_(o) {
 }
 
 // 把 AI 生成的原創從者寫回英靈殿（重名則不收；御主不適用此機制）。
-//   選填 pExtra(工房玩家自定 look/moe/firstP/toMaster/speech/tic/back/weapon＋綁定用 creator)——不存的話重召時 persona 欄退回預設。
 function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, traits, np, personaWords, align, pExtra) {
   // 🛡️ 這是唯一寫進共用英靈殿的入口(手動工房已在parseForgeBuild_清過build.name，但AI輔助召喚path的realName可能只清過userData.trueName、AI自己回傳的aiBrief.realName未經任何清洗)——在單一真實來源補一道，兩條路徑都保證進表的名字不含HTML斷字字元。
   name = String(name || "").replace(/[<>&"'`]/g, "").trim();
@@ -348,18 +337,13 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
 }
 
 // 陣營九宮格(單一真實來源)：秩序/中立/混沌 × 善/中庸/惡，"中立"(無修飾)是通用預設值。
-//   工房(parseForgeBuild_)與 AI 生成從者(actionSummonServant)共用同一份白名單驗證。
 var ALIGNS_ = ["秩序・善", "秩序・中庸", "秩序・惡", "中立・善", "中立", "中立・惡", "混沌・善", "混沌・中庸", "混沌・惡"];
 
 // 💰 六圍/技能/規模 統一計價（單一真實來源：工房 parseForgeBuild_ 的預算上限檢查、AI 自訂從者的下限保底 bumpSixToFloor_ 共用同一套算式，避免定價邏輯散落兩處各自為政）。
 var SKILL_PTS_ = { E: 5, D: 10, C: 15, B: 20, A: 25 };
-// 三軌計價：同組同價會讓大係數標籤嚴格支配小係數，故照引擎真實係數分軌——強效(如千里眼/高速詠唱)貴 1/3、
-//   輕效(如騎乘/風王)便宜 1/3。前端鏡射 FORGE_SK_TRACK/FORGE_SK_PTS_*(Script_Onboarding.html，工房即時預算UI用)。
 var SKILL_PTS_BIG_ = { E: 7, D: 13, C: 20, B: 27, A: 33 };
 var SKILL_PTS_SMALL_ = { E: 3, D: 7, C: 10, B: 13, A: 17 };
 var SKILL_TRACK_ = { aim: 1, petrify: 1, fast_cast: 1, divine_age: 1, territory: 1, ride: -1, wind_strike: -1, morale: -1 };
-// 二元平價(引擎不讀購買階級，效果恆固定)：god_hand/survive/tsubame/zabaniya/gae_bolg/rule_breaker/
-//   anti_magic_lance/agile_striker/weapon_steal/god_slay/lovespot/self_mod/tactics/projection。
 var FLAT_FX_ = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_bolg: 25, rule_breaker: 25, anti_magic_lance: 25, agile_striker: 25, weapon_steal: 25, god_slay: 25, lovespot: 5, self_mod: 15, tactics: 25, projection: 25 };
 function forgeCost_(six, skills, npScale) {
   var spent = Object.keys(six).reduce(function (s, k) { return s + rankVal(six[k]); }, 0);
@@ -372,8 +356,6 @@ function forgeCost_(six, skills, npScale) {
 
 // 🌀 AI 自訂從者的六圍下限保底：對齊工房 FORGE_BUDGET(340)——AI 常自己抓不準力度，光靠 prompt 措辭拜託「務必有強有弱」擋不住偶爾生出偏弱從者，這裡改成 GAS 硬性補強：算完低於下限就把最弱一項六圍逐階往上補，直到達標或撞 EX≤2 上限(見 sanitizeSix_)為止。
 var FORGE_FLOOR_ = 340;
-// Berserker 職階附贈狂化C(傷+但命中/迴避−·不可關)是唯一負資產禮物，補正+30 拉平——工房與 AI
-// 生成上限封頂共用同一份，不各自宣告(單一真實來源)。
 var FORGE_CLS_BONUS_ = { Berserker: 30 };
 function bumpSixToFloor_(six, skills, npScale) {
   var RANKS = ["E", "D", "C", "B", "A", "EX"];
@@ -423,8 +405,6 @@ var FORGE_CLS_SKILLS_ = {
 function parseForgeBuild_(build, reqCls) {
   const VALID_CLS = ["Saber", "Archer", "Lancer", "Rider", "Caster", "Assassin", "Berserker"];
   const out = {};
-  // 「御主」職階：鑑賞限定純敘事款(比照 Seed_Codex.gs 的3位canon御主)，不參與戰鬥——
-  //   獨立於 VALID_CLS(七大從者職階)之外判斷，不吃 reqCls 的 Saber fallback。
   const isMasterCls = String(build.cls) === "御主";
   out.cls = isMasterCls ? "御主" : (VALID_CLS.includes(String(build.cls)) ? String(build.cls) : (reqCls || "Saber"));
   out.name = String(build.name || "").replace(/[<>&"'`]/g, "").trim().slice(0, 20);
@@ -461,8 +441,6 @@ function parseForgeBuild_(build, reqCls) {
   const exK = Object.keys(out.six).filter(k => out.six[k] === "EX");
   if (exK.length > 2) exK.slice(2).forEach(k => out.six[k] = "A");
   out.npScale = (String(build.npScale) === "對軍") ? "對軍" : "對人";
-  // 第4技能欄位費+20：預算才是真約束(逼六圍讓位)，疊加上限±8 讓多買的命中/迴避冗餘——
-  //   最壞情況四技組合(83~85%)仍未超過三技頂點(93%)。
   out.skills = (Array.isArray(build.skills) ? build.skills : []).filter(Boolean).slice(0, 4).map(s => {
     // 🛡️ 同上：hasOwnProperty才是真的白名單命中，避免"constructor"這類繼承鍵讓後面的FLAT_FX_[fx]查到Object建構子函式，把skillCost污染成字串，讓total>clsBudget的超預算擋失效(number>string比較會把字串轉NaN，NaN>x恆false)。
     const fx = Object.prototype.hasOwnProperty.call(ALLOWED_FX_, String(s && s.fx || "").trim()) ? String(s.fx).trim() : "";
@@ -565,8 +543,6 @@ function actionSaveHero(userData, pcId, sheets) {
   if (!pb.ok) return JSON.stringify({ success: false, message: pb.message });
   const dup = getHeroCodexCached().slice(1).find(r => String(r[COL.HERO.NAME]).trim() === pb.name);
   if (dup) return JSON.stringify({ success: false, message: `英靈殿已有「${pb.name}」——請換一個真名，或請其創造者修改。` });
-  // 🎭 AI 只補「玩家沒填的」演出欄＋寶具英文真名——失敗不擋鑄造
-  // 🌹 御主職階無寶具/技能，提示詞跳過那兩行、系統prompt也不要求 npEn(反正不會被讀)。
   const isMasterCls = pb.cls === "御主";
   const _ogF = originGuide_(String(userData.origin || "").trim()); // 🎭 工房三分類→AI 補人格時的忠實度(技能名玩家自己打·此處只管演出補完)
   let flavor = null;
@@ -619,15 +595,11 @@ function actionSummonServant(userData, pcId, sheets) {
   // ── 從英靈殿尋找對應英靈（heroId 指定 / 真名比對 / 隨機）──
   let hero = null;
   try {
-    // 英靈殿含「鑑賞限定」的正典御主(cls='御主')，只給鑑賞召喚用、沒有六圍/技能/寶具——若被 solo 召喚
-    //   會產出殘缺從者。三條路徑(heroId 指定/真名比對/隨機)都共用這份 hrows，統一在源頭濾掉，不逐一補檢查。
     const hrows = getHeroCodexCached().slice(1).filter(r => r[COL.HERO.ID] && String(r[COL.HERO.CLS]) !== "御主");
     if (hrows.length) {
       if (heroId) {
         hero = hrows.find(r => String(r[COL.HERO.ID]) === heroId);
       } else if (trueName) {
-        // 同真名可能有多職階列(如斯卡哈 Lancer/Assassin)——優先找真名比對到且職階match reqCls 的列，
-        //   找不到才退回「不分職階、比對到第一個」(相容沒選職階/單職階版本的一般真名召喚)。
         const _nameMatches = hrows.filter(r => String(r[COL.HERO.NAME]).includes(trueName) || trueName.includes(String(r[COL.HERO.NAME])));
         hero = (reqCls && _nameMatches.find(r => String(r[COL.HERO.CLS]) === reqCls)) || _nameMatches[0] || null;
       } else {
@@ -639,7 +611,6 @@ function actionSummonServant(userData, pcId, sheets) {
   } catch (e) { hero = null; }
   if (custDesc) hero = null; // 自訂描述 → 強制走 AI 生成原創，不抓名冊
   // 工房＝純「製造/修改」寫英靈殿(save_hero)，不再直接召喚——做好的原創英靈到召喚頁「🌟 玩家原創」
-  //   專區點選召喚(走下方 hero 分支實體化)。
 
   const newId = "NPC_" + Date.now();
   const pcColCount = Object.keys(COL.PC).length;
@@ -666,24 +637,16 @@ function actionSummonServant(userData, pcId, sheets) {
 
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
-      // 特徵(4格敘事)直接讀寫死的種子 persona.look，穩定一致、不叫 AI 生——但 persona.look 是「N段外貌
-      //   (含服裝)・・氣質詞」而非天然四格，用 looksToTraitParts_ 正確切分＋帶入 persona.firstP 當自稱。
       row[COL.PC.TRAIT] = parseTraitsHelper(looksToTraitParts_(persona.look, persona.firstP), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
-      // 種子英靈：直接用寫死的種子 persona，大部分欄位不叫 AI 重生，省 API、加速召喚(僅[喜歡]/[討厭]段數不足時
-      //   才補呼叫一次)。口吻/小動作(persona.speech/tic)已由 stampPersonaFlavor_ 複製進 MEMORY，servantCard_ 直接讀列即可。
       let svPref = String(persona.words || "").replace(/・/g, "、");
       let svMoe = String(persona.moe || "").slice(0, 18);
       let svBack = persona.back ? String(persona.back).slice(0, 28) : `${cls}・${realName}`;
-      // 種子 persona.words 幾乎只有2段，parseTraitsHelper 補滿4格時[喜歡]/[討厭]恆為「無」——召喚當下
-      //   補一次 AI 讓從者也有真正的喜好/討厭。已經4段(罕見)則直接跳過、不多打 API。
       svPref = enrichPersonalityLikesDislikes_(realName, cls, svPref);
       row[COL.PC.PREF] = parseTraitsHelper(svPref, "沉著表象、堅定內裡、珍視之物、厭惡之事");
       row[COL.PC.MEMORY] = stampPersonaFlavor_(`第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || "保持距離"}`, persona.speech, persona.tic);
       if (persona.weapon) row[COL.PC.MEMORY] = setWeapon_(row[COL.PC.MEMORY], persona.weapon); // ⚔️ 工房原創的自定武裝·重召不掉
       row[COL.PC.SIX] = JSON.stringify(six);
       row[COL.PC.TAGS] = JSON.stringify({ skills: tagSkillKind_(classSkills, 'class').concat(tagSkillKind_(skills, 'skill')), traits: traits });
-      // 復活命數：god_hand 持有者優先讀技能物件自己的 lives(如尼祿 lives:3)；種子沒標時，ai_gen 給3(尼祿基準)，
-      //   其餘靠 getGodHandLives_ 預設11(赫拉克勒斯十二試煉專屬)，別讓 AI 產物白拿。
       var ghSkill = classSkills.concat(skills).find(function (s) { return s && s.fx === 'god_hand'; });
       if (ghSkill) {
         var ghLives = (ghSkill.lives != null) ? ghSkill.lives : (String(hero[COL.HERO.SOURCE]) === 'ai_gen' ? 3 : null);
@@ -711,8 +674,6 @@ ${FX_MENU_}
 ★【輸出】合法 JSON、禁 Markdown：
 {"realName":"英靈真名",${clsUnset ? '"cls":"Saber",' : ""}"sex":"男/女/異 擇一","align":"如 混沌・善","background":"限20字","npc_intent":"萌點一句(不限反差)","personality":"四格頓號","look":"四格頓號","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"skills":[{"n":"自取的招式名","r":"A","fx":"對應效果碼"},{"n":"自取的招式名","r":"B","fx":"對應效果碼"}],"traits":[{"n":"人類"}]}`;
       const aiBrief = JSON.parse(callGeminiAPI(`【職階】：${clsUnset ? "未指定(請依描述判斷)" : cls}\n【御主】：${pcName}${trueName ? `\n【指定真名】：${trueName}` : ""}${custDesc ? `\n【玩家自訂描述】：${custDesc}` : ""}`, sysOverride, { temperature: custDesc ? 0.85 : 0.6, ignoreLaw: true }));
-      // callGeminiAPI 連線失敗不丟例外，而是回 fallback 敘事 JSON(narration/options)——照收會靜默生出全C
-      //   六圍/零技能的殘缺從者並永久污染英靈殿。缺 realName 或 six 視為生成失敗，中止讓玩家重試。
       if (!aiBrief || !aiBrief.realName || !aiBrief.six) {
         return JSON.stringify({ success: false, message: "英靈之座的迴響中斷——召喚失敗，請稍候再試一次。" });
       }
@@ -726,8 +687,6 @@ ${FX_MENU_}
       const aiSix = sanitizeSix_(aiBrief.six);
       const aiCSkills = FORGE_CLS_SKILLS_[cls] || [];
       const aiSkills = sanitizeSkills_(aiBrief.skills, 3);       // prompt 要求 2~3 個
-      // 🌀 六圍下限保底：AI 常自己抓不準力度，光靠 prompt「務必有強有弱」擋不住——GAS 這裡硬性補強
-      //   到與工房 FORGE_BUDGET(340) 對齊(不含職階技能 aiCSkills，理由見 bumpSixToFloor_ 註解)。
       bumpSixToFloor_(aiSix, aiSkills, /對軍/.test(np) ? "對軍" : "對人");
       capSixToBudget_(aiSix, aiSkills, /對軍/.test(np) ? "對軍" : "對人", cls);
       const aiTraits = Array.isArray(aiBrief.traits) ? aiBrief.traits.filter(Boolean).slice(0, 4).map(t => ({ n: String((t && (t.n || t.名稱 || t.name)) || t).replace(/[<>&"'`]/g, "").slice(0, 8) })) : [];

@@ -4,6 +4,7 @@
 // ==========================================
 
 // 📕 禮裝圖鑑。type:'passive' 持有即生效，自動加持我方從者；'special'＝破戒奪僕(另套機制)。
+// 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
 //   fx＝戰鬥效果碼(進 MC_COMBAT_ 表)；tier 目前無消費端，純資料備註。
 var MYSTIC_CODES = {
   avalon: {
@@ -30,7 +31,6 @@ var MYSTIC_CODES = {
 };
 
 // ⚔️ 禮裝戰鬥效果表（被動·自動加持我方從者）：fx → {hit 命中+, dmgAdd 每擊傷+, npMul 寶具傷×(攻), npDefMul 承受寶具傷×(防)}。
-//   要新增/調整禮裝戰力，只動這張表＋上面的 fx 對應；引擎(resolveFateBattle_)透過 mcCombatFx_ 自動讀取。
 var MC_COMBAT_ = {
   mc_blackkey:    { hit: 2, dmgAdd: 0,  npMul: 1.0,  npDefMul: 1.0,  label: '黑鍵·牽制' },
   mc_jewel_minor: { hit: 1, dmgAdd: 10, npMul: 1.0,  npDefMul: 1.0,  label: '魔力儲存寶石' },

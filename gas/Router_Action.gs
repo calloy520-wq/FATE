@@ -4,6 +4,7 @@
 
 // ------------------------------------------
 // 🔹 路由映射表 (Action Router)
+// 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
 // ------------------------------------------
 const ActionRouter = {
   "check_name": actionCheckName,
@@ -70,16 +71,10 @@ const ActionRouter = {
   "album_delete": actionAlbumDelete // 📷 刪照片(相簿滿了騰位子)
 };
 
-// ------------------------------------------
-// 🔹 主進入點 (Main Entry) - 極致精簡版
-// ------------------------------------------
-// 🔴 全域輸入防護：所有玩家輸入在進入任何 action handler 前，先在此統一過濾。
-//   前端 maxlength/檢查皆可被繞過(devtools、直打API)，故後端必須是唯一可信的防線。
 function sanitizeUserData_(userData) {
   // 名稱類欄位禁用 HTML/JS 斷字字元，避免在前端各處 innerHTML/onclick 拼接時被拿來做標籤或屬性逃脫。（全文見 CODE_NOTES.md）
   const STRICT_NAME_FIELDS = new Set(["name", "npcName", "targetName", "factionName", "newTagText", "newNickname", "pcName", "trueName", "acctName", "servantName", "foeName"]);
   // 🔴 只在「建立角色/登記NPC」的姓名欄位強制純中文(去英數/符號/空白)；
-  //   參照既有角色的欄位(targetName/newRelName 等)不清洗，以免破壞改版前可能存在的非中文名查找。
   const CHINESE_NAME_FIELDS = new Set(["name", "npcName"]);
   const NAME_MAX = 20;
   const GLOBAL_MAX = 2000; // 一般自由文字欄位(訊息/敘述/意圖等)的最終上限，各 handler 仍可再收更緊
@@ -134,8 +129,6 @@ function handleGameAction(userData) {
   if (pcId && !OWNERSHIP_CHECK_EXEMPT_[action] && !verifyPcOwnership_(userData.acctName, pcId)) {
     return JSON.stringify({ success: false, message: "查無御主。" });
   }
-  // 🛡️ 慾海(kanshou)無戰鬥／經濟機制(CLAUDE.md「不打工、無經濟、無戰鬥」)。前端 UI 全部隱藏這批
-  //   action，但直打 API 仍可能繞過；統一在此明確擋下，讓限制是結構保證而非依賴資料形狀湊巧擋住。
   if (isKanshouCtx && KANSHOU_BLOCKED_ACTIONS_[action]) {
     return JSON.stringify({ success: false, message: "慾海是純粹的約會後日談，沒有戰鬥／經濟機制。" });
   }
@@ -157,8 +150,6 @@ function handleGameAction(userData) {
   }
   try {
   let out = handler(userData, pcId, sheets);
-  // ⏳ 14天時限·中央攔截：任何「會推進時間」的動作(回應帶 clock 字串)若已跨過第14日 → 統一補敗北旗標，
-  //   免每個 action 各自判。用回應現成的 clock，僅在真跨日時才做一次眾生讀取建時限夢。
   if (String(pcId || "").indexOf("PC_") === 0 && !isKanshouCtx) {
     try {
       var ro = JSON.parse(out);
@@ -222,8 +213,6 @@ const KANSHOU_BLOCKED_ACTIONS_ = {
   weapon: 1, get_map_nodes: 1, narrate_only: 1, tiger_dojo: 1,
   end_run: 1, create: 1, summon_servant: 1, backfill_master_ai: 1,
   account_login: 1, account_new_game: 1,
-  // 🧹 move 已非共用action——鑑賞地圖改走kanshouMoveTo/kanshouProposeMove，前端不再送action:'move'，
-  //   讓 Router_Movement.gs 的 actionMove 保證只服務 solo。
   move: 1
 };
 
@@ -255,8 +244,6 @@ function resolveCallerGameId_(pcData, pcId) {
 function actionGetFullStatus(userData, pcId, sheets) {
   const targetName = userData.targetName;
   const allPcData = sheets.pc.getDataRange().getValues();
-  // 只比對 NAME 會在不同局剛好撞名時洩漏別局角色狀態/關係；限比呼叫者自己的 game_id
-  // (myGameId 為空時放行，相容沒有 game_id 的舊資料)。
   const myGameId = resolveCallerGameId_(allPcData, pcId);
   if (myGameId === null) return JSON.stringify({ success: false, message: "查無此人" });
   const tIdx = findPcRowIdx_(allPcData, myGameId, { name: targetName });
@@ -280,8 +267,6 @@ function actionUpdateFate(userData, pcId, sheets) {
     if (String(r[COL.PC.ID]).startsWith("DEAD_")) return false;
     if (myGameId && String(r[COL.PC.GAME_ID] || "") !== myGameId) return false;
     if (r[COL.PC.ID] == targetId) return true; // ID 直配（御主自己／舊路徑）
-    // 名字配：solo 限同行從者；鑑賞(k_)無 IS_PARTY 概念(列從不寫此欄·卡片的改命鈕原本恆「查無此人」)，
-    //   同世界名字直配——改同伴的敘事欄(個性/特徵/身世/萌點)是合法自訂操作(比照 update_rel_tag 豁免)。
     return String(r[COL.PC.NAME]) === String(targetId) && (myGameId.indexOf("k_") === 0 || String(r[COL.PC.IS_PARTY] || "") === "同行");
   });
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
@@ -313,7 +298,6 @@ function actionGetTags(userData, pcId, sheets) {
   return JSON.stringify(buildTagsPayload_(sheets, pcId));
 }
 // 🔧 抽出共用：左側狀態卡資料建構。get_tags 與 sync 共用同一份，讓「一次按鍵」少一趟 round-trip。
-//   preData＝呼叫端已讀好的整表，傳入即免重讀(省整表 I/O)。關係併入眾生列，不再需要 preRel。
 function buildTagsPayload_(sheets, pcId, preData) {
   const pcData = preData || sheets.pc.getDataRange().getValues();
   // mIdx 順手記下來，下面 canRuleBreak_ 需要索引時直接複用，不必再 findIndex 重掃一次。
@@ -321,8 +305,6 @@ function buildTagsPayload_(sheets, pcId, preData) {
   const m = mIdx >= 0 ? pcData[mIdx] : undefined;
   if (!m) return { success: false };
   const gameId = String(m[COL.PC.GAME_ID] || "");
-  // 下方 servants.push 組裝的戰鬥限定欄位(魔境/符文/synergy/理想鄉/多寶具/深淵海怪)須明確以
-  // isFateCtx 擋成 null，不能只靠「鑑賞列 TAGS/SKILLS 恆空」這種資料形狀僥倖安全。
   const isFateCtx = gameId.indexOf("g_") === 0;
 
   const hpWord = (hp, mx) => {
@@ -366,7 +348,6 @@ function buildTagsPayload_(sheets, pcId, preData) {
       nickname: getNickname_(s[COL.PC.REL_MEM]), // 💬 專屬稱呼裸值(鑑賞卡片「🏷️關係」面板預填用)
       cohabit: kanshouIsCohabit_(s), // 🏠 是否同居中(鑑賞卡片「關係」中樞面板顯示狀態用·solo恆false)
       // 💗 告白狀態(鑑賞「關係」中樞面板用)：lover＝已交往；confessWait＝被拒後還要幾天才開得了口。
-      //   門檻本身走 KC_CONFESS_BOND_ 鏡射，這兩個是【逐人狀態】、只能由後端算好下傳。
       lover: !isFateCtx && kanshouIsLover_(s),
       confessWait: isFateCtx ? 0 : kanshouConfessWait_(s, parseInt(m[COL.PC.DAY]) || 1),
       // 預取狀態字串隨 state 一併帶回，前端切從者直接秒顯，免每次都打一趟 get_full_status round-trip。
@@ -397,8 +378,6 @@ function buildTagsPayload_(sheets, pcId, preData) {
       outfit: getOutfit_(s[COL.PC.MEMORY]), // 👕 玩家換裝：當前服裝(前端預填/顯示·換衣不換人)
       weapon: getWeapon_(s[COL.PC.MEMORY]), // ⚔️ 玩家自定武裝：武器/戰鬥方式(前端預填/顯示·敘述以此為準)
       pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體
-      // 🌹 慾海卡「特徵」用：COL.PC.TRAIT 才是全代碼庫「特徵」的真實定義(外貌描述)，
-      //   TAGS.traits 是戰鬥特性標籤(神性/英雄)，兩者不可混用。
       trait: s[COL.PC.TRAIT] || "",
       held: !!(heldName && kanshouNameCandidates_(String(s[COL.PC.NAME])).includes(heldName)), // 🤝 是否正被牽手
       stolen: /【破戒奪取】/.test(String(s[COL.PC.MEMORY] || ""))
@@ -453,12 +432,8 @@ function buildTagsPayload_(sheets, pcId, preData) {
       && KANSHOU_NIGHT_SCENE_TAG_.get(m[COL.PC.MEMORY]) === (parseInt(m[COL.PC.DAY]) || 0)) || undefined };
 }
 
-// ⚡ preData：手上已有最新整表陣列的呼叫端(見 STATE_PRE_DATA_ 交棒機制)傳入複用，省掉整表重讀——
-//   前提是該 handler 的所有寫入都已反映回它那份陣列。沒給→照舊自己讀(權威 fallback)。
 function buildClientState_(sheets, pcId, preData) {
   const allPcData = preData || sheets.pc.getDataRange().getValues();
-  // markRivalsSeen_ 是「戰爭迷霧」機制(找同 game_id/同地敵對陣營標記已見過)，鑑賞眾生從無敵對
-  // 陣營列，跳過以免每次白掃一輪從沒中過的迴圈。
   const isKanshouSync_ = /^(KPC_|KHV_|KSV_)/.test(String(pcId || ""));
   if (!isKanshouSync_) { try { markRivalsSeen_(sheets, pcId, allPcData); } catch (e) { } } // 🔵 戰爭迷霧：就地標記 SEEN+批次寫回，免二次整表讀
   const pcIndex = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
@@ -473,8 +448,6 @@ function buildClientState_(sheets, pcId, preData) {
   if (isFate) { try { clk = clockLabel_(gid, allPcData); ap = getAp_(gid, allPcData); } catch (e) { } }
   // 鑑賞用精簡版 getKanshouPeopleList_，避免借用 solo 版算出一堆鑑賞前端從不讀取的欄位。
   const isKanshouCtx_ = gid.indexOf("k_") === 0;
-  // 🕰️ 鑑賞需把day/hour餵給前端才能判斷時段(如是否顯示「準備早餐」)；沿用`clock`放顯示字串(HUD同solo)，
-  //   kanshouClock 另給結構化欄位供前端邏輯判斷(顯示字串不好拿來比對)。
   if (isKanshouCtx_) { try { const ci = kanshouClockInfo_(allPcData[pcIndex]); clk = ci.label; kanshouClock = ci; } catch (e) { } }
   return {
     statusString: buildPlayerStatusString(allPcData[pcIndex]),
@@ -551,7 +524,6 @@ function actionSetNickname(userData, pcId, sheets) {
   }
 
   // 分隔符安全：清掉可能撞到REL_MEM組字格式的符號(｜全形/[]方括號)，避免污染後續欄位解析。
-  //   ★ 消毒規則抽進 Gallery.gs 的 sanitizeNickname_——AI 那條寫入路徑也走同一支(單一真實來源)。
   const finalNick = sanitizeNickname_(newNickname);
   if (!finalNick) return JSON.stringify({ success: false, message: "稱呼不可為空。" });
 

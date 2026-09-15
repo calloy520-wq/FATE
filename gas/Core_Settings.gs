@@ -3,13 +3,13 @@
 // 🔴【第一部分：基礎設定、ORM 映射與數值統計核心】Core_Settings.gs
 // ==========================================
 
+// 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
 // 🔵 2026-07 玩家定案：只認 OPENROUTER_API_KEY 這一個指令碼屬性名稱，舊的相容別名一併砍除。
 const OPENROUTER_API_KEY = (function () {
   return PropertiesService.getScriptProperties().getProperty('OPENROUTER_API_KEY') || '';
 })();
 const MODEL_URL = "https://openrouter.ai/api/v1/chat/completions";
 // 兩軌共用同一顆主力模型；被審查擋下或重試全敗時，callGeminiAPI 自動換後援再打一輪（見 Engine_Combat.gs）。
-// 預設值直寫程式碼，指令碼屬性(MODEL / FALLBACK_MODEL)有設就優先。
 const AI_MODEL = (function () {
   return PropertiesService.getScriptProperties().getProperty('MODEL') || 'google/gemini-3.5-flash-lite';
 })();
@@ -55,8 +55,6 @@ function rankVal(r) {
   const letterOnly = r.replace(/[+\-]/g, "");
   if (!letterOnly) return RANK_VALUE["E"];
   let base = RANK_VALUE[letterOnly.toUpperCase()] || 10;
-  // 🛡️ +/-修飾字元理論上只會是UI骰出的1~2個(如"A+"/"A++")，但這欄位來源包含玩家自由輸入
-  // (見actionManualNpc的melee/magicRank)，沒上限的話可以打"A+++++++"無限灌傷害，封頂3個。
   const plus = Math.min((r.match(/\+/g) || []).length, 3);
   const minus = Math.min((r.match(/\-/g) || []).length, 3);
   return base + plus * 5 - minus * 3;
@@ -71,7 +69,6 @@ function rankVal(r) {
 // ==========================================
 
 // 🟢 姓名限定純中文：移除所有非中日韓統一表意文字(CJK 含擴展A)的字元——英數、符號、空白、emoji 全部濾除。
-// 全系統唯一真實來源；前端只做提示與即時擋字，後端此函式才是最終防線。回傳清洗後字串(上限10字)。
 function cleanChineseName(s) {
   return String(s == null ? "" : s).replace(/[^㐀-䶿一-鿿]/g, "").slice(0, 10);
 }
@@ -94,8 +91,6 @@ function buildTrajectoryDigest_(pcData, gameId, pcRow) {
     var svHp = parseInt(svRow[COL.PC.HP]), svMaxHp = parseInt(svRow[COL.PC.MAX_HP]) || 1;
     if (!isNaN(svHp) && svHp < svMaxHp * 0.3) parts.push('從者剛歷經惡戰、體力未復');
   }
-  // 魔力池告急時明講是從者自己的存亡危機(從者無自有魔力池，全靠此池維生，見masterPoolMax_/applyRegen_)，
-  //   避免AI誤演成只跟御主有關的旁支數值。
   var pMp = parseInt(pcRow[COL.PC.MP]), pMaxMp = parseInt(pcRow[COL.PC.MAX_MP]) || 1;
   if (!isNaN(pMp) && pMp < pMaxMp * 0.2) parts.push('共用魔力池告急——這是從者自己的存亡危機、並非只是御主的事');
   parts.push('令咒餘' + seals + '道');
@@ -125,7 +120,6 @@ function masterMaxHpMp_(circuits) {
 }
 
 // 共用魔力池上限 = 御主迴路×10 ＋ 同隊從者魔力 rankVal 總和×2。
-//   魔力高的從者(Caster/Saber 魔A)擴充共用槽；魔力低者(Assassin 魔E)幾乎只靠御主迴路。
 function masterPoolMax_(circuits, partyMagicVal) {
   return (parseInt(circuits) || 30) * 10 + (parseInt(partyMagicVal) || 0) * 2;
 }
@@ -289,13 +283,9 @@ function makeTextTag_(tagName) {
   };
 }
 
-// 🔮 敵寶具預告旗標（跨按鍵持久·存敵從者 MEMORY）：達成解放條件時先「預告」蓄勢，下次接觸必定發動——
-//   給玩家一回合準備(開結界/寶具對轟/逃跑)，杜絕「無預警寶具秒殺」。get/set/clear 成套。
 function getNpTelegraph_(memory) { return /【寶具預告】/.test(String(memory || "")); }
 function setNpTelegraph_(memory) { var s = String(memory || ""); return getNpTelegraph_(s) ? s : (s ? s + "｜【寶具預告】1" : "【寶具預告】1"); }
 function clearNpTelegraph_(memory) { return String(memory || "").replace(/｜?【寶具預告】1/g, ""); }
-// 🔥 補魔過充存量（存御主 MEMORY【過充】<額度>）：補魔一儀＝除回滿池外，另存下一發「規格外寶具(＋/EX)」可無償超載灌入的
-//   一池份魔力；發動大砲時優先由此支付，一次性(用完即清)。get/set/clear 成套；額度＝補魔當下的池上限。
 var OVERCHARGE_TAG_ = makeIntTag_('過充', 0);
 function getOvercharge_(memory) { return OVERCHARGE_TAG_.get(memory); }
 function setOvercharge_(memory, amt) { return OVERCHARGE_TAG_.set(memory, Math.max(0, Math.round(amt))); }
@@ -310,7 +300,6 @@ function getWeapon_(memory) { var m = String(memory || "").match(/【武裝】([
 function setWeapon_(memory, text) { var s = clearWeapon_(String(memory || "")); text = String(text || "").replace(/[｜【】\n\r\t]/g, "").replace(/[<>&"'`]/g, "").trim().slice(0, 30); if (!text) return s; return s ? s + "｜【武裝】" + text : "【武裝】" + text; }
 function clearWeapon_(memory) { return String(memory || "").replace(/｜?【武裝】[^｜【】]*/g, ""); }
 // 前端「變容」標籤用的 synergy 視圖：非 synergy 從者回 null；恩奇都回 {has,on,master,peak}。
-//   on＝當前御主觸發全盛(亮)；否則暗(提醒需該御主)。玩家不可控——由御主決定。
 function masterSynergyView_(name, memory) {
   if (!/恩奇都/.test(String(name))) return null;
   return { has: true, on: masterSynergyOn_(name, memory), master: '銀狼', peak: '全能 A・寶具 A++' };
@@ -371,8 +360,6 @@ function parseTraitsHelper(data, defaultStr) {
 
   parts = parts.map(s => s.replace(/[<>&"'`｜【】]/g, "").slice(0, 30));
 
-  // 缺的格數改從 defaultStr 對應分段取值、補不到才退回「無」——避免玩家只打幾個字未達4段時，整句
-  // 寫好的 defaultStr(如 actionEnterKanshou 準備的預設句)被晾在一邊，其餘格數變成生硬的「無、無、無」。
   const defParts = String(defaultStr || "").split('、').map(s => s.trim()).filter(s => s !== "");
   while (parts.length < 4) {
     parts.push(defParts[parts.length] || "無");
@@ -437,8 +424,6 @@ function buildVisibleStatusString(rawStatus) {
 
 // physical_state 已簡化成單一「狀態」欄，不再有器官專屬鍵，單純覆寫這一鍵即可、無跨鍵合併需求。
 function mergePhysicalStatus(oldJson, newVal) {
-  // 解析失敗(舊格式殘留/非JSON字串)時當作空物件繼續合併，確保 newVal 一定被套用——不能直接回傳原始
-  //   oldJson，否則呼叫端以為狀態已更新，實際上被無聲丟棄且不報錯。
   let oldObj;
   try { oldObj = JSON.parse(oldJson || "{}"); } catch (e) { oldObj = {}; }
   if (!oldObj || typeof oldObj !== "object") oldObj = {};
@@ -450,7 +435,6 @@ function buildPlayerStatusString(selfRow, relMem = "") {
   const safeMemory = String(selfRow[COL.PC.MEMORY] || "").replace(/\|/g, '@@@');
   const safeRelMem = String(relMem || "").replace(/\|/g, '@@@');
   // 外顯狀態(位置0)：solo 留空(戰鬥AI/演出卡不讀取，前端空值即隱藏該列)；慾海(K系id)以「肉體狀態」
-  //   抵換顯示。慾海 STATUS 欄仍由 NSFW 機制(intimacy_feedback)維護，供AI場景連續性內化。
   const _sid = String(selfRow[COL.PC.ID] || "");
   const _isKanshou = _sid.indexOf("KPC_") === 0 || _sid.indexOf("KSV_") === 0 || _sid.indexOf("KHV_") === 0;
   let visibleStatusStr = "";
@@ -460,8 +444,6 @@ function buildPlayerStatusString(selfRow, relMem = "") {
       visibleStatusStr = Object.keys(_po).map(function (k) { return k + "：" + _po[k]; }).join("　");
     } catch (e) { }
   }
-  // 位置索引固定（§ 協議），s[7-16] 為廢棄的九州五圍/裝備/境界欄，位置24(原鑑賞金錢餘額，
-  //   2026-07 經濟層砍除後恆空)一併填空保持前端定位不位移。
   return [
     visibleStatusStr, "", selfRow[COL.PC.TRAIT], selfRow[COL.PC.LOC], selfRow[COL.PC.PREF],
     selfRow[COL.PC.HP], selfRow[COL.PC.MP], "", "", "", "", "",
@@ -471,11 +453,7 @@ function buildPlayerStatusString(selfRow, relMem = "") {
   ].join('§');
 }
 
-// 🗑️ getFreshStatusString 已移除：所有呼叫端本就手握權威 pcData(STATE_PRE_DATA_ 交棒)，
-//   一律改 buildPlayerStatusString(pcData[pIdx])，省掉每個非戰鬥動作各一次的整表重讀。
 
-// ⚡ 靜態種子表快取共用時數：英靈殿(客製從者部分)幾乎不寫(只在召喚/版本升級時)，
-//   卻被戰鬥/移動/羈絆等熱路徑高頻讀取——6 小時內免整表重讀，寫入點各自呼叫對應 remove() 清快取。
 const SEED_CACHE_SECONDS_ = 21600; // 6 小時
 
 // 坤圖分頁從無玩家動作寫入(唯一寫入者是版本升級時的一次性upsert，見reseedIfEmpty_)，內容與FATE_MAP_SEED(Setup_FateWorld.gs) JS常數同一份資料——改直接回傳 FATE_MAP_SEED 包表頭列，比讀表+CacheService快取更快，形狀(含表頭列＋COL.MAP欄序)與原本讀sheet完全一致，呼叫端不用改。
@@ -572,8 +550,6 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, allPcData) {
     const rVal = parseInt(r[COL.PC.BOND]) || 0;
     const rIsParty = (String(r[COL.PC.IS_PARTY] || "") === "同行");
 
-    // 此函式只服務 solo(呼叫端見 Router_Action.gs/Router_Movement.gs)；鑑賞(actionPlay)已改用自己的
-    //   精簡版 getKanshouPeopleList_(Gallery.gs)，兩軌只共用種子庫資料。
     if (tLoc === safeCurL || rVal >= 60 || rIsParty) {
       let finalDisplayStatus = buildVisibleStatusString(r[COL.PC.STATUS]);
       // 🤝 結盟中的敵御主/敵從者 → 對前端顯示為「盟友*」，即不再列為可攻擊敵蹤

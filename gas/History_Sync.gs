@@ -1,4 +1,5 @@
 // History_Sync.gs
+// 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
 
 function trimRowsByOwner(sheet, pcId, keepCount, idColIndex0Based) {
   if (!sheet) return;
@@ -62,7 +63,6 @@ function getGameHistory(pcId, pcName) {
     const content = row[3];
 
     // 🛡️ 先HTML跳脫、再轉換換行(順序不能反過來，否則會把自己插入的<br>也跳脫掉)。
-    //   歷史遺留：舊紀錄可能存了字面 <br>(Gemini 直接輸出標籤)，跳脫後變裸字——一併轉回換行。
     const safeContent = content ? escapeHtml_(content.toString()).replace(/&lt;br\s*\/?&gt;/gi, "<br>").replace(/\n/g, "<br>") : "靜默無言。";
 
     if (role === "player") {
@@ -74,8 +74,6 @@ function getGameHistory(pcId, pcName) {
 
   return html;
 }
-// trimRowsByOwner 只擋單一 pcId 超量，整張表從不清；結束局在此清掉該局所有 pcId 的歷史列，
-// 否則表無上限成長，久未登入帳號的紀錄也會被擠出 getGameHistory 的最後 1000 列讀取窗口而靜默遺失。
 function purgeHistoryForPcIds_(pcIds) {
   if (!pcIds || !pcIds.length) return;
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("歷史暫存");

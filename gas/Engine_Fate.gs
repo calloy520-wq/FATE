@@ -3,6 +3,7 @@
 //   每個 fx 效果都隨「技能階級」縮放（rankMul_），所以 對魔力B ≠ 對魔力A。
 // ==========================================
 
+// 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
 // 階級倍率：以 C(30) 為 1.0 基準。E=0.33 D=0.67 C=1.0 B=1.33 A=1.67 EX=2.0；+ 各 +0.17
 function rankMul_(r) { return rankVal(r) / 30; }
 
@@ -26,7 +27,6 @@ function gobVolley_() { var t = 0; for (var i = 0; i < 50; i++) { var r = Math.f
 function chainVolley_() { var t = 0; for (var i = 0; i < 18; i++) { var r = Math.floor(Math.random() * 3) + 1; if (r >= 2) t += r; } return t; }
 
 // ⚔️🔱 概念優先權（Priority）：數字越高＝概念位階越高，對應「真理＞固有結界＞傳說武技＞英靈技能」階梯。
-//   高位階「進攻概念」可碾壓低位階「防禦概念」——攻方進攻階 ≥ 守方防禦階 + PIERCE_GAP 時，該防禦被無視。
 var CONCEPT_TIER = {
   // 7｜理想鄉 Avalon：凌駕一切的無敵結界(概念 7 階·專剋 6 階究極寶具)。
   ea: 6, enuma: 6, // enuma＝恩奇都 Enuma Elish(天之楔·可匹敵乖離劍)
@@ -48,8 +48,6 @@ function offenseTier_(c, isNp) {
                       : ['rule_breaker', 'anti_magic_lance']; // 非解放時，只有破戒/破魔這類「常駐穿透概念」生效
   var t = 1;
   for (var i = 0; i < pierceFx.length; i++) { if (hasFx_(c, pierceFx[i])) t = Math.max(t, conceptTier_(pierceFx[i])); }
-  // 🌟 本次解放寶具「自身」的概念也計入(多寶具選定項/單寶具簽名)：寶具真名概念的 fx 存在 npOptions
-  //   而非 skills，不會被 hasFx_ 掃到，需額外計入。
   if (isNp) { var _npfx = npProfile_(c).fx; if (_npfx) t = Math.max(t, conceptTier_(_npfx)); }
   return t;
 }
@@ -76,7 +74,6 @@ function npOverloadCap_(npRank) {
 }
 
 // 🎲 寶具基礎傷害骰（依寶具階級，d10 系）：E3d10 D5d10 C8d10 B12d10 A20d10 EX30d10。
-//   ★與原作「階級＝絕對威力」掛鉤——寶具解放這一發的主威力來源；其餘 buff 只是錦上添花。
 function npBaseDice_(npRank) {
   // 寶具該是決勝重拳、看得出差別，但非必秒(留給概念壓制/規模相剋/連戰)，明顯凌駕普攻數倍即可。
   if (/EX/i.test(String(npRank))) return rollDice_(24, 10); // EX
@@ -89,8 +86,6 @@ function npBaseDice_(npRank) {
   return rollDice_(4, 10);                // E
 }
 
-// 🏰 寶具規模相剋矩陣（攻擊規模 × 防禦規模 → 傷害倍率）：
-//   對城打對人 ×1.5、對界打對人 ×1.7。0x（無效）以引擎 Math.max(1) 保底為一絲擦傷，不硬鎖。
 var NP_SCALE_IDX = { '對人': 0, '對軍': 1, '對城': 2, '對界': 3 };
 // 規模優勢＝明顯傾向、非必殺(max ×1.7、min ×0.4)：倍率太極端會讓大規模寶具一發秒小規模，寶具模式淪為先手樂透。
 var NP_SCALE_MATRIX = [
@@ -111,13 +106,9 @@ function npAtkScale_(c) {
   return '對人';
 }
 // 防禦規模表(對稱 npAtkScale_)：依 fx 定 NP 防禦規模，餵 NP_SCALE_MATRIX。優先序＝陣列順序(對城優先於對軍)。
-//   ★固有結界(ubw)是進攻型 NP，NP 防禦由 rho_aias 機制承擔；divine_core/god_hand 各有自己的機制——均不疊加防禦規模。
 var DEF_SCALE_ = [['territory', '對軍']];
-// pierces：可選的 pierces(defFx)=>bool 閘門，與 fxDefApply_ 共用同一份概念貫穿判定，避免 territory 的規模防禦
-//   與固定減傷各自判定貫穿而不一致。不傳 pierces 時視同不貫穿(向後相容)。
 function npDefScale_(c, pierces) {
   // 🐙 海怪在場(變身態·c.horrorUp)才享對城防禦規模——退場/未召則回一般對人，避免召喚物恆常升防。
-  //   wall_def 不列入規模表：其本職是物理減傷(DEF_FX_)，若同時恆給對城防規模會讓一般對人寶具打持牆者恆×0.50。
   if (c && c.horrorUp) return '對城';
   for (var i = 0; i < DEF_SCALE_.length; i++) {
     if (hasFx_(c, DEF_SCALE_[i][0]) && !(pierces && pierces(DEF_SCALE_[i][0]))) return DEF_SCALE_[i][1];
@@ -144,7 +135,6 @@ function enemyRetreatLoc_(currentLoc, myWar) {
 }
 
 // 某 game_id 世界中仍存活的「敵從者」數（DEAD_ 開頭視為已消滅）
-// preData 可選：呼叫端若已持有本回合同步過的 pcData 記憶體陣列可直接傳入，省一次整表重讀；不傳則自己讀。
 function aliveEnemyServants_(sheets, gameId, preData) {
   var data = preData || sheets.pc.getDataRange().getValues();
   var n = 0;
@@ -211,14 +201,11 @@ function fxName_(c, fx, fallback) {
 }
 
 // ⚔️ 戰鬥屬性檔（依職階）：法師以「魔力」轟擊與築壁、弓兵遠程狙擊、其餘近戰靠筋力／敏捷。
-//   hit=命中所用六圍　dmg=傷害所用六圍　eva=迴避所用六圍　kind=演出用招式類別
 function combatProfile_(c) {
   var cls = String(c.cls || '');
   // 傷害底＝【筋力/魔力 取高】：敏捷已獨佔命中＋迴避、又吃「命中差×1.2」的技巧通道，若再當傷害底就是一圍三吃(敏捷型會全面碾壓)。
   var six = c.six || {};
   var dmgStat = (rankVal(six['魔力']) > rankVal(six['筋力'])) ? '魔力' : '筋力';
-  // 💨 以巧破力(agile_striker)：唯一讓敏捷入傷害底的通道(顯示名勿用「神速」——理查正史技能撞名)——
-  //   持此 fx 且敏捷高於筋/魔時，以技巧為力；未持有者敏捷不參與傷害底，避免一圍三吃。
   if (hasFx_(c, 'agile_striker') && rankVal(six['敏捷']) > rankVal(six[dmgStat])) dmgStat = '敏捷';
   if (cls === 'Caster') return { hit: '魔力', dmg: dmgStat, eva: '敏捷', kind: '魔砲' }; // 魔力轟擊的玻璃大砲：攻強、近身脆
   if (cls === 'Archer') return { hit: '敏捷', dmg: dmgStat, eva: '敏捷', kind: '狙擊' }; // 遠程精準
@@ -241,15 +228,11 @@ var SKILL_FX_ = {
   divine_age: { passive: true, zh: '神代魔術', dmgAdd: function (r) { return Math.round(12 * r); } }, // 使敵對魔力半效之交互 仍明碼
   wind_strike: { passive: true, zh: '風王鐵鎚', dmgAdd: function (r) { return Math.round(6 * r); } },
   crafting: { passive: true, zh: '道具作成', note: '(備妥之器)', dmgAdd: function (r) { return Math.round(8 * r); } },
-  // 🥋 御主體術參戰：御主本人助拳的小額支援傷害(非從者自身技能)，r 取自御主【體術】階級，量級壓在
-  //   wind_strike/crafting 同檔次，不喧賓奪主。
   master_melee: { passive: true, zh: '御主體術', dmgAdd: function (r) { return Math.round(7 * r); } },
   // 🔮 御主魔術支援：同量級，但僅注入 Caster 出擊時(體術管近戰、魔術管施法，對應不同陣容)。
   master_magic: { passive: true, zh: '御主魔術', dmgAdd: function (r) { return Math.round(7 * r); } }
 };
 function skillFxVal_(v, r, c) { return (typeof v === 'function') ? v(r, c) : v; }
-// 🥋 把御主自己的體術階級注入我方從者戰鬥單位 c 的 skills（比照 injectMysticBuff_ 同一套「找 fx
-//   已存在則略過」慣例，避免重複注入）。無【體術】記錄(空字串)則不注入——舊資料/未測定者維持零加成。
 function injectMasterMeleeSupport_(c, masterMemory) {
   var melee = getMasterMelee_(masterMemory);
   if (!melee || !c) return c;
@@ -259,8 +242,6 @@ function injectMasterMeleeSupport_(c, masterMemory) {
   }
   return c;
 }
-// 🔮 把御主自己的魔術階級注入我方從者戰鬥單位 c 的 skills——僅當 c 是 Caster(魔砲型出擊)才注入，
-//   體術(近戰助拳)不限職階、魔術(施法支援)限定 Caster，兩條能力線刻意對應不同陣容、避免無腦疊加。
 function injectMasterMagicSupport_(c, masterMemory) {
   if (!c || String(c.cls) !== 'Caster') return c;
   var magicRank = getMasterMagicRank_(masterMemory);
@@ -281,7 +262,6 @@ function injectMasterSupportFor_(c, pcData, myGameId, row, isEnemy) {
 }
 
 // ⚡ 從者施放技術（已被動化）：掃 SKILL_FX_ 中 active 者依 prio 取第一個持有的完整效果。無則 null。
-//   數值隨技能自身階級成長(rank 折入)。戰時由 rollSkill_ 每擊擲 SKILL_PROC_ 機率是否套用全效。★只增益我方出擊、不碰防禦端。
 function servantActiveSkill_(c) {
   var order = ['burst', 'str_up', 'projection']; // 優先序(prio)
   for (var i = 0; i < order.length; i++) {
@@ -320,14 +300,11 @@ function fxDmgApply_(base, winner, loser, fx, fired) {
 var DEF_FX_ = {
   territory: { mul: function (r) { return 1 - 0.26 * r; }, zh: '陣地', note: '·魔術防壁', pierceKey: 'territory', guardPositive: true, piercedMsg: function (w) { return w.name + '·概念壓制(碾穿結界)'; } },
   home_field: { mul: function (r) { return 1 - 0.16 * r; }, zh: '主場陣地結界', pierceKey: 'territory', guardPositive: true, piercedMsg: function (w) { return w.name + '·概念壓制(碾穿主場結界)'; } },
-  // 🛡️ 七天盾：npOnly＝只對【寶具解放】的一擊反應性投影(普攻不勞七層花瓣·不減傷)；mana＝每次展開的費用，
-  //   玩家側由呼叫端注入 _shieldMp(御主純魔)扣款、付不起張不開，敵方無注入即免費(戰鬥本色)。
   rho_aias: { mul: function (r) { return 1 - 0.40 * r; }, zh: '概念護盾', pierceKey: 'rho_aias', npOnly: true, mana: 30 }, // note 留空：顯示持有者自己的技能名(EMIYA 七天盾/貞德 守護大旗)，防張冠李戴
   divine_core: { mul: function (r) { return 1 - 0.18 * r; }, zh: '神核', pierceKey: 'divine_core', alsoPiercedByFx: 'anti_magic_lance', piercedMsg: function (w) { return w.name + '·' + (hasFx_(w, 'anti_magic_lance') ? '破魔(無視神核)' : '概念壓制(無視神核)'); } },
   wall_def: { mul: function (r) { return 1 - 0.18 * r; }, zh: '城牆防禦', note: '(物理減傷，依階級)', pierceKey: 'territory', physicalOnly: true }
 };
 // 🛡 套用防禦減傷（敗方持有 fx 時）：pierces＝概念貫穿判定函式；atkMagic＝本擊是否魔術系；
-//   npStrike＝本擊是否【攻方寶具解放】(npOnly 防禦如七天盾只對這種擊反應)。回新 base。
 function fxDefApply_(base, loser, winner, fx, pierces, atkMagic, fired, npStrike) {
   var e = DEF_FX_[fx], rk = e && hasFx_(loser, fx);
   if (!e || !rk) return base;
@@ -338,15 +315,12 @@ function fxDefApply_(base, loser, winner, fx, pierces, atkMagic, fired, npStrike
     return base;
   }
   // 💠 展開費用(e.mana)：僅當呼叫端注入 loser._shieldMp(玩家側·御主純魔) 才收費——付不起→張不開；
-  //   引擎只記帳(_shieldSpent)，實際落表由呼叫端 settleShieldMana_ 統一結算。敵方無注入＝免費觸發。
   var paidNote = '';
   if (e.mana && loser._shieldMp != null) {
     if (loser._shieldMp < e.mana) { fired.push(loser.name + '·魔力不足·' + fxName_(loser, fx, e.zh) + '未能展開'); return base; }
     loser._shieldMp -= e.mana; loser._shieldSpent = (loser._shieldSpent || 0) + e.mana;
     paidNote = '（御主耗' + e.mana + '魔展開）';
   }
-  // ⚠ 下限 clamp：mul 係數×rankMul>1 時(如未來有人給 rho_aias 掛超過 EX+ 的階級)會算出負乘子→
-  //   負傷害→打人變補血。現行持有者皆不可達，純結構性防呆。
   var m = Math.max(0, (typeof e.mul === 'function') ? e.mul(rankMul_(rk)) : e.mul);
   var pre = base; base = Math.round(base * m);
   if (!e.guardPositive || pre > 0) fired.push(loser.name + '·' + fxName_(loser, fx, e.zh) + (e.note || '') + paidNote);
@@ -388,13 +362,11 @@ function rowToCombatant_(row) {
     runeMode: runeMode_(row[COL.PC.MEMORY]), // 🔯 原初符文運用方式(def 減傷／dmg 增傷／regen 回血)
     npChoice: npChoice_(row[COL.PC.MEMORY]), // 🌟 多寶具英靈：玩家選定要解放的寶具索引(預設 0)
     // 🐙 海怪在場(變身態)＝MEMORY 尚有殘存肉身(cur>0)。單一狀態源·驅動 npDefScale 的對城防禦。
-    //   （逾時殘影由戰鬥流程 clearHorrorShield_ 清除·此處讀 presence 即真實·不需再查時鐘·守效能）
     horrorUp: (function () { var m = String(row[COL.PC.MEMORY] || "").match(/【海怪護盾】(\d+)\|/); return !!(m && parseInt(m[1]) > 0); })()
   };
 }
 
 // 🌟 多寶具英靈的「寶具選單」（玩家點寶具時挑要放哪個）。每項：n 寶具名／scale 尺度／fx 簽名效果碼／desc 短述。
-//   依 真名(＋職階) 對應；首項＝主寶具(預設·敵方也用)。回 null＝單寶具(走字串尺度)。要擴充就往這張表加。
 function servantNpOptions_(name, cls) {
   name = String(name || ''); cls = String(cls || '');
   if (name === '斯卡哈' && cls === 'Lancer') return [
@@ -430,7 +402,6 @@ function firstSignatureFx_(c) {
   return '';
 }
 // 解出「本次寶具解放」的設定檔 {scale, fx, name, multi, r}。多寶具讀 c.npChoice 選定項；單寶具退回字串尺度＋簽名fx。
-//   r＝該次解放實際吃的階級——多寶具選項有自己的官方階級(見 servantNpOptions_)才用，沒有就退回六圍表寶具值。
 function npProfile_(c) {
   var op = servantNpOptions_(c.name, c.cls);
   if (op && op.length) {
@@ -441,8 +412,6 @@ function npProfile_(c) {
 }
 // 🎯 本次解放實際要吃的寶具階級（給 npBaseDice_/npPranaCost_ 用·單一真實來源，避免各呼叫點各自兜底邏輯分岔）。
 function npEffectiveRank_(c) { return npProfile_(c).r; }
-// 🌟 多寶具英靈的「最強攻擊寶具」索引（敵 AI 解放/預告用·非玩家）：只挑攻擊型(有攻擊 fx 或 對軍以上/對神規模)，
-//   按 概念階×10＋規模 排序取最高；無攻擊型則退 0。純防禦寶具(divine_core 金鎧等)不入選(不會拿來砸人)。
 var OFFENSIVE_NP_FX_ = { ea: 1, enuma: 1, excalibur: 1, ubw: 1, summon_horror: 1, gob: 1, gae_bolg: 1, tsubame: 1, zabaniya: 1, petrify: 1, projection: 1 };
 function bestNpChoice_(name, cls) {
   var op = servantNpOptions_(name, cls);
@@ -480,7 +449,6 @@ function resolveFateBattle_(atk, def, opts) {
     }
   }
   // 💰 黃金律(wealth／吉爾伽美什)：絕境(自身血≤20%)時，自寶藏取出乖離劍(EA)執行殺翻盤。
-  //   須【主動解放寶具】(opts.np)才觸發——上游 actionFateBattle 的補魔閘門會扣御主魔力，非每擊免費觸發。
   if (opts.np && hasFx_(atk, 'wealth')) {
     var _whp = (atk.hpMax > 0) ? (atk.hp / atk.hpMax) : 1.0;
     if (_whp <= 0.2) {
@@ -491,7 +459,6 @@ function resolveFateBattle_(atk, def, opts) {
   }
 
   // 🔋 出力：攻方靈基出力檔位決定表現（御主把魔力灌多少進來）。高檔強但燒御主、低檔有懲罰。
-  //   命中端 +outMod；傷害端 ×outTier.dmgMul（於下方主威力處套用）。御主供魔越足、從者越生龍活虎。
   var outTier = outputTier_(atk.output);
   var outMod = outTier.hit;
 
@@ -503,7 +470,6 @@ function resolveFateBattle_(atk, def, opts) {
   var aHit = aRoll + Math.round(rankTier_(atk.six[aProf.hit]) * K_STAT) + (Math.floor(Math.random() * 7) - 3) + outMod;
   var dEva = dRoll + Math.round((rankTier_(def.six['敏捷']) * 0.65 + rankTier_(def.six['耐久']) * 0.35) * K_STAT) + (Math.floor(Math.random() * 7) - 3);
   // 魔砲類型不加進 fired（每回合都是、無資訊量；territory 的 buff 效果只在有實際差距時才值得記）
-  // 🍱 整備·進食（戰前 buff）：攻方命中 +opts.mealBuff（由 fateStrike_ 依御主整備狀態傳入）
   if (opts.mealBuff) { aHit += opts.mealBuff; fired.push(atk.name + '·整備進食(+' + opts.mealBuff + ')'); }
   // 🔥 補魔過充：御主剛行補魔、澎湃魔力流貫靈基——攻方全身狀態微揚(命中+2；傷害端於下方另×1.06)。
   if (atk.overcharge) { aHit += 2; fired.push(atk.name + '·補魔過充(魔力充盈·全能力微揚)'); }
@@ -526,14 +492,12 @@ function resolveFateBattle_(atk, def, opts) {
   // 騎乘(ride) 機動 +2×階級
   var rideA = hasFx_(atk, 'ride'); if (rideA) aHitFx += Math.round(2 * rankMul_(rideA));
   // 🎯 千里眼(aim)：恆常的卓越目力鎖破綻（被動·SKILL_FX_ 表驅動）。投影(projection)＝施放技術·被動 only、此處不給被動。
-  //   千里眼永久免疫「無欲」等封鎖先機的效果——這正是它比命中·中(first_strike/analyze)貴的理由。
   aHitFx = fxHitAdd_(aHitFx, atk, 'aim', fired);
   // 🌟 全知全能之星(insight／吉爾伽美什)：看穿本質·洞悉破綻，恆常命中 +4（他懶得認真開·僅中等被動）。
   if (hasFx_(atk, 'insight')) { aHitFx += 4; fired.push(atk.name + '·' + fxName_(atk, 'insight', '全知全能之星') + '(洞悉破綻·命中+4)'); }
   // 避矢(evade_ranged)：守方對遠程(Archer)迴避 +6×階級
   if (atk.cls === 'Archer') { var er = hasFx_(def, 'evade_ranged'); if (er) { dEvaFx += Math.round(6 * rankMul_(er)); fired.push(def.name + '·' + fxName_(def, 'evade_ranged', '避矢')); } }
   // 氣息遮斷(stealth)：僅【首擊奇襲】(opts.ambush·開場第一擊／敵突襲)吃命中加成·依階級(A+大、A-小)。
-  //   ★一旦交手氣息即破功——後續回合的刀不再享奇襲(貼原作：發動攻擊瞬間 presence concealment 掉階)。
   var stA = hasFx_(atk, 'stealth');
   // 🐾 氣息感知(sense／恩奇都)：守方以穿透大地的感知看穿奇襲——階級 ≥ 攻方氣息遮斷者，突襲的命中先機＋下方「要害一擊」全數失效(貼原作「近距離廢掉同級以下的氣息遮斷」)。
   var senseD = hasFx_(def, 'sense') || hasFx_(def, 'insight');
@@ -555,8 +519,6 @@ function resolveFateBattle_(atk, def, opts) {
   var sm = hasFx_(def, 'shapeshift'); if (sm) { dEvaFx += Math.round(3 * rankMul_(sm)); fired.push(def.name + '·' + fxName_(def, 'shapeshift', '變化') + '(化形閃避)'); }
   // 💋 愛之痣(lovespot／迪盧木多)：魅惑之痣令來犯者一瞬分神，攻方命中 -1(小幅惑亂)
   if (hasFx_(def, 'lovespot')) { aHitFx -= 1; fired.push(def.name + '·' + fxName_(def, 'lovespot', '愛之痣') + '(惑·敵命中-1)'); }
-  // 👁️ 魔眼·石化(petrify／Rider 美杜莎)：以視線鎖死獵物，令對方迴避大減——工房唯一可購的反迴避工具，
-  //   是「閃避堆疊流」的正牌剋星。
   var pet = hasFx_(atk, 'petrify'); if (pet) { dEvaFx -= Math.round(4 * rankMul_(pet)); fired.push(atk.name + '·' + fxName_(atk, 'petrify', '魔眼') + '·鎖死身法'); }
   // ⛓️ 天之鎖(chain／Gilgamesh·Enkidu)：對「神性」之敵展開冥界鎖鏈，封住身法。
   var chn = hasFx_(atk, 'chain'); var defDivR = divineRankOf_(def);
@@ -564,8 +526,6 @@ function resolveFateBattle_(atk, def, opts) {
     var chainBind = Math.round(6 * rankMul_(chn) * (0.5 + 0.5 * rankMul_(defDivR)));
     dEvaFx -= chainBind; fired.push(atk.name + '·' + fxName_(atk, 'chain', '天之鎖') + '(縛神性' + defDivR + '·避-' + chainBind + ')');
   }
-  // 🎚️ 被動技能 fx 淨加成收帳：各自 clamp ±HIT_FX_CAP 再入命中/迴避——堆疊流(敏EX+變化+直感…)無法把差距
-  //   拉到「永遠打不到」；敵方施加的壓制(魔眼/天之鎖/燕返)計入同一淨額，天然是堆疊流的解。被截斷時推標籤供演出。
   var _aFxC = Math.max(-HIT_FX_CAP, Math.min(HIT_FX_CAP, aHitFx));
   var _dFxC = Math.max(-HIT_FX_CAP, Math.min(HIT_FX_CAP, dEvaFx));
   if (_aFxC !== aHitFx) fired.push(atk.name + '·技巧疊加已達極限(' + (aHitFx > 0 ? '+' : '') + aHitFx + '→' + (_aFxC > 0 ? '+' : '') + _aFxC + ')');
@@ -584,7 +544,6 @@ function resolveFateBattle_(atk, def, opts) {
   else if (lkD > 30 && Math.random() < luckDice_(lkD)) { dEva += 8; fired.push(def.name + '·幸運·絕處逢生'); }
 
   // 🩸 必中之槍·非全無解(貼原作)：因果逆轉雖直接命中，但【高幸運】能改寫既定命運、【直感/心眼】能預感殺機、【變化】能化形滑開。
-  //   仍是強力寶具(一般從者照樣被釘死)，只有「能扭轉命運/超越感知」者才搏得一線生機。
   var gbEvaded = false;
   if (gaebolg) {
     var lkDef = rankVal(def.six['幸運']);
@@ -637,19 +596,13 @@ function resolveFateBattle_(atk, def, opts) {
   if (hasFx_(winner, 'gob')) { var gv = gobVolley_(); base += gv; fired.push(winner.name + '·' + fxName_(winner, 'gob', '王之財寶') + '·無盡彈幕(' + gv + ')'); }
   // ⛓️ 天之鎖(chain)常駐彈幕：18d3捨1 萬鎖貫穿（金閃有 gob 則不重複；恩奇都專屬輸出，較王財小以平衡其頂級六圍）
   if (hasFx_(winner, 'chain') && !hasFx_(winner, 'gob')) { var cv = chainVolley_(); base += cv; fired.push(winner.name + '·' + fxName_(winner, 'chain', '天之鎖') + '·萬鎖貫穿(' + cv + ')'); }
-  // 狂化(mad)傷害暴漲／神代魔術(divine_age·下方另使敵對魔力半效)／風王鐵鎚(wind_strike)／道具作成(crafting)：
-  //   皆線性被動傷害加成，SKILL_FX_ 表驅動（位置順序不變；mad 的命中/迴避-penalty 與 divine_age 的對魔力交互仍明碼）。
   base = fxDmgApply_(base, winner, loser, 'mad', fired);
   base = fxDmgApply_(base, winner, loser, 'divine_age', fired);
   base = fxDmgApply_(base, winner, loser, 'wind_strike', fired);
   base = fxDmgApply_(base, winner, loser, 'crafting', fired);
   // 🥋 御主體術參戰（見 injectMasterMeleeSupport_ 注入來源）：玩家/敵方兩側皆會注入——玩家側走FACTION==="從者" 門檻(比照禮裝 injectMysticBuff_)，敵從者則由 Router_Battl…（全文見 CODE_NOTES.md）
   base = fxDmgApply_(base, winner, loser, 'master_melee', fired);
-  // 🔮 御主魔術支援（見 injectMasterMagicSupport_ 注入來源，僅 Caster 出擊時存在此 fx）：同上，玩家/
-  //   敵方兩側對稱注入，不限玩家側。
   base = fxDmgApply_(base, winner, loser, 'master_magic', fired);
-  // 🗡️ 秘劍・燕返(tsubame)：三方位同斬 ×2.3【普攻限定·僅每場第1回合】——與寶具骰/超載/規模疊乘會爆炸
-  //   故限普攻；限首回合避免每回合都吃到 ×2.3。寶具解放段已無疊乘，僅剩概念位階/貫穿＋演出標籤。
   if (hasFx_(winner, 'tsubame') && !opts.np && (opts.round || 1) === 1) { base = Math.round(base * 2.3); fired.push(winner.name + '·' + fxName_(winner, 'tsubame', '秘劍・燕返') + '(三方位同斬)'); }
   // 🗡️ 無毀的湖光(weapon_steal／蘭斯洛特·Arondight)：湖之妖精所託的魔劍，對具「龍」屬性之敵解放秘藏威能，傷害×1.5
   if (hasFx_(winner, 'weapon_steal')) {
@@ -657,7 +610,6 @@ function resolveFateBattle_(atk, def, opts) {
     if (foeDragon) { base = Math.round(base * 1.5); fired.push(winner.name + '·' + fxName_(winner, 'weapon_steal', '無毀的湖光') + '(對龍解放)'); }
   }
   // 神殺：對有「神性」者最終傷害放大，神性階級越高 → 越被神殺剋(×1.17~×2.0，依 divineRankOf_)。
-  //   觸發＝技能帶 fx:'god_slay'(資料驅動·如阿爾喀德斯復仇者) 或 技能/特性名含「神殺」(如斯卡哈)。
   var godSlay = hasFx_(winner, 'god_slay') || (winner.skills || []).concat(winner.traits || []).some(function (t) { return t && String(t.n).indexOf('神殺') >= 0; });
   var loserDivR = divineRankOf_(loser); // 🕊️ 對方神格(單一真實來源)：null＝無神性
   if (godSlay && loserDivR) {
@@ -675,25 +627,20 @@ function resolveFateBattle_(atk, def, opts) {
     var wRelease = (winner === atk);
     var wSig = function (fx) { return wRelease ? npIs(fx) : !!hasFx_(winner, fx); };
     // wRelease(解放者本人)吃「所選寶具」自己的官方階級(atkNp.r，沒定義則退回六圍表)；
-    //   對手反殺(!wRelease)維持吃自身六圍表寶具值(不受玩家寶具選擇影響)。
     var npRank = wRelease ? atkNp.r : winner.six["寶具"];
     var npRankLabel = rankVal(npRank) >= 60 ? 'EX' : (/[A-Za-z]/.test(String(npRank)) ? npRank : 'E');
     var npDice = npBaseDice_(npRank); base += npDice; fired.push(winner.name + '·寶具骰(' + npRankLabel + ')=' + npDice);
     base += Math.round(rankVal(npRank) * 1.2) + 35; fired.push(winner.name + '·寶具解放' + (wRelease && atkNp && atkNp.name ? ('·' + String(atkNp.name).split(' ')[0]) : '')); // 🎴 寶具威力大幅提升·看得出差別
     // 🔥 灌魔加乘：規格外寶具(＋/EX)超載——威力隨御主灌注的餘裕魔力線性放大(倍率由上游 actionFateBattle 依實灌量算好·已扣魔)。
-    //   僅「主動解放者本人(wRelease)」享用；對手反殺照其自身寶具、不吃玩家的灌注。
     if (wRelease && atk.npOverloadMul && atk.npOverloadMul > 1.01) {
       base = Math.round(base * atk.npOverloadMul); fired.push(winner.name + '·灌魔超載(×' + atk.npOverloadMul.toFixed(2) + ')');
     }
     if (hasFx_(winner, 'tactics')) { base = Math.round(base * 1.15); fired.push(winner.name + '·' + fxName_(winner, 'tactics', '軍略')); }
-    // 🕊️ 寶具解放·神性加成：吃 divineRankOf_(traits 與 fx 皆算) 並依神格縮放，1+0.1×rankMul(自身神格)——
-    //   C＝×1.1、A＝×1.17、EX＝×1.2、E-＝×1.02。
     var wDivR = divineRankOf_(winner);
     if (wDivR) base = Math.round(base * (1 + 0.1 * rankMul_(wDivR)));
     // 🗡️ 無限劍製(ubw／固有結界)：劍之地平展開，攻方在領域內傷害大增
     if (wSig('ubw')) { base = Math.round(base * 1.25); fired.push(winner.name + '·' + fxName_(winner, 'ubw', '無限劍製') + '(固有結界)'); }
     // 🗡️ 燕返·寶具解放段：不額外疊乘(平A首回合 ×2.3 才是絕技本體)，解放時只吃寶具骰/概念位階3/貫穿；
-    //   fired 標籤保留供 AI 演出「真名解放·三段同時斬」。
     if (wSig('tsubame')) { fired.push(winner.name + '·' + fxName_(winner, 'tsubame', '秘劍・燕返') + '(寶具解放·三段同時斬)'); }
     // 🗡️ 妄想心音／霧夜殺戮(zabaniya)：暗殺系寶具＝奪心一擊，命中即致命級重創（救低六圍刺客/狂戰的本命）
     if (wSig('zabaniya')) { base = Math.round(base * 1.9) + 70; fired.push(winner.name + '·' + fxName_(winner, 'zabaniya', '妄想心音') + '(奪心致命)'); }
@@ -726,8 +673,6 @@ function resolveFateBattle_(atk, def, opts) {
   // ⚡ 「本擊是否魔術系」（physicalOnly 防禦的穿透判定）——必須在【第一個 fxDefApply_ 之前】算好：只在【實際發動魔力放出】時才算魔術系(灌注魔力才是魔術一擊)，光持有 burst 不夠——否則沒發動時只吃對魔力減傷卻無 burst 增益，全是壞處。
   var burstFired = !!(opts.skill && opts.skill.id === 'burst' && !opts.skill.tiny && winner === atk);
   var atkMagic = (wProf.dmg === '魔力') || burstFired || !!hasFx_(winner, 'divine_age');
-  // ⚡ 「本擊是否寶具解放」（npOnly 防禦的觸發判定）：opts.np 且勝方＝解放者本人才算——
-  //   守方反殺(winner=def)時敗方吃到的是普通反擊，七天盾不對其反應。
   var npStrike = !!(opts.np && winner === atk);
   // 守方減傷：耐久（階級）
   base -= Math.round(rankVal(loser.six["耐久"]) / 2);
@@ -735,19 +680,13 @@ function resolveFateBattle_(atk, def, opts) {
   base = fxDefApply_(base, loser, winner, 'territory', pierces, atkMagic, fired, npStrike);
   // 🏰 主場·陣地結界(home_field)：於自己佈設的陣地決戰時全隊額外減傷（隨陣地作成階·引敵入陣地的主場優勢）
   base = fxDefApply_(base, loser, winner, 'home_field', pierces, atkMagic, fired, npStrike);
-  // 🛡️ 七天盾·羅·埃亞斯(rho_aias／EMIYA)：對【寶具解放】的一擊反應性投影卡帕涅烏斯之盾，七層花瓣硬擋——
-  //   普攻不觸發；玩家側每次展開耗御主30魔(見 DEF_FX_.rho_aias)；遭超位階概念(ea等)貫穿則失效
   base = fxDefApply_(base, loser, winner, 'rho_aias', pierces, atkMagic, fired, npStrike);
   // 🦠 對瘟疫抗性：攻方為「疫病」(蒼白騎兵)時，守方持高魔抗(對魔力≥B·詛咒防護)或神性(神之加護)者抵抗疾病，傷害減半。
-  //   ★唯「病死宿命」之敵(恩奇都)不適用——其宿命之死無可逃避(上方已 ×3 概念碾壓)。
   if (!plagueDoom && (winner.traits || []).some(function (t) { return t && /疫病/.test(String(t.n)); })) {
-    // 神性判定吃 divineRankOf_，但刻意維持【二值】不隨神格縮放——這是「神之加護擋不擋得住疫病」的
-    //   門檻概念，非傷害倍率，有神格庇護即減半。
     var plagueImmune = rankVal(hasFx_(loser, 'nullify_magic')) >= 40 || !!divineRankOf_(loser);
     if (plagueImmune) { base = Math.round(base * 0.5); fired.push(loser.name + '·對瘟疫抗性(魔抗/神性·疾病減半)'); }
   }
   // ᚱ 原初符文(rune)·玩家可選運用(c.runeMode)：def 減傷(受傷時·預設)／dmg 增傷(出擊時)／regen 回血(每回合·見 actionFateBattle)。
-  //   減傷 10%×階級(A→-17%/EX→-20%)，救持符文的玻璃法師(斯卡蒂/玉藻前/斯卡哈)存活。regen 在此處無戰鬥修正、只在回合迴圈回血。
   var rnL = hasFx_(loser, 'rune');
   if (rnL && (loser.runeMode || 'def') === 'def') { base = Math.round(base * (1 - 0.10 * rankMul_(rnL))); fired.push(loser.name + '·' + fxName_(loser, 'rune', '原初符文') + '(護符減傷)'); }
   var rnW = hasFx_(winner, 'rune');

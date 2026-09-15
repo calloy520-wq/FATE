@@ -3,6 +3,7 @@
 //   callGeminiAPI：solo／鑑賞共用的 OpenRouter 呼叫核心，不歸屬任何單一軌道。
 //   鑑賞專屬的 buildDefaultSystemPrompt(含 nsfwBaseRules)在 Gallery.gs，這裡只留兩軌共用的基礎設施。
 // ==========================================
+// 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
 
 function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   if (!OPENROUTER_API_KEY) return JSON.stringify({ narration: "未設定 OPENROUTER_API_KEY", options: ["重試"] });
@@ -39,7 +40,6 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   const softenSuffix = `\n\n★【降階重試】上一次輸出未通過審查判定，請改用更含蓄典雅的筆法重新演繹本回合：以景喻情、意境留白，避免直白器官名稱與動作描寫，情慾僅以氛圍、情感與感官烘托表現，其餘JSON欄位規則不變。`;
 
   // 單一模型的完整重試迴圈包成內部函式，讓外層能在整組重試失敗後換模型再試一輪；
-  //   只有呼叫端帶 config.fallbackModel 才會觸發第二輪，其餘呼叫行為不變。回傳成功文字或 null。
   function attemptWithModel_(model) {
     const payload = { model: model, messages: apiMessages, temperature: temp, top_p: topP, max_tokens: maxT };
     if (config.top_k !== undefined) payload.top_k = config.top_k;

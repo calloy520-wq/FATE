@@ -6,10 +6,10 @@
 
 // 🔵 視覺地圖節點：冬木頂層地點 + 座標 + 我是否在此 + 已偵查敵人數(吃迷霧/game_id)
 //   拆成 buildMapNodesPayload_ 供 actionGetMapNodes 與 buildClientState_ 共用，省一趟多餘 round-trip。
+// 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
 //   依【戰爭】標記過濾地點，避免限定據點(如第四次限定)跨戰爭顯示。
 function buildMapNodesPayload_(sheets, pcData, myGameId, myLoc) {
   // 坤圖已靜態化，getMapDataCached 直接讀常數，不依賴 sheets.map 分頁存在。
-  // 地圖節點是 solo 戰爭限定概念，鑑賞前端從不渲染 mapNodes，非 solo 直接回空形狀、省去白算。
   if (!myGameId || myGameId.indexOf("g_") !== 0) return { nodes: [], here: myLoc, allyIntel: false };
   const myMasterIdx = findGameMasterIdx_(pcData, myGameId);
   const myWar = myMasterIdx !== -1 ? getWarName_(pcData[myMasterIdx][COL.PC.MEMORY]) : "";
@@ -133,7 +133,6 @@ function actionMove(userData, pcId, sheets) {
   }
 
   // 💨 撤離追擊(一點點)：從「有活敵從者」的格子離開時，較快的敵從者可能咬一記離別追擊。
-  //   ★可生還·不致死(從者血保 1)——只是不讓你一按就從強敵眼皮底下從容全身而退。用移動【前】的初始資料判定。
   const tgtTrim = String(target || "").trim();
   // 🗺️ 目的地必須存在於坤圖(母區域或分支名)——擋掉偽造參數傳送到「地圖外」當永久安全屋(敵AI/夜襲永遠碰不到)。
   if (!tgtTrim) return JSON.stringify({ success: false, message: "未指定目的地。" });
@@ -160,13 +159,10 @@ function actionMove(userData, pcId, sheets) {
   var _slipNames = (_slipAway && _slipWin.names && _slipWin.names.length) ? _slipWin.names.map(nameLoose_) : null;
   // 🏃 撤退旗標：前端按「撤退」殺出重圍時帶 retreat=true——敵方【必】追擊(非機率)、GAS 判勝負。
   var isRetreat = isFateMove && (userData.retreat === true || userData.retreat === 'true');
-  // 🏰 在自己陣地＝安全港：主場結界／機關掩護，敵人闖進來也困不住你——不強制撤退、離場亦不被追擊
-  //   (與 slip 同級的豁免)。這是「設置陣地」承諾的主場優勢，敵在你陣地反被守株(見 enemyAmbushOnServant_ 陣地反擊)。
   var _fromLocR = String(allPcData[pIdx][COL.PC.LOC] || "").trim();
   var _atOwnHome = false;
   try { var _ws = getWorkshop_(allPcData[pIdx][COL.PC.MEMORY]); _atOwnHome = !!(_ws && String(_ws).split('-')[0].trim() === _fromLocR.split('-')[0].trim()); } catch (e) { }
   // 🚫 有敵時封鎖從容移動：離場格若有【非盟約·已登場·未友好(BOND<50)】的能戰敵從者，plain 移動被擋，須改按「撤退」。
-  //   分心窗口(slip)可悄悄離開則不受此限；撤退本身(isRetreat)也放行；在自己陣地(_atOwnHome)享安全港·不封鎖。
   if (isFateMove && !_atOwnHome && !isRetreat && tgtTrim !== _fromLocR) {
     var _hostileHere = allPcData.some(function (r) {
       if (!(String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === moveGameId &&
@@ -189,7 +185,6 @@ function actionMove(userData, pcId, sheets) {
         try { injectMysticBuff_(psvC, allPcData[pIdx][COL.PC.MEMORY]); } catch (e) { } // ✨ 逃跑時也吃御主禮裝(如 Avalon 承受寶具減傷)
         psvC._shieldMp = parseInt(allPcData[pIdx][COL.PC.MP]) || 0; // 💠 背擊寶具＝七天盾可展開(扣魔)，付不起張不開
         // 🔮 預告寶具·背後傾瀉：離場格若有敵人正蓄勢寶具預告 → 朝你退卻的背影轟出 NP 級臨別重擊(優先於一般追擊，保1不致死)。
-        //   用 find() 只取第一個相符者，避免多個預告敵人同格時只有最後一個結算、其餘旗標卡住不清。
         var teleFoe = allPcData.find(function (r) {
           if (String(r[COL.PC.FACTION]) !== "敵從者") return false;
           if (String(r[COL.PC.GAME_ID] || "") !== moveGameId) return false;
@@ -245,7 +240,6 @@ function actionMove(userData, pcId, sheets) {
         if (!pursuit && chaser) {
           var chC = rowToCombatant_(chaser);
           // ⚔️ 真·交手判定(非單方挨打)：追兵 vs 我方從者一次交鋒，誰輸誰扣血——我方夠強可回身反咬逼退追兵。
-          //   雙方保 1 不致死。撤退時追兵搶得先機(ambush)、更難全身而退。
           var pr = resolveFateBattle_(chC, psvC, { ambush: true });
           var chaserNm = String(chaser[COL.PC.NAME]);
           var psvHpMaxM = parseInt(allPcData[psvIdxM][COL.PC.MAX_HP]) || 1;
@@ -260,7 +254,6 @@ function actionMove(userData, pcId, sheets) {
   } catch (e) { }
 
   // 🎭 抵達態度判定（趁世界尚未 tick，看 target 是否已有先客）：先客在＝主動找上門(警惕)；無＝偶遇(意外)。
-  //   isFateMove guard：preFoes 只有 solo 前端(travelTo)會消費，鑑賞無此陣營列，明確guard避免僥倖依賴資料形狀。
   const preFoesAtTarget = isFateMove ? allPcData.filter(r =>
     (String(r[COL.PC.FACTION]) === "敵御主" || String(r[COL.PC.FACTION]) === "敵從者")
     && (!moveGameId || String(r[COL.PC.GAME_ID] || "") === moveGameId)
@@ -269,8 +262,6 @@ function actionMove(userData, pcId, sheets) {
     && hasArrived_(r, _moveDay()) // 🕰️ 尚未登場者不算「先客」
   ).map(r => String(r[COL.PC.NAME])) : [];
 
-  // 🌍 世界先動，玩家後到：先讓敵御主／敵從者 tick 到新位置，再把玩家落到 target，
-  //   避免「追到敵人所在地」時敵人在你踏進來同一瞬間又被傳走，遭遇敘事才跑得起來。
   let clockLabel = "", worldRumors = [], apLeft = AP_PER_DAY, moveVictory = false, moveDream = "";
   if (isFateMove) {
     try {
@@ -335,7 +326,6 @@ function actionMove(userData, pcId, sheets) {
   }
 
   // ⚔️ 抵達地點若同時有 ≥2 位不同敵御主在場，擲一種「敵營局面」（不再永遠互毆→見你停手）。
-  //   局面種類/後果全由 resolveFactionEncounter_ 依雙方性格＋傷勢＋戰局 GAS 裁定，AI 只演出。
   var factionClash = null;
   // isFateMove guard：這段會真的寫HP/MEMORY，明確guard而非依賴「鑑賞無敵對陣營列」的資料形狀僥倖安全。
   try {
@@ -371,12 +361,9 @@ function actionMove(userData, pcId, sheets) {
   } catch (e) { }
   if (factionClash) worldRumors.unshift('〔敵營動向〕' + factionClash.note);
   // 🎯 撞見敵人的可反應窗口：把局面 type 寫進御主 MEMORY，決定抵達這格開放哪些情境選擇（趁隙/挑撥/溜走）。
-  //   無可反應局面則清掉舊窗口。隨下方整表 setValues 一併寫回。
   if (isFateMove) {
     var _ch = factionClash && factionClash.choices;
     if (_ch && (_ch.ambush || _ch.incite || _ch.slip)) {
-      // svA/svB 是上面 resolveFactionEncounter_ 實際敘事的那兩名敵從者(見 clashMasters[ia]/[ib] 配對)，
-      // 隨窗口存進 MEMORY 供 actionIncite 精確鎖定，不再讓它自己猜陣列前兩個。
       var _windowNames = (typeof svA !== 'undefined' && svA && typeof svB !== 'undefined' && svB) ? [String(svA[COL.PC.NAME]), String(svB[COL.PC.NAME])] : [];
       allPcData[pIdx][COL.PC.MEMORY] = setEncounterWindow_(allPcData[pIdx][COL.PC.MEMORY], tgtTrim, factionClash.type, _windowNames);
     } else {
@@ -385,7 +372,6 @@ function actionMove(userData, pcId, sheets) {
   }
 
   // ⏳ 時回：移動的 2 小時間，御主與同行從者隨時間自然回復（HP 固定、MP 看魔術迴路）。
-  //   大幅恢復靠「休息」（同一套規則 ×2）。便宜：只改記憶體那幾格，隨移動一起寫回，零額外讀寫，不會變慢。
   let regenNote = "";
   if (isFateMove) {
     const partyNames = allPcData.filter(r => String(r[COL.PC.GAME_ID] || "") === moveGameId && String(r[COL.PC.IS_PARTY] || "") === "同行" && !String(r[COL.PC.ID]).startsWith("DEAD_")).map(r => r[COL.PC.NAME]);
@@ -427,8 +413,6 @@ function actionMove(userData, pcId, sheets) {
         && hasArrived_(r, _moveDay())
         && (String(r[COL.PC.FACTION]) === "敵從者" || String(r[COL.PC.FACTION]) === "敵御主");
     });
-    // 🔒 在場人物上限：一地擠進 N 組敵人時，每人一張卡會讓提示詞爆掉（實測 14 人＝4,820 字，
-    //   而且 performanceNote_ 會列出 14 個名字）。只送最前面幾位，其餘由【此地有敵蹤】那行點名即可。
     if (_foeRowsMove.length > ARRIVE_FOE_CARD_CAP_) _foeRowsMove = _foeRowsMove.slice(0, ARRIVE_FOE_CARD_CAP_);
     var _multiFoeGroupsMove = _foeRowsMove.filter(function (r) { return String(r[COL.PC.FACTION]) === "敵御主"; }).length > 1;
     _foeRowsMove.forEach(function (r) {
@@ -449,7 +433,6 @@ function actionMove(userData, pcId, sheets) {
   if (pursuitChaserName && perfNamesMove.indexOf(pursuitChaserName) < 0) perfNamesMove.push(pursuitChaserName);
 
   // 🫶 遇敵態度（GAS 依「在場敵對者對你的好感」裁定，AI 只照這定調演）：好感高→未必有敵意；好感低→殺氣明顯。
-  //   中性(未培養過好感)→留空，維持既有找上門/偶遇 steer。
   var foeMoodNote = "";
   try {
     var moodFavs = [];
@@ -567,8 +550,6 @@ function actionRest(userData, pcId, sheets) {
       restClock = clockLabel_(restGameId, pcData);
     } catch (e) { }
     BATTLE_DEFER_WRITE_ = _prevDeferRest;
-    // 收尾一次整表寫回：時回／時鐘／世界自走／盟約瓦解全部已在同一份 pcData 上改完，這裡一次寫完，
-    // 取代舊版散落的多趟寫入。下方 enemyAmbushOnServant_／raiseBond_ 各自的寫入發生在此之後，維持原樣不動。
     sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
     // 世界已在同一份 pcData 上 tick 完，直接沿用即可判夜襲，不必重讀整表。
     const restSvIdx = findPlayerServantIdx_(pcData, restGameId, userData.servant, userData.servantId);
@@ -587,8 +568,6 @@ function actionRest(userData, pcId, sheets) {
           ``;
       }
     }
-    // ⚔️ 卸防突襲三分派(單一真實來源 ambushDispatchPrompt_)：歇息這裡沒有獨立的「正常結果」敘事
-    //   (那部分由下方 restVictory/restFinalDream 另外處理)，normalFn 只需回空字串即可。
     const restAmbushPrompt = ambushDispatchPrompt_(restAmbush,
       function (a) {
         const restSev = dmgSeverityWord_(a.dmg || 0, a.svHpMax);
@@ -684,8 +663,6 @@ function setEnemyPact_(memory, partnerName, untilDay) {
   return mem ? mem + "｜" + tag : tag;
 }
 
-// 🔥 敵敵交惡標記（【交惡】<對方御主名>:<到期day>）：挑撥離間得逞後 GAS 蓋雙方御主——之後撞見他們更可能
-//   火併/追殺、不會結盟休整（敵盟的反面）。與敵盟互斥（設交惡先清敵盟、反之亦然）。
 function getEnemyFeud_(memory) {
   var m = String(memory || "").match(/【交惡】([^｜:]+):(\d+)/);
   return m ? { partner: m[1], until: parseInt(m[2]) || 0 } : null;
@@ -932,7 +909,6 @@ function actionFactionAmbush(userData, pcId, sheets) {
 }
 
 // 🎭 挑撥離間 action：對峙/談判局面時煽風點火。GAS 依雙方御主性格擲成敗——成功→兩敵真打起來(雙方扣血·保1)；
-//   反效果→他們看穿、一起轉頭戒你(無數值懲罰、白費 1 AP)。耗 1 AP、用掉即清窗口。
 function actionIncite(userData, pcId, sheets) {
   var pcData = sheets.pc.getDataRange().getValues();
   var pIdx = pcData.findIndex(function (r) { return r[COL.PC.ID] == pcId; });
@@ -1010,7 +986,6 @@ function actionIncite(userData, pcId, sheets) {
 }
 
 // 🆘 盟友告急偵測（同盟配套）：找一名在【別處】、與未結盟活敵從者同格的盟友——他正被人纏上、有難。
-//   回 {ally, loc, foe, allyFaction} 供前端報信＋「趕去馳援」；查無回 null。情報共享故玩家得知(結盟即無戰爭迷霧)。
 function detectAllyPeril_(pcData, gameId, playerLoc, curDay) {
   var pl = String(playerLoc || "").trim(), d = parseInt(curDay) || 1;
   for (var i = 1; i < pcData.length; i++) {
@@ -1046,8 +1021,6 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul, preferSvId
   const svIdx = preferOk ? preferSvIdx
     : pcData.findIndex(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
   if (svIdx === -1) return null;
-  // 🏰 陣地·安全港·反擊：玩家於【自己佈設的陣地】(隊有陣地作成從者)遭潛入 → 結界示警、機關迭起，從者從容起身反擊、
-  //   將來犯者擊退驅離(敵扣血·保1不斬)，我方毫髮無傷；代價＝御主耗魔維持結界。魔力不足則結界失效、照常挨突襲。
   const homeRank = homeTerritoryRank_(pcData, pIdx, gameId);
   if (homeRank) {
     const wardCost = 20 + Math.round(rankVal(homeRank) * 0.6); // ~30~55 魔·隨陣地作成階
@@ -1188,8 +1161,6 @@ function actionSecondWind(userData, pcId, sheets) {
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, ap: ap, apMax: AP_PER_DAY, clock: clockLabel_(myGameId, pcData), statusString: buildPlayerStatusString(pcData[pIdx]) });
 }
 
-// ── 🏕️ 陣地（工房）：存於御主 MEMORY【陣地】loc，駐留該地時供魔得工房加成 ──
-// 實作收斂進 Core_Settings.gs 的 makeTextTag_ 共用工廠，函式名/外部行為不變。
 var WORKSHOP_TAG_ = makeTextTag_('陣地');
 function getWorkshop_(memory) { return WORKSHOP_TAG_.get(memory); }
 function setWorkshopMemory_(memory, loc) { return WORKSHOP_TAG_.set(memory, loc); }
