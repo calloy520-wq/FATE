@@ -473,7 +473,7 @@ function actionMove(userData, pcId, sheets) {
     success: true,
     foeMood: foeMoodNote, // 🫶 遇敵態度·GAS 依好感裁定→前端注入抵達 steer
     allyPeril: allyPeril, // 🆘 盟友告急→前端報信＋「趕去馳援」泡泡
-    masterCard: masterCard_(allPcData[pIdx]), // 🎭 御主演出依據→抵達敘事讓「我」依性格開口、不再啞巴主角
+    masterCard: masterCard_(allPcData[pIdx]), // 🎭 御主演出依據→抵達敘事讓御主依性格開口、不再啞巴主角
     servantCard: svCardMove,
     foeCards: foeCardsMove,
     perfNote: performanceNote_(perfNamesMove), // 🎭 抵達場景可能同框多張 servantCard_(皆已 skipClose)，統一收尾一次

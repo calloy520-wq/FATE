@@ -44,7 +44,7 @@ function codexPersona_(name, cls) {
 }
 
 var PREF_LABELS_ = ['日常表象', '真實內裡', '喜歡的事物', '討厭的事物'];
-var TRAIT_LABELS_ = ['外貌本相', '氣質舉止', '自稱與口氣', '卸下心防的私密一面'];
+var TRAIT_LABELS_ = ['外貌本相', '氣質舉止', '卸下心防的私密一面'];
 // skipNone=true 時該格若為空或字面「無」直接跳過不顯示(給御主卡/敵御主卡沿用既有的無資料防呆)；false 時保留全部4格(給 servantCard_ 用，段數不足時仍顯示「無」，不靜默漏項)。
 var QUAD_EMPTY_ = ['', '無',
   '外貌出眾', '外貌平凡', '舉止從容', '卸下心防時的柔軟一面', '卸下心防的私密一面',
@@ -60,13 +60,18 @@ function quadLabeled_(raw, labels, skipNone) {
   return out;
 }
 
+// 特徵格的專用出口：先經 traitParts_ 剝掉舊局的自稱格，再貼標籤——三張角色卡共用，別在各處各修一次。
+function traitLabeled_(raw, skipNone) {
+  return quadLabeled_(traitParts_(raw).join('、'), TRAIT_LABELS_, skipNone);
+}
+
 function performanceNote_(names) {
   var list = (names || []).filter(Boolean);
   if (!list.length) return "";
   return `★本則登場：${list.join('、')}——依真名與性格演出。\n`;
 }
 
-// 🎭 從者「演出依據」卡：真名/職階/第一人稱/個性/對御主/口吻/萌點/招牌動作/六圍/技能/寶具壓成一段塞進 narration 提示詞，讓 AI 依『我們定義的角色』內化演出（只當背景、不准說嘴）。
+// 🎭 從者「演出依據」卡：真名/職階/個性/對御主/口吻(含自稱)/萌點/招牌動作/六圍/技能/寶具壓成一段塞進 narration 提示詞，讓 AI 依『我們定義的角色』內化演出（只當背景、不准說嘴）。
 function servantCard_(row, opts) {
   if (!row) return "";
   var skipClose = !!(opts && opts.skipClose);
@@ -89,9 +94,7 @@ function servantCard_(row, opts) {
     var moe = rowMoe || p.moe || "";
     var tic = rowTic || p.tic || "";
     // persona.look 召喚時已複製進 row.TRAIT(parseTraitsHelper)，跟 fp/toM/persona 一樣退回讀列，別讓 p 變空物件時這格靜默消失。
-    var look = String(p.look ? looksToTraitParts_(p.look, p.firstP || fp) : (row[COL.PC.TRAIT] || ""));
-    // 卡頭已寫「台詞自稱『X』」，TRAIT 第3格的自稱是同一件事講第二次——就地清掉，不動存進表裡的值。
-    if (look) { var _lk = look.split('、'); if (/^自稱/.test(String(_lk[2] || ""))) { _lk[2] = ""; look = _lk.join('、'); } }
+    var look = String(p.look ? looksToTraitParts_(p.look) : (row[COL.PC.TRAIT] || ""));
     var outfit = getOutfit_(mem);              // 👕 玩家換裝：當前服裝穿著(疊在本相上·可清)
     var weapon = getWeapon_(mem);              // ⚔️ 玩家自定武裝：武器/戰鬥方式(蓋過職階慣例/原典習慣·可清)
     var back = String(row[COL.PC.BACK] || "").trim();
@@ -103,12 +106,15 @@ function servantCard_(row, opts) {
     if (relTag === "從者" || relTag === "無") relTag = "";
     // 狂化偵測：喪失言語、只咆哮（如赫拉克勒斯、蘭斯洛特）。開膛手傑克等會說話的狂戰士不命中。
     var mad = /狂化|無法言語|僅咆哮|不語/.test(speech + String(fp));
-    var card = `〈${name}·${cls}·演出依據〉台詞自稱「${fp}」(旁白的「我」永遠是玩家)｜對自己御主的態度：${toM || '依真名'}` +
+    // 自稱不再自成一欄：尋常的「我」沒有資訊量、直接不提，有特色才併進【口吻】講一次
+    // (口吻本身已提過就不重複；狂化者的 fp 是「（狂化·僅咆哮）」這種標記、不是真的自稱，也不提)。
+    var fpNote = (fp && fp !== "我" && !mad && !/自稱/.test(speech)) ? `自稱「${fp}」・` : "";
+    var card = `〈${name}·${cls}·演出依據〉對自己御主的態度：${toM || '依真名'}` +
       (persona ? quadLabeled_(persona, PREF_LABELS_, false) : `｜性格：依真名`) +
-      (speech ? `｜口吻：${speech}` : "") +
+      (speech || fpNote ? `｜口吻：${fpNote}${speech}` : "") +
       (moe && !foe ? `｜萌點(情境對了才浮現一次)：${moe}` : "") +
       (tic && !foe ? `｜小動作：${tic}` : "") +
-      (look ? quadLabeled_(look, TRAIT_LABELS_, false) : "") +
+      (look ? traitLabeled_(look, false) : "") +
       (back ? `｜身世：${back}` : "") +
       (align ? `｜陣營：${align}` : "") +
       (relTag ? `｜對御主的關係稱呼：${relTag}` : "") +
@@ -143,14 +149,14 @@ function masterCard_(row) {
     var playedCanon = playedId && typeof SEED_MASTERS !== 'undefined' ? SEED_MASTERS.find(m => m && String(m.id) === playedId) : null;
     return `〈御主「${name}」·演出依據〉` + (sex ? `性別${sex}` : "") +
       quadLabeled_(row[COL.PC.PREF], PREF_LABELS_, true) +
-      quadLabeled_(row[COL.PC.TRAIT], TRAIT_LABELS_, true) +
+      traitLabeled_(row[COL.PC.TRAIT], true) +
       (moe && moe !== "（待揭曉）" ? `｜萌點(情境對了才浮現一次·用神情語氣帶，別重複同一個動作)：${moe}` : "") +
       (back ? `｜身世：${back}` : "") +
       (origin ? `｜出身：${origin}` : "") +
       (magic ? `｜魔術系統：${magic}${magicRank ? `(${magicRank}階)` : ""}` : "") +
       (melee ? `｜體術：${melee}階` : "") +
       (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
-      `。御主＝玩家本人：依性格開口、有神態台詞，不是沉默的旁觀者；但下一步由玩家按鍵決定，收尾停在等${pron_(sex)}決定的當下。` +
+      `。御主＝玩家本人(旁白稱「你」)：依性格開口、有神態台詞，不是沉默的旁觀者；但下一步由玩家按鍵決定，收尾停在等你決定的當下。` +
       (playedCanon ? `「${name}」出自Fate正典，優先依你對${playedCanon.name}的認知演出，上方僅為錨點。` : "") + `\n`;
   } catch (e) { return ""; }
 }
@@ -187,7 +193,7 @@ function enemyMasterCard_(row, opts) {
     if (align === "中立") align = "";
     return `〈敵御主「${name}」·演出依據〉` +
       quadLabeled_(row[COL.PC.PREF], PREF_LABELS_, true) +
-      quadLabeled_(row[COL.PC.TRAIT], TRAIT_LABELS_, true) +
+      traitLabeled_(row[COL.PC.TRAIT], true) +
       (moe ? `｜萌點(僅供內化)：${moe}` : "") +
       (back ? `｜身世(僅內化)：${back.slice(0, 60)}` : "") +
       (align ? `｜陣營：${align}` : "") +

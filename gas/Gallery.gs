@@ -106,7 +106,7 @@ function translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint,
     "但一看就知道是本人。請輸出兩樣東西：\n" +
     "①look：日常版「外貌」四短句、頓號分隔，每句精簡收束、【每句限" + TRAIT_SEG_HINT_ + "字內寫完整一句話，超過會被截斷】、避免堆疊多重子句，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝)" + figureHint + "]、" +
     "[氣質舉止(依和平日常情境自然轉化，但性格底色不變，不可變成另一個人的氣質；【不可與下方口氣段用相同字眼重複描述】，例如兩段都寫「溫柔」「謙恭」)]、" +
-    "[自稱與口氣：固定格式「自稱「" + (firstP || "我") + "」，再接一句依原本說話語氣(" + (speech || "無特別描述") + ")寫成的日常口氣描述」]、" +
+    "[日常口氣(依原本說話語氣「" + (speech || "無特別描述") + "」寫成的日常說話口氣；自稱「" + (firstP || "我") + "」若不是尋常的「我」，就把它寫進這一句，是「我」則不必提)]、" +
     "[卸下心防的私密一面(這個角色只有放下戒備才會流露的一個具體、生活化、忠於其性格的小可愛面向，" +
     "【必須用看得到的具體小動作或情境呈現(show-don't-tell)，禁止直接說出內心想法/動機/情感獨白——如「心裡一直惦記著…」「其實很在意…」這類直述寫法一律不允許】，也不要只是把性格或喜好換句話說(那屬於性格欄)，" +
     "不可空泛或套用他人" + (dailyMoeHint ? "；這個角色的招牌萌點已經是「" + dailyMoeHint + "」，這一格【禁止】重複或換句話說同一件事，必須是完全不同的另一個生活切面(小動作/小習慣/情緒觸發點)" : "") + ")]。\n" +
@@ -207,8 +207,9 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   var daily = getDailyHeroFields_(heroRow, p);
   sRow[COL.PC.PREF] = parseTraitsHelper(daily.words, "沉著表象、堅定內裡、珍視之物、厭惡之事");
   var dailyLookParts = String(daily.look || "").split('、').map(function (s) { return s.trim(); }).filter(Boolean);
-  var traitSrc = dailyLookParts.length >= 4 ? daily.look : looksToTraitParts_(daily.look, p.firstP);
-  sRow[COL.PC.TRAIT] = parseTraitsHelper(traitSrc, "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
+  // dailyLook 第3段是日常口吻(下面抽進【口吻】)，不進特徵格。
+  var traitSrc = dailyLookParts.length >= 4 ? [dailyLookParts[0], dailyLookParts[1], dailyLookParts[3]].join('、') : looksToTraitParts_(daily.look);
+  sRow[COL.PC.TRAIT] = parseTraitsHelper(traitSrc, "外貌出眾、舉止從容、卸下心防時的柔軟一面", TRAIT_SLOTS_);
   sRow[COL.PC.INTENT] = daily.moe || "";
   // 戰時 p.back 跟平行世界矛盾，優先讀 p.dailyBack。
   sRow[COL.PC.BACK] = p.dailyBack ? String(p.dailyBack).slice(0, 28)
@@ -558,8 +559,8 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 
 ★【語言】除 JSON 欄位名本身外，所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母；玩家描述若含英文人名/詞彙，請意譯或音譯成中文寫入。
 ★【萌點怎麼寫】萌點/設定是【給你內化的素材】，禁複述字面：情境對了才讓它自然浮現一次·不必每回合硬塞·連續回合勿重複同一個具體動作(牽涉隨身物品時尤忌每次都靠「摸/看一眼」交差)。
-★【四格·格式鐵律】traits 與 personality 各【恰好4段】，只用頓號「、」分隔成4段，【絕對不要用句號「。」或半形句點】，每段是一個【簡短詞組】(不是完整句子)，每段內部也【不要】再用頓號列舉多項；禁數字標籤。
-- traits：外貌、氣質舉止、自稱與口氣(第一人稱·如 我/俺/吾＋說話語氣)、卸下心防的私密一面。${finalSex === '女' ? BUST_NOTE_ : ''}格式範例(只示範斷句，內容一律依玩家給的性別與描述重寫)：「(外貌)、(氣質舉止)、自稱「X」語氣Y、(獨處時的小動作)」
+★【格式鐵律】traits 【恰好3段】、personality 【恰好4段】，只用頓號「、」分隔，【絕對不要用句號「。」或半形句點】，每段是一個【簡短詞組】(不是完整句子)，每段內部也【不要】再用頓號列舉多項；禁數字標籤。
+- traits：外貌、氣質舉止、卸下心防的私密一面。${finalSex === '女' ? BUST_NOTE_ : ''}格式範例(只示範斷句，內容一律依玩家給的性別與描述重寫)：「(外貌)、(氣質舉止)、(獨處時的小動作)」
 - personality：日常表象、真實內裡、喜歡的事物、討厭的事物。格式範例(只示範斷句)：「(表象)、(內裡)、(喜歡的)、(討厭的)」
 ★npc_intent：一句讓人喜歡上這個人的萌點，**18 字內講完一句完整的話**。可以是反差、也可以只是討喜的外觀或小習慣(雙馬尾、大食、路痴之類)。★語氣溫馨正面、看了會心一笑，【禁】靠創傷/自卑/孤獨/悲劇宿命撐——這裡是輕鬆的日常後日談。【禁】拿聖杯戰爭專有詞(令咒/寶具/魔術迴路/從者/職階)湊萌點：這個平行世界從沒發生過那場戰爭，那些詞在這裡沒有來由。
 ★background：限20字，呼應其身世，不出現具體物品名，語氣平和溫馨，不涉及聖杯戰爭或任何戰爭史。
@@ -567,7 +568,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 ★【勿輸出數值】戰力數值一律不需要，也不要輸出地點。
 
 ★【輸出】合法 JSON、禁 Markdown：
-{"background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","npc_intent":"結合此人身分的獨特可愛萌點(不限反差)，一句話","outfit":"一句日常穿搭"}`;
+{"background":"限20字","traits":"三格頓號字串","personality":"四格頓號字串","npc_intent":"結合此人身分的獨特可愛萌點(不限反差)，一句話","outfit":"一句日常穿搭"}`;
 
   try {
     const aiBrief = JSON.parse(callGeminiAPI(promptStr, KANSHOU_MASTER_GEN_SYS, { temperature: 0.6, ignoreLaw: true }));
@@ -575,7 +576,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
     const wIdx = buildLiveIdIndex_(sheets.pc)[String(pcId)];
     if (wIdx === undefined) return JSON.stringify({ success: false, message: "御主列已不存在（可能剛被清理）。" });
     if (aiBrief.background) sheets.pc.getRange(wIdx + 1, COL.PC.BACK + 1).setValue(String(aiBrief.background).slice(0, 40));
-    if (aiBrief.traits) sheets.pc.getRange(wIdx + 1, COL.PC.TRAIT + 1).setValue(parseTraitsHelper(aiBrief.traits, row[COL.PC.TRAIT]));
+    if (aiBrief.traits) sheets.pc.getRange(wIdx + 1, COL.PC.TRAIT + 1).setValue(parseTraitsHelper(aiBrief.traits, traitParts_(row[COL.PC.TRAIT]).join('、'), TRAIT_SLOTS_));
     if (aiBrief.personality) sheets.pc.getRange(wIdx + 1, COL.PC.PREF + 1).setValue(parseTraitsHelper(aiBrief.personality, row[COL.PC.PREF]));
     if (aiBrief.npc_intent) sheets.pc.getRange(wIdx + 1, COL.PC.INTENT + 1).setValue(clampMoe_(aiBrief.npc_intent));
     // AI 生成的衣裝比照英靈那邊(daily.outfit)補上，生成失敗/沒給值時種子預設「日常便服」繼續當保底。
@@ -766,7 +767,7 @@ function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
   const finalJson = {
     // 強制思維鏈：放範本第一位讓模型先自省再寫敘事。
     "inner_monologue": "【不顯示·約50字】第三人稱總結對方此刻的真實狀態([性格]vs[情緒身體])·承接歷史·只算【在場人物】名單上的人",
-    "narration": "劇情(第一人稱·字數照下方【篇幅】·不可少於下限)",
+    "narration": "劇情(第二人稱「你」＝玩家·字數照下方【篇幅】·不可少於下限)",
     // 🗺️ 2026-07 移動改「同意泡泡」制(見§134)；2026-07再修（玩家實測「AI一直提議移動、頭痛」）：move_proposal 欄位整個砍掉，AI 不再有任何管道自己決定要不要換場景/換去哪。
     "npc_exit": "本回合告辭離場者的真名陣列·narration須演出那個人離開·否則[]",
     "options": ["1. [主動]…（固定4條·各≤20字·就本回合 narration 出題·只出在場者此刻真做得到的動作·不含換地點）", "2. [被動]…", "3. [接續]…", "4. [反差]…"],
@@ -780,7 +781,7 @@ function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
         "physical_state": _physicalStateRef,
         "appearance_extras": _appearanceExtrasRef,
         "mutual_nicknames": "本回合真的叫出口的暱稱·否則「無」",
-        "memory": "里程碑(告白/初牽手/難忘約會/重要約定)才寫≤30字·玩家第一人稱記事·其餘填「無」·同一事只記一次"
+        "memory": "里程碑(告白/初牽手/難忘約會/重要約定)才寫≤30字·同 narration 用第二人稱「你」稱玩家·其餘填「無」·同一事只記一次"
       }]
     },
     // target 只能填真名(schema級約束，比事後再說一次更有效)。
@@ -799,7 +800,7 @@ function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
   // 🔠 對話格式規則：2026-09 起只剩鑑賞在用——那套含喘息/吸吮的例子是 NSFW 取向，solo 是 SFW 戰鬥敘事，改用 miniSystem 內的短版。
 
   // 🔴 NSFW(慾海模式)：本回合聚焦當下的近身互動(情慾/調情/鋪陳皆可)，雜務(物品/金錢/陣營/任務/招募/地圖/戰鬥數值/身世)完全不追蹤、不輸出，鐵律文字大幅精簡，盡量交給AI自行判斷。
-  const nsfwBaseRules = `後日談敘事核心·輕小說筆觸·台灣繁體中文·第一人稱「我」·禁上帝視角。鐵律：
+  const nsfwBaseRules = `後日談敘事核心·輕小說筆觸·台灣繁體中文·第二人稱「你」＝玩家·禁上帝視角。鐵律：
 1. 承接玩家最新動作與台詞【語氣照原樣】(疑問就疑問、吐槽就吐槽)·不擴寫不代玩家加戲·被搭話的人本回合必給完整真實反應·優先接反轉/否定/突發情緒。
 2. 每3~4句 <br><br> 分段。
 3. ${dialogueFormatRule_()}
@@ -1517,14 +1518,13 @@ function actionPlay_(userData, pcId, sheets) {
     return [_qv(a[0]) && `[表象]${_qv(a[0])}`, _qv(a[1]) && `[內裡]${_qv(a[1])}`].filter(Boolean).join(' ');
   };
 
-  // [自稱] 這格內容通常已是「自稱「我」」這類完整片語，跟敘事視角說明的「我」字面相鄰容易混淆(小模型尤其)，標籤加註明確限定範圍，比照 servantCard_ 的修法。
   const formatTrait = (str) => {
-    const a = String(str || "").split('、');
+    const a = traitParts_(str);
     const _look = [_qv(a[0]), _qv(a[1])].filter(Boolean).join('・');
-    return [_look && `[外貌氣質]${_look}`, _qv(a[2]) && `[台詞自稱]${_qv(a[2])}`].filter(Boolean).join(' ');
+    return _look ? `[外貌氣質]${_look}` : "";
   };
   // 🎯 2026-07 玩家「『私下對可愛小物多看兩眼還故作矜持』這個就是萌點就好，不一定要反差」：第4格[私下一面]與[萌點]本來就是同一種功能(她那份惹人喜歡的隱藏面)，種子資料裡的萌點還早就寫成反差句(「食量驚人卻吃相優雅」)——等於同一件事包了兩層、各寫一遍。
-  const traitPrivateOf_ = (str) => _qv(String(str || "").split('、')[3]);
+  const traitPrivateOf_ = (str) => _qv(traitParts_(str)[2]);
 
 
   let pcData = sheets.pc.getDataRange().getValues();
@@ -2218,9 +2218,9 @@ function actionPlay_(userData, pcId, sheets) {
       kanshouSyncRelTier_(pcData, i);
       dirtyPcRows.add(i);
       kanshouPromiseSettle_.push({ ok: false, type: 'promise_missed', name: _her, loc: _pr.loc });
-      // 💔 她要「記得」被放鴿子(玩家實測：系統扣了好感、她卻渾然不知還演「我照約來了」)：爽約寫進共同回憶(玩家第一人稱視角·比照 memoir 鐵則)，之後每回合經 partyDetailsArr 餵給 AI，她才演得出在意/彆扭，也給玩家道歉挽回的戲肉。
+      // 💔 她要「記得」被放鴿子(玩家實測：系統扣了好感、她卻渾然不知還演「我照約來了」)：爽約寫進共同回憶(用第二人稱稱玩家·比照 memoir 鐵則)，之後每回合經 partyDetailsArr 餵給 AI，她才演得出在意/彆扭，也給玩家道歉挽回的戲肉。
       const _missBandL = _pr.band ? ((KANSHOU_APPT_BANDS_.find(b => b.band === _pr.band) || {}).label || "") : "";
-      const _missLine = `我爽約了——說好${_missBandL}在「${_pr.loc}」見面卻沒去，讓對方空等了一場`;
+      const _missLine = `你爽約了——說好${_missBandL}在「${_pr.loc}」見面卻沒去，讓對方空等了一場`;
       const _oldMemoir2 = String(pcData[i][COL.PC.MEMOIR] || "").trim();
       if (_oldMemoir2.indexOf(_missLine) === -1) pcData[i][COL.PC.MEMOIR] = _oldMemoir2 ? (_oldMemoir2 + "｜" + _missLine) : _missLine;
     };
@@ -2541,7 +2541,7 @@ function actionPlay_(userData, pcId, sheets) {
       // 指定拍誰：intent點名了哪些在場同伴(可多位)——只拍被點名的那些人；沒點名到任何人才算風景。
       const _phNamedMembers = _phIntent ? partyMembers.filter(n => kanshouNameCandidates_(String(n)).some(c => _phIntent.indexOf(c) >= 0)) : [];
       const _phScenery = !partyMembers.length || (_phIntent && !_phNamedMembers.length);
-      const _phCaptionRule = `並【務必】在回應JSON中額外加一個欄位 "photo_caption"：以玩家第一人稱寫一句30~60字的照片小敘述(禁HTML與引號)，若拍到的是親密畫面也直接寫實描述，不用刻意隱晦帶過。`;
+      const _phCaptionRule = `並【務必】在回應JSON中額外加一個欄位 "photo_caption"：同 narration 用第二人稱「你」稱玩家、寫一句30~60字的照片小敘述(禁HTML與引號)，若拍到的是親密畫面也直接寫實描述，不用刻意隱晦帶過。`;
       if (_phScenery) {
         kanshouPhotoPending_ = { names: ['風景'], scenery: true };
         kanshouPhotoStr = `\n★【拍照·風景】：玩家舉起手機${_phIntent ? `，想拍的是「${_phIntent}」，` : "，"}拍下此刻「${String(curL || "")}」的一隅——鏡頭裡可以是街貓、狗兒、鳥雀、光影、不具名路人的背影等生活細節(依地點/時段/天氣自然想像${_phIntent ? "，以玩家想拍的東西為主角" : ""})；若有同伴在場，她們可以自然反應或亂入鏡頭邊角。${_phCaptionRule}`;
@@ -2588,8 +2588,7 @@ function actionPlay_(userData, pcId, sheets) {
       // 口吻/招牌小動作(persona.speech/tic)：召喚時已存進 MEMORY 的【口吻】【小動作】標記，直接複用 getPersonaSpeech_/getPersonaTic_ 讀取，讓角色演出招牌語癖而非千篇一律。
       const pSpeech = getPersonaSpeech_(r[COL.PC.MEMORY]) || dailySpeechByName_(pName, _partyHeroCodex);
       const pTic = getPersonaTic_(r[COL.PC.MEMORY]);
-      const _traitSpeech = String(r[COL.PC.TRAIT] || "").split('、')[2] || "";
-      const pFlavorStr = `${pSpeech && pSpeech.trim() !== _traitSpeech.trim() ? ` | 口吻:${pSpeech}` : ""}${pTic ? ` | 招牌小動作:${pTic}` : ""}`;
+      const pFlavorStr = `${pSpeech ? ` | 口吻:${pSpeech}` : ""}${pTic ? ` | 招牌小動作:${pTic}` : ""}`;
       const pBond = parseInt(r[COL.PC.BOND]) || 0;
       const pChatCeiling = kanshouRelChatCeiling_(pBond);
       const pAtCeilingStr = (pChatCeiling < 100 && pBond >= pChatCeiling) ? "・單靠對話目前已到這個階段的上限，需要透過約定赴約、或一起經歷特別的橋段(夜襲/共浴/膝枕…)這類真實相處才能再加深，這回合維持細水長流的相處基調，不要寫成關係大幅推進" : "";
@@ -2769,7 +2768,6 @@ ${nsfwMemories}${genderHintStr}${driveStr}
   const _histWindow_ = _sceneCut ? 2 : 6;
   const _earlierDigest_ = kanshouRecentDigest_(pcId, _histWindow_);
 
-  const _myPron_ = pron_(pc[COL.PC.SEX]);
 
   // 🧊 排序原則：【穩定的放前面、每回合會變的放後面】——prompt cache 是逐 token 比對前綴，
   //    一個會變的東西插在中間，它後面全部作廢。天氣/時間原本卡在第 5 行，把整份 user prompt
@@ -2778,7 +2776,7 @@ ${nsfwMemories}${genderHintStr}${driveStr}
   const prompt = `★世界觀＝和平的現代冬木市，大家都是住在這裡的普通市民，沒有魔術與從者。
 ${PROMPT_REL}
 ★【只演給的資料】：系統給你的就是這個世界的全部，沒寫到的人/物/過往都不存在；願望、萌點、個性只演出來，不把那幾個字寫進敘述。玩家專一對著一個人時，其他在場者維持背景輕描。
-★【視角鎖定】：「我」＝玩家『${pcName}』本人，只演${_myPron_}實際輸入的動作與五感——${_myPron_}看不見自己的神情。同伴外貌只取材各人自己那份資料，[台詞自稱]只用在本人引號內的台詞。
+★【視角鎖定】：旁白一律用第二人稱，「你」＝玩家『${pcName}』本人，只演你實際輸入的動作與五感——你看不見自己的神情。旁白【不可】用「我」；場上每個角色引號內的台詞才用得到「我」。同伴外貌只取材各人自己那份資料。
 
 【玩家資料】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? ` 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${myOutfit ? ` | 裝扮:${myOutfit}` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}(可透過 master_note.經歷 滾動增補)
 ${PROMPT_PARTY_SYSTEM}
@@ -2788,8 +2786,8 @@ ${_intimacyLines_ ? `★【親密尺度·最高優先】：肢體親密以好感
 ${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}${kanshouInitStr}
 ★【今日天氣】：${kanshouWeather_(curDay)}。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜對方走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·對方此刻【不在場】·禁讓對方開口或出現。` : ""}
 🕰️現在${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★光線/氣溫/作息一律依【此刻＝${timeBand_(_narrHour_)}】寫。★本回合只寫這十分鐘內的片段，時間推進由系統宣告。
-${npcDialoguePrompt}${_earlierDigest_ ? `\n★【再往前的經過】：更早的回合裡，玩家依序做過這些事——${_earlierDigest_}。這些都已經發生過了，需要時自然呼應、別當沒發生過，也不要重演一次。` : ""}
-🚨【收尾${driveOn ? '·主動掌握' : ''}】：${driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : ''}把最後一句留給被搭話的那個人——用那個人的答話或神情收尾，並讓那個人拋出一個玩家接得住的話題(問句、邀約、此刻在意的事都行)，停在等玩家回應的那一刻。沒有別人在場時才收在「我」的動作上。
+${npcDialoguePrompt}${_earlierDigest_ ? `\n★【再往前的經過】：更早的回合裡，你依序做過這些事——${_earlierDigest_}。（這幾句是玩家當時自己打的字、所以自稱「我」，你的旁白仍一律寫「你」。）這些都已經發生過了，需要時自然呼應、別當沒發生過，也不要重演一次。` : ""}
+🚨【收尾${driveOn ? '·主動掌握' : ''}】：${driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : ''}把最後一句留給被搭話的那個人——用那個人的答話或神情收尾，並讓那個人拋出一個玩家接得住的話題(問句、邀約、此刻在意的事都行)，停在等玩家回應的那一刻。沒有別人在場時才收在「你」的動作上。
 ★【在場名單】：${partyMembers.length ? `只有『${partyMembers.join('、')}』在場——開口/被觸碰的只能是這些人，其他名字即使歷史提過也不准出現，名單上每個人這回合都要有戲；有【專屬稱呼】就叫暱稱、否則叫真名。` : '沒有其他人在場。'}
 
 現在演化玩家動作：『${finalUserMsg}${_settledTail_}』`;

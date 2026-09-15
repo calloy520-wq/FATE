@@ -37,8 +37,8 @@
 唯一的「純敘事」出口。前端 `narrate(promptText)` 呼叫（2026-07 拔除死旗標 `isNsfw`——後端早改純看 pcId 前綴 `KPC_` 路由，前端傳了也被無視）。**不自己組事實內容**——`promptText` 是呼叫端（各 handler 的 `aiPrompt`，或前端自組的 `arrivePrompt`/`summonPrompt`）已經組好傳進來的；這裡只負責套上共用系統提示詞 `miniSystem` 並轉呼叫 `narrateWithState_`。
 
 `miniSystem`（逐字，Router_Narrative.gs:746，就地宣告於 `actionNarrateOnly` 內）關鍵鐵則：
-> 你是《命運停駐之夜》的說書人。用 Fate／TYPE-MOON 筆觸、第一人稱「我」（玩家＝御主）、強制台灣繁體中文…【篇幅依指令字數、精煉不灌水；無指定預設 100~160 字】。
-> 1. 旁白第一人稱「我」，禁用「你」與上帝視角。
+> 你是《命運停駐之夜》的說書人。用 Fate／TYPE-MOON 筆觸、強制台灣繁體中文…【篇幅依指令字數、精煉不灌水；無指定預設 100~160 字】。
+> 1. **旁白一律第二人稱：「你」＝玩家（御主）本人**，只寫你看得見、感覺得到的。旁白【不可】用「我」——場上每個角色引號內的台詞才用得到「我」。（2026-09 翻面；原本是第一人稱「我」，跟角色台詞的自稱撞同一個字，玩家回報「ai根本分不清楚要扮演誰」）
 > 2. `${dialogueFormatRule_()}`（對話格式·全遊戲【單一真實來源】，2026-07 玩家定案改「聲音即台詞」自然散文——頂層函式 `dialogueFormatRule_()` 定義於 Gallery.gs，solo 的 miniSystem 與鑑賞 nsfwBaseRules 第3條共用同一支）：① 凡「她口／喉」發出的聲音(話語＋喘息／輕吟／悶哼／笑＋吸吮/咀嚼等嘴部聲)一律擬聲寫進單層「」當台詞，不再用（輕哼）（嬌喘）括號描述、不改第三人稱；② 看得見的動作、以及「不是她嘴發出的」聲響(肉體相撞啪啪／兵刃鏗鏘／交合處水聲／環境聲)走敘事擬聲；③ 只用一層「」禁嵌『』、純背景精簡。濃淡由各軌規則(色度跟隨/天花板/戰況)決定，格式只管怎麼寫。
 > 3. 強制分段：每 2~3 句插 `<br><br>`，整段至少 3 個；換行一律 `<br><br>`、禁真實換行、禁任何 HTML 標籤。
 > 4. ★純敘事補完，數值系統已結算完，你只負責寫字。
@@ -53,10 +53,12 @@
 幾乎每個「有敘事」的 handler 都會把這兩張卡串進 `aiPrompt` 開頭，作為「演出依據」。
 
 `servantCard_(row)` 組出：
-> 〈${name}·${cls}·演出依據(僅供內化，禁複述設定字面)〉此角色台詞內自稱「${fp}」(僅限她/他自己的引號台詞，敘事旁白的「我」永遠是玩家本人、與此無關)｜對御主：${toM}｜性格：${persona}｜口吻：…｜萌點：…｜小動作：…｜寶具「${np}」。
+> 〈${name}·${cls}·演出依據〉對自己御主的態度：${toM}｜性格四格｜口吻：${fpNote}${speech}｜萌點：…｜小動作：…｜特徵三格｜…｜寶具「${np}」。
+>
+> （2026-09：自稱不再自成一欄。`fpNote` 只在自稱有特色時才出現＝`自稱「吾」・`；是尋常的「我」或狂化標記就不印。旁白改第二人稱後，原本那句「(旁白的「我」永遠是玩家)」註記已拆掉。）
 > ★依「${name}」真名與上述性格/口吻演出（show, don't tell）：用言行神態自然流露，【禁】把性格詞/萌點/六圍/技能/寶具名當台詞或由旁白點破。依羈絆高低調親疏：低→保留戒備矜持、高→漸親近，守住性格內核、未深不越界倒貼。
 
-- **🐛→✅ 2026-07 修「AI有時候會把對面角色的『我』當成敘事視角」(鑑賞回報案)**：`fp`(自稱)未特別設定時 fallback 就是「我」——卡片原字面單純寫「自稱「我」」，跟「敘事旁白＝玩家的『我』」是同一個字，長提示詞中段容易讓 flash-lite 小模型混淆兩者。已把標籤改成明確限定「僅此角色自己台詞內用」；`Router_Narrative.gs` 的鑑賞(`isNsfwMode`)`PROMPT_REL` 額外在人物卡片後補一句「★【視角鎖定】」重申通篇「我」只能是玩家本人。**只動 servantCard_ 與 Router_Narrative.gs，`Engine_Combat.gs` 的 nsfwBaseRules 一字未碰**(`git diff -- gas/Engine_Combat.gs` 0改動)。
+- **🐛→✅ 2026-07 修「AI有時候會把對面角色的『我』當成敘事視角」(鑑賞回報案)**〔⚠ 2026-09 已由「旁白改第二人稱」從根源解掉，以下註記全部拆除，保留只為記錄當年的繞法〕：`fp`(自稱)未特別設定時 fallback 就是「我」——卡片原字面單純寫「自稱「我」」，跟「敘事旁白＝玩家的『我』」是同一個字，長提示詞中段容易讓 flash-lite 小模型混淆兩者。已把標籤改成明確限定「僅此角色自己台詞內用」；`Router_Narrative.gs` 的鑑賞(`isNsfwMode`)`PROMPT_REL` 額外在人物卡片後補一句「★【視角鎖定】」重申通篇「我」只能是玩家本人。**只動 servantCard_ 與 Router_Narrative.gs，`Engine_Combat.gs` 的 nsfwBaseRules 一字未碰**(`git diff -- gas/Engine_Combat.gs` 0改動)。
 
 若偵測狂化（persona.speech/firstP 含「狂化/無法言語/僅咆哮/不語」）另加：
 > ★【狂化·絕對】此從者已狂化、喪失言語：【嚴禁】說出任何完整句子或台詞，只能以低吼、咆哮、肢體與本能反應表達。
@@ -230,7 +232,7 @@
 - **突襲**：
   > ★以 Fate／TYPE-MOON 筆觸描寫溫存被突襲撕裂的驚變與兇險，${消滅則語氣留白／未消滅則依性格重情護主或疏離}。傷害與勝負已由系統結算。
 - **正常**（`masterCard_`+`servantCard_`）：
-  > ★以 Fate／TYPE-MOON 筆觸寫一段【精煉 90~150 字、輕快不冗長】${svName} 與御主${act.frame}的小品。務必貼合上方「演出依據」中的性格、自稱與口吻，演出其獨有神態，點到為止留餘味。
+  > ★以 Fate／TYPE-MOON 筆觸寫一段【精煉 90~150 字、輕快不冗長】${svName} 與御主${act.frame}的小品。務必貼合上方「演出依據」中的性格與口吻，演出其獨有神態，點到為止留餘味。
   > ★【show, don't tell】用言行、神態、停頓去流露情感與性格，絕不可直白說出其「願望／個性／萌點」等設定詞；停在含蓄的留白。
   > ★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。
 
@@ -282,7 +284,7 @@
 | `summon_servant` | 「⚔️職階分頁選英靈／🎲隨機／🖋️自訂生成」（Index.html:104-131 / Onboarding） | `actionSummonServant` | **條件式**：種子英靈否／自訂或名冊查無者是（結構化 JSON）；召喚後一律另組 `summonPrompt` 交 `narrate_only` |
 
 ### `actionManualNpc`（action `create`）
-確認**不叫 AI**：所有敘事欄（BACK/TRAIT/PREF/INTENT）用玩家輸入種子值或硬編碼預設（如「外貌平凡、舉止從容、自稱「我」、卸下心防的私密一面」）直接寫入，數值/HP/MP/迴路/令咒/模式/起始禮裝由 GAS 算。AI 補完延後到 `backfill_master_ai`。
+確認**不叫 AI**：所有敘事欄（BACK/TRAIT/PREF/INTENT）用玩家輸入種子值或硬編碼預設（如「外貌平凡、舉止從容、卸下心防的私密一面」·2026-09 起特徵是 3 格）直接寫入，數值/HP/MP/迴路/令咒/模式/起始禮裝由 GAS 算。AI 補完延後到 `backfill_master_ai`。
 
 ### `actionBackfillMasterAi`（action `backfill_master_ai`）
 非阻塞背景呼叫，只補 4 敘事欄，走 `callGeminiAPI` 拿結構化 JSON（非敘事文字）。系統提示詞關鍵行：
@@ -382,12 +384,12 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 關鍵結構/收尾指令（逐字節錄）：
 > 【敘事法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。
 > ${backgroundCrowdStr}
-> ★【視角鎖定】：以上「在場人物」卡片內「自稱」只限她/他自己的引號台詞——通篇敘事旁白的「我」永遠、只能是玩家本人…（2026-07 更新：`actionPlay` 的 `isNsfwMode` 分支已全數拿掉——函式入口已擋非 `KPC_` 呼叫，這句話現在是唯一版本、不再有 solo 對應的另一分支，見 `SOLO_REFERENCE.md` §「九州經濟/生活層」）
+> ★【視角鎖定】：旁白一律用第二人稱，「你」＝玩家『${pcName}』本人，只演你實際輸入的動作與五感——你看不見自己的神情。旁白【不可】用「我」；場上每個角色引號內的台詞才用得到「我」。同伴外貌只取材各人自己那份資料。（2026-09 改寫：原本是「卡片內『自稱』只限她/他自己的引號台詞、旁白的『我』永遠是玩家」，那是在繞「兩邊搶同一個我字」的症狀；旁白翻成「你」後根因消失，`[台詞自稱]` 欄位也一併退休）
 > ★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前在場人物】；背景路人可自由描寫增添氣氛，但一律不具名、不可被指名互動、不追蹤好感…
 > 💕【鑑賞·後日談模式·最高優先級覆寫】：聖杯戰爭【早已落幕】…★【絕對禁止】任何戰鬥、廝殺、敵人、敵御主、敵從者、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅。世界是安全的。…★敘事結束停在溫柔的留白，把下一步交還御主。（**🗑️ 2026-07 清除死碼**：舊版這裡還有一句「非 kanshou」的戰鬥雙向裁決規則，靠 `isKanshou` 三元式切換——查證 `actionPlay` 入口早就強制擋非 `KPC_` 呼叫、且鑑賞唯一建列路徑 `game_id` 永遠是 `"k_"` 開頭，`isKanshou` 在這個函式裡數學上恆為 true，該死分支連同判斷變數已整段刪除，鑑賞覆寫改直接無條件套用）
 > 🚨【敘事終極警告】：1. 敘事必須在給出結果後，停在「我」的心境，將下一步交還玩家選擇！2.（`target`/`npc` JSON 欄位只能填真實在場人名，不可含對白/標點）
 
-回應解析欄位（現行 schema）：`inner_monologue`（範本第一位·強制思維鏈，後端不讀自然丟棄，第三人稱總結不可用「我」自稱避免跟 narration 視角打架，2026-07 澄清為「本回合開始前」承接自過往互動的狀態、非「本回合發生後」）／`narration`（2026-07 目標字數約600→約500字）／`location`（2026-07改：AI【不再自行搬動玩家】——後端把任何 AI 寫的新 location 一律轉成 `move_proposal` 提議泡泡、玩家按「同意」才走既有 moveTarget 管線真的移動；location 欄實質只在玩家用地圖按鈕移動時由系統寫好、AI 照抄）／`move_proposal`（AI 想換場景/同伴想邀玩家→填目標地名，回傳前端 `moveProposal` 欄跳同意/拒絕泡泡，同意→`kanshouConfirmMoveProposal`帶 moveTarget+moveWithCompanion 重送）／`options`（4類選項範本）／`intimacy_feedback`（`player`/`npcs`，各含 `physical_state`〔單一自由文字，2026-07再簡化為「只涵蓋顏面神情與衣裝狀態，≤15字」〕／`dynamic_skills`／`mutual_nicknames`〔僅npcs〕／**`attitude`〔僅npcs，2026-07新增〕**：NPC對御主當下的臨場態度，≤15字，跟好感(長期趨勢)分開追蹤，寫入`COL.PC.REL_MEM`的`[態度]`標籤，每回合覆蓋不累積，也是AI表達「認不認同」關係標籤的唯一管道／**`memory`〔僅npcs，2026-07新增·鑑賞共同回憶〕**：本回合若發生里程碑(告白/初次牽手/難忘橋段/約定達成…)寫一句≤30字第一人稱回憶、否則「無」，GAS 用 `processMemoir_` append 去重存最近 10 條進 `COL.PC.MEMOIR`(27欄，原 MAJOR_EVENT 死欄復用)，她在場時由 partyDetailsArr 讀回餵卡——不做每日濃縮、機制同專屬稱呼，詳見 `SOLO_REFERENCE.md` §135）／`rel_changes`（`target`/`fav_change`。2026-07 這欄位經歷一輪來回：先是AI自己填`fav_change`整數→改成AI只填方向旗標(`tone`/`fav_dir`)、GAS對應固定±2/0→玩家「好感改回數字」定案改回`fav_change`整數，`_note`給級距指引(日常+1~2/心動+3~5，單回合上限+5)，`sanitizeAiData_`(Router_Action.gs)同步復原-100~100的clampInt防呆；**`tag`欄位2026-07玩家定案「關係改玩家決定，AI不可以改動但可以不認」整條移除**——`COL.PC.REL_TAG`從此只能由玩家透過`update_rel_tag`(既有action，這輪才第一次接上前端UI)手動更改，AI不再有任何管道寫入這個欄位，只能靠上面的`attitude`表現認不認同）。**已從 schema 移除的死欄位**：`stat_changes`、`recruited`、`events`、`new_maps`、`mentioned_names`、`log_summary`（原供交談輪數計數，查證累加出的數字從未被任何地方讀回，2026-07 整條移除）、`erogenous_zones`（2026-07 隨「窺視神髓」UI面板一併移除——那是這欄唯一的消費者，面板拿掉後即成死欄，詳見 `SOLO_REFERENCE.md`）、`major_event`（原供「未完成的約定」`[達成]xxx`/`[清空]`特殊語法，2026-07 查證發現寫入後從未被讀回餵給AI、玩家也無任何UI能查看或清空，是頭尾斷開的死路，整條移除，詳見 `SOLO_REFERENCE.md`）、`rel_changes.tag`（見上，2026-07關係改玩家決定後移除）——**solo 完全不經過這個函式**（全走 `narrate_only`）。
+回應解析欄位（現行 schema）：`inner_monologue`（範本第一位·強制思維鏈，後端不讀自然丟棄，第三人稱總結不可用「我」自稱避免跟 narration 視角打架，2026-07 澄清為「本回合開始前」承接自過往互動的狀態、非「本回合發生後」）／`narration`（2026-07 目標字數約600→約500字）／`location`（2026-07改：AI【不再自行搬動玩家】——後端把任何 AI 寫的新 location 一律轉成 `move_proposal` 提議泡泡、玩家按「同意」才走既有 moveTarget 管線真的移動；location 欄實質只在玩家用地圖按鈕移動時由系統寫好、AI 照抄）／`move_proposal`（AI 想換場景/同伴想邀玩家→填目標地名，回傳前端 `moveProposal` 欄跳同意/拒絕泡泡，同意→`kanshouConfirmMoveProposal`帶 moveTarget+moveWithCompanion 重送）／`options`（4類選項範本）／`intimacy_feedback`（`player`/`npcs`，各含 `physical_state`〔單一自由文字，2026-07再簡化為「只涵蓋顏面神情與衣裝狀態，≤15字」〕／`dynamic_skills`／`mutual_nicknames`〔僅npcs〕／**`attitude`〔僅npcs，2026-07新增〕**：NPC對御主當下的臨場態度，≤15字，跟好感(長期趨勢)分開追蹤，寫入`COL.PC.REL_MEM`的`[態度]`標籤，每回合覆蓋不累積，也是AI表達「認不認同」關係標籤的唯一管道／**`memory`〔僅npcs，2026-07新增·鑑賞共同回憶〕**：本回合若發生里程碑(告白/初次牽手/難忘橋段/約定達成…)寫一句≤30字回憶（2026-09 起同 narration 用第二人稱「你」稱玩家）、否則「無」，GAS 用 `processMemoir_` append 去重存最近 10 條進 `COL.PC.MEMOIR`(27欄，原 MAJOR_EVENT 死欄復用)，她在場時由 partyDetailsArr 讀回餵卡——不做每日濃縮、機制同專屬稱呼，詳見 `SOLO_REFERENCE.md` §135）／`rel_changes`（`target`/`fav_change`。2026-07 這欄位經歷一輪來回：先是AI自己填`fav_change`整數→改成AI只填方向旗標(`tone`/`fav_dir`)、GAS對應固定±2/0→玩家「好感改回數字」定案改回`fav_change`整數，`_note`給級距指引(日常+1~2/心動+3~5，單回合上限+5)，`sanitizeAiData_`(Router_Action.gs)同步復原-100~100的clampInt防呆；**`tag`欄位2026-07玩家定案「關係改玩家決定，AI不可以改動但可以不認」整條移除**——`COL.PC.REL_TAG`從此只能由玩家透過`update_rel_tag`(既有action，這輪才第一次接上前端UI)手動更改，AI不再有任何管道寫入這個欄位，只能靠上面的`attitude`表現認不認同）。**已從 schema 移除的死欄位**：`stat_changes`、`recruited`、`events`、`new_maps`、`mentioned_names`、`log_summary`（原供交談輪數計數，查證累加出的數字從未被任何地方讀回，2026-07 整條移除）、`erogenous_zones`（2026-07 隨「窺視神髓」UI面板一併移除——那是這欄唯一的消費者，面板拿掉後即成死欄，詳見 `SOLO_REFERENCE.md`）、`major_event`（原供「未完成的約定」`[達成]xxx`/`[清空]`特殊語法，2026-07 查證發現寫入後從未被讀回餵給AI、玩家也無任何UI能查看或清空，是頭尾斷開的死路，整條移除，詳見 `SOLO_REFERENCE.md`）、`rel_changes.tag`（見上，2026-07關係改玩家決定後移除）——**solo 完全不經過這個函式**（全走 `narrate_only`）。
 
 （`nsfwBaseRules`／`buildDefaultSystemPrompt` 定義在 `Gallery.gs`——紅線①保護區塊，本文不重複貼出，只標註 `actionPlay` 有引用其機制。函式為無參數 `buildDefaultSystemPrompt()`，永遠回傳慾海版本，因為查證後這個函式現在只可能被鑑賞呼叫。詳見 `SOLO_REFERENCE.md` §0。）
 

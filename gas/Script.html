@@ -1102,12 +1102,21 @@
 
   // 🧹 舊九州「同地互動選單」整條呼叫鏈(renderNpcList/interactNpc/openInteractMenu…)已移除——攻擊/寶具/令咒按鈕跟常駐的 renderWarActions 是同一組函式(servantStrike)，原本是重複入口。
 
-  // 🌱 四格頓號字串拆成陣列(補滿4格)。⚠ 不壓縮連續頓號——空格必須保位，
+  // 🌱 頓號字串拆成陣列(補滿 want 格·預設4)。⚠ 不壓縮連續頓號——空格必須保位，
   //    否則「、、我、無」會位移(我被推到第1格)。顯示與改命共用同一拆法。
-  function fateSegSplit_(raw) {
+  function fateSegSplit_(raw, want) {
     var p = String(raw == null ? '' : raw).replace(/[。\.]+/g, '、').split('、');
-    for (var i = 0; i < 4; i++) { if (p[i] == null) p[i] = ''; }
+    var n = want || 4;
+    for (var i = 0; i < n; i++) { if (p[i] == null) p[i] = ''; }
     return p;
+  }
+  // 特徵格是 3 格(外貌/氣質/私密面)。舊局存的是 4 格、第3格曾是「自稱與口氣」——自稱併進【口吻】後那格退休，
+  // 讀到就地剝掉。鏡射 Core_Settings.gs 的 traitParts_，兩邊要一起改。
+  function traitSegs_(raw) {
+    var a = String(raw == null ? '' : raw).replace(/[。\.]+/g, '、').split('、');
+    if (a.length > 3) a.splice(2, a.length - 3);
+    for (var i = 0; i < 3; i++) { if (a[i] == null) a[i] = ''; }
+    return a;
   }
   // 🌱 鑑賞：把「處事個性/命格特徵」四格拆成帶標籤小行，空格顯示待補/—；
   //    處事個性看自己卡片時鎖住的格帶 🔒。原始值存 dataset.raw 供改命視窗讀回。
@@ -1115,9 +1124,9 @@
     var el = document.getElementById(id);
     if (!el) return;
     el.dataset.raw = (raw == null ? '' : String(raw));
-    var parts = fateSegSplit_(raw);
+    var parts = (labels.length === 3) ? traitSegs_(raw) : fateSegSplit_(raw, labels.length);
     var html = '<div style="display:flex;flex-direction:column;gap:3px;margin-top:6px;font-weight:normal;">';
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < labels.length; i++) {
       var v = (parts[i] || '').trim();
       var locked = !!(lockKeys && activeLocks && activeLocks.indexOf(lockKeys[i]) !== -1);
       var valHtml = v
@@ -1162,7 +1171,7 @@
     var _backTitleEl = document.getElementById('ui-back-title');
     if (_backTitleEl) _backTitleEl.innerText = (_isKan && _selfCard) ? '—— 經歷 ——' : '—— 身分背景 ——';
     if (_isKan) {
-      renderSegField_('ui-trait', s[2], ['外貌', '氣質', '自稱', '私密'], null, null, _selfCard, '（待你改命填寫）');
+      renderSegField_('ui-trait', s[2], ['外貌', '氣質', '私密'], null, null, _selfCard, '（待你改命填寫）');
       renderSegField_('ui-pref', s[4], ['對外', '獨處', '喜歡', '討厭'], null, null, _selfCard, '（AI 待補）');
     } else {
       setUI('ui-trait', s[2]);
@@ -1235,20 +1244,18 @@
         `;
     }
     else if (type === 'trait') {
-        // 🩹 句號分隔的舊資料先正規化成頓號再切4格(fateSegSplit_ 不壓縮連續頓號→空格保位)，
+        // 🩹 句號分隔的舊資料先正規化成頓號再切格(traitSegs_ 順手剝掉舊局的自稱格·不壓縮連續頓號→空格保位)，
         //   讓改命視窗預填的是角色真正內容、不會位移。
-        const parts = fateSegSplit_(currentVal);
-        for(let i=0; i<4; i++) { if(!parts[i] || parts[i].trim() === "") parts[i] = "無"; }
+        const parts = traitSegs_(currentVal);
+        for(let i=0; i<3; i++) { if(!parts[i] || parts[i].trim() === "") parts[i] = "無"; }
         titleEl.innerText = "逆天改命 - 修改特徵";
         fieldsEl.innerHTML = `
             <label style="font-size:13px; color:#b8860b; font-weight:bold;">1. 外貌</label>
             <input id="fate-f1" class="std-in" maxlength="20" value="${escapeHtml(parts[0])}">
             <label style="font-size:13px; color:#b8860b; font-weight:bold;">2. 氣質舉止</label>
             <input id="fate-f2" class="std-in" maxlength="20" value="${escapeHtml(parts[1])}">
-            <label style="font-size:13px; color:#b8860b; font-weight:bold;">3. 自稱與口氣（如：自稱「吾」・睥睨王者腔）</label>
-            <input id="fate-f3" class="std-in" maxlength="30" value="${escapeHtml(parts[2])}">
-            <label style="font-size:13px; color:#b8860b; font-weight:bold;">4. 卸下心防的私密一面</label>
-            <input id="fate-f4" class="std-in" maxlength="20" value="${escapeHtml(parts[3])}">
+            <label style="font-size:13px; color:#b8860b; font-weight:bold;">3. 卸下心防的私密一面</label>
+            <input id="fate-f3" class="std-in" maxlength="20" value="${escapeHtml(parts[2])}">
         `;
     } else {
         // 🩹 同上：句號分隔的舊資料先正規化成頓號再切4格(個性欄同款毛病·不壓縮空格保位)。
@@ -1284,12 +1291,12 @@
     if (currentFateType === 'back' || currentFateType === 'intent') {
         newValue = document.getElementById('fate-f1').value.trim() || "無";
     } else {
-        // 特徵與個性維持四格拼接
-        const f1 = document.getElementById('fate-f1').value.replace(/、/g, '').trim() || "無";
-        const f2 = document.getElementById('fate-f2').value.replace(/、/g, '').trim() || "無";
-        const f3 = document.getElementById('fate-f3').value.replace(/、/g, '').trim() || "無";
-        const f4 = document.getElementById('fate-f4').value.replace(/、/g, '').trim() || "無";
-        newValue = `${f1}、${f2}、${f3}、${f4}`;
+        // 特徵3格／個性4格：視窗排幾個輸入框就拼幾格(個性藏起來的兩格是 hidden input，照樣算進去)。
+        const segs = [];
+        for (let i = 1; document.getElementById('fate-f' + i); i++) {
+          segs.push(document.getElementById('fate-f' + i).value.replace(/、/g, '').trim() || "無");
+        }
+        newValue = segs.join('、');
     }
     
     document.getElementById('fate-edit-title').innerText = "重塑中...";

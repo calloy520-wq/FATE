@@ -225,14 +225,15 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `codexPersona_(name, cls?)` — 查英靈殿人設 JSON（6h 快取）；優先「真名＋職階」吻合、找不到退回純真名比對（處理斯卡哈同真名跨職階）。供 `servantCard_` 在列上缺欄位時 fallback。
 
 #### 四段標籤化
-- `quadLabeled_(raw, labels, skipNone)` — PREF/TRAIT 的「、」四段值逐格加標籤餵 AI。值落在 `QUAD_EMPTY_` 的整格不送。⚠ `skipNone` 現已無實際作用（兩種呼叫端都走同一份 `QUAD_EMPTY_`），保留只為相容既有呼叫。
+- `quadLabeled_(raw, labels, skipNone)` — PREF/TRAIT 的「、」分段值逐格加標籤餵 AI（格數＝`labels.length`）。值落在 `QUAD_EMPTY_` 的整格不送。
+- `traitLabeled_(raw, skipNone)` — 特徵格的專用出口＝`quadLabeled_(traitParts_(raw), TRAIT_LABELS_, skipNone)`。三張角色卡（`servantCard_`／`masterCard_`／`enemyMasterCard_`）共用，別在各處各修一次。⚠ `skipNone` 現已無實際作用（兩種呼叫端都走同一份 `QUAD_EMPTY_`），保留只為相容既有呼叫。
 - `QUAD_EMPTY_`（常數）— **無資訊量佔位字的唯一名單**：`parseTraitsHelper` 各 fallback 的每一格（外貌出眾/外貌平凡/舉止從容/卸下心防…/沉著表象/堅定內裡/珍視之物/厭惡之事/通曉魔術/深藏心事）。2026-09 補齊——漏收的佔位字會被當成真資料送進提示詞（實測一張敵從者卡曾同時夾帶「喜歡的事物：珍視之物」「討厭的事物：厭惡之事」「身世：Archer 職階英靈」三格純噪音）。新增 fallback 時要同步這裡。
 - `PREF_LABELS_` = [日常表象, 真實內裡, 喜歡的事物, 討厭的事物]；`TRAIT_LABELS_` = [外貌本相, 氣質舉止, 自稱與口氣, 卸下心防的私密一面]。
 
 #### 演出卡（回傳一段塞進 narration prompt 的字串；show-don't-tell 禁複述設定字面）
 - `buildArrivePrompt_(a)` / `arriveStanceNotice_(stance, isSeek)`（2026-09 新增，`Router_Movement.gs`）— 🚶 **抵達敘事提示詞的單一真實來源**，從 `Script.html` 收回後端。分【抵達/此地】【剛發生】【在場】＋★怎麼演四段；篇幅查 `ARRIVE_WORDS_`（依追擊/撞見/有敵幾件事）；敵方演出卡上限 `ARRIVE_FOE_CARD_CAP_ = 4`。`actionMove` 回傳 `arrivePrompt`，前端只負責 `narrate(data.arrivePrompt)`。
 - `performanceNote_(names)` — 🎭 表演總則（單一真實來源）：show-don't-tell／正典認知覆蓋／羈絆親疏，內容對「這次同框的每一位角色」皆固定不變，只需講一次。`names` 傳入這場戲實際同框的所有真名；`servantCard_`/`enemyMasterCard_` 傳 `opts.skipClose:true` 時各自省略內建收尾，改由呼叫端組完所有角色卡後呼叫本函式統一收尾一次（2026-07 提示詞瘦身：避免多角色同框時每張卡各自重複一份逐字相同的收尾句）。
-- `servantCard_(row, opts?)` — 🎭 從者卡（我方/敵/盟友共用同一份）。真名/職階/第一人稱（限角色台詞內）/對自己御主態度/四段個性/口吻/萌點/小動作/外貌四段（`looksToTraitParts_`）/身世/陣營/關係稱呼/換裝/武裝/寶具。⚠ 2026-09 去重兩處：TRAIT 第3格的「自稱」不再輸出（卡頭已寫「台詞自稱」，同一件事講兩次）、`back` 的無資訊量過濾加收 `/職階英靈$/`（`Seed_Rivals.gs` 寫給敵從者的佔位字）。附 ★換裝、★武裝·絕對（禁依職階或原典武器習慣改寫）、★狂化·絕對（`mad` 偵測→禁台詞只咆哮）三條硬指令。`opts.skipClose:true` 時省略內建的 `performanceNote_` 收尾（多卡同框呼叫端用，見上）；不傳 opts（絕大多數單卡呼叫端）行為不變。缺欄位退回 `codexPersona_`。**CLAUDE.md 紅線②強制載體。**
+- `servantCard_(row, opts?)` — 🎭 從者卡（我方/敵/盟友共用同一份）。真名/職階/對自己御主態度/四段個性/口吻（含自稱）/萌點/小動作/外貌三段（`looksToTraitParts_`）/身世/陣營/關係稱呼/換裝/武裝/寶具。⚠ 2026-09 自稱不再自成一欄：尋常的「我」沒有資訊量直接不提，有特色（吾／俺／拙者／余…）才併進【口吻】講一次；狂化者的 fp 是「（狂化·僅咆哮）」這種標記、也不提。`back` 的無資訊量過濾加收 `/職階英靈$/`（`Seed_Rivals.gs` 寫給敵從者的佔位字）。附 ★換裝、★武裝·絕對（禁依職階或原典武器習慣改寫）、★狂化·絕對（`mad` 偵測→禁台詞只咆哮）三條硬指令。`opts.skipClose:true` 時省略內建的 `performanceNote_` 收尾（多卡同框呼叫端用，見上）；不傳 opts（絕大多數單卡呼叫端）行為不變。缺欄位退回 `codexPersona_`。**CLAUDE.md 紅線②強制載體。**
 - `masterCard_(row)` — 🎭 御主卡（精簡）。性別/四段個性/四段特徵/萌點/身世/出身（`getMasterOrigin_`）/魔術系統+階/體術階/願望（僅供氛圍禁直述）。★可依性格給御主台詞反應，但**不可替玩家拍板戰略抉擇**（收尾不限問句，思索/備戰姿態/屏息對峙皆可，連續回合別重複同一種收尾）。讀 `getPlayedMaster_`→若扮演正典御主則提示 AI 調用原作形象。
 - `sealGenderFact_(masterSex, svSex, svName)` — 令咒補魔 NSFW 用性別配對事實（異/無按女性向處理）：女女→禁陽具插入描寫、無固定插入方；其餘→依各自實際性別合理呈現。與 kanshou Gallery.gs 邏輯類似但**完全獨立不共用**（紅線① solo/kanshou 隔離）。
 - `enemyMasterCard_(row, opts?)` — 🎭 敵御主卡（精簡）。戰鬥現場敵御主在場時給反應/台詞用；四段個性/特徵/萌點/身世（取「。外貌：」前段）/陣營/魔術/體術/願望。★正典人物優先調用原作形象、禁劇透未揭露身分；★非沉默背景板但勝負傷害不可改（此句為敵御主專屬行為準則，不受 skipClose 影響、恆常保留）。`opts.skipClose:true` 時省略「正典認知優先/show don't tell」那段（與同框的 `servantCard_` 一併併入同一次 `performanceNote_`）。與 masterCard_ 不同：AI 可自決其言行（NPC）。
@@ -830,8 +831,10 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### 特徵 / 性格字串清洗
 
 - `cleanChineseName(s)` — 姓名限定純中文（CJK 含擴展 A），濾除英數符號 emoji，上限 10 字；全系統唯一真線。
-- `parseTraitsHelper(data, defaultStr)` — 亂碼特徵粉碎器；正規化陣列/物件/字串、剝 AI 雞婆標籤與數字、句號→頓號，切成固定 4 格（缺格從 defaultStr 對應段補、再退「無」）。
-- `looksToTraitParts_(rawLook, firstP)` — 把種子 persona.look 拆成「末段＝氣質、其餘合併為外貌」，自稱吃 firstP，組出四格骨架餵給 `parseTraitsHelper`。
+- `parseTraitsHelper(data, defaultStr, want?)` — 亂碼特徵粉碎器；正規化陣列/物件/字串、剝 AI 雞婆標籤與數字、句號→頓號，切成固定 `want` 格（省略＝4；TRAIT 一律傳 `TRAIT_SLOTS_`＝3）。缺格從 defaultStr 對應段補、再退「無」；defaultStr 的段數要跟 `want` 對齊，否則補出來的格會錯位。
+- `looksToTraitParts_(rawLook)` — 把種子 persona.look 拆成「末段＝氣質、其餘合併為外貌」，組出三格骨架（外貌／氣質／私密面佔位）餵給 `parseTraitsHelper`。2026-09 拿掉 firstP 參數：自稱已從特徵格退休、併進【口吻】。
+- `TRAIT_SLOTS_`（常數＝3）— 特徵格數：外貌本相／氣質舉止／卸下心防的私密一面。個性（PREF）仍是 4 格。
+- `traitParts_(raw)` — **讀特徵格的唯一入口**：舊局存的是四格（第3格曾是「自稱與口氣」），自稱併進【口吻】後那格退休，長度 >3 就地剝掉 index 2。前端鏡射在 `Script.html` 的 `traitSegs_`，兩邊要一起改。
 - `enrichPersonalityLikesDislikes_(name, cls, rawWords)` — 種子 words 不足 4 段時呼叫 AI 延伸喜歡/討厭補滿（既有短句不改），已滿 4 段直接跳過。
 
 #### 軌跡骨幹（solo 事實錨點）
@@ -1098,7 +1101,8 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `openManaPanel()` — 「🔮魔力」彈窗：供魔收支明細＋各從者出力調整（20~100%）＋💧補魔捷徑。
 - `manaSetOutput(name, o)` — 魔力面板內調出力：樂觀更新 myServants→背景 `set_servant_output`→回來刷經濟並重繪面板。
 - `updateUI(s)` — 把 `§` 分段狀態字串 s[] 灌進命盤欄位；solo 隱藏外顯/HP/MP 等空欄，鑑賞用分行標籤（processance/trait）＋地點徽章隱藏。
-- `fateSegSplit_(raw)` — 四格頓號字串拆成陣列（補滿 4 格、不壓縮連續頓號保位）；顯示與改命共用。
+- `fateSegSplit_(raw, want?)` — 頓號字串拆成陣列（補滿 `want` 格、省略＝4、不壓縮連續頓號保位）；顯示與改命共用。
+- `traitSegs_(raw)` — 特徵專用：剝掉舊局的自稱格後補滿 3 格。**鏡射 `Core_Settings.gs` 的 `traitParts_`**。
 - `renderSegField_(id, raw, labels, lockKeys, activeLocks, isSelf, emptyLabel)` — 鑑賞：把個性/特徵四格渲染成帶標籤小行（空格待補、鎖住格掛🔒），原始值存 `dataset.raw` 供改命讀回。
 - `bondWord(b)` — 羈絆數值→文字（戒備/疏離/漸信/信賴/羈絆深厚）。
 - `kanshouStatusLines_(po)` — 鑑賞肉體狀態單一自由文字欄渲染（合併自舊 6 鍵）。

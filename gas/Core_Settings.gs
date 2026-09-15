@@ -403,12 +403,22 @@ function pron_(sex) { return PRONOUN_[String(sex || '').trim()] || 'TA'; }
 var MOE_STORE_MAX_ = 30;
 function clampMoe_(text) { return String(text || "").slice(0, MOE_STORE_MAX_); }
 
-// 四格短句(外貌/性格)的落地硬上限與提示詞對 AI 宣告的字數，所有生成四格的提示詞都要把 TRAIT_SEG_HINT_ 講出來。
+// 短句(外貌/性格)的落地硬上限與提示詞對 AI 宣告的字數，所有生成短句的提示詞都要把 TRAIT_SEG_HINT_ 講出來。
 var TRAIT_SEG_MAX_ = 30;
 var TRAIT_SEG_HINT_ = 14;
 
+// 特徵格數：外貌本相／氣質舉止／卸下心防的私密一面。個性仍是四格(PREF_LABELS_)。
+var TRAIT_SLOTS_ = 3;
+
+// 讀特徵格的唯一入口：舊局存的是四格(第3格曾是「自稱與口氣」)，自稱併進【口吻】後那格退休，讀到就地剝掉。
+function traitParts_(raw) {
+  var a = String(raw || "").split('、');
+  if (a.length > TRAIT_SLOTS_) a.splice(2, a.length - TRAIT_SLOTS_);
+  return a;
+}
+
 // 🟢 亂碼特徵粉碎器
-function parseTraitsHelper(data, defaultStr) {
+function parseTraitsHelper(data, defaultStr, want) {
   let str = "";
   if (!data) str = defaultStr;
   else if (Array.isArray(data)) str = data.join("、");
@@ -416,7 +426,7 @@ function parseTraitsHelper(data, defaultStr) {
   else str = String(data).replace(/[\[\]"{}]/g, "").trim();
 
   // 終極防呆：清除 AI 雞婆加上的標籤與數字 (例如 "1.", "日常表象:", "氣質舉止:" 等)。
-  str = str.replace(/(自稱與口氣|卸下心防的私密一面|日常表象|真實內裡|喜歡的事物|討厭的事物|氣質舉止|卸下心防|私密一面|外貌|自稱|表象|內裡|喜歡|討厭)[:：]/g, "")
+  str = str.replace(/(卸下心防的私密一面|日常表象|真實內裡|喜歡的事物|討厭的事物|氣質舉止|卸下心防|私密一面|外貌|表象|內裡|喜歡|討厭)[:：]/g, "")
     .replace(/\d+[\.、]/g, "");
 
   str = str.replace(/[。\.]+/g, '、').replace(/、+/g, '、').replace(/^、|、$/g, '');
@@ -427,22 +437,22 @@ function parseTraitsHelper(data, defaultStr) {
   parts = parts.map(s => s.replace(/[<>&"'`｜【】]/g, "").slice(0, TRAIT_SEG_MAX_));
 
   const defParts = String(defaultStr || "").split('、').map(s => s.trim()).filter(s => s !== "");
-  while (parts.length < 4) {
+  const n = want || 4;
+  while (parts.length < n) {
     parts.push(defParts[parts.length] || "無");
   }
 
-  // 保證只回傳前 4 格
-  return parts.slice(0, 4).join("、");
+  // 保證只回傳前 n 格
+  return parts.slice(0, n).join("、");
 }
 
-// 種子 persona.look 結構是「N段外貌細節・・...、最後一段氣質詞」(如「金髮碧眼・甲冑藍裙的嬌小騎士、王者威儀」)，段數因人而異(2~4段不等)，不能按「、」出現位置盲目分配四格(會把服裝等外貌細節錯位塞進[氣質舉止]、真正氣質詞被推擠到[台詞自稱]甚至[私密面])。
-function looksToTraitParts_(rawLook, firstP) {
+// 種子 persona.look 結構是「N段外貌細節・・...、最後一段氣質詞」(如「金髮碧眼・甲冑藍裙的嬌小騎士、王者威儀」)，段數因人而異(2~4段不等)，不能按「、」出現位置盲目分配(會把服裝等外貌細節錯位塞進[氣質舉止]、真正氣質詞被推擠到[私密面])。
+function looksToTraitParts_(rawLook) {
   const segs = String(rawLook || "").split(/[・、]/).map(s => s.trim()).filter(s => s !== "");
   if (segs.length === 0) return "";
   const demeanor = segs.length > 1 ? segs.pop() : "從容";
   const appearance = segs.join("・");
-  const selfAddr = String(firstP || "").trim() || "我";
-  return `${appearance}、${demeanor}、自稱「${selfAddr}」、卸下心防時的柔軟一面`;
+  return `${appearance}、${demeanor}、卸下心防時的柔軟一面`;
 }
 
 // 種子庫 persona.words 幾乎全部只有2段，parseTraitsHelper 補滿4格時[喜歡]/[討厭]恆為「無」佔位，比玩家自建角色的紮實4格薄弱很多。
