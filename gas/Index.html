@@ -321,6 +321,8 @@
           </div>
         </div>
         <button class="btn" onclick="toggleFullScreen()">🖥️ 切換全螢幕模式</button>
+        <!-- 🔄 只在鑑賞模式顯示(applyModeUI 掛顯示)：清掉這個帳號的整局後日談，不動英靈殿與 solo。 -->
+        <button class="btn" id="setting-kanshou-reset" style="display:none; border-color:#800; color:#800;" onclick="kanshouResetWithConfirm_()">🔄 後日談歸零重來</button>
         <button class="btn" style="border-color:#800; color:#800;" onclick="logoutWithConfirm_()">🚪 離開冬木 (登出)</button>
       </div>
     </div>

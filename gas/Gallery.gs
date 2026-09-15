@@ -476,6 +476,58 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
 }
 
 // 進入慾海·後日談：每個帳號只有【一個】常駐後日談世界，點「進入鑑賞」直接回到這個世界。
+// 🧹 依 game_id 把某張表屬於這一局的列整批刪掉(由下往上刪，避免索引位移)。
+//    回傳被刪掉那些列在 idCol 欄的值(供連帶清歷史)；idCol 傳 null 就只刪不收。
+function kanshouPurgeByGame_(sh, gidCol, gid, idCol) {
+  const ids = [];
+  if (!sh || !gid) return ids;
+  try {
+    const d = sh.getDataRange().getValues();
+    for (let r = d.length - 1; r >= 1; r--) {
+      if (String(d[r][gidCol] || "") !== String(gid)) continue;
+      if (idCol != null) ids.push(String(d[r][idCol] || "").replace(/^DEAD_/, ""));
+      sh.deleteRow(r + 1);
+    }
+  } catch (e) { }
+  return ids;
+}
+
+// 🔄 鑑賞歸零重來：把這個帳號的整局後日談資料清掉，下次進鑑賞就是全新的世界。
+// 【會清掉】鑑賞眾生(玩家自己那列＋所有同伴)、他們的對話歷史、相簿、世界帳本、帳號表的鑑賞連結。
+// 【不會動】英靈殿(含你在工房鑄的原創英靈——那是兩軌共用的資產)、solo 那一局的任何東西。
+// 🔒 授權比照 actionEndRun 那次稽核的修法：pcId 是可預測的時間戳，【不可】裸 find；
+//    一律驗「這個帳號登記的鑑賞角色是不是就是它」，否則任何人都能猜 id 清掉別人的存檔。
+function actionKanshouReset(userData, pcId, sheets) {
+  const acctName = String(userData.acctName || "").trim();
+  if (!acctName) return JSON.stringify({ success: false, message: "未登入帳號。" });
+  const linked = getAccountKanshouPcId_(acctName);
+  if (!linked || String(linked) !== String(pcId)) {
+    return JSON.stringify({ success: false, message: "查無你的後日談角色，無法重置。" });
+  }
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const kpc = getKanshouPcSheet_(ss);
+  const data = kpc.getDataRange().getValues();
+  const meIdx = kanshouPcIdx_(data, pcId);
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "查無你的後日談角色，無法重置。" });
+  const gid = String(data[meIdx][COL.PC.GAME_ID] || "");
+  if (!gid) return JSON.stringify({ success: false, message: "這局沒有可辨識的世界編號，為安全起見不執行重置。" });
+
+  // 鑑賞眾生：玩家自己那列也在這一局的 game_id 底下，一起清掉
+  const purgedIds = kanshouPurgeByGame_(kpc, COL.PC.GAME_ID, gid, COL.PC.ID);
+  try { purgeHistoryForPcIds_(purgedIds); } catch (e) { }
+  try { kanshouPurgeByGame_(kanshouAlbumSheet_(), 0, gid, null); } catch (e) { }
+  try { kanshouPurgeByGame_(kanshouWorldSheet_(), KW_.GID, gid, null); kanshouWorldBust_(gid); } catch (e) { }
+
+  // 最後才解除帳號連結：前面任何一步炸掉，連結還在、玩家至少回得去原本的世界。
+  try {
+    const acc = ss.getSheetByName("帳號");
+    const found = acc ? findAccountRow_(acc, acctName) : null;
+    if (found) acc.getRange(found.idx + 1, COL.ACC.KPC + 1).setValue("");
+  } catch (e) { }
+
+  return JSON.stringify({ success: true, cleared: purgedIds.length, message: "後日談已歸零，下次進來是全新的世界。" });
+}
+
 function actionEnterKanshou(userData, pcId, sheets) {
   var acctName = String(userData.acctName || "").trim();
   if (!acctName) return JSON.stringify({ success: false, message: "未登入帳號。" });

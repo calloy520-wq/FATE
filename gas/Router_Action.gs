@@ -13,6 +13,7 @@ const ActionRouter = {
   "account_new_game": actionAccountNewGame,
   "end_run": actionEndRun, // ⚠ claim_grail(奪杯封存) 已整個砍除，改成單純清理讓玩家開新局
   "enter_kanshou": actionEnterKanshou,
+  "kanshou_reset": actionKanshouReset,   // 🔄 鑑賞歸零重來(只清這個帳號的後日談，不碰英靈殿與 solo)
   "backfill_kanshou_ai": actionBackfillKanshouAi, // 🚀 開局非阻塞：enter_kanshou 首次建檔後背景補御主敘事欄
   "dev_resync_codex": actionDevResyncCodex,
   "purge_orphans": actionPurgeOrphans,

@@ -362,8 +362,34 @@
   function openSettingsMenu() {
       const toggle = document.getElementById('setting-opt-toggle');
       if (toggle) toggle.checked = enableAiOptions;
+      // 🔄 歸零重來只給鑑賞：solo 有自己的「⚜️奪得聖杯」在收尾，不在這裡混兩套入口。
+      const rs = document.getElementById('setting-kanshou-reset');
+      if (rs) rs.style.display = (pc && pc.mode === 'kanshou') ? 'block' : 'none';
       highlightFontScaleBtn(parseFloat(localStorage.getItem('kyushu_story_font_scale')) || 1);
       document.getElementById('settings-overlay').style.display = 'flex';
+  }
+
+  // 🔄 後日談歸零重來：不可逆，所以要打字確認(照抄帳號名)而不是按一下就走——
+  //    這是唯一會把玩過的關係、回憶、相簿、走出來的地方一次抹掉的按鈕。
+  async function kanshouResetWithConfirm_() {
+      const acct = (pc && pc.account) || currentAccount || '';
+      if (!await customConfirm_(
+          '⚠️ 這會把「' + acct + '」的整個後日談清成全新的：\n\n'
+        + '　• 所有同伴與你們的關係、好感、共同回憶\n'
+        + '　• 對話歷史、相簿裡的照片\n'
+        + '　• 你走出來的地方與世界帳本\n\n'
+        + '【不會動】英靈殿（含你在工房鑄的原創英靈）與聖杯戰爭那一邊。\n'
+        + '刪掉之後救不回來——確定嗎？')) return;
+      const typed = prompt('最後確認：請輸入你的帳號名稱「' + acct + '」以繼續。');
+      if (typed === null) return;
+      if (String(typed).trim() !== String(acct).trim()) { alert('名稱不符，已取消。'); return; }
+      try {
+          const res = await gasRun({ action: 'kanshou_reset', pcId: pc.id, acctName: acct });
+          if (!res || !res.success) { alert((res && res.message) || '重置失敗，請稍後再試。'); return; }
+          try { localStorage.removeItem('kyushu_v27'); } catch (e) {}
+          alert('後日談已歸零（清掉 ' + (res.cleared || 0) + " 筆）。\n重新載入後就是全新的世界。");
+          location.reload();
+      } catch (e) { alert('重置失敗：' + e); }
   }
 
   // 對話字體大小：套用並記憶玩家偏好的縮放比例

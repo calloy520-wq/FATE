@@ -225,6 +225,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `codexPersona_(name, cls?)` — 查英靈殿人設 JSON（6h 快取）；優先「真名＋職階」吻合、找不到退回純真名比對（處理斯卡哈同真名跨職階）。供 `servantCard_` 在列上缺欄位時 fallback。
 
 #### 四段標籤化
+- `actionKanshouReset(userData, pcId, sheets)`（action `kanshou_reset`）— 🔄 後日談歸零重來。清：鑑賞眾生(依 game_id)／對話歷史／相簿／世界帳本／帳號表的 KPC 連結。**不動**英靈殿與 solo。🔒 授權比照 `actionEndRun`：驗 `getAccountKanshouPcId_(acct) === pcId`，不可裸 find（pcId 是可預測的時間戳）。順序刻意是「先清資料、最後解連結」——中間炸掉玩家還回得去。
+- `kanshouPurgeByGame_(sh, gidCol, gid, idCol)` — 依 game_id 刪掉某張表的整批列（由下往上刪避免索引位移），回傳被刪列的 id（供連帶清歷史）。三張表共用。
 - 🌍 **世界帳本**（Gallery.gs，見 `KANSHOU_REFERENCE.md` §「世界帳本」）：
   - `kanshouWorldSheet_()` — 分頁「鑑賞世界」（遊戲ID|類別|名稱|內容|性別|建立日|最後提及日|提及次數|釘選）。欄位索引在 `KW_`。
   - `kanshouWorldRead_(gameId)` / `kanshouWorldBust_(gameId)` — 讀這一局的帳本（走 CacheService，每回合都要讀）／作廢快取。
