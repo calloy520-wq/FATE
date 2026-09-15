@@ -80,15 +80,7 @@ const ActionRouter = {
 // 🔴 全域輸入防護：所有玩家輸入在進入任何 action handler 前，先在此統一過濾。
 //   前端 maxlength/檢查皆可被繞過(devtools、直打API)，故後端必須是唯一可信的防線。
 function sanitizeUserData_(userData) {
-  // 名稱類欄位禁用 HTML/JS 斷字字元，避免在前端各處 innerHTML/onclick 拼接時被拿來做標籤或屬性逃脫
-  // 🐛→✅ 舊版寫的是 "newRelName"，但 actionUpdateRelTag 實際讀的欄位叫 userData.newTagText——
-  //   兩個字串對不上，這條清洗規則從沒生效過，讓關係稱呼欄位只吃 GLOBAL_MAX 截斷、沒過 HTML 斷字
-  //   字元清洗，前端卡片渲染該欄位時又漏包 escapeHtml，等於留一個可注入 innerHTML 的缺口。
-  // 🐛→✅ 再一輪稽核抓到：acctName 原本完全沒過濾｜【】——鑑賞首次建檔(actionEnterKanshou)會把
-  //   acctName 原樣字串拼接進 MEMORY(`"【帳號】"+acctName+"｜【鑑賞後日談】..."`)，玩家把帳號名稱
-  //   打成含｜【】的字串就能偽造任意MEMORY標記(如偽造【自訂道具】帶ignoreBond:1繞過好感門檻)。
-  //   併入這裡統一擋，並在下面規則加上｜【】清洗(不只<>&"'`)。
-  // 🐯 servantName/foeName：老虎道場(tiger_dojo)把名字直接拼進提示詞，比照其餘名稱欄位清洗
+  // 名稱類欄位禁用 HTML/JS 斷字字元，避免在前端各處 innerHTML/onclick 拼接時被拿來做標籤或屬性逃脫🐛→✅ 舊版寫的是 "newRelName"，但 actionUpdateRelTag 實際讀的欄位叫 userDat…（全文見 CODE_NOTES.md）
   const STRICT_NAME_FIELDS = new Set(["name", "npcName", "targetName", "factionName", "newTagText", "newNickname", "pcName", "trueName", "acctName", "servantName", "foeName"]);
   // 🔴 只在「建立角色/登記NPC」的姓名欄位強制純中文(去英數/符號/空白)；
   //   參照既有角色的欄位(targetName/newRelName 等)不清洗，以免破壞改版前可能存在的非中文名查找。
@@ -107,25 +99,16 @@ function sanitizeUserData_(userData) {
     if (CHINESE_NAME_FIELDS.has(key)) {
       v = cleanChineseName(v);
     } else if (STRICT_NAME_FIELDS.has(key)) {
-      // 🐛→✅ 稽核抓到：slice在trim之前——若字串帶超過NAME_MAX個前導空白(行動裝置自動加空格/
-      //   複製貼上常見)，slice會把20字預算全吃在空白上、砍掉後面真正的名字字元，呼叫端事後再trim
-      //   就得到空字串，合法名稱被誤判成「未輸入」。改成先trim再slice。
       v = v.trim().replace(/[<>&"'`｜【】]/g, "").slice(0, NAME_MAX);
     } else {
       v = v.slice(0, GLOBAL_MAX);
     }
-    // 🐛→✅ 2026-07 邊界稽核·順序錯誤：公式引導字元的防線原本跟 CONTROL_RE 綁在【最前面】，
-    //   但它後面還有好幾道 replace 會【再刪字元】——刪掉開頭那個字之後，原本被擋在第二位的
-    //   `=` 就重新變成開頭。實測 photo_caption 打 `"=SUM(1+1)` 落地就是一格活的公式。
-    //   這道守的是「最終落地字串的第一個字」，就必須是【最後一道】。
     userData[key] = v.replace(FORMULA_LEAD_RE, "");
   }
   return userData;
 }
 
-// ⚡ handler → dispatcher 的整表陣列交棒：寫入完整性已驗證的 handler(其所有寫入 helper 皆原地改回
-//   同一份 pcData)在成功返回前設此全域，dispatcher 夾 _state 時直接複用、省一次整表重讀。
-//   GAS 每個請求執行環境獨立，全域不跨請求；dispatcher 開頭重置防呆。
+// ⚡ handler → dispatcher 的整表陣列交棒：寫入完整性已驗證的 handler(其所有寫入 helper 皆原地改回同一份 pcData)在成功返回前設此全域，dispatcher 夾 _state 時直接複用、省一次整表重讀。
 var STATE_PRE_DATA_ = null;
 
 function handleGameAction(userData) {
@@ -141,8 +124,6 @@ function handleGameAction(userData) {
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   // 🔄 試算表存在性檢查改成純手動(check_sheets action、登入畫面按鈕)，不再每個 action 都自動跑一次。
-  // 🌹 慾海路由：御主 avatar 以 "KPC_" 開頭 → 整條後日談路徑(actionPlay/sync/move…)改讀「鑑賞眾生」分頁，
-  //   與戰爭主表「眾生」完全隔離。solo 御主是 "PC_" 不受影響。
   const isKanshouCtx = String(pcId || "").indexOf("KPC_") === 0;
   // 坤圖已靜態化：getMapDataCached 直接讀 FATE_MAP_SEED 常數，不需要 sheets.map，省一次 Sheets API 呼叫。
   const sheets = {
@@ -153,13 +134,7 @@ function handleGameAction(userData) {
   if (!handler) {
     return JSON.stringify({ success: false, message: "找不到這個指令，請重新整理頁面後再試一次。" });
   }
-  // 🔒 稽核抓到系統性漏洞：get_tags/sync/fate_battle/bond/mana_supply…等近全部solo戰場action，
-  //   long-standing只用裸findIndex信任前端傳來的pcId，完全沒反查「帳號」表確認呼叫者真的擁有這個
-  //   pcId——pcId是可預測字串("PC_"+timestamp)，猜中/枚舉即可代任意玩家讀取私密狀態或竄改HP/羈絆/
-  //   同盟/裝備(部分甚至不可逆，如mana_supply燒蝕迴路)。單一真實來源修法：不逐一補洞，改在
-  //   dispatch前統一擋(見verifyPcOwnership_)，比照kanshou原本各handler各自反查帳號表的同一套邏輯
-  //   (PC_查COL.ACC.PC／KPC_查COL.ACC.KPC)，故各kanshou handler原本的反查已可精簡成純索引查找
-  //   (見Gallery.gs的kanshouPcIdx_)。白名單只留「pcId尚不存在／已用其他方式驗證歸屬」的動作。
+  // 🔒 稽核抓到系統性漏洞：get_tags/sync/fate_battle/bond/mana_supply…等近全部solo戰場action，long-standing只用裸findIndex信任前端傳來的pcId，完全沒反查「帳號」表確…（全文見 CODE_NOTES.md）
   if (pcId && !OWNERSHIP_CHECK_EXEMPT_[action] && !verifyPcOwnership_(userData.acctName, pcId)) {
     return JSON.stringify({ success: false, message: "查無御主。" });
   }
@@ -168,13 +143,7 @@ function handleGameAction(userData) {
   if (isKanshouCtx && KANSHOU_BLOCKED_ACTIONS_[action]) {
     return JSON.stringify({ success: false, message: "慾海是純粹的約會後日談，沒有戰鬥／經濟機制。" });
   }
-  // 🔒 稽核抓到：actionPlay_(Gallery.gs)因AI呼叫數秒~數十秒故意豁免全域鎖，改用CacheService鍵
-  //   kplay_<pcId> 做自己的軟性互斥，只防「同pcId兩次play互撞」；但其餘kanshou setter action
-  //   (kanshou_set_prop/kanshou_add_quick_phrase/update_rel_tag/kanshou_set_name等)完全不理會
-  //   這把鎖，能在play等AI回應期間插隊執行並成功寫入——而play結尾是「整列覆寫」(見actionPlay_
-  //   的dirtyPcRows)，用的是呼叫當下的舊快照，會把這些setter剛寫入的改動悄悄蓋回舊值(玩家已看到
-  //   setter回報成功，稍後卻被吃掉)。讓這些setter偵測到同pcId有play在跑時直接請玩家稍候，避免跟
-  //   play的整列覆寫競速；只對「非play本身、且會實際取ScriptLock寫表」的action套用，純讀取類不受影響。
+  // 🔒 稽核抓到：actionPlay_(Gallery.gs)因AI呼叫數秒~數十秒故意豁免全域鎖，改用CacheService鍵kplay_<pcId> 做自己的軟性互斥，只防「同pcId兩次play互撞」；但其餘kanshou sette…（全文見 CODE_NOTES.md）
   if (isKanshouCtx && action !== 'play' && !LOCK_EXEMPT_ACTIONS_[action]) {
     try {
       if (CacheService.getScriptCache().get("kplay_" + String(pcId || ""))) {
@@ -183,8 +152,6 @@ function handleGameAction(userData) {
     } catch (e) { }
   }
   // 🔒 寫入互斥：會寫表的動作取 ScriptLock，擋「同鍵重送/連點」重複扣血扣AP。
-  //   豁免不取鎖：①純讀取 ②長 AI 敘事(鎖是全域的，被數秒的 AI 呼叫佔住會卡到其他請求)。
-  //   搶不到鎖(上一動作尚在結算)→回「稍候」而非疊加重跑。
   let _mutex = null;
   if (!LOCK_EXEMPT_ACTIONS_[action]) {
     try {
@@ -209,9 +176,6 @@ function handleGameAction(userData) {
             var gid = String(prow[COL.PC.GAME_ID] || "");
             var svRow = pdata.find(function (r) { return String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gid && !String(r[COL.PC.ID]).startsWith("DEAD_"); });
             ro.defeat = true; ro.deadline = true; ro.victory = false; ro.servantDream = "";
-            // 🐛→✅ 舊版這裡傳空字串當願望——唯獨這個「時限耗盡」敗北路徑沒有呼叫 extractWish_(其餘
-            //   所有敗北分支：戰鬥/補魔/令咒反噬等都有)，導致單純被14日時限拖垮的玩家，虛假之夢完全
-            //   繞過自己設定的願望、讀起來像通用場景，跟其他敗北方式的夢境待遇不一致。
             if (!ro.dreamPrompt) ro.dreamPrompt = buildDreamPrompt_(String(prow[COL.PC.NAME]), extractWish_(prow[COL.PC.MEMORY]), svRow ? String(svRow[COL.PC.NAME]) : "", 'timeout');
             out = JSON.stringify(ro);
           }
@@ -220,14 +184,6 @@ function handleGameAction(userData) {
     } catch (e) { /* 非 JSON / 無 clock → 略過 */ }
   }
   // ⚡ 2→1：solo 遊戲動作回應自動夾帶最新 client state(_state)，前端套用後即不必再打一趟 sync。
-  //   只對 solo 御主(PC_)＋會改動戰場狀態的動作做；查無人/出錯則略過(前端自動 fallback 回真 sync)。
-  //   優先吃 STATE_PRE_DATA_ 省掉 buildClientState_ 的整表重讀；未交棒的 handler 照舊 fallback 重讀。
-  // 🐛→✅ 2026-07 稽核抓到："KPC_xxx".indexOf("PC_")===1(非0)，這個判斷把鑑賞完全排除在外——
-  //   但 update_fate/update_rel_tag 兩個handler本就是特地扣出來給鑑賞共用(見上方KANSHOU_BLOCKED_
-  //   ACTIONS_註解)、也確實有交棒STATE_PRE_DATA_，只是這裡的守門條件忘了同步放行，導致鑑賞玩家
-  //   改命/改稱呼存檔後前端沒收到_state、白跑一趟真正的sync整表重讀。isKanshouCtx為真時能走到這裡
-  //   的action只有這三個(其餘STATE_AFTER_ACTIONS成員都在更早的KANSHOU_BLOCKED_ACTIONS_被擋掉)：
-  //   update_fate/update_rel_tag/kanshou_set_nickname(2026-07五度改版新增專屬稱呼手動設定)。
   if (STATE_AFTER_ACTIONS[action] && (String(pcId || "").indexOf("PC_") === 0 || isKanshouCtx)) {
     try {
       const obj = JSON.parse(out);
@@ -241,13 +197,6 @@ function handleGameAction(userData) {
   } finally { if (_mutex) { try { _mutex.releaseLock(); } catch (e) { } } }
 }
 // 🔒 不取寫入鎖的動作：純讀取(不寫表·鎖了白繳成本) ＋ 長 AI 敘事(佔鎖數秒會卡住全域)。
-//   ⚠ sync 雖會 markRivalsSeen_ 標記 SEEN，但該寫入冪等(重標無害)，不值得為它鎖每一次同步。
-// 🔒 pcId 歸屬驗證豁免名單：僅列「pcId 當下尚不存在／已用其他方式驗證歸屬」的動作——
-//   account_login/account_new_game/create/enter_kanshou 建立帳號連結前根本不帶 pcId；
-//   claim_hero/save_hero 走 persona.creator===acctName 這套不同模型(英靈殿列，非個人pcId列)；
-//   get_heroes/get_masters 是公開名冊，handler 本身完全不讀 pcId；
-//   check_name/check_sheets/dev_resync_codex 不涉及個別玩家列；purge_orphans 是全局孤兒清理。
-//   其餘只要動作帶了 pcId，一律先過 verifyPcOwnership_ 反查「帳號」表確認真的是本人。
 const OWNERSHIP_CHECK_EXEMPT_ = {
   check_name: 1, check_sheets: 1, dev_resync_codex: 1, purge_orphans: 1,
   account_login: 1, account_new_game: 1, enter_kanshou: 1, create: 1,
@@ -260,13 +209,6 @@ const LOCK_EXEMPT_ACTIONS_ = {
   save_hero: 1 // 🛠️ 工房鑄造/修改：含數秒 AI 呼叫·只寫英靈殿(append/單列)不碰戰場——佔全域鎖會卡死其他玩家
 };
 // ⚡ 會改動 solo 戰場狀態、前端事後會 syncData(整頁刷新) 的動作 → 夾帶 _state 省一趟 round-trip。
-//   不含：sync(本身即 state)／get_tags／純讀取(inspect/get_*)／創角召喚(自走 reload)／kanshou(KPC_)；
-//   也不含「樂觀更新」的輕量 setter(set_servant_output/set_mage_realm/set_rune_mode)——
-//   它們不 syncData、只吃 res.economy，夾 _state 反而白做整表讀取。
-//   也不含 narrate_only——前端 narrate() 只吃 res.text、不消費 _state，夾它純浪費整表讀。
-//   move 也不含：前端 travelTo() 從不呼叫 syncData()／不消費 __pendingState，靠自己回應的
-//   people/locations/mapDesc/mapNodes/statusString 就足夠更新畫面，夾 _state 對這個全遊戲最高頻
-//   的動作只是白算一次完整 buildClientState_ 後被原地丟棄。
 const STATE_AFTER_ACTIONS = {
   fate_battle: 1, use_seal: 1, mana_supply: 1, spirit_repair: 1, bond: 1, rule_break_steal: 1,
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
@@ -274,15 +216,7 @@ const STATE_AFTER_ACTIONS = {
   faction_ambush: 1, incite: 1, court_enemy: 1,
   update_fate: 1, update_rel_tag: 1, kanshou_set_nickname: 1
 };
-// 🛡️ 慾海(KPC_)明確擋下的戰鬥／經濟／結盟類 action——皆為 solo 戰爭專屬，前端在 kanshou 模式下
-//   本就全數隱藏對應按鈕，這裡擋 API 直打。取 STATE_AFTER_ACTIONS 扣掉 update_fate/update_rel_tag/
-//   kanshou_set_nickname(通用或鑑賞專屬的敘事欄編輯，慾海也適用)，加上 3 個樂觀更新輕量 setter。
-//   move 不在名單中：鑑賞移動地圖走 action:'play'+moveTarget，從不真的呼叫 action:'move'；且
-//   actionMove 用 KPC_ id 去查「眾生」表本就查無此人、安全但原因與其他表面相似的判斷不同。
-//   weapon/get_map_nodes/narrate_only/end_run/create/summon_servant/backfill_master_ai/
-//   account_login/account_new_game 皆為 solo 專屬，鑑賞 UI 從未呼叫過，但誤呼叫會寫壞或清錯
-//   資料表（如 end_run 會清錯帳號表欄位、create/summon_servant 會把戰鬥 schema 寫進鑑賞眾生表、
-//   purge_orphans 若以 KPC_ 呼叫會誤刪整張鑑賞眾生表）——明確擋掉，不依賴資料形狀僥倖安全。
+// 🛡️ 慾海(KPC_)明確擋下的戰鬥／經濟／結盟類 action——皆為 solo 戰爭專屬，前端在 kanshou 模式下本就全數隱藏對應按鈕，這裡擋 API 直打。
 const KANSHOU_BLOCKED_ACTIONS_ = {
   fate_battle: 1, use_seal: 1, mana_supply: 1, spirit_repair: 1, bond: 1, rule_break_steal: 1,
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
@@ -306,29 +240,18 @@ function actionCheckName(userData, pcId, sheets) {
   if (!userData.name) {
     return JSON.stringify({ invalidName: true, message: "名號僅限中文字，不可使用英文、數字或符號。" });
   }
-  // 與 create(actionManualNpc) 一致——不擋跨局同名（game_id 實例化，玩家御主靠 pcId 認人，跨局撞名
-  //   無害）。只擋【正典角色名】(避免與本局被種入的同名正典敵手雙胞胎)；想扮演正典請走「扮演正典御主」入口。
-  // userData.name 已被 cleanChineseName 洗成純中文去標點，比對對象也需同樣清洗，否則含標點的正典
-  // 名號(如「韋伯·維爾維特」)永遠比不中。SEED_SERVANTS 的真名欄位是 `realName`，不是 `name`。
+  // 與 create(actionManualNpc) 一致——不擋跨局同名（game_id 實例化，玩家御主靠 pcId 認人，跨局撞名無害）。
   const _canonHit = (typeof SEED_MASTERS !== 'undefined' && SEED_MASTERS.some(m => m && cleanChineseName(m.name) === userData.name))
     || (typeof SEED_SERVANTS !== 'undefined' && SEED_SERVANTS.some(s => s && cleanChineseName(s.realName) === userData.name));
   return JSON.stringify({ exists: _canonHit, canon: _canonHit, message: _canonHit ? `「${userData.name}」是聖杯戰爭中已知的英靈／御主——請另取名號，或用「扮演正典御主」入口。` : "" });
 }
 
-// 🔒 呼叫者身分解析：get_full_status/update_fate/update_rel_tag/kanshou_set_nickname 這4個
-//   solo/鑑賞共用handler，用這支找出呼叫者自己的 game_id。歸屬驗證本身已上移到 dispatcher
-//   統一擋（`handleGameAction`→`verifyPcOwnership_`，見上方；kanshou/solo pcId 進到這裡時都已
-//   確認真的屬於這個帳號），這裡只需要純索引查找＋讀 GAME_ID，不必再反查一次帳號表。
-//   回傳null＝查無此列，呼叫端須視同「查無此人」直接回絕；solo一律回字串(可能是"")。
+// 🔒 呼叫者身分解析：get_full_status/update_fate/update_rel_tag/kanshou_set_nickname 這4個solo/鑑賞共用handler，用這支找出呼叫者自己的 game_id。
 function resolveCallerGameId_(pcData, pcId) {
   if (String(pcId || "").indexOf("KPC_") === 0) {
     const idx = kanshouPcIdx_(pcData, pcId);
     return idx === -1 ? null : String(pcData[idx][COL.PC.GAME_ID] || "");
   }
-  // 🐛→✅ 再稽核抓到：查無此列時原本回傳""(非null)，呼叫端只擋null——導致捏造的pcId能讓下游
-  //   findPcRowIdx_/手寫的myGameId比對因gid為""(falsy)整個跳過game_id過濾，退化成跨全局姓名搜尋
-  //   (get_full_status可讀任意玩家狀態；update_fate/update_rel_tag甚至可跨局竄改)。查無此列一律
-  //   回null強制呼叫端拒絕；「找到列但其GAME_ID欄本身是空字串」(舊資料相容)才維持回傳""。
   const me = pcData.find(r => r[COL.PC.ID] == pcId);
   return me ? String(me[COL.PC.GAME_ID] || "") : null;
 }
@@ -354,9 +277,7 @@ function actionGetFullStatus(userData, pcId, sheets) {
 function actionUpdateFate(userData, pcId, sheets) {
   const { targetId, fateType, fateValue } = userData;
   let pcData = sheets.pc.getDataRange().getValues();
-  // 從者狀態(📜 狀態鈕)開的 openStatus 傳的是【名字】非 ID，故需接受 ID 或同行從者名字，
-  // 且限本局 game_id(防跨局撞名／名字誤中敵方非同行者)。
-  // 🔒 帳號歸屬驗證（2026-07 再稽核抓到的漏洞補上，見 resolveCallerGameId_ 說明）。
+  // 從者狀態(📜 狀態鈕)開的 openStatus 傳的是【名字】非 ID，故需接受 ID 或同行從者名字，且限本局 game_id(防跨局撞名／名字誤中敵方非同行者)。
   const myGameId = resolveCallerGameId_(pcData, pcId);
   if (myGameId === null) return JSON.stringify({ success: false, message: "查無此人" });
   const pIdx = pcData.findIndex(r => {
@@ -406,10 +327,6 @@ function buildTagsPayload_(sheets, pcId, preData) {
   // mIdx 順手記下來，下面 canRuleBreak_ 需要索引時直接複用，不必再 findIndex 重掃一次。
   const mIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   const m = mIdx >= 0 ? pcData[mIdx] : undefined;
-  // 🐛→✅ 2026-07 稽核抓到：這裡原本回傳「已stringify的字串」，跟下方成功路徑回傳「物件」型別不一致——
-  //   `actionGetTags` 呼叫端會再包一層JSON.stringify，字串誤入變成雙重編碼；另兩處直接把回傳值當
-  //   物件用(`tp.success`／`tags:`欄位)，字串會讓`.success`讀到undefined、或讓`tags`欄位變成一段
-  //   跳脫過的JSON字串而非巢狀物件。改回傳物件，跟成功路徑型別一致。
   if (!m) return { success: false };
   const gameId = String(m[COL.PC.GAME_ID] || "");
   // 下方 servants.push 組裝的戰鬥限定欄位(魔境/符文/synergy/理想鄉/多寶具/深淵海怪)須明確以
@@ -437,9 +354,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
     outfit: getOutfit_(m[COL.PC.MEMORY]) // 👕 慾海御主本人換裝(與從者outfit同款·供卡片「換裝」鈕預填)
   };
 
-  // 🗝️ 雙從者：收齊所有在世我方從者（servants 陣列）；servant＝第一個（向後相容）
-  // 🌍 solo 靠 IS_PARTY==="同行" 過濾隊伍；鑑賞無「隊伍」概念，改用 LOC 是否與玩家目前位置一致，
-  //   卡片只顯示同地點的英靈。
+  // 🗝️ 雙從者：收齊所有在世我方從者（servants 陣列）；servant＝第一個（向後相容）🌍 solo 靠 IS_PARTY==="同行" 過濾隊伍；鑑賞無「隊伍」概念，改用 LOC 是否與玩家目前位置一致，卡片只顯示同地點的英靈。
   let servants = [];
   // 🤝 牽手中對象(鑑賞限定)：供同伴卡顯示「牽手/放手」狀態。solo 恆空。
   const heldName = !isFateCtx && typeof KANSHOU_HANDHOLD_TAG_ !== 'undefined' ? KANSHOU_HANDHOLD_TAG_.get(m[COL.PC.MEMORY]) : "";
@@ -452,9 +367,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
     try { six = JSON.parse(s[COL.PC.SIX] || "{}"); } catch (e) { }
     try { const tg = JSON.parse(s[COL.PC.TAGS] || "{}"); skills = tg.skills || []; traits = tg.traits || []; } catch (e) { }
     servants.push({
-      // 🆔 2026-07「整體重構·id優先」：舊版卡片只帶 name，前端只能用名字回指定這名從者(雙從者名字
-      // 撞前綴時就會選錯人)——補上 id，前端存起來隨後續 action 回傳，後端 findPcRowIdx_/
-      // findPlayerServantIdx_ 才有 id 可用、不必再靠名字比對這條容易出錯的路。
+      // 🆔 2026-07「整體重構·id優先」：舊版卡片只帶 name，前端只能用名字回指定這名從者(雙從者名字撞前綴時就會選錯人)——補上 id，前端存起來隨後續 action 回傳，後端 findPcRowIdx_/findPlayerServantIdx_ 才有 id 可用、不必再靠名字比對這條容易出錯的路。
       id: s[COL.PC.ID],
       name: s[COL.PC.NAME], cls: s[COL.PC.RANK] || "從者", sex: s[COL.PC.SEX],
       tag: s[COL.PC.REL_TAG] || "從者", // 🏷️ 關係標籤(鑑賞卡片「🏷️關係」鈕預填用；solo不使用此欄)
@@ -479,12 +392,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
       runeMode: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'rune'; }) ? runeMode_(s[COL.PC.MEMORY]) : undefined,
       // 🐕 主從synergy（恩奇都·變容）：與銀狼結契時亮起全盛(全能A·寶A++)、否則暗示需該御主。玩家不可控·御主決定
       synergy: isFateCtx ? masterSynergyView_(s[COL.PC.NAME], s[COL.PC.MEMORY]) : null,
-      // 🗡️ 理想鄉·無敵結界（阿爾托莉雅＋御主持 Avalon 禮裝）：被動自動·敵解放 6 階究極寶具且御主魔力≥100 時自動擋下(耗 100 魔)。此旗標僅供卡片資訊標籤
-      // 🐛→✅ 2026-07 玩家「檢查solo看看有沒有問題」稽核抓到：這裡的子字串比對(/阿爾托莉雅/.test)
-      //   跟 Mystic_Code.gs injectMysticBuff_ 實際戰鬥判定用的精確全名比對不是同一份謂詞——子字串
-      //   版本連「阿爾托莉雅・奧爾塔」這類變體都會誤判成真，且兩處各自維護早已漂移；戰鬥實際判定曾
-      //   一度改比對到錯的短名「阿爾托莉雅」(已於同批次修正)，這裡的卡片旗標卻從未同步更新，導致卡片
-      //   顯示「理想鄉已啟用」但實戰從未真正觸發。改成同一份精確全名比對，兩處判準統一。
+      // 🗡️ 理想鄉·無敵結界（阿爾托莉雅＋御主持 Avalon 禮裝）：被動自動·敵解放 6 階究極寶具且御主魔力≥100 時自動擋下(耗 100 魔)。
       canIdealRealm: isFateCtx && (String(s[COL.PC.NAME] || "").trim() === '阿爾托莉雅·潘德拉貢' && String(s[COL.PC.RANK]) === 'Saber' && getMystic_(m[COL.PC.MEMORY]) === 'avalon'),
       // 🌟 多寶具英靈：寶具選單＋當前選定索引（前端點寶具時挑要放哪個）
       npOptions: isFateCtx ? (servantNpOptions_(s[COL.PC.NAME], s[COL.PC.RANK]) || undefined) : undefined,
@@ -538,9 +446,6 @@ function buildTagsPayload_(sheets, pcId, preData) {
       var l = String(r[COL.PC.LOC] || "").trim();
       if (l) locationCounts[l] = (locationCounts[l] || 0) + 1;
       var hid = kanshouHeroIdByName_(String(r[COL.PC.NAME]));
-      // 🐛→✅ 2026-07 七度改版稽核抓到：原本只認KANSHOU_HERO_HOME_(7位種子英靈手寫豪邸)，隨機
-      //   分配到泛用住處池的英靈永遠解鎖不了——改用kanshouGetHeroHome_統一讀取(手寫優先、查無
-      //   讀【住處】隨機分配標記)，同 kanshouResidenceUnlocked_(Gallery.gs)那套判定同步。
       var home = kanshouGetHeroHome_(hid, r[COL.PC.MEMORY]);
       if (home && home !== '自己的住處' && (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_VISIT_BOND_) unlockedResidences[home] = true;
     });
@@ -551,13 +456,9 @@ function buildTagsPayload_(sheets, pcId, preData) {
     var _w = getEncounterWindow_(m[COL.PC.MEMORY]);
     if (_w && _w.loc === String(m[COL.PC.LOC] || "").trim()) encWin = { type: _w.type, choices: encounterChoices_(_w.type) };
   }
-  // 🗺️ myLoc：玩家此刻所在地。鑑賞前端本來完全沒有這個資訊的可靠來源(只有 locationCounts 這種
-  //   彙總數字)，導致「約定地點清單要排除你正站著的地方」之類的判斷做不出來。放進既有 payload
-  //   ＝零額外 round-trip，單一真實來源在後端。
+  // 🗺️ myLoc：玩家此刻所在地。
   return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length, locationCounts: locationCounts, unlockedResidences: Object.keys(unlockedResidences), encounterWindow: encWin, myLoc: String(m[COL.PC.LOC] || ""),
     // 🌙 夜未眠(Gallery.gs KANSHOU_NIGHT_SCENE_TAG_)：HUD 那顆鈕要據此把「🌙睡覺」換成「🌅睡到天亮」。
-    //   掛在 tags 而非 play 回傳的頂層——tags 是前端的狀態通道(window._lastTags)，也會被
-    //   STATE_AFTER_ACTIONS 重新拉，玩家重新整理頁面後按鈕不會退回錯的字。
     nightScene: (typeof KANSHOU_NIGHT_SCENE_TAG_ !== 'undefined'
       && KANSHOU_NIGHT_SCENE_TAG_.get(m[COL.PC.MEMORY]) === (parseInt(m[COL.PC.DAY]) || 0)) || undefined };
 }
@@ -614,9 +515,7 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   if (!newTagText || !String(newTagText).trim()) return JSON.stringify({ success: false, message: "稱呼不可為空。" });
 
   const pcData = sheets.pc.getDataRange().getValues();
-  // 光靠姓名+下方「同行」門檻不保證是「我這局」的同行者；不同局剛好有同名同行從者仍會被誤改，
-  // 故需再比對呼叫者自己列的 game_id(myGameId 為空時放行，相容沒有 game_id 的舊資料)。
-  // 🔒 帳號歸屬驗證（2026-07 再稽核抓到的漏洞補上，見 resolveCallerGameId_ 說明）。
+  // 光靠姓名+下方「同行」門檻不保證是「我這局」的同行者；不同局剛好有同名同行從者仍會被誤改，故需再比對呼叫者自己列的 game_id(myGameId 為空時放行，相容沒有 game_id 的舊資料)。
   const myGameId = resolveCallerGameId_(pcData, pcId);
   if (myGameId === null) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
   const tIdx = findPcRowIdx_(pcData, myGameId, { name: targetName });
@@ -628,16 +527,9 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   }
 
   const finalTag = String(newTagText).trim();
-  // 🔒 2026-07 五度改版·自訂稱呼會被字面「TA是你的${tag}」原樣塞進AI提示詞當既定事實，玩家實測
-  //   低好感就打露骨自訂稱呼會讓AI無視好感天花板照樣演到底——5階預設標籤(KANSHOU_REL_TIER_)本就
-  //   由GAS依好感計算，不受此限；只擋「自訂文字不等於任一預設標籤」這條路徑。
+  // 🔒 2026-07 五度改版·自訂稱呼會被字面「TA是你的${tag}」原樣塞進AI提示詞當既定事實，玩家實測低好感就打露骨自訂稱呼會讓AI無視好感天花板照樣演到底——5階預設標籤(KANSHOU_REL_TIER_)本就由GAS依好感計算，不受此限；只擋「自訂文字不等於任一預設標籤」這條路徑。
   const _presetTier = KANSHOU_REL_TIER_.find(t => t.label === finalTag) || null;
   const bond = parseInt(pcData[tIdx][COL.PC.BOND]) || 0;
-  // 🐛→✅ 2026-07 逐按鍵稽核：舊版只擋「自訂文字」，預設 5 階一律放行，理由是「反正 GAS 會依好感
-  //   自動升降」——但自動同步只在 BOND【變動時】才跑(kanshouSyncRelTier_ 的呼叫時機)。純聊天不變動
-  //   好感的回合，好感 30 點一下預設的「戀人」就真的一路掛著，提示詞照寫「TA是你的戀人(好感:30)」，
-  //   連低好感的口吻提醒都一起消失——正是這道門檻本來要擋的那個 injection，只是繞過方式從「打字」
-  //   變成「點按鈕」。改成同一張表(KANSHOU_REL_TIER_.min)自己說話：沒到那一階就選不了那一階。
   if (_presetTier && bond < (parseInt(_presetTier.min) || 0)) {
     return JSON.stringify({ success: false, message: `「${finalTag}」要好感達到${_presetTier.min}才稱得上，目前${bond}。` });
   }
@@ -653,9 +545,7 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   return JSON.stringify({ success: true, message: `羈絆已重新定義為「${finalTag}」。`, newTag: finalTag });
 }
 
-// 🔒 2026-07 五度改版·專屬稱呼比照 update_rel_tag 同一套bond門檻+同一個injection風險，玩家手動設定
-//   後寫入【稱呼鎖】旗標，讓AI的rel_changes.mutual_nicknames不再自動覆寫(尊重玩家的手動選擇，同
-//   kanshouSyncRelTier_對自訂關係稱呼「一旦手動改過就不再被自動覆寫」的精神)。
+// 🔒 2026-07 五度改版·專屬稱呼比照 update_rel_tag 同一套bond門檻+同一個injection風險，玩家手動設定後寫入【稱呼鎖】旗標，讓AI的rel_changes.mutual_nicknames不再自動覆寫(尊重玩家的手動選擇，同kanshouSyncRelTier_對自訂關係稱呼「一旦手動改過就不再被自動覆寫」的精神)。
 function actionSetNickname(userData, pcId, sheets) {
   const { targetName, newNickname } = userData;
   if (!newNickname || !String(newNickname).trim()) return JSON.stringify({ success: false, message: "稱呼不可為空。" });

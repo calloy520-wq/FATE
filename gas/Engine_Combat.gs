@@ -12,11 +12,7 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   if (!modelName) return JSON.stringify({ narration: "未設定 MODEL 指令碼屬性", options: ["重試"] });
   const temp = config.temperature !== undefined ? config.temperature : 0.8;
   const topP = config.top_p !== undefined ? config.top_p : 0.95;
-  // OpenRouter 額外採樣旋鈕(非OpenAI標準四件組)：不同底層模型支援程度不一，未設定的呼叫端完全不受影響，
-  //   有帶的模型會吃到、不支援的模型OpenRouter會直接忽略(不會報錯)，故用undefined判斷、不給預設值。
-  // max_tokens 是能直接省生成時間的旋鈕；鑑賞(kanshou) narration 目標字數較短，上限故比 solo 低。
-  // 🐛→✅ 稽核抓到：跟上面temp/topP同一支函式裡卻用||而非!==undefined判斷，會把呼叫端刻意傳的
-  //   0(如「只試一次不重試」)靜默吃成預設值——目前無人這樣傳、屬休眠地雷，比照上面已確立的寫法修正。
+  // OpenRouter 額外採樣旋鈕(非OpenAI標準四件組)：不同底層模型支援程度不一，未設定的呼叫端完全不受影響，有帶的模型會吃到、不支援的模型OpenRouter會直接忽略(不會報錯)，故用undefined判斷、不給預設值。
   const maxT = config.max_tokens !== undefined ? config.max_tokens : (config.isNsfwMode ? 1000 : 2000);
   const retries = config.retries !== undefined ? config.retries : 5; // 🐛→✅ 玩家反饋審查攔截時想多試幾次，預設3→5次(單顆模型內)
   const plainText = !!config.plainText; // 🆕 純散文模式(如奪杯回憶錄)：不強制 json_object、不抽 {…}、原樣回傳內容
@@ -105,9 +101,6 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   }
   if (apiResult !== null) return apiResult;
 
-  // 🐛→✅ 稽核抓到：兩處throw前都已把含safety/PROHIBITED_CONTENT字樣的原始錯誤正規化成固定字串
-  //   "Triggered_NSFW_Filter"(見68/74行)，lastErrorMessage不可能還留著原始"safety"字樣——
-  //   .includes("safety")是永遠打不到的死分支，清掉避免誤導後續維護者以為還有第二種判斷路徑。
   const isBlocked = lastErrorMessage.includes("Triggered_NSFW_Filter");
   // 技術性錯誤訊息只留 Logger 給開發者除錯，玩家一律只看到貼合世界觀的柔性重試提示，避免出戲。
   if (!isBlocked) { try { Logger.log("[callGeminiAPI 連線失敗] " + lastErrorMessage); } catch (e) { } }
@@ -120,17 +113,12 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   return JSON.stringify(aiFallbackData_(isBlocked));
 }
 // 🛡️ 生成失敗時的統一保底：措辭與 _genFailed 旗標的【單一真實來源】。
-//   玩家反饋「結界觸發」這類措辭太出戲(像系統跳出來講話)，改成順著情境走的口吻——氣息未定、
-//   畫面忽然朦朧了幾秒，讀起來像是被打斷而非被系統攔下。
 function aiFallbackNarration_(isBlocked) {
   return isBlocked
     ? "🌸交纏的氣息還未散去，肌膚滾燙如火——下一幕卻被濃郁的水氣徹底吞沒，什麼都看不清了，請再嘗試一次。"
     : "🌫️【因果紊亂】命運的絲線在此刻忽地紊亂——這段因果暫時無法讀出，請稍後再試一次。";
 }
-// _genFailed 旗標：這組是失敗保底文字、不是真正生成的敘事，讓呼叫端(narrateWithState_/actionPlay_)
-//   能辨識出來、不要把它當成既定劇情事實存進歷史——否則下次呼叫會把「什麼都沒發生」的保底措辭
-//   誤當上一輪的真實進展餵回AI，可能接續出跟實際劇情矛盾的敘事。
-//   ★ 呼叫端解析失敗(模型回截斷 JSON／純文字)時也走這支，見 Gallery.gs actionPlay_ 的 parse 保護。
+// _genFailed 旗標：這組是失敗保底文字、不是真正生成的敘事，讓呼叫端(narrateWithState_/actionPlay_)能辨識出來、不要把它當成既定劇情事實存進歷史——否則下次呼叫會把「什麼都沒發生」的保底措辭誤當上一輪的真實進展餵回AI，可能接續出跟實際劇情矛盾的敘事。
 function aiFallbackData_(isBlocked) {
   return {
     narration: aiFallbackNarration_(isBlocked),

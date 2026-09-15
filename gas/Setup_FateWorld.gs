@@ -59,9 +59,7 @@ var FATE_MAP_SEED = [
   ["冬木", "冬木·遊樂園",   "約會", "11,91", "燈火璀璨的遊樂園，摩天輪緩緩轉動，旋轉木馬與攤販笑語不絕。", "", ""]
 ];
 
-// 🔵 冪等建表主函式：缺則補、含則略。回傳本次新建的分頁名陣列。
-//   只在登入畫面「檢查/建立試算表」按鈕(check_sheets action)手動觸發，doGet()/handleGameAction() 皆不自動呼叫——
-//   玩家測試期常直接清空試算表重來，自動檢查沒必要且曾因快取蓋過頭導致「缺分頁不自動補」的bug，故改純手動、不再快取。
+// 🔵 冪等建表主函式：缺則補、含則略。
 function ensureFateSheets_(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
   var created = [];
@@ -96,10 +94,6 @@ function ensureFateSheets_(ss) {
 // 🔵 修復：種子表為空就補；坤圖舊資料的 PARENT「冬木」改成頂層("")，避免地圖渲染出錯
 var RESEED_VER = 'r3'; // ⚡ bump 此值 → 讓「坤圖升級＋英靈殿補丁」這段一次性遷移重跑一次(改 FATE_MAP_SEED/補丁邏輯時)
 // r2：新增第四次限定地點(海特飯店/麥肯基宅/碼頭倉庫)＋補WAR欄同步，見下方 upsert 迴圈。
-// r3：🐛→✅ 稽核抓到：「冬木·海濱大道」/「冬木·遊樂園」座標原本是貼近原點的負數佔位值(4,-2/-1,-3)，
-//   跟其餘18列4~90正數座標系明顯不一致，也跟Script.html的LAYOUT硬編碼座標(86,85/11,91)對不上——
-//   getNearbyLocations()拿COORD算曼哈頓距離排序「鄰近地點」，壞座標會讓這兩處嚴重失真(該近變遠)。
-//   改成與LAYOUT一致的座標，upsert迴圈會回填既有試算表。
 function reseedIfEmpty_(ss) {
   var seedMap = { "坤圖": FATE_MAP_SEED };
   Object.keys(seedMap).forEach(function (name) {
@@ -132,12 +126,6 @@ function reseedIfEmpty_(ss) {
       } else { toAppend.push(row); }
     });
     if (upserted) km.getRange(1, 1, d2.length, d2[0].length).setValues(d2);
-    // 🐛→✅ 稽核抓到：上面只 upsert(更新既有＋補新增)，沒有孤兒清除——若未來坤圖重新命名/移除某
-    //   地點，舊名字的列會永遠留在每份已建置過的試算表裡變成永久幽靈地點，跟 Seed_Codex.gs 的
-    //   upgradeCodexPersonas_/upgradeMasterCodex_ 已有的孤兒清除機制不對稱(坤圖沒有對應步驟)。
-    //   補上：現有列若其名字不在當前 FATE_MAP_SEED 名單內視為孤兒直接刪除(此表純地理、無
-    //   per-game 資料，同上方註解「安全覆寫」的前提，刪除同樣安全)。用 d2(append前的快照)由下
-    //   往上刪，行號才不會因刪除而錯位；之後才用 getLastRow() 追加新地點，兩步互不干擾。
     var seedNames = {}; FATE_MAP_SEED.forEach(function (row) { seedNames[String(row[1]).trim()] = true; });
     for (var k = d2.length - 1; k >= 1; k--) {
       if (!seedNames[String(d2[k][COL.MAP.NAME]).trim()]) km.deleteRow(k + 1);

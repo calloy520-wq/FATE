@@ -88,10 +88,6 @@ function actionMove(userData, pcId, sheets) {
     if (!_destNode) {
       return JSON.stringify({ success: false, message: "輿圖之上查無此地，無路可達。" });
     }
-    // 🐛→✅ 稽核抓到：這裡只驗證地名是否存在於全坤圖，完全沒套用buildMapNodesPayload_/getNearbyLocations
-    //   /enemyRetreatLoc_都有的【戰爭】標記過濾——前端節點選單雖只列出符合本局戰爭的地點，但直打API
-    //   帶戰爭限定地點名(如非第四次局的「海特飯店」)仍會被這裡放行完成整趟移動，把玩家傳送到依設計
-    //   對本局根本不存在的地點。比照手足函式同一套規則補上。
     const _destWar = String(_destNode[COL.MAP.WAR] || "").trim();
     if (isFateMove && _destWar && _destWar !== getWarName_(allPcData[pIdx][COL.PC.MEMORY])) {
       return JSON.stringify({ success: false, message: "輿圖之上查無此地，無路可達。" });
@@ -105,11 +101,6 @@ function actionMove(userData, pcId, sheets) {
   // 🥷 悄悄離開：若正從一個「敵人分心」的局面格（趁隙窗口·slip）抽身，此刻離開不會被追擊。
   var _slipWin = isFateMove ? getEncounterWindow_(allPcData[pIdx][COL.PC.MEMORY]) : null;
   var _slipAway = !!(_slipWin && _slipWin.loc === String(allPcData[pIdx][COL.PC.LOC] || "").trim() && encounterChoices_(_slipWin.type).slip);
-  // 🐛→✅ 稽核抓到：窗口只鎖 loc+type，從沒比對 win.names(該局面實際牽涉的那兩名敵從者)——同地若
-  //   撞見的是「三方以上」混戰(clashMasters無2人上限)，窗口只記錄隨機挑中的那兩名敵人對峙，第三組
-  //   完全無關的敵從者從未被分心，卻因為同一個loc+type的窗口存在而讓玩家一併悄悄溜走，繞過下面的
-  //   needRetreat硬性攔截。改成：悄悄離開只豁免「窗口點名那兩位」，同地若還有其他未被點名的能戰敵
-  //   從者，依然視為未分心、照樣強制走撤退。
   var _slipNames = (_slipAway && _slipWin.names && _slipWin.names.length) ? _slipWin.names.map(nameLoose_) : null;
   // 🏃 撤退旗標：前端按「撤退」殺出重圍時帶 retreat=true——敵方【必】追擊(非機率)、GAS 判勝負。
   var isRetreat = isFateMove && (userData.retreat === true || userData.retreat === 'true');
@@ -134,9 +125,7 @@ function actionMove(userData, pcId, sheets) {
   var pursuit = null;
   try {
     var fromLocM = String(allPcData[pIdx][COL.PC.LOC] || "").trim();
-    // 🏃 追擊機制已【全數轉移到撤退按鈕】(玩家定案)：唯有 isRetreat（殺出重圍）才觸發追擊——一般移動遇敵已被上方
-    //   needRetreat 擋下（強制走撤退），遇不到敵則本就無人可追，故不再有「機率性離場追擊」這條路徑。
-    //   🏰 從自己陣地離場享安全港·不被追擊(_atOwnHome)——即便按了撤退，主場結界也掩護你從容抽身。
+    // 🏃 追擊機制已【全數轉移到撤退按鈕】(玩家定案)：唯有 isRetreat（殺出重圍）才觸發追擊——一般移動遇敵已被上方needRetreat 擋下（強制走撤退），遇不到敵則本就無人可追，故不再有「機率性離場追擊」這條路徑。
     if (isFateMove && isRetreat && !_slipAway && !_atOwnHome && fromLocM && tgtTrim && tgtTrim !== fromLocM) {
       var psvIdxM = findPlayerServantIdx_(allPcData, moveGameId, userData.servant, userData.servantId);
       if (psvIdxM !== -1) {
@@ -209,11 +198,6 @@ function actionMove(userData, pcId, sheets) {
           //   明明知道這擊佔從者上限多少比例，卻沒換算成對應的傷勢用詞餵給AI，讓文字跟血條可能對不上。
           var psvHpMaxM = parseInt(allPcData[psvIdxM][COL.PC.MAX_HP]) || 1;
           var chaserSevM = pr.atkWins ? dmgSeverityWord_(Math.max(1, pr.damage), psvHpMaxM) : '';
-          // 🐛→✅ 舊文案「燃令咒疾追」把這場【每次撤退必定觸發、不設機率】的追擊，寫成敵方燒了一道
-          //   令咒——但令咒是全局僅 3 道、真正花費時會扣減 leftSeals 的稀缺資源(見 Router_Battle.gs
-          //   sealEscaped)，這裡從沒動過那個計數，純屬掛羊頭的敘事詞，卻讓玩家每撤退一次就以為對面
-          //   燒掉一次奇蹟(玩家反應「?!」)。改成不涉及令咒的純體能追擊措辭。
-          // note 必給——worldRumors 只在 pursuit.note 存在時才推播戰報，缺了 note 扣血就看不出原因。
           pursuit = { enemyName: chaserNm, chaserId: String(chaser[COL.PC.ID]), dmg: Math.max(1, pr.damage), hitWho: pr.atkWins ? 'us' : 'foe', retreat: true,
             // 🐛→✅ 玩家實測抓到：「沒能全身而退」讀起來容易誤解成「撤退失敗、沒能脫身」，但這場撤退
             //   本就必定成功抵達目的地(只是途中挨了一記)——改成明確講「帶傷脫身」，不再有歧義。
@@ -244,10 +228,6 @@ function actionMove(userData, pcId, sheets) {
       const sp = spendAp_(moveGameId, 2, allPcData, sheets, true);
       apLeft = sp.ap;
       // 傳 allPcData 給 worldTick_/breakStaleAlliances_ 原地改(陣列傳參考)，免事後重讀整表拿 tick 後狀態。
-      // 🐛→✅ 補最後一個 deferWrite=true 參數：worldTick_ 舊版不管有沒有人要求都會自己即時寫回
-      // LOC/HP/MEMORY/MP，本函式結尾(340行)又整表 setValues 一次，同一批值等於送進 Sheets 兩次——
-      // 幾乎每次移動都會踩到(敵35%機率移位、敵御主每日回魔)。傳 true 讓 worldTick_ 只改記憶體，交給
-      // 這裡收尾一次寫完。
       const tick = worldTick_(sheets, moveGameId, target, 1, false, allPcData, true); // 移動只讓敵換位，不死人；但令咒透支倒數可能到期收尾
       worldRumors = tick.rumors || [];
       moveVictory = !!tick.victory;
@@ -322,9 +302,6 @@ function actionMove(userData, pcId, sheets) {
       clashMasters.push(r);
     });
     if (clashMasters.length >= 2) {
-      // 🐛→✅ 舊版用 indexOf("【御主】"+mN) 子字串比對，同地若某敵御主真名恰為另一人的前綴(如
-      //   「Illya」vs「Illyasviel」)會誤配硬連結——改用單一真實來源 getServantMaster_(嚴格切到下個
-      //   ｜分隔符)取出的完整真名做精確比對。
       var findClashSv_ = function (masterRow) {
         var mN = String(masterRow[COL.PC.NAME] || "");
         return allPcData.find(function (r) {
@@ -388,22 +365,14 @@ function actionMove(userData, pcId, sheets) {
   let mapDesc = parentMapInfo ? `【母區域：${rootTarget}】${parentMapInfo[COL.MAP.DESC]}` : "此處荒煙蔓草，並未記載於輿圖之中。";
   if (subMapInfo) mapDesc += `\n【當前分支：${target}】${subMapInfo[COL.MAP.DESC]}`;
 
-  // 🎭 隨行從者的「演出依據」卡（含狂化禁言/口吻），供前端抵達敘事讓從者真的在場、有反應，不是御主獨白
-  // 🐛→✅ 玩家實測抓到：抵達場景常同框我方從者＋同地多名敵人＋撤離追兵，可能有3張以上servantCard_，
-  //   每張各自帶一份完整收尾句——全部skipClose，收集這場戲實際出現的真名，perfNamesMove統一收尾一次。
+  // 🎭 隨行從者的「演出依據」卡（含狂化禁言/口吻），供前端抵達敘事讓從者真的在場、有反應，不是御主獨白🐛→✅ 玩家實測抓到：抵達場景常同框我方從者＋同地多名敵人＋撤離追兵，可能有3張以上servantCard_，每張各自帶一份完整收尾句——全部skipClose，收集這場戲實際出現的真名，perfNamesMove統一收尾一次。
   var svIdxMove = findPlayerServantIdx_(allPcData, moveGameId, userData.servant, userData.servantId);
   var svCardMove = svIdxMove !== -1 ? servantCard_(allPcData[svIdxMove], { skipClose: true }) : "";
   var perfNamesMove = svIdxMove !== -1 ? [String(allPcData[svIdxMove][COL.PC.NAME])] : [];
 
   // 🎭 在場敵從者/敵御主人設卡餵給抵達敘事，讓敵人依性格反應而非 AI 即興通用反派；servantCard_ 對敵從者一樣適用(低羈絆→戒備敵意)。
-  //   🐛→✅ 原本只餵敵從者的卡——若目的地只有孤身敵御主(從者已死/在別處)，或有兩方敵御主互動的場面，
-  //   AI 對這名敵御主毫無性格依據，只能即興通用反派。補上 enemyMasterCard_(比照戰鬥路徑的用法)。
   var foeCardsMove = "";
   try {
-    // 🐛→✅ 玩家實測抓到的同類問題：同地若同時有 ≥2 組敵人(各自帶從者)，舊版把每張卡原樣串接、
-    //   完全沒標「哪張從者卡屬於哪張御主卡」，AI 沒有配對依據可能把 A 組從者的台詞演成對 B 組御主講。
-    //   只在同地確實有 ≥2 位敵御主時才加標籤(單組場面維持原樣、不增加噪音)，用硬連結【御主】tag 標出
-    //   真正歸屬，而非同地任一比對。
     var _foeRowsMove = allPcData.filter(function (r) {
       return String(r[COL.PC.GAME_ID] || "") === moveGameId
         && String(r[COL.PC.LOC] || "").trim() === tgtTrim
@@ -504,11 +473,6 @@ function actionRest(userData, pcId, sheets) {
 
   // 🛏️ FATE 休息：玩家自選時數（1/3/6…），每小時補 2 AP；回血回魔＝時回同一套規則 ×2（休息＝雙倍恢復）。
   if (isFateRest) {
-    // 🐛→✅ 稽核抓到：世界自走輪數用 Math.floor(restHours/3)，只對{1,3,6}(前端openRestMenu()唯一
-    //   提供的三個按鈕值)這組設計值正確對齊(1h:0/3h:1/6h:2)；舊版clamp卻放行1~12任意整數，直打API
-    //   傳4/5/7/8/10/11這類非3倍數值時，AP/HP/MP回復跟時鐘照樣吃滿完整restHours，世界模擬輪數卻
-    //   被floor砍掉餘數小時份——同樣的世界風險換到更多回復量與時間推進，形同可鑽的失衡缺口。改成
-    //   白名單收斂到公式實際設計覆蓋的值，不再仰賴前端按鈕巧合對齊。
     const _restAllowed = [1, 3, 6];
     const restHours = _restAllowed.includes(parseInt(userData.restHours)) ? parseInt(userData.restHours) : 6;
     const prevHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
@@ -529,9 +493,6 @@ function actionRest(userData, pcId, sheets) {
     [pIdx].concat(partyNames.map(n => pcData.findIndex(r => r[COL.PC.NAME] === n && String(r[COL.PC.GAME_ID] || "") === restGameId && !String(r[COL.PC.ID]).startsWith("DEAD_")))).forEach(idx => {
       if (idx >= 0 && (parseInt(pcData[idx][COL.PC.HP]) || 0) >= (parseInt(pcData[idx][COL.PC.MAX_HP]) || 0)) pcData[idx][COL.PC.STATUS] = normalStatus;
     });
-    // 🐛→✅ 舊版這裡先整表寫一次(只含時回結果)，緊接著 restHours_/worldTick_/breakStaleAlliances_
-    // 又各自即時寫入同一批列——單次休息最壞可疊到3~5次個別Sheets寫入。改成這裡先不寫，開
-    // BATTLE_DEFER_WRITE_ 讓下面三支只改記憶體，等三者都跑完後一次整表寫回(見下方收尾)。
     const _prevDeferRest = BATTLE_DEFER_WRITE_;
     BATTLE_DEFER_WRITE_ = true;
 
@@ -554,8 +515,6 @@ function actionRest(userData, pcId, sheets) {
     // 取代舊版散落的多趟寫入。下方 enemyAmbushOnServant_／raiseBond_ 各自的寫入發生在此之後，維持原樣不動。
     sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
     // 世界已在同一份 pcData 上 tick 完，直接沿用即可判夜襲，不必重讀整表。
-    // ⚔️ 卸防突襲：當敵蹤同地時休息＝酣睡門戶大開，最為兇險（mul 1.5）
-    // 🐛→✅ 稽核抓到：漏帶偏好的 svIdx，雙從者時突襲永遠打「第一位」從者，比照 actionBond 等補上。
     const restSvIdx = findPlayerServantIdx_(pcData, restGameId, userData.servant, userData.servantId);
     const restAmbush = enemyAmbushOnServant_(sheets, pcData, pIdx, restGameId, 1.5, restSvIdx);
     // 🌙 從者之夢（回想）：安睡(≥3h)且未遭突襲時，有機會順著聯繫夢見從者生前傳說的片段，加深羈絆
@@ -641,9 +600,6 @@ function actionPrepMeal(userData, pcId, sheets) {
   if (!clk) return JSON.stringify({ success: false, message: "此刻無法整備。" });
   var nowAbs = clk.day * 24 + clk.hour;
   pcData[pIdx][COL.PC.MEMORY] = stampMeal_(pcData[pIdx][COL.PC.MEMORY], nowAbs + MEAL_BUFF_HOURS);
-  // 🐛→✅ 稽核抓到：原本先整列寫回(帶著扣AP前的舊AP)、chargeApOrReject_才扣AP，讓它內部那道
-  //   3欄窄寫又補寫一次——同一列兩次Sheets I/O。改成先扣AP(skipWrite跳過內部窄寫)、扣完AP的
-  //   最終狀態再整列寫回一次，跟actionFateBattle同款省I/O寫法。
   var _mealApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以好好整備——請休息恢復後再進食。", { isFate: isFate, skipWrite: true });
   var ap = _mealApr.ap, clock = _mealApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
@@ -652,10 +608,6 @@ function actionPrepMeal(userData, pcId, sheets) {
   var mealPrompt = masterCard_(pcData[pIdx]) + (mealSvIdx !== -1 ? servantCard_(pcData[mealSvIdx]) : '') +
     `【系統·整備已裁定】御主與從者稍作整備、飽餐一頓——接下來約 ${MEAL_BUFF_HOURS} 小時內，從者出擊命中 +${MEAL_BUFF_BONUS}。\n` +
     `★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】演出這段戰前用餐、稍事休整的日常小品（一段即可），依從者性格自然流露對這頓飯／這位御主的反應；show, don't tell，語氣輕快不冗長。`;
-  // 🐛→✅ 這是本檔唯一沒交棒 STATE_PRE_DATA_ 的耗AP動作(其餘 actionScavenge/actionScout/
-  //   actionSetWorkshop/actionSecondWind 等皆有)——平時不影響任何東西(prep_meal 不在
-  //   STATE_AFTER_ACTIONS 名單內)，但若這動作剛好跨過第14日時限，Router_Action.gs 的中央攔截拿不到
-  //   交棒的 pcData 會多做一次整表重讀，跟其餘動作行為不一致，順手補上。
   STATE_PRE_DATA_ = pcData;
   return JSON.stringify({
     success: true,
@@ -697,10 +649,7 @@ function setWary_(memory, absHour) {
   return (mem ? mem + "｜" : "") + "【提防】" + (parseInt(absHour) || 0);
 }
 
-// 🎭 撞見兩方敵人的可能局面（資料驅動·GAS 擲、AI 演）。取代舊「永遠互毆→見你停手」單一劇本：
-//   依雙方御主性格投契度（masterPersonaLean_）＋從者傷勢＋戰局殘敵數，擲一種局面；HP 餘傷／敵敵盟約
-//   等後果由 GAS 落地寫進 allPcData，note 只給 AI 當演出事實。回 factionClash {type,aMaster,bMaster,loserName,note}。
-//   加局面＝往權重表 W 加一項＋switch 補一段 note，引擎自動吃。
+// 🎭 撞見兩方敵人的可能局面（資料驅動·GAS 擲、AI 演）。
 function resolveFactionEncounter_(allPcData, mA, mB, svA, svB, gameId, day) {
   var idxOf = function (row) { return allPcData.findIndex(function (r) { return String(r[COL.PC.ID]) === String(row[COL.PC.ID]); }); };
   var idxA = idxOf(svA), idxB = idxOf(svB), mIdxA = idxOf(mA), mIdxB = idxOf(mB);
@@ -822,11 +771,7 @@ var FACTION_ENCOUNTER_CHOICES_ = {
 };
 function encounterChoices_(type) { return FACTION_ENCOUNTER_CHOICES_[type] || { ambush: false, incite: false, slip: false }; }
 
-// 🎯 撞見敵人後的「可反應窗口」：御主 MEMORY【趁隙】<loc>@<type>@<svA>、<svB>。決定抵達這格開放哪些情境選擇。
-//   窗口在「再次移動」時清掉（悄悄離開）或被下一次抵達覆寫；趁隙/挑撥用掉即清。
-// 🐛→✅ names 補上這場局面實際牽涉的兩名敵從者真名——舊版只存 loc@type，actionIncite 事後靠
-//   陣列順序重新猜「前兩個」敵從者，同地若有第三組完全無關的敵人排在更前面，會被誤挑撥/誤傷，
-//   跟玩家剛讀到的敘事(哪兩個在對峙)完全脫鉤。有 names 就精確鎖定，缺 names(相容舊呼叫)才退回猜測。
+// 🎯 撞見敵人後的「可反應窗口」：御主 MEMORY【趁隙】<loc>@<type>@<svA>、<svB>。
 function setEncounterWindow_(memory, loc, type, names) {
   var mem = clearEncounterWindow_(memory);
   var safeNames = (names || []).filter(Boolean).map(function (n) { return String(n).replace(/[｜@【】、]/g, ""); });
@@ -841,12 +786,7 @@ function clearEncounterWindow_(memory) {
   return String(memory || "").replace(/【趁隙】[^｜]*/g, "").replace(/｜｜+/g, "｜").replace(/^｜|｜$/g, "");
 }
 
-// 🥷 趁隙偷襲：撞見敵人分心（殺紅眼/對峙/談判/剛結盟）時，我方從者搶一記奇襲。複用 resolveFateBattle_ 的 ambush 先機，
-//   鏡射 enemyAmbushOnServant_ 反向版：命中才傷、奇襲加乘、處理敵死亡(DEAD_/無牙御主/勝利)。回 out 物件（err＝不合法）。
-// 🐛→✅ 稽核抓到：舊版用裸findIndex永遠挑表列第一個在世從者出擊，跟fate_battle/bond/use_seal等
-//   十餘處呼叫端同樣讀userData.servant/servantId、透過findPlayerServantIdx_尊重玩家UI切換的「出戰
-//   從者」形成不一致——雙從者玩家切到後奪來的第二從者，這裡仍會派原從者出手，UI操作形同無效。
-//   補上wantSv/wantSvId兩參數，改用單一真實來源findPlayerServantIdx_。
+// 🥷 趁隙偷襲：撞見敵人分心（殺紅眼/對峙/談判/剛結盟）時，我方從者搶一記奇襲。
 function playerAmbushOnEnemy_(sheets, pcData, pIdx, gameId, targetName, wantSv, wantSvId) {
   var myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
   var day = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
@@ -915,9 +855,6 @@ function actionFactionAmbush(userData, pcId, sheets) {
   var win = getEncounterWindow_(pcData[pIdx][COL.PC.MEMORY]);
   if (!win || win.loc !== String(pcData[pIdx][COL.PC.LOC]).trim() || !encounterChoices_(win.type).ambush)
     return JSON.stringify({ success: false, message: "眼下已沒有可趁的空隙了。" });
-  // 🐛→✅ 稽核抓到：這裡只驗證窗口loc+type，從沒比對win.names——同地若有「窗口點名兩人之外」的
-  //   第三方敵從者，原本也能被targetName指到、白吃趁隙偷襲加乘，但對方根本沒被這場對峙分心過。
-  //   比照actionIncite既有的win.names鎖定寫法補上。
   var _targetKey = nameLoose_(String(userData.targetName || ""));
   if (win.names && win.names.length && _targetKey && win.names.map(nameLoose_).indexOf(_targetKey) === -1) {
     return JSON.stringify({ success: false, message: "此人並未被這場對峙分心，無隙可趁。" });
@@ -967,16 +904,10 @@ function actionIncite(userData, pcId, sheets) {
       String(r[COL.PC.LOC]).trim() === myLoc && !isAllied_(r) && hasArrived_(r, day)) foeSvs.push(i);
   });
   if (foeSvs.length < 2) return JSON.stringify({ success: false, message: "這裡沒有兩方可供挑撥的敵人。" });
-  // 🐛→✅ 舊版固定取 foeSvs[0]/[1](陣列/試算表列序)，跟玩家剛讀到的敘事(resolveFactionEncounter_
-  //   實際挑中哪兩組)毫無關聯——同地≥3組敵人時，可能挑撥/傷到敘事完全沒提到的第三組。win.names
-  //   帶著那場敘事真正牽涉的兩個真名，優先用真名精確比對；缺 names(相容舊窗口)才退回陣列順序猜測。
   var iA, iB;
   if (win.names && win.names.length >= 2) {
     iA = foeSvs.find(function (i) { return String(pcData[i][COL.PC.NAME]) === win.names[0]; });
     iB = foeSvs.find(function (i) { return String(pcData[i][COL.PC.NAME]) === win.names[1]; });
-    // 🐛→✅ 稽核抓到：win.names查無時原本會退回foeSvs[0]/[1]陣列順序猜測——正是這支函式要修的那個
-    //   bug本身，只是換一種觸發方式(點名的兩位已死亡/離場，但同地還有≥2組完全無關的第三方敵人)。
-    //   已經有明確真名可查證時，查無就該直接拒絕，不再退回瞎猜。
     if (iA == null || iB == null || iA === iB) return JSON.stringify({ success: false, message: "那場對峙的雙方已不在此處，這份談資已經過時了。" });
   } else {
     iA = foeSvs[0]; iB = foeSvs[1]; // foeSvs.length>=2 已由上方(969行)保證
@@ -990,9 +921,6 @@ function actionIncite(userData, pcId, sheets) {
   prob = Math.max(0.1, Math.min(0.85, prob));
   var success = Math.random() < prob;
   var svAName = String(pcData[iA][COL.PC.NAME]), svBName = String(pcData[iB][COL.PC.NAME]);
-  // 🐛→✅ 挑撥離間指名兩個具體角色、要求AI演出他們反目/合流戒備的性格化反應，卻從沒附上他們的演出依據
-  //   卡(比照唯一姊妹路徑 actionFactionAmbush 已有的 servantCard_+foeCard 慣例)。
-  // 🐛→✅ 玩家實測抓到：兩張卡各自帶一份完整「怎麼演」收尾句——skipClose後用performanceNote_()講一次。
   var inciteCardsStr = '〔敵方A〕' + servantCard_(pcData[iA], { skipClose: true }) + '〔敵方B〕' + servantCard_(pcData[iB], { skipClose: true }) + performanceNote_([svAName, svBName]);
   var aiPrompt, report;
   if (success) {
@@ -1066,20 +994,10 @@ function detectAllyPeril_(pcData, gameId, playerLoc, curDay) {
   return null;
 }
 
-// ⚔️ 卸防突襲：在同地有清醒敵從者時做「補魔／羈絆／休息」等卸下防備之舉，會招致敵從者趁隙重擊我方從者
-//   （氣息遮斷／暗殺職階更致命）。回 null＝無敵不觸發；否則 {enemyName,dmg,defeat,dreamPrompt,after,stealthy}。
-//   preferSvIdx(選填)：呼叫端若已用 findPlayerServantIdx_ 選定「玩家當下操作/提及的那位從者」
-//   (如 actionBond/actionManaSupply/actionSpiritRepair 的 svIdx)，這裡優先打這位；驗證仍為存活我方
-//   從者才採用，否則(未提供/驗證失敗)退回原本「同局第一位存活從者」的預設。
-//   🐛→✅ 稽核抓到：雙從者(rule_break_steal奪到第二名)情境下，這裡舊版永遠裸找「第一位」從者，
-//   跟呼叫端敘事引用的「玩家當下相處/供魔/療傷的那位從者」完全脫鉤——玩家選第二從者操作時，敘事
-//   文字說是它遇襲/陣亡，實際扣血/標記陣亡的卻是第一從者，兩者矛盾且從者身分張冠李戴。
+// ⚔️ 卸防突襲：在同地有清醒敵從者時做「補魔／羈絆／休息」等卸下防備之舉，會招致敵從者趁隙重擊我方從者（氣息遮斷／暗殺職階更致命）。
 function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul, preferSvIdx) {
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
   const ambushDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1; // 🕰️ 尚未登場者不會夜襲
-  // 🐛→✅ 玩家反應「不可能每次休息/補魔/結盟都是打我吧」——舊碼不論好感一律突襲，跟移動路徑既有的
-  //   「BOND≥50＝友好·不追殺」門檻(見上方 actionMove 的 hostile check)不一致：已經養出交情的敵從者
-  //   沒理由每次都翻臉偷襲。門檻對齊同一顆常數，友好者這裡直接視為無敵可趁。
   const eIdx = pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc && !isAllied_(r) && hasArrived_(r, ambushDay) && (parseInt(r[COL.PC.BOND]) || 0) < 50);
   if (eIdx === -1) return null;
   const preferOk = typeof preferSvIdx === 'number' && preferSvIdx >= 0 && pcData[preferSvIdx] &&
@@ -1098,9 +1016,6 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul, preferSvId
       pcData[pIdx][COL.PC.MP] = mMp - wardCost;
       sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
       const svR = rowToCombatant_(pcData[svIdx]); injectHomeField_(svR, homeRank);
-      // 🐛→✅ 稽核抓到：反擊方svR漏注禮裝(injectMysticBuff_)與御主體術/魔術支援(injectMasterSupportFor_)，
-      //   對照鏡射函式playerAmbushOnEnemy_(831-833行)兩者皆注——同一段代碼裡敵方eDefC卻正確拿到
-      //   支援，形成不對稱，禮裝越貴/御主養得越好的玩家在這條合法防禦機制裡傷害被系統性低估。
       injectMysticBuff_(svR, pcData[pIdx][COL.PC.MEMORY]);
       injectMasterSupportFor_(svR, pcData, gameId, pcData[pIdx], false);
       const eDefC = rowToCombatant_(pcData[eIdx]);
@@ -1111,9 +1026,6 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul, preferSvId
       pcData[eIdx][COL.PC.HP] = eAfter;
       sheets.pc.getRange(eIdx + 1, 1, 1, pcData[eIdx].length).setValues([pcData[eIdx]]);
       const eNm = String(pcData[eIdx][COL.PC.NAME]), sNm = String(pcData[svIdx][COL.PC.NAME]);
-      // 🐛→✅ 這支從沒附上入侵者的演出卡(servantCard_)，指令又寫死「語氣留白」——AI 完全沒有這名
-      //   敵從者的性格/口吻依據，只能寫成無聲的暗影，玩家回報「對方沒有對話??」。四個突襲呼叫端
-      //   (休息/羈絆/結盟/補魔)都吃這支函式的回傳，補一次就四處一起修好(單一真實來源)。
       const eFoeCard = '〔夜襲者〕' + servantCard_(pcData[eIdx]);
       // 🐛→✅ homeRank(D~EX)是GAS已經算出的陣地規模事實，舊版卻沒換算成強度用詞——同一句「優雅擊退」
       //   套在陽春D階土壘跟EX階空中庭園級結界上，AI完全分不出差異，讀起來千篇一律。
@@ -1127,9 +1039,7 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul, preferSvId
       };
     }
   }
-  // 🎲 卸防時刻的敵方反應多樣化（玩家回饋「不可能每次都是打我」）：不是每次都直接開打——
-  //   依這名敵從者的職階/性格擲一次，多數仍是偷襲(維持既有的臨場威脅感)，但狂化(無法言語)／
-  //   暗殺(本色即偷襲)以外的職階，有機會按兵不動觀望、或帶著戒心試探接觸(無戰鬥、羈絆小幅變動)。
+  // 🎲 卸防時刻的敵方反應多樣化（玩家回饋「不可能每次都是打我」）：不是每次都直接開打——依這名敵從者的職階/性格擲一次，多數仍是偷襲(維持既有的臨場威脅感)，但狂化(無法言語)／暗殺(本色即偷襲)以外的職階，有機會按兵不動觀望、或帶著戒心試探接觸(無戰鬥、羈絆小幅變動)。
   const eClsForRoll = String(pcData[eIdx][COL.PC.RANK] || "");
   const eCombatant0 = rowToCombatant_(pcData[eIdx]);
   const eCantTalk = hasFx_(eCombatant0, 'mad') || eClsForRoll === 'Assassin';
@@ -1249,9 +1159,6 @@ function getWorkshop_(memory) { return WORKSHOP_TAG_.get(memory); }
 function setWorkshopMemory_(memory, loc) { return WORKSHOP_TAG_.set(memory, loc); }
 
 // 🏰 主場陣地判定：玩家於【自己佈設的陣地】迎戰 → 回主場結界階(供減傷/反擊)；不在自己陣地回空。
-//   ★任何人親手設的陣地(結界/機關/監視術式)都給【基礎 D 階】主場防禦——這是「設置陣地」對所有人承諾的
-//   「敵襲反被擊退／安全港」；隊上若有【陣地作成】從者則升到其階(C/B/A/EX·空中庭園級)、結界更強。
-//   (2026-07 修：舊版沒陣地作成從者就回空→無陣地作成的玩家設了陣地卻毫無防禦、被敵直接突襲，與承諾不符。)
 function homeTerritoryRank_(pcData, pIdx, gameId) {
   try {
     var ws = getWorkshop_(pcData[pIdx][COL.PC.MEMORY]); if (!ws) return "";
@@ -1306,13 +1213,7 @@ function actionSetWorkshop(userData, pcId, sheets) {
   return JSON.stringify({ success: true, message: `已於「${loc}」佈設陣地（工房）——耗 ${WORKSHOP_MANA_COST} 魔築起結界。駐留供魔提升；於此決戰享主場庇護、敵襲反被擊退。`, aiPrompt: wsPrompt, clock: clock, ap: ap, apMax: AP_PER_DAY, economy: isFate ? playerServantEconomy_(sheets, pcId, pcData) : null });
 }
 
-// 🔍 搜索物資：偵查鄰近敵蹤為主，順手撿拾零星魔力（耗 1 AP）
-//   ⚠ 反「無痛回魔」：每地的散逸魔力有限，搜刮一次即枯竭——同地重搜只得殘渣。
-//   想真正回滿池要付永久代價(補魔)或靠時間(靈脈/陣地/休息)。標記記於 MEMORY【搜刮】loc1、loc2...(已枯竭地點清單)。
-// 🐛→✅ 舊版用 makeTextTag_ 只能存「單一」最近搜刮地點，玩家在A、B兩地間來回搜刮可無限白嫖：
-//   搜A(標記枯竭=A)→搜B(標記被覆寫成枯竭=B，A的枯竭紀錄就此消失)→回搜A又被當成全新地點、領滿額——
-//   跟註解自陳的「同地重搜只得殘渣」設計意圖矛盾。改成存「所有已枯竭地點」清單、用 indexOf 判斷
-//   是否曾搜過，而非跟單一最近值相等比對，才是真的「每地限一次」。
+// 🔍 搜索物資：偵查鄰近敵蹤為主，順手撿拾零星魔力（耗 1 AP）⚠ 反「無痛回魔」：每地的散逸魔力有限，搜刮一次即枯竭——同地重搜只得殘渣。
 function getScavengedLocs_(memory) {
   var m = String(memory || '').match(/【搜刮】([^｜【]+)/);
   return m ? m[1].split('、').filter(Boolean) : [];
@@ -1345,10 +1246,7 @@ function actionScavenge(userData, pcId, sheets) {
   const _scavApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以細細搜索——請休息恢復。", { isFate: isFate, skipWrite: true });
   const ap = _scavApr.ap, clock = _scavApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-  // 35% 機率察覺鄰近敵蹤（揭露一名最近的未偵查敵）——搜索的真正價值在情報
-  // 🐛→✅ 稽核抓到：舊版直接掃全表第一個未SEEN的敵蹤，沒有比照姊妹函式actionScout做「範圍限定
-  //   (當前+鄰近地點)」與「hasArrived_登場日閘門」——會把地圖另一端、甚至本局劇本尚未登場的敵情
-  //   提早揭露，跟訊息文字「附近/一帶」自相矛盾，也繞過戰爭迷霧設計。補齊同一套規則。
+  // 35% 機率察覺鄰近敵蹤（揭露一名最近的未偵查敵）——搜索的真正價值在情報🐛→✅ 稽核抓到：舊版直接掃全表第一個未SEEN的敵蹤，沒有比照姊妹函式actionScout做「範圍限定(當前+鄰近地點)」與「hasArrived_登場日閘門」——會把地圖另一端、甚至本局劇本尚未登場的敵情提早揭露，跟訊息文字「附近/一帶」自相矛盾，也繞過戰爭迷霧設計。
   const scavMapData = getMapDataCached(sheets);
   const scavWar = isFate ? getWarName_(pcData[pIdx][COL.PC.MEMORY]) : "";
   let scavScope = [curLoc];
@@ -1397,9 +1295,6 @@ function actionScout(userData, pcId, sheets) {
   const scoutWar = isFateScout ? getWarName_(pcData[pIdx][COL.PC.MEMORY]) : "";
   try { getNearbyLocations(curLoc, mapData, scoutWar).forEach(l => { const nm = (l && l.name) ? l.name : l; if (nm) scope.push(String(nm).trim()); }); } catch (e) { }
 
-  // 🐛→✅ 稽核抓到：舊版漏了hasArrived_「尚未登場」日期閘門——對照buildMapNodesPayload_/actionMove
-  //   等其餘所有敵蹤可見性判斷都會擋這道，唯獨這裡漏掉，會把還沒登場的敵御主/敵從者真名+地點提早
-  //   洩漏給玩家與AI敘事、還永久標記SEEN，形同繞過戰爭迷霧設計。
   const scoutDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
   let revealed = [];
   for (let i = 1; i < pcData.length; i++) {

@@ -78,10 +78,7 @@ function cleanNarrateEcho_(promptText) {
   return s.slice(0, 80) || '御主有所行動。';
 }
 
-// 防禦性過濾：miniSystem 本身充滿 ★指令/〈演出卡〉等鷹架符號，小模型偶有機率把提示詞格式原樣「回音」進
-//   輸出，讓玩家讀到突兀的系統指令。正常敘事只會是純散文+<br><br>、不合法含這兩種符號，故清除不會誤傷。
-//   ⚠ 刻意不清【標籤】：callGeminiAPI 失敗時的柔性 fallback 文案本身就刻意用【】當視覺標籤顯示給玩家，
-//   一併清掉會弄巧成拙。
+// 防禦性過濾：miniSystem 本身充滿 ★指令/〈演出卡〉等鷹架符號，小模型偶有機率把提示詞格式原樣「回音」進輸出，讓玩家讀到突兀的系統指令。
 function stripLeakedScaffold_(text) {
   var s = String(text || "");
   s = s.replace(/★[^<]*/g, "");     // 誤echo的★指令(通常延伸到下一個<br>或字串結尾)
@@ -109,9 +106,7 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
       return { role: msg.speaker === "player" ? "user" : "assistant", content: String(msg.content) };
     });
   }
-  // 🩸 自動附「當前狀態」(御主＋在場從者 HP/MP)，敘事才連貫(剛被爆打後該寫狼狽、非沒事人)。讀不到就略過。
-  // 順帶組「軌跡骨幹」(buildTrajectoryDigest_)，沿用同一次整表讀取、零額外讀表；接在 system 訊息後，
-  //   排在 messages 陣列最前面(system → chatHistory → 當前這輪)。
+  // 🩸 自動附「當前狀態」(御主＋在場從者 HP/MP)，敘事才連貫(剛被爆打後該寫狼狽、非沒事人)。
   var stateBrief = "";
   var trajectoryDigest = "";
   try {
@@ -135,10 +130,6 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
   try {
     var start = raw.indexOf('{'), end = raw.lastIndexOf('}');
     var data = JSON.parse(raw.substring(start, end + 1));
-    // 🐛→✅ callGeminiAPI 全部重試失敗時回傳的保底文字 JSON 格式跟真正成功的敘述一樣，會被誤當
-    //   合法敘事回傳、進而存進歷史(actionNarrateOnly)供下次呼叫餵回AI，讓AI誤以為那句「什麼都
-    //   沒發生」的保底措辭是既定劇情事實。有 _genFailed 旗標時當成失敗處理，回 null 讓既有的
-    //   null 分支(呼叫端本就有)接手——那條分支本就不會寫進歷史。
     if (data._genFailed) return null;
     return stripLeakedScaffold_(data.narration) || "天地靜默，一片祥和。";
   } catch (e) { return null; }
@@ -162,9 +153,7 @@ function actionNarrateOnly(userData, pcId, sheets) {
 6b.★衣著嚴格依角色卡的「外貌本相／此刻裝扮」，【此刻裝扮】(玩家換裝)最優先、寫什麼穿什麼；卡上沒寫的不自行增減(戰鬥可寫甲冑碎裂衣袂破損)。解除結界/隱匿(如風王結界)只顯現【武器】，與衣著無關。
 7. 只輸出 JSON：{"narration":"你的敘述，內含<br><br>分段"}，不要其他欄位、不要 Markdown。`;
 
-  // deepseek 旗標由補魔/強制補魔的高好感解鎖分支夾帶(名稱沿用、非固定綁死該廠商)，該分支指令要求
-  //   500~600 字(遠長於平常120~180字)，720 tokens 會截斷，故加大上限；其餘呼叫不受影響(仍是720)。
-  //   模型選擇(UNLOCKED_MODEL)與旗標是否觸發彼此獨立，換模型只需改 Core_Settings.gs 一處。
+  // deepseek 旗標由補魔/強制補魔的高好感解鎖分支夾帶(名稱沿用、非固定綁死該廠商)，該分支指令要求500~600 字(遠長於平常120~180字)，720 tokens 會截斷，故加大上限；其餘呼叫不受影響(仍是720)。
   const useDeepseek = !!userData.deepseek;
   const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw, maxTokens: useDeepseek ? 2000 : 720, model: useDeepseek ? UNLOCKED_MODEL : undefined });
   if (narrationText === null) return JSON.stringify({ success: true, text: "（此處因果已定，氣息微微一閃。）" });
@@ -178,12 +167,6 @@ function actionNarrateOnly(userData, pcId, sheets) {
 // ==========================================
 // 🐯 老虎道場（賽後番外·敗北講評／勝利祝賀）
 // ==========================================
-// ⚠ 刻意【不】走 narrateWithState_：道場是賽後的教室、不是戰場——miniSystem 的「旁白第一人稱
-//   『我』·不用『你』」「語氣依血量決定·瀕死就是命懸一線」跟道場要的「兩人對話＋刻意輕鬆詼諧」
-//   正面打架（舊版是在提示詞尾巴硬寫一句「無視戰場的緊張基調」去對抗它，那是補丁不是解法）。
-//   給它自己的說書人設定，順便省掉整表讀＋歷史讀——賽後講評不需要跟前情連貫。
-// ⚠ 提示詞本體收回 GAS：前端只送「哪一種敗因」的鍵，文案查表(DOJO_CAUSE_)在後端組——
-//   加一種敗因＝往表加一列。（前端組提示詞的地方只剩移動的 arrivePrompt。）
 const DOJO_CAUSE_ = {
   deadline: { fact: '十四日時限耗盡，聖杯始終沒到手', lesson: '一整局十四天的行程該怎麼分配' },
   seal_backlash: { fact: '用令咒強逼從者{sv}在好感不足時交心，令咒一解就被積怨反噬、御主當場斃命', lesson: '從者的意願，以及絕對命令的代價' },

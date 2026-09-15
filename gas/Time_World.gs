@@ -7,9 +7,7 @@
 
 var AP_PER_DAY = 12; // 體力池上限（1 AP = 1 小時的行動）
 
-// ⏳ 時鐘不用獨立表：每個世界(game_id)恆只有一位御主，日/時/AP 直接存在【御主自己那一列】
-//   (COL.PC.DAY/HOUR/AP)，天然 1:1 對應、無需獨立 join 表。函式簽名維持「傳 gameId」不變，
-//   只在內部找御主列；呼叫端手上已有整表 pcData 時直接吃記憶體，沒有才整表掃一次找御主列(fallback)。
+// ⏳ 時鐘不用獨立表：每個世界(game_id)恆只有一位御主，日/時/AP 直接存在【御主自己那一列】(COL.PC.DAY/HOUR/AP)，天然 1:1 對應、無需獨立 join 表。
 
 // 內部：在(已載入的) pcData 中找某 game_id 的御主列索引。
 function findGameMasterIdx_(pcData, gameId) {
@@ -74,9 +72,7 @@ function getAp_(gameId, pcData) {
   return clk ? clk.ap : AP_PER_DAY;
 }
 
-// 消耗 AP：1 AP = 1 小時。足夠則扣 cost、推進 cost 小時、回 {ok,ap}；不足回 {ok:false,ap}。
-//   傳 pcData+sheets 可全程零額外整表讀寫(只改記憶體+單列3欄寫回)；不傳則自行整表讀一次(相容舊呼叫)。
-//   skipWrite(選填)：呼叫端保證隨後必有一次涵蓋這3欄的批次整表寫回時傳true，省掉這裡的單列立即寫入。
+// 消耗 AP：1 AP = 1 小時。
 function spendAp_(gameId, cost, pcData, sheets, skipWrite) {
   var clk = getClock_(gameId, pcData, sheets);
   if (!clk || clk.masterIdx < 0) return { ok: true, ap: AP_PER_DAY }; // 無御主列(相容)→不擋
@@ -127,9 +123,7 @@ function clockLabel_(gameId, pcData) {
 }
 
 
-// 🔮 靈脈：依坤圖地點「類型」給每小時回魔基值。靈地(柳洞寺/河畔)匯聚最高、據點/祭壇(宅邸/教會)中等、城區野外最低。
-//   坤圖已靜態化(getMapDataCached 直接讀 FATE_MAP_SEED 常數，零 I/O)，此函式被 applyRegen_／
-//   playerServantEconomy_ 高頻呼叫也不必擔心整表重讀成本。
+// 🔮 靈脈：依坤圖地點「類型」給每小時回魔基值。
 function leylineAt_(sheets, loc) {
   if (!sheets || !loc) return 2;
   var root = String(loc).split('-')[0].trim();
@@ -147,10 +141,7 @@ function leylineAt_(sheets, loc) {
 }
 var LEYLINE_LABEL_ = { 12: "靈脈匯聚", 6: "魔力尚可", 2: "魔力稀薄" };
 
-// 💠 從者每小時魔力收支（時回與前端顯示共用）。有理有據的供養經濟：
-//   收入 = 御主供給(迴路×0.5) + 靈脈(地點) + 工房(在自己居所／Caster 陣地 +8)
-//   支出 = 維持費(六圍總和/8；狂化×1.5)——越貴的英靈越難養
-//   回傳每小時魔力點數 { supply, ley, workshop, income, drain, net }
+// 💠 從者每小時魔力收支（時回與前端顯示共用）。
 function servantEconomy_(circuits, six, isMad, leyline, hasWorkshop) {
   var supply = Math.round((parseInt(circuits) || 30) * 0.5);
   var ws = hasWorkshop ? 8 : 0;
@@ -230,8 +221,6 @@ function playerServantEconomy_(sheets, pcId, preData) {
 }
 
 // 對「御主＋同行從者」施加 hours 小時的時回；mult＝倍率（移動 1、休息 2）。
-//   HP：靈基自我修復(每小時 5%×倍率)；MP(從者)：走魔力收支經濟(供給+靈脈+工房-維持)，
-//   休息把「收入」加倍、維持不變；魔力觸底會反傷靈基。只改記憶體 data；回傳是否有變動。
 function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult, sheets, loc, homeLoc) {
   if (!gameId || !hours) return false;
   mult = mult || 1;
@@ -291,8 +280,6 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
   if (horrorIdx !== -1) totalDrain += HORROR_HOURLY_UPKEEP;
 
   // 御主魔力淨收支（休息把收入加倍、維持不變）→ 寫回御主 MP。
-  //   🩸 被動燃血(只扣御主)：池見底、時消耗補不上的缺口 → 御主自動燃命續契約，缺口÷2 由血肉支付，
-  //   從者一律不扣血(從者無自有魔力池，代價全在電池=御主身上)；保底 1 HP，不直接秒死但會磨成殘血。
   var masterBurn = 0;
   if (masterI >= 0) {
     // 重算共用池上限(把同隊從者魔力併進來)；夾住當前 MP
@@ -339,10 +326,7 @@ function masterCircuits_(masterRow) {
   return m ? parseInt(m[1]) : 30;
 }
 
-// 🔋 敵御主每日回魔：敵御主電池只會被 drainForNp_ 扣、從不隨時間自然回——長局若不補，
-//   放過一次寶具後就永久魔力見底，往後所有遭遇都啞火(反而喪失「寶具是孤注一擲」的張力)。
-//   不用玩家那套逐時供需經濟(NPC 不必算到那麼細)，改用最簡單的「新的一天回滿」：MEMORY 記
-//   最後回魔的絕對日；worldTick_ 每次執行，見到記錄的日 < 當前日 → 補滿並蓋新日期戳。
+// 🔋 敵御主每日回魔：敵御主電池只會被 drainForNp_ 扣、從不隨時間自然回——長局若不補，放過一次寶具後就永久魔力見底，往後所有遭遇都啞火(反而喪失「寶具是孤注一擲」的張力)。
 var MANA_DAY_TAG_ = makeIntTag_('回魔日', -1);
 function getManaDay_(memory) { return MANA_DAY_TAG_.get(memory); }
 function stampManaDay_(memory, day) { return MANA_DAY_TAG_.set(memory, day); }
@@ -360,9 +344,7 @@ function refillMastersDaily_(sheets, gameId, day, preData) {
     data[i][COL.PC.MEMORY] = stampManaDay_(data[i][COL.PC.MEMORY], day);
     dirty = true;
   }
-  // 多名敵御主同天需回魔時，MP/MEMORY 各整欄一次寫回(取代迴圈內逐列 setValues 的零散往返，同 worldTick_ LOC 批寫手法)
-  // 🐛→✅ 補 BATTLE_DEFER_WRITE_ guard：呼叫端(worldTick_)若被上層要求延遲寫入(如 actionMove 稍後
-  //   自己整表批次寫回)，這裡也該一併略過，否則同一批 MP/MEMORY 值還是會被送兩次。
+  // 多名敵御主同天需回魔時，MP/MEMORY 各整欄一次寫回(取代迴圈內逐列 setValues 的零散往返，同 worldTick_ LOC 批寫手法)🐛→✅ 補 BATTLE_DEFER_WRITE_ guard：呼叫端(worldTick_)若被上層要求延遲寫入(如 actionMove 稍後自己整表批次寫回)，這裡也該一併略過，否則同一批 MP/MEMORY 值還是會被送兩次。
   if (dirty && !BATTLE_DEFER_WRITE_) {
     var mpCol = [], memCol = [];
     for (var z = 1; z < data.length; z++) { mpCol.push([data[z][COL.PC.MP]]); memCol.push([data[z][COL.PC.MEMORY]]); }
@@ -371,21 +353,10 @@ function refillMastersDaily_(sheets, gameId, day, preData) {
   }
 }
 
-// 🌐 世界自走一輪：敵移位（偵查失效）＋ 暗處從者陣亡（戰爭自走）
-//   rounds：跑幾輪；allowAttrition：是否允許「暗處廝殺/養不起爆炸」（僅休息時 true，移動只換位）
-//   回傳 { rumors:[..文字..], moved:n }
+// 🌐 世界自走一輪：敵移位（偵查失效）＋ 暗處從者陣亡（戰爭自走）rounds：跑幾輪；allowAttrition：是否允許「暗處廝殺/養不起爆炸」（僅休息時 true，移動只換位）回傳 { rumors:[..文字..], moved:n }
 var WORLD_FLOOR_ = 4; // 世界自走永遠至少保留這麼多名敵從者給玩家親手解決（不會被自走清光）
 var ATTRITION_START_DAY = 3; // ⏳ 開戰前期不減員：第 N 日(含)前，世界不會有從者暗處殞落（給玩家喘息＋貼戰爭初期蟄伏）
-// 🩹 敵從者每輪世界自走小幅回血(不看同地/攻防狀態、不吃玩家 rest×2 加成)：撤離幾乎零成本，若敵人
-//   完全沒有回血機制，「打一下、撤退、再打一下」就能零風險磨死任何對手。回血速度遠低於玩家(不隨休息倍增)，
-//   逼玩家加快節奏或正面找到剋制手段，而不是純靠耐心刷。
 var ENEMY_REGEN_RATE_ = 0.06;
-// 🐛→✅ deferWrite：呼叫端(目前僅 actionMove)若稍後自己會整表批次 setValues，傳 true 讓本函式
-//   (與其內部呼叫的 refillMastersDaily_/markMasterLostServant_，皆共用同一個全域旗標)略過自己的
-//   即時寫入——否則同一批 LOC/HP/MEMORY/MP 值會在一次移動裡被送進 Sheets 兩次(worldTick_ 先寫一次、
-//   actionMove 收尾又整表寫一次)。actionRest 呼叫時不傳(維持原行為)，因它沒有涵蓋 worldTick_ 之後
-//   還會發生的 restHours_/breakStaleAlliances_/enemyAmbushOnServant_ 寫入的最終整表寫回，貿然略過
-//   worldTick_ 自己的寫入會讓這批變動整個遺失、不只是多寫一次而已。
 function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, deferWrite) {
   var rumors = [];
   if (!gameId) return { rumors: rumors, moved: 0 };
@@ -393,13 +364,8 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
   var _prevDefer = BATTLE_DEFER_WRITE_;
   if (deferWrite) BATTLE_DEFER_WRITE_ = true;
   // 全函式只整表讀一次，各階段(移位/廝殺/透支判定)共用同一份記憶體 data、只做局部批次寫回。
-  // 呼叫端(actionMove/actionRest)手上通常已有剛讀好的整表 → 傳 preData 直接在同一份陣列上原地改
-  // (JS 陣列傳參考)，事後不必重讀一次整表拿最新狀態；沒傳才自己整表讀一次(相容)。
   var data = preData || sheets.pc.getDataRange().getValues();
   var _ck0 = getClock_(gameId, data); if (_ck0) refillMastersDaily_(sheets, gameId, _ck0.day, data);
-  // 🐛→✅ 稽核抓到：下面敵御主隨機移位呼叫enemyRetreatLoc_，該函式沒濾戰爭限定地點(見同批修正)，
-  //   會導致5th/chaos局的敵人被移到4th限定地點後永久消失(打不到也偵不到)。這裡查一次本局戰爭
-  //   名稱供傳入，只需查一次(整輪rounds共用，戰爭設定不會中途變動)。
   var _myWar = "";
   try {
     var _myMIdx = data.findIndex(function (r) { return String(r[COL.PC.FACTION]) === "御主" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_"); });
@@ -407,9 +373,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
   } catch (e) { }
   var moved = 0;
   var anyMemDirty = false;
-  // 🔮 登場預告：尚未登場、但已進入「登場前1~2天」窗口的敵從者，世界風聲提前透露一絲氣息——只觸發
-  //   一次(MEMORY【已預告】避免每輪重播)，不洩漏精確位置/天數；有自訂提示句(【登場提示】)就用，
-  //   沒有就退回依職階的泛用措辭。
+  // 🔮 登場預告：尚未登場、但已進入「登場前1~2天」窗口的敵從者，世界風聲提前透露一絲氣息——只觸發一次(MEMORY【已預告】避免每輪重播)，不洩漏精確位置/天數；有自訂提示句(【登場提示】)就用，沒有就退回依職階的泛用措辭。
   if (_ck0) {
     for (var hn = 1; hn < data.length; hn++) {
       if (String(data[hn][COL.PC.FACTION]) !== "敵從者") continue;
@@ -449,17 +413,10 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
       var newLoc = enemyRetreatLoc_(oldLoc, _myWar);
       if (newLoc === oldLoc) continue;
       data[i][COL.PC.LOC] = newLoc; locDirty = true;
-      // 🔭 已偵查到的敵人移位後【保持可見】(不清 SEEN)：一旦感應到對手氣息就持續追蹤其當前位置，
-      //   否則敵人每動一次就重新隱形、玩家永遠追不到人。未偵查者 SEEN 仍為空、維持迷霧。
-      // 同地敵從者隨行：優先比對 MEMORY 裡的【御主】tag，避免同格多組互搶從者
+      // 🔭 已偵查到的敵人移位後【保持可見】(不清 SEEN)：一旦感應到對手氣息就持續追蹤其當前位置，否則敵人每動一次就重新隱形、玩家永遠追不到人。
       var mName = String(data[i][COL.PC.NAME] || "");
       var foundServant = false;
-      // 第一輪：找 MEMORY 有【御主】=mName 的配對從者
-      // 🐛→✅ 2026-07 玩家「檢查solo看看有沒有問題」稽核抓到：這裡子字串 indexOf 比對是同一個
-      //   前綴撞名 bug(Router_Movement.gs findClashSv_ 已修過)的未修孿生——chaos/AI原創敵御主
-      //   可能撞名前綴(如「伊莉雅」與「伊莉雅絲菲爾-5th」)，處理「伊莉雅」移位時會誤命中掛在
-      //   後者名下的從者並搶先 break，下方第二輪(已用 getServantMaster_ 精確比對)反而永遠輪不到。
-      //   改成同一套精確比對，兩輪判準統一。
+      // 第一輪：找 MEMORY 有【御主】=mName 的配對從者🐛→✅ 2026-07 玩家「檢查solo看看有沒有問題」稽核抓到：這裡子字串 indexOf 比對是同一個前綴撞名 bug(Router_Movement.gs findClas…（全文見 CODE_NOTES.md）
       for (var j = 1; j < data.length; j++) {
         if (String(data[j][COL.PC.FACTION]) !== "敵從者") continue;
         if (String(data[j][COL.PC.GAME_ID] || "") !== gameId) continue;
@@ -468,11 +425,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
         if (getServantMaster_(data[j][COL.PC.MEMORY]) !== mName) continue;
         data[j][COL.PC.LOC] = newLoc; foundServant = true; break;
       }
-      // 第二輪：找不到配對 → fallback 抓同格任一孤身從者（MEMORY 無【御主】或御主不在同格）
-      // 🐛→✅ 註解一直這樣寫，但程式碼從沒真的檢查「孤身」這個條件——只要同地、未死，第一個掃到的
-      //   從者就會被拖走，即使牠其實掛在另一位(這輪未移動/稍後才輪到的)敵御主名下，導致把 B 御主的
-      //   從者誤拖去 A 御主的新位置。補上硬連結檢查：有【御主】tag 且該御主此刻仍在原地存活，才算
-      //   「還有主」、跳過不拖；無 tag 或御主已不在此地，才是真的孤身可拖。
+      // 第二輪：找不到配對 → fallback 抓同格任一孤身從者（MEMORY 無【御主】或御主不在同格）🐛→✅ 註解一直這樣寫，但程式碼從沒真的檢查「孤身」這個條件——只要同地、未死，第一個掃到的從者就會被拖走，即使牠其實掛在另一位(這輪未移動/稍後才輪到的)敵御主名下，導致把 B 御主的從者誤拖去 A 御主的新位置。
       if (!foundServant) {
         for (var j = 1; j < data.length; j++) {
           if (String(data[j][COL.PC.FACTION]) !== "敵從者") continue;
@@ -512,10 +465,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
       if (eNHp !== eHp) { data[hi][COL.PC.HP] = eNHp; anyHpDirty = true; }
     }
 
-    // 2) 暗處從者互鬥：只在「休息」時可能發生（移動只換位，不受傷）；
-    //    且永遠至少保留 WORLD_FLOOR_ 名敵從者給玩家親手解決——絕不會被世界自走清光。
-    // 抽兩名離場敵從者、建成真實 combatant，走跟玩家對戰同一套 resolveFateBattle_ 結算(GAS本機算，
-    //   不叫AI)——多數情況只是雙方掛彩(確實扣血、不死)，只有真的打到HP見底才會死亡。
+    // 2) 暗處從者互鬥：只在「休息」時可能發生（移動只換位，不受傷）；且永遠至少保留 WORLD_FLOOR_ 名敵從者給玩家親手解決——絕不會被世界自走清光。
     if (!allowAttrition) continue;
     // ⏳ 開戰前期(第 ATTRITION_START_DAY 日前)世界不減員——給玩家喘息，也貼「戰爭初期各方按兵蟄伏」。
     var _ckR = getClock_(gameId, data);
@@ -562,15 +512,6 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
         var strikeBA = resolveFateBattle_(comB, comA, {});
         hpAAfter = Math.max(0, comA.hp - (strikeBA.atkWins ? strikeBA.damage : 0));
       }
-      // 🐛→✅ 稽核抓到：這條「暗處互鬥」是獨立於fateStrike_的一套死亡判定，完全沒檢查god_hand/
-      //   survive/severed——持十二試煉的敵從者(如混沌局赫拉克勒斯)被系統抽中打這場背景暗鬥，會在
-      //   玩家毫不知情下真的被判定永久死亡，God Hand形同虛設。比照fateStrike_同順序補上判定。
-      // 🐛→✅ 稽核抓到：severedA/severedB 原本各自讀「該方自己」的rule_breaker/anti_magic_lance拿去
-      //   擋「該方自己」的復活判定——跟fateStrike_(Router_Battle.gs)/夜襲路徑(Router_Movement.gs)
-      //   的既有慣例相反：severed 該由「攻擊者」的fx決定、用來擋「被攻擊那一方」的復活。這裡是A/B
-      //   互擊兩段式(strikeAB：A打B；strikeBA：B打A)，故擋B復活的severed要看A的fx、擋A復活的
-      //   severed要看B的fx——原本兩者對調，導致真正持rule_breaker/anti_magic_lance的一方打死
-      //   god_hand/survive持有者時，這條暗處互鬥路徑完全沒擋下復活(判定的是被打者自己沒有的fx)。
       var severedByA = hasFx_(comA, 'rule_breaker') || hasFx_(comA, 'anti_magic_lance'); // A是strikeAB攻擊方→擋B復活
       var severedByB = hasFx_(comB, 'rule_breaker') || hasFx_(comB, 'anti_magic_lance'); // B是strikeBA攻擊方→擋A復活
       if (hpAAfter <= 0 && hasFx_(comA, 'survive') && !hasFx_(comA, 'god_hand') && comA.hp > 1 && !severedByB) hpAAfter = 1;
@@ -615,10 +556,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
       }
     }
   }
-  // ⚡ LOC/HP 整欄一次寫回(取代原本每輪各寫一次·最多12h休息=4輪就是4次)——data 全程原地改，
-  //   等所有輪跑完才寫，仍是同一份最終狀態，只是省去中途的重複 Sheets 寫入次數。
-  // 🐛→✅ 補 BATTLE_DEFER_WRITE_ guard：actionMove 傳 deferWrite=true 時，這裡也該略過即時寫入，
-  //   交給 actionMove 收尾那次整表 setValues 一次到位，避免同一批 LOC/HP/MEMORY 值送 Sheets 兩次。
+  // ⚡ LOC/HP 整欄一次寫回(取代原本每輪各寫一次·最多12h休息=4輪就是4次)——data 全程原地改，等所有輪跑完才寫，仍是同一份最終狀態，只是省去中途的重複 Sheets 寫入次數。
   if (anyLocDirty && !BATTLE_DEFER_WRITE_) {
     var locColF = [];
     for (var zl = 1; zl < data.length; zl++) locColF.push([data[zl][COL.PC.LOC]]);
@@ -647,9 +585,6 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
         if (String(data[di][COL.PC.FACTION]) !== "敵從者") continue;
         if (String(data[di][COL.PC.GAME_ID] || "") !== gameId) continue;
         if (String(data[di][COL.PC.ID]).startsWith("DEAD_")) continue;
-        // 🐛→✅ 舊版沒排除已結盟者——上方「暗處互鬥」段落(507行)明確有 isAllied_ 守衛，這裡漏了。
-        //   玩家跟某敵從者締盟後，牠先前戰鬥留下的【靈基透支】死線並不會被撤盟約清除，時間一到就會
-        //   在玩家毫不知情下把剛結盟的盟友判死，敘事還謊稱死因是「令咒燃盡」——跟雙方已休兵的現況矛盾。
         if (isAllied_(data[di])) continue;
         if (!hasArrived_(data[di], ck.day)) continue; // 🕰️ 尚未登場者不會有靈基透支倒數
         var dl = getDoom_(data[di][COL.PC.MEMORY]);

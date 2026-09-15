@@ -48,10 +48,7 @@ function codexPersona_(name, cls) {
 // 故逐格加標籤餵給 AI。
 var PREF_LABELS_ = ['日常表象', '真實內裡', '喜歡的事物', '討厭的事物'];
 var TRAIT_LABELS_ = ['外貌本相', '氣質舉止', '自稱與口氣', '卸下心防的私密一面'];
-// skipNone=true 時該格若為空或字面「無」直接跳過不顯示(給御主卡/敵御主卡沿用既有的無資料防呆)；
-// false 時保留全部4格(給 servantCard_ 用，段數不足時仍顯示「無」，不靜默漏項)。
-// 無資訊量的值：空、「無」、以及 parseTraitsHelper 那幾個「跟標籤同義反覆」的 fallback 預設值
-//   （「卸下心防的私密一面：卸下心防時的柔軟一面」這種——標籤已經把話講完，值等於沒填）。
+// skipNone=true 時該格若為空或字面「無」直接跳過不顯示(給御主卡/敵御主卡沿用既有的無資料防呆)；false 時保留全部4格(給 servantCard_ 用，段數不足時仍顯示「無」，不靜默漏項)。
 var QUAD_EMPTY_ = ['', '無', '卸下心防時的柔軟一面', '卸下心防的私密一面', '舉止從容', '外貌平凡'];
 function quadLabeled_(raw, labels, skipNone) {
   var parts = String(raw || "").split('、');
@@ -66,22 +63,14 @@ function quadLabeled_(raw, labels, skipNone) {
   return out;
 }
 
-// 🎭 表演總則（單一真實來源）：show-don't-tell／正典認知覆蓋／羈絆親疏，這句對「這次提示詞裡出現的
-//   每一位角色」都適用、內容固定不變——不管同框幾位，只需要講一次。names 傳入這次同框的所有真名，
-//   servantCard_(row,{skipClose:true}) 呼叫端負責在組完所有角色卡後、於此收尾一次。
+// 🎭 表演總則（單一真實來源）：show-don't-tell／正典認知覆蓋／羈絆親疏，這句對「這次提示詞裡出現的每一位角色」都適用、內容固定不變——不管同框幾位，只需要講一次。
 function performanceNote_(names) {
   var list = (names || []).filter(Boolean);
   if (!list.length) return "";
   return `★依「${list.join('、')}」的真名與性格/口吻演出(show, don't tell)：性格詞/萌點/六圍/技能不當台詞、也不由旁白點破。真名出自 Fate 正典者，身世依你自身認知演出，不受限上方短句。依羈絆高低調親疏：低→戒備矜持、高→漸親近，守性格內核。\n`;
 }
 
-// 🎭 從者「演出依據」卡：真名/職階/第一人稱/個性/對御主/口吻/萌點/招牌動作/六圍/技能/寶具
-//   壓成一段塞進 narration 提示詞，讓 AI 依『我們定義的角色』內化演出（只當背景、不准說嘴）。
-// 🐛→✅ 玩家實測抓到：同一場戰鬥/事件常同時呼叫本函式2~4次(我方/敵方/盟友/敵盟協防從者)，
-//   每次呼叫都各自帶一份完整的「怎麼演」收尾句(show-don't-tell/正典認知/羈絆親疏)——這句是
-//   固定不變的表演總則、不是各角色專屬的事實資料，一場戲裡重複3~4次純屬浪費字數、稀釋注意力。
-//   opts.skipClose=true 時省略這句，呼叫端改在組完所有角色卡後，用 performanceNote_() 只講一次。
-//   不傳 opts(絕大多數單一角色卡的呼叫端)行為完全不變，向下相容。
+// 🎭 從者「演出依據」卡：真名/職階/第一人稱/個性/對御主/口吻/萌點/招牌動作/六圍/技能/寶具壓成一段塞進 narration 提示詞，讓 AI 依『我們定義的角色』內化演出（只當背景、不准說嘴）。
 function servantCard_(row, opts) {
   if (!row) return "";
   var skipClose = !!(opts && opts.skipClose);
@@ -98,8 +87,6 @@ function servantCard_(row, opts) {
     var p = (rowSpeech && rowTic && rowMoe) ? {} : codexPersona_(name, cls);
     var fp = p.firstP || (mem.match(/第一人稱「([^」]*)」/) || [])[1] || "我";
     // 排除字元集用 `｜|【`(兩種 pipe 都排)，跟 getPersonaSpeech_/getPersonaTic_ 一致，避免尾端吃進雜訊字元。
-    // servantCard_ 是我方/敵/盟友從者共用同一份卡，「對御主：X」在敵/盟友從者身上易被誤讀成「對玩家忠誠」，
-    // 故欄位加「自己」二字消歧義（對自己御主的忠誠態度，而非對玩家）。
     var toM = p.toMaster || (mem.match(/對(?:自己)?御主：([^｜|【]*)/) || [])[1] || "";
     var prefArr = String(row[COL.PC.PREF] || "").split('、').filter(Boolean);
     // p.words 是種子原始格式(段落用「・」分隔)，quadLabeled_ 只切「、」——跟召喚寫列時
@@ -109,10 +96,7 @@ function servantCard_(row, opts) {
     var speech = rowSpeech || p.speech || "";
     var moe = rowMoe || p.moe || "";
     var tic = rowTic || p.tic || "";
-    // persona.look 召喚時已複製進 row.TRAIT(parseTraitsHelper)，跟 fp/toM/persona 一樣退回讀列，
-    //   別讓 p 變空物件時這格靜默消失。p.look 是種子原始格式(「N段外貌・・、末段氣質」)，得先過
-    //   looksToTraitParts_ 轉成 4 格慣例(跟 row.TRAIT 寫入時同一條處理管線)，否則 quadLabeled_
-    //   直接切「、」會漏接「自稱」「私密一面」兩格、氣質也可能跟外貌擠在一起。
+    // persona.look 召喚時已複製進 row.TRAIT(parseTraitsHelper)，跟 fp/toM/persona 一樣退回讀列，別讓 p 變空物件時這格靜默消失。
     var look = String(p.look ? looksToTraitParts_(p.look, p.firstP || fp) : (row[COL.PC.TRAIT] || ""));
     var outfit = getOutfit_(mem);              // 👕 玩家換裝：當前服裝穿著(疊在本相上·可清)
     var weapon = getWeapon_(mem);              // ⚔️ 玩家自定武裝：武器/戰鬥方式(蓋過職階慣例/原典習慣·可清)
@@ -134,9 +118,6 @@ function servantCard_(row, opts) {
     var card = `〈${name}·${cls}·演出依據(僅供內化，禁複述設定字面)〉此角色台詞內自稱「${fp}」(僅限她/他自己的引號台詞，敘事旁白的「我」永遠是玩家本人、與此無關)｜對自己御主的態度：${toM || '依真名'}` +
       (persona ? quadLabeled_(persona, PREF_LABELS_, false) : `｜性格：依真名`) +
       (speech ? `｜口吻：${speech}` : "") +
-      // 🐛→✅ 同批修正(比照 masterCard_)：萌點沒講頻率，容易連續幾場戲都反覆用同一個具體動作點出反差，
-      //   讀起來像機械公式——補「不必每回合硬塞、情境對了才自然浮現」。牽涉隨身物品的萌點又特別
-      //   容易被濫用(摸一下該物品零成本、不需情境鋪陳)，額外提醒別靠這招交差。
       (moe && !foe ? `｜萌點(情境對了才浮現一次)：${moe}` : "") +
       (tic && !foe ? `｜小動作：${tic}` : "") +
       (look ? quadLabeled_(look, TRAIT_LABELS_, false) : "") +
@@ -176,46 +157,27 @@ function masterCard_(row) {
     // 🐛→✅ 【出身】舊版只在創角時寫入 MEMORY，全專案沒有任何讀取點——純寫入死資料，玩家選的
     //   出身(如「教會代行者出身」)從此再也影響不到任何敘事。補讀取，併進演出依據卡。
     var origin = getMasterOrigin_(row[COL.PC.MEMORY]);
-    // 🐛→✅ 「扮演正典御主」入口存在的意義就是讓AI認得這個真名、調用原作形象——但這支卡
-    //   從沒讀過getPlayedMaster_，玩家選了扮演卻等於沒選。servantCard_/enemyMasterCard_
-    //   都有對應的「若認得此真名出自Fate正典…」提示，這裡補齊同款。
     var playedId = getPlayedMaster_(row[COL.PC.MEMORY]);
     var playedCanon = playedId && typeof SEED_MASTERS !== 'undefined' ? SEED_MASTERS.find(m => m && String(m.id) === playedId) : null;
     return `〈御主「${name}」·演出依據(僅內化、禁複述)〉` + (sex ? `性別${sex}` : "") +
       quadLabeled_(row[COL.PC.PREF], PREF_LABELS_, true) +
       quadLabeled_(row[COL.PC.TRAIT], TRAIT_LABELS_, true) +
-      // 🐛→✅ 玩家實測抓到：萌點只講「不能直接講出來」，沒講「不用每回合硬塞」——這張卡幾乎每次
-      //   敘述都帶上，AI 手上唯一的反差素材只有這句，連續幾回合就會反覆重複同一個具體動作(如
-      //   每場戰鬥都摸一次口袋布偶)，讀起來像機械公式，show don't tell 變相變成另一種 tell。
-      //   萌點若牽涉一個實體物品(如隨身小物)又特別容易被濫用——AI隨手就能讓角色摸一下該物品，
-      //   零成本、不需情境鋪陳；比起需要先出現對應情境才演得出來的反應型萌點(如被戳到痛處才崩潰)，
-      //   物品型的天生更容易被拿來當萬用填充動作。故額外點名提醒別靠「摸/看一眼隨身物品」交差。
       (moe && moe !== "（待揭曉）" ? `｜萌點(僅供內化，不必每回合硬塞，情境對了才浮現一次，避免重複同一動作；牽涉隨身物品時別只靠「摸/看一眼」交差，多用神情/語氣表現)：${moe}` : "") +
       (back ? `｜身世：${back}` : "") +
       (origin ? `｜出身：${origin}` : "") +
       (magic ? `｜魔術系統：${magic}${magicRank ? `(${magicRank}階)` : ""}` : "") +
       (melee ? `｜體術：${melee}階` : "") +
       (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
-      // 🐛→✅ 玩家實測抓到：這句只給了「問句/思索」一種收尾範例，模型連續戰鬥回合就每次都套「接下來
-      //   怎麼辦/要撤退還是繼續」這句同型問句收尾，讀起來像跳針。收尾方式不是只有問句——沉默對峙、
-      //   蓄勢待發的動作、一個眼神/呼吸也同樣能「停在決策點前」，效果一樣但形式該換著來，尤其連續
-      //   幾回合都還沒分曉的同一場戰鬥，不能每次都問同一種問題。
       `。御主＝玩家本人：他會依性格開口、有神態與台詞，不是沉默的旁觀者。但下一步做什麼由玩家按鍵決定——玩家沒按，就是還沒有那個意圖，不要替他演出決定。收尾停在等他決定的當下。` +
       (playedCanon ? `若「${name}」出自Fate正典，優先依你對該御主(${playedCanon.name})的認知演出，上方設定僅為錨點。` : "") + `\n`;
   } catch (e) { return ""; }
 }
 
-// masterCard_ 內嵌的「性別${sex}」只是孤立事實標籤，沒教 AI 該怎麼據此裁定肢體互動，小模型便預設
-//   男性插入視角；這裡把配對事實算好直接餵給 AI。與 kanshou Gallery.gs 的 genderHintStr 邏輯類似
-//   但完全獨立、不共用(solo/kanshou 機制須徹底隔離，CLAUDE.md 紅線①)。
+// masterCard_ 內嵌的「性別${sex}」只是孤立事實標籤，沒教 AI 該怎麼據此裁定肢體互動，小模型便預設男性插入視角；這裡把配對事實算好直接餵給 AI。
 function sealGenderFact_(masterSex, svSex, svName) {
   var mRaw = String(masterSex || ""), sRaw = String(svSex || "");
   var mSex = (mRaw === "男" || mRaw === "女") ? mRaw : "女"; // 異/無 一律按女性向器官處理，對齊全專案既有慣例
   var sSex = (sRaw === "男" || sRaw === "女") ? sRaw : "女";
-  // 🐛→✅ 稽核抓到：masterCard_把御主原始性別(含合法選項「異」)原樣印成「性別異」，這裡卻悄悄把
-  //   「異」歸類成女性向處理——兩者同框出現在同一段prompt時，「性別異」跟「御主為女性」字面互相
-  //   矛盾。「異→女性向處理」本身是全專案既有慣例(對齊heroToKanshouRow_/kanshou genderHintStr同款
-  //   規則)，不是要改的地方；只在措辭上承認原始標記，避免跟masterCard_直接打架。
   var mNote = mRaw === "異" ? "(原始性別標記「異」，肉體機制按女性向處理)" : "";
   var sNote = sRaw === "異" ? "(原始性別標記「異」，肉體機制按女性向處理)" : "";
   if (mSex === "女" && sSex === "女") {
@@ -224,13 +186,7 @@ function sealGenderFact_(masterSex, svSex, svName) {
   return `★【性別配對·務必依此裁定肢體互動】御主為${mSex}性${mNote}、「${svName}」為${sSex}性${sNote}——一切肢體互動必須依雙方各自實際性別自然合理呈現，【禁】預設或錯置任一方的性別角色(如御主明明是女性卻被寫成男性插入視角)。`;
 }
 
-// 🎭 敵御主「演出依據」卡（精簡）：戰鬥現場若敵御主本人在場(同地)，讓 AI 依其性格給反應/台詞，
-//   別讓對方全程沉默——只塞夠判斷語氣與萌點的精簡片段(性格全4項/特徵/萌點)，不塞六圍/寶具/全份人設。
-//   跟 masterCard_ 不同：這是 NPC、AI 可自行決定其言行反應，不受「不可替玩家做決定」那條限制。
-// 🐛→✅ 玩家實測抓到：本卡跟 servantCard_ 同框的3處(戰鬥主路徑/暗殺分支/抵達場景)，各自收尾都在講一次
-//   「show don't tell＋正典認知優先」——跟 performanceNote_() 內容重疊。opts.skipClose=true 時省略這段
-//   重疊部分，呼叫端把敵御主真名併入同一次 performanceNote_()；「非沉默背景板」這句是敵御主專屬的行為
-//   準則(非共用不變句)，不受 skipClose 影響、恆常保留。不傳 opts 行為完全不變，向下相容。
+// 🎭 敵御主「演出依據」卡（精簡）：戰鬥現場若敵御主本人在場(同地)，讓 AI 依其性格給反應/台詞，別讓對方全程沉默——只塞夠判斷語氣與萌點的精簡片段(性格全4項/特徵/萌點)，不塞六圍/寶具/全份人設。
 function enemyMasterCard_(row, opts) {
   if (!row) return "";
   var skipClose = !!(opts && opts.skipClose);
@@ -266,11 +222,7 @@ function enemyMasterCard_(row, opts) {
   } catch (e) { return ""; }
 }
 
-// 🗝️ 取我方從者列索引：指定 wantName 則優先取該名，否則取第一個在世從者（雙從者用）
-// 🐛→✅ 2026-07「整體重構·id優先」：舊版用 String(...).includes(want) 子字串比對，雙從者其一真名
-//   為另一人前綴時(如「阿爾托莉雅」vs「阿爾托莉雅・奧爾塔」)會選錯人——跟 Router_Battle.gs 的
-//   wantSv 早已修過的同一種bug，這裡是漏修的孿生。改走單一真實來源 findPcRowIdx_(id優先、名字走
-//   nameLoose_精確比對，不再是子字串)，13+個呼叫端(補魔/靈基修復/羈絆/休息/搜索/偵查/整備等)一次到位。
+// 🗝️ 取我方從者列索引：指定 wantName 則優先取該名，否則取第一個在世從者（雙從者用）🐛→✅ 2026-07「整體重構·id優先」：舊版用 String(...).includes(want) 子字串比對，雙從者其一真名為另一人前綴時(如「阿爾托莉雅」vs「阿爾托莉雅・奧爾塔」)會選錯人——跟 Router_Battle.gs 的wantSv 早已修過的同一種bug，這裡是漏修的孿生。
 function findPlayerServantIdx_(pcData, gameId, wantName, wantId) {
   var want = String(wantName || "").trim();
   var idx = findPcRowIdx_(pcData, gameId, { id: wantId, name: want || null, faction: "從者", normalize: nameLoose_ });

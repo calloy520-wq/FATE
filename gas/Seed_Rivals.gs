@@ -39,12 +39,7 @@ function markRivalsSeen_(sheets, pcId, preData) {
   } catch (e) { return preData || null; }
 }
 
-// 第五次聖杯戰爭正典陣容（master_id, hero_id, 冬木落點｜可選 arriveDay：第N天才登場，預設1＝開局即登場；
-//   arriveHint：登場前1~2天的世界風聲自訂提示句，未填則退回依職階的泛用措辭；master 可為 null＝
-//   真正無御主的孤身從者，seedRivalsForGame_ 只鋪從者列、不建對應御主列）
-//   本作對正典的偏移：① Rider(美杜莎)配間桐櫻(黑化)——原作真正契約者是櫻，慎二只是表面御主。
-//   ② 間桐慎二改配吉爾伽美什——跨戰爭客串，慎二失去Rider後的替代從者；wars 標籤純敘事metadata。
-//   ③ 佐佐木小次郎為真正無御主的孤身從者，蟄伏柳洞寺(與美狄亞同地)，耗魔靠現有 enemyCanAffordNp_ 的殘存儲備。
+// 第五次聖杯戰爭正典陣容（master_id, hero_id, 冬木落點｜可選 arriveDay：第N天才登場，預設1＝開局即登場；arriveHint：登場前1~2天的世界風聲自訂提示句，未填則退回依職階的泛用措辭；master 可為 …（全文見 CODE_NOTES.md）
 var FATE_5TH_ROSTER = [
   { master: '衛宮士郎-5th', hero: '阿爾托莉雅-Saber', loc: '冬木·深山町' },
   { master: '遠坂凜-5th', hero: 'EMIYA-Archer', loc: '遠坂宅' },
@@ -104,10 +99,6 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
   row[COL.PC.SIX] = JSON.stringify(six);
   row[COL.PC.TAGS] = JSON.stringify({ skills: tagSkillKind_(classSkills, 'class').concat(tagSkillKind_(skills, 'skill')), traits: traits });
   // 復活命數：敵從者也要吃 god_hand 的 lives 覆寫(如尼祿3)，否則 getGodHandLives_ 誤套赫拉克勒斯專屬預設11。
-  // 🐛→✅ 舊版只在技能物件本身寫死 lives 時才補標記，漏了 Router_Creation.gs actionSummonServant
-  //   對玩家自己召喚 ai_gen 原創從者的同一條後備規則(無 lives 時 ai_gen→3命)。混亂模式明確允許玩家
-  //   原創英靈進敵人池，一旦這類從者被抽中當敵人，這裡沒有 ai_gen 後備，就會落回預設11命——同一隻
-  //   從者玩家自己召喚只有3命，變成敵人卻有11命，比原設計硬了近4倍。
   var ghSkillNpc = classSkills.concat(skills).find(function (s) { return s && s.fx === 'god_hand'; });
   if (ghSkillNpc) {
     var ghLivesNpc = (ghSkillNpc.lives != null) ? ghSkillNpc.lives : (String(hero[COL.HERO.SOURCE]) === 'ai_gen' ? 3 : null);
@@ -118,9 +109,7 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
   return row;
 }
 
-// 御主殿列 → 眾生(NPC)列（敵御主：凡人、弱）
-//   heroMagicRank：共用魔力池公式(masterPoolMax_)需要英靈魔力階，不能只算御主自己迴路，
-//   否則契約強英靈(如阿爾托莉雅魔力A)的御主反而池子明顯偏小。
+// 御主殿列 → 眾生(NPC)列（敵御主：凡人、弱）heroMagicRank：共用魔力池公式(masterPoolMax_)需要英靈魔力階，不能只算御主自己迴路，否則契約強英靈(如阿爾托莉雅魔力A)的御主反而池子明顯偏小。
 function masterToNpcRow_(mr, gameId, loc, faction, heroMagicRank) {
   var row = Array(Object.keys(COL.PC).length).fill("");
   row[COL.PC.ID] = "NPC_" + Date.now() + "_m" + Math.floor(Math.random() * 100000);
@@ -136,11 +125,6 @@ function masterToNpcRow_(mr, gameId, loc, faction, heroMagicRank) {
   row[COL.PC.LOC] = loc;
   row[COL.PC.PREF] = parseTraitsHelper(String(mr[COL.MASTER.PERSONA] || "").replace(/・/g, "、"), DEFAULT_PREF_FALLBACK_);
   // 敵御主與玩家御主同制：HP 看迴路(masterMaxHpMp_)，MP 走共用魔力池公式(masterPoolMax_＝迴路×10＋從者魔力×2)。
-  // 🐛→✅ masterMaxHpMp_ 本身已補迴路上限(Math.min(50,...))，但這裡沒把「同一個」夾好範圍的值
-  //   同時餵給沒有上限的 masterPoolMax_、也沒同步寫進 MEMORY【迴路】——SEED_MASTERS 剛好有兩位
-  //   circuits > 50(伊莉雅絲菲爾-5th:80、肯尼斯-4th:65)，導致她們 HP 被夾在 50 迴路水準、MP 卻按
-  //   真正的 80/65 算，兩邊從開局第一天起就內部不自洽。玩家自創御主的建角流程(Router_Creation.gs
-  //   actionManualNpc)已修過同一個坑，這裡比照同一套夾法、同一個值餵兩處＋寫進 MEMORY。
   var circuits = clampCircuits_(mr[COL.MASTER.CIRCUITS] || 30);
   var hp = masterMaxHpMp_(circuits).hp, mp = masterPoolMax_(circuits, rankVal(heroMagicRank || 'C'));
   row[COL.PC.HP] = hp; row[COL.PC.MP] = mp;
@@ -204,9 +188,7 @@ function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
     shuffle_(mPool); shuffle_(hPool);
     var locPool = shuffle_(['冬木·深山町', '遠坂宅', '間桐宅', '言峰教會', '柳洞寺', '冬木·新都', '穗群原學園', '冬木·商店街']);
     var n = Math.min(7, mPool.length, hPool.length);
-    // 🎲 隨機登場日：比照正史roster的登場機制(hasArrived_/setArriveDay_)；前 CHAOS_GUARANTEED_IMMEDIATE_ 組
-    //   保證第1天就在(開局至少有東西可打)，其餘每組50%機率延後第2~5天登場。不自訂 arriveHint，
-    //   退回 worldTick_ 依職階的泛用措辭即可。
+    // 🎲 隨機登場日：比照正史roster的登場機制(hasArrived_/setArriveDay_)；前 CHAOS_GUARANTEED_IMMEDIATE_ 組保證第1天就在(開局至少有東西可打)，其餘每組50%機率延後第2~5天登場。
     var CHAOS_GUARANTEED_IMMEDIATE_ = 3;
     for (var k = 0; k < n; k++) {
       var loc = locPool[k % locPool.length];
@@ -239,11 +221,6 @@ function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
       if (r.arriveDay) sRow[COL.PC.MEMORY] = setArriveDay_(sRow[COL.PC.MEMORY], r.arriveDay);
       if (r.arriveHint) sRow[COL.PC.MEMORY] = setArriveHint_(sRow[COL.PC.MEMORY], r.arriveHint);
       var master = r.master ? findMaster(r.master) : null;
-      // 🐛→✅ heroToNpcRow_ 無條件給敵從者 CONTRIB=3(「對面御主的3道令咒，可緊急脫離」)——但令咒本是
-      //   御主的資源，真正無御主的孤身從者(如佐佐木小次郎)沒有人能燃令咒命他撤離。舊版沒歸零，
-      //   Router_Battle.gs 的令咒緊急脫離分支見 CONTRIB>0 就照樣觸發，因無【御主】連結退回「同地點
-      //   就當作是他的御主」的相容性後備，若剛好有其他敵御主同駐一地(如柳洞寺的葛木宗一郎)，會被
-      //   誤判成孤身從者的主人、一併強制傳送撤離，把他跟自己真正的從者硬生生拆散。
       if (!master) { sRow[COL.PC.CONTRIB] = 0; rows.push(sRow); return; } // 🕯️ 真正無御主：只鋪從者列，不建御主列、不做硬連結
       var mRow = masterToNpcRow_(master, gameId, r.loc, '敵御主', heroMagicRank_(hero));
       if (r.arriveDay) mRow[COL.PC.MEMORY] = setArriveDay_(mRow[COL.PC.MEMORY], r.arriveDay);

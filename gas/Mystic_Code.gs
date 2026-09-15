@@ -34,13 +34,8 @@ var MYSTIC_CODES = {
 var MC_COMBAT_ = {
   mc_blackkey:    { hit: 2, dmgAdd: 0,  npMul: 1.0,  npDefMul: 1.0,  label: '黑鍵·牽制' },
   mc_jewel_minor: { hit: 1, dmgAdd: 10, npMul: 1.0,  npDefMul: 1.0,  label: '魔力儲存寶石' },
-  // ⚠ 單一真實來源提醒(2026-07稽核抓到)：這裡的 npDefMul 0.82 沒有階級縮放(禮裝不像從者技能吃
-  //   rankMul_)，是純手動維護的常數——Script.html 的 FX_DESC.avalon_saber／showIdealRealm() 各自
-  //   手打了一份「×0.82」文字(GAS常數無法直接餵給client端HTML)，日後調整這裡記得同步改那兩處。
   avalon:         { hit: 0, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.82, label: '全世界之鞘' },
-  // Avalon 回到阿爾托莉雅手中時減傷/時回同一般 avalon；理想鄉全擋 6 階究極寶具是 Router_Battle.gs
-  // 的攔截判定(idealRealm，耗 100 魔，見該檔 offenseTier_>=6 分支)，不在此表常駐生效。同上，
-  // Script.html 的「≥100/100 魔」文字也是手動維護的複本，改這裡的門檻/耗魔量記得同步那邊。
+  // Avalon 回到阿爾托莉雅手中時減傷/時回同一般 avalon；理想鄉全擋 6 階究極寶具是 Router_Battle.gs的攔截判定(idealRealm，耗 100 魔，見該檔 offenseTier_>=6 分支)，不在此表常駐生效。
   avalon_saber:   { hit: 0, dmgAdd: 0,  npMul: 1.0,  npDefMul: 0.82, label: '全世界遙遠的理想鄉' }
 };
 // 取某戰鬥單位身上的禮裝戰鬥效果（找第一個命中 MC_COMBAT_ 的 fx）。回 null＝無。
@@ -57,14 +52,7 @@ function masterMysticBuffSkill_(memory) {
 }
 // 把御主禮裝被動加持注入「我方從者」戰鬥單位 c（c 由 servantRow 建；masterMemory＝其御主 MEMORY）。已注入則略過。
 function injectMysticBuff_(c, masterMemory) {
-  // 持 Avalon 的阿爾托莉雅額外標記 avalon_saber + 時回，供 Router_Battle 理想鄉攔截判定用；
-  // 非阿爾托莉雅持 Avalon 走下方一般被動(僅減傷，無理想鄉攔截)。
-  // 🐛→✅ 舊版用子字串正則(/阿爾托莉雅/.test(...))比對，玩家自訂/AI 生成的 Saber 從者只要真名剛好
-  //   包含這四個字(如刻意取名「阿爾托莉雅・奧爾塔」)就會被誤判成王之聖劍的合法持有者——這類機制本該
-  //   資料驅動(如 FORGE_CLS_SKILLS_/ALLOWED_FX_)、至少也該用精確比對，改成完整真名相等。
-  // 🐛→✅ 2026-07 前次修正比對錯了字串：種子真名其實是「阿爾托莉雅·潘德拉貢」(Seed_Codex.gs)，
-  //   前次改的完整相等只比對到「阿爾托莉雅」四字，永遠對不上召喚後 c.name 的完整全名，導致理想鄉
-  //   對唯一合法持有者(正典本尊)從此再也無法觸發——改比對真正的完整真名。
+  // 持 Avalon 的阿爾托莉雅額外標記 avalon_saber + 時回，供 Router_Battle 理想鄉攔截判定用；非阿爾托莉雅持 Avalon 走下方一般被動(僅減傷，無理想鄉攔截)。
   if (getMystic_(masterMemory) === 'avalon' && c && String(c.name || '').trim() === '阿爾托莉雅·潘德拉貢' && String(c.cls) === 'Saber') {
     c.skills = (c.skills || []);
     if (!c.skills.some(function (s) { return s && s.fx === 'avalon_saber'; })) c.skills = c.skills.concat([{ n: '理想鄉 Avalon', r: 'A', fx: 'avalon_saber' }]);

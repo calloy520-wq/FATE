@@ -68,11 +68,6 @@ function actionUseSeal(userData, pcId, sheets) {
   if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者，令咒無從施加。" });
   const svName = pcData[svIdx][COL.PC.NAME];
 
-  // 🐛→✅ 稽核抓到：舊版每個分支各自 setValues 立即寫回(repair 2次/mana 最多3次/escape 2+N名同行者
-  //   迴圈內各寫一次)，效果先落地、令咒扣減卻在函式最後才發生——任何一次中途失敗都會讓玩家拿到
-  //   效果(回滿血/回滿魔/脫離)卻沒真的扣到令咒。比照 actionFateBattle 既有的 BATTLE_DEFER_WRITE_
-  //   批次寫回引擎(複用、不加特例)：全程只在記憶體改 pcData，函式尾端單次整表寫回，read+write
-  //   各一次，效果與扣令咒同一次寫入落地，也順手解決了迴圈內逐一 Sheets I/O 的GAS速度反模式。
   BATTLE_DEFER_WRITE_ = true;
   let effectMsg = "";
   let sealManaUnlocked = false, sealManaKill = false; // 見下方 'mana' 分支
@@ -102,9 +97,7 @@ function actionUseSeal(userData, pcId, sheets) {
     activeActFact = `★令咒不會讓「${svName}」一開啟就自動被動地高潮完結——高潮是御主主動愛撫/操控其身體引發的，但被強制拉高的敏感度會讓她/他像被灌下大量媚藥般理智漸漸被本能淹沒，從抗拒的掙扎翻轉成情不自禁地主動索求更多快感(纏抱、催促、主動索吻索撫)，這份由被動翻轉成主動索求的瞬間才是失控的具體反差(不是天生如此、也不是單純被動挨弄)；令咒同時強化了御主的性能力，足以承接住這股瘋狂需索——御主自己的情慾與快感也要有實際鋪陳、貫穿全程可見，不能只在結尾硬塞一句「一起高潮」交代過去。★全篇只選1~2個關鍵轉折深入著墨(例如：從抗拒崩潰成主動索求的瞬間、雙方一起攀頂的瞬間)，寧可少寫幾個轉折但每個都寫得深入綿密，也不要把好幾個轉折都各用一兩句話帶過、寫成流水帳。`;
     pcData[pIdx][COL.PC.MP] = mpMaxSeal;
     if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-    // 絕對命令跳過「同意」，好感是否足夠決定這是幸運還是致命：≥MANA_TRUST_BOND_→仍生效但只是
-    //   「太浪費了」的調侃，複用既有「過充」機制當額外好處；<MANA_TRUST_BOND_→強制壓下意志，解除
-    //   瞬間積怨反噬直接了結御主，複用既有「假夢→老虎道場」死亡流程(buildDreamPrompt_)不另開一套。
+    // 絕對命令跳過「同意」，好感是否足夠決定這是幸運還是致命：≥MANA_TRUST_BOND_→仍生效但只是「太浪費了」的調侃，複用既有「過充」機制當額外好處；<MANA_TRUST_BOND_→強制壓下意志，解除瞬間積怨反噬直接了結御主，複用既有「假夢→老虎道場」死亡流程(buildDreamPrompt_)不另開一套。
     const bondForSeal = parseInt(pcData[svIdx][COL.PC.BOND]) || 0;
     if (bondForSeal >= MANA_TRUST_BOND_) {
       pcData[pIdx][COL.PC.MEMORY] = setOvercharge_(pcData[pIdx][COL.PC.MEMORY], mpMaxSeal); // 複用既有「下一發規格外寶具可無償超載」機制
@@ -122,9 +115,6 @@ function actionUseSeal(userData, pcId, sheets) {
     pcData[svIdx][COL.PC.LOC] = newLoc;
     if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
     if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
-    // 🐛→✅ 玩家實測抓到：破戒奪僕可讓玩家合法擁有兩名同行從者(IS_PARTY==="同行")，舊版緊急脫離只搬
-    //   findPlayerServantIdx_ 挑出的「這一個」，第二名同行從者的 LOC 完全沒被觸碰——燃掉全局僅3道的
-    //   令咒卻沒真正帶走全隊。比照 actionMove 早就用「所有 IS_PARTY===同行」的迴圈搬人，這裡補上同一套。
     pcData.forEach((r, idx) => {
       if (idx === pIdx || idx === svIdx) return;
       if (String(r[COL.PC.IS_PARTY] || "") !== "同行") return;
@@ -239,19 +229,11 @@ function actionBond(userData, pcId, sheets) {
   pcData[pIdx][COL.PC.MEMORY] = setBondUsedToday_(pcData[pIdx][COL.PC.MEMORY], day, type);
   usedToday = getBondUsedToday_(pcData[pIdx][COL.PC.MEMORY], day);
 
-  // ⏳ 相處耗 1 AP＝推進 1 小時（2026-07 玩家定案·與令咒/偵查同級：相處也要花時間）
-  // 🔧 bondAp 非Fate局故意留 null(不同於其餘呼叫點的 AP_PER_DAY 預設)——鑑賞局本就不耗AP，
-  //   維持原本區別，不硬套 chargeApOrReject_ 的通用預設值。
-  // 🐛→✅ 稽核抓到：原本MEMORY單格寫回後，chargeApOrReject_(isFate分支)沒帶skipWrite又對同一
-  //   pIdx列寫一次DAY/HOUR/AP——高頻動作(相處)每次多1次Sheets I/O。改成MEMORY先只改記憶體、
-  //   chargeApOrReject_加skipWrite，下面一次整列寫回涵蓋MEMORY+AP/day/hour。
+  // ⏳ 相處耗 1 AP＝推進 1 小時（2026-07 玩家定案·與令咒/偵查同級：相處也要花時間）🔧 bondAp 非Fate局故意留 null(不同於其餘呼叫點的 AP_PER_DAY 預設)——鑑賞局本就不耗AP，維持原本區別，不硬套 chargeApOrReject_ 的通用預設值。
   const _bondApr = isFate ? chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以從容相處——請『休息』恢復後再來。", { isFate: true, skipWrite: true }) : { ap: null, clock: "" };
   const bondAp = _bondApr.ap, bondClock = _bondApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
 
-  // 🐛→✅ 舊版又即時讀一次 Sheets 拿「最新羈絆值」，但 raiseBond_(229行) 早已在同一份 pcData
-  //   陣列上原地改過(svIdx 與 raiseBond_ 內部依名字找到的列是同一列，同 game_id 下從者名字唯一)，
-  //   pcData[svIdx][COL.PC.BOND] 這裡就已經是最新值，改直接讀記憶體，省一趟純浪費的 Sheets 讀取。
   const bondNow = parseInt(pcData[svIdx][COL.PC.BOND]) || 0;
 
   // 取「已達成但尚未演出過」的最低門檻，不論本次相處是否跨過門檻——羈絆若被其他管道墊高越過，
@@ -263,14 +245,10 @@ function actionBond(userData, pcId, sheets) {
     if (bondNow >= th && firedMilestones.indexOf(th) < 0) { milestone = th; break; }
   }
 
-  // ⚔️ 卸防突襲：相伴談心時門戶大開，同地若有清醒敵從者→趁隙重擊
-  // 🐛→✅ 稽核抓到：雙從者情境下漏帶 svIdx，突襲內部會裸抓「第一位」從者，可能跟這裡敘事引用的
-  //   「正在相處的這位」對不上(玩家挑第二從者相處，卻演成/打到第一從者)。補帶已解析好的 svIdx。
+  // ⚔️ 卸防突襲：相伴談心時門戶大開，同地若有清醒敵從者→趁隙重擊🐛→✅ 稽核抓到：雙從者情境下漏帶 svIdx，突襲內部會裸抓「第一位」從者，可能跟這裡敘事引用的「正在相處的這位」對不上(玩家挑第二從者相處，卻演成/打到第一從者)。
   const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.2, svIdx);
 
-  // ⚔️ 卸防突襲三分派(單一真實來源 ambushDispatchPrompt_)：normalFn 內再依 milestone 是否命中細分——
-  //   milestone 的「標記已演出」寫回刻意只在這裡(無突襲)落地，被突襲打斷時故意不標記(留到下次順利
-  //   相處再演出，不因意外奇襲永遠錯過)，這個既有行為不變。
+  // ⚔️ 卸防突襲三分派(單一真實來源 ambushDispatchPrompt_)：normalFn 內再依 milestone 是否命中細分——milestone 的「標記已演出」寫回刻意只在這裡(無突襲)落地，被突襲打斷時故意不標記(留到下次順利相處再演出，不因意外奇襲永遠錯過)，這個既有行為不變。
   const aiPrompt = ambushDispatchPrompt_(ambush,
     function (a) {
       // 🐛→✅ 舊版給AI「重情者強撐護主、疏離者未必」這種二選一，卻沒講此刻bondNow實際落在哪一邊——
@@ -287,9 +265,6 @@ function actionBond(userData, pcId, sheets) {
         firedMilestones.push(milestone);
         pcData[svIdx][COL.PC.MEMORY] = setBondMilestonesFired_(pcData[svIdx][COL.PC.MEMORY], firedMilestones);
         sheets.pc.getRange(svIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[svIdx][COL.PC.MEMORY]);
-        // 🐛→✅ milestone(30/60/90)只用來內部判斷寫回標記，從沒告訴AI是哪一道門檻——三道門檻的量級差很大
-        //   (30是初次鬆動、90是近乎告白的敞開)，AI卻只拿到同一句「依羈絆的深淺」自己猜，等於GAS明明知道
-        //   答案卻不講。改成依milestone分流具體量級提示。
         const milestoneScale = milestone >= 90 ? "羈絆臻至極深——這是目前為止最大幅度的敞開心扉，甚至帶點連自己都措手不及的坦率"
           : milestone >= 60 ? "羈絆已深一層——可以比平常更明顯地卸下慣有的距離感"
           : "信任剛跨過門檻的起點——舉動應細微、克制，帶點自己都沒完全察覺的鬆動，不宜太大幅度";
@@ -346,12 +321,6 @@ function clearAllyMem_(memory) { return ALLY_UNTIL_TAG_.clear(memory); }
 // 🎭 御主性格傾向分類（單一真實來源）：結盟意願 ＋ 敵敵相遇局面 共用。
 //   pragmatic＝肯談的務實/有目的者；loner＝孤狼/瘋狂/看戲者難說動。讀 PREF｜MEMORY｜BACK。
 function masterPersonaLean_(masterRow) {
-  // 🐛→✅ 稽核抓到：MEMORY是全部跑分狀態tag的大雜燴，其中【從者】/【御主】(硬連結夥伴真名，
-  //   Seed_Rivals.gs)、【交惡】NAME:day(setEnemyFeud_)等tag會把「第三方真名」原文嵌進MEMORY——
-  //   loner正則裡的單字「狂」只要MEMORY任何角落(哪怕只是夥伴真名裡剛好有這個字)命中就會誤判，
-  //   跟這名御主自己的性格設定毫無關係，卻直接餵進結盟意願/挑撥成功率/示好增幅/夜襲權重等實際
-  //   數值結算。改成只掃PREF/BACK＋MEMORY裡真正屬於語氣類的【口吻】【小動作】【願望】三個tag，
-  //   排除硬連結/狀態類tag的污染。
   var mem = String(masterRow[COL.PC.MEMORY] || "");
   var wish = (mem.match(/【願望】([^｜|【\n]*)/) || [])[1] || "";
   var speech = getPersonaSpeech_(mem);
@@ -414,9 +383,6 @@ function actionProposeAlliance(userData, pcId, sheets) {
   const w = allianceWillingness_(pcData[mIdx], aliveFoes);
   const ok = Math.random() < w;
   const masterName = String(pcData[mIdx][COL.PC.NAME]);
-  // 🐛→✅ allianceWillingness_ 內部呼叫 masterPersonaLean_ 算出這名敵御主的性格傾向，卻只拿來算機率、
-  //   算完就丟掉——同檔案 actionCourtEnemy(628行)已經示範過怎麼把這個傾向轉成具體反應描述餵給AI，
-  //   這裡卻仍讓AI自己從「務實的權衡/開出條件/冷淡的『暫時』」等泛用選項裡憑空挑一個，比照補上。
   const lean = masterPersonaLean_(pcData[mIdx]);
 
   const _allianceApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以交涉——請休息恢復。", { isFate: isFate });
@@ -429,9 +395,6 @@ function actionProposeAlliance(userData, pcId, sheets) {
     // 盟主＋其硬連結從者(getMasterServant_ 查真正屬於他的從者，非同地任一敵人)一併標記盟約
     pcData[mIdx][COL.PC.MEMORY] = setAllyMem_(pcData[mIdx][COL.PC.MEMORY], until);
     sheets.pc.getRange(mIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[mIdx][COL.PC.MEMORY]);
-    // 🐛→✅ 舊碼「同地任一敵從者」就抓來標盟約——若該地同時有別組敵人(常見，同地點常撞見多方)，
-    //   會誤把毫無關係的敵從者標成這名御主的從者、AI 也跟著誤演成「他的從者」(玩家回報「俺的御主都
-    //   開口了????」)。改用 getMasterServant_ 硬連結查真正屬於這名御主的從者，不再靠地點瞎猜。
     const linkedSvName = getMasterServant_(pcData[mIdx][COL.PC.MEMORY]);
     const gIdx = linkedSvName ? pcData.findIndex(r => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && nameLoose_(r[COL.PC.NAME]) === nameLoose_(linkedSvName)) : -1;
     let allyServant = "";
@@ -460,25 +423,13 @@ function actionProposeAlliance(userData, pcId, sheets) {
 function actionBreakAlliance(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
   const npcId = String(userData.npcId || "").trim();
-  // 🐛→✅ 舊版 `!npcName` 條件在缺/空 npcName 時對每個已結盟對象都成立——前端 UI 呼叫此 action 一律
-  //   帶著明確名字(卡片按鈕/needBreakAlliance 提示皆固定傳值)，但直打 API 漏傳/傳空字串會一次撕毀
-  //   玩家「所有」現存盟約，而非預期中的「這一個」。改成缺名字直接擋下，不再有全滅副作用。
   if (!npcName) return JSON.stringify({ success: false, message: "請指定要撕毀盟約的對象。" });
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  // 🐛→✅ 2026-07「整體重構·id優先」：舊版純 nameLoose_ 子字串.indexOf()比對——若npcName恰為另一個
-  //   已結盟對象名字的子字串(如兩者共用「遠坂」開頭)，會誤把不相干的盟約也一併撕毀。改成npcId對得上
-  //   時只鎖定該筆(及其硬連結主從)；npcId缺席(舊呼叫/自動重試按鈕沒帶id)才退回原本的loose子字串比對。
   const targetIdx = npcId ? pcData.findIndex(r => String(r[COL.PC.ID]) === npcId && String(r[COL.PC.GAME_ID] || "") === myGameId) : -1;
   const targetName = targetIdx !== -1 ? String(pcData[targetIdx][COL.PC.NAME]) : "";
-  // 🐛→✅ 稽核抓到：上面註解宣稱 npcId 路徑會「鎖定該筆及其硬連結主從」，但從沒真的查過硬連結——
-  //   actionProposeAlliance 結盟時是主從兩側對稱寫入(428行御主／436行從者各自標【盟約至】)，這裡
-  //   撕毀卻只匹配被點的那一筆(及跟它同名的列)，另一側完全沒被 isMatch 命中。玩家點某一張盟友卡
-  //   撕毀後，那一側恢復敵對，另一側(其硬連結主從)卻仍卡在【盟約至】——攻擊被 needBreakAlliance
-  //   擋下(明明剛撕毀)、突襲/挑撥名單仍排除他、還能被 court_enemy 額外撿到好感，直到自然到期
-  //   (breakStaleAlliances_)才會清掉，最長可拖約3天。改成跟建盟同款：查目標的硬連結對象名一併比對。
   const linkedName = targetIdx !== -1
     ? (String(pcData[targetIdx][COL.PC.FACTION]) === "敵御主" ? getMasterServant_(pcData[targetIdx][COL.PC.MEMORY]) : getServantMaster_(pcData[targetIdx][COL.PC.MEMORY]))
     : "";
@@ -529,9 +480,7 @@ function breakStaleAlliances_(sheets, gameId, preData) {
         }
       }
     }
-    // forceAll(終局逼近)時常一次瓦解多組同盟，MEMORY 整欄一次寫回(取代逐列 setValues 的零散往返)
-    // 🐛→✅ 補 BATTLE_DEFER_WRITE_ guard：actionRest 整併寫入時會設此旗標，這裡也該一併略過即時
-    //   寫入，交給收尾那次整表 setValues 一次到位。
+    // forceAll(終局逼近)時常一次瓦解多組同盟，MEMORY 整欄一次寫回(取代逐列 setValues 的零散往返)🐛→✅ 補 BATTLE_DEFER_WRITE_ guard：actionRest 整併寫入時會設此旗標，這裡也該一併略過即時寫入，交給收尾那次整表 setValues 一次到位。
     if (dirty && !BATTLE_DEFER_WRITE_) {
       var memCol = []; for (var z = 1; z < data.length; z++) memCol.push([data[z][COL.PC.MEMORY]]);
       sheets.pc.getRange(2, COL.PC.MEMORY + 1, memCol.length, 1).setValues(memCol);
@@ -550,9 +499,6 @@ function bumpBond_(sheets, pcData, npcIdx, delta, skipWrite) {
 }
 
 // 🤝 與盟友共處／共濟魔力：對同地盟友（敵御主或敵從者·結盟中）交流增進羈絆——同盟的「交流」維度。
-//   原作依據：聖杯戰爭中的同盟羈絆（遠坂凜↔士郎並肩信賴、共通後勤）。羈絆養至 90↑ 只解鎖【摯交】敘事
-//   里程碑(見下方)，純敘事高光、無鑑賞入口意義——鑑賞角色一律鑑賞內自行召喚，與 solo 羈絆無關聯。
-//   ★此處僅止於 SFW 的信賴／曖昧鋪陳（fade）；真・親密一律留給鑑賞世界，絕不在戰場開啟慾海引擎。
 function actionAllyBond(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
   const npcId = String(userData.npcId || "").trim();
@@ -562,10 +508,6 @@ function actionAllyBond(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
-  // 🐛→✅ 2026-07 稽核抓到：這裡是全專案唯一還沒補 npcId 精準配的盟友/羈絆 handler，純 nameLoose_
-  //   比對含全形括號的真名(如「哈桑·薩巴赫（咒腕）」)會被 sanitizeUserData_ 的 cleanChineseName
-  //   剝掉括號、兩側對不上，導致跟這類正典角色結盟後永遠「此地沒有可交流的盟友」。比照
-  //   actionCourtEnemy/actionProposeAlliance 補上 npcId 精準配、找不到才退回 nameLoose_ fallback。
   const _allyHere = (r) => (String(r[COL.PC.FACTION]) === "敵御主" || String(r[COL.PC.FACTION]) === "敵從者")
     && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_")
     && isAllied_(r) && String(r[COL.PC.LOC]).trim() === myLoc;
@@ -576,10 +518,6 @@ function actionAllyBond(userData, pcId, sheets) {
   const isFate = myGameId.indexOf("g_") === 0;
   if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不足以從容相處——請『休息』恢復後再來。" });
 
-  // 🐛→✅ 稽核抓到：本檔手足機制(actionBond的【羈絆日】、actionCourtEnemy的【示好日】)都有「每日
-  //   一次」節流，唯獨這裡完全沒有——AP足夠(每日12點)可連續呼叫6~7次就把盟友羈絆從40衝到90+，
-  //   一天內直接解鎖【摯交】里程碑，遠比其餘手足機制「細水長流」的設計節奏快上一整個量級。
-  //   比照【示好日】同款每對象每日一次節流。
   const _allyBondDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
   const _abMem = String(pcData[aIdx][COL.PC.MEMORY] || "");
   const _abm = _abMem.match(/【交流日】(\d+)/);
@@ -592,10 +530,7 @@ function actionAllyBond(userData, pcId, sheets) {
   const _allyBondApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以從容相處——請『休息』恢復後再來。", { isFate: isFate });
   const ap = _allyBondApr.ap, clock = _allyBondApr.clock;
 
-  // ⚔️ 卸防突襲：與盟友交流時門戶大開，同地若有「未結盟」敵從者→趁隙重擊我方從者
-  // 🐛→✅ 稽核抓到：雙從者情境下漏帶偏好的 svIdx——前端其實已隨這個action送了 servant/servantId
-  //   (跟其餘卸防動作同款payload)，這裡卻從沒解析拿來用，突襲永遠打「第一位」從者，可能跟玩家當下
-  //   出戰/操作的第二從者對不上。比照 actionBond/actionManaSupply/actionSpiritRepair 補上解析。
+  // ⚔️ 卸防突襲：與盟友交流時門戶大開，同地若有「未結盟」敵從者→趁隙重擊我方從者🐛→✅ 稽核抓到：雙從者情境下漏帶偏好的 svIdx——前端其實已隨這個action送了 servant/servantId(跟其餘卸防動作同款payload)，這裡卻從沒解析拿來用，突襲永遠打「第一位」從者，可能跟玩家當下出戰/操作的第二從者對不上。
   const mySvIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
   const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.3, mySvIdx);
   if (ambush) {
@@ -613,9 +548,6 @@ function actionAllyBond(userData, pcId, sheets) {
   }
 
   const gain = 6 + Math.floor(Math.random() * 6); // +6~11
-  // 🐛→✅ 稽核抓到：bumpBond_預設會立即單格寫回aIdx列的BOND，下面【摯交】里程碑命中時又對同一列
-  //   做MEMORY單格寫回——同列2次Sheets I/O。改skipWrite:true，交給下面單次整列寫回一併涵蓋
-  //   (含BOND／可能的【摯交】／【交流日】節流標記)。
   const after = bumpBond_(sheets, pcData, aIdx, gain, true);
   let unlocked = false;
   // 🤝 深盟里程碑（首度臻至 90）——純敘事高光的「已演出」防重複標記【摯交】，無鑑賞入口意義
@@ -636,9 +568,6 @@ function actionAllyBond(userData, pcId, sheets) {
   // 盟友從者→servantCard_(含狂化禁言等口吻，補〔盟友從者〕標籤跟其餘呼叫端一致)；
   //   盟友御主→enemyMasterCard_(比手刻陽春卡更完整，與 Router_Battle.gs 戰鬥時同厚度)。
   const allyCard = allyIsMaster ? enemyMasterCard_(pcData[aIdx]) : ('〔盟友從者〕' + servantCard_(pcData[aIdx]));
-  // 🐛→✅ 玩家實測抓到「盟友從者說話像真的是我的從者」——servantCard_「對御主」那段語氣是寫給「自己的
-  //   契約御主」看的，AI 沒被告知這名從者真正的御主另有其人，順著卡片語氣自己腦補成在跟玩家講契約話語
-  //   (如「既然契約還在」)。用 getServantMaster_ 硬連結查出他真正的御主名字，明講清楚劃開身分。
   const allyTrueMaster = allyIsMaster ? "" : getServantMaster_(pcData[aIdx][COL.PC.MEMORY]);
   const clarifyFact = allyTrueMaster
     ? `★【身分釐清】「${allyName}」真正締結契約的御主是「${allyTrueMaster}」，不是你——此刻只是暫時結盟的立場，他對你保持的是結盟該有的分寸、戲謔或算計，【嚴禁】寫成他真的向你效忠、聽命於你的令咒，或提及「契約仍在」之類只對其本主才成立的話語。\n`
@@ -651,11 +580,7 @@ function actionAllyBond(userData, pcId, sheets) {
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, bond: after, unlocked: unlocked, ally: allyName, clock: clock, ap: ap, apMax: AP_PER_DAY, ambush: false, statusString: buildPlayerStatusString(pcData[pIdx]) });
 }
 
-// 🕊️ 示好／交涉：對同地【未結盟的敵御主】釋出善意、慢慢養好感(BOND)。只對敵御主(交涉的對象是決策者)；
-//   好感由整組御主＋從者共用——示好御主會連坐把其硬連結從者的 BOND 一起養。GAS 依對方性格決定升多少
-//   (務實者領情快、孤狼/瘋狂者慢熱)，AI 只演對方【依性格×當前好感】的反應。每名敵人每日一次、耗 1AP。
-//   這是「好感提高成功率」整套的主動培養入口——養高了：遇敵態度和緩、結盟更易、挑撥更靈、趁隙更狠、
-//   撤離不被追擊(BOND≥50)。戰場只到 SFW 曖昧；鑑賞角色一律於鑑賞內自行召喚，不靠 solo 帶入。
+// 🕊️ 示好／交涉：對同地【未結盟的敵御主】釋出善意、慢慢養好感(BOND)。
 function actionCourtEnemy(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
   const npcId = String(userData.npcId || "").trim();
@@ -719,9 +644,6 @@ function actionCourtEnemy(userData, pcId, sheets) {
     `【系統·示好／交涉·已裁定】御主『${String(pcData[pIdx][COL.PC.NAME])}』在刀鋒之外向敵對的「${targetName}」釋出善意（好感 ${before}→${after}／100）。\n` +
     `★以 Fate／TYPE-MOON 筆觸【約 100~150 字】演出這番示好、與對方【依其性格×當前好感】的真實反應：${lean.loner ? '孤高／激烈者多半冷淡、譏諷或半信半疑，只鬆動一絲' : lean.pragmatic ? '務實者會權衡利害、順水推舟地緩和態度' : '依其性格自然回應'}——但仍分屬敵對，留一分保留與算計，別演成一下就交心。GAS 已算好數值，你只演反應、不另定成敗。` +
     (after >= 90 ? '\n★此刻情誼已臻莫逆——收在一個彼此心照不宣、卻仍隔著立場的微妙瞬間。' : '') +
-    // 🐛→✅ 這個動作從未改動過「${targetName}」的所在地(LOC 未變、她仍在原地)，但舊指令沒講清楚這點，
-    //   AI 便自行編出「轉身離去」之類的退場收尾——下一次玩家在同地遇到她，畫面就跟這句「已經走了」互相
-    //   矛盾。明講「仍留在原地」，收尾定格在氣氛鬆動的瞬間，不可讓她離場/走遠/消失於視野。
     `\n★「${targetName}」示好後【仍留在原地】，並未離開這個場景——收在她態度鬆動、但仍按兵不動的瞬間即可，不可描寫她轉身離去、走遠或消失於視野，那不是這個動作發生的事。`;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：bumpBond_/【示好日】/spendAp_ 皆已原地改回 pcData
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, target: targetName, bond: after, delta: delta, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: buildPlayerStatusString(pcData[pIdx]) });
@@ -760,9 +682,6 @@ function actionRuleBreakSteal(userData, pcId, sheets) {
   pcData[nIdx][COL.PC.HP] = Math.max(hp, Math.round(hpMax * 0.5));
   pcData[nIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "契約重締", "姿勢": "屈膝聽令", "負面": "無", "顏面": "複雜而臣服" });
   pcData[nIdx][COL.PC.CONTRIB] = 0;
-  // 🐛→✅ 陣營改成「從者」卻從沒設 IS_PARTY="同行"——applyRegen_/世界推進的回魔+耗魔只認 IS_PARTY，
-  //   HUD(playerServantEconomy_) 卻是不論 IS_PARTY、只要 FACTION=從者 就整組算——奪來的第二從者從此
-  //   在 HUD 上看得到維持費、但實際休息/世界推進根本不會扣他的魔也不會回他的血，兩邊帳對不起來。
   pcData[nIdx][COL.PC.IS_PARTY] = "同行";
   // 🧹 清除敵屬時代殘留標記：舊主硬連結【御主】(殘留會誤觸 masterSynergy 全盛六圍/主從誤鏈)、
   //   【寶具預告】【盟約至】【靈基透支】(敵方機制·奪來後不再適用)。

@@ -15,8 +15,6 @@ const AI_MODEL = (function () {
   return p.getProperty('MODEL') || 'deepseek/deepseek-v4-flash';
 })();
 // solo(narrateWithState_) 只需精簡按鍵回饋、不需鑑賞級 NSFW 生成能力，獨立用低延遲小模型換取速度，與 AI_MODEL 互不影響。
-// 🔀 2026-07-28 玩家指定 3.1-flash-lite → 2.5-flash-lite（追繁體飄移；矜持模式的鑑賞聊天也跑這顆）。
-//   ⚠ 指令碼屬性 SOLO_MODEL 若有設值會蓋過這裡——換模型沒生效就先去 Apps Script 看那個屬性。
 const SOLO_MODEL = (function () {
   var p = PropertiesService.getScriptProperties();
   return p.getProperty('SOLO_MODEL') || 'google/gemini-2.5-flash-lite';
@@ -38,11 +36,7 @@ const COL = {
     HP: 8, MP: 9, MAX_HP: 10, MAX_MP: 11,
     MEMORY: 12, INTENT: 13, FACTION: 14, RANK: 15, CONTRIB: 16, ALIGN: 17,
     PHYSICAL: 18, MARTIAL: 19, GAME_ID: 20, SIX: 21, TAGS: 22, SEEN: 23,
-    // 關係欄(原 REL 表)：NPC 對本世界御主的關係。BOND=好感值、REL_TAG=關係標籤、IS_PARTY=同行旗標、
-    //   REL_MEM=關係專屬記憶(與角色 MEMORY 分開存)。御主自己這一列不使用(留空)。
-    // MEMOIR(27)：鑑賞「共同回憶」——原 MAJOR_EVENT 死欄(讀寫端早移除、恆空)於 2026-07 復用為每個同伴
-    //   一格的共同回憶敘事(AI 每回合吐 memory 一句、GAS append 去重存最近 N 條，機制同專屬稱呼)。COL 是
-    //   位置索引，沿用 27 槽、不新增欄、不位移。solo 不使用(留空)。
+    // 關係欄(原 REL 表)：NPC 對本世界御主的關係。
     BOND: 24, REL_TAG: 25, IS_PARTY: 26, MEMOIR: 27, REL_MEM: 28,
     // 世界狀態欄(原 CLK/AUTH 表)：只在御主自己那一列有意義，其餘角色列留空。
     //   DAY/HOUR/AP=時鐘(1AP=1小時，每日12AP)；HOME_LOC=居所(工房加成判定用)。
@@ -54,22 +48,11 @@ const COL = {
   },
   // WAR：地圖地點按戰爭區分，避免第四次限定地點(海特飯店等)也出現在第五次局。空字串＝通用地點，'4th'/'5th' 限定該戰爭。
   MAP: { REGION: 0, NAME: 1, TYPE: 2, COORD: 3, DESC: 4, PARENT: 5, WAR: 6 },
-  // 🔵 英靈殿(從者範本)、御主殿（戰鬥 fx 走 hasFx_＋SEED_SERVANTS 的 skills/traits JSON，不需 COL 索引；戰鬥標籤分頁已棄）
-  // DAILY_LOOK/DAILY_WORDS：鑑賞用日常版外貌/性格，與戰時 PERSONA(look/words)分開存；懶惰快取，首次
-  //   召喚進鑑賞才由AI轉換寫入(heroToKanshouRow_)，之後直接讀取不重複呼叫AI。空字串＝尚未轉換。
-  //   附加尾端不動既有欄位位置(COL 是位置索引，見專案紀律)。
-  // DAILY_MOE：鑑賞用日常萌點，與戰時 PERSONA.moe(常靠戰爭/創傷撐出的沉重萌點)分開存——鑑賞世界沒發生過
-  //   戰爭，改用輕量溫馨的日常版萌點，來源同上(translateMoeToDaily_)。
-  // DAILY_OUTFIT：服裝從 DAILY_LOOK 拆出獨立欄位，DAILY_LOOK 改為四段[外貌本相][氣質舉止][自稱口氣]
-  //   [私密一面]，對齊 PERSONA.traits/PREF 格式。SOLO(戰時 PERSONA.look) 獨立一套不受影響。
+  // 🔵 英靈殿(從者範本)、御主殿（戰鬥 fx 走 hasFx_＋SEED_SERVANTS 的 skills/traits JSON，不需 COL 索引；戰鬥標籤分頁已棄）DAILY_LOOK/DAILY_WORDS：鑑賞用日常版外貌/性格，…（全文見 CODE_NOTES.md）
   HERO: { ID: 0, CLS: 1, NAME: 2, SEX: 3, SIX: 4, CLASS_SKILLS: 5, SKILLS: 6, TRAITS: 7, NP: 8, PERSONA: 9, ALIGN: 10, WARS: 11, SOURCE: 12, DAILY_LOOK: 13, DAILY_WORDS: 14, DAILY_MOE: 15, DAILY_OUTFIT: 16 },
-  // ALIGN(15)：陣營標籤(如「混沌・善」)，附加尾端不動既有欄位位置。原本 SEED_MASTERS 沒這格，
-  //   masterToNpcRow_ 寫敵御主眾生列時 COL.PC.ALIGN 永遠空——enemyMasterCard_ 讀陣營的那段邏輯
-  //   看似有跑、實際上從沒讀到值(2026-07 補上單一真實來源)。
+  // ALIGN(15)：陣營標籤(如「混沌・善」)，附加尾端不動既有欄位位置。
   MASTER: { ID: 0, NAME: 1, SEX: 2, APPEAR: 3, MAGIC: 4, CIRCUITS: 5, MELEE: 6, MAGIC_RANK: 7, HOME: 8, WISH: 9, PERSONA: 10, WAR: 11, SOURCE: 12, BACK: 13, MOE: 14, ALIGN: 15 },
   // 帳號（存檔身分）：帳號名 → 目前御主角色ID。
-  // KPC(鑑賞角色ID)：由伺服器端 linkAccountToKanshouPc_/getAccountKanshouPcId_ 專責讀寫，比照 solo
-  // 「連結存在外部表、玩家端無法影響」，結構上不可繞過冒充。
   ACC: { NAME: 0, PC: 1, CREATED: 2, KPC: 3 }
 };
 
@@ -78,10 +61,6 @@ const RANK_VALUE = { "E": 10, "D": 20, "C": 30, "B": 40, "A": 50, "EX": 60 };
 function rankVal(r) {
   r = String(r || "E").trim();
   const letterOnly = r.replace(/[+\-]/g, "");
-  // 🐛→✅ 純"-"佔位(無官方階級，如佐佐木小次郎的寶具六圍)：去掉"-"後沒有半個字母可查——
-  //   舊版仍照樣把這同一個"-"字元當「減號修飾」再扣一次3，讓"-"算出比真正的E(10)還低的7，
-  //   跌破多處 rankVal(...)>=10 的「有無寶具」判斷門檻。沒有字母就沒有可修飾的基準，直接視同E、
-  //   不套用+/-加減，才對得上註解與資料原意的「保底吃E」。
   if (!letterOnly) return RANK_VALUE["E"];
   let base = RANK_VALUE[letterOnly.toUpperCase()] || 10;
   // 🛡️ +/-修飾字元理論上只會是UI骰出的1~2個(如"A+"/"A++")，但這欄位來源包含玩家自由輸入
@@ -105,9 +84,7 @@ function cleanChineseName(s) {
   return String(s == null ? "" : s).replace(/[^㐀-䶿一-鿿]/g, "").slice(0, 10);
 }
 
-// solo 軌跡骨幹：AI 從敘事散文反推精確狀態(好感/血量/天數)容易猜錯，改由 GAS 組一段「已確定事實」接在
-//   歷史前當錨點。吃呼叫端(narrateWithState_)已讀的同一份 pcData，不重讀表。刻意只做當下快照、不做累積
-//   事件清單，避免重蹈已砍除的「因果/命運長河」(存太多筆反而抓不到重點)。
+// solo 軌跡骨幹：AI 從敘事散文反推精確狀態(好感/血量/天數)容易猜錯，改由 GAS 組一段「已確定事實」接在歷史前當錨點。
 function buildTrajectoryDigest_(pcData, gameId, pcRow) {
   if (!pcRow || !gameId) return "";
   var clk = getClock_(gameId, pcData);
@@ -143,19 +120,11 @@ function fateMaxHpMp_(con, mag) {
   };
 }
 
-// 御主(凡人魔術師)HP/MP：唯一核心數值＝魔術迴路(財力/身世決定)。共用魔力池制：從者無獨立魔力池，
-//   與御主共用一池(存御主MP)，池上限＝御主迴路×10＋同隊從者魔力×2(見masterPoolMax_)。
-//   masterMaxHpMp_ 只給「尚無從者」基底(迴路×10)；血由迴路×2。
-// 迴路骰子範圍(12~50)——跟前端骰子UI(Script_Onboarding.html)夾值範圍一致，三處各自硬寫過同一組
-//   數字，改這個範圍務必連 Script_Onboarding.html 那處也一起改(HTML端跨執行環境不共用此函式)。
+// 御主(凡人魔術師)HP/MP：唯一核心數值＝魔術迴路(財力/身世決定)。
 function clampCircuits_(n) { return Math.max(12, Math.min(50, parseInt(n) || 30)); }
 
 function masterMaxHpMp_(circuits) {
-  // 🛡️ parseInt(x)||30 只擋得住NaN/0，擋不住負數——前端骰子UI本就夾在12~50，但這裡是唯一
-  //   信任邊界(直打API可繞過前端)，補上下限，避免負迴路生出0血/負魔力的御主。
-  // 🐛→✅ 舊版只擋下限沒擋上限——直打API送circuits=999999能生出HP/MP近乎無限的御主，且這個值
-  //   會永久寫進MEMORY【迴路】標記，之後masterPoolMax_每次重算共用魔力池都沿用這個灌爆的數字，
-  //   貫穿補魔/供魔/戰鬥整個系統。補上跟前端骰子UI相同的上限(50)。
+  // 🛡️ parseInt(x)||30 只擋得住NaN/0，擋不住負數——前端骰子UI本就夾在12~50，但這裡是唯一信任邊界(直打API可繞過前端)，補上下限，避免負迴路生出0血/負魔力的御主。
   var c = Math.max(1, Math.min(50, parseInt(circuits) || 30));
   return {
     hp: 100 + c * 2,
@@ -170,8 +139,6 @@ function masterPoolMax_(circuits, partyMagicVal) {
 }
 
 // 🔋 從者靈基出力檔位（玩家手動旋鈕，存從者 MEMORY【出力】）：從者無自有魔力，靠御主供魔的「出力」決定戰力與耗魔。
-//   檔位→{ hit 命中加減, dmgMul 傷害乘子, drainMul 御主每小時維持費乘子, np 是否可解放寶具, label }。
-//   100% 全開最強但燒御主最兇、且唯一能放寶具的檔；60% 基準無加成；20% 僅維持靈基、低出力有明顯懲罰。
 var OUTPUT_TIERS_ = {
   100: { hit:  3, dmgMul: 1.30, drainMul: 2.0, np: true,  label: '全開' },
   80:  { hit:  1, dmgMul: 1.10, drainMul: 1.5, np: false, label: '高壓' },
@@ -223,23 +190,11 @@ function setRuneMode_(memory, mode) {
   return mem ? (mem + '｜【符文】' + mode2) : ('【符文】' + mode2);
 }
 
-// AI 呼叫後寫回前的列重定位索引：play/backfill 因 AI 呼叫耗時被豁免寫入鎖(LOCK_EXEMPT)，用的是呼叫前
-//   讀到的列索引；期間若其他上鎖動作刪列(清殘列/登入自動清)，索引會位移錯位。此函式單欄窄讀(只讀ID欄，
-//   非整表)回傳 {id → 當下真實列索引(0-based)}；ID已消失(列被刪)則查無，呼叫端跳過。
-// 🆔 單一真實來源·找出眾生列裡的指定角色：id 對得上優先(同 game_id 內恆唯一，不受同名/子字串
-//   前綴/別名困擾)；只有 id 缺席時才退回名字比對(供舊呼叫/前端未帶id的過渡路徑用)。這條規則專治
-//   一整類反覆出現的bug——凡是「系統內部自己判斷這是哪個角色」(前端按鈕點誰/MEMORY硬連結/結盟
-//   對象查找)都該走這支、優先吃id；只有跟AI自由生成文字對帳(如narration提到的真名)才不得不
-//   退回名字，那條路本就無法避免模糊、該用kanshouNameCandidates_這類別名表處理，不歸這支管。
-//   opts: {id, name, gid, faction, loc, excludeIdx, aliveOnly=true, nameCandidates, normalize}
-//   nameCandidates(name)：可選，傳自訂候選產生器(如kanshouNameCandidates_)取代預設的「僅trim精確比對」。
-//   normalize(s)：可選，比對前套用在候選字串與該列真名兩側(如nameLoose_去除分隔符變體)，預設原樣trim。
+// AI 呼叫後寫回前的列重定位索引：play/backfill 因 AI 呼叫耗時被豁免寫入鎖(LOCK_EXEMPT)，用的是呼叫前讀到的列索引；期間若其他上鎖動作刪列(清殘列/登入自動清)，索引會位移錯位。
 function findPcRowIdx_(pcData, gid, opts) {
   opts = opts || {};
   const excludeIdx = opts.excludeIdx;
-  // 共用篩選(game_id/存活/陣營/地點)——id路徑跟名字路徑都要套，id只是「認人」這一步的捷徑，不能
-  // 順便繞過「她此刻是否真的在場/仍在世」這些遊戲規則本身要求的條件(不然id快取到舊值，會讓玩家
-  // 對一個其實已經不在場的人牽手/邀約成功)。
+  // 共用篩選(game_id/存活/陣營/地點)——id路徑跟名字路徑都要套，id只是「認人」這一步的捷徑，不能順便繞過「她此刻是否真的在場/仍在世」這些遊戲規則本身要求的條件(不然id快取到舊值，會讓玩家對一個其實已經不在場的人牽手/邀約成功)。
   const passesFilters = function (r, i) {
     if (i === excludeIdx) return false;
     if (gid && String(r[COL.PC.GAME_ID] || "") !== String(gid)) return false;
@@ -270,43 +225,19 @@ function buildLiveIdIndex_(sheet) {
 }
 
 // 🩸 傷勢嚴重度中文詞（單一真實來源）：dmg 佔 hpMax 比例 ≥40%＝重創／≥15%＝負傷／否則擦傷。
-//   hpMax 為 0/falsy 時比照既有呼叫端「查無上限就當最嚴重」的既有慣例，比例夾為 1(必為重創)。
-//   Router_Movement.gs(撤退追擊／歇息夜襲／趁隙偷襲) ＋ Router_Bond.gs(相處遭突襲) 共用同一條件鏈，
-//   別各自重寫這條 ratio 判斷。
 function dmgSeverityWord_(dmg, hpMax) {
   var ratio = hpMax ? (parseFloat(dmg) || 0) / hpMax : 1;
   return ratio >= 0.4 ? '重創' : ratio >= 0.15 ? '負傷' : '擦傷';
 }
 
-// ⚔️ 卸防突襲三分派樣板（單一真實來源）：enemyAmbushOnServant_ 回傳的 ambush 物件只有三種去向——
-//   ①homeRepel/peaceful(陣地反擊·優雅擊退／按兵不動·試探接觸，文案已在 ambush.repelNote 現成)
-//   ②真突襲命中(需呼叫端自組「被打斷」的專屬敘事，各處措辭不同，故用 callback)
-//   ③無突襲(呼叫端自組「正常結果」的敘事，同樣用 callback，可在其中再自行細分milestone等子分支)。
-//   補魔/靈基修復/相處/盟友交流/歇息 五處突襲呼叫端共用同一套分派邏輯，各自只帶自己的文案 callback，
-//   不重寫這三分支判斷。interruptedFn(ambush)/normalFn() 皆回傳字串(aiPrompt)。
+// ⚔️ 卸防突襲三分派樣板（單一真實來源）：enemyAmbushOnServant_ 回傳的 ambush 物件只有三種去向——①homeRepel/peaceful(陣地反擊·優雅擊退／按兵不動·試探接觸，文案已在 ambush.repe…（全文見 CODE_NOTES.md）
 function ambushDispatchPrompt_(ambush, interruptedFn, normalFn) {
   if (ambush && (ambush.homeRepel || ambush.peaceful)) return ambush.repelNote;
   if (ambush) return interruptedFn(ambush);
   return normalFn();
 }
 
-// ⏳ AP門檻＋扣AP＋時鐘標籤（單一真實來源）：cost/rejectMsg 依呼叫端自訂；opts.isFate 未帶就自己
-//   依 gameId 是否 "g_" 開頭判斷（鑑賞 k_ 局一律視為不擋、不耗AP，回傳{ap:AP_PER_DAY, clock:""}，
-//   比照各呼叫點既有「非Fate局不擋」慣例）；opts.skipWrite 透傳給 spendAp_(呼叫端結尾另有整表/整列
-//   批次寫回時傳true，省掉 spendAp_ 自己那道窄寫入)。
-//   門檻不足回傳 {reject:{success:false,needRest:true,message:rejectMsg}}——呼叫端請直接
-//   `return JSON.stringify(apr.reject)`；足夠則扣AP＋回傳 {ap, clock}。
-//   ⚠ 各呼叫點原本大多在函式前段就已有一道獨立的「門檻不足→提前 return」guard(擋在任何寫入/扣費之前，
-//   避免門檻不足時仍留下半吊子副作用)，此函式故意只在原本「扣AP＋算時鐘」那個位置呼叫、不去取代前面
-//   那道 guard、也不把扣AP時間點提前——部分呼叫端在扣AP前後有依賴當下(扣AP前)day/hour的計算(如
-//   趁隙偷襲 playerAmbushOnEnemy_ 的【提防】冷卻窗口判斷)，提前扣AP會讓那類判斷不小心吃到扣費後的
-//   時間，是本次重構刻意迴避的邊界風險——因此這裡的門檻檢查在實務上多半已被前面那道 guard 擋過一次，
-//   屬防禦性複查、非多此一舉。
-//   ⚠ 2026-07 再稽核確認：目前全部14處呼叫端都只解構{ap,clock}，沒有任何一處真的檢查`.reject`——
-//   因為呼叫前都已經有前述獨立guard擋過，`.reject`分支在現有呼叫模式下實際上永遠打不到，是預留但
-//   目前吃不到的死路徑。新增呼叫點若打算只靠這支函式擋門檻(不自帶前置guard)，務必自己補上
-//   `if (apr.reject) return JSON.stringify(apr.reject);`，否則門檻不足時{ap:undefined,clock:undefined}
-//   會混進成功回應(JSON.stringify會把這兩個undefined的key整個省略掉，前端讀不到但也不會報錯)。
+// ⏳ AP門檻＋扣AP＋時鐘標籤（單一真實來源）：cost/rejectMsg 依呼叫端自訂；opts.isFate 未帶就自己依 gameId 是否 "g_" 開頭判斷（鑑賞 k_ 局一律視為不擋、不耗AP，回傳{ap:AP_PER_DAY…（全文見 CODE_NOTES.md）
 function chargeApOrReject_(gameId, cost, pcData, sheets, rejectMsg, opts) {
   opts = opts || {};
   var isFate = opts.isFate !== undefined ? opts.isFate : (String(gameId || "").indexOf("g_") === 0);
@@ -324,8 +255,6 @@ function chargeApOrReject_(gameId, cost, pcData, sheets, rejectMsg, opts) {
 }
 
 // 主從synergy（原作設定「御主供魔／契合度提升從者能力」）：特定主從組合回到全盛六圍。
-//   目前只：恩奇都 ↔ 銀狼（獵犬御主，原作真正的御主——以銀狼為觸媒召喚、令咒落在狼身上）→ 全能力 A、寶具 A++。
-//   其餘御主（含玩家自召）下恩奇都維持削弱基線。讀從者列 MEMORY【御主】名判定；在 rowToCombatant_ 套用。
 function masterSynergySix_(name, six, memory) {
   if (masterSynergyOn_(name, memory)) {
     return { 筋力: 'A', 耐久: 'A', 敏捷: 'A', 魔力: 'A', 幸運: six['幸運'] || '-', 寶具: 'A++' };
@@ -338,11 +267,7 @@ function masterSynergyOn_(name, memory) {
   var mName = mm ? mm[1] : "";
   return /恩奇都/.test(String(name)) && /銀狼/.test(mName);
 }
-// MEMORY 標記共用工廠：收斂 Router_Battle.gs/Router_Movement.gs 多組結構相同的數值型/文字型 get/set
-//   正則邏輯。海怪護盾(三值複合)/魔境·符文(需白名單驗證)/換裝·武裝(需字元過濾+截長度)形狀差異大，
-//   刻意不硬套，維持獨立實作(見 FUNCTION_MANUAL.md)。
-// 數值型：get 回 parseInt 或預設值；set 移除舊標記(含意外重複)並清理殘留的｜｜或前後｜再附加新值，
-//   較舊版單次test+原地replace更能處理「MEMORY 字串意外重複標記」的邊界狀況。
+// MEMORY 標記共用工廠：收斂 Router_Battle.gs/Router_Movement.gs 多組結構相同的數值型/文字型 get/set正則邏輯。
 function makeIntTag_(tagName, defaultVal) {
   var reGet = new RegExp('【' + tagName + '】(\\d+)');
   var reStrip = new RegExp('｜?【' + tagName + '】\\d+', 'g');
@@ -356,9 +281,7 @@ function makeIntTag_(tagName, defaultVal) {
     clear: function (memory) { return strip(memory); }
   };
 }
-// 文字型（無驗證/截長度，給已受信任的內部字串如地點名用；換裝/武裝需過濾使用者輸入，維持獨立實作）：
-//   set 沿用舊版「單次test+原地replace，找不到才附加」寫法，行為與 getWorkshop_/getScavengedLoc_ 等
-//   既有實作一致。
+// 文字型（無驗證/截長度，給已受信任的內部字串如地點名用；換裝/武裝需過濾使用者輸入，維持獨立實作）：set 沿用舊版「單次test+原地replace，找不到才附加」寫法，行為與 getWorkshop_/getScavengedLoc_ 等既有實作一致。
 function makeTextTag_(tagName) {
   var reGet = new RegExp('【' + tagName + '】([^｜|【]+)');
   var reSet = new RegExp('【' + tagName + '】[^｜|【]*');   // 字元類與 reGet 對齊(舊版漏了半形 |)
@@ -366,10 +289,7 @@ function makeTextTag_(tagName) {
     get: function (memory) { var m = String(memory || '').match(reGet); return m ? m[1].trim() : ''; },
     set: function (memory, val) {
       var s = String(memory || '');
-      // 🛡️ 寫入值一律先剝掉 MEMORY 的結構字元：｜是標記分隔符、【】是標記邊界，混進值裡會把整條
-      //   MEMORY 切錯格(後面所有標記靜默失效或被誤讀)。舊版只在 kanshouStampFirst_ 一個呼叫端做這件
-      //   事——那是「只修犯錯那處」，其餘 TextTag(【口吻】/【裝扮】/【晨間餘韻】/【夜訪客】…)全裸奔。
-      //   移到工廠這裡＝所有現有與未來的 TextTag 自動受保護，單一真實來源。
+      // 🛡️ 寫入值一律先剝掉 MEMORY 的結構字元：｜是標記分隔符、【】是標記邊界，混進值裡會把整條MEMORY 切錯格(後面所有標記靜默失效或被誤讀)。
       var v = String(val == null ? '' : val).replace(/[｜|【】]/g, '');
       if (reSet.test(s)) return s.replace(reSet, '【' + tagName + '】' + v);
       return (s ? s + '｜' : '') + '【' + tagName + '】' + v;
@@ -388,17 +308,13 @@ var OVERCHARGE_TAG_ = makeIntTag_('過充', 0);
 function getOvercharge_(memory) { return OVERCHARGE_TAG_.get(memory); }
 function setOvercharge_(memory, amt) { return OVERCHARGE_TAG_.set(memory, Math.max(0, Math.round(amt))); }
 function clearOvercharge_(memory) { return OVERCHARGE_TAG_.clear(memory); }
-// 👕 從者換裝（存從者 MEMORY【換裝】<服裝文字>）：玩家自訂當前【服裝穿著】·疊在種子外貌本相之上餵給 AI 敘述——
-//   只換衣不換人(五官/髮色/體態/氣質仍依 persona.look)。純外觀·不碰數值。get/set/clear 成套；清空＝恢復本相。
-//   ｜【】換行皆為 MEMORY/提示分隔字元 → set 時剝除，限 40 字，守住寫表冪等與提示安全。
+// 👕 從者換裝（存從者 MEMORY【換裝】<服裝文字>）：玩家自訂當前【服裝穿著】·疊在種子外貌本相之上餵給 AI 敘述——只換衣不換人(五官/髮色/體態/氣質仍依 persona.look)。
 function getOutfit_(memory) { var m = String(memory || "").match(/【換裝】([^｜【】]*)/); return m ? m[1].trim() : ""; }
 // 🐛→✅ 舊版只濾 MEMORY 分隔符，沒濾 HTML 斷字字元——換裝文字最終會被 Script.html 原樣拼進
 //   innerHTML(裝扮那一行)且未過 escapeHtml，跟同一批已修過的 realName/np/技能名同一類缺口，補上。
 function setOutfit_(memory, text) { var s = clearOutfit_(String(memory || "")); text = String(text || "").replace(/[｜【】\n\r\t]/g, "").replace(/[<>&"'`]/g, "").trim().slice(0, 40); if (!text) return s; return s ? s + "｜【換裝】" + text : "【換裝】" + text; }
 function clearOutfit_(memory) { return String(memory || "").replace(/｜?【換裝】[^｜【】]*/g, ""); }
-// 玩家自定武裝：武器/戰鬥方式存 MEMORY【武裝】<文字>，servantCard_ 讀後強制 AI 以此為準——蓋過職階
-//   慣例(Saber=劍/Lancer=槍…)與該真名的原典武器習慣(如「Saber斯卡哈仍拿槍」)。
-//   get/set/clear 成套(鏡射換裝)；清空＝恢復依職階/原典自然演出。限 30 字。
+// 玩家自定武裝：武器/戰鬥方式存 MEMORY【武裝】<文字>，servantCard_ 讀後強制 AI 以此為準——蓋過職階慣例(Saber=劍/Lancer=槍…)與該真名的原典武器習慣(如「Saber斯卡哈仍拿槍」)。
 function getWeapon_(memory) { var m = String(memory || "").match(/【武裝】([^｜【】]*)/); return m ? m[1].trim() : ""; }
 // 同 setOutfit_ 補 HTML 斷字字元清洗（比照修法，防同一類注入缺口）。
 function setWeapon_(memory, text) { var s = clearWeapon_(String(memory || "")); text = String(text || "").replace(/[｜【】\n\r\t]/g, "").replace(/[<>&"'`]/g, "").trim().slice(0, 30); if (!text) return s; return s ? s + "｜【武裝】" + text : "【武裝】" + text; }
@@ -411,8 +327,6 @@ function masterSynergyView_(name, memory) {
 }
 
 // 🔮 魔境的智慧（斯卡哈專屬·玩家可選被動）：影之國女王通曉常見武技，玩家點選【1 個】通用 A 階被動標籤套用。
-//   只給「有階級的常見被動」——不含原初符文(她本有)、不含無階級特性、不含寶具/簽名級招式。存從者 MEMORY【魔境】fx。
-//   注入點：rowToCombatant_（戰鬥讀取時把選定標籤加進 skills，r 固定 A）。前端只對有 mage_realm 的從者露出選盤。
 function mageRealmPool_() {
   return [
     { fx: 'nullify_magic', n: '對魔力',   r: 'A', icon: '🛡️', desc: '受魔力系傷害大幅衰減（對魔法的抗性）。' },
@@ -456,28 +370,15 @@ function parseTraitsHelper(data, defaultStr) {
   else if (typeof data === "object") str = Object.values(data).join("、");
   else str = String(data).replace(/[\[\]"{}]/g, "").trim();
 
-  // 終極防呆：清除 AI 雞婆加上的標籤與數字 (例如 "1.", "日常表象:", "氣質舉止:" 等)。標籤清單需對齊
-  // FATE 現行 TRAIT/PREF 四格（[外貌]/[氣質舉止]/[自稱與口氣]/[私密一面]、[日常表象]/[真實內裡]/
-  // [喜歡的事物]/[討厭的事物]，見 Gallery.gs/Router_Creation.gs 系統提示詞）——舊九州詞彙攔不到
-  // AI 實際會誤加的標籤字。
+  // 終極防呆：清除 AI 雞婆加上的標籤與數字 (例如 "1.", "日常表象:", "氣質舉止:" 等)。
   str = str.replace(/(自稱與口氣|卸下心防的私密一面|日常表象|真實內裡|喜歡的事物|討厭的事物|氣質舉止|卸下心防|私密一面|外貌|自稱|表象|內裡|喜歡|討厭)[:：]/g, "")
     .replace(/\d+[\.、]/g, "");
 
-  // 🩹 AI 常把「四格頓號」誤寫成「四句句號」(如「文靜內向。溫柔細膩。愛小動物。討厭喧嘩。」)——先把句號
-  //   正規化成頓號，split('、') 才切得出 4 段；否則整串被當成 1 段、其餘 3 段被 defaultStr 的預設值填成
-  //   「內斂堅韌／明哲保身」「卸下心防的私密一面」等殘料黏在後面(見風音案例)。半形句號一併處理。
   str = str.replace(/[。\.]+/g, '、').replace(/、+/g, '、').replace(/^、|、$/g, '');
 
   // 切割並過濾空字串
   let parts = str.split('、').map(s => s.trim()).filter(s => s !== "");
 
-  // 🐛→✅ 稽核抓到：這支函式沒有長度上限也沒清HTML斷字字元(<>&"'`)——反觀同批呼叫的background/
-  //   np/realName等AI生成欄位都有比照套用邊界防呆，唯獨這裡(寫進row[COL.PC.TRAIT]/PREF的主要
-  //   來源)漏了；AI若吐出超長或含特殊字元的一段內容，會無界污染這兩個核心敘事欄位。逐段套用同款
-  //   規則(單段封頂30字，比對外貌/性格短語的自然長度留足空間)。
-  // 🐛→✅ 再稽核抓到：跟_fClean(Router_Creation.gs)同樣少濾｜【】——此函式輸出經
-  //   heroToKanshouRow_的dailySpeechPart路徑最終會被stampPersonaFlavor_原樣寫進MEMORY當
-  //   【口吻】值，若AI輸出的段落恰好含這兩種字元，會偽造出MEMORY其他標記，比照_fClean同款補齊。
   parts = parts.map(s => s.replace(/[<>&"'`｜【】]/g, "").slice(0, 30));
 
   // 缺的格數改從 defaultStr 對應分段取值、補不到才退回「無」——避免玩家只打幾個字未達4段時，整句
@@ -491,26 +392,17 @@ function parseTraitsHelper(data, defaultStr) {
   return parts.slice(0, 4).join("、");
 }
 
-// 種子 persona.look 結構是「N段外貌細節・・...、最後一段氣質詞」(如「金髮碧眼・甲冑藍裙的嬌小騎士、
-//   王者威儀」)，段數因人而異(2~4段不等)，不能按「、」出現位置盲目分配四格(會把服裝等外貌細節錯位塞進
-//   [氣質舉止]、真正氣質詞被推擠到[台詞自稱]甚至[私密面])。這裡把「最後一段」認定為氣質、其餘合併回
-//   單一[外貌]格，[台詞自稱]改吃真正的 persona.firstP，再交給 parseTraitsHelper 補齊防呆與 4 格截斷。
+// 種子 persona.look 結構是「N段外貌細節・・...、最後一段氣質詞」(如「金髮碧眼・甲冑藍裙的嬌小騎士、王者威儀」)，段數因人而異(2~4段不等)，不能按「、」出現位置盲目分配四格(會把服裝等外貌細節錯位塞進[氣質舉止]、真正氣質詞被推擠到[台詞自稱]甚至[私密面])。
 function looksToTraitParts_(rawLook, firstP) {
   const segs = String(rawLook || "").split(/[・、]/).map(s => s.trim()).filter(s => s !== "");
   if (segs.length === 0) return "";
   const demeanor = segs.length > 1 ? segs.pop() : "從容";
-  // 🐛→✅ 這裡曾經用「、」把多段外貌合併回單一[外貌]格，但「、」正是parseTraitsHelper切分四格
-  //   的分隔符——合併回去的外貌格內部一有「、」，下面parseTraitsHelper就會把它當成多出來的頂層
-  //   格數，導致[氣質舉止]/[自稱]/[私密一面]全部錯位、第4格(私密一面)被截斷擠掉。改用「・」合併
-  //   (parseTraitsHelper只切「、」，不會再把這段拆開)，20位種子從者實測全數命中(見SOLO_REFERENCE.md)。
   const appearance = segs.join("・");
   const selfAddr = String(firstP || "").trim() || "我";
   return `${appearance}、${demeanor}、自稱「${selfAddr}」、卸下心防時的柔軟一面`;
 }
 
-// 種子庫 persona.words 幾乎全部只有2段，parseTraitsHelper 補滿4格時[喜歡]/[討厭]恆為「無」佔位，
-//   比玩家自建角色的紮實4格薄弱很多。召喚當下用AI依既有的表象/內裡短句延伸出貼合、合理的喜好/討厭
-//   補滿，既有短句一字不改；已滿4段(AI原創從者)直接跳過、不多打一次API。
+// 種子庫 persona.words 幾乎全部只有2段，parseTraitsHelper 補滿4格時[喜歡]/[討厭]恆為「無」佔位，比玩家自建角色的紮實4格薄弱很多。
 function enrichPersonalityLikesDislikes_(name, cls, rawWords) {
   var words = String(rawWords || "").trim();
   if (!words) return words;
@@ -596,20 +488,12 @@ function buildPlayerStatusString(selfRow, relMem = "") {
 //   卻被戰鬥/移動/羈絆等熱路徑高頻讀取——6 小時內免整表重讀，寫入點各自呼叫對應 remove() 清快取。
 const SEED_CACHE_SECONDS_ = 21600; // 6 小時
 
-// 坤圖分頁從無玩家動作寫入(唯一寫入者是版本升級時的一次性upsert，見reseedIfEmpty_)，內容與
-//   FATE_MAP_SEED(Setup_FateWorld.gs) JS常數同一份資料——改直接回傳 FATE_MAP_SEED 包表頭列，比讀表+
-//   CacheService快取更快，形狀(含表頭列＋COL.MAP欄序)與原本讀sheet完全一致，呼叫端不用改。「坤圖」
-//   分頁仍保留(FATE_SHEET_DEFS/reseedIfEmpty_不變)供人工查閱；sheets.map 參數留著只是相容既有呼叫
-//   簽名，已不使用。
+// 坤圖分頁從無玩家動作寫入(唯一寫入者是版本升級時的一次性upsert，見reseedIfEmpty_)，內容與FATE_MAP_SEED(Setup_FateWorld.gs) JS常數同一份資料——改直接回傳 FATE_MAP_SEED 包表頭列，比讀表+CacheService快取更快，形狀(含表頭列＋COL.MAP欄序)與原本讀sheet完全一致，呼叫端不用改。
 function getMapDataCached(sheets) {
   return [["地域", "地名", "類型", "座標", "描述", "上級", "戰爭"]].concat(FATE_MAP_SEED);
 }
 
 // 英靈殿(種子從者名冊)：codexPersona_/actionGetHeroes/actionSummonServant/seedRivalsForGame_ 共用。
-//   寫入點(recordOriginalHero_/upgradeCodexPersonas_/seedFateCodex_)須各自 remove("FATE_HERO_CODEX")。
-// 英靈殿跟坤圖/御主殿不同、未靜態化：工房(Workshop)玩家可捏出原創英靈(來源=ai_gen)永久寫進這張表，
-//   GAS程式碼靜態部署、跑起來時沒辦法把新角色塞回JS常數——是真正需要試算表持久化的動態資料，
-//   維持「讀表+6小時快取」架構。
 function getHeroCodexCached() {
   const cache = CacheService.getScriptCache();
   const cached = cache.get("FATE_HERO_CODEX");
@@ -621,10 +505,7 @@ function getHeroCodexCached() {
   return fresh;
 }
 
-// 御主殿比照坤圖靜態化：唯二寫入點(upgradeMasterCodex_/seedFateCodex_)只在版本升級/首次建表時執行，
-//   無玩家動作(如工房)會新增列，試算表只是 SEED_MASTERS(Seed_Codex.gs) 的多餘拷貝。改用既有的
-//   masterToCodexRow_(seedFateCodex_本來就在用的同一個轉換函式)即時組出結果，不必讀表也不必快取。
-//   「御主殿」分頁仍保留供人工查閱，遊戲邏輯不再讀它。
+// 御主殿比照坤圖靜態化：唯二寫入點(upgradeMasterCodex_/seedFateCodex_)只在版本升級/首次建表時執行，無玩家動作(如工房)會新增列，試算表只是 SEED_MASTERS(Seed_Codex.gs) 的多餘拷貝。
 function getMasterCodexCached() {
   return [["御主ID", "姓名", "性別", "外貌", "魔術系統", "魔術迴路", "體術", "魔術階位", "居所", "願望", "人格", "戰爭", "來源", "身世", "萌點"]]
     .concat(SEED_MASTERS.map(masterToCodexRow_));
@@ -634,11 +515,7 @@ function getMasterCodexCached() {
 // 🔴 狀態掃描器與地理雷達
 // ==========================================
 
-// 登場日：部分敵御主/敵從者可延後登場，不必開局就全員同時上場。資料驅動：Seed_Rivals.gs 的 roster
-//   項目可選填 arriveDay(第N天才登場)／arriveHint(登場前風聲用的自訂提示句)，未填＝第1天(對既有
-//   存檔/種子零影響)。hasArrived_(row,currentDay) 是「這名敵人現在算不算真的在世界裡」的單一真實
-//   來源，凡是同地互動／鎖定攻擊／世界自走／地圖敵蹤標示等皆應吃這道閘門——唯獨「剩餘敵從者總數」
-//   (aliveEnemyServants_，勝負判定用)刻意不吃，避免玩家靠「趕在對方出現前把其他人殺光」提前奪杯。
+// 登場日：部分敵御主/敵從者可延後登場，不必開局就全員同時上場。
 function getArriveDay_(memory) {
   var m = String(memory || "").match(/【登場日】(\d+)/);
   return m ? parseInt(m[1]) : 1;
@@ -662,18 +539,11 @@ function hasArrived_(row, currentDay) {
   return (parseInt(currentDay) || 1) >= getArriveDay_(row && row[COL.PC.MEMORY]);
 }
 
-// 御主自身能力標記：【體術】(rank字母，命運測定/種子皆保證合法)／【魔術】(自由描述文字)，創角/鋪敵時
-//   寫進御主自己的 MEMORY。體術兩用途：① masterCard_/enemyMasterCard_ 讀出當演出依據(能力描述，
-//   不受show-don't-tell限制)；②Engine_Fate.gs 的 injectMasterMeleeSupport_ 讀 rank 字母算真實戰鬥加成。
+// 御主自身能力標記：【體術】(rank字母，命運測定/種子皆保證合法)／【魔術】(自由描述文字)，創角/鋪敵時寫進御主自己的 MEMORY。
 var MASTER_MELEE_TAG_ = makeTextTag_('體術');
 var MASTER_MAGIC_TAG_ = makeTextTag_('魔術');
-// 御主魔術階位（rank字母）：跟體術同款「凡人自身能力」，只在己方出戰從者為 Caster(魔砲型)時才生效
-//   (injectMasterMagicSupport_ 內部判斷)——體術管近戰助拳、魔術階位管施法支援，避免疊在一起變成
-//   無腦雙倍加成。
+// 御主魔術階位（rank字母）：跟體術同款「凡人自身能力」，只在己方出戰從者為 Caster(魔砲型)時才生效(injectMasterMagicSupport_ 內部判斷)——體術管近戰助拳、魔術階位管施法支援，避免疊在一起變成無腦雙倍加成。
 var MASTER_MAGIC_RANK_TAG_ = makeTextTag_('魔術階位');
-// 🐛→✅ 【出身】(玩家創角時選的出身背景)舊版只在 actionManualNpc 寫入，全專案查無任何讀取點——
-//   純寫入死資料，backfill 用的是當下 userData.origin(前端再送一次)而非這個持久化標記。補上跟
-//   體術/魔術/魔術階位同款讀取器，讓 masterCard_ 能把這份設定持續餵給 AI 當演出依據。
 var MASTER_ORIGIN_TAG_ = makeTextTag_('出身');
 function getMasterMelee_(memory) { return MASTER_MELEE_TAG_.get(memory); }
 function getMasterMagic_(memory) { return MASTER_MAGIC_TAG_.get(memory); }
@@ -691,10 +561,7 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, allPcData) {
   const myGameId = meRow ? String(meRow[COL.PC.GAME_ID] || "") : "";
   const myDay = meRow ? (parseInt(meRow[COL.PC.DAY]) || 1) : 1; // 🕰️ 登場日閘門用：尚未到來的敵人對玩家完全不存在
 
-  // 🤝 情報共享（同盟背景生效）：只要當前世界尚有任一盟友（敵御主/敵從者結盟中），盟友便會通報敵情——
-  //   敵從者的「職階」對玩家揭露（原作依據：遠坂凜為士郎判明敵方職階／真名）。無盟友則維持迷霧。
-  // busyWith 恆為 null：單人模式只有一位御主，「同行」旗標即代表陪的是御主本人，沒有第三方可陪，
-  //   此欄位前端也從未讀取。
+  // 🤝 情報共享（同盟背景生效）：只要當前世界尚有任一盟友（敵御主/敵從者結盟中），盟友便會通報敵情——敵從者的「職階」對玩家揭露（原作依據：遠坂凜為士郎判明敵方職階／真名）。
   let hasAlly = false;
   for (let a = 1; a < allPcData.length; a++) {
     const ar = allPcData[a];
@@ -745,9 +612,7 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, allPcData) {
   return localPeopleList;
 }
 
-// myWar：呼叫端傳玩家本局【戰爭】標記，比照 buildMapNodesPayload_(Router_Movement.gs) 同一套規則過濾
-//   戰爭限定地點(如第四次限定的海特飯店)——否則這份清單(撤退突圍/鄰近地點)會漏濾，讓地圖上看不到、
-//   理應跨戰爭隱藏的地點反而從這裡露出來。myWar 留空(如鑑賞)則等同不限定戰爭的通用地點才會顯示。
+// myWar：呼叫端傳玩家本局【戰爭】標記，比照 buildMapNodesPayload_(Router_Movement.gs) 同一套規則過濾戰爭限定地點(如第四次限定的海特飯店)——否則這份清單(撤退突圍/鄰近地點)會漏濾，讓地圖上看不到、理應跨戰爭隱藏的地點反而從這裡露出來。
 function getNearbyLocations(currentLoc, mapData, myWar) {
   if (!currentLoc) return [];
   const rootLoc = String(currentLoc).split('-')[0].trim();

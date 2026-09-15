@@ -9,15 +9,7 @@
 var DEFAULT_TRAIT_FALLBACK_ = "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面";
 var DEFAULT_PREF_FALLBACK_ = "沉著表象、堅定內裡、珍視之物、厭惡之事";
 
-// 🌹 daily* 欄位撰寫鐵則(鑑賞專用；2026-07 玩家「不要告訴 AI 該怎麼說話，要讓她自己演出這個角色」)
-//   ① 零引號零台詞：寫死一句「笨蛋」，AI 就整場笨蛋笨蛋、連 NSFW 也笨蛋——寫進去的字面它一定照抄。
-//   ② 不寫形容詞標籤(嘴硬/傲嬌/天然呆)：那是結論不是素材，AI 只會把形容詞複述一遍。
-//   ③ 寫「條件→反應」的行為傾向(越在意越說反話／被道謝就侷促)：給它演算法，讓它自己生台詞，
-//      同一條規則能演出一百種講法，換場景(含 NSFW)也自動換講法。
-//   格式硬限制：dailyLook 必須剛好四格「外貌、氣質、自稱與口氣、行為傾向」——三處硬依賴
-//   parts.length>=4(Gallery.gs 髮色解析/traitSrc/初見口吻)，少一格會整串掉回舊拆法、口吻變空；
-//   dailyWords 四格「表象、內裡、喜歡、討厭」(鑑賞只送前兩格)；格內連接一律用「・」，
-//   「、」是分隔符，寫進格內會吃掉後面的資料；dailyBack 上限 28 字(heroToKanshouRow_ 會截斷)。
+// 🌹 daily* 欄位撰寫鐵則(鑑賞專用；2026-07 玩家「不要告訴 AI 該怎麼說話，要讓她自己演出這個角色」)① 零引號零台詞：寫死一句「笨蛋」，AI 就整場笨蛋笨蛋、連 NSFW 也笨蛋——寫進去的字面它一定照抄。
 var SEED_SERVANTS = [
   // 第五次
   { id:'阿爾托莉雅-Saber', cls:'Saber', realName:'阿爾托莉雅·潘德拉貢', wars:['4th','5th'], gender:'女',
@@ -173,9 +165,7 @@ var SEED_SERVANTS = [
     dailyWords:'沉默寡言、待在背景照顧大家、安靜的角落、被張揚地感謝',dailyBack:'沉默溫和，默默攬下雜務',dailyMoe:'出神一會兒，回神就繼續手邊的事'} },
   // 客串保留：慾海鑑賞用的少數客串——斯卡哈/恩奇都/美遊/小黑/伊莉雅，其餘客串／偽聖杯陣容已清空。
   { id:'恩奇都-Lancer', cls:'Lancer', realName:'恩奇都', wars:['客串'], gender:'無',
-    // 基線＝非理想御主下的恩奇都(供魔不足)；與銀狼結契才回全盛全A·寶A++(masterSynergySix_)，
-    // 此 synergy 僅供手動 MEMORY 標記【御主】銀狼 觸發(銀狼已無自動配對戰場)。
-    // 筋力下限為B：原作「變容」使他六圍浮動恆在A~B之間、從不掉到C。
+    // 基線＝非理想御主下的恩奇都(供魔不足)；與銀狼結契才回全盛全A·寶A++(masterSynergySix_)，此 synergy 僅供手動 MEMORY 標記【御主】銀狼 觸發(銀狼已無自動配對戰場)。
     six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'B',幸運:'-',寶具:'A'},
     classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'}],
     skills:[{n:'天之鎖',r:'A',fx:'chain'},{n:'氣息感知',r:'A+',fx:'sense'},{n:'變容',r:'A',fx:'shapeshift'},{n:'完全之形',r:'A',fx:'regen'}],
@@ -233,16 +223,11 @@ var SEED_SERVANTS = [
     dailyLook:'白髮紅瞳・元氣滿滿、天真爛漫、自稱我・活潑直率、看到可愛東西就非摸一下不可',
     dailyOutfit:'可愛的日常打扮配手杖',
     dailyWords:'天真爛漫、緊要關頭豁得出去、熱鬧開心的事、有人受欺負',dailyBack:'天真爛漫的魔法少女',dailyMoe:'愛哭，卻總在最後關頭撐住'} },
-  // 🌹 這3位是聖杯戰爭正典御主(非從者)，直接進英靈殿供鑑賞「直接召喚」。cls 刻意標'御主'
-  //   (非七大從者職階)：solo召喚頁職階清單與 actionSummonServant 白名單皆會擋下，只有鑑賞召喚得到；
-  //   wars 標'客串'排除於混亂模式敵從者池外。six/技能/寶具留空——這幾位在鑑賞只演出、不涉戰鬥。
+  // 🌹 這3位是聖杯戰爭正典御主(非從者)，直接進英靈殿供鑑賞「直接召喚」。
   { id:'遠坂凜-Master', cls:'御主', realName:'遠坂凜', wars:['客串'], gender:'女',
     six:{}, classSkills:[], skills:[], traits:[], np:'',
     align:'中立・善', persona:{firstP:'我',look:'黑長雙馬尾・紅衣黑裙、傲然',words:'人前完美的優等生・刀子嘴豆腐心・厭惡示弱與失態',toMaster:'口是心非、嘴上嫌棄卻很上心',speech:'毒舌卻藏著關心',moe:'人後迷糊',tic:'甩馬尾別過臉',back:'遠坂家長女（櫻是被送養的妹妹）、父親死於上屆聖杯戰爭',
-    // 🎯 2026-07 玩家「凜好死板、要傲嬌感覺」：舊資料把「傲嬌」這個標籤寫了三遍(私下一面「越在意
-    //   越說反話」＋內裡「刀子嘴豆腐心」＋speech「毒舌卻關心」)，卻一個具體行為都沒給——AI 只能
-    //   複述那個標籤，於是每回合都在嘴硬說反話。改成寫「她會做出什麼」：手先動、話後到，
-    //   被道謝/被看穿就升級成攻擊。傲嬌是動作與言詞相反，不是罵人。
+    // 🎯 2026-07 玩家「凜好死板、要傲嬌感覺」：舊資料把「傲嬌」這個標籤寫了三遍(私下一面「越在意越說反話」＋內裡「刀子嘴豆腐心」＋speech「毒舌卻關心」)，卻一個具體行為都沒給——AI 只能複述那個標籤，於是每回合都在嘴硬說反話。
     dailyLook:'黑長雙馬尾・勻稱俐落、下巴總是微抬半分、自稱我・先挑毛病再給答案、事情早辦好了才說是順路',
     dailyOutfit:'紅衣黑裙過膝黑襪',
     dailyWords:'完美的優等生、越被道謝越兇、寶石、被人看穿',
@@ -302,9 +287,7 @@ var SEED_MASTERS = [
   // circuits=50：她本人的回路質量與凜同級(人類頂尖水準)，無限魔力來自聖杯泥附體(已在magic欄體現)，
   // 不該混進她自己的天賦數字。官方設定髮色為深紫色，黑化不因此變色。
   {id:'間桐櫻(黑化)-5th',name:'間桐櫻', gender:'女', appearance:'深紫長髮、黑紅禮服，泛著陰冷寒意',war:'5th', align:'混沌・惡',magic:'聖杯之泥・無限魔力・蟲爪', circuits:50, melee:'E', magic_rank:'A', home:'間桐宅', wish:'獨佔所愛、將世界一同拖入黑暗', persona:'溫順乖巧的假面・被黑泥吞噬的佔有慾・香甜的點心與嚇人的怪談・厭惡傷害過自己的一切', back:'遠坂次女、送養間桐受蟲蝕十一年後黑化', moe:'可憐又可怖'},
-  // 第四次
-  // circuits=15/magic_rank=C：他的魔術回路數量少質量也差(原作明寫、故Saber供魔得靠愛麗絲)，
-  // 真正殺傷力來自起源彈與戰術，「天才殺手·蹩腳魔術師」的反差不該被回路數字掩蓋。
+  // 第四次circuits=15/magic_rank=C：他的魔術回路數量少質量也差(原作明寫、故Saber供魔得靠愛麗絲)，真正殺傷力來自起源彈與戰術，「天才殺手·蹩腳魔術師」的反差不該被回路數字掩蓋。
   {id:'衛宮切嗣-4th',  name:'衛宮切嗣', gender:'男', appearance:'黑髮疲憊的男人，風衣',   war:'4th', align:'中立・善', magic:'起源彈・固有時制御',    circuits:15, melee:'A', magic_rank:'C', home:'冬木·深山町', wish:'以聖杯拯救世界、終結戰爭',persona:'冷酷疲憊的魔術師殺手・為大義不擇手段・與家人共度的平靜日常・厭惡無謂的犧牲', back:'背負「拯救多數而犧牲少數」的覺悟參戰', moe:'冷酷算計下其實最痛恨殺戮'},
   {id:'遠坂時臣-4th',  name:'遠坂時臣', gender:'男', appearance:'金棕髮的優雅紳士，名門做派',   war:'4th', align:'秩序・中庸', magic:'寶石魔術',            circuits:50, melee:'D', magic_rank:'A', home:'遠坂宅',     wish:'抵達「根源之渦」',        persona:'優雅從容的名門紳士・抵達根源的執念・珍稀寶石與名門的體面排場・厭惡粗鄙與失格', back:'遠坂當主、以正統之道召喚出契合自身的英靈', moe:'名門的迂腐可愛'},
   // home=海特飯店(他實際據點，被切嗣炸毀之處)；circuits=65為時鐘塔科主等級，與韋伯拉開懸殊差距。
@@ -333,13 +316,7 @@ function masterToCodexRow_(m) {
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
 var CODEX_PERSONA_VER = 'v72'; // v72：凜的 daily* 改寫——同一個「傲嬌」標籤原本佔了三格(私下一面／內裡／
-//   speech)，AI 只能複述標籤、演成一路嘴硬，改成寫具體行為(手先動話後到、被道謝就升級)。
-//   v71：25位種子的 daily* 全面改寫成「行為傾向」(零引號零台詞)＋壓縮26%。
-//   ⚠ 改 daily*/persona 一定要順手升這個版號——升級閘是 codex_persona_ver !== CODEX_PERSONA_VER，
-//   沒升版 upgradeCodexPersonas_ 不會跑，改再多種子對既有存檔都是 no-op(只有全新試算表才吃得到)。
-//   v70：玩家覺得「巨乳」太直白、這句話會顯示在玩家可見的狀態欄——
-//   美杜莎/斯卡哈x2改成「胸前豐盈」這種自然敘述句，AI生成prompt同步要求別用生硬標籤呈現。
-//   逐版校對細節與查證來源見 SOLO_REFERENCE.md §21，不在此堆積歷史留言。
+// speech)，AI 只能複述標籤、演成一路嘴硬，改成寫具體行為(手先動話後到、被道謝就升級)。
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
@@ -409,12 +386,6 @@ function upgradeMasterCodex_(ss) {
 }
 
 // 🔄 重刷「已召喚實體化」從者的【戰鬥數據】(寶具/六圍/標籤 fx)為最新種子值——種子改了，已在場的從者也跟上。
-//   依 (真名, 職階) 對應種子(斯卡哈 Lancer/Assassin 同名靠職階區分)。只刷 GAS 掌的數值欄；
-//   ⚠ 不動 HP/MP/MEMORY/敘事欄/狀態/位置/羈絆，保住玩家實例狀態與逆天改命。查無種子(AI 原創從者)→跳過。
-// ⚠ 換職階遷移表：種子改版連職階都換掉時(舊 key→新 key)，已召喚實體的 RANK 欄還存舊職階，
-//   單靠 (真名,職階) 對不上新種子，換版削弱就永遠不生效於既有存檔。
-// 🐛→✅ 舊表另有 '貞德｜Ruler': '貞德｜Archer' 一條，新舊 key 指的「貞德」在現行 SEED_SERVANTS
-//   都查無此人(regulation 換版遺留的懸空項)，久放只會混淆維護者，故清除；只留下面這條活的改名映射。
 var SEED_RECLASSED_ = { '吉爾·德·萊斯（青鬍子）｜Caster': '吉爾·德·萊斯｜Caster' }; // 後者為 realName 去掉原型綽號，舊列名字不改、kit 照刷
 function resyncSummonedServants_(ss) {
   var pc = ss.getSheetByName('眾生');
@@ -429,9 +400,6 @@ function resyncSummonedServants_(ss) {
     if (fac !== '從者' && fac !== '敵從者') continue;   // 玩家從者＋敵從者都刷(都讀種子戰鬥數據)
     if (String(data[i][COL.PC.ID]).indexOf('DEAD_') === 0) continue;
     var k = key(data[i][COL.PC.NAME], data[i][COL.PC.RANK]);
-    // 🐛→✅ 舊碼查無新 key 就直接改 RANK，若遷移表的「新 key」本身也是懸空值(如已從種子庫整個
-    //   移除的英靈)，會把玩家實例的職階欄改成一個查無數據的職階、卻因下面 !s continue 而拿不到
-    //   新六圍/技能同步——職階跟戰鬥數據對不上。改成先確認新 key 真的解得到種子才動 RANK。
     if (!byKey[k] && SEED_RECLASSED_[k] && byKey[SEED_RECLASSED_[k]]) {
       k = SEED_RECLASSED_[k];
       data[i][COL.PC.RANK] = k.split('｜')[1]; // 職階欄跟著換新(戰鬥 profile/演出都吃這欄)
@@ -449,10 +417,7 @@ function resyncSummonedServants_(ss) {
     n++;
   }
   if (n) pc.getRange(1, 1, data.length, data[0].length).setValues(data);
-  // 🌸 鑑賞眾生(獨立分頁)補刷：上面 k_ 分支掃的是「眾生」，但鑑賞同伴其實住「鑑賞眾生」分頁，
-  //   原分支永遠掃不到(§125 死分支)。這裡對鑑賞列刷三樣會被寫進在場卡的種子衍生欄：
-  //   BACK(dailyBack)、TRAIT(最新 dailyLook 四段)、MEMORY 的【口吻】(最新 dailyLook 第3段)——
-  //   種子措辭修正(如大河「動不動自稱」→「得意時自稱」)已召喚的同伴才吃得到。工房/AI原創查無種子不動。
+  // 🌸 鑑賞眾生(獨立分頁)補刷：上面 k_ 分支掃的是「眾生」，但鑑賞同伴其實住「鑑賞眾生」分頁，原分支永遠掃不到(§125 死分支)。
   var kpc = ss.getSheetByName('鑑賞眾生');
   if (kpc && kpc.getLastRow() > 1) {
     var kdata = kpc.getDataRange().getValues();
