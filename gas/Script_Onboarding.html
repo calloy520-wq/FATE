@@ -12,7 +12,7 @@ async function accountLogin() {
   var name = (document.getElementById('in-account').value || '').trim();
   if (!name) { alert('請輸入帳號名稱！'); return; }
   try {
-    var res = await gasRun({ action: 'account_login', acctName: name });
+    var res = await withProcessing_('連結御主契約中…', () => gasRun({ action: 'account_login', acctName: name }));
     if (!res || !res.success) { alert((res && res.message) || '登入失敗。'); return; }
     currentAccount = res.name;
     accountLoginRes = res;
@@ -57,7 +57,7 @@ async function newGameFlow() {
   if (accountLoginRes && accountLoginRes.hasGame) {
     if (!await customConfirm_('⚠️ 開啟新的聖杯戰爭會【清除】你目前的存檔（御主、從者、戰況全部消失）。\n確定要重新開始嗎？')) return;
     try {
-      var res = await gasRun({ action: 'account_new_game', acctName: currentAccount });
+      var res = await withProcessing_('清除舊的聖杯戰爭…', () => gasRun({ action: 'account_new_game', acctName: currentAccount }));
       if (!res || !res.success) { alert((res && res.message) || '清檔失敗。'); return; }
       accountLoginRes.hasGame = false;
       document.getElementById('btn-resume').style.display = 'none';
@@ -103,10 +103,10 @@ function openCanonMasterPick() {
 async function loadCanonMasters() {
   var res = null;
   try {
-    res = await (_mastersPrefetch[currentWar] || gasRun({ action: 'get_masters', war: currentWar }));
+    res = await withProcessing_('翻閱正典名冊中…', () => (_mastersPrefetch[currentWar] || gasRun({ action: 'get_masters', war: currentWar })));
   } catch (e) {
     delete _mastersPrefetch[currentWar]; // 預取失敗(網路抖動)→丟掉壞快取、現場重抓一次
-    try { res = await gasRun({ action: 'get_masters', war: currentWar }); } catch (e2) { alert('讀取正典御主失敗。'); return; }
+    try { res = await withProcessing_('翻閱正典名冊中…', () => gasRun({ action: 'get_masters', war: currentWar })); } catch (e2) { alert('讀取正典御主失敗。'); return; }
   }
   try {
     var list = (res && res.masters) || [];
@@ -189,7 +189,7 @@ async function checkNameOk_(name) {
   }
   if (playedMaster) return true;
   try {
-    const res = await gasRun({ action: "check_name", name: name });
+    const res = await withProcessing_('驗證名號中…', () => gasRun({ action: "check_name", name: name }));
     if (res.invalidName) { alert(res.message || "名號僅限中文字。"); return false; }
     if (res.exists) { alert(res.message || '此名號是聖杯戰爭中已知的角色，請換一個名字。'); return false; }
     return true;
@@ -201,6 +201,7 @@ async function checkNameOk_(name) {
 }
 
   // ⏳ 全螢幕「處理中」遮罩：AI 生成需數秒，避免玩家以為當機
+  var __procOn = false; // 遮罩現在有沒有人在顯示——由 show/hideProcessing 維護，withProcessing_ 讀它決定要不要接手
   function showProcessing(msg, quick) {
     let el = document.getElementById('proc-overlay');
     if (!el) {
@@ -215,8 +216,42 @@ async function checkNameOk_(name) {
     // quick＝快速動作(出力/補魔/強撐/魔境…)：只留轉圈＋訊息，不顯示「10～30 秒」那行(那是給 AI 生成用的)
     var hint = document.getElementById('proc-hint'); if (hint) hint.style.display = quick ? 'none' : 'block';
     el.style.display = 'flex';
+    __procOn = true;  // 遮罩現在有人在顯示——巢狀的 withProcessing_ 就不重複開關(見它上方註解)
   }
-  function hideProcessing() { const el = document.getElementById('proc-overlay'); if (el) el.style.display = 'none'; }
+  function hideProcessing() { const el = document.getElementById('proc-overlay'); if (el) el.style.display = 'none'; __procOn = false; }
+
+  // ⏳ 需要等的事情一律看得見（玩家：「如果需要玩家等待的地方 都加上一個等待畫面 不要只是背景執行」）。
+  //   包住一段 await：開遮罩 → 跑 → 不論成功/失敗/例外都收掉。
+  //   __procOn 由 show/hideProcessing 自己維護（單一真實來源），所以誰先開的都算數：
+  //   已經有人在顯示就不重複開關，由最外層那個負責收。細節見 CODE_NOTES.md。
+  async function withProcessing_(msg, fn, slow) {
+    var owned = !__procOn;
+    if (owned) { try { showProcessing(msg || '處理中…', !slow); } catch (e) { } }
+    try { return await fn(); }
+    finally { if (owned) { try { hideProcessing(); } catch (e) { } } }
+  }
+  // 🫧 非阻塞的「還在跑」提示：用在【玩家不必等、但也不該以為沒事發生】的背景工作（補生成敘事欄）。
+  //   回傳一支收工函式，務必放在 finally 裡呼叫。
+  function bgHint_(msg) {
+    var el = document.getElementById('bg-hint');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'bg-hint';
+      el.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:99998;'
+        + 'background:rgba(24,18,32,.92);border:1px solid #4a3a6a;border-radius:999px;padding:6px 14px;color:#cbbfe0;font-size:12px;'
+        + 'box-shadow:0 4px 18px rgba(0,0,0,.5);pointer-events:none;display:none;';
+      document.body.appendChild(el);
+    }
+    el._n = (el._n || 0) + 1;
+    el.textContent = '⏳ ' + (msg || '背景處理中…');
+    el.style.display = 'block';
+    var done = false;
+    return function () {
+      if (done) return; done = true;
+      el._n = Math.max(0, (el._n || 1) - 1);
+      if (!el._n) el.style.display = 'none';
+    };
+  }
 
   async function createPC(event) {
   const name = document.getElementById('s-name').value.trim();
@@ -262,8 +297,10 @@ async function checkNameOk_(name) {
 
 // 🚀 非阻塞補生成御主敘事欄：於召喚頁背景呼叫，成功且已進遊戲畫面則刷新御主卡；失敗靜默(保留種子)。
 async function backfillMasterAi(seed) {
+  var _bg = null;
   try {
     if (!pc || !pc.id) return;
+    _bg = bgHint_('正在補完御主的來歷…'); // 刻意【不】擋畫面(玩家可以直接去召喚)，但要看得出還在跑
     const res = await gasRun({ action: 'backfill_master_ai', pcId: pc.id,
       acctName: (typeof currentAccount !== 'undefined' ? currentAccount : ''),
       appearance: seed.appearance || "", standing: seed.standing || "", wish: seed.wish || "",
@@ -274,13 +311,14 @@ async function backfillMasterAi(seed) {
       if (gameEl && gameEl.style.display !== 'none') { try { syncData(); } catch (e) {} }
     }
   } catch (e) { /* 靜默：保留 create 寫的種子設定 */ }
+  finally { if (_bg) _bg(); }
 }
 
 let heroesData = [];
 let selectedSummonClass = '';
 async function loadHeroes() {
   try {
-    const r = await gasRun({ action: 'get_heroes', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '' });
+    const r = await withProcessing_('翻閱英靈殿中…', () => gasRun({ action: 'get_heroes', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '' }));
     heroesData = (r && r.heroes) || [];
   } catch (e) { heroesData = []; }
 }
@@ -564,7 +602,7 @@ async function claimHero(id) {
   if (!h) return;
   if (!await customConfirm_('🖐 認領「' + h.name + '」？\n\n這名原創英靈目前無主（創造者印記功能上線前鑄造）。\n認領後你就是她的創造者，可在工房修改；先到先得。')) return;
   try {
-    var res = await gasRun({ action: 'claim_hero', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '', heroId: String(id), acctName: (typeof currentAccount !== 'undefined' ? currentAccount : '') });
+    var res = await withProcessing_('認領中…', () => gasRun({ action: 'claim_hero', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '', heroId: String(id), acctName: (typeof currentAccount !== 'undefined' ? currentAccount : '') }));
     alert((res && res.message) || (res && res.success ? '已認領。' : '認領失敗。'));
     if (res && res.success) {
       await loadHeroes(); renderHeroList(); renderForgeWorks_();

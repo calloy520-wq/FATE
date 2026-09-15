@@ -495,7 +495,7 @@
       }
       document.getElementById('ui-name').innerText = "命盤解析中...";
       try {
-        const res = await gasRun({ action: "get_full_status", targetName: targetName, pcId: pc.id, acctName: (pc && pc.account) || currentAccount });
+        const res = await withProcessing_('命盤解析中…', () => gasRun({ action: "get_full_status", targetName: targetName, pcId: pc.id, acctName: (pc && pc.account) || currentAccount }));
         
         if (res.success) {
           // 🔴 已經不需要後端的 canEditFate 許可證了，直接更新 UI
@@ -1362,14 +1362,14 @@
     document.getElementById('fate-edit-title').innerText = "重塑中...";
 
     try {
-        const res = await gasRun({
+        const res = await withProcessing_('重塑命運中…', () => gasRun({
             action: "update_fate",
             pcId: pc.id,  // 🔴 關鍵修復：必須把自己的身分證傳過去！
             acctName: (pc && pc.account) || currentAccount,
             targetId: currentStatusTargetId,
             fateType: currentFateType,
             fateValue: newValue
-        });
+        }));
         if (res.success) {
             document.getElementById('fate-edit-modal').style.display = 'none';
             // 如果後端傳回的 statusString 包含新的背景，這裡會自動更新 UI
@@ -1956,7 +1956,7 @@
     var cached = preNodes || lastMapNodes;
     if (cached) { nodes = cached.nodes || []; here = cached.here || ''; allyIntel = !!cached.allyIntel; }
     else {
-      try { var r = await gasRun({ action: 'get_map_nodes', pcId: pc.id }); if (r && r.success) { nodes = r.nodes || []; here = r.here || ''; allyIntel = !!r.allyIntel; lastMapNodes = r; } } catch (e) { }
+      try { var r = await withProcessing_('展開戰場地圖中…', () => gasRun({ action: 'get_map_nodes', pcId: pc.id })); if (r && r.success) { nodes = r.nodes || []; here = r.here || ''; allyIntel = !!r.allyIntel; lastMapNodes = r; } } catch (e) { }
     }
     // 🐛→✅ 玩家實測抓到：「🔍偵查」在這裡跟底部永遠可見的戰場行動列(renderWarActions 的 chip('🔍 偵查', 'scout()'…))
     //   是同一個 scout()，地圖分頁打開時兩顆按鈕同時存在、完全重複——只留底部那顆常駐入口，這裡拿掉。
@@ -2434,7 +2434,7 @@
       if (res && res.success) {
         if (res.report) {
           renderFateBattleReport(res.report); // 📊 先攤開骰子/數字戰報(秒顯，不等AI)
-          try { hideProcessing(); } catch (e) {} // 🎯 戰報已出→撤全螢幕「聖杯演算中」遮罩，玩家可即刻閱讀戰報；UI 仍由 __actionBusy 鎖住(擋重複動作)，narrate 自帶行內敘述生成提示
+          try { hideProcessing(); } catch (e) {} // 🎯 戰報已出→撤全螢幕「聖杯演算中」遮罩，玩家可即刻閱讀戰報；UI 仍由 __actionBusy 鎖住(擋重複動作)，narrate 自帶行內敘述生成提示。遮罩交還，後續若有 withProcessing_ 才開得起來
         }
         syncData(true);
         await narrate(res.aiPrompt); // ⏳ 敘述生成完才 endAction 解鎖按鈕；此時遮罩已撤、玩家邊讀戰報邊等 AI
@@ -2542,7 +2542,7 @@
   }
 
   function submitOutfit_(name, isSelf, txt) {
-    gasRun({ action: 'outfit', pcId: pc.id, servant: name, self: !!isSelf, outfit: txt, acctName: (pc && pc.account) || currentAccount })
+    withProcessing_('更衣中…', () => gasRun({ action: 'outfit', pcId: pc.id, servant: name, self: !!isSelf, outfit: txt, acctName: (pc && pc.account) || currentAccount }))
       .then(function (res) {
         if (res && res.success) {
           // ⚡ 後端已把消毒過的最終值原樣回傳(res.outfit)，直接蓋進快取的 tags 資料、原地重繪(refreshFateTags 吃 prefetched 不再發網路請求)，免再打一趟 get_tags；查無快取才退回網路重抓。
@@ -2568,7 +2568,7 @@
     var cur = (sv && sv.weapon) ? sv.weapon : '';
     var txt = await customPrompt_('⚔️ 武裝「' + name + '」\n\n輸入她的武器與戰鬥方式（如：雙持大劍、鎖鏈鐮刀、拳腳體術），\nAI 敘述會嚴格以此為準——不受職階慣例或原典武器習慣綁。\n留空＝清除，恢復自然演出。（限 30 字）', cur, 30);
     if (txt === null) return; // 取消
-    gasRun({ action: 'weapon', pcId: pc.id, servant: name, weapon: txt, acctName: (pc && pc.account) || currentAccount })
+    withProcessing_('換裝武裝中…', () => gasRun({ action: 'weapon', pcId: pc.id, servant: name, weapon: txt, acctName: (pc && pc.account) || currentAccount }))
       .then(function (res) {
         if (res && res.success) {
           // ⚡ 跟 changeOutfit 同款：吃後端回傳的消毒後權威值(res.weapon)直接重繪，免再打一趟 get_tags。
@@ -2627,7 +2627,7 @@
     try {
       const req = { action: action, pcId: pc.id, servant: svName, acctName: (pc && pc.account) || currentAccount };
       if (payload) for (var k in payload) req[k] = payload[k];
-      const res = await gasRun(req);
+      const res = await withProcessing_('銘刻中…', () => gasRun(req));
       if (res && res.success) { try { syncData(true); } catch (e) {} }
       else if (res && res.message) { alert(res.message); }
     } catch (e) { /* 靜默 */ }

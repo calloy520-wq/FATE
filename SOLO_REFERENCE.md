@@ -1086,3 +1086,24 @@ miniSystem 鐵律4  數值系統已經算完，你只寫字        ← 你＝AI
 
 掃法：把組好的提示詞抓下來，逐個「你」列出前後文人工分類——**光讀原始碼看不出來**，
 因為衝突是「兩段各自正確的文字湊在一起」才產生的（同 `aiHtml_` 那個坑）。
+
+
+---
+
+## ⏳ 等待畫面（2026-09）
+
+玩家：「如果需要玩家等待的地方 都加上一個等待畫面 不要只是背景執行！」
+
+solo 這邊補上的入口：帳號登入、開新局清檔、翻正典御主名冊、驗證名號（跑在 `createPC` 開遮罩【之前】，
+按下「締結令咒」到遮罩出現中間原本是空白的）、翻英靈殿名冊、認領無主原創英靈、
+命盤解析、逆天改命、符文/魔境選單、換裝、武裝、地圖分頁首次載入。
+
+共用出口是 `withProcessing_(msg, fn)`（定義在 `Script_Onboarding.html`，與 `showProcessing`／
+`hideProcessing` 同一處）。原本四份各自 `try/finally` 的骨架收斂進去——漏掉 `finally` 的那一份
+會把玩家永遠關在遮罩後面，比不開遮罩更糟。巢狀安全靠 `__procOn`（遮罩現在有沒有人在顯示，
+由 `show`／`hideProcessing` 自己維護），內層不會把外層 `beginAction` 的遮罩提早收掉。
+
+`backfillMasterAi` 維持非阻塞（玩家可以直接去召喚），改掛 `bgHint_()` 小提示條。
+樂觀更新的 `setServantOutput`／`manaSetOutput` 不加遮罩——畫面當場就是結果，加了只是閃一下騷擾人。
+
+機器擋 `check_wait.py` ＋ runtime 探針 `scratchpad/size/wait.js`（詳見 `KANSHOU_REFERENCE.md` 同名章節）。

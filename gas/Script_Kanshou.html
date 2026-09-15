@@ -88,7 +88,7 @@
     if (!text) { alert('請輸入貼圖文字。'); return; }
     _kqpBusy = true;
     try {
-      const res = await gasRun({ action: 'kanshou_add_quick_phrase', pcId: pc.id, acctName: currentAccount, text: text });
+      const res = await withProcessing_('新增貼圖中…', () => gasRun({ action: 'kanshou_add_quick_phrase', pcId: pc.id, acctName: currentAccount, text: text }));
       if (!res || !res.success) { alert((res && res.message) || '新增失敗。'); return; }
       _kcQuickPhrases = res.quickPhrases || _kcQuickPhrases;
       renderKcQuickPhrases_();
@@ -100,7 +100,7 @@
     if (_kqpBusy) return;
     _kqpBusy = true;
     try {
-      const res = await gasRun({ action: 'kanshou_delete_quick_phrase', pcId: pc.id, acctName: currentAccount, text: text });
+      const res = await withProcessing_('刪除貼圖中…', () => gasRun({ action: 'kanshou_delete_quick_phrase', pcId: pc.id, acctName: currentAccount, text: text }));
       if (!res || !res.success) { alert((res && res.message) || '刪除失敗。'); return; }
       _kcQuickPhrases = res.quickPhrases || [];
       renderKcQuickPhrases_();
@@ -402,7 +402,7 @@ let plainTextContext = cleanText;
       //   靠它判斷，過期資料會誤報「今天還有沒赴的約」(稽核抓到的假警報)。成立走 proposalResult、
       //   結算走 promiseSettle，兩邊任一命中都刷新(只刷一次)。
       if ((data.promiseSettle && data.promiseSettle.length) || (data.proposalResult && String(data.proposalResult.type) === 'promise')) {
-        (async function () { try { const r = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount }); if (r && r.success) { _kcCur = r.current || []; try { renderMapPane(); } catch (e) {} try { renderKcPartyList_(); } catch (e) {} } } catch (e) {} })();
+        kcRefreshAfterPromise_();
       }
       saveStoryLocal_(story);   // 修剪＋配額保護，見 Script.html saveStoryLocal_
       setTimeout(() => { story.scrollTop = story.scrollHeight; }, 50);
@@ -739,10 +739,11 @@ let plainTextContext = cleanText;
     if (!pc || !pc.id) { alert('尚未進入後日談。'); return; }
     try {
       var needHeroes = !_kcHeroesCacheReady;
-      const [res, heroRes] = await Promise.all([
+      // ⏳ 這裡是兩趟 round-trip（同伴清單＋英靈殿），按下去到面板彈出中間一定要看得見在跑。
+      const [res, heroRes] = await withProcessing_('讀取同伴中…', () => Promise.all([
         gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount }),
         needHeroes ? gasRun({ action: 'get_heroes', pcId: pc.id }) : Promise.resolve(null)
-      ]);
+      ]));
       if (!res || !res.success) { alert((res && res.message) || '讀取同伴失敗。'); return; }
       _kcCur = res.current || [];
       if (needHeroes) {
@@ -975,7 +976,7 @@ let plainTextContext = cleanText;
     if (!name) { alert('名稱不能空白。'); return; }
     if (name.length > 12) { alert('名稱請在12字以內。'); return; }
     try {
-      const res = await gasRun({ action: 'kanshou_set_home_name', pcId: pc.id, acctName: currentAccount, homeName: name });
+      const res = await withProcessing_('改名中…', () => gasRun({ action: 'kanshou_set_home_name', pcId: pc.id, acctName: currentAccount, homeName: name }));
       if (!res || !res.success) { alert((res && res.message) || '改名失敗。'); return; }
       pc.homeName = res.homeName;
       localStorage.setItem('kyushu_v27', JSON.stringify(pc));
@@ -1056,6 +1057,18 @@ let plainTextContext = cleanText;
 
   // 同伴名單變動後的局部刷新：只重抓「鑑賞眾生在場名單」這份小資料，不再重打 get_heroes，
   // 也只重繪 party-list／hero-list 兩塊(master-box/filters 沒變，不動)。
+  // 約定有變動時的背景刷新（不是玩家按出來的，玩家也沒在等它——他正在讀剛出爐的敘述）。
+  async function kcRefreshAfterPromise_() {
+    try {
+      const r = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount });
+      if (r && r.success) {
+        _kcCur = r.current || [];
+        try { renderMapPane(); } catch (e) { }
+        try { renderKcPartyList_(); } catch (e) { }
+      }
+    } catch (e) { }
+  }
+
   async function kcRefreshPartyOnly_() {
     try {
       const res = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount });
@@ -1217,7 +1230,7 @@ let plainTextContext = cleanText;
   async function kanshouDeletePhoto(photoId) {
     if (!await customConfirm_('確定撕掉這張照片？(不可復原)')) return;
     try {
-      const res = await gasRun({ action: 'album_delete', pcId: pc.id, acctName: currentAccount, photoId: photoId });
+      const res = await withProcessing_('撕掉照片中…', () => gasRun({ action: 'album_delete', pcId: pc.id, acctName: currentAccount, photoId: photoId }));
       if (res && res.success) openKanshouAlbum(); else alert((res && res.message) || '刪除失敗。');
     } catch (e) { alert('刪除失敗。'); }
   }
@@ -1501,7 +1514,7 @@ let plainTextContext = cleanText;
     if (_krBusy) return;
     _krBusy = true;
     try {
-      const res = await gasRun({ action: 'update_rel_tag', pcId: pc.id, acctName: currentAccount, targetName: name, newTagText: tag });
+      const res = await withProcessing_('更改關係中…', () => gasRun({ action: 'update_rel_tag', pcId: pc.id, acctName: currentAccount, targetName: name, newTagText: tag }));
       if (res && res.success) { syncData(true); kcRefreshPartyOnly_(); var ov = document.getElementById('kr-overlay'); if (ov) ov.style.display = 'none'; }
       else { alert((res && res.message) || '更改失敗。'); }
     } catch (e) { alert('更改失敗。'); }
@@ -1522,7 +1535,7 @@ let plainTextContext = cleanText;
     if (_krBusy) return;
     _krBusy = true;
     try {
-      const res = await gasRun({ action: 'kanshou_set_nickname', pcId: pc.id, acctName: currentAccount, targetName: name, newNickname: nt });
+      const res = await withProcessing_('更改稱呼中…', () => gasRun({ action: 'kanshou_set_nickname', pcId: pc.id, acctName: currentAccount, targetName: name, newNickname: nt }));
       if (res && res.success) { syncData(true); kcRefreshPartyOnly_(); var ov = document.getElementById('kr-overlay'); if (ov) ov.style.display = 'none'; }
       else { alert((res && res.message) || '更改失敗。'); }
     } catch (e) { alert('更改失敗。'); }
@@ -1539,7 +1552,7 @@ let plainTextContext = cleanText;
     //   原本會讓玩家白跑一趟round-trip才被後端擋下。比照同款補上。
     if (nm.length > 16) { alert('名字請在16字以內。'); return; }
     try {
-      const res = await gasRun({ action: 'kanshou_set_name', pcId: pc.id, acctName: currentAccount, pcName: nm });
+      const res = await withProcessing_('改名中…', () => gasRun({ action: 'kanshou_set_name', pcId: pc.id, acctName: currentAccount, pcName: nm }));
       if (res && res.success) {
         pc.name = res.pcName;
         localStorage.setItem('kyushu_v27', JSON.stringify(pc));
@@ -1553,7 +1566,7 @@ let plainTextContext = cleanText;
     if (!pc || !pc.id) { alert('尚未進入後日談。'); return; }
     const sex = await askKanshouSex();
     try {
-      const res = await gasRun({ action: 'kanshou_set_sex', pcId: pc.id, acctName: currentAccount, pcSex: sex });
+      const res = await withProcessing_('切換中…', () => gasRun({ action: 'kanshou_set_sex', pcId: pc.id, acctName: currentAccount, pcSex: sex }));
       if (res && res.success) {
         pc.sex = res.pcSex;
         localStorage.setItem('kyushu_v27', JSON.stringify(pc));
@@ -1633,12 +1646,15 @@ let plainTextContext = cleanText;
   // 🚀 非阻塞補生成御主敘事欄(比照solo的backfillMasterAi)：進場後背景呼叫，成功則刷新左側御主卡；
   //   失敗靜默(保留enter_kanshou寫的種子預設)。
   async function backfillKanshouAi(seed) {
+    var _bg = null;
     try {
       if (!pc || !pc.id) return;
+      _bg = bgHint_('正在補完你的設定…'); // 刻意【不】擋畫面(玩家已經可以開始玩)，但要看得出還在跑
       const res = await gasRun({ action: 'backfill_kanshou_ai', pcId: pc.id, acctName: currentAccount,
         appearance: seed.appearance || "", standing: seed.standing || "", persona: seed.persona || "" });
       if (res && res.success) { try { syncData(); } catch (e) {} }
     } catch (e) { /* 靜默：保留種子設定 */ }
+    finally { if (_bg) _bg(); }
   }
 
   async function enterKanshou() {

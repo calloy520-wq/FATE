@@ -1377,8 +1377,11 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `checkNameOk_(name)` — 驗御主名：純中文檢查＋後端 `check_name`（重名/違規擋下），回 true＝可用。2026-09 起不再自成一屏，改由 `createPC` 送出前呼叫一次。
 
 #### 全螢幕遮罩
-- `showProcessing(msg, quick)` — 惰性建/顯示「處理中」全螢幕遮罩（`quick` 隱藏「10~30秒」提示）。
-- `hideProcessing()` — 隱藏該遮罩。
+- `showProcessing(msg, quick)` — 惰性建/顯示「處理中」全螢幕遮罩（`quick` 隱藏「10~30秒」提示）；同時把 `__procOn` 設為 true。
+- `hideProcessing()` — 隱藏該遮罩；同時把 `__procOn` 設為 false。
+- `__procOn`（全域旗標）— 遮罩現在有沒有人在顯示。**單一真實來源**，只由上面兩支維護；`withProcessing_` 讀它決定要不要接手。
+- `withProcessing_(msg, fn, slow)` — **等待畫面的共用出口**：沒人在顯示遮罩就開一張、跑傳進來的 `fn`、不論成功/失敗/例外都收掉，結果原樣回傳、例外原樣拋出；已經有人在顯示就整支不碰（由最外層那個收）。`slow` 為真才顯示「10~30 秒」那行。玩家按下去要等的每一件事都走它。
+- `bgHint_(msg)` — 非阻塞的「還在跑」小提示條（`pointer-events:none`），用在玩家**不必等、但也不該以為沒事發生**的背景工作（`backfillMasterAi`／`backfillKanshouAi`）。回傳一支**冪等**的收工函式，務必放進 `finally`；同時有多支背景工作時計數，全部收工才消失。
 
 #### 締約創角
 - `createPC(event)` — 締結御主契約（`create`，收名/性別/外貌/身世/願望/禮裝＋擲命結果）；成功清舊 localStorage、組 `pc`、非阻塞 `backfillMasterAi`、進召喚頁 `loadHeroes`。
