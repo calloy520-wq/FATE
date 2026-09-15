@@ -67,11 +67,12 @@ function quadLabeled_(raw, labels, skipNone) {
   return out;
 }
 
-// 🎭 表演總則（單一真實來源）：show-don't-tell／正典認知覆蓋／羈絆親疏，這句對「這次提示詞裡出現的每一位角色」都適用、內容固定不變——不管同框幾位，只需要講一次。
+// 🎭 這一則提示詞裡有誰。固定的表演總則(show-don't-tell／正典認知覆蓋／羈絆親疏)2026-09 移進
+//   miniSystem 講一次——它每顆按鍵都貼一遍、109 字、內容從不變，是全 solo 最貴的重複。
 function performanceNote_(names) {
   var list = (names || []).filter(Boolean);
   if (!list.length) return "";
-  return `★依「${list.join('、')}」的真名與性格演出：性格/萌點/六圍/技能只演出來，不當台詞也不由旁白點破。Fate 正典角色依你自身認知演，上方短句只是錨點。羈絆低→戒備矜持、高→漸親近，性格內核不變。\n`;
+  return `★本則登場：${list.join('、')}——依真名與性格演出。\n`;
 }
 
 // 🎭 從者「演出依據」卡：真名/職階/第一人稱/個性/對御主/口吻/萌點/招牌動作/六圍/技能/寶具壓成一段塞進 narration 提示詞，讓 AI 依『我們定義的角色』內化演出（只當背景、不准說嘴）。

@@ -542,7 +542,7 @@ function actionFateBattle(userData, pcId, sheets) {
       asnPrompt = asnCardsStr + `【系統·斬首戰報·已裁定】御主號令${dualAsn ? '兩名從者齊撲' : `從者『${crit.name}』`}奇襲敵御主「${masterName}」。命運的骰子由『${crit.name}』擲出 20 — 大成功！撕開護衛從者「${guardName}」的防線、取下御主性命。御主既亡（凡人之軀·斃命，非靈基消滅）、魔力供給斷絕，` +
         (guardSurvived ? `然「${guardName}」憑一己神秘之力強行維繫靈基、瀕死重創卻未消散。` : `從者「${guardName}」失去供魔當場化作光點消散。`) +
         `${asnVictory ? '此為最後的敵對陣營——聖杯已然在握！' : ''}\n` +
-        `★以 Fate／TYPE-MOON 筆觸描寫這萬中選一、石破天驚的斬首瞬間（一段即可）。【致命的手段由你依『${crit.name}』的職階與真名自行演出——法師為魔術一擊、近戰為兵刃、弓兵為遠程，勿假設特定方式】${dualAsn ? '，兩名從者夾擊、其中一人覷得破綻收尾' : ''}。勝負已由系統結算。\n` +
+        `★描寫這萬中選一、石破天驚的斬首瞬間。【致命的手段由你依『${crit.name}』的職階與真名自行演出——法師為魔術一擊、近戰為兵刃、弓兵為遠程，勿假設特定方式】${dualAsn ? '，兩名從者夾擊、其中一人覷得破綻收尾' : ''}。勝負已由系統結算。\n` +
         (guardSurvived ? `★「${guardName}」雖重創瀕死，【絕對禁止】描寫其消散或死亡。\n` : ``);
     } else {
       // 全部失手：護衛捨身格擋，反手 1.5 倍痛擊「每一名」參與斬首的從者
@@ -599,11 +599,11 @@ function actionFateBattle(userData, pcId, sheets) {
       const whoTxt = dualAsn ? '兩名從者' : `從者『${atkC.name}』`;
       if (asnDefeat) {
         asnPrompt = asnCardsStr + `【系統·斬首戰報·已裁定】御主號令${whoTxt}奇襲敵御主「${masterName}」，無人擲出 20。護衛從者「${guardName}」捨身擋下、反手以 1.5 倍之力逐一痛擊（${rollsTxt}），我方從者悉數靈基崩潰、化作光點消散，御主敗北。\n` +
-          `★以 Fate／TYPE-MOON 筆觸沉痛描寫斬首落空、護衛反殺、從者消滅的瞬間（一段即可），語氣留白。勝負已由系統結算。\n` +
+          `★沉痛描寫斬首落空、護衛反殺、從者消滅的瞬間，語氣留白。勝負已由系統結算。\n` +
           ``;
       } else {
         asnPrompt = asnCardsStr + `【系統·斬首戰報·已裁定】御主號令${whoTxt}欲奇襲敵御主「${masterName}」，無人擲出 20（大成功）。護衛從者「${guardName}」如影攔在御主身前、硬生生擋下，並反手以 1.5 倍之力逐一痛擊（${rollsTxt}）。御主未能得手。\n` +
-          `★以 Fate／TYPE-MOON 筆觸描寫護衛捨身格擋、反噬重擊${dualAsn ? '、兩名從者同遭反震' : ''}的險惡瞬間（一段即可）。傷害已由系統結算。\n` +
+          `★描寫護衛捨身格擋、反噬重擊${dualAsn ? '、兩名從者同遭反震' : ''}的險惡瞬間。傷害已由系統結算。\n` +
           `★未崩潰之從者最多重傷，【絕對禁止】描寫其死亡。\n` +
           ``;
       }
@@ -1065,6 +1065,17 @@ function actionFateBattle(userData, pcId, sheets) {
   const totalTaken = rounds.reduce((s, r) => s + (r.eDmg || 0) + (r.pactDef && r.pactDef.hit ? (r.pactDef.dmg || 0) : 0), 0) + (clash ? (clash.pDmgTaken || 0) : 0);
   const nRounds = rounds.length;
   const atkLabel = dualAttack ? `${atkC.name} 與另一名從者協同` : atkC.name;
+  // 💥 本次解放寶具的【真名】(多寶具取所選那把)：拆中文／原名供戰報橫幅＋AI 高呼。寶具解放必唸真名。
+  let npName = null;
+  if (useNp) {
+    try {
+      atkC.npChoice = (userData.npChoice != null ? userData.npChoice : npChoice_(pcData[atkIdx][COL.PC.MEMORY]));
+      const _npFull = String(npProfile_(atkC).name || atkC.np || "").split(/[（(／]/)[0].trim();
+      const _m = _npFull.match(/^([^A-Za-z]+?)\s*([A-Za-z][A-Za-z0-9 :·'’.\-]*)?$/);
+      npName = { zh: (_m && _m[1] ? _m[1].trim() : _npFull), en: (_m && _m[2] ? _m[2].trim() : "") };
+    } catch (e) { npName = null; }
+  }
+
   // 逐回合明細壓成一行「交鋒節奏」：命中/揮空的先後是攻防轉折(AI 要的)，逐行重複的人名與
   //   單次傷害數字不是——總傷害下面另有一行，鐵律又要求不複述數字、不寫逐回合流水帳。
   const ROUND_MARKS_ = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
@@ -1072,8 +1083,13 @@ function actionFateBattle(userData, pcId, sheets) {
     const attackers = {};
     rounds.forEach(r => (r.strikes || []).forEach(k => { attackers[k.by] = 1; }));
     const multi = Object.keys(attackers).length > 1;
+    // 寶具一律是第一回合那一擊(npOpeningStrike)。不標在節奏上，AI 就不知道「①命中」跟下面那條
+    //   「解放了寶具」是同一擊，於是寫成先打一下、再放寶具兩件事——這是寶具場面接不起來的主因。
+    const npMark = (useNp && npName) ? `【真名解放·${npName.zh}】` : (useNp ? '【真名解放】' : '');
     const beats = rounds.map((r, i) => (ROUND_MARKS_[i] || ('第' + r.n + '回合')) +
-      (r.strikes || []).map(k => `${multi ? k.by : ''}${k.pHit ? '命中' : '揮空'}${k.note ? `【${String(k.note).replace(/\n/g, ' ')}】` : ''}`).join('＋'));
+      (r.strikes || []).map(k => `${multi ? k.by : ''}${k.pHit ? '命中' : '揮空'}${k.note ? `【${String(k.note).replace(/\n/g, ' ')}】` : ''}`).join('＋') +
+      (i === 0 ? npMark : '') +
+      (r.eNp && r.eNpName ? `【敵真名解放·${r.eNpName}】` : ''));
     const counter = targetIsFoeServant ? rounds.filter(r => r.eDmg).length : 0;
     const blocked = targetIsFoeServant && rounds.some(r => r.eHit === false);
     return `交鋒節奏：${beats.join('／')}` +
@@ -1116,41 +1132,26 @@ function actionFateBattle(userData, pcId, sheets) {
     const _hpRatioNow = _defHpMaxNow > 0 ? _defHpNow / _defHpMaxNow : 1;
     const _hpMaxRef = Math.max(_defHpMaxNow, parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 1);
     const _exchangeSignificant = (totalDealt + totalTaken) >= _hpMaxRef * 0.2;
-    const _situText = defeat ? '己方從者完全壓制、我方從者早已潰敗'
-      : destroyedName ? '己方從者剛親手終結了對面戰力'
-        : _hpRatioNow <= 0.25 ? '己方從者身陷重創、命懸一線，情勢危急'
-          : _hpRatioNow <= 0.55 ? '己方從者已見劣勢、傷勢漸重'
+    // 一律指名道姓：「己方/我方」接在敵御主卡後面，讀的人(和 AI)會把立場讀反。
+    const _hisSv = `「${defC.name}」`, _ourSv = `『${atkC.name}』`;
+    const _situText = defeat ? `${_hisSv}完全壓制、${_ourSv}已然潰敗`
+      : destroyedName ? `${_hisSv}剛親手終結了${_ourSv}`
+        : _hpRatioNow <= 0.25 ? `${_hisSv}身陷重創、命懸一線，情勢危急`
+          : _hpRatioNow <= 0.55 ? `${_hisSv}已見劣勢、傷勢漸重`
             : !_exchangeSignificant ? '雙方仍在試探交手，血條都還健在，尚未分出明顯優劣'
-              : (totalTaken > totalDealt * 1.3) ? '己方從者正壓著對方打、明顯佔上風'
-                : (totalDealt > totalTaken * 1.3) ? '己方從者略顯吃力、被壓著打'
+              : (totalTaken > totalDealt * 1.3) ? `${_hisSv}正壓著${_ourSv}打、明顯佔上風`
+                : (totalDealt > totalTaken * 1.3) ? `${_hisSv}略顯吃力、被${_ourSv}壓著打`
                   : '雙方勢均力敵、勝負未有定論';
     enemyMasterCardStr += `★【戰局實況】${_situText}——敵御主神態/語氣/台詞需貼合此局勢(得意/焦慮/強撐/嘲諷/動搖皆可，依性格決定，但不可無視戰況自說自話)。\n`;
   }
   // 🎭 敵從者演出卡：附上敵從者卡，讓性格/口吻/狂化禁言有依據，而非全靠 AI 憑真名即興；同一張 servantCard_，狂化「嚴禁台詞」鐵則對敵方一併生效。
   const foeServantCardStr = targetIsFoeServant ? '〔敵方出戰者〕' + servantCard_(pcData[nIdx], { skipClose: true, foe: true }) : "";
 
-  // 💥 本次解放寶具的【真名】(多寶具取所選那把)：拆中文／原名供戰報橫幅＋AI 高呼。寶具解放必唸真名。
-  let npName = null;
-  if (useNp) {
-    try {
-      atkC.npChoice = (userData.npChoice != null ? userData.npChoice : npChoice_(pcData[atkIdx][COL.PC.MEMORY]));
-      const _npFull = String(npProfile_(atkC).name || atkC.np || "").split(/[（(／]/)[0].trim();
-      const _m = _npFull.match(/^([^A-Za-z]+?)\s*([A-Za-z][A-Za-z0-9 :·'’.\-]*)?$/);
-      npName = { zh: (_m && _m[1] ? _m[1].trim() : _npFull), en: (_m && _m[2] ? _m[2].trim() : "") };
-    } catch (e) { npName = null; }
-  }
   const npOpeningStrike = (!clash && useNp && rounds[0]) ? rounds[0].strikes.find(function (k) { return k.by === atkC.name; }) : null;
   const npMissed = !!(npOpeningStrike && !npOpeningStrike.pHit);
 
   // 🎌 御主參戰風格·並肩感（每場【必給】·2026-07 玩家回饋「御主扣血卻沒一起上陣的感覺」）：御主體術/魔術/分擔血量這三個訊號若都沒觸發(常見：御主無體術魔術數值＋見機行事5%小傷攤成0)，AI 完全收不到「御主在場」的訊號→只演從者孤軍奮戰。
   var _stanceKey = String(userData.stance || 'normal');
-  var _masterStanceLine = (_stanceKey === 'open'
-    ? `· 【御主參戰·正大光明】御主與『${atkC.name}』並肩立於陣前，直面敵手、共擔鋒鏑——該掩護時挺身補位、從者被震退或打飛時一把扶住／接住穩住其重心，兩人以身互為犄角、一同進退，絕非遠遠旁觀。`
-    : _stanceKey === 'stealth'
-      ? `· 【御主參戰·後方支援】御主據守後方掩蔽處，穩定供魔、冷靜判讀戰況並下令指揮——雖不入近身險境，卻是這場交鋒的中樞，與從者運籌一體，切勿寫成御主缺席或無關。`
-      : `· 【御主參戰·見機行事】御主守在戰線側後方、讀著戰況伺機介入——該掩護時上前補位、該退則果斷，與從者一攻一守、彼此呼應。`)
-    + (masterShared > 0 ? `此戰御主更以身替『${atkC.name}』硬扛下 ${masterShared} 點傷勢——★請具體演出這記「以身相代」的畫面(撲上以身卸力、擋在身前吃下這一擊、或接住被打飛的從者而自己因此擦傷負創)，別只丟一個數字；自身確實流血受創、數值已由 GAS 結算。` : ``)
-    + `★演出御主與從者並肩作戰的臨場感，別把御主晾在畫面外；具體招式/手段只能依御主卡上實際列出的魔術系統/體術，卡上沒寫的技術一律不可捏造(改寫成呼喊指令/眼神示意/肢體掩護等不需特定技術的參與方式)。\n`;
 
   let aiPrompt;
   // 🎬 敘述：給 AI【事實素材】，少下指令——讓它自己演。只保留必要紅線(show-don't-tell／勿擅自寫死)。
@@ -1174,6 +1175,24 @@ function actionFateBattle(userData, pcId, sheets) {
   const enemyNpRoundNotes = rounds.filter(r => r.eNp && r.eNpName).map(r =>
     `第${r.n}回合「${defC.name}」反擊解放真名【${r.eNpName}】${r.eHit ? `命中「${r.eTarget}」` : '，卻被躲開落空'}`
   ).join('；');
+  // 御主參戰：站位、以身相代、體術/魔術助拳原本是三條各自為政的素材（還被「本戰已終結」隔開），
+  //   合成一條，讓 AI 拿到「御主這一戰做了什麼」而不是三個碎片。詳見 CODE_NOTES。
+  var _mjBits = [];
+  if (ourMeleeFired) _mjBits.push('親自出手體術助拳');
+  if (ourMagicFired) _mjBits.push('暗中引動自身魔術支援');
+  var _masterJoinLine = (_stanceKey === 'open'
+    ? `【御主參戰·正大光明】御主與『${atkC.name}』並肩立於陣前，直面敵手、共擔鋒鏑——該掩護時挺身補位，從者被震退時一把扶住穩住重心，兩人互為犄角、一同進退。`
+    : _stanceKey === 'stealth'
+      ? `【御主參戰·後方支援】御主據守後方掩蔽處，穩定供魔、冷靜判讀戰況並下令指揮——不入近身險境，卻是這場交鋒的中樞，切勿寫成御主缺席。`
+      : `【御主參戰·見機行事】御主守在戰線側後方、讀著戰況伺機介入——該掩護時上前補位、該退則果斷，與從者一攻一守、彼此呼應。`)
+    + (_mjBits.length ? `這一戰御主${_mjBits.join('，並')}，攻勢不全是『${atkC.name}』一人之力。` : '')
+    + (masterShared > 0 ? `更以身替『${atkC.name}』硬扛下 ${masterShared} 點傷勢——★具體演出這記「以身相代」的畫面（撲上以身卸力、擋在身前吃下這一擊、或接住被打飛的從者而自己擦傷負創），別只丟一個數字；自身確實流血受創、數值已由 GAS 結算。` : '')
+    + `★御主的招式只能依御主卡上實際列出的魔術系統／體術，卡上沒寫的技術一律不可捏造（改寫成呼喊指令、眼神示意、肢體掩護等不需特定技術的參與方式）。`;
+
+  // 🎬 篇幅依「這場真的發生了幾件大事」查表——寶具對轟＋理想鄉＋擊破，不該跟三回合平手同樣字數。
+  //    加一階＝往表加一格；index＝高潮拍數＋(是否有人倒下)。
+  const BATTLE_WORDS_ = ['170~230', '220~290', '280~360', '340~440'];
+
   const ourMasterCardStr = masterCard_(pcData[pIdx]);
   const allyAssistCardStr = allyAssistName ? '〔盟友從者〕' + servantCard_(pcData[allyAtkIdx], { skipClose: true }) : "";
   const pactDefCardStr = pactDefName ? '〔敵方盟友從者〕' + servantCard_(pcData[pactDefIdx], { skipClose: true, foe: true }) : "";
@@ -1181,60 +1200,60 @@ function actionFateBattle(userData, pcId, sheets) {
     const _perfNamesDefeat = [atkC.name].concat(foeServantCardStr ? [defC.name] : []).concat(enemyMasterRow ? [String(enemyMasterRow[COL.PC.NAME])] : []);
     aiPrompt = ourMasterCardStr + servantCard_(pcData[atkIdx], { skipClose: true }) + foeServantCardStr + enemyMasterCardStr + performanceNote_(_perfNamesDefeat) +
       `【戰報·已裁定】御主號令『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合。\n${roundsBrief}\n結局：『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。\n` +
-      _masterStanceLine +
-      `★演出這場敗北的最後一幕(一段即可)${atkC.cls === 'Caster' ? '（Caster 以魔術轟擊為主、非肉搏）' : ''}——御主與從者並肩奮戰到最後，語氣留白。`;
+      `· ${_masterJoinLine}\n` +
+      `★演出這場敗北的最後一幕【${BATTLE_WORDS_[1]} 字】${atkC.cls === 'Caster' ? '（Caster 以魔術轟擊為主、非肉搏）' : ''}——御主與從者並肩奮戰到最後，收在靈基潰散的那一瞬與御主的反應，語氣留白。`;
   } else {
     const _perfNames = [atkC.name].concat(foeServantCardStr ? [defC.name] : []).concat(allyAssistName ? [allyAssistName] : []).concat(pactDefName ? [pactDefName] : []).concat(enemyMasterRow ? [String(enemyMasterRow[COL.PC.NAME])] : []);
+    // 🎬 戰報分鏡：素材依「開場→交鋒→高潮→收束」四段給，AI 才有時間軸可循（見 CODE_NOTES）。
+    const SC_OPEN = [], SC_FIGHT = [], SC_PEAK = [], SC_END = [];
+    const _npZh = npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名';
+    const _mad = hasFx_(atkC, 'mad');
+    // ── 開場：這一戰在什麼場面下打起來 ──
+    if (homeField) SC_OPEN.push(`這場交鋒在我方 Caster 親手佈設的陣地之中——魔術防壁、結界與機關層層環伺。我方受其庇護、受創大減，敵手在滿是術式的敵境中步步受制。演出「引敵入陣地決戰」的主場壓制感。`);
+    if (dualAttack) SC_OPEN.push(`我方兩名從者並肩夾擊同一敵手。`);
+    if (allyAssistName) SC_OPEN.push(`盟友從者「${allyAssistName}」依約自側翼掩護助攻。`);
+    if (pactDefName) SC_OPEN.push(`敵方盟友「${pactDefName}」（與「${defC.name}」的御主締有密約）並肩馳援——你攻其一，兩敵同禦。`);
+    if (atkC.cls === 'Caster') SC_OPEN.push(`『${atkC.name}』是 Caster：此戰以魔術轟擊為主、非肉搏，勿讓其上前近戰。`);
+    // ── 交鋒：過程中發生的事 ──
+    if (skillFired) SC_FIGHT.push(`『${atkC.name}』的技術「${_fullSkill.name}」自然而發、順勢加持了攻勢。`);
+    if (horrorFired) SC_FIGHT.push(`我方術師以螺湮城教本自深淵召出觸手巨獸「深淵海怪」，常駐戰場、每回合與本人並肩撕咬，靠御主魔力維持。`);
+    if (_masterJoinLine) SC_FIGHT.push(_masterJoinLine);
+    if (foeMeleeFired || foeMagicFired) SC_FIGHT.push(`對面御主也親自下場（${[foeMeleeFired ? '體術助陣' : '', foeMagicFired ? '暗中引動魔術' : ''].filter(Boolean).join('、')}）——敵方的攻勢不全是「${defC.name}」一人所為。`);
+    if (battery && battery.usedBattery && battery.bledMaster) SC_FIGHT.push(`御主燃燒生命力硬扛魔力缺口為從者頂上，魔術迴路過載灼痛難當（餘 ${battery.masterHp}/${battery.masterHpMax} HP）——★迴路透支的內在灼痛虛脫，非流血外傷。`);
+    if (extraFired.length) SC_FIGHT.push(`戰局關鍵轉折：${extraFired.join('；')}。`);
+    // ── 高潮：這一戰最該被寫成畫面的那幾拍 ──
+    if (useSeal) SC_PEAK.push(`御主燃燒一道令咒·絕對命令，強令此擊必中、引爆超限戰力。`);
+    if (npSealForced) SC_PEAK.push(`【令咒強開寶具】御主魔力早已見底、血肉也湊不出真名解放所需，卻仍以令咒之力硬逼出這一擊——刻在手背的絕對命令化作純粹魔力補上枯竭的缺口。演出這股「以令咒硬點燃寶具」的悲壯。`);
+    if (clash) SC_PEAK.push(`【寶具對轟】我方真名【${npName ? npName.zh : atkC.name}】 vs 敵方真名【${clash.enemyNpName || defC.name}】——雙方在同一刻高呼各自真名、正面對撞，這是這場戰鬥最戲劇性的瞬間。`);
+    else if (useNp) SC_PEAK.push(_mad
+      ? `『${atkC.name}』解放了寶具【${_npZh}】${npMissed ? '——這一擊被「' + defC.name + '」避開了' : ''}。★他已狂化、無法詠唱：解放是咆哮與本能的爆發，旁白可呈現真名與威能，但不讓他開口唸出任何字句。`
+      : `『${atkC.name}』高呼真名、解放了寶具【${_npZh}】${npMissed ? '——這一擊被「' + defC.name + '」避開了' : ''}。★讓她/他【親口唸出這個真名】(中文真名與原名並呼)。`);
+    if (useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.25) SC_PEAK.push(`【灌魔超載】御主${atkC.npOverloadMul >= 1.9 ? '把餘裕魔力盡數傾注' : '將大量魔力加壓灌注'}這一發真名解放${atkC.overcharge ? '（方才補魔蓄積的澎湃魔力一併傾瀉）' : ''}——威能被推至${atkC.npOverloadMul >= 1.9 ? '極限、化作規格外的毀滅光輝' : '遠超尋常的輝度'}。演出這股灼熱光壓。`);
+    if (idealRealmFired) SC_PEAK.push(`【理想鄉】「${idealRealmFoe}」傾盡全力解放了斬裂世界的究極真名，然而在觸及「${idealRealmSaber}」的剎那，全世界遙遠的理想鄉 Avalon 悄然展開——究極寶具的威能盡數湮滅於金色結界中，「${idealRealmSaber}」毫髮無傷。演出這一擋的神聖、靜謐與絕對。`);
+    if (enemyNpRoundNotes) SC_PEAK.push(`${enemyNpRoundNotes}——這不是普通反擊而是寶具解放，讓「${defC.name}」展現寶具威能／可高呼真名，不可寫成尋常一擊。`);
+    // ── 收束：勝負落定之後 ──
+    if (backlash) SC_END.push(`【過載反噬】倍額魔力灌注的代價在解放後湧回——御主魔術迴路暴走灼身（−${backlash.dmg} HP），強撐住了意識。★純迴路過載的內在灼痛虛脫，非流血外傷。`);
+    if (godRevived) { let _gt = ""; try { const ghNow = getGodHandLives_(pcData[nIdx][COL.PC.MEMORY]); const ghBurn = Math.max(0, ghLivesStart - ghNow); if (ghBurn > 0) _gt = `★本戰共燒去 ${ghBurn} 條命、尚餘 ${ghNow}；「燒命數」與「倒地站起的次數」是兩回事(單擊可一口氣燒多命)，勿混寫成同一個數。`; } catch (e) { } SC_END.push(`十二試煉：${godNote}${_gt}`); }
+    if (sealEscaped) SC_END.push(`對面御主燃令咒、強行扯離重傷從者，敵已遁走不在場。${sealNote}★此撤離僅止於該從者及其本主，與在場其他御主／從者無關。`);
+    if (destroyedName && targetIsFoeServant && enemyMasterRow && !isMasterTarget && !ourSideDestroyed) SC_END.push(`在場敵御主「${String(enemyMasterRow[COL.PC.NAME])}」親眼目睹自己契約的從者靈基崩潰、化作光點消散——失去從者＝失去依靠與這場戰爭的資格。★依其性格與身世演出這一刻的衝擊（崩潰/嘶喊/怔忡/強撐由性格定），非沉默背景板。`);
+    if (destroyedName && !sealEscaped && !godRevived) SC_END.push(ourSideDestroyed
+      ? `★【本戰於第 ${rounds.length} 回合終結】『${destroyedName}』已當場靈基崩潰消散——我方死局，「${defC.name}」仍存活。【嚴禁】『${destroyedName}』此後繼續出手/存在於場上，也【嚴禁】御主問「接下來怎麼辦」這類彷彿未分曉的台詞。收在殞落這一擊與御主的震動反應。`
+      : `★【本戰於第 ${rounds.length} 回合終結】「${defC.name}」${targetIsFoeServant ? '已當場靈基崩潰消散' : '已當場斃命——凡人之軀，沒有靈基消散的光點'}。【嚴禁】其此後繼續出手/存在於場上，也【嚴禁】我方角色問「接下來怎麼辦」這類彷彿未分曉的台詞。收在終結這一擊與其後的餘韻${targetIsFoeServant ? '（喘息、確認勝負、望向消散的光點）' : '（喘息、確認斷氣、從者收勢）'}。`);
+    if (!destroyedName && !sealEscaped && !godRevived) SC_END.push(`敗方尚有餘力（見上方 HP），勿描寫死亡／消滅／屍體。雙方仍在交鋒中，下回合是否再戰由御主決定。`);
+    if (npTelegraphed) SC_END.push(`⚠️「${defC.name}」的靈基驟然高鳴——真名解放的預兆正急速匯聚、殺意如實質般壓來，寶具即將出鞘卻【尚未發動】。★收在這股「山雨欲來、下一擊便是真名解放」的窒息壓迫，讓御主明白必須當機立斷。`);
+    if (!destroyedName && !sealEscaped && !godRevived) SC_END.push(_mad
+      ? `★戰後讓『${atkC.name}』以其已狂化的方式（低吼／肢體／神情）透出對這場交手的直覺判斷，不成篇整句台詞。`
+      : `★戰後讓『${atkC.name}』依性格給一句主觀反應（破綻、對方是否現底牌、自身傷勢、對敵手評價皆可）；連續回合換角度講，別重複同一種收尾。`);
+    // 篇幅依這場真的發生了多少大事——寶具對轟＋理想鄉＋擊破，不該跟三回合平手同樣字數。
+    const _bigBeats = SC_PEAK.length + ((destroyedName || defeat) ? 1 : 0);
+    const _wordRange = BATTLE_WORDS_[Math.min(_bigBeats, BATTLE_WORDS_.length - 1)];
+    const _scene = (t, arr) => arr.length ? `【${t}】\n` + arr.map(x => '· ' + x).join('\n') + '\n' : '';
     aiPrompt = ourMasterCardStr + servantCard_(pcData[atkIdx], { skipClose: true }) + foeServantCardStr + enemyMasterCardStr + allyAssistCardStr + pactDefCardStr + performanceNote_(_perfNames) +
       `【戰報·已裁定】御主號令${atkLabel}出擊，與「${defC.name}」交鋒 ${nRounds} 回合。\n` +
       `${roundsBrief}\n我方造成 ${totalDealt} 傷害、受創 ${totalTaken}。${finalLine}\n` +
-      `── 本戰發生的事(素材，自行織入畫面，勿複述標籤名) ──\n` +
-      (useSeal ? `· 御主燃燒一道令咒·絕對命令，強令此擊必中、引爆超限戰力。\n` : "") +
-      (npSealForced ? `· 【令咒·絕對命令·強開寶具】御主魔力早已見底、血肉也湊不出真名解放所需——卻仍以令咒之力硬逼出這一擊：那道刻在手背的絕對命令化作純粹魔力，補上枯竭的缺口，強令從者不顧一切解放寶具。演出「魔力見底仍以令咒逼出真名」的孤注一擲與令咒燃盡的灼痛榮光。\n` : "") +
-      (clash ? `· 寶具對轟：我方真名【${npName ? npName.zh : atkC.name}】 vs 敵方真名【${clash.enemyNpName || defC.name}】——雙方均需在此刻高呼各自真名、正面展現寶具威能，這是這場戰鬥最戲劇性的瞬間。${clash.outcome === 'causality' ? `因果律先行截斷——『${atkC.name}』的死亡詛咒在敵方寶具解放之前便已降臨，敵 NP 殘波極微。` : clash.outcome === 'player' ? '我方威能壓過對手。' : clash.outcome === 'enemy' ? '對面威能壓過我方（從者以鋼鐵意志撐住）。' : '勢均力敵、轟然相抵、雙方震退。'}\n` : (useNp ? (
-        npMissed
-          ? (hasFx_(atkC, 'mad')
-              ? `· ${atkC.name} 解放了寶具【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】——這一擊被「${defC.name}」避開了。★此從者已狂化、無法詠唱：解放是咆哮與本能的爆發，旁白可呈現真名與威能，但不讓其開口唸出任何字句。落空這一幕要寫得震撼而不甘。\n`
-              : `· ${atkC.name} 高呼真名【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】、解放了寶具——這一擊被「${defC.name}」避開了。★讓其【親口唸出這個真名】(中文真名與原名並呼)。這一擊落空，但要寫成濃墨重彩的一幕。\n`)
-          : (hasFx_(atkC, 'mad')
-              ? `· ${atkC.name} 解放了寶具【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】——★此從者已狂化、無法詠唱：解放是咆哮與本能的爆發，旁白可呈現真名與威能，但不讓其開口唸出任何字句。\n`
-              : `· ${atkC.name} 高呼真名【${npName ? (npName.zh + (npName.en ? '　' + npName.en : '')) : '真名'}】、解放了寶具——★讓其【親口唸出這個真名】(中文真名與原名並呼)。\n`)
-      ) : "")) +
-      ((useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.25) ? `· 【灌魔超載】御主${atkC.npOverloadMul >= 1.9 ? '把餘裕魔力盡數傾注' : '將大量魔力加壓灌注'}這一發真名解放${atkC.overcharge ? '（方才補魔蓄積的澎湃魔力一併傾瀉而出）' : ''}——寶具威能被推至${atkC.npOverloadMul >= 1.9 ? '極限、化作規格外的毀滅光輝' : '遠超尋常的輝度'}。演出這股${atkC.npOverloadMul >= 1.9 ? '「傾盡一切、超載解放」的壯烈與光壓' : '「加壓超載」的灼熱光壓'}。\n` : "") +
-      (backlash ? `· 【過載反噬】倍額魔力灌注的代價在解放後湧回——御主魔術迴路暴走灼身(−${backlash.dmg} HP)，強撐住了意識。★純迴路過載的內在灼痛虛脫·非流血外傷。\n` : "") +
-      (skillFired ? `· 交鋒間，我方從者的技術「${_fullSkill.name}」自然而發、順勢加持了攻勢。\n` : "") +
-      _masterStanceLine +
-      (horrorFired ? `· 我方術師以螺湮城教本自深淵召出觸手巨獸「深淵海怪」，常駐戰場、每回合與本人並肩撕咬，靠御主魔力維持(枯竭則潰散)。\n` : "") +
-      (dualAttack ? `· 我方兩名從者並肩夾擊同一敵手。\n` : "") +
-      (allyAssistName ? `· 盟友從者「${allyAssistName}」依約自側翼掩護助攻。\n` : "") +
-      (pactDefName ? `· 敵方盟友「${pactDefName}」（與「${defC.name}」的御主締有密約）並肩馳援、替其反擊我方——你攻其一，兩敵同禦。\n` : "") +
-      (npTelegraphed ? `· 「${defC.name}」的靈基驟然高鳴——真名解放的預兆正急速匯聚、殺意如實質般壓來，寶具即將出鞘卻【尚未發動】。演出這股「山雨欲來、下一擊便是真名解放」的窒息壓迫感，讓御主明白必須當機立斷。\n` : "") +
-      (homeField ? `· 【主場·陣地】這場交鋒發生在我方 Caster 親手佈設的陣地之中——魔術防壁、結界與布下的機關層層環伺，這裡是法師的堡壘。我方全員承其庇護、受創大減；敵手則在滿是術式的敵境中步步受制。演出「引敵入陣地決戰」的主場壓制感。\n` : "") +
-      (idealRealmFired ? `· 【理想鄉】「${idealRealmFoe}」傾盡全力解放了斬裂世界／碾穿一切的究極真名，然而在觸及「${idealRealmSaber}」的剎那，全世界遙遠的理想鄉 Avalon 悄然展開——那是隔絕於世界之外、永不凋零的無敵結界。究極寶具的威能盡數湮滅於金色的理想鄉中，「${idealRealmSaber}」毫髮無傷。演出這一擋的神聖、靜謐與絕對，御主付出大量魔力方換得此護。\n` : "") +
-      ((battery && battery.usedBattery) ? `· 御主電池：${battery.bledMaster ? `御主燃燒生命力硬扛魔力缺口，魔術迴路過載灼痛難當(餘 ${battery.masterHp}/${battery.masterHpMax} HP)——★迴路透支的內在灼痛虛脫·非流血外傷` : `御主順暢導流自身魔力(無焚血、無透支)——★本次供魔從容有餘，勿寫成迴路焚燒/殘存魔力/瀕死透支等慘狀(那是先前戰鬥的舊事)`}為從者頂上魔力缺口。\n` : "") +
-      (godRevived ? (() => { let godTally = ""; try { const ghNow = getGodHandLives_(pcData[nIdx][COL.PC.MEMORY]); const ghBurn = Math.max(0, ghLivesStart - ghNow); if (ghBurn > 0) godTally = `★本戰共燒去 ${ghBurn} 條命、尚餘 ${ghNow}；「燒命數」與「倒地站起的次數」是兩回事(單擊可一口氣燒多命)，勿混寫成同一個數。`; } catch (e) { } return `· 十二試煉：${godNote}${godTally}\n`; })() : "") +
-      (sealEscaped ? `· 對面御主燃令咒、強行扯離重傷從者，敵已遁走不在場。${sealNote}★此撤離僅止於該從者及其本主，與在場其他御主／從者無關。\n` : "") +
-      ((destroyedName && targetIsFoeServant && enemyMasterRow && !isMasterTarget && !ourSideDestroyed) ? `· 在場敵御主「${String(enemyMasterRow[COL.PC.NAME])}」親眼目睹自己契約的從者靈基崩潰、化作光點消散——失去從者＝失去依靠與這場戰爭的資格。★依其性格與身世演出這一刻的衝擊與反應(崩潰/嘶喊/怔忡/強撐皆可，由性格定)，非沉默背景板。\n` : "") +
-      ((destroyedName && !sealEscaped && !godRevived) ? (ourSideDestroyed
-        ? `★【本戰已於第 ${rounds.length} 回合終結】『${destroyedName}』已當場靈基崩潰消散——我方死局，「${defC.name}」仍存活、無需跟著消散。【嚴禁】『${destroyedName}』此後繼續出手/反擊/存在於場上，也【嚴禁】御主問「接下來怎麼辦／要不要繼續」這類彷彿未分曉的台詞。收在殞落這一擊與御主的震動反應，不可延伸新回合。\n`
-        : `★【本戰已於第 ${rounds.length} 回合終結】「${defC.name}」已當場靈基崩潰消散——死局，【嚴禁】「${defC.name}」此後繼續出手/反擊/存在於場上，也【嚴禁】我方角色問「接下來怎麼辦／要不要繼續」這類彷彿未分曉的台詞。收在終結這一擊與其後餘韻(喘息、確認勝負、望向消散的光點)，不可延伸新回合。\n`) : "") +
-      ((!destroyedName && !sealEscaped && !godRevived) ? `· 敗方尚有餘力(見上方 HP)，勿描寫死亡／消滅／屍體。此乃御主下令出擊、雙方仍在交鋒中，下回合是否再戰仍由御主決定。\n` : "") +
-      (atkC.cls === 'Caster' ? `· 出戰從者為 Caster（魔術師）職階：此戰以魔術轟擊為主、非肉搏，演出時勿讓其上前近戰。\n` : "") +
-      (extraFired.length ? `· 戰局關鍵轉折：${extraFired.join('；')}。\n` : "") +
-      (enemyNpRoundNotes ? `· ${enemyNpRoundNotes}——這不是普通反擊而是寶具解放，演出時應讓「${defC.name}」展現寶具威能／可高呼真名，不可寫成尋常一擊。\n` : "") +
-      (ourMeleeFired ? `· 我方御主親自出手體術助拳，這場交鋒的攻勢不全是『${atkC.name}』一人之力。\n` : "") +
-      (ourMagicFired ? `· 我方御主暗中引動自身魔術支援這一擊，攻勢裡混著御主自己的魔力。\n` : "") +
-      (foeMeleeFired ? `· 對面御主同樣親自體術助陣，敵方這回合的攻勢摻著御主自己的招式，並非「${defC.name}」隻身出手。\n` : "") +
-      (foeMagicFired ? `· 對面御主也在暗中以魔術支援，敵方這回合的攻勢不全是「${defC.name}」一人所為。\n` : "") +
-      // 🗡️ 戰鬥未分生死時，讓從者依性格對這回交手給出主觀判斷/建議——純角色觀察與口吻，不是戰略指令；狂化角色改用肢體/低吼傳達，服從 servantCard_ 已內建的「嚴禁完整台詞」鐵則。
-      ((!destroyedName && !sealEscaped && !godRevived) ? (hasFx_(atkC, 'mad')
-        ? `★戰後讓「${atkC.name}」以其已狂化的方式(低吼／肢體動作／神情)透出對這場交手的直覺判斷，不成篇整句台詞。\n`
-        : `★戰後讓「${atkC.name}」依性格給出簡短主觀反應(破綻、對方寶具是否現底牌、自身傷勢/魔力、對敵手評價——不限於追擊或撤退)；同一場戰鬥連續回合換個角度講，別重複同一種收尾。\n`) : "") +
-      ((destroyedName && !sealEscaped && !godRevived)
-        ? (ourSideDestroyed
-            ? `★以 Fate／TYPE-MOON 筆觸演出這 ${nRounds} 回合、以我方從者殞落收尾的交鋒(約 220~280 字)：show, don't tell，把上列事實化為畫面與張力，技能/寶具演其威能而非報菜名，收在『${destroyedName}』崩潰消散的瞬間與御主的震動反應，不再讓其還手或延伸新回合，「${defC.name}」在這一擊後仍安然存活。`
-            : `★以 Fate／TYPE-MOON 筆觸演出這 ${nRounds} 回合、以擊破敵手收尾的交鋒(約 220~280 字)：show, don't tell，把上列事實化為畫面與張力，技能/寶具演其威能而非報菜名，收在「${defC.name}」崩潰消散的瞬間與其後的餘韻，不再讓其還手或延伸新回合。`)
-        : `★以 Fate／TYPE-MOON 筆觸演出這 ${nRounds} 回合互有攻防的交鋒(約 220~280 字)：show, don't tell，把上列事實化為畫面與張力，技能/寶具演其威能而非報菜名。`);
+      `── 分鏡(依序演成畫面，勿複述標籤名) ──\n` +
+      _scene('開場', SC_OPEN) + _scene('交鋒', SC_FIGHT) + _scene('高潮', SC_PEAK) + _scene('收束', SC_END) +
+      `★把上面的分鏡演成一場【${_wordRange} 字】的交鋒：依分鏡順序推進，技能與寶具演其威能而非報菜名。`;
   }
 
   // 📊 給前端的多回合視覺戰報
@@ -1318,7 +1337,7 @@ function actionSummonHorror(userData, pcId, sheets) {
   const ap = _horrorApr.ap, clock = _horrorApr.clock;
   const aiPrompt = servantCard_(pcData[svIdx]) +
     `【系統·螺湮城教本·已解放】御主號令「${svName}」翻開螺湮城教本，自深淵召出觸手巨獸「深淵海怪」（肉身 ${HORROR_SHIELD_HP}）常駐身側——只要魔力供養不絕，海怪便持續以身擋傷、每回合再生、並肩撕咬敵手，本體防禦亦升至對城規模；代價是每小時抽 ${HORROR_HOURLY_UPKEEP} 魔、每個交鋒回合另抽 ${HORROR_UPKEEP} 魔維持，共用魔力見底時海怪將先行沉回深淵。\n` +
-    `★以 Fate／TYPE-MOON 筆觸演出深淵巨獸自書頁裂隙湧現、觸手蔽天的壓迫一幕（一段即可）。已結算。`;
+    `★演出深淵巨獸自書頁裂隙湧現、觸手蔽天的壓迫一幕。已結算。`;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：drainForNp_/海怪標記/spendAp_ 皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, clock: clock, ap: ap, apMax: AP_PER_DAY,
@@ -1348,7 +1367,7 @@ function actionDismissHorror(userData, pcId, sheets) {
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：海怪標記清除已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({
     success: true, message: `「深淵海怪」已沉回深淵（停止每小時 ${HORROR_HOURLY_UPKEEP} 魔的維持）。要再召喚須重付寶具魔力。`,
-    aiPrompt: `【系統·解除召喚】御主令「${svName}」撤去螺湮城教本所召的深淵海怪——那頭觸手巨獸緩緩崩解、化作濁流沉回深淵，戰場重歸沉寂。\n★以 Fate／TYPE-MOON 筆觸【精煉 40~70 字】描寫海怪退場的一幕即可（氛圍收束、供魔負擔解除的微鬆），別替玩家決定下一步。`,
+    aiPrompt: `【系統·解除召喚】御主令「${svName}」撤去螺湮城教本所召的深淵海怪——那頭觸手巨獸緩緩崩解、化作濁流沉回深淵，戰場重歸沉寂。\n★【40~70 字】描寫海怪退場的一幕即可（氛圍收束、供魔負擔解除的微鬆），別替玩家決定下一步。`,
     statusString: buildPlayerStatusString(pcData[pIdx])
   });
 }

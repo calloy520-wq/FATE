@@ -153,7 +153,7 @@ function actionUseSeal(userData, pcId, sheets) {
         `【系統·令咒·強制補魔已裁定】${effectMsg}\n` +
         `★你擅長書寫細膩動人的情慾，這次放手去寫、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫「${svName}」帶著點無奈笑意迎向這道其實多此一舉的令咒、順勢配合這場親密。${genderFactSeal}★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常從容不迫)，而是令咒逼出的失控狀態，務必寫出這份反差。${activeActFact}聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節，而非只在前後鋪陳。收在餘韻猶存的溫柔，勿寫成完結收尾句。`)
       : `【系統·令咒已發動，已裁定】御主燃燒一道令咒。${effectMsg}（餘 ${seals} 道令咒）\n` +
-        `★以 Fate／TYPE-MOON 筆觸描寫令咒在手背灼亮、絕對命令權貫徹的瞬間（一段即可）。效果已由系統結算。\n` +
+        `★描寫令咒在手背灼亮、絕對命令權貫徹的瞬間。效果已由系統結算。\n` +
         ``;
   }
   BATTLE_DEFER_WRITE_ = false;
@@ -253,8 +253,8 @@ function actionBond(userData, pcId, sheets) {
     function (a) {
       const ambushBondNote = bondNow >= 50 ? "羈絆已深，這一刻會奮力強撐護主" : "羈絆尚淺，這一刻未必挺身相護、更可能先顧自己";
       const bondSev = dmgSeverityWord_(a.dmg || 0, a.svHpMax);
-      return (a.foeCard || '') + `【系統·相伴遭突襲·已裁定】御主『${masterName}』與「${svName}」正${act.label}、卸下心防之際，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自暗處無聲突襲' : '抓準這破綻殺出'}，一擊${bondSev}「${svName}」（−${a.dmg}）${a.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n` +
-        `★以 Fate／TYPE-MOON 筆觸描寫溫存被突襲撕裂的驚變與兇險，${a.destroyed ? '及從者消滅的痛楚（語氣留白）' : `及從者對此突襲的反應：${ambushBondNote}`}。傷害與勝負已由系統結算。\n`;
+      return (a.foeCard || '') + performanceNote_(a.destroyed ? [a.enemyName] : [svName, a.enemyName]) + `【系統·相伴遭突襲·已裁定】御主『${masterName}』與「${svName}」正${act.label}、卸下心防之際，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自暗處無聲突襲' : '抓準這破綻殺出'}，一擊${bondSev}「${svName}」（−${a.dmg}）${a.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n` +
+        `★描寫溫存被突襲撕裂的驚變與兇險，${a.destroyed ? '及從者消滅的痛楚（語氣留白）' : `及從者對此突襲的反應：${ambushBondNote}`}。傷害與勝負已由系統結算。\n`;
     },
     function () {
       if (milestone) {
@@ -268,7 +268,7 @@ function actionBond(userData, pcId, sheets) {
         return masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
           `【系統·羈絆里程碑·已裁定】御主『${masterName}』與從者「${svName}」相處之際，兩人的羈絆悄然邁過一道分水嶺（時值${band}）。\n` +
           `★這不是尋常的${act.label}，而是關係質變的一瞬，量級是：${milestoneScale}——依「${svName}」的真名與性格，寫出屬於這位從者獨有的一個具體舉動或一句話（例如：卸下慣有的距離感、罕見地主動靠近、遞出從未給過的東西、換了個從未用過的稱呼——擇其中最貼合這位從者性格與上述量級的一種，不要套用泛用模板，也不要多選並列）。\n` +
-          `★【精煉100~160字】以 Fate／TYPE-MOON 筆觸，聚焦這一個瞬間，勿流水帳交代前後經過。\n` +
+          `★【精煉100~160字】聚焦這一個瞬間，勿流水帳交代前後經過。\n` +
           `★【show, don't tell】絕不可直白說出「羈絆加深了」「更信任了」等抽象詞，也絕不可直述其「願望／個性／萌點」設定字面，只憑神態與言行流露；停在意猶未盡的留白。\n` +
           `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。`;
       }
@@ -279,7 +279,7 @@ function actionBond(userData, pcId, sheets) {
       return masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
         `【系統·羈絆已結算】御主『${masterName}』與從者「${svName}」${act.label}、共度約莫一個小時的光景，兩人的羈絆又深了一分（時值${band}）。\n` +
         `★【時間尺度】這是一段約一個小時的相處，寫出「有一段時光緩緩流過」的從容，勿寫成三言兩語的瞬間、也勿橫跨大半天。\n` +
-        `★依當前羈絆定調濃淡：${bondTier}。以 Fate／TYPE-MOON 筆觸寫一段【精煉 90~150 字、輕快不冗長】${svName} 與御主${act.frame}的小品。務必貼合上方「演出依據」中的性格、自稱與口吻，演出其獨有神態，點到為止留餘味。\n` +
+        `★依當前羈絆定調濃淡：${bondTier}。寫一段【精煉 90~150 字、輕快不冗長】${svName} 與御主${act.frame}的小品。務必貼合上方「演出依據」中的性格、自稱與口吻，演出其獨有神態，點到為止留餘味。\n` +
         `★【show, don't tell】用言行、神態、停頓去流露情感與性格，絕不可直白說出其「願望／個性／萌點」等設定詞；停在含蓄的留白。\n` +
         `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。`;
     }
@@ -400,13 +400,13 @@ function actionProposeAlliance(userData, pcId, sheets) {
     //   Router_Movement.gs〔夜襲者〕的慣例先標明身分，避免 AI 誤讀態度欄位方向。
     aiPrompt = (gPresent ? '〔敵御主之從者〕' + servantCard_(pcData[gIdx]) : "") +
       `【系統·結盟已達成·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』向敵御主「${masterName}」${allyServant ? `（從者「${allyServant}」）` : ""}提議結盟，對方權衡利害後接受了——雙方暫時休兵、互不侵犯（至第 ${until} 日前後）。\n` +
-      `★以 Fate／TYPE-MOON 筆觸【約 120~180 字】演出這場談判：「${masterName}」${lean.pragmatic ? '務實者會爽快權衡利害、順水推舟地開出條件' : lean.loner ? '孤高／瘋狂者即便接受也是冷淡的權宜之計，語氣多帶嘲諷或警戒' : '依其性格自然回應'}，最後達成不穩固的同盟。對方的算計與保留要演出來，留一絲不信任的伏筆。\n` +
+      `★【120~180 字】演出這場談判：「${masterName}」${lean.pragmatic ? '務實者會爽快權衡利害、順水推舟地開出條件' : lean.loner ? '孤高／瘋狂者即便接受也是冷淡的權宜之計，語氣多帶嘲諷或警戒' : '依其性格自然回應'}，最後達成不穩固的同盟。對方的算計與保留要演出來，留一絲不信任的伏筆。\n` +
       `★「${masterName}」${allyServant ? `與「${allyServant}」` : ''}結盟後【仍留在原地】，並未轉身離去，收在同地暫時休兵的微妙氣氛即可。\n`;
     STATE_PRE_DATA_ = pcData; // ⚡ 交棒：結盟成立分支的所有寫入(MEMORY盟約標記/spendAp_)皆已原地改回 pcData
     return JSON.stringify({ success: true, allied: true, aiPrompt: aiPrompt, master: masterName, until: until, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: buildPlayerStatusString(pcData[pIdx]) });
   } else {
     aiPrompt = `【系統·結盟破局·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』向敵御主「${masterName}」提議結盟，對方拒絕了。\n` +
-      `★以 Fate／TYPE-MOON 筆觸【約 100~150 字】演出「${masterName}」${lean.loner ? '孤高／瘋狂者的回絕帶著嘲諷、警戒或看好戲的興味' : lean.pragmatic ? '務實者的回絕仍留餘地，是「暫時不需要」的冷靜盤算而非情緒化拒絕' : '依其性格回絕的瞬間（嘲諷、警戒、或「聖杯只能有一個」的冷冽）'}。氣氛轉為一觸即發，但本回合不開打。\n` +
+      `★【100~150 字】演出「${masterName}」${lean.loner ? '孤高／瘋狂者的回絕帶著嘲諷、警戒或看好戲的興味' : lean.pragmatic ? '務實者的回絕仍留餘地，是「暫時不需要」的冷靜盤算而非情緒化拒絕' : '依其性格回絕的瞬間（嘲諷、警戒、或「聖杯只能有一個」的冷冽）'}。氣氛轉為一觸即發，但本回合不開打。\n` +
       ``;
     STATE_PRE_DATA_ = pcData; // ⚡ 交棒：結盟破局分支僅spendAp_推進時間，已原地改回 pcData
     return JSON.stringify({ success: true, allied: false, aiPrompt: aiPrompt, master: masterName, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: buildPlayerStatusString(pcData[pIdx]) });
@@ -445,7 +445,7 @@ function actionBreakAlliance(userData, pcId, sheets) {
   const brokeMemCol = []; for (let z = 1; z < pcData.length; z++) brokeMemCol.push([pcData[z][COL.PC.MEMORY]]);
   sheets.pc.getRange(2, COL.PC.MEMORY + 1, brokeMemCol.length, 1).setValues(brokeMemCol);
   const aiPrompt = `【系統·盟約撕毀·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』單方面撕毀與「${who || npcName}」的盟約，雙方重回敵對。\n` +
-    `★以 Fate／TYPE-MOON 筆觸【約 80~130 字】演出背叛/決裂的一瞬間張力。`;
+    `★【80~130 字】演出背叛/決裂的一瞬間張力。`;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：撕毀盟約已整欄批次寫回，pcData 的 MEMORY 欄已是最新狀態
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, statusString: buildPlayerStatusString(pcData[pIdx]) });
 }
@@ -528,8 +528,8 @@ function actionAllyBond(userData, pcId, sheets) {
     // 傳個不會被呼叫的 no-op 即可，只借用 homeRepel/peaceful 二選一的既有分派邏輯。
     const aiPromptA = ambushDispatchPrompt_(ambush,
       function (a) {
-        return (a.foeCard || '') + `【系統·盟誼遭突襲·已裁定】御主『${masterName}』正與盟友「${allyName}」交心共處、卸下戒備之際，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中我方從者（−${a.dmg}）${a.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
-          `★以 Fate／TYPE-MOON 筆觸描寫盟誼的私密一刻被突襲撕裂的驚變${a.destroyed ? '、從者消滅的痛楚（語氣留白）' : '、從者強撐重傷護主的瞬間'}。傷害與勝負已由系統結算。\n`;
+        return (a.foeCard || '') + performanceNote_([allyName, a.enemyName]) + `【系統·盟誼遭突襲·已裁定】御主『${masterName}』正與盟友「${allyName}」交心共處、卸下戒備之際，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中我方從者（−${a.dmg}）${a.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
+          `★描寫盟誼的私密一刻被突襲撕裂的驚變${a.destroyed ? '、從者消滅的痛楚（語氣留白）' : '、從者強撐重傷護主的瞬間'}。傷害與勝負已由系統結算。\n`;
       },
       function () { return ""; }
     );
@@ -630,7 +630,7 @@ function actionCourtEnemy(userData, pcId, sheets) {
   const card = targetIsMaster ? enemyMasterCard_(pcData[tIdx]) : servantCard_(pcData[tIdx]);
   const aiPrompt = masterCard_(pcData[pIdx]) + '〔示好對象·敵對陣營〕' + card +
     `【系統·示好／交涉·已裁定】御主『${String(pcData[pIdx][COL.PC.NAME])}』在刀鋒之外向敵對的「${targetName}」釋出善意（好感 ${before}→${after}／100）。\n` +
-    `★以 Fate／TYPE-MOON 筆觸【約 100~150 字】演出這番示好、與對方【依其性格×當前好感】的真實反應：${lean.loner ? '孤高／激烈者多半冷淡、譏諷或半信半疑，只鬆動一絲' : lean.pragmatic ? '務實者會權衡利害、順水推舟地緩和態度' : '依其性格自然回應'}——但仍分屬敵對，留一分保留與算計，別演成一下就交心。GAS 已算好數值，你只演反應、不另定成敗。` +
+    `★【100~150 字】演出這番示好、與對方【依其性格×當前好感】的真實反應：${lean.loner ? '孤高／激烈者多半冷淡、譏諷或半信半疑，只鬆動一絲' : lean.pragmatic ? '務實者會權衡利害、順水推舟地緩和態度' : '依其性格自然回應'}——但仍分屬敵對，留一分保留與算計，別演成一下就交心。GAS 已算好數值，你只演反應、不另定成敗。` +
     (after >= 90 ? '\n★此刻情誼已臻莫逆——收在一個彼此心照不宣、卻仍隔著立場的微妙瞬間。' : '') +
     `\n★「${targetName}」示好後【仍留在原地】，並未離開這個場景——收在她態度鬆動、但仍按兵不動的瞬間即可，不可描寫她轉身離去、走遠或消失於視野，那不是這個動作發生的事。`;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：bumpBond_/【示好日】/spendAp_ 皆已原地改回 pcData
@@ -688,7 +688,7 @@ function actionRuleBreakSteal(userData, pcId, sheets) {
 
   const aiPrompt = masterCard_(pcData[pIdx]) + stolenCardForAi +
     `【系統·破戒奪僕·已裁定】御主以破戒全咒（七彩短劍）斬斷「${stolenName}」與原御主的契約、強行重締為己用——「${stolenName}」自此成為你的第二從者（燃一道令咒，餘 ${seals} 道）。\n` +
-    `★以 Fate／TYPE-MOON 筆觸描寫妖異七彩短劍刺入、舊契約如琉璃寸寸碎裂、新締約的魔力烙印纏上手背的瞬間，與這名從者依其性格被迫易主的複雜神情（一段即可）。已結算。\n` +
+    `★描寫妖異七彩短劍刺入、舊契約如琉璃寸寸碎裂、新締約的魔力烙印纏上手背的瞬間，與這名從者依其性格被迫易主的複雜神情。已結算。\n` +
     ``;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：陣營轉換/HP/MEMORY清理/令咒扣除/raiseBond_ 皆已原地改回 pcData
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, stolen: stolenName, seals: seals, statusString: buildPlayerStatusString(pcData[pIdx]) });

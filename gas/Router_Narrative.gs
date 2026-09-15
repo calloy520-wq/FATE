@@ -41,7 +41,7 @@ function buildDreamPrompt_(pcName, wish, servantName, cause) {
   return lead + `\n` +
     `在這場夢裡，御主的最深願望彷彿已然實現——一切圓滿、溫柔而虛假。${servantName ? `從者『${servantName}』也彷彿仍並肩在側。` : ""}\n` +
     (wish ? `（願望核心參考，僅供構築夢境氛圍，嚴禁逐字複述或直接點明）：${wish}\n` : "") +
-    `★以 Fate／TYPE-MOON 筆觸，第一人稱「我」，寫一段唯美而令人心碎的虛假美夢：讓「演出」暗示願望成真的幸福感，絕不可直接說出願望內容或「這是假的」。${servantName ? `從者依其性格自然相伴。` : ""}${flaw}。\n` +
+    `★第一人稱「我」，寫一段唯美而令人心碎的虛假美夢：讓「演出」暗示願望成真的幸福感，絕不可直接說出願望內容或「這是假的」。${servantName ? `從者依其性格自然相伴。` : ""}${flaw}。\n` +
     `★【鐵律】只輸出夢境敘事，禁選項或系統字樣。`;
 }
 
@@ -50,7 +50,7 @@ function buildVictoryDreamPrompt_(pcName, wish, servantName) {
   return `【聖杯降臨·已裁定】御主『${pcName}』斬盡了聖杯戰爭中所有的敵對從者，聖杯已然屬於你。\n` +
     `這一刻，最深的願望終於觸手可及——而且這次是真的。${servantName ? `從者『${servantName}』就在我身側，一同見證這一戰的終結。` : ""}\n` +
     (wish ? `（願望核心參考，僅供構築氛圍，嚴禁逐字複述或直接點明）：${wish}\n` : "") +
-    `★以 Fate／TYPE-MOON 筆觸，第一人稱「我」，寫一段真摯溫暖的勝利瞬間：讓「演出」暗示願望終於觸手可及的踏實感與如釋重負，絕不可直接說出願望內容。${servantName ? `從者依其性格自然相伴、給出這一刻該有的反應。` : ""}與敗北的虛假之夢不同，這次無需露出任何破綻——這是真實發生的結局。\n` +
+    `★第一人稱「我」，寫一段真摯溫暖的勝利瞬間：讓「演出」暗示願望終於觸手可及的踏實感與如釋重負，絕不可直接說出願望內容。${servantName ? `從者依其性格自然相伴、給出這一刻該有的反應。` : ""}與敗北的虛假之夢不同，這次無需露出任何破綻——這是真實發生的結局。\n` +
     `★【鐵律】只輸出這段敘事，禁選項或系統字樣。`;
 }
 
@@ -161,7 +161,8 @@ function actionNarrateOnly(userData, pcId, sheets) {
 5. 對話歷史是已經結束的既定事實，只供語氣連貫；這一回合的新事件，只有這句指令寫的。
 6. 語氣依【當前狀態】與實際勝負定，不臆測勝敗——瀕死就是命懸一線。
 7. 衣著照角色卡寫，【此刻裝扮】最優先，卡上沒寫的不自己加（戰鬥可寫甲冑碎裂）。解除隱匿（如風王結界）只顯現武器，與衣著無關。
-8. 只輸出 JSON：{"narration":"…"}，不要其他欄位、不要 Markdown。`;
+8. 角色的 性格／萌點／六圍／技能 只演出來，不當台詞也不由旁白點破；Fate 正典角色依你自身認知演，卡上短句只是錨點。羈絆低→戒備矜持、高→漸親近，性格內核不變。
+9. 只輸出 JSON：{"narration":"…"}，不要其他欄位、不要 Markdown。`;
 
   // 補魔/令咒的高好感解鎖分支要 500~600 字(平常 100~160)，720 tokens 會截斷——只加大上限，不換模型。
   const longForm = !!userData.longForm;
@@ -200,7 +201,8 @@ function dojoCauseLine_(userData) {
 }
 
 function actionTigerDojo(userData, pcId, sheets) {
-  var sv = String(userData.servantName || '從者');
+  var svRaw = String(userData.servantName || '').trim();
+  var sv = svRaw ? `從者「${svRaw}」` : '你的從者';
   var win = String(userData.mode || "") === 'victory';
   var c = win ? null : dojoCauseLine_(userData);
   var system = `你是《命運停駐之夜》的賽後番外「老虎道場」——Fate 經典的搞笑教學橋段。
@@ -209,9 +211,9 @@ function actionTigerDojo(userData, pcId, sheets) {
 台灣繁體中文、約 120~180 字。這裡是戰後的教室，語氣搞笑溫馨。
 只輸出 JSON：{"narration":"…"}，不要其他欄位、不要 Markdown。`;
   var dojoPrompt = win
-    ? `【已裁定】御主奪得聖杯、這場聖杯戰爭結束，從者「${sv}」與有榮焉。
+    ? `【已裁定】御主奪得聖杯、這場聖杯戰爭結束，${sv}與有榮焉。
 ①大河誇張慶祝，順便邀功一下 ②伊莉雅嘴上毒舌、話裡藏著真心佩服 ③大河用她一貫誇張的方式恭喜御主。`
-    : `【已裁定】御主敗北、從者「${sv}」消滅。這一局輸在：${c ? c.fact : '沒能撐到最後'}。
+    : `【已裁定】御主敗北、${sv}消滅。這一局輸在：${c ? c.fact : '沒能撐到最後'}。
 ①大河開場吐槽兼打氣 ②伊莉雅點破真正輸在哪，並針對【${c ? c.lesson : '下一局的打法'}】給一條具體建議，只講這一條 ③大河收尾打氣。`;
   try {
     var raw = callGeminiAPI(dojoPrompt, system, { temperature: 0.9, ignoreLaw: true, max_tokens: 720, model: AI_MODEL });

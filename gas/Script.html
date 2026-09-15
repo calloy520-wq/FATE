@@ -1005,7 +1005,7 @@
       //   servantId優先配對)挑我方從者應戰，但這裡從沒送這兩個欄位——雙從者時永遠退回「同局第一位」
       //   從者，可能跟玩家UI上實際切換操作中的第二從者對不上：追擊戰鬥/扣血/戰報卡全部張冠李戴到
       //   沒在用的那位身上。比照fate_battle/mana_supply等其餘戰鬥相關action補上這兩個欄位。
-      const data = await gasRun({ action: "move", pcId: pc.id, target: targetName, stance: getStance(), retreat: !!retreat, servant: myActiveServant, servantId: myActiveServantId });
+      const data = await gasRun({ action: "move", pcId: pc.id, target: targetName, stance: getStance(), retreat: !!retreat, servant: myActiveServant, servantId: myActiveServantId, hasContext: !!lastAiContext });
       
       if (data.success) {
         // 1. 同步狀態 (UI 與 LocalStorage)
@@ -1030,53 +1030,9 @@
         try { renderMapPane(data.mapNodes); refreshFateTags(data._state && data._state.tags); renderWarActions(); } catch (e) {}
         story.scrollTop = story.scrollHeight;
 
-        // 2. 🎬 抵達即觸發一段 AI 劇情——純按鈕模式靠它讓世界活起來
-        const foes = (data.people || []).filter(p => p.isExact && (p.faction === '敵御主' || p.faction === '敵從者'));
-        const foeStr = foes.length
-          ? `此地有敵蹤：${foes.map(f => f.name + '（' + (f.faction === '敵從者' ? '敵從者' : '敵御主') + '）').join('、')}`
-          : '此地暫無明顯敵蹤';
-        const timeStr = (data.clock || '').split('・').slice(-1)[0] || '此刻';
-        // 🐛→✅ 鑑賞(慾海)foes 恆為空陣列，但共用 solo 的抵達提示詞仍硬帶「巡查/警戒」戰爭氛圍——改成鑑賞獨立一份溫和提示詞，講同行同伴的日常互動。
-        const kanshouCompanionNames = (myServants || []).map(function (s) { return s.name; }).filter(Boolean);
-        const arrivePrompt = (pc.mode === 'kanshou') ? (
-          (data.masterCard || '') + (data.servantCard ? '【同行同伴】' + data.servantCard : '') + (data.perfNote || '')
-          + `【抵達場景】『${pc.name}』${kanshouCompanionNames.length ? `與「${kanshouCompanionNames.join('、')}」` : ''}來到了「${targetName}」，時值${timeStr}。\n`
-          + `此地氛圍：${locDesc}\n`
-          + `★以細膩溫暖的 Fate／TYPE-MOON 筆觸描寫抵達此地的所見所感、環境細節與當下氛圍——這是後日談的和平時光，沒有敵蹤、沒有戰鬥，不必警戒或巡查，單純換了個地方繼續相處。\n`
-          + (kanshouCompanionNames.length ? `★同行的「${kanshouCompanionNames.join('、')}」依其個性自然開口、有反應（至少一句台詞），別寫成御主獨自一人的自言自語。\n` : `★此刻獨自一人，可寫御主自己此刻的心境與所見所感。\n`)
-          + `★御主（我）可依其性格自然開口、有反應與台詞，別當沉默的旁觀者；但【不可】替御主拍板下一步（移動、互動皆由玩家決定），停在決策前的留白讓玩家以按鍵或對話回應。`
-        ) : (
-        (data.masterCard || '') + (data.servantCard ? '【我方從者】' + data.servantCard : '') + (data.foeCards ? '【敵方從者·非我方】' + data.foeCards : '')
-          + (data.pursuit && data.pursuit.foeCard ? '【撤離途中的追兵】' + data.pursuit.foeCard : '')
-          + (data.perfNote || '') // 🎭 上面所有 servantCard_ 皆已 skipClose，這裡統一收尾一次(見 Router_Movement.gs actionMove)
-          + `【抵達場景】御主『${pc.name}』${pc.servant ? `與從者「${pc.servant}」` : ''}剛抵達冬木的「${targetName}」，時值${timeStr}。\n`
-          + `此地氛圍：${locDesc}\n敵情：${foeStr}。\n`
-          + (data.pursuit ? (data.pursuit.hitWho === 'us'
-              ? `★【撤離追擊】方才從「${data.pursuit.enemyName}」勢力範圍抽身時被追上咬了一記（從者受創 −${data.pursuit.dmg}）——依上方追兵性格演出這記追擊與從者中招的反應，抵達時帶餘悸狼狽，非從容無事。\n`
-              : `★【撤離反咬】「${data.pursuit.enemyName}」追來被從者回身逼退（追兵受創 −${data.pursuit.dmg}）——依上方追兵性格演出被逼退的反應，我方從者演出斷後的餘裕，抵達時從容退場，非纏戰。\n`) : '')
-          + ((foes.filter(f => f.faction === '敵御主' || f.faction === '敵從者').length > 1) ? `★【在場敵對歸屬·勿張冠李戴】${foes.filter(f => f.faction === '敵御主').map(f => `御主「${f.name}」${f.servant ? `↔從者「${f.servant}」` : '（已無從者）'}`).concat(foes.filter(f => f.faction === '敵從者' && !foes.some(m => m.faction === '敵御主' && m.servant === f.name)).map(f => `從者「${f.name}」${f.master ? `↔御主「${f.master}」` : ''}`)).join('；')}。各組從者只聽命於自己的御主，彼此可能也互為敵手。\n` : '')
-          + (data.factionClash ? `★【抵達·撞見兩方敵人】${data.factionClash.note}——已裁定場面：雙方依性格反應，不可改寫局面、不可自行分出勝負、不可替玩家決定是否出手。\n` : '')
-          + (data.foeMood ? `★【敵方態度·已依好感裁定，照此定調】${data.foeMood}\n` : '')
-          // 🧵 方才之事的【正文】不再重貼——它已經是 chatHistory 的最後一則(見 narrateWithState_)，貼第二遍只是稀釋。這裡只留它獨有的「怎麼承接」。
-          + (lastAiContext ? `\n★承接上一則敘事：${foes.length ? '若眼前敵人正是方才對手，即是一路追上或再度狹路相逢——非初見（對方可能仍帶著傷或怒）。' : '依上一戰的勝負與當前血量定調(勿臆測)：大勝→餘勇或警戒；慘勝→疲憊仍挺立；敗逃→狼狽負傷，別演成若無其事或誇張敗走。'}\n` : '')
-          + `★描寫抵達此地的所見所感、環境細節與當下氛圍。有敵蹤→營造一觸即發的對峙張力(交戰與否/勝負留待御主下令，禁止自行開打或分勝負)；無敵蹤→巡查、警戒或喘息的氛圍，暗示「可偵查四周或轉往他處」。\n`
-          + (foes.length ? '' : `★此地此刻並無其他已知角色在場——【禁止】無中生出可對話、有名有姓的人物來湊互動（不是路人、不是熟人偶遇、不是巧遇的敵手）；環境細節與氛圍照寫，但互動對象僅御主與隨行從者。\n`)
-          + `★依此地氛圍與角色卡性格自然發揮，各有其調；忌套語與雷同結構(動作→台詞→轉身)，每次換感官切入點與詞彙，別讓固定形容詞或開場句式重複。\n`
-          + (foes.length ? (
-              (data.preFoes || []).some(n => foes.find(f => f.name === n))
-                ? `★【找上門】此地本就是敵方據守之處，是御主主動尋來——對方在自己的地盤上。${stanceNotice_(true)}讓敵方依其個性與立場（是否同盟）開口、有反應，別當沉默佈景；是否動手由御主下令。\n`
-                : `★【偶遇】雙方恰巧在此撞個正著。${stanceNotice_(false)}讓敵方依其個性與立場（是否同盟）開口、有反應，別當沉默佈景；是否動手由御主下令。\n`
-            ) : '')
-          + foes.filter(f => f.faction === '敵御主' && f.lostServant).map(f =>
-              `★敵御主『${f.name}』已痛失從者（${f.lostServant}）、再無從者可驅使——讓其神情心境流露失恃（依個性：孤注一擲／惶然欲逃／不甘怨懟），切勿演成仍有從者隨侍。\n`).join('')
-          + (pc.servant ? `★從者「${pc.servant}」隨行在側，依其個性開口、有反應（至少一句台詞），別寫成御主獨自一人的自言自語。\n` : '')
-          + (data.allyPeril ? `★【盟友告急·情報】盟友「${data.allyPeril.ally}」此刻正於「${data.allyPeril.loc}」與敵從者「${data.allyPeril.foe}」對上、情勢緊繃（結盟情報共享而得知）——可讓御主/從者對這則消息有一句反應或掛心，但【是否馳援由玩家決定】，別替玩家起身趕路。\n` : '')
-          + (foes.length ? '' : stanceLine_()) // 有敵蹤→姿態已折進偶遇/找上門的 stanceNotice_，不重複；無敵蹤→獨行姿態定調
-          // 🐛→✅ 玩家反饋提示詞過多——「不可替御主拍板下一步」這條規則 data.masterCard(=masterCard_，
-          //   本prompt最開頭就已附上)早就講過一次，這裡不重複；只留「別逼問玩家、留白讓玩家按鍵回應」
-          //   這個原本沒講過的新提醒，省字數也省一次同一規則的重複曝光。
-          + `★不可逼問玩家，停在決策前的留白讓玩家以按鍵回應。`
-        );
+        // 2. 🎬 抵達即觸發一段 AI 劇情——提示詞 2026-09 收回後端(buildArrivePrompt_)，前端只負責送出。
+        //    鑑賞走 kanshouMoveTo，不經這條路；hasContext 告訴後端這不是本局第一段敘事(見 travelTo 的 payload)。
+        const arrivePrompt = data.arrivePrompt || "";
         if (data.defeat) { await handleDefeat(data); }  // ⏳ 移動跨過第14日時限 → 直接收場(略過抵達敘事)
         else {
           await narrate(arrivePrompt);
@@ -1875,24 +1831,6 @@
     return '<div style="margin-bottom:8px; padding:6px 7px; background:rgba(20,18,32,.4); border:1px solid #2e2a44; border-radius:7px;">'
       + '<div style="color:#8a8298; font-size:10.5px; margin-bottom:4px;">🎌 御主參戰風格 <small style="opacity:.6;">· 御主替從者分擔戰損 <span id="stance-share-pct">' + _shareNow + '</span>%、並定調接敵/撤離追擊</small></div>'
       + '<div style="display:flex; gap:4px;">' + segs + '</div></div>';
-  }
-  // 抵達/撤離敘事用的參戰風格定調句（無敵蹤時用·見機行事＝不加，留白給資料驅動）
-  function stanceLine_() {
-    var k = getStance(); if (k === 'normal') return '';
-    return '★【御主參戰風格】御主此刻以〔' + STANCES[k].label + '〕之姿行動——'
-      + (k === 'stealth' ? '壓低存在感、避免張揚，盡量不被察覺地接近或抽身' : '毫不掩飾、堂堂現身，主動暴露行蹤、不屑隱匿')
-      + '。讓此姿態自然滲入現身與被察覺的方式，勿喧賓奪主、勿替敵人預設反應。\n';
-  }
-  // 遭遇「誰先發現誰」定調句（折進偶遇/找上門框架，免姿態被講兩遍）。isSeek=找上門(主動尋來)；否則偶遇。
-  function stanceNotice_(isSeek) {
-    var k = getStance();
-    if (k === 'stealth') return isSeek
-      ? '但御主刻意壓低氣息潛近，對方未必立時察覺——御主或佔得片刻窺探、先機在握。'
-      : '御主隱於暗處接近，反而可能先一步發現對方、而非被對方撞見。';
-    if (k === 'open') return isSeek
-      ? '御主更是毫不掩飾、堂堂逼近，對方老遠便察覺來敵、戒備瞬間拉滿。'
-      : '加之御主明晃晃現身，對方撞見的剎那便認出這份張揚、無從佯作未見。';
-    return isSeek ? '對方先察覺不速之客而起戒備。' : '彼此都帶幾分意外。'; // 正常
   }
 
   async function renderMapPane(preNodes) {

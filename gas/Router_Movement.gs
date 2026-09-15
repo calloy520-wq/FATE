@@ -59,6 +59,64 @@ function actionGetMapNodes(userData, pcId, sheets) {
   }
 }
 
+
+// 🚶 抵達敘事提示詞（單一真實來源·2026-09 從 Script.html 收回後端；理由見 CODE_NOTES）。
+function arriveStanceNotice_(stance, isSeek) {
+  if (stance === 'stealth') return isSeek ? '御主刻意壓低氣息潛近，對方未必立時察覺——先機或在我方。' : '御主隱於暗處接近，反而可能先一步發現對方。';
+  if (stance === 'open') return isSeek ? '御主毫不掩飾、堂堂逼近，對方老遠便察覺來敵、戒備拉滿。' : '御主明晃晃現身，對方撞見的剎那便認出這份張揚。';
+  return isSeek ? '對方先察覺不速之客而起戒備。' : '彼此都帶幾分意外。';
+}
+function buildArrivePrompt_(a) {
+  const foes = (a.people || []).filter(p => p.isExact && (p.faction === '敵御主' || p.faction === '敵從者'));
+  const stance = String(a.stance || 'normal');
+  // ── 此地：環境與敵情 ──
+  const HERE = [`【抵達】御主『${a.pcName}』${a.svName ? `與從者「${a.svName}」` : ''}來到冬木的「${a.target}」，時值${a.timeStr}。`,
+    `此地氛圍：${a.locDesc}`,
+    foes.length ? `此地有敵蹤：${foes.map(f => `${f.name}（${f.faction}）`).join('、')}。` : '此地暫無明顯敵蹤。'];
+  // ── 剛發生：抵達當下 GAS 已裁定的事 ──
+  const NOW = [];
+  if (a.pursuit) NOW.push(a.pursuit.hitWho === 'us'
+    ? `【撤離追擊·已裁定】自「${a.pursuit.enemyName}」的地盤抽身時被追上咬了一記（從者受創 −${a.pursuit.dmg}）——依上方追兵性格演出這記追擊與從者中招的反應，抵達時帶餘悸狼狽，非從容無事。`
+    : `【撤離反咬·已裁定】「${a.pursuit.enemyName}」追來卻被從者回身逼退（追兵受創 −${a.pursuit.dmg}）——我方從者演出斷後的餘裕，抵達時從容退場，非纏戰。`);
+  if (a.factionClash) NOW.push(`【撞見兩方敵人·已裁定】${a.factionClash.note}——雙方依性格反應，不可改寫局面、不可自行分出勝負、不可替玩家決定是否出手。`);
+  // ── 在場：誰在這裡、什麼態度 ──
+  const WHO = [];
+  if (foes.length > 1) {
+    const pairs = foes.filter(f => f.faction === '敵御主').map(f => `御主「${f.name}」${f.servant ? `↔從者「${f.servant}」` : '（已無從者）'}`)
+      .concat(foes.filter(f => f.faction === '敵從者' && !foes.some(m => m.faction === '敵御主' && m.servant === f.name)).map(f => `從者「${f.name}」${f.master ? `↔御主「${f.master}」` : ''}`));
+    WHO.push(`【歸屬·勿張冠李戴】${pairs.join('；')}。各組從者只聽命於自己的御主，彼此可能也互為敵手。`);
+  }
+  if (foes.length) WHO.push((a.preFoes || []).some(n => foes.find(f => f.name === n))
+    ? `【找上門】此地本就是敵方據守之處，是御主主動尋來——對方在自己的地盤上。${arriveStanceNotice_(stance, true)}讓敵方依其個性與立場開口、有反應，別當沉默佈景；是否動手由御主下令。`
+    : `【偶遇】雙方恰巧在此撞個正著。${arriveStanceNotice_(stance, false)}讓敵方依其個性與立場開口、有反應，別當沉默佈景；是否動手由御主下令。`);
+  if (a.foeMood) WHO.push(`【敵方態度·已依好感裁定，照此定調】${a.foeMood}`);
+  foes.filter(f => f.faction === '敵御主' && f.lostServant).forEach(f =>
+    WHO.push(`敵御主『${f.name}』已痛失從者（${f.lostServant}）、再無從者可驅使——讓其神情心境流露失恃（依個性：孤注一擲／惶然欲逃／不甘怨懟），切勿演成仍有從者隨侍。`));
+  if (a.allyPeril) WHO.push(`【盟友告急·情報】盟友「${a.allyPeril.ally}」此刻正於「${a.allyPeril.loc}」與敵從者「${a.allyPeril.foe}」對上、情勢緊繃（結盟情報共享而得知）——可讓御主/從者有一句反應或掛心，但【是否馳援由玩家決定】，別替玩家起身趕路。`);
+  if (!foes.length && stance !== 'normal') WHO.push(`【御主參戰風格】御主此刻以〔${stance === 'stealth' ? '潛行' : '張揚'}〕之姿行動——${stance === 'stealth' ? '壓低存在感、盡量不被察覺地接近或抽身' : '毫不掩飾、主動暴露行蹤'}。讓此姿態自然滲入現身與被察覺的方式，勿喧賓奪主。`);
+  // ── 怎麼演 ──
+  const HOW = [foes.length
+    ? '寫這片場地與一觸即發的對峙張力——交戰與否、勝負，都留待御主下令，禁止自行開打或分出勝負。'
+    : '寫這片場地與此刻的喘息：巡查、警戒或鬆一口氣，暗示「可偵查四周或轉往他處」。'];
+  if (!foes.length) HOW.push('此地此刻並無其他已知角色在場——【禁止】無中生出可對話、有名有姓的人物（不是路人、不是熟人偶遇、不是巧遇的敵手）；環境照寫，但互動對象只有御主與隨行從者。');
+  if (a.svName) HOW.push(`從者「${a.svName}」隨行在側，依其個性開口、有反應（至少一句台詞），別寫成御主獨自一人的自言自語。`);
+  if (a.hasContext) HOW.push(foes.length
+    ? '承接上一則敘事：若眼前敵人正是方才對手，即是一路追上或再度狹路相逢——非初見（對方可能仍帶著傷或怒）。'
+    : '承接上一則敘事：依上一戰的勝負與當前血量定調（勿臆測）——大勝→餘勇或警戒；慘勝→疲憊仍挺立；敗逃→狼狽負傷，別演成若無其事。');
+  HOW.push('忌套語與雷同結構（動作→台詞→轉身），每次換感官切入點與詞彙。不可逼問玩家，停在決策前的留白讓玩家以按鍵回應。');
+  const sec = (t, arr) => arr.length ? `【${t}】\n` + arr.map(x => '· ' + x).join('\n') + '\n' : '';
+  const words = ARRIVE_WORDS_[Math.min(NOW.length + (foes.length ? 1 : 0), ARRIVE_WORDS_.length - 1)];
+  return (a.masterCard || '') + (a.servantCard ? '【我方從者】' + a.servantCard : '') + (a.foeCards ? '【在場敵方·非我方】' + a.foeCards : '')
+    + (a.pursuit && a.pursuit.foeCard ? '【撤離途中的追兵】' + a.pursuit.foeCard : '') + (a.perfNote || '')
+    + HERE.join('\n') + '\n'
+    + sec('剛發生', NOW) + sec('在場', WHO)
+    + `★演出這段抵達【${words} 字】：\n` + HOW.map(x => '· ' + x).join('\n');
+}
+// 篇幅依抵達當下發生了幾件事——追擊/撞見互毆/有敵對峙，不該跟空地落腳同樣字數。
+const ARRIVE_WORDS_ = ['120~170', '180~240', '240~310'];
+// 抵達時最多附幾張敵方演出卡（其餘只在「此地有敵蹤」那行點名）。
+const ARRIVE_FOE_CARD_CAP_ = 4;
+
 function actionMove(userData, pcId, sheets) {
   const { target } = userData;
   let allPcData = sheets.pc.getDataRange().getValues();
@@ -357,6 +415,7 @@ function actionMove(userData, pcId, sheets) {
   var svIdxMove = findPlayerServantIdx_(allPcData, moveGameId, userData.servant, userData.servantId);
   var svCardMove = svIdxMove !== -1 ? servantCard_(allPcData[svIdxMove], { skipClose: true }) : "";
   var perfNamesMove = svIdxMove !== -1 ? [String(allPcData[svIdxMove][COL.PC.NAME])] : [];
+  var svNameForAi = svIdxMove !== -1 ? String(allPcData[svIdxMove][COL.PC.NAME]) : "";
 
   // 🎭 在場敵從者/敵御主人設卡餵給抵達敘事，讓敵人依性格反應而非 AI 即興通用反派；servantCard_ 對敵從者一樣適用(低羈絆→戒備敵意)。
   var foeCardsMove = "";
@@ -368,6 +427,9 @@ function actionMove(userData, pcId, sheets) {
         && hasArrived_(r, _moveDay())
         && (String(r[COL.PC.FACTION]) === "敵從者" || String(r[COL.PC.FACTION]) === "敵御主");
     });
+    // 🔒 在場人物上限：一地擠進 N 組敵人時，每人一張卡會讓提示詞爆掉（實測 14 人＝4,820 字，
+    //   而且 performanceNote_ 會列出 14 個名字）。只送最前面幾位，其餘由【此地有敵蹤】那行點名即可。
+    if (_foeRowsMove.length > ARRIVE_FOE_CARD_CAP_) _foeRowsMove = _foeRowsMove.slice(0, ARRIVE_FOE_CARD_CAP_);
     var _multiFoeGroupsMove = _foeRowsMove.filter(function (r) { return String(r[COL.PC.FACTION]) === "敵御主"; }).length > 1;
     _foeRowsMove.forEach(function (r) {
       if (String(r[COL.PC.FACTION]) === "敵從者") {
@@ -424,6 +486,15 @@ function actionMove(userData, pcId, sheets) {
     servantCard: svCardMove,
     foeCards: foeCardsMove,
     perfNote: performanceNote_(perfNamesMove), // 🎭 抵達場景可能同框多張 servantCard_(皆已 skipClose)，統一收尾一次
+    // 🚶 抵達敘事提示詞由後端組好下傳（2026-09 從前端收回，見 buildArrivePrompt_）；上面那幾張卡片仍下傳，供前端偵錯與相容。
+    arrivePrompt: buildArrivePrompt_({
+      pcName: pcName, svName: svNameForAi, target: target, timeStr: String(clockLabel || '').split('・').slice(-1)[0] || '此刻',
+      locDesc: mapDesc || '四下靜謐。', people: getLocalPeopleList(sheets, pcName, pcId, target, allPcData),
+      preFoes: preFoesAtTarget, pursuit: pursuit, factionClash: factionClash, foeMood: foeMoodNote,
+      allyPeril: allyPeril, stance: String(userData.stance || 'normal'), hasContext: !!userData.hasContext,
+      masterCard: masterCard_(allPcData[pIdx]), servantCard: svCardMove, foeCards: foeCardsMove,
+      perfNote: performanceNote_(perfNamesMove)
+    }),
     pursuit: pursuit,
     report: pursuitReport, // 📊 撤離追擊數字戰報卡(見上方建構處)——renderFateBattleReport 秒顯，不等 AI
     factionClash: factionClash, // ⚔️ 抵達時撞見的敵對互毆(見上方建構處)——供前端插入抵達演出提示詞
@@ -511,7 +582,7 @@ function actionRest(userData, pcId, sheets) {
         try { raiseBond_(sheets, restGameId, pcName, dSvName, 3, pcData); } catch (e) { }
         restDreamPrompt = servantCard_(svRow) +
           `【系統·從者之夢·回想】御主沉沉睡去，意識卻順著與從者的靈魂聯繫，墜入「${dSvName}」成為英靈之前的記憶長河——夢見其傳說中的一個片段。\n` +
-          `★以 Fate／TYPE-MOON 筆觸，用夢境／回想的朦朧史詩質感，演出「${dSvName}」這名英靈生前傳說裡的某一幕（取材自其真實的神話／史實／傳說：其榮光、抉擇、孤獨或傷痕）。讓御主（與玩家）窺見這名英靈所背負的過往與信念。\n` +
+          `★用夢境／回想的朦朧史詩質感，演出「${dSvName}」這名英靈生前傳說裡的某一幕（取材自其真實的神話／史實／傳說：其榮光、抉擇、孤獨或傷痕）。讓御主（與玩家）窺見這名英靈所背負的過往與信念。\n` +
           `★【show, don't tell】以畫面與情境流露，不直接點破其願望或心結，停在夢醒後的餘韻與一絲說不清的悸動；收尾可帶一絲「${dSvName}」隱約察覺御主窺見了這段記憶的細微反應，份量點到為止即可。\n` +
           ``;
       }
@@ -521,7 +592,7 @@ function actionRest(userData, pcId, sheets) {
     const restAmbushPrompt = ambushDispatchPrompt_(restAmbush,
       function (a) {
         const restSev = dmgSeverityWord_(a.dmg || 0, a.svHpMax);
-        return (a.foeCard || '') + `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊擊中「${a.svName || '從者'}」致其${restSev}（−${a.dmg}）${a.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
+        return (a.foeCard || '') + performanceNote_(a.destroyed ? [a.enemyName] : [a.svName, a.enemyName].filter(Boolean)) + `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊擊中「${a.svName || '從者'}」致其${restSev}（−${a.dmg}）${a.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n★描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
       },
       function () { return ""; }
     );
@@ -591,7 +662,7 @@ function actionPrepMeal(userData, pcId, sheets) {
   var mealSvIdx = findPlayerServantIdx_(pcData, myGameId, "");
   var mealPrompt = masterCard_(pcData[pIdx]) + (mealSvIdx !== -1 ? servantCard_(pcData[mealSvIdx]) : '') +
     `【系統·整備已裁定】御主與從者稍作整備、飽餐一頓——接下來約 ${MEAL_BUFF_HOURS} 小時內，從者出擊命中 +${MEAL_BUFF_BONUS}。\n` +
-    `★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】演出這段戰前用餐、稍事休整的日常小品（一段即可），依從者性格自然流露對這頓飯／這位御主的反應；show, don't tell，語氣輕快不冗長。`;
+    `★【60~100 字】演出這段戰前用餐、稍事休整的日常小品，依從者性格自然流露對這頓飯／這位御主的反應；語氣輕快不冗長。`;
   STATE_PRE_DATA_ = pcData;
   return JSON.stringify({
     success: true,
@@ -851,7 +922,7 @@ function actionFactionAmbush(userData, pcId, sheets) {
   var _mySvIdx = findPlayerServantIdx_(pcData, gameId, userData.servant, userData.servantId);
   var aiPrompt = servantCard_(pcData[_mySvIdx !== -1 ? _mySvIdx : pIdx], { skipClose: true }) + res.foeCard + performanceNote_([res.svName, res.enemyName]) +
     `【系統·趁隙偷襲·已裁定】趁「${res.enemyName}」分心之際，你的從者搶先發難——${hitTxt}${res.destroyed ? '，將其當場擊破！' : '，對方旋即警覺、不再有隙可趁。'}\n` +
-    `★以 Fate／TYPE-MOON 筆觸【約 80~140 字】演出這記趁隙奇襲：把握、突發、對方由鬆懈轉為戒備的瞬間；依雙方性格演，別自行加碼改寫勝負（傷害已由系統結算）。`;
+    `★【80~140 字】演出這記趁隙奇襲：把握、突發、對方由鬆懈轉為戒備的瞬間；依雙方性格演，別自行加碼改寫勝負（傷害已由系統結算）。`;
   STATE_PRE_DATA_ = pcData;
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, report: res.report,
@@ -917,7 +988,7 @@ function actionIncite(userData, pcId, sheets) {
       pcData[mIdxB][COL.PC.MEMORY] = setEnemyFeud_(pcData[mIdxB][COL.PC.MEMORY], _mAName, day + 3);
     }
     aiPrompt = inciteCardsStr + `【系統·挑撥離間·得逞】你三言兩語點燃了「${svAName}」與「${svBName}」之間的火——兩人當真打了起來，「${loName}」吃了較重的一擊（−${loDmg}），另一方亦掛彩（−${wiDmg}），自此結下樑子。\n` +
-      `★以 Fate／TYPE-MOON 筆觸【約 80~140 字】演出你如何煽風點火、兩方如何被激得反目相向；你則在一旁坐收其亂。傷害已由系統結算。`;
+      `★【80~140 字】演出你如何煽風點火、兩方如何被激得反目相向；你則在一旁坐收其亂。傷害已由系統結算。`;
     var wiName = cross.atkWins ? svAName : svBName;
     report = { incite: true, success: true, aName: svAName, bName: svBName,
       loName: loName, loDmg: loDmg, loAfter: loAfter, loHpMax: parseInt(pcData[loIdx][COL.PC.MAX_HP]) || loAfter,
@@ -927,7 +998,7 @@ function actionIncite(userData, pcId, sheets) {
     bumpBond_(sheets, pcData, iA, -4, true);
     bumpBond_(sheets, pcData, iB, -4, true);
     aiPrompt = inciteCardsStr + `【系統·挑撥離間·被看穿】你試圖挑撥「${svAName}」與「${svBName}」反目，卻被兩人一眼看穿——他們非但沒中計，反而不約而同地轉過頭，戒備地一同盯向你這攪局的外人，對你的好感也淡了幾分。\n` +
-      `★以 Fate／TYPE-MOON 筆觸【約 70~120 字】演出這記挑撥落空、兩方合流戒你的尷尬瞬間；語氣別替玩家決定接下來怎麼辦。`;
+      `★【70~120 字】演出這記挑撥落空、兩方合流戒你的尷尬瞬間；語氣別替玩家決定接下來怎麼辦。`;
     report = { incite: true, success: false, aName: svAName, bName: svBName };
   }
   pcData[pIdx][COL.PC.MEMORY] = clearEncounterWindow_(pcData[pIdx][COL.PC.MEMORY]);
@@ -995,13 +1066,13 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul, preferSvId
       pcData[eIdx][COL.PC.HP] = eAfter;
       sheets.pc.getRange(eIdx + 1, 1, 1, pcData[eIdx].length).setValues([pcData[eIdx]]);
       const eNm = String(pcData[eIdx][COL.PC.NAME]), sNm = String(pcData[svIdx][COL.PC.NAME]);
-      const eFoeCard = '〔夜襲者〕' + servantCard_(pcData[eIdx]);
+      const eFoeCard = '〔夜襲者〕' + servantCard_(pcData[eIdx], { skipClose: true, foe: true });
       const homeRankScale = rankVal(homeRank) >= 60 ? '堪比城砦的壯闊結界' : rankVal(homeRank) >= 40 ? '頗具規模的堅實結界' : '倉促佈設的簡易結界';
       return {
         homeRepel: true, enemyName: eNm, svName: sNm, backDmg: backDmg, wardCost: wardCost, homeRank: homeRank,
         dmg: 0, destroyed: false, defeat: false, dreamPrompt: "", after: parseInt(pcData[svIdx][COL.PC.HP]) || 0,
         foeCard: eFoeCard,
-        repelNote: eFoeCard + `【系統·陣地反擊·已裁定】潛伏同地的敵從者「${eNm}」欲趁御主一行卸防時偷襲，然此地正是我方親手佈設的陣地——${homeRankScale}示警、機關迭起，「${sNm}」從容起身、反手將來犯者擊退驅離（敵受創 −${backDmg}），我方毫髮無傷（御主耗 ${wardCost} 魔維持結界運作）。\n★以 Fate／TYPE-MOON 筆觸演出「潛入者反被主場結界與從者從容擊退」的優雅反制，結界的氣勢與規模需貼合上述描述——「${eNm}」依其性格可以有反應/一兩句話(不甘、譏諷、冷笑皆可，狂化者改用低吼/肢體)，別把入侵者寫成毫無聲息的純背景。`,
+        repelNote: eFoeCard + `【系統·陣地反擊·已裁定】潛伏同地的敵從者「${eNm}」欲趁御主一行卸防時偷襲，然此地正是我方親手佈設的陣地——${homeRankScale}示警、機關迭起，「${sNm}」從容起身、反手將來犯者擊退驅離（敵受創 −${backDmg}），我方毫髮無傷（御主耗 ${wardCost} 魔維持結界運作）。\n★演出「潛入者反被主場結界與從者從容擊退」的優雅反制，結界的氣勢與規模需貼合上述描述——「${eNm}」依其性格可以有反應/一兩句話(不甘、譏諷、冷笑皆可，狂化者改用低吼/肢體)，別把入侵者寫成毫無聲息的純背景。`,
         report: { homeRepel: true, ambush: false, enemyName: eNm, svName: sNm, backDmg: backDmg, wardCost: wardCost, homeRank: homeRank }
       };
     }
@@ -1023,13 +1094,13 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul, preferSvId
     const outcome = rollW < W.ambush ? 'ambush' : (rollW < W.ambush + W.observe ? 'observe' : 'probe');
     if (outcome !== 'ambush') {
       const eNm2 = String(pcData[eIdx][COL.PC.NAME]), svNm2 = String(pcData[svIdx][COL.PC.NAME]);
-      const foeCard2 = '〔潛伏者〕' + servantCard_(pcData[eIdx]);
+      const foeCard2 = '〔潛伏者〕' + servantCard_(pcData[eIdx], { skipClose: true, foe: true });
       if (outcome === 'observe') {
         return {
           homeRepel: false, peaceful: true, kind: 'observe', enemyName: eNm2, svName: svNm2,
           dmg: 0, destroyed: false, defeat: false, dreamPrompt: "", after: parseInt(pcData[svIdx][COL.PC.HP]) || 0,
           foeCard: foeCard2,
-          repelNote: foeCard2 + `【系統·卸防時刻·已裁定】潛伏同地的敵從者「${eNm2}」其實已窺見這破綻，卻按兵不動、只是冷眼旁觀——似乎另有盤算，此刻並未出手。\n★以 Fate／TYPE-MOON 筆觸演出「${svNm2}」一行渾然不覺、或事後驚覺曾被窺伺的一絲寒意(依性格擇一)；「${eNm2}」依其性格演出這份按兵不動的姿態與神情/隻言片語即可，不必開打。`,
+          repelNote: foeCard2 + performanceNote_([eNm2]) + `【系統·卸防時刻·已裁定】潛伏同地的敵從者「${eNm2}」其實已窺見這破綻，卻按兵不動、只是冷眼旁觀——似乎另有盤算，此刻並未出手。\n★演出「${svNm2}」一行渾然不覺、或事後驚覺曾被窺伺的一絲寒意(依性格擇一)；「${eNm2}」依其性格演出這份按兵不動的姿態與神情/隻言片語即可，不必開打。`,
           report: { peaceful: true, kind: 'observe', enemyName: eNm2, svName: svNm2 }
         };
       }
@@ -1039,7 +1110,7 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul, preferSvId
         homeRepel: false, peaceful: true, kind: 'probe', enemyName: eNm2, svName: svNm2,
         dmg: 0, destroyed: false, defeat: false, dreamPrompt: "", after: parseInt(pcData[svIdx][COL.PC.HP]) || 0,
         foeCard: foeCard2, bondAfter: afterBond,
-        repelNote: foeCard2 + `【系統·卸防時刻·已裁定】潛伏同地的敵從者「${eNm2}」現身，卻沒有動手——帶著幾分戒心，像是想試探些什麼(好感 ${afterBond}/100)。\n★以 Fate／TYPE-MOON 筆觸演出這場短暫、帶著猜忌與算計的試探性接觸(一兩句交鋒或對峙即可)：兩邊都清楚此刻並非開戰時機，「${eNm2}」依其性格留下一絲若有似無的試探或警告，不必開打、也不必交心。`,
+        repelNote: foeCard2 + performanceNote_([eNm2]) + `【系統·卸防時刻·已裁定】潛伏同地的敵從者「${eNm2}」現身，卻沒有動手——帶著幾分戒心，像是想試探些什麼(好感 ${afterBond}/100)。\n★演出這場短暫、帶著猜忌與算計的試探性接觸(一兩句交鋒或對峙即可)：兩邊都清楚此刻並非開戰時機，「${eNm2}」依其性格留下一絲若有似無的試探或警告，不必開打、也不必交心。`,
         report: { peaceful: true, kind: 'probe', enemyName: eNm2, svName: svNm2, bondAfter: afterBond }
       };
     }
@@ -1057,7 +1128,7 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul, preferSvId
   const enemyBase = probe.atkWins ? (probe.damage || 1) : Math.round(rankVal(enemyC.six['筋力'] || 'C') * 1.2 + 6);
   const dmg = Math.max(1, Math.round(enemyBase * mul));
   // 🎭 foeCard：比照戰鬥主路徑附上敵從者演出卡(性格/口吻/狂化禁言)，四個突襲呼叫端(休息/羈絆/結盟/補魔)共用。
-  const out = { enemyName: String(pcData[eIdx][COL.PC.NAME]), dmg: dmg, destroyed: false, defeat: false, dreamPrompt: "", after: 0, stealthy: stealthy, foeCard: '〔夜襲者〕' + servantCard_(pcData[eIdx]) };
+  const out = { enemyName: String(pcData[eIdx][COL.PC.NAME]), dmg: dmg, destroyed: false, defeat: false, dreamPrompt: "", after: 0, stealthy: stealthy, svName: String(pcData[svIdx][COL.PC.NAME]), foeCard: '〔夜襲者〕' + servantCard_(pcData[eIdx], { skipClose: true, foe: true }) };
   // 🗡️ 斬斷救贖(severed)：與 fateStrike_ 同一道閘門，確保帶 rule_breaker/anti_magic_lance 的敵從者不會靠突襲繞過戰鬥續行/復活封鎖。
   const severed = hasFx_(enemyC, 'rule_breaker') || hasFx_(enemyC, 'anti_magic_lance');
   let hp = parseInt(pcData[svIdx][COL.PC.HP]) || 0, after = hp - dmg;
@@ -1111,7 +1182,7 @@ function actionSecondWind(userData, pcId, sheets) {
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   const ap = grantAp_(myGameId, 4, pcData, sheets);
   const aiPrompt = `【系統·強撐已結算】御主透支魔術迴路與體力、燃燒生命力強行擠出最後的行動之力（HP −${cost}，行動力 +4＝${ap}/${AP_PER_DAY}）。\n` +
-    `★以 Fate／TYPE-MOON 筆觸描寫御主咬牙硬撐、迴路過載灼痛、以意志逼出餘力的一幕（一段即可）。已結算。\n` +
+    `★描寫御主咬牙硬撐、迴路過載灼痛、以意志逼出餘力的一幕。已結算。\n` +
     ``;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：HP扣減/AP授予皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, ap: ap, apMax: AP_PER_DAY, clock: clockLabel_(myGameId, pcData), statusString: buildPlayerStatusString(pcData[pIdx]) });
@@ -1171,7 +1242,7 @@ function actionSetWorkshop(userData, pcId, sheets) {
   const csName = casterRow ? String(casterRow[COL.PC.NAME]) : "";
   const wsPrompt = masterCard_(pcData[pIdx]) + (casterRow ? servantCard_(casterRow) : '') +
     `【系統·陣地佈設·已裁定】御主一行於「${loc}」紮下陣地——${csName ? `「${csName}」以陣地作成之能，在此地` : '御主親手在此地'}布設層層魔術結界、暗藏機關與監視術式，御主灌注了 ${WORKSHOP_MANA_COST} 點魔力為根基。自此這裡成為我方的堡壘：駐留可加速供魔回復，於此迎戰享主場結界庇護，敵人潛入亦難越雷池。\n` +
-    `★以 Fate／TYPE-MOON 筆觸【精煉 90~140 字】演出這場「築起陣地」的勞作——${csName ? `「${csName}」施展術式、鋪設結界的專注與魔力流轉，法師將一方土地化為己身堡壘的過程` : '御主費心張設營地與警戒的辛勞'}；show, don't tell，落在完工後那份「這裡是我們的據點了」的踏實與底氣。`;
+    `★【90~140 字】演出這場「築起陣地」的勞作——${csName ? `「${csName}」施展術式、鋪設結界的專注與魔力流轉，法師將一方土地化為己身堡壘的過程` : '御主費心張設營地與警戒的辛勞'}；落在完工後那份「這裡是我們的據點了」的踏實與底氣。`;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：MP扣減/陣地標記/spendAp_ 皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({ success: true, message: `已於「${loc}」佈設陣地（工房）——耗 ${WORKSHOP_MANA_COST} 魔築起結界。駐留供魔提升；於此決戰享主場庇護、敵襲反被擊退。`, aiPrompt: wsPrompt, clock: clock, ap: ap, apMax: AP_PER_DAY, economy: isFate ? playerServantEconomy_(sheets, pcId, pcData) : null });
 }
@@ -1233,7 +1304,7 @@ function actionScavenge(userData, pcId, sheets) {
   const scavSvIdx = findPlayerServantIdx_(pcData, myGameId, "");
   const scavPrompt = masterCard_(pcData[pIdx]) + (scavSvIdx !== -1 ? servantCard_(pcData[scavSvIdx]) : '') +
     `【系統·搜索已裁定】御主一行在此地細細搜索，${depleted ? '此地散逸魔力早被搜刮殆盡、只餘殘渣' : '導入了零星散逸的魔力'}。${intel ? intel : ''}\n` +
-    `★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】演出這段翻找、感應散逸魔力的搜索過程（一段即可）；${intel ? '收尾帶出察覺遠處氣息時的警覺' : '收尾停在暫時平靜的餘韻'}；show, don't tell，是否交戰仍由御主下令。`;
+    `★【60~100 字】演出這段翻找、感應散逸魔力的搜索過程；${intel ? '收尾帶出察覺遠處氣息時的警覺' : '收尾停在暫時平靜的餘韻'}；是否交戰仍由御主下令。`;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：MP/MEMORY搜刮枯竭標記/SEEN揭露/spendAp_ 皆已原地改回 pcData
   return JSON.stringify({ success: true, message: msg, aiPrompt: scavPrompt, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: buildPlayerStatusString(pcData[pIdx]) });
 }
@@ -1256,7 +1327,7 @@ function actionScout(userData, pcId, sheets) {
   try { getNearbyLocations(curLoc, mapData, scoutWar).forEach(l => { const nm = (l && l.name) ? l.name : l; if (nm) scope.push(String(nm).trim()); }); } catch (e) { }
 
   const scoutDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
-  let revealed = [];
+  let revealedHere = [], revealedNear = [];
   for (let i = 1; i < pcData.length; i++) {
     const fac = String(pcData[i][COL.PC.FACTION]);
     if (fac !== "敵御主" && fac !== "敵從者") continue;
@@ -1269,20 +1340,23 @@ function actionScout(userData, pcId, sheets) {
       pcData[i][COL.PC.SEEN] = "1";
       sheets.pc.getRange(i + 1, COL.PC.SEEN + 1).setValue("1");
     }
-    revealed.push(pcData[i][COL.PC.NAME] + "（" + loc + "）");
+    (loc === curLoc ? revealedHere : revealedNear).push(String(pcData[i][COL.PC.NAME]) + (loc === curLoc ? "" : "（" + loc + "）"));
   }
 
   const _scoutApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以偵查——請『休息』恢復後再探。", { isFate: isFateScout });
   const scoutAp = _scoutApr.ap, scoutClock = _scoutApr.clock;
 
+  const revealed = revealedHere.concat(revealedNear);
   const msg = revealed.length
     ? `偵查四方，捕捉到氣息：${revealed.join("、")}。`
     : `偵查四方，附近暫無敵蹤現形。`;
   // 🎬 aiPrompt 只給「有無揭露敵蹤」，不夾帶座標/戰術細節(那些留給地圖UI)，AI只負責演出當下氛圍/警覺。
   const scoutSvIdx = findPlayerServantIdx_(pcData, myGameId, "");
   const scoutPrompt = masterCard_(pcData[pIdx]) + (scoutSvIdx !== -1 ? servantCard_(pcData[scoutSvIdx]) : '') +
-    `【系統·偵查已裁定】${revealed.length ? `御主凝神探查四周氣息，察覺到潛伏的敵蹤：${revealed.join("、")}。` : `御主凝神探查四周氣息，附近暫無敵蹤現形，一時風平浪靜。`}\n` +
-    `★以 Fate／TYPE-MOON 筆觸【精煉 60~100 字】演出這段凝神戒備、探查四周的氣息與觀察（一段即可），${revealed.length ? '流露警覺與一絲山雨欲來的張力' : '流露短暫的鬆一口氣或不敢鬆懈的警戒'}；show, don't tell，是否交戰仍由御主下令。`;
+    `【已裁定】御主凝神探查氣息${revealed.length
+      ? `${revealedHere.length ? `——${revealedHere.join("、")}就在這裡、已無所遁形` : ''}${revealedNear.length ? `${revealedHere.length ? '；另' : '——'}於鄰近之地捕捉到：${revealedNear.join("、")}` : ''}。`
+      : `，四下風平浪靜、暫無敵蹤現形。`}\n` +
+    `★【60~100 字】演出這段探查，${revealedHere.length ? '對方就在眼前、彼此都清楚已被看穿，寫這份一觸即發的緊繃' : revealedNear.length ? '氣息來自別處、尚隔著距離，寫這份山雨欲來的警覺' : '寫短暫的鬆一口氣、與不敢鬆懈的戒備'}；是否交戰仍由御主下令。`;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：SEEN揭露/spendAp_ 皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({ success: true, message: msg, revealed: revealed, aiPrompt: scoutPrompt, clock: scoutClock, ap: scoutAp, apMax: AP_PER_DAY, statusString: buildPlayerStatusString(pcData[pIdx]) });
 }
