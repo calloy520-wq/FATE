@@ -98,12 +98,14 @@ function actionAccountLogin(userData, pcId, sheets) {
   var acc = ss.getSheetByName("帳號");
   if (!acc) return JSON.stringify({ success: false, message: "帳號表不存在，請重新整理。" });
 
+  // 🌹 鑑賞存檔狀態：主選單要據此決定顯不顯示「後日談歸零重來」(沒東西可清就不長那顆鈕)。
+  var _kpcOf = function (n) { try { return getAccountKanshouPcId_(n) || ""; } catch (e) { return ""; } };
   var found = findAccountRow_(acc, name);
   if (!found) {
     var _newRow = acc.getLastRow() + 1;
     acc.getRange(_newRow, COL.ACC.NAME + 1).setNumberFormat("@");
     acc.appendRow([name, "", new Date()]);
-    return JSON.stringify({ success: true, name: name, hasGame: false });
+    return JSON.stringify({ success: true, name: name, hasGame: false, kpcId: "" });  // 全新帳號，必然沒有後日談
   }
   var charId = String(found.row[COL.ACC.PC] || "");
   var pcData = charId ? sheets.pc.getDataRange().getValues() : [];
@@ -133,7 +135,8 @@ function actionAccountLogin(userData, pcId, sheets) {
     return JSON.stringify({
       success: true, name: name, hasGame: true,
       pcId: charId, pcName: pcRow[COL.PC.NAME], pcSex: pcRow[COL.PC.SEX],
-      needsSummon: gid.indexOf("g_") === 0 && !servantExisted
+      needsSummon: gid.indexOf("g_") === 0 && !servantExisted,
+      kpcId: _kpcOf(name)
     });
   }
   if (charId) {
@@ -148,7 +151,7 @@ function actionAccountLogin(userData, pcId, sheets) {
     } catch (e) { }
     try { acc.getRange(found.idx + 1, COL.ACC.PC + 1).setValue(""); } catch (e) { }
   }
-  return JSON.stringify({ success: true, name: name, hasGame: false });
+  return JSON.stringify({ success: true, name: name, hasGame: false, kpcId: _kpcOf(name) });
 }
 
 // 開新局前清除舊存檔（刪該 game_id 的整個眾生世界，關係已隨列一起刪），並解除帳號連結

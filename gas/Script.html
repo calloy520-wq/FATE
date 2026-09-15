@@ -372,51 +372,56 @@
   // 🔄 後日談歸零重來：不可逆，所以要打字確認(照抄帳號名)而不是按一下就走——
   //    這是唯一會把玩過的關係、回憶、相簿、走出來的地方一次抹掉的按鈕。
   var _kresetBusy_ = false;
-  async function kanshouResetWithConfirm_() {
-      if (_kresetBusy_) return;
-      const acct = (pc && pc.account) || currentAccount || '';
+  // 🔄 後日談歸零重來【唯一核心】：兩個入口共用——主選單(登入後、pc 還沒載入)與遊戲內⚙️設定。
+  //    reloadAfter 是唯一的差別：遊戲內的 pc 指著已被刪掉的列，非重載不可；主選單不必。
+  async function kanshouResetCore_(kpcId, acct, reloadAfter) {
+      if (_kresetBusy_) return false;
+      acct = String(acct || '');
       if (!await customConfirm_(
           '⚠️ 這會把「' + acct + '」的整個後日談清成全新的：\n\n'
         + '　• 所有同伴與你們的關係、好感、共同回憶\n'
         + '　• 對話歷史、相簿裡的照片\n'
         + '　• 你走出來的地方與世界帳本\n\n'
         + '【不會動】英靈殿（含你在工房鑄的原創英靈）與聖杯戰爭那一邊。\n'
-        + '刪掉之後救不回來——確定嗎？')) return;
+        + '刪掉之後救不回來——確定嗎？')) return false;
       const typed = prompt('最後確認：請輸入你的帳號名稱「' + acct + '」以繼續。');
-      if (typed === null) return;
-      if (String(typed).trim() !== String(acct).trim()) { alert('名稱不符，已取消。'); return; }
-      // 🐛→✅ 玩家實測「輸入名字後就消失了，不知道有沒有在執行」：輸入框一關、設定視窗還開著，
-      //   後面整段清除完全沒有畫面回饋。改成先收掉設定視窗、壓一張讀條上去，跑完才放行。
-      //   讀條刻意【不可】點背景關掉——這段跑到一半被關掉，玩家會以為沒事而重按一次。
+      if (typed === null) return false;
+      if (String(typed).trim() !== acct.trim()) { alert('名稱不符，已取消。'); return false; }
+      // 🐛→✅ 玩家實測「輸入名字後就消失了，不知道有沒有在執行」：輸入框一關就整段沒有畫面回饋。
+      //   壓一張讀條上去，跑完才放行。讀條刻意【不可】點背景關掉——跑到一半被關掉，
+      //   玩家會以為沒事而重按一次。
       _kresetBusy_ = true;
       try { closeSystemModal('settings-overlay'); } catch (e) {}
+      const _hideOv = function () { try { var o = document.getElementById('kreset-overlay'); if (o) o.style.display = 'none'; } catch (e) {} };
       try {
           _showOverlayLoading_('kreset-overlay', { zIndex: 10002, dim: 0.88, onBgClick: function () { } },
             { width: '360px', borderColor: 'rgba(200,120,120,.35)', label: '正在清除後日談…請稍候，別關掉視窗',
               titleHtml: '<b style="color:#e8a0a0;">🔄 後日談歸零重來</b>' });
       } catch (e) {}
       try {
-          const res = await gasRun({ action: 'kanshou_reset', pcId: pc.id, acctName: acct });
+          const res = await gasRun({ action: 'kanshou_reset', pcId: kpcId, acctName: acct });
           if (!res || !res.success) {
-              _kresetBusy_ = false;
-              try { var _ov = document.getElementById('kreset-overlay'); if (_ov) _ov.style.display = 'none'; } catch (e) {}
+              _kresetBusy_ = false; _hideOv();
               alert((res && res.message) || '重置失敗，請稍後再試。');
-              return;
+              return false;
           }
           try { localStorage.removeItem('kyushu_v27'); } catch (e) {}
-          // 讀條留著不收——接下來就是整頁重載，中間閃一下空白畫面比較難看。
-          try {
-              var ov2 = document.getElementById('kreset-overlay');
-              if (ov2) ov2.innerHTML = '<div style="width:min(360px,92vw);background:#1d1722;border:1px solid rgba(200,120,120,.35);border-radius:12px;padding:20px;text-align:center;color:#e8c8c8;font-size:13.5px;">'
+          const doneHtml = '<div style="width:min(360px,92vw);background:#1d1722;border:1px solid rgba(200,120,120,.35);border-radius:12px;padding:20px;text-align:center;color:#e8c8c8;font-size:13.5px;">'
                 + '<b style="color:#e8a0a0;display:block;margin-bottom:8px;">🔄 後日談已歸零</b>'
-                + '清掉 ' + (res.cleared || 0) + ' 筆。正在重新載入……</div>';
-          } catch (e) {}
-          setTimeout(function () { location.reload(); }, 900);
+                + '清掉 ' + (res.cleared || 0) + ' 筆。' + (reloadAfter ? '正在重新載入……' : '下次進鑑賞就是全新的世界。') + '</div>';
+          try { var ov2 = document.getElementById('kreset-overlay'); if (ov2) ov2.innerHTML = doneHtml; } catch (e) {}
+          if (reloadAfter) { setTimeout(function () { location.reload(); }, 900); return true; }
+          setTimeout(function () { _hideOv(); _kresetBusy_ = false; }, 1400);
+          return true;
       } catch (e) {
-          _kresetBusy_ = false;
-          try { var _ov3 = document.getElementById('kreset-overlay'); if (_ov3) _ov3.style.display = 'none'; } catch (e2) {}
+          _kresetBusy_ = false; _hideOv();
           alert('重置失敗：' + e);
+          return false;
       }
+  }
+  // ⚙️ 遊戲內設定的入口：pc 指著即將被刪掉的列，所以清完必須整頁重載。
+  async function kanshouResetWithConfirm_() {
+      return kanshouResetCore_(pc && pc.id, (pc && pc.account) || currentAccount || '', true);
   }
 
   // 對話字體大小：套用並記憶玩家偏好的縮放比例

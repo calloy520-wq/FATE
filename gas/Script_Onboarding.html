@@ -21,7 +21,22 @@ async function accountLogin() {
     document.getElementById('scr-menu').style.display = 'block';
     document.getElementById('menu-greet').innerText = '御主「' + currentAccount + '」，歡迎來到冬木。' + (res.won ? '（奪杯 ' + res.won + ' 次）' : '');
     document.getElementById('btn-resume').style.display = res.hasGame ? 'block' : 'none';
+    // 🌹 沒有後日談存檔就不長那顆鈕——長一顆按了只會說「查無」的鈕比沒有更糟。
+    var _kr = document.getElementById('btn-kanshou-reset');
+    if (_kr) _kr.style.display = res.kpcId ? 'block' : 'none';
   } catch (e) { alert('連線受阻，請稍後再試。'); }
+}
+
+// 🔄 主選單版的「後日談歸零重來」：跟遊戲內設定那顆共用同一支核心(kanshouResetCore_)，
+//   只差清完之後不必整頁重載——這裡 pc 還沒載入，收掉按鈕、把旗標打掉就好。
+async function menuKanshouReset() {
+  var kpcId = accountLoginRes && accountLoginRes.kpcId;
+  if (!kpcId) { alert('這個帳號目前沒有後日談存檔。'); return; }
+  var ok = await kanshouResetCore_(kpcId, currentAccount, false);
+  if (!ok) return;
+  accountLoginRes.kpcId = "";
+  var _kr = document.getElementById('btn-kanshou-reset');
+  if (_kr) _kr.style.display = 'none';
 }
 
 function continueGame() {
