@@ -1296,6 +1296,73 @@ let plainTextContext = cleanText;
       else { var b = document.getElementById('kc-album-body'); if (b) b.textContent = '讀取失敗。'; }
     } catch (e) { var b2 = document.getElementById('kc-album-body'); if (b2) b2.textContent = '讀取失敗。'; }
   }
+  // ═══ 🌍 世界帳本面板 ═══
+  // 帳本原本只有 AI 寫得到、玩家看不到——而淘汰政策裡的「★釘選永不淘汰」根本沒有入口能設定。
+  // 這個面板把「看得到」與「管得動」一起補上：釘選想永久留著的、刪掉 AI 亂記的。
+  var _kwBusy_ = false, _kwRows_ = [];
+  function kanshouCloseWorld_() { var o = document.getElementById('kc-world-overlay'); if (o) o.remove(); }
+  async function openKanshouWorld() {
+    if (!pc || !pc.id) { alert('尚未進入後日談。'); return; }
+    var drawer = document.getElementById('action-drawer'); if (drawer) drawer.classList.remove('open');
+    kanshouCloseWorld_();
+    var ov = document.createElement('div');
+    ov.id = 'kc-world-overlay';
+    ov.style.cssText = 'position:fixed; inset:0; z-index:9000; background:rgba(14,16,20,.93); overflow-y:auto; padding:18px 14px 40px;';
+    ov.innerHTML = '<div style="max-width:760px; margin:0 auto;">'
+      + '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">'
+      + '<div style="color:#8fd0c0; font-weight:bold; font-size:16px;">🌍 這個世界</div>'
+      + '<button onclick="kanshouCloseWorld_()" style="background:none; border:1px solid #4a6a64; border-radius:8px; color:#a8ccc4; font-size:13px; padding:4px 12px; cursor:pointer;">✕ 關閉</button>'
+      + '</div>'
+      + '<div style="color:#6e8a84; font-size:11.5px; margin-bottom:12px;">你們一路玩出來的地方、認識的人、確立過的事。📌 釘住的永遠不會被淘汰；覺得亂記的可以刪掉。</div>'
+      + '<div id="kc-world-body" style="color:#8a8298; font-size:12px;">讀取中……</div></div>';
+    document.body.appendChild(ov);
+    await kwLoad_();
+  }
+  async function kwLoad_(op, kind, name) {
+    try {
+      var res = await gasRun({ action: 'kanshou_world', pcId: pc.id, acctName: currentAccount,
+        op: op || 'list', kind: kind || '', name: name || '' });
+      if (!res || !res.success) { var b = document.getElementById('kc-world-body'); if (b) b.textContent = (res && res.message) || '讀取失敗。'; return; }
+      _kwRows_ = res.rows || [];
+      kwRender_(res.caps || {});
+    } catch (e) { var b2 = document.getElementById('kc-world-body'); if (b2) b2.textContent = '讀取失敗。'; }
+  }
+  function kwRender_(caps) {
+    var body = document.getElementById('kc-world-body'); if (!body) return;
+    if (!_kwRows_.length) {
+      body.innerHTML = '<div style="color:#6e8a84; padding:20px 4px; line-height:1.9;">還沒有東西。<br>'
+        + '玩下去就會長出來——去一個地圖上沒有的地方、認識新的人、聊出只有你們懂的事，都會被記在這裡。</div>';
+      return;
+    }
+    var groups = [['地點', '🗺️ 走出來的地方'], ['人物', '🧑 這座城裡的人'], ['設定', '📖 確立過的事']];
+    var html = '';
+    groups.forEach(function (g) {
+      var rows = _kwRows_.filter(function (r) { return r.kind === g[0]; });
+      if (!rows.length) return;
+      var cap = caps && caps[g[0]];
+      html += '<div style="color:#8fd0c0; font-size:13px; font-weight:bold; margin:14px 0 7px;">' + g[1]
+        + '<span style="color:#5e7a74; font-size:11px; font-weight:normal;"> ' + rows.length + (cap ? ' / ' + cap : '') + '</span></div>';
+      rows.forEach(function (r) {
+        var esc = function (v) { return String(v || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
+        html += '<div style="display:flex; gap:8px; align-items:flex-start; background:rgba(40,56,52,.35); border:1px solid ' + (r.pin ? '#7aa89c' : '#33474360') + '; border-radius:8px; padding:8px 10px; margin-bottom:6px;">'
+          + '<div style="flex:1; min-width:0;">'
+          + '<div style="color:#cfe6e0; font-size:13px;">' + (r.pin ? '📌 ' : '') + escapeHtml(r.name) + (r.sex ? '<span style="color:#7e9a94; font-size:11px;">（' + escapeHtml(r.sex) + '）</span>' : '') + '</div>'
+          + (r.text ? '<div style="color:#8aa8a2; font-size:11.5px; margin-top:2px; word-break:break-all;">' + escapeHtml(r.text) + '</div>' : '')
+          + '</div>'
+          + '<button title="' + (r.pin ? '取消釘選' : '釘住，永遠不被淘汰') + '" onclick="kwOp_(\'' + (r.pin ? 'unpin' : 'pin') + '\',\'' + esc(r.kind) + '\',\'' + esc(r.name) + '\')" style="flex:0 0 auto; background:none; border:1px solid #4a6a64; border-radius:7px; color:' + (r.pin ? '#e8c87a' : '#7e9a94') + '; font-size:13px; padding:3px 8px; cursor:pointer;">📌</button>'
+          + '<button title="刪掉這一條" onclick="kwOp_(\'del\',\'' + esc(r.kind) + '\',\'' + esc(r.name) + '\')" style="flex:0 0 auto; background:none; border:1px solid #6a4a4a; border-radius:7px; color:#c08a8a; font-size:13px; padding:3px 8px; cursor:pointer;">🗑</button>'
+          + '</div>';
+      });
+    });
+    body.innerHTML = html;
+  }
+  async function kwOp_(op, kind, name) {
+    if (_kwBusy_) return;   // 讀條保護：上一個還在跑就忽略連點(同 kanshouMemoirOp)
+    if (op === 'del' && !await customConfirm_('把「' + name + '」從這個世界刪掉嗎？\n(之後 AI 就不會再記得它了)')) return;
+    _kwBusy_ = true;
+    try { await kwLoad_(op, kind, name); } finally { _kwBusy_ = false; }
+  }
+
   // 🤝 牽手/放手：牽了誰，移動就帶她一起走(她本人要在場才牽得成)。睡覺仍看好感80+全部(不獨佔)。
   async function kanshouHoldHand(name, npcId) {
     showGamePane('chat');

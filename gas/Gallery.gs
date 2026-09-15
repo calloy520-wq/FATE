@@ -791,6 +791,43 @@ function actionKanshouMemoirOp(userData, pcId, sheets) {
   return JSON.stringify({ success: true, memoir: entries });
 }
 
+// 🌍 世界帳本面板：列出這一局玩出來的地方/人/設定，並讓玩家釘選(永不淘汰)或刪掉不想要的。
+// 帳本原本只有 AI 寫得到、玩家看不到——但淘汰政策裡的「★釘選永不驅逐」沒有任何入口能設定，
+// 等於做了一半。這支把讀與管一起補上(比照 actionKanshouMemoirOp 的分工)。
+function actionKanshouWorld(userData, pcId, sheets) {
+  const kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」
+  const data = kpc.getDataRange().getValues();
+  const meIdx = kanshouPcIdx_(data, pcId);
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  const gid = String(data[meIdx][COL.PC.GAME_ID] || "");
+  if (!gid) return JSON.stringify({ success: false, message: "查無這一局的世界編號。" });
+
+  const op = String(userData.op || "list").trim();
+  if (op !== 'list') {
+    if (['pin', 'unpin', 'del'].indexOf(op) === -1) return JSON.stringify({ success: false, message: "參數不完整。" });
+    const kind = String(userData.kind || "").trim();
+    const name = String(userData.name || "").trim();
+    if (!kind || !name) return JSON.stringify({ success: false, message: "參數不完整。" });
+    try {
+      const sh = kanshouWorldSheet_();
+      const d = sh.getDataRange().getValues();
+      let hit = -1;
+      for (let r = 1; r < d.length; r++) {
+        if (String(d[r][KW_.GID]) === gid && String(d[r][KW_.KIND]) === kind && String(d[r][KW_.NAME]).trim() === name) { hit = r; break; }
+      }
+      if (hit < 0) return JSON.stringify({ success: false, message: "找不到這一條(可能已被淘汰)。" });
+      if (op === 'del') sh.deleteRow(hit + 1);
+      else sh.getRange(hit + 1, KW_.PIN + 1).setValue(op === 'pin' ? '★' : '');
+      kanshouWorldBust_(gid);
+    } catch (e) { return JSON.stringify({ success: false, message: "操作失敗，請稍後再試。" }); }
+  }
+
+  const rows = kanshouWorldRead_(gid).map(r => ({ kind: r.kind, name: r.name, text: r.text, sex: r.sex, pin: r.pin, seen: r.seen, hits: r.hits }));
+  // 釘選的排前面，其次照「最後被提到」由新到舊——跟提示詞的相關性排序不同，那是給 AI 的，這是給人看的。
+  rows.sort((a, b) => (b.pin ? 1 : 0) - (a.pin ? 1 : 0) || b.seen - a.seen);
+  return JSON.stringify({ success: true, rows: rows, caps: KANSHOU_WORLD_CAP_ });
+}
+
 // ⚧ 切換後日談御主 avatar 的性別（隨時可改；只動 SEX 欄，不影響從者/歷史）。
 function actionKanshouSetSex(userData, pcId, sheets) {
   var newSex = String(userData.pcSex || "").trim();

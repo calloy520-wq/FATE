@@ -3180,6 +3180,7 @@ function applyModeUI() {
   // 🎀 快速輸入貼圖列(輸入框上方，鑑賞限定)：見Script_Kanshou.html的kcInsertPhrase。
   var qphr = document.getElementById('kc-quick-phrases'); if (qphr) qphr.style.display = isKanshou ? 'flex' : 'none';
   var dalb = document.getElementById('drawer-album'); if (dalb) dalb.style.display = isKanshou ? '' : 'none';
+  var dwld = document.getElementById('drawer-world'); if (dwld) dwld.style.display = isKanshou ? '' : 'none';
   // 戰爭行動列：取代輸入框，只在戰爭模式顯示
   var wa = document.getElementById('war-actions'); if (wa) wa.style.display = isKanshou ? 'none' : 'flex';
   // 🌹 鑑賞御主卡已內建「換裝＋詳細狀態」按鈕列；solo 御主卡名字旁現也補了同款「📜狀態」inline 鈕——
