@@ -120,6 +120,34 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 | prep_meal | actionPrepMeal | 🍱整備·進食（戰前 buff）：耗1AP，御主 MEMORY 記`【整備至】<絕對小時>`，效期內從者出擊命中 +`MEAL_BUFF_BONUS`(2) 約 8 小時（`mealBuffActive_`→`resolveFateBattle_`）。有輕量 aiPrompt。 |
 | get_map_nodes | actionGetMapNodes | 地圖節點＋敵蹤（吃 SEEN 迷霧；有盟友全揭露）。算法抽成 `buildMapNodesPayload_(sheets,pcData,gid,loc)`（吃已讀好 pcData·零額外讀），`buildClientState_`/`actionMove` 夾帶 `mapNodes:`。用 `COL.MAP.WAR` 過濾非本局戰爭的節點。 |
 | move / rest / sync | actionMove/Rest/Sync | 移動(2AP)／休息(補AP+夢境)／資料同步 |
+### 🧵 solo 的「記憶」怎麼運作（2026-09 大修，玩家：「有時候的對話還是牛頭不對馬嘴」）
+
+每顆按鈕都走同一條 `narrate_only`，AI 收到的東西固定是這個結構：
+
+```
+system : miniSystem ＋ 【軌跡骨幹】(第幾日/AP/好感/令咒/地點) ＋ 【語言鐵律】
+history: 最近 6 筆 ＝ 3 個按鍵（player=事件句／ai=當時的敘事）
+user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
+```
+
+**修掉的三件事**（三個都不是代碼壞掉，是餵進去的資料不對）：
+
+1. **歷史存錯東西**——舊版存 `cleanNarrateEcho_(提示詞前 80 字)`，但戰鬥提示詞【開頭是角色卡】，
+   於是存進去的是「風音｜性別：女｜性格：不服輸…」這種碎片，**戰鬥本身一個字都沒留下**。
+   改用 `narrateMemoryLine_`：掃出【戰報/系統/玩家意圖/抵達場景/虛假之夢/聖杯降臨/召喚登場】
+   這種事實行（再接上帶結果的續行，如「『X』靈基崩潰」「敵情：…」），截 160 字。
+   *戰鬥現在存的是*「御主號令阿爾托莉雅出擊，與「美狄亞」交鋒 3 回合。我方造成 108 傷害、受創 18。「美狄亞」靈基崩潰、徹底消滅。」
+2. **記憶只有 1 輪**——`getGameHistoryBatchRaw(pcId, 2)` → `6`（跟鑑賞一致）。
+   solo 一次按鍵＝一輪，2 筆等於「移動→戰鬥→休息」走到第三步就忘了第一步。
+3. **只有移動帶【前情】**——而那段前情的正文其實就是 chatHistory 的最後一則，貼第二遍只是稀釋。
+   正文拿掉，只留它獨有的「怎麼承接」那句（`★承接上一則敘事：…`）。
+
+⚠ `cleanNarrateEcho_` **沒有刪**，它仍是 `narrateMemoryLine_` 抓不到事實行時的保底。
+兩支的分工：`narrateMemoryLine_`＝事件（AI 記憶＋玩家歷史都吃這個）、`cleanNarrateEcho_`＝保底摘要。
+
+機器擋：`check_memory.js`（`check.sh` 第六支）——7 種按鈕情境跑真的函式，檢查記憶句不是角色卡碎片、
+不以孤兒標點開頭、含得到這回合的關鍵字；另外釘死「存歷史那一行真的接 `narrateMemoryLine_`」與「歷史深度 ≥4 筆」。
+
 | narrate_only | actionNarrateOnly | **AI 純說書**（solo 專用；GAS 算數值、AI 只演出）。`userData.deepseek` 旗標→改用 `UNLOCKED_MODEL`（補魔/令咒高好感解鎖分支）。 |
 | tiger_dojo | actionTigerDojo | 🐯 賽後番外（敗北講評／勝利祝賀）。前端只送敗因【鍵】，文案查 `DOJO_CAUSE_` 五格表；**自帶說書人設定、不套 `miniSystem`**（戰場語氣跟輕鬆詼諧打架）、不讀表不帶歷史。 |
 | enter_kanshou / kanshou_* / backfill_kanshou_ai / get_album / album_delete | Gallery.gs | 進鑑賞後日談世界／同伴管理／共同回憶面板／相簿（詳見 `KANSHOU_REFERENCE.md`） |

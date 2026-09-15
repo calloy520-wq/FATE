@@ -78,6 +78,21 @@ function cleanNarrateEcho_(promptText) {
   return s.slice(0, 80) || '御主有所行動。';
 }
 
+// 上一回合「發生了什麼」——同時當 AI 的記憶與玩家看到的歷史。每段提示詞都有【戰報/系統/玩家意圖…】這種事實行，那就是事件本身。
+const NARRATE_EVENT_TAG_ = /^【(戰報|系統|玩家意圖|抵達場景|虛假之夢|聖杯降臨|召喚登場)[^】]*】/;
+const NARRATE_OUTCOME_ = /^敵情|靈基崩潰|斃命|消滅|殞落|潰散|遁走|敗北|命懸/;
+function narrateMemoryLine_(promptText) {
+  var lines = String(promptText || "").split('\n').map(function (t) { return t.trim(); }).filter(Boolean);
+  var out = [];
+  for (var i = 0; i < lines.length; i++) {
+    var t = lines[i];
+    if (NARRATE_EVENT_TAG_.test(t)) out.push(t.replace(NARRATE_EVENT_TAG_, "").replace(/^[：:·・]\s*/, ""));
+    else if (out.length && t.charAt(0) !== '★' && t.charAt(0) !== '·' && NARRATE_OUTCOME_.test(t)) out.push(t);
+  }
+  var s = out.join(" ").replace(/\s+/g, " ").trim();
+  return s ? s.slice(0, 160) : cleanNarrateEcho_(promptText);
+}
+
 // 防禦性過濾：miniSystem 本身充滿 ★指令/〈演出卡〉等鷹架符號，小模型偶有機率把提示詞格式原樣「回音」進輸出，讓玩家讀到突兀的系統指令。
 function stripLeakedScaffold_(text) {
   var s = String(text || "");
@@ -99,8 +114,8 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
     model: opts.model || SOLO_MODEL,
     isNsfwMode: !!opts.isNsfw    // NSFW 時讓 fallback 文案合理，但不啟用完整慾海規則
   };
-  // 帶最近2筆歷史(miniSystem 已告知 AI：歷史是既定事實、不可重演)
-  var recentHistoryRaw = getGameHistoryBatchRaw(pcId, 2);
+  // 帶最近6筆歷史＝3個按鍵(miniSystem 已告知 AI：歷史是既定事實、不可重演)
+  var recentHistoryRaw = getGameHistoryBatchRaw(pcId, 6);
   if (recentHistoryRaw && recentHistoryRaw.length > 0) {
     aiConfig.chatHistory = recentHistoryRaw.map(function (msg) {
       return { role: msg.speaker === "player" ? "user" : "assistant", content: String(msg.content) };
@@ -158,7 +173,7 @@ function actionNarrateOnly(userData, pcId, sheets) {
   const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw, maxTokens: useDeepseek ? 2000 : 720, model: useDeepseek ? UNLOCKED_MODEL : undefined });
   if (narrationText === null) return JSON.stringify({ success: true, text: "（此處因果已定，氣息微微一閃。）" });
   saveGameHistoryBatch(pcId, [
-    { speaker: "player", content: cleanNarrateEcho_(promptText) }, // 🧹 存洗淨摘要、非整串提示詞(否則重整歷史會把演出依據/★指令/素材全攤給玩家看)
+    { speaker: "player", content: narrateMemoryLine_(promptText) }, // 🧹 存洗淨摘要、非整串提示詞(否則重整歷史會把演出依據/★指令/素材全攤給玩家看)
     { speaker: "ai", content: narrationText }
   ]);
   return JSON.stringify({ success: true, text: narrationText });

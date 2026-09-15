@@ -48,10 +48,10 @@ GAS 在 `gas/`。⚠ **push 只自動同步代碼、不會自動上線**——�
 
 ## ✅ 工作流程
 
-- **驗證**：改完必跑 `bash check.sh`。除語法外還跑五支不變式掃描，都是把**重複踩過的漏洞形狀**改成機器擋：
+- **驗證**：改完必跑 `bash check.sh`。除語法外還跑六支不變式掃描，都是把**重複踩過的漏洞形狀**改成機器擋：
   `check_prompt.py`（★ 區塊：代名詞無指涉／寫死台詞）、`check_mirror.js`（前後端常數鏡射，自動發現所有 `KC_*`）、
   `check_wiring.py`（門檻有無前端出口／查表有無覆蓋全 enum 且各階不同／★ 覆蓋數不得無聲下降／死路由）、
-  `check_render.js`（敘事排版↔XSS 防護，見下）、`check_simp.py`（我們自己寫進 repo 的簡體字）。
+  `check_render.js`（敘事排版↔XSS 防護，見下）、`check_simp.py`（我們自己寫進 repo 的簡體字）、`check_memory.js`（solo 存進歷史的是不是「這回合發生的事」）。
   **新增提示詞 ★ 區塊後，順手看一眼區塊數有沒有跟著增加**——數字沒動就代表掃描器沒看見它（這個坑踩過兩次）。
   CI 只檢查 .gs、不檢查 .html JS（.html 出錯會綠燈部署卻壞 runtime）。
 - **🧵 敘事排版（別再動壞第三次）**：提示詞叫 AI 用 `<br><br>` 分段（`nsfwBaseRules`／`miniSystem` 都是），
