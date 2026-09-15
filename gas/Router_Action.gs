@@ -37,6 +37,7 @@ const ActionRouter = {
   "get_masters": actionGetMasters,
   "get_tags": actionGetTags,
   "fate_battle": actionFateBattle,
+  "np_respond": actionNpRespond, // 🌟 真名解放·獨立一拍：敵寶具預告後由玩家選應對
   "summon_horror_beast": actionSummonHorror, // 🐙 戰前召喚深淵海怪(變身態·付 prana+1AP)
   "dismiss_horror_beast": actionDismissHorror, // 🐙 解除召喚(免費即時·止住每小時維持費)
   "use_seal": actionUseSeal,
@@ -198,7 +199,7 @@ const LOCK_EXEMPT_ACTIONS_ = {
 };
 // ⚡ 會改動 solo 戰場狀態、前端事後會 syncData(整頁刷新) 的動作 → 夾帶 _state 省一趟 round-trip。
 const STATE_AFTER_ACTIONS = {
-  fate_battle: 1, use_seal: 1, mana_supply: 1, spirit_repair: 1, bond: 1, rule_break_steal: 1,
+  fate_battle: 1, np_respond: 1, use_seal: 1, mana_supply: 1, spirit_repair: 1, bond: 1, rule_break_steal: 1,
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
   second_wind: 1, scout: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
   faction_ambush: 1, incite: 1, court_enemy: 1,
@@ -206,7 +207,7 @@ const STATE_AFTER_ACTIONS = {
 };
 // 🛡️ 慾海(KPC_)明確擋下的戰鬥／經濟／結盟類 action——皆為 solo 戰爭專屬，前端在 kanshou 模式下本就全數隱藏對應按鈕，這裡擋 API 直打。
 const KANSHOU_BLOCKED_ACTIONS_ = {
-  fate_battle: 1, use_seal: 1, mana_supply: 1, spirit_repair: 1, bond: 1, rule_break_steal: 1,
+  fate_battle: 1, np_respond: 1, use_seal: 1, mana_supply: 1, spirit_repair: 1, bond: 1, rule_break_steal: 1,
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
   second_wind: 1, scout: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
   set_servant_output: 1, set_mage_realm: 1, set_rune_mode: 1,

@@ -974,11 +974,45 @@
       const nm = String(res.blockAlly || '').replace(/'/g, "\\'");
       accent = '200,100,110'; bg = '32,16,18';
       btn = '<button onclick="breakAlliance(\'' + nm + '\')" style="' + _btnCss + 'background:rgba(200,100,110,.18);color:#e08a8a;border:1px solid #a05050;">💔 撕毀盟約（方可動手）</button>';
+    } else if (res.needNpResponse) {
+      // 🌟 真名解放·獨立一拍：敵方蓄勢待發，玩家要選怎麼接。選項是後端依從者實際能力算好的，前端不寫死清單。
+      window._npRespCtx = { npcName: res.foeName || '', servant: res.servant || '' };
+      accent = '220,170,80'; bg = '38,26,10';
+      btn = (res.options || []).map(function (o) {
+        return '<button onclick="npRespond(\'' + String(o.key).replace(/'/g, '') + '\')" title="' + escapeHtml(o.hint || '')
+          + '" style="' + _btnCss + 'margin:4px 3px 0;background:rgba(220,170,80,.16);color:#f0d090;border:1px solid #c0922e;">'
+          + escapeHtml(o.icon || '') + ' ' + escapeHtml(o.label || '') + '</button>';
+      }).join('');
+      story.insertAdjacentHTML('beforeend', '<div class="msg-ai" style="align-self:center;color:#f0d8a8;font-size:12.5px;text-align:center;border:1px solid rgba(' + accent + ',0.5);border-radius:8px;padding:9px 12px;background:rgba(' + bg + ',0.55);"><b>⚠️ 「' + escapeHtml(res.foeName || '對方') + '」的真名即將出鞘</b><br><small style="color:#c8b48a;">這一擊躲不掉，只能決定怎麼接——</small><br>' + btn + '</div>');
+      story.scrollTop = story.scrollHeight;
+      return true;
     } else return false;
     story.insertAdjacentHTML('beforeend', '<div class="msg-ai" style="align-self:center;color:#cfc3d8;font-size:12.5px;text-align:center;border:1px solid rgba(' + accent + ',0.45);border-radius:8px;padding:8px 11px;background:rgba(' + bg + ',0.5);">' + escapeHtml(res.message || '此刻無法如此行動。') + '<br>' + btn + '</div>');
     story.scrollTop = story.scrollHeight;
     return true;
   }
+  // 🌟 送出「真名解放·應對」：這一拍獨立結算，不跑一般的三回合交鋒。
+  async function npRespond(key) {
+    const c = window._npRespCtx; if (!c || !c.npcName) { alert('沒有待應對的真名解放。'); return; }
+    if (!beginAction()) return;
+    const story = document.getElementById('story');
+    try {
+      const res = await gasRun({ action: 'np_respond', pcId: pc.id, npcName: c.npcName, response: key,
+        servant: myActiveServant, servantId: myActiveServantId, acctName: (pc && pc.account) || currentAccount });
+      if (res && res.success) {
+        window._npRespCtx = null;
+        syncData(true);
+        await narrate(res.aiPrompt);
+        if (res.meDead) { try { syncData(true); } catch (e) {} }
+      } else {
+        story.insertAdjacentHTML('beforeend', '<div class="msg-player" style="color:#c9a0a0;"><b>【系統】：</b>' + ((res && res.message) || '應對未成。') + '</div>');
+        story.scrollTop = story.scrollHeight;
+        if (!resolveBlockCard_(res)) alert((res && res.message) || '應對失敗。');
+        try { syncData(true); } catch (e) {}
+      }
+    } catch (e) { alert('連線失敗，應對未果。'); try { syncData(true); } catch (e2) {} } finally { endAction(); }
+  }
+
   // ❖ 燃令咒·絕對命令【強開寶具】：魔力見底時，燃一道令咒逼出真名(令咒補上缺口·免焚血)＋必中×1.5。重打剛才那一發寶具。
   async function forceSealNp_() {
     const t = window._lastNpTry; if (!t || !t.npcName) { alert('沒有可強開的寶具目標。'); return; }

@@ -230,6 +230,77 @@ function pushMatching_(arr, target, regex) {
 }
 
 // ⚔️ 「攻擊型寶具」判準（只有這類寶具才觸發對轟/敵方反擊解放；純防禦/召喚型如 God Hand、summon_horror單獨的召喚體本身不算，但 summon_horror 這個 fx 本身代表深淵召喚攻擊、算攻擊型）——2026-0…（全文見 CODE_NOTES.md）
+// 🌟 真名解放·應對方式（資料驅動：往表加一列就多一個選項，引擎自動吃）
+//    avail(c) 決定這個選項此刻長不長得出來；resolve(c) 回傳 { dmgMul, ok, note }。
+//    c = { me, foe, meRow, foeRow, npDmg, masterMp, seals, pcData, myGameId, nIdx }
+var NP_RESPONSE_ = {
+  brace: {
+    icon: '🛡️', label: '硬接', order: 1,
+    hint: function (c) { return '以耐久硬扛——必定受傷，但傷害大幅削減（耐久越高擋得越多）'; },
+    avail: function (c) { return true; },
+    resolve: function (c) {
+      var cut = Math.min(0.72, 0.35 + rankTier_(c.me.six['耐久']) * 0.06);
+      return { ok: true, dmgMul: 1 - cut, note: '硬生生扛下' };
+    }
+  },
+  dodge: {
+    icon: '💨', label: '閃避', order: 2,
+    hint: function (c) { return '賭敏捷閃開——成功毫髮無傷，失敗正面吃滿（成功率約 ' + Math.round((0.18 + rankTier_(c.me.six['敏捷']) * 0.07) * 100) + '%）'; },
+    avail: function (c) { return true; },
+    resolve: function (c) {
+      var p = Math.min(0.62, 0.18 + rankTier_(c.me.six['敏捷']) * 0.07);
+      return Math.random() < p
+        ? { ok: true, dmgMul: 0, note: '千鈞一髮閃開' }
+        : { ok: false, dmgMul: 1.1, note: '閃避失敗、正面吃滿' };
+    }
+  },
+  clash: {
+    icon: '⚔️', label: '寶具對衝', order: 3,
+    hint: function (c) { return '以真名迎擊真名——兩敗俱傷，但對方也會付出代價'; },
+    avail: function (c) {
+      if (!String(c.meRow[COL.PC.MARTIAL] || '').trim()) return false;
+      if (rankVal(c.me.six['寶具'] || '-') < 10) return false;
+      var sc = npAtkScale_(c.me);
+      var offensive = (sc === '對軍' || sc === '對城' || sc === '對界') || OFFENSIVE_NP_ATK_FX_.some(function (f) { return hasFx_(c.me, f); });
+      return offensive && c.masterMp >= npPranaCost_(npEffectiveRank_(c.me));
+    },
+    resolve: function (c) { return { ok: true, dmgMul: 0.35, note: '兩道真名正面對撞', counter: true }; }
+  },
+  ward: {
+    icon: '🔮', label: '展開結界', order: 0,
+    hint: function (c) { return '理想鄉 Avalon——隔絕於世界之外，威能盡數湮滅（耗 100 魔）'; },
+    avail: function (c) { return hasFx_(c.me, 'avalon_saber') && c.masterMp >= 100; },
+    resolve: function (c) { return { ok: true, dmgMul: 0, note: '金色結界悄然展開、盡數湮滅', wardCost: 100 }; }
+  },
+  flee: {
+    icon: '🏃', label: '脫離', order: 4,
+    hint: function (c) { return '放棄這一戰、退出交鋒——不受這一擊，但戰線也就此讓出'; },
+    avail: function (c) { return true; },
+    resolve: function (c) { return { ok: true, dmgMul: 0, note: '在真名成形前抽身退開', fled: true }; }
+  }
+};
+
+// 敵方面對我方真名解放時，從同一張表挑一種應對（對轟另有專屬結算·不在此列）。
+//    以前沒對轟就是傻站著吃滿，玩家只看得到「對轟」與「照單全收」兩種結果。
+function npAiResponse_(c) {
+  if (NP_RESPONSE_.ward.avail(c)) return 'ward';
+  if (rankTier_(c.me.six['敏捷']) >= 5 && Math.random() < 0.45) return 'dodge';
+  return 'brace';
+}
+
+// 這一刻長得出來的應對選項（依從者實際能力，不是寫死清單）。
+function npResponseOptions_(c) {
+  return Object.keys(NP_RESPONSE_)
+    .filter(function (k) { try { return NP_RESPONSE_[k].avail(c); } catch (e) { return false; } })
+    .sort(function (a, b) { return NP_RESPONSE_[a].order - NP_RESPONSE_[b].order; })
+    .map(function (k) {
+      var o = NP_RESPONSE_[k];
+      return { key: k, icon: o.icon, label: o.label, hint: (function () { try { return o.hint(c); } catch (e) { return ''; } })() };
+    });
+}
+
+function targetIsFoeServant_(row) { return row && String(row[COL.PC.FACTION]) === "敵從者"; }
+
 var OFFENSIVE_NP_ATK_FX_ = ['ea', 'excalibur', 'ubw', 'summon_horror', 'gob', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify', 'chain', 'anti_magic_lance', 'wind_strike', 'projection'];
 
 function buildPartyIdxs_(pcData, myGameId, atkIdx) {
@@ -359,6 +430,22 @@ function actionFateBattle(userData, pcId, sheets) {
   if (nIdx === -1) return JSON.stringify({ success: false, message: "此世界查無此目標。" });
   if (String(pcData[pIdx][COL.PC.LOC]).trim() !== String(pcData[nIdx][COL.PC.LOC]).trim()) {
     return JSON.stringify({ success: false, message: "對方不在你身邊，鞭長莫及。" });
+  }
+
+  // 🌟 敵方真名蓄勢待發 → 不再讓它混在三回合裡自動發動，停下來讓玩家選怎麼應對（獨立一拍）。
+  if (targetIsFoeServant_(pcData[nIdx]) && getNpTelegraph_(pcData[nIdx][COL.PC.MEMORY])) {
+    const _rMe = rowToCombatant_(pcData[atkIdx]);
+    injectMysticBuff_(_rMe, pcData[pIdx][COL.PC.MEMORY]);
+    const _rCtx = {
+      me: _rMe, foe: rowToCombatant_(pcData[nIdx]), meRow: pcData[atkIdx], foeRow: pcData[nIdx],
+      masterMp: parseInt(pcData[pIdx][COL.PC.MP]) || 0, pcData: pcData, myGameId: myGameId, nIdx: nIdx
+    };
+    return JSON.stringify({
+      success: false, needNpResponse: true,
+      foeName: String(pcData[nIdx][COL.PC.NAME]),
+      servant: String(pcData[atkIdx][COL.PC.NAME]),
+      options: npResponseOptions_(_rCtx)
+    });
   }
 
   // 🔋 出力／寶具選定的落盤搬到【目標驗證之後】：原本寫在最前面，於是「按解放寶具→敵人剛好走了→被拒絕」
@@ -781,6 +868,20 @@ function actionFateBattle(userData, pcId, sheets) {
     hp: HORROR_SHIELD_HP, hpMax: HORROR_SHIELD_HP, mp: 0, mpMax: 0
   } : null;
 
+  // 🌟 我方解放寶具、對方沒以真名相迎 → 從應對表挑一種（結界／閃避／硬接），不再是傻站著吃滿。
+  let foeNpResp = null, foeNpRespDmg = 0;
+  if (useNp && !clash && targetIsFoeServant && !String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) {
+    const _fC = rowToCombatant_(pcData[nIdx]);
+    injectMasterSupportFor_(_fC, pcData, myGameId, pcData[nIdx], true);
+    const _fCtx = { me: _fC, foe: atkC, meRow: pcData[nIdx], foeRow: pcData[atkIdx], masterMp: 0, pcData: pcData, myGameId: myGameId, nIdx: nIdx };
+    const _k = npAiResponse_(_fCtx);
+    const _r = NP_RESPONSE_[_k].resolve(_fCtx) || { dmgMul: 1 };
+    const _raw = Math.max(1, parseInt(resolveFateBattle_(atkC, _fC, { np: true, seal: useSeal, skill: rollSkill_(), forceHit: true }).damage) || 1);
+    foeNpResp = { key: _k, label: NP_RESPONSE_[_k].label, icon: NP_RESPONSE_[_k].icon, note: _r.note, ok: _r.ok !== false };
+    foeNpRespDmg = Math.max(0, Math.round(_raw * (_r.dmgMul != null ? _r.dmgMul : 1)));
+  }
+
+
   for (let rd = 0; rd < ROUNDS; rd++) {
     if (sealEscaped || destroyedName || defeat || victory) break;
     if (String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) break;
@@ -800,7 +901,8 @@ function actionFateBattle(userData, pcId, sheets) {
       const isActive = (sidx === atkIdx);
       // npOverloadMul/overcharge 只設在 atkC 上、不存進 MEMORY，而 sC 是每回合重新建的新物件讀不到——除了對轟分支直接用 atkC 外，一般路徑(多數情況)都走這條每回合迴圈用 sC 結算，需手動複製過去，否則玩家已付超載代價卻吃不到超載倍率/過充加成。
       if (isActive && opening && openingNp) { sC.npOverloadMul = atkC.npOverloadMul; sC.overcharge = atkC.overcharge; }
-      const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && openingNp && isActive, seal: opening && openingSeal && isActive, ambush: opening && isActive, skill: isActive ? rollSkill_() : null, round: rd + 1 }, ctx);
+      const _npRespForce = (opening && openingNp && isActive && foeNpResp) ? foeNpRespDmg : null;
+      const ps = fateStrike_(sheets, pcData, sC, nIdx, { np: opening && openingNp && isActive, seal: opening && openingSeal && isActive, ambush: opening && isActive, skill: isActive ? rollSkill_() : null, round: rd + 1, forceDamage: _npRespForce }, ctx);
       // 目標為敵御主(非從者)：引擎計算了反傷 fired 但不套用，過濾掉「winner·武器骰」等傷害計算噪音
       const _pFiredClean = isMasterTarget
         ? (ps.fired || []).filter(function (t) { return !/·武器骰|·出力\d/.test(String(t)); })
@@ -1191,6 +1293,7 @@ function actionFateBattle(userData, pcId, sheets) {
       : `『${atkC.name}』高呼真名、解放了寶具【${_npZh}】${npMissed ? '——這一擊被「' + defC.name + '」避開了' : ''}。★讓${pron_(pcData[atkIdx][COL.PC.SEX])}【親口唸出這個真名】(中文真名與原名並呼)。`);
     if (useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.25) SC_PEAK.push(`【灌魔超載】御主${atkC.npOverloadMul >= 1.9 ? '把餘裕魔力盡數傾注' : '將大量魔力加壓灌注'}這一發真名解放${atkC.overcharge ? '（方才補魔蓄積的澎湃魔力一併傾瀉）' : ''}——威能被推至${atkC.npOverloadMul >= 1.9 ? '極限、化作規格外的毀滅光輝' : '遠超尋常的輝度'}。演出這股灼熱光壓。`);
     if (idealRealmFired) SC_PEAK.push(`【理想鄉】「${idealRealmFoe}」傾盡全力解放了斬裂世界的究極真名，然而在觸及「${idealRealmSaber}」的剎那，全世界遙遠的理想鄉 Avalon 悄然展開——究極寶具的威能盡數湮滅於金色結界中，「${idealRealmSaber}」毫髮無傷。演出這一擋的神聖、靜謐與絕對。`);
+    if (foeNpResp) SC_PEAK.push(`「${defC.name}」沒有以真名相迎，而是${foeNpResp.icon}【${foeNpResp.label}】——${foeNpResp.note}${foeNpResp.ok ? '' : '（但沒接住）'}。★演出這記應對本身的判斷與姿態，別只寫我方的光。`);
     if (enemyNpRoundNotes) SC_PEAK.push(`${enemyNpRoundNotes}——這不是普通反擊而是寶具解放，讓「${defC.name}」展現寶具威能／可高呼真名，不可寫成尋常一擊。`);
     // ── 收束：勝負落定之後 ──
     if (backlash) SC_END.push(`【過載反噬】倍額魔力灌注的代價在解放後湧回——御主魔術迴路暴走灼身（−${backlash.dmg} HP），強撐住了意識。★純迴路過載的內在灼痛虛脫，非流血外傷。`);
@@ -1426,4 +1529,98 @@ function horrorShieldView_(memory, gameId, pcData) {
   try { var c = getClock_(gameId, pcData); if (c) abs = c.day * 24 + c.hour; } catch (e) { }
   var sh = getHorrorShield_(memory, abs);
   return sh.active ? { cur: sh.remaining, max: sh.max } : null;
+}
+
+// 🌟 真名解放·獨立一拍（2026-09 玩家定案）：敵寶具預告後不再「混在三回合裡自動發動」，
+//    而是停下來讓玩家選怎麼應對——硬接／閃避／對衝／結界／脫離，選項依從者實際能力長出來。
+function actionNpRespond(userData, pcId, sheets) {
+  const npcName = String(userData.npcName || "").trim();
+  const choice = String(userData.response || "").trim();
+  let pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  if ((parseInt(pcData[pIdx][COL.PC.HP]) || 0) <= 0) return JSON.stringify({ success: false, message: "御主已然殞落，此局已結束。" });
+  const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可應對。" });
+
+  const _alive = r => (String(r[COL.PC.FACTION]) === "敵從者") && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.GAME_ID] || "") === myGameId;
+  const nKey = nameLoose_(npcName);
+  const nIdx = pcData.findIndex(r => _alive(r) && nameLoose_(r[COL.PC.NAME]).indexOf(nKey) !== -1);
+  if (nIdx === -1) return JSON.stringify({ success: false, message: "此世界查無此目標。" });
+  if (String(pcData[pIdx][COL.PC.LOC]).trim() !== String(pcData[nIdx][COL.PC.LOC]).trim()) {
+    return JSON.stringify({ success: false, message: "對方不在你身邊，這一擊落不到你頭上。" });
+  }
+  if (!getNpTelegraph_(pcData[nIdx][COL.PC.MEMORY])) {
+    return JSON.stringify({ success: false, message: "對方此刻並沒有蓄勢待發的真名。" });
+  }
+
+  const me = rowToCombatant_(pcData[svIdx]);
+  injectMysticBuff_(me, pcData[pIdx][COL.PC.MEMORY]);
+  injectMasterSupportFor_(me, pcData, myGameId, pcData[pIdx], false);
+  const foe = rowToCombatant_(pcData[nIdx]);
+  injectMasterSupportFor_(foe, pcData, myGameId, pcData[nIdx], true);
+  foe.npChoice = bestNpChoice_(foe.name, foe.cls);
+  foe.output = 100;
+
+  const ctx = {
+    me: me, foe: foe, meRow: pcData[svIdx], foeRow: pcData[nIdx],
+    masterMp: parseInt(pcData[pIdx][COL.PC.MP]) || 0, pcData: pcData, myGameId: myGameId, nIdx: nIdx
+  };
+  const opts = npResponseOptions_(ctx);
+  if (!choice) return JSON.stringify({ success: false, needNpResponse: true, foeName: String(pcData[nIdx][COL.PC.NAME]), options: opts });
+  const spec = NP_RESPONSE_[choice];
+  if (!spec || !opts.some(o => o.key === choice)) return JSON.stringify({ success: false, message: "此刻做不到這種應對。" });
+
+  // 這一擊的威力：真名解放、必中（應對方式才是唯一變數）
+  const rawDmg = Math.max(1, parseInt(resolveFateBattle_(foe, me, { np: true, forceHit: true }).damage) || 1);
+  const res = spec.resolve(ctx) || { ok: true, dmgMul: 1 };
+  let dmg = Math.max(0, Math.round(rawDmg * (res.dmgMul != null ? res.dmgMul : 1)));
+
+  // 結界耗魔、對衝要付自己的 prana
+  if (res.wardCost) pcData[pIdx][COL.PC.MP] = Math.max(0, (parseInt(pcData[pIdx][COL.PC.MP]) || 0) - res.wardCost);
+  let counterDmg = 0;
+  if (res.counter) {
+    drainForNp_(sheets, pcData, svIdx, pIdx, npPranaCost_(npEffectiveRank_(me)));
+    counterDmg = Math.max(1, parseInt(resolveFateBattle_(me, foe, { np: true, forceHit: true }).damage) || 1);
+    const fHp = Math.max(0, (parseInt(pcData[nIdx][COL.PC.HP]) || 0) - counterDmg);
+    pcData[nIdx][COL.PC.HP] = fHp;
+  }
+
+  // 敵方這一發已經打出去了：清預告旗標、扣其魔力
+  pcData[nIdx][COL.PC.MEMORY] = clearNpTelegraph_(pcData[nIdx][COL.PC.MEMORY]);
+  const svHpBefore = parseInt(pcData[svIdx][COL.PC.HP]) || 0;
+  const svHpAfter = Math.max(0, svHpBefore - dmg);
+  pcData[svIdx][COL.PC.HP] = svHpAfter;
+
+  const foeDead = res.counter && (parseInt(pcData[nIdx][COL.PC.HP]) || 0) <= 0;
+  const meDead = svHpAfter <= 0;
+  if (foeDead) pcData[nIdx][COL.PC.ID] = "DEAD_" + String(pcData[nIdx][COL.PC.ID]);
+  if (meDead) pcData[svIdx][COL.PC.ID] = "DEAD_" + String(pcData[svIdx][COL.PC.ID]);
+
+  sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
+  STATE_PRE_DATA_ = pcData;
+
+  const foeName = String(pcData[nIdx][COL.PC.NAME]);
+  const svName = String(pcData[svIdx][COL.PC.NAME]);
+  let foeNpName = ""; try { foeNpName = String(npProfile_(foe).name || foe.np || "").split(/[（(／]/)[0].trim(); } catch (e) { }
+  const sevWord = dmg > 0 ? dmgSeverityWord_(dmg, parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 1) : "";
+
+  const aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx], { skipClose: true })
+    + '〔解放真名者〕' + servantCard_(pcData[nIdx], { skipClose: true, foe: true })
+    + performanceNote_([svName, foeName])
+    + `【系統·真名解放·已裁定】「${foeName}」高呼真名、解放了寶具${foeNpName ? `【${foeNpName}】` : ''}——這一擊是衝著『${svName}』來的。\n`
+    + `御主的應對：${spec.icon}${spec.label}——${res.note}。${res.ok ? '' : '（賭輸了）'}\n`
+    + (res.fled ? `· 『${svName}』在真名成形前抽身退開，這一戰就此讓出——沒有受傷，但也沒有戰果。\n`
+      : dmg > 0 ? `· 『${svName}』${sevWord}${meDead ? '——靈基當場崩潰、化作光點消散' : ''}。\n`
+        : `· 『${svName}』毫髮無傷。\n`)
+    + (res.counter ? `· 『${svName}』同時解放了自己的真名迎擊，「${foeName}」${foeDead ? '靈基崩潰、徹底消滅' : '亦受重創'}。\n` : '')
+    + `★【200~280 字】把這一拍寫成獨立的一幕：真名成形的壓迫、御主下令應對的那一瞬、以及結果。`
+    + `不寫其他回合、不自行延伸成一場混戰——這一擊之外的事由玩家下一次按鍵決定。`;
+
+  return JSON.stringify({
+    success: true, aiPrompt: aiPrompt, response: choice, label: spec.label,
+    dmg: dmg, counterDmg: counterDmg, foeDead: foeDead, meDead: meDead, fled: !!res.fled,
+    statusString: buildPlayerStatusString(pcData[pIdx])
+  });
 }
