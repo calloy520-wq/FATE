@@ -204,8 +204,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 敘事核心與清洗
 - `cleanNarrateEcho_(promptText)` — 把送 AI 的提示詞洗成玩家可見的簡短回顧（去演出卡〈〉/前綴〔〕/★指令/·素材/【標籤】，截 80 字），供歷史顯示。
-- `stripLeakedScaffold_(text)` — 防禦性過濾：清掉 AI 誤 echo 的 ★指令與〈演出卡〉；**刻意不清【標籤】**（fallback 文案靠它當視覺標籤）。
-- `narrateWithState_(pcId, sheets, promptText, miniSystem, opts?)` — 🟢 共用敘事核心。組 aiConfig（temp 0.85、ignoreLaw、maxTokens 預設 720、model 預設 `AI_MODEL`）＋最近 2 筆歷史＋自動附「當前狀態」（御主/在場從者 HP/共用魔力池）＋`buildTrajectoryDigest_` 軌跡骨幹（同一次整表讀）→`callGeminiAPI`→解析 `{narration}`（過 `stripLeakedScaffold_`）；解析失敗回 null。
+- `QUAD_EMPTY_`（常數） — 防禦性過濾：清掉 AI 誤 echo 的 ★指令與〈演出卡〉；**刻意不清【標籤】**（fallback 文案靠它當視覺標籤）。
+- `narrateWithState_(pcId, sheets, promptText, miniSystem, opts?)` — 🟢 共用敘事核心。組 aiConfig（temp 0.85、ignoreLaw、maxTokens 預設 720、model 預設 `AI_MODEL`）＋最近 2 筆歷史＋自動附「當前狀態」（御主/在場從者 HP/共用魔力池）＋`buildTrajectoryDigest_` 軌跡骨幹（同一次整表讀）→`callGeminiAPI`→解析 `{narration}`（過 `stripLeakedScaffold_`）；解析失敗回 null。⚠ `stripLeakedScaffold_` 2026-09 改了兩處：空白壓縮從 `\s{2,}` 收成只壓水平空白（原本連真實換行都吃掉），並把剝除指令後留下的三連以上 `<br>` 收斂回 `<br><br>`（否則玩家看到一塊莫名空白）。
 - `actionNarrateOnly(...)` — 輕量敘事補完 handler（結算已由 GAS 完成）。`isNsfw` 純看 pcId 是否 `KPC_`（不信前端旗標）。內含完整 `miniSystem` 鐵律（第一人稱「我」、`dialogueFormatRule_`、`<br><br>` 分段、show-don't-tell、依當前狀態不臆測勝敗、服裝依卡）。`longForm` 旗標→maxTokens 2000（補魔高好感解鎖分支用，模型不變）。存歷史時存 `narrateMemoryLine_` 摘要（非整串提示詞）。
 
 #### 🐯 老虎道場（賽後番外）
@@ -225,6 +225,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `codexPersona_(name, cls?)` — 查英靈殿人設 JSON（6h 快取）；優先「真名＋職階」吻合、找不到退回純真名比對（處理斯卡哈同真名跨職階）。供 `servantCard_` 在列上缺欄位時 fallback。
 
 #### 四段標籤化
+- `kanshouLocNameForAI_(locName)`（Gallery.gs）— 送進提示詞的地名。資料鍵「我的房間」是第一人稱，跟第二人稱旁白打架（旁白會照抄成「走進我的房間」）→ 對 AI 一律改寫成「你的房間」，**存表／比對／前端仍用原鍵**。四個把 `curL` 寫進提示詞的點都要走它。
+- `KANSHOU_CAL_START_YEAR_`（常數＝2005）— 鑑賞曆法的起算西元年。2026-09 前沒有這個常數、`year` 直接算成「第幾年」，開局顯示「1年12月20日」。週年是用 absDay 差算的、不吃 `.year`，改它只動顯示字串。
 - `quadLabeled_(raw, labels, skipNone)` — PREF/TRAIT 的「、」分段值逐格加標籤餵 AI（格數＝`labels.length`）。值落在 `QUAD_EMPTY_` 的整格不送。
 - `traitLabeled_(raw, skipNone)` — 特徵格的專用出口＝`quadLabeled_(traitParts_(raw), TRAIT_LABELS_, skipNone)`。三張角色卡（`servantCard_`／`masterCard_`／`enemyMasterCard_`）共用，別在各處各修一次。⚠ `skipNone` 現已無實際作用（兩種呼叫端都走同一份 `QUAD_EMPTY_`），保留只為相容既有呼叫。
 - `QUAD_EMPTY_`（常數）— **無資訊量佔位字的唯一名單**：`parseTraitsHelper` 各 fallback 的每一格（外貌出眾/外貌平凡/舉止從容/卸下心防…/沉著表象/堅定內裡/珍視之物/厭惡之事/通曉魔術/深藏心事）。2026-09 補齊——漏收的佔位字會被當成真資料送進提示詞（實測一張敵從者卡曾同時夾帶「喜歡的事物：珍視之物」「討厭的事物：厭惡之事」「身世：Archer 職階英靈」三格純噪音）。新增 fallback 時要同步這裡。
@@ -562,7 +564,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 輸入驗證／提案裁定／技能標記讀取（`actionPlay` 用的小工具，各自單一職責）
 
-- `sanitizeAiData_(aiData)` — 寫回試算表前的 AI JSON 輸出守門：非物件/陣列直接拒絕，`rel_changes[].fav_change` 夾在 -100~100；`options` 夾成「≤6 個字串、每個 ≤60 字」（這欄原樣轉發前端、一字串一顆按鈕，舊版無上限，模型失控時會長出一整片按鈕牆）。`actionPlay` 唯一呼叫者，solo 不用。
+- `sanitizeAiData_(aiData)` — 寫回試算表前的 AI JSON 輸出守門：非物件/陣列直接拒絕，`rel_changes[].fav_change` 夾在 -100~100；`options` 夾成「≤6 個字串、每個 ≤60 字」（這欄原樣轉發前端、一字串一顆按鈕，舊版無上限，模型失控時會長出一整片按鈕牆）。**2026-09 再加兩件**：①`options` 剝掉鷹架——schema 用「1. [主動]…」教 AI 出四種走向，那串編號與分類標籤卻原樣變成按鈕文字、按下去又回灌成【玩家意圖】（半形全形、任一順序都剝，迴圈剝到不再變動）；②`narration` 過 `stripLeakedScaffold_`（solo 早有、鑑賞這條路徑漏了），**先把真實換行轉成 `<br>` 再濾**——濾網掃到下一個「<」為止，沒有 `<br>` 會把整段吃光。`actionPlay` 唯一呼叫者，solo 不用。
 - `kanshouProposalAccepts_(type, bond)` — 🎲 GAS 依 BOND 擲一個機率(`move`/`promise`/`hold` 三種提案各自不同基礎值/斜率)，決定玩家主動提案(相約同去/約明日見/牽手)是否被接受。玩家發起的提案由 GAS 在呼叫 AI 前先擲骰定成敗、把結果直接寫進提示詞告訴 AI(「★成敗由系統定」)，`proposal_accept` schema 欄已整個刪除（NPC 主動發起約會/同居邀約的對應機制皆已於八度改版移除，約會/同居現只剩玩家自己主動發起一條路）。
 
 #### 帳號綁定與擁有權驗證（資料存取·權威來源）

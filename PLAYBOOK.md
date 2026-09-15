@@ -139,3 +139,26 @@ for a, b in reps:
 5. 改完：check.sh ✓ 紅線三查 ✓ footer ✓ 等「要」✓ 工具書更新 ✓
 
 照這五問走，型號是什麼真的沒那麼重要。🌙
+
+
+---
+
+## ⚠️ scratchpad 探針絕對不可以寫 repo（2026-09 踩到）
+
+`agi_opt.js`（敏捷調參那次寫的）為了掃參數，會**直接覆寫 `gas/Engine_Fate.gs`**，
+跑完再從 `/tmp/ef.bak` 還原。問題是那份 `.bak` 是**當時**的快照——
+之後「寶具分類」那一版進 repo 後，每跑一次 `agi_opt.js`，
+`Engine_Fate.gs` 就被靜默倒回舊版，`npCanClash_`／`npReleasable_` 整組消失。
+
+**怎麼發現的**：全套探針掃描時 `output`／`numscan`／`dbg` 突然報
+`npCanClash_ is not defined`，但我這輪根本沒碰 `Engine_Fate.gs`。
+`git stash` 再跑一次就正常 → 確定是工作區被人改了，不是程式碼有錯。
+
+**沒抓到的話會怎樣**：`bash check.sh` 全綠（語法沒壞、掃描器也不看這個），
+commit 下去就把整批寶具分類從線上遊戲裡靜默刪掉了。
+
+**規矩**：
+1. 探針**只讀** repo，要改就複製一份到 scratchpad 改。
+2. 真的非得原地改不可時，還原基準一律**執行當下現讀**（`fs.readFileSync(SRC)`），
+   絕不用先前存下來的 `.bak`——那份快照會隨著 repo 演進而過期。
+3. 跑完一輪探針後順手 `git status`：工作區只該有你自己改的檔。

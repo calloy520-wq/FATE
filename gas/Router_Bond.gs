@@ -141,7 +141,7 @@ function actionUseSeal(userData, pcId, sheets) {
     const wishSeal = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【系統·令咒·強制補魔已裁定】${effectMsg}\n` +
-      `★你擅長書寫細膩動人的情慾，這次放手去寫、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫令咒的絕對強制壓下「${svName}」的意志、御主強制的這場親密的瞬間，還有被強制的屈辱。${genderFactSeal}★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常不會被輕易弄到失神)，而是令咒逼出的失控狀態與屈辱交織，務必寫出這份反差。${activeActFact}聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節。結尾寫御主高潮後在令咒的強制力隨效果消散的剎那，「${svName}」積壓的恨意與屈辱轟然引爆，直接抹殺御主——收在這記致命一擊揮下的瞬間即可，不必描寫死亡本身的細節。`;
+      `★這一段放手寫得細膩動人、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫令咒的絕對強制壓下「${svName}」的意志、御主強制的這場親密的瞬間，還有被強制的屈辱。${genderFactSeal}★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常不會被輕易弄到失神)，而是令咒逼出的失控狀態與屈辱交織，務必寫出這份反差。${activeActFact}聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節。結尾寫御主高潮後在令咒的強制力隨效果消散的剎那，「${svName}」積壓的恨意與屈辱轟然引爆，直接抹殺御主——收在這記致命一擊揮下的瞬間即可，不必描寫死亡本身的細節。`;
     defeat = true;
     dreamPrompt = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wishSeal, svName);
     report = { sealBacklash: true, svName: svName };
@@ -149,7 +149,7 @@ function actionUseSeal(userData, pcId, sheets) {
     aiPrompt = sealManaUnlocked
       ? (masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
         `【系統·令咒·強制補魔已裁定】${effectMsg}\n` +
-        `★你擅長書寫細膩動人的情慾，這次放手去寫、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫「${svName}」帶著點無奈笑意迎向這道其實多此一舉的令咒、順勢配合這場親密。${genderFactSeal}★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常從容不迫)，而是令咒逼出的失控狀態，務必寫出這份反差。${activeActFact}聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節，而非只在前後鋪陳。收在餘韻猶存的溫柔，勿寫成完結收尾句。`)
+        `★這一段放手寫得細膩動人、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫「${svName}」帶著點無奈笑意迎向這道其實多此一舉的令咒、順勢配合這場親密。${genderFactSeal}★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常從容不迫)，而是令咒逼出的失控狀態，務必寫出這份反差。${activeActFact}聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節，而非只在前後鋪陳。收在餘韻猶存的溫柔，勿寫成完結收尾句。`)
       : masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx], { skipClose: true }) + performanceNote_([svName]) +
         `【系統·令咒已發動，已裁定】御主燃燒一道令咒。${effectMsg}（餘 ${seals} 道令咒）\n` +
         `★【140~200 字】描寫令咒在手背灼亮、絕對命令權貫徹的瞬間——三道令咒是御主僅有的底牌，燒掉一道不是小事，讓這份重量落在御主的神情與「${svName}」的反應上。效果已由系統結算。\n`;
@@ -610,7 +610,7 @@ function actionCourtEnemy(userData, pcId, sheets) {
   const card = targetIsMaster ? enemyMasterCard_(pcData[tIdx]) : servantCard_(pcData[tIdx]);
   const aiPrompt = masterCard_(pcData[pIdx]) + '〔示好對象·敵對陣營〕' + card +
     `【系統·示好／交涉·已裁定】御主『${String(pcData[pIdx][COL.PC.NAME])}』在刀鋒之外向敵對的「${targetName}」釋出善意（好感 ${before}→${after}／100）。\n` +
-    `★【100~150 字】演出這番示好、與對方【依其性格×當前好感】的真實反應：${lean.loner ? '孤高／激烈者多半冷淡、譏諷或半信半疑，只鬆動一絲' : lean.pragmatic ? '務實者會權衡利害、順水推舟地緩和態度' : '依其性格自然回應'}——但仍分屬敵對，留一分保留與算計，別演成一下就交心。GAS 已算好數值，你只演反應、不另定成敗。` +
+    `★【100~150 字】演出這番示好、與對方【依其性格×當前好感】的真實反應：${lean.loner ? '孤高／激烈者多半冷淡、譏諷或半信半疑，只鬆動一絲' : lean.pragmatic ? '務實者會權衡利害、順水推舟地緩和態度' : '依其性格自然回應'}——但仍分屬敵對，留一分保留與算計，別演成一下就交心。數值系統已經算完，只演反應、不另定成敗。` +
     (after >= 90 ? '\n★此刻情誼已臻莫逆——收在一個彼此心照不宣、卻仍隔著立場的微妙瞬間。' : '') +
     `\n★「${targetName}」示好後【仍留在原地】，並未離開這個場景——收在對方態度鬆動、但仍按兵不動的瞬間即可，不可描寫那個人轉身離去、走遠或消失於視野，那不是這個動作發生的事。`;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：bumpBond_/【示好日】/spendAp_ 皆已原地改回 pcData
