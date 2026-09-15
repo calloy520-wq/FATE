@@ -773,8 +773,10 @@ function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
     }],
     "master_note": _masterNote,
   };
-  // 🌀 側寫節流：非側寫回合把整塊 master_note 拿掉(AI 連這欄都看不到、專心敘事)。落地端 if(aiData.master_note)
-  if (includeMasterNote === false) { delete finalJson.master_note; }
+  // 🌀 側寫節流改在【落地端】做（`_doSideWrite` 才寫回表），schema 一律保留 master_note。
+  //    原本是非側寫回合把這一欄從範本刪掉——省 77 字，卻讓 system prompt 每 3 回合變一次形狀，
+  //    整個 1,655 字的可快取前綴跟著作廢。參數保留只為相容既有呼叫。
+  if (includeMasterNote === false) { /* 不再改動 schema，見上 */ }
   if (includeOptions === false) { delete finalJson.options; }
 
   // 🔠 對話格式規則：2026-09 起只剩鑑賞在用——那套含喘息/吸吮的例子是 NSFW 取向，solo 是 SFW 戰鬥敘事，改用 miniSystem 內的短版。
@@ -2724,19 +2726,23 @@ ${nsfwMemories}${genderHintStr}${driveStr}
   pc[COL.PC.MEMORY] = kanshouSetSideWriteCount_(pc[COL.PC.MEMORY], _swCount);
   const _doSideWrite = (_swCount % KANSHOU_SIDEWRITE_EVERY_ === 1);
 
-  const prompt = `【玩家資料】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? ` 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${myOutfit ? ` | 裝扮:${myOutfit}` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}${_doSideWrite ? '(可透過 master_note.經歷 滾動增補)' : ''}
-
+  // 🧊 排序原則：【穩定的放前面、每回合會變的放後面】——prompt cache 是逐 token 比對前綴，
+  //    一個會變的東西插在中間，它後面全部作廢。天氣/時間原本卡在第 5 行，把整份 user prompt
+  //    的可快取前綴砍到只剩 48%。唯二的例外是 🚨【收尾】與★【在場名單】：它們雖然穩定，但
+  //    recency 對它們特別重要（實測過「事實寫在 20 行以前就會被 AI 當成沒發生」），故仍壓在最後。
+  const prompt = `★世界觀＝和平的現代冬木市，大家都是住在這裡的普通市民，沒有魔術與從者。
 ${PROMPT_REL}
 ★【只演給的資料】：系統給你的就是這個世界的全部，沒寫到的人/物/過往都不存在；願望、萌點、個性只演出來，不把那幾個字寫進敘述。玩家專一對著一個人時，其他在場者維持背景輕描。
+★【視角鎖定】：「我」＝玩家『${pcName}』本人，只演他實際輸入的動作與五感——他看不見自己的神情。同伴外貌只取材她自己那份資料，[台詞自稱]只用在她本人引號內的台詞。
+
+【玩家資料】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? ` 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${myOutfit ? ` | 裝扮:${myOutfit}` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}(可透過 master_note.經歷 滾動增補)
+${PROMPT_PARTY_SYSTEM}
+${_intimacyLines_ ? `★【親密尺度·最高優先】：肢體親密以好感為天花板，超過的那一步不會發生，怎麼擋下來依各人的個性${_intimacyLines_.indexOf('\n') >= 0 ? '（多人各依各自好感，不共用同階）' : ''}：\n${_intimacyLines_}\n` : ''}
+★【篇幅】：本回合 narration 約 ${_kanshouTargetWords_} 字。
+★★【地點釘死】：此刻在「${curL}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName)); return _c ? `（${_c}）` : ""; })()}，敘事不離開這裡——想去別處只能嘴上聊，真要換地方由系統宣告。${moveTarget ? '你們剛到，直接從抵達後的當下寫起、路程不演。' : ''}
 ${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}${kanshouInitStr}
 ★【今日天氣】：${kanshouWeather_(curDay)}。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜她走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·她此刻【不在場】·禁讓她開口或出現。` : ""}
 🕰️現在${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★光線/氣溫/作息一律依【此刻＝${timeBand_(_narrHour_)}】寫。★本回合只寫這十分鐘內的片段，時間推進由系統宣告。
-★世界觀＝和平的現代冬木市，大家都是住在這裡的普通市民，沒有魔術與從者。
-${_intimacyLines_ ? `★【親密尺度·最高優先】：肢體親密以好感為天花板，超過的那一步不會發生，怎麼擋下來依各人的個性${_intimacyLines_.indexOf('\n') >= 0 ? '（多人各依各自好感，不共用同階）' : ''}：\n${_intimacyLines_}\n` : ''}
-★【篇幅】：本回合 narration 約 ${_kanshouTargetWords_} 字。
-★【視角鎖定】：「我」＝玩家『${pcName}』本人，只演他實際輸入的動作與五感——他看不見自己的神情。同伴外貌只取材她自己那份資料，[台詞自稱]只用在她本人引號內的台詞。
-${PROMPT_PARTY_SYSTEM}
-★★【地點釘死】：此刻在「${curL}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName)); return _c ? `（${_c}）` : ""; })()}，敘事不離開這裡——想去別處只能嘴上聊，真要換地方由系統宣告。${moveTarget ? '你們剛到，直接從抵達後的當下寫起、路程不演。' : ''}
 ${npcDialoguePrompt}
 🚨【收尾${driveOn ? '·主動掌握' : ''}】：${driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : ''}把最後一句留給被搭話的那個人——用她的答話或神情收尾，並讓她拋出一個玩家接得住的話題(問句、邀約、她此刻在意的事都行)，停在等玩家回應的那一刻。沒有別人在場時才收在「我」的動作上。
 ★【在場名單】：${partyMembers.length ? `只有『${partyMembers.join('、')}』在場——開口/被觸碰的只能是這些人，其他名字即使歷史提過也不准出現，名單上每個人這回合都要有戲；有【專屬稱呼】就叫暱稱、否則叫真名。` : '沒有其他人在場。'}
