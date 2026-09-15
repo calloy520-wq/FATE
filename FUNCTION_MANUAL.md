@@ -629,7 +629,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### AI 提示詞組裝（🔴 鑑賞 AI 核心）
 
 - `dialogueFormatRule_()` — 全遊戲【單一真實來源】對話與敘事格式規則（口/喉發聲進「」台詞、每句台詞冠說話者名、看得見動作走敘事、只用單層「」）。solo miniSystem 與此檔 nsfwBaseRules 共用。
-- `buildDefaultSystemPrompt(includeMasterNote, includeOptions)` — 組鑑賞系統提示詞（唯一呼叫者 actionPlay_）。動態組 JSON 輸出範本（inner_monologue/narration/npc_exit/options/intimacy_feedback/rel_changes/master_note）。**2026-07 拔掉 move_proposal／promise_proposal／cohabit_proposal／proposal_accept**：AI 不再有任何欄位能自己提議換地點/邀約/邀同居，這些全改由 GAS 依好感數值直接判定觸發。**2026-07 拔掉 dynamic_skills**：無 UI 也無使用規則的孤兒欄位，見 KANSHOU_REFERENCE.md。**2026-07 二度改版·簽名從 3 參數瘦身成 2 參數**（拔掉 `masterNoteUnlocked`）：`master_note` schema 現在只剩「經歷」一格，性格四段/萌點創角時 `actionBackfillKanshouAi` 一次生成、遊戲中 AI 不再側寫，故不需要「只放沒鎖的性格欄」這層動態鎖過濾。剩兩個開關：includeMasterNote=false 整塊拿掉（側寫節流）、includeOptions=false 拿掉 options。
+- `buildDefaultSystemPrompt(includeOptions)` — 鑑賞系統提示詞（`nsfwBaseRules` ＋ 輸出範本）。⚠ 2026-09 拿掉了第一個參數 `includeMasterNote`：`master_note`（經歷滾動側寫）整組移除，經歷改回固定事實（見 `KANSHOU_REFERENCE.md` §「經歷改回固定」）。`Engine_Combat.gs` 的無參數 fallback 呼叫不受影響。
   - 🔴 內含 `nsfwBaseRules`（函式內 const，非獨立函式）— 慾海演化核心紅線常數，後日談敘事鐵律 6 條；連同 `specificRules`(【慾海律令】現 7 條，**2026-07 新增第6條「options 只能建議在場人物/當下場景真能做到的動作」**修「AI選項建議移動/呼喚不在場者、玩家點了做不到」的bug；**五度改版再新增第7條「appearance_extras只在劇情真有穿脫/更衣動作才填新值、不准自行合理化改寫」**，修「玩家用👕換裝手動設定裝扮，下一回合被AI默默改回別的」——schema _note的「沒變化留空」對這個模型是弱信號，明文規則才夠強；**同批再補「appearance_extras只能寫衣物本身，禁止寫成所在環境/姿勢」**，修「泡溫泉→移動到商店街，裝扮卻卡在『在水下』」的變種bug)＋範本 JSON 一起回傳。**紅線①：一律不可改（specificRules 可改，非紅線本體）。**
 - `getKanshouPeopleList_(pcId, curL, allPcData)` — 鑑賞自算精簡「同地人物」清單（只 id/name/isExact），不借 solo 的 getLocalPeopleList（那多算 12 欄）。
 

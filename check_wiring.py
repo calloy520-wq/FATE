@@ -43,7 +43,6 @@ NO_UI_NEEDED = {
     'KANSHOU_APPT_LEAVE_EARLY_': '赴約提前離場機率，非門檻',
     'KANSHOU_KNOCK_CHANCE_': '敲門機率，非門檻',
     'KANSHOU_KNOCK_RAID_CHANCE_': '同上',
-    'KANSHOU_SIDEWRITE_EVERY_': '側寫回填頻率，內部節流',
     'KANSHOU_FIRSTS_CAP_': '「第一次」紀錄的 MEMORY 儲存上限，滿了就不再收，玩家沒有對應的按鈕',
     'KANSHOU_INIT_PER_BOND_': '她主動的機率係數（名字尾巴剛好是 _BOND_），非門檻',
     'KANSHOU_DIGEST_CAP_': '近期摘要每則保留幾個字，提示詞內部的截字長度，玩家看不到也沒有按鈕會被它擋',

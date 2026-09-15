@@ -630,7 +630,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
   mRow[COL.PC.BACK] = "剛搬來冬木市";                  // 經歷開局(原「身世」正名；之後 AI 滾動＋玩家可改命)
   mRow[COL.PC.TRAIT] = _apPart + "、、我、無";
   mRow[COL.PC.PREF] = _psPart + "、、、";
-  mRow[COL.PC.INTENT] = "";                            // 萌點留空→AI 遊玩時盲寫觀察補上第一個發現(master_note.萌點)、之後不覆寫；玩家改命可覆蓋
+  mRow[COL.PC.INTENT] = "";                            // 萌點留空：AI 全程碰不到這欄(2026-07 起)，只有創角時一次生成或玩家改命能寫
   kpc.appendRow(mRow);
   linkAccountToKanshouPc_(acctName, mId); // 🔒 權威連結寫進帳號表
 
@@ -859,11 +859,14 @@ function dialogueFormatRule_() {
 }
 
 // 只被鑑賞(慾海)呼叫——solo走完全獨立的 miniSystem。
-function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
+// 🗑️ 2026-09 master_note(經歷滾動側寫)整個拿掉——玩家「我的經歷怪怪的.....好像是滾動式的」。
+//    病在【反覆重新摘要】：每 3 回合把整段經歷壓回 50 字以內，壓過的東西再壓一次，
+//    開局寫的東西幾輪後就被最近幾回合洗掉了(lossy re-summarization 的典型衰變)。
+//    而且「一路上發生了什麼」現在是世界帳本的工作，它是【追加＋淘汰】、不是反覆重寫——
+//    留著這條等於用一個更差的機制做同一件事。經歷從此是固定事實：創角時生成一次，
+//    之後只有玩家能透過逆天改命改。這是 2026-07「性格四格/萌點不再交給 AI」那次的最後一塊。
+function buildDefaultSystemPrompt(includeOptions) {
   const _physicalState = "此刻臉上看得到的神色·眼神/臉色/表情(第三人稱·≤15字)·不寫動作劇情·沒變就留空";
-  const _masterNote = {
-    "經歷": "(不顯示)承接舊經歷·只增補本回合有意義的新事·滾動摘要≤50字·沒新事就回舊值"
-  };
 
   // appearance_extras(原 outfit_change)：角色當下實際穿著與配飾，AI 依劇情如實更新，寫回持久的【換裝】記錄。2026-09 小道具機制移除後，配飾類事實回歸由這一欄承接。
   const _appearanceExtras = "穿著與配飾(第三人稱·≤20字·名詞短語如「浴巾」「貓耳髮箍」「全裸」)·禁動作句與場景姿勢·沒換就留空";
@@ -898,12 +901,7 @@ function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
       "target": "NPC真名",
       "fav_change": "整數·日常+1~2、明顯心動或重大進展+3~5、冒犯給負"
     }],
-    "master_note": _masterNote,
   };
-  // 🌀 側寫節流改在【落地端】做（`_doSideWrite` 才寫回表），schema 一律保留 master_note。
-  //    原本是非側寫回合把這一欄從範本刪掉——省 77 字，卻讓 system prompt 每 3 回合變一次形狀，
-  //    整個 1,655 字的可快取前綴跟著作廢。參數保留只為相容既有呼叫。
-  if (includeMasterNote === false) { /* 不再改動 schema，見上 */ }
   if (includeOptions === false) { delete finalJson.options; }
 
   // 🔠 對話格式規則：2026-09 起只剩鑑賞在用——那套含喘息/吸吮的例子是 NSFW 取向，solo 是 SFW 戰鬥敘事，改用 miniSystem 內的短版。
@@ -1334,16 +1332,7 @@ var KANSHOU_APPT_BANDS_ = [
   { band: '黃昏', hour: 18, label: '黃昏 18:00' },
   { band: '夜',   hour: 20, label: '夜晚 20:00' }
 ];
-// 🌀 側寫節流：master_note(經歷)每回合都問會分散 AI 對敘事的注意力。
-const KANSHOU_SIDEWRITE_EVERY_ = 3;
-function kanshouGetSideWriteCount_(memory) {
-  const m = String(memory || "").match(/【側寫計數】(\d+)/);
-  return m ? (parseInt(m[1], 10) || 0) : 0;
-}
-function kanshouSetSideWriteCount_(memory, n) {
-  const cleared = String(memory || "").replace(/｜?【側寫計數】\d*/g, "").replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
-  return (cleared ? cleared + "｜" : "") + "【側寫計數】" + (parseInt(n, 10) || 0);
-}
+// 🗑️ 2026-09 側寫節流(KANSHOU_SIDEWRITE_EVERY_/【側寫計數】)隨 master_note 一併移除。舊存檔殘留的標記是純孤兒資料，不影響任何邏輯。
 function kanshouApptHour_(band) {
   var b = KANSHOU_APPT_BANDS_.find(function (x) { return x.band === band; });
   return b ? b.hour : null; // null=舊格式無時段(整天有效·向後相容)
@@ -2963,11 +2952,6 @@ ${nsfwMemories}${genderHintStr}${driveStr}
   const npcDialoguePrompt = "";  // 名單/稱呼併入結尾的【在場名單】鐵律，見下方 prompt
 
 
-  // 🌱 動態 master_note 的前置計算(要在 USER prompt 組裝【之前】算好——下面【玩家命格】那行的「你可透過 master_note.經歷 滾動增補」提及必須跟著 _doSideWrite 條件化，否則非側寫回合schema 已刪掉 master_note、USER prompt 卻還在催，AI 會自發吐出 schema 外的欄位擊穿節流)。
-  const _swCount = kanshouGetSideWriteCount_(pc[COL.PC.MEMORY]) + 1;
-  pc[COL.PC.MEMORY] = kanshouSetSideWriteCount_(pc[COL.PC.MEMORY], _swCount);
-  const _doSideWrite = (_swCount % KANSHOU_SIDEWRITE_EVERY_ === 1);
-
   // 剛換場景/剛跳時間就砍短 chatHistory；摘要與 chatHistory 共用這個窗口值，不各算各的。
   const _sceneCut = !!(moveTarget || kanshouTimeJumped_);
   const _histWindow_ = _sceneCut ? 2 : 6;
@@ -3014,8 +2998,7 @@ ${npcDialoguePrompt}${_earlierDigest_ ? `\n★【稍早做過的事】：${_earl
       }));
     }
 
-    // 🌱 動態 master_note：只剩經歷會滾動(性格四格/萌點已不再交給AI，見buildDefaultSystemPrompt註解)。
-    const _sysPrompt = buildDefaultSystemPrompt(_doSideWrite, userData.optionsOn !== false);
+    const _sysPrompt = buildDefaultSystemPrompt(userData.optionsOn !== false);
     const aiResponseRaw = callGeminiAPI(prompt, _sysPrompt, aiConfig);
     // 🛡️→✅ 2026-07 邊界稽核：模型偶爾會回【截斷的 JSON】(吐到 max token 就斷)或純文字道歉，這在真實運行中是常態、不是例外。
     let aiData;
@@ -3271,14 +3254,6 @@ ${npcDialoguePrompt}${_earlierDigest_ ? `\n★【稍早做過的事】：${_earl
     //    寫入點只有這一處(kanshouWorldWrite_ 自己做去重/上限/淘汰)，別在別處各寫一份。
     if (Array.isArray(aiData.world_note) && aiData.world_note.length) {
       try { kanshouWorldWrite_(myGameId, aiData.world_note, curDay); } catch (e) { }
-    }
-
-    // 🌱 玩家御主「滾動側寫」(master_note)：2026-07 再修（玩家「萌點AI根本亂寫...AI只能改動經歷」）——性格四格與萌點已在創角時由AI一次生成完整(見actionBackfillKanshouAi)，遊玩期間AI完全看不到這兩類欄位(schema已拿掉)、也就無從寫。
-    if (_doSideWrite && aiData.master_note && typeof aiData.master_note === 'object') {
-      const mn = aiData.master_note;
-      // 經歷：AI 承接舊值增補後回傳整段，這裡直接採用；空/未給則保留原經歷不動。
-      const _newExp = String(mn["經歷"] || "").replace(/[<>【】｜]/g, "").trim().slice(0, 80);
-      if (_newExp) { pcData[pcIndex][COL.PC.BACK] = _newExp; dirtyPcRows.add(pcIndex); }
     }
 
     const pcColCount = Object.keys(COL.PC).length;
