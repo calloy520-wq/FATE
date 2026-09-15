@@ -121,7 +121,7 @@ mcp__github__actions_get          method=get_workflow_run resource_id=<run_id>
 |---|---|---|
 | ① 資料層 | `sanitizeAiData_` | 帳號綁定／`kanshouPcIdx_`／鑑賞眾生表／日常版轉換 |
 | ② 關係 | `KANSHOU_REL_TIER_` | 五階／好感天花板／`kanshouProposalAccepts_` |
-| ③ handlers | `actionKanshouSummonHero` | 全部 `kanshou_*` action（召喚/道具/催眠/貼圖/回憶/改名） |
+| ③ handlers | `actionKanshouSummonHero` | 全部 `kanshou_*` action（召喚/貼圖/回憶/改名） |
 | ④ 🔴禁區 | `buildDefaultSystemPrompt` | **`nsfwBaseRules` 在這裡，不可改** |
 | ⑤ 常數大宗 | `KANSHOU_REGIONS_` | 地圖／橋段／住處／時間曆法／約定／道具／相簿／天氣／別名 |
 | ⑥ 引擎 | `actionPlay` → `actionPlay_` | 🔥 **~1440 行巨獸**，鑑賞單回合全部意圖都在裡面 |
@@ -186,7 +186,7 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 
 ---
 
-## §4 全 66 action → handler → 檔
+## §4 全 62 action → handler → 檔
 
 | action | handler | 檔 | | action | handler | 檔 |
 |---|---|---|---|---|---|---|
@@ -215,7 +215,7 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 | narrate_only／tiger_dojo | actionNarrateOnly／actionTigerDojo | Router_Narrative | | faction_ambush | actionFactionAmbush | Router_Movement |
 | dev_resync_codex | actionDevResyncCodex | Seed_Codex | | incite | actionIncite | Router_Movement |
 
-**🌹 全在 `Gallery.gs`**：`play`(→`actionPlay_`)｜`enter_kanshou`｜`backfill_kanshou_ai`｜`kanshou_companions`｜`kanshou_summon_hero`｜`kanshou_memoir_op`｜`kanshou_set_sex`／`_set_name`／`_set_home_name`／`_set_prop`｜`kanshou_add_custom_prop`／`_delete_custom_prop`｜`kanshou_cast_hypnosis`｜`kanshou_add_quick_phrase`／`_delete_quick_phrase`｜`get_album`｜`album_delete`
+**🌹 全在 `Gallery.gs`**：`play`(→`actionPlay_`)｜`enter_kanshou`｜`backfill_kanshou_ai`｜`kanshou_companions`｜`kanshou_summon_hero`｜`kanshou_memoir_op`｜`kanshou_set_sex`／`_set_name`／`_set_home_name`｜`kanshou_add_quick_phrase`／`_delete_quick_phrase`｜`get_album`｜`album_delete`
 
 ---
 
@@ -257,8 +257,8 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 
 ## §7 現況（2026-07）
 
-- 24 檔・20,748 行・後端 405 函式・66 action
+- 24 檔・後端 406 函式・62 action
 - **死碼 0**（僅 `removeAllTriggers` 無呼叫點＝刻意保留的編輯器手動工具）
-- 66 action 全部有真實 handler 且皆可從前端到達（`set_mage_realm`/`set_rune_mode` 走 `pickSelectable(action,…)` 動態帶入）
+- 62 action 全部有真實 handler 且皆可從前端到達（`set_mage_realm`/`set_rune_mode` 走 `pickSelectable(action,…)` 動態帶入）
 - 連續 3 輪稽核乾淨收斂 → `SOLO_REFERENCE.md` §25
 - `full`（九州全模擬）停用中；兩軌皆無經濟/生活層、無戰記/排行榜

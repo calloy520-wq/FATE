@@ -70,10 +70,6 @@
 | `kanshou_set_sex` | `actionKanshouSetSex` | 設同伴性別 |
 | `kanshou_set_name` | `actionKanshouSetName` | 設同伴名 |
 | `kanshou_set_home_name` | `actionKanshouSetHomeName` | 設住處名 |
-| `kanshou_set_prop` | `actionKanshouSetProp` | 小道具裝備/移除/調強度(2026-07新增，啟動卡好感門檻) |
-| `kanshou_add_custom_prop` | `actionKanshouAddCustomProp` | 玩家自建新道具＋立即裝備(2026-07新增，name/hasIntensity/part選填，強制ignoreBond:false) |
-| `kanshou_delete_custom_prop` | `actionKanshouDeleteCustomProp` | 從玩家自訂道具目錄整個刪掉一項(同步清所有同伴身上裝備，一般道具/催眠指令共用) |
-| `kanshou_cast_hypnosis` | `actionKanshouCastHypnosis` | 催眠指令：跟一般道具分開的獨立入口(2026-07新增，text≤30字，強制hasIntensity+ignoreBond；同月改成單次整表寫回、不再兩次分開setValue) |
 | `kanshou_add_quick_phrase` | `actionKanshouAddQuickPhrase` | 新增玩家自訂快速貼圖(2026-07新增，≤12字，上限8句) |
 | `kanshou_delete_quick_phrase` | `actionKanshouDeleteQuickPhrase` | 刪除玩家自訂快速貼圖 |
 | `prep_meal` | `actionPrepMeal` | 準備餐點 |
@@ -604,7 +600,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `actionKanshouSummonHero(userData, pcId, sheets)` — 從英靈庫召喚一位英靈「存在」於此後日談世界（不必先 solo 封存）。防線：擁有權驗證、士郎位置擋、`KANSHOU_SUMMON_BLOCKED_IDS_` 擋、ai_gen 僅創造者可召、不開放男男、同一位只召一次（跨名比對）。通過即 appendRow(`heroToKanshouRow_`)。
 - `actionEnterKanshou(userData, pcId, sheets)`（2026-07新增：分支①②回應皆附`quickPhrases`欄，供前端渲染玩家自訂快速貼圖——🐛→✅ 再稽核抓到②原本漏帶，跟①不一致已補齊）— 進入常駐後日談世界（每帳號一個）。三分支：①帳號表已連結→接續（含全名→短名一次性遷移）②MEMORY【帳號】標記舊角色→補寫帳號表連結遷移③無存檔→需 needSetup 問名字/性別後新建御主列（KPC_ 前綴，開場「我的房間」Day1 06:00）＋入駐 `KANSHOU_STARTER_IDS_` 4 位起始住民。**🐛→✅ 稽核抓到**：pcName/appearance/persona 這條首建路徑原本完全沒設 backend 長度上限(只靠前端 maxlength 擋)，已補 pcName≤16／appearance・persona≤60，跟後續改名/改命路徑口徑一致。（2026-07 二度改版：兩個成功回應物件都拿掉 `prefLocks` 欄位，性格鎖系統整組刪除）
 - `actionBackfillKanshouAi(userData, pcId, sheets)`（2026-07 再稽核抓到漏洞：找列邏輯改用`kanshouOwnedRowIdx_`驗證帳號歸屬，取代原本裸`findIndex`信任傳入pcId的漏洞——鑑賞pcId可預測/枚舉，舊版可被冒名竄改任一玩家的敘事欄；前端`backfillKanshouAi`同步補送`acctName`）— 非阻塞背景補生成御主 4 個敘事欄（background/traits/personality/npc_intent/outfit）。比照 `actionBackfillMasterAi`「種子秒建＋AI 潤色」；競態修用 `buildLiveIdIndex_` 寫回前重定位，只單格 setValue，數值/位置不碰。
-- `actionKanshouCompanions(userData, pcId, sheets)` — 列出本世界已存在的所有從者＋各自地點/關係標籤/**專屬稱呼(2026-07新增，`getNickname_`裸值)**/好感/是否同地/待赴約定/共同回憶/**`id`(2026-07 id 化重構新增)**，供玩家決定去找誰。無隊伍/人數上限。回傳另附**`quickPhrases`(2026-07新增，見`kanshouGetQuickPhrases_`)**供前端合併渲染玩家自訂快速貼圖，以及**`propBond`/`propCap`(2026-07新增)**＝`KANSHOU_PROP_EQUIP_BOND_`/`KANSHOU_PROP_EQUIP_CAP_`——小道具面板靠這兩個值鎖按鈕/寫文案，前端不自己寫死數字（前端手抄後端常數是本專案犯過的錯）。
+- `actionKanshouCompanions(userData, pcId, sheets)` — 列出本世界已存在的所有從者＋各自地點/關係標籤/**專屬稱呼(2026-07新增，`getNickname_`裸值)**/好感/是否同地/待赴約定/共同回憶/**`id`(2026-07 id 化重構新增)**，供玩家決定去找誰。無隊伍/人數上限。回傳另附**`quickPhrases`(2026-07新增，見`kanshouGetQuickPhrases_`)**供前端合併渲染玩家自訂快速貼圖。
 - `actionKanshouMemoirOp(userData, pcId, sheets)`（2026-07 稽核：找目標同伴列改委派 `findPcRowIdx_`，取代手刻迴圈，行為等價）— 共同回憶面板操作（op=pin/unpin/del）：釘選加 ★ 前綴（釘選上限 8）、刪除整條移除。玩家 UI 手動管理、AI 無權；帳號綁定＋同 gid 驗證。
 
 #### 御主 avatar 設定（隨時可改）
@@ -612,10 +608,6 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `actionKanshouSetSex(userData, pcId, sheets)` — 切換御主性別（限男/女）；切男時檢查世界內是否已有男性從者（避免男男配對）；真換時重置 PHYSICAL 為中性預設。
 - `actionKanshouSetName(userData, pcId, sheets)` — 改御主名字（≤16 字）；關係併入從者自己列，改名不影響羈絆。
 - `actionKanshouSetHomeName(userData, pcId, sheets)` — 改「家」顯示名（≤12 字），寫進 MEMORY【住所】標記（`setKanshouHomeName_`）。
-- `actionKanshouSetProp(userData, pcId, sheets)`（2026-07 新增，同批改多件同時裝備；同年稽核：找目標同伴列改委派 `findPcRowIdx_`；🐛→✅ 再稽核：`findPcRowIdx_`呼叫補上`loc`，之前漏帶——跟相約/牽手/同居用同一支resolver卻沒驗證目標同伴此刻是否在場，已補齊一致）— 小道具裝備/移除/調強度：`targetName`+`propId`+`level`(空字串＝只移除這一件，其餘已裝備道具不受影響)，比照 `actionKanshouMemoirOp` 同款帳號驗證+目標同伴查找，寫 MEMORY【小道具】（`kanshouToggleProp_`）。GAS直接寫、不靠AI自己判斷該不該記(根治「幫她戴貓耳朵過幾輪就忘記」的機制保證版)。同伴卡面板與故事視窗快速抽屜共用此 action。**任何新增/切換到非空level的操作**(含選『關閉』起手)都檢查`KANSHOU_PROP_EQUIP_BOND_`好感門檻，不足回傳失敗訊息、不寫入；唯獨移除(level空字串)不受限。**例外**：`def.ignoreBond`為真的道具(玩家自訂「催眠暗示」類效果)跳過此好感檢查，仍受`KANSHOU_PROP_EQUIP_CAP_`同一個裝備上限。
-- `actionKanshouAddCustomProp(userData, pcId, sheets)`（2026-07 稽核：找目標同伴列改委派 `findPcRowIdx_`；🐛→✅ 再稽核補`loc`同上；同批**強制`ignoreBond:false`**——2026-07二度改版「催眠的和新道具要確實分開成兩種」，不管`userData`帶了什麼一律無視，催眠效果只走`actionKanshouCastHypnosis`；**2026-07移除內建跳蛋後新增`effect`參數**；🐛→✅ 再一輪稽核修正**同名撞`actionKanshouCastHypnosis`目錄會互相覆寫**——兩支共用同一份【自訂道具】清單、都拿玩家輸入字串當id，同名時原本會靜默覆寫對方定義(解除`ignoreBond`+清空part/effect)；已改成偵測到同名但屬另一命名空間(`existing.ignoreBond`為真)直接拒絕並提示換名）— 玩家自建裝飾/物理類道具：`targetName`+`name`(≤10字)+`hasIntensity`+`part`(選填)+`effect`(≤16字，選填，效果描述——純靠名稱字面AI容易猜不準，補這格讓AI照著演)。查重(跟內建道具同名擋，`KANSHOU_PROPS_`現空所以此檢查恆真但保留以防未來加內建項目)＋上限檢查後寫進玩家列【自訂道具】；接著嘗試立即裝備在`targetName`身上，好感不夠只成功建目錄不裝備並回傳訊息告知(一般道具永遠受`KANSHOU_PROP_EQUIP_BOND_`約束)；仍受裝備上限`KANSHOU_PROP_EQUIP_CAP_`檢查。找不到目標同伴仍會成功新增進目錄，回傳訊息告知。
-- `actionKanshouCastHypnosis(userData, pcId, sheets)`（2026-07 新增，跟一般道具分開的獨立入口；同年稽核：找目標同伴列改委派 `findPcRowIdx_`；🐛→✅ 再稽核補`loc`同上；🐛→✅ 再一輪稽核修正**同名撞`actionKanshouAddCustomProp`目錄會互相覆寫**——同名撞進已存在的一般道具(`existing.ignoreBond`為假)原本會靜默關閉該道具的無視好感效果，玩家毫無感知；已改成偵測到直接拒絕並提示換說法）— 玩家施展催眠指令：`targetName`+`text`(暗示內容，非道具名稱，≤30字，比一般道具name的10字寬)。強制`hasIntensity:true`/`ignoreBond:true`(不像一般道具是選填)，永遠跳過`KANSHOU_PROP_EQUIP_BOND_`好感檢查，但仍受`KANSHOU_CUSTOM_PROP_CAP_`(目錄)與`KANSHOU_PROP_EQUIP_CAP_`(裝備上限)。首次施展預設落在`KANSHOU_PROP_LEVELS_[1]`(微弱)起跳，不像一般道具從關閉起手——這是「施展」動作，落地就該有效果。底層跟一般自訂道具共用同一套`【自訂道具】`目錄(id=text本身)，調整既有指令的強度改走既有`actionKanshouSetProp`。前端在這個action成功後會緊接著送一次正常對話(`send()`)，讓AI立即演出催眠生效的當下——玩家明講「這裡需要一次呼叫AI才有催眠感覺」，不能像一般道具靜默寫入等下一輪才反映。
-- `actionKanshouDeleteCustomProp(userData, pcId, sheets)`（2026-07 新增）— 從玩家列【自訂道具】整個移除一項定義，並掃描該局所有從者、把身上目前裝備的這一項一併移除(`kanshouToggleProp_(row, name, "")`)，避免孤兒資料(目錄查無定義卻有人還裝備著)。**2026-07 稽核刻意未改用`findPcRowIdx_`**：這支是「清全部同伴身上的這一項」的批次操作、不是單一目標查找，跟其餘4支`kanshou_*_prop`/`kanshou_cast_hypnosis`性質不同，強行套用會改變行為。
 
 #### AI 提示詞組裝（🔴 鑑賞 AI 核心）
 
@@ -696,18 +688,11 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `KANSHOU_REL_RANK_TAG_`／`kanshouRelRank_(bond)`／`kanshouRelTierLabel_(rank)`（2026-07 新增）— 💗 關係階質變。`kanshouRelRank_` 把 BOND 換算成 1(點頭之交)~5(戀人) 的階數（反轉 `KANSHOU_REL_TIER_` 的高→低排序）；`【關係階】` 記當前階，**2026-07 改為雙向**（原本只升不降，於是降階時親密尺度悄悄收緊卻零敘事，玩家下一回合直接撞到「她突然不讓我碰了」；同居邀請的「一生一次」早就不靠這個 tag，有自己的 `KANSHOU_COHABIT_ASKED_TAG_`(absDay)＋`!kanshouIsCohabit_` 兩道獨立閘門，故改雙向是安全的）；`kanshouRelTierLabel_` 把階數換回階名（索引反轉，`KANSHOU_REL_TIER_` 仍是唯一真實來源）。跨階時只餵【事實】「某某從『A階』跨進『B階』」，不給寫好的文案。偵測在 `actionPlay_` 的 `partyRows` 迴圈（與紀念日同一趟）：首次見到靜靜記下當前階不報，之後升階才注入質變提示。**刻意看 BOND 不看 REL_TAG**——玩家自訂關係稱呼後 REL_TAG 不再等於梯度字面，跨階演出不該因此消失。
 - `KANSHOU_COHABIT_EVENTS_`（2026-07 新增·常數）— 🏠 同居日常橋段觸發表（時段→事件名，五時段各一）。觸發是橋段的**第四層·最低優先**（節慶→住處睡眠→地點→同居日常），舞台限 `kanshouPlayerHomeLocs_`（`region:'home'`＋我的房間），候選經 `_reIsCohabitTrigger_` 限同居中的她。加時段＝這裡加一列＋`KANSHOU_SCENE_EVENTS_` 加對應事件，觸發邏輯不動。
 - `kanshouIsAwakeWithMe_(idx)`（`actionPlay_`內部函式，2026-07 改吃`pcData`索引，原吃姓名字串）— 判定該同伴此刻是否醒著陪同(供夜襲/賴床叫醒的候選過濾＋`pSleepStr`熟睡提示排除用)：牽手中／這回合剛與玩家一起移動抵達＝true；否則讀`KANSHOU_AWAKE_HERE_TAG_`，若上次判定醒著時記的LOC仍等於她目前LOC也算true。判定為醒著就把她目前LOC寫回tag，否則清空——地點一變(離開/被重骰走)tag自動失效，不必額外收尾。**🐛→✅**：原本只認「這回合牽手/剛到」，一放手或下一回合就失效，會把明明還醒著互動的同伴誤判成熟睡，改成這個持久tag解決。
-- `KANSHOU_PROPS_`（資料驅動小道具庫，**2026-07移除內建「跳蛋」後現為空陣列**，僅保留擴充掛勾）、`KANSHOU_PROP_LEVELS_`(關閉/微弱/中等/強勁)（2026-07 新增·常數，前端 `Script_Kanshou.html` 的 `KC_PROPS_`/`KC_PROP_LEVELS_` 鏡像同步）。`KANSHOU_QUICK_PHRASE_CAP_ = 8`（2026-07 新增·玩家自訂快速貼圖上限，前端 `KC_QUICK_PHRASE_CAP_` 鏡像同步）。
-- `KANSHOU_PROP_EQUIP_BOND_ = 80`（2026-07 新增·常數，原名`KANSHOU_PROP_ACTIVATE_BOND_`，玩家「整個小道具直接卡80吧」後擴大範圍改名）— **裝備本身**(含選『關閉/戴著』起手，任何非空level的新增/切換)就卡的好感門檻，唯獨移除(level空字串)不受限；比照情慾場/無上限同一個切點。
 - `KANSHOU_MET_COUNT_TAG_`／`KANSHOU_FAMILIAR_TIERS_`／`KANSHOU_RAPPORT_BOND_TIERS_`／`KANSHOU_RAPPORT_TONE_`／`kanshouRapportTone_(bond, metCount, isLover)`（2026-07 新增，`gas/Gallery.gs`；**同月加第三參數 `isLover`**）— 相處基調 2D 表。`【相處】N` 每個對話回合對每位在場者 +1（`kanshouTimeJumped_` 時不加）；查 好感4段 × 熟悉度3段 → **一句既定事實**（開頭一律「事實：」），查無回空字串（刻意留白＝那一格不給指令，15 格只填 11 格）。`isLover` 為真時直接走第五排 `'交往中'`、不再看好感段（上面四排全是「還沒在一起」的溫度，尤其「等你先開口」交往後再演就變成她失憶）。掛在 `partyDetailsArr` 每人自己那行，取代舊的 1D `pTierToneStr`。⚠ **只寫事實、不寫演技**：不得出現未指涉代詞（「這件事」）或替角色決定的微動作（「愣一下」「打呵欠」）——前者小模型解不開會自己編，後者讓所有角色套同一套表情。交棒句（怎麼表現依她個性）寫在 `PROMPT_REL` 的【角色一致性】★ 一次。兩者已由 `check_wiring.py` ⑤ 機器擋（`check_prompt.py` 只掃 ★ 行、看不到資料表）。
 - `KANSHOU_LOVER_TAG_`／`KANSHOU_CONFESS_DAY_TAG_`／`KANSHOU_CONFESS_BOND_`(60)／`KANSHOU_CONFESS_COOLDOWN_`(3)／`KANSHOU_CONFESS_SLOPE_`(0.028)／`KANSHOU_CONFESS_FAMILIAR_MULT_`／`kanshouIsLover_(row)`／`kanshouConfessWait_(row, curDay)`／`kanshouConfessAccepts_(bond, metCount)`（2026-07 新增，`gas/Gallery.gs`）— 💗 告白。`kanshouIsLover_` 是「是不是戀人」的唯一判準（前後端與提示詞全走它）；`kanshouConfessAccepts_` 依 `(bond-60)×SLOPE×熟悉度係數` 擲定成敗（夾 2%~95%，GAS 擲、AI 只演）；`kanshouConfessWait_` 回傳被拒後還剩幾天說不出口（後端擋與前端鎖按鈕的單一真實來源）。落地在 `actionPlay_` 的 `userData.confess`／`confessId` 分支（四態＋撲空共五條 ★），入口是前端關係中樞的「向她告白」。
-- `KANSHOU_PROP_LEVEL_FX_`（2026-07 新增常數，`gas/Gallery.gs`）— 小道具三階(微弱/中等/強勁)→一句具體行為指令的查表。`partyDetailsArr` 用它把**運作中**的道具另外拉成 `★【運作中·名稱(階)】` 行（同階多件合併一行；`effect` 留空時補「依名稱推定作用」）；無強度的純裝飾道具不長★行。加階＝往表加一列，不寫 if 鏈。
-- `kanshouGetProps_(memory, catalog)`（回傳陣列，`catalog`選填不傳只認內建`KANSHOU_PROPS_`）/ `kanshouSetProps_(memory, propsArr)` / `kanshouToggleProp_(memory, propId, level)`（2026-07 新增，同批改多件同時裝備）— MEMORY【小道具】id1:強度1,id2:強度2,... 讀/整批寫/單件切換（`ToggleProp_` 是實際呼叫端用的：level空字串＝移除該項、其餘已裝備道具原樣保留）。回傳物件含 `part`/`effect`(來自catalog定義，2026-07補`effect`欄)。
 - `KANSHOU_CUSTOM_PROP_CAP_ = 10`（2026-07 新增·常數）— 玩家自訂道具目錄上限筆數。
-- `kanshouGetCustomProps_(memory)` / `kanshouSetCustomProps_(memory, arr)`（2026-07 新增；同年再稽核補5欄`effect`）— 玩家列 MEMORY【自訂道具】name1:hasIntensity1:part1:ignoreBond1:effect1,... 讀/整批寫（`part`選填，留空由AI自行決定戴哪；`effect`選填，效果描述餵進提示詞讓AI照演，不再純靠名稱腦補；舊3/4欄格式向下相容）。
 - `kanshouGetQuickPhrases_(memory)` / `kanshouSetQuickPhrases_(memory, arr)`（2026-07「表情包文字也想自訂」新增）— 玩家列 MEMORY【快速貼圖】text1,text2,... 讀/整批寫，純文字清單(不像自訂道具需要子欄位)。跟前端寫死的4個內建貼圖(害羞/小聲/苦笑/臉紅，2026-07同月再縮減)分開存，`actionKanshouCompanions`/`actionEnterKanshou`(兩條有效回傳路徑：①帳號表已連結、②舊版MEMORY標記一次性遷移——**🐛→✅ 再稽核抓到②原本漏帶**，跟①不一致已補齊)回傳時一併附上供前端合併渲染。
 - `actionKanshouAddQuickPhrase(userData, pcId, sheets)` / `actionKanshouDeleteQuickPhrase(userData, pcId, sheets)`（2026-07 新增，action名`kanshou_add_quick_phrase`/`kanshou_delete_quick_phrase`）— 新增/刪除玩家自訂快速貼圖，`kanshouOwnedRowIdx_`驗證歸屬；新增檢查重複＋上限`KANSHOU_QUICK_PHRASE_CAP_=8`句，`text`用`kanshouSanitizeTagValue_(userData.text,12)`清洗；刪除按文字完全比對移除。皆回傳`quickPhrases`最新清單。
-- `kanshouSanitizePropPart_(part)`（2026-07 新增）— 清掉道具部位欄的標籤分隔字元(`,`/`:`/`｜`/`【`/`】`)並限長8字。
-- `kanshouAllProps_(playerMemory)`（2026-07 新增）— 內建`KANSHOU_PROPS_`＋`kanshouGetCustomProps_`合併後的完整目錄，`actionKanshouCompanions`/`actionPlay_`的`partyDetailsArr`都吃這份合併目錄（而非只認內建清單）。
 
 #### 相簿（拍照·手機·2026-07 再修）
 
@@ -721,7 +706,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `KANSHOU_EVENT_SEEDS_`（常數 daily/ambiguous/spicy）+ `kanshouRollEvent_(driveOn)` — 抵達新地點 20% 抽一顆靈感種子注入提示詞（spicy 僅 driveOn）。
 - `getKanshouActiveEncounter_` / `setKanshouActiveEncounter_` / `clearKanshouActiveEncounter_(memory[,heroId])` — MEMORY【邂逅中】（這次到訪暫時巧遇對象·存 hero id·換地點清除）讀/寫/清。
 - `getKanshouHomeName_(memory, playerName)` / `setKanshouHomeName_(memory, name)` — MEMORY【住所】家顯示名，未自訂預設「(玩家名)的家」/「我家」。**🐛→✅ 稽核抓到**：`setKanshouHomeName_`原本只裁長度、沒清標籤分隔字元，玩家取名帶`｜`會撐壞這行MEMORY格式；已改用`kanshouSanitizeTagValue_`(見上方小道具章節同款)。
-- `kanshouSanitizeTagValue_(value, maxLen)`（2026-07 新增，原`kanshouSanitizePropTag_`只給小道具用，稽核時發現住所名也有同樣的裸存漏洞而擴大成通用版並改名）— 清掉 MEMORY 單值 tag 共用的分隔字元(`,`/`:`/`｜`/`【`/`】`)＋引號/角括號，`maxLen`不帶預設8。任何要塞進單一`【tag】值`格式的自由輸入都該過這道，不要各自複製一份正則。
+- `kanshouSanitizeTagValue_(value, maxLen)`（通用版：住所名等任何單值 tag 共用）— 清掉 MEMORY 單值 tag 共用的分隔字元(`,`/`:`/`｜`/`【`/`】`)＋引號/角括號，`maxLen`不帶預設8。任何要塞進單一`【tag】值`格式的自由輸入都該過這道，不要各自複製一份正則。
 
 #### 稱呼別名橋（短名↔全名比對）
 
@@ -1257,7 +1242,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `KC_QUICK_PHRASES_BUILTIN_`（4個固定內建貼圖：害羞/小聲/苦笑/臉紅，2026-07同月再縮減，原本8個）／`KC_QUICK_PHRASE_CAP_ = 8`（鏡像後端`KANSHOU_QUICK_PHRASE_CAP_`，此為玩家自訂上限，跟內建顆數無關）／`_kcQuickPhrases`（玩家自訂部分，`enterKanshou()`成功時載入）（2026-07「表情包文字也想自訂」新增）— `renderKcQuickPhrases_()` 把內建4個＋`_kcQuickPhrases`合併渲染進 `#kc-quick-phrases`(原本Index.html寫死8顆按鈕，改成JS動態渲染)，末尾附一顆「⚙️自訂」開管理面板。`kanshouOpenQuickPhraseManager()`（`ensureOverlay_('kqp-overlay',...)`）列出玩家自訂貼圖＋刪除鈕＋新增輸入框(≤12字)；`kanshouAddQuickPhrase()`/`kanshouDeleteQuickPhrase(text)` 打對應action、更新`_kcQuickPhrases`後重繪列與面板。
 - `send(customMsg, isSilent=false, opts={})` — **鑑賞聊天引擎，唯一 `action:'play'` 呼叫點**；本檔/Script.html 所有互動最終都經此送出。2026-07 重構：23 位置參數→單一 `opts` 物件（`moveTarget`/`lookAround`/`endDay`/`advanceHours`/`jumpFestival`/`jumpBand`/`skipKnockCheck`/`dismissGuest`/`moveWithCompanion`/`promiseMeet`/`cohabitInvite`/`cohabitInviteId`/`handHoldId`/`inviteResident`/`proposeMove`/`takePhoto`/`showPhoto`/`photoIntent`/`handHold`/`loaderCaptions` 等；`cohabitAccept`/`promiseAccept` 已隨GAS主動邀同居/邀約機制於八度改版一併移除）；前兩位置參數保留（選項鈕 `send(text,true)`）。忙碌鎖用 `btn.disabled`；數字 1–4 映射 `currentOptions`。呼叫 `gasRun`，消費回應：更新 `localNPCs`/`nearbyLocations`/`kcClock`(→`renderMapPane`)/`clock`(→`updateClock`)/`statusString`(→`updateUI`)；渲染各式「必點泡泡」（`moveProposal`/`promiseWait`/`nightGuest`/`cohabitOffer`/`photoResult`/`encounterOffer`/`options`【命運的抉擇】），有泡泡自動 `scrollIntoView`；插入說書人敘事＋`proposalResult`/`promiseSettle` 系統通知條；約定變動時背景重抓 `kanshou_companions` 刷 `_kcCur`；末尾 `refreshFateTags(data.tags)`＋重繪地圖人數徽章。失敗不炸整局（`success:false` 走灰字提示）。
 
-- `ensureOverlay_(id, opts)`（2026-07 稽核抽出，全檔共用）— 共用「取得或建立全螢幕遮罩容器」殼：`getElementById`沒有就`createElement('div')`設`id`+`style.cssText`(position:fixed/inset:0/背景遮罩/置中)+背景點擊關閉+`appendChild(document.body)`，取代11個彈窗函式(`kanshouOpenMemoir`/`kanshouOpenProps`/`kanshouOpenHypnosis`/`kanshouPickBand_`/`kanshouTakePhoto`/`kanshouOpenRelTag`/`openKanshouFestivals`/`kanshouPickLocation_`等)各自手寫的同款8~11行骨架。`opts:{zIndex,dim,extraStyle,onBgClick}`——`onBgClick`只在需要擋「忙碌中不可關」的面板才傳。
+- `ensureOverlay_(id, opts)`（2026-07 稽核抽出，全檔共用）— 共用「取得或建立全螢幕遮罩容器」殼：`getElementById`沒有就`createElement('div')`設`id`+`style.cssText`(position:fixed/inset:0/背景遮罩/置中)+背景點擊關閉+`appendChild(document.body)`，取代多個彈窗函式(`kanshouOpenMemoir`/`kanshouPickBand_`/`kanshouTakePhoto`/`kanshouOpenRelTag`/`openKanshouFestivals`/`kanshouPickLocation_`等)各自手寫的同款8~11行骨架。`opts:{zIndex,dim,extraStyle,onBgClick}`——`onBgClick`只在需要擋「忙碌中不可關」的面板才傳。
 - `_showOverlayLoading_(overlayId, ensureOpts, boxOpts)`（2026-07 稽核抽出，建於`ensureOverlay_`之上）— 合併原本`_kmShowLoading_`/`_kpShowLoading_`兩支幾乎逐行相同的「ensure overlay→塞讀條HTML→display:flex」，兩處呼叫改帶各自的id/title。
 
 #### 同伴面板（駐留清單 / 召喚）
@@ -1280,26 +1265,6 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `kanshouOpenMemoir(name)` — 開/重繪「與某人的共同回憶」彈窗 `#km-overlay`；`_kcCur` 沒載到會自抓一次；每列有 📌釘選(pin/unpin)＋🗑刪除鈕→`kanshouMemoirOp`。
 - `_kmShowLoading_(name)` — 把 `#km-overlay` 內容換成讀條（不存在則先建）。
 - `kanshouMemoirOp(name, op, item)` — 釘選/取消/刪除回憶（`kanshou_memoir_op`）；`_kmBusy` 擋連點；完成後原地重繪並同步卡片數量徽章。
-
-#### 小道具（2026-07 新增；同批二度改版「催眠指令要跟一般道具確實分開成兩種」）
-- `KC_PROPS_` / `KC_PROP_LEVELS_` — 鏡像後端 `KANSHOU_PROPS_`/`KANSHOU_PROP_LEVELS_`（唯一真實來源在 Gallery.gs，改後端記得同步這裡）。
-- `_kcCustomProps` / `_kcCustomPropsLoaded`（2026-07 新增）— 玩家自訂道具目錄本地快取(一般道具＋催眠指令都存在這裡，靠`ignoreBond`欄位區分)，跟 `KC_PROPS_` 合併成 `allProps` 使用；隨 `kanshou_companions` 回傳一併載入。
-- `_kpOpenName`（2026-07 新增）— 目前開著的面板是哪位同伴。`_kpOpenMode`('props'|'hypnosis'·2026-07新增) — 目前開的是一般道具面板還是催眠指令面板，兩者共用同一個`#kp-overlay`容器＋共用`kanshouDeleteCustomProp`刪除，靠這個mode決定刪除後原地重繪回哪一個。
-- `_kpEnsureCompanionPanel_(name)`（2026-07三度改版新增）— `kanshouOpenProps`/`kanshouOpenHypnosis`共用前導：確保`_kcCur`/`_kcCustomProps`已載到該同伴(沒載到就打`kanshou_companions`一次)＋開共用`#kp-overlay`容器，回傳`{c, ov}`；找不到同伴則自己收拾overlay+alert並回傳`null`（呼叫方看到`null`直接return）。純把兩函式逐字重複的載入/錯誤處理段落抽出，呼叫方仍各自設`_kpOpenMode`＋各畫各的面板內容，無新增gasRun呼叫。
-- `kanshouOpenProps(name)`（2026-07二度改版：`allProps`/`curArr`都`.filter(p => !p.ignoreBond)`，完全看不到催眠指令；三度改版前導委派給`_kpEnsureCompanionPanel_`）— 開/重繪「某人的小道具」彈窗 `#kp-overlay`；列出內建＋自訂的**一般(非ignoreBond)**道具（自訂項多一顆「🗑目錄」按鈕，呼叫 `kanshouDeleteCustomProp`），已裝備的顯示目前強度＋🗑，未裝備的顯示「裝備」鈕（呼叫 `kanshouSetProp`）；有`part`的項目名稱旁附註部位。多件可同時裝備。面板底部附「自己新增一個」表單（名稱/強度可調/部位選填輸入框＋裝備鈕，呼叫 `kanshouAddCustomProp`——**不再有`ignoreBond`勾選框**，那個效果已搬到專屬面板）。
-- `_kpShowLoading_(name)`（2026-07 補 mode 分流）— 把 `#kp-overlay` 內容換成讀條（不存在則先建）；標題/邊框依 `_kpOpenMode` 在「🎀小道具」與「🌀催眠指令」之間切換（原本催眠面板的等待畫面頂著小道具標題，看起來像點錯了）。
-- `kanshouSetProp(name, propId, level, castMsg)`（2026-07 加第4參數＋修重繪分流）— 裝備/移除/改強度單一道具（`kanshou_set_prop`，level空字串＝移除）；`_kpBusy` 擋連點。`castMsg`選填：帶了就關閉面板＋`send(castMsg)`立刻觸發一次對話（催眠專用，由`kanshouHypnoSet`組字串），不帶則靜默寫入（一般道具）。完成後依`_kpOpenMode`重繪回**正確的**面板——原本一律重繪回`kanshouOpenProps`，而那個面板把 ignoreBond 全過濾掉，等於在催眠面板改完強度後清單整個消失。
-- `kanshouHypnoSet(name, propId, level)`（2026-07 新增，同月二度簡化）— 催眠面板的總入口，判準一條：**跟她說話的會演，動手腳的不會**。`level=''`（⏹解除＝當面宣告「從剛才那一刻起就沒作用了」並撤下）→ 組動作敘述後委派 `kanshouSetProp(...,castMsg)` 觸發一次對話；其餘（調強度）→ 走 `kcHypnoQuietSet_` 靜默樂觀更新。「🤫悄悄解除」已移除（演不出差別，見 KANSHOU_REFERENCE）。做成 wrapper 而非把字串拼進 onclick，是因為暗示內容是玩家自由輸入、跨 HTML 屬性→JS 字面量要三層跳脫。
-- `kcHypnoQuietSet_(name, propId, level)`（2026-07 新增）— 催眠的靜默切換：立刻改 `_kcCur` 本地快取＋重繪面板，背景 `gasRun('kanshou_set_prop')`；成功以回傳的 props 覆蓋，失敗還原原值＋alert（比照 `kcQuickSetProp`——樂觀更新不回頭確認後端，UI 跟實際狀態會悄悄兜不攏）。不觸發 AI：下一回合的 `_ignoreBondLines` 會自然帶出新狀態。
-- `_khStrip_(s)`（2026-07 新增）— 去掉「」『』，避免玩家輸入的引號撞壞上面那幾句框架敘述。`kanshouHypnoSet`/`kanshouCastHypnosis` 共用。
-- `kanshouAddCustomProp(targetName)`（2026-07 新增，二度改版拿掉`#kp-new-ignorebond`）— 讀 `#kp-new-name`/`#kp-new-intensity`/`#kp-new-part` 輸入框，打 `kanshou_add_custom_prop`，成功後更新本地 `_kcCustomProps`/該同伴 `c.props` 並原地重繪面板；找不到目標同伴的邊界情況會 alert 後端回傳的訊息。
-- `kanshouDeleteCustomProp(propName)`（2026-07 新增，二度改版靠`_kpOpenMode`決定重繪回哪個面板）— confirm 確認後打 `kanshou_delete_custom_prop`，成功後更新 `_kcCustomProps`、清掉本地 `_kcCur` 所有同伴快取裡這一項，再依`_kpOpenMode`呼叫`kanshouOpenHypnosis`或`kanshouOpenProps`原地重繪。
-- `kanshouOpenHypnosis(name)`（2026-07 新增，獨立於`kanshouOpenProps`的專屬面板；三度改版前導委派給`_kpEnsureCompanionPanel_`；四度改版改列整份目錄）— 開/重繪「對某人的催眠指令」彈窗(共用`#kp-overlay`)；列出`_kcCustomProps`裡`ignoreBond===true`的**整份目錄**（沒施展在她身上的標「未施展」，比照`kanshouOpenProps`的作法；原本只列`c.props`，解除後那句就從畫面消失），各自附強度鈕(`kanshouHypnoSet`，關閉那顆顯示成「⏹解除」＝當面告訴她並撤下；強度可隨意切換、無升階閘門)＋「🗑目錄」刪除鈕；舊存檔殘值 `已解除` 一律顯示成「未施展」；面板底部附「施展新的催眠指令」表單(`#kh-new-text`文字輸入，maxlength 30＋「🌀施展」鈕，呼叫`kanshouCastHypnosis`)。
-- `kanshouCastHypnosis(targetName)`（2026-07 新增）— 讀`#kh-new-text`，打`kanshou_cast_hypnosis`；成功且無邊界訊息時**關閉面板並立即呼叫`send('（拿出手機，打開一款催眠APP，對著『'+targetName+'』播放了一段只有她聽得進去的暗示音：「'+text+'」）')`**觸發一次真實對話——這是本函式跟`kanshouAddCustomProp`最大的差異，玩家明講「這裡需要一次呼叫AI才有催眠感覺」；找不到同伴/裝備已滿等邊界情況只alert訊息並原地重繪面板，不觸發對話。
-- `_kcEnsureDrawer_()` — 懶建立故事視窗旁的「小道具快速控制抽屜」DOM（`#kc-prop-drawer`），回傳該元素；`applyModeUI()`(Script.html) 依鑑賞模式切換其顯示。
-- `kcTogglePropDrawer()` — 展開/收合抽屜；展開時呼叫 `_kcRenderDrawer_`。
-- `_kcRenderDrawer_()` — 重繪抽屜內容：只列**在場**且有強度可調道具的同伴，每項給強度快選鈕（呼叫 `kcQuickSetProp`）；`_kcCur` 沒載到會自抓一次。
-- `kcQuickSetProp(name, propId, level)`（⚠ 2026-07 起抽屜只列 `hasIntensity && !ignoreBond`，催眠不走這條）— ★樂觀更新：立即用本地 `_kcCur` 快取改值+重繪，背景 `gasRun` 送出（`kanshou_set_prop`）不等待、**不觸發AI敘事**——AI 下次正常互動會自然從既定事實讀到最新強度。跟 `kanshouSetProp`（會等後端確認）是兩條路，共用同一後端 action。
 
 #### 時間推進 / 節慶
 - `kanshouEndDay()` — 結束一天（`endDay:true` 走 `send`）；睡前先掃 `_kcCur` 今天未赴的約做爽約警示確認框。
@@ -1332,7 +1297,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `kanshouPickBand_(title, name, cb, bandOptions)` — 開時段選擇彈窗 `#kb-overlay`（`bandOptions`選填的子集，省略＝`KC_APPT_BANDS_`全部3顆鈕），回呼存 `_kbCb`。
 - `kanshouPickBand2_(band)` — 時段鈕點擊：關彈窗→執行 `_kbCb(band)`。
 - `kanshouWaitForPromise(targetHour)` — 「等到約定前 10 分」：算 `advanceHours=目標−現在` 走時間推進。
-- `kanshouPickLocation_(title, hint, pool, cb)` — **共用地點點選面板** `#kloc-overlay`（2026-07 稽核：原沿用`#kp-overlay`跟道具/催眠面板共用同一個id屬隱性耦合風險，已換獨立id）（按 `KC_REGIONS_` 分區列地點鈕），取代 prompt() 編號；回呼存 `_kpCb`。
+- `kanshouPickLocation_(title, hint, pool, cb)` — **共用地點點選面板** `#kloc-overlay`（獨立 id，不與其他面板共用 overlay）（按 `KC_REGIONS_` 分區列地點鈕），取代 prompt() 編號；回呼存 `_kpCb`。
 - `kanshouPickLoc_(name)` — 地點鈕點擊：關彈窗→執行 `_kpCb(name)`。
 
 #### 拍照 / 相簿

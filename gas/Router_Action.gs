@@ -21,10 +21,6 @@ const ActionRouter = {
   "kanshou_set_sex": actionKanshouSetSex,
   "kanshou_set_name": actionKanshouSetName,
   "kanshou_set_home_name": actionKanshouSetHomeName,
-  "kanshou_set_prop": actionKanshouSetProp, // 🎀 小道具面板：裝備/移除/調強度(玩家UI手動管理，GAS直接寫)
-  "kanshou_add_custom_prop": actionKanshouAddCustomProp, // 🎀 玩家自訂新道具＋立即裝備(2026-07新增)
-  "kanshou_delete_custom_prop": actionKanshouDeleteCustomProp, // 🗑 刪除玩家自訂道具定義(同步清同伴身上的裝備)
-  "kanshou_cast_hypnosis": actionKanshouCastHypnosis, // 🌀 催眠指令：跟一般道具分開的獨立入口(2026-07新增，強制ignoreBond+hasIntensity)
   "kanshou_add_quick_phrase": actionKanshouAddQuickPhrase, // 🎀 快速輸入貼圖·玩家自訂新增(2026-07新增)
   "kanshou_delete_quick_phrase": actionKanshouDeleteQuickPhrase, // 🗑 刪除玩家自訂的快速貼圖
   "prep_meal": actionPrepMeal,

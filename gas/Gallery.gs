@@ -611,7 +611,6 @@ function actionKanshouCompanions(userData, pcId, sheets) {
   var gid = String(me[COL.PC.GAME_ID] || "");
   var myLoc = String(me[COL.PC.LOC] || "");
   var myName = String(me[COL.PC.NAME] || "");
-  var propCatalog = kanshouAllProps_(me[COL.PC.MEMORY]); // 內建+玩家自訂道具合併目錄
   var current = [];
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) {
@@ -622,11 +621,10 @@ function actionKanshouCompanions(userData, pcId, sheets) {
       // memoir：共同回憶(27欄)原樣下傳(★前綴=玩家釘選)，供面板顯示/釘選/刪除。
       var _pmTime = _pm ? (KANSHOU_APPT_BANDS_.find(function (b) { return b.band === _pm.band; }) || {}).label : "";
       // 🆔 2026-07「整體重構·id優先」：補id讓前端能存起來隨後續action(牽手/邀同居/相約/結識等)回傳，後端才有id可用、不必只靠名字(kanshouNameCandidates_別名表已處理大部分情況，但id才是真正杜絕撞名/前綴混淆的單一真實來源)。
-      current.push({ id: String(data[i][COL.PC.ID]), name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), nickname: getNickname_(data[i][COL.PC.REL_MEM]), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, promise: _pm ? { loc: _pm.loc, date: _pmDate.month + '/' + _pmDate.day, time: _pmTime || '' } : null, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean), props: kanshouGetProps_(data[i][COL.PC.MEMORY], propCatalog) });
+      current.push({ id: String(data[i][COL.PC.ID]), name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), nickname: getNickname_(data[i][COL.PC.REL_MEM]), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, promise: _pm ? { loc: _pm.loc, date: _pmDate.month + '/' + _pmDate.day, time: _pmTime || '' } : null, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean) });
     }
   }
-  // 🔒 propBond/propCap/propCatalogCap：裝備好感門檻、同時裝備上限、自訂目錄上限——三個都下傳給前端鎖按鈕/寫提示文案。
-  return JSON.stringify({ success: true, current: current, customProps: kanshouGetCustomProps_(me[COL.PC.MEMORY]), quickPhrases: kanshouGetQuickPhrases_(me[COL.PC.MEMORY]), propBond: KANSHOU_PROP_EQUIP_BOND_, propCap: KANSHOU_PROP_EQUIP_CAP_, propCatalogCap: KANSHOU_CUSTOM_PROP_CAP_ });
+  return JSON.stringify({ success: true, current: current, quickPhrases: kanshouGetQuickPhrases_(me[COL.PC.MEMORY]) });
 }
 
 // 🎀 快速輸入貼圖·玩家自訂(2026-07「表情包文字也想自訂」，同月再縮減內建數量)：4個內建貼圖(害羞/小聲/苦笑/臉紅)寫死在Script_Kanshou.html(KC_QUICK_PHRASES_BUILTIN_)純前端顯示，這裡只管玩家自己額外新增的——存玩家列MEMORY【快速貼圖】text1,text2,...，逗號分隔比照【自訂道具】同款寫法。
@@ -755,149 +753,6 @@ function actionKanshouSetHomeName(userData, pcId, sheets) {
   return JSON.stringify({ success: true, homeName: newName, message: "住所已改名為「" + newName + "」。" });
 }
 
-// 🎀 小道具面板/快速控制抽屜共用：裝備/移除/調整強度，玩家UI手動操作、GAS直接寫，不靠AI判斷要不要記(見上方KANSHOU_PROPS_註解)。
-function actionKanshouSetProp(userData, pcId, sheets) {
-  var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」
-  var targetName = String(userData.targetName || "").trim();
-  var propId = String(userData.propId || "").trim();
-  var level = String(userData.level || "").trim();
-  if (!targetName || !propId) return JSON.stringify({ success: false, message: "參數不完整。" });
-  var data = kpc.getDataRange().getValues();
-  var meIdx = kanshouPcIdx_(data, pcId);
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
-  var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", loc: String(data[meIdx][COL.PC.LOC] || ""), nameCandidates: kanshouNameCandidates_ });
-  if (tIdx < 0) return JSON.stringify({ success: false, message: "找不到這位同伴。" });
-  var def = kanshouAllProps_(data[meIdx][COL.PC.MEMORY]).find(function (p) { return p.id === propId; });
-  if (!def) return JSON.stringify({ success: false, message: "查無此道具。" });
-  var _existingP = kanshouGetProps_(data[tIdx][COL.PC.MEMORY]);
-  var finalLevel = "";
-  if (level) {
-    finalLevel = def.hasIntensity ? (KANSHOU_PROP_LEVELS_.indexOf(level) !== -1 ? level : KANSHOU_PROP_LEVELS_[0]) : "戴著";
-    // 🔒 2026-07 玩家「整個小道具直接卡80吧...還沒80都鎖起來」：不只啟動，裝備本身(含關閉/戴著起手)都卡好感門檻——好感不夠她根本不會讓你碰。
-    if (!def.ignoreBond && (parseInt(data[tIdx][COL.PC.BOND]) || 0) < KANSHOU_PROP_EQUIP_BOND_) {
-      return JSON.stringify({ success: false, message: "好感還沒到那個地步，她不會讓你這麼做。" });
-    }
-    // 🔄 2026-07 玩家「有點太繁雜，改回去隨意切換強度、不限制慢慢提升」：升階閘門(不能一次跳兩階)拿掉了。
-    if (!_existingP.some(function (p) { return p.id === propId; }) && _existingP.length >= KANSHOU_PROP_EQUIP_CAP_) {
-      return JSON.stringify({ success: false, message: "同時最多只能裝備" + KANSHOU_PROP_EQUIP_CAP_ + "件，先移除一件吧。" });
-    }
-  }
-  var newMemory = kanshouToggleProp_(data[tIdx][COL.PC.MEMORY], propId, finalLevel);
-  kpc.getRange(tIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
-  return JSON.stringify({ success: true, props: kanshouGetProps_(newMemory, kanshouAllProps_(data[meIdx][COL.PC.MEMORY])) });
-}
-
-// 🎀 自訂道具新增：玩家自建新道具定義＋立即裝備在targetName身上(合併成一步，體驗比「先建目錄、再另外裝備」更順)。
-function actionKanshouAddCustomProp(userData, pcId, sheets) {
-  var kpc = sheets.pc;
-  var targetName = String(userData.targetName || "").trim();
-  var name = kanshouSanitizeTagValue_(userData.name, 10);
-  var hasIntensity = !!userData.hasIntensity;
-  var part = kanshouSanitizeTagValue_(userData.part, 8); // 選填，留空就讓AI自己發揮(不注入部位敘述)
-  var effect = kanshouSanitizeTagValue_(userData.effect, 16); // 選填，留空就讓AI只靠名稱腦補效果
-  var ignoreBond = false; // 一般道具強制不能無視好感，這個效果只走 actionKanshouCastHypnosis
-  if (!targetName || !name) return JSON.stringify({ success: false, message: "參數不完整。" });
-  var data = kpc.getDataRange().getValues();
-  var meIdx = kanshouPcIdx_(data, pcId);
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
-  if (KANSHOU_PROPS_.some(function (p) { return p.name === name; })) return JSON.stringify({ success: false, message: "這個名字跟內建道具重複了，換一個名字吧。" });
-  var custom = kanshouGetCustomProps_(data[meIdx][COL.PC.MEMORY]);
-  var existing = custom.find(function (p) { return p.id === name; });
-  if (existing && existing.ignoreBond) return JSON.stringify({ success: false, message: "這個名字已經是你設定過的催眠指令，換一個名字吧。" });
-  var already = !!existing;
-  if (!already && custom.length >= KANSHOU_CUSTOM_PROP_CAP_) return JSON.stringify({ success: false, message: "自訂道具已達上限(" + KANSHOU_CUSTOM_PROP_CAP_ + "件)，先刪掉一些吧。" });
-  var intensityChanged = already && existing.hasIntensity !== hasIntensity;
-  custom = custom.filter(function (p) { return p.id !== name; });
-  custom.push({ id: name, hasIntensity: hasIntensity, part: part, ignoreBond: ignoreBond, effect: effect });
-  data[meIdx][COL.PC.MEMORY] = kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom);
-  var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  if (intensityChanged) {
-    var _normLevel = hasIntensity ? KANSHOU_PROP_LEVELS_[0] : "戴著";
-    for (var _si = 1; _si < data.length; _si++) {
-      if (String(data[_si][COL.PC.GAME_ID] || "") !== gid || String(data[_si][COL.PC.FACTION]) !== "從者" || String(data[_si][COL.PC.ID]).startsWith("DEAD_")) continue;
-      var _sExisting = kanshouGetProps_(data[_si][COL.PC.MEMORY]);
-      if (_sExisting.some(function (p) { return p.id === name; })) {
-        data[_si][COL.PC.MEMORY] = kanshouToggleProp_(data[_si][COL.PC.MEMORY], name, _normLevel);
-      }
-    }
-  }
-  var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", loc: String(data[meIdx][COL.PC.LOC] || ""), nameCandidates: kanshouNameCandidates_ });
-  if (tIdx < 0) {
-    kpc.getRange(1, 1, data.length, data[0].length).setValues(data);
-    return JSON.stringify({ success: true, props: [], customProps: custom, message: "已新增到你的道具目錄，但找不到這位同伴可裝備。" });
-  }
-  if (!ignoreBond && (parseInt(data[tIdx][COL.PC.BOND]) || 0) < KANSHOU_PROP_EQUIP_BOND_) {
-    kpc.getRange(1, 1, data.length, data[0].length).setValues(data);
-    return JSON.stringify({ success: true, props: kanshouGetProps_(data[tIdx][COL.PC.MEMORY], KANSHOU_PROPS_.concat(custom)), customProps: custom, message: "已新增到你的道具目錄，但好感還沒到那個地步，她還不會讓你幫她裝備。" });
-  }
-  var _existingT = kanshouGetProps_(data[tIdx][COL.PC.MEMORY]);
-  if (!_existingT.some(function (p) { return p.id === name; }) && _existingT.length >= KANSHOU_PROP_EQUIP_CAP_) {
-    kpc.getRange(1, 1, data.length, data[0].length).setValues(data);
-    return JSON.stringify({ success: true, props: kanshouGetProps_(data[tIdx][COL.PC.MEMORY], KANSHOU_PROPS_.concat(custom)), customProps: custom, message: "已新增到你的道具目錄，但她身上裝備已達上限(" + KANSHOU_PROP_EQUIP_CAP_ + "件)，先移除一件才能裝上這個。" });
-  }
-  var finalLevel = hasIntensity ? KANSHOU_PROP_LEVELS_[0] : "戴著"; // 新裝備一律關閉起手
-  data[tIdx][COL.PC.MEMORY] = kanshouToggleProp_(data[tIdx][COL.PC.MEMORY], name, finalLevel);
-  kpc.getRange(1, 1, data.length, data[0].length).setValues(data);
-  return JSON.stringify({ success: true, props: kanshouGetProps_(data[tIdx][COL.PC.MEMORY], KANSHOU_PROPS_.concat(custom)), customProps: custom });
-}
-
-// 🌀 催眠指令：跟一般自訂道具「確實分開成兩種」(2026-07 玩家定案)的獨立入口。
-function actionKanshouCastHypnosis(userData, pcId, sheets) {
-  var kpc = sheets.pc;
-  var targetName = String(userData.targetName || "").trim();
-  var text = kanshouSanitizeTagValue_(userData.text, 30);
-  if (!targetName || !text) return JSON.stringify({ success: false, message: "參數不完整。" });
-  var data = kpc.getDataRange().getValues();
-  var meIdx = kanshouPcIdx_(data, pcId);
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
-  if (KANSHOU_PROPS_.some(function (p) { return p.name === text; })) return JSON.stringify({ success: false, message: "這句指令跟內建道具重複了，換個說法吧。" });
-  var custom = kanshouGetCustomProps_(data[meIdx][COL.PC.MEMORY]);
-  var existing = custom.find(function (p) { return p.id === text; });
-  if (existing && !existing.ignoreBond) return JSON.stringify({ success: false, message: "這句話跟你已有的一般道具同名，換個說法吧。" });
-  var already = !!existing;
-  if (!already && custom.length >= KANSHOU_CUSTOM_PROP_CAP_) return JSON.stringify({ success: false, message: "自訂道具/催眠指令目錄已達上限(" + KANSHOU_CUSTOM_PROP_CAP_ + "件)，先刪掉一些吧。" });
-  custom = custom.filter(function (p) { return p.id !== text; });
-  custom.push({ id: text, hasIntensity: true, part: '', ignoreBond: true });
-  data[meIdx][COL.PC.MEMORY] = kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom);
-  var _flush = function () { kpc.getRange(1, 1, data.length, data[0].length).setValues(data); };
-  var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", loc: String(data[meIdx][COL.PC.LOC] || ""), nameCandidates: kanshouNameCandidates_ });
-  if (tIdx < 0) { _flush(); return JSON.stringify({ success: true, props: [], customProps: custom, message: "已記下這句指令，但找不到這位同伴可施展。" }); }
-  var _existingT = kanshouGetProps_(data[tIdx][COL.PC.MEMORY]);
-  if (!_existingT.some(function (p) { return p.id === text; }) && _existingT.length >= KANSHOU_PROP_EQUIP_CAP_) {
-    _flush();
-    return JSON.stringify({ success: true, props: kanshouGetProps_(data[tIdx][COL.PC.MEMORY], KANSHOU_PROPS_.concat(custom)), customProps: custom, message: "已記下這句指令，但她身上裝備已達上限(" + KANSHOU_PROP_EQUIP_CAP_ + "件)，先移除一件才能施展。" });
-  }
-  var finalLevel = KANSHOU_PROP_LEVELS_[1]; // 微弱起跳——施展就該立即生效，不像一般道具從關閉起手
-  data[tIdx][COL.PC.MEMORY] = kanshouToggleProp_(data[tIdx][COL.PC.MEMORY], text, finalLevel);
-  _flush();
-  return JSON.stringify({ success: true, props: kanshouGetProps_(data[tIdx][COL.PC.MEMORY], KANSHOU_PROPS_.concat(custom)), customProps: custom, level: finalLevel });
-}
-
-// 🗑 刪除玩家自訂道具定義：同步清掉所有同伴身上目前裝備的這一項，避免留下型錄查無定義的孤兒資料。
-function actionKanshouDeleteCustomProp(userData, pcId, sheets) {
-  var kpc = sheets.pc;
-  var name = String(userData.name || "").trim();
-  if (!name) return JSON.stringify({ success: false, message: "參數不完整。" });
-  var data = kpc.getDataRange().getValues();
-  var meIdx = kanshouPcIdx_(data, pcId);
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
-  var custom = kanshouGetCustomProps_(data[meIdx][COL.PC.MEMORY]).filter(function (p) { return p.id !== name; });
-  data[meIdx][COL.PC.MEMORY] = kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom);
-  var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) {
-      var existing = kanshouGetProps_(data[i][COL.PC.MEMORY]);
-      if (existing.some(function (p) { return p.id === name; })) {
-        data[i][COL.PC.MEMORY] = kanshouToggleProp_(data[i][COL.PC.MEMORY], name, "");
-      }
-    }
-  }
-  kpc.getRange(1, 1, data.length, data[0].length).setValues(data);
-  return JSON.stringify({ success: true, customProps: custom });
-}
-
 
 // ==========================================
 // 🔴【鑑賞 AI 核心】buildDefaultSystemPrompt／actionPlaysolo 是按鍵+AI說故事，鑑賞是依角色資料自然演出(只有🔥點不點火這一個變因)——兩者共用callGeminiAPI(留在 Engine_Combat.gs)這個基礎設施，但系統提示詞組裝／敘事引擎各自獨立，跟本檔其餘鑑賞 action(召喚/進場/AI深化)集中一處，好查找。
@@ -921,8 +776,8 @@ function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
     "經歷": "(不顯示·觀察玩家慢慢認識他)承接舊經歷·只增補本回合有意義的新遭遇·滾動摘要≤50字·沒新事就回舊值"
   };
 
-  // appearance_extras(原 outfit_change，2026-07 改名)：角色當下實際穿著狀態，AI 可依劇情如實更新(正常穿著寫身上衣物，全裸/沐浴/更衣等狀態也要如實反映)，會寫回持久的【換裝】記錄，不是每回合就消失的暫時描述。
-  const _appearanceExtras = "穿著狀態(第三人稱·≤20字·名詞短語如「絲綢襯衫」「牛仔褲」「浴巾」「全裸」·禁「換上了…」動作句·禁「在水下」「泡在浴池」等場景/姿勢·真有穿脫更衣入浴才填、否則留空沿用舊值)";
+  // appearance_extras(原 outfit_change)：角色當下實際穿著與配飾，AI 依劇情如實更新，寫回持久的【換裝】記錄。2026-09 小道具機制移除後，配飾類事實回歸由這一欄承接。
+  const _appearanceExtras = "穿著與配飾(第三人稱·≤20字·名詞短語如「絲綢襯衫」「牛仔褲」「浴巾」「貓耳髮箍」「全裸」·禁「換上了…」動作句·禁「在水下」「泡在浴池」等場景/姿勢·真有穿脫更衣入浴或戴上/取下配飾才填、否則留空沿用舊值)";
 
   // 🔴 npc的範本欄位填「同上」：actionPlay 落地端(本檔·intimacy_feedback 解析)的 ignoreWords 防呆清單本就
   // 含「同上」，即使AI偷懶照抄範本字面值也會被當成敷衍語忽略、不會寫進玩家看到的狀態欄，省字數不引入新的失敗模式。
@@ -1553,70 +1408,9 @@ function kanshouConfessAccepts_(bond, metCount) {
 const KANSHOU_VISIT_BOND_ = 40;
 const KANSHOU_COHABIT_ROOM_ = '和室';
 function kanshouIsCohabit_(row) { return KANSHOU_COHABIT_TAG_.get(row[COL.PC.MEMORY]) > 0; }
-// 🎀 小道具(存該同伴列MEMORY·【小道具】id1:強度1,id2:強度2,...·多件同時裝備·逗號分隔比照【性格鎖】同款寫法)：玩家UI手動裝備/移除/調強度(帳號歸屬已由dispatcher統一驗過)，GAS直接寫，不靠AI自己判斷要不要記——這是2026-07「幫她戴貓耳朵過幾輪就忘記」問題的根治版：不持久的設定改走這條「機制保證」路徑，而非指望AI每次都正確判斷「這算不算變化」。
-const KANSHOU_PROPS_ = [];
-const KANSHOU_PROP_LEVELS_ = ['關閉', '微弱', '中等', '強勁'];
-// 🗑 2026-07「悄悄解除」上線同日移除（玩家：「AI能演這麼細緻嗎？
-const KANSHOU_HYPNO_RELEASED_ = '已解除';
-// 🎀 小道具三階 → 具體行為指令（2026-07 玩家「有時候小道具都沒有生效的感覺」）。
-const KANSHOU_PROP_LEVEL_FX_ = {
-  '微弱': '它一直在作用，但還不到打斷她的程度——動作和語氣偶爾被牽動一下，她能若無其事地帶過去。',
-  '中等': '她得分神應付它——句子會斷、動作會停半拍，掩飾得住，但你看得出來她在忍。',
-  '強勁': '它壓過她原本在做的事——這一刻她維持不了平常的對話和動作，反應主要由它主導。'
-};
-// 🔒 2026-07 玩家「AI也不能反抗，感覺缺少鑑賞的感覺」：小道具原本繞過[性格]×[好感]完全不設防，跟親密尺度五階/情慾場「沒到那個地步她會依個性擋下」的精神不一致。
-const KANSHOU_PROP_EQUIP_BOND_ = 80;
-// 🔢 同時裝備上限(2026-07 玩家「設個上限5個?」)：避免道具無限疊加在同一人身上，只擋「新增裝備」，
-//   已裝備項目調強度/移除不受此限——判準看propId是否已在該同伴的已裝備清單裡。
-const KANSHOU_PROP_EQUIP_CAP_ = 5;
-// 🎀 自訂道具(玩家自建·存玩家列MEMORY【自訂道具】name1:hasIntensity1:part1:ignoreBond1:effect1,...)：內建KANSHOU_PROPS_清單之外，玩家可自己命名新增(2026-07「不能玩家自己新增?」)。
-const KANSHOU_CUSTOM_PROP_CAP_ = 10;
-function kanshouGetCustomProps_(memory) {
-  const m = String(memory || "").match(/【自訂道具】([^｜【】]*)/);
-  if (!m || !m[1]) return [];
-  return m[1].split(',').filter(Boolean).map(function (pair) {
-    const parts = pair.split(':');
-    return { id: parts[0], name: parts[0], hasIntensity: parts[1] === '1', part: parts[2] || '', ignoreBond: parts[3] === '1', effect: parts[4] || '' };
-  });
-}
-function kanshouSetCustomProps_(memory, arr) {
-  const cleared = String(memory || "").replace(/｜?【自訂道具】[^｜【】]*/g, "").replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
-  if (!arr || !arr.length) return cleared;
-  const joined = arr.map(function (p) { return p.id + ':' + (p.hasIntensity ? '1' : '0') + ':' + (p.part || '') + ':' + (p.ignoreBond ? '1' : '0') + ':' + (p.effect || ''); }).join(',');
-  return (cleared ? cleared + "｜" : "") + "【自訂道具】" + joined;
-}
-// 通用【tag】值淨化：清掉標籤分隔字元(,/:/｜/【/】)避免撐破 MEMORY 裡任何單值 tag 的格式(自訂道具名稱/部位、住所名…)，順手也清掉引號/角括號(防止原樣塞進前端onclick屬性時破壞HTML)。
+// 通用【tag】值淨化：清掉標籤分隔字元(,/:/｜/【/】)避免撐破 MEMORY 裡任何單值 tag 的格式(住所名…)，順手也清掉引號/角括號(防提示詞注入)。
 function kanshouSanitizeTagValue_(value, maxLen) {
   return String(value || "").replace(/[,:｜【】"'<>\n\r\t]/g, "").trim().slice(0, maxLen || 8);
-}
-// 內建＋玩家自訂合併後的完整道具目錄(查找/顯示用)——傳玩家列(KPC_)的MEMORY進來。
-function kanshouAllProps_(playerMemory) {
-  return KANSHOU_PROPS_.concat(kanshouGetCustomProps_(playerMemory));
-}
-// catalog 可選：不傳就只認內建清單(舊呼叫相容)；要認得玩家自訂道具的呼叫端請傳 kanshouAllProps_(...)。
-function kanshouGetProps_(memory, catalog) {
-  const m = String(memory || "").match(/【小道具】([^｜【】]*)/);
-  if (!m || !m[1]) return [];
-  const cat = catalog || KANSHOU_PROPS_;
-  return m[1].split(',').filter(Boolean).map(function (pair) {
-    const parts = pair.split(':');
-    const id = parts[0], level = parts[1] || '';
-    const def = cat.find(function (p) { return p.id === id; });
-    return { id: id, name: def ? def.name : id, hasIntensity: def ? def.hasIntensity : false, level: level, part: (def && def.part) || '', ignoreBond: !!(def && def.ignoreBond), effect: (def && def.effect) || '' };
-  });
-}
-function kanshouSetProps_(memory, propsArr) {
-  const cleared = String(memory || "").replace(/｜?【小道具】[^｜【】]*/g, "").replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
-  if (!propsArr || !propsArr.length) return cleared;
-  const joined = propsArr.map(function (p) { return p.id + ':' + p.level; }).join(',');
-  return (cleared ? cleared + "｜" : "") + "【小道具】" + joined;
-}
-// 切換單一道具：level空字串＝移除該項、非空＝裝備/改強度，其餘已裝備道具原樣保留。不做好感檢查
-// (純資料層工具函式)——好感門檻在呼叫端(actionKanshouSetProp/actionKanshouAddCustomProp)判斷。
-function kanshouToggleProp_(memory, propId, level) {
-  const rest = kanshouGetProps_(memory).filter(function (p) { return p.id !== propId; });
-  if (level) rest.push({ id: propId, level: level });
-  return kanshouSetProps_(memory, rest);
 }
 // 📷 相簿(拍照收集)：手機拍照·2026-07 再修（玩家「拍照要改成手機、不用等」）——原本是寶麗來設定(每日底片限量+隔天沖洗)，玩家覺得手機沒有底片這種東西、拍完也該立刻能看，兩個限制都拔掉了。
 const KANSHOU_ALBUM_CAP_ = 100;
@@ -2930,7 +2724,6 @@ function actionPlay_(userData, pcId, sheets) {
   // ⚡ 提速：dailySpeechByName_ 對每位同伴呼叫都會重新解析英靈殿快取字串，這裡在迴圈外先抓一次
   //   共用傳入，省掉重複整表解析。
   const _partyHeroCodex = partyMembers.length > 0 ? getHeroCodexCached() : null;
-  const _kanshouPropCatalog = kanshouAllProps_(pc[COL.PC.MEMORY]); // 內建+玩家自訂道具合併目錄，迴圈外先算一次
   partyMembers.forEach(pName => {
     // 需要 sameGame 過濾——若不同局/不同帳號剛好撞名(種子有限、AI原創從者皆可能撞)，會把別局
     //   同名者的資料塞進本局的敘事提示詞。
@@ -2983,34 +2776,6 @@ function actionPlay_(userData, pcId, sheets) {
         return "";
       })();
       const pCohabitStr = kanshouIsCohabit_(r) ? " | 同居中:是(她現在與你同住一處，語氣可依此帶著日常同居的親近感、不是作客)" : "";
-      // 🎀 小道具(玩家UI裝備·GAS直接寫·非AI自行判斷)：既定事實直接告訴AI，narration自然反映其存在與目前狀態，不必等玩家每回合重提——這是「機制保證」路徑，不靠AI自己判斷該不該記。
-      const pPropsArr = kanshouGetProps_(r[COL.PC.MEMORY], _kanshouPropCatalog);
-      // part(部位)玩家選填才有；沒填就不提部位，讓AI自己決定戴在哪(2026-07「選填吧...沒有就AI自己想辦法發揮」)。
-      const _ignoreBondLines = pPropsArr.filter(p => p.ignoreBond && p.level && p.level !== '關閉' && p.level !== KANSHOU_HYPNO_RELEASED_).map(p => {
-        if (p.level === '微弱') return `★【${p.name}·輕度生效】：不受好感天花板限制。她照常做自己，只是身體比平常慢半拍地不配合她的意思——順著這句暗示的方向，抗拒都會鬆一點、動作都會多做一點。她不覺得有異，頂多覺得今天怪怪的。`;
-        if (p.level === '中等') return `★【${p.name}·中度生效】：不受好感天花板限制。她清楚知道自己不對勁、也知道是你搞的，嘴上照樣質問、抗拒、罵你，但每一次身體還是照這句暗示做了——意志完整、就是擋不住，這個落差要演出來。`;
-        return `★【${p.name}·常識改寫】：不受好感天花板限制。她的個性、態度、對你的敵意全部原封不動，只有『這件事很奇怪』這個判斷被拿掉了——她會一臉理所當然地照這句暗示生活，你若追問她還會理直氣壯反駁你。旁人仍照常人反應。`;
-      });
-      const _wornArr = pPropsArr.filter(p => !p.ignoreBond);
-      const _wornStr = _wornArr.length ? `小道具:${_wornArr.map(p => {
-        const bits = [];
-        if (p.part) bits.push(`戴在${p.part}`);
-        if (p.hasIntensity) bits.push(p.level);
-        // 🌟 2026-07 移除內建跳蛋、全面改自訂道具後新增：純靠道具名稱字面容易讓AI猜不到效果
-        //   (玩家自己取的名字比「跳蛋」模糊得多)，effect選填時把效果描述也餵進去，讓AI照著演。
-        if (p.effect) bits.push(`效果:${p.effect}`);
-        return `${p.name}${bits.length ? `(${bits.join('，')})` : ""}`;
-      }).join('、')}——這是既定事實，narration須自然反映其存在${_wornArr.some(p => p.hasIntensity && p.level === '關閉') ? `（強度關閉≠拿走，東西還在她身上/手邊，只是暫時沒在作用）` : ``}` : "";
-      // 🎀 運作中的道具另外拉★行：光在屬性列寫個「(強勁)」小模型讀不出該演成什麼樣，比照催眠給具體行為指令。
-      const _wornFxLines = KANSHOU_PROP_LEVELS_.filter(lv => KANSHOU_PROP_LEVEL_FX_[lv]).map(lv => {
-        const _g = _wornArr.filter(p => p.hasIntensity && p.level === lv);
-        if (!_g.length) return "";
-        const _noFx = _g.filter(p => !p.effect).map(p => p.name);
-        return `★【運作中·${_g.map(p => p.name).join('、')}(${lv})】：${KANSHOU_PROP_LEVEL_FX_[lv]}${_noFx.length ? `其中${_noFx.join('、')}沒有指定效果，依名稱合理推定其作用，並整段一致地套用。` : ``}`;
-      }).filter(Boolean);
-      const _hypStr = _ignoreBondLines.length ? `${_ignoreBondLines.join('')}★這是只有她自己感覺得到的私密效果，除非外顯到旁人一看就懂，否則在場其他人不知情、不該對此有反應或評論。★暗示內容裡若出現「你/妳」「我」等代詞，你/妳＝她本人、我＝玩家，依此代入解讀，不要弄反。` : ``;
-      const _wornAll = `${_wornStr}${_wornStr && _wornFxLines.length ? '。' : ''}${_wornFxLines.join('')}`;
-      const pPropStr = (_wornAll || _hypStr) ? ` | ${_wornAll}${_wornAll && _hypStr ? '。' : ''}${_hypStr}` : "";
       // 💞 共同回憶(27欄 MEMOIR)：你們一路走來累積的里程碑，讓 AI 自然承接你倆的專屬過往(儲存用全形｜
       //   分隔，餵給 AI 時換成「；」較好讀)。空的就不加這行。
       const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
@@ -3043,7 +2808,7 @@ function actionPlay_(userData, pcId, sheets) {
         if (kanshouTimeJumped_) return "時間流轉之後，【她此刻人在這裡】(別預設你們剛才一直待在一起)";
         return "【你們從剛才就一直在這裡】——她早已在場，接著這一刻往下寫";
       })();
-      partyDetailsArr.push(`【在場人物】名號:${pName} | 在場來由:${pPresenceStr}${pOutfit ? ` | 裝扮:${pOutfit}` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${(() => { const _mo = [pMoeStr, traitPrivateOf_(r[COL.PC.TRAIT])].filter(Boolean).join("／"); return _mo ? ` | 萌點(僅供內化):${_mo}` : ""; })()}${pActivityStr}${pSleepStr ? ` | 現況:她此刻在自己家、${pSleepStr}(除非橋段已明確叫醒她，否則維持這個狀態演出，不宜寫成清醒閒聊)` : ""}${pCohabitStr}${pPropStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr}${pChillStr})`);
+      partyDetailsArr.push(`【在場人物】名號:${pName} | 在場來由:${pPresenceStr}${pOutfit ? ` | 裝扮:${pOutfit}` : ""} | 性格:${formatPref(r[COL.PC.PREF])} | 特徵:${formatTrait(r[COL.PC.TRAIT])}${pFlavorStr}${(() => { const _mo = [pMoeStr, traitPrivateOf_(r[COL.PC.TRAIT])].filter(Boolean).join("／"); return _mo ? ` | 萌點(僅供內化):${_mo}` : ""; })()}${pActivityStr}${pSleepStr ? ` | 現況:她此刻在自己家、${pSleepStr}(除非橋段已明確叫醒她，否則維持這個狀態演出，不宜寫成清醒閒聊)` : ""}${pCohabitStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr}${pChillStr})`);
     }
   });
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0 ? `【角色背景資料】(裝扮＝她此刻穿的衣服，五官/髮色/體態不隨換裝改變):\n${partyDetailsArr.join("\n")}` : "目前這個地點沒有其他人，玩家是獨自行動的。";
@@ -3111,8 +2876,7 @@ function actionPlay_(userData, pcId, sheets) {
   //   裡拿到完整卡片，這裡只補一句「剛敲門進來」的情境描述(卡片本身不會講這件事的來龍去脈)。
 
   const _kanshouMaxBond_ = partyRows.reduce((m, r) => Math.max(m, parseInt(r[COL.PC.BOND]) || 0), 0);
-  const _kanshouHypnosisActive_ = partyRows.some(r => kanshouGetProps_(r[COL.PC.MEMORY], _kanshouPropCatalog).some(p => p.ignoreBond && p.level && p.level !== '關閉' && p.level !== KANSHOU_HYPNO_RELEASED_));
-  const _kanshouTargetWords_ = _kanshouHypnosisActive_ ? 500 : (_kanshouMaxBond_ >= 60 ? 500 : _kanshouMaxBond_ >= 40 ? 400 : 250);
+  const _kanshouTargetWords_ = _kanshouMaxBond_ >= 60 ? 500 : _kanshouMaxBond_ >= 40 ? 400 : 250;
 
   // 🎯 三種「確定性提議」的裁定就在 _pendingProposal.accepted，統一在這裡轉成人話；其餘按鈕
   //   在各自分支已填好 _settledVerdict。組成最後一行的尾巴——玩家意圖與 GAS 結果同在收尾處。
@@ -3130,11 +2894,11 @@ function actionPlay_(userData, pcId, sheets) {
     : "";
 
   const driveStr = driveOn ? `
-🔥【主動掌握】：尺度一律以【親密尺度五階】為準${_kanshouHypnosisActive_ ? '(催眠暗示道具例外)' : ''}，這一段只講【怎麼寫】：①她依自己的個性主動出擊，色度可以走在玩家前面——Dirty Talk、直白不迴避，允許範圍內盡量細膩露骨；②情慾場：大量生理特寫(絞緊/吸吮/痙攣/蜜液/水聲/啪啪)+斷續喘息破碎台詞。` : '';
+🔥【主動掌握】：尺度一律以【親密尺度五階】為準，這一段只講【怎麼寫】：①她依自己的個性主動出擊，色度可以走在玩家前面——Dirty Talk、直白不迴避，允許範圍內盡量細膩露骨；②情慾場：大量生理特寫(絞緊/吸吮/痙攣/蜜液/水聲/啪啪)+斷續喘息破碎台詞。` : '';
 
   const PROMPT_REL = `${backgroundCrowdStr}
 ${nsfwMemories}${genderHintStr}${driveStr}
-🛑【角色一致性】：NPC 依 [性格]×[好感] 反應，劇情推進也不軟化；情慾裡生理反應可以有，但她說話做事仍然照她的性格。★各人資料裡標「事實：」的那句是系統裁定的【既定事實】、不是演法——怎麼表現一律依【她自己的個性】。${_kanshouHypnosisActive_ ? '★催眠暗示生效中【人格照樣不崩】：被繞過的只有「拒絕得了」與「覺得這很奇怪」，個性/態度/敵意原封不動照跑，不可寫成判若兩人。' : ''}`;
+🛑【角色一致性】：NPC 依 [性格]×[好感] 反應，劇情推進也不軟化；情慾裡生理反應可以有，但她說話做事仍然照她的性格。★各人資料裡標「事實：」的那句是系統裁定的【既定事實】、不是演法——怎麼表現一律依【她自己的個性】。`;
 
   // 有【專屬稱呼】就用暱稱取代真名；JSON 姓名欄不受影響、仍填真名。
   const npcDialoguePrompt = partyMembers.length > 0 ? `\n★【稱呼】：有【專屬稱呼】就用暱稱、否則用真名「${partyMembers.join("、")}」，就這兩種叫法。名單上的人這一回合都要有戲。` : "";
@@ -3156,7 +2920,7 @@ ${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKn
 ★【今日天氣】：${kanshouWeather_(curDay)}。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜她走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·她此刻【不在場】·禁讓她開口或出現。` : ""}
 🕰️現在${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★光線/氣溫/作息一律依【此刻＝${timeBand_(_narrHour_)}】寫。★本回合只寫這十分鐘內的片段，時間推進由系統宣告。
 ★世界觀＝和平的現代冬木市，大家都是住在這裡的普通市民，沒有魔術與從者。
-★【親密尺度五階·最高優先】${_kanshouHypnosisActive_ ? '(催眠暗示道具生效中例外)' : ''}：肢體親密以好感為天花板，超過的那一步不會發生，怎麼擋下來依各人的個性：
+★【親密尺度五階·最高優先】：肢體親密以好感為天花板，超過的那一步不會發生，怎麼擋下來依各人的個性：
 ・<20(點頭之交)：形同陌生人，動手動腳【連碰都碰不到】。
 ・20~39(普通朋友)：可以親近，情慾一律婉拒。
 ・40~59(熟識)：牽手/靠肩/摸頭可以，親吻以上會退開。
