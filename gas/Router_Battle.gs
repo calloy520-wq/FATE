@@ -260,9 +260,7 @@ var NP_RESPONSE_ = {
     avail: function (c) {
       if (!String(c.meRow[COL.PC.MARTIAL] || '').trim()) return false;
       if (rankVal(c.me.six['寶具'] || '-') < 10) return false;
-      var sc = npAtkScale_(c.me);
-      var offensive = (sc === '對軍' || sc === '對城' || sc === '對界') || OFFENSIVE_NP_ATK_FX_.some(function (f) { return hasFx_(c.me, f); });
-      return offensive && c.masterMp >= npPranaCost_(npEffectiveRank_(c.me));
+      return npCanClash_(c.me) && c.masterMp >= npPranaCost_(npEffectiveRank_(c.me));
     },
     resolve: function (c) { return { ok: true, dmgMul: 0.35, note: '兩道真名正面對撞', counter: true }; }
   },
@@ -417,7 +415,7 @@ function actionFateBattle(userData, pcId, sheets) {
 
   // 🗝️ 雙從者：若指定出戰從者(userData.servant/servantId)則用之，否則取第一個在世從者。（全文見 CODE_NOTES.md）
   const atkIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
-  if (useNp && atkIdx !== -1 && /【常駐寶具】/.test(String(pcData[atkIdx][COL.PC.MARTIAL] || ""))) {
+  if (useNp && atkIdx !== -1 && !npReleasable_(rowToCombatant_(pcData[atkIdx]))) {
     return JSON.stringify({ success: false, message: "此從者的寶具為【常駐型】（已自動生效），並非可解放的攻擊寶具——請以普攻／令咒作戰（施放技術已被動化、每擊自動擲）。" });
   }
   if (atkIdx === -1) return JSON.stringify({ success: false, message: "你尚未召喚從者，無從者可出戰。" });
@@ -774,7 +772,9 @@ function actionFateBattle(userData, pcId, sheets) {
     const enemyHasNp = !!String(pcData[nIdx][COL.PC.MARTIAL] || "").trim() && rankVal(enemyC0.six["寶具"] || "-") >= 10;
     // 只有「攻擊型寶具」才對轟；防禦/生存型(God Hand等)不去抵銷玩家寶具。
     const eScaleClash = npAtkScale_(enemyC0);
-    const enemyOffensiveNp = enemyHasNp && (eScaleClash === '對軍' || eScaleClash === '對城' || eScaleClash === '對界' || OFFENSIVE_NP_ATK_FX_.some(function (f) { return hasFx_(enemyC0, f); }));
+    // 🌟 改查 npKindOf_（單一真實來源）：舊版是從「有沒有攻擊 fx／scale 夠不夠大」推論，
+    //    斯卡哈(Assassin)的穿刺槍與伊莉雅的魔力炮都因此被判成「沒有可對轟的寶具」。
+    const enemyOffensiveNp = enemyHasNp && npCanClash_(enemyC0);
     const eHpR = (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[nIdx][COL.PC.HP]) || 0) / (parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1) : 1;
     const clashUrge = 0.6 + (hasFx_(enemyC0, 'mad') || hasFx_(enemyC0, 'zabaniya') ? 0.25 : 0) - (1 - eHpR) * 0.3;
     const clashPrana = npPranaCost_(npEffectiveRank_(enemyC0)); // 🎴 吃已選定(bestNpChoice_)寶具的官方階級
@@ -1016,7 +1016,7 @@ function actionFateBattle(userData, pcId, sheets) {
         const eNpUrge = (hasFx_(enemyNow, 'zabaniya') || hasFx_(enemyNow, 'mad')) ? 0.22 : 0.10;
         // ⚔️ 只有「攻擊型寶具」才反擊解放(與對轟同準)：純防禦/對人寶具(如 Rule Breaker 對人C·無攻擊 fx)不該吃解放加成
         const eOffensiveNp = !!String(pcData[nIdx][COL.PC.MARTIAL] || "").trim() && rankVal(enemyNow.six["寶具"] || "-") >= 10
-          && (['對軍', '對城', '對界'].indexOf(npAtkScale_(enemyNow)) >= 0 || OFFENSIVE_NP_ATK_FX_.some(function (f) { return hasFx_(enemyNow, f); }));
+          && npCanClash_(enemyNow);
         const pHpRatio = (parseInt(pcData[ctgt][COL.PC.MAX_HP]) || 1) > 0 ? (parseInt(pcData[ctgt][COL.PC.HP]) || 0) / (parseInt(pcData[ctgt][COL.PC.MAX_HP]) || 1) : 1;
         const eDesperate = eHpRatio < 0.5;   // 敵自身被打殘→搏命解放
         const eFinisher = pHpRatio < 0.45;   // 我方從者已殘→敵收尾

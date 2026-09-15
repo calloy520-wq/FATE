@@ -57,7 +57,7 @@ var SEED_SERVANTS = [
     six:{筋力:'E',耐久:'D',敏捷:'C',魔力:'A++',幸運:'B',寶具:'C'},
     classSkills:[{n:'陣地作成',r:'A',fx:'territory'},{n:'道具作成',r:'A',fx:'crafting'}],
     skills:[{n:'高速詠唱',r:'A',fx:'fast_cast'},{n:'神代魔術',r:'A',fx:'divine_age'},{n:'破戒全咒',r:'C',fx:'rule_breaker'},{n:'金羊毛 Argon Coin',r:'EX',fx:'golden_fleece'}],
-    traits:[{n:'人類'}], np:'萬符必應破戒 Rule Breaker（規則破壞者 C）',
+    traits:[{n:'人類'}], np:'萬符必應破戒 Rule Breaker（規則破壞者 C·【非攻擊寶具】破除契約與術式，非攻擊手段）',
     // Rule Breaker 官方描述為妖異七彩短劍，非紅色——全專案命名已同步正名。
     align:'中立・惡', persona:{firstP:'我',look:'紫袍兜帽・持妖異七彩短劍的清麗魔女、疏離',words:'背叛的傷痕・渴望被信任',toMaster:'防備卻渴望真心相待',speech:'溫婉敬語、藏著試探',moe:'被真心對待會慌',tic:'摩挲手中的七彩短劍',
     dailyLook:'紫長髮・纖細清麗、優雅疏離、自稱我・溫婉敬語裡帶小心翼翼、被真心對待就亂了分寸',
@@ -128,7 +128,7 @@ var SEED_SERVANTS = [
     six:{筋力:'D',耐久:'E',敏捷:'D',魔力:'C',幸運:'E',寶具:'A+'},
     classSkills:[{n:'陣地作成',r:'B',fx:'territory'}],
     skills:[{n:'精神汙染',r:'A',fx:'mad'},{n:'螺湮城教本',r:'',fx:'summon_horror'}],
-    traits:[{n:'人類'}], np:'螺湮城教本 Prelati\'s Spellbook（深淵召喚・召喚大海怪）',
+    traits:[{n:'人類'}], np:'螺湮城教本 Prelati\'s Spellbook（深淵召喚・召喚大海怪·【留存】海怪常駐戰場）',
     align:'混沌・惡', persona:{firstP:'我',look:'捧巨書的清瘦貴族(無鬚無眉)、癲狂',words:'虔誠扭曲・對「聖女」的執念',toMaster:'與共鳴其瘋狂的御主引為摯友；否則貌合神離',speech:'時而文雅、時而癲狂咆哮',moe:'對「神不在場」的悲憤',tic:'淚流滿面的狂笑',
     dailyLook:'清瘦貴族(無鬚無眉)・總抱著厚書、溫文帶神經質、自稱我・談吐文雅入迷就激動、聊到敬重的人語氣會軟',
     dailyOutfit:'書卷氣的樸素便服',
@@ -138,7 +138,7 @@ var SEED_SERVANTS = [
     six:{筋力:'C',耐久:'D',敏捷:'A',魔力:'C',幸運:'E',寶具:'B'},
     classSkills:[{n:'氣息遮斷',r:'A+',fx:'stealth'}],
     skills:[{n:'自我改造',r:'B',fx:'self_mod'},{n:'妄想幻像',r:'',fx:'zabaniya'}],
-    traits:[{n:'人類'}], np:'妄想幻像 Zabaniya: Delusional Illusion（對人·分裂為百種人格·最多同時八十體）',
+    traits:[{n:'人類'}], np:'妄想幻像 Zabaniya: Delusional Illusion（對人·分裂為百種人格·最多同時八十體·【留存】分身持續在場）',
     align:'秩序・惡', persona:{firstP:'我們',look:'骷髏面具・黑袍裹身的刺客、詭譎',words:'群體・無數人格',toMaster:'服從，視暗殺為信仰',speech:'多重聲線交疊低語',moe:'眾多人格共用一具身軀的詭異',tic:'骷髏面具下變換面孔',
     dailyLook:'骷髏面具・深色裝扮的神秘身影、內斂帶神祕感、自稱我們・低語般說話偶爾換聲線、愛窩角落看人來人往',
     dailyOutfit:'剪裁俐落的深色裝扮',
@@ -159,7 +159,7 @@ var SEED_SERVANTS = [
     six:{筋力:'A',耐久:'A',敏捷:'A+',魔力:'C',幸運:'B',寶具:'A'},
     classSkills:[{n:'狂化',r:'C',fx:'mad'},{n:'騎乘',r:'A',fx:'ride'},{n:'對魔力',r:'E',fx:'nullify_magic'}],
     skills:[{n:'無窮的鍛鍊',r:'A+',fx:'clear_mind'},{n:'無毀的湖光',r:'A',fx:'weapon_steal'}],
-    traits:[{n:'騎士'},{n:'人類'}], np:'騎士不死於徒手 Knight of Owner（萬物化為兵裝）',
+    traits:[{n:'騎士'},{n:'人類'}], np:'騎士不死於徒手 Knight of Owner（萬物化為兵裝·【留存】變身態持續生效）',
     align:'混沌・狂', persona:{firstP:'（狂化·僅低吼）',look:'黑霧纏繞漆黑鎧甲的騎士、悲愴',words:'悔恨・對亞瑟王的愧疚',toMaster:'狂化無言，僅以戰鬥宣洩悔恨',speech:'狂化無法言語、僅餘低吼',moe:'渴望被懲罰的扭曲忠誠',tic:'抓起任何物件化為兵裝',
     dailyLook:'黑髮・沉穩、略帶憂鬱、話不多・語氣溫和有禮、把最累的活默默攬下',
     dailyOutfit:'整潔的深色便服',
@@ -315,7 +315,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v72'; // v72：凜的 daily* 改寫——同一個「傲嬌」標籤原本佔了三格(私下一面／內裡／
+var CODEX_PERSONA_VER = 'v73'; // v72：凜的 daily* 改寫——同一個「傲嬌」標籤原本佔了三格(私下一面／內裡／
 // speech)，AI 只能複述標籤、演成一路嘴硬，改成寫具體行為(手先動話後到、被道謝就升級)。
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）

@@ -371,7 +371,7 @@ function servantNpOptions_(name, cls) {
   name = String(name || ''); cls = String(cls || '');
   if (name === '斯卡哈' && cls === 'Lancer') return [
     { n: '貫穿死翔之槍 Gáe Bolg Alternative', r: 'B+', scale: '對人', fx: 'gae_bolg', desc: '單體·因果逆轉必中＋投擲斷命' },
-    { n: '死亡滿溢的魔境之門 Gate of Skye', r: 'A+', scale: '對軍', fx: '', desc: '對軍範圍·吸入影之國（魔力/幸運判定失敗即死）' }
+    { n: '死亡滿溢的魔境之門 Gate of Skye', r: 'A+', scale: '對軍', fx: '', kind: 'barrier', desc: '對軍範圍·吸入影之國（魔力/幸運判定失敗即死）' }
   ];
   if (name === '吉爾伽美什') return [
     { n: '王之財寶 Gate of Babylon', r: 'A++', scale: '對人', fx: 'gob', desc: '對人·無盡兵裝的飽和彈幕' },
@@ -382,15 +382,15 @@ function servantNpOptions_(name, cls) {
     { n: '民之睿智 Age of Babylon', scale: '對軍', fx: 'gob', desc: '對軍·自大地召出萬千劍槍鎖齊射（用法類王之財寶·可抵銷之）' }
   ];
   if (name === '伊斯坎達爾（征服王）') return [
-    { n: '王之軍勢 Ionioi Hetairoi', r: 'EX', scale: '對軍', fx: '', desc: '對軍·固有結界召喚萬軍亂踏' },
+    { n: '王之軍勢 Ionioi Hetairoi', r: 'EX', scale: '對軍', fx: '', kind: 'barrier', lingers: true, desc: '對軍·固有結界召喚萬軍亂踏' },
     { n: '神威的車輪 Gordius Wheel', r: 'A+', scale: '對人', fx: '', desc: '對人·雷神戰車的單騎衝鋒' }
   ];
   if (name === '美杜莎' && cls === 'Rider') return [
-    { n: '他者封印·鮮血神殿 Blood Fort Andromeda', r: 'A+', scale: '對軍', fx: 'petrify', desc: '對軍·血色結界瀰漫瘴氣、封鎖敵眾身法' },
+    { n: '他者封印·鮮血神殿 Blood Fort Andromeda', r: 'A+', scale: '對軍', fx: 'petrify', kind: 'barrier', lingers: true, desc: '對軍·血色結界瀰漫瘴氣、封鎖敵眾身法' },
     { n: '騎英之手綱 Bellerophon', r: 'A+', scale: '對軍', fx: '', desc: '對軍·喚出神駿天馬珀伽索斯，凌空突刺衝鋒' }
   ];
   if (name === '無名（EMIYA）') return [
-    { n: '無限劍製 Unlimited Blade Works', scale: '對城', fx: 'ubw', desc: '對城·固有結界劍雨壓制（不受對魔力）' },
+    { n: '無限劍製 Unlimited Blade Works', scale: '對城', fx: 'ubw', kind: 'barrier', lingers: true, desc: '對城·固有結界劍雨壓制（不受對魔力）' },
     { n: '偽·螺旋劍 Caladbolg II', scale: '對人', fx: 'projection', desc: '對人·破斷重塑的流星劍狙擊' }
   ];
   return null;
@@ -402,6 +402,47 @@ function firstSignatureFx_(c) {
   return '';
 }
 // 解出「本次寶具解放」的設定檔 {scale, fx, name, multi, r}。多寶具讀 c.npChoice 選定項；單寶具退回字串尺度＋簽名fx。
+// 🌟 寶具分類（單一真實來源）。以前沒有這層，「能不能對轟」是從副作用【推論】出來的——
+//    看技能裡有沒有攻擊 fx、看 scale 夠不夠大。猜對是湊巧，猜錯很難看：
+//    斯卡哈(Assassin)的穿刺槍與伊莉雅的魔力炮都被判成「沒有可對轟的寶具」。
+//
+//    兩個維度，刻意分開（召喚類同時是攻擊，一個互斥欄位表達不了）：
+//      kind    互斥四類 attack／barrier／utility／passive —— 能不能解放？能不能對轟？
+//      lingers 獨立旗標 —— 解放完戰場上會不會多一個持續存在的東西（召喚物／變身態）
+//
+//    來源優先序：多寶具選單的 kind 欄 → 寶具字串裡的標記 → 預設 attack。
+//    預設是 attack 才對：絕大多數寶具就是拿來打的，而且舊存檔不必改。
+var NP_KIND_MARKS_ = [
+  { mark: '【常駐寶具】', kind: 'passive' },
+  { mark: '【結界寶具】', kind: 'barrier' },
+  { mark: '【非攻擊寶具】', kind: 'utility' }
+];
+var NP_LINGER_MARK_ = '【留存】';
+
+function npKindOf_(c) {
+  var op = servantNpOptions_(c && c.name, c && c.cls);
+  if (op && op.length) {
+    var i = Math.max(0, Math.min(op.length - 1, parseInt(c.npChoice) || 0));
+    if (op[i].kind) return op[i].kind;
+  }
+  var np = String((c && c.np) || '');
+  for (var k = 0; k < NP_KIND_MARKS_.length; k++) if (np.indexOf(NP_KIND_MARKS_[k].mark) >= 0) return NP_KIND_MARKS_[k].kind;
+  return 'attack';
+}
+// 解放完會不會在戰場上留下東西（召喚物／變身態）。海怪那套維持費/護盾就是這個旗標的第一個實作。
+function npLingers_(c) {
+  var op = servantNpOptions_(c && c.name, c && c.cls);
+  if (op && op.length) {
+    var i = Math.max(0, Math.min(op.length - 1, parseInt(c.npChoice) || 0));
+    if (op[i].lingers != null) return !!op[i].lingers;
+  }
+  return String((c && c.np) || '').indexOf(NP_LINGER_MARK_) >= 0;
+}
+// 能不能主動解放（常駐寶具是自動生效的，沒有「解放」這個動作）。
+function npReleasable_(c) { return npKindOf_(c) !== 'passive'; }
+// 能不能拿來跟對方的真名對轟（非攻擊類的破戒/召喚術式接不住一發對城光炮）。
+function npCanClash_(c) { var k = npKindOf_(c); return k === 'attack' || k === 'barrier'; }
+
 function npProfile_(c) {
   var op = servantNpOptions_(c.name, c.cls);
   if (op && op.length) {
