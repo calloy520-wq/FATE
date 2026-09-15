@@ -320,6 +320,49 @@ function masterCircuits_(masterRow) {
 var MANA_DAY_TAG_ = makeIntTag_('回魔日', -1);
 function getManaDay_(memory) { return MANA_DAY_TAG_.get(memory); }
 function stampManaDay_(memory, day) { return MANA_DAY_TAG_.set(memory, day); }
+// 🔮 蓄勢的真名撐不撐得住：每天重骰一次，讓敵人自己決定要不要繼續等（玩家定案：「讓敵人自己決定放不放」）。
+//    資料驅動——往表加一列就多一種性格，不寫 if 鏈。
+var NP_HOLD_DAY_TAG_ = makeIntTag_('蓄勢日', -1);
+var NP_HOLD_BASE_ = 0.55;           // 基礎續抱機率
+var NP_HOLD_DESPERATE_ = 0.30;      // 自己血越少越非放不可（×血量缺口）
+var NP_HOLD_ = [
+  { fx: 'mad', add: 0.40, why: '理智已被黑霧吞沒，不會改主意' },
+  { fx: 'zabaniya', add: 0.25, why: '暗殺者有的是耐心' },
+  { fx: 'gob', add: 0.20, why: '出鞘的寶物沒有收回的道理' }
+];
+
+// 回傳這一天「放棄蓄勢」的風聲（讓玩家知道壓力解除了，不是靜靜消失）。
+function reconsiderNpHoldDaily_(sheets, gameId, day, preData) {
+  var out = [];
+  var data = preData || sheets.pc.getDataRange().getValues();
+  var dirty = false;
+  for (var i = 1; i < data.length; i++) {
+    var r = data[i];
+    if (String(r[COL.PC.FACTION]) !== "敵從者") continue;
+    if (String(r[COL.PC.GAME_ID] || "") !== gameId) continue;
+    if (String(r[COL.PC.ID]).startsWith("DEAD_")) continue;
+    if (!getNpTelegraph_(r[COL.PC.MEMORY])) continue;
+    if (NP_HOLD_DAY_TAG_.get(r[COL.PC.MEMORY]) >= day) continue; // 今天已決定過
+    var c = null; try { c = rowToCombatant_(r); } catch (e) { }
+    var keep = NP_HOLD_BASE_;
+    if (c) NP_HOLD_.forEach(function (t) { if (hasFx_(c, t.fx)) keep += t.add; });
+    var hpMax = parseInt(r[COL.PC.MAX_HP]) || 1;
+    var hpR = Math.max(0, Math.min(1, (parseInt(r[COL.PC.HP]) || 0) / hpMax));
+    keep += (1 - hpR) * NP_HOLD_DESPERATE_;   // 快死了就更非放不可
+    data[i][COL.PC.MEMORY] = NP_HOLD_DAY_TAG_.set(r[COL.PC.MEMORY], day);
+    if (Math.random() >= Math.min(0.95, keep)) {
+      data[i][COL.PC.MEMORY] = clearNpTelegraph_(data[i][COL.PC.MEMORY]);
+      out.push('〔風聲〕「' + String(r[COL.PC.NAME]) + '」高漲的靈基壓力悄然平復下來——那道蓄勢已久的真名，似乎被收了回去。');
+    }
+    dirty = true;
+  }
+  if (dirty && !BATTLE_DEFER_WRITE_) {
+    var memCol = []; for (var z = 1; z < data.length; z++) memCol.push([data[z][COL.PC.MEMORY]]);
+    sheets.pc.getRange(2, COL.PC.MEMORY + 1, memCol.length, 1).setValues(memCol);
+  }
+  return out;
+}
+
 function refillMastersDaily_(sheets, gameId, day, preData) {
   var data = preData || sheets.pc.getDataRange().getValues();
   var dirty = false;
@@ -356,6 +399,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
   // 全函式只整表讀一次，各階段(移位/廝殺/透支判定)共用同一份記憶體 data、只做局部批次寫回。
   var data = preData || sheets.pc.getDataRange().getValues();
   var _ck0 = getClock_(gameId, data); if (_ck0) refillMastersDaily_(sheets, gameId, _ck0.day, data);
+  if (_ck0) { try { rumors = rumors.concat(reconsiderNpHoldDaily_(sheets, gameId, _ck0.day, data)); } catch (e) { } }
   var _myWar = "";
   try {
     var _myMIdx = data.findIndex(function (r) { return String(r[COL.PC.FACTION]) === "御主" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_"); });
