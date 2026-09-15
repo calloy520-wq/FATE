@@ -211,6 +211,23 @@ function buildLiveIdIndex_(sheet) {
 }
 
 // 🩸 傷勢嚴重度中文詞（單一真實來源）：dmg 佔 hpMax 比例 ≥40%＝重創／≥15%＝負傷／否則擦傷。
+// 🩸 血量→一句白話狀態。AI 看不出「5/390」算不算瀕死(它不知道那個人的刻度)，這一步一律由 GAS 換算；
+//   換算完之後「該演成咬牙硬撐還是失態」才是 AI 依個性決定的事。加一階＝往表加一列。
+var HP_STATE_ = [
+  { at: 0.00, word: '命懸一線' },
+  { at: 0.15, word: '重傷、行動已受影響' },
+  { at: 0.40, word: '傷勢不輕' },
+  { at: 0.70, word: '掛了點彩' },
+  { at: 0.95, word: '' }
+];
+function hpStateWord_(hp, hpMax) {
+  var max = parseInt(hpMax) || 0;
+  if (max <= 0) return '';
+  var r = (parseInt(hp) || 0) / max;
+  var w = '';
+  for (var i = 0; i < HP_STATE_.length; i++) if (r >= HP_STATE_[i].at) w = HP_STATE_[i].word;
+  return w;
+}
 function dmgSeverityWord_(dmg, hpMax) {
   var ratio = hpMax ? (parseFloat(dmg) || 0) / hpMax : 1;
   return ratio >= 0.4 ? '重創' : ratio >= 0.15 ? '負傷' : '擦傷';

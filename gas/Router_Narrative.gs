@@ -120,10 +120,12 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
     if (stIdx >= 0) {
       var stGid = String(stData[stIdx][COL.PC.GAME_ID] || "");
       // 明講「共用魔力池·從者亦賴此維生」，避免 AI 把魔力誤認成御主專屬個人數值而演出從者事不關己。
-      var sParts = ['御主 HP ' + (parseInt(stData[stIdx][COL.PC.HP]) || 0) + '/' + (parseInt(stData[stIdx][COL.PC.MAX_HP]) || 0) + '·共用魔力池(從者無自有魔力、皆賴此維生) ' + (parseInt(stData[stIdx][COL.PC.MP]) || 0) + '/' + (parseInt(stData[stIdx][COL.PC.MAX_MP]) || 0)];
+      var _mw = hpStateWord_(stData[stIdx][COL.PC.HP], stData[stIdx][COL.PC.MAX_HP]);
+      var sParts = ['御主 HP ' + (parseInt(stData[stIdx][COL.PC.HP]) || 0) + '/' + (parseInt(stData[stIdx][COL.PC.MAX_HP]) || 0) + (_mw ? '·' + _mw : '') + '·共用魔力池(從者無自有魔力、皆賴此維生) ' + (parseInt(stData[stIdx][COL.PC.MP]) || 0) + '/' + (parseInt(stData[stIdx][COL.PC.MAX_MP]) || 0)];
       stData.forEach(function (r) {
         if (String(r[COL.PC.FACTION]) === '從者' && String(r[COL.PC.GAME_ID] || "") === stGid && !String(r[COL.PC.ID]).startsWith('DEAD_')) {
-          sParts.push('從者「' + r[COL.PC.NAME] + '」HP ' + (parseInt(r[COL.PC.HP]) || 0) + '/' + (parseInt(r[COL.PC.MAX_HP]) || 0));
+          var _sw = hpStateWord_(r[COL.PC.HP], r[COL.PC.MAX_HP]);
+          sParts.push('從者「' + r[COL.PC.NAME] + '」HP ' + (parseInt(r[COL.PC.HP]) || 0) + '/' + (parseInt(r[COL.PC.MAX_HP]) || 0) + (_sw ? '·' + _sw : ''));
         }
       });
       stateBrief = '【當前狀態·供連貫演出，勿複述數字】' + sParts.join('；') + '。\n';
@@ -152,7 +154,7 @@ function actionNarrateOnly(userData, pcId, sheets) {
 3. 每2~3句用 <br><br> 分段。換行一律用 <br><br>，不用真實換行或其他 HTML 標籤。
 4. 數值系統已經算完，你只寫字、不複述數字。
 5. 對話歷史是已經結束的既定事實，只供語氣連貫；這一回合的新事件，只有這句指令寫的。
-6. 語氣依【當前狀態】與實際勝負定，不臆測勝敗——瀕死就是命懸一線。
+6. 凡是標【已裁定】的事實與【當前狀態】都必須在畫面上看得出來，不准若無其事——命懸一線就是命懸一線。但【怎麼】表現一律依那個人的個性決定（硬撐、逞強、失態、沉默都行），別套同一種反應。
 7. 衣著照角色卡寫，【此刻裝扮】最優先，卡上沒寫的不自己加（戰鬥可寫甲冑碎裂）。解除隱匿（如風王結界）只顯現武器，與衣著無關。
 8. 角色的 性格／萌點／六圍／技能 只演出來，不當台詞也不由旁白點破；Fate 正典角色依你自身認知演，卡上短句只是錨點。羈絆低→戒備矜持、高→漸親近，性格內核不變。
 9. 只輸出 JSON：{"narration":"…"}，不要其他欄位、不要 Markdown。`;
