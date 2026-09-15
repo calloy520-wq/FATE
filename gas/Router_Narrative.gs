@@ -121,14 +121,17 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
       var stGid = String(stData[stIdx][COL.PC.GAME_ID] || "");
       // 明講「共用魔力池·從者亦賴此維生」，避免 AI 把魔力誤認成御主專屬個人數值而演出從者事不關己。
       var _mw = hpStateWord_(stData[stIdx][COL.PC.HP], stData[stIdx][COL.PC.MAX_HP]);
-      var sParts = ['御主 HP ' + (parseInt(stData[stIdx][COL.PC.HP]) || 0) + '/' + (parseInt(stData[stIdx][COL.PC.MAX_HP]) || 0) + (_mw ? '·' + _mw : '') + '·共用魔力池(從者無自有魔力、皆賴此維生) ' + (parseInt(stData[stIdx][COL.PC.MP]) || 0) + '/' + (parseInt(stData[stIdx][COL.PC.MAX_MP]) || 0)];
+      // 只給白話、不給數字：原本是「數字＋白話＋『勿複述數字』」三件一起送，
+      // 那等於一邊把數字攤在 AI 面前、一邊叫它別看——數字能給的判斷白話已經給了。
+      var _mpw = mpStateWord_(stData[stIdx][COL.PC.MP], stData[stIdx][COL.PC.MAX_MP]);
+      var sParts = ['御主' + (_mw || '毫髮無傷') + '；共用魔力池(從者無自有魔力、皆賴此維生)' + (_mpw || '充盈')];
       stData.forEach(function (r) {
         if (String(r[COL.PC.FACTION]) === '從者' && String(r[COL.PC.GAME_ID] || "") === stGid && !String(r[COL.PC.ID]).startsWith('DEAD_')) {
           var _sw = hpStateWord_(r[COL.PC.HP], r[COL.PC.MAX_HP]);
-          sParts.push('從者「' + r[COL.PC.NAME] + '」HP ' + (parseInt(r[COL.PC.HP]) || 0) + '/' + (parseInt(r[COL.PC.MAX_HP]) || 0) + (_sw ? '·' + _sw : ''));
+          sParts.push('從者「' + r[COL.PC.NAME] + '」' + (_sw || '毫髮無傷'));
         }
       });
-      stateBrief = '【當前狀態·供連貫演出，勿複述數字】' + sParts.join('；') + '。\n';
+      stateBrief = '【當前狀態·供連貫演出】' + sParts.join('；') + '。\n';
       try { trajectoryDigest = buildTrajectoryDigest_(stData, stGid, stData[stIdx]); } catch (e2) { }
     }
   } catch (e) { }

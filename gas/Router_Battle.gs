@@ -1191,13 +1191,24 @@ function actionFateBattle(userData, pcId, sheets) {
     if (!destroyedName && !sealEscaped && !godRevived) SC_END.push(_mad
       ? `★戰後讓『${atkC.name}』以其已狂化的方式（低吼／肢體／神情）透出對這場交手的直覺判斷，不成篇整句台詞。`
       : `★戰後讓『${atkC.name}』依性格給一句主觀反應（破綻、對方是否現底牌、自身傷勢、對敵手評價皆可）；連續回合換角度講，別重複同一種收尾。`);
+    // 攻守交換比轉白話（絕對數字 AI 用不上：敵方傷勢有 hpStateWord_、我方有【當前狀態】）。
+    const _exchangeWord_ = (() => {
+      if (!totalDealt && !totalTaken) return '這幾回合雙方互相試探、誰也沒能真正咬到對方';
+      if (!totalTaken) return '我方單方面壓制、自身毫髮未損';
+      const _er = totalDealt / Math.max(1, totalTaken);
+      return _er >= 3 ? '我方壓著打、自身只挨了些輕微反擊'
+        : _er >= 1.3 ? '我方佔上風，但也結結實實挨了幾記'
+          : _er >= 0.77 ? '雙方你來我往、傷得不相上下'
+            : _er >= 0.34 ? '我方落於下風、挨打明顯較多'
+              : '我方被壓著打、幾乎只有挨的份';
+    })();
     // 篇幅依這場真的發生了多少大事——寶具對轟＋理想鄉＋擊破，不該跟三回合平手同樣字數。
     const _bigBeats = SC_PEAK.length + ((destroyedName || defeat) ? 1 : 0) + (npTelegraphed ? 1 : 0);
     const _wordRange = BATTLE_WORDS_[Math.min(_bigBeats, BATTLE_WORDS_.length - 1)];
     const _scene = (t, arr) => arr.length ? `【${t}】\n` + arr.map(x => '· ' + x).join('\n') + '\n' : '';
     aiPrompt = ourMasterCardStr + servantCard_(pcData[atkIdx], { skipClose: true }) + foeServantCardStr + enemyMasterCardStr + allyAssistCardStr + pactDefCardStr + performanceNote_(_perfNames) +
       `【戰報·已裁定】御主號令${atkLabel}出擊，與「${defC.name}」交鋒 ${nRounds} 回合。\n` +
-      `${roundsBrief}\n我方造成 ${totalDealt} 傷害、受創 ${totalTaken}。${finalLine}\n` +
+      `${roundsBrief}\n${_exchangeWord_}。${finalLine}\n` +
       `── 分鏡(依序演成畫面) ──\n` +
       _scene('開場', SC_OPEN) + _scene('交鋒', SC_FIGHT) + _scene('高潮', SC_PEAK) + _scene('收束', SC_END) +
       `★把上面的分鏡演成一場【${_wordRange} 字】的交鋒：依分鏡順序推進，技能與寶具演其威能。`;

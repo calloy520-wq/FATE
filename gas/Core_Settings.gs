@@ -240,6 +240,22 @@ var HP_STATE_ = [
   { at: 0.70, word: '掛了點彩' },
   { at: 0.95, word: '' }
 ];
+// 魔力池白話。比照 HP：滿的時候回空字串——沒事可說就別佔提示詞的位置。
+var MP_STATE_ = [
+  { at: 0.00, word: '魔力已然枯竭' },
+  { at: 0.12, word: '魔力所剩無幾' },
+  { at: 0.35, word: '魔力吃緊' },
+  { at: 0.70, word: '魔力尚可支應' },
+  { at: 0.95, word: '' }
+];
+function mpStateWord_(mp, mpMax) {
+  var max = parseInt(mpMax) || 0;
+  if (max <= 0) return '';
+  var r = (parseInt(mp) || 0) / max;
+  var w = '';
+  for (var i = 0; i < MP_STATE_.length; i++) if (r >= MP_STATE_[i].at) w = MP_STATE_[i].word;
+  return w;
+}
 function hpStateWord_(hp, hpMax) {
   var max = parseInt(hpMax) || 0;
   if (max <= 0) return '';
