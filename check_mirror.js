@@ -197,6 +197,23 @@ const problems = [];
   }
 })();
 
+// ── 名字不叫 KC_ 的手抄常數（上面的自動掃描只認 KC_ 前綴，這些得逐條點名）──
+//    每一條都是「前端寫死一個數字、後端另外寫死同一個數字」的形狀，改一邊忘另一邊就會靜靜說謊。
+[
+  { front: 'FORGE_BUDGET', back: 'FORGE_BUDGET', why: '自訂英靈工房的點數預算（前端算給玩家看、後端驗收）' },
+  { front: 'FORGE_PTS', back: 'RANK_VALUE', why: '階級→點數對照（前端拿來扣預算、後端拿來算六圍）' },
+].forEach(pair => {
+  const f = grabLiteral(front.map(x => x.text).join('\n'), '(?:const|var|let)', pair.front);
+  const b = grabLiteral(backText, '(?:const|var|let)', pair.back);
+  checked++;
+  if (f.value === undefined || b.value === undefined) {
+    bad++; problems.push(`${pair.front} ↔ ${pair.back}：抓不到其中一邊的定義（改名了？檢查沒跟上就等於沒檢查）`);
+    return;
+  }
+  const same = JSON.stringify(f.value) === JSON.stringify(b.value);
+  if (!same) { bad++; problems.push(`${pair.front}(前) ↔ ${pair.back}(後) 不一致 —— ${pair.why}\n     前端：${JSON.stringify(f.value)}\n     後端：${JSON.stringify(b.value)}`); }
+});
+
 console.log(`🪞 前後端常數鏡射：比對 ${checked} 組，純前端 ${declared} 組`);
 if (bad) { console.log(`  ❌ ${bad} 處不一致`); problems.forEach(p => console.log('     ' + p)); }
 else console.log('  ✅ 全部一致');

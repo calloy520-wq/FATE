@@ -113,8 +113,14 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const row = pcData[pIdx];
   const finalName = String(row[COL.PC.NAME] || ""), finalSex = String(row[COL.PC.SEX] || "異");
-  const appearance = String(userData.appearance || "").slice(0, 30), standing = String(userData.standing || "").slice(0, 40);
-  const wish = String(userData.wish || "").slice(0, 40), magic = String(userData.magic || ""), origin = String(userData.origin || "");
+  // 表優先、前端只當補充：這幾格 create 當下就寫進列/MEMORY 了，前端漏送不該靜靜退化成「隨機」。
+  const _rowMem = String(row[COL.PC.MEMORY] || "");
+  const _pick = (a, b) => String(a || "").trim() || String(b || "").trim();
+  const appearance = _pick(userData.appearance, String(row[COL.PC.TRAIT] || "").split('、')[0]).slice(0, 30);
+  const standing = _pick(userData.standing, row[COL.PC.BACK]).slice(0, 40);
+  const wish = _pick(userData.wish, extractWish_(_rowMem)).slice(0, 40);
+  const magic = _pick(userData.magic, getMasterMagic_(_rowMem));
+  const origin = _pick(userData.origin, getMasterOrigin_(_rowMem));
 
   // getMapDataCached 直接讀 FATE_MAP_SEED 常數(零 I/O、恆非空)，不必靠 sheets.map 是否存在來決定要不要退回保底地名。
   const validMapNames = getMapDataCached(sheets).slice(1).map(r => String(r[COL.MAP.NAME]).trim()).filter(n => n !== "" && !n.includes('-'));
@@ -126,9 +132,9 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
 ★【語言】全程使用繁體中文，所有輸出內容(含技能招式名、外號、修飾詞)一律不得夾雜英文或其他語言字母；玩家描述若含英文人名/詞彙，請意譯或音譯成中文寫入，不要原樣照抄英文。
 ★【演出而非說明】願望與身世只作為設定底層，不要在 background 裡直接複述願望字面。
 ★【四格·格式鐵律】traits 與 personality 各【恰好4段】，只用頓號「、」分隔成4段，【絕對不要用句號「。」或半形句點】，每段是一個【簡短詞組】(不是完整句子)，每段內部也【不要】再用頓號列舉多項；禁數字標籤。
-- traits：外貌、氣質舉止、自稱與口氣(第一人稱·如 我/俺/吾＋說話語氣，如 自稱「吾」・睥睨王者腔)、卸下心防的私密一面。${finalSex === '女' ? '外貌段務必包含身形/胸部具體描寫，但要寫成自然的敘述句(如「胸前豐盈」「身形纖瘦」)、不要用「巨乳」這類生硬孤立的分類標籤直接呈現——這句話會顯示在玩家看得到的狀態欄位；「豐滿」單獨出現不夠明確，須明確扣連到胸部，不要只寫髮色瞳色就交差。' : ''}
+- traits：外貌、氣質舉止、自稱與口氣(第一人稱·如 我/俺/吾＋說話語氣，如 自稱「吾」・睥睨王者腔)、卸下心防的私密一面。${finalSex === '女' ? BUST_NOTE_ : ''}
 - personality：日常表象、真實內裡、喜歡的事物、討厭的事物
-★npc_intent：一句【簡短】萌點（讓人喜歡上這位御主的特色，≤18字，系統會在30字處硬性截斷、務必精簡），結合此御主身分性格，要可愛、獨特——形式不拘，可以是反差(表面X其實Y)，也可以是單純討喜的外觀/行為/習慣特色，不強求一定要寫成反差句型。務必寫完整一句話，不可斷在句意未完處。【禁】誤用聖杯戰爭機制專有詞(令咒/寶具/魔術迴路/從者/職階等)當裝飾性魔法元素湊萌點——這些詞在本作有精確機制意義(如令咒是對從者下達絕對命令的珍貴道具，不是隨手用來做家事雜活的萬用法寶)，情節上真的合理相關才能出現；請改用生活化情境(手作/習慣/小癖好等)。
+★npc_intent：一句讓人喜歡上這位御主的萌點，**18 字內講完一句完整的話**。可以是反差、也可以只是討喜的外觀或小習慣。${MOE_BAN_}
 ★background：限20字，呼應其身世／財力，禁出現具體物品名。
 ★【勿輸出數值】戰力數值、HP/MP 一律由系統裁定，prompt【不要】輸出任何數值欄位；也不要輸出地點。
 
@@ -240,7 +246,7 @@ var ALLOWED_FX_ = {
   god_slay: 1, // 神殺(斯卡哈同款)：對神性之敵×1.17~2.0(依對方神格·binary→固定25)。counter-pick 剋神核/神裔。
   lovespot: 1  // 愛之痣(迪盧木多同款)：敵命中-1(微量風味·固定5)。
 };
-var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應就填空字串\"\"（頂級概念寶具 乖離劍/王之財寶/無限劍製/神核 等為種子專屬、不在此清單）。★左側名稱只是該 fx 的『語意參考』，不是強制顯示名——顯示名 n 你可另取【貼合這名英靈的獨特招式名】(像寶具那樣有個性)：" +
+var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應就填空字串\"\"（頂級概念寶具 乖離劍/王之財寶/無限劍製/神核 等為種子專屬、不在此清單）。★左側只是 fx 的語意參考，不是顯示名：" +
   "對魔力=nullify_magic、直感=first_strike、心眼=analyze、千里眼=aim、怪力=str_up、魔力放出=burst、投影魔術=projection、" +
   "高速詠唱=fast_cast、道具作成=crafting、騎乘=ride、氣息遮斷=stealth、變化(迴避+)=shapeshift、避矢=evade_ranged、" +
   "戰鬥續行=survive、單獨行動=solo、七天盾(對寶具展開·投影減傷·御主耗魔)=rho_aias、陣地作成(減傷)=territory、城牆防禦(物理減傷)=wall_def、" +
@@ -249,6 +255,10 @@ var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應�
   "秘劍燕返(每場首回合強化)=tsubame、妄想心音(暗殺致命)=zabaniya、無毀湖光(對龍+)=weapon_steal、治癒(每回合回血)=regen、不死復活(復活3次·如尼祿三度輝映)=god_hand、" +
   "破魔(無視神核/續行)=anti_magic_lance、破戒(斬契約救贖)=rule_breaker、神性(神裔·會被神殺剋)=divine、以巧破力(以敏捷為傷害底)=agile_striker、" +
   "氣息感知(看穿奇襲)=sense、神殺(剋神性之敵)=god_slay、愛之痣(魅惑·敵命中-1)=lovespot";
+
+// 📝 創角提示詞的共用零件（御主生成／從者召喚兩支各寫一份的那些長句子，收在這裡講一次）。
+var BUST_NOTE_ = '外貌段要具體寫到身形與胸部，用自然敘述句(如「胸前豐盈」「身形纖瘦」)，不要「巨乳」這種孤立標籤——這句玩家看得到。';
+var MOE_BAN_ = '【禁】拿聖杯戰爭的機制專有詞(令咒/寶具/魔術迴路/從者/職階)當裝飾湊萌點——那些詞在本作有精確意義，真的合理相關才准出現；改用生活化情境(手作/習慣/小癖好)。';
 
 // 🎭 創角「來源三分類」(origin)→ 角色框定 frame ＋ 技能命名規則 skill。
 function originGuide_(origin) {
@@ -443,7 +453,7 @@ function parseForgeBuild_(build, reqCls) {
     return out;
   }
   // 預算 340＝種子中位數(點滿≈尼祿/美杜莎中堅)；強者種子(420~505·且握有工房買不到的概念 fx)仍明確在上。
-  const FORGE_BUDGET = 340;
+  const FORGE_BUDGET = 340; // ⚠ 前端 Script_Onboarding.html 也有一份（check_mirror.js 盯著兩邊一致）
   // FORGE_CLS_BONUS_ 已上移為檔案級單一真實來源（與 AI 生成路徑 capSixToBudget_ 共用）：Berserker 職階附贈狂化C(傷+但命中/迴避−·不可關)是唯一負資產禮物，同素體實測墊底——補正+30 拉平(+50 會反轉成最優職階，370 頂配狂戰實測後仍只是強力中堅，安全)。
   const okPlain = v => /^(E|D|C|B|A|EX)$/.test(String(v || "").toUpperCase());
   out.six = {};
@@ -689,17 +699,17 @@ function actionSummonServant(userData, pcId, sheets) {
       const sysOverride = `你是《命運停駐之夜》的英靈召喚核心。玩家御主召喚出一名「從者（Servant）」${clsUnset ? "" : `，職階為「${cls}」`}。${custDesc ? _og.frame : (trueName ? `指定真名為「${trueName}」，請忠於該英靈的傳說與性格（可跨作品：動漫／遊戲／神話／歷史皆可）。` : "請挑選一位契合此職階、知名的歷史或傳說英靈。")}
 
 ★【語言】除 JSON 欄位名本身與 cls 職階代碼(如 Saber/Archer)這類系統代碼外，所有輸出內容(真名/技能招式名/背景/性格/外貌/萌點等)一律使用繁體中文，不得夾雜英文或其他語言字母；玩家描述若含英文人名/詞彙，請意譯或音譯成中文寫入，不要原樣照抄英文。
-${clsUnset ? "★【職階 cls】玩家未指定職階——請依描述判斷最契合的職階，從 Saber(劍)/Archer(弓)/Lancer(槍)/Rider(騎乘)/Caster(魔術)/Assassin(暗殺)/Berserker(狂化) 擇一填入 JSON 的 \"cls\" 欄(填英文全名)。\n" : ""}★【六圍 six】依該英靈強弱給「筋力/耐久/敏捷/魔力/幸運/寶具」各一個階級，階級用 E,D,C,B,A,EX（強處可加 + 如 A+）；務必有強有弱、貼合傳說。★英靈是被召喚上戰場、足以角逐聖杯的超凡存在——即使原型是原創或跨作品角色、非 Fate 正典人物，也【不得】因此保守低估：至少要有兩項達到 A(含)以上，寶具階通常 B 以上（除非設定本就是輔助/非戰鬥型），整體六圍不應弱於一名遠超常人的英雄。幸運可以是唯一明顯偏弱的一項(D甚至E皆屬正常)，但其餘項目別隨意壓到 C 以下。若為 Berserker 或持狂化(mad)者，六圍請直接填【狂化後】的數值（與官方參數表慣例一致；狂化的傷害加成由系統另計，勿再自行灌水）——狂化英靈的筋力／耐久理應反映狂化增幅，通常該有一項衝到 A 以上，別讓「狂化後」讀起來比普通職階還弱。
+${clsUnset ? "★【職階 cls】玩家未指定職階——請依描述判斷最契合的職階，從 Saber(劍)/Archer(弓)/Lancer(槍)/Rider(騎乘)/Caster(魔術)/Assassin(暗殺)/Berserker(狂化) 擇一填入 JSON 的 \"cls\" 欄(填英文全名)。\n" : ""}★【六圍 six】筋力/耐久/敏捷/魔力/幸運/寶具各給一階(E~EX，可加 +)，有強有弱、貼合傳說。這是足以角逐聖杯的英靈，別因為原創或跨作品就保守低估：至少兩項 A 以上、寶具階通常 B 以上(純輔助型除外)，幸運可以是唯一明顯偏弱的一項。狂化者直接填【狂化後】的數值(狂化傷害加成由系統另計，別再自行灌水)，筋力或耐久該有一項衝到 A 以上。
 ★【技能帶 fx】skills(固有技能 2~3 個)，每個含 {"n":"技能名","r":"階級","fx":"效果碼"}。職階慣例技能(如 Saber/Lancer/Archer 的對魔力、Rider 的騎乘、Caster 的陣地/道具作成、Assassin 的氣息遮斷、Berserker 的狂化)由系統依職階自動附贈，這裡【不需要你生成】、專心給這名英靈"個人"的招牌技能就好。
 ★【技能命名】n 是【顯示名】、fx 才是機制(兩者脫鉤)。${custDesc ? _og.skill : '★技能名忠於該角色原著既有的招式/技能名(對魔力／直感／庫夫林「蓋・波爾克」…)，直接沿用勿重編亂加花名。'}
 ${FX_MENU_}
 ★【特性 traits】1~3 個，{"n":"特性名"}（如 王/龍/人類/神性/巨人/猛獸；有神性者會被神殺剋）。
 ★【演出而非說明】personality 與寶具只作底層，勿直接複述字面。personality 剛好 4 短句頓號分隔：日常表象、真實內裡、喜歡的事物、討厭的事物。
-★【外貌 look】剛好 4 短句頓號分隔，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝；若判定此英靈為女性，務必包含身形/胸部具體描寫，但要寫成自然的敘述句(如「胸前豐盈」「身形纖瘦」)、不要用「巨乳」這類生硬孤立的分類標籤直接呈現——這句話會顯示在玩家看得到的狀態欄位；「豐滿」單獨出現不夠明確，須明確扣連到胸部，不要只寫髮色瞳色就交差)]、[氣質舉止]、[自稱與口氣(固定格式「自稱「X」，再接一句依其說話語氣寫成的口氣描述」)]、[卸下心防的私密一面(具體生活化的小動作，不可直述心情/動機)]。
-★np：寶具名＋一句威能簡述；規模上限【對軍】——對城/對界/對神為種子英靈專屬，寫了也會被系統降為對軍，簡述請勿誇稱斬城滅界。★npc_intent：一句【簡短】萌點（讓人喜歡上這位英靈的特色，≤18字，系統會在30字處硬性截斷、務必精簡，務必寫完整一句話不可斷在句意未完處）——形式不拘，可以是反差(表面X其實Y)，也可以是單純討喜的外觀/行為/習慣特色，不強求一定要寫成反差句型。【禁】誤用令咒當裝飾性萌點元素——令咒是御主持有、對從者下達絕對命令的機制道具，並非從者自己所有或隨手就能用的萬用法寶；也不要單純重複寶具名稱湊字數，請改用生活化情境(手作/習慣/小癖好等)。★sex 從 男／女／異 擇一。
+★【外貌 look】剛好 4 短句頓號分隔，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝；若為女性：外貌段要具體寫到身形與胸部，用自然敘述句(如「胸前豐盈」「身形纖瘦」)，不要「巨乳」這種孤立標籤——這句玩家看得到)]、[氣質舉止]、[自稱與口氣(固定格式「自稱「X」，再接一句依其說話語氣寫成的口氣描述」)]、[卸下心防的私密一面(具體生活化的小動作，不可直述心情/動機)]。
+★np：寶具名＋一句威能簡述；規模上限【對軍】——對城/對界/對神為種子英靈專屬，寫了也會被系統降為對軍，簡述請勿誇稱斬城滅界。★npc_intent：一句讓人喜歡上這名英靈的萌點，**18 字內講完一句完整的話**。可以是反差、也可以只是討喜的外觀或小習慣。${MOE_BAN_}也別拿寶具名湊字數。★sex 從 男／女／異 擇一。
 
 ★【輸出】合法 JSON、禁 Markdown：
-{"realName":"英靈真名",${clsUnset ? '"cls":"Saber",' : ""}"sex":"女","align":"中立・善","background":"限20字","npc_intent":"萌點一句(不限反差)","personality":"四格頓號","look":"四格頓號","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"skills":[{"n":"直感","r":"A","fx":"first_strike"},{"n":"怪力","r":"B","fx":"str_up"}],"traits":[{"n":"人類"}]}`;
+{"realName":"英靈真名",${clsUnset ? '"cls":"Saber",' : ""}"sex":"男/女/異 擇一","align":"如 混沌・善","background":"限20字","npc_intent":"萌點一句(不限反差)","personality":"四格頓號","look":"四格頓號","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"skills":[{"n":"自取的招式名","r":"A","fx":"對應效果碼"},{"n":"自取的招式名","r":"B","fx":"對應效果碼"}],"traits":[{"n":"人類"}]}`;
       const aiBrief = JSON.parse(callGeminiAPI(`【職階】：${clsUnset ? "未指定(請依描述判斷)" : cls}\n【御主】：${pcName}${trueName ? `\n【指定真名】：${trueName}` : ""}${custDesc ? `\n【玩家自訂描述】：${custDesc}` : ""}`, sysOverride, { temperature: custDesc ? 0.85 : 0.6, ignoreLaw: true }));
       // callGeminiAPI 連線失敗不丟例外，而是回 fallback 敘事 JSON(narration/options)——照收會靜默生出全C
       //   六圍/零技能的殘缺從者並永久污染英靈殿。缺 realName 或 six 視為生成失敗，中止讓玩家重試。
