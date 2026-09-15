@@ -434,7 +434,7 @@ function toggleForgeAdvanced() {
   var open = box.style.display !== 'none';
   box.style.display = open ? 'none' : 'block';
   var btn = document.getElementById('cf-adv-toggle');
-  if (btn) btn.textContent = (open ? '▸' : '▾') + ' 進階演出細節（選填·自稱/陣營/態度/萌點/口吻/小動作/身世）';
+  if (btn) btn.textContent = (open ? '▸' : '▾') + ' 再細一點（自稱·口吻·小動作·萌點…）';
 }
 // 🧹 自訂生成的指定職階/角色來源預設收合——兩者皆有合理預設，手機版面不必每次都撐長。
 function toggleSummonAdvanced() {
@@ -538,7 +538,7 @@ function forgeEdit(id) {
   var hasAdvData = d.fp || d.toMaster || d.speech || d.tic || d.back || d.traits || (d.align && d.align !== '中立');
   var advBox = document.getElementById('cf-drama'), advBtn = document.getElementById('cf-adv-toggle');
   if (advBox) advBox.style.display = hasAdvData ? 'block' : 'none';
-  if (advBtn) advBtn.textContent = (hasAdvData ? '▾' : '▸') + ' 進階演出細節（選填·自稱/陣營/態度/萌點/口吻/小動作/身世）';
+  if (advBtn) advBtn.textContent = (hasAdvData ? '▾' : '▸') + ' 再細一點（自稱·口吻·小動作·萌點…）';
   forgeMode('create'); // 從作品頁點修改→切回創造表單(已預填)
   forgeTab(2); // 編輯從主頁(靈基)開始看
   forgeBudget_();
