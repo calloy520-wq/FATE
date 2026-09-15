@@ -145,17 +145,17 @@ function masterPoolMax_(circuits, partyMagicVal) {
 }
 
 // 🔋 從者靈基出力檔位（玩家手動旋鈕，存從者 MEMORY【出力】）：從者無自有魔力，靠御主供魔的「出力」決定戰力與耗魔。
+// 2026-09 玩家定案·五檔收成三檔：實測 20 與 40 都是「省電」(差 11 點/時，玩家不會為這個精算)，
+// 80 與 100 之間更尷尬——80 只給 +1 命中/×1.10 卻不能放寶具，要打就全開。真正有語意的只有三種狀態。
 var OUTPUT_TIERS_ = {
   100: { hit:  3, dmgMul: 1.30, drainMul: 2.0, np: true,  label: '全開' },
-  80:  { hit:  1, dmgMul: 1.10, drainMul: 1.5, np: false, label: '高壓' },
-  60:  { hit:  0, dmgMul: 1.00, drainMul: 1.0, np: false, label: '巡航' },
-  40:  { hit: -2, dmgMul: 0.85, drainMul: 0.6, np: false, label: '節流' },
-  20:  { hit: -5, dmgMul: 0.70, drainMul: 0.3, np: false, label: '維持' },
+  60:  { hit:  0, dmgMul: 1.00, drainMul: 1.0, np: false, label: '一般' },
+  20:  { hit: -5, dmgMul: 0.70, drainMul: 0.3, np: false, label: '省著走' },
 };
-// 把任意百分比吸附到最近的合法檔位（20/40/60/80/100）。
+// 把任意百分比吸附到最近的合法檔位（20/60/100）。舊存檔的 40／80 會各自落到 20／60（都是往下，安全）。
 function snapOutput_(pct) {
   var p = parseInt(pct); if (isNaN(p)) return 60;
-  var tiers = [20, 40, 60, 80, 100], best = 60, bd = 999;
+  var tiers = [20, 60, 100], best = 60, bd = 999;
   for (var i = 0; i < tiers.length; i++) { var d = Math.abs(tiers[i] - p); if (d < bd) { bd = d; best = tiers[i]; } }
   return best;
 }

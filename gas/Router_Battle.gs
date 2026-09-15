@@ -348,15 +348,8 @@ function actionFateBattle(userData, pcId, sheets) {
   }
   if (atkIdx === -1) return JSON.stringify({ success: false, message: "你尚未召喚從者，無從者可出戰。" });
   // 🌟 多寶具選定索引 ＋ 🔋 解放寶具自動全開出力：兩者隨 fate_battle 一起送來，省去單獨 set_np_choice／set_servant_output 往返。
-  let atkMemDirty = false;
-  if (userData.npChoice !== undefined && userData.npChoice !== null) {
-    pcData[atkIdx][COL.PC.MEMORY] = setNpChoice_(pcData[atkIdx][COL.PC.MEMORY], userData.npChoice); atkMemDirty = true;
-  }
-  if (userData.output !== undefined && userData.output !== null) {
-    pcData[atkIdx][COL.PC.MEMORY] = setServantOutput_(pcData[atkIdx][COL.PC.MEMORY], snapOutput_(userData.output)); atkMemDirty = true;
-  }
-  if (atkMemDirty) sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
-
+  // 🔋 解放寶具時前端會把出力 100 一起送來蓋掉玩家原本的檔位——先記下來，戰後還原（見下方 _restoreOutput）。
+  const _outputBefore = servantOutput_(pcData[atkIdx][COL.PC.MEMORY]);
   const npcId = String(userData.npcId || "").trim();
   // 🛡️ 目標必須是敵方陣營(敵從者/敵御主)——擋掉偽造參數打自己御主/自己第二從者(盟友另有 isAllied_ 專屬擋牆)
   const _battleDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
@@ -367,6 +360,17 @@ function actionFateBattle(userData, pcId, sheets) {
   if (String(pcData[pIdx][COL.PC.LOC]).trim() !== String(pcData[nIdx][COL.PC.LOC]).trim()) {
     return JSON.stringify({ success: false, message: "對方不在你身邊，鞭長莫及。" });
   }
+
+  // 🔋 出力／寶具選定的落盤搬到【目標驗證之後】：原本寫在最前面，於是「按解放寶具→敵人剛好走了→被拒絕」
+  //    也會把出力留在全開，玩家毫無所覺地開始付兩倍維持費。打不成就不該改任何狀態。
+  let atkMemDirty = false;
+  if (userData.npChoice !== undefined && userData.npChoice !== null) {
+    pcData[atkIdx][COL.PC.MEMORY] = setNpChoice_(pcData[atkIdx][COL.PC.MEMORY], userData.npChoice); atkMemDirty = true;
+  }
+  if (userData.output !== undefined && userData.output !== null) {
+    pcData[atkIdx][COL.PC.MEMORY] = setServantOutput_(pcData[atkIdx][COL.PC.MEMORY], snapOutput_(userData.output)); atkMemDirty = true;
+  }
+  if (atkMemDirty) sheets.pc.getRange(atkIdx + 1, 1, 1, pcData[atkIdx].length).setValues([pcData[atkIdx]]);
 
   let isMasterTarget = (String(pcData[nIdx][COL.PC.FACTION]) === "敵御主");
   let assassinGuardIdx = -1;
@@ -1095,6 +1099,16 @@ function actionFateBattle(userData, pcId, sheets) {
   // 🎌 御主參戰風格·並肩感（每場【必給】·2026-07 玩家回饋「御主扣血卻沒一起上陣的感覺」）：御主體術/魔術/分擔血量這三個訊號若都沒觸發(常見：御主無體術魔術數值＋見機行事5%小傷攤成0)，AI 完全收不到「御主在場」的訊號→只演從者孤軍奮戰。
   var _stanceKey = String(userData.stance || 'normal');
 
+  // 🔋 出力自動還原：系統自動幫玩家推到全開放寶具，卻從來不幫忙關——全開每小時耗魔是一般檔的兩倍，
+  //    忘了關就是靜靜把魔力池抽乾(迴路40／池400 實測 7.4 小時見底)。那不是決策，是忘記關燈的懲罰。
+  //    只還原「為了放寶具而被推上去」的那次；玩家自己在面板調的檔位不動。
+  let _outputRestored = 0;
+  if (useNp && _outputBefore !== 100 && snapOutput_(userData.output) === 100
+    && !String(pcData[atkIdx][COL.PC.ID]).startsWith("DEAD_")) {
+    pcData[atkIdx][COL.PC.MEMORY] = setServantOutput_(pcData[atkIdx][COL.PC.MEMORY], _outputBefore);
+    _outputRestored = _outputBefore;
+  }
+
   let aiPrompt;
   // 🎬 敘述：給 AI【事實素材】，少下指令——讓它自己演。只保留必要紅線(show-don't-tell／勿擅自寫死)。
   const horrorFired = rounds.some(r => (r.strikes || []).some(k => k.horror));
@@ -1191,6 +1205,7 @@ function actionFateBattle(userData, pcId, sheets) {
         : _hpRatioNow <= 0.4 ? `「${defC.name}」傷勢不輕、氣力已顯頹勢，但仍撐得住——勿描寫死亡／消滅／屍體。`
           : `「${defC.name}」尚有餘力，勿描寫死亡／消滅／屍體。`)
       + `雙方仍在交鋒中，下回合是否再戰由御主決定。`);
+    if (_outputRestored) SC_END.push(`真名解放後，『${atkC.name}』的靈基出力自行回落到平時的檔位——★可帶一筆「那股滿溢的魔力退去、氣息沉靜下來」的餘韻，一句話即可，不必解釋機制。`);
     if (npTelegraphed) SC_END.push(`⚠️「${defC.name}」的靈基驟然高鳴——真名解放的預兆正急速匯聚、殺意如實質般壓來，寶具即將出鞘卻【尚未發動】。★收在這股「山雨欲來、下一擊便是真名解放」的窒息壓迫，讓御主明白必須當機立斷。`);
     if (!destroyedName && !sealEscaped && !godRevived) SC_END.push(_mad
       ? `★戰後讓『${atkC.name}』以其已狂化的方式（低吼／肢體／神情）透出對這場交手的直覺判斷，不成篇整句台詞。`
@@ -1247,7 +1262,7 @@ function actionFateBattle(userData, pcId, sheets) {
 
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：主戰鬥路徑所有寫入皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({
-    success: true, aiPrompt: aiPrompt, knockedOut: knockedOut,
+    success: true, aiPrompt: aiPrompt, knockedOut: knockedOut, outputRestored: _outputRestored,
     victory: victory, defeat: defeat, dreamPrompt: dreamPrompt,
     sealEscaped: sealEscaped, report: report,
     clock: isFateBattle ? clockLabel_(myGameId, pcData) : "", ap: battleAp, apMax: AP_PER_DAY,
