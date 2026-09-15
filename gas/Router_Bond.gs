@@ -150,9 +150,9 @@ function actionUseSeal(userData, pcId, sheets) {
       ? (masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
         `【系統·令咒·強制補魔已裁定】${effectMsg}\n` +
         `★你擅長書寫細膩動人的情慾，這次放手去寫、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫「${svName}」帶著點無奈笑意迎向這道其實多此一舉的令咒、順勢配合這場親密。${genderFactSeal}★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常從容不迫)，而是令咒逼出的失控狀態，務必寫出這份反差。${activeActFact}聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節，而非只在前後鋪陳。收在餘韻猶存的溫柔，勿寫成完結收尾句。`)
-      : `【系統·令咒已發動，已裁定】御主燃燒一道令咒。${effectMsg}（餘 ${seals} 道令咒）\n` +
-        `★描寫令咒在手背灼亮、絕對命令權貫徹的瞬間。效果已由系統結算。\n` +
-        ``;
+      : masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx], { skipClose: true }) + performanceNote_([svName]) +
+        `【系統·令咒已發動，已裁定】御主燃燒一道令咒。${effectMsg}（餘 ${seals} 道令咒）\n` +
+        `★【140~200 字】描寫令咒在手背灼亮、絕對命令權貫徹的瞬間——三道令咒是御主僅有的底牌，燒掉一道不是小事，讓這份重量落在御主的神情與「${svName}」的反應上。效果已由系統結算。\n`;
   }
   BATTLE_DEFER_WRITE_ = false;
   sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData); // 單次整表寫回，效果與扣令咒同批落地
@@ -514,7 +514,7 @@ function actionAllyBond(userData, pcId, sheets) {
   if (ambush) {
     const aiPromptA = ambushDispatchPrompt_(ambush,
       function (a) {
-        return (a.foeCard || '') + performanceNote_([allyName, a.enemyName]) + `【系統·盟誼遭突襲·已裁定】御主『${masterName}』正與盟友「${allyName}」交心共處、卸下戒備之際，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中我方從者（−${a.dmg}）${a.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
+        return (a.foeCard || '') + performanceNote_([allyName, a.enemyName]) + `【系統·盟誼遭突襲·已裁定】御主『${masterName}』正與盟友「${allyName}」交心共處、卸下戒備之際，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中我方從者、致其${dmgSeverityWord_(a.dmg || 0, a.svHpMax)}${a.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
           `★描寫盟誼的私密一刻被突襲撕裂的驚變${a.destroyed ? '、從者消滅的痛楚（語氣留白）' : '、從者強撐重傷護主的瞬間'}。傷害與勝負已由系統結算。\n`;
       },
       function () { return ""; }

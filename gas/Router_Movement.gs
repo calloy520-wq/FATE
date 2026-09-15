@@ -76,8 +76,8 @@ function buildArrivePrompt_(a) {
   // ── 剛發生：抵達當下 GAS 已裁定的事 ──
   const NOW = [];
   if (a.pursuit) NOW.push(a.pursuit.hitWho === 'us'
-    ? `【撤離追擊·已裁定】自「${a.pursuit.enemyName}」的地盤抽身時被追上咬了一記（從者受創 −${a.pursuit.dmg}）——依上方追兵性格演出這記追擊與從者中招的反應，抵達時帶餘悸狼狽，非從容無事。`
-    : `【撤離反咬·已裁定】「${a.pursuit.enemyName}」追來卻被從者回身逼退（追兵受創 −${a.pursuit.dmg}）——我方從者演出斷後的餘裕，抵達時從容退場，非纏戰。`);
+    ? `【撤離追擊·已裁定】自「${a.pursuit.enemyName}」的地盤抽身時被追上咬了一記（從者${dmgSeverityWord_(a.pursuit.dmg, a.pursuit.svHpMax || 1)}）——依上方追兵性格演出這記追擊與從者中招的反應，抵達時帶餘悸狼狽，非從容無事。`
+    : `【撤離反咬·已裁定】「${a.pursuit.enemyName}」追來卻被從者回身逼退（追兵${dmgSeverityWord_(a.pursuit.dmg, a.pursuit.foeHpMax || 1)}）——我方從者演出斷後的餘裕，抵達時從容退場，非纏戰。`);
   if (a.factionClash) NOW.push(`【撞見兩方敵人·已裁定】${a.factionClash.note}——雙方依性格反應，不可改寫局面、不可自行分出勝負、不可替玩家決定是否出手。`);
   // ── 在場：誰在這裡、什麼態度 ──
   const WHO = [];
@@ -579,7 +579,7 @@ function actionRest(userData, pcId, sheets) {
     const restAmbushPrompt = ambushDispatchPrompt_(restAmbush,
       function (a) {
         const restSev = dmgSeverityWord_(a.dmg || 0, a.svHpMax);
-        return (a.foeCard || '') + performanceNote_(a.destroyed ? [a.enemyName] : [a.svName, a.enemyName].filter(Boolean)) + `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊擊中「${a.svName || '從者'}」致其${restSev}（−${a.dmg}）${a.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n★描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
+        return (a.foeCard || '') + performanceNote_(a.destroyed ? [a.enemyName] : [a.svName, a.enemyName].filter(Boolean)) + `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊擊中「${a.svName || '從者'}」致其${restSev}${a.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n★描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
       },
       function () { return ""; }
     );
@@ -648,7 +648,7 @@ function actionPrepMeal(userData, pcId, sheets) {
   // 🎬 aiPrompt 讓 AI 演出這段整備場景，而非只回罐頭 message。
   var mealSvIdx = findPlayerServantIdx_(pcData, myGameId, "");
   var mealPrompt = masterCard_(pcData[pIdx]) + (mealSvIdx !== -1 ? servantCard_(pcData[mealSvIdx]) : '') +
-    `【系統·整備已裁定】御主與從者稍作整備、飽餐一頓——接下來約 ${MEAL_BUFF_HOURS} 小時內，從者出擊命中 +${MEAL_BUFF_BONUS}。\n` +
+    `【系統·整備已裁定】御主與從者稍作整備、飽餐一頓——接下來一段時間內，從者的狀態比平常更穩、出手更準。\n` +
     `★【60~100 字】演出這段戰前用餐、稍事休整的日常小品，依從者性格自然流露對這頓飯／這位御主的反應；語氣輕快不冗長。`;
   STATE_PRE_DATA_ = pcData;
   return JSON.stringify({
@@ -905,7 +905,7 @@ function actionFactionAmbush(userData, pcId, sheets) {
   var ap = _ambApr.ap, clock = _ambApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]); // 寫回御主列(窗口清除＋AP)
   var _ambSev = dmgSeverityWord_(res.dmg || 0, res.eHpMax);
-  var hitTxt = res.hit ? `一擊得手，「${res.enemyName}」${_ambSev}（−${res.dmg}）` : `倉促搶攻只擦過「${res.enemyName}」（−${res.dmg}）`;
+  var hitTxt = res.hit ? `一擊得手，「${res.enemyName}」${_ambSev}` : `倉促搶攻只擦過「${res.enemyName}」`;
   var _mySvIdx = findPlayerServantIdx_(pcData, gameId, userData.servant, userData.servantId);
   var aiPrompt = servantCard_(pcData[_mySvIdx !== -1 ? _mySvIdx : pIdx], { skipClose: true }) + res.foeCard + performanceNote_([res.svName, res.enemyName]) +
     `【系統·趁隙偷襲·已裁定】趁「${res.enemyName}」分心之際，你的從者搶先發難——${hitTxt}${res.destroyed ? '，將其當場擊破！' : '，對方旋即警覺、不再有隙可趁。'}\n` +
@@ -1093,7 +1093,7 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul, preferSvId
         homeRepel: false, peaceful: true, kind: 'probe', enemyName: eNm2, svName: svNm2,
         dmg: 0, destroyed: false, defeat: false, dreamPrompt: "", after: parseInt(pcData[svIdx][COL.PC.HP]) || 0,
         foeCard: foeCard2, bondAfter: afterBond,
-        repelNote: foeCard2 + performanceNote_([eNm2]) + `【系統·卸防時刻·已裁定】潛伏同地的敵從者「${eNm2}」現身，卻沒有動手——帶著幾分戒心，像是想試探些什麼(好感 ${afterBond}/100)。\n★演出這場短暫、帶著猜忌與算計的試探性接觸(一兩句交鋒或對峙即可)：兩邊都清楚此刻並非開戰時機，「${eNm2}」依其性格留下一絲若有似無的試探或警告，不必開打、也不必交心。`,
+        repelNote: foeCard2 + performanceNote_([eNm2]) + `【系統·卸防時刻·已裁定】潛伏同地的敵從者「${eNm2}」現身，卻沒有動手——帶著幾分戒心，像是想試探些什麼${(() => { const _w = favorWord_(afterBond / 100); return _w ? "（" + _w + "）" : ""; })()}。\n★演出這場短暫、帶著猜忌與算計的試探性接觸(一兩句交鋒或對峙即可)：兩邊都清楚此刻並非開戰時機，「${eNm2}」依其性格留下一絲若有似無的試探或警告，不必開打、也不必交心。`,
         report: { peaceful: true, kind: 'probe', enemyName: eNm2, svName: svNm2, bondAfter: afterBond }
       };
     }
@@ -1164,7 +1164,7 @@ function actionSecondWind(userData, pcId, sheets) {
   pcData[pIdx][COL.PC.HP] = cur - cost;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   const ap = grantAp_(myGameId, 4, pcData, sheets);
-  const aiPrompt = `【系統·強撐已結算】御主透支魔術迴路與體力、燃燒生命力強行擠出最後的行動之力（HP −${cost}，行動力 +4＝${ap}/${AP_PER_DAY}）。\n` +
+  const aiPrompt = `【系統·強撐已結算】御主透支魔術迴路與體力、燃燒生命力強行擠出最後的行動之力（代價是燒掉一截生命，行動力回到 ${ap}/${AP_PER_DAY}）。\n` +
     `★描寫御主咬牙硬撐、迴路過載灼痛、以意志逼出餘力的一幕。已結算。\n` +
     ``;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：HP扣減/AP授予皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
@@ -1222,7 +1222,7 @@ function actionSetWorkshop(userData, pcId, sheets) {
   const casterRow = pcData.find(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && hasFx_(rowToCombatant_(r), 'territory'));
   const csName = casterRow ? String(casterRow[COL.PC.NAME]) : "";
   const wsPrompt = masterCard_(pcData[pIdx]) + (casterRow ? servantCard_(casterRow) : '') +
-    `【系統·陣地佈設·已裁定】御主一行於「${loc}」紮下陣地——${csName ? `「${csName}」以陣地作成之能，在此地` : '御主親手在此地'}布設層層魔術結界、暗藏機關與監視術式，御主灌注了 ${WORKSHOP_MANA_COST} 點魔力為根基。自此這裡成為我方的堡壘：駐留可加速供魔回復，於此迎戰享主場結界庇護，敵人潛入亦難越雷池。\n` +
+    `【系統·陣地佈設·已裁定】御主一行於「${loc}」紮下陣地——${csName ? `「${csName}」以陣地作成之能，在此地` : '御主親手在此地'}布設層層魔術結界、暗藏機關與監視術式，御主傾注了可觀的魔力為根基。自此這裡成為我方的堡壘：駐留可加速供魔回復，於此迎戰享主場結界庇護，敵人潛入亦難越雷池。\n` +
     `★【90~140 字】演出這場「築起陣地」的勞作——${csName ? `「${csName}」施展術式、鋪設結界的專注與魔力流轉，法師將一方土地化為己身堡壘的過程` : '御主費心張設營地與警戒的辛勞'}；落在完工後那份「這裡是我們的據點了」的踏實與底氣。`;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：MP扣減/陣地標記/spendAp_ 皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({ success: true, message: `已於「${loc}」佈設陣地（工房）——耗 ${WORKSHOP_MANA_COST} 魔築起結界。駐留供魔提升；於此決戰享主場庇護、敵襲反被擊退。`, aiPrompt: wsPrompt, clock: clock, ap: ap, apMax: AP_PER_DAY, economy: isFate ? playerServantEconomy_(sheets, pcId, pcData) : null });

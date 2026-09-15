@@ -1002,6 +1002,10 @@ function actionFateBattle(userData, pcId, sheets) {
   // 受創含敵盟協防那記(rl.pactDef.dmg)——否則「受創X − 御主替扛Y」對不上從者實際血量掉幅(協防傷也走 masterShared)。
   const totalTaken = rounds.reduce((s, r) => s + (r.eDmg || 0) + (r.pactDef && r.pactDef.hit ? (r.pactDef.dmg || 0) : 0), 0) + (clash ? (clash.pDmgTaken || 0) : 0);
   const nRounds = rounds.length;
+  // 開場對轟或寶具一擊定生死時，回合迴圈在第一圈開頭就 break、rounds 為空。
+  // 這不是「交鋒 0 回合」，是「一擊之間就分了勝負」。
+  const _roundsPhrase = nRounds > 0 ? `交鋒 ${nRounds} 回合` : '在開場的那一擊之間便分了勝負';
+  const _endRoundPhrase = nRounds > 0 ? `本戰於第 ${nRounds} 回合終結` : '本戰在開場第一擊便告終結';
   const atkLabel = dualAttack ? `${atkC.name} 與另一名從者協同` : atkC.name;
   // 💥 本次解放寶具的【真名】(多寶具取所選那把)：拆中文／原名供戰報橫幅＋AI 高呼。寶具解放必唸真名。
   let npName = null;
@@ -1142,7 +1146,7 @@ function actionFateBattle(userData, pcId, sheets) {
   if (defeat) {
     const _perfNamesDefeat = [atkC.name].concat(foeServantCardStr ? [defC.name] : []).concat(enemyMasterRow ? [String(enemyMasterRow[COL.PC.NAME])] : []);
     aiPrompt = ourMasterCardStr + servantCard_(pcData[atkIdx], { skipClose: true }) + foeServantCardStr + enemyMasterCardStr + performanceNote_(_perfNamesDefeat) +
-      `【戰報·已裁定】御主號令『${atkC.name}』與「${defC.name}」鏖戰 ${nRounds} 回合。\n${roundsBrief}\n結局：『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。\n` +
+      `【戰報·已裁定】御主號令『${atkC.name}』與「${defC.name}」${_roundsPhrase}。\n${roundsBrief}\n結局：『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。\n` +
       `· ${_masterJoinLine}\n` +
       `★演出這場敗北的最後一幕【${BATTLE_WORDS_[1]} 字】${atkC.cls === 'Caster' ? '（Caster 以魔術轟擊為主、非肉搏）' : ''}——御主與從者並肩奮戰到最後，收在靈基潰散的那一瞬與御主的反應，語氣留白。`;
   } else {
@@ -1180,8 +1184,8 @@ function actionFateBattle(userData, pcId, sheets) {
     if (sealEscaped) SC_END.push(`對面御主燃令咒、強行扯離重傷從者，敵已遁走不在場。${sealNote}★此撤離僅止於該從者及其本主，與在場其他御主／從者無關。`);
     if (destroyedName && targetIsFoeServant && enemyMasterRow && !isMasterTarget && !ourSideDestroyed) SC_END.push(`在場敵御主「${String(enemyMasterRow[COL.PC.NAME])}」親眼目睹自己契約的從者靈基崩潰、化作光點消散——失去從者＝失去依靠與這場戰爭的資格。★依其性格與身世演出這一刻的衝擊（崩潰/嘶喊/怔忡/強撐由性格定），非沉默背景板。`);
     if (destroyedName && !sealEscaped && !godRevived) SC_END.push(ourSideDestroyed
-      ? `★【本戰於第 ${rounds.length} 回合終結】『${destroyedName}』已當場靈基崩潰消散——我方死局，「${defC.name}」仍存活。【嚴禁】『${destroyedName}』此後繼續出手/存在於場上，也【嚴禁】御主問「接下來怎麼辦」這類彷彿未分曉的台詞。收在殞落這一擊與御主的震動反應。`
-      : `★【本戰於第 ${rounds.length} 回合終結】「${defC.name}」${targetIsFoeServant ? '已當場靈基崩潰消散' : '已當場斃命——凡人之軀，沒有靈基消散的光點'}。【嚴禁】其此後繼續出手/存在於場上，也【嚴禁】我方角色問「接下來怎麼辦」這類彷彿未分曉的台詞。收在終結這一擊與其後的餘韻${targetIsFoeServant ? '（喘息、確認勝負、望向消散的光點）' : '（喘息、確認斷氣、從者收勢）'}。`);
+      ? `★【${_endRoundPhrase}】『${destroyedName}』已當場靈基崩潰消散——我方死局，「${defC.name}」仍存活。【嚴禁】『${destroyedName}』此後繼續出手/存在於場上，也【嚴禁】御主問「接下來怎麼辦」這類彷彿未分曉的台詞。收在殞落這一擊與御主的震動反應。`
+      : `★【${_endRoundPhrase}】「${defC.name}」${targetIsFoeServant ? '已當場靈基崩潰消散' : '已當場斃命——凡人之軀，沒有靈基消散的光點'}。【嚴禁】其此後繼續出手/存在於場上，也【嚴禁】我方角色問「接下來怎麼辦」這類彷彿未分曉的台詞。收在終結這一擊與其後的餘韻${targetIsFoeServant ? '（喘息、確認勝負、望向消散的光點）' : '（喘息、確認斷氣、從者收勢）'}。`);
     if (!destroyedName && !sealEscaped && !godRevived) SC_END.push(
       (_hpRatioNow <= 0.15 ? `「${defC.name}」已被打到命懸一線、站著全靠意志，但【還沒死】——勿描寫死亡／消滅／屍體，要讓這份瀕死在畫面上看得出來。`
         : _hpRatioNow <= 0.4 ? `「${defC.name}」傷勢不輕、氣力已顯頹勢，但仍撐得住——勿描寫死亡／消滅／屍體。`
@@ -1207,7 +1211,7 @@ function actionFateBattle(userData, pcId, sheets) {
     const _wordRange = BATTLE_WORDS_[Math.min(_bigBeats, BATTLE_WORDS_.length - 1)];
     const _scene = (t, arr) => arr.length ? `【${t}】\n` + arr.map(x => '· ' + x).join('\n') + '\n' : '';
     aiPrompt = ourMasterCardStr + servantCard_(pcData[atkIdx], { skipClose: true }) + foeServantCardStr + enemyMasterCardStr + allyAssistCardStr + pactDefCardStr + performanceNote_(_perfNames) +
-      `【戰報·已裁定】御主號令${atkLabel}出擊，與「${defC.name}」交鋒 ${nRounds} 回合。\n` +
+      `【戰報·已裁定】御主號令${atkLabel}出擊，與「${defC.name}」${_roundsPhrase}。\n` +
       `${roundsBrief}\n${_exchangeWord_}。${finalLine}\n` +
       `── 分鏡(依序演成畫面) ──\n` +
       _scene('開場', SC_OPEN) + _scene('交鋒', SC_FIGHT) + _scene('高潮', SC_PEAK) + _scene('收束', SC_END) +

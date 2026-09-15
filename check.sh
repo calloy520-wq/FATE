@@ -66,6 +66,9 @@ if node "$ROOT/check_memory.js"; then :; else fail=1; fi
 # ⚧ 提示詞代名詞（全層曾預設「御主是男、同伴是女」，但兩邊都是資料決定的）
 if python3 "$ROOT/check_pronoun.py"; then :; else fail=1; fi
 
+# 🎭 點名↔角色卡（performanceNote_ 點名了誰，就必須有誰的卡；沒卡＝叫 AI 憑空捏造性格）
+if python3 "$ROOT/check_cards.py"; then :; else fail=1; fi
+
 echo "──────────────"
 if [ "$fail" = 0 ]; then echo "✅ 全部通過"; else echo "❌ 有語法錯誤，勿 push"; fi
 exit $fail
