@@ -1071,8 +1071,8 @@ function actionFateBattle(userData, pcId, sheets) {
               : (totalTaken > totalDealt * 1.3) ? `${_hisSv}正壓著${_ourSv}打、明顯佔上風`
                 : (totalDealt > totalTaken * 1.3) ? `${_hisSv}略顯吃力、被${_ourSv}壓著打`
                   : '雙方勢均力敵、勝負未有定論';
-    // 三條 ★ 併一條（他是誰的御主／他要有反應／戰況如何），且只給事實——怎麼反應由他的個性決定。
-    enemyMasterCardStr += `★這位敵御主是${_hisSv}的契約者，自己的從者正在眼前搏命：${_situText}。他在場、看著這一切。\n`;
+    // 三條 ★ 併一條（是誰的御主／要有反應／戰況如何），且只給事實——怎麼反應由那個人的個性決定。
+    enemyMasterCardStr += `★這位敵御主是${_hisSv}的契約者，自己的從者正在眼前搏命：${_situText}。${pron_(enemyMasterRow[COL.PC.SEX])}在場、看著這一切。\n`;
   }
   // 🎭 敵從者演出卡：附上敵從者卡，讓性格/口吻/狂化禁言有依據，而非全靠 AI 憑真名即興；同一張 servantCard_，狂化「嚴禁台詞」鐵則對敵方一併生效。
   const foeServantCardStr = targetIsFoeServant ? '〔敵方出戰者〕' + servantCard_(pcData[nIdx], { skipClose: true, foe: true }) : "";
@@ -1152,8 +1152,8 @@ function actionFateBattle(userData, pcId, sheets) {
     if (npSealForced) SC_PEAK.push(`【令咒強開寶具】御主魔力早已見底、血肉也湊不出真名解放所需，卻仍以令咒之力硬逼出這一擊——刻在手背的絕對命令化作純粹魔力補上枯竭的缺口。演出這股「以令咒硬點燃寶具」的悲壯。`);
     if (clash) SC_PEAK.push(`【寶具對轟】我方真名【${npName ? npName.zh : atkC.name}】 vs 敵方真名【${clash.enemyNpName || defC.name}】——雙方在同一刻高呼各自真名、正面對撞，這是這場戰鬥最戲劇性的瞬間。`);
     else if (useNp) SC_PEAK.push(_mad
-      ? `『${atkC.name}』解放了寶具【${_npZh}】${npMissed ? '——這一擊被「' + defC.name + '」避開了' : ''}。★他已狂化、無法詠唱：解放是咆哮與本能的爆發，旁白可呈現真名與威能，但不讓他開口唸出任何字句。`
-      : `『${atkC.name}』高呼真名、解放了寶具【${_npZh}】${npMissed ? '——這一擊被「' + defC.name + '」避開了' : ''}。★讓她/他【親口唸出這個真名】(中文真名與原名並呼)。`);
+      ? `『${atkC.name}』解放了寶具【${_npZh}】${npMissed ? '——這一擊被「' + defC.name + '」避開了' : ''}。★${pron_(pcData[atkIdx][COL.PC.SEX])}已狂化、無法詠唱：解放是咆哮與本能的爆發，旁白可呈現真名與威能，但不讓${pron_(pcData[atkIdx][COL.PC.SEX])}開口唸出任何字句。`
+      : `『${atkC.name}』高呼真名、解放了寶具【${_npZh}】${npMissed ? '——這一擊被「' + defC.name + '」避開了' : ''}。★讓${pron_(pcData[atkIdx][COL.PC.SEX])}【親口唸出這個真名】(中文真名與原名並呼)。`);
     if (useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.25) SC_PEAK.push(`【灌魔超載】御主${atkC.npOverloadMul >= 1.9 ? '把餘裕魔力盡數傾注' : '將大量魔力加壓灌注'}這一發真名解放${atkC.overcharge ? '（方才補魔蓄積的澎湃魔力一併傾瀉）' : ''}——威能被推至${atkC.npOverloadMul >= 1.9 ? '極限、化作規格外的毀滅光輝' : '遠超尋常的輝度'}。演出這股灼熱光壓。`);
     if (idealRealmFired) SC_PEAK.push(`【理想鄉】「${idealRealmFoe}」傾盡全力解放了斬裂世界的究極真名，然而在觸及「${idealRealmSaber}」的剎那，全世界遙遠的理想鄉 Avalon 悄然展開——究極寶具的威能盡數湮滅於金色結界中，「${idealRealmSaber}」毫髮無傷。演出這一擋的神聖、靜謐與絕對。`);
     if (enemyNpRoundNotes) SC_PEAK.push(`${enemyNpRoundNotes}——這不是普通反擊而是寶具解放，讓「${defC.name}」展現寶具威能／可高呼真名，不可寫成尋常一擊。`);

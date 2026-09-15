@@ -101,16 +101,16 @@ function translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint,
   if (!look) return { look: "", outfit: "" };
   var figureHint = (sex === "女") ? "，若角色是成年女性、務必包含身形/胸部具體描寫，但要寫成自然的敘述句(如「胸前豐盈」「身形纖瘦」)、不要用「巨乳」這類生硬孤立的分類標籤直接呈現——這句話會顯示在玩家看得到的狀態欄位；「豐滿」單獨出現不夠明確，須明確扣連到胸部，不要只寫髮色瞳色就交差" : "";
   var sys = KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_ + "玩家提供一段用「、」或「・」分隔的角色戰時外貌描述" +
-    "(前面數段是外貌本相與戰時攻防裝束，最後一段是整體氣質／神情)，以及她的第一人稱自稱、說話語氣。" +
+    "(前面數段是外貌本相與戰時攻防裝束，最後一段是整體氣質／神情)，以及這位角色的第一人稱自稱、說話語氣。" +
     "這是 Fate／聖杯戰爭的平行世界日常線，想像《衛宮家今天的餐桌風景》那種基調——換上現代日常穿搭，" +
-    "但一看就知道是她本人。請輸出兩樣東西：\n" +
+    "但一看就知道是本人。請輸出兩樣東西：\n" +
     "①look：日常版「外貌」四短句、頓號分隔，每句精簡收束、【每句限" + TRAIT_SEG_HINT_ + "字內寫完整一句話，超過會被截斷】、避免堆疊多重子句，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝)" + figureHint + "]、" +
     "[氣質舉止(依和平日常情境自然轉化，但性格底色不變，不可變成另一個人的氣質；【不可與下方口氣段用相同字眼重複描述】，例如兩段都寫「溫柔」「謙恭」)]、" +
-    "[自稱與口氣：固定格式「自稱「" + (firstP || "我") + "」，再接一句依她原本說話語氣(" + (speech || "無特別描述") + ")寫成的日常口氣描述」]、" +
+    "[自稱與口氣：固定格式「自稱「" + (firstP || "我") + "」，再接一句依原本說話語氣(" + (speech || "無特別描述") + ")寫成的日常口氣描述」]、" +
     "[卸下心防的私密一面(這個角色只有放下戒備才會流露的一個具體、生活化、忠於其性格的小可愛面向，" +
-    "【必須用看得到的具體小動作或情境呈現(show-don't-tell)，禁止直接說出她的內心想法/動機/情感獨白——如「心裡一直惦記著…」「其實很在意…」這類直述寫法一律不允許】，也不要只是把她的性格或喜好換句話說(那屬於性格欄)，" +
+    "【必須用看得到的具體小動作或情境呈現(show-don't-tell)，禁止直接說出內心想法/動機/情感獨白——如「心裡一直惦記著…」「其實很在意…」這類直述寫法一律不允許】，也不要只是把性格或喜好換句話說(那屬於性格欄)，" +
     "不可空泛或套用他人" + (dailyMoeHint ? "；這個角色的招牌萌點已經是「" + dailyMoeHint + "」，這一格【禁止】重複或換句話說同一件事，必須是完全不同的另一個生活切面(小動作/小習慣/情緒觸發點)" : "") + ")]。\n" +
-    "②outfit：一句她今天的日常穿搭，保留原本服裝的色系/風格精神、換成現代日常款式，盡量貼近原味，" +
+    "②outfit：一句這位角色今天的日常穿搭，保留原本服裝的色系/風格精神、換成現代日常款式，盡量貼近原味，" +
     "不要跟look的內容重複。\n" +
     "★輸出合法 JSON、禁 Markdown：{\"look\":\"四短句頓號分隔\",\"outfit\":\"一句日常穿搭\"}";
   var prompt = "角色：" + name + "（" + cls + "）\n戰時外貌描述：" + look;
@@ -133,7 +133,7 @@ function translatePersonalityToDaily_(name, cls, rawWords, lookPrivateHint) {
     "②段數不足4段時，依既有特質延伸出貼合、具體、適合日常場景的「喜歡的事物」與「討厭的事物」" +
     "補滿4句。\n" +
     "③每句精簡收束、【每句限" + TRAIT_SEG_HINT_ + "字內寫完整一句話，超過會被截斷】、避免堆疊多重子句。\n" +
-    (lookPrivateHint ? "④她的日常外貌欄已寫好一句「私密一面」：「" + lookPrivateHint + "」——你這4句性格【不要】跟它重複或換句話說同一件事，各自要是獨立的面向。\n" : "") +
+    (lookPrivateHint ? "④這位角色的日常外貌欄已寫好一句「私密一面」：「" + lookPrivateHint + "」——你這4句性格【不要】跟它重複或換句話說同一件事，各自要是獨立的面向。\n" : "") +
     "★只輸出最終4句、用「、」分隔，不要輸出任何說明、標籤、引號、前後綴。";
   var prompt = "角色：" + name + "（" + cls + "）\n戰時性格短句：" + words;
   return kanshouDailyTranslateCall_(prompt, sys, { temperature: 0.75, ignoreLaw: true, plainText: true }, function (raw) {
@@ -149,7 +149,7 @@ function translateMoeToDaily_(name, cls, rawMoe) {
   var sys = KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_ + "玩家提供一位角色在聖杯戰爭(戰時)既有的「萌點」" +
     "一句話——這種戰時萌點常常是靠沉重背景撐出來的(創傷/自卑/孤獨/悲劇宿命等)，形式不拘：可能是" +
     "反差(表面兇其實軟)，也可能只是單純討喜的外觀/行為/習慣特色。這個角色現在要" +
-    "進入一個【平行世界的日常線】：這裡從來沒有發生過聖杯戰爭這回事(她依然是同一位英靈，只是活在" +
+    "進入一個【平行世界的日常線】：這裡從來沒有發生過聖杯戰爭這回事(依然是同一位英靈，只是活在" +
     "一個沒有戰爭、不必背負詛咒創傷的和平世界)。想像《衛宮家今天的餐桌風景》那種基調，把這句戰時萌點" +
     "改寫成一句「日常向」的可愛萌點：\n" +
     "①保留角色的性格核心(如高冷/傲氣/寡言/暖心等本相不變)，只是換一個不需要靠悲劇/創傷/戰爭陰影" +
@@ -311,20 +311,20 @@ const KANSHOU_RAPPORT_BOND_TIERS_ = [{ min: 80, key: '很喜歡' }, { min: 50, k
 // 🎭 2D 基調表：[好感段][熟悉段] → **一句既定事實**，短到不能再短。
 const KANSHOU_RAPPORT_TONE_ = {
   '陌生': {
-    '初識': '事實：你對她而言是陌生人，她不談自己、不接受身體接觸。',
-    '混熟': '事實：她認得你，僅止於認得——家人／過去／感情這些不對你講。',
-    '老交情': '事實：很熟，但她對你【沒有戀愛的意思】：曖昧、牽手、告白一律被擋回來，她也不覺得可惜。'
+    '初識': '事實：你對這個人而言是陌生人，對方不談自己、不接受身體接觸。',
+    '混熟': '事實：對方認得你，僅止於認得——家人／過去／感情這些不對你講。',
+    '老交情': '事實：很熟，但對你【沒有戀愛的意思】：曖昧、牽手、告白一律被擋回來，對方也不覺得可惜。'
   },
   '朋友': {
-    '老交情': '事實：老朋友，沒有心動的成分——曖昧的話會被她當玩笑接下去。'
+    '老交情': '事實：老朋友，沒有心動的成分——曖昧的話會被當成玩笑接下去。'
   },
   '在意': {
-    '初識': '事實：她喜歡你，但你們認識還太短，她不會承認。',
-    '老交情': '事實：她喜歡你，卻說不出口——你若直接問，她會否認。'
+    '初識': '事實：對方喜歡你，但你們認識還太短，不會承認。',
+    '老交情': '事實：對方喜歡你，卻說不出口——你若直接問，會被否認。'
   },
   '很喜歡': {
-    '初識': '事實：喜歡跑在相處前面，連她自己都還沒跟上。',
-    '老交情': '事實：她不藏了，明著在等你先開口；但她絕不會自己先告白。'
+    '初識': '事實：喜歡跑在相處前面，連本人都還沒跟上。',
+    '老交情': '事實：不藏了，明著在等你先開口；但絕不會自己先告白。'
   },
   '交往中': {
     '初識': '事實：已經在交往，但認識還沒多久。',
@@ -423,7 +423,7 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
     // 🏷️ 跨名比對(短名列 vs 英靈殿全名)：候選集含別名橋，兩個方向都查。
     if (kanshouNameCandidates_(String(data[i][COL.PC.NAME])).includes(heroName) || kanshouNameCandidates_(heroName).includes(String(data[i][COL.PC.NAME]))) { existingIdx = i; break; }
   }
-  if (existingIdx >= 0) return JSON.stringify({ success: false, message: "「" + heroName + "」已經存在於這個世界了，去找找她在哪裡吧。" });
+  if (existingIdx >= 0) return JSON.stringify({ success: false, message: "「" + heroName + "」已經存在於這個世界了，去找找人在哪裡吧。" });
   kpc.appendRow(heroToKanshouRow_(hero, gid, loc, parseInt(me[COL.PC.DAY]) || 1));
   return JSON.stringify({ success: true, added: heroName, message: "「" + heroName + "」來到了你們身邊。" });
 }
@@ -765,10 +765,10 @@ function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
 
   const finalJson = {
     // 強制思維鏈：放範本第一位讓模型先自省再寫敘事。
-    "inner_monologue": "【不顯示·約50字】第三人稱總結她此刻的真實狀態([性格]vs[情緒身體])·承接歷史·只算【在場人物】名單上的人",
+    "inner_monologue": "【不顯示·約50字】第三人稱總結對方此刻的真實狀態([性格]vs[情緒身體])·承接歷史·只算【在場人物】名單上的人",
     "narration": "劇情(第一人稱·字數照下方【篇幅】·不可少於下限)",
     // 🗺️ 2026-07 移動改「同意泡泡」制(見§134)；2026-07再修（玩家實測「AI一直提議移動、頭痛」）：move_proposal 欄位整個砍掉，AI 不再有任何管道自己決定要不要換場景/換去哪。
-    "npc_exit": "本回合告辭離場者的真名陣列·narration須演出她離開·否則[]",
+    "npc_exit": "本回合告辭離場者的真名陣列·narration須演出那個人離開·否則[]",
     "options": ["1. [主動]…（固定4條·各≤20字·就本回合 narration 出題·只出在場者此刻真做得到的動作·不含換地點）", "2. [被動]…", "3. [接續]…", "4. [反差]…"],
     "intimacy_feedback": {
       "player": {
@@ -801,14 +801,14 @@ function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
   // 🔴 NSFW(慾海模式)：本回合聚焦當下的近身互動(情慾/調情/鋪陳皆可)，雜務(物品/金錢/陣營/任務/招募/地圖/戰鬥數值/身世)完全不追蹤、不輸出，鐵律文字大幅精簡，盡量交給AI自行判斷。
   const nsfwBaseRules = `後日談敘事核心·輕小說筆觸·台灣繁體中文·第一人稱「我」·禁上帝視角。鐵律：
 1. 承接玩家最新動作與台詞【語氣照原樣】(疑問就疑問、吐槽就吐槽)·不擴寫不代玩家加戲·被搭話的人本回合必給完整真實反應·優先接反轉/否定/突發情緒。
-2. 每3~4句 <br><br> 分段·女子柔美(柔嫩/雪白/婉約·出力柔中帶勁)。
+2. 每3~4句 <br><br> 分段·女性角色柔美(柔嫩/雪白/婉約·出力柔中帶勁)；男性角色依其體格氣質寫，不套這組柔美措辭。
 3. ${dialogueFormatRule_()}
-4. 依玩家輸入【確實推演往下走·不停滯敷衍】——她答不答應由她的[個性]×[好感]決定(順從/猶豫/半推半就/婉拒皆可)，玩家不能替她決定她的反應；肢體親密照【親密尺度五階】。
-5. 先在 inner_monologue 判她此刻最真實的反應·再寫 narration。
+4. 依玩家輸入【確實推演往下走·不停滯敷衍】——答不答應由對方的[個性]×[好感]決定(順從/猶豫/半推半就/婉拒皆可)，玩家不能替對方決定反應；肢體親密照【親密尺度五階】。
+5. 先在 inner_monologue 判對方此刻最真實的反應·再寫 narration。
 6. 繼承歷史情緒與親密階·絕不無故重置(降溫只因被打斷/翻臉等明確事件)·玩家只是日常時不憑空推進情慾。
-7. 女女：純女女之愛·主導跟隨依個性·動作柔美；男女：依器官自然互動·女性側柔美。
+7. 配對依雙方【性別】欄：女女＝純女女之愛·主導跟隨依個性·動作柔美；男女＝依器官自然互動·女性側柔美、男性側依其體格氣質。
 8. 萌點/語癖/名號自然滲入、偶爾點到即可·同一個不重複用。關係標籤由玩家定，你不改。
-9. 玩家指定的裝扮＝既定事實，直到劇情真讓她換裝為止——不因為「這身跟這幕不搭」就自行改寫或省略。
+9. 玩家指定的裝扮＝既定事實，直到劇情真讓那個人換裝為止——不因為「這身跟這幕不搭」就自行改寫或省略。
 10. 聚焦當下近身互動·只輸出合法JSON(各欄怎麼填見下方輸出範本)。`;
 
 const specificRules = "";
@@ -944,11 +944,11 @@ const KANSHOU_WORLD_ROSTER_CAP_ = 8;
 // 橋段庫：GAS先決定「觸發條件」與「這次走向」，AI只負責照著選中的走向演出具體細節，玩家不必自己打字下劇本。
 const KANSHOU_SCENE_EVENTS_ = {
   // ── 地點×時段(KANSHOU_LOCATION_EVENTS_) ──
-  共浴: { ambient: '浴室裡傳來水聲，她正在沐浴' },
-  溫泉同浴: { ambient: '氤氳的霧氣裡，她正泡在溫泉中' },
-  膝枕: { ambient: '午後的客廳很慵懶，她正窩在沙發上' },
-  下廚: { ambient: '廚房飄出飯菜香，她正在準備晚餐' },
-  觀星: { ambient: '今晚夜空格外清澈，她在屋頂花園仰望星空' },
+  共浴: { ambient: '浴室裡傳來水聲，對方正在沐浴' },
+  溫泉同浴: { ambient: '氤氳的霧氣裡，對方正泡在溫泉中' },
+  膝枕: { ambient: '午後的客廳很慵懶，對方正窩在沙發上' },
+  下廚: { ambient: '廚房飄出飯菜香，對方正在準備晚餐' },
+  觀星: { ambient: '今晚夜空格外清澈，對方在屋頂花園仰望星空' },
   // ── 節慶(KANSHOU_FESTIVAL_EVENTS_) ──
   初詣: { ambient: '新年頭一天，街上到處是要去神社參拜的人潮與攤販' },
   情人節巧克力: { ambient: '今天是情人節，街上的店家全擺出了巧克力與心形包裝' },
@@ -957,11 +957,11 @@ const KANSHOU_SCENE_EVENTS_ = {
   聖誕約會: { ambient: '聖誕，整條街的燈飾與音樂都在提醒今天不一樣' },
   跨年倒數: { ambient: '一年的最後一天，街上到處是準備跨年的人與收攤的年貨' },
   // ── 同居日常(KANSHOU_COHABIT_EVENTS_·僅同居中的她) ──
-  同居晨光: { ambient: '清晨的家裡，她已經起身在活動' },
-  同居午後: { ambient: '午後的家裡只有你們兩人，她正做著自己的事' },
-  同居黃昏: { ambient: '傍晚了，她在廚房張羅著晚飯' },
-  同居夜話: { ambient: '夜深了，她還沒去睡，看來是想說說話' },
-  同居深夜: { ambient: '半夜，她竟也還醒著' }
+  同居晨光: { ambient: '清晨的家裡，對方已經起身在活動' },
+  同居午後: { ambient: '午後的家裡只有你們兩人，對方正做著自己的事' },
+  同居黃昏: { ambient: '傍晚了，對方在廚房張羅著晚飯' },
+  同居夜話: { ambient: '夜深了，對方還沒去睡，看來是想說說話' },
+  同居深夜: { ambient: '半夜，對方竟也還醒著' }
 };
 // 睡眠時刻切點(玩家實測要求：0~8點在她家/和室/玩家房間必定熟睡)——不依附 timeBand_ 的深夜/清晨切法，清晨 band 原本一路延伸到 11 點、超出「還在睡」的合理範圍。
 const KANSHOU_ASLEEP_HOUR_END_ = 8;
@@ -990,9 +990,9 @@ const KANSHOU_COHABIT_EVENTS_ = {
 };
 // 🌙 深夜訪客「別有用心」的分寸判準(2026-07 泡泡拆除後，唯一呼叫點只剩深夜敲門那條)：好感決定這次能走到哪一階，不寫死台詞，具體怎麼演、講什麼話全交AI依角色性格發揮。
 function kanshouAsleepOutcomeStr_(bond) {
-  if (bond >= 80) return '兩人的關係已經很深，她可以徹底卸下防備、主動迎合，這次能順著情境發展下去，不受親密尺度五階節奏限制';
-  if (bond >= 60) return '兩人已有一定好感，她可能半推半就地放任靠近、甚至有點主動回應，但親密尺度五階此刻卡在「親吻擁抱」這一階，不宜真的推展到更進一步';
-  return '兩人好感還沒到能這樣的地步，她會又驚又惱，甚至直接把人趕走，不會就此讓事情繼續下去';
+  if (bond >= 80) return '兩人的關係已經很深，對方可以徹底卸下防備、主動迎合，這次能順著情境發展下去，不受親密尺度五階節奏限制';
+  if (bond >= 60) return '兩人已有一定好感，對方可能半推半就地放任靠近、甚至有點主動回應，但親密尺度五階此刻卡在「親吻擁抱」這一階，不宜真的推展到更進一步';
+  return '兩人好感還沒到能這樣的地步，對方會又驚又惱，甚至直接把人趕走，不會就此讓事情繼續下去';
 }
 // 修過的bug：kanshouRollDailyLocation_原本深夜/清晨的homeBias會直接回傳玩家自己家的房間，讓不在場的人溜進玩家家裡——改成每位英靈自己的住處(資料驅動，同KANSHOU_LOCATION_TAGS_寫法)，…（全文見 CODE_NOTES.md）
 const KANSHOU_HERO_HOME_ = {
@@ -1208,7 +1208,7 @@ const KANSHOU_INIT_WANTS_ = [
   '手上拿著剛買回來的東西，本來就是打算拿給你的',
   '心裡想去某個地方走走，話還卡在嘴邊沒說出口',
   '有件事想問你，猶豫著要不要現在開口',
-  '只是想要你陪一下，理由她自己會找',
+  '只是想要你陪一下，理由對方自己會找',
   '注意到你身上或身邊有什麼跟平常不一樣',
   '手邊的事告一段落了，正好空下來，眼睛開始往你這邊看'
 ];
@@ -1477,11 +1477,11 @@ function kanshouNameCandidates_(fullName) {
 }
 
 const KANSHOU_MISS_COPY_ = {
-  promise: { title: '相約撲空', body: (n) => `你想找『${n}』相約見面，但她此刻並不在這裡——演出這份撲空的悵然即可，約定沒有成立。` },
+  promise: { title: '相約撲空', body: (n) => `你想找『${n}』相約見面，但對方此刻並不在這裡——演出這份撲空的悵然即可，約定沒有成立。` },
   move: { title: '提議撲空', body: (n) => `你想邀人一起去「${n}」，但此刻身邊沒有同伴——演出這份獨自的悵然即可(玩家可自己用地圖移動)。` },
-  cohabit: { title: '邀請撲空', body: (n) => `你想邀『${n}』搬來同住，但她此刻並不在這裡——演出這份撲空的悵然即可。` },
-  hold: { title: '牽手落空', body: (n) => `你想牽『${n}』的手，但她此刻並不在你身邊——演出這份撲空即可。` },
-  confess: { title: '告白撲空', body: (n) => `你鼓起勇氣要向『${n}』告白，才發現她此刻並不在這裡——演出這份話沒說出口的悵然即可。` },
+  cohabit: { title: '邀請撲空', body: (n) => `你想邀『${n}』搬來同住，但對方此刻並不在這裡——演出這份撲空的悵然即可。` },
+  hold: { title: '牽手落空', body: (n) => `你想牽『${n}』的手，但對方此刻並不在你身邊——演出這份撲空即可。` },
+  confess: { title: '告白撲空', body: (n) => `你鼓起勇氣要向『${n}』告白，才發現對方此刻並不在這裡——演出這份話沒說出口的悵然即可。` },
   invite: { title: '結識未成', body: (n) => `你想跟『${n}』深交下去，但這段緣分此刻不成立(對方已離開、或早已相識)——演出這份悵然即可。` }
 };
 function kanshouMissStr_(type, name) {
@@ -1653,11 +1653,11 @@ function actionPlay_(userData, pcId, sheets) {
       const _pmOldStr = (_pmOld && (parseInt(_pmOld.day) || 0) >= curDay)
         ? `${(parseInt(_pmOld.day) || 0) === curDay ? '今天' : '之前約好的'}${_pmOld.band ? ((KANSHOU_APPT_BANDS_.find(b => b.band === _pmOld.band) || {}).label || _pmOld.band) + '於' : '在'}「${_pmOld.loc}」` : "";
       _pendingProposal = { type: 'promise', idx: _pmIdx, loc: _pmLoc, band: _pmBand, today: _pmToday, accepted: kanshouProposalAccepts_('promise', _pmBond) };
-      kanshouPromiseStr = `\n★【提議·相約·GAS已裁定】你向『${_pmHer}』提議【${_pmWhenTxt}${_pmBandLabel ? _pmBandLabel + '於' : '在'}「${_pmLoc}」見面】。系統已依好感(${_pmBond}/100)裁定她${_pendingProposal.accepted ? `【答應】了——請 narration 依她的個性演出答應的反應（雀躍／害羞／矜持地點頭皆可），系統${_pmWhenTxt}會記得這個約${_pmOldStr ? `。★同時：你們原本還有一個【${_pmOldStr}見面】的約，這次改約等於把它取消了——narration 必須讓她自然把這件事說出口(確認改期／有點可惜／順口調侃皆可)，不可讓舊的約無聲消失` : ''}` : '【婉拒】了——請 narration 依她的個性演出婉拒的反應（不好意思／認真說改天／打趣帶過皆可），此約不成立、不必替玩家找補'}。★成敗由系統定，【不可】自行改寫她的決定，只演她的反應。`;
+      kanshouPromiseStr = `\n★【提議·相約·GAS已裁定】你向『${_pmHer}』提議【${_pmWhenTxt}${_pmBandLabel ? _pmBandLabel + '於' : '在'}「${_pmLoc}」見面】。系統已依好感(${_pmBond}/100)裁定對方${_pendingProposal.accepted ? `【答應】了——請 narration 依對方的個性演出答應的反應（雀躍／害羞／矜持地點頭皆可），系統${_pmWhenTxt}會記得這個約${_pmOldStr ? `。★同時：你們原本還有一個【${_pmOldStr}見面】的約，這次改約等於把它取消了——narration 必須讓對方自然把這件事說出口(確認改期／有點可惜／順口調侃皆可)，不可讓舊的約無聲消失` : ''}` : '【婉拒】了——請 narration 依對方的個性演出婉拒的反應（不好意思／認真說改天／打趣帶過皆可），此約不成立、不必替玩家找補'}。★成敗由系統定，【不可】自行改寫對方的決定，只演對方的反應。`;
       finalUserMsg = `【玩家意圖】：向『${_pmHer}』提出「${_pmWhenTxt}${_pmBandLabel || ''}在${_pmLoc}見面」的約定。`;
     } else if (_pmName && _pmIdx === -1) {
       kanshouPromiseStr = kanshouMissStr_('promise', _pmName);
-      finalUserMsg = `【玩家意圖】：想找『${_pmName}』相約，卻發現她不在身邊。`;
+      finalUserMsg = `【玩家意圖】：想找『${_pmName}』相約，卻發現對方不在身邊。`;
       kanshouProposalResult_ = { ok: false, miss: true, type: 'promise', name: _pmName, where: _whereIsHer(_pmName) };
     } else if (_pmName) {
       kanshouPromiseStr = _pmSameSpot_
@@ -1692,7 +1692,7 @@ function actionPlay_(userData, pcId, sheets) {
       const _pvBond = Math.round(_pvBonds.reduce(function (a, b) { return a + b; }, 0) / _pvBonds.length);
       const _pvMulti = _pvNames.length > 1;
       _pendingProposal = { type: 'move', idx: _pvIdxs[0], names: _pvNames, name: _pvHer, loc: _pvLoc, accepted: kanshouProposalAccepts_('move', _pvBond) };
-      kanshouPromiseStr += `\n★【提議·同去·GAS已裁定】你向『${_pvHer}』提議【現在一起去「${_pvLoc}」】。系統已依好感(${_pvMulti ? `在場平均 ${_pvBond}` : _pvBond}/100)裁定${_pvMulti ? '她們全體' : '她'}${_pendingProposal.accepted ? `【答應】同行——請 narration ${_pvMulti ? '讓被點名的每一位都各依自己的個性給出答應的反應(可有人爽快、有人半推半就，但結論一致)' : '依她的個性演出答應的反應'}` : `【婉拒】了——請 narration ${_pvMulti ? '讓被點名的每一位都各依自己的個性給出婉拒的反應' : '依她的個性演出婉拒的反應'}`}。是否動身由系統處理；narration 停在${_pvMulti ? '她們' : '她'}給出回應的當下，【不可】演出發、走路或抵達。★成敗由系統定，別自行改寫${_pvMulti ? '她們' : '她'}的決定。`;
+      kanshouPromiseStr += `\n★【提議·同去·GAS已裁定】你向『${_pvHer}』提議【現在一起去「${_pvLoc}」】。系統已依好感(${_pvMulti ? `在場平均 ${_pvBond}` : _pvBond}/100)裁定${_pvMulti ? '她們全體' : '對方'}${_pendingProposal.accepted ? `【答應】同行——請 narration ${_pvMulti ? '讓被點名的每一位都各依自己的個性給出答應的反應(可有人爽快、有人半推半就，但結論一致)' : '依對方的個性演出答應的反應'}` : `【婉拒】了——請 narration ${_pvMulti ? '讓被點名的每一位都各依自己的個性給出婉拒的反應' : '依對方的個性演出婉拒的反應'}`}。是否動身由系統處理；narration 停在${_pvMulti ? '她們' : '對方'}給出回應的當下，【不可】演出發、走路或抵達。★成敗由系統定，別自行改寫${_pvMulti ? '她們' : '對方'}的決定。`;
       finalUserMsg = `【玩家意圖】：邀身旁的『${_pvHer}』現在一起去「${_pvLoc}」。`;
     } else if (!_pvIdxs.length) {
       kanshouPromiseStr += kanshouMissStr_('move', _pvLoc);
@@ -1715,16 +1715,16 @@ function actionPlay_(userData, pcId, sheets) {
     const _chIdx = _chName ? findPcRowIdx_(pcData, _myGid_, { id: _chId, name: _chName, faction: "從者", loc: curL, excludeIdx: pcIndex, nameCandidates: kanshouNameCandidates_ }) : -1;
     if (_chIdx === -1) {
       kanshouCohabitStr = kanshouMissStr_('cohabit', _chName);
-      finalUserMsg = `【玩家意圖】：想邀『${_chName}』搬來一起住，卻發現她不在身邊。`;
+      finalUserMsg = `【玩家意圖】：想邀『${_chName}』搬來一起住，卻發現對方不在身邊。`;
       kanshouProposalResult_ = { ok: false, miss: true, type: 'cohabit', name: _chName, where: _whereIsHer(_chName) };
     } else {
       const _chRealName = String(pcData[_chIdx][COL.PC.NAME]);
       if (kanshouIsCohabit_(pcData[_chIdx])) {
-        kanshouCohabitStr = `\n★【已在同居】：『${_chRealName}』早就跟你住在同一個屋簷下了——演出她對這個明知故問依性格的反應(好笑/沒好氣/趁機撒嬌皆可)。`;
+        kanshouCohabitStr = `\n★【已在同居】：『${_chRealName}』早就跟你住在同一個屋簷下了——演出對方面對這個明知故問、依性格給的反應(好笑/沒好氣/趁機撒嬌皆可)。`;
         finalUserMsg = `【玩家意圖】：又問了『${_chRealName}』要不要搬來一起住。`;
         _settledVerdict = `『${_chRealName}』早就跟你住在同一個屋簷下了`;
       } else if ((parseInt(pcData[_chIdx][COL.PC.BOND]) || 0) < KANSHOU_COHABIT_BOND_) {
-        kanshouCohabitStr = `\n★【同居·婉拒】：你邀『${_chRealName}』搬來同住，但你們的關係還沒深到能同住一個屋簷下——演出她依性格婉拒的反應(害羞岔開/認真說還太早/打趣帶過皆可)，這件事沒有成立、也沒有任何數值變動。`;
+        kanshouCohabitStr = `\n★【同居·婉拒】：你邀『${_chRealName}』搬來同住，但你們的關係還沒深到能同住一個屋簷下——演出對方依性格婉拒的反應(害羞岔開/認真說還太早/打趣帶過皆可)，這件事沒有成立、也沒有任何數值變動。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣邀『${_chRealName}』搬來一起住。`;
         _settledVerdict = `『${_chRealName}』婉拒了同住`;
         // 📣 走查抓到的資訊黑洞：舊版婉拒只有敘事、無機制回饋，玩家不知道是好感不足還是演出婉拒。
@@ -1734,7 +1734,7 @@ function actionPlay_(userData, pcId, sheets) {
         pcData[_chIdx][COL.PC.MEMORY] = kanshouStampFirst_(pcData[_chIdx][COL.PC.MEMORY], '同居', curDay);
         dirtyPcRows.add(_chIdx);
         kanshouProposalResult_ = { ok: true, type: 'cohabit', name: _chRealName };
-        kanshouCohabitStr = `\n★【同居開始】：『${_chRealName}』答應搬來與你同住了！從今以後她深夜會回這個家的「和室」就寢、清晨可能還賴在被窩、晚間常在家中活動，白天依然過她自己的生活——演出她答應這一刻依性格的反應(欣喜/彆扭/故作平靜皆可)，這是關係的一大步。`;
+        kanshouCohabitStr = `\n★【同居開始】：『${_chRealName}』答應搬來與你同住了！從今以後對方深夜會回這個家的「和室」就寢、清晨可能還賴在被窩、晚間常在家中活動，白天依然過對方自己的生活——演出對方答應這一刻依性格的反應(欣喜/彆扭/故作平靜皆可)，這是關係的一大步。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣邀『${_chRealName}』搬來一起住。`;
         _settledVerdict = `『${_chRealName}』答應搬來同住了`;
       }
@@ -1749,7 +1749,7 @@ function actionPlay_(userData, pcId, sheets) {
     const _cfIdx = _cfName ? findPcRowIdx_(pcData, _myGid_, { id: _cfId, name: _cfName, faction: "從者", loc: curL, excludeIdx: pcIndex, nameCandidates: kanshouNameCandidates_ }) : -1;
     if (_cfIdx === -1) {
       kanshouConfessStr = kanshouMissStr_('confess', _cfName);
-      finalUserMsg = `【玩家意圖】：想向『${_cfName}』告白，卻發現她不在身邊。`;
+      finalUserMsg = `【玩家意圖】：想向『${_cfName}』告白，卻發現對方不在身邊。`;
       kanshouProposalResult_ = { ok: false, miss: true, type: 'confess', name: _cfName, where: _whereIsHer(_cfName) };
     } else {
       const _cfHer = String(pcData[_cfIdx][COL.PC.NAME]);
@@ -1757,17 +1757,17 @@ function actionPlay_(userData, pcId, sheets) {
       const _cfMet = KANSHOU_MET_COUNT_TAG_.get(pcData[_cfIdx][COL.PC.MEMORY]);
       const _cfWait = kanshouConfessWait_(pcData[_cfIdx], curDay);
       if (kanshouIsLover_(pcData[_cfIdx])) {
-        kanshouConfessStr = `\n★【已經在一起了】：你又向『${_cfHer}』說了一次喜歡她——你們早就是戀人，這不是告白而是情話。演出她依個性收下這句話的反應(嫌你肉麻／耳根紅／回敬一句皆可)。`;
-        finalUserMsg = `【玩家意圖】：又對『${_cfHer}』說了一次喜歡她。`;
+        kanshouConfessStr = `\n★【已經在一起了】：你又向『${_cfHer}』說了一次喜歡——你們早就是戀人，這不是告白而是情話。演出對方依個性收下這句話的反應(嫌你肉麻／耳根紅／回敬一句皆可)。`;
+        finalUserMsg = `【玩家意圖】：又對『${_cfHer}』說了一次喜歡。`;
         _settledVerdict = `『${_cfHer}』收下了這句情話，你們早就是戀人`;
       } else if (_cfWait > 0) {
         // 💔 冷卻期：不擲骰、不動數值，只演「話又吞回去」——按鈕在前端本來就會鎖，這裡是後端保險。
-        kanshouConfessStr = `\n★【說不出口】：你想再對『${_cfHer}』說一次那句話，但前幾天才被她拒絕過、此刻怎麼樣都開不了口——演出你把話吞回去、改口講了別的，以及她察覺到你欲言又止時依個性的反應(裝作沒發現／追問／不自在皆可)。這次沒有告白，沒有任何數值變動。`;
+        kanshouConfessStr = `\n★【說不出口】：你想再對『${_cfHer}』說一次那句話，但前幾天才被對方拒絕過、此刻怎麼樣都開不了口——演出你把話吞回去、改口講了別的，以及對方察覺到你欲言又止時依個性的反應(裝作沒發現／追問／不自在皆可)。這次沒有告白，沒有任何數值變動。`;
         finalUserMsg = `【玩家意圖】：想再告白一次，話到嘴邊又吞了回去。`;
         _settledVerdict = `『${_cfHer}』只看到你欲言又止，這次沒有告白出口`;
         kanshouProposalResult_ = { ok: false, type: 'confess', name: _cfHer, wait: _cfWait, blocked: true };
       } else if (_cfBond < KANSHOU_CONFESS_BOND_) {
-        kanshouConfessStr = `\n★【告白·被拒】：你向『${_cfHer}』告白了，但你們之間還遠不到那個程度——演出她依個性拒絕的反應(錯愕／認真說我們還不夠了解彼此／笑著當成玩笑帶過皆可)，這次不成立，不必替玩家找補。`;
+        kanshouConfessStr = `\n★【告白·被拒】：你向『${_cfHer}』告白了，但你們之間還遠不到那個程度——演出對方依個性拒絕的反應(錯愕／認真說我們還不夠了解彼此／笑著當成玩笑帶過皆可)，這次不成立，不必替玩家找補。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣向『${_cfHer}』告白。`;
         _settledVerdict = `『${_cfHer}』沒有答應`;
         kanshouProposalResult_ = { ok: false, type: 'confess', name: _cfHer };
@@ -1780,7 +1780,7 @@ function actionPlay_(userData, pcId, sheets) {
         kanshouSyncRelTier_(pcData, _cfIdx);
         dirtyPcRows.add(_cfIdx);
         kanshouProposalResult_ = { ok: true, type: 'confess', name: _cfHer };
-        kanshouConfessStr = `\n★【告白·成立】：『${_cfHer}』答應了——從這一刻起你們是戀人。演出她點頭那一瞬間依個性的反應(眼眶紅／彆扭地別開臉／故作鎮定卻聲音在抖皆可)，並讓這一回合停在剛在一起的餘韻裡，別急著跳到之後的日子。★這是關係的質變，不是又一次閒聊。`;
+        kanshouConfessStr = `\n★【告白·成立】：『${_cfHer}』答應了——從這一刻起你們是戀人。演出對方點頭那一瞬間依個性的反應(眼眶紅／彆扭地別開臉／故作鎮定卻聲音在抖皆可)，並讓這一回合停在剛在一起的餘韻裡，別急著跳到之後的日子。★這是關係的質變，不是又一次閒聊。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣向『${_cfHer}』告白。`;
         _settledVerdict = `『${_cfHer}』答應了，你們成為戀人`;
       } else {
@@ -1790,7 +1790,7 @@ function actionPlay_(userData, pcId, sheets) {
         kanshouSyncRelTier_(pcData, _cfIdx);
         dirtyPcRows.add(_cfIdx);
         kanshouProposalResult_ = { ok: false, type: 'confess', name: _cfHer, wait: KANSHOU_CONFESS_COOLDOWN_ };
-        kanshouConfessStr = `\n★【告白·被拒】：你向『${_cfHer}』告白了，她沒有答應——不是討厭你，是她此刻還沒辦法把你放在那個位置上。演出她依個性說出口的拒絕(抱歉而認真／慌張逃開／硬邦邦地否認皆可)，以及被拒之後空氣裡那份尷尬；這一回合就停在這裡，別讓她自己反悔改口。★成敗由系統定，不可改寫她的決定。`;
+        kanshouConfessStr = `\n★【告白·被拒】：你向『${_cfHer}』告白了，對方沒有答應——不是討厭你，是對方此刻還沒辦法把你放在那個位置上。演出對方依個性說出口的拒絕(抱歉而認真／慌張逃開／硬邦邦地否認皆可)，以及被拒之後空氣裡那份尷尬；這一回合就停在這裡，別讓對方自己反悔改口。★成敗由系統定，不可改寫對方的決定。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣向『${_cfHer}』告白。`;
         _settledVerdict = `『${_cfHer}』沒有答應`;
       }
@@ -1812,7 +1812,7 @@ function actionPlay_(userData, pcId, sheets) {
       const _hhIdx = findPcRowIdx_(pcData, _myGid_, { id: _hhId, name: _hhArg, faction: "從者", loc: curL, excludeIdx: pcIndex, nameCandidates: kanshouNameCandidates_ });
       if (_hhIdx === -1) {
         kanshouHandHoldStr = kanshouMissStr_('hold', _hhArg);
-        finalUserMsg = `【玩家意圖】：想牽『${_hhArg}』的手，卻發現她不在身邊。`;
+        finalUserMsg = `【玩家意圖】：想牽『${_hhArg}』的手，卻發現對方不在身邊。`;
         kanshouProposalResult_ = { ok: false, miss: true, type: 'hold', name: _hhArg, where: _whereIsHer(_hhArg) };
       } else {
         const _hhName = String(pcData[_hhIdx][COL.PC.NAME]);
@@ -1821,7 +1821,7 @@ function actionPlay_(userData, pcId, sheets) {
         const _hhSwitch = (_hhPrevN && !kanshouNameCandidates_(_hhName).includes(_hhPrevN)) ? _hhPrevN : "";
         // 牽手tag存在玩家自己列(pcIndex)、值=她的名字；接受與否由AI判定，接受後才在post-AI區寫回。
         _pendingProposal = { type: 'hold', idx: pcIndex, herIdx: _hhIdx, name: _hhName, accepted: kanshouProposalAccepts_('hold', _hhBond) };
-        kanshouHandHoldStr = `\n★【提議·牽手·GAS已裁定】你伸手想牽起『${_hhName}』的手。系統已依好感(${_hhBond}/100)裁定她${_pendingProposal.accepted ? `【讓你牽了】——narration 必須真實演出【她的手交到你手中／你們牽起手】的那一刻(不可只碰衣角、拉衣袖之類含糊帶過——那不算牽手)，語氣依其個性（大方／害羞／彆扭皆可）；她接受後，之後你移動她會相伴同行(直到放手)${_hhSwitch ? `。★同時：你原本牽著的是『${_hhSwitch}』的手，這一牽等於當著她的面鬆開了她——narration 必須把這個鬆手先演出來(一個動作或一個眼神都好)、並讓『${_hhSwitch}』依她的個性有所反應，不可讓她的手憑空消失` : ''}` : '【收回了手】——narration 依其個性演出她收手／避開、沒牽成的反應，不必替玩家找補'}。★成敗由系統定，別自行改寫她的決定。`;
+        kanshouHandHoldStr = `\n★【提議·牽手·GAS已裁定】你伸手想牽起『${_hhName}』的手。系統已依好感(${_hhBond}/100)裁定對方${_pendingProposal.accepted ? `【讓你牽了】——narration 必須真實演出【對方的手交到你手中／你們牽起手】的那一刻(不可只碰衣角、拉衣袖之類含糊帶過——那不算牽手)，語氣依其個性（大方／害羞／彆扭皆可）；對方接受後，之後你移動對方會相伴同行(直到放手)${_hhSwitch ? `。★同時：你原本牽著的是『${_hhSwitch}』的手，這一牽等於當著對方的面鬆開了對方——narration 必須把這個鬆手先演出來(一個動作或一個眼神都好)、並讓『${_hhSwitch}』依對方的個性有所反應，不可讓對方的手憑空消失` : ''}` : '【收回了手】——narration 依其個性演出對方收手／避開、沒牽成的反應，不必替玩家找補'}。★成敗由系統定，別自行改寫對方的決定。`;
         finalUserMsg = `【玩家意圖】：伸手想牽起『${_hhName}』的手。`;
       }
     }
@@ -1876,7 +1876,7 @@ function actionPlay_(userData, pcId, sheets) {
         pcData.push(_ivNewRow); // 本回合就地生效：partyRows/在場卡片馬上抓得到她
         pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]); // 她不再是「路人例外」，改走正式在場人物
         dirtyPcRows.add(pcIndex);
-        kanshouInviteStr = `\n★【正式結識】：你與『${kanshouCasualOf_(_ivHero)}』交換了聯絡方式，這段萍水相逢的緣分正式接上了——從今以後她也是這座城裡你認識的人，會有自己的生活與去處。演出這一刻依她性格的反應(大方/靦腆/意外皆可)，關係才剛起步、保持剛認識的分寸。`;
+        kanshouInviteStr = `\n★【正式結識】：你與『${kanshouCasualOf_(_ivHero)}』交換了聯絡方式，這段萍水相逢的緣分正式接上了——從今以後對方也是這座城裡你認識的人，會有自己的生活與去處。演出這一刻依對方性格的反應(大方/靦腆/意外皆可)，關係才剛起步、保持剛認識的分寸。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣向『${kanshouCasualOf_(_ivHero)}』提出想繼續深交、交換聯絡方式。`;
         _settledVerdict = `『${kanshouCasualOf_(_ivHero)}』同意交換聯絡方式，這段緣分正式接上了`;
       }
@@ -1916,7 +1916,7 @@ function actionPlay_(userData, pcId, sheets) {
         && String(r[COL.PC.LOC] || "").trim() === kanshouSceneLoc_ && (!_sceneIsCohabit_ || kanshouIsCohabit_(r))) _sceneNames.push(String(r[COL.PC.NAME]));
     });
     if (_ev && _ev.ambient && _sceneNames.length) {
-      kanshouSceneAmbientStr = `\n★【此地此刻·情境事實】：${_sceneNames.join('、')}——${_ev.ambient}。這只是眼下的客觀情境，【不是】既定劇情：要不要理會、想怎麼互動，全部由玩家自己決定。你只需讓這個情境自然存在於場景描寫裡，【不可】替玩家做決定、不可推著他行動、更不可自行把事情演完。`;
+      kanshouSceneAmbientStr = `\n★【此地此刻·情境事實】：${_sceneNames.join('、')}——${_ev.ambient}。這只是眼下的客觀情境，【不是】既定劇情：要不要理會、想怎麼互動，全部由玩家自己決定。你只需讓這個情境自然存在於場景描寫裡，【不可】替玩家做決定、不可推著玩家行動、更不可自行把事情演完。`;
     }
   }
 
@@ -1934,7 +1934,7 @@ function actionPlay_(userData, pcId, sheets) {
       // 🌙 2026-07 玩家「能不能也設計一個被夜襲的橋段呢」——夜襲的鏡像版：不是玩家去找她，是她主動來敲玩家的門。
       const _kgBond = parseInt(pcData[guestIdx][COL.PC.BOND]) || 0;
       if (_kgBond >= KANSHOU_KNOCK_MIN_BOND_ && Math.random() < KANSHOU_KNOCK_RAID_CHANCE_) {
-        kanshouKnockRaidStr = `\n★【深夜訪客「${kanshouKnockGuestName}」·別有用心(她這次登門不只是單純想聊聊，帶著幾分主動靠近你的心思，沒有固定台詞，依她性格自由發揮)】：${kanshouAsleepOutcomeStr_(_kgBond)}。要不要挑明、怎麼發展，全由你依她性格拿捏。`;
+        kanshouKnockRaidStr = `\n★【深夜訪客「${kanshouKnockGuestName}」·別有用心(對方這次登門不只是單純想聊聊，帶著幾分主動靠近你的心思，沒有固定台詞，依對方性格自由發揮)】：${kanshouAsleepOutcomeStr_(_kgBond)}。要不要挑明、怎麼發展，全由你依對方性格拿捏。`;
         if (KANSHOU_SCENE_DAY_TAG_.get(pcData[guestIdx][COL.PC.MEMORY]) !== curDay) {
           pcData[guestIdx][COL.PC.BOND] = Math.min(100, _kgBond + KANSHOU_SCENE_BOND_);
           kanshouSyncRelTier_(pcData, guestIdx);
@@ -2021,7 +2021,7 @@ function actionPlay_(userData, pcId, sheets) {
     const _partNames = kanshouWithMeAtStart_.filter(n => intimateNightNames.indexOf(n) === -1);
     if (_partNames.length) {
       const _partHeld = kanshouHeldName_ && _partNames.some(n => kanshouNameCandidates_(n).includes(kanshouHeldName_));
-      kanshouNightPartStr = `\n★【夜裡道別】：夜深了，你要歇下，而『${_partNames.join('、')}』今晚不留在這裡——本回合最後一次讓她(們)開口道別，依各自個性演出這一刻(依依不捨／匆匆丟下一句就走／嘴上說得輕鬆皆可)${_partHeld ? `；其中『${kanshouHeldName_}』的手還牽著，必須先演出鬆開的那一下再讓她走` : ''}。道別完她(們)就不在場了，之後任何回合一律禁止再讓她開口或被觸碰。`;
+      kanshouNightPartStr = `\n★【夜裡道別】：夜深了，你要歇下，而『${_partNames.join('、')}』今晚不留在這裡——本回合最後一次讓要走的人開口道別，依各自個性演出這一刻(依依不捨／匆匆丟下一句就走／嘴上說得輕鬆皆可)${_partHeld ? `；其中『${kanshouHeldName_}』的手還牽著，必須先演出鬆開的那一下再讓對方走` : ''}。道別完這些人就不在場了，之後任何回合一律禁止再讓這些人開口或被觸碰。`;
       pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_NIGHT_PART_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], _partNames.join('、'));
     }
     // 🤝 睡覺自然放手：牽手不跨夜(同床是同床、不是牽著手到天亮)，結束一天一律鬆開，避免隔天還掛著昨天的牽手標記。
@@ -2175,7 +2175,7 @@ function actionPlay_(userData, pcId, sheets) {
         _lvNames.push(_nm);
       }
     });
-    if (_lvNames.length) kanshouNpcLeaveStr_ = `\n★【自然告辭·作息】：時段來到${timeBand_(curHour)}，『${_lvNames.join('、')}』到了該走的時間——本回合最後一次允許她(們)開口道別(若剛才有肢體接觸/牽制/擁抱，先演出中斷再道別)，之後她(們)就不在場了。★不在場的人，之後任何回合一律禁止捏造她開口、被觸碰、或仍在場，沒有例外。`;
+    if (_lvNames.length) kanshouNpcLeaveStr_ = `\n★【自然告辭·作息】：時段來到${timeBand_(curHour)}，『${_lvNames.join('、')}』到了該走的時間——本回合最後一次允許要走的人開口道別(若剛才有肢體接觸/牽制/擁抱，先演出中斷再道別)，之後這些人就不在場了。★不在場的人，之後任何回合一律禁止捏造對方開口、被觸碰、或仍在場，沒有例外。`;
   }
 
   // 📅 赴約/爽約結算 2.0(時間×地點驅動)：【必須在 partyRows 之前】——命中赴約會把她 pin 到 curL 讓她登場，這一步要先於在場名單計算，AI 才拿得到「她來了」的在場卡(否則純聊天/拍照這種不重骰位置的路徑，partyRows 會在她被拉來之前就定案、AI 完全不知道她到了)。
@@ -2220,7 +2220,7 @@ function actionPlay_(userData, pcId, sheets) {
       kanshouPromiseSettle_.push({ ok: false, type: 'promise_missed', name: _her, loc: _pr.loc });
       // 💔 她要「記得」被放鴿子(玩家實測：系統扣了好感、她卻渾然不知還演「我照約來了」)：爽約寫進共同回憶(玩家第一人稱視角·比照 memoir 鐵則)，之後每回合經 partyDetailsArr 餵給 AI，她才演得出在意/彆扭，也給玩家道歉挽回的戲肉。
       const _missBandL = _pr.band ? ((KANSHOU_APPT_BANDS_.find(b => b.band === _pr.band) || {}).label || "") : "";
-      const _missLine = `我爽約了——說好${_missBandL}在「${_pr.loc}」見面卻沒去，讓她空等了一場`;
+      const _missLine = `我爽約了——說好${_missBandL}在「${_pr.loc}」見面卻沒去，讓對方空等了一場`;
       const _oldMemoir2 = String(pcData[i][COL.PC.MEMOIR] || "").trim();
       if (_oldMemoir2.indexOf(_missLine) === -1) pcData[i][COL.PC.MEMOIR] = _oldMemoir2 ? (_oldMemoir2 + "｜" + _missLine) : _missLine;
     };
@@ -2239,7 +2239,7 @@ function actionPlay_(userData, pcId, sheets) {
           pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_HANDHOLD_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], '');
           kanshouHeldName_ = '';
         }
-        kanshouPromiseMetStr += `\n★【她先過去了】：快到你們約好的${kanshouFmtHM_(_ah)}了，『${_her}』看了眼時間，說了聲要先過去「${_pr.loc}」等你，就從這裡動身離開了——演出她起身道別的那一刻(期待/彆扭/催你別遲到皆可)。她【已經不在這裡】，這段之後不可再讓她開口或在場。`;
+        kanshouPromiseMetStr += `\n★【對方先過去了】：快到你們約好的${kanshouFmtHM_(_ah)}了，『${_her}』看了眼時間，說了聲要先過去「${_pr.loc}」等你，就從這裡動身離開了——演出對方起身道別的那一刻(期待/彆扭/催你別遲到皆可)。對方【已經不在這裡】，這段之後不可再讓對方開口或在場。`;
         return; // 她已離場，本回合不再結算
       }
       if (!_atApptLoc) {
@@ -2257,7 +2257,7 @@ function actionPlay_(userData, pcId, sheets) {
           ? `\n★【依約相會·都早到了】：你與『${_her}』約在${kanshouFmtHM_(_ah)}於「${_pr.loc}」見面，而你倆此刻(${kanshouFmtHM_(curHour)})都提早到了——演出兩人都早到、剛好碰上的甜蜜當下與那份心照不宣的默契(好感已上調，勿另計)。`
           : `\n★【依約相會】：約定的${kanshouFmtHM_(_ah)}，你準時到「${_pr.loc}」與『${_her}』相會——演出約定被守住的欣喜(好感已上調，勿另計)。`);
       } else if (curHour <= _ah + 2) { // 遲到(準時窗後~2小時內)
-        _settle(3, `\n★【遲到赴約】：你與『${_her}』約在${kanshouFmtHM_(_ah)}，卻拖到${kanshouFmtHM_(curHour)}才到「${_pr.loc}」——她等了你好一會，依個性流露嗔怪/委屈/嘴硬說沒關係(好感仍上調但你遲到了，勿另計)。`);
+        _settle(3, `\n★【遲到赴約】：你與『${_her}』約在${kanshouFmtHM_(_ah)}，卻拖到${kanshouFmtHM_(curHour)}才到「${_pr.loc}」——對方等了你好一會，依個性流露嗔怪/委屈/嘴硬說沒關係(好感仍上調但你遲到了，勿另計)。`);
       } else { // 遲到超過2小時：視為當天已經放鴿子，比照爽約結算
         _standUp();
       }
@@ -2314,7 +2314,7 @@ function actionPlay_(userData, pcId, sheets) {
       pcData[_i][COL.PC.MEMORY] = KANSHOU_AWAKE_HERE_TAG_.set(pcData[_i][COL.PC.MEMORY], curL);
       dirtyPcRows.add(_i); _stamp();
       kanshouInitVisitName_ = String(_r[COL.PC.NAME]);
-      kanshouInitStr = `\n★【她自己找來了】：『${String(_r[COL.PC.NAME])}』剛剛出現在「${curL}」——不是你叫她來的，是她自己想見你才過來的。這件事【已經發生】，由她依自己的個性演出她是怎麼出現、怎麼開的口(若無其事／找個藉口／直說皆可)。`;
+      kanshouInitStr = `\n★【對方自己找來了】：『${String(_r[COL.PC.NAME])}』剛剛出現在「${curL}」——不是你叫對方來的，是對方自己想見你才過來的。這件事【已經發生】，由對方依自己的個性演出對方是怎麼出現、怎麼開的口(若無其事／找個藉口／直說皆可)。`;
     } else if (_kind === 'invite') {
       const _r = _pick(_invitePool), _i = pcData.indexOf(_r);
       const _band = _pick(KANSHOU_APPT_BANDS_);
@@ -2330,11 +2330,11 @@ function actionPlay_(userData, pcId, sheets) {
       dirtyPcRows.add(_i); _stamp();
       kanshouPromiseSettle_.push({ ok: true, type: 'promise_byher', name: String(_r[COL.PC.NAME]), loc: _loc.name,
         when: _today ? '今天' : '明天', bandLabel: _band.label });
-      kanshouInitStr = `\n★【她開口約你】：『${String(_r[COL.PC.NAME])}』說了${_today ? '今天' : '明天'}${_band.label}在「${_loc.name}」等你——這句話【已經說出口】，由她依自己的個性演出她是怎麼提的(慎重／裝作隨口／彆扭地繞一圈才講皆可)。★這是她單方面的邀約，你答不答應都行，narration【不可】替玩家決定要去或不去。`;
+      kanshouInitStr = `\n★【對方開口約你】：『${String(_r[COL.PC.NAME])}』說了${_today ? '今天' : '明天'}${_band.label}在「${_loc.name}」等你——這句話【已經說出口】，由對方依自己的個性演出對方是怎麼提的(慎重／裝作隨口／彆扭地繞一圈才講皆可)。★這是對方單方面的邀約，你答不答應都行，narration【不可】替玩家決定要去或不去。`;
     } else {
       const _r = _pick(_wantPool);
       _stamp();
-      kanshouInitStr = `\n★【她此刻的心思】：『${String(_r[COL.PC.NAME])}』${_pick(KANSHOU_INIT_WANTS_)}——這是她心裡真的有的事，這一回合讓它自然浮出來一次(要不要說破、怎麼說，依她的個性決定)。★只是一個起頭，【不可】替玩家決定他怎麼回應。`;
+      kanshouInitStr = `\n★【對方此刻的心思】：『${String(_r[COL.PC.NAME])}』${_pick(KANSHOU_INIT_WANTS_)}——這是對方心裡真的有的事，這一回合讓它自然浮出來一次(要不要說破、怎麼說，依對方的個性決定)。★只是一個起頭，【不可】替玩家決定要怎麼回應。`;
     }
   })();
 
@@ -2361,7 +2361,7 @@ function actionPlay_(userData, pcId, sheets) {
     }
     const _fTodo = _fe.todo ? `這一天的老規矩是【${_fe.todo}】，而你還沒去成。` : '';
     const _fNudge = (_fe.todo && partyMembers.length)
-      ? `若情境合適，可由『${partyMembers[0]}』【自然地】提一句(期待/試探/嘴上說無所謂都行)——只能點到為止，【不可】催促玩家、不可替他決定去不去、更不可自行演成已經去過了。`
+      ? `若情境合適，可由『${partyMembers[0]}』【自然地】提一句(期待/試探/嘴上說無所謂都行)——只能點到為止，【不可】催促玩家、不可替玩家決定去不去、更不可自行演成已經去過了。`
       : '';
     return `\n★【節慶】：今天是「${_f.name}」——${_amb}。${_fTodo}${_fNudge}`;
   })();
@@ -2396,7 +2396,7 @@ function actionPlay_(userData, pcId, sheets) {
       const _caseNote = _variants.length ? `，${_variants.join('/')}也是同一人` : '';
       return `${_name}(${_region ? _region.name : "行蹤不明"}${_caseNote})`;
     }).join('、');
-    return `\n★【世界概況·這些人你確實認識】：這局你已經認識這些人，此刻分處異地，大略所在：${_list}。玩家若直接問起「認不認識/聽過某某」，只要名字(不分大小寫，英文名任何大小寫寫法都算同一人)出現在這份名單裡，你就【確實認識、要肯定回答「是」】，可以自然帶一句她大概在哪／大概是怎樣的人；【不可】因為她此刻不在場就裝作沒聽過或反問「那是誰」——那樣不合理，你們是同一座城裡認識的人。名單外的名字才是你真的沒聽過、可以照實說不認識。★但認識歸認識，仍【不可】讓她憑空出現、開口、或被指名互動——這不影響在場驗證鐵律，只有此刻真的同地點的人才算在場，能做的只是口頭確認「認識」，人不會登場。`;
+    return `\n★【世界概況·這些人你確實認識】：這局你已經認識這些人，此刻分處異地，大略所在：${_list}。玩家若直接問起「認不認識/聽過某某」，只要名字(不分大小寫，英文名任何大小寫寫法都算同一人)出現在這份名單裡，你就【確實認識、要肯定回答「是」】，可以自然帶一句對方大概在哪／大概是怎樣的人；【不可】因為對方此刻不在場就裝作沒聽過或反問「那是誰」——那樣不合理，你們是同一座城裡認識的人。名單外的名字才是你真的沒聽過、可以照實說不認識。★但認識歸認識，仍【不可】讓對方憑空出現、開口、或被指名互動——這不影響在場驗證鐵律，只有此刻真的同地點的人才算在場，能做的只是口頭確認「認識」，人不會登場。`;
   })();
   // 📅 初見日戳＋相識紀念日：同地即相識——沒戳過的在場同伴當下蓋【初見日】(冪等，之後只讀不改)；已有戳的算相識天數，命中里程碑(7/30/100/365天)就收進紀念日提示(當天內重複對話會重複提及，跟節慶氛圍同一種「全天有效的氛圍線」設計，AI自然不會每句都講)。
   let kanshouAloneBondStr = "";
@@ -2410,7 +2410,7 @@ function actionPlay_(userData, pcId, sheets) {
       kanshouSyncRelTier_(pcData, _alIdx);
       pcData[_alIdx][COL.PC.MEMORY] = KANSHOU_SCENE_DAY_TAG_.set(pcData[_alIdx][COL.PC.MEMORY], curDay);
       dirtyPcRows.add(_alIdx);
-      kanshouAloneBondStr = `\n★【獨處時光】：此刻這個地方只有你和『${String(partyRows[0][COL.PC.NAME])}』兩個人——不必特別點破，讓這份「沒有別人」的私密感自然滲進她的語氣與距離感即可(好感已由系統上調，敘事勿再另計)。`;
+      kanshouAloneBondStr = `\n★【獨處時光】：此刻這個地方只有你和『${String(partyRows[0][COL.PC.NAME])}』兩個人——不必特別點破，讓這份「沒有別人」的私密感自然滲進對方的語氣與距離感即可(好感已由系統上調，敘事勿再另計)。`;
     }
   }
   const kanshouAnnivLines_ = [];
@@ -2494,7 +2494,7 @@ function actionPlay_(userData, pcId, sheets) {
       }
     }
   });
-  const kanshouAnnivStr = kanshouAnnivLines_.length ? `\n★【紀念日·非強制】：今天是${kanshouAnnivLines_.join('、')}的日子——若氣氛合適可自然帶出這份紀念的溫度(她記得、或你記得皆可)，不必強行慶祝或報幕。` : "";
+  const kanshouAnnivStr = kanshouAnnivLines_.length ? `\n★【紀念日·非強制】：今天是${kanshouAnnivLines_.join('、')}的日子——若氣氛合適可自然帶出這份紀念的溫度(對方記得、或你記得皆可)，不必強行慶祝或報幕。` : "";
   // 🌅 兩條「昨夜」線都必須依【這回合她到底在不在場】過濾(2026-07 玩家「如果我直接移動呢....」)：旗標在回合開頭就讀掉了，但那時還不知道玩家這回合要去哪。
   const _morningHere_ = String(morningAfterNames || "").split('、').map(n => n.trim())
     .filter(n => n && partyMembers.indexOf(n) !== -1).join('、');
@@ -2506,25 +2506,25 @@ function actionPlay_(userData, pcId, sheets) {
     : "";
   // 🏠 同居結束：只給事實，怎麼收由 AI 依她性格演——可以是她自己開口要搬、也可以是不告而別。
   const kanshouCohabitEndStr = kanshouCohabitEndNames_.length
-    ? `\n★【她不再住在這裡了】：『${kanshouCohabitEndNames_.join('、')}』已不再與你同住——這是這段關係走到現在的結果，不是意外。若她此刻就在你面前，讓這件事在這回合被說開(她提出要搬／你察覺她東西收走了皆可)；★【不可】寫成系統宣告，也【不可】當作沒發生過。`
+    ? `\n★【對方不再住在這裡了】：『${kanshouCohabitEndNames_.join('、')}』已不再與你同住——這是這段關係走到現在的結果，不是意外。若對方此刻就在你面前，讓這件事在這回合被說開(對方提出要搬／你察覺對方東西收走了皆可)；★【不可】寫成系統宣告，也【不可】當作沒發生過。`
     : "";
 
   // 💗 關係質變：跨進新階的當下演一次。給的是「方向」不是台詞——具體怎麼表現交給 AI 依她性格拿捏。
   const kanshouTierCrossStr = kanshouTierCrossLines_.length
-    ? `\n★【關係質變·就在此刻】：${kanshouTierCrossLines_.join('；')}——就在這回合剛變動。依她自己的性格讓這份轉變真實發生一次(往回退的那些，演的是那份親近正在收回去：語氣、距離、能不能碰，都退回這一階該有的樣子)，★【不可】報幕式宣告階級或數字、不可寫成系統提示。`
+    ? `\n★【關係質變·就在此刻】：${kanshouTierCrossLines_.join('；')}——就在這回合剛變動。依對方自己的性格讓這份轉變真實發生一次(往回退的那些，演的是那份親近正在收回去：語氣、距離、能不能碰，都退回這一階該有的樣子)，★【不可】報幕式宣告階級或數字、不可寫成系統提示。`
     : "";
   // 💞 第一次帳：GAS 蓋的既定事實，供 AI 精確回想「我們第一次做某件事是哪天」而非自行編造。
   const _firstsNeeded = kanshouFirstsAnnivLines_.length > 0 || kanshouFirstsStampedToday_
     || /第一次|初次|當初|那時|那天|以前|記得|多久|以來|一開始|剛認識/.test(userMsg);
   const kanshouFirstsStr = (kanshouFirstsLines_.length && _firstsNeeded)
-    ? `\n★【你們之間的「第一次」·既定事實】：${kanshouFirstsLines_.join('；')}。這些日期是【確定發生過的事實】，若話題自然聊到往事、或今天恰好是其中某個日子，可以據此準確回憶(她記得、或你記得皆可)；★【不可】自行編造清單以外的「第一次」，也【不必】每回合主動提起。`
+    ? `\n★【你們之間的「第一次」·既定事實】：${kanshouFirstsLines_.join('；')}。這些日期是【確定發生過的事實】，若話題自然聊到往事、或今天恰好是其中某個日子，可以據此準確回憶(對方記得、或你記得皆可)；★【不可】自行編造清單以外的「第一次」，也【不必】每回合主動提起。`
     : "";
   // 🎂 週年當天才出現的加強句：這是把「第一次」記成結構化事實的主要回報，值得比一般回憶更被看見。
   const kanshouFirstsAnnivStr = kanshouFirstsAnnivLines_.length
-    ? `\n★【週年·今天】：${kanshouFirstsAnnivLines_.join('；')}。若氣氛合適，讓「剛好是今天」這件事自然浮現一次——可以是她記得而你忘了、你記得而她驚訝、或兩人心照不宣，依她的性格決定怎麼處理這個日子(甚至可以是彆扭地假裝不記得)。不必大張旗鼓慶祝，也【不必】報幕式地宣告年份數字。`
+    ? `\n★【週年·今天】：${kanshouFirstsAnnivLines_.join('；')}。若氣氛合適，讓「剛好是今天」這件事自然浮現一次——可以是對方記得而你忘了、你記得而對方驚訝、或兩人心照不宣，依對方的性格決定怎麼處理這個日子(甚至可以是彆扭地假裝不記得)。不必大張旗鼓慶祝，也【不必】報幕式地宣告年份數字。`
     : "";
   const kanshouHoldingStr = (kanshouHeldName_ && partyMembers.some(n => kanshouNameCandidates_(String(n)).includes(kanshouHeldName_)) && !(userData.handHold))
-    ? `\n★【牽手中·背景資訊·別過度著墨】：你和『${kanshouHeldName_}』正牽著手一起行動——她【此刻就在你身邊、和你同處一地】，是牽著你的手一起走過來/一起待在這裡的，【絕不是】在別處等你、也【不會】說「你怎麼跑進來了」「說好在○○等你」這種把你倆講成分處兩地的話。★這份牽手只是【低調的背景親密】，【不必每回合都描寫交握的手】——偶爾在情境合適時輕輕帶一筆即可，別讓每一段敘事都圍著「握著的手／指尖的溫度」打轉，重心放在當下真正在發生的互動與對話。`
+    ? `\n★【牽手中·背景資訊·別過度著墨】：你和『${kanshouHeldName_}』正牽著手一起行動——對方【此刻就在你身邊、和你同處一地】，是牽著你的手一起走過來/一起待在這裡的，【絕不是】在別處等你、也【不會】說「你怎麼跑進來了」「說好在○○等你」這種把你倆講成分處兩地的話。★這份牽手只是【低調的背景親密】，【不必每回合都描寫交握的手】——偶爾在情境合適時輕輕帶一筆即可，別讓每一段敘事都圍著「握著的手／指尖的溫度」打轉，重心放在當下真正在發生的互動與對話。`
     : "";
 
   // 📷 拍照(takePhoto)：手機拍照·2026-07 再修（玩家「拍照要改成手機、不用等」）——手機沒有底片這種東西，只驗相簿總容量；拍完立刻存進相簿、立刻能看，不再有「隔天沖洗」的等待。
@@ -2597,7 +2597,7 @@ function actionPlay_(userData, pcId, sheets) {
       const pRelTagStr = r[COL.PC.REL_TAG] || "點頭之交";
       const _chillDay = KANSHOU_CHILL_DAY_TAG_.get(r[COL.PC.MEMORY]);
       const pChillStr = (_chillDay && curDay - _chillDay >= 0 && curDay - _chillDay <= KANSHOU_CHILL_DAYS_)
-        ? `・${curDay === _chillDay ? '就在今天' : '昨天'}你們之間有過一次不愉快，她還沒完全放下——這份芥蒂要真實反映在她此刻的語氣與距離感裡(依她的個性決定是話變少、刻意找碴、還是笑得比平常淡)，但別演成翻臉決裂`
+        ? `・${curDay === _chillDay ? '就在今天' : '昨天'}你們之間有過一次不愉快，對方還沒完全放下——這份芥蒂要真實反映在對方此刻的語氣與距離感裡(依對方的個性決定是話變少、刻意找碴、還是笑得比平常淡)，但別演成翻臉決裂`
         : "";
       // 🤝 相處基調（2026-07 取代舊的 pTierToneStr）：舊版只看關係階、只在最低兩階出現，是這件事的退化 1D 版；現在改查 好感×相處次數 的 2D 表（見 KANSHOU_RAPPORT_TONE_）。
       const pMetCount = KANSHOU_MET_COUNT_TAG_.get(r[COL.PC.MEMORY]);
@@ -2609,7 +2609,7 @@ function actionPlay_(userData, pcId, sheets) {
       const pActivityStr = (() => {
         if (!moveTarget) return "";
         const _a = !_pCameWithMe ? kanshouLocActivity_(curL, pName, curDay) : "";
-        return _a ? ` | 現況:${_a}(她本來就是這個狀態，不是這回合才開始，別演出「換上/開始」這類起始動作)` : "";
+        return _a ? ` | 現況:${_a}(對方本來就是這個狀態，不是這回合才開始，別演出「換上/開始」這類起始動作)` : "";
       })();
       // 🌙 2026-07 玩家「深夜或清晨去她房間找她，有提示AI要讓她們是睡眠狀態嗎?」——查證後確實沒有：kanshouRoomEventStr(她的反應走向)只在玩家按下夜襲/賴床叫醒同意鈕【之後】才會注入，剛推門進去、按鈕還沒點的這一回合完全沒有任何提示，AI只能自己從時段猜，容易演成她還醒著閒聊，跟「深夜找她＝多半在睡」的直覺矛盾。
       const pSleepStr = (() => {
@@ -2619,12 +2619,12 @@ function actionPlay_(userData, pcId, sheets) {
         const _pAtHome = (_pHome !== '自己的住處' && curL === _pHome) || (kanshouIsCohabit_(r) && curL === KANSHOU_COHABIT_ROOM_) || curL === '我的房間';
         if (!_pAtHome) return "";
         // 「我的房間」是【玩家】的房間，不是她家——措辭要跟著實際地點走。
-        const _pWhere = (curL === '我的房間') ? "她此刻人在你房裡" : "她此刻在自己家";
+        const _pWhere = (curL === '我的房間') ? "此刻人在你房裡" : "此刻在自己家";
         if (curHour < KANSHOU_NIGHT_RAID_HOUR_END_) return _pWhere + "、多半已熟睡，睡著/半夢半醒";
         if (curHour < KANSHOU_ASLEEP_HOUR_END_) return _pWhere + "、多半還在賴床、意識朦朧，剛睡醒或仍賴床";
         return "";
       })();
-      const pCohabitStr = kanshouIsCohabit_(r) ? " | 同居中:是(她現在與你同住一處，語氣可依此帶著日常同居的親近感、不是作客)" : "";
+      const pCohabitStr = kanshouIsCohabit_(r) ? " | 同居中:是(對方現在與你同住一處，語氣可依此帶著日常同居的親近感、不是作客)" : "";
       const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
       // ★是玩家釘選標記(面板用)，餵AI時去掉、不外洩機制符號。
       const pMemoirStr = pMemoirRaw ? ` | 你們的共同回憶(你倆一路走來的點滴，敘事可自然承接呼應、但別生硬複述):${pMemoirRaw.replace(/★/g, '').replace(/｜/g, '；')}` : "";
@@ -2634,27 +2634,27 @@ function actionPlay_(userData, pcId, sheets) {
       if (_pdPr && _pdPr.day >= curDay) {
         const _pdWhen = _pdPr.day === curDay ? "今天稍後" : _pdPr.day === curDay + 1 ? "明天" : (_pdPr.day - curDay) + "天後";
         const _pdBandL = _pdPr.band ? ((KANSHOU_APPT_BANDS_.find(b => b.band === _pdPr.band) || {}).label || _pdPr.band) : "";
-        pPromiseStr = ` | 與玩家的約定:${_pdWhen}${_pdBandL}在「${_pdPr.loc}」見面——她記得這個約，聊到相關話題時自然帶著這份期待/在意，但勿每回合主動提起`;
+        pPromiseStr = ` | 與玩家的約定:${_pdWhen}${_pdBandL}在「${_pdPr.loc}」見面——對方記得這個約，聊到相關話題時自然帶著這份期待/在意，但勿每回合主動提起`;
       }
       // 明講方向的「TA是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍TA。
       const pPresenceStr = (() => {
         if (kanshouKnockGuestName && String(pName).trim() === String(kanshouKnockGuestName).trim()) {
-          return "她【剛剛敲了你的門、這一刻才進來】(不是本來就在場，也不是跟你一起回來的)";
+          return "【剛剛敲了你的門、這一刻才進來】(不是本來就在場，也不是跟你一起回來的)";
         }
-        // 🙋 她自己找上門(見★【她自己找來了】)：同深夜訪客，是這一刻才出現的，不是本來就在場。
+        // 🙋 自己找上門(見★【她自己找來了】)：同深夜訪客，是這一刻才出現的，不是本來就在場。
         if (kanshouInitVisitName_ && String(pName).trim() === String(kanshouInitVisitName_).trim()) {
-          return "她【是自己找上門來的、這一刻才出現在這裡】(不是本來就在場，也不是跟你一起來的)";
+          return "【是自己找上門來的、這一刻才出現在這裡】(不是本來就在場，也不是跟你一起來的)";
         }
         if (moveTarget) {
           return kanshouPreMoveCompanions_.some(cr => String(cr[COL.PC.NAME]).trim() === String(pName).trim())
-            ? "她是【與你結伴一起來到】這裡的(不是在這裡等你、更不會問你怎麼來了)"
-            : "你剛抵達，【她原本就在這裡】(她不是跟你一起來的)";
+            ? "【與你結伴一起來到】這裡(不是在這裡等你、更不會問你怎麼來了)"
+            : "你剛抵達，【原本就在這裡】(不是跟你一起來的)";
         }
-        if (kanshouTimeJumped_) return "時間流轉之後，【她此刻人在這裡】(別預設你們剛才一直待在一起)";
-        return "【你們從剛才就一直在這裡】——她早已在場，接著這一刻往下寫";
+        if (kanshouTimeJumped_) return "時間流轉之後，【此刻人在這裡】(別預設你們剛才一直待在一起)";
+        return "【你們從剛才就一直在這裡】——早已在場，接著這一刻往下寫";
       })();
       _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
-      partyDetailsArr.push(`【在場人物】名號:${pName}｜__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? ` | 裝扮:${pOutfit}` : ""}${(() => { const _p = formatPref(r[COL.PC.PREF]); return _p ? ` | 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(r[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${pFlavorStr}${(() => { const _mo = [pMoeStr, traitPrivateOf_(r[COL.PC.TRAIT])].filter(Boolean).join("／"); return _mo ? ` | 萌點(僅供內化):${_mo}` : ""; })()}${pActivityStr}${pSleepStr ? ` | 現況:${pSleepStr}(除非橋段已明確叫醒她，否則維持這個狀態演出，不宜寫成清醒閒聊)` : ""}${pCohabitStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr}${pChillStr})`);
+      partyDetailsArr.push(`【在場人物】名號:${pName}【性別:${String(r[COL.PC.SEX] || "").trim() || "異"}】｜__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? ` | 裝扮:${pOutfit}` : ""}${(() => { const _p = formatPref(r[COL.PC.PREF]); return _p ? ` | 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(r[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${pFlavorStr}${(() => { const _mo = [pMoeStr, traitPrivateOf_(r[COL.PC.TRAIT])].filter(Boolean).join("／"); return _mo ? ` | 萌點(僅供內化):${_mo}` : ""; })()}${pActivityStr}${pSleepStr ? ` | 現況:${pSleepStr}(除非橋段已明確叫醒，否則維持這個狀態演出，不宜寫成清醒閒聊)` : ""}${pCohabitStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr}${pChillStr})`);
     }
   });
   // 在場來由人人相同時（多數回合都是），抽成抬頭講一次，不在每張卡上逐字重複。
@@ -2664,7 +2664,7 @@ function actionPlay_(userData, pcId, sheets) {
     ? t.replace(/｜__PRESENCE__[\s\S]*?__\/PRESENCE__/, "")
     : t.replace(/｜__PRESENCE__([\s\S]*?)__\/PRESENCE__/, " | 在場來由:$1"));
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0
-    ? `【角色背景資料】(裝扮＝她此刻穿的衣服，五官/髮色/體態不隨換裝改變)${_presenceShared_ ? `\n★在場來由(以下每一位都一樣)：${_presenceShared_}` : ""}:\n${_partyCards_.join("\n")}`
+    ? `【角色背景資料】(裝扮＝各人此刻穿的衣服，五官/髮色/體態不隨換裝改變)${_presenceShared_ ? `\n★在場來由(以下每一位都一樣)：${_presenceShared_}` : ""}:\n${_partyCards_.join("\n")}`
     : "目前這個地點沒有其他人，玩家是獨自行動的。";
 
   // 路人與缺席者是同一件事的兩面（誰只是背景／誰不在場），合成一條；能開口的名單在結尾講。
@@ -2733,7 +2733,7 @@ function actionPlay_(userData, pcId, sheets) {
   const _kanshouTargetWords_ = (KANSHOU_WORDS_.find(t => _kanshouMaxBond_ >= t.min) || KANSHOU_WORDS_[KANSHOU_WORDS_.length - 1]).range;
 
   if (_pendingProposal && !_settledVerdict) {
-    const _ppName = String(_pendingProposal.name || (pcData[_pendingProposal.idx] || [])[COL.PC.NAME] || "她");
+    const _ppName = String(_pendingProposal.name || (pcData[_pendingProposal.idx] || [])[COL.PC.NAME] || "對方");
     const _ppWho = _pendingProposal.names && _pendingProposal.names.length > 1 ? '她們' : `『${_ppName}』`;
     const _ppYes = { promise: `${_ppWho}答應了這個約定`, move: `${_ppWho}答應現在一起去`, hold: `${_ppWho}讓你牽住了手` };
     const _ppNo = { promise: `${_ppWho}婉拒了這個約定`, move: `${_ppWho}婉拒了同行`, hold: `${_ppWho}沒有讓你牽` };
@@ -2748,7 +2748,7 @@ function actionPlay_(userData, pcId, sheets) {
 
   const PROMPT_REL = `${backgroundCrowdStr}
 ${nsfwMemories}${genderHintStr}${driveStr}
-🛑【角色一致性】：劇情推進不軟化她的性格；情慾裡生理反應可以有，但她說話做事仍照她的個性。★資料裡標「事實：」的是系統裁定的既定事實、不是演法——怎麼表現一律依她自己的個性。`;
+🛑【角色一致性】：劇情推進不軟化在場者的性格；情慾裡生理反應可以有，但那個人說話做事仍照自己的個性。★資料裡標「事實：」的是系統裁定的既定事實、不是演法——怎麼表現一律依那個人自己的個性。`;
 
   // 有【專屬稱呼】就用暱稱取代真名；JSON 姓名欄不受影響、仍填真名。
   const npcDialoguePrompt = "";  // 名單/稱呼併入結尾的【在場名單】鐵律，見下方 prompt
@@ -2764,6 +2764,8 @@ ${nsfwMemories}${genderHintStr}${driveStr}
   const _histWindow_ = _sceneCut ? 2 : 6;
   const _earlierDigest_ = kanshouRecentDigest_(pcId, _histWindow_);
 
+  const _myPron_ = pron_(pc[COL.PC.SEX]);
+
   // 🧊 排序原則：【穩定的放前面、每回合會變的放後面】——prompt cache 是逐 token 比對前綴，
   //    一個會變的東西插在中間，它後面全部作廢。天氣/時間原本卡在第 5 行，把整份 user prompt
   //    的可快取前綴砍到只剩 48%。唯二的例外是 🚨【收尾】與★【在場名單】：它們雖然穩定，但
@@ -2771,7 +2773,7 @@ ${nsfwMemories}${genderHintStr}${driveStr}
   const prompt = `★世界觀＝和平的現代冬木市，大家都是住在這裡的普通市民，沒有魔術與從者。
 ${PROMPT_REL}
 ★【只演給的資料】：系統給你的就是這個世界的全部，沒寫到的人/物/過往都不存在；願望、萌點、個性只演出來，不把那幾個字寫進敘述。玩家專一對著一個人時，其他在場者維持背景輕描。
-★【視角鎖定】：「我」＝玩家『${pcName}』本人，只演他實際輸入的動作與五感——他看不見自己的神情。同伴外貌只取材她自己那份資料，[台詞自稱]只用在她本人引號內的台詞。
+★【視角鎖定】：「我」＝玩家『${pcName}』本人，只演${_myPron_}實際輸入的動作與五感——${_myPron_}看不見自己的神情。同伴外貌只取材各人自己那份資料，[台詞自稱]只用在本人引號內的台詞。
 
 【玩家資料】：名號:${pcName} 【性別:${pc[COL.PC.SEX]}】${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? ` 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${myOutfit ? ` | 裝扮:${myOutfit}` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}(可透過 master_note.經歷 滾動增補)
 ${PROMPT_PARTY_SYSTEM}
@@ -2779,10 +2781,10 @@ ${_intimacyLines_ ? `★【親密尺度·最高優先】：肢體親密以好感
 ★【篇幅】：本回合 narration 寫 ${_kanshouTargetWords_} 字，【不可少於下限】——寫不滿就往互動裡加：在場者的動作細節、觸感／氣味／聲音等感官、以及多給一次真實反應。別靠拉長環境描寫充數。
 ★★【地點釘死】：此刻在「${curL}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName)); return _c ? `（${_c}）` : ""; })()}，敘事不離開這裡——想去別處只能嘴上聊，真要換地方由系統宣告。${moveTarget ? '你們剛到，直接從抵達後的當下寫起、路程不演。' : ''}
 ${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}${kanshouInitStr}
-★【今日天氣】：${kanshouWeather_(curDay)}。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜她走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·她此刻【不在場】·禁讓她開口或出現。` : ""}
+★【今日天氣】：${kanshouWeather_(curDay)}。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜對方走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·對方此刻【不在場】·禁讓對方開口或出現。` : ""}
 🕰️現在${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★光線/氣溫/作息一律依【此刻＝${timeBand_(_narrHour_)}】寫。★本回合只寫這十分鐘內的片段，時間推進由系統宣告。
 ${npcDialoguePrompt}${_earlierDigest_ ? `\n★【再往前的經過】：更早的回合裡，玩家依序做過這些事——${_earlierDigest_}。這些都已經發生過了，需要時自然呼應、別當沒發生過，也不要重演一次。` : ""}
-🚨【收尾${driveOn ? '·主動掌握' : ''}】：${driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : ''}把最後一句留給被搭話的那個人——用她的答話或神情收尾，並讓她拋出一個玩家接得住的話題(問句、邀約、她此刻在意的事都行)，停在等玩家回應的那一刻。沒有別人在場時才收在「我」的動作上。
+🚨【收尾${driveOn ? '·主動掌握' : ''}】：${driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : ''}把最後一句留給被搭話的那個人——用那個人的答話或神情收尾，並讓那個人拋出一個玩家接得住的話題(問句、邀約、此刻在意的事都行)，停在等玩家回應的那一刻。沒有別人在場時才收在「我」的動作上。
 ★【在場名單】：${partyMembers.length ? `只有『${partyMembers.join('、')}』在場——開口/被觸碰的只能是這些人，其他名字即使歷史提過也不准出現，名單上每個人這回合都要有戲；有【專屬稱呼】就叫暱稱、否則叫真名。` : '沒有其他人在場。'}
 
 現在演化玩家動作：『${finalUserMsg}${_settledTail_}』`;

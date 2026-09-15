@@ -117,7 +117,7 @@ function servantCard_(row, opts) {
       (np ? `｜寶具「${np}」` : "") + `。\n`;
     if (outfit) card += `★【換裝】現穿「${outfit}」——只換衣服，長相體態仍照本相。\n`;
     if (weapon) card += `★【武裝】戰鬥一律用「${weapon}」，不套職階慣例或原典武器。\n`;
-    if (mad) card += `★【狂化】已喪失言語：不說完整句子，只有低吼、咆哮與肢體（旁白仍可寫他的情緒）。\n`;
+    if (mad) card += `★【狂化】已喪失言語：不說完整句子，只有低吼、咆哮與肢體（旁白仍可寫${pron_(row[COL.PC.SEX])}的情緒）。\n`;
     if (!skipClose) card += performanceNote_([name]);
     return card;
   } catch (e) { return ""; }
@@ -150,7 +150,7 @@ function masterCard_(row) {
       (magic ? `｜魔術系統：${magic}${magicRank ? `(${magicRank}階)` : ""}` : "") +
       (melee ? `｜體術：${melee}階` : "") +
       (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
-      `。御主＝玩家本人：依性格開口、有神態台詞，不是沉默的旁觀者；但下一步由玩家按鍵決定，收尾停在等他決定的當下。` +
+      `。御主＝玩家本人：依性格開口、有神態台詞，不是沉默的旁觀者；但下一步由玩家按鍵決定，收尾停在等${pron_(sex)}決定的當下。` +
       (playedCanon ? `「${name}」出自Fate正典，優先依你對${playedCanon.name}的認知演出，上方僅為錨點。` : "") + `\n`;
   } catch (e) { return ""; }
 }
@@ -196,8 +196,8 @@ function enemyMasterCard_(row, opts) {
       (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
       "。" +
       // 三條 ★ 併一條：正典優先與 show-don't-tell 已在 miniSystem 鐵律 8 講過，這裡只留它獨有的兩件事
-      //   ——「他在場、不是背景板」與「別劇透原作後續」。他該有什麼情緒由他的個性決定，不預先框。
-      `★他本人在場，不是沉默背景板——依其性格/身世給出神態或台詞；戰局勝負與傷害不可改，【禁】預告或影射原作後續結局與未揭露身分。\n`;
+      //   ——「本人在場、不是背景板」與「別劇透原作後續」。該有什麼情緒由那個人的個性決定，不預先框。
+      `★${pron_(row[COL.PC.SEX])}本人在場，不是沉默背景板——依其性格/身世給出神態或台詞；戰局勝負與傷害不可改，【禁】預告或影射原作後續結局與未揭露身分。\n`;
   } catch (e) { return ""; }
 }
 

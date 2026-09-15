@@ -12,7 +12,7 @@ GAS 在 `gas/`。⚠ **push 只自動同步代碼、不會自動上線**——�
 
 ## 🚨 紅線（違反＝不可逆災難）
 
-1. ~~慾海禁區~~ **（2026-07 玩家取消此紅線）**：`gas/Gallery.gs` 的 `nsfwBaseRules` 不再是禁區，但它仍是**演化核心**——動它會影響整個鑑賞的敘事調性，所以**改之前先用模擬器量現況、改完必跑 `dedup.js` 與全套探針**。歷次改動與理由記在 `KANSHOU_REFERENCE.md`。（編號刻意保留：②③④⑤ 在全專案被大量引用，重編會讓引用全指錯。）
+1. ~~慾海禁區~~ **（2026-07 玩家取消此紅線；2026-09 再次確認「可以動、取消限制」）**：`gas/Gallery.gs` 的 `nsfwBaseRules` 不是禁區，但它仍是**演化核心**——動它會影響整個鑑賞的敘事調性，所以**改之前先用模擬器量現況、改完跑全套探針，並確認「原本正常的配對沒被改壞」**（改壞的方向通常不是你在修的那個）。⚠ 舊指示裡的 `dedup.js` **已不在 repo**（2026-09 全樹查無），改用臨時腳本做等效的重複子句檢查即可，別再去找那支檔案。歷次改動與理由記在 `KANSHOU_REFERENCE.md`。（編號刻意保留：②③④⑤ 在全專案被大量引用，重編會讓引用全指錯。）
 2. **show-don't-tell**：敘事禁止直述角色 願望／個性／萌點 字面（`servantCard_` 強制）。
 3. **branch＋兩段式部署**：只在 `claude/traditional-chinese-chat-q8ptho` 開發。commit→push→GitHub Action **只跑 `clasp push`**（同步代碼進 GAS 專案，不建版、不動 `/exec`）。要玩家在網頁看到新版，須**額外手動觸發 workflow_dispatch**（跑 `clasp deploy`）。`push ≠ 上線`——每次上線記得多觸發一次 workflow_dispatch、等 `completed/success`、head_sha 對上，再回報「已上線」。
 4. **model id**：本模型的 exact 型號 id（見系統提示，此處刻意不寫出）不可出現在 commit／PR／程式碼／任何 push 進 repo 的東西。chat 回覆才可講。
@@ -50,10 +50,11 @@ GAS 在 `gas/`。⚠ **push 只自動同步代碼、不會自動上線**——�
 
 ## ✅ 工作流程
 
-- **驗證**：改完必跑 `bash check.sh`。除語法外還跑六支不變式掃描，都是把**重複踩過的漏洞形狀**改成機器擋：
+- **驗證**：改完必跑 `bash check.sh`。除語法外還跑七支不變式掃描，都是把**重複踩過的漏洞形狀**改成機器擋：
   `check_prompt.py`（★ 區塊：代名詞無指涉／寫死台詞）、`check_mirror.js`（前後端常數鏡射，自動發現所有 `KC_*`）、
   `check_wiring.py`（門檻有無前端出口／查表有無覆蓋全 enum 且各階不同／★ 覆蓋數不得無聲下降／死路由）、
-  `check_render.js`（敘事排版↔XSS 防護，見下）、`check_simp.py`（我們自己寫進 repo 的簡體字）、`check_memory.js`（solo 存進歷史的是不是「這回合發生的事」）。
+  `check_render.js`（敘事排版↔XSS 防護，見下）、`check_simp.py`（我們自己寫進 repo 的簡體字）、`check_memory.js`（solo 存進歷史的是不是「這回合發生的事」）、
+  `check_pronoun.py`（提示詞裡寫死的性別代名詞——整層曾預設「御主是男、同伴是女」，但兩邊都是資料決定的）。
   **新增提示詞 ★ 區塊後，順手看一眼區塊數有沒有跟著增加**——數字沒動就代表掃描器沒看見它（這個坑踩過兩次）。
   CI 只檢查 .gs、不檢查 .html JS（.html 出錯會綠燈部署卻壞 runtime）。
 - **🧵 敘事排版（別再動壞第三次）**：提示詞叫 AI 用 `<br><br>` 分段（`nsfwBaseRules`／`miniSystem` 都是），

@@ -482,7 +482,7 @@ function actionClaimHero(userData, pcId, sheets) {
   data[idx][COL.HERO.PERSONA] = JSON.stringify(pj);
   hs.getRange(idx + 1, COL.HERO.PERSONA + 1).setValue(data[idx][COL.HERO.PERSONA]);
   try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { }
-  return JSON.stringify({ success: true, message: `「${data[idx][COL.HERO.NAME]}」已認領——現在你是她的創造者，可在工房修改。` });
+  return JSON.stringify({ success: true, message: `「${data[idx][COL.HERO.NAME]}」已認領——現在你是這位英靈的創造者，可在工房修改。` });
 }
 
 function actionSaveHero(userData, pcId, sheets) {

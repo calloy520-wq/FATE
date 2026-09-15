@@ -134,7 +134,7 @@ function actionManaSupply(userData, pcId, sheets) {
     const declineWhy = bondForMana < MANA_TRUST_BOND_ ? '兩人的交情還不到這一步' : '魔力還沒到非付出這種代價不可的地步';
     const declinePrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【已裁定】御主開口求補魔，「${svName}」婉拒了——${declineWhy}。\n` +
-      `★【60~100 字】演出這個「不」：依她的個性，用眼神、動作或一句話帶過，理由不必說破。收在御主被回絕的那一刻。`;
+      `★【60~100 字】演出這個「不」：依對方的個性，用眼神、動作或一句話帶過，理由不必說破。收在御主被回絕的那一刻。`;
     STATE_PRE_DATA_ = pcData; // ⚡ 沒寫入也要交棒，否則 dispatcher 的 STATE_AFTER_ACTIONS 夾帶會退回整表重讀
     return JSON.stringify({ success: true, declined: true, aiPrompt: declinePrompt, statusString: buildPlayerStatusString(pcData[pIdx]) }); // ⚡ pcData 即權威，免 getFreshStatusString 的整表重讀
   }

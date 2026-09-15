@@ -378,6 +378,11 @@ function maxStatsForRow_(row) {
   return fateMaxHpMp_(svNum_(six["耐久"] || "E"), svNum_(six["魔力"] || "E"));
 }
 
+// 性別→代名詞。兩軌共用：solo 的御主/從者、鑑賞的同伴都從資料算，不在提示詞裡寫死。
+// 查無(含「異」「無」「」)一律退回中性「TA」——寧可中性，不要猜錯性別。
+var PRONOUN_ = { '男': '他', '女': '她' };
+function pron_(sex) { return PRONOUN_[String(sex || '').trim()] || 'TA'; }
+
 // 萌點(INTENT 欄)落地上限：七個寫入點全部走 clampMoe_，別再各自寫 slice 數字。
 var MOE_STORE_MAX_ = 30;
 function clampMoe_(text) { return String(text || "").slice(0, MOE_STORE_MAX_); }

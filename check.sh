@@ -63,6 +63,9 @@ if python3 "$ROOT/check_simp.py"; then :; else fail=1; fi
 # 🧵 solo 敘事記憶（存進歷史的必須是「這回合發生的事」，不是提示詞開頭的角色卡）
 if node "$ROOT/check_memory.js"; then :; else fail=1; fi
 
+# ⚧ 提示詞代名詞（全層曾預設「御主是男、同伴是女」，但兩邊都是資料決定的）
+if python3 "$ROOT/check_pronoun.py"; then :; else fail=1; fi
+
 echo "──────────────"
 if [ "$fail" = 0 ]; then echo "✅ 全部通過"; else echo "❌ 有語法錯誤，勿 push"; fi
 exit $fail

@@ -536,7 +536,7 @@ function actionAllyBond(userData, pcId, sheets) {
   const allyCard = allyIsMaster ? enemyMasterCard_(pcData[aIdx]) : ('〔盟友從者〕' + servantCard_(pcData[aIdx]));
   const allyTrueMaster = allyIsMaster ? "" : getServantMaster_(pcData[aIdx][COL.PC.MEMORY]);
   const clarifyFact = allyTrueMaster
-    ? `★【身分釐清】「${allyName}」真正締結契約的御主是「${allyTrueMaster}」，不是你——此刻只是暫時結盟的立場，他對你保持的是結盟該有的分寸、戲謔或算計，【嚴禁】寫成他真的向你效忠、聽命於你的令咒，或提及「契約仍在」之類只對其本主才成立的話語。\n`
+    ? `★【身分釐清】「${allyName}」真正締結契約的御主是「${allyTrueMaster}」，不是你——此刻只是暫時結盟的立場，${pron_(pcData[aIdx][COL.PC.SEX])}對你保持的是結盟該有的分寸、戲謔或算計，【嚴禁】寫成${pron_(pcData[aIdx][COL.PC.SEX])}真的向你效忠、聽命於你的令咒，或提及「契約仍在」之類只對其本主才成立的話語。\n`
     : "";
   const aiPrompt = masterCard_(pcData[pIdx]) + allyCard + clarifyFact +
     `【系統·盟誼】御主『${masterName}』與盟友「${allyName}」${allyIsMaster ? '共處' : '交流'}，當前羈絆 ${after}/100。\n` +
@@ -605,7 +605,7 @@ function actionCourtEnemy(userData, pcId, sheets) {
     `【系統·示好／交涉·已裁定】御主『${String(pcData[pIdx][COL.PC.NAME])}』在刀鋒之外向敵對的「${targetName}」釋出善意（好感 ${before}→${after}／100）。\n` +
     `★【100~150 字】演出這番示好、與對方【依其性格×當前好感】的真實反應：${lean.loner ? '孤高／激烈者多半冷淡、譏諷或半信半疑，只鬆動一絲' : lean.pragmatic ? '務實者會權衡利害、順水推舟地緩和態度' : '依其性格自然回應'}——但仍分屬敵對，留一分保留與算計，別演成一下就交心。GAS 已算好數值，你只演反應、不另定成敗。` +
     (after >= 90 ? '\n★此刻情誼已臻莫逆——收在一個彼此心照不宣、卻仍隔著立場的微妙瞬間。' : '') +
-    `\n★「${targetName}」示好後【仍留在原地】，並未離開這個場景——收在她態度鬆動、但仍按兵不動的瞬間即可，不可描寫她轉身離去、走遠或消失於視野，那不是這個動作發生的事。`;
+    `\n★「${targetName}」示好後【仍留在原地】，並未離開這個場景——收在對方態度鬆動、但仍按兵不動的瞬間即可，不可描寫那個人轉身離去、走遠或消失於視野，那不是這個動作發生的事。`;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：bumpBond_/【示好日】/spendAp_ 皆已原地改回 pcData
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, target: targetName, bond: after, delta: delta, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: buildPlayerStatusString(pcData[pIdx]) });
 }
