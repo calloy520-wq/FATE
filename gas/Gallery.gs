@@ -395,7 +395,10 @@ function kanshouRecentDigest_(pcId, windowRows) {
     const older = deep.slice(0, deep.length - windowRows);
     const lines = older
       .filter(m => m.speaker === "player")
-      .map(m => String(m.content || "").replace(/^【玩家意圖】：/, "").replace(/\s+/g, " ").trim().slice(0, KANSHOU_DIGEST_CAP_))
+      .map(m => String(m.content || "").replace(/^【玩家意圖】：/, "").replace(/\s+/g, " ").trim()
+        // 剝掉句首的「我」與句尾標點：這些是玩家自己打的字，留著「我」會跟第二人稱旁白打架，
+        // 還得多花一句話解釋它是誰。剝成純動作就沒這回事了。
+        .replace(/^我[們]?[，,、]?/, "").replace(/[。．.!！?？~～、，,\s]+$/, "").slice(0, KANSHOU_DIGEST_CAP_))
       .filter(Boolean);
     return lines.length ? lines.join("→") : "";
   } catch (e) { return ""; }
@@ -2751,14 +2754,21 @@ function actionPlay_(userData, pcId, sheets) {
 
   const _kanshouMaxBond_ = partyRows.reduce((m, r) => Math.max(m, parseInt(r[COL.PC.BOND]) || 0), 0);
   const _intimacyLines_ = kanshouIntimacyLines_(partyRows.map(r => r[COL.PC.BOND]));
-  // 📏 篇幅查表：給【下限~上限】而不是「約 X 字」——小模型對「約」一律往下取，實測過(見 KANSHOU_REFERENCE)。
-  //    上限必須跟 max_tokens 一起看：JSON 固定開銷典型 757 字、欄位全滿 1057 字，narration 超出去就會被截斷成壞 JSON。
+  // 📏 篇幅查表：好感給【底盤】(關係越深、值得細寫的東西越多)，這一回合真的發生了大事才拉到【上限】。
+  //    舊版只看好感——場上有人 ≥60 就連一句「早安」都得寫到 700~900 字，那不是細膩、是逼 AI 灌水。
+  //    ⚠ 一律給【下限~上限】而不是「約 X 字」：小模型對「約」一律往下取，實測過(見 KANSHOU_REFERENCE)。
+  //    ⚠ 上限必須跟 max_tokens 一起看：JSON 固定開銷典型 757 字、欄位全滿 1057 字，narration 超出去就會被截斷成壞 JSON。
   const KANSHOU_WORDS_ = [
-    { min: 60, range: '700~900' },
-    { min: 40, range: '550~700' },
-    { min: -100, range: '380~500' }
+    { min: 60, range: '480~620', big: '700~900' },
+    { min: 40, range: '400~520', big: '600~750' },
+    { min: -100, range: '300~400', big: '450~580' }
   ];
-  const _kanshouTargetWords_ = (KANSHOU_WORDS_.find(t => _kanshouMaxBond_ >= t.min) || KANSHOU_WORDS_[KANSHOU_WORDS_.length - 1]).range;
+  // 「大事」不靠猜——這些區塊本回合有沒有組出字串，GAS 自己最清楚。加新橋段就往這串加一個旗標。
+  const _kanshouBigBeat_ = !!(kanshouConfessStr || kanshouTierCrossStr || kanshouFirstsAnnivStr
+    || kanshouNightSceneStr || kanshouKnockRaidStr || kanshouCohabitStr || kanshouCohabitEndStr
+    || kanshouPromiseMetStr || driveOn || /就是此刻/.test(kanshouFestivalStr));
+  const _kanshouWordRow_ = KANSHOU_WORDS_.find(t => _kanshouMaxBond_ >= t.min) || KANSHOU_WORDS_[KANSHOU_WORDS_.length - 1];
+  const _kanshouTargetWords_ = _kanshouBigBeat_ ? _kanshouWordRow_.big : _kanshouWordRow_.range;
 
   if (_pendingProposal && !_settledVerdict) {
     const _ppName = String(_pendingProposal.name || (pcData[_pendingProposal.idx] || [])[COL.PC.NAME] || "對方");
@@ -2810,7 +2820,7 @@ ${_intimacyLines_ ? `★【親密尺度·最高優先】：肢體親密以好感
 ${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}${kanshouInitStr}
 ★【今日天氣】：${kanshouWeather_(curDay)}。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜對方走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·對方此刻【不在場】·禁讓對方開口或出現。` : ""}
 🕰️現在${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★光線/氣溫/作息一律依【此刻＝${timeBand_(_narrHour_)}】寫。★本回合只寫這十分鐘內的片段，時間推進由系統宣告。
-${npcDialoguePrompt}${_earlierDigest_ ? `\n★【再往前的經過】：稍早你依序做過這些事——${_earlierDigest_}。（這幾句是玩家當時自己打的字、所以自稱「我」；旁白一律仍寫「你」。）這些都已經發生過了，需要時自然呼應、別當沒發生過，也不要重演一次。` : ""}
+${npcDialoguePrompt}${_earlierDigest_ ? `\n★【稍早做過的事】：${_earlierDigest_}——都已發生過，需要時自然呼應，別重演。` : ""}
 🚨【收尾${driveOn ? '·主動掌握' : ''}】：${driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : ''}把最後一句留給被搭話的那個人——用那個人的答話或神情收尾，並讓那個人拋出一個玩家接得住的話題(問句、邀約、此刻在意的事都行)，停在等玩家回應的那一刻。沒有別人在場時才收在「你」的動作上。
 ★【在場名單】：${partyMembers.length ? `只有『${partyMembers.join('、')}』在場——開口/被觸碰的只能是這些人，其他名字即使歷史提過也不准出現，名單上每個人這回合都要真實存在(沒被搭話的人有個動作或反應即可，不必平分戲份)；有【專屬稱呼】就叫暱稱、否則叫真名。` : '沒有其他人在場。'}
 
