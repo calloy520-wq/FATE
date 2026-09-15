@@ -195,7 +195,7 @@ function actionManaSupply(userData, pcId, sheets) {
         performanceNote_(a.destroyed ? [svName] : [svName, a.enemyName]);
     },
     function () {
-      // 此分支只在好感≥門檻且魔力見底時走到——從者是真心信任、主動託付的，敘述可更直接大膽；換一顆更能承接露骨描寫的模型(見前端manaSupply()傳的unlocked旗標→narrate(...,{deepseek:true})，後端narrateWithState_/actionNarrateOnly切換，solo其餘呼叫不受影響)。
+      // 此分支只在好感≥門檻且魔力見底時走到——從者是真心信任、主動託付的，敘述可更直接大膽；篇幅也拉長(前端manaSupply()的unlocked旗標→narrate(...,{longForm:true})→後端加大 max_tokens，模型不變)。
       const genderFactMana = sealGenderFact_(String(pcData[pIdx][COL.PC.SEX] || ""), String(pcData[svIdx][COL.PC.SEX] || ""), svName);
       return masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
         `【系統·補魔已結算】御主硬擠魔術迴路為「${svName}」回滿共用魔力池（${restored}/${mpMax}），代價沉重——魔術迴路永久燒蝕至 ${newCirc} 條、生命上限永久跌為 ${newMaxHp}。羈絆微升。這是「${svName}」真心信任、主動託付的私密時刻。澎湃魔力於體內鼓盪、蓄勢待發——【下一發規格外寶具可全力超載解放】。\n` +

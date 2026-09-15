@@ -3176,10 +3176,9 @@ ${npcDialoguePrompt}
 現在演化玩家動作：『${finalUserMsg}${_settledTail_}』`;
 
   try {
-    // 🔥 平時矜持模式(driveOn=false)用跟solo共用的低延遲小模型(SOLO_MODEL)，只有主動掌握模式(driveOn=true)才切回鑑賞原本用的大型模型(AI_MODEL)——大多數回合是輕鬆日常對話，犯不著每次都吃重量級模型的延遲。
+    // 兩軌共用 AI_MODEL；被擋才自動換 FALLBACK_MODEL（Engine_Combat.gs 全域行為）。driveOn 只控敘事推進幅度、不換模型。
     const _timeJump = kanshouTimeJumped_;
-    let aiConfig = { temperature: 1.08, top_p: 0.97, top_k: 60, repetition_penalty: 1.12, presence_penalty: 0.25, frequency_penalty: 0.25, retries: 1, model: SOLO_MODEL, isNsfwMode: true, max_tokens: (_timeJump && partyRows.length === 0) ? 600 : 1500 };
-    aiConfig.fallbackModel = AI_MODEL;
+    let aiConfig = { temperature: 1.08, top_p: 0.97, top_k: 60, repetition_penalty: 1.12, presence_penalty: 0.25, frequency_penalty: 0.25, retries: 1, model: AI_MODEL, isNsfwMode: true, max_tokens: (_timeJump && partyRows.length === 0) ? 600 : 1500 };
 
     // 抓取近 6 筆原始歷史(3輪)，轉換為 API 格式。
     const _sceneCut = !!(moveTarget || kanshouTimeJumped_);

@@ -20,9 +20,9 @@
 - **solo 一律鎖 SFW**：`actionPlay` 入口守門——非 `KPC_`（鑑賞路由前綴）直接 `return`，完全不信任何前端 `isNsfw` 旗標。solo 從不用 `actionPlay`。
 - **模型常數**（`Core_Settings.gs`，皆讀指令碼屬性、未設定才落回程式碼內字面預設）：
   - `OPENROUTER_API_KEY`（唯一認的金鑰屬性名，無相容別名）。
-  - `AI_MODEL`（屬性 `MODEL`）：鑑賞（NSFW）用。
-  - `SOLO_MODEL`（屬性 `SOLO_MODEL`，預設 `google/gemini-3.5-flash-lite`）：solo `narrateWithState_` 用，低延遲小模型。
-  - `UNLOCKED_MODEL`（屬性 `UNLOCKED_MODEL`）：補魔/令咒高好感解鎖分支（`actionNarrateOnly` 的 `deepseek` 旗標）用。
+  - `AI_MODEL`（屬性 `MODEL`，預設 `google/gemini-3.5-flash-lite`）：**兩軌共用的唯一主力模型**。
+  - `FALLBACK_MODEL`（屬性 `FALLBACK_MODEL`，預設 `x-ai/grok-4.20`）：被審查擋下／重試全敗時的後援，由 `callGeminiAPI` 全域自動換，呼叫端不必傳。
+  - ⚠ 2026-09 玩家定案「只要這兩顆」：`SOLO_MODEL`／`UNLOCKED_MODEL` 已整組移除，同名指令碼屬性從此無效。
 - `callGeminiAPI` payload 帶 Gemini `safety_settings`（BLOCK_ONLY_HIGH，非 Gemini 模型靜默忽略）＋尾端附「台灣繁體中文（正體字）」語言鐵律（避免簡體滲透）。`max_tokens`：鑑賞 1000 / solo fallback 2000 / `narrateWithState_` 預設 720。連線失敗時 fallback 回貼世界觀的柔性訊息（🌫️因果紊亂），原始錯誤只進 `Logger.log`。
 
 驗證套路：改完必跑 `bash check.sh`（驗全部 .gs ＋ `Script*.html` 內嵌 JS；CI 只檢查 .gs）。
@@ -148,7 +148,7 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 機器擋：`check_memory.js`（`check.sh` 第六支）——7 種按鈕情境跑真的函式，檢查記憶句不是角色卡碎片、
 不以孤兒標點開頭、含得到這回合的關鍵字；另外釘死「存歷史那一行真的接 `narrateMemoryLine_`」與「歷史深度 ≥4 筆」。
 
-| narrate_only | actionNarrateOnly | **AI 純說書**（solo 專用；GAS 算數值、AI 只演出）。`userData.deepseek` 旗標→改用 `UNLOCKED_MODEL`（補魔/令咒高好感解鎖分支）。 |
+| narrate_only | actionNarrateOnly | **AI 純說書**（solo 專用；GAS 算數值、AI 只演出）。`userData.longForm` 旗標→`max_tokens` 720→2000（補魔/令咒高好感解鎖分支的 500~600 字），模型不變。 |
 | tiger_dojo | actionTigerDojo | 🐯 賽後番外（敗北講評／勝利祝賀）。前端只送敗因【鍵】，文案查 `DOJO_CAUSE_` 五格表；**自帶說書人設定、不套 `miniSystem`**（戰場語氣跟輕鬆詼諧打架）、不讀表不帶歷史。 |
 | enter_kanshou / kanshou_* / backfill_kanshou_ai / get_album / album_delete | Gallery.gs | 進鑑賞後日談世界／同伴管理／共同回憶面板／相簿（詳見 `KANSHOU_REFERENCE.md`） |
 | end_run | actionEndRun | 結束本局（單純清理，不再封存）。（claim_grail 奪杯封存已移除） |

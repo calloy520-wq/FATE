@@ -20,8 +20,7 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
 
   // 規矩表(戰爭向提示詞)已移除，避免漏進慾海；config.ignoreLaw 保留只是相容鍵，已無實際作用。
   let systemContent = systemOverride || buildDefaultSystemPrompt();
-  // deepseek 系模型簡體語料多，即使系統提示詞已要求繁體仍會夾帶大陸用詞；在此(共用層，非 nsfwBaseRules
-  //   本體)於提示詞尾端補強一句，頭尾指令模型記得較牢，solo/鑑賞兩軌都吃得到。
+  // 模型多半簡體語料偏多，光靠系統提示詞前段要求繁體仍會夾帶大陸用詞；在共用層尾端補強一句，兩軌都吃得到。
   systemContent += "\n\n【語言鐵律】全程僅使用台灣繁體中文（正體字），嚴禁簡體字、嚴禁大陸慣用詞彙（如視頻/質量/軟件/信息/內存/屏幕等），一律使用台灣在地慣用語與正體字形。";
 
   // 組裝原生多輪 messages 陣列
@@ -95,9 +94,11 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   }
 
   let apiResult = attemptWithModel_(modelName);
-  if (apiResult === null && config.fallbackModel && config.fallbackModel !== modelName) {
+  // 後援是全域行為、不是某個呼叫端的特例——呼叫端不傳也一律有，才不會有哪條路徑被擋死就沒救。
+  const fallbackName = config.fallbackModel || FALLBACK_MODEL;
+  if (apiResult === null && fallbackName && fallbackName !== modelName) {
     apiMessages[0].content = systemContent; // 換模型前重置降階提示詞，不帶著上一顆模型加的 softenSuffix
-    apiResult = attemptWithModel_(config.fallbackModel);
+    apiResult = attemptWithModel_(fallbackName);
   }
   if (apiResult !== null) return apiResult;
 

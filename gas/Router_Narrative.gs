@@ -106,9 +106,7 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
     temperature: 0.85,
     ignoreLaw: true,            // 不疊規矩表(節慶/天時)
     max_tokens: opts.maxTokens || 720, // 輕量敘事預設長度
-    // opts.model 只由 actionManaSupply/actionUseSeal 的高好感解鎖分支傳入 UNLOCKED_MODEL(Core_Settings.gs)；
-    //   其餘呼叫端不傳，維持 SOLO_MODEL。
-    model: opts.model || SOLO_MODEL,
+    model: opts.model || AI_MODEL,
     isNsfwMode: !!opts.isNsfw    // NSFW 時讓 fallback 文案合理，但不啟用完整慾海規則
   };
   // 帶最近6筆歷史＝3個按鍵(miniSystem 已告知 AI：歷史是既定事實、不可重演)
@@ -165,9 +163,9 @@ function actionNarrateOnly(userData, pcId, sheets) {
 7. 衣著照角色卡寫，【此刻裝扮】最優先，卡上沒寫的不自己加（戰鬥可寫甲冑碎裂）。解除隱匿（如風王結界）只顯現武器，與衣著無關。
 8. 只輸出 JSON：{"narration":"…"}，不要其他欄位、不要 Markdown。`;
 
-  // deepseek 旗標由補魔/強制補魔的高好感解鎖分支夾帶(名稱沿用、非固定綁死該廠商)，該分支指令要求500~600 字(遠長於平常120~180字)，720 tokens 會截斷，故加大上限；其餘呼叫不受影響(仍是720)。
-  const useDeepseek = !!userData.deepseek;
-  const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw, maxTokens: useDeepseek ? 2000 : 720, model: useDeepseek ? UNLOCKED_MODEL : undefined });
+  // 補魔/令咒的高好感解鎖分支要 500~600 字(平常 100~160)，720 tokens 會截斷——只加大上限，不換模型。
+  const longForm = !!userData.longForm;
+const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw, maxTokens: longForm ? 2000 : 720 });
   if (narrationText === null) return JSON.stringify({ success: true, text: "（此處因果已定，氣息微微一閃。）" });
   saveGameHistoryBatch(pcId, [
     { speaker: "player", content: narrateMemoryLine_(promptText) }, // 🧹 存洗淨摘要、非整串提示詞(否則重整歷史會把演出依據/★指令/素材全攤給玩家看)
@@ -216,7 +214,7 @@ function actionTigerDojo(userData, pcId, sheets) {
     : `【已裁定】御主敗北、從者「${sv}」消滅。這一局輸在：${c ? c.fact : '沒能撐到最後'}。
 ①大河開場吐槽兼打氣 ②伊莉雅點破真正輸在哪，並針對【${c ? c.lesson : '下一局的打法'}】給一條具體建議，只講這一條 ③大河收尾打氣。`;
   try {
-    var raw = callGeminiAPI(dojoPrompt, system, { temperature: 0.9, ignoreLaw: true, max_tokens: 720, model: SOLO_MODEL });
+    var raw = callGeminiAPI(dojoPrompt, system, { temperature: 0.9, ignoreLaw: true, max_tokens: 720, model: AI_MODEL });
     var s = raw.indexOf('{'), e = raw.lastIndexOf('}');
     var data = JSON.parse(raw.substring(s, e + 1));
     // callGeminiAPI 重試全敗時的保底文字長得跟成功的一樣，靠 _genFailed 分辨（同 narrateWithState_）。

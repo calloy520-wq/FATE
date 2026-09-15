@@ -8,21 +8,13 @@ const OPENROUTER_API_KEY = (function () {
   return PropertiesService.getScriptProperties().getProperty('OPENROUTER_API_KEY') || '';
 })();
 const MODEL_URL = "https://openrouter.ai/api/v1/chat/completions";
-// 預設值直寫程式碼(圖方便測試不必進 Apps Script 改屬性)；MODEL 指令碼屬性仍優先生效，未設定才落回此預設值。
-// 鑑賞用模型：同時是點火(driveOn=true)直接呼叫模型、與矜持模式重試失敗的 fallbackModel，兩處共用同一顆常數。
+// 兩軌共用同一顆主力模型；被審查擋下或重試全敗時，callGeminiAPI 自動換後援再打一輪（見 Engine_Combat.gs）。
+// 預設值直寫程式碼，指令碼屬性(MODEL / FALLBACK_MODEL)有設就優先。
 const AI_MODEL = (function () {
-  var p = PropertiesService.getScriptProperties();
-  return p.getProperty('MODEL') || 'x-ai/grok-4.20';
+  return PropertiesService.getScriptProperties().getProperty('MODEL') || 'google/gemini-3.5-flash-lite';
 })();
-// solo(narrateWithState_) 只需精簡按鍵回饋、不需鑑賞級 NSFW 生成能力，獨立用低延遲小模型換取速度，與 AI_MODEL 互不影響。
-const SOLO_MODEL = (function () {
-  var p = PropertiesService.getScriptProperties();
-  return p.getProperty('SOLO_MODEL') || 'google/gemini-2.5-flash-lite';
-})();
-// 補魔/令咒解鎖分支(actionNarrateOnly 的 deepseek:true 旗標)專用模型，獨立指令碼屬性，不影響 AI_MODEL/SOLO_MODEL。
-const UNLOCKED_MODEL = (function () {
-  var p = PropertiesService.getScriptProperties();
-  return p.getProperty('UNLOCKED_MODEL') || 'x-ai/grok-4.20';
+const FALLBACK_MODEL = (function () {
+  return PropertiesService.getScriptProperties().getProperty('FALLBACK_MODEL') || 'x-ai/grok-4.20';
 })();
 
 // ==========================================

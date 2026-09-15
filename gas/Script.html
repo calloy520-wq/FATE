@@ -2620,7 +2620,7 @@
   //     beforeCall：beginAction() 成功後、story 訊息插入前的同步前置動作(如收合彈窗)
   //     preMsg：成功前先插入 story 的系統提示 HTML(選填，無則不插)
   //     onSuccess(res)：成功時、syncData(true)+narrate(res.aiPrompt) 之前的同步副作用
-  //     narrateExtra(res)：回傳narrate()的第二參數opts(如{deepseek:true})，不填則不傳
+  //     narrateExtra(res)：回傳narrate()的第二參數opts(如{longForm:true})，不填則不傳
   //     onSuccessAfterNarrate(res)：narrate() 結束後才跑的善後(如里程碑/勝敗判定，可為 async)
   //     onFail(res)：res.success 為 false 時的額外處理(如仍要更新 bondUsed)
   //     failMsg／catchMsg：失敗/例外時的預設 alert 文字
@@ -2740,7 +2740,7 @@
         if (res.statusString) { localStorage.setItem('kyushu_last_status', res.statusString); updateUI(res.statusString.split('§')); }
         updateClock(res.clock, res.ap, res.apMax);
       },
-      narrateExtra: res => res.unlocked ? { deepseek: true } : undefined, // 🔥 高好感解鎖分支換模型
+      narrateExtra: res => res.unlocked ? { longForm: true } : undefined, // 🔥 高好感解鎖分支：敘述拉長到 500~600 字
       onSuccessAfterNarrate: async res => { if (res.defeat) { await handleDefeat(res); } },
       failMsg: '補魔失敗。', catchMsg: '連線失敗，補魔未果。'
     });
@@ -2822,7 +2822,7 @@
       beforeCall: () => { var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none'; },
       preMsg: `<div class="msg-player"><b>【系統】：</b>御主手背的令咒灼然亮起……</div>`,
       payload: { action: 'use_seal', pcId: pc.id, sealType: type, servant: myActiveServant },
-      narrateExtra: res => res.unlocked ? { deepseek: true } : undefined, // 🔥 強制補魔高/低好感兩分支皆換模型
+      narrateExtra: res => res.unlocked ? { longForm: true } : undefined, // 🔥 強制補魔高/低好感兩分支皆拉長
       onSuccessAfterNarrate: async res => { if (res.defeat) { await handleDefeat(res); } }, // 🔥 好感不足的強制補魔可致死
       failMsg: '令咒未能發動。', catchMsg: '連線失敗，令咒未發動。'
     });
@@ -3131,7 +3131,7 @@ function applyModeUI() {
   var isKanshou = (pc && pc.mode === 'kanshou');
   var uin = document.getElementById('u-in'); if (uin) uin.style.display = isKanshou ? '' : 'none';
   var sbtn = document.getElementById('send-btn'); if (sbtn) sbtn.style.display = isKanshou ? '' : 'none';
-  // 🔥 曾經隱藏過這顆開關，導致 driveOn 永遠鎖在 false、🔥主動掌握模式(driveStr注入/deepseek-v3.1-terminus)整個變成用不到的死路——改回依模式顯示/隱藏。
+  // 🔥 曾經隱藏過這顆開關，導致 driveOn 永遠鎖在 false、🔥主動掌握模式(driveStr 注入)整個變成用不到的死路——改回依模式顯示/隱藏。
   var drv = document.getElementById('drive-mode-toggle'); // 🔥 主動掌握開關(原nsfw-mode-toggle重生，見Index.html註解)
   if (drv) { var lab = drv.closest('label'); if (lab) lab.style.display = isKanshou ? '' : 'none'; }
   // 🎴 solo 頂部＝查看/魔力/系統三鍵(取代地點)、底部輸入框整條隱藏(純按鍵)；慾海維持原本(頂部地點徽章＋底部輸入框＋NSFW開關)，零改動守紅線①。
@@ -3176,8 +3176,8 @@ function applyModeUI() {
 
     try {
       // 🧹 isNsfw 旗標已拔——actionNarrateOnly 純看 pcId 路由(KPC_=NSFW)，前端傳了也被無視。
-      // 🔥 opts.deepseek：唯一會傳true的呼叫端是manaSupply()/useSeal()的高好感解鎖分支(res.unlocked)，其餘呼叫不傳。
-      const res = await gasRun({ action: "narrate_only", pcId: pc.id, promptText: promptText, deepseek: !!(opts && opts.deepseek), acctName: (pc && pc.account) || currentAccount });
+      // 🔥 opts.longForm：唯一會傳 true 的是 manaSupply()/useSeal() 的高好感解鎖分支(res.unlocked)。
+      const res = await gasRun({ action: "narrate_only", pcId: pc.id, promptText: promptText, longForm: !!(opts && opts.longForm), acctName: (pc && pc.account) || currentAccount });
       document.getElementById(loadId)?.remove();
 
       if (res.success && res.text) {

@@ -96,11 +96,13 @@ KANSHOU_BLOCKED_ACTIONS_ 已擋下 KPC_ 呼叫，這裡再加一道結構性防�
 
 ## `gas/Core_Settings.gs`
 
-### `SOLO_MODEL`　<sub>Core_Settings.gs:17</sub>
+### `AI_MODEL` / `FALLBACK_MODEL`　<sub>Core_Settings.gs</sub>
 
-solo(narrateWithState_) 只需精簡按鍵回饋、不需鑑賞級 NSFW 生成能力，獨立用低延遲小模型換取速度，與 AI_MODEL 互不影響。
+🔀 2026-09 玩家定案「我只要 SOLO、鑑賞同一顆 + 被擋的後援，其他都不要」：原本 AI_MODEL／SOLO_MODEL／UNLOCKED_MODEL 三顆常數（各自綁不同軌、不同分支）收斂成兩顆——AI_MODEL(google/gemini-3.5-flash-lite) 兩軌共用，FALLBACK_MODEL(x-ai/grok-4.20) 只在被審查擋下／重試全敗時由 callGeminiAPI **全域自動**換上。
 
-🔀 2026-07-28 玩家指定 3.1-flash-lite → 2.5-flash-lite（追繁體飄移；矜持模式的鑑賞聊天也跑這顆）。⚠ 指令碼屬性 SOLO_MODEL 若有設值會蓋過這裡——換模型沒生效就先去 Apps Script 看那個屬性。
+之所以把後援從「呼叫端各自傳 fallbackModel」改成全域預設：舊寫法只有鑑賞 actionPlay 傳，solo 任何一條路被擋死就沒救；後援是全域行為、不該是某個呼叫端的特例。
+
+⚠ 指令碼屬性 MODEL／FALLBACK_MODEL 若有設值會蓋過程式碼預設——換模型沒生效就先去 Apps Script 看那兩個屬性。舊的 SOLO_MODEL／UNLOCKED_MODEL 屬性從此無效（讀都不讀）。
 
 ### （檔案層級）　<sub>Core_Settings.gs:41</sub>
 
@@ -1580,7 +1582,7 @@ part(部位)玩家選填才有；沒填就不提部位，讓AI自己決定戴在
 
 ### `relMemMemoryStr_`　<sub>Gallery.gs:4094</sub>
 
-🔥 平時矜持模式(driveOn=false)用跟solo共用的低延遲小模型(SOLO_MODEL)，只有主動掌握模式(driveOn=true)才切回鑑賞原本用的大型模型(AI_MODEL)——大多數回合是輕鬆日常對話，犯不著每次都吃重量級模型的延遲。max_tokens=1500：narration目標約500字＋其餘欄位，太低容易讓模型輸出被截斷成不完整JSON。
+（⚠ 2026-09 模型整併後兩模式一律 AI_MODEL，driveOn 不再涉及模型；下述 SOLO_MODEL/AI_MODEL 字樣是當時的歷史紀錄）max_tokens=1500：narration目標約500字＋其餘欄位，太低容易讓模型輸出被截斷成不完整JSON。
 
 🎛️ 2026-07 玩家調整採樣參數：temperature/top_p 略升、加top_k/repetition_penalty/presence_penalty/frequency_penalty 抑制重複套路句(如老是收在同一種收尾語氣)，僅driveOn吃到大模型(AI_MODEL)時這幾顆額外旋鈕才會實際生效，矜持模式(SOLO_MODEL)不支援的部分由OpenRouter靜默忽略。
 
@@ -2564,7 +2566,7 @@ look 一併存進 persona——之後日常版轉換(translateLookToDaily_)跟�
 
 ### `actionManaSupply`　<sub>Router_Economy.gs:204</sub>
 
-此分支只在好感≥門檻且魔力見底時走到——從者是真心信任、主動託付的，敘述可更直接大膽；換一顆更能承接露骨描寫的模型(見前端manaSupply()傳的unlocked旗標→narrate(...,{deepseek:true})，後端narrateWithState_/actionNarrateOnly切換，solo其餘呼叫不受影響)。
+此分支只在好感≥門檻且魔力見底時走到——從者是真心信任、主動託付的，敘述可更直接大膽；篇幅也拉長(前端manaSupply()的unlocked旗標→narrate(...,{longForm:true})→後端加大 max_tokens，模型不變)。
 
 性別事實與令咒兩支分支共用同一顆 sealGenderFact_(見Router_Persona.gs)，避免AI寫錯視角性別。
 
@@ -2852,7 +2854,7 @@ BATTLE_DEFER_WRITE_ 讓下面三支只改記憶體，等三者都跑完後一次
 
 ### `actionNarrateOnly`　<sub>Router_Narrative.gs:165</sub>
 
-deepseek 旗標由補魔/強制補魔的高好感解鎖分支夾帶(名稱沿用、非固定綁死該廠商)，該分支指令要求500~600 字(遠長於平常120~180字)，720 tokens 會截斷，故加大上限；其餘呼叫不受影響(仍是720)。模型選擇(UNLOCKED_MODEL)與旗標是否觸發彼此獨立，換模型只需改 Core_Settings.gs 一處。
+longForm 旗標(2026-09 由 deepseek 更名，因為它從來就不綁廠商)由補魔/強制補魔的高好感解鎖分支夾帶，該分支指令要求 500~600 字(遠長於平常 100~160 字)，720 tokens 會截斷，故加大上限；其餘呼叫不受影響(仍是720)。它**只控 max_tokens、不換模型**——模型整併後兩軌只剩 AI_MODEL 一顆。
 
 ### `DOJO_CAUSE_`　<sub>Router_Narrative.gs:181</sub>
 
