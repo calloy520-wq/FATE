@@ -274,7 +274,10 @@ var NP_RESPONSE_ = {
   },
   flee: {
     icon: '🏃', label: '脫離', order: 4,
-    hint: function (c) { return '放棄這一戰、退出交鋒——不受這一擊，但戰線也就此讓出'; },
+    // ⚠ 代價是刻意的：零傷又零代價的選項不是選擇，是正確答案（玩家實測抓到）。
+    //    ①他的真名【沒有放出去】，所以還在弦上——你只是把問題推到下一次碰面。
+    //    ②轉身就走會露出破綻，被順勢咬一記（普攻，不是寶具）。
+    hint: function (c) { return '不接這一擊就走——但對方的真名【並未出手、仍在弦上】，下次碰面照樣要面對；抽身時還會被順勢咬一記'; },
     avail: function (c) { return true; },
     resolve: function (c) { return { ok: true, dmgMul: 0, note: '在真名成形前抽身退開', fled: true }; }
   }
@@ -1587,8 +1590,16 @@ function actionNpRespond(userData, pcId, sheets) {
     pcData[nIdx][COL.PC.HP] = fHp;
   }
 
-  // 敵方這一發已經打出去了：清預告旗標、扣其魔力
-  pcData[nIdx][COL.PC.MEMORY] = clearNpTelegraph_(pcData[nIdx][COL.PC.MEMORY]);
+  // 脫離＝對方根本沒放，真名仍在弦上（不清旗標）；其餘四種都是真的挨了/擋了那一發。
+  let partingDmg = 0;
+  if (res.fled) {
+    // 轉身就走會露出破綻：被順勢咬一記普攻（不是寶具）。
+    const _pr = resolveFateBattle_(foe, me, {});
+    if (_pr && _pr.atkWins) partingDmg = Math.max(1, parseInt(_pr.damage) || 1);
+    dmg = partingDmg;
+  } else {
+    pcData[nIdx][COL.PC.MEMORY] = clearNpTelegraph_(pcData[nIdx][COL.PC.MEMORY]);
+  }
   const svHpBefore = parseInt(pcData[svIdx][COL.PC.HP]) || 0;
   const svHpAfter = Math.max(0, svHpBefore - dmg);
   pcData[svIdx][COL.PC.HP] = svHpAfter;
@@ -1597,6 +1608,12 @@ function actionNpRespond(userData, pcId, sheets) {
   const meDead = svHpAfter <= 0;
   if (foeDead) pcData[nIdx][COL.PC.ID] = "DEAD_" + String(pcData[nIdx][COL.PC.ID]);
   if (meDead) pcData[svIdx][COL.PC.ID] = "DEAD_" + String(pcData[svIdx][COL.PC.ID]);
+
+  // ⏳ 真名這一拍就是這回合的動作，耗 1 AP。
+  //    刻意「扣得到就扣、扣不到也放行」而不是擋下來——這是被迫應對的事件，
+  //    沒行動力就卡死在敵方真名前面是死路，不是難度。
+  let apAfter = null;
+  try { const _sp = spendAp_(myGameId, 1, pcData, sheets, true); apAfter = _sp ? _sp.ap : null; } catch (e) { }
 
   sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
   STATE_PRE_DATA_ = pcData;
@@ -1611,7 +1628,8 @@ function actionNpRespond(userData, pcId, sheets) {
     + performanceNote_([svName, foeName])
     + `【系統·真名解放·已裁定】「${foeName}」高呼真名、解放了寶具${foeNpName ? `【${foeNpName}】` : ''}——這一擊是衝著『${svName}』來的。\n`
     + `御主的應對：${spec.icon}${spec.label}——${res.note}。${res.ok ? '' : '（賭輸了）'}\n`
-    + (res.fled ? `· 『${svName}』在真名成形前抽身退開，這一戰就此讓出——沒有受傷，但也沒有戰果。\n`
+    + (res.fled ? `· 『${svName}』在真名成形前抽身退開——${partingDmg > 0 ? `轉身的破綻被「${foeName}」順勢咬了一記，${sevWord}` : `「${foeName}」的追擊擦身而過`}。\n`
+      + `· ★但那道真名【始終沒有出手】，仍蓄在弦上——收在「這一擊遲早要接」的壓迫感裡，別寫成危機解除。\n`
       : dmg > 0 ? `· 『${svName}』${sevWord}${meDead ? '——靈基當場崩潰、化作光點消散' : ''}。\n`
         : `· 『${svName}』毫髮無傷。\n`)
     + (res.counter ? `· 『${svName}』同時解放了自己的真名迎擊，「${foeName}」${foeDead ? '靈基崩潰、徹底消滅' : '亦受重創'}。\n` : '')
@@ -1620,7 +1638,7 @@ function actionNpRespond(userData, pcId, sheets) {
 
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, response: choice, label: spec.label,
-    dmg: dmg, counterDmg: counterDmg, foeDead: foeDead, meDead: meDead, fled: !!res.fled,
+    dmg: dmg, counterDmg: counterDmg, foeDead: foeDead, meDead: meDead, fled: !!res.fled, ap: apAfter,
     statusString: buildPlayerStatusString(pcData[pIdx])
   });
 }
