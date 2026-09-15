@@ -520,6 +520,38 @@ r 欄＝該寶具真實官方階級，缺 r 者(恩奇都/EMIYA)retreat 至六�
 
 🔤 translateLookToDaily_/translatePersonalityToDaily_/translateMoeToDaily_ 共用開場白：三者系統提示詞都以「你是《命運停駐之夜》的角色側寫顧問。★【語言】」起手。2026-09 稽核：原本三支各自在前綴後面再寫一次「所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母」，等於同一條規則在同一趟請求裡出現三份(callGeminiAPI 尾端還會無條件再補一次【語言鐵律】)——整句收進前綴、JSON 欄位名例外用括號併掉，三支的規則段只留各自真正不同的部分。
 
+### `kanshouRecentDigest_` / `KANSHOU_DIGEST_ROUNDS_` / `KANSHOU_DIGEST_CAP_`　<sub>Gallery.gs</sub>
+
+2026-09 連續回合稽核量到的洞：`chatHistory` 只餵 6 則（3 輪），而四個長期記憶管道（MEMOIR／【初次】／紀念日／約定）
+**全部要有事件發生才會寫**——日常閒聊一個都不蓋戳。實測連打 8 回合日常，那四格全空，等於**純聊天的內容 3 輪後徹底蒸發**，
+玩家說「你上次不是說……」AI 只會茫然。
+
+補法是往同一張「歷史暫存」表多讀幾輪（表裡本來就存著，不必新開欄位），扣掉已經進 chatHistory 的，把更早的
+**玩家側輸入**串成一行。只取玩家那一側是刻意的：那是 GAS 手上唯一不需要 AI 就能壓縮的事實，而且正好是
+「我上次做了什麼」這個連續性錨點；AI 的 narration 壓不了，也不該由 GAS 改寫別人寫的字。
+實測第 12 回合時，「打翻糖罐→擦掉糖粉」這條因果鏈被撿回來，成本 145 字。
+
+⚠ 窗口值 `_histWindow_` 要在 user prompt 組裝【之前】算好，摘要與 chatHistory 共用同一個數——
+各算各的就會重疊（同一回合講兩次）或漏接（中間少一輪）。
+
+### REL_TAG 的防禦性重算　<sub>Gallery.gs · partyMembers.forEach 開頭</sub>
+
+REL_TAG 是 BOND 的衍生值。鑑賞側 11 個 BOND 寫入點**每一個都有跟著 `kanshouSyncRelTier_`**（`bumpBond_` 是 solo
+結盟路徑，鑑賞 dispatcher 擋掉），所以 2026-09 稽核時**沒有現行 bug**。但那是七個呼叫端各自負責，而這裡是唯一的讀取端。
+把 REL_TAG 手動打歪成「點頭之交／好感78」再組提示詞，同一段會同時冒出：
+
+> 關係:**點頭之交**(好感:**78**，事實：**認識還太短**) ＋ 親密尺度「**親吻擁抱依偎可以**」
+
+四句話互打，AI 無所適從。組提示詞前對齊一次就沒有這個破口。`kanshouSyncRelTier_` 只在值真的變了才寫，
+且自訂關係稱呼（不在 `KANSHOU_REL_TIER_` 標籤清單裡的）不會被覆寫，所以這一呼叫是冪等且尊重玩家手動設定的。
+
+### `pSleepStr`：「她此刻在自己家」曾經寫死　<sub>Gallery.gs</sub>
+
+`_pAtHome` 的第三個分支是 `curL === '我的房間'`——那是**玩家自己的房間**，不是她家，但輸出的句子當年寫死成
+「她此刻在自己家、多半還在賴床」。2026-09 稽核追過三條會讓她出現在玩家房裡的路徑（牽手帶回／敲門來訪／提議同去），
+都有設 `KANSHOU_AWAKE_HERE_TAG_` 而被 `kanshouIsAwakeWithMe_` 豁免，所以**沒找到現行可達路徑**——但那行字本身是錯的，
+多一條入口就會中。改成措辭跟著實際地點走（在玩家房裡就寫「她此刻人在你房裡」）。
+
 ### `kanshouDailyTranslateCall_`　<sub>Gallery.gs:102</sub>
 
 🔧 共用呼叫殼子：try/callGeminiAPI/catch-fallback原值三者結構相同，只有「怎麼從API原始回傳值算出最終結果」跟「失敗時的保底值」不同——resultMapper 在 try 內把 raw 轉成最終回傳值(沿用原本各自的 JSON.parse/String(...).trim() 等寫法)，任何一步拋錯都跟原本一樣落到 fallbackValue。

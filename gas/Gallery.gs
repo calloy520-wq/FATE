@@ -369,6 +369,24 @@ function kanshouRelChatCeiling_(bond) {
   return 100;
 }
 
+// 🧠 摘要往回看幾輪、每則保留幾個字。
+const KANSHOU_DIGEST_ROUNDS_ = 8;
+const KANSHOU_DIGEST_CAP_ = 22;
+
+// 把掉出 chatHistory 窗口的較早回合壓成一行「玩家做過什麼」的事實摘要。
+function kanshouRecentDigest_(pcId, windowRows) {
+  try {
+    const deep = getGameHistoryBatchRaw(pcId, windowRows + KANSHOU_DIGEST_ROUNDS_ * 2);
+    if (!deep || deep.length <= windowRows) return "";
+    const older = deep.slice(0, deep.length - windowRows);
+    const lines = older
+      .filter(m => m.speaker === "player")
+      .map(m => String(m.content || "").replace(/^【玩家意圖】：/, "").replace(/\s+/g, " ").trim().slice(0, KANSHOU_DIGEST_CAP_))
+      .filter(Boolean);
+    return lines.length ? lines.join("→") : "";
+  } catch (e) { return ""; }
+}
+
 // 直接從英靈庫召喚一位英靈、讓她「存在」於這個後日談世界(不需先在 solo 封存)。
 function actionKanshouSummonHero(userData, pcId, sheets) {
   var kpc = sheets.pc;
@@ -2556,6 +2574,13 @@ function actionPlay_(userData, pcId, sheets) {
   partyMembers.forEach(pName => {
     const r = pcData.find(row => String(row[COL.PC.NAME]).trim() === String(pName).trim() && !String(row[COL.PC.ID]).startsWith("DEAD_") && sameGame(row));
     if (r) {
+      // 🛡️ REL_TAG 是 BOND 的衍生值，組提示詞前對齊一次——寫入端各自負責同步，這裡是唯一的讀取端。
+      const _pSyncIdx = pcData.indexOf(r);
+      if (_pSyncIdx >= 0) {
+        const _wasTag = String(r[COL.PC.REL_TAG] || ""), _wasBond = String(r[COL.PC.BOND] || ""), _wasMem = String(r[COL.PC.MEMORY] || "");
+        kanshouSyncRelTier_(pcData, _pSyncIdx);
+        if (String(r[COL.PC.REL_TAG] || "") !== _wasTag || String(r[COL.PC.BOND] || "") !== _wasBond || String(r[COL.PC.MEMORY] || "") !== _wasMem) dirtyPcRows.add(_pSyncIdx);
+      }
       const pOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👕 換裝：當前服裝穿著(換衣不換人；玩家UI設定或AI依appearance_extras更新)
       // 鑑賞無戰鬥，HP/STATUS 恆定不變(已被 physical_state 取代)，不重複注入。
       const pMemStr = relMemMemoryStr_(r[COL.PC.REL_MEM]);
@@ -2593,8 +2618,10 @@ function actionPlay_(userData, pcId, sheets) {
         const _pHome = kanshouGetHeroHome_(_pHomeHeroId, r[COL.PC.MEMORY]);
         const _pAtHome = (_pHome !== '自己的住處' && curL === _pHome) || (kanshouIsCohabit_(r) && curL === KANSHOU_COHABIT_ROOM_) || curL === '我的房間';
         if (!_pAtHome) return "";
-        if (curHour < KANSHOU_NIGHT_RAID_HOUR_END_) return "多半已熟睡，睡著/半夢半醒";
-        if (curHour < KANSHOU_ASLEEP_HOUR_END_) return "多半還在賴床、意識朦朧，剛睡醒或仍賴床";
+        // 「我的房間」是【玩家】的房間，不是她家——措辭要跟著實際地點走。
+        const _pWhere = (curL === '我的房間') ? "她此刻人在你房裡" : "她此刻在自己家";
+        if (curHour < KANSHOU_NIGHT_RAID_HOUR_END_) return _pWhere + "、多半已熟睡，睡著/半夢半醒";
+        if (curHour < KANSHOU_ASLEEP_HOUR_END_) return _pWhere + "、多半還在賴床、意識朦朧，剛睡醒或仍賴床";
         return "";
       })();
       const pCohabitStr = kanshouIsCohabit_(r) ? " | 同居中:是(她現在與你同住一處，語氣可依此帶著日常同居的親近感、不是作客)" : "";
@@ -2627,7 +2654,7 @@ function actionPlay_(userData, pcId, sheets) {
         return "【你們從剛才就一直在這裡】——她早已在場，接著這一刻往下寫";
       })();
       _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
-      partyDetailsArr.push(`【在場人物】名號:${pName}｜__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? ` | 裝扮:${pOutfit}` : ""}${(() => { const _p = formatPref(r[COL.PC.PREF]); return _p ? ` | 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(r[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${pFlavorStr}${(() => { const _mo = [pMoeStr, traitPrivateOf_(r[COL.PC.TRAIT])].filter(Boolean).join("／"); return _mo ? ` | 萌點(僅供內化):${_mo}` : ""; })()}${pActivityStr}${pSleepStr ? ` | 現況:她此刻在自己家、${pSleepStr}(除非橋段已明確叫醒她，否則維持這個狀態演出，不宜寫成清醒閒聊)` : ""}${pCohabitStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr}${pChillStr})`);
+      partyDetailsArr.push(`【在場人物】名號:${pName}｜__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? ` | 裝扮:${pOutfit}` : ""}${(() => { const _p = formatPref(r[COL.PC.PREF]); return _p ? ` | 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(r[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${pFlavorStr}${(() => { const _mo = [pMoeStr, traitPrivateOf_(r[COL.PC.TRAIT])].filter(Boolean).join("／"); return _mo ? ` | 萌點(僅供內化):${_mo}` : ""; })()}${pActivityStr}${pSleepStr ? ` | 現況:${pSleepStr}(除非橋段已明確叫醒她，否則維持這個狀態演出，不宜寫成清醒閒聊)` : ""}${pCohabitStr}${pMemoirStr}${pPromiseStr} | 關係:TA是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr}${pChillStr})`);
     }
   });
   // 在場來由人人相同時（多數回合都是），抽成抬頭講一次，不在每張卡上逐字重複。
@@ -2732,6 +2759,11 @@ ${nsfwMemories}${genderHintStr}${driveStr}
   pc[COL.PC.MEMORY] = kanshouSetSideWriteCount_(pc[COL.PC.MEMORY], _swCount);
   const _doSideWrite = (_swCount % KANSHOU_SIDEWRITE_EVERY_ === 1);
 
+  // 剛換場景/剛跳時間就砍短 chatHistory；摘要與 chatHistory 共用這個窗口值，不各算各的。
+  const _sceneCut = !!(moveTarget || kanshouTimeJumped_);
+  const _histWindow_ = _sceneCut ? 2 : 6;
+  const _earlierDigest_ = kanshouRecentDigest_(pcId, _histWindow_);
+
   // 🧊 排序原則：【穩定的放前面、每回合會變的放後面】——prompt cache 是逐 token 比對前綴，
   //    一個會變的東西插在中間，它後面全部作廢。天氣/時間原本卡在第 5 行，把整份 user prompt
   //    的可快取前綴砍到只剩 48%。唯二的例外是 🚨【收尾】與★【在場名單】：它們雖然穩定，但
@@ -2749,7 +2781,7 @@ ${_intimacyLines_ ? `★【親密尺度·最高優先】：肢體親密以好感
 ${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouEventSeed ? `\n★【氛圍靈感·非強制】：可自然納入一個小細節——${kanshouEventSeed}·不合劇情可不用。` : ""}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}${kanshouInitStr}
 ★【今日天氣】：${kanshouWeather_(curDay)}。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜她走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·她此刻【不在場】·禁讓她開口或出現。` : ""}
 🕰️現在${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★光線/氣溫/作息一律依【此刻＝${timeBand_(_narrHour_)}】寫。★本回合只寫這十分鐘內的片段，時間推進由系統宣告。
-${npcDialoguePrompt}
+${npcDialoguePrompt}${_earlierDigest_ ? `\n★【再往前的經過】：更早的回合裡，玩家依序做過這些事——${_earlierDigest_}。這些都已經發生過了，需要時自然呼應、別當沒發生過，也不要重演一次。` : ""}
 🚨【收尾${driveOn ? '·主動掌握' : ''}】：${driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : ''}把最後一句留給被搭話的那個人——用她的答話或神情收尾，並讓她拋出一個玩家接得住的話題(問句、邀約、她此刻在意的事都行)，停在等玩家回應的那一刻。沒有別人在場時才收在「我」的動作上。
 ★【在場名單】：${partyMembers.length ? `只有『${partyMembers.join('、')}』在場——開口/被觸碰的只能是這些人，其他名字即使歷史提過也不准出現，名單上每個人這回合都要有戲；有【專屬稱呼】就叫暱稱、否則叫真名。` : '沒有其他人在場。'}
 
@@ -2761,8 +2793,7 @@ ${npcDialoguePrompt}
     let aiConfig = { temperature: 1.08, top_p: 0.97, top_k: 60, repetition_penalty: 1.12, presence_penalty: 0.25, frequency_penalty: 0.25, retries: 1, model: AI_MODEL, isNsfwMode: true, max_tokens: (_timeJump && partyRows.length === 0) ? 700 : 2400 };
 
     // 抓取近 6 筆原始歷史(3輪)，轉換為 API 格式。
-    const _sceneCut = !!(moveTarget || kanshouTimeJumped_);
-    const recentHistoryRaw = getGameHistoryBatchRaw(pcId, _sceneCut ? 2 : 6);
+    const recentHistoryRaw = getGameHistoryBatchRaw(pcId, _histWindow_);
     if (recentHistoryRaw && recentHistoryRaw.length > 0) {
       aiConfig.chatHistory = recentHistoryRaw.map(msg => ({
         role: msg.speaker === "player" ? "user" : "assistant",
