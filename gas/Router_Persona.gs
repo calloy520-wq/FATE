@@ -103,7 +103,7 @@ function servantCard_(row, opts) {
     if (relTag === "從者" || relTag === "無") relTag = "";
     // 狂化偵測：喪失言語、只咆哮（如赫拉克勒斯、蘭斯洛特）。開膛手傑克等會說話的狂戰士不命中。
     var mad = /狂化|無法言語|僅咆哮|不語/.test(speech + String(fp));
-    var card = `〈${name}·${cls}·演出依據·勿複述字面〉台詞自稱「${fp}」(旁白的「我」永遠是玩家)｜對自己御主的態度：${toM || '依真名'}` +
+    var card = `〈${name}·${cls}·演出依據〉台詞自稱「${fp}」(旁白的「我」永遠是玩家)｜對自己御主的態度：${toM || '依真名'}` +
       (persona ? quadLabeled_(persona, PREF_LABELS_, false) : `｜性格：依真名`) +
       (speech ? `｜口吻：${speech}` : "") +
       (moe && !foe ? `｜萌點(情境對了才浮現一次)：${moe}` : "") +
@@ -141,7 +141,7 @@ function masterCard_(row) {
     var origin = getMasterOrigin_(row[COL.PC.MEMORY]);
     var playedId = getPlayedMaster_(row[COL.PC.MEMORY]);
     var playedCanon = playedId && typeof SEED_MASTERS !== 'undefined' ? SEED_MASTERS.find(m => m && String(m.id) === playedId) : null;
-    return `〈御主「${name}」·演出依據(僅內化、禁複述)〉` + (sex ? `性別${sex}` : "") +
+    return `〈御主「${name}」·演出依據〉` + (sex ? `性別${sex}` : "") +
       quadLabeled_(row[COL.PC.PREF], PREF_LABELS_, true) +
       quadLabeled_(row[COL.PC.TRAIT], TRAIT_LABELS_, true) +
       (moe && moe !== "（待揭曉）" ? `｜萌點(情境對了才浮現一次·用神情語氣帶，別重複同一個動作)：${moe}` : "") +
@@ -185,7 +185,7 @@ function enemyMasterCard_(row, opts) {
     // 陣營：跟servantCard_同款，種子/工房原創敵御主都填得完整，一直沒餵過AI，補上。
     var align = String(row[COL.PC.ALIGN] || "").trim();
     if (align === "中立") align = "";
-    return `〈敵御主「${name}」·演出依據(僅內化、禁複述)〉` +
+    return `〈敵御主「${name}」·演出依據〉` +
       quadLabeled_(row[COL.PC.PREF], PREF_LABELS_, true) +
       quadLabeled_(row[COL.PC.TRAIT], TRAIT_LABELS_, true) +
       (moe ? `｜萌點(僅供內化)：${moe}` : "") +

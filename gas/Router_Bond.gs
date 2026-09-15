@@ -26,7 +26,12 @@ function enemyMasterMemoryFor_(pcData, gameId, servantRow) {
       return r && String(r[COL.PC.FACTION]) === "敵御主" && String(r[COL.PC.GAME_ID] || "") === gameId
         && String(r[COL.PC.NAME]) === masterName && !String(r[COL.PC.ID]).startsWith("DEAD_");
     });
-    return mi !== -1 ? pcData[mi][COL.PC.MEMORY] : "";
+    if (mi === -1) return "";
+    // 🥋 人要在場才幫得上忙：少了這道判定，人在別區的敵御主照樣替從者加傷害，
+    //    而敵御主卡本來就有 LOC 判定——同一份戰報會變成「沒有這張卡，卻寫他親自下場」。
+    var svLoc = String((servantRow && servantRow[COL.PC.LOC]) || "").trim();
+    if (svLoc && String(pcData[mi][COL.PC.LOC] || "").trim() !== svLoc) return "";
+    return pcData[mi][COL.PC.MEMORY];
   } catch (e) { return ""; }
 }
 

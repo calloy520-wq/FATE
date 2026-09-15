@@ -1020,10 +1020,15 @@ function actionFateBattle(userData, pcId, sheets) {
     rounds.forEach(r => (r.strikes || []).forEach(k => { attackers[k.by] = 1; }));
     const multi = Object.keys(attackers).length > 1;
     const npMark = (useNp && npName) ? `【真名解放·${npName.zh}】` : (useNp ? '【真名解放】' : '');
-    const beats = rounds.map((r, i) => (ROUND_MARKS_[i] || ('第' + r.n + '回合')) +
+    // 逐拍的「內容」與「第幾拍」分開算：每拍都一樣時列三次是純贅述，收成一句就好。
+    const bodies = rounds.map((r, i) =>
       (r.strikes || []).map(k => `${multi ? k.by : ''}${k.pHit ? '命中' : '揮空'}${k.note ? `【${String(k.note).replace(/\n/g, ' ')}】` : ''}`).join('＋') +
       (i === 0 ? npMark : '') +
       (r.eNp && r.eNpName ? `【敵真名解放·${r.eNpName}】` : ''));
+    const _allSame = bodies.length > 1 && bodies.every(b => b === bodies[0]);
+    const beats = _allSame
+      ? [`全 ${rounds.length} 回合都是${bodies[0]}`]
+      : bodies.map((b, i) => (ROUND_MARKS_[i] || ('第' + rounds[i].n + '回合')) + b);
     const counter = targetIsFoeServant ? rounds.filter(r => r.eDmg).length : 0;
     const blocked = targetIsFoeServant && rounds.some(r => r.eHit === false);
     return `交鋒節奏：${beats.join('／')}` +
@@ -1034,6 +1039,11 @@ function actionFateBattle(userData, pcId, sheets) {
   const npTelegraphed = rounds.some(r => r.eTelegraph); // 🔮 本戰敵寶具進入預告→AI 演出＋前端保底警告
   const destroyedRow = destroyedName ? pcData.find(function (r) { return r && String(r[COL.PC.NAME]) === destroyedName && String(r[COL.PC.GAME_ID] || "") === myGameId; }) : null;
   const ourSideDestroyed = !!(destroyedRow && String(destroyedRow[COL.PC.FACTION]) === "從者");
+  // 敵方戰後血況：finalLine 與【收束】共用同一個數，別各講各的（舊版收束一律說「尚有餘力」，
+  // 敵御主卡卻依比例說「命懸一線」——同一份提示詞自相矛盾）。
+  const _defHpNow = parseInt(pcData[nIdx][COL.PC.HP]) || 0;
+  const _defHpMaxNow = parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1;
+  const _hpRatioNow = _defHpMaxNow > 0 ? _defHpNow / _defHpMaxNow : 1;
   const finalLine = destroyedName
     ? (ourSideDestroyed
         ? `『${destroyedName}』靈基崩潰、化作光點消散——「${defC.name}」仍存活於場上，此戰未能全身而退。`
@@ -1043,7 +1053,7 @@ function actionFateBattle(userData, pcId, sheets) {
     : sealEscaped ? `「${defC.name}」被對面御主令咒緊急扯離戰場、遁走不在場。`
       : godRevived ? `「${defC.name}」屢屢自死亡歸來、仍未倒下。`
         : defeat ? `『${atkC.name}』靈基崩潰、化作光點消散，御主敗北。`
-          : `「${defC.name}」HP ${parseInt(pcData[nIdx][COL.PC.HP]) || 0}/${parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 0}，交鋒未分生死，尚存。`;
+          : `「${defC.name}」交鋒未分生死、尚存${(() => { const _w = hpStateWord_(_defHpNow, _defHpMaxNow); return _w ? `——${_w}` : ''; })()}。`;
 
   // 🎭 敵御主本人是否在場(同地)：是的話給AI一張精簡演出卡，讓對方在戰報裡也有反應/台詞，不再全程沉默旁觀。
   var enemyMasterRow = null;
@@ -1057,8 +1067,6 @@ function actionFateBattle(userData, pcId, sheets) {
   }
   let enemyMasterCardStr = enemyMasterRow ? enemyMasterCard_(enemyMasterRow, { skipClose: true }) : "";
   if (enemyMasterCardStr && !isMasterTarget) {
-    const _defHpNow = parseInt(pcData[nIdx][COL.PC.HP]) || 0, _defHpMaxNow = parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1;
-    const _hpRatioNow = _defHpMaxNow > 0 ? _defHpNow / _defHpMaxNow : 1;
     const _hpMaxRef = Math.max(_defHpMaxNow, parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 1);
     const _exchangeSignificant = (totalDealt + totalTaken) >= _hpMaxRef * 0.2;
     // 一律指名道姓：「己方/我方」接在敵御主卡後面，讀的人(和 AI)會把立場讀反。
@@ -1096,15 +1104,19 @@ function actionFateBattle(userData, pcId, sheets) {
   // 🥋🔮 御主體術/魔術參戰：跟上面同一種「有記錄沒講給AI聽」的落差——這兩個 fx 每擊都可能悄悄加傷害，卻從沒被塞進 aiPrompt，AI 完全不知道御主動手了，只能憑空演出御主在旁乾看/捏著寶石不出手的空氣戲。
   const _ourFiredAll_ = rounds.reduce((a, r) => a.concat((r.strikes || []).reduce((b, k) => b.concat(k.pFired || []), [])), []);
   const _foeFiredAll_ = rounds.reduce((a, r) => a.concat(r.eFired || []), []);
-  const _fxHit_ = (arr, kw) => arr.some(t => String(t).indexOf(kw) >= 0);
-  const ourMeleeFired = _fxHit_(_ourFiredAll_, '御主體術');
-  const ourMagicFired = _fxHit_(_ourFiredAll_, '御主魔術');
-  const foeMeleeFired = _fxHit_(_foeFiredAll_, '御主體術');
-  const foeMagicFired = _fxHit_(_foeFiredAll_, '御主魔術');
+  // 旗標格式是「${誰}·${效果}」(見 fxDmgApply_)，而反擊回合的 fired 是把攻守兩邊的效果混在同一個陣列——
+  // 只比對效果名會把我方御主的體術讀成「敵御主也下場了」。一律連名字一起比。
+  const _fxHitBy_ = (arr, who, kw) => arr.some(t => String(t).indexOf(String(who) + '·' + kw) >= 0);
+  const ourMeleeFired = _fxHitBy_(_ourFiredAll_, atkC.name, '御主體術');
+  const ourMagicFired = _fxHitBy_(_ourFiredAll_, atkC.name, '御主魔術');
+  const foeMeleeFired = _fxHitBy_(_foeFiredAll_, defC.name, '御主體術');
+  const foeMagicFired = _fxHitBy_(_foeFiredAll_, defC.name, '御主魔術');
   // 🔮 敵反擊解放寶具的真名——同一種「GAS算出來卻沒告訴AI」的漏餵，比照上面 extraFired 補一個對稱收集。
   const enemyNpRoundNotes = rounds.filter(r => r.eNp && r.eNpName).map(r =>
     `第${r.n}回合「${defC.name}」反擊解放真名【${r.eNpName}】${r.eHit ? `命中「${r.eTarget}」` : '，卻被躲開落空'}`
   ).join('；');
+  // 御主自身血量上限：以身相代的傷勢輕重要對著「御主的身體」量，不是從者的。
+  const masterHpMaxRef_ = Math.max(1, parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 1);
   var _mjBits = [];
   if (ourMeleeFired) _mjBits.push('親自出手體術助拳');
   if (ourMagicFired) _mjBits.push('暗中引動自身魔術支援');
@@ -1114,7 +1126,12 @@ function actionFateBattle(userData, pcId, sheets) {
       ? `【御主參戰·後方支援】御主據守後方掩蔽處，穩定供魔、冷靜判讀戰況並下令指揮——不入近身險境，卻是這場交鋒的中樞，切勿寫成御主缺席。`
       : `【御主參戰·見機行事】御主守在戰線側後方、讀著戰況伺機介入——該掩護時上前補位、該退則果斷，與從者一攻一守、彼此呼應。`)
     + (_mjBits.length ? `這一戰御主${_mjBits.join('，並')}，攻勢不全是『${atkC.name}』一人之力。` : '')
-    + (masterShared > 0 ? `更以身替『${atkC.name}』硬扛下 ${masterShared} 點傷勢——★具體演出這記「以身相代」的畫面（撲上以身卸力、擋在身前吃下這一擊、或接住被打飛的從者而自己擦傷負創），別只丟一個數字；自身確實流血受創、數值已由 GAS 結算。` : '')
+    + (masterShared > 0 ? (() => {
+      const _sev = dmgSeverityWord_(masterShared, masterHpMaxRef_);
+      return _sev === '擦傷'
+        ? `更替『${atkC.name}』擋下了一記——★輕輕帶過即可（側身一擋、伸手一撥、被餘波掃到而踉蹌），只是擦傷，別寫成悲壯的捨身重傷。`
+        : `更以身替『${atkC.name}』硬扛下這一擊、自身${_sev}——★具體演出這記「以身相代」的畫面（撲上以身卸力、擋在身前吃下這一擊、或接住被打飛的從者），傷得${_sev === '重創' ? '很重、幾乎站不住' : '不輕'}，別只丟一個數字。`;
+    })() : '')
     + `★御主的招式只能依御主卡上實際列出的魔術系統／體術，卡上沒寫的技術一律不可捏造（改寫成呼喊指令、眼神示意、肢體掩護等不需特定技術的參與方式）。`;
 
   const BATTLE_WORDS_ = ['170~230', '220~290', '280~360', '340~440'];
@@ -1165,7 +1182,11 @@ function actionFateBattle(userData, pcId, sheets) {
     if (destroyedName && !sealEscaped && !godRevived) SC_END.push(ourSideDestroyed
       ? `★【本戰於第 ${rounds.length} 回合終結】『${destroyedName}』已當場靈基崩潰消散——我方死局，「${defC.name}」仍存活。【嚴禁】『${destroyedName}』此後繼續出手/存在於場上，也【嚴禁】御主問「接下來怎麼辦」這類彷彿未分曉的台詞。收在殞落這一擊與御主的震動反應。`
       : `★【本戰於第 ${rounds.length} 回合終結】「${defC.name}」${targetIsFoeServant ? '已當場靈基崩潰消散' : '已當場斃命——凡人之軀，沒有靈基消散的光點'}。【嚴禁】其此後繼續出手/存在於場上，也【嚴禁】我方角色問「接下來怎麼辦」這類彷彿未分曉的台詞。收在終結這一擊與其後的餘韻${targetIsFoeServant ? '（喘息、確認勝負、望向消散的光點）' : '（喘息、確認斷氣、從者收勢）'}。`);
-    if (!destroyedName && !sealEscaped && !godRevived) SC_END.push(`敗方尚有餘力（見上方 HP），勿描寫死亡／消滅／屍體。雙方仍在交鋒中，下回合是否再戰由御主決定。`);
+    if (!destroyedName && !sealEscaped && !godRevived) SC_END.push(
+      (_hpRatioNow <= 0.15 ? `「${defC.name}」已被打到命懸一線、站著全靠意志，但【還沒死】——勿描寫死亡／消滅／屍體，要讓這份瀕死在畫面上看得出來。`
+        : _hpRatioNow <= 0.4 ? `「${defC.name}」傷勢不輕、氣力已顯頹勢，但仍撐得住——勿描寫死亡／消滅／屍體。`
+          : `「${defC.name}」尚有餘力，勿描寫死亡／消滅／屍體。`)
+      + `雙方仍在交鋒中，下回合是否再戰由御主決定。`);
     if (npTelegraphed) SC_END.push(`⚠️「${defC.name}」的靈基驟然高鳴——真名解放的預兆正急速匯聚、殺意如實質般壓來，寶具即將出鞘卻【尚未發動】。★收在這股「山雨欲來、下一擊便是真名解放」的窒息壓迫，讓御主明白必須當機立斷。`);
     if (!destroyedName && !sealEscaped && !godRevived) SC_END.push(_mad
       ? `★戰後讓『${atkC.name}』以其已狂化的方式（低吼／肢體／神情）透出對這場交手的直覺判斷，不成篇整句台詞。`
@@ -1177,9 +1198,9 @@ function actionFateBattle(userData, pcId, sheets) {
     aiPrompt = ourMasterCardStr + servantCard_(pcData[atkIdx], { skipClose: true }) + foeServantCardStr + enemyMasterCardStr + allyAssistCardStr + pactDefCardStr + performanceNote_(_perfNames) +
       `【戰報·已裁定】御主號令${atkLabel}出擊，與「${defC.name}」交鋒 ${nRounds} 回合。\n` +
       `${roundsBrief}\n我方造成 ${totalDealt} 傷害、受創 ${totalTaken}。${finalLine}\n` +
-      `── 分鏡(依序演成畫面，勿複述標籤名) ──\n` +
+      `── 分鏡(依序演成畫面) ──\n` +
       _scene('開場', SC_OPEN) + _scene('交鋒', SC_FIGHT) + _scene('高潮', SC_PEAK) + _scene('收束', SC_END) +
-      `★把上面的分鏡演成一場【${_wordRange} 字】的交鋒：依分鏡順序推進，技能與寶具演其威能而非報菜名。`;
+      `★把上面的分鏡演成一場【${_wordRange} 字】的交鋒：依分鏡順序推進，技能與寶具演其威能。`;
   }
 
   // 📊 給前端的多回合視覺戰報
