@@ -28,6 +28,7 @@ const FRONTEND_ONLY = {
   'KC_QUICK_PHRASES_BUILTIN_': '4 個內建貼圖純前端顯示，後端只管玩家自訂的那份',
   'KC_BAND_SHORT_': '時段名稱的短標籤，純 UI 排版用',
   'KC_ALBUM_BAND_BG_': '相簿卡片依時段的背景色，純樣式',
+  'KC_SLEEP_HINTS_': '地圖上的「她熟睡中」提示，純顯示——同一件事後端是 pSleepStr 每回合算好餵給 AI（KANSHOU_ASLEEP_HOUR_END_ 才是真實來源），不是一張對照表',
 };
 // 🔧 刻意的差異：前後端**本來就不該一模一樣**的地方。每一條都必須寫 why——
 //   這正是這支工具的價值所在：不是消滅差異，是逼每個差異都有人為它簽名。
