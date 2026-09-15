@@ -216,6 +216,18 @@ MEMORY 標記共用工廠：收斂 Router_Battle.gs/Router_Movement.gs 多組結
 
 🔮 魔境的智慧（斯卡哈專屬·玩家可選被動）：影之國女王通曉常見武技，玩家點選【1 個】通用 A 階被動標籤套用。只給「有階級的常見被動」——不含原初符文(她本有)、不含無階級特性、不含寶具/簽名級招式。存從者 MEMORY【魔境】fx。注入點：rowToCombatant_（戰鬥讀取時把選定標籤加進 skills，r 固定 A）。前端只對有 mage_realm 的從者露出選盤。
 
+### `MOE_STORE_MAX_` / `clampMoe_`　<sub>Core_Settings.gs</sub>
+
+萌點(COL.PC.INTENT)的落地上限。所有提示詞一律對 AI 宣告「限18字·務必寫完整一句話不可斷在句意未完處」，落地卻留 30 字緩衝——AI 稍微超字數時不至於被砍在句意中間，這個「說 N 砍 N+緩衝」是本專案既有慣例。
+2026-09 稽核抓到的漏洞：七個寫入點各自手寫 slice 數字，其中五處是 30、兩處是 18（`actionSummonServant` 從英靈殿重召、`Seed_Rivals.gs` 複製敵從者）。而 `recordOriginalHero_` 把 AI 原創英靈的萌點是用 30 存進 persona 的——**存 30、讀 18**，同一句話在重召或被當敵從者時就會被腰斬成半句，而且是靜默的。這正是當年那三處註解「比照 slice(0,18) 腰斬修正」要修掉的形狀，只是漏了這兩處。根源解是把數字收成單一真實來源，而不是再補第三次。
+
+### `TRAIT_SEG_MAX_` / `TRAIT_SEG_HINT_`　<sub>Core_Settings.gs</sub>
+
+四格短句(外貌 TRAIT／性格 PREF)的落地硬上限(30)與提示詞對 AI 宣告的字數(14)，同一套「說 N 砍 N+緩衝」。
+`parseTraitsHelper` 每格 `slice(0, TRAIT_SEG_MAX_)` 是靜默腰斬，但 2026-09 稽核前**沒有任何一支生成四格的提示詞提過這個數字**——AI 只被告知「簡短詞組／精簡收束」，沒有錨。最容易爆的是鑑賞日常外貌的第三格（固定格式「自稱「X」，」先吃掉 6 字，剩下才寫口氣）與第四格（要求 show-don't-tell 的具體小動作，寫具體就長）。
+14 這個數字是量出來的：`Seed_Codex.gs` 25 位種子從者的手寫 dailyLook 四格實測 4~16 字（平均 9.2/6.2/12.2/10.2），dailyWords 四格最長 10 字。宣告 14、硬砍 30，AI 照著寫就落在種子庫同一個風格帶裡，緩衝純粹當保險。
+掛這條規則的提示詞共六處：`translateLookToDaily_` ①look、`translatePersonalityToDaily_` ③、`enrichPersonalityLikesDislikes_`、solo 御主 backfill 的四格格式鐵律、工房 flavor 補完、自訂從者召喚。加新的四格生成點時要一起帶上。
+
 ### `parseTraitsHelper`　<sub>Core_Settings.gs:459</sub>
 
 終極防呆：清除 AI 雞婆加上的標籤與數字 (例如 "1.", "日常表象:", "氣質舉止:" 等)。標籤清單需對齊
@@ -506,7 +518,7 @@ r 欄＝該寶具真實官方階級，缺 r 者(恩奇都/EMIYA)retreat 至六�
 
 ### `KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_`　<sub>Gallery.gs:98</sub>
 
-🔤 translateLookToDaily_/translatePersonalityToDaily_/translateMoeToDaily_ 共用開場白：三者系統提示詞都以「你是《命運停駐之夜》的角色側寫顧問。★【語言】」起手(look段多一句JSON欄位名例外，各自保留在自己的規則段落裡，不動這段共用前綴的字面)。
+🔤 translateLookToDaily_/translatePersonalityToDaily_/translateMoeToDaily_ 共用開場白：三者系統提示詞都以「你是《命運停駐之夜》的角色側寫顧問。★【語言】」起手。2026-09 稽核：原本三支各自在前綴後面再寫一次「所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母」，等於同一條規則在同一趟請求裡出現三份(callGeminiAPI 尾端還會無條件再補一次【語言鐵律】)——整句收進前綴、JSON 欄位名例外用括號併掉，三支的規則段只留各自真正不同的部分。
 
 ### `kanshouDailyTranslateCall_`　<sub>Gallery.gs:102</sub>
 
@@ -2320,7 +2332,7 @@ forceAll(終局逼近)時常一次瓦解多組同盟，MEMORY 整欄一次寫回
 
 ### `recordOriginalHero_`　<sub>Router_Creation.gs:395</sub>
 
-工房角色創造當下就順手轉好日常版(DAILY_LOOK/DAILY_WORDS)寫進英靈殿，跟種子英靈的懶惰快取(getOrComputeDailyHeroFields_)不同——之後第一次被召喚進鑑賞就直接有現成版本，不必等召喚當下才轉。萌點也同步轉換，避免 heroToKanshouRow_ 把戰時沉重萌點搬進沒打過聖杯戰爭的鑑賞世界。moe 需先算好才能當 hint 傳給 translateLookToDaily_，避免「私密一面」跟萌點撞成同一件事的兩種說法。
+工房角色創造當下就順手轉好日常版(DAILY_LOOK/DAILY_WORDS)寫進英靈殿，跟種子英靈不同(那 25 人的日常版是 Seed_Codex.gs persona.daily* 手寫欄位，getDailyHeroFields_ 只負責讀、沒有補算路徑)——之後第一次被召喚進鑑賞就直接有現成版本，不必等召喚當下才轉。萌點也同步轉換，避免 heroToKanshouRow_ 把戰時沉重萌點搬進沒打過聖杯戰爭的鑑賞世界。moe 需先算好才能當 hint 傳給 translateLookToDaily_，避免「私密一面」跟萌點撞成同一件事的兩種說法。
 
 ### `SKILL_PTS_`　<sub>Router_Creation.gs:415</sub>
 

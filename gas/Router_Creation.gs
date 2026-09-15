@@ -131,7 +131,7 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
 
 ★【語言】全程使用繁體中文，所有輸出內容(含技能招式名、外號、修飾詞)一律不得夾雜英文或其他語言字母；玩家描述若含英文人名/詞彙，請意譯或音譯成中文寫入，不要原樣照抄英文。
 ★【演出而非說明】願望與身世只作為設定底層，不要在 background 裡直接複述願望字面。
-★【四格·格式鐵律】traits 與 personality 各【恰好4段】，只用頓號「、」分隔成4段，【絕對不要用句號「。」或半形句點】，每段是一個【簡短詞組】(不是完整句子)，每段內部也【不要】再用頓號列舉多項；禁數字標籤。
+★【四格·格式鐵律】traits 與 personality 各【恰好4段】，只用頓號「、」分隔成4段，【絕對不要用句號「。」或半形句點】，每段是一個【簡短詞組】(不是完整句子)、限${TRAIT_SEG_HINT_}字內寫完，每段內部也【不要】再用頓號列舉多項；禁數字標籤。
 - traits：外貌、氣質舉止、自稱與口氣(第一人稱·如 我/俺/吾＋說話語氣，如 自稱「吾」・睥睨王者腔)、卸下心防的私密一面。${finalSex === '女' ? BUST_NOTE_ : ''}
 - personality：日常表象、真實內裡、喜歡的事物、討厭的事物
 ★npc_intent：一句讓人喜歡上這位御主的萌點，**18 字內講完一句完整的話**。可以是反差、也可以只是討喜的外觀或小習慣。${MOE_BAN_}
@@ -139,7 +139,7 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
 ★【勿輸出數值】戰力數值、HP/MP 一律由系統裁定，prompt【不要】輸出任何數值欄位；也不要輸出地點。
 
 ★【輸出】合法 JSON、禁 Markdown：
-{"background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","npc_intent":"結合御主身分的獨特可愛萌點(不限反差)，一句話"}`;
+{"background":"限20字","traits":"四格頓號字串","personality":"四格頓號字串","npc_intent":"結合御主身分的獨特可愛萌點(不限反差)·限18字·務必寫完整一句話不可斷在句意未完處"}`;
 
   try {
     // 🔴 ignoreLaw: true，把節慶跟天氣隔絕在創建室外
@@ -151,8 +151,7 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
     if (aiBrief.background) sheets.pc.getRange(wIdx + 1, COL.PC.BACK + 1).setValue(String(aiBrief.background).slice(0, 40));
     if (aiBrief.traits) sheets.pc.getRange(wIdx + 1, COL.PC.TRAIT + 1).setValue(parseTraitsHelper(aiBrief.traits, row[COL.PC.TRAIT]));
     if (aiBrief.personality) sheets.pc.getRange(wIdx + 1, COL.PC.PREF + 1).setValue(parseTraitsHelper(aiBrief.personality, row[COL.PC.PREF]));
-    // slice(0,18) 對一句話太緊，AI 稍微超字數就被砍在句意中間；放寬緩衝(比照 Gallery.gs actionBackfillKanshouAi)。
-    if (aiBrief.npc_intent) sheets.pc.getRange(wIdx + 1, COL.PC.INTENT + 1).setValue(String(aiBrief.npc_intent).slice(0, 30));
+    if (aiBrief.npc_intent) sheets.pc.getRange(wIdx + 1, COL.PC.INTENT + 1).setValue(clampMoe_(aiBrief.npc_intent));
     return JSON.stringify({ success: true });
   } catch (e) {
     return JSON.stringify({ success: false, message: "背景補生成失敗（已保留種子設定）" });
@@ -327,7 +326,7 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
     // 🔑 creator＝編輯權限綁定(actionSaveHero edit 分支靠 pj.creator===acct 擋非本人)；weapon＝武裝敘述。
     weapon: String(px.weapon || ""), creator: String(px.creator || "")
   });
-  // 工房角色創造當下就順手轉好日常版(DAILY_LOOK/DAILY_WORDS)寫進英靈殿，跟種子英靈的懶惰快取(getOrComputeDailyHeroFields_)不同——之後第一次被召喚進鑑賞就直接有現成版本，不必等召喚當下才轉。
+  // 工房角色創造當下就順手轉好日常版(DAILY_LOOK/DAILY_WORDS)寫進英靈殿，跟種子英靈不同(那 25 人的日常版是 Seed_Codex.gs persona.daily* 手寫欄位，getDailyHeroFields_ 只負責讀、沒有補算路徑)——之後第一次被召喚進鑑賞就直接有現成版本，不必等召喚當下才轉。
   var dailyMoe = translateMoeToDaily_(name, cls, String(px.moe || ""));
   // translateLookToDaily_ 一次呼叫同時產出四段式 look(外貌本相/氣質舉止/自稱與口氣/私密一面) 與獨立的 outfit(日常穿搭)。
   var dailyLookRes = translateLookToDaily_(name, cls, String(px.look || ""), String(px.firstP || ""), String(px.speech || ""), dailyMoe, sex);
@@ -553,7 +552,7 @@ function actionSaveHero(userData, pcId, sheets) {
   try {
     flavor = JSON.parse(callGeminiAPI(
       `【真名】：${pb.name}\n【職階】：${pb.cls}\n【性別】：${pb.sex}\n【玩家描述】：${pb.desc || "無"}${pb.look ? `\n【外貌(${pb.lookFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.look}` : ""}${pb.pref ? `\n【個性(${pb.prefFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.pref}` : ""}${pb.fp ? `\n【自稱(玩家已定)】：${pb.fp}` : ""}${pb.speech ? `\n【口吻(玩家已定)】：${pb.speech}` : ""}${pb.moe ? `\n【萌點(玩家已定·照抄勿改)】：${pb.moe}` : ""}${pb.back ? `\n【身世(玩家已定·照抄勿改)】：${pb.back}` : ""}${pb.weapon ? `\n【武裝(以此為準·勿依職階/原典改寫)】：${pb.weapon}` : ""}${isMasterCls ? "" : `\n【技能】：${pb.skills.map(s => s.n).join("、") || "無"}\n【寶具】：${pb.npName}${pb.npDesc ? `（${pb.npDesc}）` : ""}`}`,
-      `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名${_ogF.pnote}${isMasterCls ? "御主(鑑賞限定·不參與戰鬥)" : "從者"}的設定，你【只】負責補完演出側寫${isMasterCls ? "" : "與寶具英文真名"}，【嚴禁】輸出任何數值/階級/技能設定。★【語言】除${isMasterCls ? "" : " npEn 欄與"} JSON 欄位名本身外，所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母。玩家標「照抄勿改」的欄位原樣沿用；標「核心設定·擴寫」的欄位以玩家給的為靈魂擴寫、【嚴禁】偏離或覆蓋其本意。★personality 與 look 皆【恰好4段·只用頓號「、」分隔·絕對不要用句號「。」或半形句點·每段是簡短詞組非完整句子·段內不再用頓號列舉】。★輸出合法 JSON、禁 Markdown：{"personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔）","look":"外貌四短句頓號分隔（五官髮色/身形/衣著印象，最後一句必須是不含服裝字眼的純氣質詞）","background":"生平一句·限20字","npc_intent":"一句萌點(不限反差)·限18字·務必寫完整一句話不可斷在句意未完處","firstP":"台詞自稱(我/吾/俺/本王…·限4字)","toMaster":"對自己御主的態度(限20字)","speech":"口吻(限40字·如 古風敬語、句尾帶「呢」、簡短冷淡)","tic":"招牌小動作(限30字·具體可見的身體動作，不寫心情)"${isMasterCls ? "" : `,"npEn":"寶具的英文真名讀法(拉丁字母·如 Excalibur 風格·限4個單字)"`}}`,
+      `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名${_ogF.pnote}${isMasterCls ? "御主(鑑賞限定·不參與戰鬥)" : "從者"}的設定，你【只】負責補完演出側寫${isMasterCls ? "" : "與寶具英文真名"}，【嚴禁】輸出任何數值/階級/技能設定。★【語言】除${isMasterCls ? "" : " npEn 欄與"} JSON 欄位名本身外，所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母。玩家標「照抄勿改」的欄位原樣沿用；標「核心設定·擴寫」的欄位以玩家給的為靈魂擴寫、【嚴禁】偏離或覆蓋其本意。★personality 與 look 皆【恰好4段·只用頓號「、」分隔·絕對不要用句號「。」或半形句點·每段是簡短詞組非完整句子·限${TRAIT_SEG_HINT_}字內寫完·段內不再用頓號列舉】。★輸出合法 JSON、禁 Markdown：{"personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔）","look":"外貌四短句頓號分隔（五官髮色/身形/衣著印象，最後一句必須是不含服裝字眼的純氣質詞）","background":"生平一句·限20字","npc_intent":"一句萌點(不限反差)·限18字·務必寫完整一句話不可斷在句意未完處","firstP":"台詞自稱(我/吾/俺/本王…·限4字)","toMaster":"對自己御主的態度(限20字)","speech":"口吻(限40字·如 古風敬語、句尾帶「呢」、簡短冷淡)","tic":"招牌小動作(限30字·具體可見的身體動作，不寫心情)"${isMasterCls ? "" : `,"npEn":"寶具的英文真名讀法(拉丁字母·如 Excalibur 風格·限4個單字)"`}}`,
       { temperature: 0.85, ignoreLaw: true }));
   } catch (e) { flavor = null; }
   // AI 補的演出欄位：玩家有填就用玩家的，沒填才拿這份（工房 UI 只剩一句描述，這四格全靠 AI 從描述推）
@@ -562,7 +561,7 @@ function actionSaveHero(userData, pcId, sheets) {
   const np = isMasterCls ? "" : `${pb.npName}${fNpEn ? " " + fNpEn : ""}（${pb.npScale} ${pb.npR}）${pb.npDesc ? "·" + pb.npDesc : ""}`;
   const finalLook = pb.lookFull ? pb.look : (String((flavor && flavor.look) || "").trim() || pb.look);
   const finalPref = pb.prefFull ? pb.pref : (String((flavor && flavor.personality) || "").trim() || pb.pref);
-  const moe = pb.moe || String((flavor && flavor.npc_intent) || "").slice(0, 30); // 比照 slice(0,18) 腰斬修正，放寬緩衝
+  const moe = pb.moe || clampMoe_(flavor && flavor.npc_intent);
   const back = pb.back || String((flavor && flavor.background) || "").slice(0, 28);
   let wasCreated;
   try {
@@ -646,7 +645,7 @@ function actionSummonServant(userData, pcId, sheets) {
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       row[COL.PC.TRAIT] = parseTraitsHelper(looksToTraitParts_(persona.look, persona.firstP), "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
       let svPref = String(persona.words || "").replace(/・/g, "、");
-      let svMoe = String(persona.moe || "").slice(0, 18);
+      let svMoe = clampMoe_(persona.moe);
       let svBack = persona.back ? String(persona.back).slice(0, 28) : `${cls}・${realName}`;
       svPref = enrichPersonalityLikesDislikes_(realName, cls, svPref);
       row[COL.PC.PREF] = parseTraitsHelper(svPref, "沉著表象、堅定內裡、珍視之物、厭惡之事");
@@ -674,12 +673,12 @@ ${clsUnset ? "★【職階 cls】玩家未指定職階——請依描述判斷�
 ★【技能命名】n 是【顯示名】、fx 才是機制(兩者脫鉤)。${custDesc ? _og.skill : '★技能名忠於該角色原著既有的招式/技能名(對魔力／直感／庫夫林「蓋・波爾克」…)，直接沿用勿重編亂加花名。'}
 ${FX_MENU_}
 ★【特性 traits】1~3 個，{"n":"特性名"}（如 王/龍/人類/神性/巨人/猛獸；有神性者會被神殺剋）。
-★【演出而非說明】personality 與寶具只作底層，勿直接複述字面。personality 剛好 4 短句頓號分隔：日常表象、真實內裡、喜歡的事物、討厭的事物。
+★【演出而非說明】personality 與寶具只作底層，勿直接複述字面。personality 剛好 4 短句頓號分隔、每句限${TRAIT_SEG_HINT_}字內寫完：日常表象、真實內裡、喜歡的事物、討厭的事物。
 ★【外貌 look】剛好 4 短句頓號分隔，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝；若為女性：外貌段要具體寫到身形與胸部，用自然敘述句(如「胸前豐盈」「身形纖瘦」)，不要「巨乳」這種孤立標籤——這句玩家看得到)]、[氣質舉止]、[自稱與口氣(固定格式「自稱「X」，再接一句依其說話語氣寫成的口氣描述」)]、[卸下心防的私密一面(具體生活化的小動作，不可直述心情/動機)]。
 ★np：寶具名＋一句威能簡述；規模上限【對軍】——對城/對界/對神為種子英靈專屬，寫了也會被系統降為對軍，簡述請勿誇稱斬城滅界。★npc_intent：一句讓人喜歡上這名英靈的萌點，**18 字內講完一句完整的話**。可以是反差、也可以只是討喜的外觀或小習慣。${MOE_BAN_}也別拿寶具名湊字數。★sex 從 男／女／異 擇一。
 
 ★【輸出】合法 JSON、禁 Markdown：
-{"realName":"英靈真名",${clsUnset ? '"cls":"Saber",' : ""}"sex":"男/女/異 擇一","align":"如 混沌・善","background":"限20字","npc_intent":"萌點一句(不限反差)","personality":"四格頓號","look":"四格頓號","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"skills":[{"n":"自取的招式名","r":"A","fx":"對應效果碼"},{"n":"自取的招式名","r":"B","fx":"對應效果碼"}],"traits":[{"n":"人類"}]}`;
+{"realName":"英靈真名",${clsUnset ? '"cls":"Saber",' : ""}"sex":"男/女/異 擇一","align":"如 混沌・善","background":"限20字","npc_intent":"萌點一句(不限反差)·限18字·務必寫完整一句話不可斷在句意未完處","personality":"四格頓號","look":"四格頓號(每句限${TRAIT_SEG_HINT_}字)","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"skills":[{"n":"自取的招式名","r":"A","fx":"對應效果碼"},{"n":"自取的招式名","r":"B","fx":"對應效果碼"}],"traits":[{"n":"人類"}]}`;
       const aiBrief = JSON.parse(callGeminiAPI(`【職階】：${clsUnset ? "未指定(請依描述判斷)" : cls}\n【御主】：${pcName}${trueName ? `\n【指定真名】：${trueName}` : ""}${custDesc ? `\n【玩家自訂描述】：${custDesc}` : ""}`, sysOverride, { temperature: custDesc ? 0.85 : 0.6, ignoreLaw: true }));
       if (!aiBrief || !aiBrief.realName || !aiBrief.six) {
         return JSON.stringify({ success: false, message: "英靈之座的迴響中斷——召喚失敗，請稍候再試一次。" });
@@ -702,7 +701,7 @@ ${FX_MENU_}
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       row[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.look, "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
       row[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "沉著表象、堅定內裡、珍視之物、厭惡之事");
-      row[COL.PC.INTENT] = String(aiBrief.npc_intent || "").slice(0, 30); // 比照 slice(0,18) 腰斬修正，放寬緩衝
+      row[COL.PC.INTENT] = clampMoe_(aiBrief.npc_intent);
       row[COL.PC.MEMORY] = `第一人稱「我」｜對御主：初締約·尚在觀察`; // 與種子路徑對稱(原漏寫→servantCard_ 演出資訊變薄)
       row[COL.PC.SIX] = JSON.stringify(aiSix);
       row[COL.PC.TAGS] = JSON.stringify({ skills: tagSkillKind_(aiCSkills, 'class').concat(tagSkillKind_(aiSkills, 'skill')), traits: aiTraits });
@@ -713,7 +712,7 @@ ${FX_MENU_}
       const svBackAi = aiBrief.background ? String(aiBrief.background).slice(0, 40) : `${cls} 職階的英靈`; // 補防呆上限，比照其他AI生成路徑
       row[COL.PC.BACK] = svBackAi;
       // 不重名的原創從者寫回英靈殿(含六圍/技能fx/特性)，日後可重用。
-      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], aiCSkills, aiSkills, aiTraits, np, aiBrief.personality, align, { moe: String(aiBrief.npc_intent || "").slice(0, 30), back: svBackAi, look: String(aiBrief.look || "").replace(/[<>&"'`]/g, "").slice(0, 80), creator: String(userData.acctName || "").trim() }); } catch (e) { }
+      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], aiCSkills, aiSkills, aiTraits, np, aiBrief.personality, align, { moe: clampMoe_(aiBrief.npc_intent), back: svBackAi, look: String(aiBrief.look || "").replace(/[<>&"'`]/g, "").slice(0, 80), creator: String(userData.acctName || "").trim() }); } catch (e) { }
     }
 
     row[COL.PC.ID] = newId;

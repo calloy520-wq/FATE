@@ -89,7 +89,7 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
   row[COL.PC.HP] = hp; row[COL.PC.MP] = mp;
   // 🎴 五圍已棄欄：戰鬥吃六圍 SIX。
   row[COL.PC.MAX_HP] = hp; row[COL.PC.MAX_MP] = mp;
-  row[COL.PC.INTENT] = String(persona.moe || "").slice(0, 18); // 🎴 敵從者也複製萌點(原漏，servantCard_ 曾要靠即時查表補)
+  row[COL.PC.INTENT] = clampMoe_(persona.moe); // 🎴 敵從者也複製萌點(原漏，servantCard_ 曾要靠即時查表補)
   row[COL.PC.FACTION] = faction; row[COL.PC.RANK] = cls;
   row[COL.PC.ALIGN] = hero[COL.HERO.ALIGN] || "中立";
   row[COL.PC.MARTIAL] = hero[COL.HERO.NP] || "寶具";

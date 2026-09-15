@@ -86,8 +86,8 @@ function getKanshouPcSheet_(ss) {
   return sh;
 }
 
-// 🔤 translateLookToDaily_/translatePersonalityToDaily_/translateMoeToDaily_ 共用開場白：三者系統提示詞都以「你是《命運停駐之夜》的角色側寫顧問。
-const KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_ = "你是《命運停駐之夜》的角色側寫顧問。★【語言】";
+// 🔤 三支日常化轉譯(look/personality/moe)的共用系統提示詞開場白，含那條三支都要的語言規則。
+const KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_ = "你是《命運停駐之夜》的角色側寫顧問。★【語言】所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母（JSON 欄位名本身除外）。";
 // 🔧 共用呼叫殼子：try/callGeminiAPI/catch-fallback原值三者結構相同，只有「怎麼從API原始回傳值算出最終結果」跟「失敗時的保底值」不同——resultMapper 在 try 內把 raw 轉成最終回傳值(沿用原本各自的 JSON.parse/String(...).trim() 等寫法)，任何一步拋錯都跟原本一樣落到 fallbackValue。
 function kanshouDailyTranslateCall_(prompt, sys, apiOpts, resultMapper, fallbackValue) {
   try {
@@ -100,11 +100,11 @@ function translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint,
   var look = String(rawLook || "").trim();
   if (!look) return { look: "", outfit: "" };
   var figureHint = (sex === "女") ? "，若角色是成年女性、務必包含身形/胸部具體描寫，但要寫成自然的敘述句(如「胸前豐盈」「身形纖瘦」)、不要用「巨乳」這類生硬孤立的分類標籤直接呈現——這句話會顯示在玩家看得到的狀態欄位；「豐滿」單獨出現不夠明確，須明確扣連到胸部，不要只寫髮色瞳色就交差" : "";
-  var sys = KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_ + "除JSON欄位名本身外，所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母。玩家提供一段用「、」或「・」分隔的角色戰時外貌描述" +
+  var sys = KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_ + "玩家提供一段用「、」或「・」分隔的角色戰時外貌描述" +
     "(前面數段是外貌本相與戰時攻防裝束，最後一段是整體氣質／神情)，以及她的第一人稱自稱、說話語氣。" +
     "這是 Fate／聖杯戰爭的平行世界日常線，想像《衛宮家今天的餐桌風景》那種基調——換上現代日常穿搭，" +
     "但一看就知道是她本人。請輸出兩樣東西：\n" +
-    "①look：日常版「外貌」四短句、頓號分隔，每句精簡收束、避免堆疊多重子句，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝)" + figureHint + "]、" +
+    "①look：日常版「外貌」四短句、頓號分隔，每句精簡收束、【每句限" + TRAIT_SEG_HINT_ + "字內寫完整一句話，超過會被截斷】、避免堆疊多重子句，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝)" + figureHint + "]、" +
     "[氣質舉止(依和平日常情境自然轉化，但性格底色不變，不可變成另一個人的氣質；【不可與下方口氣段用相同字眼重複描述】，例如兩段都寫「溫柔」「謙恭」)]、" +
     "[自稱與口氣：固定格式「自稱「" + (firstP || "我") + "」，再接一句依她原本說話語氣(" + (speech || "無特別描述") + ")寫成的日常口氣描述」]、" +
     "[卸下心防的私密一面(這個角色只有放下戒備才會流露的一個具體、生活化、忠於其性格的小可愛面向，" +
@@ -124,7 +124,7 @@ function translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint,
 function translatePersonalityToDaily_(name, cls, rawWords, lookPrivateHint) {
   var words = String(rawWords || "").trim();
   if (!words) return words;
-  var sys = KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_ + "所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母。玩家提供一位角色在聖杯戰爭(戰時)既有的性格短句" +
+  var sys = KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_ + "玩家提供一位角色在聖杯戰爭(戰時)既有的性格短句" +
     "(用「、」分隔，依序對應[日常表象][真實內裡][喜歡的事物][討厭的事物]，段數可能不足4段——" +
     "這是正常的，種子資料本就只服務戰鬥)。這個角色現在要進入現代都市的和平日常生活，想像" +
     "《衛宮家今天的餐桌風景》那種基調——性格核心不變，只是活在和平日常裡，請你：\n" +
@@ -132,7 +132,7 @@ function translatePersonalityToDaily_(name, cls, rawWords, lookPrivateHint) {
     "日常場景展現的等價說法；純屬個性核心(不涉戰場)的短句原樣保留、不要亂改。\n" +
     "②段數不足4段時，依既有特質延伸出貼合、具體、適合日常場景的「喜歡的事物」與「討厭的事物」" +
     "補滿4句。\n" +
-    "③每句精簡收束、避免堆疊多重子句。\n" +
+    "③每句精簡收束、【每句限" + TRAIT_SEG_HINT_ + "字內寫完整一句話，超過會被截斷】、避免堆疊多重子句。\n" +
     (lookPrivateHint ? "④她的日常外貌欄已寫好一句「私密一面」：「" + lookPrivateHint + "」——你這4句性格【不要】跟它重複或換句話說同一件事，各自要是獨立的面向。\n" : "") +
     "★只輸出最終4句、用「、」分隔，不要輸出任何說明、標籤、引號、前後綴。";
   var prompt = "角色：" + name + "（" + cls + "）\n戰時性格短句：" + words;
@@ -146,7 +146,7 @@ function translatePersonalityToDaily_(name, cls, rawWords, lookPrivateHint) {
 function translateMoeToDaily_(name, cls, rawMoe) {
   var moe = String(rawMoe || "").trim();
   if (!moe) return moe;
-  var sys = KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_ + "所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母。玩家提供一位角色在聖杯戰爭(戰時)既有的「萌點」" +
+  var sys = KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_ + "玩家提供一位角色在聖杯戰爭(戰時)既有的「萌點」" +
     "一句話——這種戰時萌點常常是靠沉重背景撐出來的(創傷/自卑/孤獨/悲劇宿命等)，形式不拘：可能是" +
     "反差(表面兇其實軟)，也可能只是單純討喜的外觀/行為/習慣特色。這個角色現在要" +
     "進入一個【平行世界的日常線】：這裡從來沒有發生過聖杯戰爭這回事(她依然是同一位英靈，只是活在" +
@@ -162,7 +162,7 @@ function translateMoeToDaily_(name, cls, rawMoe) {
   var prompt = "角色：" + name + "（" + cls + "）\n戰時萌點：" + moe;
   return kanshouDailyTranslateCall_(prompt, sys, { temperature: 0.75, ignoreLaw: true, plainText: true }, function (raw) {
     var out = String(raw || "").trim();
-    return out.slice(0, 30) || moe;
+    return clampMoe_(out) || moe;
   }, moe);
 }
 
@@ -559,8 +559,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
     if (aiBrief.background) sheets.pc.getRange(wIdx + 1, COL.PC.BACK + 1).setValue(String(aiBrief.background).slice(0, 40));
     if (aiBrief.traits) sheets.pc.getRange(wIdx + 1, COL.PC.TRAIT + 1).setValue(parseTraitsHelper(aiBrief.traits, row[COL.PC.TRAIT]));
     if (aiBrief.personality) sheets.pc.getRange(wIdx + 1, COL.PC.PREF + 1).setValue(parseTraitsHelper(aiBrief.personality, row[COL.PC.PREF]));
-    // N 欄(萌點)給足緩衝空間(30字)，避免一句話太緊被腰斬成半句。
-    if (aiBrief.npc_intent) sheets.pc.getRange(wIdx + 1, COL.PC.INTENT + 1).setValue(String(aiBrief.npc_intent).slice(0, 30));
+    if (aiBrief.npc_intent) sheets.pc.getRange(wIdx + 1, COL.PC.INTENT + 1).setValue(clampMoe_(aiBrief.npc_intent));
     // AI 生成的衣裝比照英靈那邊(daily.outfit)補上，生成失敗/沒給值時種子預設「日常便服」繼續當保底。
     if (aiBrief.outfit) {
       const liveMem = sheets.pc.getRange(wIdx + 1, COL.PC.MEMORY + 1).getValue();
