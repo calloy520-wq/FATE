@@ -617,7 +617,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `actionKanshouSummonHero(userData, pcId, sheets)` — 從英靈庫召喚一位英靈「存在」於此後日談世界（不必先 solo 封存）。防線：擁有權驗證、士郎位置擋、`KANSHOU_SUMMON_BLOCKED_IDS_` 擋、ai_gen 僅創造者可召、不開放男男、同一位只召一次（跨名比對）。通過即 appendRow(`heroToKanshouRow_`)。
 - `actionEnterKanshou(userData, pcId, sheets)`（2026-07新增：分支①②回應皆附`quickPhrases`欄，供前端渲染玩家自訂快速貼圖——🐛→✅ 再稽核抓到②原本漏帶，跟①不一致已補齊）— 進入常駐後日談世界（每帳號一個）。三分支：①帳號表已連結→接續（含全名→短名一次性遷移）②MEMORY【帳號】標記舊角色→補寫帳號表連結遷移③無存檔→需 needSetup 問名字/性別後新建御主列（KPC_ 前綴，開場「我的房間」Day1 06:00）＋入駐 `KANSHOU_STARTER_IDS_` 4 位起始住民。**🐛→✅ 稽核抓到**：pcName/appearance/persona 這條首建路徑原本完全沒設 backend 長度上限(只靠前端 maxlength 擋)，已補 pcName≤16／appearance・persona≤60，跟後續改名/改命路徑口徑一致。（2026-07 二度改版：兩個成功回應物件都拿掉 `prefLocks` 欄位，性格鎖系統整組刪除）
-- `actionBackfillKanshouAi(userData, pcId, sheets)`（2026-07 再稽核抓到漏洞：找列邏輯改用`kanshouOwnedRowIdx_`驗證帳號歸屬，取代原本裸`findIndex`信任傳入pcId的漏洞——鑑賞pcId可預測/枚舉，舊版可被冒名竄改任一玩家的敘事欄；前端`backfillKanshouAi`同步補送`acctName`）— 非阻塞背景補生成御主 4 個敘事欄（background/traits/personality/npc_intent/outfit）。比照 `actionBackfillMasterAi`「種子秒建＋AI 潤色」；競態修用 `buildLiveIdIndex_` 寫回前重定位，只單格 setValue，數值/位置不碰。
+- `actionBackfillKanshouAi(userData, pcId, sheets)`（2026-07 再稽核抓到漏洞：找列邏輯改用`kanshouOwnedRowIdx_`驗證帳號歸屬，取代原本裸`findIndex`信任傳入pcId的漏洞——鑑賞pcId可預測/枚舉，舊版可被冒名竄改任一玩家的敘事欄；前端`backfillKanshouAi`同步補送`acctName`）— 非阻塞背景補生成御主 **6** 個敘事欄（background/traits/personality/npc_intent/**speech**/**tic**/outfit；2026-09 新增 speech＝口吻、tic＝招牌小動作，落地走召喚同伴那支 `stampPersonaFlavor_`）。比照 `actionBackfillMasterAi`「種子秒建＋AI 潤色」；競態修用 `buildLiveIdIndex_` 寫回前重定位，只單格 setValue，數值/位置不碰。**🐛→✅ 2026-09**：原本【無條件覆寫】那幾欄——對一個已經玩過/改命改過的角色再跑一次就整組洗掉，而舊角色要補新欄位一定得再跑一次。改成「第一次補完蓋 `KANSHOU_BACKFILL_DONE_TAG_`（【設定已補】）的章，之後只填還空著的格子」；MEMORY 上的三件事（衣裝/口吻/小動作）併成讀一次寫一次，沒東西可改就完全不寫。
 - `actionKanshouCompanions(userData, pcId, sheets)` — 列出本世界已存在的所有從者＋各自地點/關係標籤/**專屬稱呼(2026-07新增，`getNickname_`裸值)**/好感/是否同地/待赴約定/共同回憶/**`id`(2026-07 id 化重構新增)**，供玩家決定去找誰。無隊伍/人數上限。回傳另附**`quickPhrases`(2026-07新增，見`kanshouGetQuickPhrases_`)**供前端合併渲染玩家自訂快速貼圖。
 - `actionKanshouMemoirOp(userData, pcId, sheets)`（2026-07 稽核：找目標同伴列改委派 `findPcRowIdx_`，取代手刻迴圈，行為等價）— 共同回憶面板操作（op=pin/unpin/del）：釘選加 ★ 前綴（釘選上限 8）、刪除整條移除。玩家 UI 手動管理、AI 無權；帳號綁定＋同 gid 驗證。
 
@@ -690,6 +690,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `KANSHOU_COHABIT_END_TAG_`（makeIntTag_ 同居解除·2026-07 新增）— 跨函式傳事實用：`kanshouSyncRelTier_` 是共用 helper、看不到提示詞變數，蓋一次性旗標讓 `actionPlay_` 組 `kanshouCohabitEndStr` 時讀一次就清。
 - `KANSHOU_NIGHT_PART_TAG_`（makeTextTag_ 昨夜道別·2026-07 新增）— 與【晨間餘韻】同構的另一半：昨晚陪你到最後、卻沒留下的人（未達 80）。兩者互斥。
 - `KANSHOU_KNOCK_DAY_TAG_`／`KANSHOU_NIGHT_GUEST_TAG_`／`KANSHOU_FESTIVAL_DONE_TAG_`（2026-07）— 深夜訪客日戳／夜訪客姓名／今日節慶習俗已完成（absDay）。
+- `KANSHOU_BACKFILL_DONE_TAG_`（makeIntTag_『設定已補』）— 創角敘事欄已經補過的章。蓋了之後 `actionBackfillKanshouAi` 只填還空著的格子，不再覆寫玩家玩出來/改命改過的內容。
 - `KANSHOU_MORNING_AFTER_TAG_`（makeTextTag_ 晨間餘韻）、`KANSHOU_SCENE_DAY_TAG_`（makeIntTag_ 橋段日·防同日重刷）、`KANSHOU_FIRST_MET_DAY_TAG_`（makeIntTag_ 初見日·紀念日）、`KANSHOU_APPT_BANDS_`（約定時段 午後14/黃昏18/夜20）。
 - `kanshouApptHour_(band)` — 約定時段→時刻（null=舊格式無時段）。
 - `kanshouGetPromise_` / `kanshouClearPromise_` / `kanshouSetPromise_(memory, absDay, loc, band)` — MEMORY【約定】absDay:band:loc 讀/清/寫（新約蓋舊、舊格式相容）。
