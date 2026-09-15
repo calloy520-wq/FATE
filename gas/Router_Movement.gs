@@ -105,7 +105,7 @@ function buildArrivePrompt_(a) {
     : '承接上一則敘事：依上一戰的勝負與當前血量定調（勿臆測）——大勝→餘勇或警戒；慘勝→疲憊仍挺立；敗逃→狼狽負傷，別演成若無其事。');
   HOW.push('忌套語與雷同結構（動作→台詞→轉身），每次換感官切入點與詞彙。不可逼問玩家，停在決策前的留白讓玩家以按鍵回應。');
   const sec = (t, arr) => arr.length ? `【${t}】\n` + arr.map(x => '· ' + x).join('\n') + '\n' : '';
-  const words = ARRIVE_WORDS_[Math.min(NOW.length + (foes.length ? 1 : 0), ARRIVE_WORDS_.length - 1)];
+  const words = ARRIVE_WORDS_[Math.min(NOW.length + (foes.length ? 1 : 0) + (foes.length >= 3 ? 1 : 0), ARRIVE_WORDS_.length - 1)];
   return (a.masterCard || '') + (a.servantCard ? '【我方從者】' + a.servantCard : '') + (a.foeCards ? '【在場敵方·非我方】' + a.foeCards : '')
     + (a.pursuit && a.pursuit.foeCard ? '【撤離途中的追兵】' + a.pursuit.foeCard : '') + (a.perfNote || '')
     + HERE.join('\n') + '\n'
@@ -113,7 +113,8 @@ function buildArrivePrompt_(a) {
     + `★演出這段抵達【${words} 字】：\n` + HOW.map(x => '· ' + x).join('\n');
 }
 // 篇幅依抵達當下發生了幾件事——追擊/撞見互毆/有敵對峙，不該跟空地落腳同樣字數。
-const ARRIVE_WORDS_ = ['120~170', '180~240', '240~310'];
+// 人多就要有多一點篇幅：4 張敵方卡＋我方從者＋御主擠在 310 字裡，每人只剩 50 字、AI 只能點名。
+const ARRIVE_WORDS_ = ['120~170', '180~240', '240~310', '330~420'];
 // 抵達時最多附幾張敵方演出卡（其餘只在「此地有敵蹤」那行點名）。
 const ARRIVE_FOE_CARD_CAP_ = 4;
 
@@ -721,6 +722,8 @@ function resolveFactionEncounter_(allPcData, mA, mB, svA, svB, gameId, day) {
   var baseDmg = Math.max(1, Math.round((cross.damage || 1) * 0.4));
   // 📊 GAS 戰報：撞見兩方敵人時 GAS 實際落血，記進 clashHits 供前端畫數字卡（絕不讓 AI 亂掰傷害）。
   var clashHits = [];
+  // 回傳的是「傷得多重」的白話（不是數字）：提示詞要的是份量，不是點數。
+  var chipWord = function (idx, mul) { var _d = chip(idx, mul); return dmgSeverityWord_(_d, parseInt(allPcData[idx] && allPcData[idx][COL.PC.MAX_HP]) || 1); };
   var chip = function (idx, mul) {
     if (idx < 0) return 0;
     var d = Math.max(1, Math.round(baseDmg * mul));
@@ -760,13 +763,13 @@ function resolveFactionEncounter_(allPcData, mA, mB, svA, svB, gameId, day) {
   var note;
   switch (type) {
     case 'frenzy':
-      note = `你踏進來時，「${mAName}」與「${mBName}」的從者正殺紅了眼死鬥——刀光不停，「${loserName}」已添新傷（−${chip(loserIdx, 1.6)}）。你的出現沒讓他們收手，兩人仍纏鬥不休，只有一瞬掃來提防的餘光。`;
+      note = `你踏進來時，「${mAName}」與「${mBName}」的從者正殺紅了眼死鬥——刀光不停，「${loserName}」已${chipWord(loserIdx, 1.6)}。你的出現沒讓他們收手，兩人仍纏鬥不休，只有一瞬掃來提防的餘光。`;
       break;
     case 'standoff':
       note = `「${mAName}」與「${mBName}」的從者兵刃相向、劍拔弩張地對峙，卻誰也沒先動手。你的踏入像投進火藥的一粒火星——三方的緊繃在同一刻被拉到極限。`;
       break;
     case 'hunt':
-      note = `這裡正上演一場追殺：一方從者步步進逼，「${moreHurt}」帶著更重的傷（−${chip(moreHurtIdx, 1.2)}）節節後退。你的到來，成了獵人與獵物都得重新盤算的變數。`;
+      note = `這裡正上演一場追殺：一方從者步步進逼，「${moreHurt}」傷得更重（${chipWord(moreHurtIdx, 1.2)}）、節節後退。你的到來，成了獵人與獵物都得重新盤算的變數。`;
       break;
     case 'unite':
       note = `「${mAName}」與「${mBName}」方才還互不相讓，見你這不速之客闖入，兩人卻不約而同收住招式、警惕地一同轉向你——眼下這個外人，似乎比彼此更值得提防。`;

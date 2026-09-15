@@ -242,7 +242,9 @@ function actionBond(userData, pcId, sheets) {
     function (a) {
       const ambushBondNote = bondNow >= 50 ? "羈絆已深，這一刻會奮力強撐護主" : "羈絆尚淺，這一刻未必挺身相護、更可能先顧自己";
       const bondSev = dmgSeverityWord_(a.dmg || 0, a.svHpMax);
-      return (a.foeCard || '') + performanceNote_(a.destroyed ? [a.enemyName] : [svName, a.enemyName]) + `【系統·相伴遭突襲·已裁定】御主『${masterName}』與「${svName}」正${act.label}、卸下心防之際，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自暗處無聲突襲' : '抓準這破綻殺出'}，一擊${bondSev}「${svName}」（−${a.dmg}）${a.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n` +
+      // 🐛→✅ 突襲分支原本只給敵方卡，卻在 performanceNote_ 點名我方從者要「依性格演出」——
+      //        性格從沒送進來過。正常分支本來就有這兩張卡，是這裡漏了。
+      return masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx], { skipClose: true }) + (a.foeCard || '') + performanceNote_(a.destroyed ? [a.enemyName] : [svName, a.enemyName]) + `【系統·相伴遭突襲·已裁定】御主『${masterName}』與「${svName}」正${act.label}、卸下心防之際，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自暗處無聲突襲' : '抓準這破綻殺出'}，一擊${bondSev}「${svName}」${a.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n` +
         `★描寫溫存被突襲撕裂的驚變與兇險，${a.destroyed ? '及從者消滅的痛楚（語氣留白）' : `及從者對此突襲的反應：${ambushBondNote}`}。傷害與勝負已由系統結算。\n`;
     },
     function () {
