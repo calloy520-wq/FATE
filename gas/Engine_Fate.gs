@@ -467,8 +467,12 @@ function resolveFateBattle_(atk, def, opts) {
   var aRoll = d20(), dRoll = d20();
   // 命中／迴避改用「階級隨機區間」(base-10~base+5)，讓低階偶能爆冷、骰運重新有戲🎴 六圍＝角色速寫，只給「微傾向」：命中/迴避吃 rankTier×K_STAT(階差壓到~12)，讓 D20(運氣)重新主導——TYPE-MOON 官方定位六圍是「讓人快速理解角色」的速寫、非戰力試算表(庫丘林六圍頂尖卻幸運E)。
   var K_STAT = 2.5;
-  var aHit = aRoll + Math.round(rankTier_(atk.six[aProf.hit]) * K_STAT) + (Math.floor(Math.random() * 7) - 3) + outMod;
-  var dEva = dRoll + Math.round((rankTier_(def.six['敏捷']) * 0.65 + rankTier_(def.six['耐久']) * 0.35) * K_STAT) + (Math.floor(Math.random() * 7) - 3);
+  // 💨 2026-09 敏捷減重（玩家：「敏捷的權重也要降低一點，不然根本打不到」）：
+  //    敏捷本來三吃——攻方命中獨佔、守方迴避佔 0.65、傷害還吃「命中分差×1.2」。
+  //    實測敏捷 E 打敏捷 A 只有 17% 命中，光靠一個六圍就把命中率從 17% 擺到 81%(擺幅 64)。
+  //    攻守各收一點後擺幅降到 51、地板抬到 24%，四種調法量過這組最平衡（見 scratchpad/size/agi_opt.js）。
+  var aHit = aRoll + Math.round((rankTier_(atk.six[aProf.hit]) * 0.8 + rankTier_(atk.six['筋力']) * 0.2) * K_STAT) + (Math.floor(Math.random() * 7) - 3) + outMod;
+  var dEva = dRoll + Math.round((rankTier_(def.six['敏捷']) * 0.5 + rankTier_(def.six['耐久']) * 0.5) * K_STAT) + (Math.floor(Math.random() * 7) - 3);
   // 魔砲類型不加進 fired（每回合都是、無資訊量；territory 的 buff 效果只在有實際差距時才值得記）
   if (opts.mealBuff) { aHit += opts.mealBuff; fired.push(atk.name + '·整備進食(+' + opts.mealBuff + ')'); }
   // 🔥 補魔過充：御主剛行補魔、澎湃魔力流貫靈基——攻方全身狀態微揚(命中+2；傷害端於下方另×1.06)。
