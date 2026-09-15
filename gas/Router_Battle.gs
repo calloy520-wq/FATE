@@ -272,14 +272,14 @@ var NP_RESPONSE_ = {
     avail: function (c) { return hasFx_(c.me, 'avalon_saber') && c.masterMp >= 100; },
     resolve: function (c) { return { ok: true, dmgMul: 0, note: '金色結界悄然展開、盡數湮滅', wardCost: 100 }; }
   },
-  flee: {
-    icon: '🏃', label: '脫離', order: 4,
-    // ⚠ 代價是刻意的：零傷又零代價的選項不是選擇，是正確答案（玩家實測抓到）。
-    //    ①他的真名【沒有放出去】，所以還在弦上——你只是把問題推到下一次碰面。
-    //    ②轉身就走會露出破綻，被順勢咬一記（普攻，不是寶具）。
-    hint: function (c) { return '不接這一擊就走——但對方的真名【並未出手、仍在弦上】，下次碰面照樣要面對；抽身時還會被順勢咬一記'; },
-    avail: function (c) { return true; },
-    resolve: function (c) { return { ok: true, dmgMul: 0, note: '在真名成形前抽身退開', fled: true }; }
+  seal_flee: {
+    icon: '❖', label: '令咒脫離', order: 4,
+    // ⚠ 代價＝一道令咒（玩家定案）：零傷又零代價的選項不是選擇，是正確答案。
+    //    令咒是全戰爭只有三道的底牌，而「干涉空間、強行抽離」本來就是原作裡令咒的正統用法，
+    //    比「被咬一口」自然得多——燃得起就乾淨脫身，燃不起就得自己接下這一擊。
+    hint: function (c) { return '燃一道令咒·干涉空間強行抽離——毫髮無傷、乾淨脫身；但三道令咒是御主僅有的底牌（現餘 ' + c.seals + ' 道）'; },
+    avail: function (c) { return (c.seals || 0) >= 1; },
+    resolve: function (c) { return { ok: true, dmgMul: 0, note: '令咒迸發、空間扭曲', sealFlee: true }; }
   }
 };
 
@@ -441,7 +441,8 @@ function actionFateBattle(userData, pcId, sheets) {
     injectMysticBuff_(_rMe, pcData[pIdx][COL.PC.MEMORY]);
     const _rCtx = {
       me: _rMe, foe: rowToCombatant_(pcData[nIdx]), meRow: pcData[atkIdx], foeRow: pcData[nIdx],
-      masterMp: parseInt(pcData[pIdx][COL.PC.MP]) || 0, pcData: pcData, myGameId: myGameId, nIdx: nIdx
+      masterMp: parseInt(pcData[pIdx][COL.PC.MP]) || 0, seals: getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]),
+      pcData: pcData, myGameId: myGameId, nIdx: nIdx
     };
     return JSON.stringify({
       success: false, needNpResponse: true,
@@ -1568,7 +1569,8 @@ function actionNpRespond(userData, pcId, sheets) {
 
   const ctx = {
     me: me, foe: foe, meRow: pcData[svIdx], foeRow: pcData[nIdx],
-    masterMp: parseInt(pcData[pIdx][COL.PC.MP]) || 0, pcData: pcData, myGameId: myGameId, nIdx: nIdx
+    masterMp: parseInt(pcData[pIdx][COL.PC.MP]) || 0, seals: getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]),
+    pcData: pcData, myGameId: myGameId, nIdx: nIdx
   };
   const opts = npResponseOptions_(ctx);
   if (!choice) return JSON.stringify({ success: false, needNpResponse: true, foeName: String(pcData[nIdx][COL.PC.NAME]), options: opts });
@@ -1590,13 +1592,21 @@ function actionNpRespond(userData, pcId, sheets) {
     pcData[nIdx][COL.PC.HP] = fHp;
   }
 
-  // 脫離＝對方根本沒放，真名仍在弦上（不清旗標）；其餘四種都是真的挨了/擋了那一發。
-  let partingDmg = 0;
-  if (res.fled) {
-    // 轉身就走會露出破綻：被順勢咬一記普攻（不是寶具）。
-    const _pr = resolveFateBattle_(foe, me, {});
-    if (_pr && _pr.atkWins) partingDmg = Math.max(1, parseInt(_pr.damage) || 1);
-    dmg = partingDmg;
+  // 令咒脫離＝對方根本沒放，真名仍在弦上（不清旗標）；其餘三種都是真的挨了/擋了那一發。
+  let fledTo = "";
+  if (res.sealFlee) {
+    const _sealsNow = Math.max(0, getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]) - 1);
+    pcData[pIdx][COL.PC.MEMORY] = setPlayerSeals_(pcData[pIdx][COL.PC.MEMORY], _sealsNow);
+    // 搬人：御主＋出戰從者＋同行者一起走（與 use_seal 的 escape 同一套）
+    fledTo = enemyRetreatLoc_(String(pcData[pIdx][COL.PC.LOC]).trim(), getWarName_(pcData[pIdx][COL.PC.MEMORY]));
+    pcData[pIdx][COL.PC.LOC] = fledTo; pcData[svIdx][COL.PC.LOC] = fledTo;
+    pcData.forEach(function (r, i) {
+      if (i === pIdx || i === svIdx) return;
+      if (String(r[COL.PC.IS_PARTY] || "") !== "同行") return;
+      if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+      if (String(r[COL.PC.GAME_ID] || "") !== myGameId) return;
+      pcData[i][COL.PC.LOC] = fledTo;
+    });
   } else {
     pcData[nIdx][COL.PC.MEMORY] = clearNpTelegraph_(pcData[nIdx][COL.PC.MEMORY]);
   }
@@ -1628,8 +1638,8 @@ function actionNpRespond(userData, pcId, sheets) {
     + performanceNote_([svName, foeName])
     + `【系統·真名解放·已裁定】「${foeName}」高呼真名、解放了寶具${foeNpName ? `【${foeNpName}】` : ''}——這一擊是衝著『${svName}』來的。\n`
     + `御主的應對：${spec.icon}${spec.label}——${res.note}。${res.ok ? '' : '（賭輸了）'}\n`
-    + (res.fled ? `· 『${svName}』在真名成形前抽身退開——${partingDmg > 0 ? `轉身的破綻被「${foeName}」順勢咬了一記，${sevWord}` : `「${foeName}」的追擊擦身而過`}。\n`
-      + `· ★但那道真名【始終沒有出手】，仍蓄在弦上——收在「這一擊遲早要接」的壓迫感裡，別寫成危機解除。\n`
+    + (res.sealFlee ? `· 御主燃去一道令咒，絕對命令干涉空間——『${svName}』與御主在真名落下之前被強行抽離，遁往「${fledTo}」，毫髮無傷。\n`
+      + `· ★但那道真名【始終沒有出手】，仍蓄在弦上——收在「逃得掉這次、逃不掉下次」的壓迫感裡，別寫成危機解除；令咒又少一道的重量也要落在御主身上。\n`
       : dmg > 0 ? `· 『${svName}』${sevWord}${meDead ? '——靈基當場崩潰、化作光點消散' : ''}。\n`
         : `· 『${svName}』毫髮無傷。\n`)
     + (res.counter ? `· 『${svName}』同時解放了自己的真名迎擊，「${foeName}」${foeDead ? '靈基崩潰、徹底消滅' : '亦受重創'}。\n` : '')
@@ -1638,7 +1648,7 @@ function actionNpRespond(userData, pcId, sheets) {
 
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, response: choice, label: spec.label,
-    dmg: dmg, counterDmg: counterDmg, foeDead: foeDead, meDead: meDead, fled: !!res.fled, ap: apAfter,
+    dmg: dmg, counterDmg: counterDmg, foeDead: foeDead, meDead: meDead, fled: !!res.sealFlee, fledTo: fledTo, ap: apAfter,
     statusString: buildPlayerStatusString(pcData[pIdx])
   });
 }
