@@ -409,9 +409,32 @@ function openForge(from) {
   if (f) { f.style.display = 'block'; window.scrollTo(0, 0); }
   var gt = document.getElementById('game-title'); if (gt) gt.style.display = 'none'; // 🏷️ 工房屏藏大標題省高度
   if (!_forgeInit) { initForge_(); _forgeInit = true; }
+  forgeTab(2); // 📑 預設開在中間「⚔️ 靈基」主頁
   // 主選單直入時名冊可能還沒載(loadHeroes 原本在進召喚頁才跑)→補載後刷「我的作品」列
   if (!heroesData || !heroesData.length) { loadHeroes().then(function () { renderForgeWorks_(); }).catch(function () { }); }
   forgeMode('create'); // 預設創造模式
+}
+function forgeTab(n) {
+  [1, 2, 3].forEach(function (i) {
+    var pg = document.getElementById('cf-page-' + i); if (pg) pg.style.display = (i === n) ? 'block' : 'none';
+    var tb = document.getElementById('cf-tab-' + i);
+    if (tb) {
+      tb.style.borderColor = (i === n) ? 'var(--gold-accent)' : '#3a3550';
+      tb.style.color = (i === n) ? 'var(--gold-accent)' : '#8a8298';
+      tb.style.fontWeight = (i === n) ? 'bold' : 'normal';
+    }
+  });
+  // 💾 存檔鈕只在中間「⚔️ 靈基」主頁顯示；預算計數保持三頁常駐(寶具頁調規模要看得到)
+  // 🌹 御主職階沒有靈基/寶具頁可看(藏起，見 applyForgeClsMode_)，存檔鈕改在唯一可見的「🎭 演出」頁顯示。
+  var isMaster = ((document.getElementById('cf-cls') || {}).value === '御主');
+  var sv = document.getElementById('cf-save'); if (sv) sv.style.display = (n === 2 || (isMaster && n === 1)) ? 'block' : 'none';
+}
+function toggleForgeAdvanced() {
+  var box = document.getElementById('cf-drama'); if (!box) return;
+  var open = box.style.display !== 'none';
+  box.style.display = open ? 'none' : 'block';
+  var btn = document.getElementById('cf-adv-toggle');
+  if (btn) btn.textContent = (open ? '▸' : '▾') + ' 進階演出細節（選填·自稱/陣營/態度/萌點/口吻/小動作/身世）';
 }
 // 🧹 自訂生成的指定職階/角色來源預設收合——兩者皆有合理預設，手機版面不必每次都撐長。
 function toggleSummonAdvanced() {
@@ -428,9 +451,10 @@ function forgeReset_() {
   var nm = document.getElementById('cf-name'); if (nm) { nm.value = ''; nm.disabled = false; }
   V('cf-cls', 'Saber'); refreshClsHint_(); V('cf-sex', '女');
   ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].forEach(function (k) { V('cf-six-' + k, 'E'); });
-  for (var i = 0; i < 4; i++) { V('cf-sk' + i + '-fx', ''); V('cf-sk' + i + '-r', 'C'); V('cf-sk' + i + '-n', ''); refreshSkillBtn_(i); }
-  ['cf-np-name', 'cf-weapon', 'cf-desc', 'cf-traits'].forEach(function (id) { V(id, ''); });
-  V('cf-np-scale', '對人');
+  for (var i = 0; i < 4; i++) { V('cf-sk' + i + '-fx', ''); V('cf-sk' + i + '-r', 'C'); V('cf-sk' + i + '-n', ''); }
+  refreshSkillRows_();
+  ['cf-np-name', 'cf-np-desc', 'cf-weapon', 'cf-look', 'cf-pref', 'cf-desc', 'cf-fp', 'cf-tomaster', 'cf-speech', 'cf-tic', 'cf-moe', 'cf-back', 'cf-traits'].forEach(function (id) { V(id, ''); });
+  V('cf-np-scale', '對人'); V('cf-align', '中立');
   closeSkillPick();
   forgeBudget_();
 }
@@ -503,15 +527,20 @@ function forgeEdit(id) {
   var m = String(h.np || '').match(/^([^（]+?)(?:\s+[A-Za-z][^（]*)?（(對人|對軍)[^）]*）(?:·(.*))?$/);
   // 反解失敗(舊盲盒自由格式)→ fallback 取「（」前段剝英文尾——避免欄位空白、存檔把寶具靜默改成「無名寶具」
   var npFallback = String(h.np || '').split('（')[0].replace(/\s+[A-Za-z][A-Za-z0-9 .'\-:]*$/, '').trim().slice(0, 20);
-  V('cf-np-name', m ? m[1].trim() : npFallback); V('cf-np-scale', (m && m[2]) || '對人');
-  V('cf-weapon', d.weapon); V('cf-traits', d.traits);
-  // 🧹 工房瘦身後那十個純敘事欄位沒有 UI 了——編輯既有作品時把既有值攤回「一句描述」，
-  //    玩家看得到也改得到，不會靜靜消失。
-  V('cf-desc', [d.look, d.pref, d.fp && ('自稱「' + d.fp + '」'), d.speech, d.tic, d.moe, d.toMaster, d.back,
-    (d.align && d.align !== '中立') ? d.align : '', (m && m[3]) || ''].filter(Boolean).join('、').slice(0, 120));
-  for (var j = 0; j < 4; j++) refreshSkillBtn_(j); // 🎨 晶片鈕標籤跟上預填值
+  V('cf-np-name', m ? m[1].trim() : npFallback); V('cf-np-scale', (m && m[2]) || '對人'); V('cf-np-desc', (m && m[3]) || '');
+  V('cf-weapon', d.weapon);
+  V('cf-look', d.look); V('cf-pref', d.pref);
+  V('cf-align', d.align || '中立'); V('cf-fp', d.fp); V('cf-tomaster', d.toMaster);
+  V('cf-speech', d.speech); V('cf-tic', d.tic); V('cf-moe', d.moe); V('cf-back', d.back); V('cf-traits', d.traits);
+  refreshSkillRows_(); // 🎨 列的顯示/隱藏與晶片鈕標籤跟上預填值
   _skPickSlot = -1; renderSkillPick_();
+  // 🧹 進階演出細節區塊只要有任一項既有資料就自動展開，別讓玩家編輯時漏看已存的設定
+  var hasAdvData = d.fp || d.toMaster || d.speech || d.tic || d.back || d.traits || (d.align && d.align !== '中立');
+  var advBox = document.getElementById('cf-drama'), advBtn = document.getElementById('cf-adv-toggle');
+  if (advBox) advBox.style.display = hasAdvData ? 'block' : 'none';
+  if (advBtn) advBtn.textContent = (hasAdvData ? '▾' : '▸') + ' 進階演出細節（選填·自稱/陣營/態度/萌點/口吻/小動作/身世）';
   forgeMode('create'); // 從作品頁點修改→切回創造表單(已預填)
+  forgeTab(2); // 編輯從主頁(靈基)開始看
   forgeBudget_();
 }
 // 🖐 認領無主原創英靈(印記功能上線前鑄的)：認領後成為創造者、可修改
@@ -550,59 +579,82 @@ function refreshClsHint_() {
   if (typeof forgeBudget_ === 'function') try { forgeBudget_(); } catch (e) { } // 換職階→預算上限跟著變(Berserker 370)
 }
 // 🌹 選「御主」職階→藏起⚔️靈基／🌟寶具兩頁(用不到)，強制留在🎭演出頁；換回戰鬥職階→復原。
-// 🌹 選「御主」職階→六圍/技能/寶具/武裝整組藏起來(鑑賞用的純敘事款，不參與戰鬥)；換回戰鬥職階復原。
 function applyForgeClsMode_() {
-  var isMaster = ((document.getElementById('cf-cls') || {}).value === '御主');
-  ['cf-six', 'cf-skills', 'cf-np-name', 'cf-np-scale', 'cf-weapon', 'cf-preview', 'cf-budget-bar'].forEach(function (id) {
-    var el = document.getElementById(id); if (!el) return;
-    var row = (id === 'cf-np-name' || id === 'cf-np-scale') ? el.parentElement : el;
-    if (row) row.style.display = isMaster ? 'none' : '';
-  });
-  // 那幾組的小標題跟著收（標題是欄位的前一個兄弟節點）
-  ['cf-six', 'cf-skills'].forEach(function (id) {
-    var el = document.getElementById(id), t = el && el.previousElementSibling;
-    if (t) t.style.display = isMaster ? 'none' : '';
-  });
+  var cls = (document.getElementById('cf-cls') || {}).value;
+  var isMaster = (cls === '御主');
+  var t2 = document.getElementById('cf-tab-2'), t3 = document.getElementById('cf-tab-3');
+  if (t2) t2.style.display = isMaster ? 'none' : '';
+  if (t3) t3.style.display = isMaster ? 'none' : '';
+  if (isMaster) forgeTab(1);
 }
 function initForge_() {
   var opt = function (v, t) { return '<option value="' + v + '">' + (t || v) + '</option>'; };
   // 🌹「御主」職階——鑑賞限定純敘事款，不參與戰鬥(見 applyForgeClsMode_ 隱藏靈基/寶具頁)。
   document.getElementById('cf-cls').innerHTML = ['Saber', 'Archer', 'Lancer', 'Rider', 'Caster', 'Assassin', 'Berserker', '御主'].map(function (c) { return opt(c); }).join('');
   refreshClsHint_();
-  var rankSel = function (id, def, maxA) {
+  // label：顯示用前綴（六圍用「筋/耐/敏…」把標籤塞進選單本體）。value 一律是純階級，別讓顯示文字污染值。
+  var rankSel = function (id, def, maxA, label) {
     var ranks = maxA ? ['E', 'D', 'C', 'B', 'A'] : ['E', 'D', 'C', 'B', 'A', 'EX'];
-    return '<select id="' + id + '" class="std-in" style="flex:1; min-width:0;" onchange="forgeBudget_()">' + ranks.map(function (r) { return '<option' + (r === def ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>';
+    return '<select id="' + id + '" class="std-in" style="flex:1; min-width:0;" onchange="forgeBudget_()">'
+      + ranks.map(function (r) { return '<option value="' + r + '"' + (r === def ? ' selected' : '') + '>' + (label || '') + r + '</option>'; }).join('')
+      + '</select>';
   };
-  // 📏 六圍一行：6 欄橫排·標籤在上選單在下，省 5 行高度
+  // 📏 六圍一行：標籤直接寫進每個 option（筋E/筋D…），省掉上方那排標籤又一行的高度
   // 🎚️ 預設全 E：C 起步會默默吃掉 180 點預算——E 起步(60 點)讓每一點都是有意識分配，「捏角色」的分配感更強；後端 parseForgeBuild_ 的 fallback 'C' 只防缺欄、不受影響。
   document.getElementById('cf-six').innerHTML = '<div style="display:flex; gap:4px;">'
     + ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].map(function (k) {
-        return '<div style="flex:1; min-width:0; text-align:center;"><div style="color:#c8d4e0; font-size:10.5px; margin-bottom:2px;">' + k + '</div>'
-          + rankSel('cf-six-' + k, 'E', false).replace('style="flex:1; min-width:0;"', 'style="width:100%; box-sizing:border-box; padding:6px 2px; text-align:center;"') + '</div>';
+        var sel = rankSel('cf-six-' + k, 'E', false, k.charAt(0))
+          .replace('style="flex:1; min-width:0;"', 'style="width:100%; box-sizing:border-box; padding:7px 2px; text-align:center; font-size:12px;"');
+        return '<div style="flex:1; min-width:0;">' + sel + '</div>';
       }).join('')
     + '</div>';
-  // 🎨 技能槽 2×2 卡片格：每槽=小卡(效果鈕在上·階級+改名在下)，四槽兩欄兩列·高度砍半。🎰 第4欄+20 費照「已用技能數>3」計(與後端 parseForgeBuild_ 同規則)。
-  var h = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:5px;">';
+  // 🎨 技能槽：一技一橫列（效果鈕｜階級｜改名｜清除），且【只長出用到的那幾列】——
+  //    舊版四槽 2×2 全展開佔掉半個手機螢幕，而多數角色只用兩技。空槽只留一顆「＋ 加技能」。
+  //    🎰 第4技 +20 費照「已用技能數>3」計（與後端 parseForgeBuild_ 同規則）。
+  var h = '';
   for (var i = 0; i < 4; i++) {
-    h += '<div style="border:1px solid #2e3a4e; border-radius:8px; padding:5px; min-width:0;">'
+    h += '<div id="cf-skrow' + i + '" style="display:none; gap:4px; align-items:center; margin-bottom:4px;">'
       + '<input type="hidden" id="cf-sk' + i + '-fx" value="">'
-      + '<button type="button" id="cf-sk' + i + '-btn" class="btn" style="width:100%; box-sizing:border-box; min-width:0; text-align:left; font-size:11px; padding:6px 7px; border-color:#3a4a5a; color:#8a96b0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" onclick="openSkillPick(' + i + ')">' + (i === 3 ? '＋ 第4欄(+20點)' : '＋ 挑選效果') + '</button>'
-      + '<div style="display:flex; gap:4px; margin-top:4px;">'
+      + '<button type="button" id="cf-sk' + i + '-btn" class="btn" style="flex:3; min-width:0; text-align:left; font-size:11.5px; padding:7px; border-color:#3a4a5a; color:#8a96b0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" onclick="openSkillPick(' + i + ')"></button>'
       + rankSel('cf-sk' + i + '-r', 'C', true)
       + '<input id="cf-sk' + i + '-n" class="std-in" maxlength="10" placeholder="改名" style="flex:2; min-width:0;" oninput="forgeBudget_()">'
-      + '</div></div>';
+      + '<button type="button" class="btn" title="清除這一技" style="flex:0 0 30px; padding:7px 0; font-size:12px; border-color:#5a3a3a; color:#c98a8a;" onclick="clearSkillSlot_(' + i + ')">✕</button>'
+      + '</div>';
   }
-  h += '</div>';
-  // 📌 效果目錄=釘在螢幕底部的浮層：fixed 定位不佔頁面高度(避免展開撐爆頁面)，內部 48vh 內捲·手風琴分組；選晶片/按✕即收。
-  h += '<div id="cf-skpick" style="display:none; position:fixed; left:10px; right:10px; bottom:10px; z-index:80; padding:8px; background:rgba(14,18,30,.97); border:1px solid rgba(110,140,200,.45); border-radius:10px; max-height:48vh; overflow-y:auto; -webkit-overflow-scrolling:touch; box-shadow:0 -6px 24px rgba(0,0,0,.5);"></div>';
+  // 📌 效果目錄=釘在螢幕底部的浮層：fixed 定位不佔頁面高度，內部 48vh 內捲·手風琴分組；選晶片/按✕即收。
+  h += '<div id="cf-skpick" style="display:none; position:fixed; left:10px; right:10px; bottom:10px; z-index:80; padding:8px; background:rgba(14,18,30,.97); border:1px solid rgba(110,140,200,.45); border-radius:10px; max-height:48vh; overflow-y:auto;"></div>';
   document.getElementById('cf-skills').innerHTML = h;
+  refreshSkillRows_();
   forgeBudget_();
+}
+// 🎨 只長出用到的技能列：已填的全顯示，再多給一列空的當「＋ 加技能」，其餘收起來（值仍留在 DOM）。
+function refreshSkillRows_() {
+  var filled = [];
+  for (var i = 0; i < 4; i++) {
+    var fx = (document.getElementById('cf-sk' + i + '-fx') || {}).value || '';
+    var nm = (document.getElementById('cf-sk' + i + '-n') || {}).value || '';
+    if (fx || nm.trim()) filled.push(i);
+  }
+  var nextEmpty = -1;
+  for (var j = 0; j < 4; j++) if (filled.indexOf(j) < 0) { nextEmpty = j; break; }
+  for (var k = 0; k < 4; k++) {
+    var row = document.getElementById('cf-skrow' + k);
+    if (row) row.style.display = (filled.indexOf(k) >= 0 || k === nextEmpty) ? 'flex' : 'none';
+    refreshSkillBtn_(k);
+  }
+}
+function clearSkillSlot_(i) {
+  var f = document.getElementById('cf-sk' + i + '-fx'); if (f) f.value = '';
+  var n = document.getElementById('cf-sk' + i + '-n'); if (n) n.value = '';
+  var r = document.getElementById('cf-sk' + i + '-r'); if (r) r.value = 'C';
+  if (_skPickSlot === i) { _skPickSlot = -1; renderSkillPick_(); }
+  refreshSkillRows_(); forgeBudget_();
 }
 // 🎨 技能晶片目錄：openSkillPick(槽)→兩欄格；pickSkillFx→寫值/換鈕標籤/計價/收合
 var _skPickSlot = -1;
 function skillBtnLabel_(i) {
   var fx = document.getElementById('cf-sk' + i + '-fx').value;
-  if (!fx) return (i === 3 ? '＋ 第4欄(+20點)' : '＋ 挑選效果');
+  if (!fx) return (i === 3 ? '＋ 加第 4 技（+20 點）' : '＋ 加技能');
   var e = FORGE_FX.find(function (o) { return o[0] === fx; });
   return '✨ ' + ((e ? e[1] : fx).split('（')[0]);
 }
@@ -673,8 +725,8 @@ function renderSkillPick_() {
 function pickSkillFx(fx) {
   if (_skPickSlot < 0) return;
   document.getElementById('cf-sk' + _skPickSlot + '-fx').value = fx;
-  refreshSkillBtn_(_skPickSlot);
   _skPickSlot = -1; renderSkillPick_();
+  refreshSkillRows_();   // 填了這一槽 → 下一列空槽跟著長出來
   forgeBudget_();
 }
 function forgeBudget_() {
@@ -759,11 +811,15 @@ async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，�
     name: nm, cls: cls, sex: document.getElementById('cf-sex').value,
     six: six, skills: skills,
     npName: isMaster ? '' : _v('cf-np-name'), npScale: isMaster ? '對人' : document.getElementById('cf-np-scale').value, // 階級旋鈕已拆：顯示階＝六圍寶具階(引擎本就只吃 six.寶具)
-    // 🧹 2026-09 工房只留會進戰鬥引擎/計費的欄位。外貌/個性/自稱/態度/口吻/小動作/萌點/身世/陣營/
-    //    寶具描述 十個純敘事欄位的 UI 砍掉——想指定就寫進 desc 這一句，不寫就 AI 全補（後端欄位仍在，
-    //    舊作品的既有值編輯時會被攤回 desc，見下方 fillForgeFromHero_）。
+    npDesc: isMaster ? '' : _v('cf-np-desc'),   // 寶具威能一句(選填)
+    // 🧹 外貌/個性各一個自由文字欄——單句描述落在 parseForgeBuild_ 的「核心設定，AI 擴寫成四短句」路徑(_segs<3)，
+    //    想精準控四格就自己用頓號分段。留空＝AI 全補（actionSaveHero 的 flavor 會補完，含 firstP/toMaster/speech/tic）。
+    look: _v('cf-look'), pref: _v('cf-pref'),
     weapon: isMaster ? '' : _v('cf-weapon'), desc: _v('cf-desc'),
-    traits: _v('cf-traits') // 🎭 特性：會被 god_slay/anti_dragon 等 fx 剋，故留在機制側
+    // 🎭 進階演出細節(選填·零數值·預設收合)：自稱/陣營/態度/口吻/小動作/萌點/身世——留空＝AI 補
+    fp: _v('cf-fp'), align: _v('cf-align'), toMaster: _v('cf-tomaster'),
+    speech: _v('cf-speech'), tic: _v('cf-tic'), moe: _v('cf-moe'), back: _v('cf-back'),
+    traits: _v('cf-traits') // 🎭 純敘事風味標籤(頓號分隔·上限4個)，後端 parseForgeBuild_ 解析、不進預算計費
   };
   // 💾 工房＝純製造/修改：存英靈殿(save_hero)，召喚一律走「🌟 玩家原創」專區
   var og = (document.getElementById('cf-origin') && document.getElementById('cf-origin').value) || 'original'; // 🎭 角色來源→AI 補人格忠實度

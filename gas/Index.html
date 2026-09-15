@@ -94,7 +94,7 @@
     <div id="step-summon" style="display:none; width:320px;">
       <p style="text-align:center; color:var(--gold-accent); font-size:16px; font-weight:bold; margin-bottom:10px;">📿 召喚從者</p>
 
-      <div style="color:#c9a86a; font-size:13px; font-weight:bold; margin-bottom:6px;">① 從英靈殿挑一位</div>
+      <div style="color:#c9a86a; font-size:13px; font-weight:bold; margin-bottom:6px;">① 從英靈殿挑一位 <span style="font-weight:normal; color:#816e54; font-size:11.5px;">· 最快，設定全現成</span></div>
       <!-- 🎴 七正職階：等寬不換行、flex 置中（第 7 個 Berserker 自動置中） -->
       <div id="summon-class-grid" style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:6px;">
         <button type="button" class="btn summon-cls" data-cls="Saber" onclick="selectSummonClass('Saber')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">⚔️ Saber</button>
@@ -117,7 +117,7 @@
 
       <div style="border-top:1px solid rgba(212,175,55,0.18); margin:14px 0 10px;"></div>
 
-      <div style="color:#c79be8; font-size:13px; font-weight:bold; margin-bottom:4px;">② 一句話生一位</div>
+      <div style="color:#c79be8; font-size:13px; font-weight:bold; margin-bottom:4px;">② 一句話生一位 <span style="font-weight:normal; color:#816e54; font-size:11.5px;">· 講個大概，其餘 AI 補</span></div>
       <textarea id="s-desc" class="std-in" maxlength="120" placeholder="如：手持巨鎌、沉默寡言的死神少女" style="width:100%; box-sizing:border-box; height:44px; resize:none; font-family:inherit;"></textarea>
       <!-- 🧹 職階/來源預設收合——兩者皆有合理預設(不限/完全原創)，想細調才展開。 -->
       <button type="button" class="btn" id="s-adv-toggle" style="width:100%; margin-top:6px; padding:6px; font-size:12px; border-color:#8a7a9a; color:#b8a8d0;" onclick="toggleSummonAdvanced()">▸ 指定職階／角色來源（預設：不限・完全原創）</button>
@@ -142,13 +142,13 @@
       </div>
       <button class="btn" style="width:100%; margin-top:6px; padding:9px; border-color:#a06cd0; color:#c79be8;" onclick="lockBtn(event, summonByDesc)">🖋️ 生成並召喚</button>
 
-      <button type="button" class="btn" style="width:100%; margin-top:14px; padding:8px; font-size:12px; border-color:#6a8ac0; color:#8fb0e8;" onclick="openForge('summon')">▸ 🛠️ 我要自己捏數值（工房）</button>
+      <button type="button" class="btn" style="width:100%; margin-top:14px; padding:8px; font-size:12px; border-color:#6a8ac0; color:#8fb0e8;" onclick="openForge('summon')">▸ 🛠️ 逐格自己捏（工房）<span style="font-weight:normal; opacity:.75;">· 六圍/技能/寶具/人格全部你定</span></button>
     </div>
     <!-- 🛠️ 自訂英靈工房：2026-09 從「三分頁 × 19 欄」收成單頁 7 組——只留真的會進戰鬥引擎／計費的欄位。
          外貌·個性·自稱·萌點·口吻·小動作·陣營·身世 八欄砍掉，改由最下面那句「一句描述」給 AI，不填就 AI 全補。 -->
     <div id="step-forge" style="display:none;">
       <p style="text-align:center; color:#8fb0e8; font-size:16px; font-weight:bold; margin-bottom:2px;">🛠️ 自訂英靈工房</p>
-      <p style="text-align:center; color:#816e54; font-size:11.5px; margin:0 0 10px;">數值你定（340 點預算）·人格與外貌 AI 補<br>工房＝製造與修改；做好後回召喚頁的「🌟 我的原創」召喚</p>
+      <p style="text-align:center; color:#816e54; font-size:11.5px; margin:0 0 10px;">每一格都你說了算（340 點預算）·留空的才交給 AI<br>做好後回召喚頁的「🌟 我的原創」召喚<br><span style="color:#8fb0e8;">用「② 一句話」生過的從者，也能在 📚 作品 裡逐格重捏</span></p>
       <!-- 🛠️/📚 工房雙模式：創造＝表單；作品＝本帳號英靈清單(點修改) -->
       <div style="display:flex; gap:5px; margin-bottom:8px;">
         <button type="button" id="cf-mode-create" class="btn" style="flex:1; padding:8px 2px; font-size:13px;" onclick="forgeModeCreate()">🛠️ 創造</button>
@@ -156,39 +156,67 @@
       </div>
       <div id="cf-works" style="display:none; padding:10px; background:rgba(20,18,34,.45); border:1px solid rgba(120,140,200,.35); border-radius:8px; text-align:left;"></div>
       <div id="cust-forge" style="padding:10px; background:rgba(20,18,34,.45); border:1px solid rgba(120,140,200,.35); border-radius:8px; text-align:left;">
-        <input id="cf-name" class="std-in" maxlength="20" placeholder="真名（必填）" style="width:100%; box-sizing:border-box;">
-        <div style="display:flex; gap:6px; margin-top:6px;">
-          <select id="cf-cls" class="std-in" style="flex:2;" onchange="refreshClsHint_()"></select>
-          <select id="cf-sex" class="std-in" style="flex:1;"><option>女</option><option>男</option><option>異</option></select>
-        </div>
-        <!-- 🎁 職階附贈技能提示（固定階級·免費·不占技能槽·由 refreshClsHint_ 依所選職階更新） -->
-        <div id="cf-cls-hint" style="color:#9a8bb0; font-size:11px; margin-top:3px;"></div>
-
-        <div style="color:#8fb0e8; font-size:12px; margin:10px 0 4px;">六圍（傷害底＝筋/魔取高·敏捷走命中與迴避）</div>
-        <div id="cf-six"></div>
-
-        <div style="color:#8fb0e8; font-size:12px; margin:10px 0 4px;">技能 2×2（效果＋階級·可改名·帶滿4技+20）</div>
-        <div id="cf-skills"></div>
-
-        <div style="color:#8fb0e8; font-size:12px; margin:10px 0 4px;">寶具（威力＝六圍的「寶具」階）</div>
-        <div style="display:flex; gap:6px;">
-          <input id="cf-np-name" class="std-in" maxlength="20" placeholder="寶具名" style="flex:3; min-width:0;">
-          <select id="cf-np-scale" class="std-in" style="flex:2;" onchange="forgeBudget_()"><option value="對人">對人（免費）</option><option value="對軍">對軍（+20）</option></select>
-        </div>
-        <!-- 🎭 特性：純敘事標籤但會被 god_slay/anti_dragon 這類 fx 剋，所以留在機制側 -->
-        <input id="cf-traits" class="std-in" maxlength="40" placeholder="特性（選填·頓號分隔·如 人類、龍、神性——會被神殺等效果剋）" style="width:100%; box-sizing:border-box; margin-top:6px;">
-        <input id="cf-weapon" class="std-in" maxlength="30" placeholder="⚔️ 武裝／戰鬥方式（選填·如：雙持大劍——敘述以此為準）" style="width:100%; box-sizing:border-box; margin-top:6px;">
-
-        <div style="color:#8fb0e8; font-size:12px; margin:10px 0 4px;">她是誰（選填·留空＝AI 全補）</div>
-        <!-- 🎭 角色來源：決定 AI 補人格時要不要忠於原著 -->
-        <select id="cf-origin" class="std-in" style="width:100%; box-sizing:border-box;">
-          <option value="original" selected>🎭 完全原創（AI 補人格自由發揮）</option>
-          <option value="fate">🎭 Fate 正史角色（AI 補人格忠於原著）</option>
-          <option value="anime">🎭 其他動漫畫角色（AI 補人格忠於原著）</option>
-        </select>
-        <textarea id="cf-desc" class="std-in" maxlength="120" placeholder="一句描述——外貌、個性、口吻、自稱想指定就寫這裡（如：白髮紅瞳的冷豔劍士，自稱「吾」，古風敬語）" style="width:100%; box-sizing:border-box; height:52px; resize:none; font-family:inherit; margin-top:6px;"></textarea>
-
-        <!-- 常駐底欄：⚡靈基即時預覽＋預算(進度條)＋存檔（全由 forgeBudget_ 單點刷新） -->
+<!-- 📑 三分頁：🎭演出｜⚔️靈基(主·預設)｜🌟寶具——欄位 ID 全不變·純版面分裝 -->
+          <div style="display:flex; gap:5px; margin-bottom:9px;">
+            <button type="button" id="cf-tab-1" class="btn" style="flex:1; padding:7px 2px; font-size:12px;" onclick="forgeTab(1)">🎭 演出</button>
+            <button type="button" id="cf-tab-2" class="btn" style="flex:1; padding:7px 2px; font-size:12px;" onclick="forgeTab(2)">⚔️ 靈基</button>
+            <button type="button" id="cf-tab-3" class="btn" style="flex:1; padding:7px 2px; font-size:12px;" onclick="forgeTab(3)">🌟 寶具</button>
+          </div>
+          <!-- ⚔️ 頁2·靈基（主·預設）：真名/職階/六圍/技能 -->
+          <div id="cf-page-2">
+            <input id="cf-name" class="std-in" maxlength="20" placeholder="真名（必填）" style="width:100%; box-sizing:border-box;">
+            <!-- 🎭 角色來源：技能名工房本就你自己打·此選項只決定「AI 補人格/演出」要不要忠於原著角色 -->
+            <select id="cf-origin" class="std-in" style="width:100%; box-sizing:border-box; margin-top:6px;">
+              <option value="original" selected>🎭 完全原創（AI 補人格自由發揮）</option>
+              <option value="fate">🎭 Fate 正史角色（AI 補人格忠於原著）</option>
+              <option value="anime">🎭 其他動漫畫角色（AI 補人格忠於原著）</option>
+            </select>
+            <div style="display:flex; gap:6px; margin-top:6px;">
+              <select id="cf-cls" class="std-in" style="flex:2;" onchange="refreshClsHint_()"></select>
+              <select id="cf-sex" class="std-in" style="flex:1;"><option>女</option><option>男</option><option>異</option></select>
+            </div>
+            <!-- 🎁 職階附贈技能提示（固定階級·免費·不占3槽·由 refreshClsHint_ 依所選職階更新） -->
+            <div id="cf-cls-hint" style="color:#9a8bb0; font-size:11px; margin-top:3px;"></div>
+            <div style="color:#8fb0e8; font-size:12px; margin:9px 0 4px;">六圍（傷害底＝筋/魔取高·敏捷走命中與迴避）</div>
+            <div id="cf-six"></div>
+            <div style="color:#8fb0e8; font-size:12px; margin:9px 0 4px;">技能 2×2（效果＋階級·可改名·帶滿4技+20）</div>
+            <div id="cf-skills"></div>
+          </div>
+          <!-- 🎭 頁1·演出：外貌/個性各一句＋進階演出細節(選填·預設收合)＋整體描述 -->
+          <!-- 🧹 外貌/個性拆4格的版本 UI 太瑣碎，改回各一個自由文字欄——後端 parseForgeBuild_ 本就用「有沒有頓號/逗號分3段以上」判斷填了幾成(lookFull/prefFull)，單句描述天然落在「核心設定，交給AI擴寫成四短句」路徑，欄位 ID 與後端格式完全不變。演出細節7小欄收進預設收合的「進階」區塊。 -->
+          <div id="cf-page-1" style="display:none;">
+            <input id="cf-look" class="std-in" maxlength="40" placeholder="🎨 外貌一句（選填·如：黑長直髮的冷豔劍士；留空＝AI補）" style="width:100%; box-sizing:border-box;">
+            <input id="cf-pref" class="std-in" maxlength="40" placeholder="💭 個性一句（選填·如：外冷內熱，重視承諾；留空＝AI補）" style="width:100%; box-sizing:border-box; margin-top:6px;">
+            <button type="button" class="btn" id="cf-adv-toggle" style="width:100%; margin-top:8px; padding:6px; font-size:12px; border-color:#8a7a9a; color:#b8a8d0;" onclick="toggleForgeAdvanced()">▸ 進階演出細節（選填·自稱/陣營/態度/萌點/口吻/小動作/身世）</button>
+            <div id="cf-drama" style="display:none; margin-top:6px;">
+              <div style="display:flex; gap:5px;">
+                <input id="cf-fp" class="std-in" maxlength="4" placeholder="自稱（本王…）" style="flex:1; min-width:0;">
+                <select id="cf-align" class="std-in" style="flex:1; min-width:0;"><option>中立</option><option>秩序・善</option><option>秩序・中庸</option><option>秩序・惡</option><option>中立・善</option><option>中立・惡</option><option>混沌・善</option><option>混沌・中庸</option><option>混沌・惡</option></select>
+              </div>
+              <div style="display:flex; gap:5px; margin-top:5px;">
+                <input id="cf-tomaster" class="std-in" maxlength="20" placeholder="對御主態度（忠誠/傲慢…）" style="flex:1; min-width:0;">
+                <input id="cf-moe" class="std-in" maxlength="15" placeholder="萌點（嗜甜/怕黑…）" style="flex:1; min-width:0;">
+              </div>
+              <input id="cf-speech" class="std-in" maxlength="40" placeholder="口吻（古風敬語/句尾帶「呢」/簡短冷淡…）" style="width:100%; box-sizing:border-box; margin-top:5px;">
+              <div style="display:flex; gap:5px; margin-top:5px;">
+                <input id="cf-tic" class="std-in" maxlength="30" placeholder="小動作（撥髮/瞇眼…）" style="flex:1; min-width:0;">
+                <input id="cf-back" class="std-in" maxlength="28" placeholder="身世一句" style="flex:1; min-width:0;">
+              </div>
+              <input id="cf-traits" class="std-in" maxlength="40" placeholder="特性（選填·頓號分隔·如 人類、王；純敘事風味，無戰鬥加成）" style="width:100%; box-sizing:border-box; margin-top:5px;">
+            </div>
+            <textarea id="cf-desc" class="std-in" maxlength="120" placeholder="（選填·可留白）補充描述——想讓 AI 多讀一點的氛圍/靈感，不碰數值，也不影響上面欄位" style="width:100%; box-sizing:border-box; height:44px; resize:none; margin-top:8px; font-family:inherit;"></textarea>
+          </div>
+          <!-- 🌟 頁3·寶具與武裝 -->
+          <div id="cf-page-3" style="display:none;">
+            <div style="color:#8fb0e8; font-size:12px; margin:0 0 4px;">寶具（中文名由你定·AI 只補英文真名讀法；威力＝六圍的「寶具」階；職階技能自動附贈）</div>
+            <div style="display:flex; gap:6px;">
+              <input id="cf-np-name" class="std-in" maxlength="20" placeholder="寶具名" style="flex:3; min-width:0;">
+              <select id="cf-np-scale" class="std-in" style="flex:2;" onchange="forgeBudget_()"><option value="對人">對人（免費）</option><option value="對軍">對軍（+20點）</option></select>
+            </div>
+            <input id="cf-np-desc" class="std-in" maxlength="40" placeholder="寶具威能一句（選填·如：斬鋼之風化作千刃奔湧）" style="width:100%; box-sizing:border-box; margin-top:6px;">
+            <input id="cf-weapon" class="std-in" maxlength="30" placeholder="⚔️ 武裝／戰鬥方式（選填·如：雙持大劍——敘述以此為準）" style="width:100%; box-sizing:border-box; margin-top:6px;">
+          </div>
+                  <!-- 常駐底欄：⚡靈基即時預覽＋預算(進度條)＋存檔（全由 forgeBudget_ 單點刷新） -->
         <div id="cf-preview" style="color:#9fb8d8; font-size:11px; margin-top:9px;"></div>
         <div style="text-align:right; color:#8fb0e8; font-size:12px; margin-top:4px;"><span id="cf-budget"></span></div>
         <div id="cf-budget-bar" style="height:4px; background:#242c3c; border-radius:2px; margin-top:3px; overflow:hidden;"><div id="cf-budget-fill" style="width:0%; height:100%; background:#4a90d9;"></div></div>
