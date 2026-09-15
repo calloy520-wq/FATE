@@ -747,6 +747,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `MODEL_URL` — OpenRouter chat/completions endpoint 常數。
 - `AI_MODEL` — 兩軌共用的唯一主力模型（預設 `google/gemini-3.5-flash-lite`）；ScriptProperty `MODEL` 優先。
 - `FALLBACK_MODEL` — 被審查擋下／重試全敗時的後援（預設 `x-ai/grok-4.20`）；ScriptProperty `FALLBACK_MODEL` 優先。由 `callGeminiAPI` 全域自動套用，呼叫端不必傳。
+- `rollMasterFate_()`（2026-09 新增，`Core_Settings.gs`）— 🎲 御主天賦（迴路/魔術系統/出身/體術/魔術階）的**唯一真實來源**，從 `Script_Onboarding.html` 搬進後端。`actionRollFate`（action `roll_fate`）一次回三份候選給前端挑；`actionManualNpc` 在玩家沒測定時自己擲一份。
+- `FATE_MAGICS_` / `FATE_ORIGINS_`（常數）— 魔術系統／出身名冊，供 `rollMasterFate_` 抽。前端已無副本。
 - `COL` — 眾生/地圖/英靈殿/御主殿/帳號各表的**欄位位置索引 schema**（詳見 §COL；含已併入的關係/時鐘/權柄欄與 MONEY/UPKEEP_WEEK/ROOM/MEMOIR 等死欄占位）。
 - `RANK_VALUE` — Fate 六圍階級 E~EX → 數值對照表（10/20/30/40/50/60）。
 - `OUTPUT_TIERS_` — 從者出力檔位表 100/80/60/40/20 → {hit, dmgMul, drainMul, np, label}。

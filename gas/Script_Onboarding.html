@@ -57,27 +57,32 @@ var warMode = 'canon';
 var currentWar = '5th';
 var playedMaster = '';
 function showOnly_(id) {
-  ['scr-warmode', 'scr-war', 'scr-role', 'scr-master', 'step-name', 'step-detail'].forEach(function (s) {
+  ['scr-warmode', 'scr-master', 'step-name'].forEach(function (s) {
     var el = document.getElementById(s); if (el) el.style.display = (s === id) ? 'block' : 'none';
   });
 }
-function chooseWarMode(m) {
-  warMode = (m === 'chaos') ? 'chaos' : 'canon';
-  playedMaster = '';
-  if (warMode === 'chaos') { currentWar = 'chaos'; showOnly_('step-name'); }
-  else { showOnly_('scr-war'); }
-}
 var _mastersPrefetch = {}; // ⚡ 正典御主名單預取：war → Promise
-function chooseWar(w) {
-  currentWar = w;
+// 🌍 型態×場次原本是兩屏四次點擊，2026-09 合成一屏三顆按鈕、一次選定。
+function chooseWorld(mode, war) {
+  warMode = (mode === 'chaos') ? 'chaos' : 'canon';
+  currentWar = (warMode === 'chaos') ? 'chaos' : war;
   playedMaster = '';
-  // 🧹 'fake' 開局選項已移除(見 Index.html)，chooseWar 現在只會收到 '4th'/'5th'。
-  // ⚡ 進「自創/扮演」選擇畫面就先背景抓名單——讀選項的幾秒剛好蓋掉 round-trip，點「扮演」時多半已回。失敗不管(loadCanonMasters 會 fallback 重抓)。
-  if (!_mastersPrefetch[w]) _mastersPrefetch[w] = gasRun({ action: 'get_masters', war: w });
-  showOnly_('scr-role');
+  // ⚡ 進創角畫面就先背景抓正典御主名單——玩家打名字的幾秒剛好蓋掉 round-trip。
+  if (warMode === 'canon' && !_mastersPrefetch[currentWar]) {
+    _mastersPrefetch[currentWar] = gasRun({ action: 'get_masters', war: currentWar });
+  }
+  showOnly_('step-name');
 }
-function chooseRole(r) {
-  if (r === 'original') { playedMaster = ''; showOnly_('step-name'); return; }
+// ▸ 自己設定：御主的選填欄位預設收起來，點開才出現。
+function toggleMasterAdv() {
+  var box = document.getElementById('ms-adv'), btn = document.getElementById('ms-adv-toggle');
+  if (!box) return;
+  var open = box.style.display === 'none';
+  box.style.display = open ? 'block' : 'none';
+  if (btn) btn.textContent = (open ? '▾' : '▸') + ' 自己設定（外貌·身世·願望·禮裝·天賦）';
+}
+function openCanonMasterPick() {
+  if (warMode !== 'canon') { alert('混亂模式沒有正典陣容可扮演——請自訂御主，或退回上一步改選正史。'); return; }
   loadCanonMasters();
 }
 async function loadCanonMasters() {
@@ -113,31 +118,33 @@ function pickCanonMaster(i) {
   masterRolls = [{ circuits: 40, magic: m.magic || '魔術', origin: '正典魔術師', melee: 'D', magicRank: 'C' }];
   masterRoll = masterRolls[0];
   if (typeof renderFateRolls === 'function') renderFateRolls();
-  // 扮演者名字可能含「·」等符號，跳過 checkName，直接進細節步驟
-  showOnly_('step-detail');
+  // 扮演者名字可能含「·」等符號，createPC 會依 playedMaster 放行；回創角屏並把選填區展開讓玩家看到帶入的值。
+  showOnly_('step-name');
+  var box = document.getElementById('ms-adv');
+  if (box && box.style.display === 'none') toggleMasterAdv();
 }
 
 
-// 🔵 御主命運測定（魔術天賦），最多 3 次
-const FATE_MAGICS_ = ['強化（近戰加成）', '投影／固有結界', '寶石魔術', '符文魔術', '鍊金術', '起源彈', '風魔術', '使魔操縱', '咒術／降靈', '禮裝製作'];
-const FATE_ORIGINS_ = ['自學成才的新興魔術師', '沒落名門的末裔', '名門魔術師世家', '異鄉來的旅人', '教會代行者出身', '被捲入的普通人', '魔術協會的研究者', '繼承詛咒血脈', '時鐘塔的留學生', '隱世魔術師的弟子'];
+// 🔵 御主命運測定（魔術天賦）
+// 🎲 命運測定的表與公式在後端（Core_Settings.gs rollMasterFate_）——前端不再各存一份。
 let masterRolls = [];   // 最多 3 次測定結果，供玩家挑選
 let masterRoll = null;  // 玩家選中接受的那一個
-function rollFate() {
-  if (masterRolls.length >= 3) { alert('命運最多測定 3 次了，請從下方點選一個結果接受。'); return; }
-  const r = (Math.random() + Math.random()) / 2;
-  // ⚠ 12/50 這組範圍跟 Core_Settings.gs clampCircuits_() 是同一份數字，HTML跨執行環境不共用函式，
-  //   改這裡務必連 clampCircuits_() 也一起改。
-  const circuits = Math.max(12, Math.min(50, Math.round(15 + r * 35)));
-  const magic = FATE_MAGICS_[Math.floor(Math.random() * FATE_MAGICS_.length)];
-  const origin = FATE_ORIGINS_[Math.floor(Math.random() * FATE_ORIGINS_.length)];
-  const mr = Math.random();
-  const melee = mr < 0.5 ? 'E' : mr < 0.8 ? 'D' : mr < 0.95 ? 'C' : 'B';
-  // 🔮 魔術階位獨立擲一次(非沿用melee的mr)——體術/魔術是兩條不相干能力線，一位御主可能體術強魔術弱、反之亦然。
-  const magr = Math.random();
-  const magicRank = magr < 0.5 ? 'E' : magr < 0.8 ? 'D' : magr < 0.95 ? 'C' : 'B';
-  masterRolls.push({ circuits: circuits, magic: magic, origin: origin, melee: melee, magicRank: magicRank });
-  masterRoll = masterRolls[masterRolls.length - 1]; // 預設選最新一筆
+// 🎲 一次向後端要三份候選，玩家挑一個（舊版是前端自己擲、最多按三次；表與公式兩邊各存一份）。
+var _fateRolling = false;
+async function rollFate() {
+  if (_fateRolling) return;
+  if (masterRolls.length) { alert('三份命運已經在下面了——挑一個接受，或直接締結令咒（不挑＝系統隨機給）。'); return; }
+  _fateRolling = true;
+  var box = document.getElementById('fate-roll-box');
+  if (box) box.textContent = '正在測定…';
+  try {
+    const res = await gasRun({ action: 'roll_fate' });
+    masterRolls = (res && res.rolls) || [];
+    masterRoll = masterRolls[0] || null;
+  } catch (e) {
+    if (box) box.textContent = '測定失敗——直接締結令咒也行，系統會隨機給。';
+    return;
+  } finally { _fateRolling = false; }
   renderFateRolls();
 }
 function selectFateRoll(i) {
@@ -146,48 +153,35 @@ function selectFateRoll(i) {
 function renderFateRolls() {
   var box = document.getElementById('fate-roll-box');
   if (!box) return;
-  if (!masterRolls.length) { box.innerHTML = '尚未測定 —— 可測定 3 次，從中選一個接受'; return; }
+  if (!masterRolls.length) { box.innerHTML = '不測也行 —— 留空＝系統隨機給一份'; return; }
   var cards = masterRolls.map(function (roll, i) {
     var sel = (roll === masterRoll);
     return '<div onclick="selectFateRoll(' + i + ')" style="cursor:pointer; border:1px solid ' + (sel ? '#e7c873' : '#5a4a2a') + '; background:' + (sel ? 'rgba(231,200,115,0.12)' : 'transparent') + '; border-radius:6px; padding:6px 8px; margin-bottom:6px; text-align:left;">'
       + (sel ? '✅ ' : '⚪ ') + '<b style="color:' + (sel ? '#e7c873' : '#bbb') + ';">測定 ' + (i + 1) + '</b>　迴路 <b style="color:#e7c873;">' + roll.circuits + '</b>　體術 <b style="color:#e7c873;">' + roll.melee + '</b>　魔術階位 <b style="color:#e7c873;">' + roll.magicRank + '</b>'
       + '<br><span style="font-size:11px; color:#bbb;">' + roll.magic + '｜' + roll.origin + '</span></div>';
   }).join('');
-  box.innerHTML = cards + '<div style="font-size:11px; color:#888; text-align:center;">點選一個結果接受（已測 ' + masterRolls.length + '/3）</div>';
+  box.innerHTML = cards + '<div style="font-size:11px; color:#888; text-align:center;">三份命運，點一個接受</div>';
 }
 
-async function checkName(event) {
-  const name = document.getElementById('s-name').value.trim();
-
-  if (!name) {
-    alert("請輸入御主之名！");
-    return;
-  }
-
-  // 🔴 名號限定純中文：擋英文、數字、符號、空白(後端 sanitizeUserData_ 仍會再擋一次)
-  if (/[^㐀-䶿一-鿿]/.test(name)) {
+// 名號驗證（2026-09 起不再自成一屏，改由 createPC 在送出前呼叫一次）。回 true＝可用。
+async function checkNameOk_(name) {
+  if (!name) { alert("請輸入御主之名！"); return false; }
+  // 🔴 名號限定純中文：擋英文、數字、符號、空白(後端 sanitizeUserData_ 仍會再擋一次)。
+  //    扮演正典御主時名字可能含「·」等符號，由 playedMaster 放行。
+  if (!playedMaster && /[^㐀-䶿一-鿿]/.test(name)) {
     alert("名號僅限中文字，不可使用英文、數字、符號或空白。");
-    return;
+    return false;
   }
-
+  if (playedMaster) return true;
   try {
-    // 呼叫後端驗證名號
     const res = await gasRun({ action: "check_name", name: name });
-    if (res.invalidName) { alert(res.message || "名號僅限中文字。"); return; }
-    
-
-
-    if (res.exists) {
-      alert(res.message || '此名號是聖杯戰爭中已知的角色，請換一個名字。');
-      return;
-    } else {
-      // 名字可用，進入創角細節 (step-detail)
-      document.getElementById('step-name').style.display = 'none';
-      document.getElementById('step-detail').style.display = 'block';
-    }
+    if (res.invalidName) { alert(res.message || "名號僅限中文字。"); return false; }
+    if (res.exists) { alert(res.message || '此名號是聖杯戰爭中已知的角色，請換一個名字。'); return false; }
+    return true;
   } catch (e) {
     console.error(e);
     alert("連線受阻，請稍後再試。");
+    return false;
   }
 }
 
@@ -211,6 +205,7 @@ async function checkName(event) {
 
   async function createPC(event) {
   const name = document.getElementById('s-name').value.trim();
+  if (!(await checkNameOk_(name))) return;
   const sex = document.getElementById('s-sex').value;
   const appearance = document.getElementById('s-appear')?.value.trim() || "";
   const standing = document.getElementById('s-standing')?.value.trim() || "";
@@ -237,7 +232,7 @@ async function checkName(event) {
       //    進遊戲前多半已就位；失敗則保留種子預設(優雅降級)。
       backfillMasterAi({ appearance, standing, wish, magic: roll.magic || "", origin: roll.origin || "" });
       // 御主締結完成 → 進入召喚從者步驟
-      document.getElementById('step-detail').style.display = 'none';
+      document.getElementById('step-name').style.display = 'none';
       document.getElementById('step-summon').style.display = 'block';
       loadHeroes();
     } else {
@@ -269,24 +264,10 @@ async function backfillMasterAi(seed) {
 let heroesData = [];
 let selectedSummonClass = '';
 async function loadHeroes() {
-  summonTab('roster'); // 🧭 每次進召喚頁重置回預設分頁(瀏覽名冊)，避免上次離開時停在自訂生成分頁
   try {
     const r = await gasRun({ action: 'get_heroes', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '' });
     heroesData = (r && r.heroes) || [];
   } catch (e) { heroesData = []; }
-}
-// 🧭 瀏覽名冊／自訂生成 分頁切換(比照工房 forgeMode 樣式)
-function summonTab(m) {
-  var isCustom = (m === 'custom');
-  var ros = document.getElementById('summon-tab-roster'), cus = document.getElementById('summon-tab-custom');
-  if (ros) ros.style.display = isCustom ? 'none' : 'block';
-  if (cus) cus.style.display = isCustom ? 'block' : 'none';
-  [['summon-tab-roster-btn', !isCustom], ['summon-tab-custom-btn', isCustom]].forEach(function (x) {
-    var b = document.getElementById(x[0]); if (!b) return;
-    b.style.borderColor = x[1] ? 'var(--gold-accent)' : '#3a3550';
-    b.style.color = x[1] ? 'var(--gold-accent)' : '#8a8298';
-    b.style.fontWeight = x[1] ? 'bold' : 'normal';
-  });
 }
 function selectSummonClass(cls) {
   selectedSummonClass = cls;
@@ -428,36 +409,11 @@ function openForge(from) {
   if (f) { f.style.display = 'block'; window.scrollTo(0, 0); }
   var gt = document.getElementById('game-title'); if (gt) gt.style.display = 'none'; // 🏷️ 工房屏藏大標題省高度
   if (!_forgeInit) { initForge_(); _forgeInit = true; }
-  forgeTab(2); // 📑 預設開在中間「⚔️ 靈基」主頁
   // 主選單直入時名冊可能還沒載(loadHeroes 原本在進召喚頁才跑)→補載後刷「我的作品」列
   if (!heroesData || !heroesData.length) { loadHeroes().then(function () { renderForgeWorks_(); }).catch(function () { }); }
   forgeMode('create'); // 預設創造模式
 }
-// 📑 工房三分頁：🎭演出(1)｜⚔️靈基(2·主)｜🌟寶具(3)。純版面切換·欄位常駐 DOM(值不丟)；預算/存檔鈕常駐底欄三頁共用。
-function forgeTab(n) {
-  [1, 2, 3].forEach(function (i) {
-    var pg = document.getElementById('cf-page-' + i); if (pg) pg.style.display = (i === n) ? 'block' : 'none';
-    var tb = document.getElementById('cf-tab-' + i);
-    if (tb) {
-      tb.style.borderColor = (i === n) ? 'var(--gold-accent)' : '#3a3550';
-      tb.style.color = (i === n) ? 'var(--gold-accent)' : '#8a8298';
-      tb.style.fontWeight = (i === n) ? 'bold' : 'normal';
-    }
-  });
-  // 💾 存檔鈕只在中間「⚔️ 靈基」主頁顯示；預算計數保持三頁常駐(寶具頁調規模要看得到)
-  // 🌹 御主職階沒有靈基/寶具頁可看(藏起，見 applyForgeClsMode_)，存檔鈕改在唯一可見的「🎭 演出」頁顯示。
-  var isMaster = ((document.getElementById('cf-cls') || {}).value === '御主');
-  var sv = document.getElementById('cf-save'); if (sv) sv.style.display = (n === 2 || (isMaster && n === 1)) ? 'block' : 'none';
-}
-// 🧹 演出細節(自稱/陣營/態度/萌點/口吻/小動作/身世)7小欄預設收合，想細調才展開——留空全部交給AI補，不強迫每次捏角都填滿一輪。
-function toggleForgeAdvanced() {
-  var box = document.getElementById('cf-drama'); if (!box) return;
-  var open = box.style.display !== 'none';
-  box.style.display = open ? 'none' : 'block';
-  var btn = document.getElementById('cf-adv-toggle');
-  if (btn) btn.textContent = (open ? '▸' : '▾') + ' 進階演出細節（選填·自稱/陣營/態度/萌點/口吻/小動作/身世）';
-}
-// 🧹 自訂生成的指定職階/角色來源預設收合(比照上面 toggleForgeAdvanced)——兩者皆有合理預設，手機版面不必每次都撐長。
+// 🧹 自訂生成的指定職階/角色來源預設收合——兩者皆有合理預設，手機版面不必每次都撐長。
 function toggleSummonAdvanced() {
   var box = document.getElementById('s-adv'); if (!box) return;
   var open = box.style.display !== 'none';
@@ -473,8 +429,8 @@ function forgeReset_() {
   V('cf-cls', 'Saber'); refreshClsHint_(); V('cf-sex', '女');
   ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].forEach(function (k) { V('cf-six-' + k, 'E'); });
   for (var i = 0; i < 4; i++) { V('cf-sk' + i + '-fx', ''); V('cf-sk' + i + '-r', 'C'); V('cf-sk' + i + '-n', ''); refreshSkillBtn_(i); }
-  ['cf-np-name', 'cf-np-desc', 'cf-weapon', 'cf-look', 'cf-pref', 'cf-desc', 'cf-fp', 'cf-tomaster', 'cf-speech', 'cf-tic', 'cf-moe', 'cf-back', 'cf-traits'].forEach(function (id) { V(id, ''); });
-  V('cf-np-scale', '對人'); V('cf-align', '中立');
+  ['cf-np-name', 'cf-weapon', 'cf-desc', 'cf-traits'].forEach(function (id) { V(id, ''); });
+  V('cf-np-scale', '對人');
   closeSkillPick();
   forgeBudget_();
 }
@@ -547,20 +503,15 @@ function forgeEdit(id) {
   var m = String(h.np || '').match(/^([^（]+?)(?:\s+[A-Za-z][^（]*)?（(對人|對軍)[^）]*）(?:·(.*))?$/);
   // 反解失敗(舊盲盒自由格式)→ fallback 取「（」前段剝英文尾——避免欄位空白、存檔把寶具靜默改成「無名寶具」
   var npFallback = String(h.np || '').split('（')[0].replace(/\s+[A-Za-z][A-Za-z0-9 .'\-:]*$/, '').trim().slice(0, 20);
-  V('cf-np-name', m ? m[1].trim() : npFallback); V('cf-np-scale', (m && m[2]) || '對人'); V('cf-np-desc', (m && m[3]) || '');
-  V('cf-weapon', d.weapon);
-  V('cf-look', d.look); V('cf-pref', d.pref);
-  V('cf-align', d.align || '中立'); V('cf-fp', d.fp); V('cf-tomaster', d.toMaster);
-  V('cf-speech', d.speech); V('cf-tic', d.tic); V('cf-moe', d.moe); V('cf-back', d.back); V('cf-traits', d.traits);
+  V('cf-np-name', m ? m[1].trim() : npFallback); V('cf-np-scale', (m && m[2]) || '對人');
+  V('cf-weapon', d.weapon); V('cf-traits', d.traits);
+  // 🧹 工房瘦身後那十個純敘事欄位沒有 UI 了——編輯既有作品時把既有值攤回「一句描述」，
+  //    玩家看得到也改得到，不會靜靜消失。
+  V('cf-desc', [d.look, d.pref, d.fp && ('自稱「' + d.fp + '」'), d.speech, d.tic, d.moe, d.toMaster, d.back,
+    (d.align && d.align !== '中立') ? d.align : '', (m && m[3]) || ''].filter(Boolean).join('、').slice(0, 120));
   for (var j = 0; j < 4; j++) refreshSkillBtn_(j); // 🎨 晶片鈕標籤跟上預填值
   _skPickSlot = -1; renderSkillPick_();
-  // 🧹 進階演出細節區塊只要有任一項既有資料就自動展開，別讓玩家編輯時漏看已存的設定
-  var hasAdvData = d.fp || d.toMaster || d.speech || d.tic || d.back || d.traits || (d.align && d.align !== '中立');
-  var advBox = document.getElementById('cf-drama'), advBtn = document.getElementById('cf-adv-toggle');
-  if (advBox) advBox.style.display = hasAdvData ? 'block' : 'none';
-  if (advBtn) advBtn.textContent = (hasAdvData ? '▾' : '▸') + ' 進階演出細節（選填·自稱/陣營/態度/萌點/口吻/小動作/身世）';
   forgeMode('create'); // 從作品頁點修改→切回創造表單(已預填)
-  forgeTab(2); // 編輯從主頁(靈基)開始看
   forgeBudget_();
 }
 // 🖐 認領無主原創英靈(印記功能上線前鑄的)：認領後成為創造者、可修改
@@ -599,13 +550,19 @@ function refreshClsHint_() {
   if (typeof forgeBudget_ === 'function') try { forgeBudget_(); } catch (e) { } // 換職階→預算上限跟著變(Berserker 370)
 }
 // 🌹 選「御主」職階→藏起⚔️靈基／🌟寶具兩頁(用不到)，強制留在🎭演出頁；換回戰鬥職階→復原。
+// 🌹 選「御主」職階→六圍/技能/寶具/武裝整組藏起來(鑑賞用的純敘事款，不參與戰鬥)；換回戰鬥職階復原。
 function applyForgeClsMode_() {
-  var cls = (document.getElementById('cf-cls') || {}).value;
-  var isMaster = (cls === '御主');
-  var t2 = document.getElementById('cf-tab-2'), t3 = document.getElementById('cf-tab-3');
-  if (t2) t2.style.display = isMaster ? 'none' : '';
-  if (t3) t3.style.display = isMaster ? 'none' : '';
-  if (isMaster) forgeTab(1);
+  var isMaster = ((document.getElementById('cf-cls') || {}).value === '御主');
+  ['cf-six', 'cf-skills', 'cf-np-name', 'cf-np-scale', 'cf-weapon', 'cf-preview', 'cf-budget-bar'].forEach(function (id) {
+    var el = document.getElementById(id); if (!el) return;
+    var row = (id === 'cf-np-name' || id === 'cf-np-scale') ? el.parentElement : el;
+    if (row) row.style.display = isMaster ? 'none' : '';
+  });
+  // 那幾組的小標題跟著收（標題是欄位的前一個兄弟節點）
+  ['cf-six', 'cf-skills'].forEach(function (id) {
+    var el = document.getElementById(id), t = el && el.previousElementSibling;
+    if (t) t.style.display = isMaster ? 'none' : '';
+  });
 }
 function initForge_() {
   var opt = function (v, t) { return '<option value="' + v + '">' + (t || v) + '</option>'; };
@@ -802,14 +759,11 @@ async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，�
     name: nm, cls: cls, sex: document.getElementById('cf-sex').value,
     six: six, skills: skills,
     npName: isMaster ? '' : _v('cf-np-name'), npScale: isMaster ? '對人' : document.getElementById('cf-np-scale').value, // 階級旋鈕已拆：顯示階＝六圍寶具階(引擎本就只吃 six.寶具)
-    npDesc: isMaster ? '' : _v('cf-np-desc'),   // 寶具威能一句(選填)
-    // 🧹 外貌/個性各收回單一自由文字欄(不再拆4小欄位組回)——單句描述落在 parseForgeBuild_ 的「核心設定，AI擴寫成四短句」路徑(_segs<3)，想精準控制可以自己打頓號分句，格式與後端解析完全不變。
-    look: _v('cf-look'), pref: _v('cf-pref'),
+    // 🧹 2026-09 工房只留會進戰鬥引擎/計費的欄位。外貌/個性/自稱/態度/口吻/小動作/萌點/身世/陣營/
+    //    寶具描述 十個純敘事欄位的 UI 砍掉——想指定就寫進 desc 這一句，不寫就 AI 全補（後端欄位仍在，
+    //    舊作品的既有值編輯時會被攤回 desc，見下方 fillForgeFromHero_）。
     weapon: isMaster ? '' : _v('cf-weapon'), desc: _v('cf-desc'),
-    // 🎭 進階演出細節(選填·零數值·預設收合)：自稱/陣營/態度/口吻/小動作/萌點/身世——留空＝AI 補
-    fp: _v('cf-fp'), align: _v('cf-align'), toMaster: _v('cf-tomaster'),
-    speech: _v('cf-speech'), tic: _v('cf-tic'), moe: _v('cf-moe'), back: _v('cf-back'),
-    traits: _v('cf-traits') // 🎭 純敘事風味標籤(頓號分隔·上限4個)，後端 parseForgeBuild_ 解析、不進預算計費
+    traits: _v('cf-traits') // 🎭 特性：會被 god_slay/anti_dragon 等 fx 剋，故留在機制側
   };
   // 💾 工房＝純製造/修改：存英靈殿(save_hero)，召喚一律走「🌟 玩家原創」專區
   var og = (document.getElementById('cf-origin') && document.getElementById('cf-origin').value) || 'original'; // 🎭 角色來源→AI 補人格忠實度

@@ -234,6 +234,17 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 ### 十二試煉 / 令咒 / 戰報
 - **god_hand 燒命**：`getGodHandLives_` 無標記預設11（赫拉克勒斯）；種子可加 `lives:N`（尼祿3）；AI 原創持 god_hand 一律標【試煉】3。致命時 `lossN=1`＋概念加成＋overkill，`lossN≥餘命`→燒盡 destroyed。
 - **令咒**：`getPlayerSeals_/setPlayerSeals_`（MEMORY【令咒】N）。預設 3 道。令咒對斬首不適用。
+- **創角流程（2026-09 大改·玩家「十分混亂不夠直覺、太詳細的資料也沒有用」）**：
+  畫面 `scr-warmode`(型態)→`scr-war`(場次)→`scr-role`(參戰方式)→`step-name`→`step-detail` **五屏合成兩屏**
+  （`chooseWorld(mode,war)` 一次選定世界；名字/性別/選填全在 `step-name`，選填走 `toggleMasterAdv()` 收合）。
+  召喚頁的「瀏覽名冊／自訂生成」分頁拆掉，三條路（挑名冊①／一句話②／工房▸）攤在同一屏。
+  **工房 19 欄 → 9 欄**：只留會進戰鬥引擎或計費的（職階/性別/六圍/技能/寶具規模/特性/武裝），
+  外貌·個性·自稱·態度·口吻·小動作·萌點·身世·陣營·寶具描述 十欄砍掉 UI——想指定寫進「一句描述」，
+  不寫就 AI 補（`actionSaveHero` 的 flavor 補完 2026-09 加吐 `firstP`/`toMaster`/`speech`/`tic` 四格）。
+  後端欄位全部保留、舊作品編輯時既有值會攤回 desc（`fillForgeFromHero_`）。
+- **🎲 命運測定改後端擲**（`rollMasterFate_`／`roll_fate` action）：舊版整套表與公式只在前端，
+  玩家不按 🎲 就整組空白；新 UI 明說「留空＝隨機」，所以 `create` 沒收到 circuits 時自己擲一份。
+  前端 🎲 改成一次要三份候選讓玩家挑（省掉三次 round-trip，也不再兩邊各存一份 12/50）。
 - **三段分工（2026-09 玩家釐清「我有給 AI 事實，要請他去表演出來…不是 1/100 快死還裝沒事」）**：
   ① **數字**＝GAS 算（HP 5/390）② **數字→白話狀態**＝GAS 換算（`hpStateWord_` → 「命懸一線」）
   ③ **怎麼演**＝AI 依個性決定（硬撐／逞強／失態／沉默）。

@@ -186,7 +186,7 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 
 ---
 
-## §4 全 62 action → handler → 檔
+## §4 全 63 action → handler → 檔
 
 | action | handler | 檔 | | action | handler | 檔 |
 |---|---|---|---|---|---|---|
@@ -257,8 +257,8 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 
 ## §7 現況（2026-07）
 
-- 24 檔・後端 406 函式・62 action
+- 24 檔・後端 408 函式・63 action
 - **死碼 0**（僅 `removeAllTriggers` 無呼叫點＝刻意保留的編輯器手動工具）
-- 62 action 全部有真實 handler 且皆可從前端到達（`set_mage_realm`/`set_rune_mode` 走 `pickSelectable(action,…)` 動態帶入）
+- 63 action 全部有真實 handler 且皆可從前端到達（`set_mage_realm`/`set_rune_mode` 走 `pickSelectable(action,…)` 動態帶入）
 - 連續 3 輪稽核乾淨收斂 → `SOLO_REFERENCE.md` §25
 - `full`（九州全模擬）停用中；兩軌皆無經濟/生活層、無戰記/排行榜

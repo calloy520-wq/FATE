@@ -109,6 +109,26 @@ function fateMaxHpMp_(con, mag) {
 
 // 御主(凡人魔術師)HP/MP：唯一核心數值＝魔術迴路(財力/身世決定)。
 function clampCircuits_(n) { return Math.max(12, Math.min(50, parseInt(n) || 30)); }
+// 🎲 御主天賦（迴路/魔術系統/出身/體術/魔術階）的【唯一真實來源】。2026-09 從 Script_Onboarding.html
+//   搬進後端：創角改成「不填就隨機」，前端沒送值時 create 必須自己擲得出來（舊版整套只在前端，
+//   留空＝那幾格永遠空白）。前端的 🎲 命運測定改成打這裡要三份候選，兩邊不再各存一份 12/50。
+var FATE_MAGICS_ = ['強化（近戰加成）', '投影／固有結界', '寶石魔術', '符文魔術', '鍊金術', '起源彈', '風魔術', '使魔操縱', '咒術／降靈', '禮裝製作'];
+var FATE_ORIGINS_ = ['自學成才的新興魔術師', '沒落名門的末裔', '名門魔術師世家', '異鄉來的旅人', '教會代行者出身', '被捲入的普通人', '魔術協會的研究者', '繼承詛咒血脈', '時鐘塔的留學生', '隱世魔術師的弟子'];
+function rollMasterFate_() {
+  var pick = function (a) { return a[Math.floor(Math.random() * a.length)]; };
+  var rankOf = function () { var r = Math.random(); return r < 0.5 ? 'E' : r < 0.8 ? 'D' : r < 0.95 ? 'C' : 'B'; };
+  var r = (Math.random() + Math.random()) / 2;   // 兩次平均＝中庸偏多、極端偏少
+  return {
+    circuits: clampCircuits_(Math.round(15 + r * 35)),
+    magic: pick(FATE_MAGICS_), origin: pick(FATE_ORIGINS_),
+    melee: rankOf(),      // 體術與魔術階各擲一次——兩條不相干的能力線
+    magicRank: rankOf()
+  };
+}
+// 前端 🎲 命運測定：一次要三份候選，玩家挑一個（省掉三次 round-trip）。
+function actionRollFate(userData, pcId, sheets) {
+  return JSON.stringify({ success: true, rolls: [rollMasterFate_(), rollMasterFate_(), rollMasterFate_()] });
+}
 
 function masterMaxHpMp_(circuits) {
   // 🛡️ parseInt(x)||30 只擋得住NaN/0，擋不住負數——前端骰子UI本就夾在12~50，但這裡是唯一信任邊界(直打API可繞過前端)，補上下限，避免負迴路生出0血/負魔力的御主。

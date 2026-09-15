@@ -24,7 +24,7 @@ function actionManualNpc(userData, pcId, sheets) {
     } catch (e) { } // 檢查失敗不擋創角(優雅降級)，寧可放行也不要卡死正常玩家
   }
   const newId = "PC_" + Date.now();
-  const { name, sex, identity, standing, wish, appearance, magic, circuits, origin, melee, magicRank } = userData;
+  let { name, sex, identity, standing, wish, appearance, magic, circuits, origin, melee, magicRank } = userData;
   let finalName = name;
   const finalSex = sex;
 
@@ -55,7 +55,11 @@ function actionManualNpc(userData, pcId, sheets) {
   // 開局非阻塞：create 不叫 AI，秒寫種子值進場；AI 生成的背景/特徵/個性/萌點由 actionBackfillMasterAi 背景補上。
   try {
     // 🎴 御主(凡人魔術師)初始數值：HP/MP 依魔術迴路(財力/身世決定)推算——御主是凡人，遠低於英靈從者。
-    const safeCircuits = circuits ? clampCircuits_(circuits) : null;
+    // 🎲 玩家沒測定命運就由 GAS 擲一份（創角 UI 明說「留空＝隨機天賦」）——舊版留空會讓
+    //   迴路/魔術/出身/體術整組空白，御主卡幾乎沒東西可演。
+    const _fate = circuits ? null : rollMasterFate_();
+    if (_fate) { circuits = _fate.circuits; magic = magic || _fate.magic; origin = origin || _fate.origin; melee = melee || _fate.melee; magicRank = magicRank || _fate.magicRank; }
+    const safeCircuits = clampCircuits_(circuits);
     const masterStats = masterMaxHpMp_(safeCircuits || 30);
     // 起始落點：確定性選一個有效冬木居所(偏好新都)，不需 AI；backfill 不動落點以免與移動競寫。
     const spawnName = validMapNames.find(n => /新都/.test(n)) || validMapNames[0];
@@ -549,9 +553,11 @@ function actionSaveHero(userData, pcId, sheets) {
   try {
     flavor = JSON.parse(callGeminiAPI(
       `【真名】：${pb.name}\n【職階】：${pb.cls}\n【性別】：${pb.sex}\n【玩家描述】：${pb.desc || "無"}${pb.look ? `\n【外貌(${pb.lookFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.look}` : ""}${pb.pref ? `\n【個性(${pb.prefFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.pref}` : ""}${pb.fp ? `\n【自稱(玩家已定)】：${pb.fp}` : ""}${pb.speech ? `\n【口吻(玩家已定)】：${pb.speech}` : ""}${pb.moe ? `\n【萌點(玩家已定·照抄勿改)】：${pb.moe}` : ""}${pb.back ? `\n【身世(玩家已定·照抄勿改)】：${pb.back}` : ""}${pb.weapon ? `\n【武裝(以此為準·勿依職階/原典改寫)】：${pb.weapon}` : ""}${isMasterCls ? "" : `\n【技能】：${pb.skills.map(s => s.n).join("、") || "無"}\n【寶具】：${pb.npName}${pb.npDesc ? `（${pb.npDesc}）` : ""}`}`,
-      `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名${_ogF.pnote}${isMasterCls ? "御主(鑑賞限定·不參與戰鬥)" : "從者"}的設定，你【只】負責補完演出側寫${isMasterCls ? "" : "與寶具英文真名"}，【嚴禁】輸出任何數值/階級/技能設定。★【語言】除${isMasterCls ? "" : " npEn 欄與"} JSON 欄位名本身外，所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母。玩家標「照抄勿改」的欄位原樣沿用；標「核心設定·擴寫」的欄位以玩家給的為靈魂擴寫、【嚴禁】偏離或覆蓋其本意。★personality 與 look 皆【恰好4段·只用頓號「、」分隔·絕對不要用句號「。」或半形句點·每段是簡短詞組非完整句子·段內不再用頓號列舉】。★輸出合法 JSON、禁 Markdown：{"personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔）","look":"外貌四短句頓號分隔（五官髮色/身形/衣著印象，最後一句必須是不含服裝字眼的純氣質詞）","background":"生平一句·限20字","npc_intent":"一句萌點(不限反差)·限18字·務必寫完整一句話不可斷在句意未完處"${isMasterCls ? "" : `,"npEn":"寶具的英文真名讀法(拉丁字母·如 Excalibur 風格·限4個單字)"`}}`,
+      `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名${_ogF.pnote}${isMasterCls ? "御主(鑑賞限定·不參與戰鬥)" : "從者"}的設定，你【只】負責補完演出側寫${isMasterCls ? "" : "與寶具英文真名"}，【嚴禁】輸出任何數值/階級/技能設定。★【語言】除${isMasterCls ? "" : " npEn 欄與"} JSON 欄位名本身外，所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母。玩家標「照抄勿改」的欄位原樣沿用；標「核心設定·擴寫」的欄位以玩家給的為靈魂擴寫、【嚴禁】偏離或覆蓋其本意。★personality 與 look 皆【恰好4段·只用頓號「、」分隔·絕對不要用句號「。」或半形句點·每段是簡短詞組非完整句子·段內不再用頓號列舉】。★輸出合法 JSON、禁 Markdown：{"personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔）","look":"外貌四短句頓號分隔（五官髮色/身形/衣著印象，最後一句必須是不含服裝字眼的純氣質詞）","background":"生平一句·限20字","npc_intent":"一句萌點(不限反差)·限18字·務必寫完整一句話不可斷在句意未完處","firstP":"台詞自稱(我/吾/俺/本王…·限4字)","toMaster":"對自己御主的態度(限20字)","speech":"口吻(限40字·如 古風敬語、句尾帶「呢」、簡短冷淡)","tic":"招牌小動作(限30字·具體可見的身體動作，不寫心情)"${isMasterCls ? "" : `,"npEn":"寶具的英文真名讀法(拉丁字母·如 Excalibur 風格·限4個單字)"`}}`,
       { temperature: 0.85, ignoreLaw: true }));
   } catch (e) { flavor = null; }
+  // AI 補的演出欄位：玩家有填就用玩家的，沒填才拿這份（工房 UI 只剩一句描述，這四格全靠 AI 從描述推）
+  const _fv = (k, n) => String((flavor && flavor[k]) || "").replace(/[<>&"'`｜【】\n\r\t]/g, "").trim().slice(0, n);
   const fNpEn = String((flavor && flavor.npEn) || "").replace(/[^A-Za-z0-9 .'\-:]/g, "").trim().slice(0, 30);
   const np = isMasterCls ? "" : `${pb.npName}${fNpEn ? " " + fNpEn : ""}（${pb.npScale} ${pb.npR}）${pb.npDesc ? "·" + pb.npDesc : ""}`;
   const finalLook = pb.lookFull ? pb.look : (String((flavor && flavor.look) || "").trim() || pb.look);
@@ -561,7 +567,8 @@ function actionSaveHero(userData, pcId, sheets) {
   let wasCreated;
   try {
     wasCreated = recordOriginalHero_(pb.name, pb.cls, pb.sex, JSON.stringify(pb.six), pb.classSkills, pb.skills, pb.traits, np, finalPref || "", pb.align,
-      { look: finalLook, moe: moe, firstP: pb.fp, toMaster: pb.toM, speech: pb.speech, tic: pb.tic, back: back, weapon: pb.weapon, creator: acct });
+      { look: finalLook, moe: moe, firstP: pb.fp || _fv('firstP', 4), toMaster: pb.toM || _fv('toMaster', 20),
+        speech: pb.speech || _fv('speech', 40), tic: pb.tic || _fv('tic', 30), back: back, weapon: pb.weapon, creator: acct });
   } catch (e) { return JSON.stringify({ success: false, message: "寫入英靈殿失敗：" + e.message }); }
   if (!wasCreated) return JSON.stringify({ success: false, message: `「${pb.name}」剛被搶先鑄造同名英靈，請換一個真名再試一次。` });
   return JSON.stringify({ success: true, created: true, name: pb.name, message: `「${pb.name}」已鑄入英靈殿——到召喚頁「🌟 玩家原創英靈」即可召喚；之後想調整可在該區「✏️ 修改」（僅你本人）。` });

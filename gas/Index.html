@@ -42,200 +42,161 @@
 
       <button class="btn" style="width:100%; padding:9px; border-color:#777; color:#999; font-size:12px;" onclick="logoutAccount()">🚪 登出</button>
     </div>
+    <!-- 🌍 世界：型態×場次原本是兩屏四次點擊，合成一屏三顆。 -->
     <div id="scr-warmode" style="display:none; width:300px;">
-      <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:12px;">選擇聖杯戰爭型態</p>
-      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; border-color:var(--gold-accent); color:var(--gold-accent); text-align:left;" onclick="chooseWarMode('canon')">📜 <b>正史模式</b><br><small style="color:#9a7b4f; font-weight:normal;">各場聖杯戰爭正典陣容為敵，你是追加參戰者（不可奪取正典英靈）</small></button>
-      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left;" onclick="chooseWarMode('chaos')">🎲 <b>混亂模式</b><br><small style="color:#9a7b4f; font-weight:normal;">御主×從者隨機洗牌配對，每局敵方陣容都不同</small></button>
+      <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:12px;">闖進哪一場聖杯戰爭？</p>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="chooseWorld('canon','5th')">🏆 <b>第五次聖杯戰爭</b><br><small style="color:#9a7b4f; font-weight:normal;">stay night・正典八組為敵，你是追加的第九位參戰者</small></button>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="chooseWorld('canon','4th')">⚔️ <b>第四次聖杯戰爭</b><br><small style="color:#9a7b4f; font-weight:normal;">Fate/Zero・正典七組為敵（切嗣＋Saber、時臣＋吉爾伽美什…）</small></button>
+      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left;" onclick="chooseWorld('chaos','chaos')">🎲 <b>混亂模式</b><br><small style="color:#9a7b4f; font-weight:normal;">御主×從者隨機洗牌配對，每局敵方陣容都不同</small></button>
       <button class="btn" style="width:100%; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="document.getElementById('scr-warmode').style.display='none';document.getElementById('scr-menu').style.display='block';">← 返回</button>
     </div>
-    <div id="scr-war" style="display:none; width:300px;">
-      <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:12px;">參戰哪一場聖杯戰爭？</p>
-      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="chooseWar('4th')">⚔️ <b>第四次聖杯戰爭</b><br><small style="color:#9a7b4f; font-weight:normal;">Fate/Zero・正典七組（切嗣+Saber、時臣+吉爾伽美什…）</small></button>
-      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="chooseWar('5th')">🏆 <b>第五次聖杯戰爭</b><br><small style="color:#9a7b4f; font-weight:normal;">stay night・八組為敵（士郎+Saber、凜+EMIYA、臟硯+真Assassin、慎二+金閃閃、佐佐木孤身蟄伏柳洞寺…）</small></button>
-      <!-- 🧹 「偽聖杯戰爭 Fake」開局選項已移除(FATE_FAKE_ROSTER 陣容大部分角色一併清空，只剩銀狼×恩奇都不足以撐一場戰爭)——見 Seed_Rivals.gs/Seed_Codex.gs v52 註解。 -->
-      <button class="btn" style="width:100%; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="document.getElementById('scr-war').style.display='none';document.getElementById('scr-warmode').style.display='block';">← 返回</button>
-    </div>
-    <div id="scr-role" style="display:none; width:300px;">
-      <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:12px;">你要怎麼參戰？</p>
-      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="chooseRole('canon')">🎭 <b>扮演正典御主</b><br><small style="color:#9a7b4f; font-weight:normal;">成為其中一位正典御主（設定可改），但從者你自己召喚</small></button>
-      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left;" onclick="chooseRole('original')">✍️ <b>自創角色</b><br><small style="color:#9a7b4f; font-weight:normal;">打造原創御主，作為追加的參戰者闖入正典戰局</small></button>
-      <button class="btn" style="width:100%; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="document.getElementById('scr-role').style.display='none';document.getElementById('scr-war').style.display='block';">← 返回</button>
-    </div>
     <div id="scr-master" style="display:none; width:300px;">
-      <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:8px;">選擇要扮演的正典御主</p>
+      <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:8px;">扮演哪一位正典御主？</p>
       <div id="master-pick-list" style="max-height:300px; overflow-y:auto;"></div>
-      <button class="btn" style="width:100%; margin-top:8px; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="document.getElementById('scr-master').style.display='none';document.getElementById('scr-role').style.display='block';">← 返回</button>
+      <button class="btn" style="width:100%; margin-top:8px; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="document.getElementById('scr-master').style.display='none';document.getElementById('step-name').style.display='block';">← 返回</button>
     </div>
-    <div id="step-name" style="display:none; width:280px;">
-      <input id="s-name" class="std-in" style="width:100%; box-sizing:border-box;" placeholder="輸入御主之名（限中文）..." maxlength="10">
-      <p style="text-align:center; color:#9a7b4f; font-size:12px; margin:8px 0 0;">※ 御主之名僅限中文字，不可使用英文、數字或符號。</p>
-      <button id="start-btn" class="btn" style="width:100%; margin-top:16px;" onclick="lockBtn(event, () => checkName(event))">啟程</button>
-      <button class="btn" style="width:100%; margin-top:8px; border-color:#777; color:#999; font-size:12px; padding:6px;" onclick="document.getElementById('step-name').style.display='none';document.getElementById('scr-menu').style.display='block';">← 返回</button>
-    </div>
-    <div id="step-detail" style="display:none; width:280px;">
-      <p style="text-align:center; color:#816e54; font-size:14px; margin-bottom: 16px;">締結令咒，成為御主：</p>
-      <select id="s-sex" class="std-select" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
-        <option value="男">男</option>
-        <option value="女">女</option>
-        <option value="異">異</option>
-      </select>
-      <input type="text" id="s-appear" class="std-in" placeholder="外貌（如：紅褐短髮的高中生／黑長雙馬尾）" maxlength="30" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
-      <input type="text" id="s-standing" class="std-in" placeholder="身世／財力（如：沒落魔術名門末裔／揮金如土的醫科生）" maxlength="40" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
-      <input type="text" id="s-wish" class="std-in" placeholder="你對聖杯的願望（如：拯救某個人／證明自己的價值）" maxlength="40" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
-      <!-- 🎴 起始禮裝（玩家自選，非隨機）。id 需對應後端 MYSTIC_CODES（成對維護·同 ALLOWED_FX_/FX_MENU_）；破戒(rule_breaker·戰中奪僕)不列。 -->
-      <div style="color:#cdbbe6; font-size:12px; margin-bottom:4px;">🎴 起始禮裝（御主裝備·戰鬥被動加持）</div>
-      <select id="s-mystic" class="std-select" style="width:100%; box-sizing:border-box; margin-bottom:12px;">
-        <option value="">（不帶禮裝）</option>
-        <option value="avalon">🛡️ 全世界之鞘 Avalon｜承受寶具傷減免＋時回回血（＋阿爾托莉雅＝解鎖理想鄉）</option>
-        <option value="jewels">🔷 魔力儲存寶石｜每擊傷害略增</option>
-        <option value="black_keys">🗝️ 黑鍵｜命中略增</option>
-      </select>
-      <div style="background:rgba(212,175,55,0.06); border:1px solid rgba(212,175,55,0.3); border-radius:6px; padding:8px; margin-bottom:8px;">
-        <button class="btn" type="button" style="width:100%; border-color:var(--gold-accent); color:var(--gold-accent); font-size:13px; padding:8px;" onclick="rollFate()">🎲 命運測定（魔術天賦）</button>
-        <div id="fate-roll-box" style="color:#cdbbe6; font-size:12px; line-height:1.6; margin-top:8px; text-align:center;">尚未測定 —— 可測定 3 次取最滿意的</div>
+    <!-- ⚜️ 御主：名字＋性別就能開始，其餘一律 AI 補；想自己寫才點開「自己設定」。 -->
+    <div id="step-name" style="display:none; width:300px;">
+      <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:12px;">締結令咒，成為御主</p>
+      <div style="display:flex; gap:8px; margin-bottom:6px;">
+        <input id="s-name" class="std-in" style="flex:1; min-width:0;" placeholder="御主之名（限中文）" maxlength="10">
+        <select id="s-sex" class="std-select" style="width:76px;">
+          <option value="男">男</option>
+          <option value="女">女</option>
+          <option value="異">異</option>
+        </select>
       </div>
-      <button id="create-btn" class="btn" style="width:100%; margin-top:6px;" onclick="lockBtn(event, () => createPC(event))">⚜️ 締結令咒</button>
+      <p style="text-align:center; color:#816e54; font-size:11.5px; margin:0 0 12px;">其餘設定不填也行——會依你的名號自動補上。</p>
+      <button id="create-btn" class="btn" style="width:100%; padding:11px;" onclick="lockBtn(event, () => createPC(event))">⚜️ 締結令咒</button>
+
+      <button type="button" id="ms-adv-toggle" class="btn" style="width:100%; margin-top:10px; padding:7px; border-color:#6a5a44; color:#9a7b4f; font-size:12px;" onclick="toggleMasterAdv()">▸ 自己設定（外貌·身世·願望·禮裝·天賦）</button>
+      <div id="ms-adv" style="display:none; margin-top:10px;">
+        <input type="text" id="s-appear" class="std-in" placeholder="外貌（如：紅褐短髮的高中生）" maxlength="30" style="width:100%; box-sizing:border-box; margin-bottom:8px;">
+        <input type="text" id="s-standing" class="std-in" placeholder="身世／財力（如：沒落魔術名門末裔）" maxlength="40" style="width:100%; box-sizing:border-box; margin-bottom:8px;">
+        <input type="text" id="s-wish" class="std-in" placeholder="你對聖杯的願望（如：拯救某個人）" maxlength="40" style="width:100%; box-sizing:border-box; margin-bottom:8px;">
+        <!-- 🎴 起始禮裝。id 需對應後端 MYSTIC_CODES（成對維護·同 ALLOWED_FX_/FX_MENU_）；破戒(rule_breaker·戰中奪僕)不列。 -->
+        <select id="s-mystic" class="std-select" style="width:100%; box-sizing:border-box; margin-bottom:8px;">
+          <option value="">🎴 起始禮裝（不帶）</option>
+          <option value="avalon">🛡️ 全世界之鞘 Avalon｜寶具傷減免＋時回回血（＋阿爾托莉雅＝理想鄉）</option>
+          <option value="jewels">🔷 魔力儲存寶石｜每擊傷害略增</option>
+          <option value="black_keys">🗝️ 黑鍵｜命中略增</option>
+        </select>
+        <div style="background:rgba(212,175,55,0.06); border:1px solid rgba(212,175,55,0.3); border-radius:6px; padding:8px;">
+          <button class="btn" type="button" style="width:100%; border-color:var(--gold-accent); color:var(--gold-accent); font-size:13px; padding:7px;" onclick="rollFate()">🎲 命運測定（魔術天賦）</button>
+          <div id="fate-roll-box" style="color:#cdbbe6; font-size:12px; line-height:1.6; margin-top:8px; text-align:center;">不測也行 —— 留空＝系統隨機給一份</div>
+        </div>
+      </div>
+
+      <button type="button" class="btn" style="width:100%; margin-top:10px; padding:7px; border-color:#6a5a44; color:#9a7b4f; font-size:12px;" onclick="openCanonMasterPick()">🎭 或者：扮演一位正典御主</button>
+      <button class="btn" style="width:100%; margin-top:8px; border-color:#777; color:#999; font-size:12px; padding:6px;" onclick="document.getElementById('step-name').style.display='none';document.getElementById('scr-warmode').style.display='block';">← 返回</button>
     </div>
+    <!-- 📿 召喚從者：三條路（挑名冊／一句話／自己捏）2026-09 收進同一屏，不再用分頁藏。 -->
     <div id="step-summon" style="display:none; width:320px;">
-      <p style="text-align:center; color:var(--gold-accent); font-size:16px; font-weight:bold; margin-bottom:4px;">📿 召喚從者</p>
-      <!-- 🧭 瀏覽名冊／自訂生成 分頁切換(比照工房 cf-mode-create/cf-mode-works 樣式)——
-           兩塊各自完整一長串，攤在同一屏會把手機畫面塞爆，拆開後每次只看一塊。 -->
-      <div style="display:flex; gap:5px; margin-bottom:10px;">
-        <button type="button" id="summon-tab-roster-btn" class="btn" style="flex:1; padding:8px 2px; font-size:13px;" onclick="summonTab('roster')">📜 瀏覽名冊</button>
-        <button type="button" id="summon-tab-custom-btn" class="btn" style="flex:1; padding:8px 2px; font-size:13px;" onclick="summonTab('custom')">🖋️ 自訂生成</button>
+      <p style="text-align:center; color:var(--gold-accent); font-size:16px; font-weight:bold; margin-bottom:10px;">📿 召喚從者</p>
+
+      <div style="color:#c9a86a; font-size:13px; font-weight:bold; margin-bottom:6px;">① 從英靈殿挑一位</div>
+      <!-- 🎴 七正職階：等寬不換行、flex 置中（第 7 個 Berserker 自動置中） -->
+      <div id="summon-class-grid" style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:6px;">
+        <button type="button" class="btn summon-cls" data-cls="Saber" onclick="selectSummonClass('Saber')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">⚔️ Saber</button>
+        <button type="button" class="btn summon-cls" data-cls="Archer" onclick="selectSummonClass('Archer')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🏹 Archer</button>
+        <button type="button" class="btn summon-cls" data-cls="Lancer" onclick="selectSummonClass('Lancer')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🔱 Lancer</button>
+        <button type="button" class="btn summon-cls" data-cls="Rider" onclick="selectSummonClass('Rider')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🐎 Rider</button>
+        <button type="button" class="btn summon-cls" data-cls="Caster" onclick="selectSummonClass('Caster')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">📖 Caster</button>
+        <button type="button" class="btn summon-cls" data-cls="Assassin" onclick="selectSummonClass('Assassin')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🗡️ Assassin</button>
+        <button type="button" class="btn summon-cls" data-cls="Berserker" onclick="selectSummonClass('Berserker')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">💢 Berserker</button>
       </div>
-      <div id="summon-tab-roster">
-        <p style="text-align:center; color:#816e54; font-size:12px; margin:0 0 10px;">選擇職階，從英靈殿挑選與你締約的英靈：</p>
-        <!-- 🎴 七正職階：等寬不換行、flex 置中（第 7 個 Berserker 自動置中），全部按鈕獨立拉出 -->
-        <div id="summon-class-grid" style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:8px;">
-          <button type="button" class="btn summon-cls" data-cls="Saber" onclick="selectSummonClass('Saber')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">⚔️ Saber</button>
-          <button type="button" class="btn summon-cls" data-cls="Archer" onclick="selectSummonClass('Archer')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🏹 Archer</button>
-          <button type="button" class="btn summon-cls" data-cls="Lancer" onclick="selectSummonClass('Lancer')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🔱 Lancer</button>
-          <button type="button" class="btn summon-cls" data-cls="Rider" onclick="selectSummonClass('Rider')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🐎 Rider</button>
-          <button type="button" class="btn summon-cls" data-cls="Caster" onclick="selectSummonClass('Caster')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">📖 Caster</button>
-          <button type="button" class="btn summon-cls" data-cls="Assassin" onclick="selectSummonClass('Assassin')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🗡️ Assassin</button>
-          <button type="button" class="btn summon-cls" data-cls="Berserker" onclick="selectSummonClass('Berserker')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">💢 Berserker</button>
-        </div>
-        <button type="button" class="btn summon-cls" data-cls="__all__" onclick="selectSummonClass('__all__')" style="width:100%; box-sizing:border-box; margin-bottom:6px; padding:9px; font-size:13px; border-color:#9a7b4f; color:#c9a86a; border-style:dashed;">📜 瀏覽全部英靈殿（含 Avenger 等特殊職階）</button>
+      <div style="display:flex; gap:5px; margin-bottom:6px;">
+        <button type="button" class="btn summon-cls" data-cls="__all__" onclick="selectSummonClass('__all__')" style="flex:1; padding:8px 2px; font-size:12px; border-color:#9a7b4f; color:#c9a86a; border-style:dashed;">📜 全部英靈殿</button>
         <!-- 🌟 玩家原創專區：工房/盲盒創造的英靈(英靈殿 source=ai_gen)全在這，直點即召喚 -->
-        <button type="button" class="btn summon-cls" data-cls="__custom__" onclick="selectSummonClass('__custom__')" style="width:100%; box-sizing:border-box; margin-bottom:8px; padding:9px; font-size:13px; border-color:#6a8ac0; color:#8fb0e8; border-style:dashed;">🌟 玩家原創英靈（工房與盲盒的作品集）</button>
-        <div id="hero-list" style="max-height:190px; overflow-y:auto; margin:6px 0; padding:4px; background:rgba(0,0,0,0.18); border:1px solid rgba(212,175,55,0.25); border-radius:6px;">
-          <p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">↑ 選一個職階，或按「全部」瀏覽整個英靈殿</p>
-        </div>
-        <!-- 🎲 隨機移來這裡跟瀏覽/原創同一群(都是「從現有名冊挑」)；工房底下那顆按鈕已砍掉——外面選單(Index.html:31 openForge('menu'))本來就有一顆一樣的，砍的是重複入口，不是砍功能。 -->
-        <button class="btn" style="width:100%; border-color:#9a7b4f; color:#9a7b4f;" onclick="lockBtn(event, summonRandom)">🎲 隨機召喚</button>
+        <button type="button" class="btn summon-cls" data-cls="__custom__" onclick="selectSummonClass('__custom__')" style="flex:1; padding:8px 2px; font-size:12px; border-color:#6a8ac0; color:#8fb0e8; border-style:dashed;">🌟 我的原創</button>
       </div>
-      <div id="summon-tab-custom" style="display:none;">
-        <div style="color:#9a7b4f; font-size:11px; margin:0 0 4px;">🖋️ 大概敘述：AI 會往你描述的方向生成，但不保證精準符合</div>
-        <textarea id="s-desc" class="std-in" maxlength="120" placeholder="如：手持巨鎌、沉默寡言的死神少女" style="width:100%; box-sizing:border-box; height:48px; resize:none; font-family:inherit;"></textarea>
-        <!-- 🧹 職階/來源預設收合(比照工房 cf-adv-toggle 樣式)——兩者皆有合理預設(不限/完全原創)，
-             免每次自訂生成手機畫面都被撐長；想細調才展開。 -->
-        <button type="button" class="btn" id="s-adv-toggle" style="width:100%; margin-top:8px; padding:6px; font-size:12px; border-color:#8a7a9a; color:#b8a8d0;" onclick="toggleSummonAdvanced()">▸ 進階選項（指定職階／角色來源，預設不限・完全原創）</button>
-        <div id="s-adv" style="display:none; margin-top:6px;">
-          <!-- ⚔️ 職階：獨立於瀏覽名冊分頁的職階分頁，不會誤沿用「剛才點來看名冊」的分頁選擇——
-               預設「不限」時職階交給 AI 依描述判斷，不再死綁 Saber。 -->
-          <div style="color:#9a7b4f; font-size:11px; margin:0 0 3px;">⚔️ 指定職階（選填，不選由 AI 依描述判斷）</div>
-          <select id="s-cls" class="std-in" style="width:100%; box-sizing:border-box;">
-            <option value="" selected>不限（AI 依描述判斷）</option>
-            <option value="Saber">⚔️ Saber 劍兵</option>
-            <option value="Archer">🏹 Archer 弓兵</option>
-            <option value="Lancer">🔱 Lancer 槍兵</option>
-            <option value="Rider">🐎 Rider 騎兵</option>
-            <option value="Caster">📖 Caster 魔術師</option>
-            <option value="Assassin">🗡️ Assassin 暗殺者</option>
-            <option value="Berserker">💢 Berserker 狂戰士</option>
-          </select>
-          <!-- 🎭 角色來源：決定 AI 怎麼取技能名(fate 正史招式名／anime 該角色招牌招式／original 自由發揮) -->
-          <div style="color:#9a7b4f; font-size:11px; margin:8px 0 3px;">🎭 角色來源（決定技能怎麼命名）</div>
-          <select id="s-origin" class="std-in" style="width:100%; box-sizing:border-box;">
-            <option value="original" selected>完全原創（技能名自由發揮）</option>
-            <option value="fate">Fate 正史角色（技能用正史招式名）</option>
-            <option value="anime">其他動漫畫角色（技能用該角色招牌招式）</option>
-          </select>
-        </div>
-        <button class="btn" style="width:100%; margin-top:6px; border-color:#a06cd0; color:#c79be8;" onclick="lockBtn(event, summonByDesc)">🖋️ 自訂生成（AI 快速盲盒）</button>
+      <div id="hero-list" style="max-height:180px; overflow-y:auto; margin:0 0 6px; padding:4px; background:rgba(0,0,0,0.18); border:1px solid rgba(212,175,55,0.25); border-radius:6px;">
+        <p style="color:#816e54; font-size:12px; text-align:center; padding:12px 0;">↑ 選一個職階，或按「全部英靈殿」</p>
       </div>
+      <button class="btn" style="width:100%; padding:8px; font-size:13px; border-color:#9a7b4f; color:#9a7b4f;" onclick="lockBtn(event, summonRandom)">🎲 隨機召喚一位</button>
+
+      <div style="border-top:1px solid rgba(212,175,55,0.18); margin:14px 0 10px;"></div>
+
+      <div style="color:#c79be8; font-size:13px; font-weight:bold; margin-bottom:4px;">② 一句話生一位</div>
+      <textarea id="s-desc" class="std-in" maxlength="120" placeholder="如：手持巨鎌、沉默寡言的死神少女" style="width:100%; box-sizing:border-box; height:44px; resize:none; font-family:inherit;"></textarea>
+      <!-- 🧹 職階/來源預設收合——兩者皆有合理預設(不限/完全原創)，想細調才展開。 -->
+      <button type="button" class="btn" id="s-adv-toggle" style="width:100%; margin-top:6px; padding:6px; font-size:12px; border-color:#8a7a9a; color:#b8a8d0;" onclick="toggleSummonAdvanced()">▸ 指定職階／角色來源（預設：不限・完全原創）</button>
+      <div id="s-adv" style="display:none; margin-top:6px;">
+        <!-- ⚔️ 職階：獨立於上方名冊的職階選擇，預設「不限」交給 AI 依描述判斷 -->
+        <select id="s-cls" class="std-in" style="width:100%; box-sizing:border-box; margin-bottom:6px;">
+          <option value="" selected>⚔️ 職階：不限（AI 依描述判斷）</option>
+          <option value="Saber">⚔️ Saber 劍兵</option>
+          <option value="Archer">🏹 Archer 弓兵</option>
+          <option value="Lancer">🔱 Lancer 槍兵</option>
+          <option value="Rider">🐎 Rider 騎兵</option>
+          <option value="Caster">📖 Caster 魔術師</option>
+          <option value="Assassin">🗡️ Assassin 暗殺者</option>
+          <option value="Berserker">💢 Berserker 狂戰士</option>
+        </select>
+        <!-- 🎭 角色來源：決定 AI 怎麼取技能名(fate 正史招式名／anime 該角色招牌招式／original 自由發揮) -->
+        <select id="s-origin" class="std-in" style="width:100%; box-sizing:border-box;">
+          <option value="original" selected>🎭 來源：完全原創（技能名自由發揮）</option>
+          <option value="fate">🎭 Fate 正史角色（技能用正史招式名）</option>
+          <option value="anime">🎭 其他動漫畫角色（技能用該角色招牌招式）</option>
+        </select>
+      </div>
+      <button class="btn" style="width:100%; margin-top:6px; padding:9px; border-color:#a06cd0; color:#c79be8;" onclick="lockBtn(event, summonByDesc)">🖋️ 生成並召喚</button>
+
+      <button type="button" class="btn" style="width:100%; margin-top:14px; padding:8px; font-size:12px; border-color:#6a8ac0; color:#8fb0e8;" onclick="openForge('summon')">▸ 🛠️ 我要自己捏數值（工房）</button>
     </div>
-    <!-- 🛠️ 自訂英靈工房：獨立一屏——一步一屏對齊 onboarding 慣例，欄位 ID 全部不變 -->
+    <!-- 🛠️ 自訂英靈工房：2026-09 從「三分頁 × 19 欄」收成單頁 7 組——只留真的會進戰鬥引擎／計費的欄位。
+         外貌·個性·自稱·萌點·口吻·小動作·陣營·身世 八欄砍掉，改由最下面那句「一句描述」給 AI，不填就 AI 全補。 -->
     <div id="step-forge" style="display:none;">
       <p style="text-align:center; color:#8fb0e8; font-size:16px; font-weight:bold; margin-bottom:2px;">🛠️ 自訂英靈工房</p>
-      <p style="text-align:center; color:#816e54; font-size:11.5px; margin:0 0 10px;">數值全由你定（340 點預算）·AI 只補人格與寶具英文名<br>工房＝製造與修改；召喚請回「🌟 玩家原創」專區</p>
-      <!-- 🛠️/📚 工房雙模式：創造＝三分頁表單；作品＝本帳號英靈清單(點修改) -->
+      <p style="text-align:center; color:#816e54; font-size:11.5px; margin:0 0 10px;">數值你定（340 點預算）·人格與外貌 AI 補<br>工房＝製造與修改；做好後回召喚頁的「🌟 我的原創」召喚</p>
+      <!-- 🛠️/📚 工房雙模式：創造＝表單；作品＝本帳號英靈清單(點修改) -->
       <div style="display:flex; gap:5px; margin-bottom:8px;">
         <button type="button" id="cf-mode-create" class="btn" style="flex:1; padding:8px 2px; font-size:13px;" onclick="forgeModeCreate()">🛠️ 創造</button>
         <button type="button" id="cf-mode-works" class="btn" style="flex:1; padding:8px 2px; font-size:13px;" onclick="forgeMode('works')">📚 作品</button>
       </div>
       <div id="cf-works" style="display:none; padding:10px; background:rgba(20,18,34,.45); border:1px solid rgba(120,140,200,.35); border-radius:8px; text-align:left;"></div>
       <div id="cust-forge" style="padding:10px; background:rgba(20,18,34,.45); border:1px solid rgba(120,140,200,.35); border-radius:8px; text-align:left;">
-          <!-- 📑 三分頁：🎭演出｜⚔️靈基(主·預設)｜🌟寶具——欄位 ID 全不變·純版面分裝 -->
-          <div style="display:flex; gap:5px; margin-bottom:9px;">
-            <button type="button" id="cf-tab-1" class="btn" style="flex:1; padding:7px 2px; font-size:12px;" onclick="forgeTab(1)">🎭 演出</button>
-            <button type="button" id="cf-tab-2" class="btn" style="flex:1; padding:7px 2px; font-size:12px;" onclick="forgeTab(2)">⚔️ 靈基</button>
-            <button type="button" id="cf-tab-3" class="btn" style="flex:1; padding:7px 2px; font-size:12px;" onclick="forgeTab(3)">🌟 寶具</button>
-          </div>
-          <!-- ⚔️ 頁2·靈基（主·預設）：真名/職階/六圍/技能 -->
-          <div id="cf-page-2">
-            <input id="cf-name" class="std-in" maxlength="20" placeholder="真名（必填）" style="width:100%; box-sizing:border-box;">
-            <!-- 🎭 角色來源：技能名工房本就你自己打·此選項只決定「AI 補人格/演出」要不要忠於原著角色 -->
-            <select id="cf-origin" class="std-in" style="width:100%; box-sizing:border-box; margin-top:6px;">
-              <option value="original" selected>🎭 完全原創（AI 補人格自由發揮）</option>
-              <option value="fate">🎭 Fate 正史角色（AI 補人格忠於原著）</option>
-              <option value="anime">🎭 其他動漫畫角色（AI 補人格忠於原著）</option>
-            </select>
-            <div style="display:flex; gap:6px; margin-top:6px;">
-              <select id="cf-cls" class="std-in" style="flex:2;" onchange="refreshClsHint_()"></select>
-              <select id="cf-sex" class="std-in" style="flex:1;"><option>女</option><option>男</option><option>異</option></select>
-            </div>
-            <!-- 🎁 職階附贈技能提示（固定階級·免費·不占3槽·由 refreshClsHint_ 依所選職階更新） -->
-            <div id="cf-cls-hint" style="color:#9a8bb0; font-size:11px; margin-top:3px;"></div>
-            <div style="color:#8fb0e8; font-size:12px; margin:9px 0 4px;">六圍（傷害底＝筋/魔取高·敏捷走命中與迴避）</div>
-            <div id="cf-six"></div>
-            <div style="color:#8fb0e8; font-size:12px; margin:9px 0 4px;">技能 2×2（效果＋階級·可改名·帶滿4技+20）</div>
-            <div id="cf-skills"></div>
-          </div>
-          <!-- 🎭 頁1·演出：外貌/個性各一句＋進階演出細節(選填·預設收合)＋整體描述 -->
-          <!-- 🧹 外貌/個性拆4格的版本 UI 太瑣碎，改回各一個自由文字欄——後端 parseForgeBuild_ 本就用「有沒有頓號/逗號分3段以上」判斷填了幾成(lookFull/prefFull)，單句描述天然落在「核心設定，交給AI擴寫成四短句」路徑，欄位 ID 與後端格式完全不變。演出細節7小欄收進預設收合的「進階」區塊。 -->
-          <div id="cf-page-1" style="display:none;">
-            <input id="cf-look" class="std-in" maxlength="40" placeholder="🎨 外貌一句（選填·如：黑長直髮的冷豔劍士；留空＝AI補）" style="width:100%; box-sizing:border-box;">
-            <input id="cf-pref" class="std-in" maxlength="40" placeholder="💭 個性一句（選填·如：外冷內熱，重視承諾；留空＝AI補）" style="width:100%; box-sizing:border-box; margin-top:6px;">
-            <button type="button" class="btn" id="cf-adv-toggle" style="width:100%; margin-top:8px; padding:6px; font-size:12px; border-color:#8a7a9a; color:#b8a8d0;" onclick="toggleForgeAdvanced()">▸ 進階演出細節（選填·自稱/陣營/態度/萌點/口吻/小動作/身世）</button>
-            <div id="cf-drama" style="display:none; margin-top:6px;">
-              <div style="display:flex; gap:5px;">
-                <input id="cf-fp" class="std-in" maxlength="4" placeholder="自稱（本王…）" style="flex:1; min-width:0;">
-                <select id="cf-align" class="std-in" style="flex:1; min-width:0;"><option>中立</option><option>秩序・善</option><option>秩序・中庸</option><option>秩序・惡</option><option>中立・善</option><option>中立・惡</option><option>混沌・善</option><option>混沌・中庸</option><option>混沌・惡</option></select>
-              </div>
-              <div style="display:flex; gap:5px; margin-top:5px;">
-                <input id="cf-tomaster" class="std-in" maxlength="20" placeholder="對御主態度（忠誠/傲慢…）" style="flex:1; min-width:0;">
-                <input id="cf-moe" class="std-in" maxlength="15" placeholder="萌點（嗜甜/怕黑…）" style="flex:1; min-width:0;">
-              </div>
-              <input id="cf-speech" class="std-in" maxlength="40" placeholder="口吻（古風敬語/句尾帶「呢」/簡短冷淡…）" style="width:100%; box-sizing:border-box; margin-top:5px;">
-              <div style="display:flex; gap:5px; margin-top:5px;">
-                <input id="cf-tic" class="std-in" maxlength="30" placeholder="小動作（撥髮/瞇眼…）" style="flex:1; min-width:0;">
-                <input id="cf-back" class="std-in" maxlength="28" placeholder="身世一句" style="flex:1; min-width:0;">
-              </div>
-              <input id="cf-traits" class="std-in" maxlength="40" placeholder="特性（選填·頓號分隔·如 人類、王；純敘事風味，無戰鬥加成）" style="width:100%; box-sizing:border-box; margin-top:5px;">
-            </div>
-            <textarea id="cf-desc" class="std-in" maxlength="120" placeholder="（選填·可留白）補充描述——想讓 AI 多讀一點的氛圍/靈感，不碰數值，也不影響上面欄位" style="width:100%; box-sizing:border-box; height:44px; resize:none; margin-top:8px; font-family:inherit;"></textarea>
-          </div>
-          <!-- 🌟 頁3·寶具與武裝 -->
-          <div id="cf-page-3" style="display:none;">
-            <div style="color:#8fb0e8; font-size:12px; margin:0 0 4px;">寶具（中文名由你定·AI 只補英文真名讀法；威力＝六圍的「寶具」階；職階技能自動附贈）</div>
-            <div style="display:flex; gap:6px;">
-              <input id="cf-np-name" class="std-in" maxlength="20" placeholder="寶具名" style="flex:3; min-width:0;">
-              <select id="cf-np-scale" class="std-in" style="flex:2;" onchange="forgeBudget_()"><option value="對人">對人（免費）</option><option value="對軍">對軍（+20點）</option></select>
-            </div>
-            <input id="cf-np-desc" class="std-in" maxlength="40" placeholder="寶具威能一句（選填·如：斬鋼之風化作千刃奔湧）" style="width:100%; box-sizing:border-box; margin-top:6px;">
-            <input id="cf-weapon" class="std-in" maxlength="30" placeholder="⚔️ 武裝／戰鬥方式（選填·如：雙持大劍——敘述以此為準）" style="width:100%; box-sizing:border-box; margin-top:6px;">
-          </div>
-          <!-- 常駐底欄：⚡靈基即時預覽＋預算(進度條)＋存檔（三頁共用·全由 forgeBudget_ 單點刷新） -->
-          <div id="cf-preview" style="color:#9fb8d8; font-size:11px; margin-top:9px;"></div>
-          <div style="text-align:right; color:#8fb0e8; font-size:12px; margin-top:4px;"><span id="cf-budget"></span></div>
-          <div id="cf-budget-bar" style="height:4px; background:#242c3c; border-radius:2px; margin-top:3px; overflow:hidden;"><div id="cf-budget-fill" style="width:0%; height:100%; border-radius:2px; background:#8fd0a0; transition:width .15s;"></div></div>
-          <button id="cf-save" class="btn" style="width:100%; margin-top:5px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="lockBtn(event, summonByForge)">💾 鑄入英靈殿（回「🌟 玩家原創」即可召喚）</button>
+        <input id="cf-name" class="std-in" maxlength="20" placeholder="真名（必填）" style="width:100%; box-sizing:border-box;">
+        <div style="display:flex; gap:6px; margin-top:6px;">
+          <select id="cf-cls" class="std-in" style="flex:2;" onchange="refreshClsHint_()"></select>
+          <select id="cf-sex" class="std-in" style="flex:1;"><option>女</option><option>男</option><option>異</option></select>
+        </div>
+        <!-- 🎁 職階附贈技能提示（固定階級·免費·不占技能槽·由 refreshClsHint_ 依所選職階更新） -->
+        <div id="cf-cls-hint" style="color:#9a8bb0; font-size:11px; margin-top:3px;"></div>
+
+        <div style="color:#8fb0e8; font-size:12px; margin:10px 0 4px;">六圍（傷害底＝筋/魔取高·敏捷走命中與迴避）</div>
+        <div id="cf-six"></div>
+
+        <div style="color:#8fb0e8; font-size:12px; margin:10px 0 4px;">技能 2×2（效果＋階級·可改名·帶滿4技+20）</div>
+        <div id="cf-skills"></div>
+
+        <div style="color:#8fb0e8; font-size:12px; margin:10px 0 4px;">寶具（威力＝六圍的「寶具」階）</div>
+        <div style="display:flex; gap:6px;">
+          <input id="cf-np-name" class="std-in" maxlength="20" placeholder="寶具名" style="flex:3; min-width:0;">
+          <select id="cf-np-scale" class="std-in" style="flex:2;" onchange="forgeBudget_()"><option value="對人">對人（免費）</option><option value="對軍">對軍（+20）</option></select>
+        </div>
+        <!-- 🎭 特性：純敘事標籤但會被 god_slay/anti_dragon 這類 fx 剋，所以留在機制側 -->
+        <input id="cf-traits" class="std-in" maxlength="40" placeholder="特性（選填·頓號分隔·如 人類、龍、神性——會被神殺等效果剋）" style="width:100%; box-sizing:border-box; margin-top:6px;">
+        <input id="cf-weapon" class="std-in" maxlength="30" placeholder="⚔️ 武裝／戰鬥方式（選填·如：雙持大劍——敘述以此為準）" style="width:100%; box-sizing:border-box; margin-top:6px;">
+
+        <div style="color:#8fb0e8; font-size:12px; margin:10px 0 4px;">她是誰（選填·留空＝AI 全補）</div>
+        <!-- 🎭 角色來源：決定 AI 補人格時要不要忠於原著 -->
+        <select id="cf-origin" class="std-in" style="width:100%; box-sizing:border-box;">
+          <option value="original" selected>🎭 完全原創（AI 補人格自由發揮）</option>
+          <option value="fate">🎭 Fate 正史角色（AI 補人格忠於原著）</option>
+          <option value="anime">🎭 其他動漫畫角色（AI 補人格忠於原著）</option>
+        </select>
+        <textarea id="cf-desc" class="std-in" maxlength="120" placeholder="一句描述——外貌、個性、口吻、自稱想指定就寫這裡（如：白髮紅瞳的冷豔劍士，自稱「吾」，古風敬語）" style="width:100%; box-sizing:border-box; height:52px; resize:none; font-family:inherit; margin-top:6px;"></textarea>
+
+        <!-- 常駐底欄：⚡靈基即時預覽＋預算(進度條)＋存檔（全由 forgeBudget_ 單點刷新） -->
+        <div id="cf-preview" style="color:#9fb8d8; font-size:11px; margin-top:9px;"></div>
+        <div style="text-align:right; color:#8fb0e8; font-size:12px; margin-top:4px;"><span id="cf-budget"></span></div>
+        <div id="cf-budget-bar" style="height:4px; background:#242c3c; border-radius:2px; margin-top:3px; overflow:hidden;"><div id="cf-budget-fill" style="width:0%; height:100%; background:#4a90d9;"></div></div>
+        <button id="cf-save" class="btn" style="width:100%; margin-top:5px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="lockBtn(event, summonByForge)">💾 存進英靈殿</button>
       </div>
       <button class="btn" style="width:100%; margin-top:8px; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="closeForge()">← 返回召喚</button>
     </div>
-  </div>
+    </div>
 
   <div id="game">
     <div class="top-navbar" id="top-navbar">

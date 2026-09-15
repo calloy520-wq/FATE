@@ -29,6 +29,7 @@ const ActionRouter = {
   "update_fate": actionUpdateFate,
   "update_rel_tag": actionUpdateRelTag,
   "kanshou_set_nickname": actionSetNickname, // 🔒 2026-07 五度改版：專屬稱呼比照update_rel_tag同一套bond≥80門檻(見Gallery.gs KANSHOU_CUSTOM_TAG_BOND_)
+  "roll_fate": actionRollFate, // 🎲 命運測定：一次回三份候選（唯一真實來源在 Core_Settings.gs）
   "create": actionManualNpc, // 御主創角。
   "backfill_master_ai": actionBackfillMasterAi, // 🚀 開局非阻塞：create 後於召喚頁背景補御主敘事欄
   "summon_servant": actionSummonServant,
