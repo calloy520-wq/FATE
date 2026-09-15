@@ -371,7 +371,9 @@
 
   // 🔄 後日談歸零重來：不可逆，所以要打字確認(照抄帳號名)而不是按一下就走——
   //    這是唯一會把玩過的關係、回憶、相簿、走出來的地方一次抹掉的按鈕。
+  var _kresetBusy_ = false;
   async function kanshouResetWithConfirm_() {
+      if (_kresetBusy_) return;
       const acct = (pc && pc.account) || currentAccount || '';
       if (!await customConfirm_(
           '⚠️ 這會把「' + acct + '」的整個後日談清成全新的：\n\n'
@@ -383,13 +385,38 @@
       const typed = prompt('最後確認：請輸入你的帳號名稱「' + acct + '」以繼續。');
       if (typed === null) return;
       if (String(typed).trim() !== String(acct).trim()) { alert('名稱不符，已取消。'); return; }
+      // 🐛→✅ 玩家實測「輸入名字後就消失了，不知道有沒有在執行」：輸入框一關、設定視窗還開著，
+      //   後面整段清除完全沒有畫面回饋。改成先收掉設定視窗、壓一張讀條上去，跑完才放行。
+      //   讀條刻意【不可】點背景關掉——這段跑到一半被關掉，玩家會以為沒事而重按一次。
+      _kresetBusy_ = true;
+      try { closeSystemModal('settings-overlay'); } catch (e) {}
+      try {
+          _showOverlayLoading_('kreset-overlay', { zIndex: 10002, dim: 0.88, onBgClick: function () { } },
+            { width: '360px', borderColor: 'rgba(200,120,120,.35)', label: '正在清除後日談…請稍候，別關掉視窗',
+              titleHtml: '<b style="color:#e8a0a0;">🔄 後日談歸零重來</b>' });
+      } catch (e) {}
       try {
           const res = await gasRun({ action: 'kanshou_reset', pcId: pc.id, acctName: acct });
-          if (!res || !res.success) { alert((res && res.message) || '重置失敗，請稍後再試。'); return; }
+          if (!res || !res.success) {
+              _kresetBusy_ = false;
+              try { var _ov = document.getElementById('kreset-overlay'); if (_ov) _ov.style.display = 'none'; } catch (e) {}
+              alert((res && res.message) || '重置失敗，請稍後再試。');
+              return;
+          }
           try { localStorage.removeItem('kyushu_v27'); } catch (e) {}
-          alert('後日談已歸零（清掉 ' + (res.cleared || 0) + " 筆）。\n重新載入後就是全新的世界。");
-          location.reload();
-      } catch (e) { alert('重置失敗：' + e); }
+          // 讀條留著不收——接下來就是整頁重載，中間閃一下空白畫面比較難看。
+          try {
+              var ov2 = document.getElementById('kreset-overlay');
+              if (ov2) ov2.innerHTML = '<div style="width:min(360px,92vw);background:#1d1722;border:1px solid rgba(200,120,120,.35);border-radius:12px;padding:20px;text-align:center;color:#e8c8c8;font-size:13.5px;">'
+                + '<b style="color:#e8a0a0;display:block;margin-bottom:8px;">🔄 後日談已歸零</b>'
+                + '清掉 ' + (res.cleared || 0) + ' 筆。正在重新載入……</div>';
+          } catch (e) {}
+          setTimeout(function () { location.reload(); }, 900);
+      } catch (e) {
+          _kresetBusy_ = false;
+          try { var _ov3 = document.getElementById('kreset-overlay'); if (_ov3) _ov3.style.display = 'none'; } catch (e2) {}
+          alert('重置失敗：' + e);
+      }
   }
 
   // 對話字體大小：套用並記憶玩家偏好的縮放比例

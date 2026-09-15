@@ -470,7 +470,7 @@ let plainTextContext = cleanText;
   function _showOverlayLoading_(overlayId, ensureOpts, boxOpts) {
     var ov = ensureOverlay_(overlayId, ensureOpts);
     ov.innerHTML = '<div style="width:min(' + boxOpts.width + ',92vw);background:#1d1722;border:1px solid ' + boxOpts.borderColor + ';border-radius:12px;padding:14px;">'
-      + boxOpts.titleHtml + kmSpinner_('讀取中…') + '</div>';
+      + boxOpts.titleHtml + kmSpinner_(boxOpts.label || '讀取中…') + '</div>';
     ov.style.display = 'flex';
   }
 

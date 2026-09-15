@@ -476,18 +476,27 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
 }
 
 // 進入慾海·後日談：每個帳號只有【一個】常駐後日談世界，點「進入鑑賞」直接回到這個世界。
-// 🧹 依 game_id 把某張表屬於這一局的列整批刪掉(由下往上刪，避免索引位移)。
-//    回傳被刪掉那些列在 idCol 欄的值(供連帶清歷史)；idCol 傳 null 就只刪不收。
+// 🧹 依 game_id 把某張表屬於這一局的列整批清掉。回傳被清掉那些列在 idCol 欄的值(供連帶清歷史)；
+//    idCol 傳 null 就只清不收。
+// ⚠ 刻意【不】逐列 deleteRow：在 GAS 裡那是一列一次 API 呼叫，同伴＋歷史＋相簿＋帳本加起來
+//    可以慢到玩家以為當掉(玩家實測「輸入名字後就消失了，不知道有沒有在執行」)。
+//    改成「留下來的整批寫回、尾巴一次砍掉」——N 次呼叫變 2 次。同 actionPurgeOrphans 的寫法。
 function kanshouPurgeByGame_(sh, gidCol, gid, idCol) {
   const ids = [];
   if (!sh || !gid) return ids;
   try {
     const d = sh.getDataRange().getValues();
-    for (let r = d.length - 1; r >= 1; r--) {
-      if (String(d[r][gidCol] || "") !== String(gid)) continue;
-      if (idCol != null) ids.push(String(d[r][idCol] || "").replace(/^DEAD_/, ""));
-      sh.deleteRow(r + 1);
+    if (d.length <= 1) return ids;
+    const kept = [];
+    for (let r = 1; r < d.length; r++) {
+      if (String(d[r][gidCol] || "") === String(gid)) {
+        if (idCol != null) ids.push(String(d[r][idCol] || "").replace(/^DEAD_/, ""));
+      } else kept.push(d[r]);
     }
+    const tail = (d.length - 1) - kept.length;
+    if (tail <= 0) return ids;
+    if (kept.length) sh.getRange(2, 1, kept.length, d[0].length).setValues(kept);
+    sh.deleteRows(2 + kept.length, tail);
   } catch (e) { }
   return ids;
 }

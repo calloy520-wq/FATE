@@ -74,6 +74,8 @@ function getGameHistory(pcId, pcName) {
 
   return html;
 }
+// ⚠ 刻意【不】逐列 deleteRow：歷史暫存是最肥的一張表，一列一次 API 呼叫會慢到玩家以為當掉。
+//    改成「留下來的整批寫回、尾巴一次砍掉」——N 次呼叫變 2 次。solo 的 end_run 也走這支。
 function purgeHistoryForPcIds_(pcIds) {
   if (!pcIds || !pcIds.length) return;
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("歷史暫存");
@@ -82,10 +84,15 @@ function purgeHistoryForPcIds_(pcIds) {
   if (lastRow <= 1) return;
   var idSet = {};
   pcIds.forEach(function (id) { idSet[String(id)] = true; });
-  var idCol = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
-  for (var i = idCol.length - 1; i >= 0; i--) {
-    if (idSet[String(idCol[i][0])]) sheet.deleteRow(i + 2);
+  var all = sheet.getDataRange().getValues();
+  var kept = [];
+  for (var i = 1; i < all.length; i++) {
+    if (!idSet[String(all[i][1])]) kept.push(all[i]);
   }
+  var tail = (all.length - 1) - kept.length;
+  if (tail <= 0) return;
+  if (kept.length) sheet.getRange(2, 1, kept.length, all[0].length).setValues(kept);
+  sheet.deleteRows(2 + kept.length, tail);
 }
 function getGameHistoryBatchRaw(pcId, limit) {
   const recentRows = readRecentPlayerRows_(pcId, limit);
