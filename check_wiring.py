@@ -84,6 +84,7 @@ ENUM_TABLES = []
 # 漏一階＝那一階在提示詞裡靜靜消失（AI 看不到天花板、玩家覺得規則時靈時不靈）。
 TIER_TABLES = [
     ('KANSHOU_REL_TIER_', 'ceiling', '親密尺度：好感落在這一階時，肢體親密的天花板'),
+    ('KANSHOU_WORDS_', 'range', '篇幅：好感落在這一階時，narration 的字數區間'),
 ]
 
 
