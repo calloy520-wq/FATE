@@ -80,7 +80,7 @@ const ActionRouter = {
 // 🔴 全域輸入防護：所有玩家輸入在進入任何 action handler 前，先在此統一過濾。
 //   前端 maxlength/檢查皆可被繞過(devtools、直打API)，故後端必須是唯一可信的防線。
 function sanitizeUserData_(userData) {
-  // 名稱類欄位禁用 HTML/JS 斷字字元，避免在前端各處 innerHTML/onclick 拼接時被拿來做標籤或屬性逃脫🐛→✅ 舊版寫的是 "newRelName"，但 actionUpdateRelTag 實際讀的欄位叫 userDat…（全文見 CODE_NOTES.md）
+  // 名稱類欄位禁用 HTML/JS 斷字字元，避免在前端各處 innerHTML/onclick 拼接時被拿來做標籤或屬性逃脫。（全文見 CODE_NOTES.md）
   const STRICT_NAME_FIELDS = new Set(["name", "npcName", "targetName", "factionName", "newTagText", "newNickname", "pcName", "trueName", "acctName", "servantName", "foeName"]);
   // 🔴 只在「建立角色/登記NPC」的姓名欄位強制純中文(去英數/符號/空白)；
   //   參照既有角色的欄位(targetName/newRelName 等)不清洗，以免破壞改版前可能存在的非中文名查找。
@@ -300,16 +300,12 @@ function actionUpdateFate(userData, pcId, sheets) {
   // 🔵 只准改 4 種敘事欄（個性/特徵/身世/萌點）；數值(六圍/迴路/禮裝)與寶具(martial)一律不可改——GAS 掌數值鐵則。
   let targetCol = fateType === 'trait' ? COL.PC.TRAIT : fateType === 'pref' ? COL.PC.PREF : fateType === 'back' ? COL.PC.BACK : fateType === 'intent' ? COL.PC.INTENT : -1;
   if (targetCol === -1) return JSON.stringify({ success: false, message: "此欄位不可修改（只能改個性／特徵／身世／萌點，數值與寶具一律鎖死）。" });
-  // 🐛→✅ 玩家要求「真正內化」的萌點：同伴/NPC的萌點只留給AI演出參考，玩家不可查看也不可竄改——
-  //   前端已把同伴卡的萌點格連按鈕都藏了，這裡補後端防線，擋掉繞前端直打API的路。
   if (fateType === 'intent' && String(pcData[pIdx][COL.PC.ID]) !== String(pcId)) {
     return JSON.stringify({ success: false, message: "同伴的萌點由AI自行體會，不開放查看或修改。" });
   }
   // 🔴 命格欄位直寫入表格，需自行把關長度：身世/萌點 單格 30；個性/特徵 為 4 格頓號拼接、給較寬上限
   var cap = fateType === 'back' ? 80 : fateType === 'intent' ? 30 : 130; // 經歷(back)放寬到80配合AI滾動
   pcData[pIdx][targetCol] = String(fateValue || "").slice(0, cap);
-  // 🐛→✅ 2026-07 拆除「性格鎖」機制（玩家「萌點AI根本亂寫...AI只能改動經歷」）：AI 的滾動側寫
-  //   已經完全不會再去動性格/萌點這兩類欄位了，鎖不鎖沒有意義，這裡不再收/寫 prefLocks。
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
 
   const relMem = String(pcData[pIdx][COL.PC.REL_MEM] || "");
@@ -399,8 +395,6 @@ function buildTagsPayload_(sheets, pcId, preData) {
       npChoice: isFateCtx ? npChoice_(s[COL.PC.MEMORY]) : undefined,
       // 🐙 深淵海怪肉身（持 summon_horror 且現存海怪時 {cur,max}）：前端在體力條下方獨立渲染一條海怪血條
       horror: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) ? horrorShieldView_(s[COL.PC.MEMORY], gameId, pcData) : undefined,
-      // 🐛→✅ god_hand(十二試煉)說明 popup 舊版前端寫死「11次」，只對種子赫拉克勒斯正確——工房/AI生成
-      //   固定3命、尼祿等敵方各自有專屬命數(【試煉】N)。帶上這名從者實際剩餘命數，供卡片說明 popup 顯示真值。
       ghLives: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'god_hand'; }) ? getGodHandLives_(s[COL.PC.MEMORY]) : undefined,
       // 🐙 戰前召喚鈕：持 summon_horror 且海怪【尚未在場】→ 前端露出「召喚海怪」按鈕(變身態·跨戰鬥 12h)
       canSummonHorror: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) && !horrorShieldView_(s[COL.PC.MEMORY], gameId, pcData),
@@ -490,8 +484,6 @@ function buildClientState_(sheets, pcId, preData) {
     statusString: buildPlayerStatusString(allPcData[pcIndex]),
     // 關係併入眾生列，不再需要關係表 → 少一次整表讀
     people: isKanshouCtx_ ? getKanshouPeopleList_(pcId, curL, allPcData) : getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, allPcData),
-    // 🐛→✅ 玩家實測抓到：漏傳戰爭標記，第四次限定地點(海特飯店等)會漏濾、出現在撤退突圍/鄰近地點清單裡
-    //   （地圖本體 buildMapNodesPayload_ 有比對戰爭、這裡原本沒有，兩處各自兜規則導致不一致）。
     locations: getNearbyLocations(curL, freshMapData, isFate ? getWarName_(allPcData[pcIndex][COL.PC.MEMORY]) : ""),
     mapDesc: currentMapInfo ? currentMapInfo[COL.MAP.DESC] : "四下靜謐。",
     clock: clk, ap: ap, apMax: AP_PER_DAY,

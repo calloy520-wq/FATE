@@ -495,8 +495,6 @@ function actionEnterKanshou(userData, pcId, sheets) {
 
   // 3️⃣ 沒有常駐御主 → 要新建。
   var mSex = String(userData.pcSex || "").trim();
-  // 🐛→✅ 稽核抓到：改名路徑(actionKanshouSetName)有卡≤16字，但這條「首次進場建檔」路徑完全沒設
-  //   長度上限——只靠前端 maxlength=16 擋，繞過前端直接呼叫就能塞任意長度進 NAME 欄。補上同款上限。
   var mName = String(userData.pcName || "").trim().slice(0, 16);
   if ((mSex !== "男" && mSex !== "女") || !mName) {
     return JSON.stringify({ success: true, needSetup: true, defaultName: acctName });
@@ -560,7 +558,6 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const row = pcData[pIdx];
   const finalName = String(row[COL.PC.NAME] || ""), finalSex = String(row[COL.PC.SEX] || "異");
-  // 🐛→✅ 稽核抓到：這三欄餵進AI提示詞前也從沒設過長度上限，只靠前端擋，補上同款(60字)。
   const appearance = String(userData.appearance || "").slice(0, 60), standing = String(userData.standing || "").slice(0, 60);
   const persona = String(userData.persona || "").slice(0, 60);
 
@@ -769,8 +766,6 @@ function actionKanshouSetProp(userData, pcId, sheets) {
   var meIdx = kanshouPcIdx_(data, pcId);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  // 🐛→✅ 2026-07 再稽核抓到：跟相約/牽手/同居同一套findPcRowIdx_，唯獨這裡漏帶loc——沒驗證
-  //   目標同伴此刻是否真的在場，比照相約/牽手/同居補上，裝備道具也要求她本人在場。
   var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", loc: String(data[meIdx][COL.PC.LOC] || ""), nameCandidates: kanshouNameCandidates_ });
   if (tIdx < 0) return JSON.stringify({ success: false, message: "找不到這位同伴。" });
   var def = kanshouAllProps_(data[meIdx][COL.PC.MEMORY]).find(function (p) { return p.id === propId; });
@@ -806,13 +801,9 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
   var data = kpc.getDataRange().getValues();
   var meIdx = kanshouPcIdx_(data, pcId);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
-  // 🐛→✅ 稽核抓到：原本比對 p.id(內建道具的內部代號如'egg_vibrator')跟玩家打的中文名，永遠不
-  //   會相等，撞名檢查形同虛設(玩家真的取名「跳蛋」反而不會被擋)。改比對顯示名稱 p.name。
   if (KANSHOU_PROPS_.some(function (p) { return p.name === name; })) return JSON.stringify({ success: false, message: "這個名字跟內建道具重複了，換一個名字吧。" });
   var custom = kanshouGetCustomProps_(data[meIdx][COL.PC.MEMORY]);
   var existing = custom.find(function (p) { return p.id === name; });
-  // 🐛→✅ 稽核抓到：跟 actionKanshouCastHypnosis 共用同一份【自訂道具】清單、同名會互相覆寫
-  //   ——同名撞進催眠指令(ignoreBond:true)會靜默解除好感門檻且清空原part/effect。撞名一律拒絕。
   if (existing && existing.ignoreBond) return JSON.stringify({ success: false, message: "這個名字已經是你設定過的催眠指令，換一個名字吧。" });
   var already = !!existing;
   if (!already && custom.length >= KANSHOU_CUSTOM_PROP_CAP_) return JSON.stringify({ success: false, message: "自訂道具已達上限(" + KANSHOU_CUSTOM_PROP_CAP_ + "件)，先刪掉一些吧。" });
@@ -831,7 +822,6 @@ function actionKanshouAddCustomProp(userData, pcId, sheets) {
       }
     }
   }
-  // 🐛→✅ 2026-07 再稽核：同上，補loc要求目標同伴此刻在場才能立即裝備(目錄新增本身不受此限)。
   var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", loc: String(data[meIdx][COL.PC.LOC] || ""), nameCandidates: kanshouNameCandidates_ });
   if (tIdx < 0) {
     kpc.getRange(1, 1, data.length, data[0].length).setValues(data);
@@ -864,8 +854,6 @@ function actionKanshouCastHypnosis(userData, pcId, sheets) {
   if (KANSHOU_PROPS_.some(function (p) { return p.name === text; })) return JSON.stringify({ success: false, message: "這句指令跟內建道具重複了，換個說法吧。" });
   var custom = kanshouGetCustomProps_(data[meIdx][COL.PC.MEMORY]);
   var existing = custom.find(function (p) { return p.id === text; });
-  // 🐛→✅ 稽核抓到：跟 actionKanshouAddCustomProp 共用同一份【自訂道具】清單、同名會互相覆寫
-  //   ——同名撞進一般道具(ignoreBond:false)會靜默關閉「無視好感」，玩家毫無感知。撞名一律拒絕。
   if (existing && !existing.ignoreBond) return JSON.stringify({ success: false, message: "這句話跟你已有的一般道具同名，換個說法吧。" });
   var already = !!existing;
   if (!already && custom.length >= KANSHOU_CUSTOM_PROP_CAP_) return JSON.stringify({ success: false, message: "自訂道具/催眠指令目錄已達上限(" + KANSHOU_CUSTOM_PROP_CAP_ + "件)，先刪掉一些吧。" });
@@ -874,7 +862,6 @@ function actionKanshouCastHypnosis(userData, pcId, sheets) {
   data[meIdx][COL.PC.MEMORY] = kanshouSetCustomProps_(data[meIdx][COL.PC.MEMORY], custom);
   var _flush = function () { kpc.getRange(1, 1, data.length, data[0].length).setValues(data); };
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  // 🐛→✅ 2026-07 再稽核：同上，施展催眠指令這步也要求目標同伴此刻在場(目錄記下本身不受此限)。
   var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", loc: String(data[meIdx][COL.PC.LOC] || ""), nameCandidates: kanshouNameCandidates_ });
   if (tIdx < 0) { _flush(); return JSON.stringify({ success: true, props: [], customProps: custom, message: "已記下這句指令，但找不到這位同伴可施展。" }); }
   var _existingT = kanshouGetProps_(data[tIdx][COL.PC.MEMORY]);
@@ -978,7 +965,7 @@ function buildDefaultSystemPrompt(includeMasterNote, includeOptions) {
   if (includeMasterNote === false) { delete finalJson.master_note; }
   if (includeOptions === false) { delete finalJson.options; }
 
-  // 🔠 對話格式規則已上移為頂層 dialogueFormatRule_()(單一真實來源，solo miniSystem 與此處共用)，見本檔上方。
+  // 🔠 對話格式規則：2026-09 起只剩鑑賞在用——那套含喘息/吸吮的例子是 NSFW 取向，solo 是 SFW 戰鬥敘事，改用 miniSystem 內的短版。
 
   // 🔴 NSFW(慾海模式)：本回合聚焦當下的近身互動(情慾/調情/鋪陳皆可)，雜務(物品/金錢/陣營/任務/招募/地圖/戰鬥數值/身世)完全不追蹤、不輸出，鐵律文字大幅精簡，盡量交給AI自行判斷。
   const nsfwBaseRules = `後日談敘事核心·輕小說筆觸·台灣繁體中文·第一人稱「我」·禁上帝視角。鐵律：
@@ -1726,8 +1713,6 @@ function getKanshouHomeName_(memory, playerName) {
 function setKanshouHomeName_(memory, name) {
   const s = String(memory || "");
   const cleaned = s.replace(/｜?【住所】[^｜【】]*/g, "");
-  // 🐛→✅ 稽核抓到：原本沒清掉｜/【/】等標籤分隔字元，玩家取名帶這些字元會撐壞這行MEMORY格式
-  //   (讀取時regex在第一個｜就截斷，殘餘字變成脫隊在tag外的孤兒文字)。比照自訂道具同款淨化。
   const safe = kanshouSanitizeTagValue_(name, 12) || "我家";
   return (cleaned ? cleaned + "｜" : "") + "【住所】" + safe;
 }
@@ -1866,8 +1851,6 @@ function actionPlay_(userData, pcId, sheets) {
     : kanshouTimeBlockedStr
       ? `【玩家意圖】：走向了「${moveTarget0_.name}」，卻發現這時段還沒開放。`
       : moveTarget
-        // 🐛→✅ 同一輪稽核：按「同意」(moveWithCompanion)那一回合送的是這句單身閒逛的意圖，
-        //   跟同時送出的「與你結伴一起來到」在場來由互相打架。同行就照同行寫。
         ? (userData.moveWithCompanion
           ? `【玩家意圖】：和身旁答應同行的人一起走向了「${moveName}」。`
           : `【玩家意圖】：走向了「${moveName}」，四處看看那裡有什麼、有沒有遇見誰。`)
@@ -2912,7 +2895,6 @@ function actionPlay_(userData, pcId, sheets) {
       // 🏷️ 點名比對走候選橋：列是短名(SABER/櫻)，玩家打全名「拍阿爾托莉雅」也要命中，免得人像被誤判風景。
       const _phNamedMembers = _phIntent ? partyMembers.filter(n => kanshouNameCandidates_(String(n)).some(c => _phIntent.indexOf(c) >= 0)) : [];
       const _phScenery = !partyMembers.length || (_phIntent && !_phNamedMembers.length);
-      // 🐛→✅ 玩家「色色時也不用隱晦」：拍到親密畫面時，photo_caption 也該照實寫、不必刻意淡化。
       const _phCaptionRule = `並【務必】在回應JSON中額外加一個欄位 "photo_caption"：以玩家第一人稱寫一句30~60字的照片小敘述(禁HTML與引號)，若拍到的是親密畫面也直接寫實描述，不用刻意隱晦帶過。`;
       if (_phScenery) {
         kanshouPhotoPending_ = { names: ['風景'], scenery: true };
@@ -2991,12 +2973,9 @@ function actionPlay_(userData, pcId, sheets) {
       })();
       // 🌙 2026-07 玩家「深夜或清晨去她房間找她，有提示AI要讓她們是睡眠狀態嗎?」——查證後確實沒有：kanshouRoomEventStr(她的反應走向)只在玩家按下夜襲/賴床叫醒同意鈕【之後】才會注入，剛推門進去、按鈕還沒點的這一回合完全沒有任何提示，AI只能自己從時段猜，容易演成她還醒著閒聊，跟「深夜找她＝多半在睡」的直覺矛盾。
       const pSleepStr = (() => {
-        // 🐛→✅ 八度改版：牽手/剛同意同去而跟玩家一起走進來的同伴顯然還醒著，不該說她在熟睡。
         if (kanshouIsAwakeWithMe_(pcData.indexOf(r))) return "";
         const _pHomeHeroId = kanshouHeroIdByName_(pName);
         const _pHome = kanshouGetHeroHome_(_pHomeHeroId, r[COL.PC.MEMORY]);
-        // 🐛→✅ 八度改版：跟夜襲/賴床叫醒觸發判準對齊——0~8點(非timeBand_的深夜/清晨切法，清晨band
-        //   原本延伸到11點)、地點涵蓋她自己家/和室/玩家自己房間(留宿或深夜訪客過來時可能在這裡)。
         const _pAtHome = (_pHome !== '自己的住處' && curL === _pHome) || (kanshouIsCohabit_(r) && curL === KANSHOU_COHABIT_ROOM_) || curL === '我的房間';
         if (!_pAtHome) return "";
         if (curHour < KANSHOU_NIGHT_RAID_HOUR_END_) return "多半已熟睡，睡著/半夢半醒";
@@ -3132,8 +3111,6 @@ function actionPlay_(userData, pcId, sheets) {
   //   裡拿到完整卡片，這裡只補一句「剛敲門進來」的情境描述(卡片本身不會講這件事的來龍去脈)。
 
   const _kanshouMaxBond_ = partyRows.reduce((m, r) => Math.max(m, parseInt(r[COL.PC.BOND]) || 0), 0);
-  // 🐛→✅ 玩家「催眠跟好感會不會衝突」：催眠(ignoreBond)生效時常常是低好感也被推到高強度場面，
-  //   還照好感字數會覺得被砍短——生效中一律拉到最長檔，不再看好感臉色。
   const _kanshouHypnosisActive_ = partyRows.some(r => kanshouGetProps_(r[COL.PC.MEMORY], _kanshouPropCatalog).some(p => p.ignoreBond && p.level && p.level !== '關閉' && p.level !== KANSHOU_HYPNO_RELEASED_));
   const _kanshouTargetWords_ = _kanshouHypnosisActive_ ? 500 : (_kanshouMaxBond_ >= 60 ? 500 : _kanshouMaxBond_ >= 40 ? 400 : 250);
 
@@ -3268,8 +3245,6 @@ ${npcDialoguePrompt}
       // 🫶 成敗由 GAS 於 pre-AI 依好感擲定(_pendingProposal.accepted)，不再讀 AI 的 proposal_accept——
       //   AI 只負責照裁定演出她的反應。(2026-07 由 AI 判定改 GAS 判定·kanshouProposalAccepts_)
       const _accepted = !!_pendingProposal.accepted;
-      // 🐛→✅ 牽手(hold)的 idx 是【玩家自己列】(標記存玩家MEMORY)，拿 idx 的名字會變成玩家自己
-      //   (「風音沒有讓你牽手」)——她的名字存在 _pendingProposal.name，優先用它。
       const _ppHer = String(_pendingProposal.name || pcData[_pendingProposal.idx][COL.PC.NAME] || "");
       if (_accepted) {
         if (_pendingProposal.type === 'promise') {
@@ -3348,7 +3323,7 @@ ${npcDialoguePrompt}
         if (String(pcData[nIdx][COL.PC.LOC] || "").trim() !== String(curL || "").trim()) return;
         dirtyPcRows.add(nIdx);
 
-        // 鑑賞允許好感依劇情推進（solo 的好感收歸 GAS 按鈕，走不同的 narrate_only 路徑，不受這裡影響）🐛→✅ 玩家實測前主動抓到：提示詞明講單回合好感漲幅上限(±5)，但這裡只有 sanitizeAiData_ 的[-100,100]粗夾，AI 一次亂寫的極端值(如100)在低好感時仍可能一口氣衝過好幾個等級。
+        // 鑑賞允許好感依劇情推進（solo 的好感收歸 GAS 按鈕，走不同的 narrate_only 路徑，不受這裡影響）。（全文見 CODE_NOTES.md）
         let change = Math.max(-5, Math.min(5, parseInt(rc.fav_change) || 0));
 
         let oldFav = parseInt(pcData[nIdx][COL.PC.BOND]) || 0;
@@ -3390,8 +3365,6 @@ ${npcDialoguePrompt}
       //   持久的【換裝】記錄(setOutfit_ 本身已有 40 字硬上限與清洗特殊字元，這裡不重複截斷)。
       const sanitizeAppearanceExtras = (rawOutfit) => {
         if (typeof rawOutfit !== 'string') return "";
-        // 🩹 這欄要的是【穿著本身】(如「質地優雅的絲綢襯衫」)，AI 偶爾寫成動作句(「換上了一件…。」)，
-        //   卡片顯示「裝扮 換上了一件…」變病句(玩家實測)——剝掉動作前綴/量詞/句尾標點，留衣物描述。
         const val = rawOutfit.trim()
           .replace(/^(剛?(換|穿|披|套|繫|着|著)上了?|換回了?|改穿了?)\s*/, "")
           .replace(/^(一件|一身|一套|一襲)\s*/, "")
@@ -3463,8 +3436,6 @@ ${npcDialoguePrompt}
           // 同款括號全名比對問題(見上方 kanshouNameCandidates_)，這裡也會影響每回合寫入失敗。
           const targetIdx = pcData.findIndex(r => kanshouNameCandidates_(r[COL.PC.NAME]).includes(tName) && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
           if (targetIdx === -1) return;
-          // 🐛→✅ 同上方 rel_changes 的漏洞：從沒檢查這個人是否真的在場，AI幻覺/歷史殘留提到的不在場
-          //   人物一樣能被寫入外顯/技巧/共同回憶——比照補上同一道在場檢查。
           if (String(pcData[targetIdx][COL.PC.LOC] || "").trim() !== String(curL || "").trim()) return;
 
           dirtyPcRows.add(targetIdx);
@@ -3549,8 +3520,6 @@ ${npcDialoguePrompt}
 
     saveGameHistoryBatch(pcId, [
       { speaker: "player", content: userMsg },
-      // 🩹 <br> 正規化：Gemini 偶爾直接輸出 <br> 標籤——即時顯示走 innerHTML 看不出來，但存進
-      //   歷史表後重載會被 escapeHtml 跳脫成裸字「<br><br>」(玩家實測)。存檔前一律轉回換行。
       { speaker: "ai", content: String(aiData.narration || "").replace(/<br\s*\/?>/gi, "\n") }  // 用原始 narration 不用 finalResponseText
     ]);
 

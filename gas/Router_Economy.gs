@@ -206,8 +206,6 @@ function actionManaSupply(userData, pcId, sheets) {
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, unlocked: !ambush, clock: manaClock, ap: manaAp, apMax: AP_PER_DAY, ambush: !!ambush, defeat: ambush ? ambush.defeat : false, dreamPrompt: ambush ? ambush.dreamPrompt : "", report: ambush ? ambush.report : null, statusString: buildPlayerStatusString(pcData[pIdx]) }); // ⚡ pcData 即權威，免 getFreshStatusString 的整表重讀
 }
 
-// 🩹 靈基修復：消費共用魔力池為從者療傷，不燃令咒、可重複使用，但吃掉的池本可拿去放寶具/衝高出力，
-//   形成「現在回血還是留著打」的即時取捨。與令咒選單裡一次性全滿版(❖ 絕對修復)刻意區隔，那是孤注一擲，這是常態手段。
 function actionSpiritRepair(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);

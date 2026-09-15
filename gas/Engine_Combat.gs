@@ -104,8 +104,6 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   const isBlocked = lastErrorMessage.includes("Triggered_NSFW_Filter");
   // 技術性錯誤訊息只留 Logger 給開發者除錯，玩家一律只看到貼合世界觀的柔性重試提示，避免出戲。
   if (!isBlocked) { try { Logger.log("[callGeminiAPI 連線失敗] " + lastErrorMessage); } catch (e) { } }
-  // 🐛→✅ 玩家反饋「結界觸發」這類措辭太出戲(像系統跳出來講話)，改成順著情境走的口吻——
-  //   氣息未定、畫面忽然朦朧了幾秒，讀起來像是被打斷而非被系統攔下。
   const fallbackNarration = aiFallbackNarration_(isBlocked);
 
   if (plainText) return fallbackNarration; // 散文模式：失敗也回純文字，不污染回憶錄成 JSON

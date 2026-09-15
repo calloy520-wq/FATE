@@ -364,7 +364,7 @@ function actionFateBattle(userData, pcId, sheets) {
   if ((parseInt(pcData[pIdx][COL.PC.HP]) || 0) <= 0) return JSON.stringify({ success: false, message: "御主已然殞落，此局已結束。" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
 
-  // 🗝️ 雙從者：若指定出戰從者(userData.servant/servantId)則用之，否則取第一個在世從者🐛→✅ 舊版用 String(name).includes(wantSv) 子字串比對挑選出戰從者，雙從者其一真名恰為另一人前綴…（全文見 CODE_NOTES.md）
+  // 🗝️ 雙從者：若指定出戰從者(userData.servant/servantId)則用之，否則取第一個在世從者。（全文見 CODE_NOTES.md）
   const atkIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
   // 🛡️ 常駐寶具閘：God Hand/治癒結界等【常駐寶具】自動生效、不是攻擊——擋下攻擊解放
   //   (前端💥鈕已灰化，此為舊快取前端的後端保險)。
@@ -476,7 +476,7 @@ function actionFateBattle(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: "你的令咒已用盡，無法施加絕對命令。" });
   }
 
-  // 戰鬥確定開打 → 耗 1 AP（推進 2 小時）🐛→✅ 舊版沒傳 skipWrite，這裡立刻寫一次 DAY/HOUR/AP，之後不管走斬首分支(現已批次收尾)還是主戰鬥路徑(1370行整表 setValues)都會把同一批值再送一次——比…（全文見 CODE_NOTES.md）
+  // 戰鬥確定開打 → 耗 1 AP（推進 2 小時）。（全文見 CODE_NOTES.md）
   const battleAp = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動點已耗盡，從者也需喘息——請『歇息』恢復後再戰。", { isFate: isFateBattle, skipWrite: true }).ap;
 
   // ⚔️ 交手即削好感：拔劍相向直接 −5（不勞 AI 判定）。只削既有交情列、不憑空建列(萍水相逢者本就 0)。
@@ -494,8 +494,6 @@ function actionFateBattle(userData, pcId, sheets) {
     const rolls = asnParty.map(idx => ({ idx: idx, name: String(pcData[idx][COL.PC.NAME]), roll: Math.floor(Math.random() * 20) + 1 }));
     const crit = rolls.find(r => r.roll === 20) || null;
     const asnMasterCardStr = masterCard_(pcData[pIdx]);
-    // 🐛→✅ 玩家實測抓到：雙從者斬首時 servantCard_ 呼叫2~3次(攻方1~2名+護衛1名)，每次都各自帶一份
-    //   完整的「怎麼演」收尾句——改成每張卡skipClose，收尾句用 performanceNote_() 統一講一次。
     const asnAtkCardsStr = rolls.map(r => servantCard_(pcData[r.idx], { skipClose: true })).join('');
     const asnGuardCardStr = '〔敵御主之護衛從者〕' + servantCard_(pcData[assassinGuardIdx], { skipClose: true, foe: true });
     const asnTargetMasterCardStr = enemyMasterCard_(pcData[nIdx], { skipClose: true });
@@ -611,8 +609,6 @@ function actionFateBattle(userData, pcId, sheets) {
       }
     }
 
-    // 🐛→✅ 批次寫回收尾：分支內每擊只改了記憶體 pcData，這裡一次整表 setValues 送出，取代原本
-    //   每個 idx 各自即時寫入的多趟 round-trip。
     sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
     BATTLE_DEFER_WRITE_ = false;
     STATE_PRE_DATA_ = pcData; // ⚡ 交棒：斬首路徑的所有寫入(fateStrike_/spendAp_/raiseBond_)皆已原地改回 pcData
@@ -687,8 +683,6 @@ function actionFateBattle(userData, pcId, sheets) {
       var _mMaxHp = parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 100;
       var _blDmg = Math.max(1, Math.round(_mMaxHp * (_bl.min + Math.random() * (_bl.max - _bl.min))));
       var _mHpNow = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
-      // 🐛→✅ 同drainForNp_一款漏洞：_mHpNow本已是0(令咒反噬致死等)時，保底1會讓已defeat的
-      //   御主悄悄復活成HP=1。御主死亡無DEAD_可擋，只在本來還活著時才套保底。
       if (_mHpNow > 0) pcData[pIdx][COL.PC.HP] = Math.max(1, _mHpNow - _blDmg); // 保底1·不致死
       if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, COL.PC.HP + 1).setValue(pcData[pIdx][COL.PC.HP]);
       backlash = { dmg: _blDmg, hp: parseInt(pcData[pIdx][COL.PC.HP]) || 1, hpMax: _mMaxHp };
@@ -781,7 +775,7 @@ function actionFateBattle(userData, pcId, sheets) {
         if (pHit.knocked) knockedOut.push(pHit.knocked);
         if (pHit.godRevived) { godRevived = true; godNote = pHit.godNote; }
         if (pHit.defeat) { defeat = true; victory = false; dreamPrompt = pHit.dreamPrompt; }
-        // 🎌 御主參戰風格·對轟回震也替從者分擔(非致命時)🐛→✅ 舊版只擋 !pHit.defeat(最後一名從者才算)，雙從者出戰時這擊若打死非最後一名從者，pHit.defeat 不成立、但 pHit.knocked 已標記該從者陣亡——沒補 !pHit.knocked 會對著fateStrike_ 剛寫成 DEAD_/HP=0 的那一列回補血量、還白白扣一筆御主HP去「保護」一個已經不在的人。
+        // 🎌 御主參戰風格·對轟回震也替從者分擔(非致命時)。（全文見 CODE_NOTES.md）
         else if (!pHit.knocked && spill > 0) { const _shC = applyMasterStanceShare_(sheets, pcData, atkIdx, pIdx, spill, _stanceShare); if (_shC) masterShared += _shC; }
       }
       let enemyNpName = ""; try { enemyNpName = String(npProfile_(enemyC0).name || enemyC0.np || "").split(/[（(／]/)[0].trim(); } catch (e) { }
@@ -870,14 +864,10 @@ function actionFateBattle(userData, pcId, sheets) {
       if (destroyedName || sealEscaped) break;
     }
 
-    // 🩹 每回合涓流回血（約 2.5%×階/回合·上限30）：兩種來源——①原初符文運用為 regen(玩家選模式)
-    //   ②持有專屬治癒 fx `regen`(回復魔藥/狐之治癒等·常駐、無需選模式)。標籤顯示技能自己的名字。
     for (let rk = 0; rk < livingParty.length; rk++) {
       const ridx = livingParty[rk];
       if (String(pcData[ridx][COL.PC.ID]).startsWith("DEAD_")) continue;
       const rc = rowToCombatant_(pcData[ridx]);
-      // 🐛→✅ 稽核抓到：這裡現建的rc沒呼叫injectMysticBuff_(對照上面攻擊迴圈的sC有呼叫)，導致
-      //   Avalon注入阿爾托莉雅的「鞘之恩澤」regen fx永遠讀不到——理想鄉的時回加成完全死碼。補上。
       injectMysticBuff_(rc, pcData[pIdx][COL.PC.MEMORY]);
       const rrn = hasFx_(rc, 'rune');
       const runeRegen = rrn && rc.runeMode === 'regen';
@@ -1054,7 +1044,6 @@ function actionFateBattle(userData, pcId, sheets) {
         injectMasterSupportFor_(pdC, pcData, myGameId, pcData[pactDefIdx], true);
         const pds = fateStrike_(sheets, pcData, pdC, ctgt2, { counterMul: 0.85, skill: servantActiveSkill_(pdC), round: rd + 1 }, ctx);
         rl.pactDef = { name: pdC.name, hit: pds.hit, dmg: pds.hit ? pds.damage : 0, target: String(pcData[ctgt2][COL.PC.NAME]), fired: pds.fired || [] };
-        // 🐛→✅ 同上一併補齊：敵盟協防這擊一樣可能打死/救活我方從者，舊版只讀 defeat/hit。
         if (pds.destroyed) destroyedName = pds.destroyed;
         if (pds.knocked) knockedOut.push(pds.knocked);
         if (pds.sealEscaped) { sealEscaped = true; sealNote = pds.sealNote; }
@@ -1362,7 +1351,7 @@ function setGodHandLives_(memory, n) { return GOD_HAND_TAG_.set(memory, n); }
 // 玩家令咒餘量（存於御主 MEMORY 的【令咒】N 標記；舊角色無標記則視為 3）
 var PLAYER_SEALS_TAG_ = makeIntTag_('令咒', 3);
 function getPlayerSeals_(memory) { return PLAYER_SEALS_TAG_.get(memory); }
-// 寫回令咒餘量（回傳更新後的 MEMORY 字串）🐛→✅ 稽核抓到：makeIntTag_ 泛用 set() 無下限鉗制，且底層【令咒】(\d+) 不支援負號——萬一日後哪處扣點漏做「先擋門再扣」寫出負值，下次讀取會直接配對失敗、靜默退回 defaultVal=3(令咒憑空復活，比單純負值更隱蔽)。
+// 寫回令咒餘量（回傳更新後的 MEMORY 字串）。（全文見 CODE_NOTES.md）
 function setPlayerSeals_(memory, n) { return PLAYER_SEALS_TAG_.set(memory, Math.max(0, Math.round(n))); }
 
 // 🕯️ 令咒耗盡·靈基透支倒數：令咒燒到 0 又無「單獨行動」的敵從者，只能再撐 SEAL_DOOM_HOURS 小時。

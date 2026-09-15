@@ -69,8 +69,6 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
   var six = safeJson_(hero[COL.HERO.SIX], {});
   var classSkills = safeJson_(hero[COL.HERO.CLASS_SKILLS], []);
   var skills = safeJson_(hero[COL.HERO.SKILLS], []);
-  // 🐛→✅ 稽核抓到：safeJson_只擋「解析失敗」，若儲存格是合法JSON但非陣列(如物件)，dflt不會生效——
-  //   跟 Router_Creation.gs 的 actionSummonServant 同款補上陣列型別檢查，避免壞資料寫進敵從者列。
   var traitsRaw = safeJson_(hero[COL.HERO.TRAITS], []);
   var traits = Array.isArray(traitsRaw) ? traitsRaw : [];
   var persona = safeJson_(hero[COL.HERO.PERSONA], {});
@@ -131,8 +129,6 @@ function masterToNpcRow_(mr, gameId, loc, faction, heroMagicRank) {
   row[COL.PC.MAX_HP] = hp; row[COL.PC.MAX_MP] = mp;
   row[COL.PC.INTENT] = String(mr[COL.MASTER.MOE] || "");
   row[COL.PC.FACTION] = faction; row[COL.PC.RANK] = "御主";
-  // 🐛→✅ COL.MASTER.ALIGN(2026-07 新增)之前 SEED_MASTERS 沒這欄可讀，這格永遠空——enemyMasterCard_
-  //   讀陣營那段邏輯看似在跑、實際上從沒讀到值。現在有值了，補上單一真實來源的搬運。
   row[COL.PC.ALIGN] = String(mr[COL.MASTER.ALIGN] || "").trim();
   // 體術/魔術階位需寫進 MEMORY，masterCard_ 與 injectMasterMeleeSupport_/injectMasterMagicSupport_ 才讀得到。
   row[COL.PC.MEMORY] = `【願望】${mr[COL.MASTER.WISH] || ""}｜【魔術】${mr[COL.MASTER.MAGIC] || ""}｜【迴路】${circuits}｜【體術】${mr[COL.MASTER.MELEE] || ""}｜【魔術階位】${mr[COL.MASTER.MAGIC_RANK] || ""}`;

@@ -12,7 +12,7 @@ const MODEL_URL = "https://openrouter.ai/api/v1/chat/completions";
 // 鑑賞用模型：同時是點火(driveOn=true)直接呼叫模型、與矜持模式重試失敗的 fallbackModel，兩處共用同一顆常數。
 const AI_MODEL = (function () {
   var p = PropertiesService.getScriptProperties();
-  return p.getProperty('MODEL') || 'deepseek/deepseek-v4-flash';
+  return p.getProperty('MODEL') || 'x-ai/grok-4.20';
 })();
 // solo(narrateWithState_) 只需精簡按鍵回饋、不需鑑賞級 NSFW 生成能力，獨立用低延遲小模型換取速度，與 AI_MODEL 互不影響。
 const SOLO_MODEL = (function () {
@@ -310,8 +310,6 @@ function setOvercharge_(memory, amt) { return OVERCHARGE_TAG_.set(memory, Math.m
 function clearOvercharge_(memory) { return OVERCHARGE_TAG_.clear(memory); }
 // 👕 從者換裝（存從者 MEMORY【換裝】<服裝文字>）：玩家自訂當前【服裝穿著】·疊在種子外貌本相之上餵給 AI 敘述——只換衣不換人(五官/髮色/體態/氣質仍依 persona.look)。
 function getOutfit_(memory) { var m = String(memory || "").match(/【換裝】([^｜【】]*)/); return m ? m[1].trim() : ""; }
-// 🐛→✅ 舊版只濾 MEMORY 分隔符，沒濾 HTML 斷字字元——換裝文字最終會被 Script.html 原樣拼進
-//   innerHTML(裝扮那一行)且未過 escapeHtml，跟同一批已修過的 realName/np/技能名同一類缺口，補上。
 function setOutfit_(memory, text) { var s = clearOutfit_(String(memory || "")); text = String(text || "").replace(/[｜【】\n\r\t]/g, "").replace(/[<>&"'`]/g, "").trim().slice(0, 40); if (!text) return s; return s ? s + "｜【換裝】" + text : "【換裝】" + text; }
 function clearOutfit_(memory) { return String(memory || "").replace(/｜?【換裝】[^｜【】]*/g, ""); }
 // 玩家自定武裝：武器/戰鬥方式存 MEMORY【武裝】<文字>，servantCard_ 讀後強制 AI 以此為準——蓋過職階慣例(Saber=劍/Lancer=槍…)與該真名的原典武器習慣(如「Saber斯卡哈仍拿槍」)。

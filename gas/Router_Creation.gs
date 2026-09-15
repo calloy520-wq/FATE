@@ -39,8 +39,6 @@ function actionManualNpc(userData, pcId, sheets) {
   const _playingThisCanon = userData.playedMaster && typeof SEED_MASTERS !== 'undefined'
     && SEED_MASTERS.some(m => m && String(m.id) === String(userData.playedMaster) && cleanChineseName(m.name) === finalName);
   if (_canonMasterHit && !_playingThisCanon) return JSON.stringify({ success: false, message: `「${finalName}」是聖杯戰爭中已知的御主——自創御主請另取名號；若想扮演此角，請用「扮演正典御主」入口。` });
-  // 🐛→✅ 撞正典從者真名沒有「扮演」這條路(那個入口只列SEED_MASTERS)，訊息不該誤導去點一個
-  //   死路——改成單純告知另取名號。
   if (_canonServantHit) return JSON.stringify({ success: false, message: `「${finalName}」是聖杯戰爭中已知的英靈真名——自創御主請另取名號。` });
   // finalName 此時仍是 cleanChineseName 洗掉標點的畸形版本——還原成 SEED_MASTERS 原始正典真名(含標點)。
   if (_playingThisCanon) {
@@ -67,8 +65,6 @@ function actionManualNpc(userData, pcId, sheets) {
     const pcColCount = Object.keys(COL.PC).length;
     const newRow = Array(pcColCount).fill("");
     newRow[COL.PC.ID] = newId; newRow[COL.PC.NAME] = finalName; newRow[COL.PC.SEX] = finalSex;
-    // 🐛→✅ 稽核抓到(比照鑑賞actionEnterKanshou同款漏洞)：只靠前端#s-standing的maxlength=40擋，
-    //   backend原本沒設長度上限——繞過前端能塞任意長度進BACK欄。補上跟前端一致的上限。
     newRow[COL.PC.BACK] = String(standing || identity || "來歷不明的魔術師").slice(0, 40); // 種子＝玩家輸入身世；backfill 會用 AI 潤成 20 字背景
     newRow[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "氣息平穩" });
     newRow[COL.PC.MEMORY] = [
@@ -117,8 +113,6 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const row = pcData[pIdx];
   const finalName = String(row[COL.PC.NAME] || ""), finalSex = String(row[COL.PC.SEX] || "異");
-  // 🐛→✅ 稽核抓到(比照鑑賞actionBackfillKanshouAi同款漏洞)：這幾欄餵進AI提示詞前也從沒設過長度
-  //   上限，只靠前端擋，補上跟對應輸入框maxlength一致的上限(appearance30/standing・wish40)。
   const appearance = String(userData.appearance || "").slice(0, 30), standing = String(userData.standing || "").slice(0, 40);
   const wish = String(userData.wish || "").slice(0, 40), magic = String(userData.magic || ""), origin = String(userData.origin || "");
 
@@ -283,8 +277,6 @@ function sanitizeSkills_(arr, maxCount) {
     var fx = String((s && (s.fx || s.效果碼)) || "").trim();
     var r = String((s && (s.r || s.階級 || s.rank)) || "C").toUpperCase().trim();
     return {
-      // 🐛→✅ 補 HTML 斷字字元清洗，比照工房 parseForgeBuild_ 對應的技能名稱清洗規則——這是 AI 生成
-      //   從者(actionSummonServant)唯一經過的技能清洗函式，產出的名稱會永久寫進英靈殿並顯示在戰鬥UI。
       n: String((s && (s.n || s.名稱 || s.name)) || "技能").replace(/[<>&"'`]/g, "").slice(0, 10) || "技能",
       r: okR(r) ? r : "C",
       // 🛡️ ALLOWED_FX_是純物件字面量，truthy查詢會被Object.prototype繼承的鍵(constructor/
@@ -716,8 +708,6 @@ ${FX_MENU_}
       }
       if (clsUnset) cls = VALID_CLS.includes(String(aiBrief.cls)) ? String(aiBrief.cls) : "Saber"; // AI 依描述判斷的職階；非法值才退回 Saber
       realName = String(aiBrief.realName || trueName || (cls + "從者")).replace(/[<>&"'`]/g, "").trim().slice(0, 20) || (cls + "從者");
-      // 🐛→✅ sex 舊版沒有白名單驗證(工房 parseForgeBuild_ 早有 ["男","女","異"].includes(...) 檢查)，
-      //   AI 吐出的任意字串會原樣通過並永久寫進英靈殿，往後任何讀取點都得自己防禦這個不可信欄位。
       sex = ["男", "女", "異"].includes(String(aiBrief.sex)) ? String(aiBrief.sex) : "異";
       align = ALIGNS_.includes(String(aiBrief.align)) ? String(aiBrief.align) : "中立";
       np = aiBrief.np || "寶具（未顯現）";
@@ -729,16 +719,11 @@ ${FX_MENU_}
       // 🌀 六圍下限保底：AI 常自己抓不準力度，光靠 prompt「務必有強有弱」擋不住——GAS 這裡硬性補強
       //   到與工房 FORGE_BUDGET(340) 對齊(不含職階技能 aiCSkills，理由見 bumpSixToFloor_ 註解)。
       bumpSixToFloor_(aiSix, aiSkills, /對軍/.test(np) ? "對軍" : "對人");
-      // 🐛→✅ 只補下限沒補上限——AI 常被 prompt「不得保守低估」誘導生出偏強六圍/技能組合，比照
-      //   工房 parseForgeBuild_ 的預算硬上限，改成超標就砍最強一項六圍，直到落回預算內。
       capSixToBudget_(aiSix, aiSkills, /對軍/.test(np) ? "對軍" : "對人", cls);
-      // 🐛→✅ 同工房路徑，補 HTML 斷字字元清洗（原本只做長度截斷）。
       const aiTraits = Array.isArray(aiBrief.traits) ? aiBrief.traits.filter(Boolean).slice(0, 4).map(t => ({ n: String((t && (t.n || t.名稱 || t.name)) || t).replace(/[<>&"'`]/g, "").slice(0, 8) })) : [];
       const svHp = 150 + svNum_(aiSix.耐久) * 6, svMp = 0; // 🔋 出力電池制：從者無自有魔力池，出力檔存 MEMORY、預設 60 巡航
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
-      // 🐛→✅ 玩家反饋：這裡原本完全不生成外貌(直接套通用預設「外貌出眾、舉止從容…」)，逼玩家自己
-      //   用逆天改命補——現在跟 aiBrief.look 一起生成，缺的話才退回同款通用預設。
       row[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.look, "外貌出眾、舉止從容、自稱「我」、卸下心防時的柔軟一面");
       row[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "沉著表象、堅定內裡、珍視之物、厭惡之事");
       row[COL.PC.INTENT] = String(aiBrief.npc_intent || "").slice(0, 30); // 比照 slice(0,18) 腰斬修正，放寬緩衝

@@ -93,8 +93,6 @@ function actionMove(userData, pcId, sheets) {
       return JSON.stringify({ success: false, message: "輿圖之上查無此地，無路可達。" });
     }
   } catch (e) { }
-  // 🐛→✅ 目的地＝當前所在地：地圖節點/故事內文的地名連結都沒擋這個案例(點自己所在的◈節點一樣可觸發
-  //   travelTo)，此路徑會白耗 2 AP、跑一輪世界推進與抵達敘事，卻哪裡都沒去——原地無意義的「移動」。
   if (tgtTrim === String(allPcData[pIdx][COL.PC.LOC] || "").trim()) {
     return JSON.stringify({ success: false, message: "你已經在此地，無須移動。" });
   }
@@ -162,8 +160,6 @@ function actionMove(userData, pcId, sheets) {
                   note: '「' + teleName + '」蓄勢已久的真名解放朝你退卻的背影轟然傾瀉——這一擊的代價，是逃離強敵的必然。' };
               } else {
                 var cntT = resolveFateBattle_(psvC, foeC2, {}); // 反手＝普通交鋒(不白嫖寶具骰)
-                // 🐛→✅ 舊版無條件講「堪堪擋開」(千鈞一髮)，但 prT(foe的寶具骰)其實已經算出這次躲得有多輕鬆——
-                //   命中值(prT.aHit)跟迴避值(prT.dEva)差距大時根本不算「堪堪」，跟後面的骰子margin矛盾。
                 var counterMargin = prT.dEva - prT.aHit;
                 var counterDesc = counterMargin >= 8 ? '從容擋下、反手逼退' : '堪堪擋開、反手逼退';
                 pursuit = { enemyName: teleName, chaserId: String(teleFoe[COL.PC.ID]), dmg: Math.max(1, cntT.atkWins ? cntT.damage : Math.round(rankVal(psvC.six['筋力'] || 'C') * 0.5)), hitWho: 'foe', np: true,
@@ -194,13 +190,9 @@ function actionMove(userData, pcId, sheets) {
           //   雙方保 1 不致死。撤退時追兵搶得先機(ambush)、更難全身而退。
           var pr = resolveFateBattle_(chC, psvC, { ambush: true });
           var chaserNm = String(chaser[COL.PC.NAME]);
-          // 🐛→✅ 舊版無條件講「重創」，但 pr.damage 可能只是 Math.max(1,...) 的地板值(輕傷)——GAS
-          //   明明知道這擊佔從者上限多少比例，卻沒換算成對應的傷勢用詞餵給AI，讓文字跟血條可能對不上。
           var psvHpMaxM = parseInt(allPcData[psvIdxM][COL.PC.MAX_HP]) || 1;
           var chaserSevM = pr.atkWins ? dmgSeverityWord_(Math.max(1, pr.damage), psvHpMaxM) : '';
           pursuit = { enemyName: chaserNm, chaserId: String(chaser[COL.PC.ID]), dmg: Math.max(1, pr.damage), hitWho: pr.atkWins ? 'us' : 'foe', retreat: true,
-            // 🐛→✅ 玩家實測抓到：「沒能全身而退」讀起來容易誤解成「撤退失敗、沒能脫身」，但這場撤退
-            //   本就必定成功抵達目的地(只是途中挨了一記)——改成明確講「帶傷脫身」，不再有歧義。
             note: pr.atkWins
               ? ('你下令撤退，「' + chaserNm + '」強襲擊中從者致其' + chaserSevM + '，從者忍痛掩護，帶你驚險脫離戰場。')
               : ('你下令撤退，「' + chaserNm + '」追擊被從者回身逼退，主從二人毫髮無傷地撤離。') };
@@ -276,8 +268,6 @@ function actionMove(userData, pcId, sheets) {
     var pSvHpMax = pFsvIdx !== -1 ? (parseInt(allPcData[pFsvIdx][COL.PC.MAX_HP]) || 0) : 0;
     var pSvHpAfter = pFsvIdx !== -1 ? (parseInt(allPcData[pFsvIdx][COL.PC.HP]) || 0) : 0;
     var pChaserRow = allPcData.find(function (r) { return String(r[COL.PC.ID]) === pursuit.chaserId; });
-    // 🐛→✅ 玩家實測抓到：這張追兵卡常常跟抵達場景的己方/敵方servantCard_同框——skipClose，
-    //   讓下方 perfNamesMove 一併收進統一收尾(pursuitChaserName 供尚未宣告的 perfNamesMove 稍後合併)。
     pursuit.foeCard = pChaserRow ? servantCard_(pChaserRow, { skipClose: true }) : "";
     var pursuitChaserName = pChaserRow ? String(pChaserRow[COL.PC.NAME]) : "";
     pursuitReport = {
@@ -310,8 +300,6 @@ function actionMove(userData, pcId, sheets) {
             getServantMaster_(r[COL.PC.MEMORY]) === mN;
         });
       };
-      // 🐛→✅ 舊版固定只挑 clashMasters[0]/[1]，同地若有 3 組以上敵御主，第 3 組以後永遠沒有機會
-      //   演出這場「敵營動向」——改成從全部在場組別中隨機挑一對，多組時輪流有機會登場。
       var ia = 0, ib = 1;
       if (clashMasters.length > 2) {
         ia = Math.floor(Math.random() * clashMasters.length);
@@ -365,7 +353,7 @@ function actionMove(userData, pcId, sheets) {
   let mapDesc = parentMapInfo ? `【母區域：${rootTarget}】${parentMapInfo[COL.MAP.DESC]}` : "此處荒煙蔓草，並未記載於輿圖之中。";
   if (subMapInfo) mapDesc += `\n【當前分支：${target}】${subMapInfo[COL.MAP.DESC]}`;
 
-  // 🎭 隨行從者的「演出依據」卡（含狂化禁言/口吻），供前端抵達敘事讓從者真的在場、有反應，不是御主獨白🐛→✅ 玩家實測抓到：抵達場景常同框我方從者＋同地多名敵人＋撤離追兵，可能有3張以上servantCard_，每張各自帶一份完整收尾句——全部skipClose，收集這場戲實際出現的真名，perfNamesMove統一收尾一次。
+  // 🎭 隨行從者的「演出依據」卡（含狂化禁言/口吻），供前端抵達敘事讓從者真的在場、有反應，不是御主獨白。（全文見 CODE_NOTES.md）
   var svIdxMove = findPlayerServantIdx_(allPcData, moveGameId, userData.servant, userData.servantId);
   var svCardMove = svIdxMove !== -1 ? servantCard_(allPcData[svIdxMove], { skipClose: true }) : "";
   var perfNamesMove = svIdxMove !== -1 ? [String(allPcData[svIdxMove][COL.PC.NAME])] : [];
@@ -396,7 +384,6 @@ function actionMove(userData, pcId, sheets) {
       }
     });
   } catch (e) { }
-  // 🐛→✅ 併入撤離追兵真名（若有）——同框素材統一收尾一次，避免 pursuit.foeCard 自帶的收尾句重複出現
   if (pursuitChaserName && perfNamesMove.indexOf(pursuitChaserName) < 0) perfNamesMove.push(pursuitChaserName);
 
   // 🫶 遇敵態度（GAS 依「在場敵對者對你的好感」裁定，AI 只照這定調演）：好感高→未必有敵意；好感低→殺氣明顯。
@@ -423,7 +410,6 @@ function actionMove(userData, pcId, sheets) {
   // 🆘 盟友告急（同盟配套）：worldTick 後若有盟友在別處被敵從者纏上→報信＋供「趕去馳援」。
   var allyPeril = null;
   try { if (isFateMove) allyPeril = detectAllyPeril_(allPcData, moveGameId, target, _moveDay()); } catch (e) { }
-  // 🐛→✅ 舊版無條件講「情勢緊繃」，GAS 明明算出 allyPeril.hpRatio 卻沒依實際血量分級——比照修正。
   if (allyPeril) {
     var _allyPerilSev = allyPeril.hpRatio >= 0.6 ? '尚占上風、應付得來' : allyPeril.hpRatio >= 0.3 ? '戰況膠著' : '命懸一線、情勢危急';
     worldRumors.unshift(`〔盟友告急〕盟友「${allyPeril.ally}」此刻正於「${allyPeril.loc}」與敵從者「${allyPeril.foe}」對上，${_allyPerilSev}。`);
@@ -447,7 +433,6 @@ function actionMove(userData, pcId, sheets) {
     statusString: buildPlayerStatusString(allPcData[pIdx]),
     // 🧹 move 現為 solo 專屬 action(鑑賞已改走 kanshouMoveTo)，不需分流呼叫 getKanshouPeopleList_。
     people: getLocalPeopleList(sheets, pcName, pcId, target, allPcData),
-    // 🐛→✅ 同批修正：漏傳戰爭標記會讓第四次限定地點(海特飯店等)混進撤退突圍/鄰近地點清單。
     locations: getNearbyLocations(target, freshMapData, getWarName_(allPcData[pIdx][COL.PC.MEMORY])).slice(0, 5),
     mapNodes: buildMapNodesPayload_(sheets, allPcData, moveGameId, target), // ⚡ 夾帶地圖節點，免手機抵達後再打一趟 get_map_nodes
     mapDesc: mapDesc,
@@ -535,7 +520,6 @@ function actionRest(userData, pcId, sheets) {
     //   (那部分由下方 restVictory/restFinalDream 另外處理)，normalFn 只需回空字串即可。
     const restAmbushPrompt = ambushDispatchPrompt_(restAmbush,
       function (a) {
-        // 🐛→✅ 舊版無條件講「重創」，GAS 明明已算出 svHpMax/dmg 卻沒換算成實際傷勢用詞——比照撤退追擊同款修法。
         const restSev = dmgSeverityWord_(a.dmg || 0, a.svHpMax);
         return (a.foeCard || '') + `【系統·歇息遭夜襲·已裁定】御主一行於「${pcLoc}」歇息、防備最鬆懈時，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自暗影無聲摸近' : '趁夜殺到'}，一擊擊中「${a.svName || '從者'}」致其${restSev}（−${a.dmg}）${a.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。`;
       },
@@ -812,13 +796,9 @@ function playerAmbushOnEnemy_(sheets, pcData, pIdx, gameId, targetName, wantSv, 
   var stillWary = _wary > 0 && (_absNow - _wary) >= 0 && (_absNow - _wary) < WARY_HOURS_;
   if (stillWary) ambushMul *= 0.6;
   var dmg = Math.max(1, Math.round(baseDmg * ambushMul));
-  // 🐛→✅ 玩家實測抓到：foeCard 跟呼叫端的己方servantCard_各自帶一份收尾句——這裡skipClose，
-  //   呼叫端(actionPlayerAmbush)組完兩張卡後用performanceNote_()統一講一次。
   var out = { enemyName: String(pcData[eIdx][COL.PC.NAME]), svName: String(pcData[svIdx][COL.PC.NAME]), dmg: dmg, hit: !!probe.atkWins, destroyed: false, victory: false, dreamPrompt: "", foeCard: '〔趁隙偷襲的目標〕' + servantCard_(pcData[eIdx], { skipClose: true }) };
   var severed = hasFx_(atkC, 'rule_breaker') || hasFx_(atkC, 'anti_magic_lance');
   var eHp = parseInt(pcData[eIdx][COL.PC.HP]) || 0, after = eHp - dmg;
-  // 🐛→✅ 稽核抓到：survive跟god_hand結構性互斥(見fateStrike_同款規則)，這裡原本沒排除god_hand——
-  //   同時持有兩者時survive會搶先頂血，god_hand的after<=0判斷永遠進不去，燒命帳目跟主戰鬥路徑對不上。
   if (after <= 0 && hasFx_(defC, 'survive') && !hasFx_(defC, 'god_hand') && eHp > 1 && !severed) after = 1;
   if (after <= 0 && !severed && hasFx_(defC, 'god_hand')) {
     var lives = getGodHandLives_(pcData[eIdx][COL.PC.MEMORY]);
@@ -863,12 +843,9 @@ function actionFactionAmbush(userData, pcId, sheets) {
   var res = playerAmbushOnEnemy_(sheets, pcData, pIdx, gameId, String(userData.targetName || ""), userData.servant, userData.servantId);
   if (res.err) return JSON.stringify({ success: false, message: res.err });
   pcData[pIdx][COL.PC.MEMORY] = clearEncounterWindow_(pcData[pIdx][COL.PC.MEMORY]); // 用掉即清窗口
-  // 🐛→✅ 稽核抓到：chargeApOrReject_原本沒skipWrite，內部窄寫(AP/day/hour)後緊接著下一行又整列
-  //   寫回同一列——同一列兩次Sheets I/O。補skipWrite:true，讓下面這次整列寫回一次到位。
   var _ambApr = chargeApOrReject_(gameId, 1, pcData, sheets, "行動力不足以搶這一手。", { isFate: true, skipWrite: true });
   var ap = _ambApr.ap, clock = _ambApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]); // 寫回御主列(窗口清除＋AP)
-  // 🐛→✅ 舊版命中就無條件講「重創」，GAS 明明算出 eHpMax 卻沒換算實際傷勢比例——比照其餘兩處撤退/夜襲同款修法。
   var _ambSev = dmgSeverityWord_(res.dmg || 0, res.eHpMax);
   var hitTxt = res.hit ? `一擊得手，「${res.enemyName}」${_ambSev}（−${res.dmg}）` : `倉促搶攻只擦過「${res.enemyName}」（−${res.dmg}）`;
   var _mySvIdx = findPlayerServantIdx_(pcData, gameId, userData.servant, userData.servantId);
@@ -939,8 +916,6 @@ function actionIncite(userData, pcId, sheets) {
       pcData[mIdxA][COL.PC.MEMORY] = setEnemyFeud_(pcData[mIdxA][COL.PC.MEMORY], _mBName, day + 3);
       pcData[mIdxB][COL.PC.MEMORY] = setEnemyFeud_(pcData[mIdxB][COL.PC.MEMORY], _mAName, day + 3);
     }
-    // 🐛→✅ 稽核抓到：舊版loIdx/wiIdx/mIdxA/mIdxB各自立即setValues(最多4次)，改成全程只改記憶體，
-    //   跟函式尾端bumpBond_(skipWrite)/chargeApOrReject_(skipWrite)一起併入下方單次整表寫回。
     aiPrompt = inciteCardsStr + `【系統·挑撥離間·得逞】你三言兩語點燃了「${svAName}」與「${svBName}」之間的火——兩人當真打了起來，「${loName}」吃了較重的一擊（−${loDmg}），另一方亦掛彩（−${wiDmg}），自此結下樑子。\n` +
       `★以 Fate／TYPE-MOON 筆觸【約 80~140 字】演出你如何煽風點火、兩方如何被激得反目相向；你則在一旁坐收其亂。傷害已由系統結算。`;
     var wiName = cross.atkWins ? svAName : svBName;
@@ -956,12 +931,8 @@ function actionIncite(userData, pcId, sheets) {
     report = { incite: true, success: false, aName: svAName, bName: svBName };
   }
   pcData[pIdx][COL.PC.MEMORY] = clearEncounterWindow_(pcData[pIdx][COL.PC.MEMORY]);
-  // 🐛→✅ 稽核抓到：chargeApOrReject_原本沒skipWrite，內部窄寫後下一行又整列寫回同一列，同一列
-  //   兩次Sheets I/O。補skipWrite:true，讓下面這次整列寫回一次到位。
   var _inciteApr = chargeApOrReject_(gameId, 1, pcData, sheets, "行動力不足。", { isFate: true, skipWrite: true });
   var ap = _inciteApr.ap, clock = _inciteApr.clock;
-  // 🐛→✅ 稽核抓到：舊版loIdx/wiIdx/mIdxA/mIdxB各自立即setValues、bumpBond_也各自立即setValue，
-  //   成功分支最多6次Sheets I/O往返——現全程只改記憶體pcData，這裡單次整表寫回一次到位。
   sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
   STATE_PRE_DATA_ = pcData;
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, report: report, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: buildPlayerStatusString(pcData[pIdx]) });
@@ -984,8 +955,6 @@ function detectAllyPeril_(pcData, gameId, playerLoc, curDay) {
         !String(x[COL.PC.ID]).startsWith("DEAD_") && !isAllied_(x) && String(x[COL.PC.LOC] || "").trim() === loc && hasArrived_(x, d);
     });
     if (foe) {
-      // 🐛→✅ 舊版回傳沒帶血量，呼叫端只能無條件講「情勢緊繃」——GAS明明有這名盟友的HP/上限，
-      //   卻沒算成緊急程度餵給AI，導致95%血量從容應對 跟 8%血量命懸一線 讀起來一樣嚴重。
       var allyHpMax = parseInt(r[COL.PC.MAX_HP]) || 1;
       var allyHpRatio = allyHpMax ? (parseInt(r[COL.PC.HP]) || 0) / allyHpMax : 1;
       return { ally: String(r[COL.PC.NAME]), allyFaction: fac, loc: loc, foe: String(foe[COL.PC.NAME]), hpRatio: allyHpRatio };
@@ -1027,8 +996,6 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul, preferSvId
       sheets.pc.getRange(eIdx + 1, 1, 1, pcData[eIdx].length).setValues([pcData[eIdx]]);
       const eNm = String(pcData[eIdx][COL.PC.NAME]), sNm = String(pcData[svIdx][COL.PC.NAME]);
       const eFoeCard = '〔夜襲者〕' + servantCard_(pcData[eIdx]);
-      // 🐛→✅ homeRank(D~EX)是GAS已經算出的陣地規模事實，舊版卻沒換算成強度用詞——同一句「優雅擊退」
-      //   套在陽春D階土壘跟EX階空中庭園級結界上，AI完全分不出差異，讀起來千篇一律。
       const homeRankScale = rankVal(homeRank) >= 60 ? '堪比城砦的壯闊結界' : rankVal(homeRank) >= 40 ? '頗具規模的堅實結界' : '倉促佈設的簡易結界';
       return {
         homeRepel: true, enemyName: eNm, svName: sNm, backDmg: backDmg, wardCost: wardCost, homeRank: homeRank,
@@ -1094,8 +1061,6 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul, preferSvId
   // 🗡️ 斬斷救贖(severed)：與 fateStrike_ 同一道閘門，確保帶 rule_breaker/anti_magic_lance 的敵從者不會靠突襲繞過戰鬥續行/復活封鎖。
   const severed = hasFx_(enemyC, 'rule_breaker') || hasFx_(enemyC, 'anti_magic_lance');
   let hp = parseInt(pcData[svIdx][COL.PC.HP]) || 0, after = hp - dmg;
-  // 🐛→✅ 稽核抓到：survive跟god_hand結構性互斥(見fateStrike_同款規則)，這裡原本沒排除god_hand——
-  //   同時持有兩者時survive會搶先頂血，god_hand的after<=0判斷永遠進不去，燒命帳目跟主戰鬥路徑對不上。
   if (after <= 0 && hasFx_(svC, 'survive') && !hasFx_(svC, 'god_hand') && hp > 1 && !severed) after = 1; // 戰鬥續行(致命傷才硬撐留1·2026-07 修)
   if (after <= 0 && !severed && hasFx_(svC, 'god_hand')) {
     const lives = getGodHandLives_(pcData[svIdx][COL.PC.MEMORY]);
@@ -1198,8 +1163,6 @@ function actionSetWorkshop(userData, pcId, sheets) {
   if (isFate && mMp < WORKSHOP_MANA_COST) return JSON.stringify({ success: false, message: `佈設陣地要灌注魔力築起結界與機關（需 ${WORKSHOP_MANA_COST} 魔），當前御主魔力不足（${mMp}／需 ${WORKSHOP_MANA_COST}）——先補魔或休整。` });
   if (isFate) pcData[pIdx][COL.PC.MP] = Math.max(0, mMp - WORKSHOP_MANA_COST);
   pcData[pIdx][COL.PC.MEMORY] = setWorkshopMemory_(pcData[pIdx][COL.PC.MEMORY], loc);
-  // 🐛→✅ 稽核抓到：原本先整列寫回(帶著扣AP前的舊AP)、chargeApOrReject_才扣AP，內部又補寫一次
-  //   ——同一列兩次Sheets I/O。改成先扣AP(skipWrite跳過內部窄寫)，最終狀態再整列一次寫回。
   const _wsApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以佈設陣地——請休息恢復。", { isFate: isFate, skipWrite: true });
   const ap = _wsApr.ap, clock = _wsApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]); // MP＋MEMORY＋AP 一起寫回
@@ -1241,12 +1204,10 @@ function actionScavenge(userData, pcId, sheets) {
   const gain = Math.max(0, Math.min(mpMax, cur + Math.round(mpMax * rate)) - cur);
   pcData[pIdx][COL.PC.MP] = cur + gain;
   if (!depleted && curLoc) pcData[pIdx][COL.PC.MEMORY] = addScavengedLoc_(pcData[pIdx][COL.PC.MEMORY], curLoc);
-  // 🐛→✅ 稽核抓到：原本先整列寫回(帶著扣AP前的舊AP)、chargeApOrReject_才扣AP，內部又補寫一次
-  //   ——同一列兩次Sheets I/O。改成先扣AP(skipWrite跳過內部窄寫)，最終狀態再整列一次寫回。
   const _scavApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以細細搜索——請休息恢復。", { isFate: isFate, skipWrite: true });
   const ap = _scavApr.ap, clock = _scavApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-  // 35% 機率察覺鄰近敵蹤（揭露一名最近的未偵查敵）——搜索的真正價值在情報🐛→✅ 稽核抓到：舊版直接掃全表第一個未SEEN的敵蹤，沒有比照姊妹函式actionScout做「範圍限定(當前+鄰近地點)」與「hasArrived_登場日閘門」——會把地圖另一端、甚至本局劇本尚未登場的敵情提早揭露，跟訊息文字「附近/一帶」自相矛盾，也繞過戰爭迷霧設計。
+  // 35% 機率察覺鄰近敵蹤（揭露一名最近的未偵查敵）——搜索的真正價值在情報。（全文見 CODE_NOTES.md）
   const scavMapData = getMapDataCached(sheets);
   const scavWar = isFate ? getWarName_(pcData[pIdx][COL.PC.MEMORY]) : "";
   let scavScope = [curLoc];
@@ -1291,7 +1252,6 @@ function actionScout(userData, pcId, sheets) {
   // 附近地點（含當前）作為偵查範圍
   const mapData = getMapDataCached(sheets); // 坤圖已靜態化：getMapDataCached 直接讀FATE_MAP_SEED常數，零I/O成本
   let scope = [curLoc];
-  // 🐛→✅ 同批修正：漏傳戰爭標記會讓偵查範圍納入第四次限定地點(海特飯店等)，白掃一個本局根本不存在的地點。
   const scoutWar = isFateScout ? getWarName_(pcData[pIdx][COL.PC.MEMORY]) : "";
   try { getNearbyLocations(curLoc, mapData, scoutWar).forEach(l => { const nm = (l && l.name) ? l.name : l; if (nm) scope.push(String(nm).trim()); }); } catch (e) { }
 

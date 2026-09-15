@@ -88,8 +88,6 @@ function actionEndRun(userData, pcId, sheets) {
   var sv = findPlayerServant_(pcData, gameId);
   var realName = sv ? String(sv.row[COL.PC.NAME] || "從者") : "";
 
-  // 🐛→✅ 稽核抓到：found.idx早就查過了，這裡再傳acctName字串會讓purgeGameData_內部又整表重讀
-  //   一次「帳號」表——直接傳found.idx省掉這次重讀。
   purgeGameData_(sheets, gameId, acctName, pcData, found.idx);
 
   return JSON.stringify({ success: true, servantName: realName });
@@ -231,8 +229,6 @@ function actionPurgeOrphans(userData, pcId, sheets) {
     if (kept.length) pc.getRange(2, 1, kept.length, header.length).setValues(kept);
     var tail = dataRows - kept.length;
     if (tail > 0) pc.deleteRows(2 + kept.length, tail);
-    // 🐛→✅ 稽核抓到：這裡原本沒同步清「歷史暫存」——違反History_Sync.gs自己的設計前提(結束局
-    //   要清孤兒pcId的歷史列，否則表無上限成長)，比照purgeGameData_補上。
     try { purgeHistoryForPcIds_(removedIds); } catch (e) { }
   }
 

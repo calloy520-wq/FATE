@@ -67,7 +67,7 @@ function quadLabeled_(raw, labels, skipNone) {
 function performanceNote_(names) {
   var list = (names || []).filter(Boolean);
   if (!list.length) return "";
-  return `★依「${list.join('、')}」的真名與性格/口吻演出(show, don't tell)：性格詞/萌點/六圍/技能不當台詞、也不由旁白點破。真名出自 Fate 正典者，身世依你自身認知演出，不受限上方短句。依羈絆高低調親疏：低→戒備矜持、高→漸親近，守性格內核。\n`;
+  return `★依「${list.join('、')}」的真名與性格演出：性格/萌點/六圍/技能只演出來，不當台詞也不由旁白點破。Fate 正典角色依你自身認知演，上方短句只是錨點。羈絆低→戒備矜持、高→漸親近，性格內核不變。\n`;
 }
 
 // 🎭 從者「演出依據」卡：真名/職階/第一人稱/個性/對御主/口吻/萌點/招牌動作/六圍/技能/寶具壓成一段塞進 narration 提示詞，讓 AI 依『我們定義的角色』內化演出（只當背景、不准說嘴）。
@@ -115,7 +115,7 @@ function servantCard_(row, opts) {
     var mad = /狂化|無法言語|僅咆哮|不語/.test(speech + String(fp));
     // 多數角色 fp 預設值就是「我」，長提示詞中段容易讓小模型把角色自稱「我」跟敘事旁白第一人稱的
     //   「我」(玩家)混淆，故明確限定「僅此角色自己台詞內」，不留一個懸空的「自稱」標籤。
-    var card = `〈${name}·${cls}·演出依據(僅供內化，禁複述設定字面)〉此角色台詞內自稱「${fp}」(僅限她/他自己的引號台詞，敘事旁白的「我」永遠是玩家本人、與此無關)｜對自己御主的態度：${toM || '依真名'}` +
+    var card = `〈${name}·${cls}·演出依據·勿複述字面〉台詞自稱「${fp}」(旁白的「我」永遠是玩家)｜對自己御主的態度：${toM || '依真名'}` +
       (persona ? quadLabeled_(persona, PREF_LABELS_, false) : `｜性格：依真名`) +
       (speech ? `｜口吻：${speech}` : "") +
       (moe && !foe ? `｜萌點(情境對了才浮現一次)：${moe}` : "") +
@@ -127,11 +127,9 @@ function servantCard_(row, opts) {
       (outfit ? `｜此刻裝扮：${outfit}` : "") +
       (weapon ? `｜武裝：${weapon}` : "") +
       (np ? `｜寶具「${np}」` : "") + `。\n`;
-    // 🐛→✅ 玩家反饋壓字數：這兩句原本各自完整解釋「為什麼」，但保留的兩個guard(換衣不換人／
-    //   不依職階慣例)本身沒有冗字可砍，純粹是措辭精簡，內容不變。
-    if (outfit) card += `★【換裝】現穿「${outfit}」（僅換裝，五官/髮色/體態/氣質仍照本相，不因換裝改變相貌）。\n`;
-    if (weapon) card += `★【武裝·絕對】戰鬥用「${weapon}」為準，不套用職階慣例或原典武器（即便認得此名，本作武裝就是這個）。\n`;
-    if (mad) card += `★【狂化·絕對】此從者已狂化、喪失言語：【嚴禁】說出任何完整句子或台詞，只能以低吼、咆哮、肢體與本能反應表達（旁白可寫其情緒，但他不開口）。\n`;
+    if (outfit) card += `★【換裝】現穿「${outfit}」——只換衣服，長相體態仍照本相。\n`;
+    if (weapon) card += `★【武裝】戰鬥一律用「${weapon}」，不套職階慣例或原典武器。\n`;
+    if (mad) card += `★【狂化】已喪失言語：不說完整句子，只有低吼、咆哮與肢體（旁白仍可寫他的情緒）。\n`;
     if (!skipClose) card += performanceNote_([name]);
     return card;
   } catch (e) { return ""; }
@@ -154,22 +152,20 @@ function masterCard_(row) {
     var melee = getMasterMelee_(row[COL.PC.MEMORY]);
     var magic = getMasterMagic_(row[COL.PC.MEMORY]);
     var magicRank = getMasterMagicRank_(row[COL.PC.MEMORY]);
-    // 🐛→✅ 【出身】舊版只在創角時寫入 MEMORY，全專案沒有任何讀取點——純寫入死資料，玩家選的
-    //   出身(如「教會代行者出身」)從此再也影響不到任何敘事。補讀取，併進演出依據卡。
     var origin = getMasterOrigin_(row[COL.PC.MEMORY]);
     var playedId = getPlayedMaster_(row[COL.PC.MEMORY]);
     var playedCanon = playedId && typeof SEED_MASTERS !== 'undefined' ? SEED_MASTERS.find(m => m && String(m.id) === playedId) : null;
     return `〈御主「${name}」·演出依據(僅內化、禁複述)〉` + (sex ? `性別${sex}` : "") +
       quadLabeled_(row[COL.PC.PREF], PREF_LABELS_, true) +
       quadLabeled_(row[COL.PC.TRAIT], TRAIT_LABELS_, true) +
-      (moe && moe !== "（待揭曉）" ? `｜萌點(僅供內化，不必每回合硬塞，情境對了才浮現一次，避免重複同一動作；牽涉隨身物品時別只靠「摸/看一眼」交差，多用神情/語氣表現)：${moe}` : "") +
+      (moe && moe !== "（待揭曉）" ? `｜萌點(情境對了才浮現一次·用神情語氣帶，別重複同一個動作)：${moe}` : "") +
       (back ? `｜身世：${back}` : "") +
       (origin ? `｜出身：${origin}` : "") +
       (magic ? `｜魔術系統：${magic}${magicRank ? `(${magicRank}階)` : ""}` : "") +
       (melee ? `｜體術：${melee}階` : "") +
       (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
-      `。御主＝玩家本人：他會依性格開口、有神態與台詞，不是沉默的旁觀者。但下一步做什麼由玩家按鍵決定——玩家沒按，就是還沒有那個意圖，不要替他演出決定。收尾停在等他決定的當下。` +
-      (playedCanon ? `若「${name}」出自Fate正典，優先依你對該御主(${playedCanon.name})的認知演出，上方設定僅為錨點。` : "") + `\n`;
+      `。御主＝玩家本人：依性格開口、有神態台詞，不是沉默的旁觀者；但下一步由玩家按鍵決定，收尾停在等他決定的當下。` +
+      (playedCanon ? `「${name}」出自Fate正典，優先依你對${playedCanon.name}的認知演出，上方僅為錨點。` : "") + `\n`;
   } catch (e) { return ""; }
 }
 
@@ -222,7 +218,7 @@ function enemyMasterCard_(row, opts) {
   } catch (e) { return ""; }
 }
 
-// 🗝️ 取我方從者列索引：指定 wantName 則優先取該名，否則取第一個在世從者（雙從者用）🐛→✅ 2026-07「整體重構·id優先」：舊版用 String(...).includes(want) 子字串比對，雙從者其一真名為另一人前綴時(如「阿爾托莉雅」vs「阿爾托莉雅・奧爾塔」)會選錯人——跟 Router_Battle.gs 的wantSv 早已修過的同一種bug，這裡是漏修的孿生。
+// 🗝️ 取我方從者列索引：指定 wantName 則優先取該名，否則取第一個在世從者（雙從者用）。（全文見 CODE_NOTES.md）
 function findPlayerServantIdx_(pcData, gameId, wantName, wantId) {
   var want = String(wantName || "").trim();
   var idx = findPcRowIdx_(pcData, gameId, { id: wantId, name: want || null, faction: "從者", normalize: nameLoose_ });

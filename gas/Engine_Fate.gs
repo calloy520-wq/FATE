@@ -421,8 +421,6 @@ function servantNpOptions_(name, cls) {
     { n: '無限劍製 Unlimited Blade Works', scale: '對城', fx: 'ubw', desc: '對城·固有結界劍雨壓制（不受對魔力）' },
     { n: '偽·螺旋劍 Caladbolg II', scale: '對人', fx: 'projection', desc: '對人·破斷重塑的流星劍狙擊' }
   ];
-  // 🐛→✅ 迦爾納／蒼白騎兵(Pale Rider)兩條目已砍：SEED_SERVANTS 名冊裡根本沒有這兩名真名，
-  //   純粹是規劃階段留下、從沒清掉的死路徑——留著只會誤導以後的人以為他們真的在名冊裡。
   return null;
 }
 // 單寶具退路：取該從者最主要的「寶具簽名 fx」（決定寶具乘子）。

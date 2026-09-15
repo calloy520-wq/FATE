@@ -939,8 +939,8 @@ prompt 組裝前收成 `_settledTail_` 接在 `finalUserMsg` 後面：
 
 ### 模型配置（`Core_Settings.gs` + `actionPlay` aiConfig）— 🚀2026-07定案
 ```
-AI_MODEL     = deepseek/deepseek-v4-flash    (屬性 MODEL)        ← 只當備援
-SOLO_MODEL   = google/gemini-3.5-flash-lite  (屬性 SOLO_MODEL)   ← 主力(快4倍·真敢寫)
+AI_MODEL     = x-ai/grok-4.20                (屬性 MODEL)        ← 鑑賞點火＋矜持模式備援
+SOLO_MODEL   = google/gemini-2.5-flash-lite  (屬性 SOLO_MODEL)   ← 主力(2026-09 玩家指定·追繁體飄移)
 ```
 - **`actionPlay` 只用這兩顆**：`aiConfig` 固定 `model: SOLO_MODEL`＋`fallbackModel: AI_MODEL`，兩模式一律先打 `SOLO_MODEL`、`retries = 1`（探針實測 Gemini 六階全過真露骨~4-5秒；DeepSeek 極致被擋還卡49秒——⚠ 此數字是 3.1-flash-lite 時代測的，2026-07 升級 3.5-flash-lite 後未重新探針，僅供參考）。
 - ⚠ **`UNLOCKED_MODEL`(x-ai/grok-4.20) 不屬於鑑賞**：這是 solo 專用的高好感解鎖模型(`Router_Narrative.gs` 的 `actionManaSupply`/`actionUseSeal` 分支專用)，Gallery.gs 完全沒有引用它——先前這裡誤把它列進鑑賞模型配置，稽核已修正刪除。

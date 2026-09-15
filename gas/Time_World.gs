@@ -344,7 +344,7 @@ function refillMastersDaily_(sheets, gameId, day, preData) {
     data[i][COL.PC.MEMORY] = stampManaDay_(data[i][COL.PC.MEMORY], day);
     dirty = true;
   }
-  // 多名敵御主同天需回魔時，MP/MEMORY 各整欄一次寫回(取代迴圈內逐列 setValues 的零散往返，同 worldTick_ LOC 批寫手法)🐛→✅ 補 BATTLE_DEFER_WRITE_ guard：呼叫端(worldTick_)若被上層要求延遲寫入(如 actionMove 稍後自己整表批次寫回)，這裡也該一併略過，否則同一批 MP/MEMORY 值還是會被送兩次。
+  // 多名敵御主同天需回魔時，MP/MEMORY 各整欄一次寫回(取代迴圈內逐列 setValues 的零散往返，同 worldTick_ LOC 批寫手法)。（全文見 CODE_NOTES.md）
   if (dirty && !BATTLE_DEFER_WRITE_) {
     var mpCol = [], memCol = [];
     for (var z = 1; z < data.length; z++) { mpCol.push([data[z][COL.PC.MP]]); memCol.push([data[z][COL.PC.MEMORY]]); }
@@ -416,7 +416,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
       // 🔭 已偵查到的敵人移位後【保持可見】(不清 SEEN)：一旦感應到對手氣息就持續追蹤其當前位置，否則敵人每動一次就重新隱形、玩家永遠追不到人。
       var mName = String(data[i][COL.PC.NAME] || "");
       var foundServant = false;
-      // 第一輪：找 MEMORY 有【御主】=mName 的配對從者🐛→✅ 2026-07 玩家「檢查solo看看有沒有問題」稽核抓到：這裡子字串 indexOf 比對是同一個前綴撞名 bug(Router_Movement.gs findClas…（全文見 CODE_NOTES.md）
+      // 第一輪：找 MEMORY 有【御主】=mName 的配對從者。（全文見 CODE_NOTES.md）
       for (var j = 1; j < data.length; j++) {
         if (String(data[j][COL.PC.FACTION]) !== "敵從者") continue;
         if (String(data[j][COL.PC.GAME_ID] || "") !== gameId) continue;
@@ -425,7 +425,7 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
         if (getServantMaster_(data[j][COL.PC.MEMORY]) !== mName) continue;
         data[j][COL.PC.LOC] = newLoc; foundServant = true; break;
       }
-      // 第二輪：找不到配對 → fallback 抓同格任一孤身從者（MEMORY 無【御主】或御主不在同格）🐛→✅ 註解一直這樣寫，但程式碼從沒真的檢查「孤身」這個條件——只要同地、未死，第一個掃到的從者就會被拖走，即使牠其實掛在另一位(這輪未移動/稍後才輪到的)敵御主名下，導致把 B 御主的從者誤拖去 A 御主的新位置。
+      // 第二輪：找不到配對 → fallback 抓同格任一孤身從者（MEMORY 無【御主】或御主不在同格）。（全文見 CODE_NOTES.md）
       if (!foundServant) {
         for (var j = 1; j < data.length; j++) {
           if (String(data[j][COL.PC.FACTION]) !== "敵從者") continue;
@@ -452,8 +452,6 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
     }
     if (locDirty) anyLocDirty = true; // 整欄寫回挪到迴圈外一次做，這裡只累積旗標
 
-    // 🩹 敵從者小幅自癒(見 ENEMY_REGEN_RATE_ 註解)：不論攻防/是否同地，move/rest 兩種 tick 都跑，
-    //   免額外整表讀寫——沿用同一份 data，整欄批次寫回同樣挪到迴圈外一次做。
     for (var hi = 1; hi < data.length; hi++) {
       if (String(data[hi][COL.PC.FACTION]) !== "敵從者") continue;
       if (String(data[hi][COL.PC.GAME_ID] || "") !== gameId) continue;
@@ -476,8 +474,6 @@ function worldTick_(sheets, gameId, playerLoc, rounds, allowAttrition, preData, 
       if (String(data[k][COL.PC.GAME_ID] || "") !== gameId) continue;
       if (String(data[k][COL.PC.ID]).startsWith("DEAD_")) continue;
       if (!hasArrived_(data[k], _ckR ? _ckR.day : 1)) continue; // 🕰️ 尚未登場者不參與暗處互鬥
-      // 🐛→✅ 玩家辛苦養出的盟友(isAllied_)不該被系統隨機抽去暗處互鬥賜死——結盟＝暫時非敵對、可倚仗
-      //   的戰友，舊版這裡完全沒排除，盟友只要離開玩家所在格就有機率在背景無預警戰死，跟結盟的設計承諾矛盾。
       if (isAllied_(data[k])) continue;
       offstage.push({ idx: k, name: String(data[k][COL.PC.NAME]), loc: String(data[k][COL.PC.LOC]).trim() });
     }

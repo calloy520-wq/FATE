@@ -245,16 +245,13 @@ function actionBond(userData, pcId, sheets) {
     if (bondNow >= th && firedMilestones.indexOf(th) < 0) { milestone = th; break; }
   }
 
-  // ⚔️ 卸防突襲：相伴談心時門戶大開，同地若有清醒敵從者→趁隙重擊🐛→✅ 稽核抓到：雙從者情境下漏帶 svIdx，突襲內部會裸抓「第一位」從者，可能跟這裡敘事引用的「正在相處的這位」對不上(玩家挑第二從者相處，卻演成/打到第一從者)。
+  // ⚔️ 卸防突襲：相伴談心時門戶大開，同地若有清醒敵從者→趁隙重擊。（全文見 CODE_NOTES.md）
   const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.2, svIdx);
 
   // ⚔️ 卸防突襲三分派(單一真實來源 ambushDispatchPrompt_)：normalFn 內再依 milestone 是否命中細分——milestone 的「標記已演出」寫回刻意只在這裡(無突襲)落地，被突襲打斷時故意不標記(留到下次順利相處再演出，不因意外奇襲永遠錯過)，這個既有行為不變。
   const aiPrompt = ambushDispatchPrompt_(ambush,
     function (a) {
-      // 🐛→✅ 舊版給AI「重情者強撐護主、疏離者未必」這種二選一，卻沒講此刻bondNow實際落在哪一邊——
-      //   GAS早算好這個數字(241行)，比照 actionAllyBond 的tier分級，直接定調而非讓AI自己猜個性夠不夠重情。
       const ambushBondNote = bondNow >= 50 ? "羈絆已深，這一刻會奮力強撐護主" : "羈絆尚淺，這一刻未必挺身相護、更可能先顧自己";
-      // 🐛→✅ 舊版無條件講「重創」，比照撤退追擊/歇息夜襲同款修法，換算實際傷勢用詞。
       const bondSev = dmgSeverityWord_(a.dmg || 0, a.svHpMax);
       return (a.foeCard || '') + `【系統·相伴遭突襲·已裁定】御主『${masterName}』與「${svName}」正${act.label}、卸下心防之際，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自暗處無聲突襲' : '抓準這破綻殺出'}，一擊${bondSev}「${svName}」（−${a.dmg}）${a.destroyed ? '，其靈基崩潰、化作光點消散，御主敗北' : ''}。\n` +
         `★以 Fate／TYPE-MOON 筆觸描寫溫存被突襲撕裂的驚變與兇險，${a.destroyed ? '及從者消滅的痛楚（語氣留白）' : `及從者對此突襲的反應：${ambushBondNote}`}。傷害與勝負已由系統結算。\n`;
@@ -275,8 +272,6 @@ function actionBond(userData, pcId, sheets) {
           `★【show, don't tell】絕不可直白說出「羈絆加深了」「更信任了」等抽象詞，也絕不可直述其「願望／個性／萌點」設定字面，只憑神態與言行流露；停在意猶未盡的留白。\n` +
           `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。`;
       }
-      // 🐛→✅ 舊版只給「由你自行定調羈絆深淺」這種抽象指令，GAS 明明手上就有 bondNow 這個確切數字
-      //   (跟 actionAllyBond 的 tier 分級同一套邏輯)，卻沒換算成濃淡定調餵給 AI——比照補上。
       const bondTier = bondNow >= 90 ? "羈絆深厚，可以是夜深促膝的交心，或難得流露的親近隨性"
         : bondNow >= 60 ? "彼此有默契的信任，可並肩切磋或帶點輕鬆的閒談"
         : bondNow >= 30 ? "漸生熟悉，多是一同用餐的尋常溫度"
@@ -406,7 +401,6 @@ function actionProposeAlliance(userData, pcId, sheets) {
     aiPrompt = (gPresent ? '〔敵御主之從者〕' + servantCard_(pcData[gIdx]) : "") +
       `【系統·結盟已達成·已裁定】御主『${pcData[pIdx][COL.PC.NAME]}』向敵御主「${masterName}」${allyServant ? `（從者「${allyServant}」）` : ""}提議結盟，對方權衡利害後接受了——雙方暫時休兵、互不侵犯（至第 ${until} 日前後）。\n` +
       `★以 Fate／TYPE-MOON 筆觸【約 120~180 字】演出這場談判：「${masterName}」${lean.pragmatic ? '務實者會爽快權衡利害、順水推舟地開出條件' : lean.loner ? '孤高／瘋狂者即便接受也是冷淡的權宜之計，語氣多帶嘲諷或警戒' : '依其性格自然回應'}，最後達成不穩固的同盟。對方的算計與保留要演出來，留一絲不信任的伏筆。\n` +
-      // 🐛→✅ 這個動作沒改動任何人的 LOC(結盟雙方都仍留在原地)，同款「AI 自行編出離場」風險。
       `★「${masterName}」${allyServant ? `與「${allyServant}」` : ''}結盟後【仍留在原地】，並未轉身離去，收在同地暫時休兵的微妙氣氛即可。\n`;
     STATE_PRE_DATA_ = pcData; // ⚡ 交棒：結盟成立分支的所有寫入(MEMORY盟約標記/spendAp_)皆已原地改回 pcData
     return JSON.stringify({ success: true, allied: true, aiPrompt: aiPrompt, master: masterName, until: until, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: buildPlayerStatusString(pcData[pIdx]) });
@@ -441,8 +435,6 @@ function actionBreakAlliance(userData, pcId, sheets) {
     const isMatch = npcId ? (i === targetIdx || nameLoose_(pcData[i][COL.PC.NAME]) === nameLoose_(targetName) || (linkedName && nameLoose_(pcData[i][COL.PC.NAME]) === nameLoose_(linkedName)))
       : (nameLoose_(pcData[i][COL.PC.NAME]).indexOf(nameLoose_(npcName)) !== -1); // 🔧 loose 比對·含中點名字不漏
     if (isMatch) {
-      // 🐛→✅ 稽核抓到：結盟期間世界tick跳過死線檢查、不代表死線被取消——若原本掛著【靈基透支】
-      //   (令咒燒盡瀕死)倒數才結盟，解盟當下若不順手清掉，可能瞬間讀到早已過期的舊死線暴斃。
       pcData[i][COL.PC.MEMORY] = clearDoom_(clearAllyMem_(pcData[i][COL.PC.MEMORY]));
       if (fac === "敵御主") who = String(pcData[i][COL.PC.NAME]);
       broke++;
@@ -472,15 +464,13 @@ function breakStaleAlliances_(sheets, gameId, preData) {
       var fac = String(data[j][COL.PC.FACTION]);
       if ((fac === "敵御主" || fac === "敵從者") && String(data[j][COL.PC.GAME_ID] || "") === gameId && isAllied_(data[j])) {
         if (forceAll || day > allyUntil_(data[j])) {
-          // 🐛→✅ 同actionBreakAlliance同款修法：自然瓦解也可能讓早已過期的【靈基透支】死線在
-          //   解盟瞬間被讀到，一併清掉。
           data[j][COL.PC.MEMORY] = clearDoom_(clearAllyMem_(data[j][COL.PC.MEMORY]));
           dirty = true;
           if (fac === "敵御主") broken.push(String(data[j][COL.PC.NAME]));
         }
       }
     }
-    // forceAll(終局逼近)時常一次瓦解多組同盟，MEMORY 整欄一次寫回(取代逐列 setValues 的零散往返)🐛→✅ 補 BATTLE_DEFER_WRITE_ guard：actionRest 整併寫入時會設此旗標，這裡也該一併略過即時寫入，交給收尾那次整表 setValues 一次到位。
+    // forceAll(終局逼近)時常一次瓦解多組同盟，MEMORY 整欄一次寫回(取代逐列 setValues 的零散往返)。（全文見 CODE_NOTES.md）
     if (dirty && !BATTLE_DEFER_WRITE_) {
       var memCol = []; for (var z = 1; z < data.length; z++) memCol.push([data[z][COL.PC.MEMORY]]);
       sheets.pc.getRange(2, COL.PC.MEMORY + 1, memCol.length, 1).setValues(memCol);
@@ -530,7 +520,7 @@ function actionAllyBond(userData, pcId, sheets) {
   const _allyBondApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以從容相處——請『休息』恢復後再來。", { isFate: isFate });
   const ap = _allyBondApr.ap, clock = _allyBondApr.clock;
 
-  // ⚔️ 卸防突襲：與盟友交流時門戶大開，同地若有「未結盟」敵從者→趁隙重擊我方從者🐛→✅ 稽核抓到：雙從者情境下漏帶偏好的 svIdx——前端其實已隨這個action送了 servant/servantId(跟其餘卸防動作同款payload)，這裡卻從沒解析拿來用，突襲永遠打「第一位」從者，可能跟玩家當下出戰/操作的第二從者對不上。
+  // ⚔️ 卸防突襲：與盟友交流時門戶大開，同地若有「未結盟」敵從者→趁隙重擊我方從者。（全文見 CODE_NOTES.md）
   const mySvIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
   const ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, myGameId, 1.3, mySvIdx);
   if (ambush) {
@@ -620,8 +610,6 @@ function actionCourtEnemy(userData, pcId, sheets) {
   let delta = 6 + (lean.pragmatic ? 4 : 0) - (lean.loner ? 3 : 0);
   delta = Math.max(2, delta + Math.floor(Math.random() * 3));
   const before = parseInt(pcData[tIdx][COL.PC.BOND]) || 40;
-  // 🐛→✅ 稽核抓到：bumpBond_預設會立即單格寫回tIdx列的BOND，但657-658行緊接著又對同一列做
-  //   整列寫回(示好日標記)——同列2次Sheets I/O。改skipWrite:true，交給下面那次整列寫回一併涵蓋。
   const after = bumpBond_(sheets, pcData, tIdx, delta, true); // 內含 0-100 夾值＋寫回 BOND 格(記憶體)
   // 🤝 好感是「這一整組(御主＋從者)對你的態度」：連坐硬連結的另一半一起升，讓結盟(讀御主列)與偷襲/挑撥/撤離
   //   不被追(讀從者列)的回饋都吃得到——玩家不必猜該對御主還是從者示好。
@@ -692,8 +680,6 @@ function actionRuleBreakSteal(userData, pcId, sheets) {
     .replace(/｜?【靈基透支】\d+/g, "")
     .replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
   pcData[nIdx][COL.PC.MEMORY] = _stMem + "｜【破戒奪取】契約已轉予新御主。";
-  // 🐛→✅ 稽核抓到：原本先整列寫回nIdx列(帶著raiseBond_調整前的舊BOND)、raiseBond_才又對同一列
-  //   單格寫BOND——同列2次Sheets I/O。改成raiseBond_(skipWrite)先只改記憶體，下面整列寫回一次到位。
   try { raiseBond_(sheets, myGameId, pcData[pIdx][COL.PC.NAME], stolenName, 10, pcData, true); } catch (e) { }
   sheets.pc.getRange(nIdx + 1, 1, 1, pcData[nIdx].length).setValues([pcData[nIdx]]);
   seals -= 1;
