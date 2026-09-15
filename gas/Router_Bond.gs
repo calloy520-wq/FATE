@@ -309,6 +309,14 @@ function masterPersonaLean_(masterRow) {
 }
 
 // 🫶 對方對玩家的好感傾向（BOND 0-100，40＝中性起點）→ 機率修正 [-0.67, +1.0]。
+// 好感值→一句白話事實（不含演法；怎麼表現交給 AI 依個性決定）。回空字串＝不上不下、不值得特別提。
+function favorWord_(fav) {
+  if (fav >= 0.45) return '對你頗有好感';
+  if (fav >= 0.15) return '對你略有好感';
+  if (fav <= -0.5) return '對你敵意極深';
+  if (fav <= -0.35) return '對你頗有敵意';
+  return '';
+}
 function bondFavor_(row) {
   var raw = row[COL.PC.BOND];
   // 未互動過(空)＝中性起點 40；但被挑撥失敗等磨到真正的數字 0＝敵意到底(−0.67)，別再吞回中性。

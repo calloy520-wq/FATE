@@ -89,7 +89,7 @@ function buildArrivePrompt_(a) {
   if (foes.length) WHO.push((a.preFoes || []).some(n => foes.find(f => f.name === n))
     ? `【找上門】此地本就是敵方據守之處，是御主主動尋來——對方在自己的地盤上。${arriveStanceNotice_(stance, true)}讓敵方依其個性與立場開口、有反應，別當沉默佈景；是否動手由御主下令。`
     : `【偶遇】雙方恰巧在此撞個正著。${arriveStanceNotice_(stance, false)}讓敵方依其個性與立場開口、有反應，別當沉默佈景；是否動手由御主下令。`);
-  if (a.foeMood) WHO.push(`【敵方態度·已依好感裁定，照此定調】${a.foeMood}`);
+  if (a.foeMood) WHO.push(`【他們對你的溫度·已裁定的事實】${a.foeMood}`);
   foes.filter(f => f.faction === '敵御主' && f.lostServant).forEach(f =>
     WHO.push(`敵御主『${f.name}』已痛失從者（${f.lostServant}）、再無從者可驅使——讓其神情心境流露失恃（依個性：孤注一擲／惶然欲逃／不甘怨懟），切勿演成仍有從者隨侍。`));
   if (a.allyPeril) WHO.push(`【盟友告急·情報】盟友「${a.allyPeril.ally}」此刻正於「${a.allyPeril.loc}」與敵從者「${a.allyPeril.foe}」對上、情勢緊繃（結盟情報共享而得知）——可讓御主/從者有一句反應或掛心，但【是否馳援由玩家決定】，別替玩家起身趕路。`);
@@ -164,15 +164,21 @@ function actionMove(userData, pcId, sheets) {
   try { var _ws = getWorkshop_(allPcData[pIdx][COL.PC.MEMORY]); _atOwnHome = !!(_ws && String(_ws).split('-')[0].trim() === _fromLocR.split('-')[0].trim()); } catch (e) { }
   // 🚫 有敵時封鎖從容移動：離場格若有【非盟約·已登場·未友好(BOND<50)】的能戰敵從者，plain 移動被擋，須改按「撤退」。
   if (isFateMove && !_atOwnHome && !isRetreat && tgtTrim !== _fromLocR) {
+    var _blockers = [];
     var _hostileHere = allPcData.some(function (r) {
       if (!(String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === moveGameId &&
         !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC] || "").trim() === _fromLocR &&
         !isAllied_(r) && hasArrived_(r, _moveDay()) && (parseInt(r[COL.PC.BOND]) || 0) < 50)) return false;
       // 悄悄離開只豁免窗口點名的那兩位(分心中)，其餘未點名的敵從者依然算「盯著」，強制走撤退。
       if (_slipAway && _slipNames && _slipNames.indexOf(nameLoose_(r[COL.PC.NAME])) !== -1) return false;
+      _blockers.push(String(r[COL.PC.NAME]));
       return true;
     });
-    if (_hostileHere) return JSON.stringify({ success: false, needRetreat: true, message: "此地有敵從者盯著，無法從容轉身離去——須按「🏃 撤退」殺出重圍（對方必定追擊、成敗當場見真章）。" });
+    // 訊息只講事實、不叫玩家去找按鈕——突圍鈕就在這張卡上（見 Script.html 的 needRetreat 分支）。
+    if (_hostileHere) return JSON.stringify({
+      success: false, needRetreat: true, blockers: _blockers,
+      message: `「${_blockers.slice(0, 3).join('」「')}」${_blockers.length > 3 ? '等' : ''}盯著你，轉身就走會露出破綻——要離開只能殺出重圍（對方必定追擊、成敗當場見真章）。`
+    });
   }
   var pursuit = null;
   try {
@@ -433,23 +439,24 @@ function actionMove(userData, pcId, sheets) {
   if (pursuitChaserName && perfNamesMove.indexOf(pursuitChaserName) < 0) perfNamesMove.push(pursuitChaserName);
 
   // 🫶 遇敵態度（GAS 依「在場敵對者對你的好感」裁定，AI 只照這定調演）：好感高→未必有敵意；好感低→殺氣明顯。
+  // GAS 只報「誰對你是什麼溫度」這個事實，怎麼表現由 AI 依各人個性決定（2026-09 玩家定案）。
+  //   舊版直接寫「讓他們態度和緩、別演成劍拔弩張」＝替 AI 決定演法；而且取全場平均，
+  //   兩個立場相反的敵人會被抹成一個中間值。改成逐人報。
   var foeMoodNote = "";
   try {
-    var moodFavs = [];
+    var moodBits = [];
     allPcData.forEach(function (r) {
       if (String(r[COL.PC.GAME_ID] || "") !== moveGameId) return;
       if (String(r[COL.PC.LOC] || "").trim() !== tgtTrim) return;
       if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
       if (!hasArrived_(r, _moveDay())) return;
       var f = String(r[COL.PC.FACTION]);
-      if ((f === "敵御主" || f === "敵從者") && !isAllied_(r)) moodFavs.push(bondFavor_(r));
+      if (f !== "敵御主" && f !== "敵從者") return;
+      if (isAllied_(r)) return;
+      var w = favorWord_(bondFavor_(r));
+      if (w) moodBits.push(String(r[COL.PC.NAME]) + w);
     });
-    if (moodFavs.length) {
-      var moodAvg = moodFavs.reduce(function (a, b) { return a + b; }, 0) / moodFavs.length;
-      if (moodAvg >= 0.45) foeMoodNote = "此地敵對者對你已有相當好感——讓他們此刻態度和緩、流露幾分親近或至少不設防，別演成一見面就劍拔弩張。";
-      else if (moodAvg >= 0.15) foeMoodNote = "此地敵對者對你略有好感——態度偏克制觀望，戒備仍在但留了餘地，別演成純然殺意。";
-      else if (moodAvg <= -0.35) foeMoodNote = "此地敵對者對你頗有敵意——讓他們的殺氣與提防更外顯。";
-    }
+    if (moodBits.length) foeMoodNote = moodBits.join("、") + "。";
   } catch (e) { }
 
   // 🆘 盟友告急（同盟配套）：worldTick 後若有盟友在別處被敵從者纏上→報信＋供「趕去馳援」。

@@ -1029,7 +1029,7 @@ function actionFateBattle(userData, pcId, sheets) {
     return `交鋒節奏：${beats.join('／')}` +
       (targetIsFoeServant ? `。「${defC.name}」${counter === 0 ? (blocked ? '反擊全被擋下' : '全程未能回擊')
         : counter === rounds.length ? '回回都有回擊' : `其中 ${counter} 回合回擊得手${blocked ? '、其餘被擋下' : ''}`}` : '') +
-      (rounds.some(r => r.eTelegraph) ? `。⚠️敵「${defC.name}」真名解放的預兆已匯聚·寶具蓄勢待發(下次接觸必傾瀉)` : '');
+      '';   // 敵寶具預兆留給【收束】講一次（那裡連演法一起給），這裡不重複
   })();
   const npTelegraphed = rounds.some(r => r.eTelegraph); // 🔮 本戰敵寶具進入預告→AI 演出＋前端保底警告
   const destroyedRow = destroyedName ? pcData.find(function (r) { return r && String(r[COL.PC.NAME]) === destroyedName && String(r[COL.PC.GAME_ID] || "") === myGameId; }) : null;
@@ -1057,7 +1057,6 @@ function actionFateBattle(userData, pcId, sheets) {
   }
   let enemyMasterCardStr = enemyMasterRow ? enemyMasterCard_(enemyMasterRow, { skipClose: true }) : "";
   if (enemyMasterCardStr && !isMasterTarget) {
-    enemyMasterCardStr += `★上述敵御主正是「${defC.name}」的契約御主——自己的從者正在眼前搏命交戰，戰局每一刀都切身相關。\n`;
     const _defHpNow = parseInt(pcData[nIdx][COL.PC.HP]) || 0, _defHpMaxNow = parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1;
     const _hpRatioNow = _defHpMaxNow > 0 ? _defHpNow / _defHpMaxNow : 1;
     const _hpMaxRef = Math.max(_defHpMaxNow, parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 1);
@@ -1072,7 +1071,8 @@ function actionFateBattle(userData, pcId, sheets) {
               : (totalTaken > totalDealt * 1.3) ? `${_hisSv}正壓著${_ourSv}打、明顯佔上風`
                 : (totalDealt > totalTaken * 1.3) ? `${_hisSv}略顯吃力、被${_ourSv}壓著打`
                   : '雙方勢均力敵、勝負未有定論';
-    enemyMasterCardStr += `★【戰局實況】${_situText}——敵御主神態/語氣/台詞需貼合此局勢(得意/焦慮/強撐/嘲諷/動搖皆可，依性格決定，但不可無視戰況自說自話)。\n`;
+    // 三條 ★ 併一條（他是誰的御主／他要有反應／戰況如何），且只給事實——怎麼反應由他的個性決定。
+    enemyMasterCardStr += `★這位敵御主是${_hisSv}的契約者，自己的從者正在眼前搏命：${_situText}。他在場、看著這一切。\n`;
   }
   // 🎭 敵從者演出卡：附上敵從者卡，讓性格/口吻/狂化禁言有依據，而非全靠 AI 憑真名即興；同一張 servantCard_，狂化「嚴禁台詞」鐵則對敵方一併生效。
   const foeServantCardStr = targetIsFoeServant ? '〔敵方出戰者〕' + servantCard_(pcData[nIdx], { skipClose: true, foe: true }) : "";
@@ -1171,7 +1171,7 @@ function actionFateBattle(userData, pcId, sheets) {
       ? `★戰後讓『${atkC.name}』以其已狂化的方式（低吼／肢體／神情）透出對這場交手的直覺判斷，不成篇整句台詞。`
       : `★戰後讓『${atkC.name}』依性格給一句主觀反應（破綻、對方是否現底牌、自身傷勢、對敵手評價皆可）；連續回合換角度講，別重複同一種收尾。`);
     // 篇幅依這場真的發生了多少大事——寶具對轟＋理想鄉＋擊破，不該跟三回合平手同樣字數。
-    const _bigBeats = SC_PEAK.length + ((destroyedName || defeat) ? 1 : 0);
+    const _bigBeats = SC_PEAK.length + ((destroyedName || defeat) ? 1 : 0) + (npTelegraphed ? 1 : 0);
     const _wordRange = BATTLE_WORDS_[Math.min(_bigBeats, BATTLE_WORDS_.length - 1)];
     const _scene = (t, arr) => arr.length ? `【${t}】\n` + arr.map(x => '· ' + x).join('\n') + '\n' : '';
     aiPrompt = ourMasterCardStr + servantCard_(pcData[atkIdx], { skipClose: true }) + foeServantCardStr + enemyMasterCardStr + allyAssistCardStr + pactDefCardStr + performanceNote_(_perfNames) +

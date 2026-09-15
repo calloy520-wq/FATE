@@ -1051,7 +1051,7 @@
         // 🏃 有敵擋道→需撤退殺出：不彈 alert，改在故事流放一張「撤退」提示卡＋一鍵突圍
         if (optContainer) optContainer.innerHTML = '';
         const _t = String(targetName).replace(/'/g, "\\'");
-        story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#e0a080;font-size:12.5px;text-align:center;border:1px solid rgba(200,120,70,0.45);border-radius:8px;padding:8px 11px;">⚔️ ${escapeHtml(data.message || '此地有敵，無法從容離去。')}<br><button onclick="travelTo('${_t}', 0, true)" style="margin-top:7px;font-size:12px;padding:7px 15px;background:rgba(200,120,70,.2);color:#e0a080;border:1px solid #c0872e;border-radius:7px;cursor:pointer;font-weight:bold;">🏃 撤退突圍·退往「${escapeHtml(targetName)}」 <small style="opacity:.7;">敵必追擊·耗2AP</small></button></div>`);
+        story.insertAdjacentHTML('beforeend', `<div class="msg-ai" style="align-self:center;color:#e0a080;font-size:12.5px;text-align:center;border:1px solid rgba(200,120,70,0.45);border-radius:8px;padding:8px 11px;">⚔️ ${escapeHtml(data.message || '此地有敵，無法從容離去。')}<br><button onclick="travelTo('${_t}', 0, true)" style="margin-top:7px;font-size:12px;padding:7px 15px;background:rgba(200,120,70,.2);color:#e0a080;border:1px solid #c0872e;border-radius:7px;cursor:pointer;font-weight:bold;">🏃 殺出重圍·退往「${escapeHtml(targetName)}」 <small style="opacity:.7;">敵必追擊·耗2AP</small></button></div>`);
         story.scrollTop = story.scrollHeight;
       } else if (!resolveBlockCard_(data)) {
         alert("連線阻礙：" + data.message);
