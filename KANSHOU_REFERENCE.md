@@ -193,8 +193,7 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 三個都是「給 AI 一點確定性的氛圍素材，不強制劇情」的輕量花絮機制，各自獨立、互不依賴：
 
 - **天氣**：`KANSHOU_WEATHER_BY_SEASON_`＋`kanshouWeather_()`/`kanshouWeatherEmoji_()`——依當前日期算出的**當日固定值**(同一天問幾次都一樣，跨日才變)，注入每次提示詞的「★【今日天氣】」、時鐘 HUD 圖示、拍照時戳在照片上。
-- **地點現況**：`KANSHOU_LOCATION_ACTIVITY_`＋`kanshouLocActivity_(loc,name,day)`——只給商業類地點(咖啡廳/超商/商店街等)用，依「姓名+日期+地點」雜湊出一句「她此刻在做什麼」(打工中/當顧客/路過)，同一人同一天同一地點結果穩定、換日或換地點會變。餵進 `partyDetailsArr` 的「現況」欄。剛跟玩家一起移動過來的同伴不套此欄(`kanshouPreMoveCompanions_`排除，否則會被誤標成「正在打工」)。**⚠ 2026-07 再修（玩家實測「明明在聊天、有人突然穿上圍裙開始打工」）**：`_pCameWithMe` 排除只在【剛好是移動那一回合】有效（`kanshouPreMoveCompanions_`是當回合暫存名單、非持久狀態），同一地點純聊天的後續回合排除形同失效，deterministic 算出「打工」就會套到明明是陪你來聊天的同伴身上，跟先前劇情矛盾。已改成**只在剛抵達那一回合(`moveTarget`為真)才附這句**，且加了「她本來就是這個狀態、不是這回合才開始」的措辭，避免 AI 演出「換上圍裙／開始上班」這類自相矛盾的起始動作。
-- **場景種子**：`KANSHOU_EVENT_SEEDS_`＋`kanshouRollEvent_()`——抵達新地點時 20% 機率注入一句非強制的氛圍靈感種子(日常/曖昧兩池，「曖昧偏辣」池要 `driveOn` 才會抽到)，純粹給 AI 發揮參考、不是既定事實。
+- ~~**地點現況**（`KANSHOU_LOCATION_ACTIVITY_`＋`kanshouLocActivity_`）~~／~~**場景種子**（`KANSHOU_EVENT_SEEDS_`＋`kanshouRollEvent_`）~~ — **2026-09 兩張表連同函式整組移除**（見下方「事件自由」）：寫死的變體池＝把世界關進 22 張表裡，改由帳本記下真的發生過的事、其餘讓 AI 即興。相簿的「活動」欄從此留空（欄位保留不刪，COL 是位置索引）。
 
 ---
 
@@ -1340,8 +1339,9 @@ schema 教 AI 寫 `"1. [主動]…"`，而 `data.options` 是**原樣**長成按
 | helper | 做什麼 |
 |---|---|
 | `kanshouWorldRead_(gid)` | 讀這一局的帳本，走 CacheService（每回合都要讀） |
-| `kanshouWorldWrite_(gid, entries, day)` | 唯一寫入點：去重 → 更新/新增 → 觸發淘汰 → 作廢快取 |
-| `kanshouWorldEvict_(gid)` | 超過各類上限就砍「最久沒被提到、提及次數也最少」的；★釘選永不驅逐 |
+| `kanshouWorldWrite_(gid, entries, day)` | 唯一寫入點：清洗 → 去重 → 更新/新增 → 淘汰 → 整批寫回 → **快取換成新內容**（不作廢，否則同一趟執行裡後面那支 read 又要整表讀一次） |
+| `kanshouWorldEvictees_(d, gid, added, day)` | 純函式，只回答「該砍哪幾列」：超過各類上限就砍「最久沒被提到、提及次數也最少」的；★釘選永不驅逐 |
+| `kanshouWorldRow_(a, rowNum)` | 一列 → 一個條目；讀與回填快取共用（欄位長相的單一真實來源） |
 | `kanshouWorldFeed_(rows, loc, names, msg, day)` | **不是全餵**：算相關性分數排序取前 6 |
 | `kanshouWorldSame_(a, b)` | bigram 近義比對，**只用在近期迴聲**（見下方⚠） |
 
@@ -1524,3 +1524,47 @@ schema 教 AI 寫 `"1. [主動]…"`，而 `data.options` 是**原樣**長成按
 
 探針 `exp.js`：連打 10 回合、AI 每回合硬吐 schema 外的 `master_note` → 經歷一字未動；
 玩家逆天改命仍改得動。
+
+---
+
+## 🔍 2026-09 整體稽核（玩家：「檢查整體吧！！！！詳細 慢慢看 不要有任何遺漏」）
+
+抓到四件事，都已修。四件裡有三件是**綠燈、零錯誤訊息、玩家不會收到任何提示**的那種壞法。
+
+### ① 拍照整條路靜默壞掉（最嚴重）
+
+事件自由那輪砍掉預寫橋段池時，`kanshouLocActivity_`／`kanshouReFest_` 連同表一起刪了，
+但**相簿落地那段還在叫它們**——而那整段包在 `try/catch` 裡。結果：
+**拍照永遠失敗、相簿永遠存不進去**，玩家只會覺得「怎麼都沒存到」，後台沒有任何錯誤。
+
+修法：節慶旗標改用 `curDateObj_` 現場算（`KANSHOU_FESTIVALS_` 還在）；活動欄留空
+（**欄位保留不刪**——COL 是位置索引，刪欄會位移全表）。
+
+根源修法是新的掃描器 **`check_undef.py`**：`node --check` 只看語法，看不到「叫一個不存在的東西」，
+而 GAS 這種 try/catch 包起來的落地路徑正是最容易這樣壞的地方。探針 `land.js` 盯著落地結果。
+
+### ② `world_note` 沒擋公式引導字元
+
+`world_note` 是 **AI 產的、不經過 `sanitizeUserData_`**，而帳本的名稱/內容會直接寫進儲存格——
+開頭是 `=`／`+`／`-`／`@` 會被 Google Sheet 當公式執行（`=IMPORTXML(...)` 這類）。
+相簿的 `photo_caption` 當年就為了同一件事補過，這裡漏了。已在 `kanshouWorldWrite_` 的 `_f` 補上。
+探針 `sec2.js`。
+
+### ③ 每按鍵整表讀 6 → 9 次（效能退化）
+
+世界帳本第一版三支各自讀表：餵回讀一次、寫入讀一次、淘汰再讀一次。
+CLAUDE.md 寫著「別把多餘 round-trip 或重複整表讀回加回來」——修法見
+`CODE_NOTES.md` 的 `kanshouWorldWrite_` 條。現在 **7 次**（多出的 1 次是帳本寫入，無法省）。
+探針 `perf2.js` 直接數 `getDataRange`/`setValues`。
+
+### ④ 文件裡有 17 條幽靈條目
+
+`kanshouRollEvent_`／`kanshouLocActivity_`／`stanceLine_`／`summonTab`／`checkName`… 
+功能砍掉了、索引沒跟著砍。CLAUDE.md 說 `FUNCTION_MANUAL.md` 零容錯，正是因為
+「照著文件去 grep、查無此函式」比沒有這份文件還誤導人。全數修正，並加掃描器 **`check_docs.py`**
+（文件裡用 `` `名字(` `` 點名的函式，代碼裡必須真的還在）。
+
+### 順手修
+
+`actionPrepMeal`（solo）沒從者時仍講「御主與從者」——沒附卡卻點名從者＝邀 AI 憑空生一個
+（同 `check_cards.py` 在擋的形狀）。改成條件式兩分支。

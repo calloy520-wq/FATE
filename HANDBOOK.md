@@ -109,7 +109,7 @@ ACC(帳號·4欄): NAME0 PC1(solo御主連結) CREATED2 KPC3(🌹2026-07新增·
 8. **傷害端 fx**：出力乘子 / 怪力 / 魔力放出 / 勇猛(clear_mind免疫) / **禮裝(dmgAdd／np時npDefMul如Avalon×0.82減傷)** / 投影連射 / 奇襲要害×1.2 / 高速詠唱 / 王財彈幕(gobVolley 50d3 EV≈83) / 天之鎖(chainVolley 18d3) / 狂化+ / 神代 / 風王鐵鎚 / 道具作成 / **御主體術(master_melee·dmgAdd 7×rankMul_，2026-07新增，見下)** / **御主魔術(master_magic·同公式，僅出擊從者為Caster時注入)**(兩者2026-07起雙方皆生效——敵從者透過`enemyMasterMemoryFor_`反查硬連結敵御主的體術/魔術，不再只有玩家側吃得到) / 無毀湖光(vs龍×1.5) / **神殺(vs神性×≤2)** / 職階相性×1.12 / 燕返×2.3(普攻限定·**僅每場第1回合**·解放時無疊乘只留演出標籤)。
 9. **寶具 NP block**(僅opts.np)：寶具骰(`npBaseDice_` E4d10→EX24d10)＋`rankVal*1.2+35`＋軍略×1.15＋神性×1.1＋簽名效果(ubw×1.25/zabaniya×1.9+70/summon_horror×1.6+骰/ea×1.7+骰)＋**規模相剋矩陣**（見下）。
 10. **令咒** `opts.seal` ×1.5。
-11. **概念壓制 pierce**：`offenseTier(winner) >= conceptTier(defFx)+2` → 該防禦被無視。
+11. **概念壓制 pierce**：`offenseTier_(winner) >= conceptTier_(defFx)+2` → 該防禦被無視。
 12. **防禦減傷**（依序·多受pierce影響）：耐久/2 → 陣地×0.74 → 七天盾(**僅對寶具解放反應**·×0.6@C·玩家側展開扣御主30魔/次·付不起張不開) → 疫病抗性 → 原初符文 → 神核×0.82(破魔無視) → 對魔力(A≥0.80·神代凌駕殘三成) → 城牆×0.82(僅物理) → **禮裝承受寶具減傷(avalon×0.82/mercury×0.88·不受pierce)**。
 13. **保底 max(1)＋暴擊**(擲20多骰一輪+12)。
 

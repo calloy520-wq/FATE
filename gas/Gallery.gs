@@ -1466,7 +1466,16 @@ function kanshouWorldSheet_() {
   return sh;
 }
 
-// 這一局的帳本。每回合都要讀，所以走快取；唯一的寫入點 kanshouWorldWrite_ 會主動作廢它。
+// 一列 → 一個帳本條目。讀與寫回填快取共用同一份對應，欄位長相只有這裡說了算。
+function kanshouWorldRow_(a, rowNum) {
+  return {
+    kind: String(a[KW_.KIND] || ""), name: String(a[KW_.NAME] || ""), text: String(a[KW_.TEXT] || ""),
+    sex: String(a[KW_.SEX] || ""), born: parseInt(a[KW_.BORN]) || 0, seen: parseInt(a[KW_.SEEN]) || 0,
+    hits: parseInt(a[KW_.HITS]) || 0, pin: String(a[KW_.PIN] || "") === '★', row: rowNum
+  };
+}
+
+// 這一局的帳本。每回合都要讀，所以走快取；唯一的寫入點 kanshouWorldWrite_ 會自己把快取換成新內容。
 function kanshouWorldRead_(gameId) {
   const gid = String(gameId || "");
   if (!gid) return [];
@@ -1478,11 +1487,7 @@ function kanshouWorldRead_(gameId) {
     const d = kanshouWorldSheet_().getDataRange().getValues();
     for (let i = 1; i < d.length; i++) {
       if (String(d[i][KW_.GID]) !== gid) continue;
-      out.push({
-        kind: String(d[i][KW_.KIND] || ""), name: String(d[i][KW_.NAME] || ""), text: String(d[i][KW_.TEXT] || ""),
-        sex: String(d[i][KW_.SEX] || ""), born: parseInt(d[i][KW_.BORN]) || 0, seen: parseInt(d[i][KW_.SEEN]) || 0,
-        hits: parseInt(d[i][KW_.HITS]) || 0, pin: String(d[i][KW_.PIN] || "") === '★', row: i + 1
-      });
+      out.push(kanshouWorldRow_(d[i], i + 1));
     }
   } catch (e) { }
   try { cache.put(key, JSON.stringify(out), 120); } catch (e) { }
@@ -1519,7 +1524,10 @@ function kanshouWorldWrite_(gameId, entries, curDay) {
     if (!e) return;
     const kind = String(e.kind || "").trim();
     if (KANSHOU_WORLD_KINDS_.indexOf(kind) < 0) return;
-    const _f = v => String(v || "").replace(/[<>&"'`｜【】\[\]★\r\n\t]/g, "").trim();
+    // ⚠ world_note 是【AI 產的】、不經過 sanitizeUserData_，所以清洗要在這裡做完：
+    //    ①斷字/偽造標記字元 ②開頭的公式引導字元(寫進儲存格會被 Google Sheet 當公式執行)
+    //    ——相簿的 photo_caption 當初就是為了同一件事補的，這裡不能漏。
+    const _f = v => String(v || "").replace(/[<>&"'`｜【】\[\]★\r\n\t]/g, "").replace(/^[=+\-@\t\r]+/, "").trim();
     const name = _f(e.name).slice(0, 20), text = _f(e.text).slice(0, KANSHOU_WORLD_TEXT_MAX_);
     if (!name && !text) return;
     const sex = (['男', '女', '異'].indexOf(String(e.sex || "").trim()) >= 0) ? String(e.sex).trim() : "";
@@ -1532,7 +1540,7 @@ function kanshouWorldWrite_(gameId, entries, curDay) {
   const day = parseInt(curDay) || 0;
   const mine = [];
   for (let i = 1; i < d.length; i++) if (String(d[i][KW_.GID]) === gid) mine.push(i);
-  let wrote = 0;
+  let wrote = 0, touched = false;
   const added = [];
 
   clean.forEach(c => {
@@ -1547,7 +1555,7 @@ function kanshouWorldWrite_(gameId, entries, curDay) {
       if (c.sex && !String(d[hit][KW_.SEX] || "").trim()) d[hit][KW_.SEX] = c.sex;
       d[hit][KW_.SEEN] = day;
       d[hit][KW_.HITS] = (parseInt(d[hit][KW_.HITS]) || 0) + 1;
-      wrote++;
+      wrote++; touched = true;
       return;
     }
     const row = []; row[KW_.GID] = gid; row[KW_.KIND] = c.kind; row[KW_.NAME] = c.name; row[KW_.TEXT] = c.text;
@@ -1555,40 +1563,57 @@ function kanshouWorldWrite_(gameId, entries, curDay) {
     added.push(row); wrote++;
   });
 
+  // 落盤：淘汰【併在這裡一起做】——手上已經有整張表了，不再為了淘汰多讀一次整表。
+  //   留下來的整批寫回、尾巴一次砍掉（同 kanshouPurgeByGame_ 的樣式，不逐列 deleteRow）。
   try {
-    if (mine.length) sh.getRange(1, 1, d.length, d[0].length).setValues(d);
-    if (added.length) added.forEach(r => sh.appendRow(r));
-  } catch (e) { return 0; }
-  kanshouWorldBust_(gid);
-  if (wrote) kanshouWorldEvict_(gid);
+    const dropSet = kanshouWorldEvictees_(d, gid, added, day);
+    const kept = [];
+    for (let i = 1; i < d.length; i++) if (!dropSet['r' + i]) kept.push(d[i]);
+    const cols = d[0].length;
+    const tail = (d.length - 1) - kept.length;
+    // 沒有就地更新、也沒有淘汰時就別整表寫回（純新增的回合只要 appendRow）。
+    if (kept.length && (touched || tail > 0)) sh.getRange(2, 1, kept.length, cols).setValues(kept);
+    if (tail > 0) sh.deleteRows(2 + kept.length, tail);
+    const live = kept.slice();
+    added.forEach((r, k) => {
+      if (dropSet['a' + k]) return;
+      while (r.length < cols) r.push("");
+      sh.appendRow(r); live.push(r);
+    });
+    // 快取【換成新內容】而不是作廢：剛寫完的人最清楚表上現在長怎樣，作廢只會逼同一次執行裡
+    //   後面那支 kanshouWorldRead_ 再整表讀一次（每按鍵 round-trip 是紅線）。
+    //   列號是算得出來的：留下來的依序接在表頭後面，新增的排在最尾。
+    const mineNow = [];
+    for (let j = 0; j < live.length; j++) if (String(live[j][KW_.GID]) === gid) mineNow.push(kanshouWorldRow_(live[j], j + 2));
+    try { CacheService.getScriptCache().put('KW_' + gid, JSON.stringify(mineNow), 120); } catch (e2) { }
+  } catch (e) { kanshouWorldBust_(gid); return 0; }
   return wrote;
 }
 
-// 淘汰：每一類超過上限就砍掉「最久沒被提到、提及次數也最少」的，釘選的永不驅逐。
-// 帳本無限長大是這整套機制唯一的真風險(提示詞爆炸、快取失效)，所以從第一天就要有這個。
-function kanshouWorldEvict_(gameId) {
-  const gid = String(gameId || "");
-  let sh, d;
-  try { sh = kanshouWorldSheet_(); d = sh.getDataRange().getValues(); } catch (e) { return; }
-  const drop = [];
+// 淘汰政策（純函式，不碰試算表）：每一類超過上限就砍掉「最久沒被提到、提及次數也最少」的，
+// 釘選的永不驅逐。d＝整張表(含表頭)，added＝這次還沒落盤的新列；回傳 {'r列索引':1,'a新列序':1}。
+// ⚠ 只回答「該砍哪幾列」，由呼叫端一次寫回——別在這裡自己讀表，那就是多一次整表 round-trip。
+function kanshouWorldEvictees_(d, gid, added, curDay) {
+  const drop = {};
+  const day = parseInt(curDay) || 0;
+  const news = Array.isArray(added) ? added : [];
   KANSHOU_WORLD_KINDS_.forEach(kind => {
     const cap = KANSHOU_WORLD_CAP_[kind] || 30;
     const rows = [];
     for (let i = 1; i < d.length; i++) {
       if (String(d[i][KW_.GID]) !== gid || String(d[i][KW_.KIND]) !== kind) continue;
       if (String(d[i][KW_.PIN] || "") === '★') continue;
-      rows.push(i);
+      rows.push({ key: 'r' + i, seen: parseInt(d[i][KW_.SEEN]) || 0, hits: parseInt(d[i][KW_.HITS]) || 0 });
     }
+    news.forEach((r, k) => {
+      if (String(r[KW_.KIND]) !== kind) return;
+      rows.push({ key: 'a' + k, seen: parseInt(r[KW_.SEEN]) || day, hits: parseInt(r[KW_.HITS]) || 1 });
+    });
     if (rows.length <= cap) return;
-    rows.sort((a, b) => ((parseInt(d[a][KW_.SEEN]) || 0) - (parseInt(d[b][KW_.SEEN]) || 0))
-      || ((parseInt(d[a][KW_.HITS]) || 0) - (parseInt(d[b][KW_.HITS]) || 0)));
-    rows.slice(0, rows.length - cap).forEach(i => drop.push(i));
+    rows.sort((a, b) => (a.seen - b.seen) || (a.hits - b.hits));
+    rows.slice(0, rows.length - cap).forEach(r => { drop[r.key] = 1; });
   });
-  if (!drop.length) return;
-  try {
-    drop.sort((a, b) => b - a).forEach(i => sh.deleteRow(i + 1));
-    kanshouWorldBust_(gid);
-  } catch (e) { }
+  return drop;
 }
 
 // 餵回去：帳本會長大，所以【不是全餵】——只挑跟此刻真的有關的，其餘留在表上等被叫到。
@@ -2152,7 +2177,6 @@ function actionPlay_(userData, pcId, sheets) {
   else if (userData.jumpFestival) _reHourAfter = 6; // 跳節慶恆落在前一天清晨6點(kanshouHoursUntilDate_ 的落點)
   else if (curHour < KANSHOU_DAY_LAST_HOUR_) _reHourAfter = Math.min(KANSHOU_DAY_LAST_HOUR_, curHour + KANSHOU_HOUR_PER_ACTION_);
   const kanshouReBand_ = timeBand_(_reHourAfter);
-  const kanshouReDate_ = kanshouAbsDayToDate_(curDay);
   // 🗑️ 2026-09 情境橋段三層注入(地點×時段／同居日常／節慶 → 寫死的 ambient 句)已整批移除。
   //    那是「選單感」最重的一塊：同一個地點同一個時段，永遠是同一句話開場。
   //    現在此地此刻發生什麼，交給 AI 依【地點／時段／天氣／在場的人／你們的歷史】自己生。
@@ -3061,12 +3085,14 @@ ${npcDialoguePrompt}${_earlierDigest_ ? `\n★【稍早做過的事】：${_earl
           .replace(/^[=+\-@\t\r]+/, "");
         const _phSubj = kanshouPhotoPending_.scenery ? null : pcData.find(r => String(r[COL.PC.NAME]).trim() === String(kanshouPhotoPending_.names[0]).trim() && String(r[COL.PC.FACTION]) === "從者" && sameGame(r));
         const _phHair = kanshouPhotoPending_.scenery ? '#7a9a6a' : kanshouHairHex_(_phSubj ? String(_phSubj[COL.PC.TRAIT] || "") : ""); // 風景照緞帶固定草綠
-        const _phFlag = driveOn ? '親密' : (kanshouReFest_ ? kanshouReFest_.name : '');
+        // 節慶旗標(相簿卡片會顯示)：原本讀 kanshouReFest_，那個區域變數隨情境橋段一起刪掉了，現場算。
+        const _phFest = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day);
+        const _phFlag = driveOn ? '親密' : (_phFest ? _phFest.name : '');
         const _phId = 'PH_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
-        const _phSubjName0 = kanshouPhotoPending_.names[0] || "";
-        const _phCameWithMe = !!moveTarget && kanshouPreMoveCompanions_.some(cr => String(cr[COL.PC.NAME]).trim() === _phSubjName0.trim());
-        const _phActivity = _phCameWithMe ? "" : kanshouLocActivity_(curL, _phSubjName0, curDay);
-        kanshouAlbumSheet_().appendRow([myGameId, _phId, curDay, timeBand_(curHour), String(curL || ""), kanshouWeather_(curDay), kanshouPhotoPending_.names.join('、'), _phActivity, _phCap, _phFlag, _phHair]);
+        // 「活動」欄：原本填 kanshouLocActivity_(地點×人的寫死變體池)，那張表已隨預寫橋段整批移除。
+        // 相簿卡片從來沒有顯示過這一欄(kcAlbumCardHtml_ 只印 caption/日期/天氣/人物/旗標)，故留空。
+        // ⚠ 欄位本身保留不刪——COL 是位置索引，刪欄會位移整張相簿表(CLAUDE.md 工程準則)。
+        kanshouAlbumSheet_().appendRow([myGameId, _phId, curDay, timeBand_(curHour), String(curL || ""), kanshouWeather_(curDay), kanshouPhotoPending_.names.join('、'), "", _phCap, _phFlag, _phHair]);
         kanshouPhotoResult_ = { ok: true };
       } catch (e) { kanshouPhotoResult_ = { ok: false, reason: 'error' }; }
     } else if (kanshouPhotoDenied_) {

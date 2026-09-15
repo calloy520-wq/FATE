@@ -100,7 +100,7 @@
 | `fate_battle` | 從者卡「⚔️出戰／💥寶具／❖令咒／🗡️刺殺御主」等鈕 →`servantStrike(...)`（Script.html，施放技術已被動化·50%機率自動全效免按鈕） | `actionFateBattle`（Router_Battle.gs） | **是**，最多 5 種 prompt 分支（見下） |
 | `use_seal` | 令咒選單「修復/補魔/緊急脫離」→`useSeal(type)` | `actionUseSeal`（Router_Bond.gs） | 是（`mana`依好感分安全/致死兩支，2026-07新增） |
 | `mana_supply` | 從者卡「💧補魔」→`manaSupply()` | `actionManaSupply`（Router_Economy.gs） | 是（含突襲/婉拒/解鎖三分支，2026-07新增好感門檻） |
-| `set_servant_output` | 從者卡🔋出力轉盤 5 鈕 →`setOutput(npcName,output)` | `actionSetServantOutput`（Router_Economy.gs） | 否，純樂觀更新 setter |
+| `set_servant_output` | 從者卡🔋出力轉盤 5 鈕 →`setServantOutput(btn,npcName,output)`／鑑賞側 `manaSetOutput` | `actionSetServantOutput`（Router_Economy.gs） | 否，純樂觀更新 setter |
 | `set_mage_realm` | 技能膠囊「✨魔境的智慧」→`openMageRealmPicker`→`pickSelectable('set_mage_realm',...)` | `actionSetMageRealm`（Router_Economy.gs） | 否 |
 | `set_rune_mode` | 技能膠囊「✨原初符文」→`openRunePicker`→`pickSelectable('set_rune_mode',...)` | `actionSetRuneMode`（Router_Economy.gs） | 否 |
 | `set_np_choice` | 寶具鈕→多寶具時彈`openNpReleasePicker`→`pickNpAndStrike` | `actionSetNpChoice`（Router_Economy.gs） | 否 |
@@ -328,8 +328,8 @@
 | `kanshou_set_name` | 「✏改名」→`changeKanshouName()` | `actionKanshouSetName` | 否 |
 | `kanshou_set_sex` | 「⚧切換性別」→`changeKanshouSex()` | `actionKanshouSetSex` | 否 |
 | `kanshou_set_home_name` | 「出門走走」面板「家」改名 | `actionKanshouSetHomeName` | 否（寫 MEMORY【住所】標記） |
-| `get_album` | 📷相簿載入→`openAlbum()` | `actionGetAlbum` | 否（讀本局照片＋剩餘底片） |
-| `album_delete` | 相簿「刪照片」→`deletePhoto()` | `actionAlbumDelete` | 否 |
+| `get_album` | 📷相簿載入→`openKanshouAlbum()` | `actionGetAlbum` | 否（讀本局照片＋剩餘底片） |
+| `album_delete` | 相簿「刪照片」→`kanshouDeletePhoto(photoId)` | `actionAlbumDelete` | 否 |
 | `purge_orphans` | 主選單 DEV「🧹 清殘列」（Index.html） | `actionPurgeOrphans`（其實在 Account.gs） | 否 |
 | `dev_resync_codex` | 主選單 DEV「🔄 套用最新平衡」（Index.html） | `actionDevResyncCodex`（Seed 系統） | 否 |
 
@@ -427,8 +427,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 + [依偶遇/找上門分流] ★【找上門】/★【偶遇】…讓敵方依其個性與立場（是否同盟）開口、有反應，別當沉默佈景；是否動手由御主下令。
 + [若敵御主喪失從者] ★敵御主『${f.name}』已痛失從者…讓其神情與心境流露這份失恃…
 + [若有從者隨行] ★從者「${pc.servant}」隨行在側，依其個性開口、有反應（至少一句台詞）…
-+ [無敵蹤時] stanceLine_()（接敵姿態獨行定調）
-+ ★御主（我）可依其性格自然開口、有反應與台詞，別當沉默的旁觀者；但【不可】替御主拍板下一步戰略行動…不可逼問玩家，停在決策前的留白讓玩家以按鍵回應。
++ ★御主＝玩家本人（旁白稱「你」）：依性格開口、有神態台詞，不是沉默的旁觀者；但【不可】替御主拍板下一步戰略行動…不可逼問玩家，停在決策前的留白讓玩家以按鍵回應。
 ```
 組完後呼叫 `await narrate(arrivePrompt)` → `action:'narrate_only'`。這是全專案**唯一**一個「prompt 組裝發生在前端 JS、而非後端 GAS」的案例，值得特別注意（其餘全部在 Router_*.gs 內組好字串才回傳）。原本還有老虎道場那兩支，2026-07 已收回後端（見 §2 `actionTigerDojo`）。
 

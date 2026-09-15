@@ -229,9 +229,10 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `kanshouPurgeByGame_(sh, gidCol, gid, idCol)` — 依 game_id 刪掉某張表的整批列（由下往上刪避免索引位移），回傳被刪列的 id（供連帶清歷史）。三張表共用。
 - 🌍 **世界帳本**（Gallery.gs，見 `KANSHOU_REFERENCE.md` §「世界帳本」）：
   - `kanshouWorldSheet_()` — 分頁「鑑賞世界」（遊戲ID|類別|名稱|內容|性別|建立日|最後提及日|提及次數|釘選）。欄位索引在 `KW_`。
+  - `kanshouWorldRow_(a, rowNum)` — 一列陣列 → 一個帳本條目。讀與寫回填快取共用這份對應（欄位長相的單一真實來源）。
   - `kanshouWorldRead_(gameId)` / `kanshouWorldBust_(gameId)` — 讀這一局的帳本（走 CacheService，每回合都要讀）／作廢快取。
-  - `kanshouWorldWrite_(gameId, entries, curDay)` — **唯一寫入點**：去重→更新或新增→觸發淘汰→作廢快取。逐欄清洗與長度在這裡做。
-  - `kanshouWorldEvict_(gameId)` — 超過 `KANSHOU_WORLD_CAP_` 就砍「最久沒被提到、提及次數也最少」的；★釘選永不驅逐。
+  - `kanshouWorldWrite_(gameId, entries, curDay)` — **唯一寫入點**：清洗→去重→更新或新增→淘汰→整批寫回→**把快取換成新內容**（不是作廢：同一次執行裡後面還會有人讀，作廢等於逼它再整表讀一次）。
+  - `kanshouWorldEvictees_(d, gid, added, curDay)` — **純函式**，只回答「該砍哪幾列」（`{'r列索引':1,'a新列序':1}`）：每類超過 `KANSHOU_WORLD_CAP_` 就砍「最久沒被提到、提及次數也最少」的，★釘選永不驅逐。刻意不自己讀表——寫入端手上已經有整張表了。
   - `kanshouWorldFeed_(rows, curLoc, presentNames, userMsg, curDay)` — **不是全餵**：算相關性分數排序取前 `KANSHOU_WORLD_FEED_MAX_` 條。
   - `kanshouWorldSame_(a, b)` — bigram 近義比對。⚠ **只用在近期迴聲（最近兩天）**，不掃全表：句型相近但語意不同的事實太常見，掃全表會把世界愈合併愈空。
   - `kanshouFolkToRow_(name, desc, sex, gameId, loc, curDay)` — 帳本的常民升格成正式同伴列。刻意留白（不叫 AI 補一整份設定），ID 沿用 `KHV_` 前綴（三處白名單都認它）。
@@ -582,7 +583,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `linkAccountToKanshouPc_(accountName, kpcId)` — 把鑑賞 avatar 的 kpcId 寫進「帳號」表 `COL.ACC.KPC` 欄；查無帳號列則 appendRow 新建。權威連結存伺服器端，只服務鑑賞（solo 走 `linkAccountToPc_`/`COL.ACC.PC`，互不通）。
 - `getAccountKanshouPcId_(accountName)` — 查某帳號目前連結的鑑賞 avatar pcId，查無回 ""。
-- `kanshouOwnedRowIdx_(data, pcId, acctName)` — 帳號歸屬驗證：先查帳號表 KPC 欄是否確等於呼叫者聲稱的 pcId（KPC_ id 用 Date.now() 可預測，不能只憑找列就信任），再回該 pcId 在 pcData 的列索引；不符回 -1。所有 5 顆 KPC action 的第一道守門。
+- `kanshouPcIdx_(data, pcId)` — 在鑑賞 pcData 裡把 pcId 換成列索引，查無回 -1。**純索引查找、不驗歸屬**：歸屬驗證已上移到 dispatcher（`handleGameAction` → `verifyPcOwnership_`），handler 進來時 pcId 已保證屬於呼叫者。（舊版每支 handler 各自呼叫的 `kanshouOwnedRowIdx_` 已刪除——那是同一趟請求裡的第二次整表讀。）
 - `getKanshouPcSheet_(ss)` — 取（無則建）鑑賞專屬分頁「鑑賞眾生」，與主「眾生」隔離、schema 同（COL.PC 位置一致）。dispatcher 見 pcId 以 KPC_ 開頭即把 sheets.pc 指到此表。
 
 #### 戰時→日常轉譯（AI·codex 建檔期一次性；本檔內無呼叫者）
@@ -642,8 +643,6 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `KANSHOU_SUMMON_BLOCKED_IDS_`（常數）— 暫移出鑑賞的英靈 id（召喚/巧遇/住處共用單一來源）。
 - `KANSHOU_STARTER_IDS_`（常數）— 開局 4 位起始住民（大河/凜/櫻/SABER）。
 - `KANSHOU_LOCATION_TAGS_`（常數）— 地點×角色氛圍標籤，巧遇/行程骰加權用。
-- `KANSHOU_LOCATION_ACTIVITY_`（常數）— 商業地點「當下在做什麼」活動變體（店員/客人側）。
-- `kanshouLocActivity_(loc, name, day)` — hash(名字+日+地點)%變體數 決定性挑活動，零持久化、同回合冪等。
 - `KANSHOU_ENCOUNTER_FEMALE_IDS_`（常數）— 巧遇保底純女性池。
 - `KANSHOU_PARTY_DETAIL_CAP_`（常數=5）— 同地 AI 詳細卡片上限。
 
@@ -692,7 +691,6 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `KANSHOU_NIGHT_PART_TAG_`（makeTextTag_ 昨夜道別·2026-07 新增）— 與【晨間餘韻】同構的另一半：昨晚陪你到最後、卻沒留下的人（未達 80）。兩者互斥。
 - `KANSHOU_KNOCK_DAY_TAG_`／`KANSHOU_NIGHT_GUEST_TAG_`／`KANSHOU_FESTIVAL_DONE_TAG_`（2026-07）— 深夜訪客日戳／夜訪客姓名／今日節慶習俗已完成（absDay）。
 - `KANSHOU_MORNING_AFTER_TAG_`（makeTextTag_ 晨間餘韻）、`KANSHOU_SCENE_DAY_TAG_`（makeIntTag_ 橋段日·防同日重刷）、`KANSHOU_FIRST_MET_DAY_TAG_`（makeIntTag_ 初見日·紀念日）、`KANSHOU_APPT_BANDS_`（約定時段 午後14/黃昏18/夜20）。
-- `KANSHOU_SIDEWRITE_EVERY_`(=3)（常數）+ `kanshouGetSideWriteCount_`/`kanshouSetSideWriteCount_(memory[,n])` — 側寫節流計數（存玩家列，第 1、N+1… 回合才帶 master_note；2026-07 二度改版後 master_note 只剩經歷一格，`kanshouGetPrefLocks_`/`SetPrefLocks_`＋【性格鎖】標記已整組刪除）。
 - `kanshouApptHour_(band)` — 約定時段→時刻（null=舊格式無時段）。
 - `kanshouGetPromise_` / `kanshouClearPromise_` / `kanshouSetPromise_(memory, absDay, loc, band)` — MEMORY【約定】absDay:band:loc 讀/清/寫（新約蓋舊、舊格式相容）。
 - `kanshouPromisePin_(row, absDay, curHour)` — 約定日把她 pin 到約定地：有時段=時刻前 10 分~+2h 內回地點、否則整天釘（相容）。
@@ -720,7 +718,6 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 輕量小事件·邂逅中·住所（MEMORY 標記）
 
-- `KANSHOU_EVENT_SEEDS_`（常數 daily/ambiguous/spicy）+ `kanshouRollEvent_(driveOn)` — 抵達新地點 20% 抽一顆靈感種子注入提示詞（spicy 僅 driveOn）。
 - `getKanshouActiveEncounter_` / `setKanshouActiveEncounter_` / `clearKanshouActiveEncounter_(memory[,heroId])` — MEMORY【邂逅中】（這次到訪暫時巧遇對象·存 hero id·換地點清除）讀/寫/清。
 - `getKanshouHomeName_(memory, playerName)` / `setKanshouHomeName_(memory, name)` — MEMORY【住所】家顯示名，未自訂預設「(玩家名)的家」/「我家」。**🐛→✅ 稽核抓到**：`setKanshouHomeName_`原本只裁長度、沒清標籤分隔字元，玩家取名帶`｜`會撐壞這行MEMORY格式；已改用`kanshouSanitizeTagValue_`(見上方小道具章節同款)。
 - `kanshouSanitizeTagValue_(value, maxLen)`（通用版：住所名等任何單值 tag 共用）— 清掉 MEMORY 單值 tag 共用的分隔字元(`,`/`:`/`｜`/`【`/`】`)＋引號/角括號，`maxLen`不帶預設8。任何要塞進單一`【tag】值`格式的自由輸入都該過這道，不要各自複製一份正則。
@@ -1169,8 +1166,6 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `getStance()` / `setStance(s)` — 接敵姿態（stealth/normal/open）讀寫 localStorage；set 後重繪藥丸。
 - `paintStancePill_()` — 依當前姿態上色三段藥丸。
 - `stancePillHtml_()` — 產出姿態藥丸 HTML（地圖頁·戰爭軌限定）。
-- `stanceLine_()` — 無敵蹤時抵達/撤離敘事的姿態定調句（normal 不加）。
-- `stanceNotice_(isSeek)` — 遭遇「誰先發現誰」定調句（折進偶遇/找上門框架）。
 - `renderMapPane(preNodes)` — 渲染地圖分頁：優先吃夾帶/快取節點免 round-trip；鑑賞→「出門走走」地點清單（複用 kcMapListHtml_），solo→戰場 SVG＋盟友通報＋此地經營（設陣地/搜索）。用 `offsetParent===null` 判實際可見。**2026-07 六度改版**：原本常駐在此的「⏰下一階段」鈕已搬進 `updateClock` 的 `#clock-hud`(不必切分頁才點得到)，此處不再重複放。
 - `refreshMapPane()` — 重整地圖（走 syncData(true)）。
 - `buildMapSvg_(nodes)` — 產出冬木戰場 SVG（固定 LAYOUT 座標/CONN 連線/未遠川/星塵/節點·敵蹤·所在環·可點移動）＋圖例。
@@ -1370,9 +1365,8 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 
 #### 選戰爭模式 / 戰爭 / 扮演方式
 - `showOnly_(id)` — 開局分屏切換器（warmode/war/role/master/name/detail 只顯示一個）。
-- `chooseWarMode(m)` — 選正史(canon)/混亂(chaos)；chaos→直接 step-name，canon→選戰爭屏。
-- `chooseWar(w)` — 選 4th/5th；背景預取正典御主名單（`_mastersPrefetch`）→扮演方式屏。
-- `chooseRole(r)` — 自創(original)→step-name；扮演正典→`loadCanonMasters`。
+- `chooseWorld(mode, war)` — 型態×場次一次選定（2026-09 起合成一屏三顆鈕，原本的 `chooseWarMode`/`chooseWar`/`chooseRole` 三屏已合併刪除）：canon 時背景預取正典御主名單（`_mastersPrefetch`）→直進 step-name。
+- `openCanonMasterPick()` — 從創角屏打開「扮演正典御主」清單（混亂模式擋下）。
 - `loadCanonMasters()` — 取正典御主名單（用預取 Promise，失敗重抓）；渲染 `#master-pick-list`（鈕→`pickCanonMaster`）。
 - `pickCanonMaster(i)` — 選定正典御主：帶入名/性別/外貌/願望預設＋給 `masterRolls` 合理魔術預設；直進 step-detail（跳過 checkName）。
 
@@ -1380,7 +1374,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `rollFate()` — 擲一次御主天賦（迴路/魔術/起源/體術/魔術階位，最多 3 次）；push `masterRolls`。
 - `selectFateRoll(i)` — 選中某次測定結果為 `masterRoll`。
 - `renderFateRolls()` — 渲染 `#fate-roll-box` 測定卡片（點選高亮）。
-- `checkName(event)` — 驗御主名：純中文檢查＋後端 `check_name`（重名/違規擋下）；通過→step-detail。
+- `checkNameOk_(name)` — 驗御主名：純中文檢查＋後端 `check_name`（重名/違規擋下），回 true＝可用。2026-09 起不再自成一屏，改由 `createPC` 送出前呼叫一次。
 
 #### 全螢幕遮罩
 - `showProcessing(msg, quick)` — 惰性建/顯示「處理中」全螢幕遮罩（`quick` 隱藏「10~30秒」提示）。
@@ -1397,7 +1391,6 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `doSummon(payload)` — **召喚共用底層**（`summon_servant`）；成功存 `pc.servant`/`window._summonScene`→`startGame(false)`。
 - `summonByHero(id)` — 點名英靈召喚 → `doSummon({heroId})`。
 - `summonRandom()` — 隨機召喚 → `doSummon({cls})`。
-- `summonTab(m)` — 切換召喚頁分頁（「瀏覽名冊」/「自訂生成」）；`loadHeroes()` 每次開召喚頁也會呼叫它重置回名冊分頁。
 - `summonByDesc()` — 描述召喚原創從者 → `doSummon({desc, origin, cls})`（`origin` 讀自 `toggleSummonAdvanced()` 展開的來源選項，非只有 desc/cls 兩欄）。
 - `toggleSummonAdvanced()` — 展開/收合自訂召喚表單的「進階選項（指定職階／角色來源）」區塊，鏡射 `toggleForgeAdvanced`。
 

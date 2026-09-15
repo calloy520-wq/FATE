@@ -647,9 +647,13 @@ function actionPrepMeal(userData, pcId, sheets) {
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   // 🎬 aiPrompt 讓 AI 演出這段整備場景，而非只回罐頭 message。
   var mealSvIdx = findPlayerServantIdx_(pcData, myGameId, "");
-  var mealPrompt = masterCard_(pcData[pIdx]) + (mealSvIdx !== -1 ? servantCard_(pcData[mealSvIdx]) : '') +
-    `【系統·整備已裁定】御主與從者稍作整備、飽餐一頓——接下來一段時間內，從者的狀態比平常更穩、出手更準。\n` +
-    `★【60~100 字】演出這段戰前用餐、稍事休整的日常小品，依從者性格自然流露對這頓飯／這位御主的反應；語氣輕快不冗長。`;
+  // ⚠ 沒有從者在場時，提示詞【不可】還在講「御主與從者」——沒附卡卻點名從者，等於邀 AI 憑空生一個
+  //    (同 check_cards.py 在擋的形狀：沒卡＝叫 AI 捏造性格，玩家會當成角色設定)。
+  var _mealHasSv = mealSvIdx !== -1;
+  var mealPrompt = masterCard_(pcData[pIdx]) + (_mealHasSv ? servantCard_(pcData[mealSvIdx]) : '') +
+    (_mealHasSv
+      ? `【系統·整備已裁定】御主與從者稍作整備、飽餐一頓——接下來一段時間內，從者的狀態比平常更穩、出手更準。\n★【60~100 字】演出這段戰前用餐、稍事休整的日常小品，依從者性格自然流露對這頓飯／這位御主的反應；語氣輕快不冗長。`
+      : `【系統·整備已裁定】御主獨自稍作整備、飽餐一頓。\n★【60~100 字】演出這段獨自用餐、稍事休整的片刻——此刻【身邊沒有從者】，不可讓任何從者出現或開口；語氣輕快不冗長。`);
   STATE_PRE_DATA_ = pcData;
   return JSON.stringify({
     success: true,
