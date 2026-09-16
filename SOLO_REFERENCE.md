@@ -452,6 +452,14 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
   `stance` 三段藥丸留著，但只剩「怎麼接近敵人」的意義（`arriveStanceNotice_` 決定對方察不察覺），並定調戰報裡御主站得多前。
   連帶：`injectMasterMeleeSupport_`／`master_melee` fx 也拔了——御主體術不再變成從者的傷害加成，體術階位只進 `masterCard_` 當演出依據。
   **刻意保留** `injectMasterMagicSupport_`／`master_magic`（限 Caster）：那是御主在後方施術支援，不是上戰場。
+- **🫱 御主接住從者（純敘事·零數值）**（同輪加回·玩家「可以幫忙 但是不扣血! 之前有從者被打大傷害 御主去接住的畫面 那樣我很喜歡」）：
+  `_masterCatchLine_`（Router_Battle）在**本戰從者挨過的最重一擊達「負傷」以上（`dmgSeverityWord_` ≥15%）且從者還活著**時，
+  往戰報提示詞加一段 ★【御主接住了從者】——演「那一擊落定【之後】」的補位（接住/扶穩/拉開），
+  並明講**不是替他擋、不是以身相代、御主沒挨到攻擊也沒受傷**，接住後交鋒繼續由從者打。
+  **一滴血都不動**，跟被拔掉的 `applyMasterStanceShare_` 是兩回事。
+  📐 實跑校準（`master_off.js`）：單場最重一擊的中位數是從者血量上限的 13.8%、90 百分位 22.6%，
+  所以 15% 這道既有門檻約**四場觸發一次**——剛好是「特別的一刻」的頻率，不必另訂數字。
+  ⚠ 量的時候別只打 EMIYA：軟的敵人打不出 15%，會誤判成「功能沒作用」。要輪流打全部敵人（赫拉克勒斯那種才打得動）。
 - **② 主動技→被動 30%**（`rollSkill_`·Router_Battle｜移除 `tinyActiveSkill_`/drain/`⚡主動`鈕）：施放技術（burst/str_up/projection）不再手動、不扣魔、無微效保底——改**每一擊獨立擲 `SKILL_PROC_` 機率自動全效發動**（現行 0.3，2026-07 玩家回饋原 0.5 太強下修·rounds 迴圈＋開場對轟各自擲）。`skillFired` 記本戰是否至少發動一次→敘述＋戰報 `report.skill{name,icon,desc}`。前端刪 `activeSkillOfActive_`／`⚡主動` 鈕／`useSkill` 全鏈；從者卡標籤與 popup 說明改純機制敘述(不再另掛跟角色實際技能名重複的通用代稱)。
 - **③ 撤退按鈕**：見 §12「撤離追擊／🏃撤退」。核心＝有敵封鎖 plain move（`needRetreat`）＋撤退必追擊（GAS 判勝負）。
 - **④ 全戰鬥須有 GAS 戰報卡**（玩家鐵則：所有落血皆 GAS 算·不容 AI 亂掰數字）。`renderFateBattleReport` 新增／補全卡型：

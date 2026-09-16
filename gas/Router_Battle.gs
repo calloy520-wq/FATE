@@ -1220,6 +1220,19 @@ function actionFateBattle(userData, pcId, sheets) {
   const enemyNpRoundNotes = rounds.filter(r => r.eNp && r.eNpName).map(r =>
     `第${r.n}回合「${defC.name}」反擊解放真名【${r.eNpName}】${r.eHit ? `命中「${r.eTarget}」` : '，卻被躲開落空'}`
   ).join('；');
+  // 🫱 御主接住從者（玩家「之前有從者被打大傷害 御主去接住的畫面 那樣我很喜歡」）：
+  //    這一幕【純敘事·零數值】——御主沒有替他挨打、沒有受傷，是那一擊落定【之後】的補位。
+  //    觸發＝本戰從者挨過的最重一擊達「負傷」以上且人還活著（擦傷不觸發，免得每場都演同一套）。
+  const _svMaxHp_ = Math.max(1, parseInt(pcData[atkIdx][COL.PC.MAX_HP]) || 1);
+  const _worstTaken_ = Math.max(
+    clash ? (clash.pDmgTaken || 0) : 0,
+    rounds.reduce((m, r) => Math.max(m, (r.eDmg || 0), (r.pactDef && r.pactDef.hit ? (r.pactDef.dmg || 0) : 0)), 0)
+  );
+  const _catchSev_ = dmgSeverityWord_(_worstTaken_, _svMaxHp_);
+  const _masterCatchLine_ = (_catchSev_ !== '擦傷' && !String(pcData[atkIdx][COL.PC.ID]).startsWith("DEAD_"))
+    ? `\n★【御主接住了從者】：『${atkC.name}』被那一擊掃得${_catchSev_ === '重創' ? '整個人往後飛出去' : '踉蹌失衡'}，御主【在那一擊落定之後】衝上前接住、扶穩、把人拉開——演出這一拍：手掌撐住的力道、對上的那一眼、一句短促的話。★這【不是】替從者擋下攻擊、不是以身相代：御主沒有挨到任何攻擊、也沒有受傷；接住之後從者立刻重新站定，交鋒繼續由從者打。`
+    : '';
+
   var _mjBits = [];
   if (ourMagicFired) _mjBits.push('自後方引動魔術為『' + atkC.name + '』添力');
   // 🎌 御主的位置（每場【必給】）：御主【不上戰場】——他在後方指揮與供魔，這一戰的每一擊都是從者打的。
@@ -1230,8 +1243,9 @@ function actionFateBattle(userData, pcId, sheets) {
       ? `【御主·後方支援】御主據守後方掩蔽處，穩定供魔、冷靜判讀戰況並下令指揮——不入戰圈，卻是這場交鋒的中樞，切勿寫成御主缺席。`
       : `【御主·見機行事】御主守在戰線側後方讀著戰況、適時下令，該退則果斷拉開距離——【不近身、不出手】。`)
     + `★【鐵律】御主不參與物理交鋒：不可寫御主揮拳/持械/格擋/替從者擋下攻擊/以身相代，也不可讓御主因交鋒受傷。御主能動用的只有【指令、魔力、令咒】。`
-    + (_mjBits.length ? `這一戰御主${_mjBits.join('，並')}。` : '');
-    + `★御主的招式只能依御主卡上實際列出的魔術系統／體術，卡上沒寫的技術一律不可捏造（改寫成呼喊指令、眼神示意、肢體掩護等不需特定技術的參與方式）。`;
+    + (_mjBits.length ? `這一戰御主${_mjBits.join('，並')}。` : '')
+    + `★御主的招式只能依御主卡上實際列出的魔術系統／體術，卡上沒寫的技術一律不可捏造（改寫成呼喊指令、眼神示意、肢體掩護等不需特定技術的參與方式）。`
+    + _masterCatchLine_;
 
   const BATTLE_WORDS_ = ['170~230', '220~290', '280~360', '340~440'];
 
