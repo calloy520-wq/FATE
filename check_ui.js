@@ -39,7 +39,9 @@ const RENDERS = [
   //   教學要跟規則對得上，不然玩家會以為自己也要挨打）。
   ['openTutorial', () => { let html = ''; const old = ctx.showHistoryOverlay; ctx.showHistoryOverlay = h => { html = String(h); };
     try { ctx.openTutorial(); } finally { ctx.showHistoryOverlay = old; }
-    return html.length > 300 && /御主不上戰場/.test(html) && /不會掉血/.test(html); }]
+    // ⚠ 不可以寫成「打起來不會掉血」——魔力見底時解放寶具仍會燒御主的血當電池（drainForNp_）。
+    //   教學要同時講「刀砍不到你」與「供魔會燒血」，兩句都釘。
+    return html.length > 300 && /御主不上戰場/.test(html) && /砍不到你/.test(html) && /燒你的命/.test(html); }]
 ];
 
 function makeCtx(extraSrc) {
