@@ -396,7 +396,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 - **🚪🏠 2026-07 新增「巧遇開關」＋可改名的「家」移動選項**：`kanshouEncounterStr`(巧遇系統例外提示詞注入)現受`encounterOn`(讀`userData.encounter`，前端「出門走走」面板一顆checkbox、localStorage持久化)閘門，關閉時移動/原地問「還有誰」兩個擲骰點都不會觸發，但不影響已在場的`【邂逅中】`對象持續互動。`KANSHOU_LOCATIONS_`（2026-07已擴充到**50個地點**、非10個，見 `FUNCTION_MANUAL.md`）外新增一個不在清單內、顯示名稱可由玩家自訂(MEMORY`【住所】`標記，預設「家」)的私人地點——`isHomeMove`比對成立時恆不擲骰(私人空間永不巧遇陌生人)，其餘寫LOC/清`【邂逅中】`的邏輯與一般地點一致。詳見 `SOLO_REFERENCE.md` §44。
 - **僅 NSFW/kanshou 模式**：同地性別配對提示、肉體狀態 JSON（2026-07 玩家定案「肉體那些欄位不需要了，只要狀態就好」：physical_state 從 6 鍵數字代碼（姿勢與動作/胸部/顏面/肉棒/蜜穴/服裝狀態）全部砍掉，簡化為單一自由文字欄，AI 自行決定每回合要不要提、提多細，不強制逐項列舉，每回合仍需據實反映最新狀態）、每位在場同伴的「身體記憶」技能標籤(`dynamic_skills`)、愛稱(`mutual_nicknames`)、🔥主動掌握模式(點火 driveOn)段落（前端 `drive` 旗標開啟時注入——同伴依個性主動掌握節奏、推進更猛；僅鑑賞生效。⚠ 點火按鈕為**現行有效** toggle，`driveOn` **只控敘事推進幅度(driveStr)、不切模型**——2026-09 起兩模式一律 `AI_MODEL`、`retries=1`，被擋才自動換 `FALLBACK_MODEL`。鑑賞現況一律以 `KANSHOU_REFERENCE.md` 為準）
 
-🎨 **風格層（2026-09）**：★世界觀／★【視角鎖定】／★【你也是這座城裡的一個人】／★【篇幅】／🚨【收尾】五段，以及 nsfwBaseRules 的 筆觸／鐵律 1·3·4·5·7·9 七段，現在由 `kanshouStyle_(styles, key, vars)` 供給——玩家在「⚙ 說書人設定」改過就用玩家的、關掉就整段不送、否則用 `KANSHOU_STYLE_MODULES_` 的預設（＝下面列的那句）。事實與契約段不在此列。
+🎨 **風格層（2026-09）**：★世界觀／★【視角鎖定】／★【你也是這座城裡的一個人】／★【篇幅】／🚨【收尾】五段，以及 nsfwBaseRules 的 筆觸／鐵律 1·2·4·5·6·8·10 八段，現在由 `kanshouStyle_(styles, key, vars)` 供給——玩家在「⚙ 說書人設定」改過就用玩家的、關掉就整段不送、否則用 `KANSHOU_STYLE_MODULES_` 的預設（＝下面列的那句）。事實與契約段不在此列。
 
 USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` 為準；舊版的【敘事法旨】／★【在場驗證鐵律】／💕【鑑賞·後日談模式覆寫】／🚨【敘事終極警告】四個區塊都已不存在）：
 > ★世界觀＝和平的現代冬木市…沒有魔術與從者（一句集中壓制句）
@@ -411,7 +411,7 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 > 條件片段（有才出現）：`kanshouNewPlaceStr`／`_worldFeed_`／`kanshouWorldRosterStr`／`kanshouEncounterStr`／`kanshouNightGuestStr`／`kanshouKnockRaidStr`／`kanshouAloneBondStr`／`kanshouNpcLeaveStr_`／`kanshouNightPartStr`／`kanshouVisitBlockedStr`／`kanshouTimeBlockedStr`／`kanshouPromiseStr`／`kanshouPromiseMetStr`／`kanshouCohabitStr`／`kanshouConfessStr`／`kanshouInviteStr`／`kanshouHandHoldStr`／`kanshouHoldingStr`／`kanshouPhotoStr`／`kanshouShowPhotoStr`／`kanshouFestivalStr`／`kanshouApptTodoStr`／`kanshouApptWaivedStr`／`kanshouCohabitEndStr`／`kanshouNightSceneStr`／`kanshouInitStr`
 > ★【此刻】（日期·時段·天氣 `kanshouWeather_(curDay)` 併在同一行）＋`kanshouTierCrossStr`／`kanshouFirstsAnnivStr`／`kanshouFirstsStr`／`kanshouAnnivStr`
 > ★【晨間餘韻·非強制】／★【昨夜對方走了·非強制】／`${npcDialoguePrompt}`／★【稍早做過的事】`${_earlierDigest_}`（`kanshouRecentDigest_`）
-> ★【在場】＋`${finalUserMsg}`（玩家這回合的動作）＋`${_settledTail_}`（GAS 已裁定的結果）
+> ★【在場】＋`${finalUserMsg}`（玩家這回合的動作：自己打的字標 `【玩家原話】：`、按鍵路徑標 `【玩家意圖】：`＝GAS 寫的摘要）＋`${_settledTail_}`（GAS 已裁定的結果）
 
 
 回應解析欄位（現行 schema，見 `buildDefaultSystemPrompt` 的 finalJson）：`inner_monologue`（不顯示）／`narration`／`npc_exit`／`options`（`optionsOn=false` 整欄刪）／`intimacy_feedback{player:{physical_state,appearance_extras}, npcs[]:{name,physical_state,appearance_extras,mutual_nicknames,memory,**noticed**}}`／`world_note[]`／`rel_changes[]{target,fav_change}`。**`noticed`〔2026-09·她眼中的你〕**：這回合真的從玩家言行看出來的一件事（≤14字、只記會改變之後怎麼對玩家的發現、多數回合「無」），`kanshouAppendUnique_` append 進她自己那列 MEMORY【眼中的你】。~~`location`／`move_proposal`／`attitude`／`dynamic_skills`／`master_note`~~ 都已不存在；`physical_state` 是單一自由文字欄。

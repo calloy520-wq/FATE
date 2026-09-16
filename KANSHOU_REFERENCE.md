@@ -1177,7 +1177,7 @@ FALLBACK_MODEL = x-ai/grok-4.20                (屬性 FALLBACK_MODEL)  ← 被�
 ---
 
 ## 📎 主要常數速查（都在 `gas/Gallery.gs`）
-`KANSHOU_REL_TIER_`(五階) · `KANSHOU_STYLE_MODULES_`(12 段說書人風格·玩家可改) · `KANSHOU_SCENE_BOND_`(3) · `KANSHOU_APPT_BANDS_`(午後14/黃昏18/夜20) · `KANSHOU_PACE_OPTIONS_`(0/10/20/30 分鐘·玩家自選流速) · `KANSHOU_TIME_BANDS_`(5時段) · `KANSHOU_LOCATIONS_`(合法地點白名單·AI location/move 驗證) · `KANSHOU_HERO_HOME_`(手寫專屬豪邸)/`KANSHOU_GENERIC_HOME_POOL_`(泛用住處池·8間·查無專屬豪邸者隨機分配) · ~~`KANSHOU_SCENE_EVENTS_`~~(橋段庫·2026-09 已整組砍除) · `KANSHOU_ALBUM_CAP_`(100)（`KANSHOU_FILM_PER_DAY_`已隨底片制拍照改手機一起刪除，見上方拍照/相簿章節） · `KANSHOU_KNOCK_CHANCE_`(0.2)/`KANSHOU_KNOCK_MIN_BOND_`(60) · `KANSHOU_COHABIT_BOND_`(90)/`KANSHOU_VISIT_BOND_`(40) · `KANSHOU_PARTY_DETAIL_CAP_`(5) · `KANSHOU_STARTER_IDS_`(開局起手池) · `KANSHOU_SUMMON_BLOCKED_IDS_`(暫不開放召喚)。
+`KANSHOU_REL_TIER_`(五階) · `KANSHOU_STYLE_MODULES_`(13 段說書人風格·玩家可改) · `KANSHOU_SCENE_BOND_`(3) · `KANSHOU_APPT_BANDS_`(午後14/黃昏18/夜20) · `KANSHOU_PACE_OPTIONS_`(0/10/20/30 分鐘·玩家自選流速) · `KANSHOU_TIME_BANDS_`(5時段) · `KANSHOU_LOCATIONS_`(合法地點白名單·AI location/move 驗證) · `KANSHOU_HERO_HOME_`(手寫專屬豪邸)/`KANSHOU_GENERIC_HOME_POOL_`(泛用住處池·8間·查無專屬豪邸者隨機分配) · ~~`KANSHOU_SCENE_EVENTS_`~~(橋段庫·2026-09 已整組砍除) · `KANSHOU_ALBUM_CAP_`(100)（`KANSHOU_FILM_PER_DAY_`已隨底片制拍照改手機一起刪除，見上方拍照/相簿章節） · `KANSHOU_KNOCK_CHANCE_`(0.2)/`KANSHOU_KNOCK_MIN_BOND_`(60) · `KANSHOU_COHABIT_BOND_`(90)/`KANSHOU_VISIT_BOND_`(40) · `KANSHOU_PARTY_DETAIL_CAP_`(5) · `KANSHOU_STARTER_IDS_`(開局起手池) · `KANSHOU_SUMMON_BLOCKED_IDS_`(暫不開放召喚)。
 
 
 ---
@@ -1517,7 +1517,7 @@ schema 教 AI 寫 `"1. [主動]…"`，而 `data.options` 是**原樣**長成按
 
 玩家：「其實我應該直接在這裡打造一個類似酒館就好？！」→「好 稽核跑完就往這個方向做 符合自由 玩家自己決定增減！」
 
-**邊界（量出來的）**：鑑賞一回合 prompt 約 3600 字＝事實·GAS 裁定 ~1280（不交）／技術契約 ~1200（不交）／資料 ~283／**風格 ~840 字·12 段（交給玩家）**。
+**邊界（量出來的）**：鑑賞一回合 prompt 約 3600 字＝事實·GAS 裁定 ~1280（不交）／技術契約 ~1200（不交）／資料 ~283／**風格 ~965 字·13 段（交給玩家）**。
 交的只有「怎麼寫」的口味；「發生了什麼」（好感、在場、地點、時間）與「怎麼回」（JSON、分段、在場驗證）一律不交。
 
 **模組表** `KANSHOU_STYLE_MODULES_`（Gallery.gs·資料驅動，加一段＝往表加一列）：
@@ -1526,6 +1526,7 @@ schema 教 AI 寫 `"1. [主動]…"`，而 `data.options` 是**原樣**長成按
 |---|---|---|---|
 | voice | 筆觸 | sys | 「後日談敘事核心·輕小說筆觸…」（nsfwBaseRules 開頭） |
 | agency | 玩家主權 | sys | 鐵律 1 動作與台詞只有玩家能決定 |
+| enact | 演玩家這一步 | sys | 鐵律 2（2026-09 新增）：narration 從玩家這一步演起、撐成完整的一拍，但只擴寫他真的寫的那一步 |
 | dialogue | 對話格式 | sys | `dialogueFormatRule_()`（預設是函式，所以走 `kanshouStyleDefault_`） |
 | drive | 推演 | sys | 鐵律 4 |
 | continuity | 情緒連貫 | sys | 鐵律 5 |
@@ -1538,6 +1539,15 @@ schema 教 AI 寫 `"1. [主動]…"`，而 `data.options` 是**原樣**長成按
 | ending | 收尾 | user | 🚨【收尾】（`{主動掌握}`／`{推進}` 隨 driveOn） |
 
 留死不交：鐵律 2 `<br><br>`、6 性別欄、8 裝扮既定、10 JSON、整個 finalJson、親密尺度、地點釘死、這個世界有誰、world_note 規則、此刻、在場來由、角色一致性。
+
+- **🖋️ 玩家打的字要被演出來**（2026-09 玩家「我想要使用者輸入的文字也會被擴寫到劇情」）：兩件事一起修才成立。
+  ① **標籤說實話**：玩家自己打的字原本跟按鍵一樣被冠上 `【玩家意圖】：`——那是 GAS 寫的意圖摘要專用的標籤，
+  貼在玩家原話上等於告訴模型「這只是他想做什麼」，於是 AI 把它當前提跳過、直接寫對方的反應。
+  改成 `【玩家原話】：`（按鍵路徑仍是 `【玩家意圖】`，因為那真的是 GAS 的摘要）。
+  ② **`enact` 鐵律**：narration 從玩家這一步演起，撐成完整的一拍（動作、距離、觸感、開口的語氣與視線），
+  但只擴寫他真的寫的那一步——不補沒做的動作、沒說的話。跟 `agency`（不替玩家決定）是同一件事的正反兩面，故緊鄰排在鐵律 2。
+  ⚠ 台詞「照原句抄、禁轉述」**不在這條裡重複講**——`dialogue`（對話格式②）已經寫了，同一件事只留一個出處。
+  ⚠ 這條是 **sys** 模組，拿不到 `{代名詞}`（那組變數只餵 user 段），所以句子必須中性——`check_pronoun` 第一版就抓到寫死的「他」。
 
 - **資料層**：新分頁 `鑑賞風格` `[遊戲ID, 模組, 文字, 開關]`（`KS_`）。缺列＝預設；文字空＝預設；開關 `0`＝整段不送。表上只放真的改過的列（存空文字＋開啟＝刪列）。快取 `KS_<gid>` 120 秒，比照世界帳本 `KW_`；歸零重來一併清掉。
 - **讀取**：`kanshouStyleRead_(gid)` → `{key:{text,on}}`；組 prompt 唯一讀口 `kanshouStyle_(styles, key, vars)`：玩家版 → 關閉＝'' → 預設，並代入 `{玩家}{代名詞}{篇幅}{主動掌握}{推進}`。

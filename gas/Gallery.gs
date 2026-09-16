@@ -1083,6 +1083,7 @@ function buildDefaultSystemPrompt(includeOptions, styles) {
   const _st = k => kanshouStyle_(styles, k);
   const rules = [
     _st('agency'),
+    _st('enact'),
     '每3~4句 <br><br> 分段。',
     _st('dialogue'),
     _st('drive'),
@@ -1641,6 +1642,7 @@ var KANSHOU_WORLD_TEXT_MAX_ = 40;
 var KANSHOU_STYLE_MODULES_ = [
   { key: 'voice',      name: '筆觸',     slot: 'sys',  def: '後日談敘事核心·輕小說筆觸·台灣繁體中文·第二人稱「你」＝玩家·禁上帝視角。' },
   { key: 'agency',     name: '玩家主權', slot: 'sys',  def: '承接玩家最新動作與台詞【語氣照原樣】(疑問就疑問、吐槽就吐槽)·【動作與台詞只有玩家能決定】：不替玩家加動作、不替玩家開口、不改寫成轉述(感受不在此限)·被搭話的人本回合必給完整真實反應·優先接反轉/否定/突發情緒。' },
+  { key: 'enact',      name: '演玩家這一步', slot: 'sys', def: 'narration【從玩家這一步演起】，別跳過它、別只當成已經發生的前提：把那一步撐成完整的一拍(具體的動作、距離、觸感、開口時的語氣與視線)，再往下接對方的反應。但【只擴寫玩家真的寫的那一步】——不補沒做的動作、沒說的話，也不改原意與語氣。' },
   { key: 'dialogue',   name: '對話格式', slot: 'sys',  def: '' },   // 預設走 dialogueFormatRule_()，見 kanshouStyleDefault_
   { key: 'drive',      name: '推演',     slot: 'sys',  def: '依玩家輸入【確實推演往下走·不停滯敷衍】——答不答應由對方的[個性]×[好感]決定(順從/猶豫/半推半就/婉拒皆可)，玩家不能替對方決定反應。' },
   { key: 'continuity', name: '情緒連貫', slot: 'sys',  def: '繼承歷史情緒與親密階·絕不無故重置(降溫只因被打斷/翻臉等明確事件)。' },
@@ -2213,7 +2215,7 @@ function actionPlay_(userData, pcId, sheets) {
         ? (userData.moveWithCompanion
           ? `【玩家意圖】：和身旁答應同行的人一起走向了「${moveName}」。`
           : `【玩家意圖】：走向了「${moveName}」，四處看看那裡有什麼、有沒有遇見誰。`)
-        : `【玩家意圖】：${userMsg}`;
+        : `【玩家原話】：${userMsg}`;  // ⚠ 玩家自己打的字≠GAS 寫的意圖摘要，標籤不同源（見 CODE_NOTES）
 
   const dirtyPcRows = new Set();
   dirtyPcRows.add(pcIndex); // 玩家本人一定會被處理到，先加進去

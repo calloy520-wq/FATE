@@ -644,7 +644,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### 御主 avatar 設定（隨時可改）
 
 - `actionKanshouSetPace(userData, pcId, sheets)`（action `kanshou_set_pace`，2026-09 新增）— 設定時間流速（每回合幾分鐘，只收 `KANSHOU_PACE_OPTIONS_`=[0,10,20,30]，0＝暫停），寫進玩家列 MEMORY 的【時間流速】標記。搭配 `kanshouPaceOf_(memory)`／`kanshouHourPerAction_(memory)`（唯一讀取入口，查無/不合法回預設 10）與 `kanshouHoursUntilDateTime_(curDay, curHour, y, m, d, hh)`（指定日期時刻→差幾小時，**只能往前**，往回回 0）。原本寫死的 `KANSHOU_HOUR_PER_ACTION_` 常數已移除。
-- `KANSHOU_STYLE_MODULES_`（常數·2026-09）— 🎨 說書人風格 12 段模組表 `{key,name,slot,def}`（sys 7 段進 nsfwBaseRules、user 5 段進 USER prompt）；`def` 就是原本寫死的那句。`KANSHOU_STYLE_TEXT_MAX_`(300)／`KS_`（分頁欄位 GID/KEY/TEXT/ON）。
+- `KANSHOU_STYLE_MODULES_`（常數·2026-09）— 🎨 說書人風格 13 段模組表 `{key,name,slot,def}`（sys 8 段進 nsfwBaseRules、user 5 段進 USER prompt）；`def` 就是原本寫死的那句。`KANSHOU_STYLE_TEXT_MAX_`(300)／`KS_`（分頁欄位 GID/KEY/TEXT/ON）。
 - `kanshouStyleModule_(key)` / `kanshouStyleDefault_(key)` — 查模組／取預設（`dialogue` 的預設是 `dialogueFormatRule_()`，所以預設要從這支拿、不能直接讀 `def`）。
 - `kanshouStyleSheet_()` — 取/建「鑑賞風格」分頁。
 - `kanshouStyleRead_(gameId)` / `kanshouStyleBust_(gameId)` / `kanshouStyleWrite_(gameId, key, row)` — 這一局的風格覆寫 `{key:{text,on}}` 讀（快取 `KS_<gid>` 120 秒）／清快取／寫一格（`row=null`＝刪列＝回預設）。
