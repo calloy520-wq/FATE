@@ -34,6 +34,8 @@
   ⚠ **這是一種形狀，不是一個 bug**：「先用 game_id 濾出一批列 → 取出名字 → 拿名字回頭掃全表」。
   全樹掃過只有兩處，另一處在 `actionRest` 的死分支裡（已連分支一起砍，見 `SOLO_REFERENCE.md`）。
   **之後要用名字回頭找列，一律先問「這個名字在別人那局會不會也有」。**
+- 🐛→✅ **2026-09 長名同伴靠名字查無此人**：`sanitizeUserData_` 對 `targetName` 一律截到 `NAME_MAX=20`，但美遊／小黑／伊莉雅(Caster install) 三位不在 `KANSHOU_CASUAL_NAME_` 裡、列上存的是 23~30 字全名——釘選／刪除共同回憶、關係稱呼、專屬稱呼全部「找不到這位同伴」。根源修法＝**id 優先、名字備援**（`findPcRowIdx_` 本來就吃 `{id, name}`）：前端三個入口帶 `targetId`（關係面板開啟時記 `_krTargetId`；共同回憶按鈕帶 `c.id`），後端三支 handler 傳 `{ id: targetId, name: targetName }`。探針 `names.js`。
+- 🐛→✅ **2026-09 世界帳本條目名被清成純中文**：`kanshou_world` 的條目名原本借用 `name` 鍵，被 `sanitizeUserData_` 的 `CHINESE_NAME_FIELDS` 當成 solo 創角姓名——剝掉英數與「·」、截到 10 字；而 AI 寫進同一張帳本的名字卻允許英數＋20 字。改鍵名 `entryName`（含 rg_rename 的 `newName` 一起進 `STRICT_NAME_FIELDS`：剝 HTML／MEMORY 結構字元、上限 20），前後端八個呼叫點同步，`check_contract` 盯兩端。
 - **歷史暫存**：solo/鑑賞**共用同一張「歷史暫存」表**，靠 `pcId` 前綴（`PC_` vs `KPC_`）隔離、非物理分表——架構唯一例外，記在案。
 
 ### COL.PC 鑑賞實際用到的欄位（定義 `Core_Settings.gs`）

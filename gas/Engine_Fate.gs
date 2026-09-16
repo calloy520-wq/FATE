@@ -429,15 +429,6 @@ function npKindOf_(c) {
   for (var k = 0; k < NP_KIND_MARKS_.length; k++) if (np.indexOf(NP_KIND_MARKS_[k].mark) >= 0) return NP_KIND_MARKS_[k].kind;
   return 'attack';
 }
-// 解放完會不會在戰場上留下東西（召喚物／變身態）。海怪那套維持費/護盾就是這個旗標的第一個實作。
-function npLingers_(c) {
-  var op = servantNpOptions_(c && c.name, c && c.cls);
-  if (op && op.length) {
-    var i = Math.max(0, Math.min(op.length - 1, parseInt(c.npChoice) || 0));
-    if (op[i].lingers != null) return !!op[i].lingers;
-  }
-  return String((c && c.np) || '').indexOf(NP_LINGER_MARK_) >= 0;
-}
 // 能不能主動解放（常駐寶具是自動生效的，沒有「解放」這個動作）。
 function npReleasable_(c) { return npKindOf_(c) !== 'passive'; }
 // 能不能拿來跟對方的真名對轟（非攻擊類的破戒/召喚術式接不住一發對城光炮）。

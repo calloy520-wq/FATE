@@ -388,12 +388,6 @@ function setMageRealmPick_(memory, fx) {
   return clean ? (clean + '｜【魔境】' + fx) : ('【魔境】' + fx);
 }
 
-// 🎴 從一列的六圍 SIX 推 HP/MP（耐久→con、魔力→mag）。
-function maxStatsForRow_(row) {
-  var six = {}; try { six = JSON.parse(row[COL.PC.SIX] || "{}"); } catch (e) { }
-  return fateMaxHpMp_(svNum_(six["耐久"] || "E"), svNum_(six["魔力"] || "E"));
-}
-
 // 性別→代名詞。兩軌共用：solo 的御主/從者、鑑賞的同伴都從資料算，不在提示詞裡寫死。
 // 查無(含「異」「無」「」)一律退回中性「TA」——寧可中性，不要猜錯性別。
 var PRONOUN_ = { '男': '他', '女': '她' };

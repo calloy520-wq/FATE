@@ -23,7 +23,7 @@
   - `AI_MODEL`（屬性 `MODEL`，預設 `google/gemini-3.5-flash-lite`）：**兩軌共用的唯一主力模型**。
   - `FALLBACK_MODEL`（屬性 `FALLBACK_MODEL`，預設 `x-ai/grok-4.20`）：被審查擋下／重試全敗時的後援，由 `callGeminiAPI` 全域自動換，呼叫端不必傳。
   - ⚠ 2026-09 玩家定案「只要這兩顆」：`SOLO_MODEL`／`UNLOCKED_MODEL` 已整組移除，同名指令碼屬性從此無效。
-- `callGeminiAPI` payload 帶 Gemini `safety_settings`（BLOCK_ONLY_HIGH，非 Gemini 模型靜默忽略）＋尾端附「台灣繁體中文（正體字）」語言鐵律（避免簡體滲透）。`max_tokens`：鑑賞 1000 / solo fallback 2000 / `narrateWithState_` 預設 720。連線失敗時 fallback 回貼世界觀的柔性訊息（🌫️因果紊亂），原始錯誤只進 `Logger.log`。
+- `callGeminiAPI` payload 只有 model/messages/temperature/top_p/max_tokens＋可選 top_k/penalty（⚠ 2026-09 稽核：文件曾寫「帶 Gemini safety_settings」，代碼從沒有這個欄位）＋尾端附「台灣繁體中文（正體字）」語言鐵律（避免簡體滲透）。`max_tokens`：鑑賞 `actionPlay_` 明傳 2400（時間跳躍且無同伴時 700；`callGeminiAPI` 裡的 `isNsfwMode ? 1000` 預設從未生效，因為唯一的 NSFW 呼叫端一律明傳）/ solo fallback 2000 / `narrateWithState_` 預設 720。連線失敗時 fallback 回貼世界觀的柔性訊息（🌫️因果紊亂），原始錯誤只進 `Logger.log`。
 
 驗證套路：改完必跑 `bash check.sh`（驗全部 .gs ＋ `Script*.html` 內嵌 JS；CI 只檢查 .gs）。
 
@@ -40,7 +40,7 @@
 - `applyModeUI()`（Script.html）是模式總開關。solo 隱藏 full 專屬功能、收掉輸入框、顯示 `war-actions` 行動列。
 - **雙軌**（Index.html `scr-menu`）：🎴 純淨（單人聖杯戰爭·SFW）／🌹 慾海（鑑賞後日談·NSFW）。共用一張試算表＋核心資料，靠 帳號＋game_id 分流，不拆表。
 - **無戰記/排行榜/唯讀回顧視窗**：`showVictoryHistory`/`actionGetVictoryHistory`/`openLeaderboard`/`actionLeaderboard`/`incrementWin_`/`recordHistory_`/`recordWinSpeed_`＋「戰史」表、帳號表 WON/BEST_DAYS 欄 皆已移除。
-- **持久層（清檔不刪）**：帳號表、鑑賞表（封存從者）。**會被清檔刪**：眾生（game_id）——NPC 對御主的關係已併入眾生列。
+- **持久層（清檔不刪）**：帳號表、鑑賞眾生（動態建）、鑑賞世界／相簿（動態建）。（「鑑賞」封存表已整套移除，見 §2 分頁。）**會被清檔刪**：眾生（game_id）——NPC 對御主的關係已併入眾生列。
 - **補魔(solo)**：`actionManaSupply` 走 narrate_only（SFW，曖昧 fade、點到為止）。
 - ⚠ **2026-09 砍掉 `actionRest` 的「非 FATE 舊版休養」死分支**：game_id 只有 `g_`(solo)／`k_`(鑑賞) 兩種前綴，而 `rest` 在 `KANSHOU_BLOCKED_ACTIONS_` 對鑑賞是擋掉的 → `isFateRest` 分支一定會 return，那段永遠走不到。但它裡面藏著兩個跨帳號洩漏：「同行」全回滿沒帶 game_id／`bystanderNames` 用地點掃全表、把別人那局在同名地點的角色名字一起端出來（且前端從來沒讀過這個欄位）。**死碼不是無害的，它是「哪天條件變了就直接生效」的地雷**；已換成一句明確的失敗。
 - 🤝 **盟約倒數（2026-09 補接線）**：盟約有效期是 `day <= until`（`breakStaleAlliances_` 判 `day > allyUntil_` 才破），
@@ -66,9 +66,9 @@
 - **game_id**：每局一個世界。`g_`+ts=聖杯戰爭；`k_`+ts=鑑賞世界。所有查詢帶 game_id 過濾，杜絕跨世界外洩。
 - **🌹 鑑賞獨立分頁**：慾海角色住「鑑賞眾生」分頁（`getKanshouPcSheet_`，schema 同眾生），dispatcher 在 `pcId` 以 `KPC_` 開頭時路由到此。詳見 `KANSHOU_REFERENCE.md`。
 - **FACTION**（COL.PC.FACTION 字串）：`御主`(玩家)、`從者`(玩家的)、`敵御主`、`敵從者`、`盟友御主`/`盟友從者`（前端 override，見 §8）。
-- **六圍階級制**：FATE 純六圍 SIX（STR/CON/AGI/INT/LUK 五圍已移除）。HP/MP 由 `maxStatsForRow_(row)`＝`fateMaxHpMp_(svNum_(SIX.耐久), svNum_(SIX.魔力))`（`100+con*10`/`50+mag*10`，無境界倍率）。九州境界/物品/銀兩/門派 helper 全砍。
+- **六圍階級制**：FATE 純六圍 SIX（STR/CON/AGI/INT/LUK 五圍已移除）。HP/MP 由 `fateMaxHpMp_(svNum_(SIX.耐久), svNum_(SIX.魔力))`（⚠ 舊包裝 `maxStatsForRow_` 已隨非 FATE 休養死分支一起砍掉，2026-09）（`100+con*10`/`50+mag*10`，無境界倍率）。九州境界/物品/銀兩/門派 helper 全砍。
 - **提示詞已全清九州詞**（例外：`雙修技巧`＝NSFW MEMORY 機制保留；`凡人`作「人類御主」描述語保留）。
-- **分頁**（Setup_FateWorld.gs `FATE_SHEET_DEFS`，缺頁自動補、冪等）：坤圖(地圖)/眾生/英靈殿/御主殿/帳號/鑑賞/歷史暫存 7 頁＋動態建的「鑑賞眾生」。時鐘/權柄/關係 併入眾生列；因果(事件log)/戰史/史紀 直接刪除、無替代。
+- **分頁**（Setup_FateWorld.gs `FATE_SHEET_DEFS`，缺頁自動補、冪等）：坤圖(地圖)/眾生/英靈殿/御主殿/帳號/歷史暫存 **6 頁**＋動態建的 鑑賞眾生／鑑賞世界／相簿 3 張（⚠ 舊「鑑賞」封存分頁已隨 COL.GAL 移除，實體分頁若還在可手動刪）。時鐘/權柄/關係 併入眾生列；因果(事件log)/戰史/史紀 直接刪除、無替代。
 
 ### COL schema（索引讀取；定義在 `Core_Settings.gs` 開頭 `const COL`）
 
@@ -88,7 +88,7 @@ PC(眾生):
   死欄(恆空·佔位不刪)：MONEY33 UPKEEP_WEEK34 ROOM35
 HERO(英靈殿): ID0 CLS1 NAME2(真名) SEX3 SIX4 CLASS_SKILLS5 SKILLS6 TRAITS7 NP8 PERSONA9(JSON) ALIGN10 WARS11 SOURCE12
               DAILY_LOOK13 DAILY_WORDS14 DAILY_MOE15 DAILY_OUTFIT16 (13-16＝鑑賞用日常版，與戰時 PERSONA 分開存)
-MASTER(御主殿): ID0 NAME1 SEX2 APPEAR3 MAGIC4 CIRCUITS5 MELEE6 MAGIC_RANK7 HOME8 WISH9 PERSONA10 WAR11 SOURCE12 BACK13(身世) MOE14(萌點)
+MASTER(御主殿): ID0 NAME1 SEX2 APPEAR3 MAGIC4 CIRCUITS5 MELEE6 MAGIC_RANK7 HOME8 WISH9 PERSONA10 WAR11 SOURCE12 BACK13(身世) MOE14(萌點) ALIGN15(陣營)
 MAP(坤圖): REGION0 NAME1 TYPE2 COORD3 DESC4 PARENT5 WAR6(''=通用/'4th'/'5th' 限定該戰爭)
 ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccountToKanshouPc_ 專責讀寫)
 ```
@@ -100,7 +100,7 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 主進入點 `handleGameAction` → `sanitizeUserData_`(輸入清洗) → 查 `ActionRouter[action]` → **pcId 歸屬中央驗證**(2026-07新增，見下)。AI 輸出經 `sanitizeAiData_` 夾值防幻覺。未知 action 走 else 支優雅回錯誤。
 
 - **🔒 pcId 歸屬中央驗證**（2026-07 系統性漏洞修補）：稽核發現近全部 solo 戰場/移動/羈絆/經濟類 action（`get_tags`/`sync`/`fate_battle`/`mana_supply`/`bond`/`move`/`use_seal`…共20餘個）過去只用裸 `findIndex` 信任前端傳入的 `pcId`（可預測字串 `"PC_"+timestamp`），完全沒反查「帳號」表——猜中/枚舉即可代任意玩家讀取私密狀態或竄改 HP/羈絆/裝備，部分不可逆（`mana_supply` 燒蝕迴路）。修法：`handleGameAction` 在 dispatch 前對所有帶 `pcId` 且非 `OWNERSHIP_CHECK_EXEMPT_` 白名單的 action，統一呼叫 `verifyPcOwnership_(acctName, pcId)`（Account.gs，反查帳號表 `COL.ACC.PC`/`COL.ACC.KPC`）；前端 `gasRun()` 同步補上「未帶 `acctName` 就自動填 `pc.account||currentAccount`」，取代逐一補幾十個呼叫端 payload。白名單只留 `account_login`/`account_new_game`/`create`/`enter_kanshou`（pcId尚不存在）、`claim_hero`/`save_hero`（走 creator 模型）、`get_heroes`/`get_masters`（公開名冊）等不涉個別玩家列的動作。
-- **慾海擋牆**：`KANSHOU_BLOCKED_ACTIONS_` 白名單，`isKanshouCtx` 命中就在 dispatcher 層擋下戰鬥/經濟類 action（`fate_battle`/`use_seal`/`mana_supply`/`bond`/`rule_break_steal`/結盟系/陣地系/`set_*` 等）。刻意不擋 `move`/`update_fate`/`update_rel_tag`。
+- **慾海擋牆**：`KANSHOU_BLOCKED_ACTIONS_` 白名單，`isKanshouCtx` 命中就在 dispatcher 層擋下戰鬥/經濟類 action（`fate_battle`/`use_seal`/`mana_supply`/`bond`/`rule_break_steal`/結盟系/陣地系/`set_*` 等）。刻意不擋 `update_fate`/`update_rel_tag`（solo/鑑賞共用 handler）。⚠ `move` **有擋**（鑑賞的移動走 `actionPlay_` 的 `moveTarget`，不經 `move`）。
 - **⚡ 每按鍵 3→1 round-trip**：dispatcher 對 `STATE_AFTER_ACTIONS` 白名單動作＋`PC_` 御主，自動把 `_state:buildClientState_()` 夾進回應；前端 `gasRun` 暫存 `data._state`→`__pendingState`，`syncData` 優先消費。寫入完整性已驗證的 handler（move/rest/fate_battle）用 `STATE_PRE_DATA_` 把權威 pcData 交棒給 dispatcher，`buildClientState_(sheets,pcId,preData)` 直接複用免整表重讀。**別把多餘 round-trip 或重複整表讀回加回來。**
 
 ### solo 會用到的 action
@@ -108,14 +108,14 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 | action | handler | 作用 |
 |---|---|---|
 | check_name / check_sheets / account_login / account_new_game | Account/Setup 系 | 登入／建帳號／開新局／手動補分頁 |
-| create | actionManualNpc | 御主創角。**🚀 非阻塞：不叫 AI**——用玩家種子值＋GAS 算的數值（HP/MP/game_id/迴路/令咒/模式/戰爭/扮演 MEMORY）＋起始禮裝秒寫入。落點確定性選（偏好新都）。（手動建 NPC 的 !isCreate 分支已成死碼）。**🛡️ 帳號重入防呆**：帳號若已連結一局活著的遊戲(帳號表 `COL.ACC.PC` 存在且對應列仍在)則拒絕再建——防 `create` 異常被呼叫第二次時 `linkAccountToPc_` 覆寫連結指標、悄悄孤兒化舊角色＋已召喚的從者(英靈殿範本不受影響·僅帳號視角看不到那局進度)。合法的 `newGameFlow` 本就先呼叫 `account_new_game` 清連結才會走到這裡，不受影響。 |
+| create | actionManualNpc | 御主創角。**🚀 非阻塞：不叫 AI**——用玩家種子值＋GAS 算的數值（HP/MP/game_id/迴路/令咒/模式/戰爭/扮演 MEMORY）＋起始禮裝秒寫入。落點確定性選（偏好新都）。（舊「手動建 NPC」的 !isCreate 分支已整段刪除，不是死碼仍在）。**🛡️ 帳號重入防呆**：帳號若已連結一局活著的遊戲(帳號表 `COL.ACC.PC` 存在且對應列仍在)則拒絕再建——防 `create` 異常被呼叫第二次時 `linkAccountToPc_` 覆寫連結指標、悄悄孤兒化舊角色＋已召喚的從者(英靈殿範本不受影響·僅帳號視角看不到那局進度)。合法的 `newGameFlow` 本就先呼叫 `account_new_game` 清連結才會走到這裡，不受影響。 |
 | backfill_master_ai | actionBackfillMasterAi | 🚀 御主敘事非阻塞補生成：create 後前端 `backfillMasterAi(seed)`（不 await·趁挑從者空檔）呼叫，AI 補 背景/特徵/個性/萌點，只單格 setValue 更新 4 敘事欄（BACK/TRAIT/PREF/INTENT）。失敗＝保留種子。 |
 | update_fate | actionUpdateFate | 逆天改命：玩家改自己 4 敘事欄（個性/特徵/身世/萌點），數值/寶具不可改。**萌點例外(2026-07)**：`fateType==='intent'` 且目標非自己(`pcData[pIdx][COL.PC.ID]!==pcId`)一律拒絕——同伴/NPC的萌點「真正內化」給AI演出參考，玩家不可查看也不可竄改(前端`intent-box`對非自己卡片整格連改命鈕都隱藏，這裡是後端防線)。 |
 | summon_servant | actionSummonServant | 召喚從者（英靈殿抓真名/六圍/技能→眾生列）。種子英靈直接用寫死 persona、不叫 AI；名冊查無才走 AI 即時生成。敘事8格：個性(PREF)讀 `persona.words`、特徵(TRAIT)讀 `persona.look`（經 `looksToTraitParts_` 切成 3 格 外貌/氣質/卸下心防私密一面；2026-09 前是 4 格、第3格是自稱）。AI 生成走 `sanitizeSix_`（EX 最多2項·超額降A）/`sanitizeSkills_`（fx 非 `ALLOWED_FX_` 白名單→清空·階級 regex·數量帽）雙重防呆；缺 realName/six 中止不寫表。**🐛→✅ 2026-07 職階技能改 GAS 直接指派**：舊版讓 AI 自己生 `classSkills`(prompt 只講「貼合職階慣例」)，玩家實測抓到一名 Berserker 除了正常的「狂化」外還多一個像符文/道具作成系的「召喚騎士」——AI 額外發明了一個不屬於該職階原型的技能，軟性建議擋不住。改為比照工房 `parseForgeBuild_`：`aiCSkills = FORGE_CLS_SKILLS_[cls] || []` 直接指派、不再問 AI，prompt 也移除 classSkills 請求(只留固有技能 skills 2~3個)，徹底杜絕跑題，AI 專心生角色個人技能即可。**🌀 2026-07 六圍下限保底 `bumpSixToFloor_`**：舊版只擋「太強」沒擋「太弱」——AI 常自己抓不準力度，玩家實測抓到「AI自訂從者也太弱」，光靠 prompt 措辭「務必有強有弱」擋不住。改為 GAS 硬性補強：算完(六圍+`aiSkills`，**不含** `aiCSkills` 職階技能，比照工房不計費)低於工房同款 `FORGE_FLOOR_`(=340，對齊 `FORGE_BUDGET`)就把最弱一項六圍逐階往上補，直到達標或撞 EX≤2 上限為止；`align` 也補上跟工房一致的 `ALIGNS_` 白名單驗證(舊版 `aiBrief.align||"中立"` 沒驗證，AI 可能吐出九宮格外的怪陣營字串)。**技能 `{n,r,fx}` 中 n(顯示名)與 fx(機制)脫鉤**：`sanitizeSkills_` 保留 AI 取的 n(截10字)、獨立驗 fx；戰報靠 `fxName_` 讀該從者自己的 n 顯示、不會張冠李戴。**🎭 三分類 `origin`**(前端 `s-origin`／`cf-origin`·helper `originGuide_(origin)`→`{frame,skill,pnote}`)：`fate`=Fate正史(技能忠原著招式名)／`anime`=其他動漫畫知名角色(技能取該角色招牌招式名，如悟空→龜派氣功)／`original`=完全原創(自取像寶具的花名·空=此)。自訂生成(summonByDesc)吃 `frame`(角色框定)+`skill`(技能命名)；工房(summonByForge/save_hero)技能名玩家自己打·只吃 `pnote`(AI 補人格忠實度)。**⚔️ 自訂生成職階獨立選擇 `s-cls`**：不吃上方瀏覽名冊用的 `selectedSummonClass`(曾誤共用→玩家點過職階分頁瀏覽後再自訂生成，職階被悄悄鎖死、跟描述無關)；不選(空字串)時 `reqCls` 亦空，`clsUnset` 成立→職階交給 AI 依描述判斷(回傳 JSON `cls` 欄，非法值才退回 Saber)，不再死綁 Saber。**🏷️ 技能來源標記 `tagSkillKind_(arr,kind)`**(Router_Creation.gs)：寫入 TAGS 前把 classSkills/skills 分別打 `kind:'class'/'skill'` 再合併——4 個寫入點(此函式 hero 分支/AI生成分支、Seed_Codex.gs 種子英靈、Seed_Rivals.gs 敵方鋪陳)皆已改用；純顯示欄位，`hasFx_`/`fxName_` 只認 fx/r 不受影響。前端 `buildSvCard`(Script.html) 據此把技能分三卡「職階技能／固有技能(依 `rankVal_` 階級高→低排序)／特殊技能(`SELECTABLE_FX` 可選效果)」，寶具維持原樣不動；`skillBucket_` 對缺 `kind` 的舊角色(合併時未標記)退回 `CLASS_SKILL_FX_HEUR_`(鏡射 `FORGE_CLS_SKILLS_`) fx 代碼猜測，猜不中一律落固有技能。**🎨 2026-07 AI 自訂生成分支補外貌生成**：舊版這條路徑完全不叫AI生成外貌，`TRAIT` 恆套通用預設「外貌出眾、舉止從容…」，得靠玩家事後逆天改命補——現在 schema 補 `look`(4格頓號同工房格式，女性角色明確要求含身形/胸圍具體描寫)，`parseTraitsHelper(aiBrief.look, 同款預設)` 寫進 TRAIT，且傳進 `recordOriginalHero_` 的 `pExtra.look` 供日後重召/日常版轉換(`translateLookToDaily_`)使用，不再永遠停在通用預設。 |
 | save_hero / claim_hero | actionSaveHero / actionClaimHero | 🛠️ 工房（純製造/修改·不直接召喚）：create（AI 補 persona·蓋 `persona.creator` 印記）或 edit（帶 heroId·僅創造者·真名不可改）。驗證走 `parseForgeBuild_`（單一真實來源·六圍預算340·技能/規模計價·正典擋；計價本體已抽成共用 `forgeCost_`，與上方 `summon_servant` 的六圍下限保底 `bumpSixToFloor_` 共用同一套算式，見該列）。claim_hero＝認領無主原創英靈。召喚走玩家原創專區→hero 分支實體化。**🔑 creator 綁定**：`recordOriginalHero_` 是唯一寫入點，persona 存 `creator`(＝acctName)＋`weapon`；工房與自訂生成(summon custDesc)兩路都傳 creator，edit 分支靠 `pj.creator===acct` 擋非本人。(曾漏寫→creator 恆空使無人能改·已補) **🎭 2026-07 工房補上特性(traits)欄位**：舊版工房恆傳空陣列(玩家手捏角色永遠沒特性、只有AI生成從者才有)——玩家想比照捏「賽亞人/人造人」這類其他作品梗，現開放 `cf-traits` 自由文字欄(頓號分隔·上限4個·單則截8字)，`parseForgeBuild_` 解析成 `out.traits`，create/edit 兩分支都寫回 `COL.HERO.TRAITS`。刻意不進 `FORGE_BUDGET` 計費、不設白名單——這組標籤本來就只有「神性/神格/神靈」與「龍」兩組關鍵字被 `Engine_Fate.gs` 讀到有實際效果，其餘(含清單外任何名稱)純敘事風味，`Script.html` 的 `TRAIT_DESC` 已同步改成誠實描述。 | 
 | get_heroes / get_masters | actionGetHeroes/Masters | 創角選單列出可選英靈/正典御主（正典御主資料前端可預取加速） |
 | get_tags | actionGetTags | 左側狀態面板資料（御主HP/MP/令咒/願望、從者陣列、供魔收支、禮裝、破戒能力）。核心 `buildTagsPayload_(sheets,pcId,preData)`（可吃已讀好的整表免重讀）；`sync`/夾帶 `_state` 已帶 `tags:` 同份 payload。 |
-| fate_battle | actionFateBattle | **核心戰鬥**：D20＋寶具＋令咒＋斬首＋雙從者＋協同強襲（見 §4）。多寶具選定、出力自動全開、令咒/主動技/超載檔位皆隨 fate_battle 夾帶（`userData` 的 servant/npChoice/skill/seal/overload 旗標），省去單獨 round-trip。 |
+| fate_battle | actionFateBattle | **核心戰鬥**：D20＋寶具＋令咒＋斬首＋雙從者＋協同強襲（見 §4）。多寶具選定、出力自動全開、令咒/超載檔位皆隨 fate_battle 夾帶（`userData` 的 servant/servantId/npChoice/seal/overload/stance 旗標；⚠ 主動技已被動化，後端不讀 `userData.skill`），省去單獨 round-trip。 |
 | use_seal | actionUseSeal | 令咒固定選單：修復/補魔/緊急脫離。（mana 分支依好感分流，見 §4 補魔）。**🐛→✅ 2026-07 修「脫離只搬一名從者」**：`escape` 分支舊版只搬 `findPlayerServantIdx_` 挑出的單一從者，破戒奪僕可讓玩家合法擁有兩名 `IS_PARTY==="同行"` 從者時，第二名完全不會被搬走(燃全局僅3道的令咒卻沒真正帶走全隊)——比照 `actionMove` 早就有的「搬所有同行成員」迴圈補上。 |
 | mana_supply | actionManaSupply | 補魔（燃迴路）：回滿共用池，永久代價 maxHP−15、迴路−3（地板迴路8/HP40）＋羈絆＋SFW fade＋存一次性【過充】token。**資格門檻**：從者 `BOND<MANA_TRUST_BOND_(80)` 或御主魔力 >10% 上限 → `declined` no-op（不耗AP/不燒/不動好感·純婉拒敘述）。 |
 | spirit_repair | actionSpiritRepair | 🩹 靈基修復：消費共用魔力池為從者療傷（不燃令咒·可重複）。 |
@@ -179,13 +179,13 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 - `rowToCombatant_(row)`：眾生列→戰鬥物件（含 np=MARTIAL寶具、six、fx、從 MEMORY 讀 output/npChoice/runeMode/horrorUp 等）。
 
 ### 命中/傷害核心
-- **六圍降權（核心哲學）**：參數是角色速寫非戰力表。命中 `= d20 + rankTier(hitStat)×2.5 + rand(-3~3) + outMod`；迴避 `= d20 + (rankTier(敏)×0.65+rankTier(耐)×0.35)×2.5 + rand(-3~3)`；傷害 flat `rankVal×0.6`。階差壓到~12，d20 重新主導。
-- **D&D 傷害骰**：`rollDice_(n,sides)`＋`rankTier_(r)`（E1→EX6）。武器骰每擊 `round(rankVal(主屬性)*0.5)+rankTier d8+命中分差*1.2−耐久/2`；暴擊(擲20)多骰 `rankTier d8+12`。
+- **六圍降權（核心哲學）**：參數是角色速寫非戰力表。命中 `= d20 + (rankTier(主屬)×0.8 + rankTier(筋力)×0.2)×K_STAT + rand(-3~3) + outMod`；迴避 `= d20 + (rankTier(敏)×0.5 + rankTier(耐)×0.5)×K_STAT + rand(-3~3)`（⚠ 2026-09 稽核更正：舊寫法 ×2.5／0.65／0.35 已不是代碼現況，見 Engine_Fate.gs:515-516）；傷害 flat `rankVal×0.6`。階差壓到~12，d20 重新主導。
+- **D&D 傷害骰**：`rollDice_(n,sides)`＋`rankTier_(r)`（E1→EX6）。武器骰每擊 `round(rankVal(主屬性)*0.6)+rankTier d8+命中分差*1.2−耐久/2`；暴擊(擲20)多骰 `rankTier d8+12`。
 - **幸運逆轉（線性）**：以 C 為零點、每離1階 ±2%——低於 C 觸發「命運捉弄」(-10)、高於 C 觸發「福星眷顧」(+8)。E4%/D2%/C0/B2%/A4%/EX6%。
 - **被動 fx 命中/迴避淨加成上限** `HIT_FX_CAP=8`：各累積器 clamp ±8（截斷推「疊加已達極限」標籤）。不入帳：出力/整備/過充/主動技/禮裝/職階相剋/幸運骰/奇襲先機。
 
 ### resolveFateBattle_（單次交手裁決）
-處理的 fx：`aim analyze anti_magic_lance burst chain clear_mind divine_age divine_core ea evade_ranged excalibur first_strike gae_bolg gob mad morale nullify_magic petrify projection rho_aias ride self_mod stealth str_up summon_horror tactics territory tsubame ubw unreadable wind_strike zabaniya`。輔助函式 `hasFx_(c,'x')`／`fxName_(c,'x')`（回實際技能名防張冠李戴）／`hasTrait_`。
+處理的 fx：`aim analyze anti_magic_lance burst chain clear_mind divine_age divine_core ea evade_ranged excalibur first_strike gae_bolg gob mad morale nullify_magic petrify projection rho_aias ride self_mod stealth str_up summon_horror tactics territory tsubame ubw unreadable wind_strike zabaniya`。輔助函式 `hasFx_(c,'x')`／`fxName_(c,'x')`（回實際技能名防張冠李戴）／`hasCausalityNp_(c)`；特性判定各處內聯 `.traits.some(...)`，沒有 hasTrait_。
 
 - **資料驅動技能表 `SKILL_FX_`**：散落的主動技 if 鏈＋線性被動加成收成一張表（加/調技能＝改一列）。欄位 `active/prio/mpPct/icon/descFn`（主動）、`zh/hit/hitAdd/dmgMul/dmgAdd/blockedByLoserFx/silent/note`。收表者：主動 `burst/str_up/projection`＋線性被動 `aim/self_mod/morale/fast_cast/mad/divine_age/wind_strike/crafting/master_melee/master_magic`。不進表（保持明碼）：`gob/chain`（骰子彈幕）、`stealth`（僅 ambush 首擊）、`petrify/gae_bolg/tsubame`（時機條件觸發）、`god_hand`（復活）、`weapon_steal`。
 - **防禦 fx 表 `DEF_FX_`**：平減傷（`rho_aias`×(1-0.40r)/`territory`×(1-0.26r)/`wall_def`×(1-0.18r)/`divine_core`×(1-0.18r)，B階為基準·皆隨階級縮放）。欄位 `mul/pierceKey/zh/note/physicalOnly/alsoPiercedByFx/piercedMsg/guardPositive`。引擎 `fxDefApply_` 在各 fx 原位置呼叫。
@@ -195,17 +195,17 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 - **`CONCEPT_TIER`**：ea·enuma6 / excalibur·divine_age·rule_breaker5 / ubw·anti_magic_lance·gae_bolg·summon_horror·rho_aias4 / god_hand·tsubame·zabaniya·petrify3 / nullify_magic·divine_core·territory2。`offenseTier_(c,isNp)` 取攻方最高進攻概念階（**含本次解放寶具自身的概念** `conceptTier_(npProfile_(c).fx)`，故 Ea 吃得到 tier-6）；`pierces(防禦fx)`＝攻方階≥防禦階+`PIERCE_GAP`(2)→該防禦被無視。
 - **寶具規模矩陣**：`npAtkScale_`（對人/對軍/對城/對界，由寶具名/fx 推）×`npDefScale_` → `NP_SCALE_MATRIX`（對城打對人×1.5、對界×1.7、min×0.4）。⚠ 寶具字串裡 `對人/對軍/對城/對界` 會被 regex 讀進傷害——**亂寫高階標籤＝偷偷 buff**，新增/改寶具務必對齊真實尺度。
 - **對神（弒神）**：第5種尺度、不入矩陣。對「神性」之敵 `×(1+1.4×rankMul(對方神格)`,上限3.0)、對凡人 ×1.15。
-- **多寶具英靈 `servantNpOptions_`**（中央表）：斯卡哈L/吉爾(王財·Ea)/伊斯坎達爾/EMIYA/迦爾納/恩奇都/蒼白騎兵。首項＝主寶具（敵預設）。玩家選定隨 fate_battle 夾帶。`npProfile_(c)` 解出 {scale,fx,r}；`npEffectiveRank_(c)=npProfile_(c).r`（單一真實來源·各選項專屬階級）。`resolveFateBattle_` 簽名效果（gae_bolg必中/ea執行殺/ubw/zabaniya/summon_horror/petrify/scaleMult）一律吃 npProfile。
+- **多寶具英靈 `servantNpOptions_`**（中央表）：斯卡哈L/吉爾(王財·Ea)/恩奇都/伊斯坎達爾/美杜莎R/EMIYA（⚠ 迦爾納／蒼白騎兵已隨陣容清理移除）。首項＝主寶具（敵預設）。玩家選定隨 fate_battle 夾帶。`npProfile_(c)` 解出 {scale,fx,r}；`npEffectiveRank_(c)=npProfile_(c).r`（單一真實來源·各選項專屬階級）。`resolveFateBattle_` 簽名效果（gae_bolg必中/ea執行殺/ubw/zabaniya/summon_horror/petrify/scaleMult）一律吃 npProfile。
 - **神性單一真實來源 `divineRankOf_(c)`**：divine fx 階級→特性(神性|神格|神靈)標的階級→'C'（有神性沒標階）→null。吃它的：god_slay（×1.17~2.0）/天之鎖縛神/對神寶具（弒神倍率）/寶具解放神性加成/對瘟疫抗性。取三者（divine/divine_core/特性）階級最高者。
 - **對轟 `resolveNpClash_`**（純裁決函式·Engine_Fate）：玩家開場 useNp＋敵有寶具且付得起 prana→`clashUrge` 機率敵以寶具相迎。雙方算 pPow/ePow→高者壓過、差額貫穿、勝方回震15%；±10% band 內僵持相抵。優先序階梯：玩家因果律截斷→敵方因果律必死→僵持→高者勝。I/O 留在 Router_Battle。日後加對轟特例改這支函式。
 
 ### 出力電池制 / 御主供魔
 - **從者無自有魔力池**（召喚 MP/MAX_MP=0），全靠御主供魔。**共用池 `masterPoolMax_(迴路,Σ從者魔力)`＝迴路×10+魔力×2**。
-- **出力檔** `outputTier_(pct)`→{hit,dmgMul,drainMul,np,label} 五檔：100%(+3/×1.3/×2.0/可放寶具)、80%、60%(巡航)、40%、20%。`servantOutput_/setServantOutput_`。寶具僅 100% 可解放。
+- **出力檔** `outputTier_(pct)`→{hit,dmgMul,drainMul,np,label} **三檔**：100%(+3/×1.3/×2.0/可放寶具)、60%(巡航)、20%(省著走)。`snapOutput_` 把舊存檔的 40／80 吸附到 20／60（往下、安全）。`servantOutput_/setServantOutput_`。寶具僅 100% 可解放。
 - **御主電池付款** `drainForNp_`：付款序 ①御主MP ②御主HP（`BATTERY_HP_PER_MP`=2HP→1MP，血底線1保底＝設計刻意防「補魔算式自殺」，非 bug）。`npPranaCost_(寶具階)`＝E40/D70/C110/B160/(A~A++)220/EX300（吃 `npEffectiveRank_`）。御主血魔皆空才擋寶具。燃血敘述＝迴路過載灼痛（非外傷流血）。
 - **灌魔超載**（規格外＋/EX 寶具才有旋鈕）：`npOverloadCap_(寶具階)`→無＋=1.0/＋=1.5/＋＋·EX=2.0。定檔制 底費P/2P超載檔/3P極限檔（A階 220/440/660）；**超載段只算 MP 餘裕、不焚血**（想灌更滿→補魔拿【過充】token 無償超載，`getOvercharge_/set/clear`）。**過載反噬** `OVERLOAD_BACKLASH_`：明選檔位機率性迴路暴走（p1 30%/p2·blood 65%·扣maxHP），戰果判定後結算·同發奪勝保命1HP·否則御主昏厥→己方從者盡數 DEAD_。
 - **回魔 `applyRegen_`**（共用池）：重算上限；income(迴路供給＋靈脈＋工房＋Σ從者魔力×0.15)×mult − Σ(從者 drain×outputTier drainMul)；御主/從者 HP 自我修復 5%/hr×avalon1.6。御主乾涸→強制全從者降出力20%＋從者靈基崩解流血。⚠ `applyRegen_` 與 HUD `playerServantEconomy_` 須同一套算式，改一個要一起動。
-- **敵御主電池**：`masterToNpcRow_`/`fakeMasterRow_` MP 吃 `heroMagicRank_` 算契約英靈魔力階（`masterPoolMax_`/`80+rankVal×2`）。敵寶具同吃 `enemyCanAffordNp_`＋`drainForNp_`。masterless 敵：一般英靈寶具啞火；持 `fx:'solo'`（單獨行動）者靠 `INDEPENDENT_ACTION_RESERVE`(60) 硬撐。敵御主 `refillMastersDaily_`（worldTick 每次跑，新的一天回滿·MEMORY 記【回魔日】）。
+- **敵御主電池**：`masterToNpcRow_` MP 走與玩家御主同一條 `masterPoolMax_(迴路, rankVal(契約英靈魔力階))`＝迴路×10＋從者魔力×2（沒有 fakeMasterRow_，也沒有「80+rankVal×2」）。敵寶具同吃 `enemyCanAffordNp_`＋`drainForNp_`。masterless 敵：一般英靈寶具啞火；持 `fx:'solo'`（單獨行動）者靠 `INDEPENDENT_ACTION_RESERVE`(60) 硬撐。敵御主 `refillMastersDaily_`（worldTick 每次跑，新的一天回滿·MEMORY 記【回魔日】）。
 
 ### 御主體術/魔術支援傷害
 - MEMORY【體術】（E~A rank）/【魔術階位】（E~A rank，限 Caster 生效）。`getMasterMelee_`/`getMasterMagicRank_`（Core_Settings）。
@@ -213,7 +213,7 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 - 玩家側＋敵側皆接戰鬥：`fateStrike_` 守方分支對「敵從者」用 `enemyMasterMemoryFor_`(Router_Bond) 反查敵御主 MEMORY 注入。體術/魔術發動的 `fired[]` 標籤（御主體術/御主魔術）也餵進 aiPrompt。
 
 ### 主要 fx 機制（現行）
-- **施放技術（被動化·2026-07）**：`servantActiveSkill_(c)` 只給 3 種原作真·施放技術 `burst 魔力放出`/`str_up 怪力`/`projection 投影`（fx 只活在此層·下修 projection 見 SKILL_FX_）。無按鈕、免耗魔——`rollSkill_`（Router_Battle）每次交鋒 50% 機率自動【全效】發動，未中則該擊無此加成；持有者兩者機率互斥不疊加。敵AI 恆走全效免費（`servantActiveSkill_` 直接餵 `resolveFateBattle_({skill:...})`，不經 50% 骰）。前端「🎲」技能膠囊點開只顯示發動方式說明（`showActiveSkillInfo`），非操作按鈕。常駐被動 `morale 卡里斯瑪`/`aim 千里眼`/`self_mod 自我改造` 不在此列。
+- **施放技術（被動化·2026-07）**：`servantActiveSkill_(c)` 只給 3 種原作真·施放技術 `burst 魔力放出`/`str_up 怪力`/`projection 投影`（fx 只活在此層·下修 projection 見 SKILL_FX_）。無按鈕、免耗魔——`rollSkill_`（Router_Battle）每次交鋒 `SKILL_PROC_ = 0.3`（30%；玩家回饋 50% 太強下修）機率自動【全效】發動，未中則該擊無此加成；持有者兩者機率互斥不疊加。敵AI 恆走全效免費（`servantActiveSkill_` 直接餵 `resolveFateBattle_({skill:...})`，不經 50% 骰）。前端「🎲」技能膠囊點開只顯示發動方式說明（`showActiveSkillInfo`），非操作按鈕。常駐被動 `morale 卡里斯瑪`/`aim 千里眼`/`self_mod 自我改造` 不在此列。
 - **令咒·蓄勢開關**：❖鈕 toggle（`sealArmed`），之後按 普攻/💥寶具 自動帶令咒（絕對必中 `atkWins=true`＋×1.5）並熄燈。後端 seal/np/skill 獨立旗標。
 - **stealth 首擊奇襲**：只在 `opts.ambush` 生效·吃階級（命中+rankVal/10＋要害×~1.4）。**sense 氣息感知**（恩奇都·守方）：`rankVal(sense)≥攻方 stealth`→奇襲先機＋要害全失效。
 - **gae_bolg 必中之槍**：`atkWins = gaebolg ? !gbEvaded : (aHit>=dEva)`。閃避機率 `gbEsc`＝幸運＋直感/心眼(0.15)＋變化(0.10)，夾0.6。令咒必中不受影響。
@@ -285,7 +285,7 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 ## 5. 種子庫（英靈殿/御主殿）
 
 - **Seed_Codex.gs**：
-  - `SEED_SERVANTS`（**20騎**）：4th/5th 正典14騎（阿爾托莉雅-Saber/EMIYA-Archer/庫丘林-Lancer/美杜莎-Rider/美狄亞-Caster/佐佐木小次郎-Assassin/赫拉克勒斯-Berserker/吉爾伽美什-Archer/迪盧木多-Lancer/伊斯坎達爾-Rider/吉爾德萊-Caster/百貌哈桑-Assassin/咒腕之哈桑-Assassin/蘭斯洛特-Berserker）＋鑑賞客串6騎（斯卡哈-Lancer/斯卡哈-Assassin/恩奇都-Lancer/美遊-Saber/小黑-Archer/伊莉雅-Caster）。每筆 id/cls/realName/wars/gender/six/classSkills/skills/traits/np/align/persona（{firstP,words,toMaster,speech,moe,tic}）。
+  - `SEED_SERVANTS`（**25 筆**＝20 騎＋5 位 `cls:'御主'`／`wars:['客串']` 的鑑賞客串：遠坂凜／伊莉雅絲菲爾／間桐櫻／衛宮士郎／藤村大河）：4th/5th 正典14騎（阿爾托莉雅-Saber/EMIYA-Archer/庫丘林-Lancer/美杜莎-Rider/美狄亞-Caster/佐佐木小次郎-Assassin/赫拉克勒斯-Berserker/吉爾伽美什-Archer/迪盧木多-Lancer/伊斯坎達爾-Rider/吉爾德萊-Caster/百貌哈桑-Assassin/咒腕之哈桑-Assassin/蘭斯洛特-Berserker）＋鑑賞客串6騎（斯卡哈-Lancer/斯卡哈-Assassin/恩奇都-Lancer/美遊-Saber/小黑-Archer/伊莉雅-Caster）。每筆 id/cls/realName/wars/gender/six/classSkills/skills/traits/np/align/persona（{firstP,words,toMaster,speech,moe,tic}）。
     - ⚠ **戰爭僅認 `4th`/`5th`**（`fake` 偽聖杯戰爭開局選項＋整套 `FATE_FAKE_ROSTER` 已移除）。chaos 亂鬥靠 `wars` 含 `'客串'` 排除，非硬編碼名單。
     - 單寶具種子的簽名概念 fx 必須掛進 skills（庫丘林 gae_bolg/EMIYA ubw/佐佐木 tsubame/阿爾托莉雅·美遊 excalibur）——只寫 np 字串＝只有規模、沒有概念位階。
   - `SEED_MASTERS`（15名）：id/name/sex/appearance/magic/circuits/melee/magic_rank/home/wish/persona（4段頓號=表象・內裡・喜歡・厭惡，被 masterCard_ 拆解·結構不可動，v67前全數只寫3段、喜歡欄位缺失已補齊）/back(身世)/moe(萌點)。
@@ -298,7 +298,7 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
   - `seedRivalsForGame_`：依 war(4th/5th/chaos) 鋪敵御主+敵從者；移除玩家扮演那組。chaos hPool 含玩家原創 ai_gen（Fisher-Yates 均勻抽）。
   - `masterToNpcRow_`：御主殿列→敵御主眾生列。TRAIT←外貌(mAppear)、PREF←persona、BACK←身世、INTENT←萌點、MEMORY=【願望】|【魔術】|【體術】|【魔術階位】|【迴路】。
   - `heroToNpcRow_`：英靈殿列→敵從者眾生列（god_hand 讀 `lives` 覆寫【試煉】）。
-  - `canonHeroNames_`：正史真名（禁玩家搶角）。`FATE_4TH_ROSTER`/`FATE_5TH_ROSTER` 各自 `loc` 欄決定敵出生點（非讀 COL.MASTER.HOME）。
+  - 正史真名擋名（禁玩家搶角）＝`actionManualNpc` 內聯的 `_canonServantHit`／`_canonMasterHit`（直接掃 SEED_SERVANTS／SEED_MASTERS；沒有 canonHeroNames_ 這支函式）。`FATE_4TH_ROSTER`/`FATE_5TH_ROSTER` 各自 `loc` 欄決定敵出生點（非讀 COL.MASTER.HOME）。
 - **正典劇情插針系統已退役**（無 Seed_Canon.gs·`checkCanonPins_`/`CANON_PINS`/`spawnGilgamesh_` 皆已刪）。MEMORY【路線】【史】成無用遺留。
 
 ---
@@ -333,7 +333,7 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 
 - `getClock_/writeClock_`：日/時/AP 存在御主自己那一列（COL.PC.DAY/HOUR/AP），非獨立時鐘表。
 - `getAp_/spendAp_(gid,n)/grantAp_(gid,n)`（不推時間）、`restHours_`、`rollHours_`、`timeBand_`(晨/午/夜)、`clockLabel_`。
-- AP：每日12，移動2AP、戰鬥/偵查/補魔/禮裝/結盟/共處/整備=1AP、休息每hr補2。
+- AP：每日12，移動2AP、戰鬥/偵查/補魔/結盟/共處/整備=1AP（禮裝全被動、不耗 AP）、休息每hr補2。
 - `playerServantEconomy_`：御主魔力收支 HUD（含 output/outputLabel/svFeed）。工房加成＝atHome‖hasTerritory‖atWorkshop（讀御主【陣地】marker·須與 applyRegen_ 對齊）。**須與 `applyRegen_` 同一套算式。**
 - `worldTick_`：跨時推進世界。含：敵移位（`freezeLoc=playerLoc` 玩家格上敵人禁移，避免撲空）、`refillMastersDaily_`、敵從者小幅自癒 `ENEMY_REGEN_RATE_`(0.06·跨輪累積旗標只寫一次)、令咒透支倒數結算、暗處廝殺（`allowAttrition` 休息·第 `ATTRITION_START_DAY`(3) 日起·遠處·存活>`WORLD_FLOOR_`(4)·7%/tick·挑戰力最低者先死）。**🐛→✅ 2026-07 五路稽核修正**：①敵御主移位時「找不到硬連結從者→抓同格任一孤身從者」的 fallback，註解一直寫「孤身」卻從沒真的檢查——只要同格未死就是第一個掃到的被拖走，即使牠其實掛在另一位(這輪未移動/稍後才輪到的)敵御主名下；改成先查該從者的【御主】tag 是否有一位活著且仍在原地的主人，有→跳過不搶。②暗處互鬥的 `offstage` 候選名單完全沒排除 `isAllied_`(已結盟)的敵從者——玩家養出的盟友只要離開玩家所在格，就有機率被系統隨機抽去和不相干的敵從者互鬥致死，跟「結盟＝可倚仗的戰友」矛盾；已排除。**🐛→✅ 2026-07 玩家「檢查solo看看有沒有問題」稽核抓到①的未修孿生**：敵御主移位隨行從者的「第一輪」配對(找 MEMORY 有【御主】=mName 的從者)一直是子字串 `indexOf` 比對——正是 `Router_Movement.gs findClashSv_` 已修過的同一種前綴撞名 bug，而且緊接在後的「第二輪」fallback 早就已經改用 `getServantMaster_` 精確比對，第一輪先撞名誤配對、`break` 就直接跳過了第二輪的正確判準。chaos/AI原創敵御主撞名前綴(如「伊莉雅」vs「伊莉雅絲菲爾-5th」)時會把 B 御主的從者誤拖去 A 御主的新位置。已改成第一輪也用 `getServantMaster_` 精確比對，兩輪判準統一。
 - **「養不起爆炸」機制已移除**（總撞同一目標·與隨機初衷矛盾）。
@@ -367,7 +367,7 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 - `enemyMasterCard_(row)`：敵御主精簡演出卡（性格取前4/特徵取前3/萌點/身世/體術/魔術，不塞六圍/寶具）。NPC 不受「不可替玩家決定」限制。只在敵御主本人同地在場時注入（`enemyMasterIdx_`＋位置比對）；`actionFateBattle` aiPrompt 加**關係錨**（「此敵御主正是 defC 的契約御主」）＋**戰局實況錨點**（用算好的 HP比例/傷害交換組白話戰況給 AI，讓敵御主反應對得上場面）。正典人物優先調用原作認知、卡片僅錨點。
 - **開放世界**（無「同地路人」機制）：solo 同地角色一律純文字（無金色互動連結·整套 `openInteractMenu` 互動選單死碼已刪）。鑑賞路人＝純氛圍背景人煙（`backgroundCrowdStr`·不具名·不追蹤好感）。能被指名/記好感的只有同行隊伍成員。
 - `enemyAmbushOnServant_`：卸防（補魔/羈絆/共處/休息/結盟）時同地未結盟敵從者的反應。陣地(homeRank)優先→反擊擊退。無陣地時依該敵從者職階/性格擲局面：狂化(無法言語)/暗殺(本色即偷襲)必定突襲；其餘職階多數突襲、有機會落「按兵不動」或「試探性接觸」(皆無戰鬥·`peaceful:true`，5個呼叫端與前端戰報卡共用同一支函式的回傳判斷 `homeRepel||peaceful`)。回 `report`＋`foeCard`。
-- `raiseBond_`(升既有·帶 preData)／`bumpBond_`(無則建)／`getBond_`。`extractWish_`、`buildDreamPrompt_`（敗北虛假之夢·`cause==='timeout'`＝時限夢）、`buildVictoryDreamPrompt_`（勝利真夢·不露破綻）。
+- `raiseBond_`(升既有·帶 preData)／`bumpBond_`(無則建)／`bondFavor_`(讀好感傾向)；讀好感值直接 `row[COL.PC.BOND]`（沒有 getBond_）。`extractWish_`、`buildDreamPrompt_`（敗北虛假之夢·`cause==='timeout'`＝時限夢）、`buildVictoryDreamPrompt_`（勝利真夢·不露破綻）。
 - **⏳ 14天時限**：`day>14` 未奪杯＝敗北。中央攔截在 `handleGameAction`——對 PC_ solo 解析回應現成 `clock` 字串，N>14 且 success 且未 victory/defeat → 補 `defeat:true+deadline:true+dreamPrompt`。前端 `data.defeat`→`handleDefeat`。
 - ⚠ solo 全走 `narrate_only`，後端只讀 `data.narration`、其餘欄位丟棄——prompt 別再寫「嚴禁輸出 stat_changes/items_gained」（多餘且把欄位名秀給 AI）。外顯狀態 STATUS 在 solo 已移除（AI 寫了沒人看）。
 
@@ -401,7 +401,7 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 - `applyModeUI()`：模式總開關（§1）。
 - **狀態面板**：`refreshFateTags`（御主/雙從者卡、補魔/羈絆/令咒/休息/禮裝）、`setActiveServant`、`bondWord`。從者卡「📜狀態」小鈕→`openStatus`（完整命盤）。
 - **戰爭行動列**：`renderWarActions`（手風琴·每目標一張可點開卡·`toggleWarTarget`/`warExpanded`·底部固定偵查/休息/移動）、`attackStyle_`（近戰=攻擊/魔砲/狙擊）、`localFoeServantName`。
-- **行動 handler**（多數走共用骨架 `runSimpleAction_`）：`servantStrike`（出戰/寶具/令咒/刺殺御主）、`manaSupply`、`spiritRepair`、`bond`/`openBondMenu`、`rest`/`openRestMenu`、`scout`、`ruleBreakSteal`、`secondWind`、`setWorkshop`/`scavenge`、`proposeAlliance`/`breakAlliance`/`allyBond`、`prepMeal`。攻擊列 `previewActiveSkill_`（⚡主動預覽·鏡射後端優先序/耗魔）、寶具旁 `🔥＋`/`🩸＋＋` 超載檔位鈕（`npTierArmed`·零 confirm·發射後歸零）、❖令咒蓄勢 toggle。
+- **行動 handler**（多數走共用骨架 `runSimpleAction_`）：`servantStrike`（出戰/寶具/令咒/刺殺御主）、`manaSupply`、`spiritRepair`、`bond`/`openBondMenu`、`rest`/`openRestMenu`、`scout`、`ruleBreakSteal`、`secondWind`、`setWorkshop`/`scavenge`、`proposeAlliance`/`breakAlliance`/`allyBond`、`prepMeal`。寶具旁 `🔥＋`/`🩸＋＋` 超載檔位鈕（`npTierArmed`·零 confirm·發射後歸零）、❖令咒蓄勢 toggle。
 - **戰報**：`renderFateBattleReport`（斬首/strikes/雙從者血條/突襲/追擊/對轟/反噬卡·`stripOwnName` 去重）、`narrate`（**補 await**·等敘述生成完才 `endAction` 解鎖·防搶按）。**🎨 2026-07 回合細節收合**：多回合戰報(`!r.rounds` 之後那段)的逐回合骰值／命中迴避／〔發動〕技能標籤(如「武器骰5d8=25・出力100%・全開・符咒刻印」這類機制代號)舊版直接攤開印在敘事前，玩家得先解析一串開發者除錯用的代號才看得到故事(違反 Don't Make Me Think 的「別讓我思考」/掃視原則)——改用原生 `<details>/<summary>` 包住整段逐回合流水帳，預設收合、顯示「▸ 回合細節（骰值／技能發動，共N回合）」，結算摘要(總傷害/HP條)不受影響、照樣一律可見。
 - **敗北/勝利收場**：`handleDefeat`→虛假之夢→🐯老虎道場 AI 講評（`runTigerDojo_`·依實際敗因·藤村大河+伊莉雅吐槽+對症建議）。`handleVictory`→願望真夢→道場祝賀版→奪杯畫面（共用殼·`openTigerDojo('victory')`）。**🐯 2026-07 道場提示詞收回後端**：前端兩支 `buildTigerDojo*Prompt_` 移除，`handleDefeat` 改從戰報挑出敗因【鍵】(`{cause:'ambush',foeName:…}`)送 `action:'tiger_dojo'`，文案由 `DOJO_CAUSE_` 五格查表組。順手解掉一個舊矛盾：道場原本走 `narrate_only`，被迫吃 `miniSystem` 的「第一人稱我·不用你」「瀕死就是命懸一線」——跟兩人對話＋搞笑教學正面打架，舊版是在提示詞尾巴硬寫「無視戰場的緊張基調」對抗它。現在自帶 264 字說書人設定，也不再附 `lastAiContext` 散文與整表 state。
 - **召喚/創角**（搬到 `Script_Onboarding.html`·只開局跑一次·共享同頁全域作用域）：`accountLogin`/`chooseWorld`（2026-09 起型態×場次合成一屏三顆鈕）/`openCanonMasterPick`/`pickCanonMaster`、`rollFate`/`selectFateRoll`/`renderFateRolls`（魔術天賦測定·擲 melee＋獨立擲 magicRank）、`checkNameOk_`（不再自成一屏，由 `createPC` 送出前呼叫）/`createPC`/`backfillMasterAi`、`doSummon`/`summonByHero`/`startGame`。
@@ -410,17 +410,17 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 - **🏃撤退（追擊已全數轉移到撤退鈕）**（`actionMove`·用移動前資料判定）：**有敵擋道即封鎖從容移動**——離場格有【非盟約·已登場·未友好(BOND<50)】能戰敵從者時，plain move 被擋回 `needRetreat`，須改按 **🏃撤退**（`retreat:true`）殺出重圍。**追擊唯 isRetreat 才觸發**（一般移動遇敵已被 needRetreat 擋走、遇不到敵則無人可追→**不再有機率性離場追擊**）：撤退時敵**必追**（無視敏捷門檻、燃令咒、追兵帶 ambush 先機），`resolveFateBattle_` 真·雙向判定（我輸/我贏回身逼退·保1不致死）。回 `pursuit`（含 `foeCard`·`retreat` 旗標）＋數字戰報卡。slip 窗口（敵分心）可悄悄離開、不封鎖、不追。前端 UI（玩家定案）：**有敵從者在場時，底部「🗺️移動」鈕直接變「🏃撤退突圍」**（`renderWarActions`·`foeServs.length` 判定）→ 點開 `promptRetreat` 退路選單選地點；地圖頁同時換上「⚔️此地有敵·點地點將轉撤退」提示，點任一節點被後端 `needRetreat` 擋→跳「🏃撤退突圍」卡（＝也讓玩家選地點）。不再有 foe-panel 內的獨立撤退鈕。NP 預告背擊(teleFoe)亦併入撤退路徑。
 - **抵達時撞見兩方敵人**（`resolveFactionEncounter_`·Router_Movement）：≥2 位不同敵御主（皆非結盟）同格→**不再永遠「互毆→見你停手」**，改**資料驅動權重表擲一種局面**：clash(交手餘傷·停手)／frenzy(殺紅眼·沒理你繼續打)／standoff(對峙未發)／hunt(一方追殺殘方)／unite(暫時聯手戒你)／pact(敵敵結盟·設【敵盟】)／truce(各自休整)／parley(談判被打斷)／allied_pair(已締盟續演)。權重依雙方 `masterPersonaLean_`（性格投契度·與 `allianceWillingness_` 共用單一真實來源）＋從者傷勢差＋殘敵數動態調整。HP 餘傷／`setEnemyPact_` 敵盟標記等後果 GAS 落地寫 allPcData，`factionClash.note`（純場面事實）給 AI 演出。加局面＝往權重表 W 加一項＋switch 補一段 note。前端 arrivePrompt 用中性 steer（不再假設「你打斷了戰鬥」）。**敵盟／交惡回饋**：已締【敵盟】未逾期→直接演 allied_pair（不重擲）＋`worldTick_` 暗鬥跳過這對（不自相殘殺）＋**正面戰鬥協防**（`actionFateBattle`：攻其一，其敵盟夥伴的同地從者每回合替其反擊我方一記·敵版協同強襲·`rl.pactDef`）；已結【交惡】未逾期→抽掉 pact/unite/truce/parley/standoff、狠推 frenzy/hunt。
 - **撞見敵人的配套「後續選擇」**（局面決定開放哪些按鈕·`FACTION_ENCOUNTER_CHOICES_` 資料表）：抵達時 `resolveFactionEncounter_` 回 `choices:{ambush,incite,slip}`，actionMove 寫【趁隙】loc@type 窗口進御主 MEMORY，`buildTagsPayload_` 回 `encounterWindow` → 前端 `renderEncounterBubbles`（複用鑑賞 `.btn-option` 泡泡·GAS 自產不靠 AI）畫進 `options-container`；抵達時 travelTo 吃 `_state.tags`、之後每次 `refreshFateTags` 依 `window._encWin` 重畫，窗口清掉即自動消失。
-  - 🥷 **趁隙偷襲**（`faction_ambush`→`actionFactionAmbush`→`playerAmbushOnEnemy_`）：敵分心（frenzy/standoff/parley/pact）時搶一記奇襲，複用 `resolveFateBattle_` 的 `ambush` 先機（鏡射 `enemyAmbushOnServant_` 反向），×1.5 加乘、處理敵死亡(DEAD_/`markMasterLostServant_`/`aliveEnemyServants_` 勝利)。耗 1AP、用掉清窗口。
+  - 🥷 **趁隙偷襲**（`faction_ambush`→`actionFactionAmbush`→`playerAmbushOnEnemy_`）：敵分心（frenzy/standoff/parley/pact）時搶一記奇襲，複用 `resolveFateBattle_` 的 `ambush` 先機（鏡射 `enemyAmbushOnServant_` 反向），`ambushMul = 1.3 + clamp(bondFavor×0.5, −0.25, +0.5)`（1.05~1.8，中性 ×1.3；近期被偷襲過【提防】再 ×0.6）、處理敵死亡(DEAD_/`markMasterLostServant_`/`aliveEnemyServants_` 勝利)。耗 1AP、用掉清窗口。
   - 🎭 **挑撥離間**（`incite`→`actionIncite`）：standoff/parley 時煽動兩敵。成敗由 `masterPersonaLean_` 擲（base .5＋孤狼.2−雙務實.25，夾[.1,.85]）；成功→兩敵真打(雙方扣血·保1)，失敗→兩敵合流戒你(無數值罰)。耗 1AP。
   - 💨 **悄悄離開**（slip）：frenzy/parley/pact 時，`actionMove` 讀【趁隙】窗口→跳過撤離追擊判定。
   - 兩 action 皆進 `STATE_AFTER_ACTIONS`＋`KANSHOU_BLOCKED_ACTIONS_`。
 - **🫶 好感提高成功率（GAS 判定·單一真實來源 `bondFavor_(row)`）**：BOND 0-100，40＝中性（未互動過的 0/空視為 40）；回 `(b-40)/60` ∈[-0.67,+1.0]。「對方對你的好感越高→越容易成」套進四處：①`allianceWillingness_` +bondFavor×0.3（交涉結盟）②`actionIncite` prob +avg×0.25（挑撥）③`actionMove` `foeMood`（遇敵態度·依在場敵對者平均好感給 AI 定調 steer·中性留空）④`playerAmbushOnEnemy_` 奇襲加乘 `ambushMul=1.3+clamp(bondFavor×0.5,-0.25,0.5)`（趁隙）。**另有既有的 emergent 回饋**：BOND≥50 的敵從者離場時不追擊你（`actionMove` 撤離追擊條件）。
-- **🕊️ 主動培養敵人好感的入口＝`actionCourtEnemy`（示好／交涉·action `court_enemy`）**：對同地【未結盟】**敵御主**（只對御主·交涉對象＝決策者·前端只在敵御主卡出鈕、後端 faction 鎖 `敵御主`；含括號名靠 npcId 比對免漏）釋出善意→GAS 依 `masterPersonaLean_` 定升幅（務實 +10~13／中性 +6~9／孤狼瘋狂 +2~5·地板 2），`bumpBond_` 升 BOND、AI 只演對方依性格×好感的反應。**⚠ 好感是「整組(御主＋硬連結從者)對你的態度」：示好任一半→連坐把另一半 BOND 一起升**（否則會踩「示好從者卻只有讀御主的結盟受惠、讀從者的偷襲/挑撥/撤離沒動」的錯位坑）。`bondFavor_` 未互動(空)＝中性40、被磨到真0＝敵意底(不再吞回中性)。每名敵人每日一次（【示好日】<day> 存對方列）、耗 1AP、無突襲風險（純口頭善意）。這是上面整套「好感提高成功率」的**主動入口**——養高了遇敵和緩／結盟易／挑撥靈／趁隙狠／撤離不被追。前端＝每張敵人卡多一顆「🕊️ 示好／交涉」鈕。進 `STATE_AFTER_ACTIONS`＋`KANSHOU_BLOCKED_ACTIONS_`。**（原養到 90 蓋【鑑賞緣】戰後納入鑑賞已砍——鑑賞角色一律鑑賞內自行召喚、不靠 solo 帶入。）**
+- **🕊️ 主動培養敵人好感的入口＝`actionCourtEnemy`（示好／交涉·action `court_enemy`）**：對同地【未結盟】**敵御主**（只對御主·交涉對象＝決策者·前端只在敵御主卡出鈕、後端 faction 鎖 `敵御主`；含括號名靠 npcId 比對免漏）釋出善意→GAS 依 `masterPersonaLean_` 定升幅（務實 +10~12／中性 +6~8／孤狼瘋狂 +3~5（`6 +4/−3` 再 `+0~2`，地板 2）·地板 2），`bumpBond_` 升 BOND、AI 只演對方依性格×好感的反應。**⚠ 好感是「整組(御主＋硬連結從者)對你的態度」：示好任一半→連坐把另一半 BOND 一起升**（否則會踩「示好從者卻只有讀御主的結盟受惠、讀從者的偷襲/挑撥/撤離沒動」的錯位坑）。`bondFavor_` 未互動(空)＝中性40、被磨到真0＝敵意底(不再吞回中性)。每名敵人每日一次（【示好日】<day> 存對方列）、耗 1AP、無突襲風險（純口頭善意）。這是上面整套「好感提高成功率」的**主動入口**——養高了遇敵和緩／結盟易／挑撥靈／趁隙狠／撤離不被追。前端＝每張敵人卡多一顆「🕊️ 示好／交涉」鈕。進 `STATE_AFTER_ACTIONS`＋`KANSHOU_BLOCKED_ACTIONS_`。**（原養到 90 蓋【鑑賞緣】戰後納入鑑賞已砍——鑑賞角色一律鑑賞內自行召喚、不靠 solo 帶入。）**
 - **趁隙／挑撥的後續配套**：趁隙偷襲沒殺死→對方蓋【提防】（`setWary_`·6 小時內再趁隙傷害 ×0.6，不能無限白嫖同一人）。挑撥離間得逞→兩敵蓋【交惡】（結樑子·影響日後遭遇局面）；被看穿→兩敵各降 4 好感（操弄未遂留芥蒂）。
 - **令咒透支倒數**：敵從者燃最後令咒脫離（無 `fx:'solo'`）→`stampDoom_` 寫【靈基透支】死線（day*24+hour+`SEAL_DOOM_HOURS`=3）。`worldTick_` 到期 `DEAD_`＋風聞。收掉最後敵從者→`victory:true`。御主戰死也連坐同款倒數（masterless 敵從者）。單獨行動者免倒數。**🐛→✅ 2026-07 玩家指正「令咒脫離本主也該一起走」**：撤離時舊版只在「本主剛好與從者同地」才把御主一起搬到 `newLoc`，遠端御主完全不動——玩家指正「令咒＝命令英靈帶著御主強制拖離戰鬥」，不是從者自己逃、御主留在原地。已改成一律把硬連結本主也搬去 `newLoc`（`Router_Battle.gs` 令咒脫離分支）。**這順便補上一個連鎖問題**：敵從者在 `Time_World.gs` 的世界自走裡沒有獨立移動機會(只有敵御主會擲骰移位、順便帶走同地從者)——舊版一旦因令咒脫離被拆散，兩人就再也碰不到面；改成一律同行後，這對主從不會再因這個事件永久失散。
 - **喪失從者的敵御主**：敵從者死亡時 `markMasterLostServant_` 在同地敵御主 MEMORY 寫【喪失從者】。前端演出形單影隻。
 - **敘事連續記憶 `lastAiContext`**（模組級·最近 AI 文≤300字）：`narrate`/play 更新；`travelTo` 在 foe 時當「前情」塞進抵達提示（承接逃跑後再遇）。
-- **逆天改命**：`openFateEdit`/`saveFate`→`actionUpdateFate`。只准改 4 敘事欄（back身世限30/intent萌點限30/trait特徵3格×20/pref個性4格×20），數值與寶具鎖死。**特徵3格**＝外貌/氣質舉止/卸下心防的私密一面（末格＝鑑賞親密種子）；個性4格＝日常表象/真實內裡/喜歡/討厭。⚠ 舊局存的是四格（第3格曾是「自稱與口氣」），讀表一律走 `traitParts_`／前端 `traitSegs_` 就地剝掉那格，不改存進表裡的值。`saveFate` 不再寫死 f1~f4，改成「視窗排幾個輸入框就拼幾格」。`parseTraitsHelper`(Core_Settings) 切割前先把 句號→頓號 正規化（防 AI 誤用句號分隔黏預設殘料）。
+- **逆天改命**：`openFateEdit`/`saveFate`→`actionUpdateFate`。只准改 4 敘事欄（back 經歷 80／intent 萌點 30／trait、pref 整串 130——不是逐格截），數值與寶具鎖死。**特徵3格**＝外貌/氣質舉止/卸下心防的私密一面（末格＝鑑賞親密種子）；個性4格＝日常表象/真實內裡/喜歡/討厭。⚠ 舊局存的是四格（第3格曾是「自稱與口氣」），讀表一律走 `traitParts_`／前端 `traitSegs_` 就地剝掉那格，不改存進表裡的值。`saveFate` 不再寫死 f1~f4，改成「視窗排幾個輸入框就拼幾格」。`parseTraitsHelper`(Core_Settings) 切割前先把 句號→頓號 正規化（防 AI 誤用句號分隔黏預設殘料）。
 - **全域等待遮罩**：`beginAction(msg)`→`showProcessing`，`endAction`→`hideProcessing`。**忙碌鎖**：`send()` 的 `if(btn.disabled) return` 涵蓋所有入口（防連點並發 lost-update）。
 - **九州殘留**：前端九州 UI 按鈕仍在但 mode 隱藏＋未知 action 優雅回錯誤，無害；孤兒 helper（transferMoney 等）留著無害。系統錯誤訊息已改貼世界觀的柔性文案（非 F12/技術術語）。
 
@@ -622,7 +622,7 @@ Seed_Codex.gs 頂部 `CODEX_PERSONA_VER` 的註解只留當前版號一行簡述
 
 對 §22 全面重構的成果派5組agent交叉覆核：驗證重構diff正確性、覆核KANSHOU_REFERENCE.md過時內容、solo新一輪bug稽核、kanshou新一輪bug稽核、找更多整理機會。找到並修正以下真實問題：
 
-- **🔴 高嚴重度安全漏洞：5個kanshou handler完全跳過帳號歸屬驗證**——`actionBackfillKanshouAi`(Gallery.gs)、`actionGetFullStatus`/`actionUpdateFate`/`actionUpdateRelTag`/`actionSetNickname`(Router_Action.gs，solo+鑑賞共用handler)全部只用裸`pcData.find(r=>r[COL.PC.ID]==pcId)`信任傳入的pcId，鑑賞context下pcId(`KPC_`+建檔毫秒時間戳)可預測/枚舉，且帳號本身無密碼——猜中/取得任一鑑賞玩家的pcId即可冒名竄改其御主外貌/性格/萌點、任一同伴的個性/身世/萌點/關係稱呼/專屬稱呼，或讀出完整狀態。這比先前(§早期章節)記錄過的漏洞(僅涉及`actionPlay`/相簿)更嚴重，因為連`kanshouOwnedRowIdx_`這道既有防線都被繞過。已修：Router_Action.gs新增共用`resolveCallerGameId_(pcData, pcId, acctName)`——鑑賞(`KPC_`開頭)一律反查帳號表(`kanshouOwnedRowIdx_`)驗證歸屬失敗回`null`(呼叫端視同查無此人)；solo沿用原本裸find行為(零行為變化，帳號綁定在登入時已處理、不在本次範圍)。4支handler改用它；`actionBackfillKanshouAi`直接改用`kanshouOwnedRowIdx_`。**同步修前端**：`get_full_status`/`update_fate`/`update_rel_tag`/`kanshou_set_nickname`/`backfill_kanshou_ai`這5個action原本都沒有送`acctName`(其餘鑑賞action早就都有送)，後端新驗證需要它才能通過——已在`Script.html`(2處)/`Script_Kanshou.html`(3處)補上`acctName`欄位，否則後端修完前端沒跟進送值，會讓正常玩家也被擋下。
+- **🔴 高嚴重度安全漏洞：5個kanshou handler完全跳過帳號歸屬驗證**——`actionBackfillKanshouAi`(Gallery.gs)、`actionGetFullStatus`/`actionUpdateFate`/`actionUpdateRelTag`/`actionSetNickname`(Router_Action.gs，solo+鑑賞共用handler)全部只用裸`pcData.find(r=>r[COL.PC.ID]==pcId)`信任傳入的pcId，鑑賞context下pcId(`KPC_`+建檔毫秒時間戳)可預測/枚舉，且帳號本身無密碼——猜中/取得任一鑑賞玩家的pcId即可冒名竄改其御主外貌/性格/萌點、任一同伴的個性/身世/萌點/關係稱呼/專屬稱呼，或讀出完整狀態。這比先前(§早期章節)記錄過的漏洞(僅涉及`actionPlay`/相簿)更嚴重，因為連`kanshouPcIdx_`（純索引查找；歸屬驗證已上移 dispatcher `verifyPcOwnership_`）這道既有防線都被繞過。已修：Router_Action.gs新增共用`resolveCallerGameId_(pcData, pcId)`——鑑賞(`KPC_`開頭)一律反查帳號表(`kanshouPcIdx_`（純索引查找；歸屬驗證已上移 dispatcher `verifyPcOwnership_`）)驗證歸屬失敗回`null`(呼叫端視同查無此人)；solo沿用原本裸find行為(零行為變化，帳號綁定在登入時已處理、不在本次範圍)。4支handler改用它；`actionBackfillKanshouAi`直接改用`kanshouPcIdx_`（純索引查找；歸屬驗證已上移 dispatcher `verifyPcOwnership_`）。**同步修前端**：`get_full_status`/`update_fate`/`update_rel_tag`/`kanshou_set_nickname`/`backfill_kanshou_ai`這5個action原本都沒有送`acctName`(其餘鑑賞action早就都有送)，後端新驗證需要它才能通過——已在`Script.html`(2處)/`Script_Kanshou.html`(3處)補上`acctName`欄位，否則後端修完前端沒跟進送值，會讓正常玩家也被擋下。
 - **🐛→✅ EMIYA的`ubw`(無限劍製)跟斯卡哈`gae_bolg`同款孿生bug**：`offenseTier_`(Engine_Fate.gs)的`pierceFx`無條件清單原本仍含`ubw`——EMIYA的『無限劍製』既是他的永久固有技能(投影魔術本體)、又是他兩個可選寶具之一，選擇較弱的『偽·螺旋劍』(fx:projection)時，`ubw`仍會被這份無條件清單掃到，誤判成帶概念4貫穿的無限劍製強度，讓Caladbolg II能不該地打穿`territory`/`divine_core`/`nullify_magic`等概念2防禦。已比照當年gae_bolg的修法，從`pierceFx`移除`ubw`，交給後段`npProfile_(c).fx`(按本次實際選定寶具判定)處理。連帶修`Router_Battle.gs`的God Hand嚴重度計算：`var ghScale = npAtkScale_(atkC)`只認永久技能字面、不看`npChoice`，改成`npProfile_(atkC).scale`(比照Engine_Fate.gs解放判定同款寫法)，避免玩家選較弱寶具時仍被判定成最強寶具規模去燒對方God Hand的命。
 - **🐛→✅ 鑑賞小道具/催眠指令3個handler漏帶`loc`在場驗證**：`actionKanshouSetProp`/`actionKanshouAddCustomProp`/`actionKanshouCastHypnosis`(Gallery.gs)呼叫`findPcRowIdx_`時，跟`promiseMeet`/`cohabitInvite`/`handHold`用的是同一支resolver，唯獨這3處沒帶`loc:curL`——沒驗證目標同伴此刻是否真的在場就能裝備/施展。已補上`loc: String(data[meIdx][COL.PC.LOC]||"")`，跟其餘親密向action驗證邏輯一致(`actionKanshouMemoirOp`共同回憶本就不需要在場、`actionKanshouDeleteCustomProp`是批次清全部同伴身上的道具，兩者刻意不帶loc)。
 - **補完§22兩處遺漏的批次收斂**：`Router_Movement.gs`的`playerAmbushOnEnemy_`(趁隙偷襲)、`enemyAmbushOnServant_`(陣地反擊分支＋真突襲分支)共3處仍手刻`injectMasterMeleeSupport_`+`injectMasterMagicSupport_`雙支呼叫，沒跟進`injectMasterSupportFor_`——已改用共用函式。`Router_Battle.gs`的`actionFateBattle`/`actionSummonHorror`共2處仍手刻AP門檻+扣費，沒跟進`chargeApOrReject_`——已改用共用函式(`actionSummonHorror`那處**不能**傳`skipWrite`，因為`drainForNp_`的整列寫回發生在AP扣款【之前】，DAY/HOUR/AP仍需自己的窄欄寫入，跟`actionFateBattle`「稍後還有一次整表寫回」的情境不同，誤傳skipWrite會讓AP扣款只留在記憶體、沒真的寫回試算表)。
@@ -652,7 +652,7 @@ Seed_Codex.gs 頂部 `CODEX_PERSONA_VER` 的註解只留當前版號一行簡述
 - **⚡ 效能：12處`getAp_(gameId)`呼叫端手上明明已有剛讀好的pcData卻沒傳第二參數**——`Router_Bond.gs`(4處)/`Router_Movement.gs`(6處)/`Router_Economy.gs`(2處)，導致`getClock_`又整表重讀一次「眾生」表，違反CLAUDE.md「整表只讀一次下傳」準則。已全數補上`pcData`第二參數。
 - **⚡ 效能：`Router_Movement.gs`5處`chargeApOrReject_`呼叫沒傳`skipWrite`，跟同函式內另一次pcData[pIdx]整列寫回疊加成同一列兩次Sheets I/O**(`actionPrepMeal`/`actionFactionAmbush`即`playerAmbushOnEnemy_`呼叫端/`actionIncite`/`actionSetWorkshop`/`actionScavenge`)。已補`skipWrite:true`，讓單次整列寫回一次到位(`actionPrepMeal`/`actionSetWorkshop`/`actionScavenge`原本是「先整列寫回(帶舊AP)、chargeApOrReject_才扣AP」的順序，順手一併重排成「先扣AP、最終狀態再整列寫回」)。
 
-**驗證後判斷無問題、維持現狀的範圍**：鑑賞層`kanshouOwnedRowIdx_`已覆蓋全部handler無遺漏；快速貼圖sanitize/cap與前端一致；`Router_Economy.gs`/`Router_Movement.gs`已無房東房客/經濟殘留死碼；`Mystic_Code.gs`除以零/NaN邊界皆有擋；前後端XSS(escapeHtml)/acctName傳輸/UI一致性核對後皆正常；資料層(Seed_Codex/Seed_Rivals/History_Sync/Setup_FateWorld/Router_Persona/Router_Creation)既有🐛→✅修補註記皆核對一致，無新發現。
+**驗證後判斷無問題、維持現狀的範圍**：鑑賞層`kanshouPcIdx_`（純索引查找；歸屬驗證已上移 dispatcher `verifyPcOwnership_`）已覆蓋全部handler無遺漏；快速貼圖sanitize/cap與前端一致；`Router_Economy.gs`/`Router_Movement.gs`已無房東房客/經濟殘留死碼；`Mystic_Code.gs`除以零/NaN邊界皆有擋；前後端XSS(escapeHtml)/acctName傳輸/UI一致性核對後皆正常；資料層(Seed_Codex/Seed_Rivals/History_Sync/Setup_FateWorld/Router_Persona/Router_Creation)既有🐛→✅修補註記皆核對一致，無新發現。
 
 `bash check.sh` 全過、`nsfwBaseRules` 紅線未觸及。
 
@@ -1007,7 +1007,7 @@ NP_HOLD_  mad +0.40 ／ zabaniya +0.25 ／ gob +0.20
 螺湮城教本（海怪）、王之軍勢（萬軍）、鮮血神殿、無限劍製、妄想幻像（八十體）、騎士不死於徒手（變身態）。
 **這個維度代碼裡本來就有**（`horrorUp`／`【海怪護盾】`／每小時維持費／解除召喚按鈕），只是沒有名字、只為海怪寫了一套。
 
-#### 來源優先序（`npKindOf_` / `npLingers_`，`Engine_Fate.gs`）
+#### 來源優先序（`npKindOf_`，`Engine_Fate.gs`；`npLingers_` 已刪·零呼叫者）
 
 1. **多寶具選單的 `kind`／`lingers` 欄**（`servantNpOptions_`）——分類必須**跟著每一個寶具走**，
    阿爾托莉雅的 Excalibur 與 Avalon 不同類，掛在從者身上會錯

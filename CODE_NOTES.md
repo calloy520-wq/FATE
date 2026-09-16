@@ -706,6 +706,12 @@ REL_TAG(關係標籤)只是這裡設的起始值，之後全程只能透過actio
 
 工房原創敵御主的名字看不出性別，卡上卻一直沒有性別欄——AI 只能猜。唯一的線索是卡末那句 `★${pron_(...)}本人在場` 的代名詞，埋在最後、而且是隱含的。資料本來就在手上（下一行就在用 `row[COL.PC.SEX]`），補一格 3 個字。順帶消掉 `〉｜日常表象` 那個開頭就懸空的分隔符——`quadLabeled_` 一律以 `｜` 開頭，前面那格是空的就會露出來。
 
+### `sanitizeUserData_` 的 `entryName`／`targetId`（2026-09）
+
+**同一個鍵名在不同 action 裡是不同的東西，清洗卻是按鍵名一刀切的。** `name` 在 `create` 是御主名（必須純中文），在 `kanshou_world` 是地方／大區／人物的名字（玩家開的「Cafe 藍調·二樓」）。`CHINESE_NAME_FIELDS` 的註解寫「只在建立角色/登記NPC的姓名欄位」，實作卻是全域按鍵名——於是世界帳本的名字被清成純中文≤10 字，而 AI 走 `kanshouWorldWrite_` 寫同一張表反而允許英數＋20 字。修法不是把清洗改成看 action（那會讓「唯一真線」長出第二個維度），而是**不要讓兩個語意共用一個鍵名**：帳本條目改叫 `entryName`，走 `STRICT_NAME_FIELDS`（剝 HTML／MEMORY 結構字元、上限 20＝AI 那條規則）。`check_contract` 從此盯著兩端。
+
+`targetId`：`NAME_MAX=20` 是照 solo 御主名訂的，鑑賞同伴列卻直接用英靈殿全名（`KANSHOU_CASUAL_NAME_` 只收 7 位，美遊／小黑／伊莉雅 install 版是 23~30 字）。名字一截就查無此人。專案早有的原則是「id 優先、名字只當 id 缺席時的備援」（見 `myActiveServantId` 的註解），`findPcRowIdx_` 也本來就吃 `{id, name}`——這三支 handler 只是漏了接。
+
 ### `getNickname_`　<sub>Gallery.gs:451</sub>
 
 💬 專屬稱呼(REL_MEM【專屬稱呼】)唯讀取值——關係面板要預填輸入框、companions清單要秀給玩家看，兩處各自寫一次同款 regex 太重複，抽成共用小 helper(鏡射 actionPlay_ 內部的 relMemMemoryStr_，但那支是組提示詞用的完整格式化字串，這支只回傳裸值供 UI 使用)。

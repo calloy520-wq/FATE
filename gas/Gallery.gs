@@ -831,12 +831,15 @@ function actionKanshouMemoirOp(userData, pcId, sheets) {
   var op = String(userData.op || "").trim();
   var item = String(userData.item || "").replace(/[｜【】\[\]★]/g, "").trim();
   var targetName = String(userData.targetName || "").trim();
+  var targetId = String(userData.targetId || "").trim();
   if (!item || !targetName || ['pin', 'unpin', 'del'].indexOf(op) === -1) return JSON.stringify({ success: false, message: "參數不完整。" });
   var data = kpc.getDataRange().getValues();
   var meIdx = kanshouPcIdx_(data, pcId);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  var tIdx = findPcRowIdx_(data, gid, { name: targetName, faction: "從者", nameCandidates: kanshouNameCandidates_ });
+  // 🐛→✅ 2026-09：id 優先、名字只當備援。美遊／小黑／伊莉雅(Caster install) 的全名 23~30 字，
+  //   經 sanitizeUserData_ 的 NAME_MAX=20 一截就查無此人——釘選／刪除／關係／稱呼全失效。
+  var tIdx = findPcRowIdx_(data, gid, { id: targetId, name: targetName, faction: "從者", nameCandidates: kanshouNameCandidates_ });
   if (tIdx < 0) return JSON.stringify({ success: false, message: "找不到這位同伴。" });
   var entries = String(data[tIdx][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean);
   var hit = entries.findIndex(function (e) { return e.replace(/^★/, "") === item; });
@@ -870,7 +873,7 @@ function actionKanshouWorld(userData, pcId, sheets) {
   //    全部住在這支既有的帳本管理 action 裡(它本來就在做 pin/unpin/del)，不另開路由。
   if (['rg_add', 'rg_rename', 'rg_del', 'loc_region', 'loc_own'].indexOf(op) >= 0) {
     try {
-      const nm = kanshouSanitizeTagValue_(userData.name, 16);
+      const nm = kanshouSanitizeTagValue_(userData.entryName, 16);
       if (!nm) return JSON.stringify({ success: false, message: "名字不能空白。" });
       if (op === 'rg_add') {
         const regions = kanshouRegionsFor_(gid);
@@ -908,7 +911,7 @@ function actionKanshouWorld(userData, pcId, sheets) {
   if (op !== 'list') {
     if (['pin', 'unpin', 'del'].indexOf(op) === -1) return JSON.stringify({ success: false, message: "參數不完整。" });
     const kind = String(userData.kind || "").trim();
-    const name = String(userData.name || "").trim();
+    const name = String(userData.entryName || "").trim();
     if (!kind || !name) return JSON.stringify({ success: false, message: "參數不完整。" });
     try {
       if (op === 'del') {

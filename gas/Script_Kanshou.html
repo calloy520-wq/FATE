@@ -521,7 +521,7 @@ let plainTextContext = cleanText;
       return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
         + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(c.name) + ' <small style="color:#8a7fa0;">(關係:' + escapeHtml(c.tag || '點頭之交') + '・好感' + c.bond + ')</small><br><small style="color:#7a9fa0;">📍 ' + escapeHtml(c.locLabel || c.loc || '不明') + '</small>' + (c.promise ? '<br><small style="color:#a8d0f0;">📅 ' + escapeHtml(c.promise.date) + (c.promise.time ? ' ' + escapeHtml(c.promise.time) : '') + ' 在「' + escapeHtml(c.promise.loc) + '」有約</small>' : '') + '</span>'
         + '<button onclick="kanshouOpenMemoir(\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 8px;background:' + (memCount ? '#5a3a4a' : '#3a3a44') + ';color:' + (memCount ? '#e8b8cc' : '#999') + ';border:none;border-radius:6px;cursor:pointer;font-size:12px;">💞回憶' + (memCount ? '(' + memCount + ')' : '') + '</button>'
-        + '<button onclick="kanshouOpenRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\',' + (parseInt(c.bond) || 0) + ',\'' + String(c.nickname || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button></div>';
+        + '<button onclick="kanshouOpenRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\',' + (parseInt(c.bond) || 0) + ',\'' + String(c.nickname || '').replace(/'/g, '') + '\',\'' + String(c.id || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button></div>';
     }).join('') : '<div style="color:#888;padding:6px;">（這座城裡你還誰都不認識，從下方邀一個人來吧）</div>';
   }
 
@@ -558,8 +558,8 @@ let plainTextContext = cleanText;
       var tEsc = String(text).replace(/'/g, "\\'");
       return '<div style="display:flex;align-items:center;gap:6px;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
         + '<span style="flex:1;color:' + (pinned ? '#ffd9a0' : '#e8d8e0') + ';font-size:13px;line-height:1.5;">' + (pinned ? '★ ' : '') + escapeHtml(text) + '</span>'
-        + '<button onclick="kanshouMemoirOp(\'' + String(name).replace(/'/g, '') + '\',\'' + (pinned ? 'unpin' : 'pin') + '\',\'' + tEsc + '\')" title="' + (pinned ? '取消釘選' : '釘選·永不遺忘') + '" style="padding:4px 7px;background:' + (pinned ? '#6a5a3a' : '#3a3a44') + ';color:#ffd9a0;border:none;border-radius:6px;cursor:pointer;font-size:12px;">' + (pinned ? '📌' : '☆') + '</button>'
-        + '<button onclick="kanshouMemoirOp(\'' + String(name).replace(/'/g, '') + '\',\'del\',\'' + tEsc + '\')" title="刪除這條回憶" style="padding:4px 7px;background:#4a3038;color:#e09999;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🗑</button></div>';
+        + '<button onclick="kanshouMemoirOp(\'' + String(name).replace(/'/g, '') + '\',\'' + (pinned ? 'unpin' : 'pin') + '\',\'' + tEsc + '\',\'' + String(c.id || '').replace(/'/g, '') + '\')" title="' + (pinned ? '取消釘選' : '釘選·永不遺忘') + '" style="padding:4px 7px;background:' + (pinned ? '#6a5a3a' : '#3a3a44') + ';color:#ffd9a0;border:none;border-radius:6px;cursor:pointer;font-size:12px;">' + (pinned ? '📌' : '☆') + '</button>'
+        + '<button onclick="kanshouMemoirOp(\'' + String(name).replace(/'/g, '') + '\',\'del\',\'' + tEsc + '\',\'' + String(c.id || '').replace(/'/g, '') + '\')" title="刪除這條回憶" style="padding:4px 7px;background:#4a3038;color:#e09999;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🗑</button></div>';
     }).join('') : '<div style="color:#888;padding:12px 6px;font-size:13px;">（還沒有值得銘記的回憶——去一起經歷些什麼吧，重要的瞬間她都會記得。）</div>';
     ov.innerHTML = '<div style="width:min(440px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(232,184,204,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#e8b8cc;">💞 與「' + escapeHtml(name) + '」的共同回憶</b>'
@@ -575,13 +575,13 @@ let plainTextContext = cleanText;
       { zIndex: 10001, onBgClick: function (ov) { if (!_kmBusy) ov.style.display = 'none'; } },
       { width: '440px', borderColor: 'rgba(232,184,204,.25)', titleHtml: '<b style="color:#e8b8cc;">💞 與「' + escapeHtml(name || '') + '」的共同回憶</b>' });
   }
-  async function kanshouMemoirOp(name, op, item) {
+  async function kanshouMemoirOp(name, op, item, id) {
     if (_kmBusy) return;   // 💞讀條保護：上一個釘選/刪除還在跑就忽略連點，防重複送出/競態
     if (op === 'del' && !await customConfirm_('確定刪掉這條回憶嗎？刪了她就真的忘了。')) return;
     _kmBusy = true;
     _kmShowLoading_(name);  // 面板換成讀條，處理中不可再點
     try {
-      const res = await gasRun({ action: 'kanshou_memoir_op', pcId: pc.id, acctName: currentAccount, targetName: name, op: op, item: item });
+      const res = await gasRun({ action: 'kanshou_memoir_op', pcId: pc.id, acctName: currentAccount, targetName: name, targetId: id || '', op: op, item: item });
       if (!res || !res.success) { alert((res && res.message) || '操作失敗。'); return; }
       var c = _kcCur.find(function (x) { return x.name === name; });
       if (c) c.memoir = res.memoir || [];
@@ -1072,17 +1072,17 @@ let plainTextContext = cleanText;
     name = String(name).trim(); if (!name) { alert('名字不能空白。'); return; }
     var desc = await customPrompt_('「' + name + '」是什麼樣的地方？（一句話，可留空）', '', 24);
     if (desc === null) desc = '';
-    await kwWorldOp_({ op: 'rg_add', name: name, text: String(desc).trim() }, '開一個新大區…');
+    await kwWorldOp_({ op: 'rg_add', entryName: name, text: String(desc).trim() }, '開一個新大區…');
   }
   async function kanshouRenameRegion(cur) {
     var name = await customPrompt_('把「' + cur + '」改成什麼名字？', cur, 16);
     if (name === null) return;
     name = String(name).trim(); if (!name) { alert('名字不能空白。'); return; }
-    await kwWorldOp_({ op: 'rg_rename', name: cur, newName: name }, '改名中…');
+    await kwWorldOp_({ op: 'rg_rename', entryName: cur, newName: name }, '改名中…');
   }
   async function kanshouDelRegion(cur) {
     if (!await customConfirm_('收掉大區「' + cur + '」？\n\n底下的地方【不會】消失，它們會回到「走出來的地方」那一區。')) return;
-    var res = await kwWorldOp_({ op: 'rg_del', name: cur }, '收掉這一區…');
+    var res = await kwWorldOp_({ op: 'rg_del', entryName: cur }, '收掉這一區…');
     if (res) { kcActiveRegion_ = 'mine'; try { var el = document.getElementById('kc-map-list'); if (el) el.innerHTML = kcMapListHtml_(); } catch (e) { } }
   }
   // ⋯ 一個「你開出來的地方」能做的事：開店/改營業內容/收店、搬到別區、刪掉。
@@ -1101,19 +1101,19 @@ let plainTextContext = cleanText;
       var biz = await customPrompt_('你在「' + name + '」做什麼？\n\n（例：小吃、按摩、賣雜貨、花店——不會有錢的數字，只影響大家怎麼跟你互動）', here.own || '', 12);
       if (biz === null) return;
       biz = String(biz).trim(); if (!biz) { alert('營業內容不能空白（要收店請選「收掉這家店」）。'); return; }
-      await kwWorldOp_({ op: 'loc_own', name: name, own: biz }, '開店中…');
+      await kwWorldOp_({ op: 'loc_own', entryName: name, own: biz }, '開店中…');
     } else if (pick === 'close') {
       if (!await customConfirm_('收掉「' + name + '」這家店？地方會留著，只是不再是你的店。')) return;
-      await kwWorldOp_({ op: 'loc_own', name: name, own: '' }, '收店中…');
+      await kwWorldOp_({ op: 'loc_own', entryName: name, own: '' }, '收店中…');
     } else if (pick === 'region') {
       var opts = [{ k: '', label: '（不屬於任何大區·走出來的地方）' }].concat(regions.map(function (r) { return { k: r.name, label: r.name }; }));
       if (regions.length === 0) { alert('你還沒有自己開的大區——先在分區列按「➕ 新大區」。'); return; }
       var rg = await kcChoose_('把「' + name + '」搬到哪一區？', opts);
       if (rg === null) return;
-      await kwWorldOp_({ op: 'loc_region', name: name, region: rg }, '搬家中…');
+      await kwWorldOp_({ op: 'loc_region', entryName: name, region: rg }, '搬家中…');
     } else if (pick === 'del') {
       if (!await customConfirm_('把「' + name + '」從這座城裡刪掉？\n\n（之後就去不了了，AI 也不會再記得這個地方。）')) return;
-      await kwWorldOp_({ op: 'del', kind: '地點', name: name }, '刪除中…');
+      await kwWorldOp_({ op: 'del', kind: '地點', entryName: name }, '刪除中…');
     }
   }
   // 小選單：回傳選中的 k，取消回 null（比一連串 confirm 好讀）
@@ -1521,7 +1521,7 @@ let plainTextContext = cleanText;
   async function kwLoad_(op, kind, name) {
     try {
       var res = await gasRun({ action: 'kanshou_world', pcId: pc.id, acctName: currentAccount,
-        op: op || 'list', kind: kind || '', name: name || '' });
+        op: op || 'list', kind: kind || '', entryName: name || '' });
       if (!res || !res.success) { var b = document.getElementById('kc-world-body'); if (b) b.textContent = (res && res.message) || '讀取失敗。'; return; }
       _kwRows_ = res.rows || [];
       kwRender_(res.caps || {});
@@ -1638,7 +1638,7 @@ let plainTextContext = cleanText;
     ov.innerHTML = '<div style="width:min(380px,92vw);background:#1d1722;border:1px solid rgba(224,160,188,.3);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
       + '<div style="display:flex;align-items:center;margin-bottom:10px;"><b style="flex:1;color:#e0a0bc;">💞 與「' + escapeHtml(String(name)) + '」的關係</b>'
       + '<button onclick="document.getElementById(\'kbh-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
-      + row("kanshouOpenRelTag('" + safeN + "','" + safeTag + "'," + b + ",'" + safeNick + "')", '🏷️', '關係稱呼',
+      + row("kanshouOpenRelTag('" + safeN + "','" + safeTag + "'," + b + ",'" + safeNick + "','" + String(npcId || '').replace(/'/g, '') + "')", '🏷️', '關係稱呼',
         '目前：' + escapeHtml(String(curTag || '點頭之交')) + (curNickname ? '　專屬稱呼：' + escapeHtml(String(curNickname)) : '') + (b >= KC_CUSTOM_TAG_BOND_ ? '' : '　（自訂需好感 ' + KC_CUSTOM_TAG_BOND_ + '）'), '120,90,180')
       + row("kanshouOpenMemoir('" + safeN + "')", '💞', '共同回憶',
         '你們一起經歷過的重要瞬間　★釘選／🗑刪除', '200,120,150')
@@ -1660,8 +1660,10 @@ let plainTextContext = cleanText;
       + '</div>';
     ov.style.display = 'flex';
   }
-  function kanshouOpenRelTag(name, curTag, bond, curNickname) {
+  var _krTargetId = '';   // 🆔 目前開啟的關係面板對象 id（長名同伴靠名字會被 NAME_MAX 截斷、查無此人）
+  function kanshouOpenRelTag(name, curTag, bond, curNickname, npcId) {
     if (_krBusy) return;
+    _krTargetId = String(npcId || '');
     var ov = ensureOverlay_('kr-overlay', { zIndex: 10001, onBgClick: function (ov) { if (!_krBusy) ov.style.display = 'none'; } });
     var safeN = String(name).replace(/'/g, "\\'");
     var b = parseInt(bond) || 0;
@@ -1704,7 +1706,7 @@ let plainTextContext = cleanText;
     if (_krBusy) return;
     _krBusy = true;
     try {
-      const res = await withProcessing_('更改關係中…', () => gasRun({ action: 'update_rel_tag', pcId: pc.id, acctName: currentAccount, targetName: name, newTagText: tag }));
+      const res = await withProcessing_('更改關係中…', () => gasRun({ action: 'update_rel_tag', pcId: pc.id, acctName: currentAccount, targetName: name, targetId: _krTargetId, newTagText: tag }));
       if (res && res.success) { syncData(true); kcRefreshPartyOnly_(); var ov = document.getElementById('kr-overlay'); if (ov) ov.style.display = 'none'; }
       else { alert((res && res.message) || '更改失敗。'); }
     } catch (e) { alert('更改失敗。'); }
@@ -1725,7 +1727,7 @@ let plainTextContext = cleanText;
     if (_krBusy) return;
     _krBusy = true;
     try {
-      const res = await withProcessing_('更改稱呼中…', () => gasRun({ action: 'kanshou_set_nickname', pcId: pc.id, acctName: currentAccount, targetName: name, newNickname: nt }));
+      const res = await withProcessing_('更改稱呼中…', () => gasRun({ action: 'kanshou_set_nickname', pcId: pc.id, acctName: currentAccount, targetName: name, targetId: _krTargetId, newNickname: nt }));
       if (res && res.success) { syncData(true); kcRefreshPartyOnly_(); var ov = document.getElementById('kr-overlay'); if (ov) ov.style.display = 'none'; }
       else { alert((res && res.message) || '更改失敗。'); }
     } catch (e) { alert('更改失敗。'); }

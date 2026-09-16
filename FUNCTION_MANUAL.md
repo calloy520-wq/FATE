@@ -785,7 +785,6 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `fateMaxHpMp_(con, mag)` — 由耐久/魔力數值算從者 HP(100+con×10)/MP(50+mag×10)，無階級倍率。
 - `masterMaxHpMp_(circuits)` — 御主（凡人魔術師）HP(100+迴路×2)/MP(迴路×10)，迴路夾下限 1。
 - `masterPoolMax_(circuits, partyMagicVal)` — 共用魔力池上限＝迴路×10 ＋ 同隊從者魔力 rankVal 總和×2。
-- `maxStatsForRow_(row)` — 解析列的 SIX JSON，取耐久/魔力交給 `fateMaxHpMp_` 算 HP/MP。
 - `dmgSeverityWord_(dmg, hpMax)`（2026-07 稽核抽出）— 傷害嚴重度中文詞分級（重創≥0.4／負傷≥0.15／擦傷），取代 `Router_Movement.gs` 三處(撤退追擊/休息突襲/陣營突襲)重複的同一條 ternary；`Router_Bond.gs` 的 `actionBond` 突襲提示原本沒有分級(硬寫死「重創」)，順手改用此函式補齊一致性。
 - `ambushDispatchPrompt_(ambush, interruptedFn, normalFn)`（2026-07 稽核抽出）— 共用「突襲結果三分支」派工：`ambush.homeRepel`/`peaceful` 為真→用 `ambush.repelNote`；有 `ambush` 但非上述→呼叫 `interruptedFn(ambush)`；否則呼叫 `normalFn()`。取代 `Router_Economy.gs`(補魔/修復)、`Router_Bond.gs`(羈絆/盟友共處)、`Router_Movement.gs`(休息) 共5處幾乎相同的三分支判斷樣板，各呼叫端只帶自己的敘事文案。
 - `chargeApOrReject_(gameId, cost, pcData, sheets, rejectMsg, opts)`（2026-07 稽核抽出）— 合併「AP門檻檢查(不足回`{success:false,needRest:true,message:rejectMsg}`)＋`spendAp_`扣AP＋`clockLabel_`算時鐘標籤」三件套，取代 Movement/Economy/Bond 三檔共11處幾乎逐字重複的樣板；`opts.skipWrite`透傳給`spendAp_`。`actionMove`(cost固定2、與`worldTick_`緊密耦合)刻意不套用，維持原樣。**2026-07 再稽核補完**：`Router_Battle.gs`的`actionFateBattle`(傳`skipWrite:true`，因後段還有一次整表`setValues`會覆蓋同一批欄位)/`actionSummonHorror`(**不傳**`skipWrite`，因`drainForNp_`的整列寫回發生在AP扣款前、DAY/HOUR/AP仍需這裡自己補窄欄寫入，兩者情境不同不能套同一種傳法)共2處原本仍手刻AP門檻+扣費，已一併改用此共用函式。**⚠ `.reject`回傳路徑目前全部呼叫端都沒真的檢查過**(呼叫前皆已有獨立guard擋過)，是預留但吃不到的死路徑，新呼叫點若打算只靠這支擋門檻(不自帶前置guard)務必自己補`.reject`檢查，否則門檻不足會讓`{ap,clock}`兩key靜默消失混進成功回應。
@@ -1289,7 +1288,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `kmSpinner_(msg)` — 回傳讀條 spinner HTML 片段。
 - `kanshouOpenMemoir(name)` — 開/重繪「與某人的共同回憶」彈窗 `#km-overlay`；`_kcCur` 沒載到會自抓一次；每列有 📌釘選(pin/unpin)＋🗑刪除鈕→`kanshouMemoirOp`。
 - `_kmShowLoading_(name)` — 把 `#km-overlay` 內容換成讀條（不存在則先建）。
-- `kanshouMemoirOp(name, op, item)` — 釘選/取消/刪除回憶（`kanshou_memoir_op`）；`_kmBusy` 擋連點；完成後原地重繪並同步卡片數量徽章。
+- `kanshouMemoirOp(name, op, item, id)`（2026-09 加第 4 參數 id，送 `targetId`） — 釘選/取消/刪除回憶（`kanshou_memoir_op`）；`_kmBusy` 擋連點；完成後原地重繪並同步卡片數量徽章。
 
 #### 時間推進 / 節慶
 - `kanshouEndDay()` — 結束一天（`endDay:true` 走 `send`）；睡前先掃 `_kcCur` 今天未赴的約做爽約警示確認框。
@@ -1344,7 +1343,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `kanshouInviteCohabit(name, npcId)`（2026-07 補 `npcId` 第二參數）— 玩家發起邀同居（`cohabitInvite:name, cohabitInviteId:npcId||""`，需她在場，確認框）；後端 `findPcRowIdx_` id 優先比對。**`kanshouAcceptInvite`/`inviteResident` 未同步補 id**：目標是尚未召喚過的「巧遇陌生人」，結構上沒有 pcData 列可帶 id，維持純名字比對。
 - `kanshouConfess(name, npcId)`（2026-07 新增，`gas/Script_Kanshou.html`）— 💗 玩家發起告白（確認框 → `send(..., {confess:name, confessId:npcId})`）。前端不預測成敗、只送意圖，成敗由後端 `kanshouConfessAccepts_` 擲。入口在 `kanshouOpenBondHub` 第三列，四態各自渲染（好感未達 `KC_CONFESS_BOND_` 鎖／冷卻中顯示還要幾天／可告白按鈕／交往中狀態列），不留「按了才被拒」的洞。
 - `kanshouOpenBondHub(name, curTag, bond, curNickname, npcId, cohabit, lover, confessWait)`（2026-07 加後兩參數）— 💞 關係中樞分派面板：關係稱呼／共同回憶／**告白**／同居。`lover`／`confessWait` 是逐人狀態，由 `actionKanshouCompanions` 下傳（門檻數字則走 `KC_*` 鏡射）。
-- `kanshouOpenRelTag(name, curTag, bond, curNickname)`（2026-07 新增，原`kanshouEditRelTag`用native prompt()，玩家「那個關係也不要用彈窗吧」改成專屬面板；**五度改版新增`bond`/`curNickname`參數**）— 開`#kr-overlay`彈窗：`KC_REL_TIERS_`(鏡像Gallery.gs `KANSHOU_REL_TIER_`)5階預設稱呼各一顆按鈕(呼叫`kanshouSetRelTag`，永遠可選)＋自訂區塊。**bond<`KC_CUSTOM_TAG_BOND_`(80)時自訂區塊整個換成鎖定說明文字**；bond≥80才顯示「自訂關係稱呼」輸入框(`#kr-custom`，呼叫`kanshouSetRelTagCustom`)＋「專屬稱呼」輸入框(`#kr-nickname`，呼叫`kanshouSetNicknameCustom`)，並附「這格是填空的名詞，不要打完整句子」引導文案。選預設會讓文字重新匹配某梯度標籤(之後`kanshouSyncRelTier_`繼續自動跟好感升降)；打自訂稱呼會固定下來不再自動改動(既有行為，只換UI容器)。呼叫端傳入`bond`/`nickname`：Script.html卡片鈕用`s.bond`/`s.nickname`、Script_Kanshou.html同伴清單用`c.bond`/`c.nickname`。
+- `kanshouOpenRelTag(name, curTag, bond, curNickname, npcId)`（2026-09 加第 5 參數：面板記住 `_krTargetId`，送出時帶 `targetId`——長名同伴靠名字會被 NAME_MAX 截斷）（2026-07 新增，原`kanshouEditRelTag`用native prompt()，玩家「那個關係也不要用彈窗吧」改成專屬面板；**五度改版新增`bond`/`curNickname`參數**）— 開`#kr-overlay`彈窗：`KC_REL_TIERS_`(鏡像Gallery.gs `KANSHOU_REL_TIER_`)5階預設稱呼各一顆按鈕(呼叫`kanshouSetRelTag`，永遠可選)＋自訂區塊。**bond<`KC_CUSTOM_TAG_BOND_`(80)時自訂區塊整個換成鎖定說明文字**；bond≥80才顯示「自訂關係稱呼」輸入框(`#kr-custom`，呼叫`kanshouSetRelTagCustom`)＋「專屬稱呼」輸入框(`#kr-nickname`，呼叫`kanshouSetNicknameCustom`)，並附「這格是填空的名詞，不要打完整句子」引導文案。選預設會讓文字重新匹配某梯度標籤(之後`kanshouSyncRelTier_`繼續自動跟好感升降)；打自訂稱呼會固定下來不再自動改動(既有行為，只換UI容器)。呼叫端傳入`bond`/`nickname`：Script.html卡片鈕用`s.bond`/`s.nickname`、Script_Kanshou.html同伴清單用`c.bond`/`c.nickname`。
 - `kanshouSetRelTag(name, tag)`（2026-07 新增）— 打`update_rel_tag`，成功→`syncData`＋`kcRefreshPartyOnly_`＋關閉`#kr-overlay`；`_krBusy`擋連點。
 - `kanshouSetRelTagCustom(name)`（2026-07 新增）— 讀`#kr-custom`輸入框(空值擋)，呼叫`kanshouSetRelTag`。
 - `kanshouSetNicknameCustom(name)`（2026-07 五度改版新增）— 讀`#kr-nickname`輸入框(空值擋)，打新action`kanshou_set_nickname`(`actionSetNickname`)；成功→`syncData`＋`kcRefreshPartyOnly_`＋關閉`#kr-overlay`；共用`_krBusy`擋連點。

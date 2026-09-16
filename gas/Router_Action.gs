@@ -78,7 +78,10 @@ const ActionRouter = {
 
 function sanitizeUserData_(userData) {
   // 名稱類欄位禁用 HTML/JS 斷字字元，避免在前端各處 innerHTML/onclick 拼接時被拿來做標籤或屬性逃脫。（全文見 CODE_NOTES.md）
-  const STRICT_NAME_FIELDS = new Set(["name", "npcName", "targetName", "factionName", "newTagText", "newNickname", "pcName", "trueName", "acctName", "servantName", "foeName", "newPlace"]);
+  // 🐛→✅ 2026-09：世界帳本的條目名原本借用 `name` 鍵，被下面 CHINESE_NAME_FIELDS 當成 solo 創角姓名清成
+  //   純中文≤10字——玩家開的「Cafe 藍調」變「藍調」、帶「·」的地名被剝掉，而 AI 寫進同一張帳本的名字
+  //   卻允許英數＋20 字。改用 entryName／newName 走這裡（剝 HTML/MEMORY 結構字元、上限 20＝AI 那條規則）。
+  const STRICT_NAME_FIELDS = new Set(["name", "npcName", "targetName", "factionName", "newTagText", "newNickname", "pcName", "trueName", "acctName", "servantName", "foeName", "newPlace", "entryName", "newName"]);
   // 🔴 只在「建立角色/登記NPC」的姓名欄位強制純中文(去英數/符號/空白)；
   const CHINESE_NAME_FIELDS = new Set(["name", "npcName"]);
   const NAME_MAX = 20;
@@ -489,14 +492,14 @@ function actionSync(userData, pcId, sheets) {
 
 // 關係併入眾生列——直接改這名 NPC 自己那一列的 REL_TAG 欄，不再查關係表。
 function actionUpdateRelTag(userData, pcId, sheets) {
-  const { targetName, newTagText } = userData;
+  const { targetName, newTagText, targetId } = userData;
   if (!newTagText || !String(newTagText).trim()) return JSON.stringify({ success: false, message: "稱呼不可為空。" });
 
   const pcData = sheets.pc.getDataRange().getValues();
   // 光靠姓名+下方「同行」門檻不保證是「我這局」的同行者；不同局剛好有同名同行從者仍會被誤改，故需再比對呼叫者自己列的 game_id(myGameId 為空時放行，相容沒有 game_id 的舊資料)。
   const myGameId = resolveCallerGameId_(pcData, pcId);
   if (myGameId === null) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
-  const tIdx = findPcRowIdx_(pcData, myGameId, { name: targetName });
+  const tIdx = findPcRowIdx_(pcData, myGameId, { id: targetId, name: targetName });
   if (tIdx === -1) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
 
   // 🔵 solo 仍要求「同行的從者才能重新定義稱呼」；鑑賞無 IS_PARTY 概念，改稱呼是低風險設定、不要求同行。
@@ -525,14 +528,14 @@ function actionUpdateRelTag(userData, pcId, sheets) {
 
 // 🔒 2026-07 五度改版·專屬稱呼比照 update_rel_tag 同一套bond門檻+同一個injection風險，玩家手動設定後寫入【稱呼鎖】旗標，讓AI的rel_changes.mutual_nicknames不再自動覆寫(尊重玩家的手動選擇，同kanshouSyncRelTier_對自訂關係稱呼「一旦手動改過就不再被自動覆寫」的精神)。
 function actionSetNickname(userData, pcId, sheets) {
-  const { targetName, newNickname } = userData;
+  const { targetName, newNickname, targetId } = userData;
   if (!newNickname || !String(newNickname).trim()) return JSON.stringify({ success: false, message: "稱呼不可為空。" });
 
   const pcData = sheets.pc.getDataRange().getValues();
   // 🔒 帳號歸屬驗證（2026-07 再稽核抓到的漏洞補上，見 resolveCallerGameId_ 說明）。
   const myGameId = resolveCallerGameId_(pcData, pcId);
   if (myGameId === null) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
-  const tIdx = findPcRowIdx_(pcData, myGameId, { name: targetName });
+  const tIdx = findPcRowIdx_(pcData, myGameId, { id: targetId, name: targetName });
   if (tIdx === -1) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
 
   const bond = parseInt(pcData[tIdx][COL.PC.BOND]) || 0;
