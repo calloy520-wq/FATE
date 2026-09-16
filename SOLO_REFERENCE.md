@@ -1234,6 +1234,11 @@ solo 這邊補上的入口：帳號登入、開新局清檔、翻正典御主名
   `undefined`／`NaN`／`[object Object]`／空標籤／連續分隔符／佔位字。**這一掛就抓到第六個真 bug**：
   老虎道場的敗北講評永遠是「這一局輸在：undefined 日時限耗盡」（見 `DOJO_CAUSE_`，已改成機器擋 `check_loadorder.py`）。
   ⚠ 靜態 grep 看不到這種——樣板字串要組起來才知道長什麼樣。
+- **`fuzz.js`（65 條路由 × 4 種爛 payload）** — 參數亂給不可以炸整局：全空／只有身分／鑑賞身分／亂型別
+  （物件當名字、陣列當 id、數字當地點、字串當 JSON…）。判準三條：**不可以拋例外**（前端只會顯示「連線失敗」）、
+  **回傳一定是 JSON**、**失敗一定要講原因**（玩家不能對著空氣）。現況全過；
+  「完全沒帶身分時靜靜失敗」的三支（`get_tags`／`get_album`／`tiger_dojo`）逐條登記在 `QUIET_OK` 並寫理由。
+- **`k_garbage.js`（9 條）** — 鑑賞側的提示詞垃圾字掃描（詳見 `KANSHOU_REFERENCE.md` §提示詞垃圾字）。
 - **`np_class.js`（改寫）** — 舊版自己用 scale＋攻擊 fx 去「推論」能不能對轟，那正是 `npKindOf_` 這層要取代的猜法，
   而且它還吃已刪除的 `OFFENSIVE_NP_ATK_FX_`、整支跑不動。改成直接問單一真實來源（`npKindOf_`／`npReleasable_`／`npCanClash_`）。
 
