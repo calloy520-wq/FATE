@@ -180,7 +180,7 @@ const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { 
 // 🐯 老虎道場（賽後番外·敗北講評／勝利祝賀）
 // ==========================================
 const DOJO_CAUSE_ = {
-  deadline: { fact: '十四日時限耗盡，聖杯始終沒到手', lesson: '一整局十四天的行程該怎麼分配' },
+  deadline: { fact: `${FATE_DEADLINE_DAYS_} 日時限耗盡，聖杯始終沒到手`, lesson: `一整局 ${FATE_DEADLINE_DAYS_} 天的行程該怎麼分配` },
   seal_backlash: { fact: '用令咒強逼從者{sv}在好感不足時交心，令咒一解就被積怨反噬、御主當場斃命', lesson: '從者的意願，以及絕對命令的代價' },
   ambush: { fact: '在休息／補魔／交流這種卸下防備的時候被敵從者{foe}夜襲，從者殞落', lesson: '什麼時機能卸防、怎麼提早察覺敵蹤' },
   assassination: { fact: '奇襲斬首沒得手，反被護衛從者以 1.5 倍反殺、從者盡滅', lesson: '斬首只擲一顆 20 面骰，這場豪賭划不划算' },

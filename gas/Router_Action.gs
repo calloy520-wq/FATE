@@ -160,7 +160,7 @@ function handleGameAction(userData) {
       var ro = JSON.parse(out);
       if (ro && ro.success && !ro.victory && !ro.defeat && ro.clock) {
         var dym = String(ro.clock).match(/第\s*(\d+)\s*日/);
-        if (dym && parseInt(dym[1]) > 14) {
+        if (dym && parseInt(dym[1]) > FATE_DEADLINE_DAYS_) {
           // 優先複用 STATE_PRE_DATA_(handler 交棒、已含本次寫入的權威陣列)，沒有才退回整表重讀。
           var pdata = STATE_PRE_DATA_ || sheets.pc.getDataRange().getValues();
           var prow = pdata.find(function (r) { return String(r[COL.PC.ID]) === pcId; });

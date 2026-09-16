@@ -110,6 +110,10 @@ function actionSetWeapon(userData, pcId, sheets) {
 }
 
 // 🔒 從者不是有求必應：補魔／強制補魔(令咒)共用的信任門檻，單一真實來源，兩處都讀這個常數。
+// 💧 補魔的永久代價。原本是函式內的區域 const，而前端有兩句話各自寫死同一組數字
+//    （狀態面板的按鈕、規則說明），改一邊另一邊不會跟——抽成檔案層常數並鏡射給前端。
+var MANA_CIRC_CUT_ = 3;
+var MANA_HP_CUT_ = 15;
 var MANA_TRUST_BOND_ = 80;
 
 // 🔵 補魔（魔力供給）：把御主魔力導入從者，回魔＋羈絆＋fade 演出。耗 1 AP（導入魔力需時）
@@ -148,8 +152,8 @@ function actionManaSupply(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: `你的魔術迴路已燒蝕至極限（${oldCirc} 條），再以補魔強擠恐徹底斷絕——改以靈脈／陣地／休息回魔吧。` });
   }
   // 永久代價：迴路−3、血量上限−15（各有地板）——補魔燒身是「賭上未來換這一發」的重決定，非廉價回魔。
-  const circCut = 3;
-  const hpCut = 15;
+  const circCut = MANA_CIRC_CUT_;
+  const hpCut = MANA_HP_CUT_;
   const newCirc = Math.max(CIRC_FLOOR, oldCirc - circCut);
   const oldMaxHp = parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 100;
   const newMaxHp = Math.max(HP_FLOOR, oldMaxHp - hpCut);

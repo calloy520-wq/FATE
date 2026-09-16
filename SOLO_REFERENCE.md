@@ -45,6 +45,14 @@
 - ⚠ **2026-09 砍掉 `actionRest` 的「非 FATE 舊版休養」死分支**：game_id 只有 `g_`(solo)／`k_`(鑑賞) 兩種前綴，而 `rest` 在 `KANSHOU_BLOCKED_ACTIONS_` 對鑑賞是擋掉的 → `isFateRest` 分支一定會 return，那段永遠走不到。但它裡面藏著兩個跨帳號洩漏：「同行」全回滿沒帶 game_id／`bystanderNames` 用地點掃全表、把別人那局在同名地點的角色名字一起端出來（且前端從來沒讀過這個欄位）。**死碼不是無害的，它是「哪天條件變了就直接生效」的地雷**；已換成一句明確的失敗。
 - **重開/查重**：`actionAccountNewGame`(Account.gs) 清舊單人戰場（刪同 game_id 整世界＋御主本人）。`actionCheckName` 只擋 game_id 非空的同名活躍御主；DEAD_ 與孤兒不佔名。
 - **solo 全程無花錢入口**：身世財力差異走「起始禮裝」（創角自選被動禮裝，見 §6）。
+- ⚠ **2026-09 抽掉兩組魔術數字**（`check_mirror` 只認得 `KC_*` 常數，**寫死的數字它一個都看不到**）：
+  - **`FATE_DEADLINE_DAYS_ = 14`**（`Time_World.gs`）＝這一局的敗北條件本身。原本四處各寫一次裸數字：
+    `Router_Action` 的判定、老虎道場的講評（還是中文數字「十四日」）、規則說明的兩句話。
+  - **`MANA_CIRC_CUT_ = 3` / `MANA_HP_CUT_ = 15`**（`Router_Economy.gs`）＝補魔的永久代價。
+    原本是函式內的區域 `const`，而前端有兩句話各自寫死同一組數字。
+  - 前端鏡射 `KC_DEADLINE_DAYS_` / `KC_MANA_CIRC_CUT_` / `KC_MANA_HP_CUT_`，
+    **solo 側的後端名不叫 `KANSHOU_*`，靠 `check_mirror.js` 的 `ALIAS` 指過去**（新增 solo 鏡射就照這個辦）。
+    鏡射組數 16 → 19，兩個方向都做過退化測試。
 - **經濟/生活層全砍**（兩軌都無）：money/商城/物品/任務/賭場/飛書/生活技能/裝備——AI 需要時自己掰、不寫試算表。code＋分頁＋COL 已清。
 
 ---

@@ -22,6 +22,10 @@ const ROOT = __dirname;
 // 後端名稱跟前端不是機械對應的少數幾個（歷史命名，不值得為了工具去改動用中的常數名）
 const ALIAS = {
   'KC_REL_TIERS_': 'KANSHOU_REL_TIER_',   // 前端多了一個 S
+  // solo 側的常數不叫 KANSHOU_*，靠 ALIAS 指過去
+  'KC_DEADLINE_DAYS_': 'FATE_DEADLINE_DAYS_',
+  'KC_MANA_CIRC_CUT_': 'MANA_CIRC_CUT_',
+  'KC_MANA_HP_CUT_': 'MANA_HP_CUT_',
 };
 // 純前端常數：沒有後端對應是**設計如此**，每一條都要寫清楚為什麼，否則就是漏了鏡射。
 const FRONTEND_ONLY = {

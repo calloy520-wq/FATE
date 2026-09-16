@@ -223,6 +223,10 @@
   let myServants = [];   // 🗝️ 我方所有在世從者（雙從者）
   let myActiveServant = '';// 🗝️ 目前出戰／操作中的從者名
   let myActiveServantId = '';// 🆔 同上·id版(2026-07整體重構·id優先)——後端一律優先吃這個，名字只當id缺席時的備援
+  // 🪞 鏡射後端常數（check_mirror.js 逐值比對；solo 側的後端名在它的 ALIAS 裡登記）
+  var KC_DEADLINE_DAYS_ = 14;   // 鏡像後端 FATE_DEADLINE_DAYS_
+  var KC_MANA_CIRC_CUT_ = 3;    // 鏡像後端 MANA_CIRC_CUT_
+  var KC_MANA_HP_CUT_ = 15;     // 鏡像後端 MANA_HP_CUT_
   let myMasterSeals = 0;  // 令咒餘量
   let myMasterOutfit = ''; // 👕 御主本人當前換裝（鑑賞：與從者outfit同款機制，供「換裝」按鈕預填）
   // ❖ 令咒·蓄勢開關：按❖發亮＝蓄勢(免費·可取消)，下一次攻擊自動帶上令咒(必中×1.5)並熄滅；非攻擊動作不消耗，蓄勢保留。
@@ -618,7 +622,7 @@
         + [20, 60, 100].map(function (o) { var on = (o === _co); var f = OUTPUT_FX_JS[o] || {}; return '<button onclick="manaSetOutput(\'' + sn + '\',' + o + ')" title="' + (OUT_LABEL_JS[o] || '') + '：傷害' + (f.dmg || '') + '·命中' + (f.hit || '') + '·維持費' + (f.drain || '') + (o === 100 ? '·可解放寶具' : '') + '" style="flex:1;font-size:11px;padding:6px 0;border-radius:5px;cursor:pointer;border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + ';background:' + (on ? 'rgba(110,180,220,.3)' : 'rgba(40,50,65,.4)') + ';color:' + (on ? '#bfe3ff' : '#7a8aa0') + ';font-weight:' + (on ? 'bold' : 'normal') + ';">' + o + (o === 100 ? '💥' : '') + '</button>'; }).join('')
         + '</div></div>';
     });
-    h += '<div style="margin-top:10px;"><button onclick="closeHistoryOverlay();manaSupply();" style="width:100%;padding:10px;font-size:12px;background:rgba(80,130,200,.18);color:#7fb0e8;border:1px solid #4a6fa0;border-radius:6px;cursor:pointer;">💧 補魔（硬擠迴路回滿魔力池·永久代價 血上限−15/迴路−3）</button></div>';
+    h += '<div style="margin-top:10px;"><button onclick="closeHistoryOverlay();manaSupply();" style="width:100%;padding:10px;font-size:12px;background:rgba(80,130,200,.18);color:#7fb0e8;border:1px solid #4a6fa0;border-radius:6px;cursor:pointer;">💧 補魔（硬擠迴路回滿魔力池·永久代價 血上限−' + KC_MANA_HP_CUT_ + '/迴路−' + KC_MANA_CIRC_CUT_ + '）</button></div>';
     showHistoryOverlay(h);
   }
   // 🔋 魔力面板內調出力：樂觀更新＋背景存檔＋重繪面板(即時反饋·不必關窗)
@@ -1615,10 +1619,10 @@
   function openTutorial() {
     var html = '<h3 style="margin:0 0 10px; color:#e7c873;">❓ 新手教學・快速上手</h3>'
       + '<div style="color:#cfc3d8; font-size:13.5px; line-height:1.85;">'
-      + '<b style="color:#e7c873;">🎯 目標</b>　14 天內擊敗其他御主的從者、活到最後即可奪得聖杯。<br><br>'
+      + '<b style="color:#e7c873;">🎯 目標</b>　' + KC_DEADLINE_DAYS_ + ' 天內擊敗其他御主的從者、活到最後即可奪得聖杯。<br><br>'
       + '<b style="color:#7ec8ff;">🔷 魔力池</b>　你與從者共用同一池魔力，從者出力越高、解放寶具都在燒它——快見底就靠靈脈/休息回魔，別讓它扣到底（會燒血）。點頂部「🔮 魔力」看收支細節。<br><br>'
       + '<b style="color:#c79be8;">❖ 令咒</b>　御主卡片上 3 道絕對命令，每道限用一次，留給真正危急的時刻（治從者傷／逼魔力全滿／強行脫離險境）。<br><br>'
-      + '<b style="color:#c9b885;">⏳ 行動力（AP）</b>　每天固定額度，移動／戰鬥／休息都要花，額度見底就得休息推進到隔天——別忘了 14 天倒數在跑。<br><br>'
+      + '<b style="color:#c9b885;">⏳ 行動力（AP）</b>　每天固定額度，移動／戰鬥／休息都要花，額度見底就得休息推進到隔天——別忘了 ' + KC_DEADLINE_DAYS_ + ' 天倒數在跑。<br><br>'
       + '<b style="color:#7ec8ff;">🔋 靈基出力</b>　從者的供魔強度旋鈕（省著走／一般／全開），越高戰力越強但越耗魔池，唯有全開才能解放寶具。放完寶具會自動回落，不必手動關。<br><br>'
       + '<b style="color:#e0574a;">⚔️ 戰鬥</b>　移動到同地敵人身邊即可「攻擊」；血量歸零分勝負。從者卡上還有 💧補魔／🩹治療／💕羈絆／🛏️休息／👕換裝／⚔️武裝 等常用按鈕，各有不同資源代價，點按鈕上的說明文字都會講清楚。<br><br>'
       + '<b style="color:#4fd0b0;">🤝 結盟</b>　與其他御主可提議結盟、暫免交戰。<br><br>'
@@ -1631,7 +1635,7 @@
     var html = '<h3 style="margin:0 0 8px; color:#7ec8ff;">🔷 魔力</h3>'
       + '<div style="color:#cfc3d8; font-size:14px; line-height:1.9;">'
       + '這是你跟從者共用的一個池子——從者出力越高、寶具解放，吃你的魔力就越兇。<br><br>'
-      + '💧 快沒了先靠靈脈或休息自然回魔；急用可以「補魔」硬擠回滿，但會永久扣迴路上限（−3）與血上限（−15），別常用。<br><br>'
+      + '💧 快沒了先靠靈脈或休息自然回魔；急用可以「補魔」硬擠回滿，但會永久扣迴路上限（−' + KC_MANA_CIRC_CUT_ + '）與血上限（−' + KC_MANA_HP_CUT_ + '），別常用。<br><br>'
       + '⚠️ 真的見底時，缺口會直接燒你跟從者的血——記得別讓它掉到底。'
       + '</div>';
     showHistoryOverlay(html);
@@ -1857,7 +1861,7 @@
           + ((pc && pc.mode === 'kanshou') || (dual && !isActive) ? '' :
               '<div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">'
               + (dual ? '<div style="flex:1 0 100%; color:#9a8fae; font-size:10px;">下列動作對「' + s.name + '」生效：</div>' : '')
-              + '<button onclick="event.stopPropagation();manaSupply()" title="補魔：硬擠魔術迴路回滿共用魔力池。⚠永久代價：血上限−15、迴路−3。孤注一擲，過度=慢性自盡。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
+              + '<button onclick="event.stopPropagation();manaSupply()" title="補魔：硬擠魔術迴路回滿共用魔力池。⚠永久代價：血上限−' + KC_MANA_HP_CUT_ + '、迴路−' + KC_MANA_CIRC_CUT_ + '。孤注一擲，過度=慢性自盡。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
               + '<button onclick="event.stopPropagation();openBondMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(224,138,170,0.16); color:#e08aaa; border:1px solid #b06c84; border-radius:6px; cursor:pointer;">💕 羈絆</button>'
               // 🐛→✅ 令咒鈕挪去御主卡，這裡原本的位置改放「靈基修復」——消費共用魔力池為從者療傷、不燃令咒、可重複使用。
               + '<button onclick="event.stopPropagation();spiritRepair()" title="靈基修復：引動共用魔力池為從者療傷，回復部分體力（不燃令咒、可重複使用；魔力池不足則無法發動）。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(70,150,110,0.18); color:#7ee0a8; border:1px solid #3a8a5a; border-radius:6px; cursor:pointer;">🩹 治療</button>'
