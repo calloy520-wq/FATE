@@ -384,6 +384,62 @@ function kanshouRapportTone_(bond, metCount, isLover) {
   var f = (KANSHOU_FAMILIAR_TIERS_.find(function (t) { return (parseInt(metCount) || 0) >= t.min; }) || {}).key;
   return (KANSHOU_RAPPORT_TONE_[b] || {})[f] || "";
 }
+
+// ══ 📝 她眼中的你（2026-09 玩家「跟外面 ai 不同，這裡的 ai 明確知道所有設定，第一次遇到玩家就把玩家看透了」）══
+// 玩家卡上的 性格[內裡]／萌點／經歷，過去是每個在場角色【無條件全知】。那份資料其實有兩種用途被混在一起：
+// ①寫玩家自己的內心與感受（★【你也是這座城裡的一個人】要用）②在場角色對玩家的認識——①該全知，②不該。
+// 拆法見 CODE_NOTES.md；這裡只放資料層。熟悉度那條線【GAS 自己算、不經過 AI】，所以擋得住。
+var KANSHOU_NOTED_TAG_ = makeTextTag_('眼中的你');
+const KANSHOU_NOTED_SEP_ = '／';   // 不可用 ｜ 或 【】：makeTextTag_ 會把結構字元從值裡剝掉
+const KANSHOU_NOTED_CAP_ = 6;
+const KANSHOU_NOTED_LEN_ = 14;
+// 每個熟悉段「她此刻能把玩家的什麼當成已知」——只講知道多少，態度是 KANSHOU_RAPPORT_TONE_ 的事，兩張表不重疊。
+const KANSHOU_KNOWN_TIERS_ = {
+  '初識': '只知道眼前看得到的(長相/穿著/此刻的舉止)。玩家的真實性情、在意的事、過去，【一概不知道】：不准說中、也不准旁敲側擊地說破；要猜只能猜得很淺或猜錯。',
+  '混熟': '看得到的，加上【記下的】那幾條而已。沒被記下的仍舊不知道，別自行補完。',
+  '老交情': '看得到的＋【記下的】都熟，可以從記下的往外推一小步；推出來的要是那幾條的延伸，不是憑空多一件新事實。'
+};
+// 依相處次數查熟悉段（單一真實來源＝KANSHOU_FAMILIAR_TIERS_，與相處基調共用同一條軸）。
+function kanshouKnownTier_(metCount) {
+  return (KANSHOU_FAMILIAR_TIERS_.find(function (t) { return (parseInt(metCount) || 0) >= t.min; }) || {}).key || '初識';
+}
+// 組一張「她眼中的你」小卡：熟悉段的知情界線 ＋ 她這一路真的記下的幾條。
+function kanshouKnownOfYou_(memory) {
+  var tier = kanshouKnownTier_(KANSHOU_MET_COUNT_TAG_.get(memory));
+  var noted = String(KANSHOU_NOTED_TAG_.get(memory) || '').split(KANSHOU_NOTED_SEP_).map(function (x) { return x.trim(); }).filter(Boolean);
+  return { tier: tier, rule: KANSHOU_KNOWN_TIERS_[tier] || '', noted: noted };
+}
+
+// 🧵 append→去重→上限 的共用引擎：共同回憶(MEMOIR 欄)與「她眼中的你」(MEMORY 標記)本來就是同一件事，
+//    差別只在 分隔符／上限／長度／要不要保護★釘選。去重那段含 bigram 相似度比對，複製出去必然走樣，
+//    所以只此一份。opt: { sep, cap, maxLen, pin }
+function kanshouAppendUnique_(oldStr, newLine, opt) {
+  const o = opt || {};
+  const sep = o.sep || '｜';
+  const cap = parseInt(o.cap) || 10;
+  const maxLen = parseInt(o.maxLen) || 40;
+  const reBad = new RegExp('[｜|【】\\[\\]★' + sep + ']', 'g');
+  let arr = String(oldStr || "").split(sep).map(x => x.trim()).filter(x => x !== "" && x !== "無");
+  let clean = String(newLine || "").replace(reBad, "").trim().slice(0, maxLen);
+  // 🛡️ 相似度去重(玩家實測「超級洗畫面」)：同一件事在 3 輪歷史窗裡迴盪，模型每回合換句話說重記一條。
+  const _bi = s => { const t = String(s).replace(/^★/, "").replace(/[，。、！？…\s]/g, ""); const o2 = new Set(); for (let i = 0; i < t.length - 1; i++) o2.add(t.substr(i, 2)); return o2; };
+  const _echoDup = (cand) => {
+    const cb = _bi(cand); if (cb.size < 4) return false;
+    return arr.slice(-3).some(x => {
+      const xb = _bi(x); if (xb.size < 4) return false;
+      let hit = 0; cb.forEach(g => { if (xb.has(g)) hit++; });
+      return hit / Math.min(cb.size, xb.size) >= 0.6;
+    });
+  };
+  // 去重比對忽略★前綴(玩家釘選標記，見actionKanshouMemoirOp)，避免同一條被釘選後又重複收錄。
+  if (clean && clean !== "無" && !arr.some(x => x.replace(/^★/, "") === clean) && !_echoDup(clean)) arr.push(clean);
+  if (arr.length <= cap) return arr.join(sep);
+  if (!o.pin) return arr.slice(-cap).join(sep);
+  // 超量淘汰：★釘選的永不驅逐，只淘汰未釘選裡最舊的；輸出保持原本時序。
+  const pinnedCount = arr.filter(x => x.charAt(0) === '★').length;
+  let dropLeft = Math.max(0, arr.length - Math.max(cap, pinnedCount));
+  return arr.filter(x => { if (x.charAt(0) === '★' || dropLeft === 0) return true; dropLeft--; return false; }).join(sep);
+}
 // 💬 專屬稱呼(REL_MEM【專屬稱呼】)唯讀取值——關係面板要預填輸入框、companions清單要秀給玩家看，兩處各自寫一次同款 regex 太重複，抽成共用小 helper(鏡射 actionPlay_ 內部的 relMemMemoryStr_，但那支是組提示詞用的完整格式化字串，這支只回傳裸值供 UI 使用)。
 function getNickname_(relMem) {
   const m = String(relMem || "").match(/\[專屬稱呼\](.*?)(?=\| \[|$)/);
@@ -661,7 +717,8 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 ★npc_intent：一句讓人喜歡上這個人的萌點，**18 字內講完一句完整的話**。可以是反差、也可以只是討喜的外觀或小習慣(雙馬尾、大食、路痴之類)。★語氣溫馨正面、看了會心一笑，【禁】靠創傷/自卑/孤獨/悲劇宿命撐——這裡是輕鬆的日常後日談。【禁】拿聖杯戰爭專有詞(令咒/寶具/魔術迴路/從者/職階)湊萌點：這個平行世界從沒發生過那場戰爭，那些詞在這裡沒有來由。
 ★speech：${pron_(finalSex)}講話的調調，限16字、【禁】完整句子(例：句子短、不太用形容詞、被問心事會先岔開)。這是給 AI 演這個人的依據，不是給玩家看的。
 ★tic：${pron_(finalSex)}的招牌小動作/小習慣，限16字(例：想事情時會摳袖口、聽人說話會微微偏頭)。★speech 與 tic 必須是【完全不同】的兩件事，不可換句話說同一件。
-★background：限20字，呼應其身世，不出現具體物品名，語氣平和溫馨，不涉及聖杯戰爭或任何戰爭史。
+★background：限20字，【只寫來到冬木【以前】的來歷】，呼應其身世，不出現具體物品名，語氣平和溫馨，不涉及聖杯戰爭或任何戰爭史。
+★【禁寫「現在擁有什麼」】：開店／店面／在哪上班／與誰同住／交往對象／養了什麼／已經有哪些朋友——這些全是玩家【自己在遊戲裡做出來】的事，會由系統逐項記錄；在這裡先替玩家寫好就是假的，一開局就會讀到一段沒發生過的人生。
 ★outfit：一句她/他今天的日常穿搭(限20字)，依外貌與個性方向自然搭配(如文靜者素雅、活潑者亮色休閒)，純日常便服/居家/外出風格，不含任何戰甲/武裝/戰鬥裝束字眼。
 ★【勿輸出數值】戰力數值一律不需要，也不要輸出地點。
 
@@ -1007,7 +1064,8 @@ function buildDefaultSystemPrompt(includeOptions) {
         "physical_state": _physicalStateRef,
         "appearance_extras": _appearanceExtrasRef,
         "mutual_nicknames": "本回合真的叫出口的暱稱·否則「無」",
-        "memory": "里程碑(告白/初牽手/難忘約會/重要約定)才寫≤30字·同 narration 用第二人稱「你」稱玩家·其餘填「無」·同一事只記一次"
+        "memory": "里程碑(告白/初牽手/難忘約會/重要約定)才寫≤30字·同 narration 用第二人稱「你」稱玩家·其餘填「無」·同一事只記一次",
+        "noticed": "這回合【真的從玩家的言行看出來】的一件事·≤14字的短詞組·只寫這個人親眼所見親耳所聞的·不可抄【玩家資料·旁白用】裡的字·沒看出新東西就填「無」"
       }]
     },
     // 🌍 世界帳本的入口：AI 這一回合發明了什麼，自己寫下來，GAS 幫它記住。
@@ -2988,6 +3046,7 @@ function actionPlay_(userData, pcId, sheets) {
   }
   let partyDetailsArr = [];
   const _presenceSeen_ = {};
+  const _knownTiersSeen_ = {};   // 這回合在場的人各落在哪個熟悉段——只印用得到的那幾條界線
   const _partyHeroCodex = partyMembers.length > 0 ? getHeroCodexCached() : null;
   partyMembers.forEach(pName => {
     const r = pcData.find(row => String(row[COL.PC.NAME]).trim() === String(pName).trim() && !String(row[COL.PC.ID]).startsWith("DEAD_") && sameGame(row));
@@ -3045,6 +3104,11 @@ function actionPlay_(userData, pcId, sheets) {
       })();
       const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
       // ★是玩家釘選標記(面板用)，餵AI時去掉、不外洩機制符號。
+      // 📝 你在對方眼中是什麼樣子：熟悉段(GAS 依相處次數算)＋對方這一路親自記下的幾條。
+      //    各段「能把什麼當已知」的界線不寫在卡上、集中在下方★【對方對你的認識】講一次(見 _knownRuleStr_)。
+      const _pKnown = kanshouKnownOfYou_(r[COL.PC.MEMORY]);
+      _knownTiersSeen_[_pKnown.tier] = 1;
+      const pKnownStr = ` | 你在${pron_(r[COL.PC.SEX])}眼中:【${_pKnown.tier}】${_pKnown.noted.length ? `·${pron_(r[COL.PC.SEX])}記得你${_pKnown.noted.join('、')}` : `·${pron_(r[COL.PC.SEX])}還沒看出你任何事`}`;
       const pMemoirStr = pMemoirRaw ? ` | 你們的共同回憶(你倆一路走來的點滴，敘事可自然承接呼應、但別生硬複述):${pMemoirRaw.replace(/★/g, '').replace(/｜/g, '；')}` : "";
       // 📅 待赴約定(玩家追問「AI每次都看得到約定吧?」查出的缺口)：約成立到赴約之間的等待回合，AI 原本完全不知道有這個約——聊「期待明天嗎」她會一臉茫然、甚至另約衝突計畫。
       const _pdPr = kanshouGetPromise_(r[COL.PC.MEMORY]);
@@ -3072,7 +3136,7 @@ function actionPlay_(userData, pcId, sheets) {
         return "【你們從剛才就一直在這裡】——早已在場，接著這一刻往下寫";
       })();
       _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
-      partyDetailsArr.push(`【在場人物】名字:${pName}【性別:${String(r[COL.PC.SEX] || "").trim() || "異"}】｜__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? ` | 裝扮:${pOutfit}` : ""}${(() => { const _p = formatPref(r[COL.PC.PREF]); return _p ? ` | 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(r[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${pFlavorStr}${pBackStr}${(() => { const _mo = [pMoeStr, traitPrivateOf_(r[COL.PC.TRAIT])].filter(Boolean).join("／"); return _mo ? ` | 萌點(僅供內化):${_mo}` : ""; })()}${pSleepStr ? ` | 現況:${pSleepStr}` : ""}${pCohabitStr}${pMemoirStr}${pPromiseStr} | 關係:${pron_(r[COL.PC.SEX])}是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pTierToneStr}${pChillStr})`);
+      partyDetailsArr.push(`【在場人物】名字:${pName}【性別:${String(r[COL.PC.SEX] || "").trim() || "異"}】｜__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? ` | 裝扮:${pOutfit}` : ""}${(() => { const _p = formatPref(r[COL.PC.PREF]); return _p ? ` | 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(r[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${pFlavorStr}${pBackStr}${(() => { const _mo = [pMoeStr, traitPrivateOf_(r[COL.PC.TRAIT])].filter(Boolean).join("／"); return _mo ? ` | 萌點(僅供內化):${_mo}` : ""; })()}${pSleepStr ? ` | 現況:${pSleepStr}` : ""}${pCohabitStr}${pMemoirStr}${pPromiseStr}${pKnownStr} | 關係:${pron_(r[COL.PC.SEX])}是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pTierToneStr}${pChillStr})`);
     }
   });
   // 在場來由人人相同時（多數回合都是），抽成抬頭講一次，不在每張卡上逐字重複。
@@ -3082,6 +3146,16 @@ function actionPlay_(userData, pcId, sheets) {
   const _partyCards_ = partyDetailsArr.map(t => _presenceShared_
     ? t.replace(/｜__PRESENCE__[\s\S]*?__\/PRESENCE__/, "")
     : t.replace(/｜__PRESENCE__([\s\S]*?)__\/PRESENCE__/, " | 在場來由:$1"));
+  // 📝 知情界線：只印這回合真的用得到的那幾段（沒人是老交情就不必講老交情該怎麼演）。
+  const _knownRuleStr_ = (() => {
+    const ks = Object.keys(_knownTiersSeen_);
+    if (!ks.length) return "";
+    return `\n★★【對方對你的認識·不准一眼看穿】：上面那張【玩家資料·旁白用】是【寫「你」的內心與感受用的】，`
+      + `【不是】在場任何人知道的事。每個人知道多少，只看各自卡上的【你在○眼中】那一格：\n`
+      + ks.map(k => `　·【${k}】${KANSHOU_KNOWN_TIERS_[k]}`).join("\n")
+      + `\n　對方要多知道你一件事，只有一條路：這一回合玩家【自己演出來或說出口】，你才把它記進那個人的 noticed。`;
+  })();
+
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0
     ? `【角色背景資料】(裝扮＝此刻穿的衣服，五官/髮色/體態不隨之改變)：${_presenceShared_ ? `\n★在場來由(以下每一位都一樣)：${_presenceShared_}` : ""}${_anySleeper_ ? `\n★標了【現況】的人就是那個狀態，除非這回合真的把人叫醒了。` : ""}\n${_partyCards_.join("\n")}`
     : "目前這個地點沒有其他人，玩家是獨自行動的。";
@@ -3210,10 +3284,10 @@ ${PROMPT_REL}
 ★【要它之後還在就寫進 world_note】：沒寫到的地方/人/這座城的規矩都可以當場創造，但沒寫進去的下回合就不存在。一回合最多 2 筆，只記之後真的還會用到的；已在名單上的不必重寫。地點＝多一個去得了的地方｜人物＝這個人還會再出現｜設定＝這座城的規矩或風景。
 　⚠ world_note 記【這座城有什麼】；某個人的喜好習慣、你們之間發生的事記進那個人的 memory【你們之間發生過什麼】——兩邊不要互相寫。
 ★【視角鎖定】：旁白一律用第二人稱，「你」＝玩家『${pcName}』本人。旁白【不可】用「我」；場上每個角色引號內的台詞才用得到「我」。同伴外貌只取材各人自己那份資料。
-★【你也是這座城裡的一個人】：『${pcName}』不是攝影機——${_mePron_}有自己的性格、口吻、來歷(見【玩家資料】)。【用${_mePron_}的角度感受這個世界】：此刻的觸感/冷熱/氣味/聲音、${_mePron_}【真正】的情緒(不是表現出來的那個)、性格帶來的反應底色，要寫得像${_mePron_}；沉默也要有理由。動作與台詞仍只有玩家能決定(鐵律1)。${_mePron_}看不見自己的臉，卻感覺得到臉發燙、喉嚨發緊——【寫感覺得到的，不寫看不到的外觀】。
+★【你也是這座城裡的一個人】：『${pcName}』不是攝影機——${_mePron_}有自己的性格、口吻、來歷(見【玩家資料·旁白用】)。【用${_mePron_}的角度感受這個世界】：此刻的觸感/冷熱/氣味/聲音、${_mePron_}【真正】的情緒(不是表現出來的那個)、性格帶來的反應底色，要寫得像${_mePron_}；沉默也要有理由。動作與台詞仍只有玩家能決定(鐵律1)。${_mePron_}看不見自己的臉，卻感覺得到臉發燙、喉嚨發緊——【寫感覺得到的，不寫看不到的外觀】。
 
-【玩家資料】：名字:${pcName} 【性別:${pc[COL.PC.SEX]}】${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? ` 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${_meFlavorStr_}${myOutfit ? ` | 裝扮:${myOutfit}` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}${_meMoeStr_}
-${PROMPT_PARTY_SYSTEM}
+【玩家資料·旁白用】：名字:${pcName} 【性別:${pc[COL.PC.SEX]}】${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? ` 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${_meFlavorStr_}${myOutfit ? ` | 裝扮:${myOutfit}` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}${_meMoeStr_}
+${PROMPT_PARTY_SYSTEM}${_knownRuleStr_}
 ${_intimacyLines_ ? `★【親密尺度·最高優先】：肢體親密以好感為天花板，超過的那一步不會發生，怎麼擋下來依各人的個性；玩家只是日常時不憑空推進情慾${_intimacyLines_.indexOf('\n') >= 0 ? '（多人各依各自好感，不共用同階）' : ''}：\n${_intimacyLines_}\n` : ''}
 ★【篇幅】：narration 寫 ${_kanshouTargetWords_} 字，【不可少於下限】——寫不滿就加互動：動作細節、觸感/氣味/聲音、【你此刻的感受與身體反應】、多給一次真實反應；別靠環境描寫充數。
 ★★【地點釘死】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，敘事不離開這裡——想去別處只能嘴上聊，真要換地方由系統宣告。${moveTarget ? '你們剛到，直接從抵達後的當下寫起、路程不演。' : ''}
@@ -3425,28 +3499,9 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
         return (arr.length > maxCount ? arr.slice(-maxCount) : arr).join('、');
       };
 
-      // 💞 共同回憶(27欄 MEMOIR)：同 processTags 精神——append 去重、保留最近 maxCount 條。
-      const processMemoir_ = (oldMemoir, newLine, maxCount) => {
-        let arr = String(oldMemoir || "").split('｜').map(x => x.trim()).filter(x => x !== "" && x !== "無");
-        let clean = String(newLine || "").replace(/[｜【】\[\]★]/g, "").trim().slice(0, 40);
-        // 🛡️ 相似度去重(玩家實測「超級洗畫面」)：同一事件在3輪歷史窗裡迴盪，Gemini每回合換句話說重記一條(「約定去社區公園」記了四種說法)。
-        const _bi = s => { const t = String(s).replace(/^★/, "").replace(/[，。、！？…\s]/g, ""); const o = new Set(); for (let i = 0; i < t.length - 1; i++) o.add(t.substr(i, 2)); return o; };
-        const _echoDup = (cand) => {
-          const cb = _bi(cand); if (cb.size < 4) return false;
-          return arr.slice(-3).some(x => {
-            const xb = _bi(x); if (xb.size < 4) return false;
-            let hit = 0; cb.forEach(g => { if (xb.has(g)) hit++; });
-            return hit / Math.min(cb.size, xb.size) >= 0.6;
-          });
-        };
-        // 去重比對忽略★前綴(玩家釘選標記，見actionKanshouMemoirOp)，避免同一條被釘選後又重複收錄。
-        if (clean && clean !== "無" && !arr.some(x => x.replace(/^★/, "") === clean) && !_echoDup(clean)) arr.push(clean);
-        if (arr.length <= maxCount) return arr.join('｜');
-        // 超量淘汰：★釘選的永不驅逐，只淘汰未釘選裡最舊的；輸出保持原本時序。
-        const pinnedCount = arr.filter(x => x.charAt(0) === '★').length;
-        let dropLeft = Math.max(0, arr.length - Math.max(maxCount, pinnedCount));
-        return arr.filter(x => { if (x.charAt(0) === '★' || dropLeft === 0) return true; dropLeft--; return false; }).join('｜');
-      };
+      // 💞 共同回憶 與 📝 她眼中的你 共用同一支 append/去重/上限引擎（見 kanshouAppendUnique_）。
+      const processMemoir_ = (oldMemoir, newLine, maxCount) =>
+        kanshouAppendUnique_(oldMemoir, newLine, { sep: '｜', cap: maxCount, maxLen: 40, pin: true });
 
       if (aiData.intimacy_feedback.player) {
         const pfb = aiData.intimacy_feedback.player;
@@ -3488,6 +3543,15 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
           // 💞 共同回憶：AI 這回合若吐了里程碑 memory，append 進她自己列的 27 欄(最近 10 條、去重)。
           if (nfb.memory && String(nfb.memory).trim() && String(nfb.memory).trim() !== "無") {
             pcData[targetIdx][COL.PC.MEMOIR] = processMemoir_(pcData[targetIdx][COL.PC.MEMOIR], nfb.memory, KANSHOU_MEMOIR_CAP_);
+          }
+
+          // 📝 她眼中的你：AI 這回合若真的從玩家身上看出一件事，記進【她自己那列】的【眼中的你】。
+          //    存在她列上(不是玩家列)是關鍵——每個人各記各的，所以同一個玩家在不同人眼中確實會不一樣。
+          if (nfb.noticed && String(nfb.noticed).trim() && String(nfb.noticed).trim() !== "無") {
+            pcData[targetIdx][COL.PC.MEMORY] = KANSHOU_NOTED_TAG_.set(
+              pcData[targetIdx][COL.PC.MEMORY],
+              kanshouAppendUnique_(KANSHOU_NOTED_TAG_.get(pcData[targetIdx][COL.PC.MEMORY]), nfb.noticed,
+                { sep: KANSHOU_NOTED_SEP_, cap: KANSHOU_NOTED_CAP_, maxLen: KANSHOU_NOTED_LEN_ }));
           }
         });
       }
