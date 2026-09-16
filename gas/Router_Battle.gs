@@ -1221,10 +1221,20 @@ function actionFateBattle(userData, pcId, sheets) {
   // 🎴 每擊 pFired 陣列存了戰鬥中觸發的特殊機制旗標；十二試煉／令咒脫離已各自走專屬素材行(godNote/sealNote)，但「戰鬥續行」(致命傷卻硬撐留1)／「斬斷救贖」(此類護命效果被破戒/反魔力兵裝之類的手段強行突破)這兩種只進了 pFired、從沒進過 aiPrompt——AI 看不出「這下明明該死卻沒死」或「原本免死的招式這次被打穿了」的關鍵轉折，收攏成一句素材補上。
   const extraFired = [];
   const _extraFiredRe_ = /·戰鬥續行|·斬斷救贖/;
+  // ✨ 禮裝：Engine_Fate 每擊都在記它生效了(fired 旗標帶著 label 與數值)，但那些旗標從沒進過 aiPrompt——
+  //    這是本檔【第三次】同一種漏餵。禮裝起作用長什麼樣，MYSTIC_CODES.flavor 早就寫好了(至今零引用)。
+  //    只有玩家有禮裝(injectMysticBuff_ 一律吃 pcData[pIdx])，所以看到旗標就是玩家這一邊生效。
+  //    ⚠ 只給畫面不給數字：旗標裡的「(命中+2)/(寶具減傷×0.82)」是 GAS 的帳，miniSystem 鐵律4 禁複述。
+  const _mysticFiredRe_ = /·禮裝「/;
+  let mysticFired = false;
+  const _mcSeen_ = (arr) => { if (Array.isArray(arr) && arr.some(t => _mysticFiredRe_.test(String(t)))) mysticFired = true; };
   pushMatching_(clashFired, extraFired, _extraFiredRe_);
   rounds.forEach(r => (r.strikes || []).forEach(k => pushMatching_(k.pFired, extraFired, _extraFiredRe_)));
   rounds.forEach(r => pushMatching_(r.eFired, extraFired, _extraFiredRe_));
   rounds.forEach(r => pushMatching_(r.pactDef && r.pactDef.fired, extraFired, _extraFiredRe_));
+  _mcSeen_(clashFired);
+  rounds.forEach(r => (r.strikes || []).forEach(k => _mcSeen_(k.pFired)));
+  rounds.forEach(r => { _mcSeen_(r.eFired); _mcSeen_(r.pactDef && r.pactDef.fired); });
   // 🥋🔮 御主體術/魔術參戰：跟上面同一種「有記錄沒講給AI聽」的落差——這兩個 fx 每擊都可能悄悄加傷害，卻從沒被塞進 aiPrompt，AI 完全不知道御主動手了，只能憑空演出御主在旁乾看/捏著寶石不出手的空氣戲。
   const _ourFiredAll_ = rounds.reduce((a, r) => a.concat((r.strikes || []).reduce((b, k) => b.concat(k.pFired || []), [])), []);
   const _foeFiredAll_ = rounds.reduce((a, r) => a.concat(r.eFired || []), []);
@@ -1288,6 +1298,11 @@ function actionFateBattle(userData, pcId, sheets) {
     if (foeMeleeFired || foeMagicFired) SC_FIGHT.push(`對面御主也親自下場（${[foeMeleeFired ? '體術助陣' : '', foeMagicFired ? '暗中引動魔術' : ''].filter(Boolean).join('、')}）——敵方的攻勢不全是「${defC.name}」一人所為。`);
     if (battery && battery.usedBattery && battery.bledMaster) SC_FIGHT.push(`御主燃燒生命力硬扛魔力缺口為從者頂上，魔術迴路過載灼痛難當（餘 ${battery.masterHp}/${battery.masterHpMax} HP）——★迴路透支的內在灼痛虛脫，非流血外傷。`);
     if (extraFired.length) SC_FIGHT.push(`戰局關鍵轉折：${extraFired.join('；')}。`);
+    // ✨ 禮裝這一戰真的起了作用 → 用它自己的 flavor 給畫面（理想鄉另有專屬 SC_PEAK，不重複講）
+    if (mysticFired && !idealRealmFired) {
+      const _mcNow = MYSTIC_CODES[getMystic_(pcData[pIdx][COL.PC.MEMORY])];
+      if (_mcNow && _mcNow.flavor) SC_FIGHT.push(`【禮裝·${_mcNow.name}】${_mcNow.flavor}★這是御主帶在身上的東西，這一戰確實起了作用——用畫面帶過一次即可，別報數字、別寫成它決定了勝負。`);
+    }
     // ── 高潮：這一戰最該被寫成畫面的那幾拍 ──
     if (useSeal) SC_PEAK.push(`御主燃燒一道令咒·絕對命令，強令此擊必中、引爆超限戰力。`);
     if (npSealForced) SC_PEAK.push(`【令咒強開寶具】御主魔力早已見底、血肉也湊不出真名解放所需，卻仍以令咒之力硬逼出這一擊——刻在手背的絕對命令化作純粹魔力補上枯竭的缺口。演出這股「以令咒硬點燃寶具」的悲壯。`);

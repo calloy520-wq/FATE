@@ -307,6 +307,19 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 - ⚠ **avalon 有兩條路，別只看一條**（2026-09 稽核踩過）：①**時回×1.6** 在 `Time_World.applyRegen_`，查的是【御主】身上的禮裝（`masterMysticFx_`），**全隊都吃、跟召喚了誰無關**；②**戰中每回合自癒**（`regen` fx·鞘之恩澤）與**理想鄉攔截**（`avalon_saber`）在 `injectMysticBuff_`，**只有從者正是阿爾托莉雅(Saber)才注入**。只讀 ①會以為戰鬥也自動回血，只讀 ②會以為時回是她限定——兩邊都錯。`MYSTIC_CODES.avalon.desc` 與創角選單已逐字寫清這條分岔。
 - **接線**：`masterMysticBuffSkill_(memory)`→{n,r,fx}；`injectMysticBuff_(c,masterMemory)` 注入我方從者戰鬥單位 skills（冪等）。`actionFateBattle` 三處注入（atkC 含開場對轟/每回合 sC/`fateStrike_` 內 defC 吃 avalon 減傷）。引擎 `mcCombatFx_(c)` 在 `resolveFateBattle_` 三通道讀取。只注戰鬥單位、不寫回 row。
 - `getMystic_/setMystic_`（MEMORY【禮裝】id）、`masterMysticFx_`（查單一 fx，如 Time_World avalon）、`canRuleBreak_`（是否具破戒力：召 Caster美狄亞 或 持破戒禮裝）。
+- ✨ **2026-09：禮裝終於在敘事裡存在了**。在此之前它是**純粹看不見的數值修正**——
+  `grep 禮裝 gas/Router_*.gs | grep prompt` 是 0 筆，Avalon 幫你擋下一發寶具、AI 完全不知道，
+  御主卡上也沒有它，AI 只能把御主演成兩手空空的人。而 `MYSTIC_CODES.flavor`（四段寫好的畫面文字）
+  **零引用**躺在那裡，就是為這件事寫的。
+  - **卡上只給名字**：`masterCard_` 加 `｜隨身禮裝：<name>`（約 10 字），跟 體術／魔術系統 同一類事實。
+  - **真的生效的那一戰才給畫面**：`Engine_Fate` 每擊都在記 `·禮裝「label」(命中+2)` 這種旗標，
+    但那些旗標從沒進過 `aiPrompt`——**這是 `Router_Battle` 第三次同一種漏餵**
+    （前兩次是 戰鬥續行/斬斷救贖、御主體術/魔術，註解都還在）。現在收集旗標 → 命中就推一行
+    `【禮裝·<name>】<flavor>★…用畫面帶過一次即可，別報數字`。
+    ⚠ **只給畫面不給數字**：旗標裡的 `(命中+2)/(寶具減傷×0.82)` 是 GAS 的帳，miniSystem 鐵律4 禁複述。
+    ⚠ **理想鄉另有專屬 `SC_PEAK`**，`idealRealmFired` 時不重複講。
+  - 只有玩家有禮裝（`injectMysticBuff_` 一律吃 `pcData[pIdx]`），所以看到旗標就是玩家這邊生效。
+  - 探針 `scratchpad/size/mystic.js`（9 條）＋兩個方向的退化測試（拔素材行叫 3 條、拔卡上禮裝叫 1 條）。
 - 創角＝玩家自選 `userData.mystic`（只驗證合法被動禮裝 id·不看身世/迴路門檻）。
 - 已移除：`actionUseMystic`/`rollMysticForMaster_`/`pickByTier_`/充能機制/`applyMysticDamageToServant_`/前端 `mysticStrike`/敵卡禮裝鈕。
 

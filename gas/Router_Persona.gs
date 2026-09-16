@@ -160,6 +160,9 @@ function masterCard_(row) {
       (origin ? `｜出身：${origin}` : "") +
       (magic ? `｜魔術系統：${magic}${magicRank ? `(${magicRank}階)` : ""}` : "") +
       (melee ? `｜體術：${melee}階` : "") +
+      // ✨ 禮裝一直沒進過任何提示詞——AI 因此只能把御主演成兩手空空的人。只給名字，
+      //    它起作用的樣子(flavor)留給真的生效的那一戰講(見 Router_Battle 的【禮裝·】素材行)。
+      (() => { const _mc = MYSTIC_CODES[getMystic_(row[COL.PC.MEMORY])]; return _mc ? `｜隨身禮裝：${_mc.name}` : ""; })() +
       (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
       `。御主＝玩家本人(旁白稱「你」)：依性格開口、有神態台詞，不是沉默的旁觀者；但下一步由玩家按鍵決定，收尾停在等你決定的當下。` +
       (playedCanon ? `「${name}」出自Fate正典，優先依你對${playedCanon.name}的認知演出，上方僅為錨點。` : "") + `\n`;
