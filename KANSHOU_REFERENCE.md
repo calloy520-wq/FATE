@@ -66,7 +66,6 @@
 | 【初次】 | `【初次】事件:absDay,事件:absDay,…`（存儲上限`KANSHOU_FIRSTS_CAP_`=20筆） | 同伴列 | 💞 結構化「第一次」帳（`kanshouGetFirsts_`/`kanshouStampFirst_`，冪等·只記最早那次）。蓋戳點：牽手／同居／同床／約會（赴約成立·準時遲到皆算）／各式橋段（以事件名當 key·僅非拒絕分支）。每回合取最早`KANSHOU_FIRSTS_SHOW_`=5筆進提示詞當既定事實；同月同日撞上則另跳「週年」加強句 |
 | 【關係階】 | `【關係階】N`（1=點頭之交…5=戀人·IntTag 預設0） | 同伴列 | 💗 歷來最高關係階（`kanshouRelRank_`）。只升不降，用來偵測「這回合剛跨階」→注入質變提示。**刻意看 BOND 不看 REL_TAG**（玩家自訂稱呼後 REL_TAG 不再等於梯度字面，跨階演出不該因此消失） |
 | 【帳號】 | `【帳號】acctName` | — | 人工檢視辨識（非驗證，歸屬走帳號表） |
-| 【側寫計數】 | `【側寫計數】N` | 玩家列 | `kanshouGetSideWriteCount_`/`SetSideWriteCount_`：AI滾動側寫玩家經歷的節流計數(每3回合才補寫一次；2026-07 二度改版後 master_note 只剩經歷一格，性格/萌點改由創角一次擴寫、AI 不再側寫，「【性格鎖】」標記已隨之整組刪除) |
 | 【快速貼圖】 | `【快速貼圖】text1,text2,...`（逗號分隔） | **玩家列** | `kanshouGetQuickPhrases_`/`SetQuickPhrases_`：玩家自訂快速輸入貼圖(2026-07新增)，上限`KANSHOU_QUICK_PHRASE_CAP_=8`句，跟內建4個(害羞/小聲/苦笑/臉紅，2026-07同月再縮減，純前端寫死)分開存 |
 | 【換裝】【口吻】【小動作】 | — | 同伴列 | 鑑賞**讀取**（`getOutfit_`/persona），寫入屬 solo/persona 生態、非鑑賞獨有 |
 
@@ -175,18 +174,15 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 ⚠ 這一層補的是「純聊天的內容 3 輪後徹底蒸發」：MEMOIR／【初次】／紀念日／約定四個長期管道**都要有事件發生才會寫**，
 日常閒聊一個都不蓋戳。實測連打 8 回合日常，那四格全空。
 
-## 💬 好感天花板（玩家看不到，這是刻意的）
+## 💬 好感天花板（已整組移除）
 
-~~`kanshouRelChatCeiling_`~~（已移除）：純聊天封頂在**下一道階級門檻前一格**，實際會在 **39 / 59 / 79** 撞三次牆
-（起算點是熟識 40——第一階「陌生→朋友」本就該靠閒聊自然發生）。要破牆得靠約定赴約／橋段／告白。
-
-- **AI 收得到**：`pAtCeilingStr` 會把「單靠對話已到上限，需要約定赴約或橋段」整句餵進角色卡。
-- **玩家收不到**：同伴面板只顯示 `(關係:X・好感N)`，沒有任何「你卡住了、該去按那個鈕」的提示。
-  2026-09 稽核提報後**玩家裁示維持現狀**（不加提示、不點亮按鈕、不由 AI 暗示），記在案以免下一輪又被當成 bug 重提。
+~~`kanshouRelChatCeiling_`~~／~~`pAtCeilingStr`~~ 都已不存在。現況 `rel_changes` 落地只做**每回合 ±5 夾值＋總值 [-100,100]**，
+**沒有任何依關係階的封頂**（舊版 39/59/79 撞牆、「AI 收得到／玩家收不到」、玩家裁示維持現狀那段紀錄留在 git 歷史）。
+80 以上唯一的牆是告白（`KANSHOU_LOVER_TAG_`，見 §告白）。**別再把「聊天天花板」當現況重提。**
 
 ## ⏰ 時間系統
 
-- **每動作推進 10 分鐘**：`KANSHOU_HOUR_PER_ACTION_ = 1/6`（2026-07「問個菜色都中午了」→ 半小時太兇）。
+- **每動作推進多少由玩家設**：`kanshouHourPerAction_(memory)`＝`kanshouPaceOf_(memory)/60`，選項 `KANSHOU_PACE_OPTIONS_ = [0,10,20,30]` 分鐘（0＝暫停・預設 `KANSHOU_PACE_DEFAULT_`=10），存玩家列 MEMORY【時間流速】，細節見 §⏰ 時間流速。（舊常數 `KANSHOU_HOUR_PER_ACTION_=1/6` 已不存在；2026-07 那次是從半小時改成 10 分鐘「問個菜色都中午了」）
 - **五時段** `KANSHOU_TIME_BANDS_`：清晨(5)／午後(11)／黃昏(17)／夜晚(20)／深夜(0)。
 - **當日不跨日上限** `KANSHOU_DAY_LAST_HOUR_ = 23`；被動聊天每回合 `+1/6` 小時流動。
 - **曆法**：Day1 = 12/20（`KANSHOU_CAL_START_MONTH_/DAY_`），`KANSHOU_FESTIVALS_` 節慶表，前端顯示西曆年月日。
@@ -210,10 +206,10 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 
 - **五階門檻** `KANSHOU_REL_TIER_`：戀人≥80／親近的人≥60／熟識的朋友≥40／普通朋友≥20／點頭之交≥-100（起始）。
 - **自動分級** `kanshouSyncRelTier_`：僅當現 REL_TAG 仍等於某梯度字面時才覆寫（玩家自訂稱呼後不再自動蓋回）。
-- **聊天天花板** ~~`kanshouRelChatCeiling_`~~（已移除）：純聊天（AI rel_changes）加好感只夾到「當前梯度上限」。**只從 40 起擋**（`filter(m >= 40)`）——bond<40 不封頂（解 19 死鎖）；bond<60→上限59；<80→79；≥80→100。**2026-07 三度改版**：卡在這道天花板（bond 剛好等於 39/59/79）本身現在會直接觸發 GAS 主動約會邀請，見下方「約定 2.0」§她也能主動邀約。
+- **聊天天花板**：已整組移除（`kanshouRelChatCeiling_` 不存在）。純聊天加好感只受 ±5/回合與 [-100,100] 夾值；GAS 主動約會邀請也已隨八度改版拔除。
 - **突破手段**（繞過聊天上限、直接寫 BOND）：
   - **約定赴約 +5**（硬編字面，`kanshouPromiseMetStr` 那段，不吃 chat ceiling）
-  - **獨處時光 +3**（`KANSHOU_SCENE_BOND_ = 3`·`kanshouAloneBondStr`）：與她**單獨**在私密場合（`noEncounter` 地點＝家中各處／她的住處／我的房間）＋好感≥~~`kanshouRelChatCeiling_`~~（已移除）(39)＋當日未給過（沿用 `KANSHOU_SCENE_DAY_TAG_` 日閘門）。2026-07 泡泡拆除後接手原「親密橋段 +3」的破天花板職責——不需按鈕、不靠 AI 判斷，天然一天一次。
+  - **獨處時光 +3**（`KANSHOU_SCENE_BOND_ = 3`·`kanshouAloneBondStr`）：與她**單獨**在私密場合（`noEncounter` 地點＝家中各處／她的住處／我的房間）＋好感≥`KANSHOU_SCENE_MIN_BOND_`(＝熟識門檻 40)＋當日未給過（沿用 `KANSHOU_SCENE_DAY_TAG_` 日閘門）。2026-07 泡泡拆除後接手原「親密橋段 +3」的破天花板職責——不需按鈕、不靠 AI 判斷，天然一天一次。
     - **🐛→✅ 2026-07 模擬實跑抓到「39 的牆只有一扇門」**：這道門檻本來寫 `KANSHOU_VISIT_BOND_`(40)，跟聊天天花板共用 40 這個數字——但天花板是封在**門檻減一**（`kanshouRelChatCeiling_` 回傳 `t-1`）。於是 bond 39 的人：聊天爬不動（實跑 30 回合原地不動）、獨處差一點用不了、夜襲還要 60，**39→40 這一步只剩「約定赴約」一條路**（含 `kanshouPromiseOffer_` 她主動邀約，仍是同一條）。舊註解宣稱「此門檻不卡任何該通的路」正是漏算了 39→40，而那恰好是門檻自己站的位置。改成直接讀 ~~`kanshouRelChatCeiling_`~~（已移除），兩個數字從此不可能各走各的；日後 `KANSHOU_REL_TIER_` 門檻怎麼調都自動對齊。**寫新的破天花板手段時，門檻一律對齊天花板本身、別再另寫一個看起來一樣的常數。**
 - **🗑️ 2026-07 曾經有過第四軌「日記鑑賞」（排程一週→AI 寫成週記），玩家實測後決定砍掉。** 留這行是為了讓下一個失憶的我知道：①**它被砍掉不代表想法不成立**，被否定的是「純排程、沒有即時對話」這個形狀；②整軌是照「可整檔刪除」的規格蓋的，砍完 `git diff` 對照上線前的 commit 是**全空**——`Diary.gs`／`Script_Diary.html`／`DIARY_REFERENCE.md` 三檔刪除，`Router_Action`／`Index.html`／`Script.html` 的掛勾原樣還原，`Gallery.gs` 全程 0 行改動。要再挖出來看實作，`git show 503a37e..fdf97c4`。**這個「先分軌、可整檔刪」的做法本身值得重複**：實驗失敗的成本就只是刪三個檔。
 - **🙋 她主動（`KANSHOU_INITIATIVE_DAY_TAG_`·2026-07 玩家「泡泡用的應該也很少了…NPC 是不是就不太主動了？」）**
@@ -302,33 +298,16 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 |---|---|
 | ~13:24 | 等待框（她還沒動身） |
 | 13:30 ~ 14:30 | ★赴約 **+5** |
-| ~16:30 | 遲到 **+3** |
-| 16:30~ / 跨日 | 爽約 **−5** |
+| ~16:00（約定＋2h） | 遲到 **+3** |
+| 16:00~ / 跨日 | 爽約 **−5**（`_standUp`） |
 
-## 🎊 節慶＝今天的「重點」（2026-07 玩家「想要一個類似任務重點」）
+## 🎊 節慶＝今天是什麼日子（只給事實）
 
-節慶走**獨立通道** `kanshouFestivalStr`，不在 `kanshouSceneKey_` 那條優先鏈裡。三態：
-
-| 狀態 | 條件 | 送出內容 |
-|---|---|---|
-| **未完成** | 預設 | 節慶氛圍 ＋ **委婉提醒**：「這一天的老規矩是【X】，而你們還沒去成。若情境合適，可由她**自然地**提一句（期待/試探/嘴上說無所謂都行）——只能點到為止，**不可**催促玩家、不可替他決定去不去、更不可自行演成已經去過了」 |
-| **完成當下** | 玩家人在 `doneLoc` 之一 **且** 身邊有同伴 | 「這是今天的重頭戲，值得多給一點筆墨」＋蓋戳 `KANSHOU_FESTIVAL_DONE_TAG_`(存玩家列·absDay) |
-| **完成後** | 戳記 === 今天 | **一句短餘韻**「該做的事你們已經一起做過了，別再提還沒去」 |
-
-**完成判定刻意不加按鈕、不問 AI**——「玩家人在神社 ＋ 身邊有同伴」是 GAS 自己看得到的事實，完全符合「GAS 掌事實、AI 只說書」。
-
-**習俗表**（資料驅動·加節慶＝往 `KANSHOU_FESTIVAL_EVENTS_` 加一列，邏輯不動）：
-
-| 節慶 | `doneLoc` | `todo` |
-|---|---|---|
-| 新年初一 | 古老神社 | 到神社初詣參拜 |
-| 情人節 | 咖啡廳 | 找間店坐下來，好好過這個情人節 |
-| 七夕 | 古老神社 | 把心願寫上短冊、掛上竹枝 |
-| 中秋節 | 屋頂花園／夜景展望台 | 找個看得見月亮的高處一起賞月 |
-| 聖誕節 | 商店街 | 到亮著燈飾的商店街走一趟 |
-| 跨年夜 | 古老神社 | 到神社迎接新年的第一刻 |
-
-⚠ **節慶 ambient 一律寫成「純場景」、不可出現「她」**：這條通道**沒有名字前綴**（不像 scene ambient 會冠 `_sceneNames.join('、')——`），寫「她手裡拿著短冊」代名詞會懸空；身邊沒人時整句更是直接錯的。同理**委婉提醒只在 `partyMembers.length` 時才發**，並直接指名（`『凜』可自然地提一句`），獨自一人時只留客觀事實。
+節慶走**獨立通道** `kanshouFestivalStr`：當天送 `★【今天是「X」】：…要不要過、怎麼過，由你們自己決定——不必報幕`；
+按「跳到節慶」抵達前一天則送 `★【節慶前夕】`。**沒有完成判定、沒有戳記、沒有習俗表**——
+2026-09 砍掉 `KANSHOU_FESTIVAL_EVENTS_`／`KANSHOU_FESTIVAL_DONE_TAG_`（三態：未完成提醒→完成蓋戳→餘韻），
+理由：那張表規定每個節慶「老規矩是做什麼」還追蹤有沒有達成，等於把節日變成待辦清單。日子是世界事實（留），怎麼過是你們的事（砍）。
+連帶：篇幅「大事」旗標串裡原本的 `/就是此刻/.test(kanshouFestivalStr)` 已無字可對（死旗標），2026-09 稽核一併拿掉——**節慶不拉篇幅**。
 
 ⚠ **算在 `partyMembers` 之後**（不是上面的 ambient 區）：完成判定要用**移動後**的 `curL` 與在場名單，不然「這回合走進神社」不會算數。
 
@@ -379,7 +358,7 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
   - 累加進 `kanshouPromiseMetStr` 餵 AI。⚠ **結算回饋走獨立通道 `promiseSettle`、不借用 `proposalResult` 單槽**（第二輪稽核三路同時撞到：post-AI 提議結果無條件覆寫單槽，同回合「爽約結算＋新提議成功」時結算通知被吞）——前端收到 `promiseSettle` 或 `proposalResult.type==='promise'` 任一都重抓 `kanshou_companions` 刷新 `_kcCur`（否則舊快取殘留已結算的約→假爽約警告）。
   - **⚠ 未解鎖私宅不可當約定地**（2026-07 第二輪稽核·必爽約陷阱）：鎖住的 visit 住處物理上進不去（地圖灰鎖＋後端擋移動）→ 約在那裡＝到期必 -5。前端 `kanshouPromiseMeet` 地點面板不列、後端 `_pmLocOk`，皆走 `kanshouResidenceUnlocked_`（八度改版移除GAS主動邀約`kanshouPickDate_`後，約會地點選擇現只剩玩家自選路徑`promiseMeet`一條，這條驗證是它唯一的把關）。
   - **⚠ 「必爽約陷阱」還有一個成立後才會出現的變種**（2026-07 全面稽核）：約定成立當下有解鎖檢查沒錯，但**赴約前**若好感因其他事件跌破熟識(40)，屋主私宅會重新上鎖——玩家想赴約走過去卻被登門攔截擋在門外，隔天還被系統判「爽約」倒扣好感，兩個各自正確的機制互相矛盾、且玩家全程無法得知這個已成立的約定即將必然失敗。已補 `kanshouLocHasPendingPromise_`：已成立且未過期(day≥curDay)的約定，若目的地正是該私宅，移動時豁免解鎖檢查——赴約優先於門檻。
-- **前端**：`kanshouPromiseMeet(name, npcId)`（2026-07 id 化重構補 `npcId` 第二參數）發起（選地點+時段，走 `kanshouPickLocation_` 共用地點面板，**`#kloc-overlay`**——2026-07 全面重構收尾：原沿用`#kp-overlay`跟小道具/催眠面板共用，選地點跟道具完全無關，已換獨立id解耦）；`kanshouWaitForPromise(targetHour)` 撲空等待框（跳到約定前10分鐘）；地圖 `promiseByLoc` 徽章顯示哪個地點有約。撲空類敘事（相約/同去/同居/牽手/結識五種）統一查 `KANSHOU_MISS_COPY_` 表、經共用 `kanshouMissStr_(type,name)` 組裝，不再五處各自手刻字串。
+- **前端**：`kanshouPromiseMeet(name, npcId)`（2026-07 id 化重構補 `npcId` 第二參數）發起（選地點+時段，走 `kanshouPickLocation_` 共用地點面板，**`#kloc-overlay`**——2026-07 全面重構收尾：原沿用`#kp-overlay`跟小道具/催眠面板共用，選地點跟道具完全無關，已換獨立id解耦）；`kanshouWaitForPromise(targetHour)` 撲空等待框（跳到約定前 30 分＝`_ah - KANSHOU_APPT_LEAVE_EARLY_`，她抵達的時刻）；地圖 `promiseByLoc` 徽章顯示哪個地點有約。撲空類敘事（相約/同去/同居/牽手/結識五種）統一查 `KANSHOU_MISS_COPY_` 表、經共用 `kanshouMissStr_(type,name)` 組裝，不再五處各自手刻字串。
   - **婉拒類通知條只寫「成沒成」**（2026-07-28 玩家：「提議移動失敗的台詞超級無敵僵硬」）：舊版寫的是「『她』這次不想去「X」——心情或時機不對，待會再邀、或自己先過去也行」——但 `★【提議·同去·GAS已裁定】` 早就叫 AI【依她的個性演出婉拒的反應】了，系統再補一句通用理由等於把剛演出來的個性壓平成同一套罐頭（跟 `KANSHOU_RAPPORT_TONE_` 那次「有模板誰來演都一樣」同一個形狀），後面還接一句教玩家怎麼做。現在婉拒條只留【敘事看不出來的機制後果】：同去→`🚶 沒有同行——你要自己去「X」的話，照常點地圖。`／同居→`🏠 沒有搬來——同住這一步需要非常深的信賴，好感還不到。`／相約→`📅 這次沒有約成。`／牽手→`🤝 沒有牽到手。`。**成功那幾條不動**——它們帶的是敘事給不了的資訊（「點下方的『同意』才動身」、赴約的好感升降規則、同居後的作息），那不是贅字。告白被拒也不動（帶好感回落與 N 天冷卻兩個真機制）。
   - **對象解析改 id 優先**（2026-07 id 化重構，跟 solo 側同一輪）：後端 `_pmIdx` 改呼叫共用 `findPcRowIdx_(pcData, _myGid_, {id, name, faction:"從者", loc:curL, excludeIdx:pcIndex, nameCandidates:kanshouNameCandidates_})`——卡片渲染 onclick 已多帶 `s.id`，有 id 就精準命中同地點/在世/從者陣營的那一列，查無 id（或 id 已過期，例如她已離開此地/已改換陣營）才退回原本的 `kanshouNameCandidates_` 別名模糊比對。`kanshouHoldHand`/`kanshouInviteCohabit` 兩支同一輪同步補了 id（見下方牽手/同居章節），三處共用同一支 resolver、同一份在場/在世過濾邏輯，不再各自手刻名字比對。
 - **移動接人**：時間快轉在「給 AI 資料之前」先把該去的人拉到約定地點（順序鐵則同上）。
@@ -416,11 +395,9 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 - **首次見到她時靜靜記下當前階、不報**——剛認識的人不該演出「我們變成朋友了」，那是初始值不是質變。
 - 明令**不可報幕**（不出現階級名詞/數字），要演成關係自然到達的那一刻。
 
-### ③ 同居日常橋段
-- 同居(80)是全模式最終里程碑，但原本機制上只有「她待在你家」＋提示詞一行「同居中:是」，**沒有任何同居限定內容**，最大的獎勵反而最空。
-- `KANSHOU_COHABIT_EVENTS_`(時段→事件) ＋ `KANSHOU_SCENE_EVENTS_` 五則新橋段（同居晨光／午後／黃昏／夜話／深夜）。
-- **觸發＝最低優先層**：排在節慶→地點×時段【之後】，只補前兩層沒佔到的時段空檔，不搶膝枕/共浴/下廚。舞台限 `kanshouPlayerHomeLocs_`（`region:'home'` 五處＋我的房間，**與「她的住處」是兩回事**），對象經 `_sceneIsCohabit_` 限**同居中**的她。
-- 內容刻意寫**平凡的共同生活**（一起弄晚飯、睡前閒談、半夜宵夜）而非情慾升級——缺的是「一起生活」的實感。2026-07 泡泡拆除後只留一句 `ambient` 客觀事實，玩家想怎麼互動自己打字。
+### ③ 同居日常橋段（2026-09 已砍）
+- 曾有 `KANSHOU_COHABIT_EVENTS_` 五則預寫 ambient（同居晨光／午後／黃昏／夜話／深夜）補時段空檔；隨預寫池整批移除。
+- 現況：同居只剩事實（在場卡「她現在與你同住一處」＋`kanshouCohabitStr` 落地當回合），一起生活的日常由 AI 即興。
 
 ## 🖥️ 同伴卡片按鈕（2026-07 整合·8→6）
 
@@ -428,11 +405,11 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 
 **現況 2-2 四顆**（2026-09 拿掉 `🎀 小道具｜🌀 催眠指令` 那排後）：`📜 詳細狀態｜💞 關係` ／ `📅 相約｜🤝 牽手(已牽→✋ 放手)`
 
-- **🏠 同居改成「一生只問一次」的泡泡**（玩家「同居做成泡泡問一次、完全隱藏才是正解」）：好感**首次達 `KANSHOU_COHABIT_BOND_`(90)** 且她在場、尚未同住、也還沒問過 → 跳一次邀請泡泡（`cohabitOffer`）並蓋 `【同居問過】`，之後永不再問。⚠ 刻意**不**綁在「跨進戀人」那一階——戀人是 80、同居門檻是 90，在 80 問會被後端以「關係還沒深到能同住」回絕，變成問了也沒用的假泡泡。跟八度改版拔掉的舊版泡泡差別在**一生一次 vs 每回合都跳**。
+- **🏠 同居改成「同一天只問一次」的泡泡**（玩家「同居做成泡泡問一次、完全隱藏才是正解」）：好感**首次達 `KANSHOU_COHABIT_BOND_`(90)** 且她在場、尚未同住、也還沒問過 → 跳一次邀請泡泡（`cohabitOffer`）並蓋 `【同居問過】`（存 absDay，同日不再問、換日再問；接受後靠 `!kanshouIsCohabit_` 自動停）。⚠ 刻意**不**綁在「跨進戀人」那一階——戀人是 80、同居門檻是 90，在 80 問會被後端以「關係還沒深到能同住」回絕，變成問了也沒用的假泡泡。跟八度改版拔掉的舊版泡泡差別在**一天一次 vs 每回合都跳**。
 - **💞 關係 ＝ 中樞面板** `kanshouOpenBondHub(name, tag, bond, nickname, id, cohabit)`（Script_Kanshou.html）：把三個低頻入口收在一起，**三個既有面板完全不動、原樣複用**（`kanshouOpenRelTag`／`kanshouOpenMemoir`／`kanshouInviteCohabit`）。
 - 刻意做成「**有摘要的分派面板**」而非把三頁硬合成一頁——三者互動型態差很多（選標籤／管清單／送邀請），硬合只會變成更長的捲動頁；分派面板既省卡片空間，又能一眼看到三者**目前狀態**（現在的關係稱呼＋專屬稱呼、是否已同居、自訂稱呼門檻還差多少）。
 - 為此 `buildTagsPayload_`（Router_Action.gs）的 servants 新增 `cohabit` 欄位供面板顯示狀態；solo 恆 false。
-- 中樞裡的同居列**平時完全不顯示**：已同住→只顯示狀態（非入口）；未達 90→整列隱藏；只有「已達門檻但還沒同住」這個唯一還有意義的窗口才留一條靜默備援——否則玩家在泡泡按了「現在還不用」之後就永遠邀不了（一生一次、不會再跳）。
+- 中樞裡的同居列**平時完全不顯示**：已同住→只顯示狀態（非入口）；未達 90→整列隱藏；只有「已達門檻但還沒同住」這個唯一還有意義的窗口才留一條靜默備援——否則玩家在泡泡按了「現在還不用」之後當天就沒有入口（同日不再跳）。
 
 ## ✂️ 提示詞瘦身·鑑賞輪（2026-07）
 
@@ -509,7 +486,7 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 | 欄 | 鑑賞現況 | 對應的 UI 處理 |
 |---|---|---|
 | 性格 `[喜歡][討厭]` | **不再送** —「聊到才用」的話題燃料 | 鑑賞的逆天改命**只顯示前兩格**；後兩格改 hidden input 原值帶回（**資料不清空**，solo 仍吃完整四格） |
-| 同伴的 `身世` | **不再送** — 與性格表象/內裡高度重疊 | 該欄加註「僅供你自己查看／備忘，鑑賞敘事不會用到」。**不藏**，因為詳細狀態面板仍看得到，藏了反而不一致 |
+| 同伴的 `身世` | ~~不再送~~ → **2026-09 改回送**（在場卡 `\| 經歷:`，過濾比照 `servantCard_`，見 §省下來的還給角色資料） | 舊的「鑑賞敘事不會用到」加註是假話（2026-09 稽核抓到），已改成標籤「固定事實·AI 讀得到但不會改寫」 |
 | 玩家自己的 `經歷` | **仍有送**（見【玩家命格】那行） | 不變 |
 
 性格＋身世：**55 → 21 字/人**。
@@ -531,21 +508,18 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 
 ## 🎭 橋段（scripted events）
 
-> ⚠️ **2026-07 九度改版：整組 offer/accept 泡泡已拆除**（玩家「我覺得橋段太過生硬」）。橋段不再是「跳一張卡、按了才演」，而是**降級成一句情境氛圍**餵給 AI，玩家想怎麼玩自己決定。以下是現況。
+> ⚠️ **2026-07 九度改版拆掉 offer/accept 泡泡、2026-09 再把整個預寫池砍光**（見 §事件自由）：
+> `KANSHOU_SCENE_EVENTS_`／`KANSHOU_FESTIVAL_EVENTS_`／`KANSHOU_LOCATION_EVENTS_`／`KANSHOU_COHABIT_EVENTS_`／
+> `kanshouSceneKey_`／`kanshouPlayerHomeLocs_`／`_sceneIsCohabit_` 全部不存在，`kanshouSceneAmbientStr` 是刻意留空的字串
+> （回傳形狀不動）。地點×時段×同居發生什麼，全由 AI 依 ★ 事實即興。下面留的是還活著的機制。
 
-- **資料表** `KANSHOU_SCENE_EVENTS_`（16筆）：**每筆只剩 `{ ambient: '…' }` 一個欄位**——沒有 `label`/`btn`/`verb`/`intent`/`branches`。
-  - 地點×時段：共浴／溫泉同浴／膝枕／下廚／觀星
-  - 節慶：初詣／情人節巧克力／七夕短冊／中秋賞月／聖誕約會／跨年倒數
-  - 同居日常：同居晨光／午後／黃昏／夜話／深夜
-- **注入方式**：命中就組 `kanshouSceneAmbientStr` → `★【此地此刻·情境事實】`，並明講「這只是眼下的客觀情境，**不是**既定劇情：要不要理會全由玩家決定，你不可替玩家做決定、不可推著他行動、不可自行把事情演完」。
-- **觸發表**（三張，優先序由高到低）：`KANSHOU_FESTIVAL_EVENTS_`（節慶日×時段·先判，節慶日稀有且特殊）→ `KANSHOU_LOCATION_EVENTS_`（地點×時段）→ `KANSHOU_COHABIT_EVENTS_`（**同居中**×兩人同處玩家居所×時段，只補前兩者沒佔到的空檔）。**加內容＝往表加一列＋`KANSHOU_SCENE_EVENTS_` 加一筆 ambient，觸發邏輯不必動。**
 - **🛏️ 夜襲／賴床叫醒：整組移除**（玩家「最需要保留的是夜襲，但其實也不需要泡泡詢問，只要確定 npc 會睡覺就可以了」）。她睡著這件事**本來就由 `pSleepStr` 每回合當既定事實餵給 AI**、判準完全相同（`KANSHOU_ASLEEP_HOUR_END_=8`／`KANSHOU_NIGHT_RAID_HOUR_END_=5`），再包一層按鈕只是把自然的處境變成一張要點的卡。連帶移除：`kanshouRollSceneBranch_`、`roomEventOffer`、`kanshouAcceptRoomEvent`。
 - **好感天花板破口**：原本靠橋段 `BOND+3`，橋段拆除後改綁 `kanshouAloneBondStr`（真的獨處的私密場合×當日一次，沿用 `KANSHOU_SCENE_DAY_TAG_` 同一個日閘門）。
 - `kanshouAsleepOutcomeStr_(bond)` **仍在**，但唯一呼叫點只剩**深夜敲門·別有用心**：60以下＝她又驚又惱把人趕走／60~79＝半推半就但卡在親吻擁抱／80+＝無上限。切點沿用親密尺度五階的 60/80，單一來源。
 - **🚪 深夜訪客（2026-07 十度改版·由「待決泡泡」改成「先落盤再善後」）**
   - **判準**（玩家「如果玩家沒有按泡泡而是打對話呢？」問出來的通則）：泡泡若是**待決狀態的唯一出口**，玩家改用打字就會壞；泡泡若只是**已落盤狀態的捷徑**，忽略它完全無害。深夜敲門原本屬於前者。
   - **舊版的病**：`endDay` 命中擲骰後純早退（`return {text, knockEvent}`，**零落盤**）。玩家改打字 → ①「結束一天」的意圖靜靜蒸發（日期沒推進、只 +10 分）②訪客還在她自己家、沒進 `partyRows` ③但「敲門聲」已寫進歷史，AI 同時收到「有人敲門」和「她不在場、不准開口」兩條矛盾指令。
-  - **新版**：擲骰命中就**直接把她的 LOC 設成玩家所在地**（沿用既有接人流程，含「別有用心」判定），本回合不推進日期，回傳 `nightGuest` 讓前端給兩顆**善後**鍵：`🛏 一起睡` / `🚪 請她回去`（兩顆都是 `{endDay:true, skipKnockCheck:true}`，差別只在敘事語氣——結束一天本來就會讓所有人各自回家）。**玩家無視這兩顆直接打字也完全正確**：她真的在房裡，AI 照常演。
+  - **新版**：擲骰命中就**直接把她的 LOC 設成玩家所在地**（沿用既有接人流程，含「別有用心」判定），本回合不推進日期，回傳 `nightGuest` 讓前端給兩顆**善後**鍵：`🛏 一起睡`（`kanshouSleepWithGuest`：只送一句普通訊息、**刻意不帶任何旗標**——她已落盤在房裡，帶 endDay 反而會跳到早上）／`🚪 請她回去`（`kanshouSendGuestHome`：`{endDay:true, skipKnockCheck:true}`，結束一天本來就會讓所有人各自回家）。**玩家無視這兩顆直接打字也完全正確**：她真的在房裡，AI 照常演。
   - **擲骰位置**：必須排在 `actionPlay_` 最前面（`sameGame` 之後）——它會取消本回合的 `endDay`，而 `_reHourAfter`（情境時段）與 `kanshouTimeJumped_`（在場來由）都讀 `endDay`，晚一步算就會拿到「已經睡到清晨6點」的錯值。`kanshouTimeJumped_` 的宣告因此也一併下移到擲骰之後。
   - **當日鎖** `KANSHOU_KNOCK_DAY_TAG_`（存**玩家**列·absDay）：落盤化後「結束一天」可能被按很多次（她進來→打字聊天→再按一次），沒有這個鎖會反覆擲骰、一晚來三個人。
   - **在場來由**：夜訪者在 `pPresenceStr` 有自己的最高優先分支「她剛剛敲了你的門、這一刻才進來」。舊版靠另一個 ★ 區塊（`kanshouKnockGuestStr`）講，跟同一欄的「你們從剛才就一直在這裡」直接打架——已刪，同一件事只留一個出處。
@@ -559,7 +533,7 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
   - **三種收場**
     | 選擇 | 行為 |
     |---|---|
-    | 🛏 讓她留下 | 純 `endDay`：在場好感≥80 的**每一位**都留在玩家房間過夜（她＋原本陪著的人），蓋【同床】初次帳 |
+    | 🛏 讓她留下 | **不帶旗標**（不結束一天）：夜襲命中當下已蓋【夜未眠】，接下來照常打字演；之後再按結束一天，在場好感≥80 的**每一位**都留在玩家房間過夜，蓋【同床】初次帳 |
     | 🚪 請她回去 | `dismissGuest:true` 先把她送回自己家、清 AWAKE_HERE，**才**跑 `endDay` → 只剩原本陪著的人過夜 |
     | 直接打字 | 她真的在場、AI 照常演、日期不推進。送客鍵不再出現→之後按結束一天她會留下過夜 |
   - ⚠ **`dismissGuest` 必須排在 `endDay` 之前**：`intimateNightNames` 的條件是「好感≥80 且此刻與玩家同地」，她剛被落盤到 `curL`、好感又通常夠高，晚一步送就會被留下過夜——「請她回去」等於毫無作用。姓名只從玩家列的 `KANSHOU_NIGHT_GUEST_TAG_` 讀，**不吃 client 傳的名字**。
@@ -635,7 +609,7 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 12. 回傳前端 key：`text/statusString/people/options/tags/moveProposal/encounterOffer/photoResult/promiseWait/proposalResult/promiseSettle/kanshouClock/clock`
 
 ### 系統提示詞 `buildDefaultSystemPrompt()`（**鑑賞專屬**，solo 走 `miniSystem`）
-`nsfwBaseRules`（⚠ **Gallery 函式內自己那份·非 Engine_Combat.gs 紅線·可改**）＋`specificRules`(慾海律令·**2026-07 實驗後改 5 條**：色度跟隨/情慾場已搬去 driveStr，見下；**同月再加第 6 條**：`options` 只能建議在場人物/當下場景真能做到的動作，見下方「options 建議越界」條)＋`★【輸出範本】`(finalJson)。
+`nsfwBaseRules`（⚠ **Gallery 函式內自己那份·非 Engine_Combat.gs 紅線·可改**）＋`★【輸出範本】`(finalJson)。`specificRules` 現為**空字串**（舊「慾海律令」5+1 條已整併進 nsfwBaseRules，見下方「specificRules 改成空字串」；return 形狀不動）。
 ⚠ **2026-07 玩家「在場人物放最後面·歷史只是歷史」USER prompt 結構調整**：`PROMPT_PARTY_SYSTEM`(【目前在場人物命格詳情】·partyDetailsArr組裝)原本緊接在最開頭【敘事法旨】之後，改搬到整段USER prompt的**最尾端**(緊接在「現在演化玩家動作」之前)，並在前面補一句「★【歷史僅供參考·專注本回合】：對話歷史只是脈絡背景…別被歷史裡已經過期的設定/情緒/場景牽著走」——用「放在提示詞最後面」利用模型對鄰近生成點內容的權重(recency)，讓最關鍵的「現在到底誰在場/該依據什麼」在AI真正下筆前最後被讀到。中段既有的「★【在場驗證·最高優先】」行為規則沒動，這次調整的是**資料**(誰在場的實際名單)擺放位置，規則跟資料現在分離在提示詞前後兩端，彼此不衝突。（原本資料後面還補了一句「★【現場僅此名單】」，2026-07 玩家「提示詞會不會太多、有沒有重複」稽核時發現這句夾在【在場驗證·最高優先】canonical版跟真正收尾前的「★【動筆前最後確認】」之間，三次講同一件事、位置上兩邊都不是純屬贅字，已刪除，不影響任何護欄完整性。）
 ⚠ **2026-07 玩家「提示詞太大量」全面壓縮**（核心訴求「AI 只依資料扮演」）：System＋USER＋driveStr＋schema 逐欄全部壓成最短句，冗字/重複/客套/最高級通膨砍到見骨——**但機械護欄（在場驗證/親密尺度五階/移動鐵律/冠名格式/角色一致性/世界觀）一條不刪、只縮字**。實際送 AI 文字砍約 35~45%。加規則前先想「這是機械護欄還是冗字」，冗字不進提示詞。
 ⚠ **2026-07 玩家「我一直想要做減法」三次瘦身**（USER prompt **3069 → 2658 字，−13%**，規則一條沒少）。
@@ -931,7 +905,7 @@ JSON 固定開銷（三人在場）：典型 757 字 ／ 欄位全滿 1,057 字
 **教訓（下次想精簡時先讀這條）**：憑感覺找肥肉會找錯地方。**先把真的送出去的字攔下來秤、再數同一條規則被講了幾次**——體重計跟重複計數器合起來才指得出該砍哪裡。探針做法見 `scratchpad/size/`（`sheet.js` 假試算表＋`probe.js` 攔 `callGeminiAPI`），容器重開會消失，重建成本約十分鐘。
 
 ⚠ **2026-07「色色部分搬去給點火」實驗（進行中·結果待玩家實測回報）**：慾海律令原 0(色度跟隨)＋4(情慾場生理特寫)兩條**整段搬進 `driveStr`**（新編號⑤⑥，只有 `driveOn=true` 才組進提示詞），慾海律令本體剩 5 條(重新編號1~5)。**這兩條原本是「怎麼寫得好」的常駐風格指導、不是「准不准寫」的開關**——准不准寫全程由【親密尺度五階】的好感天花板決定、跟 driveOn 無關，天花板不變。搬走後的實際影響：矜持模式(driveOn=false)不再拿到這兩條的具體露骨寫作指引，即使好感已達戀人階(80+，天花板本身仍允許無上限)，措辭可能反而變保守含糊；主動掌握模式因為同時吃到 driveStr 的「推進到真的發生」指令＋這兩條的露骨寫作指引，兩者疊加可能更猛。**若實測發現矜持模式下的高好感場景意外變乾癟/含糊，這就是根因，把這兩條原樣搬回 specificRules 即可還原。**
-- **finalJson 欄位**：`inner_monologue`(純思考不顯示)／`narration`(約500字·**2026-09 起第二人稱「你」＝玩家**)／`npc_exit`(自然告辭離場真名陣列)／`options`(固定4)／`intimacy_feedback`{player,npcs[]:physical_state≤15/appearance_extras(原outfit_change)≤20/mutual_nicknames/attitude≤15/memory}／`rel_changes`[]{target真名,fav_change整數±·單回合上限+5}／`master_note`(現只剩經歷一格，側寫節流回合才出現)。
+- **finalJson 欄位**（2026-09 現況）：`inner_monologue`(純思考不顯示)／`narration`(字數照【篇幅】區塊·**第二人稱「你」＝玩家**)／`npc_exit`(自然告辭離場真名陣列)／`options`(固定4·可由 optionsOn 整欄刪)／`intimacy_feedback`{player:{physical_state,appearance_extras}, npcs[]:{name,physical_state,appearance_extras,mutual_nicknames,memory,**noticed**(≤14字·她眼中的你)}}／`world_note`[]{kind,…}(世界帳本)／`rel_changes`[]{target真名,fav_change整數·日常+1~2、明顯進展+3~5、冒犯給負；GAS 端硬夾 ±5}。~~attitude~~／~~master_note~~／~~單回合上限+5 文字~~ 都已拿掉。
   **⚠ 2026-07 四度改版·`dynamic_skills`(雙修技巧)整個拔掉**（玩家「雙修技巧還有在用？UI拿掉玩家也看不到了」）：稽核發現這欄早就沒有任何玩家UI顯示，也沒有任何規則告訴AI該怎麼運用讀回的技巧清單(純粹讀進去擺著)，形同每回合白吃AI注意力換不到實質效果——連帶`kanshouSkillTagStr_`/`processSkills`/`setSkillTag_`三個輔助函式與`【身體記憶】`/`【快照】[技巧]`兩段USER prompt注入全數刪除，`[雙修技巧]`MEMORY標記不再讀寫(舊存檔殘留值不影響任何邏輯，純孤兒資料)。順手修正一個連帶發現的off-by-one：`mutual_nicknames`/`attitude`schema文字原本寫「見律令5」「見律令6」，實際慾海律令只有5條，拔掉dynamic_skills後律令4=mutual_nicknames、律令5=attitude，schema引用已同步改對。
   **⚠ 2026-07 三度改版·`promise_proposal`／`cohabit_proposal`／`proposal_accept` 三欄全部拔掉**（玩家「proposal_accept可以拿掉…promise_proposal也可以拿掉，讓GAS好感超過90…詢問玩家她是否可以與玩家同居…想要當好感卡39之類的時候GAS主動發出邀約」）：AI 不再有任何欄位能自己決定「要不要開口約/邀同居」，這兩件事改由 GAS 依好感數值直接判定觸發（見上方「約會地點好感分級」與「她也能主動邀約/邀同居」段落），`proposal_accept` 本就早已停用、一併真正刪除不再保留相容佔位。
   **⚠ 2026-07 拔掉 `move_proposal`＋`location` 欄（玩家實測「AI一直提議移動、頭痛」）**：舊版讓 AI 自己決定要不要提議換地方、換去哪，結果反覆出現「同地點原地邀約」「跟歷史地點串戲」等 bug，且體感一直被打斷。現在 AI **完全沒有任何欄位能提議或宣告換地點**，換地方只剩兩條 GAS 決定的路：①玩家自己用地圖走(`moveTarget`)；②玩家在地圖對在場同伴提議「一起去」（`proposeMove` 機制標記，見下），GAS 依好感直接裁定接不接受，AI 只演她答應/婉拒的反應。因為①②都不讀 AI 輸出，也就不需要「攔截 AI 硬吐 location」這層保險了，直接整段刪除。
@@ -1071,14 +1045,14 @@ JSON 固定開銷（三人在場）：典型 757 字 ／ 欄位全滿 1,057 字
 - **成敗 GAS 擲、AI 只演**：~~`kanshouConfessAccepts_`~~（2026-09 已移除，告白改必定成功）＝`(好感-60) × KANSHOU_CONFESS_SLOPE_(0.028)
   × KANSHOU_CONFESS_FAMILIAR_MULT_[熟悉段]`（初識 .35／混熟 1／老交情 1.2），夾在 2%~95%。
   好感 79 的老交情約 .64；同樣好感但才見過幾次面只有 .19。**刻意不保證必成**——必成的告白等於舊版自動變戀人。
-- **四種結果**（全走 ★ 事實、AI 不得改寫）：`已經在一起了`／`說不出口`(冷卻中·不擲骰不動數值)／
-  `告白·被拒`／`告白·成立`。撲空另有 `KANSHOU_MISS_COPY_.confess`。
-- **代價**：被拒 −`KANSHOU_SCENE_BOND_`(3)＋蓋 `KANSHOU_CONFESS_DAY_TAG_`＝`KANSHOU_CONFESS_COOLDOWN_`(3) 天內
-  說不出第二次（否則變成每回合連按到過為止）。棘輪仍接住她，不會一路崩。
+- **三種結果**（全走 ★ 事實、AI 不得改寫）：`已經在一起了`／`告白·被拒`(好感未達 `KANSHOU_CONFESS_BOND_`=60·不動數值)／
+  `告白·成立`。撲空另有 `KANSHOU_MISS_COPY_.confess`。
+- **沒有代價、沒有冷卻**（2026-09 起）：`KANSHOU_CONFESS_DAY_TAG_`／`KANSHOU_CONFESS_COOLDOWN_`／`KANSHOU_CONFESS_SLOPE_` 都已不存在；
+  好感夠就必成，不夠就是被拒，前端在門檻下直接鎖住入口，所以「連按到過」不會發生。
 - **成立**：蓋 `KANSHOU_LOVER_TAG_`＝1（牆的唯一鑰匙）→ 好感推到 80 → 跑一次同步漏斗（標籤自動變「戀人」）
   → `kanshouStampFirst_('告白')` 記進「第一次」帳。
-- **入口**：同伴卡「💞 關係」中樞面板第三列。四態各自明講（未達 60 鎖／冷卻中還要 N 天／可告白／交往中），
-  不留「按了才被拒」的洞。門檻靠 `KC_CONFESS_BOND_` 鏡射，**逐人狀態** `lover`/`confessWait` 由 `actionKanshouCompanions` 下傳。
+- **入口**：同伴卡「💞 關係」中樞面板第三列。三態各自明講（未達 60 鎖／可告白／交往中），
+  不留「按了才被拒」的洞。門檻靠 `KC_CONFESS_BOND_` 鏡射，**逐人狀態** `lover` 由 `buildTagsPayload_` 下傳（`confessWait` 已隨冷卻移除）。
 - 🩹 **舊存檔補齊**（`kanshouSyncRelTier_` 開頭）：牆上線前就跨過 80 的人是照當時規則掙到的，不能被降回 79
   順便掃掉同居。三個證據任一成立就補蓋戀人：**已同居／REL_TAG 已是「戀人」／`【好感底線】`棘輪 ≥80**。
   ⚠ **刻意不用「此刻 bond≥80」當證據**——AI 這回合 +5 把 78 推到 83 時長得跟舊存檔一模一樣，會自己把牆拆了。
@@ -1087,21 +1061,21 @@ JSON 固定開銷（三人在場）：典型 757 字 ／ 欄位全滿 1,057 字
 🧭 **留下的判準**：好感/門檻/標籤/基調是**四件事**，別讓一個數字兼職。門檻（機制）想多細就多細、AI 不必知道；
 標籤（稱謂）維持粗糙；**精細度放在基調表**——它是唯一 AI 真的要照著演的東西，而且一次只會看到屬於它那一格的一句。
 
-### 🧠 記憶全景（AI 每回合看得到什麼·寫回什麼·多久一次）— 2026-07 整理
+### 🧠 記憶全景（AI 每回合看得到什麼·寫回什麼·多久一次）— 2026-07 整理·2026-09 稽核修正過期處
 **AI 每回合看得到（組進 prompt）**：
 - **近期對話**：`getGameHistoryBatchRaw(pcId, 6)` 滑動窗（6筆＝3輪，更早的靠下面的持久欄接力）。
-- **玩家**：性格(PREF)／特徵(TRAIT)／裝扮／**經歷(BACK·滾動≤80字)**／位置＋地點活動 context（`kanshouLocContextForAI_`）／肉體(PHYSICAL)。⚠ **玩家萌點(INTENT)絕不餵**（紅線②）——2026-07 二度改版後 AI 連「盲寫」都不准了，性格/萌點創角時 `actionBackfillKanshouAi` 寫一次定案，遊戲中只有玩家自己改命能動，AI 完全不碰。**2026-07 四度改版拔掉雙修技巧(身體記憶)**：沒UI也沒使用規則的孤兒欄位，見上方finalJson欄位說明。
-- **每位在場 NPC**（`partyDetailsArr` 一行一人）：身世(BACK)／裝扮／性格／特徵／日常風味／**萌點(有餵·標「僅供內化」，與玩家不同)**／當前活動／**同居狀態**(`kanshouIsCohabit_`判定·2026-07 稽核補：已同居者額外標註「她現在與你同住一處」，讓AI語氣能自然帶同居的日常親近感、不是每次都當作客處理)／共同回憶(MEMOIR)／與玩家的約定／關係 tag＋好感＋相處記憶＋聊天天花板＋階調；NSFW 區另帶 肉體＋羈絆(REL_MEM：專屬稱呼＋態度)。
+- **玩家**：性格(PREF)／特徵(TRAIT)／裝扮／**經歷(BACK·固定事實·AI 只讀不寫·≤80字)**／位置（地點活動表已隨預寫池砍除）／肉體(PHYSICAL)。⚠ **玩家萌點(INTENT)絕不餵**（紅線②）——2026-07 二度改版後 AI 連「盲寫」都不准了，性格/萌點創角時 `actionBackfillKanshouAi` 寫一次定案，遊戲中只有玩家自己改命能動，AI 完全不碰。**2026-07 四度改版拔掉雙修技巧(身體記憶)**：沒UI也沒使用規則的孤兒欄位，見上方finalJson欄位說明。
+- **每位在場 NPC**（`partyDetailsArr` 一行一人）：身世(BACK)／裝扮／性格／特徵／日常風味／**萌點(有餵·標「僅供內化」，與玩家不同)**／當前活動／**同居狀態**(`kanshouIsCohabit_`判定·2026-07 稽核補：已同居者額外標註「她現在與你同住一處」，讓AI語氣能自然帶同居的日常親近感、不是每次都當作客處理)／共同回憶(MEMOIR)／與玩家的約定／關係 tag＋好感＋相處記憶＋階調＋「你在她眼中」(知情度＋noticed)；NSFW 區另帶 肉體＋專屬稱呼(REL_MEM)。（聊天天花板、REL_MEM 態度欄、當前活動欄都已移除）
 
 **AI 寫回（GAS 落地）**：
-- **每回合**：`physical_state`/`appearance_extras`(原outfit_change)→PHYSICAL·【換裝】；`mutual_nicknames`+`attitude`→REL_MEM；`memory` 里程碑→MEMOIR(cap10·★釘選不驅逐)；`rel_changes`→BOND；proposals→前端泡泡(意圖非結果)；`npc_exit`→LOC。
-- **每 3 回合**（側寫節流·【側寫計數】）：`master_note`→**只剩經歷滾動一項**（2026-07 二度改版拔掉性格/萌點側寫，見上方「一次擴寫＋經歷滾動」節）。⚠ **節流三件套缺一不可**（第二輪稽核抓到擊穿）：① schema delete（非側寫回合）② USER prompt 的「你可透過 master_note.經歷 滾動增補」提及跟著 `_doSideWrite` 條件化（`_doSideWrite` 為此**提前到 prompt 組裝前計算**）③ 落地端 `if (_doSideWrite && aiData.master_note…)` 守衛（AI 無視 schema 自發吐也不落地）。
+- **每回合**：`physical_state`/`appearance_extras`(原outfit_change)→PHYSICAL·【換裝】；`mutual_nicknames`→REL_MEM；`memory` 里程碑→MEMOIR(cap10·★釘選不驅逐)；`noticed`→MEMORY【眼中的你】；`world_note`→世界帳本；`rel_changes`→BOND；`npc_exit`→LOC。（`attitude`、proposals 泡泡都已不存在）
+- ~~每 3 回合 `master_note` 經歷滾動~~：2026-09 整組移除（經歷改回固定事實，見 §經歷改回固定）。
 
 **🩺 AI 負擔瘦身（2026-07 玩家診斷「滾動式+衣服外觀神情太要他老命」·小模型注意力有限，能省則省）**：
 - **狀態差分**：`physical_state`/`appearance_extras`(原outfit_change)/`attitude` 沒實質變化留空＝系統沿用舊值（GAS 空值本就跳過寫入；attitude 配套修掉「空值洗白態度」舊 bug——空→從 oldRMem 撈回舊態度；**「無/同上/不變/沿用/維持原樣/如前」等敷衍值也視同空**，否則差分模式下 AI 真的會把「同上」二字寫進態度欄）。有變化（脫/穿/沐浴/情事/神情轉變）必須更新，NSFW 場景照記。
   - **🐛→✅ 2026-07 玩家實測「用👕換裝手動設定的裝扮，下一回合就默默變回別的」**：schema `_note` 裡「沒實質變化就留空」只是 JSON 欄位描述文字，對這個模型的約束力不夠強——AI 會自己判斷「這身打扮好像跟這幕場景/氣氛不搭」就主動「合理化」改寫成別的描述，即使敘事裡根本沒有任何穿脫/更衣動作發生，等於自行推翻玩家手動鎖定的裝扮。已在**慾海律令**(`specificRules`，非紅線)新增第7條，把「appearance_extras只在劇情真有穿脫/更衣/入浴動作時才填新值、不准因『不搭』自行合理化改寫」提升成跟第4/5條(mutual_nicknames/attitude)同等級的明文規則(schema _note是弱信號、慾海律令明文規則對這個模型才是強信號，同一套教訓)。
   - **🐛→✅ 同批再抓一個變種**（玩家回報「在溫泉泡湯→移動到商店街，服裝狀態卻顯示『在水下』」）：AI 把**所在環境/姿勢描述**(「在水下」)誤寫進這個**只該記衣物本身**的欄位，離開泡湯地點後這句話語意不通、也永久卡住(因為上面第7條規則已讓AI不再主動改寫，這格就會一直卡著錯的舊值不放)。schema描述與慾海律令第7條都補上明文：**這格只能寫「身上穿/沒穿什麼」，禁止寫成所在環境或姿勢**(如「在水下」「泡在浴池」)——那是敘事場景，該讓narration自然演出，不該塞進持久裝扮欄。**已卡住的存檔需要玩家自己用👕換裝手動蓋掉**(輸入正確裝扮或留空清除)，這次修正只防未來不再發生，不會回溯修好已寫壞的舊值。
-- **options 連動開關**：前端帶 `optionsOn`（玩家關【命運的抉擇】＝false）→ `buildDefaultSystemPrompt` 第3參數 `includeOptions=false` 把 options 欄整個 delete——沒人看的東西不叫 AI 生。連 Gallery 版 `nsfwBaseRules` 第2條的「options固定4個」字樣也隨開關拿掉（schema 刪了、規則文字還催繳＝AI 精神分裂）。
+- **options 連動開關**：前端帶 `optionsOn`（玩家關【命運的抉擇】＝false）→ `buildDefaultSystemPrompt` 唯一參數 `includeOptions=false` 把 options 欄整個 delete——沒人看的東西不叫 AI 生。連 Gallery 版 `nsfwBaseRules` 第2條的「options固定4個」字樣也隨開關拿掉（schema 刪了、規則文字還催繳＝AI 精神分裂）。
 - **🎬 換幕縮窗**：移動/跳時段/跳節慶/推進時間/結束一天的回合，歷史窗 6筆→2筆（1輪）——舊場景對話物理上不進 AI 眼睛，根治「換地點/時段被舊場景帶著跑」（「此地是唯一真實」「此刻時段是唯一真實」兩條鐵律是文字輔助線，縮窗才是確定性主力）。
 - 原則：**AI 只管演戲，記帳全給 GAS**——別再往每回合 schema 加欄位，要加先想「能不能差分/節流/事件驅動」。
 
@@ -1115,7 +1089,7 @@ FALLBACK_MODEL = x-ai/grok-4.20                (屬性 FALLBACK_MODEL)  ← 被�
 - **後援是全域行為、不是呼叫端特例**：`callGeminiAPI` 裡 `config.fallbackModel || FALLBACK_MODEL`，任何路徑被擋死都有救。`actionPlay` 的 `aiConfig` 只寫 `model: AI_MODEL`＋`retries = 1`（Gemini 試一次、真被擋才交棒，不浪費柔化重試）。
 - ⚠ `SOLO_MODEL`／`UNLOCKED_MODEL` 已整組刪除，同名指令碼屬性從此無效；換模型只改 `MODEL`／`FALLBACK_MODEL` 兩個屬性（或 `Core_Settings.gs` 的預設字面）。
 - **`driveOn`(點火/主動掌握) 只控敘事推進幅度的 `driveStr`、不再切模型**。⚠ **2026-07 玩家「一直步步逼近都不做」重寫**：`driveStr`＋敘事終極警告的點火分支原本框架是「把玩家逼向毫無招架餘地／堵退路／想跑也跑不掉」＋「不必每回合寫到終點」——這等於授權 AI 永遠停在「快要、就差一步」空轉。改成**「主動且明確地推進到真的發生」**取向（該親就親、該進一步就進一步、嚴禁在曖昧邊緣反覆空轉），保留全部好感天花板/角色一致性/不真正傷害護欄，只把「逼近但不做」的空轉框架換掉。點火≠壓迫鋪陳，點火＝她主導、實際往前推到位。
-- 採樣：`temperature 1.08, top_p 0.97, top_k 60, repetition_penalty 1.12, presence/frequency_penalty 0.25, max_tokens 1500`。⚠ 後四顆旋鈕 gemini-lite 被 OpenRouter 靜默忽略（原壓重複用）——若 Gemini 跳針/套路化，需另想防重複提示詞手段。
+- 採樣：`temperature 1.08, top_p 0.97, top_k 60, repetition_penalty 1.12, presence/frequency_penalty 0.25, max_tokens 2400（時間轉場且無人在場 700）`。⚠ 後四顆旋鈕 gemini-lite 被 OpenRouter 靜默忽略（原壓重複用）——若 Gemini 跳針/套路化，需另想防重複提示詞手段。
 - 歷史：`getGameHistoryBatchRaw(pcId, 6)`（6筆＝3輪）。
 
 ### `callGeminiAPI` 失敗行為（`Engine_Combat.gs`·兩軌共用·只讀不改）
@@ -1125,16 +1099,16 @@ FALLBACK_MODEL = x-ai/grok-4.20                (屬性 FALLBACK_MODEL)  ← 被�
 
 ## 🖥️ 前端地圖（`gas/Script_Kanshou.html` 為主）
 
-- **唯一引擎入口 `send(customMsg, isSilent, opts)`＝`action:'play'`**（2026-07 重構：原 22+ 位置參數收進單一 opts 物件，payload 不變零速度影響）。移動/相約/拍照/牽手/同居/敲門/橋段**沒有各自的 action**，全靠 opts 夾旗標：`moveTarget`/`moveWithCompanion`/`promiseMeet`/`promiseAccept`/`takePhoto`+`photoIntent`/`showPhoto`/`handHold`/`cohabitInvite`/`cohabitInviteId`/`handHoldId`/`skipKnockCheck`/`dismissGuest`/`lookAround`/`inviteResident`/`endDay`/`advanceHours`/`jumpBand`/`jumpFestival`/`loaderCaptions`。
+- **唯一引擎入口 `send(customMsg, isSilent, opts)`＝`action:'play'`**（2026-07 重構：原 22+ 位置參數收進單一 opts 物件，payload 不變零速度影響）。移動/相約/拍照/牽手/同居/敲門/橋段**沒有各自的 action**，全靠 opts 夾旗標：`moveTarget`/`moveWithCompanion`/`promiseMeet`/`takePhoto`+`photoIntent`/`showPhoto`/`handHold`/`cohabitInvite`/`cohabitInviteId`/`handHoldId`/`skipKnockCheck`/`dismissGuest`/`lookAround`/`inviteResident`/`endDay`/`advanceHours`/`jumpBand`/`jumpFestival`/`loaderCaptions`。
 - **回饋條 `proposalResult`** 涵蓋 相約/牽手/同去/同居 四型＋**撲空含「她似乎在○○」位置提示**；**`promiseSettle`（獨立通道）** 涵蓋 赴約成功/爽約過期 結算通知（與提議結果並發時各自顯示·見教訓區「單一回饋槽」）；相簿滿的 `photoResult` 附直達鈕（📚開相簿）——「撲空/婉拒/卡住」一律要有下一步，別讓玩家對著空氣猜。
 - **改命同伴卡**（2026-07 第二輪稽核修）：`update_fate` 名字比對原硬性要求 `IS_PARTY==='同行'`，但鑑賞列從不寫該欄→同伴卡改命鈕恆「查無此人」；現比照 `update_rel_tag` 給 `k_` 世界豁免（同世界名字直配），改同伴的 個性/特徵/身世 是合法自訂。**萌點例外(2026-07 再修)**：同伴/NPC的萌點改成「真正內化」——`intent-box`(Index.html)在非自己卡片整格連改命鈕都隱藏，`actionUpdateFate` 也擋掉 `fateType==='intent'` 且目標非自己的請求，玩家從此看不到也改不了同伴萌點，只留給AI演出參考。（2026-07 二度改版：玩家自己卡的性格鎖快取 `_kcPrefLocks` 已隨性格鎖系統整組刪除）
 - **獨立 action**：`kanshou_companions`／`get_heroes`／`kanshou_summon_hero`／`get_album`／`album_delete`／`update_rel_tag`／`kanshou_set_nickname`（2026-07 五度改版新增·專屬稱呼手動鎖定，bond≥80）／`kanshou_memoir_op`／`kanshou_set_home_name`／`kanshou_set_name`／`kanshou_set_sex`／`enter_kanshou`／`backfill_kanshou_ai`。
-- **函式分組**：地圖移動(`kcMapListHtml_`/`kanshouMoveTo`/`kanshouProposeMove`/`kanshouLookAround`)、同伴面板(`openCompanions`/`renderKcHeroList_`/`kanshouEditRelTag`)、召喚(`kanshouSummonHero`)、回憶(`kanshouOpenMemoir`/`kanshouMemoirOp`)、約定(`kanshouPromiseMeet`/`kanshouWaitForPromise`)、拍照相簿(`kanshouTakePhoto`/`openKanshouAlbum`)、時鐘(`kanshouEndDay`/`kanshouNextStage`/`kanshouJumpBand`/`kanshouJumpFestival`)。
+- **函式分組**：地圖移動(`kcMapListHtml_`/`kanshouMoveTo`/`kanshouProposeMove`/`kanshouLookAround`)、同伴面板(`openCompanions`/`renderKcHeroList_`/`kanshouOpenBondHub`→`kanshouOpenRelTag`)、召喚(`kanshouSummonHero`)、回憶(`kanshouOpenMemoir`/`kanshouMemoirOp`)、約定(`kanshouPromiseMeet`/`kanshouWaitForPromise`)、拍照相簿(`kanshouTakePhoto`/`openKanshouAlbum`)、時鐘(`kanshouEndDay`/`kanshouNextStage`/`kanshouJumpBand`/`kanshouJumpFestival`)。
 - **泡泡 UI**（`send()` 內依回傳欄位組）：移動同意(`moveProposal`)、深夜訪客善後(`nightGuest`)、同居邀請(`cohabitOffer`)、巧遇結識(`encounterOffer`)、等待約定(`promiseWait`)、拍照結果(`photoResult`)、地圖人數徽章(`_lastTags.locationCounts`)。
   - ⚠ **每加一顆泡泡都要先回答「玩家不點它、直接打字會怎樣？」**：泡泡是待決狀態的唯一出口→忽略就會壞（必須改成先落盤再給善後選項）；泡泡只是已落盤狀態的捷徑→忽略無害。現況全部屬於後者。
   - `cohabitOffer` 的 `KANSHOU_COHABIT_ASKED_TAG_` 存 **absDay 不是布林**：布林版玩家一旦改用打字，這個「一生一次」的邀請就永遠消失；完全不記又會退回被嫌煩的「每回合都跳」。同一位、同一天最多問一次，接受後靠 `!kanshouIsCohabit_` 自動停。
 - **前端鏡像常數**（後端為真實來源）：`KC_REGIONS_`/`KC_FESTIVALS_`/`KC_TIME_BANDS_`/`KC_LOCATIONS_`/`KC_APPT_BANDS_`。時鐘全域 `kcClock`（`Script.html`）。
-- **`Script.html`/`Index.html` 的鑑賞殘留**：`applyModeUI()` 總開關（依 isKanshou 切 topbar/輸入框/drive開關/photo-btn/快速輸入貼圖列/相簿抽屜/節慶抽屜）；同伴卡鑑賞按鈕列(🏷️關係/📅相約/✋放手/🤝牽手/🏠同居/💞回憶)；`enterKanshou()` 入口。⚠ `Index.html` 的 `#victory-memoir` div 是**戰爭軌殘留**：奪杯回憶錄機制已砍，該 div 現只被清空/隱藏、不再填充（非鑑賞，別誤接鑑賞邏輯）。
+- **`Script.html`/`Index.html` 的鑑賞殘留**：`applyModeUI()` 總開關（依 isKanshou 切 topbar/輸入框/drive開關/photo-btn/快速輸入貼圖列/相簿抽屜/節慶抽屜）；同伴卡鑑賞按鈕列(📜詳細狀態／💞關係中樞／📅相約／🤝牽手↔✋放手，見 §同伴卡片按鈕)；`enterKanshou()` 入口。⚠ `Index.html` 的 `#victory-memoir` div 是**戰爭軌殘留**：奪杯回憶錄機制已砍，該 div 現只被清空/隱藏、不再填充（非鑑賞，別誤接鑑賞邏輯）。
 - **🎀 快速輸入貼圖**（2026-07 新增，玩家「打符號會不會被砍掉？可以加類似罐頭訊息的貼圖嗎，點下去幫玩家輸入好(不送出)就是塞進對話框」；同月再追加「內建8句想改玩家自訂」＋「內建句數想減少」）：查證後**玩家輸入從前端到後端全程沒有任何地方會過濾/剝除文字**(`send()` 直接讀 `input.value`；後端 `const userMsg = userData.message || ""` 原樣轉送)，玩家誤以為被砍掉的是「AI輸出narration不寫括號」——那是 `dialogueFormatRule_` 故意禁止 AI 自己用（輕哼）（嬌喘）這類括號描述聲音，跟玩家打字輸入無關，兩者是不同機制。現況：`Index.html` 輸入列上方只留空容器 `#kc-quick-phrases`(鑑賞限定，`applyModeUI()` 切 `display:flex`/`none`)，內容改由 `Script_Kanshou.html` 的 `renderKcQuickPhrases_()` 動態渲染——`KC_QUICK_PHRASES_BUILTIN_` 4顆固定內建短句(害羞/小聲/苦笑/臉紅，2026-07再縮減，純前端寫死不可刪)＋玩家自訂 `_kcQuickPhrases`(來自後端`kanshouGetQuickPhrases_`，見上方 MEMORY 表格)＋一顆「⚙️自訂」管理鈕。`kcInsertPhrase(text)` 把文字插入 `#u-in` 游標處並聚焦，**不呼叫 send()**、純粹幫忙打字，玩家仍要自己按傳送。要改內建句子改 `KC_QUICK_PHRASES_BUILTIN_` 陣列即可；玩家自訂走 `kanshou_add_quick_phrase`/`kanshou_delete_quick_phrase` action（上限見 `KANSHOU_QUICK_PHRASE_CAP_`），不涉及任何提示詞邏輯。
 
 ---
@@ -1187,7 +1161,7 @@ FALLBACK_MODEL = x-ai/grok-4.20                (屬性 FALLBACK_MODEL)  ← 被�
 ---
 
 ## 📎 主要常數速查（都在 `gas/Gallery.gs`）
-`KANSHOU_REL_TIER_`(五階) · `KANSHOU_SCENE_BOND_`(3) · `KANSHOU_APPT_BANDS_`(午後14/黃昏18/夜20) · `KANSHOU_HOUR_PER_ACTION_`(1/6) · `KANSHOU_TIME_BANDS_`(5時段) · `KANSHOU_LOCATIONS_`(合法地點白名單·AI location/move 驗證) · `KANSHOU_HERO_HOME_`(手寫專屬豪邸)/`KANSHOU_GENERIC_HOME_POOL_`(泛用住處池·8間·查無專屬豪邸者隨機分配) · `KANSHOU_SCENE_EVENTS_`(橋段庫) · `KANSHOU_ALBUM_CAP_`(100)（`KANSHOU_FILM_PER_DAY_`已隨底片制拍照改手機一起刪除，見上方拍照/相簿章節） · `KANSHOU_KNOCK_CHANCE_`(0.2)/`KANSHOU_KNOCK_MIN_BOND_`(60) · `KANSHOU_COHABIT_BOND_`(90)/`KANSHOU_VISIT_BOND_`(40) · `KANSHOU_PARTY_DETAIL_CAP_`(5) · `KANSHOU_STARTER_IDS_`(開局起手池) · `KANSHOU_SUMMON_BLOCKED_IDS_`(暫不開放召喚)。
+`KANSHOU_REL_TIER_`(五階) · `KANSHOU_SCENE_BOND_`(3) · `KANSHOU_APPT_BANDS_`(午後14/黃昏18/夜20) · `KANSHOU_PACE_OPTIONS_`(0/10/20/30 分鐘·玩家自選流速) · `KANSHOU_TIME_BANDS_`(5時段) · `KANSHOU_LOCATIONS_`(合法地點白名單·AI location/move 驗證) · `KANSHOU_HERO_HOME_`(手寫專屬豪邸)/`KANSHOU_GENERIC_HOME_POOL_`(泛用住處池·8間·查無專屬豪邸者隨機分配) · ~~`KANSHOU_SCENE_EVENTS_`~~(橋段庫·2026-09 已整組砍除) · `KANSHOU_ALBUM_CAP_`(100)（`KANSHOU_FILM_PER_DAY_`已隨底片制拍照改手機一起刪除，見上方拍照/相簿章節） · `KANSHOU_KNOCK_CHANCE_`(0.2)/`KANSHOU_KNOCK_MIN_BOND_`(60) · `KANSHOU_COHABIT_BOND_`(90)/`KANSHOU_VISIT_BOND_`(40) · `KANSHOU_PARTY_DETAIL_CAP_`(5) · `KANSHOU_STARTER_IDS_`(開局起手池) · `KANSHOU_SUMMON_BLOCKED_IDS_`(暫不開放召喚)。
 
 
 ---
@@ -1351,7 +1325,7 @@ schema 教 AI 寫 `"1. [主動]…"`，而 `data.options` 是**原樣**長成按
 「大事」不靠猜也不必多花一次呼叫——**那些區塊本回合有沒有組出字串，GAS 自己最清楚**：
 `kanshouConfessStr`（告白）／`kanshouTierCrossStr`（關係質變）／`kanshouFirstsAnnivStr`（週年）／
 `kanshouNightSceneStr`（夜已深）／`kanshouKnockRaidStr`（深夜訪客）／`kanshouCohabitStr`／
-`kanshouCohabitEndStr`／`kanshouPromiseMetStr`（赴約）／`driveOn`（主動掌握）／節慶「就是此刻」。
+`kanshouCohabitEndStr`／`kanshouPromiseMetStr`（赴約）／`driveOn`（主動掌握）。（節慶刻意不在串裡：它是日子不是戲，舊的「就是此刻」regex 是死旗標、已拿掉。）
 **加新橋段時往那串旗標加一個即可**，不動查表邏輯。
 
 ⚠ 上限 900 沒動 → `max_tokens` 的截斷風險不變。
@@ -1881,7 +1855,7 @@ options 四條各一行併成一行。
 | `我的房間` | 睡眠判定 |
 | `和室` | `KANSHOU_COHABIT_ROOM_` 同居房 |
 | 河邊小徑/商店街/古老神社/社區公園/咖啡廳/便利商店/書店二樓/廢棄神社 | `KANSHOU_LOCATION_TAGS_` 角色出沒點 |
-| 隱蔽的工房/島嶼道場/埃德費爾特宅邸/愛因茲貝倫城/遠坂邸/藤村家＋4 間泛用住處 | `KANSHOU_HERO_HOME_` |
+| 隱蔽的工房/島嶼道場/埃德費爾特宅邸/愛因茲貝倫城/遠坂邸/藤村家＋8 間泛用住處 | `KANSHOU_HERO_HOME_`／`KANSHOU_GENERIC_HOME_POOL_` |
 
 砍掉的 6 個都**沒有任何綁定、也沒有特色**：廚房、庭院、屋頂花園、老道場、山間小徑、隱藏溫泉
 （溫泉留「情侶溫泉套房」當代表）。前端鏡射 `KC_LOCATIONS_` 同步砍（`check_mirror.js` 會盯）。

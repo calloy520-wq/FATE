@@ -1293,12 +1293,9 @@
         // 🌱 鑑賞：BACK 欄已正名為「經歷」(AI 滾動補寫+玩家可改)；solo 仍是固定的身世背景。依模式分標籤/字數。
         const _isK = (pc && pc.mode === 'kanshou');
         titleEl.innerText = _isK ? "逆天改命 - 修改經歷" : "逆天改命 - 修改身世背景";
-        // 🎯 鑑賞已不再把【同伴的】身世送進 AI 提示詞(玩家實測沒有差異，且與性格表象/內裡高度重疊)。
-        //   玩家【自己的】經歷仍有送(見【玩家命格】那行)，所以只有同伴這一格會變成「改了不影響演出」
-        //   ——照實講明白，不假裝它有效，也不直接藏掉(詳細狀態面板仍看得到這欄，藏了反而不一致)。
-        const _kBackInert = _isK && currentStatusTargetId !== (pc && pc.id);
+        // 🎯 鑑賞：這欄不分玩家/同伴都會進提示詞（玩家→【玩家資料】、同伴→在場卡「經歷:」），AI 只讀不改。
         fieldsEl.innerHTML = `
-            ${_kBackInert ? '<div style="font-size:12px;color:#a08050;margin-bottom:6px;">ℹ️ 此欄目前僅供你自己查看／備忘，鑑賞的敘事不會用到它（她的個性與外貌才是演出依據）。</div>' : ''}<label style="font-size:13px; color:#332211; font-weight:bold;">${_isK ? '經歷 (你一路走來的軌跡·AI 會隨遊玩慢慢補寫，你也能自己改·限 80 字)' : '身世背景 (限 30 字)'}</label>
+            <label style="font-size:13px; color:#332211; font-weight:bold;">${_isK ? '經歷 (固定事實·AI 讀得到但不會改寫·限 80 字)' : '身世背景 (限 30 字)'}</label>
             <input id="fate-f1" class="std-in" maxlength="${_isK ? 80 : 30}" value="${escapeHtml(currentVal)}">
         `;
     }
@@ -1822,7 +1819,7 @@
             // 💞 關係中樞(2026-07 玩家「同伴卡片欄位太多…關係/回憶/同居可以整合在一起」)：三個低頻
             //   入口(關係稱呼／共同回憶／同居)收進這一顆，卡片按鈕 8→6(2-2-2)。面板本身
             //   kanshouOpenBondHub 住 Script_Kanshou.html，只做分派＋顯示三者現況，不改既有三個面板。
-            + '<button onclick="kanshouOpenBondHub(\'' + safeN + '\',\'' + String(s.tag || '').replace(/'/g, '') + '\',' + (parseInt(s.bond) || 0) + ',\'' + String(s.nickname || '').replace(/'/g, '') + '\',\'' + String(s.id || '').replace(/'/g, '') + '\',' + (s.cohabit ? 'true' : 'false') + ',' + (s.lover ? 'true' : 'false') + ',' + (parseInt(s.confessWait) || 0) + ')" title="關係稱呼／共同回憶／告白／同居——收在同一個面板" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(200,120,150,0.16); color:#e8b0c8; border:1px solid #a06080; border-radius:6px; cursor:pointer;">💞 關係</button>'
+            + '<button onclick="kanshouOpenBondHub(\'' + safeN + '\',\'' + String(s.tag || '').replace(/'/g, '') + '\',' + (parseInt(s.bond) || 0) + ',\'' + String(s.nickname || '').replace(/'/g, '') + '\',\'' + String(s.id || '').replace(/'/g, '') + '\',' + (s.cohabit ? 'true' : 'false') + ',' + (s.lover ? 'true' : 'false') + ')" title="關係稱呼／共同回憶／告白／同居——收在同一個面板" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(200,120,150,0.16); color:#e8b0c8; border:1px solid #a06080; border-radius:6px; cursor:pointer;">💞 關係</button>'
             + '</div>'
             // 🆕 直接複用既有 kanshouOpenRelTag(Script_Kanshou.html)，不重寫新邏輯。召喚是一次性的、
             //   沒有隊伍容量要騰，不需要「請走」這種按鈕。

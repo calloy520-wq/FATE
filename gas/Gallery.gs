@@ -2560,7 +2560,7 @@ function actionPlay_(userData, pcId, sheets) {
           : `【時間推進】${advanceHours}個小時悄悄過去，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}。`) + _jumpSceneBreak;
     }
   }
-  // ⏰ 時間隨動作流動：一般 AI 敘事回合(非結束一天/非時段跳躍)每次推進 KANSHOU_HOUR_PER_ACTION_ 小時，讓聊天/移動/拍照/橋段等按鍵都會讓時鐘往前走，消除「到處跑卻永遠6點」的凍結感。
+  // ⏰ 時間隨動作流動：一般 AI 敘事回合(非結束一天/非時段跳躍)每次推進 kanshouHourPerAction_(memory) 小時(玩家自選流速)，讓聊天/移動/拍照/橋段等按鍵都會讓時鐘往前走，消除「到處跑卻永遠6點」的凍結感。
   let kanshouBandCrossed_ = false; // 被動流動跨過時段邊界→下方「作息自然告辭」用
   if (!kanshouClockMoved_ && curHour < KANSHOU_DAY_LAST_HOUR_ && _paceHour_ > 0) {
     const _pbBand = timeBand_(curHour);
@@ -3224,9 +3224,10 @@ function actionPlay_(userData, pcId, sheets) {
     { min: -100, range: '300~400', big: '450~580' }
   ];
   // 「大事」不靠猜——這些區塊本回合有沒有組出字串，GAS 自己最清楚。加新橋段就往這串加一個旗標。
+  //    節慶刻意不在這串：它只是「今天是什麼日子」的事實，不是一幕戲（見 CODE_NOTES）。
   const _kanshouBigBeat_ = !!(kanshouConfessStr || kanshouTierCrossStr || kanshouFirstsAnnivStr
     || kanshouNightSceneStr || kanshouKnockRaidStr || kanshouCohabitStr || kanshouCohabitEndStr
-    || kanshouPromiseMetStr || driveOn || /就是此刻/.test(kanshouFestivalStr));
+    || kanshouPromiseMetStr || driveOn);
   const _kanshouWordRow_ = KANSHOU_WORDS_.find(t => _kanshouMaxBond_ >= t.min) || KANSHOU_WORDS_[KANSHOU_WORDS_.length - 1];
   const _kanshouTargetWords_ = _kanshouBigBeat_ ? _kanshouWordRow_.big : _kanshouWordRow_.range;
 

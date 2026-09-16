@@ -1621,7 +1621,7 @@ let plainTextContext = cleanText;
   //   而非把三個面板硬合成一頁——三者的互動型態差很多(選標籤/管清單/送邀請)，硬合只會變成更長的
   //   捲動頁；分派面板既省卡片空間，又能在同一眼看到三者【目前的狀態】。
   //   ⚠ 三個既有面板(kanshouOpenRelTag/kanshouOpenMemoir/kanshouInviteCohabit)完全不動、原樣複用。
-  function kanshouOpenBondHub(name, curTag, bond, curNickname, npcId, cohabit, lover, confessWait) {
+  function kanshouOpenBondHub(name, curTag, bond, curNickname, npcId, cohabit, lover) {
     var ov = ensureOverlay_('kbh-overlay', { zIndex: 10001, onBgClick: function (ov) { ov.style.display = 'none'; } });
     var safeN = String(name).replace(/'/g, "\\'");
     var safeId = String(npcId || '').replace(/'/g, "\\'");
@@ -1642,7 +1642,7 @@ let plainTextContext = cleanText;
         '目前：' + escapeHtml(String(curTag || '點頭之交')) + (curNickname ? '　專屬稱呼：' + escapeHtml(String(curNickname)) : '') + (b >= KC_CUSTOM_TAG_BOND_ ? '' : '　（自訂需好感 ' + KC_CUSTOM_TAG_BOND_ + '）'), '120,90,180')
       + row("kanshouOpenMemoir('" + safeN + "')", '💞', '共同回憶',
         '你們一起經歷過的重要瞬間　★釘選／🗑刪除', '200,120,150')
-      // 💗 告白：戀人這一階唯一的入口(好感被後端夾在 79)。四種狀態各自明講，不留「按了沒反應」的洞。
+      // 💗 告白：戀人這一階唯一的入口(好感被後端夾在 79)。三種狀態各自明講，不留「按了沒反應」的洞。
       + (lover
         ? '<div style="padding:8px 12px;margin-bottom:7px;color:#f0c0d8;font-size:12px;border:1px dashed rgba(240,140,180,.5);border-radius:8px;">💗 <b>交往中</b>　你們已經是戀人了</div>'
         : (b < KC_CONFESS_BOND_
