@@ -731,7 +731,7 @@
         +   '<small style="color:' + (eligible ? '#e8c873' : '#8fa0b0') + '; font-size:10.5px; white-space:nowrap;">羈絆 ' + bond + (eligible ? ' ·情誼已臻深處' : '/90') + '</small>'
         + '</div>'
         + '<div style="flex:1 0 100%; font-size:10px; line-height:1.4; color:' + (eligible ? '#e8c873' : '#7d8a9a') + '; margin-bottom:3px;">' + (eligible ? '🌹 這份情誼已臻深處，無需言明的牽絆' : '🌹 羈絆養至 90，情誼將臻至深處') + '</div>'
-        + '<button onclick="allyBond(\'' + sa + '\',\'' + String(a.id).replace(/'/g, '') + '\')" title="與盟友共處／共濟魔力：增進羈絆" style="flex:2; min-width:120px; font-size:12px; padding:7px; background:rgba(90,170,120,.16); color:#8fd0a0; border:1px solid #4ea56a; border-radius:7px; cursor:pointer; font-weight:bold;">🤝 與盟友共處 <small style="opacity:.7;">耗1AP</small></button>'
+        + '<button onclick="allyBond(\'' + sa + '\',\'' + String(a.id).replace(/'/g, '') + '\')" title="與盟友共處／共濟魔力：增進羈絆。每位盟友每日一次、耗 1AP。此地若有未結盟的敵從者，共處時門戶大開、可能被趁隙突襲。" style="flex:2; min-width:120px; font-size:12px; padding:7px; background:rgba(90,170,120,.16); color:#8fd0a0; border:1px solid #4ea56a; border-radius:7px; cursor:pointer; font-weight:bold;">🤝 與盟友共處 <small style="opacity:.7;">耗1AP·每日一次</small></button>'
         + '<button onclick="breakAlliance(\'' + sa + '\',\'' + String(a.id).replace(/'/g, '') + '\')" style="flex:1; min-width:80px; font-size:11.5px; padding:7px; background:rgba(165,42,42,.18); color:#e08a8a; border:1px solid #a05050; border-radius:7px; cursor:pointer; font-weight:bold;">💔 撕毀盟約</button>';
       h += card(String(a.name), 'rgba(90,170,120,.5)', 'rgba(20,45,28,.25)', title, acts);
     });
@@ -849,13 +849,13 @@
       return '<button onclick="rest(' + o[0] + ')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px;background:rgba(120,120,160,0.14);color:#e8dcc0;border:1px solid #5a5a8a;border-radius:8px;cursor:pointer;">'
         + '<b style="color:#bcbce0;">' + o[1] + '</b>　<span style="font-size:12px;color:#9a8bb0;">' + o[2] + '</span></button>';
     }).join('');
-    // 🩸 強撐：沒 AP 又被困時的保命解（不燒令咒、不推進時間），每日一次
+    // 🩸 強撐：沒 AP 又被困時的保命解（不燒令咒、不推進時間、不限次數——血是天然煞車）
     html += '<div style="border-top:1px dashed rgba(160,80,80,0.3); margin:6px 0 8px; padding-top:8px;"></div>'
       + '<button onclick="secondWind()" style="display:block;width:100%;text-align:left;padding:10px;background:rgba(165,60,60,0.14);color:#e8dcc0;border:1px solid #a04040;border-radius:8px;cursor:pointer;">'
       + '<b style="color:#e08a8a;">🩸 燃燒生命強撐</b>　<span style="font-size:12px;color:#c89a9a;">燃燒生命換 4 點行動力（扣掉約 20% 的血，不耗行動力、可以重複）。沒 AP 又走不了時的保命解，血燒乾就撐不住</span></button>';
     showHistoryOverlay(html);
   }
-  // 🩸 燃燒生命強撐：扣血換 AP（每日一次）
+  // 🩸 燃燒生命強撐：扣血換 4 點 AP（可重複，燒到血不夠就撐不住）
   async function secondWind() {
     // 🐛→✅ 玩家反饋：按鈕本身已清楚寫「+4AP·不耗時」＋警示紅色樣式，不必再跳一次confirm確認——
     //   點了就是要用，多一道彈窗只是拖慢節奏。
