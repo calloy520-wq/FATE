@@ -388,7 +388,7 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 - `allianceWillingness_(masterRow,aliveFoes)`：結盟意願（base.42；務實+.25/孤高-.32；剩≤3騎-.45）。
 - `actionProposeAlliance`：對同地敵御主提議，`Math.random()<willingness`。成→盟主+其同地從者標【盟約至】day+3。
 - `actionBreakAlliance`／`breakStaleAlliances_`：撕毀／自然瓦解（效期到 或 在世敵從者≤3 強制翻臉）。`actionMove`＋`actionRest` 都呼叫。
-- `actionAllyBond`：與同地盟友共處，耗1AP，`bumpBond_` 升羈絆，達90標【摯交】（純敘事高光防重複·無鑑賞入口意義）。SFW only。**🐛→✅ 2026-09 修「被突襲就能無限重按」**：【交流日】（每對象每日一次）的戳記原本寫在函式尾端，卸防突襲分支卻會提早 return——AP 已扣、回合已用掉，戳記沒落地。現在扣完 AP 就立刻蓋（`ALLY_BOND_DAY_TAG_`），兩條路都蓋得到。**🐛→✅ 2026-07 修「盟友從者說話像我的從者」**：對象是從者(非御主本人)時，`servantCard_`「對御主」語氣沒說明對象另有其主，AI會腦補成在跟玩家講真契約話語(如「既然契約還在」)——補上 `getServantMaster_` 查真正御主名字，明講「這是暫時結盟、非契約」劃清身分。
+- `actionAllyBond`：與同地盟友共處，耗1AP，`bumpBond_` 升羈絆，達90標【摯交】（純敘事高光防重複·無鑑賞入口意義）。SFW only。**🐛→✅ 2026-09 修「被突襲就能無限重按」**：【交流日】（每對象每日一次）的戳記原本寫在函式尾端，卸防突襲分支卻會提早 return——AP 已扣、回合已用掉，戳記沒落地。現在扣完 AP 就立刻蓋（`ALLY_BOND_DAY_TAG_`），兩條路都蓋得到。機器擋：`check_throttle.py`（扣款→中途 return→戳記 這個形狀一出現就叫）。**🐛→✅ 2026-07 修「盟友從者說話像我的從者」**：對象是從者(非御主本人)時，`servantCard_`「對御主」語氣沒說明對象另有其主，AI會腦補成在跟玩家講真契約話語(如「既然契約還在」)——補上 `getServantMaster_` 查真正御主名字，明講「這是暫時結盟、非契約」劃清身分。
 - **協同強襲**（actionFateBattle 內）：盟友從者每回合助攻一擊。
 - **🆘 盟友告急**（`detectAllyPeril_`·Router_Movement）：`actionMove` 後（worldTick 已推進）若有盟友在【別處】與未結盟活敵從者同格→回 `allyPeril{ally,loc,foe}`＋傳聞，前端插「🆘 盟友告急」報信卡＋「🏃 趕去馳援」一鍵 `travelTo(loc)`（純情報·去不去玩家決定）；抵達那格打敵人時既有協同強襲自動生效。AI 抵達 steer 得知此情報（結盟情報共享）但不替玩家起身。
 - **情報共享 `hasAllyInGame_`**：有盟友→地圖無視 SEEN 全揭露＋敵從者職階揭露（`intelCls`）。
