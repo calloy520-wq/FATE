@@ -2480,9 +2480,13 @@ function actionPlay_(userData, pcId, sheets) {
     intimateNightNames = allEstablished.filter(r => (parseInt(r[COL.PC.BOND]) || 0) >= 80 && String(r[COL.PC.LOC] || "").trim() === curL).map(r => r[COL.PC.NAME]);
     if (intimateNightNames.length) {
       pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], intimateNightNames.join('、'));
-      // 💞 第一次同床：記在她那一列(intimateNightNames 取自 COL.PC.NAME 原值，故可直接精確比對)。
+      // 💞 第一次同床：記在她那一列。
+      // 🐛→✅ 2026-09 跨帳號污染：intimateNightNames 是【名字字串】，回頭掃 pcData 時只比名字。
+      //    但鑑賞眾生是【全帳號共用一張表】，而大家都從同一座英靈殿召喚——撞名是常態不是巧合。
+      //    實測兩個帳號各召一個 SABER，甲按睡覺會把「初次·同床」蓋到乙那一列上（見 crossgame.js）。
+      //    上游的 allEstablished 有 sameGame 過濾，但名字一旦離開那個陣列就不帶 game_id 了。
       pcData.forEach((r, idx) => {
-        if (idx !== pcIndex && intimateNightNames.indexOf(r[COL.PC.NAME]) !== -1) {
+        if (idx !== pcIndex && sameGame(r) && intimateNightNames.indexOf(r[COL.PC.NAME]) !== -1) {
           pcData[idx][COL.PC.MEMORY] = kanshouStampFirst_(pcData[idx][COL.PC.MEMORY], '同床', _nightDay);
           dirtyPcRows.add(idx);
         }

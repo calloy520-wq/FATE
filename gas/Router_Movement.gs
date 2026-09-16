@@ -597,36 +597,13 @@ function actionRest(userData, pcId, sheets) {
     });
   }
 
-  // ── 以下為非 FATE 舊版休養：全回滿（經濟層已移除，不再收費）──
-  let healedNames = [pcName];
-  const pMax = maxStatsForRow_(pcData[pIdx]);
-  const prevHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
-  const wasInjured = prevHp < pMax.hp;
-  pcData[pIdx][COL.PC.MAX_HP] = pMax.hp; pcData[pIdx][COL.PC.MAX_MP] = pMax.mp;
-  pcData[pIdx][COL.PC.HP] = pMax.hp; pcData[pIdx][COL.PC.MP] = pMax.mp;
-  pcData[pIdx][COL.PC.STATUS] = normalStatus;
-
-  pcData.forEach((r, nIdx) => {
-    if (String(r[COL.PC.NAME]) === pcName) return;
-    if (String(r[COL.PC.IS_PARTY] || "") !== "同行") return;
-    if (String(r[COL.PC.ID]).startsWith("DEAD_")) return;
-    if (r[COL.PC.STATUS] === "屍體" || !(parseInt(r[COL.PC.HP]) > 0)) return;
-    const nMax = maxStatsForRow_(r);
-    pcData[nIdx][COL.PC.MAX_HP] = nMax.hp; pcData[nIdx][COL.PC.MAX_MP] = nMax.mp;
-    pcData[nIdx][COL.PC.HP] = nMax.hp; pcData[nIdx][COL.PC.MP] = nMax.mp;
-    pcData[nIdx][COL.PC.STATUS] = normalStatus;
-    healedNames.push(r[COL.PC.NAME]);
-  });
-  const bystanderNames = pcData
-    .filter(r => r[COL.PC.ID] != pcId && !String(r[COL.PC.ID]).startsWith("DEAD_") &&
-      String(r[COL.PC.LOC]).trim() === pcLoc && !healedNames.includes(r[COL.PC.NAME]))
-    .map(r => r[COL.PC.NAME]);
-  sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
-  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：上一行整表寫回的正是這份陣列，權威性由構造保證
-  return JSON.stringify({
-    success: true, statusString: buildPlayerStatusString(pcData[pIdx]), healedNames: healedNames,
-    loc: pcLoc, wasInjured: wasInjured, bystanderNames: bystanderNames
-  });
+  // 🧹 2026-09 砍掉「非 FATE 舊版休養」死分支。
+  //    game_id 只有兩種前綴：g_(solo·Router_Creation) 與 k_(鑑賞·Gallery)，而 rest 在
+  //    KANSHOU_BLOCKED_ACTIONS_ 裡對鑑賞是擋掉的 → 上面那條 isFateRest 分支【一定會 return】，
+  //    這裡本來就永遠走不到。而它裡面藏著兩個跨帳號洩漏：①「同行」全回滿沒帶 game_id
+  //    ②bystanderNames 用地點掃全表、把別人那局在同名地點的角色名字一起端出來。
+  //    死碼不是無害的，它是「哪天條件變了就直接生效」的地雷。留一道明確的失敗取代它。
+  return JSON.stringify({ success: false, message: "此世界不支援休息。" });
 }
 
 // ==========================================
