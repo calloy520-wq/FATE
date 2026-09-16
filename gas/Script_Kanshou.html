@@ -47,6 +47,7 @@
   //   MEMORY【快速貼圖】，上限KANSHOU_QUICK_PHRASE_CAP_=8句，見Gallery.gs)。
   var KC_QUICK_PHRASES_BUILTIN_ = ['（害羞）', '（小聲）', '（苦笑）', '（臉紅）'];
   var KC_QUICK_PHRASE_CAP_ = 8; // 鏡像後端 KANSHOU_QUICK_PHRASE_CAP_(Gallery.gs)，改後端記得同步這裡
+  var KC_ALBUM_CAP_ = 100;     // 鏡像後端 KANSHOU_ALBUM_CAP_（相簿滿了的那句訊息要用它，別再寫死）
   var KC_MEMOIR_CAP_ = 10;      // 鏡像後端 KANSHOU_MEMOIR_CAP_
   var KC_MEMOIR_PIN_CAP_ = 8;   // 鏡像後端 KANSHOU_MEMOIR_PIN_CAP_
   var _kcQuickPhrases = []; // 玩家自訂的部分，enterKanshou()成功時載入
@@ -300,7 +301,7 @@ let plainTextContext = cleanText;
       if (data.photoResult) {
         const pr = data.photoResult;
         const prTxt = pr.ok ? `📷 咔嚓。拍下了，已經存進相簿。`
-          : pr.reason === 'cap' ? '📷 相簿滿了（100 張）。去刪幾張舊的才能再拍。'
+          : pr.reason === 'cap' ? '📷 相簿滿了（' + KC_ALBUM_CAP_ + ' 張）。去刪幾張舊的才能再拍。'
           : pr.reason === 'nobody' ? '📷 身邊沒有可拍的人。' : '📷 這一張沒拍成。';
         optionsHtml += `<div style="color:#9a917f; font-size:11px; padding:4px 2px 8px;">${prTxt}</div>`;
         // 📣 走查抓到的軟卡點：相簿滿只有文字、沒有下一步——補直達鈕。

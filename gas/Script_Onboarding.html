@@ -484,6 +484,8 @@ function openForge(from) {
   else if (menuEl && menuEl.style.display !== 'none') _forgeFrom = 'menu';
   else if (sumEl && sumEl.style.display === 'block') _forgeFrom = 'summon';
   _forgeEditId = null;
+  // 💰 預算只有 FORGE_BUDGET 一個真實來源：靜態 HTML 那個數字開面板時填進去，別讓它變成第三份寫死的 340。
+  var _fb = document.getElementById('forge-budget-txt'); if (_fb) _fb.textContent = FORGE_BUDGET;
   var nm = document.getElementById('cf-name'); if (nm) nm.disabled = false;
   if (menuEl) menuEl.style.display = 'none';
   if (sumEl) sumEl.style.display = 'none';

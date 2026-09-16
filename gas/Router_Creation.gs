@@ -357,8 +357,10 @@ function forgeCost_(six, skills, npScale) {
   return { spent: spent, scaleCost: scaleCost, skillCost: skillCost, total: spent + scaleCost + skillCost };
 }
 
-// 🌀 AI 自訂從者的六圍下限保底：對齊工房 FORGE_BUDGET(340)——AI 常自己抓不準力度，光靠 prompt 措辭拜託「務必有強有弱」擋不住偶爾生出偏弱從者，這裡改成 GAS 硬性補強：算完低於下限就把最弱一項六圍逐階往上補，直到達標或撞 EX≤2 上限(見 sanitizeSix_)為止。
-var FORGE_FLOOR_ = 340;
+// 💰 工房預算＝種子中位數(點滿≈尼祿/美杜莎中堅)。⚠ 前端 Script_Onboarding.html 也有一份（check_mirror.js 盯著兩邊一致）。
+var FORGE_BUDGET = 340;
+// 🌀 AI 自訂從者的六圍下限保底：直接綁 FORGE_BUDGET，別再寫第二個 340——AI 常自己抓不準力度，光靠 prompt 措辭拜託「務必有強有弱」擋不住偶爾生出偏弱從者，這裡改成 GAS 硬性補強：算完低於下限就把最弱一項六圍逐階往上補，直到達標或撞 EX≤2 上限(見 sanitizeSix_)為止。
+var FORGE_FLOOR_ = FORGE_BUDGET;
 var FORGE_CLS_BONUS_ = { Berserker: 30 };
 function bumpSixToFloor_(six, skills, npScale) {
   var RANKS = ["E", "D", "C", "B", "A", "EX"];
@@ -435,8 +437,7 @@ function parseForgeBuild_(build, reqCls) {
     out.ok = true;
     return out;
   }
-  // 預算 340＝種子中位數(點滿≈尼祿/美杜莎中堅)；強者種子(420~505·且握有工房買不到的概念 fx)仍明確在上。
-  const FORGE_BUDGET = 340; // ⚠ 前端 Script_Onboarding.html 也有一份（check_mirror.js 盯著兩邊一致）
+  // 預算見檔案級 FORGE_BUDGET；強者種子(420~505·且握有工房買不到的概念 fx)仍明確在上。
   // FORGE_CLS_BONUS_ 已上移為檔案級單一真實來源（與 AI 生成路徑 capSixToBudget_ 共用）：Berserker 職階附贈狂化C(傷+但命中/迴避−·不可關)是唯一負資產禮物，同素體實測墊底——補正+30 拉平(+50 會反轉成最優職階，370 頂配狂戰實測後仍只是強力中堅，安全)。
   const okPlain = v => /^(E|D|C|B|A|EX)$/.test(String(v || "").toUpperCase());
   out.six = {};
