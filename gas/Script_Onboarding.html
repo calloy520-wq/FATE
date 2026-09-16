@@ -439,7 +439,9 @@ var FORGE_CLS_BONUS = { Berserker: 30 }; // 🐗 狂化補正(鏡射後端 FORGE
 function forgeClsBudget_() { var c = (document.getElementById('cf-cls') || {}).value; return FORGE_BUDGET + (FORGE_CLS_BONUS[c] || 0); }
 var FORGE_SK_PTS = { E: 5, D: 10, C: 15, B: 20, A: 25 }; // ⚡ 技能階級定價(六圍半價·無 fx 純演出免費·鏡射後端 SKILL_PTS_)
 // 🎚️ 三軌計價(2026-07·鏡射後端 SKILL_TRACK_/SKILL_PTS_BIG_/SMALL_)：強效係數貴 1/3、輕效便宜 1/3
-var FORGE_SK_PTS_BIG = { E: 7, D: 13, C: 20, B: 27, A: 33 }, FORGE_SK_PTS_SMALL = { E: 3, D: 7, C: 10, B: 13, A: 17 };
+// ⚠ 兩個各自一行：check_mirror 靠 `var 名字 =` 抓定義，寫成逗號串接它看不到那一個（＝那條鏡射等於沒檢查）
+var FORGE_SK_PTS_BIG = { E: 7, D: 13, C: 20, B: 27, A: 33 };
+var FORGE_SK_PTS_SMALL = { E: 3, D: 7, C: 10, B: 13, A: 17 };
 var FORGE_SK_TRACK = { aim: 1, petrify: 1, fast_cast: 1, divine_age: 1, territory: 1, ride: -1, wind_strike: -1, morale: -1 };
 function forgeSkPts_(fx) { return FORGE_SK_TRACK[fx] === 1 ? FORGE_SK_PTS_BIG : FORGE_SK_TRACK[fx] === -1 ? FORGE_SK_PTS_SMALL : FORGE_SK_PTS; }
 // 🐛→✅ self_mod/tactics/projection 補進固定價(鏡射後端 FLAT_FX_)——這3個fx引擎皆不讀自己的購買階級，原本依階級計價是花錢買不到東西的漏洞。

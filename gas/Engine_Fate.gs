@@ -4,8 +4,9 @@
 // ==========================================
 
 // 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
-// 階級倍率：以 C(30) 為 1.0 基準。E=0.33 D=0.67 C=1.0 B=1.33 A=1.67 EX=2.0；+ 各 +0.17
-function rankMul_(r) { return rankVal(r) / 30; }
+// 階級倍率：以 C 為 1.0 基準。E=0.33 D=0.67 C=1.0 B=1.33 A=1.67 EX=2.0；+ 各 +0.17
+// ⚠ 基準值從 RANK_VALUE 讀（Core_Settings.gs），不要再寫死 30——那是「一個數存兩處」。
+function rankMul_(r) { return rankVal(r) / RANK_VALUE['C']; }
 
 // 🎲 階級隨機區間（命中用）：每階級不取固定值，而是在 base-10 ~ base+5 之間隨機。
 //   E:0~15 D:10~25 C:20~35 B:30~45 A:40~55 EX:50~65——相鄰階級區間重疊，
@@ -19,12 +20,61 @@ function rollDice_(n, sides) {
   return s;
 }
 // 階級→骰數階(E=1 D=2 C=3 B=4 A=5 EX=6)：傷害骰顆數隨主屬性階級遞增。
-function rankTier_(r) { var v = rankVal(r); if (v >= 60) return 6; if (v >= 50) return 5; if (v >= 40) return 4; if (v >= 30) return 3; if (v >= 20) return 2; return 1; }
+// ⚠ 門檻同樣從 RANK_VALUE 推（由小到大排，數到第幾格就是第幾階），不再各寫一份 60/50/40/30/20。
+//    延後求值：RANK_VALUE 住在別的檔，頂層直接算會踩載入順序（見 check_loadorder.py）。
+var RANK_TIER_STEPS_ = null;
+function rankTierSteps_() {
+  if (!RANK_TIER_STEPS_) RANK_TIER_STEPS_ = Object.keys(RANK_VALUE).map(function (k) { return RANK_VALUE[k]; }).sort(function (a, b) { return a - b; });
+  return RANK_TIER_STEPS_;
+}
+function rankTier_(r) {
+  var v = rankVal(r), steps = rankTierSteps_(), t = 1;
+  for (var i = 0; i < steps.length; i++) if (v >= steps[i]) t = i + 1;
+  return t;
+}
 
 // 👑 王之財寶(gob) 無盡兵裝彈幕：50 顆 d3、捨去「1」(沒打中的)，只計 2/3。EV≈83＝飽和重擊(吉爾伽美什常駐)。
-function gobVolley_() { var t = 0; for (var i = 0; i < 50; i++) { var r = Math.floor(Math.random() * 3) + 1; if (r >= 2) t += r; } return t; }
+function gobVolley_() { var t = 0, n = fxTune_('gob', 'volleyShots', 50); for (var i = 0; i < n; i++) { var r = Math.floor(Math.random() * 3) + 1; if (r >= 2) t += r; } return t; }
 // ⛓️ 天之鎖(chain) 萬鎖彈幕：較王財小(18顆，EV≈30)——因恩奇都六圍本就頂級，給滿 50 會壓過金閃；此為平衡取捨。
-function chainVolley_() { var t = 0; for (var i = 0; i < 18; i++) { var r = Math.floor(Math.random() * 3) + 1; if (r >= 2) t += r; } return t; }
+function chainVolley_() { var t = 0, n = fxTune_('chain', 'volleyShots', 18); for (var i = 0; i < n; i++) { var r = Math.floor(Math.random() * 3) + 1; if (r >= 2) t += r; } return t; }
+
+// 🎚️ 有條件效果的【係數表】（2026-09 抽出來的）。
+//    這些 fx 塞不進 SKILL_FX_ 那種「平坦加減乘」的表——它們的觸發條件太挑：只對 Archer、只在奇襲、
+//    只在第 1 回合、要比雙方階級、要看對方神格。所以【條件邏輯留在 resolveFateBattle_ 裡】，
+//    但【數字全部搬到這裡】：前端技能說明會把這些數字算給玩家看，check_fx.py 要對得到才不會靜靜說謊。
+//    為什麼這樣分 → CODE_NOTES.md『FX_TUNING_』。
+var FX_TUNING_ = {
+  first_strike: { hitPerRank: 3 },                                  // 直感：攻方命中／守方迴避
+  analyze:      { hitPerRank: 3 },                                  // 心眼：同上
+  ride:         { hitPerRank: 2 },                                  // 騎乘：攻方命中
+  insight:      { hitFlat: 4 },                                     // 全知全能之星：恆常命中
+  evade_ranged: { evaPerRank: 6 },                                  // 避矢：只對 Archer 的迴避
+  shapeshift:   { evaPerRank: 3 },                                  // 變化：守方迴避
+  lovespot:     { foeHitFlat: -1 },                                 // 愛之痣：來犯者命中
+  petrify:      { foeEvaPerRank: -4, npDmgMul: 1.3 },               // 鎖死身法：敵迴避／寶具乘隙
+  tsubame:      { foeEvaFlat: -5, dmgMul: 2.3 },                    // 燕返：僅第 1 回合普攻
+  gob:          { hitFlat: 5, volleyShots: 50 },                    // 王之財寶：常駐命中＋彈幕顆數
+  chain:        { bindPerRank: 6, bindDivineFloor: 0.5, volleyShots: 18 }, // 天之鎖：縛神性＋彈幕顆數
+  stealth:      { ambushHitDiv: 10, ambushDmgBase: 1.2, ambushDmgPerRank: 0.12 }, // 氣息遮斷：奇襲命中／傷害
+  tactics:      { npDmgMul: 1.15 },                                 // 軍略：寶具威力
+  weapon_steal: { vsDragonDmgMul: 1.5 },                            // 無毀的湖光：對龍
+  god_slay:     { perRank: 0.5, cap: 2.0 },                         // 神殺：依對方神格放大受傷
+  execution:    { npRankMul: 4, diceN: 6, diceSides: 12, flat: 200 },// 乖離劍/黃金律共用的處決傷害
+  ea:           { hpPctTrigger: 0.4 },                              // 乖離劍：自身血量門檻才「認真」
+  wealth:       { hpPctTrigger: 0.2 }                               // 黃金律：絕境門檻
+};
+// 取係數的唯一出口：查無就回 fallback（表裡缺一格不該讓整場戰鬥炸掉）。
+function fxTune_(fx, field, fallback) {
+  var e = FX_TUNING_[fx];
+  return (e && typeof e[field] === 'number') ? e[field] : fallback;
+}
+
+// ⚡ 處決傷害（乖離劍·認真／黃金律·絕境取劍共用）：寶具階×係數 ＋ 骰 ＋ 底傷。
+function executionDamage_(c) {
+  return Math.round(rankVal(c.six['寶具']) * fxTune_('execution', 'npRankMul', 4))
+    + rollDice_(fxTune_('execution', 'diceN', 6), fxTune_('execution', 'diceSides', 12))
+    + fxTune_('execution', 'flat', 200);
+}
 
 // ⚔️🔱 概念優先權（Priority）：數字越高＝概念位階越高，對應「真理＞固有結界＞傳說武技＞英靈技能」階梯。
 var CONCEPT_TIER = {
@@ -464,8 +514,8 @@ function resolveFateBattle_(atk, def, opts) {
   if (opts.np && npIs('ea')) {
     var _selfHpPct = (atk.hpMax > 0) ? (atk.hp / atk.hpMax) : 1.0;
     if (typeof opts.selfHpPct === 'number') _selfHpPct = opts.selfHpPct;
-    if (_selfHpPct <= 0.4) {
-      var _eaDmg = Math.round(rankVal(atk.six['寶具']) * 4) + rollDice_(6, 12) + 200;
+    if (_selfHpPct <= fxTune_('ea', 'hpPctTrigger', 0.4)) {
+      var _eaDmg = executionDamage_(atk);
       fired.push(atk.name + '·乖離劍·天地乖離開闢之星(認真·執行殺)');
       return { atkWins: true, winner: atk.name, loser: def.name, damage: _eaDmg, aRoll: 20, dRoll: 0, aHit: 99, dEva: 0, fired: fired, crit: 'atk_crit', np: true, seal: !!opts.seal };
     }
@@ -473,8 +523,8 @@ function resolveFateBattle_(atk, def, opts) {
   // 💰 黃金律(wealth／吉爾伽美什)：絕境(自身血≤20%)時，自寶藏取出乖離劍(EA)執行殺翻盤。
   if (opts.np && hasFx_(atk, 'wealth')) {
     var _whp = (atk.hpMax > 0) ? (atk.hp / atk.hpMax) : 1.0;
-    if (_whp <= 0.2) {
-      var _waDmg = Math.round(rankVal(atk.six['寶具']) * 4) + rollDice_(6, 12) + 200;
+    if (_whp <= fxTune_('wealth', 'hpPctTrigger', 0.2)) {
+      var _waDmg = executionDamage_(atk);
       fired.push(atk.name + '·黃金律·絕境取乖離劍(無盡財寶供能·執行殺)');
       return { atkWins: true, winner: atk.name, loser: def.name, damage: _waDmg, aRoll: 20, dRoll: 0, aHit: 99, dEva: 0, fired: fired, crit: 'atk_crit', np: true, seal: !!opts.seal };
     }
@@ -503,10 +553,10 @@ function resolveFateBattle_(atk, def, opts) {
   // 🎚️ 被動技能 fx 命中/迴避走累積器(見檔頂 HIT_FX_CAP)：全部加總後 clamp ±上限再入 aHit/dEva。
   var aHitFx = 0, dEvaFx = 0;
   // 直感/心眼(first_strike/analyze)：攻守先機 +3×階級
-  var fsA = hasFx_(atk, 'first_strike') || hasFx_(atk, 'analyze'); if (fsA) { aHitFx += Math.round(3 * rankMul_(fsA)); fired.push(atk.name + '·' + fxName_(atk, hasFx_(atk, 'analyze') ? 'analyze' : 'first_strike', hasFx_(atk, 'analyze') ? '心眼' : '直感')); }
+  var fsA = hasFx_(atk, 'first_strike') || hasFx_(atk, 'analyze'); if (fsA) { aHitFx += Math.round(fxTune_('first_strike', 'hitPerRank', 3) * rankMul_(fsA)); fired.push(atk.name + '·' + fxName_(atk, hasFx_(atk, 'analyze') ? 'analyze' : 'first_strike', hasFx_(atk, 'analyze') ? '心眼' : '直感')); }
   var fsD = hasFx_(def, 'first_strike') || hasFx_(def, 'analyze');
   if (hasFx_(atk, 'unreadable')) { fsD = null; fired.push(atk.name + '·' + fxName_(atk, 'unreadable', '無貌') + '(封先機)'); } // 使對方直感/心眼失效
-  if (fsD) { dEvaFx += Math.round(3 * rankMul_(fsD)); fired.push(def.name + '·' + fxName_(def, hasFx_(def, 'analyze') ? 'analyze' : 'first_strike', hasFx_(def, 'analyze') ? '心眼' : '直感')); }
+  if (fsD) { dEvaFx += Math.round(fxTune_('first_strike', 'hitPerRank', 3) * rankMul_(fsD)); fired.push(def.name + '·' + fxName_(def, hasFx_(def, 'analyze') ? 'analyze' : 'first_strike', hasFx_(def, 'analyze') ? '心眼' : '直感')); }
 
   // 狂化(mad) 不在此扣命中/迴避：代價已由每小時魔力維持費×1.5(Time_World.gs servantEconomy_)承擔，避免同一項代價在戰鬥層被收兩次稅。
   aHitFx = fxHitAdd_(aHitFx, atk, 'self_mod', fired);
@@ -516,13 +566,13 @@ function resolveFateBattle_(atk, def, opts) {
   var mcAtk = mcCombatFx_(atk); if (mcAtk && mcAtk.hit) { aHit += mcAtk.hit; fired.push(atk.name + '·禮裝「' + mcAtk.label + '」(命中+' + mcAtk.hit + ')'); }
 
   // 騎乘(ride) 機動 +2×階級
-  var rideA = hasFx_(atk, 'ride'); if (rideA) aHitFx += Math.round(2 * rankMul_(rideA));
+  var rideA = hasFx_(atk, 'ride'); if (rideA) aHitFx += Math.round(fxTune_('ride', 'hitPerRank', 2) * rankMul_(rideA));
   // 🎯 千里眼(aim)：恆常的卓越目力鎖破綻（被動·SKILL_FX_ 表驅動）。投影(projection)＝施放技術·被動 only、此處不給被動。
   aHitFx = fxHitAdd_(aHitFx, atk, 'aim', fired);
   // 🌟 全知全能之星(insight／吉爾伽美什)：看穿本質·洞悉破綻，恆常命中 +4（他懶得認真開·僅中等被動）。
-  if (hasFx_(atk, 'insight')) { aHitFx += 4; fired.push(atk.name + '·' + fxName_(atk, 'insight', '全知全能之星') + '(洞悉破綻·命中+4)'); }
+  if (hasFx_(atk, 'insight')) { aHitFx += fxTune_('insight', 'hitFlat', 4); fired.push(atk.name + '·' + fxName_(atk, 'insight', '全知全能之星') + '(洞悉破綻·命中+4)'); }
   // 避矢(evade_ranged)：守方對遠程(Archer)迴避 +6×階級
-  if (atk.cls === 'Archer') { var er = hasFx_(def, 'evade_ranged'); if (er) { dEvaFx += Math.round(6 * rankMul_(er)); fired.push(def.name + '·' + fxName_(def, 'evade_ranged', '避矢')); } }
+  if (atk.cls === 'Archer') { var er = hasFx_(def, 'evade_ranged'); if (er) { dEvaFx += Math.round(fxTune_('evade_ranged', 'evaPerRank', 6) * rankMul_(er)); fired.push(def.name + '·' + fxName_(def, 'evade_ranged', '避矢')); } }
   // 氣息遮斷(stealth)：僅【首擊奇襲】(opts.ambush·開場第一擊／敵突襲)吃命中加成·依階級(A+大、A-小)。
   var stA = hasFx_(atk, 'stealth');
   // 🐾 氣息感知(sense／恩奇都)：守方以穿透大地的感知看穿奇襲——階級 ≥ 攻方氣息遮斷者，突襲的命中先機＋下方「要害一擊」全數失效(貼原作「近距離廢掉同級以下的氣息遮斷」)。
@@ -530,26 +580,27 @@ function resolveFateBattle_(atk, def, opts) {
   var senseNegate = !!(stA && senseD && rankVal(senseD) >= rankVal(stA));
   if (stA && opts.ambush) {
     if (senseNegate) { var _sN = hasFx_(def, 'sense') ? fxName_(def, 'sense', '氣息感知') : fxName_(def, 'insight', '全知全能之星'); fired.push(def.name + '·' + _sN + '·看穿奇襲(氣息遮斷失效)'); }
-    else { aHit += Math.round(rankVal(stA) / 10); fired.push(atk.name + '·' + fxName_(atk, 'stealth', '氣息遮斷') + '·奇襲先機'); }
+    else { aHit += Math.round(rankVal(stA) / fxTune_('stealth', 'ambushHitDiv', 10)); fired.push(atk.name + '·' + fxName_(atk, 'stealth', '氣息遮斷') + '·奇襲先機'); }
   }
   // 👑 王之財寶(gob)常駐：無盡兵裝鋪天蓋地，命中 +5（飽和彈幕難閃；傷害彈幕在下方）
-  if (hasFx_(atk, 'gob')) { aHitFx += 5; fired.push(atk.name + '·' + fxName_(atk, 'gob', '王之財寶') + '(無盡兵裝)'); }
+  if (hasFx_(atk, 'gob')) { aHitFx += fxTune_('gob', 'hitFlat', 5); fired.push(atk.name + '·' + fxName_(atk, 'gob', '王之財寶') + '(無盡兵裝)'); }
   // ⛓️ 天之鎖(chain)：命中加成併入既有「縛神性」效果(下方)；輸出走下方萬鎖彈幕。
   var tsubame = hasFx_(atk, 'tsubame') && (opts.round || 1) === 1;
-  if (tsubame) { dEvaFx -= 5; fired.push(atk.name + '·' + fxName_(atk, 'tsubame', '秘劍')); }
+  if (tsubame) { dEvaFx += fxTune_('tsubame', 'foeEvaFlat', -5); fired.push(atk.name + '·' + fxName_(atk, 'tsubame', '秘劍')); }
   // 🔱 三騎士職階相剋（Saber→Lancer→Archer→Saber）：占上風者搶得先機，命中小幅領先（傷害加成在下方）
   var KNIGHT_BEATS = { 'Saber': 'Lancer', 'Lancer': 'Archer', 'Archer': 'Saber' };
   if (KNIGHT_BEATS[atk.cls] === def.cls) aHit += 3;
   else if (KNIGHT_BEATS[def.cls] === atk.cls) dEva += 3;
   // 🦊 變化(shapeshift／玉藻前·哈桑·恩奇都)：化形流轉，守方滑開致命一擊，迴避小幅提升
-  var sm = hasFx_(def, 'shapeshift'); if (sm) { dEvaFx += Math.round(3 * rankMul_(sm)); fired.push(def.name + '·' + fxName_(def, 'shapeshift', '變化') + '(化形閃避)'); }
+  var sm = hasFx_(def, 'shapeshift'); if (sm) { dEvaFx += Math.round(fxTune_('shapeshift', 'evaPerRank', 3) * rankMul_(sm)); fired.push(def.name + '·' + fxName_(def, 'shapeshift', '變化') + '(化形閃避)'); }
   // 💋 愛之痣(lovespot／迪盧木多)：魅惑之痣令來犯者一瞬分神，攻方命中 -1(小幅惑亂)
-  if (hasFx_(def, 'lovespot')) { aHitFx -= 1; fired.push(def.name + '·' + fxName_(def, 'lovespot', '愛之痣') + '(惑·敵命中-1)'); }
-  var pet = hasFx_(atk, 'petrify'); if (pet) { dEvaFx -= Math.round(4 * rankMul_(pet)); fired.push(atk.name + '·' + fxName_(atk, 'petrify', '魔眼') + '·鎖死身法'); }
+  if (hasFx_(def, 'lovespot')) { aHitFx += fxTune_('lovespot', 'foeHitFlat', -1); fired.push(def.name + '·' + fxName_(def, 'lovespot', '愛之痣') + '(惑·敵命中-1)'); }
+  var pet = hasFx_(atk, 'petrify'); if (pet) { dEvaFx += Math.round(fxTune_('petrify', 'foeEvaPerRank', -4) * rankMul_(pet)); fired.push(atk.name + '·' + fxName_(atk, 'petrify', '魔眼') + '·鎖死身法'); }
   // ⛓️ 天之鎖(chain／Gilgamesh·Enkidu)：對「神性」之敵展開冥界鎖鏈，封住身法。
   var chn = hasFx_(atk, 'chain'); var defDivR = divineRankOf_(def);
   if (chn && defDivR) {
-    var chainBind = Math.round(6 * rankMul_(chn) * (0.5 + 0.5 * rankMul_(defDivR)));
+    var _cbFloor = fxTune_('chain', 'bindDivineFloor', 0.5);
+    var chainBind = Math.round(fxTune_('chain', 'bindPerRank', 6) * rankMul_(chn) * (_cbFloor + (1 - _cbFloor) * rankMul_(defDivR)));
     dEvaFx -= chainBind; fired.push(atk.name + '·' + fxName_(atk, 'chain', '天之鎖') + '(縛神性' + defDivR + '·避-' + chainBind + ')');
   }
   var _aFxC = Math.max(-HIT_FX_CAP, Math.min(HIT_FX_CAP, aHitFx));
@@ -613,7 +664,7 @@ function resolveFateBattle_(atk, def, opts) {
     else if (mcWin.dmgAdd) fired.push(winner.name + '·禮裝「' + mcWin.label + '」(傷+' + mcWin.dmgAdd + ')');
   }
   if (opts.ambush && atkWins && !opts.np && hasFx_(atk, 'stealth') && !senseNegate) {
-    var amb = 1.2 + 0.12 * rankMul_(hasFx_(atk, 'stealth')); base = Math.round(base * amb);
+    var amb = fxTune_('stealth', 'ambushDmgBase', 1.2) + fxTune_('stealth', 'ambushDmgPerRank', 0.12) * rankMul_(hasFx_(atk, 'stealth')); base = Math.round(base * amb);
     fired.push(atk.name + '·奇襲·要害一擊(×' + amb.toFixed(2) + ')');
   }
   // 🪄 高速詠唱(fast_cast／Caster)：一回合連珠疊咒·魔砲彈幕加成（SKILL_FX_ 表驅動）
@@ -627,17 +678,17 @@ function resolveFateBattle_(atk, def, opts) {
   base = fxDmgApply_(base, winner, loser, 'wind_strike', fired);
   base = fxDmgApply_(base, winner, loser, 'crafting', fired);
   base = fxDmgApply_(base, winner, loser, 'master_magic', fired);
-  if (hasFx_(winner, 'tsubame') && !opts.np && (opts.round || 1) === 1) { base = Math.round(base * 2.3); fired.push(winner.name + '·' + fxName_(winner, 'tsubame', '秘劍・燕返') + '(三方位同斬)'); }
+  if (hasFx_(winner, 'tsubame') && !opts.np && (opts.round || 1) === 1) { base = Math.round(base * fxTune_('tsubame', 'dmgMul', 2.3)); fired.push(winner.name + '·' + fxName_(winner, 'tsubame', '秘劍・燕返') + '(三方位同斬)'); }
   // 🗡️ 無毀的湖光(weapon_steal／蘭斯洛特·Arondight)：湖之妖精所託的魔劍，對具「龍」屬性之敵解放秘藏威能，傷害×1.5
   if (hasFx_(winner, 'weapon_steal')) {
     var foeDragon = (loser.traits || []).concat(loser.skills || []).some(function (t) { return t && /龍|竜/.test(String(t.n)); });
-    if (foeDragon) { base = Math.round(base * 1.5); fired.push(winner.name + '·' + fxName_(winner, 'weapon_steal', '無毀的湖光') + '(對龍解放)'); }
+    if (foeDragon) { base = Math.round(base * fxTune_('weapon_steal', 'vsDragonDmgMul', 1.5)); fired.push(winner.name + '·' + fxName_(winner, 'weapon_steal', '無毀的湖光') + '(對龍解放)'); }
   }
   // 神殺：對有「神性」者最終傷害放大，神性階級越高 → 越被神殺剋(×1.17~×2.0，依 divineRankOf_)。
   var godSlay = hasFx_(winner, 'god_slay') || (winner.skills || []).concat(winner.traits || []).some(function (t) { return t && String(t.n).indexOf('神殺') >= 0; });
   var loserDivR = divineRankOf_(loser); // 🕊️ 對方神格(單一真實來源)：null＝無神性
   if (godSlay && loserDivR) {
-    var slayMul = Math.min(2.0, 1 + 0.5 * rankMul_(loserDivR));      // C→1.5、B→1.67、A→1.83、E→1.17、EX→2.0
+    var slayMul = Math.min(fxTune_('god_slay', 'cap', 2.0), 1 + fxTune_('god_slay', 'perRank', 0.5) * rankMul_(loserDivR));      // C→1.5、B→1.67、A→1.83、E→1.17、EX→2.0
     base = Math.round(base * slayMul); fired.push(winner.name + '·神殺(剋神性' + loserDivR + '·×' + slayMul.toFixed(2) + ')');
   }
   // 🔱 職階相性傷害加成：克制方下手更狠（與上方命中先機呼應）
@@ -659,7 +710,7 @@ function resolveFateBattle_(atk, def, opts) {
     if (wRelease && atk.npOverloadMul && atk.npOverloadMul > 1.01) {
       base = Math.round(base * atk.npOverloadMul); fired.push(winner.name + '·灌魔超載(×' + atk.npOverloadMul.toFixed(2) + ')');
     }
-    if (hasFx_(winner, 'tactics')) { base = Math.round(base * 1.15); fired.push(winner.name + '·' + fxName_(winner, 'tactics', '軍略')); }
+    if (hasFx_(winner, 'tactics')) { base = Math.round(base * fxTune_('tactics', 'npDmgMul', 1.15)); fired.push(winner.name + '·' + fxName_(winner, 'tactics', '軍略')); }
     var wDivR = divineRankOf_(winner);
     if (wDivR) base = Math.round(base * (1 + 0.1 * rankMul_(wDivR)));
     // 🗡️ 無限劍製(ubw／固有結界)：劍之地平展開，攻方在領域內傷害大增
@@ -671,7 +722,7 @@ function resolveFateBattle_(atk, def, opts) {
     // 🐙 螺湮城教本(summon_horror／青鬍子)：自深淵召出觸手大海怪鋪天蓋地碾壓——救低六圍支援法師的本命一擊(對城規模)
     if (wSig('summon_horror')) { base = Math.round(base * 1.6) + rollDice_(8, 10) + 50; fired.push(winner.name + '·' + fxName_(winner, 'summon_horror', '螺湮城教本') + '(深淵海怪)'); }
     // 🌑 魔眼石化(petrify)致殘
-    if (wSig('petrify')) { base = Math.round(base * 1.3); fired.push(winner.name + '·' + fxName_(winner, 'petrify', '魔眼') + '·乘隙重創'); }
+    if (wSig('petrify')) { base = Math.round(base * fxTune_('petrify', 'npDmgMul', 1.3)); fired.push(winner.name + '·' + fxName_(winner, 'petrify', '魔眼') + '·乘隙重創'); }
     // 🌟 乖離劍·天地乖離開闢之星(ea)：概念位階 6，斬裂世界的真理之劍——最高威力，且無視一切防禦概念（下方概念壓制處理）
     if (wSig('ea')) { base = Math.round(base * 1.7) + rollDice_(4, 12) + 80; fired.push(winner.name + '·' + fxName_(winner, 'ea', '乖離劍') + '(天地乖離·真理之劍)'); }
     // 🏰 寶具規模相剋矩陣：對城打對人 ×1.5、對界打對人 ×1.7（壓縮後值·攻擊規模 × 守方防禦規模）。多寶具用所選寶具的尺度。

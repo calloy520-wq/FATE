@@ -474,13 +474,16 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `doGet()` — GAS Web App 進入點：回傳 `Index` HTML 模板（設標題「命運停駐之夜」＋行動裝置 viewport）。不自動建表（改由登入畫面 `check_sheets` 手動觸發）。
 ### Engine_Fate.gs
 
+- `FX_TUNING_`／`fxTune_(fx, field, fallback)`（2026-09 新增）— **有條件效果的係數表**。這批 fx（直感/心眼/騎乘/避矢/變化/魔眼/燕返/王財/天之鎖/氣息遮斷/軍略/無毀湖光/神殺/全知全能之星/愛之痣/乖離劍/黃金律）的條件邏輯留在 `resolveFateBattle_` 裡，**數字全部住這裡**，前端說明的數字靠 `check_fx.py` 第二道對答案。查無該格回 fallback（表缺一格不該讓整場戰鬥炸掉）。為什麼這樣分 → `CODE_NOTES.md`。
+- `executionDamage_(c)`（2026-09 新增）— 乖離劍·認真／黃金律·絕境取劍共用的處決傷害（寶具階×係數＋骰＋底傷），係數走 `FX_TUNING_.execution`。
 純數值戰鬥核心：D20 ＋ 六圍(階級) ＋ fx 標籤 ＋ 寶具。每個 fx 效果都隨技能階級縮放（`rankMul_`），故對魔力B ≠ 對魔力A。無 I/O 的純函式，可被 tools/battle_sim 單元測試。
 
 #### 階級 / 骰子工具
 
-- `rankMul_(r)` — 階級倍率：以 C(30) 為 1.0 基準（`rankVal(r)/30`）。E=0.33 D=0.67 C=1.0 B=1.33 A=1.67 EX=2.0。全表 fx 縮放的共用因子。
+- `rankMul_(r)` — 階級倍率：以 C 為 1.0 基準（`rankVal(r) / RANK_VALUE['C']`，2026-09 起不再寫死 30）。E=0.33 D=0.67 C=1.0 B=1.33 A=1.67 EX=2.0。全表 fx 縮放的共用因子。
 - `rollDice_(n, sides)` — 擲 n 顆 d(sides) 回總和；n<=0 回 0（D&D 風傷害骰核心）。
-- `rankTier_(r)` — 階級→骰數階（E=1 D=2 C=3 B=4 A=5 EX=6）；傷害骰顆數與命中/迴避權重都吃這個階梯。
+- `rankTierSteps_()`（2026-09 新增）— 把 `RANK_VALUE` 的值由小到大排成門檻表並記憶起來。**延後求值**：`RANK_VALUE` 住在 `Core_Settings.gs`，頂層直接算會踩載入順序（見 `check_loadorder.py`）。
+- `rankTier_(r)` — 階級→骰數階（E=1 D=2 C=3 B=4 A=5 EX=6）；門檻 2026-09 起從 `rankTierSteps_()` 推導，不再各寫一份 60/50/40/30/20；傷害骰顆數與命中/迴避權重都吃這個階梯。
 - `skillFxVal_(v, r, c)` — 若 v 是函式則以 (r,c) 求值，否則原樣回傳；SKILL_FX_/DEF_FX_ 欄位可為數字或 r=>.. 的通用取值器。
 
 #### 骰子彈幕（常駐飽和傷害）
