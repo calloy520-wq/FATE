@@ -401,14 +401,6 @@ const KANSHOU_SCENE_BOND_ = 3; // 接受親密橋段(夜襲/共浴/膝枕…非�
 const KANSHOU_SCENE_MIN_BOND_ = KANSHOU_REL_TIER_[2].min;
 
 // 🫶 玩家主動提議(相約/牽手/同去)她答不答應——【GAS 依好感擲，AI 只演反應】(2026-07 由 AI 判定改為 GAS 判定)。
-function kanshouProposalAccepts_(type, bond) {
-  bond = parseInt(bond) || 0;
-  var base, slope;
-  if (type === 'move') { base = 0.55; slope = 0.006; }         // 一起去某地·門檻最低(0→.55 / 40→.79 / 80→.97)
-  else if (type === 'promise') { base = 0.30; slope = 0.007; } // 相約明天·中等(0→.30 / 40→.58 / 80→.86)
-  else { base = 0.10; slope = 0.010; }                          // 牽手·最私密最看好感(0→.10 / 40→.50 / 80→.90)
-  return Math.random() < Math.max(0.03, Math.min(0.97, base + bond * slope));
-}
 // 純聊天封頂只從「熟識(40)」這道門檻起算——第一階「點頭之交→普通朋友」本就該靠日常閒聊自然發生(陌生變朋友天經地義)，不該逼玩家在還沒熟時就得約會/夜襲(2026-07 玩家實測卡在19爬不出、矜持角色約定又被婉拒的死結)。
 // 🧠 摘要往回看幾輪、每則保留幾個字。
 const KANSHOU_DIGEST_ROUNDS_ = 8;
@@ -2072,8 +2064,8 @@ function actionPlay_(userData, pcId, sheets) {
       const _pmOld = kanshouGetPromise_(pcData[_pmIdx][COL.PC.MEMORY]);
       const _pmOldStr = (_pmOld && (parseInt(_pmOld.day) || 0) >= curDay)
         ? `${(parseInt(_pmOld.day) || 0) === curDay ? '今天' : '之前約好的'}${_pmOld.band ? ((KANSHOU_APPT_BANDS_.find(b => b.band === _pmOld.band) || {}).label || _pmOld.band) + '於' : '在'}「${_pmOld.loc}」` : "";
-      _pendingProposal = { type: 'promise', idx: _pmIdx, loc: _pmLoc, band: _pmBand, today: _pmToday, accepted: kanshouProposalAccepts_('promise', _pmBond) };
-      kanshouPromiseStr = `\n★【提議·相約·系統已裁定】你向『${_pmHer}』提議【${_pmWhenTxt}${_pmBandLabel ? _pmBandLabel + '於' : '在'}「${_pmLoc}」見面】。系統已依好感(${_pmBond}/100)裁定對方${_pendingProposal.accepted ? `【答應】了——請 narration 依對方的個性演出答應的反應（雀躍／害羞／矜持地點頭皆可），系統${_pmWhenTxt}會記得這個約${_pmOldStr ? `。★同時：你們原本還有一個【${_pmOldStr}見面】的約，這次改約等於把它取消了——narration 必須讓對方自然把這件事說出口(確認改期／有點可惜／順口調侃皆可)，不可讓舊的約無聲消失` : ''}` : '【婉拒】了——請 narration 依對方的個性演出婉拒的反應（不好意思／認真說改天／打趣帶過皆可），此約不成立、不必替玩家找補'}。★成敗由系統定，【不可】自行改寫對方的決定，只演對方的反應。`;
+      _pendingProposal = { type: 'promise', idx: _pmIdx, loc: _pmLoc, band: _pmBand, today: _pmToday, accepted: true };
+      kanshouPromiseStr = `\n★【約定成立】你向『${_pmHer}』提議【${_pmWhenTxt}${_pmBandLabel ? _pmBandLabel + '於' : '在'}「${_pmLoc}」見面】，對方答應了——依其個性演出答應的反應（雀躍／害羞／矜持地點頭皆可），系統${_pmWhenTxt}會記得這個約${_pmOldStr ? `。★同時：你們原本還有一個【${_pmOldStr}見面】的約，這次改約等於把它取消了——narration 必須讓對方自然把這件事說出口(確認改期／有點可惜／順口調侃皆可)，不可讓舊的約無聲消失` : ''}。`;
       finalUserMsg = `【玩家意圖】：向『${_pmHer}』提出「${_pmWhenTxt}${_pmBandLabel || ''}在${_pmLoc}見面」的約定。`;
     } else if (_pmName && _pmIdx === -1) {
       kanshouPromiseStr = kanshouMissStr_('promise', _pmName);
@@ -2111,8 +2103,8 @@ function actionPlay_(userData, pcId, sheets) {
       const _pvBonds = _pvIdxs.map(i => parseInt(pcData[i][COL.PC.BOND]) || 0);
       const _pvBond = Math.round(_pvBonds.reduce(function (a, b) { return a + b; }, 0) / _pvBonds.length);
       const _pvMulti = _pvNames.length > 1;
-      _pendingProposal = { type: 'move', idx: _pvIdxs[0], names: _pvNames, name: _pvHer, loc: _pvLoc, accepted: kanshouProposalAccepts_('move', _pvBond) };
-      kanshouPromiseStr += `\n★【提議·同去·系統已裁定】你向『${_pvHer}』提議【現在一起去「${_pvLoc}」】。系統已依好感(${_pvMulti ? `在場平均 ${_pvBond}` : _pvBond}/100)裁定${_pvMulti ? '她們全體' : '對方'}${_pendingProposal.accepted ? `【答應】同行——請 narration ${_pvMulti ? '讓被點名的每一位都各依自己的個性給出答應的反應(可有人爽快、有人半推半就，但結論一致)' : '依對方的個性演出答應的反應'}` : `【婉拒】了——請 narration ${_pvMulti ? '讓被點名的每一位都各依自己的個性給出婉拒的反應' : '依對方的個性演出婉拒的反應'}`}。是否動身由系統處理；narration 停在${_pvMulti ? '她們' : '對方'}給出回應的當下，【不可】演出發、走路或抵達。★成敗由系統定，別自行改寫${_pvMulti ? '她們' : '對方'}的決定。`;
+      _pendingProposal = { type: 'move', idx: _pvIdxs[0], names: _pvNames, name: _pvHer, loc: _pvLoc, accepted: true };
+      kanshouPromiseStr += `\n★【同行成立】你向『${_pvHer}』提議【現在一起去「${_pvLoc}」】，${_pvMulti ? '她們全體' : '對方'}答應同行——${_pvMulti ? '讓被點名的每一位都各依自己的個性給出答應的反應(可有人爽快、有人半推半就，但結論一致)' : '依對方的個性演出答應的反應'}。是否動身由系統處理；narration 停在${_pvMulti ? '她們' : '對方'}給出回應的當下，【不可】演出發、走路或抵達。`;
       finalUserMsg = `【玩家意圖】：邀身旁的『${_pvHer}』現在一起去「${_pvLoc}」。`;
     } else if (!_pvIdxs.length) {
       kanshouPromiseStr += kanshouMissStr_('move', _pvLoc);
@@ -2222,8 +2214,8 @@ function actionPlay_(userData, pcId, sheets) {
         const _hhPrevN = KANSHOU_HANDHOLD_TAG_.get(pcData[pcIndex][COL.PC.MEMORY]);
         const _hhSwitch = (_hhPrevN && !kanshouNameCandidates_(_hhName).includes(_hhPrevN)) ? _hhPrevN : "";
         // 牽手tag存在玩家自己列(pcIndex)、值=她的名字；接受與否由AI判定，接受後才在post-AI區寫回。
-        _pendingProposal = { type: 'hold', idx: pcIndex, herIdx: _hhIdx, name: _hhName, accepted: kanshouProposalAccepts_('hold', _hhBond) };
-        kanshouHandHoldStr = `\n★【提議·牽手·系統已裁定】你伸手想牽起『${_hhName}』的手。系統已依好感(${_hhBond}/100)裁定對方${_pendingProposal.accepted ? `【讓你牽了】——narration 必須真實演出【對方的手交到你手中／你們牽起手】的那一刻(不可只碰衣角、拉衣袖之類含糊帶過——那不算牽手)，語氣依其個性（大方／害羞／彆扭皆可）；對方接受後，之後你移動對方會相伴同行(直到放手)${_hhSwitch ? `。★同時：你原本牽著的是『${_hhSwitch}』的手，這一牽等於當著對方的面鬆開了對方——narration 必須把這個鬆手先演出來(一個動作或一個眼神都好)、並讓『${_hhSwitch}』依對方的個性有所反應，不可讓對方的手憑空消失` : ''}` : '【收回了手】——narration 依其個性演出對方收手／避開、沒牽成的反應，不必替玩家找補'}。★成敗由系統定，別自行改寫對方的決定。`;
+        _pendingProposal = { type: 'hold', idx: pcIndex, herIdx: _hhIdx, name: _hhName, accepted: true };
+        kanshouHandHoldStr = `\n★【牽起來了】你伸手牽起『${_hhName}』的手，對方讓你牽了——narration 必須真實演出【對方的手交到你手中／你們牽起手】的那一刻(不可只碰衣角、拉衣袖之類含糊帶過——那不算牽手)，語氣依其個性（大方／害羞／彆扭皆可）；之後你移動對方會相伴同行(直到放手)${_hhSwitch ? `。★同時：你原本牽著的是『${_hhSwitch}』的手，這一牽等於當著對方的面鬆開了對方——narration 必須把這個鬆手先演出來(一個動作或一個眼神都好)、並讓『${_hhSwitch}』依對方的個性有所反應，不可讓對方的手憑空消失` : ''}。`;
         finalUserMsg = `【玩家意圖】：伸手想牽起『${_hhName}』的手。`;
       }
     }
@@ -3137,12 +3129,11 @@ function actionPlay_(userData, pcId, sheets) {
   if (_pendingProposal && !_settledVerdict) {
     const _ppName = String(_pendingProposal.name || (pcData[_pendingProposal.idx] || [])[COL.PC.NAME] || "對方");
     const _ppWho = _pendingProposal.names && _pendingProposal.names.length > 1 ? '她們' : `『${_ppName}』`;
-    const _ppYes = { promise: `${_ppWho}答應了這個約定`, move: `${_ppWho}答應現在一起去`, hold: `${_ppWho}讓你牽住了手` };
-    const _ppNo = { promise: `${_ppWho}婉拒了這個約定`, move: `${_ppWho}婉拒了同行`, hold: `${_ppWho}沒有讓你牽` };
-    _settledVerdict = (_pendingProposal.accepted ? _ppYes : _ppNo)[_pendingProposal.type] || "";
+    // 三個提議一律成立(2026-09)，所以只剩「答應」這一種結果；婉拒那組字串連同擲骰一起退休。
+    _settledVerdict = { promise: `${_ppWho}答應了這個約定`, move: `${_ppWho}答應現在一起去`, hold: `${_ppWho}讓你牽住了手` }[_pendingProposal.type] || "";
   }
   const _settledTail_ = _settledVerdict
-    ? `\n【結果·系統已裁定，不可改寫】${_settledVerdict}——本回合演到這件事發生為止。`
+    ? `\n【這件事已經發生，不可改寫】${_settledVerdict}——本回合演到這裡為止。`
     : "";
 
   const driveStr = driveOn ? `

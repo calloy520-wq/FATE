@@ -1527,13 +1527,13 @@ let plainTextContext = cleanText;
   // 🏠 邀請同居：她在場+關係夠深(後端把關)→搬進「和室」——深夜大多回家就寢、清晨可能賴床、
   //   晚間常在家中活動，白天照常出門過自己的生活。
   async function kanshouInviteCohabit(name, npcId) {
-    if (!await customConfirm_('邀「' + name + '」搬來同住？\n(需要彼此關係足夠深厚，她也可能婉拒；她本人要在場才問得出口)')) return;
+    if (!await customConfirm_('邀「' + name + '」搬來同住？\n(關係夠深就會答應；她本人要在場才問得出口)')) return;
     showGamePane('chat');
     await send('（鼓起勇氣，邀「' + name + '」搬來一起住。）', false, { cohabitInvite: name, cohabitInviteId: npcId || "" });
   }
   // 💗 告白：好感夠(KC_CONFESS_BOND_)就【必定成立】——2026-09 玩家「79 改成告白必定成功就好」，前端不預測、只送出意圖。
   async function kanshouConfess(name, npcId) {
-    if (!await customConfirm_('向「' + name + '」告白？\n(成不成由你們的好感與相處次數決定，她也可能拒絕；被拒後要隔幾天才說得出第二次)')) return;
+    if (!await customConfirm_('向「' + name + '」告白？\n(說出口就成立——你們從此是戀人；她本人要在場)')) return;
     showGamePane('chat');
     await send('（鼓起勇氣，向「' + name + '」告白。）', false, { confess: name, confessId: npcId || "" });
   }

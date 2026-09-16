@@ -1081,7 +1081,7 @@ FALLBACK_MODEL = x-ai/grok-4.20                (屬性 FALLBACK_MODEL)  ← 被�
 - **群體動作要點名全部人**：👋 邀同去按下「同意」時 `moveWithCompanion` 帶走**同地全部人**，舊版提示詞只點名第一位——其餘的人是無聲跟來的。點名誰就走誰（裁定取好感最低的那位）。
 - **別依賴小模型「自發」填選填欄位**：Gemini-lite 從不自發填自由選填欄位(舊 move_proposal 就是活教訓，2026-07 乾脆整欄砍掉)——玩家發起的機制動作一律走「明確 payload → pre-AI 記提議 → 確定性管線」(👋proposeMove/相約/牽手同款)，別再指望 AI 自己決定「要不要」。
 - **🙂 `physical_state`（狀態欄）2026-07-28 改標點收尾**：schema 要 ≤15 字、後端截 20 當緩衝，但 AI 把整句敘事寫進來時照樣硬剪出斷尾（玩家實測「狀態：原本專注看書的動作停下，抬頭望向風音，眼」——正好 20 字）。改成**在預算內的最後一個標點處收尾**（沒有標點才退回硬剪），並把欄位定義從「顏面神情」改寫成「只寫臉上看得到的(眼神/臉色/表情)，不寫動作與劇情」。探針 `scratchpad/sim/pstate.js`。
-- **🫶 玩家提議（相約/牽手/同去）她答不答應＝GAS 依好感擲、AI 只演**（2026-07 由 AI 判定改 GAS 判定）：pre-AI 用 `kanshouProposalAccepts_(type, bond)` 依好感擲定 `_pendingProposal.accepted`（曲線：move base .55/slope .006、promise .30/.007、hold .10/.010，夾[.03,.97]——牽手最看好感、同去最隨和；2026-07-28 move base .45→.55，實測值見 `scratchpad/sim/odds.js`：同去好感 0/40/80 → 55%/79%/97%），★提議鐵律直接告訴 AI「她【答應/婉拒】了，只演她的反應、不可改寫決定」；post-AI 落地讀 `_pendingProposal.accepted`。**2026-07 三度改版**：`proposal_accept` schema 欄已整個刪除(不再保留相容佔位)。她主動提議約會(`kanshouPromiseOffer_`)＋同居(`kanshouCohabitOffer_`≥90)也已改成同一批 GAS 直接判定觸發，不再等 AI 自己開口。**紅線①核對過：nsfwBaseRules／慾海律令／driveStr／五階演化 0 改動。**
+- **🫶 玩家提議（相約/牽手/同去）她答不答應＝GAS 依好感擲、AI 只演**（2026-07 由 AI 判定改 GAS 判定）：pre-AI 用 ~~`kanshouProposalAccepts_`~~（2026-09 已移除，三個提議一律成立） 依好感擲定 `_pendingProposal.accepted`（曲線：move base .55/slope .006、promise .30/.007、hold .10/.010，夾[.03,.97]——牽手最看好感、同去最隨和；2026-07-28 move base .45→.55，實測值見 `scratchpad/sim/odds.js`：同去好感 0/40/80 → 55%/79%/97%），★提議鐵律直接告訴 AI「她【答應/婉拒】了，只演她的反應、不可改寫決定」；post-AI 落地讀 `_pendingProposal.accepted`。**2026-07 三度改版**：`proposal_accept` schema 欄已整個刪除(不再保留相容佔位)。她主動提議約會(`kanshouPromiseOffer_`)＋同居(`kanshouCohabitOffer_`≥90)也已改成同一批 GAS 直接判定觸發，不再等 AI 自己開口。**紅線①核對過：nsfwBaseRules／慾海律令／driveStr／五階演化 0 改動。**
 - **通用錯誤文案是查案毒藥**：send()/saveFate 的 catch 已帶出 e.message(【原因】行)；後端 success:false 的 message 會演進故事流。別再寫吞掉真因的 alert。
 - **獨立事件別共用單一回饋槽**：赴約/爽約「結算」與相約/牽手/同去「提議結果」是兩條獨立事件流，舊版共用 `proposalResult` 單槽＝並發時後寫的吞掉先寫的(爽約通知無聲消失2.0)。現制：結算走 `promiseSettle`、提議走 `proposalResult`，前端各自出通知條。新回饋事件進來時先問「跟既有槽是同一條事件流嗎」，不是就開新欄位。
 - **後端早退回應別夾空集合**：敲門早退曾夾 `people: []` 把前端 `localNPCs` 快取洗空(泡泡期間拍照面板變無人)。早退＝沒人移動＝不帶 people；前端也只在 `Array.isArray(data.people)` 才更新快取(雙保險)。
@@ -1865,3 +1865,43 @@ pool = 內建 ∪ 玩家自己開的地方（排除 room/visit/dateOnly）
 ⚠ 簽名變動：`kanshouRollDailyLocation_(heroName, hour, cohabit, memory, gameId)`
 ——沒有 `gameId` 就看不見玩家自己開的地方。5 個呼叫點全部補上。
 效能不變（每按鍵整表讀仍是 7 次，`kanshouWorldRead_` 走快取）。
+
+---
+
+## 🎲 GAS 擲骰的地方剩下哪些（2026-09 盤點＋清理）
+
+玩家：「有哪些是用 GAS 去算機率的？你覺得必要嗎 還是都給 AI 發揮較好??」→「改成必定成功」
+
+### 分界線
+
+**要寫進試算表、之後要當真的 → GAS**（AI 沒辦法「決定」誰在哪、關係有沒有成立）。
+**怎麼發生、什麼反應、什麼表情 → AI**。
+
+### 已經整組退休的擲骰
+
+| 原本 | 為什麼拿掉 |
+|---|---|
+| `kanshouConfessAccepts_`（告白成敗·好感×相處次數） | 玩家主動說出口的意圖，被看不見也影響不了的骰子否決 |
+| `kanshouProposalAccepts_`（相約/同去/牽手·依好感） | 同上；而且好感高時本來就幾乎必成，骰子多半只在低好感時擋路 |
+| `kanshouRelChatCeiling_`（聊天加好感封頂） | 節奏本來就被每回合上限管著，這是第二層，還會叫 AI 踩煞車 |
+
+連帶刪掉的：3 天告白冷卻、被拒扣 3 點、【告白日】標記、`confessWait` 下傳欄位、
+三個提議的「婉拒」分支與 `_ppNo` 字串、提示詞裡的「系統已裁定…成敗由系統定」措辭
+（改成直接陳述事實：★【約定成立】／★【同行成立】／★【牽起來了】／【這件事已經發生，不可改寫】）。
+
+⚠ 前端兩句確認框也跟著改——它們原本寫「她也可能婉拒／被拒後要隔幾天」，
+現在是謊話（同居是**門檻**不是擲骰、告白必定成功）。
+
+### 保留的擲骰（都是「必須寫進試算表」那一類）
+
+| 還在擲 | 為什麼必須是 GAS |
+|---|---|
+| 每個同伴今天在哪（`kanshouRollDailyLocation_`） | 要寫 LOC 欄。AI 搬不動人 |
+| 出門走走 70% 遇到誰（`kanshouRollEncounter_`） | 同上 |
+| 深夜訪客 / 夜襲 / 她主動邀約 | 「她主動來找你」——AI 敘述得了但搬不動她的位置；這正是「世界是活的」的來源 |
+| 泛用住處分配、ID 尾碼 | 建檔一次性，不是玩法 |
+
+### 門檻（不是擲骰，是資格）——全部保留
+
+告白 ≥60 開得了口／同居 ≥90／登門拜訪 ≥40／親密橋段 ≥40（`KANSHOU_SCENE_MIN_BOND_`）／
+告白牆（好感 79 封頂直到真的告白）。這些是**有沒有資格**，不是**運氣**，玩家看得見也控制得了。
