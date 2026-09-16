@@ -10,6 +10,12 @@
 
 只認【反引號包住、後面緊接左括號】的寫法——那就是在點名一支函式。
 散文裡提到名字（沒括號）不算，歷史沿革寫「`kanshouRollEvent_` 已刪除」也不算。
+
+2026-09 補第二道：**常數也會變成幽靈**（`SCAVENGE_TAG_`／`KANSHOU_FESTIVAL_DONE_TAG_` 兩條當場抓到），
+而它們沒有括號、上面那道網看不見。常數這道只掃 `FUNCTION_MANUAL.md`——
+其餘文件本來就有大量歷史敘述（「舊版的 X 已整組砍除」），全掃會整排誤報，
+而 FUNCTION_MANUAL 是 CLAUDE.md 指名「零容錯」的那份索引。
+刪除線 ~~`X`~~ 與同行寫著「已移除／已刪／整組砍除…」的墓碑一律放行。
 """
 import re, sys, os, glob
 
@@ -70,6 +76,60 @@ def scan(names, docs_override=None):
     return cited, ghosts
 
 
+# 常數的幽靈掃描（只掃 FUNCTION_MANUAL.md，理由見檔頭）
+CONST_DOC = 'FUNCTION_MANUAL.md'
+CONST_CITE = re.compile(r'`([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+_?)`')
+TOMB = re.compile(r'已移除|已刪|刪除|整組砍|砍除|砍掉|退役|退休|取代|不再|清空|已無|廢止|移出|改名')
+# 不是 gas 代碼裡的名字，但確實存在的東西——每一條寫明它在哪
+CONST_ALLOW = {
+    'CODE_NOTES': '文件檔名，不是常數',
+    'FUNCTION_MANUAL': '文件檔名',
+    'SOLO_REFERENCE': '文件檔名',
+    'KANSHOU_REFERENCE': '文件檔名',
+    'AI_PROMPT_MAP': '文件檔名',
+    'CODE_MAP': '文件檔名',
+    'FATE_HERO_CODEX': 'CacheService 的快取鍵字串，不是宣告',
+}
+
+
+def declared_consts(extra_src=""):
+    names = set()
+    # 掃描器自己的常數（TIER_TABLES／ALLOW_RETURN…）也算「代碼裡真的有」——文件會提到它們
+    srcs = sorted(glob.glob(os.path.join(ROOT, 'gas', '*.gs')) +
+                  glob.glob(os.path.join(ROOT, 'gas', '*.html')) +
+                  glob.glob(os.path.join(ROOT, 'check_*.py')) +
+                  glob.glob(os.path.join(ROOT, 'check_*.js')))
+    for f in srcs:
+        s = open(f, encoding='utf-8').read()
+        names |= set(re.findall(r'(?:var|const|let|function)\s+([A-Za-z_]\w*)', s))
+        # 逗號串宣告 const A = [], B = [];
+        for m in re.finditer(r'(?:var|const|let)\s+([^;\n]+)', s):
+            names |= set(re.findall(r'([A-Za-z_]\w*)\s*=', m.group(1)))
+        names |= set(re.findall(r'\b([A-Za-z_]\w*)\s*:', s))      # 物件鍵（COL 那批）
+        names |= set(re.findall(r'\.([A-Za-z_]\w*)\b', s))        # 屬性存取
+        names |= set(re.findall(r'(?m)^([A-Z][A-Z0-9_]+)\s*=', s))  # python 常數
+    if extra_src:
+        names |= set(re.findall(r'(?:var|const|let|function)\s+([A-Za-z_]\w*)', extra_src))
+    return names
+
+
+def scan_consts(names, extra_line=None):
+    ghosts, cited = [], 0
+    path = os.path.join(ROOT, CONST_DOC)
+    lines = open(path, encoding='utf-8').read().split('\n') if os.path.exists(path) else []
+    if extra_line:
+        lines = lines + [extra_line]
+    for i, line in enumerate(lines, 1):
+        for n in CONST_CITE.findall(line):
+            if n in names or n in CONST_ALLOW:
+                continue
+            cited += 1
+            if ('~~`%s`~~' % n) in line or TOMB.search(line):
+                continue
+            ghosts.append((CONST_DOC, i, n))
+    return cited, ghosts
+
+
 def main():
     names = declared()
     cited, ghosts = scan(names)
@@ -81,7 +141,20 @@ def main():
         print('📚 文件↔代碼：❌ 掃描器自身失效（注入的幽靈條目抓不到）')
         return 1
 
-    print('📚 文件↔代碼對照：%d 個文件點名、代碼宣告 %d 個名字（含自我退化測試）' % (cited, len(names)))
+    cnames = declared_consts()
+    c_cited, c_ghosts = scan_consts(cnames)
+    if not scan_consts(cnames, '- `THIS_CONST_DOES_NOT_EXIST_`（var）— 假的')[1]:
+        print('📚 文件↔代碼：❌ 常數那道失效（注入的幽靈常數抓不到）')
+        return 1
+
+    print('📚 文件↔代碼對照：%d 個函式點名、%d 個常數點名（只查 %s）、代碼宣告 %d 個名字（含自我退化測試）'
+          % (cited, c_cited, CONST_DOC, len(names)))
+    if c_ghosts:
+        print('  ❌ 索引裡列著代碼已經沒有的常數：')
+        for d, i, n in c_ghosts:
+            print('     %s:%d  %s' % (d, i, n))
+        print('  → 砍常數時同步改這條；真的只是歷史敘述就加刪除線 ~~`X`~~ 或在同一行寫明它已移除。')
+        return 1
     if ghosts:
         print('  ❌ 文件點名了代碼裡已經沒有的函式：')
         for d, i, n in ghosts:

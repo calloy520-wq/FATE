@@ -53,11 +53,6 @@ const TWEAK = {
   // 前端這張表混了兩件事：① 橋段徽章（對後端 KANSHOU_LOCATION_EVENTS_）② 住處的「她熟睡中」徽章
   //   （對後端所有住處＝手寫豪邸 KANSHOU_HERO_HOME_ 的值 ∪ 泛用住處池）。分開比，兩邊都要全中——
   //   後端新增一位英靈的專屬豪邸卻忘了補前端，徽章就會靜靜不見，這正是要擋的。
-  'KC_LOCATION_EVENTS_': {
-    why: '前端多 icon 欄、eventKey 改名 name；且把住處熟睡徽章(atHome)混在同一張表',
-    front: v => Object.keys(v).filter(k => !v[k].atHome).sort().map(k => ({ loc: k, key: v[k].name, bands: v[k].bands })),
-    back: v => Object.keys(v).sort().map(k => ({ loc: k, key: v[k].eventKey, bands: v[k].bands }))
-  },
   'KC_REGIONS_': {
     why: '同上：前端沒有獨立的 room 分頁，後端有（併進 home）；分頁名稱/說明是各自的顯示文案，id 才是判準',
     skip: ['name', 'desc'],
@@ -190,8 +185,11 @@ const problems = [];
 //   後端多加一位英靈的專屬豪邸而忘了補前端 → 那間住處的熟睡徽章會靜靜不見（不會有任何錯誤）。
 (function () {
   let fe = null;
-  for (const file of front) { const g = grabLiteral(file.text, '(?:const|var|let)', 'KC_LOCATION_EVENTS_'); if (g.found && g.value) { fe = g.value; break; } }
-  if (!fe) return;
+  // ⚠ 2026-09 抓到：這張表已改名 KC_LOCATION_EVENTS_ → KC_SLEEP_HINTS_（橋段那半隨預寫池砍掉、
+  //   只剩熟睡提示），而這裡還在找舊名字——找不到就靜靜 return，這道檢查等於死了一段時間。
+  //   找不到就【叫】，不要默默跳過：查無此表本身就是走鐘。
+  for (const file of front) { const g = grabLiteral(file.text, '(?:const|var|let)', 'KC_SLEEP_HINTS_'); if (g.found && g.value) { fe = g.value; break; } }
+  if (!fe) { checked++; bad++; problems.push('住處熟睡徽章覆蓋：前端找不到 KC_SLEEP_HINTS_（改名了？這道檢查會靜靜失效，所以直接報錯）'); return; }
   const fHomes = Object.keys(fe).filter(k => fe[k].atHome).sort();
   // 後端 pSleepStr 的熟睡地點＝她自己的住處 ∪ 同居房 ∪ 我的房間（見 Gallery.gs 的 _pAtHome）。
   //   同居房名稱一樣從後端常數讀，不在這裡寫死。
@@ -202,7 +200,7 @@ const problems = [];
   checked++;
   if (missing.length || extra.length) {
     bad++;
-    problems.push(`住處熟睡徽章覆蓋不全（KC_LOCATION_EVENTS_ 的 atHome ↔ 後端所有住處）\n     前端少了：${missing.join('、') || '無'}\n     前端多了：${extra.join('、') || '無'}`);
+    problems.push(`住處熟睡徽章覆蓋不全（KC_SLEEP_HINTS_ 的 atHome ↔ 後端所有住處）\n     前端少了：${missing.join('、') || '無'}\n     前端多了：${extra.join('、') || '無'}`);
   }
 })();
 

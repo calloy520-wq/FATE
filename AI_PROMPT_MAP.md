@@ -454,7 +454,7 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 
 | Action | Handler（檔） | AI |
 |---|---|---|
-| `np_respond` | `actionNpRespond`（Router_Battle.gs） | **是** ★【200~280 字】真名解放·獨立一拍：敵寶具預告後玩家選硬接／閃避／對衝／結界／脫離（選項依從者能力 `npResponseOptions_` 長出來），GAS 結算後演這一拍 |
+| `np_respond` | `actionNpRespond`（Router_Battle.gs） | **是** ★【200~280 字】真名解放·獨立一拍：敵寶具預告後玩家選硬接／閃避／對衝／結界／脫離（選項依從者能力 `npResponseOptions_` 長出來），GAS 結算後演這一拍。**2026-09 補收場**：這一拍打到我方從者全滅→`markDefeatIfWiped_` 填 `defeat`＋`buildDreamPrompt_`；對衝把最後一名敵從者打消滅→`markVictoryIfCleared_` 填 `victory`＋`buildVictoryDreamPrompt_`（兩者原本都漏判）。刻意不回 `clock`——時限判定已改成從資料問日子，不再看回傳字串 |
 | `summon_horror_beast` | `actionSummonHorror`（Router_Battle.gs） | **是**：海怪召喚（獨立血條，`horrorShieldView_`） |
 | `dismiss_horror_beast` | `actionDismissHorror`（Router_Battle.gs） | **是** ★【40~70 字】 |
 | `spirit_repair` | `actionSpiritRepair`（Router_Economy.gs） | **是** ★【60~100 字】（見 §5） |

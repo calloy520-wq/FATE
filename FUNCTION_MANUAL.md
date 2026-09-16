@@ -363,7 +363,6 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 搜刮／偵查
 
-- `SCAVENGE_TAG_`（var）— `makeTextTag_('搜刮')` 標記工廠。
 - `getScavengedLocs_(memory)` / `addScavengedLoc_(memory, loc)` — 讀/寫 MEMORY【搜刮】已枯竭地點**清單**(非單一 loc)。舊版 `getScavengedLoc_`/`setScavengedLoc_` 只記得住最近一個搜過的地點，玩家可在 A/B 兩地間來回無限白嫖枯竭懲罰；改成清單記住所有已搜過的地點、用 `indexOf` 判斷。
 - `actionScavenge(userData, pcId, sheets)` — 搜索物資(耗 1 AP)。撿零星魔力(基礎 ~10% 上限，同地重搜枯竭僅 ~3%)＋35% 機率揭露一名最近未偵查敵(標 SEEN)。單列寫回＋`spendAp_`＋搜索演出 aiPrompt。
 - `actionScout(userData, pcId, sheets)` — 偵查(耗 1 AP)。以 `getNearbyLocations` 定範圍(含當前)，揭露範圍內敵御主/敵從者(標 SEEN)。`spendAp_`＋偵查演出 aiPrompt(只給有無揭露、不夾座標)。
@@ -717,7 +716,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `KANSHOU_CHILL_DAY_TAG_`／`KANSHOU_CHILL_MIN_DROP_`(3)／`KANSHOU_CHILL_DAYS_`(1)（2026-07 新增）— 🧊 好感【趨勢】。提示詞原本只給純量好感值，剛爬到 90 跟從 98 摔到 90 完全相同，冷落她毫無效果。只記「最近一次讓她不高興是哪一天」(absDay)，靠日期自然衰減。蓋戳兩處：爽約 -5、AI `rel_changes` 掉幅 ≥ MIN_DROP（**用 `change` 本身判定而非 `newFav-oldFav`**——棘輪把值夾在地板時兩者差 0，但她確實不高興過）。呈現在她自己的卡片（`pChillStr`，接在好感數字後）而非全域旁白，避免代名詞懸空。
 - `KANSHOU_COHABIT_END_TAG_`（makeIntTag_ 同居解除·2026-07 新增）— 跨函式傳事實用：`kanshouSyncRelTier_` 是共用 helper、看不到提示詞變數，蓋一次性旗標讓 `actionPlay_` 組 `kanshouCohabitEndStr` 時讀一次就清。
 - `KANSHOU_NIGHT_PART_TAG_`（makeTextTag_ 昨夜道別·2026-07 新增）— 與【晨間餘韻】同構的另一半：昨晚陪你到最後、卻沒留下的人（未達 80）。兩者互斥。
-- `KANSHOU_KNOCK_DAY_TAG_`／`KANSHOU_NIGHT_GUEST_TAG_`／`KANSHOU_FESTIVAL_DONE_TAG_`（2026-07）— 深夜訪客日戳／夜訪客姓名／今日節慶習俗已完成（absDay）。
+- `KANSHOU_KNOCK_DAY_TAG_`／`KANSHOU_NIGHT_GUEST_TAG_`（2026-07）— 深夜訪客日戳／夜訪客姓名。（~~`KANSHOU_FESTIVAL_DONE_TAG_`~~ 已隨 2026-09 砍掉預寫橋段池一併移除：節慶只剩「今天是什麼日子」這個事實，不再追蹤「做過沒有」。）
 - `KANSHOU_BACKFILL_DONE_TAG_`（makeIntTag_『設定已補』）— 創角敘事欄已經補過的章。蓋了之後 `actionBackfillKanshouAi` 只填還空著的格子，不再覆寫玩家玩出來/改命改過的內容。
 - `KANSHOU_MORNING_AFTER_TAG_`（makeTextTag_ 晨間餘韻）、`KANSHOU_SCENE_DAY_TAG_`（makeIntTag_ 橋段日·防同日重刷）、`KANSHOU_FIRST_MET_DAY_TAG_`（makeIntTag_ 初見日·紀念日）、`KANSHOU_APPT_BANDS_`（約定時段 午後14/黃昏18/夜20）。
 - `kanshouApptHour_(band)` — 約定時段→時刻（null=舊格式無時段）。
@@ -1283,7 +1282,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 ### Script_Kanshou.html
 慾海 kanshou 模式前端（2026-07 從 Script.html 拆出）。只放「進鑑賞後才用到」的函數。**70 個函式。**
 
-模組級狀態：`progressTimer`、`_kcCur`(在場同伴)、`_kcHeroesAll`/`_kcHeroesAvailable`(英靈庫)、`_kcFilterGender='女'`/`_kcFilterCls`、`_kcHeroesCacheReady`、`_kmBusy`(回憶讀條鎖)、`kcActiveRegion_`(localStorage 記住)、`kanshouEncounterOn`(巧遇開關·localStorage)、`_kbCb`/`_kpCb`(時段/地點選單回呼)、`kcAlbumData_`/`kcAlbumFilter_`。資料鏡射表：`KC_REGIONS_`/`KC_FESTIVALS_`/`KC_TIME_BANDS_`/`KC_LOCATIONS_`/`KC_LOCATION_EVENTS_`/`KC_BAND_SHORT_`/`KC_APPT_BANDS_`/`KC_ALBUM_BAND_BG_`（皆純顯示用鏡像，唯一真實來源在後端 Gallery.gs，改記得同步）。
+模組級狀態：`progressTimer`、`_kcCur`(在場同伴)、`_kcHeroesAll`/`_kcHeroesAvailable`(英靈庫)、`_kcFilterGender='女'`/`_kcFilterCls`、`_kcHeroesCacheReady`、`_kmBusy`(回憶讀條鎖)、`kcActiveRegion_`(localStorage 記住)、`kanshouEncounterOn`(巧遇開關·localStorage)、`_kbCb`/`_kpCb`(時段/地點選單回呼)、`kcAlbumData_`/`kcAlbumFilter_`。資料鏡射表：`KC_REGIONS_`/`KC_FESTIVALS_`/`KC_TIME_BANDS_`/`KC_LOCATIONS_`/`KC_SLEEP_HINTS_`/`KC_BAND_SHORT_`/`KC_APPT_BANDS_`/`KC_ALBUM_BAND_BG_`（皆純顯示用鏡像，唯一真實來源在後端 Gallery.gs，改記得同步）。
 
 #### 聊天引擎與 loading
 - `showProgressLoader_(loadId, captions)` — 插入「跑條」loading（推進時間類動作用），文字每 1.1s 輪播直到 AI 回應；設 `progressTimer`。
@@ -1326,7 +1325,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `closeKanshouFestivals()` — 隱藏節慶彈窗。
 
 #### 地圖 / 分區 / 移動
-- `kcSceneBadge_(locName, curBand, curHour)` — 依 `KC_LOCATION_EVENTS_`（前端僅存的住處熟睡徽章表）產單一地點的 🌙 徽章（`hourEnd` 比對 `curHour`；橋段觸發表已砍，只剩熟睡類）。
+- `kcSceneBadge_(locName, curBand, curHour)` — 依 `KC_SLEEP_HINTS_`（前端僅存的住處熟睡徽章表，2026-09 由 `KC_LOCATION_EVENTS_` 改名）產單一地點的 🌙 徽章（`hourEnd` 比對 `curHour`；橋段觸發表已砍，只剩熟睡類）。
 - `kcSwitchRegion_(id)` — 切分區分頁（存 localStorage）＋重繪 `#kc-map-list`。
 - `kanshouToggleEncounter_(checked)` — 巧遇開關切換（存 localStorage，`send` 每次讀進 `encounter`）。
 - `kcRoomLabel_(key)` — 「我的房間」→「<御主名>的房間」動態顯示名（鏡射後端 `kanshouRoomDisplayName_`）。
@@ -1468,7 +1467,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 
 1. **`showProcessing`/`hideProcessing`（Onboarding）已確認非「僅開局用」**：不是與 Script.html 重複定義撞名，而是唯一定義在本檔、卻被 `Script.html` 全域 `beginAction()`/`endAction()`(幾乎每個遊戲內動作都會經過，遠在 `startGame` 之後)實際呼叫——本檔「只在開局跑一次」的框架敘述本身不準確，這兩個函式其實貫穿整個遊戲迴圈。（原本的「疑似重複定義」問題已釐清：全專案只有一份定義，沒有撞名。）
 2. **大量 onclick handler 由 Script.html/Index.html 觸發，本二檔內無呼叫點**（如鑑賞的 `kanshouPromiseMeet`/`kanshouHoldHand`/`kanshouReleaseHand`/`kanshouLookAround`/`kanshouNextStage`/`openCompanions`/`openKanshouAlbum`/`kanshouTakePhoto`，開局的 `summonRandom`/`summonByDesc`/`toggleForgeAdvanced` 等）——**已跨檔確認全部確實被 `Script.html`/`Index.html` 呼叫，非死碼**，此前「無法確認」的疑問已解決。
-3. **鏡射表手動同步風險**：`KC_LOCATIONS_`/`KC_LOCATION_EVENTS_`/`KC_FESTIVALS_`/`KC_APPT_BANDS_`/`KC_SUMMON_BLOCKED_IDS_`（Kanshou）與 `FORGE_*` 全套計價（Onboarding）皆為後端鏡像，程式碼註解多處自陳「改後端記得同步這裡」。屬設計上的雙寫，非 bug，但為易漂移點。
+3. **鏡射表手動同步風險**：`KC_LOCATIONS_`/`KC_SLEEP_HINTS_`/`KC_FESTIVALS_`/`KC_APPT_BANDS_`/`KC_SUMMON_BLOCKED_IDS_`（Kanshou）與 `FORGE_*` 全套計價（Onboarding）皆為後端鏡像，程式碼註解多處自陳「改後端記得同步這裡」。屬設計上的雙寫，非 bug，但為易漂移點。
 4. **`kanshouEndDay` 爽約警示依賴 `_kcCur`/`kcClock` 已載**：若玩家未曾開過同伴面板、`_kcCur` 為空，警示會靜默略過（程式已註明「盡力而為，後端結算通知條保底」）——非錯誤，但屬已知的「盡力而為」降級。
 5. **`plainTextContext`/`lastAiContext`（send 內）**：組出後只賦值給全域 `lastAiContext`，本檔未再消費；推測由 Script.html 其他功能（如選項/歷史）讀取，屬跨檔耦合。
 6. **註解自陳的已刪碼**：Kanshou 多處註明「舊彈窗 `ensureKcMapOverlay_`/`openKanshouMap`、`actionBackfillKanshouServantAi`、`get_tags` 額外 round-trip」已移除——確認現存檔內無殘留呼叫，清理乾淨。

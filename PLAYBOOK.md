@@ -124,7 +124,7 @@ for a, b in reps:
 
 - **每按鍵 3→1 round-trip 是底線**：`_state`/`__pendingState` 機制別破壞，別把「多餘 round-trip」或「重複整表讀回」加回來。
 - **整表只讀一次下傳共用**；AI 能非阻塞就非阻塞（先秒回數字、prose 後補）。
-- **資料驅動優先**：加東西＝往表加一列（範本：`KANSHOU_SCENE_EVENTS_`/`NP_SCALE_MATRIX`），不寫 if 鏈、不動流程。
+- **資料驅動優先**：加東西＝往表加一列（範本：`KANSHOU_STYLE_MODULES_`/`NP_SCALE_MATRIX`/`MC_COMBAT_`），不寫 if 鏈、不動流程。
 - **COL 是位置索引**：欄位只可棄用標死欄、**永不刪**（刪了整表位移）。
 - **onclick 字串內的呼叫不算死碼**；GAS 手動工具零呼叫點是正常型態。
 

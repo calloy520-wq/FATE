@@ -234,7 +234,7 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 | solo 地點／分頁 | `FATE_MAP_SEED` / `FATE_SHEET_DEFS` | Setup_FateWorld |
 | 工房職階技能／計價／可用fx | `FORGE_CLS_SKILLS_` / `SKILL_PTS_` / `ALLOWED_FX_` | Router_Creation |
 | 敵營局面選項 | `FACTION_ENCOUNTER_CHOICES_` | Router_Movement |
-| 出力檔／符文／參戰風格 | `OUTPUT_TIERS_` / `RUNE_MODES_` / `STANCE_SHARE_` | Core_Settings / Router_Battle |
+| 出力檔／符文 | `OUTPUT_TIERS_` / `RUNE_MODES_` | Core_Settings |
 | 鑑賞地圖／節慶／關係階／住處池 | `KANSHOU_LOCATIONS_` `KANSHOU_FESTIVALS_` `KANSHOU_REL_TIER_` `KANSHOU_GENERIC_HOME_POOL_` | Gallery |
 | 說書人風格（玩家可改的 13 段） | `KANSHOU_STYLE_MODULES_`（key/name/slot/def；加一段＝加一列，UI 與 get/set 自動吃）· 分頁「鑑賞風格」`KS_` | Gallery |
 | ~~鑑賞橋段觸發(四層)~~ | `KANSHOU_SCENE_EVENTS_`/`KANSHOU_FESTIVAL_EVENTS_`/`KANSHOU_LOCATION_EVENTS_`/`KANSHOU_COHABIT_EVENTS_`/`KANSHOU_PROPS_` **2026-09 已整批砍除**（事件自由：地點×時段發生什麼由 AI 即興，節慶只給「今天是 X」事實） | — |
