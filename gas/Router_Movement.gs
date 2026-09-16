@@ -1102,14 +1102,7 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul, preferSvId
     out.destroyed = true;
     pcData[svIdx][COL.PC.ID] = "DEAD_" + String(pcData[svIdx][COL.PC.ID]); pcData[svIdx][COL.PC.HP] = 0;
     pcData[svIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基潰散", "姿勢": "倒地", "負面": "卸防遭突襲·靈基崩潰", "顏面": "已無生息" });
-    // 🗝️ 雙從者：仍有從者存活則不算敗
-    let stillAlive = 0;
-    for (var pai = 1; pai < pcData.length; pai++) { if (String(pcData[pai][COL.PC.FACTION]) === "從者" && String(pcData[pai][COL.PC.GAME_ID] || "") === gameId && !String(pcData[pai][COL.PC.ID]).startsWith("DEAD_")) stillAlive++; }
-    if (stillAlive <= 0) {
-      out.defeat = true;
-      const wish = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
-      out.dreamPrompt = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wish, String(pcData[svIdx][COL.PC.NAME]));
-    }
+    markDefeatIfWiped_(out, pcData, gameId, pIdx, String(pcData[svIdx][COL.PC.NAME]));
   } else {
     pcData[svIdx][COL.PC.HP] = after;
   }

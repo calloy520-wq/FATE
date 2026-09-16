@@ -190,17 +190,8 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
     }
     if (isPlayerSv) {
       var svName = String(pcData[tgtIdx][COL.PC.NAME]);
-      // 🗝️ 雙從者：僅當「所有」我方從者皆已消滅才算敗北；尚有從者存活＝只是折損一員
-      var stillAlive = 0;
-      for (var pai = 1; pai < pcData.length; pai++) {
-        if (String(pcData[pai][COL.PC.FACTION]) === "從者" && String(pcData[pai][COL.PC.GAME_ID] || "") === ctx.myGameId && !String(pcData[pai][COL.PC.ID]).startsWith("DEAD_")) stillAlive++;
-      }
       out.knocked = out.destroyed;
-      if (stillAlive <= 0) {
-        out.defeat = true;
-        var wish = extractWish_(pcData[ctx.pIdx][COL.PC.MEMORY]);
-        out.dreamPrompt = buildDreamPrompt_(pcData[ctx.pIdx][COL.PC.NAME], wish, svName);
-      }
+      markDefeatIfWiped_(out, pcData, ctx.myGameId, ctx.pIdx, svName);
     } else {
       out.knocked = out.destroyed;
       // 🕯️ 敵從者被擊破 → 在其御主身上記下「如何痛失從者」，供日後遭遇時 AI 演出無牙御主
@@ -1610,6 +1601,9 @@ function actionNpRespond(userData, pcId, sheets) {
   const meDead = svHpAfter <= 0;
   if (foeDead) pcData[nIdx][COL.PC.ID] = "DEAD_" + String(pcData[nIdx][COL.PC.ID]);
   if (meDead) pcData[svIdx][COL.PC.ID] = "DEAD_" + String(pcData[svIdx][COL.PC.ID]);
+  // 💀 敵方真名把從者打消滅時，這裡本來只標 DEAD_ 就結束——沒判敗、沒收場夢境（見 CODE_NOTES）。
+  const _npOut = {};
+  if (meDead) markDefeatIfWiped_(_npOut, pcData, myGameId, pIdx, String(pcData[svIdx][COL.PC.NAME]));
 
   // ⏳ 真名這一拍就是這回合的動作，耗 1 AP。
   //    刻意「扣得到就扣、扣不到也放行」而不是擋下來——這是被迫應對的事件，
@@ -1641,6 +1635,7 @@ function actionNpRespond(userData, pcId, sheets) {
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, response: choice, label: spec.label,
     dmg: dmg, counterDmg: counterDmg, foeDead: foeDead, meDead: meDead, fled: !!res.sealFlee, fledTo: fledTo, ap: apAfter,
+    defeat: !!_npOut.defeat, dreamPrompt: _npOut.dreamPrompt || "",
     statusString: buildPlayerStatusString(pcData[pIdx])
   });
 }

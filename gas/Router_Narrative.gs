@@ -31,6 +31,21 @@ function extractWish_(memory) {
   return m ? m[1].trim() : "";
 }
 
+// 🗝️ 我方從者全滅才算敗北（雙從者時折損一員只是折損）：凡是會打死我方從者的結算點都走這一支。
+//    out 會被就地補上 defeat／dreamPrompt，回傳「這一下是不是打到全滅了」。
+function markDefeatIfWiped_(out, pcData, gameId, pIdx, fallenName, cause) {
+  var alive = 0;
+  for (var i = 1; i < pcData.length; i++) {
+    if (String(pcData[i][COL.PC.FACTION]) === "從者" && String(pcData[i][COL.PC.GAME_ID] || "") === gameId
+      && !String(pcData[i][COL.PC.ID]).startsWith("DEAD_")) alive++;
+  }
+  if (alive > 0) return false;
+  out.defeat = true;
+  out.dreamPrompt = buildDreamPrompt_(String(pcData[pIdx][COL.PC.NAME]),
+    extractWish_(pcData[pIdx][COL.PC.MEMORY]), String(fallenName || ""), cause);
+  return true;
+}
+
 // 建立「願望實現的虛假之夢」prompt（敗北安慰幻象）。cause==='timeout'＝第14日時限耗盡；否則＝戰鬥/補魔等敗死，破綻描述依此分流。
 function buildDreamPrompt_(pcName, wish, servantName, cause) {
   var lead = (cause === 'timeout')

@@ -163,19 +163,18 @@ function handleGameAction(userData) {
   if (String(pcId || "").indexOf("PC_") === 0 && !isKanshouCtx) {
     try {
       var ro = JSON.parse(out);
-      if (ro && ro.success && !ro.victory && !ro.defeat && ro.clock) {
-        var dym = String(ro.clock).match(/第\s*(\d+)\s*日/);
-        if (dym && parseInt(dym[1]) > FATE_DEADLINE_DAYS_) {
-          // 優先複用 STATE_PRE_DATA_(handler 交棒、已含本次寫入的權威陣列)，沒有才退回整表重讀。
-          var pdata = STATE_PRE_DATA_ || sheets.pc.getDataRange().getValues();
-          var prow = pdata.find(function (r) { return String(r[COL.PC.ID]) === pcId; });
-          if (prow) {
-            var gid = String(prow[COL.PC.GAME_ID] || "");
-            var svRow = pdata.find(function (r) { return String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gid && !String(r[COL.PC.ID]).startsWith("DEAD_"); });
-            ro.defeat = true; ro.deadline = true; ro.victory = false; ro.servantDream = "";
-            if (!ro.dreamPrompt) ro.dreamPrompt = buildDreamPrompt_(String(prow[COL.PC.NAME]), extractWish_(prow[COL.PC.MEMORY]), svRow ? String(svRow[COL.PC.NAME]) : "", 'timeout');
-            out = JSON.stringify(ro);
-          }
+      if (ro && ro.success && !ro.victory && !ro.defeat) {
+        // 日子從【資料】問，不從回傳的時鐘【字串】解析（見 CODE_NOTES.md）。
+        // 優先複用 STATE_PRE_DATA_(handler 交棒、已含本次寫入的權威陣列)；沒交棒又有 clock 才整表重讀。
+        var pdata = STATE_PRE_DATA_ || (ro.clock ? sheets.pc.getDataRange().getValues() : null);
+        var prow = pdata ? pdata.find(function (r) { return String(r[COL.PC.ID]) === pcId; }) : null;
+        var gid = prow ? String(prow[COL.PC.GAME_ID] || "") : "";
+        var _clk = gid ? getClock_(gid, pdata) : null;
+        if (_clk && _clk.day > FATE_DEADLINE_DAYS_) {
+          var svRow = pdata.find(function (r) { return String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gid && !String(r[COL.PC.ID]).startsWith("DEAD_"); });
+          ro.defeat = true; ro.deadline = true; ro.victory = false; ro.servantDream = "";
+          if (!ro.dreamPrompt) ro.dreamPrompt = buildDreamPrompt_(String(prow[COL.PC.NAME]), extractWish_(prow[COL.PC.MEMORY]), svRow ? String(svRow[COL.PC.NAME]) : "", 'timeout');
+          out = JSON.stringify(ro);
         }
       }
     } catch (e) { /* 非 JSON / 無 clock → 略過 */ }
