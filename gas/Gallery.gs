@@ -827,16 +827,19 @@ function actionKanshouWorld(userData, pcId, sheets) {
     const name = String(userData.name || "").trim();
     if (!kind || !name) return JSON.stringify({ success: false, message: "參數不完整。" });
     try {
-      const sh = kanshouWorldSheet_();
-      const d = sh.getDataRange().getValues();
-      let hit = -1;
-      for (let r = 1; r < d.length; r++) {
-        if (String(d[r][KW_.GID]) === gid && String(d[r][KW_.KIND]) === kind && String(d[r][KW_.NAME]).trim() === name) { hit = r; break; }
+      if (op === 'del') {
+        if (!kanshouWorldDrop_(gid, kind, name)) return JSON.stringify({ success: false, message: "找不到這一條(可能已被淘汰)。" });
+      } else {
+        const sh = kanshouWorldSheet_();
+        const d = sh.getDataRange().getValues();
+        let hit = -1;
+        for (let r = 1; r < d.length; r++) {
+          if (String(d[r][KW_.GID]) === gid && String(d[r][KW_.KIND]) === kind && String(d[r][KW_.NAME]).trim() === name) { hit = r; break; }
+        }
+        if (hit < 0) return JSON.stringify({ success: false, message: "找不到這一條(可能已被淘汰)。" });
+        sh.getRange(hit + 1, KW_.PIN + 1).setValue(op === 'pin' ? '★' : '');
+        kanshouWorldBust_(gid);
       }
-      if (hit < 0) return JSON.stringify({ success: false, message: "找不到這一條(可能已被淘汰)。" });
-      if (op === 'del') sh.deleteRow(hit + 1);
-      else sh.getRange(hit + 1, KW_.PIN + 1).setValue(op === 'pin' ? '★' : '');
-      kanshouWorldBust_(gid);
     } catch (e) { return JSON.stringify({ success: false, message: "操作失敗，請稍後再試。" }); }
   }
 
@@ -909,8 +912,7 @@ function dialogueFormatRule_() {
   return `對話格式(輕小說筆觸)：
 ①口/喉聲音(話語+喘息/輕吟/悶哼/笑聲/吸吮/舔啜/咀嚼/吞嚥)都寫進單層「」(例：「唔……啾，好甜」)，禁（輕哼）括號描述、禁轉旁白。
 ②每句台詞前冠說話者名(例：櫻「風音學姐……」)，跨回合不認錯人，喘息混台詞算同一人名下。★玩家台詞免冠名、直接「……」，且照原句寫，禁改寫成轉述句。
-③肢體動作/非口部聲響(啪啪/環境音/兵刃聲)一律走敘事，絕不放進「」內。
-④只用單層「」禁巢狀『』；背景描述精簡，篇幅留給互動。`;
+③肢體動作與非口部聲響(啪啪/環境音)一律走敘事、絕不進「」；只用單層「」禁巢狀『』；背景描述精簡，篇幅留給互動。`;
 }
 
 // 只被鑑賞(慾海)呼叫——solo走完全獨立的 miniSystem。
@@ -935,7 +937,7 @@ function buildDefaultSystemPrompt(includeOptions) {
     "narration": "劇情(第二人稱「你」＝玩家·字數照下方【篇幅】·不可少於下限)",
     // 🗺️ 2026-07 移動改「同意泡泡」制(見§134)；2026-07再修（玩家實測「AI一直提議移動、頭痛」）：move_proposal 欄位整個砍掉，AI 不再有任何管道自己決定要不要換場景/換去哪。
     "npc_exit": "本回合告辭離場者的真名陣列·narration須演出那個人離開·否則[]",
-    "options": ["1. [主動]…（固定4條·各≤20字·就本回合 narration 出題·只出在場者此刻真做得到的動作·不含換地點）", "2. [被動]…", "3. [接續]…", "4. [反差]…"],
+    "options": ["固定4條·各≤20字·就本回合 narration 出題·只出在場者此刻真做得到的動作·不含換地點·四條走向要不同(主動/被動/接續/反差)"],
     "intimacy_feedback": {
       "player": {
         "physical_state": _physicalState,
@@ -963,15 +965,15 @@ function buildDefaultSystemPrompt(includeOptions) {
 
   // 🔴 NSFW(慾海模式)：本回合聚焦當下的近身互動(情慾/調情/鋪陳皆可)，雜務(物品/金錢/陣營/任務/招募/地圖/戰鬥數值/身世)完全不追蹤、不輸出，鐵律文字大幅精簡，盡量交給AI自行判斷。
   const nsfwBaseRules = `後日談敘事核心·輕小說筆觸·台灣繁體中文·第二人稱「你」＝玩家·禁上帝視角。鐵律：
-1. 承接玩家最新動作與台詞【語氣照原樣】(疑問就疑問、吐槽就吐槽)·【玩家的動作與台詞只有玩家能決定】：不替玩家新增動作、不替玩家開口、不改寫成轉述(玩家角色的【感受】不在此限，見★【你也是這座城裡的一個人】)·被搭話的人本回合必給完整真實反應·優先接反轉/否定/突發情緒。
+1. 承接玩家最新動作與台詞【語氣照原樣】(疑問就疑問、吐槽就吐槽)·【動作與台詞只有玩家能決定】：不替玩家加動作、不替玩家開口、不改寫成轉述(感受不在此限)·被搭話的人本回合必給完整真實反應·優先接反轉/否定/突發情緒。
 2. 每3~4句 <br><br> 分段。
 3. ${dialogueFormatRule_()}
 4. 依玩家輸入【確實推演往下走·不停滯敷衍】——答不答應由對方的[個性]×[好感]決定(順從/猶豫/半推半就/婉拒皆可)，玩家不能替對方決定反應；肢體親密照【親密尺度五階】。
 5. 先在 inner_monologue 判【對方】此刻最真實的反應、以及【玩家這個人】此刻真正的感受(依其性格/經歷，不是表現出來的那個)·再寫 narration。
-6. 繼承歷史情緒與親密階·絕不無故重置(降溫只因被打斷/翻臉等明確事件)·玩家只是日常時不憑空推進情慾。
+6. 繼承歷史情緒與親密階·絕不無故重置(降溫只因被打斷/翻臉等明確事件)。
 7. 肢體互動依雙方【性別】欄自然呈現。
 8. 萌點/語癖/專屬稱呼自然滲入、偶爾點到即可·同一個不重複用。關係標籤由玩家定，不可改動。
-9. 玩家指定的裝扮＝既定事實，直到劇情真讓那個人換裝為止——不因為「這身跟這幕不搭」就自行改寫或省略。
+9. 卡片上的裝扮＝既定事實，直到劇情真讓那個人換裝為止——不因為跟這幕不搭就自行改寫或省略。
 10. 敘事只寫這個世界裡看得到聽得到的：好感數字、關係階級、系統/回合/選項/欄位名一律不進 narration，也不報幕宣告任何變化——要表現就用神情、語氣與彼此的距離。
 11. 聚焦當下近身互動·只輸出合法JSON(各欄怎麼填見下方輸出範本)。`;
 
@@ -1610,6 +1612,25 @@ function kanshouWorldWrite_(gameId, entries, curDay) {
   return wrote;
 }
 
+// 從帳本拿掉一條（同類同名）。面板的「刪掉」與「常民升格成正式同伴」共用這一支。
+// 回傳有沒有真的刪到。
+function kanshouWorldDrop_(gameId, kind, name) {
+  const gid = String(gameId || ""), k = String(kind || "").trim(), n = String(name || "").trim();
+  if (!gid || !k || !n) return false;
+  try {
+    const sh = kanshouWorldSheet_();
+    const d = sh.getDataRange().getValues();
+    for (let r = 1; r < d.length; r++) {
+      if (String(d[r][KW_.GID]) !== gid || String(d[r][KW_.KIND]) !== k) continue;
+      if (String(d[r][KW_.NAME]).trim() !== n) continue;
+      sh.deleteRow(r + 1);
+      kanshouWorldBust_(gid);
+      return true;
+    }
+  } catch (e) { }
+  return false;
+}
+
 // 淘汰政策（純函式，不碰試算表）：每一類超過上限就砍掉「最久沒被提到、提及次數也最少」的，
 // 釘選的永不驅逐。d＝整張表(含表頭)，added＝這次還沒落盤的新列；回傳 {'r列索引':1,'a新列序':1}。
 // ⚠ 只回答「該砍哪幾列」，由呼叫端一次寫回——別在這裡自己讀表，那就是多一次整表 round-trip。
@@ -2170,6 +2191,10 @@ function actionPlay_(userData, pcId, sheets) {
       kanshouInviteStr = `\n★【正式結識】：你與『${_ivName}』交換了聯絡方式，這段緣分正式接上了——從今以後對方是這座城裡你認識的人，會有自己的生活與去處。演出這一刻依對方性格的反應，關係才剛起步、保持剛認識的分寸。★對方的性格與來歷【還沒定下來】，由這一刻起在相處裡慢慢長出來，不要一次補完一整份設定。`;
       finalUserMsg = `【玩家意圖】：向『${_ivName}』提出想繼續往來、交換了聯絡方式。`;
       _settledVerdict = `『${_ivName}』成了你認識的人`;
+      // 🐛→✅ 升格成正式同伴之後，帳本裡那條常民要拿掉：留著會變成【同一個人兩份真相】——
+      //    他會同時出現在【在場人物】卡與【這個世界已經確立的事】名單裡，而帳本那句是升格當下的
+      //    舊描述、之後永遠不會更新(正式同伴的資料走自己那一列)。
+      try { kanshouWorldDrop_(myGameId, '人物', _ivName); } catch (e) { }
     } else if (!_ivMatch || _ivAlready || _ivMaleMale) {
       kanshouInviteStr = kanshouMissStr_('invite', _ivName);
       finalUserMsg = `【玩家意圖】：想跟『${_ivName}』深交，卻發現緣分沒有接上。`;
@@ -2935,11 +2960,11 @@ function actionPlay_(userData, pcId, sheets) {
     ? t.replace(/｜__PRESENCE__[\s\S]*?__\/PRESENCE__/, "")
     : t.replace(/｜__PRESENCE__([\s\S]*?)__\/PRESENCE__/, " | 在場來由:$1"));
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0
-    ? `【角色背景資料】(裝扮＝各人此刻穿的衣服，五官/髮色/體態不隨換裝改變)：${_presenceShared_ ? `\n★在場來由(以下每一位都一樣)：${_presenceShared_}` : ""}${_anySleeper_ ? `\n★標了【現況·賴床/熟睡】的人維持那個狀態演出，除非這一回合真的把人叫醒了——不宜直接寫成清醒閒聊。` : ""}\n${_partyCards_.join("\n")}`
+    ? `【角色背景資料】(裝扮＝此刻穿的衣服，五官/髮色/體態不隨之改變)：${_presenceShared_ ? `\n★在場來由(以下每一位都一樣)：${_presenceShared_}` : ""}${_anySleeper_ ? `\n★標了【現況】的人維持那個狀態演出(賴床/熟睡就不是清醒閒聊)，除非這回合真的把人叫醒了。` : ""}\n${_partyCards_.join("\n")}`
     : "目前這個地點沒有其他人，玩家是獨自行動的。";
 
   // 路人與缺席者是同一件事的兩面（誰只是背景／誰不在場），合成一條；能開口的名單在結尾講。
-  const backgroundCrowdStr = `★【路人與缺席者】：不具名的背景人物(路過行人、櫃檯後的店員)可自由寫來增添生活感，寫過就算、不必記；但只要你給了名字、之後還想讓這個人再出現，就要寫進 world_note。歷史提過而這回合不在的人，一句話交代去向就好。`;
+  const backgroundCrowdStr = "";  // 已併進下方 ★【這個世界有誰】；理由見 CODE_NOTES.md 同名條目
 
   let genderHintStr = "";
   const presentRowsForGender = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim() && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_"));
@@ -3038,7 +3063,7 @@ function actionPlay_(userData, pcId, sheets) {
 
   const PROMPT_REL = `${backgroundCrowdStr}
 ${nsfwMemories}${genderHintStr}${driveStr}
-🛑【角色一致性】：劇情推進不軟化在場者的性格；情慾裡生理反應可以有，但那個人說話做事仍照自己的個性。★資料裡標「事實：」的是系統裁定的既定事實、不是演法——怎麼表現一律依那個人自己的個性。`;
+🛑【角色一致性】：情慾裡生理反應可以有，但說話做事仍照各自的個性，劇情推進不軟化誰。標「事實：」的是系統裁定的結果、不是演法——怎麼表現依那個人的個性。`;
 
   // 有【專屬稱呼】就用暱稱取代真名；JSON 姓名欄不受影響、仍填真名。
   const npcDialoguePrompt = "";  // 名單/稱呼併入結尾的【在場名單】鐵律，見下方 prompt
@@ -3059,23 +3084,23 @@ ${nsfwMemories}${genderHintStr}${driveStr}
   //    recency 對它們特別重要（實測過「事實寫在 20 行以前就會被 AI 當成沒發生」），故仍壓在最後。
   const prompt = `★世界觀＝和平的現代冬木市，大家都是住在這裡的普通市民，沒有魔術與從者。
 ${PROMPT_REL}
-★【可以發明，但發明完要記下來】：這是一座活的城，資料沒寫到的店家、路人、往事、習慣，你可以當場創造——但凡是【之後要當真】的東西，都必須同時寫進 world_note（一回合最多 2 筆，寫真的確立了的、別記流水帳），否則下回合它就不存在了。已經在【這個世界已經確立的事】名單上的，不必重寫。萌點、個性只演出來，不把那幾個字寫進敘述。玩家專一對著一個人時，其他在場者維持背景輕描。
+★【這個世界有誰】：①【正式同伴】＝下方【在場人物】的卡，只有他們算好感，每人這回合都要真實存在(沒被搭話的給個動作即可)，沒列卡的同伴不准出現或開口，有【專屬稱呼】就叫暱稱。②【常民】＝【這個世界已經確立的事】名單上的人，可出現可開口、不算好感。③【路人】不具名，隨手寫、不必記。玩家專一對著一個人時其他人背景輕描；不在場的人一句話交代去向。
+★【要它之後還在就寫進 world_note】：沒寫到的地方/人/這座城的規矩都可以當場創造，但沒寫進去的下回合就不存在。一回合最多 2 筆，只記之後真的還會用到的；已在名單上的不必重寫。地點＝多一個去得了的地方｜人物＝這個人還會再出現｜設定＝這座城的規矩或風景。
+　⚠ world_note 記【這座城有什麼】；某個人的喜好習慣、你們之間發生的事記進那個人的 memory【你們之間發生過什麼】——兩邊不要互相寫。
 ★【視角鎖定】：旁白一律用第二人稱，「你」＝玩家『${pcName}』本人。旁白【不可】用「我」；場上每個角色引號內的台詞才用得到「我」。同伴外貌只取材各人自己那份資料。
-★【你也是這座城裡的一個人】：『${pcName}』不是一台攝影機——${_mePron_}有自己的性格、口吻、來歷（見【玩家資料】那一行，跟在場任何人的卡一樣厚）。【用${_mePron_}的角度去感受這個世界】：這一刻落在${_mePron_}身上的觸感、冷熱、氣味、聲音；${_mePron_}【真正】的情緒（不是表現出來的那個）；${_mePron_}因為那個性格而有的反應底色——這些都要寫，而且要寫得像${_mePron_}、不像別人。沉默的時候，那份沉默也要有理由。
-　但【做了什麼、說了什麼，只有玩家決定】：不替${_mePron_}新增動作、不替${_mePron_}開口、不替${_mePron_}做決定，收尾一律停在等玩家回應的那一刻。
-　${_mePron_}看不見自己的臉，卻感覺得到臉在發燙、喉嚨發緊、手心出汗、心跳被自己聽見——【寫感覺得到的，不寫看不到的外觀】。
+★【你也是這座城裡的一個人】：『${pcName}』不是攝影機——${_mePron_}有自己的性格、口吻、來歷(見【玩家資料】)。【用${_mePron_}的角度感受這個世界】：此刻的觸感/冷熱/氣味/聲音、${_mePron_}【真正】的情緒(不是表現出來的那個)、性格帶來的反應底色，要寫得像${_mePron_}；沉默也要有理由。動作與台詞仍只有玩家能決定(鐵律1)。${_mePron_}看不見自己的臉，卻感覺得到臉發燙、喉嚨發緊——【寫感覺得到的，不寫看不到的外觀】。
 
 【玩家資料】：名字:${pcName} 【性別:${pc[COL.PC.SEX]}】${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? ` 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${_meFlavorStr_}${myOutfit ? ` | 裝扮:${myOutfit}` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}${_meMoeStr_}
 ${PROMPT_PARTY_SYSTEM}
-${_intimacyLines_ ? `★【親密尺度·最高優先】：肢體親密以好感為天花板，超過的那一步不會發生，怎麼擋下來依各人的個性${_intimacyLines_.indexOf('\n') >= 0 ? '（多人各依各自好感，不共用同階）' : ''}：\n${_intimacyLines_}\n` : ''}
-★【篇幅】：本回合 narration 寫 ${_kanshouTargetWords_} 字，【不可少於下限】——寫不滿就往互動裡加：在場者的動作細節、觸感／氣味／聲音等感官、【你自己此刻的感受與身體反應】、以及多給一次真實反應。別靠拉長環境描寫充數。
+${_intimacyLines_ ? `★【親密尺度·最高優先】：肢體親密以好感為天花板，超過的那一步不會發生，怎麼擋下來依各人的個性；玩家只是日常時不憑空推進情慾${_intimacyLines_.indexOf('\n') >= 0 ? '（多人各依各自好感，不共用同階）' : ''}：\n${_intimacyLines_}\n` : ''}
+★【篇幅】：narration 寫 ${_kanshouTargetWords_} 字，【不可少於下限】——寫不滿就加互動：動作細節、觸感/氣味/聲音、【你此刻的感受與身體反應】、多給一次真實反應；別靠環境描寫充數。
 ★★【地點釘死】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，敘事不離開這裡——想去別處只能嘴上聊，真要換地方由系統宣告。${moveTarget ? '你們剛到，直接從抵達後的當下寫起、路程不演。' : ''}
 ${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}${kanshouInitStr}
-★【今日天氣】：${kanshouWeather_(curDay)}。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜對方走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·對方此刻【不在場】·禁讓對方開口或出現。` : ""}
-🕰️現在${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★光線/氣溫/作息一律依【此刻＝${timeBand_(_narrHour_)}】寫。★本回合只寫這十分鐘內的片段，時間推進由系統宣告。
+★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}・${kanshouWeather_(curDay)}(揣摩氛圍用·不報時)。★光線/氣溫/作息一律依此刻的時段寫；本回合只寫這十分鐘內的片段，時間推進由系統宣告。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜對方走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·對方此刻【不在場】·禁讓對方開口或出現。` : ""}
+
 ${npcDialoguePrompt}${_earlierDigest_ ? `\n★【稍早做過的事】：${_earlierDigest_}——都已發生過，需要時自然呼應，別重演。` : ""}
-🚨【收尾${driveOn ? '·主動掌握' : ''}】：${driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : ''}把最後一句留給被搭話的那個人——用那個人的答話或神情收尾，並讓那個人拋出一個玩家接得住的話題(問句、邀約、此刻在意的事都行)，停在等玩家回應的那一刻。沒有別人在場時才收在「你」的動作上。
-★【在場名單】：${partyMembers.length ? `正式同伴只有『${partyMembers.join('、')}』在場——好感與關係只跟這些人算，【其他有記錄的同伴】即使歷史提過，這回合也不准出現或開口；名單上每個人這回合都要真實存在(沒被搭話的人有個動作或反應即可，不必平分戲份)；有【專屬稱呼】就叫暱稱、否則叫真名。★這條管的是同伴，不管常民——店員、鄰居、路人（含【這個世界已經確立的事】裡的那些人）照常可以出現。` : '沒有其他人在場。'}
+🚨【收尾${driveOn ? '·主動掌握' : ''}】：${driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : ''}最後一句留給被搭話的人——用其答話或神情收尾，並拋出一個玩家接得住的話題(問句/邀約/此刻在意的事)，停在等玩家回應的那一刻。沒有別人在場才收在「你」身上。
+${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與路人照常可以出現）。'}
 
 接著往下演，玩家這一步是：『${finalUserMsg}${_settledTail_}』`;
 

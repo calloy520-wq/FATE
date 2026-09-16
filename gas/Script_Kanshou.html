@@ -1347,8 +1347,13 @@ let plainTextContext = cleanText;
         + '玩下去就會長出來——去一個地圖上沒有的地方、認識新的人、聊出只有你們懂的事，都會被記在這裡。</div>';
       return;
     }
-    var groups = [['地點', '🗺️ 走出來的地方'], ['人物', '🧑 這座城裡的人'], ['設定', '📖 確立過的事']];
-    var html = '';
+    var groups = [['人物', '🧑 這座城裡的人'], ['設定', '📖 這座城的事']];
+    var _locN = _kwRows_.filter(function (r) { return r.kind === '地點'; }).length;
+    var html = _locN
+      ? '<div style="background:rgba(40,56,52,.35); border:1px solid #3e6a60; border-radius:8px; padding:9px 11px; margin-bottom:6px; color:#8aa8a2; font-size:12px; line-height:1.7;">'
+        + '🗺️ 你走出來的地方有 <b style="color:#cfe6e0;">' + _locN + '</b> 個——它們在<b style="color:#cfe6e0;">地圖的「走出來的地方」</b>那一區，'
+        + '從那裡直接去。<br><span style="color:#6e8a84;">（地方屬於地圖，這裡只放人跟這座城的事。）</span></div>'
+      : '';
     groups.forEach(function (g) {
       var rows = _kwRows_.filter(function (r) { return r.kind === g[0]; });
       if (!rows.length) return;
