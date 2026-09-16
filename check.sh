@@ -83,6 +83,9 @@ if python3 "$ROOT/check_wait.py"; then :; else fail=1; fi
 # 🔌 前後端契約（路由兩端對不對得上——既有掃描器全都看不見這一塊）
 if python3 "$ROOT/check_contract.py"; then :; else fail=1; fi
 
+# 🧮 技能說明的算式 ↔ 引擎公式（同一條式子存兩處，改了後端沒改說明＝玩家看到假數字）
+if python3 "$ROOT/check_fx.py"; then :; else fail=1; fi
+
 # 🖥️ 前端 runtime 冒煙（語法對 ≠ 跑得動；.html 的 JS 不進 CI，這裡是唯一防線）
 if node "$ROOT/check_ui.js"; then :; else fail=1; fi
 
