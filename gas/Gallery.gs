@@ -731,6 +731,11 @@ function actionKanshouCompanions(userData, pcId, sheets) {
 }
 
 // 🎀 快速輸入貼圖·玩家自訂(2026-07「表情包文字也想自訂」，同月再縮減內建數量)：4個內建貼圖(害羞/小聲/苦笑/臉紅)寫死在Script_Kanshou.html(KC_QUICK_PHRASES_BUILTIN_)純前端顯示，這裡只管玩家自己額外新增的——存玩家列MEMORY【快速貼圖】text1,text2,...，逗號分隔比照【自訂道具】同款寫法。
+// 💞 共同回憶的兩個上限。原本是寫死在三處的魔術數字（後端總量、後端釘選、前端說明文字），
+// 改一個地方另外兩個不會跟著動——UI 會靜靜說謊。抽成常數並鏡射給前端，check_mirror.js 才盯得到。
+// ⚠ 釘選上限刻意比總量少 2：釘滿就會讓新回憶永遠擠不進來。
+const KANSHOU_MEMOIR_CAP_ = 10;
+const KANSHOU_MEMOIR_PIN_CAP_ = 8;
 const KANSHOU_QUICK_PHRASE_CAP_ = 8;
 function kanshouGetQuickPhrases_(memory) {
   const m = String(memory || "").match(/【快速貼圖】([^｜【】]*)/);
@@ -788,8 +793,8 @@ function actionKanshouMemoirOp(userData, pcId, sheets) {
   if (hit === -1) return JSON.stringify({ success: false, message: "找不到這條回憶(可能已被更新)。" });
   if (op === 'del') entries.splice(hit, 1);
   else if (op === 'pin') {
-    // 釘選上限8：釘滿10會讓新回憶永遠擠不進(總量上限10)，留2格給新的。
-    if (entries.filter(function (e) { return e.charAt(0) === '★'; }).length >= 8) return JSON.stringify({ success: false, message: "釘選已達上限(8條)，先取消一些吧。" });
+    // 釘選上限刻意比總量少 2：釘滿會讓新回憶永遠擠不進來(理由見常數宣告處)。
+    if (entries.filter(function (e) { return e.charAt(0) === '★'; }).length >= KANSHOU_MEMOIR_PIN_CAP_) return JSON.stringify({ success: false, message: "釘選已達上限(" + KANSHOU_MEMOIR_PIN_CAP_ + "條)，先取消一些吧。" });
     entries[hit] = '★' + entries[hit].replace(/^★/, "");
   }
   else entries[hit] = entries[hit].replace(/^★/, "");
@@ -3482,7 +3487,7 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
 
           // 💞 共同回憶：AI 這回合若吐了里程碑 memory，append 進她自己列的 27 欄(最近 10 條、去重)。
           if (nfb.memory && String(nfb.memory).trim() && String(nfb.memory).trim() !== "無") {
-            pcData[targetIdx][COL.PC.MEMOIR] = processMemoir_(pcData[targetIdx][COL.PC.MEMOIR], nfb.memory, 10);
+            pcData[targetIdx][COL.PC.MEMOIR] = processMemoir_(pcData[targetIdx][COL.PC.MEMOIR], nfb.memory, KANSHOU_MEMOIR_CAP_);
           }
         });
       }

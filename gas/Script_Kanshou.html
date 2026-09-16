@@ -47,6 +47,8 @@
   //   MEMORY【快速貼圖】，上限KANSHOU_QUICK_PHRASE_CAP_=8句，見Gallery.gs)。
   var KC_QUICK_PHRASES_BUILTIN_ = ['（害羞）', '（小聲）', '（苦笑）', '（臉紅）'];
   var KC_QUICK_PHRASE_CAP_ = 8; // 鏡像後端 KANSHOU_QUICK_PHRASE_CAP_(Gallery.gs)，改後端記得同步這裡
+  var KC_MEMOIR_CAP_ = 10;      // 鏡像後端 KANSHOU_MEMOIR_CAP_
+  var KC_MEMOIR_PIN_CAP_ = 8;   // 鏡像後端 KANSHOU_MEMOIR_PIN_CAP_
   var _kcQuickPhrases = []; // 玩家自訂的部分，enterKanshou()成功時載入
   function renderKcQuickPhrases_() {
     var box = document.getElementById('kc-quick-phrases');
@@ -363,10 +365,11 @@ let plainTextContext = cleanText;
         else if (_pr.ok && _pr.type === 'move') _msg = '🚶 <b>「' + _nm + '」答應一起去「' + escapeHtml(String(_pr.loc || '')) + '」！</b>點下方的「同意」，你們就一起動身。';
         else if (_pr.type === 'move') _msg = '🚶 沒有同行——你要自己去「' + escapeHtml(String(_pr.loc || '')) + '」的話，照常點地圖。';
         else if (_pr.ok && _pr.type === 'cohabit') _msg = '🏠 <b>同居開始！</b>「' + _nm + '」搬來與你同住了——深夜她會回家的和室就寢、清晨可能賴床、晚間常在家中。';
-        // 💗 告白：成立＝關係階質變(戀人這一階唯一的入口)；被拒＝好感小幅回落＋幾天內說不出第二次。
+        // 💗 告白：成立＝關係階質變(戀人這一階唯一的入口)。2026-09 起【說出口就成立】，
+        //   後端只剩兩種結果——成立、或好感還沒到 KC_CONFESS_BOND_(60) 開不了口；
+        //   不再有擲骰、冷卻、被拒扣好感，所以那兩條分支連同措辭一起拿掉。
         else if (_pr.ok && _pr.type === 'confess') _msg = '💗 <b>她答應了！</b>你和「' + _nm + '」從這一刻起是戀人——好感的上限就此打開，關係稱呼／專屬稱呼也一併解鎖。';
-        else if (_pr.type === 'confess' && _pr.blocked) _msg = '💔 話到嘴邊又吞了回去——前幾天才被「' + _nm + '」拒絕過，還要 ' + (parseInt(_pr.wait) || 0) + ' 天才說得出口(這次沒有任何變動)。';
-        else if (_pr.type === 'confess') _msg = '💔 「' + _nm + '」' + ((parseInt(_pr.wait) || 0) > 0 ? '沒有答應——好感略降，要隔 ' + (parseInt(_pr.wait) || 0) + ' 天你才說得出第二次。' : '沒有答應——你們之間還遠不到那個程度。');
+        else if (_pr.type === 'confess') _msg = '💔 話說不出口——你們之間還遠不到那個程度(好感要到 ' + KC_CONFESS_BOND_ + ')。這次沒有任何變動。';
         else if (_pr.type === 'cohabit') _msg = '🏠 沒有搬來——同住這一步需要非常深的信賴，好感還不到。';
         // 🐛→✅ 2026-07 逐按鍵稽核：地點不合法的兩種回報(promise_loc/move_loc)舊版沒有自己的分支，
         //   一路掉到最後那行 else，印出的是【「她」沒有讓你牽手】——玩家按的明明是相約/邀同去，
@@ -522,7 +525,7 @@ let plainTextContext = cleanText;
     }).join('') : '<div style="color:#888;padding:6px;">（這座城裡你還誰都不認識，從下方邀一個人來吧）</div>';
   }
 
-  // 💞 共同回憶面板：看她跟你一路走來的回憶；★釘選=永不被新回憶擠掉(上限8)；🗑=刪掉不想留的。
+  // 💞 共同回憶面板：看她跟你一路走來的回憶；★釘選=永不被新回憶擠掉(上限 KC_MEMOIR_PIN_CAP_)；🗑=刪掉不想留的。
   //   回憶本身由 AI 在劇情里程碑時自動記下(每人保留最近10條，釘選的不佔淘汰名額)。
   var _kmBusy = false; // 💞讀條保護：面板開啟中/釘選刪除中的旗標，擋連點與競態(見 kanshouMemoirOp)。
   function kmSpinner_(msg) { return '<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:22px;color:#e8b8cc;font-size:13px;"><span class="km-spin" style="width:15px;height:15px;border:2px solid rgba(232,184,204,.3);border-top-color:#e8b8cc;border-radius:50%;display:inline-block;animation:kmspin .7s linear infinite;"></span>' + (msg || '處理中…') + '</div><style>@keyframes kmspin{to{transform:rotate(360deg)}}</style>'; }
@@ -561,7 +564,7 @@ let plainTextContext = cleanText;
     ov.innerHTML = '<div style="width:min(440px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(232,184,204,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#e8b8cc;">💞 與「' + escapeHtml(name) + '」的共同回憶</b>'
       + '<button onclick="document.getElementById(\'km-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
-      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:6px;">重要瞬間由她自動記下(最多10條、舊的會淡忘)；★釘選的永不遺忘(上限8)。</div>'
+      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:6px;">重要瞬間由她自動記下(最多' + KC_MEMOIR_CAP_ + '條、舊的會淡忘)；★釘選的永不遺忘(上限' + KC_MEMOIR_PIN_CAP_ + ')。</div>'
       + rows + '</div>';
     ov.style.display = 'flex';
   }

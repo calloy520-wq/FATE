@@ -442,7 +442,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
     if (_w && _w.loc === String(m[COL.PC.LOC] || "").trim()) encWin = { type: _w.type, choices: encounterChoices_(_w.type) };
   }
   // 🗺️ myLoc：玩家此刻所在地。
-  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length, locationCounts: locationCounts, unlockedResidences: Object.keys(unlockedResidences), myPlaces: myPlaces, myRegions: myRegions, regionCap: KANSHOU_REGION_CAP_,
+  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, locationCounts: locationCounts, unlockedResidences: Object.keys(unlockedResidences), myPlaces: myPlaces, myRegions: myRegions, regionCap: KANSHOU_REGION_CAP_,
       pace: isFateCtx ? 0 : kanshouPaceOf_(m[COL.PC.MEMORY]), encounterWindow: encWin, myLoc: String(m[COL.PC.LOC] || ""),
     // 🌙 夜未眠(Gallery.gs KANSHOU_NIGHT_SCENE_TAG_)：HUD 那顆鈕要據此把「🌙睡覺」換成「🌅睡到天亮」。
     nightScene: (typeof KANSHOU_NIGHT_SCENE_TAG_ !== 'undefined'
