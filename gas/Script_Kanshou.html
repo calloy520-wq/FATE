@@ -1531,7 +1531,7 @@ let plainTextContext = cleanText;
     showGamePane('chat');
     await send('（鼓起勇氣，邀「' + name + '」搬來一起住。）', false, { cohabitInvite: name, cohabitInviteId: npcId || "" });
   }
-  // 💗 告白：成敗由後端依 好感×相處次數 擲定(kanshouConfessAccepts_)，前端不預測、只送出意圖。
+  // 💗 告白：好感夠(KC_CONFESS_BOND_)就【必定成立】——2026-09 玩家「79 改成告白必定成功就好」，前端不預測、只送出意圖。
   async function kanshouConfess(name, npcId) {
     if (!await customConfirm_('向「' + name + '」告白？\n(成不成由你們的好感與相處次數決定，她也可能拒絕；被拒後要隔幾天才說得出第二次)')) return;
     showGamePane('chat');
@@ -1589,10 +1589,8 @@ let plainTextContext = cleanText;
         ? '<div style="padding:8px 12px;margin-bottom:7px;color:#f0c0d8;font-size:12px;border:1px dashed rgba(240,140,180,.5);border-radius:8px;">💗 <b>交往中</b>　你們已經是戀人了</div>'
         : (b < KC_CONFESS_BOND_
           ? '<div style="padding:8px 12px;margin-bottom:7px;color:#7a7086;font-size:11.5px;border:1px dashed rgba(140,120,160,.35);border-radius:8px;">🔒 <b>向她告白</b>　好感達到 ' + KC_CONFESS_BOND_ + ' 才開得了口（目前 ' + b + '）</div>'
-          : ((parseInt(confessWait) || 0) > 0
-            ? '<div style="padding:8px 12px;margin-bottom:7px;color:#9a8090;font-size:11.5px;border:1px dashed rgba(200,120,150,.35);border-radius:8px;">💔 <b>向她告白</b>　前幾天才被拒絕過，再等 ' + (parseInt(confessWait) || 0) + ' 天才說得出口</div>'
-            : row("kanshouConfess('" + safeN + "','" + safeId + "')", '💗', '向她告白',
-              '成不成由好感與相處次數決定，她也可能拒絕（她本人要在場）', '230,120,160'))))
+          : row("kanshouConfess('" + safeN + "','" + safeId + "')", '💗', '向她告白',
+            '說出口就成立——你們從此是戀人（她本人要在場）', '230,120,160')))
       // 🏠 同居：主要入口是【剛成為戀人】那一刻跳的一次性泡泡(見 data.cohabitOffer)，平時完全不顯示。
       //   這裡只在「已經是戀人但還沒同住」這個唯一還有意義的窗口留一條靜默備援——否則玩家在泡泡按了
       //   「現在還不用」之後就永遠邀不了了(跨階只發生一次、不會再跳)。已同住則改顯示狀態、不再是入口。

@@ -36,6 +36,7 @@ NO_UI_NEEDED = {
     'KANSHOU_PARTY_DETAIL_CAP_': '提示詞內部的篇幅上限，玩家看不到也不需要知道',
     'KANSHOU_WORLD_ROSTER_CAP_': '同上，餵 AI 的名冊長度上限',
     'KANSHOU_SCENE_BOND_': '橋段給的好感增量，不是門檻、沒有按鈕會被它擋',
+    'KANSHOU_SCENE_MIN_BOND_': '獨處親密橋段的觸發條件，由 GAS 在回合裡自動判定，玩家沒有按鈕會被它擋',
     'KANSHOU_KNOCK_MIN_BOND_': '敲門事件的觸發條件，隨機事件不是玩家主動按的按鈕',
     'KANSHOU_ALBUM_CAP_': '相簿上限，滿了是自動汰換舊照而非拒絕玩家',
     'KANSHOU_INIT_BASE_': '她主動的機率參數，非門檻',

@@ -345,11 +345,8 @@ const KANSHOU_CUSTOM_TAG_BOND_ = 80;
 
 // ══ 💗 告白＝關係階的質變事件（2026-07 玩家「好感太絲滑、沒有一個交往的確定過程、人人都可以自然變成戀人」）═══════════════════════════════════════════════════════════════舊做法：好感爬到 80 就自動長出「戀人」這個標籤，沒有任何一刻是「你們決定在一起」。
 const KANSHOU_CONFESS_BOND_ = 60;      // 開得了口的最低好感(＝親近的人)；未達不給按鈕、後端也直接擋
-const KANSHOU_CONFESS_COOLDOWN_ = 3;   // 被拒之後幾天內說不出第二次(否則變成每回合連按到過為止)
-// 熟悉度對告白成功率的加權：好感是主軸，相處次數是門票——才見過幾次面就告白，那是一時衝動。
-const KANSHOU_CONFESS_FAMILIAR_MULT_ = { '初識': 0.35, '混熟': 1, '老交情': 1.2 };
-// 好感每高 1 點加多少成功率(自 KANSHOU_CONFESS_BOND_ 起算)：60→0 / 70→.28 / 79→.53(混熟)。
-const KANSHOU_CONFESS_SLOPE_ = 0.028;
+
+
 
 // ══ 🤝 相處基調（2026-07 玩家「好感太絲滑、想保留很熟但不親密的感覺」）══════════════好感只有一條軸的時候，「她多喜歡你」跟「你們多熟」被迫共用同一個數字，於是好感59×相處20次 跟 好感59×相處300次 演出來一模一樣——前者該是新鮮期的試探與心動，後者該是自在到不必說完整句子、卻也就停在這裡了。
 var KANSHOU_MET_COUNT_TAG_ = makeIntTag_('相處', 0);
@@ -398,7 +395,10 @@ function sanitizeNickname_(s) {
   return String(s || "").trim().replace(/[|｜\[\]]/g, "").slice(0, 20);
 }
 // 純聊天(AI rel_changes)加好感只能推到「目前所在梯度的上限」就卡住，要靠約定赴約(+5·kanshouPromiseMetStr)或與她獨處於私密場合(+KANSHOU_SCENE_BOND_·見 kanshouAloneBondStr)這類真實相處才能突破到下一梯度。
-const KANSHOU_SCENE_BOND_ = 3; // 接受親密橋段(夜襲/共浴/膝枕…非拒絕分支)給的好感，直接寫、不吃聊天上限。
+const KANSHOU_SCENE_BOND_ = 3; // 接受親密橋段(夜襲/共浴/膝枕…非拒絕分支)給的好感。
+// 親密橋段的好感門檻＝熟識以上。原本借用 kanshouRelChatCeiling_(0) 拿到 39 這個魔術數字，
+// 聊天瓶頸拿掉後那支函式沒了，改成直接指向關係階表(單一真實來源)。
+const KANSHOU_SCENE_MIN_BOND_ = KANSHOU_REL_TIER_[2].min;
 
 // 🫶 玩家主動提議(相約/牽手/同去)她答不答應——【GAS 依好感擲，AI 只演反應】(2026-07 由 AI 判定改為 GAS 判定)。
 function kanshouProposalAccepts_(type, bond) {
@@ -410,13 +410,6 @@ function kanshouProposalAccepts_(type, bond) {
   return Math.random() < Math.max(0.03, Math.min(0.97, base + bond * slope));
 }
 // 純聊天封頂只從「熟識(40)」這道門檻起算——第一階「點頭之交→普通朋友」本就該靠日常閒聊自然發生(陌生變朋友天經地義)，不該逼玩家在還沒熟時就得約會/夜襲(2026-07 玩家實測卡在19爬不出、矜持角色約定又被婉拒的死結)。
-function kanshouRelChatCeiling_(bond) {
-  const thresholds = KANSHOU_REL_TIER_.map(t => t.min).concat([KANSHOU_COHABIT_BOND_])
-    .filter(m => m >= 40).sort((a, b) => a - b);
-  for (const t of thresholds) { if (bond < t) return t - 1; }
-  return 100;
-}
-
 // 🧠 摘要往回看幾輪、每則保留幾個字。
 const KANSHOU_DIGEST_ROUNDS_ = 8;
 const KANSHOU_DIGEST_CAP_ = 22;
@@ -1513,24 +1506,9 @@ const KANSHOU_COHABIT_BOND_ = 90;
 // 🏠 同居邀請「已問過」一次性標記(2026-07 玩家「同居做成泡泡問一次、完全隱藏才是正解」)：好感首次達 KANSHOU_COHABIT_BOND_ 且她在場時跳一次邀請泡泡，跳過就蓋章、之後永不再問。
 var KANSHOU_COHABIT_ASKED_TAG_ = makeIntTag_('同居問過', 0);
 var KANSHOU_LOVER_TAG_ = makeIntTag_('戀人', 0);
-// 💔 上一次告白被拒的日子(存該同伴列·absDay)：KANSHOU_CONFESS_COOLDOWN_ 天內說不出第二次。
-var KANSHOU_CONFESS_DAY_TAG_ = makeIntTag_('告白日', 0);
 // 💗 她是不是你的戀人(告白成立)。單一判準，前後端與提示詞全部走這支。
 function kanshouIsLover_(row) {
   return !!KANSHOU_LOVER_TAG_.get(row[COL.PC.MEMORY]);
-}
-// 💔 還要幾天才說得出第二次告白（0＝現在就能開口）。單一真實來源：後端擋、前端鎖按鈕都走這支。
-function kanshouConfessWait_(row, curDay) {
-  var last = KANSHOU_CONFESS_DAY_TAG_.get(row[COL.PC.MEMORY]);
-  if (!last) return 0;
-  return Math.max(0, KANSHOU_CONFESS_COOLDOWN_ - ((parseInt(curDay) || 1) - last));
-}
-// 💗 告白成不成——【GAS 依 好感×相處次數 擲，AI 只演】(比照 kanshouProposalAccepts_ 的分工)。
-function kanshouConfessAccepts_(bond, metCount) {
-  var f = (KANSHOU_FAMILIAR_TIERS_.find(function (t) { return (parseInt(metCount) || 0) >= t.min; }) || {}).key;
-  var p = ((parseInt(bond) || 0) - KANSHOU_CONFESS_BOND_) * KANSHOU_CONFESS_SLOPE_
-    * (KANSHOU_CONFESS_FAMILIAR_MULT_[f] || 1);
-  return Math.random() < Math.max(0.02, Math.min(0.95, p));
 }
 // 🔒 登門拜訪私人住處(region:'visit')的好感門檻＝熟識的朋友(見 KANSHOU_REL_TIER_ 的40切點)。
 const KANSHOU_VISIT_BOND_ = 40;
@@ -2197,26 +2175,18 @@ function actionPlay_(userData, pcId, sheets) {
       const _cfHer = String(pcData[_cfIdx][COL.PC.NAME]);
       const _cfBond = parseInt(pcData[_cfIdx][COL.PC.BOND]) || 0;
       const _cfMet = KANSHOU_MET_COUNT_TAG_.get(pcData[_cfIdx][COL.PC.MEMORY]);
-      const _cfWait = kanshouConfessWait_(pcData[_cfIdx], curDay);
       if (kanshouIsLover_(pcData[_cfIdx])) {
         kanshouConfessStr = `\n★【已經在一起了】：你又向『${_cfHer}』說了一次喜歡——你們早就是戀人，這不是告白而是情話。演出對方依個性收下這句話的反應(嫌你肉麻／耳根紅／回敬一句皆可)。`;
         finalUserMsg = `【玩家意圖】：又對『${_cfHer}』說了一次喜歡。`;
         _settledVerdict = `『${_cfHer}』收下了這句情話，你們早就是戀人`;
-      } else if (_cfWait > 0) {
-        // 💔 冷卻期：不擲骰、不動數值，只演「話又吞回去」——按鈕在前端本來就會鎖，這裡是後端保險。
-        kanshouConfessStr = `\n★【說不出口】：你想再對『${_cfHer}』說一次那句話，但前幾天才被對方拒絕過、此刻怎麼樣都開不了口——演出你把話吞回去、改口講了別的，以及對方察覺到你欲言又止時依個性的反應(裝作沒發現／追問／不自在皆可)。這次沒有告白，沒有任何數值變動。`;
-        finalUserMsg = `【玩家意圖】：想再告白一次，話到嘴邊又吞了回去。`;
-        _settledVerdict = `『${_cfHer}』只看到你欲言又止，這次沒有告白出口`;
-        kanshouProposalResult_ = { ok: false, type: 'confess', name: _cfHer, wait: _cfWait, blocked: true };
-      } else if (_cfBond < KANSHOU_CONFESS_BOND_) {
+            } else if (_cfBond < KANSHOU_CONFESS_BOND_) {
         kanshouConfessStr = `\n★【告白·被拒】：你向『${_cfHer}』告白了，但你們之間還遠不到那個程度——演出對方依個性拒絕的反應(錯愕／認真說我們還不夠了解彼此／笑著當成玩笑帶過皆可)，這次不成立，不必替玩家找補。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣向『${_cfHer}』告白。`;
         _settledVerdict = `『${_cfHer}』沒有答應`;
         kanshouProposalResult_ = { ok: false, type: 'confess', name: _cfHer };
-      } else if (kanshouConfessAccepts_(_cfBond, _cfMet)) {
+      } else {
         // 💗 成立：先蓋【戀人】(告白牆的鑰匙)，再把好感推過門檻，最後照既有漏斗同步標籤/棘輪。
         pcData[_cfIdx][COL.PC.MEMORY] = KANSHOU_LOVER_TAG_.set(pcData[_cfIdx][COL.PC.MEMORY], 1);
-        pcData[_cfIdx][COL.PC.MEMORY] = KANSHOU_CONFESS_DAY_TAG_.set(pcData[_cfIdx][COL.PC.MEMORY], 0);
         pcData[_cfIdx][COL.PC.MEMORY] = kanshouStampFirst_(pcData[_cfIdx][COL.PC.MEMORY], '告白', curDay);
         pcData[_cfIdx][COL.PC.BOND] = Math.max(_cfBond, KANSHOU_REL_TIER_[0].min);
         kanshouSyncRelTier_(pcData, _cfIdx);
@@ -2225,16 +2195,6 @@ function actionPlay_(userData, pcId, sheets) {
         kanshouConfessStr = `\n★【告白·成立】：『${_cfHer}』答應了——從這一刻起你們是戀人。演出對方點頭那一瞬間依個性的反應(眼眶紅／彆扭地別開臉／故作鎮定卻聲音在抖皆可)，並讓這一回合停在剛在一起的餘韻裡，別急著跳到之後的日子。★這是關係的質變，不是又一次閒聊。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣向『${_cfHer}』告白。`;
         _settledVerdict = `『${_cfHer}』答應了，你們成為戀人`;
-      } else {
-        // 💔 被拒：扣既有的橋段增量(棘輪仍會把她接在已達門檻之上，不會一路崩)，並蓋冷卻日。
-        pcData[_cfIdx][COL.PC.BOND] = Math.max(0, _cfBond - KANSHOU_SCENE_BOND_);
-        pcData[_cfIdx][COL.PC.MEMORY] = KANSHOU_CONFESS_DAY_TAG_.set(pcData[_cfIdx][COL.PC.MEMORY], curDay);
-        kanshouSyncRelTier_(pcData, _cfIdx);
-        dirtyPcRows.add(_cfIdx);
-        kanshouProposalResult_ = { ok: false, type: 'confess', name: _cfHer, wait: KANSHOU_CONFESS_COOLDOWN_ };
-        kanshouConfessStr = `\n★【告白·被拒】：你向『${_cfHer}』告白了，對方沒有答應——不是討厭你，是對方此刻還沒辦法把你放在那個位置上。演出對方依個性說出口的拒絕(抱歉而認真／慌張逃開／硬邦邦地否認皆可)，以及被拒之後空氣裡那份尷尬；這一回合就停在這裡，別讓對方自己反悔改口。★成敗由系統定，不可改寫對方的決定。`;
-        finalUserMsg = `【玩家意圖】：鼓起勇氣向『${_cfHer}』告白。`;
-        _settledVerdict = `『${_cfHer}』沒有答應`;
       }
     }
   }
@@ -2826,7 +2786,7 @@ function actionPlay_(userData, pcId, sheets) {
     const _alIdx = pcData.indexOf(partyRows[0]);
     const _alLocObj = kanshouFindLoc_(_myGid_, curL);
     const _alBond = parseInt(partyRows[0][COL.PC.BOND]) || 0;
-    if (_alIdx >= 0 && _alLocObj && _alLocObj.noEncounter === true && _alBond >= kanshouRelChatCeiling_(0)
+    if (_alIdx >= 0 && _alLocObj && _alLocObj.noEncounter === true && _alBond >= KANSHOU_SCENE_MIN_BOND_
       && KANSHOU_SCENE_DAY_TAG_.get(partyRows[0][COL.PC.MEMORY]) !== curDay) {
       pcData[_alIdx][COL.PC.BOND] = Math.min(100, _alBond + KANSHOU_SCENE_BOND_);
       kanshouSyncRelTier_(pcData, _alIdx);
@@ -3012,8 +2972,6 @@ function actionPlay_(userData, pcId, sheets) {
       const pTic = getPersonaTic_(r[COL.PC.MEMORY]);
       const pFlavorStr = `${pSpeech ? ` | 口吻:${pSpeech}` : ""}${pTic ? ` | 招牌小動作:${pTic}` : ""}`;
       const pBond = parseInt(r[COL.PC.BOND]) || 0;
-      const pChatCeiling = kanshouRelChatCeiling_(pBond);
-      const pAtCeilingStr = (pChatCeiling < 100 && pBond >= pChatCeiling) ? "・單靠對話目前已到這個階段的上限，需要透過約定赴約、或一起經歷特別的橋段(夜襲/共浴/膝枕…)這類真實相處才能再加深，這回合維持細水長流的相處基調，不要寫成關係大幅推進" : "";
       // REL_TAG的梯度字面本身沒告訴AI「該演出什麼熟悉程度」，AI容易預設熱絡口吻跟數字矛盾。
       const pRelTagStr = r[COL.PC.REL_TAG] || "點頭之交";
       const _chillDay = KANSHOU_CHILL_DAY_TAG_.get(r[COL.PC.MEMORY]);
@@ -3038,8 +2996,9 @@ function actionPlay_(userData, pcId, sheets) {
         if (!_pAtHome) return "";
         // 「我的房間」是【玩家】的房間，不是她家——措辭要跟著實際地點走。
         const _pWhere = (curL === '我的房間') ? "此刻人在你房裡" : "此刻在自己家";
-        if (curHour < KANSHOU_NIGHT_RAID_HOUR_END_) return _pWhere + "、多半已熟睡，睡著/半夢半醒";
-        if (curHour < KANSHOU_ASLEEP_HOUR_END_) return _pWhere + "、多半還在賴床、意識朦朧，剛睡醒或仍賴床";
+        // 只講事實(她在睡)，不教怎麼演——「意識朦朧/半夢半醒/剛睡醒」那些是演法，AI 自己會。
+        if (curHour < KANSHOU_NIGHT_RAID_HOUR_END_) return _pWhere + "、睡了";
+        if (curHour < KANSHOU_ASLEEP_HOUR_END_) return _pWhere + "、還沒起床";
         return "";
       })();
       const pCohabitStr = kanshouIsCohabit_(r) ? " | 同居中:是(對方現在與你同住一處，語氣可依此帶著日常同居的親近感、不是作客)" : "";
@@ -3077,18 +3036,18 @@ function actionPlay_(userData, pcId, sheets) {
         return "【你們從剛才就一直在這裡】——早已在場，接著這一刻往下寫";
       })();
       _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
-      partyDetailsArr.push(`【在場人物】名字:${pName}【性別:${String(r[COL.PC.SEX] || "").trim() || "異"}】｜__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? ` | 裝扮:${pOutfit}` : ""}${(() => { const _p = formatPref(r[COL.PC.PREF]); return _p ? ` | 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(r[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${pFlavorStr}${pBackStr}${(() => { const _mo = [pMoeStr, traitPrivateOf_(r[COL.PC.TRAIT])].filter(Boolean).join("／"); return _mo ? ` | 萌點(僅供內化):${_mo}` : ""; })()}${pSleepStr ? ` | 現況:${pSleepStr}` : ""}${pCohabitStr}${pMemoirStr}${pPromiseStr} | 關係:${pron_(r[COL.PC.SEX])}是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pAtCeilingStr}${pTierToneStr}${pChillStr})`);
+      partyDetailsArr.push(`【在場人物】名字:${pName}【性別:${String(r[COL.PC.SEX] || "").trim() || "異"}】｜__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? ` | 裝扮:${pOutfit}` : ""}${(() => { const _p = formatPref(r[COL.PC.PREF]); return _p ? ` | 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(r[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${pFlavorStr}${pBackStr}${(() => { const _mo = [pMoeStr, traitPrivateOf_(r[COL.PC.TRAIT])].filter(Boolean).join("／"); return _mo ? ` | 萌點(僅供內化):${_mo}` : ""; })()}${pSleepStr ? ` | 現況:${pSleepStr}` : ""}${pCohabitStr}${pMemoirStr}${pPromiseStr} | 關係:${pron_(r[COL.PC.SEX])}是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pTierToneStr}${pChillStr})`);
     }
   });
   // 在場來由人人相同時（多數回合都是），抽成抬頭講一次，不在每張卡上逐字重複。
-  const _anySleeper_ = partyDetailsArr.some(t => / \| 現況:[^|]*(賴床|熟睡|半夢半醒)/.test(t));
+  const _anySleeper_ = partyDetailsArr.some(t => / \| 現況:[^|]*(睡了|還沒起床)/.test(t));
   const _presenceKeys_ = Object.keys(_presenceSeen_);
   const _presenceShared_ = (_presenceKeys_.length === 1 && partyDetailsArr.length > 1) ? _presenceKeys_[0] : "";
   const _partyCards_ = partyDetailsArr.map(t => _presenceShared_
     ? t.replace(/｜__PRESENCE__[\s\S]*?__\/PRESENCE__/, "")
     : t.replace(/｜__PRESENCE__([\s\S]*?)__\/PRESENCE__/, " | 在場來由:$1"));
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0
-    ? `【角色背景資料】(裝扮＝此刻穿的衣服，五官/髮色/體態不隨之改變)：${_presenceShared_ ? `\n★在場來由(以下每一位都一樣)：${_presenceShared_}` : ""}${_anySleeper_ ? `\n★標了【現況】的人維持那個狀態演出(賴床/熟睡就不是清醒閒聊)，除非這回合真的把人叫醒了。` : ""}\n${_partyCards_.join("\n")}`
+    ? `【角色背景資料】(裝扮＝此刻穿的衣服，五官/髮色/體態不隨之改變)：${_presenceShared_ ? `\n★在場來由(以下每一位都一樣)：${_presenceShared_}` : ""}${_anySleeper_ ? `\n★標了【現況】的人就是那個狀態，除非這回合真的把人叫醒了。` : ""}\n${_partyCards_.join("\n")}`
     : "目前這個地點沒有其他人，玩家是獨自行動的。";
 
   // 路人與缺席者是同一件事的兩面（誰只是背景／誰不在場），合成一條；能開口的名單在結尾講。
@@ -3373,7 +3332,6 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
 
         let oldFav = parseInt(pcData[nIdx][COL.PC.BOND]) || 0;
         let newFav = Math.max(-100, Math.min(100, oldFav + change));
-        if (change > 0) newFav = Math.min(newFav, kanshouRelChatCeiling_(oldFav));
 
         // REL_TAG 不允許AI直接指定文字寫入，好感變動後GAS依kanshouSyncRelTier_自動升降級；
         pcData[nIdx][COL.PC.BOND] = newFav;

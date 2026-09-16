@@ -353,7 +353,6 @@ function buildTagsPayload_(sheets, pcId, preData) {
       cohabit: kanshouIsCohabit_(s), // 🏠 是否同居中(鑑賞卡片「關係」中樞面板顯示狀態用·solo恆false)
       // 💗 告白狀態(鑑賞「關係」中樞面板用)：lover＝已交往；confessWait＝被拒後還要幾天才開得了口。
       lover: !isFateCtx && kanshouIsLover_(s),
-      confessWait: isFateCtx ? 0 : kanshouConfessWait_(s, parseInt(m[COL.PC.DAY]) || 1),
       // 預取狀態字串隨 state 一併帶回，前端切從者直接秒顯，免每次都打一趟 get_full_status round-trip。
       statusString: buildPlayerStatusString(s, String(s[COL.PC.REL_MEM] || "")),
       hp: hpWord(s[COL.PC.HP], s[COL.PC.MAX_HP]),
