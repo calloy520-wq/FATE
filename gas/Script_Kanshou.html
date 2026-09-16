@@ -290,7 +290,7 @@ let plainTextContext = cleanText;
       if (data.nightGuest) {
         const gNameEsc = escapeHtml(String(data.nightGuest));
         optionsHtml += `<div style="background:rgba(160,110,60,0.14); border:1px solid #8a6a3a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#e0c090; font-size:12.5px; margin-bottom:6px;">🚪 「${gNameEsc}」深夜來訪，此刻人就在這裡。<span style="color:#9a8f78;">(不選也行——直接跟她說話，就是要她留下的意思)</span></div>`
+          + `<div style="color:#e0c090; font-size:12.5px; margin-bottom:6px;">🚪 「${gNameEsc}」深夜來訪，此刻人就在這裡。<span style="color:#9a8f78;">(不選也行，直接跟她說話就是要她留下的意思)</span></div>`
           + `<div style="display:flex; gap:8px;">`
           + `<button class="btn-option" style="flex:1;" onclick="kanshouSleepWithGuest()">🛏 讓她留下<br><span style="font-size:10px;opacity:.75;">夜還很長·想待多久都行</span></button>`
           + `<button class="btn-option" style="flex:1;" onclick="kanshouSendGuestHome()">🚪 請她回去<br><span style="font-size:10px;opacity:.75;">送她回自己家睡·今晚到此為止</span></button>`
@@ -359,25 +359,25 @@ let plainTextContext = cleanText;
         let _msg;
         if (_pr.miss) {
           // 撲空(她不在場)：附上她此刻在哪，玩家不必回地圖亂找(走查抓到的軟死路)。
-          _msg = _prIco + ' 「' + _nm + '」此刻不在這裡' + (_pr.where ? '——她似乎在「' + escapeHtml(String(_pr.where)) + '」。' : '。');
+          _msg = _prIco + ' 「' + _nm + '」此刻不在這裡' + (_pr.where ? '，她似乎在「' + escapeHtml(String(_pr.where)) + '」。' : '。');
         }
-        else if (_pr.ok && _pr.type === 'promise') _msg = '📅 <b>約定成立！</b>' + (_pr.today ? '今天' : '明天') + escapeHtml(String(_pr.bandLabel || '')) + '在「' + escapeHtml(String(_pr.loc || '')) + '」與「' + _nm + '」見面——準時/早到好感↑、遲到打折、放鴿子↓。';
+        else if (_pr.ok && _pr.type === 'promise') _msg = '📅 <b>約定成立！</b>' + (_pr.today ? '今天' : '明天') + escapeHtml(String(_pr.bandLabel || '')) + '在「' + escapeHtml(String(_pr.loc || '')) + '」與「' + _nm + '」見面。準時或早到好感↑，遲到打折，放鴿子↓。';
         else if (_pr.ok && _pr.type === 'hold') _msg = '🤝 <b>牽手成功！</b>之後你移動到哪，「' + _nm + '」都會相伴同行(直到放手)。';
         else if (_pr.ok && _pr.type === 'move') _msg = '🚶 <b>「' + _nm + '」答應一起去「' + escapeHtml(String(_pr.loc || '')) + '」！</b>點下方的「同意」，你們就一起動身。';
-        else if (_pr.type === 'move') _msg = '🚶 沒有同行——你要自己去「' + escapeHtml(String(_pr.loc || '')) + '」的話，照常點地圖。';
-        else if (_pr.ok && _pr.type === 'cohabit') _msg = '🏠 <b>同居開始！</b>「' + _nm + '」搬來與你同住了——深夜她會回家的和室就寢、清晨可能賴床、晚間常在家中。';
+        else if (_pr.type === 'move') _msg = '🚶 她沒有同行，你要自己去「' + escapeHtml(String(_pr.loc || '')) + '」的話，照常點地圖。';
+        else if (_pr.ok && _pr.type === 'cohabit') _msg = '🏠 <b>同居開始！</b>「' + _nm + '」搬來與你同住了。深夜她會回家的和室就寢，清晨可能賴床，晚間常在家中。';
         // 💗 告白：成立＝關係階質變(戀人這一階唯一的入口)。2026-09 起【說出口就成立】，
         //   後端只剩兩種結果——成立、或好感還沒到 KC_CONFESS_BOND_(60) 開不了口；
         //   不再有擲骰、冷卻、被拒扣好感，所以那兩條分支連同措辭一起拿掉。
-        else if (_pr.ok && _pr.type === 'confess') _msg = '💗 <b>她答應了！</b>你和「' + _nm + '」從這一刻起是戀人——好感的上限就此打開，關係稱呼／專屬稱呼也一併解鎖。';
-        else if (_pr.type === 'confess') _msg = '💔 話說不出口——你們之間還遠不到那個程度(好感要到 ' + KC_CONFESS_BOND_ + ')。這次沒有任何變動。';
-        else if (_pr.type === 'cohabit') _msg = '🏠 沒有搬來——同住這一步需要非常深的信賴，好感還不到。';
+        else if (_pr.ok && _pr.type === 'confess') _msg = '💗 <b>她答應了！</b>你和「' + _nm + '」從這一刻起是戀人。好感的上限就此打開，關係稱呼與專屬稱呼也一併解鎖。';
+        else if (_pr.type === 'confess') _msg = '💔 話說不出口。你們之間還遠不到那個程度(好感要到 ' + KC_CONFESS_BOND_ + ')。這次沒有任何變動。';
+        else if (_pr.type === 'cohabit') _msg = '🏠 她沒有搬來。同住這一步需要非常深的信賴，好感還不到。';
         // 🐛→✅ 2026-07 逐按鍵稽核：地點不合法的兩種回報(promise_loc/move_loc)舊版沒有自己的分支，
         //   一路掉到最後那行 else，印出的是【「她」沒有讓你牽手】——玩家按的明明是相約/邀同去，
         //   卻收到一則牽手失敗通知，會去找一個不存在的問題。這兩型跟「她婉拒」無關，是地點的事。
         else if (_pr.type === 'promise_loc' || _pr.type === 'move_loc') {
           _msg = (_pr.type === 'promise_loc' ? '📅 ' : '🚶 ') + (_pr.sameSpot
-            ? '你們此刻【就在「' + escapeHtml(String(_pr.loc || '')) + '」】——不用約在自己站的地方，挑個別處吧。'
+            ? '你們此刻【就在「' + escapeHtml(String(_pr.loc || '')) + '」】。不用約在自己站的地方，挑個別處吧。'
             : '「' + escapeHtml(String(_pr.loc || '')) + '」此刻去不成(還沒熟到能登門、或那個時段沒開放)，換個地點或換個時段再試試。');
         }
         else _msg = _pr.type === 'promise' ? '📅 這次沒有約成。' : '🤝 沒有牽到手。';
@@ -394,10 +394,10 @@ let plainTextContext = cleanText;
           // 📅 promise_byher＝她自己開口約的(見 Gallery.gs 她主動·invite)：約定是真的、地圖會標，
           //   但玩家從沒答應過，所以不去【不算爽約、不扣好感】——文案必須把這點講清楚。
           const _psMsg = _ps.type === 'promise_byher'
-            ? '📅 「' + _psNm + '」說了' + escapeHtml(String(_ps.when || '')) + escapeHtml(String(_ps.bandLabel || '')) + '在「' + _psLoc + '」等你——地圖上會標著這個約。去不去都由你，這是她單方面的邀約，沒去也不會算你放鴿子。'
+            ? '📅 「' + _psNm + '」說了' + escapeHtml(String(_ps.when || '')) + escapeHtml(String(_ps.bandLabel || '')) + '在「' + _psLoc + '」等你。地圖上會標著這個約，去不去都由你；這是她單方面的邀約，沒去也不算你放鴿子。'
             : _ps.type === 'promise_met'
               ? '📅 <b>依約相會！</b>你守住了與「' + _psNm + '」在「' + _psLoc + '」的約定(好感↑)。'
-              : '📅 與「' + _psNm + '」在「' + _psLoc + '」見面的約定<b>過期了</b>——你沒有赴約，她有些在意(好感↓)。約定是一次性的，想再見就再約一次吧。';
+              : '📅 與「' + _psNm + '」在「' + _psLoc + '」見面的約定<b>過期了</b>。你沒有赴約，她有些在意(好感↓)。約定是一次性的，想再見就再約一次吧。';
           const _psCol = _ps.ok ? 'rgba(90,160,110,.14);border:1px solid #4a8a5a;color:#a8e0b8' : 'rgba(150,110,120,.14);border:1px solid #8a5a6a;color:#e0b0bc';
           story.insertAdjacentHTML('beforeend', `<div style="background:${_psCol};border-radius:8px;padding:7px 10px;margin:4px 0;font-size:12.5px;">${_psMsg}</div>`);
         });
@@ -917,7 +917,7 @@ let plainTextContext = cleanText;
     if (!ev) return '';
     var hitNow = (typeof ev.hourEnd === 'number') ? (typeof curHour === 'number' && curHour < ev.hourEnd) : ev.bands.indexOf(curBand) !== -1;
     var bandsTxt = (typeof ev.hourEnd === 'number') ? ('0~' + ev.hourEnd + '點') : ev.bands.map(function (b) { return KC_BAND_SHORT_[b] || b; }).join('/');
-    var tip = ev.icon + ev.name + '·' + bandsTxt + (ev.atHome ? '(' + (ev.note || '在她自己的家·登門即可') + ')' : '') + '——她在場時，場景會自然帶入這個情境，要不要理會、怎麼互動全由你決定';
+    var tip = ev.icon + ev.name + '·' + bandsTxt + (ev.atHome ? '(' + (ev.note || '在她自己的家·登門即可') + ')' : '') + '，她在場時場景會自然帶入這個情境；要不要理會、怎麼互動全由你決定';
     var style = hitNow
       ? 'background:rgba(224,160,188,.22);border:1px solid #c07090;color:#f0c0d4;'
       : 'background:rgba(120,110,90,.14);border:1px solid #4a4438;color:#9a8f78;';
@@ -1099,7 +1099,7 @@ let plainTextContext = cleanText;
     ].filter(Boolean));
     if (!pick) return;
     if (pick === 'own') {
-      var biz = await customPrompt_('你在「' + name + '」做什麼？\n\n（例：小吃、按摩、賣雜貨、花店——不會有錢的數字，只影響大家怎麼跟你互動）', here.own || '', 12);
+      var biz = await customPrompt_('你在「' + name + '」做什麼？\n\n（例：小吃、按摩、賣雜貨、花店。不會有錢的數字，只影響大家怎麼跟你互動）', here.own || '', 12);
       if (biz === null) return;
       biz = String(biz).trim(); if (!biz) { alert('營業內容不能空白（要收店請選「收掉這家店」）。'); return; }
       await kwWorldOp_({ op: 'loc_own', entryName: name, own: biz }, '開店中…');
@@ -1407,7 +1407,7 @@ let plainTextContext = cleanText;
     if (ov) ov.style.display = 'none';
     intent = String(intent || '').trim();
     showGamePane('chat');
-    await send(intent ? ('（舉起手機——這張想拍的是「' + intent + '」。）') : '（舉起手機，拍下此刻的光景。）', false, { takePhoto: true, photoIntent: intent || null });
+    await send(intent ? ('（舉起手機，這張想拍的是「' + intent + '」。）') : '（舉起手機，拍下此刻的光景。）', false, { takePhoto: true, photoIntent: intent || null });
   }
   // 📷 拿照片給在場的人看(相簿卡片上的按鈕)：手機拍完立刻能看，隨時都能拿出來給人看。
   async function kanshouShowPhoto(photoId) {
@@ -1621,7 +1621,7 @@ let plainTextContext = cleanText;
     var _locN = _kwRows_.filter(function (r) { return r.kind === '地點'; }).length;
     var html = _locN
       ? '<div style="background:rgba(40,56,52,.35); border:1px solid #3e6a60; border-radius:8px; padding:9px 11px; margin-bottom:6px; color:#8aa8a2; font-size:12px; line-height:1.7;">'
-        + '🗺️ 你走出來的地方有 <b style="color:#cfe6e0;">' + _locN + '</b> 個——它們在<b style="color:#cfe6e0;">地圖的「走出來的地方」</b>那一區，'
+        + '🗺️ 你走出來的地方有 <b style="color:#cfe6e0;">' + _locN + '</b> 個，它們在<b style="color:#cfe6e0;">地圖的「走出來的地方」</b>那一區，'
         + '從那裡直接去。<br><span style="color:#6e8a84;">（地方屬於地圖，這裡只放人跟這座城的事。）</span></div>'
       : '';
     groups.forEach(function (g) {
@@ -1674,7 +1674,7 @@ let plainTextContext = cleanText;
   }
   // 💗 告白：好感夠(KC_CONFESS_BOND_)就【必定成立】——2026-09 玩家「79 改成告白必定成功就好」，前端不預測、只送出意圖。
   async function kanshouConfess(name, npcId) {
-    if (!await customConfirm_('向「' + name + '」告白？\n(說出口就成立——你們從此是戀人；她本人要在場)')) return;
+    if (!await customConfirm_('向「' + name + '」告白？\n(說出口就成立，你們從此是戀人。她本人要在場)')) return;
     showGamePane('chat');
     await send('（鼓起勇氣，向「' + name + '」告白。）', false, { confess: name, confessId: npcId || "" });
   }
@@ -1887,7 +1887,7 @@ let plainTextContext = cleanText;
       ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.74);display:flex;align-items:center;justify-content:center;padding:16px;';
       ov.innerHTML = '<div style="background:#20141b;border:1px solid rgba(200,120,150,.5);border-radius:14px;padding:22px;width:100%;max-width:340px;max-height:calc(100vh - 32px);overflow-y:auto;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6);">'
         + '<div style="color:#e0a0bc;font-weight:bold;font-size:15px;margin-bottom:6px;">🌹 後日談 · 設定你（御主）</div>'
-        + '<div style="color:#9a8f70;font-size:11px;line-height:1.7;margin-bottom:14px;">取個名字、選擇性別、外貌與個性（後兩者可留空）——AI 會依你填的內容一次幫你擴寫成完整形象（想自己設定，之後在御主狀態頁點「改命」隨時可填/可改）。</div>'
+        + '<div style="color:#9a8f70;font-size:11px;line-height:1.7;margin-bottom:14px;">取個名字、選擇性別、外貌與個性（後兩者可留空）。AI 會依你填的內容一次幫你擴寫成完整形象（想自己設定，之後在御主狀態頁點「改命」隨時可填/可改）。</div>'
         + '<input id="ksu-name" maxlength="16" value="' + escapeHtml(defaultName || '') + '" placeholder="御主名" style="width:100%;box-sizing:border-box;padding:11px;background:#16101a;border:1px solid rgba(200,120,150,.4);border-radius:8px;color:#f0e0e8;font-size:14px;text-align:center;">'
         + '<div style="display:flex;gap:10px;margin-top:10px;">'
         + '<button id="ksu-f" style="flex:1;padding:13px;background:rgba(90,50,70,.35);color:#d8a8c0;border:2px solid transparent;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♀ 女</button>'
