@@ -528,6 +528,21 @@ r 欄＝該寶具真實官方階級，缺 r 者(恩奇都/EMIYA)retreat 至六�
 
 ## `gas/Gallery.gs`
 
+### `STATE_AFTER_ACTIONS` 漏了 `move`　<sub>Router_Action.gs</sub>
+
+`actionMove` 一直有做交棒（`STATE_PRE_DATA_ = allPcData`）、前端 `travelTo` 也一直讀 `data._state.tags`，
+兩邊都以為移動回應會夾 `_state`——但白名單裡從來沒有 `move`，dispatcher 不夾，
+`refreshFateTags(undefined)` 退回多打一趟 `get_tags`。移動是 solo 最常按的鍵，每一步都在付這趟稅，
+而且沒有任何錯誤訊息（fallback 太體貼）。2026-09 稽核（HANDBOOK 把 move 寫在名單裡，反而是文件對、代碼錯）補進名單，
+探針 `move_state.js` 釘住「move 回應必須夾 `_state.tags`」。
+教訓：三處各自「以為」的事，要有一處是機器在驗——`check_contract.py` 只看鍵名有沒有人讀，看不出「有人讀但永遠是 undefined」。
+
+### `servantMaxHp_`　<sub>Core_Settings.gs</sub>
+
+原本這裡是 `fateMaxHpMp_`（100＋耐久×10／50＋魔力×10），是九州時代的公式；FATE 從者早改成 150＋耐久×6、MP 恆 0（出力電池制），
+公式卻散在召喚兩支＋`Seed_Rivals` 三處各寫一遍，而 `fateMaxHpMp_` 只剩 `maxStatsForRow_` 在叫、那支又是死分支的殘骸。
+砍掉 `maxStatsForRow_` 後它變成孤兒，死碼掃描才叫出來。修法不是刪掉了事：把三處重複的真公式收進同一支，單一真實來源。
+
 ### `sanitizeAiData_`　<sub>Gallery.gs:27</sub>
 
 🛡️→✅ 2026-07 邊界稽核：options 是原樣轉發給前端、一個字串長一顆按鈕的欄位，卻從沒設過上限。schema 要 4 個，但模型失控時回 50 個 × 每個上百字，前端就照單全收長出一整片按鈕牆。輸入當不可信：這裡一併夾好數量與長度，前端不必再各自防。

@@ -128,7 +128,7 @@
 #### 🔹 四張旗標常數表（dispatcher 行為開關）
 - `OWNERSHIP_CHECK_EXEMPT_`（2026-07 系統性漏洞修補新增）— 豁免中央 pcId 歸屬驗證的 action 白名單：`account_login`/`account_new_game`/`create`/`enter_kanshou`（pcId 尚不存在）、`claim_hero`/`save_hero`（走 `creator===acctName` 模型）、`get_heroes`/`get_masters`（公開名冊）、`check_name`/`check_sheets`/`dev_resync_codex`/`purge_orphans`（不涉個別玩家列）。其餘只要帶 `pcId` 一律先過 `verifyPcOwnership_`。
 - `LOCK_EXEMPT_ACTIONS_` — 不取寫入鎖的 action：純讀取 ＋ 長 AI 敘事（`play`/`narrate_only`/`tiger_dojo`/`backfill_*`/`save_hero` 等）。
-- `STATE_AFTER_ACTIONS` — 會改 solo 戰場、回應自動夾 `_state` 的 action（`fate_battle`/`use_seal`/`bond`/`update_fate`/`court_enemy`… 共 23 個）。
+- `STATE_AFTER_ACTIONS` — 會改 solo 戰場、回應自動夾 `_state` 的 action（`fate_battle`/`use_seal`/`bond`/`update_fate`/`court_enemy`／`move`… 共 24 個）。
 - `KANSHOU_BLOCKED_ACTIONS_` — `KPC_` 情境下明確擋掉的 solo 專屬戰鬥/經濟/結盟 action（含 `move`）。
 - `STATE_PRE_DATA_`（`var`）— handler→dispatcher 整表陣列交棒全域，每次 dispatch 開頭重置。
 
@@ -794,7 +794,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### HP / MP / 魔力池公式
 
 - `clampCircuits_(n)`（2026-07 稽核抽出）— 迴路骰子範圍夾值(12~50)共用函式，取代 `Router_Creation.gs`/`Seed_Rivals.gs` 兩處各自硬寫的 `Math.max(12,Math.min(50,...))`；`Script_Onboarding.html` 前端骰子UI跨執行環境不共用此函式，同款數字改動時需手動同步（已於該處補註解互相標記）。
-- `fateMaxHpMp_(con, mag)` — 由耐久/魔力數值算從者 HP(100+con×10)/MP(50+mag×10)，無階級倍率。
+- `servantMaxHp_(conVal)` — 從者 HP 上限 150＋耐久數值×6（MP 恆 0：出力電池制）。三個建列點（召喚兩支＋`Seed_Rivals`）共用。（舊 `fateMaxHpMp_` 100+con×10/50+mag×10 是零呼叫者的殘骸，2026-09 換掉）
 - `masterMaxHpMp_(circuits)` — 御主（凡人魔術師）HP(100+迴路×2)/MP(迴路×10)，迴路夾下限 1。
 - `masterPoolMax_(circuits, partyMagicVal)` — 共用魔力池上限＝迴路×10 ＋ 同隊從者魔力 rankVal 總和×2。
 - `dmgSeverityWord_(dmg, hpMax)`（2026-07 稽核抽出）— 傷害嚴重度中文詞分級（重創≥0.4／負傷≥0.15／擦傷），取代 `Router_Movement.gs` 三處(撤退追擊/休息突襲/陣營突襲)重複的同一條 ternary；`Router_Bond.gs` 的 `actionBond` 突襲提示原本沒有分級(硬寫死「重創」)，順手改用此函式補齊一致性。

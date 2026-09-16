@@ -66,7 +66,7 @@
 - **game_id**：每局一個世界。`g_`+ts=聖杯戰爭；`k_`+ts=鑑賞世界。所有查詢帶 game_id 過濾，杜絕跨世界外洩。
 - **🌹 鑑賞獨立分頁**：慾海角色住「鑑賞眾生」分頁（`getKanshouPcSheet_`，schema 同眾生），dispatcher 在 `pcId` 以 `KPC_` 開頭時路由到此。詳見 `KANSHOU_REFERENCE.md`。
 - **FACTION**（COL.PC.FACTION 字串）：`御主`(玩家)、`從者`(玩家的)、`敵御主`、`敵從者`、`盟友御主`/`盟友從者`（前端 override，見 §8）。
-- **六圍階級制**：FATE 純六圍 SIX（STR/CON/AGI/INT/LUK 五圍已移除）。HP/MP 由 `fateMaxHpMp_(svNum_(SIX.耐久), svNum_(SIX.魔力))`（⚠ 舊包裝 `maxStatsForRow_` 已隨非 FATE 休養死分支一起砍掉，2026-09）（`100+con*10`/`50+mag*10`，無境界倍率）。九州境界/物品/銀兩/門派 helper 全砍。
+- **六圍階級制**：FATE 純六圍 SIX（STR/CON/AGI/INT/LUK 五圍已移除）。從者 HP 由 `servantMaxHp_(svNum_(SIX.耐久))`＝150＋耐久×6、MP 恆 0（出力電池制）；御主 HP/MP 走 `masterMaxHpMp_`/`masterPoolMax_`（迴路制）。（⚠ 舊 `fateMaxHpMp_`/`maxStatsForRow_` 已砍，2026-09）九州境界/物品/銀兩/門派 helper 全砍。
 - **提示詞已全清九州詞**（例外：`雙修技巧`＝NSFW MEMORY 機制保留；`凡人`作「人類御主」描述語保留）。
 - **分頁**（Setup_FateWorld.gs `FATE_SHEET_DEFS`，缺頁自動補、冪等）：坤圖(地圖)/眾生/英靈殿/御主殿/帳號/歷史暫存 **6 頁**＋動態建的 鑑賞眾生／鑑賞世界／相簿 3 張（⚠ 舊「鑑賞」封存分頁已隨 COL.GAL 移除，實體分頁若還在可手動刪）。時鐘/權柄/關係 併入眾生列；因果(事件log)/戰史/史紀 直接刪除、無替代。
 

@@ -15,7 +15,7 @@
 
 **雙軌設計（玩家定案，別偏離）**：
 - **🎴 純淨 solo（主體·SFW）**：單人聖杯戰爭，只有「按鍵＋AI 敘述」。多帳號可玩、`game_id` 實例化＋帳號綁定分流。盡量貼近原作。
-- **🌹 慾海 kanshou（鑑賞後日談·NSFW）**：奪杯後與封存從者約會。一張約會大地圖，只持久化 個性/特徵/關係/外顯/肉體＋歷史紀錄（「歷史暫存」逐句對話，驅動敘事連續性）；無戰鬥。共用 `actionPlay` 引擎與 `nsfwBaseRules`（🔴紅線①不可改）。⚠ 「因果」(事件log) 機制已於 2026-07 整套刪除，與此處持久化的「歷史紀錄」是不同機制。⚠ 經濟層（金錢/打工/房租/商店）＋房東房客世界觀**已於 2026-07 再度全刪**（曾短暫恢復又推翻，見 `CLAUDE.md`）——kanshou 現與 solo 一樣全程無花錢入口。⚠ 2026-07 §91「駐留制」大改版：kanshou 已無「同行」概念，改純 `LOC`(所在地點)判定「誰在場」。詳見 `KANSHOU_REFERENCE.md`。
+- **🌹 慾海 kanshou（鑑賞後日談·NSFW）**：奪杯後與封存從者約會。一張約會大地圖，只持久化 個性/特徵/關係/外顯/肉體＋歷史紀錄（「歷史暫存」逐句對話，驅動敘事連續性）；無戰鬥。共用 `actionPlay` 引擎與 `nsfwBaseRules`（演化核心：可改，改前量現況、改後跑探針，見 CLAUDE.md 紅線①）。⚠ 「因果」(事件log) 機制已於 2026-07 整套刪除，與此處持久化的「歷史紀錄」是不同機制。⚠ 經濟層（金錢/打工/房租/商店）＋房東房客世界觀**已於 2026-07 再度全刪**（曾短暫恢復又推翻，見 `CLAUDE.md`）——kanshou 現與 solo 一樣全程無花錢入口。⚠ 2026-07 §91「駐留制」大改版：kanshou 已無「同行」概念，改純 `LOC`(所在地點)判定「誰在場」。詳見 `KANSHOU_REFERENCE.md`。
 - ⚠ **2026-07 玩家定案(推翻舊方針)**：原本的兩個唯讀視窗（📜 個人聖杯戰記／🏆 排行榜）已全數砍除——單人專注，不做跨帳號回顧比拼。連帶「戰史」表、`incrementWin_`/`recordHistory_`/`recordWinSpeed_`/`actionLeaderboard`/`actionGetVictoryHistory` 一併刪除，帳號表 WON/BEST_DAYS 欄砍除。
 
 **三鐵則**：① GAS 掌所有數值（先算→寫表→再敘述）；② AI 只把已裁定結果說書、把玩家自由發揮摘成事實列，**永不決定勝負/寫數字**（LLM 輸出的硬數值一律被夾值/忽略）；③ show-don't-tell（禁直述 願望/個性/萌點 字面）。
@@ -28,13 +28,13 @@
 GAS Web App (doGet→Index.html·HTML Service)
   └─ google.script.run.handleGameAction(json) → Router_Action.gs 分流器
        ├─ 數值引擎：Engine_Fate(戰鬥) / Time_World(時間·經濟) 全在 GAS
-       ├─ Google Sheets（唯一資料庫·7 分頁，2026-07 精簡自 13 分頁）
+       ├─ Google Sheets（唯一資料庫·6 靜態＋3 動態分頁，2026-07 精簡自 13 分頁）
        └─ UrlFetchApp → OpenRouter（google/gemini-*·只做敘述）  ← Engine_Combat.callGeminiAPI
 ```
 - API key 存 GAS **Script Properties**（不進代碼）。
 - 前端 `Index.html`(殼) 內嵌 `Style.html`(CSS) ＋ `Script.html`(全部前端 JS·單一 SPA)。
 
-## 3. 資料層（試算表 7 分頁＋1 動態分頁，2026-07 精簡自 13 分頁）
+## 3. 資料層（試算表 6 靜態分頁 `FATE_SHEET_DEFS`＋3 動態分頁：鑑賞眾生／鑑賞世界／相簿，2026-07 精簡自 13 分頁）
 
 `Setup_FateWorld.gs` 冪等建表（缺就補、含則略）。分頁：**坤圖**(地圖)／**眾生**(solo參戰者·一列一人)／**英靈殿**(種子從者範本，2026-07起兼職鑑賞daily欄位快取)／**御主殿**(solo專用·種子敵御主範本)／**帳號**／**歷史暫存**(逐句對話·solo/kanshou共用同一張，靠pcId前綴隔離)。另有 **鑑賞眾生** 分頁（慾海活動角色，`getKanshouPcSheet_` 動態建、schema複製自「眾生」但物理獨立，與戰爭主表完全隔離）。
 
@@ -43,29 +43,29 @@ GAS Web App (doGet→Index.html·HTML Service)
 
 ### COL schema（位置索引·刪欄會位移全表→只可棄用不可刪，定義在 `Core_Settings.gs` 開頭 `const COL`）
 ```
-PC(眾生·33欄，2026-07 折表後·鑑賞眾生同一份schema):
+PC(眾生·36欄＝33 現役＋3 死欄佔位，2026-07 折表後·鑑賞眾生同一份schema):
                 ID0 NAME1 SEX2 BACK3 STATUS4 TRAIT5 LOC6 PREF7 HP8 MP9 MAX_HP10
                 MAX_MP11 MEMORY12 INTENT13 FACTION14 RANK15
                 CONTRIB16(敵令咒餘量·solo專用) ALIGN17 PHYSICAL18(慾海肉體外顯) MARTIAL19(寶具字串·solo專用) GAME_ID20 SIX21(solo專用) TAGS22(solo專用) SEEN23(solo專用)
                 🆕 關係欄(原 REL 表·這名 NPC 對本世界御主的關係，御主自己這列留空)：
                   BOND24(好感0-100) REL_TAG25 IS_PARTY26(solo同行旗標·鑑賞不用改判LOC) MEMOIR27(🌹鑑賞共同回憶·原MAJOR_EVENT死欄復用·AI每回合memory·cap10·★釘選) REL_MEM28(關係專屬記憶/態度/專屬稱呼)
                 🆕 世界狀態欄(原 CLK/AUTH 表·只在solo御主自己那一列有意義，鑑賞恆不用)：
-                  DAY29 HOUR30 AP31 HOME_LOC32(居所·工房加成)
+                  DAY29 HOUR30 AP31 HOME_LOC32 ｜ MONEY33/UPKEEP_WEEK34/ROOM35（死欄佔位·恆空·寧棄用不刪，新欄從 36 起）(居所·工房加成)
 MAP:  REGION0 NAME1 TYPE2 COORD3 DESC4 PARENT5 WAR6(4th/5th戰爭限定節點過濾用·solo專用)
 HERO(英靈殿，2026-07 起17欄): ID0 CLS1 NAME2 SEX3 SIX4 CLASS_SKILLS5 SKILLS6 TRAITS7 NP8 PERSONA9(戰時persona JSON·內含dailyBack等新增鍵) ALIGN10 WARS11 SOURCE12(seed/ai_gen)
                 🌹 DAILY_LOOK13/DAILY_WORDS14/DAILY_MOE15/DAILY_OUTFIT16(2026-07新增·鑑賞專用「日常化」快取，solo戰爭完全不讀這4欄，solo讀的是PERSONA JSON內的戰時look/words/moe)
-MASTER(御主殿·solo專用rival codex，鑑賞companion走英靈殿不走這張): ID0 NAME1 SEX2 APPEAR3 MAGIC4 CIRCUITS5 MELEE6 MAGIC_RANK7 HOME8 WISH9 PERSONA10 WAR11 SOURCE12 BACK13 MOE14
+MASTER(御主殿·solo專用rival codex，鑑賞companion走英靈殿不走這張): ID0 NAME1 SEX2 APPEAR3 MAGIC4 CIRCUITS5 MELEE6 MAGIC_RANK7 HOME8 WISH9 PERSONA10 WAR11 SOURCE12 BACK13 MOE14 ALIGN15
 ACC(帳號·4欄): NAME0 PC1(solo御主連結) CREATED2 KPC3(🌹2026-07新增·鑑賞御主avatar連結，與PC分開兩欄、互不覆寫)
 ※ GAL(鑑賞封存·舊版奪杯封存表)：2026-07 已確認全代碼庫無讀寫者並整條移除schema定義，不再是COL的一部分。
 ```
-註：舊九州欄（MONEY/WEP/ARM/ACC1-2/LIFESKILL/CLS/五圍 STR~LUK）與 2026-07 折表前的獨立 REL/CLK/AUTH/HIST 表已**真的刪除**（非保留死欄）；`REALM` 死欄亦於 2026-07 真的移除。`buildPlayerStatusString` 的 `§` 字串仍填 6 個空位保前端定位（協議層佔位）。COL.PC 每欄「solo專用/鑑賞專用/共用」的完整逐欄標註，見 §12。
+註：舊九州欄（WEP/ARM/ACC1-2/LIFESKILL/CLS/五圍 STR~LUK；MONEY/UPKEEP_WEEK/ROOM 三欄例外，是砍經濟層後留下的死欄佔位）與 2026-07 折表前的獨立 REL/CLK/AUTH/HIST 表已**真的刪除**（非保留死欄）；`REALM` 死欄亦於 2026-07 真的移除。`buildPlayerStatusString` 的 `§` 字串仍填 6 個空位保前端定位（協議層佔位）。COL.PC 每欄「solo專用/鑑賞專用/共用」的完整逐欄標註，見 §12。
 
 ### MEMORY 標記（存 `COL.PC.MEMORY`·全形 `｜` 分隔，讀取器須排除 `｜`）
-`【願望】【魔術】【迴路】N【出身】【體術】`(御主種子·2026-07起體術/魔術不再只寫不讀——`masterCard_`/`enemyMasterCard_`讀進演出卡當能力描述，體術另外經`injectMasterMeleeSupport_`給玩家側從者真實戰鬥支援傷害，見§6步驟8) ｜ `【令咒】N`(預設3) ｜ `【試煉】N`(god_hand 復活命數·無標記預設11＝赫拉克勒斯專屬；AI 產物召喚時標3·尼祿三度輝映基準) ｜ `【模式】canon/chaos`｜`【戰爭】4th/5th/fake`｜`【扮演】<御主id>`(創角設定) ｜ `【禮裝】id`(被動禮裝) ｜ `【出力】`(靈基出力檔·預設60) ｜ `【寶具選】N`(多寶具) ｜ `【符文】`(斯卡哈) ｜ `【御主】名`/`【從者】名`(敵主從硬連結) ｜ `【海怪護盾】cur|max|expiry`(青鬍子海怪肉身) ｜ `【整備至】N`(餐buff) ｜ `【陣地】地`(工房) ｜ `【搜刮】地`(枯竭) ｜ `【盟約至】day`｜`【鑑賞緣】`(盟友90+解鎖封存) ｜ `【靈基透支】N`(令咒盡死線) ｜ `【喪失從者】名`｜`【破戒奪取】`｜`【羈絆里程碑】30,60`(該NPC自己列·記錄已演出過的BOND門檻，2026-07新增)｜`【帳號】acct`(慾海御主) ｜ NSFW：`[雙修技巧][專屬稱呼]`(`[交談輪數]`2026-07隨log_summary一併移除；`[性愛時敏感部位]`/`[親密次數]`2026-07隨「窺視神髓」UI面板一併移除——那是這兩者唯一的消費者，面板拿掉後即成死欄)。
+`【願望】【魔術】【迴路】N【出身】【體術】`(御主種子·2026-07起體術/魔術不再只寫不讀——`masterCard_`/`enemyMasterCard_`讀進演出卡當能力描述，體術另外經`injectMasterMeleeSupport_`給玩家側從者真實戰鬥支援傷害，見§6步驟8) ｜ `【令咒】N`(預設3) ｜ `【試煉】N`(god_hand 復活命數·無標記預設11＝赫拉克勒斯專屬；AI 產物召喚時標3·尼祿三度輝映基準) ｜ `【模式】canon/chaos`｜`【戰爭】4th/5th（fake 已清空）`｜`【扮演】<御主id>`(創角設定) ｜ `【禮裝】id`(被動禮裝) ｜ `【出力】`(靈基出力檔·預設60) ｜ `【寶具選】N`(多寶具) ｜ `【符文】`(斯卡哈) ｜ `【御主】名`/`【從者】名`(敵主從硬連結) ｜ `【海怪護盾】cur|max|expiry`(青鬍子海怪肉身) ｜ `【整備至】N`(餐buff) ｜ `【陣地】地`(工房) ｜ `【搜刮】地`(枯竭) ｜ `【盟約至】day`｜`【靈基透支】N`(令咒盡死線) ｜ `【喪失從者】名`｜`【破戒奪取】`｜`【羈絆里程碑】30,60`(該NPC自己列·記錄已演出過的BOND門檻，2026-07新增)｜`【帳號】acct`(慾海御主) ｜ NSFW：``[性愛時敏感部位]`/`[親密次數]`2026-07隨「窺視神髓」UI面板一併移除——那是這兩者唯一的消費者，面板拿掉後即成死欄)。
 
 ## 4. 檔案地圖
 
-📖 **檔案地圖已移到 `CODE_MAP.md`**（一頁式：每檔行數／函式數／職責／何時要動它＋全 65 action 對照＋資料驅動表索引）。
+📖 **檔案地圖已移到 `CODE_MAP.md`**（一頁式：每檔行數／函式數／職責／何時要動它＋全 67 action 對照＋資料驅動表索引）。
 逐函式細節見 `FUNCTION_MANUAL.md`。**這裡刻意不再維護第二份檔案清單**——先前那份的行數與歸屬已隨多次搬檔漂掉（例如 `actionPlay` 早已從 `Router_Narrative.gs` 搬到 `Gallery.gs`），兩份並存只會騙下一個失憶的我。本章往下只留「拆檔慣例」這種不會隨行數變動的架構決策。
 
 ### 4.1 檔案拆分慣例（2026-07 定案·未來新增檔案照這個模式，別重新發明）
@@ -124,14 +124,14 @@ ACC(帳號·4欄): NAME0 PC1(solo御主連結) CREATED2 KPC3(🌹2026-07新增·
 攻擊規模由寶具名關鍵字或 `ea/excalibur/ubw/summon_horror` 推定；防禦規模：`c.horrorUp`(🐙海怪在場·變身態)=對城、`territory`=對軍，其餘對人。※2026-07：對城防由「有 summon_horror fx 恆給」改綁「海怪實際在場」；`wall_def` 一併移出規模表(本職＝物理減傷×0.82·恆給對城規模會架空海怪變身＋讓 AI 自訂掛牆砍半對人寶具)。特判：`對神`(弒神寶具·vs神性×2.4)、`疫病 vs 病死宿命`×3.0。
 
 ### 概念位階 `CONCEPT_TIER`（PIERCE_GAP=2）
-`ea:6 ＞ excalibur/divine_age/rule_breaker:5 ＞ ubw/anti_magic_lance/gae_bolg:4 ＞ god_hand/tsubame/zabaniya/petrify:3 ＞ nullify_magic/divine_core/territory:2`。
+`ea/enuma:6 ＞ excalibur/divine_age/rule_breaker:5 ＞ ubw/anti_magic_lance/gae_bolg/summon_horror/rho_aias:4 ＞ god_hand/tsubame/zabaniya/petrify:3 ＞ nullify_magic/divine_core/territory:2`（唯 6 階能貫穿 rho_aias；以 `Engine_Fate.gs` 的表為準）。
 
 ### 🔋 出力電池制（御主＝唯一魔力池）
 從者**無自有魔力池**，與御主共用一池（存御主MP，上限 `masterPoolMax_`=迴路×10＋從者魔力×2）。從者有「靈基出力檔位」旋鈕(20~100%·`OUTPUT_TIERS_`)，持續抽御主MP維持；放寶具須100%全開＋付 `npPranaCost_`(E40→EX300，`drainForNp_`：MP不足焚御主血2:1)。池見底→**被動燃血**(`applyRegen_`：缺口÷2 全額扣【御主】HP·從者不扣血·2026-07 玩家定案)。回魔三態：♻️自然(靈脈/休息·`applyRegen_`)／💧補魔(`mana_supply`·永久燒迴路·血上限↓)／🩸燃血(被動)。
 
 ## 7. 禮裝（`Mystic_Code.gs`·2026-06 全面被動化）
 
-持有即戰鬥自動加持我方從者，**無主動發動/充能/迴路門檻**。`injectMysticBuff_` 在 `actionFateBattle` 三處把 `{n,r,fx}` 注入我方從者(atkC開場對轟／每回合sC／fateStrike_ defC守方)，引擎 `mcCombatFx_` 讀 `MC_COMBAT_` 三通道套用。**創角玩家自選**(2026-07)，不看財力/迴路——`rollMysticForMaster_`(財力機率版)現無呼叫者，保留給未來「戰中掉落」用途。**2026-07 玩家定案砍3項**：起源彈/月靈髓液/寶石劍已移除。
+持有即戰鬥自動加持我方從者，**無主動發動/充能/迴路門檻**。`injectMysticBuff_` 在 `actionFateBattle` 三處把 `{n,r,fx}` 注入我方從者(atkC開場對轟／每回合sC／fateStrike_ defC守方)，引擎 `mcCombatFx_` 讀 `MC_COMBAT_` 三通道套用。**2026-07 玩家定案砍3項**：起源彈/月靈髓液/寶石劍已移除。
 
 | id | fx | 效果(MC_COMBAT_) |
 |---|---|---|
@@ -144,24 +144,24 @@ ACC(帳號·4欄): NAME0 PC1(solo御主連結) CREATED2 KPC3(🌹2026-07新增·
 
 `applyModeUI()` 總開關：**solo**(FATE單人戰爭·主體)／**full**(九州全模擬·停用)／**kanshou**(鑑賞約會)。
 - **創角→召喚→開戰**：登入→新局(清舊檔)→正史/混亂→戰爭(4th/5th/fake)→扮正典御主/自創→取名→締約(命運測定3骰前端擲)→`create`(AI生御主一次寫入)→`summon_servant`(英靈殿實體化 或 AI原創·`seedRivalsForGame_`鋪敵)。
-- **敵方陣容**：`FATE_5TH/4TH_ROSTER`(正典7組)或`FATE_FAKE_ROSTER`(偽聖杯)或chaos洗牌；扮演的御主那組/奪取的從者那組移除；主從硬連結`【御主】/【從者】`。
+- **敵方陣容**：`FATE_5TH/4TH_ROSTER`(正典7組)或chaos洗牌（偽聖杯 `FATE_FAKE_ROSTER` 已清空）；扮演的御主那組/奪取的從者那組移除；主從硬連結`【御主】/【從者】`。
 - **世界自走 `worldTick_`**：每次推進時間，敵御主35%移位、暗處從者供魔崩潰/廝殺殞落(保底WORLD_FLOOR_=4)、令咒透支到期崩解；玩家僅以「傳聞」(戰爭迷霧SEEN)得知。
 - **結局**：全滅→假夢(依願望)→老虎道場→寫史→清局(`actionEndRun`，僅清資料·不再寫任何鑑賞相關表)。
 
 **⚠ 鑑賞管線已於 2026-07 整個換掉，不再是「奪杯封存→邀請」流程**——舊版 `actionClaimGrail`/「鑑賞」(GAL)封存表/`KSV_`封存從者邀請三者皆已死(GAL表查無讀寫者，見 §3)。**現行管線**：
-- `enter_kanshou`(`actionEnterKanshou`)：每帳號唯一常駐後日談世界，首次進入才建立`KPC_`御主avatar(帳號表`COL.ACC.KPC`欄結構性連結，`kanshouOwnedRowIdx_`每次操作前驗證所有權)，之後永遠直接接續，不重講開場。
+- `enter_kanshou`(`actionEnterKanshou`)：每帳號唯一常駐後日談世界，首次進入才建立`KPC_`御主avatar(帳號表`COL.ACC.KPC`欄結構性連結，所有權由 dispatcher 的 `verifyPcOwnership_` 統一驗、handler 用 `kanshouPcIdx_` 找列（舊的逐 handler `kanshouOwnedRowIdx_` 已移除）)，之後永遠直接接續，不重講開場。
 - `kanshou_summon_hero`(`actionKanshouSummonHero`)：**不需先在solo打贏一場戰爭**，直接從「英靈殿」codex挑一位召喚，`heroToKanshouRow_`建列(`KHV_`前綴)——刻意不帶任何戰鬥資料(SIX/TAGS/MARTIAL留空)，改讀該英靈的「日常」快取欄位(`DAILY_LOOK/DAILY_WORDS/DAILY_MOE/DAILY_OUTFIT`，見§3)組出TRAIT/PREF/INTENT。所有召喚者初始一律 BOND 10、REL_TAG「點頭之交」(舊「房東房客」世界觀給3位房客高初始好感的機制已隨經濟/房東房客一併砍除)，之後依`KANSHOU_REL_TIER_`5階好感自動升級稱謂(點頭之交→普通朋友→熟識的朋友→親近的人→戀人)。召喚無容量上限，只能召喚一次(已存在則拒絕)。
-- **2026-07 §91「駐留制」大改版(取代舊「同行」隊伍系統)**：kanshou 已完全不用`IS_PARTY`欄位——「在場」純看`LOC===當前地點`，按鍵移動不再強拉任何人同步(每個人獨立行動)，只有AI敘事內明講「一起移動」時才會同步當時已在場的人。AI prompt 詳細人物卡(`partyDetailsArr`)按好感排序取前3人，是**prompt 篇幅上限**、不是玩法容量上限——同地點第4人仍然存在、仍可被特定劇情(橋段/欠租/敲門)點名，只是不會出現在那回合的詳細卡。人物清單(`actionKanshouCompanions`/`getKanshouPeopleList_`)一律列出所有已存在角色，無此截斷。
-- **橋段(劇本化場景)骨架 `KANSHOU_SCENE_EVENTS_`**：夜襲／賴床叫醒兩個橋段(肉償已刪除)皆走「GAS判斷可觸發時機→前端顯示按鈕→玩家按下才詢問→GAS依好感roll分支→AI只在該分支內敘事」的offer+accept模式，玩家永遍不會被劇情硬拖走、也不會靠自己打字硬凹出想要的演出。
+- **2026-07 §91「駐留制」大改版(取代舊「同行」隊伍系統)**：kanshou 已完全不用`IS_PARTY`欄位——「在場」純看`LOC===當前地點`，按鍵移動不再強拉任何人同步(每個人獨立行動)，只有AI敘事內明講「一起移動」時才會同步當時已在場的人。AI prompt 詳細人物卡(`partyDetailsArr`)按好感排序取前 `KANSHOU_PARTY_DETAIL_CAP_`=5 人，是**prompt 篇幅上限**、不是玩法容量上限——同地點第 6 人仍然存在、仍可被特定劇情(橋段/欠租/敲門)點名，只是不會出現在那回合的詳細卡。人物清單(`actionKanshouCompanions`/`getKanshouPeopleList_`)一律列出所有已存在角色，無此截斷。
+- **橋段(劇本化場景)骨架已整批移除**（2026-07 拆 offer+accept 泡泡、2026-09 砍光預寫池 `KANSHOU_SCENE_EVENTS_` 等四張表）：地點×時段×同居發生什麼由 AI 依 ★ 事實即興；只剩深夜訪客 `nightGuest` 這類「GAS 先落盤、前端給善後鍵」的形狀。見 `KANSHOU_REFERENCE.md` §橋段。
 - **平行世界設定(2026-06 玩家定案·核心原則)**：鑑賞世界「從未發生過聖杯戰爭」——角色仍是原本的英靈，但不背負戰爭/創傷造成的沉重反差，`persona.moe/look/words`(戰時版，solo專用)一律要先過daily轉換管線(`translateMoeToDaily_`/`translateLookToDaily_`/`translatePersonalityToDaily_`，AI原創英靈適用；種子英靈由人工手寫`dailyMoe`等4欄)才能進鑑賞，禁止任何戰時原始欄位不經轉換直接餵給鑑賞AI——這條原則歷經多輪稽核抓出的洩漏(`persona.back`身世／`persona.speech`+`tic`口吻小動作)已於2026-07修正，完整清單與逐函式track歸屬見 §12。
-- `actionPlay`(Gallery.gs)是鑑賞唯一的敘事引擎，入口即擋非`KPC_`呼叫；`buildDefaultSystemPrompt`/`nsfwBaseRules`(紅線①)只服務這個函式。
+- `actionPlay`(Gallery.gs)是鑑賞唯一的敘事引擎，入口即擋非`KPC_`呼叫；`buildDefaultSystemPrompt`/`nsfwBaseRules`(演化核心·可改·紅線①流程)只服務這個函式。
 
 ## 9. 紅線 · 部署 · 工作流程
 
-**🚨 紅線**（2026-07 CLAUDE.md 已移除「GAS repo 不可動」一條，九州衍生碼清理判斷併入工程準則）：① `Gallery.gs` 的 `nsfwBaseRules`＋整套 NSFW 一律不可改（改鄰近處事後 `git diff -- gas/Gallery.gs | grep nsfwBaseRules` 須0）；② show-don't-tell；③ 只在 `claude/traditional-chinese-chat-q8ptho` 開發；④ model id 不進 repo；⑤ commit footer 固定。
+**🚨 紅線**（2026-07 CLAUDE.md 已移除「GAS repo 不可動」一條，九州衍生碼清理判斷併入工程準則）：① `Gallery.gs` 的 `nsfwBaseRules` 是演化核心：**可改**（2026-07 玩家取消禁區、2026-09 再確認），但改前用模擬器量現況、改完跑全套探針、確認原本正常的配對沒被改壞；② show-don't-tell；③ 只在 `claude/traditional-chinese-chat-q8ptho` 開發；④ model id 不進 repo；⑤ commit footer 固定。
 
 **驗證**：改完必跑 `bash check.sh`（驗所有 .gs ＋ Script.html 內嵌 JS·CI 不檢查 .html JS）。
-**部署**：push 該分支 → GitHub Action(clasp 3.3.0·`clasp push -f`) 自動覆蓋上 GAS。
+**部署**：push 該分支 → GitHub Action(clasp 3.3.0·`clasp push -f`) 自動同步代碼進 GAS 專案（⚠ 2026-09 前 deploy.yml 從未監聽本分支、一直只靠手動 dispatch；已補）。**push ≠ 上線**：要玩家看到新版須再手動 workflow_dispatch 跑 `clasp deploy`。
 **紀律**：改代碼順手更新 `SOLO_REFERENCE.md`／本檔（新增 action/函數/MEMORY標記/schema 欄位時回補）。
 
 **🛠️ 工程準則（最高價值觀·詳見 `CLAUDE.md`）**：**穩健・快速・易擴充・易維護，永遠從根源解、不做臨時應變方案。** 資料驅動優先（查表勝 if 鏈）、單一真實來源、複用引擎機制不加特例、守 3→1 round-trip、發現舊做法錯就重構掉（別疊補丁）。
@@ -169,7 +169,7 @@ ACC(帳號·4欄): NAME0 PC1(solo御主連結) CREATED2 KPC3(🌹2026-07新增·
 ## 10. 已知遺產/待辦（掃描發現）
 
 - ~~`COL.PC.REALM`：階級系統移除後恆寫空字串，但 COL 位置索引不可刪，維持棄用。~~ 2026-07：隨整體 COL.PC 折表重排，`REALM` 已真的移除（非棄用死欄），見 §3 COL schema。
-- `actionGetMasters` 對 `fake`/`chaos` 戰爭回傳 5th 名冊；`seedRivalsForGame_` fake 分支不理 `【扮演】`——目前前端觸發不到（latent），未來若開放 fake 扮演須補。
+- `actionGetMasters` 對 `chaos` 戰爭回傳 5th 名冊；`FATE_FAKE_ROSTER`／fake 分支已清空（Seed_Codex.gs 註解「偽聖杯陣容已清空」），現只有 4th/5th/chaos 三種。
 - `dev_resync_codex`(套最新平衡·可留)：DEV 工具。（`dev_seed_gallery` 舊測試從者產生器已移除。）
 - `RESEED_VER`/`CODEX_PERSONA_VER`：一次性遷移旗標，旗標守門下無效能損失，保留無害。
 
@@ -190,10 +190,10 @@ ACC(帳號·4欄): NAME0 PC1(solo御主連結) CREATED2 KPC3(🌹2026-07新增·
 ### 分離機制總覽（三層防護，由結構到約定）
 1. **物理分表**：solo 用「眾生」，鑑賞用「鑑賞眾生」(`getKanshouPcSheet_` 動態建、schema複製但物理獨立)——`handleGameAction`依`pcId`是否`KPC_`開頭決定`sheets.pc`指向哪張表。**這是最強的防護，兩張表的列從不互相讀寫**。
 2. **Dispatcher 黑名單**：`KANSHOU_BLOCKED_ACTIONS_`(Router_Action.gs)明確擋掉所有戰鬥/經濟/結盟/工房類action——`KPC_`呼叫這些action直接被拒，不執行handler。2026-07稽核追加`weapon`/`get_map_nodes`/`narrate_only`三者(過去未擋，只是資料形狀恰好無害，見下方洩漏清單)。
-3. **`game_id`前綴guard**：solo世界`game_id`恆為`"g_"+timestamp`，鑑賞恆為`"k_"+timestamp`——`isFateMove`/`isFateRest`/`isFateCtx`等一律用`indexOf("g_")===0`判斷，這是`move`(兩軌唯一共用的地圖類action)內部所有戰鬥/世界自走邏輯的實際防線。
+3. **`game_id`前綴guard**：solo世界`game_id`恆為`"g_"+timestamp`，鑑賞恆為`"k_"+timestamp`——`isFateMove`/`isFateRest`/`isFateCtx`等一律用`indexOf("g_")===0`判斷，這是`move`（鑑賞已被 `KANSHOU_BLOCKED_ACTIONS_` 擋下，solo 專用）內部所有戰鬥/世界自走邏輯的實際防線。
 
 ### COL.PC 逐欄 track 標註
-solo專用：`CONTRIB`(敵令咒餘量)／`MARTIAL`(寶具字串)／`SIX`／`TAGS`／`SEEN`／`MAJOR_EVENT`(死欄)／`DAY`/`HOUR`/`AP`/`HOME_LOC`(鑑賞恆不用)。鑑賞專用：`PHYSICAL`(肉體外顯，solo恆"{}"不顯示)。共用：`ID`/`NAME`/`SEX`/`BACK`/`STATUS`(鑑賞已用PHYSICAL取代，STATUS對鑑賞是廢寫但無害)/`TRAIT`/`LOC`/`PREF`/`HP`/`MP`/`MAX_HP`/`MAX_MP`/`MEMORY`/`INTENT`/`FACTION`/`RANK`/`ALIGN`/`GAME_ID`/`BOND`/`REL_TAG`/`IS_PARTY`/`REL_MEM`。
+solo專用：`CONTRIB`(敵令咒餘量)／`MARTIAL`(寶具字串)／`SIX`／`TAGS`／`SEEN`／`DAY`/`HOUR`/`AP`/`HOME_LOC`(鑑賞恆不用)。鑑賞專用：`PHYSICAL`(肉體外顯，solo恆"{}"不顯示)。共用：`ID`/`NAME`/`SEX`/`BACK`/`STATUS`(鑑賞已用PHYSICAL取代，STATUS對鑑賞是廢寫但無害)/`TRAIT`/`LOC`/`PREF`/`HP`/`MP`/`MAX_HP`/`MAX_MP`/`MEMORY`/`INTENT`/`FACTION`/`RANK`/`ALIGN`/`GAME_ID`/`BOND`/`REL_TAG`/`IS_PARTY`/`REL_MEM`。
 
 ### 各檔案 track 歸屬（函式數量·一句話定性，逐函式細節見對應 .gs 檔內註解）
 
@@ -201,16 +201,16 @@ solo專用：`CONTRIB`(敵令咒餘量)／`MARTIAL`(寶具字串)／`SIX`／`TAG
 |---|---|---|
 | `Core_Settings.gs` | 共用基礎設施 | COL schema／六圍換算／狀態字串／地理雷達皆共用；戰鬥限定helper(`rankVal`/`masterMaxHpMp_`/`OUTPUT_TIERS_`/`RUNE_MODES_`/`mageRealm*`/`masterSynergy*`)僅solo call site觸發，函式本身無track guard(靠呼叫端保護) |
 | `Router_Action.gs` | 分流總樞紐 | `handleGameAction`/`KANSHOU_BLOCKED_ACTIONS_`/`buildClientState_`/`buildTagsPayload_`(2026-07新增`isFateCtx`guard，見下)是兩軌分流的實際執行點 |
-| `Gallery.gs` | 鑑賞核心引擎 | `actionPlay`/`heroToKanshouRow_`/`actionEnterKanshou`/`actionKanshouSummonHero`/`translate*ToDaily_`/`nsfwBaseRules`(紅線①)全部鑑賞專用；`findPlayerServant_`/`purgeGameData_`/`actionEndRun`是solo專用(檔案位置歷史因素放在這裡) |
+| `Gallery.gs` | 鑑賞核心引擎 | `actionPlay`/`heroToKanshouRow_`/`actionEnterKanshou`/`actionKanshouSummonHero`/`translate*ToDaily_`/`nsfwBaseRules`(紅線①)全部鑑賞專用 |
 | `Router_Creation.gs` | 創角/召喚(兩軌共用寫入點) | `actionSummonServant`solo專用；`recordOriginalHero_`/`actionSaveHero`/`actionGetHeroes`/`parseForgeBuild_`是兩軌共用的英靈殿寫入/讀取路徑，`parseForgeBuild_`靠`cls==='御主'`分支正確拆開鑑賞companion(無六圍/技能/NP)與solo戰鬥從者 |
 | `Router_Persona.gs` | 演出卡組裝 | `servantCard_`/`masterCard_`/`enemyMasterCard_`/`quadLabeled_`皆solo專用(鑑賞在Gallery.gs自己另有`formatPref`/`formatTrait`，兩者邏輯相近但物理重複，非bug但是維護債) |
 | `Router_Battle.gs`／`Engine_Fate.gs` | 純solo戰鬥核心 | 全部函式solo專用，經`KANSHOU_BLOCKED_ACTIONS_`(`fate_battle`/`summon_horror_beast`等)+資料結構雙重確認鑑賞不可達；`servantNpOptions_`(Engine_Fate.gs)是唯一一個被`buildTagsPayload_`共用路徑無guard呼叫過的戰鬥函式(已於2026-07修正，見下) |
-| `Engine_Combat.gs` | 兩軌共用AI呼叫核心 | `callGeminiAPI`/`doGet`是唯二函式，`nsfwBaseRules`/`buildDefaultSystemPrompt`已於更早的重構移到Gallery.gs，此檔現在完全不含紅線常數本體 |
-| `Router_Bond.gs`／`Router_Movement.gs`／`Router_Economy.gs` | solo專用系統 | 羈絆/令咒/結盟/破戒奪僕/地圖移動/靈基出力/魔境/符文/補魔——全部經`KANSHOU_BLOCKED_ACTIONS_`擋下；`move`/`get_map_nodes`是例外(見下方「共用但單向」) |
+| `Engine_Combat.gs` | 兩軌共用AI呼叫核心 | `callGeminiAPI`/`doGet`＋審查攔截保底 `aiFallbackNarration_`/`aiFallbackData_` 共四支，`nsfwBaseRules`/`buildDefaultSystemPrompt`已於更早的重構移到Gallery.gs，此檔現在完全不含紅線常數本體 |
+| `Router_Bond.gs`／`Router_Movement.gs`／`Router_Economy.gs` | solo專用系統 | 羈絆/令咒/結盟/破戒奪僕/地圖移動/靈基出力/魔境/符文/補魔——全部經`KANSHOU_BLOCKED_ACTIONS_`擋下；`move`/`get_map_nodes` 也在黑名單裡（2026-09 稽核確認，鑑賞移動走 `play`+`moveTarget`） |
 | `Router_Narrative.gs` | solo敘事引擎 | `narrateWithState_`/`actionNarrateOnly`是solo的`miniSystem`戰爭旁白核心，2026-07前未被dispatcher明確擋鑑賞(已補，見下) |
 | `Seed_Codex.gs`／`Seed_Rivals.gs` | 種子資料 | `SEED_SERVANTS`(英靈殿範本)兩軌共讀；`SEED_MASTERS`/`seedRivalsForGame_`/`heroToNpcRow_`/`masterToNpcRow_`solo專用(鋪敵) |
 | `Setup_FateWorld.gs`／`Time_World.gs` | 冪等建表／solo時間經濟 | 建表對兩軌都跑但只管schema非玩家資料；Time_World全部函式solo專用，call site皆在`isFateMove`/`isFateRest`保護傘內 |
-| `Account.gs` | 帳號連結層 | `COL.ACC.PC`(solo)/`COL.ACC.KPC`(鑑賞)兩欄分開寫死，`kanshouOwnedRowIdx_`(Gallery.gs)每次操作前驗證鑑賞所有權——這條分離線完整且經稽核確認未鬆動 |
+| `Account.gs` | 帳號連結層 | `findPlayerServant_`/`purgeGameData_`/`actionEndRun`(solo 專用·定義在本檔)；`COL.ACC.PC`(solo)/`COL.ACC.KPC`(鑑賞)兩欄分開寫死，dispatcher `verifyPcOwnership_` 每次操作前驗證鑑賞所有權（舊 `kanshouOwnedRowIdx_` 已移除）——這條分離線完整且經稽核確認未鬆動 |
 | `History_Sync.gs` | 兩軌共用單一表 | 「歷史暫存」是全代碼庫唯一一個**不靠物理分表、只靠pcId字串前綴(`PC_`vs`KPC_`)隔離**的共用資料層——目前因ID前綴互斥而安全，但是架構上的例外，未來若曾出現一個不帶標準前綴的ID生成路徑，這裡會是唯一的破口 |
 | `Mystic_Code.gs` | solo專用 | 全部函式solo專用，鑑賞UI/資料結構皆無法觸達(companion的MEMORY不可能含`【禮裝】`) |
 
@@ -227,4 +227,4 @@ solo專用：`CONTRIB`(敵令咒餘量)／`MARTIAL`(寶具字串)／`SIX`／`TAG
 - `getNearbyLocations`(Core_Settings.gs)未對`COL.MAP.WAR`欄位做過濾，儘管該欄位schema註解明確是為此設計——過濾邏輯若存在應在別處，本輪未追蹤到，不影響鑑賞(鑑賞用不到這個function)。
 - `FACTION="從者"`欄位值在3位女性正典御主(`cls:'御主'`)被召喚進鑑賞後也一併被標成`"從者"`——純內部過濾用途、從未被解讀成文字餵給AI(AI看的是`REL_TAG`)，語意上有點怪但無害。
 - `History_Sync.gs`「歷史暫存」表靠pcId前綴而非物理分表隔離兩軌(見上方檔案總覽)——目前安全，架構脆弱點已記錄。
-- `getMapDataCached`等坤圖快取、`Router_Movement.gs`的`actionMove`/`buildMapNodesPayload_`鑑賞UI已不使用(鑑賞改AI自訂地點，不走固定地圖節點)，`SOLO_REFERENCE.md`舊註解說「move故意兩軌共用」已是過時說法，現狀是「dispatcher層級沒擋，但UI層級鑑賞根本不呼叫」，未來若鑑賞真的需要地圖節點功能，需重新設計而非直接複用solo的固定節點清單。
+- `getMapDataCached`等坤圖快取、`Router_Movement.gs`的`actionMove`/`buildMapNodesPayload_`：鑑賞不使用（改 AI 自訂地點＋世界帳本），且 dispatcher 層級也已擋（`KANSHOU_BLOCKED_ACTIONS_` 含 `move`/`get_map_nodes`）。舊說法「dispatcher 沒擋只是 UI 不用」已過時。

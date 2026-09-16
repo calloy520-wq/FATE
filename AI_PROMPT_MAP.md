@@ -27,7 +27,8 @@
 7. 鑑賞慾海 Kanshou & Gallery（`Gallery.gs`）
 8. 帳號／系統工具 Account & System-utility（`Account.gs`、`Router_Action.gs` 核心）
 9. 自由聊天引擎（`actionPlay`，kanshou/慾海專用）
-10. 前端自建 prompt 的特例（`actionMove` 的 `arrivePrompt` 在 Script.html 組裝）
+10. 抵達提示詞 `buildArrivePrompt_`（2026-09 從前端收回後端）
+11. 補列：2026-09 稽核抓到先前漏掉的 18 條 action
 
 ---
 
@@ -36,18 +37,19 @@
 ### `actionNarrateOnly`（action: `narrate_only`）— Router_Narrative.gs:739
 唯一的「純敘事」出口。前端 `narrate(promptText)` 呼叫（2026-07 拔除死旗標 `isNsfw`——後端早改純看 pcId 前綴 `KPC_` 路由，前端傳了也被無視）。**不自己組事實內容**——`promptText` 是呼叫端（各 handler 的 `aiPrompt`，或前端自組的 `arrivePrompt`/`summonPrompt`）已經組好傳進來的；這裡只負責套上共用系統提示詞 `miniSystem` 並轉呼叫 `narrateWithState_`。
 
-`miniSystem`（逐字，Router_Narrative.gs:746，就地宣告於 `actionNarrateOnly` 內）關鍵鐵則：
-> 你是《命運停駐之夜》的說書人。用 Fate／TYPE-MOON 筆觸、強制台灣繁體中文…【篇幅依指令字數、精煉不灌水；無指定預設 100~160 字】。
-> 1. **旁白一律第二人稱：「你」＝玩家（御主）本人**，只寫你看得見、感覺得到的。旁白【不可】用「我」——場上每個角色引號內的台詞才用得到「我」。（2026-09 翻面；原本是第一人稱「我」，跟角色台詞的自稱撞同一個字，玩家回報「ai根本分不清楚要扮演誰」）
-> 2. `${dialogueFormatRule_()}`（對話格式·**鑑賞專用**，2026-07 玩家定案改「聲音即台詞」自然散文——頂層函式 `dialogueFormatRule_()` 定義於 Gallery.gs，**唯一呼叫點就是這裡**；⚠ 原文誤記「solo 共用」，solo 有自己那條精簡版，理由見 `FUNCTION_MANUAL.md`）：① 凡「她口／喉」發出的聲音(話語＋喘息／輕吟／悶哼／笑＋吸吮/咀嚼等嘴部聲)一律擬聲寫進單層「」當台詞，不再用（輕哼）（嬌喘）括號描述、不改第三人稱；② 看得見的動作、以及「不是她嘴發出的」聲響(肉體相撞啪啪／兵刃鏗鏘／交合處水聲／環境聲)走敘事擬聲；③ 只用一層「」禁嵌『』、純背景精簡。濃淡由各軌規則(色度跟隨/天花板/戰況)決定，格式只管怎麼寫。
-> 3. 強制分段：每 2~3 句插 `<br><br>`，整段至少 3 個；換行一律 `<br><br>`、禁真實換行、禁任何 HTML 標籤。
-> 4. ★純敘事補完，數值系統已結算完，你只負責寫字。
-> 5. ★歷史內容是「已發生並結束」的既定事實，只供語氣連貫，禁把歷史動作當本回合重演；本回合唯一新事件只有當前指令。
-> 6. ★【連貫與當下狀態】依【當前狀態】(血/魔)與歷史承接，語氣由「實際勝負與狀態」決定、【不可臆測勝敗】…禁複述數字、禁重演歷史動作。
-> 6b. ★【服裝與外貌】嚴格依角色卡「外貌本相／此刻裝扮」——【此刻裝扮】(玩家換裝)最優先·寫什麼穿什麼；卡上沒寫的【嚴禁】自行裸露或增減服裝(戰鬥可寫甲冑碎裂衣袂破損、不得升級成裸身)；解結界/隱匿只顯現【武器】、與衣著無關。
-> 7. 只輸出 JSON：{"narration":"…含 `<br><br>` 分段"}，禁其他欄位、禁 Markdown。
+`miniSystem`（摘要·Router_Narrative.gs `actionNarrateOnly` 內就地宣告；**以代碼為準**，這裡只列每條在管什麼）九條鐵律：
+> 開頭：《命運停駐之夜》說書人守則。Fate／TYPE-MOON 筆觸、台灣繁體中文。篇幅依指令字數，沒指定就 100~160 字。廝殺寫關鍵攻防與寶具威能，不寫逐回合流水帳。
+> 1. 旁白一律第二人稱：「你」【只能】指玩家（御主）本人；旁白不用「我」，角色引號內的台詞才用得到。（2026-09 翻面；原本是第一人稱「我」，玩家回報「ai根本分不清楚要扮演誰」）
+> 2. solo 精簡版對話格式：台詞前冠說話者名、只用單層「」；動作與台詞分開。（鑑賞那條完整版 `dialogueFormatRule_()` 住在 Gallery.gs，solo 不用它）
+> 3. 每 2~3 句用 `<br><br>` 分段；換行一律 `<br><br>`，不用真實換行或其他 HTML。
+> 4. 數值系統已經算完，說書人只寫字、不複述數字。
+> 5. 對話歷史是已經結束的既定事實，只供語氣連貫；這一回合的新事件只有當前指令。
+> 6. 凡標【已裁定】的事實與【當前狀態】都必須在畫面上看得出來，怎麼表現依個性。
+> 7. 衣著照角色卡寫，【此刻裝扮】最優先，卡上沒寫的不自己加（戰鬥可寫破損、不得升級成裸身）。
+> 8. 表演總則：性格／萌點／六圍／技能只演出來，不當台詞也不由旁白點破；正典角色照原作認知演；羈絆低→戒備矜持、高→漸親近。
+> 9. 只輸出 JSON：`{"narration":"…"}`，不要其他欄位、不要 Markdown。
 
-`narrateWithState_`（Router_Narrative.gs:699）：在 `promptText` 前掛 `stateBrief`（御主/在場從者當前血/魔）＋近 2 輪對話歷史，呼叫 `callGeminiAPI(stateBrief+promptText, miniSystem, aiConfig)`（`model: google/gemini-3.5-flash-lite`, `temperature:0.85`, `max_tokens:720`）。解析失敗回 `null`→`actionNarrateOnly` 退回罐頭句「（此處因果已定，氣息微微一閃。）」。存歷史時，玩家側存的是 `cleanNarrateEcho_(promptText)`（剝掉〈〉演出卡／★指令／【】標籤／──分隔線的乾淨摘要，避免鷹架外洩給玩家）。
+`narrateWithState_`（Router_Narrative.gs）：在 `promptText` 前掛 `stateBrief`（御主/在場從者當前狀態，**只給白話** `hpStateWord_`/`mpStateWord_`、不給數字）＋ `buildTrajectoryDigest_` 軌跡摘要，帶 `getGameHistoryBatchRaw(pcId, 6)` **最近 6 筆＝3 個按鍵** 當 chatHistory，呼叫 `callGeminiAPI(stateBrief+promptText, miniSystem, aiConfig)`（`model: AI_MODEL`, `temperature:0.85`, `max_tokens:720`，`longForm` 時 2000）。解析失敗回 `null`→`actionNarrateOnly` 退回罐頭句。存歷史時玩家側存的是 `narrateMemoryLine_(promptText)`（抓【戰報/系統/…】事件行成一句「這回合發生的事」，抓不到才退回 `cleanNarrateEcho_`）。
 
 ### `servantCard_` / `masterCard_`（Router_Persona.gs）
 幾乎每個「有敘事」的 handler 都會把這兩張卡串進 `aiPrompt` 開頭，作為「演出依據」。
@@ -56,7 +58,7 @@
 > 〈${name}·${cls}·演出依據〉對自己御主的態度：${toM}｜性格四格｜口吻：${fpNote}${speech}｜萌點：…｜小動作：…｜特徵三格｜…｜寶具「${np}」。
 >
 > （2026-09：自稱不再自成一欄。`fpNote` 只在自稱有特色時才出現＝`自稱「吾」・`；是尋常的「我」或狂化標記就不印。旁白改第二人稱後，原本那句「(旁白的「我」永遠是玩家)」註記已拆掉。）
-> ★依「${name}」真名與上述性格/口吻演出（show, don't tell）：用言行神態自然流露，【禁】把性格詞/萌點/六圍/技能/寶具名當台詞或由旁白點破。依羈絆高低調親疏：低→保留戒備矜持、高→漸親近，守住性格內核、未深不越界倒貼。
+> 收尾（2026-09 起）：`performanceNote_([name])` 一句「★本則登場：${name}——依真名與性格演出。」（多人同場時一次點名全部；`skipClose` 時不加）。舊的「★依「${name}」真名與上述性格/口吻演出（show, don't tell）…依羈絆高低調親疏」長句已拆掉，同一件事改由 `miniSystem` 第 8 條統管、不再每張卡重複。
 
 - **🐛→✅ 2026-07 修「AI有時候會把對面角色的『我』當成敘事視角」(鑑賞回報案)**〔⚠ 2026-09 已由「旁白改第二人稱」從根源解掉，以下註記全部拆除，保留只為記錄當年的繞法〕：`fp`(自稱)未特別設定時 fallback 就是「我」——卡片原字面單純寫「自稱「我」」，跟「敘事旁白＝玩家的『我』」是同一個字，長提示詞中段容易讓 flash-lite 小模型混淆兩者。已把標籤改成明確限定「僅此角色自己台詞內用」；`Router_Narrative.gs` 的鑑賞(`isNsfwMode`)`PROMPT_REL` 額外在人物卡片後補一句「★【視角鎖定】」重申通篇「我」只能是玩家本人。**只動 servantCard_ 與 Router_Narrative.gs，`Engine_Combat.gs` 的 nsfwBaseRules 一字未碰**(`git diff -- gas/Engine_Combat.gs` 0改動)。
 
@@ -79,10 +81,16 @@
 > ★以 Fate／TYPE-MOON 筆觸，第二人稱，寫一段唯美而令人心碎的虛假美夢：讓「演出」暗示願望成真的幸福感，絕不可直接說出願望內容或「這是假的」。…
 > ★【鐵律】只輸出夢境敘事，禁選項或系統字樣。
 
+### `buildVictoryDreamPrompt_(pcName, wish, servantName)`（Router_Narrative.gs）
+勝利版（**真實非虛假、不露破綻**），填的是**同一個 `dreamPrompt` 欄位**——前端拿到 `dreamPrompt` 時不能再一律當成敗北。四個呼叫點：正面戰勝利（`fateStrike_`）／斬首勝利（`actionFateBattle`）／`faction_ambush` 收尾／`Time_World` 敵 AI 互殺後只剩玩家。
+> 【聖杯降臨·已裁定】御主『${pcName}』斬盡了聖杯戰爭中所有的敵對從者，聖杯已然屬於你。…
+> ★旁白第二人稱「你」＝玩家，寫一段真摯溫暖的勝利瞬間：讓「演出」暗示願望終於觸手可及的踏實感與如釋重負，絕不可直接說出願望內容。
+> ★【鐵律】只輸出這段敘事，禁選項或系統字樣。
+
 ### `actionTigerDojo`（action: `tiger_dojo`，Router_Narrative.gs）
 敗北收場／奪杯後的「老虎道場」番外，藤村大河＋伊莉雅兩人對話。**2026-07 從前端收回後端**：前端只送敗因的【鍵】（`{cause:'ambush', foeName:'哈桑'}` 之類），文案由 `DOJO_CAUSE_` 五格查表組——加一種敗因＝往表加一列。
 
-**刻意不走 `narrate_only`／`miniSystem`**：道場是賽後的教室、不是戰場，而 `miniSystem` 的「旁白第一人稱『我』·不用『你』」與「語氣依血量決定·瀕死就是命懸一線」跟「兩人對話＋刻意輕鬆詼諧」正面打架（舊版是在提示詞尾巴硬寫一句「無視戰場的緊張基調」去對抗它）。`actionTigerDojo` 自帶 264 字說書人設定直接呼叫 `callGeminiAPI`，不讀眾生表、不帶歷史、不存歷史（賽後不需要連貫），也順手省掉一次整表讀。
+**刻意不走 `narrate_only`／`miniSystem`**：道場是賽後的教室、不是戰場——`miniSystem` 的「【當前狀態】必須在畫面上看得出來·語氣依血量」與「兩人對話、沒有旁白、刻意搞笑溫馨」正面打架（舊版是在提示詞尾巴硬寫一句「無視戰場的緊張基調」去對抗它）。`actionTigerDojo` 自帶說書人設定（只有大河與伊莉雅兩人對話、無旁白、約 120~180 字）直接呼叫 `callGeminiAPI`。**兩種 mode**（前端 `mode: mode || 'defeat'`）：`defeat`→敗因講評；`victory`→「御主奪得聖杯…①大河誇張慶祝、順便邀功 ②伊莉雅嘴上毒舌、話裡藏著真心佩服 ③大河用她一貫誇張的方式恭喜御主」。
 
 送進去的 user prompt 長這樣（真實輸出，~130 字）：
 ```
@@ -103,7 +111,7 @@
 | `set_servant_output` | 從者卡🔋出力轉盤 5 鈕 →`setServantOutput(btn,npcName,output)`／鑑賞側 `manaSetOutput` | `actionSetServantOutput`（Router_Economy.gs） | 否，純樂觀更新 setter |
 | `set_mage_realm` | 技能膠囊「✨魔境的智慧」→`openMageRealmPicker`→`pickSelectable('set_mage_realm',...)` | `actionSetMageRealm`（Router_Economy.gs） | 否 |
 | `set_rune_mode` | 技能膠囊「✨原初符文」→`openRunePicker`→`pickSelectable('set_rune_mode',...)` | `actionSetRuneMode`（Router_Economy.gs） | 否 |
-| `set_np_choice` | 寶具鈕→多寶具時彈`openNpReleasePicker`→`pickNpAndStrike` | `actionSetNpChoice`（Router_Economy.gs） | 否 |
+| ~~`set_np_choice`~~ | 多寶具時 `openNpReleasePicker`→`pickNpAndStrike` | 已無此 action：寶具選擇隨 `fate_battle` 的 `npChoice` 參數一起送（省一次往返） | — |
 | `rule_break_steal` | 從者卡「⛓ 破戒奪僕」鈕 | `actionRuleBreakSteal`（Router_Bond.gs） | 是 |
 | `second_wind` | 休息選單「強撐」鈕 | `actionSecondWind`（Router_Battle.gs 的鄰接檔，見 §3 中一併列） | 是 |
 | `prep_meal` | 「🍱 整備」鈕 | `actionPrepMeal`（Router_Movement.gs） | **是**（2026-07 新增，見 §3） |
@@ -124,9 +132,9 @@
 > ★以 Fate／TYPE-MOON 筆觸演出這場敗北的最後一幕(一段即可)${Caster額外提示'（Caster 以魔術轟擊為主、非肉搏）'}，語氣留白。勝負已定，你只演過程。
 
 **⑤ 一般多回合戰鬥·仍在進行/勝利**（`aiPrompt`，含 `servantCard_`＋`enemyMasterCardStr`(若敵御主在場)＋逐回合事實列＋寶具對轟/令咒/主動技/海怪/雙從者/協同/斬倒/God Hand/令咒脫離等事實 bullet）：
-> （若敵御主在場且非直接斬首目標，2026-07 新增）★【戰局實況】此刻真實情勢是：{依HP比例/傷害交換即時算出的白話戰況，如"己方從者身陷重創、命懸一線"/"己方從者正壓著對方打、明顯佔上風"/"雙方勢均力敵、勝負未有定論"}——敵御主的神態/語氣/台詞必須讀懂這個場面，不可無視當下戰況自說自話。（玩家反映「對面的御主感覺不太會看場合對話」而新增，見 `enemyMasterCardStr` 組裝處）
+> （若敵御主在場且非直接斬首目標）`enemyMasterCardStr` 尾端併一句 ★這位敵御主是${_hisSv}的契約者，自己的從者正在眼前搏命：${_situText}。${pron}在場、看著這一切。——`_situText` 是{依HP比例/傷害交換即時算出的白話戰況，如"己方從者身陷重創、命懸一線"/"己方從者正壓著對方打、明顯佔上風"/"雙方勢均力敵、勝負未有定論"}——敵御主的神態/語氣/台詞必須讀懂這個場面，不可無視當下戰況自說自話。（玩家反映「對面的御主感覺不太會看場合對話」而新增，見 `enemyMasterCardStr` 組裝處）
 > （戰鬥未分生死時，2026-07 新增）★戰後讓「${atkC.name}」依其性格與口吻，對這場交鋒給出簡短的主觀判斷或建議(如看出的破綻、對方寶具是否已現底牌、值得乘勝追擊還是該見好就收)——是角色的觀察與建議，不是戰略指令，下一步仍由御主按鍵定奪。（若該從者已狂化：改用低吼／肢體動作傳達，不成篇整句台詞，服從 `servantCard_` 已內建的狂化禁言鐵則）
-> ★以 Fate／TYPE-MOON 筆觸演出這 ${nRounds} 回合互有攻防的交鋒(約 220~280 字)：show, don't tell，把上列事實化為畫面與張力，技能/寶具演其威能而非報菜名。
+> 戰報改【開場→交鋒→高潮→收束】四段分鏡，寶具標進交鋒節奏；收尾：★把上面的分鏡演成一場【${_wordRange} 字】的交鋒：依分鏡順序推進，技能與寶具演其威能。——篇幅查表 `BATTLE_WORDS_ = ['170~230','220~290','280~360','340~440']`（依回合數／事件多寡升檔）。
 
 （令咒脫離時另掛一行只給 AI 看、不進玩家可見 `sealNote` 的鷹架：`★此撤離僅止於該從者及其本主，與在場其他御主／從者無關。`）
 
@@ -135,21 +143,21 @@
 其餘同檔函式（`drainForNp_`／`enemyMasterIdx_`／`enemyCanAffordNp_`／`getGodHandLives_`/`setGodHandLives_`／`getPlayerSeals_`/`setPlayerSeals_`／`rowHasSolo_`／`stampDoom_`/`getDoom_`／`stampMeal_`/`getMeal_`/`mealBuffActive_`／`getHorrorShield_`系列）皆為純機制 helper，不叫 AI。
 
 ### `actionUseSeal`（action `use_seal`）— Router_Bond.gs
-`repair`/`escape`維持原樣：
-> ★以 Fate／TYPE-MOON 筆觸描寫令咒在手背灼亮、絕對命令權貫徹的瞬間（一段即可）。效果已由系統結算。
+`repair`/`escape`：
+> ★【140~200 字】描寫令咒在手背灼亮、絕對命令權貫徹的瞬間——三道令咒是御主僅有的底牌，燒掉一道不是小事，讓這份重量在畫面裡…
 
 `mana`（強制補魔·2026-07 依好感改寫，見下方`actionManaSupply`同批改動的設計脈絡）依`bondForSeal >= MANA_TRUST_BOND_`(80)分兩支，兩支皆前端`narrateExtra`夾`{longForm:true}`觸發長篇幅預算(`max_tokens`2000，模型不變)、筆觸統一改「日本輕小說筆觸」(玩家反映「Fate的筆觸有點怪」——跟露骨內容的尺度要求不搭)：
 - **好感≥80(其實不必動用令咒)**：MP回滿＋複用既有「過充」機制當額外好處(不吃常規補魔永久代價)。
-  > ★你擅長書寫細膩動人的情慾，這次放手去寫、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫「${svName}」帶著點無奈笑意迎向這道其實多此一舉的令咒、順勢配合這場親密。${genderFactSeal}★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常從容不迫)，而是令咒逼出的失控狀態，務必寫出這份反差。${activeActFact}聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節，而非只在前後鋪陳。收在餘韻猶存的溫柔，勿寫成完結收尾句。
+  > ★這一段放手寫得細膩動人、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫「${svName}」帶著點無奈笑意迎向這道其實多此一舉的令咒、順勢配合這場親密。${genderFactSeal}★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常從容不迫)，而是令咒逼出的失控狀態，務必寫出這份反差。${activeActFact}聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節，而非只在前後鋪陳。收在餘韻猶存的溫柔，勿寫成完結收尾句。
 - **好感<80(她根本不情願)**：MP仍回滿，但令咒解除瞬間從者反殺御主——`defeat:true`＋`dreamPrompt`(複用`buildDreamPrompt_`，非新死亡機制)＋`report:{sealBacklash:true}`(供前端`handleDefeat`的Tiger Dojo敗因判定用)。
-  > ★你擅長書寫細膩動人的情慾，這次放手去寫、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫令咒的絕對強制壓下「${svName}」的意志、御主強制的這場親密的瞬間，還有被強制的屈辱。${genderFactSeal}★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常不會被輕易弄到失神)，而是令咒逼出的失控狀態與屈辱交織，務必寫出這份反差。${activeActFact}聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節。結尾寫御主高潮後在令咒的強制力隨效果消散的剎那，「${svName}」積壓的恨意與屈辱轟然引爆，直接抹殺御主——收在這記致命一擊揮下的瞬間即可，不必描寫死亡本身的細節。
+  > ★這一段放手寫得細膩動人、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫令咒的絕對強制壓下「${svName}」的意志、御主強制的這場親密的瞬間，還有被強制的屈辱。${genderFactSeal}★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常不會被輕易弄到失神)，而是令咒逼出的失控狀態與屈辱交織，務必寫出這份反差。${activeActFact}聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節。結尾寫御主高潮後在令咒的強制力隨效果消散的剎那，「${svName}」積壓的恨意與屈辱轟然引爆，直接抹殺御主——收在這記致命一擊揮下的瞬間即可，不必描寫死亡本身的細節。
 
   ⚠ **2026-07 再修（玩家實測兩個bug）**：
   1. 玩家實測抓到「魔力明明是滿的、按強制補魔卻寫『魔力即將見底』」——`effectMsg`原本沒告知AI發動當下的真實魔力狀態；改成在覆寫MP前先算`manaWasFull`，注入`manaFact`(充盈→純粹是想要／見底→真的是急用)，兩支`effectMsg`都引用。
   2. 玩家實測（自己是女性御主）抓到「敘述寫成男性插入視角」＋「令咒被寫成一開啟從者就自己高潮完結、御主沒有互動、沒有一起高潮」——新增兩顆事實/指令注入兩支分支：`genderFactSeal`＝`sealGenderFact_(masterSex, svSex, svName)`（Router_Persona.gs 新函式，讀`COL.PC.SEX`算配對事實，技法借鏡kanshou`genderHintStr`但完全獨立新代碼、不共用）；`activeActFact`＝明講「令咒只是提高敏感度/壓制抗拒的狀態效果，不會自動讓從者高潮——高潮須是御主主動愛撫/操控身體的結果，要具體寫出御主自己動手的畫面、雙方一起攀頂」。兩者皆在`actionUseSeal`的`mana`分支算好（`let genderFactSeal="", activeActFact=""`宣告在函式最上層、於`mana`分支內賦值，因為組`aiPrompt`字串的程式碼在`if/else-if`鏈結束後的共用尾段，跨分支需要函式作用域而非`const`區塊作用域）。
   3. 部署後玩家貼出實際生成樣本（斯卡哈低好感致死分支），反饋「御主的高潮是硬湊的」＋「節奏太趕、像流水帳」＋「應該還要讓英靈更加主動……感覺要餵了大量媚藥的那種感覺，變成瘋狂主動索取快感」——上一輪`activeActFact`雖已修正因果(不再自動高潮)，但AI把好幾個轉折(抗拒/敏感/高潮一/嘲弄/高潮二/共同高潮/死亡)各用一句話交代成流水帳、御主自己的高潮只在結尾硬塞一句。`activeActFact`再改寫：①從者的反應從「被動抗拒被弄到失神」改成「像被灌下大量媚藥般理智漸漸淹沒、從抗拒翻轉成主動索求更多快感」的失控反差(令咒強化的御主性能力足以承接這股需索)；②明講御主自己的情慾/高潮要有實際鋪陳、貫穿全程，不能只在結尾補一句；③明講「全篇只選1~2個關鍵轉折深入著墨」壓制流水帳傾向。此修正只動`activeActFact`這顆共用變數(令咒兩分支自動同步吃到)，不動一般補魔分支——那支的世界觀規則(從容主導/不高潮)不適用媚藥失控的反差。
 
-埋入事實：令咒類型（修復/補魔/脫離）、效果訊息、剩餘令咒數、性別配對事實、令咒非自動高潮的機制澄清。`narrateWithState_`(Router_Narrative.gs)在`useDeepseek`為真時`max_tokens`從720拉到2000，避免500~600字的長篇要求被截斷(一般呼叫不受影響)。
+埋入事實：令咒類型（修復/補魔/脫離）、效果訊息、剩餘令咒數、性別配對事實、令咒非自動高潮的機制澄清。`narrateWithState_`(Router_Narrative.gs)在`longForm`（原 `useDeepseek`）為真時`max_tokens`從720拉到2000，避免500~600字的長篇要求被截斷(一般呼叫不受影響)。
 
 ### `actionManaSupply`（action `mana_supply`）— Router_Economy.gs
 **2026-07 玩家定案「補魔太容易了」新增資格檢查**：須從者`BOND >= MANA_TRUST_BOND_`(80)且御主當前魔力`<= 10%`上限，才會真的執行。不合資格時完全不寫任何數值(不耗AP/不燒迴路/不動好感)，改用AI依理由分流的婉拒敘述：
@@ -174,7 +182,7 @@
 埋入事實：HP 代價、AP 獲得與新 AP/上限。
 
 ### `actionPrepMeal`（action `prep_meal`）
-純機制，不叫 AI。寫 MEMORY『整備至』時戳＋回一段 plain flavor `message`。
+見 §3——**會叫 AI**（有從者／無從者兩款 ★【60~100 字】，`aiPrompt: mealPrompt`）。舊註「純機制，不叫 AI」是錯的。
 
 ---
 
@@ -183,7 +191,7 @@
 | Action | 按鈕/觸發 | Handler | AI |
 |---|---|---|---|
 | `get_map_nodes` | 地圖分頁載入/`refreshMapPane` | `actionGetMapNodes` | 否 |
-| `move` | 地圖節點/`travelTo(name)` | `actionMove` | **後端否，前端組`arrivePrompt`後叫`narrate_only`**（見 §10） |
+| `move` | 地圖節點/`travelTo(name)` | `actionMove` | **是**：後端 `buildArrivePrompt_` 組好 `arrivePrompt` 隨 JSON 下傳，前端只 `narrate(data.arrivePrompt)`（見 §10） |
 | `rest` | 休息選單各時長鈕/`rest(hours)` | `actionRest` | 是（條件式：夢境／突襲） |
 | `scout` | 地圖「🔍 偵查」 | `actionScout` | **是**（2026-07 新增，輕量演出，見下） |
 | `scavenge` | 地圖「🔍 搜索物資」 | `actionScavenge` | **是**（2026-07 新增，輕量演出，見下） |
@@ -191,9 +199,9 @@
 | `prep_meal` | 見 §2 | `actionPrepMeal` | **是**（2026-07 新增，見下） |
 
 ### `actionRest`（action `rest`）— 兩條件式 prompt
-- **從者之夢**（`restDreamPrompt`，僅未遭突襲且 `restHours≥3`、55% 機率觸發，含 `servantCard_`）：
+- **從者之夢**（`restDreamPrompt`，條件：未遭突襲 **或** 陣地反擊 `homeRepel` **或** 按兵不動 `peaceful`，且 `restHours≥3`、**25%** 機率，含 `servantCard_`）：
   > ★以 Fate／TYPE-MOON 筆觸，用夢境／回想的朦朧史詩質感，演出「${dSvName}」這名英靈生前傳說裡的某一幕（取材自其真實的神話／史實／傳說：其榮光、抉擇、孤獨或傷痕）。讓御主（與玩家）窺見這名英靈所背負的過往與信念。
-  > ★【show, don't tell】以畫面與情境流露，不直接點破其願望或心結，停在夢醒前的餘韻與一絲說不清的悸動。
+  > ★【show, don't tell】以畫面與情境流露，不直接點破其願望或心結，停在夢醒後的餘韻…可帶一絲從者隱約察覺御主窺見記憶的反應。
 - **夜襲**（`restAmbushPrompt`，`enemyAmbushOnServant_`觸發時）：
   > ★以 Fate／TYPE-MOON 筆觸描寫酣息被夜襲撕裂的驚變（語氣留白），勝負已由系統結算。
   埋入事實：地點、突襲敵名、是否隱蔽、從者名、受創量、是否被消滅/敗北。
@@ -228,13 +236,17 @@
 | `break_alliance` | 盟友卡「💔 撕毀盟約」 | `actionBreakAlliance` | 是 |
 | `ally_bond` | 盟友卡「🤝 與盟友共處」 | `actionAllyBond` | 是（含突襲分支＋羈絆檔位語氣） |
 
-### `actionBond`（action `bond`）
+### `actionBond`（action `bond`）— 三分支
 - **突襲**：
   > ★以 Fate／TYPE-MOON 筆觸描寫溫存被突襲撕裂的驚變與兇險，${消滅則語氣留白／未消滅則依性格重情護主或疏離}。傷害與勝負已由系統結算。
+- **羈絆里程碑**（BOND 跨過 30/60/90 各觸發一次，`【羈絆里程碑】` 標記記已跳過的門檻；`masterCard_`+`servantCard_`）：
+  > 【系統·羈絆里程碑·已裁定】御主『${masterName}』與從者「${svName}」相處之際，兩人的羈絆悄然邁過一道分水嶺（時值${band}）。
+  > ★這不是尋常的${act.label}，而是關係質變的一瞬，量級是：${milestoneScale}（≥90 臻至極深／≥60 明顯敞開／其餘初次鬆動 三檔）——依「${svName}」的真名與性格，寫出屬於這位從者獨有的一個具體瞬間…★【精煉100~160字】
 - **正常**（`masterCard_`+`servantCard_`）：
-  > ★以 Fate／TYPE-MOON 筆觸寫一段【精煉 90~150 字、輕快不冗長】${svName} 與御主${act.frame}的小品。務必貼合上方「演出依據」中的性格與口吻，演出其獨有神態，點到為止留餘味。
-  > ★【show, don't tell】用言行、神態、停頓去流露情感與性格，絕不可直白說出其「願望／個性／萌點」等設定詞；停在含蓄的留白。
-  > ★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。
+  > ★【時間尺度】這是一段約一個小時的相處，寫出「有一段時光緩緩流過」的從容，勿寫成三言兩語的瞬間、也勿橫跨大半天。
+  > ★依當前羈絆定調濃淡：${bondTier}
+  > ★【精煉 90~150 字、輕快不冗長】${svName} 與御主${act.frame}的小品…點到為止留餘味。★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。
+
 
 ### `actionProposeAlliance`（action `propose_alliance`）
 - 成功：
@@ -252,21 +264,25 @@
   > ★Fate 筆觸【90~140字】寫一段此次共處的小品，自由發揮、勿每次都同一套說辭。語氣親疏【務必嚴格】貼合當前羈絆：${tier}。對方仍是「暫時」盟友，留一絲各自的算計與保留。show, don't tell。
   （首度達 90 解鎖鑑賞緣時，額外一句：可用一個眼神或半句未盡之言，含蓄點出情誼悄然越過了「暫時」的界線。）
 
-其餘同檔 helper（`isAllied_`/`allyUntil_`/`setAllyMem_`/`clearAllyMem_`/`allianceWillingness_`/`breakStaleAlliances_`/`bumpBond_`/`getBondUsedToday_`/`stampLostServant_`/`getLostServant_`/`getServantMaster_`/`getMasterServant_`/`markMasterLostServant_`/`logWarEvent_`/`actionWarChronicle`/`actionWarHistoryList`）皆純機制，不叫 AI。
+其餘同檔 helper（`isAllied_`/`allyUntil_`/`setAllyMem_`/`clearAllyMem_`/`allianceWillingness_`/`breakStaleAlliances_`/`bumpBond_`/`getBondUsedToday_`/`stampLostServant_`/`getLostServant_`/`getServantMaster_`/`getMasterServant_`/`markMasterLostServant_`）皆純機制，不叫 AI。
 
 ---
 
 ## 5. 補魔／出力／魔境等機制設定 Economy & Setters — Router_Economy.gs
 
-除 `actionManaSupply`（見 §2）外，本檔其餘 5 個 handler **全部純機制、不叫 AI**：
+本檔 7 個 handler：`actionManaSupply`（見 §2）與 `actionSpiritRepair` 會叫 AI，其餘 5 個**純機制、不叫 AI**：
 
 | Action | 按鈕 | Handler | AI |
 |---|---|---|---|
 | `set_servant_output` | 從者卡🔋出力轉盤 | `actionSetServantOutput` | 否 |
 | `set_mage_realm` | 技能膠囊 | `actionSetMageRealm` | 否 |
 | `set_rune_mode` | 技能膠囊 | `actionSetRuneMode` | 否 |
-| `set_np_choice` | 寶具選擇彈窗 | `actionSetNpChoice` | 否 |
+| `outfit` | 從者卡「👕 換裝」 | `actionSetOutfit` | 否（寫 MEMORY【換裝】，之後由 `servantCard_` 的【此刻裝扮】餵 AI） |
+| `weapon` | 從者卡「🗡 武裝」 | `actionSetWeapon` | 否 |
 | `mana_supply` | 見 §2 | `actionManaSupply` | 是 |
+| `spirit_repair` | 從者卡「🩹 靈基修復」 | `actionSpiritRepair` | **是**：不合資格→★【60~100 字】演出這個「不」；合資格→★【60~100 字】療傷小品（魔力沿契約流向從者、依性格與當前羈絆反應） |
+
+（`set_np_choice`／`actionSetNpChoice` 已不存在：寶具選擇隨 `fate_battle` 的 `npChoice` 一起送。）
 
 （`actionBloodSupply`／`blood_supply` 已移除，燃血改純被動機制，見 `SOLO_REFERENCE.md` §3。）
 
@@ -289,7 +305,7 @@
 ### `actionBackfillMasterAi`（action `backfill_master_ai`）
 非阻塞背景呼叫，只補 4 敘事欄，走 `callGeminiAPI` 拿結構化 JSON（非敘事文字）。系統提示詞關鍵行：
 > ★【演出而非說明】願望與身世只作為設定底層，不要在 background 裡直接複述願望字面。
-> ★npc_intent：一句【簡短】萌點（可愛反差，≤15字）…
+> ★npc_intent：一句讓人喜歡上這位御主的萌點，**18 字內講完一句完整的話**。可以是反差、也可以只是討喜的外觀或小習慣。（另有 ★【語言】鐵律：全程繁體中文、不夾英文字母）
 > ★background：限20字，呼應其身世／財力，禁出現具體物品名。
 > ★【勿輸出數值】戰力數值、HP/MP 一律由系統裁定，prompt【不要】輸出任何數值欄位；也不要輸出地點。
 > ★【輸出】合法 JSON、禁 Markdown：（附 schema）
@@ -299,15 +315,14 @@
 - **種子英靈分支**（名冊/真名比對命中）：**不叫 AI**，直接套種子庫寫死的 `persona.look/words/moe/back`（省一次 API、加速召喚）。
 - **自訂/名冊查無分支**（`custDesc` 或查無比對）：**叫 AI**，走結構化 JSON。**⚔️ 職階**：玩家可用 `s-cls` 明講(獨立於瀏覽名冊用的職階分頁，不共用)，不選則 `cls` 未定、要求 AI 依描述自選並回填 JSON 的 `cls` 欄(非法值才退回 Saber)——不再無條件預設 Saber。**🎭 origin 三分類**見上方 `originGuide_` 段。
   > ★【六圍 six】依該英靈強弱給…階級用 E,D,C,B,A,EX…務必有強有弱、貼合傳說。
-  > ★【技能帶 fx】classSkills(職階技能 1~2 個)＋skills(固有技能 2~3 個)…（附 FX_MENU_ 技能碼字典）
+  > ★【技能帶 fx】skills(固有技能 2~3 個)，每個 {n,r,fx}…（附 FX_MENU_ 技能碼字典）；職階慣例技能（對魔力/騎乘/陣地作成…）**由系統依職階自動附贈、不需要你生成**（`classSkills` 已不存在）。
+  > ★【外貌 look】剛好 3 短句頓號分隔：外貌本相／氣質舉止／此刻裝扮。★【語言】除 JSON 欄位名與 cls 代碼外一律繁體中文。
   > ★【特性 traits】1~3 個…(如 王/龍/人類/神性/巨人/猛獸；有神性者會被神殺剋）。
   > ★【演出而非說明】personality 與寶具只作底層，勿直接複述字面。
-  > ★np：寶具名＋一句威能簡述。★npc_intent：一句【簡短】反差萌（≤15字）。★sex 從 男／女／異 擇一。
+  > ★np：寶具名＋一句威能簡述；規模上限【對軍】（對城/對界/對神為種子英靈專屬，寫了也會被降）。★npc_intent：**18 字內講完一句完整的話**，可以是反差、也可以只是討喜的外觀或小習慣。★sex 從 男／女／異 擇一。
   > ★【輸出】合法 JSON、禁 Markdown：（附 schema）
   成功後 `recordOriginalHero_` 把新原創英靈寫回英靈殿供之後重用（純寫入，非 AI）。
-- **🛠️ 工房分支**（`userData.build`·2026-07·優先於上兩分支）：玩家親手定全部數值（職階/六圍預算270/技能3槽/寶具名），**AI 只補人格側寫**（小型結構化 JSON 呼叫）：
-  > 你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名原創從者的全部數值，你【只】負責演出用人格側寫，【嚴禁】輸出任何數值/階級/技能/寶具設定。★輸出合法 JSON…{"background":"生平一句·限20字","personality":"…四短句頓號分隔","npc_intent":"一句反差萌·限15字"}
-  失敗不擋召喚（玩家數值不當 AI 人質，落通用預設）。
+- **🛠️ 工房**不在這支——住在 `actionSaveHero`（action `save_hero`，見 §11）：`userData.build` 是玩家親手定好的全部數值，AI 只補演出側寫（`personality/look/background/npc_intent/npEn…`，玩家有填就用玩家的），失敗不擋鑄造。
 - **各分支皆會**再組一份 `summonPrompt`（含 `servantCard_`）走 `narrate_only` 敘事召喚初遇場景：
   > ★以 Fate／TYPE-MOON 筆觸描寫所在地的燈火與氛圍，聚焦御主與從者最初的試探、對話與張力（依上方角色背景內化演出，禁止複述設定字面、禁止用外貌代替名字）。場景留下懸念、讓玩家想以行動回應。
   > ★禁止替御主做決定、禁止詢問玩家想做什麼、禁止介紹玩家自身身份、禁止新增任何地圖或NPC。
@@ -372,76 +387,95 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 
 **用途**：kanshou（慾海後日談，NSFW）自由文字聊天輸入框，走前端 `send()`（Script.html, `action:"play"`）。**solo 聖杯戰爭主軌完全不用這個**——solo 全走按鈕→`narrate_only`。`actionPlay` 100% 只被鑑賞(`KPC_`)呼叫（函式入口強制擋非 `KPC_` 呼叫）；九州 `full` 模式呼叫路徑已不存在。
 
-與 `narrate_only` 的關鍵差異：`actionPlay` **自己從零組完整 prompt**（不假手 caller），且**直接呼叫 `callGeminiAPI(prompt, null, aiConfig)`**（第二參數系統提示詞傳 `null`——所有指令混在 user prompt 內，不像 `narrate_only` 另有獨立 `miniSystem`）。
+與 `narrate_only` 的關鍵差異：`actionPlay` **自己從零組完整 prompt**（不假手 caller），且**直接呼叫 `callGeminiAPI(prompt, buildDefaultSystemPrompt(userData.optionsOn !== false), aiConfig)`**——第二參數是鑑賞專屬系統提示詞（`nsfwBaseRules`＋★【輸出範本】finalJson），指令分「系統」「user」兩層，結構與 `narrate_only` 相同。
 
 組裝的事實類別：
 - **在場人物完整卡**（身世/狀態/性格/特徵/萌點/關係與好感，`PROMPT_PARTY_SYSTEM`；solo 另帶六圍/氣血，鑑賞不帶）——⚠ **2026-07 §91「駐留制」改版**：`partyRows`/`partyMembers`已不是「同行隊伍」而是**當前地點的所有已存在角色**（`LOC===curL`，按好感排序取前3張詳細卡，超過3人的第4位以後只是不進這回合的詳細卡，人不會消失也不影響劇情觸發判定），卡片標籤字面已從「同行夥伴」改為「在場人物」（`partyDetailsArr`/`PROMPT_PARTY_SYSTEM`），玩家按鍵移動不再強拉任何人同步；只有AI敘事內容講「一起移動」時才會同步當時已在場的人。
 - 玩家自身卡、近期歷史（最近 6 筆原始訊息／3輪，`getGameHistoryBatchRaw`，走 `aiConfig.chatHistory` 而非塞進 prompt 字面）
-- **🧹 2026-07 玩家定案「砍掉同地路人、開放世界無結界」**：舊版「同地路人」清單（`allLocals`/`displayPeople`）＋其好感階梯行為指令（`resistPrompt`，死仇→摯友七級）＋場景第三方交叉羈絆整套刪除。改為單純的 `backgroundCrowdStr`（★【開放世界·背景人煙】：路人可自由描寫增添生活感，但不具名、不可被指名互動、不追蹤好感）。能被指名、有名有姓、好感被記錄延續的對象，收斂為僅有**目前在場人物**（見上）。
+- **🧹 2026-07 玩家定案「砍掉同地路人、開放世界無結界」**：舊版「同地路人」清單（`allLocals`/`displayPeople`）＋其好感階梯行為指令（`resistPrompt`，死仇→摯友七級）＋場景第三方交叉羈絆整套刪除。改走 `★【這個世界有誰】`（正式同伴／常民（世界帳本升格）／路人三分，路人可描寫但不具名不追蹤）；`backgroundCrowdStr` 現為**空字串**（內容已併入該區塊，變數只留形狀）。
 - **🚪🏠 2026-07 新增「巧遇開關」＋可改名的「家」移動選項**：`kanshouEncounterStr`(巧遇系統例外提示詞注入)現受`encounterOn`(讀`userData.encounter`，前端「出門走走」面板一顆checkbox、localStorage持久化)閘門，關閉時移動/原地問「還有誰」兩個擲骰點都不會觸發，但不影響已在場的`【邂逅中】`對象持續互動。`KANSHOU_LOCATIONS_`（2026-07已擴充到**50個地點**、非10個，見 `FUNCTION_MANUAL.md`）外新增一個不在清單內、顯示名稱可由玩家自訂(MEMORY`【住所】`標記，預設「家」)的私人地點——`isHomeMove`比對成立時恆不擲骰(私人空間永不巧遇陌生人)，其餘寫LOC/清`【邂逅中】`的邏輯與一般地點一致。詳見 `SOLO_REFERENCE.md` §44。
 - **僅 NSFW/kanshou 模式**：同地性別配對提示、肉體狀態 JSON（2026-07 玩家定案「肉體那些欄位不需要了，只要狀態就好」：physical_state 從 6 鍵數字代碼（姿勢與動作/胸部/顏面/肉棒/蜜穴/服裝狀態）全部砍掉，簡化為單一自由文字欄，AI 自行決定每回合要不要提、提多細，不強制逐項列舉，每回合仍需據實反映最新狀態）、每位在場同伴的「身體記憶」技能標籤(`dynamic_skills`)、愛稱(`mutual_nicknames`)、🔥主動掌握模式(點火 driveOn)段落（前端 `drive` 旗標開啟時注入——同伴依個性主動掌握節奏、推進更猛；僅鑑賞生效。⚠ 點火按鈕為**現行有效** toggle，`driveOn` **只控敘事推進幅度(driveStr)、不切模型**——2026-09 起兩模式一律 `AI_MODEL`、`retries=1`，被擋才自動換 `FALLBACK_MODEL`。鑑賞現況一律以 `KANSHOU_REFERENCE.md` 為準）
 
-關鍵結構/收尾指令（逐字節錄）：
-> 【敘事法旨】：當前推演視角鎖定為玩家『${pcName}』(ID: ${pcId})。
-> ${backgroundCrowdStr}
-> ★【視角鎖定】：旁白一律用第二人稱，「你」＝玩家『${pcName}』本人。旁白【不可】用「我」；場上每個角色引號內的台詞才用得到「我」。同伴外貌只取材各人自己那份資料。（2026-09 改寫：原本是「卡片內『自稱』只限她/他自己的引號台詞、旁白的『我』永遠是玩家」，那是在繞「兩邊搶同一個我字」的症狀；旁白翻成「你」後根因消失，`[台詞自稱]` 欄位也一併退休）
-> ★【你也是這座城裡的一個人】：『${pcName}』不是一台攝影機——${_mePron_}有自己的性格、口吻、來歷…【用${_mePron_}的角度去感受這個世界】：觸感/冷熱/氣味/聲音、${_mePron_}【真正】的情緒、性格帶來的反應底色…但【做了什麼、說了什麼，只有玩家決定】…${_mePron_}看不見自己的臉，卻感覺得到臉在發燙、喉嚨發緊——【寫感覺得到的，不寫看不到的外觀】。
->   （2026-09 新增·紅線①：玩家「AI 扮演玩家的角色，用這個角色的角度去感受這個世界」。原本★視角鎖定裡的「只演你實際輸入的動作與五感——你看不見自己的神情」就是把玩家關成攝影機的那句，已移除。界線是**感受歸 AI、決定歸玩家**。代名詞走 `pron_(pc[COL.PC.SEX])`，御主性別是資料且隨時可切換。詳見 `KANSHOU_REFERENCE.md`）
-> ★【在場驗證鐵律——最高優先級，下筆前必看】：本回合可被指名對話、持續互動、且好感/關係會被記錄延續的角色僅限【目前在場人物】；背景路人可自由描寫增添氣氛，但一律不具名、不可被指名互動、不追蹤好感…
-> 💕【鑑賞·後日談模式·最高優先級覆寫】：聖杯戰爭【早已落幕】…★【絕對禁止】任何戰鬥、廝殺、敵人、敵御主、敵從者、聖杯爭奪、靈基受損、血量／生命變化、寶具對轟、死亡或威脅。世界是安全的。…★敘事結束停在溫柔的留白，把下一步交還御主。（**🗑️ 2026-07 清除死碼**：舊版這裡還有一句「非 kanshou」的戰鬥雙向裁決規則，靠 `isKanshou` 三元式切換——查證 `actionPlay` 入口早就強制擋非 `KPC_` 呼叫、且鑑賞唯一建列路徑 `game_id` 永遠是 `"k_"` 開頭，`isKanshou` 在這個函式裡數學上恆為 true，該死分支連同判斷變數已整段刪除，鑑賞覆寫改直接無條件套用）
-> 🚨【敘事終極警告】：1. 敘事必須在給出結果後，停在「我」的心境，將下一步交還玩家選擇！2.（`target`/`npc` JSON 欄位只能填真實在場人名，不可含對白/標點）
+USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` 為準；舊版的【敘事法旨】／★【在場驗證鐵律】／💕【鑑賞·後日談模式覆寫】／🚨【敘事終極警告】四個區塊都已不存在）：
+> ★世界觀＝和平的現代冬木市…沒有魔術與從者（一句集中壓制句）
+> `${PROMPT_REL}`（🛑【角色一致性】等）
+> ★【在場名單】／★【這個世界有誰】：正式同伴／常民／路人三分（取代舊的在場驗證鐵律）
+> ★【要它之後還在就寫進 world_note】（世界帳本：地點/人物/事件，玩家可釘選）
+> ★【視角鎖定】（縮短版：「你」＝玩家、旁白不用「我」）
+> ★【你也是這座城裡的一個人】（感受歸 AI、決定歸玩家）
+> 【玩家資料·旁白用】（只給旁白寫「你」的內心用·在場的人沒讀過這張卡）
+> `${PROMPT_PARTY_SYSTEM}`（在場人物卡，含「你在她眼中」）＋`${_intimacyLines_}`（★【親密尺度】）
+> ★【篇幅】`${_kanshouTargetWords_}`（查 `KANSHOU_WORDS_`，「大事」旗標升檔）／★【地點釘死】
+> 條件片段（有才出現）：`kanshouNewPlaceStr`／`_worldFeed_`／`kanshouWorldRosterStr`／`kanshouEncounterStr`／`kanshouNightGuestStr`／`kanshouKnockRaidStr`／`kanshouAloneBondStr`／`kanshouNpcLeaveStr_`／`kanshouNightPartStr`／`kanshouVisitBlockedStr`／`kanshouTimeBlockedStr`／`kanshouPromiseStr`／`kanshouPromiseMetStr`／`kanshouCohabitStr`／`kanshouConfessStr`／`kanshouInviteStr`／`kanshouHandHoldStr`／`kanshouHoldingStr`／`kanshouPhotoStr`／`kanshouShowPhotoStr`／`kanshouFestivalStr`／`kanshouApptTodoStr`／`kanshouApptWaivedStr`／`kanshouCohabitEndStr`／`kanshouNightSceneStr`／`kanshouInitStr`
+> ★【此刻】（日期·時段·天氣 `kanshouWeather_(curDay)` 併在同一行）＋`kanshouTierCrossStr`／`kanshouFirstsAnnivStr`／`kanshouFirstsStr`／`kanshouAnnivStr`
+> ★【晨間餘韻·非強制】／★【昨夜對方走了·非強制】／`${npcDialoguePrompt}`／★【稍早做過的事】`${_earlierDigest_}`（`kanshouRecentDigest_`）
+> ★【在場】＋`${finalUserMsg}`（玩家這回合的動作）＋`${_settledTail_}`（GAS 已裁定的結果）
 
-回應解析欄位（現行 schema）：**`intimacy_feedback.npcs[].noticed`〔2026-09 新增·她眼中的你〕**：這回合真的從玩家言行看出來的一件事（≤14字、不可抄【玩家資料·旁白用】、沒有填「無」），`kanshouAppendUnique_` append 進**她自己那列** MEMORY 的 `【眼中的你】`（`／` 分隔、cap 3），下回合由 `partyDetailsArr` 讀回印成卡上的「你在○眼中:<熟悉段>[·<筆記>]」。配套只有一句、掛在玩家卡自己那一行：`【玩家資料·旁白用】(只給旁白寫「你」的內心用·在場的人沒讀過這張卡)`——**刻意不另開★區塊、不寫熟悉段定義表**（見 `KANSHOU_REFERENCE.md` §「她眼中的你」）。／**`world_note`〔2026-09 新增〕**：AI 唯一能新增「世界內容」的管道——`[{kind:地點|人物|設定, name, text≤40字, sex(僅人物)}]`，一回合最多 2 筆，落進分頁「鑑賞世界」（見 `KANSHOU_REFERENCE.md` §「世界帳本」）。配套把★【只演給的資料】那句「沒寫到的人/物/過往都不存在」改成★【可以發明，但發明完要記下來】——禁止發明本來是為了擋「AI 捏造完自己就忘了」，正確的修法是讓它負責記下來，不是禁止。／`inner_monologue`（範本第一位·強制思維鏈，後端不讀自然丟棄，第三人稱總結不可用「我」自稱避免跟 narration 視角打架，2026-07 澄清為「本回合開始前」承接自過往互動的狀態、非「本回合發生後」）／`narration`（2026-07 目標字數約600→約500字）／`location`（2026-07改：AI【不再自行搬動玩家】——後端把任何 AI 寫的新 location 一律轉成 `move_proposal` 提議泡泡、玩家按「同意」才走既有 moveTarget 管線真的移動；location 欄實質只在玩家用地圖按鈕移動時由系統寫好、AI 照抄）／`move_proposal`（AI 想換場景/同伴想邀玩家→填目標地名，回傳前端 `moveProposal` 欄跳同意/拒絕泡泡，同意→`kanshouConfirmMoveProposal`帶 moveTarget+moveWithCompanion 重送）／`options`（4類選項範本）／`intimacy_feedback`（`player`/`npcs`，各含 `physical_state`〔單一自由文字，2026-07再簡化為「只涵蓋顏面神情與衣裝狀態，≤15字」〕／`dynamic_skills`／`mutual_nicknames`〔僅npcs〕／**`attitude`〔僅npcs，2026-07新增〕**：NPC對御主當下的臨場態度，≤15字，跟好感(長期趨勢)分開追蹤，寫入`COL.PC.REL_MEM`的`[態度]`標籤，每回合覆蓋不累積，也是AI表達「認不認同」關係標籤的唯一管道／**`memory`〔僅npcs，2026-07新增·鑑賞共同回憶〕**：本回合若發生里程碑(告白/初次牽手/難忘橋段/約定達成…)寫一句≤30字回憶（2026-09 起同 narration 用第二人稱「你」稱玩家）、否則「無」，GAS 用 `processMemoir_` append 去重存最近 10 條進 `COL.PC.MEMOIR`(27欄，原 MAJOR_EVENT 死欄復用)，她在場時由 partyDetailsArr 讀回餵卡——不做每日濃縮、機制同專屬稱呼，詳見 `SOLO_REFERENCE.md` §135）／`rel_changes`（`target`/`fav_change`。2026-07 這欄位經歷一輪來回：先是AI自己填`fav_change`整數→改成AI只填方向旗標(`tone`/`fav_dir`)、GAS對應固定±2/0→玩家「好感改回數字」定案改回`fav_change`整數，`_note`給級距指引(日常+1~2/心動+3~5，單回合上限+5)，`sanitizeAiData_`(Router_Action.gs)同步復原-100~100的clampInt防呆；**`tag`欄位2026-07玩家定案「關係改玩家決定，AI不可以改動但可以不認」整條移除**——`COL.PC.REL_TAG`從此只能由玩家透過`update_rel_tag`(既有action，這輪才第一次接上前端UI)手動更改，AI不再有任何管道寫入這個欄位，只能靠上面的`attitude`表現認不認同）。**已從 schema 移除的死欄位**：`stat_changes`、`recruited`、`events`、`new_maps`、`mentioned_names`、`log_summary`（原供交談輪數計數，查證累加出的數字從未被任何地方讀回，2026-07 整條移除）、`erogenous_zones`（2026-07 隨「窺視神髓」UI面板一併移除——那是這欄唯一的消費者，面板拿掉後即成死欄，詳見 `SOLO_REFERENCE.md`）、`major_event`（原供「未完成的約定」`[達成]xxx`/`[清空]`特殊語法，2026-07 查證發現寫入後從未被讀回餵給AI、玩家也無任何UI能查看或清空，是頭尾斷開的死路，整條移除，詳見 `SOLO_REFERENCE.md`）、`rel_changes.tag`（見上，2026-07關係改玩家決定後移除）——**solo 完全不經過這個函式**（全走 `narrate_only`）。
 
-（`nsfwBaseRules`／`buildDefaultSystemPrompt` 定義在 `Gallery.gs`——紅線①保護區塊，本文不重複貼出，只標註 `actionPlay` 有引用其機制。函式為無參數 `buildDefaultSystemPrompt()`，永遠回傳慾海版本，因為查證後這個函式現在只可能被鑑賞呼叫。詳見 `SOLO_REFERENCE.md` §0。）
+回應解析欄位（現行 schema，見 `buildDefaultSystemPrompt` 的 finalJson）：`inner_monologue`（不顯示）／`narration`／`npc_exit`／`options`（`optionsOn=false` 整欄刪）／`intimacy_feedback{player:{physical_state,appearance_extras}, npcs[]:{name,physical_state,appearance_extras,mutual_nicknames,memory,**noticed**}}`／`world_note[]`／`rel_changes[]{target,fav_change}`。**`noticed`〔2026-09·她眼中的你〕**：這回合真的從玩家言行看出來的一件事（≤14字、只記會改變之後怎麼對玩家的發現、多數回合「無」），`kanshouAppendUnique_` append 進她自己那列 MEMORY【眼中的你】。~~`location`／`move_proposal`／`attitude`／`dynamic_skills`／`master_note`~~ 都已不存在；`physical_state` 是單一自由文字欄。
 
-### 9.1 橋段(劇本化場景)：offer+accept 按鈕模式（2026-07新增，本節先前完全未記錄）
+（`nsfwBaseRules`／`buildDefaultSystemPrompt` 定義在 `Gallery.gs`——紅線①保護區塊，本文不重複貼出，只標註 `actionPlay` 有引用其機制。函式簽名 `buildDefaultSystemPrompt(includeOptions)`，永遠回傳慾海版本，因為查證後這個函式現在只可能被鑑賞呼叫。詳見 `SOLO_REFERENCE.md` §0。）
 
-這幾個鑑賞專屬機制共用同一形狀：**GAS 每回合重新計算是否符合觸發資格 → 資格成立才在回應 JSON 附一個 `xxxPrompt`/`xxxOffer` 欄位 → 前端只在該欄位存在時渲染按鈕 → 玩家點擊才在下一次 `send()` 帶上對應旗標 → 後端收到旗標後二次驗證資格(防直打API繞過按鈕)才真正 roll 分支、寫入 `kanshouXxxStr` 插入 prompt**。AI 從不自己決定要不要觸發這類場景，只在 GAS 已核准的分支內敘事——`DESIGN.md`「GAS掌數值、AI只說書」鐵則在鑑賞這一側的具體實作範本。
+### 9.1 泡泡／旗標（2026-07 橋段 offer+accept 整組拆除、2026-09 預寫池砍光後的現況）
 
-| 機制 | 觸發資格(GAS判斷) | 回應附帶欄位 | 玩家按鈕→下次send()旗標 | 對應橋段/分支 |
-|---|---|---|---|---|
-| 夜襲/賴床叫醒 | 移動到某同伴自己的住處(`KANSHOU_HERO_HOME_`)或同居者的`和室`寢間、當前時段落在深夜/清晨、且該同伴當下確實在該處(非移動前就已跟玩家同地點——見 `SOLO_REFERENCE.md` §90 的排序bug修正) | `roomEventOffer` | `roomEventAccept:true` | `KANSHOU_SCENE_EVENTS_.夜襲`/`.賴床叫醒`，`kanshouRollSceneBranch_`依好感roll分支；接受的非拒絕分支給`KANSHOU_SCENE_BOND_`(同伴同日只給一次·`KANSHOU_SCENE_DAY_TAG_`)；夜襲對象好感≥80額外設`KANSHOU_MORNING_AFTER_TAG_`供隔天第一回合帶入晨間氛圍(§81·§131) |
-| 夜晚敲門 | 結束一天時`KANSHOU_KNOCK_CHANCE_`(20%)擲中、且候選同伴同居或好感≥`KANSHOU_KNOCK_MIN_BOND_`(60) | `knockEvent`(既有機制，非本輪新增) | `knockAccept:true`(同意)／`skipKnockCheck:true`(略過) | 對應訪客建立/移入 |
+舊的 `roomEventOffer`／`roomEventAccept`／`KANSHOU_SCENE_EVENTS_`／`kanshouRollSceneBranch_`／`knockEvent`／`knockAccept` **全部不存在**。現在同形狀的只剩：GAS 先落盤 → 回應附一個欄位 → 前端給善後鍵 → 玩家不點也無害。
 
-`Script_Kanshou.html` 的 `send()` 已於 2026-07 重構成 **`send(customMsg, isSilent, opts)`**：原 22+ 個位置參數(呼叫端一長串 null 極易錯位)全數收進單一 opts 物件(`moveTarget/lookAround/endDay/advanceHours/jumpFestival/knockAccept/skipKnockCheck/roomEventAccept/jumpBand/loaderCaptions/moveWithCompanion/promiseMeet/cohabitInvite/inviteResident/takePhoto/showPhoto/photoIntent/handHold/promiseAccept`)；死參數 combatData/門禁佔位一併移除。前兩個位置參數保留(選項按鈕 `send(text, true)` 用法不變)。純前端組參方式改變、payload 不變、零速度影響。新增機制＝往 opts 加一鍵，不再位移任何呼叫端。
+| 機制 | 觸發資格(GAS) | 回應附帶欄位 | 玩家按鈕→下次 send() 旗標 |
+|---|---|---|---|
+| 深夜訪客 | 結束一天時 `KANSHOU_KNOCK_CHANCE_`(20%) 擲中、候選同居或好感≥`KANSHOU_KNOCK_MIN_BOND_`(60)、當日鎖【夜訪日】 | `nightGuest`（她已落盤到房裡、蓋【夜未眠】） | 🛏 一起睡＝純訊息不帶旗標／🚪 請她回去＝`{endDay:true, skipKnockCheck:true}`＋`dismissGuest` |
+| 移動同意 | 她答應同去 | `moveProposal` | 同意→`moveTarget`＋`moveWithCompanion` |
+| 同居邀請 | 好感首達 90 且在場、同日未問 | `cohabitOffer` | `cohabitInvite`＋`cohabitInviteId` |
+| 巧遇結識 | 移動/原地擲中、`encounterOn` | `encounterOffer` | `inviteResident` |
+| 等待約定 | 赴約撲空她還沒到 | `promiseWait` | `advanceHours`（跳到她抵達時刻） |
+
+`Script_Kanshou.html` 的 `send(customMsg, isSilent, opts)` 實際解構的 opts 鍵：`moveTarget`／`newPlace`／`lookAround`／`endDay`／`advanceHours`／`jumpFestival`／`skipKnockCheck`／`dismissGuest`／`jumpBand`／`loaderCaptions`／`moveWithCompanion`／`promiseMeet`／`cohabitInvite`／`inviteResident`／`proposeMove`／`takePhoto`／`showPhoto`／`photoIntent`／`handHold`／`handHoldId`／`cohabitInviteId`／`confess`／`confessId`。
 
 ---
 
-## 10. 前端自建 prompt 的特例：`actionMove` 的 `arrivePrompt`
+## 10. 抵達提示詞 `buildArrivePrompt_`（Router_Movement.gs）
 
-`actionMove`（action `move`）後端**不組 aiPrompt**，只回傳素材：`masterCard`／`servantCard`（`servantCard_`）／`foeCards`（在場敵從者的 `servantCard_` 陣列）／`pursuit`（撤離追擊結果，2026-07 起額外附 `foeCard`＝追兵的 `servantCard_`）／`report`（2026-07 新增·撤離追擊數字戰報卡，供 `renderFateBattleReport` 秒顯，不等 AI）／`factionClash`（2026-07 新增·抵達時撞見的敵對互毆，見下）／`preFoes`／`mapDesc`／`people`／`locations`／`clock`/`ap`。
+**2026-09 從 `Script.html` 收回後端**（移動曾是全專案唯一還在前端組提示詞的路徑，而掃描器只掃 `.gs`——`check_prompt.py` 看不到它）。`actionMove` 現在把 `arrivePrompt` 組好隨 JSON 回傳，前端 `travelTo()` 只做 `await narrate(data.arrivePrompt)`；同時把過去為了前端組裝而下傳、實際沒人讀的 `masterCard/servantCard/foeCards/foeMood/perfNote/preFoes…` 整批拿掉（`check_contract.py` 抓到每次移動白送 1691 字元）。
 
-- **🐛→✅ 2026-07 修「追擊戰報從者沒有描述」**：舊版 `pursuit` 只有 `{enemyName,dmg,hitWho,note}`，前端只把 `note` 塞成一句附註，AI 沒有追兵的性格/口吻素材可演；也沒有像卸防突襲那樣的數字戰報卡，玩家看不到發生了什麼。已比照 `enemyAmbushOnServant_` 的 `foeCard` 模式，在 `actionMove`(`Router_Movement.gs`) 對 `pursuit` 補上 `foeCard: servantCard_(chaserRow)`，並新建 `report`(`pursuit:true` 分支)。前端 `renderFateBattleReport` 新增 `r.pursuit` 分支(取代舊版純文字一行 div)；`arrivePrompt` 多插一段 `【撤離途中的追兵】${data.pursuit.foeCard}`，撤離追擊/反咬的指令句也各自改為「依上方【撤離途中的追兵】的性格演出…」，讓 AI 有真實角色素材可依循。
-- **⚔️ 新增「敵對互毆」場景(2026-07 玩家提案)**：玩家反饋「兩組敵對人馬同格站著卻不打架很奇怪」——`actionMove` 抵達判定新增：若抵達地點同時有 ≥2 位不同敵御主(各帶其從者、皆非結盟中)，GAS 用 `resolveFateBattle_` 真實裁決兩位敵從者(取戰敗方傷害的0.4倍，只是「先前已互相消耗」的餘傷、非死鬥全額)扣血，建構 `factionClash:{aMaster,bMaster,loserName,dmg,note}`；`worldRumors` 插一則〔敵對交鋒〕、`arrivePrompt` 多一段「★【撞見敵對互毆】…這不是相安無事同處一地，是你打斷了一場戰鬥」指令，讓 AI 演出雙方戒備停手，而非兩批人相安無事站在原地。GAS 掌傷害裁決、AI 只演出中斷瞬間——符合 `DESIGN.md` 的「GAS掌數值、AI只說書」鐵則。
+`buildArrivePrompt_(a)` 三段組法：
+- **HERE 此地**：`【抵達】御主『${pcName}』（與從者「${svName}」）來到冬木的「${target}」，時值${timeStr}。此地氛圍：${locDesc}` ＋ 敵蹤名單或「此地暫無明顯敵蹤」。
+- **JUST 剛發生**（GAS 已裁定的事，有才列）：撤離追擊／反咬（`pursuit`＋追兵 `servantCard_`）、撞見敵對互毆（GAS 用 `resolveFateBattle_` 真裁、AI 只演中斷瞬間）、敵御主痛失從者、找上門 vs 偶遇分流。
+- **HOW 怎麼演**：`★演出這段抵達【${words} 字】：` 篇幅查表 `ARRIVE_WORDS_ = ['120~170','180~240','240~310','330~420']`（依有無敵蹤／事件多寡升檔）＋逐條「·」指令（環境細節、敵方依個性開口、隨行從者至少一句台詞、御主＝玩家依性格開口但不替他拍板、是否交戰留給按鍵）。
+- 角色卡：`masterCard_`＋`servantCard_`＋在場敵從者卡＋ `performanceNote_` 一次點名。
 
-前端 `travelTo()`（Script.html:735-803）**自己拼出** `arrivePrompt`：
-```
-(masterCard) + (servantCard) + (foeCards) + [若有撤離追擊] 【撤離途中的追兵】(pursuit.foeCard)
-+ 【抵達場景】御主『${pc.name}』…剛抵達冬木的「${targetName}」，時值${timeStr}。
-+ 此地氛圍：${locDesc}\n敵情：${foeStr}。
-+ [若有撤離追擊] ★【撤離追擊】/★【撤離反咬】…(依上方追兵性格演出)
-+ [若多組敵對] ★【在場敵對歸屬·勿張冠李戴】…
-+ [若撞見敵對互毆] ★【撞見敵對互毆】…GAS已裁決傷害，AI只演出中斷瞬間…
-+ [若有前情] 【前情·僅供承接劇情連貫，勿原樣複述】方才之事：${lastAiContext.slice(0,280)}…
-+ ★以 Fate／TYPE-MOON 筆觸描寫兩人抵達此地的所見所感、環境細節與當下氛圍。若有敵蹤，營造一觸即發的對峙張力（但是否交戰、勝負留待御主下令，禁止自行開打或分勝負）；若無敵蹤，寫一段巡查、警戒或短暫喘息的氛圍…
-+ ★各地、各從者依此地氛圍與【角色卡性格＋前情因果】自然發揮，各有其調；忌千篇一律的套語與雷同結構…
-+ [依偶遇/找上門分流] ★【找上門】/★【偶遇】…讓敵方依其個性與立場（是否同盟）開口、有反應，別當沉默佈景；是否動手由御主下令。
-+ [若敵御主喪失從者] ★敵御主『${f.name}』已痛失從者…讓其神情與心境流露這份失恃…
-+ [若有從者隨行] ★從者「${pc.servant}」隨行在側，依其個性開口、有反應（至少一句台詞）…
-+ ★御主＝玩家本人（旁白稱「你」）：依性格開口、有神態台詞，不是沉默的旁觀者；但【不可】替御主拍板下一步戰略行動…不可逼問玩家，停在決策前的留白讓玩家以按鍵回應。
-```
-組完後呼叫 `await narrate(arrivePrompt)` → `action:'narrate_only'`。這是全專案**唯一**一個「prompt 組裝發生在前端 JS、而非後端 GAS」的案例，值得特別注意（其餘全部在 Router_*.gs 內組好字串才回傳）。原本還有老虎道場那兩支，2026-07 已收回後端（見 §2 `actionTigerDojo`）。
+舊版（2026-07）前端 `travelTo()` 自己拼「★以 Fate／TYPE-MOON 筆觸描寫兩人抵達此地的所見所感…」那一長串已全部退休。
+
+---
+
+## 11. 補列：2026-09 稽核抓到先前漏掉的 18 條 action
+
+| Action | Handler（檔） | AI |
+|---|---|---|
+| `np_respond` | `actionNpRespond`（Router_Battle.gs） | **是** ★【200~280 字】真名解放·獨立一拍：敵寶具預告後玩家選硬接／閃避／對衝／結界／脫離（選項依從者能力 `npResponseOptions_` 長出來），GAS 結算後演這一拍 |
+| `summon_horror_beast` | `actionSummonHorror`（Router_Battle.gs） | **是**：海怪召喚（獨立血條，`horrorShieldView_`） |
+| `dismiss_horror_beast` | `actionDismissHorror`（Router_Battle.gs） | **是** ★【40~70 字】 |
+| `spirit_repair` | `actionSpiritRepair`（Router_Economy.gs） | **是** ★【60~100 字】（見 §5） |
+| `court_enemy` | `actionCourtEnemy`（Router_Bond.gs） | **是** ★【100~150 字】示好交涉：對方依性格×當前好感真實反應（`favorWord_` 給好感白話） |
+| `faction_ambush` | `actionFactionAmbush`（Router_Movement.gs） | **是** ★【80~140 字】趁隙奇襲；只剩玩家時另填 `buildVictoryDreamPrompt_` |
+| `incite` | `actionIncite`（Router_Movement.gs） | **是** 成功 ★【80~140 字】煽風點火／落空 ★【70~120 字】 |
+| `save_hero` | `actionSaveHero`（Router_Creation.gs） | **是**（結構化 JSON）：工房鑄造，玩家定數值、AI 只補 `personality/look/background/npc_intent/npEn` 側寫，失敗不擋 |
+| `claim_hero` | `actionClaimHero`（Router_Creation.gs） | 否（把他人原創英靈收進自己名冊） |
+| `roll_fate` | `actionRollFate`（Core_Settings.gs） | 否（一次回三份天賦候選） |
+| `outfit`／`weapon` | `actionSetOutfit`／`actionSetWeapon`（Router_Economy.gs） | 否（寫 MEMORY，之後由角色卡餵 AI） |
+| `kanshou_reset` | `actionKanshouReset`（Gallery.gs） | 否（後日談歸零） |
+| `kanshou_world` | `actionKanshouWorld`（Gallery.gs） | 否（世界帳本 list/pin/unpin/del） |
+| `kanshou_set_pace` | `actionKanshouSetPace`（Gallery.gs） | 否（時間流速 0/10/20/30） |
+| `kanshou_set_nickname` | `actionSetNickname`（Router_Action.gs） | 否（專屬稱呼，bond≥80） |
+| `kanshou_add_quick_phrase`／`kanshou_delete_quick_phrase` | `actionKanshouAddQuickPhrase`／`actionKanshouDeleteQuickPhrase`（Gallery.gs） | 否（快速貼圖） |
 
 ---
 
 ## 附：純機制、完全不叫 AI 的 action 總表（快速核對用）
 
-`check_name`、`check_sheets`、`get_full_status`、`update_fate`、`get_tags`、`sync`、`update_rel_tag`、`create`、`get_heroes`、`get_masters`、`get_map_nodes`、`set_servant_output`、`set_mage_realm`、`set_rune_mode`、`set_np_choice`、`account_login`、`account_new_game`、`end_run`、`purge_orphans`、`dev_resync_codex`、`enter_kanshou`、`kanshou_companions`、`kanshou_summon_hero`、`kanshou_memoir_op`、`kanshou_set_name`、`kanshou_set_sex`、`kanshou_set_home_name`（「出門走走」面板的「家」選項改名，寫進 MEMORY【住所】標記，見 `SOLO_REFERENCE.md` §44）、`get_album`、`album_delete`。（`leaderboard`／`get_victory_history`／`get_epic_history`／`war_chronicle`／`war_history_list`／`claim_grail`／`dev_seed_gallery` 已整套刪除，不再列於此。）
+`check_name`、`check_sheets`、`get_full_status`、`update_fate`、`get_tags`、`sync`、`update_rel_tag`、`create`、`get_heroes`、`get_masters`、`get_map_nodes`、`set_servant_output`、`set_mage_realm`、`set_rune_mode`、`outfit`、`weapon`、`account_login`、`account_new_game`、`end_run`、`purge_orphans`、`dev_resync_codex`、`enter_kanshou`、`kanshou_companions`、`kanshou_summon_hero`、`kanshou_memoir_op`、`kanshou_set_name`、`kanshou_set_sex`、`kanshou_set_home_name`（「出門走走」面板的「家」選項改名，寫進 MEMORY【住所】標記，見 `SOLO_REFERENCE.md` §44）、`get_album`、`album_delete`。（`leaderboard`／`get_victory_history`／`get_epic_history`／`war_chronicle`／`war_history_list`／`claim_grail`／`dev_seed_gallery` 已整套刪除，不再列於此。）
 
-（`set_servant_output`／`set_mage_realm`／`set_rune_mode`／`set_np_choice` 這 4 個是戰鬥前的**純數值檔位切換**——性質等同選單勾選，不是敘事時刻，刻意不接 AI：接了反而每次調檔位都要多等一次生成、拖慢戰鬥節奏，也沒有畫面可演。)
+（`set_servant_output`／`set_mage_realm`／`set_rune_mode`／`outfit`／`weapon` 這 5 個是戰鬥前的**純檔位切換**——性質等同選單勾選，不是敘事時刻，刻意不接 AI：接了反而每次調檔位都要多等一次生成、拖慢戰鬥節奏，也沒有畫面可演。)
 
-會叫 AI（敘事 `narrate_only` 或結構化 JSON）的 action／路徑：`fate_battle`（5 分支）、`use_seal`、`mana_supply`、`rule_break_steal`、`second_wind`、`rest`（條件式）、`move`（前端組 prompt）、`bond`、`propose_alliance`、`break_alliance`、`ally_bond`、`scout`、`scavenge`、`set_workshop`、`prep_meal`（**2026-07 新增這 4 個**，見 §3——玩家反映「solo每個按鍵好像有些沒有接上ai敘述」逐一稽核補齊，皆為 60~100 字輕量演出，不拖慢節奏）、`backfill_master_ai`（結構化）、`backfill_kanshou_ai`（結構化·鑑賞御主敘事欄）、`summon_servant`（條件式結構化＋一律附敘事）、`play`（kanshou 自由聊天）、`narrate_only`（通用出口，本身無事實，套系統提示詞轉呼叫）、`tiger_dojo`（賽後番外，自帶說書人設定、不經 `miniSystem`）。dispatcher 層另有一條隱性路徑：14 天時限中央攔截自動掛 `dreamPrompt`。
+會叫 AI（敘事 `narrate_only` 或結構化 JSON）的 action／路徑：`fate_battle`（5 分支）、`use_seal`、`mana_supply`、`rule_break_steal`、`second_wind`、`rest`（條件式）、`move`（後端 `buildArrivePrompt_`）、`bond`、`propose_alliance`、`break_alliance`、`ally_bond`、`scout`、`scavenge`、`set_workshop`、`prep_meal`（**2026-07 新增這 4 個**，見 §3——玩家反映「solo每個按鍵好像有些沒有接上ai敘述」逐一稽核補齊，皆為 60~100 字輕量演出，不拖慢節奏）、`backfill_master_ai`（結構化）、`backfill_kanshou_ai`（結構化·鑑賞御主敘事欄）、`summon_servant`（條件式結構化＋一律附敘事）、`play`（kanshou 自由聊天）、`narrate_only`（通用出口，本身無事實，套系統提示詞轉呼叫）、`tiger_dojo`（賽後番外，自帶說書人設定、不經 `miniSystem`）。dispatcher 層另有一條隱性路徑：14 天時限中央攔截自動掛 `dreamPrompt`。
 
 ---
 
@@ -451,20 +485,26 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 
 ## 附二：2026-07 中 鑑賞 actionPlay 提示詞大擴充（本表新增段·詳見 SOLO_REFERENCE.md §109~§114）
 
-`actionPlay`(Gallery.gs) 的鑑賞提示詞在這一輪新增了大量條件式片段，全部集中插在【在場驗證鐵律】那一大段之後(變數名即錨點)，各自只在對應機制觸發時出現：
+`actionPlay`(Gallery.gs) 的條件式片段（**變數名即錨點**·2026-09 對照代碼修正；各自只在對應機制觸發時出現）：
 
 | 片段變數 | 觸發 | 內容 |
 |---|---|---|
-| `kanshouRoomEventStr` | 橋段accept(夜襲/賴床/共浴/溫泉/膝枕/下廚/觀星/6節慶橋段·13筆) | ★【橋段·key】GAS已骰定走向(依好感3檔)，AI照走向演出 |
-| `kanshouPromiseStr`/`kanshouPromiseMetStr` | 📅相約成立/撲空·赴約/爽約結算 | ★【約定成立】/【相約撲空】/【依約相會】/【爽約之後】 |
-| `kanshouCohabitStr` | 🏠邀請同居(成立/婉拒/已同居/撲空) | ★【同居開始】等4款 |
-| `kanshouInviteStr` | 🤝結識巧遇對象(入駐/緣分沒接上) | ★【正式結識】/【結識未成】 |
-| `kanshouJealousStr` | 兩位好感≥60同場·20%機率 | ★【醋意暗流·非強制】 |
-| `kanshouPhotoStr` | 📷拍照(4款:正常/沒人/底片盡/相簿滿)·正常款會要求AI回應JSON多吐`photo_caption` | ★【拍照】等 |
-| `kanshouShowPhotoStr` | 📷看照片(洗好/沒洗好) | ★【看照片】/【照片還沒洗好】 |
-| 節慶氛圍(IIFE) | 日曆=節慶當天 或 剛按跳轉(前夕) | ★【節慶氛圍】今天是X／明天就是X |
-| ★【今日天氣】 | 恆帶 | `kanshouWeather_(curDay)`確定性天氣 |
-| `kanshouAnnivStr` | 相識滿7/30/100/365天且人在場 | ★【紀念日·非強制】 |
-| `pActivityStr`(每位在場者卡) | 12個地點的「現況」活動(打工/散步/泡湯…)·剛跟玩家一起移動來的人不套 | 現況:正在這裡… |
+| `kanshouPromiseStr`/`kanshouPromiseMetStr` | 📅相約成立/撲空·赴約/遲到/爽約結算 | ★【約定成立】/★【依約相會】/★【遲到赴約】/爽約事實 |
+| `kanshouApptTodoStr`/`kanshouApptWaivedStr` | 今天還有沒赴的約／人已在身邊免赴 | ★【今天的約·尚未赴】 |
+| `kanshouCohabitStr`/`kanshouCohabitEndStr` | 🏠邀請同居(成立/婉拒/已同居/撲空)／搬走 | ★【同居開始】/★【同居·婉拒】/★【已在同居】… |
+| `kanshouConfessStr` | 💗告白 | ★【告白·成立】/★【告白·被拒】/★【已經在一起了】 |
+| `kanshouInviteStr`/`kanshouEncounterStr` | 🤝結識巧遇對象／巧遇擲中 | ★【正式結識】/結識未成／巧遇事實 |
+| `kanshouHandHoldStr`/`kanshouHoldingStr` | 🤝牽手/✋放手／牽著走 | ★【牽起來了】/★【放手】 |
+| `kanshouNightGuestStr`/`kanshouKnockRaidStr`/`kanshouNightSceneStr`/`kanshouNightPartStr` | 深夜訪客／別有用心／夜未眠／夜裡道別 | ★【對方自己找來了】／★【夜裡道別】… |
+| `kanshouPhotoStr`/`kanshouShowPhotoStr` | 📷拍照(正常/風景/相簿滿)／看照片 | ★【拍照】/★【拍照·風景】/★【相簿已滿】/★【看照片】 |
+| `kanshouFestivalStr` | 日曆＝節慶當天／跳到前夕 | ★【今天是「X」】／★【節慶前夕】（只給事實，無習俗表） |
+| `kanshouTierCrossStr`/`kanshouFirstsAnnivStr`/`kanshouFirstsStr`/`kanshouAnnivStr` | 剛跨關係階／「第一次」週年／既定的第一次／相識紀念日 | 純事實＋show-don't-tell 護欄 |
+| `kanshouNewPlaceStr`/`_worldFeed_`/`kanshouWorldRosterStr` | 玩家走出新地點／世界帳本相關條目／常民名冊 | ★【要它之後還在就寫進 world_note】等 |
+| `kanshouAloneBondStr`/`kanshouInitStr` | 獨處時光(+3)／她主動 | ★【獨處時光】／★【對方開口約你】 |
+| `kanshouVisitBlockedStr`/`kanshouTimeBlockedStr` | 想去未解鎖的住處／時間不對 | ★【撲空·地點未開放】… |
+| ★【此刻】 | 恆帶 | 日期・時段・`kanshouWeather_(curDay)` 確定性天氣併在同一行（無獨立【今日天氣】標籤） |
+| `_earlierDigest_` | 歷史窗外還有更早回合 | ★【稍早做過的事】（`kanshouRecentDigest_`） |
 
-世界觀行同輪全面改寫(§112 詞彙清洗)：AI不再看到 從者/御主/英靈殿被召喚/職階，統一「這座城的普通居民」框架＋一句集中壓制句。新增純機制action：`get_album`(讀相簿+剩餘底片)/`album_delete`(刪照片)——皆不叫AI。
+~~`kanshouRoomEventStr`（橋段 13 筆）／`kanshouJealousStr`（醋意 20%）／`pActivityStr`（地點活動）／★【節慶氛圍】／★【今日天氣】~~ 都已不存在。
+
+世界觀行同輪全面改寫(§112 詞彙清洗)：AI不再看到 從者/御主/英靈殿被召喚/職階，統一「這座城的普通居民」框架＋一句集中壓制句。新增純機制action：`get_album`(讀相簿)/`album_delete`(刪照片)——皆不叫AI。

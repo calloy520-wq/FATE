@@ -46,7 +46,7 @@ money／商城·店鋪／物品·背包／給銀兩／天命·任務／工房經
 **餵 AI 規則**：GAS 算全部數字；AI 戰報只收到「本回合**實際觸發**的標籤名＋一句白話」（如 `對魔力A(魔術無效)`、`神殺(剋神性)`），**不給公式/階級/整份字典**。
 
 ## 衍生數值（綁能力推導，別手調每隻）
-- HP/MP 上限由 `fateMaxHpMp_`（御主）與召喚公式（從者＝耐久/魔力推導）算；確切係數看 `Core_Settings.gs`。
+- HP/MP 上限：御主走 `masterMaxHpMp_`/`masterPoolMax_`（迴路制）、從者走 `servantMaxHp_`（耐久制，MP 恆 0 出力電池）；確切係數看 `Core_Settings.gs`。
 - **魔力收支（FATE 戰鬥機制，非經濟）**：靈脈／陣地／工房 供給（HUD `playerServantEconomy_`）；回魔三態：♻️自然(靈脈/休息·時回 `applyRegen_`)／💧補魔(`mana_supply`·燃迴路·**永久代價**：血上限↓/迴路↓)／🩸燃血(**被動**·池見底自動扣御主＋從者HP)。夜襲 `enemyAmbushOnServant_`、搜索撿魔 `scavenge`(零星·同地枯竭) 皆 GAS 結算。
 
 ## 從者好感／羈絆

@@ -388,7 +388,7 @@
         + '　• 你走出來的地方與世界帳本\n\n'
         + '【不會動】英靈殿（含你在工房鑄的原創英靈）與聖杯戰爭那一邊。\n'
         + '刪掉之後救不回來——確定嗎？')) return false;
-      const typed = prompt('最後確認：請輸入你的帳號名稱「' + acct + '」以繼續。');
+      const typed = await customPrompt_('最後確認：請輸入你的帳號名稱「' + acct + '」以繼續。', '', 30);
       if (typed === null) return false;
       if (String(typed).trim() !== acct.trim()) { alert('名稱不符，已取消。'); return false; }
       // 🐛→✅ 玩家實測「輸入名字後就消失了，不知道有沒有在執行」：輸入框一關就整段沒有畫面回饋。

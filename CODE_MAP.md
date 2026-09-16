@@ -21,10 +21,10 @@ grep -nE "^(function|const|var) [A-Za-z_]" gas/檔名.gs | sed -E 's/^([0-9]+):(
 # ✅ 改完必跑（CI 不驗 .html 內嵌 JS，這是唯一防線）
 bash check.sh
 
-# 🔴 紅線核對（必須 exit 1 ＝ 沒動到）
+# nsfwBaseRules 有沒有被動到（紅線①已取消禁區：可改，但改前量現況、改後跑全套探針——這行只是提醒你「有動到就要走那套流程」，不再要求 exit 1）
 git diff -- gas/Gallery.gs | grep -E "^[+-]" | grep -v "^+++\|^---" | grep -i "nsfwBaseRules"; echo "exit:$?"
 
-# 死碼掃描（全 403 函式，正常應只吐 removeAllTriggers）
+# 死碼掃描（全 445 函式，正常應只吐 removeAllTriggers）
 grep -hoE "^function [A-Za-z0-9_]+" gas/*.gs | sed 's/function //' | sort -u | while read f; do
   [ "$(grep -rhoE "\b${f}\b" gas/ | wc -l)" -le 1 ] && echo "$f"; done; true   # ← true 收尾，否則末次判偽會吐 exit 1
 ```
@@ -102,7 +102,7 @@ mcp__github__actions_get          method=get_workflow_run resource_id=<run_id>
 
 ### 改鑑賞好感／尺度門檻
 `grep -n "KANSHOU_.*_BOND_\|KANSHOU_REL_TIER_" gas/Gallery.gs` → 前端 `Script_Kanshou.html` 鏡像常數同步
-🔴 **`nsfwBaseRules` 本體不可改**，只能改天花板規則那段
+**`nsfwBaseRules` 是演化核心**：可改，但改前先用模擬器量現況、改完跑全套探針、確認原本正常的配對沒被改壞（CLAUDE.md 紅線①，2026-07 玩家取消禁區）
 
 ### 改提示詞
 演出卡 `Router_Persona.gs`｜solo 敘事 `Router_Narrative.gs`｜鑑賞 `Gallery.gs`
@@ -120,9 +120,9 @@ mcp__github__actions_get          method=get_workflow_run resource_id=<run_id>
 | 區 | 起點錨（grep 這個） | 內容 |
 |---|---|---|
 | ① 資料層 | `sanitizeAiData_` | 帳號綁定／`kanshouPcIdx_`／鑑賞眾生表／日常版轉換 |
-| ② 關係 | `KANSHOU_REL_TIER_` | 五階／好感天花板／`kanshouProposalAccepts_` |
+| ② 關係 | `KANSHOU_REL_TIER_` | 五階／`kanshouSyncRelTier_`／`kanshouIsLover_` 告白牆（好感天花板已移除） |
 | ③ handlers | `actionKanshouSummonHero` | 全部 `kanshou_*` action（召喚/貼圖/回憶/改名） |
-| ④ 🔴禁區 | `buildDefaultSystemPrompt` | **`nsfwBaseRules` 在這裡，不可改** |
+| ④ 演化核心 | `buildDefaultSystemPrompt` | `nsfwBaseRules` 在這裡：可改，先量後改再跑探針（紅線①） |
 | ⑤ 常數大宗 | `KANSHOU_REGIONS_` | 地圖／橋段／住處／時間曆法／約定／道具／相簿／天氣／別名 |
 | ⑥ 引擎 | `actionPlay` → `actionPlay_` | 🔥 **~1440 行巨獸**，鑑賞單回合全部意圖都在裡面 |
 | ⑦ 相簿 | `actionGetAlbum` | 讀／刪（拍照本體在 ⑥） |
@@ -167,7 +167,7 @@ var idx   = findPcRowIdx_(pcData, gameId, { id, name, faction:"從者", loc:curL
 **§3.4 MEMORY 標記**
 ```js
 var XXX_TAG_ = makeIntTag_('標記名', 0);     // 或 makeTextTag_('標記名')
-XXX_TAG_.get(memory) / .set(memory, val) / .strip(memory)
+XXX_TAG_.get(memory) / .set(memory, val) / .clear(memory)   ← IntTag 才有 clear；TextTag 只有 get/set，清值用 set(memory, '')
 // 自由文字先洗：cleanTagText_(str, maxLen)  → 剝 ｜【】\n\r\t
 ```
 
@@ -186,7 +186,7 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 
 ---
 
-## §4 全 63 action → handler → 檔
+## §4 全 67 action → handler → 檔
 
 | action | handler | 檔 | | action | handler | 檔 |
 |---|---|---|---|---|---|---|
@@ -197,6 +197,9 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 | end_run | actionEndRun | Account | | weapon | actionSetWeapon | Router_Economy |
 | purge_orphans | actionPurgeOrphans | Account | | mana_supply | actionManaSupply | Router_Economy |
 | create | actionManualNpc | Router_Creation | | spirit_repair | actionSpiritRepair | Router_Economy |
+| kanshou_reset | actionKanshouReset | Gallery | | kanshou_world | actionKanshouWorld | Gallery |
+| kanshou_set_pace | actionKanshouSetPace | Gallery | | roll_fate | actionRollFate | Core_Settings |
+| np_respond | actionNpRespond | Router_Battle | | | | |
 | backfill_master_ai | actionBackfillMasterAi | Router_Creation | | bond | actionBond | Router_Bond |
 | summon_servant | actionSummonServant | Router_Creation | | use_seal | actionUseSeal | Router_Bond |
 | get_heroes | actionGetHeroes | Router_Creation | | rule_break_steal | actionRuleBreakSteal | Router_Bond |
@@ -231,8 +234,8 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 | 工房職階技能／計價／可用fx | `FORGE_CLS_SKILLS_` / `SKILL_PTS_` / `ALLOWED_FX_` | Router_Creation |
 | 敵營局面選項 | `FACTION_ENCOUNTER_CHOICES_` | Router_Movement |
 | 出力檔／符文／參戰風格 | `OUTPUT_TIERS_` / `RUNE_MODES_` / `STANCE_SHARE_` | Core_Settings / Router_Battle |
-| 鑑賞地圖／橋段／道具／節慶／關係階 | `KANSHOU_LOCATIONS_` `KANSHOU_SCENE_EVENTS_` `KANSHOU_PROPS_` `KANSHOU_FESTIVALS_` `KANSHOU_REL_TIER_` | Gallery |
-| 鑑賞橋段觸發(四層) | `KANSHOU_FESTIVAL_EVENTS_`(節慶) `KANSHOU_LOCATION_EVENTS_`(地點×時段) `KANSHOU_COHABIT_EVENTS_`(同居日常·最低優先) | Gallery |
+| 鑑賞地圖／節慶／關係階／住處池 | `KANSHOU_LOCATIONS_` `KANSHOU_FESTIVALS_` `KANSHOU_REL_TIER_` `KANSHOU_GENERIC_HOME_POOL_` | Gallery |
+| ~~鑑賞橋段觸發(四層)~~ | `KANSHOU_SCENE_EVENTS_`/`KANSHOU_FESTIVAL_EVENTS_`/`KANSHOU_LOCATION_EVENTS_`/`KANSHOU_COHABIT_EVENTS_`/`KANSHOU_PROPS_` **2026-09 已整批砍除**（事件自由：地點×時段發生什麼由 AI 即興，節慶只給「今天是 X」事實） | — |
 | 鑑賞「第一次」／關係質變 | `kanshouStampFirst_`(加蓋戳點) `kanshouRelTierLabel_`(階數→階名) | Gallery |
 | dispatcher 行為 | `OWNERSHIP_CHECK_EXEMPT_` `LOCK_EXEMPT_ACTIONS_` `STATE_AFTER_ACTIONS` `KANSHOU_BLOCKED_ACTIONS_` | Router_Action |
 
@@ -242,7 +245,7 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 
 | 情境 | 坑 |
 |---|---|
-| 改 `Gallery.gs` 任何地方 | 🔴 事後必跑 §0 紅線指令；`nsfwBaseRules` 0 改動 |
+| 改 `Gallery.gs` 任何地方 | 動到 `nsfwBaseRules` 就走紅線①流程：先量現況、改完跑全套探針、確認原本正常的配對沒被改壞 |
 | 刪／搬試算表欄位 | ⚠ COL 是位置索引，**寧棄用不刪**；死欄 `MONEY/UPKEEP_WEEK/ROOM` 是刻意留的佔位 |
 | 動 `.html` | CI **不驗** .html 內嵌 JS → 綠燈也可能壞 runtime，**只能靠 `bash check.sh`** |
 | 加自由輸入欄位 | 後端**一定要自己設長度上限**，別信前端 `maxlength`；並過 `cleanTagText_`／`｜【】` 清洗 |
@@ -257,8 +260,8 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 
 ## §7 現況（2026-07）
 
-- 24 檔・後端 408 函式・63 action
+- 24 檔・後端 445 函式・67 action
 - **死碼 0**（僅 `removeAllTriggers` 無呼叫點＝刻意保留的編輯器手動工具）
-- 63 action 全部有真實 handler 且皆可從前端到達（`set_mage_realm`/`set_rune_mode` 走 `pickSelectable(action,…)` 動態帶入）
+- 67 action 全部有真實 handler 且皆可從前端到達（`set_mage_realm`/`set_rune_mode` 走 `pickSelectable(action,…)` 動態帶入）
 - 連續 3 輪稽核乾淨收斂 → `SOLO_REFERENCE.md` §25
 - `full`（九州全模擬）停用中；兩軌皆無經濟/生活層、無戰記/排行榜
