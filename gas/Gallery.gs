@@ -2712,7 +2712,8 @@ function actionPlay_(userData, pcId, sheets) {
   }
   // ⏰ 時間隨動作流動：一般 AI 敘事回合(非結束一天/非時段跳躍)每次推進 kanshouHourPerAction_(memory) 小時(玩家自選流速)，讓聊天/移動/拍照/橋段等按鍵都會讓時鐘往前走，消除「到處跑卻永遠6點」的凍結感。
   let kanshouBandCrossed_ = false; // 被動流動跨過時段邊界→下方「作息自然告辭」用
-  if (!kanshouClockMoved_ && curHour < KANSHOU_DAY_LAST_HOUR_ && _paceHour_ > 0) {
+  // 📱 拍照不算時間（2026-09）：真的用手機拍是一秒鐘的事，玩家常「拍一張、再拍一張」，每張走掉半小時下午就沒了。
+  if (!kanshouClockMoved_ && curHour < KANSHOU_DAY_LAST_HOUR_ && _paceHour_ > 0 && userData.takePhoto !== true) {
     const _pbBand = timeBand_(curHour);
     curHour = Math.min(KANSHOU_DAY_LAST_HOUR_, curHour + _paceHour_);
     pcData[pcIndex][COL.PC.HOUR] = curHour;
@@ -3165,19 +3166,31 @@ function actionPlay_(userData, pcId, sheets) {
     } else {
       // 指定拍誰：intent點名了哪些在場同伴(可多位)——只拍被點名的那些人；沒點名到任何人才算風景。
       const _phNamedMembers = _phIntent ? partyMembers.filter(n => kanshouNameCandidates_(String(n)).some(c => _phIntent.indexOf(c) >= 0)) : [];
-      const _phScenery = !partyMembers.length || (_phIntent && !_phNamedMembers.length);
+      // 🤳 自拍：玩家自己也入鏡（2026-09）。沒人在場的自拍＝一個人的自拍，不算風景。
+      const _phSelfie = userData.selfie === true;
+      const _phScenery = !_phSelfie && (!partyMembers.length || (_phIntent && !_phNamedMembers.length));
       const _phCaptionRule = `並【務必】在回應JSON中額外加一個欄位 "photo_caption"：同 narration 用第二人稱「你」稱玩家、寫一句30~60字的照片小敘述(禁HTML與引號)，若拍到的是親密畫面也直接寫實描述，不用刻意隱晦帶過。`;
       if (_phScenery) {
         kanshouPhotoPending_ = { names: ['風景'], scenery: true };
         kanshouPhotoStr = `\n★【拍照·風景】：玩家舉起手機${_phIntent ? `，想拍的是「${_phIntent}」，` : "，"}拍下此刻「${kanshouLocNameForAI_(curL)}」的一隅——鏡頭裡可以是街貓、狗兒、鳥雀、光影、不具名路人的背影等生活細節(依地點/時段/天氣自然想像${_phIntent ? "，以玩家想拍的東西為主角" : ""})；若有同伴在場，她們可以自然反應或亂入鏡頭邊角。${_phCaptionRule}`;
         finalUserMsg = `【玩家意圖】：舉起手機，${_phIntent ? `拍下「${_phIntent}」` : "拍下眼前的光景"}。`;
       } else {
-        // 點名了誰就只拍那(幾)位；沒點名(空手按)＝在場好感最高的前3位一起入鏡合照。
-        const _phTargets = _phNamedMembers.length ? _phNamedMembers.slice(0, 3) : partyMembers.slice(0, 3);
+        // 點名了誰就只拍那(幾)位；沒點名(空手按)＝在場的人全部入鏡合照（2026-09 拿掉「前 3 位」的暗規則：
+        //   按鈕寫「大家的合照」，第四位卻被靜靜排除，介面在說謊）。
+        const _phTargets = _phNamedMembers.length ? _phNamedMembers : partyMembers.slice();
         const _phSolo = _phTargets.length === 1;
-        kanshouPhotoPending_ = { names: _phTargets };
-        kanshouPhotoStr = `\n★【拍照】：玩家舉起手機，${_phSolo ? `單獨` : ``}拍下『${_phTargets.join('、')}』此刻的身影${_phTargets.length > 1 ? `(這是一張把她們一起框進來的合照)` : ``}——讓被拍的人依各自性格與好感演出被拍瞬間的反應(大方擺姿勢/害羞遮臉/嗔怪/渾然未覺皆可)${partyMembers.length > _phTargets.length ? `；在場其他沒被拍到的人可以自然旁觀或起鬨` : ``}。${_phCaptionRule}`;
-        finalUserMsg = `【玩家意圖】：舉起手機，拍下『${_phTargets.join('、')}』此刻的樣子。`;
+        if (_phSelfie) {
+          // 🤳 自拍：玩家在鏡頭裡。人物欄把玩家自己排第一，相簿篩選才找得到「有你的照片」。
+          kanshouPhotoPending_ = { names: [String(pcName)].concat(_phTargets), selfie: true };
+          kanshouPhotoStr = _phTargets.length
+            ? `\n★【自拍】：玩家舉起手機、鏡頭轉向自己這一側，要跟『${_phTargets.join('、')}』一起入鏡——對方要不要靠過來、靠多近、擺什麼表情，【依各自好感與性格】決定(好感低的可能只肯站在邊角、或伸手擋鏡頭；好感高的會貼上來)。玩家自己在畫面裡，這一張是「你們」的照片。${_phCaptionRule}`
+            : `\n★【自拍】：身邊沒有人，玩家舉起手機對著自己拍了一張——鏡頭裡是「${kanshouLocNameForAI_(curL)}」的背景和此刻的自己，可以帶一點獨處的心情。${_phCaptionRule}`;
+          finalUserMsg = `【玩家意圖】：舉起手機自拍${_phTargets.length ? `，要跟『${_phTargets.join('、')}』一起入鏡` : ''}。`;
+        } else {
+          kanshouPhotoPending_ = { names: _phTargets };
+          kanshouPhotoStr = `\n★【拍照】：玩家舉起手機，${_phSolo ? `單獨` : ``}拍下『${_phTargets.join('、')}』此刻的身影${_phTargets.length > 1 ? `(這是一張把她們一起框進來的合照)` : ``}——讓被拍的人依各自性格與好感演出被拍瞬間的反應(大方擺姿勢/害羞遮臉/嗔怪/渾然未覺皆可)${partyMembers.length > _phTargets.length ? `；在場其他沒被拍到的人可以自然旁觀或起鬨` : ``}。${_phCaptionRule}`;
+          finalUserMsg = `【玩家意圖】：舉起手機，拍下『${_phTargets.join('、')}』此刻的樣子。`;
+        }
       }
     }
   }
@@ -3479,7 +3492,7 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
           .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, "")
           .replace(/[<>&"'`｜【】]/g, "").slice(0, 90)
           .replace(/^[=+\-@\t\r]+/, "");
-        const _phSubj = kanshouPhotoPending_.scenery ? null : pcData.find(r => String(r[COL.PC.NAME]).trim() === String(kanshouPhotoPending_.names[0]).trim() && String(r[COL.PC.FACTION]) === "從者" && sameGame(r));
+        const _phSubj = kanshouPhotoPending_.scenery ? null : pcData.find(r => String(r[COL.PC.NAME]).trim() === String((kanshouPhotoPending_.selfie ? kanshouPhotoPending_.names[1] : kanshouPhotoPending_.names[0]) || '').trim() && String(r[COL.PC.FACTION]) === "從者" && sameGame(r));
         const _phHair = kanshouPhotoPending_.scenery ? '#7a9a6a' : kanshouHairHex_(_phSubj ? String(_phSubj[COL.PC.TRAIT] || "") : ""); // 風景照緞帶固定草綠
         // 節慶旗標(相簿卡片會顯示)：原本讀 kanshouReFest_，那個區域變數隨情境橋段一起刪掉了，現場算。
         const _phFest = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day);

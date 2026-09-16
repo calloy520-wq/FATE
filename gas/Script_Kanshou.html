@@ -124,7 +124,7 @@
       jumpBand = opts.jumpBand || null,
       loaderCaptions = opts.loaderCaptions || null, moveWithCompanion = !!opts.moveWithCompanion,
       promiseMeet = opts.promiseMeet || null, cohabitInvite = opts.cohabitInvite || null,
-      inviteResident = opts.inviteResident || null, proposeMove = opts.proposeMove || null, takePhoto = !!opts.takePhoto,
+      inviteResident = opts.inviteResident || null, proposeMove = opts.proposeMove || null, takePhoto = !!opts.takePhoto, selfie = !!opts.selfie,
       showPhoto = opts.showPhoto || null, photoIntent = opts.photoIntent || null,
       handHold = opts.handHold || null,
       // 🐛→✅ 稽核抓到：呼叫端(kanshouHandHold/kanshouInviteCohabit)一直有把 npcId 塞進 opts，
@@ -171,7 +171,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, skipKnockCheck: skipKnockCheck || undefined, dismissGuest: dismissGuest || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined, takePhoto: takePhoto || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined, handHold: handHold || undefined, handHoldId: handHoldId || undefined, cohabitInviteId: cohabitInviteId || undefined, confess: confess || undefined, confessId: confessId || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, skipKnockCheck: skipKnockCheck || undefined, dismissGuest: dismissGuest || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined, takePhoto: takePhoto || undefined, selfie: selfie || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined, handHold: handHold || undefined, handHoldId: handHoldId || undefined, cohabitInviteId: cohabitInviteId || undefined, confess: confess || undefined, confessId: confessId || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -305,7 +305,7 @@ let plainTextContext = cleanText;
           : pr.reason === 'nobody' ? '📷 身邊沒有可拍的人。' : '📷 這一張沒拍成。';
         // 📱 手機拍完當下就能看（玩家 2026-09「拍照改成手機拍 當下能看」）：後端把卡片物件隨回合帶回，
         //   這裡用相簿同一支 kcAlbumCardHtml_ 直接畫在對話裡，不必再點開 📚 相簿。
-        if (pr.ok && pr.photo) optionsHtml += '<div style="display:flex; justify-content:center; padding:6px 0 4px;">' + kcAlbumCardHtml_(pr.photo) + '</div>';
+        if (pr.ok && pr.photo) optionsHtml += '<div style="display:flex; justify-content:center; padding:6px 0 4px;">' + kcAlbumCardHtml_(pr.photo, { noDelete: true }) + '</div>';
         optionsHtml += `<div style="color:#9a917f; font-size:11px; padding:4px 2px 8px;">${prTxt}</div>`;
         // 📣 走查抓到的軟卡點：相簿滿只有文字、沒有下一步——補直達鈕。
         if (!pr.ok && pr.reason === 'cap') optionsHtml += `<button class="btn-option" style="width:100%; margin-bottom:8px;" onclick="openKanshouAlbum()">📚 打開相簿，刪幾張舊照片</button>`;
@@ -1391,10 +1391,19 @@ let plainTextContext = cleanText;
     var b = function (label, intentVal) {
       return '<button onclick="kanshouShoot_(\'' + String(intentVal).replace(/'/g, '') + '\')" style="padding:6px 10px;background:rgba(200,120,150,0.16);color:#e8b0c8;border:1px solid #a06080;border-radius:8px;cursor:pointer;font-size:12.5px;">' + label + '</button>';
     };
+    var sb = function (label, intentVal) {
+      return '<button onclick="kanshouShoot_(\'' + String(intentVal).replace(/'/g, '') + '\', true)" style="padding:6px 10px;background:rgba(150,120,200,0.16);color:#c8b0e8;border:1px solid #8060a0;border-radius:8px;cursor:pointer;font-size:12.5px;">' + label + '</button>';
+    };
     var rows = '<div style="display:flex;flex-wrap:wrap;gap:6px;">'
       + present.map(function (n) { return b('📷 拍「' + escapeHtml(n) + '」', n); }).join('')
       + (present.length >= 2 ? b('👥 大家的合照', '') : '')
       + b('🏞️ 眼前的風景', present.length ? '眼前的風景' : '')
+      + '</div>'
+      // 🤳 自拍：你也在鏡頭裡（2026-09）。一個人時就是一個人的自拍。
+      + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">'
+      + present.map(function (n) { return sb('🤳 跟「' + escapeHtml(n) + '」自拍', n); }).join('')
+      + (present.length >= 2 ? sb('🤳 大家一起自拍', '') : '')
+      + (!present.length ? sb('🤳 自拍一張', '') : '')
       + '</div>'
       + '<div style="display:flex;gap:6px;margin-top:10px;">'
       + '<input id="kf-input" placeholder="或指定想拍的：那隻橘貓、窗邊的夕陽…" style="flex:1;padding:6px 8px;background:#141019;color:#e8d8e0;border:1px solid rgba(232,184,204,.25);border-radius:8px;font-size:12.5px;">'
@@ -1405,12 +1414,15 @@ let plainTextContext = cleanText;
       + rows + '</div>';
     ov.style.display = 'flex';
   }
-  async function kanshouShoot_(intent) {
+  async function kanshouShoot_(intent, selfie) {
     var ov = document.getElementById('kf-overlay');
     if (ov) ov.style.display = 'none';
     intent = String(intent || '').trim();
     showGamePane('chat');
-    await send(intent ? ('（舉起手機，這張想拍的是「' + intent + '」。）') : '（舉起手機，拍下此刻的光景。）', false, { takePhoto: true, photoIntent: intent || null });
+    var line = selfie
+      ? (intent ? ('（舉起手機轉向自己這側，要跟「' + intent + '」一起自拍。）') : '（舉起手機，自拍一張。）')
+      : (intent ? ('（舉起手機，這張想拍的是「' + intent + '」。）') : '（舉起手機，拍下此刻的光景。）');
+    await send(line, false, { takePhoto: true, selfie: !!selfie, photoIntent: intent || null });
   }
   // 📷 拿照片給在場的人看(相簿卡片上的按鈕)：手機拍完立刻能看，隨時都能拿出來給人看。
   async function kanshouShowPhoto(photoId) {
@@ -1450,13 +1462,14 @@ let plainTextContext = cleanText;
       + '<text x="8" y="100" font-size="10" fill="' + (darkBand ? '#c8c4dc' : '#6a5a44') + '">📍 ' + escapeHtml(p.loc) + '・' + escapeHtml(p.band) + '</text>'
       + '</svg>';
   }
-  function kcAlbumCardHtml_(p) {
+  function kcAlbumCardHtml_(p, opts) {
+    opts = opts || {};   // { noDelete: true } ＝ 拍完當下畫在對話裡的那張：手滑撕掉太容易，而且對話裡那張會變假卡
     // 2026-07「拍照改手機、不用等」：手機拍完立刻能看，不再有沖洗中狀態，一律顯示完整卡片。
     var body = '<div style="font-size:11px; color:#5a5248; padding:7px 3px 6px; line-height:1.5;">' + escapeHtml(p.caption) + '</div>'
       + '<div style="font-size:9px; color:#9a917f; padding:0 3px 6px;">📷 ' + escapeHtml(p.dateLabel) + '・' + escapeHtml(p.weather) + '｜' + escapeHtml(p.names) + (p.flag ? '・' + escapeHtml(p.flag) : '') + '</div>'
       + '<div style="display:flex; gap:5px; padding:0 2px 7px;">'
       + '<button onclick="kanshouShowPhoto(\'' + p.id + '\')" style="flex:1; font-size:10px; padding:3px 4px; background:rgba(90,140,100,0.14); color:#3a6a48; border:1px solid #6a9a7a; border-radius:5px; cursor:pointer;">👀 給在場的人看</button>'
-      + '<button onclick="kanshouDeletePhoto(\'' + p.id + '\')" style="font-size:10px; padding:3px 7px; background:rgba(160,60,60,0.1); color:#a04a4a; border:1px solid #b07a7a; border-radius:5px; cursor:pointer;">🗑️</button>'
+      + (opts.noDelete ? '' : ('<button onclick="kanshouDeletePhoto(\'' + p.id + '\')" style="font-size:10px; padding:3px 7px; background:rgba(160,60,60,0.1); color:#a04a4a; border:1px solid #b07a7a; border-radius:5px; cursor:pointer;">🗑️</button>'))
       + '</div>';
     return '<div style="background:#f5f2ea; padding:8px 8px 2px; border-radius:3px; box-shadow:0 4px 10px rgba(0,0,0,.45); width:186px;">'
       + kcAlbumCardSvg_(p)
