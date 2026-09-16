@@ -27,6 +27,13 @@
 - **輸入清洗**（2026-07 稽核補）：主對話 `message` 欄位嵌入提示詞前補 `｜【】` 分隔符清洗，防玩家用這幾個符號偽造 MEMORY 標記或偽造「★【...】」格式的假系統指令段（遊戲本身的真實系統指令就長這樣，不濾會讓兩者無法區分）。
 - **歸屬驗證**（2026-07 兩階段補洞後現況）：⚠ 舊版每個 kanshou handler 各自呼叫 `kanshouOwnedRowIdx_`(內部反查帳號表 KPC 欄)才敢信任 pcId；全面稽核先後抓到 `actionPlay`/`actionGetAlbum`/`actionAlbumDelete` 等多處漏掉這道驗證，形同可憑猜中/拿到的 `pcId` 冒名讀寫他人存檔。**這道驗證後來整個上移到 dispatcher**：`handleGameAction`（Router_Action.gs）在派發到任何 handler 之前，統一呼叫 `verifyPcOwnership_(acctName, pcId)`（Account.gs，反查帳號表 `COL.ACC.KPC`/`COL.ACC.PC`），白名單 `OWNERSHIP_CHECK_EXEMPT_` 外的動作一律先過這關。故 `kanshouOwnedRowIdx_` 已刪除，改為純索引查找版 `kanshouPcIdx_(data, pcId)`（Gallery.gs）——所有 kanshou handler 進來前 pcId 已保證屬於呼叫者，不必再反查一次帳號表(那是同一趟請求裡的第二次整表讀，純浪費)。**任何新增的 kanshou action handler，只要會讀寫 pcData，一律用 `kanshouPcIdx_` 換 index 即可（歸屬驗證由 dispatcher 保證，handler 不必自己再查帳號表）。**
 - **前綴白名單**：`KPC_`(御主 avatar)／`KHV_`(直接召喚同伴)／`DEAD_`；`KSV_` 是**舊奪杯封存邀請的遺留前綴**——封存管線已砍、不再產生新 `KSV_` 列，僅在 sync／`isKanshou` 判定保留向後相容識別（別當現行機制）。
+- 🐛→✅ **2026-09 跨帳號污染：名字一旦離開陣列就不帶 game_id 了**。鑑賞眾生是**全帳號共用一張表**，而每個人都從同一座英靈殿召喚——**撞名是常態，不是巧合**。
+  `actionPlay_` 的「第一次同床」蓋章：上游 `allEstablished` 有 `sameGame(r)` 過濾沒錯，但 `intimateNightNames`
+  取出來的是**名字字串**，回頭 `pcData.forEach` 掃全表時只比名字。實測（`scratchpad/size/crossgame.js`）：
+  甲乙兩帳號各召一個 SABER，甲按睡覺 → **乙那一列也被蓋上 `同床:1`**。補 `sameGame(r)` 修掉。
+  ⚠ **這是一種形狀，不是一個 bug**：「先用 game_id 濾出一批列 → 取出名字 → 拿名字回頭掃全表」。
+  全樹掃過只有兩處，另一處在 `actionRest` 的死分支裡（已連分支一起砍，見 `SOLO_REFERENCE.md`）。
+  **之後要用名字回頭找列，一律先問「這個名字在別人那局會不會也有」。**
 - **歷史暫存**：solo/鑑賞**共用同一張「歷史暫存」表**，靠 `pcId` 前綴（`PC_` vs `KPC_`）隔離、非物理分表——架構唯一例外，記在案。
 
 ### COL.PC 鑑賞實際用到的欄位（定義 `Core_Settings.gs`）
@@ -1050,7 +1057,7 @@ JSON 固定開銷（三人在場）：典型 757 字 ／ 欄位全滿 1,057 字
 那 12 字是**這條規則唯一能抓的具體錨**（玩家當初要的就是「用這個角色的角度去感受」），已還原。
 **規則可以砍，讓規則可執行的那個例子不能砍。**
 
-### 💗 告白＝關係階的質變事件（2026-07 新增·`confess`）### 💗 告白＝關係階的質變事件（2026-07 新增·`confess`）
+### 💗 告白＝關係階的質變事件（2026-07 新增·`confess`）
 
 **問題**（玩家：「感覺好感又太絲滑… 沒有一個交往的確定過程… 人人都可以自然變成戀人 感覺很怪」）：
 舊做法是好感爬到 80 就自動長出「戀人」標籤，全程沒有任何一刻是「你們決定在一起」。
