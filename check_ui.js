@@ -108,7 +108,32 @@ if (!probeFired) {
   process.exit(1);
 }
 
-console.log('🖥️ 前端 runtime：%d 個入口、%d 個面板真的跑起來（含自我退化測試）'.replace('%d', ENTRIES.length).replace('%d', RENDERS.length));
+// 🔰 新手引導點名的每一顆按鈕都必須真的存在（鑑賞沒有 ❓教學 入口，第一次進來那段就是唯一的說明）。
+//    寫一顆不存在的鈕比不寫更誤導人——這條規則本來只寫在註解裡，改成機器擋。
+//    ⚠ 比對的是【圖示】不是整串字：圖示是穩定的識別碼，後面那幾個字常常會為了語氣微調
+//    （「📚 相簿收著你拍的照片」vs 按鈕上的「📚 相簿」）。第一版比整串字，四條全誤報。
+const TUT_NOT_A_BUTTON = new Set(['✍️', '🔰']);   // 純粹的段落圖示，不是控制項
+const tutorial = (() => {
+  const src = fs.readFileSync(path.join(GAS, 'Script_Kanshou.html'), 'utf8');
+  const i = src.indexOf('<b>【日常】</b>');
+  if (i < 0) return { block: '', icons: [] };
+  const j = src.indexOf('日子還長', i);
+  const block = src.slice(i, j < 0 ? i + 4000 : j);
+  const icons = [...new Set((block.match(/[\u{1F300}-\u{1FAFF}\u2699\u26A0\u270D\u2795\uFF0B][\uFE0F]?/gu) || [])
+    .map(x => x.replace(/\uFE0F/g, '')))].filter(x => !TUT_NOT_A_BUTTON.has(x) && !TUT_NOT_A_BUTTON.has(x + '\uFE0F'));
+  return { block, icons };
+})();
+const uiText = FILES.concat(['Index.html'])
+  .map(f => fs.readFileSync(path.join(GAS, f), 'utf8')).join('\n')
+  .split(tutorial.block).join('');            // 把教學那段本身挖掉，免得自己證明自己
+// 控制項＝出現在 onclick 那一段裡，或抽屜的 <i>圖示</i>
+const controls = (uiText.match(/onclick=[^>]*>[^<]*|<i>[^<]*<\/i>|title="[^"]*"/g) || []).join('\n');
+const ghostBtn = tutorial.icons.filter(ic => controls.indexOf(ic) < 0);
+if (!tutorial.icons.length) bad.push('新手引導：一顆按鈕都沒抓到（那段是不是被改掉了？）');
+ghostBtn.forEach(v => bad.push('新手引導點名了介面上找不到的控制項圖示：「' + v + '」'));
+
+console.log('🖥️ 前端 runtime：%d 個入口、%d 個面板真的跑起來、新手引導點名 %d 顆鈕（含自我退化測試）'
+  .replace('%d', ENTRIES.length).replace('%d', RENDERS.length).replace('%d', tutorial.icons.length));
 if (bad.length) {
   console.log('  ❌ ' + bad.length + ' 處壞在 runtime（語法檢查看不到這種）：');
   bad.forEach(b => console.log('     ' + b));
