@@ -391,23 +391,16 @@ function kanshouRapportTone_(bond, metCount, isLover) {
 // 拆法見 CODE_NOTES.md；這裡只放資料層。熟悉度那條線【GAS 自己算、不經過 AI】，所以擋得住。
 var KANSHOU_NOTED_TAG_ = makeTextTag_('眼中的你');
 const KANSHOU_NOTED_SEP_ = '／';   // 不可用 ｜ 或 【】：makeTextTag_ 會把結構字元從值裡剝掉
-const KANSHOU_NOTED_CAP_ = 6;
+const KANSHOU_NOTED_CAP_ = 3;
 const KANSHOU_NOTED_LEN_ = 14;
-// 每個熟悉段「她此刻能把玩家的什麼當成已知」——只講知道多少，態度是 KANSHOU_RAPPORT_TONE_ 的事，兩張表不重疊。
-const KANSHOU_KNOWN_TIERS_ = {
-  '初識': '只知道眼前看得到的(長相/穿著/此刻的舉止)。玩家的真實性情、在意的事、過去，【一概不知道】：不准說中、也不准旁敲側擊地說破；要猜只能猜得很淺或猜錯。',
-  '混熟': '看得到的，加上【記下的】那幾條而已。沒被記下的仍舊不知道，別自行補完。',
-  '老交情': '看得到的＋【記下的】都熟，可以從記下的往外推一小步；推出來的要是那幾條的延伸，不是憑空多一件新事實。'
-};
 // 依相處次數查熟悉段（單一真實來源＝KANSHOU_FAMILIAR_TIERS_，與相處基調共用同一條軸）。
 function kanshouKnownTier_(metCount) {
   return (KANSHOU_FAMILIAR_TIERS_.find(function (t) { return (parseInt(metCount) || 0) >= t.min; }) || {}).key || '初識';
 }
-// 組一張「她眼中的你」小卡：熟悉段的知情界線 ＋ 她這一路真的記下的幾條。
+// 組一句「你在對方眼中」：熟悉段 ＋ 對方真的記下的那幾條（沒有就只有熟悉段）。
 function kanshouKnownOfYou_(memory) {
-  var tier = kanshouKnownTier_(KANSHOU_MET_COUNT_TAG_.get(memory));
   var noted = String(KANSHOU_NOTED_TAG_.get(memory) || '').split(KANSHOU_NOTED_SEP_).map(function (x) { return x.trim(); }).filter(Boolean);
-  return { tier: tier, rule: KANSHOU_KNOWN_TIERS_[tier] || '', noted: noted };
+  return { tier: kanshouKnownTier_(KANSHOU_MET_COUNT_TAG_.get(memory)), noted: noted };
 }
 
 // 🧵 append→去重→上限 的共用引擎：共同回憶(MEMOIR 欄)與「她眼中的你」(MEMORY 標記)本來就是同一件事，
@@ -1049,7 +1042,7 @@ function buildDefaultSystemPrompt(includeOptions) {
 
   const finalJson = {
     // 強制思維鏈：放範本第一位讓模型先自省再寫敘事。
-    "inner_monologue": "【不顯示·約50字】第三人稱總結【被搭話的那個人】此刻的真實狀態([性格]vs[情緒身體])·承接歷史·只算【在場人物】名單上的人",
+    "inner_monologue": "【不顯示·約50字·先判這個再寫 narration】第三人稱總結【被搭話的那個人】此刻的真實狀態([性格]vs[情緒身體])＋【玩家這個人】真正的感受(依其性格/經歷·不是表現出來的那個)·承接歷史·只算【在場人物】名單上的人",
     "narration": "劇情(第二人稱「你」＝玩家·字數照下方【篇幅】·不可少於下限)",
     // 🗺️ 2026-07 移動改「同意泡泡」制(見§134)；2026-07再修（玩家實測「AI一直提議移動、頭痛」）：move_proposal 欄位整個砍掉，AI 不再有任何管道自己決定要不要換場景/換去哪。
     "npc_exit": "本回合告辭離場者的真名陣列·narration須演出那個人離開·否則[]",
@@ -1065,7 +1058,7 @@ function buildDefaultSystemPrompt(includeOptions) {
         "appearance_extras": _appearanceExtrasRef,
         "mutual_nicknames": "本回合真的叫出口的暱稱·否則「無」",
         "memory": "里程碑(告白/初牽手/難忘約會/重要約定)才寫≤30字·同 narration 用第二人稱「你」稱玩家·其餘填「無」·同一事只記一次",
-        "noticed": "這回合【真的從玩家的言行看出來】的一件事·≤14字的短詞組·只寫這個人親眼所見親耳所聞的·不可抄【玩家資料·旁白用】裡的字·沒看出新東西就填「無」"
+        "noticed": "≤14字·只記【會改變之後怎麼對玩家】的發現·喜好習慣瑣事與卡上已有的一律不記·多數回合填「無」"
       }]
     },
     // 🌍 世界帳本的入口：AI 這一回合發明了什麼，自己寫下來，GAS 幫它記住。
@@ -1085,14 +1078,13 @@ function buildDefaultSystemPrompt(includeOptions) {
 1. 承接玩家最新動作與台詞【語氣照原樣】(疑問就疑問、吐槽就吐槽)·【動作與台詞只有玩家能決定】：不替玩家加動作、不替玩家開口、不改寫成轉述(感受不在此限)·被搭話的人本回合必給完整真實反應·優先接反轉/否定/突發情緒。
 2. 每3~4句 <br><br> 分段。
 3. ${dialogueFormatRule_()}
-4. 依玩家輸入【確實推演往下走·不停滯敷衍】——答不答應由對方的[個性]×[好感]決定(順從/猶豫/半推半就/婉拒皆可)，玩家不能替對方決定反應；肢體親密照【親密尺度五階】。
-5. 先在 inner_monologue 判【對方】此刻最真實的反應、以及【玩家這個人】此刻真正的感受(依其性格/經歷，不是表現出來的那個)·再寫 narration。
-6. 繼承歷史情緒與親密階·絕不無故重置(降溫只因被打斷/翻臉等明確事件)。
-7. 肢體互動依雙方【性別】欄自然呈現。
-8. 萌點/語癖/專屬稱呼自然滲入、偶爾點到即可·同一個不重複用。關係標籤由玩家定，不可改動。
-9. 卡片上的裝扮＝既定事實，直到劇情真讓那個人換裝為止——不因為跟這幕不搭就自行改寫或省略。
-10. 敘事只寫這個世界裡看得到聽得到的：好感數字、關係階級、系統/回合/選項/欄位名一律不進 narration，也不報幕宣告任何變化——要表現就用神情、語氣與彼此的距離。
-11. 聚焦當下近身互動·只輸出合法JSON(各欄怎麼填見下方輸出範本)。`;
+4. 依玩家輸入【確實推演往下走·不停滯敷衍】——答不答應由對方的[個性]×[好感]決定(順從/猶豫/半推半就/婉拒皆可)，玩家不能替對方決定反應。
+5. 繼承歷史情緒與親密階·絕不無故重置(降溫只因被打斷/翻臉等明確事件)。
+6. 肢體互動依雙方【性別】欄自然呈現。
+7. 萌點/語癖/專屬稱呼自然滲入、偶爾點到即可·同一個不重複用。
+8. 卡片上的裝扮＝既定事實，直到劇情真讓那個人換裝為止——不因為跟這幕不搭就自行改寫或省略。
+9. 敘事只寫這個世界裡看得到聽得到的：好感數字、關係階級、系統/回合/選項/欄位名一律不進 narration，也不報幕宣告任何變化——要表現就用神情、語氣與彼此的距離。
+10. 聚焦當下近身互動·只輸出合法JSON(各欄怎麼填見下方輸出範本)。`;
 
 const specificRules = "";
 
@@ -3046,7 +3038,6 @@ function actionPlay_(userData, pcId, sheets) {
   }
   let partyDetailsArr = [];
   const _presenceSeen_ = {};
-  const _knownTiersSeen_ = {};   // 這回合在場的人各落在哪個熟悉段——只印用得到的那幾條界線
   const _partyHeroCodex = partyMembers.length > 0 ? getHeroCodexCached() : null;
   partyMembers.forEach(pName => {
     const r = pcData.find(row => String(row[COL.PC.NAME]).trim() === String(pName).trim() && !String(row[COL.PC.ID]).startsWith("DEAD_") && sameGame(row));
@@ -3105,10 +3096,8 @@ function actionPlay_(userData, pcId, sheets) {
       const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
       // ★是玩家釘選標記(面板用)，餵AI時去掉、不外洩機制符號。
       // 📝 你在對方眼中是什麼樣子：熟悉段(GAS 依相處次數算)＋對方這一路親自記下的幾條。
-      //    各段「能把什麼當已知」的界線不寫在卡上、集中在下方★【對方對你的認識】講一次(見 _knownRuleStr_)。
       const _pKnown = kanshouKnownOfYou_(r[COL.PC.MEMORY]);
-      _knownTiersSeen_[_pKnown.tier] = 1;
-      const pKnownStr = ` | 你在${pron_(r[COL.PC.SEX])}眼中:【${_pKnown.tier}】${_pKnown.noted.length ? `·${pron_(r[COL.PC.SEX])}記得你${_pKnown.noted.join('、')}` : `·${pron_(r[COL.PC.SEX])}還沒看出你任何事`}`;
+      const pKnownStr = ` | 你在${pron_(r[COL.PC.SEX])}眼中:${_pKnown.tier}${_pKnown.noted.length ? `·${_pKnown.noted.join('、')}` : ''}`;
       const pMemoirStr = pMemoirRaw ? ` | 你們的共同回憶(你倆一路走來的點滴，敘事可自然承接呼應、但別生硬複述):${pMemoirRaw.replace(/★/g, '').replace(/｜/g, '；')}` : "";
       // 📅 待赴約定(玩家追問「AI每次都看得到約定吧?」查出的缺口)：約成立到赴約之間的等待回合，AI 原本完全不知道有這個約——聊「期待明天嗎」她會一臉茫然、甚至另約衝突計畫。
       const _pdPr = kanshouGetPromise_(r[COL.PC.MEMORY]);
@@ -3146,16 +3135,6 @@ function actionPlay_(userData, pcId, sheets) {
   const _partyCards_ = partyDetailsArr.map(t => _presenceShared_
     ? t.replace(/｜__PRESENCE__[\s\S]*?__\/PRESENCE__/, "")
     : t.replace(/｜__PRESENCE__([\s\S]*?)__\/PRESENCE__/, " | 在場來由:$1"));
-  // 📝 知情界線：只印這回合真的用得到的那幾段（沒人是老交情就不必講老交情該怎麼演）。
-  const _knownRuleStr_ = (() => {
-    const ks = Object.keys(_knownTiersSeen_);
-    if (!ks.length) return "";
-    return `\n★★【對方對你的認識·不准一眼看穿】：上面那張【玩家資料·旁白用】是【寫「你」的內心與感受用的】，`
-      + `【不是】在場任何人知道的事。每個人知道多少，只看各自卡上的【你在○眼中】那一格：\n`
-      + ks.map(k => `　·【${k}】${KANSHOU_KNOWN_TIERS_[k]}`).join("\n")
-      + `\n　對方要多知道你一件事，只有一條路：這一回合玩家【自己演出來或說出口】，你才把它記進那個人的 noticed。`;
-  })();
-
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0
     ? `【角色背景資料】(裝扮＝此刻穿的衣服，五官/髮色/體態不隨之改變)：${_presenceShared_ ? `\n★在場來由(以下每一位都一樣)：${_presenceShared_}` : ""}${_anySleeper_ ? `\n★標了【現況】的人就是那個狀態，除非這回合真的把人叫醒了。` : ""}\n${_partyCards_.join("\n")}`
     : "目前這個地點沒有其他人，玩家是獨自行動的。";
@@ -3281,15 +3260,14 @@ ${nsfwMemories}${genderHintStr}${driveStr}
   const prompt = `★世界觀＝和平的現代冬木市，大家都是住在這裡的普通市民，沒有魔術與從者。
 ${PROMPT_REL}
 ★【這個世界有誰】：①【正式同伴】＝下方【在場人物】的卡，只有他們算好感，每人這回合都要真實存在(沒被搭話的給個動作即可)，沒列卡的同伴不准出現或開口，有【專屬稱呼】就叫暱稱。②【常民】＝【這個世界已經確立的事】名單上的人，可出現可開口、不算好感。③【路人】不具名，隨手寫、不必記。玩家專一對著一個人時其他人背景輕描；不在場的人一句話交代去向。
-★【要它之後還在就寫進 world_note】：沒寫到的地方/人/這座城的規矩都可以當場創造，但沒寫進去的下回合就不存在。一回合最多 2 筆，只記之後真的還會用到的；已在名單上的不必重寫。地點＝多一個去得了的地方｜人物＝這個人還會再出現｜設定＝這座城的規矩或風景。
-　⚠ world_note 記【這座城有什麼】；某個人的喜好習慣、你們之間發生的事記進那個人的 memory【你們之間發生過什麼】——兩邊不要互相寫。
-★【視角鎖定】：旁白一律用第二人稱，「你」＝玩家『${pcName}』本人。旁白【不可】用「我」；場上每個角色引號內的台詞才用得到「我」。同伴外貌只取材各人自己那份資料。
-★【你也是這座城裡的一個人】：『${pcName}』不是攝影機——${_mePron_}有自己的性格、口吻、來歷(見【玩家資料·旁白用】)。【用${_mePron_}的角度感受這個世界】：此刻的觸感/冷熱/氣味/聲音、${_mePron_}【真正】的情緒(不是表現出來的那個)、性格帶來的反應底色，要寫得像${_mePron_}；沉默也要有理由。動作與台詞仍只有玩家能決定(鐵律1)。${_mePron_}看不見自己的臉，卻感覺得到臉發燙、喉嚨發緊——【寫感覺得到的，不寫看不到的外觀】。
+★【要它之後還在就寫進 world_note】：沒寫到的地方/人/這座城的規矩都可以當場創造，但沒寫進去的下回合就不存在。一回合最多 2 筆，只記之後真的還會用到的，已在名單上的不必重寫。world_note 只記【這座城有什麼】(地點＝多一個去得了的地方｜人物＝這個人還會再出現｜設定＝這座城的規矩或風景)；你們之間發生的事記進那個人的 memory。
+★【視角鎖定】：「你」＝玩家『${pcName}』本人·旁白【不可】用「我」(只有角色引號內的台詞用得到)。同伴外貌只取材各人自己那份資料。
+★【你也是這座城裡的一個人】：『${pcName}』不是攝影機——【用${_mePron_}的角度感受這個世界】：此刻的觸感/冷熱/氣味/聲音、${_mePron_}【真正】的情緒(不是表現出來的那個)、性格帶來的反應底色(見【玩家資料·旁白用】)，沉默也要有理由。${_mePron_}看不見自己的臉，卻感覺得到臉發燙、喉嚨發緊——【寫感覺得到的，不寫看不到的外觀】。
 
-【玩家資料·旁白用】：名字:${pcName} 【性別:${pc[COL.PC.SEX]}】${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? ` 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${_meFlavorStr_}${myOutfit ? ` | 裝扮:${myOutfit}` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}${_meMoeStr_}
-${PROMPT_PARTY_SYSTEM}${_knownRuleStr_}
+【玩家資料·旁白用】(只給旁白寫「你」的內心用·在場的人沒讀過這張卡)：名字:${pcName} 【性別:${pc[COL.PC.SEX]}】${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? ` 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${_meFlavorStr_}${myOutfit ? ` | 裝扮:${myOutfit}` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}${_meMoeStr_}
+${PROMPT_PARTY_SYSTEM}
 ${_intimacyLines_ ? `★【親密尺度·最高優先】：肢體親密以好感為天花板，超過的那一步不會發生，怎麼擋下來依各人的個性；玩家只是日常時不憑空推進情慾${_intimacyLines_.indexOf('\n') >= 0 ? '（多人各依各自好感，不共用同階）' : ''}：\n${_intimacyLines_}\n` : ''}
-★【篇幅】：narration 寫 ${_kanshouTargetWords_} 字，【不可少於下限】——寫不滿就加互動：動作細節、觸感/氣味/聲音、【你此刻的感受與身體反應】、多給一次真實反應；別靠環境描寫充數。
+★【篇幅】：narration 寫 ${_kanshouTargetWords_} 字，【不可少於下限】——寫不滿就加互動與真實反應，別靠環境描寫充數。
 ★★【地點釘死】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，敘事不離開這裡——想去別處只能嘴上聊，真要換地方由系統宣告。${moveTarget ? '你們剛到，直接從抵達後的當下寫起、路程不演。' : ''}
 ${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}${kanshouInitStr}
 ★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}・${kanshouWeather_(curDay)}(揣摩氛圍用·不報時)。★光線/氣溫/作息一律依此刻的時段寫；本回合只寫這十分鐘內的片段，時間推進由系統宣告。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜對方走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·對方此刻【不在場】·禁讓對方開口或出現。` : ""}
