@@ -44,6 +44,9 @@ function codexPersona_(name, cls) {
 }
 
 var PREF_LABELS_ = ['日常表象', '真實內裡', '喜歡的事物', '討厭的事物'];
+// 🧹 標籤已經講了「討厭的事物」，值再寫一次「厭惡…」就是疊字（種子 16 處，AI 生成的也會這樣寫）。
+//    剝在【唯一的渲染出口】而不是去改每一筆資料：舊試算表的列不會因為改種子而更新，而 AI 隨時能再產一個。
+var QUAD_REDUNDANT_ = { '喜歡的事物': /^(熱衷|喜歡)[於的]?/, '討厭的事物': /^(厭惡|討厭)[於的]?/ };
 var TRAIT_LABELS_ = ['外貌本相', '氣質舉止', '卸下心防的私密一面'];
 // skipNone=true 時該格若為空或字面「無」直接跳過不顯示(給御主卡/敵御主卡沿用既有的無資料防呆)；false 時保留全部4格(給 servantCard_ 用，段數不足時仍顯示「無」，不靜默漏項)。
 var QUAD_EMPTY_ = ['', '無',
@@ -54,6 +57,8 @@ function quadLabeled_(raw, labels, skipNone) {
   var out = "";
   for (var i = 0; i < labels.length; i++) {
     var v = (parts[i] || "").trim();
+    var re = QUAD_REDUNDANT_[labels[i]];
+    if (re) v = v.replace(re, "").trim();
     if (QUAD_EMPTY_.indexOf(v) >= 0) continue;
     out += `｜${labels[i]}：${v}`;
   }
@@ -191,7 +196,10 @@ function enemyMasterCard_(row, opts) {
     // 陣營：跟servantCard_同款，種子/工房原創敵御主都填得完整，一直沒餵過AI，補上。
     var align = String(row[COL.PC.ALIGN] || "").trim();
     if (align === "中立") align = "";
-    return `〈敵御主「${name}」·演出依據〉` +
+    // 性別：工房原創敵御主的名字看不出性別，AI 只能猜（底下那句 ★ 的代名詞是唯一線索、還埋在最後）。
+    //   同時消掉 `〉｜日常表象` 那個開頭就懸空的分隔符。
+    var eSex = String(row[COL.PC.SEX] || "").trim();
+    return `〈敵御主「${name}」·演出依據〉` + (eSex ? `性別${eSex}` : "") +
       quadLabeled_(row[COL.PC.PREF], PREF_LABELS_, true) +
       traitLabeled_(row[COL.PC.TRAIT], true) +
       (moe ? `｜萌點(僅供內化)：${moe}` : "") +

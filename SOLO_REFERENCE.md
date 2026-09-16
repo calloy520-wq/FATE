@@ -295,6 +295,7 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 - **禮裝全部被動·持有即生效·無主動發動**：戰鬥自動加持我方從者，無按鈕/充能/迴路門檻。
 - `MYSTIC_CODES{}`：每項 `{name,type,fx,tier,desc,flavor}`。現存 3 項：avalon(全世界之鞘)/魔力儲存寶石(mc_jewel_minor)/黑鍵(mc_blackkey)。type＝`passive` 或 `special`(rule_breaker 破戒奪僕·另套機制)。
 - `MC_COMBAT_{fx→{hit,dmgAdd,npMul,npDefMul,label}}`（單一調平衡點）：mc_blackkey(命中+2)/mc_jewel_minor(命中+1,傷+10)/avalon(承受寶具×0.82＋Time_World 時回×1.6)。
+- ⚠ **avalon 有兩條路，別只看一條**（2026-09 稽核踩過）：①**時回×1.6** 在 `Time_World.applyRegen_`，查的是【御主】身上的禮裝（`masterMysticFx_`），**全隊都吃、跟召喚了誰無關**；②**戰中每回合自癒**（`regen` fx·鞘之恩澤）與**理想鄉攔截**（`avalon_saber`）在 `injectMysticBuff_`，**只有從者正是阿爾托莉雅(Saber)才注入**。只讀 ①會以為戰鬥也自動回血，只讀 ②會以為時回是她限定——兩邊都錯。`MYSTIC_CODES.avalon.desc` 與創角選單已逐字寫清這條分岔。
 - **接線**：`masterMysticBuffSkill_(memory)`→{n,r,fx}；`injectMysticBuff_(c,masterMemory)` 注入我方從者戰鬥單位 skills（冪等）。`actionFateBattle` 三處注入（atkC 含開場對轟/每回合 sC/`fateStrike_` 內 defC 吃 avalon 減傷）。引擎 `mcCombatFx_(c)` 在 `resolveFateBattle_` 三通道讀取。只注戰鬥單位、不寫回 row。
 - `getMystic_/setMystic_`（MEMORY【禮裝】id）、`masterMysticFx_`（查單一 fx，如 Time_World avalon）、`canRuleBreak_`（是否具破戒力：召 Caster美狄亞 或 持破戒禮裝）。
 - 創角＝玩家自選 `userData.mystic`（只驗證合法被動禮裝 id·不看身世/迴路門檻）。
@@ -670,7 +671,7 @@ Seed_Codex.gs 頂部 `CODEX_PERSONA_VER` 的註解只留當前版號一行簡述
   ——三種戰果各配一個寫死情緒詞，跟鑑賞那批砍掉的微動作模板同一類（士郎贏跟吉爾伽美什贏會是同一句）。
   同條裡「不可臆測勝敗」與「別把打贏寫成敗走」還講了兩次。173→57。
 - 去重：第一人稱「我」講兩次、「不灌水」講兩次、「禁重演歷史」講兩次；「禁複述數字」搬回鐵律4
-  （「你只負責寫字」才是它的家）。⚠ `dialogueFormatRule_()` 兩軌共用，一個字未動。
+  （「你只負責寫字」才是它的家）。⚠ `dialogueFormatRule_()` 是**鑑賞專用**（solo 的 miniSystem 第2條是自己那條精簡 SFW 版，刻意不共用），一個字未動。
 
 ### `servantCard_`（每張角色卡）平均 322 → 249 字
 - 🐛 **萌點欄：51 字的標籤包一個 8 字的值**（「不必每回合硬塞…別只靠摸/看一眼交差」）。

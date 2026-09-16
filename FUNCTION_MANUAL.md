@@ -206,7 +206,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `cleanNarrateEcho_(promptText)` — 把送 AI 的提示詞洗成玩家可見的簡短回顧（去演出卡〈〉/前綴〔〕/★指令/·素材/【標籤】，截 80 字），供歷史顯示。
 - `QUAD_EMPTY_`（常數） — 防禦性過濾：清掉 AI 誤 echo 的 ★指令與〈演出卡〉；**刻意不清【標籤】**（fallback 文案靠它當視覺標籤）。
 - `narrateWithState_(pcId, sheets, promptText, miniSystem, opts?)` — 🟢 共用敘事核心。組 aiConfig（temp 0.85、ignoreLaw、maxTokens 預設 720、model 預設 `AI_MODEL`）＋最近 2 筆歷史＋自動附「當前狀態」（御主/在場從者 HP/共用魔力池）＋`buildTrajectoryDigest_` 軌跡骨幹（同一次整表讀）→`callGeminiAPI`→解析 `{narration}`（過 `stripLeakedScaffold_`）；解析失敗回 null。⚠ `stripLeakedScaffold_` 2026-09 改了兩處：空白壓縮從 `\s{2,}` 收成只壓水平空白（原本連真實換行都吃掉），並把剝除指令後留下的三連以上 `<br>` 收斂回 `<br><br>`（否則玩家看到一塊莫名空白）。
-- `actionNarrateOnly(...)` — 輕量敘事補完 handler（結算已由 GAS 完成）。`isNsfw` 純看 pcId 是否 `KPC_`（不信前端旗標）。內含完整 `miniSystem` 鐵律（第一人稱「我」、`dialogueFormatRule_`、`<br><br>` 分段、show-don't-tell、依當前狀態不臆測勝敗、服裝依卡）。`longForm` 旗標→maxTokens 2000（補魔高好感解鎖分支用，模型不變）。存歷史時存 `narrateMemoryLine_` 摘要（非整串提示詞）。
+- `actionNarrateOnly(...)` — 輕量敘事補完 handler（結算已由 GAS 完成）。`isNsfw` 純看 pcId 是否 `KPC_`（不信前端旗標）。內含完整 `miniSystem` 鐵律（第二人稱「你」、**自己那條精簡版對話格式（不呼叫 `dialogueFormatRule_`，理由見該條）**、`<br><br>` 分段、show-don't-tell、依當前狀態不臆測勝敗、服裝依卡）。`longForm` 旗標→maxTokens 2000（補魔高好感解鎖分支用，模型不變）。存歷史時存 `narrateMemoryLine_` 摘要（非整串提示詞）。
 
 #### 🐯 老虎道場（賽後番外）
 - `dojoCauseLine_(userData)` — 敗因鍵（`DOJO_CAUSE_` 五格：deadline／seal_backlash／ambush／assassination／battle）＋名字/寶具旗標 → `{fact,lesson}`；鍵不在表上回 null。
@@ -243,7 +243,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `kanshouLocationsFor_(gameId)` / `kanshouFindLoc_(gameId, name)` — **查地點的唯一入口**＝內建地圖 ∪ 這一局自己走出來的地方。⚠ 別再直接 `.find(KANSHOU_LOCATIONS_)`，否則玩家走出來的地方會查無、被當成非法目的地。
 - `kanshouLocNameForAI_(locName)`（Gallery.gs）— 送進提示詞的地名。資料鍵「我的房間」是第一人稱，跟第二人稱旁白打架（旁白會照抄成「走進我的房間」）→ 對 AI 一律改寫成「你的房間」，**存表／比對／前端仍用原鍵**。四個把 `curL` 寫進提示詞的點都要走它。
 - `KANSHOU_CAL_START_YEAR_`（常數＝2005）— 鑑賞曆法的起算西元年。2026-09 前沒有這個常數、`year` 直接算成「第幾年」，開局顯示「1年12月20日」。週年是用 absDay 差算的、不吃 `.year`，改它只動顯示字串。
-- `quadLabeled_(raw, labels, skipNone)` — PREF/TRAIT 的「、」分段值逐格加標籤餵 AI（格數＝`labels.length`）。值落在 `QUAD_EMPTY_` 的整格不送。
+- `quadLabeled_(raw, labels, skipNone)` — PREF/TRAIT 的「、」分段值逐格加標籤餵 AI（格數＝`labels.length`）。值落在 `QUAD_EMPTY_` 的整格不送。 ⚠ 2026-09 起會依 `QUAD_REDUNDANT_` 剝掉與標籤疊字的值前綴（`討厭的事物：厭惡見死不救`→`見死不救`）；剝完為空就整格跳過。
 - `traitLabeled_(raw, skipNone)` — 特徵格的專用出口＝`quadLabeled_(traitParts_(raw), TRAIT_LABELS_, skipNone)`。三張角色卡（`servantCard_`／`masterCard_`／`enemyMasterCard_`）共用，別在各處各修一次。⚠ `skipNone` 現已無實際作用（兩種呼叫端都走同一份 `QUAD_EMPTY_`），保留只為相容既有呼叫。
 - `QUAD_EMPTY_`（常數）— **無資訊量佔位字的唯一名單**：`parseTraitsHelper` 各 fallback 的每一格（外貌出眾/外貌平凡/舉止從容/卸下心防…/沉著表象/堅定內裡/珍視之物/厭惡之事/通曉魔術/深藏心事）。2026-09 補齊——漏收的佔位字會被當成真資料送進提示詞（實測一張敵從者卡曾同時夾帶「喜歡的事物：珍視之物」「討厭的事物：厭惡之事」「身世：Archer 職階英靈」三格純噪音）。新增 fallback 時要同步這裡。
 - `PREF_LABELS_` = [日常表象, 真實內裡, 喜歡的事物, 討厭的事物]；`TRAIT_LABELS_` = [外貌本相, 氣質舉止, 自稱與口氣, 卸下心防的私密一面]。
@@ -634,7 +634,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### AI 提示詞組裝（🔴 鑑賞 AI 核心）
 
-- `dialogueFormatRule_()` — 全遊戲【單一真實來源】對話與敘事格式規則（口/喉發聲進「」台詞、每句台詞冠說話者名、看得見動作走敘事、只用單層「」）。solo miniSystem 與此檔 nsfwBaseRules 共用。
+- `dialogueFormatRule_()` — 鑑賞軌的對話與敘事格式規則（口/喉發聲進「」台詞、每句台詞冠說話者名、看得見動作走敘事、只用單層「」）。**唯一呼叫點＝ `nsfwBaseRules` 第3條**。⚠ **2026-09 更正：solo 的 `miniSystem` 並【不】呼叫這支**（全樹只有 `nsfwBaseRules` 第3條一個呼叫點），文件長期寫成「兩軌共用」是錯的。而且**不該改成共用**——這支的具體例子是 NSFW 的（喘息／吸吮／舔啜／啪啪／交合處水聲），灌進鎖 SFW 的 solo 軌是污染。solo 自己那條是刻意的精簡版（冠名＋單層「」＋動作走敘事），少掉的「玩家台詞照原句寫、禁轉述」在 solo 也用不到——solo 是純按鍵、玩家根本不打字。
 - `buildDefaultSystemPrompt(includeOptions)` — 鑑賞系統提示詞（`nsfwBaseRules` ＋ 輸出範本）。⚠ 2026-09 拿掉了第一個參數 `includeMasterNote`：`master_note`（經歷滾動側寫）整組移除，經歷改回固定事實（見 `KANSHOU_REFERENCE.md` §「經歷改回固定」）。`Engine_Combat.gs` 的無參數 fallback 呼叫不受影響。
   - 🔴 內含 `nsfwBaseRules`（函式內 const，非獨立函式）— 慾海演化核心紅線常數，後日談敘事鐵律 6 條；連同 `specificRules`(【慾海律令】現 7 條，**2026-07 新增第6條「options 只能建議在場人物/當下場景真能做到的動作」**修「AI選項建議移動/呼喚不在場者、玩家點了做不到」的bug；**五度改版再新增第7條「appearance_extras只在劇情真有穿脫/更衣動作才填新值、不准自行合理化改寫」**，修「玩家用👕換裝手動設定裝扮，下一回合被AI默默改回別的」——schema _note的「沒變化留空」對這個模型是弱信號，明文規則才夠強；**同批再補「appearance_extras只能寫衣物本身，禁止寫成所在環境/姿勢」**，修「泡溫泉→移動到商店街，裝扮卻卡在『在水下』」的變種bug)＋範本 JSON 一起回傳。**紅線①：一律不可改（specificRules 可改，非紅線本體）。**
 - `getKanshouPeopleList_(pcId, curL, allPcData)` — 鑑賞自算精簡「同地人物」清單（只 id/name/isExact），不借 solo 的 getLocalPeopleList（那多算 12 欄）。
