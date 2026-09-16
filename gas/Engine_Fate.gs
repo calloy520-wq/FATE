@@ -408,7 +408,6 @@ var NP_KIND_MARKS_ = [
   { mark: '【結界寶具】', kind: 'barrier' },
   { mark: '【非攻擊寶具】', kind: 'utility' }
 ];
-var NP_LINGER_MARK_ = '【留存】';
 
 function npKindOf_(c) {
   var op = servantNpOptions_(c && c.name, c && c.cls);

@@ -574,11 +574,13 @@ function hasArrived_(row, currentDay) {
 }
 
 // 御主自身能力標記：【體術】(rank字母，命運測定/種子皆保證合法)／【魔術】(自由描述文字)，創角/鋪敵時寫進御主自己的 MEMORY。
+var MASTER_CIRCUITS_TAG_ = makeIntTag_('迴路', 30);   // 🔌 魔術迴路：讀寫的唯一出口(補魔會改它)
 var MASTER_MELEE_TAG_ = makeTextTag_('體術');
 var MASTER_MAGIC_TAG_ = makeTextTag_('魔術');
 // 御主魔術階位（rank字母）：跟體術同款「凡人自身能力」，只在己方出戰從者為 Caster(魔砲型)時才生效(injectMasterMagicSupport_ 內部判斷)——體術管近戰助拳、魔術階位管施法支援，避免疊在一起變成無腦雙倍加成。
 var MASTER_MAGIC_RANK_TAG_ = makeTextTag_('魔術階位');
 var MASTER_ORIGIN_TAG_ = makeTextTag_('出身');
+function getMasterCircuits_(memory) { return MASTER_CIRCUITS_TAG_.get(memory); }
 function getMasterMelee_(memory) { return MASTER_MELEE_TAG_.get(memory); }
 function getMasterMagic_(memory) { return MASTER_MAGIC_TAG_.get(memory); }
 function getMasterMagicRank_(memory) { return MASTER_MAGIC_RANK_TAG_.get(memory); }

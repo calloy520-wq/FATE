@@ -302,7 +302,6 @@ function npResponseOptions_(c) {
 
 function targetIsFoeServant_(row) { return row && String(row[COL.PC.FACTION]) === "敵從者"; }
 
-var OFFENSIVE_NP_ATK_FX_ = ['ea', 'excalibur', 'ubw', 'summon_horror', 'gob', 'gae_bolg', 'tsubame', 'zabaniya', 'petrify', 'chain', 'anti_magic_lance', 'wind_strike', 'projection'];
 
 function buildPartyIdxs_(pcData, myGameId, atkIdx) {
   var idxs = [];

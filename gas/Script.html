@@ -1902,10 +1902,10 @@
     if (name === 'map') renderMapPane();
     if (name === 'status') refreshFateTags();
   }
-  // 🎌 御主行動姿態（常駐三段藥丸·存 localStorage·免 round-trip）：只決定【你怎麼接近敵人】——
-  //   影響抵達時對方是否察覺、以及戰報裡御主站得多前(arriveStanceNotice_／_masterJoinLine)。
-  //   ⚠ 2026-09 玩家定案「御主不要上戰場」後，這裡【不再有任何數值效果】：分擔傷害整組已移除，
-  //   御主不會因為交鋒掉血。別再把 share 這類欄位加回來。
+  // 🎌 御主的姿態（常駐三段藥丸·存 localStorage·免 round-trip）：**純敘事定調**——
+  //   只進 arriveStanceNotice_（抵達那一幕怎麼寫）與 _masterJoinLine（戰報裡御主站得多前）。
+  //   ⚠ 它【沒有任何數值效果】：不改命中、不改遭遇機率、不改追擊。2026-09 拔掉分擔傷害後，
+  //   連唯一那個數值出口也沒了。文案別再寫成「決定對方察不察覺」那種暗示機率的講法（踩過一次）。
   var STANCES = {
     stealth: { icon: '🛡️', label: '後方支援', color: '#8a7fc0' },
     normal:  { icon: '👁️', label: '見機行事', color: '#9fb0c0' },
@@ -1931,7 +1931,7 @@
       return '<button id="stance-' + k + '" onclick="setStance(\'' + k + '\')" style="flex:1; font-size:11px; padding:5px 2px; cursor:pointer; border:1px solid ' + (on ? st.color : '#3a3550') + '; background:' + (on ? 'rgba(255,255,255,.07)' : 'transparent') + '; color:' + (on ? st.color : '#6a6580') + '; border-radius:6px; font-weight:' + (on ? 'bold' : 'normal') + ';">' + st.icon + ' ' + st.label + '</button>';
     }).join('');
     return '<div style="margin-bottom:8px; padding:6px 7px; background:rgba(20,18,32,.4); border:1px solid #2e2a44; border-radius:7px;">'
-      + '<div style="color:#8a8298; font-size:10.5px; margin-bottom:4px;">🎌 御主行動姿態 <small style="opacity:.6;">· 決定接近敵人時對方察不察覺得到你（御主不參與交鋒）</small></div>'
+      + '<div style="color:#8a8298; font-size:10.5px; margin-bottom:4px;">🎌 御主的姿態 <small style="opacity:.6;">· 只影響抵達與交鋒怎麼被寫出來，不改變勝負機率</small></div>'
       + '<div style="display:flex; gap:4px;">' + segs + '</div></div>';
   }
 

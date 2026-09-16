@@ -2032,6 +2032,13 @@ survive 與 god_hand 結構性互斥（別靠「種子資料別同時掛」自�
 
 🎬 收集素材字串共用 helper：把 arr 內符合 regex 且尚未出現在 target 裡的字串各自 push 進 target(依 target 去重·非依 arr 自身)。2026-07 稽核抽出，取代 aiPrompt 組裝處 4 段幾乎一樣的「掃陣列+regex.test+indexOf去重+push」重複迴圈(對轟/我方出擊/敵反擊/敵盟協防四種來源共用同一份)。
 
+### ~~`OFFENSIVE_NP_ATK_FX_`~~（2026-09 已移除）　<sub>Router_Battle.gs</sub>
+
+⚠ 這個常數後來被**資料驅動的寶具種類表**取代（`NP_KIND_MARKS_` ＋ `npKindOf_`／`npCanClash_`／`npReleasable_`），
+fx 清單那條路從此沒人走。2026-09 稽核用「只出現一次的常數」掃出它已是孤兒才拿掉——
+提醒：**用 fx 白名單判類別，天生就會跟下一個人加的 fx 脫節**；種類寫在寶具自己身上（`【常駐寶具】` 這類標記）才不會漏。
+以下是它當年在做什麼：
+
 ### `OFFENSIVE_NP_ATK_FX_`　<sub>Router_Battle.gs:274</sub>
 
 ⚔️ 「攻擊型寶具」判準（只有這類寶具才觸發對轟/敵方反擊解放；純防禦/召喚型如 God Hand、summon_horror單獨的召喚體本身不算，但 summon_horror 這個 fx 本身代表深淵召喚攻擊、算攻擊型）——2026-07 稽核發現對轟(原CLASH_OFF_FX)與敵反擊(原ECF)兩處清單本應同一套標準(註解皆明講「與對轟同準」)，卻各自維護、對轟那份漏了 summon_horror，兩處判定不一致。統一成單一真實來源，以較完整的敵反擊版為準。

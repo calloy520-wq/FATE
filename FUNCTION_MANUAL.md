@@ -454,7 +454,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 模組級常數/標記工廠（非函式，供上列引用）
 
-`BATTERY_HP_PER_MP=2`、`INDEPENDENT_ACTION_RESERVE=60`、`SEAL_DOOM_HOURS=3`、`MEAL_BUFF_HOURS=8`/`MEAL_BUFF_BONUS=2`、`HORROR_SHIELD_HP=300`/`HORROR_REGEN=10`/`HORROR_UPKEEP=10`/`HORROR_HOURLY_UPKEEP=8`、`STANCE_SHARE_`、`OFFENSIVE_NP_ATK_FX_`（2026-07 稽核統一：原對轟`CLASH_OFF_FX`與敵反擊`ECF`兩份「攻擊型寶具」判準清單各自維護、對轟版漏了`summon_horror`兩處判定不一致——已合併成單一常數，兩處呼叫點都改讀它）；及 `makeIntTag_` 工廠產出的 `SOLO_RESERVE_TAG_`/`GOD_HAND_TAG_`/`PLAYER_SEALS_TAG_`/`DOOM_TAG_`/`MEAL_TAG_`（get/set 皆薄封裝在上列存取器內）。
+`BATTERY_HP_PER_MP=2`、`INDEPENDENT_ACTION_RESERVE=60`、`SEAL_DOOM_HOURS=3`、`MEAL_BUFF_HOURS=8`/`MEAL_BUFF_BONUS=2`、`HORROR_SHIELD_HP=300`/`HORROR_REGEN=10`/`HORROR_UPKEEP=10`/`HORROR_HOURLY_UPKEEP=8`、~~`STANCE_SHARE_`~~／~~`OFFENSIVE_NP_ATK_FX_`~~（兩者 2026-09 皆已移除：前者隨「御主不上戰場」拔掉，後者被資料驅動的 `NP_KIND_MARKS_`／`npCanClash_` 取代）；及 `makeIntTag_` 工廠產出的 `SOLO_RESERVE_TAG_`/`GOD_HAND_TAG_`/`PLAYER_SEALS_TAG_`/`DOOM_TAG_`/`MEAL_TAG_`（get/set 皆薄封裝在上列存取器內）。
 
 ---
 

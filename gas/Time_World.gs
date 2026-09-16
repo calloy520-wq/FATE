@@ -314,10 +314,9 @@ function applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult
   return did;
 }
 
-// 從御主列的 MEMORY 取魔術迴路數（【迴路】N），無則預設 30。
+// 從御主列的 MEMORY 取魔術迴路數，無則預設 30（讀寫都走 MASTER_CIRCUITS_TAG_）。
 function masterCircuits_(masterRow) {
-  var m = String(masterRow && masterRow[COL.PC.MEMORY] || "").match(/【迴路】(\d+)/);
-  return m ? parseInt(m[1]) : 30;
+  return getMasterCircuits_(masterRow && masterRow[COL.PC.MEMORY]);
 }
 
 // 🔋 敵御主每日回魔：敵御主電池只會被 drainForNp_ 扣、從不隨時間自然回——長局若不補，放過一次寶具後就永久魔力見底，往後所有遭遇都啞火(反而喪失「寶具是孤注一擲」的張力)。

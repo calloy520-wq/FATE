@@ -643,7 +643,7 @@ Seed_Codex.gs 頂部 `CODEX_PERSONA_VER` 的註解只留當前版號一行簡述
 - **E**：`Script_Kanshou.html` 新增`ensureOverlay_`合併11處overlay建立樣板、`_showOverlayLoading_`合併2個讀條函式；修`kp-overlay` id被3種功能共用的隱性耦合(`kanshouPickLocation_`改用獨立的`kloc-overlay`)。
 - **F**：`Account.gs`新增`findPcRowByCharId_`；`History_Sync.gs`新增`readRecentPlayerRows_`；`Seed_Codex.gs`/`Seed_Rivals.gs`重複fallback文案抽成`DEFAULT_TRAIT_FALLBACK_`/`DEFAULT_PREF_FALLBACK_`；`CODEX_PERSONA_VER`版本註解瘦身(歷史見上方§21)。
 
-**額外發現並修正的真實不一致(非純風格重構)**：`Router_Battle.gs` 對轟(`CLASH_OFF_FX`)與敵反擊解放(`ECF`)兩份「攻擊型寶具判準」清單，註解都明講「與對轟同準」理應是同一套標準，卻各自維護、對轟那份漏了`summon_horror`——同一隻只有深淵召喚型寶具的敵人，在對轟場景不會被判定為攻擊型、但在敵反擊場景會，兩處判定不一致。已統一成單一常數`OFFENSIVE_NP_ATK_FX_`（採較完整的敵反擊版為準），兩處呼叫點都改用它。
+**額外發現並修正的真實不一致(非純風格重構)**：`Router_Battle.gs` 對轟(`CLASH_OFF_FX`)與敵反擊解放(`ECF`)兩份「攻擊型寶具判準」清單，註解都明講「與對轟同準」理應是同一套標準，卻各自維護、對轟那份漏了`summon_horror`——同一隻只有深淵召喚型寶具的敵人，在對轟場景不會被判定為攻擊型、但在敵反擊場景會，兩處判定不一致。已統一成單一常數`OFFENSIVE_NP_ATK_FX_`（採較完整的敵反擊版為準），兩處呼叫點都改用它。**⚠ 2026-09 現況**：那個 fx 白名單後來又被資料驅動的 `NP_KIND_MARKS_`／`npCanClash_` 取代（種類寫在寶具自己身上，不必維護白名單），常數已移除。
 
 **刻意判斷不應合併、維持現狀的兩份清單**（審查曾建議一併看，逐一核對用途後確認語意範圍本就不同，非重複）：`Engine_Fate.gs`的`offenseTier_`內`pierceFx`——只收錄`CONCEPT_TIER`表裡真正有分級的fx(概念貫穿計算專用，收錄`gob`/`chain`等未分級的fx毫無意義，因為`conceptTier_`對未列在表裡的fx一律回傳最低的1)；`OFFENSIVE_NP_FX_`(`bestNpChoice_`用，多寶具敵人選「最強攻擊寶具」時判斷某個NP選項算不算攻擊型)——語意範圍本就比對轟/反擊判準更寬鬆，兩者職責不同，未合併。
 

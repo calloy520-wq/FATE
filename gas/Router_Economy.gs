@@ -163,9 +163,7 @@ function actionManaSupply(userData, pcId, sheets) {
   const newMpMax = masterPoolMax_(newCirc, partyMag);
   const restored = newMpMax; // 回滿池
   // 寫回：迴路(MEMORY)、血上限、(夾)當前血、池上限、回滿魔
-  pcData[pIdx][COL.PC.MEMORY] = /【迴路】\d+/.test(String(pcData[pIdx][COL.PC.MEMORY] || ""))
-    ? String(pcData[pIdx][COL.PC.MEMORY]).replace(/【迴路】\d+/, '【迴路】' + newCirc)
-    : (String(pcData[pIdx][COL.PC.MEMORY] || "") + '｜【迴路】' + newCirc);
+  pcData[pIdx][COL.PC.MEMORY] = MASTER_CIRCUITS_TAG_.set(pcData[pIdx][COL.PC.MEMORY], newCirc);
   pcData[pIdx][COL.PC.MAX_HP] = newMaxHp;
   pcData[pIdx][COL.PC.HP] = Math.min(parseInt(pcData[pIdx][COL.PC.HP]) || 0, newMaxHp);
   pcData[pIdx][COL.PC.MAX_MP] = newMpMax;

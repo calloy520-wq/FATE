@@ -62,7 +62,7 @@ function actionGetMapNodes(userData, pcId, sheets) {
 
 // 🚶 抵達敘事提示詞（單一真實來源·2026-09 從 Script.html 收回後端；理由見 CODE_NOTES）。
 function arriveStanceNotice_(stance, isSeek) {
-  if (stance === 'stealth') return isSeek ? '御主刻意壓低氣息潛近，對方未必立時察覺——先機或在我方。' : '御主隱於暗處接近，反而可能先一步發現對方。';
+  if (stance === 'stealth') return isSeek ? '御主刻意壓低氣息潛近，對方未必立時察覺。' : '御主隱於暗處接近，反而可能先一步發現對方。';
   if (stance === 'open') return isSeek ? '御主毫不掩飾、堂堂逼近，對方老遠便察覺來敵、戒備拉滿。' : '御主明晃晃現身，對方撞見的剎那便認出這份張揚。';
   return isSeek ? '對方先察覺不速之客而起戒備。' : '彼此都帶幾分意外。';
 }
@@ -93,7 +93,7 @@ function buildArrivePrompt_(a) {
   foes.filter(f => f.faction === '敵御主' && f.lostServant).forEach(f =>
     WHO.push(`敵御主『${f.name}』已痛失從者（${f.lostServant}）、再無從者可驅使——讓其神情心境流露失恃（依個性：孤注一擲／惶然欲逃／不甘怨懟），切勿演成仍有從者隨侍。`));
   if (a.allyPeril) WHO.push(`【盟友告急·情報】盟友「${a.allyPeril.ally}」此刻正於「${a.allyPeril.loc}」與敵從者「${a.allyPeril.foe}」對上、情勢緊繃（結盟情報共享而得知）——可讓御主/從者有一句反應或掛心，但【是否馳援由玩家決定】，別替玩家起身趕路。`);
-  if (!foes.length && stance !== 'normal') WHO.push(`【御主參戰風格】御主此刻以〔${stance === 'stealth' ? '潛行' : '張揚'}〕之姿行動——${stance === 'stealth' ? '壓低存在感、盡量不被察覺地接近或抽身' : '毫不掩飾、主動暴露行蹤'}。讓此姿態自然滲入現身與被察覺的方式，勿喧賓奪主。`);
+  if (!foes.length && stance !== 'normal') WHO.push(`【御主的姿態】御主此刻以〔${stance === 'stealth' ? '潛行' : '張揚'}〕之姿行動——${stance === 'stealth' ? '壓低存在感、盡量不被察覺地接近或抽身' : '毫不掩飾、主動暴露行蹤'}。讓此姿態自然滲入現身與被察覺的方式，勿喧賓奪主。`);
   // ── 怎麼演 ──
   const HOW = [foes.length
     ? '寫這片場地與一觸即發的對峙張力——交戰與否、勝負，都留待御主下令，禁止自行開打或分出勝負。'
