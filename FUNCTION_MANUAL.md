@@ -712,6 +712,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `KANSHOU_KNOCK_CHANCE_`(=0.2)、`KANSHOU_KNOCK_MIN_BOND_`(=60)（常數）— 結束一天敲門機率與候選門檻。
 - `KANSHOU_KNOCK_RAID_CHANCE_`(=0.5)（常數，2026-07 八度改版新增，玩家「能不能也設計一個被夜襲的橋段」）— 深夜訪客進門(擲骰命中·見 `KANSHOU_KNOCK_CHANCE_`)且訪客好感≥`KANSHOU_KNOCK_MIN_BOND_`時，這次來訪「別有用心」(夜襲鏡像版，共用`kanshouAsleepOutcomeStr_`)的機率。
+- `ALLY_BOND_DAY_TAG_`（`makeIntTag_('交流日', 0)`，2026-09 新增）— 盟友「今日已交流過」的戳記（每對象每日一次），`actionAllyBond` 讀寫的唯一出口；蓋戳必須早於卸防突襲那條提早 return 的路（見 CODE_NOTES）。
 - `KANSHOU_BOND_FLOOR_TAG_`（makeIntTag_ 好感底線·2026-07 新增）— 好感棘輪的高水位，只升不降（那正是「鎖住」本身）；見 `kanshouBondFloorOf_`。
 - `KANSHOU_CHILL_DAY_TAG_`／`KANSHOU_CHILL_MIN_DROP_`(3)／`KANSHOU_CHILL_DAYS_`(1)（2026-07 新增）— 🧊 好感【趨勢】。提示詞原本只給純量好感值，剛爬到 90 跟從 98 摔到 90 完全相同，冷落她毫無效果。只記「最近一次讓她不高興是哪一天」(absDay)，靠日期自然衰減。蓋戳兩處：爽約 -5、AI `rel_changes` 掉幅 ≥ MIN_DROP（**用 `change` 本身判定而非 `newFav-oldFav`**——棘輪把值夾在地板時兩者差 0，但她確實不高興過）。呈現在她自己的卡片（`pChillStr`，接在好感數字後）而非全域旁白，避免代名詞懸空。
 - `KANSHOU_COHABIT_END_TAG_`（makeIntTag_ 同居解除·2026-07 新增）— 跨函式傳事實用：`kanshouSyncRelTier_` 是共用 helper、看不到提示詞變數，蓋一次性旗標讓 `actionPlay_` 組 `kanshouCohabitEndStr` 時讀一次就清。
@@ -963,7 +964,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `playerHomeLoc_(sheets, pcId, pcData)` — 取玩家居所所在地（讀 COL.PC.HOME_LOC），無則 ""。
 - `playerServantEconomy_(sheets, pcId, preData)` — 供前端 HUD 顯示：玩家從者當前魔力收支與靈脈；聚合全隊從者魔力貢獻/維持費/territory/出力檔 drainMul/海怪維持費，須與 applyRegen_ 同算式。無存活從者回 null。
 - `applyRegen_(data, gameId, playerName, partyNames, circuits, hours, mult, sheets, loc, homeLoc)` — 對御主＋同行從者施 hours 小時時回；核心「出力電池制」：從者無自有魔力池，御主 MP 是唯一資源被按出力檔抽取；魔力補不上→御主被動燃血（缺口/2 扣血、保底1，從者不扣血）；海怪先於御主血沉沒止耗；重算共用池上限；HP 自我修復（Avalon×1.6）。只改記憶體 data，回傳是否有變動。
-- `masterCircuits_(masterRow)` — 從御主列 MEMORY 取【迴路】N，無則 30。
+- `MASTER_CIRCUITS_TAG_`（`makeIntTag_('迴路', 30)`，2026-09 新增）／`getMasterCircuits_(memory)` — **魔術迴路讀寫的唯一出口**。補魔會改它（`actionManaSupply` 走 `MASTER_CIRCUITS_TAG_.set`）。收成一支之前是四處手刻正則，其中寫入那版在 MEMORY 為空時會生出開頭多一根「｜」的字串。
+- `masterCircuits_(masterRow)` — 從御主列 MEMORY 取【迴路】N，無則 30（委派給 `getMasterCircuits_`）。
 
 #### 敵御主每日回魔＋世界自走
 - `getManaDay_(memory)` / `stampManaDay_(memory, day)` — MANA_DAY_TAG_ 的讀/寫（最後回魔的絕對日）。
