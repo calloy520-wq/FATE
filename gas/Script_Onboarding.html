@@ -96,6 +96,16 @@ function setWarFromSelect_() {
   var v = (el && el.value) || '5th';
   warMode = (v === 'chaos') ? 'chaos' : 'canon';
   currentWar = v;
+  // 🧭 換場次會讓「扮演正典御主」的選擇失效（那是綁在場次上的）。清掉之前先講一聲——
+  //   不講的話玩家會在按下締結令咒時才被後端擋下來（「這是已知的御主，請用扮演…」），
+  //   而他明明就是用扮演選的，只是中途換了場次。
+  var _wn = document.getElementById('war-note');
+  if (_wn) {
+    if (playedMaster) {
+      _wn.textContent = '換了場次，剛才挑的正典御主已經取消。欄位裡的名字與設定留著，你可以直接拿來當自創御主（記得改個名字），或再挑一次。';
+      _wn.style.display = 'block';
+    } else { _wn.style.display = 'none'; }
+  }
   playedMaster = '';
   if (warMode === 'canon' && !_mastersPrefetch[currentWar]) {
     _mastersPrefetch[currentWar] = gasRun({ action: 'get_masters', war: currentWar });

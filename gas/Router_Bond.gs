@@ -476,6 +476,9 @@ function bumpBond_(sheets, pcData, npcIdx, delta, skipWrite) {
   return v;
 }
 
+// 🤝 盟友「今日已交流過」戳記：讀寫的唯一出口（每對象每日一次）。
+var ALLY_BOND_DAY_TAG_ = makeIntTag_('交流日', 0);
+
 // 🤝 與盟友共處／共濟魔力：對同地盟友（敵御主或敵從者·結盟中）交流增進羈絆——同盟的「交流」維度。
 function actionAllyBond(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
@@ -497,9 +500,7 @@ function actionAllyBond(userData, pcId, sheets) {
   if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，沒辦法好好相處。先休息，恢復了再來。" });
 
   const _allyBondDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
-  const _abMem = String(pcData[aIdx][COL.PC.MEMORY] || "");
-  const _abm = _abMem.match(/【交流日】(\d+)/);
-  if (_abm && parseInt(_abm[1]) === _allyBondDay) return JSON.stringify({ success: false, message: "今天已經跟這位盟友相處過了。來日方長，改天再敘。" });
+  if (ALLY_BOND_DAY_TAG_.get(pcData[aIdx][COL.PC.MEMORY]) === _allyBondDay) return JSON.stringify({ success: false, message: "今天已經跟這位盟友相處過了。來日方長，改天再敘。" });
 
   const masterName = String(pcData[pIdx][COL.PC.NAME]);
   const allyName = String(pcData[aIdx][COL.PC.NAME]);
@@ -507,6 +508,10 @@ function actionAllyBond(userData, pcId, sheets) {
 
   const _allyBondApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠，沒辦法好好相處。先休息，恢復了再來。", { isFate: isFate });
   const ap = _allyBondApr.ap, clock = _allyBondApr.clock;
+
+  // 🔒 蓋戳要在突襲分支之前：AP 已經扣掉，突襲會提早 return——戳記留在後面＝被突襲就能無限重按。（見 CODE_NOTES.md）
+  pcData[aIdx][COL.PC.MEMORY] = ALLY_BOND_DAY_TAG_.set(pcData[aIdx][COL.PC.MEMORY], _allyBondDay);
+  sheets.pc.getRange(aIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[aIdx][COL.PC.MEMORY]);
 
   // ⚔️ 卸防突襲：與盟友交流時門戶大開，同地若有「未結盟」敵從者→趁隙重擊我方從者。（全文見 CODE_NOTES.md）
   const mySvIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
@@ -530,8 +535,6 @@ function actionAllyBond(userData, pcId, sheets) {
     pcData[aIdx][COL.PC.MEMORY] = String(pcData[aIdx][COL.PC.MEMORY] || "") + "｜【摯交】";
     unlocked = true;
   }
-  // 標記今日已與此盟友交流過（每對象每日一次）
-  pcData[aIdx][COL.PC.MEMORY] = String(pcData[aIdx][COL.PC.MEMORY] || "").replace(/｜?【交流日】\d+/g, "") + "｜【交流日】" + _allyBondDay;
   sheets.pc.getRange(aIdx + 1, 1, 1, pcData[aIdx].length).setValues([pcData[aIdx]]);
 
   // 羈絆分級·嚴格控制親疏（盟友＝暫時利益結合，低羈絆務必冷淡，唯 90+ 才解鎖親近）

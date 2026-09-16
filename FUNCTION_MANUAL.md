@@ -187,7 +187,7 @@
 - `actionBreakAlliance(userData, pcId, sheets)`（2026-07 補 `npcId` 精準配；同批再補硬連結同步解除）— 單方撕毀盟約：清掉匹配敵御主/敵從者的【盟約至】。`userData.npcId` 有給先 id+game_id 精準比對命中對象，比對用的名字改抓該列真名（非玩家傳入、可能過期的字串）；查無 id 才退回原本 `nameLoose_` 子字串批次撕毀。**硬連結同步**：撕毀對象若有主從硬連結（`getMasterServant_`/`getServantMaster_`），對應的另一方（撕毀敵御主→連帶其硬連結敵從者，反之亦然）一併納入 `isMatch` 比對範圍撕毀，避免舊版只解一側、另一側殘留【盟約至】卡在「已結盟」狀態。MEMORY 整欄批次寫回。交棒。
 - `breakStaleAlliances_(sheets, gameId, preData?)` — ⏳ 盟約自然瓦解：效期到 或 存活敵從者≤3（強制翻臉）。整欄批次寫回，回破裂御主名單。
 - `bumpBond_(sheets, pcData, npcIdx, delta, skipWrite)` — 該 NPC 列 BOND ±delta（0~100，起步預設 40），寫回回傳新值；`skipWrite` 為真時只改 pcData 不落盤（由呼叫端整批寫）。
-- `actionAllyBond(...)` — 與同地盟友交流（+6~11 羈絆）。AP 不足先擋→`enemyAmbushOnServant_`（1.3 倍，未結盟敵從者趁隙）→`bumpBond_`→達 90 蓋【摯交】（純敘事親疏標記，**無鑑賞入口意義**——原【鑑賞緣】戰後納入鑑賞名冊機制已砍）。四級羈絆嚴控親疏 tier；盟友御主用 `enemyMasterCard_`、盟友從者用 `servantCard_`。★真親密一律留戰後鑑賞，戰場絕不開慾海引擎。交棒。
+- `actionAllyBond(...)` — 與同地盟友交流（+6~11 羈絆）。AP 不足先擋→扣 AP 後【立刻】蓋【交流日】戳記（`ALLY_BOND_DAY_TAG_`，每對象每日一次；必須早於突襲分支，那條路會提早 return）→`enemyAmbushOnServant_`（1.3 倍，未結盟敵從者趁隙）→`bumpBond_`→達 90 蓋【摯交】（純敘事親疏標記，**無鑑賞入口意義**——原【鑑賞緣】戰後納入鑑賞名冊機制已砍）。四級羈絆嚴控親疏 tier；盟友御主用 `enemyMasterCard_`、盟友從者用 `servantCard_`。★真親密一律留戰後鑑賞，戰場絕不開慾海引擎。交棒。
 
 #### 🕊️ 示好／交涉
 - `favorWord_(fav)` — 好感值→一句白話事實（不含演法，怎麼表現交給 AI），不上不下回空字串。

@@ -2419,7 +2419,18 @@ forceAll(終局逼近)時常一次瓦解多組同盟，MEMORY 整欄一次寫回
 
 ### `actionAllyBond`　<sub>Router_Bond.gs:616</sub>
 
-🐛→✅ 稽核抓到：bumpBond_預設會立即單格寫回aIdx列的BOND，下面【摯交】里程碑命中時又對同一列做MEMORY單格寫回——同列2次Sheets I/O。改skipWrite:true，交給下面單次整列寫回一併涵蓋(含BOND／可能的【摯交】／【交流日】節流標記)。
+🐛→✅ 稽核抓到：bumpBond_預設會立即單格寫回aIdx列的BOND，下面【摯交】里程碑命中時又對同一列做MEMORY單格寫回——同列2次Sheets I/O。改skipWrite:true，交給下面單次整列寫回一併涵蓋(含BOND／可能的【摯交】)。※【交流日】戳記後來被提前到突襲分支之前自己寫一次，見下。
+
+### `actionAllyBond`　<sub>Router_Bond.gs·【交流日】戳記的位置</sub>
+
+🐛→✅ 2026-09 全面稽核抓到「被突襲就能無限重按」：「今天已跟這位盟友相處過」的戳記原本寫在函式尾端，
+但中間的卸防突襲分支會提早 `return`——AP 早就扣掉了、回合也用掉了，戳記卻沒落地，
+於是只要每次都被突襲，同一天同一個盟友可以一直共處下去（探針實測 `r1.success=true` 之後 MEMORY 裡的【交流日】仍是空的）。
+戳記現在緊接在 `chargeApOrReject_` 之後就寫（單格寫回 MEMORY），兩條路都蓋得到。
+**判準**：扣了 AP 就代表這一回合已經付過錢，凡是「這回合已用掉」性質的節流標記都要跟扣款黏在一起，
+不可以放在任何可能提早 return 的分支後面。同檔的 `actionBond` 本來就是這個順序（先蓋戳再扣 AP），可以對照。
+順帶把 `/【交流日】(\d+)/` 手刻正則收進 `ALLY_BOND_DAY_TAG_`(`makeIntTag_`)，讀寫同一個出口——
+舊的寫法是 `replace(...) + "｜【交流日】" + day`，MEMORY 為空時會生出開頭多一根 `｜` 的字串（跟迴路那邊同款的坑）。
 
 ### `actionCourtEnemy`　<sub>Router_Bond.gs:623</sub>
 
