@@ -1209,6 +1209,13 @@ solo 這邊補上的入口：帳號登入、開新局清檔、翻正典御主名
   回傳的 `seals` 跟表上一致、脫離要把御主與從者一起挪走、用盡要擋且不會扣成負數、還沒召喚從者就用要擋。
 - **`dup_sv.js`（16 條）** — 自選正典從者時敵陣不可以出現同一位（第五次／跨場次／第四次／混亂四種都驗），
   順便驗敵陣自己也沒重複。
+- **`admin.js`（11 條）** — 維護類冒煙（平常沒人按，壞了也沒人知道，而它們動的是整張表）：
+  `check_sheets`／`get_tags`／`sync`／`dev_resync_codex`（重灌種子不可以洗掉英靈殿或玩家那局的列）／
+  `purge_orphans`（種一列 game_id 指向不存在的局的孤兒，驗它清掉孤兒且不誤清玩家）。
+- **`badwar.js`（12 條）** — 直打 API 繞過前端下拉選單：`war`／`warMode` 亂填、空白、帶 HTML 標籤，
+  都不可以生出一局「沒有敵人的聖杯戰爭」。實測全數退回第五次名單（`seedRivalsForGame_` 的 `war==='4th'?:...` 尾巴就是 5th）。
+  ⚠ 這支第一版六條全紅，是**探針自己的問題**：敵陣是在【召喚完成】那一刻才鋪的（`summon_servant` → `seedRivalsForGame_`），
+  只 create 不召喚當然數到 0。紅燈先懷疑探針。
 - **`np_class.js`（改寫）** — 舊版自己用 scale＋攻擊 fx 去「推論」能不能對轟，那正是 `npKindOf_` 這層要取代的猜法，
   而且它還吃已刪除的 `OFFENSIVE_NP_ATK_FX_`、整支跑不動。改成直接問單一真實來源（`npKindOf_`／`npReleasable_`／`npCanClash_`）。
 
