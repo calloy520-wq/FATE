@@ -1853,13 +1853,16 @@ let plainTextContext = cleanText;
     try {
       let res = await gasRun({ action: 'enter_kanshou', acctName: currentAccount });
       if (!res || !res.success) { alert((res && res.message) || '無法進入後日談。'); return; }
-      // 首次進場、尚未建過常駐御主 → 先問一次名字＋性別＋外貌/身世/個性方向，帶進來正式建立
+      // 首次進場、尚未建過常駐御主 → 先問一次名字＋性別＋外貌＋個性方向，帶進來正式建立。
+      // ⚠ 刻意【不問身世】(2026-07 玩家定案「鑑賞玩家要輸入姓名性別外貌個性，這樣就好」)，
+      //   所以這裡也不送 standing——enter_kanshou 從來沒讀過它，送的永遠是空字串。
+      //   身世仍是 backfillKanshouAi 生成器的參數(留空＝隨機)，那條路不動。
       let firstTimeSeed = null;
       if (res.needSetup) {
         const setup = await askKanshouSetup(res.defaultName || currentAccount);
         firstTimeSeed = setup;
         res = await gasRun({ action: 'enter_kanshou', acctName: currentAccount, pcName: setup.name, pcSex: setup.sex,
-          appearance: setup.appearance, standing: setup.standing, persona: setup.persona });
+          appearance: setup.appearance, persona: setup.persona });
         if (!res || !res.success) { alert((res && res.message) || '無法進入後日談。'); return; }
       }
       // 建立鑑賞視角的 pc（mode=kanshou：隱藏戰鬥相關 UI、顯示同伴面板）

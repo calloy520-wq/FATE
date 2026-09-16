@@ -632,6 +632,11 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, allPcData) {
       let fac = String(r[COL.PC.FACTION] || "");
       const rawFac = fac;
       const allied = (fac === "敵御主" || fac === "敵從者") && isAllied_(r);
+      // 🤝 盟約剩幾日：後端算好下傳（GAS 掌數值）。玩家原本【看不到這個倒數】——盟約 3 日後
+      //    靜靜破裂，卡上只寫「休兵」，等於被一條看不見的規則管著。有效期＝ day <= until
+      //    （見 breakStaleAlliances_ 的 `day > allyUntil_` 才破），所以含今天還剩 until-day+1 日。
+      //    ⚠ 另一個破裂條件是「存活敵從者 ≤3 時強制全面瓦解」，那個不是倒數、規則說明裡已寫。
+      const allyLeft = allied ? Math.max(0, allyUntil_(r) - myDay + 1) : 0;
       if (allied) fac = (fac === "敵御主") ? "盟友御主" : "盟友從者";
       // 🤝 情報共享：有盟友在世時，揭露敵從者／盟友從者的職階（盟友通報的敵情）
       const isServantKind = (rawFac === "敵從者" || rawFac === "從者");
@@ -645,7 +650,7 @@ function getLocalPeopleList(sheets, pcName, pcId, curL, allPcData) {
         id: r[COL.PC.ID], isPC: String(r[COL.PC.ID]).startsWith("PC_"), name: tName, status: finalDisplayStatus,
         pref: r[COL.PC.PREF] || "神祕莫測", relTag: r[COL.PC.REL_TAG] || "萍水相逢", relVal: rVal,
         loc: tLoc, isExact: (tLoc === safeCurL), isHighRel: (rVal >= 60), isParty: rIsParty,
-        faction: fac, allied: allied, intelCls: revealCls, lostServant: lostSv,
+        faction: fac, allied: allied, allyLeft: allyLeft, intelCls: revealCls, lostServant: lostSv,
         master: pairMaster, servant: pairServant,
         busyWith: null, hp: r[COL.PC.HP], mp: r[COL.PC.MP]
       });

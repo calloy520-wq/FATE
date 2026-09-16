@@ -177,7 +177,7 @@ function actionMove(userData, pcId, sheets) {
     });
     // 訊息只講事實、不叫玩家去找按鈕——突圍鈕就在這張卡上（見 Script.html 的 needRetreat 分支）。
     if (_hostileHere) return JSON.stringify({
-      success: false, needRetreat: true, blockers: _blockers,
+      success: false, needRetreat: true,
       message: `「${_blockers.slice(0, 3).join('」「')}」${_blockers.length > 3 ? '等' : ''}盯著你，轉身就走會露出破綻——要離開只能殺出重圍（對方必定追擊、成敗當場見真章）。`
     });
   }
@@ -471,13 +471,12 @@ function actionMove(userData, pcId, sheets) {
   STATE_PRE_DATA_ = allPcData; // ⚡ 交棒：本 handler 所有寫入(worldTick_/spendAp_/markRivalsSeen_/夜襲…)皆已原地改回 allPcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({
     success: true,
-    foeMood: foeMoodNote, // 🫶 遇敵態度·GAS 依好感裁定→前端注入抵達 steer
     allyPeril: allyPeril, // 🆘 盟友告急→前端報信＋「趕去馳援」泡泡
-    masterCard: masterCard_(allPcData[pIdx]), // 🎭 御主演出依據→抵達敘事讓御主依性格開口、不再啞巴主角
-    servantCard: svCardMove,
-    foeCards: foeCardsMove,
-    perfNote: performanceNote_(perfNamesMove), // 🎭 抵達場景可能同框多張 servantCard_(皆已 skipClose)，統一收尾一次
-    // 🚶 抵達敘事提示詞由後端組好下傳（2026-09 從前端收回，見 buildArrivePrompt_）；上面那幾張卡片仍下傳，供前端偵錯與相容。
+    // 🚶 抵達敘事提示詞由後端組好下傳（2026-09 從前端收回，見 buildArrivePrompt_）。
+    // 🧹 2026-09：原本 foeMood/masterCard/servantCard/foeCards/perfNote/preFoes 也一起下傳，
+    //    註解寫「供前端偵錯與相容」——但全 html 掃過一遍，這幾個欄位前端【一個都沒讀】，
+    //    相容的是空氣。實測每次移動白送 1691 字元(整包的 14.6%)，而且 masterCard_/performanceNote_
+    //    為了那份沒人看的副本各多算一次。移動是 solo 最常按的鍵，這是每一步都在付的稅。
     arrivePrompt: buildArrivePrompt_({
       pcName: pcName, svName: svNameForAi, target: target, timeStr: String(clockLabel || '').split('・').slice(-1)[0] || '此刻',
       locDesc: mapDesc || '四下靜謐。', people: getLocalPeopleList(sheets, pcName, pcId, target, allPcData),
@@ -489,7 +488,6 @@ function actionMove(userData, pcId, sheets) {
     pursuit: pursuit,
     report: pursuitReport, // 📊 撤離追擊數字戰報卡(見上方建構處)——renderFateBattleReport 秒顯，不等 AI
     factionClash: factionClash, // ⚔️ 抵達時撞見的敵對互毆(見上方建構處)——供前端插入抵達演出提示詞
-    preFoes: preFoesAtTarget,
     victory: moveVictory,
     dreamPrompt: moveDream,
     statusString: buildPlayerStatusString(allPcData[pIdx]),
@@ -498,7 +496,6 @@ function actionMove(userData, pcId, sheets) {
     locations: getNearbyLocations(target, freshMapData, getWarName_(allPcData[pIdx][COL.PC.MEMORY])).slice(0, 5),
     mapNodes: buildMapNodesPayload_(sheets, allPcData, moveGameId, target), // ⚡ 夾帶地圖節點，免手機抵達後再打一趟 get_map_nodes
     mapDesc: mapDesc,
-    parentRegion: rootTarget,
     clock: clockLabel,
     ap: apLeft,
     apMax: AP_PER_DAY,

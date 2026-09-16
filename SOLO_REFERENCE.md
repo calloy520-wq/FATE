@@ -43,6 +43,10 @@
 - **持久層（清檔不刪）**：帳號表、鑑賞表（封存從者）。**會被清檔刪**：眾生（game_id）——NPC 對御主的關係已併入眾生列。
 - **補魔(solo)**：`actionManaSupply` 走 narrate_only（SFW，曖昧 fade、點到為止）。
 - ⚠ **2026-09 砍掉 `actionRest` 的「非 FATE 舊版休養」死分支**：game_id 只有 `g_`(solo)／`k_`(鑑賞) 兩種前綴，而 `rest` 在 `KANSHOU_BLOCKED_ACTIONS_` 對鑑賞是擋掉的 → `isFateRest` 分支一定會 return，那段永遠走不到。但它裡面藏著兩個跨帳號洩漏：「同行」全回滿沒帶 game_id／`bystanderNames` 用地點掃全表、把別人那局在同名地點的角色名字一起端出來（且前端從來沒讀過這個欄位）。**死碼不是無害的，它是「哪天條件變了就直接生效」的地雷**；已換成一句明確的失敗。
+- 🤝 **盟約倒數（2026-09 補接線）**：盟約有效期是 `day <= until`（`breakStaleAlliances_` 判 `day > allyUntil_` 才破），
+  但盟友卡上原本只寫「休兵」二字——**玩家被一條看不見的倒數管著**，三日後盟約靜靜破裂。
+  現在 `getLocalPeopleList` 多下傳一欄 `allyLeft`（後端算好，含今天＝`until - day + 1`），卡上顯示「休兵剩N日」。
+  ⚠ 另一個破裂條件是**存活敵從者 ≤3 時強制全面瓦解**，那個不是倒數、規則說明裡已寫明。探針 `ally.js`。
 - **重開/查重**：`actionAccountNewGame`(Account.gs) 清舊單人戰場（刪同 game_id 整世界＋御主本人）。`actionCheckName` 只擋 game_id 非空的同名活躍御主；DEAD_ 與孤兒不佔名。
 - **solo 全程無花錢入口**：身世財力差異走「起始禮裝」（創角自選被動禮裝，見 §6）。
 - ⚠ **2026-09 抽掉兩組魔術數字**（`check_mirror` 只認得 `KC_*` 常數，**寫死的數字它一個都看不到**）：

@@ -725,7 +725,7 @@
       const sa = String(a.name).replace(/'/g, '');
       const bond = Math.max(0, Math.min(100, parseInt(a.relVal) || 0));
       const eligible = bond >= 90;
-      const title = '<span style="color:#8fd0a0; font-size:13px; font-weight:bold;">🤝 盟友 ' + a.name + '</span> <small style="color:#8fd0a0; opacity:.6;">' + (a.faction === '盟友御主' ? '御主' : '從者') + '·休兵 ·羈絆' + bond + (eligible ? '·情深' : '/90') + '</small>';
+      const title = '<span style="color:#8fd0a0; font-size:13px; font-weight:bold;">🤝 盟友 ' + a.name + '</span> <small style="color:#8fd0a0; opacity:.6;">' + (a.faction === '盟友御主' ? '御主' : '從者') + '·休兵' + (a.allyLeft > 0 ? '剩' + a.allyLeft + '日' : '') + ' ·羈絆' + bond + (eligible ? '·情深' : '/90') + '</small>';
       const acts = '<div style="flex:1 0 100%; display:flex; align-items:center; gap:7px; margin-bottom:2px;">'
         +   '<div style="flex:1; height:7px; background:rgba(255,255,255,.08); border-radius:4px; overflow:hidden;"><div style="height:100%; width:' + bond + '%; background:linear-gradient(90deg,#5aaa78,#8fd0a0);"></div></div>'
         +   '<small style="color:' + (eligible ? '#e8c873' : '#8fa0b0') + '; font-size:10.5px; white-space:nowrap;">羈絆 ' + bond + (eligible ? ' ·情誼已臻深處' : '/90') + '</small>'

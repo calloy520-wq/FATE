@@ -80,6 +80,9 @@ if python3 "$ROOT/check_docs.py"; then :; else fail=1; fi
 # ⏳ 等待畫面（按下去畫面靜止一兩秒、沒有任何訊息——玩家只會以為沒按到，然後再按一次）
 if python3 "$ROOT/check_wait.py"; then :; else fail=1; fi
 
+# 🔌 前後端契約（路由兩端對不對得上——既有掃描器全都看不見這一塊）
+if python3 "$ROOT/check_contract.py"; then :; else fail=1; fi
+
 # 🖥️ 前端 runtime 冒煙（語法對 ≠ 跑得動；.html 的 JS 不進 CI，這裡是唯一防線）
 if node "$ROOT/check_ui.js"; then :; else fail=1; fi
 
