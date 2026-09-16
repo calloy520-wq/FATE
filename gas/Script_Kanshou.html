@@ -300,9 +300,12 @@ let plainTextContext = cleanText;
       //   2026-07「拍照改手機、不用等」：手機沒有底片，拍完立刻存進相簿、立刻能看。
       if (data.photoResult) {
         const pr = data.photoResult;
-        const prTxt = pr.ok ? `📷 咔嚓。拍下了，已經存進相簿。`
+        const prTxt = pr.ok ? `📷 咔嚓。這張已經存進相簿。`
           : pr.reason === 'cap' ? '📷 相簿滿了（' + KC_ALBUM_CAP_ + ' 張）。去刪幾張舊的才能再拍。'
           : pr.reason === 'nobody' ? '📷 身邊沒有可拍的人。' : '📷 這一張沒拍成。';
+        // 📱 手機拍完當下就能看（玩家 2026-09「拍照改成手機拍 當下能看」）：後端把卡片物件隨回合帶回，
+        //   這裡用相簿同一支 kcAlbumCardHtml_ 直接畫在對話裡，不必再點開 📚 相簿。
+        if (pr.ok && pr.photo) optionsHtml += '<div style="display:flex; justify-content:center; padding:6px 0 4px;">' + kcAlbumCardHtml_(pr.photo) + '</div>';
         optionsHtml += `<div style="color:#9a917f; font-size:11px; padding:4px 2px 8px;">${prTxt}</div>`;
         // 📣 走查抓到的軟卡點：相簿滿只有文字、沒有下一步——補直達鈕。
         if (!pr.ok && pr.reason === 'cap') optionsHtml += `<button class="btn-option" style="width:100%; margin-bottom:8px;" onclick="openKanshouAlbum()">📚 打開相簿，刪幾張舊照片</button>`;

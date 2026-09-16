@@ -3488,8 +3488,10 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
         // 「活動」欄：原本填 kanshouLocActivity_(地點×人的寫死變體池)，那張表已隨預寫橋段整批移除。
         // 相簿卡片從來沒有顯示過這一欄(kcAlbumCardHtml_ 只印 caption/日期/天氣/人物/旗標)，故留空。
         // ⚠ 欄位本身保留不刪——COL 是位置索引，刪欄會位移整張相簿表(CLAUDE.md 工程準則)。
-        kanshouAlbumSheet_().appendRow([myGameId, _phId, curDay, timeBand_(curHour), String(curL || ""), kanshouWeather_(curDay), kanshouPhotoPending_.names.join('、'), "", _phCap, _phFlag, _phHair]);
-        kanshouPhotoResult_ = { ok: true };
+        const _phRow = [myGameId, _phId, curDay, timeBand_(curHour), String(curL || ""), kanshouWeather_(curDay), kanshouPhotoPending_.names.join('、'), "", _phCap, _phFlag, _phHair];
+        kanshouAlbumSheet_().appendRow(_phRow);
+        // 📱 手機拍完當下就能看：卡片物件隨這回合回去，前端直接畫在對話裡，不必再打開相簿（玩家 2026-09）
+        kanshouPhotoResult_ = { ok: true, photo: kanshouPhotoObj_(_phRow) };
       } catch (e) { kanshouPhotoResult_ = { ok: false, reason: 'error' }; }
     } else if (kanshouPhotoDenied_) {
       kanshouPhotoResult_ = { ok: false, reason: kanshouPhotoDenied_ };
@@ -3795,6 +3797,18 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
   }
 }
 
+// 📷 相簿列 → 前端卡片物件。相簿面板與「拍完當下就看」共用這一個形狀，別各寫一份。
+function kanshouPhotoObj_(row) {
+  const d = parseInt(row[2]) || 0;
+  const dt = kanshouAbsDayToDate_(d);
+  return {
+    id: String(row[1]), day: d, dateLabel: `${dt.month}月${dt.day}日`, band: String(row[3]),
+    loc: String(row[4]), weather: String(row[5]), names: String(row[6]),
+    activity: String(row[7]), caption: String(row[8]), flag: String(row[9]),
+    hair: String(row[10])
+  };
+}
+
 function actionGetAlbum(userData, pcId, sheets) {
   const pcData = sheets.pc.getDataRange().getValues();
   const pIdx = kanshouPcIdx_(pcData, pcId);
@@ -3804,14 +3818,7 @@ function actionGetAlbum(userData, pcId, sheets) {
   const photos = [];
   for (let i = rows.length - 1; i >= 1; i--) {
     if (String(rows[i][0]) !== gid) continue;
-    const d = parseInt(rows[i][2]) || 0;
-    const dt = kanshouAbsDayToDate_(d);
-    photos.push({
-      id: String(rows[i][1]), day: d, dateLabel: `${dt.month}月${dt.day}日`, band: String(rows[i][3]),
-      loc: String(rows[i][4]), weather: String(rows[i][5]), names: String(rows[i][6]),
-      activity: String(rows[i][7]), caption: String(rows[i][8]), flag: String(rows[i][9]),
-      hair: String(rows[i][10])
-    });
+    photos.push(kanshouPhotoObj_(rows[i]));
   }
   return JSON.stringify({ success: true, photos: photos, cap: KANSHOU_ALBUM_CAP_ });
 }

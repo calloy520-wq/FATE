@@ -771,6 +771,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### 相簿 actions（讀/刪·拍照本體在 actionPlay）
 
 - `actionGetAlbum(userData, pcId, sheets)` — 讀本局全部照片（新到舊·dateLabel 後端算好）。**2026-07 拍照改手機**：不再回傳 `developed`/`filmLeft`/`filmPerDay`，手機拍完立刻能看，只剩 `cap` 這個相簿總容量。帳號歸屬驗證已上移到 dispatcher（`verifyPcOwnership_`），本函式只用 `kanshouPcIdx_` 純索引查找。`photo_caption` 寫入相簿表前已補控制/零寬/雙向字元清洗＋公式引導字元阻擋（比照 `sanitizeUserData_` 的保護等級，防 AI 輸出被利用來注入相簿列）。
+- `kanshouPhotoObj_(row)`（2026-09 新增）— 相簿列 → 前端卡片物件（id／day／dateLabel／band／loc／weather／names／activity／caption／flag／hair）。`actionGetAlbum` 與 `actionPlay` 的拍照分支共用，後者把它塞進 `photoResult.photo` 讓玩家拍完當下就看到。
 - `actionAlbumDelete(userData, pcId, sheets)` — 刪照片（照片 ID＋遊戲 ID 雙比對·只能刪自己這局）。帳號歸屬驗證已上移到 dispatcher，本函式只用 `kanshouPcIdx_`。
 
 ---
