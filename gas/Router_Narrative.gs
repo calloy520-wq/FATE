@@ -204,7 +204,9 @@ const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { 
 // 🐯 老虎道場（賽後番外·敗北講評／勝利祝賀）
 // ==========================================
 const DOJO_CAUSE_ = {
-  deadline: { fact: `${FATE_DEADLINE_DAYS_} 日時限耗盡，聖杯始終沒到手`, lesson: `一整局 ${FATE_DEADLINE_DAYS_} 天的行程該怎麼分配` },
+  // ⚠ {days} 走跟 {sv}/{foe} 同一條「用的時候才代入」——直接寫 ${FATE_DEADLINE_DAYS_} 會在檔案載入當下就求值，
+  //   而那個常數住在別的檔（見 CODE_NOTES）。
+  deadline: { fact: '{days} 日時限耗盡，聖杯始終沒到手', lesson: '一整局 {days} 天的行程該怎麼分配' },
   seal_backlash: { fact: '用令咒強逼從者{sv}在好感不足時交心，令咒一解就被積怨反噬、御主當場斃命', lesson: '從者的意願，以及絕對命令的代價' },
   ambush: { fact: '在休息／補魔／交流這種卸下防備的時候被敵從者{foe}夜襲，從者殞落', lesson: '什麼時機能卸防、怎麼提早察覺敵蹤' },
   assassination: { fact: '奇襲斬首沒得手，反被護衛從者以 1.5 倍反殺、從者盡滅', lesson: '斬首只擲一顆 20 面骰，這場豪賭划不划算' },
@@ -219,9 +221,10 @@ function dojoCauseLine_(userData) {
   var np = userData.useNp
     ? ('（寶具已解放' + (userData.backlash ? '、還吃了過載反噬' : '') + '仍不敵）')
     : '（全程沒動用寶具）';
+  var days = String(FATE_DEADLINE_DAYS_);
   return {
-    fact: c.fact.replace('{sv}', nm(userData.servantName)).replace('{foe}', nm(userData.foeName)).replace('{np}', np),
-    lesson: c.lesson
+    fact: c.fact.replace('{sv}', nm(userData.servantName)).replace('{foe}', nm(userData.foeName)).replace('{np}', np).replace(/\{days\}/g, days),
+    lesson: c.lesson.replace(/\{days\}/g, days)
   };
 }
 
