@@ -196,12 +196,8 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
       out.knocked = out.destroyed;
       // 🕯️ 敵從者被擊破 → 在其御主身上記下「如何痛失從者」，供日後遭遇時 AI 演出無牙御主
       if (isFoeSv) markMasterLostServant_(sheets.pc, pcData, tgtIdx, `被『${atkC.name}』當場擊破、靈基崩潰消滅`);
-      if (isFoeSv && aliveEnemyServants_(sheets, ctx.myGameId, pcData) <= 0) {
-        out.victory = true;
-        // 🏆 勝利同款「願望夢」：與敗北的 buildDreamPrompt_ 對稱，帶玩家自己的從者(atkC，此刻是攻方)入場。
-        var vWish = extractWish_(pcData[ctx.pIdx][COL.PC.MEMORY]);
-        out.dreamPrompt = buildVictoryDreamPrompt_(pcData[ctx.pIdx][COL.PC.NAME], vWish, atkC.name);
-      }
+      // 🏆 勝利同款「願望夢」：帶玩家自己的從者(atkC，此刻是攻方)入場。
+      if (isFoeSv) markVictoryIfCleared_(out, sheets, pcData, ctx.myGameId, ctx.pIdx, atkC.name);
     }
   } else {
     pcData[tgtIdx][COL.PC.HP] = after;
@@ -1604,6 +1600,8 @@ function actionNpRespond(userData, pcId, sheets) {
   // 💀 敵方真名把從者打消滅時，這裡本來只標 DEAD_ 就結束——沒判敗、沒收場夢境（見 CODE_NOTES）。
   const _npOut = {};
   if (meDead) markDefeatIfWiped_(_npOut, pcData, myGameId, pIdx, String(pcData[svIdx][COL.PC.NAME]));
+  // 🏆 對稱：對衝把最後一名敵從者打消滅＝奪杯。少了這一條，玩家打完最後一個敵人卻永遠等不到收場。
+  else if (foeDead) markVictoryIfCleared_(_npOut, sheets, pcData, myGameId, pIdx, String(pcData[svIdx][COL.PC.NAME]));
 
   // ⏳ 真名這一拍就是這回合的動作，耗 1 AP。
   //    刻意「扣得到就扣、扣不到也放行」而不是擋下來——這是被迫應對的事件，
@@ -1635,7 +1633,7 @@ function actionNpRespond(userData, pcId, sheets) {
   return JSON.stringify({
     success: true, aiPrompt: aiPrompt, response: choice, label: spec.label,
     dmg: dmg, counterDmg: counterDmg, foeDead: foeDead, meDead: meDead, fled: !!res.sealFlee, fledTo: fledTo, ap: apAfter,
-    defeat: !!_npOut.defeat, dreamPrompt: _npOut.dreamPrompt || "",
+    defeat: !!_npOut.defeat, victory: !!_npOut.victory, dreamPrompt: _npOut.dreamPrompt || "",
     statusString: buildPlayerStatusString(pcData[pIdx])
   });
 }

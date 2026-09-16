@@ -2238,6 +2238,12 @@ npOverloadMul/overcharge 只設在 atkC 上、不存進 MEMORY，而 sC 是每�
 這裡是第三個結算點、漏了。修法不是再抄第四份，是抽成 `markDefeatIfWiped_`（`Router_Narrative.gs`，
 跟 `buildDreamPrompt_` 放一起），三處共用。
 
+🐛→✅ 修完立刻去看**對稱的那一半**，果然也漏了：選「對衝」把【最後一名】敵從者打消滅時，
+`foeDead` 有設、`victory` 沒有——而勝利判定只存在於 `fateStrike_`。敵從者全滅之後玩家再也打不了仗，
+於是**永遠等不到收場**，只能被第 14 日的時限反過來判敗。一併抽成 `markVictoryIfCleared_`，與敗北那支對稱。
+**判準**：看到一個結算點漏了某個終局判定，先去把它的對稱面（勝↔敗、我方↔敵方）也翻一次——
+這類漏接幾乎都是成對出現的。
+
 ### `handleGameAction`　<sub>Router_Action.gs·第 14 日時限</sub>
 
 🐛→✅ 同一輪抓到的第二件事：時限判定原本是拿回傳的 `clock` **字串**去 regex `第 N 日`。

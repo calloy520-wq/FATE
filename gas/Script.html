@@ -1077,6 +1077,8 @@
         if (res.meDead) { try { syncData(true); } catch (e) {} }
         // 💀 被敵方真名打到從者全滅（或這一拍跨過第 14 日時限）→ 收場。跟其他結算點一樣走 handleDefeat。
         if (res.defeat) { await handleDefeat(res); }
+        // 🏆 對衝把最後一名敵從者打消滅 → 奪杯收場。
+        else if (res.victory) { await handleVictory(res); }
       } else {
         story.insertAdjacentHTML('beforeend', '<div class="msg-player" style="color:#c9a0a0;"><b>【系統】：</b>' + ((res && res.message) || '應對未成。') + '</div>');
         story.scrollTop = story.scrollHeight;

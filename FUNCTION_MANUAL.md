@@ -208,6 +208,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 虛假之夢／勝利夢 prompt
 - `markDefeatIfWiped_(out, pcData, gameId, pIdx, fallenName, cause?)`（2026-09 新增）— 🗝️ 我方從者**全滅**才算敗北（雙從者折損一員只是折損）。就地把 `defeat`／`dreamPrompt` 補進 `out`，回傳是否全滅。三個結算點共用：`fateStrike_`、`enemyAmbushOnServant_`、`actionNpRespond`（原本前兩處各寫一份、第三處漏寫）。
+- `markVictoryIfCleared_(out, sheets, pcData, gameId, pIdx, winnerName)`（2026-09 新增）— 🏆 敵從者全滅＝奪杯，與 `markDefeatIfWiped_` 對稱。就地補 `victory`／`dreamPrompt`（`buildVictoryDreamPrompt_`），回傳是否清場。用於 `fateStrike_` 與 `actionNpRespond`（後者原本漏判，玩家打完最後一個敵人會永遠等不到收場）。
 - `buildDreamPrompt_(pcName, wish, servantName, cause?)` — 敗北安慰幻象 prompt；`cause==='timeout'`＝第 14 日時限耗盡（時鐘停格破綻），否則＝戰鬥/補魔敗死。結尾要露破綻、收在心碎。
 - `buildVictoryDreamPrompt_(pcName, wish, servantName)` — 勝利真實結局 prompt（結構同上但**不露破綻**、收在如釋重負）。
 
@@ -435,7 +436,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `npAiResponse_(c)` — 敵方面對我方真名解放時，從同一張應對表挑一種（對轟另有專屬結算）。
 - `npResponseOptions_(c)` — 這一刻依從者實際能力長出來的寶具應對選項（硬接／閃避／對衝／結界／脫離）。
 - `targetIsFoeServant_(row)` — 該列是否「敵從者」陣營。
-- `actionNpRespond(userData, pcId, sheets)`（action `np_respond`）— 🌟 真名解放·獨立一拍：敵寶具預告後由玩家選應對再結算。耗 1 AP（**扣得到就扣、扣不到也放行**——被迫應對的事件不該因為沒 AP 卡死）。**2026-09 補收場**：從者被那一發打消滅時只標了 `DEAD_` 就結束，沒判敗、沒夢境——改走 `markDefeatIfWiped_`，回傳 `defeat`／`dreamPrompt`（前端 `npRespond()` 接 `handleDefeat`）。刻意不回 `clock`（時限判定已改成從資料問日子）。
+- `actionNpRespond(userData, pcId, sheets)`（action `np_respond`）— 🌟 真名解放·獨立一拍：敵寶具預告後由玩家選應對再結算。耗 1 AP（**扣得到就扣、扣不到也放行**——被迫應對的事件不該因為沒 AP 卡死）。**2026-09 補收場**：從者被那一發打消滅時只標了 `DEAD_` 就結束，沒判敗、沒夢境——改走 `markDefeatIfWiped_`，回傳 `defeat`／`victory`／`dreamPrompt`（前端 `npRespond()` 接 `handleDefeat`／`handleVictory`）；對衝清場則走 `markVictoryIfCleared_`。刻意不回 `clock`（時限判定已改成從資料問日子）。
 - `stampDoom_(memory, deadAbsHour)` / `getDoom_(memory)` / `clearDoom_(memory)` — 靈基透支「絕對死線」（MEMORY【靈基透支】·遊戲總時數 day*24+hour）。令咒燒盡/御主亡 且無單獨行動者掛此倒數（`SEAL_DOOM_HOURS=3`）。
 
 #### 整備餐 buff

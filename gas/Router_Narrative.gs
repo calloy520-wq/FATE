@@ -46,6 +46,15 @@ function markDefeatIfWiped_(out, pcData, gameId, pIdx, fallenName, cause) {
   return true;
 }
 
+// 🏆 敵從者全滅＝奪杯（與 markDefeatIfWiped_ 對稱）：凡是會打死敵從者的結算點都走這一支。
+function markVictoryIfCleared_(out, sheets, pcData, gameId, pIdx, winnerName) {
+  if (aliveEnemyServants_(sheets, gameId, pcData) > 0) return false;
+  out.victory = true;
+  out.dreamPrompt = buildVictoryDreamPrompt_(String(pcData[pIdx][COL.PC.NAME]),
+    extractWish_(pcData[pIdx][COL.PC.MEMORY]), String(winnerName || ""));
+  return true;
+}
+
 // 建立「願望實現的虛假之夢」prompt（敗北安慰幻象）。cause==='timeout'＝第14日時限耗盡；否則＝戰鬥/補魔等敗死，破綻描述依此分流。
 function buildDreamPrompt_(pcName, wish, servantName, cause) {
   var lead = (cause === 'timeout')
