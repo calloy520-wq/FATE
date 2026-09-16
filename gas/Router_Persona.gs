@@ -57,6 +57,8 @@ function quadLabeled_(raw, labels, skipNone) {
   var out = "";
   for (var i = 0; i < labels.length; i++) {
     var v = (parts[i] || "").trim();
+    // ⚠ 空格判斷要在剝疊字【之前】先做一次：佔位字「厭惡之事」被剝成「之事」就認不出來了（見 CODE_NOTES）。
+    if (QUAD_EMPTY_.indexOf(v) >= 0) continue;
     var re = QUAD_REDUNDANT_[labels[i]];
     if (re) v = v.replace(re, "").trim();
     if (QUAD_EMPTY_.indexOf(v) >= 0) continue;
